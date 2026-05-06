@@ -52,3 +52,9 @@ logs/
 frontend/android/
 frontend/ios/
 frontend/.capacitor/
+
+# =============================================================
+# Contents - 유저 업로드 파일 (폴더 구조만 유지)
+# =============================================================
+contents/user-contents/*
+!contents/user-contents/.gitkeep

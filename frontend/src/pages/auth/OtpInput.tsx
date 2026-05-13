@@ -10,7 +10,7 @@ export default function OtpInput() {
   const navigate = useNavigate();
   const location = useLocation();
   const phone = (location.state as any)?.phone || '+84 901 234 567';
-  const login = useUserStore((s) => s.login);
+  const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const { t } = useTranslation();
 
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
@@ -50,7 +50,7 @@ export default function OtpInput() {
       setError(true);
       return;
     }
-    login(phone);
+    loginFromBackend({ id: '', phone, nickname: null, rider_type: null, level: 1, exp: 0, xp: 0, gold: 0, skill_pt: 0, avatar_url: null, created_at: new Date().toISOString() });
     navigate('/auth/profile-setup');
   };
 

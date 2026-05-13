@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
+import type { UserDto } from '@/api/auth';
 import i18n, { changeLang } from '@/lib/i18n';
 
 interface UserState {
@@ -8,7 +9,7 @@ interface UserState {
   isAuthenticated: boolean;
 
   // actions
-  login: (phone: string) => void;
+  loginFromBackend: (dto: UserDto) => void;
   setProfile: (nickname: string, riderStyle: RiderStyle) => void;
   logout: () => void;
   addExp: (levelExp: number, xpPoints: number) => void;
@@ -18,33 +19,32 @@ interface UserState {
   investSkill: (key: SkillKey) => boolean;
 }
 
-const DEFAULT_USER: User = {
-  id: 'u-me',
-  phone: '+84 901 234 567',
-  nickname: '@nguyen_rider',
-  riderStyle: 'night_rider',
-  avatarUrl: 'https://i.pravatar.cc/240?img=12',
-  level: 7,
-  levelExp: 1680,
-  xpPoints: 240,
-  gold: 1820,
-  skillPoints: 2,
-  language: 'vi',
-  skills: { distance_rider: 1, gold_hunter: 0, safe_rider: 1 },
-};
+function dtoToUser(dto: UserDto): User {
+  const language = (i18n.language as Language) || 'vi';
+  return {
+    id: dto.id,
+    phone: dto.phone,
+    nickname: dto.nickname ?? '',
+    riderStyle: (dto.rider_type as RiderStyle) ?? 'night_rider',
+    avatarUrl: dto.avatar_url ?? undefined,
+    level: dto.level,
+    levelExp: dto.exp,
+    xpPoints: dto.xp,
+    gold: dto.gold,
+    skillPoints: dto.skill_pt,
+    language,
+    skills: { distance_rider: 0, gold_hunter: 0, safe_rider: 0 },
+  };
+}
 
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
-      user: DEFAULT_USER,
-      isAuthenticated: true, // 더미 — 프로토타입은 기본 로그인 상태
+      user: null,
+      isAuthenticated: false,
 
-      login: (phone) => {
-        const language = (i18n.language as Language) || 'vi';
-        set({
-          user: { ...DEFAULT_USER, phone, language },
-          isAuthenticated: true,
-        });
+      loginFromBackend: (dto) => {
+        set({ user: dtoToUser(dto), isAuthenticated: true });
       },
 
       setProfile: (nickname, riderStyle) => {
@@ -60,13 +60,7 @@ export const useUserStore = create<UserState>()(
       addExp: (levelExp, xpPoints) => {
         const u = get().user;
         if (!u) return;
-        set({
-          user: {
-            ...u,
-            levelExp: u.levelExp + levelExp,
-            xpPoints: u.xpPoints + xpPoints,
-          },
-        });
+        set({ user: { ...u, levelExp: u.levelExp + levelExp, xpPoints: u.xpPoints + xpPoints } });
       },
 
       addGold: (gold) => {

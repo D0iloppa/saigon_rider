@@ -3,6 +3,9 @@ networks:
     driver: bridge
     name: ${NETWORK_BRIDGE}
 
+volumes:
+  saigon_db_data:
+
 services:
 
   # ── Nginx (Reverse Proxy) ─────────────────────────────────
@@ -48,29 +51,25 @@ services:
       - IMGPROXY_ALLOWED_SOURCES=local://
     restart: unless-stopped
 
-  # ── Backend (Spring Boot) ─────────────────────────────────
+  # ── Backend (FastAPI) ─────────────────────────────────────
   # docker compose --profile backend up
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: saigon_backend
     profiles: [backend]
     ports:
       - "${BACKEND_PORT}:8080"
     volumes:
       - ./backend:/app
-      - ~/.m2:/root/.m2
     networks:
       - dev-net
     depends_on:
       database:
         condition: service_healthy
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SPRING_PROFILES_ACTIVE=dev
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
     restart: unless-stopped
 
   # ── Database (PostgreSQL + PostGIS) ───────────────────────
@@ -82,7 +81,7 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - ./database/data:/var/lib/postgresql/data
+      - saigon_db_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d:ro
     networks:
       - dev-net

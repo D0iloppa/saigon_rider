@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
+import { loadSession } from '@/lib/session';
+import { apiLogin } from '@/api/auth';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 
 // Auth
@@ -40,12 +42,32 @@ import LinkRouter from '@/pages/link/LinkRouter';
 
 export default function App() {
   const user = useUserStore((s) => s.user);
+  const loginFromBackend = useUserStore((s) => s.loginFromBackend);
+  const [bootstrapped, setBootstrapped] = useState(false);
 
+  // 앱 기동 시: 쿠키 세션 → 자동 로그인 시도
   useEffect(() => {
-    if (user?.language) {
-      changeLang(user.language);
+    if (user?.language) changeLang(user.language);
+
+    const session = loadSession();
+    if (!session) {
+      setBootstrapped(true);
+      return;
     }
+
+    apiLogin(session.phone, session.passcode)
+      .then((result) => {
+        loginFromBackend(result.user);
+      })
+      .catch(() => {
+        // 세션 만료 또는 서버 오류 → 비로그인 상태 유지
+      })
+      .finally(() => {
+        setBootstrapped(true);
+      });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!bootstrapped) return null; // 세션 확인 전 렌더 보류
 
   return (
     <BrowserRouter>

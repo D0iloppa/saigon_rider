@@ -57,6 +57,12 @@
   padding-right: 14px;
   border-right: 1.5px solid var(--line);
   flex-shrink: 0;
+  background: none;
+  border-left: none;
+  border-top: none;
+  border-bottom: none;
+  cursor: pointer;
+  border-radius: 0;
 }
 
 .flagImg {

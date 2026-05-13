@@ -1,6 +1,6 @@
 # Saigon Rider
 
-모바일 하이브리드 앱 서비스. React + Spring Boot 기반 SPA를 Capacitor로 네이티브 앱으로 감싸는 구조.
+모바일 하이브리드 앱 서비스. React + FastAPI 기반 SPA를 Capacitor로 네이티브 앱으로 감싸는 구조.
 
 ---
 
@@ -12,7 +12,7 @@
 | 프론트엔드 | React + Vite + TypeScript |
 | 상태관리 | Zustand |
 | 라우팅 | React Router DOM |
-| 백엔드 | Spring Boot |
+| 백엔드 | FastAPI (Python 3.12) |
 | 데이터베이스 | PostgreSQL 15 + PostGIS |
 | 이미지 처리 | imgproxy |
 | 리버스 프록시 | Nginx |
@@ -23,28 +23,81 @@
 
 ```
 saigon_rider/
-├── frontend/               # React + Vite 소스코드
-│   ├── Dockerfile.dev      # 개발: Vite dev server (HMR)
-│   ├── Dockerfile          # 배포: npm run build → nginx 정적서빙
+├── frontend/
+│   ├── Dockerfile              # 배포: npm run build → nginx 정적서빙
+│   ├── Dockerfile.dev          # 개발: Vite dev server (HMR)
+│   ├── nginx.conf              # 프론트 컨테이너 내부 nginx 설정
+│   ├── index.html
+│   ├── package.json
 │   └── src/
-│       ├── api/            # API 호출 로직
-│       ├── assets/         # 정적 이미지, 아이콘 등
-│       ├── components/     # 공통 UI 컴포넌트
-│       ├── data/           # 정적 데이터 및 상수
-│       ├── hooks/          # 커스텀 훅
-│       ├── lib/            # 유틸리티 및 라이브러리 래퍼
-│       ├── pages/          # 화면 페이지 컴포넌트
-│       ├── store/          # 전역 상태 관리 (Zustand)
-│       └── styles/         # 전역/공통 스타일 설정
-├── backend/                # Spring Boot 소스코드
+│       ├── App.tsx             # 라우팅 + 세션 bootstrap
+│       ├── main.tsx
+│       ├── api/
+│       │   ├── auth.ts         # apiRegister / apiLogin fetch 래퍼
+│       │   ├── client.ts       # 공통 API 클라이언트 (mock 전환 지원)
+│       │   ├── feed.ts
+│       │   ├── quests.ts
+│       │   └── types.ts        # 도메인 타입 정의
+│       ├── components/
+│       │   ├── auth/
+│       │   │   └── PrivateRoute.tsx
+│       │   ├── layout/
+│       │   │   ├── AppShell.tsx
+│       │   │   ├── StatusBar.tsx
+│       │   │   ├── TabBar.tsx
+│       │   │   └── TopBar.tsx
+│       │   └── ui/             # Button, Chip, Toggle 등 공통 UI
+│       ├── data/
+│       │   ├── countryCodes.ts # 65개국 국가코드 + 국기 이모지
+│       │   ├── feed.ts         # 더미 피드 데이터
+│       │   └── quests.ts       # 더미 퀘스트 데이터
+│       ├── lib/
+│       │   ├── format.ts       # 숫자/날짜 포맷 유틸
+│       │   ├── i18n.ts         # i18next 설정
+│       │   ├── rewards.ts      # 보상 계산 유틸
+│       │   └── session.ts      # 쿠키 세션 관리 (saveSession / loadSession)
+│       ├── locales/            # 다국어 번역 (ko / vi / en)
+│       ├── pages/
+│       │   ├── auth/
+│       │   │   ├── AuthForm.module.css
+│       │   │   ├── CountryPicker.module.css
+│       │   │   ├── OtpInput.tsx
+│       │   │   ├── PhoneInput.tsx  # 국가코드 피커 + 회원가입/로그인
+│       │   │   ├── ProfileSetup.tsx
+│       │   │   └── Splash.tsx
+│       │   ├── feed/           # FeedList
+│       │   ├── home/           # WorldMap
+│       │   ├── link/           # 딥링크 라우터
+│       │   ├── profile/        # ProfileMain
+│       │   ├── quest/          # QuestList, QuestDetail
+│       │   ├── ride/           # RideActive, RideResult
+│       │   └── settings/       # Settings, NotiSettings, LangSettings, AccountSettings
+│       ├── store/
+│       │   ├── useRideStore.ts
+│       │   └── useUserStore.ts # loginFromBackend 액션
+│       └── styles/
+│           ├── globals.css
+│           └── tokens.css      # CSS 디자인 토큰
+├── backend/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── app/
+│       ├── main.py             # FastAPI 앱 엔트리포인트, CORS
+│       ├── database.py         # SQLAlchemy async 엔진 (asyncpg)
+│       ├── models.py           # User ORM 모델
+│       ├── schemas.py          # Pydantic 요청/응답 스키마
+│       └── routers/
+│           └── auth.py         # POST /api/auth/register, POST /api/auth/login
 ├── database/
-│   └── init/               # 초기화 SQL (.sql 파일 넣으면 자동 실행)
+│   └── init/                   # 컨테이너 최초 기동 시 파일명 순서대로 자동 실행
+│       ├── 001_init_schema.sql # 전체 테이블 + ENUM + 인덱스
+│       └── 002_add_passcode.sql# users.passcode_hash 컬럼 추가
 ├── nginx/
 │   └── conf.d/
-│       └── default.conf    # 라우팅 설정
-├── contents/               # imgproxy 콘텐츠 루트
-│   └── user-contents/      # 유저 업로드 파일 (git에서 파일 제외, 폴더만 유지)
-└── shared/                 # 서비스 간 공유 리소스
+│       └── default.conf        # /api/ → backend, /img/ → imgproxy, / → frontend
+├── contents/
+│   └── user-contents/          # imgproxy 로컬 파일 루트 (git 추적 제외)
+└── shared/                     # 서비스 간 공유 리소스
 ```
 
 ---
@@ -55,7 +108,7 @@ saigon_rider/
 |---|---|---|
 | Nginx | `18090` | 메인 진입점 (개발 접속 URL) |
 | Frontend | `5174` | Vite dev server 직접 접근 (HMR 확인용) |
-| Backend | `8082` | Spring Boot API |
+| Backend | `8082` | FastAPI (uvicorn) |
 | Database | `5435` | PostgreSQL (DB 클라이언트 접속용) |
 
 ---
@@ -72,11 +125,7 @@ cp .env.example .env
 ### 기동 (frontend + nginx + imgproxy)
 
 ```bash
-# 첫 실행 또는 Dockerfile 변경 후
 docker compose up --build -d
-
-# 이후 실행
-docker compose up -d
 ```
 
 ### 전체 스택 기동 (backend + database 포함)
@@ -88,15 +137,15 @@ docker compose --profile backend up --build -d
 ### 접속 URL
 
 - **메인** → http://localhost:18090
+- **API** → http://localhost:18090/api/health
 - **Vite 직접** → http://localhost:5174 (HMR WebSocket 확인용)
-- **이미지** → http://localhost:18090/img/insecure/fill/400/300/sm/0/plain/local:///user-contents/{파일명}@webp
 
 ### 로그 확인
 
 ```bash
 docker compose logs -f frontend
-docker compose logs -f nginx
-docker compose logs -f imgproxy
+docker compose logs -f backend
+docker compose logs -f database
 ```
 
 ### 중지
@@ -104,45 +153,49 @@ docker compose logs -f imgproxy
 ```bash
 docker compose down
 
-# 볼륨(DB 데이터)까지 삭제
+# 볼륨(DB 데이터)까지 삭제 (스키마 재적용 필요 시)
 docker compose down -v
 ```
 
 ---
 
-## 배포
+## 인증 구조
 
-### Frontend 프로덕션 빌드
+### 흐름
 
-```bash
-# 정적 파일 빌드 (dist/ 생성)
-docker build -f frontend/Dockerfile -t saigon-frontend:prod ./frontend
+```
+[PhoneInput] → POST /api/auth/register → { passcode, user }
+                → 쿠키 저장 { phone, passcode, userId }
+                → ProfileSetup → Home
+
+[앱 재기동] → 쿠키에서 { phone, passcode } 읽기
+             → POST /api/auth/login → { user }
+             → 자동 로그인 → Home
 ```
 
-`frontend/Dockerfile`은 멀티스테이지 빌드로 `npm run build` 결과물을 nginx에서 정적 서빙.
+### API 엔드포인트
 
-### 전체 스택 프로덕션
+| Method | Path | 설명 |
+|---|---|---|
+| POST | `/api/auth/register` | 신규 가입 (phone → passcode 발급) |
+| POST | `/api/auth/login` | 로그인 (phone + passcode 검증) |
+| GET | `/api/auth/me?phone=...` | 현재 유저 조회 |
+| GET | `/api/health` | 헬스체크 |
 
-```bash
-docker compose --profile backend up --build -d
-```
+> **보안 참고**: passcode는 현재 쿠키에 평문 저장됩니다.  
+> 향후 `src/lib/session.ts` 내부를 HttpOnly cookie + JWT 방식으로 교체 예정.
 
 ---
 
 ## imgproxy 사용법
 
-`contents/` 폴더가 imgproxy의 로컬 파일 루트(`/data`)로 마운트됨.
-
 ```
 # URL 패턴 (개발 - 서명 없음)
 /img/insecure/{처리옵션}/plain/local:///{contents 내 경로}@{출력포맷}
 
-# 예시: user-contents/photo.jpg를 400x300으로 리사이즈 후 webp 변환
+# 예시
 http://localhost:18090/img/insecure/fill/400/300/sm/0/plain/local:///user-contents/photo.jpg@webp
 ```
-
-> **주의**: `IMGPROXY_KEY` / `IMGPROXY_SALT` 미설정 시 `/insecure/` 경로만 동작.  
-> 운영 환경에서는 반드시 서명된 URL 사용 (`openssl rand -hex 32`로 키 생성 후 .env에 설정).
 
 ---
 
@@ -153,7 +206,7 @@ http://localhost:18090/img/insecure/fill/400/300/sm/0/plain/local:///user-conten
 | `NETWORK_BRIDGE` | `saigon-net` | Docker 브릿지 네트워크 이름 |
 | `NGINX_PORT` | `18090` | Nginx 호스트 포트 |
 | `FRONTEND_PORT` | `5174` | Vite dev server 호스트 포트 |
-| `BACKEND_PORT` | `8082` | Spring Boot 호스트 포트 |
+| `BACKEND_PORT` | `8082` | FastAPI 호스트 포트 |
 | `DB_PORT` | `5435` | PostgreSQL 호스트 포트 |
 | `DB_NAME` | `saigon_rider` | DB 이름 |
 | `DB_USER` | `saigon` | DB 유저 |

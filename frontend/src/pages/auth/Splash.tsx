@@ -19,7 +19,7 @@ export default function Splash() {
   const { t, i18n } = useTranslation();
   const isAuthenticated = useUserStore((s) => s.isAuthenticated);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const chipRef = useRef<HTMLButtonElement>(null);
+  const chipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -69,9 +69,8 @@ export default function Splash() {
       <StatusBar variant="light" />
 
       {/* Language Selector */}
-      <div className={styles.langPickerWrap}>
+      <div ref={chipRef} className={styles.langPickerWrap}>
         <button
-          ref={chipRef}
           className={styles.langChip}
           onClick={() => setPickerOpen((v) => !v)}
           aria-label="Select language"

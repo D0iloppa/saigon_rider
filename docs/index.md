@@ -10,11 +10,12 @@
 ## 🚀 기능 요구사항 및 구현
 - [프로젝트 개요](README.md) - 환경구성, 프로젝트 구성, 개요
 - [화면 & 기능 명세서](spec.md) - 27개 화면 목록, 기능 목록, API dummy 함수 목록 (scene.html 기준 정적 디자인 참조 명시)
-- [TODO LIST](features_todo.md) - TODO LIST
+- [프론트엔드 TODO LIST](features_todo.md) - 프론트엔드 화면별 구현 항목 (245개 전체 완료)
+- [백엔드 구현 필요 기능 & Admin Console](backend_todo.md) - spec.md [API-DUMMY] 기준 산출, 총 27개 엔드포인트 (P0~P3 우선순위), 관리자 콘솔 접근 경로 포함
 
 ## 📦 기능 구현 태스크
 - [260513 Contents 이미지 서빙 구현](260513_contents_task_plan.md) - DB 스키마(contents), 업로드 API, imgproxy URL 서빙 기능 (모두 완료)
 - [260513 프로필 사진·닉네임 변경 구현](20260513_profile_task.md) - 기본 아바타, 사진 업로드, 닉네임 수정 API (모두 완료)
 
 ## 🛠 트러블슈팅 및 로그
-*(현재 등록된 문서가 없습니다. 문서 생성 시 여기에 추가하세요.)*
+- [260513 Auth/Imgproxy 트러블슈팅](260513_auth_imgproxy_troubleshooting.md) - passcode_hash 누락, Zustand persist로 인한 home 진입, nginx slash merge, .env LAN IP 문제 및 조치

@@ -11,8 +11,10 @@ DEFAULT_AVATAR_FILE_PATH = "system/saigon-default.jpg"
 
 
 def build_imgproxy_url(file_path: str) -> str:
+    # base64 인코딩: nginx의 merge_slashes가 local:/// 를 local:/ 로 압축하는 문제를 방지
     source = f"local:///{file_path}"
-    path = f"/plain/{source}"
+    encoded = urlsafe_b64encode(source.encode()).rstrip(b"=").decode()
+    path = f"/{encoded}"
 
     if IMGPROXY_KEY and IMGPROXY_SALT:
         key = bytes.fromhex(IMGPROXY_KEY)

@@ -58,7 +58,7 @@
   "home": {
     "progressLabel": "오늘은 {{needed}}km 더 달리면 Lv.{{nextLevel}}",
     "startQuestBtn": "퀘스트 시작",
-    "greet": "Chào buổi tối, {{name}} ✨",
+    "greet": "어서오세요, {{name}} ✨",
     "tonightsPick": "오늘 밤의 추천"
   },
   "quest": {

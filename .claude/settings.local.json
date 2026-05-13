@@ -8,7 +8,9 @@
       "Bash(curl -s http://localhost:18090/api/openapi.json)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('title:', d['info']['title']\\); print\\('paths:', list\\(d['paths'].keys\\(\\)\\)\\)\")",
       "Bash(xargs ls -la)",
-      "Bash(xargs cat)"
+      "Bash(xargs cat)",
+      "Bash(ssh doil@saigon.doil.me \"cd /home/doil/workspace/w_dev/saigon_rider && docker compose --profile backend down -v && docker compose --profile backend up -d && docker compose --env-file .env up --build -d frontend\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/admin/login)"
     ]
   }
 }

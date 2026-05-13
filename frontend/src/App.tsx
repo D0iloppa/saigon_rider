@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
-import { loadSession } from '@/lib/session';
+import { loadSession, clearSession } from '@/lib/session';
 import { apiLogin } from '@/api/auth';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 
@@ -43,6 +43,7 @@ import LinkRouter from '@/pages/link/LinkRouter';
 export default function App() {
   const user = useUserStore((s) => s.user);
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
+  const logout = useUserStore((s) => s.logout);
   const [bootstrapped, setBootstrapped] = useState(false);
 
   // 앱 기동 시: 쿠키 세션 → 자동 로그인 시도
@@ -60,7 +61,9 @@ export default function App() {
         loginFromBackend(result.user);
       })
       .catch(() => {
-        // 세션 만료 또는 서버 오류 → 비로그인 상태 유지
+        // 세션 만료 또는 서버 오류 → 쿠키·Zustand 상태 모두 초기화
+        clearSession();
+        logout();
       })
       .finally(() => {
         setBootstrapped(true);

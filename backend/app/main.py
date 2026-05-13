@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import auth
 from .routers import contents
 from .routers import profile
+from .routers import admin
 
 app = FastAPI(
     title="Saigon Rider API",
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
+app.include_router(admin.router)
 
 
 @app.get("/api/health", tags=["system"], summary="헬스체크")

@@ -150,6 +150,7 @@ docker compose --env-file .env up --build -d frontend
 - **API** → http://localhost:18090/api/health
 - **Swagger UI** → http://localhost:18090/api/docs
 - **ReDoc** → http://localhost:18090/api/redoc
+- **Admin** → http://localhost:18090/admin/login | https://saigon.doil.me/admin/login
 - **Vite 직접** → http://localhost:5174 (HMR WebSocket 확인용)
 
 ### 로그 확인

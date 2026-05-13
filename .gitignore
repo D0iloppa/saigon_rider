@@ -66,5 +66,5 @@ contents/user-contents/*
 # =============================================================
 # AI Agent Context (Local Only)
 # =============================================================
-GUIDELINE.md
-docs/
+#GUIDELINE.md
+#docs/

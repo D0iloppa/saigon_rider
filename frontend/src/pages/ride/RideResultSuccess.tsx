@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { formatDistance, formatDurationShort } from '@/lib/format';
 import type { Quest, SafetyGrade } from '@/api/types';
@@ -17,13 +18,13 @@ interface State {
 export default function RideResultSuccess() {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const { t } = useTranslation();
   const data = state as State | undefined;
 
   useEffect(() => {
     if (!data) navigate('/home', { replace: true });
   }, [data, navigate]);
 
-  // 컨페티 좌표 30개 (랜덤 한 번만)
   const confetti = useMemo(
     () =>
       Array.from({ length: 36 }, (_, i) => ({
@@ -80,35 +81,38 @@ export default function RideResultSuccess() {
         <span className={styles.satellite} style={{ top: '12%', right: '18%' }}>✨</span>
         <span className={styles.satellite} style={{ bottom: '18%', left: '15%', fontSize: '32px' }}>🎉</span>
         <span className={styles.satellite} style={{ bottom: '14%', right: '14%' }}>💎</span>
-
-        <div className={styles.cleared}>QUEST CLEARED</div>
+        <div className={styles.cleared}>{t('ride.questCleared')}</div>
       </div>
 
       <div className={styles.successSheet}>
         <h1 className={styles.questTitle}>{data.quest.title}</h1>
-        <p className={styles.epigraph}>"Tonight, Saigon belonged to you."</p>
+        <p className={styles.epigraph}>{t('ride.successEpigraph')}</p>
 
         {/* Bento stats */}
         <div className={styles.statsBento}>
           <div className={`${styles.statCell} ${styles.statCellWide}`}>
-            <div className={styles.statLabel}>DISTANCE</div>
+            <div className={styles.statLabel}>{t('ride.distance').toUpperCase()}</div>
             <div className={styles.statValue}>
               {(data.distance / 1000).toFixed(1)}
               <span> km</span>
             </div>
           </div>
           <div className={styles.statCell}>
-            <div className={styles.statLabel}>TIME</div>
+            <div className={styles.statLabel}>{t('ride.time').toUpperCase()}</div>
             <div className={styles.statValue}>{formatDurationShort(data.duration)}</div>
           </div>
           <div className={styles.statCell}>
-            <div className={styles.statLabel}>SAFETY</div>
-            <div className={`${styles.safetyBadge} ${data.safety === 'A' ? styles.safetyA : data.safety === 'B' ? styles.safetyB : styles.safetyC}`}>
+            <div className={styles.statLabel}>{t('ride.safety').toUpperCase()}</div>
+            <div className={`${styles.safetyBadge} ${
+              data.safety === 'A' ? styles.safetyA :
+              data.safety === 'B' ? styles.safetyB :
+              styles.safetyC
+            }`}>
               {data.safety}
             </div>
           </div>
           <div className={styles.statCell}>
-            <div className={styles.statLabel}>AVG SPEED</div>
+            <div className={styles.statLabel}>{t('ride.avgSpeed').toUpperCase()}</div>
             <div className={styles.statValue}>{avgSpeed}<span> km/h</span></div>
           </div>
         </div>
@@ -124,7 +128,7 @@ export default function RideResultSuccess() {
           </div>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--xp)' }}>
             <span className={styles.rewardIcon}>✨</span>
-            <div className={styles.rewardLabel}>XP 포인트</div>
+            <div className={styles.rewardLabel}>{t('ride.xpPointsLabel')}</div>
             <div className={styles.rewardNum} style={{ color: 'var(--xp)' }}>
               +{data.rewards.xpEarned}
             </div>
@@ -139,7 +143,9 @@ export default function RideResultSuccess() {
           {data.rewards.itemsEarned.map((item) => (
             <div key={item.key} className={`${styles.rewardRow} ${styles.itemRow}`}>
               <span className={styles.rewardIcon}>🎁</span>
-              <div className={styles.rewardLabel}>{item.name} 획득!</div>
+              <div className={styles.rewardLabel}>
+                {t('ride.itemEarned', { name: item.name })}
+              </div>
             </div>
           ))}
         </div>
@@ -148,18 +154,18 @@ export default function RideResultSuccess() {
           data.rewards.multipliers.safetyBonus > 0) && (
           <div className={styles.bonusBanner}>
             🔥{' '}
-            {data.rewards.multipliers.firstClearBonus > 0 && '첫 클리어 보너스 +20%'}
+            {data.rewards.multipliers.firstClearBonus > 0 && t('ride.firstClearBonus')}
             {data.rewards.multipliers.firstClearBonus > 0 &&
               data.rewards.multipliers.safetyBonus > 0 &&
               ' · '}
-            {data.rewards.multipliers.safetyBonus > 0 && '안전 A 보너스 +10%'}
+            {data.rewards.multipliers.safetyBonus > 0 && t('ride.safetyBonusA')}
           </div>
         )}
 
         <div className={styles.actions}>
-          <Button onClick={() => navigate('/feed')}>피드에 공유</Button>
+          <Button onClick={() => navigate('/feed')}>{t('ride.shareToFeedBtn')}</Button>
           <Button variant="ghost" onClick={() => navigate('/quests')}>
-            다음 퀘스트
+            {t('ride.nextQuestBtn')}
           </Button>
         </div>
       </div>

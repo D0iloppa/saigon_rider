@@ -12,11 +12,11 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true, // 모바일에서 LAN으로 접속 가능
-    hmr: {
-      clientPort: 18090,
-      host: '0.0.0.0',
-      protocol: 'ws',
-    },
+    // hmr: {
+    //   clientPort: 18090,
+    //   host: '0.0.0.0',
+    //   protocol: 'ws',
+    // },
     allowedHosts: true,
     watch: {
       usePolling: true,

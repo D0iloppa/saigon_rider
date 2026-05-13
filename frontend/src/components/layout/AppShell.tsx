@@ -13,6 +13,7 @@ const HIDE_TABBAR_PATHS = [
   '/auth/',
   '/ride/active',
   '/ride/result/',
+  '/link',
 ];
 
 export function AppShell({ children }: Props) {

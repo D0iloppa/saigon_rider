@@ -1,21 +1,20 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
+import { SettingsRow } from '@/components/ui/SettingsRow';
 import { useUserStore } from '@/store/useUserStore';
 import styles from './Settings.module.css';
 
 export default function AccountSettings() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const logout = useUserStore((s) => s.logout);
 
   if (!user) return null;
 
   const handleDelete = () => {
-    if (
-      confirm(
-        '정말 탈퇴하시겠어요?\n모든 라이딩 기록, 배지, 골드가 영구 삭제됩니다.'
-      )
-    ) {
+    if (confirm(t('settings.deleteConfirm'))) {
       logout();
       navigate('/splash');
     }
@@ -23,71 +22,51 @@ export default function AccountSettings() {
 
   return (
     <>
-      <TopBar title="계정 관리" />
+      <TopBar title={t('settings.accountManagement')} />
       <div className={styles.body}>
         <div className={styles.sectionCard}>
-          <div className={styles.row} style={{ cursor: 'default' }}>
-            <span className={styles.rowLabel}>휴대폰</span>
-            <span className={styles.rowValue}>{user.phone}</span>
-            <button className={styles.copyBtn}>변경</button>
-          </div>
-          <div className={styles.row} style={{ cursor: 'default' }}>
-            <span className={styles.rowLabel}>가입일</span>
-            <span className={styles.rowValue}>2025.11.03</span>
-          </div>
-          <div className={styles.row} style={{ cursor: 'default' }}>
-            <span className={styles.rowLabel}>계정 ID</span>
-            <span className={styles.rowValue}>A-979D3W…</span>
-            <button
-              className={styles.copyBtn}
-              onClick={() => {
-                navigator.clipboard?.writeText('A-979D3WXWXB6VAV');
-                alert('복사됨');
-              }}
-            >
-              복사
-            </button>
-          </div>
+          <SettingsRow
+            label={t('settings.phone')}
+            value={user.phone}
+            right={<button className={styles.copyBtn}>{t('common.change')}</button>}
+          />
+          <SettingsRow
+            label={t('settings.joinedDate')}
+            value="2025.11.03"
+          />
+          <SettingsRow
+            label={t('settings.accountId')}
+            value="A-979D3W…"
+            right={
+              <button
+                className={styles.copyBtn}
+                onClick={() => {
+                  navigator.clipboard?.writeText('A-979D3WXWXB6VAV');
+                  alert(t('common.copied'));
+                }}
+              >
+                {t('common.copy')}
+              </button>
+            }
+          />
         </div>
 
-        <button
-          className={styles.row}
-          style={{
-            width: '100%',
-            background: 'var(--surface)',
-            borderRadius: 18,
-            marginTop: 16,
-            boxShadow: 'var(--shadow-card)',
-          }}
-        >
-          <span className={styles.rowIcon}>💾</span>
-          <span className={styles.rowLabel}>내 데이터 다운로드</span>
-          <span className={styles.arrow}>›</span>
-        </button>
+        <div className={styles.sectionCard} style={{ marginTop: 16 }}>
+          <SettingsRow
+            icon="💾"
+            label={t('settings.downloadData')}
+            arrow
+          />
+        </div>
 
         <div className={styles.danger}>
           <div className={styles.dangerHead}>
             <span>⚠</span>
-            계정 탈퇴
+            {t('settings.deleteAccount')}
           </div>
-          <p className={styles.dangerText}>
-            모든 라이딩 기록, 배지, 골드, XP가 영구 삭제됩니다. 이 작업은 되돌릴 수 없어요.
-          </p>
-          <button
-            className={styles.row}
-            style={{
-              width: '100%',
-              border: '1.5px solid var(--danger)',
-              borderRadius: 14,
-              padding: 12,
-              color: 'var(--danger)',
-              fontWeight: 700,
-              justifyContent: 'center',
-              gap: 6,
-            }}
-            onClick={handleDelete}
-          >
-            계정 탈퇴
+          <p className={styles.dangerText}>{t('settings.deleteWarning')}</p>
+          <button className={styles.dangerBtn} onClick={handleDelete}>
+            {t('settings.deleteAccount')}
           </button>
         </div>
       </div>

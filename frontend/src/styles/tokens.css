@@ -62,6 +62,10 @@
     radial-gradient(at 30% 20%, #1A1D2A 0%, transparent 50%),
     radial-gradient(at 70% 80%, #FF2D9C 0%, transparent 30%),
     linear-gradient(160deg, #11131C, #08090F);
+  --grad-mesh-1:
+    radial-gradient(at 0% 0%, #FF9966 0%, transparent 50%),
+    radial-gradient(at 100% 100%, #7C3AED 0%, transparent 50%),
+    #FFF1E8;
 
   /* Radii */
   --r-sm: 10px;

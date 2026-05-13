@@ -1,24 +1,29 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { fetchFeed, fetchComments, toggleCheer } from '@/api/feed';
 import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost, Comment } from '@/api/types';
+import { StoryAvatar } from '@/components/ui/StoryAvatar';
+import { Chip } from '@/components/ui/Chip';
+import { LevelBadge } from '@/components/ui/LevelBadge';
 import styles from './FeedList.module.css';
 
-const FILTERS = [
-  { key: 'all', label: '🌐 전체' },
-  { key: 'neighborhood', label: '📍 내 동네' },
-  { key: 'friends', label: '👥 친구' },
-  { key: 'hot', label: '🔥 핫' },
-] as const;
-
-type FilterKey = (typeof FILTERS)[number]['key'];
+type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
 
 export default function FeedList() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [activePost, setActivePost] = useState<FeedPost | null>(null);
+
+  const FILTERS: { key: FilterKey; label: string }[] = [
+    { key: 'all',          label: t('feed.filterAll') },
+    { key: 'neighborhood', label: t('feed.filterNeighborhood') },
+    { key: 'friends',      label: t('feed.filterFriends') },
+    { key: 'hot',          label: t('feed.filterHot') },
+  ];
 
   useEffect(() => {
     fetchFeed(filter).then(setPosts);
@@ -35,7 +40,7 @@ export default function FeedList() {
   return (
     <>
       <TopBar
-        title="피드"
+        title={t('feed.title')}
         showBack={false}
         rightContent={
           <>
@@ -49,15 +54,11 @@ export default function FeedList() {
         {/* Story strip */}
         <div className={styles.storyRow}>
           <div className={`${styles.story} ${styles.storyMe}`}>
-            <div className={styles.storyAvatar}>+</div>
-            <span>내 스토리</span>
+            <StoryAvatar label={t('feed.myStory')} isMe />
           </div>
           {['@minh', '@linh', '@nam', '@thanh', '@mai'].map((n, i) => (
             <div key={n} className={styles.story}>
-              <div className={styles.storyRing}>
-                <img src={`https://i.pravatar.cc/96?img=${12 + i * 7}`} alt="" />
-              </div>
-              <span>{n}</span>
+              <StoryAvatar src={`https://i.pravatar.cc/96?img=${12 + i * 7}`} label={n} hasStory />
             </div>
           ))}
         </div>
@@ -65,13 +66,14 @@ export default function FeedList() {
         {/* Filters */}
         <div className={styles.filterRow}>
           {FILTERS.map((f) => (
-            <button
+            <Chip
               key={f.key}
-              className={`${styles.filterChip} ${filter === f.key ? styles.filterActive : ''}`}
+              variant={filter === f.key ? 'dark' : 'surface'}
               onClick={() => setFilter(f.key)}
+              style={{ cursor: 'pointer' }}
             >
               {f.label}
-            </button>
+            </Chip>
           ))}
         </div>
 
@@ -79,8 +81,8 @@ export default function FeedList() {
         {posts.length === 0 ? (
           <div className={styles.empty}>
             <div className={styles.emptyIcon}>📸</div>
-            <h2>첫 인증을 기다리고 있어요</h2>
-            <p>라이딩을 완료하고 사이공의 한 컷을 남겨보세요</p>
+            <h2>{t('feed.emptyTitle')}</h2>
+            <p>{t('feed.emptySub')}</p>
           </div>
         ) : (
           <div className={styles.feed}>
@@ -89,7 +91,7 @@ export default function FeedList() {
                 <div className={styles.postImg}>
                   <img src={p.photoUrl} alt="" />
                   <div className={styles.imgStats}>
-                    {p.distanceKm.toFixed(1)}km · 안전 {p.safetyGrade}
+                    {p.distanceKm.toFixed(1)}km · {t('feed.safetyLabel', { grade: p.safetyGrade })}
                   </div>
                   <div className={styles.imgReward}>+{p.rewardExp} EXP</div>
                 </div>
@@ -99,7 +101,7 @@ export default function FeedList() {
                     <div className={styles.userInfo}>
                       <div className={styles.userName}>
                         {p.userNickname}
-                        <span className={styles.levelChip}>LV.{p.userLevel}</span>
+                        <LevelBadge level={p.userLevel} />
                       </div>
                       <div className={styles.timestamp}>
                         {formatRelativeTime(p.createdAt)}
@@ -141,6 +143,7 @@ export default function FeedList() {
 }
 
 function CommentSheet({ post }: { post: FeedPost }) {
+  const { t } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
 
@@ -165,7 +168,9 @@ function CommentSheet({ post }: { post: FeedPost }) {
 
   return (
     <div className={styles.commentRoot}>
-      <h3 className={styles.commentTitle}>댓글 {comments.length}</h3>
+      <h3 className={styles.commentTitle}>
+        {t('feed.commentsCount', { count: comments.length })}
+      </h3>
       <div className={styles.commentList}>
         {comments.map((c) => (
           <div
@@ -189,7 +194,7 @@ function CommentSheet({ post }: { post: FeedPost }) {
       <div className={styles.commentInputBar}>
         <img src="https://i.pravatar.cc/60?img=12" alt="" className={styles.commentAvatar} />
         <input
-          placeholder="댓글을 남겨보세요..."
+          placeholder={t('feed.commentPlaceholder')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}

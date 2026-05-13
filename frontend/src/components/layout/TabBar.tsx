@@ -1,15 +1,17 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styles from './TabBar.module.css';
-
-const tabs = [
-  { path: '/home', label: '월드', icon: '🏙' },
-  { path: '/quests', label: '퀘스트', icon: '🎯' },
-  { path: '/feed', label: '피드', icon: '📷' },
-  { path: '/profile', label: '프로필', icon: '👤' },
-];
 
 export function TabBar() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const tabs = [
+    { path: '/home', label: t('tabbar.world'), icon: '🏙' },
+    { path: '/quests', label: t('tabbar.quests'), icon: '🎯' },
+    { path: '/feed', label: t('tabbar.feed'), icon: '📷' },
+    { path: '/profile', label: t('tabbar.profile'), icon: '👤' },
+  ];
 
   return (
     <nav className={styles.tabbar}>
@@ -26,13 +28,17 @@ export function TabBar() {
         </NavLink>
       ))}
 
-      {/* 가운데 FAB: 빠른 라이딩 시작 */}
       <button
         className={styles.fab}
         onClick={() => navigate('/quests')}
-        aria-label="라이딩 시작"
+        aria-label={t('tabbar.startRide')}
       >
-        <span className={styles.fabIcon}>🏍</span>
+        <img
+          className={styles.fabIcon}
+          src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f3cd/512.gif"
+          alt="🏍"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
       </button>
 
       {tabs.slice(2).map((t) => (

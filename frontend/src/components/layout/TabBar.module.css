@@ -35,7 +35,7 @@
 }
 
 .label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -46,35 +46,36 @@
 .active::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 32px;
-  height: 3px;
+  width: 28px;
+  height: 4px;
   background: var(--brand-500);
   border-radius: 0 0 4px 4px;
 }
 
 .fab {
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%);
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: var(--grad-sunset);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 8px;
+  margin-top: -16px;
   box-shadow: var(--shadow-pop);
-  transform: translateY(-8px);
-  transition: transform .15s ease, box-shadow .15s ease;
+  position: relative;
+  overflow: hidden;
+  transition: transform .15s ease;
 }
 
 .fab:active {
-  transform: translateY(-8px) scale(0.95);
+  transform: scale(0.95);
 }
 
 .fabIcon {
-  font-size: 28px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+  width: 36px;
+  height: 36px;
 }

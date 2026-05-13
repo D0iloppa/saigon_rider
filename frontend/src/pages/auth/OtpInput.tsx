@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { TopBar } from '@/components/layout/TopBar';
+import { StatusBar } from '@/components/layout/StatusBar';
 import { Button } from '@/components/ui/Button';
 import { useUserStore } from '@/store/useUserStore';
 import styles from './AuthForm.module.css';
@@ -10,6 +11,7 @@ export default function OtpInput() {
   const location = useLocation();
   const phone = (location.state as any)?.phone || '+84 901 234 567';
   const login = useUserStore((s) => s.login);
+  const { t } = useTranslation();
 
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState(false);
@@ -58,10 +60,10 @@ export default function OtpInput() {
 
   return (
     <>
-      <TopBar showBack />
+      <StatusBar />
       <div className={styles.body}>
-        <h1 className={styles.title}>인증 코드 입력</h1>
-        <p className={styles.sub}>{phone} 로 보낸 6자리 코드를 입력하세요</p>
+        <h1 className={styles.title}>{t('otpInput.title')}</h1>
+        <p className={styles.sub}>{t('otpInput.subtitle', { phone })}</p>
 
         <div className={styles.otpRow}>
           {digits.map((d, i) => (
@@ -81,17 +83,17 @@ export default function OtpInput() {
 
         {error ? (
           <p className={styles.error}>
-            ⚠ 코드가 올바르지 않거나 만료됐어요
+            {t('otpInput.errorInvalidCode')}
           </p>
         ) : (
           <p className={styles.timer}>
             {seconds > 0 ? (
               <>
-                {timerText} 후 재전송 가능
+                {timerText}{t('otpInput.resendAvailableAfter')}
               </>
             ) : (
               <button className={styles.resend} onClick={() => setSeconds(180)}>
-                코드 재전송
+                {t('otpInput.resendBtn')}
               </button>
             )}
           </p>
@@ -100,10 +102,10 @@ export default function OtpInput() {
         <div className={styles.spacer} />
 
         <Button onClick={handleVerify} disabled={digits.join('').length < 6}>
-          확인
+          {t('otpInput.verifyBtn')}
         </Button>
         <p className={styles.legal}>
-          테스트 환경: 000000 외 6자리 입력 시 성공
+          {t('otpInput.testModeNote')}
         </p>
       </div>
     </>

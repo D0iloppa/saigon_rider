@@ -1,59 +1,76 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Toggle } from '@/components/ui/Toggle';
+import { SettingsRow } from '@/components/ui/SettingsRow';
 import styles from './Settings.module.css';
 
-const SECTIONS = [
+type NotiKey =
+  | 'notiItemRecommended'
+  | 'notiItemExpiring'
+  | 'notiItemEventStart'
+  | 'notiItemQuestDone'
+  | 'notiItemLevelUp'
+  | 'notiItemBadge'
+  | 'notiItemCheer'
+  | 'notiItemComment'
+  | 'notiItemFriendReq';
+
+const SECTIONS: { titleKey: string; items: NotiKey[] }[] = [
   {
-    title: '퀘스트',
-    items: ['추천 퀘스트', '만료 임박', '이벤트 시작'],
+    titleKey: 'settings.notiSectionQuest',
+    items: ['notiItemRecommended', 'notiItemExpiring', 'notiItemEventStart'],
   },
   {
-    title: '결과',
-    items: ['퀘스트 완료', '레벨업', '배지 획득'],
+    titleKey: 'settings.notiSectionResult',
+    items: ['notiItemQuestDone', 'notiItemLevelUp', 'notiItemBadge'],
   },
   {
-    title: '소셜',
-    items: ['응원 받음', '댓글', '친구 신청'],
+    titleKey: 'settings.notiSectionSocial',
+    items: ['notiItemCheer', 'notiItemComment', 'notiItemFriendReq'],
   },
 ];
 
+const DEFAULT_STATE: Record<NotiKey, boolean> = {
+  notiItemRecommended: true,
+  notiItemExpiring: true,
+  notiItemEventStart: false,
+  notiItemQuestDone: true,
+  notiItemLevelUp: true,
+  notiItemBadge: true,
+  notiItemCheer: true,
+  notiItemComment: true,
+  notiItemFriendReq: false,
+};
+
 export default function NotiSettings() {
-  const [state, setState] = useState<Record<string, boolean>>({
-    '추천 퀘스트': true,
-    '만료 임박': true,
-    '이벤트 시작': false,
-    '퀘스트 완료': true,
-    '레벨업': true,
-    '배지 획득': true,
-    '응원 받음': true,
-    '댓글': true,
-    '친구 신청': false,
-  });
+  const { t } = useTranslation();
+  const [state, setState] = useState<Record<NotiKey, boolean>>(DEFAULT_STATE);
 
   return (
     <>
-      <TopBar title="알림 설정" />
+      <TopBar title={t('settings.notiSettings')} />
       <div className={styles.body}>
         {SECTIONS.map((s) => (
-          <div key={s.title} className={styles.section}>
-            <h3 className={styles.sectionTitle}>{s.title}</h3>
+          <div key={s.titleKey} className={styles.section}>
+            <h3 className={styles.sectionTitle}>{t(s.titleKey)}</h3>
             <div className={styles.sectionCard}>
-              {s.items.map((it) => (
-                <div key={it} className={styles.row} style={{ cursor: 'default' }}>
-                  <span className={styles.rowLabel}>{it}</span>
-                  <Toggle
-                    checked={state[it]}
-                    onChange={(v) => setState((p) => ({ ...p, [it]: v }))}
-                  />
-                </div>
+              {s.items.map((key) => (
+                <SettingsRow
+                  key={key}
+                  label={t(`settings.${key}`)}
+                  right={
+                    <Toggle
+                      checked={state[key]}
+                      onChange={(v) => setState((p) => ({ ...p, [key]: v }))}
+                    />
+                  }
+                />
               ))}
             </div>
           </div>
         ))}
-        <p className={styles.caption}>
-          중요한 알림(보안·결제)은 끌 수 없어요
-        </p>
+        <p className={styles.caption}>{t('settings.notiImportantNote')}</p>
       </div>
     </>
   );

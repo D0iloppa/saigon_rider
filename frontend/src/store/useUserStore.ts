@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
+import i18n, { changeLang } from '@/lib/i18n';
 
 interface UserState {
   user: User | null;
@@ -28,7 +29,7 @@ const DEFAULT_USER: User = {
   xpPoints: 240,
   gold: 1820,
   skillPoints: 2,
-  language: 'ko',
+  language: 'vi',
   skills: { distance_rider: 1, gold_hunter: 0, safe_rider: 1 },
 };
 
@@ -39,8 +40,9 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: true, // 더미 — 프로토타입은 기본 로그인 상태
 
       login: (phone) => {
+        const language = (i18n.language as Language) || 'vi';
         set({
-          user: { ...DEFAULT_USER, phone },
+          user: { ...DEFAULT_USER, phone, language },
           isAuthenticated: true,
         });
       },
@@ -84,6 +86,7 @@ export const useUserStore = create<UserState>()(
         const u = get().user;
         if (!u) return;
         set({ user: { ...u, language } });
+        changeLang(language);
       },
 
       investSkill: (key) => {

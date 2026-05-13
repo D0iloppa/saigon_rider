@@ -20,22 +20,16 @@ services:
       - imgproxy
     restart: unless-stopped
 
-  # ── Frontend (Vue 3 + Vite) ───────────────────────────────
+  # ── Frontend (React + Vite → nginx 정적 서빙) ────────────
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: saigon_frontend
     ports:
-      - "${FRONTEND_PORT}:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "${FRONTEND_PORT}:80"
     networks:
       - dev-net
-    environment:
-      - VITE_USE_MOCK=${VITE_USE_MOCK:-true}
-      - VITE_API_BASE=${VITE_API_BASE}
     restart: unless-stopped
 
   # ── Imgproxy (Image Processing) ───────────────────────────

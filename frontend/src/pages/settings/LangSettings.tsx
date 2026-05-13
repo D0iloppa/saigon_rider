@@ -1,17 +1,21 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
+import { RadioCircle } from '@/components/ui/RadioCircle';
 import { useUserStore } from '@/store/useUserStore';
 import type { Language } from '@/api/types';
 import styles from './Settings.module.css';
+import { changeLang } from '@/lib/i18n';
 
 const LANGS: { key: Language; flag: string; title: string; sub: string }[] = [
-  { key: 'ko', flag: '🇰🇷', title: '한국어', sub: 'Korean' },
+  { key: 'ko', flag: '🇰🇷', title: '한국어',      sub: 'Korean' },
   { key: 'vi', flag: '🇻🇳', title: 'Tiếng Việt', sub: 'Vietnamese' },
-  { key: 'en', flag: '🇺🇸', title: 'English', sub: 'English' },
+  { key: 'en', flag: '🇺🇸', title: 'English',    sub: 'English' },
 ];
 
 export default function LangSettings() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const setLanguage = useUserStore((s) => s.setLanguage);
 
@@ -24,7 +28,7 @@ export default function LangSettings() {
 
   return (
     <>
-      <TopBar title="언어" />
+      <TopBar title={t('settings.language')} />
       <div className={styles.body}>
         <div className={styles.sectionCard}>
           {LANGS.map((l) => (
@@ -38,17 +42,11 @@ export default function LangSettings() {
                 <div className={styles.langTitle}>{l.title}</div>
                 <div className={styles.langSub}>{l.sub}</div>
               </div>
-              <div
-                className={`${styles.radio} ${
-                  user.language === l.key ? styles.radioActive : ''
-                }`}
-              >
-                {user.language === l.key && <span className={styles.radioDot} />}
-              </div>
+              <RadioCircle checked={user.language === l.key} />
             </button>
           ))}
         </div>
-        <p className={styles.caption}>변경 사항은 즉시 적용됩니다</p>
+        <p className={styles.caption}>{t('settings.langCaption')}</p>
       </div>
     </>
   );

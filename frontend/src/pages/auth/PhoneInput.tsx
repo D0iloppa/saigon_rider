@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { TopBar } from '@/components/layout/TopBar';
+import { StatusBar } from '@/components/layout/StatusBar';
 import { Button } from '@/components/ui/Button';
 import styles from './AuthForm.module.css';
 
 export default function PhoneInput() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -13,7 +15,7 @@ export default function PhoneInput() {
 
   const handleSubmit = () => {
     if (!isValid) {
-      setError('올바른 휴대폰 번호 형식이 아니에요');
+      setError(t('phoneInput.errorInvalidPhone'));
       return;
     }
     setError(null);
@@ -21,19 +23,25 @@ export default function PhoneInput() {
   };
 
   return (
-    <>
-      <TopBar showBack />
+    <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <StatusBar />
       <div className={styles.body}>
         <h1 className={styles.title}>
-          휴대폰 번호로
+          {t('phoneInput.titleLine1')}
           <br />
-          로그인
+          {t('phoneInput.titleLine2')}
         </h1>
-        <p className={styles.sub}>+84 베트남 번호로 인증 코드를 보내드려요</p>
+        <p className={styles.sub}>{t('phoneInput.subtitle')}</p>
 
         <div className={`${styles.input} ${error ? styles.inputError : ''}`}>
+          <div className={styles.inputShine} />
           <div className={styles.flagGroup}>
-            <span className={styles.flag}>🇻🇳</span>
+            <img
+              className={styles.flagImg}
+              src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f1fb-1f1f3/512.gif"
+              alt="VN"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
             <span className={styles.code}>+84</span>
           </div>
           <input
@@ -53,12 +61,13 @@ export default function PhoneInput() {
         <div className={styles.spacer} />
 
         <Button onClick={handleSubmit} disabled={!isValid}>
-          인증 코드 받기
+          {t('phoneInput.getAuthCodeBtn')}
         </Button>
         <p className={styles.legal}>
-          계속을 누르면 이용약관과 개인정보처리방침에 동의합니다.
+          {t('phoneInput.legalPrefix')}<a>{t('phoneInput.terms')}</a>{t('phoneInput.legalMid')}<a>{t('phoneInput.privacy')}</a>{t('phoneInput.legalSuffix')}
         </p>
       </div>
-    </>
+      <div className={styles.bottomMesh} />
+    </div>
   );
 }

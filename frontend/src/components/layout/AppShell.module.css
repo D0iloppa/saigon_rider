@@ -17,6 +17,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* contain position:fixed children within the phone frame */
+  transform: translateZ(0);
 }
 
 .viewport {

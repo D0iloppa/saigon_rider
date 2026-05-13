@@ -1,5 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { useUserStore } from '@/store/useUserStore';
+import { changeLang } from '@/lib/i18n';
+import PrivateRoute from '@/components/auth/PrivateRoute';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
@@ -31,37 +35,51 @@ import NotiSettings from '@/pages/settings/NotiSettings';
 import LangSettings from '@/pages/settings/LangSettings';
 import AccountSettings from '@/pages/settings/AccountSettings';
 
+// Deep link
+import LinkRouter from '@/pages/link/LinkRouter';
+
 export default function App() {
+  const user = useUserStore((s) => s.user);
+
+  useEffect(() => {
+    if (user?.language) {
+      changeLang(user.language);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <BrowserRouter>
       <AppShell>
         <Routes>
           {/* default */}
-          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/" element={<Navigate to="/splash" replace />} />
 
-          {/* Auth flow */}
+          {/* Auth flow (public) */}
           <Route path="/splash" element={<Splash />} />
           <Route path="/auth/phone" element={<PhoneInput />} />
           <Route path="/auth/otp" element={<OtpInput />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
 
-          {/* Main */}
-          <Route path="/home" element={<WorldMap />} />
-          <Route path="/quests" element={<QuestList />} />
-          <Route path="/quests/:id" element={<QuestDetail />} />
-          <Route path="/feed" element={<FeedList />} />
-          <Route path="/profile" element={<ProfileMain />} />
+          {/* Deep link entry (auth-aware inside) */}
+          <Route path="/link" element={<LinkRouter />} />
 
-          {/* Ride flow */}
-          <Route path="/ride/active" element={<RideActive />} />
-          <Route path="/ride/result/success" element={<RideResultSuccess />} />
-          <Route path="/ride/result/fail" element={<RideResultFail />} />
+          {/* Protected: Main */}
+          <Route path="/home" element={<PrivateRoute><WorldMap /></PrivateRoute>} />
+          <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
+          <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
+          <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
 
-          {/* Settings */}
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/notifications" element={<NotiSettings />} />
-          <Route path="/settings/language" element={<LangSettings />} />
-          <Route path="/settings/account" element={<AccountSettings />} />
+          {/* Protected: Ride flow */}
+          <Route path="/ride/active" element={<PrivateRoute><RideActive /></PrivateRoute>} />
+          <Route path="/ride/result/success" element={<PrivateRoute><RideResultSuccess /></PrivateRoute>} />
+          <Route path="/ride/result/fail" element={<PrivateRoute><RideResultFail /></PrivateRoute>} />
+
+          {/* Protected: Settings */}
+          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+          <Route path="/settings/notifications" element={<PrivateRoute><NotiSettings /></PrivateRoute>} />
+          <Route path="/settings/language" element={<PrivateRoute><LangSettings /></PrivateRoute>} />
+          <Route path="/settings/account" element={<PrivateRoute><AccountSettings /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />

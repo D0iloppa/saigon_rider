@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import type { Quest } from '@/api/types';
 import styles from './RideResult.module.css';
 
@@ -13,6 +15,7 @@ interface State {
 export default function RideResultFail() {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const { t } = useTranslation();
   const data = state as State | undefined;
 
   useEffect(() => {
@@ -28,39 +31,42 @@ export default function RideResultFail() {
 
       <div className={styles.failHero}>
         <div className={styles.bikeTilted}>🏍</div>
-        <div className={styles.cleared} style={{ color: 'var(--text-3)' }}>QUEST FAILED</div>
+        <div className={styles.cleared} style={{ color: 'var(--text-3)' }}>{t('ride.questFailed')}</div>
       </div>
 
       <div className={styles.successSheet}>
         <h1 className={styles.questTitle}>{data.quest.title}</h1>
-        <p className={styles.epigraph}>"조금만 더 달려보면 어땠을까요?"</p>
+        <p className={styles.epigraph}>{t('ride.failEpigraph')}</p>
 
         <div className={styles.reasonBox}>
-          <div className={styles.statLabel}>REASON</div>
+          <div className={styles.statLabel}>{t('ride.failReasonLabel')}</div>
           <div className={styles.reasonText}>
-            거리 미달 — {(data.distance / 1000).toFixed(1)} / {(data.target / 1000).toFixed(1)} km
+            {t('ride.failReason', {
+              distance: (data.distance / 1000).toFixed(1),
+              target: (data.target / 1000).toFixed(1),
+            })}
           </div>
-          <div className={styles.failBar}>
-            <div className={styles.failBarFill} style={{ width: `${progress * 100}%` }} />
+          <div style={{ marginTop: 12 }}>
+            <ProgressBar progress={progress * 100} />
           </div>
         </div>
 
         <div className={styles.consolation}>
           <span style={{ fontSize: '28px' }}>💎</span>
           <div>
-            <div style={{ fontWeight: 700, marginBottom: 2 }}>기본 +20 EXP 지급</div>
+            <div style={{ fontWeight: 700, marginBottom: 2 }}>{t('ride.consolationTitle')}</div>
             <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-              포기하지 않고 다시 도전해보세요
+              {t('ride.consolationSub')}
             </div>
           </div>
         </div>
 
         <div className={styles.actions}>
           <Button onClick={() => navigate(`/quests/${data.quest.id}`)}>
-            다시 도전
+            {t('ride.retryQuestBtn')}
           </Button>
           <Button variant="ghost" onClick={() => navigate('/quests')}>
-            다른 퀘스트
+            {t('ride.otherQuestBtn')}
           </Button>
         </div>
       </div>

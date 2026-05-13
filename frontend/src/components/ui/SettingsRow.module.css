@@ -1,0 +1,25 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  width: 100%;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  transition: background .15s;
+  background: transparent;
+  cursor: default;
+}
+
+.row:last-child { border-bottom: none; }
+.row:active { background: var(--surface-2); }
+
+.rowIcon { font-size: 22px; width: 24px; text-align: center; }
+.rowLabel { flex: 1; font-size: 14px; font-weight: 500; }
+.rowValue { font-size: 13px; color: var(--text-3); font-weight: 500; }
+
+.arrow {
+  font-size: 22px;
+  color: var(--text-3);
+  font-weight: 300;
+}

@@ -1,31 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { MOCK_BADGES } from '@/data/feed';
 import { Button } from '@/components/ui/Button';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber } from '@/lib/format';
 import type { Badge } from '@/api/types';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { Chip } from '@/components/ui/Chip';
+import { LevelBadge } from '@/components/ui/LevelBadge';
 import styles from './ProfileMain.module.css';
-
-const TABS = [
-  { key: 'history', label: '기록' },
-  { key: 'badges', label: '배지' },
-  { key: 'gear', label: '장비' },
-] as const;
 
 const RECENT_RIDES = [
   { id: 'r1', title: 'Bến Thành Loop', date: '2026.05.12', result: 'A' },
-  { id: 'r2', title: 'Phú Nhuận 카페 투어', date: '2026.05.11', result: 'B' },
-  { id: 'r3', title: 'Thủ Đức 스프린트', date: '2026.05.10', result: 'A' },
+  { id: 'r2', title: 'Phú Nhuận Cafe Tour', date: '2026.05.11', result: 'B' },
+  { id: 'r3', title: 'Thủ Đức Sprint', date: '2026.05.10', result: 'A' },
   { id: 'r4', title: 'Bùi Viện Night Sweep', date: '2026.05.09', result: 'B' },
 ];
 
 export default function ProfileMain() {
   const user = useUserStore((s) => s.user);
   const navigate = useNavigate();
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('history');
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<'history' | 'badges' | 'gear'>('history');
   const [activeBadge, setActiveBadge] = useState<Badge | null>(null);
+
+  const TABS = [
+    { key: 'history' as const, label: t('profile.tabHistory') },
+    { key: 'badges'  as const, label: t('profile.tabBadges') },
+    { key: 'gear'    as const, label: t('profile.tabGear') },
+  ];
 
   if (!user) return null;
   const { needed, progress } = expToNextLevel(user.levelExp, user.level);
@@ -43,22 +48,26 @@ export default function ProfileMain() {
         </button>
         <div className={styles.avatarWrap}>
           <img src={user.avatarUrl} alt="" className={styles.avatar} />
-          <div className={styles.levelBadge}>{user.level}</div>
+          <div style={{ position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)' }}>
+            <LevelBadge level={user.level} />
+          </div>
         </div>
         <h1 className={styles.nick}>{user.nickname}</h1>
-        <div className={styles.styleChip}>
-          🌙{' '}
-          {user.riderStyle === 'commuter'
-            ? 'Commuter'
-            : user.riderStyle === 'cafe_hunter'
-            ? 'Café Hunter'
-            : 'Night Rider'}
+        <div style={{ margin: '8px auto 24px', display: 'flex', justifyContent: 'center' }}>
+          <Chip variant="surface">
+            🌙{' '}
+            {user.riderStyle === 'commuter'
+              ? t('profileSetup.styleCommuterTitle')
+              : user.riderStyle === 'cafe_hunter'
+              ? t('profileSetup.styleCafeHunterTitle')
+              : t('profileSetup.styleNightRiderTitle')}
+          </Chip>
         </div>
 
         <div className={styles.levelRow}>
           <span className={styles.levelText}>LV.{user.level}</span>
           <span className={styles.levelTextRight}>
-            {formatNumber(needed)} EXP TO LV.{user.level + 1}
+            {t('profile.expToNextLevel', { exp: formatNumber(needed), level: user.level + 1 })}
           </span>
         </div>
         <div className={styles.levelBar}>
@@ -73,23 +82,23 @@ export default function ProfileMain() {
           <div className={styles.currencyCell} style={{ borderColor: 'var(--xp)' }}>
             <span style={{ fontSize: 28 }}>💎</span>
             <div className={styles.currencyNum}>{formatNumber(user.xpPoints)}</div>
-            <div className={styles.currencyLabel}>XP Points</div>
+            <div className={styles.currencyLabel}>{t('ride.xpPointsLabel')}</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gold)' }}>
             <span style={{ fontSize: 28 }}>🪙</span>
             <div className={styles.currencyNum}>{formatNumber(user.gold)}</div>
-            <div className={styles.currencyLabel}>Gold</div>
+            <div className={styles.currencyLabel}>{t('profile.gold')}</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--brand-500)' }}>
             <span style={{ fontSize: 28 }}>⭐</span>
             <div className={styles.currencyNum}>{user.skillPoints}</div>
-            <div className={styles.currencyLabel}>Skill Pt</div>
+            <div className={styles.currencyLabel}>{t('profile.skillPt')}</div>
           </div>
         </div>
 
         {/* Monthly stats */}
         <div className={styles.statsCard}>
-          <h3 className={styles.cardTitle}>이번 달</h3>
+          <h3 className={styles.cardTitle}>{t('profile.thisMonth')}</h3>
           <div className={styles.statsRow}>
             <div>
               <div className={styles.statBig}>248</div>
@@ -97,11 +106,11 @@ export default function ProfileMain() {
             </div>
             <div>
               <div className={styles.statBig}>18</div>
-              <div className={styles.statSmall}>퀘스트</div>
+              <div className={styles.statSmall}>{t('tabbar.quests')}</div>
             </div>
             <div>
               <div className={styles.statBig}>A-</div>
-              <div className={styles.statSmall}>안전</div>
+              <div className={styles.statSmall}>{t('ride.safety')}</div>
             </div>
           </div>
           <svg viewBox="0 0 280 60" className={styles.chart}>
@@ -129,13 +138,13 @@ export default function ProfileMain() {
 
         {/* Tabs */}
         <div className={styles.tabRow}>
-          {TABS.map((t) => (
+          {TABS.map((tb) => (
             <button
-              key={t.key}
-              className={`${styles.tab} ${tab === t.key ? styles.tabActive : ''}`}
-              onClick={() => setTab(t.key)}
+              key={tb.key}
+              className={`${styles.tab} ${tab === tb.key ? styles.tabActive : ''}`}
+              onClick={() => setTab(tb.key)}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
         </div>
@@ -179,7 +188,7 @@ export default function ProfileMain() {
         {tab === 'gear' && (
           <div className={styles.emptyTab}>
             <span style={{ fontSize: 48 }}>🛡</span>
-            <p>장착할 수 있는 장비가 없어요</p>
+            <p>{t('profile.noGear')}</p>
           </div>
         )}
       </div>
@@ -200,14 +209,16 @@ export default function ProfileMain() {
               </div>
               {activeBadge.earnedAt && (
                 <p className={styles.modalDate}>
-                  획득: {new Date(activeBadge.earnedAt).toLocaleDateString('ko-KR')}
+                  {t('profile.earnedAt', {
+                    date: new Date(activeBadge.earnedAt).toLocaleDateString(),
+                  })}
                 </p>
               )}
               <div className={styles.modalActions}>
                 <Button variant="ghost" onClick={() => setActiveBadge(null)}>
-                  닫기
+                  {t('common.close')}
                 </Button>
-                {activeBadge.earned && <Button>공유</Button>}
+                {activeBadge.earned && <Button>{t('common.share')}</Button>}
               </div>
             </div>
           </div>

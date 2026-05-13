@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useRideStore } from '@/store/useRideStore';
 import { useUserStore } from '@/store/useUserStore';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -7,10 +8,12 @@ import { Button } from '@/components/ui/Button';
 import { calculateRewards } from '@/lib/rewards';
 import { fetchQuest } from '@/api/quests';
 import { formatDistance, formatDuration } from '@/lib/format';
+import { StatusBar } from '@/components/layout/StatusBar';
 import styles from './RideActive.module.css';
 
 export default function RideActive() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const ride = useRideStore();
   const user = useUserStore((s) => s.user);
   const addExp = useUserStore((s) => s.addExp);
@@ -19,7 +22,6 @@ export default function RideActive() {
   const [showPause, setShowPause] = useState(false);
   const [showGpsError, setShowGpsError] = useState(false);
 
-  // 라이딩이 활성화 안 됐으면 홈으로
   useEffect(() => {
     if (!ride.isActive) {
       navigate('/home', { replace: true });
@@ -31,7 +33,6 @@ export default function RideActive() {
   const progress = Math.min(ride.distanceM / ride.targetDistanceM, 1);
   const progressPercent = Math.round(progress * 100);
 
-  // SVG arc 계산
   const RADIUS = 120;
   const CIRC = 2 * Math.PI * RADIUS;
   const offset = CIRC * (1 - progress);
@@ -91,7 +92,10 @@ export default function RideActive() {
       <div className={styles.glow} />
 
       {/* HUD top bar */}
-      <div className={styles.hud}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 }}>
+        <StatusBar variant="light" />
+      </div>
+      <div className={styles.hud} style={{ paddingTop: 40 }}>
         <button className={styles.glassBtn} onClick={handlePauseClick}>
           ❚❚
         </button>
@@ -117,26 +121,15 @@ export default function RideActive() {
               </feMerge>
             </filter>
           </defs>
-          {/* track */}
           <circle
-            cx="140"
-            cy="140"
-            r={RADIUS}
-            fill="none"
-            stroke="rgba(255,255,255,.08)"
-            strokeWidth="12"
+            cx="140" cy="140" r={RADIUS}
+            fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="12"
           />
-          {/* progress */}
           <circle
-            cx="140"
-            cy="140"
-            r={RADIUS}
-            fill="none"
-            stroke="url(#ringGrad)"
-            strokeWidth="12"
+            cx="140" cy="140" r={RADIUS}
+            fill="none" stroke="url(#ringGrad)" strokeWidth="12"
             strokeLinecap="round"
-            strokeDasharray={CIRC}
-            strokeDashoffset={offset}
+            strokeDasharray={CIRC} strokeDashoffset={offset}
             transform="rotate(-90 140 140)"
             filter="url(#cyanGlow)"
             style={{ transition: 'stroke-dashoffset .6s ease' }}
@@ -150,34 +143,30 @@ export default function RideActive() {
           <div className={styles.ringTarget}>
             / {(ride.targetDistanceM / 1000).toFixed(1)} km
           </div>
-          <div className={styles.ringPercent}>{progressPercent}% COMPLETE</div>
+          <div className={styles.ringPercent}>{t('ride.percentComplete', { percent: progressPercent })}</div>
         </div>
       </div>
 
       {/* Metrics */}
       <div className={styles.metrics}>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>TIME</div>
-          <div className={styles.metricValue}>
-            {formatDuration(ride.durationSec)}
-          </div>
+          <div className={styles.metricLabel}>{t('ride.time').toUpperCase()}</div>
+          <div className={styles.metricValue}>{formatDuration(ride.durationSec)}</div>
         </div>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>SAFETY</div>
+          <div className={styles.metricLabel}>{t('ride.safety').toUpperCase()}</div>
           <div
             className={`${styles.safetyBadge} ${
-              ride.safetyGrade === 'A'
-                ? styles.safetyA
-                : ride.safetyGrade === 'B'
-                ? styles.safetyB
-                : styles.safetyC
+              ride.safetyGrade === 'A' ? styles.safetyA :
+              ride.safetyGrade === 'B' ? styles.safetyB :
+              styles.safetyC
             }`}
           >
             {ride.safetyGrade}
           </div>
         </div>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>AVG SPEED</div>
+          <div className={styles.metricLabel}>{t('ride.avgSpeed').toUpperCase()}</div>
           <div className={styles.metricValue}>
             {ride.avgSpeedKmh.toFixed(1)}
             <span className={styles.unit}> km/h</span>
@@ -186,13 +175,13 @@ export default function RideActive() {
       </div>
 
       <button className={styles.pauseBtn} onClick={handlePauseClick}>
-        ❚❚ PAUSE
+        ❚❚ {t('ride.paused')}
       </button>
 
-      {/* Test helpers — 프로토타입용 */}
+      {/* Test helpers — prototype only */}
       <div className={styles.testBar}>
         <button onClick={handleComplete} className={styles.testBtn}>
-          ✓ 완료 처리 (테스트)
+          ✓ Complete (test)
         </button>
       </div>
 
@@ -200,32 +189,30 @@ export default function RideActive() {
         className={styles.gpsTest}
         onClick={() => setShowGpsError(true)}
       >
-        GPS 오류 시뮬레이션
+        GPS error sim
       </button>
 
       <BottomSheet open={showPause} onClose={handleResume} height="half">
         <div className={styles.pauseContent}>
-          <h2 className={styles.pauseTitle}>PAUSED</h2>
+          <h2 className={styles.pauseTitle}>{t('ride.paused')}</h2>
           <div className={styles.pauseStats}>
             <div>
-              <div className={styles.pauseStatLabel}>거리</div>
+              <div className={styles.pauseStatLabel}>{t('ride.distance')}</div>
               <div className={styles.pauseStatNum}>{formatDistance(ride.distanceM)}</div>
             </div>
             <div>
-              <div className={styles.pauseStatLabel}>시간</div>
-              <div className={styles.pauseStatNum}>
-                {formatDuration(ride.durationSec)}
-              </div>
+              <div className={styles.pauseStatLabel}>{t('ride.time')}</div>
+              <div className={styles.pauseStatNum}>{formatDuration(ride.durationSec)}</div>
             </div>
             <div>
-              <div className={styles.pauseStatLabel}>안전</div>
+              <div className={styles.pauseStatLabel}>{t('ride.safety')}</div>
               <div className={styles.pauseStatNum}>{ride.safetyGrade}</div>
             </div>
           </div>
-          <p className={styles.pauseWarn}>지금 멈추면 시도 무효 처리됩니다.</p>
-          <Button onClick={handleResume}>계속 진행</Button>
+          <p className={styles.pauseWarn}>{t('ride.pauseWarn')}</p>
+          <Button onClick={handleResume}>{t('ride.resumeBtn')}</Button>
           <button className={styles.abandonBtn} onClick={handleAbandon}>
-            퀘스트 종료
+            {t('ride.quitBtn')}
           </button>
         </div>
       </BottomSheet>
@@ -233,11 +220,11 @@ export default function RideActive() {
       <BottomSheet open={showGpsError} onClose={() => setShowGpsError(false)} height="half">
         <div className={styles.gpsContent}>
           <div className={styles.gpsIcon}>📡</div>
-          <h2>GPS 신호가 약해요</h2>
-          <p>야외로 이동하거나 위치 권한을 확인해주세요</p>
-          <Button onClick={() => setShowGpsError(false)}>다시 시도</Button>
+          <h2>{t('ride.gpsErrorTitle')}</h2>
+          <p>{t('ride.gpsErrorSub')}</p>
+          <Button onClick={() => setShowGpsError(false)}>{t('ride.retryBtn')}</Button>
           <button className={styles.abandonBtn} onClick={handleAbandon}>
-            라이딩 포기
+            {t('ride.abandonBtn')}
           </button>
         </div>
       </BottomSheet>

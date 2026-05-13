@@ -3,12 +3,14 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: var(--ink-900);
 }
 
 .bg {
   position: absolute;
   inset: 0;
   background: var(--grad-sunset);
+  z-index: 0;
 }
 
 .noise {
@@ -18,85 +20,179 @@
   mix-blend-mode: overlay;
   opacity: .35;
   pointer-events: none;
+  z-index: 1;
 }
 
-.content {
-  position: relative;
+/* Photo hero 440px */
+.photoHero {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 440px;
+  z-index: 2;
+  overflow: hidden;
+  background: var(--ink-800);
+}
+
+.photoHero img {
+  width: 100%;
   height: 100%;
+  object-fit: cover;
+  filter: saturate(1.2) contrast(1.05);
+}
+
+.photoFade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(8,9,15,1) 0%, rgba(8,9,15,0.2) 60%, transparent 100%);
+}
+
+/* Language selector */
+.langPickerWrap {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  z-index: 25;
+}
+
+.langChip {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 80px 24px 0;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.langChip:active {
+  background: rgba(255, 255, 255, .28);
+}
+
+.langFlag {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+}
+
+.langLabel {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.05em;
   color: white;
 }
 
-.hero {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+.langDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: rgba(20, 20, 30, .92);
+  border: 1px solid rgba(255, 255, 255, .15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  overflow: hidden;
+  min-width: 120px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
 }
 
-.tag {
+.langOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Space Grotesk', sans-serif;
+  color: rgba(255, 255, 255, .7);
+  transition: background .12s;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  cursor: pointer;
+}
+
+.langOption:last-child {
+  border-bottom: none;
+}
+
+.langOption:hover,
+.langOption:active {
+  background: rgba(255, 255, 255, .1);
+}
+
+.langOptionActive {
+  color: white;
+  background: rgba(255, 153, 102, .15);
+}
+
+/* Central wordmark — positioned at 310px from top */
+.wordmark {
+  position: absolute;
+  top: 310px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  text-align: center;
+  padding: 0 32px;
+}
+
+.wordmarkTag {
   font-family: 'Instrument Serif', serif;
   font-style: italic;
-  font-size: 18px;
-  opacity: .95;
-  margin-bottom: 16px;
+  font-size: 16px;
+  color: rgba(255, 220, 180, 0.9);
+  margin-bottom: 12px;
+  line-height: 1.4;
 }
 
-.title {
+.wordmarkTitle {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 64px;
+  font-size: 72px;
   font-weight: 700;
-  line-height: .95;
-  letter-spacing: -0.04em;
-  text-shadow: 0 4px 24px rgba(0,0,0,.3);
+  letter-spacing: -0.03em;
+  line-height: .9;
+  color: white;
+  text-shadow: 0 4px 32px rgba(0,0,0,.5);
 }
 
+/* Bottom sheet */
 .sheet {
-  background: white;
-  border-radius: 32px 32px 0 0;
-  padding: 28px 24px calc(28px + var(--bottom-safe));
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--surface);
+  border-radius: 32px 32px 44px 44px;
+  padding: 28px 24px calc(44px + var(--bottom-safe));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .loginBtn {
-  color: var(--text-2);
-  font-size: 14px;
+  text-align: center;
+  font-size: 15px;
   font-weight: 600;
-  padding: 12px;
+  color: var(--text-2);
+  padding: 4px;
+  cursor: pointer;
 }
 
 .legal {
   font-size: 12px;
   color: var(--text-3);
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.7;
 }
 
 .legal a {
-  color: var(--text-2);
-  text-decoration: underline;
-}
-
-.langChip {
-  position: absolute;
-  top: 60px;
-  right: 20px;
-  padding: 8px 14px;
-  background: rgba(255,255,255,.18);
-  border: 1px solid rgba(255,255,255,.3);
-  backdrop-filter: blur(12px);
-  border-radius: 999px;
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: 'Space Grotesk', sans-serif;
-  letter-spacing: 0.05em;
-  z-index: 10;
+  color: var(--brand-500);
+  font-weight: 600;
 }

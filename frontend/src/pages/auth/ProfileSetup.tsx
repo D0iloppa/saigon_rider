@@ -1,20 +1,35 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { TopBar } from '@/components/layout/TopBar';
+import { StatusBar } from '@/components/layout/StatusBar';
+import { RadioCircle } from '@/components/ui/RadioCircle';
 import { Button } from '@/components/ui/Button';
 import { useUserStore } from '@/store/useUserStore';
 import type { RiderStyle } from '@/api/types';
 import styles from './ProfileSetup.module.css';
 
-const STYLES: { key: RiderStyle; icon: string; title: string; sub: string }[] = [
-  { key: 'commuter', icon: '🏙', title: '출퇴근러', sub: 'Quận 1 ↔ Thủ Đức 매일 라이드' },
-  { key: 'cafe_hunter', icon: '☕', title: '카페 헌터', sub: '숨은 카페를 찾아 떠나는 라이드' },
-  { key: 'night_rider', icon: '🌙', title: '나이트 라이더', sub: 'Bùi Viện의 밤은 짧다' },
+const STYLES: { key: RiderStyle; gifCode: string; titleKey: string; subKey: string }[] = [
+  { key: 'commuter',    gifCode: '1f3d9', titleKey: 'profileSetup.styleCommuterTitle',    subKey: 'profileSetup.styleCommuterSub' },
+  { key: 'cafe_hunter', gifCode: '2615',  titleKey: 'profileSetup.styleCafeHunterTitle',   subKey: 'profileSetup.styleCafeHunterSub' },
+  { key: 'night_rider', gifCode: '1f319', titleKey: 'profileSetup.styleNightRiderTitle', subKey: 'profileSetup.styleNightRiderSub' },
 ];
+
+function GifIcon({ code, size = 56 }: { code: string; size?: number }) {
+  return (
+    <img
+      src={`https://fonts.gstatic.com/s/e/notoemoji/latest/${code}/512.gif`}
+      width={size}
+      height={size}
+      alt=""
+      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+    />
+  );
+}
 
 export default function ProfileSetup() {
   const navigate = useNavigate();
   const setProfile = useUserStore((s) => s.setProfile);
+  const { t } = useTranslation();
 
   const [nickname, setNickname] = useState('');
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
@@ -28,51 +43,74 @@ export default function ProfileSetup() {
   };
 
   return (
-    <>
-      <TopBar showBack />
+    <div className={styles.root}>
+      {/* Nav row: back + dot indicator */}
+      <div className={styles.navRow}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <div className={styles.dots}>
+          <span className={`${styles.dot} ${styles.dotActive}`} />
+          <span className={`${styles.dot} ${styles.dotActive}`} />
+          <span className={styles.dot} />
+        </div>
+        <div style={{ width: 40 }} />
+      </div>
+
       <div className={styles.body}>
         <h1 className={styles.title}>
-          당신은 어떤
+          {t('profileSetup.titleLine1')}
           <br />
-          라이더인가요?
+          {t('profileSetup.titleLine2')}
         </h1>
 
+        {/* Nickname */}
         <div className={styles.nickField}>
-          <span className={styles.nickIcon}>👤</span>
+          <GifIcon code="1f3cd" size={28} />
           <input
-            placeholder="닉네임 (2~12자)"
+            placeholder={t('profileSetup.nicknamePlaceholder')}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={12}
           />
-          {nickname.length >= 2 && <span className={styles.check}>✓</span>}
+          {nickname.length >= 2 && <GifIcon code="2705" size={24} />}
         </div>
 
+        {/* Rider style cards */}
         <div className={styles.styleList}>
-          {STYLES.map((s) => (
-            <button
-              key={s.key}
-              className={`${styles.styleCard} ${style === s.key ? styles.selected : ''}`}
-              onClick={() => setStyle(s.key)}
-            >
-              <span className={styles.styleIcon}>{s.icon}</span>
-              <div className={styles.styleText}>
-                <h3>{s.title}</h3>
-                <p>{s.sub}</p>
-              </div>
-              <span className={styles.radio}>
-                {style === s.key ? '●' : '○'}
-              </span>
-            </button>
-          ))}
+          {STYLES.map((s) => {
+            const selected = style === s.key;
+            return (
+              <button
+                key={s.key}
+                className={`${styles.styleCard} ${selected ? styles.selected : ''}`}
+                onClick={() => setStyle(s.key)}
+              >
+                {selected && <div className={styles.selectedOverlay} />}
+                <div className={styles.styleIcon}>
+                  <GifIcon code={s.gifCode} size={52} />
+                </div>
+                <div className={styles.styleText}>
+                  <h3>{t(s.titleKey)}</h3>
+                  <p>{t(s.subKey)}</p>
+                </div>
+                <RadioCircle checked={selected} />
+              </button>
+            );
+          })}
         </div>
 
         <div className={styles.spacer} />
+      </div>
 
+      {/* Bottom CTA — gradient fade */}
+      <div className={styles.bottomCta}>
         <Button onClick={handleSubmit} disabled={!isValid}>
-          시작하기
+          {t('profileSetup.startBtn')}
         </Button>
       </div>
-    </>
+    </div>
   );
 }

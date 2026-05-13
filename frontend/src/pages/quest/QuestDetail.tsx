@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { fetchQuest } from '@/api/quests';
@@ -8,11 +9,14 @@ import { useRideStore } from '@/store/useRideStore';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatDistance } from '@/lib/format';
 import type { Quest } from '@/api/types';
+import { Chip } from '@/components/ui/Chip';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import styles from './QuestDetail.module.css';
 
 export default function QuestDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const startRide = useRideStore((s) => s.startRide);
 
@@ -31,7 +35,7 @@ export default function QuestDetail() {
     return (
       <>
         <TopBar transparent />
-        <div className={styles.loading}>로딩 중...</div>
+        <div className={styles.loading}>{t('common.loading')}</div>
       </>
     );
   }
@@ -39,8 +43,8 @@ export default function QuestDetail() {
   if (!quest) {
     return (
       <>
-        <TopBar title="퀘스트" />
-        <div className={styles.loading}>퀘스트를 찾을 수 없어요</div>
+        <TopBar title={t('quest.title')} />
+        <div className={styles.loading}>{t('quest.notFound')}</div>
       </>
     );
   }
@@ -63,25 +67,25 @@ export default function QuestDetail() {
       >
         <div className={styles.heroOverlay} />
         <div className={styles.heroContent}>
-          <div className={styles.heroTag}>TONIGHT'S QUEST</div>
+          <div className={styles.heroTag}>{t('quest.tonightsTag')}</div>
           <h1 className={styles.heroTitle}>{quest.title}</h1>
         </div>
       </div>
 
       <div className={styles.sheet}>
         <div className={styles.metaRow}>
-          <span className={styles.metaChip}>Lv.{quest.minLevel}+</span>
-          <span className={styles.metaChip}>{quest.district}</span>
-          <span className={styles.metaChip}>
+          <Chip variant="surface">Lv.{quest.minLevel}+</Chip>
+          <Chip variant="surface">{quest.district}</Chip>
+          <Chip variant="surface">
             {'★'.repeat(quest.difficulty)}
             {'☆'.repeat(5 - quest.difficulty)}
-          </span>
+          </Chip>
         </div>
 
         <p className={styles.desc}>{quest.description}</p>
 
         <div className={styles.conditionBox}>
-          <h3 className={styles.boxTitle}>조건</h3>
+          <h3 className={styles.boxTitle}>{t('quest.conditions')}</h3>
           {quest.timeRestriction && (
             <div className={styles.conditionRow}>
               <span>⏰</span>
@@ -92,18 +96,18 @@ export default function QuestDetail() {
           )}
           <div className={styles.conditionRow}>
             <span>📍</span>
-            <span>총 {formatDistance(quest.minDistanceM)}</span>
+            <span>{t('quest.totalDistance', { distance: formatDistance(quest.minDistanceM) })}</span>
           </div>
           {quest.safetyGradeMin && (
             <div className={styles.conditionRow}>
               <span>🛡</span>
-              <span>안전 등급 {quest.safetyGradeMin} 이상</span>
+              <span>{t('quest.safetyGradeMin', { grade: quest.safetyGradeMin })}</span>
             </div>
           )}
         </div>
 
         <div className={styles.rewardBox}>
-          <h3 className={styles.boxTitle}>보상</h3>
+          <h3 className={styles.boxTitle}>{t('quest.rewards')}</h3>
           <div className={styles.rewardGrid}>
             <div className={styles.rewardCell}>
               <span className={styles.rewardIcon}>💎</span>
@@ -131,7 +135,9 @@ export default function QuestDetail() {
         </div>
 
         <Button onClick={handleStart} disabled={isLocked}>
-          {isLocked ? `Lv.${quest.minLevel}부터 가능` : '퀘스트 시작 →'}
+          {isLocked
+            ? t('quest.lockedLevel', { level: quest.minLevel })
+            : t('quest.startBtn')}
         </Button>
       </div>
 
@@ -152,18 +158,16 @@ function LockModal({
 }) {
   const { progress } = expToNextLevel(user.levelExp, user.level);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div className={styles.lockBackdrop}>
       <div className={styles.lockCard}>
         <div className={styles.lockIcon}>🔒</div>
-        <h2>Lv.{quest.minLevel}부터 도전할 수 있어요</h2>
-        <p>현재 Lv.{user.level} · 다음 레벨까지</p>
-        <div className={styles.lockBar}>
-          <div
-            className={styles.lockBarFill}
-            style={{ width: `${progress * 100}%` }}
-          />
+        <h2>{t('quest.lockTitle', { level: quest.minLevel })}</h2>
+        <p>{t('quest.lockSub', { level: quest.minLevel, currentLevel: user.level })}</p>
+        <div style={{ margin: '16px 0 24px' }}>
+          <ProgressBar progress={progress * 100} />
         </div>
         <Button
           onClick={() => {
@@ -171,10 +175,10 @@ function LockModal({
             setTimeout(() => navigate('/quests'), 50);
           }}
         >
-          더 쉬운 퀘스트 보기
+          {t('quest.lockEasierBtn')}
         </Button>
         <button className={styles.lockClose} onClick={onClose}>
-          닫기
+          {t('common.close')}
         </button>
       </div>
     </div>

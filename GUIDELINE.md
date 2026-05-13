@@ -20,5 +20,5 @@
 
 4. **프론트 작업 배포 명령어**
    ```
-   cd /home/doil/workspace/w_dev/saigon_rider && docker compose --env-file .env up --build -d frontend
+   docker compose --env-file .env up --build -d frontend
    ```

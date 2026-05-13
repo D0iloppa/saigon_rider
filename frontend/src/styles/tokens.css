@@ -1,0 +1,78 @@
+/* Saigon Rider Design Tokens */
+:root {
+  /* Brand — Saigon Heat */
+  --brand-50:  #FFF1E8;
+  --brand-100: #FFDDC4;
+  --brand-200: #FFBB8A;
+  --brand-300: #FF9966;
+  --brand-500: #FF5A1F;
+  --brand-600: #ED4310;
+  --brand-700: #B82C08;
+  --brand-900: #4A1203;
+
+  /* Night Ride — 게임 다크 */
+  --ink-900: #08090F;
+  --ink-800: #11131C;
+  --ink-700: #1A1D2A;
+  --ink-600: #262A3D;
+  --ink-500: #3D4256;
+
+  /* Neon (라이딩 HUD) */
+  --neon-cyan:  #00F0FF;
+  --neon-lime:  #B6FF1C;
+  --neon-pink:  #FF2D9C;
+  --neon-amber: #FFB800;
+
+  /* Game Currency */
+  --xp:    #8B5CF6;
+  --exp:   #22C55E;
+  --gold:  #FFB800;
+
+  /* Surfaces */
+  --bg:        #F7F5F0;
+  --surface:   #FFFFFF;
+  --surface-2: #FAF7F2;
+  --line:      #E8E3DA;
+  --text:      #0B0D14;
+  --text-2:    #4A4F62;
+  --text-3:    #8A8E9E;
+
+  /* Status */
+  --success: #16A34A;
+  --warn:    #F59E0B;
+  --danger:  #EF3B3B;
+
+  /* Elevation */
+  --shadow-card:
+    0 1px 2px rgba(11,13,20,.04),
+    0 4px 12px rgba(11,13,20,.06),
+    0 16px 40px rgba(11,13,20,.06);
+  --shadow-pop:
+    0 8px 24px rgba(255,90,31,.20),
+    0 24px 60px rgba(255,90,31,.18);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,.6);
+
+  /* Gradients */
+  --grad-sunset:
+    radial-gradient(at 20% 20%, #FFD96B 0%, transparent 50%),
+    radial-gradient(at 80% 30%, #FF5A1F 0%, transparent 55%),
+    radial-gradient(at 60% 90%, #7C3AED 0%, transparent 60%),
+    linear-gradient(160deg, #FF7438, #B82C08);
+  --grad-night:
+    radial-gradient(at 30% 20%, #1A1D2A 0%, transparent 50%),
+    radial-gradient(at 70% 80%, #FF2D9C 0%, transparent 30%),
+    linear-gradient(160deg, #11131C, #08090F);
+
+  /* Radii */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --app-max-width: 480px;
+  --tabbar-height: 84px;
+  --header-safe: env(safe-area-inset-top, 0px);
+  --bottom-safe: env(safe-area-inset-bottom, 0px);
+}

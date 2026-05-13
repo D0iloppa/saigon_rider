@@ -34,7 +34,8 @@ services:
     networks:
       - dev-net
     environment:
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_USE_MOCK=${VITE_USE_MOCK:-true}
+      - VITE_API_BASE=${VITE_API_BASE}
     restart: unless-stopped
 
   # ── Imgproxy (Image Processing) ───────────────────────────

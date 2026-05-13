@@ -1,0 +1,80 @@
+.tabbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 8px 4px calc(8px + var(--bottom-safe));
+  height: var(--tabbar-height);
+  flex-shrink: 0;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.04);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  color: var(--text-3);
+  transition: color .15s ease;
+  position: relative;
+  text-decoration: none;
+}
+
+.tab:active {
+  transform: scale(0.95);
+}
+
+.icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.active {
+  color: var(--brand-500);
+}
+
+.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 3px;
+  background: var(--brand-500);
+  border-radius: 0 0 4px 4px;
+}
+
+.fab {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px;
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-8px);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.fab:active {
+  transform: translateY(-8px) scale(0.95);
+}
+
+.fabIcon {
+  font-size: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+}

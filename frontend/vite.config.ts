@@ -1,20 +1,25 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import { fileURLToPath, URL } from 'node:url'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [react()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
-    host: '0.0.0.0',
     port: 5173,
+    host: true, // 모바일에서 LAN으로 접속 가능
+    hmr: {
+      clientPort: 18090,
+      host: '0.0.0.0',
+      protocol: 'ws',
+    },
+    allowedHosts: true,
     watch: {
-      usePolling: true, // WSL + Docker 환경에서 inotify 미작동 대응
-      interval: 300,
+      usePolling: true,
     },
   },
 })

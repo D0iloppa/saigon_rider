@@ -10,12 +10,16 @@
 database/data/
 
 # =============================================================
-# Frontend (Vue 3 + Vite + Node)
+# Frontend (React + Vite + Node)
 # =============================================================
 frontend/node_modules/
 frontend/dist/
+frontend/dist-ssr/
 frontend/.vite/
 frontend/*.local
+frontend/.env
+frontend/.env.local
+frontend/.eslintcache
 
 # =============================================================
 # Backend (Spring Boot / Maven)

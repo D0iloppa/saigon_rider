@@ -1,0 +1,202 @@
+.root { position: relative; }
+
+.loading {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.hero {
+  height: 320px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 30%, rgba(0,0,0,.8) 100%);
+}
+
+.heroContent {
+  position: absolute;
+  bottom: 40px;
+  left: 24px;
+  right: 24px;
+  color: white;
+}
+
+.heroTag {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--neon-amber);
+  margin-bottom: 8px;
+}
+
+.heroTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 24px rgba(0,0,0,.5);
+}
+
+.sheet {
+  position: relative;
+  margin-top: -28px;
+  padding: 24px 20px calc(24px + var(--bottom-safe));
+  background: var(--surface);
+  border-radius: 32px 32px 0 0;
+}
+
+.metaRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.metaChip {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  color: var(--text-2);
+}
+
+.desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin-bottom: 20px;
+}
+
+.conditionBox, .rewardBox {
+  background: var(--surface-2);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.rewardBox {
+  background: var(--brand-50);
+}
+
+.boxTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.conditionRow {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 0;
+  align-items: center;
+}
+
+.rewardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.rewardCell {
+  background: white;
+  border-radius: 14px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.rewardIcon {
+  font-size: 22px;
+}
+
+.rewardLabel {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.rewardNum {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+
+/* Lock */
+.lockBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11,13,20,.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.lockCard {
+  background: var(--surface);
+  border-radius: 28px;
+  padding: 32px 24px 24px;
+  text-align: center;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: var(--shadow-pop);
+}
+
+.lockIcon {
+  font-size: 64px;
+  margin-bottom: 12px;
+}
+
+.lockCard h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.lockCard p {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+
+.lockBar {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.lockBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-amber), var(--brand-500));
+  border-radius: 999px;
+}
+
+.lockClose {
+  margin-top: 12px;
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px;
+}

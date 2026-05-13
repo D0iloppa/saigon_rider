@@ -1,29 +1,25 @@
 {
   "name": "saigon-rider",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host",
+    "lint": "eslint . --ext ts,tsx"
   },
   "dependencies": {
-    "vue": "^3.5.32",
-    "vue-router": "^4.5.1",
-    "pinia": "^3.0.3"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
-    "@types/node": "^24.12.2",
-    "@vitejs/plugin-vue": "^6.0.6",
-    "@vue/tsconfig": "^0.9.1",
-    "typescript": "~6.0.2",
-    "vite": "^8.0.10",
-    "vue-tsc": "^3.2.7",
-    "@vue/eslint-config-typescript": "^14.5.1",
-    "eslint": "^9.30.0",
-    "eslint-plugin-vue": "^10.3.0",
-    "prettier": "^3.5.3",
-    "@vue/eslint-config-prettier": "^10.2.0"
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0"
   }
 }

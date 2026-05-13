@@ -1,0 +1,44 @@
+.shell {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+  background: #0B0D14;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  max-width: var(--app-max-width);
+  height: 100dvh;
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewport {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+/* 데스크탑에선 모바일 프레임 시뮬레이션 */
+@media (min-width: 768px) {
+  .shell {
+    padding: 32px;
+    background: linear-gradient(135deg, #2A2010 0%, #0B0D14 100%);
+  }
+  .frame {
+    height: min(900px, calc(100dvh - 64px));
+    border-radius: 44px;
+    box-shadow:
+      0 0 0 12px #0B0D14,
+      0 0 0 14px rgba(255,255,255,.08),
+      0 40px 100px rgba(0,0,0,.5);
+  }
+}

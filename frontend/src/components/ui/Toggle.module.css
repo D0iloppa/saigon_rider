@@ -1,0 +1,29 @@
+.toggle {
+  width: 52px;
+  height: 32px;
+  background: var(--line);
+  border-radius: 999px;
+  position: relative;
+  transition: background .2s ease;
+  flex-shrink: 0;
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
+  transition: transform .2s ease;
+}
+
+.on {
+  background: var(--brand-500);
+}
+
+.on .thumb {
+  transform: translateX(20px);
+}

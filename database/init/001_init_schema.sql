@@ -69,6 +69,7 @@ CREATE TABLE users (
     gold        INTEGER      NOT NULL DEFAULT 0 CHECK (gold >= 0),
     skill_pt    INTEGER      NOT NULL DEFAULT 0 CHECK (skill_pt >= 0),
     avatar_url  TEXT,
+    passcode_hash VARCHAR(255),
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

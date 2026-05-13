@@ -63,6 +63,16 @@
   border-bottom: none;
   cursor: pointer;
   border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.flagEmoji {
+  width: 28px !important;
+  height: 21px !important;
+  flex-shrink: 0;
+  border-radius: 3px;
+  overflow: hidden;
 }
 
 .flagImg {
@@ -79,6 +89,7 @@
 
 .input input {
   flex: 1;
+  min-width: 0;
   font-family: 'Space Grotesk', sans-serif;
   font-size: 24px;
   font-weight: 500;

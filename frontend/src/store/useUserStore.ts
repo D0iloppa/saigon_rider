@@ -11,6 +11,8 @@ interface UserState {
   // actions
   loginFromBackend: (dto: UserDto) => void;
   setProfile: (nickname: string, riderStyle: RiderStyle) => void;
+  updateNickname: (nickname: string) => void;
+  updateAvatar: (avatarUrl: string) => void;
   logout: () => void;
   addExp: (levelExp: number, xpPoints: number) => void;
   addGold: (gold: number) => void;
@@ -51,6 +53,18 @@ export const useUserStore = create<UserState>()(
         const u = get().user;
         if (!u) return;
         set({ user: { ...u, nickname, riderStyle } });
+      },
+
+      updateNickname: (nickname) => {
+        const u = get().user;
+        if (!u) return;
+        set({ user: { ...u, nickname } });
+      },
+
+      updateAvatar: (avatarUrl) => {
+        const u = get().user;
+        if (!u) return;
+        set({ user: { ...u, avatarUrl } });
       },
 
       logout: () => {

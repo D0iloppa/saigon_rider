@@ -137,7 +137,14 @@
     "earnedAt": "Đạt được: {{date}}",
     "gold": "Vàng",
     "skillPt": "Điểm kỹ năng",
-    "expToNextLevel": "{{exp}} EXP → LV.{{level}}"
+    "expToNextLevel": "{{exp}} EXP → LV.{{level}}",
+    "editNickname": "Đổi biệt danh",
+    "editAvatar": "Đổi ảnh",
+    "nicknamePlaceholder": "Nhập biệt danh (tối đa 30 ký tự)",
+    "nicknameError": "Biệt danh này đã được sử dụng",
+    "avatarError": "Tải ảnh lên thất bại",
+    "saving": "Đang lưu...",
+    "saveBtn": "Lưu"
   },
   "settings": {
     "title": "Cài đặt",

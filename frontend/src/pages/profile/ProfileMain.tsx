@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/Button';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber } from '@/lib/format';
 import type { Badge } from '@/api/types';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { Chip } from '@/components/ui/Chip';
 import { LevelBadge } from '@/components/ui/LevelBadge';
+import { Chip } from '@/components/ui/Chip';
+import { apiUploadAvatar, apiUpdateNickname } from '@/api/profile';
 import styles from './ProfileMain.module.css';
 
 const RECENT_RIDES = [
@@ -20,11 +20,69 @@ const RECENT_RIDES = [
 ];
 
 export default function ProfileMain() {
+  // ── hooks (must be before any early return) ──────────────
   const user = useUserStore((s) => s.user);
+  const updateAvatar = useUserStore((s) => s.updateAvatar);
+  const updateNickname = useUserStore((s) => s.updateNickname);
   const navigate = useNavigate();
   const { t } = useTranslation();
+
   const [tab, setTab] = useState<'history' | 'badges' | 'gear'>('history');
   const [activeBadge, setActiveBadge] = useState<Badge | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+
+  const [nickModal, setNickModal] = useState(false);
+  const [nickInput, setNickInput] = useState('');
+  const [nickSaving, setNickSaving] = useState(false);
+  const [nickError, setNickError] = useState('');
+
+  // ── guard (TypeScript narrows user → User below this line) ──
+  if (!user) return null;
+
+  // user이 User로 narrowing된 이후 캡처 → async 클로저에서도 타입 안전
+  const u = user;
+  const { needed, progress } = expToNextLevel(u.levelExp, u.level);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    setAvatarError('');
+    try {
+      const result = await apiUploadAvatar(u.id, file);
+      updateAvatar(result.user.avatar_url ?? '');
+    } catch (err: any) {
+      setAvatarError(err.message ?? t('profile.avatarError'));
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  function openNickModal() {
+    setNickInput(u.nickname ?? '');
+    setNickError('');
+    setNickModal(true);
+  }
+
+  async function handleNickSave() {
+    const trimmed = nickInput.trim();
+    if (!trimmed) return;
+    setNickSaving(true);
+    setNickError('');
+    try {
+      await apiUpdateNickname(u.id, trimmed);
+      updateNickname(trimmed);
+      setNickModal(false);
+    } catch (err: any) {
+      setNickError(err.message ?? t('profile.nicknameError'));
+    } finally {
+      setNickSaving(false);
+    }
+  }
 
   const TABS = [
     { key: 'history' as const, label: t('profile.tabHistory') },
@@ -32,42 +90,67 @@ export default function ProfileMain() {
     { key: 'gear'    as const, label: t('profile.tabGear') },
   ];
 
-  if (!user) return null;
-  const { needed, progress } = expToNextLevel(user.levelExp, user.level);
-
   return (
     <div className={styles.root}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.noise} />
-        <button
-          className={styles.settingsBtn}
-          onClick={() => navigate('/settings')}
-        >
+        <button className={styles.settingsBtn} onClick={() => navigate('/settings')}>
           ⚙
         </button>
+
+        {/* Avatar */}
         <div className={styles.avatarWrap}>
-          <img src={user.avatarUrl} alt="" className={styles.avatar} />
+          <img
+            src={u.avatarUrl}
+            alt=""
+            className={`${styles.avatar} ${avatarUploading ? styles.avatarLoading : ''}`}
+          />
+          <button
+            className={styles.cameraBtn}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={avatarUploading}
+            aria-label={t('profile.editAvatar')}
+          >
+            {avatarUploading ? '⏳' : '📷'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={handleAvatarChange}
+          />
           <div style={{ position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)' }}>
-            <LevelBadge level={user.level} />
+            <LevelBadge level={u.level} />
           </div>
         </div>
-        <h1 className={styles.nick}>{user.nickname}</h1>
+
+        {avatarError && <p className={styles.avatarErrorMsg}>{avatarError}</p>}
+
+        {/* Nickname */}
+        <div className={styles.nickRow}>
+          <h1 className={styles.nick}>{u.nickname}</h1>
+          <button className={styles.editNickBtn} onClick={openNickModal} aria-label={t('profile.editNickname')}>
+            ✏️
+          </button>
+        </div>
+
         <div style={{ margin: '8px auto 24px', display: 'flex', justifyContent: 'center' }}>
           <Chip variant="surface">
             🌙{' '}
-            {user.riderStyle === 'commuter'
+            {u.riderStyle === 'commuter'
               ? t('profileSetup.styleCommuterTitle')
-              : user.riderStyle === 'cafe_hunter'
+              : u.riderStyle === 'cafe_hunter'
               ? t('profileSetup.styleCafeHunterTitle')
               : t('profileSetup.styleNightRiderTitle')}
           </Chip>
         </div>
 
         <div className={styles.levelRow}>
-          <span className={styles.levelText}>LV.{user.level}</span>
+          <span className={styles.levelText}>LV.{u.level}</span>
           <span className={styles.levelTextRight}>
-            {t('profile.expToNextLevel', { exp: formatNumber(needed), level: user.level + 1 })}
+            {t('profile.expToNextLevel', { exp: formatNumber(needed), level: u.level + 1 })}
           </span>
         </div>
         <div className={styles.levelBar}>
@@ -77,26 +160,24 @@ export default function ProfileMain() {
 
       {/* Sheet */}
       <div className={styles.sheet}>
-        {/* Currency Bento */}
         <div className={styles.currencyBento}>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--xp)' }}>
             <span style={{ fontSize: 28 }}>💎</span>
-            <div className={styles.currencyNum}>{formatNumber(user.xpPoints)}</div>
+            <div className={styles.currencyNum}>{formatNumber(u.xpPoints)}</div>
             <div className={styles.currencyLabel}>{t('ride.xpPointsLabel')}</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gold)' }}>
             <span style={{ fontSize: 28 }}>🪙</span>
-            <div className={styles.currencyNum}>{formatNumber(user.gold)}</div>
+            <div className={styles.currencyNum}>{formatNumber(u.gold)}</div>
             <div className={styles.currencyLabel}>{t('profile.gold')}</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--brand-500)' }}>
             <span style={{ fontSize: 28 }}>⭐</span>
-            <div className={styles.currencyNum}>{user.skillPoints}</div>
+            <div className={styles.currencyNum}>{u.skillPoints}</div>
             <div className={styles.currencyLabel}>{t('profile.skillPt')}</div>
           </div>
         </div>
 
-        {/* Monthly stats */}
         <div className={styles.statsCard}>
           <h3 className={styles.cardTitle}>{t('profile.thisMonth')}</h3>
           <div className={styles.statsRow}>
@@ -120,30 +201,16 @@ export default function ProfileMain() {
                 <stop offset="100%" stopColor="var(--neon-cyan)" stopOpacity="0" />
               </linearGradient>
             </defs>
-            <path
-              d="M 0 40 Q 35 30 70 32 T 140 28 T 210 24 T 280 18 L 280 60 L 0 60 Z"
-              fill="url(#chartGrad)"
-            />
-            <path
-              d="M 0 40 Q 35 30 70 32 T 140 28 T 210 24 T 280 18"
-              stroke="var(--neon-cyan)"
-              strokeWidth="2.5"
-              fill="none"
-              strokeLinecap="round"
-            />
+            <path d="M 0 40 Q 35 30 70 32 T 140 28 T 210 24 T 280 18 L 280 60 L 0 60 Z" fill="url(#chartGrad)" />
+            <path d="M 0 40 Q 35 30 70 32 T 140 28 T 210 24 T 280 18" stroke="var(--neon-cyan)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
             <circle cx="280" cy="18" r="4" fill="var(--neon-cyan)" />
             <circle cx="280" cy="18" r="8" fill="var(--neon-cyan)" opacity="0.3" />
           </svg>
         </div>
 
-        {/* Tabs */}
         <div className={styles.tabRow}>
           {TABS.map((tb) => (
-            <button
-              key={tb.key}
-              className={`${styles.tab} ${tab === tb.key ? styles.tabActive : ''}`}
-              onClick={() => setTab(tb.key)}
-            >
+            <button key={tb.key} className={`${styles.tab} ${tab === tb.key ? styles.tabActive : ''}`} onClick={() => setTab(tb.key)}>
               {tb.label}
             </button>
           ))}
@@ -158,11 +225,7 @@ export default function ProfileMain() {
                   <div className={styles.historyTitle}>{r.title}</div>
                   <div className={styles.historyDate}>{r.date}</div>
                 </div>
-                <div
-                  className={`${styles.gradeChip} ${
-                    r.result === 'A' ? styles.gradeA : styles.gradeB
-                  }`}
-                >
+                <div className={`${styles.gradeChip} ${r.result === 'A' ? styles.gradeA : styles.gradeB}`}>
                   {r.result}
                 </div>
               </div>
@@ -173,11 +236,7 @@ export default function ProfileMain() {
         {tab === 'badges' && (
           <div className={styles.badgeGrid}>
             {MOCK_BADGES.map((b) => (
-              <button
-                key={b.key}
-                className={`${styles.badgeCell} ${!b.earned ? styles.badgeLocked : ''}`}
-                onClick={() => setActiveBadge(b)}
-              >
+              <button key={b.key} className={`${styles.badgeCell} ${!b.earned ? styles.badgeLocked : ''}`} onClick={() => setActiveBadge(b)}>
                 <div className={styles.badgeIcon}>{b.iconEmoji}</div>
                 <div className={styles.badgeName}>{b.name}</div>
               </button>
@@ -209,16 +268,41 @@ export default function ProfileMain() {
               </div>
               {activeBadge.earnedAt && (
                 <p className={styles.modalDate}>
-                  {t('profile.earnedAt', {
-                    date: new Date(activeBadge.earnedAt).toLocaleDateString(),
-                  })}
+                  {t('profile.earnedAt', { date: new Date(activeBadge.earnedAt).toLocaleDateString() })}
                 </p>
               )}
               <div className={styles.modalActions}>
-                <Button variant="ghost" onClick={() => setActiveBadge(null)}>
+                <Button variant="ghost" onClick={() => setActiveBadge(null)}>{t('common.close')}</Button>
+                {activeBadge.earned && <Button>{t('common.share')}</Button>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nickname edit modal */}
+      {nickModal && (
+        <div className={styles.modalBackdrop} onClick={() => setNickModal(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalBody}>
+              <div className={styles.modalKey}>{t('profile.editNickname')}</div>
+              <input
+                className={styles.nickInput}
+                value={nickInput}
+                onChange={(e) => setNickInput(e.target.value)}
+                maxLength={30}
+                placeholder={t('profile.nicknamePlaceholder')}
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleNickSave()}
+              />
+              {nickError && <p className={styles.nickErrorMsg}>{nickError}</p>}
+              <div className={styles.modalActions}>
+                <Button variant="ghost" onClick={() => setNickModal(false)} disabled={nickSaving}>
                   {t('common.close')}
                 </Button>
-                {activeBadge.earned && <Button>{t('common.share')}</Button>}
+                <Button onClick={handleNickSave} disabled={nickSaving || !nickInput.trim()}>
+                  {nickSaving ? t('profile.saving') : t('profile.saveBtn')}
+                </Button>
               </div>
             </div>
           </div>

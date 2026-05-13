@@ -39,6 +39,70 @@
   border: 4px solid white;
   box-shadow: var(--shadow-pop);
   object-fit: cover;
+  transition: opacity .2s;
+}
+
+.avatarLoading { opacity: 0.5; }
+
+.cameraBtn {
+  position: absolute;
+  bottom: 2px; right: 2px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  border: 2px solid white;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.avatarErrorMsg {
+  font-size: 11px;
+  color: var(--error, #ff4d6d);
+  margin-top: -6px;
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.nickRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+}
+
+.editNickBtn {
+  font-size: 14px;
+  opacity: 0.7;
+  padding: 2px 4px;
+  position: relative;
+}
+
+.nickInput {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--brand-200, #c7d2fe);
+  background: var(--bg);
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text-1);
+  margin: 12px 0 4px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.nickInput:focus { border-color: var(--brand-500); }
+
+.nickErrorMsg {
+  font-size: 12px;
+  color: var(--error, #ff4d6d);
+  margin-bottom: 8px;
+  text-align: center;
 }
 
 .levelBadge {
@@ -60,7 +124,6 @@
 .nick {
   font-size: 20px;
   font-weight: 700;
-  position: relative;
 }
 
 .styleChip {

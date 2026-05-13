@@ -1,9 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add *)",
-      "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/api/docs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/api/openapi.json)",
+      "Bash(curl -s http://localhost:18090/api/openapi.json)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('title:', d['info']['title']\\); print\\('paths:', list\\(d['paths'].keys\\(\\)\\)\\)\")",
+      "Bash(xargs ls -la)",
+      "Bash(xargs cat)"
     ]
   }
 }

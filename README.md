@@ -82,21 +82,26 @@ saigon_rider/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── app/
-│       ├── main.py             # FastAPI 앱 엔트리포인트, CORS
+│       ├── main.py             # FastAPI 앱 엔트리포인트, CORS, Swagger 설정
 │       ├── database.py         # SQLAlchemy async 엔진 (asyncpg)
-│       ├── models.py           # User ORM 모델
+│       ├── models.py           # User, Content ORM 모델
 │       ├── schemas.py          # Pydantic 요청/응답 스키마
+│       ├── utils.py            # imgproxy URL 빌더, 기본 아바타 URL
 │       └── routers/
-│           └── auth.py         # POST /api/auth/register, POST /api/auth/login
+│           ├── auth.py         # POST /api/auth/register, /login, GET /api/auth/me
+│           ├── contents.py     # POST /api/contents/upload, GET /api/contents/{id}
+│           └── profile.py      # POST /api/profile/avatar, PUT /api/profile/nickname
 ├── database/
 │   └── init/                   # 컨테이너 최초 기동 시 파일명 순서대로 자동 실행
 │       ├── 001_init_schema.sql # 전체 테이블 + ENUM + 인덱스
-│       └── 002_add_passcode.sql# users.passcode_hash 컬럼 추가
+│       ├── 002_contents_schema.sql  # contents 테이블 + content_owner_type ENUM
+│       └── 003_profile_avatar.sql   # users.avatar_content_id 컬럼 추가
 ├── nginx/
 │   └── conf.d/
 │       └── default.conf        # /api/ → backend, /img/ → imgproxy, / → frontend
 ├── contents/
-│   └── user-contents/          # imgproxy 로컬 파일 루트 (git 추적 제외)
+│   ├── system/                 # 정적 리소스 (saigon-default.jpg 등, git 추적)
+│   └── user-contents/          # 유저 업로드 이미지 (yyyy/mm/uuid.ext, git 추적 제외)
 └── shared/                     # 서비스 간 공유 리소스
 ```
 
@@ -134,10 +139,17 @@ docker compose up --build -d
 docker compose --profile backend up --build -d
 ```
 
+### 프론트엔드 재빌드
+```bash
+docker compose --env-file .env up --build -d frontend
+```
+
 ### 접속 URL
 
 - **메인** → http://localhost:18090
 - **API** → http://localhost:18090/api/health
+- **Swagger UI** → http://localhost:18090/api/docs
+- **ReDoc** → http://localhost:18090/api/redoc
 - **Vite 직접** → http://localhost:5174 (HMR WebSocket 확인용)
 
 ### 로그 확인
@@ -175,12 +187,37 @@ docker compose down -v
 
 ### API 엔드포인트
 
+전체 명세는 **Swagger UI** (`/api/docs`) 에서 직접 확인 및 실행할 수 있습니다.
+
+#### 인증 (Auth)
+
 | Method | Path | 설명 |
 |---|---|---|
-| POST | `/api/auth/register` | 신규 가입 (phone → passcode 발급) |
-| POST | `/api/auth/login` | 로그인 (phone + passcode 검증) |
-| GET | `/api/auth/me?phone=...` | 현재 유저 조회 |
-| GET | `/api/health` | 헬스체크 |
+| `POST` | `/api/auth/register` | 신규 가입 — phone → passcode 발급 (`is_new=false`면 재발급) |
+| `POST` | `/api/auth/login` | 로그인 — phone + passcode 검증 |
+| `GET` | `/api/auth/me?phone=` | 유저 조회 |
+
+#### 컨텐츠 (Contents)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/contents/upload` | 이미지 업로드 (multipart) → imgproxy URL 반환 |
+| `GET` | `/api/contents/{id}` | 컨텐츠 메타데이터 + imgproxy URL 조회 |
+
+#### 프로필 (Profile)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/profile/avatar` | 프로필 사진 업로드 및 변경 |
+| `PUT` | `/api/profile/nickname` | 닉네임 변경 (중복 검사 포함) |
+
+#### 시스템
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/health` | 헬스체크 |
+| `GET` | `/api/docs` | Swagger UI |
+| `GET` | `/api/redoc` | ReDoc |
 
 > **보안 참고**: passcode는 현재 쿠키에 평문 저장됩니다.  
 > 향후 `src/lib/session.ts` 내부를 HttpOnly cookie + JWT 방식으로 교체 예정.
@@ -213,3 +250,5 @@ http://localhost:18090/img/insecure/fill/400/300/sm/0/plain/local:///user-conten
 | `DB_PASSWORD` | - | DB 비밀번호 |
 | `IMGPROXY_KEY` | (비움) | imgproxy 서명 키 (비우면 insecure 모드) |
 | `IMGPROXY_SALT` | (비움) | imgproxy 서명 솔트 |
+| `IMGPROXY_BASE_URL` | `http://localhost:18090/img` | 클라이언트에 반환할 imgproxy 공개 URL |
+| `CONTENTS_BASE_PATH` | `/data` | 컨테이너 내 컨텐츠 볼륨 경로 |

@@ -12,6 +12,7 @@ def utcnow():
 
 # create_type=False: DB에 이미 생성된 ENUM 사용 (001_init_schema.sql에서 생성됨)
 _rider_type_enum = ENUM('COMMUTER', 'CAFE_HUNTER', 'NIGHT_RIDER', name='rider_type', create_type=False)
+_content_owner_type_enum = ENUM('system', 'user', name='content_owner_type', create_type=False)
 
 
 class User(Base):
@@ -27,6 +28,21 @@ class User(Base):
     gold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     skill_pt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Content(Base):
+    __tablename__ = "contents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_type: Mapped[str] = mapped_column(_content_owner_type_enum, nullable=False)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

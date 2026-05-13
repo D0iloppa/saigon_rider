@@ -137,7 +137,14 @@
     "earnedAt": "획득: {{date}}",
     "gold": "골드",
     "skillPt": "스킬 포인트",
-    "expToNextLevel": "{{exp}} EXP → LV.{{level}}"
+    "expToNextLevel": "{{exp}} EXP → LV.{{level}}",
+    "editNickname": "닉네임 변경",
+    "editAvatar": "사진 변경",
+    "nicknamePlaceholder": "닉네임 입력 (최대 30자)",
+    "nicknameError": "이미 사용 중인 닉네임이에요",
+    "avatarError": "사진 업로드에 실패했어요",
+    "saving": "저장 중...",
+    "saveBtn": "저장"
   },
   "settings": {
     "title": "설정",

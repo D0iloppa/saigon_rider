@@ -63,6 +63,7 @@ services:
       - "${BACKEND_PORT}:8080"
     volumes:
       - ./backend:/app
+      - ./contents:/data
     networks:
       - dev-net
     depends_on:
@@ -70,6 +71,10 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - CONTENTS_BASE_PATH=/data
+      - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL}
+      - IMGPROXY_KEY=${IMGPROXY_KEY:-}
+      - IMGPROXY_SALT=${IMGPROXY_SALT:-}
     restart: unless-stopped
 
   # ── Database (PostgreSQL + PostGIS) ───────────────────────

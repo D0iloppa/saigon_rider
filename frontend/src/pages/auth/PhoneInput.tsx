@@ -80,7 +80,7 @@ export default function PhoneInput() {
   };
 
   return (
-    <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       <StatusBar />
       <div className={styles.body}>
         <h1 className={styles.title}>
@@ -101,7 +101,7 @@ export default function PhoneInput() {
               type="button"
               aria-label="Select country code"
             >
-              <span style={{ fontSize: 28, lineHeight: 1 }}>{country.flag}</span>
+              <span className={`fi fi-${country.iso.toLowerCase()} ${styles.flagEmoji}`} />
               <span className={styles.code}>{country.dial}</span>
               <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: -6 }}>▾</span>
             </button>
@@ -123,7 +123,7 @@ export default function PhoneInput() {
                         onClick={() => { setCountry(c); setPickerOpen(false); }}
                         type="button"
                       >
-                        <span className={pickerStyles.itemFlag}>{c.flag}</span>
+                        <span className={`fi fi-${c.iso.toLowerCase()} ${pickerStyles.itemFlag}`} />
                         <span className={pickerStyles.itemName}>{c.name}</span>
                         <span className={pickerStyles.itemDial}>{c.dial}</span>
                       </button>

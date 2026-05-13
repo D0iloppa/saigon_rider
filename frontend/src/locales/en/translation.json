@@ -137,7 +137,14 @@
     "earnedAt": "Earned: {{date}}",
     "gold": "Gold",
     "skillPt": "Skill Pt",
-    "expToNextLevel": "{{exp}} EXP TO LV.{{level}}"
+    "expToNextLevel": "{{exp}} EXP TO LV.{{level}}",
+    "editNickname": "Change Nickname",
+    "editAvatar": "Change Photo",
+    "nicknamePlaceholder": "Enter nickname (max 30 chars)",
+    "nicknameError": "This nickname is already taken",
+    "avatarError": "Failed to upload photo",
+    "saving": "Saving...",
+    "saveBtn": "Save"
   },
   "settings": {
     "title": "Settings",

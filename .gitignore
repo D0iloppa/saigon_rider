@@ -62,3 +62,9 @@ frontend/.capacitor/
 # =============================================================
 contents/user-contents/*
 !contents/user-contents/.gitkeep
+
+# =============================================================
+# AI Agent Context (Local Only)
+# =============================================================
+GUIDELINE.md
+docs/

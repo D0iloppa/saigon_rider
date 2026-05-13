@@ -1,6 +1,6 @@
 # Saigon Rider
 
-모바일 하이브리드 앱 서비스. Vue 3 + Spring Boot 기반 SPA를 Capacitor로 네이티브 앱으로 감싸는 구조.
+모바일 하이브리드 앱 서비스. React + Spring Boot 기반 SPA를 Capacitor로 네이티브 앱으로 감싸는 구조.
 
 ---
 
@@ -9,9 +9,9 @@
 | 레이어 | 기술 |
 |---|---|
 | 모바일 셸 | Capacitor (iOS / Android) |
-| 프론트엔드 | Vue 3 + Vite + TypeScript |
-| 상태관리 | Pinia |
-| 라우팅 | Vue Router |
+| 프론트엔드 | React + Vite + TypeScript |
+| 상태관리 | Zustand |
+| 라우팅 | React Router DOM |
 | 백엔드 | Spring Boot |
 | 데이터베이스 | PostgreSQL 15 + PostGIS |
 | 이미지 처리 | imgproxy |
@@ -23,14 +23,19 @@
 
 ```
 saigon_rider/
-├── frontend/               # Vue 3 + Vite 소스코드
+├── frontend/               # React + Vite 소스코드
 │   ├── Dockerfile.dev      # 개발: Vite dev server (HMR)
 │   ├── Dockerfile          # 배포: npm run build → nginx 정적서빙
 │   └── src/
-│       ├── router/
-│       ├── stores/         # Pinia
-│       ├── views/
-│       └── composables/
+│       ├── api/            # API 호출 로직
+│       ├── assets/         # 정적 이미지, 아이콘 등
+│       ├── components/     # 공통 UI 컴포넌트
+│       ├── data/           # 정적 데이터 및 상수
+│       ├── hooks/          # 커스텀 훅
+│       ├── lib/            # 유틸리티 및 라이브러리 래퍼
+│       ├── pages/          # 화면 페이지 컴포넌트
+│       ├── store/          # 전역 상태 관리 (Zustand)
+│       └── styles/         # 전역/공통 스타일 설정
 ├── backend/                # Spring Boot 소스코드
 ├── database/
 │   └── init/               # 초기화 SQL (.sql 파일 넣으면 자동 실행)

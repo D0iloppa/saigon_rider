@@ -6,6 +6,17 @@
 
 ---
 
+## 0. 엔진 명세 (`docs/engine/`)
+- [SRE 설계서](engine/sre-design-spec.md) - 8개 모듈 경계, 도메인 범위, 보안 모델
+- [SRE 비즈니스 룰](engine/01-sre-business-rules.md) - RP 계산식, 어뷰징 정책, 멱등성, 보상 교환 정책
+- [SRE 기술 스택](engine/02-sre-tech-stack.md) - 패키지 구조, Alembic, APScheduler, 인증 결정
+- [SRE ERD (PostgreSQL)](engine/sre-erd-mermaid.postgres.md) - 전체 테이블 정의 및 관계 (Mermaid)
+- [SRE SQL DDL](engine/sre-schema.postgres.sql) - PostgreSQL 실제 DDL
+- [SRE OpenAPI 명세](engine/sre-api.openapi.yml) - REST API 전체 스펙 (v1)
+- [SRE 미션 룰 매핑](engine/sre-mission-rule-mapping.md) - 미션↔액션 코드 매핑 테이블
+- [SRE 미션 시드 SQL](engine/sre-mission-seed.sql) - 미션 240개 초기 데이터
+
+
 ## 1. 아키텍처 결정 요약
 
 ### 1.1 v1 문서(모놀리식)와의 차이
@@ -412,51 +423,51 @@ mypy>=1.10
 
 ## 10. 구현 단계별 Task Plan
 
-### Phase 1 — Engine 컨테이너 기반 구축
+### Phase 1 — Engine 컨테이너 기반 구축 ✅ 완료 (2026-05-14)
 
-- [ ] `engine/` 디렉터리 및 `Dockerfile` 생성
-- [ ] `engine/requirements.txt` 작성
-- [ ] `engine/app/` 골격 생성 (`main.py`, `config.py`, `enums.py`, `exceptions.py`, `database.py`)
-- [ ] `docker-compose.yml`에 `engine` 서비스 추가 (`saigon_bff`로 기존 backend 서비스명 변경)
-- [ ] `.env` / `.env.example` Engine 환경변수 추가
-- [ ] Nginx `bff` → 프록시 업데이트
+- [x] `engine/` 디렉터리 및 `Dockerfile` 생성
+- [x] `engine/requirements.txt` 작성
+- [x] `engine/app/` 골격 생성 (`main.py`, `config.py`, `enums.py`, `exceptions.py`, `database.py`)
+- [x] `docker-compose.yml`에 `engine` 서비스 추가 (`saigon_bff`로 기존 backend 서비스명 변경)
+- [x] `.env` / `.env.example` Engine 환경변수 추가
+- [x] Nginx `bff` → 프록시 업데이트
 
-### Phase 2 — Engine DB 마이그레이션
+### Phase 2 — Engine DB 마이그레이션 ✅ 완료 (2026-05-14)
 
-- [ ] Alembic 초기화 (`engine/` 기준)
-- [ ] SRE 리비전 001~008 작성 및 `alembic upgrade head` 검증
-- [ ] 정적 시드 리비전 009 작성
+- [x] Alembic 초기화 (`engine/` 기준)
+- [x] SRE 리비전 001~008 작성 및 `alembic upgrade head` 검증
+- [x] 정적 시드 리비전 009 작성
 
-### Phase 3 — Engine 핵심 서비스 레이어
+### Phase 3 — Engine 핵심 서비스 레이어 ✅ 완료 (2026-05-14)
 
-- [ ] `engine/app/models.py` — SQLAlchemy ORM (ERD 기준)
-- [ ] `engine/app/schemas.py` — Pydantic (OpenAPI 스펙 기준)
-- [ ] `engine/app/deps.py` — `verify_service_key`, `verify_admin_jwt`
-- [ ] `services/audit.py` → `point_ledger.py` → `anti_abuse.py` → `diversity.py` → `tier.py` → `event_bus.py` → `mission.py` 순서로 구현
+- [x] `engine/app/models.py` — SQLAlchemy ORM (ERD 기준)
+- [x] `engine/app/schemas.py` — Pydantic (OpenAPI 스펙 기준)
+- [x] `engine/app/deps.py` — `verify_service_key`, `verify_admin_jwt`
+- [x] `services/audit.py` → `point_ledger.py` → `anti_abuse.py` → `diversity.py` → `tier.py` → `event_bus.py` → `mission.py` 순서로 구현
 
-### Phase 4 — Engine API 라우터 및 배치
+### Phase 4 — Engine API 라우터 및 배치 ✅ 완료 (2026-05-14)
 
-- [ ] `routers/events.py` — `POST /v1/events`
-- [ ] `routers/balance.py`, `missions.py`, `catalog.py`, `redemptions.py`
-- [ ] `routers/admin.py`
-- [ ] `adapters/internal.py`, `adapters/stub.py`
-- [ ] `jobs/*.py` — APScheduler 4개 일배치
+- [x] `routers/events.py` — `POST /v1/events`
+- [x] `routers/balance.py`, `missions.py`, `catalog.py`, `redemptions.py`
+- [x] `routers/admin.py`
+- [x] `adapters/internal.py`, `adapters/stub.py`
+- [x] `jobs/*.py` — APScheduler 4개 일배치
 
-### Phase 5 — BFF Engine 클라이언트 연동
+### Phase 5 — BFF Engine 클라이언트 연동 ✅ 완료 (2026-05-14)
 
-- [ ] `backend/app/engine_client.py` 작성 (httpx AsyncClient 래핑)
-- [ ] `backend/requirements.txt`에 `httpx>=0.27` 추가
-- [ ] `ride.py` → `engine_client.post_event()` 연동
-- [ ] `feed.py` → SNS 공유 이벤트 연동
-- [ ] 기존 `backend_todo.md` P0~P1 엔드포인트 구현과 병행
+- [x] `backend/app/engine_client.py` 작성 (httpx AsyncClient 래핑)
+- [x] `backend/requirements.txt`에 `httpx>=0.27` 추가
+- [x] `ride.py` → `engine_client.post_event()` 연동 (RIDE_KM, QUEST_COMPLETE)
+- [x] `feed.py` → SNS 공유 이벤트 연동 (SHARE_SNS)
+- [x] 기존 `backend_todo.md` P0~P1 엔드포인트 구현과 병행 (A-1, A-2, Q-1~Q-7, R-1~R-4, F-1~F-6)
 
 ### Phase 6 — 미션 데이터 및 테스트
 
-- [ ] 미션 240개 데이터 로더 스크립트 (`sre-mission-seed.sql` 기반)
-- [ ] `engine/app/tests/` 단위 테스트 (point_ledger, event_bus, anti_abuse)
-- [ ] Engine `/v1/metrics` Prometheus 엔드포인트
-- [ ] structlog JSON 로깅 설정
-- [ ] 잔액 정합성 검증 배치 테스트
+- [x] ✅ 완료 (2026-05-14) 미션 240개 데이터 로더 스크립트 (`sre-mission-seed.sql` 기반)
+- [x] ✅ 완료 (2026-05-14) `engine/app/tests/` 단위 테스트 (point_ledger, event_bus, anti_abuse)
+- [x] ✅ 완료 (2026-05-14) Engine `/v1/metrics` Prometheus 엔드포인트
+- [x] ✅ 완료 (2026-05-14) structlog JSON 로깅 설정
+- [x] ✅ 완료 (2026-05-14) 잔액 정합성 검증 배치 테스트
 
 ---
 

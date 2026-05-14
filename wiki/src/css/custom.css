@@ -1,0 +1,115 @@
+/* Saigon Rider brand colors */
+:root {
+  --ifm-color-primary: #e85d26;
+  --ifm-color-primary-dark: #d05220;
+  --ifm-color-primary-darker: #c44d1e;
+  --ifm-color-primary-darkest: #a23f18;
+  --ifm-color-primary-light: #eb6e3c;
+  --ifm-color-primary-lighter: #ed7748;
+  --ifm-color-primary-lightest: #f19068;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #f07844;
+  --ifm-color-primary-dark: #ed6628;
+  --ifm-color-primary-darker: #eb5d1b;
+  --ifm-color-primary-darkest: #c44c14;
+  --ifm-color-primary-light: #f38a60;
+  --ifm-color-primary-lighter: #f4926c;
+  --ifm-color-primary-lightest: #f8ab91;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Service card grid */
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin: 2rem 0;
+}
+
+/* <a> 태그이므로 링크 색상 상속 차단 */
+.service-card,
+.service-card:hover,
+.service-card:visited,
+.service-card:active {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  text-decoration: none !important;
+  color: var(--ifm-font-color-base) !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.service-card:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 4px 16px rgba(232, 93, 38, 0.12);
+}
+
+.service-card__icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.service-card__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  /* <a> 내부 링크 색상을 강제 차단, 라이트/다크 모두 기본 텍스트 색상 */
+  color: var(--ifm-font-color-base) !important;
+  margin-bottom: 0.25rem;
+}
+
+.service-card__desc {
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-600);
+  flex: 1;
+}
+
+.service-card__badge {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.badge--public {
+  background: #22c55e22;
+  color: #16a34a;
+}
+
+[data-theme='dark'] .badge--public {
+  background: #16a34a33;
+  color: #4ade80;
+}
+
+.badge--private {
+  background: #f59e0b22;
+  color: #d97706;
+}
+
+[data-theme='dark'] .badge--private {
+  background: #d9770633;
+  color: #fbbf24;
+}
+
+.badge--internal {
+  background: #6366f122;
+  color: #4f46e5;
+}
+
+[data-theme='dark'] .badge--internal {
+  background: #4f46e533;
+  color: #818cf8;
+}
+
+/* Hero section */
+.hero--wiki {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}

@@ -1,5 +1,11 @@
 # Saigon Rider
 
+> **📖 개발자 위키** → **http://localhost:18090/wiki/**  
+> `docker compose --profile wiki up --build -d` 로 wiki 서비스 기동 후 접속  
+> Private 문서(`/wiki/docs/private/`) 접근 시 Basic Auth 필요 — `.env`의 `WIKI_AUTH_USER` / `WIKI_AUTH_PASS` 사용
+
+---
+
 모바일 하이브리드 앱 서비스. React + FastAPI 기반 SPA를 Capacitor로 네이티브 앱으로 감싸는 구조.
 
 ---
@@ -115,6 +121,7 @@ saigon_rider/
 | Frontend | `5174` | Vite dev server 직접 접근 (HMR 확인용) |
 | Backend | `8082` | FastAPI (uvicorn) |
 | Database | `5435` | PostgreSQL (DB 클라이언트 접속용) |
+| Wiki | `18090/wiki/` | Docusaurus 개발자 문서 포털 (`wiki` 프로파일) |
 
 ---
 
@@ -147,11 +154,22 @@ docker compose --env-file .env up --build -d frontend
 ### 접속 URL
 
 - **메인** → http://localhost:18090
+- **개발자 위키** → http://localhost:18090/wiki/
 - **API** → http://localhost:18090/api/health
 - **Swagger UI** → http://localhost:18090/api/docs
 - **ReDoc** → http://localhost:18090/api/redoc
 - **Admin** → http://localhost:18090/admin/login | https://saigon.doil.me/admin/login
 - **Vite 직접** → http://localhost:5174 (HMR WebSocket 확인용)
+
+### 위키 기동
+
+```bash
+# wiki 서비스만 추가 기동
+docker compose --profile wiki up --build -d
+
+# 전체 스택 + wiki
+docker compose --profile backend --profile wiki up --build -d
+```
 
 ### 로그 확인
 

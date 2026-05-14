@@ -1,17 +1,28 @@
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ..database import get_db
+from ..engine_client import engine_client
 from ..models import User, Content
-from ..schemas import UserOut, NicknameUpdateRequest, AvatarUpdateResponse
+from ..schemas import (
+    AvatarUpdateResponse,
+    NicknameCheckResponse,
+    NicknameUpdateRequest,
+    ProfileSaveRequest,
+    RpBalanceResponse,
+    UserOut,
+)
 from ..utils import build_imgproxy_url
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["프로필 (Profile)"])
 
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
@@ -87,7 +98,6 @@ async def update_nickname(body: NicknameUpdateRequest, db: AsyncSession = Depend
     if len(nickname) > 30:
         raise HTTPException(status_code=400, detail="Nickname too long (max 30)")
 
-    # 중복 확인 (자기 자신 제외)
     result = await db.execute(
         select(User).where(User.nickname == nickname, User.id != body.user_id)
     )
@@ -99,3 +109,53 @@ async def update_nickname(body: NicknameUpdateRequest, db: AsyncSession = Depend
     await db.refresh(user)
 
     return UserOut.model_validate(user)
+
+
+# A-1
+@router.get("/check-nickname", response_model=NicknameCheckResponse, summary="닉네임 중복 확인")
+async def check_nickname(nickname: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.nickname == nickname.strip()))
+    available = result.scalar_one_or_none() is None
+    return NicknameCheckResponse(available=available, nickname=nickname.strip())
+
+
+# A-2
+@router.put("", response_model=UserOut, summary="프로필 저장 (닉네임 + rider_type 동시 설정)")
+async def save_profile(body: ProfileSaveRequest, db: AsyncSession = Depends(get_db)):
+    user = await _get_user_or_404(body.user_id, db)
+
+    nickname = body.nickname.strip()
+    if not nickname:
+        raise HTTPException(status_code=400, detail="Nickname cannot be empty")
+    if len(nickname) > 30:
+        raise HTTPException(status_code=400, detail="Nickname too long (max 30)")
+
+    VALID_RIDER_TYPES = {"COMMUTER", "CAFE_HUNTER", "NIGHT_RIDER"}
+    if body.rider_type not in VALID_RIDER_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid rider_type. Must be one of {VALID_RIDER_TYPES}")
+
+    dup = await db.execute(select(User).where(User.nickname == nickname, User.id != body.user_id))
+    if dup.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Nickname already taken")
+
+    user.nickname = nickname
+    user.rider_type = body.rider_type
+    await db.commit()
+    await db.refresh(user)
+
+    return UserOut.model_validate(user)
+
+
+@router.get("/{user_id}/rp-balance", response_model=RpBalanceResponse, summary="RP 잔액 조회")
+async def get_rp_balance(user_id: uuid.UUID):
+    try:
+        data = await engine_client.get_balance(str(user_id))
+        return RpBalanceResponse(**data)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="User not found in SRE engine")
+        log.warning("Engine balance request failed: %s", exc)
+        raise HTTPException(status_code=503, detail="SRE engine unavailable")
+    except httpx.RequestError as exc:
+        log.warning("Engine connection error: %s", exc)
+        raise HTTPException(status_code=503, detail="SRE engine unavailable")

@@ -1,8 +1,11 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import String, Integer, SmallInteger, Text, DateTime
-from sqlalchemy.dialects.postgresql import UUID, ENUM
+from datetime import date, datetime, timezone
+from decimal import Decimal
+
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+
 from .database import Base
 
 
@@ -10,9 +13,12 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-# create_type=False: DB에 이미 생성된 ENUM 사용 (001_init_schema.sql에서 생성됨)
 _rider_type_enum = ENUM('COMMUTER', 'CAFE_HUNTER', 'NIGHT_RIDER', name='rider_type', create_type=False)
 _content_owner_type_enum = ENUM('system', 'user', name='content_owner_type', create_type=False)
+_quest_period_enum = ENUM('DAILY', 'WEEKLY', 'EVENT', name='quest_period', create_type=False)
+_quest_badge_enum = ENUM('HOT', 'NEW', 'LIMITED', name='quest_badge_type', create_type=False)
+_safety_grade_enum = ENUM('A', 'B', 'C', name='safety_grade', create_type=False)
+_quest_status_enum = ENUM('ACCEPTED', 'ACTIVE', 'COMPLETED', 'FAILED', 'ABANDONED', name='quest_status', create_type=False)
 
 
 class User(Base):
@@ -44,5 +50,113 @@ class Content(Base):
     mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Quest(Base):
+    __tablename__ = "quests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hero_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    period: Mapped[str] = mapped_column(_quest_period_enum, nullable=False, default="DAILY")
+    badge: Mapped[str | None] = mapped_column(_quest_badge_enum, nullable=True)
+    required_level: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
+    target_distance_km: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    min_safety_grade: Mapped[str | None] = mapped_column(_safety_grade_enum, nullable=True)
+    reward_exp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_gold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_item: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UserQuest(Base):
+    __tablename__ = "user_quests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    quest_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("quests.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(_quest_status_enum, nullable=False, default="ACCEPTED")
+    is_first_clear: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RideSession(Base):
+    __tablename__ = "ride_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_quest_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("user_quests.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    quest_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("quests.id", ondelete="CASCADE"), nullable=False)
+    distance_km: Mapped[Decimal] = mapped_column(Numeric(7, 3), nullable=False, default=0)
+    duration_sec: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_speed_kmh: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    safety_grade: Mapped[str | None] = mapped_column(_safety_grade_enum, nullable=True)
+    reward_exp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_gold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_item: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_success: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    fail_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RideStreak(Base):
+    __tablename__ = "ride_streaks"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    current_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    longest_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_ride_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Bookmark(Base):
+    __tablename__ = "bookmarks"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    quest_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("quests.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FeedPost(Base):
+    __tablename__ = "feed_posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ride_session_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ride_sessions.id", ondelete="SET NULL"), nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    comment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_story: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class PostLike(Base):
+    __tablename__ = "post_likes"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("feed_posts.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PostComment(Base):
+    __tablename__ = "post_comments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("feed_posts.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("post_comments.id", ondelete="CASCADE"), nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

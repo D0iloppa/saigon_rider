@@ -16,11 +16,15 @@ services:
       - "${NGINX_PORT}:80"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/docker-entrypoint.d:/docker-entrypoint.d:ro
     networks:
       - dev-net
     depends_on:
       - frontend
       - imgproxy
+    environment:
+      - WIKI_AUTH_USER=${WIKI_AUTH_USER:-admin}
+      - WIKI_AUTH_PASS=${WIKI_AUTH_PASS:-changeme}
     restart: unless-stopped
 
   # ── Frontend (React + Vite → nginx 정적 서빙) ────────────
@@ -51,13 +55,13 @@ services:
       - IMGPROXY_ALLOWED_SOURCES=local://
     restart: unless-stopped
 
-  # ── Backend (FastAPI) ─────────────────────────────────────
+  # ── BFF (FastAPI, 기존 backend → 역할 재정의) ───────────────
   # docker compose --profile backend up
-  backend:
+  bff:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: saigon_backend
+    container_name: saigon_bff
     profiles: [backend]
     ports:
       - "${BACKEND_PORT}:8080"
@@ -69,12 +73,59 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      engine:
+        condition: service_started
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - ENGINE_BASE_URL=http://engine:8090
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
       - CONTENTS_BASE_PATH=/data
       - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL}
       - IMGPROXY_KEY=${IMGPROXY_KEY:-}
       - IMGPROXY_SALT=${IMGPROXY_SALT:-}
+    restart: unless-stopped
+
+  # ── Engine (SRE, 신규) ────────────────────────────────────
+  # docker compose --profile backend up
+  engine:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    container_name: saigon_engine
+    profiles: [backend]
+    ports:
+      - "${ENGINE_PORT:-8090}:8090"
+    volumes:
+      - ./engine:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
+      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
+      - SRE_TIMEZONE=Asia/Ho_Chi_Minh
+      - SRE_RP_EXPIRY_MONTHS=3
+      - SRE_DAILY_CAP_STANDARD=250
+      - SRE_DAILY_CAP_DRIVER=2000
+      - SRE_NEW_ACCOUNT_PENALTY_DAYS=3
+      - SRE_NEW_ACCOUNT_MULTIPLIER=0.5
+      - SRE_IDEMPOTENCY_TTL_DAYS=7
+      - SRE_LOG_LEVEL=INFO
+    restart: unless-stopped
+
+  # ── Wiki (Docusaurus — 개발자 문서 포털) ──────────────────────
+  # docker compose --profile wiki up --build -d
+  wiki:
+    build:
+      context: ./wiki
+      dockerfile: Dockerfile
+    container_name: saigon_wiki
+    profiles: [wiki]
+    networks:
+      - dev-net
     restart: unless-stopped
 
   # ── Database (PostgreSQL + PostGIS) ───────────────────────

@@ -10,7 +10,22 @@
       "Bash(xargs ls -la)",
       "Bash(xargs cat)",
       "Bash(ssh doil@saigon.doil.me \"cd /home/doil/workspace/w_dev/saigon_rider && docker compose --profile backend down -v && docker compose --profile backend up -d && docker compose --env-file .env up --build -d frontend\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/admin/login)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/admin/login)",
+      "Bash(chmod +x /mnt/c/DEV/saigon_rider/nginx/docker-entrypoint.d/10-gen-htpasswd.sh)",
+      "Bash(docker build *)",
+      "Bash(docker image *)",
+      "Bash(netstat -tlnp)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/api/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/wiki/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/wiki/docs/intro)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/wiki/docs/private/architecture/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -u admin:saigon2026 http://localhost:18090/wiki/docs/private/architecture/)",
+      "Bash(curl -s -o /dev/null -w \"200 OK: frontend    http://localhost:18090/\\\\n\"                             http://localhost:18090/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} bff health  http://localhost:18090/api/health\\\\n\"              http://localhost:18090/api/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} wiki root   http://localhost:18090/wiki/\\\\n\"                   http://localhost:18090/wiki/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} wiki docs   http://localhost:18090/wiki/docs/intro\\\\n\"         http://localhost:18090/wiki/docs/intro)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} private\\(무인증→401\\) /wiki/docs/private/\\\\n\"                   http://localhost:18090/wiki/docs/private/architecture/)"
     ]
   }
 }

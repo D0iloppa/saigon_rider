@@ -1,0 +1,1218 @@
+openapi: 3.1.0
+info:
+  title: Saigon Rider Reward Engine (SRE) API
+  version: "1.0.0"
+  description: |
+    Saigon Rider Reward Engine 의 REST API 명세.
+    - 외부(모바일 앱 백엔드 게이트웨이)용 v1 API와 관리자(Admin) API를 함께 정의합니다.
+    - 모든 시각은 `RFC 3339` (UTC) 형식, `timestamptz` 와 1:1 매핑.
+    - 모든 변동성 API(POST/PUT/DELETE)는 `Idempotency-Key` 헤더로 멱등성을 강제합니다.
+    - 에러 응답은 RFC 7807 (`application/problem+json`) 을 따릅니다.
+
+servers:
+  - url: https://sre.saigonrider.example.com/v1
+    description: Production
+  - url: https://sre-stg.saigonrider.example.com/v1
+    description: Staging
+
+security:
+  - GatewayToken: []
+
+tags:
+  - name: events
+    description: 행동 이벤트 수집 (모든 RP 변동의 입구)
+  - name: balance
+    description: 포인트 잔액·거래 조회
+  - name: missions
+    description: 미션 진행도·완료·추천
+  - name: rewards
+    description: 보상 카탈로그·교환
+  - name: tier
+    description: 등급·다양성 점수
+  - name: admin
+    description: 관리자 전용 (별도 Admin Token 필요)
+  - name: meta
+    description: 헬스체크·버전
+
+paths:
+
+  /healthz:
+    get:
+      tags: [meta]
+      summary: 헬스체크
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /version:
+    get:
+      tags: [meta]
+      summary: 엔진 버전 정보
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:   { type: string, example: "1.0.0" }
+                  build_sha: { type: string, example: "abc1234" }
+                  built_at:  { type: string, format: date-time }
+
+  /events:
+    post:
+      tags: [events]
+      summary: 행동 이벤트 수집 (RP 적립 트리거)
+      description: |
+        모바일 백엔드가 사용자 행동(라이딩, 영수증 인증 등) 발생 시 호출.
+        엔진이 어뷰징 검증 → RP 계산 → 적립까지 동기 처리하며, `Idempotency-Key`로 중복 적립을 방지합니다.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventCreate" }
+            examples:
+              ride:
+                summary: 라이딩 종료
+                value:
+                  user_id: 123
+                  action_code: RIDE_KM
+                  occurred_at: "2026-05-13T10:23:45Z"
+                  payload: { distance_km: 5.2, ride_id: 9876, district: "District 1" }
+                  idempotency_key: "ride-9876-final"
+      responses:
+        "201":
+          description: 처리 완료 (적립/거부 모두 201)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /events/{event_id}:
+    get:
+      tags: [events]
+      summary: 이벤트 단건 조회 (감사용)
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/{user_id}/balance:
+    get:
+      tags: [balance]
+      summary: 현재 RP 잔액 조회
+      parameters: [ { $ref: "#/components/parameters/UserId" } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Balance" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/{user_id}/transactions:
+    get:
+      tags: [balance]
+      summary: 거래 내역 페이지 조회 (적립/사용/만료/조정)
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: query
+          name: tx_type
+          schema:
+            type: string
+            enum: [EARN, REDEEM, EXPIRE, ADJUST_PLUS, ADJUST_MINUS, REFUND]
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/Transaction" }
+
+  /users/{user_id}/expirations:
+    get:
+      tags: [balance]
+      summary: 만료 예정 RP 스케줄 조회
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: query
+          name: within_days
+          schema: { type: integer, default: 30, minimum: 1, maximum: 365 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ExpirationItem" }
+
+  /users/{user_id}/missions:
+    get:
+      tags: [missions]
+      summary: 사용자의 미션 목록
+      description: |
+        사용자에게 할당된 미션 진행도 목록을 반환합니다.
+        `target_rule.eligibility.account_type`이 지정된 미션은 사용자의 `sre_user.account_type`이 화이트리스트에 포함될 때만 목록에 등장합니다 (예: 드라이버 한정 미션은 일반 계정에게는 노출되지 않음).
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, COMPLETED, EXPIRED, CANCELLED]
+            default: ACTIVE
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [RIDING, MAINT, MARKET, COMMUNITY, DELIVERY, MIXED]
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/MissionProgress" }
+
+  /users/{user_id}/missions/{progress_id}:
+    get:
+      tags: [missions]
+      summary: 사용자 미션 진행도 단건 조회
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: path
+          name: progress_id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MissionProgress" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/{user_id}/missions/{progress_id}/claim:
+    post:
+      tags: [missions]
+      summary: 완료된 미션 보상 수령
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: path
+          name: progress_id
+          required: true
+          schema: { type: integer, format: int64 }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: 보상 적립 완료
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rp_awarded: { type: integer, example: 800 }
+                  transaction_id: { type: integer, format: int64 }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /users/{user_id}/missions/{progress_id}/abandon:
+    post:
+      tags: [missions]
+      summary: 진행 중 미션 포기 (CANCELLED 처리)
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: path
+          name: progress_id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { description: No Content }
+
+  /users/{user_id}/mission-recommendations:
+    get:
+      tags: [missions]
+      summary: 사용자 맞춤 미션 추천
+      description: |
+        사용자에게 추천할 미션 목록을 점수순으로 반환합니다. 추천 모듈은 다음을 검사합니다:
+          1. `target_rule.eligibility.account_type` 화이트리스트
+          2. 활성 윈도우 내 캠페인(`starts_at`/`ends_at`)
+          3. 사용자의 부족한 카테고리 (다양성 계수 향상 우선)
+        자격 미달 미션은 응답에서 제외됩니다.
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 5, minimum: 1, maximum: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MissionRecommendation" }
+
+  /catalog:
+    get:
+      tags: [rewards]
+      summary: 보상 카탈로그 목록
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [BADGE, TELCO, COSMETIC, GIFTCARD]
+        - in: query
+          name: partner_code
+          schema: { type: string }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/CatalogItem" }
+
+  /catalog/{catalog_id}:
+    get:
+      tags: [rewards]
+      summary: 카탈로그 단건 상세
+      parameters:
+        - in: path
+          name: catalog_id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CatalogItem" }
+
+  /users/{user_id}/redemptions:
+    post:
+      tags: [rewards]
+      summary: 보상 교환 요청
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [catalog_id, idempotency_key]
+              properties:
+                catalog_id: { type: integer, format: int64 }
+                idempotency_key: { type: string }
+      responses:
+        "201":
+          description: 교환 완료/요청 접수
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Redemption" }
+        "402":
+          description: 잔액 부족
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    get:
+      tags: [rewards]
+      summary: 사용자 교환 내역 목록
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [REQUESTED, FULFILLED, FAILED, REFUNDED, CANCELLED]
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/Redemption" }
+
+  /users/{user_id}/redemptions/{redemption_id}:
+    get:
+      tags: [rewards]
+      summary: 교환 단건 상세 (바우처 코드 포함)
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: path
+          name: redemption_id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Redemption" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/{user_id}/tier:
+    get:
+      tags: [tier]
+      summary: 사용자 현재 등급
+      parameters: [ { $ref: "#/components/parameters/UserId" } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserTier" }
+
+  /users/{user_id}/diversity-score:
+    get:
+      tags: [tier]
+      summary: 사용자 다양성 점수 (월간)
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - in: query
+          name: month_key
+          required: false
+          schema: { type: integer, example: 202605, description: "YYYYMM" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiversityScore" }
+
+  /tiers:
+    get:
+      tags: [tier]
+      summary: 전체 등급 정의 조회 (공개)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TierDefinition" }
+
+  /admin/action-definitions:
+    get:
+      tags: [admin]
+      summary: 액션 정의 목록
+      security: [ { AdminToken: [] } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ActionDefinition" }
+    post:
+      tags: [admin]
+      summary: 신규 액션 정의 생성
+      security: [ { AdminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ActionDefinition" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionDefinition" }
+
+  /admin/action-definitions/{action_code}:
+    put:
+      tags: [admin]
+      summary: 액션 정의 갱신 (base_rp, is_active 등)
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - in: path
+          name: action_code
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ActionDefinition" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActionDefinition" }
+
+  /admin/mission-definitions:
+    get:
+      tags: [admin]
+      summary: 미션 정의 목록
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: is_active
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/MissionDefinition" }
+    post:
+      tags: [admin]
+      summary: 신규 미션 생성
+      security: [ { AdminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MissionDefinition" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MissionDefinition" }
+
+  /admin/mission-definitions/{mission_id}:
+    put:
+      tags: [admin]
+      summary: 미션 갱신
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - in: path
+          name: mission_id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MissionDefinition" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MissionDefinition" }
+
+  /admin/abuse-rules:
+    get:
+      tags: [admin]
+      summary: 어뷰징 룰 목록
+      security: [ { AdminToken: [] } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AbuseRule" }
+    post:
+      tags: [admin]
+      summary: 어뷰징 룰 생성
+      security: [ { AdminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AbuseRule" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AbuseRule" }
+
+  /admin/abuse-rules/{rule_code}:
+    put:
+      tags: [admin]
+      summary: 어뷰징 룰 갱신
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - in: path
+          name: rule_code
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AbuseRule" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AbuseRule" }
+
+  /admin/users:
+    get:
+      tags: [admin]
+      summary: 사용자 검색 (CS·정산용)
+      description: |
+        외부 UUID, 닉네임, 전화번호 등으로 SRE 사용자를 검색합니다.
+        CS 보정(`/admin/users/{user_id}/adjust`)이나 사용자별 이력 조회를 위한 `user_id` 조회 진입점입니다.
+        최소 한 가지 검색 파라미터가 필요합니다.
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - in: query
+          name: external_user_uuid
+          schema: { type: string }
+        - in: query
+          name: account_type
+          schema:
+            type: string
+            enum: [STANDARD, DRIVER, BUSINESS]
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, SUSPENDED, DELETED]
+        - in: query
+          name: is_driver_verified
+          schema: { type: boolean }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/UserSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/users/{user_id}:
+    get:
+      tags: [admin]
+      summary: 사용자 단건 조회
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/events/{event_id}/reprocess:
+    post:
+      tags: [admin]
+      summary: 거부된 이벤트 재처리 (어뷰징 오탐 정정)
+      description: |
+        `process_status=REJECTED` 또는 `PENDING` 상태의 `action_event`를 재평가합니다.
+        어뷰징 룰 오탐을 운영자가 수동으로 정정할 때 사용합니다.
+        이미 `PROCESSED` 된 이벤트는 충돌 응답이 반환되며, 재처리 시 발생하는 RP 적립은 일반 이벤트와 동일하게 `rp_transaction`에 기록되고 `audit_log`에 운영자 식별자가 함께 남습니다.
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - { $ref: "#/components/parameters/EventId" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                override_abuse_check:
+                  type: boolean
+                  default: false
+                  description: 어뷰징 룰 재검사를 건너뛰고 강제로 적립할지 여부
+                reason:
+                  type: string
+                  maxLength: 200
+                  description: 재처리 사유 (감사 로그 기록용)
+      responses:
+        "200":
+          description: 재처리 완료
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: 이미 PROCESSED 상태인 이벤트
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /admin/users/{user_id}/adjust:
+    post:
+      tags: [admin]
+      summary: 수동 RP 가감 (CS 보정)
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - { $ref: "#/components/parameters/UserId" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tx_type, amount, reason]
+              properties:
+                tx_type:
+                  type: string
+                  enum: [ADJUST_PLUS, ADJUST_MINUS]
+                amount: { type: integer, minimum: 1 }
+                reason: { type: string, maxLength: 200 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+
+  /admin/audit-log:
+    get:
+      tags: [admin]
+      summary: 감사 로그 검색
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - in: query
+          name: entity_type
+          schema: { type: string, example: "rp_transaction" }
+        - in: query
+          name: entity_id
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: actor_user_id
+          schema: { type: integer, format: int64 }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/AuditEntry" }
+
+  /admin/reward-partners:
+    get:
+      tags: [admin]
+      summary: 보상 파트너 목록
+      security: [ { AdminToken: [] } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RewardPartner" }
+    post:
+      tags: [admin]
+      summary: 보상 파트너 등록
+      security: [ { AdminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RewardPartner" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RewardPartner" }
+
+  /admin/catalog:
+    post:
+      tags: [admin]
+      summary: 카탈로그 항목 추가
+      security: [ { AdminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CatalogItem" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CatalogItem" }
+
+  /admin/catalog/{catalog_id}:
+    put:
+      tags: [admin]
+      summary: 카탈로그 항목 갱신
+      security: [ { AdminToken: [] } ]
+      parameters:
+        - in: path
+          name: catalog_id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CatalogItem" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CatalogItem" }
+
+components:
+
+  securitySchemes:
+    GatewayToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        앱 백엔드 게이트웨이가 SRE에 발급받은 서비스 토큰.
+        SRE는 게이트웨이의 토큰만 신뢰하며 모바일 앱이 직접 호출하는 것은 금지됩니다.
+    AdminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 관리자 콘솔 토큰. RBAC 클레임 포함 필요.
+
+  parameters:
+    UserId:
+      in: path
+      name: user_id
+      required: true
+      schema: { type: integer, format: int64 }
+    EventId:
+      in: path
+      name: event_id
+      required: true
+      schema: { type: integer, format: int64 }
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, maxLength: 80 }
+      description: 동일 키 + 동일 페이로드는 동일 응답을 보장. 다른 페이로드는 409.
+    Cursor:
+      in: query
+      name: cursor
+      schema: { type: string }
+      description: 다음 페이지 커서 (이전 응답의 next_cursor 그대로 전달)
+    Limit:
+      in: query
+      name: limit
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+
+  responses:
+    Ok:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, example: ok }
+    BadRequest:
+      description: 잘못된 요청
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: 인증 실패
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: 리소스 없음
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: 멱등성 충돌 / 상태 충돌
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    RateLimited:
+      description: Rate Limit 초과
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: 재시도 가능 시각까지의 초
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+
+    Problem:
+      type: object
+      properties:
+        type:     { type: string, format: uri, example: "https://errors.saigonrider.example.com/insufficient-balance" }
+        title:    { type: string, example: "Insufficient RP balance" }
+        status:   { type: integer, example: 402 }
+        detail:   { type: string, example: "Required 1200 RP but current balance is 800." }
+        instance: { type: string, example: "/v1/users/123/redemptions" }
+        code:     { type: string, example: "INSUFFICIENT_BALANCE" }
+
+    Page:
+      type: object
+      properties:
+        next_cursor: { type: string, nullable: true }
+        has_more:    { type: boolean }
+
+    EventCreate:
+      type: object
+      required: [user_id, action_code, occurred_at, idempotency_key]
+      properties:
+        user_id:         { type: integer, format: int64 }
+        action_code:     { type: string, example: RIDE_KM }
+        occurred_at:     { type: string, format: date-time }
+        payload:         { type: object, additionalProperties: true }
+        idempotency_key: { type: string, maxLength: 80 }
+
+    EventResult:
+      type: object
+      properties:
+        event_id:             { type: integer, format: int64 }
+        process_status:
+          type: string
+          enum: [PROCESSED, REJECTED, PENDING]
+        rp_awarded:           { type: integer, example: 124 }
+        applied_multiplier:   { type: number,  example: 1.4 }
+        diversity_multiplier: { type: number,  example: 1.4 }
+        transaction_id:       { type: integer, format: int64, nullable: true }
+        reject_reason_code:   { type: string, nullable: true }
+
+    Event:
+      allOf:
+        - $ref: "#/components/schemas/EventCreate"
+        - type: object
+          properties:
+            event_id:           { type: integer, format: int64 }
+            process_status:     { type: string }
+            calculated_rp:      { type: number }
+            applied_multiplier: { type: number }
+            reject_reason_code: { type: string, nullable: true }
+            created_at:         { type: string, format: date-time }
+
+    Balance:
+      type: object
+      properties:
+        user_id:           { type: integer, format: int64 }
+        current_balance:   { type: integer, example: 2340 }
+        lifetime_earned:   { type: integer }
+        lifetime_spent:    { type: integer }
+        expiring_in_30d:   { type: integer, example: 120 }
+        tier:              { type: string,  example: Veteran }
+        last_recalculated_at: { type: string, format: date-time }
+
+    Transaction:
+      type: object
+      properties:
+        transaction_id:   { type: integer, format: int64 }
+        user_id:          { type: integer, format: int64 }
+        tx_type:
+          type: string
+          enum: [EARN, REDEEM, EXPIRE, ADJUST_PLUS, ADJUST_MINUS, REFUND]
+        amount:           { type: integer }
+        balance_after:    { type: integer }
+        source_type:      { type: string, example: ACTION }
+        source_id:        { type: integer, format: int64, nullable: true }
+        related_event_id: { type: integer, format: int64, nullable: true }
+        occurred_at:      { type: string, format: date-time }
+        expires_at:       { type: string, format: date-time, nullable: true }
+        memo:             { type: string, nullable: true }
+
+    ExpirationItem:
+      type: object
+      properties:
+        expire_id:            { type: integer, format: int64 }
+        source_transaction_id: { type: integer, format: int64 }
+        remaining_amount:     { type: integer }
+        expires_at:           { type: string, format: date-time }
+        status:
+          type: string
+          enum: [PENDING, PARTIALLY_USED, EXPIRED, FULLY_USED]
+
+    MissionDefinition:
+      type: object
+      required: [mission_code, title, category_code, target_rule, reward_rp]
+      properties:
+        mission_id:     { type: integer, format: int64, readOnly: true }
+        mission_code:   { type: string, maxLength: 60 }
+        title:          { type: string, maxLength: 120 }
+        description:    { type: string, nullable: true }
+        category_code:
+          type: string
+          enum: [RIDING, MAINT, MARKET, COMMUNITY, DELIVERY, MIXED]
+        target_rule:
+          type: object
+          description: |
+            미션 완료 판정 규칙. 자유 형식 JSON이지만 다음 최상위 키 규약을 따릅니다 (전체 스키마는 `sre-mission-rule-mapping.md` 참조):
+
+            - `agg` (필수): `sum_field` | `count_event` | `count_distinct` | `count_distinct_district` | `count_distinct_category` | `count_mission_complete` | `streak_days` | `composite`
+            - `target` (조건부): 목표 수치
+            - `action_code` (조건부): 집계 대상 액션 코드
+            - `field` (선택): `sum_field` / `count_distinct`용 페이로드 필드
+            - `filters` (선택): `time_of_day`, `date`, `weather`, `geo`, `speed_kmh`, `min_duration_min` 등
+            - `window` (선택): `{ type: calendar_day|calendar_week|calendar_month|onboarding|season, label?, days?, raw? }`
+            - `eligibility` (선택): `{ account_type: ["DRIVER" | "STANDARD" | "BUSINESS"], min_account_age_days? }` — 사용자 자격 필터
+            - `composite` (조건부): `{ operator: AND|OR, children: [<rule>...] }`
+          additionalProperties: true
+          example:
+            agg: sum_field
+            target: 5
+            action_code: RIDE_KM
+            field: distance_km
+            window: { type: calendar_day }
+            eligibility: { account_type: ["DRIVER"] }
+        reward_rp:       { type: integer, minimum: 0 }
+        duration_hours:  { type: integer, nullable: true }
+        is_repeatable:   { type: boolean, default: false }
+        starts_at:       { type: string, format: date-time, nullable: true }
+        ends_at:         { type: string, format: date-time, nullable: true }
+        is_active:       { type: boolean, default: true }
+
+    MissionProgress:
+      type: object
+      properties:
+        progress_id:    { type: integer, format: int64 }
+        mission:        { $ref: "#/components/schemas/MissionDefinition" }
+        current_value:  { type: integer }
+        target_value:   { type: integer }
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, EXPIRED, CANCELLED]
+        started_at:     { type: string, format: date-time }
+        completed_at:   { type: string, format: date-time, nullable: true }
+        expires_at:     { type: string, format: date-time, nullable: true }
+
+    MissionRecommendation:
+      type: object
+      properties:
+        rec_id:         { type: integer, format: int64 }
+        mission:        { $ref: "#/components/schemas/MissionDefinition" }
+        score:          { type: number, example: 0.87 }
+        reason_code:    { type: string, example: LOW_DIVERSITY_MAINT }
+        recommended_at: { type: string, format: date-time }
+
+    RewardPartner:
+      type: object
+      required: [partner_code, partner_name, integration_type]
+      properties:
+        partner_id:   { type: integer, format: int64, readOnly: true }
+        partner_code: { type: string }
+        partner_name: { type: string }
+        integration_type:
+          type: string
+          enum: [INTERNAL, GOTIT, URBOX, TELCO, MANUAL]
+        api_config:   { type: object, nullable: true, additionalProperties: true }
+        is_active:    { type: boolean, default: true }
+
+    CatalogItem:
+      type: object
+      required: [partner_id, item_code, item_name, category_code, required_rp]
+      properties:
+        catalog_id:     { type: integer, format: int64, readOnly: true }
+        partner_id:     { type: integer, format: int64 }
+        partner_code:   { type: string, readOnly: true }
+        item_code:      { type: string }
+        item_name:      { type: string }
+        category_code:
+          type: string
+          enum: [BADGE, TELCO, COSMETIC, GIFTCARD]
+        required_rp:    { type: integer, minimum: 1 }
+        face_value_vnd: { type: integer, nullable: true }
+        monthly_quota:  { type: integer, nullable: true }
+        monthly_issued: { type: integer, readOnly: true }
+        is_active:      { type: boolean, default: true }
+        visible_from:   { type: string, format: date-time, nullable: true }
+        visible_until:  { type: string, format: date-time, nullable: true }
+
+    Redemption:
+      type: object
+      properties:
+        redemption_id:     { type: integer, format: int64 }
+        user_id:           { type: integer, format: int64 }
+        catalog:           { $ref: "#/components/schemas/CatalogItem" }
+        rp_transaction_id: { type: integer, format: int64, nullable: true }
+        status:
+          type: string
+          enum: [REQUESTED, FULFILLED, FAILED, REFUNDED, CANCELLED]
+        voucher_code:      { type: string, nullable: true }
+        requested_at:      { type: string, format: date-time }
+        fulfilled_at:      { type: string, format: date-time, nullable: true }
+        expires_at:        { type: string, format: date-time, nullable: true }
+
+    TierDefinition:
+      type: object
+      properties:
+        tier_code:           { type: string, example: VETERAN }
+        tier_name:           { type: string, example: Veteran }
+        min_lifetime_rp:     { type: integer }
+        min_diversity_count: { type: integer }
+        sort_order:          { type: integer }
+
+    UserTier:
+      type: object
+      properties:
+        user_id:           { type: integer, format: int64 }
+        current_tier_code: { type: string, example: VETERAN }
+        progress_to_next:  { type: integer, example: 4200 }
+        achieved_at:       { type: string, format: date-time }
+
+    DiversityScore:
+      type: object
+      properties:
+        user_id:               { type: integer, format: int64 }
+        month_key:             { type: integer, example: 202605 }
+        active_category_count: { type: integer, example: 3 }
+        multiplier:            { type: number,  example: 1.4 }
+        last_calculated_at:    { type: string, format: date-time }
+
+    ActionDefinition:
+      type: object
+      required: [action_code, category_code, display_name]
+      properties:
+        action_code:       { type: string, maxLength: 40 }
+        category_code:     { type: string, maxLength: 20 }
+        display_name:      { type: string, maxLength: 80 }
+        base_rp:           { type: integer, default: 0 }
+        daily_count_limit: { type: integer, nullable: true }
+        is_active:         { type: boolean, default: true }
+        metadata_schema:   { type: object,  nullable: true, additionalProperties: true }
+        updated_at:        { type: string,  format: date-time, readOnly: true }
+
+    AbuseRule:
+      type: object
+      required: [rule_code, rule_name, severity, condition_json, action]
+      properties:
+        rule_code:      { type: string, maxLength: 40 }
+        rule_name:      { type: string }
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        condition_json: { type: object, additionalProperties: true }
+        action:
+          type: string
+          enum: [LOG, REDUCE, REJECT, SUSPEND]
+        is_active:      { type: boolean, default: true }
+
+    UserSummary:
+      type: object
+      description: |
+        SRE 내부 사용자 식별 정보. `sre_user` 테이블의 핵심 컬럼을 노출합니다.
+        모바일 클라이언트에는 절대 노출하지 말고 관리자 API 응답에서만 사용해야 합니다.
+      properties:
+        user_id:              { type: integer, format: int64 }
+        external_user_uuid:   { type: string }
+        account_type:
+          type: string
+          enum: [STANDARD, DRIVER, BUSINESS]
+        is_driver_verified:   { type: boolean }
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, DELETED]
+        created_at:           { type: string, format: date-time }
+        current_balance:      { type: integer, description: "rp_balance 캐시 값 (참고용)" }
+        current_tier_code:    { type: string, nullable: true }
+
+    AuditEntry:
+      type: object
+      properties:
+        audit_id:        { type: integer, format: int64 }
+        entity_type:     { type: string }
+        entity_id:       { type: integer, format: int64 }
+        actor_user_id:   { type: integer, format: int64, nullable: true }
+        action_code:     { type: string }
+        before_snapshot: { type: object, nullable: true, additionalProperties: true }
+        after_snapshot:  { type: object, nullable: true, additionalProperties: true }
+        created_at:      { type: string, format: date-time }

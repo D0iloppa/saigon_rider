@@ -9,16 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import FeedPost, PostComment, PostLike
+from ..models import FeedPost, PostComment, PostLike, RideSession, User
 from ..schemas import (
     CommentCreateRequest,
     CommentOut,
     FeedCreateRequest,
+    FeedPostEnrichedOut,
     FeedPostOut,
     LikeToggleRequest,
     LikeToggleResponse,
     Page,
 )
+from ..utils import default_avatar_url
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/feed", tags=["피드 (Feed)"])
@@ -32,8 +34,28 @@ async def _get_post_or_404(post_id: uuid.UUID, db: AsyncSession) -> FeedPost:
     return post
 
 
+def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> FeedPostEnrichedOut:
+    return FeedPostEnrichedOut(
+        id=post.id,
+        user_id=post.user_id,
+        user_nickname=user.nickname if user else None,
+        user_avatar_url=(user.avatar_url if user and user.avatar_url else default_avatar_url()),
+        user_level=user.level if user else 1,
+        ride_session_id=post.ride_session_id,
+        content=post.content,
+        image_url=post.image_url,
+        like_count=post.like_count,
+        comment_count=post.comment_count,
+        is_story=post.is_story,
+        created_at=post.created_at,
+        distance_km=ride.distance_km if ride else None,
+        safety_grade=ride.safety_grade if ride else None,
+        reward_exp=ride.reward_exp if ride else None,
+    )
+
+
 # F-1
-@router.get("", response_model=Page[FeedPostOut], summary="피드 목록")
+@router.get("", response_model=Page[FeedPostEnrichedOut], summary="피드 목록")
 async def get_feed(
     filter: str = "all",
     page: int = 1,
@@ -41,31 +63,39 @@ async def get_feed(
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
-    stmt = select(FeedPost)
 
     if filter == "hot":
-        stmt = stmt.order_by(FeedPost.like_count.desc(), FeedPost.created_at.desc())
+        order = [FeedPost.like_count.desc(), FeedPost.created_at.desc()]
     else:
-        stmt = stmt.order_by(FeedPost.created_at.desc())
+        order = [FeedPost.created_at.desc()]
 
     total = (await db.execute(select(func.count()).select_from(FeedPost))).scalar_one()
-    posts = (await db.execute(stmt.offset(offset).limit(size))).scalars().all()
 
-    return Page(items=[FeedPostOut.model_validate(p) for p in posts], total=total, page=page, size=size)
+    rows = (await db.execute(
+        select(FeedPost, User, RideSession)
+        .outerjoin(User, FeedPost.user_id == User.id)
+        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+        .order_by(*order)
+        .offset(offset)
+        .limit(size)
+    )).all()
+
+    items = [_enrich(post, user, ride) for post, user, ride in rows]
+    return Page(items=items, total=total, page=page, size=size)
 
 
 # F-2
-@router.get("/stories", response_model=list[FeedPostOut], summary="스토리 목록")
+@router.get("/stories", response_model=list[FeedPostEnrichedOut], summary="스토리 목록")
 async def get_stories(db: AsyncSession = Depends(get_db)):
-    posts = (
-        await db.execute(
-            select(FeedPost)
-            .where(FeedPost.is_story == True)
-            .order_by(FeedPost.created_at.desc())
-            .limit(50)
-        )
-    ).scalars().all()
-    return [FeedPostOut.model_validate(p) for p in posts]
+    rows = (await db.execute(
+        select(FeedPost, User, RideSession)
+        .outerjoin(User, FeedPost.user_id == User.id)
+        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+        .where(FeedPost.is_story == True)
+        .order_by(FeedPost.created_at.desc())
+        .limit(50)
+    )).all()
+    return [_enrich(post, user, ride) for post, user, ride in rows]
 
 
 # F-3

@@ -75,9 +75,9 @@ title: 전체 아키텍처
 ## BFF → Engine 연동 흐름
 
 ```
-[앱] → POST /api/ride/start
-     → BFF.ride_router → engine_client.start_ride()
-     → HTTP POST /v1/rides/start (X-Service-Key 포함)
-     → Engine: 포인트 이벤트 처리 → 응답
+[앱] → POST /api/bff/ride/submit
+     → BFF.ride_router → engine_client.post_event()
+     → HTTP POST /v1/events (X-Service-Key 포함)
+     → Engine: RIDE_KM 이벤트 처리 → RP 계산 → 응답
      → BFF → 앱에 결과 반환
 ```

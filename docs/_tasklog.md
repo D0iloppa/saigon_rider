@@ -8,3 +8,5 @@
 - [260514 Engine Phase 5 — BFF Engine 클라이언트 연동](task/260514_engine_phase5_task.md) - engine_client.py, P0~P1 엔드포인트 34개(quest/ride/feed 라우터), Engine 이벤트 연동 완료 (완료)
 - [260514 Engine Phase 6 — 미션 데이터 및 테스트](task/260514_engine_phase6_task.md) - 미션 시드 로더, structlog JSON 로깅, Prometheus 메트릭, 단위 테스트 31개(point_ledger/anti_abuse/event_bus/verify_balance) 완료 (완료)
 - [260514 Wiki — Docusaurus 개발자 포털 구축](task/260514_wiki_docusaurus_task.md) - Docusaurus 3 빌드, /wiki/ Nginx 라우팅, Public/Private 권한 분리(Basic Auth), 서비스 통합 인덱스, docker-compose wiki 프로파일 (완료)
+- [260514 BFF 미구현 기능 완수 Task](task/260514_bff_completion_task.md) - Notification·UserStats·Badge·Account·Admin 6개 sub-task로 BFF 잔여 10개 엔드포인트 완수 + 문서 일괄 현행화 (완료)
+- [260514 NativeInterface — WebView ↔ Native 브릿지 모듈](task/260514_native_interface_task.md) - send/request(Promise)/on(Push) 3종 API, 플랫폼 자동 감지(Android/iOS/Browser), callbackId 매칭, Dev fallback, Window 타입 선언 (완료)

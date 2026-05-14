@@ -63,12 +63,12 @@ const config: Config = {
         {
           type: 'html',
           position: 'right',
-          value: '<a href="/api/docs" class="navbar__item navbar__link">Swagger UI</a>',
+          value: '<a href="/api/bff/docs" class="navbar__item navbar__link">BFF Swagger</a>',
         },
         {
           type: 'html',
           position: 'right',
-          value: '<a href="/api/redoc" class="navbar__item navbar__link">ReDoc</a>',
+          value: '<a href="/api/sre/docs" class="navbar__item navbar__link">SRE Swagger</a>',
         },
         {
           type: 'html',
@@ -84,7 +84,8 @@ const config: Config = {
           title: 'Services',
           items: [
             {html: '<a href="/" class="footer__link-item">Frontend App</a>'},
-            {html: '<a href="/api/docs" class="footer__link-item">Swagger UI</a>'},
+            {html: '<a href="/api/bff/docs" class="footer__link-item">BFF Swagger</a>'},
+            {html: '<a href="/api/sre/docs" class="footer__link-item">SRE Engine Swagger</a>'},
             {html: '<a href="/admin/login" class="footer__link-item">Admin Console</a>'},
           ],
         },

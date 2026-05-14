@@ -88,19 +88,27 @@ export default function FeedList() {
           <div className={styles.feed}>
             {posts.map((p) => (
               <article key={p.id} className={styles.post}>
-                <div className={styles.postImg}>
-                  <img src={p.photoUrl} alt="" />
-                  <div className={styles.imgStats}>
-                    {p.distanceKm.toFixed(1)}km · {t('feed.safetyLabel', { grade: p.safetyGrade })}
+                {p.photoUrl && (
+                  <div className={styles.postImg}>
+                    <img src={p.photoUrl} alt="" />
+                    {(p.distanceKm != null || p.safetyGrade) && (
+                      <div className={styles.imgStats}>
+                        {p.distanceKm != null ? `${p.distanceKm.toFixed(1)}km` : ''}
+                        {p.distanceKm != null && p.safetyGrade ? ' · ' : ''}
+                        {p.safetyGrade ? t('feed.safetyLabel', { grade: p.safetyGrade }) : ''}
+                      </div>
+                    )}
+                    {p.rewardExp != null && (
+                      <div className={styles.imgReward}>+{p.rewardExp} EXP</div>
+                    )}
                   </div>
-                  <div className={styles.imgReward}>+{p.rewardExp} EXP</div>
-                </div>
+                )}
                 <div className={styles.postBody}>
                   <div className={styles.postHeader}>
-                    <img src={p.userAvatarUrl} alt="" className={styles.userAvatar} />
+                    <img src={p.userAvatarUrl ?? undefined} alt="" className={styles.userAvatar} />
                     <div className={styles.userInfo}>
                       <div className={styles.userName}>
-                        {p.userNickname}
+                        {p.userNickname ?? 'Unknown'}
                         <LevelBadge level={p.userLevel} />
                       </div>
                       <div className={styles.timestamp}>
@@ -108,7 +116,14 @@ export default function FeedList() {
                       </div>
                     </div>
                   </div>
-                  <p className={styles.caption}>{p.caption}</p>
+                  {p.caption && <p className={styles.caption}>{p.caption}</p>}
+                  {p.hashtags.length > 0 && (
+                    <div className={styles.hashtagRow}>
+                      {p.hashtags.map((tag) => (
+                        <span key={tag} className={styles.hashtag}>#{tag}</span>
+                      ))}
+                    </div>
+                  )}
                   <div className={styles.actions}>
                     <button
                       className={`${styles.actionBtn} ${p.iCheered ? styles.actionActive : ''}`}

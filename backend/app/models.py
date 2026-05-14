@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,8 @@ _quest_period_enum = ENUM('DAILY', 'WEEKLY', 'EVENT', name='quest_period', creat
 _quest_badge_enum = ENUM('HOT', 'NEW', 'LIMITED', name='quest_badge_type', create_type=False)
 _safety_grade_enum = ENUM('A', 'B', 'C', name='safety_grade', create_type=False)
 _quest_status_enum = ENUM('ACCEPTED', 'ACTIVE', 'COMPLETED', 'FAILED', 'ABANDONED', name='quest_status', create_type=False)
+_notification_type_enum = ENUM('QUEST_RECOMMEND', 'QUEST_EXPIRE', 'EVENT', 'RIDE_RESULT', 'SOCIAL', name='notification_type', create_type=False)
+_badge_condition_enum = ENUM('QUEST_CLEAR_COUNT', 'DISTANCE_TOTAL_KM', 'STREAK_DAYS', 'SAFETY_GRADE_A_COUNT', name='badge_condition_type', create_type=False)
 
 
 class User(Base):
@@ -159,4 +161,48 @@ class PostComment(Base):
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Badge(Base):
+    __tablename__ = "badges"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    icon_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    condition_type: Mapped[str | None] = mapped_column(_badge_condition_enum, nullable=True)
+    condition_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserBadge(Base):
+    __tablename__ = "user_badges"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    badge_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("badges.id", ondelete="CASCADE"), primary_key=True)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(_notification_type_enum, nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class NotificationSettings(Base):
+    __tablename__ = "notification_settings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    quest_recommend: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    quest_expire: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    event: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ride_result: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    social: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

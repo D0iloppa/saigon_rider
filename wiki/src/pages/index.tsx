@@ -13,7 +13,7 @@ interface ServiceCardProps {
   badgeLabel: string;
 }
 
-function ServiceCard({icon, title, desc, href, badge, badgeLabel}: ServiceCardProps) {
+function ServiceCard({ icon, title, desc, href, badge, badgeLabel }: ServiceCardProps) {
   return (
     <a href={href} className="service-card">
       <div className="service-card__icon">{icon}</div>
@@ -39,7 +39,7 @@ const SERVICES: ServiceCardProps[] = [
     icon: '⚡',
     title: 'BFF API (Swagger UI)',
     desc: 'FastAPI 기반 Backend-for-Frontend. 모든 엔드포인트를 인터랙티브하게 테스트 가능.',
-    href: '/api/docs',
+    href: '/api/bff/docs',
     badge: 'private',
     badgeLabel: 'Dev Only',
   },
@@ -47,7 +47,7 @@ const SERVICES: ServiceCardProps[] = [
     icon: '📖',
     title: 'BFF API (ReDoc)',
     desc: '읽기 전용 API 레퍼런스 문서. 클라이언트 통합 시 참조용.',
-    href: '/api/redoc',
+    href: '/api/bff/redoc',
     badge: 'private',
     badgeLabel: 'Dev Only',
   },
@@ -89,7 +89,7 @@ function HeroSection() {
         </p>
         <div>
           <a className="button button--secondary button--lg" href="docs/intro">
-            시작하기 →
+            (문서) 시작하기 →
           </a>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function Home(): React.JSX.Element {
     <Layout title="Dev Wiki" description="Saigon Rider Developer Portal">
       <HeroSection />
       <main>
-        <div className="container" style={{paddingTop: '2rem', paddingBottom: '3rem'}}>
+        <div className="container" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
           <Heading as="h2">서비스 일람</Heading>
           <p>각 카드를 클릭하면 해당 서비스로 이동합니다. 상대 경로 기반이므로 동일 호스트의 서비스를 통합 탐색할 수 있습니다.</p>
 
@@ -112,7 +112,7 @@ export default function Home(): React.JSX.Element {
             ))}
           </div>
 
-          <div style={{marginTop: '2.5rem'}}>
+          <div style={{ marginTop: '2.5rem' }}>
             <Heading as="h2">배지 범례</Heading>
             <table>
               <thead>
@@ -142,7 +142,7 @@ export default function Home(): React.JSX.Element {
             </table>
           </div>
 
-          <div style={{marginTop: '2.5rem'}}>
+          <div style={{ marginTop: '2.5rem' }}>
             <Heading as="h2">경로 구성</Heading>
             <table>
               <thead>

@@ -63,16 +63,17 @@ export interface QuestAttempt {
 export interface FeedPost {
   id: string;
   userId: string;
-  userNickname: string;
-  userAvatarUrl?: string;
+  userNickname: string | null;
+  userAvatarUrl?: string | null;
   userLevel: number;
   attemptId?: string;
   questTitle?: string;
-  photoUrl: string;
-  caption: string;
-  distanceKm: number;
-  safetyGrade: SafetyGrade;
-  rewardExp: number;
+  photoUrl: string | null;
+  caption: string | null;
+  hashtags: string[];          // content에서 파싱된 #태그 목록
+  distanceKm: number | null;
+  safetyGrade: SafetyGrade | null;
+  rewardExp: number | null;
   cheerCount: number;
   commentCount: number;
   iCheered: boolean;

@@ -83,6 +83,9 @@ services:
       - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL}
       - IMGPROXY_KEY=${IMGPROXY_KEY:-}
       - IMGPROXY_SALT=${IMGPROXY_SALT:-}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS_HASH=${ADMIN_PASS_HASH}
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-dev_admin_jwt_secret}
     restart: unless-stopped
 
   # ── Engine (SRE, 신규) ────────────────────────────────────

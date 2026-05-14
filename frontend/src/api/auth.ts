@@ -1,10 +1,4 @@
-/**
- * 인증 API
- * - register: 신규 가입 (phone → passcode 발급)
- * - login: 기존 세션으로 자동 로그인 (phone + passcode)
- */
-
-const BASE = '/api';
+import { api } from './client';
 
 export interface UserDto {
   id: string;
@@ -30,23 +24,16 @@ export interface LoginResult {
   user: UserDto;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).detail ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
 export async function apiRegister(phone: string): Promise<RegisterResult> {
-  return post('/auth/register', { phone });
+  return api.realFetch<RegisterResult>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  });
 }
 
 export async function apiLogin(phone: string, passcode: string): Promise<LoginResult> {
-  return post('/auth/login', { phone, passcode });
+  return api.realFetch<LoginResult>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ phone, passcode }),
+  });
 }

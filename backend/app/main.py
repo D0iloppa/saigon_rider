@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from .engine_client import engine_client
-from .routers import admin, auth, contents, feed, profile, quests, ride
+from .routers import admin, auth, badges, contents, feed, notifications, profile, quests, ride, users
 
 
 @asynccontextmanager
@@ -12,6 +13,11 @@ async def lifespan(app: FastAPI):
     yield
     await engine_client.close()
 
+
+# Nginx 가 외부 `/api/bff/*` → 내부 `/api/*` 로 rewrite 하므로
+# Swagger HTML 안의 openapi_url 은 외부 경로(`/api/bff/openapi.json`)로 명시해야
+# 브라우저가 spec 을 정상 fetch 함.
+_EXTERNAL_OPENAPI_URL = "/api/bff/openapi.json"
 
 app = FastAPI(
     title="Saigon Rider API",
@@ -25,11 +31,27 @@ app = FastAPI(
         "- **라이딩**: 결과 제출, 스트릭, 이력\n"
         "- **피드**: 게시·좋아요·댓글\n"
     ),
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url=None,
+    redoc_url=None,
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
+
+
+@app.get("/api/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=_EXTERNAL_OPENAPI_URL,
+        title=f"{app.title} — Swagger UI",
+    )
+
+
+@app.get("/api/redoc", include_in_schema=False)
+async def custom_redoc_html():
+    return get_redoc_html(
+        openapi_url=_EXTERNAL_OPENAPI_URL,
+        title=f"{app.title} — ReDoc",
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +67,9 @@ app.include_router(profile.router, prefix="/api")
 app.include_router(quests.router, prefix="/api")
 app.include_router(ride.router, prefix="/api")
 app.include_router(feed.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+app.include_router(badges.router, prefix="/api")
 app.include_router(admin.router)
 
 

@@ -18,7 +18,8 @@ location /engine/ {
 }
 ```
 
-외부에서 직접 접근 시 `403 Forbidden` 반환.
+외부에서 직접 접근 시 `403 Forbidden` 반환.  
+BFF는 내부망에서 `http://engine:8090` 으로 접근합니다.
 
 ## 주요 기능
 
@@ -31,6 +32,22 @@ location /engine/ {
 | 멱등성 | 이벤트 TTL 7일 중복 방지 |
 | 배치 잡 | APScheduler 4종 (만료·정산 등) |
 
+## API 엔드포인트 (BFF → Engine 내부 호출)
+
+> Nginx 외부 경로: `/api/sre/*` → Engine `/v1/*`  
+> 인증: `X-Service-Key: {ENGINE_SERVICE_KEY}` 헤더 필수
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/v1/health` | 헬스체크 |
+| `POST` | `/v1/events` | 포인트 이벤트 발행 (RIDE_KM, QUEST_COMPLETE 등) |
+| `GET` | `/v1/users/{id}/balance` | RP 잔액 조회 |
+| `GET` | `/v1/users/{id}/transactions` | RP 거래 내역 |
+| `GET` | `/v1/users/{id}/missions` | 미션 진행도 조회 |
+| `GET` | `/v1/catalog` | 보상 카탈로그 조회 |
+| `POST` | `/v1/users/{id}/redemptions` | 보상 교환 요청 |
+| `GET/POST` | `/v1/admin/*` | Engine 관리자 API |
+
 ## SRE 비즈니스 룰 환경변수
 
 | 변수 | 기본값 | 설명 |
@@ -42,23 +59,15 @@ location /engine/ {
 | `SRE_NEW_ACCOUNT_PENALTY_DAYS` | `3` | 신규 패널티 적용 일수 |
 | `SRE_NEW_ACCOUNT_MULTIPLIER` | `0.5` | 패널티 배율 |
 | `SRE_IDEMPOTENCY_TTL_DAYS` | `7` | 멱등성 키 TTL |
-
-## API 엔드포인트 (BFF→Engine 내부 호출)
-
-| Method | Path | 설명 |
-|---|---|---|
-| `GET` | `/v1/health` | 헬스체크 |
-| `POST` | `/v1/events/` | 포인트 이벤트 발행 |
-| `GET` | `/v1/balance/{user_id}` | 잔액 조회 |
-| `GET` | `/v1/quests/` | 퀘스트 목록 |
-| `POST` | `/v1/rides/start` | 라이드 시작 |
-| `POST` | `/v1/rides/end` | 라이드 종료 |
-
-인증: `X-Service-Key: {ENGINE_SERVICE_KEY}` 헤더 필수.
+| `SRE_LOG_LEVEL` | `INFO` | 로그 레벨 |
 
 ## 기동
 
 ```bash
 docker compose --profile backend up --build -d engine
 docker compose logs -f engine
+
+# DB 마이그레이션 (Alembic)
+docker compose --profile backend exec engine alembic upgrade head
+docker compose --profile backend exec engine alembic history
 ```

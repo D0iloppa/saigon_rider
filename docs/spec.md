@@ -130,7 +130,7 @@
 | F-04-1 | 사용자 정보 로드 (아바타, 닉네임, 레벨) | HOME-001 | `[API-DUMMY]` `getMe()` |
 | F-04-2 | 레벨 진행도 Progress Bar 퍼센트 계산 | HOME-001 | `[STATIC]` — getMe() 데이터 기반 |
 | F-04-3 | 재화(XP / Gold / Skill Pt) 카드 숫자 카운팅 애니메이션 | HOME-001 | `[STATIC]` |
-| F-04-4 | 알림 뱃지 (읽지 않은 알림 수) | HOME-001 | `[API-DUMMY]` `getNotifications()` |
+| F-04-4 | 알림 뱃지 (읽지 않은 알림 수) | HOME-001 | `[API-IMPL]` `GET /api/notifications?user_id=…` → `{unread_count}` |
 | F-04-5 | SVG 인터랙티브 월드맵 렌더링 (구역 폴리곤, 강) | HOME-001 | `[STATIC]` — 정적 SVG |
 | F-04-6 | 퀘스트 핀 배치 및 클릭 시 상세 이동 | HOME-001 | `[API-DUMMY]` `getQuestPins()` |
 | F-04-7 | 추천 퀘스트(Tonight's Pick) 로드 | HOME-001 | `[API-DUMMY]` `getRecommendedQuest()` |
@@ -223,11 +223,11 @@
 | F-10-1 | 내 프로필 정보 로드 (아바타, 닉네임, 레벨, 라이더타입) | PROFILE-001 | `[API-DUMMY]` `getMe()` |
 | F-10-2 | 레벨 진행도 바 & EXP to next level | PROFILE-001 | `[STATIC]` |
 | F-10-3 | 재화(XP/Gold/Skill Pt) 카드 | PROFILE-001 | `[STATIC]` — getMe() 데이터 기반 |
-| F-10-4 | 이번 달 통계 (누적 km, 퀘스트 수, 평균 안전도) | PROFILE-001 | `[API-DUMMY]` `getMonthlyStats()` |
+| F-10-4 | 이번 달 통계 (누적 km, 퀘스트 수, 평균 안전도) | PROFILE-001 | `[API-IMPL]` `GET /api/users/me/stats?user_id=…` |
 | F-10-5 | 월별 주행 Mini 차트 SVG | PROFILE-001 | `[API-DUMMY]` `getRideHistory()` |
 | F-10-6 | 탭 전환 (기록 / 배지 / 장비) | PROFILE-001 | `[STATIC]` |
 | F-10-7 | 최근 라이딩 기록 목록 | PROFILE-001 | `[API-DUMMY]` `getRideHistory()` |
-| F-10-8 | 배지 상세 모달 (획득 조건, 공유 버튼) | BADGE-DETAIL | `[API-DUMMY]` `getBadgeDetail(id)` |
+| F-10-8 | 배지 상세 모달 (획득 조건, 공유 버튼) | BADGE-DETAIL | `[API-IMPL]` `GET /api/badges/{id}` |
 | F-10-9 | 프로필 사진 변경 (갤러리/카메라 선택 → 업로드) | PROFILE-001 | `[API-IMPL]` `POST /api/profile/avatar` |
 | F-10-10 | 닉네임 변경 (중복 확인 포함) | PROFILE-001 | `[API-IMPL]` `PUT /api/profile/nickname` |
 
@@ -241,12 +241,12 @@
 | F-11-2 | 다크 모드 토글 (앱 테마 전환) | SETTINGS | `[STATIC]` — CSS class 전환 |
 | F-11-3 | 위치 권한 상태 표시 | SETTINGS | `[DEVICE]` — Geolocation.permission |
 | F-11-4 | 로그아웃 (토큰 삭제 & 초기화) | SETTINGS | `[STATIC]` |
-| F-11-5 | 알림 토글 저장 (추천퀘스트 / 만료임박 / 이벤트 / 결과 / 소셜) | SET-NOTI | `[API-DUMMY]` `saveNotificationSettings(prefs)` |
+| F-11-5 | 알림 토글 저장 (추천퀘스트 / 만료임박 / 이벤트 / 결과 / 소셜) | SET-NOTI | `[API-IMPL]` `PUT /api/notifications/settings` |
 | F-11-6 | 언어 선택 (한국어 / Tiếng Việt / English) | SET-LANG | `[STATIC]` — i18n locale 즉시 적용 |
 | F-11-7 | 계정 정보 조회 (휴대폰, 가입일, 계정ID) | SET-ACCOUNT | `[API-DUMMY]` `getMe()` |
 | F-11-8 | 계정 ID 복사 | SET-ACCOUNT | `[STATIC]` — clipboard API |
-| F-11-9 | 내 데이터 다운로드 요청 | SET-ACCOUNT | `[API-DUMMY]` `requestDataExport()` |
-| F-11-10 | 계정 탈퇴 (위험 모달 → 확인) | SET-ACCOUNT | `[API-DUMMY]` `deleteAccount()` |
+| F-11-9 | 내 데이터 다운로드 요청 | SET-ACCOUNT | `[API-IMPL]` `POST /api/users/export` |
+| F-11-10 | 계정 탈퇴 (위험 모달 → 확인) | SET-ACCOUNT | `[API-IMPL]` `DELETE /api/users/me` |
 
 ---
 
@@ -362,7 +362,64 @@ createFeedPost(rideResult: RideReward): Promise<FeedPost>
 
 ---
 
-## 4. 구현 우선순위 가이드
+## 4. NativeInterface (WebView ↔ Native 브릿지)
+
+> **파일 위치**: `src/lib/native.ts`  
+> WebView 위에 올라가는 웹 레이어가 Android / iOS 네이티브 레이어와 통신하기 위한 공통 모듈.  
+> 플랫폼별 postMessage 차이를 내부에서 처리하고, 외부에는 단일 Promise 기반 API를 노출한다.
+
+### 브릿지 약속 (Protocol)
+
+| 방향 | 포맷 |
+|------|------|
+| 웹 → 네이티브 | `JSON.stringify({ key, callbackId?, params? })` |
+| 네이티브 → 웹 | `window.nativeInterface.onMessage(jsonString)` 호출 |
+| 응답 포맷 | `{ callbackId, result? }` 또는 `{ callbackId, error }` |
+| Push 포맷 | `{ key, data? }` (callbackId 없음) |
+
+### 플랫폼별 postMessage 발신
+
+| 플랫폼 | 호출 |
+|--------|------|
+| Android | `window.native.postMessage(payload)` |
+| iOS | `window.webkit.messageHandlers.native.postMessage(payload)` |
+| Browser(dev) | 콘솔 경고 + 100ms 후 자동 null resolve |
+
+### API
+
+```ts
+import { nativeInterface, NATIVE_KEYS } from '@/lib/native'
+
+// 단방향 전송
+nativeInterface.send(NATIVE_KEYS.HAPTIC, { style: 'light' })
+
+// 응답 기대 (Promise)
+const loc = await nativeInterface.request<{ lat: number; lng: number }>(NATIVE_KEYS.GET_LOCATION)
+
+// Push 구독 (실시간 위치 스트리밍 등)
+const unsub = nativeInterface.on<{ lat: number; lng: number }>(NATIVE_KEYS.LOCATION_UPDATE, (d) => {
+  console.log(d.lat, d.lng)
+})
+unsub() // 컴포넌트 unmount 시 해제
+```
+
+### 지원 커맨드 키 (`NATIVE_KEYS`)
+
+| 키 | 방향 | 설명 |
+|----|------|------|
+| `getLocation` | Request/Response | 현재 GPS 위치 1회 조회 |
+| `openCamera` | Request/Response | 카메라 오픈 후 이미지 반환 |
+| `share` | Send | OS 공유 시트 오픈 |
+| `haptic` | Send | 햅틱 피드백 트리거 |
+| `getDeviceInfo` | Request/Response | OS / 앱 버전 정보 조회 |
+| `requestPermission` | Request/Response | 런타임 권한 요청 |
+| `locationUpdate` | Push (Native→Web) | 실시간 위치 스트리밍 |
+| `appForeground` | Push (Native→Web) | 앱이 포그라운드로 복귀 |
+| `deepLink` | Push (Native→Web) | 딥링크 URL 수신 |
+
+---
+
+## 5. 구현 우선순위 가이드
 
 | 우선순위 | 그룹 | 이유 |
 |----------|------|------|

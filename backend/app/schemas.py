@@ -264,6 +264,24 @@ class FeedPostOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class FeedPostEnrichedOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    user_nickname: str | None
+    user_avatar_url: str | None
+    user_level: int
+    ride_session_id: UUID | None
+    content: str | None
+    image_url: str | None
+    like_count: int
+    comment_count: int
+    is_story: bool
+    created_at: datetime
+    distance_km: Decimal | None = None
+    safety_grade: str | None = None
+    reward_exp: int | None = None
+
+
 class FeedCreateRequest(BaseModel):
     user_id: UUID
     ride_session_id: UUID | None = None
@@ -298,3 +316,83 @@ class CommentCreateRequest(BaseModel):
     content: str | None = None
     image_url: str | None = None
     parent_id: UUID | None = None
+
+
+# ── Notification ──────────────────────────────────────────────────
+
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: UUID
+    type: str
+    title: str
+    body: str | None
+    is_read: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationListResponse(BaseModel):
+    items: list[NotificationOut]
+    unread_count: int
+    total: int
+    page: int
+    size: int
+
+
+class NotificationSettingsOut(BaseModel):
+    user_id: UUID
+    quest_recommend: bool
+    quest_expire: bool
+    event: bool
+    ride_result: bool
+    social: bool
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationSettingsUpdate(BaseModel):
+    user_id: UUID
+    quest_recommend: bool = True
+    quest_expire: bool = True
+    event: bool = True
+    ride_result: bool = True
+    social: bool = True
+
+
+# ── Badge ─────────────────────────────────────────────────────────
+
+
+class BadgeOut(BaseModel):
+    id: UUID
+    name: str
+    description: str | None
+    icon_url: str | None
+    condition_type: str | None
+    condition_value: int | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserBadgeOut(BaseModel):
+    badge: BadgeOut
+    acquired_at: datetime
+
+
+# ── User Stats ────────────────────────────────────────────────────
+
+
+class UserStatsOut(BaseModel):
+    month: str  # "YYYY-MM" (VN 시간 UTC+7 기준)
+    total_km: Decimal
+    quest_count: int
+    avg_safety_grade: str | None  # "A" / "B" / "C" or None
+
+
+class UserExportResponse(BaseModel):
+    request_id: str
+    status: str
+    estimated_ready_at: datetime

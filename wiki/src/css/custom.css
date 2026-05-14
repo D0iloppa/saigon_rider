@@ -109,7 +109,12 @@
   color: #818cf8;
 }
 
-/* Hero section */
+/* Hero section — 배경이 항상 어두우므로 라이트/다크 무관하게 흰 글씨 고정 */
 .hero--wiki {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.hero--wiki .hero__title,
+.hero--wiki .hero__subtitle {
+  color: #ffffff !important;
 }

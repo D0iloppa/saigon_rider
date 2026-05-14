@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Response
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -45,13 +46,36 @@ async def lifespan(app: FastAPI):
 
 # ── FastAPI 앱 ────────────────────────────────────────────────
 
+# Nginx 가 외부 `/api/sre/*` → 내부 `/v1/*` 로 rewrite 하므로
+# Swagger HTML 안의 openapi_url 은 외부 경로(`/api/sre/openapi.json`)로 명시해야
+# 브라우저가 spec 을 정상 fetch 함.
+_EXTERNAL_OPENAPI_URL = "/api/sre/openapi.json"
+
 app = FastAPI(
     title="Saigon SRE Engine",
     version="1.0.0",
-    docs_url="/v1/docs",
+    docs_url=None,
+    redoc_url=None,
     openapi_url="/v1/openapi.json",
     lifespan=lifespan,
 )
+
+
+@app.get("/v1/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=_EXTERNAL_OPENAPI_URL,
+        title=f"{app.title} — Swagger UI",
+    )
+
+
+@app.get("/v1/redoc", include_in_schema=False)
+async def custom_redoc_html():
+    return get_redoc_html(
+        openapi_url=_EXTERNAL_OPENAPI_URL,
+        title=f"{app.title} — ReDoc",
+    )
+
 
 # 라우터 등록
 app.include_router(events.router)

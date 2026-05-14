@@ -11,7 +11,7 @@
 
 ## 🚀 기능 요구사항 및 구현
 - [프로젝트 개요](README.md) - 환경구성, 프로젝트 구성, 개요
-- [화면 & 기능 명세서](spec.md) - 27개 화면 목록, 기능 목록, API dummy 함수 목록 (scene.html 기준 정적 디자인 참조 명시)
+- [화면 & 기능 명세서](spec.md) - 27개 화면 목록, 기능 목록, API dummy 함수 목록, NativeInterface 브릿지 명세 (scene.html 기준 정적 디자인 참조 명시)
 - [프론트엔드 TODO LIST](features_todo.md) - 프론트엔드 화면별 구현 항목 (245개 전체 완료)
 - [백엔드 구현 필요 기능 & Admin Console](backend_todo.md) - spec.md [API-DUMMY] 기준 산출, 총 27개 엔드포인트 (P0~P3 우선순위), 관리자 콘솔 접근 경로 포함
 
@@ -19,6 +19,10 @@
 ## 🌐 개발자 포털
 - [Developer Wiki](http://localhost:18090/wiki/) — Docusaurus 기반 통합 개발자 문서 (wiki 프로파일 기동 필요)
 
+
+## ✅ 점검 / QA
+- [기능 점검 체크리스트 v1 (2026-05-14)](TEST/CHECKLIST_v1_260514.md) - 화면/기능/엔진 점검 체크리스트 (URL·API·점검 방법 포함)
+- **위키 발행 스크립트**: 프로젝트 루트 `./wikidoc_publish.sh` 실행 → `docs/TEST/*` 가 `wiki/wiki-docs/private/test/` 에 자동 동기화되고 `saigon_wiki` 컨테이너만 재빌드 (무중단). Private 영역은 `WIKI_AUTH_USER`/`WIKI_AUTH_PASS` Basic Auth 보호.
 
 ## 📊 이력관리
 

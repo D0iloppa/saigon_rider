@@ -180,7 +180,25 @@
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
+  margin-bottom: 8px;
+  white-space: pre-line;
+}
+
+.hashtagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 12px;
+}
+
+.hashtag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-500);
+  background: var(--brand-50);
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
 
 .actions {

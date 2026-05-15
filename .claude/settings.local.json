@@ -83,7 +83,22 @@
       "Bash(curl -s -b /tmp/admin_cookies.txt \"http://localhost:18090/admin/dashboard\")",
       "Bash(xargs ls)",
       "Bash(find /tmp -type f \\\\\\( -name \"*.jpg\" -o -name \"*.png\" -o -name \"*.jpeg\" -o -name \"*.webp\" \\\\\\) 2>/dev/null; find ~/.config/Claude -type f -newer /tmp 2>/dev/null | head -5; ls ~/.local/share/ 2>/dev/null | head)",
-      "Bash(find /mnt/c/Users -maxdepth 8 -type f \\\\\\( -name \"*.jpg\" -o -name \"*.jpeg\" -o -name \"*.png\" \\\\\\) -newer /mnt/c/DEV/saigon_rider/.env 2>/dev/null | head -10)"
+      "Bash(find /mnt/c/Users -maxdepth 8 -type f \\\\\\( -name \"*.jpg\" -o -name \"*.jpeg\" -o -name \"*.png\" \\\\\\) -newer /mnt/c/DEV/saigon_rider/.env 2>/dev/null | head -10)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/api/bff/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:18090/api/sre/healthz)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" http://localhost:18090/api/sre/healthz)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" http://localhost:8091/v1/healthz)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" http://localhost:8091/healthz)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" http://localhost:8091/v1/health)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" http://localhost:18090/api/sre/health)",
+      "Bash(curl -s \"http://localhost:18090/api/bff/feed?filter=all\")",
+      "Bash(curl -s \"http://localhost:18090/api/bff/quests/pins\")",
+      "Bash(curl -s \"http://localhost:18090/api/bff/quests/recommended\")",
+      "Bash(curl -s \"http://localhost:18090/api/bff/notifications?user_id=3372609d-2e34-45be-9b77-8325d53ce5ee\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://fonts.gstatic.com/s/e/notoemoji/latest/1f3d9/512.gif\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://fonts.gstatic.com/s/e/notoemoji/latest/2615/512.gif\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://fonts.gstatic.com/s/e/notoemoji/latest/1f319/512.gif\")",
+      "Bash(python3 -c \"import base64; print\\(base64.urlsafe_b64decode\\('bG9jYWw6Ly8vb2ZmaWNpYWwvZ3JhbmQtb3BlbmluZy5qcGc' + '=='\\).decode\\(\\)\\)\")"
     ]
   }
 }

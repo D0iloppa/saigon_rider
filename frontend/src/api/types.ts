@@ -88,6 +88,7 @@ export interface Comment {
   content: string;
   createdAt: string;
   likeCount: number;
+  iLiked: boolean;
   parentId?: string;
 }
 

@@ -303,9 +303,12 @@ class CommentOut(BaseModel):
     id: UUID
     post_id: UUID
     user_id: UUID
+    user_nickname: str | None = None
+    user_avatar_url: str | None = None
     parent_id: UUID | None
     content: str | None
     image_url: str | None
+    like_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}

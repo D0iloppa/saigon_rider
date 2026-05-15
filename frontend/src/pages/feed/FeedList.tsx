@@ -1,22 +1,207 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { fetchFeed, fetchComments, toggleCheer } from '@/api/feed';
+import { fetchFeed, fetchComments, toggleCheer, toggleCommentLike, postComment, fetchStories } from '@/api/feed';
+import type { StoryItem } from '@/api/feed';
 import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost, Comment } from '@/api/types';
 import { StoryAvatar } from '@/components/ui/StoryAvatar';
 import { Chip } from '@/components/ui/Chip';
 import { LevelBadge } from '@/components/ui/LevelBadge';
+import { useUserStore } from '@/store/useUserStore';
+import { loadSession } from '@/lib/session';
 import styles from './FeedList.module.css';
 
 type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
 
+// ─── PostImage ────────────────────────────────────────────────────────────────
+function PostImage({ src, onClick }: { src: string; onClick: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <button className={styles.postImgWrap} onClick={onClick} aria-label="사진 자세히 보기">
+      {!loaded && <div className={styles.imgSkeleton} />}
+      <img
+        src={src}
+        alt=""
+        className={`${styles.postImgEl} ${loaded ? styles.postImgVisible : ''}`}
+        onLoad={() => setLoaded(true)}
+      />
+    </button>
+  );
+}
+
+// ─── ImageViewer ─────────────────────────────────────────────────────────────
+interface TouchState {
+  type: 'none' | 'single' | 'pinch';
+  // single finger
+  startX: number;
+  startY: number;
+  startTX: number;
+  startTY: number;
+  // pinch
+  startDist: number;
+  startScale: number;
+  // double-tap detection
+  lastTap: number;
+}
+
+function ImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  const scaleRef = useRef(1);
+  const txRef = useRef(0);
+  const tyRef = useRef(0);
+  const touch = useRef<TouchState>({
+    type: 'none',
+    startX: 0, startY: 0, startTX: 0, startTY: 0,
+    startDist: 0, startScale: 1,
+    lastTap: 0,
+  });
+
+  // sync refs so touch handlers always read fresh value
+  scaleRef.current = scale;
+  txRef.current = tx;
+  tyRef.current = ty;
+
+  useEffect(() => {
+    // mount → fade in
+    requestAnimationFrame(() => setVisible(true));
+    // lock body scroll
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  function close() {
+    setVisible(false);
+    setTimeout(onClose, 200);
+  }
+
+  function clampScale(s: number) { return Math.min(Math.max(s, 1), 5); }
+
+  function resetIfMin(s: number) {
+    if (s <= 1) { setTx(0); setTy(0); }
+  }
+
+  // ── wheel (desktop) ──────────────────────────────────────────────
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    const next = clampScale(scaleRef.current - e.deltaY * 0.002);
+    setScale(next);
+    resetIfMin(next);
+  }
+
+  // ── touch ────────────────────────────────────────────────────────
+  function dist(t: React.TouchList | TouchList) {
+    return Math.hypot(
+      t[1].clientX - t[0].clientX,
+      t[1].clientY - t[0].clientY,
+    );
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      touch.current = {
+        ...touch.current,
+        type: 'pinch',
+        startDist: dist(e.touches),
+        startScale: scaleRef.current,
+        startX: 0, startY: 0, startTX: 0, startTY: 0,
+      };
+    } else {
+      const now = Date.now();
+      const isDoubleTap = now - touch.current.lastTap < 280;
+      touch.current = {
+        ...touch.current,
+        type: 'single',
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        startTX: txRef.current,
+        startTY: tyRef.current,
+        lastTap: isDoubleTap ? 0 : now,  // reset so triple-tap doesn't re-trigger
+      };
+      if (isDoubleTap) {
+        // double tap: toggle 1x ↔ 2.5x
+        const next = scaleRef.current > 1 ? 1 : 2.5;
+        setScale(next);
+        resetIfMin(next);
+      }
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    e.preventDefault();
+    const t = touch.current;
+
+    if (t.type === 'pinch' && e.touches.length === 2) {
+      const next = clampScale(t.startScale * (dist(e.touches) / t.startDist));
+      setScale(next);
+      resetIfMin(next);
+    } else if (t.type === 'single' && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - t.startX;
+      const dy = e.touches[0].clientY - t.startY;
+
+      if (scaleRef.current <= 1) {
+        // swipe down to close
+        if (dy > 80) { close(); return; }
+        setTy(dy * 0.3); // drag down slightly as hint
+      } else {
+        // pan while zoomed
+        setTx(t.startTX + dx);
+        setTy(t.startTY + dy);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    if (scaleRef.current <= 1) {
+      setTy(0); // snap back if not closed
+    }
+    touch.current.type = 'none';
+  }
+
+  const imgStyle: React.CSSProperties = {
+    transform: `scale(${scale}) translate(${tx / scale}px, ${ty / scale}px)`,
+    cursor: scale > 1 ? 'grab' : 'zoom-in',
+    transition: touch.current.type !== 'none' ? 'none' : 'transform 0.2s ease',
+  };
+
+  return createPortal(
+    <div
+      className={`${styles.lightbox} ${visible ? styles.lightboxVisible : ''}`}
+      onClick={close}
+    >
+      <button className={styles.lightboxClose} onClick={close} aria-label="닫기">✕</button>
+      <div
+        className={styles.lightboxImgWrap}
+        onClick={(e) => e.stopPropagation()}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <img src={src} alt="" style={imgStyle} className={styles.lightboxImg} draggable={false} />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ─── FeedList ────────────────────────────────────────────────────────────────
 export default function FeedList() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [activePost, setActivePost] = useState<FeedPost | null>(null);
+  const [viewerSrc, setViewerSrc] = useState<string | null>(null);
+  const [stories, setStories] = useState<StoryItem[]>([]);
+
+  useEffect(() => { fetchStories().then(setStories); }, []);
+  useEffect(() => { fetchFeed(filter).then(setPosts); }, [filter]);
 
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: 'all',          label: t('feed.filterAll') },
@@ -24,10 +209,6 @@ export default function FeedList() {
     { key: 'friends',      label: t('feed.filterFriends') },
     { key: 'hot',          label: t('feed.filterHot') },
   ];
-
-  useEffect(() => {
-    fetchFeed(filter).then(setPosts);
-  }, [filter]);
 
   const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,9 +237,9 @@ export default function FeedList() {
           <div className={`${styles.story} ${styles.storyMe}`}>
             <StoryAvatar label={t('feed.myStory')} isMe />
           </div>
-          {['@minh', '@linh', '@nam', '@thanh', '@mai'].map((n, i) => (
-            <div key={n} className={styles.story}>
-              <StoryAvatar src={`https://i.pravatar.cc/96?img=${12 + i * 7}`} label={n} hasStory />
+          {stories.map((s) => (
+            <div key={s.userId} className={styles.story}>
+              <StoryAvatar src={s.avatarUrl ?? undefined} label={`@${s.nickname}`} hasStory />
             </div>
           ))}
         </div>
@@ -89,8 +270,8 @@ export default function FeedList() {
             {posts.map((p) => (
               <article key={p.id} className={styles.post}>
                 {p.photoUrl && (
-                  <div className={styles.postImg}>
-                    <img src={p.photoUrl} alt="" />
+                  <div className={styles.postImgContainer}>
+                    <PostImage src={p.photoUrl} onClick={() => setViewerSrc(p.photoUrl!)} />
                     {(p.distanceKm != null || p.safetyGrade) && (
                       <div className={styles.imgStats}>
                         {p.distanceKm != null ? `${p.distanceKm.toFixed(1)}km` : ''}
@@ -111,9 +292,7 @@ export default function FeedList() {
                         {p.userNickname ?? 'Unknown'}
                         <LevelBadge level={p.userLevel} />
                       </div>
-                      <div className={styles.timestamp}>
-                        {formatRelativeTime(p.createdAt)}
-                      </div>
+                      <div className={styles.timestamp}>{formatRelativeTime(p.createdAt)}</div>
                     </div>
                   </div>
                   {p.caption && <p className={styles.caption}>{p.caption}</p>}
@@ -131,10 +310,7 @@ export default function FeedList() {
                     >
                       🔥 <span>{p.cheerCount}</span>
                     </button>
-                    <button
-                      className={styles.actionBtn}
-                      onClick={() => setActivePost(p)}
-                    >
+                    <button className={styles.actionBtn} onClick={() => setActivePost(p)}>
                       💬 <span>{p.commentCount}</span>
                     </button>
                     <button className={styles.actionBtn}>↗</button>
@@ -146,39 +322,50 @@ export default function FeedList() {
         )}
       </div>
 
-      <BottomSheet
-        open={!!activePost}
-        onClose={() => setActivePost(null)}
-        height="full"
-      >
+      <BottomSheet open={!!activePost} onClose={() => setActivePost(null)} height="full">
         {activePost && <CommentSheet post={activePost} />}
       </BottomSheet>
+
+      {viewerSrc && <ImageViewer src={viewerSrc} onClose={() => setViewerSrc(null)} />}
     </>
   );
 }
 
+// ─── CommentSheet ─────────────────────────────────────────────────────────────
 function CommentSheet({ post }: { post: FeedPost }) {
   const { t } = useTranslation();
+  const user = useUserStore((s) => s.user);
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
 
-  useEffect(() => {
-    fetchComments(post.id).then(setComments);
-  }, [post.id]);
+  useEffect(() => { fetchComments(post.id).then(setComments); }, [post.id]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    const session = loadSession();
+    if (!session) return;
+    const { id, createdAt } = await postComment(post.id, text, session.userId);
     const newC: Comment = {
-      id: `c-new-${Date.now()}`,
+      id,
       postId: post.id,
-      userNickname: '@nguyen_rider',
-      userAvatarUrl: 'https://i.pravatar.cc/60?img=12',
-      content: input.trim(),
-      createdAt: new Date().toISOString(),
+      userNickname: user?.nickname ?? session.userId,
+      userAvatarUrl: user?.avatarUrl ?? undefined,
+      content: text,
+      createdAt,
       likeCount: 0,
+      iLiked: false,
     };
     setComments((prev) => [...prev, newC]);
-    setInput('');
+  };
+
+  const handleCommentLike = async (c: Comment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { liked, count } = await toggleCommentLike(post.id, c.id);
+    setComments((prev) =>
+      prev.map((x) => (x.id === c.id ? { ...x, iLiked: liked, likeCount: count } : x))
+    );
   };
 
   return (
@@ -188,10 +375,7 @@ function CommentSheet({ post }: { post: FeedPost }) {
       </h3>
       <div className={styles.commentList}>
         {comments.map((c) => (
-          <div
-            key={c.id}
-            className={`${styles.comment} ${c.parentId ? styles.commentReply : ''}`}
-          >
+          <div key={c.id} className={`${styles.comment} ${c.parentId ? styles.commentReply : ''}`}>
             <img src={c.userAvatarUrl} alt="" className={styles.commentAvatar} />
             <div className={styles.commentBody}>
               <div className={styles.commentNick}>
@@ -200,14 +384,17 @@ function CommentSheet({ post }: { post: FeedPost }) {
               </div>
               <div className={styles.commentText}>{c.content}</div>
             </div>
-            <button className={styles.commentLike}>
+            <button
+              className={`${styles.commentLike} ${c.iLiked ? styles.commentLikeActive : ''}`}
+              onClick={(e) => handleCommentLike(c, e)}
+            >
               ♥ {c.likeCount > 0 && c.likeCount}
             </button>
           </div>
         ))}
       </div>
       <div className={styles.commentInputBar}>
-        <img src="https://i.pravatar.cc/60?img=12" alt="" className={styles.commentAvatar} />
+        <img src={user?.avatarUrl ?? undefined} alt="" className={styles.commentAvatar} />
         <input
           placeholder={t('feed.commentPlaceholder')}
           value={input}

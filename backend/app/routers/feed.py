@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import FeedPost, PostComment, PostLike, RideSession, User
+from ..models import FeedPost, PostComment, PostCommentLike, PostLike, RideSession, User
 from ..schemas import (
     CommentCreateRequest,
     CommentOut,
@@ -154,18 +154,34 @@ async def toggle_like(
     return LikeToggleResponse(liked=True, like_count=post.like_count)
 
 
+def _enrich_comment(comment: PostComment, user: User | None) -> CommentOut:
+    return CommentOut(
+        id=comment.id,
+        post_id=comment.post_id,
+        user_id=comment.user_id,
+        user_nickname=user.nickname if user else None,
+        user_avatar_url=(user.avatar_url if user and user.avatar_url else default_avatar_url()),
+        parent_id=comment.parent_id,
+        content=comment.content,
+        image_url=comment.image_url,
+        like_count=comment.like_count,
+        created_at=comment.created_at,
+    )
+
+
 # F-5
 @router.get("/{post_id}/comments", response_model=list[CommentOut], summary="댓글 목록")
 async def get_comments(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     await _get_post_or_404(post_id, db)
-    comments = (
+    rows = (
         await db.execute(
-            select(PostComment)
+            select(PostComment, User)
+            .outerjoin(User, PostComment.user_id == User.id)
             .where(PostComment.post_id == post_id)
             .order_by(PostComment.created_at.asc())
         )
-    ).scalars().all()
-    return [CommentOut.model_validate(c) for c in comments]
+    ).all()
+    return [_enrich_comment(comment, user) for comment, user in rows]
 
 
 # F-6
@@ -192,4 +208,33 @@ async def post_comment(
     await db.commit()
     await db.refresh(comment)
 
-    return CommentOut.model_validate(comment)
+    user = await db.get(User, body.user_id)
+    return _enrich_comment(comment, user)
+
+
+# F-7 (신규)
+@router.post("/{post_id}/comments/{comment_id}/like", response_model=LikeToggleResponse, summary="댓글 좋아요 토글")
+async def toggle_comment_like(
+    post_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    body: LikeToggleRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_post_or_404(post_id, db)
+
+    result = await db.execute(select(PostComment).where(PostComment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    existing = await db.get(PostCommentLike, {"comment_id": comment_id, "user_id": body.user_id})
+    if existing:
+        await db.delete(existing)
+        comment.like_count = max(0, comment.like_count - 1)
+        await db.commit()
+        return LikeToggleResponse(liked=False, like_count=comment.like_count)
+
+    db.add(PostCommentLike(comment_id=comment_id, user_id=body.user_id))
+    comment.like_count += 1
+    await db.commit()
+    return LikeToggleResponse(liked=True, like_count=comment.like_count)

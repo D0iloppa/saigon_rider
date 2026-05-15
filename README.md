@@ -236,18 +236,18 @@ docker compose --env-file .env --profile backend up --build -d engine
 #### A. 권장: 스크립트 사용 (Private 문서 자동 동기화 포함)
 
 ```bash
-./wikidoc_publish.sh              # docs/TEST → wiki private 동기화 + 무중단 발행
+./wikidoc_publish.sh              # ai-docs/TEST → wiki private 동기화 + 무중단 발행
 ./wikidoc_publish.sh --sync-only  # 파일 복사만 (docker 명령 생략)
 ./wikidoc_publish.sh --no-build   # 재기동만 (이미지 재빌드 생략)
 ./wikidoc_publish.sh --help       # 도움말
 ```
 
-- `docs/TEST/*.md` 를 자동으로 `wiki/wiki-docs/private/test/` 에 동기화 (front-matter·동기화 알림 자동 주입)
+- `ai-docs/TEST/*.md` 를 자동으로 `wiki/wiki-docs/private/test/` 에 동기화 (front-matter·동기화 알림 자동 주입)
 - 이후 `saigon_wiki` 컨테이너만 `--no-deps --build` 로 재발행
 
 #### B. Docusaurus 마크다운만 직접 수정한 경우
 
-> `wiki/wiki-docs/*` 를 직접 편집했고 docs/TEST 동기화가 필요 없을 때.
+> `wiki/wiki-docs/*` 를 직접 편집했고 ai-docs/TEST 동기화가 필요 없을 때.
 
 ```bash
 docker compose --env-file .env --profile wiki up --build -d --no-deps wiki

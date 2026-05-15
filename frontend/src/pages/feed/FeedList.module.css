@@ -97,15 +97,116 @@
   box-shadow: var(--shadow-card);
 }
 
-.postImg {
+/* ── Post image (skeleton + lazy load) ─────────────────────────── */
+.postImgContainer {
   position: relative;
   height: 280px;
   overflow: hidden;
 }
 
-.postImg img {
+/* legacy alias kept for any remaining refs */
+.postImg { position: relative; height: 280px; overflow: hidden; }
+
+.postImgWrap {
+  display: block;
+  width: 100%; height: 100%;
+  position: relative;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.imgSkeleton {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.imgSkeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,.08) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+.postImgEl {
   width: 100%; height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.postImgVisible {
+  opacity: 1;
+}
+
+/* ── Image lightbox ─────────────────────────────────────────────── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  /* prevent pull-to-refresh on mobile while open */
+  overscroll-behavior: contain;
+}
+
+.lightboxVisible {
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.lightboxClose {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top, 20px));
+  right: 20px;
+  z-index: 10;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: background 0.15s;
+}
+
+.lightboxClose:active { background: rgba(255,255,255,.25); }
+
+.lightboxImgWrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* prevent default browser pinch zoom while our gesture is active */
+  touch-action: none;
+  overflow: hidden;
+}
+
+.lightboxImg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
 }
 
 .imgStats, .imgReward {
@@ -301,6 +402,12 @@
   color: var(--text-3);
   padding: 4px 8px;
   align-self: flex-start;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.commentLikeActive {
+  color: var(--brand);
 }
 
 .commentInputBar {

@@ -1,5 +1,5 @@
 .backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(11,13,20,.55);
   backdrop-filter: blur(4px);

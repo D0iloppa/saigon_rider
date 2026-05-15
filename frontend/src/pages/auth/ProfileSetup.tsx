@@ -9,9 +9,9 @@ import type { RiderStyle } from '@/api/types';
 import styles from './ProfileSetup.module.css';
 
 const STYLES: { key: RiderStyle; gifCode: string; titleKey: string; subKey: string }[] = [
-  { key: 'commuter',    gifCode: '1f3d9', titleKey: 'profileSetup.styleCommuterTitle',    subKey: 'profileSetup.styleCommuterSub' },
+  { key: 'commuter',    gifCode: '1f3cd', titleKey: 'profileSetup.styleCommuterTitle',    subKey: 'profileSetup.styleCommuterSub' },
   { key: 'cafe_hunter', gifCode: '2615',  titleKey: 'profileSetup.styleCafeHunterTitle',   subKey: 'profileSetup.styleCafeHunterSub' },
-  { key: 'night_rider', gifCode: '1f319', titleKey: 'profileSetup.styleNightRiderTitle', subKey: 'profileSetup.styleNightRiderSub' },
+  { key: 'night_rider', gifCode: '1f31f', titleKey: 'profileSetup.styleNightRiderTitle', subKey: 'profileSetup.styleNightRiderSub' },
 ];
 
 function GifIcon({ code, size = 56 }: { code: string; size?: number }) {

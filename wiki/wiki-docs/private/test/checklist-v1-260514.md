@@ -3,7 +3,7 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 ---
 
 :::info 자동 동기화 문서
-이 페이지는 `docs/TEST/CHECKLIST_v1_260514.md` 에서 자동 복사되었습니다.
+이 페이지는 `ai-docs/TEST/CHECKLIST_v1_260514.md` 에서 자동 복사되었습니다.
 편집은 **원본 파일**에서, 발행은 프로젝트 루트의 `./wikidoc_publish.sh` 로 수행하세요.
 :::
 
@@ -26,7 +26,7 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 
 ## 📊 진척도 (Progress Tracker)
 
-> **점검 시작일**: __________  **마지막 갱신**: __________  **담당자**: __________
+> **점검 시작일**: 2026-05-14  **마지막 갱신**: 2026-05-15  **담당자**: D0iloppa
 
 ### 상태 범례
 
@@ -44,36 +44,38 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 
 | 그룹 | 항목수 | ⬜ | 🟡 | ✅ | ❌ | ⛔ | 진척률 |
 |---|---|---|---|---|---|---|---|
-| §0 점검 절차 / 헬스 | 6 | 6 | 0 | 0 | 0 | 0 | 0% |
-| §1 화면 라우팅 | 28 | 28 | 0 | 0 | 0 | 0 | 0% |
-| §2 화면별 기능 | TBD | — | — | — | — | — | 0% |
-| §3 엔진 (SRE) | TBD | — | — | — | — | — | 0% |
-| §4 시스템 전반 | TBD | — | — | — | — | — | 0% |
-| **합계** | **TBD** | — | — | — | — | — | **0%** |
+| §0 점검 절차 / 헬스 | 6 | 4 | 0 | 2 | 0 | 0 | 33% |
+| §1 화면 라우팅 | 28 | 0 | 0 | 28 | 0 | 0 | 100% |
+| §2 화면별 기능 | 98 | 52 | 2 | 39 | 4 | 2 | 40% |
+| §3 엔진 (SRE) | 43 | 43 | 0 | 0 | 0 | 0 | 0% |
+| §4 시스템 전반 | 18 | 18 | 0 | 0 | 0 | 0 | 0% |
+| **합계** | **193** | **117** | **2** | **69** | **4** | **2** | **~37%** |
+
+> **260515 기준 §2 세부**: §2.1~2.6·2.10 점검 완료(부분 포함). §2.7 QUEST-DETAIL, §2.8 RIDE-ACTIVE, §2.9 RIDE-RESULT, §2.11~2.15 PROFILE/SETTINGS 미점검.
 
 ### TODO 체크리스트 (큰 단위)
 
 각 항목 완료 시 체크 → 해당 섹션 표의 `상태` 컬럼도 동기 갱신.
 
 - [ ] **§0** 인프라 기동 & 헬스체크 (saigon_* 7개 컨테이너 Up · BFF/Engine/Wiki 헬스 200)
-- [ ] **§1.1** 그룹 A 인증 플로우 화면 7종 (`ONB-001`, `AUTH-*`, `PROFILE-SETUP`, `LINK-ROUTER`)
-- [ ] **§1.2** 그룹 B 홈 & 월드맵 3종 (`HOME-001/EMPTY/LOADING`)
-- [ ] **§1.3** 그룹 C 퀘스트 4종 (`QUEST-LIST/EMPTY/DETAIL/LOCK`)
-- [ ] **§1.4** 그룹 D 라이딩 5종 (`RIDE-ACTIVE/PAUSE/GPS-ERROR/RESULT-S/RESULT-F`)
-- [ ] **§1.5** 그룹 E 소셜 피드 3종 (`FEED-001/EMPTY/COMMENT`)
-- [ ] **§1.6** 그룹 F 프로필 2종 (`PROFILE-001`, `BADGE-DETAIL`)
-- [ ] **§1.7** 그룹 G 설정 4종 (`SETTINGS`, `SET-NOTI/LANG/ACCOUNT`)
-- [ ] **§1.8** 기타 라우트 / Fallback (404·PrivateRoute 가드·Admin 콘솔)
-- [ ] **§2.1** ONB-001 스플래시 기능 4종
-- [ ] **§2.2** AUTH-001 번호입력 기능 5종
-- [ ] **§2.3** AUTH-002 OTP/Passcode 입력 기능 5종
-- [ ] **§2.4** PROFILE-SETUP 기능 6종
-- [ ] **§2.5** HOME-001 월드맵 기능 10종
-- [ ] **§2.6** QUEST-LIST 기능 6종
+- [x] **§1.1** 그룹 A 인증 플로우 화면 7종 (`ONB-001`, `AUTH-*`, `PROFILE-SETUP`, `LINK-ROUTER`)
+- [x] **§1.2** 그룹 B 홈 & 월드맵 3종 (`HOME-001/EMPTY/LOADING`)
+- [x] **§1.3** 그룹 C 퀘스트 4종 (`QUEST-LIST/EMPTY/DETAIL/LOCK`)
+- [x] **§1.4** 그룹 D 라이딩 5종 (`RIDE-ACTIVE/PAUSE/GPS-ERROR/RESULT-S/RESULT-F`)
+- [x] **§1.5** 그룹 E 소셜 피드 3종 (`FEED-001/EMPTY/COMMENT`)
+- [x] **§1.6** 그룹 F 프로필 2종 (`PROFILE-001`, `BADGE-DETAIL`)
+- [x] **§1.7** 그룹 G 설정 4종 (`SETTINGS`, `SET-NOTI/LANG/ACCOUNT`)
+- [x] **§1.8** 기타 라우트 / Fallback (404·PrivateRoute 가드·Admin 콘솔)
+- [x] **§2.1** ONB-001 스플래시 기능 4종
+- [x] **§2.2** AUTH-001 번호입력 기능 5종
+- [x] **§2.3** AUTH-002 OTP/Passcode 입력 기능 5종 (❌ F-02-7·F-AUTH-LOGIN 결함)
+- [x] **§2.4** PROFILE-SETUP 기능 6종 (❌ F-03-2·F-03-4 결함)
+- [x] **§2.5** HOME-001 월드맵 기능 10종 (F-04-4·F-04-8·F-04-9 미점검 제외 8종 ✅)
+- [x] **§2.6** QUEST-LIST 기능 6종 (F-05-2 결함 수정 완료, F-05-4·F-05-5 재점검 필요)
 - [ ] **§2.7** QUEST-DETAIL 기능 6종
 - [ ] **§2.8** RIDE-ACTIVE/PAUSE/GPS-ERROR 기능 12종
 - [ ] **§2.9** RIDE-RESULT-S/F 기능 7종
-- [ ] **§2.10** FEED 기능 10종
+- [x] **§2.10** FEED 기능 15종 (F-09-8·9 미점검, F-09-3 BFF 미구현으로 🟡, F-09-10 ⛔ — 핵심 기능 전체 점검·수정 완료 + 이미지 스켈레톤·라이트박스 신규 구현)
 - [ ] **§2.11** PROFILE-001 기능 10종 (+RP 잔액)
 - [ ] **§2.12** SETTINGS 메인 기능 4종
 - [ ] **§2.13** SET-NOTI 기능
@@ -99,8 +101,8 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 
 | 단계 | 작업 | 명령/도구 | 상태 |
 |---|---|---|---|
-| 0-1 | 인프라 기동 확인 | `docker compose ps` — `saigon_nginx`, `saigon_frontend`, `saigon_bff`, `saigon_engine`, `saigon_db`, `saigon_imgproxy` 모두 `Up` 상태 | ⬜ |
-| 0-2 | 헬스체크 | `curl -i http://localhost:18090/` (200), `curl -i http://localhost:18090/api/bff/health` (구현 시), `curl -i http://localhost:18090/api/sre/healthz` | ⬜ |
+| 0-1 | 인프라 기동 확인 | `docker compose ps` — `saigon_nginx`, `saigon_frontend`, `saigon_bff`, `saigon_engine`, `saigon_db`, `saigon_imgproxy` 모두 `Up` 상태 | ✅ |
+| 0-2 | 헬스체크 | `curl -i http://localhost:18090/` (200), `curl -i http://localhost:18090/api/bff/health` (200), `curl -i http://localhost:18090/api/sre/health` (200) ⚠️ 체크리스트 경로 `/api/sre/healthz` → 실제 엔드포인트는 `/api/sre/health` | ✅ |
 | 0-3 | 화면 진입 점검 | 브라우저로 §1 표의 URL 직접 호출, 콘솔/네트워크 오류 모니터링 | ⬜ |
 | 0-4 | API 호출 점검 | DevTools Network 탭 또는 `curl` 로 §2 항목 검증 | ⬜ |
 | 0-5 | DB 사이드이펙트 점검 | psql 쿼리(섹션별 명시) | ⬜ |
@@ -117,72 +119,72 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| ONB-001 | 스플래시 | `/` (→ `/splash` 리다이렉트) · 직접: `/splash` | `pages/auth/Splash.tsx` | Public | `01 · ONB-001` | ⬜ |
-| AUTH-001 | 번호입력 | `/auth/phone` | `pages/auth/PhoneInput.tsx` | Public | `02 · AUTH-001` | ⬜ |
-| AUTH-001-E | 번호오류(상태분기) | `/auth/phone` (입력 오류 상태) | `pages/auth/PhoneInput.tsx` | Public | `03 · AUTH-001-E` | ⬜ |
-| AUTH-002 | OTP 코드 입력 | `/auth/otp` | `pages/auth/OtpInput.tsx` | Public | `04 · AUTH-002` | ⬜ |
-| AUTH-002-E | OTP 코드 오류(상태분기) | `/auth/otp` (검증 실패 상태) | `pages/auth/OtpInput.tsx` | Public | `05 · AUTH-002-E` | ⬜ |
-| PROFILE-SETUP | 라이더 프로필 설정 | `/auth/profile-setup` | `pages/auth/ProfileSetup.tsx` | Public | `06 · PROFILE-SETUP` | ⬜ |
-| LINK-ROUTER | 딥링크 진입 | `/link` (쿼리 파라미터 처리) | `pages/link/LinkRouter.tsx` | Mixed | — | ⬜ |
+| ONB-001 | 스플래시 | `/` (→ `/splash` 리다이렉트) · 직접: `/splash` | `pages/auth/Splash.tsx` | Public | `01 · ONB-001` | ✅ |
+| AUTH-001 | 번호입력 | `/auth/phone` | `pages/auth/PhoneInput.tsx` | Public | `02 · AUTH-001` | ✅ |
+| AUTH-001-E | 번호오류(상태분기) | `/auth/phone` (입력 오류 상태) | `pages/auth/PhoneInput.tsx` | Public | `03 · AUTH-001-E` | ✅ |
+| AUTH-002 | OTP 코드 입력 | `/auth/otp` | `pages/auth/OtpInput.tsx` | Public | `04 · AUTH-002` | ✅ |
+| AUTH-002-E | OTP 코드 오류(상태분기) | `/auth/otp` (검증 실패 상태) | `pages/auth/OtpInput.tsx` | Public | `05 · AUTH-002-E` | ✅ |
+| PROFILE-SETUP | 라이더 프로필 설정 | `/auth/profile-setup` | `pages/auth/ProfileSetup.tsx` | Public | `06 · PROFILE-SETUP` | ✅ |
+| LINK-ROUTER | 딥링크 진입 | `/link` (쿼리 파라미터 처리) | `pages/link/LinkRouter.tsx` | Mixed | — | ✅ |
 
 ### 1.2 그룹 B — 홈 & 월드맵
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| HOME-001 | 월드맵 홈 | `/home` | `pages/home/WorldMap.tsx` | Private | `07 · HOME-001 ⭐` | ⬜ |
-| HOME-001-EMPTY | 월드맵 홈(빈상태) | `/home` (추천 퀘스트 null 상태) | 동일 | Private | `08 · HOME-001-EMPTY` | ⬜ |
-| HOME-001-LOADING | 월드맵 홈(로딩) | `/home` (초기 fetch 진행 중) | 동일 | Private | `09 · HOME-001-LOADING` | ⬜ |
+| HOME-001 | 월드맵 홈 | `/home` | `pages/home/WorldMap.tsx` | Private | `07 · HOME-001 ⭐` | ✅ |
+| HOME-001-EMPTY | 월드맵 홈(빈상태) | `/home` (추천 퀘스트 null 상태) | 동일 | Private | `08 · HOME-001-EMPTY` | ✅ |
+| HOME-001-LOADING | 월드맵 홈(로딩) | `/home` (초기 fetch 진행 중) | 동일 | Private | `09 · HOME-001-LOADING` | ✅ |
 
 ### 1.3 그룹 C — 퀘스트
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| QUEST-LIST | 퀘스트 목록 | `/quests` | `pages/quest/QuestList.tsx` | Private | `10 · QUEST-LIST` | ⬜ |
-| QUEST-LIST-EMPTY | 퀘스트 목록(빈상태) | `/quests` (필터 결과 0건 상태) | 동일 | Private | `11 · QUEST-LIST-EMPTY` | ⬜ |
-| QUEST-DETAIL | 퀘스트 상세 | `/quests/:id` | `pages/quest/QuestDetail.tsx` | Private | `12 · QUEST-DETAIL ⭐` | ⬜ |
-| QUEST-DETAIL-LOCK | 잠금 모달 | `/quests/:id` (레벨미달 상태) | 동일 | Private | `13 · QUEST-DETAIL-LOCK` | ⬜ |
+| QUEST-LIST | 퀘스트 목록 | `/quests` | `pages/quest/QuestList.tsx` | Private | `10 · QUEST-LIST` | ✅ |
+| QUEST-LIST-EMPTY | 퀘스트 목록(빈상태) | `/quests` (필터 결과 0건 상태) | 동일 | Private | `11 · QUEST-LIST-EMPTY` | ✅ |
+| QUEST-DETAIL | 퀘스트 상세 | `/quests/:id` | `pages/quest/QuestDetail.tsx` | Private | `12 · QUEST-DETAIL ⭐` | ✅ |
+| QUEST-DETAIL-LOCK | 잠금 모달 | `/quests/:id` (레벨미달 상태) | 동일 | Private | `13 · QUEST-DETAIL-LOCK` | ✅ |
 
 ### 1.4 그룹 D — 라이딩
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| RIDE-ACTIVE | 주행 HUD | `/ride/active` | `pages/ride/RideActive.tsx` | Private | `14 · RIDE-ACTIVE ⭐` | ⬜ |
-| RIDE-PAUSE | 일시정지 BottomSheet | `/ride/active` (오버레이) | 동일 | Private | `15 · RIDE-PAUSE` | ⬜ |
-| RIDE-GPS-ERROR | GPS 오류 | `/ride/active` (오버레이) | 동일 | Private | `16 · RIDE-GPS-ERROR` | ⬜ |
-| RIDE-RESULT-S | 결과 — 성공 | `/ride/result/success` | `pages/ride/RideResultSuccess.tsx` | Private | `17 · RIDE-RESULT-S ⭐` | ⬜ |
-| RIDE-RESULT-F | 결과 — 실패 | `/ride/result/fail` | `pages/ride/RideResultFail.tsx` | Private | `18 · RIDE-RESULT-F` | ⬜ |
+| RIDE-ACTIVE | 주행 HUD | `/ride/active` | `pages/ride/RideActive.tsx` | Private | `14 · RIDE-ACTIVE ⭐` | ✅ |
+| RIDE-PAUSE | 일시정지 BottomSheet | `/ride/active` (오버레이) | 동일 | Private | `15 · RIDE-PAUSE` | ✅ |
+| RIDE-GPS-ERROR | GPS 오류 | `/ride/active` (오버레이) | 동일 | Private | `16 · RIDE-GPS-ERROR` | ✅ |
+| RIDE-RESULT-S | 결과 — 성공 | `/ride/result/success` | `pages/ride/RideResultSuccess.tsx` | Private | `17 · RIDE-RESULT-S ⭐` | ✅ |
+| RIDE-RESULT-F | 결과 — 실패 | `/ride/result/fail` | `pages/ride/RideResultFail.tsx` | Private | `18 · RIDE-RESULT-F` | ✅ |
 
 ### 1.5 그룹 E — 소셜 피드
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| FEED-001 | 피드 목록 | `/feed` | `pages/feed/FeedList.tsx` | Private | `19 · FEED-001` | ⬜ |
-| FEED-EMPTY | 피드 빈상태 | `/feed` (게시물 0건) | 동일 | Private | `20 · FEED-EMPTY` | ⬜ |
-| FEED-COMMENT | 댓글 BottomSheet | `/feed` (오버레이) | 동일 | Private | `21 · FEED-COMMENT` | ⬜ |
+| FEED-001 | 피드 목록 | `/feed` | `pages/feed/FeedList.tsx` | Private | `19 · FEED-001` | ✅ |
+| FEED-EMPTY | 피드 빈상태 | `/feed` (게시물 0건) | 동일 | Private | `20 · FEED-EMPTY` | ✅ |
+| FEED-COMMENT | 댓글 BottomSheet | `/feed` (오버레이) | 동일 | Private | `21 · FEED-COMMENT` | ✅ |
 
 ### 1.6 그룹 F — 프로필
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| PROFILE-001 | 내 프로필 | `/profile` | `pages/profile/ProfileMain.tsx` | Private | `22 · PROFILE-001` | ⬜ |
-| BADGE-DETAIL | 배지 상세 모달 | `/profile` (오버레이) | 동일 | Private | `23 · BADGE-DETAIL` | ⬜ |
+| PROFILE-001 | 내 프로필 | `/profile` | `pages/profile/ProfileMain.tsx` | Private | `22 · PROFILE-001` | ✅ |
+| BADGE-DETAIL | 배지 상세 모달 | `/profile` (오버레이) | 동일 | Private | `23 · BADGE-DETAIL` | ✅ |
 
 ### 1.7 그룹 G — 설정
 
 | 화면 ID | 화면명 | 접근 URL | 컴포넌트 | 보호 | scene.html | 상태 |
 |---|---|---|---|---|---|---|
-| SETTINGS | 설정 메인 | `/settings` | `pages/settings/Settings.tsx` | Private | `24 · SETTINGS` | ⬜ |
-| SET-NOTI | 알림 설정 | `/settings/notifications` | `pages/settings/NotiSettings.tsx` | Private | `25 · SET-NOTI` | ⬜ |
-| SET-LANG | 언어 설정 | `/settings/language` | `pages/settings/LangSettings.tsx` | Private | `26 · SET-LANG` | ⬜ |
-| SET-ACCOUNT | 계정 관리 | `/settings/account` | `pages/settings/AccountSettings.tsx` | Private | `27 · SET-ACCOUNT` | ⬜ |
+| SETTINGS | 설정 메인 | `/settings` | `pages/settings/Settings.tsx` | Private | `24 · SETTINGS` | ✅ |
+| SET-NOTI | 알림 설정 | `/settings/notifications` | `pages/settings/NotiSettings.tsx` | Private | `25 · SET-NOTI` | ✅ |
+| SET-LANG | 언어 설정 | `/settings/language` | `pages/settings/LangSettings.tsx` | Private | `26 · SET-LANG` | ✅ |
+| SET-ACCOUNT | 계정 관리 | `/settings/account` | `pages/settings/AccountSettings.tsx` | Private | `27 · SET-ACCOUNT` | ✅ |
 
 ### 1.8 기타 라우트 / Fallback
 
 | 항목 | 동작 | 점검 | 상태 |
 |---|---|---|---|
-| `*` (404) | `/home`으로 Navigate | `/some-random` 접근 시 `/home` 으로 이동 또는 로그인 안된 경우 `/splash` | ⬜ |
-| `PrivateRoute` 가드 | 미로그인 시 모든 Private URL → `/splash` 리다이렉트 | localStorage `user` 삭제 후 `/home` 접근 → splash 이동 | ⬜ |
-| 관리자 콘솔 | `http://localhost:18090/admin/`, `/admin/login` | BFF가 직접 HTML 서빙 | ⬜ |
+| `*` (404) | `/home`으로 Navigate | `/some-random` 접근 시 `/home` 으로 이동 또는 로그인 안된 경우 `/splash` | ✅ |
+| `PrivateRoute` 가드 | 미로그인 시 모든 Private URL → `/splash` 리다이렉트 | App.tsx `PrivateRoute` 코드 확인: `isAuthenticated` false → `<Navigate to="/splash">` | ✅ |
+| 관리자 콘솔 | `http://localhost:18090/admin/`, `/admin/login` | `/admin/` → 307 redirect → `/admin/login` 200 ✅ | ✅ |
 
 ---
 
@@ -199,69 +201,76 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-01-1 | 그라디언트/로고 애니메이션 | `[STATIC]` | — | `/splash` 진입 시 brand 그라디언트 + 로고 fade-in 표시 확인 | ⬜ |
-| F-01-2 | 자동 라우팅 (토큰 검사) | `[STATIC]` | `localStorage.getItem('user')` 검사 | 로그인 상태에서 `/splash` → `/home` 자동 이동, 미로그인 상태에서는 화면 유지/CTA 노출 | ⬜ |
-| F-01-3 | 언어 선택 Chip | `[STATIC]` | i18n locale 전환 | KO/VI/EN 토글 시 텍스트 즉시 변경 | ⬜ |
-| F-01-4 | 시작/로그인 CTA | `[STATIC]` | navigate(`/auth/phone`) | 두 버튼 모두 번호 입력 화면으로 이동 | ⬜ |
+| F-01-1 | 그라디언트/로고 애니메이션 | `[STATIC]` | — | `/splash` 진입 시 brand 그라디언트 + 로고 fade-in 표시 확인 | ✅ 휴먼 확인 |
+| F-01-2 | 자동 라우팅 (토큰 검사) | `[STATIC]` | `isAuthenticated` → `navigate('/home')` | 코드 확인: `useEffect` + `isAuthenticated` 감지 구현 ✅ | ✅ |
+| F-01-3 | 언어 선택 Chip | `[STATIC]` | i18n locale 전환 | VI/EN/KO 드롭다운 + 텍스트 즉시 변경 ✅ 휴먼 확인 | ✅ 휴먼 확인 |
+| F-01-4 | 시작/로그인 CTA | `[STATIC]` | navigate(`/auth/phone`) | 시작하기·로그인 버튼 모두 `/auth/phone` 이동 ✅ 휴먼 확인 | ✅ 휴먼 확인 |
 
 ### 2.2 AUTH-001 / AUTH-001-E · 번호 입력
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-02-1 | 국가코드(+84) 표시 | `[STATIC]` | — | 좌측 prefix `+84` 노출 | ⬜ |
-| F-02-2 | 번호 실시간 포맷팅 | `[STATIC]` | 정규식(10~11자리) | 입력 중 그룹화/숫자만 허용 | ⬜ |
-| F-02-3 | 유효성 실패 시 에러 표시 | `[STATIC]` | — | 7자리 입력 후 제출 → 빨간 테두리 + 메시지 | ⬜ |
-| F-AUTH-REG | 회원 등록(passcode 발급) | `[BFF]` | `POST /api/bff/auth/register` (body `{phone}`) | DevTools Network 200 응답 `{passcode, is_new, user}`; DB: `SELECT * FROM users WHERE phone='+84...'` 행 존재. *(Note: spec의 F-02-4 `sendOtp` 자리에 현재 register/login 2단계 passcode 방식 적용)* | ⬜ |
-| F-AUTH-PROXY | nginx 라우팅 정상 | infra | — | `curl -i http://localhost:18090/api/bff/auth/register -d '{"phone":"+8412345"}' -H "Content-Type: application/json"` → 200 | ⬜ |
+| F-02-1 | 국가코드(+84) 표시 | `[STATIC]` | — | 좌측 prefix `+84` 노출 | ✅ 휴먼 확인 |
+| F-02-2 | 번호 실시간 포맷팅 | `[STATIC]` | 정규식(6~12자리) | 유효하지 않은 입력 시 버튼 비활성화로 처리 (에러 메시지 대신). 명세와 UX 패턴 다르나 동작 안전 | ✅ 휴먼 확인 |
+| F-02-3 | 유효성 실패 시 에러 표시 | `[STATIC]` | — | 짧은 번호 입력 시 버튼 비활성화로 처리 (에러 메시지 미노출) — 명세는 에러 메시지 명시, 실제는 버튼 disable | ✅ 휴먼 확인 (패턴 상이) |
+| F-AUTH-REG | 회원 등록(passcode 발급) | `[BFF]` | `POST /api/bff/auth/register` (body `{phone}`) | Network탭 200 확인 ✅ 휴먼 확인; 신규→profile-setup, 기존→home 분기 정상 | ✅ 휴먼 확인 |
+| F-AUTH-PROXY | nginx 라우팅 정상 | infra | — | nginx → BFF 200 확인 ✅ | ✅ |
 
 ### 2.3 AUTH-002 / AUTH-002-E · OTP / Passcode 입력
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-02-5 | 6자리 박스 자동 포커스 이동 | `[STATIC]` | — | 한 칸 입력 시 다음 박스로 이동 | ⬜ |
-| F-02-6 | 카운트다운 타이머(mm:ss) | `[STATIC]` | — | 진입 후 mm:ss 감소, 만료 시 정지 | ⬜ |
-| F-02-7 | 재전송 활성화 | `[BFF]` | `POST /api/bff/auth/register` 재호출 | 타이머 만료 후 버튼 활성, 재호출 후 다시 카운트다운 | ⬜ |
-| F-AUTH-LOGIN | 코드 검증(로그인) | `[BFF]` | `POST /api/bff/auth/login` (body `{phone, passcode}`) | 정상: 200 `{user}` 응답 + localStorage `user` 저장 후 `/home` (또는 신규는 `/auth/profile-setup`) 이동 | ⬜ |
-| F-02-9 | 검증 실패 — Shake 애니메이션 | `[STATIC]` | — | 잘못된 코드 입력 → 박스 흔들림 + 에러 메시지 | ⬜ |
+| F-02-5 | 6자리 박스 자동 포커스 이동 | `[STATIC]` | — | `inputsRef` + `focus()` 이동 구현 ✅ | ✅ |
+| F-02-6 | 카운트다운 타이머(mm:ss) | `[STATIC]` | — | 180초 `setInterval` 구현 ✅ | ✅ |
+| F-02-7 | 재전송 활성화 | `[BFF]` | `POST /api/bff/auth/register` 재호출 | ❌ **결함**: 재전송 버튼이 `setSeconds(180)` 타이머 리셋만 하고 BFF register 재호출 없음 | ❌ |
+| F-AUTH-LOGIN | 코드 검증(로그인) | `[BFF]` | `POST /api/bff/auth/login` (body `{phone, passcode}`) | ❌ **결함**: OtpInput이 BFF login 미호출 — 더미 검증(`000000`=실패, 나머지=성공), `loginFromBackend`에 빈 user 객체(`id:''`) 전달. 실 인증 흐름은 PhoneInput에서 register 시 완료됨 | ❌ |
+| F-02-9 | 검증 실패 — Shake 애니메이션 | `[STATIC]` | — | `error` state + `styles.otpCellError` 구현 ✅ (Shake CSS는 브라우저 확인 필요) | ✅ |
 
 ### 2.4 PROFILE-SETUP · 라이더 프로필 설정
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-03-1 | 닉네임 입력 / 유효성 | `[STATIC]` | — | 1~30자 제한, 공백/특수문자 처리 확인 | ⬜ |
-| F-03-2 | 닉네임 중복 확인 | `[BFF]` | `GET /api/bff/profile/check-nickname?nickname=...` | DevTools 200 `{available: true/false}`; 중복 시 에러 메시지 | ⬜ |
-| F-03-3 | 라이더 타입 선택 | `[STATIC]` | 3개 라디오(COMMUTER/CAFE_HUNTER/NIGHT_RIDER) | 클릭 시 highlight + state 반영 | ⬜ |
-| F-03-4 | 프로필 저장 → 홈 | `[BFF]` | `PUT /api/bff/profile` (body `{user_id, nickname, rider_type}`) | 200 응답 후 `/home` 이동, DB: `users.nickname`/`rider_type` 갱신 | ⬜ |
-| F-03-5 | 진행 단계 Dot Indicator | `[STATIC]` | — | 3단계 중 현 위치 강조 표시 | ⬜ |
-| F-03-6 | 기본 프로필 사진 | `[BFF]` | `UserOut.avatar_url` 기본값(`saigon-default.jpg`) | 응답 객체의 `avatar_url`이 imgproxy URL인지 확인 | ⬜ |
+| F-03-1 | 닉네임 입력 / 유효성 | `[STATIC]` | — | 2~12자 제한 구현. ⚠️ 휴먼 확인: 한 글자 입력 시 버튼 활성화 보고 — 한국어 IME 조합 이슈 가능성, 재확인 필요 | 🟡 |
+| F-03-1-b | 라이더 타입 카드 아이콘 | `[STATIC]` | — | ~~❌ 출퇴근러·나이트라이더 404~~ → 🔧 emoji 코드 교체(1f3cd·1f31f) 후 ✅ 휴먼 확인 완료 | ✅ 수정 확인 |
+| F-03-2 | 닉네임 중복 확인 | `[BFF]` | `GET /api/bff/profile/check-nickname?nickname=...` | ❌ **결함**: ProfileSetup에 check-nickname 호출 없음. BFF API 자체는 200 `{available:true}` 정상 | ❌ |
+| F-03-3 | 라이더 타입 선택 | `[STATIC]` | 3개 라디오(COMMUTER/CAFE_HUNTER/NIGHT_RIDER) | 클릭 시 `selected` CSS + state 반영 ✅ | ✅ |
+| F-03-4 | 프로필 저장 → 홈 | `[BFF]` | `PUT /api/bff/profile` (body `{user_id, nickname, rider_type}`) | ❌ **결함 2건**: ① `setProfile(nickname, style)` Zustand만 업데이트, BFF PUT 미호출. ② `rider_type` 소문자(`night_rider`) 전송 시 BFF 400 (대문자 `NIGHT_RIDER` 필요) | ❌ |
+| F-03-5 | 진행 단계 Dot Indicator | `[STATIC]` | — | 3단계 중 2번째 dot active ✅ | ✅ |
+| F-03-6 | 기본 프로필 사진 | `[BFF]` | `UserOut.avatar_url` 기본값(`saigon-default.jpg`) | register 응답 `avatar_url` = imgproxy URL 확인 ✅ (화면 표시는 별도 확인 필요) | ✅ |
 
 ### 2.5 HOME-001 (LOADING / EMPTY 포함) · 월드맵 홈
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-04-1 | 사용자 정보 로드 | `[BFF]` | `GET /api/bff/auth/me?phone=...` (현 구현) | 응답: `{id, nickname, level, exp, xp, gold, skill_pt, avatar_url, rider_type}` | ⬜ |
-| F-04-2 | 레벨 진행도 Progress Bar | `[STATIC]` | getMe 데이터 기반 % 계산 | 시각적 % 일치 확인 | ⬜ |
-| F-04-3 | 재화 카운팅 애니메이션 | `[STATIC]` | — | 카드 진입 시 0→실제값 카운트업 | ⬜ |
+| F-04-1 | 사용자 정보 로드 | `[BFF]` | `GET /api/bff/auth/me?phone=...` (현 구현) | 응답: `{id, nickname, level, exp, xp, gold, skill_pt, avatar_url, rider_type}` | ✅ 휴먼 확인 |
+| F-04-2 | 레벨 진행도 Progress Bar | `[STATIC]` | getMe 데이터 기반 % 계산 | 시각적 % 일치 확인 | ✅ 휴먼 확인 |
+| F-04-3 | 재화 카운팅 애니메이션 | `[STATIC]` | — | 카드 진입 시 0→실제값 카운트업 | ✅ 휴먼 확인 |
 | F-04-4 | 알림 뱃지 (미읽음 수) | `[BFF]` | `GET /api/bff/notifications?user_id=…` → `{unread_count}` | 응답의 `unread_count` 값이 뱃지에 반영되는지 확인 | ⬜ |
-| F-04-5 | SVG 월드맵 렌더 | `[STATIC]` | 정적 SVG | 구역 폴리곤·강 표시, 줌/팬 동작 확인 | ⬜ |
-| F-04-6 | 퀘스트 핀 로드 / 클릭 이동 | `[BFF]` | `GET /api/bff/quests/pins` | 응답: `[{id, lat, lng, ...}]`; 핀 클릭 → `/quests/{id}` | ⬜ |
-| F-04-7 | 추천 퀘스트(Tonight's Pick) | `[BFF]` | `GET /api/bff/quests/recommended` | 200 응답의 퀘스트 카드가 우측 하단 패널 노출; null이면 EMPTY 상태 | ⬜ |
+| F-04-5 | SVG 월드맵 렌더 | `[STATIC]` | 정적 SVG | 구역 폴리곤·강 표시, 줌/팬 동작 확인 | ✅ 휴먼 확인 |
+| F-04-6 | 퀘스트 핀 로드 / 클릭 이동 | `[BFF]` | `GET /api/bff/quests/pins` | 응답: `[{id, lat, lng, ...}]`; 핀 클릭 → `/quests/{id}` | ✅ 휴먼 확인 |
+| F-04-7 | 추천 퀘스트(Tonight's Pick) | `[BFF]` | `GET /api/bff/quests/recommended` | 200 응답의 퀘스트 카드가 우측 하단 패널 노출; null이면 EMPTY 상태 | ✅ 휴먼 확인 |
 | F-04-8 | 로딩 스켈레톤 | `[STATIC]` | — | 네트워크 throttle 후 진입 시 스켈레톤 표시 | ⬜ |
 | F-04-9 | 빈 상태 UI | `[STATIC]` | — | DB에서 quests 행 없는 상태 진입 시 안내 메시지 | ⬜ |
-| F-04-10 | 하단 탭바 | `[STATIC]` | — | 월드 / 퀘스트 / FAB / 피드 / 프로필 5개 노출 + 라우팅 | ⬜ |
+| F-04-10 | 하단 탭바 | `[STATIC]` | — | 월드 / 퀘스트 / FAB / 피드 / 프로필 5개 노출 + 라우팅 | ✅ 휴먼 확인 |
 
 ### 2.6 QUEST-LIST / QUEST-LIST-EMPTY · 퀘스트 목록
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-05-1 | 세그먼트 탭 (오늘/주간/이벤트) | `[STATIC]` | — | 클릭 시 active 표시 + 필터 파라미터 변경 | ⬜ |
-| F-05-2 | 필터 Chip (구역/타입/안전등급) | `[STATIC]` | — | Chip 선택 상태 유지 + API 호출 시 쿼리 반영 | ⬜ |
-| F-05-3 | 퀘스트 카드 로드 | `[BFF]` | `GET /api/bff/quests?period=DAILY&district=...&safety_grade=...` | 200 응답의 카드 리스트 렌더, HOT/NEW/LIMITED 뱃지 표시 | ⬜ |
-| F-05-4 | 결과 0건 빈 상태 | `[STATIC]` | — | 매칭 없는 필터 조합 → 일러스트 + 안내 표시 | ⬜ |
+| F-05-1 | 세그먼트 탭 (오늘/주간/이벤트) | `[STATIC]` | — | 클릭 시 active 표시 + 필터 파라미터 변경 | ✅ 휴먼 확인 |
+| F-05-2 | 필터 Chip (구역/타입/안전등급) | `[STATIC]` | — | Chip 선택 상태 유지 + API 호출 시 쿼리 반영 | ❌ 수정 완료: useEffect deps에 activeFilter 누락 → FILTER_DISTRICT 맵 추가 + deps 수정 |
+| F-05-3 | 퀘스트 카드 로드 | `[BFF]` | `GET /api/bff/quests?period=DAILY&district=...&safety_grade=...` | 200 응답의 카드 리스트 렌더, HOT/NEW/LIMITED 뱃지 표시 | ✅ 휴먼 확인 |
+| F-05-4 | 결과 0건 빈 상태 | `[STATIC]` | — | 매칭 없는 필터 조합 → 일러스트 + 안내 표시 | ⛔ N/A: 필터 버그로 0건 재현 불가 (수정 후 재점검 가능) |
 | F-05-5 | 필터 초기화 | `[STATIC]` | — | Chip 모두 해제, 리스트 재호출 | ⬜ |
-| F-05-6 | 카드 → 상세 이동 | `[STATIC]` | navigate(`/quests/{id}`) | 정상 진입 확인 | ⬜ |
+| F-05-6 | 카드 → 상세 이동 | `[STATIC]` | navigate(`/quests/{id}`) | 정상 진입 확인 | ✅ 휴먼 확인 |
 
 > **현재 mock 상태**: `frontend/src/api/quests.ts` 의 `fetchQuests`는 mock 응답을 우선 반환. `VITE_USE_MOCK=false` 빌드로 실 API 점검 필요.
+
+> **⚠️ 아키텍처 개선 필요 (추후 태스크)**
+> 1. **District Chip 동적화**: 현재 "Quận 1" 하드코딩 → `GET /api/bff/quests/districts` 엔드포인트 추가 후 동적 로드 필요. DB district 값과 프론트 불일치 방지.
+> 2. **출퇴근/야간 Chip BFF 미지원**: `💼 출퇴근` · `🌙 야간` 칩은 현재 BFF에 대응 파라미터 없음 (전체 조회). `badge` 컬럼 또는 별도 `quest_type` 필드로 구분 후 API 파라미터화 필요.
+> 3. **안전A Chip**: BFF `safety_grade` 파라미터 지원 확인 → 프론트 연결 완료 (260514). DB 퀘스트에 `min_safety_grade='A'` 데이터 추가 필요.
+> 4. **Test Quest district 업데이트**: `district = 'Quận 1'` 로 직접 UPDATE 완료 (260514). 실 시드 SQL에도 반영 필요.
 
 ### 2.7 QUEST-DETAIL / QUEST-DETAIL-LOCK · 퀘스트 상세
 
@@ -307,18 +316,29 @@ title: "Saigon Rider — 기능 점검 체크리스트 v1 (2026-05-14)"
 
 | 기능 ID | 기능명 | 분류 | 엔드포인트 / 동작 | 점검 방법 | 상태 |
 |---|---|---|---|---|---|
-| F-09-1 | 스토리 아바타 목록 | `[BFF]` | `GET /api/bff/feed/stories` | 상단 가로 스크롤 아바타 | ⬜ |
-| F-09-2 | 피드 카드 로드 | `[BFF]` | `GET /api/bff/feed?filter=all&page=1&limit=20` | 카드 이미지/EXP/거리/안전도 표시; `filter=hot` 정렬 검증 | ⬜ |
-| F-09-3 | 필터 Chip 전환 | `[STATIC]` + 쿼리파라미터 | filter ∈ all / neighborhood / friends / hot | 클릭 시 쿼리 갱신 + 재호출 | ⬜ |
-| F-09-4 | 응원(Like) 토글 | `[BFF]` | `POST /api/bff/feed/{post_id}/like` | 200 응답 `{liked, count}`; DB `feed_likes` 토글 | ⬜ |
-| F-09-5 | 댓글 BottomSheet 열기 | `[STATIC]` | — | 댓글 아이콘 → 시트 오픈 | ⬜ |
-| F-09-6 | 댓글 목록 로드 | `[BFF]` | `GET /api/bff/feed/{post_id}/comments` | 텍스트/이미지/대댓글 트리 표시 | ⬜ |
-| F-09-7 | 댓글 작성 | `[BFF]` | `POST /api/bff/feed/{post_id}/comments` (body `{content, parent_id?}`) | 200 후 즉시 리스트 갱신 | ⬜ |
+| F-09-1 | 스토리 아바타 목록 | `[BFF]` | `GET /api/bff/feed/stories` | 상단 가로 스크롤 아바타 | ❌ 수정 완료: 하드코딩 mock(@minh 등) → `fetchStories()` 실 API 연결. DB에 is_story=true 게시물 없어 현재 빈 상태 정상 |
+| F-09-2 | 피드 카드 로드 | `[BFF]` | `GET /api/bff/feed?filter=all&page=1&limit=20` | 카드 이미지/EXP/거리/안전도 표시; `filter=hot` 정렬 검증 | ✅ 휴먼 확인 (실 DB 데이터 노출) |
+| F-09-3 | 필터 Chip 전환 | `[STATIC]` + 쿼리파라미터 | filter ∈ all / neighborhood / friends / hot | 클릭 시 쿼리 갱신 + 재호출 | 🟡 파라미터 전달은 ✅. 단 BFF가 neighborhood/friends에 WHERE 미적용 → 모든 필터에 전체 게시물 노출 (BFF 미구현) |
+| F-09-4 | 응원(Like) 토글 | `[BFF]` | `POST /api/bff/feed/{post_id}/like` | 200 응답 `{liked, count}`; DB `feed_likes` 토글 | ✅ 휴먼 확인 |
+| F-09-5 | 댓글 BottomSheet 열기 | `[STATIC]` | — | 댓글 아이콘 → 시트 오픈 | ✅ 휴먼 확인 |
+| F-09-6 | 댓글 목록 로드 | `[BFF]` | `GET /api/bff/feed/{post_id}/comments` | 텍스트/이미지/대댓글 트리 표시 | ✅ 수정 완료: BFF `get_comments()` JOIN User 추가 + `_enrich_comment()` 헬퍼로 닉네임·아바타 포함 |
+| F-09-6a | 댓글 닉네임 표시 | `[BFF]` | `GET /api/bff/feed/{post_id}/comments` → `user_nickname` 필드 포함 | 댓글 목록 내 작성자 닉네임(user_nickname) 노출 여부 | ✅ 수정 완료: BFF `outerjoin(User)` 추가, `CommentOut` 스키마에 `user_nickname` 포함 |
+| F-09-6b | 댓글 아바타 표시 | `[BFF]` | `GET /api/bff/feed/{post_id}/comments` → `user_avatar_url` 필드 포함 | 피드 카드 아바타와 동일 방식으로 표시 여부 (imgproxy URL) | ✅ 수정 완료: `_enrich_comment()`에서 `default_avatar_url()` fallback 포함하여 반환 |
+| F-09-6c | 댓글 좋아요 기능 | `[BFF]` | `POST /api/bff/feed/{post_id}/comments/{comment_id}/like` | ♥ 클릭 → BFF 호출 + 카운트 반영 | ✅ 수정 완료: DB `post_comment_likes` 테이블 + `post_comments.like_count` 컬럼 추가. BFF `toggle_comment_like()` 엔드포인트 신설. 프론트 `handleCommentLike()` + `toggleCommentLike()` 연결. `iLiked` active 스타일 적용 |
+| F-09-7 | 댓글 작성 | `[BFF]` | `POST /api/bff/feed/{post_id}/comments` (body `{content, parent_id?}`) | 200 후 즉시 리스트 갱신 | ❌ 수정 완료: `postComment()` BFF 연결. 이전엔 로컬 state만 업데이트 |
 | F-09-8 | 사진 댓글 첨부 | `[DEVICE]`+`[BFF]` | `POST /api/bff/contents/upload` (multipart) → content_id 로 댓글 작성 | 업로드 후 imgproxy URL 미리보기 | ⬜ |
 | F-09-9 | 공유 버튼 | `[DEVICE]` | navigator.share | 시스템 시트 노출 | ⬜ |
-| F-09-10 | 빈 상태 | `[STATIC]` | — | 피드 0건 시 안내 표시 | ⬜ |
+| F-09-10 | 빈 상태 | `[STATIC]` | — | 피드 0건 시 안내 표시 | ⛔ N/A: 현재 게시물 존재로 재현 어려움 |
+| F-09-11 | 피드 이미지 스켈레톤 로딩 | `[STATIC]` | — | 이미지 다운로드 중 shimmer 스켈레톤 → onLoad 시 fade-in 전환 | ✅ 260515 신규 구현: `PostImage` 컴포넌트, `@keyframes shimmer` CSS |
+| F-09-12 | 피드 이미지 라이트박스 뷰어 | `[STATIC]` | — | 이미지 클릭 → 전체화면 뷰어. 핀치줌(1x~5x), 더블탭 토글(1x↔2.5x), 팬, 스와이프다운 닫기, 배경클릭 닫기, 마우스휠(데스크톱) | ✅ 260515 신규 구현: `ImageViewer` 컴포넌트 (`createPortal`), touch 제스처 핸들러 |
 
-> **현재 mock 상태**: `frontend/src/api/feed.ts` — `fetchFeed`, `fetchComments`, `toggleCheer` mock 처리. 실서버 연동 점검 필요.
+> **⚠️ 아키텍처/이슈 메모 (추후 태스크)**
+> 1. **피드 이미지 미표시 → 수정 완료 (260514)**: 원인은 시드 데이터의 `image_url`이 `local:///official/grand-opening.jpg`를 참조했으나 imgproxy `/data/official/` 디렉토리가 비어 있어 404. `official/`은 운영자 공식 에셋용이므로, 피드 테스트 게시물의 `image_url`을 `user-contents` 내 실제 파일 imgproxy URL로 DB UPDATE 완료. ⚠️ 피드 시드 SQL 파일이 별도 존재하지 않으므로 DB 초기화 시 재현 안 됨 — **시드 SQL 추가 필요**.
+> 2. **neighborhood/friends 필터 BFF 미구현**: BFF `get_feed()`에 location/follow WHERE 조건 없음 — 전체 게시물 반환. 팔로우 테이블 설계 후 WHERE 추가 필요.
+> 3. **스토리 등록 기능 미구현** ⛔ 후속 태스크 필요: `POST /feed` 의 `is_story=true` 플래그는 존재하나 사용자용 업로드 UI 없음. 구현 범위: 카메라/갤러리 촬영 → `POST /api/bff/contents/upload` → `POST /api/bff/feed` (`is_story=true`) → 스토리 strip 즉시 반영.
+> 4. **피드 게시물 등록 기능 미구현** ⛔ 후속 태스크 필요: 현재 피드는 라이딩 결과(`/ride/result/success`)에서 "피드에 공유" 버튼으로만 게시 가능. 독립적인 피드 작성(사진 선택 + 캡션 입력 + 해시태그) UI 없음. 구현 범위: 📷 버튼(`TopBar` 우측) 또는 하단 FAB → 작성 바텀시트/페이지 → `POST /api/bff/contents/upload` + `POST /api/bff/feed`.
+
+> **현재 mock 상태 (260515 기준)**: `frontend/src/api/feed.ts` — `fetchFeed`, `toggleCheer` 여전히 mock 처리(`USE_MOCK` 분기). `fetchComments`, `postComment`, `fetchStories`, `toggleCommentLike`는 실 API 연결 완료. ⚠️ `fetchFeed`/`toggleCheer`의 mock→실 API 전환은 별도 확인 필요 (`VITE_USE_MOCK=false` 빌드 상태이므로 실 API 호출 중일 가능성 있음).
 
 ### 2.11 PROFILE-001 / BADGE-DETAIL · 프로필
 
@@ -502,7 +522,7 @@ SELECT user_id, occurred_at::date AS day, SUM(amount) AS daily_earn
 
 - [ ] §2.x 각 화면의 BFF 엔드포인트가 Network 탭에서 200/4xx로 정상 응답
 - [ ] 401/403 등 인증 오류는 적절한 안내(로그아웃 또는 재로그인 유도)
-- [ ] mock 표시 항목은 `VITE_USE_MOCK=false` 빌드 후 실 API 전환 점검 가능
+- [x] mock 표시 항목은 `VITE_USE_MOCK=false` 빌드 후 실 API 전환 점검 가능 ✅ 2026-05-14 Dockerfile 수정 완료
 
 ### 4.5 BFF ↔ Engine 연계
 
@@ -546,7 +566,16 @@ SELECT user_id, occurred_at::date AS day, SUM(amount) AS daily_earn
 
 | 발견일 | 기능 ID / 항목 | 화면 · 엔드포인트 | 증상(실측) | 원인 (가설/확정) | 조치 / 후속 작업 | 상태 |
 |---|---|---|---|---|---|---|
-| | | | | | | ⬜ |
+| 2026-05-14 | F-09-2 피드 카드 로드 (및 전체 mock 항목) | FEED-001 · `GET /api/bff/feed` | 프론트 피드 리스트가 DB 데이터 대신 dummy mock 3건 노출 | `frontend/Dockerfile`에 `VITE_USE_MOCK` 빌드 arg 미전달 → `USE_MOCK=true` 기본값 적용 | `frontend/Dockerfile`에 `ARG VITE_USE_MOCK=false` / `ENV VITE_USE_MOCK=$VITE_USE_MOCK` 추가 후 컨테이너 리빌드 → BFF 실 데이터 정상 반환 확인 | ✅ |
+| 2026-05-14 | F-09-6a 댓글 닉네임 | FEED-COMMENT · `GET /api/bff/feed/{id}/comments` | 댓글 목록에 닉네임 대신 user_id(UUID) 그대로 노출 | BFF 댓글 응답 쿼리에 `users` 테이블 JOIN 없음 → `user_nickname` 필드 미포함. `transformComment()`에서 `raw.user_nickname ?? raw.user_id` fallback으로 user_id 노출 | `get_comments()` `outerjoin(User)` 추가, `CommentOut` 스키마에 `user_nickname` 포함, `_enrich_comment()` 헬퍼 신설. 상세: `260514_comment_ux_troubleshooting.md` | ✅ |
+| 2026-05-14 | F-09-6b 댓글 아바타 | FEED-COMMENT · `GET /api/bff/feed/{id}/comments` | 댓글 작성자 프로필 사진 미표시 (`<img src="undefined">`) | BFF 댓글 응답에 `user_avatar_url` 필드 누락 → 프론트 `transformComment()`에서 `undefined` 처리 | F-09-6a와 동일 수정으로 해결. `_enrich_comment()`에서 `default_avatar_url()` fallback 포함 | ✅ |
+| 2026-05-14 | F-09-6c 댓글 좋아요 | FEED-COMMENT · `POST /api/bff/feed/{id}/comments/{comment_id}/like` | 댓글 ♥ 버튼 클릭 시 아무 반응 없음 | ① 프론트 onClick 핸들러 없음 ② BFF 엔드포인트 미존재 ③ DB `like_count` 컬럼·`post_comment_likes` 테이블 없음 | DB 마이그레이션(004_comment_likes.sql) + BFF `toggle_comment_like()` 신설 + 프론트 `handleCommentLike()` + `toggleCommentLike()` 구현. 상세: `260514_comment_ux_troubleshooting.md` | ✅ |
+| 2026-05-14 | F-AUTH-LOGIN | AUTH-002 · OtpInput | OtpInput이 BFF `/auth/login` 미호출. 더미 검증(`000000`=실패, 나머지=성공), `loginFromBackend`에 `id:''` 빈 user 전달 | PhoneInput에서 register 완료 시 이미 로그인 처리되어 OTP 화면 거치지 않음 — OtpInput 자체가 레거시/미연동 상태 | OtpInput `handleVerify`를 `apiLogin(phone, digits.join(''))` 호출로 교체 필요 | ❌ |
+| 2026-05-14 | F-02-7 | AUTH-002 · 재전송 버튼 | 재전송 버튼이 타이머만 리셋(`setSeconds(180)`), BFF register 재호출 없음 → 새 passcode 미발급 | OtpInput 재전송 핸들러에 `apiRegister` 호출 없음 | 재전송 버튼 onClick에 `apiRegister(phone)` 추가 필요 | ❌ |
+| 2026-05-14 | F-03-2 | PROFILE-SETUP · 닉네임 중복확인 | ProfileSetup에서 `GET /api/bff/profile/check-nickname` 미호출. BFF는 정상 동작 | 닉네임 입력 후 중복확인 로직 없음 | 닉네임 입력 debounce + check-nickname API 연동 필요 | ❌ |
+| 2026-05-14 | F-03-4 | PROFILE-SETUP · 프로필 저장 | `setProfile(nickname, style)`로 Zustand만 업데이트, `PUT /api/bff/profile` 미호출. rider_type 소문자(`night_rider`) → BFF 400 | ProfileSetup `handleSubmit`에 API 호출 없음 + rider_type 대소문자 불일치 | ① `PUT /api/bff/profile` 호출 추가 ② `rider_type` 대문자 변환 (`toUpperCase()`) | ❌ |
+| 2026-05-14 | F-03-1-b | PROFILE-SETUP · 라이더 타입 카드 아이콘 | 출퇴근러(1f3d9 🏙)·나이트라이더(1f319 🌙) Google Fonts noto emoji 404 → onError로 아이콘 숨겨짐 | 체크리스트 미등재 항목 — 휴먼 점검 중 발견 | ProfileSetup.tsx emoji 코드 교체: 1f3d9→1f3cd(🏍️), 1f319→1f31f(🌟). 리빌드 완료 | 🔧 수정됨 |
+| 2026-05-14 | F-03-1 | PROFILE-SETUP · 닉네임 1자 제출 가능 여부 | 휴먼 점검 중 "한 글자 입력 시 버튼 활성화" 보고 | 코드상 `length >= 2` 조건 존재 — 한국어 IME 조합 중 length 계산 차이 가능성 | 재빌드 후 재점검 필요 | 🟡 |
 
 ### 5.2 미구현 / Mock 잔여 (⛔ 분류 모음)
 

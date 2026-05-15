@@ -69,6 +69,7 @@ export const MOCK_COMMENTS: Comment[] = [
     content: 'Quá đỉnh anh ơi 🔥 다음에 같이 가요',
     createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
     likeCount: 3,
+    iLiked: false,
   },
   {
     id: 'c-2',
@@ -78,6 +79,7 @@ export const MOCK_COMMENTS: Comment[] = [
     content: '그 골목 진짜 위험한데 안전 A 대단해요',
     createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
     likeCount: 7,
+    iLiked: false,
   },
   {
     id: 'c-3',
@@ -87,6 +89,7 @@ export const MOCK_COMMENTS: Comment[] = [
     content: 'ㅎㅎ 운이 좋았어요',
     createdAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
     likeCount: 1,
+    iLiked: false,
     parentId: 'c-2',
   },
   {
@@ -97,6 +100,7 @@ export const MOCK_COMMENTS: Comment[] = [
     content: 'Em cũng muốn thử quest này!',
     createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
     likeCount: 2,
+    iLiked: false,
   },
 ];
 

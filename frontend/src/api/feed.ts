@@ -44,12 +44,78 @@ export async function fetchFeed(filter?: 'all' | 'neighborhood' | 'friends' | 'h
   return res.items.map(transformPost);
 }
 
+function transformComment(raw: any): Comment {
+  return {
+    id: String(raw.id),
+    postId: String(raw.post_id),
+    userNickname: raw.user_nickname ?? raw.user_id ?? 'unknown',
+    userAvatarUrl: raw.user_avatar_url ?? undefined,
+    content: raw.content ?? '',
+    createdAt: raw.created_at,
+    likeCount: raw.like_count ?? 0,
+    iLiked: false,
+    parentId: raw.parent_id ?? undefined,
+  };
+}
+
 export async function fetchComments(postId: string): Promise<Comment[]> {
   if (USE_MOCK) {
     const list = MOCK_COMMENTS.filter((c) => c.postId === postId);
     return api.delay(list, 150);
   }
-  return api.realFetch<Comment[]>(`/feed/${postId}/comments`);
+  const raw = await api.realFetch<any[]>(`/feed/${postId}/comments`);
+  return raw.map(transformComment);
+}
+
+export async function postComment(
+  postId: string,
+  content: string,
+  userId: string,
+): Promise<{ id: string; createdAt: string }> {
+  if (USE_MOCK) {
+    return api.delay({ id: `c-new-${Date.now()}`, createdAt: new Date().toISOString() }, 100);
+  }
+  const raw = await api.realFetch<any>(`/feed/${postId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, content }),
+  });
+  return { id: String(raw.id), createdAt: raw.created_at };
+}
+
+export interface StoryItem {
+  userId: string;
+  nickname: string;
+  avatarUrl: string | null;
+}
+
+export async function fetchStories(): Promise<StoryItem[]> {
+  if (USE_MOCK) {
+    return api.delay([], 100);
+  }
+  const raw = await api.realFetch<any[]>(`/feed/stories`);
+  return raw.map((r) => ({
+    userId: String(r.user_id),
+    nickname: r.user_nickname ?? '',
+    avatarUrl: r.user_avatar_url ?? null,
+  }));
+}
+
+export async function toggleCommentLike(
+  postId: string,
+  commentId: string,
+): Promise<{ liked: boolean; count: number }> {
+  if (USE_MOCK) {
+    return api.delay({ liked: true, count: 1 }, 100);
+  }
+  const session = loadSession();
+  const res = await api.realFetch<{ liked: boolean; like_count: number }>(
+    `/feed/${postId}/comments/${commentId}/like`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ user_id: session?.userId ?? null }),
+    },
+  );
+  return { liked: res.liked, count: res.like_count };
 }
 
 export async function toggleCheer(postId: string): Promise<{ cheered: boolean; count: number }> {

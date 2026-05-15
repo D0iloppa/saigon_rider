@@ -25,6 +25,11 @@ function GifIcon({ code, size = 18 }: { code: string; size?: number }) {
   );
 }
 
+const FILTER_PARAMS: Record<string, { district?: string; safetyGrade?: string }> = {
+  district:  { district: 'Quận 1' },
+  safetyA:   { safetyGrade: 'A' },
+};
+
 export default function QuestList() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -48,11 +53,12 @@ export default function QuestList() {
 
   useEffect(() => {
     setLoading(true);
-    fetchQuests({ type: tab }).then((list) => {
+    const params = activeFilter ? FILTER_PARAMS[activeFilter] : undefined;
+    fetchQuests({ type: tab, ...params }).then((list) => {
       setQuests(list);
       setLoading(false);
     });
-  }, [tab]);
+  }, [tab, activeFilter]);
 
   return (
     <div className={styles.root}>

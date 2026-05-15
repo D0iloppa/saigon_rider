@@ -9,6 +9,8 @@ RUN npm install --prefer-offline
 
 # 소스코드 복사 후 프로덕션 빌드
 COPY . .
+ARG VITE_USE_MOCK=false
+ENV VITE_USE_MOCK=$VITE_USE_MOCK
 RUN npm run build
 
 # ── Stage 2: Serve ──────────────────────────────────────────

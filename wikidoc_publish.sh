@@ -3,7 +3,7 @@
 # wikidoc_publish.sh — Wiki Private 문서 동기화 & 무중단 발행
 #
 # 동작 흐름:
-#   1. docs/TEST/*.md  →  wiki/wiki-docs/private/test/<safe>.md 로 복사
+#   1. ai-docs/TEST/*.md  →  wiki/wiki-docs/private/test/<safe>.md 로 복사
 #      · 파일명 정규화(소문자 + 언더스코어→하이픈)
 #      · Docusaurus front-matter(title) 자동 주입
 #      · 본문 상단에 "자동 동기화 문서" admonition 삽입
@@ -26,7 +26,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC_TEST="$ROOT/docs/TEST"
+SRC_TEST="$ROOT/ai-docs/TEST"
 DST_TEST="$ROOT/wiki/wiki-docs/private/test"
 
 SYNC_ONLY=false
@@ -51,14 +51,14 @@ done
 log() { echo "[wikidoc_publish] $*"; }
 
 # ── 1. private/test 동기화 ──────────────────────────────────
-log "1/3 docs/TEST  →  wiki/wiki-docs/private/test 동기화"
+log "1/3 ai-docs/TEST  →  wiki/wiki-docs/private/test 동기화"
 mkdir -p "$DST_TEST"
 
 # 기존 md 정리(category 메타는 보존)
 find "$DST_TEST" -maxdepth 1 -type f -name '*.md' -delete
 
 if [ ! -d "$SRC_TEST" ]; then
-  log "  (docs/TEST 디렉터리 없음 — 동기화 생략)"
+  log "  (ai-docs/TEST 디렉터리 없음 — 동기화 생략)"
 else
   shopt -s nullglob
   count=0
@@ -76,7 +76,7 @@ else
       echo "---"
       echo
       echo ":::info 자동 동기화 문서"
-      echo "이 페이지는 \`docs/TEST/${name}\` 에서 자동 복사되었습니다."
+      echo "이 페이지는 \`ai-docs/TEST/${name}\` 에서 자동 복사되었습니다."
       echo "편집은 **원본 파일**에서, 발행은 프로젝트 루트의 \`./wikidoc_publish.sh\` 로 수행하세요."
       echo ":::"
       echo

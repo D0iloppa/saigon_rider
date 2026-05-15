@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
+import { Dialog } from '@/components/ui/Dialog';
 import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
@@ -74,6 +76,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-center" richColors />
+      <Dialog />
       <AppShell>
         <Routes>
           {/* default */}

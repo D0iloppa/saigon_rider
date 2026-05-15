@@ -2,7 +2,7 @@
 
 > 작업일: 2026-05-14  
 > 상태: ✅ 완료  
-> 연관 문서: [SRE 엔진 통합 지침서 v2](../engine_intg_v2.md)
+> 연관 문서: [SRE 엔진 통합 지침서 v2](../../context/architecture.md)
 
 ---
 

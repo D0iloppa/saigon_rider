@@ -8,7 +8,9 @@
     "settings": "Cài đặt",
     "copy": "Sao chép",
     "copied": "Đã sao chép",
-    "change": "Thay đổi"
+    "change": "Thay đổi",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận"
   },
   "tabbar": {
     "world": "Bản đồ",

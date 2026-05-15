@@ -2,19 +2,19 @@
 
 > 작성일: 2026-05-14  
 > 상태: **확정 — 구현 착수 전 필독**  
-> 이전 문서: [`engine_intg_deprecated.md`](_deprecated/engine_intg_deprecated.md) (모놀리식 통합 방식 — 폐기)
+> 이전 문서: [`engine_intg_deprecated.md`](../_deprecated/engine_intg_deprecated.md) (모놀리식 통합 방식 — 폐기)
 
 ---
 
 ## 0. 엔진 명세 (`docs/engine/`)
-- [SRE 설계서](engine/sre-design-spec.md) - 8개 모듈 경계, 도메인 범위, 보안 모델
-- [SRE 비즈니스 룰](engine/01-sre-business-rules.md) - RP 계산식, 어뷰징 정책, 멱등성, 보상 교환 정책
-- [SRE 기술 스택](engine/02-sre-tech-stack.md) - 패키지 구조, Alembic, APScheduler, 인증 결정
-- [SRE ERD (PostgreSQL)](engine/sre-erd-mermaid.postgres.md) - 전체 테이블 정의 및 관계 (Mermaid)
-- [SRE SQL DDL](engine/sre-schema.postgres.sql) - PostgreSQL 실제 DDL
-- [SRE OpenAPI 명세](engine/sre-api.openapi.yml) - REST API 전체 스펙 (v1)
-- [SRE 미션 룰 매핑](engine/sre-mission-rule-mapping.md) - 미션↔액션 코드 매핑 테이블
-- [SRE 미션 시드 SQL](engine/sre-mission-seed.sql) - 미션 240개 초기 데이터
+- [SRE 설계서](../engine/sre-design-spec.md) - 8개 모듈 경계, 도메인 범위, 보안 모델
+- [SRE 비즈니스 룰](../engine/01-sre-business-rules.md) - RP 계산식, 어뷰징 정책, 멱등성, 보상 교환 정책
+- [SRE 기술 스택](../engine/02-sre-tech-stack.md) - 패키지 구조, Alembic, APScheduler, 인증 결정
+- [SRE ERD (PostgreSQL)](../engine/sre-erd-mermaid.postgres.md) - 전체 테이블 정의 및 관계 (Mermaid)
+- [SRE SQL DDL](../engine/sre-schema.postgres.sql) - PostgreSQL 실제 DDL
+- [SRE OpenAPI 명세](../engine/sre-api.openapi.yml) - REST API 전체 스펙 (v1)
+- [SRE 미션 룰 매핑](../engine/sre-mission-rule-mapping.md) - 미션↔액션 코드 매핑 테이블
+- [SRE 미션 시드 SQL](../engine/sre-mission-seed.sql) - 미션 240개 초기 데이터
 
 
 ## 1. 아키텍처 결정 요약

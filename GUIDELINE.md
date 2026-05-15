@@ -1,24 +1,50 @@
 # AI Agent Guideline
 
-이 문서는 AI 어시스턴트가 새로운 스레드(대화)를 시작할 때, 이전 작업 맥락과 프로젝트의 아키텍처 원칙을 파악하기 위한 메타 가이드라인입니다.
+새 스레드에서 AI가 따라야 할 운용 규칙. 산출물 색인은 [`ai-docs/INDEX.md`](ai-docs/INDEX.md), 현재 작업 상태는 [`ai-docs/context/current.md`](ai-docs/context/current.md).
 
-## 핵심 지침 (Guardrails)
+## 1. 진입 순서
 
-1. **컨텍스트 확인 (우선 수행)**
-   새로운 스레드가 시작되거나 새로운 기능/문제 해결을 진행할 때, 가장 먼저 `ai-docs/index.md` 파일을 읽으세요. 
-   해당 색인(Index) 파일을 통해 현재 작업과 관련된 문서만 골라서 읽음으로써, 전체 파일을 무작위로 검색(Full-text search)하는 것을 방지합니다. 앞으로의 모든 산출물 맥락은 `index.md`에 의존함을 전제로 합니다.
+새 스레드는 항상 다음 순서로 두 파일만 읽고 시작한다:
 
-2. **문서화 및 색인 원칙**
-   - 개발 중 도출된 중요한 설계 로직, 구조 변경, 트러블슈팅 결과는 `ai-docs/` 폴더 하위에 마크다운(.md) 파일로 저장합니다.
-   - 문서를 새로 생성하거나 주요 내용을 변경한 경우, 반드시 `ai-docs/index.md`에 해당 문서의 링크와 짧은 요약을 등록(색인화)해야 합니다. 
-   - 해당 작업 스레드를 task.md파일로 등록해야합니다. | ai-docs/task/${yymmdd}/${title}_task.md
-   - /README.md와 /ai-docs/spec.md 에 구현완료된 사항은 반영해야 합니다.
-   
+1. [`ai-docs/INDEX.md`](ai-docs/INDEX.md) — 산출물 지도
+2. [`ai-docs/context/current.md`](ai-docs/context/current.md) — 직전 작업 상태 / 다음 우선순위
 
-3. **로컬 전용 (Git Ignore)**
-   - `GUIDELINE.md` 파일과 `ai-docs/` 폴더는 소스코드 저장소에 커밋되지 않으며, 오직 로컬 환경에서의 AI 컨텍스트 유지를 위해 활용됩니다.
+전체 파일 풀텍스트 검색 금지. 위 두 파일에서 필요한 문서만 선택적으로 로드한다.
 
-4. **프론트 작업 배포 명령어**
-   ```
-   docker compose --env-file .env up --build -d frontend
-   ```
+## 2. 파일 작성 위치 (SoT 매핑)
+
+| 종류 | 파일 위치 | 색인 갱신 |
+|---|---|---|
+| 활성 태스크 | `ai-docs/task/active/${YYMMDD}_${title}.md` | `current.md` 활성 태스크 라인 |
+| 완료 태스크 | `ai-docs/task/${YYMMDD}/${file}.md` | `task/archive.md` |
+| 트러블슈팅 | `ai-docs/trouble/${YYMMDD}/${YYMMDD}_${title}_troubleshooting.md` | `trouble/index.md` |
+| 체크리스트 항목 변경 | `TEST/checklist/s${N}_*.md` 상태 컬럼 | — |
+| 결함 발견 | `TEST/issues.md` 표에 행 추가 | `current.md` 미해결 결함 라인 |
+| 진척률 변경 | `TEST/progress.md` 표 갱신 | — |
+| 신규 영구 산출물 | 적절한 디렉터리 + `INDEX.md` 색인 | `INDEX.md` |
+
+**중복 금지**: 한 사실은 한 곳에만. 진척률은 `progress.md`만, 현재 상태는 `current.md`만, 산출물 위치는 `INDEX.md`만.
+
+## 3. 컨텍스트 이어받기
+
+큰 작업(섹션 완료, 결함 수정, 구조 변경) 직후 [`context/current.md`](ai-docs/context/current.md)를 갱신한다. 다음 스레드가 `INDEX.md` + `current.md` 두 파일만 읽고 작업을 이어받을 수 있어야 한다.
+
+## 4. 구현 반영
+
+구현 완료된 기능은 다음 위치에 반영한다:
+- `/README.md` (사용자 시점)
+- `ai-docs/spec/overview.md` (명세 시점)
+
+## 5. 자주 쓰는 명령
+
+```bash
+# 프론트 재배포
+docker compose --env-file .env up --build -d frontend
+
+# 위키 동기화 (docs/TEST/* 변경 후, saigon_wiki 무중단 재빌드)
+./wikidoc_publish.sh
+```
+
+## 6. 로컬 전용
+
+`GUIDELINE.md`, `ai-docs/`는 git에 커밋하지 않는다. AI 컨텍스트 유지 전용.

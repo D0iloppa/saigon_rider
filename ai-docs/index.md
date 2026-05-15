@@ -1,33 +1,46 @@
-# 문서 색인 (Index)
+# Saigon Rider — Document Map
 
-새로운 스레드가 시작될 때, 이 문서를 가장 먼저 확인하여 필요한 산출물 문서를 파악하세요.
-새로운 산출물이 생성되면 아래 목록에 반드시 추가(색인화)해야 합니다.
+> **이 파일은 산출물의 안정적 지도입니다.** 현재 작업 상태는 [`context/current.md`](context/current.md), 규칙은 [`/GUIDELINE.md`](../GUIDELINE.md).
 
-## 📌 아키텍처 및 설정
-- [ERD & DB 스키마](erd.md) - 테이블 설계, Mermaid ERD, PostGIS 컬럼, Docker 연동 방식 (`database/init/001_init_schema.sql`)
-- [회원가입 & 인증 구조](auth.md) - FastAPI 인증 흐름, 쿠키 세션, passcode 발급 방식
-- [**SRE 엔진 통합 지침서 v2** ✅ 현행](engine_intg_v2.md) - **BFF + Engine 분리 아키텍처** 확정안. `saigon_bff` / `saigon_engine` 두 컨테이너 구성, Docker Compose 변경, Nginx 라우팅, BFF→Engine HTTP 클라이언트 연계, Phase별 구현 계획
+## 🏗 아키텍처 / 설계
 
+- [시스템 아키텍처 (BFF + Engine)](context/architecture.md) — `saigon_bff` + `saigon_engine` 분리, Nginx 라우팅, HTTP 클라이언트 연계
+- [프론트엔드 구조 및 패턴](context/frontend.md) — 네이티브 브릿지 API, 공통 UI 컴포넌트 목록
+- [ERD & DB 스키마](schema/erd.md) — 테이블 19종, Mermaid ERD, PostGIS, 마이그레이션 목록
+- [인증 구조](schema/auth.md) — FastAPI 인증, 쿠키 세션, passcode 발급
 
-## 🚀 기능 요구사항 및 구현
-- [프로젝트 개요](README.md) - 환경구성, 프로젝트 구성, 개요
-- [화면 & 기능 명세서](spec.md) - 27개 화면 목록, 기능 목록, API dummy 함수 목록, NativeInterface 브릿지 명세 (scene.html 기준 정적 디자인 참조 명시)
-- [프론트엔드 TODO LIST](features_todo.md) - 프론트엔드 화면별 구현 항목 (245개 전체 완료)
-- [백엔드 구현 필요 기능 & Admin Console](backend_todo.md) - spec.md [API-DUMMY] 기준 산출, 총 27개 엔드포인트 (P0~P3 우선순위), 관리자 콘솔 접근 경로 포함
+## 📋 명세
 
-
-## 🌐 개발자 포털
-- [Developer Wiki](http://localhost:18090/wiki/) — Docusaurus 기반 통합 개발자 문서 (wiki 프로파일 기동 필요)
-
+- [프로젝트 개요](spec/overview.md) — 27개 화면, 기능 목록, API dummy, NativeInterface 브릿지
+- [프론트엔드 기능 TODO](spec/frontend_features.md) — 화면별 구현 항목
+- [백엔드 기능 TODO](spec/backend_features.md) — 27개 엔드포인트, 관리자 콘솔
 
 ## ✅ 점검 / QA
-- [기능 점검 체크리스트 v1 (2026-05-14)](TEST/CHECKLIST_v1_260514.md) - 화면/기능/엔진 점검 체크리스트 (URL·API·점검 방법 포함)
-- **위키 발행 스크립트**: 프로젝트 루트 `./wikidoc_publish.sh` 실행 → `docs/TEST/*` 가 `wiki/wiki-docs/private/test/` 에 자동 동기화되고 `saigon_wiki` 컨테이너만 재빌드 (무중단). Private 영역은 `WIKI_AUTH_USER`/`WIKI_AUTH_PASS` Basic Auth 보호.
 
-## 📊 이력관리
+- [진척 트래커](TEST/progress.md) — 그룹별 진척도 (휘발성)
+- [이슈 로그](TEST/issues.md) — 발견된 결함 + 미구현(⛔) 잔여
+- [체크리스트 인덱스](TEST/checklist/README.md) — §0~§6 섹션 진입점
+  - [§0 점검 절차](TEST/checklist/s0_setup.md)
+  - [§1 화면 라우팅](TEST/checklist/s1_routing.md)
+  - [§2 화면 기능](TEST/checklist/s2_features.md)
+  - [§3 엔진](TEST/checklist/s3_engine.md)
+  - [§4 시스템](TEST/checklist/s4_system.md)
+  - [§6 부록 (진단 명령)](TEST/checklist/s6_appendix.md)
 
-### 📦 기능 구현 태스크
-- [기능 구현 태스크](_tasklog.md) - 기능 구현 태스크 색인
+## 🛠 엔진 내부 설계 (SRE)
 
-### 🛠 트러블슈팅 및 로그
-- [트러블슈팅 및 로그](_troubleshooting.md) - 트러블슈팅 로그 색인
+- [비즈니스 규칙](engine/01-sre-business-rules.md) · [기술 스택](engine/02-sre-tech-stack.md) · [설계 스펙](engine/sre-design-spec.md)
+- [ERD (PostgreSQL)](engine/sre-erd-mermaid.postgres.md)
+- [미션 매핑 리포트](engine/sre-mission-mapping-report.md) · [미션 룰 매핑](engine/sre-mission-rule-mapping.md)
+- [code 명령어](engine/code명령어.md)
+
+## 📦 태스크 / 트러블슈팅 이력
+
+- [활성 태스크](task/active/) — 현재 진행 중 (현황은 [`current.md`](context/current.md))
+- [완료 태스크 아카이브](task/archive.md) — 날짜별 색인
+- [트러블슈팅 인덱스](trouble/index.md) — 날짜별 색인
+
+## 🌐 외부 자원
+
+- [Developer Wiki](http://localhost:18090/wiki/) — Docusaurus (wiki 프로파일 기동 필요)
+- 위키 발행: 루트의 `./wikidoc_publish.sh`

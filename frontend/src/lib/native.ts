@@ -1,10 +1,24 @@
 /**
  * NativeInterface — WebView ↔ Native 통신 추상화 모듈
  *
- * 네이티브 측 약속:
- *   수신: window.nativeInterface.onMessage(jsonString) 을 호출해 응답 전달
- *   발신: Android → window.native.postMessage(jsonString)
- *         iOS    → window.webkit.messageHandlers.native.postMessage(jsonString)
+ * 원칙: 네이티브 인터페이스는 수정하지 않는다. 웹 브릿지가 네이티브의 기존 패턴에 맞춘다.
+ *
+ * ── Mode 0 (legacy, default) ────────────────────────────────
+ *   iOS 발신    : window.postMessage(key)
+ *   Android 발신: window.native.postMessage(key)
+ *   수신        : window 'message' 이벤트 (native: evaluateJavaScript("window.postMessage(result)"))
+ *
+ * ── Mode 1 (standard) ───────────────────────────────────────
+ *   iOS 발신    : window.webkit.messageHandlers.native.postMessage(key)
+ *   Android 발신: window.native.postMessage(key)
+ *   수신        : window 'message' 이벤트 또는 window.nativeInterface.onMessage(result)
+ *
+ * ── Mode 2 (withParams) ─────────────────────────────────────
+ *   발신: JSON { key, callbackId, params }
+ *   수신: JSON { callbackId, result } → callbackId로 매칭
+ *
+ * ── Push (Native → Web, 단방향) ─────────────────────────────
+ *   수신: JSON { key, data } → key로 등록된 리스너 호출
  */
 
 // ─── 메시지 프로토콜 타입 ────────────────────────────────────────────────────
@@ -15,9 +29,9 @@ interface NativeOutbound {
   params?: unknown;
 }
 
-interface NativeInbound {
-  callbackId?: string; // 있으면 request 응답, 없으면 push 이벤트
-  key?: string;        // push 이벤트 식별자
+interface NativeInboundJson {
+  callbackId?: string;
+  key?: string;
   result?: unknown;
   error?: string;
   data?: unknown;
@@ -27,6 +41,12 @@ interface PendingCallback {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+}
+
+export interface RequestOptions {
+  /** 0: legacy (default), 1: standard (webkit.messageHandlers) */
+  mode?: 0 | 1;
+  timeoutMs?: number;
 }
 
 // ─── 지원 커맨드 키 상수 ─────────────────────────────────────────────────────
@@ -67,7 +87,19 @@ function detectPlatform(): Platform {
 
 class NativeInterface {
   private readonly platform: Platform;
+
+  /** Mode 2: callbackId → PendingCallback */
   private readonly pending = new Map<string, PendingCallback>();
+
+  /** Mode 0/1: FIFO 큐 — 수신 순서대로 resolve */
+  private readonly pendingQueue: Array<PendingCallback> = [];
+
+  /**
+   * Mode 0 iOS 전용: window.postMessage로 발신한 key를 추적해
+   * 자신이 보낸 메시지가 'message' 이벤트로 되돌아올 때 inbound로 혼입되지 않도록 필터링
+   */
+  private readonly mode0SentKeys = new Set<string>();
+
   private readonly listeners = new Map<string, Set<(data: unknown) => void>>();
 
   constructor() {
@@ -75,13 +107,53 @@ class NativeInterface {
     this._exposeToWindow();
   }
 
+  // ─── 공개 API ───────────────────────────────────────────────────────────────
+
   /** 단방향 전송 — 응답 불필요 */
   send(key: string, params?: unknown): void {
-    this._post({ key, params });
+    this._postJson({ key, params });
   }
 
-  /** 양방향 요청 — Promise로 응답 수신 */
-  request<T = unknown>(key: string, params?: unknown, timeoutMs = 10_000): Promise<T> {
+  /**
+   * 양방향 요청 (Mode 0 / Mode 1)
+   *
+   * plain string(key)을 발신하고, 네이티브가 보내는 raw string을 그대로 resolve.
+   * JSON 여부는 호출부에서 판단한다.
+   *
+   * @param key      NATIVE_KEYS 상수
+   * @param options  { mode: 0(legacy,default) | 1(standard), timeoutMs }
+   */
+  request(key: string, options: RequestOptions = {}): Promise<string> {
+    const { mode = 0, timeoutMs = 3_000 } = options;
+
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const idx = this.pendingQueue.findIndex((p) => p.timer === timer);
+        if (idx !== -1) this.pendingQueue.splice(idx, 1);
+        reject(new Error(`[NativeInterface] timeout: ${key} (${timeoutMs}ms)`));
+      }, timeoutMs);
+
+      this.pendingQueue.push({
+        resolve: resolve as (v: unknown) => void,
+        reject,
+        timer,
+      });
+
+      if (mode === 0) {
+        this._postLegacy(key);
+      } else {
+        this._postString(key);
+      }
+    });
+  }
+
+  /**
+   * 양방향 요청 Mode 2 (withParams)
+   *
+   * { key, callbackId, params } JSON 발신.
+   * 네이티브가 { callbackId, result } JSON으로 응답.
+   */
+  requestWithParams<T = unknown>(key: string, params?: unknown, timeoutMs = 3_000): Promise<T> {
     const callbackId = crypto.randomUUID();
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -95,7 +167,7 @@ class NativeInterface {
         timer,
       });
 
-      this._post({ key, callbackId, params });
+      this._postJson({ key, callbackId, params });
     });
   }
 
@@ -109,15 +181,51 @@ class NativeInterface {
     }
     const h = handler as (data: unknown) => void;
     this.listeners.get(key)!.add(h);
-
-    return () => {
-      this.listeners.get(key)?.delete(h);
-    };
+    return () => this.listeners.get(key)?.delete(h);
   }
 
-  // ─── 내부 메서드 ────────────────────────────────────────────────────────────
+  // ─── 내부 발신 메서드 ────────────────────────────────────────────────────────
 
-  private _post(msg: NativeOutbound): void {
+  /**
+   * Mode 0 (legacy): 기존 네이티브 인터페이스에 맞춘 발신
+   *   iOS    → window.postMessage(key)
+   *   Android→ window.native.postMessage(key)
+   */
+  private _postLegacy(key: string): void {
+    if (this.platform === 'android') {
+      (window as Window & { native: { postMessage: (p: string) => void } }).native.postMessage(key);
+    } else if (this.platform === 'ios') {
+      // 자신이 보낸 key를 추적 — 'message' 이벤트 루프백 방지
+      this.mode0SentKeys.add(key);
+      window.postMessage(key, '*');
+    } else {
+      console.warn('[NativeInterface][DEV] Mode 0 (legacy) →', key);
+      setTimeout(() => this._resolveQueue(''), 100);
+    }
+  }
+
+  /**
+   * Mode 1 (standard): plain string 발신
+   *   iOS    → webkit.messageHandlers.native.postMessage(key)
+   *   Android→ window.native.postMessage(key)
+   */
+  private _postString(key: string): void {
+    if (this.platform === 'android') {
+      (window as Window & { native: { postMessage: (p: string) => void } }).native.postMessage(key);
+    } else if (this.platform === 'ios') {
+      (
+        window as Window & {
+          webkit: { messageHandlers: { native: { postMessage: (p: string) => void } } };
+        }
+      ).webkit.messageHandlers.native.postMessage(key);
+    } else {
+      console.warn('[NativeInterface][DEV] Mode 1 (standard) →', key);
+      setTimeout(() => this._resolveQueue(''), 100);
+    }
+  }
+
+  /** Mode 2 / send: JSON 발신 */
+  private _postJson(msg: NativeOutbound): void {
     const payload = JSON.stringify(msg);
 
     if (this.platform === 'android') {
@@ -129,58 +237,79 @@ class NativeInterface {
         }
       ).webkit.messageHandlers.native.postMessage(payload);
     } else {
-      this._devFallback(msg);
+      console.warn('[NativeInterface][DEV] Mode 2 (withParams) →', msg);
+      if (msg.callbackId) {
+        setTimeout(() => {
+          this._handleInbound(JSON.stringify({ callbackId: msg.callbackId, result: null }));
+        }, 100);
+      }
     }
   }
 
-  /** 네이티브가 window.nativeInterface.onMessage(jsonString) 으로 호출하는 진입점 */
+  // ─── 내부 수신 메서드 ────────────────────────────────────────────────────────
+
+  /**
+   * 수신 라우팅 우선순위:
+   *   1. JSON + callbackId  → Mode 2 응답
+   *   2. JSON + key (result 없음) → Push 이벤트
+   *   3. 그 외              → Mode 0/1 FIFO 큐 (raw string 그대로 전달)
+   */
   private _handleInbound(raw: string): void {
-    let msg: NativeInbound;
+    let parsed: NativeInboundJson | null = null;
     try {
-      msg = JSON.parse(raw) as NativeInbound;
+      parsed = JSON.parse(raw) as NativeInboundJson;
     } catch {
-      console.error('[NativeInterface] invalid JSON from native:', raw);
+      // non-JSON → Mode 0/1 처리
+    }
+
+    if (parsed?.callbackId) {
+      // Mode 2 응답
+      const cb = this.pending.get(parsed.callbackId);
+      if (!cb) return;
+      clearTimeout(cb.timer);
+      this.pending.delete(parsed.callbackId);
+      parsed.error ? cb.reject(new Error(parsed.error)) : cb.resolve(parsed.result);
       return;
     }
 
-    if (msg.callbackId) {
-      // Request/Response 매칭
-      const pending = this.pending.get(msg.callbackId);
-      if (!pending) return;
-      clearTimeout(pending.timer);
-      this.pending.delete(msg.callbackId);
+    if (parsed?.key && !('result' in parsed)) {
+      // Push 이벤트
+      const handlers = this.listeners.get(parsed.key);
+      handlers?.forEach((h) => h(parsed!.data));
+      return;
+    }
 
-      if (msg.error) {
-        pending.reject(new Error(msg.error));
-      } else {
-        pending.resolve(msg.result);
-      }
-    } else if (msg.key) {
-      // Push 이벤트 배포
-      const handlers = this.listeners.get(msg.key);
-      if (handlers) {
-        handlers.forEach((h) => h(msg.data));
-      }
+    // Mode 0/1: raw string을 FIFO 큐의 첫 번째 pending에 전달
+    this._resolveQueue(raw);
+  }
+
+  private _resolveQueue(raw: string): void {
+    const entry = this.pendingQueue.shift();
+    if (entry) {
+      clearTimeout(entry.timer);
+      entry.resolve(raw);
     }
   }
 
-  /** 브라우저 개발 환경 fallback */
-  private _devFallback(msg: NativeOutbound): void {
-    console.warn('[NativeInterface][DEV] send →', msg);
-    if (msg.callbackId) {
-      // 100ms 후 null로 자동 resolve — UI 블로킹 방지
-      setTimeout(() => {
-        this._handleInbound(JSON.stringify({ callbackId: msg.callbackId, result: null }));
-      }, 100);
-    }
-  }
-
-  /** window에 수신 진입점 노출 — 네이티브가 직접 호출 */
+  /** window에 두 수신 채널 노출 */
   private _exposeToWindow(): void {
     if (typeof window === 'undefined') return;
+
+    // 채널 1: window.nativeInterface.onMessage(str) 직접 호출
     (window as Window & { nativeInterface: { onMessage: (raw: string) => void } }).nativeInterface = {
       onMessage: (raw: string) => this._handleInbound(raw),
     };
+
+    // 채널 2: window.postMessage(str) — iOS evaluateJavaScript 패턴 흡수
+    // Mode 0 iOS에서 자신이 보낸 메시지(loopback)는 필터링
+    window.addEventListener('message', (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      if (this.mode0SentKeys.has(event.data)) {
+        this.mode0SentKeys.delete(event.data);
+        return;
+      }
+      this._handleInbound(event.data);
+    });
   }
 }
 

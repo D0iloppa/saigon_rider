@@ -8,7 +8,9 @@
     "settings": "설정",
     "copy": "복사",
     "copied": "복사됨",
-    "change": "변경"
+    "change": "변경",
+    "cancel": "취소",
+    "confirm": "확인"
   },
   "tabbar": {
     "world": "월드",

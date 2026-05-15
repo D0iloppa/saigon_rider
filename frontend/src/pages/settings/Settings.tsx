@@ -4,6 +4,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Toggle } from '@/components/ui/Toggle';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { useUserStore } from '@/store/useUserStore';
+import { useDialogStore } from '@/store/useDialogStore';
 import { useState } from 'react';
 import styles from './Settings.module.css';
 
@@ -12,15 +13,16 @@ export default function Settings() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const logout = useUserStore((s) => s.logout);
+  const openDialog = useDialogStore((s) => s.open);
   const [dark, setDark] = useState(false);
 
   if (!user) return null;
 
   const handleLogout = () => {
-    if (confirm(t('settings.logoutConfirm'))) {
-      logout();
-      navigate('/splash');
-    }
+    openDialog({
+      message: { mode: 'code', value: 'settings.logoutConfirm' },
+      onConfirm: () => { logout(); navigate('/splash'); },
+    });
   };
 
   const langLabel =

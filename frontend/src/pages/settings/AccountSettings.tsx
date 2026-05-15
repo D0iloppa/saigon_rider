@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { TopBar } from '@/components/layout/TopBar';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { useUserStore } from '@/store/useUserStore';
+import { useDialogStore } from '@/store/useDialogStore';
 import styles from './Settings.module.css';
 
 export default function AccountSettings() {
@@ -10,14 +12,15 @@ export default function AccountSettings() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const logout = useUserStore((s) => s.logout);
+  const openDialog = useDialogStore((s) => s.open);
 
   if (!user) return null;
 
   const handleDelete = () => {
-    if (confirm(t('settings.deleteConfirm'))) {
-      logout();
-      navigate('/splash');
-    }
+    openDialog({
+      message: { mode: 'code', value: 'settings.deleteConfirm' },
+      onConfirm: () => { logout(); navigate('/splash'); },
+    });
   };
 
   return (
@@ -42,7 +45,7 @@ export default function AccountSettings() {
                 className={styles.copyBtn}
                 onClick={() => {
                   navigator.clipboard?.writeText('A-979D3WXWXB6VAV');
-                  alert(t('common.copied'));
+                  toast(t('common.copied'));
                 }}
               >
                 {t('common.copy')}

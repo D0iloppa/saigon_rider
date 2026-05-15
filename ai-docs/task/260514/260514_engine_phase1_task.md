@@ -2,7 +2,7 @@
 
 > 작업일: 2026-05-14  
 > 상태: ✅ 완료  
-> 참조: [`docs/engine_intg_v2.md`](../engine_intg_v2.md) Phase 1
+> 참조: [`docs/engine_intg_v2.md`](../../context/architecture.md) Phase 1
 
 ---
 

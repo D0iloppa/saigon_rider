@@ -98,7 +98,18 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://fonts.gstatic.com/s/e/notoemoji/latest/1f3d9/512.gif\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://fonts.gstatic.com/s/e/notoemoji/latest/2615/512.gif\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://fonts.gstatic.com/s/e/notoemoji/latest/1f319/512.gif\")",
-      "Bash(python3 -c \"import base64; print\\(base64.urlsafe_b64decode\\('bG9jYWw6Ly8vb2ZmaWNpYWwvZ3JhbmQtb3BlbmluZy5qcGc' + '=='\\).decode\\(\\)\\)\")"
+      "Bash(python3 -c \"import base64; print\\(base64.urlsafe_b64decode\\('bG9jYWw6Ly8vb2ZmaWNpYWwvZ3JhbmQtb3BlbmluZy5qcGc' + '=='\\).decode\\(\\)\\)\")",
+      "Bash(find /home/doil/workspace/w_dev/oh-no/ai-docs -maxdepth 4 -type f -name \"*.md\" 2>/dev/null | sort && echo \"---\" && wc -l /home/doil/workspace/w_dev/oh-no/ai-docs/*.md 2>/dev/null)",
+      "Bash(mkdir -p context spec task/active)",
+      "Bash(mv ohno_project_status.md spec/status.md)",
+      "Bash(mv implements_plans.md spec/plans.md)",
+      "Bash(mv _tasklog.md task/archive.md)",
+      "Bash(mv _troubleshooting.md trouble/index.md)",
+      "Bash(rmdir /home/doil/workspace/w_dev/oh-no/ai-docs/troubleshooting && ls /home/doil/workspace/w_dev/oh-no/ai-docs/trouble/ && cat /home/doil/workspace/w_dev/oh-no/ai-docs/trouble/index.md)",
+      "Bash(sed -i 's|\\\\.\\\\./task/260514_wiki_setup_task\\\\.md|../task/260514/wiki_setup_task.md|g' /home/doil/workspace/w_dev/oh-no/ai-docs/architecture/wiki_setup.md && grep \"task\" /home/doil/workspace/w_dev/oh-no/ai-docs/architecture/wiki_setup.md | head -3)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")"
     ]
   }
 }

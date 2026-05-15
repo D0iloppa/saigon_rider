@@ -2,7 +2,7 @@
 
 > 작성일: 2026-05-14
 > 목적: `backend_todo.md` 및 `TEST/CHECKLIST_v1_260514.md` §4.7 미구현/Mock 잔여 항목을 완수하여 BFF 기능 커버리지를 100% 로 끌어올린다.
-> 기준 문서: [`backend_todo.md`](../backend_todo.md) · [`TEST/CHECKLIST_v1_260514.md`](../TEST/CHECKLIST_v1_260514.md) · [`engine_intg_v2.md`](../engine_intg_v2.md)
+> 기준 문서: [`backend_todo.md`](../../spec/backend_features.md) · [`TEST/CHECKLIST_v1_260514.md`](../../TEST/checklist/README.md) · [`engine_intg_v2.md`](../../context/architecture.md)
 
 ---
 

@@ -8,7 +8,9 @@
     "settings": "Settings",
     "copy": "Copy",
     "copied": "Copied",
-    "change": "Change"
+    "change": "Change",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
   },
   "tabbar": {
     "world": "World",

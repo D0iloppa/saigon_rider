@@ -1,30 +1,34 @@
 # ERD — Saigon Rider DB 스키마
 
-> **파일 위치**: `database/init/001_init_schema.sql`  
-> **DBMS**: PostgreSQL 15 + PostGIS 3.3 (Docker: `postgis/postgis:15-3.3`)
+> **파일 위치**: `database/init/001_init_schema.sql` ~ `005_app_config.sql`  
+> **DBMS**: PostgreSQL 15 + PostGIS 3.3 (Docker: `postgis/postgis:15-3.3`)  
+> **마지막 갱신**: 2026-05-15 (005_app_config 추가)
 
 ---
 
 ## 테이블 목록
 
-| 테이블 | 설명 | 관련 기능 |
-|---|---|---|
-| `users` | 라이더 계정 및 재화(EXP/XP/Gold/SkillPt) | F-03, F-10 |
-| `user_otp` | 휴대폰 OTP 인증 이력 | F-02 |
-| `quests` | 퀘스트 마스터 (일/주간/이벤트) | F-05, F-06 |
-| `quest_pins` | 퀘스트 지도 핀 위치 (PostGIS POINT) | F-04-6 |
-| `user_quests` | 유저별 퀘스트 수행 이력 및 상태 | F-06-5 |
-| `ride_sessions` | 라이딩 결과 (거리/시간/보상/안전등급) | F-07, F-08 |
-| `ride_gps_points` | GPS 트랙 좌표 이력 (PostGIS POINT) | F-07-1 |
-| `ride_streaks` | 연속 라이딩 스트릭 | F-07-8 |
-| `bookmarks` | 퀘스트 북마크 | F-06-2 |
-| `feed_posts` | 소셜 피드 포스트 (스토리 포함) | F-09 |
-| `post_likes` | 피드 좋아요 | F-09-4 |
-| `post_comments` | 댓글 & 대댓글 (자기 참조) | F-09-6, F-09-7 |
-| `badges` | 배지 마스터 | F-10-8 |
-| `user_badges` | 유저 배지 획득 이력 | F-10-8 |
-| `notifications` | 알림 메시지 | F-04-4 |
-| `notification_settings` | 알림 수신 설정 (5종) | F-11-5 |
+| 테이블 | 설명 | 추가 파일 | 관련 기능 |
+|---|---|---|---|
+| `users` | 라이더 계정 및 재화(EXP/XP/Gold/SkillPt) | 001 | F-03, F-10 |
+| `user_otp` | 휴대폰 OTP 인증 이력 | 001 | F-02 |
+| `contents` | 업로드 파일 메타데이터 (imgproxy 연동) | 002 | F-09-8, F-10-9 |
+| `quests` | 퀘스트 마스터 (일/주간/이벤트) | 001 | F-05, F-06 |
+| `quest_pins` | 퀘스트 지도 핀 위치 (PostGIS POINT) | 001 | F-04-6 |
+| `user_quests` | 유저별 퀘스트 수행 이력 및 상태 | 001 | F-06-5 |
+| `ride_sessions` | 라이딩 결과 (거리/시간/보상/안전등급) | 001 | F-07, F-08 |
+| `ride_gps_points` | GPS 트랙 좌표 이력 (PostGIS POINT) | 001 | F-07-1 |
+| `ride_streaks` | 연속 라이딩 스트릭 | 001 | F-07-8 |
+| `bookmarks` | 퀘스트 북마크 | 001 | F-06-2 |
+| `feed_posts` | 소셜 피드 포스트 (스토리 포함) | 001 | F-09 |
+| `post_likes` | 피드 게시물 좋아요 | 001 | F-09-4 |
+| `post_comments` | 댓글 & 대댓글 (자기 참조, like_count 포함) | 001+004 | F-09-6, F-09-7 |
+| `post_comment_likes` | 댓글 좋아요 | 004 | F-09-6c |
+| `badges` | 배지 마스터 | 001 | F-10-8 |
+| `user_badges` | 유저 배지 획득 이력 | 001 | F-10-8 |
+| `notifications` | 알림 메시지 | 001 | F-04-4 |
+| `notification_settings` | 알림 수신 설정 (5종) | 001 | F-11-5 |
+| `app_config` | API 키 및 앱 설정 Key-Value 스토어 | 005 | 시스템 설정 |
 
 ---
 
@@ -158,8 +162,15 @@ erDiagram
         UUID parent_id FK
         TEXT content
         TEXT image_url
+        INTEGER like_count
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+
+    post_comment_likes {
+        UUID comment_id PK FK
+        UUID user_id PK FK
+        TIMESTAMPTZ created_at
     }
 
     badges {
@@ -198,6 +209,15 @@ erDiagram
         TIMESTAMPTZ updated_at
     }
 
+    app_config {
+        VARCHAR group_name PK
+        VARCHAR key PK
+        TEXT value
+        TEXT description
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
     users ||--o{ user_quests : "수행"
     users ||--o{ ride_sessions : "주행"
     users ||--o{ bookmarks : "북마크"
@@ -223,6 +243,8 @@ erDiagram
     feed_posts ||--o{ post_comments : "댓글"
 
     post_comments ||--o{ post_comments : "대댓글"
+    post_comments ||--o{ post_comment_likes : "좋아요"
+    users ||--o{ post_comment_likes : "댓글좋아요"
 
     badges ||--o{ user_badges : "획득됨"
 ```
@@ -251,6 +273,22 @@ erDiagram
 | `ride_gps_points` | `location` | `GEOMETRY(POINT, 4326)` | GPS 주행 트랙 |
 
 두 컬럼 모두 `GiST` 인덱스 적용 (`idx_quest_pins_location`, `idx_ride_gps_location`)
+
+---
+
+## 마이그레이션 파일 목록
+
+| 파일 | 내용 |
+|---|---|
+| `001_init_schema.sql` | 기본 스키마 전체 (users, quests, feed, badges, notifications 등) |
+| `002_add_passcode.sql` | users.passcode_hash 컬럼 추가 |
+| `002_contents_schema.sql` | contents 테이블 (파일 업로드 메타) |
+| `003_profile_avatar.sql` | users.avatar_content_id 컬럼 추가 |
+| `004_comment_likes.sql` | post_comments.like_count + post_comment_likes 테이블 |
+| `005_app_config.sql` | app_config 테이블 (API 키·앱 설정 KV 스토어) |
+
+> init 스크립트는 컨테이너 **최초 기동 시에만** 자동 실행됩니다.  
+> 이미 볼륨이 존재하는 경우 각 파일의 DDL을 `docker exec saigon_db psql ...` 로 직접 적용해야 합니다.
 
 ---
 

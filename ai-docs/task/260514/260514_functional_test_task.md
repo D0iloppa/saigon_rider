@@ -2,7 +2,7 @@
 
 > 작성일: 2026-05-14  
 > 목적: `TEST/CHECKLIST_v1_260514.md` 에 정의된 전 기능 점검 항목을 순차 실행하고 결과를 체크리스트에 기록한다.  
-> 기준 문서: [`TEST/CHECKLIST_v1_260514.md`](../TEST/CHECKLIST_v1_260514.md)  
+> 기준 문서: [`TEST/CHECKLIST_v1_260514.md`](../../TEST/checklist/README.md)  
 > 테스트 환경: `http://localhost:18090` (Nginx), `docker compose --env-file .env --profile backend up -d`
 
 ---

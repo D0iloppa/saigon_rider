@@ -3,9 +3,9 @@ from decimal import Decimal
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
-from .utils import default_avatar_url
+from .utils import build_imgproxy_url, default_avatar_url
 
 T = TypeVar("T")
 
@@ -18,6 +18,58 @@ class Page(BaseModel, Generic[T]):
     total: int
     page: int
     size: int
+
+
+# ── Master (District / RiderType / SafetyGrade) ───────────────────
+
+
+class DistrictOut(BaseModel):
+    id: int
+    code: str
+    name_ko: str
+    name_vi: str
+    name_en: str
+    image_content_id: UUID | None = None
+    image_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_image_from_content(cls, data):
+        image_content = getattr(data, "image_content", None)
+        if image_content is not None and image_content.file_path:
+            return {
+                "id": data.id,
+                "code": data.code,
+                "name_ko": data.name_ko,
+                "name_vi": data.name_vi,
+                "name_en": data.name_en,
+                "image_content_id": data.image_content_id,
+                "image_url": build_imgproxy_url(image_content.file_path),
+            }
+        return data
+
+
+class RiderTypeOut(BaseModel):
+    id: int
+    code: str
+    name_ko: str
+    name_vi: str
+    name_en: str
+    icon: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class SafetyGradeOut(BaseModel):
+    id: int
+    code: str
+    name_ko: str
+    name_vi: str
+    name_en: str
+
+    model_config = {"from_attributes": True}
 
 
 # ── Auth / User ──────────────────────────────────────────────────
@@ -36,7 +88,7 @@ class UserOut(BaseModel):
     id: UUID
     phone: str
     nickname: str | None
-    rider_type: str | None
+    rider_type: RiderTypeOut | None = None
     level: int
     exp: int
     xp: int
@@ -116,15 +168,15 @@ class ContentOut(BaseModel):
 
 class QuestOut(BaseModel):
     id: UUID
-    title: str
-    description: str | None
     hero_image_url: str | None
-    district: str | None
+    thumbnail_url: str | None = None
+    district: DistrictOut | None = None
+    rider_type: RiderTypeOut | None = None
     period: str
     badge: str | None
     required_level: int
     target_distance_km: Decimal
-    min_safety_grade: str | None
+    min_safety_grade: SafetyGradeOut | None = None
     reward_exp: int
     reward_gold: int
     reward_item: str | None
@@ -132,6 +184,12 @@ class QuestOut(BaseModel):
     starts_at: datetime | None
     ends_at: datetime | None
     created_at: datetime
+    title_ko: str | None = None
+    title_vi: str | None = None
+    title_en: str | None = None
+    description_ko: str | None = None
+    description_vi: str | None = None
+    description_en: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -162,6 +220,19 @@ class QuestAcceptRequest(BaseModel):
 class QuestAcceptResponse(BaseModel):
     session_id: UUID
     user_quest_id: UUID
+
+
+class QuestCompleteRequest(BaseModel):
+    user_id: UUID
+
+
+class QuestCompleteResponse(BaseModel):
+    quest_id: UUID
+    user_quest_id: UUID
+    status: str
+    reward_exp: int
+    reward_gold: int
+    reward_item: str | None
 
 
 class BookmarkToggleRequest(BaseModel):

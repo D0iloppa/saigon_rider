@@ -10,7 +10,8 @@
     "copied": "Đã sao chép",
     "change": "Thay đổi",
     "cancel": "Hủy",
-    "confirm": "Xác nhận"
+    "confirm": "Xác nhận",
+    "errorUnexpected": "Đã xảy ra lỗi. Vui lòng thử lại"
   },
   "tabbar": {
     "world": "Bản đồ",
@@ -29,7 +30,12 @@
     "titleLine2": "Số điện thoại",
     "subtitle": "Chúng tôi sẽ gửi mã xác thực đến số +84 VN của bạn",
     "errorInvalidPhone": "Vui lòng nhập số hợp lệ (10-11 số)",
-    "getAuthCodeBtn": "Nhận mã xác thực",
+    "getAuthCodeBtn": "Đăng ký",
+    "loginBtn": "Đăng nhập",
+    "errorAlreadyExists": "Số này đã được đăng ký. Vui lòng đăng nhập.",
+    "errorNotFound": "Không tìm thấy tài khoản. Vui lòng đăng ký trước.",
+    "errorNoSession": "Không có phiên lưu trên thiết bị này. Vui lòng đăng ký lại hoặc liên hệ hỗ trợ.",
+    "errorNetwork": "Đã xảy ra lỗi mạng.",
     "legalPrefix": "Bằng cách tiếp tục, bạn đồng ý với ",
     "terms": "Điều khoản dịch vụ",
     "legalMid": " và ",
@@ -55,7 +61,9 @@
     "titleLine1": "Bạn là kiểu",
     "titleLine2": "tay đua nào?",
     "nicknamePlaceholder": "Nhập biệt danh…",
-    "startBtn": "Bắt đầu →"
+    "startBtn": "Bắt đầu →",
+    "errorNicknameTooShort": "Biệt danh phải có ít nhất 2 ký tự",
+    "errorNoStyle": "Vui lòng chọn phong cách tay đua"
   },
   "home": {
     "progressLabel": "Đi thêm {{needed}}km để đạt Lv.{{nextLevel}} hôm nay",
@@ -71,6 +79,7 @@
     "filterCommute": "💼 Đi làm",
     "filterNight": "🌙 Ban đêm",
     "filterSafetyA": "🛡 An toàn A",
+    "completedSection": "Nhiệm vụ đã hoàn thành",
     "emptyTitle": "Không có nhiệm vụ phù hợp",
     "emptySub": "Thử thay đổi bộ lọc hoặc kiểm tra lại sau",
     "emptyQuote": "\"Con đường tìm bạn, khi bạn dừng tìm kiếm.\"",
@@ -81,6 +90,8 @@
     "rewards": "Phần thưởng",
     "lockedLevel": "Mở từ Lv.{{level}}",
     "startBtn": "Bắt đầu nhiệm vụ →",
+    "completedBtn": "Nhiệm vụ đã hoàn thành",
+    "completedBadge": "HOÀN THÀNH",
     "lockTitle": "Mở từ Lv.{{level}}",
     "lockSub": "Lv.{{currentLevel}} hiện tại · Đến level tiếp theo",
     "lockEasierBtn": "Xem nhiệm vụ dễ hơn",

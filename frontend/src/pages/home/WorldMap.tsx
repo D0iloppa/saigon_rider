@@ -11,14 +11,16 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { MapPin } from '@/components/ui/MapPin';
 import { Chip } from '@/components/ui/Chip';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './WorldMap.module.css';
 
 function GifIcon({ code, size = 32, className = '' }: { code: string; size?: number; className?: string }) {
   return (
     <img
       className={className}
-      src={`https://fonts.gstatic.com/s/e/notoemoji/latest/${code}/512.gif`}
+      src={emojiUrl(code)}
       width={size} height={size} alt=""
       onError={(e) => { e.currentTarget.style.display = 'none'; }}
     />
@@ -37,9 +39,6 @@ export default function WorldMap() {
   const { t } = useTranslation();
   const [recommended, setRecommended] = useState<Quest | null>(null);
   const [loading, setLoading] = useState(true);
-  // DEBUG: 브릿지 호출 여부 및 응답값 확인용 — 확인 후 이 블록 + AlertDialog 두 개 제거
-  const [debugConfirm, setDebugConfirm] = useState(true);
-  const [locationMsg, setLocationMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRecommendedQuest().then((q) => {
@@ -53,8 +52,7 @@ export default function WorldMap() {
 
   return (
     <div className={styles.root}>
-      {/* DEBUG: 아래 두 AlertDialog는 브릿지 확인 후 제거 */}
-      <AlertDialog
+      {/* <AlertDialog
         open={debugConfirm}
         title={{ mode: 'html', value: `<b>[DEBUG]</b><p>${NATIVE_KEYS.GET_LOCATION}</p>` }}
         message="네이티브 브릿지를 호출합니다"
@@ -72,15 +70,10 @@ export default function WorldMap() {
         title={{ mode: 'html', value: `<b>[DEBUG]</b><p>${NATIVE_KEYS.GET_LOCATION} 응답</p>` }}
         pre={locationMsg ?? undefined}
         onClose={() => setLocationMsg(null)}
-      />
+      /> */}
       {/* ── Header (grad-sunset + noise) ── */}
       <div className={styles.header}>
         <div className={styles.noise} />
-
-        {/* Status bar row */}
-        <div style={{ position: 'relative', zIndex: 10 }}>
-          <StatusBar variant="light" />
-        </div>
 
         {/* User row */}
         <div className={styles.userRow}>

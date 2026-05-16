@@ -29,6 +29,55 @@
   position: relative;
 }
 
+/* ── Home Splash ── */
+.splash {
+  position: absolute;
+  inset: 0;
+  z-index: 999;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+  pointer-events: all;
+}
+
+.splashFade {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* GIF 로딩 완료 후 교체되는 실제 이미지 */
+.splashIcon {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+/* GIF 로딩 전 placeholder: Noto Color Emoji 텍스트 이모지 */
+.splashIconEmoji {
+  font-family: 'Noto Color Emoji', sans-serif;
+  font-size: 80px;
+  line-height: 1;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.splashTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
 /* 데스크탑에선 모바일 프레임 시뮬레이션 */
 @media (min-width: 768px) {
   .shell {

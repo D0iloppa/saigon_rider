@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
@@ -9,7 +9,9 @@ import { formatNumber } from '@/lib/format';
 import type { Badge } from '@/api/types';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
-import { apiUploadAvatar, apiUpdateNickname } from '@/api/profile';
+import { StatusBar } from '@/components/layout/StatusBar';
+import { apiUploadAvatar, apiUpdateNickname, fetchMe } from '@/api/profile';
+import { toast } from '@/components/ui/Toast';
 import styles from './ProfileMain.module.css';
 
 const RECENT_RIDES = [
@@ -22,9 +24,17 @@ const RECENT_RIDES = [
 export default function ProfileMain() {
   // ── hooks (must be before any early return) ──────────────
   const user = useUserStore((s) => s.user);
+  const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const updateAvatar = useUserStore((s) => s.updateAvatar);
   const updateNickname = useUserStore((s) => s.updateNickname);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user?.phone) return;
+    fetchMe(user.phone).then((dto) => {
+      if (dto) loginFromBackend(dto);
+    });
+  }, []);
   const { t } = useTranslation();
 
   const [tab, setTab] = useState<'history' | 'badges' | 'gear'>('history');
@@ -32,12 +42,10 @@ export default function ProfileMain() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [avatarError, setAvatarError] = useState('');
 
   const [nickModal, setNickModal] = useState(false);
   const [nickInput, setNickInput] = useState('');
   const [nickSaving, setNickSaving] = useState(false);
-  const [nickError, setNickError] = useState('');
 
   // ── guard (TypeScript narrows user → User below this line) ──
   if (!user) return null;
@@ -50,12 +58,11 @@ export default function ProfileMain() {
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarUploading(true);
-    setAvatarError('');
     try {
       const result = await apiUploadAvatar(u.id, file);
       updateAvatar(result.user.avatar_url ?? '');
     } catch (err: any) {
-      setAvatarError(err.message ?? t('profile.avatarError'));
+      toast.error(err.message ?? t('profile.avatarError'));
     } finally {
       setAvatarUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -64,7 +71,6 @@ export default function ProfileMain() {
 
   function openNickModal() {
     setNickInput(u.nickname ?? '');
-    setNickError('');
     setNickModal(true);
   }
 
@@ -72,13 +78,12 @@ export default function ProfileMain() {
     const trimmed = nickInput.trim();
     if (!trimmed) return;
     setNickSaving(true);
-    setNickError('');
     try {
       await apiUpdateNickname(u.id, trimmed);
       updateNickname(trimmed);
       setNickModal(false);
     } catch (err: any) {
-      setNickError(err.message ?? t('profile.nicknameError'));
+      toast.error(err.message ?? t('profile.nicknameError'));
     } finally {
       setNickSaving(false);
     }
@@ -95,6 +100,9 @@ export default function ProfileMain() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.noise} />
+        <div style={{ position: 'relative', zIndex: 10 }}>
+          <StatusBar variant="light" />
+        </div>
         <button className={styles.settingsBtn} onClick={() => navigate('/settings')}>
           ⚙
         </button>
@@ -125,8 +133,6 @@ export default function ProfileMain() {
             <LevelBadge level={u.level} />
           </div>
         </div>
-
-        {avatarError && <p className={styles.avatarErrorMsg}>{avatarError}</p>}
 
         {/* Nickname */}
         <div className={styles.nickRow}>
@@ -295,7 +301,6 @@ export default function ProfileMain() {
                 autoFocus
                 onKeyDown={(e) => e.key === 'Enter' && handleNickSave()}
               />
-              {nickError && <p className={styles.nickErrorMsg}>{nickError}</p>}
               <div className={styles.modalActions}>
                 <Button variant="ghost" onClick={() => setNickModal(false)} disabled={nickSaving}>
                   {t('common.close')}

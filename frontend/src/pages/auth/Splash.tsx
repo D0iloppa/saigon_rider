@@ -6,6 +6,7 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
 import type { Language } from '@/api/types';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './Splash.module.css';
 
 const LANGS: { code: Language; flagCode: string; label: string }[] = [
@@ -77,7 +78,7 @@ export default function Splash() {
         >
           <img
             className={styles.langFlag}
-            src={`https://fonts.gstatic.com/s/e/notoemoji/latest/${current.flagCode}/512.gif`}
+            src={emojiUrl(current.flagCode)}
             alt={current.label}
             onError={(e) => { e.currentTarget.style.display = 'none'; }}
           />
@@ -94,7 +95,7 @@ export default function Splash() {
               >
                 <img
                   className={styles.langFlag}
-                  src={`https://fonts.gstatic.com/s/e/notoemoji/latest/${l.flagCode}/512.gif`}
+                  src={emojiUrl(l.flagCode)}
                   alt={l.label}
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
@@ -113,10 +114,10 @@ export default function Splash() {
 
       {/* Bottom sheet */}
       <div className={styles.sheet}>
-        <Button onClick={() => navigate('/auth/phone')}>{t('splash.startBtn')}</Button>
+        <Button onClick={() => navigate('/auth/phone?mode=register')}>{t('splash.startBtn')}</Button>
         <button
           className={styles.loginBtn}
-          onClick={() => navigate('/auth/phone')}
+          onClick={() => navigate('/auth/phone?mode=login')}
         >
           {t('splash.loginBtn')}
         </button>

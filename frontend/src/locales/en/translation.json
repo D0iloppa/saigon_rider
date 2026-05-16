@@ -10,7 +10,8 @@
     "copied": "Copied",
     "change": "Change",
     "cancel": "Cancel",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "errorUnexpected": "An error occurred. Please try again"
   },
   "tabbar": {
     "world": "World",
@@ -29,7 +30,12 @@
     "titleLine2": "Phone Number",
     "subtitle": "We'll send an auth code to your +84 VN number",
     "errorInvalidPhone": "Please enter a valid number (10-11 digits)",
-    "getAuthCodeBtn": "Get Auth Code",
+    "getAuthCodeBtn": "Sign Up",
+    "loginBtn": "Log In",
+    "errorAlreadyExists": "This number is already registered. Please log in instead.",
+    "errorNotFound": "No account found for this number. Please sign up first.",
+    "errorNoSession": "No saved session on this device. Please re-register or contact support.",
+    "errorNetwork": "A network error occurred.",
     "legalPrefix": "By continuing, you agree to our ",
     "terms": "Terms of Service",
     "legalMid": " and ",
@@ -55,7 +61,9 @@
     "titleLine1": "What kind of",
     "titleLine2": "rider are you?",
     "nicknamePlaceholder": "Enter nickname…",
-    "startBtn": "Start →"
+    "startBtn": "Start →",
+    "errorNicknameTooShort": "Nickname must be at least 2 characters",
+    "errorNoStyle": "Please select a rider style"
   },
   "home": {
     "progressLabel": "{{needed}}km more to reach Lv.{{nextLevel}} today",
@@ -71,6 +79,7 @@
     "filterCommute": "💼 Commute",
     "filterNight": "🌙 Night",
     "filterSafetyA": "🛡 Safety A",
+    "completedSection": "Completed",
     "emptyTitle": "No quests match your filters",
     "emptySub": "Try changing filters or check back later",
     "emptyQuote": "\"The road finds you, when you stop searching.\"",
@@ -81,6 +90,8 @@
     "rewards": "Rewards",
     "lockedLevel": "Available from Lv.{{level}}",
     "startBtn": "Start Quest →",
+    "completedBtn": "Quest Completed",
+    "completedBadge": "COMPLETED",
     "lockTitle": "Available from Lv.{{level}}",
     "lockSub": "Current Lv.{{currentLevel}} · Until next level",
     "lockEasierBtn": "View easier quests",

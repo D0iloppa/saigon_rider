@@ -6,6 +6,8 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .chipGlass { background: rgba(17,19,28,.4); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.15); color: white; }
 .chipGlassLight { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.6); color: var(--text); }

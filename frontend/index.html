@@ -9,9 +9,34 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <!-- 🏍 (U+1F3CD) 가 담긴 Noto Color Emoji shard — splash 이모지 선행 로딩 -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous" href="/fonts/noto-color-emoji/noto-color-emoji.5.woff2" />
+    <!-- Splash + TabBar FAB 에서 쓰는 오토바이 GIF 선행 로딩 -->
+    <link rel="preload" as="image" href="/emoji/1f3cd.gif" />
   </head>
   <body>
     <div id="root"></div>
+
+    <!--
+      플랫폼 감지 — React 렌더링 전에 실행되어야 CSS 깜박임이 없음.
+      iOS  : data-platform="ios"     → WebView가 전체화면(상태바 포함) 사용
+      Android: data-platform="android" → WebView가 상태바 아래 영역만 사용
+      web  : data-platform="web"     → 브라우저/데스크탑 dev 환경
+      네이티브에서 window.setPlatform('ios'|'android') 호출로 덮어쓸 수 있음.
+    -->
+    <script>
+      (function () {
+        var ua = navigator.userAgent;
+        var p = /iPhone|iPad|iPod/i.test(ua) ? 'ios'
+              : /Android/i.test(ua)          ? 'android'
+              : 'web';
+        document.documentElement.setAttribute('data-platform', p);
+        window.setPlatform = function (platform) {
+          document.documentElement.setAttribute('data-platform', platform);
+        };
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -219,7 +219,7 @@ export default function FeedList() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <TopBar
         title={t('feed.title')}
         showBack={false}
@@ -231,6 +231,7 @@ export default function FeedList() {
         }
       />
 
+      <div className={styles.scrollBody}>
       <div className={styles.body}>
         {/* Story strip */}
         <div className={styles.storyRow}>
@@ -321,13 +322,14 @@ export default function FeedList() {
           </div>
         )}
       </div>
+      </div>{/* scrollBody */}
 
       <BottomSheet open={!!activePost} onClose={() => setActivePost(null)} height="full">
         {activePost && <CommentSheet post={activePost} />}
       </BottomSheet>
 
       {viewerSrc && <ImageViewer src={viewerSrc} onClose={() => setViewerSrc(null)} />}
-    </>
+    </div>
   );
 }
 

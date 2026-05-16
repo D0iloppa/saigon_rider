@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from .engine_client import engine_client
-from .routers import admin, auth, badges, contents, feed, notifications, profile, quests, ride, users
+from .routers import admin, auth, badges, contents, feed, master, notifications, profile, quests, ride, users
 
 
 @asynccontextmanager
@@ -62,6 +62,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(master.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(quests.router, prefix="/api")

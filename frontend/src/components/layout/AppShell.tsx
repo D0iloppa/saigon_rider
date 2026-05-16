@@ -1,13 +1,16 @@
 import { useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { TabBar } from './TabBar';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './AppShell.module.css';
 
 interface Props {
   children: ReactNode;
+  splashVisible: boolean;
+  splashFade: boolean;
+  gifReady: boolean;
 }
 
-// 탭바를 숨길 경로
 const HIDE_TABBAR_PATHS = [
   '/splash',
   '/auth/',
@@ -16,7 +19,7 @@ const HIDE_TABBAR_PATHS = [
   '/link',
 ];
 
-export function AppShell({ children }: Props) {
+export function AppShell({ children, splashVisible, splashFade, gifReady }: Props) {
   const { pathname } = useLocation();
   const hideTabBar = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
 
@@ -25,6 +28,16 @@ export function AppShell({ children }: Props) {
       <div className={styles.frame}>
         <div className={styles.viewport}>{children}</div>
         {!hideTabBar && <TabBar />}
+        {splashVisible && (
+          <div className={`${styles.splash} ${splashFade ? styles.splashFade : ''}`}>
+            {gifReady ? (
+              <img src={emojiUrl('1f3cd')} className={styles.splashIcon} alt="" />
+            ) : (
+              <span className={styles.splashIconEmoji} aria-hidden="true">🏍</span>
+            )}
+            <span className={styles.splashTitle}>Saigon Rider</span>
+          </div>
+        )}
       </div>
     </div>
   );

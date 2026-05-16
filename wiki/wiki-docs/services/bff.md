@@ -36,8 +36,11 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 ### Profile
 | Method | Path | 설명 |
 |---|---|---|
+| `PUT` | `/api/bff/profile` | 프로필 저장 (닉네임, rider_type) |
 | `POST` | `/api/bff/profile/avatar` | 프로필 사진 업로드 및 변경 |
-| `PUT` | `/api/bff/profile/nickname` | 닉네임 변경 (중복 검사 포함) |
+| `PUT` | `/api/bff/profile/nickname` | 닉네임 변경 |
+| `GET` | `/api/bff/profile/check-nickname` | 닉네임 중복 확인 |
+| `GET` | `/api/bff/profile/{user_id}/rp-balance` | RP 잔액 조회 `{current_balance, lifetime_earned, expiring_in_30d, tier}` |
 
 ### Quests
 | Method | Path | 설명 |
@@ -46,9 +49,14 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 | `GET` | `/api/bff/quests/recommended` | 추천 퀘스트 (Tonight's Pick) |
 | `GET` | `/api/bff/quests/` | 퀘스트 목록 (필터 지원) |
 | `GET` | `/api/bff/quests/{id}` | 퀘스트 상세 |
-| `POST` | `/api/bff/quests/{id}/accept` | 퀘스트 수락 |
+| `POST` | `/api/bff/quests/{id}/accept` | 퀘스트 수락 (중복 완료 시 409) |
 | `POST` | `/api/bff/quests/{id}/bookmark` | 북마크 토글 |
 | `GET` | `/api/bff/quests/{id}/participants` | 참여자 목록 |
+
+:::info 퀘스트 중복 방지
+`/accept` 호출 시 `period_key` 를 자동 계산하여 `user_quests` 에 저장합니다. 동일 기간 내 이미 COMPLETED 레코드가 있으면 **409 Conflict** 를 반환합니다.  
+`GET /quests/` 응답에 `thumbnail_url` 필드 추가 (imgproxy 경유, 없으면 `hero_image_url` 폴백).
+:::
 
 ### Ride
 | Method | Path | 설명 |
@@ -67,6 +75,7 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 | `POST` | `/api/bff/feed/{id}/like` | 좋아요 토글 |
 | `GET` | `/api/bff/feed/{id}/comments` | 댓글 목록 |
 | `POST` | `/api/bff/feed/{id}/comments` | 댓글 작성 |
+| `POST` | `/api/bff/feed/{id}/comments/{comment_id}/like` | 댓글 좋아요 토글 |
 
 ### Notifications
 | Method | Path | 설명 |

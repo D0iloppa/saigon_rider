@@ -1,0 +1,30 @@
+/* ─── Sonner Toast — icon & text color overrides ─────── */
+
+[data-sonner-toaster] {
+  --width: 300px;
+}
+
+/*
+ * iOS: WebView 전체화면 → safe-area-inset-bottom 으로 홈 인디케이터 여백 확보
+ * Android/web: safe-area 없음 → 고정값
+ */
+[data-platform="ios"] [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: calc(72px + env(safe-area-inset-bottom, 34px) + 12px) !important;
+}
+
+[data-platform="android"] [data-sonner-toaster][data-y-position="bottom"],
+[data-platform="web"] [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: calc(72px + 12px) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: #0B0D14 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* Icon colors */
+[data-sonner-toast][data-type="success"] [data-icon] { color: #16A34A; }
+[data-sonner-toast][data-type="error"]   [data-icon] { color: #EF3B3B; }
+[data-sonner-toast][data-type="warning"] [data-icon] { color: #F59E0B; }
+[data-sonner-toast][data-type="info"]    [data-icon] { color: #FF5A1F; }

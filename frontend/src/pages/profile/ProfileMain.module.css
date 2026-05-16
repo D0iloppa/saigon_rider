@@ -1,8 +1,13 @@
-.root { padding-bottom: 24px; }
+/* viewport를 꽉 채우는 flex column: header 고정 + sheet 스크롤 */
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
 
 .header {
   position: relative;
-  padding: 32px 20px 20px;
+  padding: 0 20px 20px;
   background: var(--grad-sunset);
   color: white;
   text-align: center;
@@ -17,7 +22,7 @@
 
 .settingsBtn {
   position: absolute;
-  top: 16px; right: 16px;
+  top: 60px; right: 16px;
   width: 40px; height: 40px;
   border-radius: 14px;
   background: rgba(255,255,255,.18);
@@ -30,7 +35,7 @@
 .avatarWrap {
   position: relative;
   width: 104px; height: 104px;
-  margin: 0 auto 12px;
+  margin: 16px auto 12px;
 }
 
 .avatar {
@@ -170,10 +175,14 @@
 /* Sheet */
 .sheet {
   position: relative;
+  flex: 1;                          /* 나머지 높이 차지 */
+  overflow-y: auto;                 /* 이 영역만 스크롤 */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   margin-top: -24px;
   background: var(--bg);
   border-radius: 32px 32px 0 0;
-  padding: 24px 20px;
+  padding: 24px 20px 40px;          /* 하단 여백 추가 */
 }
 
 /* Currency */

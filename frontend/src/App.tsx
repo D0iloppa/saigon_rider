@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
@@ -7,6 +7,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
 import { apiLogin } from '@/api/auth';
+import { emojiUrl } from '@/lib/emoji';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 
 // Auth
@@ -47,6 +48,17 @@ export default function App() {
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const logout = useUserStore((s) => s.logout);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+  const [gifReady, setGifReady] = useState(false);
+  const bootStartTime = useRef(Date.now());
+
+  // GIF 백그라운드 프리로드
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setGifReady(true);
+    img.src = emojiUrl('1f3cd');
+  }, []);
 
   // 앱 기동 시: 쿠키 세션 → 자동 로그인 시도
   useEffect(() => {
@@ -63,7 +75,6 @@ export default function App() {
         loginFromBackend(result.user);
       })
       .catch(() => {
-        // 세션 만료 또는 서버 오류 → 쿠키·Zustand 상태 모두 초기화
         clearSession();
         logout();
       })
@@ -72,14 +83,22 @@ export default function App() {
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!bootstrapped) return null; // 세션 확인 전 렌더 보류
+  // 부팅 완료 후 최소 1200ms 보장하고 splash fade-out
+  useEffect(() => {
+    if (!bootstrapped) return;
+    const elapsed = Date.now() - bootStartTime.current;
+    const delay = Math.max(0, 1200 - elapsed);
+    const t1 = setTimeout(() => setSplashFade(true), delay);
+    const t2 = setTimeout(() => setSplashVisible(false), delay + 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [bootstrapped]);
 
   return (
     <BrowserRouter>
-      <Toaster position="top-center" richColors />
+      <Toaster position="bottom-center" gap={6} visibleToasts={3} />
       <Dialog />
-      <AppShell>
-        <Routes>
+      <AppShell splashVisible={splashVisible} splashFade={splashFade} gifReady={gifReady}>
+        {bootstrapped && <Routes>
           {/* default */}
           <Route path="/" element={<Navigate to="/splash" replace />} />
 
@@ -112,7 +131,7 @@ export default function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />
-        </Routes>
+        </Routes>}
       </AppShell>
     </BrowserRouter>
   );

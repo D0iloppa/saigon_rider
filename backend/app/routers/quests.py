@@ -1,23 +1,63 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, text
+from fastapi import APIRouter, Depends, Header, HTTPException
+from passlib.context import CryptContext
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import Bookmark, Quest, User, UserQuest
+
+_pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+
+async def _verify_passcode(
+    user_id: uuid.UUID,
+    x_passcode: str,
+    db: AsyncSession,
+) -> None:
+    user = await db.get(User, user_id)
+    if not user or not user.passcode_hash or not _pwd_ctx.verify(x_passcode, user.passcode_hash):
+        raise HTTPException(status_code=401, detail="인증 실패")
+from ..utils import APP_TZ, build_imgproxy_url, MOCK_IMG_ENDPOINT
 from ..schemas import (
     BookmarkToggleRequest,
     BookmarkToggleResponse,
     QuestAcceptRequest,
     QuestAcceptResponse,
+    QuestCompleteRequest,
+    QuestCompleteResponse,
     QuestOut,
     QuestParticipantOut,
     QuestPinOut,
 )
 
+def _calc_period_key(period: str) -> str:
+    today = datetime.now(APP_TZ).date()
+    if period == "DAILY":
+        return today.isoformat()
+    if period == "WEEKLY":
+        iso = today.isocalendar()
+        return f"{iso.year}-W{iso.week:02d}"
+    return "ONCE"
+
 router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
+
+
+def _to_out(quest: Quest) -> QuestOut:
+    out = QuestOut.model_validate(quest)
+    if quest.thumbnail_content and quest.thumbnail_content.file_path:
+        out.thumbnail_url = build_imgproxy_url(quest.thumbnail_content.file_path)
+    elif quest.hero_image_url:
+        out.thumbnail_url = quest.hero_image_url
+    elif quest.district and quest.district.image_content and quest.district.image_content.file_path:
+        out.thumbnail_url = build_imgproxy_url(quest.district.image_content.file_path)
+    elif quest.district and quest.district.image_url:
+        out.thumbnail_url = quest.district.image_url
+    else:
+        out.thumbnail_url = f"{MOCK_IMG_ENDPOINT}?seed={quest.id}"
+    return out
 
 
 async def _get_quest_or_404(quest_id: uuid.UUID, db: AsyncSession) -> Quest:
@@ -32,25 +72,46 @@ async def _get_quest_or_404(quest_id: uuid.UUID, db: AsyncSession) -> Quest:
 @router.get("", response_model=list[QuestOut], summary="퀘스트 목록")
 async def get_quests(
     period: str | None = None,
-    district: str | None = None,
+    district_id: int | None = None,
+    rider_type_id: int | None = None,
     badge: str | None = None,
-    safety_grade: str | None = None,
+    safety_grade_id: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Quest).where(Quest.is_active == True)
 
     if period:
         stmt = stmt.where(Quest.period == period.upper())
-    if district:
-        stmt = stmt.where(Quest.district == district)
+    if district_id:
+        stmt = stmt.where(or_(Quest.district_id == district_id, Quest.district_id.is_(None)))
+    if rider_type_id:
+        stmt = stmt.where(or_(Quest.rider_type_id == rider_type_id, Quest.rider_type_id.is_(None)))
     if badge:
         stmt = stmt.where(Quest.badge == badge.upper())
-    if safety_grade:
-        stmt = stmt.where(Quest.min_safety_grade == safety_grade.upper())
+    if safety_grade_id:
+        stmt = stmt.where(or_(Quest.min_safety_grade_id == safety_grade_id, Quest.min_safety_grade_id.is_(None)))
 
     stmt = stmt.order_by(Quest.created_at.desc())
     result = await db.execute(stmt)
-    return [QuestOut.model_validate(q) for q in result.scalars().all()]
+    return [_to_out(q) for q in result.scalars().all()]
+
+
+# Q-1b
+@router.get("/completed-ids", response_model=list[str], summary="현재 주기 완료된 퀘스트 ID 목록")
+async def get_completed_ids(
+    user_id: uuid.UUID,
+    period: str = "DAILY",
+    db: AsyncSession = Depends(get_db),
+):
+    period_key = _calc_period_key(period.upper())
+    result = await db.execute(
+        select(UserQuest.quest_id).where(
+            UserQuest.user_id == user_id,
+            UserQuest.status == "COMPLETED",
+            UserQuest.period_key == period_key,
+        )
+    )
+    return [str(r) for r in result.scalars().all()]
 
 
 # Q-2
@@ -74,7 +135,6 @@ async def get_quest_pins(db: AsyncSession = Depends(get_db)):
 # Q-3
 @router.get("/recommended", response_model=QuestOut | None, summary="Tonight's Pick 추천 퀘스트")
 async def get_recommended_quest(db: AsyncSession = Depends(get_db)):
-    now = datetime.now(timezone.utc)
     result = await db.execute(
         select(Quest)
         .where(
@@ -85,14 +145,14 @@ async def get_recommended_quest(db: AsyncSession = Depends(get_db)):
         .limit(1)
     )
     quest = result.scalar_one_or_none()
-    return QuestOut.model_validate(quest) if quest else None
+    return _to_out(quest) if quest else None
 
 
 # Q-4
 @router.get("/{quest_id}", response_model=QuestOut, summary="퀘스트 상세")
 async def get_quest_detail(quest_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     quest = await _get_quest_or_404(quest_id, db)
-    return QuestOut.model_validate(quest)
+    return _to_out(quest)
 
 
 # Q-5
@@ -104,16 +164,85 @@ async def accept_quest(
 ):
     quest = await _get_quest_or_404(quest_id, db)
 
+    period_key = _calc_period_key(quest.period)
+
+    existing = await db.execute(
+        select(UserQuest).where(
+            UserQuest.user_id == body.user_id,
+            UserQuest.quest_id == quest.id,
+            UserQuest.period_key == period_key,
+            UserQuest.status == "COMPLETED",
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="이미 완료한 퀘스트입니다.")
+
     user_quest = UserQuest(
         user_id=body.user_id,
         quest_id=quest.id,
         status="ACCEPTED",
+        period_key=period_key,
     )
     db.add(user_quest)
     await db.commit()
     await db.refresh(user_quest)
 
     return QuestAcceptResponse(session_id=user_quest.id, user_quest_id=user_quest.id)
+
+
+# Q-5b [DBG] 퀘스트 강제 완료 처리 (디버그용)
+@router.post("/{quest_id}/complete", response_model=QuestCompleteResponse, summary="[DBG] 퀘스트 완료 처리")
+async def complete_quest(
+    quest_id: uuid.UUID,
+    body: QuestCompleteRequest,
+    x_passcode: str = Header(..., alias="X-Passcode"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _verify_passcode(body.user_id, x_passcode, db)
+    quest = await _get_quest_or_404(quest_id, db)
+    period_key = _calc_period_key(quest.period)
+
+    result = await db.execute(
+        select(UserQuest).where(
+            UserQuest.user_id == body.user_id,
+            UserQuest.quest_id == quest.id,
+            UserQuest.period_key == period_key,
+        )
+    )
+    uq = result.scalar_one_or_none()
+
+    already_completed = uq and uq.status == "COMPLETED"
+
+    if uq:
+        uq.status = "COMPLETED"
+        uq.completed_at = datetime.now(timezone.utc)
+    else:
+        uq = UserQuest(
+            user_id=body.user_id,
+            quest_id=quest.id,
+            status="COMPLETED",
+            period_key=period_key,
+            completed_at=datetime.now(timezone.utc),
+        )
+        db.add(uq)
+
+    # 이미 완료된 경우 보상 중복 지급 방지
+    if not already_completed:
+        user = await db.get(User, body.user_id)
+        if user:
+            user.exp += quest.reward_exp
+            user.gold += quest.reward_gold
+
+    await db.commit()
+    await db.refresh(uq)
+    return QuestCompleteResponse(
+        quest_id=quest.id,
+        user_quest_id=uq.id,
+        status=uq.status,
+        reward_exp=quest.reward_exp if not already_completed else 0,
+        reward_gold=quest.reward_gold if not already_completed else 0,
+        reward_item=quest.reward_item if not already_completed else None,
+    )
 
 
 # Q-6

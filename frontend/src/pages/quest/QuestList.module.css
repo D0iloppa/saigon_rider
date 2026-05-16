@@ -7,7 +7,7 @@
 
 /* ── Header ── */
 .header {
-  padding: 8px 20px 0;
+  padding: 0 20px 0;
   flex-shrink: 0;
 }
 
@@ -57,7 +57,8 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 10px;
+  padding: 0 20px 10px;
+  margin: 0 -20px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -239,6 +240,69 @@
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 8px;
+}
+
+/* Completed section divider (clickable toggle) */
+.completedDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.completedDivider:hover {
+  color: var(--text-2);
+}
+
+.completedDivider::before,
+.completedDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.completedToggleIcon {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.completedToggleIconOpen {
+  transform: rotate(180deg);
+}
+
+/* Completed card state */
+.cardCompleted {
+  opacity: 0.5;
+  filter: saturate(0.4);
+}
+
+.completedBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--text-3);
+  color: white;
+  z-index: 1;
 }
 
 /* Empty state */

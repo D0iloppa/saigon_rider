@@ -166,12 +166,120 @@ useEffect(() => {
 
 ---
 
-## 2. 공통 UI 컴포넌트
+## 2. 플랫폼 분기 CSS 아키텍처 (iOS vs Android)
+
+> **핵심 차이**: iOS WebView는 **전체화면(상태바 포함)**을 뷰포트로 사용한다.  
+> Android WebView는 **상태바 아래 영역**만 뷰포트로 사용한다.  
+> 따라서 상단 여백(status bar height)을 플랫폼별로 다르게 처리해야 한다.
+
+### 2.1 동작 원리
+
+`index.html` 인라인 스크립트가 React 렌더링 전에 실행되어 `<html>` 요소에 `data-platform` 속성을 주입한다.
+
+```
+iOS     → data-platform="ios"
+Android → data-platform="android"
+브라우저/dev → data-platform="web"
+```
+
+네이티브 셸에서 플랫폼을 명시적으로 지정해야 하는 경우:
+```js
+// 네이티브 → 웹 (WebView에서 호출)
+window.setPlatform('ios');      // 또는 'android'
+```
+
+### 2.2 CSS 변수 — `--status-bar-height`
+
+`src/styles/tokens.css`에 정의된 플랫폼별 변수:
+
+| 플랫폼 | `--status-bar-height` 값 | 이유 |
+|--------|--------------------------|------|
+| `ios` | `env(safe-area-inset-top, 44px)` | 기기마다 다른 실제 높이 사용 |
+| `android` | `0px` | WebView가 이미 상태바 아래에서 시작 |
+| `web` (기본) | `44px` | 데스크탑 dev 미리보기용 고정값 |
+
+**사용 방법**: 고정 픽셀값 대신 반드시 이 변수를 사용한다.
+```css
+/* ✅ 올바른 방법 */
+height: var(--status-bar-height);
+padding-top: var(--status-bar-height);
+
+/* ❌ 금지 — 플랫폼 차이를 무시함 */
+height: 44px;
+padding-top: 50px;
+```
+
+### 2.3 StatusBar 컴포넌트
+
+`<StatusBar>` 컴포넌트는 내부적으로 `height: var(--status-bar-height)`를 사용한다.  
+플랫폼별 높이 분기를 직접 처리하므로, 페이지/레이아웃에서는 `<StatusBar>`를 배치하기만 하면 된다.  
+**StatusBar 위쪽에 추가 padding/margin을 넣지 말 것.** (→ 이중 여백 발생)
+
+### 2.4 플랫폼별 스타일을 직접 분기해야 하는 경우
+
+`--status-bar-height` 변수 외에 플랫폼별 추가 분기가 필요하다면 CSS 속성 선택자를 사용한다:
+
+```css
+/* iOS 전용 */
+[data-platform="ios"] .someComponent {
+  /* ... */
+}
+
+/* Android 전용 */
+[data-platform="android"] .someComponent {
+  /* ... */
+}
+```
+
+> **신규 페이지·레이아웃 추가 시 체크리스트**
+> - [ ] 헤더 `padding-top: 0` 유지
+> - [ ] 헤더 최상단 첫 자식으로 `<StatusBar>` 배치 (`TopBar` 사용 시 불필요)
+> - [ ] 고정 px 값으로 상단 여백을 직접 지정하지 않기
+> - [ ] `--status-bar-height` 변수 또는 `<StatusBar>` 컴포넌트를 통해 처리
+
+---
+
+## 3. 공통 UI 컴포넌트
 
 > 위치: `src/components/ui/`
 
+### 3.0 모바일 상태바(Status Bar) 여백 확보 규칙
+
+신규 페이지 또는 레이아웃을 추가할 때, 화면 최상단에는 모바일의 상태바 영역(좌측 시간, 우측 배터리 등)을 고려한 자체적인 여백이 필요하다.
+
+**적용 방법**
+
+헤더 컨테이너 CSS의 `padding-top`은 **반드시 0**으로 두고, 자식 첫 요소로 `<StatusBar>` 컴포넌트를 배치한다.  
+`padding-top`에 임의 값을 넣으면 StatusBar 위에 이중 여백이 생기므로 금지.
+
+```css
+/* ✅ 올바른 패턴 */
+.header {
+  padding: 0 20px 20px;   /* top은 0 */
+}
+```
+
+```tsx
+/* ✅ 올바른 패턴 */
+<div className={styles.header}>
+  <StatusBar variant="light" />   {/* 최상단 첫 자식 */}
+  {/* 나머지 헤더 콘텐츠 */}
+</div>
+```
+
+```css
+/* ❌ 금지 — StatusBar 위에 이중 여백 발생 */
+.header {
+  padding: 32px 20px 20px;
+}
+```
+
+- `TopBar` 컴포넌트를 사용하는 레이아웃(예: `FeedList`)은 `TopBar` 내부에 이미 `StatusBar` 처리가 포함되어 있으므로 추가 작업이 필요 없다.
+- `StatusBar` 높이는 50px 고정 (`src/components/layout/StatusBar.module.css`).
+
 | 컴포넌트 | 용도 |
 |----------|------|
+| `Toast` (`Toast.ts`) | sonner 래퍼 — `toast.success/error/info/warning(msg)` 비차단 알림 |
 | `AlertDialog` | 단순 정보 표시 모달 (제목 + 텍스트/pre + 확인 버튼) |
 | `ConfirmDialog` | 확인/취소 선택 모달 (Zustand store 기반 전역 호출) |
 | `BottomSheet` | 하단 슬라이드 패널 |

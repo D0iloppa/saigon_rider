@@ -76,7 +76,26 @@
 
   /* Layout */
   --app-max-width: 480px;
-  --tabbar-height: 84px;
+  --tabbar-height: 72px;   /* 상단 8px + 아이콘 50px + 하단 14px. iOS는 별도 override */
   --header-safe: env(safe-area-inset-top, 0px);
   --bottom-safe: env(safe-area-inset-bottom, 0px);
+
+  /*
+   * --status-bar-height : 플랫폼별 상단 여백
+   *
+   * iOS     → env(safe-area-inset-top) — 전체화면 WebView 기준
+   * Android → max(env(safe-area-inset-top), 24px) — edge-to-edge 대응, 최소 24px
+   * web     → 24px (기본값, 별도 override 없음)
+   */
+  --status-bar-height: 24px;
+}
+
+/* iOS : 전체화면 WebView → safe-area-inset-top 사용 */
+[data-platform="ios"] {
+  --status-bar-height: env(safe-area-inset-top, 44px);
+}
+
+/* Android : edge-to-edge 대응 — safe-area가 있으면 사용, 없거나 0이면 최소 24px */
+[data-platform="android"] {
+  --status-bar-height: max(env(safe-area-inset-top, 0px), 24px);
 }

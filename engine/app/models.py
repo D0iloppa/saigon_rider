@@ -344,6 +344,16 @@ class IdempotencyKey(Base):
     __table_args__ = (Index("idx_idem_expires", "expires_at"),)
 
 
+class SreMessage(Base):
+    __tablename__ = "sre_message_tbl"
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    uuid = Column(Text, nullable=False)
+    message = Column(Text, nullable=False)
+    timestamp = Column(_TS, nullable=False, server_default="NOW()")
+    _extra = Column("_extra", JSONB, nullable=False, server_default="{}")
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

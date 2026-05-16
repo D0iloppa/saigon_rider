@@ -3,14 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
-import { fetchQuest } from '@/api/quests';
+import { fetchQuest, fetchCompletedQuestIds, completeQuest } from '@/api/quests';
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatDistance } from '@/lib/format';
-import type { Quest } from '@/api/types';
+import type { Quest, QuestType } from '@/api/types';
 import { Chip } from '@/components/ui/Chip';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { toast } from '@/components/ui/Toast';
 import styles from './QuestDetail.module.css';
 
 export default function QuestDetail() {
@@ -18,15 +19,25 @@ export default function QuestDetail() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
+  const passcode = useUserStore((s) => s.passcode);
+  const addExp = useUserStore((s) => s.addExp);
+  const addGold = useUserStore((s) => s.addGold);
   const startRide = useRideStore((s) => s.startRide);
 
   const [quest, setQuest] = useState<Quest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [dbgDialog, setDbgDialog] = useState(false);
+  const [dbgLoading, setDbgLoading] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
-    fetchQuest(id).then((q) => {
+    if (!id || !user) return;
+    fetchQuest(id).then(async (q) => {
       setQuest(q);
+      if (q) {
+        const ids = await fetchCompletedQuestIds(user.id, q.questType as QuestType);
+        setIsCompleted(ids.has(q.id));
+      }
       setLoading(false);
     });
   }, [id]);
@@ -52,9 +63,29 @@ export default function QuestDetail() {
   const isLocked = user.level < quest.minLevel;
 
   const handleStart = () => {
-    if (isLocked) return;
+    if (isLocked || isCompleted) return;
     startRide(quest);
     navigate('/ride/active');
+  };
+
+  const handleDbgComplete = async () => {
+    if (!user || !quest || !passcode) {
+      toast.error('[DBG] 세션 정보가 없습니다. 재로그인 후 시도해주세요.');
+      return;
+    }
+    setDbgLoading(true);
+    try {
+      const result = await completeQuest(quest.id, user.id, passcode);
+      if (result.rewardExp > 0) addExp(result.rewardExp, 0);
+      if (result.rewardGold > 0) addGold(result.rewardGold);
+      setIsCompleted(true);
+      toast.success(`[DBG] 완료 처리됨 — EXP +${result.rewardExp}, Gold +${result.rewardGold}`);
+    } catch (err: any) {
+      toast.error(`[DBG] 완료 실패: ${err.message ?? '알 수 없는 오류'}`);
+    } finally {
+      setDbgLoading(false);
+      setDbgDialog(false);
+    }
   };
 
   return (
@@ -69,13 +100,16 @@ export default function QuestDetail() {
         <div className={styles.heroContent}>
           <div className={styles.heroTag}>{t('quest.tonightsTag')}</div>
           <h1 className={styles.heroTitle}>{quest.title}</h1>
+          {isCompleted && (
+            <div className={styles.completedBadge}>✓ {t('quest.completedBadge')}</div>
+          )}
         </div>
       </div>
 
       <div className={styles.sheet}>
         <div className={styles.metaRow}>
           <Chip variant="surface">Lv.{quest.minLevel}+</Chip>
-          <Chip variant="surface">{quest.district}</Chip>
+          <Chip variant="surface">{quest.districtName}</Chip>
           <Chip variant="surface">
             {'★'.repeat(quest.difficulty)}
             {'☆'.repeat(5 - quest.difficulty)}
@@ -98,10 +132,10 @@ export default function QuestDetail() {
             <span>📍</span>
             <span>{t('quest.totalDistance', { distance: formatDistance(quest.minDistanceM) })}</span>
           </div>
-          {quest.safetyGradeMin && (
+          {quest.safetyGrade && (
             <div className={styles.conditionRow}>
               <span>🛡</span>
-              <span>{t('quest.safetyGradeMin', { grade: quest.safetyGradeMin })}</span>
+              <span>{t('quest.safetyGradeMin', { grade: quest.safetyGrade.code })}</span>
             </div>
           )}
         </div>
@@ -134,12 +168,42 @@ export default function QuestDetail() {
           </div>
         </div>
 
-        <Button onClick={handleStart} disabled={isLocked}>
+        <Button onClick={handleStart} disabled={isLocked || isCompleted}>
           {isLocked
             ? t('quest.lockedLevel', { level: quest.minLevel })
+            : isCompleted
+            ? t('quest.completedBtn')
             : t('quest.startBtn')}
         </Button>
       </div>
+
+      {/* [DBG] 완료 버튼 */}
+      {!isCompleted && (
+        <button className={styles.dbgBtn} onClick={() => setDbgDialog(true)}>
+          [DBG]
+        </button>
+      )}
+
+      {/* [DBG] AlertDialog */}
+      {dbgDialog && (
+        <div className={styles.dialogBackdrop} onClick={() => setDbgDialog(false)}>
+          <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.dialogIcon}>🛠</div>
+            <h3 className={styles.dialogTitle}>디버그 기능</h3>
+            <p className={styles.dialogBody}>
+              이 기능은 디버그용으로, 퀘스트 완료 처리를 합니다.
+            </p>
+            <div className={styles.dialogActions}>
+              <Button variant="ghost" onClick={() => setDbgDialog(false)} disabled={dbgLoading}>
+                취소
+              </Button>
+              <Button onClick={handleDbgComplete} disabled={dbgLoading}>
+                {dbgLoading ? '처리 중...' : '완료 처리'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lock overlay */}
       {isLocked && <LockModal user={user} quest={quest} onClose={() => navigate(-1)} />}

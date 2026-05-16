@@ -249,3 +249,16 @@ class AdminAdjustCreate(BaseModel):
     amount: int = Field(gt=0)
     tx_type: TxTypeEnum = Field(description="ADJUST_PLUS or ADJUST_MINUS only")
     memo: Optional[str] = Field(None, max_length=200)
+
+
+# ── sre_message ──────────────────────────────────────────────
+
+
+class SreMessageRead(BaseModel):
+    id: int
+    uuid: str
+    message: str
+    timestamp: datetime
+    extra: Optional[dict[str, Any]] = Field(None, alias="_extra")
+
+    model_config = {"from_attributes": True, "populate_by_name": True}

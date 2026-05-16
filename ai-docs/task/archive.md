@@ -24,4 +24,7 @@
 
 ## 260515
 
-- [alert/confirm → Toast/ConfirmDialog 교체](active/260515_alert_to_toast_task.md) — sonner toast + Zustand 기반 ConfirmDialog, iOS alert 미동작 문제 해소 (완료)
+- [alert/confirm → Toast/ConfirmDialog 교체](260515/260515_alert_to_toast_task.md) — sonner toast + Zustand 기반 ConfirmDialog, iOS alert 미동작 문제 해소 (완료)
+- [프론트엔드 CSS 수정 & iOS/Android 플랫폼 분기 아키텍처](260515/260515_frontend_css_platform_task.md) — StatusBar 여백 정규화, ProfileMain 아이콘·아바타 위치, TabBar 인디케이터 수정, `data-platform` UA 감지 + `--status-bar-height` CSS 변수 도입 (완료)
+- [Quest 인프라 3종](260515/260515_quest_infra_task.md) — District enum(17개 구) 프론트 chips 연동, user_quests.period_key 중복 방지 unique index, quests.thumbnail_content_id contents FK 연동 (완료)
+- [시스템 이미지 & Mock Fallback 구축](260515/260515_mock_fallback_image.md) — district/quest 이미지 imgproxy 서빙, contents 테이블 연동(011~013 마이그레이션), mock owner_type 추가, `/contents/mock-img` 랜덤 서빙 엔드포인트, fallback 체인(quest→district→mock) 완성 (완료)

@@ -1,7 +1,7 @@
 # 백엔드 구현 필요 기능 목록
 
 > 작성일: 2026-05-13  
-> 최종 갱신: 2026-05-14 (BFF 완수 Task 반영)  
+> 최종 갱신: 2026-05-16 (컨텐츠 이미지 서빙 섹션 추가)  
 > 기준: `/docs/spec.md` `[API-DUMMY]` 항목 전수 분석  
 > 상태 범례: `⬜ 미구현` · `✅ 완료` · `🚧 진행중`
 
@@ -14,8 +14,10 @@
 | `POST /api/auth/register` | 전화번호 가입 / passcode 재발급 |
 | `POST /api/auth/login` | passcode 로그인 |
 | `GET /api/auth/me` | 전화번호로 유저 조회 |
-| `POST /api/contents/upload` | 이미지 업로드 → imgproxy URL 반환 |
+| `POST /api/contents/upload` | 이미지 업로드 → imgproxy URL 반환 (파일명 = content_id UUID) |
 | `GET /api/contents/{id}` | 컨텐츠 메타데이터 조회 |
+| `GET /api/contents/{id}/img` | content_id → imgproxy 302 redirect (`?w=800&h=450`) |
+| `GET /api/contents/mock-img` | owner_type='mock' 이미지 서빙 (`?seed={uuid}` → 결정론적, 미지정 → 랜덤) |
 | `POST /api/profile/avatar` | 프로필 사진 업로드 |
 | `PUT /api/profile/nickname` | 닉네임 변경 |
 | `GET /api/profile/check-nickname` | 닉네임 중복 확인 |
@@ -92,6 +94,92 @@
 | 1 | 로그인 UI 페이지 | ✅ 완료 |
 | 2 | 관리자 인증 (POST /admin/login + JWT 쿠키) | ✅ 완료 |
 | 3 | 대시보드 (유저/퀘스트/통계 조회) | ✅ 완료 |
+
+---
+
+## 컨텐츠 이미지 서빙
+
+> 최종 갱신: 2026-05-16
+
+### 이미지 서빙 흐름
+
+```
+클라이언트 (image src)
+  │
+  ├─ content_id 아는 경우
+  │   GET /api/bff/contents/{id}/img?w=800&h=450
+  │   → BFF: DB에서 file_path 조회
+  │   → 302 redirect → nginx /img/ → imgproxy → 파일시스템
+  │
+  └─ content_id 모르는 경우 (fallback)
+      GET /api/bff/contents/mock-img?seed={quest_id}
+      → BFF: owner_type='mock' 목록 조회
+      → seed 기반 결정론적 선택 → 302 redirect → imgproxy
+```
+
+### 엔드포인트 상세
+
+#### `GET /contents/{content_id}/img`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | content_id만으로 이미지 서빙 (file_path 불필요) |
+| 파라미터 | `w` (기본 800), `h` (기본 450) — 단위 px |
+| 응답 | `302 redirect` → imgproxy URL (`rs:fill:{w}:{h}:1`) |
+| 사용처 | 프로필 아바타, 퀘스트 썸네일 직접 지정 시 |
+
+```
+GET /api/bff/contents/a3ea6311-7189-44eb-8935.../img?w=400&h=300
+→ 302 → https://saigon.doil.me/img/insecure/rs:fill:400:300:1/{base64}
+```
+
+#### `GET /contents/mock-img`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 이미지 미설정 퀘스트의 fallback 이미지 랜덤 서빙 |
+| 파라미터 | `w` (기본 800), `h` (기본 450), `seed` (선택) |
+| seed 동작 | UUID 지정 시 → 결정론적 선택 (같은 seed = 항상 같은 이미지) |
+| seed 미지정 | 완전 랜덤 선택 |
+| 캐시 | `Cache-Control: no-store` (브라우저 캐시 방지) |
+| DB 조건 | `owner_type = 'mock'`, `created_at` 오름차순 정렬 후 선택 |
+| 응답 | `302 redirect` → imgproxy URL |
+
+```
+GET /api/bff/contents/mock-img?seed=e2f9ece6-0f39-41db-8445-590b808dff0d
+→ 항상 같은 mock 이미지 (quest_id 기반 결정론적)
+
+GET /api/bff/contents/mock-img
+→ 매 요청마다 랜덤 mock 이미지
+```
+
+### 퀘스트 thumbnail_url 결정 우선순위 (`_to_out`)
+
+```
+1. quest.thumbnail_content.file_path  → build_imgproxy_url()
+2. quest.hero_image_url               → 그대로 사용
+3. district.image_content.file_path   → build_imgproxy_url()
+4. district.image_url                 → 그대로 사용 (레거시 폴백)
+5. MOCK_IMG_ENDPOINT?seed={quest.id}  → /contents/mock-img 엔드포인트
+```
+
+### owner_type 구분
+
+| owner_type | 저장 경로 | 설명 |
+|---|---|---|
+| `system` | `system/` | 관리자 직접 배치 또는 API 업로드 |
+| `user` | `user-contents/{year}/{month}/` | 유저 업로드 (프로필 사진, 피드 등) |
+| `mock` | `system/mock/` | fallback 전용 목업 이미지 (5장) |
+
+### 관련 파일
+
+| 파일 | 역할 |
+|---|---|
+| `backend/app/routers/contents.py` | `/mock-img`, `/{id}/img` 엔드포인트 |
+| `backend/app/utils.py` | `build_imgproxy_url(file_path, options)`, `MOCK_IMG_ENDPOINT` |
+| `backend/app/routers/quests.py` | `_to_out()` fallback 체인 |
+| `database/init/011~013_*.sql` | district FK, 시스템 시드, mock enum |
+| `ai-docs/workflow/system-contents-upload.md` | 이미지 추가 절차 |
 
 ---
 

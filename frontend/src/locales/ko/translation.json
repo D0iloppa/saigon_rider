@@ -10,7 +10,8 @@
     "copied": "복사됨",
     "change": "변경",
     "cancel": "취소",
-    "confirm": "확인"
+    "confirm": "확인",
+    "errorUnexpected": "오류가 발생했어요. 다시 시도해주세요"
   },
   "tabbar": {
     "world": "월드",
@@ -29,7 +30,12 @@
     "titleLine2": "로그인",
     "subtitle": "+84 베트남 번호로 인증 코드를 보내드려요",
     "errorInvalidPhone": "올바른 번호를 입력해주세요 (10-11자리)",
-    "getAuthCodeBtn": "인증 코드 받기",
+    "getAuthCodeBtn": "회원가입",
+    "loginBtn": "로그인",
+    "errorAlreadyExists": "이미 가입된 번호입니다. 로그인을 이용해주세요.",
+    "errorNotFound": "가입되지 않은 번호입니다. 회원가입을 먼저 해주세요.",
+    "errorNoSession": "이 기기에 저장된 세션이 없습니다. 재가입 또는 고객센터에 문의해주세요.",
+    "errorNetwork": "네트워크 오류가 발생했습니다.",
     "legalPrefix": "계속을 누르면 ",
     "terms": "이용약관",
     "legalMid": "과 ",
@@ -55,7 +61,9 @@
     "titleLine1": "당신은 어떤",
     "titleLine2": "라이더인가요?",
     "nicknamePlaceholder": "닉네임 입력…",
-    "startBtn": "시작하기 →"
+    "startBtn": "시작하기 →",
+    "errorNicknameTooShort": "닉네임은 2자 이상 입력해주세요",
+    "errorNoStyle": "라이더 스타일을 선택해주세요"
   },
   "home": {
     "progressLabel": "오늘은 {{needed}}km 더 달리면 Lv.{{nextLevel}}",
@@ -71,6 +79,7 @@
     "filterCommute": "💼 출퇴근",
     "filterNight": "🌙 야간",
     "filterSafetyA": "🛡 안전 A",
+    "completedSection": "완료한 퀘스트",
     "emptyTitle": "조건에 맞는 퀘스트가 없어요",
     "emptySub": "필터를 바꾸거나 잠시 후 다시 확인해주세요",
     "emptyQuote": "\"길은 찾기를 멈출 때 당신을 찾아옵니다.\"",
@@ -81,6 +90,8 @@
     "rewards": "보상",
     "lockedLevel": "Lv.{{level}}부터 가능",
     "startBtn": "퀘스트 시작 →",
+    "completedBtn": "퀘스트 완료됨",
+    "completedBadge": "완료",
     "lockTitle": "Lv.{{level}}부터 도전할 수 있어요",
     "lockSub": "현재 Lv.{{level}} · 다음 레벨까지",
     "lockEasierBtn": "더 쉬운 퀘스트 보기",

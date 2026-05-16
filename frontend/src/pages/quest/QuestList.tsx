@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { fetchQuests } from '@/api/quests';
+import { fetchQuests, fetchCompletedQuestIds } from '@/api/quests';
+import { fetchDistricts, fetchRiderTypes, fetchSafetyGrades, localizedName } from '@/api/master';
+import { useUserStore } from '@/store/useUserStore';
+import type { District, RiderType, SafetyGrade } from '@/api/master';
 import { formatDistance, formatTimeLeft } from '@/lib/format';
 import type { Quest, QuestType } from '@/api/types';
+import { StatusBar } from '@/components/layout/StatusBar';
 import { Chip } from '@/components/ui/Chip';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './QuestList.module.css';
 
 function getTimerStyle(iso?: string): { bg: string; color: string } {
@@ -18,25 +23,48 @@ function getTimerStyle(iso?: string): { bg: string; color: string } {
 function GifIcon({ code, size = 18 }: { code: string; size?: number }) {
   return (
     <img
-      src={`https://fonts.gstatic.com/s/e/notoemoji/latest/${code}/512.gif`}
+      src={emojiUrl(code)}
       width={size} height={size} alt=""
       onError={(e) => { e.currentTarget.style.display = 'none'; }}
     />
   );
 }
 
-const FILTER_PARAMS: Record<string, { district?: string; safetyGrade?: string }> = {
-  district:  { district: 'Quận 1' },
-  safetyA:   { safetyGrade: 'A' },
-};
+type FilterParams = { districtId?: number; riderTypeId?: number; safetyGradeId?: number };
+
+function buildFilterParams(
+  districtId: number | null,
+  riderTypeId: number | null,
+  safetyGradeId: number | null,
+): FilterParams {
+  const p: FilterParams = {};
+  if (districtId)    p.districtId    = districtId;
+  if (riderTypeId)   p.riderTypeId   = riderTypeId;
+  if (safetyGradeId) p.safetyGradeId = safetyGradeId;
+  return p;
+}
 
 export default function QuestList() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const userId = useUserStore((s) => s.user?.id);
   const [tab, setTab] = useState<QuestType>('daily');
-  const [activeFilter, setActiveFilter] = useState<string | null>('district');
+  const [activeDistrictId, setActiveDistrictId] = useState<number | null>(null);
+  const [activeRiderTypeId, setActiveRiderTypeId] = useState<number | null>(null);
+  const [activeSafetyGradeId, setActiveSafetyGradeId] = useState<number | null>(null);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [riderTypes, setRiderTypes] = useState<RiderType[]>([]);
+  const [safetyGrades, setSafetyGrades] = useState<SafetyGrade[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [completedOpen, setCompletedOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDistricts().then(setDistricts);
+    fetchRiderTypes().then(setRiderTypes);
+    fetchSafetyGrades().then(setSafetyGrades);
+  }, []);
 
   const TABS: { key: QuestType; label: string }[] = [
     { key: 'daily',  label: t('quest.tabDaily') },
@@ -44,26 +72,25 @@ export default function QuestList() {
     { key: 'event',  label: t('quest.tabEvent') },
   ];
 
-  const FILTERS: { key: string; label: string }[] = [
-    { key: 'district', label: '🌆 Quận 1' },
-    { key: 'commute',  label: t('quest.filterCommute') },
-    { key: 'night',    label: t('quest.filterNight') },
-    { key: 'safetyA',  label: t('quest.filterSafetyA') },
-  ];
-
   useEffect(() => {
     setLoading(true);
-    const params = activeFilter ? FILTER_PARAMS[activeFilter] : undefined;
-    fetchQuests({ type: tab, ...params }).then((list) => {
+    const params = buildFilterParams(activeDistrictId, activeRiderTypeId, activeSafetyGradeId);
+    const questsPromise = fetchQuests({ type: tab, ...params });
+    const completedPromise = userId ? fetchCompletedQuestIds(userId, tab) : Promise.resolve(new Set<string>());
+    Promise.all([questsPromise, completedPromise]).then(([list, ids]) => {
       setQuests(list);
+      setCompletedIds(ids);
       setLoading(false);
     });
-  }, [tab, activeFilter]);
+  }, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
 
   return (
     <div className={styles.root}>
       {/* Header */}
       <div className={styles.header}>
+        <div style={{ position: 'relative', zIndex: 10 }}>
+          <StatusBar variant="dark" />
+        </div>
         <div className={styles.headerRow}>
           <h1 className={styles.title}>{t('quest.title')}</h1>
           <GifIcon code="1f4cd" size={32} />
@@ -82,16 +109,40 @@ export default function QuestList() {
           ))}
         </div>
 
-        {/* Filter chips */}
+        {/* District chips */}
         <div className={styles.filterRow}>
-          {FILTERS.map((f) => (
+          {districts.map((d) => (
             <Chip
-              key={f.key}
-              variant={activeFilter === f.key ? 'dark' : 'surface'}
-              onClick={() => setActiveFilter(activeFilter === f.key ? null : f.key)}
+              key={d.id}
+              variant={activeDistrictId === d.id ? 'dark' : 'surface'}
+              onClick={() => setActiveDistrictId(activeDistrictId === d.id ? null : d.id)}
               style={{ cursor: 'pointer' }}
             >
-              {f.label}
+              🌆 {localizedName(d)}
+            </Chip>
+          ))}
+        </div>
+
+        {/* Rider type + Safety grade chips */}
+        <div className={styles.filterRow}>
+          {riderTypes.map((r) => (
+            <Chip
+              key={r.id}
+              variant={activeRiderTypeId === r.id ? 'dark' : 'surface'}
+              onClick={() => setActiveRiderTypeId(activeRiderTypeId === r.id ? null : r.id)}
+              style={{ cursor: 'pointer' }}
+            >
+              {r.icon} {localizedName(r)}
+            </Chip>
+          ))}
+          {safetyGrades.map((s) => (
+            <Chip
+              key={s.id}
+              variant={activeSafetyGradeId === s.id ? 'dark' : 'surface'}
+              onClick={() => setActiveSafetyGradeId(activeSafetyGradeId === s.id ? null : s.id)}
+              style={{ cursor: 'pointer' }}
+            >
+              🛡 {localizedName(s)}
             </Chip>
           ))}
         </div>
@@ -112,28 +163,59 @@ export default function QuestList() {
             <p className={styles.emptySub}>{t('quest.emptySub')}</p>
             <p className={styles.emptyQuote}>{t('quest.emptyQuote')}</p>
           </div>
-        ) : (
-          quests.map((q) => (
-            <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} />
-          ))
-        )}
+        ) : (() => {
+          const active = quests.filter((q) => !completedIds.has(q.id));
+          const completed = quests.filter((q) => completedIds.has(q.id));
+          return (
+            <>
+              {active.map((q) => (
+                <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} />
+              ))}
+              {completed.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.completedDivider}
+                    onClick={() => setCompletedOpen((v) => !v)}
+                    aria-expanded={completedOpen}
+                  >
+                    <span>
+                      {t('quest.completedSection')} ({completed.length})
+                    </span>
+                    <span className={`${styles.completedToggleIcon} ${completedOpen ? styles.completedToggleIconOpen : ''}`}>
+                      ▾
+                    </span>
+                  </button>
+                  {completedOpen && completed.map((q) => (
+                    <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} completed />
+                  ))}
+                </>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );
 }
 
-function QuestCard({ quest, onClick }: { quest: Quest; onClick: () => void }) {
+function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClick: () => void; completed?: boolean }) {
   const timeLeft = formatTimeLeft(quest.expiresAt);
   const timerStyle = getTimerStyle(quest.expiresAt);
   const tag = quest.tags[0];
 
   return (
-    <button className={styles.card} onClick={onClick}>
+    <button className={`${styles.card} ${completed ? styles.cardCompleted : ''}`} onClick={onClick}>
       {/* Top shine */}
       <div className={styles.cardShine} />
 
+      {/* Completed badge */}
+      {completed && (
+        <span className={styles.completedBadge}>✓ DONE</span>
+      )}
+
       {/* Tag chip */}
-      {tag && (
+      {!completed && tag && (
         <span className={`${styles.tag} ${
           tag === 'HOT' ? styles.tagHot :
           tag === 'NEW' ? styles.tagNew :
@@ -159,7 +241,7 @@ function QuestCard({ quest, onClick }: { quest: Quest; onClick: () => void }) {
       {/* Content */}
       <div className={styles.cardBody}>
         <div className={styles.metaRow}>
-          <Chip variant="surface">Lv.{quest.minLevel} · {quest.district}</Chip>
+          <Chip variant="surface">Lv.{quest.minLevel} · {quest.districtName}</Chip>
         </div>
         <h3 className={styles.cardTitle}>{quest.title}</h3>
         <div className={styles.cardMeta}>
@@ -168,7 +250,7 @@ function QuestCard({ quest, onClick }: { quest: Quest; onClick: () => void }) {
         <div className={styles.cardFooter}>
           <span className={styles.rewardItem}>
             <img
-              src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.gif"
+              src={emojiUrl('1f48e')}
               width={16} height={16} alt=""
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />

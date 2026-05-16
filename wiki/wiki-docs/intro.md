@@ -12,7 +12,7 @@ title: 시작하기
 
 | 항목 | 내용 |
 |---|---|
-| 서비스 형태 | React SPA + Capacitor 네이티브 앱 |
+| 서비스 형태 | React SPA (iOS / Android WebView 하이브리드 앱) |
 | 백엔드 구조 | BFF (FastAPI) + SRE Engine 분리 아키텍처 |
 | 데이터베이스 | PostgreSQL 15 + PostGIS |
 | 인프라 | Docker Compose + Nginx 리버스 프록시 |
@@ -79,7 +79,8 @@ wiki-docs/
 |---|---|---|
 | 전체 아키텍처 | [/wiki/docs/private/architecture](/wiki/docs/private/architecture) | 컨테이너 구성, 네트워크, 보안 레이어 |
 | DB 스키마 | [/wiki/docs/private/database](/wiki/docs/private/database) | PostgreSQL + PostGIS 스키마 정의 |
-| **QA 체크리스트** | [/wiki/docs/private/test/checklist-v1-260514](/wiki/docs/private/test/checklist-v1-260514) | 화면·기능·엔진 점검 체크리스트 v1 |
+| **진척도 트래커** | [/wiki/docs/private/test/progress](/wiki/docs/private/test/progress) | 그룹별 진척도 / 체크리스트 현황 |
+| **이슈 로그** | [/wiki/docs/private/test/issues](/wiki/docs/private/test/issues) | 발견된 결함 + 미구현 잔여 |
 
 :::info Private 섹션 접근 방법
 1. **직접 URL 입력**: 위 링크 클릭 시 브라우저가 **HTTP Basic Auth 다이얼로그**를 띄웁니다. `.env` 의 자격증명을 입력하면 접근됩니다.

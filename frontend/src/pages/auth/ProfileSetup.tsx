@@ -3,8 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { RadioCircle } from '@/components/ui/RadioCircle';
+import { emojiUrl } from '@/lib/emoji';
 import { Button } from '@/components/ui/Button';
+import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
+import { apiSaveProfileSetup } from '@/api/profile';
 import type { RiderStyle } from '@/api/types';
 import styles from './ProfileSetup.module.css';
 
@@ -17,7 +20,7 @@ const STYLES: { key: RiderStyle; gifCode: string; titleKey: string; subKey: stri
 function GifIcon({ code, size = 56 }: { code: string; size?: number }) {
   return (
     <img
-      src={`https://fonts.gstatic.com/s/e/notoemoji/latest/${code}/512.gif`}
+      src={emojiUrl(code)}
       width={size}
       height={size}
       alt=""
@@ -28,18 +31,41 @@ function GifIcon({ code, size = 56 }: { code: string; size?: number }) {
 
 export default function ProfileSetup() {
   const navigate = useNavigate();
+  const user = useUserStore((s) => s.user);
   const setProfile = useUserStore((s) => s.setProfile);
   const { t } = useTranslation();
 
   const [nickname, setNickname] = useState('');
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
+  const [saving, setSaving] = useState(false);
 
   const isValid = nickname.length >= 2 && nickname.length <= 12 && style;
 
-  const handleSubmit = () => {
-    if (!isValid) return;
-    setProfile(nickname, style);
-    navigate('/home');
+  const handleSubmit = async () => {
+    if (nickname.length < 2) {
+      toast.error(t('profileSetup.errorNicknameTooShort'));
+      return;
+    }
+    if (!style) {
+      toast.error(t('profileSetup.errorNoStyle'));
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error(t('common.errorUnexpected'));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await apiSaveProfileSetup(user.id, nickname, style);
+      setProfile(nickname, style);
+      navigate('/home');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.errorUnexpected'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -107,7 +133,7 @@ export default function ProfileSetup() {
 
       {/* Bottom CTA — gradient fade */}
       <div className={styles.bottomCta}>
-        <Button onClick={handleSubmit} disabled={!isValid}>
+        <Button onClick={handleSubmit} disabled={!isValid || saving}>
           {t('profileSetup.startBtn')}
         </Button>
       </div>

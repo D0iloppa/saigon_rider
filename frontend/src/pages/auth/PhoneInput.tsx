@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Button } from '@/components/ui/Button';
 import { COUNTRY_CODES, DEFAULT_COUNTRY, type CountryCode } from '@/data/countryCodes';
@@ -13,6 +13,8 @@ import pickerStyles from './CountryPicker.module.css';
 export default function PhoneInput() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode') === 'login' ? 'login' : 'register';
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
 
   const [country, setCountry] = useState<CountryCode>(DEFAULT_COUNTRY);
@@ -53,23 +55,24 @@ export default function PhoneInput() {
     setLoading(true);
 
     try {
-      // 1) 기존 세션(쿠키)에 이 번호의 passcode가 있으면 로그인 시도
-      const existing = loadSession();
-      if (existing && existing.phone === fullPhone) {
-        const result = await apiLogin(fullPhone, existing.passcode);
-        loginFromBackend(result.user);
-        navigate('/home', { replace: true });
-        return;
-      }
-
-      // 2) 신규 가입 (또는 passcode 재발급)
-      const result = await apiRegister(fullPhone);
-      saveSession({ phone: fullPhone, passcode: result.passcode, userId: result.user.id });
-      loginFromBackend(result.user);
-
-      if (result.is_new || !result.user.nickname) {
+      if (mode === 'register') {
+        const result = await apiRegister(fullPhone);
+        if (!result.is_new) {
+          setError(t('phoneInput.errorAlreadyExists'));
+          return;
+        }
+        saveSession({ phone: fullPhone, passcode: result.passcode, userId: result.user.id });
+        loginFromBackend(result.user, result.passcode);
         navigate('/auth/profile-setup');
       } else {
+        // login: 전화번호로 기존 계정 확인 (인증 체계 구현 전 임시 방식)
+        const result = await apiRegister(fullPhone);
+        if (result.is_new) {
+          setError(t('phoneInput.errorNotFound'));
+          return;
+        }
+        saveSession({ phone: fullPhone, passcode: result.passcode, userId: result.user.id });
+        loginFromBackend(result.user, result.passcode);
         navigate('/home', { replace: true });
       }
     } catch (err: any) {
@@ -82,6 +85,13 @@ export default function PhoneInput() {
   return (
     <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       <StatusBar />
+      <button
+        onClick={() => navigate(-1)}
+        style={{ position: 'absolute', top: 'calc(var(--status-bar-height) + 28px)', right: 24, zIndex: 10, padding: '4px 0', color: 'var(--text-2)', fontSize: 14, fontWeight: 600, lineHeight: 1 }}
+        aria-label="back"
+      >
+        {t('common.close')}
+      </button>
       <div className={styles.body}>
         <h1 className={styles.title}>
           {t('phoneInput.titleLine1')}
@@ -152,7 +162,7 @@ export default function PhoneInput() {
         <div className={styles.spacer} />
 
         <Button onClick={handleSubmit} disabled={!isValid || loading}>
-          {loading ? '...' : t('phoneInput.getAuthCodeBtn')}
+          {loading ? '...' : mode === 'login' ? t('phoneInput.loginBtn') : t('phoneInput.getAuthCodeBtn')}
         </Button>
         <p className={styles.legal}>
           {t('phoneInput.legalPrefix')}

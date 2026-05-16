@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import ENUM, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
@@ -13,8 +13,7 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-_rider_type_enum = ENUM('COMMUTER', 'CAFE_HUNTER', 'NIGHT_RIDER', name='rider_type', create_type=False)
-_content_owner_type_enum = ENUM('system', 'user', name='content_owner_type', create_type=False)
+_content_owner_type_enum = ENUM('system', 'user', 'mock', name='content_owner_type', create_type=False)
 _quest_period_enum = ENUM('DAILY', 'WEEKLY', 'EVENT', name='quest_period', create_type=False)
 _quest_badge_enum = ENUM('HOT', 'NEW', 'LIMITED', name='quest_badge_type', create_type=False)
 _safety_grade_enum = ENUM('A', 'B', 'C', name='safety_grade', create_type=False)
@@ -23,13 +22,50 @@ _notification_type_enum = ENUM('QUEST_RECOMMEND', 'QUEST_EXPIRE', 'EVENT', 'RIDE
 _badge_condition_enum = ENUM('QUEST_CLEAR_COUNT', 'DISTANCE_TOTAL_KM', 'STREAK_DAYS', 'SAFETY_GRADE_A_COUNT', name='badge_condition_type', create_type=False)
 
 
+class District(Base):
+    __tablename__ = "districts"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
+    name_ko: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_vi: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True)
+    image_content: Mapped["Content | None"] = relationship("Content", foreign_keys="[District.image_content_id]", lazy="selectin")
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class RiderType(Base):
+    __tablename__ = "rider_types"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
+    name_ko: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_vi: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
+    icon: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+
+class SafetyGrade(Base):
+    __tablename__ = "safety_grades"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(1), nullable=False, unique=True)
+    name_ko: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_vi: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     nickname: Mapped[str | None] = mapped_column(String(30), unique=True, nullable=True)
-    rider_type: Mapped[str | None] = mapped_column(_rider_type_enum, nullable=True)
+    rider_type_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("rider_types.id"), nullable=True)
+    rider_type: Mapped["RiderType | None"] = relationship("RiderType", foreign_keys=[rider_type_id], lazy="selectin")
     level: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     exp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -60,15 +96,19 @@ class Quest(Base):
     __tablename__ = "quests"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     hero_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    thumbnail_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True)
+    thumbnail_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[thumbnail_content_id], lazy="selectin")
+    district_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("districts.id"), nullable=True)
+    district: Mapped["District | None"] = relationship("District", foreign_keys=[district_id], lazy="selectin")
+    rider_type_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("rider_types.id"), nullable=True)
+    rider_type: Mapped["RiderType | None"] = relationship("RiderType", foreign_keys=[rider_type_id], lazy="selectin")
     period: Mapped[str] = mapped_column(_quest_period_enum, nullable=False, default="DAILY")
     badge: Mapped[str | None] = mapped_column(_quest_badge_enum, nullable=True)
     required_level: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     target_distance_km: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
-    min_safety_grade: Mapped[str | None] = mapped_column(_safety_grade_enum, nullable=True)
+    min_safety_grade_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("safety_grades.id"), nullable=True)
+    min_safety_grade: Mapped["SafetyGrade | None"] = relationship("SafetyGrade", foreign_keys=[min_safety_grade_id], lazy="selectin")
     reward_exp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reward_gold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reward_item: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -77,6 +117,12 @@ class Quest(Base):
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    title_ko: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    title_vi: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    title_en: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    description_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_vi: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class UserQuest(Base):
@@ -87,6 +133,7 @@ class UserQuest(Base):
     quest_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("quests.id", ondelete="CASCADE"), nullable=False)
     status: Mapped[str] = mapped_column(_quest_status_enum, nullable=False, default="ACCEPTED")
     is_first_clear: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    period_key: Mapped[str | None] = mapped_column(String(20), nullable=True)
     accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

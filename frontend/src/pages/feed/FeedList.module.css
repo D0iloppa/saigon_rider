@@ -6,6 +6,22 @@
   margin-left: 4px;
 }
 
+/* 페이지 컨테이너: viewport를 꽉 채우는 flex column */
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 실제 스크롤 영역: TopBar 아래 나머지 공간 */
+.scrollBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
 .body { padding: 16px 0 20px; }
 
 .storyRow {

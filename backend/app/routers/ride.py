@@ -19,11 +19,10 @@ from ..schemas import (
     SafetyGradeRequest,
     SafetyGradeResponse,
 )
+from ..utils import APP_TZ
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ride", tags=["라이딩 (Ride)"])
-
-VN_TZ = timezone(timedelta(hours=7))
 
 
 def _calc_safety_grade(avg_speed_kmh: float, braking_count: int) -> str:
@@ -44,7 +43,7 @@ def _calc_safety_grade(avg_speed_kmh: float, braking_count: int) -> str:
 
 
 async def _upsert_streak(db: AsyncSession, user_id: uuid.UUID) -> None:
-    today = datetime.now(VN_TZ).date()
+    today = datetime.now(APP_TZ).date()
     streak = await db.get(RideStreak, user_id)
 
     if streak is None:

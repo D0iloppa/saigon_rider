@@ -9,10 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..models import Badge, RideSession, UserBadge, UserQuest, User
 from ..schemas import BadgeOut, UserBadgeOut, UserExportResponse, UserStatsOut
+from ..utils import APP_TZ
 
 router = APIRouter(prefix="/users", tags=["유저 (Users)"])
-
-_VN_OFFSET = timedelta(hours=7)  # UTC+7 (Vietnam Standard Time)
 
 _GRADE_SCORE = {"A": 3, "B": 2, "C": 1}
 
@@ -25,18 +24,17 @@ def _score_to_grade(score: float) -> str:
     return "C"
 
 
-def _vn_month_bounds() -> tuple[datetime, datetime]:
-    """현재 VN 시간 기준 이번 달 시작/끝(UTC)을 반환."""
-    now_vn = datetime.now(timezone.utc) + _VN_OFFSET
-    month_start_vn = now_vn.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if now_vn.month == 12:
-        month_end_vn = month_start_vn.replace(year=now_vn.year + 1, month=1)
+def _month_bounds() -> tuple[datetime, datetime]:
+    """APP_TZ 기준 이번 달 시작/끝(UTC aware)을 반환."""
+    now_local = datetime.now(APP_TZ)
+    month_start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if now_local.month == 12:
+        month_end_local = month_start_local.replace(year=now_local.year + 1, month=1)
     else:
-        month_end_vn = month_start_vn.replace(month=now_vn.month + 1)
-    # VN → UTC
+        month_end_local = month_start_local.replace(month=now_local.month + 1)
     return (
-        month_start_vn - _VN_OFFSET,
-        month_end_vn - _VN_OFFSET,
+        month_start_local.astimezone(timezone.utc),
+        month_end_local.astimezone(timezone.utc),
     )
 
 
@@ -56,9 +54,9 @@ async def get_user_stats(
 ):
     await _get_user_or_404(user_id, db)
 
-    month_start, month_end = _vn_month_bounds()
-    now_vn = datetime.now(timezone.utc) + _VN_OFFSET
-    month_label = now_vn.strftime("%Y-%m")
+    month_start, month_end = _month_bounds()
+    now_local = datetime.now(APP_TZ)
+    month_label = now_local.strftime("%Y-%m")
 
     # 이번 달 라이딩 합산
     ride_result = await db.execute(

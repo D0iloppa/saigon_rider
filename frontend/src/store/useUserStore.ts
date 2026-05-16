@@ -6,10 +6,11 @@ import i18n, { changeLang } from '@/lib/i18n';
 
 interface UserState {
   user: User | null;
+  passcode: string | null;
   isAuthenticated: boolean;
 
   // actions
-  loginFromBackend: (dto: UserDto) => void;
+  loginFromBackend: (dto: UserDto, passcode?: string) => void;
   setProfile: (nickname: string, riderStyle: RiderStyle) => void;
   updateNickname: (nickname: string) => void;
   updateAvatar: (avatarUrl: string) => void;
@@ -43,10 +44,15 @@ export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
       user: null,
+      passcode: null,
       isAuthenticated: false,
 
-      loginFromBackend: (dto) => {
-        set({ user: dtoToUser(dto), isAuthenticated: true });
+      loginFromBackend: (dto, passcode) => {
+        set({
+          user: dtoToUser(dto),
+          isAuthenticated: true,
+          ...(passcode !== undefined ? { passcode } : {}),
+        });
       },
 
       setProfile: (nickname, riderStyle) => {
@@ -68,7 +74,7 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: () => {
-        set({ user: null, isAuthenticated: false });
+        set({ user: null, passcode: null, isAuthenticated: false });
       },
 
       addExp: (levelExp, xpPoints) => {

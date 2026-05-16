@@ -1,12 +1,14 @@
 .levelBadge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
-  background: rgba(255,90,31,.15);
+  background: #11131C;
   color: var(--brand-500);
   font-family: 'Space Grotesk', sans-serif;
   font-size: 11px;
   font-weight: 700;
-  border: 1px solid rgba(255,90,31,.25);
+  border: 1px solid rgba(255, 90, 31, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
 }

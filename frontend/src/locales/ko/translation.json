@@ -199,5 +199,31 @@
     "deleteAccount": "계정 탈퇴",
     "deleteConfirm": "정말 탈퇴하시겠어요?\n모든 라이딩 기록, 배지, 골드가 영구 삭제됩니다.",
     "deleteWarning": "모든 라이딩 기록, 배지, 골드, XP가 영구 삭제됩니다. 이 작업은 되돌릴 수 없어요."
+  },
+  "feedCreate": {
+    "title": "새 글 작성",
+    "textPlaceholder": "무슨 생각을 하고 계세요?",
+    "addPhoto": "사진 추가",
+    "addLocation": "위치 태그",
+    "locationAttached": "위치 첨부됨",
+    "locationError": "위치 정보를 가져올 수 없어요",
+    "uploadError": "이미지 업로드에 실패했어요",
+    "postBtn": "게시",
+    "posting": "게시 중...",
+    "postError": "게시에 실패했어요"
+  },
+  "dm": {
+    "title": "메시지",
+    "empty": "아직 대화가 없어요",
+    "inputPlaceholder": "메시지 입력...",
+    "sendBtn": "전송"
+  },
+  "follow": {
+    "followers": "팔로워",
+    "following": "팔로잉",
+    "followBtn": "팔로우",
+    "unfollowBtn": "팔로잉",
+    "emptyFollowers": "아직 팔로워가 없어요",
+    "emptyFollowing": "아직 팔로잉이 없어요"
   }
 }

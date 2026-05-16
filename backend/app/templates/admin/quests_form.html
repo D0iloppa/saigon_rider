@@ -1,0 +1,126 @@
+<div class="breadcrumb">
+  <a href="/admin/quests">퀘스트 관리</a> <span>›</span> <span>{{mode_label}}</span>
+</div>
+
+<div class="toolbar">
+  <div>
+    <p class="page-title">{{mode_label}}</p>
+    <p class="page-sub">{{form_sub}}</p>
+  </div>
+  {{delete_btn}}
+</div>
+
+<form method="post" action="{{form_action}}" enctype="multipart/form-data">
+  <div class="card" style="margin-bottom:24px;">
+    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">기본 정보</p>
+
+    <div class="field-row-3">
+      <div class="field">
+        <label class="field-label">제목 (KO) *</label>
+        <input type="text" name="title_ko" value="{{title_ko}}" required style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">제목 (VI)</label>
+        <input type="text" name="title_vi" value="{{title_vi}}" style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">제목 (EN)</label>
+        <input type="text" name="title_en" value="{{title_en}}" style="width:100%;" />
+      </div>
+    </div>
+
+    <div class="field-row-3">
+      <div class="field">
+        <label class="field-label">Period *</label>
+        <select name="period" style="width:100%;">
+          <option value="DAILY" {{sel_p_DAILY}}>DAILY</option>
+          <option value="WEEKLY" {{sel_p_WEEKLY}}>WEEKLY</option>
+          <option value="EVENT" {{sel_p_EVENT}}>EVENT</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">District</label>
+        <select name="district_id" style="width:100%;">
+          <option value="">— 미지정 —</option>
+          {{district_options}}
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">필요 레벨</label>
+        <input type="number" name="required_level" value="{{required_level}}" min="1" style="width:100%;" />
+      </div>
+    </div>
+
+    <div class="field-row-3">
+      <div class="field">
+        <label class="field-label">목표 거리 (km) *</label>
+        <input type="number" step="0.1" min="0" name="target_distance_km" value="{{target_distance_km}}" required style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">Badge</label>
+        <select name="badge" style="width:100%;">
+          <option value="">— 없음 —</option>
+          <option value="HOT" {{sel_b_HOT}}>HOT</option>
+          <option value="NEW" {{sel_b_NEW}}>NEW</option>
+          <option value="LIMITED" {{sel_b_LIMITED}}>LIMITED</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">활성 여부</label>
+        <select name="is_active" style="width:100%;">
+          <option value="1" {{sel_active_1}}>활성</option>
+          <option value="0" {{sel_active_0}}>비활성</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;border-color:rgba(255,102,51,.25);">
+    <p style="font-size:13px;font-weight:700;color:#ff8055;margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">보상 정보</p>
+
+    <div class="field-row-3">
+      <div class="field">
+        <label class="field-label">EXP</label>
+        <input type="number" name="reward_exp" value="{{reward_exp}}" min="0" style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">Gold</label>
+        <input type="number" name="reward_gold" value="{{reward_gold}}" min="0" style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">Item (선택)</label>
+        <input type="text" name="reward_item" value="{{reward_item}}" placeholder="예: BADGE_SAFETY_A" style="width:100%;" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">기간 (선택)</p>
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">시작</label>
+        <input type="datetime-local" name="starts_at" value="{{starts_at}}" style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">종료</label>
+        <input type="datetime-local" name="ends_at" value="{{ends_at}}" style="width:100%;" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">썸네일</p>
+    <div style="display:flex;gap:20px;align-items:flex-start;">
+      <img src="{{current_thumb}}" alt="" style="width:120px;height:80px;object-fit:cover;border-radius:8px;background:rgba(255,255,255,.05);" />
+      <div style="flex:1;">
+        <input type="file" name="thumbnail" accept="image/*" style="font-size:12px;color:rgba(255,255,255,.6);" />
+        <p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:6px;">JPG/PNG/WEBP. 미선택 시 기존 이미지 유지.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end;">
+    <a href="/admin/quests" class="btn btn-ghost">취소</a>
+    <button type="submit" class="btn">{{submit_label}}</button>
+  </div>
+</form>

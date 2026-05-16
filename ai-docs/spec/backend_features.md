@@ -51,8 +51,20 @@
 | `GET /admin/` | 관리자 콘솔 루트 → `/admin/login` 리다이렉트 |
 | `GET /admin/login` | 관리자 로그인 페이지 |
 | `POST /admin/login` | 관리자 인증 (bcrypt + JWT 쿠키 발급) |
-| `GET /admin/dashboard` | 관리자 대시보드 (유저/퀘스트/통계 HTML) |
 | `POST /admin/logout` | 관리자 로그아웃 (쿠키 삭제) |
+| `GET /admin/dashboard` | 관리자 대시보드 (유저/퀘스트/라이딩/피드 통계 HTML) |
+| `GET /admin/quests` | 퀘스트 리스트 (검색·필터·페이지네이션) |
+| `GET /admin/quests/new` · `POST /admin/quests/new` | 퀘스트 신규 등록 (썸네일 multipart) |
+| `GET /admin/quests/{id}/edit` · `POST /admin/quests/{id}/edit` | 퀘스트 수정 (보상 정보 포함) |
+| `POST /admin/quests/{id}/delete` | 퀘스트 삭제 |
+| `GET /admin/feed` | 피드 리스트 (인스타그램 카드형, 해시태그 강조, 페이지네이션) |
+| `GET /admin/feed/new` · `POST /admin/feed/new` | 관리자 피드 게시 (이미지 → contents 중개) |
+| `GET /admin/feed/{id}/edit` · `POST /admin/feed/{id}/edit` | 피드 수정 (본문·이미지·스토리) |
+| `POST /admin/feed/{id}/delete` | 피드 삭제 |
+| `GET /admin/users` | 유저 리스트 (닉네임/전화번호 검색) |
+| `GET /admin/settings` | 관리자 계정 / 피드 공통 계정 설정 |
+| `POST /admin/settings/nickname` | 피드 공통 계정 닉네임 변경 (중복·길이 검증) |
+| `POST /admin/settings/avatar` | 피드 공통 계정 프로필 이미지 변경 |
 
 ---
 
@@ -93,7 +105,23 @@
 |---|---|---|
 | 1 | 로그인 UI 페이지 | ✅ 완료 |
 | 2 | 관리자 인증 (POST /admin/login + JWT 쿠키) | ✅ 완료 |
-| 3 | 대시보드 (유저/퀘스트/통계 조회) | ✅ 완료 |
+| 3 | 대시보드 (유저/퀘스트/라이딩/피드 통계) | ✅ 완료 |
+| 4 | 사이드바 공통 레이아웃 (5개 메뉴) | ✅ 완료 (260516) |
+| 5 | 퀘스트 관리 (리스트/등록/수정/삭제, 썸네일 업로드) | ✅ 완료 (260516) |
+| 6 | 피드 관리 (인스타형 리스트/게시/수정/삭제, 해시태그) | ✅ 완료 (260516) |
+| 7 | 유저 관리 (리스트/검색) | ✅ 완료 (260516) |
+| 8 | 설정 (관리자 프로필 이미지) | ✅ 완료 (260516) |
+
+### 관리자 user 시드
+
+`feed_posts.user_id`, `users.avatar_*` 등 NOT NULL FK 충족을 위해 가상 admin user 1행을 시드한다.
+
+| 항목 | 값 |
+|---|---|
+| `users.id` | `00000000-0000-0000-0000-000000000001` (ENV `ADMIN_USER_ID` 로 override 가능) |
+| `users.phone` | `__admin__` (sentinel — 실 전화번호 충돌 없음) |
+| `users.nickname` | `admin` |
+| 시드 위치 | `database/init/015_admin_seed.sql` (멱등 ON CONFLICT) |
 
 ---
 
@@ -151,16 +179,26 @@ GET /api/bff/contents/mock-img?seed=e2f9ece6-0f39-41db-8445-590b808dff0d
 
 GET /api/bff/contents/mock-img
 → 매 요청마다 랜덤 mock 이미지
+
+GET /api/bff/contents/profile-mock-img?seed={user_id}&w=240&h=240
+→ owner_type='profile_mock' 풀에서 user_id 결정론적 선택 (기본 아바타)
 ```
+
+`mock-img` 와 `profile-mock-img` 는 `_serve_pool_image()` 헬퍼를 공유한다. `mock`=퀘스트/구 폴백(가로형), `profile_mock`=프로필 사진 미설정 시 기본 아바타 풀(정사각).
+
+### 콘텐츠 contents 중개 원칙
+
+모든 이미지는 `contents` 테이블에 등록되어 `content_id` 로 매핑된다 (관리자·프론트 공통). DB 는 `*_content_id` 만 저장하고, BFF 출력 시점에 imgproxy URL 로 해석한다. 레거시 URL 컬럼(`feed_posts.image_url`, `users.avatar_url`, `quests.hero_image_url`, `districts.image_url`)은 read-only 폴백.
+
+- 아바타: `utils.resolve_avatar_url()` — `avatar_content_id > avatar_url(레거시) > profile_mock 풀 (seed=user_id)`
+- 피드 이미지: `utils.resolve_feed_image_url()` — `image_content_id > image_url(레거시)`
 
 ### 퀘스트 thumbnail_url 결정 우선순위 (`_to_out`)
 
 ```
-1. quest.thumbnail_content.file_path  → build_imgproxy_url()
-2. quest.hero_image_url               → 그대로 사용
-3. district.image_content.file_path   → build_imgproxy_url()
-4. district.image_url                 → 그대로 사용 (레거시 폴백)
-5. MOCK_IMG_ENDPOINT?seed={quest.id}  → /contents/mock-img 엔드포인트
+1. quest.thumbnail_content.file_path  → build_imgproxy_url()   (자체 등록 이미지)
+2. district.image_content.file_path   → build_imgproxy_url()   (district 대표 이미지)
+3. MOCK_IMG_ENDPOINT?seed={quest.id}  → /contents/mock-img 엔드포인트 (mockup)
 ```
 
 ### owner_type 구분
@@ -301,5 +339,5 @@ backend/app/routers/
 | P1 | Quest 보조 + Ride | 6 | 6 | **0** |
 | P2 | Feed + Notification | 9 | 9 | **0** |
 | P3 | User/Badge + Account | 5 | 5 | **0** |
-| Admin | 관리자 콘솔 | 5 | 5 | **0** |
-| **합계** | | **39** | **39** | **0** |
+| Admin | 관리자 콘솔 (5개 메뉴 + 인증 + 정적 라우트) | 14 | 14 | **0** |
+| **합계** | | **48** | **48** | **0** |

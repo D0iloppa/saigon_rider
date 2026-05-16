@@ -20,7 +20,7 @@ async def _verify_passcode(
     user = await db.get(User, user_id)
     if not user or not user.passcode_hash or not _pwd_ctx.verify(x_passcode, user.passcode_hash):
         raise HTTPException(status_code=401, detail="인증 실패")
-from ..utils import APP_TZ, build_imgproxy_url, MOCK_IMG_ENDPOINT
+from ..utils import APP_TZ, build_imgproxy_url, MOCK_IMG_ENDPOINT, resolve_avatar_url
 from ..schemas import (
     BookmarkToggleRequest,
     BookmarkToggleResponse,
@@ -47,14 +47,14 @@ router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
 
 def _to_out(quest: Quest) -> QuestOut:
     out = QuestOut.model_validate(quest)
+    # 퀘스트 썸네일 우선순위 (모두 contents 테이블 중개):
+    #   1. 자체 등록 이미지 (quests.thumbnail_content_id)
+    #   2. district 대표 이미지 (districts.image_content_id)
+    #   3. mockup 이미지
     if quest.thumbnail_content and quest.thumbnail_content.file_path:
         out.thumbnail_url = build_imgproxy_url(quest.thumbnail_content.file_path)
-    elif quest.hero_image_url:
-        out.thumbnail_url = quest.hero_image_url
     elif quest.district and quest.district.image_content and quest.district.image_content.file_path:
         out.thumbnail_url = build_imgproxy_url(quest.district.image_content.file_path)
-    elif quest.district and quest.district.image_url:
-        out.thumbnail_url = quest.district.image_url
     else:
         out.thumbnail_url = f"{MOCK_IMG_ENDPOINT}?seed={quest.id}"
     return out
@@ -286,7 +286,7 @@ async def get_quest_participants(quest_id: uuid.UUID, db: AsyncSession = Depends
         QuestParticipantOut(
             user_id=u.id,
             nickname=u.nickname,
-            avatar_url=u.avatar_url,
+            avatar_url=resolve_avatar_url(u),
         )
         for u in users
     ]

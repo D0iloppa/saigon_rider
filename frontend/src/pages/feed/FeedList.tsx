@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -12,6 +13,7 @@ import { Chip } from '@/components/ui/Chip';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { useUserStore } from '@/store/useUserStore';
 import { loadSession } from '@/lib/session';
+import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
 import styles from './FeedList.module.css';
 
 type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
@@ -194,6 +196,8 @@ function ImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
 // ─── FeedList ────────────────────────────────────────────────────────────────
 export default function FeedList() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const user = useUserStore((s) => s.user);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [activePost, setActivePost] = useState<FeedPost | null>(null);
@@ -201,7 +205,31 @@ export default function FeedList() {
   const [stories, setStories] = useState<StoryItem[]>([]);
 
   useEffect(() => { fetchStories().then(setStories); }, []);
-  useEffect(() => { fetchFeed(filter).then(setPosts); }, [filter]);
+
+  useEffect(() => {
+    (async () => {
+      if (filter === 'neighborhood') {
+        try {
+          const loc = await nativeInterface.request(NATIVE_KEYS.GET_LOCATION) as any;
+          if (loc?.lat != null && loc?.lng != null) {
+            const result = await fetchFeed({ filter, lat: loc.lat, lng: loc.lng, userId: user?.id });
+            setPosts(result);
+            return;
+          }
+        } catch { /* location unavailable, fall through to all */ }
+        const result = await fetchFeed({ filter: 'all' });
+        setPosts(result);
+        return;
+      }
+      if (filter === 'friends' && user) {
+        const result = await fetchFeed({ filter, userId: user.id });
+        setPosts(result);
+        return;
+      }
+      const result = await fetchFeed({ filter });
+      setPosts(result);
+    })();
+  }, [filter]);
 
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: 'all',          label: t('feed.filterAll') },
@@ -223,10 +251,26 @@ export default function FeedList() {
       <TopBar
         title={t('feed.title')}
         showBack={false}
+        leftContent={
+          <button className={styles.iconBtn} onClick={() => navigate('/feed/new')} aria-label="새 글">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+        }
         rightContent={
           <>
-            <button className={styles.iconBtn}>📷</button>
-            <button className={styles.iconBtn}>🔔</button>
+            <button className={styles.iconBtn} onClick={() => navigate('/profile')} aria-label="프로필">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+                <path d="M5 20c0-3.3 2.7-6 7-6s7 2.7 7 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button className={styles.iconBtn} onClick={() => navigate('/dm')} aria-label="DM">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </>
         }
       />

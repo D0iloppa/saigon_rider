@@ -103,3 +103,30 @@ export interface Badge {
   earned: boolean;
   earnedAt?: string;
 }
+
+export interface FollowUser {
+  id: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  level: number;
+}
+
+export interface DmConversation {
+  id: string;
+  otherUserId: string;
+  otherUserNickname: string | null;
+  otherUserAvatarUrl: string | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
+export interface DmMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string | null;
+  imageUrl: string | null;
+  readAt: string | null;
+  createdAt: string;
+}

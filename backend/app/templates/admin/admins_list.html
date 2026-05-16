@@ -1,0 +1,36 @@
+<div class="toolbar">
+  <div>
+    <p class="page-title">관리자 계정</p>
+    <p class="page-sub">DB 등록 관리자 · root(.env) 와 별개. 로그인 가능.</p>
+  </div>
+  <div>
+    <a href="/admin/admins/new" class="btn">＋ 관리자 추가</a>
+  </div>
+</div>
+
+{{flash}}
+
+<div class="card" style="margin-bottom:18px;font-size:13px;color:rgba(255,255,255,.55);line-height:1.7;">
+  <strong style="color:#ff8055;">root 관리자</strong> &nbsp;·&nbsp; <code style="color:#fff;">{{root_username}}</code>
+  &nbsp;—&nbsp; <code style="color:rgba(255,255,255,.4);">.env</code> 의 <code>ADMIN_USER</code> / <code>ADMIN_PASS_HASH</code>
+  로 정적 관리. DB 손상·비밀번호 분실 시 복구용. 이 페이지에서는 변경 불가.
+</div>
+
+<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:12px;">DB 등록 계정 {{total}} 명</div>
+
+<div class="card" style="padding:0;overflow:hidden;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>아이디</th>
+        <th>메모</th>
+        <th>등록일</th>
+        <th>최근 수정</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{rows}}
+    </tbody>
+  </table>
+</div>

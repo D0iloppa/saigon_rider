@@ -97,6 +97,30 @@ async def upload_content(
     )
 
 
+async def _serve_pool_image(
+    db: AsyncSession, owner_type: str, w: int, h: int, seed: str | None,
+) -> RedirectResponse:
+    """owner_type 풀에서 이미지 1장을 골라 imgproxy 302 redirect 로 서빙.
+
+    seed 가 있으면 풀 크기로 모듈러 인덱싱 → 결정론적 선택, 없으면 랜덤.
+    """
+    result = await db.execute(
+        select(Content).where(Content.owner_type == owner_type).order_by(Content.created_at)
+    )
+    pool = result.scalars().all()
+    if not pool:
+        raise HTTPException(status_code=404, detail=f"No '{owner_type}' images registered")
+
+    if seed:
+        idx = int(uuid.UUID(seed).int % len(pool)) if _is_uuid(seed) else (hash(seed) % len(pool))
+        content = pool[idx]
+    else:
+        content = random.choice(pool)
+
+    url = build_imgproxy_url(content.file_path, options=f"rs:fill:{w}:{h}:1")
+    return RedirectResponse(url=url, status_code=302, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/mock-img",
             summary="Mock 이미지 서빙",
             response_description="owner_type='mock' 중 seed 기반 결정론적 선택 → imgproxy 302 redirect")
@@ -106,21 +130,19 @@ async def serve_mock_image(
     seed: str | None = Query(default=None, description="결정론적 선택용 시드 (quest_id 등)"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Content).where(Content.owner_type == "mock").order_by(Content.created_at)
-    )
-    mocks = result.scalars().all()
-    if not mocks:
-        raise HTTPException(status_code=404, detail="No mock images registered")
+    return await _serve_pool_image(db, "mock", w, h, seed)
 
-    if seed:
-        idx = int(uuid.UUID(seed).int % len(mocks)) if _is_uuid(seed) else (hash(seed) % len(mocks))
-        content = mocks[idx]
-    else:
-        content = random.choice(mocks)
 
-    url = build_imgproxy_url(content.file_path, options=f"rs:fill:{w}:{h}:1")
-    return RedirectResponse(url=url, status_code=302, headers={"Cache-Control": "no-store"})
+@router.get("/profile-mock-img",
+            summary="기본 프로필(아바타) 이미지 서빙",
+            response_description="owner_type='profile_mock' 중 seed(user_id) 기반 결정론적 선택 → imgproxy 302 redirect")
+async def serve_profile_mock_image(
+    w: int = Query(default=240, ge=1, le=4096),
+    h: int = Query(default=240, ge=1, le=4096),
+    seed: str | None = Query(default=None, description="결정론적 선택용 시드 (user_id 등)"),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _serve_pool_image(db, "profile_mock", w, h, seed)
 
 
 @router.get("/{content_id}/img",

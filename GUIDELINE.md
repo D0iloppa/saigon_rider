@@ -70,3 +70,16 @@ docker compose --env-file .env up --build -d frontend
 6. **AI 와 대화할 때** — 실제 비밀 값을 프롬프트에 붙여 넣지 않는다. 필요한 경우 `.env.example` 의 키 이름만 공유한다.
 
 위반을 발견하면 즉시 (a) 비밀 회전, (b) git 히스토리 정리(`git filter-repo` 등), (c) 외부 노출 경위 추적 순으로 대응한다.
+
+## 8. 컨텐츠 관리 (이미지 / 파일)
+
+**모든 이미지·파일 컨텐츠는 `contents` 테이블로 중개되고 `content_id`(UUID)로 매핑된다.** 관리자·프론트·BFF 모두 예외 없이 적용한다.
+
+**규칙**
+
+1. **DB 는 `content_id` 만 저장한다** — 엔티티 테이블에는 `*_content_id UUID REFERENCES contents(id)` 컬럼을 두고, imgproxy URL·파일 경로를 컬럼에 직접 저장하지 않는다. (예: `feed_posts.image_content_id`, `users.avatar_content_id`, `quests.thumbnail_content_id`, `districts.image_content_id`)
+2. **URL 은 출력 시점에 해석한다** — BFF 응답·관리자 렌더 시 `content_id` → `contents.file_path` → `build_imgproxy_url()` 로 변환한다. 해석 로직은 `utils.py` 의 resolver(`resolve_avatar_url()`, `resolve_feed_image_url()` 등)에 모은다.
+3. **업로드는 contents row 를 먼저 만든다** — 파일 저장 → `contents` row 생성(`owner_type`/`owner_id`/`file_path`) → 엔티티에 `content_id` 연결 순서. owner_type 은 `system`(관리자 배치) / `user`(유저 업로드) / `mock`(퀘스트·구 폴백 풀) / `profile_mock`(프로필 사진 미설정 시 기본 아바타 풀).
+4. **레거시 URL 컬럼은 read-only 폴백** — 기존 `image_url`·`avatar_url`·`hero_image_url` 등은 조회 폴백으로만 사용하고, **신규 쓰기 금지**. resolver 우선순위는 항상 `content_id > 레거시 url > 기본값`.
+5. **폴백 체인은 모두 contents 중개분으로 구성** — 예: 퀘스트 썸네일 = `thumbnail_content > district.image_content > mock`. contents 미중개 소스를 체인에 끼우지 않는다.
+6. **신규 이미지 필드 추가 시** — `*_content_id` FK 컬럼 + 마이그레이션 → 모델 관계(`relationship`, `lazy="selectin"`) → resolver → 출력 스키마 순으로 일관되게 배선한다.

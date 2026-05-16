@@ -6,6 +6,7 @@ import styles from './TopBar.module.css';
 interface Props {
   title?: string;
   showBack?: boolean;
+  leftContent?: ReactNode;
   rightContent?: ReactNode;
   transparent?: boolean;
   onBack?: () => void;
@@ -14,6 +15,7 @@ interface Props {
 export function TopBar({
   title,
   showBack = true,
+  leftContent,
   rightContent,
   transparent = false,
   onBack,
@@ -25,7 +27,7 @@ export function TopBar({
       <StatusBar variant={transparent ? 'light' : 'dark'} />
       <div className={styles.content}>
         <div className={styles.left}>
-          {showBack && (
+          {showBack ? (
             <button
               className={styles.iconBtn}
               onClick={() => (onBack ? onBack() : navigate(-1))}
@@ -41,7 +43,9 @@ export function TopBar({
                 />
               </svg>
             </button>
-          )}
+          ) : leftContent ? (
+            leftContent
+          ) : null}
         </div>
         {title && <h1 className={styles.title}>{title}</h1>}
         <div className={styles.right}>{rightContent}</div>

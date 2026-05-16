@@ -11,6 +11,7 @@ import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { apiUploadAvatar, apiUpdateNickname, fetchMe } from '@/api/profile';
+import { fetchFollowCounts } from '@/api/follows';
 import { toast } from '@/components/ui/Toast';
 import styles from './ProfileMain.module.css';
 
@@ -46,6 +47,12 @@ export default function ProfileMain() {
   const [nickModal, setNickModal] = useState(false);
   const [nickInput, setNickInput] = useState('');
   const [nickSaving, setNickSaving] = useState(false);
+  const [followCounts, setFollowCounts] = useState({ followerCount: 0, followingCount: 0 });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchFollowCounts(user.id).then(setFollowCounts);
+  }, [user?.id]);
 
   // ── guard (TypeScript narrows user → User below this line) ──
   if (!user) return null;
@@ -161,6 +168,18 @@ export default function ProfileMain() {
         </div>
         <div className={styles.levelBar}>
           <div className={styles.levelBarFill} style={{ width: `${progress * 100}%` }} />
+        </div>
+
+        <div className={styles.socialRow}>
+          <button className={styles.socialCell} onClick={() => navigate(`/followers/${u.id}`)}>
+            <span className={styles.socialNum}>{formatNumber(followCounts.followerCount)}</span>
+            <span className={styles.socialLabel}>{t('follow.followers')}</span>
+          </button>
+          <div className={styles.socialDivider} />
+          <button className={styles.socialCell} onClick={() => navigate(`/following/${u.id}`)}>
+            <span className={styles.socialNum}>{formatNumber(followCounts.followingCount)}</span>
+            <span className={styles.socialLabel}>{t('follow.following')}</span>
+          </button>
         </div>
       </div>
 

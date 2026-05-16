@@ -199,5 +199,31 @@
     "deleteAccount": "Delete Account",
     "deleteConfirm": "Are you sure you want to delete your account?\nAll ride history, badges, and gold will be permanently deleted.",
     "deleteWarning": "All ride history, badges, gold, and XP will be permanently deleted. This action cannot be undone."
+  },
+  "feedCreate": {
+    "title": "New Post",
+    "textPlaceholder": "What's on your mind?",
+    "addPhoto": "Add Photo",
+    "addLocation": "Add Location",
+    "locationAttached": "Location attached",
+    "locationError": "Unable to get location",
+    "uploadError": "Image upload failed",
+    "postBtn": "Post",
+    "posting": "Posting...",
+    "postError": "Failed to post"
+  },
+  "dm": {
+    "title": "Messages",
+    "empty": "No conversations yet",
+    "inputPlaceholder": "Type a message...",
+    "sendBtn": "Send"
+  },
+  "follow": {
+    "followers": "Followers",
+    "following": "Following",
+    "followBtn": "Follow",
+    "unfollowBtn": "Following",
+    "emptyFollowers": "No followers yet",
+    "emptyFollowing": "Not following anyone yet"
   }
 }

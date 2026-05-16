@@ -89,6 +89,7 @@ services:
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASS_HASH=${ADMIN_PASS_HASH}
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-dev_admin_jwt_secret}
+      - WIKI_BASE_PATH=${WIKI_BASE_PATH:-/wiki/}
     restart: unless-stopped
 
   # ── Engine (SRE, 신규) ────────────────────────────────────

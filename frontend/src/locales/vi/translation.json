@@ -199,5 +199,31 @@
     "deleteAccount": "Xóa tài khoản",
     "deleteConfirm": "Bạn có chắc muốn xóa tài khoản?\nToàn bộ lịch sử đi xe, huy hiệu và gold sẽ bị xóa vĩnh viễn.",
     "deleteWarning": "Toàn bộ lịch sử đi xe, huy hiệu, gold và XP sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác."
+  },
+  "feedCreate": {
+    "title": "Bài viết mới",
+    "textPlaceholder": "Bạn đang nghĩ gì?",
+    "addPhoto": "Thêm ảnh",
+    "addLocation": "Thêm vị trí",
+    "locationAttached": "Đã đính kèm vị trí",
+    "locationError": "Không thể lấy vị trí",
+    "uploadError": "Tải ảnh thất bại",
+    "postBtn": "Đăng",
+    "posting": "Đang đăng...",
+    "postError": "Đăng bài thất bại"
+  },
+  "dm": {
+    "title": "Tin nhắn",
+    "empty": "Chưa có cuộc trò chuyện nào",
+    "inputPlaceholder": "Nhập tin nhắn...",
+    "sendBtn": "Gửi"
+  },
+  "follow": {
+    "followers": "Người theo dõi",
+    "following": "Đang theo dõi",
+    "followBtn": "Theo dõi",
+    "unfollowBtn": "Đang theo dõi",
+    "emptyFollowers": "Chưa có người theo dõi",
+    "emptyFollowing": "Chưa theo dõi ai"
   }
 }

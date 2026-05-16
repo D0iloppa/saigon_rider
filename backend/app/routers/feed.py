@@ -1,15 +1,16 @@
 import logging
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import FeedPost, PostComment, PostCommentLike, PostLike, RideSession, User
+from ..models import FeedPost, PostComment, PostCommentLike, PostLike, RideSession, User, UserFollow
 from ..schemas import (
     CommentCreateRequest,
     CommentOut,
@@ -20,7 +21,7 @@ from ..schemas import (
     LikeToggleResponse,
     Page,
 )
-from ..utils import default_avatar_url
+from ..utils import default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/feed", tags=["피드 (Feed)"])
@@ -39,11 +40,11 @@ def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> Feed
         id=post.id,
         user_id=post.user_id,
         user_nickname=user.nickname if user else None,
-        user_avatar_url=(user.avatar_url if user and user.avatar_url else default_avatar_url()),
+        user_avatar_url=(resolve_avatar_url(user) if user else default_avatar_url(seed=str(post.user_id))),
         user_level=user.level if user else 1,
         ride_session_id=post.ride_session_id,
         content=post.content,
-        image_url=post.image_url,
+        image_url=resolve_feed_image_url(post),
         like_count=post.like_count,
         comment_count=post.comment_count,
         is_story=post.is_story,
@@ -60,6 +61,10 @@ async def get_feed(
     filter: str = "all",
     page: int = 1,
     size: int = 20,
+    user_id: uuid.UUID | None = Query(None),
+    lat: Decimal | None = Query(None),
+    lng: Decimal | None = Query(None),
+    radius_m: int = Query(5000),
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
@@ -69,15 +74,36 @@ async def get_feed(
     else:
         order = [FeedPost.created_at.desc()]
 
-    total = (await db.execute(select(func.count()).select_from(FeedPost))).scalar_one()
-
-    rows = (await db.execute(
+    base_q = (
         select(FeedPost, User, RideSession)
         .outerjoin(User, FeedPost.user_id == User.id)
         .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
-        .order_by(*order)
-        .offset(offset)
-        .limit(size)
+    )
+    count_q = select(func.count()).select_from(FeedPost)
+
+    if filter == "friends" and user_id:
+        following_ids = select(UserFollow.following_id).where(UserFollow.follower_id == user_id)
+        base_q = base_q.where(FeedPost.user_id.in_(following_ids))
+        count_q = count_q.where(FeedPost.user_id.in_(following_ids))
+
+    elif filter == "neighborhood" and lat is not None and lng is not None:
+        location_cond = text(
+            "ST_DWithin("
+            "  ST_SetSRID(ST_MakePoint(feed_posts.longitude, feed_posts.latitude), 4326)::geography,"
+            "  ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,"
+            "  :radius"
+            ")"
+        ).bindparams(lng=float(lng), lat=float(lat), radius=radius_m)
+        neighborhood_filter = (
+            (FeedPost.latitude.isnot(None) & FeedPost.longitude.isnot(None))
+        )
+        base_q = base_q.where(neighborhood_filter).where(location_cond)
+        count_q = count_q.where(neighborhood_filter).where(location_cond)
+
+    total = (await db.execute(count_q)).scalar_one()
+
+    rows = (await db.execute(
+        base_q.order_by(*order).offset(offset).limit(size)
     )).all()
 
     items = [_enrich(post, user, ride) for post, user, ride in rows]
@@ -101,34 +127,40 @@ async def get_stories(db: AsyncSession = Depends(get_db)):
 # F-3
 @router.post("", response_model=FeedPostOut, status_code=201, summary="피드 공유 (라이딩 결과 게시)")
 async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(get_db)):
-    if body.content is None and body.image_url is None:
-        raise HTTPException(status_code=400, detail="content or image_url is required")
+    if body.content is None and body.image_url is None and body.image_content_id is None:
+        raise HTTPException(status_code=400, detail="content, image_content_id or image_url is required")
 
     now = datetime.now(timezone.utc)
     post = FeedPost(
         user_id=body.user_id,
         ride_session_id=body.ride_session_id,
         content=body.content,
+        image_content_id=body.image_content_id,
         image_url=body.image_url,
         is_story=body.is_story,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        district_id=body.district_id,
         created_at=now,
         updated_at=now,
     )
     db.add(post)
+    await db.flush()
+    post_id = post.id
     await db.commit()
-    await db.refresh(post)
 
     try:
         await engine_client.post_event(
             user_uuid=str(body.user_id),
             action_code="SHARE_SNS",
             occurred_at=now,
-            payload={"post_id": str(post.id), "ride_session_id": str(body.ride_session_id) if body.ride_session_id else None},
-            idem_key=f"feed-{post.id}-sns",
+            payload={"post_id": str(post_id), "ride_session_id": str(body.ride_session_id) if body.ride_session_id else None},
+            idem_key=f"feed-{post_id}-sns",
         )
     except (httpx.HTTPError, httpx.RequestError) as exc:
-        log.warning("Engine SHARE_SNS event failed for post %s: %s", post.id, exc)
+        log.warning("Engine SHARE_SNS event failed for post %s: %s", post_id, exc)
 
+    post = (await db.execute(select(FeedPost).where(FeedPost.id == post_id))).scalar_one()
     return FeedPostOut.model_validate(post)
 
 
@@ -160,7 +192,7 @@ def _enrich_comment(comment: PostComment, user: User | None) -> CommentOut:
         post_id=comment.post_id,
         user_id=comment.user_id,
         user_nickname=user.nickname if user else None,
-        user_avatar_url=(user.avatar_url if user and user.avatar_url else default_avatar_url()),
+        user_avatar_url=(resolve_avatar_url(user) if user else default_avatar_url(seed=str(comment.user_id))),
         parent_id=comment.parent_id,
         content=comment.content,
         image_url=comment.image_url,

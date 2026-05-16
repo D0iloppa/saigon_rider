@@ -40,13 +40,14 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         user = User(phone=phone, passcode_hash=hashed)
         db.add(user)
         await db.commit()
-        await db.refresh(user)
         is_new = True
     else:
         user.passcode_hash = hashed
         await db.commit()
-        await db.refresh(user)
         is_new = False
+
+    # avatar_content 관계 selectin 로드를 위해 재조회 (UserOut 직렬화 시 필요)
+    user = (await db.execute(select(User).where(User.phone == phone))).scalar_one()
 
     return RegisterResponse(
         passcode=raw_passcode,

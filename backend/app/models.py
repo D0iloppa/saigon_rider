@@ -13,7 +13,7 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-_content_owner_type_enum = ENUM('system', 'user', 'mock', name='content_owner_type', create_type=False)
+_content_owner_type_enum = ENUM('system', 'user', 'mock', 'profile_mock', name='content_owner_type', create_type=False)
 _quest_period_enum = ENUM('DAILY', 'WEEKLY', 'EVENT', name='quest_period', create_type=False)
 _quest_badge_enum = ENUM('HOT', 'NEW', 'LIMITED', name='quest_badge_type', create_type=False)
 _safety_grade_enum = ENUM('A', 'B', 'C', name='safety_grade', create_type=False)
@@ -72,7 +72,8 @@ class User(Base):
     gold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     skill_pt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    avatar_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    avatar_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True)
+    avatar_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[avatar_content_id], lazy="selectin")
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -183,6 +184,12 @@ class FeedPost(Base):
     ride_session_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ride_sessions.id", ondelete="SET NULL"), nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True)
+    image_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[image_content_id], lazy="selectin")
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    district_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True)
+    district: Mapped["District | None"] = relationship("District", foreign_keys=[district_id], lazy="selectin")
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     comment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_story: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -252,6 +259,17 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AdminAccount(Base):
+    __tablename__ = "admin_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class NotificationSettings(Base):
     __tablename__ = "notification_settings"
 
@@ -262,3 +280,34 @@ class NotificationSettings(Base):
     ride_result: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     social: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UserFollow(Base):
+    __tablename__ = "user_follows"
+
+    follower_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    following_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DmConversation(Base):
+    __tablename__ = "dm_conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    participant_1: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    participant_2: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DmMessage(Base):
+    __tablename__ = "dm_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False)
+    sender_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_content_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True)
+    image_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[image_content_id], lazy="selectin")
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

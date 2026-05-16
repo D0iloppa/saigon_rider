@@ -30,9 +30,16 @@ import RideResultFail from '@/pages/ride/RideResultFail';
 
 // Feed
 import FeedList from '@/pages/feed/FeedList';
+import FeedCreate from '@/pages/feed/FeedCreate';
+
+// DM
+import DmList from '@/pages/dm/DmList';
+import DmDetail from '@/pages/dm/DmDetail';
 
 // Profile
 import ProfileMain from '@/pages/profile/ProfileMain';
+import FollowerList from '@/pages/profile/FollowerList';
+import FollowingList from '@/pages/profile/FollowingList';
 
 // Settings
 import Settings from '@/pages/settings/Settings';
@@ -116,7 +123,12 @@ export default function App() {
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
           <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
+          <Route path="/feed/new" element={<PrivateRoute><FeedCreate /></PrivateRoute>} />
+          <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
+          <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
+          <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />
+          <Route path="/following/:userId" element={<PrivateRoute><FollowingList /></PrivateRoute>} />
 
           {/* Protected: Ride flow */}
           <Route path="/ride/active" element={<PrivateRoute><RideActive /></PrivateRoute>} />

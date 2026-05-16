@@ -20,7 +20,6 @@ from ..schemas import (
     RpBalanceResponse,
     UserOut,
 )
-from ..utils import build_imgproxy_url
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["프로필 (Profile)"])
@@ -63,7 +62,6 @@ async def upload_avatar(
     data = await file.read()
     (abs_dir / filename).write_bytes(data)
     file_path = f"{rel_dir}/{filename}"
-    imgproxy_url = build_imgproxy_url(file_path)
 
     content = Content(
         owner_type="user",
@@ -75,15 +73,16 @@ async def upload_avatar(
     )
     db.add(content)
     await db.flush()  # content.id 확정
+    content_id = content.id
 
-    user.avatar_content_id = content.id
-    user.avatar_url = imgproxy_url
+    # 프로필 사진은 contents 테이블로 중개 — content_id 만 저장 (URL 직접 저장 금지)
+    user.avatar_content_id = content_id
     await db.commit()
-    await db.refresh(user)
 
+    user = (await db.execute(select(User).where(User.id == parsed_user_id))).scalar_one()
     return AvatarUpdateResponse(
         user=UserOut.model_validate(user),
-        content_id=content.id,
+        content_id=content_id,
     )
 
 
@@ -106,8 +105,8 @@ async def update_nickname(body: NicknameUpdateRequest, db: AsyncSession = Depend
 
     user.nickname = nickname
     await db.commit()
-    await db.refresh(user)
 
+    user = await _get_user_or_404(body.user_id, db)
     return UserOut.model_validate(user)
 
 
@@ -141,8 +140,8 @@ async def save_profile(body: ProfileSaveRequest, db: AsyncSession = Depends(get_
     user.nickname = nickname
     user.rider_type = body.rider_type
     await db.commit()
-    await db.refresh(user)
 
+    user = await _get_user_or_404(body.user_id, db)
     return UserOut.model_validate(user)
 
 

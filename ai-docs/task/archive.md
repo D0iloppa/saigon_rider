@@ -22,6 +22,13 @@
 - [Human UX Check (260514)](260514/260514_human_ux_check_task.md) — 휴먼 UX 점검 1차, 댓글 UX 결함 3종 + 피드 이미지 스켈레톤·라이트박스 신규 구현 (완료)
 - [app_config 테이블 추가 & 사용 가이드](260514/260514_app_config_task.md) — API 키/앱 설정 KV 스토어, `(group_name, key)` super-key, 초기 데이터 INSERT, 조회 패턴 문서화 (완료)
 
+## 260516
+
+- [관리자 콘솔 전체 기능 구현](260516/260516_admin_console_full.md) — 5개 메뉴(대시보드/퀘스트/피드/유저/설정) + 사이드바 공통 레이아웃 + admin user 시드(015), 7개 페이지 + 11개 admin 라우트 추가 (완료)
+- [관리자 콘솔 콘텐츠 contents 중개 / 피드 CRUD 보강](260516/260516_admin_content_mediation_fix.md) — 피드·프로필 이미지 `content_id` 매핑(017 마이그레이션), 인스타형 피드 리스트 + 수정 기능 + 해시태그, 퀘스트 썸네일 체인 정리 (완료)
+- [기본 프로필 이미지 풀 (profile_mock) 도입](260516/260516_profile_mock_pool.md) — 단일 default 아바타 → 6장 풀(018·019 마이그레이션), `/contents/profile-mock-img` seed 결정론적 서빙, resolver 일원화 (완료)
+- [피드 소셜 기능 확장](260516/260516_feed_social_expansion.md) — 팔로우/DM/위치기반 필터/피드작성(020~023 마이그레이션), follows·dm 라우터, 프론트 5개 페이지 신규, 피드 헤더 재구성 (완료)
+
 ## 260515
 
 - [alert/confirm → Toast/ConfirmDialog 교체](260515/260515_alert_to_toast_task.md) — sonner toast + Zustand 기반 ConfirmDialog, iOS alert 미동작 문제 해소 (완료)

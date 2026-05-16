@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from .utils import build_imgproxy_url, default_avatar_url
+from .utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
 T = TypeVar("T")
 
@@ -99,10 +99,25 @@ class UserOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("avatar_url", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def fill_default_avatar(cls, v):
-        return v if v is not None else default_avatar_url()
+    def resolve_avatar_from_content(cls, data):
+        """avatar_url 을 contents 중개(avatar_content_id) 기준으로 해석."""
+        if isinstance(data, dict):
+            return data
+        return {
+            "id": data.id,
+            "phone": data.phone,
+            "nickname": data.nickname,
+            "rider_type": data.rider_type,
+            "level": data.level,
+            "exp": data.exp,
+            "xp": data.xp,
+            "gold": data.gold,
+            "skill_pt": data.skill_pt,
+            "avatar_url": resolve_avatar_url(data),
+            "created_at": data.created_at,
+        }
 
 
 class RegisterResponse(BaseModel):
@@ -334,6 +349,24 @@ class FeedPostOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_image_from_content(cls, data):
+        """image_url 을 contents 중개(image_content_id) 기준으로 해석."""
+        if isinstance(data, dict):
+            return data
+        return {
+            "id": data.id,
+            "user_id": data.user_id,
+            "ride_session_id": data.ride_session_id,
+            "content": data.content,
+            "image_url": resolve_feed_image_url(data),
+            "like_count": data.like_count,
+            "comment_count": data.comment_count,
+            "is_story": data.is_story,
+            "created_at": data.created_at,
+        }
+
 
 class FeedPostEnrichedOut(BaseModel):
     id: UUID
@@ -357,8 +390,12 @@ class FeedCreateRequest(BaseModel):
     user_id: UUID
     ride_session_id: UUID | None = None
     content: str | None = None
+    image_content_id: UUID | None = None
     image_url: str | None = None
     is_story: bool = False
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    district_id: int | None = None
 
 
 class LikeToggleRequest(BaseModel):
@@ -470,3 +507,62 @@ class UserExportResponse(BaseModel):
     request_id: str
     status: str
     estimated_ready_at: datetime
+
+
+# ── Follow ───────────────────────────────────────────────────────
+
+
+class FollowRequest(BaseModel):
+    user_id: UUID
+
+
+class FollowUserOut(BaseModel):
+    id: UUID
+    nickname: str | None
+    avatar_url: str | None
+    level: int
+
+    model_config = {"from_attributes": True}
+
+
+class FollowCountsOut(BaseModel):
+    follower_count: int
+    following_count: int
+
+
+# ── DM ───────────────────────────────────────────────────────────
+
+
+class DmConversationOut(BaseModel):
+    id: UUID
+    other_user_id: UUID
+    other_user_nickname: str | None
+    other_user_avatar_url: str | None
+    last_message_preview: str | None
+    last_message_at: datetime
+    unread_count: int
+
+
+class DmConversationCreateRequest(BaseModel):
+    user_id: UUID
+    other_user_id: UUID
+
+
+class DmMessageOut(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    sender_id: UUID
+    content: str | None
+    image_url: str | None
+    read_at: datetime | None
+    created_at: datetime
+
+
+class DmMessageCreateRequest(BaseModel):
+    sender_id: UUID
+    content: str | None = None
+    image_content_id: UUID | None = None
+
+
+class DmMarkReadRequest(BaseModel):
+    user_id: UUID

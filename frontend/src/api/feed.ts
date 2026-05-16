@@ -34,14 +34,60 @@ function transformPost(raw: any): FeedPost {
   };
 }
 
-export async function fetchFeed(filter?: 'all' | 'neighborhood' | 'friends' | 'hot'): Promise<FeedPost[]> {
+export interface FetchFeedOptions {
+  filter?: 'all' | 'neighborhood' | 'friends' | 'hot';
+  userId?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export async function fetchFeed(
+  filterOrOpts?: string | FetchFeedOptions,
+): Promise<FeedPost[]> {
+  const opts: FetchFeedOptions = typeof filterOrOpts === 'string'
+    ? { filter: filterOrOpts as FetchFeedOptions['filter'] }
+    : filterOrOpts ?? {};
+  const filter = opts.filter ?? 'all';
+
   if (USE_MOCK) {
     let list = [...MOCK_FEED];
     if (filter === 'hot') list = list.sort((a, b) => b.cheerCount - a.cheerCount);
     return api.delay(list, 200);
   }
-  const res = await api.realFetch<{ items: any[]; total: number }>(`/feed?filter=${filter ?? 'all'}`);
+
+  const params = new URLSearchParams({ filter });
+  if (opts.userId) params.set('user_id', opts.userId);
+  if (opts.lat != null) params.set('lat', String(opts.lat));
+  if (opts.lng != null) params.set('lng', String(opts.lng));
+
+  const res = await api.realFetch<{ items: any[]; total: number }>(`/feed?${params}`);
   return res.items.map(transformPost);
+}
+
+export interface CreateFeedPostParams {
+  userId: string;
+  content?: string;
+  imageContentId?: string;
+  latitude?: number;
+  longitude?: number;
+  districtId?: number;
+  isStory?: boolean;
+}
+
+export async function createFeedPost(params: CreateFeedPostParams): Promise<void> {
+  if (USE_MOCK) return api.delay(undefined, 200);
+  await api.realFetch('/feed', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: params.userId,
+      content: params.content ?? null,
+      image_content_id: params.imageContentId ?? null,
+      latitude: params.latitude ?? null,
+      longitude: params.longitude ?? null,
+      district_id: params.districtId ?? null,
+      is_story: params.isStory ?? false,
+    }),
+  });
 }
 
 function transformComment(raw: any): Comment {

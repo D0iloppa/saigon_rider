@@ -149,7 +149,31 @@
       "Read(//mnt/c/DEV/oh-no/ai-docs/**)",
       "Read(//mnt/c/DEV/oh-no/ai-docs/workflow/**)",
       "Read(//mnt/c/DEV/oh-no/ai-docs/spec/**)",
-      "Read(//mnt/c/DEV/oh-no/ai-docs/task/**)"
+      "Read(//mnt/c/DEV/oh-no/ai-docs/task/**)",
+      "Bash(sed -n '25,50p' /mnt/c/DEV/saigon_rider/backend/app/models.py)",
+      "Bash(sed -n '95,135p' /mnt/c/DEV/saigon_rider/backend/app/models.py)",
+      "Bash(curl -s --cookie admin_session=__TRACKED_VAR__ http://localhost:8082/admin/feed/__TRACKED_VAR__/edit)",
+      "Bash(curl -s \"http://localhost:8082/api/feed?page=1&size=20\")",
+      "Bash(curl -s -o /dev/null -w 'avatar POST -> %{http_code}\\\\n' --cookie admin_session=__TRACKED_VAR__ -F 'avatar=@/tmp/t.png;type=image/png' http://localhost:8082/admin/settings/avatar)",
+      "Bash(curl -s --cookie admin_session=__TRACKED_VAR__ http://localhost:8082/admin/settings)",
+      "Bash(echo \"=== restore admin avatar_content_id to pre-test value ===\" && docker exec saigon_db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -c \"UPDATE users SET avatar_content_id='\"'\"'48da17c1-3ae6-43c9-b707-989483c63599'\"'\"' WHERE avatar_url LIKE '\"'\"'%48da17c1%'\"'\"';\"' 2>&1 && echo \"=== delete orphan test content rows ===\" && docker exec saigon_db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -c \"DELETE FROM contents WHERE id IN \\('\"'\"'058795af-8d07-498a-8c61-af4aed76e233'\"'\"','\"'\"'f0fc4208-1032-4be0-a13b-79965378fd63'\"'\"'\\);\"' 2>&1 && echo \"=== remove orphan disk files ===\" && rm -fv contents/user-contents/2026/05/058795af-8d07-498a-8c61-af4aed76e233.png contents/user-contents/2026/05/f0fc4208-1032-4be0-a13b-79965378fd63.png 2>&1 && rm -f /tmp/t.png && echo \"=== verify admin user restored ===\" && docker exec saigon_db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -c \"SELECT nickname, avatar_content_id FROM users WHERE avatar_url LIKE '\"'\"'%48da17c1%'\"'\"';\"' 2>&1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:8082/api/contents/profile-mock-img\")",
+      "Bash(curl -s -o /dev/null -w \"code=%{http_code} loc=%{redirect_url}\\\\n\" \"http://localhost:8082/api/contents/profile-mock-img?seed=00000000-0000-0000-0001-000000000001&w=240&h=240\")",
+      "Bash(curl -s \"http://localhost:8082/api/feed?page=1&size=1\")",
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\(d['items'][0]['user_avatar_url'] if d['items'] else 'empty'\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --cookie admin_session=__TRACKED_VAR__ http://localhost:8082/admin/users)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --cookie admin_session=__TRACKED_VAR__ http://localhost:8082/admin/feed)",
+      "Bash(file contents/_inbox/*)",
+      "Bash(python3 -m py_compile backend/app/routers/admin.py)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --cookie admin_session=__TRACKED_VAR__ http://localhost:8082/admin/settings)",
+      "Bash(python3 -c \"import sys,json;print\\(json.load\\(sys.stdin\\)['items'][0]['user_nickname']\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code} %{redirect_url}\\\\n' --cookie admin_session=__TRACKED_VAR__ -F nickname=SaigonRider http://localhost:8082/admin/settings/nickname)",
+      "Bash(curl -s http://localhost:8082/api/health)",
+      "Bash(curl -s http://localhost:8082/openapi.json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(p\\) for p in sorted\\(d['paths'].keys\\(\\)\\) if 'follow' in p or 'dm' in p or 'feed/new' in p]\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:10]\\)\")",
+      "Bash(curl -s http://localhost:8082/docs -o /dev/null -w \"%{http_code}\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('detail',''\\)\\)\")"
     ]
   }
 }

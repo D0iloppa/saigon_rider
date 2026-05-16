@@ -1,0 +1,54 @@
+<p class="page-title">설정</p>
+<p class="page-sub">로그인 계정 정보 · 피드 공통 계정 프로필</p>
+
+{{flash}}
+
+<div class="card" style="margin-bottom:24px;">
+  <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:18px;letter-spacing:.04em;text-transform:uppercase;">내 로그인 계정</p>
+
+  <div style="display:grid;grid-template-columns:140px 1fr;row-gap:14px;column-gap:24px;font-size:13px;">
+    <div style="color:rgba(255,255,255,.45);">아이디</div>
+    <div style="color:#fff;font-family:monospace;">{{username}}</div>
+
+    <div style="color:rgba(255,255,255,.45);">권한</div>
+    <div style="color:#ff8055;font-weight:700;">{{role_label}}</div>
+  </div>
+</div>
+
+<div class="card">
+  <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">피드 공통 계정 (SaigonRider)</p>
+  <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
+    모든 관리자가 공유하는 단일 작성자 계정. 여기서 변경한 프로필 이미지는 모든 관리자 게시물에 동일하게 적용됩니다.
+  </p>
+
+  <div style="display:flex;gap:24px;align-items:flex-start;">
+    <img src="{{avatar_url}}" alt="avatar" style="width:120px;height:120px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);" />
+
+    <div style="flex:1;">
+      <form method="post" action="/admin/settings/nickname" style="margin-bottom:22px;">
+        <div class="field" style="margin-bottom:0;">
+          <label class="field-label">닉네임 (피드 표시 이름)</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" name="nickname" value="{{nickname}}" maxlength="30" required
+                   placeholder="피드에 표시될 이름" style="flex:1;" />
+            <button type="submit" class="btn">저장</button>
+          </div>
+          <p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:6px;">최대 30자. 모든 관리자 게시물의 작성자 이름으로 표시됩니다.</p>
+        </div>
+      </form>
+
+      <form method="post" action="/admin/settings/avatar" enctype="multipart/form-data">
+        <div class="field" style="margin-bottom:12px;">
+          <label class="field-label">프로필 이미지 업로드</label>
+          <input type="file" name="avatar" accept="image/*" required style="font-size:12px;color:rgba(255,255,255,.6);" />
+          <p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:6px;">JPG/PNG/WEBP. 정사각형 이미지를 권장합니다.</p>
+        </div>
+        <button type="submit" class="btn">이미지 업로드</button>
+      </form>
+
+      <div style="display:grid;grid-template-columns:140px 1fr;row-gap:8px;column-gap:24px;font-size:12px;color:rgba(255,255,255,.5);margin-top:18px;">
+        <div>user_id</div><div style="color:rgba(255,255,255,.6);font-family:monospace;font-size:11px;">{{admin_user_id}}</div>
+      </div>
+    </div>
+  </div>
+</div>

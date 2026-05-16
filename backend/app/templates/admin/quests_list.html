@@ -1,0 +1,53 @@
+<div class="toolbar">
+  <div>
+    <p class="page-title">퀘스트 관리</p>
+    <p class="page-sub">등록된 퀘스트 · 보상 정보 · 활성 여부</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/quests/new" class="btn">＋ 신규 퀘스트</a>
+  </div>
+</div>
+
+<form class="toolbar" method="get" action="/admin/quests" style="margin-top:-8px;">
+  <div style="display:flex;gap:8px;">
+    <input type="search" name="q" placeholder="제목 검색" value="{{q}}" style="width:240px;" />
+    <select name="period">
+      <option value="">모든 period</option>
+      <option value="DAILY" {{sel_period_DAILY}}>DAILY</option>
+      <option value="WEEKLY" {{sel_period_WEEKLY}}>WEEKLY</option>
+      <option value="EVENT" {{sel_period_EVENT}}>EVENT</option>
+    </select>
+    <select name="active">
+      <option value="">전체</option>
+      <option value="1" {{sel_active_1}}>활성</option>
+      <option value="0" {{sel_active_0}}>비활성</option>
+    </select>
+    <button type="submit" class="btn btn-ghost btn-sm">필터</button>
+  </div>
+  <div style="font-size:12px;color:rgba(255,255,255,.4);">총 {{total}} 건</div>
+</form>
+
+<div class="card" style="padding:0;overflow:hidden;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>제목 (KO)</th>
+        <th>Period</th>
+        <th>District</th>
+        <th>거리</th>
+        <th>EXP</th>
+        <th>Gold</th>
+        <th>Item</th>
+        <th>Badge</th>
+        <th>활성</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{rows}}
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">{{pagination}}</div>

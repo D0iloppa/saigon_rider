@@ -33,7 +33,9 @@ contents/system/
     {district-code}.jpg     (예: quan-1.jpg, phu-nhuan.jpg)
   quests/             ← quest 썸네일
     {quest-slug}.jpg        (예: q-ben-thanh-loop.jpg)
-  saigon-default.jpg  ← 폴백 이미지
+  mock/               ← 퀘스트/구 폴백 목업 (owner_type='mock')
+  profile-mock/       ← 기본 아바타 풀 (owner_type='profile_mock')
+    saigon-default.jpg, profile-mock-01~05.png
 ```
 
 > **신규 업로드 (API)**: 파일명 = content_id UUID (예: `system/{uuid}.jpg`)  
@@ -47,6 +49,8 @@ contents/system/
 |---|---|---|---|
 | `system` | NULL | `system/` | 관리자 직접 배치 또는 API 업로드 |
 | `user` | user UUID | `user-contents/{year}/{month}/` | 유저 업로드 (프로필 사진, 피드 등) |
+| `mock` | NULL | `system/mock/` | 퀘스트/구 폴백 목업 (`/contents/mock-img`) |
+| `profile_mock` | NULL | `system/profile-mock/` | 프로필 사진 미설정 시 기본 아바타 풀 (`/contents/profile-mock-img`) |
 
 ---
 
@@ -136,4 +140,5 @@ curl -I https://saigon.doil.me/api/contents/{content_id}/img
 | `quests/q-bui-vien-sweep.jpg` | Bùi Viện Night Sweep 썸네일 |
 | `quests/q-binh-thanh-market.jpg` | Bình Thạnh 새벽시장 라이딩 썸네일 |
 | `quests/q-quan-7-bridge.jpg` | Quận 7 다리 5개 라이드 썸네일 |
-| `saigon-default.jpg` | 폴백 이미지 |
+| `profile-mock/saigon-default.jpg` | 기본 아바타 풀 (구 단일 폴백) |
+| `profile-mock/profile-mock-01~05.png` | 기본 아바타 풀 — 라이더 테마 5종 |

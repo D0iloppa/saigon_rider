@@ -1,7 +1,60 @@
 # 현재 상황 (Session Carry-Over)
 
 > 다음 스레드가 이 파일만 읽고도 작업을 이어받을 수 있도록 작성.  
-> 큰 변경 후 갱신. **마지막 갱신**: 2026-05-16 (8차 — GUIDELINE §7 보안/환경변수 규약 + `.env.example` 키셋 동기화)
+> 큰 변경 후 갱신. **마지막 갱신**: 2026-05-16 (12차 — 피드 소셜 기능 확장: 팔로우, DM, 위치기반 필터, 피드작성)
+
+## 피드 소셜 기능 확장 (2026-05-16, 12차)
+
+- **DB 마이그레이션 020-023**: feed_posts 위치 컬럼(lat/lng/district_id), user_follows(팔로우), dm_conversations(DM 대화방), dm_messages(DM 메시지) 테이블 추가.
+- **백엔드 모델**: `UserFollow`, `DmConversation`, `DmMessage` 신규 + `FeedPost`에 `latitude`, `longitude`, `district_id` 확장.
+- **백엔드 라우터 2개 신규**:
+  - `follows.py`: POST/DELETE /follows/{user_id}, GET /users/{user_id}/followers|following|follow-counts
+  - `dm.py`: GET/POST /dm/conversations, GET/POST /dm/conversations/{id}/messages, POST /dm/conversations/{id}/read
+- **피드 라우터 확장**: `filter=neighborhood` → PostGIS ST_DWithin(5km), `filter=friends` → user_follows 서브쿼리
+- **프론트 신규 페이지 5개**: FeedCreate(`/feed/new`), DmList(`/dm`), DmDetail(`/dm/:id`), FollowerList(`/followers/:userId`), FollowingList(`/following/:userId`)
+- **프론트 수정**: TopBar에 `leftContent` prop 추가, FeedList 헤더 재구성(좌측 + 버튼, 우측 프로필/DM 아이콘), ProfileMain에 팔로워/팔로잉 카운트 + 네비게이션
+- **i18n**: ko/en/vi에 feedCreate, dm, follow 키 추가
+- ⚠ 마이그레이션 020-023은 기존 환경에서 수동 적용 필요: `docker exec -i saigon_db psql -U $DB_USER -d $DB_NAME < database/init/020_feed_location.sql` (021~023도 동일)
+
+## 기본 프로필 이미지 풀 (profile_mock) 도입 (2026-05-16, 11차)
+
+- 단일 default 아바타(`saigon-default.jpg`) → `owner_type='profile_mock'` 컨텐츠 풀로 전환 ([상세](../task/260516/260516_profile_mock_pool.md)).
+- **마이그레이션 018/019**: `content_owner_type` enum 에 `profile_mock` 추가, `system/profile-mock/` 하위 6장(`saigon-default.jpg` + `profile-mock-01~05.png`) 등록.
+- **신규 엔드포인트** `GET /contents/profile-mock-img?seed=&w=&h=` — `profile_mock` 풀에서 seed(user_id) 결정론적 선택 → imgproxy 302 (`serve_mock_image` 와 `_serve_pool_image` 헬퍼 공유).
+- **resolver**: `utils.default_avatar_url(seed)` 가 profile-mock 엔드포인트 URL 반환. `resolve_avatar_url` 폴백이 `seed=user.id` 로 호출 → 프로필 없는 유저는 풀에서 결정론적 1장. 등록된 프로필 사진이 있으면 그대로 우선. 프론트·관리자 모두 BFF resolver 경유라 코드 변경 불필요.
+- 검증: 6개 seed → 6장 분산, imgproxy 200 서빙 확인.
+- ⚠ 마이그레이션 018·019 는 기존 환경에서 수동 적용 필요 (`docker exec -i saigon_db psql -U $DB_USER -d $DB_NAME < database/init/018_*.sql` / `019_*.sql`).
+
+## 관리자 콘솔 콘텐츠 contents 중개 / 피드 CRUD 보강 (2026-05-16, 10차)
+
+- 관리자 페이지 기능 오류 6종 수정 ([상세](../task/260516/260516_admin_content_mediation_fix.md))
+- **핵심 원칙**: 모든 콘텐츠는 `contents` 테이블로 중개되고 `content_id` 로 매핑된다 (관리자·프론트 공통). imgproxy URL 을 컬럼에 직접 저장하던 방식 폐지.
+- **마이그레이션 017**: `feed_posts.image_content_id UUID FK` 추가. 피드 이미지는 contents row 생성 후 id 매핑.
+- **프로필/아바타**: `users.avatar_content_id` 만 저장 (`avatar_url` 쓰기 폐지). 미설정 시 프론트 default 이미지(`saigon-default.jpg`)로 폴백.
+- **이미지 URL 해석**: `utils.resolve_avatar_url()` / `resolve_feed_image_url()` — 우선순위 `content_id > 레거시 url > default`. BFF 출력 시점에 imgproxy URL 로 해석.
+- **퀘스트 썸네일 체인**: `thumbnail_content > district.image_content > mock` 으로 축소 (`hero_image_url`·`district.image_url` 제거 — contents 미중개라 폐기).
+- **피드 관리**: 인스타그램 카드형 리스트로 재구성, `/admin/feed/{id}/edit` 수정 기능 신설, 본문 `#해시태그` 정규식 강조.
+- ⚠ async lazy-load 회피: `UserOut`/`FeedPostOut` 가 관계를 참조하므로 commit 후 직렬화 엔드포인트는 `db.refresh` 대신 재조회.
+- ⚠ 마이그레이션 017 은 기존 환경에서 수동 적용 필요: `docker exec -i saigon_db psql -U $DB_USER -d $DB_NAME < database/init/017_feed_image_content.sql`
+
+## 관리자 콘솔 전체 기능 구현 (2026-05-16, 9차)
+
+- 기존 admin: login + dashboard 두 페이지뿐 → 5개 메뉴 전체 구현 ([상세](../task/260516/260516_admin_console_full.md))
+- 신규 admin 페이지(7개): `/admin/quests`, `/admin/quests/new`, `/admin/quests/{id}/edit`, `/admin/feed`, `/admin/feed/new`, `/admin/users`, `/admin/settings`
+- 사이드바 공통 레이아웃 도입 — `templates/admin/_layout.html` + `_render_page(name, nav, page_title, **ctx)` 헬퍼 (Jinja2 미도입, 단순 치환 컨벤션 유지)
+- **admin user 시드** (015 마이그레이션): `users` 테이블에 가상 행 1개 (`id=00000000-0000-0000-0000-000000000001`, `phone='__admin__'`, `nickname='admin'`). 피드 작성·아바타 업로드의 user_id 로 사용. ENV `ADMIN_USER_ID` 로 override 가능.
+- 퀘스트 등록 폼 노출 범위: 필수+보상+i18n 제목+썸네일 (rider_type/safety_grade 는 014 의 자동 매핑 정책에 위임)
+- 피드 등록은 multipart 이미지 첨부 → `_save_uploaded_image()` 헬퍼가 `system/` 경로에 저장 후 imgproxy URL 을 `feed_posts.image_url` 에 직접 기록
+- 스모크 검증: 7개 페이지 200 응답 + 피드/퀘스트 등록(이미지) + 아바타 업로드 모두 동작 확인
+- ⚠ 마이그레이션 015 는 `database/init/` 자동 실행이 안 된 기존 환경에서는 `docker exec -i saigon_db psql -U $DB_USER -d $DB_NAME < database/init/015_admin_seed.sql` 수동 적용 필요
+
+## 퀘스트 페이지 핀 버튼 등재 (2026-05-16)
+
+- `QuestList.tsx:100` 우상단 핀 이모지(`<GifIcon code="1f4cd" />`) — 현재 onClick 없는 장식 상태 확인.
+- UX 의도: 현재 위치 기준 "내 근처 퀘스트" 필터. NULL 좌표 퀘스트는 거리 조건 무시.
+- 기존 자산: `quest_pins`(PostGIS POINT) + `/api/quests/pins` + `nativeInterface.getLocation` 이미 존재.
+- District 에는 중심 좌표 없음 — 데이터 모델 결정(A/B/C 옵션) 후 마이그레이션 필요.
+- 다영역 협업 항목으로 [`project_todo.md`](../project_todo.md) "🗺 위치 / 지도" 섹션 신설하여 등재.
 
 ## 보안 / 환경 변수 규약 신설 (2026-05-16)
 
@@ -36,8 +89,9 @@
 
 ### 다음 우선순위
 1. **실기기 확인**: iOS에서 TabBar/Feed/Profile 이슈 수정 결과 검증
-2. **A섹션 결함 수정**: F-AUTH-LOGIN, F-02-7, F-03-2, F-03-4 코드 수정
-3. **퀘스트 이미지 매핑**: DB 실제 퀘스트에 `thumbnail_content_id` 연결 (어드민 플로우)
+2. **12차 UI 검증**: 피드 헤더(+/프로필/DM 아이콘), /feed/new, /dm, 팔로워 카운트, 필터 칩 동작
+3. **A섹션 결함 수정**: F-AUTH-LOGIN, F-02-7, F-03-2 코드 수정
+4. **퀘스트 이미지 매핑**: DB 실제 퀘스트에 `thumbnail_content_id` 연결 (어드민 플로우)
 
 ---
 
@@ -89,7 +143,7 @@ thumbnail_url 결정 순서 (_to_out in quests.py):
 ## 진행 중 / 부분 점검 (🟡)
 
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요
-- F-09-3 피드 필터 chip neighborhood/friends — BFF WHERE 미구현 (팔로우 테이블 설계 후 처리)
+- ~~F-09-3 피드 필터 chip neighborhood/friends~~ → 12차에서 구현 완료 (user_follows + PostGIS ST_DWithin)
 - 퀘스트 `thumbnail_content_id` 미연결 — DB 퀘스트가 mock 데이터와 달라 직접 매핑 필요
 
 ---

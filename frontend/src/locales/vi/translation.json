@@ -142,9 +142,18 @@
     "commentPlaceholder": "Để lại bình luận..."
   },
   "profile": {
+    "tabFeeds": "Bài viết",
     "tabHistory": "Lịch sử",
     "tabBadges": "Huy hiệu",
     "tabGear": "Trang bị",
+    "emptyFeeds": "Chưa có bài viết nào",
+    "emptyFeedsSub": "Chia sẻ bài viết đầu tiên sau chuyến đi",
+    "newPost": "Bài mới",
+    "editPost": "Sửa",
+    "deletePost": "Xóa",
+    "deletePostConfirm": "Xóa bài viết này?",
+    "deletePostSuccess": "Đã xóa bài viết",
+    "deletePostError": "Xóa bài viết thất bại",
     "thisMonth": "Tháng này",
     "noGear": "Không có trang bị để đeo",
     "earnedAt": "Đạt được: {{date}}",
@@ -157,7 +166,9 @@
     "nicknameError": "Biệt danh này đã được sử dụng",
     "avatarError": "Tải ảnh lên thất bại",
     "saving": "Đang lưu...",
-    "saveBtn": "Lưu"
+    "saveBtn": "Lưu",
+    "share": "Chia sẻ hồ sơ",
+    "shareGuide": "Quét mã QR này để xem hồ sơ"
   },
   "settings": {
     "title": "Cài đặt",
@@ -171,6 +182,7 @@
     "darkMode": "Chế độ tối",
     "locationPermission": "Quyền vị trí",
     "locationAllowed": "Đã cho phép",
+    "editProfile": "Chỉnh sửa hồ sơ",
     "accountManagement": "Quản lý tài khoản",
     "privacy": "Chính sách bảo mật",
     "terms": "Điều khoản dịch vụ",
@@ -224,6 +236,28 @@
     "followBtn": "Theo dõi",
     "unfollowBtn": "Đang theo dõi",
     "emptyFollowers": "Chưa có người theo dõi",
-    "emptyFollowing": "Chưa theo dõi ai"
+    "emptyFollowing": "Chưa theo dõi ai",
+    "friends": "Bạn bè",
+    "emptyFriends": "Chưa có bạn bè",
+    "addFriend": "Thêm bạn",
+    "searchPlaceholder": "Tìm theo biệt danh hoặc số điện thoại",
+    "myQr": "QR của tôi",
+    "scanQr": "Quét mã QR",
+    "scanGuide": "Quét mã QR của bạn bè",
+    "myQrGuide": "Hiển thị mã QR của bạn"
+  },
+  "feedEdit": {
+    "title": "Sửa bài viết",
+    "saveBtn": "Lưu",
+    "saving": "Đang lưu...",
+    "saveError": "Lưu thất bại",
+    "saveSuccess": "Đã cập nhật bài viết"
+  },
+  "profileEdit": {
+    "title": "Chỉnh sửa hồ sơ",
+    "nicknameLabel": "Biệt danh",
+    "saveBtn": "Lưu",
+    "saved": "Đã lưu hồ sơ",
+    "avatarSuccess": "Đã cập nhật ảnh"
   }
 }

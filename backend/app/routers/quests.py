@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from passlib.context import CryptContext
-from sqlalchemy import or_, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -24,6 +24,7 @@ from ..utils import APP_TZ, build_imgproxy_url, MOCK_IMG_ENDPOINT, resolve_avata
 from ..schemas import (
     BookmarkToggleRequest,
     BookmarkToggleResponse,
+    Page,
     QuestAcceptRequest,
     QuestAcceptResponse,
     QuestCompleteRequest,
@@ -69,31 +70,48 @@ async def _get_quest_or_404(quest_id: uuid.UUID, db: AsyncSession) -> Quest:
 
 
 # Q-1
-@router.get("", response_model=list[QuestOut], summary="퀘스트 목록")
+@router.get("", response_model=Page[QuestOut], summary="퀘스트 목록")
 async def get_quests(
     period: str | None = None,
     district_id: int | None = None,
     rider_type_id: int | None = None,
     badge: str | None = None,
     safety_grade_id: int | None = None,
+    user_id: uuid.UUID | None = Query(None),
+    exclude_completed: bool = Query(False),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Quest).where(Quest.is_active == True)
+    conditions = [Quest.is_active == True]
 
     if period:
-        stmt = stmt.where(Quest.period == period.upper())
+        conditions.append(Quest.period == period.upper())
     if district_id:
-        stmt = stmt.where(or_(Quest.district_id == district_id, Quest.district_id.is_(None)))
+        conditions.append(or_(Quest.district_id == district_id, Quest.district_id.is_(None)))
     if rider_type_id:
-        stmt = stmt.where(or_(Quest.rider_type_id == rider_type_id, Quest.rider_type_id.is_(None)))
+        conditions.append(or_(Quest.rider_type_id == rider_type_id, Quest.rider_type_id.is_(None)))
     if badge:
-        stmt = stmt.where(Quest.badge == badge.upper())
+        conditions.append(Quest.badge == badge.upper())
     if safety_grade_id:
-        stmt = stmt.where(or_(Quest.min_safety_grade_id == safety_grade_id, Quest.min_safety_grade_id.is_(None)))
+        conditions.append(or_(Quest.min_safety_grade_id == safety_grade_id, Quest.min_safety_grade_id.is_(None)))
 
-    stmt = stmt.order_by(Quest.created_at.desc())
+    if exclude_completed and user_id and period:
+        period_key = _calc_period_key(period.upper())
+        completed_subq = (
+            select(UserQuest.quest_id)
+            .where(UserQuest.user_id == user_id, UserQuest.period_key == period_key)
+            .scalar_subquery()
+        )
+        conditions.append(Quest.id.not_in(completed_subq))
+
+    total = (await db.execute(select(func.count()).select_from(Quest).where(*conditions))).scalar_one()
+
+    offset = (page - 1) * size
+    stmt = select(Quest).where(*conditions).order_by(Quest.created_at.desc()).offset(offset).limit(size)
     result = await db.execute(stmt)
-    return [_to_out(q) for q in result.scalars().all()]
+    items = [_to_out(q) for q in result.scalars().all()]
+    return Page(items=items, total=total, page=page, size=size)
 
 
 # Q-1b

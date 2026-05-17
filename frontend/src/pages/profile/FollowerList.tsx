@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { fetchFollowers, followUser, unfollowUser } from '@/api/follows';
 import { useUserStore } from '@/store/useUserStore';
 import { LevelBadge } from '@/components/ui/LevelBadge';
+import { AppImage } from '@/components/ui/AppImage';
 import type { FollowUser } from '@/api/types';
 import styles from './FollowList.module.css';
 
@@ -35,7 +36,7 @@ export default function FollowerList() {
         ) : (
           users.map((u) => (
             <div key={u.id} className={styles.row}>
-              <img src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} />
+              <AppImage src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
               <div className={styles.info}>
                 <span className={styles.name}>
                   {u.nickname ?? 'Unknown'}

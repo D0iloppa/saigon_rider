@@ -14,6 +14,7 @@ import { Chip } from '@/components/ui/Chip';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
 import { emojiUrl } from '@/lib/emoji';
+import { AppImage } from '@/components/ui/AppImage';
 import styles from './WorldMap.module.css';
 
 function GifIcon({ code, size = 32, className = '' }: { code: string; size?: number; className?: string }) {
@@ -78,7 +79,7 @@ export default function WorldMap() {
         {/* User row */}
         <div className={styles.userRow}>
           <div className={styles.avatarWrap}>
-            <img src={user.avatarUrl} alt="" className={styles.avatar} />
+            <AppImage src={user.avatarUrl} alt="" className={styles.avatar} variant="circle" />
           </div>
           <div>
             <div className={styles.nick}>{user.nickname}</div>
@@ -186,15 +187,7 @@ export default function WorldMap() {
             </div>
             <div className={styles.recBody}>
               <div className={styles.recThumb}>
-                <img
-                  src={recommended.thumbnailUrl}
-                  alt=""
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.onerror = null;
-                    target.src = 'https://picsum.photos/seed/quest/300/300';
-                  }}
-                />
+                <AppImage src={recommended.thumbnailUrl} alt="" />
               </div>
               <div className={styles.recInfo}>
                 <h3 className={styles.recTitle}>{recommended.title}</h3>

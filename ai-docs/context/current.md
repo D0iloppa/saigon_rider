@@ -1,7 +1,55 @@
 # 현재 상황 (Session Carry-Over)
 
 > 다음 스레드가 이 파일만 읽고도 작업을 이어받을 수 있도록 작성.  
-> 큰 변경 후 갱신. **마지막 갱신**: 2026-05-16 (12차 — 피드 소셜 기능 확장: 팔로우, DM, 위치기반 필터, 피드작성)
+> 큰 변경 후 갱신. **마지막 갱신**: 2026-05-17 (15차 — 프로필 피드 관리: 내 피드 조회/수정/삭제)
+
+## 프로필 피드 관리 기능 (2026-05-17, 15차)
+
+- **백엔드 신규 API 3종** (`routers/feed.py`):
+  - `GET /feed/{post_id}` — 피드 단건 조회 (F-2b)
+  - `PUT /feed/{post_id}` — 피드 수정, 소유자 검증 (F-3b)
+  - `DELETE /feed/{post_id}` — 피드 삭제, 소유자 검증 (F-3c)
+- **스키마 신규**: `FeedUpdateRequest`, `FeedDeleteRequest` (`schemas.py`)
+- **프론트 API 신규 함수** (`api/feed.ts`): `fetchFeedPost`, `fetchMyFeed`, `updateFeedPost`, `deleteFeedPost`
+- **프로필 페이지 feeds 탭** (`ProfileMain.tsx`):
+  - 탭 순서: feeds > history > badges > gear (feeds가 기본 탭)
+  - 내 피드 리스트 조회 (fetchMyFeed, user_id 필터)
+  - 각 피드 카드에 `⋮` 메뉴 → 수정 / 삭제 액션
+  - 삭제: useDialogStore 확인 다이얼로그 → deleteFeedPost API
+  - "+ 새 글" 버튼 → `/feed/new` 이동
+- **피드 수정 페이지** (`pages/feed/FeedEdit.tsx`): 기존 content/image 프리필, FeedCreate CSS 재활용, `/feed/edit/:postId` 라우트
+- **App.tsx**: `/feed/edit/:postId` 라우트 추가
+- **i18n**: ko/en/vi에 `profile.tabFeeds`, `profile.emptyFeeds`, `profile.editPost`, `profile.deletePost`, `profile.deletePostConfirm`, `feedEdit.*` 등 키 추가
+- **CSS**: `ProfileMain.module.css`에 feedsList, feedCard, feedCardMenu, feedCardDropdown 등 스타일 추가
+- TypeScript 빌드 통과, Frontend + BFF Docker 재배포 완료
+
+## 친구 기능 마무리 (2026-05-17, 14차)
+
+- **ProfileCard BottomSheet** (`components/ProfileCard.tsx`): 타유저 프로필 카드. 아바타+닉네임+레벨뱃지+riderStyle+팔로워/팔로잉 수+팔로우 버튼. FeedList에서 게시자 클릭 시 오픈.
+- **백엔드 `GET /users/{user_id}/profile`**: nickname, avatar_url, level, rider_style, follower_count, following_count, is_following 반환. `UserProfileOut` 스키마 신규.
+- **프론트 `fetchUserProfile`** (`api/profile.ts`): snake_case→camelCase 수동 매핑.
+- **FeedList 연동**: `.postHeader`를 `<button>`으로 변경, 자기자신 클릭→`/profile`, 타인→ProfileCard 오픈.
+- **프로필 페이지 구조 재설계** (Draggable Sheet 패턴):
+  - 단일 `bgFixed` 그라데이션 배경 (전체화면 고정)
+  - Section 1 (fixedHeader: 아바타~레벨바) — 항상 고정
+  - Section 2 (socialSection: 팔로워/팔로잉 + 프로필공유/친구추가 버튼) — fixed, Section 1 아래
+  - Section 3 (sheet: 드래그 가능 바텀시트) — snapMin/snapMax 두 지점 스냅, Section 2 위로 올라갈 수 있으나 Section 1은 절대 덮지 않음
+  - 핵심: `overflowY` 토글 (`hidden` while dragging, `auto` at snapMin) → 시트 이동과 내부 스크롤 분리
+- **소셜 영역 2분할**: Friend 셀 제거, Follower/Following만 표시.
+- **프로필 액션 버튼 (Instagram 스타일)**: "프로필 공유" 텍스트 버튼 (→QR BottomSheet) + 친구추가 SVG 아이콘 (→`/friends/add`).
+- **QR 프로필 공유 BottomSheet**: qrcode.react 활용, 내 프로필 URL QR 코드 + 닉네임 표시.
+- Docker 재빌드 배포 완료.
+
+## 무한스크롤 + Pull-to-Refresh + 퀘스트 완료 구조 (2026-05-16, 13차)
+
+- **무한스크롤**: `useInfiniteScroll<T>` 훅 신규 (`hooks/useInfiniteScroll.ts`) — IntersectionObserver + sentinel ref, loadingRef 중복 방지, deps 변경 시 자동 리셋
+- **ScrollSentinel**: `components/ui/ScrollSentinel.tsx` — 리스트 하단 스피너/끝 표시
+- **Pull-to-Refresh**: `usePullToRefresh` 훅 (`hooks/usePullToRefresh.ts`) — touch 이벤트 기반, 저항감 0.5 감쇠, 64px 임계값
+- **PullIndicator**: `components/ui/PullIndicator.tsx` — 당김 진행도에 따라 화살표 회전 → 스피너 전환
+- **피드**: `fetchFeed` → `FeedPage` 반환, `FeedList` 무한스크롤 + PTR 연결
+- **퀘스트 백엔드**: `GET /quests`에 `user_id` + `exclude_completed=true` 파라미터 추가 → UserQuest NOT IN 서브쿼리로 서버사이드 필터링, `total`도 미완료 기준
+- **퀘스트 프론트**: `fetchQuests` → `QuestPage` 반환, `QuestList` 무한스크롤 + PTR 연결, 완료 퀘스트는 리스트에서 skip + 하단 "N개 완료" 카운트 배지만 표시
+- TypeScript 빌드 통과, Docker 재배포 완료
 
 ## 피드 소셜 기능 확장 (2026-05-16, 12차)
 
@@ -84,6 +132,13 @@
 **`task/active/260515_tabbar_ux_polish.md`** — TabBar UX 개선 (진행 중)
 
 **`task/active/260515_auth_todo.md`** — 인증 체계 구현 (진행 중)
+
+**`task/active/260516_infinite_scroll.md`** — 무한스크롤 + PTR + 퀘스트 완료 구조 (구현 완료, UI 검증 필요)  
+✅ 문서·위키 현행화 완료 (2026-05-16, wiki 재발행)
+
+**`task/active/260516_friend_feature.md`** — 친구 기능 마무리 (ProfileCard + 소셜 단순화 + QR 공유 완료, FriendAdd 검색/QR스캔 탭 미완)
+
+**`task/active/260517_profile_feed_management.md`** — 프로필 피드 관리 (조회/수정/삭제 구현 완료, UI 검증 필요)
 
 **`task/active/260515_quest_fk_mapping.md`** — Quest FK 매핑 (진행 중)
 

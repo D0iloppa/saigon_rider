@@ -8,6 +8,7 @@ import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
 import { apiLogin } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
+import { setSessionExpiredHandler, SessionExpiredError } from '@/api/client';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 
 // Auth
@@ -31,6 +32,7 @@ import RideResultFail from '@/pages/ride/RideResultFail';
 // Feed
 import FeedList from '@/pages/feed/FeedList';
 import FeedCreate from '@/pages/feed/FeedCreate';
+import FeedEdit from '@/pages/feed/FeedEdit';
 
 // DM
 import DmList from '@/pages/dm/DmList';
@@ -40,12 +42,15 @@ import DmDetail from '@/pages/dm/DmDetail';
 import ProfileMain from '@/pages/profile/ProfileMain';
 import FollowerList from '@/pages/profile/FollowerList';
 import FollowingList from '@/pages/profile/FollowingList';
+import FriendList from '@/pages/profile/FriendList';
+import FriendAdd from '@/pages/profile/FriendAdd';
 
 // Settings
 import Settings from '@/pages/settings/Settings';
 import NotiSettings from '@/pages/settings/NotiSettings';
 import LangSettings from '@/pages/settings/LangSettings';
 import AccountSettings from '@/pages/settings/AccountSettings';
+import ProfileEdit from '@/pages/settings/ProfileEdit';
 
 // Deep link
 import LinkRouter from '@/pages/link/LinkRouter';
@@ -59,6 +64,23 @@ export default function App() {
   const [splashFade, setSplashFade] = useState(false);
   const [gifReady, setGifReady] = useState(false);
   const bootStartTime = useRef(Date.now());
+
+  // 세션 만료 전역 핸들러 등록
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      logout();
+      window.location.replace('/splash');
+    });
+  }, [logout]);
+
+  // unhandled promise rejection에서 SessionExpiredError 무시 (이미 리다이렉트 처리됨)
+  useEffect(() => {
+    function onUnhandled(e: PromiseRejectionEvent) {
+      if (e.reason instanceof SessionExpiredError) e.preventDefault();
+    }
+    window.addEventListener('unhandledrejection', onUnhandled);
+    return () => window.removeEventListener('unhandledrejection', onUnhandled);
+  }, []);
 
   // GIF 백그라운드 프리로드
   useEffect(() => {
@@ -124,11 +146,14 @@ export default function App() {
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
           <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
           <Route path="/feed/new" element={<PrivateRoute><FeedCreate /></PrivateRoute>} />
+          <Route path="/feed/edit/:postId" element={<PrivateRoute><FeedEdit /></PrivateRoute>} />
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
           <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />
           <Route path="/following/:userId" element={<PrivateRoute><FollowingList /></PrivateRoute>} />
+          <Route path="/friends/:userId" element={<PrivateRoute><FriendList /></PrivateRoute>} />
+          <Route path="/friends/add" element={<PrivateRoute><FriendAdd /></PrivateRoute>} />
 
           {/* Protected: Ride flow */}
           <Route path="/ride/active" element={<PrivateRoute><RideActive /></PrivateRoute>} />
@@ -140,6 +165,7 @@ export default function App() {
           <Route path="/settings/notifications" element={<PrivateRoute><NotiSettings /></PrivateRoute>} />
           <Route path="/settings/language" element={<PrivateRoute><LangSettings /></PrivateRoute>} />
           <Route path="/settings/account" element={<PrivateRoute><AccountSettings /></PrivateRoute>} />
+          <Route path="/settings/profile" element={<PrivateRoute><ProfileEdit /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />

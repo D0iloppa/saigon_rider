@@ -7,9 +7,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import Badge, RideSession, UserBadge, UserQuest, User
-from ..schemas import BadgeOut, UserBadgeOut, UserExportResponse, UserStatsOut
-from ..utils import APP_TZ
+from ..models import Badge, RideSession, UserBadge, UserFollow, UserQuest, User
+from ..schemas import BadgeOut, UserBadgeOut, UserExportResponse, UserProfileOut, UserStatsOut, FollowUserOut
+from ..utils import APP_TZ, resolve_avatar_url
 
 router = APIRouter(prefix="/users", tags=["유저 (Users)"])
 
@@ -146,3 +146,63 @@ async def export_user_data(user_id: uuid.UUID, db: AsyncSession = Depends(get_db
         status="QUEUED",
         estimated_ready_at=datetime.now(timezone.utc) + timedelta(hours=24),
     )
+
+
+@router.get("/{user_id}/profile", response_model=UserProfileOut, summary="타유저 공개 프로필 조회")
+async def get_user_profile(
+    user_id: uuid.UUID,
+    requester_id: uuid.UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user_or_404(user_id, db)
+
+    follower_count = (await db.execute(
+        select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id)
+    )).scalar_one()
+    following_count = (await db.execute(
+        select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id)
+    )).scalar_one()
+
+    is_following = False
+    if requester_id and requester_id != user_id:
+        existing = await db.get(UserFollow, {"follower_id": requester_id, "following_id": user_id})
+        is_following = existing is not None
+
+    rider_style = user.rider_type.slug if user.rider_type else None
+
+    return UserProfileOut(
+        id=user.id,
+        nickname=user.nickname,
+        avatar_url=resolve_avatar_url(user),
+        level=user.level,
+        rider_style=rider_style,
+        follower_count=follower_count,
+        following_count=following_count,
+        is_following=is_following,
+    )
+
+
+@router.get("/search", response_model=list[FollowUserOut], summary="유저 검색 (닉네임 또는 전화번호)")
+async def search_users(
+    query: str,
+    db: AsyncSession = Depends(get_db),
+):
+    if not query or len(query.strip()) < 2:
+        return []
+    
+    query = query.strip()
+    result = await db.execute(
+        select(User).where(
+            (User.nickname.ilike(f"%{query}%")) | (User.phone.ilike(f"%{query}%"))
+        ).limit(20)
+    )
+    rows = result.scalars().all()
+    
+    return [
+        FollowUserOut(
+            id=u.id,
+            nickname=u.nickname,
+            avatar_url=resolve_avatar_url(u),
+            level=u.level,
+        ) for u in rows
+    ]

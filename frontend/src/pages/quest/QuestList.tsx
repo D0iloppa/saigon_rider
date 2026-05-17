@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { fetchQuests, fetchCompletedQuestIds } from '@/api/quests';
 import { fetchDistricts, fetchRiderTypes, fetchSafetyGrades, localizedName } from '@/api/master';
 import { useUserStore } from '@/store/useUserStore';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { District, RiderType, SafetyGrade } from '@/api/master';
 import { formatDistance, formatTimeLeft } from '@/lib/format';
 import type { Quest, QuestType } from '@/api/types';
 import { StatusBar } from '@/components/layout/StatusBar';
+import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
+import { PullIndicator } from '@/components/ui/PullIndicator';
 import { Chip } from '@/components/ui/Chip';
+import { AppImage } from '@/components/ui/AppImage';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './QuestList.module.css';
 
@@ -55,10 +60,7 @@ export default function QuestList() {
   const [districts, setDistricts] = useState<District[]>([]);
   const [riderTypes, setRiderTypes] = useState<RiderType[]>([]);
   const [safetyGrades, setSafetyGrades] = useState<SafetyGrade[]>([]);
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-  const [completedOpen, setCompletedOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [completedCount, setCompletedCount] = useState(0);
 
   useEffect(() => {
     fetchDistricts().then(setDistricts);
@@ -72,17 +74,35 @@ export default function QuestList() {
     { key: 'event',  label: t('quest.tabEvent') },
   ];
 
-  useEffect(() => {
-    setLoading(true);
+  // completedIds를 먼저 가져온 다음 excludeCompleted로 메인 리스트 fetch
+  const fetchPage = useCallback(async (page: number) => {
     const params = buildFilterParams(activeDistrictId, activeRiderTypeId, activeSafetyGradeId);
-    const questsPromise = fetchQuests({ type: tab, ...params });
-    const completedPromise = userId ? fetchCompletedQuestIds(userId, tab) : Promise.resolve(new Set<string>());
-    Promise.all([questsPromise, completedPromise]).then(([list, ids]) => {
-      setQuests(list);
-      setCompletedIds(ids);
-      setLoading(false);
+    return fetchQuests({
+      type: tab,
+      ...params,
+      page,
+      userId: userId ?? undefined,
+      excludeCompleted: !!userId,
     });
   }, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
+
+  const { items: quests, isLoading: loading, isLoadingMore, hasMore, sentinelRef, reset } =
+    useInfiniteScroll<Quest>(fetchPage, 20, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
+
+  // 완료 퀘스트 수 별도 fetch (카운트 표시용)
+  useEffect(() => {
+    if (!userId) { setCompletedCount(0); return; }
+    fetchCompletedQuestIds(userId, tab).then((ids) => setCompletedCount(ids.size));
+  }, [tab, userId]);
+
+  const handleRefresh = useCallback(async () => {
+    if (userId) {
+      fetchCompletedQuestIds(userId, tab).then((ids) => setCompletedCount(ids.size));
+    }
+    reset();
+  }, [reset, userId, tab]);
+
+  const { containerRef: listRef, pullDistance, isRefreshing } = usePullToRefresh(handleRefresh);
 
   return (
     <div className={styles.root}>
@@ -149,51 +169,36 @@ export default function QuestList() {
       </div>
 
       {/* List */}
-      <div className={styles.listArea}>
+      <div className={styles.listArea} ref={listRef as React.RefObject<HTMLDivElement>}>
+        <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
         {loading ? (
           <>
             {[1, 2, 3].map((i) => (
               <div key={i} className={`shimmer ${styles.skeleton}`} />
             ))}
           </>
-        ) : quests.length === 0 ? (
+        ) : quests.length === 0 && completedCount === 0 ? (
           <div className={styles.empty}>
             <GifIcon code="1f9ed" size={120} />
             <h2 className={styles.emptyTitle}>{t('quest.emptyTitle')}</h2>
             <p className={styles.emptySub}>{t('quest.emptySub')}</p>
             <p className={styles.emptyQuote}>{t('quest.emptyQuote')}</p>
           </div>
-        ) : (() => {
-          const active = quests.filter((q) => !completedIds.has(q.id));
-          const completed = quests.filter((q) => completedIds.has(q.id));
-          return (
-            <>
-              {active.map((q) => (
-                <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} />
-              ))}
-              {completed.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    className={styles.completedDivider}
-                    onClick={() => setCompletedOpen((v) => !v)}
-                    aria-expanded={completedOpen}
-                  >
-                    <span>
-                      {t('quest.completedSection')} ({completed.length})
-                    </span>
-                    <span className={`${styles.completedToggleIcon} ${completedOpen ? styles.completedToggleIconOpen : ''}`}>
-                      ▾
-                    </span>
-                  </button>
-                  {completedOpen && completed.map((q) => (
-                    <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} completed />
-                  ))}
-                </>
-              )}
-            </>
-          );
-        })()}
+        ) : (
+          <>
+            {quests.map((q) => (
+              <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} />
+            ))}
+            {completedCount > 0 && !loading && (
+              <div className={styles.completedDivider}>
+                <span>
+                  {t('quest.completedSection')} ({completedCount})
+                </span>
+              </div>
+            )}
+            <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -227,15 +232,7 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
 
       {/* Thumbnail */}
       <div className={styles.thumb}>
-        <img
-          src={quest.thumbnailUrl}
-          alt=""
-          onError={(e) => {
-            const target = e.currentTarget;
-            target.onerror = null;
-            target.src = `https://picsum.photos/seed/${quest.id}/300/300`;
-          }}
-        />
+        <AppImage src={quest.thumbnailUrl} alt="" />
       </div>
 
       {/* Content */}

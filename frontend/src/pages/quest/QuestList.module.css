@@ -87,6 +87,8 @@
 .listArea {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
   padding: 0 20px 16px;
   display: flex;
   flex-direction: column;

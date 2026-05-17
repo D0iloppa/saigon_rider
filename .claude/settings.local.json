@@ -173,7 +173,12 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(p\\) for p in sorted\\(d['paths'].keys\\(\\)\\) if 'follow' in p or 'dm' in p or 'feed/new' in p]\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:10]\\)\")",
       "Bash(curl -s http://localhost:8082/docs -o /dev/null -w \"%{http_code}\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('detail',''\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('detail',''\\)\\)\")",
+      "Bash(npx vite *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(grep -n \"viewerSrc &&\\\\|createPortal\\\\|CommentSheet\\\\|</div>\\\\s*$\" /mnt/c/DEV/saigon_rider/frontend/src/pages/feed/FeedList.tsx)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s http://localhost:5173)"
     ]
   }
 }

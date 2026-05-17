@@ -14,7 +14,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import AdminAccount, Content, District, FeedPost, RideSession, Quest, User, UserQuest
+from ..models import AdminAccount, Content, District, FeedPost, FeedPostImage, RideSession, Quest, User, UserQuest
 from ..utils import (
     build_imgproxy_url,
     default_avatar_url,
@@ -47,7 +47,7 @@ ALLOWED_IMAGE_MIME = {
 }
 
 # role 별 사이드바 메뉴 노출
-_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "settings")
+_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "dev", "settings")
 _ROOT_ONLY_NAV = {"admins"}
 
 
@@ -627,6 +627,18 @@ def _render_caption(text: str | None) -> str:
     return _HASHTAG_RE.sub(lambda m: f'<span class="hashtag">{m.group(0)}</span>', escaped)
 
 
+def _resolve_feed_image_urls_admin(post: FeedPost) -> list[str]:
+    urls = []
+    for img in (post.images or []):
+        if img.content and img.content.file_path:
+            urls.append(build_imgproxy_url(img.content.file_path))
+    if not urls:
+        legacy = resolve_feed_image_url(post)
+        if legacy:
+            urls.append(legacy)
+    return urls
+
+
 @router.get("/feed", include_in_schema=False)
 async def admin_feed_list(
     page: int = 1,
@@ -650,11 +662,17 @@ async def admin_feed_list(
     for post, user in rows:
         nickname = user.nickname if user and user.nickname else "—"
         avatar = resolve_avatar_url(user) if user else default_avatar_url()
-        img_url = resolve_feed_image_url(post)
-        img_block = (
-            f'<div class="feed-img"><img src="{h(img_url)}" alt="" /></div>'
-            if img_url else ""
-        )
+        img_urls = _resolve_feed_image_urls_admin(post)
+        if len(img_urls) > 1:
+            imgs = "".join(f'<img src="{h(u)}" alt="" />' for u in img_urls)
+            img_block = (
+                f'<div class="feed-img feed-img-multi">{imgs}'
+                f'<span class="feed-img-count">{len(img_urls)}장</span></div>'
+            )
+        elif img_urls:
+            img_block = f'<div class="feed-img"><img src="{h(img_urls[0])}" alt="" /></div>'
+        else:
+            img_block = ""
         story_pill = '<span class="pill warn">STORY</span>' if post.is_story else ""
         confirm_attr = "return confirm('정말 삭제하시겠습니까?');"
         cards_html.append(
@@ -709,13 +727,32 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
             "current_image": "",
             "delete_btn": "",
         }
-    img_url = resolve_feed_image_url(post)
-    current_image = (
-        f'<div class="field"><label class="field-label">현재 이미지</label>'
-        f'<div><img src="{h(img_url)}" alt="" style="max-width:280px;border-radius:10px;'
-        f'border:1px solid rgba(255,255,255,.1);" /></div></div>'
-        if img_url else ""
-    )
+    img_urls = _resolve_feed_image_urls_admin(post)
+    if img_urls:
+        imgs_html = ""
+        for i, (img_row, url) in enumerate(zip(post.images or [], img_urls)):
+            cid = str(img_row.content_id)
+            imgs_html += (
+                f'<div style="display:inline-block;position:relative;margin:0 8px 8px 0;">'
+                f'<img src="{h(url)}" alt="" style="width:120px;height:120px;object-fit:cover;'
+                f'border-radius:10px;border:1px solid rgba(255,255,255,.1);display:block;" />'
+                f'<label style="display:flex;gap:4px;align-items:center;font-size:11px;'
+                f'color:rgba(255,255,255,.6);margin-top:4px;">'
+                f'<input type="checkbox" name="remove_image_ids" value="{cid}" /> 삭제'
+                f'</label></div>'
+            )
+        if not imgs_html and img_urls:
+            legacy_url = img_urls[0]
+            imgs_html = (
+                f'<div><img src="{h(legacy_url)}" alt="" style="max-width:280px;border-radius:10px;'
+                f'border:1px solid rgba(255,255,255,.1);" /></div>'
+            )
+        current_image = (
+            f'<div class="field"><label class="field-label">현재 이미지 ({len(img_urls)}장)</label>'
+            f'<div>{imgs_html}</div></div>'
+        )
+    else:
+        current_image = ""
     delete_btn = (
         '<form method="post" action="/admin/feed/' + str(post.id) + '/delete" '
         'onsubmit="return confirm(&#39;정말 삭제하시겠습니까?&#39;);">'
@@ -747,29 +784,34 @@ async def admin_feed_create(
     db: AsyncSession = Depends(get_db),
     content: str = Form(""),
     is_story: str = Form(""),
-    image: UploadFile | None = File(None),
+    images: list[UploadFile] = File([]),
 ):
     text_body = content.strip() or None
-    image_content_id: uuid.UUID | None = None
+    content_ids: list[uuid.UUID] = []
 
-    if image and image.filename:
-        # 피드 이미지는 contents 테이블로 중개 — content row 생성 후 id 로 매핑
-        saved = await _save_uploaded_image(image, db, owner_type="user", owner_id=ADMIN_USER_ID)
-        image_content_id = saved.id
+    for img in images:
+        if img and img.filename:
+            saved = await _save_uploaded_image(img, db, owner_type="user", owner_id=ADMIN_USER_ID)
+            content_ids.append(saved.id)
 
-    if not text_body and image_content_id is None:
+    if not text_body and not content_ids:
         raise HTTPException(status_code=400, detail="content or image is required")
 
     now = datetime.now(timezone.utc)
     post = FeedPost(
         user_id=ADMIN_USER_ID,
         content=text_body,
-        image_content_id=image_content_id,
+        image_content_id=content_ids[0] if content_ids else None,
         is_story=(is_story == "1"),
         created_at=now,
         updated_at=now,
     )
     db.add(post)
+    await db.flush()
+
+    for idx, cid in enumerate(content_ids):
+        db.add(FeedPostImage(post_id=post.id, content_id=cid, sort_order=idx))
+
     await db.commit()
     return RedirectResponse(url="/admin/feed", status_code=302)
 
@@ -791,27 +833,65 @@ async def admin_feed_edit(
 
 @router.post("/feed/{post_id}/edit", include_in_schema=False)
 async def admin_feed_update(
+    request: Request,
     post_id: uuid.UUID,
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
-    content: str = Form(""),
-    is_story: str = Form(""),
-    image: UploadFile | None = File(None),
 ):
+    form = await request.form()
+    content_val = form.get("content", "")
+    is_story_val = form.get("is_story", "")
+    remove_ids_raw = form.getlist("remove_image_ids")
+    new_images = form.getlist("images")
+
     post = (await db.execute(select(FeedPost).where(FeedPost.id == post_id))).scalar_one_or_none()
     if post is None:
         raise HTTPException(status_code=404, detail="Feed post not found")
 
-    text_body = content.strip() or None
-    if image and image.filename:
-        saved = await _save_uploaded_image(image, db, owner_type="user", owner_id=ADMIN_USER_ID)
-        post.image_content_id = saved.id
+    text_body = str(content_val).strip() or None
 
-    if not text_body and post.image_content_id is None and not post.image_url:
+    remove_ids = set()
+    for rid in remove_ids_raw:
+        try:
+            remove_ids.add(uuid.UUID(str(rid)))
+        except ValueError:
+            pass
+
+    if remove_ids:
+        await db.execute(
+            FeedPostImage.__table__.delete().where(
+                FeedPostImage.post_id == post_id,
+                FeedPostImage.content_id.in_(remove_ids),
+            )
+        )
+
+    max_order_result = await db.execute(
+        select(func.coalesce(func.max(FeedPostImage.sort_order), -1))
+        .where(FeedPostImage.post_id == post_id)
+    )
+    next_order = max_order_result.scalar_one() + 1
+
+    new_content_ids: list[uuid.UUID] = []
+    for img in new_images:
+        if hasattr(img, "filename") and img.filename:
+            saved = await _save_uploaded_image(img, db, owner_type="user", owner_id=ADMIN_USER_ID)
+            new_content_ids.append(saved.id)
+            db.add(FeedPostImage(post_id=post_id, content_id=saved.id, sort_order=next_order))
+            next_order += 1
+
+    remaining = await db.execute(
+        select(FeedPostImage.content_id)
+        .where(FeedPostImage.post_id == post_id)
+        .order_by(FeedPostImage.sort_order)
+    )
+    remaining_ids = [r[0] for r in remaining.all()]
+    post.image_content_id = remaining_ids[0] if remaining_ids else None
+
+    if not text_body and not remaining_ids:
         raise HTTPException(status_code=400, detail="content or image is required")
 
     post.content = text_body
-    post.is_story = (is_story == "1")
+    post.is_story = (str(is_story_val) == "1")
     post.updated_at = datetime.now(timezone.utc)
     await db.commit()
     return RedirectResponse(url="/admin/feed", status_code=302)

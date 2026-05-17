@@ -32,6 +32,9 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 |---|---|---|
 | `POST` | `/api/bff/contents/upload` | 이미지 업로드 (multipart) → imgproxy URL 반환 |
 | `GET` | `/api/bff/contents/{id}` | 컨텐츠 메타데이터 + imgproxy URL 조회 |
+| `GET` | `/api/bff/contents/{id}/img` | imgproxy → 302 redirect (w/h 파라미터 지원) |
+| `GET` | `/api/bff/contents/mock-img` | mock 풀에서 랜덤 이미지 → 302 redirect |
+| `GET` | `/api/bff/contents/profile-mock-img?seed=&w=&h=` | seed(user_id) 기반 결정론적 프로필 기본 이미지 → 302 redirect |
 
 ### Profile
 | Method | Path | 설명 |
@@ -47,15 +50,33 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 |---|---|---|
 | `GET` | `/api/bff/quests/pins` | 퀘스트 핀 목록 |
 | `GET` | `/api/bff/quests/recommended` | 추천 퀘스트 (Tonight's Pick) |
-| `GET` | `/api/bff/quests/` | 퀘스트 목록 (필터 지원) |
+| `GET` | `/api/bff/quests/` | 퀘스트 목록 (필터·페이지네이션 지원) |
+| `GET` | `/api/bff/quests/completed-ids` | 현재 주기 완료 퀘스트 ID 목록 |
 | `GET` | `/api/bff/quests/{id}` | 퀘스트 상세 |
 | `POST` | `/api/bff/quests/{id}/accept` | 퀘스트 수락 (중복 완료 시 409) |
+| `POST` | `/api/bff/quests/{id}/complete` | 퀘스트 완료 처리 |
 | `POST` | `/api/bff/quests/{id}/bookmark` | 북마크 토글 |
 | `GET` | `/api/bff/quests/{id}/participants` | 참여자 목록 |
 
-:::info 퀘스트 중복 방지
-`/accept` 호출 시 `period_key` 를 자동 계산하여 `user_quests` 에 저장합니다. 동일 기간 내 이미 COMPLETED 레코드가 있으면 **409 Conflict** 를 반환합니다.  
-`GET /quests/` 응답에 `thumbnail_url` 필드 추가 (imgproxy 경유, 없으면 `hero_image_url` 폴백).
+#### `GET /quests/` 쿼리 파라미터
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `period` | string | — | `DAILY` / `WEEKLY` / `EVENT` |
+| `district_id` | int | — | 구 필터 |
+| `rider_type_id` | int | — | 라이더 타입 필터 |
+| `safety_grade_id` | int | — | 안전 등급 필터 |
+| `user_id` | UUID | — | `exclude_completed` 와 함께 사용 |
+| `exclude_completed` | bool | `false` | true = 해당 user_id의 현재 주기 완료 퀘스트 제외 |
+| `page` | int | 1 | 페이지 번호 |
+| `size` | int | 20 | 페이지당 항목 수 (max 100) |
+
+응답: `Page[QuestOut]` `{ items, total, page, size }`
+
+:::info 퀘스트 중복 방지 & 페이지네이션
+- `/accept` 호출 시 `period_key` 자동 계산 → `user_quests` 저장. 동일 기간 중복 완료 시 **409 Conflict**.
+- `exclude_completed=true` 사용 시 서버 측에서 완료된 퀘스트를 제외 후 `total` 도 정확하게 계산 → 프론트 무한스크롤에서 활용.
+- `thumbnail_url` : `thumbnail_content_id` → `district.image_content_id` → mock-img 순서로 폴백.
 :::
 
 ### Ride
@@ -70,12 +91,31 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 | Method | Path | 설명 |
 |---|---|---|
 | `GET` | `/api/bff/feed/stories` | 스토리 목록 |
-| `GET` | `/api/bff/feed/` | 피드 목록 |
+| `GET` | `/api/bff/feed/` | 피드 목록 (페이지네이션·필터 지원) |
 | `POST` | `/api/bff/feed/` | 피드 게시글 생성 |
 | `POST` | `/api/bff/feed/{id}/like` | 좋아요 토글 |
 | `GET` | `/api/bff/feed/{id}/comments` | 댓글 목록 |
 | `POST` | `/api/bff/feed/{id}/comments` | 댓글 작성 |
 | `POST` | `/api/bff/feed/{id}/comments/{comment_id}/like` | 댓글 좋아요 토글 |
+
+#### `GET /feed/` 쿼리 파라미터
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `filter` | string | `all` | `all` / `neighborhood` / `friends` / `hot` |
+| `user_id` | UUID | — | `friends` 필터 시 팔로잉 기준, `neighborhood` 필터 시 선택적 |
+| `lat` / `lng` | float | — | `neighborhood` 필터 시 기준 좌표 |
+| `radius_m` | int | 5000 | 근방 반경 (m) |
+| `page` | int | 1 | 페이지 번호 |
+| `size` | int | 20 | 페이지당 항목 수 |
+
+응답: `Page[FeedPostEnrichedOut]` `{ items, total, page, size }`
+
+:::info 피드 필터
+- `neighborhood` : PostGIS `ST_DWithin` 으로 반경 5km 내 게시글 필터
+- `friends` : `user_follows` 테이블의 팔로잉 목록 기준 필터
+- `hot` : `like_count` 내림차순 정렬
+:::
 
 ### Notifications
 | Method | Path | 설명 |
@@ -91,6 +131,25 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 | `GET` | `/api/bff/users/me/badges` | 보유 배지 목록 |
 | `DELETE` | `/api/bff/users/me` | 계정 탈퇴 |
 | `POST` | `/api/bff/users/me/export` | 개인정보 내보내기 요청 |
+| `GET` | `/api/bff/users/{user_id}/profile` | 타유저 공개 프로필 (nickname, avatar, level, riderStyle, follower/following count, isFollowing) |
+| `GET` | `/api/bff/users/{user_id}/followers` | 팔로워 목록 |
+| `GET` | `/api/bff/users/{user_id}/following` | 팔로잉 목록 |
+| `GET` | `/api/bff/users/{user_id}/follow-counts` | 팔로워·팔로잉 수 `{ followers, following }` |
+
+### Follows
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/bff/follows/{user_id}` | 팔로우 (이미 팔로우 시 409) |
+| `DELETE` | `/api/bff/follows/{user_id}` | 언팔로우 |
+
+### DM
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/dm/conversations` | 내 DM 대화 목록 |
+| `POST` | `/api/bff/dm/conversations` | 대화 시작 (상대방 user_id 전달, 기존 방 있으면 재사용) |
+| `GET` | `/api/bff/dm/conversations/{id}/messages` | 대화 메시지 목록 (page/after 지원) |
+| `POST` | `/api/bff/dm/conversations/{id}/messages` | 메시지 전송 |
+| `POST` | `/api/bff/dm/conversations/{id}/read` | 읽음 처리 |
 
 ### Badges
 | Method | Path | 설명 |

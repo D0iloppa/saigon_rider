@@ -7,6 +7,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation, DmMessage } from '@/api/types';
+import { AppImage } from '@/components/ui/AppImage';
 import styles from './DmDetail.module.css';
 
 export default function DmDetail() {
@@ -75,7 +76,7 @@ export default function DmDetail() {
               className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}
             >
               {m.content && <div className={styles.text}>{m.content}</div>}
-              {m.imageUrl && <img src={m.imageUrl} alt="" className={styles.msgImg} />}
+              {m.imageUrl && <AppImage src={m.imageUrl} alt="" className={styles.msgImg} />}
               <div className={styles.meta}>
                 {formatRelativeTime(m.createdAt)}
                 {isMine && m.readAt && <span className={styles.read}> ✓</span>}

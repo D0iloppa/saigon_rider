@@ -6,6 +6,7 @@ import { SettingsRow } from '@/components/ui/SettingsRow';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
 import { useState } from 'react';
+import { AppImage } from '@/components/ui/AppImage';
 import styles from './Settings.module.css';
 
 export default function Settings() {
@@ -38,7 +39,7 @@ export default function Settings() {
           className={styles.profileCard}
           onClick={() => navigate('/profile')}
         >
-          <img src={user.avatarUrl} alt="" />
+          <AppImage src={user.avatarUrl} alt="" variant="circle" className={styles.profileAvatar} />
           <div className={styles.profileInfo}>
             <div className={styles.profileNick}>{user.nickname}</div>
             <div className={styles.profileSub}>{t('settings.viewProfile')}</div>
@@ -76,6 +77,12 @@ export default function Settings() {
         </Section>
 
         <Section title={t('settings.sectionAccount')}>
+          <SettingsRow
+            icon="✏️"
+            label={t('settings.editProfile')}
+            arrow
+            onClick={() => navigate('/settings/profile')}
+          />
           <SettingsRow
             icon="👤"
             label={t('settings.accountManagement')}

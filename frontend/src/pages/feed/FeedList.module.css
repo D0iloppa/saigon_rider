@@ -20,6 +20,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 .body { padding: 16px 0 20px; }
@@ -131,41 +132,6 @@
   overflow: hidden;
 }
 
-@keyframes shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.imgSkeleton {
-  position: absolute;
-  inset: 0;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-
-.imgSkeleton::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255,255,255,.08) 50%,
-    transparent 100%
-  );
-  animation: shimmer 1.4s infinite;
-}
-
-.postImgEl {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-
-.postImgVisible {
-  opacity: 1;
-}
 
 /* ── Image lightbox ─────────────────────────────────────────────── */
 .lightbox {
@@ -225,6 +191,40 @@
   will-change: transform;
 }
 
+.lightboxCounter {
+  position: absolute;
+  top: max(24px, env(safe-area-inset-top, 24px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.lightboxDots {
+  position: absolute;
+  bottom: max(32px, env(safe-area-inset-bottom, 32px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.lightboxDot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.lightboxDotActive {
+  background: white;
+}
+
 .imgStats, .imgReward {
   position: absolute;
   padding: 6px 12px;
@@ -258,6 +258,12 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
 }
 
 .userAvatar {

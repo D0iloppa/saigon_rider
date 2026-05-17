@@ -172,7 +172,7 @@ useEffect(() => {
 > Android WebView는 **상태바 아래 영역**만 뷰포트로 사용한다.  
 > 따라서 상단 여백(status bar height)을 플랫폼별로 다르게 처리해야 한다.
 
-### 2.1 동작 원리
+### 2.0 동작 원리
 
 `index.html` 인라인 스크립트가 React 렌더링 전에 실행되어 `<html>` 요소에 `data-platform` 속성을 주입한다.
 
@@ -188,7 +188,7 @@ Android → data-platform="android"
 window.setPlatform('ios');      // 또는 'android'
 ```
 
-### 2.2 CSS 변수 — `--status-bar-height`
+### 2.1 CSS 변수 — `--status-bar-height`
 
 `src/styles/tokens.css`에 정의된 플랫폼별 변수:
 
@@ -209,13 +209,13 @@ height: 44px;
 padding-top: 50px;
 ```
 
-### 2.3 StatusBar 컴포넌트
+### 2.2 StatusBar 컴포넌트
 
 `<StatusBar>` 컴포넌트는 내부적으로 `height: var(--status-bar-height)`를 사용한다.  
 플랫폼별 높이 분기를 직접 처리하므로, 페이지/레이아웃에서는 `<StatusBar>`를 배치하기만 하면 된다.  
 **StatusBar 위쪽에 추가 padding/margin을 넣지 말 것.** (→ 이중 여백 발생)
 
-### 2.4 플랫폼별 스타일을 직접 분기해야 하는 경우
+### 2.3 플랫폼별 스타일을 직접 분기해야 하는 경우
 
 `--status-bar-height` 변수 외에 플랫폼별 추가 분기가 필요하다면 CSS 속성 선택자를 사용한다:
 
@@ -243,7 +243,40 @@ padding-top: 50px;
 
 > 위치: `src/components/ui/`
 
-### 3.0 모바일 상태바(Status Bar) 여백 확보 규칙
+### 3.0 이미지 로딩 (AppImage) — 최우선 규칙
+
+**모든 동적 이미지는 반드시 `<AppImage>` 컴포넌트를 통해 처리한다.**
+
+사용자가 이미지 로딩 중 빈 화면을 보지 않도록 shimmer skeleton을 표시합니다.
+
+```tsx
+import { AppImage } from '@/components/ui/AppImage';
+
+// 직사각형 이미지 (피드, 퀘스트 썸네일 등)
+<AppImage src={imageUrl} alt="설명" />
+
+// 원형 이미지 (아바타)
+<AppImage src={avatarUrl} alt="유저명" variant="circle" />
+```
+
+**적용 대상**
+- 서버에서 받아오는 모든 이미지 (아바타, 게시물, 썸네일, DM 이미지 등)
+- `PhotoCard`, `StoryAvatar` 등 재사용 컴포넌트도 내부적으로 `AppImage` 사용
+
+**제외 사항**
+- 로컬 blob URL 미리보기 (이미 메모리에 있음)
+- 작은 emoji 아이콘 (onError fallback 필요)
+- 이미 표시된 이미지를 확대하는 lightbox
+
+**신규 페이지/컴포넌트 추가 시 체크리스트**
+- [ ] 이미지 표시 부분에서 `<img>` 직접 사용 금지
+- [ ] 동적 이미지는 모두 `<AppImage>` 래핑
+- [ ] 아바타는 `variant="circle"` 옵션 추가
+- [ ] 기타 이미지는 기본값(rect) 사용
+
+---
+
+### 3.1 모바일 상태바(Status Bar) 여백 확보 규칙
 
 신규 페이지 또는 레이아웃을 추가할 때, 화면 최상단에는 모바일의 상태바 영역(좌측 시간, 우측 배터리 등)을 고려한 자체적인 여백이 필요하다.
 
@@ -304,3 +337,75 @@ interface AlertDialogProps {
   onClose: () => void;
 }
 ```
+
+### ProfileCard BottomSheet
+
+> 위치: `src/components/ProfileCard.tsx`
+
+타유저 프로필을 BottomSheet로 표시하는 컴포넌트. FeedList에서 게시자의 아바타/닉네임 클릭 시 열림.
+
+```tsx
+import { ProfileCard } from '@/components/ProfileCard';
+
+<ProfileCard userId={selectedUserId} open={!!selectedUserId} onClose={() => setSelectedUserId(null)} />
+```
+
+내부 구성: 아바타 + 닉네임 + LevelBadge + riderStyle Chip + 팔로워/팔로잉 카운트 + 팔로우/언팔로우 Button.
+API: `fetchUserProfile(userId, requesterId?)` → `GET /users/{userId}/profile` (snake→camel 매핑).
+
+---
+
+## 4. 프로필 페이지 레이아웃 (Draggable Sheet 패턴)
+
+> 위치: `src/pages/profile/ProfileMain.tsx`
+
+프로필 페이지는 3개 고정 레이어 + 드래그 가능 시트로 구성된다.
+
+### 4.1 레이어 구조
+
+```
+[bgFixed]       — position: fixed; inset: 0; background: var(--grad-sunset); z-index: 0
+[fixedHeader]   — Section 1: 아바타 ~ 레벨바 (position: fixed; top: 0; z-index: 1)
+[socialSection] — Section 2: 팔로워/팔로잉 + 프로필공유/친구추가 버튼 (position: fixed; z-index: 1)
+[sheet]         — Section 3: 드래그 가능 바텀시트 (position: fixed; z-index: 3; border-radius: 32px 32px 0 0)
+```
+
+- 배경 그라데이션은 단일 `bgFixed` 요소 하나로 전체 화면을 커버 (레이어별 개별 배경 금지).
+- Section 1은 항상 고정. Section 3는 Section 2 위로 올라올 수 있지만 Section 1은 절대 덮지 않음.
+
+### 4.2 스냅 포인트 & 터치 제스처
+
+```
+snapMin = fixedHeader 높이 (Section 1 바로 아래까지 시트가 올라갈 수 있는 최상단)
+snapMax = socialSection 하단 (Section 2 아래, 시트의 기본 위치)
+```
+
+- `ResizeObserver`로 Section 1/2 높이를 동적 계산하여 스냅 포인트 결정.
+- 터치 릴리즈 시 가장 가까운 스냅 포인트로 `transition: top .3s cubic-bezier(.2,.8,.2,1)` 애니메이션.
+
+### 4.3 스크롤 위임 (핵심)
+
+시트 내부 콘텐츠 스크롤은 시트가 **snapMin(최상단)에 도달한 경우에만** 활성화.
+
+```tsx
+style={{
+  top: sheetTop,
+  transition: dragging.current ? 'none' : 'top .3s cubic-bezier(.2,.8,.2,1)',
+  overflowY: sheetTop <= snapMin.current ? 'auto' : 'hidden',
+}}
+```
+
+- `overflowY: hidden` — 시트 이동 중에는 내부 스크롤 불가 (동시 드래그+스크롤 방지).
+- `overflowY: auto` — snapMin 도달 후에야 내부 콘텐츠가 스크롤됨.
+- snapMin 상태에서 내부 scrollTop=0이고 아래로 스와이프 → 시트 다시 드래그 가능.
+
+### 4.4 프로필 액션 버튼 (Instagram 스타일)
+
+Section 2 하단에 배치:
+- **"프로필 공유"** 텍스트 버튼 (`flex: 1`, glass 스타일) → QR카드 BottomSheet 오픈
+- **친구추가 아이콘** (SVG user-plus, 34×34px) → `/friends/add` 이동
+
+### 4.5 소셜 영역 단순화
+
+기존 3분할(Follower/Following/Friend) → **2분할(Follower/Following)** 로 변경.
+"친구 = 상호 팔로우"이므로 별도 카운트 불필요.

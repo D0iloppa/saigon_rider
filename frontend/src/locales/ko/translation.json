@@ -142,9 +142,18 @@
     "commentPlaceholder": "댓글을 남겨보세요..."
   },
   "profile": {
+    "tabFeeds": "피드",
     "tabHistory": "기록",
     "tabBadges": "배지",
     "tabGear": "장비",
+    "emptyFeeds": "아직 피드가 없어요",
+    "emptyFeedsSub": "라이딩 후 첫 피드를 올려보세요",
+    "newPost": "새 글",
+    "editPost": "수정",
+    "deletePost": "삭제",
+    "deletePostConfirm": "이 피드를 삭제하시겠어요?",
+    "deletePostSuccess": "피드가 삭제되었어요",
+    "deletePostError": "피드 삭제에 실패했어요",
     "thisMonth": "이번 달",
     "noGear": "장착할 수 있는 장비가 없어요",
     "earnedAt": "획득: {{date}}",
@@ -157,7 +166,9 @@
     "nicknameError": "이미 사용 중인 닉네임이에요",
     "avatarError": "사진 업로드에 실패했어요",
     "saving": "저장 중...",
-    "saveBtn": "저장"
+    "saveBtn": "저장",
+    "share": "프로필 공유",
+    "shareGuide": "이 QR코드를 스캔하면 프로필을 볼 수 있어요"
   },
   "settings": {
     "title": "설정",
@@ -171,6 +182,7 @@
     "darkMode": "다크 모드",
     "locationPermission": "위치 권한",
     "locationAllowed": "허용됨",
+    "editProfile": "프로필 수정",
     "accountManagement": "계정 관리",
     "privacy": "개인정보",
     "terms": "이용약관",
@@ -224,6 +236,28 @@
     "followBtn": "팔로우",
     "unfollowBtn": "팔로잉",
     "emptyFollowers": "아직 팔로워가 없어요",
-    "emptyFollowing": "아직 팔로잉이 없어요"
+    "emptyFollowing": "아직 팔로잉이 없어요",
+    "friends": "친구",
+    "emptyFriends": "아직 친구가 없어요",
+    "addFriend": "친구 추가",
+    "searchPlaceholder": "닉네임 또는 번호 검색",
+    "myQr": "내 QR",
+    "scanQr": "QR 스캔",
+    "scanGuide": "상대방의 QR 코드를 스캔하세요",
+    "myQrGuide": "내 QR 코드를 보여주세요"
+  },
+  "feedEdit": {
+    "title": "글 수정",
+    "saveBtn": "저장",
+    "saving": "저장 중...",
+    "saveError": "수정에 실패했어요",
+    "saveSuccess": "수정되었어요"
+  },
+  "profileEdit": {
+    "title": "프로필 수정",
+    "nicknameLabel": "닉네임",
+    "saveBtn": "저장",
+    "saved": "프로필이 저장되었어요",
+    "avatarSuccess": "사진이 변경되었어요"
   }
 }

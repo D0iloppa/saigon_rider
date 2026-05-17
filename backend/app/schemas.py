@@ -377,6 +377,8 @@ class FeedPostEnrichedOut(BaseModel):
     ride_session_id: UUID | None
     content: str | None
     image_url: str | None
+    image_urls: list[str] = []
+    image_content_ids: list[UUID] = []
     like_count: int
     comment_count: int
     is_story: bool
@@ -391,11 +393,23 @@ class FeedCreateRequest(BaseModel):
     ride_session_id: UUID | None = None
     content: str | None = None
     image_content_id: UUID | None = None
+    image_content_ids: list[UUID] = []
     image_url: str | None = None
     is_story: bool = False
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     district_id: int | None = None
+
+
+class FeedUpdateRequest(BaseModel):
+    user_id: UUID
+    content: str | None = None
+    image_content_id: UUID | None = None
+    image_content_ids: list[UUID] | None = None
+
+
+class FeedDeleteRequest(BaseModel):
+    user_id: UUID
 
 
 class LikeToggleRequest(BaseModel):
@@ -530,6 +544,17 @@ class FollowCountsOut(BaseModel):
     following_count: int
 
 
+class UserProfileOut(BaseModel):
+    id: UUID
+    nickname: str | None
+    avatar_url: str | None
+    level: int
+    rider_style: str | None
+    follower_count: int
+    following_count: int
+    is_following: bool
+
+
 # ── DM ───────────────────────────────────────────────────────────
 
 
@@ -566,3 +591,90 @@ class DmMessageCreateRequest(BaseModel):
 
 class DmMarkReadRequest(BaseModel):
     user_id: UUID
+
+
+# ── __DEV: 프로젝트 컨텍스트 관리 ────────────────────────────────
+
+
+class DevContextOut(BaseModel):
+    id: int
+    key: str
+    value: str | None = None
+    meta: dict | None = None
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DevContextUpsertRequest(BaseModel):
+    key: str
+    value: str | None = None
+    meta: dict | None = None
+
+
+class DevFeatureOut(BaseModel):
+    id: int
+    category: str
+    name: str
+    description: str | None = None
+    status: str
+    sort_order: int
+    meta: dict | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DevFeatureCreateRequest(BaseModel):
+    category: str
+    name: str
+    description: str | None = None
+    status: str = "PLANNED"
+    sort_order: int = 0
+    meta: dict | None = None
+
+
+class DevFeatureUpdateRequest(BaseModel):
+    category: str | None = None
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    sort_order: int | None = None
+    meta: dict | None = None
+
+
+class DevTodoOut(BaseModel):
+    id: int
+    title: str
+    description: str | None = None
+    priority: str
+    status: str
+    feature_id: int | None = None
+    feature: DevFeatureOut | None = None
+    due_date: date | None = None
+    meta: dict | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DevTodoCreateRequest(BaseModel):
+    title: str
+    description: str | None = None
+    priority: str = "MEDIUM"
+    status: str = "TODO"
+    feature_id: int | None = None
+    due_date: date | None = None
+    meta: dict | None = None
+
+
+class DevTodoUpdateRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    priority: str | None = None
+    status: str | None = None
+    feature_id: int | None = None
+    due_date: date | None = None
+    meta: dict | None = None

@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { fetchConversations } from '@/api/dm';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
+import { AppImage } from '@/components/ui/AppImage';
 import styles from './DmList.module.css';
 
 export default function DmList() {
@@ -34,10 +35,11 @@ export default function DmList() {
                 className={styles.row}
                 onClick={() => navigate(`/dm/${c.id}`, { state: { conv: c } })}
               >
-                <img
+                <AppImage
                   src={c.otherUserAvatarUrl ?? undefined}
                   alt=""
                   className={styles.avatar}
+                  variant="circle"
                 />
                 <div className={styles.info}>
                   <div className={styles.nameRow}>

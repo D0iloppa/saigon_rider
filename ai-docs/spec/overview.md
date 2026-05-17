@@ -55,6 +55,9 @@
 | 19 | FEED-001 | 피드 목록 | `/feed` | `19 · FEED-001 · 피드` |
 | 20 | FEED-EMPTY | 피드 빈 상태 | `/feed` (상태 분기) | `20 · FEED-EMPTY` |
 | 21 | FEED-COMMENT | 댓글 Bottom Sheet | `/feed` (오버레이) | `21 · FEED-COMMENT · 댓글` |
+| — | FEED-CREATE | 피드 작성 | `/feed/new` | (신규) |
+| — | DM-LIST | DM 목록 | `/dm` | (신규) |
+| — | DM-DETAIL | DM 채팅방 | `/dm/:id` | (신규) |
 
 ### 그룹 F — 프로필 (Profile)
 
@@ -62,6 +65,8 @@
 |---|-----|--------|------|-----------------|
 | 22 | PROFILE-001 | 내 프로필 | `/profile` | `22 · PROFILE-001 · 프로필` |
 | 23 | BADGE-DETAIL | 배지 상세 모달 | `/profile` (오버레이) | `23 · BADGE-DETAIL · 배지` |
+| — | FOLLOWER-LIST | 팔로워 목록 | `/followers/:userId` | (신규) |
+| — | FOLLOWING-LIST | 팔로잉 목록 | `/following/:userId` | (신규) |
 
 ### 그룹 G — 설정 (Settings)
 

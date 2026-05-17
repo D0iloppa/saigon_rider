@@ -10,18 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import FeedPost, PostComment, PostCommentLike, PostLike, RideSession, User, UserFollow
+from ..models import FeedPost, FeedPostImage, PostComment, PostCommentLike, PostLike, RideSession, User, UserFollow
 from ..schemas import (
     CommentCreateRequest,
     CommentOut,
     FeedCreateRequest,
+    FeedDeleteRequest,
     FeedPostEnrichedOut,
     FeedPostOut,
+    FeedUpdateRequest,
     LikeToggleRequest,
     LikeToggleResponse,
     Page,
 )
-from ..utils import default_avatar_url, resolve_avatar_url, resolve_feed_image_url
+from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/feed", tags=["피드 (Feed)"])
@@ -35,7 +37,21 @@ async def _get_post_or_404(post_id: uuid.UUID, db: AsyncSession) -> FeedPost:
     return post
 
 
+def _resolve_image_urls(post: FeedPost) -> list[str]:
+    urls = []
+    for img in (post.images or []):
+        if img.content and img.content.file_path:
+            urls.append(build_imgproxy_url(img.content.file_path))
+    if not urls:
+        legacy = resolve_feed_image_url(post)
+        if legacy:
+            urls.append(legacy)
+    return urls
+
+
 def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> FeedPostEnrichedOut:
+    image_urls = _resolve_image_urls(post)
+    content_ids = [img.content_id for img in (post.images or [])]
     return FeedPostEnrichedOut(
         id=post.id,
         user_id=post.user_id,
@@ -44,7 +60,9 @@ def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> Feed
         user_level=user.level if user else 1,
         ride_session_id=post.ride_session_id,
         content=post.content,
-        image_url=resolve_feed_image_url(post),
+        image_url=image_urls[0] if image_urls else None,
+        image_urls=image_urls,
+        image_content_ids=content_ids,
         like_count=post.like_count,
         comment_count=post.comment_count,
         is_story=post.is_story,
@@ -62,6 +80,7 @@ async def get_feed(
     page: int = 1,
     size: int = 20,
     user_id: uuid.UUID | None = Query(None),
+    author_id: uuid.UUID | None = Query(None),
     lat: Decimal | None = Query(None),
     lng: Decimal | None = Query(None),
     radius_m: int = Query(5000),
@@ -80,6 +99,10 @@ async def get_feed(
         .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
     )
     count_q = select(func.count()).select_from(FeedPost)
+
+    if author_id:
+        base_q = base_q.where(FeedPost.user_id == author_id)
+        count_q = count_q.where(FeedPost.user_id == author_id)
 
     if filter == "friends" and user_id:
         following_ids = select(UserFollow.following_id).where(UserFollow.follower_id == user_id)
@@ -124,18 +147,35 @@ async def get_stories(db: AsyncSession = Depends(get_db)):
     return [_enrich(post, user, ride) for post, user, ride in rows]
 
 
+# F-2b
+@router.get("/{post_id}", response_model=FeedPostEnrichedOut, summary="피드 단건 조회")
+async def get_feed_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    row = (await db.execute(
+        select(FeedPost, User, RideSession)
+        .outerjoin(User, FeedPost.user_id == User.id)
+        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+        .where(FeedPost.id == post_id)
+    )).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    post, user, ride = row
+    return _enrich(post, user, ride)
+
+
 # F-3
 @router.post("", response_model=FeedPostOut, status_code=201, summary="피드 공유 (라이딩 결과 게시)")
 async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(get_db)):
-    if body.content is None and body.image_url is None and body.image_content_id is None:
-        raise HTTPException(status_code=400, detail="content, image_content_id or image_url is required")
+    has_images = bool(body.image_content_ids) or body.image_content_id is not None
+    if body.content is None and body.image_url is None and not has_images:
+        raise HTTPException(status_code=400, detail="content, image_content_ids or image_url is required")
 
     now = datetime.now(timezone.utc)
+    first_content_id = body.image_content_ids[0] if body.image_content_ids else body.image_content_id
     post = FeedPost(
         user_id=body.user_id,
         ride_session_id=body.ride_session_id,
         content=body.content,
-        image_content_id=body.image_content_id,
+        image_content_id=first_content_id,
         image_url=body.image_url,
         is_story=body.is_story,
         latitude=body.latitude,
@@ -147,6 +187,11 @@ async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(g
     db.add(post)
     await db.flush()
     post_id = post.id
+
+    content_ids = body.image_content_ids or ([body.image_content_id] if body.image_content_id else [])
+    for idx, cid in enumerate(content_ids):
+        db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
+
     await db.commit()
 
     try:
@@ -162,6 +207,52 @@ async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(g
 
     post = (await db.execute(select(FeedPost).where(FeedPost.id == post_id))).scalar_one()
     return FeedPostOut.model_validate(post)
+
+
+# F-3b
+@router.put("/{post_id}", response_model=FeedPostOut, summary="피드 수정 (본인만)")
+async def update_feed_post(
+    post_id: uuid.UUID,
+    body: FeedUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    post = await _get_post_or_404(post_id, db)
+    if post.user_id != body.user_id:
+        raise HTTPException(status_code=403, detail="Not the post owner")
+
+    if body.content is not None:
+        post.content = body.content
+    if body.image_content_ids is not None:
+        await db.execute(
+            select(FeedPostImage).where(FeedPostImage.post_id == post_id)
+        )
+        for old_img in list(post.images):
+            await db.delete(old_img)
+        for idx, cid in enumerate(body.image_content_ids):
+            db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
+        post.image_content_id = body.image_content_ids[0] if body.image_content_ids else None
+    elif body.image_content_id is not None:
+        post.image_content_id = body.image_content_id
+    post.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    post = (await db.execute(select(FeedPost).where(FeedPost.id == post_id))).scalar_one()
+    return FeedPostOut.model_validate(post)
+
+
+# F-3c
+@router.delete("/{post_id}", status_code=204, summary="피드 삭제 (본인만)")
+async def delete_feed_post(
+    post_id: uuid.UUID,
+    body: FeedDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    post = await _get_post_or_404(post_id, db)
+    if post.user_id != body.user_id:
+        raise HTTPException(status_code=403, detail="Not the post owner")
+
+    await db.delete(post)
+    await db.commit()
 
 
 # F-4

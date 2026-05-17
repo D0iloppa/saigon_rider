@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from .engine_client import engine_client
-from .routers import admin, auth, badges, contents, dm, feed, follows, master, notifications, profile, quests, ride, users
+from .routers import admin, auth, badges, contents, dev_context, dm, feed, follows, master, notifications, profile, quests, ride, users
 
 
 @asynccontextmanager
@@ -73,6 +73,8 @@ app.include_router(users.router, prefix="/api")
 app.include_router(badges.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
+app.include_router(dev_context.router, prefix="/api")
+app.include_router(dev_context.admin_router)
 app.include_router(admin.router)
 
 

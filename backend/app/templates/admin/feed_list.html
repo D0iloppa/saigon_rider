@@ -29,8 +29,18 @@
   .feed-meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .feed-nick { font-size: 13px; font-weight: 700; color: #fff; }
   .feed-date { font-size: 11px; color: rgba(255,255,255,.4); }
-  .feed-img { width: 100%; aspect-ratio: 1 / 1; background: rgba(255,255,255,.03); }
+  .feed-img { width: 100%; aspect-ratio: 1 / 1; background: rgba(255,255,255,.03); position: relative; overflow: hidden; }
   .feed-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .feed-img-multi { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; aspect-ratio: 1 / 1; }
+  .feed-img-multi img { width: 100%; height: 100%; object-fit: cover; }
+  .feed-img-multi img:only-child { grid-column: 1 / -1; }
+  .feed-img-multi img:nth-child(n+5) { display: none; }
+  .feed-img-count {
+    position: absolute; bottom: 8px; right: 8px;
+    background: rgba(0,0,0,.6); color: #fff;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 8px;
+  }
   .feed-caption {
     padding: 12px 14px;
     font-size: 13px;

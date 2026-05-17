@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -115,3 +116,32 @@ async def get_follow_counts(
         select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id)
     )).scalar_one()
     return FollowCountsOut(follower_count=follower_count, following_count=following_count)
+
+
+@router.get("/users/{user_id}/friends", response_model=Page[FollowUserOut], summary="친구 목록 (상호 팔로우)")
+async def get_friends(
+    user_id: uuid.UUID,
+    page: int = 1,
+    size: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    offset = (page - 1) * size
+    reverse_follow = aliased(UserFollow)
+
+    total = (await db.execute(
+        select(func.count())
+        .select_from(UserFollow)
+        .join(reverse_follow, (reverse_follow.follower_id == UserFollow.following_id) & (reverse_follow.following_id == user_id))
+        .where(UserFollow.follower_id == user_id)
+    )).scalar_one()
+
+    rows = (await db.execute(
+        select(User)
+        .join(UserFollow, UserFollow.following_id == User.id)
+        .join(reverse_follow, (reverse_follow.follower_id == User.id) & (reverse_follow.following_id == user_id))
+        .where(UserFollow.follower_id == user_id)
+        .order_by(UserFollow.created_at.desc())
+        .offset(offset).limit(size)
+    )).scalars().all()
+
+    return Page(items=[_user_to_follow_out(u) for u in rows], total=total, page=page, size=size)

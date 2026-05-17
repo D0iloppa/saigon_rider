@@ -38,24 +38,41 @@ function transformQuest(raw: any): Quest {
   };
 }
 
+export interface QuestPage {
+  items: Quest[];
+  total: number;
+  page: number;
+  size: number;
+}
+
 export async function fetchQuests(filter?: {
   type?: 'daily' | 'weekly' | 'event';
   districtId?: number;
   riderTypeId?: number;
   safetyGradeId?: number;
-}): Promise<Quest[]> {
+  userId?: string;
+  excludeCompleted?: boolean;
+  page?: number;
+  size?: number;
+}): Promise<QuestPage> {
+  const page = filter?.page ?? 1;
+  const size = filter?.size ?? 20;
+
   if (USE_MOCK) {
     let list = [...MOCK_QUESTS];
     if (filter?.type) list = list.filter((q) => q.questType === filter.type);
-    return api.delay(list, 200);
+    const start = (page - 1) * size;
+    return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
   }
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (filter?.type) params.set('period', filter.type.toUpperCase());
   if (filter?.districtId) params.set('district_id', String(filter.districtId));
   if (filter?.riderTypeId) params.set('rider_type_id', String(filter.riderTypeId));
   if (filter?.safetyGradeId) params.set('safety_grade_id', String(filter.safetyGradeId));
-  const raw = await api.realFetch<any[]>(`/quests?${params}`);
-  return raw.map(transformQuest);
+  if (filter?.userId) params.set('user_id', filter.userId);
+  if (filter?.excludeCompleted) params.set('exclude_completed', 'true');
+  const raw = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/quests?${params}`);
+  return { items: raw.items.map(transformQuest), total: raw.total, page: raw.page, size: raw.size };
 }
 
 export async function fetchQuest(id: string): Promise<Quest | null> {

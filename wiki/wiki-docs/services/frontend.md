@@ -43,11 +43,12 @@ docker compose logs -f frontend
 
 ```
 frontend/src/
-├── api/          # fetch 래퍼 (auth, feed, quests, profile, client, types)
+├── api/          # fetch 래퍼 (auth, feed, quests, profile, follows, dm, client, types)
 ├── components/
 │   ├── layout/   # AppShell, TabBar, TopBar, StatusBar
-│   └── ui/       # 공통 컴포넌트 (Button, Chip, BottomSheet, AlertDialog 등)
+│   └── ui/       # 공통 컴포넌트 (Button, Chip, BottomSheet, AlertDialog, ScrollSentinel, PullIndicator 등)
 ├── data/         # 더미 데이터 (feed, quests, countryCodes)
+├── hooks/        # 커스텀 훅 (useInfiniteScroll, usePullToRefresh)
 ├── lib/
 │   ├── format.ts     # 숫자/날짜 포맷
 │   ├── i18n.ts       # i18next 설정
@@ -56,8 +57,10 @@ frontend/src/
 │   └── session.ts    # 쿠키 세션 관리
 ├── pages/
 │   ├── auth/     # PhoneInput, OtpInput, ProfileSetup, Splash
-│   ├── feed/     # FeedList
+│   ├── dm/       # DmList, DmDetail (DM 목록·채팅)
+│   ├── feed/     # FeedList, FeedCreate
 │   ├── home/     # WorldMap
+│   ├── profile/  # ProfileMain, FollowerList, FollowingList, FriendList, FriendAdd
 │   ├── quest/    # QuestList, QuestDetail
 │   ├── ride/     # RideActive, RideResult
 │   └── settings/ # Settings, NotiSettings, LangSettings, AccountSettings
@@ -227,6 +230,143 @@ unsub(); // unmount 시 해제
 | `locationUpdate` | Push (Native→Web) | 실시간 위치 스트리밍 |
 | `appForeground` | Push (Native→Web) | 앱 포그라운드 복귀 이벤트 |
 | `deepLink` | Push (Native→Web) | 딥링크 URL 수신 |
+
+## 이미지 로딩 (AppImage) — 최우선 규칙
+
+**모든 동적 이미지는 반드시 `<AppImage>` 컴포넌트를 통해 처리합니다.**
+
+사용자가 이미지 로딩 중 빈 화면을 보지 않도록 shimmer skeleton을 표시하는 래퍼 컴포넌트입니다.
+
+### 사용법
+
+```tsx
+import { AppImage } from '@/components/ui/AppImage';
+
+// 직사각형 이미지 (피드, 퀘스트 썸네일 등)
+<AppImage src={imageUrl} alt="설명" />
+
+// 원형 이미지 (아바타, 프로필 사진)
+<AppImage src={avatarUrl} alt="유저명" variant="circle" />
+```
+
+### Props
+
+| Prop | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `src` | string | 필수 | 이미지 URL |
+| `alt` | string | `''` | 대체 텍스트 |
+| `variant` | `'rect'` \| `'circle'` | `'rect'` | rect = 직사각형 skeleton, circle = 원형 skeleton |
+| `...imgProps` | HTMLImageAttributes | | 기타 img 속성 |
+
+### 동작
+
+1. **로딩 중**: shimmer 애니메이션이 적용된 skeleton 표시
+2. **로드 완료**: fade-in 전환으로 이미지 표시
+3. **에러**: skeleton 상태 유지 (onError 핸들러로 오류 처리 가능)
+
+### 적용 대상
+
+- 서버에서 받아오는 모든 동적 이미지
+- `PhotoCard`, `StoryAvatar` 등 재사용 컴포넌트도 내부적으로 `AppImage` 사용
+- 아바타, 게시물 사진, 퀘스트 썸네일, DM 이미지 등
+
+### 제외 사항
+
+- 로컬 blob URL 미리보기 (메모리에 있으므로 즉시 로드)
+- 작은 emoji 아이콘 (onError fallback 로직이 필요한 경우)
+- 이미 표시된 이미지를 확대하는 lightbox
+
+### 신규 개발 체크리스트
+
+새로운 페이지나 컴포넌트를 추가할 때:
+- [ ] 동적 이미지에서 `<img>` 직접 사용 금지
+- [ ] 모든 이미지를 `<AppImage>` 로 래핑
+- [ ] 아바타/프로필 사진은 `variant="circle"` 옵션 추가
+- [ ] 기타 이미지는 기본값 사용
+
+---
+
+## 무한스크롤 & Pull-to-Refresh
+
+### `useInfiniteScroll<T>` 훅
+
+`src/hooks/useInfiniteScroll.ts`
+
+offset 기반 무한스크롤 훅. `FeedList` / `QuestList` 에서 사용합니다.
+
+```typescript
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+
+const { items, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
+  useInfiniteScroll<FeedPost>(
+    (page) => fetchFeed({ filter, page }),  // fetchPage 함수
+    20,                                      // pageSize
+    [filter, userId],                        // deps — 변경 시 자동 리셋
+  );
+```
+
+- `fetchPage(page)` 는 `{ items, total, page, size }` 를 반환해야 합니다.
+- `sentinelRef` 를 리스트 하단 div에 붙이면 IntersectionObserver가 자동 트리거합니다.
+- `deps` 변경 시 page 1부터 재로딩(리셋)됩니다.
+- `loadingRef` 가드로 중복 요청을 방지합니다.
+
+### `usePullToRefresh` 훅
+
+`src/hooks/usePullToRefresh.ts`
+
+touch 이벤트 기반 당겨서 새로고침 훅.
+
+```typescript
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+
+const { containerRef, pullDistance, isRefreshing } = usePullToRefresh(async () => {
+  await reset();  // useInfiniteScroll의 reset 함수 등 전달
+});
+```
+
+- `containerRef` 를 스크롤 컨테이너 div에 붙입니다.
+- `scrollTop === 0` 일 때만 감지 (스크롤 중 오작동 방지).
+- 저항감 0.5 감쇠, 64px 임계값 초과 시 `onRefresh` 실행.
+- `pullDistance` / `isRefreshing` 를 `<PullIndicator>` 에 전달해 시각 피드백을 표시합니다.
+
+### `<ScrollSentinel>` 컴포넌트
+
+리스트 하단에 배치. IntersectionObserver 트리거 + 로딩 스피너/끝 표시.
+
+```tsx
+<ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
+```
+
+### `<PullIndicator>` 컴포넌트
+
+스크롤 컨테이너 최상단에 배치 (`position: absolute; top: -48px`). 당기는 거리에 따라 화살표 회전, 임계값 도달 시 스피너로 전환.
+
+```tsx
+<PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+```
+
+## ProfileCard BottomSheet
+
+`src/components/ProfileCard.tsx` — 타유저 프로필을 BottomSheet로 표시.
+
+- **진입점**: FeedList에서 게시자 아바타/닉네임 클릭
+- **구성**: 아바타, 닉네임, LevelBadge, riderStyle Chip, 팔로워/팔로잉 수, 팔로우/언팔로우 버튼
+- **API**: `fetchUserProfile(userId, requesterId?)` → `GET /users/{userId}/profile`
+
+## 프로필 페이지 Draggable Sheet 패턴
+
+`ProfileMain.tsx`는 3개 고정 레이어 + 드래그 가능 시트로 구성:
+
+| 레이어 | 역할 | CSS |
+|---|---|---|
+| `bgFixed` | 단일 그라데이션 배경 | `position: fixed; inset: 0; z-index: 0` |
+| `fixedHeader` (Section 1) | 아바타 ~ 레벨바 | `position: fixed; top: 0; z-index: 1` |
+| `socialSection` (Section 2) | 팔로워/팔로잉 + 공유/친구추가 버튼 | `position: fixed; z-index: 1` |
+| `sheet` (Section 3) | 커런시/통계/히스토리/뱃지 | `position: fixed; z-index: 3` (드래그 가능) |
+
+- Section 3는 두 스냅 포인트(snapMin=Section1 하단, snapMax=Section2 하단) 사이에서 드래그
+- `overflowY: hidden` (이동 중) → `auto` (snapMin 도달 후) 로 토글하여 내부 스크롤과 시트 드래그를 분리
+- 소셜 영역은 Follower/Following 2분할 (Friend 셀 제거됨)
 
 ## 환경변수
 

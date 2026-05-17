@@ -1,0 +1,195 @@
+<style>
+  .dev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  .dev-full { grid-column: 1 / -1; }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #fff;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .section-title .count {
+    font-size: 11px; color: rgba(255,255,255,.4);
+    font-weight: 600;
+  }
+
+  /* ── Context KV ── */
+  .kv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .kv-table th, .kv-table td {
+    padding: 10px 12px; text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .kv-table th {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: rgba(255,255,255,.4);
+  }
+  .kv-key { font-family: monospace; color: #ff8055; font-weight: 600; }
+  .kv-value { color: rgba(255,255,255,.8); max-width: 400px; word-break: break-word; }
+  .kv-time { font-size: 11px; color: rgba(255,255,255,.35); }
+  .kv-actions { white-space: nowrap; }
+
+  /* ── Feature/Todo cards ── */
+  .item-list { display: flex; flex-direction: column; gap: 8px; }
+  .item-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+    font-size: 13px;
+    transition: background .15s;
+  }
+  .item-row:hover { background: rgba(255,255,255,.05); }
+  .item-name { flex: 1; color: #fff; font-weight: 600; }
+  .item-name small { display: block; font-weight: 400; color: rgba(255,255,255,.4); font-size: 11px; margin-top: 2px; }
+  .item-cat {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    padding: 2px 8px; border-radius: 999px;
+    background: rgba(99,179,237,.12); color: #63b3ed; border: 1px solid rgba(99,179,237,.25);
+  }
+  .status-PLANNED, .status-TODO { background: rgba(160,174,192,.1); color: rgba(255,255,255,.5); border-color: rgba(255,255,255,.12); }
+  .status-IN_PROGRESS { background: rgba(255,153,51,.12); color: #ff9933; border-color: rgba(255,153,51,.3); }
+  .status-DONE { background: rgba(72,187,120,.12); color: #68d391; border-color: rgba(72,187,120,.3); }
+  .status-DEFERRED, .status-BLOCKED { background: rgba(239,59,59,.1); color: #fc8181; border-color: rgba(239,59,59,.25); }
+  .priority-URGENT { color: #fc8181; font-weight: 700; }
+  .priority-HIGH { color: #ff9933; font-weight: 700; }
+  .priority-MEDIUM { color: rgba(255,255,255,.6); }
+  .priority-LOW { color: rgba(255,255,255,.35); }
+
+  /* ── Inline form ── */
+  .add-form {
+    display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px dashed rgba(255,255,255,.07);
+  }
+  .add-form .field { margin-bottom: 0; }
+  .add-form input, .add-form select, .add-form textarea {
+    padding: 7px 10px; font-size: 12px;
+  }
+  .add-form .btn { padding: 7px 14px; font-size: 12px; }
+
+  /* ── Summary stats ── */
+  .stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .stat-box {
+    padding: 12px 18px; border-radius: 12px;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+    text-align: center; min-width: 100px;
+  }
+  .stat-num { font-size: 22px; font-weight: 800; color: #fff; }
+  .stat-label { font-size: 10px; color: rgba(255,255,255,.4); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+
+  .filter-form { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-form select, .filter-form input { padding: 6px 10px; font-size: 12px; }
+</style>
+
+<h1 class="page-title">DEV Context</h1>
+<p class="page-sub">프로젝트 진행 상황 · 기능 리스트 · TODO 관리</p>
+
+<!-- Summary -->
+<div class="stat-row">
+  {{summary_stats}}
+</div>
+
+<!-- Context KV -->
+<div class="card dev-full" style="margin-bottom:20px;">
+  <div class="section-title">Context (현재 상태) <span class="count">{{context_count}}건</span></div>
+  <table class="kv-table">
+    <thead><tr><th>Key</th><th>Value</th><th>Updated</th><th></th></tr></thead>
+    <tbody>{{context_rows}}</tbody>
+  </table>
+  <form class="add-form" method="post" action="/admin/dev/context">
+    <div class="field">
+      <label class="field-label">Key</label>
+      <input type="text" name="key" required placeholder="e.g. current_sprint" style="width:160px;" />
+    </div>
+    <div class="field">
+      <label class="field-label">Value</label>
+      <input type="text" name="value" placeholder="값 입력" style="width:280px;" />
+    </div>
+    <button type="submit" class="btn btn-sm">추가 / 갱신</button>
+  </form>
+</div>
+
+<!-- Features -->
+<div class="dev-grid">
+  <div class="card">
+    <div class="section-title">Features (기능 목록) <span class="count">{{feature_count}}건</span></div>
+    <form class="filter-form" method="get" action="/admin/dev">
+      <select name="f_status">
+        <option value="">전체 상태</option>
+        <option value="PLANNED" {{sel_f_PLANNED}}>PLANNED</option>
+        <option value="IN_PROGRESS" {{sel_f_IN_PROGRESS}}>IN_PROGRESS</option>
+        <option value="DONE" {{sel_f_DONE}}>DONE</option>
+        <option value="DEFERRED" {{sel_f_DEFERRED}}>DEFERRED</option>
+      </select>
+      <select name="f_category">
+        <option value="">전체 카테고리</option>
+        {{category_options}}
+      </select>
+      <button type="submit" class="btn btn-ghost btn-sm">필터</button>
+    </form>
+    <div class="item-list">{{feature_rows}}</div>
+    <form class="add-form" method="post" action="/admin/dev/features">
+      <div class="field">
+        <label class="field-label">카테고리</label>
+        <input type="text" name="category" required placeholder="e.g. feed" style="width:100px;" />
+      </div>
+      <div class="field">
+        <label class="field-label">기능명</label>
+        <input type="text" name="name" required placeholder="기능 이름" style="width:180px;" />
+      </div>
+      <div class="field">
+        <label class="field-label">상태</label>
+        <select name="status">
+          <option value="PLANNED">PLANNED</option>
+          <option value="IN_PROGRESS">IN_PROGRESS</option>
+          <option value="DONE">DONE</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-sm">추가</button>
+    </form>
+  </div>
+
+  <!-- Todos -->
+  <div class="card">
+    <div class="section-title">Todos <span class="count">{{todo_count}}건</span></div>
+    <form class="filter-form" method="get" action="/admin/dev">
+      <select name="t_status">
+        <option value="">전체 상태</option>
+        <option value="TODO" {{sel_t_TODO}}>TODO</option>
+        <option value="IN_PROGRESS" {{sel_t_IN_PROGRESS}}>IN_PROGRESS</option>
+        <option value="DONE" {{sel_t_DONE}}>DONE</option>
+        <option value="BLOCKED" {{sel_t_BLOCKED}}>BLOCKED</option>
+      </select>
+      <select name="t_priority">
+        <option value="">전체 우선순위</option>
+        <option value="URGENT" {{sel_t_URGENT}}>URGENT</option>
+        <option value="HIGH" {{sel_t_HIGH}}>HIGH</option>
+        <option value="MEDIUM" {{sel_t_MEDIUM}}>MEDIUM</option>
+        <option value="LOW" {{sel_t_LOW}}>LOW</option>
+      </select>
+      <button type="submit" class="btn btn-ghost btn-sm">필터</button>
+    </form>
+    <div class="item-list">{{todo_rows}}</div>
+    <form class="add-form" method="post" action="/admin/dev/todos">
+      <div class="field">
+        <label class="field-label">제목</label>
+        <input type="text" name="title" required placeholder="할 일" style="width:200px;" />
+      </div>
+      <div class="field">
+        <label class="field-label">우선순위</label>
+        <select name="priority">
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="HIGH">HIGH</option>
+          <option value="URGENT">URGENT</option>
+          <option value="LOW">LOW</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">연결 Feature</label>
+        <select name="feature_id">
+          <option value="">없음</option>
+          {{feature_select_options}}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-sm">추가</button>
+    </form>
+  </div>
+</div>

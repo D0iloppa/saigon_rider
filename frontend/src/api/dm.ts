@@ -1,5 +1,4 @@
-import { USE_MOCK, api } from './client';
-import { loadSession } from '@/lib/session';
+import { USE_MOCK, api, requireSession } from './client';
 import type { DmConversation, DmMessage } from './types';
 
 function transformConversation(raw: any): DmConversation {
@@ -28,8 +27,8 @@ function transformMessage(raw: any): DmMessage {
 
 export async function fetchConversations(): Promise<DmConversation[]> {
   if (USE_MOCK) return api.delay([], 150);
-  const session = loadSession();
-  const raw = await api.realFetch<any[]>(`/dm/conversations?user_id=${session?.userId}`);
+  const session = requireSession();
+  const raw = await api.realFetch<any[]>(`/dm/conversations?user_id=${session.userId}`);
   return raw.map(transformConversation);
 }
 
@@ -45,10 +44,10 @@ export async function createConversation(otherUserId: string): Promise<DmConvers
       unreadCount: 0,
     }, 100);
   }
-  const session = loadSession();
+  const session = requireSession();
   const raw = await api.realFetch<any>('/dm/conversations', {
     method: 'POST',
-    body: JSON.stringify({ user_id: session?.userId, other_user_id: otherUserId }),
+    body: JSON.stringify({ user_id: session.userId, other_user_id: otherUserId }),
   });
   return transformConversation(raw);
 }
@@ -74,18 +73,18 @@ export async function sendMessage(
     return api.delay({
       id: `msg-${Date.now()}`,
       conversationId,
-      senderId: loadSession()?.userId ?? '',
+      senderId: requireSession().userId,
       content,
       imageUrl: null,
       readAt: null,
       createdAt: new Date().toISOString(),
     }, 100);
   }
-  const session = loadSession();
+  const session = requireSession();
   const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/messages`, {
     method: 'POST',
     body: JSON.stringify({
-      sender_id: session?.userId,
+      sender_id: session.userId,
       content,
       image_content_id: imageContentId ?? null,
     }),
@@ -95,9 +94,9 @@ export async function sendMessage(
 
 export async function markRead(conversationId: string): Promise<void> {
   if (USE_MOCK) return api.delay(undefined, 50);
-  const session = loadSession();
+  const session = requireSession();
   await api.realFetch(`/dm/conversations/${conversationId}/read`, {
     method: 'POST',
-    body: JSON.stringify({ user_id: session?.userId }),
+    body: JSON.stringify({ user_id: session.userId }),
   });
 }

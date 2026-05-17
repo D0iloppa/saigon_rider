@@ -1,4 +1,4 @@
-// 도메인 타입 정의 (기획서 §2 DB 스키마 기반)
+// 도메인 타입 정의 (기획서 §2 DB 스키마 기반) 
 import type { District, SafetyGrade as SafetyGradeMaster } from './master';
 
 export type RiderStyle = 'commuter' | 'cafe_hunter' | 'night_rider';
@@ -71,15 +71,17 @@ export interface FeedPost {
   attemptId?: string;
   questTitle?: string;
   photoUrl: string | null;
+  photoUrls: string[];
+  imageContentIds: string[];
   caption: string | null;
-  hashtags: string[];          // content에서 파싱된 #태그 목록
+  hashtags: string[];
   distanceKm: number | null;
   safetyGrade: SafetyGrade | null;
   rewardExp: number | null;
   cheerCount: number;
   commentCount: number;
   iCheered: boolean;
-  createdAt: string;  // ISO
+  createdAt: string;
 }
 
 export interface Comment {
@@ -109,6 +111,17 @@ export interface FollowUser {
   nickname: string | null;
   avatarUrl: string | null;
   level: number;
+}
+
+export interface UserProfile {
+  id: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  level: number;
+  riderStyle: string | null;
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
 }
 
 export interface DmConversation {

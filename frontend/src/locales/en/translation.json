@@ -142,9 +142,18 @@
     "commentPlaceholder": "Leave a comment..."
   },
   "profile": {
+    "tabFeeds": "Feeds",
     "tabHistory": "History",
     "tabBadges": "Badges",
     "tabGear": "Gear",
+    "emptyFeeds": "No feeds yet",
+    "emptyFeedsSub": "Share your first ride post",
+    "newPost": "New Post",
+    "editPost": "Edit",
+    "deletePost": "Delete",
+    "deletePostConfirm": "Delete this feed?",
+    "deletePostSuccess": "Feed deleted",
+    "deletePostError": "Failed to delete feed",
     "thisMonth": "This Month",
     "noGear": "No gear available to equip",
     "earnedAt": "Earned: {{date}}",
@@ -157,7 +166,9 @@
     "nicknameError": "This nickname is already taken",
     "avatarError": "Failed to upload photo",
     "saving": "Saving...",
-    "saveBtn": "Save"
+    "saveBtn": "Save",
+    "share": "Share Profile",
+    "shareGuide": "Scan this QR code to view the profile"
   },
   "settings": {
     "title": "Settings",
@@ -171,6 +182,7 @@
     "darkMode": "Dark Mode",
     "locationPermission": "Location Permission",
     "locationAllowed": "Allowed",
+    "editProfile": "Edit Profile",
     "accountManagement": "Account Management",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
@@ -224,6 +236,28 @@
     "followBtn": "Follow",
     "unfollowBtn": "Following",
     "emptyFollowers": "No followers yet",
-    "emptyFollowing": "Not following anyone yet"
+    "emptyFollowing": "Not following anyone yet",
+    "friends": "Friends",
+    "emptyFriends": "No friends yet",
+    "addFriend": "Add Friend",
+    "searchPlaceholder": "Search by nickname or phone",
+    "myQr": "My QR",
+    "scanQr": "Scan QR",
+    "scanGuide": "Scan friend's QR code",
+    "myQrGuide": "Show your QR code"
+  },
+  "feedEdit": {
+    "title": "Edit Post",
+    "saveBtn": "Save",
+    "saving": "Saving...",
+    "saveError": "Failed to save",
+    "saveSuccess": "Post updated"
+  },
+  "profileEdit": {
+    "title": "Edit Profile",
+    "nicknameLabel": "Nickname",
+    "saveBtn": "Save",
+    "saved": "Profile saved",
+    "avatarSuccess": "Photo updated"
   }
 }

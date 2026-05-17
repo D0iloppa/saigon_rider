@@ -109,6 +109,127 @@
   color: #818cf8;
 }
 
+/* ── CLI Terminal (DevProgress) ── */
+
+.cli-terminal {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 10px;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
+.cli-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+}
+
+.cli-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.cli-dot--red { background: #ff5f57; }
+.cli-dot--yellow { background: #febc2e; }
+.cli-dot--green { background: #28c840; }
+
+.cli-titlebar__text {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  color: #8b949e;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.cli-body {
+  padding: 16px 20px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.cli-line {
+  min-height: 1.6em;
+}
+
+.cli-prompt {
+  color: #58a6ff;
+  font-weight: 700;
+}
+
+.cli-cmd {
+  color: #7ee787;
+  font-weight: 700;
+}
+
+.cli-label {
+  color: #8b949e;
+  display: inline-block;
+  min-width: 9ch;
+  text-align: right;
+}
+
+.cli-dim {
+  color: #484f58;
+}
+
+.cli-done {
+  color: #3fb950;
+}
+
+.cli-wip {
+  color: #d29922;
+}
+
+.cli-plan {
+  color: #8b949e;
+}
+
+.cli-defer {
+  color: #484f58;
+}
+
+.cli-blocked {
+  color: #f85149;
+}
+
+.cli-details-btn {
+  all: unset;
+  cursor: pointer;
+  color: #7ee787;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.cli-details-btn:hover {
+  text-decoration: underline;
+}
+
+.cli-cursor {
+  display: inline-block;
+  animation: cli-blink 1s step-end infinite;
+  color: #58a6ff;
+  margin-left: 2px;
+}
+
+@keyframes cli-blink {
+  50% { opacity: 0; }
+}
+
+/* Light mode override for CLI terminal */
+[data-theme='light'] .cli-terminal {
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
 /* Hero section — 배경이 항상 어두우므로 라이트/다크 무관하게 흰 글씨 고정 */
 .hero--wiki {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);

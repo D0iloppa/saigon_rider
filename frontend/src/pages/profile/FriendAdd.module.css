@@ -1,0 +1,204 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.tabs {
+  display: flex;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tab {
+  flex: 1;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabActive {
+  color: var(--brand-500);
+  border-bottom-color: var(--brand-500);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Search Section */
+.searchSection {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 20px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+.searchBar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.searchIcon {
+  font-size: 16px;
+  opacity: 0.5;
+}
+
+.results {
+  flex: 1;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.userInfo {
+  flex: 1;
+}
+
+.nickname {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.loading, .empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+/* QR Section */
+.qrSection {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.segmentWrap {
+  display: flex;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 300px;
+  box-shadow: var(--shadow-sm);
+}
+
+.segTab {
+  flex: 1;
+  height: 36px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.segTabActive {
+  background: var(--ink-900);
+  color: white;
+}
+
+.myQrBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.qrContainer {
+  background: white;
+  padding: 16px;
+  border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 20px;
+}
+
+.qrGuide {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.myInfo {
+  text-align: center;
+}
+
+.myNickname {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.myPhone {
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+.scanBox {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.reader {
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 1;
+  border-radius: 24px;
+  overflow: hidden;
+  background: black;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-lg);
+}
+
+.scannerError {
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 20px;
+}

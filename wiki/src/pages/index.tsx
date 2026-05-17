@@ -3,6 +3,7 @@ import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import clsx from 'clsx';
 import styles from './index.module.css';
+import DevProgress from '../components/DevProgress';
 
 interface ServiceCardProps {
   icon: string;
@@ -103,6 +104,8 @@ export default function Home(): React.JSX.Element {
       <HeroSection />
       <main>
         <div className="container" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
+          <DevProgress />
+
           <Heading as="h2">서비스 일람</Heading>
           <p>각 카드를 클릭하면 해당 서비스로 이동합니다. 상대 경로 기반이므로 동일 호스트의 서비스를 통합 탐색할 수 있습니다.</p>
 

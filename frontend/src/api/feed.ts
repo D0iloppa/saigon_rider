@@ -1,6 +1,5 @@
-import { USE_MOCK, api } from './client';
+import { USE_MOCK, api, requireSession } from './client';
 import { MOCK_FEED, MOCK_COMMENTS } from '@/data/feed';
-import { loadSession } from '@/lib/session';
 import type { FeedPost, Comment } from './types';
 
 function parseHashtags(text: string | null): string[] {
@@ -15,13 +14,16 @@ function stripHashtags(text: string | null): string | null {
 
 // BFF snake_case 응답 → FeedPost
 function transformPost(raw: any): FeedPost {
+  const imageUrls: string[] = raw.image_urls ?? [];
   return {
     id: raw.id,
     userId: raw.user_id,
     userNickname: raw.user_nickname ?? null,
     userAvatarUrl: raw.user_avatar_url ?? null,
     userLevel: raw.user_level ?? 1,
-    photoUrl: raw.image_url ?? null,
+    photoUrl: imageUrls[0] ?? raw.image_url ?? null,
+    photoUrls: imageUrls.length > 0 ? imageUrls : (raw.image_url ? [raw.image_url] : []),
+    imageContentIds: (raw.image_content_ids ?? []).map(String),
     caption: stripHashtags(raw.content),
     hashtags: parseHashtags(raw.content),
     distanceKm: raw.distance_km != null ? Number(raw.distance_km) : null,
@@ -39,35 +41,48 @@ export interface FetchFeedOptions {
   userId?: string;
   lat?: number;
   lng?: number;
+  page?: number;
+  size?: number;
+}
+
+export interface FeedPage {
+  items: FeedPost[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 export async function fetchFeed(
   filterOrOpts?: string | FetchFeedOptions,
-): Promise<FeedPost[]> {
+): Promise<FeedPage> {
   const opts: FetchFeedOptions = typeof filterOrOpts === 'string'
     ? { filter: filterOrOpts as FetchFeedOptions['filter'] }
     : filterOrOpts ?? {};
   const filter = opts.filter ?? 'all';
+  const page = opts.page ?? 1;
+  const size = opts.size ?? 20;
 
   if (USE_MOCK) {
     let list = [...MOCK_FEED];
     if (filter === 'hot') list = list.sort((a, b) => b.cheerCount - a.cheerCount);
-    return api.delay(list, 200);
+    const start = (page - 1) * size;
+    return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
   }
 
-  const params = new URLSearchParams({ filter });
+  const params = new URLSearchParams({ filter, page: String(page), size: String(size) });
   if (opts.userId) params.set('user_id', opts.userId);
   if (opts.lat != null) params.set('lat', String(opts.lat));
   if (opts.lng != null) params.set('lng', String(opts.lng));
 
-  const res = await api.realFetch<{ items: any[]; total: number }>(`/feed?${params}`);
-  return res.items.map(transformPost);
+  const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/feed?${params}`);
+  return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size };
 }
 
 export interface CreateFeedPostParams {
   userId: string;
   content?: string;
   imageContentId?: string;
+  imageContentIds?: string[];
   latitude?: number;
   longitude?: number;
   districtId?: number;
@@ -81,12 +96,57 @@ export async function createFeedPost(params: CreateFeedPostParams): Promise<void
     body: JSON.stringify({
       user_id: params.userId,
       content: params.content ?? null,
-      image_content_id: params.imageContentId ?? null,
+      image_content_ids: params.imageContentIds ?? (params.imageContentId ? [params.imageContentId] : []),
       latitude: params.latitude ?? null,
       longitude: params.longitude ?? null,
       district_id: params.districtId ?? null,
       is_story: params.isStory ?? false,
     }),
+  });
+}
+
+export async function fetchFeedPost(postId: string): Promise<FeedPost> {
+  if (USE_MOCK) {
+    const post = MOCK_FEED.find((p) => p.id === postId);
+    if (!post) throw new Error('Not found');
+    return api.delay(post, 100);
+  }
+  const raw = await api.realFetch<any>(`/feed/${postId}`);
+  return transformPost(raw);
+}
+
+export async function fetchMyFeed(userId: string, page = 1, size = 20): Promise<FeedPage> {
+  if (USE_MOCK) {
+    const list = MOCK_FEED.filter((p) => p.userId === userId);
+    const start = (page - 1) * size;
+    return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
+  }
+  const params = new URLSearchParams({ filter: 'all', page: String(page), size: String(size), author_id: userId });
+  const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/feed?${params}`);
+  return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size };
+}
+
+export async function updateFeedPost(postId: string, params: {
+  userId: string;
+  content?: string;
+  imageContentIds?: string[];
+}): Promise<void> {
+  if (USE_MOCK) return api.delay(undefined, 200);
+  await api.realFetch(`/feed/${postId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      user_id: params.userId,
+      content: params.content ?? null,
+      image_content_ids: params.imageContentIds ?? null,
+    }),
+  });
+}
+
+export async function deleteFeedPost(postId: string, userId: string): Promise<void> {
+  if (USE_MOCK) return api.delay(undefined, 200);
+  await api.realFetch(`/feed/${postId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ user_id: userId }),
   });
 }
 
@@ -153,12 +213,12 @@ export async function toggleCommentLike(
   if (USE_MOCK) {
     return api.delay({ liked: true, count: 1 }, 100);
   }
-  const session = loadSession();
+  const session = requireSession();
   const res = await api.realFetch<{ liked: boolean; like_count: number }>(
     `/feed/${postId}/comments/${commentId}/like`,
     {
       method: 'POST',
-      body: JSON.stringify({ user_id: session?.userId ?? null }),
+      body: JSON.stringify({ user_id: session.userId }),
     },
   );
   return { liked: res.liked, count: res.like_count };
@@ -172,10 +232,10 @@ export async function toggleCheer(postId: string): Promise<{ cheered: boolean; c
     post.cheerCount += post.iCheered ? 1 : -1;
     return api.delay({ cheered: post.iCheered, count: post.cheerCount }, 100);
   }
-  const session = loadSession();
+  const session = requireSession();
   const res = await api.realFetch<{ liked: boolean; like_count: number }>(`/feed/${postId}/like`, {
     method: 'POST',
-    body: JSON.stringify({ user_id: session?.userId ?? null }),
+    body: JSON.stringify({ user_id: session.userId }),
   });
   return { cheered: res.liked, count: res.like_count };
 }

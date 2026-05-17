@@ -1,3 +1,4 @@
+import { AppImage } from './AppImage';
 import styles from './StoryAvatar.module.css';
 
 interface Props {
@@ -13,7 +14,7 @@ export function StoryAvatar({ src, alt = '', label, isMe }: Props) {
     <div className={styles.wrapper}>
       <div className={`${styles.storyAvatar} ${isMe ? styles.isMe : ''}`}>
         {src ? (
-          <img src={src} alt={alt} />
+          <AppImage src={src} alt={alt} variant="circle" />
         ) : (
           <div className={styles.placeholder}>+</div>
         )}

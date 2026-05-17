@@ -1,7 +1,7 @@
 import { api, USE_MOCK } from './client';
 import type { UserDto } from './auth';
 import type { LoginResult } from './auth';
-import type { RiderStyle } from './types';
+import type { RiderStyle, UserProfile } from './types';
 
 export async function fetchMe(phone: string): Promise<UserDto | null> {
   if (USE_MOCK) return null;
@@ -41,4 +41,46 @@ export async function apiSaveProfileSetup(
     method: 'PUT',
     body: JSON.stringify({ user_id: userId, nickname, rider_type: riderType.toUpperCase() }),
   });
+}
+
+export async function fetchUserProfile(userId: string, requesterId?: string): Promise<UserProfile> {
+  const params = new URLSearchParams();
+  if (requesterId) params.set('requester_id', requesterId);
+  const qs = params.toString();
+  const url = `/users/${userId}/profile${qs ? `?${qs}` : ''}`;
+
+  if (USE_MOCK) {
+    return {
+      id: userId,
+      nickname: 'MockUser',
+      avatarUrl: '/saigon-default.jpg',
+      level: 5,
+      riderStyle: 'commuter',
+      followerCount: 12,
+      followingCount: 8,
+      isFollowing: false,
+    };
+  }
+
+  const res = await api.realFetch<{
+    id: string;
+    nickname: string | null;
+    avatar_url: string | null;
+    level: number;
+    rider_style: string | null;
+    follower_count: number;
+    following_count: number;
+    is_following: boolean;
+  }>(url);
+
+  return {
+    id: res.id,
+    nickname: res.nickname,
+    avatarUrl: res.avatar_url,
+    level: res.level,
+    riderStyle: res.rider_style,
+    followerCount: res.follower_count,
+    followingCount: res.following_count,
+    isFollowing: res.is_following,
+  };
 }

@@ -1,17 +1,17 @@
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import User, Content
+from ..models import Content, User
 from ..schemas import (
     AvatarUpdateResponse,
     NicknameCheckResponse,
@@ -27,7 +27,10 @@ router = APIRouter(prefix="/profile", tags=["프로필 (Profile)"])
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
 
 ALLOWED_MIME_TYPES = {
-    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
 }
 
 
@@ -39,8 +42,12 @@ async def _get_user_or_404(user_id: uuid.UUID, db: AsyncSession) -> User:
     return user
 
 
-@router.post("/avatar", response_model=AvatarUpdateResponse,
-             summary="프로필 사진 업로드", response_description="업데이트된 유저 정보 및 content_id")
+@router.post(
+    "/avatar",
+    response_model=AvatarUpdateResponse,
+    summary="프로필 사진 업로드",
+    response_description="업데이트된 유저 정보 및 content_id",
+)
 async def upload_avatar(
     file: UploadFile = File(...),
     user_id: str = Form(...),
@@ -54,7 +61,7 @@ async def upload_avatar(
 
     ext = Path(file.filename or "file").suffix.lower() or ".jpg"
     filename = f"{uuid.uuid4()}{ext}"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     rel_dir = Path("user-contents") / str(now.year) / f"{now.month:02d}"
     abs_dir = CONTENTS_BASE_PATH / rel_dir
     abs_dir.mkdir(parents=True, exist_ok=True)
@@ -86,8 +93,7 @@ async def upload_avatar(
     )
 
 
-@router.put("/nickname", response_model=UserOut,
-            summary="닉네임 변경", response_description="업데이트된 유저 정보")
+@router.put("/nickname", response_model=UserOut, summary="닉네임 변경", response_description="업데이트된 유저 정보")
 async def update_nickname(body: NicknameUpdateRequest, db: AsyncSession = Depends(get_db)):
     user = await _get_user_or_404(body.user_id, db)
 
@@ -97,9 +103,7 @@ async def update_nickname(body: NicknameUpdateRequest, db: AsyncSession = Depend
     if len(nickname) > 30:
         raise HTTPException(status_code=400, detail="Nickname too long (max 30)")
 
-    result = await db.execute(
-        select(User).where(User.nickname == nickname, User.id != body.user_id)
-    )
+    result = await db.execute(select(User).where(User.nickname == nickname, User.id != body.user_id))
     if result.scalar_one_or_none() is not None:
         raise HTTPException(status_code=409, detail="Nickname already taken")
 
@@ -152,9 +156,9 @@ async def get_rp_balance(user_id: uuid.UUID):
         return RpBalanceResponse(**data)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="User not found in SRE engine")
+            raise HTTPException(status_code=404, detail="User not found in SRE engine") from exc
         log.warning("Engine balance request failed: %s", exc)
-        raise HTTPException(status_code=503, detail="SRE engine unavailable")
+        raise HTTPException(status_code=503, detail="SRE engine unavailable") from exc
     except httpx.RequestError as exc:
         log.warning("Engine connection error: %s", exc)
-        raise HTTPException(status_code=503, detail="SRE engine unavailable")
+        raise HTTPException(status_code=503, detail="SRE engine unavailable") from exc

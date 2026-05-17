@@ -71,7 +71,39 @@ docker compose --env-file .env up --build -d frontend
 
 위반을 발견하면 즉시 (a) 비밀 회전, (b) git 히스토리 정리(`git filter-repo` 등), (c) 외부 노출 경위 추적 순으로 대응한다.
 
-## 8. 컨텐츠 관리 (이미지 / 파일)
+## 8. 린터
+
+코드 품질은 린터로 자동 관리한다. `pre-commit` 훅이 커밋 시 자동 실행되므로 별도 워크플로우 없이 동작한다.
+
+### 설정 파일
+
+| 영역 | 도구 | 설정 위치 |
+|---|---|---|
+| Frontend (TS/React) | ESLint v9 (flat config) | `frontend/eslint.config.js` |
+| Backend (Python) | ruff | `backend/pyproject.toml` `[tool.ruff]` |
+| Git hook | pre-commit | `.pre-commit-config.yaml` |
+
+### 규칙
+
+1. **커밋 전 린트 통과 필수** — `pre-commit` 훅이 자동 실행. error 0건이어야 커밋 가능. warning은 점진적으로 제거.
+2. **새 규칙 추가 시** — 설정 파일에 규칙 추가 → 기존 코드 위반을 먼저 정리(auto-fix 우선) → 커밋. 규칙 추가와 코드 정리를 한 커밋에 묶어도 됨.
+3. **프로젝트 특화 ignore** — SQLAlchemy `== True` 패턴(`E712`), FastAPI `Depends` 패턴(`B008`) 등 프레임워크 관용구는 ignore에 등록해둠. 새 프레임워크 패턴이 충돌하면 동일하게 처리.
+4. **커스텀 ESLint 규칙** — 프로젝트 컨벤션 강제가 필요하면 `no-restricted-syntax` 패턴으로 추가. `eslint.config.js`의 `rules` 블록에 집중.
+
+### 실행 명령
+
+```bash
+# Frontend
+cd frontend && npx eslint src/          # 검사
+cd frontend && npx eslint src/ --fix    # 자동 수정
+
+# Backend
+python3 -m ruff check backend/app/       # 검사
+python3 -m ruff check backend/app/ --fix # 자동 수정
+python3 -m ruff format backend/app/      # 포맷팅
+```
+
+## 9. 컨텐츠 관리 (이미지 / 파일)
 
 **모든 이미지·파일 컨텐츠는 `contents` 테이블로 중개되고 `content_id`(UUID)로 매핑된다.** 관리자·프론트·BFF 모두 예외 없이 적용한다.
 

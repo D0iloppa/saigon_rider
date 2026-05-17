@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
@@ -39,7 +39,7 @@ async def _get_post_or_404(post_id: uuid.UUID, db: AsyncSession) -> FeedPost:
 
 def _resolve_image_urls(post: FeedPost) -> list[str]:
     urls = []
-    for img in (post.images or []):
+    for img in post.images or []:
         if img.content and img.content.file_path:
             urls.append(build_imgproxy_url(img.content.file_path))
     if not urls:
@@ -117,17 +117,13 @@ async def get_feed(
             "  :radius"
             ")"
         ).bindparams(lng=float(lng), lat=float(lat), radius=radius_m)
-        neighborhood_filter = (
-            (FeedPost.latitude.isnot(None) & FeedPost.longitude.isnot(None))
-        )
+        neighborhood_filter = FeedPost.latitude.isnot(None) & FeedPost.longitude.isnot(None)
         base_q = base_q.where(neighborhood_filter).where(location_cond)
         count_q = count_q.where(neighborhood_filter).where(location_cond)
 
     total = (await db.execute(count_q)).scalar_one()
 
-    rows = (await db.execute(
-        base_q.order_by(*order).offset(offset).limit(size)
-    )).all()
+    rows = (await db.execute(base_q.order_by(*order).offset(offset).limit(size))).all()
 
     items = [_enrich(post, user, ride) for post, user, ride in rows]
     return Page(items=items, total=total, page=page, size=size)
@@ -136,26 +132,30 @@ async def get_feed(
 # F-2
 @router.get("/stories", response_model=list[FeedPostEnrichedOut], summary="스토리 목록")
 async def get_stories(db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
-        select(FeedPost, User, RideSession)
-        .outerjoin(User, FeedPost.user_id == User.id)
-        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
-        .where(FeedPost.is_story == True)
-        .order_by(FeedPost.created_at.desc())
-        .limit(50)
-    )).all()
+    rows = (
+        await db.execute(
+            select(FeedPost, User, RideSession)
+            .outerjoin(User, FeedPost.user_id == User.id)
+            .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+            .where(FeedPost.is_story == True)
+            .order_by(FeedPost.created_at.desc())
+            .limit(50)
+        )
+    ).all()
     return [_enrich(post, user, ride) for post, user, ride in rows]
 
 
 # F-2b
 @router.get("/{post_id}", response_model=FeedPostEnrichedOut, summary="피드 단건 조회")
 async def get_feed_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    row = (await db.execute(
-        select(FeedPost, User, RideSession)
-        .outerjoin(User, FeedPost.user_id == User.id)
-        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
-        .where(FeedPost.id == post_id)
-    )).first()
+    row = (
+        await db.execute(
+            select(FeedPost, User, RideSession)
+            .outerjoin(User, FeedPost.user_id == User.id)
+            .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+            .where(FeedPost.id == post_id)
+        )
+    ).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")
     post, user, ride = row
@@ -169,7 +169,7 @@ async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(g
     if body.content is None and body.image_url is None and not has_images:
         raise HTTPException(status_code=400, detail="content, image_content_ids or image_url is required")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     first_content_id = body.image_content_ids[0] if body.image_content_ids else body.image_content_id
     post = FeedPost(
         user_id=body.user_id,
@@ -199,7 +199,10 @@ async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(g
             user_uuid=str(body.user_id),
             action_code="SHARE_SNS",
             occurred_at=now,
-            payload={"post_id": str(post_id), "ride_session_id": str(body.ride_session_id) if body.ride_session_id else None},
+            payload={
+                "post_id": str(post_id),
+                "ride_session_id": str(body.ride_session_id) if body.ride_session_id else None,
+            },
             idem_key=f"feed-{post_id}-sns",
         )
     except (httpx.HTTPError, httpx.RequestError) as exc:
@@ -223,9 +226,7 @@ async def update_feed_post(
     if body.content is not None:
         post.content = body.content
     if body.image_content_ids is not None:
-        await db.execute(
-            select(FeedPostImage).where(FeedPostImage.post_id == post_id)
-        )
+        await db.execute(select(FeedPostImage).where(FeedPostImage.post_id == post_id))
         for old_img in list(post.images):
             await db.delete(old_img)
         for idx, cid in enumerate(body.image_content_ids):
@@ -233,7 +234,7 @@ async def update_feed_post(
         post.image_content_id = body.image_content_ids[0] if body.image_content_ids else None
     elif body.image_content_id is not None:
         post.image_content_id = body.image_content_id
-    post.updated_at = datetime.now(timezone.utc)
+    post.updated_at = datetime.now(UTC)
     await db.commit()
 
     post = (await db.execute(select(FeedPost).where(FeedPost.id == post_id))).scalar_one()

@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import escape as h
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,7 @@ from ..schemas import (
     DevTodoUpdateRequest,
     Page,
 )
+from .admin import AdminSession, _render_page, verify_admin_session
 
 router = APIRouter(tags=["__DEV Context"])
 
@@ -31,6 +32,7 @@ _VALID_TODO_PRIORITY = {"LOW", "MEDIUM", "HIGH", "URGENT"}
 
 
 # ── API: Context (key-value) ────────────────────────────────────
+
 
 @router.get("/dev/context", response_model=list[DevContextOut])
 async def list_context(db: AsyncSession = Depends(get_db)):
@@ -55,7 +57,7 @@ async def upsert_context(body: DevContextUpsertRequest, db: AsyncSession = Depen
     else:
         row.value = body.value
         row.meta = body.meta
-        row.updated_at = datetime.now(timezone.utc)
+        row.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(row)
     return row
@@ -72,6 +74,7 @@ async def delete_context(key: str, db: AsyncSession = Depends(get_db)):
 
 
 # ── API: Features ───────────────────────────────────────────────
+
 
 @router.get("/dev/features", response_model=Page[DevFeatureOut])
 async def list_features(
@@ -91,10 +94,17 @@ async def list_features(
         count_stmt = count_stmt.where(DevFeature.status == status)
 
     total = (await db.execute(count_stmt)).scalar_one()
-    rows = (await db.execute(
-        stmt.order_by(DevFeature.category, DevFeature.sort_order, DevFeature.id)
-        .offset((page - 1) * size).limit(size)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                stmt.order_by(DevFeature.category, DevFeature.sort_order, DevFeature.id)
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return Page(items=rows, total=total, page=page, size=size)
 
 
@@ -119,7 +129,7 @@ async def update_feature(feature_id: int, body: DevFeatureUpdateRequest, db: Asy
         raise HTTPException(status_code=400, detail=f"Invalid status: {updates['status']}")
     for k, v in updates.items():
         setattr(row, k, v)
-    row.updated_at = datetime.now(timezone.utc)
+    row.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(row)
     return row
@@ -136,6 +146,7 @@ async def delete_feature(feature_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # ── API: Todos ──────────────────────────────────────────────────
+
 
 @router.get("/dev/todos", response_model=Page[DevTodoOut])
 async def list_todos(
@@ -159,10 +170,17 @@ async def list_todos(
         count_stmt = count_stmt.where(DevTodo.feature_id == feature_id)
 
     total = (await db.execute(count_stmt)).scalar_one()
-    rows = (await db.execute(
-        stmt.order_by(DevTodo.status, DevTodo.priority.desc(), DevTodo.created_at.desc())
-        .offset((page - 1) * size).limit(size)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                stmt.order_by(DevTodo.status, DevTodo.priority.desc(), DevTodo.created_at.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return Page(items=rows, total=total, page=page, size=size)
 
 
@@ -191,7 +209,7 @@ async def update_todo(todo_id: int, body: DevTodoUpdateRequest, db: AsyncSession
         raise HTTPException(status_code=400, detail=f"Invalid priority: {updates['priority']}")
     for k, v in updates.items():
         setattr(row, k, v)
-    row.updated_at = datetime.now(timezone.utc)
+    row.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(row)
     return row
@@ -209,6 +227,7 @@ async def delete_todo(todo_id: int, db: AsyncSession = Depends(get_db)):
 
 # ── API: Summary (위키/대시보드 용 통합 조회) ───────────────────
 
+
 @router.get("/dev/summary")
 async def dev_summary(db: AsyncSession = Depends(get_db)):
     context_rows = (await db.execute(select(DevContext).order_by(DevContext.key))).scalars().all()
@@ -216,16 +235,12 @@ async def dev_summary(db: AsyncSession = Depends(get_db)):
 
     feature_counts = {}
     for st in _VALID_FEATURE_STATUS:
-        cnt = (await db.execute(
-            select(func.count()).where(DevFeature.status == st)
-        )).scalar_one()
+        cnt = (await db.execute(select(func.count()).where(DevFeature.status == st))).scalar_one()
         feature_counts[st] = cnt
 
     todo_counts = {}
     for st in _VALID_TODO_STATUS:
-        cnt = (await db.execute(
-            select(func.count()).where(DevTodo.status == st)
-        )).scalar_one()
+        cnt = (await db.execute(select(func.count()).where(DevTodo.status == st))).scalar_one()
         todo_counts[st] = cnt
 
     return {
@@ -238,8 +253,6 @@ async def dev_summary(db: AsyncSession = Depends(get_db)):
 # ── Admin HTML Pages ────────────────────────────────────────────
 
 admin_router = APIRouter(prefix="/admin", tags=["관리자 (Admin)"])
-
-from .admin import verify_admin_session, AdminSession, _render_page, _build_pagination
 
 
 def _status_pill(status: str) -> str:
@@ -260,15 +273,15 @@ async def admin_dev_page(
     ctx_html = []
     for r in ctx_rows:
         ctx_html.append(
-            f'<tr>'
+            f"<tr>"
             f'<td class="kv-key">{h(r.key)}</td>'
             f'<td class="kv-value">{h(r.value or "")}</td>'
             f'<td class="kv-time">{r.updated_at.strftime("%m-%d %H:%M")}</td>'
             f'<td class="kv-actions">'
             f'<form method="post" action="/admin/dev/context/{h(r.key)}/delete" style="display:inline;"'
-            f' onsubmit="return confirm(\'삭제하시겠습니까?\');">'
+            f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
-            f'</td></tr>'
+            f"</td></tr>"
         )
     if not ctx_html:
         ctx_html.append('<tr><td colspan="4" class="empty">등록된 컨텍스트가 없습니다.</td></tr>')
@@ -284,35 +297,34 @@ async def admin_dev_page(
         f_count_stmt = f_count_stmt.where(DevFeature.category == f_category)
 
     feature_total = (await db.execute(f_count_stmt)).scalar_one()
-    features = (await db.execute(
-        f_stmt.order_by(DevFeature.category, DevFeature.sort_order, DevFeature.id)
-    )).scalars().all()
+    features = (
+        (await db.execute(f_stmt.order_by(DevFeature.category, DevFeature.sort_order, DevFeature.id))).scalars().all()
+    )
 
-    all_categories = (await db.execute(
-        select(DevFeature.category).distinct().order_by(DevFeature.category)
-    )).scalars().all()
+    all_categories = (
+        (await db.execute(select(DevFeature.category).distinct().order_by(DevFeature.category))).scalars().all()
+    )
 
     feat_html = []
     for f in features:
-        desc_line = f'<small>{h(f.description)}</small>' if f.description else ""
+        desc_line = f"<small>{h(f.description)}</small>" if f.description else ""
         feat_html.append(
             f'<div class="item-row">'
             f'<span class="item-cat">{h(f.category)}</span>'
             f'<span class="item-name">{h(f.name)}{desc_line}</span>'
-            f'{_status_pill(f.status)}'
+            f"{_status_pill(f.status)}"
             f'<form method="post" action="/admin/dev/features/{f.id}/cycle" style="display:inline;">'
             f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
             f'<form method="post" action="/admin/dev/features/{f.id}/delete" style="display:inline;"'
-            f' onsubmit="return confirm(\'삭제하시겠습니까?\');">'
+            f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
             f'<button type="submit" class="btn btn-danger btn-sm">×</button></form>'
-            f'</div>'
+            f"</div>"
         )
     if not feat_html:
         feat_html.append('<div class="empty">등록된 기능이 없습니다.</div>')
 
     cat_options = "\n".join(
-        f'<option value="{h(c)}" {"selected" if c == f_category else ""}>{h(c)}</option>'
-        for c in all_categories
+        f'<option value="{h(c)}" {"selected" if c == f_category else ""}>{h(c)}</option>' for c in all_categories
     )
 
     # Todos
@@ -326,9 +338,11 @@ async def admin_dev_page(
         t_count_stmt = t_count_stmt.where(DevTodo.priority == t_priority)
 
     todo_total = (await db.execute(t_count_stmt)).scalar_one()
-    todos = (await db.execute(
-        t_stmt.order_by(DevTodo.status, DevTodo.priority.desc(), DevTodo.created_at.desc())
-    )).scalars().all()
+    todos = (
+        (await db.execute(t_stmt.order_by(DevTodo.status, DevTodo.priority.desc(), DevTodo.created_at.desc())))
+        .scalars()
+        .all()
+    )
 
     todo_html = []
     for t in todos:
@@ -340,33 +354,27 @@ async def admin_dev_page(
             f'<div class="item-row">'
             f'<span class="priority-{h(t.priority)}" style="font-size:10px;width:52px;">{h(t.priority)}</span>'
             f'<span class="item-name">{h(t.title)}{due}</span>'
-            f'{feat_label}'
-            f'{_status_pill(t.status)}'
+            f"{feat_label}"
+            f"{_status_pill(t.status)}"
             f'<form method="post" action="/admin/dev/todos/{t.id}/cycle" style="display:inline;">'
             f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
             f'<form method="post" action="/admin/dev/todos/{t.id}/delete" style="display:inline;"'
-            f' onsubmit="return confirm(\'삭제하시겠습니까?\');">'
+            f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
             f'<button type="submit" class="btn btn-danger btn-sm">×</button></form>'
-            f'</div>'
+            f"</div>"
         )
     if not todo_html:
         todo_html.append('<div class="empty">등록된 TODO가 없습니다.</div>')
 
     # Feature select for todo form
-    all_features = (await db.execute(
-        select(DevFeature).order_by(DevFeature.category, DevFeature.name)
-    )).scalars().all()
-    feat_select = "\n".join(
-        f'<option value="{f.id}">[{h(f.category)}] {h(f.name)}</option>'
-        for f in all_features
-    )
+    all_features = (await db.execute(select(DevFeature).order_by(DevFeature.category, DevFeature.name))).scalars().all()
+    feat_select = "\n".join(f'<option value="{f.id}">[{h(f.category)}] {h(f.name)}</option>' for f in all_features)
 
     # Summary stats
     total_features = (await db.execute(select(func.count()).select_from(DevFeature))).scalar_one()
     done_features = (await db.execute(select(func.count()).where(DevFeature.status == "DONE"))).scalar_one()
     ip_features = (await db.execute(select(func.count()).where(DevFeature.status == "IN_PROGRESS"))).scalar_one()
     total_todos = (await db.execute(select(func.count()).select_from(DevTodo))).scalar_one()
-    done_todos = (await db.execute(select(func.count()).where(DevTodo.status == "DONE"))).scalar_one()
     blocked_todos = (await db.execute(select(func.count()).where(DevTodo.status == "BLOCKED"))).scalar_one()
 
     stats_html = (
@@ -378,7 +386,9 @@ async def admin_dev_page(
         f'<div class="stat-box"><div class="stat-num" style="color:#fc8181;">{blocked_todos}</div><div class="stat-label">Blocked</div></div>'
     )
 
-    sel = lambda key, val, cur: "selected" if cur == val else ""
+    def sel(key, val, cur):
+        return "selected" if cur == val else ""
+
     return _render_page(
         "dev_context.html",
         nav="dev",
@@ -410,6 +420,7 @@ async def admin_dev_page(
 
 # ── Admin form actions ──────────────────────────────────────────
 
+
 @admin_router.post("/dev/context", include_in_schema=False)
 async def admin_dev_context_upsert(
     session: AdminSession = Depends(verify_admin_session),
@@ -423,7 +434,7 @@ async def admin_dev_context_upsert(
         db.add(row)
     else:
         row.value = value.strip() or None
-        row.updated_at = datetime.now(timezone.utc)
+        row.updated_at = datetime.now(UTC)
     await db.commit()
     return RedirectResponse(url="/admin/dev", status_code=302)
 
@@ -469,7 +480,7 @@ async def admin_dev_feature_cycle(
     if row:
         idx = _FEATURE_STATUS_CYCLE.index(row.status) if row.status in _FEATURE_STATUS_CYCLE else 0
         row.status = _FEATURE_STATUS_CYCLE[(idx + 1) % len(_FEATURE_STATUS_CYCLE)]
-        row.updated_at = datetime.now(timezone.utc)
+        row.updated_at = datetime.now(UTC)
         await db.commit()
     return RedirectResponse(url="/admin/dev", status_code=302)
 
@@ -516,7 +527,7 @@ async def admin_dev_todo_cycle(
     if row:
         idx = _TODO_STATUS_CYCLE.index(row.status) if row.status in _TODO_STATUS_CYCLE else 0
         row.status = _TODO_STATUS_CYCLE[(idx + 1) % len(_TODO_STATUS_CYCLE)]
-        row.updated_at = datetime.now(timezone.utc)
+        row.updated_at = datetime.now(UTC)
         await db.commit()
     return RedirectResponse(url="/admin/dev", status_code=302)
 

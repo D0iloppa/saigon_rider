@@ -1,13 +1,13 @@
 import os
 import random
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import Content
@@ -24,17 +24,22 @@ def _is_uuid(val: str) -> bool:
     except ValueError:
         return False
 
+
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
 
 ALLOWED_MIME_TYPES = {
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
 }
 
 
 def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
     """Returns (absolute_path_on_disk, file_path_relative_to_contents_root)."""
     if owner_type == "user":
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rel = Path("user-contents") / str(now.year) / f"{now.month:02d}"
     else:
         rel = Path("system")
@@ -44,8 +49,13 @@ def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
     return abs_dir, str(rel)
 
 
-@router.post("/upload", response_model=ContentOut, status_code=status.HTTP_201_CREATED,
-             summary="이미지 업로드", response_description="등록된 컨텐츠 정보 및 imgproxy URL")
+@router.post(
+    "/upload",
+    response_model=ContentOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="이미지 업로드",
+    response_description="등록된 컨텐츠 정보 및 imgproxy URL",
+)
 async def upload_content(
     file: UploadFile = File(...),
     owner_type: str = Form(...),
@@ -98,15 +108,17 @@ async def upload_content(
 
 
 async def _serve_pool_image(
-    db: AsyncSession, owner_type: str, w: int, h: int, seed: str | None,
+    db: AsyncSession,
+    owner_type: str,
+    w: int,
+    h: int,
+    seed: str | None,
 ) -> RedirectResponse:
     """owner_type 풀에서 이미지 1장을 골라 imgproxy 302 redirect 로 서빙.
 
     seed 가 있으면 풀 크기로 모듈러 인덱싱 → 결정론적 선택, 없으면 랜덤.
     """
-    result = await db.execute(
-        select(Content).where(Content.owner_type == owner_type).order_by(Content.created_at)
-    )
+    result = await db.execute(select(Content).where(Content.owner_type == owner_type).order_by(Content.created_at))
     pool = result.scalars().all()
     if not pool:
         raise HTTPException(status_code=404, detail=f"No '{owner_type}' images registered")
@@ -121,9 +133,11 @@ async def _serve_pool_image(
     return RedirectResponse(url=url, status_code=302, headers={"Cache-Control": "no-store"})
 
 
-@router.get("/mock-img",
-            summary="Mock 이미지 서빙",
-            response_description="owner_type='mock' 중 seed 기반 결정론적 선택 → imgproxy 302 redirect")
+@router.get(
+    "/mock-img",
+    summary="Mock 이미지 서빙",
+    response_description="owner_type='mock' 중 seed 기반 결정론적 선택 → imgproxy 302 redirect",
+)
 async def serve_mock_image(
     w: int = Query(default=800, ge=1, le=4096),
     h: int = Query(default=450, ge=1, le=4096),
@@ -133,9 +147,11 @@ async def serve_mock_image(
     return await _serve_pool_image(db, "mock", w, h, seed)
 
 
-@router.get("/profile-mock-img",
-            summary="기본 프로필(아바타) 이미지 서빙",
-            response_description="owner_type='profile_mock' 중 seed(user_id) 기반 결정론적 선택 → imgproxy 302 redirect")
+@router.get(
+    "/profile-mock-img",
+    summary="기본 프로필(아바타) 이미지 서빙",
+    response_description="owner_type='profile_mock' 중 seed(user_id) 기반 결정론적 선택 → imgproxy 302 redirect",
+)
 async def serve_profile_mock_image(
     w: int = Query(default=240, ge=1, le=4096),
     h: int = Query(default=240, ge=1, le=4096),
@@ -145,9 +161,11 @@ async def serve_profile_mock_image(
     return await _serve_pool_image(db, "profile_mock", w, h, seed)
 
 
-@router.get("/{content_id}/img",
-            summary="이미지 서빙 (content_id → imgproxy redirect)",
-            response_description="imgproxy URL로 302 리다이렉트")
+@router.get(
+    "/{content_id}/img",
+    summary="이미지 서빙 (content_id → imgproxy redirect)",
+    response_description="imgproxy URL로 302 리다이렉트",
+)
 async def serve_content_image(
     content_id: uuid.UUID,
     w: int = Query(default=800, ge=1, le=4096),
@@ -162,8 +180,12 @@ async def serve_content_image(
     return RedirectResponse(url=url, status_code=302)
 
 
-@router.get("/{content_id}", response_model=ContentOut,
-            summary="컨텐츠 조회", response_description="컨텐츠 메타데이터 및 imgproxy URL")
+@router.get(
+    "/{content_id}",
+    response_model=ContentOut,
+    summary="컨텐츠 조회",
+    response_description="컨텐츠 메타데이터 및 imgproxy URL",
+)
 async def get_content(content_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Content).where(Content.id == content_id))
     content = result.scalar_one_or_none()

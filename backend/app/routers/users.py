@@ -1,14 +1,14 @@
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import Badge, RideSession, UserBadge, UserFollow, UserQuest, User
-from ..schemas import BadgeOut, UserBadgeOut, UserExportResponse, UserProfileOut, UserStatsOut, FollowUserOut
+from ..models import Badge, RideSession, User, UserBadge, UserFollow, UserQuest
+from ..schemas import BadgeOut, FollowUserOut, UserBadgeOut, UserExportResponse, UserProfileOut, UserStatsOut
 from ..utils import APP_TZ, resolve_avatar_url
 
 router = APIRouter(prefix="/users", tags=["유저 (Users)"])
@@ -33,8 +33,8 @@ def _month_bounds() -> tuple[datetime, datetime]:
     else:
         month_end_local = month_start_local.replace(month=now_local.month + 1)
     return (
-        month_start_local.astimezone(timezone.utc),
-        month_end_local.astimezone(timezone.utc),
+        month_start_local.astimezone(UTC),
+        month_end_local.astimezone(UTC),
     )
 
 
@@ -122,10 +122,7 @@ async def get_my_badges(
     )
     rows = result.all()
 
-    return [
-        UserBadgeOut(badge=BadgeOut.model_validate(badge), acquired_at=ub.acquired_at)
-        for ub, badge in rows
-    ]
+    return [UserBadgeOut(badge=BadgeOut.model_validate(badge), acquired_at=ub.acquired_at) for ub, badge in rows]
 
 
 # A-3
@@ -144,7 +141,7 @@ async def export_user_data(user_id: uuid.UUID, db: AsyncSession = Depends(get_db
     return UserExportResponse(
         request_id=str(uuid.uuid4()),
         status="QUEUED",
-        estimated_ready_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        estimated_ready_at=datetime.now(UTC) + timedelta(hours=24),
     )
 
 
@@ -156,12 +153,12 @@ async def get_user_profile(
 ):
     user = await _get_user_or_404(user_id, db)
 
-    follower_count = (await db.execute(
-        select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id)
-    )).scalar_one()
-    following_count = (await db.execute(
-        select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id)
-    )).scalar_one()
+    follower_count = (
+        await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id))
+    ).scalar_one()
+    following_count = (
+        await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id))
+    ).scalar_one()
 
     is_following = False
     if requester_id and requester_id != user_id:
@@ -189,20 +186,19 @@ async def search_users(
 ):
     if not query or len(query.strip()) < 2:
         return []
-    
+
     query = query.strip()
     result = await db.execute(
-        select(User).where(
-            (User.nickname.ilike(f"%{query}%")) | (User.phone.ilike(f"%{query}%"))
-        ).limit(20)
+        select(User).where((User.nickname.ilike(f"%{query}%")) | (User.phone.ilike(f"%{query}%"))).limit(20)
     )
     rows = result.scalars().all()
-    
+
     return [
         FollowUserOut(
             id=u.id,
             nickname=u.nickname,
             avatar_url=resolve_avatar_url(u),
             level=u.level,
-        ) for u in rows
+        )
+        for u in rows
     ]

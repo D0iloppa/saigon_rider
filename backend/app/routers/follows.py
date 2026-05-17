@@ -2,8 +2,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from ..database import get_db
 from ..models import User, UserFollow
@@ -66,17 +66,24 @@ async def get_followers(
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
-    total = (await db.execute(
-        select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id)
-    )).scalar_one()
+    total = (
+        await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id))
+    ).scalar_one()
 
-    rows = (await db.execute(
-        select(User)
-        .join(UserFollow, UserFollow.follower_id == User.id)
-        .where(UserFollow.following_id == user_id)
-        .order_by(UserFollow.created_at.desc())
-        .offset(offset).limit(size)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(User)
+                .join(UserFollow, UserFollow.follower_id == User.id)
+                .where(UserFollow.following_id == user_id)
+                .order_by(UserFollow.created_at.desc())
+                .offset(offset)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return Page(items=[_user_to_follow_out(u) for u in rows], total=total, page=page, size=size)
 
@@ -89,17 +96,24 @@ async def get_following(
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
-    total = (await db.execute(
-        select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id)
-    )).scalar_one()
+    total = (
+        await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id))
+    ).scalar_one()
 
-    rows = (await db.execute(
-        select(User)
-        .join(UserFollow, UserFollow.following_id == User.id)
-        .where(UserFollow.follower_id == user_id)
-        .order_by(UserFollow.created_at.desc())
-        .offset(offset).limit(size)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(User)
+                .join(UserFollow, UserFollow.following_id == User.id)
+                .where(UserFollow.follower_id == user_id)
+                .order_by(UserFollow.created_at.desc())
+                .offset(offset)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return Page(items=[_user_to_follow_out(u) for u in rows], total=total, page=page, size=size)
 
@@ -109,12 +123,12 @@ async def get_follow_counts(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    follower_count = (await db.execute(
-        select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id)
-    )).scalar_one()
-    following_count = (await db.execute(
-        select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id)
-    )).scalar_one()
+    follower_count = (
+        await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id))
+    ).scalar_one()
+    following_count = (
+        await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user_id))
+    ).scalar_one()
     return FollowCountsOut(follower_count=follower_count, following_count=following_count)
 
 
@@ -128,20 +142,34 @@ async def get_friends(
     offset = (page - 1) * size
     reverse_follow = aliased(UserFollow)
 
-    total = (await db.execute(
-        select(func.count())
-        .select_from(UserFollow)
-        .join(reverse_follow, (reverse_follow.follower_id == UserFollow.following_id) & (reverse_follow.following_id == user_id))
-        .where(UserFollow.follower_id == user_id)
-    )).scalar_one()
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserFollow)
+            .join(
+                reverse_follow,
+                (reverse_follow.follower_id == UserFollow.following_id) & (reverse_follow.following_id == user_id),
+            )
+            .where(UserFollow.follower_id == user_id)
+        )
+    ).scalar_one()
 
-    rows = (await db.execute(
-        select(User)
-        .join(UserFollow, UserFollow.following_id == User.id)
-        .join(reverse_follow, (reverse_follow.follower_id == User.id) & (reverse_follow.following_id == user_id))
-        .where(UserFollow.follower_id == user_id)
-        .order_by(UserFollow.created_at.desc())
-        .offset(offset).limit(size)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(User)
+                .join(UserFollow, UserFollow.following_id == User.id)
+                .join(
+                    reverse_follow, (reverse_follow.follower_id == User.id) & (reverse_follow.following_id == user_id)
+                )
+                .where(UserFollow.follower_id == user_id)
+                .order_by(UserFollow.created_at.desc())
+                .offset(offset)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return Page(items=[_user_to_follow_out(u) for u in rows], total=total, page=page, size=size)

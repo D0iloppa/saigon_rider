@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from passlib.context import CryptContext
@@ -8,19 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import Bookmark, Quest, User, UserQuest
-
-_pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-
-
-async def _verify_passcode(
-    user_id: uuid.UUID,
-    x_passcode: str,
-    db: AsyncSession,
-) -> None:
-    user = await db.get(User, user_id)
-    if not user or not user.passcode_hash or not _pwd_ctx.verify(x_passcode, user.passcode_hash):
-        raise HTTPException(status_code=401, detail="인증 실패")
-from ..utils import APP_TZ, build_imgproxy_url, MOCK_IMG_ENDPOINT, resolve_avatar_url
 from ..schemas import (
     BookmarkToggleRequest,
     BookmarkToggleResponse,
@@ -33,6 +20,20 @@ from ..schemas import (
     QuestParticipantOut,
     QuestPinOut,
 )
+from ..utils import APP_TZ, MOCK_IMG_ENDPOINT, build_imgproxy_url, resolve_avatar_url
+
+_pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+
+async def _verify_passcode(
+    user_id: uuid.UUID,
+    x_passcode: str,
+    db: AsyncSession,
+) -> None:
+    user = await db.get(User, user_id)
+    if not user or not user.passcode_hash or not _pwd_ctx.verify(x_passcode, user.passcode_hash):
+        raise HTTPException(status_code=401, detail="인증 실패")
+
 
 def _calc_period_key(period: str) -> str:
     today = datetime.now(APP_TZ).date()
@@ -42,6 +43,7 @@ def _calc_period_key(period: str) -> str:
         iso = today.isocalendar()
         return f"{iso.year}-W{iso.week:02d}"
     return "ONCE"
+
 
 router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
 
@@ -233,14 +235,14 @@ async def complete_quest(
 
     if uq:
         uq.status = "COMPLETED"
-        uq.completed_at = datetime.now(timezone.utc)
+        uq.completed_at = datetime.now(UTC)
     else:
         uq = UserQuest(
             user_id=body.user_id,
             quest_id=quest.id,
             status="COMPLETED",
             period_key=period_key,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
         db.add(uq)
 

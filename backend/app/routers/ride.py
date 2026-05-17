@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -66,7 +66,7 @@ async def _upsert_streak(db: AsyncSession, user_id: uuid.UUID) -> None:
 # R-1
 @router.post("/submit", response_model=RideResultOut, status_code=201, summary="라이딩 결과 제출")
 async def submit_ride(body: RideSubmitRequest, db: AsyncSession = Depends(get_db)):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     uq = await db.get(UserQuest, body.user_quest_id)
     if uq is None:
@@ -163,20 +163,22 @@ async def get_ride_history(
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
-    total_result = await db.execute(
-        select(func.count()).where(RideSession.user_id == user_id)
-    )
+    total_result = await db.execute(select(func.count()).where(RideSession.user_id == user_id))
     total = total_result.scalar_one()
 
     sessions = (
-        await db.execute(
-            select(RideSession)
-            .where(RideSession.user_id == user_id)
-            .order_by(RideSession.created_at.desc())
-            .offset(offset)
-            .limit(size)
+        (
+            await db.execute(
+                select(RideSession)
+                .where(RideSession.user_id == user_id)
+                .order_by(RideSession.created_at.desc())
+                .offset(offset)
+                .limit(size)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return Page(
         items=[RideSessionOut.model_validate(s) for s in sessions],

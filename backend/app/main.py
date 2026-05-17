@@ -5,7 +5,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from .engine_client import engine_client
-from .routers import admin, auth, badges, contents, dev_context, dm, feed, follows, master, notifications, profile, quests, ride, users
+from .routers import (
+    admin,
+    auth,
+    badges,
+    contents,
+    dev_context,
+    dm,
+    feed,
+    follows,
+    master,
+    notifications,
+    profile,
+    quests,
+    ride,
+    users,
+)
 
 
 @asynccontextmanager
@@ -52,6 +67,7 @@ async def custom_redoc_html():
         openapi_url=_EXTERNAL_OPENAPI_URL,
         title=f"{app.title} — ReDoc",
     )
+
 
 app.add_middleware(
     CORSMiddleware,

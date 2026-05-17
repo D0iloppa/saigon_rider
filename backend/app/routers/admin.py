@@ -1,24 +1,25 @@
+import contextlib
 import os
 import re
 import uuid
-from html import escape as h
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from html import escape as h
 from pathlib import Path
 
 import bcrypt
 import jwt
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import func, select, text
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import AdminAccount, Content, District, FeedPost, FeedPostImage, RideSession, Quest, User, UserQuest
+from ..models import AdminAccount, Content, District, FeedPost, FeedPostImage, Quest, RideSession, User
 from ..utils import (
+    MOCK_IMG_ENDPOINT,
     build_imgproxy_url,
     default_avatar_url,
-    MOCK_IMG_ENDPOINT,
     resolve_avatar_url,
     resolve_feed_image_url,
 )
@@ -43,7 +44,11 @@ ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-00
 
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
 ALLOWED_IMAGE_MIME = {
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
 }
 
 # role 별 사이드바 메뉴 노출
@@ -81,8 +86,7 @@ def _render_page(
     layout = layout.replace("{{admin_role}}", "ROOT" if is_root else "ADMIN")
     layout = layout.replace(
         "{{admins_menu}}",
-        '<a href="/admin/admins" class="{{nav_admins}}"><span class="icon">◆</span> 관리자 계정</a>'
-        if is_root else "",
+        '<a href="/admin/admins" class="{{nav_admins}}"><span class="icon">◆</span> 관리자 계정</a>' if is_root else "",
     )
     for key in _NAV_KEYS:
         layout = layout.replace(f"{{{{nav_{key}}}}}", "active" if key == nav else "")
@@ -90,6 +94,7 @@ def _render_page(
 
 
 # ── JWT / 세션 ───────────────────────────────────────────────────
+
 
 class AdminSession:
     """현재 로그인한 admin 의 컨텍스트."""
@@ -108,7 +113,7 @@ def _issue_token(*, username: str, role: str, account_id: str | None = None) -> 
     payload: dict[str, object] = {
         "sub": username,
         "role": role,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=_JWT_EXP_HOURS),
+        "exp": datetime.now(UTC) + timedelta(hours=_JWT_EXP_HOURS),
     }
     if account_id:
         payload["aid"] = account_id
@@ -154,6 +159,7 @@ def _verify_password(password: str, password_hash: str) -> bool:
 
 # ── Pages ────────────────────────────────────────────────────────
 
+
 @router.get("/", include_in_schema=False)
 async def admin_root():
     return RedirectResponse(url="/admin/login")
@@ -179,9 +185,7 @@ async def admin_login_post(
         role = "root"
     else:
         # 2) DB 등록 admin_accounts 폴백
-        account = (await db.execute(
-            select(AdminAccount).where(AdminAccount.username == username)
-        )).scalar_one_or_none()
+        account = (await db.execute(select(AdminAccount).where(AdminAccount.username == username))).scalar_one_or_none()
         if account and _verify_password(password, account.password_hash):
             role = "admin"
             account_id = str(account.id)
@@ -214,19 +218,13 @@ async def admin_dashboard(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
 ):
-    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    seven_days_ago = datetime.now(UTC) - timedelta(days=7)
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
     total_users = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    new_users_7d = (await db.execute(
-        select(func.count()).where(User.created_at >= seven_days_ago)
-    )).scalar_one()
-    active_quests = (await db.execute(
-        select(func.count()).where(Quest.is_active.is_(True))
-    )).scalar_one()
-    rides_today = (await db.execute(
-        select(func.count()).where(RideSession.created_at >= today_start)
-    )).scalar_one()
+    new_users_7d = (await db.execute(select(func.count()).where(User.created_at >= seven_days_ago))).scalar_one()
+    active_quests = (await db.execute(select(func.count()).where(Quest.is_active.is_(True)))).scalar_one()
+    rides_today = (await db.execute(select(func.count()).where(RideSession.created_at >= today_start))).scalar_one()
     total_feeds = (await db.execute(select(func.count()).select_from(FeedPost))).scalar_one()
 
     return _render_page(
@@ -243,6 +241,7 @@ async def admin_dashboard(
 
 
 # ── 공통 헬퍼 ────────────────────────────────────────────────────
+
 
 def _resolve_thumb_url(quest: Quest) -> str:
     """퀘스트 썸네일 표시용 URL — quests.py `_to_out` 폴백 체인을 따른다.
@@ -271,7 +270,7 @@ async def _save_uploaded_image(
         raise HTTPException(status_code=415, detail=f"Unsupported media type: {file.content_type}")
 
     if owner_type == "user":
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rel_dir = f"user-contents/{now.year}/{now.month:02d}"
     else:
         rel_dir = "system"
@@ -309,7 +308,7 @@ def _parse_dt_local(value: str | None) -> datetime | None:
         naive = datetime.fromisoformat(value)
     except ValueError:
         return None
-    return naive.replace(tzinfo=timezone.utc)
+    return naive.replace(tzinfo=UTC)
 
 
 def _dt_local_str(value: datetime | None) -> str:
@@ -319,6 +318,7 @@ def _dt_local_str(value: datetime | None) -> str:
 
 
 # ── 퀘스트 관리 ──────────────────────────────────────────────────
+
 
 @router.get("/quests", include_in_schema=False)
 async def admin_quests_list(
@@ -348,9 +348,7 @@ async def admin_quests_list(
         count_stmt = count_stmt.where(Quest.is_active.is_(flag))
 
     total = (await db.execute(count_stmt)).scalar_one()
-    quests = (await db.execute(
-        stmt.order_by(Quest.created_at.desc()).offset(offset).limit(size)
-    )).scalars().all()
+    quests = (await db.execute(stmt.order_by(Quest.created_at.desc()).offset(offset).limit(size))).scalars().all()
 
     rows_html = []
     for qu in quests:
@@ -359,26 +357,28 @@ async def admin_quests_list(
         active_pill = '<span class="pill on">활성</span>' if qu.is_active else '<span class="pill off">비활성</span>'
         badge_pill = f'<span class="pill warn">{h(qu.badge)}</span>' if qu.badge else "—"
         rows_html.append(
-            f'<tr>'
+            f"<tr>"
             f'<td><img class="thumb" src="{h(thumb)}" alt="" /></td>'
-            f'<td>{h(qu.title_ko or "—")}</td>'
-            f'<td>{h(qu.period)}</td>'
-            f'<td>{h(district_name)}</td>'
-            f'<td>{qu.target_distance_km} km</td>'
-            f'<td>{qu.reward_exp}</td>'
-            f'<td>{qu.reward_gold}</td>'
-            f'<td>{h(qu.reward_item or "—")}</td>'
-            f'<td>{badge_pill}</td>'
-            f'<td>{active_pill}</td>'
+            f"<td>{h(qu.title_ko or '—')}</td>"
+            f"<td>{h(qu.period)}</td>"
+            f"<td>{h(district_name)}</td>"
+            f"<td>{qu.target_distance_km} km</td>"
+            f"<td>{qu.reward_exp}</td>"
+            f"<td>{qu.reward_gold}</td>"
+            f"<td>{h(qu.reward_item or '—')}</td>"
+            f"<td>{badge_pill}</td>"
+            f"<td>{active_pill}</td>"
             f'<td><a class="btn btn-ghost btn-sm" href="/admin/quests/{qu.id}/edit">수정</a></td>'
-            f'</tr>'
+            f"</tr>"
         )
     if not rows_html:
         rows_html.append('<tr><td colspan="11" class="empty">조건에 맞는 퀘스트가 없습니다.</td></tr>')
 
     pagination = _build_pagination("/admin/quests", page, size, total, q=q, period=period, active=active)
 
-    sel = lambda key, val, cur: 'selected' if cur == val else ''
+    def sel(key, val, cur):
+        return "selected" if cur == val else ""
+
     return _render_page(
         "quests_list.html",
         nav="quests",
@@ -415,14 +415,16 @@ def _build_pagination(base: str, page: int, size: int, total: int, **params: str
 async def _districts_options(db: AsyncSession, selected: int | None) -> str:
     rows = (await db.execute(select(District).order_by(District.sort_order, District.id))).scalars().all()
     return "\n".join(
-        f'<option value="{d.id}" {"selected" if selected == d.id else ""}>{h(d.name_ko)}</option>'
-        for d in rows
+        f'<option value="{d.id}" {"selected" if selected == d.id else ""}>{h(d.name_ko)}</option>' for d in rows
     )
 
 
 def _quest_form_ctx(quest: Quest | None) -> dict[str, str]:
     """폼 placeholder 치환 컨텍스트 (신규/수정 공용)."""
-    sel = lambda v, cur: "selected" if v == cur else ""
+
+    def sel(v, cur):
+        return "selected" if v == cur else ""
+
     period = quest.period if quest else "DAILY"
     badge = quest.badge if quest else ""
     is_active = "1" if (quest is None or quest.is_active) else "0"
@@ -469,8 +471,8 @@ async def admin_quest_new(
 def _parse_decimal(value: str, field: str) -> Decimal:
     try:
         return Decimal(value)
-    except (InvalidOperation, TypeError):
-        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+    except (InvalidOperation, TypeError) as err:
+        raise HTTPException(status_code=400, detail=f"Invalid {field}") from err
 
 
 @router.post("/quests/new", include_in_schema=False)
@@ -584,7 +586,7 @@ async def admin_quest_update(
     quest.required_level = required_level
     quest.target_distance_km = _parse_decimal(target_distance_km, "target_distance_km")
     quest.badge = (badge or None) if badge in ("HOT", "NEW", "LIMITED") else None
-    quest.is_active = (is_active == "1")
+    quest.is_active = is_active == "1"
     quest.reward_exp = reward_exp
     quest.reward_gold = reward_gold
     quest.reward_item = reward_item.strip() or None
@@ -629,7 +631,7 @@ def _render_caption(text: str | None) -> str:
 
 def _resolve_feed_image_urls_admin(post: FeedPost) -> list[str]:
     urls = []
-    for img in (post.images or []):
+    for img in post.images or []:
         if img.content and img.content.file_path:
             urls.append(build_imgproxy_url(img.content.file_path))
     if not urls:
@@ -650,13 +652,15 @@ async def admin_feed_list(
     offset = (page - 1) * size
 
     total = (await db.execute(select(func.count()).select_from(FeedPost))).scalar_one()
-    rows = (await db.execute(
-        select(FeedPost, User)
-        .outerjoin(User, FeedPost.user_id == User.id)
-        .order_by(FeedPost.created_at.desc())
-        .offset(offset)
-        .limit(size)
-    )).all()
+    rows = (
+        await db.execute(
+            select(FeedPost, User)
+            .outerjoin(User, FeedPost.user_id == User.id)
+            .order_by(FeedPost.created_at.desc())
+            .offset(offset)
+            .limit(size)
+        )
+    ).all()
 
     cards_html = []
     for post, user in rows:
@@ -682,9 +686,9 @@ async def admin_feed_list(
             f'<div class="feed-meta">'
             f'<span class="feed-nick">{h(nickname)}</span>'
             f'<span class="feed-date">{post.created_at.strftime("%Y-%m-%d %H:%M")}</span>'
-            f'</div>{story_pill}'
-            f'</header>'
-            f'{img_block}'
+            f"</div>{story_pill}"
+            f"</header>"
+            f"{img_block}"
             f'<div class="feed-caption">{_render_caption(post.content)}</div>'
             f'<footer class="feed-foot">'
             f'<span class="feed-stat">&#9829; {post.like_count}</span>'
@@ -694,12 +698,14 @@ async def admin_feed_list(
             f'<form method="post" action="/admin/feed/{post.id}/delete" style="display:inline;" '
             f'onsubmit="{confirm_attr}">'
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
-            f'</span>'
-            f'</footer>'
-            f'</article>'
+            f"</span>"
+            f"</footer>"
+            f"</article>"
         )
-    cards = "\n".join(cards_html) if cards_html else (
-        '<div class="empty" style="grid-column:1/-1;">등록된 피드가 없습니다.</div>'
+    cards = (
+        "\n".join(cards_html)
+        if cards_html
+        else ('<div class="empty" style="grid-column:1/-1;">등록된 피드가 없습니다.</div>')
     )
 
     pagination = _build_pagination("/admin/feed", page, size, total)
@@ -730,7 +736,7 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
     img_urls = _resolve_feed_image_urls_admin(post)
     if img_urls:
         imgs_html = ""
-        for i, (img_row, url) in enumerate(zip(post.images or [], img_urls)):
+        for _i, (img_row, url) in enumerate(zip(post.images or [], img_urls, strict=False)):
             cid = str(img_row.content_id)
             imgs_html += (
                 f'<div style="display:inline-block;position:relative;margin:0 8px 8px 0;">'
@@ -739,7 +745,7 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
                 f'<label style="display:flex;gap:4px;align-items:center;font-size:11px;'
                 f'color:rgba(255,255,255,.6);margin-top:4px;">'
                 f'<input type="checkbox" name="remove_image_ids" value="{cid}" /> 삭제'
-                f'</label></div>'
+                f"</label></div>"
             )
         if not imgs_html and img_urls:
             legacy_url = img_urls[0]
@@ -749,7 +755,7 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
             )
         current_image = (
             f'<div class="field"><label class="field-label">현재 이미지 ({len(img_urls)}장)</label>'
-            f'<div>{imgs_html}</div></div>'
+            f"<div>{imgs_html}</div></div>"
         )
     else:
         current_image = ""
@@ -773,8 +779,11 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
 @router.get("/feed/new", include_in_schema=False)
 async def admin_feed_new(session: AdminSession = Depends(verify_admin_session)):
     return _render_page(
-        "feed_form.html", nav="feed", page_title="관리자 피드 게시",
-        session=session, **_feed_form_ctx(None),
+        "feed_form.html",
+        nav="feed",
+        page_title="관리자 피드 게시",
+        session=session,
+        **_feed_form_ctx(None),
     )
 
 
@@ -797,7 +806,7 @@ async def admin_feed_create(
     if not text_body and not content_ids:
         raise HTTPException(status_code=400, detail="content or image is required")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     post = FeedPost(
         user_id=ADMIN_USER_ID,
         content=text_body,
@@ -826,8 +835,11 @@ async def admin_feed_edit(
     if post is None:
         raise HTTPException(status_code=404, detail="Feed post not found")
     return _render_page(
-        "feed_form.html", nav="feed", page_title="피드 수정",
-        session=session, **_feed_form_ctx(post),
+        "feed_form.html",
+        nav="feed",
+        page_title="피드 수정",
+        session=session,
+        **_feed_form_ctx(post),
     )
 
 
@@ -852,10 +864,8 @@ async def admin_feed_update(
 
     remove_ids = set()
     for rid in remove_ids_raw:
-        try:
+        with contextlib.suppress(ValueError):
             remove_ids.add(uuid.UUID(str(rid)))
-        except ValueError:
-            pass
 
     if remove_ids:
         await db.execute(
@@ -866,8 +876,7 @@ async def admin_feed_update(
         )
 
     max_order_result = await db.execute(
-        select(func.coalesce(func.max(FeedPostImage.sort_order), -1))
-        .where(FeedPostImage.post_id == post_id)
+        select(func.coalesce(func.max(FeedPostImage.sort_order), -1)).where(FeedPostImage.post_id == post_id)
     )
     next_order = max_order_result.scalar_one() + 1
 
@@ -880,9 +889,7 @@ async def admin_feed_update(
             next_order += 1
 
     remaining = await db.execute(
-        select(FeedPostImage.content_id)
-        .where(FeedPostImage.post_id == post_id)
-        .order_by(FeedPostImage.sort_order)
+        select(FeedPostImage.content_id).where(FeedPostImage.post_id == post_id).order_by(FeedPostImage.sort_order)
     )
     remaining_ids = [r[0] for r in remaining.all()]
     post.image_content_id = remaining_ids[0] if remaining_ids else None
@@ -891,8 +898,8 @@ async def admin_feed_update(
         raise HTTPException(status_code=400, detail="content or image is required")
 
     post.content = text_body
-    post.is_story = (str(is_story_val) == "1")
-    post.updated_at = datetime.now(timezone.utc)
+    post.is_story = str(is_story_val) == "1"
+    post.updated_at = datetime.now(UTC)
     await db.commit()
     return RedirectResponse(url="/admin/feed", status_code=302)
 
@@ -912,6 +919,7 @@ async def admin_feed_delete(
 
 
 # ── 유저 관리 ────────────────────────────────────────────────────
+
 
 @router.get("/users", include_in_schema=False)
 async def admin_users_list(
@@ -933,27 +941,25 @@ async def admin_users_list(
         count_stmt = count_stmt.where(cond)
 
     total = (await db.execute(count_stmt)).scalar_one()
-    users = (await db.execute(
-        stmt.order_by(User.created_at.desc()).offset(offset).limit(size)
-    )).scalars().all()
+    users = (await db.execute(stmt.order_by(User.created_at.desc()).offset(offset).limit(size))).scalars().all()
 
     rows_html = []
     for u in users:
         avatar = resolve_avatar_url(u)
         rider_type_name = u.rider_type.name_ko if u.rider_type else "—"
         nickname = u.nickname or "(미설정)"
-        admin_pill = '<span class="pill warn" style="margin-left:6px;">ADMIN</span>' if u.id == ADMIN_USER_ID else ''
+        admin_pill = '<span class="pill warn" style="margin-left:6px;">ADMIN</span>' if u.id == ADMIN_USER_ID else ""
         rows_html.append(
-            f'<tr>'
+            f"<tr>"
             f'<td><img class="avatar" src="{h(avatar)}" alt="" /></td>'
-            f'<td>{h(nickname)}{admin_pill}</td>'
+            f"<td>{h(nickname)}{admin_pill}</td>"
             f'<td style="font-family:monospace;font-size:12px;">{h(u.phone)}</td>'
-            f'<td>{u.level}</td>'
-            f'<td>{u.exp}</td>'
-            f'<td>{u.gold}</td>'
-            f'<td>{h(rider_type_name)}</td>'
+            f"<td>{u.level}</td>"
+            f"<td>{u.exp}</td>"
+            f"<td>{u.gold}</td>"
+            f"<td>{h(rider_type_name)}</td>"
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{u.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
-            f'</tr>'
+            f"</tr>"
         )
     if not rows_html:
         rows_html.append('<tr><td colspan="8" class="empty">조건에 맞는 유저가 없습니다.</td></tr>')
@@ -972,6 +978,7 @@ async def admin_users_list(
 
 
 # ── 설정 ─────────────────────────────────────────────────────────
+
 
 async def _get_admin_user(db: AsyncSession) -> User:
     user = await db.get(User, ADMIN_USER_ID)
@@ -1035,9 +1042,7 @@ async def admin_settings_nickname(
     if len(nickname) > 30:
         return RedirectResponse(url="/admin/settings?flash=nickname_long", status_code=302)
 
-    dup = (await db.execute(
-        select(User).where(User.nickname == nickname, User.id != user.id)
-    )).scalar_one_or_none()
+    dup = (await db.execute(select(User).where(User.nickname == nickname, User.id != user.id))).scalar_one_or_none()
     if dup is not None:
         return RedirectResponse(url="/admin/settings?flash=nickname_dup", status_code=302)
 
@@ -1079,26 +1084,24 @@ async def admin_admins_list(
     session: AdminSession = Depends(verify_root_session),
     db: AsyncSession = Depends(get_db),
 ):
-    accounts = (await db.execute(
-        select(AdminAccount).order_by(AdminAccount.created_at.desc())
-    )).scalars().all()
+    accounts = (await db.execute(select(AdminAccount).order_by(AdminAccount.created_at.desc()))).scalars().all()
 
     rows_html = []
     for a in accounts:
         confirm_attr = "return confirm('정말 삭제하시겠습니까?');"
         rows_html.append(
-            '<tr>'
+            "<tr>"
             f'<td style="font-family:monospace;color:#fff;">{h(a.username)}</td>'
-            f'<td>{h(a.note or "—")}</td>'
+            f"<td>{h(a.note or '—')}</td>"
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{a.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{a.updated_at.strftime("%Y-%m-%d %H:%M")}</td>'
-            '<td>'
+            "<td>"
             f'<a class="btn btn-ghost btn-sm" href="/admin/admins/{a.id}/edit">수정</a> '
             f'<form method="post" action="/admin/admins/{a.id}/delete" style="display:inline;" '
             f'onsubmit="{confirm_attr}">'
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
-            '</td>'
-            '</tr>'
+            "</td>"
+            "</tr>"
         )
     if not rows_html:
         rows_html.append('<tr><td colspan="5" class="empty">등록된 관리자가 없습니다. (root 만 있음)</td></tr>')
@@ -1165,17 +1168,17 @@ async def admin_admin_create(
     if len(password) < 6:
         return RedirectResponse(url="/admin/admins?flash=weak_password", status_code=302)
 
-    exists = (await db.execute(
-        select(AdminAccount).where(AdminAccount.username == username)
-    )).scalar_one_or_none()
+    exists = (await db.execute(select(AdminAccount).where(AdminAccount.username == username))).scalar_one_or_none()
     if exists is not None:
         return RedirectResponse(url="/admin/admins?flash=duplicate", status_code=302)
 
-    db.add(AdminAccount(
-        username=username,
-        password_hash=_hash_password(password),
-        note=(note.strip() or None),
-    ))
+    db.add(
+        AdminAccount(
+            username=username,
+            password_hash=_hash_password(password),
+            note=(note.strip() or None),
+        )
+    )
     await db.commit()
     return RedirectResponse(url="/admin/admins?flash=created", status_code=302)
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -37,9 +37,7 @@ async def list_notifications(
 
     offset = (page - 1) * limit
 
-    total_result = await db.execute(
-        select(func.count()).where(Notification.user_id == user_id)
-    )
+    total_result = await db.execute(select(func.count()).where(Notification.user_id == user_id))
     total = total_result.scalar_one()
 
     unread_result = await db.execute(
@@ -76,15 +74,13 @@ async def get_notification_settings(
 ):
     await _get_user_or_404(user_id, db)
 
-    result = await db.execute(
-        select(NotificationSettings).where(NotificationSettings.user_id == user_id)
-    )
+    result = await db.execute(select(NotificationSettings).where(NotificationSettings.user_id == user_id))
     settings = result.scalar_one_or_none()
 
     if settings is None:
         settings = NotificationSettings(
             user_id=user_id,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
         )
         db.add(settings)
         await db.commit()
@@ -101,9 +97,7 @@ async def update_notification_settings(
 ):
     await _get_user_or_404(body.user_id, db)
 
-    result = await db.execute(
-        select(NotificationSettings).where(NotificationSettings.user_id == body.user_id)
-    )
+    result = await db.execute(select(NotificationSettings).where(NotificationSettings.user_id == body.user_id))
     settings = result.scalar_one_or_none()
 
     if settings is None:
@@ -115,7 +109,7 @@ async def update_notification_settings(
     settings.event = body.event
     settings.ride_result = body.ride_result
     settings.social = body.social
-    settings.updated_at = datetime.now(timezone.utc)
+    settings.updated_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(settings)

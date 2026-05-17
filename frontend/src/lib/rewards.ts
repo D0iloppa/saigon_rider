@@ -43,7 +43,7 @@ export function calculateRewards(opts: {
 
   // 분배: 총 EXP의 70%가 레벨 EXP, 30%가 XP 포인트
   const totalExp = Math.round(quest.rewardExp * expMul);
-  let expEarned = Math.round(totalExp * 0.7);
+  const expEarned = Math.round(totalExp * 0.7);
   let xpEarned = Math.round(totalExp * 0.3);
 
   // safe_rider 스킬: 안전 A 달성 시 추가 XP 포인트

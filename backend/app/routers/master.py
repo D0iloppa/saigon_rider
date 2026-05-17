@@ -11,9 +11,7 @@ router = APIRouter(prefix="/master", tags=["마스터 데이터"])
 
 @router.get("/districts", response_model=list[DistrictOut], summary="District 목록")
 async def get_districts(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(District).where(District.is_active == True).order_by(District.sort_order)
-    )
+    result = await db.execute(select(District).where(District.is_active == True).order_by(District.sort_order))
     return result.scalars().all()
 
 

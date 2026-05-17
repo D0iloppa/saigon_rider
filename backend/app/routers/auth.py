@@ -1,12 +1,13 @@
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from passlib.context import CryptContext
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..models import User
-from ..schemas import RegisterRequest, LoginRequest, RegisterResponse, LoginResponse, UserOut
+from ..schemas import LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, UserOut
 
 router = APIRouter(prefix="/auth", tags=["인증 (Auth)"])
 
@@ -21,8 +22,12 @@ def _verify(passcode: str, hashed: str) -> bool:
     return pwd_ctx.verify(passcode, hashed)
 
 
-@router.post("/register", response_model=RegisterResponse, summary="회원가입 / passcode 재발급",
-             response_description="발급된 passcode와 유저 정보")
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    summary="회원가입 / passcode 재발급",
+    response_description="발급된 passcode와 유저 정보",
+)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """
     전화번호로 신규 가입.
@@ -56,8 +61,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.post("/login", response_model=LoginResponse, summary="로그인",
-             response_description="유저 정보")
+@router.post("/login", response_model=LoginResponse, summary="로그인", response_description="유저 정보")
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     """전화번호 + passcode 검증 후 유저 정보 반환."""
     result = await db.execute(select(User).where(User.phone == body.phone.strip()))
@@ -72,8 +76,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     return LoginResponse(user=UserOut.model_validate(user))
 
 
-@router.get("/me", response_model=LoginResponse, summary="유저 조회",
-            response_description="유저 정보")
+@router.get("/me", response_model=LoginResponse, summary="유저 조회", response_description="유저 정보")
 async def get_me_by_phone(phone: str, db: AsyncSession = Depends(get_db)):
     """phone 쿼리 파라미터로 유저 조회. 프로필 설정 완료 후 최신 정보 갱신 용도."""
     result = await db.execute(select(User).where(User.phone == phone.strip()))

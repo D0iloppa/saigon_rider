@@ -1,5 +1,5 @@
 // 도메인 타입 정의 (기획서 §2 DB 스키마 기반) 
-import type { District, SafetyGrade as SafetyGradeMaster } from './master';
+import type { District, RiderType, SafetyGrade as SafetyGradeMaster } from './master';
 
 export type RiderStyle = 'commuter' | 'cafe_hunter' | 'night_rider';
 export type QuestType = 'daily' | 'weekly' | 'event';
@@ -31,6 +31,7 @@ export interface Quest {
   questType: QuestType;
   district: District | null;
   districtName: string;
+  riderType: RiderType | null;
   minLevel: number;
   minDistanceM: number;
   maxDurationSec: number | null;
@@ -43,6 +44,7 @@ export interface Quest {
   difficulty: 1 | 2 | 3 | 4 | 5;
   tags: ('HOT' | 'NEW' | 'LIMITED')[];
   thumbnailUrl: string;
+  thumbnailUrls: string[];
   expiresAt?: string;
 }
 

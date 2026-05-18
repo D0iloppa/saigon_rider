@@ -61,6 +61,9 @@ export default function QuestList() {
   const [riderTypes, setRiderTypes] = useState<RiderType[]>([]);
   const [safetyGrades, setSafetyGrades] = useState<SafetyGrade[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [completedQuests, setCompletedQuests] = useState<Quest[]>([]);
+  const [completedLoading, setCompletedLoading] = useState(false);
 
   useEffect(() => {
     fetchDistricts().then(setDistricts);
@@ -93,16 +96,38 @@ export default function QuestList() {
   useEffect(() => {
     if (!userId) { setCompletedCount(0); return; }
     fetchCompletedQuestIds(userId, tab).then((ids) => setCompletedCount(ids.size));
+    setCompletedOpen(false);
+    setCompletedQuests([]);
   }, [tab, userId]);
+
+  const handleToggleCompleted = useCallback(async () => {
+    if (completedOpen) {
+      setCompletedOpen(false);
+      return;
+    }
+    setCompletedOpen(true);
+    if (completedQuests.length === 0 && completedCount > 0) {
+      setCompletedLoading(true);
+      try {
+        const params = buildFilterParams(activeDistrictId, activeRiderTypeId, activeSafetyGradeId);
+        const page = await fetchQuests({ type: tab, ...params, userId: userId ?? undefined, onlyCompleted: true, size: 50 });
+        setCompletedQuests(page.items);
+      } finally {
+        setCompletedLoading(false);
+      }
+    }
+  }, [completedOpen, completedQuests.length, completedCount, tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
 
   const handleRefresh = useCallback(async () => {
     if (userId) {
       fetchCompletedQuestIds(userId, tab).then((ids) => setCompletedCount(ids.size));
     }
+    setCompletedOpen(false);
+    setCompletedQuests([]);
     reset();
   }, [reset, userId, tab]);
 
-  const { containerRef: listRef, pullDistance, isRefreshing } = usePullToRefresh(handleRefresh);
+  const { containerRef: listRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(handleRefresh);
 
   return (
     <div className={styles.root}>
@@ -170,6 +195,7 @@ export default function QuestList() {
 
       {/* List */}
       <div className={styles.listArea} ref={listRef as React.RefObject<HTMLDivElement>}>
+      <div className={styles.listContent} style={contentStyle}>
         <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
         {loading ? (
           <>
@@ -190,21 +216,35 @@ export default function QuestList() {
               <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} />
             ))}
             {completedCount > 0 && !loading && (
-              <div className={styles.completedDivider}>
-                <span>
-                  {t('quest.completedSection')} ({completedCount})
-                </span>
-              </div>
+              <>
+                <button className={styles.completedDivider} onClick={handleToggleCompleted}>
+                  <span>{t('quest.completedSection')} ({completedCount})</span>
+                  <span className={`${styles.completedToggleIcon} ${completedOpen ? styles.completedToggleIconOpen : ''}`}>
+                    ▼
+                  </span>
+                </button>
+                {completedOpen && (
+                  completedLoading ? (
+                    <div className={`shimmer ${styles.skeleton}`} />
+                  ) : (
+                    completedQuests.map((q) => (
+                      <QuestCard key={q.id} quest={q} completed onClick={() => navigate(`/quests/${q.id}`)} />
+                    ))
+                  )
+                )}
+              </>
             )}
             <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
           </>
         )}
+      </div>{/* contentStyle wrapper */}
       </div>
     </div>
   );
 }
 
 function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClick: () => void; completed?: boolean }) {
+  const { t } = useTranslation();
   const timeLeft = formatTimeLeft(quest.expiresAt);
   const timerStyle = getTimerStyle(quest.expiresAt);
   const tag = quest.tags[0];
@@ -232,13 +272,13 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
 
       {/* Thumbnail */}
       <div className={styles.thumb}>
-        <AppImage src={quest.thumbnailUrl} alt="" />
+        <AppImage src={quest.thumbnailUrls} alt="" />
       </div>
 
       {/* Content */}
       <div className={styles.cardBody}>
         <div className={styles.metaRow}>
-          <Chip variant="surface">Lv.{quest.minLevel} · {quest.districtName}</Chip>
+          <Chip variant="surface">Lv.{quest.minLevel} · {quest.districtName || t('quest.everywhere')}</Chip>
         </div>
         <h3 className={styles.cardTitle}>{quest.title}</h3>
         <div className={styles.cardMeta}>

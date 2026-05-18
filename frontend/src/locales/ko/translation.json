@@ -11,7 +11,8 @@
     "change": "변경",
     "cancel": "취소",
     "confirm": "확인",
-    "errorUnexpected": "오류가 발생했어요. 다시 시도해주세요"
+    "errorUnexpected": "오류가 발생했어요. 다시 시도해주세요",
+    "sessionExpired": "세션이 만료되었습니다. 다시 로그인해주세요"
   },
   "tabbar": {
     "world": "월드",
@@ -63,13 +64,15 @@
     "nicknamePlaceholder": "닉네임 입력…",
     "startBtn": "시작하기 →",
     "errorNicknameTooShort": "닉네임은 2자 이상 입력해주세요",
-    "errorNoStyle": "라이더 스타일을 선택해주세요"
+    "errorNoStyle": "라이더 스타일을 선택해주세요",
+    "skip": "건너뛰기"
   },
   "home": {
     "progressLabel": "오늘은 {{needed}}km 더 달리면 Lv.{{nextLevel}}",
     "startQuestBtn": "퀘스트 시작",
     "greet": "어서오세요, {{name}} ✨",
-    "tonightsPick": "오늘 밤의 추천"
+    "tonightsPick": "오늘 밤의 추천",
+    "noRecommendedQuest": "추천 퀘스트가 없습니다"
   },
   "quest": {
     "title": "퀘스트",
@@ -95,7 +98,8 @@
     "lockTitle": "Lv.{{level}}부터 도전할 수 있어요",
     "lockSub": "현재 Lv.{{level}} · 다음 레벨까지",
     "lockEasierBtn": "더 쉬운 퀘스트 보기",
-    "tonightsTag": "오늘 밤의 퀘스트"
+    "tonightsTag": "오늘 밤의 퀘스트",
+    "everywhere": "어디서나"
   },
   "ride": {
     "distance": "거리",
@@ -244,7 +248,8 @@
     "myQr": "내 QR",
     "scanQr": "QR 스캔",
     "scanGuide": "상대방의 QR 코드를 스캔하세요",
-    "myQrGuide": "내 QR 코드를 보여주세요"
+    "myQrGuide": "내 QR 코드를 보여주세요",
+    "unfollowConfirm": "팔로우를 취소하시겠어요?"
   },
   "feedEdit": {
     "title": "글 수정",
@@ -256,6 +261,7 @@
   "profileEdit": {
     "title": "프로필 수정",
     "nicknameLabel": "닉네임",
+    "riderStyleLabel": "라이더 스타일",
     "saveBtn": "저장",
     "saved": "프로필이 저장되었어요",
     "avatarSuccess": "사진이 변경되었어요"

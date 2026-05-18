@@ -11,7 +11,8 @@
     "change": "Thay đổi",
     "cancel": "Hủy",
     "confirm": "Xác nhận",
-    "errorUnexpected": "Đã xảy ra lỗi. Vui lòng thử lại"
+    "errorUnexpected": "Đã xảy ra lỗi. Vui lòng thử lại",
+    "sessionExpired": "Phiên đã hết hạn. Vui lòng đăng nhập lại"
   },
   "tabbar": {
     "world": "Bản đồ",
@@ -63,13 +64,15 @@
     "nicknamePlaceholder": "Nhập biệt danh…",
     "startBtn": "Bắt đầu →",
     "errorNicknameTooShort": "Biệt danh phải có ít nhất 2 ký tự",
-    "errorNoStyle": "Vui lòng chọn phong cách tay đua"
+    "errorNoStyle": "Vui lòng chọn phong cách tay đua",
+    "skip": "Bỏ qua"
   },
   "home": {
     "progressLabel": "Đi thêm {{needed}}km để đạt Lv.{{nextLevel}} hôm nay",
     "startQuestBtn": "Bắt đầu nhiệm vụ",
     "greet": "Chào buổi tối, {{name}} ✨",
-    "tonightsPick": "GỢI Ý TỐI NAY"
+    "tonightsPick": "GỢI Ý TỐI NAY",
+    "noRecommendedQuest": "Không có nhiệm vụ đề xuất"
   },
   "quest": {
     "title": "Nhiệm vụ",
@@ -95,7 +98,8 @@
     "lockTitle": "Mở từ Lv.{{level}}",
     "lockSub": "Lv.{{currentLevel}} hiện tại · Đến level tiếp theo",
     "lockEasierBtn": "Xem nhiệm vụ dễ hơn",
-    "tonightsTag": "NHIỆM VỤ TỐI NAY"
+    "tonightsTag": "NHIỆM VỤ TỐI NAY",
+    "everywhere": "Khắp nơi"
   },
   "ride": {
     "distance": "Khoảng cách",
@@ -244,7 +248,8 @@
     "myQr": "QR của tôi",
     "scanQr": "Quét mã QR",
     "scanGuide": "Quét mã QR của bạn bè",
-    "myQrGuide": "Hiển thị mã QR của bạn"
+    "myQrGuide": "Hiển thị mã QR của bạn",
+    "unfollowConfirm": "Bạn có chắc muốn hủy theo dõi không?"
   },
   "feedEdit": {
     "title": "Sửa bài viết",
@@ -256,6 +261,7 @@
   "profileEdit": {
     "title": "Chỉnh sửa hồ sơ",
     "nicknameLabel": "Biệt danh",
+    "riderStyleLabel": "Phong cách lái",
     "saveBtn": "Lưu",
     "saved": "Đã lưu hồ sơ",
     "avatarSuccess": "Đã cập nhật ảnh"

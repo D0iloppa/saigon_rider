@@ -54,11 +54,14 @@ export default function ProfileMain() {
   // ── 드래그 가능 시트 로직 ──
   const [sheetTop, setSheetTop] = useState(9999);
   const [socialTop, setSocialTop] = useState(0);
+  const [scrollable, setScrollable] = useState(false);
   const snapMin = useRef(0);
   const snapMax = useRef(0);
   const dragging = useRef(false);
+  const atTop = useRef(false);
   const dragStartY = useRef(0);
   const dragStartTop = useRef(0);
+  const scrollTimer = useRef(0);
 
   const computeSnaps = useCallback(() => {
     const hH = headerRef.current?.offsetHeight ?? 0;
@@ -95,15 +98,15 @@ export default function ProfileMain() {
     const dy = e.touches[0].clientY - dragStartY.current;
 
     if (!dragging.current) {
-      // 시트가 최대 상한에 있을 때
-      if (sheetTop <= snapMin.current) {
-        // 위로 스와이프 → 내부 스크롤에 위임
+      if (atTop.current) {
         if (dy < 0) return;
-        // 아래로 스와이프인데 내부 스크롤이 0이 아니면 → 내부 스크롤에 위임
         if (sheet.scrollTop > 1) return;
       }
       if (Math.abs(dy) < 5) return;
       dragging.current = true;
+      window.clearTimeout(scrollTimer.current);
+      atTop.current = false;
+      setScrollable(false);
     }
 
     if (dragging.current) {
@@ -117,7 +120,12 @@ export default function ProfileMain() {
     if (!dragging.current) return;
     dragging.current = false;
     const mid = (snapMin.current + snapMax.current) / 2;
-    setSheetTop(sheetTop < mid ? snapMin.current : snapMax.current);
+    const target = sheetTop < mid ? snapMin.current : snapMax.current;
+    setSheetTop(target);
+    if (target === snapMin.current) {
+      atTop.current = true;
+      scrollTimer.current = window.setTimeout(() => setScrollable(true), 100);
+    }
   }, [sheetTop]);
 
   const [followCounts, setFollowCounts] = useState({ followerCount: 0, followingCount: 0 });
@@ -222,12 +230,11 @@ export default function ProfileMain() {
 
         <div style={{ margin: '8px auto 24px', display: 'flex', justifyContent: 'center' }}>
           <Chip variant="surface">
-            🌙{' '}
             {u.riderStyle === 'commuter'
-              ? t('profileSetup.styleCommuterTitle')
+              ? `🏢 ${t('profileSetup.styleCommuterTitle')}`
               : u.riderStyle === 'cafe_hunter'
-              ? t('profileSetup.styleCafeHunterTitle')
-              : t('profileSetup.styleNightRiderTitle')}
+              ? `☕ ${t('profileSetup.styleCafeHunterTitle')}`
+              : `🌙 ${t('profileSetup.styleNightRiderTitle')}`}
           </Chip>
         </div>
 
@@ -278,7 +285,7 @@ export default function ProfileMain() {
         style={{
           top: sheetTop,
           transition: dragging.current ? 'none' : 'top .3s cubic-bezier(.2,.8,.2,1)',
-          overflowY: sheetTop <= snapMin.current ? 'auto' : 'hidden',
+          overflowY: scrollable ? 'auto' : 'hidden',
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

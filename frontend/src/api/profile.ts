@@ -43,6 +43,11 @@ export async function apiSaveProfileSetup(
   });
 }
 
+export async function fetchRandomNickname(): Promise<string> {
+  const res = await api.realFetch<{ nickname: string }>('/profile/random-nickname');
+  return res.nickname;
+}
+
 export async function fetchUserProfile(userId: string, requesterId?: string): Promise<UserProfile> {
   const params = new URLSearchParams();
   if (requesterId) params.set('requester_id', requesterId);

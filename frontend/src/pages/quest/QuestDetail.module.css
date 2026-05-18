@@ -8,9 +8,13 @@
 
 .hero {
   height: 320px;
-  background-size: cover;
-  background-position: center;
   position: relative;
+  overflow: hidden;
+}
+
+.heroImg {
+  position: absolute;
+  inset: 0;
 }
 
 .heroOverlay {

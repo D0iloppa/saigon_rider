@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
 import type { UserDto } from '@/api/auth';
+import { apiGetMe } from '@/api/auth';
 import i18n, { changeLang } from '@/lib/i18n';
 
 interface UserState {
@@ -11,6 +12,7 @@ interface UserState {
 
   // actions
   loginFromBackend: (dto: UserDto, passcode?: string) => void;
+  refreshUser: () => Promise<void>;
   setProfile: (nickname: string, riderStyle: RiderStyle) => void;
   updateNickname: (nickname: string) => void;
   updateAvatar: (avatarUrl: string) => void;
@@ -22,13 +24,19 @@ interface UserState {
   investSkill: (key: SkillKey) => boolean;
 }
 
+function extractRiderStyle(rt: UserDto['rider_type']): RiderStyle {
+  if (!rt) return 'night_rider';
+  const code = typeof rt === 'string' ? rt : rt.code;
+  return code.toLowerCase() as RiderStyle;
+}
+
 function dtoToUser(dto: UserDto): User {
   const language = (i18n.language as Language) || 'vi';
   return {
     id: dto.id,
     phone: dto.phone,
     nickname: dto.nickname ?? '',
-    riderStyle: (dto.rider_type as RiderStyle) ?? 'night_rider',
+    riderStyle: extractRiderStyle(dto.rider_type),
     avatarUrl: dto.avatar_url ?? undefined,
     level: dto.level,
     levelExp: dto.exp,
@@ -53,6 +61,17 @@ export const useUserStore = create<UserState>()(
           isAuthenticated: true,
           ...(passcode !== undefined ? { passcode } : {}),
         });
+      },
+
+      refreshUser: async () => {
+        const u = get().user;
+        if (!u) return;
+        try {
+          const res = await apiGetMe(u.phone);
+          set({ user: dtoToUser(res.user) });
+        } catch {
+          // silent fail
+        }
       },
 
       setProfile: (nickname, riderStyle) => {

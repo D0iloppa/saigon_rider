@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import Quest, RideSession, RideStreak, User, UserQuest
 from ..schemas import (
@@ -65,7 +66,9 @@ async def _upsert_streak(db: AsyncSession, user_id: uuid.UUID) -> None:
 
 # R-1
 @router.post("/submit", response_model=RideResultOut, status_code=201, summary="라이딩 결과 제출")
-async def submit_ride(body: RideSubmitRequest, db: AsyncSession = Depends(get_db)):
+async def submit_ride(
+    body: RideSubmitRequest, db: AsyncSession = Depends(get_db), _session_uid: uuid.UUID = Depends(verify_user_session)
+):
     now = datetime.now(UTC)
 
     uq = await db.get(UserQuest, body.user_quest_id)

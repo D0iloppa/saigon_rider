@@ -11,9 +11,11 @@ export function ImageCarousel({ urls, onImageClick }: Props) {
   const [current, setCurrent] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
+  const startY = useRef(0);
   const startIdx = useRef(0);
   const dragging = useRef(false);
   const dx = useRef(0);
+  const lockedAxis = useRef<'x' | 'y' | null>(null);
 
   const count = urls.length;
   if (count === 0) return null;
@@ -27,14 +29,30 @@ export function ImageCarousel({ urls, onImageClick }: Props) {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
     startIdx.current = current;
     dragging.current = false;
     dx.current = 0;
+    lockedAxis.current = null;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     dx.current = e.touches[0].clientX - startX.current;
-    if (Math.abs(dx.current) > 8) dragging.current = true;
+    const dy = e.touches[0].clientY - startY.current;
+
+    if (!lockedAxis.current && (Math.abs(dx.current) > 8 || Math.abs(dy) > 8)) {
+      lockedAxis.current = Math.abs(dx.current) > Math.abs(dy) ? 'x' : 'y';
+    }
+
+    if (lockedAxis.current === 'y') return;
+
+    if (Math.abs(dx.current) > 8) {
+      dragging.current = true;
+    }
+    if (dragging.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (dragging.current && trackRef.current) {
       const offset = -startIdx.current * 100 + (dx.current / trackRef.current.parentElement!.clientWidth) * 100;
       trackRef.current.style.transition = 'none';

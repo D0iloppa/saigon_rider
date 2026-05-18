@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,13 +11,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import Content, RiderType, User
+from ..models import Content, NicknameWord, RiderType, User
 from ..schemas import (
     AvatarUpdateResponse,
     NicknameCheckResponse,
     NicknameUpdateRequest,
     ProfileSaveRequest,
+    RandomNicknameResponse,
     RpBalanceResponse,
     UserOut,
 )
@@ -52,6 +55,7 @@ async def upload_avatar(
     file: UploadFile = File(...),
     user_id: str = Form(...),
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     parsed_user_id = uuid.UUID(user_id)
     user = await _get_user_or_404(parsed_user_id, db)
@@ -94,7 +98,11 @@ async def upload_avatar(
 
 
 @router.put("/nickname", response_model=UserOut, summary="닉네임 변경", response_description="업데이트된 유저 정보")
-async def update_nickname(body: NicknameUpdateRequest, db: AsyncSession = Depends(get_db)):
+async def update_nickname(
+    body: NicknameUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
     user = await _get_user_or_404(body.user_id, db)
 
     nickname = body.nickname.strip()
@@ -124,7 +132,9 @@ async def check_nickname(nickname: str, db: AsyncSession = Depends(get_db)):
 
 # A-2
 @router.put("", response_model=UserOut, summary="프로필 저장 (닉네임 + rider_type 동시 설정)")
-async def save_profile(body: ProfileSaveRequest, db: AsyncSession = Depends(get_db)):
+async def save_profile(
+    body: ProfileSaveRequest, db: AsyncSession = Depends(get_db), _session_uid: uuid.UUID = Depends(verify_user_session)
+):
     user = await _get_user_or_404(body.user_id, db)
 
     nickname = body.nickname.strip()
@@ -147,6 +157,20 @@ async def save_profile(body: ProfileSaveRequest, db: AsyncSession = Depends(get_
     await db.commit()
     await db.refresh(user, ["rider_type"])
     return UserOut.model_validate(user)
+
+
+@router.get("/random-nickname", response_model=RandomNicknameResponse, summary="랜덤 닉네임 생성")
+async def random_nickname(db: AsyncSession = Depends(get_db)):
+    adj_rows = (
+        (await db.execute(select(NicknameWord.word).where(NicknameWord.word_type == "adjective"))).scalars().all()
+    )
+    noun_rows = (await db.execute(select(NicknameWord.word).where(NicknameWord.word_type == "noun"))).scalars().all()
+    if not adj_rows or not noun_rows:
+        raise HTTPException(status_code=503, detail="Nickname word pool is empty")
+    adj = random.choice(adj_rows)
+    noun = random.choice(noun_rows)
+    suffix = random.randint(100, 999)
+    return RandomNicknameResponse(nickname=f"{adj} {noun} {suffix}")
 
 
 @router.get("/{user_id}/rp-balance", response_model=RpBalanceResponse, summary="RP 잔액 조회")

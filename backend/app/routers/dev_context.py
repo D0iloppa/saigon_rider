@@ -52,10 +52,12 @@ async def get_context(key: str, db: AsyncSession = Depends(get_db)):
 async def upsert_context(body: DevContextUpsertRequest, db: AsyncSession = Depends(get_db)):
     row = (await db.execute(select(DevContext).where(DevContext.key == body.key))).scalar_one_or_none()
     if row is None:
-        row = DevContext(key=body.key, value=body.value, meta=body.meta)
+        row = DevContext(key=body.key, value=body.value, status=body.status or "⏸", meta=body.meta)
         db.add(row)
     else:
         row.value = body.value
+        if body.status is not None:
+            row.status = body.status
         row.meta = body.meta
         row.updated_at = datetime.now(UTC)
     await db.commit()
@@ -231,7 +233,7 @@ async def delete_todo(todo_id: int, db: AsyncSession = Depends(get_db)):
 @router.get("/dev/summary")
 async def dev_summary(db: AsyncSession = Depends(get_db)):
     context_rows = (await db.execute(select(DevContext).order_by(DevContext.key))).scalars().all()
-    context = {r.key: r.value for r in context_rows}
+    context = {r.key: {"value": r.value, "status": r.status} for r in context_rows}
 
     feature_counts = {}
     for st in _VALID_FEATURE_STATUS:
@@ -274,10 +276,13 @@ async def admin_dev_page(
     for r in ctx_rows:
         ctx_html.append(
             f"<tr>"
+            f'<td class="kv-status">{h(r.status or "⏸")}</td>'
             f'<td class="kv-key">{h(r.key)}</td>'
             f'<td class="kv-value">{h(r.value or "")}</td>'
             f'<td class="kv-time">{r.updated_at.strftime("%m-%d %H:%M")}</td>'
             f'<td class="kv-actions">'
+            f'<form method="post" action="/admin/dev/context/{h(r.key)}/status-cycle" style="display:inline;">'
+            f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
             f'<form method="post" action="/admin/dev/context/{h(r.key)}/delete" style="display:inline;"'
             f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
@@ -427,15 +432,35 @@ async def admin_dev_context_upsert(
     db: AsyncSession = Depends(get_db),
     key: str = Form(...),
     value: str = Form(""),
+    status: str = Form("⏸"),
 ):
     row = (await db.execute(select(DevContext).where(DevContext.key == key.strip()))).scalar_one_or_none()
     if row is None:
-        row = DevContext(key=key.strip(), value=value.strip() or None)
+        row = DevContext(key=key.strip(), value=value.strip() or None, status=status.strip() or "⏸")
         db.add(row)
     else:
         row.value = value.strip() or None
+        row.status = status.strip() or "⏸"
         row.updated_at = datetime.now(UTC)
     await db.commit()
+    return RedirectResponse(url="/admin/dev", status_code=302)
+
+
+_CONTEXT_STATUS_CYCLE = ["🔧", "✅", "⏸", "❌"]
+
+
+@admin_router.post("/dev/context/{key}/status-cycle", include_in_schema=False)
+async def admin_dev_context_status_cycle(
+    key: str,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    row = (await db.execute(select(DevContext).where(DevContext.key == key))).scalar_one_or_none()
+    if row:
+        idx = _CONTEXT_STATUS_CYCLE.index(row.status) if row.status in _CONTEXT_STATUS_CYCLE else -1
+        row.status = _CONTEXT_STATUS_CYCLE[(idx + 1) % len(_CONTEXT_STATUS_CYCLE)]
+        row.updated_at = datetime.now(UTC)
+        await db.commit()
     return RedirectResponse(url="/admin/dev", status_code=302)
 
 

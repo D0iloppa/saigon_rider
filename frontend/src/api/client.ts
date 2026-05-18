@@ -25,8 +25,8 @@ export class SessionExpiredError extends Error {
 
 export function requireSession() {
   const session = loadSession();
-  if (!session?.userId) throw new SessionExpiredError();
-  return session;
+  if (!session?.userId) handleSessionError();
+  return session!;
 }
 
 let _handleSessionExpired: (() => void) | null = null;
@@ -56,6 +56,11 @@ function extractErrorMessage(err: any, status: number): string {
   return `HTTP ${status}`;
 }
 
+function sessionHeaders(): Record<string, string> {
+  const session = loadSession();
+  return session?.userId ? { 'X-User-Id': session.userId } : {};
+}
+
 async function realFetch<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -65,11 +70,12 @@ async function realFetch<T>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...sessionHeaders(),
       ...options.headers,
     },
   });
   if (!res.ok) {
-    if (res.status === 401) handleSessionError();
+    if (res.status === 419 || res.status === 401) handleSessionError();
     const err = await res.json().catch(() => ({}));
     const message = extractErrorMessage(err, res.status);
     toast.error(message);
@@ -85,10 +91,11 @@ async function realFetchForm<T>(
 ): Promise<T> {
   const res = await fetch(`${baseUrl(service)}${endpoint}`, {
     method: 'POST',
+    headers: { ...sessionHeaders() },
     body,
   });
   if (!res.ok) {
-    if (res.status === 401) handleSessionError();
+    if (res.status === 419 || res.status === 401) handleSessionError();
     const err = await res.json().catch(() => ({}));
     const message = extractErrorMessage(err, res.status);
     toast.error(message);

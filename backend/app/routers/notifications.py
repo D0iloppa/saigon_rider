@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..models import Notification, NotificationSettings, User
 from ..schemas import (
     NotificationListResponse,
@@ -94,6 +95,7 @@ async def get_notification_settings(
 async def update_notification_settings(
     body: NotificationSettingsUpdate,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     await _get_user_or_404(body.user_id, db)
 

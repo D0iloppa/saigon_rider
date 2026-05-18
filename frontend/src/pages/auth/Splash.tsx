@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { StatusBar } from '@/components/layout/StatusBar';
+import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
 import type { Language } from '@/api/types';
@@ -25,8 +26,13 @@ export default function Splash() {
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/home', { replace: true });
+      return;
     }
-  }, [isAuthenticated, navigate]);
+    if (sessionStorage.getItem('session_expired')) {
+      sessionStorage.removeItem('session_expired');
+      toast.error(t('common.sessionExpired'));
+    }
+  }, [isAuthenticated, navigate, t]);
 
   // 현재 언어에 맞는 항목 (없으면 vi 기본)
   const current = LANGS.find((l) => l.code === i18n.language) ?? LANGS[0];

@@ -7,7 +7,8 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import Bookmark, Quest, User, UserQuest
+from ..deps import verify_user_session
+from ..models import AppConfig, Bookmark, Quest, User, UserQuest
 from ..schemas import (
     BookmarkToggleRequest,
     BookmarkToggleResponse,
@@ -50,16 +51,16 @@ router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
 
 def _to_out(quest: Quest) -> QuestOut:
     out = QuestOut.model_validate(quest)
-    # 퀘스트 썸네일 우선순위 (모두 contents 테이블 중개):
-    #   1. 자체 등록 이미지 (quests.thumbnail_content_id)
-    #   2. district 대표 이미지 (districts.image_content_id)
-    #   3. mockup 이미지
+    chain: list[str] = []
     if quest.thumbnail_content and quest.thumbnail_content.file_path:
-        out.thumbnail_url = build_imgproxy_url(quest.thumbnail_content.file_path)
-    elif quest.district and quest.district.image_content and quest.district.image_content.file_path:
-        out.thumbnail_url = build_imgproxy_url(quest.district.image_content.file_path)
-    else:
-        out.thumbnail_url = f"{MOCK_IMG_ENDPOINT}?seed={quest.id}"
+        chain.append(build_imgproxy_url(quest.thumbnail_content.file_path))
+    if quest.hero_image_url:
+        chain.append(quest.hero_image_url)
+    if quest.district and quest.district.image_content and quest.district.image_content.file_path:
+        chain.append(build_imgproxy_url(quest.district.image_content.file_path))
+    chain.append(f"{MOCK_IMG_ENDPOINT}?seed={quest.id}")
+    out.thumbnail_urls = chain
+    out.thumbnail_url = chain[0]
     return out
 
 
@@ -81,6 +82,7 @@ async def get_quests(
     safety_grade_id: int | None = None,
     user_id: uuid.UUID | None = Query(None),
     exclude_completed: bool = Query(False),
+    only_completed: bool = Query(False),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -98,14 +100,17 @@ async def get_quests(
     if safety_grade_id:
         conditions.append(or_(Quest.min_safety_grade_id == safety_grade_id, Quest.min_safety_grade_id.is_(None)))
 
-    if exclude_completed and user_id and period:
+    if user_id and period:
         period_key = _calc_period_key(period.upper())
         completed_subq = (
             select(UserQuest.quest_id)
             .where(UserQuest.user_id == user_id, UserQuest.period_key == period_key)
             .scalar_subquery()
         )
-        conditions.append(Quest.id.not_in(completed_subq))
+        if exclude_completed:
+            conditions.append(Quest.id.not_in(completed_subq))
+        elif only_completed:
+            conditions.append(Quest.id.in_(completed_subq))
 
     total = (await db.execute(select(func.count()).select_from(Quest).where(*conditions))).scalar_one()
 
@@ -153,19 +158,41 @@ async def get_quest_pins(db: AsyncSession = Depends(get_db)):
 
 
 # Q-3
-@router.get("/recommended", response_model=QuestOut | None, summary="Tonight's Pick 추천 퀘스트")
-async def get_recommended_quest(db: AsyncSession = Depends(get_db)):
+@router.get("/recommended", response_model=list[QuestOut], summary="추천 퀘스트 (유저 맞춤, 최대 N개)")
+async def get_recommended_quests(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    max_row = (
+        await db.execute(
+            select(AppConfig).where(AppConfig.group_name == "quest", AppConfig.key == "recommend_max_count")
+        )
+    ).scalar_one_or_none()
+    limit = int(max_row.value) if max_row else 3
+
+    completed_sub = (
+        select(UserQuest.quest_id).where(
+            UserQuest.user_id == user_id,
+            UserQuest.status == "COMPLETED",
+        )
+    ).correlate(None)
+
     result = await db.execute(
         select(Quest)
         .where(
             Quest.is_active == True,
-            Quest.period == "DAILY",
+            Quest.required_level <= user.level,
+            Quest.id.not_in(completed_sub),
         )
         .order_by((Quest.reward_exp + Quest.reward_gold).desc())
-        .limit(1)
+        .limit(limit)
     )
-    quest = result.scalar_one_or_none()
-    return _to_out(quest) if quest else None
+    quests = result.scalars().all()
+    return [_to_out(q) for q in quests]
 
 
 # Q-4
@@ -181,6 +208,7 @@ async def accept_quest(
     quest_id: uuid.UUID,
     body: QuestAcceptRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     quest = await _get_quest_or_404(quest_id, db)
 
@@ -217,6 +245,7 @@ async def complete_quest(
     body: QuestCompleteRequest,
     x_passcode: str = Header(..., alias="X-Passcode"),
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     await _verify_passcode(body.user_id, x_passcode, db)
     quest = await _get_quest_or_404(quest_id, db)
@@ -271,6 +300,7 @@ async def toggle_bookmark(
     quest_id: uuid.UUID,
     body: BookmarkToggleRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     await _get_quest_or_404(quest_id, db)
 

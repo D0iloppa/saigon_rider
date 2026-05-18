@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { fetchMessages, sendMessage, markRead } from '@/api/dm';
 import { useUserStore } from '@/store/useUserStore';
+import { useDmStore } from '@/store/useDmStore';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation, DmMessage } from '@/api/types';
@@ -15,6 +16,7 @@ export default function DmDetail() {
   const { conversationId } = useParams<{ conversationId: string }>();
   const locationState = useLocation().state as { conv?: DmConversation } | null;
   const user = useUserStore((s) => s.user);
+  const refreshUnread = useDmStore((s) => s.refreshUnread);
   const session = loadSession();
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
@@ -27,9 +29,10 @@ export default function DmDetail() {
     if (!conversationId) return;
     fetchMessages(conversationId).then((res) => {
       setMessages(res.items);
-      markRead(conversationId);
+      markRead(conversationId).then(() => refreshUnread());
     });
-  }, [conversationId]);
+    return () => { refreshUnread(); };
+  }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!conversationId) return;
@@ -38,7 +41,7 @@ export default function DmDetail() {
       const res = await fetchMessages(conversationId, 1, last?.createdAt);
       if (res.items.length > 0) {
         setMessages((prev) => [...prev, ...res.items]);
-        markRead(conversationId);
+        markRead(conversationId).then(() => refreshUnread());
       }
     }, 5000);
     return () => clearInterval(interval);

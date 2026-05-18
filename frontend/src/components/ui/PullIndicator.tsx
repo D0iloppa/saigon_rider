@@ -15,10 +15,7 @@ export function PullIndicator({ pullDistance, isRefreshing }: Props) {
   const ready = pullDistance >= THRESHOLD;
 
   return (
-    <div
-      className={styles.wrap}
-      style={{ transform: `translateY(${pullDistance}px)` }}
-    >
+    <div className={styles.wrap}>
       <div className={`${styles.circle} ${isRefreshing ? styles.spinning : ''}`}>
         {isRefreshing ? (
           <div className={styles.spinner} />

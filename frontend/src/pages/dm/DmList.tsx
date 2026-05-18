@@ -6,16 +6,21 @@ import { fetchConversations } from '@/api/dm';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
+import { useDmStore } from '@/store/useDmStore';
 import styles from './DmList.module.css';
 
 export default function DmList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const refreshUnread = useDmStore((s) => s.refreshUnread);
   const [conversations, setConversations] = useState<DmConversation[]>([]);
 
   useEffect(() => {
-    fetchConversations().then(setConversations);
-  }, []);
+    fetchConversations().then((convs) => {
+      setConversations(convs);
+      refreshUnread();
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={styles.page}>

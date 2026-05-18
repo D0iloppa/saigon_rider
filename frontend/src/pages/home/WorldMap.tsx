@@ -1,18 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
-import { useDialogStore } from '@/store/useDialogStore';
-import { fetchRecommendedQuest } from '@/api/quests';
+import { fetchRecommendedQuests } from '@/api/quests';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber } from '@/lib/format';
 import type { Quest } from '@/api/types';
-import { StatusBar } from '@/components/layout/StatusBar';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { MapPin } from '@/components/ui/MapPin';
 import { Chip } from '@/components/ui/Chip';
-import { AlertDialog } from '@/components/ui/AlertDialog';
-import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
 import { emojiUrl } from '@/lib/emoji';
 import { AppImage } from '@/components/ui/AppImage';
 import styles from './WorldMap.module.css';
@@ -36,17 +32,30 @@ const CURRENCY_CARDS = [
 
 export default function WorldMap() {
   const user = useUserStore((s) => s.user);
+  const refreshUser = useUserStore((s) => s.refreshUser);
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [recommended, setRecommended] = useState<Quest | null>(null);
+  const [recommendedList, setRecommendedList] = useState<Quest[]>([]);
+  const [recIdx, setRecIdx] = useState(0);
+  const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
   const [loading, setLoading] = useState(true);
+  const didInit = useRef(false);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    fetchRecommendedQuest().then((q) => {
-      setRecommended(q);
+    if (didInit.current) return;
+    didInit.current = true;
+    refreshUser();
+    const uid = useUserStore.getState().user?.id;
+    if (uid) {
+      fetchRecommendedQuests(uid).then((list) => {
+        setRecommendedList(list);
+        setLoading(false);
+      });
+    } else {
       setLoading(false);
-    });
-  }, []);
+    }
+  }, [refreshUser]);
 
   if (!user) return null;
   const { needed, progress } = expToNextLevel(user.levelExp, user.level);
@@ -177,46 +186,94 @@ export default function WorldMap() {
           </div>
         </div>
 
-        {/* ── Recommended quest ── */}
+        {/* ── Recommended quests ── */}
         {loading ? (
           <div className={`shimmer ${styles.recSkeleton}`} />
-        ) : recommended ? (
-          <div className={styles.recCard}>
-            <div className={`micro ${styles.recTag}`}>
-              {t('home.tonightsPick')} · 22:00–02:00
-            </div>
-            <div className={styles.recBody}>
-              <div className={styles.recThumb}>
-                <AppImage src={recommended.thumbnailUrl} alt="" />
+        ) : recommendedList.length > 0 ? (
+          <div
+            className={styles.recCard}
+            onTouchStart={(e) => {
+              swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }}
+            onTouchEnd={(e) => {
+              if (!swipeStart.current) return;
+              const dx = e.changedTouches[0].clientX - swipeStart.current.x;
+              const dy = e.changedTouches[0].clientY - swipeStart.current.y;
+              swipeStart.current = null;
+              if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+              if (dx < 0) {
+                setSlideDir('left');
+                setRecIdx((i) => Math.min(i + 1, recommendedList.length - 1));
+              } else {
+                setSlideDir('right');
+                setRecIdx((i) => Math.max(i - 1, 0));
+              }
+            }}
+          >
+            <div className={styles.recHeader}>
+              <div className={`micro ${styles.recTag}`}>
+                {t('home.tonightsPick')} · 22:00–02:00
               </div>
-              <div className={styles.recInfo}>
-                <h3 className={styles.recTitle}>{recommended.title}</h3>
-                <div className={styles.recRewards}>
-                  <span className={styles.rewardItem}>
-                    <GifIcon code="1f48e" size={16} />
-                    <span style={{ color: 'var(--xp)' }}>+{recommended.rewardExp}</span>
-                  </span>
-                  <span className={styles.rewardItem}>
-                    <GifIcon code="1fa99" size={16} />
-                    <span style={{ color: '#A07010' }}>+{recommended.rewardGold}</span>
-                  </span>
-                  {recommended.rewardItems.length > 0 && (
-                    <span className={styles.rewardItem}>
-                      <GifIcon code="1f3c6" size={16} />
-                      <span style={{ color: '#A07010' }}>×{recommended.rewardItems.length}</span>
-                    </span>
-                  )}
+              {recommendedList.length > 1 && (
+                <div className={styles.recDots}>
+                  {recommendedList.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`${styles.dot} ${i === recIdx ? styles.dotActive : ''}`}
+                      onClick={() => { setSlideDir(i > recIdx ? 'left' : 'right'); setRecIdx(i); }}
+                    />
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
-            <button
-              className={styles.recBtn}
-              onClick={() => navigate(`/quests/${recommended.id}`)}
+            <div
+              key={recIdx}
+              className={`${styles.recSlide} ${slideDir === 'left' ? styles.slideFromRight : styles.slideFromLeft}`}
             >
-              {t('home.startQuestBtn')}
-            </button>
+              {(() => {
+              const quest = recommendedList[recIdx];
+              return (
+                <>
+                  <div className={styles.recBody}>
+                    <div className={styles.recThumb}>
+                      <AppImage src={quest.thumbnailUrls} alt="" />
+                    </div>
+                    <div className={styles.recInfo}>
+                      <h3 className={styles.recTitle}>{quest.title}</h3>
+                      <div className={styles.recRewards}>
+                        <span className={styles.rewardItem}>
+                          <GifIcon code="1f48e" size={16} />
+                          <span style={{ color: 'var(--xp)' }}>+{quest.rewardExp}</span>
+                        </span>
+                        <span className={styles.rewardItem}>
+                          <GifIcon code="1fa99" size={16} />
+                          <span style={{ color: '#A07010' }}>+{quest.rewardGold}</span>
+                        </span>
+                        {quest.rewardItems.length > 0 && (
+                          <span className={styles.rewardItem}>
+                            <GifIcon code="1f3c6" size={16} />
+                            <span style={{ color: '#A07010' }}>×{quest.rewardItems.length}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    className={styles.recBtn}
+                    onClick={() => navigate(`/quests/${quest.id}`)}
+                  >
+                    {t('home.startQuestBtn')}
+                  </button>
+                </>
+              );
+            })()}
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <div className={styles.recEmpty}>
+            <p>{t('home.noRecommendedQuest')}</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ _badge_condition_enum = ENUM(
     name="badge_condition_type",
     create_type=False,
 )
+_app_platform_enum = ENUM("primary", "ios", "android", name="app_platform", create_type=False)
 
 
 class District(Base):
@@ -438,6 +439,7 @@ class DevContext(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="⏸")
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -456,6 +458,15 @@ class DevFeature(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class NicknameWord(Base):
+    __tablename__ = "nickname_words"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    word: Mapped[str] = mapped_column(String(30), nullable=False)
+    word_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DevTodo(Base):
     __tablename__ = "__DEV_todos"
 
@@ -470,5 +481,34 @@ class DevTodo(Base):
     feature: Mapped["DevFeature | None"] = relationship("DevFeature", lazy="selectin")
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AppConfig(Base):
+    __tablename__ = "app_config"
+
+    group_name: Mapped[str] = mapped_column(String(100), primary_key=True, default="default")
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AppVersion(Base):
+    __tablename__ = "app_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    version: Mapped[str] = mapped_column(String(50), nullable=False)
+    platform: Mapped[str] = mapped_column(_app_platform_enum, nullable=False, default="primary")
+    parent_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("app_versions.id", ondelete="CASCADE"), nullable=True
+    )
+    build_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    release_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_force_update: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

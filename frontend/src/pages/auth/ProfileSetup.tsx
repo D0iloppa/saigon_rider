@@ -7,7 +7,7 @@ import { emojiUrl } from '@/lib/emoji';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
-import { apiSaveProfileSetup } from '@/api/profile';
+import { apiSaveProfileSetup, fetchRandomNickname } from '@/api/profile';
 import type { RiderStyle } from '@/api/types';
 import styles from './ProfileSetup.module.css';
 
@@ -38,8 +38,24 @@ export default function ProfileSetup() {
   const [nickname, setNickname] = useState('');
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const isValid = nickname.length >= 2 && nickname.length <= 12 && style;
+
+  const handleSkip = async () => {
+    if (!user?.id || skipping) return;
+    setSkipping(true);
+    try {
+      const randomNick = await fetchRandomNickname();
+      await apiSaveProfileSetup(user.id, randomNick, 'night_rider');
+      setProfile(randomNick, 'night_rider');
+      navigate('/home');
+    } catch {
+      navigate('/home');
+    } finally {
+      setSkipping(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (nickname.length < 2) {
@@ -70,19 +86,17 @@ export default function ProfileSetup() {
 
   return (
     <div className={styles.root}>
-      {/* Nav row: back + dot indicator */}
+      <StatusBar />
+      {/* Nav row: dot indicator + skip */}
       <div className={styles.navRow}>
-        <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label={t('common.back')}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
         <div className={styles.dots}>
           <span className={`${styles.dot} ${styles.dotActive}`} />
           <span className={`${styles.dot} ${styles.dotActive}`} />
           <span className={styles.dot} />
         </div>
-        <div style={{ width: 40 }} />
+        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping}>
+          {t('profileSetup.skip')}
+        </button>
       </div>
 
       <div className={styles.body}>

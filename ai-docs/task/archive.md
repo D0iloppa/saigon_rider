@@ -29,8 +29,35 @@
 - [기본 프로필 이미지 풀 (profile_mock) 도입](260516/260516_profile_mock_pool.md) — 단일 default 아바타 → 6장 풀(018·019 마이그레이션), `/contents/profile-mock-img` seed 결정론적 서빙, resolver 일원화 (완료)
 - [피드 소셜 기능 확장](260516/260516_feed_social_expansion.md) — 팔로우/DM/위치기반 필터/피드작성(020~023 마이그레이션), follows·dm 라우터, 프론트 5개 페이지 신규, 피드 헤더 재구성 (완료)
 
+## 260518
+
+- [ProfileCard Draggable Sheet + 피드 조회](260518/260518_profilecard_draggable_feed.md) — 커스텀 draggable overlay, 피드 인터랙션, 속도 기반 스냅 (완료)
+- [Profile Sheet 스크롤 UX 수정](260518/260518_profile_sheet_scroll_ux.md) — ImageCarousel touch-action:none, Sheet setTimeout 단축 (완료)
+- [월드맵 SECTION 1/2 실데이터 연동](260518/260518_world_section1_section2.md) — refreshUser, 추천 퀘스트, AppConfig 모델 (완료)
+- [API 에러 Toast + 프로필 수정](260518/260518_api_error_toast_profile_fix.md) — API 클라이언트 에러 Toast 일괄 적용, 프로필 PUT 500 수정 (완료)
+- [앱 버전 관리 시스템](260518/260518_app_version_management.md) — app_versions 트리 구조, 공개 API 3종 + 관리자 CRUD (완료)
+- [ProfileSetup StatusBar 수정](260518/260518_profilesetup_statusbar_fix.md) — StatusBar 누락 + 건너뛰기 버튼 (완료)
+
+## 260517
+
+- [프로필 피드 관리](260517/260517_profile_feed_management.md) — 백엔드 GET/PUT/DELETE /feed/{id}, 프로필 feeds 탭, FeedEdit 페이지 (완료)
+
+## 260516
+
+- [관리자 콘솔 전체 기능 구현](260516/260516_admin_console_full.md) — 5개 메뉴(대시보드/퀘스트/피드/유저/설정) + 사이드바 공통 레이아웃 + admin user 시드(015), 7개 페이지 + 11개 admin 라우트 추가 (완료)
+- [관리자 콘솔 콘텐츠 contents 중개 / 피드 CRUD 보강](260516/260516_admin_content_mediation_fix.md) — 피드·프로필 이미지 `content_id` 매핑(017 마이그레이션), 인스타형 피드 리스트 + 수정 기능 + 해시태그, 퀘스트 썸네일 체인 정리 (완료)
+- [기본 프로필 이미지 풀 (profile_mock) 도입](260516/260516_profile_mock_pool.md) — 단일 default 아바타 → 6장 풀(018·019 마이그레이션), `/contents/profile-mock-img` seed 결정론적 서빙, resolver 일원화 (완료)
+- [피드 소셜 기능 확장](260516/260516_feed_social_expansion.md) — 팔로우/DM/위치기반 필터/피드작성(020~023 마이그레이션), follows·dm 라우터, 프론트 5개 페이지 신규, 피드 헤더 재구성 (완료)
+- [친구 기능 마무리](260516/260516_friend_feature.md) — ProfileCard BottomSheet, 프로필 Draggable Sheet, QR 공유 (완료, FriendAdd 미완)
+- [무한스크롤 + PTR + 퀘스트 완료 구조](260516/260516_infinite_scroll.md) — useInfiniteScroll, usePullToRefresh, 서버사이드 필터링 (완료)
+
 ## 260515
 
+- [인증 체계 구현](260515/260515_auth_todo.md) — OTP 인증 API 연동 (부분 완료, auth 잔여)
+- [§2.7~2.15 휴먼 UX 점검](260515/260515_human_ux_check.md) — 58항목 점검 (부분 완료)
+- [Quest FK 매핑](260515/260515_quest_fk_mapping.md) — thumbnail_content_id 연결 (부분 완료)
+- [TabBar iOS + 스크롤 레이아웃](260515/260515_tabbar_scroll_layout_fix.md) — TabBar iOS 수정, 스크롤 레이아웃 (완료)
+- [TabBar UX 개선](260515/260515_tabbar_ux_polish.md) — TabBar UX 개선 (완료)
 - [alert/confirm → Toast/ConfirmDialog 교체](260515/260515_alert_to_toast_task.md) — sonner toast + Zustand 기반 ConfirmDialog, iOS alert 미동작 문제 해소 (완료)
 - [프론트엔드 CSS 수정 & iOS/Android 플랫폼 분기 아키텍처](260515/260515_frontend_css_platform_task.md) — StatusBar 여백 정규화, ProfileMain 아이콘·아바타 위치, TabBar 인디케이터 수정, `data-platform` UA 감지 + `--status-bar-height` CSS 변수 도입 (완료)
 - [Quest 인프라 3종](260515/260515_quest_infra_task.md) — District enum(17개 구) 프론트 chips 연동, user_quests.period_key 중복 방지 unique index, quests.thumbnail_content_id contents FK 연동 (완료)

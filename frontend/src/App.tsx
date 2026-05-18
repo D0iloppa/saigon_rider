@@ -4,11 +4,13 @@ import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { useUserStore } from '@/store/useUserStore';
+import { useDmStore } from '@/store/useDmStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
 import { apiLogin } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
 import { setSessionExpiredHandler, SessionExpiredError } from '@/api/client';
+import { fetchAppConfig } from '@/api/appVersion';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 
 // Auth
@@ -59,7 +61,9 @@ export default function App() {
   const user = useUserStore((s) => s.user);
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const logout = useUserStore((s) => s.logout);
+  const refreshUnread = useDmStore((s) => s.refreshUnread);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const dmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
   const [gifReady, setGifReady] = useState(false);
@@ -69,6 +73,7 @@ export default function App() {
   useEffect(() => {
     setSessionExpiredHandler(() => {
       logout();
+      sessionStorage.setItem('session_expired', '1');
       window.location.replace('/splash');
     });
   }, [logout]);
@@ -81,6 +86,22 @@ export default function App() {
     window.addEventListener('unhandledrejection', onUnhandled);
     return () => window.removeEventListener('unhandledrejection', onUnhandled);
   }, []);
+
+  // 인증된 경우 DM 미읽음 폴링 시작
+  useEffect(() => {
+    if (!user) {
+      if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
+      return;
+    }
+    refreshUnread();
+    fetchAppConfig().then((cfg) => {
+      if (dmIntervalRef.current) clearInterval(dmIntervalRef.current);
+      dmIntervalRef.current = setInterval(refreshUnread, cfg.dmPollInterval * 1000);
+    });
+    return () => {
+      if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
+    };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // GIF 백그라운드 프리로드
   useEffect(() => {

@@ -7,6 +7,7 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from .engine_client import engine_client
 from .routers import (
     admin,
+    app_version,
     auth,
     badges,
     contents,
@@ -89,6 +90,8 @@ app.include_router(users.router, prefix="/api")
 app.include_router(badges.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
+app.include_router(app_version.router, prefix="/api")
+app.include_router(app_version.config_router, prefix="/api")
 app.include_router(dev_context.router, prefix="/api")
 app.include_router(dev_context.admin_router)
 app.include_router(admin.router)

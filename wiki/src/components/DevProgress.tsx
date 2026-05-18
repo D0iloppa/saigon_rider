@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
+interface ContextEntry {
+  value: string;
+  status: string;
+}
+
 interface SummaryData {
-  context: Record<string, string>;
+  context: Record<string, string | ContextEntry>;
   features: Record<string, number>;
   todos: Record<string, number>;
 }
@@ -103,7 +108,11 @@ export default function DevProgress(): React.JSX.Element {
     );
   }
 
-  const ctx = summary.context;
+  const rawCtx = summary.context;
+  const ctx: Record<string, ContextEntry> = {};
+  for (const [k, v] of Object.entries(rawCtx)) {
+    ctx[k] = typeof v === 'object' && v !== null ? (v as ContextEntry) : { value: v, status: '⏸' };
+  }
   const ft = summary.features;
   const td = summary.todos;
   const totalFeatures = Object.values(ft).reduce((a, b) => a + b, 0);
@@ -133,25 +142,25 @@ export default function DevProgress(): React.JSX.Element {
         <br />
         <div className="cli-line">
           <span className="cli-label">  sprint </span>
-          <span className="cli-wip">{ctx.current_sprint || '—'}</span>
+          <span className="cli-wip">{ctx.current_sprint?.status} {ctx.current_sprint?.value || '—'}</span>
         </div>
         <div className="cli-line">
           <span className="cli-label">   focus </span>
-          <span>{ctx.current_focus || '—'}</span>
+          <span>{ctx.current_focus?.status} {ctx.current_focus?.value || '—'}</span>
         </div>
         <div className="cli-line">
           <span className="cli-label">  deploy </span>
-          <span className="cli-dim">{ctx.last_deploy || '—'}</span>
+          <span className="cli-dim">{ctx.last_deploy?.value || '—'}</span>
         </div>
-        {ctx.blocker && (
+        {ctx.blocker?.value && (
           <div className="cli-line">
             <span className="cli-label"> blocker </span>
-            <span className="cli-blocked">{ctx.blocker}</span>
+            <span className="cli-blocked">{ctx.blocker.status} {ctx.blocker.value}</span>
           </div>
         )}
         <div className="cli-line">
           <span className="cli-label">    next </span>
-          <span className="cli-dim">{ctx.next_milestone || '—'}</span>
+          <span className="cli-dim">{ctx.next_milestone?.value || '—'}</span>
         </div>
         <br />
         <div className="cli-line">

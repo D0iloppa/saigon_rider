@@ -15,7 +15,19 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import AdminAccount, Content, District, FeedPost, FeedPostImage, Quest, RideSession, User
+from ..models import (
+    AdminAccount,
+    AppConfig,
+    AppVersion,
+    Content,
+    District,
+    FeedPost,
+    FeedPostImage,
+    NicknameWord,
+    Quest,
+    RideSession,
+    User,
+)
 from ..utils import (
     MOCK_IMG_ENDPOINT,
     build_imgproxy_url,
@@ -1001,6 +1013,16 @@ _SETTINGS_FLASHES = {
     "nickname_empty": ("닉네임을 입력하세요.", False),
     "nickname_long": ("닉네임은 30자 이하여야 합니다.", False),
     "nickname_dup": ("이미 다른 유저가 사용 중인 닉네임입니다.", False),
+    "word_added": ("단어가 추가되었습니다.", True),
+    "word_deleted": ("단어가 삭제되었습니다.", True),
+    "word_empty": ("단어를 입력하세요.", False),
+    "word_dup": ("이미 등록된 단어입니다.", False),
+    "ver_added": ("버전이 등록되었습니다.", True),
+    "ver_updated": ("버전이 수정되었습니다.", True),
+    "ver_deleted": ("버전이 삭제되었습니다.", True),
+    "ver_error": ("버전 처리 중 오류가 발생했습니다.", False),
+    "config_saved": ("서비스 설정이 저장되었습니다.", True),
+    "config_error": ("설정값이 올바르지 않습니다.", False),
 }
 
 
@@ -1015,6 +1037,77 @@ async def admin_settings(
     if flash in _SETTINGS_FLASHES:
         msg, ok = _SETTINGS_FLASHES[flash]
         flash_html = _flash_card(msg, ok=ok)
+
+    words = (await db.execute(select(NicknameWord).order_by(NicknameWord.word_type, NicknameWord.word))).scalars().all()
+    adj_html = "".join(
+        f"<tr><td>{h(w.word)}</td>"
+        f'<td><form method="post" action="/admin/settings/nickname-word/delete" style="margin:0;">'
+        f'<input type="hidden" name="word_id" value="{w.id}"/>'
+        f'<button type="submit" class="btn btn-sm" style="background:rgba(239,59,59,.25);color:#fc8181;padding:2px 10px;font-size:11px;">삭제</button>'
+        f"</form></td></tr>"
+        for w in words
+        if w.word_type == "adjective"
+    )
+    noun_html = "".join(
+        f"<tr><td>{h(w.word)}</td>"
+        f'<td><form method="post" action="/admin/settings/nickname-word/delete" style="margin:0;">'
+        f'<input type="hidden" name="word_id" value="{w.id}"/>'
+        f'<button type="submit" class="btn btn-sm" style="background:rgba(239,59,59,.25);color:#fc8181;padding:2px 10px;font-size:11px;">삭제</button>'
+        f"</form></td></tr>"
+        for w in words
+        if w.word_type == "noun"
+    )
+    adj_count = sum(1 for w in words if w.word_type == "adjective")
+    noun_count = sum(1 for w in words if w.word_type == "noun")
+
+    recommend_max_row = (
+        await db.execute(
+            select(AppConfig).where(AppConfig.group_name == "quest", AppConfig.key == "recommend_max_count")
+        )
+    ).scalar_one_or_none()
+    recommend_max_count = recommend_max_row.value if recommend_max_row else "3"
+
+    dm_poll_row = (
+        await db.execute(select(AppConfig).where(AppConfig.group_name == "dm", AppConfig.key == "unread_poll_interval"))
+    ).scalar_one_or_none()
+    dm_poll_interval = dm_poll_row.value if dm_poll_row else "30"
+
+    primary_versions = (
+        (
+            await db.execute(
+                select(AppVersion)
+                .where(AppVersion.platform == "primary")
+                .order_by(AppVersion.released_at.desc().nullslast(), AppVersion.id.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    version_rows = ""
+    for pv in primary_versions:
+        ios_v = next((c for c in pv.children if c.platform == "ios"), None)
+        android_v = next((c for c in pv.children if c.platform == "android"), None)
+        active_badge = '<span style="color:#48bb78;">●</span>' if pv.is_active else '<span style="color:#666;">○</span>'
+        force_badge = ' <span style="color:#fc8181;font-size:11px;">[강제]</span>' if pv.is_force_update else ""
+        released = pv.released_at.strftime("%Y-%m-%d") if pv.released_at else "미배포"
+        ios_info = f"{ios_v.version} (build {h(ios_v.build_number or '-')})" if ios_v else "-"
+        android_info = f"{android_v.version} (build {h(android_v.build_number or '-')})" if android_v else "-"
+        note_preview = h((pv.release_note or "")[:60])
+        version_rows += (
+            f"<tr>"
+            f"<td>{active_badge} {h(pv.version)}{force_badge}</td>"
+            f"<td>{ios_info}</td>"
+            f"<td>{android_info}</td>"
+            f'<td style="color:#aaa;font-size:12px;">{note_preview}</td>'
+            f"<td>{released}</td>"
+            f"<td>"
+            f'<form method="post" action="/admin/settings/version/delete" style="display:inline;margin:0;">'
+            f'<input type="hidden" name="version_id" value="{pv.id}"/>'
+            f'<button type="submit" class="btn btn-sm" style="background:rgba(239,59,59,.25);color:#fc8181;padding:2px 10px;font-size:11px;">삭제</button>'
+            f"</form></td></tr>"
+        )
+
     return _render_page(
         "settings.html",
         nav="settings",
@@ -1026,6 +1119,14 @@ async def admin_settings(
         nickname=h(user.nickname or ""),
         avatar_url=h(_admin_avatar_url(user)),
         flash=flash_html,
+        adj_rows=adj_html,
+        noun_rows=noun_html,
+        adj_count=str(adj_count),
+        noun_count=str(noun_count),
+        version_rows=version_rows,
+        version_count=str(len(primary_versions)),
+        recommend_max_count=h(recommend_max_count),
+        dm_poll_interval=h(dm_poll_interval),
     )
 
 
@@ -1247,6 +1348,110 @@ async def admin_admin_delete(
     return RedirectResponse(url="/admin/admins?flash=deleted", status_code=302)
 
 
+@router.post("/settings/nickname-word", include_in_schema=False)
+async def admin_add_nickname_word(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+    word: str = Form(...),
+    word_type: str = Form(...),
+):
+    word = word.strip()
+    if not word:
+        return RedirectResponse(url="/admin/settings?flash=word_empty", status_code=302)
+    if word_type not in ("adjective", "noun"):
+        raise HTTPException(status_code=400, detail="Invalid word_type")
+    dup = (
+        await db.execute(select(NicknameWord).where(NicknameWord.word == word, NicknameWord.word_type == word_type))
+    ).scalar_one_or_none()
+    if dup:
+        return RedirectResponse(url="/admin/settings?flash=word_dup", status_code=302)
+    db.add(NicknameWord(word=word, word_type=word_type))
+    await db.commit()
+    return RedirectResponse(url="/admin/settings?flash=word_added", status_code=302)
+
+
+@router.post("/settings/nickname-word/delete", include_in_schema=False)
+async def admin_delete_nickname_word(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+    word_id: int = Form(...),
+):
+    row = (await db.execute(select(NicknameWord).where(NicknameWord.id == word_id))).scalar_one_or_none()
+    if row:
+        await db.delete(row)
+        await db.commit()
+    return RedirectResponse(url="/admin/settings?flash=word_deleted", status_code=302)
+
+
+@router.post("/settings/version", include_in_schema=False)
+async def admin_settings_version_add(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+    version: str = Form(...),
+    ios_build: str = Form(""),
+    android_build: str = Form(""),
+    release_note: str = Form(""),
+    is_force_update: bool = Form(False),
+    is_active: bool = Form(False),
+):
+    version = version.strip()
+    if not version:
+        return RedirectResponse(url="/admin/settings?flash=ver_error", status_code=302)
+
+    if is_active:
+        await db.execute(select(AppVersion).where(AppVersion.is_active == True))
+        for old in (await db.execute(select(AppVersion).where(AppVersion.is_active == True))).scalars().all():
+            old.is_active = False
+
+    primary = AppVersion(
+        version=version,
+        platform="primary",
+        release_note=release_note or None,
+        is_force_update=is_force_update,
+        is_active=is_active,
+        released_at=datetime.now(UTC) if is_active else None,
+    )
+    db.add(primary)
+    await db.flush()
+
+    ios = AppVersion(
+        version=version,
+        platform="ios",
+        parent_id=primary.id,
+        build_number=ios_build.strip() or None,
+        release_note=release_note or None,
+        is_force_update=is_force_update,
+        is_active=is_active,
+        released_at=primary.released_at,
+    )
+    android = AppVersion(
+        version=version,
+        platform="android",
+        parent_id=primary.id,
+        build_number=android_build.strip() or None,
+        release_note=release_note or None,
+        is_force_update=is_force_update,
+        is_active=is_active,
+        released_at=primary.released_at,
+    )
+    db.add_all([ios, android])
+    await db.commit()
+    return RedirectResponse(url="/admin/settings?flash=ver_added", status_code=302)
+
+
+@router.post("/settings/version/delete", include_in_schema=False)
+async def admin_settings_version_delete(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+    version_id: int = Form(...),
+):
+    v = await db.get(AppVersion, version_id)
+    if v:
+        await db.delete(v)
+        await db.commit()
+    return RedirectResponse(url="/admin/settings?flash=ver_deleted", status_code=302)
+
+
 @router.post("/settings/avatar", include_in_schema=False)
 async def admin_settings_avatar(
     session: AdminSession = Depends(verify_admin_session),
@@ -1259,3 +1464,60 @@ async def admin_settings_avatar(
     user.avatar_content_id = saved.id
     await db.commit()
     return RedirectResponse(url="/admin/settings?flash=avatar", status_code=302)
+
+
+@router.post("/settings/service-config", include_in_schema=False)
+async def admin_settings_service_config(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+    recommend_max_count: str = Form("3"),
+    dm_poll_interval: str = Form("30"),
+):
+    try:
+        quest_val = int(recommend_max_count)
+        if not 1 <= quest_val <= 5:
+            raise ValueError
+    except ValueError:
+        return RedirectResponse(url="/admin/settings?flash=config_error", status_code=302)
+
+    try:
+        dm_val = int(dm_poll_interval)
+        if not 10 <= dm_val <= 300:
+            raise ValueError
+    except ValueError:
+        return RedirectResponse(url="/admin/settings?flash=config_error", status_code=302)
+
+    row = (
+        await db.execute(
+            select(AppConfig).where(AppConfig.group_name == "quest", AppConfig.key == "recommend_max_count")
+        )
+    ).scalar_one_or_none()
+    if row:
+        row.value = str(quest_val)
+    else:
+        db.add(
+            AppConfig(
+                group_name="quest",
+                key="recommend_max_count",
+                value=str(quest_val),
+                description="월드맵 추천 퀘스트 최대 표시 개수",
+            )
+        )
+
+    dm_row = (
+        await db.execute(select(AppConfig).where(AppConfig.group_name == "dm", AppConfig.key == "unread_poll_interval"))
+    ).scalar_one_or_none()
+    if dm_row:
+        dm_row.value = str(dm_val)
+    else:
+        db.add(
+            AppConfig(
+                group_name="dm",
+                key="unread_poll_interval",
+                value=str(dm_val),
+                description="DM 미읽음 폴링 주기 (초, 10~300)",
+            )
+        )
+
+    await db.commit()
+    return RedirectResponse(url="/admin/settings?flash=config_saved", status_code=302)

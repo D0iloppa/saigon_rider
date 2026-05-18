@@ -6,6 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..models import DmConversation, DmMessage, User
 from ..schemas import (
     DmConversationCreateRequest,
@@ -99,6 +100,7 @@ async def get_conversations(
 async def create_conversation(
     body: DmConversationCreateRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     if body.user_id == body.other_user_id:
         raise HTTPException(status_code=400, detail="Cannot create conversation with yourself")
@@ -182,6 +184,7 @@ async def send_message(
     conv_id: uuid.UUID,
     body: DmMessageCreateRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
@@ -220,6 +223,7 @@ async def mark_read(
     conv_id: uuid.UUID,
     body: DmMarkReadRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     conv = await db.get(DmConversation, conv_id)
     if conv is None:

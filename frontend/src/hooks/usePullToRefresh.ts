@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const THRESHOLD = 64;   // 당기는 임계값 (px)
-const MAX_PULL = 88;    // 최대 당기기 거리 (px)
+const THRESHOLD = 64;
+const MAX_PULL = 88;
 
 export interface UsePullToRefreshReturn {
   containerRef: React.RefObject<HTMLDivElement | null>;
-  pullDistance: number;   // 0 ~ MAX_PULL, 애니메이션용
+  pullDistance: number;
   isRefreshing: boolean;
+  contentStyle: React.CSSProperties;
 }
 
 export function usePullToRefresh(
@@ -23,7 +24,7 @@ export function usePullToRefresh(
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const el = containerRef.current;
     if (!el || isRefreshingRef.current) return;
-    if (el.scrollTop > 0) return; // 스크롤 내려간 상태면 무시
+    if (el.scrollTop > 0) return;
     startYRef.current = e.touches[0].clientY;
     pullingRef.current = true;
   }, []);
@@ -32,10 +33,9 @@ export function usePullToRefresh(
     if (!pullingRef.current || isRefreshingRef.current) return;
     const dy = e.touches[0].clientY - startYRef.current;
     if (dy <= 0) { setPullDistance(0); return; }
-    // 저항감: 실제 이동의 절반만 반영
     const clamped = Math.min(dy * 0.5, MAX_PULL);
     setPullDistance(clamped);
-    if (clamped > 0) e.preventDefault(); // 네이티브 스크롤 방지
+    if (clamped > 0) e.preventDefault();
   }, []);
 
   const handleTouchEnd = useCallback(async () => {
@@ -45,7 +45,7 @@ export function usePullToRefresh(
     if (pullDistance >= THRESHOLD) {
       isRefreshingRef.current = true;
       setIsRefreshing(true);
-      setPullDistance(THRESHOLD); // 임계값 위치에 고정
+      setPullDistance(THRESHOLD);
       try {
         await onRefresh();
       } finally {
@@ -73,5 +73,10 @@ export function usePullToRefresh(
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
-  return { containerRef, pullDistance, isRefreshing };
+  const contentStyle: React.CSSProperties = {
+    transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+    transition: 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
+  };
+
+  return { containerRef, pullDistance, isRefreshing, contentStyle };
 }

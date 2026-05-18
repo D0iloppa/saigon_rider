@@ -32,6 +32,7 @@
 
 - [비즈니스 규칙](engine/01-sre-business-rules.md) · [기술 스택](engine/02-sre-tech-stack.md) · [설계 스펙](engine/sre-design-spec.md)
 - [ERD (PostgreSQL)](engine/sre-erd-mermaid.postgres.md)
+- [게이미피케이션 v2 배포 가이드](engine/sre-gamification-deployment-guide.md) — 가챠/상점/시즌 RPG 경제 패러다임 (v2.0)
 - [미션 매핑 리포트](engine/sre-mission-mapping-report.md) · [미션 룰 매핑](engine/sre-mission-rule-mapping.md)
 - [code 명령어](engine/code명령어.md)
 
@@ -48,6 +49,7 @@
 ## 📦 태스크 / 트러블슈팅 이력
 
 - [활성 태스크](task/active/) — 현재 진행 중 (현황은 [`current.md`](context/current.md))
+- [세션 이력](context/history.md) — 완료된 세션 작업 이력 (current.md에서 분리)
 - [완료 태스크 아카이브](task/archive.md) — 날짜별 색인
 - [트러블슈팅 인덱스](trouble/index.md) — 날짜별 색인
 

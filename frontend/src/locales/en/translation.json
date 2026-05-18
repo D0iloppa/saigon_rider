@@ -11,7 +11,8 @@
     "change": "Change",
     "cancel": "Cancel",
     "confirm": "Confirm",
-    "errorUnexpected": "An error occurred. Please try again"
+    "errorUnexpected": "An error occurred. Please try again",
+    "sessionExpired": "Session expired. Please log in again"
   },
   "tabbar": {
     "world": "World",
@@ -63,13 +64,15 @@
     "nicknamePlaceholder": "Enter nickname…",
     "startBtn": "Start →",
     "errorNicknameTooShort": "Nickname must be at least 2 characters",
-    "errorNoStyle": "Please select a rider style"
+    "errorNoStyle": "Please select a rider style",
+    "skip": "Skip"
   },
   "home": {
     "progressLabel": "{{needed}}km more to reach Lv.{{nextLevel}} today",
     "startQuestBtn": "Start Quest",
     "greet": "Good evening, {{name}} ✨",
-    "tonightsPick": "TONIGHT'S PICK"
+    "tonightsPick": "TONIGHT'S PICK",
+    "noRecommendedQuest": "No recommended quests"
   },
   "quest": {
     "title": "Quests",
@@ -95,7 +98,8 @@
     "lockTitle": "Available from Lv.{{level}}",
     "lockSub": "Current Lv.{{currentLevel}} · Until next level",
     "lockEasierBtn": "View easier quests",
-    "tonightsTag": "TONIGHT'S QUEST"
+    "tonightsTag": "TONIGHT'S QUEST",
+    "everywhere": "Everywhere"
   },
   "ride": {
     "distance": "Distance",
@@ -244,7 +248,8 @@
     "myQr": "My QR",
     "scanQr": "Scan QR",
     "scanGuide": "Scan friend's QR code",
-    "myQrGuide": "Show your QR code"
+    "myQrGuide": "Show your QR code",
+    "unfollowConfirm": "Are you sure you want to unfollow?"
   },
   "feedEdit": {
     "title": "Edit Post",
@@ -256,6 +261,7 @@
   "profileEdit": {
     "title": "Edit Profile",
     "nicknameLabel": "Nickname",
+    "riderStyleLabel": "Rider Style",
     "saveBtn": "Save",
     "saved": "Profile saved",
     "avatarSuccess": "Photo updated"

@@ -9,6 +9,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import FeedPost, FeedPostImage, PostComment, PostCommentLike, PostLike, RideSession, User, UserFollow
 from ..schemas import (
@@ -164,7 +165,9 @@ async def get_feed_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 # F-3
 @router.post("", response_model=FeedPostOut, status_code=201, summary="피드 공유 (라이딩 결과 게시)")
-async def create_feed_post(body: FeedCreateRequest, db: AsyncSession = Depends(get_db)):
+async def create_feed_post(
+    body: FeedCreateRequest, db: AsyncSession = Depends(get_db), _session_uid: uuid.UUID = Depends(verify_user_session)
+):
     has_images = bool(body.image_content_ids) or body.image_content_id is not None
     if body.content is None and body.image_url is None and not has_images:
         raise HTTPException(status_code=400, detail="content, image_content_ids or image_url is required")
@@ -218,6 +221,7 @@ async def update_feed_post(
     post_id: uuid.UUID,
     body: FeedUpdateRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     post = await _get_post_or_404(post_id, db)
     if post.user_id != body.user_id:
@@ -247,6 +251,7 @@ async def delete_feed_post(
     post_id: uuid.UUID,
     body: FeedDeleteRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     post = await _get_post_or_404(post_id, db)
     if post.user_id != body.user_id:
@@ -262,6 +267,7 @@ async def toggle_like(
     post_id: uuid.UUID,
     body: LikeToggleRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     post = await _get_post_or_404(post_id, db)
 
@@ -314,6 +320,7 @@ async def post_comment(
     post_id: uuid.UUID,
     body: CommentCreateRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     if body.content is None and body.image_url is None:
         raise HTTPException(status_code=400, detail="content or image_url is required")
@@ -342,6 +349,7 @@ async def toggle_comment_like(
     post_id: uuid.UUID,
     comment_id: uuid.UUID,
     body: LikeToggleRequest,
+    _session_uid: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_post_or_404(post_id, db)

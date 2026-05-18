@@ -154,6 +154,10 @@ class AvatarUpdateResponse(BaseModel):
     content_id: UUID
 
 
+class RandomNicknameResponse(BaseModel):
+    nickname: str
+
+
 class RpBalanceResponse(BaseModel):
     user_id: str
     current_balance: int
@@ -185,6 +189,7 @@ class QuestOut(BaseModel):
     id: UUID
     hero_image_url: str | None
     thumbnail_url: str | None = None
+    thumbnail_urls: list[str] = []
     district: DistrictOut | None = None
     rider_type: RiderTypeOut | None = None
     period: str
@@ -600,6 +605,7 @@ class DevContextOut(BaseModel):
     id: int
     key: str
     value: str | None = None
+    status: str = "⏸"
     meta: dict | None = None
     updated_at: datetime
 
@@ -609,6 +615,7 @@ class DevContextOut(BaseModel):
 class DevContextUpsertRequest(BaseModel):
     key: str
     value: str | None = None
+    status: str | None = None
     meta: dict | None = None
 
 
@@ -678,3 +685,59 @@ class DevTodoUpdateRequest(BaseModel):
     feature_id: int | None = None
     due_date: date | None = None
     meta: dict | None = None
+
+
+# ── App Version ──────────────────────────────────────────────────
+
+
+class AppVersionChild(BaseModel):
+    id: int
+    version: str
+    platform: str
+    build_number: str | None = None
+    release_note: str | None = None
+    is_force_update: bool = False
+    is_active: bool = True
+    released_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class AppVersionOut(BaseModel):
+    id: int
+    version: str
+    platform: str
+    build_number: str | None = None
+    release_note: str | None = None
+    is_force_update: bool = False
+    is_active: bool = True
+    released_at: datetime | None = None
+    children: list[AppVersionChild] = []
+
+    class Config:
+        from_attributes = True
+
+
+class AppVersionCurrentOut(BaseModel):
+    primary: AppVersionChild | None = None
+    ios: AppVersionChild | None = None
+    android: AppVersionChild | None = None
+
+
+class AppVersionCreateRequest(BaseModel):
+    version: str
+    platform: str = "primary"
+    parent_id: int | None = None
+    build_number: str | None = None
+    release_note: str | None = None
+    is_force_update: bool = False
+    is_active: bool = True
+
+
+class AppVersionUpdateRequest(BaseModel):
+    version: str | None = None
+    build_number: str | None = None
+    release_note: str | None = None
+    is_force_update: bool | None = None
+    is_active: bool | None = None

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..models import User, UserFollow
 from ..schemas import FollowCountsOut, FollowRequest, FollowUserOut, Page
 from ..utils import resolve_avatar_url
@@ -27,6 +28,7 @@ async def follow_user(
     target_user_id: uuid.UUID,
     body: FollowRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     if body.user_id == target_user_id:
         raise HTTPException(status_code=400, detail="Cannot follow yourself")
@@ -49,6 +51,7 @@ async def unfollow_user(
     target_user_id: uuid.UUID,
     body: FollowRequest,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     existing = await db.get(UserFollow, {"follower_id": body.user_id, "following_id": target_user_id})
     if not existing:

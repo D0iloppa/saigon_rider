@@ -42,6 +42,20 @@
   min-width: 0;
 }
 
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
 .name {
   font-weight: 600;
   font-size: 15px;

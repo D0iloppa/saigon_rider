@@ -103,7 +103,27 @@ python3 -m ruff check backend/app/ --fix # 자동 수정
 python3 -m ruff format backend/app/      # 포맷팅
 ```
 
-## 9. 컨텐츠 관리 (이미지 / 파일)
+## 9. __DEV Context (진행 상태 관리)
+
+프로젝트 진행 상태는 DB(`__DEV_context`, `__DEV_features`, `__DEV_todos`)로 관리하며, 외부 사용자가 위키·어드민에서 실시간 추적한다. 상세 절차는 [`ai-docs/workflow/dev-context-management.md`](ai-docs/workflow/dev-context-management.md).
+
+**핵심 용어**
+
+| 테이블 | 역할 |
+|--------|------|
+| `__DEV_context` | Key-Value 저장소 + `status` 이모지(🔧진행중/✅완료/⏸대기/❌취소) — `current_focus`, `current_sprint`, `last_deploy`, `blocker`, `next_milestone` |
+| `__DEV_features` | 기능 단위 진행 상태 — `PLANNED → IN_PROGRESS → DONE / DEFERRED` |
+| `__DEV_todos` | 할일 단위 — `TODO → IN_PROGRESS → DONE / BLOCKED` |
+
+**선 보고 후 진행 (Report First, Fix Later)**
+
+1. 작업 **착수 전** `current_focus`를 진행중 상태로 갱신한다.
+2. 코드 수정을 수행한다.
+3. 검증 완료 **후** 완료 상태로 갱신하거나 다음 작업으로 교체한다.
+
+IN_PROGRESS와 DONE을 혼동하지 않는다. 구현과 동시에 DONE 처리 금지.
+
+## 10. 컨텐츠 관리 (이미지 / 파일)
 
 **모든 이미지·파일 컨텐츠는 `contents` 테이블로 중개되고 `content_id`(UUID)로 매핑된다.** 관리자·프론트·BFF 모두 예외 없이 적용한다.
 

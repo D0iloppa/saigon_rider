@@ -2,7 +2,7 @@ import i18n from '@/lib/i18n';
 import { USE_MOCK, api } from './client';
 import { MOCK_QUESTS } from '@/data/quests';
 import type { Quest } from './types';
-import type { District, SafetyGrade } from './master';
+import type { District, RiderType, SafetyGrade } from './master';
 import { localizedName } from './master';
 
 function localized(raw: any, field: string): string {
@@ -12,6 +12,7 @@ function localized(raw: any, field: string): string {
 
 function transformQuest(raw: any): Quest {
   const district: District | null = raw.district ?? null;
+  const riderType: RiderType | null = raw.rider_type ?? null;
   const safetyGrade: SafetyGrade | null = raw.min_safety_grade ?? null;
   return {
     id: raw.id,
@@ -20,6 +21,7 @@ function transformQuest(raw: any): Quest {
     questType: (raw.period ?? 'DAILY').toLowerCase() as Quest['questType'],
     district,
     districtName: district ? localizedName(district) : '',
+    riderType,
     minLevel: raw.required_level ?? 1,
     minDistanceM: raw.target_distance_km != null
       ? Math.round(Number(raw.target_distance_km) * 1000)
@@ -33,7 +35,10 @@ function transformQuest(raw: any): Quest {
     rewardItems: raw.reward_item ? [raw.reward_item] : [],
     difficulty: 1,
     tags: [],
-    thumbnailUrl: raw.thumbnail_url ?? raw.hero_image_url ?? '',
+    thumbnailUrls: raw.thumbnail_urls?.length
+      ? raw.thumbnail_urls
+      : [raw.thumbnail_url ?? raw.hero_image_url ?? ''].filter(Boolean),
+    thumbnailUrl: (raw.thumbnail_urls?.[0] ?? raw.thumbnail_url ?? raw.hero_image_url ?? ''),
     expiresAt: raw.ends_at ?? undefined,
   };
 }
@@ -52,6 +57,7 @@ export async function fetchQuests(filter?: {
   safetyGradeId?: number;
   userId?: string;
   excludeCompleted?: boolean;
+  onlyCompleted?: boolean;
   page?: number;
   size?: number;
 }): Promise<QuestPage> {
@@ -71,6 +77,7 @@ export async function fetchQuests(filter?: {
   if (filter?.safetyGradeId) params.set('safety_grade_id', String(filter.safetyGradeId));
   if (filter?.userId) params.set('user_id', filter.userId);
   if (filter?.excludeCompleted) params.set('exclude_completed', 'true');
+  if (filter?.onlyCompleted) params.set('only_completed', 'true');
   const raw = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/quests?${params}`);
   return { items: raw.items.map(transformQuest), total: raw.total, page: raw.page, size: raw.size };
 }
@@ -111,10 +118,10 @@ export async function fetchCompletedQuestIds(userId: string, type: 'daily' | 'we
   return new Set(ids);
 }
 
-export async function fetchRecommendedQuest(): Promise<Quest> {
+export async function fetchRecommendedQuests(userId: string): Promise<Quest[]> {
   if (USE_MOCK) {
-    return api.delay(MOCK_QUESTS[0], 200);
+    return api.delay(MOCK_QUESTS.slice(0, 3), 200);
   }
-  const raw = await api.realFetch<any>(`/quests/recommended`);
-  return transformQuest(raw);
+  const raw = await api.realFetch<any[]>(`/quests/recommended?user_id=${userId}`);
+  return raw.map(transformQuest);
 }

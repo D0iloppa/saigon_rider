@@ -52,3 +52,122 @@
     </div>
   </div>
 </div>
+
+<div class="card" style="margin-top:24px;">
+  <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">서비스 설정</p>
+  <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
+    앱 동작에 영향을 주는 런타임 설정값입니다.
+  </p>
+
+  <form method="post" action="/admin/settings/service-config">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:grid;grid-template-columns:220px 1fr auto;gap:12px;align-items:center;">
+        <label style="font-size:12px;color:rgba(255,255,255,.6);">추천 퀘스트 최대 개수</label>
+        <input type="number" name="recommend_max_count" value="{{recommend_max_count}}" min="1" max="5" required
+               style="width:80px;font-size:12px;text-align:center;" />
+        <span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr auto;gap:12px;align-items:center;">
+        <label style="font-size:12px;color:rgba(255,255,255,.6);">DM 미읽음 폴링 주기 (초)</label>
+        <input type="number" name="dm_poll_interval" value="{{dm_poll_interval}}" min="10" max="300" required
+               style="width:80px;font-size:12px;text-align:center;" />
+        <span></span>
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:12px;align-items:center;">
+      <button type="submit" class="btn" style="padding:4px 20px;font-size:12px;">저장</button>
+      <span style="font-size:11px;color:rgba(255,255,255,.35);">추천 퀘스트 1~5개 · DM 폴링 10~300초</span>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">앱 버전 관리</p>
+  <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
+    Primary(프론트엔드) 버전과 iOS/Android 네이티브 빌드를 트리 구조로 관리합니다.<br/>
+    활성(●) 버전이 프론트엔드 Settings 페이지의 "앱 정보"에 표시됩니다.
+  </p>
+
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:16px;">
+    <thead>
+      <tr style="border-bottom:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);">
+        <th style="text-align:left;padding:6px 8px;">Primary</th>
+        <th style="text-align:left;padding:6px 8px;">iOS</th>
+        <th style="text-align:left;padding:6px 8px;">Android</th>
+        <th style="text-align:left;padding:6px 8px;">릴리스 노트</th>
+        <th style="text-align:left;padding:6px 8px;">배포일</th>
+        <th style="text-align:center;padding:6px 8px;"></th>
+      </tr>
+    </thead>
+    <tbody>{{version_rows}}</tbody>
+  </table>
+  <p style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:12px;">총 {{version_count}}개 버전</p>
+
+  <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">
+    <p style="font-size:12px;font-weight:700;color:#ff8055;margin-bottom:12px;">새 버전 등록</p>
+    <form method="post" action="/admin/settings/version">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div class="field" style="margin-bottom:0;">
+          <label class="field-label">버전 (semver)</label>
+          <input type="text" name="version" placeholder="1.1.0" required style="font-size:12px;"/>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label class="field-label">iOS 빌드 번호</label>
+          <input type="text" name="ios_build" placeholder="110" style="font-size:12px;"/>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label class="field-label">Android 빌드 번호</label>
+          <input type="text" name="android_build" placeholder="2024060101" style="font-size:12px;"/>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label class="field-label">릴리스 노트</label>
+        <textarea name="release_note" rows="3" placeholder="변경 내역 (Markdown 가능)" style="font-size:12px;width:100%;"></textarea>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;">
+        <label style="font-size:12px;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" name="is_active" value="true"/> 활성 버전으로 설정 (기존 활성 해제)
+        </label>
+        <label style="font-size:12px;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" name="is_force_update" value="true"/> 강제 업데이트
+        </label>
+      </div>
+      <button type="submit" class="btn" style="padding:6px 20px;font-size:12px;">등록</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">기본 닉네임 단어풀</p>
+  <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
+    회원가입 건너뛰기 시 자동 부여되는 닉네임 조합: <strong style="color:rgba(255,255,255,.6);">[형용사] [명사] [3자리숫자]</strong><br/>
+    예시: Brave Rider 482, Neon Phoenix 137
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <!-- Adjectives -->
+    <div>
+      <p style="font-size:12px;font-weight:700;color:#ff8055;margin-bottom:10px;">형용사 (Adjective) — {{adj_count}}개</p>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <tbody>{{adj_rows}}</tbody>
+      </table>
+      <form method="post" action="/admin/settings/nickname-word" style="display:flex;gap:6px;margin-top:10px;">
+        <input type="hidden" name="word_type" value="adjective"/>
+        <input type="text" name="word" placeholder="새 형용사" maxlength="30" required style="flex:1;font-size:12px;"/>
+        <button type="submit" class="btn" style="padding:4px 14px;font-size:12px;">추가</button>
+      </form>
+    </div>
+    <!-- Nouns -->
+    <div>
+      <p style="font-size:12px;font-weight:700;color:#63b3ed;margin-bottom:10px;">명사 (Noun) — {{noun_count}}개</p>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <tbody>{{noun_rows}}</tbody>
+      </table>
+      <form method="post" action="/admin/settings/nickname-word" style="display:flex;gap:6px;margin-top:10px;">
+        <input type="hidden" name="word_type" value="noun"/>
+        <input type="text" name="word" placeholder="새 명사" maxlength="30" required style="flex:1;font-size:12px;"/>
+        <button type="submit" class="btn" style="padding:4px 14px;font-size:12px;">추가</button>
+      </form>
+    </div>
+  </div>
+</div>

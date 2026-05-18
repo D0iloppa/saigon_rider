@@ -4,7 +4,7 @@ export interface UserDto {
   id: string;
   phone: string;
   nickname: string | null;
-  rider_type: string | null;
+  rider_type: string | { code: string } | null;
   level: number;
   exp: number;
   xp: number;
@@ -36,4 +36,8 @@ export async function apiLogin(phone: string, passcode: string): Promise<LoginRe
     method: 'POST',
     body: JSON.stringify({ phone, passcode }),
   });
+}
+
+export async function apiGetMe(phone: string): Promise<LoginResult> {
+  return api.realFetch<LoginResult>(`/auth/me?phone=${encodeURIComponent(phone)}`);
 }

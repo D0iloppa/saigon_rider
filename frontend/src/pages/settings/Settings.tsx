@@ -5,8 +5,9 @@ import { Toggle } from '@/components/ui/Toggle';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppImage } from '@/components/ui/AppImage';
+import { fetchCurrentVersion, type AppVersionCurrent } from '@/api/appVersion';
 import styles from './Settings.module.css';
 
 export default function Settings() {
@@ -16,6 +17,36 @@ export default function Settings() {
   const logout = useUserStore((s) => s.logout);
   const openDialog = useDialogStore((s) => s.open);
   const [dark, setDark] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>('');
+  const [versionData, setVersionData] = useState<AppVersionCurrent | null>(null);
+
+  useEffect(() => {
+    fetchCurrentVersion()
+      .then((v) => {
+        setVersionData(v);
+        if (v.primary) setAppVersion(`v${v.primary.version}`);
+      })
+      .catch(() => {});
+  }, []);
+
+  const showVersionInfo = useCallback(() => {
+    if (!versionData) return;
+    const { primary, ios, android } = versionData;
+    const lines: string[] = [];
+    if (primary) {
+      lines.push(`App  : v${primary.version}`);
+      if (primary.releaseNote) lines.push(`Note : ${primary.releaseNote}`);
+    }
+    if (ios) lines.push(`iOS  : v${ios.version} (build ${ios.buildNumber ?? '-'})`);
+    if (android) lines.push(`AOS  : v${android.version} (build ${android.buildNumber ?? '-'})`);
+    if (primary?.releasedAt) {
+      lines.push(`Date : ${new Date(primary.releasedAt).toLocaleDateString()}`);
+    }
+    openDialog({
+      title: { mode: 'code', value: 'settings.appInfo' },
+      pre: lines.join('\n'),
+    });
+  }, [versionData, openDialog]);
 
   if (!user) return null;
 
@@ -94,7 +125,7 @@ export default function Settings() {
         </Section>
 
         <Section title={t('settings.sectionOther')}>
-          <SettingsRow icon="ⓘ" label={t('settings.appInfo')} value="v1.0.0" />
+          <SettingsRow icon="ⓘ" label={t('settings.appInfo')} value={appVersion || '...'} arrow onClick={showVersionInfo} />
           <SettingsRow icon="💬" label={t('settings.support')} arrow />
         </Section>
 

@@ -16,6 +16,7 @@ import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { Chip } from '@/components/ui/Chip';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { useUserStore } from '@/store/useUserStore';
+import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadSession } from '@/lib/session';
@@ -171,6 +172,7 @@ export default function FeedList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
+  const totalUnread = useDmStore((s) => s.totalUnread);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [activePost, setActivePost] = useState<FeedPost | null>(null);
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
@@ -204,7 +206,7 @@ export default function FeedList() {
   const { items: posts, setItems: setPosts, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
     useInfiniteScroll<FeedPost>(fetchPage, 20, [filter, user?.id]);
 
-  const { containerRef: scrollBodyRef, pullDistance, isRefreshing } = usePullToRefresh(reset);
+  const { containerRef: scrollBodyRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(reset);
 
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: 'all',          label: t('feed.filterAll') },
@@ -241,16 +243,25 @@ export default function FeedList() {
                 <path d="M5 20c0-3.3 2.7-6 7-6s7 2.7 7 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
-            <button className={styles.iconBtn} onClick={() => navigate('/dm')} aria-label="DM">
+            <button className={styles.iconBtn} onClick={() => navigate('/dm')} aria-label="DM" style={{ position: 'relative' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+              {totalUnread > 0 && (
+                <span style={{
+                  position: 'absolute', top: 2, right: 2,
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: '#ff4b4b',
+                  border: '1.5px solid var(--surface)',
+                }} />
+              )}
             </button>
           </>
         }
       />
 
       <div className={styles.scrollBody} ref={scrollBodyRef as React.RefObject<HTMLDivElement>}>
+      <div style={contentStyle}>
         <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       <div className={styles.body}>
         {/* Story strip */}
@@ -359,6 +370,7 @@ export default function FeedList() {
           </div>
         )}
       </div>
+      </div>{/* contentStyle wrapper */}
       </div>{/* scrollBody */}
 
       <BottomSheet open={!!activePost} onClose={() => setActivePost(null)} height="full">

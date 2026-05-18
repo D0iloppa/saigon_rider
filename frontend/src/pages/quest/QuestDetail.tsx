@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
+import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
 import { fetchQuest, fetchCompletedQuestIds, completeQuest } from '@/api/quests';
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatDistance } from '@/lib/format';
+import { localizedName } from '@/api/master';
 import type { Quest, QuestType } from '@/api/types';
 import { Chip } from '@/components/ui/Chip';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -92,10 +94,8 @@ export default function QuestDetail() {
     <div className={styles.root}>
       <TopBar transparent showBack />
 
-      <div
-        className={styles.hero}
-        style={{ backgroundImage: `url(${quest.thumbnailUrl})` }}
-      >
+      <div className={styles.hero}>
+        <AppImage src={quest.thumbnailUrls} alt="" className={styles.heroImg} />
         <div className={styles.heroOverlay} />
         <div className={styles.heroContent}>
           <div className={styles.heroTag}>{t('quest.tonightsTag')}</div>
@@ -109,7 +109,15 @@ export default function QuestDetail() {
       <div className={styles.sheet}>
         <div className={styles.metaRow}>
           <Chip variant="surface">Lv.{quest.minLevel}+</Chip>
-          <Chip variant="surface">{quest.districtName}</Chip>
+          <Chip variant="surface">{quest.districtName || t('quest.everywhere')}</Chip>
+          {quest.riderType && (
+            <Chip variant="surface">
+              {quest.riderType.icon ? `${quest.riderType.icon} ` : ''}{localizedName(quest.riderType)}
+            </Chip>
+          )}
+          {quest.safetyGrade && (
+            <Chip variant="surface">🛡 {quest.safetyGrade.code}+</Chip>
+          )}
           <Chip variant="surface">
             {'★'.repeat(quest.difficulty)}
             {'☆'.repeat(5 - quest.difficulty)}

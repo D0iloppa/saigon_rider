@@ -1,7 +1,17 @@
 # 현재 상황 (Session Carry-Over)
 
 > 다음 스레드가 이 파일만 읽고도 작업을 이어받을 수 있도록 작성.  
-> 큰 변경 후 갱신. **마지막 갱신**: 2026-05-17 (15차 — 프로필 피드 관리: 내 피드 조회/수정/삭제)
+> 큰 변경 후 갱신. **마지막 갱신**: 2026-05-18 (16차 — API 에러 Toast 일괄 적용 + 프로필 500 수정)
+
+## API 에러 Toast + 프로필 수정 (2026-05-18, 16차)
+
+- **API 클라이언트 에러 Toast 일괄 적용** (✅ 완료):
+  - `frontend/src/api/client.ts`의 `realFetch`, `realFetchForm` 함수에서 에러 응답 시 `toast.error(message)` 호출 후 re-throw
+  - 개별 API 호출마다 toast를 붙이는 방식 대신 단일 진입점(API 클라이언트)에서 처리하여 누락 방지
+- **프로필 PUT 500 에러 수정** (✅ 완료):
+  - 원인: `profile.py`에서 `user.rider_type`(relationship)에 문자열을 직접 할당 → `_sa_instance_state` AttributeError
+  - 수정: `RiderType` 테이블 조회 → `user.rider_type_id = rt.id`로 FK 할당 + `db.refresh`로 관계 재로드
+- **⚠ 인증 방식 미구현**: Feature "프로필 초기 설정" (DEV id=4)은 IN_PROGRESS 유지. OTP 인증 등 auth 체계 완성 필요 (`task/active/260515_auth_todo.md`)
 
 ## 프로필 피드 관리 기능 (2026-05-17, 15차)
 
@@ -142,9 +152,11 @@
 
 **`task/active/260515_quest_fk_mapping.md`** — Quest FK 매핑 (진행 중)
 
+**`task/active/260518_api_error_toast_profile_fix.md`** — API 에러 Toast 일괄 적용 (✅) + 프로필 500 수정 (진행 중)
+
 ### 다음 우선순위
-1. **실기기 확인**: iOS에서 TabBar/Feed/Profile 이슈 수정 결과 검증
-2. **12차 UI 검증**: 피드 헤더(+/프로필/DM 아이콘), /feed/new, /dm, 팔로워 카운트, 필터 칩 동작
+1. **프로필 500 수정**: `PUT /api/bff/profile` 500 에러 원인 파악 및 수정
+2. **실기기 확인**: iOS에서 TabBar/Feed/Profile 이슈 수정 결과 검증
 3. **A섹션 결함 수정**: F-AUTH-LOGIN, F-02-7, F-03-2 코드 수정
 4. **퀘스트 이미지 매핑**: DB 실제 퀘스트에 `thumbnail_content_id` 연결 (어드민 플로우)
 

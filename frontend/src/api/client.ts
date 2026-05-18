@@ -9,6 +9,7 @@
  */
 
 import { clearSession, loadSession } from '@/lib/session';
+import { toast } from '@/components/ui/Toast';
 
 export const USE_MOCK =
   import.meta.env.VITE_USE_MOCK !== 'false';
@@ -70,7 +71,9 @@ async function realFetch<T>(
   if (!res.ok) {
     if (res.status === 401) handleSessionError();
     const err = await res.json().catch(() => ({}));
-    throw new Error(extractErrorMessage(err, res.status));
+    const message = extractErrorMessage(err, res.status);
+    toast.error(message);
+    throw new Error(message);
   }
   return res.json();
 }
@@ -87,7 +90,9 @@ async function realFetchForm<T>(
   if (!res.ok) {
     if (res.status === 401) handleSessionError();
     const err = await res.json().catch(() => ({}));
-    throw new Error(extractErrorMessage(err, res.status));
+    const message = extractErrorMessage(err, res.status);
+    toast.error(message);
+    throw new Error(message);
   }
   return res.json();
 }

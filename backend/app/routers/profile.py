@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import Content, User
+from ..models import Content, RiderType, User
 from ..schemas import (
     AvatarUpdateResponse,
     NicknameCheckResponse,
@@ -133,19 +133,19 @@ async def save_profile(body: ProfileSaveRequest, db: AsyncSession = Depends(get_
     if len(nickname) > 30:
         raise HTTPException(status_code=400, detail="Nickname too long (max 30)")
 
-    VALID_RIDER_TYPES = {"COMMUTER", "CAFE_HUNTER", "NIGHT_RIDER"}
-    if body.rider_type not in VALID_RIDER_TYPES:
-        raise HTTPException(status_code=400, detail=f"Invalid rider_type. Must be one of {VALID_RIDER_TYPES}")
+    rt_result = await db.execute(select(RiderType).where(RiderType.code == body.rider_type))
+    rt = rt_result.scalar_one_or_none()
+    if rt is None:
+        raise HTTPException(status_code=400, detail=f"Invalid rider_type: {body.rider_type}")
 
     dup = await db.execute(select(User).where(User.nickname == nickname, User.id != body.user_id))
     if dup.scalar_one_or_none() is not None:
         raise HTTPException(status_code=409, detail="Nickname already taken")
 
     user.nickname = nickname
-    user.rider_type = body.rider_type
+    user.rider_type_id = rt.id
     await db.commit()
-
-    user = await _get_user_or_404(body.user_id, db)
+    await db.refresh(user, ["rider_type"])
     return UserOut.model_validate(user)
 
 

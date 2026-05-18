@@ -178,7 +178,13 @@
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(grep -n \"viewerSrc &&\\\\|createPortal\\\\|CommentSheet\\\\|</div>\\\\s*$\" /mnt/c/DEV/saigon_rider/frontend/src/pages/feed/FeedList.tsx)",
       "Bash(pkill -f \"vite\")",
-      "Bash(curl -s http://localhost:5173)"
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s -X POST http://localhost:8080/api/dev/todos -H 'Content-Type: application/json' -d '{\"title\": \"AUTH: API 클라이언트 에러 Toast 알림 일괄 적용\", \"priority\": \"HIGH\", \"status\": \"DONE\"}')",
+      "Bash(curl -s http://localhost:8080/api/dev/features)",
+      "Bash(curl -s -X PUT http://localhost:8082/api/profile -H 'Content-Type: application/json' -d '{\"user_id\": \"5380e2f2-df5e-4e82-9f90-7133b67b6d43\", \"nickname\": \"testuser1\", \"rider_type\": \"COMMUTER\"}')",
+      "Bash(python3 -m ruff check backend/app/routers/profile.py)",
+      "Bash(curl -s -X PUT http://localhost:8082/api/profile -H 'Content-Type: application/json' -d '{\"user_id\": \"5380e2f2-df5e-4e82-9f90-7133b67b6d43\", \"nickname\": \"testuser1\", \"rider_type\": \"CAFE_HUNTER\"}')",
+      "Bash(curl -s -X PATCH http://localhost:8082/api/dev/todos/13 -H 'Content-Type: application/json' -d '{\"status\": \"DONE\"}')"
     ]
   }
 }

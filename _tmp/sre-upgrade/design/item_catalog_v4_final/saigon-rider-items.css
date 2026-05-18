@@ -1,0 +1,320 @@
+/**
+ * Saigon Rider — Item Design Token CSS
+ * v1.0 · saigon-rider-items.css
+ *
+ * Usage:
+ *   <link rel="stylesheet" href="/assets/saigon-rider-items.css">
+ *   <svg class="item-icon item-r-m" viewBox="0 0 200 200">
+ *     <use href="/assets/saigon-rider-items.svg#item-HELMET_LEGEND_OF_SAIGON_M_01"/>
+ *   </svg>
+ */
+
+/* =====================================================
+   §1.2 COLLECTION COLOR PALETTES
+   ===================================================== */
+:root {
+  /* ── STREET_CLASSIC ── 일상 호치민 매트 톤 */
+  --col-street-primary:    #8A9099;
+  --col-street-secondary:  #2A3140;
+  --col-street-accent:     #FCD34D;
+  --col-street-mood:       "matte-vintage";
+
+  /* ── NEON_SAIGON ── 사이버펑크 마젠타 × 시안 */
+  --col-neon-primary:      #FF2D9C;
+  --col-neon-secondary:    #00F0FF;
+  --col-neon-accent:       #B6FF1C;
+  --col-neon-glow:         rgba(255, 45, 156, 0.65);
+  --col-neon-glow2:        rgba(0, 240, 255, 0.5);
+
+  /* ── TET_FESTIVAL ── 베트남 음력설 */
+  --col-tet-primary:       #DC2626;   /* 베트남 깃발 빨강 */
+  --col-tet-secondary:     #FBBF24;   /* 황금 */
+  --col-tet-accent:        #FFE4D2;   /* 등불 크림 */
+
+  /* ── MEKONG_DELTA ── 강 + 자연 */
+  --col-mekong-primary:    #6B8E23;   /* 카키 */
+  --col-mekong-secondary:  #2DD4BF;   /* 강물 청록 */
+  --col-mekong-accent:     #92400E;   /* 우드 브라운 */
+
+  /* ── DELIVERY_HUSTLE ── 형광 배달 라이더 */
+  --col-delivery-primary:  #FACC15;   /* 형광 옐로우 */
+  --col-delivery-secondary:#1F2937;   /* 매트 블랙 */
+  --col-delivery-accent:   #DC2626;   /* 빨강 액센트 */
+
+  /* ── SAIGON_GHOST ── 야간 사이버펑크 */
+  --col-ghost-primary:     #0E0D1A;   /* 매트 블랙 */
+  --col-ghost-secondary:   #8B5CF6;   /* 보라 글로우 */
+  --col-ghost-accent:      #1E40AF;   /* 다크 시안 */
+  --col-ghost-glow:        rgba(139, 92, 246, 0.75);
+
+  /* ── LEGEND_OF_SAIGON ── 황실/주년 */
+  --col-legend-primary:    #FFB800;   /* 골드 */
+  --col-legend-secondary:  #B91C1C;   /* 황실 빨강 */
+  --col-legend-accent:     #FFFFFF;
+}
+
+/* =====================================================
+   §1.4 RARITY GRADE EFFECTS
+   ===================================================== */
+
+/* ── Common ── 평면, 효과 없음 */
+.item-r-c {
+  /* No additional effects. primary color only. */
+}
+
+/* ── Rare ── 얇은 보더 글로우 */
+.item-r-r {
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.7))
+          drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+}
+
+/* ── Epic ── 노이즈 + 라인 디테일 */
+.item-r-e {
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.7))
+          drop-shadow(0 0 16px rgba(139, 92, 246, 0.4));
+}
+
+/* ── Legendary ── 골드 림 + 떠 있는 sparkle */
+.item-r-l {
+  filter: drop-shadow(0 0 12px rgba(255, 184, 0, 0.8))
+          drop-shadow(0 0 24px rgba(255, 184, 0, 0.4));
+}
+
+/* ── Mythic ── 홀로그래픽 + 회전 빛 */
+.item-r-m {
+  filter: drop-shadow(0 0 16px rgba(255, 45, 156, 0.7))
+          drop-shadow(0 0 32px rgba(0, 240, 255, 0.4))
+          drop-shadow(0 0 48px rgba(255, 184, 0, 0.3));
+}
+
+/* =====================================================
+   ITEM CARD CONTAINER VARIANTS
+   ===================================================== */
+
+/**
+ * Item card wrapper. Apply data-r attribute for rarity styling.
+ * Usage: <div class="item-card" data-r="M">
+ */
+.item-card {
+  background: var(--item-card-bg, #1A1925);
+  border-radius: 24px;
+  border: 1.5px solid var(--item-card-border, rgba(255, 255, 255, 0.08));
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+.item-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Rarity-specific card borders and glows */
+.item-card[data-r="C"] {
+  --item-card-border: rgba(107, 114, 128, 0.25);
+}
+.item-card[data-r="R"] {
+  --item-card-border: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45),
+              0 0 24px rgba(59, 130, 246, 0.15);
+}
+.item-card[data-r="E"] {
+  --item-card-border: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45),
+              0 0 32px rgba(139, 92, 246, 0.18);
+}
+.item-card[data-r="L"] {
+  --item-card-border: rgba(255, 184, 0, 0.7);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45),
+              0 0 40px rgba(255, 184, 0, 0.22);
+}
+.item-card[data-r="M"] {
+  --item-card-border: transparent;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45),
+              0 0 48px rgba(255, 45, 156, 0.25),
+              0 0 64px rgba(0, 240, 255, 0.15);
+}
+
+/* Mythic animated background */
+.item-card[data-r="M"]::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 45, 156, 0.15),
+    rgba(255, 116, 56, 0.1),
+    rgba(255, 184, 0, 0.12),
+    rgba(0, 240, 255, 0.12),
+    rgba(182, 255, 28, 0.1),
+    rgba(139, 92, 246, 0.15),
+    rgba(255, 45, 156, 0.15)
+  );
+  animation: item-mythic-spin 6s linear infinite;
+  border-radius: 50%;
+  z-index: 0;
+}
+@keyframes item-mythic-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* =====================================================
+   RARITY LABELS
+   ===================================================== */
+.rarity-label {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rarity-label[data-r="C"] {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9CA3AF;
+}
+.rarity-label[data-r="R"] {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60A5FA;
+}
+.rarity-label[data-r="E"] {
+  background: rgba(139, 92, 246, 0.2);
+  color: #A78BFA;
+}
+.rarity-label[data-r="L"] {
+  background: rgba(255, 184, 0, 0.15);
+  color: #FFB800;
+  box-shadow: 0 0 12px rgba(255, 184, 0, 0.3);
+}
+.rarity-label[data-r="M"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 45, 156, 0.25),
+    rgba(0, 240, 255, 0.2),
+    rgba(255, 184, 0, 0.22),
+    rgba(255, 45, 156, 0.25)
+  );
+  background-size: 200%;
+  color: #E0AAFF;
+  animation: mythic-label-shimmer 3s linear infinite;
+  box-shadow: 0 0 16px rgba(255, 45, 156, 0.35),
+              0 0 32px rgba(0, 240, 255, 0.2);
+}
+@keyframes mythic-label-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* =====================================================
+   LEGENDARY SPARKLE ANIMATION
+   ===================================================== */
+.item-sparkle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #FFB800;
+  border-radius: 50%;
+  box-shadow: 0 0 8px 3px rgba(255, 184, 0, 0.8);
+  animation: item-sparkle-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes item-sparkle-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.4); }
+}
+
+/* =====================================================
+   INVENTORY CELL
+   ===================================================== */
+.inv-cell {
+  background: var(--inv-cell-bg, rgba(35, 34, 50, 0.8));
+  border-radius: 14px;
+  border: 1.5px solid var(--item-card-border, rgba(255, 255, 255, 0.06));
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 16px var(--item-card-glow, transparent);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.inv-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 24px var(--item-card-glow, rgba(255, 255, 255, 0.05));
+}
+.inv-cell[data-r="R"] { --item-card-border: rgba(59, 130, 246, 0.4); }
+.inv-cell[data-r="E"] { --item-card-border: rgba(139, 92, 246, 0.5); }
+.inv-cell[data-r="L"] { --item-card-border: rgba(255, 184, 0, 0.5); }
+.inv-cell[data-r="M"] {
+  --item-card-border: transparent;
+}
+.inv-cell[data-r="M"]::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 45, 156, 0.2),
+    rgba(0, 240, 255, 0.15),
+    rgba(255, 184, 0, 0.18),
+    rgba(182, 255, 28, 0.12),
+    rgba(255, 45, 156, 0.2)
+  );
+  animation: item-mythic-spin 5s linear infinite;
+  border-radius: 50%;
+}
+
+/* =====================================================
+   PITY BAR (GACHA)
+   ===================================================== */
+.pity-gauge-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8B5CF6, #FF2D9C);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+  animation: pity-pulse 2.5s ease-in-out infinite;
+  transition: width 0.8s ease;
+}
+@keyframes pity-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* =====================================================
+   UTILITY: Item Icon SVG wrapper
+   ===================================================== */
+.item-icon {
+  display: block;
+  overflow: visible;
+  flex-shrink: 0;
+}
+.item-icon-sm  { width: 40px;  height: 40px; }
+.item-icon-md  { width: 64px;  height: 64px; }
+.item-icon-lg  { width: 120px; height: 120px; }
+.item-icon-xl  { width: 160px; height: 160px; }
+.item-icon-2xl { width: 200px; height: 200px; }
+
+/* =====================================================
+   COLLECTION IDENTIFIER CHIPS
+   ===================================================== */
+.col-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.col-chip[data-col="STREET_CLASSIC"]   { background: rgba(138,144,153,.15); color: #8A9099; border: 1px solid rgba(138,144,153,.3); }
+.col-chip[data-col="NEON_SAIGON"]      { background: rgba(255,45,156,.15); color: #FF2D9C; border: 1px solid rgba(255,45,156,.35); }
+.col-chip[data-col="TET_FESTIVAL"]     { background: rgba(220,38,38,.15); color: #DC2626; border: 1px solid rgba(220,38,38,.35); }
+.col-chip[data-col="MEKONG_DELTA"]     { background: rgba(107,142,35,.15); color: #6B8E23; border: 1px solid rgba(107,142,35,.35); }
+.col-chip[data-col="DELIVERY_HUSTLE"]  { background: rgba(250,204,21,.15); color: #FACC15; border: 1px solid rgba(250,204,21,.35); }
+.col-chip[data-col="SAIGON_GHOST"]     { background: rgba(139,92,246,.15); color: #8B5CF6; border: 1px solid rgba(139,92,246,.35); }
+.col-chip[data-col="LEGEND_OF_SAIGON"] { background: rgba(255,184,0,.15); color: #FFB800; border: 1px solid rgba(255,184,0,.4); }

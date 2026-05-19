@@ -30,7 +30,7 @@ function transformQuest(raw: any): Quest {
     timeRestriction: null,
     safetyGrade,
     rewardExp: raw.reward_exp ?? 0,
-    rewardXpPoints: 0,
+    rewardXpPoints: Math.round((raw.reward_exp ?? 0) * 0.3),
     rewardGold: raw.reward_gold ?? 0,
     rewardItems: raw.reward_item ? [raw.reward_item] : [],
     difficulty: 1,

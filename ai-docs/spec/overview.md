@@ -76,6 +76,21 @@
 | 25 | SET-NOTI | 알림 설정 | `/settings/notifications` | `25 · SET-NOTI · 알림 설정` |
 | 26 | SET-LANG | 언어 설정 | `/settings/language` | `26 · SET-LANG · 언어` |
 | 27 | SET-ACCOUNT | 계정 관리 | `/settings/account` | `27 · SET-ACCOUNT · 계정` |
+| — | PROFILE-EDIT | 프로필 편집 | `/settings/profile` | (신규) |
+
+### 그룹 H — 게이미피케이션 RPG (SRE v2)
+
+| # | ID | 화면명 | 경로 | scene.html 라벨 |
+|---|-----|--------|------|-----------------|
+| — | GACHA-MAIN | 가챠 메인 | `/gacha` | (신규) |
+| — | GACHA-PULL | 가챠 뽑기 결과 | `/gacha/pull/:gachaCode` | (신규) |
+| — | SHOP-CATALOG | 상점 카탈로그 | `/shop` | (신규) |
+| — | SHOP-ITEM | 아이템 상세 | `/shop/item/:itemCode` | (신규) |
+| — | INVENTORY | 인벤토리 | `/inventory` | (신규) |
+| — | EQUIP-PREVIEW | 장착 미리보기 | `/inventory/equip-preview` | (신규) |
+| — | SEASON-PASS | 시즌패스 | `/season` | (신규) |
+| — | GARAGE | 거래지 (라이더 장비) | `/garage` | (신규) |
+| — | GAME-HUB | 게임 허브 바텀시트 | TabBar FAB 오버레이 | (신규) |
 
 ---
 
@@ -125,6 +140,7 @@
 | F-03-4 | 설정 완료 후 프로필 저장 & 홈으로 이동 | PROFILE-SETUP | `[API-DUMMY]` `saveProfile(data)` |
 | F-03-5 | 진행 단계 Dot Indicator (3단계) | PROFILE-SETUP | `[STATIC]` |
 | F-03-6 | 기본 프로필 사진 노출 (saigon-default.jpg) | PROFILE-SETUP | `[API-IMPL]` — UserOut.avatar_url 기본값 자동 반환 |
+| F-03-7 | 건너뛰기 시 기본 닉네임 자동 부여 ([형용사] [명사] [숫자]) | PROFILE-SETUP | `[API-IMPL]` — nickname_words 테이블 기반 |
 
 ---
 
@@ -228,11 +244,11 @@
 | F-10-1 | 내 프로필 정보 로드 (아바타, 닉네임, 레벨, 라이더타입) | PROFILE-001 | `[API-DUMMY]` `getMe()` |
 | F-10-2 | 레벨 진행도 바 & EXP to next level | PROFILE-001 | `[STATIC]` |
 | F-10-3 | 재화(XP/Gold/Skill Pt) 카드 | PROFILE-001 | `[STATIC]` — getMe() 데이터 기반 |
-| F-10-4 | 이번 달 통계 (누적 km, 퀘스트 수, 평균 안전도) | PROFILE-001 | `[API-IMPL]` `GET /api/users/me/stats?user_id=…` |
+| F-10-4 | 이번 달 통계 (누적 km, 퀘스트 수, 평균 안전도) | PROFILE-001 | `[API-IMPL]` `GET /api/users/me/stats` |
 | F-10-5 | 월별 주행 Mini 차트 SVG | PROFILE-001 | `[API-DUMMY]` `getRideHistory()` |
 | F-10-6 | 탭 전환 (기록 / 배지 / 장비) | PROFILE-001 | `[STATIC]` |
-| F-10-7 | 최근 라이딩 기록 목록 | PROFILE-001 | `[API-DUMMY]` `getRideHistory()` |
-| F-10-8 | 배지 상세 모달 (획득 조건, 공유 버튼) | BADGE-DETAIL | `[API-IMPL]` `GET /api/badges/{id}` |
+| F-10-7 | 최근 퀘스트 완료 이력 | PROFILE-001 | `[API-IMPL]` `GET /api/users/me/quest-history` |
+| F-10-8 | 배지 목록 (전체 + 획득 여부) | BADGE-DETAIL | `[API-IMPL]` `GET /api/badges?user_id=` |
 | F-10-9 | 프로필 사진 변경 (갤러리/카메라 선택 → 업로드) | PROFILE-001 | `[API-IMPL]` `POST /api/profile/avatar` |
 | F-10-10 | 닉네임 변경 (중복 확인 포함) | PROFILE-001 | `[API-IMPL]` `PUT /api/profile/nickname` |
 
@@ -432,4 +448,72 @@ unsub() // 컴포넌트 unmount 시 해제
 | P0 | 홈 & 퀘스트 목록 (F-04 ~ F-06) | 핵심 콘텐츠 노출 |
 | P1 | 라이딩 HUD & 결과 (F-07 ~ F-08) | 핵심 게임플레이 루프 |
 | P2 | 피드 & 프로필 (F-09 ~ F-10) | 소셜 & 리텐션 |
+| P2 | 게이미피케이션 RPG (F-13 ~ F-17) | RPG 경제 시스템 |
 | P3 | 설정 (F-11) | 보조 기능 |
+
+---
+
+## 6. SRE 게이미피케이션 v2 기능 (2026-05-18 추가)
+
+> RPG 경제 패러다임 도입. 미션 보상을 통화(GP/GC) 중심으로 전환, 가챠 5종 + 상점 + 일일 추천 + 천장 시스템.
+> 기획서: `_tmp/sre-upgrade/sre-gamification-deployment-guide.md`
+
+---
+
+### F-13. 가챠 (Gacha)
+
+| 기능 ID | 기능명 | 관련 화면 | 구현 방식 |
+|---------|--------|-----------|-----------|
+| F-13-1 | 활성 가챠 목록 로드 (5종) | GACHA-MAIN | `[API-IMPL]` `GET /gacha/list` |
+| F-13-2 | 가챠 뽑기 실행 (1회/10연) | GACHA-PULL | `[API-IMPL]` `POST /gacha/pull` |
+| F-13-3 | 천장(pity) 진행 바 표시 | GACHA-MAIN | `[API-IMPL]` `GET /gacha/pity/{code}` |
+| F-13-4 | 뽑기 이력 조회 | GACHA-MAIN | `[API-IMPL]` `GET /gacha/log` |
+| F-13-5 | 응모 자격 확인 (GP 잔액·레벨 등) | GACHA-MAIN | `[API-IMPL]` `GET /gacha/eligibility/{code}` |
+| F-13-6 | 뽑기 결과 카드 flip 애니메이션 | GACHA-PULL | `[STATIC]` |
+| F-13-7 | Confetti 축하 오버레이 | GACHA-PULL | `[STATIC]` — ConfettiLayer 컴포넌트 |
+| F-13-8 | 등급별 카드 색상·파티클 분기 | GACHA-PULL | `[STATIC]` — RarityChip 컴포넌트 |
+
+---
+
+### F-14. 상점 (Shop)
+
+| 기능 ID | 기능명 | 관련 화면 | 구현 방식 |
+|---------|--------|-----------|-----------|
+| F-14-1 | 상점 아이템 목록 (컬렉션/등급/슬롯 필터) | SHOP-CATALOG | `[API-IMPL]` `GET /shop/items` |
+| F-14-2 | 오늘의 추천 아이템 | SHOP-CATALOG | `[API-IMPL]` `GET /shop/daily-featured` |
+| F-14-3 | 아이템 상세 정보 | SHOP-ITEM | `[STATIC]` — 아이템 목록에서 데이터 전달 |
+| F-14-4 | 아이템 구매 (GP/GC 선택) | SHOP-ITEM | `[API-IMPL]` `POST /shop/purchase` |
+
+---
+
+### F-15. 인벤토리 (Inventory)
+
+| 기능 ID | 기능명 | 관련 화면 | 구현 방식 |
+|---------|--------|-----------|-----------|
+| F-15-1 | 보유 아이템 목록 (장착 여부 표시) | INVENTORY | `[API-IMPL]` `GET /inventory/items` |
+| F-15-2 | 현재 장착 슬롯 조회 | INVENTORY | `[API-IMPL]` `GET /inventory/equipment` |
+| F-15-3 | 아이템 장착 | EQUIP-PREVIEW | `[API-IMPL]` `PUT /inventory/equip` |
+| F-15-4 | 장착 해제 | INVENTORY | `[API-IMPL]` `DELETE /inventory/equip/{slot}` |
+| F-15-5 | 컬렉션 진행도 조회 | INVENTORY | `[API-IMPL]` `GET /inventory/collection-progress` |
+
+---
+
+### F-16. 시즌패스 (Season Pass)
+
+| 기능 ID | 기능명 | 관련 화면 | 구현 방식 |
+|---------|--------|-----------|-----------|
+| F-16-1 | 현재 활성 시즌 정보 로드 | SEASON-PASS | `[API-IMPL]` `GET /season/current` |
+| F-16-2 | 내 시즌패스 상태 (레벨, SXP) | SEASON-PASS | `[API-IMPL]` `GET /season/pass` |
+| F-16-3 | 레벨별 보상 목록 (FREE/PREMIUM 트랙) | SEASON-PASS | `[API-IMPL]` `GET /season/levels/{code}` |
+| F-16-4 | 보상 수령 | SEASON-PASS | `[API-IMPL]` `POST /season/claim` |
+
+---
+
+### F-17. 게임 허브 & 통화 HUD
+
+| 기능 ID | 기능명 | 관련 화면 | 구현 방식 |
+|---------|--------|-----------|-----------|
+| F-17-1 | TabBar FAB → Game Hub Sheet 오픈 | GAME-HUB | `[STATIC]` — GameHubSheet 컴포넌트 |
+| F-17-2 | 시트 내 5개 진입점 (거래지/인벤토리/상점/가챠/시즌패스) | GAME-HUB | `[STATIC]` |
+| F-17-3 | CurrencyHUD — GP/GC 잔액 헤더 표시 | HOME-001 | `[API-IMPL]` `GET /wallet/me` |
+| F-17-4 | GP/GC 잔액 조회 | 전체 | `[API-IMPL]` `GET /wallet/me` |

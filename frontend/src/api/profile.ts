@@ -1,7 +1,7 @@
 import { api, USE_MOCK } from './client';
 import type { UserDto } from './auth';
 import type { LoginResult } from './auth';
-import type { RiderStyle, UserProfile } from './types';
+import type { BadgeWithEarned, PageResponse, QuestHistoryItem, RiderStyle, UserProfile, UserStats } from './types';
 
 export async function fetchMe(phone: string): Promise<UserDto | null> {
   if (USE_MOCK) return null;
@@ -35,11 +35,11 @@ export async function apiUpdateNickname(userId: string, nickname: string): Promi
 export async function apiSaveProfileSetup(
   userId: string,
   nickname: string,
-  riderType: RiderStyle,
+  riderType: RiderStyle | null,
 ): Promise<UserDto> {
   return api.realFetch<UserDto>('/profile', {
     method: 'PUT',
-    body: JSON.stringify({ user_id: userId, nickname, rider_type: riderType.toUpperCase() }),
+    body: JSON.stringify({ user_id: userId, nickname, rider_type: riderType ? riderType.toUpperCase() : null }),
   });
 }
 
@@ -88,4 +88,24 @@ export async function fetchUserProfile(userId: string, requesterId?: string): Pr
     followingCount: res.following_count,
     isFollowing: res.is_following,
   };
+}
+
+export async function fetchUserStats(userId: string): Promise<UserStats> {
+  if (USE_MOCK) {
+    return { month: '2026-05', total_km: 0, quest_count: 0, avg_safety_grade: null };
+  }
+  return api.realFetch<UserStats>(`/users/me/stats?user_id=${userId}`);
+}
+
+export async function fetchQuestHistory(userId: string, page = 1, size = 20): Promise<PageResponse<QuestHistoryItem>> {
+  if (USE_MOCK) {
+    return { items: [], total: 0, page: 1, size: 20 };
+  }
+  return api.realFetch<PageResponse<QuestHistoryItem>>(`/users/me/quest-history?user_id=${userId}&page=${page}&size=${size}`);
+}
+
+export async function fetchAllBadges(userId?: string): Promise<BadgeWithEarned[]> {
+  if (USE_MOCK) return [];
+  const qs = userId ? `?user_id=${userId}` : '';
+  return api.realFetch<BadgeWithEarned[]>(`/badges${qs}`);
 }

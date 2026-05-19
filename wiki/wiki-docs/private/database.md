@@ -53,6 +53,15 @@ psql -h localhost -p 5435 -U saigon -d saigon_rider
 - `profile_mock` — 프로필 미설정 시 기본 아바타 풀 (seed 기반 결정론적 선택)
 :::
 
+### feed_post_images
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `id` | UUID PK | 이미지 레코드 ID |
+| `post_id` | UUID FK→feed_posts | 게시글 |
+| `content_id` | UUID FK→contents | 이미지 contents |
+| `sort_order` | SMALLINT | 정렬 순서 |
+| `created_at` | TIMESTAMPTZ | 생성일 |
+
 ### feed_posts
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
@@ -132,6 +141,20 @@ psql -h localhost -p 5435 -U saigon -d saigon_rider
 | `expires_at` | TIMESTAMPTZ | 만료일 |
 | `created_at` | TIMESTAMPTZ | 생성일 |
 
+### badges (032 확장 포함)
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `id` | UUID PK | 뱃지 ID |
+| `condition_rule` | JSONB | 자동 지급 조건식 (032 추가) |
+| `name_ko` | VARCHAR | 한국어 이름 (032 추가) |
+| `name_vi` | VARCHAR | 베트남어 이름 (032 추가) |
+| `name_en` | VARCHAR | 영어 이름 (032 추가) |
+| `description_ko` | TEXT | 한국어 설명 (032 추가) |
+| `description_vi` | TEXT | 베트남어 설명 (032 추가) |
+| `description_en` | TEXT | 영어 설명 (032 추가) |
+| `icon_content_id` | UUID FK→contents | 뱃지 아이콘 이미지 (032 추가) |
+| `is_active` | BOOL | 활성 여부 (032 추가) |
+
 ## 마이그레이션
 
 Engine은 Alembic을 사용합니다.
@@ -144,8 +167,18 @@ docker compose --profile backend exec engine alembic upgrade head
 docker compose --profile backend exec engine alembic history
 ```
 
-초기 스키마 파일: `database/init/001_init_schema.sql` ~ `023_dm_messages.sql`  
-Engine 마이그레이션: `engine/alembic/versions/` (리비전 001~009)
+초기 스키마 파일: `database/init/001_init_schema.sql` ~ `032_badge_condition_rule.sql`  
+Engine 마이그레이션: `engine/alembic/versions/` (리비전 001~017)
+
+Engine Alembic 추가 리비전 (010~017):
+- `010_sre_message.py` — SRE 메시지 이벤트 테이블
+- `011_gamification_alter.py` — 게이미피케이션 v2 기존 테이블 변경
+- `012_gamification_new_tables.py` — v2 신규 테이블 (아이템, 장착, 컬렉션 등)
+- `013_gacha_shop_tables.py` — 가챠·상점 테이블
+- `014_gamification_seed.py` — v2 시드 데이터
+- `015_reward_dispatcher_functions.py` — 보상 지급 함수
+- `016_shop_gacha_functions.py` — 상점·가챠 DB 함수
+- `017_gc_balance_column.py` — GC(Game Cash) 잔액 컬럼 추가
 
 | 파일 | 내용 |
 |---|---|
@@ -167,12 +200,21 @@ Engine 마이그레이션: `engine/alembic/versions/` (리비전 001~009)
 | `021_user_follows.sql` | `user_follows` 테이블 |
 | `022_dm_conversations.sql` | `dm_conversations` 테이블 |
 | `023_dm_messages.sql` | `dm_messages` 테이블 |
+| `024_feed_post_images.sql` | `feed_post_images` 테이블 — 피드 다중 이미지 지원 |
+| `025_dev_context.sql` | `__DEV_context`, `__DEV_features`, `__DEV_todos` 테이블 — 개발 컨텍스트 관리 |
+| `026_dev_context_seed.sql` | DEV context 초기 시드 데이터 |
+| `027_dev_context_status.sql` | `__DEV_context.status` 이모지 컬럼 추가 |
+| `028_nickname_words.sql` | `nickname_words` 테이블 — 기본 닉네임 생성용 단어풀 |
+| `029_app_versions.sql` | `app_versions` 테이블 — 앱 버전 트리 관리 (primary→ios/android) |
+| `030_app_config_seed.sql` | `app_config` 시드 — 추천 퀘스트 최대 표시 개수 |
+| `031_dm_poll_interval.sql` | `app_config` 시드 — DM 미읽음 폴링 주기 |
+| `032_badge_condition_rule.sql` | `badges` 테이블 확장 — JSONB 조건식 + 다국어(ko/vi/en) + 아이콘 contents + 활성 플래그 |
 
 :::caution 수동 적용 필요
 `database/init/` 파일은 컨테이너 최초 기동 시에만 자동 실행됩니다.  
 기존 환경에서 신규 마이그레이션을 적용하려면 수동으로 실행해야 합니다:
 ```bash
 docker exec -i saigon_db psql -U $DB_USER -d $DB_NAME < database/init/020_feed_location.sql
-# 021 ~ 023도 동일하게 적용
+# 021 ~ 032도 동일하게 적용
 ```
 :::

@@ -108,6 +108,60 @@ export interface Badge {
   earnedAt?: string;
 }
 
+export interface BadgeData {
+  id: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+  condition_type: string | null;
+  condition_value: number | null;
+  condition_rule: ConditionRule | null;
+  name_ko: string | null;
+  name_vi: string | null;
+  name_en: string | null;
+  description_ko: string | null;
+  description_vi: string | null;
+  description_en: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ConditionRule {
+  operator: 'AND' | 'OR';
+  conditions: Array<{ metric: string; op: string; value: number }>;
+}
+
+export interface BadgeWithEarned {
+  badge: BadgeData;
+  earned: boolean;
+  acquired_at: string | null;
+}
+
+export interface QuestHistoryItem {
+  id: string;
+  quest_id: string;
+  quest_title: string | null;
+  distance_km: number | null;
+  safety_grade: string | null;
+  reward_exp: number;
+  reward_gold: number;
+  completed_at: string | null;
+}
+
+export interface UserStats {
+  month: string;
+  total_km: number;
+  quest_count: number;
+  avg_safety_grade: string | null;
+}
+
+export interface PageResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+}
+
 export interface FollowUser {
   id: string;
   nickname: string | null;

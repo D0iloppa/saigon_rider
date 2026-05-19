@@ -1,0 +1,18 @@
+<div class="breadcrumb">
+  <a href="/admin/badges">{{breadcrumb_label}}</a>
+  <span>›</span>
+  <span>{{form_title}}</span>
+</div>
+
+<h1 class="page-title">{{form_title}}</h1>
+<p class="page-sub">배지 정보를 입력하세요</p>
+
+<div class="card" style="max-width:640px">
+  <form method="post" enctype="multipart/form-data">
+    {{form_html}}
+    <div style="display:flex;gap:10px;margin-top:24px">
+      <button type="submit" class="btn">저장</button>
+      <a href="/admin/badges" class="btn btn-ghost">취소</a>
+    </div>
+  </form>
+</div>

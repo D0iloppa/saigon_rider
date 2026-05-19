@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchRecommendedQuests } from '@/api/quests';
+import { fetchWallet } from '@/api/wallet';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber } from '@/lib/format';
 import type { Quest } from '@/api/types';
@@ -24,11 +25,15 @@ function GifIcon({ code, size = 32, className = '' }: { code: string; size?: num
   );
 }
 
-const CURRENCY_CARDS = [
-  { icon: '1f48e', color: 'var(--xp)',       numColor: 'var(--xp)',    label: 'XP',      key: 'xpPoints'    },
-  { icon: '1fa99', color: 'var(--gold)',      numColor: '#A07010',      label: 'GOLD',    key: 'gold'        },
-  { icon: '2b50',  color: 'var(--brand-500)', numColor: 'var(--gold)',  label: 'SKILL PT', key: 'skillPoints' },
-] as const;
+type CurrencyCard = { icon: string; color: string; numColor: string; label: string; value: number };
+
+function buildCurrencyCards(gold: number, xp: number, skillPoints: number): CurrencyCard[] {
+  return [
+    { icon: '1f48e', color: 'var(--gc)',        numColor: 'var(--gc)',   label: 'XP',       value: xp          },
+    { icon: '1fa99', color: 'var(--gold)',       numColor: '#A07010',     label: 'GOLD',     value: gold        },
+    { icon: '26a1',  color: 'var(--brand-500)', numColor: 'var(--gold)', label: 'SKILL PT', value: skillPoints },
+  ];
+}
 
 export default function WorldMap() {
   const user = useUserStore((s) => s.user);
@@ -39,6 +44,8 @@ export default function WorldMap() {
   const [recIdx, setRecIdx] = useState(0);
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
   const [loading, setLoading] = useState(true);
+  const [gold, setGold] = useState(0);
+  const [xp, setXp] = useState(0);
   const didInit = useRef(false);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -55,6 +62,10 @@ export default function WorldMap() {
     } else {
       setLoading(false);
     }
+    fetchWallet().then((w) => {
+      setGold(w.gold_balance);
+      setXp(w.xp_balance);
+    }).catch(() => {});
   }, [refreshUser]);
 
   if (!user) return null;
@@ -127,12 +138,12 @@ export default function WorldMap() {
       <div className={styles.scroll}>
         {/* ── Currency cards ── */}
         <div className={styles.currencyRow}>
-          {CURRENCY_CARDS.map((c) => (
-            <div key={c.key} className={styles.currencyCard} style={{ borderTop: `4px solid ${c.color}` }}>
+          {buildCurrencyCards(gold, xp, user.skillPoints).map((c) => (
+            <div key={c.label} className={styles.currencyCard} style={{ borderTop: `4px solid ${c.color}` }}>
               <div className={styles.cardShine} />
               <GifIcon code={c.icon} size={36} className={styles.currencyGif} />
               <div className={`num ${styles.currencyNum}`} style={{ color: c.numColor }}>
-                {formatNumber(user[c.key] as number)}
+                {formatNumber(c.value)}
               </div>
               <div className={`micro ${styles.currencyLabel}`}>{c.label}</div>
             </div>
@@ -242,12 +253,12 @@ export default function WorldMap() {
                       <h3 className={styles.recTitle}>{quest.title}</h3>
                       <div className={styles.recRewards}>
                         <span className={styles.rewardItem}>
-                          <GifIcon code="1f48e" size={16} />
-                          <span style={{ color: 'var(--xp)' }}>+{quest.rewardExp}</span>
+                          <GifIcon code="2b50" size={16} />
+                          <span style={{ color: 'var(--exp)' }}>+{formatNumber(quest.rewardExp, { compact: true })}</span>
                         </span>
                         <span className={styles.rewardItem}>
                           <GifIcon code="1fa99" size={16} />
-                          <span style={{ color: '#A07010' }}>+{quest.rewardGold}</span>
+                          <span style={{ color: '#A07010' }}>+{formatNumber(quest.rewardGold, { compact: true })}</span>
                         </span>
                         {quest.rewardItems.length > 0 && (
                           <span className={styles.rewardItem}>

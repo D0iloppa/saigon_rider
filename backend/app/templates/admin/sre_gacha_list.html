@@ -1,0 +1,26 @@
+<div class="page-title">가챠 관리</div>
+<p class="page-sub">가챠 정의 조회 · 확률 테이블 편집</p>
+
+<div class="toolbar">
+  <div style="font-size:13px;color:rgba(255,255,255,.45);">총 <strong style="color:#fff;">{{total}}</strong>개</div>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/sre/ops" class="btn btn-ghost btn-sm">← 운영 대시보드</a>
+  </div>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>가챠 코드</th>
+        <th>이름</th>
+        <th>비용 (단발 / 10연)</th>
+        <th>천장</th>
+        <th>노출</th>
+        <th>상태</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>{{rows}}</tbody>
+  </table>
+</div>

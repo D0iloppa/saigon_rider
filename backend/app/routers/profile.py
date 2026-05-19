@@ -143,10 +143,16 @@ async def save_profile(
     if len(nickname) > 30:
         raise HTTPException(status_code=400, detail="Nickname too long (max 30)")
 
-    rt_result = await db.execute(select(RiderType).where(RiderType.code == body.rider_type))
-    rt = rt_result.scalar_one_or_none()
-    if rt is None:
-        raise HTTPException(status_code=400, detail=f"Invalid rider_type: {body.rider_type}")
+    if body.rider_type:
+        rt_result = await db.execute(select(RiderType).where(RiderType.code == body.rider_type))
+        rt = rt_result.scalar_one_or_none()
+        if rt is None:
+            raise HTTPException(status_code=400, detail=f"Invalid rider_type: {body.rider_type}")
+    else:
+        rt_result = await db.execute(select(RiderType).order_by(RiderType.id).limit(1))
+        rt = rt_result.scalar_one_or_none()
+        if rt is None:
+            raise HTTPException(status_code=503, detail="No rider types configured")
 
     dup = await db.execute(select(User).where(User.nickname == nickname, User.id != body.user_id))
     if dup.scalar_one_or_none() is not None:

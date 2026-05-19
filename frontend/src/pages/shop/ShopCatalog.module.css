@@ -1,0 +1,391 @@
+.page {
+  position: absolute;
+  inset: 0;
+  background: var(--bg, #F7F5F0);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hero Header ── */
+.header {
+  position: relative;
+  z-index: 10;
+  height: calc(120px + var(--status-bar-height));
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.headerBg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(at 0% 0%, #FF9966 0%, transparent 50%),
+    radial-gradient(at 100% 100%, #8B5CF6 0%, transparent 50%),
+    #FFF1E8;
+}
+.headerTitle {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 50px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  z-index: 2;
+}
+.headerUser {
+  position: absolute;
+  bottom: 10px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+.headerAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background: var(--surface-2);
+  object-fit: cover;
+}
+.headerNickname {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+.headerBalance {
+  position: absolute;
+  bottom: 10px;
+  right: 16px;
+  text-align: right;
+  z-index: 2;
+}
+.balanceRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-bottom: 3px;
+}
+.balanceIcon {
+  width: 14px;
+  height: 14px;
+}
+.balanceGp {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #B45309;
+  font-variant-numeric: tabular-nums;
+}
+.balanceGc {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6D28D9;
+  font-variant-numeric: tabular-nums;
+}
+.chargeBtn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand-500);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── Body ── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 24px;
+  overscroll-behavior: contain;
+}
+
+/* ── Featured Card ── */
+.featuredCard {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 0 0 2px var(--r-l-fill), 0 16px 48px var(--r-l-glow);
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.featuredGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(at 30% 20%, rgba(255,184,0,.15), transparent 60%);
+  pointer-events: none;
+}
+.featuredThumb {
+  width: 110px;
+  height: 110px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px var(--r-l-fill), 0 8px 24px var(--r-l-glow);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--r-l-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.featuredThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.featuredInfo {
+  flex: 1;
+  min-width: 0;
+}
+.featuredBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.28);
+  border-radius: 7px;
+  padding: 3px 8px;
+  margin-bottom: 6px;
+}
+.featuredBadgeText {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #DC2626;
+}
+.featuredTimer {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #DC2626;
+  margin-bottom: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.featuredName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.featuredPrices {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.originalPrice {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  color: var(--text-3);
+  text-decoration: line-through;
+  font-variant-numeric: tabular-nums;
+}
+.discountPrice {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #DC2626;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Category Chips ── */
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+}
+.chipActive {
+  background: var(--text);
+  color: white;
+}
+.chipInactive {
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+/* ── Item Grid ── */
+.itemGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.itemCard {
+  padding: 12px;
+}
+.itemThumb {
+  text-align: center;
+  padding: 6px 0;
+}
+.itemThumbImg {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+.itemRarityBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+.itemLimitedBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #DC2626;
+  color: white;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.itemName {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  color: var(--text);
+}
+.itemSlot {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.itemFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.priceGp {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #B45309;
+  font-variant-numeric: tabular-nums;
+}
+.priceGc {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6D28D9;
+  font-variant-numeric: tabular-nums;
+}
+.addBtn {
+  width: 28px;
+  height: 28px;
+  background: var(--brand-500);
+  border-radius: 50%;
+  border: none;
+  color: white;
+  font-size: 18px;
+  line-height: 28px;
+  text-align: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ownedOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,.75);
+  border-radius: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ownedLabel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+/* ── Gacha Banner ── */
+.gachaBanner {
+  border-radius: 20px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  position: relative;
+}
+.gachaBannerBg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(at 30% 20%, #1A1D2A 0%, transparent 50%),
+    radial-gradient(at 70% 80%, rgba(255,45,156,.18) 0%, transparent 30%),
+    linear-gradient(160deg, #11131C, #08090F);
+}
+.gachaBannerBorder {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(0,240,255,.3);
+  border-radius: 20px;
+}
+.gachaBannerIcon {
+  position: relative;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(0,240,255,.6));
+}
+.gachaBannerText {
+  flex: 1;
+  position: relative;
+  z-index: 2;
+}
+.gachaBannerTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 3px;
+}
+.gachaBannerSub {
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+}
+.gachaBannerArrow {
+  position: relative;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}

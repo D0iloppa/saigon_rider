@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
-import { formatDistance, formatDurationShort } from '@/lib/format';
+import { formatDurationShort } from '@/lib/format';
 import type { Quest, SafetyGrade } from '@/api/types';
 import type { RewardResult } from '@/lib/rewards';
 import styles from './RideResult.module.css';
@@ -80,7 +80,7 @@ export default function RideResultSuccess() {
         <span className={styles.satellite} style={{ top: '8%', left: '20%' }}>⭐</span>
         <span className={styles.satellite} style={{ top: '12%', right: '18%' }}>✨</span>
         <span className={styles.satellite} style={{ bottom: '18%', left: '15%', fontSize: '32px' }}>🎉</span>
-        <span className={styles.satellite} style={{ bottom: '14%', right: '14%' }}>💎</span>
+        <span className={styles.satellite} style={{ bottom: '14%', right: '14%' }}>⭐</span>
         <div className={styles.cleared}>{t('ride.questCleared')}</div>
       </div>
 
@@ -120,7 +120,7 @@ export default function RideResultSuccess() {
         {/* Rewards */}
         <div className={styles.rewards}>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--exp)' }}>
-            <span className={styles.rewardIcon}>💎</span>
+            <span className={styles.rewardIcon}>⭐</span>
             <div className={styles.rewardLabel}>EXP</div>
             <div className={styles.rewardNum} style={{ color: 'var(--exp)' }}>
               +{data.rewards.expEarned}
@@ -135,7 +135,7 @@ export default function RideResultSuccess() {
           </div>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--gold)' }}>
             <span className={styles.rewardIcon}>🪙</span>
-            <div className={styles.rewardLabel}>Gold</div>
+            <div className={styles.rewardLabel}>GOLD</div>
             <div className={styles.rewardNum} style={{ color: 'var(--gold)' }}>
               +{data.rewards.goldEarned}
             </div>

@@ -1,0 +1,254 @@
+.page {
+  position: absolute;
+  inset: 0;
+  background: #08090F;
+  overflow: hidden;
+}
+
+/* ── Background effects ── */
+.bgGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 35%,
+    rgba(255,45,156,.22) 0%,
+    rgba(0,240,255,.12) 40%,
+    transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.bgRays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.confettiLayer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 46%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Loading state ── */
+.loadingWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 10;
+}
+.cardBack {
+  width: 140px;
+  aspect-ratio: 3/4;
+  border-radius: 20px;
+  background:
+    radial-gradient(at 50% 30%, rgba(255,90,31,.18), transparent 50%),
+    repeating-linear-gradient(
+      135deg,
+      #1A1D2A 0px, #1A1D2A 8px,
+      #11131C 8px, #11131C 16px
+    );
+  border: 2px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 20px 50px rgba(0,0,0,.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cardFlip 1.2s ease-in-out infinite;
+}
+.cardBackLabel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(255,255,255,.07);
+  letter-spacing: -0.04em;
+  user-select: none;
+}
+.loadingText {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  color: rgba(255,255,255,.5);
+  letter-spacing: .08em;
+}
+@keyframes cardFlip {
+  0%, 100% { transform: rotateY(0deg) scale(1); }
+  50%       { transform: rotateY(180deg) scale(1.05); }
+}
+
+/* ── Top label ── */
+.topLabel {
+  position: absolute;
+  top: 68px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 10;
+}
+.pullType {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,.7);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.pullMeta {
+  display: inline-block;
+  margin-top: 5px;
+  background: rgba(255,255,255,.08);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  color: rgba(255,255,255,.65);
+}
+
+/* ── Cards area ── */
+.cardsArea {
+  position: absolute;
+  top: 138px;
+  left: 8px; right: 8px;
+  z-index: 10;
+}
+.grid10 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.grid1 {
+  display: flex;
+  justify-content: center;
+}
+
+/* Individual pull card */
+.pullCard {
+  padding: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 16px;
+}
+.pullCard1 {
+  width: 160px;
+  padding: 20px;
+}
+.pullCardSpotlight {
+  transform: scale(1.18) translateY(-5px);
+  z-index: 5;
+}
+.pullCardHighlight {
+  transform: scale(1.07);
+  z-index: 4;
+}
+.pullCardName {
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 4px;
+  line-height: 1.2;
+  color: var(--text);
+}
+.pullCard1 .pullCardName {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* ── Result Sheet ── */
+.sheet {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(17,19,28,.92);
+  backdrop-filter: blur(24px);
+  border-radius: 32px 32px 0 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding: 14px 16px 28px;
+  z-index: 20;
+}
+.sheetLabel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  letter-spacing: .1em;
+  margin-bottom: 8px;
+}
+.breakdown {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.quote {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.04);
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  color: rgba(255,255,255,.8);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.pityResetRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pityResetLabel {
+  font-size: 12px;
+  color: rgba(255,255,255,.45);
+  white-space: nowrap;
+}
+.pityResetBar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.pityResetFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-300), var(--brand-500));
+  border-radius: 99px;
+}
+.pityResetCount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.actionRow {
+  display: flex;
+  gap: 8px;
+}
+.btnAgain {
+  flex: 1.5;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--brand-500);
+  color: white;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255,90,31,.35);
+}
+.btnInventory {
+  flex: 1;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.7);
+  font-size: 12px;
+  cursor: pointer;
+}

@@ -156,6 +156,67 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 |---|---|---|
 | `GET` | `/api/bff/badges/{id}` | 배지 상세 조회 |
 
+### Gacha (Engine 프록시)
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/gacha/list` | 활성 가챠 목록 |
+| `POST` | `/api/bff/gacha/pull` | 가챠 뽑기 (1회/10연, query: gacha_code, is_10_pull) |
+| `GET` | `/api/bff/gacha/log` | 뽑기 이력 (limit/offset 페이징) |
+| `GET` | `/api/bff/gacha/pity/{gacha_code}` | 천장 카운트 조회 |
+| `GET` | `/api/bff/gacha/eligibility/{gacha_code}` | 응모 자격 확인 |
+
+### Shop (Engine 프록시)
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/shop/items` | 상점 아이템 목록 (collection/rarity/slot 필터, limit) |
+| `GET` | `/api/bff/shop/daily-featured` | 오늘의 추천 아이템 |
+| `POST` | `/api/bff/shop/purchase` | 아이템 구매 (item_code, currency query param) |
+
+### Inventory (Engine 프록시)
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/inventory/items` | 보유 아이템 목록 + 통계 (장착 여부, 컬렉션 진행도 포함) |
+| `GET` | `/api/bff/inventory/equipment` | 현재 장착 슬롯별 아이템 조회 |
+| `PUT` | `/api/bff/inventory/equip` | 아이템 장착 (item_code query param) |
+| `DELETE` | `/api/bff/inventory/equip/{slot}` | 특정 슬롯 장착 해제 |
+| `GET` | `/api/bff/inventory/collection-progress` | 컬렉션별 진행도 |
+
+### Wallet
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/wallet/me` | GP/GC 잔액 조회 |
+
+### Season (Engine 프록시)
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/season/current` | 현재 활성 시즌 정보 |
+| `GET` | `/api/bff/season/pass` | 내 시즌패스 상태 |
+| `GET` | `/api/bff/season/levels/{season_code}` | 레벨별 보상 목록 |
+| `POST` | `/api/bff/season/claim` | 시즌패스 보상 수령 (level, track: FREE|PREMIUM) |
+
+### Master
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/master/districts` | 구역 목록 |
+| `GET` | `/api/bff/master/rider-types` | 라이더 타입 목록 |
+| `GET` | `/api/bff/master/safety-grades` | 안전등급 목록 |
+
+### App Version / Config
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/app-config` | 프론트엔드용 앱 설정값 |
+| `GET` | `/api/bff/app-version/current` | 플랫폼별 현재 활성 버전 |
+| `GET` | `/api/bff/app-version/releases` | 릴리즈 목록 |
+| `GET` | `/api/bff/app-version/{version_id}` | 특정 버전 상세 (자식 플랫폼 포함) |
+
+### DEV Context (내부 개발 전용)
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/dev/summary` | 위키·대시보드용 통합 요약 |
+| `GET/PUT/DELETE` | `/api/bff/dev/context` | Context KV 조회·수정·삭제 |
+| `GET/POST/PATCH/DELETE` | `/api/bff/dev/features` | Feature CRUD |
+| `GET/POST/PATCH/DELETE` | `/api/bff/dev/todos` | Todo CRUD |
+
 ### Admin
 | Method | Path | 설명 |
 |---|---|---|

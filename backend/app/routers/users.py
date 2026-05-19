@@ -5,10 +5,20 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..models import Badge, RideSession, User, UserBadge, UserFollow, UserQuest
-from ..schemas import BadgeOut, FollowUserOut, UserBadgeOut, UserExportResponse, UserProfileOut, UserStatsOut
+from ..models import Badge, Quest, RideSession, User, UserBadge, UserFollow, UserQuest
+from ..schemas import (
+    BadgeOut,
+    FollowUserOut,
+    Page,
+    QuestHistoryOut,
+    UserBadgeOut,
+    UserExportResponse,
+    UserProfileOut,
+    UserStatsOut,
+)
 from ..utils import APP_TZ, resolve_avatar_url
 
 router = APIRouter(prefix="/users", tags=["유저 (Users)"])
@@ -125,6 +135,57 @@ async def get_my_badges(
     return [UserBadgeOut(badge=BadgeOut.model_validate(badge), acquired_at=ub.acquired_at) for ub, badge in rows]
 
 
+@router.get("/me/quest-history", response_model=Page[QuestHistoryOut], summary="퀘스트 완료 이력")
+async def get_quest_history(
+    user_id: uuid.UUID,
+    page: int = 1,
+    size: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_user_or_404(user_id, db)
+    offset = (page - 1) * size
+
+    base_filter = [
+        UserQuest.user_id == user_id,
+        UserQuest.status == "COMPLETED",
+    ]
+
+    total_result = await db.execute(select(func.count()).where(*base_filter))
+    total = total_result.scalar_one()
+
+    rows = (
+        await db.execute(
+            select(UserQuest, Quest, RideSession)
+            .join(Quest, UserQuest.quest_id == Quest.id)
+            .outerjoin(
+                RideSession,
+                (RideSession.user_quest_id == UserQuest.id) & (RideSession.is_success == True),
+            )
+            .where(*base_filter)
+            .order_by(UserQuest.completed_at.desc())
+            .offset(offset)
+            .limit(size)
+        )
+    ).all()
+
+    items = []
+    for uq, quest, ride in rows:
+        items.append(
+            QuestHistoryOut(
+                id=uq.id,
+                quest_id=quest.id,
+                quest_title=quest.title_ko or quest.title_en or quest.title_vi,
+                distance_km=ride.distance_km if ride else None,
+                safety_grade=ride.safety_grade if ride else None,
+                reward_exp=quest.reward_exp,
+                reward_gold=quest.reward_gold,
+                completed_at=uq.completed_at,
+            )
+        )
+
+    return Page(items=items, total=total, page=page, size=size)
+
+
 # A-3
 @router.delete("/me", status_code=204, summary="계정 탈퇴 (hard delete)")
 async def delete_account(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
@@ -151,7 +212,10 @@ async def get_user_profile(
     requester_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    user = await _get_user_or_404(user_id, db)
+    result = await db.execute(select(User).options(selectinload(User.rider_type)).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
 
     follower_count = (
         await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id))
@@ -165,7 +229,7 @@ async def get_user_profile(
         existing = await db.get(UserFollow, {"follower_id": requester_id, "following_id": user_id})
         is_following = existing is not None
 
-    rider_style = user.rider_type.slug if user.rider_type else None
+    rider_style = user.rider_type.code if user.rider_type else None
 
     return UserProfileOut(
         id=user.id,

@@ -45,7 +45,34 @@ export function formatTimeLeft(iso?: string): string | null {
   return `${min}m`;
 }
 
-// 천 단위 콤마
-export function formatNumber(n: number): string {
-  return n.toLocaleString('en-US');
+const LOCALE_MAP: Record<string, string> = {
+  ko: 'ko-KR',
+  en: 'en-US',
+  vi: 'vi-VN',
+};
+
+function getLocale(): string {
+  try {
+    // dynamic import would cause async — use the module-level singleton instead
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const lang: string = require('@/lib/i18n').default.language ?? 'en';
+    return LOCALE_MAP[lang] ?? 'en-US';
+  } catch {
+    return 'en-US';
+  }
+}
+
+/**
+ * 천 단위 콤마: 60000 → "60,000" / "60.000"
+ * compact 옵션: 60000 → "60K" (en) / "6만" (ko)
+ */
+export function formatNumber(n: number, options?: { compact?: boolean }): string {
+  const locale = getLocale();
+  if (options?.compact) {
+    return new Intl.NumberFormat(locale, {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(n);
+  }
+  return new Intl.NumberFormat(locale).format(n);
 }

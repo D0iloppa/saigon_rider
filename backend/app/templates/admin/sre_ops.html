@@ -1,0 +1,48 @@
+<div class="page-title">SRE 운영 대시보드</div>
+<p class="page-sub">인플레 모니터링 · 가챠 ROI · 채널 비율 · 천장 분포</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+  <div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+      <a href="/admin/sre/gacha" class="btn btn-ghost btn-sm">가챠 관리 →</a>
+      <a href="/admin/sre/shop" class="btn btn-ghost btn-sm">상점 관리 →</a>
+      <a href="/admin/sre/daily-featured" class="btn btn-ghost btn-sm">일일 추천 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+  <h3 style="font-size:14px;font-weight:700;color:#ff8055;margin-bottom:4px;">① 일일 GOLD/XP 발행/소모 (최근 7일)</h3>
+  <p style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:14px;">net이 지속 양수면 인플레 신호 → 가챠 가격 인상 또는 신규 아이템 출시 검토</p>
+  <table class="table">
+    <thead><tr><th>날짜</th><th>통화</th><th>발행(EARN)</th><th>소모(SPEND)</th><th>NET</th></tr></thead>
+    <tbody>{{net_rows}}</tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+  <h3 style="font-size:14px;font-weight:700;color:#ff8055;margin-bottom:4px;">② 가챠별 ROI 분석 (최근 30일)</h3>
+  <p style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:14px;">dup_rate ≥ 60% → 풀 협소 신호: 아이템 추가 또는 컬렉션 신규 고려</p>
+  <table class="table">
+    <thead><tr><th>가챠 코드</th><th>총 풀</th><th>고유 유저</th><th>평균 등급 점수</th><th>천장 히트</th><th>중복률</th></tr></thead>
+    <tbody>{{roi_rows}}</tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+  <h3 style="font-size:14px;font-weight:700;color:#ff8055;margin-bottom:4px;">③ 가챠 vs 상점 사용 비율 (최근 30일)</h3>
+  <p style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:14px;">통상 가챠:상점 = 7:3. 상점 비율이 너무 높으면 가챠 매력도 점검 필요</p>
+  <table class="table">
+    <thead><tr><th>채널</th><th>거래 수</th><th>고유 유저</th></tr></thead>
+    <tbody>{{ratio_rows}}</tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;font-weight:700;color:#ff8055;margin-bottom:4px;">④ 천장 도달자 분포 (상위 20행)</h3>
+  <p style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:14px;">천장 직전(pity_count 높음)에 유저가 몰리면 "마지막 한 번" 심리 과도 의존 신호</p>
+  <table class="table">
+    <thead><tr><th>가챠 코드</th><th>천장 카운터</th><th>유저 수</th></tr></thead>
+    <tbody>{{pity_rows}}</tbody>
+  </table>
+</div>

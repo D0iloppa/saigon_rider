@@ -315,6 +315,7 @@ import { AppImage } from '@/components/ui/AppImage';
 | `Toast` (`Toast.ts`) | sonner 래퍼 — `toast.success/error/info/warning(msg)` 비차단 알림 |
 | `AlertDialog` | 단순 정보 표시 모달 (제목 + 텍스트/pre + 확인 버튼) |
 | `ConfirmDialog` | 확인/취소 선택 모달 (Zustand store 기반 전역 호출) |
+| `Dialog` | 명령형 다이얼로그 시스템 (`dialogTypes.ts`와 함께 사용) |
 | `BottomSheet` | 하단 슬라이드 패널 |
 | `Button` | 기본 버튼 (variant: primary / secondary / glass / danger) |
 | `ProgressBar` | track + fill 그라디언트 바 |
@@ -325,6 +326,25 @@ import { AppImage } from '@/components/ui/AppImage';
 | `LevelBadge` | "LV.N" 인라인 뱃지 |
 | `SettingsRow` | 아이콘 + 라벨 + 우측 액션 행 |
 | `PhotoCard` | 이미지 카드 (필터 + shine 레이어) |
+| `CardBase` | 범용 스타일 카드 컨테이너 |
+| `CurrencyHUD` | 통화(GP/GC) 잔액 헤더 표시 |
+| `ImageCarousel` | 스와이프 가능 이미지 캐러셀 |
+| `RadioCircle` | 라디오 버튼 원형 인디케이터 |
+| `RarityCard` | 등급 테마 카드 스타일링 |
+| `RewardIcon` | 보상 아이콘 컴포넌트 |
+
+### 게임 컴포넌트 (`components/game/`)
+
+> 게이미피케이션 v2에서 추가된 RPG 경제 시스템 UI 컴포넌트.
+
+| 컴포넌트 | 용도 |
+|----------|------|
+| `PityBar` | 천장(pity) 진행 바 (current/ceiling/dark 프롭) |
+| `ConfettiLayer` | SVG 축하 파티클 오버레이 (라이딩 결과·가챠 보상) |
+| `RarityChip` | 등급 배지 (C/R/E/L/M, count 옵션) |
+| `CurrencyBadge` | 단일 통화 배지 (GP/GC/SXP, light/dark surface) |
+| `GachaCardBack` | 가챠 카드 뒷면 (flip 애니메이션, `gacha-card-flip` keyframe) |
+| `GameHubSheet` | 게임 허브 바텀시트 런처 (TabBar FAB에서 열림, 5개 진입점) |
 
 ### AlertDialog Props
 

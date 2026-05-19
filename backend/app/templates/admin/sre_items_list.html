@@ -1,0 +1,41 @@
+<div class="page-title">아이템 관리</div>
+<p class="page-sub">아이템 정의 등록 · 수정 · 삭제</p>
+
+<div class="toolbar">
+  <form method="get" action="/admin/sre/items" style="display:flex;gap:8px;flex-wrap:wrap;">
+    <input type="search" name="q" value="{{q}}" placeholder="코드 / 이름 검색" style="width:200px;" />
+    <select name="slot">
+      <option value="">슬롯 전체</option>
+      {{slot_options}}
+    </select>
+    <select name="rarity">
+      <option value="">등급 전체</option>
+      {{rarity_options}}
+    </select>
+    <input type="text" name="collection" value="{{collection}}" placeholder="컬렉션 코드" style="width:160px;font-family:monospace;" />
+    <button type="submit" class="btn btn-ghost btn-sm">검색</button>
+    <a href="/admin/sre/items" class="btn btn-ghost btn-sm">초기화</a>
+  </form>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span style="font-size:13px;color:rgba(255,255,255,.45);">총 <strong style="color:#fff;">{{total}}</strong>개</span>
+    <a href="/admin/sre/items/new" class="btn btn-sm">+ 아이템 등록</a>
+  </div>
+</div>
+
+<div class="card" style="overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>아이템 코드</th>
+        <th>이름</th>
+        <th>등급</th>
+        <th>슬롯</th>
+        <th>컬렉션</th>
+        <th>GOLD / XP 가격</th>
+        <th>노출</th>
+        <th>액션</th>
+      </tr>
+    </thead>
+    <tbody>{{rows}}</tbody>
+  </table>
+</div>

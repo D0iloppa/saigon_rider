@@ -52,7 +52,7 @@ export default function RideResultFail() {
         </div>
 
         <div className={styles.consolation}>
-          <span style={{ fontSize: '28px' }}>💎</span>
+          <span style={{ fontSize: '28px' }}>⭐</span>
           <div>
             <div style={{ fontWeight: 700, marginBottom: 2 }}>{t('ride.consolationTitle')}</div>
             <div style={{ fontSize: 12, color: 'var(--text-3)' }}>

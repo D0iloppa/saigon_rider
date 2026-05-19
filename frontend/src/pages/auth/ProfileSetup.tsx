@@ -47,8 +47,11 @@ export default function ProfileSetup() {
     setSkipping(true);
     try {
       const randomNick = await fetchRandomNickname();
-      await apiSaveProfileSetup(user.id, randomNick, 'night_rider');
-      setProfile(randomNick, 'night_rider');
+      const saved = await apiSaveProfileSetup(user.id, randomNick, null);
+      const rtCode: RiderStyle = (typeof saved.rider_type === 'object' && saved.rider_type !== null
+        ? (saved.rider_type.code?.toLowerCase() ?? 'commuter')
+        : typeof saved.rider_type === 'string' ? saved.rider_type.toLowerCase() : 'commuter') as RiderStyle;
+      setProfile(saved.nickname ?? randomNick, rtCode);
       navigate('/home');
     } catch {
       navigate('/home');

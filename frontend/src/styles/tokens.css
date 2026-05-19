@@ -23,10 +23,16 @@
   --neon-pink:  #FF2D9C;
   --neon-amber: #FFB800;
 
-  /* Game Currency */
-  --xp:    #8B5CF6;
+  /* Game Currency — 재화/보상 색상 토큰
+   * --exp  : EXP  (레벨 경험치) ⭐ green
+   * --xp   : XP   (소모 포인트) ✨ purple
+   * --gold : GP   (일반 재화)   🪙 gold
+   * --gc   : GC   (프리미엄)    💎 cyan
+   */
   --exp:   #22C55E;
+  --xp:    #8B5CF6;
   --gold:  #FFB800;
+  --gc:    #00C8FF;
 
   /* Surfaces */
   --bg:        #F7F5F0;
@@ -98,4 +104,115 @@
 /* Android : edge-to-edge 대응 — safe-area가 있으면 사용, 없거나 0이면 최소 24px */
 [data-platform="android"] {
   --status-bar-height: max(env(safe-area-inset-top, 0px), 24px);
+}
+
+/* Item domain tokens (Skywork v4 — 컬렉션 + 등급 효과) */
+@import './items.css';
+
+/* ===== RPG ECONOMY — Light Surface Rarity System ===== */
+/* .rarity-card: 라이트 배경(상점/인벤토리) 위 아이템 카드 */
+:root {
+  --r-c-fill:   #9CA3AF;
+  --r-c-bg:     #F3F4F6;
+  --r-c-border: #D1D5DB;
+  --r-c-glow:   rgba(156,163,175,0);
+  --r-c-grad:   linear-gradient(135deg, #E5E7EB, #9CA3AF);
+  --r-r-fill:   #3B82F6;
+  --r-r-bg:     #DBEAFE;
+  --r-r-border: #60A5FA;
+  --r-r-glow:   rgba(59,130,246,.45);
+  --r-r-grad:   linear-gradient(135deg, #60A5FA, #1D4ED8);
+  --r-e-fill:   #8B5CF6;
+  --r-e-bg:     #EDE9FE;
+  --r-e-border: #A78BFA;
+  --r-e-glow:   rgba(139,92,246,.55);
+  --r-e-grad:   linear-gradient(135deg, #A78BFA, #6D28D9);
+  --r-l-fill:   #FF7438;
+  --r-l-bg:     #FFE4D2;
+  --r-l-border: #FF9966;
+  --r-l-glow:   rgba(255,116,56,.70);
+  --r-l-grad:   linear-gradient(135deg, #FFB800, #FF5A1F, #B82C08);
+  --r-m-glow:   rgba(255,45,156,.80);
+  --r-m-grad:   linear-gradient(135deg, #FF2D9C 0%, #FF7438 25%, #FFB800 50%, #00F0FF 75%, #B6FF1C 100%);
+}
+
+.rarity-card {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.rarity-card[data-r="C"] {
+  background: var(--r-c-bg);
+  border: 1.5px solid var(--r-c-border);
+}
+.rarity-card[data-r="R"] {
+  background: var(--r-r-bg);
+  border: 1.5px solid var(--r-r-border);
+  box-shadow: 0 8px 24px var(--r-r-glow);
+}
+.rarity-card[data-r="E"] {
+  background: var(--r-e-bg);
+  border: 2px solid var(--r-e-border);
+  box-shadow: 0 12px 32px var(--r-e-glow);
+}
+.rarity-card[data-r="L"] {
+  background: linear-gradient(135deg, var(--r-l-bg), #FFF);
+  box-shadow: 0 0 0 2px var(--r-l-fill), 0 16px 48px var(--r-l-glow);
+}
+.rarity-card[data-r="M"] {
+  background: linear-gradient(white, white) padding-box, var(--r-m-grad) border-box;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.3) inset, 0 20px 60px var(--r-m-glow);
+}
+
+/* .rarity-chip: 등급 배지 */
+.rarity-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: white;
+}
+.rarity-chip[data-r="C"] { background: var(--r-c-fill); color: #374151; }
+.rarity-chip[data-r="R"] { background: var(--r-r-grad); }
+.rarity-chip[data-r="E"] { background: var(--r-e-grad); }
+.rarity-chip[data-r="L"] { background: var(--r-l-grad); }
+.rarity-chip[data-r="M"] {
+  background: var(--r-m-grad);
+  background-size: 200% 200%;
+  animation: rarity-mythic-shimmer 3s linear infinite;
+}
+
+/* .pity-bar: 천장 진행 바 */
+.pity-bar {
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.pity-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-300), var(--brand-500));
+}
+.pity-bar-fill[data-near="true"] {
+  animation: rarity-pity-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes rarity-mythic-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+@keyframes rarity-pity-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,31,.6); }
+  50%       { box-shadow: 0 0 12px 4px rgba(255,90,31,.4); }
+}
+@keyframes gacha-card-flip {
+  0%, 100% { transform: rotateY(0deg) scale(1); }
+  50%       { transform: rotateY(180deg) scale(1.05); }
 }

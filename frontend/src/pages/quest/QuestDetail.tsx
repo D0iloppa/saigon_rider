@@ -8,7 +8,7 @@ import { fetchQuest, fetchCompletedQuestIds, completeQuest } from '@/api/quests'
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
 import { expToNextLevel } from '@/lib/rewards';
-import { formatDistance } from '@/lib/format';
+import { formatDistance, formatNumber } from '@/lib/format';
 import { localizedName } from '@/api/master';
 import type { Quest, QuestType } from '@/api/types';
 import { Chip } from '@/components/ui/Chip';
@@ -152,23 +152,23 @@ export default function QuestDetail() {
           <h3 className={styles.boxTitle}>{t('quest.rewards')}</h3>
           <div className={styles.rewardGrid}>
             <div className={styles.rewardCell}>
-              <span className={styles.rewardIcon}>💎</span>
+              <span className={styles.rewardIcon}>⭐</span>
               <div className={styles.rewardLabel}>EXP</div>
-              <div className={styles.rewardNum}>+{quest.rewardExp}</div>
+              <div className={styles.rewardNum}>+{formatNumber(quest.rewardExp)}</div>
             </div>
             <div className={styles.rewardCell}>
-              <span className={styles.rewardIcon}>✨</span>
+              <span className={styles.rewardIcon}>💎</span>
               <div className={styles.rewardLabel}>XP</div>
-              <div className={styles.rewardNum}>+{quest.rewardXpPoints}</div>
+              <div className={styles.rewardNum}>+{formatNumber(quest.rewardXpPoints)}</div>
             </div>
             <div className={styles.rewardCell}>
               <span className={styles.rewardIcon}>🪙</span>
-              <div className={styles.rewardLabel}>Gold</div>
-              <div className={styles.rewardNum}>+{quest.rewardGold}</div>
+              <div className={styles.rewardLabel}>GOLD</div>
+              <div className={styles.rewardNum}>+{formatNumber(quest.rewardGold)}</div>
             </div>
             <div className={styles.rewardCell}>
               <span className={styles.rewardIcon}>🎁</span>
-              <div className={styles.rewardLabel}>Item</div>
+              <div className={styles.rewardLabel}>ITEM</div>
               <div className={styles.rewardNum}>
                 ×{quest.rewardItems.length}
               </div>

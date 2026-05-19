@@ -1,0 +1,35 @@
+<div class="page-title">상점 관리</div>
+<p class="page-sub">아이템 가격 · 노출 · 시즌잠금 설정</p>
+
+<div class="toolbar">
+  <form method="get" action="/admin/sre/shop" style="display:flex;gap:8px;flex-wrap:wrap;">
+    <input type="search" name="q" value="{{q}}" placeholder="아이템 코드 / 이름 검색" style="width:200px;" />
+    <input type="text" name="rarity" value="{{rarity}}" placeholder="등급 (C/R/E/L/M)" style="width:140px;" />
+    <input type="text" name="collection" value="{{collection}}" placeholder="컬렉션 코드" style="width:160px;" />
+    <select name="visible">
+      <option value="">노출 전체</option>
+      <option value="1" {{sel_visible_1}}>노출만</option>
+      <option value="0" {{sel_visible_0}}>숨김만</option>
+    </select>
+    <button type="submit" class="btn btn-ghost btn-sm">검색</button>
+  </form>
+  <div style="font-size:13px;color:rgba(255,255,255,.45);">총 <strong style="color:#fff;">{{total}}</strong>개</div>
+</div>
+
+<div class="card" style="overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>아이템 코드</th>
+        <th>이름</th>
+        <th>등급</th>
+        <th>컬렉션</th>
+        <th>GOLD가격 / XP가격</th>
+        <th>노출</th>
+        <th>시즌잠금</th>
+        <th>빠른 수정</th>
+      </tr>
+    </thead>
+    <tbody>{{rows}}</tbody>
+  </table>
+</div>

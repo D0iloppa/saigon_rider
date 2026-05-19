@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.staticfiles import StaticFiles
 
 from .engine_client import engine_client
 from .routers import (
@@ -15,12 +17,17 @@ from .routers import (
     dm,
     feed,
     follows,
+    gacha,
+    inventory,
     master,
     notifications,
     profile,
     quests,
     ride,
+    season,
+    shop,
     users,
+    wallet,
 )
 
 
@@ -92,9 +99,16 @@ app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")
 app.include_router(app_version.config_router, prefix="/api")
+app.include_router(gacha.router, prefix="/api")
+app.include_router(shop.router, prefix="/api")
+app.include_router(inventory.router, prefix="/api")
+app.include_router(season.router, prefix="/api")
 app.include_router(dev_context.router, prefix="/api")
 app.include_router(dev_context.admin_router)
+app.include_router(wallet.router)
 app.include_router(admin.router)
+
+app.mount("/admin/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")
 
 
 @app.get("/api/health", tags=["system"], summary="헬스체크")

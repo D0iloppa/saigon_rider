@@ -7,7 +7,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { District, RiderType, SafetyGrade } from '@/api/master';
-import { formatDistance, formatTimeLeft } from '@/lib/format';
+import { formatDistance, formatTimeLeft, formatNumber } from '@/lib/format';
 import type { Quest, QuestType } from '@/api/types';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
@@ -291,7 +291,7 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
               width={16} height={16} alt=""
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
-            <span className={styles.rewardNum} style={{ color: 'var(--xp)' }}>+{quest.rewardExp}</span>
+            <span className={styles.rewardNum} style={{ color: 'var(--xp)' }}>+{formatNumber(quest.rewardExp, { compact: true })}</span>
           </span>
           {timeLeft && (
             <Chip

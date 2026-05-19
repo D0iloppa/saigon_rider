@@ -7,8 +7,11 @@ from pydantic import BaseModel, Field
 
 from app.enums import (
     AbuseSeverityEnum, AbuseActionEnum, AccountTypeEnum,
-    EventStatusEnum, ExpireStatusEnum, IntegrationTypeEnum,
-    MissionStatusEnum, RedemptionStatusEnum, TxTypeEnum, UserStatusEnum,
+    AcquisitionSourceEnum, CollectionStatusEnum,
+    EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
+    ItemRarityEnum, ItemSlotEnum,
+    MissionStatusEnum, RedemptionStatusEnum, SeasonStatusEnum,
+    TxTypeEnum, UserStatusEnum,
 )
 
 
@@ -58,6 +61,14 @@ class EventRead(BaseModel):
 
 
 # ── 잔액 / 거래 ──────────────────────────────────────────────
+
+
+class WalletRead(BaseModel):
+    user_uuid: str
+    gp_balance: int
+    gc_balance: int
+
+    model_config = {"from_attributes": True}
 
 
 class BalanceRead(BaseModel):
@@ -260,5 +271,257 @@ class SreMessageRead(BaseModel):
     message: str
     timestamp: datetime
     extra: Optional[dict[str, Any]] = Field(None, alias="_extra")
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+# ── 게이미피케이션 v2 — 아이템/컬렉션 ──────────────────────────
+
+
+class ItemCollectionRead(BaseModel):
+    collection_code: str
+    display_name: str
+    theme_color_hex: Optional[str] = None
+    status: CollectionStatusEnum
+    sort_order: Optional[int] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ItemDefinitionRead(BaseModel):
+    item_code: str
+    display_name: str
+    slot: ItemSlotEnum
+    rarity: ItemRarityEnum
+    collection_code: str
+    shop_price_gp: Optional[int] = None
+    shop_price_gc: Optional[int] = None
+    is_shop_visible: bool
+    season_lock: bool
+    required_season_code: Optional[str] = None
+    asset_uri: Optional[str] = None
+    is_owned: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class UserItemRead(BaseModel):
+    user_item_id: int
+    item_code: str
+    acquired_at: datetime
+    acquisition_source: AcquisitionSourceEnum
+    source_ref_id: Optional[int] = None
+    item: Optional[ItemDefinitionRead] = Field(None, alias="item_def")
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class UserEquipmentRead(BaseModel):
+    slot: ItemSlotEnum
+    item_code: Optional[str] = None
+    equipped_at: datetime
+    item: Optional[ItemDefinitionRead] = Field(None, alias="item_def")
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class EquipRequest(BaseModel):
+    item_code: str = Field(max_length=60)
+
+
+class UnequipRequest(BaseModel):
+    slot: str = Field(max_length=40)
+
+
+class CollectionProgressRead(BaseModel):
+    collection_code: str
+    display_name: str
+    theme_color_hex: Optional[str] = None
+    total_items: int
+    owned_items: int
+    progress_pct: float
+
+
+# ── 게이미피케이션 v2 — 시즌 ────────────────────────────────────
+
+
+class SeasonRead(BaseModel):
+    season_code: str
+    display_name: str
+    collection_code: str
+    starts_at: datetime
+    ends_at: datetime
+    status: SeasonStatusEnum
+    max_level: int
+    sxp_per_level: int
+    daily_sxp_cap: int
+
+    model_config = {"from_attributes": True}
+
+
+class UserSeasonPassRead(BaseModel):
+    season_code: str
+    sxp_balance: int
+    current_level: int
+    has_premium: bool
+    premium_granted_at: Optional[datetime] = None
+    claimed_levels: list[int] = []
+    daily_sxp_today: int
+    daily_sxp_date: Optional[Any] = None
+
+    model_config = {"from_attributes": True}
+
+
+# ── 게이미피케이션 v2 — 가챠 ────────────────────────────────────
+
+
+class GachaDefinitionRead(BaseModel):
+    gacha_code: str
+    display_name: str
+    description: Optional[str] = None
+    cost_currency: str
+    cost_per_pull: int
+    cost_per_10_pull: int
+    collection_filter: Optional[str] = None
+    pity_threshold: Optional[int] = None
+    pity_guarantee_rarity: Optional[ItemRarityEnum] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    status: GachaStatusEnum
+    sort_order: Optional[int] = None
+
+    model_config = {"from_attributes": True}
+
+
+class GachaPullRequest(BaseModel):
+    user_uuid: str
+    gacha_code: str = Field(max_length=40)
+    is_10_pull: bool = False
+
+
+class GachaPullResultItem(BaseModel):
+    pull_index: int
+    rarity: str
+    item_code: str
+    was_pity_hit: bool = False
+    was_guarantee: bool = False
+    grant_status: str
+    refund_currency: Optional[str] = None
+    refund_amount: Optional[int] = None
+
+
+class GachaPullResult(BaseModel):
+    gacha_code: str
+    is_10_pull: bool
+    batch_id: int
+    cost_currency: str
+    cost_amount: int
+    results: list[GachaPullResultItem]
+    pity_count_after: int
+    total_pulls_after: int
+
+
+class GachaPityRead(BaseModel):
+    gacha_code: str
+    pity_count: int
+    total_pulls: int
+    last_pull_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class SeasonLevelRead(BaseModel):
+    season_code: str
+    level: int
+    sxp_threshold: int  # total SXP needed to reach this level
+    is_locked: bool
+    is_claimed: bool
+
+
+class ClaimSeasonRewardRequest(BaseModel):
+    level: int = Field(ge=1)
+    track: str = Field(pattern=r"^(FREE|PREMIUM)$")
+
+
+class ClaimSeasonRewardResult(BaseModel):
+    ok: bool
+    season_code: str
+    level: int
+    track: str
+    claimed_levels: list[int]
+
+
+class GachaPullLogRead(BaseModel):
+    pull_log_id: int
+    gacha_code: str
+    batch_id: int
+    is_10_pull: bool
+    pull_index: int
+    cost_currency: Optional[str] = None
+    cost_amount: int
+    picked_rarity: ItemRarityEnum
+    picked_item_code: Optional[str] = None
+    was_duplicate: bool
+    refund_currency: Optional[str] = None
+    refund_amount: Optional[int] = None
+    was_pity_hit: bool
+    was_10pull_guarantee: bool
+    pulled_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class GachaEligibility(BaseModel):
+    gacha_code: str
+    can_pull_single: bool
+    can_pull_10: bool
+    gp_balance: int
+    gc_balance: int
+    cost_single: int
+    cost_10: int
+    cost_currency: str
+
+
+# ── 게이미피케이션 v2 — 상점 ────────────────────────────────────
+
+
+class ShopItemRead(BaseModel):
+    item_code: str
+    display_name: str
+    slot: ItemSlotEnum
+    rarity: ItemRarityEnum
+    collection_code: str
+    shop_price_gp: Optional[int] = None
+    shop_price_gc: Optional[int] = None
+    is_featured: bool = False
+    discount_pct: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class ShopPurchaseRequest(BaseModel):
+    user_uuid: str
+    item_code: str = Field(max_length=60)
+    currency: str = Field(pattern=r"^(GP|GC)$")
+
+
+class ShopPurchaseResult(BaseModel):
+    item_code: str
+    cost_currency: str
+    base_price: int
+    discount_pct: int
+    cost_amount: int
+    was_featured: bool
+    user_item_id: int
+    spend_tx_id: int
+    purchase_log_id: int
+
+
+class DailyFeaturedItemRead(BaseModel):
+    featured_date: Any
+    item_code: str
+    discount_pct: int
+    sort_order: int
+    item: Optional[ItemDefinitionRead] = Field(None, alias="item_def")
 
     model_config = {"from_attributes": True, "populate_by_name": True}

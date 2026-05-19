@@ -8,9 +8,23 @@ from app.database import AsyncSession
 from app.deps import get_session, verify_service_key
 from app.enums import TxTypeEnum
 from app.models import RpBalance, RpExpirationSchedule, RpTransaction, SreUser
-from app.schemas import BalanceRead, ExpirationItemRead, TransactionRead
+from app.schemas import BalanceRead, ExpirationItemRead, TransactionRead, WalletRead
+from app.services.point_ledger import get_or_create_user
 
 router = APIRouter(prefix="/v1/users", tags=["balance"])
+
+
+@router.get("/{user_uuid}/wallet", response_model=WalletRead,
+            dependencies=[Depends(verify_service_key)])
+async def get_wallet(
+    user_uuid: str,
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    user = await get_or_create_user(db, user_uuid)
+    balance = await db.get(RpBalance, user.user_id)
+    gp = int(balance.current_balance) if balance else 0
+    gc = int(balance.gc_balance) if balance else 0
+    return {"user_uuid": user_uuid, "gp_balance": gp, "gc_balance": gc}
 
 
 @router.get("/{user_id}/balance", response_model=BalanceRead,

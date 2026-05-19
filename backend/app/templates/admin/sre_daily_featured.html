@@ -1,0 +1,103 @@
+<div class="page-title">일일 추천 관리</div>
+<p class="page-sub">수동 갱신 · 이력 조회</p>
+
+{{flash}}
+
+<div class="card" style="max-width:600px;margin-bottom:24px;">
+  <h3 style="font-size:14px;font-weight:700;color:#ff8055;margin-bottom:14px;">수동 갱신</h3>
+  <form method="post" action="/admin/sre/daily-featured/refresh">
+    <div class="field">
+      <label class="field-label">날짜</label>
+      <input type="date" name="refresh_date" value="{{today}}" required style="width:100%;" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">아이템 선택</label>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <select id="item-picker" style="flex:1;background:#1a1a2e;border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px;border-radius:6px;font-size:13px;">
+          <option value="">— 아이템 선택 —</option>
+          {{item_options}}
+        </select>
+        <button type="button" onclick="addItem()" style="padding:8px 14px;background:#ff8055;border:none;border-radius:6px;color:#fff;font-size:13px;cursor:pointer;white-space:nowrap;">추가</button>
+      </div>
+      <div id="selected-items" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">아이템 코드 (직접 입력 또는 위에서 선택)</label>
+      <input type="text" id="item_codes_input" name="item_codes" placeholder="HELMET_001,JACKET_002,..." style="width:100%;font-family:monospace;font-size:12px;" />
+      <p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px;">비워두면 해당 날짜 추천 삭제</p>
+    </div>
+
+    <div class="field">
+      <label class="field-label">할인율 (%)</label>
+      <input type="number" name="discount_pct" value="30" min="0" max="100" style="width:120px;" />
+    </div>
+    <button type="submit" class="btn">갱신</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">이력 (최근 60건)</h3>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>날짜</th>
+        <th>아이템 코드</th>
+        <th>아이템 이름</th>
+        <th>할인율</th>
+        <th>순서</th>
+        <th>재등록</th>
+      </tr>
+    </thead>
+    <tbody>{{rows}}</tbody>
+  </table>
+</div>
+
+<script>
+function addItem() {
+  const sel = document.getElementById('item-picker');
+  const code = sel.value;
+  if (!code) return;
+  const input = document.getElementById('item_codes_input');
+  const existing = input.value.split(',').map(s => s.trim()).filter(Boolean);
+  if (existing.includes(code)) return;
+  existing.push(code);
+  input.value = existing.join(',');
+  renderChips(existing);
+  sel.value = '';
+}
+
+function removeItem(code) {
+  const input = document.getElementById('item_codes_input');
+  const existing = input.value.split(',').map(s => s.trim()).filter(s => s && s !== code);
+  input.value = existing.join(',');
+  renderChips(existing);
+}
+
+function renderChips(codes) {
+  const container = document.getElementById('selected-items');
+  container.innerHTML = codes.map(c =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,128,85,.15);border:1px solid rgba(255,128,85,.4);border-radius:4px;padding:3px 8px;font-size:11px;font-family:monospace;">
+      ${c}
+      <button type="button" onclick="removeItem('${c}')" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;padding:0;line-height:1;font-size:14px;">×</button>
+    </span>`
+  ).join('');
+}
+
+document.getElementById('item_codes_input').addEventListener('input', function() {
+  const codes = this.value.split(',').map(s => s.trim()).filter(Boolean);
+  renderChips(codes);
+});
+
+function reuseItem(code) {
+  const input = document.getElementById('item_codes_input');
+  const existing = input.value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!existing.includes(code)) {
+    existing.push(code);
+    input.value = existing.join(',');
+    renderChips(existing);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>

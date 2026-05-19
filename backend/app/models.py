@@ -325,6 +325,20 @@ class Badge(Base):
     icon_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     condition_type: Mapped[str | None] = mapped_column(_badge_condition_enum, nullable=True)
     condition_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    condition_rule: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    name_ko: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    name_vi: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    description_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_vi: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    icon_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    icon_content: Mapped["Content | None"] = relationship(
+        "Content", foreign_keys="[Badge.icon_content_id]", lazy="selectin"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

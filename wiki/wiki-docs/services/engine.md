@@ -490,13 +490,45 @@ Path 의 `{user_id}` 와 `X-User-Id` 헤더가 다르면 **403**.
 | `GET` | `/v1/metrics` | Prometheus 메트릭 (내부망) |
 | `POST` | `/v1/events` | 이벤트 발행 (RIDE_KM, QUEST_COMPLETE 등) |
 | `GET` | `/v1/users/{id}/balance` | RP 잔액·등급·30일 내 만료 |
+| `GET` | `/v1/users/{id}/wallet` | GP/GC 잔액 조회 |
 | `GET` | `/v1/users/{id}/transactions` | 거래 내역 |
 | `GET` | `/v1/users/{id}/missions` | 미션 진행도 (status 필터) |
 | `POST` | `/v1/users/{id}/missions/{mid}/claim` | 미션 완료 수령 |
 | `GET` | `/v1/catalog` | 보상 카탈로그 |
 | `POST` | `/v1/users/{id}/redemptions` | 보상 교환 |
+| **가챠** | | |
+| `GET` | `/v1/gacha/list` | 활성 가챠 목록 |
+| `POST` | `/v1/gacha/pull` | 가챠 뽑기 (1회/10연) |
+| `GET` | `/v1/gacha/pity/{gacha_code}` | 천장 카운트 조회 |
+| `GET` | `/v1/gacha/log/{user_uuid}` | 뽑기 이력 |
+| `GET` | `/v1/gacha/eligibility/{gacha_code}` | 응모 자격 확인 |
+| **상점** | | |
+| `GET` | `/v1/shop/items` | 상점 아이템 목록 (필터 지원) |
+| `GET` | `/v1/shop/daily-featured` | 오늘의 추천 아이템 |
+| `POST` | `/v1/shop/purchase` | 아이템 구매 (GP/GC) |
+| **인벤토리** | | |
+| `GET` | `/v1/inventory/{user_uuid}/items` | 보유 아이템 목록 |
+| `GET` | `/v1/inventory/{user_uuid}/equipment` | 현재 장착 아이템 |
+| `PUT` | `/v1/inventory/{user_uuid}/equip` | 아이템 장착 |
+| `DELETE` | `/v1/inventory/{user_uuid}/equip/{slot}` | 장착 해제 |
+| `GET` | `/v1/inventory/{user_uuid}/collection-progress` | 컬렉션 진행도 |
+| **시즌** | | |
+| `GET` | `/v1/season/current` | 현재 활성 시즌 |
+| `GET` | `/v1/season/{user_uuid}/pass` | 유저 시즌패스 상태 |
+| `GET` | `/v1/season/levels/{season_code}` | 레벨별 보상 목록 |
+| `POST` | `/v1/season/{user_uuid}/claim` | 시즌패스 보상 수령 |
+| **메시지** | | |
+| `GET` | `/v1/sreMessage` | SRE 메시지 이벤트 로깅 |
+| **관리자** | | |
 | `PUT` | `/v1/admin/action-definitions/{code}` | 룰 갱신 (RBAC: `RULE_EDITOR`) |
-| `POST` | `/v1/admin/users/{id}/adjustments` | 잔액 보정 (RBAC: `REWARD_OPS`) |
+| `POST` | `/v1/admin/users/{id}/adjust` | 잔액 보정 (RBAC: `REWARD_OPS`) |
+| `GET/POST/PUT/DELETE` | `/v1/admin/items/*` | 아이템 정의 CRUD |
+| `GET/PUT` | `/v1/admin/gacha/definitions/*` | 가챠 정의 관리 |
+| `GET/PUT` | `/v1/admin/shop/*` | 상점 아이템·일일 추천 관리 |
+| `GET` | `/v1/admin/ops/daily-net` | GP/GC 수지 요약 (7일) |
+| `GET` | `/v1/admin/ops/gacha-roi` | 가챠 ROI 통계 (30일) |
+| `GET` | `/v1/admin/ops/channel-ratio` | 가챠 vs 상점 비율 (30일) |
+| `GET` | `/v1/admin/ops/pity-distribution` | 천장 분포 통계 |
 
 ### 15.4 이벤트 요청 / 응답 예
 

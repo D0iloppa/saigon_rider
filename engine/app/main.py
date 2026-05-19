@@ -11,7 +11,10 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.config import settings
 from app.logging_config import configure_logging
-from app.routers import admin, balance, catalog, events, message, missions, redemptions
+from app.routers import (
+    admin, balance, catalog, events, gacha, inventory, message,
+    missions, redemptions, season, shop,
+)
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 configure_logging(settings.sre_log_level)
@@ -85,6 +88,10 @@ app.include_router(catalog.router)
 app.include_router(redemptions.router)
 app.include_router(admin.router)
 app.include_router(message.router)
+app.include_router(gacha.router)
+app.include_router(shop.router)
+app.include_router(inventory.router)
+app.include_router(season.router)
 
 
 # ── 헬스체크 / 메타 ──────────────────────────────────────────

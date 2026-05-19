@@ -1,0 +1,25 @@
+<div class="toolbar">
+  <div>
+    <h1 class="page-title">배지 관리</h1>
+    <p class="page-sub">총 {{total_count}}개 배지</p>
+  </div>
+  <a href="/admin/badges/new" class="btn">+ 새 배지</a>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>아이콘</th>
+        <th>이름</th>
+        <th>습득 조건</th>
+        <th>상태</th>
+        <th>등록일</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{table_rows}}
+    </tbody>
+  </table>
+</div>

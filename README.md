@@ -76,20 +76,39 @@ saigon_rider/
 │       │   ├── profile.ts      # apiUploadAvatar / apiUpdateNickname (BFF)
 │       │   ├── feed.ts         # fetchFeed / toggleCheer (BFF)
 │       │   ├── quests.ts       # fetchQuests / fetchQuest (BFF)
+│       │   ├── follows.ts      # follow / unfollow / fetchFollowers / fetchFollowing
+│       │   ├── dm.ts           # DM 대화·메시지 API
+│       │   ├── gacha.ts        # 가챠 목록·뽑기·로그 API (Engine)
+│       │   ├── shop.ts         # 상점 카탈로그·구매 API (Engine)
+│       │   ├── inventory.ts    # 인벤토리·장착 API (Engine)
+│       │   ├── wallet.ts       # 통화 잔액·거래내역 API (Engine)
+│       │   ├── season.ts       # 시즌패스·레벨·보상 수령 API (Engine)
+│       │   ├── master.ts       # 마스터 데이터 (구역·라이더타입·안전등급)
+│       │   ├── appVersion.ts   # 앱 버전 조회 API
 │       │   └── types.ts        # 도메인 타입 정의
 │       ├── components/
 │       │   ├── auth/
 │       │   │   └── PrivateRoute.tsx
+│       │   ├── game/           # 게이미피케이션 컴포넌트
+│       │   │   ├── PityBar.tsx         # 천장(pity) 진행 바
+│       │   │   ├── ConfettiLayer.tsx   # SVG 축하 파티클 오버레이
+│       │   │   ├── RarityChip.tsx      # 등급 배지 (C/R/E/L/M)
+│       │   │   ├── CurrencyBadge.tsx   # 통화 배지 (GP/GC/SXP)
+│       │   │   ├── GachaCardBack.tsx   # 가챠 카드 뒷면 (flip 애니메이션)
+│       │   │   └── GameHubSheet.tsx    # 게임 허브 바텀시트 런처
 │       │   ├── layout/
 │       │   │   ├── AppShell.tsx
 │       │   │   ├── StatusBar.tsx
-│       │   │   ├── TabBar.tsx
+│       │   │   ├── TabBar.tsx          # FAB → GameHubSheet 런처
 │       │   │   └── TopBar.tsx
-│       │   └── ui/             # Button, Chip, Toggle 등 공통 UI
+│       │   └── ui/             # Button, Chip, Toggle, CurrencyHUD, ImageCarousel 등 공통 UI
 │       ├── data/
 │       │   ├── countryCodes.ts # 65개국 국가코드 + 국기 이모지
 │       │   ├── feed.ts         # 더미 피드 데이터
 │       │   └── quests.ts       # 더미 퀘스트 데이터
+│       ├── hooks/
+│       │   ├── useInfiniteScroll.ts  # offset 기반 무한스크롤
+│       │   └── usePullToRefresh.ts   # 당겨서 새로고침 (touch 이벤트)
 │       ├── lib/
 │       │   ├── format.ts       # 숫자/날짜 포맷 유틸
 │       │   ├── i18n.ts         # i18next 설정
@@ -98,21 +117,26 @@ saigon_rider/
 │       │   └── session.ts      # 쿠키 세션 관리 (saveSession / loadSession)
 │       ├── locales/            # 다국어 번역 (ko / vi / en)
 │       ├── pages/
-│       │   ├── auth/
-│       │   │   ├── OtpInput.tsx
-│       │   │   ├── PhoneInput.tsx  # 국가코드 피커 + 회원가입/로그인
-│       │   │   ├── ProfileSetup.tsx
-│       │   │   └── Splash.tsx
-│       │   ├── feed/           # FeedList
+│       │   ├── auth/           # Splash, PhoneInput, OtpInput, ProfileSetup
 │       │   ├── home/           # WorldMap
-│       │   ├── link/           # 딥링크 라우터
-│       │   ├── profile/        # ProfileMain
 │       │   ├── quest/          # QuestList, QuestDetail
-│       │   ├── ride/           # RideActive, RideResult
-│       │   └── settings/       # Settings, NotiSettings, LangSettings, AccountSettings
+│       │   ├── ride/           # RideActive, RideResultSuccess, RideResultFail
+│       │   ├── feed/           # FeedList, FeedCreate, FeedEdit
+│       │   ├── dm/             # DmList, DmDetail
+│       │   ├── profile/        # ProfileMain, FollowerList, FollowingList, FriendAdd
+│       │   ├── gacha/          # GachaMain, GachaPull
+│       │   ├── shop/           # ShopCatalog, ItemDetail
+│       │   ├── inventory/      # Inventory, EquipPreview
+│       │   ├── season/         # SeasonPass
+│       │   ├── garage/         # Garage
+│       │   ├── link/           # 딥링크 라우터
+│       │   └── settings/       # Settings, NotiSettings, LangSettings, AccountSettings, ProfileEdit
 │       ├── store/
+│       │   ├── useUserStore.ts     # loginFromBackend, refreshUser 액션
 │       │   ├── useRideStore.ts
-│       │   └── useUserStore.ts # loginFromBackend 액션
+│       │   ├── useConfirmStore.ts  # ConfirmDialog 전역 상태
+│       │   ├── useDialogStore.ts   # Dialog 전역 상태
+│       │   └── useDmStore.ts       # DM 미읽음 폴링
 │       └── styles/
 │           ├── globals.css
 │           └── tokens.css      # CSS 디자인 토큰
@@ -122,7 +146,7 @@ saigon_rider/
 │   └── app/
 │       ├── main.py             # FastAPI 앱 엔트리포인트, CORS, Swagger 설정
 │       ├── database.py         # SQLAlchemy async 엔진 (asyncpg)
-│       ├── models.py           # User, Content ORM 모델
+│       ├── models.py           # User, Content, Badge 등 ORM 모델
 │       ├── schemas.py          # Pydantic 요청/응답 스키마
 │       ├── utils.py            # imgproxy URL 빌더, 기본 아바타 URL
 │       ├── engine_client.py    # Engine HTTP 클라이언트 (X-Service-Key 자동 주입)
@@ -134,9 +158,19 @@ saigon_rider/
 │           ├── ride.py           # POST /api/ride/submit, GET streak/history, POST safety-grade
 │           ├── feed.py           # GET/POST /api/feed, stories, like, comments
 │           ├── notifications.py  # GET /api/notifications, GET/PUT /api/notifications/settings
-│           ├── users.py          # GET /api/users/me/stats·badges, DELETE /me, POST /export
-│           ├── badges.py         # GET /api/badges/{id}
-│           └── admin.py          # POST /admin/login (JWT), GET /admin/dashboard, POST /admin/logout
+│           ├── users.py          # GET /api/users/me/stats·badges·quest-history, DELETE /me, search
+│           ├── badges.py         # GET /api/badges (목록 + 획득 여부), GET /api/badges/{id}
+│           ├── follows.py        # POST/DELETE /api/follows/{user_id} (팔로우/언팔로우)
+│           ├── dm.py             # DM 대화 목록·메시지·읽음 처리
+│           ├── gacha.py          # 가챠 목록·뽑기·로그·천장·자격 (→ Engine 프록시)
+│           ├── shop.py           # 상점 아이템 목록·일일 추천·구매 (→ Engine 프록시)
+│           ├── inventory.py      # 인벤토리·장착·해제·컬렉션 진행도 (→ Engine 프록시)
+│           ├── wallet.py         # 통화(GP/GC) 잔액 조회
+│           ├── season.py         # 시즌패스 현재·레벨·보상 수령 (→ Engine 프록시)
+│           ├── master.py         # 마스터 데이터 (구역·라이더타입·안전등급)
+│           ├── app_version.py    # 앱 버전 조회·앱 설정
+│           ├── dev_context.py    # __DEV Context/Feature/Todo CRUD + 어드민 대시보드
+│           └── admin.py          # POST /admin/login (JWT), 대시보드, 배지 CRUD, 설정 등
 ├── engine/                     # SRE Engine (saigon_engine) — RP·미션·보상
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -151,20 +185,33 @@ saigon_rider/
 │       ├── enums.py            # Python Enum (DB ENUM과 1:1)
 │       ├── routers/
 │       │   ├── events.py       # POST /v1/events
-│       │   ├── balance.py      # GET /v1/users/{id}/balance, /transactions
+│       │   ├── balance.py      # GET /v1/users/{id}/balance, /transactions, /wallet
 │       │   ├── missions.py     # GET /v1/users/{id}/missions
 │       │   ├── catalog.py      # GET /v1/catalog
 │       │   ├── redemptions.py  # POST /v1/users/{id}/redemptions
-│       │   └── admin.py        # /v1/admin/...
+│       │   ├── gacha.py        # 가챠 목록·뽑기·천장·자격·로그
+│       │   ├── shop.py         # 상점 아이템·일일 추천·구매
+│       │   ├── inventory.py    # 인벤토리·장착·해제·컬렉션 진행도
+│       │   ├── season.py       # 시즌패스 현재·레벨·보상 수령
+│       │   ├── message.py      # SRE 메시지 이벤트 로깅
+│       │   └── admin.py        # /v1/admin/* (룰·유저·감사·가챠·아이템·상점·운영 통계)
 │       ├── services/           # event_bus, point_ledger, mission, anti_abuse 등
 │       ├── adapters/           # PartnerAdapter (internal / stub)
 │       └── jobs/               # APScheduler 일배치 4종
 ├── database/
 │   └── init/                   # 컨테이너 최초 기동 시 파일명 순서대로 자동 실행
 │       ├── 001_init_schema.sql      # 전체 테이블 + ENUM + 인덱스
-│       ├── 002_add_passcode.sql
-│       ├── 002_contents_schema.sql  # contents 테이블 + content_owner_type ENUM
-│       └── 003_profile_avatar.sql   # users.avatar_content_id 컬럼 추가
+│       ├── 002~003                  # passcode, contents, avatar_content_id
+│       ├── 004~009                  # comment_likes, app_config, quest 확장, master tables
+│       ├── 010~016                  # master data, admin 시드, feed_image_content
+│       ├── 017~019                  # profile_mock content type + 시드
+│       ├── 020~023                  # feed 위치, user_follows, DM 대화/메시지
+│       ├── 024_feed_post_images.sql # 피드 다중 이미지
+│       ├── 025~027                  # __DEV context/features/todos + 시드 + status
+│       ├── 028_nickname_words.sql   # 기본 닉네임 단어풀
+│       ├── 029_app_versions.sql     # 앱 버전 트리
+│       ├── 030~031                  # app_config 시드 (추천 퀘스트 수, DM 폴링 주기)
+│       └── 032_badge_condition_rule.sql  # 배지 JSONB 조건식 + 다국어 + 아이콘
 ├── nginx/
 │   └── conf.d/
 │       └── default.conf        # /api/bff/* → bff, /api/sre/* → engine, /img/* → imgproxy
@@ -321,13 +368,114 @@ docker compose down -v
 |---|---|---|
 | `POST` | `/api/bff/contents/upload` | 이미지 업로드 (multipart) → imgproxy URL 반환 |
 | `GET` | `/api/bff/contents/{id}` | 컨텐츠 메타데이터 + imgproxy URL 조회 |
+| `GET` | `/api/bff/contents/{id}/img` | imgproxy → 302 redirect (w/h 파라미터 지원) |
+| `GET` | `/api/bff/contents/mock-img` | mock 풀에서 랜덤 이미지 → 302 redirect |
+| `GET` | `/api/bff/contents/profile-mock-img` | seed 기반 결정론적 프로필 기본 이미지 |
 
 #### 프로필 (Profile)
 
 | Method | Path | 설명 |
 |---|---|---|
+| `PUT` | `/api/bff/profile` | 프로필 저장 (닉네임, rider_type) |
 | `POST` | `/api/bff/profile/avatar` | 프로필 사진 업로드 및 변경 |
 | `PUT` | `/api/bff/profile/nickname` | 닉네임 변경 (중복 검사 포함) |
+| `GET` | `/api/bff/profile/check-nickname` | 닉네임 중복 확인 |
+| `GET` | `/api/bff/profile/{user_id}/rp-balance` | RP 잔액·등급 조회 |
+
+#### 유저 (Users)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/users/me/stats` | 이번 달 통계 (주행 km, 퀘스트 수, 평균 안전등급) |
+| `GET` | `/api/bff/users/me/badges` | 내 획득 배지 목록 |
+| `GET` | `/api/bff/users/me/quest-history` | 완료 퀘스트 이력 (페이징) |
+| `DELETE` | `/api/bff/users/me` | 계정 탈퇴 |
+| `POST` | `/api/bff/users/export` | 데이터 내보내기 요청 |
+| `GET` | `/api/bff/users/{user_id}/profile` | 타유저 공개 프로필 (팔로우 여부 포함) |
+| `GET` | `/api/bff/users/search` | 유저 검색 (닉네임/전화번호) |
+
+#### 배지 (Badges)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/badges` | 전체 배지 목록 (user_id 옵션 → 획득 여부 포함) |
+| `GET` | `/api/bff/badges/{id}` | 배지 상세 조회 |
+
+#### 팔로우 (Follows)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/bff/follows/{user_id}` | 팔로우 (이미 팔로우 시 409) |
+| `DELETE` | `/api/bff/follows/{user_id}` | 언팔로우 |
+
+#### DM
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/dm/conversations` | DM 대화 목록 |
+| `POST` | `/api/bff/dm/conversations` | 대화 시작 (기존 방 있으면 재사용) |
+| `GET` | `/api/bff/dm/conversations/{id}/messages` | 메시지 목록 (page/after 지원) |
+| `POST` | `/api/bff/dm/conversations/{id}/messages` | 메시지 전송 |
+| `POST` | `/api/bff/dm/conversations/{id}/read` | 읽음 처리 |
+
+#### 가챠 (Gacha) — Engine 프록시
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/gacha/list` | 활성 가챠 목록 |
+| `POST` | `/api/bff/gacha/pull` | 가챠 뽑기 (1회/10연) |
+| `GET` | `/api/bff/gacha/log` | 뽑기 이력 |
+| `GET` | `/api/bff/gacha/pity/{gacha_code}` | 천장 카운트 조회 |
+| `GET` | `/api/bff/gacha/eligibility/{gacha_code}` | 응모 자격 확인 |
+
+#### 상점 (Shop) — Engine 프록시
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/shop/items` | 상점 아이템 목록 (필터 지원) |
+| `GET` | `/api/bff/shop/daily-featured` | 오늘의 추천 아이템 |
+| `POST` | `/api/bff/shop/purchase` | 아이템 구매 |
+
+#### 인벤토리 (Inventory) — Engine 프록시
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/inventory/items` | 보유 아이템 목록 + 통계 |
+| `GET` | `/api/bff/inventory/equipment` | 현재 장착 슬롯 조회 |
+| `PUT` | `/api/bff/inventory/equip` | 아이템 장착 |
+| `DELETE` | `/api/bff/inventory/equip/{slot}` | 장착 해제 |
+| `GET` | `/api/bff/inventory/collection-progress` | 컬렉션 진행도 |
+
+#### 지갑 (Wallet)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/wallet/me` | GP/GC 잔액 조회 |
+
+#### 시즌 (Season) — Engine 프록시
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/season/current` | 현재 활성 시즌 정보 |
+| `GET` | `/api/bff/season/pass` | 내 시즌패스 상태 |
+| `GET` | `/api/bff/season/levels/{season_code}` | 레벨별 보상 목록 |
+| `POST` | `/api/bff/season/claim` | 시즌패스 보상 수령 |
+
+#### 마스터 데이터 (Master)
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/master/districts` | 구역 목록 |
+| `GET` | `/api/bff/master/rider-types` | 라이더 타입 목록 |
+| `GET` | `/api/bff/master/safety-grades` | 안전등급 목록 |
+
+#### 앱 버전 / 설정
+
+| Method | Path | 설명 |
+|---|---|---|
+| `GET` | `/api/bff/app-config` | 프론트엔드용 앱 설정값 |
+| `GET` | `/api/bff/app-version/current` | 플랫폼별 현재 활성 버전 |
+| `GET` | `/api/bff/app-version/releases` | 릴리즈 목록 |
 
 #### 시스템
 
@@ -343,9 +491,17 @@ BFF 내부에서 `engine_client`를 통해 호출. 외부에서는 `/api/sre/*` 
 |---|---|---|
 | `POST` | `/api/sre/events` | 액션 이벤트 수신 → RP 계산 파이프라인 실행 |
 | `GET` | `/api/sre/users/{id}/balance` | RP 잔액 조회 |
+| `GET` | `/api/sre/users/{id}/wallet` | GP/GC 잔액 조회 |
 | `GET` | `/api/sre/users/{id}/missions` | 미션 진행도 조회 |
 | `GET` | `/api/sre/catalog` | 보상 카탈로그 조회 |
 | `POST` | `/api/sre/users/{id}/redemptions` | 보상 교환 요청 |
+| `GET` | `/api/sre/gacha/list` | 활성 가챠 목록 |
+| `POST` | `/api/sre/gacha/pull` | 가챠 뽑기 실행 |
+| `GET` | `/api/sre/shop/items` | 상점 아이템 목록 |
+| `POST` | `/api/sre/shop/purchase` | 아이템 구매 |
+| `GET` | `/api/sre/inventory/{user_uuid}/items` | 보유 아이템 목록 |
+| `GET` | `/api/sre/season/current` | 현재 활성 시즌 |
+| `POST` | `/api/sre/season/{user_uuid}/claim` | 시즌패스 보상 수령 |
 
 > **BFF → Engine 연계**: BFF 라우터(`ride.py`, `feed.py` 등)는 `engine_client.post_event()`를 통해 `RIDE_KM`, `QUEST_COMPLETE`, `SHARE_SNS` 등의 액션 이벤트를 Engine으로 발행합니다.
 

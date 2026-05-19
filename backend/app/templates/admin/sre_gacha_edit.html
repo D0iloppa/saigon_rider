@@ -1,0 +1,72 @@
+<div class="breadcrumb">
+  <a href="/admin/sre/gacha">가챠 관리</a> › {{gacha_code}}
+</div>
+<div class="page-title">가챠 수정</div>
+<p class="page-sub">{{gacha_code}}</p>
+
+{{flash}}
+
+<form method="post" action="/admin/sre/gacha/{{gacha_code}}/edit">
+  <div class="card" style="max-width:720px;">
+
+    <div class="field">
+      <label class="field-label">표시 이름 *</label>
+      <input type="text" name="display_name" value="{{display_name}}" required style="width:100%;" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">설명</label>
+      <textarea name="description" style="width:100%;">{{description}}</textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">단발 비용</label>
+        <input type="number" name="cost_per_pull" value="{{cost_per_pull}}" min="0" required style="width:100%;" />
+      </div>
+      <div class="field">
+        <label class="field-label">10연 비용</label>
+        <input type="number" name="cost_per_10_pull" value="{{cost_per_10_pull}}" min="0" required style="width:100%;" />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">천장 횟수</label>
+        <input type="number" name="pity_threshold" value="{{pity_threshold}}" min="0" style="width:100%;" placeholder="없음" />
+      </div>
+      <div class="field">
+        <label class="field-label">정렬 순서</label>
+        <input type="number" name="sort_order" value="{{sort_order}}" style="width:100%;" placeholder="없음" />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">상태</label>
+        <select name="status_val" style="width:100%;">
+          <option value="ACTIVE" {{sel_status_ACTIVE}}>ACTIVE</option>
+          <option value="INACTIVE" {{sel_status_INACTIVE}}>INACTIVE</option>
+          <option value="SCHEDULED" {{sel_status_SCHEDULED}}>SCHEDULED</option>
+        </select>
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end;padding-bottom:2px;">
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;">
+          <input type="checkbox" name="is_listed" value="1" {{is_listed_checked}} />
+          <span>노출 (is_listed)</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">확률 테이블 (drop_table JSON)</label>
+      <textarea name="drop_table_json" style="width:100%;min-height:160px;font-family:monospace;font-size:12px;">{{drop_table_json}}</textarea>
+      <p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px;">예: {"C":0.60,"R":0.25,"E":0.10,"L":0.04,"M":0.01}</p>
+    </div>
+
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn">저장</button>
+      <a href="/admin/sre/gacha" class="btn btn-ghost">취소</a>
+    </div>
+  </div>
+</form>

@@ -1,15 +1,19 @@
 from sqlalchemy import (
-    BigInteger, Boolean, Column, Enum, ForeignKey,
+    BigInteger, Boolean, Column, Date, Enum, ForeignKey,
     Identity, Index, Integer, Numeric, String, Text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 from app.enums import (
     AbuseSeverityEnum, AbuseActionEnum, AccountTypeEnum,
-    EventStatusEnum, ExpireStatusEnum, IntegrationTypeEnum,
-    MissionStatusEnum, RedemptionStatusEnum, TxTypeEnum, UserStatusEnum,
+    AcquisitionSourceEnum, BoxStatusEnum, CollectionStatusEnum,
+    EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
+    IntegrationTypeEnum, ItemRarityEnum, ItemSlotEnum,
+    MissionStatusEnum, RedemptionStatusEnum, SeasonStatusEnum,
+    TxTypeEnum, UserStatusEnum,
 )
 
 # ─────────────────────────────────────────────
@@ -137,6 +141,7 @@ class RpBalance(Base):
 
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_balance_user"), primary_key=True)
     current_balance = Column(BigInteger, nullable=False, default=0, server_default="0")
+    gc_balance = Column(BigInteger, nullable=False, default=0, server_default="0")
     lifetime_earned = Column(BigInteger, nullable=False, default=0, server_default="0")
     lifetime_spent = Column(BigInteger, nullable=False, default=0, server_default="0")
     expiring_soon = Column(BigInteger, nullable=False, default=0, server_default="0")
@@ -369,4 +374,372 @@ class AuditLog(Base):
     __table_args__ = (
         Index("idx_audit_entity", "entity_type", "entity_id"),
         Index("idx_audit_created", "created_at"),
+    )
+
+
+# ─────────────────────────────────────────────
+# 게이미피케이션 v2 — 아이템/시즌/박스/가챠/상점
+# ─────────────────────────────────────────────
+
+
+class ItemCollection(Base):
+    __tablename__ = "item_collection"
+
+    collection_code = Column(String(40), primary_key=True)
+    display_name = Column(String(80), nullable=False)
+    theme_color_hex = Column(String(7), nullable=True)
+    status = Column(
+        Enum(CollectionStatusEnum, name="collection_status_enum", create_type=False),
+        nullable=False, default=CollectionStatusEnum.ACTIVE, server_default="ACTIVE",
+    )
+    sort_order = Column(Integer, nullable=True)
+    created_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    items = relationship("ItemDefinition", back_populates="collection", lazy="select")
+
+
+class ItemDefinition(Base):
+    __tablename__ = "item_definition"
+
+    item_code = Column(String(60), primary_key=True)
+    display_name = Column(String(120), nullable=False)
+    slot = Column(
+        Enum(ItemSlotEnum, name="item_slot_enum", create_type=False),
+        nullable=False,
+    )
+    rarity = Column(
+        Enum(ItemRarityEnum, name="item_rarity_enum", create_type=False),
+        nullable=False,
+    )
+    collection_code = Column(
+        String(40), ForeignKey("item_collection.collection_code", name="fk_item_collection"),
+        nullable=False,
+    )
+    shop_price_gp = Column(Integer, nullable=True)
+    shop_price_gc = Column(Integer, nullable=True)
+    is_shop_visible = Column(Boolean, nullable=False, default=True, server_default="true")
+    season_lock = Column(Boolean, nullable=False, default=False, server_default="false")
+    required_season_code = Column(String(40), nullable=True)
+    asset_uri = Column(String(200), nullable=True)
+    created_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    collection = relationship("ItemCollection", back_populates="items", lazy="select")
+
+    __table_args__ = (
+        Index("idx_item_def_collection_rarity", "collection_code", "rarity"),
+        Index("idx_item_def_slot", "slot"),
+    )
+
+
+class UserItem(Base):
+    __tablename__ = "user_item"
+
+    user_item_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_ui_user"), nullable=False)
+    item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_ui_item"),
+        nullable=False,
+    )
+    acquired_at = Column(_TS, nullable=False, server_default="NOW()")
+    acquisition_source = Column(
+        Enum(AcquisitionSourceEnum, name="acquisition_source_enum", create_type=False),
+        nullable=False,
+    )
+    source_ref_id = Column(BigInteger, nullable=True)
+
+    item_def = relationship("ItemDefinition", lazy="select")
+
+    __table_args__ = (
+        Index("idx_user_item_user", "user_id", acquired_at.desc()),
+        Index("idx_user_item_source", "acquisition_source", "source_ref_id"),
+    )
+
+
+class UserEquipment(Base):
+    __tablename__ = "user_equipment"
+
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_ue_user"), primary_key=True)
+    slot = Column(
+        Enum(ItemSlotEnum, name="item_slot_enum", create_type=False),
+        primary_key=True,
+    )
+    item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_ue_item"),
+        nullable=True,
+    )
+    equipped_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    item_def = relationship("ItemDefinition", lazy="select")
+
+
+class Season(Base):
+    __tablename__ = "season"
+
+    season_code = Column(String(40), primary_key=True)
+    display_name = Column(String(80), nullable=False)
+    collection_code = Column(
+        String(40), ForeignKey("item_collection.collection_code", name="fk_season_collection"),
+        nullable=False,
+    )
+    starts_at = Column(_TS, nullable=False)
+    ends_at = Column(_TS, nullable=False)
+    status = Column(
+        Enum(SeasonStatusEnum, name="season_status_enum", create_type=False),
+        nullable=False, default=SeasonStatusEnum.UPCOMING, server_default="UPCOMING",
+    )
+    max_level = Column(Integer, nullable=False, default=30, server_default="30")
+    sxp_per_level = Column(Integer, nullable=False, default=100, server_default="100")
+    daily_sxp_cap = Column(Integer, nullable=False, default=500, server_default="500")
+    created_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    collection = relationship("ItemCollection", lazy="select")
+
+    __table_args__ = (
+        Index("idx_season_status_period", "status", "starts_at", "ends_at"),
+    )
+
+
+class UserSeasonPass(Base):
+    __tablename__ = "user_season_pass"
+
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_usp_user"), primary_key=True)
+    season_code = Column(
+        String(40), ForeignKey("season.season_code", name="fk_usp_season"),
+        primary_key=True,
+    )
+    sxp_balance = Column(Integer, nullable=False, default=0, server_default="0")
+    current_level = Column(Integer, nullable=False, default=0, server_default="0")
+    has_premium = Column(Boolean, nullable=False, default=False, server_default="false")
+    premium_granted_at = Column(_TS, nullable=True)
+    claimed_levels = Column(ARRAY(Integer), nullable=False, server_default="{}")
+    daily_sxp_today = Column(Integer, nullable=False, default=0, server_default="0")
+    daily_sxp_date = Column(Date, nullable=True)
+
+    season = relationship("Season", lazy="select")
+
+
+class LootboxDefinition(Base):
+    __tablename__ = "lootbox_definition"
+
+    box_code = Column(String(40), primary_key=True)
+    display_name = Column(String(80), nullable=False)
+    collection_filter = Column(
+        String(40), ForeignKey("item_collection.collection_code", name="fk_loot_collection"),
+        nullable=True,
+    )
+    drop_table = Column(JSONB, nullable=False)
+    expires_with_season = Column(Boolean, nullable=False, default=False, server_default="false")
+    required_season_code = Column(String(40), nullable=True)
+    auto_open_on_grant = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_at = Column(_TS, nullable=False, server_default="NOW()")
+
+
+class UserInventoryBox(Base):
+    __tablename__ = "user_inventory_box"
+
+    inventory_box_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_uib_user"), nullable=False)
+    box_code = Column(
+        String(40), ForeignKey("lootbox_definition.box_code", name="fk_uib_box"),
+        nullable=False,
+    )
+    granted_at = Column(_TS, nullable=False, server_default="NOW()")
+    granted_source = Column(
+        Enum(AcquisitionSourceEnum, name="acquisition_source_enum", create_type=False),
+        nullable=False,
+    )
+    granted_source_ref = Column(BigInteger, nullable=True)
+    opened_at = Column(_TS, nullable=True)
+    status = Column(
+        Enum(BoxStatusEnum, name="box_status_enum", create_type=False),
+        nullable=False, default=BoxStatusEnum.UNOPENED, server_default="UNOPENED",
+    )
+
+    box_def = relationship("LootboxDefinition", lazy="select")
+
+    __table_args__ = (
+        Index("idx_user_box_user_status", "user_id", "status"),
+    )
+
+
+class LootboxDropLog(Base):
+    __tablename__ = "lootbox_drop_log"
+
+    drop_log_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    inventory_box_id = Column(
+        BigInteger, ForeignKey("user_inventory_box.inventory_box_id", name="fk_ldl_box"),
+        nullable=False,
+    )
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_ldl_user"), nullable=False)
+    box_code = Column(
+        String(40), ForeignKey("lootbox_definition.box_code", name="fk_ldl_boxdef"),
+        nullable=False,
+    )
+    dropped_item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_ldl_item"),
+        nullable=True,
+    )
+    was_duplicate = Column(Boolean, nullable=False, default=False, server_default="false")
+    refund_currency = Column(String(4), nullable=True)
+    refund_amount = Column(Integer, nullable=True)
+    random_seed = Column(String(64), nullable=True)
+    opened_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    __table_args__ = (
+        Index("idx_drop_log_user", "user_id", opened_at.desc()),
+        Index("idx_drop_log_box", "box_code", opened_at.desc()),
+    )
+
+
+class ItemAcquisitionLog(Base):
+    __tablename__ = "item_acquisition_log"
+
+    log_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_ial_user"), nullable=False)
+    item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_ial_item"),
+        nullable=False,
+    )
+    acquisition_source = Column(
+        Enum(AcquisitionSourceEnum, name="acquisition_source_enum", create_type=False),
+        nullable=False,
+    )
+    source_ref_id = Column(BigInteger, nullable=True)
+    granted_or_refunded = Column(String(10), nullable=False)
+    refund_currency = Column(String(4), nullable=True)
+    refund_amount = Column(Integer, nullable=True)
+    occurred_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    __table_args__ = (
+        Index("idx_item_acq_log_user", "user_id", occurred_at.desc()),
+        Index("idx_item_acq_log_item", "item_code", occurred_at.desc()),
+    )
+
+
+class GachaDefinition(Base):
+    __tablename__ = "gacha_definition"
+
+    gacha_code = Column(String(40), primary_key=True)
+    display_name = Column(String(80), nullable=False)
+    description = Column(String(200), nullable=True)
+    cost_currency = Column(String(4), nullable=False)
+    cost_per_pull = Column(Integer, nullable=False)
+    cost_per_10_pull = Column(Integer, nullable=False)
+    collection_filter = Column(
+        String(40), ForeignKey("item_collection.collection_code", name="fk_gacha_collection"),
+        nullable=True,
+    )
+    drop_table = Column(JSONB, nullable=False)
+    pity_threshold = Column(Integer, nullable=True)
+    pity_guarantee_rarity = Column(
+        Enum(ItemRarityEnum, name="item_rarity_enum", create_type=False),
+        nullable=True,
+    )
+    pity_resets_with_season = Column(Boolean, nullable=False, default=False, server_default="false")
+    starts_at = Column(_TS, nullable=True)
+    ends_at = Column(_TS, nullable=True)
+    required_season_code = Column(String(40), nullable=True)
+    status = Column(
+        Enum(GachaStatusEnum, name="gacha_status_enum", create_type=False),
+        nullable=False, default=GachaStatusEnum.ACTIVE, server_default="ACTIVE",
+    )
+    is_listed = Column(Boolean, nullable=False, default=True, server_default="true")
+    sort_order = Column(Integer, nullable=True)
+    created_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    __table_args__ = (
+        Index("idx_gacha_def_status_listed", "status", "is_listed"),
+    )
+
+
+class UserGachaPity(Base):
+    __tablename__ = "user_gacha_pity"
+
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_ugp_user"), primary_key=True)
+    gacha_code = Column(
+        String(40), ForeignKey("gacha_definition.gacha_code", name="fk_ugp_gacha"),
+        primary_key=True,
+    )
+    pity_count = Column(Integer, nullable=False, default=0, server_default="0")
+    total_pulls = Column(BigInteger, nullable=False, default=0, server_default="0")
+    last_pull_at = Column(_TS, nullable=True)
+    season_scope = Column(String(40), nullable=True)
+
+
+class GachaPullLog(Base):
+    __tablename__ = "gacha_pull_log"
+
+    pull_log_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_gpl_user"), nullable=False)
+    gacha_code = Column(
+        String(40), ForeignKey("gacha_definition.gacha_code", name="fk_gpl_gacha"),
+        nullable=False,
+    )
+    batch_id = Column(BigInteger, nullable=False)
+    is_10_pull = Column(Boolean, nullable=False, default=False, server_default="false")
+    pull_index = Column(Integer, nullable=False)
+    cost_currency = Column(String(4), nullable=True)
+    cost_amount = Column(Integer, nullable=False, default=0, server_default="0")
+    picked_rarity = Column(
+        Enum(ItemRarityEnum, name="item_rarity_enum", create_type=False),
+        nullable=False,
+    )
+    picked_item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_gpl_item"),
+        nullable=True,
+    )
+    was_duplicate = Column(Boolean, nullable=False, default=False, server_default="false")
+    refund_currency = Column(String(4), nullable=True)
+    refund_amount = Column(Integer, nullable=True)
+    was_pity_hit = Column(Boolean, nullable=False, default=False, server_default="false")
+    was_10pull_guarantee = Column(Boolean, nullable=False, default=False, server_default="false")
+    pity_count_before = Column(Integer, nullable=True)
+    pity_count_after = Column(Integer, nullable=True)
+    random_seed = Column(String(64), nullable=True)
+    pulled_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    __table_args__ = (
+        Index("idx_gacha_log_user_time", "user_id", pulled_at.desc()),
+        Index("idx_gacha_log_batch", "batch_id"),
+        Index("idx_gacha_log_gacha_rarity", "gacha_code", "picked_rarity", pulled_at.desc()),
+    )
+
+
+class DailyFeaturedItem(Base):
+    __tablename__ = "daily_featured_item"
+
+    featured_date = Column(Date, primary_key=True)
+    item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_dfi_item"),
+        primary_key=True,
+    )
+    discount_pct = Column(Integer, nullable=False, default=30, server_default="30")
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
+    created_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    item_def = relationship("ItemDefinition", lazy="select")
+
+
+class ShopPurchaseLog(Base):
+    __tablename__ = "shop_purchase_log"
+
+    purchase_log_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_spl_user"), nullable=False)
+    item_code = Column(
+        String(60), ForeignKey("item_definition.item_code", name="fk_spl_item"),
+        nullable=False,
+    )
+    cost_currency = Column(String(4), nullable=False)
+    base_price = Column(Integer, nullable=False)
+    discount_pct = Column(Integer, nullable=False, default=0, server_default="0")
+    cost_amount = Column(Integer, nullable=False)
+    was_featured = Column(Boolean, nullable=False, default=False, server_default="false")
+    user_item_id = Column(BigInteger, nullable=True)
+    purchased_at = Column(_TS, nullable=False, server_default="NOW()")
+
+    item_def = relationship("ItemDefinition", lazy="select")
+
+    __table_args__ = (
+        Index("idx_shop_log_user", "user_id", purchased_at.desc()),
+        Index("idx_shop_log_item", "item_code", purchased_at.desc()),
     )

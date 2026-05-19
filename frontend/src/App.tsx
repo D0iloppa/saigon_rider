@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { Toaster } from 'sonner';
+import { SpriteProvider } from '@/lib/items/SpriteProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { useUserStore } from '@/store/useUserStore';
@@ -46,6 +47,24 @@ import FollowerList from '@/pages/profile/FollowerList';
 import FollowingList from '@/pages/profile/FollowingList';
 import FriendList from '@/pages/profile/FriendList';
 import FriendAdd from '@/pages/profile/FriendAdd';
+
+// Gacha
+import GachaMain from '@/pages/gacha/GachaMain';
+import GachaPull from '@/pages/gacha/GachaPull';
+
+// Shop
+import ShopCatalog from '@/pages/shop/ShopCatalog';
+import ItemDetail from '@/pages/shop/ItemDetail';
+
+// Garage
+import Garage from '@/pages/garage/Garage';
+
+// Inventory
+import Inventory from '@/pages/inventory/Inventory';
+import EquipPreview from '@/pages/inventory/EquipPreview';
+
+// Season
+import SeasonPass from '@/pages/season/SeasonPass';
 
 // Settings
 import Settings from '@/pages/settings/Settings';
@@ -145,6 +164,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <SpriteProvider />
       <Toaster position="bottom-center" gap={6} visibleToasts={3} />
       <Dialog />
       <AppShell splashVisible={splashVisible} splashFade={splashFade} gifReady={gifReady}>
@@ -180,6 +200,24 @@ export default function App() {
           <Route path="/ride/active" element={<PrivateRoute><RideActive /></PrivateRoute>} />
           <Route path="/ride/result/success" element={<PrivateRoute><RideResultSuccess /></PrivateRoute>} />
           <Route path="/ride/result/fail" element={<PrivateRoute><RideResultFail /></PrivateRoute>} />
+
+          {/* Protected: Gacha */}
+          <Route path="/gacha" element={<PrivateRoute><GachaMain /></PrivateRoute>} />
+          <Route path="/gacha/pull/:gachaCode" element={<PrivateRoute><GachaPull /></PrivateRoute>} />
+
+          {/* Protected: Shop */}
+          <Route path="/shop" element={<PrivateRoute><ShopCatalog /></PrivateRoute>} />
+          <Route path="/shop/item/:itemCode" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
+
+          {/* Protected: Garage */}
+          <Route path="/garage" element={<PrivateRoute><Garage /></PrivateRoute>} />
+
+          {/* Protected: Inventory */}
+          <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} />
+          <Route path="/inventory/equip-preview" element={<PrivateRoute><EquipPreview /></PrivateRoute>} />
+
+          {/* Protected: Season */}
+          <Route path="/season" element={<PrivateRoute><SeasonPass /></PrivateRoute>} />
 
           {/* Protected: Settings */}
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

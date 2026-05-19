@@ -172,7 +172,13 @@
     "saving": "Đang lưu...",
     "saveBtn": "Lưu",
     "share": "Chia sẻ hồ sơ",
-    "shareGuide": "Quét mã QR này để xem hồ sơ"
+    "shareGuide": "Quét mã QR này để xem hồ sơ",
+    "emptyHistory": "Chưa hoàn thành nhiệm vụ nào",
+    "emptyHistorySub": "Hoàn thành nhiệm vụ để xem lịch sử ở đây",
+    "emptyBadges": "Chưa có huy hiệu nào",
+    "emptyBadgesSub": "Nhận huy hiệu bằng cách hoàn thành thử thách",
+    "unknownQuest": "Nhiệm vụ",
+    "loadMore": "Xem thêm"
   },
   "settings": {
     "title": "Cài đặt",
@@ -265,5 +271,89 @@
     "saveBtn": "Lưu",
     "saved": "Đã lưu hồ sơ",
     "avatarSuccess": "Đã cập nhật ảnh"
+  },
+  "gacha": {
+    "title": "GACHA",
+    "tab_all": "Tất cả",
+    "tab_gp": "GOLD",
+    "tab_gc": "XP",
+    "tab_season": "Mùa",
+    "single_pull": "×1",
+    "ten_pull": "×10",
+    "pity_remaining": "Còn {{count}} lần đến trần",
+    "rate_info": "Xem tỷ lệ tại",
+    "rate_info_link": "Xem đầy đủ",
+    "rate_info_suffix": "",
+    "error_insufficient_balance": "Số dư không đủ (có {{have}} / cần {{need}})"
+  },
+  "shop": {
+    "title": "Chợ Sài Gòn",
+    "filter_all": "Tất cả",
+    "featured_badge": "HÔM NAY · {{pct}}% GIẢM",
+    "owned": "✓ ĐÃ SỞ HỮU",
+    "buy": "Mua ngay",
+    "charge": "+ Nạp thêm",
+    "gacha_banner_title": "Muốn thú vị hơn?",
+    "gacha_banner_sub": "5 loại gacha đang chờ"
+  },
+  "inventory": {
+    "title": "Kho đồ",
+    "stats_owned": "Vật phẩm sở hữu",
+    "stats_catalog": "/ {{count}} danh mục",
+    "stats_avg_rarity": "Độ hiếm TB",
+    "stats_collections": "Bộ sưu tập",
+    "filter_all": "Tất cả",
+    "filter_rarity": "Độ hiếm ▾",
+    "filter_slot": "Vị trí ▾",
+    "filter_new": "Mới trước",
+    "filter_new_active": "✓ Mới trước",
+    "badge_equipped": "ĐANG ĐEO",
+    "badge_new": "MỚI",
+    "empty_title": "Chưa có vật phẩm nào",
+    "empty_sub": "Mua vật phẩm tại cửa hàng\nhoặc thử vận may ở Gacha",
+    "empty_btn": "Đến cửa hàng"
+  },
+  "gachaPull": {
+    "summoning": "Đang triệu hồi…",
+    "again_single": "Quay lại",
+    "again_ten": "Quay 10 lần",
+    "to_inventory": "Kho đồ",
+    "to_list": "Danh sách",
+    "ceiling": "Trần"
+  },
+  "itemDetail": {
+    "slot_suffix": "vị trí",
+    "owned": "Đã sở hữu",
+    "buying": "Đang mua…",
+    "wishlist": "Yêu thích"
+  },
+  "equipPreview": {
+    "title": "Xem trước trang bị",
+    "slot_empty": "Vị trí trống",
+    "no_items": "Không có vật phẩm {{slot}}",
+    "save": "Lưu trang bị",
+    "saving": "Đang lưu…",
+    "no_change": "Không thay đổi",
+    "equip_done": "Đã trang bị {{slot}}"
+  },
+  "seasonPass": {
+    "ends_in": "còn lại",
+    "ended": "Đã kết thúc",
+    "level_label": "Lv. {{level}}",
+    "level_of": "/ {{total}}",
+    "xp_meta": "{{current}} / {{next}} XP",
+    "reward_track": "PHẦN THƯỞNG",
+    "free": "MIỄN PHÍ",
+    "premium": "PREM",
+    "upsell_title": "Nâng cấp Premium",
+    "upsell_sub": "Mở khóa tất cả phần thưởng premium",
+    "upsell_btn": "Nâng cấp"
+  },
+  "gameHub": {
+    "garage": "Garage",
+    "inventory": "Kho đồ",
+    "shop": "Cửa hàng",
+    "gacha": "Gacha",
+    "season": "Season Pass"
   }
 }

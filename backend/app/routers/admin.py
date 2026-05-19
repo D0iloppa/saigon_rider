@@ -1,4 +1,5 @@
 import contextlib
+import json as _json
 import os
 import re
 import uuid
@@ -10,15 +11,17 @@ from pathlib import Path
 import bcrypt
 import jwt
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..engine_client import engine_client
 from ..models import (
     AdminAccount,
     AppConfig,
     AppVersion,
+    Badge,
     Content,
     District,
     FeedPost,
@@ -27,6 +30,7 @@ from ..models import (
     Quest,
     RideSession,
     User,
+    UserBadge,
 )
 from ..utils import (
     MOCK_IMG_ENDPOINT,
@@ -64,7 +68,7 @@ ALLOWED_IMAGE_MIME = {
 }
 
 # role 별 사이드바 메뉴 노출
-_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "dev", "settings")
+_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "badges", "sre", "items", "dev", "settings")
 _ROOT_ONLY_NAV = {"admins"}
 
 
@@ -1039,24 +1043,10 @@ async def admin_settings(
         flash_html = _flash_card(msg, ok=ok)
 
     words = (await db.execute(select(NicknameWord).order_by(NicknameWord.word_type, NicknameWord.word))).scalars().all()
-    adj_html = "".join(
-        f"<tr><td>{h(w.word)}</td>"
-        f'<td><form method="post" action="/admin/settings/nickname-word/delete" style="margin:0;">'
-        f'<input type="hidden" name="word_id" value="{w.id}"/>'
-        f'<button type="submit" class="btn btn-sm" style="background:rgba(239,59,59,.25);color:#fc8181;padding:2px 10px;font-size:11px;">삭제</button>'
-        f"</form></td></tr>"
-        for w in words
-        if w.word_type == "adjective"
-    )
-    noun_html = "".join(
-        f"<tr><td>{h(w.word)}</td>"
-        f'<td><form method="post" action="/admin/settings/nickname-word/delete" style="margin:0;">'
-        f'<input type="hidden" name="word_id" value="{w.id}"/>'
-        f'<button type="submit" class="btn btn-sm" style="background:rgba(239,59,59,.25);color:#fc8181;padding:2px 10px;font-size:11px;">삭제</button>'
-        f"</form></td></tr>"
-        for w in words
-        if w.word_type == "noun"
-    )
+    import json as _json
+
+    adj_json = _json.dumps([{"id": w.id, "word": w.word} for w in words if w.word_type == "adjective"])
+    noun_json = _json.dumps([{"id": w.id, "word": w.word} for w in words if w.word_type == "noun"])
     adj_count = sum(1 for w in words if w.word_type == "adjective")
     noun_count = sum(1 for w in words if w.word_type == "noun")
 
@@ -1084,10 +1074,31 @@ async def admin_settings(
         .all()
     )
 
+    child_versions = (
+        (
+            (
+                await db.execute(
+                    select(AppVersion).where(
+                        AppVersion.parent_id.in_([pv.id for pv in primary_versions]),
+                        AppVersion.platform != "primary",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if primary_versions
+        else []
+    )
+    children_by_parent: dict[int, list] = {}
+    for cv in child_versions:
+        children_by_parent.setdefault(cv.parent_id, []).append(cv)
+
     version_rows = ""
     for pv in primary_versions:
-        ios_v = next((c for c in pv.children if c.platform == "ios"), None)
-        android_v = next((c for c in pv.children if c.platform == "android"), None)
+        pv_children = children_by_parent.get(pv.id, [])
+        ios_v = next((c for c in pv_children if c.platform == "ios"), None)
+        android_v = next((c for c in pv_children if c.platform == "android"), None)
         active_badge = '<span style="color:#48bb78;">●</span>' if pv.is_active else '<span style="color:#666;">○</span>'
         force_badge = ' <span style="color:#fc8181;font-size:11px;">[강제]</span>' if pv.is_force_update else ""
         released = pv.released_at.strftime("%Y-%m-%d") if pv.released_at else "미배포"
@@ -1119,8 +1130,8 @@ async def admin_settings(
         nickname=h(user.nickname or ""),
         avatar_url=h(_admin_avatar_url(user)),
         flash=flash_html,
-        adj_rows=adj_html,
-        noun_rows=noun_html,
+        adj_json=adj_json,
+        noun_json=noun_json,
         adj_count=str(adj_count),
         noun_count=str(noun_count),
         version_rows=version_rows,
@@ -1383,6 +1394,47 @@ async def admin_delete_nickname_word(
     return RedirectResponse(url="/admin/settings?flash=word_deleted", status_code=302)
 
 
+@router.post("/settings/nickname-word/api/add", include_in_schema=False)
+async def api_add_nickname_word(
+    request: Request,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    body = await request.json()
+    word = (body.get("word") or "").strip()
+    word_type = body.get("word_type", "")
+    if not word:
+        return JSONResponse({"ok": False, "error": "empty"}, status_code=400)
+    if word_type not in ("adjective", "noun"):
+        return JSONResponse({"ok": False, "error": "invalid_type"}, status_code=400)
+    dup = (
+        await db.execute(select(NicknameWord).where(NicknameWord.word == word, NicknameWord.word_type == word_type))
+    ).scalar_one_or_none()
+    if dup:
+        return JSONResponse({"ok": False, "error": "duplicate"}, status_code=409)
+    row = NicknameWord(word=word, word_type=word_type)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return JSONResponse({"ok": True, "id": row.id, "word": row.word})
+
+
+@router.post("/settings/nickname-word/api/delete", include_in_schema=False)
+async def api_delete_nickname_word(
+    request: Request,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    body = await request.json()
+    word_id = body.get("word_id")
+    row = (await db.execute(select(NicknameWord).where(NicknameWord.id == word_id))).scalar_one_or_none()
+    if not row:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    await db.delete(row)
+    await db.commit()
+    return JSONResponse({"ok": True})
+
+
 @router.post("/settings/version", include_in_schema=False)
 async def admin_settings_version_add(
     session: AdminSession = Depends(verify_admin_session),
@@ -1466,6 +1518,395 @@ async def admin_settings_avatar(
     return RedirectResponse(url="/admin/settings?flash=avatar", status_code=302)
 
 
+# ── SRE 관리자 콘솔 ──────────────────────────────────────────────
+
+
+@router.get("/sre", include_in_schema=False)
+async def admin_sre_root():
+    return RedirectResponse(url="/admin/sre/ops")
+
+
+@router.get("/sre/ops", include_in_schema=False)
+async def admin_sre_ops(
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        daily_net = await engine_client.admin_ops_daily_net()
+    except Exception:
+        daily_net = []
+    try:
+        gacha_roi = await engine_client.admin_ops_gacha_roi()
+    except Exception:
+        gacha_roi = []
+    try:
+        channel_ratio = await engine_client.admin_ops_channel_ratio()
+    except Exception:
+        channel_ratio = []
+    try:
+        pity_dist = await engine_client.admin_ops_pity_distribution()
+    except Exception:
+        pity_dist = []
+
+    # 일일 발행/소모 테이블
+    def _net_row(r: dict) -> str:
+        net = r.get("net", 0)
+        color = "#68d391" if net >= 0 else "#fc8181"
+        return (
+            f"<tr><td>{h(r.get('day', ''))}</td><td>{h(r.get('currency', ''))}</td>"
+            f"<td>{r.get('earned', 0):,}</td><td>{r.get('spent', 0):,}</td>"
+            f"<td style='color:{color};'>{net:+,}</td></tr>"
+        )
+
+    net_rows = "".join(_net_row(r) for r in daily_net) or '<tr><td colspan="5" class="empty">데이터 없음</td></tr>'
+
+    # 가챠 ROI 테이블
+    def _roi_row(r: dict) -> str:
+        dup = r.get("dup_rate_pct", 0)
+        color = "#fc8181" if dup >= 60 else "inherit"
+        return (
+            f"<tr><td>{h(r.get('gacha_code', ''))}</td><td>{r.get('pulls', 0):,}</td>"
+            f"<td>{r.get('unique_users', 0):,}</td><td>{r.get('avg_rarity_score', 0):.2f}</td>"
+            f"<td>{r.get('pity_hits', 0):,}</td>"
+            f"<td style='color:{color};'>{dup:.1f}%</td></tr>"
+        )
+
+    roi_rows = "".join(_roi_row(r) for r in gacha_roi) or '<tr><td colspan="6" class="empty">데이터 없음</td></tr>'
+
+    # 채널 비율 테이블
+    ratio_rows = (
+        "".join(
+            f"<tr><td>{h(r.get('source', ''))}</td><td>{r.get('purchases', 0):,}</td>"
+            f"<td>{r.get('users', 0):,}</td></tr>"
+            for r in channel_ratio
+        )
+        or '<tr><td colspan="3" class="empty">데이터 없음</td></tr>'
+    )
+
+    # 천장 분포 테이블 (상위 20행)
+    pity_rows = (
+        "".join(
+            f"<tr><td>{h(r.get('gacha_code', ''))}</td><td>{r.get('pity_count', 0)}</td>"
+            f"<td>{r.get('users', 0):,}</td></tr>"
+            for r in pity_dist[:20]
+        )
+        or '<tr><td colspan="3" class="empty">데이터 없음</td></tr>'
+    )
+
+    return _render_page(
+        "sre_ops.html",
+        nav="sre",
+        page_title="SRE 운영 대시보드",
+        session=session,
+        net_rows=net_rows,
+        roi_rows=roi_rows,
+        ratio_rows=ratio_rows,
+        pity_rows=pity_rows,
+    )
+
+
+@router.get("/sre/gacha", include_in_schema=False)
+async def admin_sre_gacha_list(
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        gacha_list = await engine_client.admin_get_gacha_definitions()
+    except Exception:
+        gacha_list = []
+
+    def _gacha_row(g: dict) -> str:
+        code = h(g.get("gacha_code", ""))
+        pill = '<span class="pill on">노출</span>' if g.get("is_listed") else '<span class="pill off">숨김</span>'
+        return (
+            f"<tr>"
+            f"<td style='font-family:monospace;font-size:12px;'>{code}</td>"
+            f"<td>{h(g.get('display_name', ''))}</td>"
+            f"<td>{h(g.get('cost_currency', ''))} {g.get('cost_per_pull', 0):,} / {g.get('cost_per_10_pull', 0):,}</td>"
+            f"<td>{h(str(g.get('pity_threshold') or '—'))}</td>"
+            f"<td>{pill}</td>"
+            f"<td>{h(g.get('status', ''))}</td>"
+            f'<td><a class="btn btn-ghost btn-sm" href="/admin/sre/gacha/{code}/edit">수정</a></td>'
+            f"</tr>"
+        )
+
+    rows = (
+        "".join(_gacha_row(g) for g in gacha_list)
+        or '<tr><td colspan="7" class="empty">가챠 정의 없음 (Engine DB 마이그레이션 필요)</td></tr>'
+    )
+
+    return _render_page(
+        "sre_gacha_list.html",
+        nav="sre",
+        page_title="가챠 관리",
+        session=session,
+        rows=rows,
+        total=str(len(gacha_list)),
+    )
+
+
+@router.get("/sre/gacha/{gacha_code}/edit", include_in_schema=False)
+async def admin_sre_gacha_edit(
+    gacha_code: str,
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        gacha_list = await engine_client.admin_get_gacha_definitions()
+        g = next((x for x in gacha_list if x["gacha_code"] == gacha_code), None)
+    except Exception:
+        g = None
+
+    if g is None:
+        raise HTTPException(status_code=404, detail="Gacha not found")
+
+    flash_html = ""
+    if flash == "saved":
+        flash_html = _flash_card("저장되었습니다.", ok=True)
+
+    drop_table_json = _json.dumps(g.get("drop_table") or {}, ensure_ascii=False, indent=2)
+
+    def sel(v, cur):
+        return "selected" if str(v) == str(cur) else ""
+
+    return _render_page(
+        "sre_gacha_edit.html",
+        nav="sre",
+        page_title=f"가챠 수정 — {gacha_code}",
+        session=session,
+        gacha_code=h(gacha_code),
+        display_name=h(g.get("display_name", "")),
+        description=h(g.get("description") or ""),
+        cost_currency=h(g.get("cost_currency", "")),
+        cost_per_pull=str(g.get("cost_per_pull", 0)),
+        cost_per_10_pull=str(g.get("cost_per_10_pull", 0)),
+        pity_threshold=str(g.get("pity_threshold") or ""),
+        drop_table_json=h(drop_table_json),
+        sel_status_ACTIVE=sel("ACTIVE", g.get("status", "")),
+        sel_status_INACTIVE=sel("INACTIVE", g.get("status", "")),
+        sel_status_SCHEDULED=sel("SCHEDULED", g.get("status", "")),
+        is_listed_checked="checked" if g.get("is_listed") else "",
+        sort_order=str(g.get("sort_order") or ""),
+        flash=flash_html,
+    )
+
+
+@router.post("/sre/gacha/{gacha_code}/edit", include_in_schema=False)
+async def admin_sre_gacha_update(
+    gacha_code: str,
+    session: AdminSession = Depends(verify_admin_session),
+    display_name: str = Form(...),
+    description: str = Form(""),
+    cost_per_pull: int = Form(...),
+    cost_per_10_pull: int = Form(...),
+    pity_threshold: str = Form(""),
+    drop_table_json: str = Form("{}"),
+    status_val: str = Form("ACTIVE"),
+    is_listed: str = Form(""),
+    sort_order: str = Form(""),
+):
+    try:
+        drop_table = _json.loads(drop_table_json)
+    except _json.JSONDecodeError as err:
+        raise HTTPException(status_code=400, detail="drop_table JSON이 올바르지 않습니다") from err
+
+    data = {
+        "display_name": display_name.strip(),
+        "description": description.strip() or None,
+        "cost_per_pull": cost_per_pull,
+        "cost_per_10_pull": cost_per_10_pull,
+        "drop_table": drop_table,
+        "pity_threshold": int(pity_threshold) if pity_threshold.strip() else None,
+        "status": status_val,
+        "is_listed": is_listed == "1",
+        "sort_order": int(sort_order) if sort_order.strip() else None,
+    }
+    try:
+        await engine_client.admin_update_gacha_definition(gacha_code, data)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Engine 오류: {e}") from e
+
+    return RedirectResponse(url=f"/admin/sre/gacha/{gacha_code}/edit?flash=saved", status_code=302)
+
+
+@router.get("/sre/shop", include_in_schema=False)
+async def admin_sre_shop_list(
+    q: str = "",
+    rarity: str = "",
+    collection: str = "",
+    visible: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        items = await engine_client.admin_get_shop_items()
+    except Exception:
+        items = []
+
+    if q:
+        items = [
+            x
+            for x in items
+            if q.lower() in x.get("item_code", "").lower() or q.lower() in x.get("display_name", "").lower()
+        ]
+    if rarity:
+        items = [x for x in items if x.get("rarity") == rarity]
+    if collection:
+        items = [x for x in items if x.get("collection_code") == collection]
+    if visible in ("0", "1"):
+        flag = visible == "1"
+        items = [x for x in items if x.get("is_shop_visible") is flag]
+
+    def _shop_row(i: dict) -> str:
+        code = h(i.get("item_code", ""))
+        vis = i.get("is_shop_visible", True)
+        locked = i.get("season_lock", False)
+        vis_pill = '<span class="pill on">노출</span>' if vis else '<span class="pill off">숨김</span>'
+        lock_pill = '<span class="pill warn">시즌잠금</span>' if locked else "—"
+        vis_sel_1 = "selected" if vis else ""
+        vis_sel_0 = "" if vis else "selected"
+        gp = i.get("shop_price_gp") or ""
+        gc = i.get("shop_price_gc") or ""
+        return (
+            f"<tr>"
+            f"<td style='font-size:11px;font-family:monospace;'>{code}</td>"
+            f"<td>{h(i.get('display_name', ''))}</td>"
+            f"<td>{h(i.get('rarity', ''))}</td>"
+            f"<td>{h(i.get('collection_code', ''))}</td>"
+            f"<td>{gp or '—'} / {gc or '—'}</td>"
+            f"<td>{vis_pill}</td>"
+            f"<td>{lock_pill}</td>"
+            f"<td>"
+            f'<form method="post" action="/admin/sre/shop/{code}/edit" style="display:flex;gap:6px;align-items:center;">'
+            f'<input type="hidden" name="shop_price_gp" value="{gp}" />'
+            f'<input type="hidden" name="shop_price_gc" value="{gc}" />'
+            f'<select name="is_shop_visible" style="padding:4px 8px;font-size:12px;">'
+            f'<option value="1" {vis_sel_1}>노출</option>'
+            f'<option value="0" {vis_sel_0}>숨김</option>'
+            f"</select>"
+            f'<button type="submit" class="btn btn-ghost btn-sm">저장</button>'
+            f"</form>"
+            f"</td>"
+            f"</tr>"
+        )
+
+    rows = (
+        "".join(_shop_row(i) for i in items)
+        or '<tr><td colspan="8" class="empty">아이템 없음 (Engine DB 마이그레이션 필요)</td></tr>'
+    )
+
+    return _render_page(
+        "sre_shop_list.html",
+        nav="sre",
+        page_title="상점 관리",
+        session=session,
+        rows=rows,
+        total=str(len(items)),
+        q=h(q),
+        rarity=h(rarity),
+        collection=h(collection),
+        sel_visible_1="selected" if visible == "1" else "",
+        sel_visible_0="selected" if visible == "0" else "",
+    )
+
+
+@router.post("/sre/shop/{item_code}/edit", include_in_schema=False)
+async def admin_sre_shop_item_update(
+    item_code: str,
+    session: AdminSession = Depends(verify_admin_session),
+    shop_price_gp: str = Form(""),
+    shop_price_gc: str = Form(""),
+    is_shop_visible: str = Form("1"),
+    season_lock: str = Form("0"),
+    required_season_code: str = Form(""),
+):
+    data = {
+        "shop_price_gp": int(shop_price_gp) if shop_price_gp.strip() else None,
+        "shop_price_gc": int(shop_price_gc) if shop_price_gc.strip() else None,
+        "is_shop_visible": is_shop_visible == "1",
+        "season_lock": season_lock == "1",
+        "required_season_code": required_season_code.strip() or None,
+    }
+    try:
+        await engine_client.admin_update_shop_item(item_code, data)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Engine 오류: {e}") from e
+    return RedirectResponse(url="/admin/sre/shop", status_code=302)
+
+
+@router.get("/sre/daily-featured", include_in_schema=False)
+async def admin_sre_daily_featured(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+):
+    history, shop_items = [], []
+    with contextlib.suppress(Exception):
+        history = await engine_client.admin_get_daily_featured_history()
+    with contextlib.suppress(Exception):
+        shop_items = await engine_client.admin_get_shop_items()
+
+    rows = (
+        "".join(
+            f"<tr>"
+            f"<td>{h(r.get('featured_date', ''))}</td>"
+            f"<td style='font-size:12px;font-family:monospace;'>{h(r.get('item_code', ''))}</td>"
+            f"<td>{h(r.get('item_name', ''))}</td>"
+            f"<td>{r.get('discount_pct', 0)}%</td>"
+            f"<td>{r.get('sort_order', 0)}</td>"
+            f"<td><button type='button' onclick=\"reuseItem('{h(r.get('item_code', ''))}')\" "
+            f"style='font-size:11px;padding:2px 8px;background:rgba(255,128,85,.2);border:1px solid rgba(255,128,85,.4);border-radius:4px;color:#ff8055;cursor:pointer;'>재등록</button></td>"
+            f"</tr>"
+            for r in history
+        )
+        or '<tr><td colspan="6" class="empty">이력 없음</td></tr>'
+    )
+
+    rarity_order = {"C": 0, "R": 1, "E": 2, "L": 3, "M": 4}
+    shop_items_sorted = sorted(
+        shop_items,
+        key=lambda x: (x.get("slot", ""), rarity_order.get(x.get("rarity", "C"), 0)),
+    )
+    item_options = "".join(
+        f'<option value="{h(i.get("item_code", ""))}">'
+        f"[{h(i.get('rarity', ''))}] {h(i.get('display_name') or i.get('item_name', ''))} "
+        f"({h(i.get('slot', ''))}) — {i.get('shop_price_gp') or i.get('price_gp', '?')} GOLD"
+        f"</option>"
+        for i in shop_items_sorted
+    )
+
+    flash_html = ""
+    if flash == "refreshed":
+        flash_html = _flash_card("일일 추천이 갱신되었습니다.", ok=True)
+
+    from datetime import date as _date
+
+    today_str = str(_date.today())
+
+    return _render_page(
+        "sre_daily_featured.html",
+        nav="sre",
+        page_title="일일 추천 관리",
+        session=session,
+        rows=rows,
+        flash=flash_html,
+        today=today_str,
+        item_options=item_options,
+    )
+
+
+@router.post("/sre/daily-featured/refresh", include_in_schema=False)
+async def admin_sre_daily_featured_refresh(
+    session: AdminSession = Depends(verify_admin_session),
+    refresh_date: str = Form(...),
+    item_codes: str = Form(""),
+    discount_pct: int = Form(30),
+):
+    codes = [c.strip() for c in item_codes.split(",") if c.strip()]
+    items = [{"item_code": code, "discount_pct": discount_pct, "sort_order": idx} for idx, code in enumerate(codes)]
+    try:
+        await engine_client.admin_refresh_daily_featured(refresh_date, items)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Engine 오류: {e}") from e
+    return RedirectResponse(url="/admin/sre/daily-featured?flash=refreshed", status_code=302)
+
+
 @router.post("/settings/service-config", include_in_schema=False)
 async def admin_settings_service_config(
     session: AdminSession = Depends(verify_admin_session),
@@ -1521,3 +1962,662 @@ async def admin_settings_service_config(
 
     await db.commit()
     return RedirectResponse(url="/admin/settings?flash=config_saved", status_code=302)
+
+
+# ── SRE: 아이템 정의 관리 ────────────────────────────────────────────
+
+_ITEM_SLOTS = [
+    "HELMET",
+    "JACKET",
+    "GLOVES",
+    "BOOTS",
+    "EYEWEAR",
+    "NAMEPLATE",
+    "BODY_PAINT",
+    "WHEEL",
+    "EXHAUST",
+    "HEADLIGHT",
+    "MIRROR",
+    "DECAL",
+    "NUMBER",
+    "FRAME",
+    "BACKDROP",
+    "TITLE",
+    "TRAIL",
+    "HORN",
+    "START_ANIM",
+]
+_ITEM_RARITIES = ["C", "R", "E", "L", "M"]
+_RARITY_LABEL = {"C": "Common", "R": "Rare", "E": "Epic", "L": "Legendary", "M": "Mythic"}
+
+
+@router.get("/sre/items", include_in_schema=False)
+async def admin_sre_items_list(
+    q: str = "",
+    slot: str = "",
+    rarity: str = "",
+    collection: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        items = await engine_client.admin_get_items()
+    except Exception:
+        items = []
+
+    if q:
+        ql = q.lower()
+        items = [x for x in items if ql in x.get("item_code", "").lower() or ql in x.get("display_name", "").lower()]
+    if slot:
+        items = [x for x in items if x.get("slot") == slot]
+    if rarity:
+        items = [x for x in items if x.get("rarity") == rarity]
+    if collection:
+        items = [x for x in items if x.get("collection_code") == collection]
+
+    def _rarity_pill(r: str) -> str:
+        colors = {"C": "#94a3b8", "R": "#60a5fa", "E": "#a78bfa", "L": "#fbbf24", "M": "#f87171"}
+        label = _RARITY_LABEL.get(r, r)
+        color = colors.get(r, "#fff")
+        return f'<span style="font-size:11px;font-weight:700;color:{color};">{label}</span>'
+
+    def _row(i: dict) -> str:
+        code = h(i.get("item_code", ""))
+        vis = i.get("is_shop_visible", False)
+        gp = i.get("shop_price_gp") or "—"
+        gc = i.get("shop_price_gc") or "—"
+        vis_pill = '<span class="pill on">노출</span>' if vis else '<span class="pill off">숨김</span>'
+        return (
+            f"<tr>"
+            f"<td style='font-size:11px;font-family:monospace;'>{code}</td>"
+            f"<td>{h(i.get('display_name', ''))}</td>"
+            f"<td>{_rarity_pill(i.get('rarity', ''))}</td>"
+            f"<td>{h(i.get('slot', ''))}</td>"
+            f"<td style='font-size:11px;'>{h(i.get('collection_code', '') or '—')}</td>"
+            f"<td>{gp} / {gc}</td>"
+            f"<td>{vis_pill}</td>"
+            f"<td style='white-space:nowrap;'>"
+            f"<a href='/admin/sre/items/{code}/edit' class='btn btn-ghost btn-sm'>수정</a>"
+            f"&nbsp;"
+            f"<form method='post' action='/admin/sre/items/{code}/delete' style='display:inline;' "
+            f"onsubmit=\"return confirm('아이템 [{code}]을 삭제할까요?\\n보유 유저가 있으면 삭제되지 않습니다.')\">"
+            f"<button type='submit' class='btn btn-danger btn-sm'>삭제</button>"
+            f"</form>"
+            f"</td>"
+            f"</tr>"
+        )
+
+    slot_options = "".join(f'<option value="{s}" {"selected" if slot == s else ""}>{s}</option>' for s in _ITEM_SLOTS)
+    rarity_options = "".join(
+        f'<option value="{r}" {"selected" if rarity == r else ""}>{_RARITY_LABEL[r]} ({r})</option>'
+        for r in _ITEM_RARITIES
+    )
+    rows = "".join(_row(i) for i in items) or '<tr><td colspan="8" class="empty">아이템 없음</td></tr>'
+
+    return _render_page(
+        "sre_items_list.html",
+        nav="items",
+        page_title="아이템 관리",
+        session=session,
+        rows=rows,
+        total=str(len(items)),
+        q=h(q),
+        slot_options=slot_options,
+        rarity_options=rarity_options,
+        collection=h(collection),
+    )
+
+
+def _item_form_html(*, item: dict | None = None, error: str = "") -> str:
+    """신규/수정 공용 폼 HTML 조각."""
+    is_edit = item is not None
+    i = item or {}
+    code = h(i.get("item_code", ""))
+    name = h(i.get("display_name", ""))
+    curr_slot = i.get("slot", "")
+    curr_rarity = i.get("rarity", "C")
+    coll = h(i.get("collection_code", "") or "")
+    asset = h(i.get("asset_uri", "") or "")
+    gp = i.get("shop_price_gp", "") or ""
+    gc = i.get("shop_price_gc", "") or ""
+    vis_yes = "selected" if i.get("is_shop_visible") else ""
+    vis_no = "" if i.get("is_shop_visible") else "selected"
+    lock_yes = "selected" if i.get("season_lock") else ""
+    lock_no = "" if i.get("season_lock") else "selected"
+    season_code = h(i.get("required_season_code", "") or "")
+
+    slot_opts = "".join(f'<option value="{s}" {"selected" if s == curr_slot else ""}>{s}</option>' for s in _ITEM_SLOTS)
+    rarity_opts = "".join(
+        f'<option value="{r}" {"selected" if r == curr_rarity else ""}>{_RARITY_LABEL[r]} ({r})</option>'
+        for r in _ITEM_RARITIES
+    )
+    error_html = (
+        f'<div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;color:#fc8181;">{h(error)}</div>'
+        if error
+        else ""
+    )
+    code_field = (
+        f'<div class="field"><label class="field-label">아이템 코드</label>'
+        f'<div style="font-family:monospace;font-size:15px;color:#fff;padding:10px 0;">{code}</div>'
+        f'<input type="hidden" name="item_code" value="{code}" /></div>'
+        if is_edit
+        else f'<div class="field"><label class="field-label">아이템 코드 <span style="color:#f87171;">*</span></label>'
+        f'<input type="text" name="item_code" value="{code}" placeholder="HELMET_STREET_CLASSIC_C_01" required style="width:100%;font-family:monospace;" /></div>'
+    )
+    action = f"/admin/sre/items/{code}/edit" if is_edit else "/admin/sre/items/new"
+    submit_label = "저장" if is_edit else "아이템 등록"
+
+    return f"""
+{error_html}
+<form method="post" action="{action}">
+  {code_field}
+  <div class="field">
+    <label class="field-label">표시 이름 <span style="color:#f87171;">*</span></label>
+    <input type="text" name="display_name" value="{name}" placeholder="Matte Street Helmet" required style="width:100%;" />
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label class="field-label">슬롯</label>
+      <select name="slot" style="width:100%;">{slot_opts}</select>
+    </div>
+    <div class="field">
+      <label class="field-label">등급 (Rarity)</label>
+      <select name="rarity" style="width:100%;">{rarity_opts}</select>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label class="field-label">컬렉션 코드</label>
+      <input type="text" name="collection_code" value="{coll}" placeholder="STREET_CLASSICS" style="width:100%;font-family:monospace;" />
+    </div>
+    <div class="field">
+      <label class="field-label">Asset URI</label>
+      <input type="text" name="asset_uri" value="{asset}" placeholder="items/helmet_street_classic_c_01.svg" style="width:100%;" />
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label class="field-label">GOLD 가격</label>
+      <input type="number" name="shop_price_gp" value="{gp}" placeholder="0" min="0" style="width:100%;" />
+    </div>
+    <div class="field">
+      <label class="field-label">XP 가격</label>
+      <input type="number" name="shop_price_gc" value="{gc}" placeholder="0" min="0" style="width:100%;" />
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label class="field-label">상점 노출</label>
+      <select name="is_shop_visible" style="width:100%;">
+        <option value="1" {vis_yes}>노출</option>
+        <option value="0" {vis_no}>숨김</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label">시즌 잠금</label>
+      <select name="season_lock" style="width:100%;">
+        <option value="0" {lock_no}>없음</option>
+        <option value="1" {lock_yes}>시즌 잠금</option>
+      </select>
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">시즌 코드 (시즌 잠금 시)</label>
+    <input type="text" name="required_season_code" value="{season_code}" placeholder="SEASON_2026_Q2" style="width:100%;font-family:monospace;" />
+  </div>
+  <div style="display:flex;gap:12px;margin-top:8px;">
+    <button type="submit" class="btn">{submit_label}</button>
+    <a href="/admin/sre/items" class="btn btn-ghost">취소</a>
+  </div>
+</form>
+"""
+
+
+@router.get("/sre/items/new", include_in_schema=False)
+async def admin_sre_items_new_form(session: AdminSession = Depends(verify_admin_session)):
+    return _render_page(
+        "sre_items_form.html",
+        nav="items",
+        page_title="아이템 등록",
+        session=session,
+        breadcrumb_label="아이템 관리",
+        form_title="새 아이템 등록",
+        form_html=_item_form_html(),
+    )
+
+
+@router.post("/sre/items/new", include_in_schema=False)
+async def admin_sre_items_create(
+    session: AdminSession = Depends(verify_admin_session),
+    item_code: str = Form(...),
+    display_name: str = Form(...),
+    slot: str = Form(...),
+    rarity: str = Form("C"),
+    collection_code: str = Form(""),
+    asset_uri: str = Form(""),
+    shop_price_gp: str = Form(""),
+    shop_price_gc: str = Form(""),
+    is_shop_visible: str = Form("0"),
+    season_lock: str = Form("0"),
+    required_season_code: str = Form(""),
+):
+    data = {
+        "item_code": item_code.strip(),
+        "display_name": display_name.strip(),
+        "slot": slot,
+        "rarity": rarity,
+        "collection_code": collection_code.strip() or None,
+        "asset_uri": asset_uri.strip() or None,
+        "shop_price_gp": int(shop_price_gp) if shop_price_gp.strip() else None,
+        "shop_price_gc": int(shop_price_gc) if shop_price_gc.strip() else None,
+        "is_shop_visible": is_shop_visible == "1",
+        "season_lock": season_lock == "1",
+        "required_season_code": required_season_code.strip() or None,
+    }
+    try:
+        await engine_client.admin_create_item(data)
+    except Exception as e:
+        error_msg = str(e)
+        if "409" in error_msg or "already exists" in error_msg.lower():
+            error_msg = f"아이템 코드 [{item_code}] 이미 존재합니다."
+        form_html = _item_form_html(
+            item={"item_code": item_code, "display_name": display_name, **data}, error=error_msg
+        )
+        return _render_page(
+            "sre_items_form.html",
+            nav="items",
+            page_title="아이템 등록",
+            session=session,
+            breadcrumb_label="아이템 관리",
+            form_title="새 아이템 등록",
+            form_html=form_html,
+        )
+    return RedirectResponse(url="/admin/sre/items", status_code=302)
+
+
+@router.get("/sre/items/{item_code}/edit", include_in_schema=False)
+async def admin_sre_items_edit_form(
+    item_code: str,
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        item = await engine_client.admin_get_item(item_code)
+    except Exception as err:
+        raise HTTPException(status_code=404, detail="Item not found") from err
+    return _render_page(
+        "sre_items_form.html",
+        nav="items",
+        page_title="아이템 수정",
+        session=session,
+        breadcrumb_label="아이템 관리",
+        form_title=f"수정 — {h(item.get('display_name', item_code))}",
+        form_html=_item_form_html(item=item),
+    )
+
+
+@router.post("/sre/items/{item_code}/edit", include_in_schema=False)
+async def admin_sre_items_update(
+    item_code: str,
+    session: AdminSession = Depends(verify_admin_session),
+    display_name: str = Form(...),
+    slot: str = Form(...),
+    rarity: str = Form("C"),
+    collection_code: str = Form(""),
+    asset_uri: str = Form(""),
+    shop_price_gp: str = Form(""),
+    shop_price_gc: str = Form(""),
+    is_shop_visible: str = Form("0"),
+    season_lock: str = Form("0"),
+    required_season_code: str = Form(""),
+):
+    data = {
+        "display_name": display_name.strip(),
+        "slot": slot,
+        "rarity": rarity,
+        "collection_code": collection_code.strip() or None,
+        "asset_uri": asset_uri.strip() or None,
+        "shop_price_gp": int(shop_price_gp) if shop_price_gp.strip() else None,
+        "shop_price_gc": int(shop_price_gc) if shop_price_gc.strip() else None,
+        "is_shop_visible": is_shop_visible == "1",
+        "season_lock": season_lock == "1",
+        "required_season_code": required_season_code.strip() or None,
+    }
+    try:
+        await engine_client.admin_update_item(item_code, data)
+    except Exception as e:
+        item = {"item_code": item_code, "display_name": display_name, **data}
+        form_html = _item_form_html(item=item, error=str(e))
+        return _render_page(
+            "sre_items_form.html",
+            nav="items",
+            page_title="아이템 수정",
+            session=session,
+            breadcrumb_label="아이템 관리",
+            form_title=f"수정 — {h(display_name)}",
+            form_html=form_html,
+        )
+    return RedirectResponse(url="/admin/sre/items", status_code=302)
+
+
+@router.post("/sre/items/{item_code}/delete", include_in_schema=False)
+async def admin_sre_items_delete(
+    item_code: str,
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        await engine_client.admin_delete_item(item_code)
+    except Exception as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return RedirectResponse(url="/admin/sre/items", status_code=302)
+
+
+# ══════════════════════════════════════════════════════════════════
+# 배지 관리
+# ══════════════════════════════════════════════════════════════════
+
+_BADGE_METRICS = [
+    ("QUEST_CLEAR_COUNT", "퀘스트 클리어 횟수"),
+    ("DISTANCE_TOTAL_KM", "누적 주행 거리 (km)"),
+    ("STREAK_DAYS", "연속 라이딩 일수"),
+    ("SAFETY_GRADE_A_COUNT", "안전등급 A 횟수"),
+    ("LEVEL", "유저 레벨"),
+    ("RIDE_COUNT", "총 라이딩 횟수"),
+]
+
+_BADGE_OPS = [">=", ">", "==", "<=", "<"]
+
+
+def _badge_table_rows(badges: list) -> str:
+    if not badges:
+        return '<tr><td colspan="6" class="empty">등록된 배지가 없습니다</td></tr>'
+    rows = []
+    for b in badges:
+        icon = ""
+        if b.icon_content and b.icon_content.file_path:
+            icon = f'<img src="{h(build_imgproxy_url(b.icon_content.file_path, w=48, h=48))}" class="avatar" alt="">'
+        elif b.icon_url:
+            icon = f'<span style="font-size:24px">{h(b.icon_url)}</span>'
+        name = h(b.name_ko or b.name or "")
+        cond = ""
+        if b.condition_rule:
+            parts = []
+            for c in b.condition_rule.get("conditions", []):
+                parts.append(f"{c.get('metric', '')} {c.get('op', '>=')} {c.get('value', '')}")
+            op = b.condition_rule.get("operator", "AND")
+            cond = f' <span style="color:rgba(255,255,255,.3)">{op}</span> '.join(parts)
+        elif b.condition_type:
+            cond = f"{b.condition_type} ≥ {b.condition_value or 0}"
+        active = '<span class="pill on">ON</span>' if b.is_active else '<span class="pill off">OFF</span>'
+        rows.append(
+            f"<tr>"
+            f"<td>{icon}</td>"
+            f"<td>{name}</td>"
+            f'<td style="font-size:11px;color:rgba(255,255,255,.5)">{cond}</td>'
+            f"<td>{active}</td>"
+            f"<td>{b.created_at.strftime('%Y-%m-%d') if b.created_at else ''}</td>"
+            f'<td><a href="/admin/badges/{b.id}/edit" class="btn btn-ghost btn-sm">수정</a></td>'
+            f"</tr>"
+        )
+    return "\n".join(rows)
+
+
+def _badge_form_html(badge: dict | None = None, error: str = "") -> str:
+    b = badge or {}
+    bid = b.get("id", "")
+    err_html = f'<div style="color:#fc8181;margin-bottom:16px;font-size:13px">{h(error)}</div>' if error else ""
+
+    conditions_json = "[]"
+    rule = b.get("condition_rule")
+    if rule and isinstance(rule, dict):
+        import json
+
+        conditions_json = json.dumps(rule.get("conditions", []))
+    rule_operator = (rule or {}).get("operator", "AND") if isinstance(rule, dict) else "AND"
+
+    return f"""
+    {err_html}
+    <input type="hidden" name="badge_id" value="{h(str(bid))}">
+    <div class="field">
+      <label class="field-label">이름 (기본)</label>
+      <input type="text" name="name" value="{h(b.get("name", ""))}" style="width:100%" required>
+    </div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">이름 (KO)</label><input type="text" name="name_ko" value="{h(b.get("name_ko", ""))}" style="width:100%"></div>
+      <div class="field"><label class="field-label">이름 (VI)</label><input type="text" name="name_vi" value="{h(b.get("name_vi", ""))}" style="width:100%"></div>
+    </div>
+    <div class="field">
+      <label class="field-label">이름 (EN)</label>
+      <input type="text" name="name_en" value="{h(b.get("name_en", ""))}" style="width:100%">
+    </div>
+    <div class="field">
+      <label class="field-label">설명 (KO)</label>
+      <textarea name="description_ko" style="width:100%">{h(b.get("description_ko", ""))}</textarea>
+    </div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">설명 (VI)</label><textarea name="description_vi" style="width:100%">{h(b.get("description_vi", ""))}</textarea></div>
+      <div class="field"><label class="field-label">설명 (EN)</label><textarea name="description_en" style="width:100%">{h(b.get("description_en", ""))}</textarea></div>
+    </div>
+    <div class="field">
+      <label class="field-label">아이콘 (이모지 또는 URL)</label>
+      <input type="text" name="icon_url" value="{h(b.get("icon_url", ""))}" style="width:100%" placeholder="🏍 또는 https://...">
+    </div>
+    <div class="field">
+      <label class="field-label">활성 상태</label>
+      <select name="is_active" style="width:100%">
+        <option value="1" {"selected" if b.get("is_active", True) else ""}>활성 (ON)</option>
+        <option value="0" {"selected" if not b.get("is_active", True) else ""}>비활성 (OFF)</option>
+      </select>
+    </div>
+    <div class="field" style="border-top:1px solid rgba(255,255,255,.08);padding-top:18px;margin-top:8px">
+      <label class="field-label">습득 조건 (Condition Rule Builder)</label>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;color:rgba(255,255,255,.5)">조건 결합</label>
+        <select name="rule_operator" id="ruleOp" style="margin-left:8px">
+          <option value="AND" {"selected" if rule_operator == "AND" else ""}>AND (모두 충족)</option>
+          <option value="OR" {"selected" if rule_operator == "OR" else ""}>OR (하나라도 충족)</option>
+        </select>
+      </div>
+      <div id="condList"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addCond()" style="margin-top:8px">+ 조건 추가</button>
+      <input type="hidden" name="condition_rule_json" id="condRuleJson">
+    </div>
+    <script>
+    const metrics = [{",".join(f'["{code}","{label}"]' for code, label in _BADGE_METRICS)}];
+    const ops = {_BADGE_OPS};
+    let conds = {conditions_json};
+    function renderConds() {{
+      const el = document.getElementById('condList');
+      el.innerHTML = '';
+      conds.forEach((c, i) => {{
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+        row.innerHTML = `
+          <select onchange="conds[${{i}}].metric=this.value;syncRule()" style="flex:2">
+            ${{metrics.map(([k,l])=>`<option value="${{k}}" ${{c.metric===k?'selected':''}}>${{l}}</option>`).join('')}}
+          </select>
+          <select onchange="conds[${{i}}].op=this.value;syncRule()" style="width:60px">
+            ${{ops.map(o=>`<option value="${{o}}" ${{c.op===o?'selected':''}}>${{o}}</option>`).join('')}}
+          </select>
+          <input type="number" value="${{c.value||0}}" onchange="conds[${{i}}].value=+this.value;syncRule()" style="width:80px">
+          <button type="button" onclick="conds.splice(${{i}},1);renderConds();syncRule()" style="background:none;color:#fc8181;font-size:18px;cursor:pointer">&times;</button>
+        `;
+        el.appendChild(row);
+      }});
+      syncRule();
+    }}
+    function addCond() {{
+      conds.push({{metric:metrics[0][0],op:'>=',value:1}});
+      renderConds();
+    }}
+    function syncRule() {{
+      const op = document.getElementById('ruleOp').value;
+      document.getElementById('condRuleJson').value = JSON.stringify({{operator:op,conditions:conds}});
+    }}
+    document.getElementById('ruleOp').addEventListener('change', syncRule);
+    renderConds();
+    </script>
+    """
+
+
+@router.get("/badges", include_in_schema=False)
+async def admin_badge_list(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Badge).order_by(Badge.created_at.desc()))
+    badges = result.scalars().all()
+    earned_counts: dict[uuid.UUID, int] = {}
+    for b in badges:
+        cnt_result = await db.execute(select(func.count()).where(UserBadge.badge_id == b.id))
+        earned_counts[b.id] = cnt_result.scalar_one()
+    return _render_page(
+        "admin_badges_list.html",
+        nav="badges",
+        page_title="배지 관리",
+        session=session,
+        table_rows=_badge_table_rows(badges),
+        total_count=str(len(badges)),
+    )
+
+
+@router.get("/badges/new", include_in_schema=False)
+async def admin_badge_new(session: AdminSession = Depends(verify_admin_session)):
+    return _render_page(
+        "admin_badges_form.html",
+        nav="badges",
+        page_title="배지 등록",
+        session=session,
+        breadcrumb_label="배지 관리",
+        form_title="새 배지 등록",
+        form_html=_badge_form_html(),
+    )
+
+
+@router.post("/badges/new", include_in_schema=False)
+async def admin_badge_create(
+    session: AdminSession = Depends(verify_admin_session),
+    name: str = Form(...),
+    name_ko: str = Form(""),
+    name_vi: str = Form(""),
+    name_en: str = Form(""),
+    description_ko: str = Form(""),
+    description_vi: str = Form(""),
+    description_en: str = Form(""),
+    icon_url: str = Form(""),
+    is_active: str = Form("1"),
+    condition_rule_json: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    import json
+
+    rule = None
+    if condition_rule_json.strip():
+        with contextlib.suppress(json.JSONDecodeError):
+            parsed = json.loads(condition_rule_json)
+            if parsed.get("conditions"):
+                rule = parsed
+
+    badge = Badge(
+        name=name.strip(),
+        name_ko=name_ko.strip() or None,
+        name_vi=name_vi.strip() or None,
+        name_en=name_en.strip() or None,
+        description_ko=description_ko.strip() or None,
+        description_vi=description_vi.strip() or None,
+        description_en=description_en.strip() or None,
+        icon_url=icon_url.strip() or None,
+        is_active=is_active == "1",
+        condition_rule=rule,
+    )
+    db.add(badge)
+    await db.commit()
+    return RedirectResponse(url="/admin/badges", status_code=302)
+
+
+@router.get("/badges/{badge_id}/edit", include_in_schema=False)
+async def admin_badge_edit(
+    badge_id: uuid.UUID,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    badge = await db.get(Badge, badge_id)
+    if not badge:
+        raise HTTPException(status_code=404, detail="Badge not found")
+    data = {
+        "id": badge.id,
+        "name": badge.name,
+        "name_ko": badge.name_ko or "",
+        "name_vi": badge.name_vi or "",
+        "name_en": badge.name_en or "",
+        "description_ko": badge.description_ko or "",
+        "description_vi": badge.description_vi or "",
+        "description_en": badge.description_en or "",
+        "icon_url": badge.icon_url or "",
+        "is_active": badge.is_active,
+        "condition_rule": badge.condition_rule,
+    }
+    return _render_page(
+        "admin_badges_form.html",
+        nav="badges",
+        page_title="배지 수정",
+        session=session,
+        breadcrumb_label="배지 관리",
+        form_title=f"수정 — {h(badge.name_ko or badge.name)}",
+        form_html=_badge_form_html(data),
+    )
+
+
+@router.post("/badges/{badge_id}/edit", include_in_schema=False)
+async def admin_badge_update(
+    badge_id: uuid.UUID,
+    session: AdminSession = Depends(verify_admin_session),
+    name: str = Form(...),
+    name_ko: str = Form(""),
+    name_vi: str = Form(""),
+    name_en: str = Form(""),
+    description_ko: str = Form(""),
+    description_vi: str = Form(""),
+    description_en: str = Form(""),
+    icon_url: str = Form(""),
+    is_active: str = Form("1"),
+    condition_rule_json: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    import json
+
+    badge = await db.get(Badge, badge_id)
+    if not badge:
+        raise HTTPException(status_code=404, detail="Badge not found")
+
+    rule = None
+    if condition_rule_json.strip():
+        with contextlib.suppress(json.JSONDecodeError):
+            parsed = json.loads(condition_rule_json)
+            if parsed.get("conditions"):
+                rule = parsed
+
+    badge.name = name.strip()
+    badge.name_ko = name_ko.strip() or None
+    badge.name_vi = name_vi.strip() or None
+    badge.name_en = name_en.strip() or None
+    badge.description_ko = description_ko.strip() or None
+    badge.description_vi = description_vi.strip() or None
+    badge.description_en = description_en.strip() or None
+    badge.icon_url = icon_url.strip() or None
+    badge.is_active = is_active == "1"
+    badge.condition_rule = rule
+    await db.commit()
+    return RedirectResponse(url="/admin/badges", status_code=302)
+
+
+@router.post("/badges/{badge_id}/delete", include_in_schema=False)
+async def admin_badge_delete(
+    badge_id: uuid.UUID,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    badge = await db.get(Badge, badge_id)
+    if not badge:
+        raise HTTPException(status_code=404, detail="Badge not found")
+    await db.delete(badge)
+    await db.commit()
+    return RedirectResponse(url="/admin/badges", status_code=302)

@@ -1,34 +1,80 @@
 # ERD — Saigon Rider DB 스키마
 
-> **파일 위치**: `database/init/001_init_schema.sql` ~ `005_app_config.sql`  
+> **파일 위치**: `database/init/001_init_schema.sql` ~ `032_badge_condition_rule.sql`  
 > **DBMS**: PostgreSQL 15 + PostGIS 3.3 (Docker: `postgis/postgis:15-3.3`)  
-> **마지막 갱신**: 2026-05-15 (005_app_config 추가)
+> **마지막 갱신**: 2026-05-19 (032_badge_condition_rule 추가)
 
 ---
 
 ## 테이블 목록
 
+### 기본 테이블 (001~005)
+
 | 테이블 | 설명 | 추가 파일 | 관련 기능 |
 |---|---|---|---|
-| `users` | 라이더 계정 및 재화(EXP/XP/Gold/SkillPt) | 001 | F-03, F-10 |
+| `users` | 라이더 계정 및 재화(EXP/XP/Gold/SkillPt) + `avatar_content_id` FK | 001, 003 | F-03, F-10 |
 | `user_otp` | 휴대폰 OTP 인증 이력 | 001 | F-02 |
-| `contents` | 업로드 파일 메타데이터 (imgproxy 연동) | 002 | F-09-8, F-10-9 |
-| `quests` | 퀘스트 마스터 (일/주간/이벤트) | 001 | F-05, F-06 |
+| `contents` | 업로드 파일 메타데이터 (imgproxy 연동, owner_type: user/system/mock/profile_mock) | 002, 013, 018 | F-09-8, F-10-9, F-12 |
+| `quests` | 퀘스트 마스터 (일/주간/이벤트) + `thumbnail_content_id` FK | 001, 007 | F-05, F-06 |
 | `quest_pins` | 퀘스트 지도 핀 위치 (PostGIS POINT) | 001 | F-04-6 |
-| `user_quests` | 유저별 퀘스트 수행 이력 및 상태 | 001 | F-06-5 |
+| `user_quests` | 유저별 퀘스트 수행 이력 및 상태 + `period_key` 중복 방지 | 001, 006 | F-06-5 |
 | `ride_sessions` | 라이딩 결과 (거리/시간/보상/안전등급) | 001 | F-07, F-08 |
 | `ride_gps_points` | GPS 트랙 좌표 이력 (PostGIS POINT) | 001 | F-07-1 |
 | `ride_streaks` | 연속 라이딩 스트릭 | 001 | F-07-8 |
 | `bookmarks` | 퀘스트 북마크 | 001 | F-06-2 |
-| `feed_posts` | 소셜 피드 포스트 (스토리 포함) | 001 | F-09 |
+| `feed_posts` | 소셜 피드 포스트 (스토리 포함) + `image_content_id` FK + 위치(lat/lng/district_id) | 001, 017, 020 | F-09 |
+| `feed_post_images` | 피드 다중 이미지 (post_id + content_id + sort_order) | 024 | F-09 |
 | `post_likes` | 피드 게시물 좋아요 | 001 | F-09-4 |
 | `post_comments` | 댓글 & 대댓글 (자기 참조, like_count 포함) | 001+004 | F-09-6, F-09-7 |
 | `post_comment_likes` | 댓글 좋아요 | 004 | F-09-6c |
-| `badges` | 배지 마스터 | 001 | F-10-8 |
+| `badges` | 배지 마스터 + `condition_rule` JSONB + 다국어(ko/vi/en) + `icon_content_id` + `is_active` | 001, 032 | F-10-8 |
 | `user_badges` | 유저 배지 획득 이력 | 001 | F-10-8 |
 | `notifications` | 알림 메시지 | 001 | F-04-4 |
 | `notification_settings` | 알림 수신 설정 (5종) | 001 | F-11-5 |
-| `app_config` | API 키 및 앱 설정 Key-Value 스토어 | 005 | 시스템 설정 |
+| `app_config` | 앱 설정 Key-Value 스토어 (group_name + key) | 005, 030, 031 | 시스템 설정 |
+
+### 마스터 데이터 (008~016)
+
+| 테이블 | 설명 | 추가 파일 |
+|---|---|---|
+| `districts` | HCM 17개 구역 + `image_content_id` FK | 008, 011 |
+| `rider_types` | 라이더 타입 (출퇴근러, 카페헌터 등) | 010 |
+| `safety_grades` | 안전등급 (A/B/C) | 010 |
+
+### 소셜 기능 (020~024)
+
+| 테이블 | 설명 | 추가 파일 | 관련 기능 |
+|---|---|---|---|
+| `user_follows` | 팔로우 관계 (follower_id + following_id PK) | 021 | 프로필 |
+| `dm_conversations` | DM 대화방 (user_a/user_b, last_message_at) | 022 | DM |
+| `dm_messages` | DM 메시지 (conversation_id, sender_id, read_at) | 023 | DM |
+
+### 시스템/관리 (025~032)
+
+| 테이블 | 설명 | 추가 파일 |
+|---|---|---|
+| `__DEV_context` | 개발 진행 상태 KV 저장소 + status 이모지 | 025, 026, 027 |
+| `__DEV_features` | 기능 단위 진행 상태 (PLANNED→IN_PROGRESS→DONE/DEFERRED) | 025, 026 |
+| `__DEV_todos` | 할일 단위 (TODO→IN_PROGRESS→DONE/BLOCKED) | 025, 026 |
+| `nickname_words` | 기본 닉네임 생성용 단어풀 (adjective/noun) | 028 |
+| `app_versions` | 앱 버전 트리 (primary→ios/android, force_update) | 029 |
+
+### Engine 전용 테이블 (Alembic 001~017)
+
+Engine(SRE)은 별도 Alembic 마이그레이션으로 관리. 상세는 [wiki Engine 문서](../engine/sre-erd-mermaid.postgres.md).
+
+| 도메인 | 주요 테이블 | Alembic |
+|---|---|---|
+| 사용자 | `sre_user` | 002 |
+| 이벤트 | `action_definition`, `action_event` | 003 |
+| 미션 | `mission_definition`, `user_mission_progress` | 004 |
+| 포인트 | `rp_balance`, `rp_transaction`, `rp_expiration_schedule` | 005 |
+| 다양성/등급 | `behavior_category_log`, `user_diversity_score`, `tier_definition`, `user_tier` | 006 |
+| 보상 | `reward_partner`, `reward_catalog`, `reward_redemption` | 007 |
+| 어뷰징 | `abuse_rule`, `abuse_event`, `idempotency_key` | 008 |
+| 감사 | `audit_log` | 008 |
+| 메시지 | `sre_message` | 010 |
+| 게이미피케이션 v2 | 아이템·장착·컬렉션·가챠·상점·시즌 관련 테이블 | 011~017 |
 
 ---
 

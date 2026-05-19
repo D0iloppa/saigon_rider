@@ -1,0 +1,297 @@
+.page {
+  position: absolute;
+  inset: 0;
+  background: var(--ink-900);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+.header {
+  position: relative;
+  z-index: 10;
+  height: calc(96px + var(--status-bar-height));
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.headerBg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(at 30% 20%, #1A1D2A 0%, transparent 50%),
+              radial-gradient(at 70% 80%, rgba(255,45,156,.18) 0%, transparent 30%),
+              linear-gradient(160deg, #11131C, #08090F);
+}
+.headerBack {
+  position: absolute;
+  bottom: 14px;
+  left: 18px;
+  color: rgba(255,255,255,.8);
+  font-size: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+}
+.headerTitle {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 24px rgba(255,90,31,.6);
+  white-space: nowrap;
+  z-index: 2;
+}
+.headerBalance {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  text-align: right;
+  z-index: 2;
+}
+.headerBalanceRow {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  color: rgba(255,255,255,.75);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+.headerBalanceGp { color: rgba(255,184,0,.9); }
+.headerBalanceGc { color: rgba(0,240,255,.9); }
+
+/* ── Segment ── */
+.segment {
+  display: flex;
+  gap: 5px;
+  margin: 10px 13px 0;
+  background: rgba(255,255,255,.05);
+  border-radius: 10px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+.segBtn {
+  flex: 1;
+  text-align: center;
+  padding: 5px 4px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.4);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.segBtn.active {
+  background: rgba(255,255,255,.95);
+  color: var(--ink-900);
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+
+/* ── Scroll body ── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 13px 24px;
+  overscroll-behavior: contain;
+}
+
+/* ── Gacha Card base ── */
+.gachaCard {
+  border-radius: 18px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+/* GP Normal */
+.cardGpNormal {
+  background: linear-gradient(135deg, #FAF7F2, #FFE4D2);
+  border: 1px solid var(--r-c-border);
+}
+/* GP Premium */
+.cardGpPremium {
+  background: linear-gradient(135deg, #FFE4D2, #FFDDC4);
+  border: 1.5px solid var(--brand-300);
+}
+/* GC Crystal */
+.cardGcCrystal {
+  background: linear-gradient(135deg, #EDE9FE, #C7B3F7);
+  border: 1.5px solid var(--r-e-border);
+}
+/* Season */
+.cardSeason {
+  background: white;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 0 0 0 2px var(--brand-300);
+}
+/* Legend */
+.cardLegend {
+  background: #0D0F1A;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 0 0 0 2px rgba(255,184,0,.4);
+  position: relative;
+  overflow: hidden;
+}
+.cardLegend::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(at 80% 20%, rgba(255,184,0,.07), transparent 60%);
+  pointer-events: none;
+}
+
+.cardRow {
+  display: flex;
+  gap: 10px;
+}
+.cardIcon {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+}
+.cardBadge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  letter-spacing: .08em;
+  color: var(--text-3);
+  margin-bottom: 1px;
+}
+.cardLegend .cardBadge { color: rgba(255,255,255,.45); }
+.cardLegend .cardTitle { color: white; text-shadow: 0 0 10px rgba(255,184,0,.4); }
+.cardLegend .cardRates { color: rgba(255,255,255,.55); }
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1px;
+}
+.cardRates {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 0;
+}
+.cardGcCrystal .cardBadge,
+.cardGcCrystal .cardRates { color: #5B21B6; }
+.cardGcCrystal .cardTitle { color: #4C1D95; }
+
+.limitedBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #DC2626;
+  color: white;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+/* ── Pity bar section ── */
+.pitySection {
+  margin: 7px 0 4px;
+}
+.pityMeta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.pityLeft {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: var(--text-3);
+}
+.pityRight {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand-500);
+  font-variant-numeric: tabular-nums;
+}
+.cardLegend .pityLeft { color: rgba(255,255,255,.45); }
+.cardLegend .pityRight { color: var(--neon-amber); }
+
+.price {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: var(--text-3);
+  text-align: right;
+  margin-bottom: 7px;
+  font-variant-numeric: tabular-nums;
+}
+.cardLegend .price { color: rgba(255,255,255,.4); }
+
+/* ── Pull buttons ── */
+.btnRow {
+  display: flex;
+  gap: 7px;
+}
+.btnSingle {
+  flex: 1;
+  height: 38px;
+  border-radius: 10px;
+  border: 1.5px solid var(--brand-300);
+  background: none;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-500);
+  cursor: pointer;
+}
+.btnTen {
+  flex: 1.5;
+  height: 38px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  background: var(--brand-500);
+  box-shadow: 0 6px 16px rgba(255,90,31,.35);
+}
+.btnTenEpic {
+  background: var(--r-e-grad);
+  box-shadow: 0 6px 18px var(--r-e-glow);
+}
+.btnTenLegend {
+  background: var(--r-l-grad);
+  box-shadow: 0 6px 18px var(--r-l-glow);
+}
+.btnSingleDark {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,184,0,.35);
+  color: rgba(255,255,255,.75);
+}
+.btnTenDark {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,184,0,.55);
+  color: var(--neon-amber);
+  box-shadow: 0 0 18px rgba(255,184,0,.25);
+}
+
+/* ── Footer note ── */
+.rateNote {
+  text-align: center;
+  padding: 10px 0 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,.35);
+}
+.rateNoteLink {
+  color: var(--brand-300);
+  font-weight: 600;
+}

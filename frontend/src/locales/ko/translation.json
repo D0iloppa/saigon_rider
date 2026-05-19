@@ -172,7 +172,13 @@
     "saving": "저장 중...",
     "saveBtn": "저장",
     "share": "프로필 공유",
-    "shareGuide": "이 QR코드를 스캔하면 프로필을 볼 수 있어요"
+    "shareGuide": "이 QR코드를 스캔하면 프로필을 볼 수 있어요",
+    "emptyHistory": "아직 완료한 퀘스트가 없어요",
+    "emptyHistorySub": "퀘스트를 완료하면 여기에 기록돼요",
+    "emptyBadges": "등록된 배지가 없어요",
+    "emptyBadgesSub": "배지를 획득하면 여기에 표시돼요",
+    "unknownQuest": "퀘스트",
+    "loadMore": "더 보기"
   },
   "settings": {
     "title": "설정",
@@ -265,5 +271,89 @@
     "saveBtn": "저장",
     "saved": "프로필이 저장되었어요",
     "avatarSuccess": "사진이 변경되었어요"
+  },
+  "gacha": {
+    "title": "GACHA",
+    "tab_all": "전체",
+    "tab_gp": "GOLD",
+    "tab_gc": "XP",
+    "tab_season": "시즌",
+    "single_pull": "1회",
+    "ten_pull": "10연차",
+    "pity_remaining": "천장까지 {{count}}회 남음",
+    "rate_info": "확률 정보는",
+    "rate_info_link": "전체 보기",
+    "rate_info_suffix": "에서 확인",
+    "error_insufficient_balance": "잔액이 부족해요 (보유 {{have}} / 필요 {{need}})"
+  },
+  "shop": {
+    "title": "사이공 마켓",
+    "filter_all": "전체",
+    "featured_badge": "TODAY · {{pct}}% OFF",
+    "owned": "✓ OWNED",
+    "buy": "구매하기",
+    "charge": "+ 충전",
+    "gacha_banner_title": "더 짜릿한 한 방?",
+    "gacha_banner_sub": "5종 가챠가 기다린다"
+  },
+  "inventory": {
+    "title": "인벤토리",
+    "stats_owned": "보유 아이템",
+    "stats_catalog": "/ {{count}} 카탈로그",
+    "stats_avg_rarity": "등급 평균",
+    "stats_collections": "컬렉션 완성",
+    "filter_all": "전체",
+    "filter_rarity": "등급 ▾",
+    "filter_slot": "슬롯 ▾",
+    "filter_new": "신착 우선",
+    "filter_new_active": "✓ 신착 우선",
+    "badge_equipped": "EQUIPPED",
+    "badge_new": "NEW",
+    "empty_title": "아직 보유한 아이템이 없어요",
+    "empty_sub": "상점에서 아이템을 구매하거나\n가챠에서 획득해보세요",
+    "empty_btn": "상점 가기"
+  },
+  "gachaPull": {
+    "summoning": "소환 중…",
+    "again_single": "1회 다시",
+    "again_ten": "10연 다시",
+    "to_inventory": "인벤토리",
+    "to_list": "목록",
+    "ceiling": "천장"
+  },
+  "itemDetail": {
+    "slot_suffix": "슬롯",
+    "owned": "보유 중",
+    "buying": "구매 중…",
+    "wishlist": "위시리스트"
+  },
+  "equipPreview": {
+    "title": "장착 미리보기",
+    "slot_empty": "슬롯 비어 있음",
+    "no_items": "{{slot}} 슬롯 아이템 없음",
+    "save": "장착 저장",
+    "saving": "저장 중…",
+    "no_change": "변경 없음",
+    "equip_done": "{{slot}} 장착 완료"
+  },
+  "seasonPass": {
+    "ends_in": "남음",
+    "ended": "종료",
+    "level_label": "Lv. {{level}}",
+    "level_of": "/ {{total}}",
+    "xp_meta": "{{current}} / {{next}} XP",
+    "reward_track": "REWARD TRACK",
+    "free": "FREE",
+    "premium": "PREM",
+    "upsell_title": "프리미엄 패스 업그레이드",
+    "upsell_sub": "프리미엄 보상을 모두 잠금 해제하세요",
+    "upsell_btn": "업그레이드"
+  },
+  "gameHub": {
+    "garage": "게러지",
+    "inventory": "인벤토리",
+    "shop": "상점",
+    "gacha": "가챠",
+    "season": "시즌패스"
   }
 }

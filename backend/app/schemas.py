@@ -141,7 +141,7 @@ class NicknameUpdateRequest(BaseModel):
 class ProfileSaveRequest(BaseModel):
     user_id: UUID
     nickname: str
-    rider_type: str
+    rider_type: str | None = None
 
 
 class NicknameCheckResponse(BaseModel):
@@ -502,14 +502,66 @@ class BadgeOut(BaseModel):
     icon_url: str | None
     condition_type: str | None
     condition_value: int | None
+    condition_rule: dict | None = None
+    name_ko: str | None = None
+    name_vi: str | None = None
+    name_en: str | None = None
+    description_ko: str | None = None
+    description_vi: str | None = None
+    description_en: str | None = None
+    is_active: bool = True
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_icon(cls, data):
+        if isinstance(data, dict):
+            return data
+        icon_content = getattr(data, "icon_content", None)
+        d = {
+            "id": data.id,
+            "name": data.name,
+            "description": data.description,
+            "icon_url": data.icon_url,
+            "condition_type": data.condition_type,
+            "condition_value": data.condition_value,
+            "condition_rule": data.condition_rule,
+            "name_ko": data.name_ko,
+            "name_vi": data.name_vi,
+            "name_en": data.name_en,
+            "description_ko": data.description_ko,
+            "description_vi": data.description_vi,
+            "description_en": data.description_en,
+            "is_active": data.is_active,
+            "created_at": data.created_at,
+        }
+        if icon_content and icon_content.file_path:
+            d["icon_url"] = build_imgproxy_url(icon_content.file_path)
+        return d
 
 
 class UserBadgeOut(BaseModel):
     badge: BadgeOut
     acquired_at: datetime
+
+
+class BadgeWithEarnedOut(BaseModel):
+    badge: BadgeOut
+    earned: bool
+    acquired_at: datetime | None = None
+
+
+class QuestHistoryOut(BaseModel):
+    id: UUID
+    quest_id: UUID
+    quest_title: str | None = None
+    distance_km: Decimal | None = None
+    safety_grade: str | None = None
+    reward_exp: int = 0
+    reward_gold: int = 0
+    completed_at: datetime | None = None
 
 
 # ── User Stats ────────────────────────────────────────────────────

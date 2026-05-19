@@ -4,6 +4,7 @@ import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
 import type { UserDto } from '@/api/auth';
 import { apiGetMe } from '@/api/auth';
 import i18n, { changeLang } from '@/lib/i18n';
+import { clearSession } from '@/lib/session';
 
 interface UserState {
   user: User | null;
@@ -93,6 +94,7 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: () => {
+        clearSession();
         set({ user: null, passcode: null, isAuthenticated: false });
       },
 

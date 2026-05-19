@@ -43,10 +43,11 @@ docker compose logs -f frontend
 
 ```
 frontend/src/
-├── api/          # fetch 래퍼 (auth, feed, quests, profile, follows, dm, client, types)
+├── api/          # fetch 래퍼 (auth, feed, quests, profile, follows, dm, gacha, shop, inventory, wallet, season, master, appVersion, client, types)
 ├── components/
+│   ├── game/     # 게임 UI (PityBar, ConfettiLayer, RarityChip, CurrencyBadge, GachaCardBack, GameHubSheet)
 │   ├── layout/   # AppShell, TabBar, TopBar, StatusBar
-│   └── ui/       # 공통 컴포넌트 (Button, Chip, BottomSheet, AlertDialog, ScrollSentinel, PullIndicator 등)
+│   └── ui/       # 공통 컴포넌트 (Button, Chip, BottomSheet, AlertDialog, ScrollSentinel, PullIndicator, CurrencyHUD, ImageCarousel, CardBase, Dialog, RadioCircle, RarityCard, RewardIcon 등)
 ├── data/         # 더미 데이터 (feed, quests, countryCodes)
 ├── hooks/        # 커스텀 훅 (useInfiniteScroll, usePullToRefresh)
 ├── lib/
@@ -58,13 +59,18 @@ frontend/src/
 ├── pages/
 │   ├── auth/     # PhoneInput, OtpInput, ProfileSetup, Splash
 │   ├── dm/       # DmList, DmDetail (DM 목록·채팅)
-│   ├── feed/     # FeedList, FeedCreate
+│   ├── feed/     # FeedList, FeedCreate, FeedEdit
 │   ├── home/     # WorldMap
 │   ├── profile/  # ProfileMain, FollowerList, FollowingList, FriendList, FriendAdd
 │   ├── quest/    # QuestList, QuestDetail
 │   ├── ride/     # RideActive, RideResult
-│   └── settings/ # Settings, NotiSettings, LangSettings, AccountSettings
-├── store/        # Zustand stores (user, ride, dialog)
+│   ├── gacha/    # GachaMain, GachaPull
+│   ├── shop/     # ShopCatalog, ItemDetail
+│   ├── inventory/ # Inventory, EquipPreview
+│   ├── season/   # SeasonPass
+│   ├── garage/   # Garage
+│   └── settings/ # Settings, NotiSettings, LangSettings, AccountSettings, ProfileEdit
+├── store/        # Zustand stores (user, ride, dialog, confirm, dm)
 └── styles/       # tokens.css, globals.css
 ```
 
@@ -374,3 +380,18 @@ const { containerRef, pullDistance, isRefreshing } = usePullToRefresh(async () =
 |---|---|---|
 | `VITE_USE_MOCK` | `false` | true = 더미 데이터, false = 실제 API |
 | `VITE_API_BASE` | `http://localhost:18090/api` | API 기본 URL |
+
+---
+
+## 게임 컴포넌트 (`components/game/`)
+
+게이미피케이션 v2에서 추가된 RPG 경제 시스템 UI 컴포넌트.
+
+| 컴포넌트 | 설명 |
+|---|---|
+| `PityBar` | 천장(pity) 진행 바 (current/ceiling/dark 프롭) |
+| `ConfettiLayer` | SVG 축하 파티클 오버레이 (라이딩 결과·가챠 보상) |
+| `RarityChip` | 등급 배지 (C/R/E/L/M, count 옵션) |
+| `CurrencyBadge` | 단일 통화 배지 (GP/GC/SXP, light/dark surface) |
+| `GachaCardBack` | 가챠 카드 뒷면 (flip 애니메이션) |
+| `GameHubSheet` | 게임 허브 바텀시트 런처 (TabBar FAB에서 열림) |

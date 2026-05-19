@@ -14,6 +14,7 @@ export function emojiUrl(code: string): string {
     '1f30d', '1f3af', '1f680', '1f4f7', '2705',
     '1f514', '2699',  '1f48e', '1fa99', '1f3c6',
     '1f3cd', '2615',  '1f31f',
+    '2b50',  '26a1',
   ]);
   const LOCAL_PNG = new Set([
     '1f4cd', '1f9ed',

@@ -3,17 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useUserStore } from '@/store/useUserStore';
-import { MOCK_BADGES } from '@/data/feed';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useDialogStore } from '@/store/useDialogStore';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber, formatRelativeTime } from '@/lib/format';
-import type { Badge, FeedPost } from '@/api/types';
+import type { BadgeWithEarned, FeedPost, QuestHistoryItem, UserStats } from '@/api/types';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
 import { StatusBar } from '@/components/layout/StatusBar';
-import { fetchMe } from '@/api/profile';
+import { fetchMe, fetchUserStats, fetchQuestHistory, fetchAllBadges } from '@/api/profile';
+import { fetchWallet } from '@/api/wallet';
 import { fetchFollowCounts } from '@/api/follows';
 import { fetchMyFeed, deleteFeedPost } from '@/api/feed';
 import type { FeedPage } from '@/api/feed';
@@ -21,14 +21,8 @@ import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { ImageViewer } from '@/pages/feed/FeedList';
 import { toast } from '@/components/ui/Toast';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './ProfileMain.module.css';
-
-const RECENT_RIDES = [
-  { id: 'r1', title: 'Bến Thành Loop', date: '2026.05.12', result: 'A' },
-  { id: 'r2', title: 'Phú Nhuận Cafe Tour', date: '2026.05.11', result: 'B' },
-  { id: 'r3', title: 'Thủ Đức Sprint', date: '2026.05.10', result: 'A' },
-  { id: 'r4', title: 'Bùi Viện Night Sweep', date: '2026.05.09', result: 'B' },
-];
 
 export default function ProfileMain() {
   // ── hooks (must be before any early return) ──────────────
@@ -36,16 +30,30 @@ export default function ProfileMain() {
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const navigate = useNavigate();
 
+  const [gp, setGp] = useState(0);
+  const [gc, setGc] = useState(0);
+
   useEffect(() => {
     if (!user?.phone) return;
     fetchMe(user.phone).then((dto) => {
       if (dto) loginFromBackend(dto);
     });
+    fetchWallet().then((w) => {
+      setGp(w.gold_balance);
+      setGc(w.xp_balance);
+    }).catch(() => {});
   }, []);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [tab, setTab] = useState<'feeds' | 'history' | 'badges' | 'gear'>('feeds');
-  const [activeBadge, setActiveBadge] = useState<Badge | null>(null);
+  const [activeBadge, setActiveBadge] = useState<BadgeWithEarned | null>(null);
+
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [questHistory, setQuestHistory] = useState<QuestHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(true);
+  const [badges, setBadges] = useState<BadgeWithEarned[]>([]);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const socialRef = useRef<HTMLDivElement>(null);
@@ -143,7 +151,28 @@ export default function ProfileMain() {
   useEffect(() => {
     if (!user?.id) return;
     fetchFollowCounts(user.id).then(setFollowCounts);
+    fetchUserStats(user.id).then(setStats).catch(() => {});
+    fetchAllBadges(user.id).then(setBadges).catch(() => {});
   }, [user?.id]);
+
+  const loadHistory = useCallback(async (page: number, reset = false) => {
+    if (!user?.id) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetchQuestHistory(user.id, page);
+      setQuestHistory((prev) => reset ? res.items : [...prev, ...res.items]);
+      setHistoryHasMore(res.items.length >= res.size);
+      setHistoryPage(page);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (tab === 'history' && user?.id && questHistory.length === 0) {
+      loadHistory(1, true);
+    }
+  }, [tab, user?.id]);
 
   const loadMyFeeds = useCallback(async (page: number, reset = false) => {
     if (!user?.id) return;
@@ -293,18 +322,18 @@ export default function ProfileMain() {
       >
         <div className={styles.sheetGrabber} />
         <div className={styles.currencyBento}>
-          <div className={styles.currencyCell} style={{ borderColor: 'var(--xp)' }}>
-            <span style={{ fontSize: 28 }}>💎</span>
-            <div className={styles.currencyNum}>{formatNumber(u.xpPoints)}</div>
-            <div className={styles.currencyLabel}>{t('ride.xpPointsLabel')}</div>
+          <div className={styles.currencyCell} style={{ borderColor: 'var(--gc)' }}>
+            <img src={emojiUrl('1f48e')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            <div className={styles.currencyNum}>{formatNumber(gc)}</div>
+            <div className={styles.currencyLabel}>XP</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gold)' }}>
-            <span style={{ fontSize: 28 }}>🪙</span>
-            <div className={styles.currencyNum}>{formatNumber(u.gold)}</div>
-            <div className={styles.currencyLabel}>{t('profile.gold')}</div>
+            <img src={emojiUrl('1fa99')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            <div className={styles.currencyNum}>{formatNumber(gp)}</div>
+            <div className={styles.currencyLabel}>GOLD</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--brand-500)' }}>
-            <span style={{ fontSize: 28 }}>⭐</span>
+            <img src={emojiUrl('26a1')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <div className={styles.currencyNum}>{u.skillPoints}</div>
             <div className={styles.currencyLabel}>{t('profile.skillPt')}</div>
           </div>
@@ -314,15 +343,15 @@ export default function ProfileMain() {
           <h3 className={styles.cardTitle}>{t('profile.thisMonth')}</h3>
           <div className={styles.statsRow}>
             <div>
-              <div className={styles.statBig}>248</div>
+              <div className={styles.statBig}>{stats ? Math.round(Number(stats.total_km)) : '—'}</div>
               <div className={styles.statSmall}>km</div>
             </div>
             <div>
-              <div className={styles.statBig}>18</div>
+              <div className={styles.statBig}>{stats?.quest_count ?? '—'}</div>
               <div className={styles.statSmall}>{t('tabbar.quests')}</div>
             </div>
             <div>
-              <div className={styles.statBig}>A-</div>
+              <div className={styles.statBig}>{stats?.avg_safety_grade ?? '—'}</div>
               <div className={styles.statSmall}>{t('ride.safety')}</div>
             </div>
           </div>
@@ -422,36 +451,85 @@ export default function ProfileMain() {
 
         {tab === 'history' && (
           <div className={styles.list}>
-            {RECENT_RIDES.map((r) => (
-              <div key={r.id} className={styles.historyRow}>
-                <div className={styles.historyThumb}>🏍</div>
-                <div className={styles.historyText}>
-                  <div className={styles.historyTitle}>{r.title}</div>
-                  <div className={styles.historyDate}>{r.date}</div>
-                </div>
-                <div className={`${styles.gradeChip} ${r.result === 'A' ? styles.gradeA : styles.gradeB}`}>
-                  {r.result}
-                </div>
+            {historyLoading && questHistory.length === 0 ? (
+              <div className={styles.emptyTab}>
+                <p>{t('common.loading')}</p>
               </div>
-            ))}
+            ) : questHistory.length === 0 ? (
+              <div className={styles.emptyTab}>
+                <span style={{ fontSize: 48 }}>📋</span>
+                <p>{t('profile.emptyHistory')}</p>
+                <p style={{ fontSize: 12, marginTop: 4 }}>{t('profile.emptyHistorySub')}</p>
+              </div>
+            ) : (
+              <>
+                {questHistory.map((h) => (
+                  <div key={h.id} className={styles.historyRow}>
+                    <div className={styles.historyThumb}>✅</div>
+                    <div className={styles.historyText}>
+                      <div className={styles.historyTitle}>{h.quest_title || t('profile.unknownQuest')}</div>
+                      <div className={styles.historyDate}>
+                        {h.completed_at ? new Date(h.completed_at).toLocaleDateString() : ''}
+                        {h.distance_km != null && ` · ${Number(h.distance_km).toFixed(1)}km`}
+                      </div>
+                    </div>
+                    {h.safety_grade && (
+                      <div className={`${styles.gradeChip} ${h.safety_grade === 'A' ? styles.gradeA : styles.gradeB}`}>
+                        {h.safety_grade}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {historyHasMore && (
+                  <button
+                    className={styles.loadMoreBtn}
+                    onClick={() => loadHistory(historyPage + 1)}
+                    disabled={historyLoading}
+                  >
+                    {historyLoading ? t('common.loading') : t('profile.loadMore')}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 
         {tab === 'badges' && (
           <div className={styles.badgeGrid}>
-            {MOCK_BADGES.map((b) => (
-              <button key={b.key} className={`${styles.badgeCell} ${!b.earned ? styles.badgeLocked : ''}`} onClick={() => setActiveBadge(b)}>
-                <div className={styles.badgeIcon}>{b.iconEmoji}</div>
-                <div className={styles.badgeName}>{b.name}</div>
-              </button>
-            ))}
+            {badges.length === 0 ? (
+              <div className={styles.emptyTab} style={{ gridColumn: '1 / -1' }}>
+                <span style={{ fontSize: 48 }}>🏅</span>
+                <p>{t('profile.emptyBadges')}</p>
+                <p style={{ fontSize: 12, marginTop: 4 }}>{t('profile.emptyBadgesSub')}</p>
+              </div>
+            ) : badges.map((bw) => {
+              const lang = i18n.language as 'ko' | 'vi' | 'en';
+              const displayName = bw.badge[`name_${lang}`] || bw.badge.name;
+              const iconEmoji = bw.badge.icon_url || '🏅';
+              const isEmoji = !iconEmoji.startsWith('http');
+              return (
+                <button key={bw.badge.id} className={`${styles.badgeCell} ${!bw.earned ? styles.badgeLocked : ''}`} onClick={() => setActiveBadge(bw)}>
+                  <div className={styles.badgeIcon}>
+                    {isEmoji ? iconEmoji : <img src={iconEmoji} alt="" style={{ width: 40, height: 40, objectFit: 'contain' }} />}
+                  </div>
+                  <div className={styles.badgeName}>{displayName}</div>
+                </button>
+              );
+            })}
           </div>
         )}
 
         {tab === 'gear' && (
           <div className={styles.emptyTab}>
-            <span style={{ fontSize: 48 }}>🛡</span>
+            <span style={{ fontSize: 48 }}>🏍</span>
             <p>{t('profile.noGear')}</p>
+            <button
+              className={styles.newPostBtn}
+              style={{ marginTop: 16, maxWidth: 200 }}
+              onClick={() => navigate('/garage')}
+            >
+              개러지 열기 →
+            </button>
           </div>
         )}
       </div>{/* sheet */}
@@ -465,32 +543,47 @@ export default function ProfileMain() {
       )}
 
       {/* Badge detail modal */}
-      {activeBadge && (
-        <div className={styles.modalBackdrop} onClick={() => setActiveBadge(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHero}>
-              <div className={styles.modalBadgeIcon}>{activeBadge.iconEmoji}</div>
-            </div>
-            <div className={styles.modalBody}>
-              <div className={styles.modalKey}>{activeBadge.name}</div>
-              <h2 className={styles.modalDesc}>{activeBadge.description}</h2>
-              <div className={styles.modalCondition}>
-                <span>{activeBadge.earned ? '✓' : '○'}</span>
-                {activeBadge.condition}
+      {activeBadge && (() => {
+        const lang = i18n.language as 'ko' | 'vi' | 'en';
+        const b = activeBadge.badge;
+        const displayName = b[`name_${lang}`] || b.name;
+        const displayDesc = b[`description_${lang}`] || b.description || '';
+        const iconEmoji = b.icon_url || '🏅';
+        const isEmoji = !iconEmoji.startsWith('http');
+        const conditionText = b.condition_rule
+          ? b.condition_rule.conditions.map((c) => `${c.metric} ${c.op} ${c.value}`).join(` ${b.condition_rule.operator} `)
+          : b.condition_type ? `${b.condition_type} ≥ ${b.condition_value}` : '';
+        return (
+          <div className={styles.modalBackdrop} onClick={() => setActiveBadge(null)}>
+            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.modalHero}>
+                <div className={styles.modalBadgeIcon}>
+                  {isEmoji ? iconEmoji : <img src={iconEmoji} alt="" style={{ width: 96, height: 96, objectFit: 'contain' }} />}
+                </div>
               </div>
-              {activeBadge.earnedAt && (
-                <p className={styles.modalDate}>
-                  {t('profile.earnedAt', { date: new Date(activeBadge.earnedAt).toLocaleDateString() })}
-                </p>
-              )}
-              <div className={styles.modalActions}>
-                <Button variant="ghost" onClick={() => setActiveBadge(null)}>{t('common.close')}</Button>
-                {activeBadge.earned && <Button>{t('common.share')}</Button>}
+              <div className={styles.modalBody}>
+                <div className={styles.modalKey}>{displayName}</div>
+                <h2 className={styles.modalDesc}>{displayDesc}</h2>
+                {conditionText && (
+                  <div className={styles.modalCondition}>
+                    <span>{activeBadge.earned ? '✓' : '○'}</span>
+                    {conditionText}
+                  </div>
+                )}
+                {activeBadge.acquired_at && (
+                  <p className={styles.modalDate}>
+                    {t('profile.earnedAt', { date: new Date(activeBadge.acquired_at).toLocaleDateString() })}
+                  </p>
+                )}
+                <div className={styles.modalActions}>
+                  <Button variant="ghost" onClick={() => setActiveBadge(null)}>{t('common.close')}</Button>
+                  {activeBadge.earned && <Button>{t('common.share')}</Button>}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
 
       <BottomSheet open={qrSheetOpen} onClose={() => setQrSheetOpen(false)}>

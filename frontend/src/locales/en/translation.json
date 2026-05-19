@@ -172,7 +172,13 @@
     "saving": "Saving...",
     "saveBtn": "Save",
     "share": "Share Profile",
-    "shareGuide": "Scan this QR code to view the profile"
+    "shareGuide": "Scan this QR code to view the profile",
+    "emptyHistory": "No quests completed yet",
+    "emptyHistorySub": "Complete a quest to see your records here",
+    "emptyBadges": "No badges available",
+    "emptyBadgesSub": "Earn badges by completing challenges",
+    "unknownQuest": "Quest",
+    "loadMore": "Load more"
   },
   "settings": {
     "title": "Settings",
@@ -265,5 +271,89 @@
     "saveBtn": "Save",
     "saved": "Profile saved",
     "avatarSuccess": "Photo updated"
+  },
+  "gacha": {
+    "title": "GACHA",
+    "tab_all": "All",
+    "tab_gp": "GOLD",
+    "tab_gc": "XP",
+    "tab_season": "Season",
+    "single_pull": "×1",
+    "ten_pull": "×10",
+    "pity_remaining": "{{count}} pulls to ceiling",
+    "rate_info": "Rates available in",
+    "rate_info_link": "Full view",
+    "rate_info_suffix": "",
+    "error_insufficient_balance": "Not enough balance (have {{have}} / need {{need}})"
+  },
+  "shop": {
+    "title": "Saigon Market",
+    "filter_all": "All",
+    "featured_badge": "TODAY · {{pct}}% OFF",
+    "owned": "✓ OWNED",
+    "buy": "Buy Now",
+    "charge": "+ Top Up",
+    "gacha_banner_title": "Want a bigger thrill?",
+    "gacha_banner_sub": "5 gacha pools await"
+  },
+  "inventory": {
+    "title": "Inventory",
+    "stats_owned": "Items Owned",
+    "stats_catalog": "/ {{count}} catalog",
+    "stats_avg_rarity": "Avg Rarity",
+    "stats_collections": "Collections",
+    "filter_all": "All",
+    "filter_rarity": "Rarity ▾",
+    "filter_slot": "Slot ▾",
+    "filter_new": "New First",
+    "filter_new_active": "✓ New First",
+    "badge_equipped": "EQUIPPED",
+    "badge_new": "NEW",
+    "empty_title": "No items yet",
+    "empty_sub": "Visit the shop to buy items\nor try your luck in Gacha",
+    "empty_btn": "Go to Shop"
+  },
+  "gachaPull": {
+    "summoning": "Summoning…",
+    "again_single": "Pull Again",
+    "again_ten": "10-Pull Again",
+    "to_inventory": "Inventory",
+    "to_list": "List",
+    "ceiling": "Ceiling"
+  },
+  "itemDetail": {
+    "slot_suffix": "slot",
+    "owned": "Owned",
+    "buying": "Buying…",
+    "wishlist": "Wishlist"
+  },
+  "equipPreview": {
+    "title": "Equip Preview",
+    "slot_empty": "Slot empty",
+    "no_items": "No {{slot}} items",
+    "save": "Save Loadout",
+    "saving": "Saving…",
+    "no_change": "No Changes",
+    "equip_done": "{{slot}} equipped"
+  },
+  "seasonPass": {
+    "ends_in": "remaining",
+    "ended": "Ended",
+    "level_label": "Lv. {{level}}",
+    "level_of": "/ {{total}}",
+    "xp_meta": "{{current}} / {{next}} XP",
+    "reward_track": "REWARD TRACK",
+    "free": "FREE",
+    "premium": "PREM",
+    "upsell_title": "Upgrade to Premium",
+    "upsell_sub": "Unlock all premium rewards",
+    "upsell_btn": "Upgrade"
+  },
+  "gameHub": {
+    "garage": "Garage",
+    "inventory": "Inventory",
+    "shop": "Shop",
+    "gacha": "Gacha",
+    "season": "Season Pass"
   }
 }

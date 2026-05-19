@@ -137,37 +137,227 @@
   </div>
 </div>
 
+<link rel="stylesheet" href="/admin/static/vendor/tabulator/tabulator_midnight.min.css"/>
+<script src="/admin/static/vendor/tabulator/tabulator.min.js"></script>
+
+<style>
+  .wp { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .wp-col-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .wp-col-title { font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+  .wp-col-count {
+    font-family: 'Space Grotesk', monospace; font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 999px;
+  }
+  .wp-col--adj .wp-col-title { color: #ff8055; }
+  .wp-col--adj .wp-col-count { background: rgba(255,128,85,.12); color: #ff8055; border: 1px solid rgba(255,128,85,.25); }
+  .wp-col--noun .wp-col-title { color: #63b3ed; }
+  .wp-col--noun .wp-col-count { background: rgba(99,179,237,.12); color: #63b3ed; border: 1px solid rgba(99,179,237,.25); }
+
+  .wp .tabulator {
+    background: transparent; border: 1px solid rgba(255,255,255,.07); border-radius: 10px;
+    font-size: 12px; overflow: hidden;
+  }
+  .wp .tabulator-header {
+    background: rgba(255,255,255,.03) !important;
+    border-bottom: 1px solid rgba(255,255,255,.06) !important;
+  }
+  .wp .tabulator-header .tabulator-col {
+    background: transparent !important; border-right: none !important;
+  }
+  .wp .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none !important; }
+  .wp .tabulator-header .tabulator-col-content { padding: 6px 10px; }
+  .wp .tabulator-header .tabulator-col-title { display: none; }
+  .wp .tabulator-header-filter input {
+    width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 6px; color: #fff; padding: 5px 10px; font-size: 11px;
+  }
+  .wp .tabulator-header-filter input::placeholder { color: rgba(255,255,255,.25); }
+  .wp .tabulator-header-filter input:focus { border-color: rgba(255,102,51,.4); background: rgba(255,255,255,.06); outline: none; }
+  .wp .tabulator-tableholder { background: transparent; }
+  .wp .tabulator-row { background: transparent !important; }
+  .wp .tabulator-row:hover { background: rgba(255,255,255,.025) !important; }
+  .wp .tabulator-row .tabulator-cell {
+    border-right: none !important; border-bottom: 1px solid rgba(255,255,255,.03);
+    padding: 5px 10px; color: #e2e8f0; font-size: 12px; font-weight: 500;
+  }
+  .wp .tabulator-footer {
+    background: rgba(255,255,255,.02) !important;
+    border-top: 1px solid rgba(255,255,255,.06) !important;
+    padding: 5px 10px;
+  }
+  .wp .tabulator-footer .tabulator-page {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
+    color: rgba(255,255,255,.45); border-radius: 5px; padding: 3px 9px; font-size: 10px; font-weight: 600;
+  }
+  .wp .tabulator-footer .tabulator-page.active { background: rgba(255,102,51,.12); color: #ff8055; border-color: rgba(255,102,51,.25); }
+  .wp .tabulator-footer .tabulator-page:hover:not(.active) { background: rgba(255,255,255,.07); color: #fff; }
+  .wp .tabulator-footer .tabulator-page[disabled] { opacity: .25; pointer-events: none; }
+  .wp .tabulator-footer .tabulator-page-size { display: none !important; }
+  .wp .tabulator-placeholder { padding: 20px; color: rgba(255,255,255,.2); font-size: 11px; }
+
+  .wp-del {
+    width: 20px; height: 20px; border-radius: 5px; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; color: rgba(255,255,255,.15); transition: all .15s;
+  }
+  .wp-del:hover { background: rgba(239,68,68,.12); color: #f87171; }
+  .wp-del svg { width: 12px; height: 12px; }
+
+  .wp-add { display: flex; gap: 6px; margin-top: 10px; }
+  .wp-add input {
+    flex: 1; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 8px; padding: 7px 12px; color: #fff; font-size: 12px;
+  }
+  .wp-add input::placeholder { color: rgba(255,255,255,.2); }
+  .wp-add input:focus { border-color: rgba(255,102,51,.4); background: rgba(255,255,255,.05); outline: none; }
+  .wp-add button {
+    padding: 7px 16px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+    white-space: nowrap; background: rgba(255,102,51,.15); color: #ff8055;
+    border: 1px solid rgba(255,102,51,.2); transition: all .15s;
+  }
+  .wp-add button:hover { background: rgba(255,102,51,.25); }
+  .wp-add button:disabled { opacity: .35; pointer-events: none; }
+
+  .wp-toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    padding: 8px 20px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    z-index: 9999; pointer-events: none; opacity: 0; transition: opacity .2s, transform .2s;
+    background: rgba(25,27,35,.94); border: 1px solid rgba(255,255,255,.1);
+    color: #fff; backdrop-filter: blur(12px); box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  }
+  .wp-toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  .wp-toast.error { border-color: rgba(239,68,68,.3); color: #fca5a5; }
+</style>
+
 <div class="card" style="margin-top:24px;">
   <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">기본 닉네임 단어풀</p>
-  <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
-    회원가입 건너뛰기 시 자동 부여되는 닉네임 조합: <strong style="color:rgba(255,255,255,.6);">[형용사] [명사] [3자리숫자]</strong><br/>
-    예시: Brave Rider 482, Neon Phoenix 137
+  <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:14px;line-height:1.6;">
+    회원가입 건너뛰기 시 자동 부여되는 닉네임 조합: <strong style="color:rgba(255,255,255,.55);">[형용사] [명사] [3자리숫자]</strong><br/>
+    예시: <span style="color:rgba(255,255,255,.55);font-family:monospace;font-size:11px;">Brave Rider 482</span> · <span style="color:rgba(255,255,255,.55);font-family:monospace;font-size:11px;">Neon Phoenix 137</span>
   </p>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-    <!-- Adjectives -->
-    <div>
-      <p style="font-size:12px;font-weight:700;color:#ff8055;margin-bottom:10px;">형용사 (Adjective) — {{adj_count}}개</p>
-      <table style="width:100%;font-size:12px;border-collapse:collapse;">
-        <tbody>{{adj_rows}}</tbody>
-      </table>
-      <form method="post" action="/admin/settings/nickname-word" style="display:flex;gap:6px;margin-top:10px;">
-        <input type="hidden" name="word_type" value="adjective"/>
-        <input type="text" name="word" placeholder="새 형용사" maxlength="30" required style="flex:1;font-size:12px;"/>
-        <button type="submit" class="btn" style="padding:4px 14px;font-size:12px;">추가</button>
-      </form>
+  <div class="wp">
+    <div class="wp-col--adj">
+      <div class="wp-col-head">
+        <span class="wp-col-title">형용사</span>
+        <span class="wp-col-count" id="adj-count">{{adj_count}}</span>
+      </div>
+      <div id="adj-table"></div>
+      <div class="wp-add">
+        <input type="text" id="adj-input" placeholder="새 형용사 입력" maxlength="30"/>
+        <button id="adj-btn" onclick="addWord('adjective')">추가</button>
+      </div>
     </div>
-    <!-- Nouns -->
-    <div>
-      <p style="font-size:12px;font-weight:700;color:#63b3ed;margin-bottom:10px;">명사 (Noun) — {{noun_count}}개</p>
-      <table style="width:100%;font-size:12px;border-collapse:collapse;">
-        <tbody>{{noun_rows}}</tbody>
-      </table>
-      <form method="post" action="/admin/settings/nickname-word" style="display:flex;gap:6px;margin-top:10px;">
-        <input type="hidden" name="word_type" value="noun"/>
-        <input type="text" name="word" placeholder="새 명사" maxlength="30" required style="flex:1;font-size:12px;"/>
-        <button type="submit" class="btn" style="padding:4px 14px;font-size:12px;">추가</button>
-      </form>
+    <div class="wp-col--noun">
+      <div class="wp-col-head">
+        <span class="wp-col-title">명사</span>
+        <span class="wp-col-count" id="noun-count">{{noun_count}}</span>
+      </div>
+      <div id="noun-table"></div>
+      <div class="wp-add">
+        <input type="text" id="noun-input" placeholder="새 명사 입력" maxlength="30"/>
+        <button id="noun-btn" onclick="addWord('noun')">추가</button>
+      </div>
     </div>
   </div>
 </div>
+<div class="wp-toast" id="wp-toast"></div>
+
+<script>
+(function(){
+  var adjData = {{adj_json}};
+  var nounData = {{noun_json}};
+  var DEL_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>';
+
+  function delFormatter(cell) {
+    var btn = document.createElement("button");
+    btn.className = "wp-del";
+    btn.innerHTML = DEL_SVG;
+    btn.title = "삭제";
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      var row = cell.getRow();
+      var data = row.getData();
+      btn.disabled = true;
+      fetch("/admin/settings/nickname-word/api/delete", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({word_id: data.id})
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if (res.ok) {
+          row.delete();
+          updateCounts();
+          toast('"' + data.word + '" 삭제됨');
+        } else {
+          toast("삭제 실패: " + (res.error || "unknown"), true);
+          btn.disabled = false;
+        }
+      }).catch(function(){ toast("네트워크 오류", true); btn.disabled = false; });
+    };
+    return btn;
+  }
+
+  var cols = [
+    {title:"검색", field:"word", headerFilter:"input", headerFilterPlaceholder:"검색...", headerSort:true, resizable:false},
+    {formatter:delFormatter, width:36, hozAlign:"center", headerSort:false, resizable:false},
+  ];
+
+  function mkOpts(data) {
+    return {
+      data: data,
+      columns: cols,
+      layout: "fitColumns",
+      pagination: "local",
+      paginationSize: 10,
+      placeholder: "등록된 단어가 없습니다.",
+      resizableColumns: false,
+    };
+  }
+
+  var adjTable = new Tabulator("#adj-table", mkOpts(adjData));
+  var nounTable = new Tabulator("#noun-table", mkOpts(nounData));
+
+  function updateCounts() {
+    document.getElementById("adj-count").textContent = adjTable.getData().length;
+    document.getElementById("noun-count").textContent = nounTable.getData().length;
+  }
+
+  var toastTimer;
+  function toast(msg, isErr) {
+    var el = document.getElementById("wp-toast");
+    el.textContent = msg;
+    el.className = "wp-toast show" + (isErr ? " error" : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.className = "wp-toast"; }, 2200);
+  }
+
+  window.addWord = function(type) {
+    var isAdj = type === "adjective";
+    var input = document.getElementById(isAdj ? "adj-input" : "noun-input");
+    var btn = document.getElementById(isAdj ? "adj-btn" : "noun-btn");
+    var table = isAdj ? adjTable : nounTable;
+    var word = input.value.trim();
+    if (!word) { input.focus(); return; }
+
+    btn.disabled = true;
+    fetch("/admin/settings/nickname-word/api/add", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({word: word, word_type: type})
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if (res.ok) {
+        table.addRow({id: res.id, word: res.word}, false);
+        input.value = "";
+        updateCounts();
+        toast('"' + res.word + '" 추가됨');
+      } else {
+        var msgs = {duplicate: "이미 존재하는 단어입니다", empty: "단어를 입력해주세요"};
+        toast(msgs[res.error] || ("오류: " + res.error), true);
+      }
+      btn.disabled = false;
+      input.focus();
+    }).catch(function(){ toast("네트워크 오류", true); btn.disabled = false; });
+  };
+
+  document.getElementById("adj-input").addEventListener("keydown", function(e){ if(e.key==="Enter"){e.preventDefault();addWord("adjective");} });
+  document.getElementById("noun-input").addEventListener("keydown", function(e){ if(e.key==="Enter"){e.preventDefault();addWord("noun");} });
+})();
+</script>

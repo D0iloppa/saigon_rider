@@ -247,12 +247,18 @@ class EngineClient:
         count: int = 50,
         type_filter: str | None = None,
         uuid_filter: str | None = None,
+        start_ts: float | None = None,
+        end_ts: float | None = None,
     ) -> list[dict]:
         params: dict = {"count": count}
         if type_filter:
             params["type"] = type_filter
         if uuid_filter:
             params["uuid"] = uuid_filter
+        if start_ts is not None:
+            params["start_ts"] = start_ts
+        if end_ts is not None:
+            params["end_ts"] = end_ts
         resp = await self._client.get("/v1/admin/stream/messages", params=params)
         resp.raise_for_status()
         return resp.json()

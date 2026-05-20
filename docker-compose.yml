@@ -135,7 +135,7 @@ services:
       dockerfile: Dockerfile
     container_name: saigon_worker
     profiles: [backend]
-    command: ["python", "-m", "app.worker"]
+    command: ["python", "-m", "app.workers"]
     volumes:
       - ./engine:/app
     networks:

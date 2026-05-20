@@ -1,8 +1,7 @@
-"""Consumer Worker — Redis Streams message processor.
+"""Worker dispatcher — Redis Streams consumer with agent routing.
 
-Entrypoint: python -m app.worker
-Reads from sre:messages stream via consumer group and processes messages.
-Action triggers (GPS aggregation, event dispatch, etc.) will be added here.
+Entrypoint: python -m app.workers
+Reads messages from the stream, dispatches to registered agents by type.
 """
 
 import asyncio
@@ -19,6 +18,9 @@ from app.redis_client import (
     ensure_consumer_group,
     get_redis,
 )
+from app.workers.base import BaseAgent
+from app.workers.event_agent import EventAgent
+from app.workers.gps_agent import GpsAgent
 
 configure_logging(os.getenv("SRE_LOG_LEVEL", "INFO"))
 log = logging.getLogger(__name__)
@@ -31,37 +33,48 @@ _shutdown = False
 
 
 def _handle_signal(*_):
-    global _shutdown
+    global _shutdown  # noqa: PLW0603
     _shutdown = True
     log.info("Shutdown signal received")
+
+
+def _build_dispatch_table(agents: list[BaseAgent]) -> dict[str, BaseAgent]:
+    table: dict[str, BaseAgent] = {}
+    for agent in agents:
+        for t in agent.message_types:
+            table[t] = agent
+    return table
+
+
+AGENTS: list[BaseAgent] = [
+    GpsAgent(),
+    EventAgent(),
+]
+DISPATCH = _build_dispatch_table(AGENTS)
 
 
 async def _process_batch(batch: list[tuple[str, dict]]) -> None:
     if not batch:
         return
 
-    # TODO: action triggers (GPS aggregation, ride detection, etc.)
-    for _msg_id, fields in batch:
-        _type = fields.get("type", "gps")
-        _uuid = fields.get("uuid", "?")
-        log.debug("Processing %s from %s", _type, _uuid)
+    for msg_id, fields in batch:
+        msg_type = fields.get("type", "")
+        agent = DISPATCH.get(msg_type)
+        if agent:
+            await agent.handle(msg_id, fields)
+        else:
+            log.warning("No agent for type=%s id=%s", msg_type, msg_id)
 
     r = await get_redis()
     msg_ids = [msg_id for msg_id, _ in batch]
     await r.xack(STREAM_KEY, CONSUMER_GROUP, *msg_ids)
-
     log.info("Processed %d messages", len(batch))
 
 
 async def _claim_pending() -> list[tuple[str, dict]]:
-    """Claim and return messages stuck in pending state (from crashed workers)."""
     r = await get_redis()
     pending = await r.xpending_range(
-        STREAM_KEY,
-        CONSUMER_GROUP,
-        min="-",
-        max="+",
-        count=BATCH_SIZE,
+        STREAM_KEY, CONSUMER_GROUP, min="-", max="+", count=BATCH_SIZE
     )
     if not pending:
         return []
@@ -83,11 +96,14 @@ async def _claim_pending() -> list[tuple[str, dict]]:
 async def run() -> None:
     await ensure_consumer_group()
     r = await get_redis()
+
+    agent_types = sorted({t for a in AGENTS for t in a.message_types})
     log.info(
-        "Worker '%s' started — stream=%s group=%s",
+        "Worker '%s' started — stream=%s group=%s agents=%s",
         CONSUMER_NAME,
         STREAM_KEY,
         CONSUMER_GROUP,
+        agent_types,
     )
 
     while not _shutdown:
@@ -103,7 +119,6 @@ async def run() -> None:
                 count=BATCH_SIZE,
                 block=BLOCK_MS,
             )
-
             if not results:
                 continue
 
@@ -129,5 +144,4 @@ def main():
     asyncio.run(run())
 
 
-if __name__ == "__main__":
-    main()
+main()

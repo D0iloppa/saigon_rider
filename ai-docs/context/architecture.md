@@ -48,7 +48,7 @@
 │  Nginx (:18090) — saigon_nginx                      │
 │  /api/*      → bff:8080/api/*                       │
 │  /admin/*    → bff:8080/admin/*                     │
-│  /engine/*   → engine:8090/v1/*   (내부망 전용)     │
+│  /api/sre/*  → engine:8090/v1/*                     │
 └──────────┬──────────────────────┬───────────────────┘
            │                      │
 ┌──────────▼──────────┐  ┌────────▼────────────────────┐
@@ -59,7 +59,26 @@
 │  quests / ride      │──▶  mission / anti_abuse       │
 │  feed / users       │  │  tier / diversity / reward  │
 │  (앱 화면 BFF)      │  │  admin / audit / jobs       │
+│                     │  │                             │
+│                     │  │  sreMessage ──▶ Redis XADD  │
 └──────────┬──────────┘  └──────────┬──────────────────┘
+           │                        │
+           │               ┌────────▼─────────┐
+           │               │  Redis 7          │
+           │               │  Stream:          │
+           │               │  sre:messages     │
+           │               └────────┬──────────┘
+           │                        │ XREADGROUP
+           │               ┌────────▼──────────┐
+           │               │  saigon_worker     │
+           │               │  (Dispatcher)      │
+           │               │                    │
+           │               │  ┌──────────────┐  │
+           │               │  │ GpsAgent     │  │
+           │               │  │ EventAgent   │  │
+           │               │  │ (추가 가능)  │  │
+           │               │  └──────────────┘  │
+           │               └────────┬───────────┘
            │                        │
            └──────────┬─────────────┘
                       ▼
@@ -75,9 +94,12 @@
 | 방향 | 방식 | 인증 |
 |---|---|---|
 | 모바일 앱 → BFF | HTTPS (기존 쿠키 세션) | passcode 세션 |
+| 모바일 앱 → Engine | HTTPS (`/api/sre/sreMessage`) | `X-Service-Key` 헤더 |
 | BFF → Engine | HTTP (내부 Docker 네트워크) | `X-Service-Key` 헤더 |
+| Engine → Redis | XADD (메시지 적재) | 내부 네트워크 |
+| Worker → Redis | XREADGROUP (메시지 소비) | 내부 네트워크 |
+| Worker → DB | asyncpg (직접 연결) | DB 크리덴셜 |
 | Engine → DB | asyncpg (직접 연결) | DB 크리덴셜 |
-| 모바일 앱 → Engine | **불허** (Nginx 차단) | — |
 
 ---
 
@@ -187,6 +209,13 @@ engine/
     │   ├── partner.py         ← PartnerAdapter Protocol
     │   ├── internal.py        ← 즉시 발급
     │   └── stub.py            ← 외부 파트너 stub
+    ├── workers/
+    │   ├── __init__.py
+    │   ├── __main__.py        ← Dispatcher: XREADGROUP → type별 agent 위임
+    │   ├── base.py            ← BaseAgent ABC (handle, message_types)
+    │   ├── gps_agent.py       ← GPS 집계, 이동거리, 라이드 감지
+    │   └── event_agent.py     ← 이벤트/하트비트 처리
+    ├── redis_client.py        ← Redis 연결, Stream/Consumer Group 관리
     ├── jobs/
     │   ├── expire_rp.py       ← 일배치 04:00 VN
     │   ├── expire_missions.py ← 일배치 04:05
@@ -265,6 +294,41 @@ services:
       - SRE_NEW_ACCOUNT_MULTIPLIER=0.5
       - SRE_IDEMPOTENCY_TTL_DAYS=7
       - SRE_LOG_LEVEL=INFO
+    restart: unless-stopped
+
+  # ── Redis (메시지 스트림) ─────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: saigon_redis
+    profiles: [backend]
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - saigon_redis_data:/data
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+
+  # ── Worker (Redis Streams Consumer → Agent Dispatcher) ───
+  worker:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    container_name: saigon_worker
+    profiles: [backend]
+    command: ["python", "-m", "app.workers"]
+    volumes:
+      - ./engine:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=...
+      - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
 ```
 
@@ -478,6 +542,9 @@ mypy>=1.10
 3. **APScheduler 단일 인스턴스 가정** — Engine 컨테이너를 2개 이상 스케일할 경우 PostgreSQL advisory lock 패턴 적용 필수 (`02-sre-tech-stack.md §3.2`).
 4. **BFF는 Engine DB 테이블에 직접 접근하지 않는다** — 오직 `engine_client`의 HTTP API를 통해서만 SRE 데이터를 읽고 쓴다.
 5. **Engine 포트(8090)는 Nginx 외부 노출 최소화** — 운영환경에서 `/engine/` 경로는 내부망 IP만 허용하거나 Nginx 레벨에서 완전 차단한다.
+6. **Worker Agent 추가 규칙** — 새 agent는 `engine/app/workers/` 아래에 `BaseAgent`를 상속하여 생성하고, `__main__.py`의 `AGENTS` 리스트에 등록한다. `message_types`로 처리할 메시지 타입을 선언하면 dispatcher가 자동 라우팅한다.
+7. **Redis Stream은 유실 불가** — `maxmemory-policy: noeviction` 설정. 메모리 부족 시 XADD가 에러를 반환하여 데이터 유실을 방지한다. XADD 시 `maxlen=100_000 approximate`로 자동 트리밍.
+8. **Worker 수평 확장** — Consumer Group 기반이므로 `docker compose up --scale worker=N`으로 Worker 인스턴스를 늘릴 수 있다. 각 인스턴스는 고유 consumer name을 사용하며 메시지는 자동 분배된다.
 
 ---
 

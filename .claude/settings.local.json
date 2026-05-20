@@ -327,7 +327,25 @@
       "Bash(ls -lh /home/doil/workspace/w_dev/saigon_rider-native/ 2>&1)",
       "Bash(unzip -l /home/doil/workspace/w_dev/saigon_rider-native/SaigonRider-ios.zip)",
       "Bash(unzip -l /home/doil/workspace/w_dev/saigon_rider-native/SaigonRider-android.zip)",
-      "Bash(mkdir -p /tmp/native-setup/ios)"
+      "Bash(mkdir -p /tmp/native-setup/ios)",
+      "Bash(rm -rf /tmp/native-setup/ && echo \"deleted\" && ls /tmp/native-setup 2>&1)",
+      "Bash(python3 -m ruff check app/redis_client.py app/worker.py app/routers/message.py app/config.py app/main.py)",
+      "Bash(python3 -m ruff check engine/app/routers/admin.py engine/app/routers/message.py engine/app/worker.py backend/app/routers/admin.py backend/app/engine_client.py)",
+      "Bash(curl -s \"http://localhost:8091/v1/admin/stream/info\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")",
+      "Bash(curl -s \"http://localhost:8091/v1/admin/stream/messages?count=5\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")",
+      "Bash(curl -s -c - -X POST 'http://localhost:8082/admin/login' -d 'username=admin&password=admin123')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8082/admin/stream\" -b \"admin_session=$\\(curl -s -c - -X POST 'http://localhost:8082/admin/login' -d 'username=admin&password=admin123')",
+      "Bash(git -C /mnt/c/DEV/saigon_rider/native/android diff app/src/main/java/com/saigonrider/user/BackgroundService.java)",
+      "Bash(git -C /mnt/c/DEV/saigon_rider/native/ios diff Shared/BackgroundService.swift)",
+      "Bash(git -C /mnt/c/DEV/saigon_rider/native/android add app/src/main/java/com/saigonrider/user/BackgroundService.java)",
+      "Bash(git -C /mnt/c/DEV/saigon_rider/native/android commit -m ' *)",
+      "Bash(git -C /mnt/c/DEV/saigon_rider/native/ios add Shared/BackgroundService.swift)",
+      "Bash(git -C /mnt/c/DEV/saigon_rider/native/ios commit -m ' *)",
+      "Bash(curl -sL \"http://localhost:8082/admin/stream\")",
+      "Bash(python3 -m ruff check engine/app/workers/)",
+      "Bash(python3 -m ruff format --check engine/app/workers/)",
+      "Bash(curl -s \"http://localhost:8091/v1/sreMessage?uuid=test-ios-XYZ&message=%7B%22x%22%3A127.05%2C%22y%22%3A37.22%2C%22d%22%3A99%7D&type=gps\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")",
+      "Bash(curl -s \"http://localhost:8091/v1/sreMessage?uuid=test-ios-FLUSH&message=%7B%22x%22%3A127.09%2C%22y%22%3A37.21%2C%22d%22%3A7%7D&type=gps\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")"
     ]
   }
 }

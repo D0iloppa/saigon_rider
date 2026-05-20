@@ -2699,3 +2699,67 @@ async def admin_stream_page(
         sel_200="selected" if count == 200 else "",
         sel_500="selected" if count == 500 else "",
     )
+
+
+@router.get("/stream/gps-trace", include_in_schema=False)
+async def admin_gps_trace_popup(
+    request: Request,
+    uuid_q: str = "",
+    start: str = "",
+    end: str = "",
+    platform: str = "all",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    uuid_q = request.query_params.get("uuid", "")
+    if not uuid_q or not start or not end:
+        return HTMLResponse("<h2>필수 파라미터 누락 (uuid, start, end)</h2>", status_code=400)
+
+    start_dt = datetime.fromisoformat(start)
+    end_dt = datetime.fromisoformat(end)
+    start_ts = start_dt.timestamp()
+    end_ts = end_dt.timestamp()
+
+    row = (
+        await db.execute(select(AppConfig.value).where(AppConfig.group_name == "google", AppConfig.key == "map"))
+    ).scalar_one_or_none()
+    gmap_key = row or ""
+
+    try:
+        messages = await engine_client.admin_stream_messages(
+            count=500,
+            type_filter="gps",
+            uuid_filter=uuid_q,
+            start_ts=start_ts,
+            end_ts=end_ts,
+        )
+    except Exception:
+        messages = []
+
+    points_js = []
+    total_distance = 0.0
+    for msg in reversed(messages):
+        raw = msg.get("message", "")
+        try:
+            obj = _json.loads(raw)
+            lat = float(obj.get("y", 0))
+            lng = float(obj.get("x", 0))
+            d = float(obj.get("d", 0))
+            ts = float(msg.get("ts", 0))
+            points_js.append(f"{{lat:{lat},lng:{lng},d:{d},ts:{ts}}}")
+            total_distance += d
+        except (ValueError, KeyError, TypeError):
+            continue
+
+    tpl = (_TEMPLATE_DIR / "gps_trace.html").read_text("utf-8")
+    html = (
+        tpl.replace("{{gmap_key}}", h(gmap_key))
+        .replace("{{points}}", "[" + ",".join(points_js) + "]")
+        .replace("{{uuid}}", h(uuid_q))
+        .replace("{{platform}}", h(platform))
+        .replace("{{start}}", h(start))
+        .replace("{{end}}", h(end))
+        .replace("{{total_distance}}", f"{total_distance:.0f}")
+        .replace("{{point_count}}", str(len(points_js)))
+    )
+    return HTMLResponse(html)

@@ -27,7 +27,17 @@ title: 서비스 맵
               │  Engine   │ │   DB    │
               │  FastAPI  │ │Postgres │
               │   :8090   │ │  :5435  │
-              └───────────┘ └─────────┘
+              └─────┬─────┘ └────▲────┘
+                    │            │
+              ┌─────▼─────┐     │
+              │   Redis   │     │
+              │  Streams  │     │
+              └─────┬─────┘     │
+                    │            │
+              ┌─────▼─────┐     │
+              │  Worker   ├─────┘
+              │ (Agents)  │
+              └───────────┘
 ```
 
 ## Nginx 라우팅 테이블
@@ -54,7 +64,7 @@ BFF 내부에서 `engine_client` 를 통해 Engine(`/api/sre/*`)으로 연동하
 | 프로파일 | 포함 서비스 | 기동 명령 |
 |---|---|---|
 | (기본) | nginx, frontend, imgproxy | `docker compose up -d` |
-| `backend` | bff, engine, database | `docker compose --profile backend up -d` |
+| `backend` | bff, engine, worker, redis, database | `docker compose --profile backend up -d` |
 | `wiki` | wiki (Docusaurus) | `docker compose --profile wiki up -d` |
 
 ## 포트 구성
@@ -65,5 +75,7 @@ BFF 내부에서 `engine_client` 를 통해 Engine(`/api/sre/*`)으로 연동하
 | Frontend | `5174` | `80` |
 | BFF | `8082` | `8080` |
 | Engine | `8091` | `8090` |
+| Worker | — | — |
+| Redis | — | `6379` |
 | Database | `35435` | `5432` |
 | Wiki | `18090/wiki/` | — |

@@ -785,9 +785,84 @@ curl http://localhost:18090/api/sre/health
 
 ---
 
-## 25. 참고 문서 (내부)
+## 25. 메시지 스트림 (Redis Streams + Worker)
 
-본 페이지는 다음 내부 설계 문서의 공개 요약입니다. 깊이 들어갈 때는 원문을 참고하세요.
+### 25.1 데이터 흐름
+
+```
+모바일 앱 (GPS/Heartbeat/Event)
+    │  GET /api/sre/sreMessage?uuid=&message=&type=
+    ▼
+Engine (sreMessage 라우터)
+    │  Redis XADD sre:messages
+    ▼
+Redis Stream (sre:messages)
+    │  XREADGROUP (Consumer Group: sre-workers)
+    ▼
+Worker (Dispatcher)
+    ├── GpsAgent      ← type=gps
+    └── EventAgent    ← type=event, heartbeat
+```
+
+### 25.2 메시지 포맷
+
+| type | message (JSON) | 설명 |
+|---|---|---|
+| `gps` | `{"x":127.09,"y":37.21,"d":5}` | x=경도, y=위도, d=폴링 간격 이동거리(m) |
+| `heartbeat` | `{}` | 단말 생존 확인 |
+| `event` | `{"n":"app_open"}` | 앱 이벤트 |
+
+:::info d 값은 누적거리가 아닙니다
+`d`는 폴링 term(3초) 동안의 이동거리입니다. 누적 이동거리는 agent에서 `d` 값들을 합산하여 계산합니다.
+:::
+
+### 25.3 Worker Agent 구조
+
+```
+engine/app/workers/
+├── __main__.py      ← Dispatcher (메인루프 + agent 라우팅)
+├── base.py          ← BaseAgent ABC
+├── gps_agent.py     ← GPS 메시지 처리
+└── event_agent.py   ← Event/Heartbeat 처리
+```
+
+새 agent 추가 시: `BaseAgent` 상속 → `message_types` 선언 → `__main__.py`의 `AGENTS` 리스트에 등록.
+
+### 25.4 Worker 운영 명령어
+
+```bash
+# 로그 조회 (최근 50줄)
+docker logs saigon_worker --tail 50
+
+# 실시간 로그 스트리밍
+docker logs -f saigon_worker
+
+# GPS 로그만 필터링
+docker logs saigon_worker 2>&1 | grep "\[GPS\]"
+
+# Worker 재시작
+docker compose --profile backend up --build -d worker
+
+# Redis 스트림 현황 확인
+docker exec saigon_redis redis-cli XLEN sre:messages
+docker exec saigon_redis redis-cli XINFO GROUPS sre:messages
+
+# 스트림 비우기
+docker exec saigon_redis redis-cli XTRIM sre:messages MAXLEN 0
+```
+
+### 25.5 관리자 페이지 모니터링
+
+관리자 콘솔의 **메시지 스트림** 메뉴에서:
+- 스트림 적재 건수, Consumer Group 상태, Pending 수 확인
+- 타입/UUID 필터링 조회
+- **GPS 체크** 버튼: UUID + 시간범위 + 플랫폼 지정 → 팝업에서 Google Maps 이동경로 시각화
+
+---
+
+## 26. 참고 문서 (내부)
+
+본 페이지는 다음 내부 설계 문서의 공개 요약입니다.
 
 - 설계서: `ai-docs/engine/sre-design-spec.md`
 - 비즈니스 룰: `ai-docs/engine/01-sre-business-rules.md`

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>GPS Trace — {{uuid}}</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;background:#111;}
+  #map{width:100%;height:100%;}
+  .panel{
+    position:absolute;z-index:9999;top:10px;left:10px;
+    background:rgba(0,0,0,.88);color:#e2e8f0;padding:16px;
+    border-radius:10px;min-width:320px;font-family:'Segoe UI',system-ui,sans-serif;
+    font-size:13px;line-height:1.6;
+    box-shadow:0 4px 24px rgba(0,0,0,.5);
+  }
+  .panel .title{font-size:16px;font-weight:800;margin-bottom:10px;color:#fff;}
+  .panel .meta{color:rgba(255,255,255,.45);font-size:11px;}
+  .panel .meta span{color:rgba(255,255,255,.7);}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+  .stat{background:rgba(255,255,255,.06);padding:8px 10px;border-radius:6px;text-align:center;}
+  .stat .label{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;}
+  .stat .value{font-size:20px;font-weight:800;margin-top:2px;}
+  .legend{margin-top:12px;font-size:11px;color:rgba(255,255,255,.5);}
+  .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="title">GPS 이동경로</div>
+  <div class="meta">
+    UUID <span>{{uuid}}</span><br>
+    플랫폼 <span id="platformLabel">{{platform}}</span><br>
+    기간 <span>{{start}}</span> ~ <span>{{end}}</span>
+  </div>
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="label">GPS 포인트</div>
+      <div class="value" style="color:#68d391;">{{point_count}}</div>
+    </div>
+    <div class="stat">
+      <div class="label">총 이동거리</div>
+      <div class="value" style="color:#ff8055;" id="distanceVal">—</div>
+    </div>
+  </div>
+  <div class="legend">
+    <span class="legend-dot" style="background:#00ff99;"></span> iOS
+    <span style="margin-left:12px;"><span class="legend-dot" style="background:#00b7ff;"></span> Android</span>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+var GPS_POINTS = {{points}};
+var PLATFORM = '{{platform}}';
+
+function formatDistance(m) {
+  return m >= 1000 ? (m/1000).toFixed(2)+' km' : m.toFixed(0)+' m';
+}
+
+var totalD = 0;
+GPS_POINTS.forEach(function(p){ totalD += p.d; });
+document.getElementById('distanceVal').textContent = formatDistance(totalD);
+
+var platformNames = {ios:'iOS', android:'Android', all:'전체'};
+document.getElementById('platformLabel').textContent = platformNames[PLATFORM] || PLATFORM;
+
+function initMap() {
+  var center = GPS_POINTS.length > 0
+    ? {lat: GPS_POINTS[0].lat, lng: GPS_POINTS[0].lng}
+    : {lat: 37.2108654, lng: 127.0893561};
+
+  var map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 16,
+    center: center,
+    styles: [
+      {elementType:'geometry',stylers:[{color:'#1d2c4d'}]},
+      {elementType:'labels.text.fill',stylers:[{color:'#8ec3b9'}]},
+      {elementType:'labels.text.stroke',stylers:[{color:'#1a3646'}]},
+      {featureType:'road',elementType:'geometry',stylers:[{color:'#304a7d'}]},
+      {featureType:'water',elementType:'geometry',stylers:[{color:'#0e1626'}]}
+    ]
+  });
+
+  var colors = {ios:'#00ff99', android:'#00b7ff', all:'#ff9800'};
+  var strokeColor = colors[PLATFORM] || '#ff9800';
+
+  var path = GPS_POINTS.map(function(p){ return {lat:p.lat, lng:p.lng}; });
+
+  if (path.length > 0) {
+    var polyline = new google.maps.Polyline({
+      path: path,
+      geodesic: true,
+      strokeColor: strokeColor,
+      strokeOpacity: 0.9,
+      strokeWeight: 4
+    });
+    polyline.setMap(map);
+
+    new google.maps.Marker({
+      position: path[0],
+      map: map,
+      label: {text:'S', color:'#fff', fontWeight:'bold'},
+      title: 'Start'
+    });
+    if (path.length > 1) {
+      new google.maps.Marker({
+        position: path[path.length-1],
+        map: map,
+        label: {text:'E', color:'#fff', fontWeight:'bold'},
+        title: 'End'
+      });
+    }
+
+    var bounds = new google.maps.LatLngBounds();
+    path.forEach(function(p){ bounds.extend(p); });
+    map.fitBounds(bounds);
+  }
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{gmap_key}}&callback=initMap"></script>
+</body>
+</html>

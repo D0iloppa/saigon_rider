@@ -39,10 +39,49 @@
         <option value="500" {{sel_500}}>500건</option>
       </select>
       <button type="submit" class="btn btn-ghost btn-sm">조회</button>
+      <button type="button" class="btn btn-sm" style="background:#ff8055;color:#fff;margin-left:auto;" onclick="document.getElementById('gpsDialog').showModal()">GPS 체크</button>
     </div>
     <a href="/admin/stream" class="btn btn-ghost btn-sm">초기화</a>
   </form>
 </div>
+
+<!-- ── GPS Trace Dialog ── -->
+<dialog id="gpsDialog" style="background:#1a1d2e;color:#e2e8f0;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:24px;min-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+  <h3 style="margin:0 0 16px;font-size:16px;font-weight:700;">GPS 이동경로 조회</h3>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div>
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px;">단말 UUID</label>
+      <input id="gpsUuid" type="text" placeholder="UUID 입력..." style="width:100%;padding:8px 10px;background:#0d0f1a;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-family:monospace;font-size:13px;" />
+    </div>
+    <div>
+      <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px;">플랫폼</label>
+      <div style="display:flex;gap:8px;">
+        <label style="flex:1;text-align:center;padding:8px;border-radius:6px;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:#0d0f1a;">
+          <input type="radio" name="gpsPlatform" value="ios" checked style="display:none;" />
+          <span class="platform-label" data-val="ios" style="font-size:13px;">iOS</span>
+        </label>
+        <label style="flex:1;text-align:center;padding:8px;border-radius:6px;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:#0d0f1a;">
+          <input type="radio" name="gpsPlatform" value="android" style="display:none;" />
+          <span class="platform-label" data-val="android" style="font-size:13px;">Android</span>
+        </label>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px;">시작 시간</label>
+        <input id="gpsStart" type="datetime-local" style="width:100%;padding:8px 10px;background:#0d0f1a;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;" />
+      </div>
+      <div>
+        <label style="font-size:11px;color:rgba(255,255,255,.5);display:block;margin-bottom:4px;">종료 시간</label>
+        <input id="gpsEnd" type="datetime-local" style="width:100%;padding:8px 10px;background:#0d0f1a;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;" />
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end;">
+    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('gpsDialog').close()">취소</button>
+    <button type="button" class="btn btn-sm" style="background:#ff8055;color:#fff;" onclick="openGpsTrace()">조회</button>
+  </div>
+</dialog>
 
 <!-- ── Messages Table ── -->
 <div class="card">
@@ -72,6 +111,10 @@
   .stream-id { font-family:monospace; font-size:11px; color:rgba(255,255,255,.35); }
   .msg-label { color:rgba(255,255,255,.35); }
   .msg-value { color:#e2e8f0; }
+
+  dialog::backdrop { background:rgba(0,0,0,.6); }
+  dialog input[type="radio"]:checked + .platform-label { color:#ff8055; font-weight:700; }
+  dialog label:has(input[type="radio"]:checked) { border-color:#ff8055 !important; background:rgba(255,128,85,.1) !important; }
 </style>
 
 <script>
@@ -102,4 +145,32 @@ document.querySelectorAll('.msg-cell[data-raw]').forEach(function(el) {
     el.title = el.dataset.raw;
   }
 });
+
+(function() {
+  var now = new Date();
+  var start = new Date(now.getTime() - 60*60*1000);
+  function fmt(d) {
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+      +'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  document.getElementById('gpsStart').value = fmt(start);
+  document.getElementById('gpsEnd').value = fmt(now);
+})();
+
+function openGpsTrace() {
+  var uuid = document.getElementById('gpsUuid').value.trim();
+  var start = document.getElementById('gpsStart').value;
+  var end = document.getElementById('gpsEnd').value;
+  var platform = document.querySelector('input[name="gpsPlatform"]:checked').value;
+
+  if (!uuid) { alert('UUID를 입력하세요.'); return; }
+  if (!start || !end) { alert('시간 범위를 지정하세요.'); return; }
+
+  var url = '/admin/stream/gps-trace?uuid=' + encodeURIComponent(uuid)
+    + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end)
+    + '&platform=' + platform;
+
+  window.open(url, 'gps_trace', 'width=1200,height=800,menubar=no,toolbar=no');
+  document.getElementById('gpsDialog').close();
+}
 </script>

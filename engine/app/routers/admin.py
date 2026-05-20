@@ -612,12 +612,24 @@ async def admin_stream_messages(
     count: int = Query(50, ge=1, le=500),
     type_filter: Optional[str] = Query(None, alias="type"),
     uuid_filter: Optional[str] = Query(None, alias="uuid"),
+    start_ts: Optional[float] = Query(
+        None, description="Unix epoch seconds (inclusive)"
+    ),
+    end_ts: Optional[float] = Query(None, description="Unix epoch seconds (inclusive)"),
 ) -> list[dict]:
     """최근 메시지 목록 (XREVRANGE — 최신순, 읽기 전용)."""
     from app.redis_client import STREAM_KEY, get_redis
 
     r = await get_redis()
-    raw = await r.xrevrange(STREAM_KEY, count=count)
+
+    max_id = "+"
+    min_id = "-"
+    if end_ts is not None:
+        max_id = f"{int(end_ts * 1000)}-18446744073709551615"
+    if start_ts is not None:
+        min_id = f"{int(start_ts * 1000)}-0"
+
+    raw = await r.xrevrange(STREAM_KEY, max=max_id, min=min_id, count=count)
 
     messages = []
     for msg_id, fields in raw:

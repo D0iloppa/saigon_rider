@@ -353,10 +353,16 @@ class SreMessage(Base):
     __tablename__ = "sre_message_tbl"
 
     id = Column(BigInteger, Identity(always=True), primary_key=True)
+    type = Column(String(20), nullable=False, server_default="gps")
     uuid = Column(Text, nullable=False)
     message = Column(Text, nullable=False)
     timestamp = Column(_TS, nullable=False, server_default="NOW()")
     _extra = Column("_extra", JSONB, nullable=False, server_default="{}")
+
+    __table_args__ = (
+        Index("idx_sre_msg_type_ts", "type", timestamp.desc()),
+        Index("idx_sre_msg_uuid_ts", "uuid", timestamp.desc()),
+    )
 
 
 class AuditLog(Base):

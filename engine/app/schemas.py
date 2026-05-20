@@ -267,6 +267,7 @@ class AdminAdjustCreate(BaseModel):
 
 class SreMessageRead(BaseModel):
     id: int
+    type: str
     uuid: str
     message: str
     timestamp: datetime

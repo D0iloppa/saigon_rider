@@ -316,7 +316,18 @@
       "Bash(ruff check *)",
       "Bash(ruff format *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(awk '{print $1}')",
+      "WebFetch(domain:www.doil.me)",
+      "Bash(find /home/doil/workspace/w_dev/Doness -not -path '*/.git/*' -type f | sort)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(gh auth *)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(git credential *)",
+      "Bash(ls -lh /home/doil/workspace/w_dev/saigon_rider-native/ 2>&1)",
+      "Bash(unzip -l /home/doil/workspace/w_dev/saigon_rider-native/SaigonRider-ios.zip)",
+      "Bash(unzip -l /home/doil/workspace/w_dev/saigon_rider-native/SaigonRider-android.zip)",
+      "Bash(mkdir -p /tmp/native-setup/ios)"
     ]
   }
 }

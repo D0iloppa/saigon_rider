@@ -25,144 +25,65 @@ docker compose up -d frontend
 
 ---
 
-## 1. 네이티브 브릿지 (WebView ↔ Native)
+## 1. 네이티브 기능 추상화 (Capacitor 기반)
 
 > **구현 파일**: `src/lib/native.ts`  
-> **타입 선언**: `src/vite-env.d.ts` (Window 인터페이스 확장)
+> **의존성**: `@capacitor/core`, `@capacitor/geolocation`
 
-앱은 Android / iOS WebView 위에서 동작한다. 네이티브 기능(GPS, 카메라, 권한 등)은 `NativeInterface` 싱글턴을 통해 호출한다.
+앱은 Android / iOS WebView 위에서 동작한다. 네이티브 기능은 `NativeInterface` 싱글턴(`native`)을 통해 호출한다. 내부적으로 Capacitor 플러그인을 래핑하며, `client.ts`가 fetch를 래핑하는 것과 동일한 패턴이다.
 
-### 1.1 통신 프로토콜
+### 1.1 현재 상태
 
-> **원칙: 네이티브 인터페이스는 수정하지 않는다.**  
-> 네이티브의 기존 응답 패턴에 웹 브릿지가 맞춰서 수신한다.
+- **웹만 전환 완료** — 네이티브 앱은 기존 WebView 유지
+- Capacitor 플러그인은 브라우저 fallback으로 동작 (`Capacitor.isNativePlatform()` = false)
+- 활성 플러그인: `@capacitor/geolocation`만 설치. 나머지는 사용 시점에 추가
 
-**발신 (웹 → 네이티브)**
-
-| 플랫폼 | 채널 |
-|--------|------|
-| Android | `window.native.postMessage(payload)` |
-| iOS | `window.webkit.messageHandlers.native.postMessage(payload)` |
-
-**수신 (네이티브 → 웹) — 두 채널 모두 대응**
-
-| 채널 | 설명 |
-|------|------|
-| `window.nativeInterface.onMessage(str)` | 표준 채널 (네이티브가 직접 호출) |
-| `window.postMessage(str)` | iOS `evaluateJavaScript("window.postMessage(...)")` 패턴 흡수 |
-
-두 채널 모두 내부적으로 `_handleInbound`로 라우팅되어 동일하게 처리된다.
-
-**메시지 포맷**
-
-```
-// 요청 (웹 → 네이티브)
-{ key: string, callbackId?: string, params?: unknown }
-
-// 응답 (네이티브 → 웹) — Request/Response
-{ callbackId: string, result?: unknown }
-{ callbackId: string, error: string }
-
-// 푸시 이벤트 (네이티브 → 웹, 단방향)
-{ key: string, data?: unknown }
-```
-
-### 1.2 iOS 확인된 동작 패턴
-
-> 실기기 테스트(2026-05-15) 기준
-
-| 항목 | 내용 |
-|------|------|
-| iOS 발신 | Mode 1 (`webkit.messageHandlers.native.postMessage(key)`) 정상 동작 |
-| iOS 수신 | 네이티브가 `evaluateJavaScript("window.postMessage(result)")` 로 응답 |
-| Mode 0 iOS | `window.postMessage(key)` 발신 — iOS에서 타임아웃 발생, 사용 안 함 |
-| `getLocation` 응답 포맷 | `"lat,lng"` plain string (예: `"37.210363,127.089161"`) |
-
-### 1.3 API 사용법
+### 1.2 API 사용법
 
 ```ts
-import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
+import { native } from '@/lib/native';
 
-// 단방향 전송 (응답 없음)
-nativeInterface.send(NATIVE_KEYS.HAPTIC, { style: 'light' });
+// GPS 위치 1회 조회 (타입 안전)
+const pos = await native.getLocation();
+// pos: { lat: number, lng: number, accuracy?: number }
 
-// 양방향 요청 (Promise 반환, 기본 타임아웃 10초)
-const loc = await nativeInterface.request<{ lat: number; lng: number }>(
-  NATIVE_KEYS.GET_LOCATION
-);
+// 실시간 위치 스트리밍
+const unsub = native.watchLocation((pos) => {
+  console.log(pos.lat, pos.lng);
+});
+unsub(); // unmount 시 해제
 
-// Push 이벤트 구독 (실시간 스트리밍)
-const unsub = nativeInterface.on<{ lat: number; lng: number }>(
-  NATIVE_KEYS.LOCATION_UPDATE,
-  (d) => console.log(d.lat, d.lng)
-);
-unsub(); // 반드시 컴포넌트 unmount 시 해제
+// 플랫폼 감지
+native.platform;  // 'ios' | 'android' | 'web'
+native.isNative;  // boolean
 ```
 
-### 1.3 지원 커맨드 (`NATIVE_KEYS`)
+### 1.3 지원 메서드
 
-| 상수 | key 값 | 통신 방식 | 설명 |
-|------|--------|-----------|------|
-| `GET_LOCATION` | `getLocation` | Request/Response | 현재 GPS 위치 1회 조회 |
-| `OPEN_CAMERA` | `openCamera` | Request/Response | 카메라 오픈 후 이미지 반환 |
-| `SHARE` | `share` | Send | OS 공유 시트 오픈 |
-| `HAPTIC` | `haptic` | Send | 햅틱 피드백 |
-| `GET_DEVICE_INFO` | `getDeviceInfo` | Request/Response | OS / 앱 버전 정보 |
-| `REQUEST_PERMISSION` | `requestPermission` | Request/Response | 런타임 권한 요청 |
-| `LOCATION_UPDATE` | `locationUpdate` | Push (Native→Web) | 실시간 위치 스트리밍 |
-| `APP_FOREGROUND` | `appForeground` | Push (Native→Web) | 앱 포그라운드 복귀 이벤트 |
-| `DEEP_LINK` | `deepLink` | Push (Native→Web) | 딥링크 URL 수신 |
+| 메서드 | Capacitor 플러그인 | 상태 |
+|---|---|---|
+| `getLocation()` | `@capacitor/geolocation` | ✅ 활성 |
+| `watchLocation(handler)` | `@capacitor/geolocation` | ✅ 활성 |
+| `openCamera()` | `@capacitor/camera` | stub (미설치) |
+| `getDeviceInfo()` | `@capacitor/device` | stub (미설치) |
+| `share(options)` | `@capacitor/share` | Web Share API fallback |
+| `haptic(style?)` | `@capacitor/haptics` | stub (미설치) |
+| `onAppStateChange(handler)` | `@capacitor/app` | stub (미설치) |
+| `onDeepLink(handler)` | `@capacitor/app` | stub (미설치) |
 
-### 1.4 getLocation 응답 형태
+### 1.4 브라우저(Dev) 환경 동작
 
-> **미확인** — 네이티브 팀으로부터 실제 응답값 수신 후 이 항목을 채울 것.  
-> 디버그 방법: `/home` 진입 시 `AlertDialog`로 raw 응답 출력 (아래 1.5 참고).
+Capacitor 내장 웹 구현 활용:
+- `getLocation()` → 브라우저 `navigator.geolocation.getCurrentPosition()` 호출 (실제 좌표 반환)
+- `share()` → `navigator.share()` API (지원 브라우저에서 동작)
+- stub 메서드 → console.warn 또는 noop
 
-예상 형태 (확정 전):
-```ts
-{
-  lat: number;   // 위도
-  lng: number;   // 경도
-  accuracy?: number;  // 정확도 (m)
-}
-```
+### 1.5 플러그인 추가 절차
 
-### 1.5 브라우저(Dev) 환경 동작
-
-네이티브 브릿지 미존재 시 자동 fallback:
-- `request()` → 100ms 후 `null` resolve (UI 블로킹 방지)
-- `send()` → 콘솔 경고만 출력
-- `on()` → 이벤트 수신 없음 (핸들러 등록만 됨)
-
-### 1.6 네이티브 브릿지 디버깅
-
-응답값 확인이 필요할 때 `AlertDialog` 공통 컴포넌트를 활용한다.
-
-```tsx
-import { useState, useEffect } from 'react';
-import { AlertDialog } from '@/components/ui/AlertDialog';
-import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
-
-// 컴포넌트 내부
-const [debugMsg, setDebugMsg] = useState<string | null>(null);
-
-useEffect(() => {
-  nativeInterface
-    .request(NATIVE_KEYS.GET_LOCATION)
-    .then((res) => setDebugMsg(JSON.stringify(res, null, 2)))
-    .catch((err: Error) => setDebugMsg(`Error: ${err.message}`));
-}, []);
-
-// JSX
-<AlertDialog
-  open={debugMsg !== null}
-  title="getLocation 응답"
-  pre={debugMsg ?? undefined}
-  onClose={() => setDebugMsg(null)}
-/>
-```
-
-값 확인 후 해당 `useEffect`와 `AlertDialog` 블록을 제거한다.
+새 네이티브 기능이 필요할 때:
+1. `npm install @capacitor/{plugin}` (frontend 디렉토리)
+2. `native.ts`의 해당 stub 메서드를 실제 구현으로 교체
+3. 사용처에서 `native.methodName()` 호출
 
 ---
 

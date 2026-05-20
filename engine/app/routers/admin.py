@@ -9,12 +9,20 @@ from app.deps import get_session, verify_admin_jwt, verify_service_key
 from app.enums import TxTypeEnum
 from app.exceptions import InsufficientBalanceError
 from app.models import (
-    ActionDefinition, AuditLog, DailyFeaturedItem, GachaDefinition,
-    ItemDefinition, RpTransaction, SreUser, UserTier,
+    ActionDefinition,
+    AuditLog,
+    DailyFeaturedItem,
+    GachaDefinition,
+    ItemDefinition,
+    RpTransaction,
+    SreUser,
+    UserTier,
 )
 from app.schemas import (
-    AdminAdjustCreate, AuditEntryRead,
-    TransactionRead, UserSummary,
+    AdminAdjustCreate,
+    AuditEntryRead,
+    TransactionRead,
+    UserSummary,
 )
 from app.services import audit as audit_svc
 from app.services import point_ledger
@@ -27,6 +35,7 @@ _svc = Depends(verify_service_key)
 
 # ── 직렬화 헬퍼 ───────────────────────────────────────────
 
+
 def _gacha_to_dict(g: GachaDefinition) -> dict:
     return {
         "gacha_code": g.gacha_code,
@@ -38,7 +47,9 @@ def _gacha_to_dict(g: GachaDefinition) -> dict:
         "collection_filter": g.collection_filter,
         "drop_table": g.drop_table,
         "pity_threshold": g.pity_threshold,
-        "pity_guarantee_rarity": g.pity_guarantee_rarity.value if g.pity_guarantee_rarity else None,
+        "pity_guarantee_rarity": g.pity_guarantee_rarity.value
+        if g.pity_guarantee_rarity
+        else None,
         "pity_resets_with_season": g.pity_resets_with_season,
         "starts_at": g.starts_at.isoformat() if g.starts_at else None,
         "ends_at": g.ends_at.isoformat() if g.ends_at else None,
@@ -89,8 +100,9 @@ async def list_action_definitions(
     ]
 
 
-@router.post("/action-definitions", status_code=status.HTTP_201_CREATED,
-             dependencies=[_admin])
+@router.post(
+    "/action-definitions", status_code=status.HTTP_201_CREATED, dependencies=[_admin]
+)
 async def create_action_definition(
     data: dict,
     db: AsyncSession = Depends(get_session),
@@ -110,7 +122,9 @@ async def update_action_definition(
 ) -> dict:
     action = await db.get(ActionDefinition, action_code)
     if action is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Action not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Action not found"
+        )
     for k, v in data.items():
         if hasattr(action, k) and k != "action_code":
             setattr(action, k, v)
@@ -121,16 +135,18 @@ async def update_action_definition(
 # ── 사용자 조회 ───────────────────────────────────────────
 
 
-@router.get("/users/{user_id}", response_model=UserSummary,
-            dependencies=[_admin])
+@router.get("/users/{user_id}", response_model=UserSummary, dependencies=[_admin])
 async def get_user_summary(
     user_id: int,
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     from app.models import RpBalance
+
     user = await db.get(SreUser, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     balance = await db.get(RpBalance, user_id)
     tier = await db.get(UserTier, user_id)
     return {
@@ -148,8 +164,9 @@ async def get_user_summary(
 # ── RP 조정 ───────────────────────────────────────────────
 
 
-@router.post("/users/{user_id}/adjust", response_model=TransactionRead,
-             dependencies=[_admin])
+@router.post(
+    "/users/{user_id}/adjust", response_model=TransactionRead, dependencies=[_admin]
+)
 async def adjust_balance(
     user_id: int,
     data: AdminAdjustCreate,
@@ -157,8 +174,10 @@ async def adjust_balance(
     db: AsyncSession = Depends(get_session),
 ) -> RpTransaction:
     if data.tx_type not in (TxTypeEnum.ADJUST_PLUS, TxTypeEnum.ADJUST_MINUS):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail="tx_type must be ADJUST_PLUS or ADJUST_MINUS")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="tx_type must be ADJUST_PLUS or ADJUST_MINUS",
+        )
     try:
         tx = await point_ledger.admin_adjust(
             db,
@@ -185,8 +204,7 @@ async def adjust_balance(
 # ── 감사 로그 ─────────────────────────────────────────────
 
 
-@router.get("/audit-logs", response_model=list[AuditEntryRead],
-            dependencies=[_admin])
+@router.get("/audit-logs", response_model=list[AuditEntryRead], dependencies=[_admin])
 async def list_audit_logs(
     entity_type: Optional[str] = Query(None),
     entity_id: Optional[int] = Query(None),
@@ -224,11 +242,21 @@ async def admin_gacha_update(
 ) -> dict:
     g = await db.get(GachaDefinition, gacha_code)
     if g is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gacha not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gacha not found"
+        )
     _EDITABLE_GACHA = {
-        "display_name", "description", "cost_per_pull", "cost_per_10_pull",
-        "drop_table", "pity_threshold", "starts_at", "ends_at",
-        "status", "is_listed", "sort_order",
+        "display_name",
+        "description",
+        "cost_per_pull",
+        "cost_per_10_pull",
+        "drop_table",
+        "pity_threshold",
+        "starts_at",
+        "ends_at",
+        "status",
+        "is_listed",
+        "sort_order",
     }
     for k, v in data.items():
         if k in _EDITABLE_GACHA:
@@ -241,8 +269,15 @@ async def admin_gacha_update(
 # ── 아이템 정의 CRUD ──────────────────────────────────────────────
 
 _ITEM_EDITABLE = {
-    "display_name", "slot", "rarity", "collection_code", "asset_uri",
-    "shop_price_gp", "shop_price_gc", "is_shop_visible", "season_lock",
+    "display_name",
+    "slot",
+    "rarity",
+    "collection_code",
+    "asset_uri",
+    "shop_price_gp",
+    "shop_price_gc",
+    "is_shop_visible",
+    "season_lock",
     "required_season_code",
 }
 
@@ -260,19 +295,30 @@ async def admin_item_list(db: AsyncSession = Depends(get_session)) -> list[dict]
 
 
 @router.get("/items/{item_code}", dependencies=[_svc])
-async def admin_item_get(item_code: str, db: AsyncSession = Depends(get_session)) -> dict:
+async def admin_item_get(
+    item_code: str, db: AsyncSession = Depends(get_session)
+) -> dict:
     item = await db.get(ItemDefinition, item_code)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+        )
     return _item_to_dict(item)
 
 
 @router.post("/items", status_code=status.HTTP_201_CREATED, dependencies=[_svc])
-async def admin_item_create(data: dict, db: AsyncSession = Depends(get_session)) -> dict:
+async def admin_item_create(
+    data: dict, db: AsyncSession = Depends(get_session)
+) -> dict:
     if not data.get("item_code"):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="item_code required")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="item_code required",
+        )
     if await db.get(ItemDefinition, data["item_code"]) is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="item_code already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="item_code already exists"
+        )
     allowed = {"item_code"} | _ITEM_EDITABLE
     item = ItemDefinition(**{k: v for k, v in data.items() if k in allowed})
     db.add(item)
@@ -287,7 +333,9 @@ async def admin_item_update(
 ) -> dict:
     item = await db.get(ItemDefinition, item_code)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+        )
     for k, v in data.items():
         if k in _ITEM_EDITABLE:
             setattr(item, k, v)
@@ -297,12 +345,19 @@ async def admin_item_update(
 
 
 @router.delete("/items/{item_code}", dependencies=[_svc])
-async def admin_item_delete(item_code: str, db: AsyncSession = Depends(get_session)) -> dict:
+async def admin_item_delete(
+    item_code: str, db: AsyncSession = Depends(get_session)
+) -> dict:
     from app.models import UserItem  # noqa: PLC0415
+
     item = await db.get(ItemDefinition, item_code)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    owned = (await db.execute(select(func.count()).where(UserItem.item_code == item_code))).scalar() or 0
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+        )
+    owned = (
+        await db.execute(select(func.count()).where(UserItem.item_code == item_code))
+    ).scalar() or 0
     if owned > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -320,7 +375,9 @@ async def admin_item_delete(item_code: str, db: AsyncSession = Depends(get_sessi
 async def admin_shop_items(db: AsyncSession = Depends(get_session)) -> list[dict]:
     result = await db.execute(
         select(ItemDefinition).order_by(
-            ItemDefinition.collection_code, ItemDefinition.rarity, ItemDefinition.item_code
+            ItemDefinition.collection_code,
+            ItemDefinition.rarity,
+            ItemDefinition.item_code,
         )
     )
     return [_item_to_dict(i) for i in result.scalars().all()]
@@ -334,10 +391,15 @@ async def admin_shop_item_update(
 ) -> dict:
     item = await db.get(ItemDefinition, item_code)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+        )
     _EDITABLE_ITEM = {
-        "shop_price_gp", "shop_price_gc", "is_shop_visible",
-        "season_lock", "required_season_code",
+        "shop_price_gp",
+        "shop_price_gc",
+        "is_shop_visible",
+        "season_lock",
+        "required_season_code",
     }
     for k, v in data.items():
         if k in _EDITABLE_ITEM:
@@ -351,7 +413,9 @@ async def admin_shop_item_update(
 
 
 @router.get("/shop/daily-featured", dependencies=[_svc])
-async def admin_daily_featured_history(db: AsyncSession = Depends(get_session)) -> list[dict]:
+async def admin_daily_featured_history(
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
     result = await db.execute(
         select(DailyFeaturedItem)
         .order_by(DailyFeaturedItem.featured_date.desc(), DailyFeaturedItem.sort_order)
@@ -467,7 +531,9 @@ async def admin_ops_gacha_roi(db: AsyncSession = Depends(get_session)) -> list[d
 
 
 @router.get("/ops/channel-ratio", dependencies=[_svc])
-async def admin_ops_channel_ratio(db: AsyncSession = Depends(get_session)) -> list[dict]:
+async def admin_ops_channel_ratio(
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
     """가챠 vs 상점 사용 비율 (최근 30일)."""
     sql = sa_text("""
         SELECT source, COUNT(*) AS purchases, COUNT(DISTINCT user_id) AS users
@@ -490,7 +556,9 @@ async def admin_ops_channel_ratio(db: AsyncSession = Depends(get_session)) -> li
 
 
 @router.get("/ops/pity-distribution", dependencies=[_svc])
-async def admin_ops_pity_distribution(db: AsyncSession = Depends(get_session)) -> list[dict]:
+async def admin_ops_pity_distribution(
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
     """천장 도달자 분포 — 도박성 보호 정책 효과 측정."""
     sql = sa_text("""
         SELECT gacha_code, pity_count, COUNT(*) AS users
@@ -504,3 +572,59 @@ async def admin_ops_pity_distribution(db: AsyncSession = Depends(get_session)) -
         {"gacha_code": row.gacha_code, "pity_count": row.pity_count, "users": row.users}
         for row in result.all()
     ]
+
+
+# ── 메시지 스트림 모니터 ──────────────────────────────────────
+
+
+@router.get("/stream/info", dependencies=[_svc])
+async def admin_stream_info() -> dict:
+    """Redis Stream 현황 — 적재 건수, Consumer Group 상태."""
+    from app.redis_client import STREAM_KEY, get_redis
+
+    r = await get_redis()
+    try:
+        info = await r.xinfo_stream(STREAM_KEY)
+    except Exception:
+        return {"length": 0, "groups": [], "exists": False}
+
+    groups_raw = await r.xinfo_groups(STREAM_KEY)
+    groups = [
+        {
+            "name": g.get("name", ""),
+            "consumers": g.get("consumers", 0),
+            "pending": g.get("pending", 0),
+            "last_delivered_id": g.get("last-delivered-id", ""),
+        }
+        for g in groups_raw
+    ]
+    return {
+        "exists": True,
+        "length": info.get("length", 0),
+        "first_entry": info.get("first-entry"),
+        "last_entry": info.get("last-entry"),
+        "groups": groups,
+    }
+
+
+@router.get("/stream/messages", dependencies=[_svc])
+async def admin_stream_messages(
+    count: int = Query(50, ge=1, le=500),
+    type_filter: Optional[str] = Query(None, alias="type"),
+    uuid_filter: Optional[str] = Query(None, alias="uuid"),
+) -> list[dict]:
+    """최근 메시지 목록 (XREVRANGE — 최신순, 읽기 전용)."""
+    from app.redis_client import STREAM_KEY, get_redis
+
+    r = await get_redis()
+    raw = await r.xrevrange(STREAM_KEY, count=count)
+
+    messages = []
+    for msg_id, fields in raw:
+        if type_filter and fields.get("type") != type_filter:
+            continue
+        if uuid_filter and uuid_filter not in fields.get("uuid", ""):
+            continue
+        messages.append({"id": msg_id, **fields})
+
+    return messages

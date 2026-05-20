@@ -1,0 +1,105 @@
+<h1 class="page-title">메시지 스트림</h1>
+<p class="page-sub">Redis Streams 실시간 모니터 — 읽기 전용 (메시지 소비에 영향 없음)</p>
+
+<!-- ── Stream Info Cards ── -->
+<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:24px;">
+  <div class="card" style="text-align:center;">
+    <div style="font-size:11px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px;">적재 건수</div>
+    <div style="font-size:28px; font-weight:800; color:#ff8055;">{{stream_length}}</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="font-size:11px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px;">Consumer Groups</div>
+    <div style="font-size:28px; font-weight:800; color:#fff;">{{group_count}}</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="font-size:11px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px;">Pending (미처리)</div>
+    <div style="font-size:28px; font-weight:800; color:{{pending_color}};">{{pending_count}}</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="font-size:11px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px;">Active Consumers</div>
+    <div style="font-size:28px; font-weight:800; color:#68d391;">{{consumer_count}}</div>
+  </div>
+</div>
+
+<!-- ── Filters ── -->
+<div class="card" style="margin-bottom:20px;">
+  <form method="get" action="/admin/stream" class="toolbar" style="margin-bottom:0;">
+    <div style="display:flex; gap:8px; align-items:center;">
+      <select name="type" style="width:140px;">
+        <option value="">전체 타입</option>
+        <option value="gps" {{sel_gps}}>gps</option>
+        <option value="heartbeat" {{sel_heartbeat}}>heartbeat</option>
+        <option value="event" {{sel_event}}>event</option>
+      </select>
+      <input type="search" name="uuid" placeholder="UUID 검색..." value="{{filter_uuid}}" style="width:240px;" />
+      <select name="count" style="width:100px;">
+        <option value="50" {{sel_50}}>50건</option>
+        <option value="100" {{sel_100}}>100건</option>
+        <option value="200" {{sel_200}}>200건</option>
+        <option value="500" {{sel_500}}>500건</option>
+      </select>
+      <button type="submit" class="btn btn-ghost btn-sm">조회</button>
+    </div>
+    <a href="/admin/stream" class="btn btn-ghost btn-sm">초기화</a>
+  </form>
+</div>
+
+<!-- ── Messages Table ── -->
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Stream ID</th>
+        <th>Type</th>
+        <th>UUID</th>
+        <th>Message</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{rows}}
+    </tbody>
+  </table>
+  {{empty_state}}
+</div>
+
+<style>
+  .type-gps { background:rgba(72,187,120,.15); color:#68d391; border:1px solid rgba(72,187,120,.3); }
+  .type-heartbeat { background:rgba(99,179,237,.15); color:#63b3ed; border:1px solid rgba(99,179,237,.3); }
+  .type-event { background:rgba(255,153,51,.12); color:#ff9933; border:1px solid rgba(255,153,51,.3); }
+  .msg-cell { max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:monospace; font-size:12px; }
+  .uuid-cell { font-family:monospace; font-size:11px; color:rgba(255,255,255,.6); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stream-id { font-family:monospace; font-size:11px; color:rgba(255,255,255,.35); }
+  .msg-label { color:rgba(255,255,255,.35); }
+  .msg-value { color:#e2e8f0; }
+</style>
+
+<script>
+function fmtMessage(type, raw) {
+  try {
+    var o = JSON.parse(raw);
+    switch (type) {
+      case 'gps':
+        if (o.x !== undefined && o.y !== undefined)
+          return '<span class="msg-label">위도</span> <span class="msg-value">' + o.y +
+                 '</span> <span class="msg-label">경도</span> <span class="msg-value">' + o.x +
+                 '</span> <span class="msg-label">이동</span> <span class="msg-value">' + (o.d || 0) + 'm</span>';
+        break;
+      case 'heartbeat':
+        return '<span class="msg-value">alive</span>';
+      case 'event':
+        if (o.n) return '<span class="msg-label">event</span> <span class="msg-value">' + o.n + '</span>';
+        break;
+    }
+  } catch (e) {}
+  return null;
+}
+
+document.querySelectorAll('.msg-cell[data-raw]').forEach(function(el) {
+  var formatted = fmtMessage(el.dataset.type, el.dataset.raw);
+  if (formatted) {
+    el.innerHTML = formatted;
+    el.title = el.dataset.raw;
+  }
+});
+</script>

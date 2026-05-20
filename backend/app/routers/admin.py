@@ -68,7 +68,7 @@ ALLOWED_IMAGE_MIME = {
 }
 
 # role 별 사이드바 메뉴 노출
-_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "badges", "sre", "items", "dev", "settings")
+_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "badges", "sre", "items", "stream", "dev", "settings")
 _ROOT_ONLY_NAV = {"admins"}
 
 
@@ -2621,3 +2621,81 @@ async def admin_badge_delete(
     await db.delete(badge)
     await db.commit()
     return RedirectResponse(url="/admin/badges", status_code=302)
+
+
+# ── 메시지 스트림 모니터 ────────────────────────────────────────
+
+
+@router.get("/stream", include_in_schema=False)
+async def admin_stream_page(
+    request: Request,
+    type: str | None = None,
+    uuid_q: str | None = None,
+    count: int = 50,
+    session: AdminSession = Depends(verify_admin_session),
+):
+    uuid_q = request.query_params.get("uuid", None)
+
+    try:
+        info = await engine_client.admin_stream_info()
+        messages = await engine_client.admin_stream_messages(
+            count=count,
+            type_filter=type,
+            uuid_filter=uuid_q,
+        )
+    except Exception:
+        info = {"length": 0, "groups": [], "exists": False}
+        messages = []
+
+    stream_length = info.get("length", 0)
+    groups = info.get("groups", [])
+    group_count = len(groups)
+    pending_count = sum(g.get("pending", 0) for g in groups)
+    consumer_count = sum(g.get("consumers", 0) for g in groups)
+    pending_color = "#fc8181" if pending_count > 100 else "#68d391"
+
+    rows_html = ""
+    for msg in messages:
+        msg_type = msg.get("type", "gps")
+        ts_raw = msg.get("ts", "")
+        try:
+            ts_dt = datetime.fromtimestamp(float(ts_raw), tz=UTC)
+            ts_str = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, OSError):
+            ts_str = ts_raw
+
+        rows_html += (
+            f"<tr>"
+            f'<td class="stream-id">{h(msg.get("id", ""))}</td>'
+            f'<td><span class="pill type-{msg_type}">{h(msg_type)}</span></td>'
+            f'<td class="uuid-cell" title="{h(msg.get("uuid", ""))}">{h(msg.get("uuid", ""))}</td>'
+            f'<td class="msg-cell" data-type="{h(msg_type)}" data-raw="{h(msg.get("message", ""))}">{h(msg.get("message", ""))}</td>'
+            f'<td style="font-size:12px; color:rgba(255,255,255,.5);">{h(ts_str)}</td>'
+            f"</tr>"
+        )
+
+    empty_state = ""
+    if not messages:
+        empty_state = '<div class="empty">스트림에 메시지가 없습니다.</div>'
+
+    return _render_page(
+        "stream.html",
+        nav="stream",
+        page_title="메시지 스트림",
+        session=session,
+        stream_length=str(stream_length),
+        group_count=str(group_count),
+        pending_count=str(pending_count),
+        pending_color=pending_color,
+        consumer_count=str(consumer_count),
+        rows=rows_html,
+        empty_state=empty_state,
+        filter_uuid=h(uuid_q or ""),
+        sel_gps="selected" if type == "gps" else "",
+        sel_heartbeat="selected" if type == "heartbeat" else "",
+        sel_event="selected" if type == "event" else "",
+        sel_50="selected" if count == 50 else "",
+        sel_100="selected" if count == 100 else "",
+        sel_200="selected" if count == 200 else "",
+        sel_500="selected" if count == 500 else "",
+    )

@@ -5,6 +5,7 @@ networks:
 
 volumes:
   saigon_db_data:
+  saigon_redis_data:
 
 services:
 
@@ -109,8 +110,11 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
       - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
       - SRE_TIMEZONE=Asia/Ho_Chi_Minh
@@ -120,6 +124,32 @@ services:
       - SRE_NEW_ACCOUNT_PENALTY_DAYS=3
       - SRE_NEW_ACCOUNT_MULTIPLIER=0.5
       - SRE_IDEMPOTENCY_TTL_DAYS=7
+      - SRE_LOG_LEVEL=INFO
+    restart: unless-stopped
+
+  # ── Worker (Redis Streams Consumer) ──────────────────────
+  # docker compose --profile backend up
+  worker:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    container_name: saigon_worker
+    profiles: [backend]
+    command: ["python", "-m", "app.worker"]
+    volumes:
+      - ./engine:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
+      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
       - SRE_LOG_LEVEL=INFO
     restart: unless-stopped
 
@@ -133,6 +163,24 @@ services:
     profiles: [wiki]
     networks:
       - dev-net
+    restart: unless-stopped
+
+  # ── Redis (Message Queue — Streams) ──────────────────────
+  # docker compose --profile backend up
+  redis:
+    image: redis:7-alpine
+    container_name: saigon_redis
+    profiles: [backend]
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - saigon_redis_data:/data
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   # ── Database (PostgreSQL + PostGIS) ───────────────────────

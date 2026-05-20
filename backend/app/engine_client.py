@@ -234,6 +234,29 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    # ── 메시지 스트림 모니터 ───────────────────────────────────────
+
+    async def admin_stream_info(self) -> dict:
+        resp = await self._client.get("/v1/admin/stream/info")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def admin_stream_messages(
+        self,
+        *,
+        count: int = 50,
+        type_filter: str | None = None,
+        uuid_filter: str | None = None,
+    ) -> list[dict]:
+        params: dict = {"count": count}
+        if type_filter:
+            params["type"] = type_filter
+        if uuid_filter:
+            params["uuid"] = uuid_filter
+        resp = await self._client.get("/v1/admin/stream/messages", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
     async def close(self) -> None:
         await self._client.aclose()
 

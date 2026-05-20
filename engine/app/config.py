@@ -7,6 +7,9 @@ class SreSettings(BaseSettings):
     # DB
     database_url: str
 
+    # Redis
+    redis_url: str = "redis://redis:6379/0"
+
     # Service auth
     engine_service_key: str
     engine_admin_jwt_secret: str

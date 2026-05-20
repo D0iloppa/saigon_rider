@@ -12,8 +12,17 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from app.config import settings
 from app.logging_config import configure_logging
 from app.routers import (
-    admin, balance, catalog, events, gacha, inventory, message,
-    missions, redemptions, season, shop,
+    admin,
+    balance,
+    catalog,
+    events,
+    gacha,
+    inventory,
+    message,
+    missions,
+    redemptions,
+    season,
+    shop,
 )
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -27,10 +36,24 @@ def _make_scheduler() -> AsyncIOScheduler:
     from app.jobs import cleanup_idem, expire_missions, expire_rp, verify_balance
 
     scheduler = AsyncIOScheduler(timezone=VN_TZ)
-    scheduler.add_job(expire_rp.run,        CronTrigger(hour=4,  minute=0,  timezone=VN_TZ), id="expire_rp")
-    scheduler.add_job(expire_missions.run,  CronTrigger(hour=4,  minute=5,  timezone=VN_TZ), id="expire_missions")
-    scheduler.add_job(cleanup_idem.run,     CronTrigger(hour=4,  minute=10, timezone=VN_TZ), id="cleanup_idem")
-    scheduler.add_job(verify_balance.run,   CronTrigger(hour=4,  minute=30, timezone=VN_TZ), id="verify_balance")
+    scheduler.add_job(
+        expire_rp.run, CronTrigger(hour=4, minute=0, timezone=VN_TZ), id="expire_rp"
+    )
+    scheduler.add_job(
+        expire_missions.run,
+        CronTrigger(hour=4, minute=5, timezone=VN_TZ),
+        id="expire_missions",
+    )
+    scheduler.add_job(
+        cleanup_idem.run,
+        CronTrigger(hour=4, minute=10, timezone=VN_TZ),
+        id="cleanup_idem",
+    )
+    scheduler.add_job(
+        verify_balance.run,
+        CronTrigger(hour=4, minute=30, timezone=VN_TZ),
+        id="verify_balance",
+    )
     return scheduler
 
 
@@ -39,12 +62,19 @@ def _make_scheduler() -> AsyncIOScheduler:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.redis_client import close_redis, ensure_consumer_group
+
+    await ensure_consumer_group()
+    log.info("Redis stream consumer group ready")
+
     scheduler = _make_scheduler()
     scheduler.start()
     log.info("APScheduler started with %d jobs", len(scheduler.get_jobs()))
     yield
     scheduler.shutdown(wait=False)
     log.info("APScheduler stopped")
+    await close_redis()
+    log.info("Redis connection closed")
 
 
 # ── FastAPI 앱 ────────────────────────────────────────────────
@@ -120,9 +150,13 @@ from app.exceptions import InsufficientBalanceError, RewardUnavailableError
 
 @app.exception_handler(InsufficientBalanceError)
 async def insufficient_balance_handler(request, exc):
-    return JSONResponse(status_code=402, content={"detail": str(exc), "code": "INSUFFICIENT_BALANCE"})
+    return JSONResponse(
+        status_code=402, content={"detail": str(exc), "code": "INSUFFICIENT_BALANCE"}
+    )
 
 
 @app.exception_handler(RewardUnavailableError)
 async def reward_unavailable_handler(request, exc):
-    return JSONResponse(status_code=409, content={"detail": str(exc), "code": "REWARD_UNAVAILABLE"})
+    return JSONResponse(
+        status_code=409, content={"detail": str(exc), "code": "REWARD_UNAVAILABLE"}
+    )

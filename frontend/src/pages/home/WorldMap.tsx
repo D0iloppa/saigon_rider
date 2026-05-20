@@ -73,25 +73,6 @@ export default function WorldMap() {
 
   return (
     <div className={styles.root}>
-      {/* <AlertDialog
-        open={debugConfirm}
-        title={{ mode: 'html', value: `<b>[DEBUG]</b><p>${NATIVE_KEYS.GET_LOCATION}</p>` }}
-        message="네이티브 브릿지를 호출합니다"
-        onClose={() => setDebugConfirm(false)}
-        onConfirm={() => {
-          setDebugConfirm(false);
-          nativeInterface
-            .request(NATIVE_KEYS.GET_LOCATION, { mode: 1 })
-            .then((raw) => setLocationMsg(raw))
-            .catch((err: Error) => setLocationMsg(`Error: ${err.message}`));
-        }}
-      />
-      <AlertDialog
-        open={locationMsg !== null}
-        title={{ mode: 'html', value: `<b>[DEBUG]</b><p>${NATIVE_KEYS.GET_LOCATION} 응답</p>` }}
-        pre={locationMsg ?? undefined}
-        onClose={() => setLocationMsg(null)}
-      /> */}
       {/* ── Header (grad-sunset + noise) ── */}
       <div className={styles.header}>
         <div className={styles.noise} />

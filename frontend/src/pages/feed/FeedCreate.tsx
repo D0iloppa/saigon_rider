@@ -5,7 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { createFeedPost } from '@/api/feed';
 import { api } from '@/api/client';
-import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
+import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
 import { toast } from '@/components/ui/Toast';
 import styles from './FeedCreate.module.css';
@@ -79,10 +79,8 @@ export default function FeedCreate() {
       return;
     }
     try {
-      const result = await nativeInterface.request(NATIVE_KEYS.GET_LOCATION) as any;
-      if (result?.lat != null && result?.lng != null) {
-        setLocation({ lat: result.lat, lng: result.lng });
-      }
+      const pos = await native.getLocation();
+      setLocation({ lat: pos.lat, lng: pos.lng });
     } catch {
       toast.error(t('feedCreate.locationError'));
     }

@@ -20,7 +20,7 @@ import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadSession } from '@/lib/session';
-import { nativeInterface, NATIVE_KEYS } from '@/lib/native';
+import { native } from '@/lib/native';
 import { ProfileCard } from '@/components/ProfileCard';
 import styles from './FeedList.module.css';
 
@@ -185,10 +185,8 @@ export default function FeedList() {
   // neighborhood 필터 시 위치를 미리 캐시
   useEffect(() => {
     if (filter === 'neighborhood') {
-      nativeInterface.request(NATIVE_KEYS.GET_LOCATION)
-        .then((loc: any) => {
-          if (loc?.lat != null && loc?.lng != null) locationRef.current = loc;
-        })
+      native.getLocation()
+        .then((pos) => { locationRef.current = { lat: pos.lat, lng: pos.lng }; })
         .catch(() => {});
     }
   }, [filter]);

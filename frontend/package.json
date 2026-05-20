@@ -11,6 +11,8 @@
     "lint:fix": "eslint src/ --fix"
   },
   "dependencies": {
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/geolocation": "^8.2.0",
     "flag-icons": "^7.5.0",
     "html5-qrcode": "^2.3.8",
     "i18next": "^26.1.0",

@@ -45,7 +45,7 @@ export interface GachaPullResult {
 const MOCK_GACHA_LIST: GachaDefinition[] = [
   {
     code: 'GARAGE_NORMAL',
-    name: 'Garage 일반 뽑기',
+    name: 'Garage Normal',
     gacha_type: 'GOLD',
     cost_currency: 'GOLD',
     cost_single: 200,
@@ -60,7 +60,7 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
   },
   {
     code: 'GARAGE_PREMIUM',
-    name: 'Garage 프리미엄',
+    name: 'Garage Premium',
     gacha_type: 'GOLD',
     cost_currency: 'GOLD',
     cost_single: 1500,
@@ -75,7 +75,7 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
   },
   {
     code: 'CRYSTAL',
-    name: '크리스탈 뽑기',
+    name: 'Crystal Pull',
     gacha_type: 'XP',
     cost_currency: 'XP',
     cost_single: 30,
@@ -90,7 +90,7 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
   },
   {
     code: 'TET_SEASON',
-    name: 'Tết Festival 한정',
+    name: 'Tết Festival Limited',
     gacha_type: 'SEASON',
     cost_currency: 'XP',
     cost_single: 25,
@@ -102,12 +102,12 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     rate_legendary: 9,
     rate_mythic: 1,
     description: 'R 60% · E 30% · L 9% · M 1%',
-    limited_label: 'Tết 18일',
+    limited_label: 'Tết 18 days',
     expires_at: new Date(Date.now() + 18 * 24 * 3600 * 1000).toISOString(),
   },
   {
     code: 'LEGEND',
-    name: '전설 뽑기',
+    name: 'Legend Pull',
     gacha_type: 'LEGEND',
     cost_currency: 'XP',
     cost_single: 80,

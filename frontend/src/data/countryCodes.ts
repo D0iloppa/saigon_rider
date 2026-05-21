@@ -18,7 +18,7 @@ export const COUNTRY_CODES: CountryCode[] = [
   { iso: 'BN', dial: '+673', name: 'Brunei'         },
   { iso: 'TL', dial: '+670', name: 'Timor-Leste'    },
   // 동아시아
-  { iso: 'KR', dial: '+82',  name: '대한민국'        },
+  { iso: 'KR', dial: '+82',  name: 'South Korea'      },
   { iso: 'JP', dial: '+81',  name: '日本'            },
   { iso: 'CN', dial: '+86',  name: '中国'            },
   { iso: 'TW', dial: '+886', name: 'Taiwan'         },

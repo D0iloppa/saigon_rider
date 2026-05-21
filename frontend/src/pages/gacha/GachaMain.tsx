@@ -29,14 +29,21 @@ const GACHA_ICON: Record<string, string> = {
   LEGEND:         '1f3c6',
 };
 
-const SEGMENT_KEYS = ['전체', 'GOLD', 'XP', '시즌'] as const;
+const SEGMENT_KEYS = ['all', 'gold', 'xp', 'season'] as const;
 type Segment = typeof SEGMENT_KEYS[number];
 
+const SEGMENT_I18N: Record<Segment, string> = {
+  all: 'gacha.tab_all',
+  gold: 'gacha.tab_gp',
+  xp: 'gacha.tab_gc',
+  season: 'gacha.tab_season',
+};
+
 function matchesSegment(g: GachaDefinition, seg: Segment): boolean {
-  if (seg === '전체') return true;
-  if (seg === 'GOLD') return g.gacha_type === 'GOLD';
-  if (seg === 'XP') return g.gacha_type === 'XP';
-  if (seg === '시즌') return g.gacha_type === 'SEASON';
+  if (seg === 'all') return true;
+  if (seg === 'gold') return g.gacha_type === 'GOLD';
+  if (seg === 'xp') return g.gacha_type === 'XP';
+  if (seg === 'season') return g.gacha_type === 'SEASON';
   return true;
 }
 
@@ -68,7 +75,7 @@ export default function GachaMain() {
   const [gachaList, setGachaList] = useState<GachaDefinition[]>([]);
   const [pityMap, setPityMap] = useState<Record<string, GachaPity>>({});
   const [wallet, setWallet] = useState<WalletBalance | null>(null);
-  const [segment, setSegment] = useState<Segment>('전체');
+  const [segment, setSegment] = useState<Segment>('all');
   const [loading, setLoading] = useState(true);
   const [insufficientDialog, setInsufficientDialog] = useState<{
     currency: string; have: number; need: number;
@@ -117,7 +124,7 @@ export default function GachaMain() {
         <div className={styles.headerTitle}>GACHA</div>
         <div className={styles.headerBalance}>
           <div className={`${styles.headerBalanceRow} ${styles.headerBalanceGp}`}>
-            GOLD {wallet ? wallet.gold_balance.toLocaleString() : '—'}
+            {t('currency.gold')} {wallet ? wallet.gold_balance.toLocaleString() : '—'}
           </div>
           <div className={`${styles.headerBalanceRow} ${styles.headerBalanceGc}`}>
             XP {wallet ? wallet.xp_balance.toLocaleString() : '—'}
@@ -133,7 +140,7 @@ export default function GachaMain() {
             className={`${styles.segBtn} ${segment === seg ? styles.active : ''}`}
             onClick={() => setSegment(seg)}
           >
-            {seg}
+            {t(SEGMENT_I18N[seg])}
           </button>
         ))}
       </div>
@@ -165,7 +172,7 @@ export default function GachaMain() {
                   <div className={styles.cardInfo}>
                     <div className={styles.cardBadge}>
                       {g.cost_currency} GACHA
-                      {g.pity_hard_ceiling > 0 && ` · 천장 ${g.pity_hard_ceiling}`}
+                      {g.pity_hard_ceiling > 0 && ` · ${t('gachaPull.ceiling')} ${g.pity_hard_ceiling}`}
                     </div>
                     <div className={styles.cardTitle}>{g.name}</div>
                     <div className={styles.cardRates}>{g.description}</div>
@@ -177,7 +184,7 @@ export default function GachaMain() {
                 )}
 
                 <div className={styles.price}>
-                  1회 {g.cost_currency} {g.cost_single.toLocaleString()} · 10연 {g.cost_currency} {g.cost_10pull.toLocaleString()}
+                  {t('gacha.single_pull')} {g.cost_currency} {g.cost_single.toLocaleString()} · {t('gacha.ten_pull')} {g.cost_currency} {g.cost_10pull.toLocaleString()}
                 </div>
 
                 <div className={styles.btnRow}>
@@ -192,7 +199,7 @@ export default function GachaMain() {
                       navigate(`/gacha/pull/${g.code}?is10=false`);
                     }}
                   >
-                    1회
+                    {t('gacha.single_pull')}
                   </button>
                   <button
                     className={`${styles.btnTen} ${
@@ -209,7 +216,7 @@ export default function GachaMain() {
                       navigate(`/gacha/pull/${g.code}?is10=true`);
                     }}
                   >
-                    10연차
+                    {t('gacha.ten_pull')}
                   </button>
                 </div>
               </div>
@@ -218,19 +225,17 @@ export default function GachaMain() {
         )}
 
         <div className={styles.rateNote}>
-          확률 정보는{' '}
-          <span className={styles.rateNoteLink}>전체 보기</span>에서 확인
+          {t('gacha.rate_info')}{' '}
+          <span className={styles.rateNoteLink}>{t('gacha.rate_info_link')}</span>{t('gacha.rate_info_suffix')}
         </div>
       </div>
 
       <AlertDialog
         open={!!insufficientDialog}
-        title="잔액이 부족해요"
+        title={t('gacha.error_insufficient_balance', { have: insufficientDialog?.have?.toLocaleString() ?? '', need: insufficientDialog?.need?.toLocaleString() ?? '' })}
         message={{
-          mode: 'html',
-          value: insufficientDialog
-            ? `보유 <b>${insufficientDialog.have.toLocaleString()} ${insufficientDialog.currency}</b><br/>필요 <b>${insufficientDialog.need.toLocaleString()} ${insufficientDialog.currency}</b>`
-            : '',
+          mode: 'text',
+          value: '',
         }}
         onClose={() => setInsufficientDialog(null)}
       />

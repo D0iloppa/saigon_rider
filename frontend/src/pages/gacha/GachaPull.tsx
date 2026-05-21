@@ -4,17 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { pullGacha, fetchGachaPity } from '@/api/gacha';
 import type { PulledItem, GachaPullResult, ItemRarity } from '@/api/gacha';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
+import { ItemName } from '@/components/ui/items/ItemName';
 import { MythicCardOverlay } from '@/components/ui/items/MythicCardOverlay';
 import { ItemSparkle } from '@/components/ui/items/ItemSparkle';
 import { ConfettiLayer, RarityChip, GachaCardBack } from '@/components/game';
 import s from './GachaPull.module.css';
 
-const PULL_QUOTES: Record<ItemRarity, string> = {
-  M: '전설을 넘어선 신화가 탄생했다.',
-  L: '전설의 기운이 손끝에서 느껴진다.',
-  E: '에픽한 순간이다.',
-  R: '좋은 출발이야.',
-  C: '다음엔 더 좋은 것이.',
+const PULL_QUOTE_KEYS: Record<ItemRarity, string> = {
+  M: 'gachaPull.quote_M',
+  L: 'gachaPull.quote_L',
+  E: 'gachaPull.quote_E',
+  R: 'gachaPull.quote_R',
+  C: 'gachaPull.quote_C',
 };
 
 function bestRarity(items: PulledItem[]): ItemRarity {
@@ -57,7 +58,7 @@ function PullCard({ item, single, spotlight, highlight }: PullCardProps) {
         </>
       )}
       <ItemSvgRenderer itemCode={item.item_code} size={single ? 96 : 52} rarity={item.rarity} />
-      <div className={s.pullCardName}>{item.item_name}</div>
+      <div className={s.pullCardName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
       <RarityChip rarity={item.rarity} style={{ fontSize: 7, marginTop: 2 }} />
     </div>
   );
@@ -191,12 +192,12 @@ export default function GachaPull() {
         </div>
 
         {/* Quote */}
-        <div className={s.quote}>"{PULL_QUOTES[best]}"</div>
+        <div className={s.quote}>"{t(PULL_QUOTE_KEYS[best])}"</div>
 
         {/* Pity reset bar */}
         {ceiling > 0 && (
           <div className={s.pityResetRow}>
-            <span className={s.pityResetLabel}>천장</span>
+            <span className={s.pityResetLabel}>{t('gachaPull.ceiling')}</span>
             <div className={s.pityResetBar}>
               <div className={s.pityResetFill} style={{ width: `${pityPct}%` }} />
             </div>
@@ -215,20 +216,20 @@ export default function GachaPull() {
               setErrorMsg(null);
             }}
           >
-            {is10 ? '10연 다시' : '1회 다시'}
+            {is10 ? t('gachaPull.again_ten') : t('gachaPull.again_single')}
           </button>
           <button
             className={s.btnInventory}
             onClick={() => navigate('/inventory')}
           >
-            인벤토리
+            {t('gachaPull.to_inventory')}
           </button>
           <button
             className={s.btnInventory}
             onClick={() => navigate('/gacha')}
             style={{ flex: 0.6 }}
           >
-            목록
+            {t('gachaPull.to_list')}
           </button>
         </div>
       </div>

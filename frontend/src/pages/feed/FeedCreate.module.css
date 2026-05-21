@@ -13,6 +13,17 @@
   gap: 12px;
 }
 
+.card {
+  background: var(--surface, #fff);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
 .textarea {
   width: 100%;
   min-height: 120px;

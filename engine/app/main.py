@@ -21,6 +21,7 @@ from app.routers import (
     inventory,
     message,
     missions,
+    quest_cards,
     redemptions,
     season,
     shop,
@@ -34,7 +35,7 @@ log = logging.getLogger(__name__)
 
 
 def _make_scheduler() -> AsyncIOScheduler:
-    from app.jobs import cleanup_idem, expire_missions, expire_xp, trim_stream, verify_balance
+    from app.jobs import cleanup_idem, expire_missions, expire_quest_cards, expire_xp, trim_stream, verify_balance
 
     scheduler = AsyncIOScheduler(timezone=VN_TZ)
     scheduler.add_job(
@@ -46,8 +47,13 @@ def _make_scheduler() -> AsyncIOScheduler:
         id="expire_missions",
     )
     scheduler.add_job(
-        cleanup_idem.run,
+        expire_quest_cards.run,
         CronTrigger(hour=4, minute=10, timezone=VN_TZ),
+        id="expire_quest_cards",
+    )
+    scheduler.add_job(
+        cleanup_idem.run,
+        CronTrigger(hour=4, minute=12, timezone=VN_TZ),
         id="cleanup_idem",
     )
     scheduler.add_job(
@@ -132,6 +138,7 @@ app.include_router(gacha.router)
 app.include_router(shop.router)
 app.include_router(inventory.router)
 app.include_router(season.router)
+app.include_router(quest_cards.router)
 
 
 # ── 헬스체크 / 메타 ──────────────────────────────────────────

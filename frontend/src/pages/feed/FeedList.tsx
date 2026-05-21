@@ -39,6 +39,7 @@ interface ViewerTouchState {
 }
 
 export function ImageViewer({ srcs, initialIndex = 0, onClose }: { srcs: string[]; initialIndex?: number; onClose: () => void }) {
+  const { t } = useTranslation();
   const [idx, setIdx] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
@@ -141,7 +142,7 @@ export function ImageViewer({ srcs, initialIndex = 0, onClose }: { srcs: string[
 
   return createPortal(
     <div className={`${styles.lightbox} ${visible ? styles.lightboxVisible : ''}`} onClick={close}>
-      <button className={styles.lightboxClose} onClick={close} aria-label="닫기">✕</button>
+      <button className={styles.lightboxClose} onClick={close} aria-label={t('common.close')}>✕</button>
       {srcs.length > 1 && (
         <div className={styles.lightboxCounter}>{idx + 1} / {srcs.length}</div>
       )}
@@ -227,7 +228,7 @@ export default function FeedList() {
         title={t('feed.title')}
         showBack={false}
         leftContent={
-          <button className={styles.iconBtn} onClick={() => navigate('/feed/new')} aria-label="새 글">
+          <button className={styles.iconBtn} onClick={() => navigate('/feed/new')} aria-label={t('feedCreate.title')}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
@@ -235,7 +236,7 @@ export default function FeedList() {
         }
         rightContent={
           <>
-            <button className={styles.iconBtn} onClick={() => navigate('/profile')} aria-label="프로필">
+            <button className={styles.iconBtn} onClick={() => navigate('/profile')} aria-label={t('tabbar.profile')}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
                 <path d="M5 20c0-3.3 2.7-6 7-6s7 2.7 7 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

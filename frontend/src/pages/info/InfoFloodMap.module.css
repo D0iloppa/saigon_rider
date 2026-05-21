@@ -1,0 +1,341 @@
+:root {
+  --brand: #FF5A1F;
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --line: #E8E3DA;
+  --text: #0B0D14;
+  --text-2: #4A4F62;
+  --text-3: #8A8E9E;
+  --danger: #EF3B3B;
+  --warn: #F59E0B;
+  --safe: #16A34A;
+  --info: #3B82F6;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+/* ── Stats Bar ── */
+.statsBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dotDanger { background: var(--danger); }
+.dotNeutral { background: #9CA3AF; }
+
+.statActive {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.statResolved {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ── Scroll ── */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── Map ── */
+.mapArea {
+  height: 280px;
+  background: linear-gradient(160deg, #E8F4F8 0%, #D4EBF5 30%, #C8E3F0 60%, #DAF0E8 100%);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.road {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 2px;
+}
+.road1 { width: 100%; height: 4px; top: 50%; }
+.road2 { width: 100%; height: 3px; top: 28%; transform: rotate(5deg); }
+.road3 { width: 100%; height: 3px; top: 72%; transform: rotate(-3deg); }
+.roadV1 { width: 3px; height: 100%; top: 0; left: 30%; }
+.roadV2 { width: 3px; height: 100%; top: 0; left: 60%; }
+.roadV3 { width: 4px; height: 100%; top: 0; left: 80%; }
+
+.floodZone {
+  position: absolute;
+  border-radius: 50%;
+}
+.zone1 { width: 60px; height: 45px; background: rgba(239,59,59,.25); filter: blur(8px); top: 20%; left: 50%; }
+.zone2 { width: 50px; height: 38px; background: rgba(249,115,22,.2); filter: blur(6px); top: 55%; left: 20%; }
+.zone3 { width: 70px; height: 52px; background: rgba(239,59,59,.3); filter: blur(10px); top: 35%; right: 8%; }
+
+/* Pins */
+.pin {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.pinDot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+
+.pinDanger { background: var(--danger); }
+.pinWarn { background: #F97316; }
+.pinThigh { background: #7F1D1D; }
+
+.pinLabel {
+  font-size: 9px;
+  font-weight: 700;
+  background: white;
+  padding: 1px 5px;
+  border-radius: 6px;
+  color: var(--text-2);
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  white-space: nowrap;
+}
+
+/* My location */
+.myLocation {
+  position: absolute;
+  top: 42%;
+  left: 44%;
+}
+
+.myLocationDot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3B82F6;
+  border: 3px solid white;
+  box-shadow: 0 0 0 4px rgba(59,130,246,.3);
+}
+
+/* Legend */
+.legend {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(255, 255, 255, .92);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.legendTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.legendAnkle { background: #F59E0B; }
+.legendKnee  { background: #F97316; }
+.legendThigh { background: #EF3B3B; }
+
+/* FAB */
+.fab {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: white;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255,90,31,.4);
+}
+
+/* ── Section ── */
+.sectionHeader {
+  padding: 14px 16px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Flood Card ── */
+.floodCard {
+  background: var(--surface);
+  border-radius: 14px;
+  margin: 0 16px 16px;
+  box-shadow: 0 1px 2px rgba(11,13,20,.04), 0 4px 12px rgba(11,13,20,.08);
+  overflow: hidden;
+}
+
+.floodItem {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.floodItem:last-child { border-bottom: none; }
+
+.floodItemRow {
+  margin-bottom: 4px;
+}
+
+.floodBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.floodName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.floodNameResolved {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.floodMeta {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+
+.floodMetaResolved {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.resolved { opacity: 0.6; }
+
+.emptyRow {
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* ── Badge ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.badgeDanger  { background: #FEE2E2; color: var(--danger); }
+.badgeWarn    { background: #FEF3C7; color: var(--warn); }
+.badgeNeutral { background: var(--bg); color: var(--text-3); }
+.badgeThigh   { background: #7F1D1D; color: white; }
+
+/* ── Hotspot ── */
+.hotspotList {
+  padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hotspotRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hotspotName {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.hotspotCount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+/* ── Skeleton ── */
+.skeletonWrap { display: flex; flex-direction: column; gap: 0; }
+
+.skeleton {
+  height: 64px;
+  background: linear-gradient(90deg, var(--line) 25%, var(--surface) 50%, var(--line) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-bottom: 1px solid var(--line);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Util ── */
+.mono { font-family: 'JetBrains Mono', monospace; }

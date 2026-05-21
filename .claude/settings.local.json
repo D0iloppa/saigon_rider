@@ -345,7 +345,16 @@
       "Bash(python3 -m ruff check engine/app/workers/)",
       "Bash(python3 -m ruff format --check engine/app/workers/)",
       "Bash(curl -s \"http://localhost:8091/v1/sreMessage?uuid=test-ios-XYZ&message=%7B%22x%22%3A127.05%2C%22y%22%3A37.22%2C%22d%22%3A99%7D&type=gps\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")",
-      "Bash(curl -s \"http://localhost:8091/v1/sreMessage?uuid=test-ios-FLUSH&message=%7B%22x%22%3A127.09%2C%22y%22%3A37.21%2C%22d%22%3A7%7D&type=gps\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")"
+      "Bash(curl -s \"http://localhost:8091/v1/sreMessage?uuid=test-ios-FLUSH&message=%7B%22x%22%3A127.09%2C%22y%22%3A37.21%2C%22d%22%3A7%7D&type=gps\" -H \"X-Service-Key: dev_engine_service_key_change_in_prod\")",
+      "Bash(curl -s http://localhost:18090/dev-test/.ls/)",
+      "Bash(curl -s \"http://localhost:18090/api/bff/dev/features?page_size=50\")",
+      "Bash(mkdir -p /mnt/c/DEV/saigon_rider/frontend/public/assets/equip && mv /mnt/c/DEV/saigon_rider/frontend/public/img/equip/*.png /mnt/c/DEV/saigon_rider/frontend/public/assets/equip/ && rmdir /mnt/c/DEV/saigon_rider/frontend/public/img/equip 2>/dev/null; rmdir /mnt/c/DEV/saigon_rider/frontend/public/img 2>/dev/null; ls -la /mnt/c/DEV/saigon_rider/frontend/public/assets/equip/)",
+      "Bash(python3 *)",
+      "Bash(sed -n '50,62p' pages/gacha/GachaPull.tsx)",
+      "Bash(sed -n '180,190p' pages/inventory/Inventory.tsx)",
+      "Bash(sed -n '110,120p' pages/shop/ItemDetail.tsx)",
+      "Bash(sed -n '65,75p' pages/shop/ShopCatalog.tsx)",
+      "Bash(sed -n '195,202p' pages/shop/ShopCatalog.tsx)"
     ]
   }
 }

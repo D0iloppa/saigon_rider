@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface PityBarProps {
   current: number;
   ceiling: number;
@@ -6,6 +8,7 @@ interface PityBarProps {
 }
 
 export function PityBar({ current, ceiling, dark, className }: PityBarProps) {
+  const { t } = useTranslation();
   const pct = ceiling > 0 ? Math.round((current / ceiling) * 100) : 0;
   const isNear = pct >= 80;
   const remaining = ceiling - current;
@@ -19,7 +22,7 @@ export function PityBar({ current, ceiling, dark, className }: PityBarProps) {
             color: dark ? 'rgba(255,255,255,.45)' : 'var(--text-3)',
           }}
         >
-          천장까지 {remaining}회 남음
+          {t('gacha.pity_remaining', { count: remaining })}
         </span>
         <span
           style={{

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Globe2, Target, Camera, ShieldCheck } from 'lucide-react';
+import { Home, Target, Camera, ShieldCheck } from 'lucide-react';
 import { emojiUrl } from '@/lib/emoji';
 import { GameHubSheet } from '@/components/game/GameHubSheet';
 import styles from './TabBar.module.css';
@@ -44,7 +44,7 @@ export function TabBar() {
   const { t } = useTranslation();
 
   const tabs = [
-    { path: '/home',    label: t('tabbar.world'),   code: '1f30d', Fallback: Globe2      },
+    { path: '/home',    label: t('tabbar.home'),    code: '1f3e0', Fallback: Home        },
     { path: '/quests',  label: t('tabbar.quests'),  code: '1f3af', Fallback: Target      },
     { path: '/feed',    label: t('tabbar.feed'),    code: '1f4f7', Fallback: Camera      },
     { path: '/profile', label: t('tabbar.profile'), code: '2705',  Fallback: ShieldCheck },

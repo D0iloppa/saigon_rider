@@ -1,0 +1,338 @@
+import { USE_MOCK, api } from './client';
+
+// ── Types ─────────────────────────────────────────────────────────
+
+export interface WeatherCurrent {
+  temp_c: number;
+  feels_like_c: number;
+  condition: string;
+  condition_desc: string;
+  emoji: string;
+  humidity: number;
+  wind_kmh: number;
+  rain_prob_1h: number;
+}
+
+export interface ForecastHour {
+  time: string;
+  temp_c: number;
+  condition: string;
+  emoji: string;
+  rain_prob: number;
+}
+
+export interface WeatherData {
+  location: { lat: number; lng: number; district: string };
+  current: WeatherCurrent;
+  forecast: { next_24h: ForecastHour[] };
+  recommendation: string;
+}
+
+export interface RainRadarData {
+  tile_url: string;
+  last_updated: number;
+}
+
+export interface FloodReport {
+  report_id: number;
+  district_code: string;
+  street_name: string | null;
+  depth_level: 'ankle' | 'knee' | 'thigh' | 'above';
+  photo_url: string | null;
+  reported_at: string;
+  confidence_score: number;
+  status: 'ACTIVE' | 'RESOLVED' | 'EXPIRED';
+  lat: number;
+  lng: number;
+  distance_km?: number;
+  time_ago?: string;
+}
+
+export interface FloodHotspot {
+  hotspot_id: number;
+  district_code: string;
+  street_name: string | null;
+  flood_count_30d: number;
+  avg_depth_level: string | null;
+}
+
+export interface GasStation {
+  station_id: number;
+  brand: string | null;
+  name: string | null;
+  district_code: string | null;
+  street_name: string | null;
+  distance_km: number;
+  opening_hours: string | null;
+  lat: number;
+  lng: number;
+  price_vnd: number | null;
+  wait_minutes: number | null;
+  wait_confidence: number | null;
+  wait_reported_at: string | null;
+}
+
+export interface RepairShop {
+  shop_id: number;
+  name: string;
+  district_code: string | null;
+  street_name: string | null;
+  phone: string | null;
+  opening_hours: string | null;
+  brand_focus: string | null;
+  is_verified: boolean;
+  lat: number;
+  lng: number;
+  distance_km: number;
+  avg_rating: number | null;
+  review_count: number;
+  avg_price: number | null;
+  keywords?: { keyword: string; sentiment: string }[];
+}
+
+export interface RepairReview {
+  review_id: number;
+  reviewer_nickname?: string;
+  service_code: string;
+  motorcycle_model: string | null;
+  rating: number;
+  price_vnd: number | null;
+  comment: string | null;
+  is_anonymous: boolean;
+  reviewed_at: string;
+  upvotes: number;
+}
+
+export interface RepairDetail {
+  shop: RepairShop;
+  stats: { avg_rating: number; review_count: number; avg_price: number | null };
+  price_by_service: Record<string, number>;
+  recent_reviews: RepairReview[];
+}
+
+// ── Mock data ─────────────────────────────────────────────────────
+
+const MOCK_WEATHER: WeatherData = {
+  location: { lat: 10.776, lng: 106.700, district: 'Q1' },
+  current: {
+    temp_c: 32,
+    feels_like_c: 36,
+    condition: 'Clouds',
+    condition_desc: 'Partly cloudy',
+    emoji: '⛅',
+    humidity: 78,
+    wind_kmh: 12,
+    rain_prob_1h: 80,
+  },
+  forecast: {
+    next_24h: [
+      { time: '15:00', temp_c: 32, condition: 'Clear',         emoji: '☀️', rain_prob: 10 },
+      { time: '16:00', temp_c: 31, condition: 'Clouds',        emoji: '⛅', rain_prob: 30 },
+      { time: '17:00', temp_c: 30, condition: 'Thunderstorm',  emoji: '⛈', rain_prob: 80 },
+      { time: '18:00', temp_c: 29, condition: 'Thunderstorm',  emoji: '⛈', rain_prob: 95 },
+      { time: '19:00', temp_c: 29, condition: 'Rain',          emoji: '🌧', rain_prob: 70 },
+      { time: '20:00', temp_c: 28, condition: 'Drizzle',       emoji: '🌦', rain_prob: 40 },
+      { time: '21:00', temp_c: 28, condition: 'Clouds',        emoji: '⛅', rain_prob: 20 },
+      { time: '22:00', temp_c: 27, condition: 'Clear',         emoji: '🌙', rain_prob: 5  },
+    ],
+  },
+  recommendation: 'No rain expected. Great riding weather ✅',
+};
+
+const MOCK_FLOODS: FloodReport[] = [
+  {
+    report_id: 1, district_code: 'BinhThanh', street_name: 'Xô Viết Nghệ Tĩnh',
+    depth_level: 'knee', photo_url: null, reported_at: new Date(Date.now() - 1800000).toISOString(),
+    confidence_score: 8, status: 'ACTIVE', lat: 10.810, lng: 106.710, distance_km: 2.3,
+    time_ago: '30 min ago',
+  },
+  {
+    report_id: 2, district_code: 'Q4', street_name: 'Đoàn Văn Bơ',
+    depth_level: 'ankle', photo_url: null, reported_at: new Date(Date.now() - 3600000).toISOString(),
+    confidence_score: 3, status: 'ACTIVE', lat: 10.758, lng: 106.707, distance_km: 1.5,
+    time_ago: '1 hour ago',
+  },
+];
+
+const MOCK_HOTSPOTS: FloodHotspot[] = [
+  { hotspot_id: 1, district_code: 'Q4',         street_name: 'Lò Lu',             flood_count_30d: 18, avg_depth_level: 'knee'  },
+  { hotspot_id: 2, district_code: 'BinhThanh',  street_name: 'Xô Viết Nghệ Tĩnh', flood_count_30d: 14, avg_depth_level: 'ankle' },
+  { hotspot_id: 3, district_code: 'ThuDuc',     street_name: 'Phạm Văn Đồng',     flood_count_30d: 12, avg_depth_level: 'ankle' },
+];
+
+const MOCK_GAS: GasStation[] = [
+  {
+    station_id: 1, brand: 'Petrolimex', name: 'Petrolimex · Trần Hưng Đạo',
+    district_code: 'Q1', street_name: 'Trần Hưng Đạo', distance_km: 1.2,
+    opening_hours: '06:00–22:00', lat: 10.770, lng: 106.699,
+    price_vnd: 25420, wait_minutes: 5, wait_confidence: 2, wait_reported_at: null,
+  },
+  {
+    station_id: 2, brand: 'PV Oil', name: 'PV Oil · Lê Lai',
+    district_code: 'Q1', street_name: 'Lê Lai', distance_km: 1.8,
+    opening_hours: '24/7', lat: 10.773, lng: 106.698,
+    price_vnd: 25380, wait_minutes: 0, wait_confidence: 5, wait_reported_at: null,
+  },
+  {
+    station_id: 3, brand: 'Petrolimex', name: 'Petrolimex · Nguyễn Trãi',
+    district_code: 'Q1', street_name: 'Nguyễn Trãi', distance_km: 2.3,
+    opening_hours: '06:00–22:00', lat: 10.768, lng: 106.696,
+    price_vnd: 25420, wait_minutes: null, wait_confidence: null, wait_reported_at: null,
+  },
+];
+
+const MOCK_REPAIR: RepairShop[] = [
+  {
+    shop_id: 1, name: 'Honda Head 2S · Phú Nhuận', district_code: 'PhuNhuan',
+    street_name: '123 Phan Đăng Lưu', phone: '028 1234 5678', opening_hours: '07:00–19:00',
+    brand_focus: 'Honda', is_verified: true, lat: 10.798, lng: 106.674, distance_km: 2.1,
+    avg_rating: 4.7, review_count: 87, avg_price: 250000,
+    keywords: [
+      { keyword: 'Honest', sentiment: 'positive' },
+      { keyword: 'Genuine Honda parts', sentiment: 'positive' },
+      { keyword: 'Fast', sentiment: 'positive' },
+    ],
+  },
+  {
+    shop_id: 2, name: 'Hùng Auto Shop', district_code: 'Q1',
+    street_name: '45 Nguyễn Trãi', phone: null, opening_hours: '08:00–18:00',
+    brand_focus: 'All', is_verified: false, lat: 10.771, lng: 106.697, distance_km: 1.4,
+    avg_rating: 4.5, review_count: 43, avg_price: 180000,
+    keywords: [
+      { keyword: 'Good value', sentiment: 'positive' },
+      { keyword: 'Friendly', sentiment: 'positive' },
+    ],
+  },
+  {
+    shop_id: 3, name: 'Tâm Motor', district_code: 'Q1',
+    street_name: '12 Lê Lợi', phone: null, opening_hours: '07:00–20:00',
+    brand_focus: 'All', is_verified: false, lat: 10.774, lng: 106.701, distance_km: 0.8,
+    avg_rating: 3.2, review_count: 12, avg_price: 350000,
+    keywords: [
+      { keyword: 'Overpriced', sentiment: 'negative' },
+      { keyword: 'Expensive', sentiment: 'negative' },
+    ],
+  },
+];
+
+const MOCK_REPAIR_DETAIL: RepairDetail = {
+  shop: MOCK_REPAIR[0],
+  stats: { avg_rating: 4.7, review_count: 87, avg_price: 250000 },
+  price_by_service: { OIL_CHANGE: 250000, TIRE: 800000, CHAIN: 600000, BRAKE: 350000 },
+  recent_reviews: [
+    {
+      review_id: 1, reviewer_nickname: 'Anh Tuấn', service_code: 'OIL_CHANGE',
+      motorcycle_model: 'Honda SH 350i', rating: 5, price_vnd: 250000,
+      comment: 'Honest shop. Used genuine Honda parts and finished in 30 min.',
+      is_anonymous: false, reviewed_at: new Date(Date.now() - 86400000).toISOString(), upvotes: 12,
+    },
+    {
+      review_id: 2, reviewer_nickname: 'Chị Mai', service_code: 'TIRE',
+      motorcycle_model: 'Honda Wave', rating: 4, price_vnd: 790000,
+      comment: 'Fast and friendly. Will come back!',
+      is_anonymous: false, reviewed_at: new Date(Date.now() - 259200000).toISOString(), upvotes: 5,
+    },
+  ],
+};
+
+// ── API functions ─────────────────────────────────────────────────
+
+export const weatherApi = {
+  async get(lat: number, lng: number): Promise<WeatherData> {
+    if (USE_MOCK) return api.delay(MOCK_WEATHER, 300);
+    return api.realFetch<WeatherData>(`/info/weather?lat=${lat}&lng=${lng}`);
+  },
+  async getRainRadar(lat: number, lng: number): Promise<RainRadarData> {
+    if (USE_MOCK) return api.delay({
+      tile_url: 'https://tilecache.rainviewer.com/v2/radar/mock/256/{z}/{x}/{y}/2/1_1.png',
+      last_updated: Math.floor(Date.now() / 1000),
+    }, 200);
+    return api.realFetch<RainRadarData>(`/info/weather/rain-radar?lat=${lat}&lng=${lng}`);
+  },
+  async notifyRain(label: string, lat: number, lng: number): Promise<{ ok: boolean; gp_earned: number }> {
+    if (USE_MOCK) return api.delay({ ok: true, gp_earned: 5 }, 200);
+    return api.realFetch<{ ok: boolean; gp_earned: number }>('/info/weather/notify-rain', {
+      method: 'POST',
+      body: JSON.stringify({ label, lat, lng }),
+    });
+  },
+};
+
+export const floodApi = {
+  async getActive(lat: number, lng: number, radius_km = 5): Promise<{ floods: FloodReport[] }> {
+    if (USE_MOCK) return api.delay({ floods: MOCK_FLOODS }, 300);
+    return api.realFetch<{ floods: FloodReport[] }>(
+      `/info/flood/active?lat=${lat}&lng=${lng}&radius_km=${radius_km}`,
+    );
+  },
+  async report(data: { lat: number; lng: number; depth_level: string; photo_url?: string }): Promise<{ report_id: number; gp_earned: number }> {
+    if (USE_MOCK) return api.delay({ report_id: 999, gp_earned: 10 }, 500);
+    return api.realFetch<{ report_id: number; gp_earned: number }>('/info/flood/report', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async confirm(report_id: number, confirmation_type: string): Promise<{ confirmed: boolean; gp_earned: number }> {
+    if (USE_MOCK) return api.delay({ confirmed: true, gp_earned: 5 }, 300);
+    return api.realFetch<{ confirmed: boolean; gp_earned: number }>(
+      `/info/flood/confirm/${report_id}`,
+      { method: 'POST', body: JSON.stringify({ confirmation_type }) },
+    );
+  },
+  async getHotspots(district_code?: string): Promise<{ hotspots: FloodHotspot[] }> {
+    if (USE_MOCK) return api.delay({ hotspots: MOCK_HOTSPOTS }, 200);
+    const q = district_code ? `?district_code=${district_code}` : '';
+    return api.realFetch<{ hotspots: FloodHotspot[] }>(`/info/flood/hotspots${q}`);
+  },
+};
+
+export const gasApi = {
+  async getNearby(lat: number, lng: number, radius_km = 5, fuel_type = 'RON95'): Promise<{ stations: GasStation[] }> {
+    if (USE_MOCK) return api.delay({ stations: MOCK_GAS }, 300);
+    return api.realFetch<{ stations: GasStation[] }>(
+      `/info/gas/nearby?lat=${lat}&lng=${lng}&radius_km=${radius_km}&fuel_type=${fuel_type}`,
+    );
+  },
+  async reportWait(station_id: number, wait_minutes: number): Promise<{ wait_id: number; gp_earned: number }> {
+    if (USE_MOCK) return api.delay({ wait_id: 999, gp_earned: 3 }, 300);
+    return api.realFetch<{ wait_id: number; gp_earned: number }>('/info/gas/wait-report', {
+      method: 'POST',
+      body: JSON.stringify({ station_id, wait_minutes }),
+    });
+  },
+  async getPrices(): Promise<{ fuel_type: string; price_vnd: number }[]> {
+    if (USE_MOCK) return api.delay([{ fuel_type: 'RON95', price_vnd: 25420 }], 100);
+    return api.realFetch<{ fuel_type: string; price_vnd: number }[]>('/info/gas/prices');
+  },
+};
+
+export const repairApi = {
+  async getNearby(lat: number, lng: number, radius_km = 5, service_code?: string, motorcycle_model?: string): Promise<{ shops: RepairShop[] }> {
+    if (USE_MOCK) return api.delay({ shops: MOCK_REPAIR }, 400);
+    const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius_km: String(radius_km) });
+    if (service_code) params.set('service_code', service_code);
+    if (motorcycle_model) params.set('motorcycle_model', motorcycle_model);
+    return api.realFetch<{ shops: RepairShop[] }>(`/info/repair/nearby?${params}`);
+  },
+  async getDetail(shop_id: number): Promise<RepairDetail> {
+    if (USE_MOCK) return api.delay(MOCK_REPAIR_DETAIL, 300);
+    return api.realFetch<RepairDetail>(`/info/repair/${shop_id}`);
+  },
+  async writeReview(data: {
+    shop_id: number; service_code: string; motorcycle_model?: string;
+    rating: number; price_vnd?: number; comment?: string; photo_url?: string; is_anonymous?: boolean;
+  }): Promise<{ review_id: number; gp_earned: number }> {
+    if (USE_MOCK) return api.delay({ review_id: 999, gp_earned: 20 }, 500);
+    return api.realFetch<{ review_id: number; gp_earned: number }>('/info/repair/review', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async addShop(data: { name: string; lat: number; lng: number; phone?: string }): Promise<{ shop_id: number; status: string }> {
+    if (USE_MOCK) return api.delay({ shop_id: 999, status: 'PENDING_VERIFICATION' }, 300);
+    return api.realFetch<{ shop_id: number; status: string }>('/info/repair/add-shop', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+};

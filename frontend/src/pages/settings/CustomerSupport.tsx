@@ -58,16 +58,16 @@ export default function CustomerSupport() {
           {tickets.length === 0 ? (
             <p className={styles.empty}>{t('support.empty')}</p>
           ) : (
-            tickets.map((t) => (
-              <div key={t.id} className={styles.card} onClick={() => navigate(`/settings/support/${t.id}`)}>
-                {t.has_unread_reply && <div className={styles.unreadDot} />}
-                <div className={styles.cardTitle}>{t.title}</div>
+            tickets.map((tk) => (
+              <div key={tk.id} className={styles.card} onClick={() => navigate(`/settings/support/${tk.id}`)}>
+                {tk.has_unread_reply && <div className={styles.unreadDot} />}
+                <div className={styles.cardTitle}>{tk.title}</div>
                 <div className={styles.cardMeta}>
-                  <span className={`${styles.badge} ${STATUS_CLASS[t.status] ?? ''}`}>
-                    {statusLabel(t.status)}
+                  <span className={`${styles.badge} ${STATUS_CLASS[tk.status] ?? ''}`}>
+                    {statusLabel(tk.status)}
                   </span>
-                  <span>{new Date(t.created_at).toLocaleDateString()}</span>
-                  {t.reply_count > 0 && <span>답변 {t.reply_count}건</span>}
+                  <span>{new Date(tk.created_at).toLocaleDateString()}</span>
+                  {tk.reply_count > 0 && <span>{t('support.reply_count', { count: tk.reply_count })}</span>}
                 </div>
               </div>
             ))
@@ -77,24 +77,26 @@ export default function CustomerSupport() {
 
       {view === 'new' && (
         <div className={styles.form}>
-          <div>
-            <p className={styles.label}>{t('support.fieldTitle')}</p>
-            <input
-              className={styles.input}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('support.titlePlaceholder')}
-              maxLength={200}
-            />
-          </div>
-          <div>
-            <p className={styles.label}>{t('support.fieldBody')}</p>
-            <textarea
-              className={styles.textarea}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder={t('support.bodyPlaceholder')}
-            />
+          <div className={styles.formCard}>
+            <div>
+              <p className={styles.label}>{t('support.fieldTitle')}</p>
+              <input
+                className={styles.input}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t('support.titlePlaceholder')}
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <p className={styles.label}>{t('support.fieldBody')}</p>
+              <textarea
+                className={styles.textarea}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={t('support.bodyPlaceholder')}
+              />
+            </div>
           </div>
           <button
             className={styles.submitBtn}

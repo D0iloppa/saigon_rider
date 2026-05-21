@@ -7,6 +7,7 @@ import type { ItemRarity } from '@/api/gacha';
 import { useUserStore } from '@/store/useUserStore';
 import { InventoryCell } from '@/components/ui/items/InventoryCell';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
+import { ItemName } from '@/components/ui/items/ItemName';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './Inventory.module.css';
 
@@ -183,7 +184,7 @@ export default function Inventory() {
                 )}
 
                 <ItemImg item={item} />
-                <div className={styles.itemName}>{item.item_name}</div>
+                <div className={styles.itemName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
                 <div className={styles.itemSlot}>{slotLabel(item.item_slot)}</div>
               </InventoryCell>
             ))}

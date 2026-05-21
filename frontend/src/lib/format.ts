@@ -1,3 +1,5 @@
+import i18n from '@/lib/i18n';
+
 // 거리: 미터 → "5.2 km" / "850 m"
 export function formatDistance(m: number): string {
   if (m < 1000) return `${Math.round(m)} m`;
@@ -21,14 +23,15 @@ export function formatDurationShort(sec: number): string {
 
 // 상대 시간: ISO → "12분 전" / "3시간 전"
 export function formatRelativeTime(iso: string): string {
+  const t = i18n.t.bind(i18n);
   const diffMs = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diffMs / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
+  if (min < 1) return t('common.justNow');
+  if (min < 60) return t('common.minutesAgo', { count: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
+  if (hr < 24) return t('common.hoursAgo', { count: hr });
   const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}일 전`;
+  if (day < 7) return t('common.daysAgoShort', { count: day });
   const date = new Date(iso);
   return `${date.getMonth() + 1}.${date.getDate()}`;
 }
@@ -37,7 +40,7 @@ export function formatRelativeTime(iso: string): string {
 export function formatTimeLeft(iso?: string): string | null {
   if (!iso) return null;
   const diffMs = new Date(iso).getTime() - Date.now();
-  if (diffMs <= 0) return '만료';
+  if (diffMs <= 0) return i18n.t('common.expired');
   const totalMin = Math.floor(diffMs / 60000);
   const hr = Math.floor(totalMin / 60);
   const min = totalMin % 60;
@@ -52,14 +55,8 @@ const LOCALE_MAP: Record<string, string> = {
 };
 
 function getLocale(): string {
-  try {
-    // dynamic import would cause async — use the module-level singleton instead
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const lang: string = require('@/lib/i18n').default.language ?? 'en';
-    return LOCALE_MAP[lang] ?? 'en-US';
-  } catch {
-    return 'en-US';
-  }
+  const lang: string = i18n.language ?? 'en';
+  return LOCALE_MAP[lang] ?? 'en-US';
 }
 
 /**

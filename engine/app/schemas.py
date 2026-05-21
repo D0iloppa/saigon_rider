@@ -10,7 +10,8 @@ from app.enums import (
     AcquisitionSourceEnum, CollectionStatusEnum,
     EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
     ItemRarityEnum, ItemSlotEnum,
-    MissionStatusEnum, RedemptionStatusEnum, SeasonStatusEnum,
+    MissionStatusEnum, QuestCardStatusEnum, QuestCardTypeEnum,
+    RedemptionStatusEnum, SeasonStatusEnum,
     TxTypeEnum, UserStatusEnum,
 )
 
@@ -526,3 +527,43 @@ class DailyFeaturedItemRead(BaseModel):
     item: Optional[ItemDefinitionRead] = Field(None, alias="item_def")
 
     model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+# ── Quest Card ────────────────────────────────────────────
+
+class QuestCardCreate(BaseModel):
+    user_uuid: str
+    external_quest_id: str
+    user_quest_id: str
+    card_type: QuestCardTypeEnum
+    target_distance_m: Optional[int] = None
+    target_lat: Optional[float] = None
+    target_lng: Optional[float] = None
+    expires_at: Optional[datetime] = None
+
+
+class QuestCardRead(BaseModel):
+    card_id: int
+    user_id: int
+    external_quest_id: str
+    user_quest_id: str
+    card_type: QuestCardTypeEnum
+    target_distance_m: Optional[int] = None
+    current_distance_m: int = 0
+    target_lat: Optional[float] = None
+    target_lng: Optional[float] = None
+    status: QuestCardStatusEnum
+    accepted_at: datetime
+    completed_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class DailySlotInfo(BaseModel):
+    max_slots: int
+    used_slots: int
+    remaining: int
+    base: int
+    level_bonus: int
+    item_bonus: int

@@ -18,6 +18,10 @@ from .routers import (
     feed,
     follows,
     gacha,
+    info_flood,
+    info_gas,
+    info_repair,
+    info_weather,
     internal,
     inventory,
     master,
@@ -110,6 +114,10 @@ app.include_router(wallet.router)
 app.include_router(admin.router)
 app.include_router(support.router, prefix="/api")
 app.include_router(internal.router, prefix="/api")
+app.include_router(info_flood.router, prefix="/api")
+app.include_router(info_gas.router, prefix="/api")
+app.include_router(info_repair.router, prefix="/api")
+app.include_router(info_weather.router, prefix="/api")
 
 app.mount("/admin/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")
 

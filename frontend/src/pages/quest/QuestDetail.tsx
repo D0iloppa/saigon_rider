@@ -73,7 +73,7 @@ export default function QuestDetail() {
 
   const handleDbgComplete = async () => {
     if (!user || !quest || !passcode) {
-      toast.error('[DBG] 세션 정보가 없습니다. 재로그인 후 시도해주세요.');
+      toast.error(t('quest.dbg_no_session'));
       return;
     }
     setDbgLoading(true);
@@ -82,9 +82,9 @@ export default function QuestDetail() {
       if (result.rewardExp > 0) addExp(result.rewardExp, 0);
       if (result.rewardGold > 0) addGold(result.rewardGold);
       setIsCompleted(true);
-      toast.success(`[DBG] 완료 처리됨 — EXP +${result.rewardExp}, Gold +${result.rewardGold}`);
+      toast.success(`[DBG] Done — EXP +${result.rewardExp}, Gold +${result.rewardGold}`);
     } catch (err: any) {
-      toast.error(`[DBG] 완료 실패: ${err.message ?? '알 수 없는 오류'}`);
+      toast.error(`[DBG] Failed: ${err.message ?? 'Unknown error'}`);
     } finally {
       setDbgLoading(false);
       setDbgDialog(false);
@@ -163,8 +163,8 @@ export default function QuestDetail() {
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardXpPoints)}</div>
             </div>
             <div className={styles.rewardCell}>
-              <img className={styles.rewardIcon} src={emojiUrl('1fa99')} width={22} height={22} alt="GOLD" />
-              <div className={styles.rewardLabel}>GOLD</div>
+              <img className={styles.rewardIcon} src={emojiUrl('1fa99')} width={22} height={22} alt={t('currency.gold')} />
+              <div className={styles.rewardLabel}>{t('currency.gold')}</div>
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardGold)}</div>
             </div>
             <div className={styles.rewardCell}>
@@ -198,16 +198,16 @@ export default function QuestDetail() {
         <div className={styles.dialogBackdrop} onClick={() => setDbgDialog(false)}>
           <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
             <div className={styles.dialogIcon}>🛠</div>
-            <h3 className={styles.dialogTitle}>디버그 기능</h3>
+            <h3 className={styles.dialogTitle}>{t('quest.dbg_title')}</h3>
             <p className={styles.dialogBody}>
-              이 기능은 디버그용으로, 퀘스트 완료 처리를 합니다.
+              {t('quest.dbg_body')}
             </p>
             <div className={styles.dialogActions}>
               <Button variant="ghost" onClick={() => setDbgDialog(false)} disabled={dbgLoading}>
-                취소
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleDbgComplete} disabled={dbgLoading}>
-                {dbgLoading ? '처리 중...' : '완료 처리'}
+                {dbgLoading ? t('quest.dbg_processing') : t('quest.dbg_confirm')}
               </Button>
             </div>
           </div>

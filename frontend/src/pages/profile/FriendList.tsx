@@ -39,10 +39,10 @@ export default function FriendList() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={t('follow.friends', '친구 목록')} rightContent={rightContent} />
+      <TopBar title={t('follow.friends')} rightContent={rightContent} />
       <div className={styles.body}>
         {users.length === 0 ? (
-          <div className={styles.empty}>{t('follow.emptyFriends', '등록된 친구가 없습니다.')}</div>
+          <div className={styles.empty}>{t('follow.emptyFriends')}</div>
         ) : (
           users.map((u) => (
             <div key={u.id} className={styles.row}>

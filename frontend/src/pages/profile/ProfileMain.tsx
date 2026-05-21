@@ -330,7 +330,7 @@ export default function ProfileMain() {
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gold)' }}>
             <img src={emojiUrl('1fa99')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <div className={styles.currencyNum}>{formatNumber(gp)}</div>
-            <div className={styles.currencyLabel}>GOLD</div>
+            <div className={styles.currencyLabel}>{t('currency.gold')}</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--brand-500)' }}>
             <img src={emojiUrl('26a1')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
@@ -441,7 +441,7 @@ export default function ProfileMain() {
                     onClick={() => loadMyFeeds(feedsPage + 1)}
                     disabled={feedsLoading}
                   >
-                    {feedsLoading ? t('common.loading') : '더 보기'}
+                    {feedsLoading ? t('common.loading') : t('profile.loadMore')}
                   </button>
                 )}
               </>
@@ -528,7 +528,7 @@ export default function ProfileMain() {
               style={{ marginTop: 16, maxWidth: 200 }}
               onClick={() => navigate('/garage')}
             >
-              개러지 열기 →
+              {t('profile.openGarage')}
             </button>
           </div>
         )}
@@ -588,7 +588,7 @@ export default function ProfileMain() {
 
       <BottomSheet open={qrSheetOpen} onClose={() => setQrSheetOpen(false)}>
         <div className={styles.qrSheet}>
-          <h3 className={styles.qrTitle}>{t('profile.share', '프로필 공유')}</h3>
+          <h3 className={styles.qrTitle}>{t('profile.share')}</h3>
           <div className={styles.qrCanvas}>
             <QRCodeCanvas
               value={u.id}
@@ -609,7 +609,7 @@ export default function ProfileMain() {
             <span className={styles.qrNickname}>{u.nickname}</span>
             <LevelBadge level={u.level} />
           </div>
-          <p className={styles.qrGuide}>{t('profile.shareGuide', '이 QR코드를 스캔하면 프로필을 볼 수 있어요')}</p>
+          <p className={styles.qrGuide}>{t('profile.shareGuide')}</p>
         </div>
       </BottomSheet>
     </div>

@@ -33,6 +33,7 @@
 - [비즈니스 규칙](engine/01-sre-business-rules.md) · [기술 스택](engine/02-sre-tech-stack.md) · [설계 스펙](engine/sre-design-spec.md)
 - [ERD (PostgreSQL)](engine/sre-erd-mermaid.postgres.md)
 - [게이미피케이션 v2 배포 가이드](engine/sre-gamification-deployment-guide.md) — 가챠/상점/시즌 RPG 경제 패러다임 (v2.0)
+- [퀘스트 달성 체크 시스템 설계](engine/sre-quest-completion-design.md) — GPS 기반 퀘스트 카드 체크 + 데일리 슬롯 정책
 - [미션 매핑 리포트](engine/sre-mission-mapping-report.md) · [미션 룰 매핑](engine/sre-mission-rule-mapping.md)
 - [code 명령어](engine/code명령어.md)
 
@@ -52,6 +53,13 @@
 - [세션 이력](context/history.md) — 완료된 세션 작업 이력 (current.md에서 분리)
 - [완료 태스크 아카이브](task/archive.md) — 날짜별 색인
 - [트러블슈팅 인덱스](trouble/index.md) — 날짜별 색인
+
+## 🎨 디자인 시안 (정적 HTML)
+
+> 프로젝트 루트 `dev-test/` 하위에 배치. 최상위 Nginx가 `/dev-test/`를 직접 정적 서빙한다 (프론트엔드 빌드와 무관). **배포 대상이 아닌 디자인 검토 전용 페이지.**
+
+- [`/dev-test/item-catalog/`](../dev-test/item-catalog/index.html) — 아이템 비주얼 시스템 카탈로그 (컬렉션·등급·SVG)
+- [`/dev-test/equip-preview/`](../dev-test/equip-preview/index.html) — 아이템 착용 미리보기 (라이더/바이크/이펙트 탭, 실루엣 배치)
 
 ## 🌐 외부 자원
 

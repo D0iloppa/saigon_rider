@@ -126,26 +126,28 @@ export default function FeedCreate() {
       />
 
       <div className={styles.body}>
-        <textarea
-          className={styles.textarea}
-          placeholder={t('feedCreate.textPlaceholder')}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={6}
-          maxLength={2000}
-        />
+        <div className={styles.card}>
+          <textarea
+            className={styles.textarea}
+            placeholder={t('feedCreate.textPlaceholder')}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={6}
+            maxLength={2000}
+          />
 
-        {images.length > 0 && (
-          <div className={styles.previewGrid}>
-            {images.map((img, idx) => (
-              <div key={idx} className={styles.previewItem}>
-                <img src={img.preview} alt="" className={styles.previewThumb} />
-                {img.uploading && <div className={styles.uploadingOverlay}>⏳</div>}
-                <button className={styles.removeImg} onClick={() => removeImage(idx)}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
+          {images.length > 0 && (
+            <div className={styles.previewGrid}>
+              {images.map((img, idx) => (
+                <div key={idx} className={styles.previewItem}>
+                  <img src={img.preview} alt="" className={styles.previewThumb} />
+                  {img.uploading && <div className={styles.uploadingOverlay}>⏳</div>}
+                  <button className={styles.removeImg} onClick={() => removeImage(idx)}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className={styles.toolbar}>
           <label className={styles.toolBtn}>

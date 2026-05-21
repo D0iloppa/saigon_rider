@@ -1,5 +1,6 @@
+import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from passlib.context import CryptContext
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
+from ..engine_client import engine_client
 from ..models import AppConfig, Bookmark, Quest, User, UserQuest
 from ..schemas import (
     BookmarkToggleRequest,
@@ -22,6 +24,8 @@ from ..schemas import (
     QuestPinOut,
 )
 from ..utils import APP_TZ, MOCK_IMG_ENDPOINT, build_imgproxy_url, resolve_avatar_url
+
+log = logging.getLogger(__name__)
 
 _pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -44,6 +48,24 @@ def _calc_period_key(period: str) -> str:
         iso = today.isocalendar()
         return f"{iso.year}-W{iso.week:02d}"
     return "ONCE"
+
+
+def _calc_card_expires(period: str, ends_at: datetime | None) -> str | None:
+    now_vn = datetime.now(APP_TZ)
+    if period == "DAILY":
+        eod = datetime.combine(now_vn.date(), time(23, 59, 59), tzinfo=APP_TZ)
+        return eod.isoformat()
+    if period == "WEEKLY":
+        days_until_sunday = 6 - now_vn.weekday()
+        eow = datetime.combine(
+            now_vn.date() + timedelta(days=days_until_sunday),
+            time(23, 59, 59),
+            tzinfo=APP_TZ,
+        )
+        return eow.isoformat()
+    if ends_at is not None:
+        return ends_at.isoformat()
+    return None
 
 
 router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
@@ -225,6 +247,16 @@ async def accept_quest(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="이미 완료한 퀘스트입니다.")
 
+    if quest.period == "DAILY":
+        try:
+            slots = await engine_client.get_daily_quest_slots_by_uuid(str(body.user_id))
+            if slots.get("remaining", 1) <= 0:
+                raise HTTPException(status_code=409, detail="일일 퀘스트 슬롯이 가득 찼습니다.")
+        except HTTPException:
+            raise
+        except Exception:
+            log.warning("Daily slot check failed, allowing accept", exc_info=True)
+
     user_quest = UserQuest(
         user_id=body.user_id,
         quest_id=quest.id,
@@ -234,6 +266,20 @@ async def accept_quest(
     db.add(user_quest)
     await db.commit()
     await db.refresh(user_quest)
+
+    try:
+        target_distance_m = int(quest.target_distance_km * 1000) if quest.target_distance_km else None
+        expires_at = _calc_card_expires(quest.period, quest.ends_at)
+        await engine_client.create_quest_card(
+            user_uuid=str(body.user_id),
+            external_quest_id=str(quest.id),
+            user_quest_id=str(user_quest.id),
+            card_type="DISTANCE",
+            target_distance_m=target_distance_m,
+            expires_at=expires_at,
+        )
+    except Exception:
+        log.warning("Engine quest card creation failed for quest=%s", quest_id, exc_info=True)
 
     return QuestAcceptResponse(session_id=user_quest.id, user_quest_id=user_quest.id)
 

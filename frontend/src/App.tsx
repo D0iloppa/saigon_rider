@@ -75,6 +75,16 @@ import ProfileEdit from '@/pages/settings/ProfileEdit';
 import CustomerSupport from '@/pages/settings/CustomerSupport';
 import SupportDetail from '@/pages/settings/SupportDetail';
 
+// Info
+import InfoHub from '@/pages/info/InfoHub';
+import InfoWeather from '@/pages/info/InfoWeather';
+import InfoFloodMap from '@/pages/info/InfoFloodMap';
+import InfoFloodReport from '@/pages/info/InfoFloodReport';
+import InfoGasList from '@/pages/info/InfoGasList';
+import InfoRepairList from '@/pages/info/InfoRepairList';
+import InfoRepairDetail from '@/pages/info/InfoRepairDetail';
+import InfoRepairWrite from '@/pages/info/InfoRepairWrite';
+
 // Deep link
 import LinkRouter from '@/pages/link/LinkRouter';
 
@@ -220,6 +230,16 @@ export default function App() {
 
           {/* Protected: Season */}
           <Route path="/season" element={<PrivateRoute><SeasonPass /></PrivateRoute>} />
+
+          {/* Protected: Info */}
+          <Route path="/info" element={<PrivateRoute><InfoHub /></PrivateRoute>} />
+          <Route path="/info/weather" element={<PrivateRoute><InfoWeather /></PrivateRoute>} />
+          <Route path="/info/flood" element={<PrivateRoute><InfoFloodMap /></PrivateRoute>} />
+          <Route path="/info/flood/report" element={<PrivateRoute><InfoFloodReport /></PrivateRoute>} />
+          <Route path="/info/gas" element={<PrivateRoute><InfoGasList /></PrivateRoute>} />
+          <Route path="/info/repair" element={<PrivateRoute><InfoRepairList /></PrivateRoute>} />
+          <Route path="/info/repair/:shopId" element={<PrivateRoute><InfoRepairDetail /></PrivateRoute>} />
+          <Route path="/info/repair/:shopId/write" element={<PrivateRoute><InfoRepairWrite /></PrivateRoute>} />
 
           {/* Protected: Settings */}
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

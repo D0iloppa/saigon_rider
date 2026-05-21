@@ -389,5 +389,54 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    # ── Quest Cards ──────────────────────────────────────────
+
+    async def create_quest_card(
+        self,
+        *,
+        user_uuid: str,
+        external_quest_id: str,
+        user_quest_id: str,
+        card_type: str,
+        target_distance_m: int | None = None,
+        target_lat: float | None = None,
+        target_lng: float | None = None,
+        expires_at: str | None = None,
+    ) -> dict:
+        resp = await self._client.post(
+            "/v1/quest-cards",
+            json={
+                "user_uuid": user_uuid,
+                "external_quest_id": external_quest_id,
+                "user_quest_id": user_quest_id,
+                "card_type": card_type,
+                "target_distance_m": target_distance_m,
+                "target_lat": target_lat,
+                "target_lng": target_lng,
+                "expires_at": expires_at,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_daily_quest_slots(self, user_id: int) -> dict:
+        resp = await self._client.get(f"/v1/users/{user_id}/daily-quest-slots")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_daily_quest_slots_by_uuid(self, user_uuid: str) -> dict:
+        resp = await self._client.get("/v1/quest-cards/daily-slots", params={"user_uuid": user_uuid})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_completed_quest_cards(self, user_id: int) -> list[dict]:
+        resp = await self._client.get(f"/v1/users/{user_id}/quest-cards/completed")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def cancel_quest_card(self, card_id: int) -> None:
+        resp = await self._client.post(f"/v1/quest-cards/{card_id}/cancel")
+        resp.raise_for_status()
+
 
 engine_client = EngineClient()

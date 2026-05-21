@@ -102,12 +102,12 @@ const MOCK_SHOP_ITEMS: ShopItem[] = [
 ];
 
 const SLOT_LABELS: Record<string, string> = {
-  HELMET: '헬멧', JACKET: '자켓', GLOVES: '장갑', BOOTS: '부츠',
-  EYEWEAR: '아이웨어', NAMEPLATE: '네임플레이트',
-  BODY_PAINT: '페인트', WHEEL: '휠', EXHAUST: '머플러',
-  HEADLIGHT: '헤드라이트', MIRROR: '미러', DECAL: '데칼', NUMBER_PLATE: '번호판',
-  FRAME: '프레임', BACKDROP: '배경',
-  TITLE_BANNER: '타이틀', TRAIL: '트레일', HORN: '경적',
+  HELMET: 'Helmet', JACKET: 'Jacket', GLOVES: 'Gloves', BOOTS: 'Boots',
+  EYEWEAR: 'Eyewear', NAMEPLATE: 'Nameplate',
+  BODY_PAINT: 'Paint', WHEEL: 'Wheel', EXHAUST: 'Exhaust',
+  HEADLIGHT: 'Headlight', MIRROR: 'Mirror', DECAL: 'Decal', NUMBER_PLATE: 'Number Plate',
+  FRAME: 'Frame', BACKDROP: 'Backdrop',
+  TITLE_BANNER: 'Title', TRAIL: 'Trail', HORN: 'Horn',
 };
 
 export function slotLabel(slot: string): string {

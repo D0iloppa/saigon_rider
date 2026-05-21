@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StatusBar } from './StatusBar';
 import styles from './TopBar.module.css';
 
@@ -21,6 +22,7 @@ export function TopBar({
   onBack,
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <header className={`${styles.topbar} ${transparent ? styles.transparent : ''}`}>
@@ -31,7 +33,7 @@ export function TopBar({
             <button
               className={styles.iconBtn}
               onClick={() => (onBack ? onBack() : navigate(-1))}
-              aria-label="뒤로"
+              aria-label={t('common.back')}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <path

@@ -206,7 +206,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
       onClose();
       navigate(`/dm/${conv.id}`);
     } catch {
-      toast.error('DM을 시작할 수 없습니다');
+      toast.error(t('follow.dmError'));
     } finally {
       setDmLoading(false);
     }
@@ -423,7 +423,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
                     disabled={toggling}
                     className={styles.followBtn}
                   >
-                    {profile.isFollowing ? t('follow.unfollowBtn', '언팔로우') : t('follow.followBtn')}
+                    {profile.isFollowing ? t('follow.unfollowBtn') : t('follow.followBtn')}
                   </Button>
                   <button
                     className={styles.dmBtn}
@@ -439,14 +439,14 @@ export function ProfileCard({ userId, open, onClose }: Props) {
               )}
 
               <div className={styles.feedHint}>
-                <span>{t('profile.tabFeeds', '게시물')}</span>
+                <span>{t('profile.tabFeeds')}</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </>
           ) : (
-            <div className={styles.loading}>{t('common.error', 'Error')}</div>
+            <div className={styles.loading}>{t('common.errorUnexpected')}</div>
           )}
         </div>
 
@@ -463,7 +463,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
           {feedLoading ? (
             <div className={styles.feedPlaceholder}>{t('common.loading')}</div>
           ) : feedPosts.length === 0 ? (
-            <div className={styles.feedPlaceholder}>{t('profile.emptyFeeds', '게시물이 없습니다')}</div>
+            <div className={styles.feedPlaceholder}>{t('profile.emptyFeeds')}</div>
           ) : (
             <div className={styles.feedList}>
               {feedPosts.map((p) => (

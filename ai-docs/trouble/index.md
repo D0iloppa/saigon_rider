@@ -20,6 +20,10 @@
 - [팔로우 Session Expired 토스트](260518/260518_follow_session_expired.md) — 팔로우 시 "Session expired" 토스트만 표시되고 /splash 리다이렉트 미동작 → 419 세션 만료 프로토콜 도입으로 해소 ✅
 - [AppImage 폴백 실패 시 무한 Shimmer](260518/260518_appimage_fallback_shimmer.md) — mock-img 최종 폴백 URL 로드 실패 시 onError 미처리로 shimmer 영구 표시 → 체인 배열 + 재시도 + 로컬 에러 이미지로 해소 ✅
 
+## 260522
+
+- [피드/고객센터 입력 영역 카드 배경 누락](260522/260522_input_section_no_card_bg_troubleshooting.md) — FeedCreate, CustomerSupport 입력 섹션에 카드 컨테이너 없어 회색 배경 위 텍스트만 노출, 카드 스타일 추가로 해소
+
 ## 260514
 
 - [댓글 UX 3종 트러블슈팅](260514/260514_comment_ux_troubleshooting.md) — 댓글 닉네임 user_id 노출(BFF JOIN 누락), 댓글 아바타 미표시, 댓글 좋아요 미작동(핸들러+엔드포인트 신설) 원인 및 전체 수정 내역

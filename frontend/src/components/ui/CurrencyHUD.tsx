@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { emojiUrl } from '@/lib/emoji';
 
 interface CurrencyHUDProps {
@@ -47,6 +48,7 @@ function formatCurrency(n: number): string {
 
 export function CurrencyHUD({ gold = 0, xp = 0, className }: CurrencyHUDProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div style={baseStyle} className={className}>
@@ -56,11 +58,11 @@ export function CurrencyHUD({ gold = 0, xp = 0, className }: CurrencyHUDProps) {
         tabIndex={0}
         onClick={() => navigate('/shop')}
         onKeyDown={(e) => e.key === 'Enter' && navigate('/shop')}
-        aria-label={`GOLD ${gold.toLocaleString()}`}
+        aria-label={`${t('currency.gold')} ${gold.toLocaleString()}`}
       >
         <img src={emojiUrl('1fa99')} width={14} height={14} alt="" style={{ display: 'block' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         <span style={numStyle}>{formatCurrency(gold)}</span>
-        <span style={labelStyle}>GOLD</span>
+        <span style={labelStyle}>{t('currency.gold')}</span>
       </div>
       <div
         style={pillStyle}
@@ -68,11 +70,11 @@ export function CurrencyHUD({ gold = 0, xp = 0, className }: CurrencyHUDProps) {
         tabIndex={0}
         onClick={() => navigate('/shop')}
         onKeyDown={(e) => e.key === 'Enter' && navigate('/shop')}
-        aria-label={`XP ${xp.toLocaleString()}`}
+        aria-label={`${t('currency.xp')} ${xp.toLocaleString()}`}
       >
         <img src={emojiUrl('1f48e')} width={14} height={14} alt="" style={{ display: 'block' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         <span style={numStyle}>{formatCurrency(xp)}</span>
-        <span style={labelStyle}>XP</span>
+        <span style={labelStyle}>{t('currency.xp')}</span>
       </div>
     </div>
   );

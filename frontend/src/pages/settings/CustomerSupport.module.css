@@ -77,19 +77,29 @@
   padding: 16px;
 }
 
+.formCard {
+  background: var(--surface, #fff);
+  border-radius: 14px;
+  padding: 20px 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .label {
   font-size: 13px;
-  color: var(--color-text-secondary, rgba(255,255,255,.6));
+  color: var(--text-secondary, rgba(0,0,0,.5));
   margin-bottom: 4px;
 }
 
 .input {
   width: 100%;
   padding: 12px 14px;
-  background: var(--color-surface, rgba(255,255,255,.06));
-  border: 1px solid rgba(255,255,255,.12);
+  background: var(--bg, #f7f5f0);
+  border: 1px solid var(--border, rgba(0,0,0,.08));
   border-radius: 10px;
-  color: var(--color-text-primary, #fff);
+  color: var(--text-primary, #1a1a1a);
   font-size: 15px;
   box-sizing: border-box;
 }

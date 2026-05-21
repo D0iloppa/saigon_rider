@@ -4,36 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchRecommendedQuests } from '@/api/quests';
 import { fetchWallet } from '@/api/wallet';
-import { expToNextLevel } from '@/lib/rewards';
+import { fetchUserStats } from '@/api/profile';
+import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
+import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { formatNumber } from '@/lib/format';
 import type { Quest } from '@/api/types';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { MapPin } from '@/components/ui/MapPin';
-import { Chip } from '@/components/ui/Chip';
-import { emojiUrl } from '@/lib/emoji';
 import { AppImage } from '@/components/ui/AppImage';
 import styles from './WorldMap.module.css';
-
-function GifIcon({ code, size = 32, className = '' }: { code: string; size?: number; className?: string }) {
-  return (
-    <img
-      className={className}
-      src={emojiUrl(code)}
-      width={size} height={size} alt=""
-      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-    />
-  );
-}
-
-type CurrencyCard = { icon: string; color: string; numColor: string; label: string; value: number };
-
-function buildCurrencyCards(gold: number, xp: number, skillPoints: number): CurrencyCard[] {
-  return [
-    { icon: '1f48e', color: 'var(--gc)',        numColor: 'var(--gc)',   label: 'XP',       value: xp          },
-    { icon: '1fa99', color: 'var(--gold)',       numColor: '#A07010',     label: 'GOLD',     value: gold        },
-    { icon: '26a1',  color: 'var(--brand-500)', numColor: 'var(--gold)', label: 'SKILL PT', value: skillPoints },
-  ];
-}
 
 export default function WorldMap() {
   const user = useUserStore((s) => s.user);
@@ -41,13 +18,15 @@ export default function WorldMap() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [recommendedList, setRecommendedList] = useState<Quest[]>([]);
-  const [recIdx, setRecIdx] = useState(0);
-  const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
   const [loading, setLoading] = useState(true);
   const [gold, setGold] = useState(0);
-  const [xp, setXp] = useState(0);
+  const [totalRides, setTotalRides] = useState(0);
   const didInit = useRef(false);
-  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+
+  const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
+  const [infoFloods, setInfoFloods] = useState<FloodReport[]>([]);
+  const [infoGas, setInfoGas] = useState<GasStation | null>(null);
+  const [infoRepair, setInfoRepair] = useState<RepairShop | null>(null);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -64,208 +43,165 @@ export default function WorldMap() {
     }
     fetchWallet().then((w) => {
       setGold(w.gold_balance);
-      setXp(w.xp_balance);
     }).catch(() => {});
+    if (uid) {
+      fetchUserStats(uid).then((s) => setTotalRides(s.quest_count)).catch(() => {});
+    }
   }, [refreshUser]);
 
+  useEffect(() => {
+    const lat = 10.776, lng = 106.700;
+    navigator.geolocation?.getCurrentPosition(
+      (p) => {
+        const la = p.coords.latitude, lo = p.coords.longitude;
+        Promise.allSettled([
+          weatherApi.get(la, lo).then(setInfoWeather),
+          floodApi.getActive(la, lo, 5).then((r) => setInfoFloods(r.floods)),
+          gasApi.getNearby(la, lo, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
+          repairApi.getNearby(la, lo, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
+        ]);
+      },
+      () => {
+        Promise.allSettled([
+          weatherApi.get(lat, lng).then(setInfoWeather),
+          floodApi.getActive(lat, lng, 5).then((r) => setInfoFloods(r.floods)),
+          gasApi.getNearby(lat, lng, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
+          repairApi.getNearby(lat, lng, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
+        ]);
+      },
+    );
+  }, []);
+
   if (!user) return null;
-  const { needed, progress } = expToNextLevel(user.levelExp, user.level);
+
+  const todayQuest = recommendedList[0] ?? null;
+  const activeFloods = infoFloods.filter((f) => f.status === 'ACTIVE');
+  const cur = infoWeather?.current;
+  const district = infoWeather?.location?.district ?? 'District 1';
 
   return (
     <div className={styles.root}>
-      {/* ── Header (grad-sunset + noise) ── */}
+      {/* ── Simple Header ── */}
       <div className={styles.header}>
-        <div className={styles.noise} />
-
-        {/* User row */}
-        <div className={styles.userRow}>
-          <div className={styles.avatarWrap}>
-            <AppImage src={user.avatarUrl} alt="" className={styles.avatar} variant="circle" />
+        <div className={styles.headerLeft}>
+          <div className={styles.greetText}>{t('home.greet')}</div>
+          <div className={styles.userName}>{user.nickname}</div>
+        </div>
+        <div className={styles.headerRight}>
+          <div className={styles.goldBadge}>
+            <span className={styles.goldEmoji}>🪙</span>
+            <span className={`mono ${styles.goldValue}`}>{formatNumber(gold)}</span>
           </div>
-          <div>
-            <div className={styles.nick}>{user.nickname}</div>
-            <div className={`micro ${styles.levelMicro}`}>LV.{user.level}</div>
+          <div className={styles.avatarCircle}>
+            {user.avatarUrl ? (
+              <AppImage src={user.avatarUrl} alt="" className={styles.avatar} variant="circle" />
+            ) : (
+              <span className={styles.avatarLetter}>{user.nickname.charAt(0).toUpperCase()}</span>
+            )}
           </div>
-        </div>
-
-        {/* Header icons: bell + settings */}
-        <div className={styles.headerIcons}>
-          <div className={styles.bellWrap}>
-            <GifIcon code="1f514" size={32} className={styles.gifIcon} />
-            <span className={styles.notifDot} />
-          </div>
-          <button
-            className={styles.iconGif}
-            aria-label={t('common.settings')}
-            onClick={() => navigate('/settings')}
-          >
-            <GifIcon code="2699" size={32} className={styles.gifIcon} />
-          </button>
-        </div>
-
-        {/* Greeting + progress */}
-        <div className={styles.greet}>
-          {t('home.greet', { name: user.nickname.replace('@', '') })}
-        </div>
-        <div className={styles.progressLabel}>
-          {t('home.progressLabel', { needed: formatNumber(needed), nextLevel: user.level + 1 })}
-        </div>
-        <div style={{ padding: '0 8px' }}>
-          <ProgressBar progress={progress * 100} />
         </div>
       </div>
 
       {/* Scrollable content */}
       <div className={styles.scroll}>
-        {/* ── Currency cards ── */}
-        <div className={styles.currencyRow}>
-          {buildCurrencyCards(gold, xp, user.skillPoints).map((c) => (
-            <div key={c.label} className={styles.currencyCard} style={{ borderTop: `4px solid ${c.color}` }}>
-              <div className={styles.cardShine} />
-              <GifIcon code={c.icon} size={36} className={styles.currencyGif} />
-              <div className={`num ${styles.currencyNum}`} style={{ color: c.numColor }}>
-                {formatNumber(c.value)}
-              </div>
-              <div className={`micro ${styles.currencyLabel}`}>{c.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── World Map ── */}
-        <div className={styles.mapWrap}>
-          <svg viewBox="0 0 370 220" className={styles.map} xmlns="http://www.w3.org/2000/svg">
-            {/* River Saigon */}
-            <path d="M185,10 Q200,50 190,90 Q180,130 195,170 Q205,200 200,220"
-              stroke="#6ED8D0" strokeWidth="14" fill="none" opacity="0.7"/>
-            {/* Quận 1 — conquered */}
-            <polygon points="155,60 205,50 225,90 200,120 160,115 140,85"
-              fill="var(--brand-200)" stroke="#FF9966" strokeWidth="1.5"/>
-            {/* Q.3 */}
-            <polygon points="100,50 155,60 140,85 100,90 75,70"
-              fill="var(--surface-2)" stroke="var(--line)" strokeWidth="1.5"/>
-            {/* Bình Thạnh */}
-            <polygon points="205,50 245,40 260,75 240,100 225,90"
-              fill="var(--surface-2)" stroke="var(--line)" strokeWidth="1.5"/>
-            {/* Q.7 — conquered */}
-            <polygon points="140,115 200,120 210,160 165,170 130,145"
-              fill="#FFD6B8" stroke="#FF9966" strokeWidth="1.5"/>
-            {/* Phú Nhuận */}
-            <polygon points="100,90 140,85 130,120 100,125 80,105"
-              fill="var(--surface-2)" stroke="var(--line)" strokeWidth="1.5"/>
-            {/* Thủ Đức */}
-            <polygon points="240,100 280,90 290,130 260,150 240,130"
-              fill="var(--surface-2)" stroke="var(--line)" strokeWidth="1.5"/>
-            {/* Labels */}
-            <text x="173" y="88" fontFamily="Space Grotesk" fontSize="9" fontWeight="700" fill="#4A4F62" textAnchor="middle">Q.1</text>
-            <text x="113" y="72" fontFamily="Space Grotesk" fontSize="9" fontWeight="700" fill="#8A8E9E" textAnchor="middle">Q.3</text>
-            <text x="236" y="68" fontFamily="Space Grotesk" fontSize="9" fontWeight="700" fill="#8A8E9E" textAnchor="middle">B.THẠNH</text>
-            <text x="172" y="145" fontFamily="Space Grotesk" fontSize="9" fontWeight="700" fill="#4A4F62" textAnchor="middle">Q.7</text>
-            <text x="107" y="108" fontFamily="Space Grotesk" fontSize="9" fontWeight="700" fill="#8A8E9E" textAnchor="middle">P.NHUẬN</text>
-            <text x="262" y="120" fontFamily="Space Grotesk" fontSize="9" fontWeight="700" fill="#8A8E9E" textAnchor="middle">THỦ ĐỨC</text>
-          </svg>
-
-          {/* Quest pins */}
-          <MapPin style={{ top: 42, left: 134 }}>+3</MapPin>
-          <MapPin style={{ top: 75, left: 218 }}>+2</MapPin>
-          <MapPin style={{ top: 130, left: 148 }}>★</MapPin>
-
-          {/* City chip */}
-          <div className={styles.mapChip}>
-            <Chip variant="glass-light">
-              <GifIcon code="1f1fb-1f1f3" size={16} />
-              <span>HCM City</span>
-            </Chip>
+        {/* ── INFO Strip ── */}
+        <div className={styles.infoSection}>
+          <div className={styles.infoSectionHeader}>
+            <span className={styles.infoSectionLabel}>📍 {district} — {t('info.hub.currentSituation')}</span>
+            {activeFloods.length > 0 && (
+              <span className={styles.infoBadgeDanger}>{t('info.hub.floodDangerBadge', { count: activeFloods.length })}</span>
+            )}
           </div>
-        </div>
-
-        {/* ── Recommended quests ── */}
-        {loading ? (
-          <div className={`shimmer ${styles.recSkeleton}`} />
-        ) : recommendedList.length > 0 ? (
-          <div
-            className={styles.recCard}
-            onTouchStart={(e) => {
-              swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }}
-            onTouchEnd={(e) => {
-              if (!swipeStart.current) return;
-              const dx = e.changedTouches[0].clientX - swipeStart.current.x;
-              const dy = e.changedTouches[0].clientY - swipeStart.current.y;
-              swipeStart.current = null;
-              if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
-              if (dx < 0) {
-                setSlideDir('left');
-                setRecIdx((i) => Math.min(i + 1, recommendedList.length - 1));
-              } else {
-                setSlideDir('right');
-                setRecIdx((i) => Math.max(i - 1, 0));
-              }
-            }}
-          >
-            <div className={styles.recHeader}>
-              <div className={`micro ${styles.recTag}`}>
-                {t('home.tonightsPick')} · 22:00–02:00
+          <div className={styles.infoStrip}>
+            <button className={styles.miniCard} onClick={() => navigate('/info/weather')}>
+              <div className={styles.miniIcon}>{cur?.emoji ?? '🌡'}</div>
+              <div className={styles.miniTitle}>{t('info.hub.miniWeather')}</div>
+              <div className={styles.miniValue}>{cur ? `${cur.temp_c}°C` : '--'}</div>
+              <div className={styles.miniSub}>
+                {cur && cur.rain_prob_1h > 0 ? t('info.hub.miniRainIn1h', { prob: cur.rain_prob_1h }) : cur ? t('info.hub.miniClear') : t('info.hub.miniLoading')}
               </div>
-              {recommendedList.length > 1 && (
-                <div className={styles.recDots}>
-                  {recommendedList.map((_, i) => (
-                    <span
-                      key={i}
-                      className={`${styles.dot} ${i === recIdx ? styles.dotActive : ''}`}
-                      onClick={() => { setSlideDir(i > recIdx ? 'left' : 'right'); setRecIdx(i); }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-            <div
-              key={recIdx}
-              className={`${styles.recSlide} ${slideDir === 'left' ? styles.slideFromRight : styles.slideFromLeft}`}
+            </button>
+            <button
+              className={`${styles.miniCard} ${activeFloods.length > 0 ? styles.miniCardDanger : ''}`}
+              onClick={() => navigate('/info/flood')}
             >
-              {(() => {
-              const quest = recommendedList[recIdx];
-              return (
-                <>
-                  <div className={styles.recBody}>
-                    <div className={styles.recThumb}>
-                      <AppImage src={quest.thumbnailUrls} alt="" />
-                    </div>
-                    <div className={styles.recInfo}>
-                      <h3 className={styles.recTitle}>{quest.title}</h3>
-                      <div className={styles.recRewards}>
-                        <span className={styles.rewardItem}>
-                          <GifIcon code="2b50" size={16} />
-                          <span style={{ color: 'var(--exp)' }}>+{formatNumber(quest.rewardExp, { compact: true })}</span>
-                        </span>
-                        <span className={styles.rewardItem}>
-                          <GifIcon code="1fa99" size={16} />
-                          <span style={{ color: '#A07010' }}>+{formatNumber(quest.rewardGold, { compact: true })}</span>
-                        </span>
-                        {quest.rewardItems.length > 0 && (
-                          <span className={styles.rewardItem}>
-                            <GifIcon code="1f3c6" size={16} />
-                            <span style={{ color: '#A07010' }}>×{quest.rewardItems.length}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    className={styles.recBtn}
-                    onClick={() => navigate(`/quests/${quest.id}`)}
-                  >
-                    {t('home.startQuestBtn')}
-                  </button>
-                </>
-              );
-            })()}
-            </div>
+              <div className={styles.miniIcon}>🌊</div>
+              <div className={styles.miniTitle}>{t('info.hub.miniFlood')}</div>
+              <div className={`${styles.miniValue} ${activeFloods.length > 0 ? styles.miniValueDanger : ''}`}>
+                {activeFloods.length > 0 ? t('info.hub.miniFloodActive', { count: activeFloods.length }) : t('info.hub.floodNoIssue')}
+              </div>
+              <div className={`${styles.miniSub} ${activeFloods.length > 0 ? styles.miniSubDanger : ''}`}>
+                {activeFloods.length > 0 ? (activeFloods[0].district_code ?? '') : t('info.hub.miniFloodNone')}
+              </div>
+            </button>
+            <button className={styles.miniCard} onClick={() => navigate('/info/gas')}>
+              <div className={styles.miniIcon}>⛽</div>
+              <div className={styles.miniTitle}>{t('info.hub.miniGas')}</div>
+              <div className={`${styles.miniValue} mono`}>
+                {infoGas ? `${infoGas.price_vnd?.toLocaleString()}₫` : '--'}
+              </div>
+              <div className={styles.miniSub}>
+                {infoGas ? `${infoGas.distance_km.toFixed(1)}km · ${infoGas.wait_minutes === 0 ? t('info.hub.miniGasNoWait') : infoGas.wait_minutes ? t('info.hub.miniGasWait', { min: infoGas.wait_minutes }) : ''}` : t('info.hub.miniLoading')}
+              </div>
+            </button>
+            <button className={styles.miniCard} onClick={() => navigate('/info/repair')}>
+              <div className={styles.miniIcon}>🔧</div>
+              <div className={styles.miniTitle}>{t('info.hub.miniRepair')}</div>
+              <div className={styles.miniValue}>
+                {infoRepair ? `⭐ ${infoRepair.avg_rating?.toFixed(1)}` : '--'}
+              </div>
+              <div className={styles.miniSub}>
+                {infoRepair?.name ?? t('info.hub.miniLoading')}
+              </div>
+            </button>
           </div>
-        ) : (
-          <div className={styles.recEmpty}>
-            <p>{t('home.noRecommendedQuest')}</p>
+        </div>
+
+        {/* ── Today's Mission ── */}
+        <div className={styles.missionSection}>
+          <div className={styles.sectionLabel}>📍 {t('home.todayMission')}</div>
+          {loading ? (
+            <div className={`shimmer ${styles.missionSkeleton}`} />
+          ) : todayQuest ? (
+            <button className={styles.missionCard} onClick={() => navigate(`/quests/${todayQuest.id}`)}>
+              <div className={styles.missionTag}>
+                {todayQuest.questType.toUpperCase()} QUEST
+              </div>
+              <div className={styles.missionTitle}>{todayQuest.title}</div>
+              <div className={styles.missionDesc}>
+                {todayQuest.districtName}
+                {todayQuest.minDistanceM > 0 ? ` · ${(todayQuest.minDistanceM / 1000).toFixed(1)}km` : ''}
+                {todayQuest.timeRestriction ? ` · ${todayQuest.timeRestriction.from}–${todayQuest.timeRestriction.to}` : ''}
+              </div>
+              <div className={styles.missionRewards}>
+                {todayQuest.rewardGold > 0 && (
+                  <span className={styles.rewardChip}>🪙 +{formatNumber(todayQuest.rewardGold)} Gold</span>
+                )}
+                {todayQuest.rewardXpPoints > 0 && (
+                  <span className={styles.rewardChip}>XP +{formatNumber(todayQuest.rewardXpPoints)}</span>
+                )}
+              </div>
+            </button>
+          ) : (
+            <div className={styles.missionEmpty}>{t('home.noMission')}</div>
+          )}
+        </div>
+
+        {/* ── Quick Stats ── */}
+        <div className={styles.statsGrid}>
+          <div className={styles.statCard}>
+            <div className={`mono ${styles.statValue}`}>{formatNumber(totalRides)}</div>
+            <div className={styles.statLabel}>{t('home.totalRides')}</div>
           </div>
-        )}
+          <div className={styles.statCard}>
+            <div className={`mono ${styles.statValue}`}>{formatNumber(gold)}</div>
+            <div className={styles.statLabel}>{t('home.goldHeld')}</div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statValueAccent}>Lv.{user.level}</div>
+            <div className={styles.statLabel}>{t('home.riderLevel')}</div>
+          </div>
+        </div>
       </div>
     </div>
   );

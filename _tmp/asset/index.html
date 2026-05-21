@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Saigon Rider — Design System Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Space Grotesk',sans-serif;background:#E8E4DC;padding:48px 64px 80px;}
+h1{font-size:34px;font-weight:700;color:#2A2010;letter-spacing:-0.02em;margin-bottom:6px;}
+.sub{font-size:13px;color:#6B5E4E;margin-bottom:44px;}
+.sec{font-size:16px;font-weight:700;color:#2A2010;margin:44px 0 14px;padding-bottom:8px;border-bottom:2px solid rgba(0,0,0,.08);}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:900px;}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:600px;}
+.card{background:#fff;border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;box-shadow:0 2px 6px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s;border:1.5px solid rgba(0,0,0,.04);}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.12);}
+.card.hi{border-color:#FF5A1F;background:linear-gradient(135deg,#fff5f0,#fff);}
+.ico{font-size:26px;min-width:32px;text-align:center;}
+.nm{font-size:12px;font-weight:600;color:#2A2010;line-height:1.4;}
+.ds{font-size:11px;color:#8A8E9E;margin-top:2px;}
+.bN{display:inline-block;background:#16A34A;color:#fff;font-size:9px;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:4px;vertical-align:middle;}
+footer{margin-top:52px;text-align:center;font-size:11px;color:#8A8E9E;}
+</style>
+<script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+<h1>SAIGON RIDER</h1>
+<p class="sub">Design System Hub · B1–B9 아이템 카탈로그 + v2/v3 스크린 + v6 정보 모듈 · © 2026 Skywork.ai</p>
+
+<div class="sec">🏍️ 보강 배치 카탈로그 (BIKE · GEAR · PARTS)</div>
+<div class="g3">
+  <a href="saigon-rider-bikes-catalog.html" class="card hi">
+    <div class="ico">🏍️</div>
+    <div><div class="nm">배치 BIKE<span class="bN">NEW</span></div><div class="ds">MOTORCYCLE · 5차종×5등급 · 25개</div></div>
+  </a>
+  <a href="saigon-rider-gear-catalog.html" class="card hi">
+    <div class="ico">🧤</div>
+    <div><div class="nm">배치 GEAR<span class="bN">NEW</span></div><div class="ds">GLOVES/BOOTS/EYEWEAR/NAMEPLATE · 38개</div></div>
+  </a>
+  <a href="saigon-rider-parts2-catalog.html" class="card hi">
+    <div class="ico">💡</div>
+    <div><div class="nm">배치 PARTS<span class="bN">NEW</span></div><div class="ds">HEADLIGHT/MIRROR/NUMBER · 23개</div></div>
+  </a>
+</div>
+
+<div class="sec">🆕 v6 정보 모듈 화면</div>
+<div class="g2">
+  <a href="screens_v6_info.html" class="card hi">
+    <div class="ico">📱</div>
+    <div><div class="nm">v6 Info Modules — 9 Screens<span class="bN">NEW</span></div><div class="ds">INFO-HUB · 날씨 · 침수 · 주유 · 정비소 + HOME-001</div></div>
+  </a>
+  <a href="screens_index.html" class="card">
+    <div class="ico">🎮</div>
+    <div><div class="nm">v2/v3 RPG 화면 — 27 Screens</div><div class="ds">온보딩 · 인증 · 홈 · 퀘스트 · 라이드 · 피드 · 프로필</div></div>
+  </a>
+</div>
+
+<div class="sec">🎨 아이템 카탈로그 (B5–B9)</div>
+<div class="g3">
+  <a href="saigon-rider-profile-catalog.html" class="card">
+    <div class="ico">🖼</div>
+    <div><div class="nm">B5 PROFILE</div><div class="ds">FRAME/BACKDROP/TITLE · 33개</div></div>
+  </a>
+  <a href="saigon-rider-effects-catalog.html" class="card">
+    <div class="ico">✨</div>
+    <div><div class="nm">B6 EFFECTS</div><div class="ds">TRAIL/HORN/START_ANIM · 33개</div></div>
+  </a>
+  <a href="saigon-rider-custom-catalog.html" class="card">
+    <div class="ico">🎽</div>
+    <div><div class="nm">B7 CUSTOM</div><div class="ds">SEAT/STICKER/RANK_CARD · 33개</div></div>
+  </a>
+  <a href="saigon-rider-parts-catalog.html" class="card">
+    <div class="ico">🔧</div>
+    <div><div class="nm">B8 PARTS</div><div class="ds">HANDLEBAR/TAIL_LIGHT/ENGINE_COVER · 33개</div></div>
+  </a>
+  <a href="saigon-rider-social-catalog.html" class="card">
+    <div class="ico">🎭</div>
+    <div><div class="nm">B9 SOCIAL</div><div class="ds">EMOTE/BANNER/PET · 33개</div></div>
+  </a>
+</div>
+
+<footer>Saigon Rider Design System · © 2026 Skywork.ai</footer>
+</body>
+</html>

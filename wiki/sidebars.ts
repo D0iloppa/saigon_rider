@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
         'planning/world-map-overview',
         'planning/world-map-weather',
         'planning/world-map-fuel',
+        'planning/quest-completion',
       ],
     },
     {

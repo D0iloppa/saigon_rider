@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saigon Rider — v6 Info Modules · 9 Screens</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+/* ===== PAGE CHROME ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:#E8E4DC;padding:60px 80px 120px;}
+.page-title{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:700;color:#2A2010;letter-spacing:-0.02em;margin-bottom:6px;}
+.page-subtitle{font-size:14px;color:#6B5E4E;margin-bottom:10px;}
+.section-label{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#2A2010;margin:52px 0 18px;letter-spacing:-0.01em;padding-bottom:10px;border-bottom:2px solid rgba(0,0,0,.08);}
+.screens-grid{display:grid;grid-template-columns:repeat(3,393px);gap:40px 32px;margin-bottom:60px;}
+.screen-wrap{display:flex;flex-direction:column;gap:10px;}
+.screen-label{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;color:#8A8E9E;letter-spacing:.08em;text-transform:uppercase;}
+.screen-id{font-size:11px;color:#B0A898;margin-top:2px;}
+footer{margin-top:80px;text-align:center;font-size:12px;color:#8A8E9E;}
+
+/* ===== DESIGN TOKENS (v6 info palette) ===== */
+.phone{
+  --brand:#FF5A1F;
+  --bg:#F7F5F0;
+  --surface:#FFFFFF;
+  --surface2:#FAF8F5;
+  --dark:#0F0E17;
+  --line:#E8E3DA;
+  --text:#0B0D14;
+  --text2:#4A4F62;
+  --text3:#8A8E9E;
+  --danger:#EF3B3B;
+  --warn:#F59E0B;
+  --safe:#16A34A;
+  --info:#3B82F6;
+  --mono:'JetBrains Mono',monospace;
+  --shadow:0 1px 2px rgba(11,13,20,.04),0 4px 12px rgba(11,13,20,.08);
+  --shadow-pop:0 8px 24px rgba(0,0,0,.12);
+}
+
+/* ===== PHONE FRAME ===== */
+.phone{
+  width:393px;height:852px;background:var(--bg);
+  border-radius:44px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 1px rgba(0,0,0,.12),0 24px 80px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.6);
+  display:flex;flex-direction:column;
+  font-family:'Pretendard',-apple-system,sans-serif;
+}
+
+/* STATUS BAR */
+.status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px 0;height:48px;flex-shrink:0;
+  font-size:12px;font-weight:600;color:var(--text2);
+  background:var(--bg);
+}
+.status-bar.light{background:var(--surface);}
+.status-bar.on-dark{background:transparent;color:rgba(255,255,255,.9);position:absolute;top:0;left:0;right:0;z-index:10;}
+.status-time{font-size:15px;font-weight:700;color:var(--text);}
+.status-icons{display:flex;gap:5px;align-items:center;}
+
+/* NAVBAR */
+.navbar{
+  display:flex;align-items:center;padding:12px 20px;gap:12px;
+  background:var(--surface);border-bottom:1px solid var(--line);
+  flex-shrink:0;min-height:56px;
+}
+.navbar-back{width:36px;height:36px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.navbar-title{font-size:17px;font-weight:700;color:var(--text);flex:1;}
+.navbar-action{font-size:13px;font-weight:600;color:var(--brand);}
+.navbar-icon{width:36px;height:36px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* SCROLL CONTENT */
+.scroll-content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.scroll-inner{flex:1;overflow-y:auto;scrollbar-width:none;}
+.scroll-inner::-webkit-scrollbar{display:none;}
+.p16{padding:16px;}
+.p20{padding:20px;}
+
+/* BOTTOM TAB */
+.tab-bar{
+  display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding:8px 0 20px;flex-shrink:0;
+}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;cursor:pointer;}
+.tab-item svg{opacity:.4;}
+.tab-item.active svg{opacity:1;}
+.tab-label{font-size:10px;font-weight:600;color:var(--text3);}
+.tab-item.active .tab-label{color:var(--brand);}
+.tab-item.active svg path,.tab-item.active svg circle,.tab-item.active svg rect{stroke:var(--brand);}
+
+/* ===== UTILITY CLASSES ===== */
+.mono{font-family:var(--mono);}
+.text-danger{color:var(--danger);}
+.text-warn{color:var(--warn);}
+.text-safe{color:var(--safe);}
+.text-info{color:var(--info);}
+.text-brand{color:var(--brand);}
+.text2{color:var(--text2);}
+.text3{color:var(--text3);}
+.fw700{font-weight:700;}
+.fw600{font-weight:600;}
+.fs11{font-size:11px;}
+.fs12{font-size:12px;}
+.fs13{font-size:13px;}
+.fs14{font-size:14px;}
+.fs15{font-size:15px;}
+.fs16{font-size:16px;}
+.fs18{font-size:18px;}
+.fs20{font-size:20px;}
+.fs24{font-size:24px;}
+.fs32{font-size:32px;}
+.fs48{font-size:48px;}
+
+/* CARD */
+.card{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;}
+.card-inner{padding:16px;}
+
+/* STATUS BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:700;}
+.badge-danger{background:#FEE2E2;color:var(--danger);}
+.badge-warn{background:#FEF3C7;color:var(--warn);}
+.badge-safe{background:#DCFCE7;color:var(--safe);}
+.badge-info{background:#DBEAFE;color:var(--info);}
+.badge-neutral{background:var(--bg);color:var(--text3);}
+
+/* ALERT BANNER */
+.alert-banner{
+  padding:10px 16px;display:flex;align-items:center;gap:10px;
+  font-size:13px;font-weight:600;flex-shrink:0;
+}
+.alert-banner.danger{background:#FEE2E2;color:var(--danger);}
+.alert-banner.warn{background:#FEF3C7;color:var(--warn);}
+
+/* SECTION DIVIDER */
+.divider{height:1px;background:var(--line);margin:0;}
+.divider-thick{height:8px;background:var(--bg);}
+
+/* ROW */
+.row{display:flex;align-items:center;gap:10px;}
+.row-between{display:flex;align-items:center;justify-content:space-between;}
+
+/* ===== INFO MODULE SPECIFIC ===== */
+
+/* Info card for hub */
+.info-card{
+  background:var(--surface);border-radius:16px;
+  border:1.5px solid var(--line);
+  padding:16px;margin-bottom:12px;
+  position:relative;overflow:hidden;
+}
+.info-card::after{content:'›';position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--text3);}
+.info-card.danger-border{border-color:var(--danger);background:#FFF8F8;}
+.info-card.safe-border{border-color:#BBF7D0;background:#F0FFF4;}
+.info-card-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.info-card-icon{font-size:18px;}
+.info-card-title{font-size:13px;font-weight:700;color:var(--text);}
+.info-card-line{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:4px;}
+.info-card-line.big{font-size:15px;font-weight:600;color:var(--text);}
+.info-card-meta{font-size:11px;color:var(--text3);}
+
+/* Flood depth buttons */
+.depth-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0;}
+.depth-btn{
+  border-radius:14px;padding:18px 14px;text-align:center;cursor:pointer;
+  border:2.5px solid transparent;transition:.15s;
+}
+.depth-btn.ankle{background:#FFFBEB;border-color:#F59E0B;}
+.depth-btn.knee{background:#FFF7ED;border-color:#F97316;}
+.depth-btn.thigh{background:#FEF2F2;border-color:#EF3B3B;}
+.depth-btn.above{background:#FEF2F2;border-color:#991B1B;}
+.depth-btn.active{transform:scale(1.03);box-shadow:0 4px 16px rgba(0,0,0,.12);}
+.depth-emoji{font-size:28px;margin-bottom:6px;}
+.depth-label-ko{font-size:15px;font-weight:700;color:var(--text);}
+.depth-label-en{font-size:11px;color:var(--text3);margin-top:2px;}
+
+/* Wait dots */
+.wait-dots{display:flex;gap:4px;align-items:center;}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);}
+.dot.filled.level1{background:#16A34A;}
+.dot.filled.level2{background:#84CC16;}
+.dot.filled.level3{background:#F59E0B;}
+.dot.filled.level4{background:#F97316;}
+.dot.filled.level5{background:#EF3B3B;}
+
+/* Star rating */
+.stars{display:flex;gap:4px;}
+.star{font-size:22px;cursor:pointer;transition:.15s;}
+.star.filled{color:#F59E0B;}
+.star.empty{color:#E2E8F0;}
+.star.big{font-size:36px;}
+
+/* Forecast bar */
+.forecast-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+.forecast-time{font-family:var(--mono);font-size:12px;color:var(--text3);width:42px;flex-shrink:0;}
+.forecast-icon{font-size:16px;width:22px;text-align:center;}
+.forecast-temp{font-family:var(--mono);font-size:13px;font-weight:600;width:36px;flex-shrink:0;}
+.forecast-bar-wrap{flex:1;height:8px;background:#EFF6FF;border-radius:4px;overflow:hidden;}
+.forecast-bar{height:100%;border-radius:4px;}
+.forecast-pct{font-family:var(--mono);font-size:11px;color:var(--text3);width:32px;text-align:right;flex-shrink:0;}
+.forecast-district{font-size:10px;color:var(--info);background:#EFF6FF;padding:1px 6px;border-radius:8px;flex-shrink:0;}
+
+/* Map placeholder */
+.map-area{
+  background:linear-gradient(160deg,#E8F4F8 0%,#D4EBF5 30%,#C8E3F0 60%,#DAF0E8 100%);
+  position:relative;overflow:hidden;
+}
+.map-pin{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;}
+.map-pin-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.map-pin-dot.danger{background:var(--danger);}
+.map-pin-dot.warn{background:#F97316;}
+.map-pin-dot.info{background:var(--info);}
+.map-pin-label{font-size:9px;font-weight:700;background:white;padding:1px 5px;border-radius:6px;color:var(--text2);box-shadow:0 1px 4px rgba(0,0,0,.12);white-space:nowrap;}
+.map-road{position:absolute;background:rgba(255,255,255,.7);border-radius:2px;}
+.map-fab{
+  position:absolute;bottom:16px;right:16px;
+  width:52px;height:52px;border-radius:50%;
+  background:var(--brand);color:white;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 16px rgba(255,90,31,.4);
+  font-size:24px;font-weight:700;
+}
+
+/* Gas station card */
+.gas-card{padding:14px 16px;border-bottom:1px solid var(--line);}
+.gas-card:last-child{border-bottom:none;}
+.gas-badge{display:inline-flex;align-items:center;gap:3px;background:#FFF7ED;border:1px solid #FED7AA;color:#EA580C;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;}
+.gas-badge.rank1{background:#FFFBEB;border-color:#FDE68A;color:#B45309;}
+
+/* Repair card */
+.repair-card{padding:14px 16px;border-bottom:1px solid var(--line);}
+.repair-card:last-child{border-bottom:none;}
+.chip{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;margin-right:4px;margin-top:4px;}
+.chip.pos{background:#DCFCE7;color:#15803D;}
+.chip.neg{background:#FEE2E2;color:#B91C1C;}
+
+/* Review card */
+.review-card{padding:14px 0;border-bottom:1px solid var(--line);}
+.review-card:last-child{border-bottom:none;}
+
+/* Price table */
+.price-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
+.price-row:last-child{border-bottom:none;}
+
+/* GP reward box */
+.gp-box{background:linear-gradient(135deg,#FFFBEB,#FFF7ED);border:1.5px solid #FED7AA;border-radius:14px;padding:14px 16px;}
+.gp-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;}
+.gp-total{border-top:1px solid #FED7AA;margin-top:8px;padding-top:10px;font-size:15px;font-weight:700;color:var(--warn);}
+
+/* Weather specific */
+.weather-hero{text-align:center;padding:28px 20px 20px;}
+.weather-icon{font-size:72px;line-height:1;}
+.weather-temp{font-family:var(--mono);font-size:56px;font-weight:700;color:var(--text);letter-spacing:-2px;margin:8px 0;}
+.weather-desc{font-size:16px;color:var(--text2);margin-bottom:8px;}
+.weather-detail{font-size:13px;color:var(--text3);}
+
+/* Radar map */
+.radar-map{
+  background:linear-gradient(160deg,#0F172A 0%,#1E293B 40%,#0F172A 100%);
+  position:relative;overflow:hidden;border-radius:0;
+}
+.radar-cell{position:absolute;border-radius:6px;opacity:.7;}
+.radar-controls{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#F8FAFC;border-top:1px solid var(--line);}
+.radar-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--line);background:var(--surface);color:var(--text2);}
+
+/* Recommend box */
+.recommend-box{background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-radius:14px;padding:14px 16px;margin:12px 16px;}
+.recommend-text{font-size:14px;font-weight:600;color:#1E40AF;line-height:1.5;}
+
+/* ===== HOME INFO STRIP ===== */
+.info-strip{padding:12px 16px;display:flex;gap:10px;overflow:hidden;}
+.mini-info-card{
+  flex-shrink:0;width:150px;background:var(--surface);
+  border-radius:14px;padding:12px;border:1.5px solid var(--line);
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+}
+.mini-info-card.danger-card{border-color:var(--danger);background:#FFF8F8;}
+.mini-icon{font-size:20px;margin-bottom:6px;}
+.mini-title{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
+.mini-value{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;}
+.mini-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="page-title">SAIGON RIDER</div>
+<div class="page-subtitle">v6 Info Modules · 9 Screens · Bloomberg × Waze Design Language · © 2026</div>
+
+<!-- ===== SECTION: HOME CHANGE ===== -->
+<div class="section-label">HOME-001 변경 — 상단 INFO 카드 슬라이드 추가</div>
+<div class="screens-grid">
+
+<!-- SCREEN 1: HOME-001 MODIFIED -->
+<div class="screen-wrap">
+  <div class="screen-label">HOME-001 · INFO 카드 추가</div>
+  <div class="screen-id">기존 홈 + 상단 날씨/침수/주유/정비 미니카드</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons">
+        <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="#0B0D14" opacity=".3"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 1C4.5 1 1.5 3 0 6c1.5 3 4.5 5 8 5s6.5-2 8-5c-1.5-3-4.5-5-8-5z" fill="none" stroke="#0B0D14" stroke-width="1.2"/><circle cx="8" cy="6" r="2" fill="#0B0D14"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="2.5" fill="none" stroke="#0B0D14" stroke-width="1.2"/><rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="#0B0D14"/><path d="M23 4v4c.8-.4 1.3-1 1.3-2S23.8 4.4 23 4z" fill="#0B0D14" opacity=".4"/></svg>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <!-- Home Header -->
+        <div style="padding:16px 20px 12px;background:var(--surface);border-bottom:1px solid var(--line);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div>
+              <div style="font-size:13px;color:var(--text3);">안녕하세요 👋</div>
+              <div style="font-size:18px;font-weight:700;color:var(--text);">Anh Minh</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <div style="background:#FFF7ED;border-radius:20px;padding:5px 10px;display:flex;align-items:center;gap:5px;">
+                <span style="font-size:13px;">🪙</span>
+                <span class="mono fw600 fs13" style="color:#B45309;">1,250</span>
+              </div>
+              <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#FF5A1F,#FF9966);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;">M</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ⭐ NEW: INFO Strip -->
+        <div style="background:var(--surface);border-bottom:1px solid var(--line);">
+          <div style="padding:10px 16px 4px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;">📍 Quận 1 — 지금 상황</span>
+            <div class="badge badge-danger">⚠ 침수 2건</div>
+          </div>
+          <div class="info-strip">
+            <!-- 날씨 -->
+            <div class="mini-info-card">
+              <div class="mini-icon">⛅</div>
+              <div class="mini-title">날씨</div>
+              <div class="mini-value">32°C</div>
+              <div class="mini-sub">1h 후 비 80%</div>
+            </div>
+            <!-- 침수 -->
+            <div class="mini-info-card danger-card">
+              <div class="mini-icon">🌊</div>
+              <div class="mini-title">침수</div>
+              <div class="mini-value" style="color:var(--danger);">2건 활성</div>
+              <div class="mini-sub" style="color:var(--danger);">Bình Thạnh 무릎</div>
+            </div>
+            <!-- 주유 -->
+            <div class="mini-info-card">
+              <div class="mini-icon">⛽</div>
+              <div class="mini-title">주유</div>
+              <div class="mini-value mono">25,380₫</div>
+              <div class="mini-sub">1.8km · 대기없음</div>
+            </div>
+            <!-- 정비 -->
+            <div class="mini-info-card">
+              <div class="mini-icon">🔧</div>
+              <div class="mini-title">정비</div>
+              <div class="mini-value">⭐ 4.7</div>
+              <div class="mini-sub">Honda Head 2S</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily Mission -->
+        <div style="padding:16px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;">📍 오늘의 미션</div>
+          <div style="background:linear-gradient(135deg,#FF7438,#B82C08);border-radius:16px;padding:20px;color:white;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;opacity:.8;margin-bottom:6px;">NIGHT QUEST</div>
+            <div style="font-size:17px;font-weight:700;margin-bottom:4px;">Bến Thành Midnight Loop</div>
+            <div style="font-size:12px;opacity:.8;margin-bottom:14px;">District 1 → D4 → BT · 8.5km · 00:00–04:00</div>
+            <div style="display:flex;gap:10px;">
+              <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:700;">🪙 +320 GP</div>
+              <div style="background:rgba(255,255,255,.2);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:700;">XP +450</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div style="padding:0 16px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div style="background:var(--surface);border-radius:14px;padding:12px;text-align:center;border:1.5px solid var(--line);">
+            <div class="mono fs18 fw700" style="color:var(--text);">47</div>
+            <div class="fs11 text3">총 라이드</div>
+          </div>
+          <div style="background:var(--surface);border-radius:14px;padding:12px;text-align:center;border:1.5px solid var(--line);">
+            <div class="mono fs18 fw700" style="color:var(--text);">1,250</div>
+            <div class="fs11 text3">GP 보유</div>
+          </div>
+          <div style="background:var(--surface);border-radius:14px;padding:12px;text-align:center;border:1.5px solid var(--line);">
+            <div class="fs18 fw700" style="color:#B45309;">Lv.5</div>
+            <div class="fs11 text3">라이더 등급</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab-item active">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span class="tab-label" style="color:var(--brand);">홈</span>
+      </div>
+      <div class="tab-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <span class="tab-label">퀘스트</span>
+      </div>
+      <div class="tab-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        <span class="tab-label">라이드</span>
+      </div>
+      <div class="tab-item" style="position:relative;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="tab-label" style="color:var(--brand);">정보</span>
+        <div style="position:absolute;top:4px;right:16px;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid var(--bg);"></div>
+      </div>
+      <div class="tab-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="tab-label">프로필</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- end screens-grid -->
+
+<!-- ===== SECTION: INFO SCREENS ===== -->
+<div class="section-label">v6 정보 모듈 — 신규 8개 화면</div>
+<div class="screens-grid">
+
+<!-- SCREEN 2: INFO-HUB-001 -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-HUB-001 · 정보 허브 메인</div>
+  <div class="screen-id">위치 자동 + 카드 4개 + 위험 배너</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons">
+        <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="2.5" fill="none" stroke="#0B0D14" stroke-width="1.2"/><rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="#0B0D14"/><path d="M23 4v4c.8-.4 1.3-1 1.3-2S23.8 4.4 23 4z" fill="#0B0D14" opacity=".4"/></svg>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">정보</span>
+      <div class="navbar-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div>
+    </div>
+    <!-- Danger Banner -->
+    <div class="alert-banner danger">
+      <span style="font-size:16px;">🌊</span>
+      <span>침수 주의: 2건 활성 — District 4, Bình Thạnh</span>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <div style="padding:12px 16px;">
+          <!-- Location -->
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="fs13 fw600" style="color:var(--text);">District 1 · Quận 1</span>
+            <span class="fs12 text3">자동 위치</span>
+          </div>
+
+          <!-- 날씨 카드 -->
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">🌤</span>
+              <span class="info-card-title">날씨</span>
+            </div>
+            <div class="info-card-line big">☀️ 32°C — 현재 맑음</div>
+            <div class="info-card-line"><span style="color:var(--info);">⛈ 1시간 후 비 80%</span> · District 4</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+              <span class="info-card-meta">지금 출발하면 비 안 맞아요</span>
+              <span style="font-size:11px;font-weight:600;color:var(--info);">경로 비 예측 →</span>
+            </div>
+          </div>
+
+          <!-- 침수 카드 -->
+          <div class="info-card danger-border">
+            <div class="info-card-header">
+              <span class="info-card-icon">🌊</span>
+              <span class="info-card-title" style="color:var(--danger);">침수 — 2건 활성</span>
+            </div>
+            <div class="info-card-line"><span class="text-danger fw600">🔴 Bình Thạnh</span> — 무릎 깊이 · 30분 전</div>
+            <div class="info-card-line"><span class="text-warn fw600">🟠 District 4</span> — 발목 깊이 · 1시간 전</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+              <span class="info-card-meta">8건 확인됨</span>
+              <span style="font-size:11px;font-weight:600;color:var(--danger);">지도에서 보기 →</span>
+            </div>
+          </div>
+
+          <!-- 주유 카드 -->
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">⛽</span>
+              <span class="info-card-title">주유소</span>
+            </div>
+            <div class="info-card-line big">💰 PV Oil Lê Lai — <span class="mono">25,380₫/L</span></div>
+            <div class="info-card-line">대기 없음 · <span class="mono">1.8km</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+              <span class="info-card-meta">공식가 대비 40₫ 저렴</span>
+              <span style="font-size:11px;font-weight:600;color:var(--safe);">주유소 더 보기 →</span>
+            </div>
+          </div>
+
+          <!-- 정비 카드 -->
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">🔧</span>
+              <span class="info-card-title">정비소</span>
+            </div>
+            <div class="info-card-line big">Honda Head 2S — ⭐ <span class="mono">4.7</span> (87)</div>
+            <div class="info-card-line">엔진오일 평균 <span class="mono fw600">250K₫</span> · <span class="mono">2.1km</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+              <span class="info-card-meta">Honda 정품 사용</span>
+              <span style="font-size:11px;font-weight:600;color:var(--info);">정비소 더 보기 →</span>
+            </div>
+          </div>
+
+          <!-- GP 유도 -->
+          <div style="background:linear-gradient(135deg,#FFFBEB,#FFF7ED);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;border:1.5px solid #FED7AA;margin-top:4px;">
+            <span style="font-size:20px;">💡</span>
+            <span class="fs13 fw600" style="color:#92400E;">정보 신고 시 GP 적립! 침수 신고 +10 GP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-label">홈</span></div>
+      <div class="tab-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg><span class="tab-label">퀘스트</span></div>
+      <div class="tab-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span class="tab-label">라이드</span></div>
+      <div class="tab-item active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span class="tab-label" style="color:var(--brand);">정보</span></div>
+      <div class="tab-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="tab-label">프로필</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 3: INFO-WEATHER-001 -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-WEATHER-001 · 날씨 상세</div>
+  <div class="screen-id">비 레이더 지도 + 24h 예보 막대 그래프</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons">
+        <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="2.5" fill="none" stroke="#0B0D14" stroke-width="1.2"/><rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="#0B0D14"/></svg>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">날씨</span>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <!-- Weather Hero -->
+        <div style="background:linear-gradient(160deg,#FEF9C3,#FFF7ED);padding:20px 20px 16px;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.08em;margin-bottom:8px;">📍 DISTRICT 1 · 09:41</div>
+          <div style="font-size:64px;line-height:1.1;">⛅</div>
+          <div class="mono fw700 fs48" style="color:var(--text);letter-spacing:-2px;margin:6px 0;">32°C</div>
+          <div style="font-size:16px;color:var(--text2);margin-bottom:4px;">부분 흐림, 비 안 옴</div>
+          <div style="font-size:13px;color:var(--text3);">습도 78% · 동풍 12km/h</div>
+        </div>
+
+        <!-- Rain alert -->
+        <div class="alert-banner warn" style="margin:0;">
+          <span>⛈</span>
+          <span>1시간 후 District 4 강우 예상 80%</span>
+        </div>
+
+        <!-- Radar Map -->
+        <div style="padding:14px 16px 8px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">🌧 비 레이더</div>
+          <div class="radar-map" style="height:160px;border-radius:14px;">
+            <!-- Map roads mock -->
+            <div class="map-road" style="width:100%;height:3px;top:40%;left:0;transform:rotate(-3deg);"></div>
+            <div class="map-road" style="width:3px;height:100%;top:0;left:30%;"></div>
+            <div class="map-road" style="width:3px;height:100%;top:0;left:65%;"></div>
+            <div class="map-road" style="width:100%;height:2px;top:65%;left:0;"></div>
+            <!-- Rain cells -->
+            <div class="radar-cell" style="width:60px;height:50px;background:#3B82F6;top:20%;right:10%;opacity:.5;border-radius:50%;filter:blur(12px);"></div>
+            <div class="radar-cell" style="width:90px;height:70px;background:#1D4ED8;top:30%;right:5%;opacity:.6;border-radius:50%;filter:blur(16px);"></div>
+            <div class="radar-cell" style="width:40px;height:30px;background:#EF3B3B;top:25%;right:15%;opacity:.7;border-radius:50%;filter:blur(8px);"></div>
+            <!-- Labels -->
+            <div style="position:absolute;left:10px;top:10px;background:rgba(255,255,255,.15);border-radius:8px;padding:4px 8px;">
+              <span style="font-size:10px;font-weight:700;color:white;">D1 내 위치 📍</span>
+            </div>
+            <div style="position:absolute;right:10px;bottom:40px;background:rgba(239,59,59,.8);border-radius:8px;padding:3px 8px;">
+              <span style="font-size:10px;font-weight:700;color:white;">🔴 D4 폭우 80%</span>
+            </div>
+            <!-- Time indicator -->
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:6px 10px;background:rgba(15,14,23,.8);">
+              <div style="display:flex;gap:4px;align-items:center;">
+                <div style="width:8px;height:8px;border-radius:50%;background:#F59E0B;"></div>
+                <span style="font-size:10px;font-weight:700;color:white;">+1h 예측 · 재생 중</span>
+              </div>
+            </div>
+          </div>
+          <!-- Radar Controls -->
+          <div class="radar-controls" style="border-radius:0 0 14px 14px;margin-top:-4px;border:1px solid var(--line);border-top:none;padding:8px 12px;">
+            <button class="radar-btn">◀▶ 재생</button>
+            <div style="display:flex;gap:6px;">
+              <button class="radar-btn">−3h</button>
+              <button class="radar-btn" style="background:#EFF6FF;border-color:var(--info);color:var(--info);">지금</button>
+              <button class="radar-btn">+6h</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider" style="margin:4px 0;"></div>
+
+        <!-- 24h forecast -->
+        <div style="padding:12px 16px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">📅 24시간 예보</div>
+          <div class="forecast-row"><span class="forecast-time">15:00</span><span class="forecast-icon">☀️</span><span class="forecast-temp mono">32°</span><div class="forecast-bar-wrap"><div class="forecast-bar" style="width:10%;background:#16A34A;"></div></div><span class="forecast-pct mono">10%</span></div>
+          <div class="forecast-row"><span class="forecast-time">16:00</span><span class="forecast-icon">⛅</span><span class="forecast-temp mono">31°</span><div class="forecast-bar-wrap"><div class="forecast-bar" style="width:30%;background:#F59E0B;"></div></div><span class="forecast-pct mono">30%</span></div>
+          <div class="forecast-row" style="background:#FEF2F2;border-radius:8px;margin:-1px -4px;padding:8px 4px;"><span class="forecast-time">17:00</span><span class="forecast-icon">⛈</span><span class="forecast-temp mono fw600">30°</span><div class="forecast-bar-wrap" style="background:#FEE2E2;"><div class="forecast-bar" style="width:80%;background:#EF3B3B;"></div></div><span class="forecast-pct mono" style="color:var(--danger);font-weight:700;">80%</span><span class="forecast-district">D4</span></div>
+          <div class="forecast-row" style="background:#FEF2F2;border-radius:8px;margin:2px -4px;padding:8px 4px;"><span class="forecast-time">18:00</span><span class="forecast-icon">⛈</span><span class="forecast-temp mono fw600">29°</span><div class="forecast-bar-wrap" style="background:#FEE2E2;"><div class="forecast-bar" style="width:95%;background:#B91C1C;"></div></div><span class="forecast-pct mono" style="color:#B91C1C;font-weight:700;">95%</span></div>
+          <div class="forecast-row"><span class="forecast-time">19:00</span><span class="forecast-icon">🌧</span><span class="forecast-temp mono">29°</span><div class="forecast-bar-wrap"><div class="forecast-bar" style="width:70%;background:#3B82F6;"></div></div><span class="forecast-pct mono">70%</span></div>
+          <div class="forecast-row"><span class="forecast-time">20:00</span><span class="forecast-icon">🌦</span><span class="forecast-temp mono">28°</span><div class="forecast-bar-wrap"><div class="forecast-bar" style="width:40%;background:#93C5FD;"></div></div><span class="forecast-pct mono">40%</span></div>
+        </div>
+
+        <!-- Recommend -->
+        <div class="recommend-box">
+          <div style="font-size:11px;font-weight:700;color:#1E40AF;letter-spacing:.06em;margin-bottom:6px;">💡 AI 추천</div>
+          <div class="recommend-text">지금 출발하면 비 안 맞아요. ✅</div>
+          <div style="font-size:13px;color:#3B82F6;margin-top:4px;">⚠️ 16:30 이후 출발은 침수 위험</div>
+        </div>
+
+        <!-- Alert Subscribe -->
+        <div style="margin:12px 16px 20px;border:1.5px dashed #93C5FD;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">🔔</span>
+          <div>
+            <div class="fs13 fw600" style="color:var(--info);">즐겨찾기 위치 알림 받기</div>
+            <div class="fs11 text3">회사 도착 시 비 오면 알려줘 (+5 GP)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 4: INFO-FLOOD-MAP -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-FLOOD-MAP · 침수 지도</div>
+  <div class="screen-id">full-bleed 지도 + 4단계 핀 + FAB 신고</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons">
+        <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="2.5" fill="none" stroke="#0B0D14" stroke-width="1.2"/><rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="#0B0D14"/></svg>
+      </div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">침수 지도</span>
+      <div class="navbar-icon" style="gap:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2" stroke-linecap="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
+    </div>
+
+    <!-- Stats bar -->
+    <div style="background:var(--surface);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;align-items:center;gap:14px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:var(--danger);"></div>
+        <span class="fs12 fw700" style="color:var(--danger);">활성 5건</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#9CA3AF;"></div>
+        <span class="fs12" style="color:var(--text3);">24h: 12건 / 7건 해소</span>
+      </div>
+    </div>
+
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <!-- Map full bleed -->
+        <div class="map-area" style="height:280px;position:relative;">
+          <!-- Roads -->
+          <div class="map-road" style="width:100%;height:4px;top:50%;background:rgba(255,255,255,.8);"></div>
+          <div class="map-road" style="width:100%;height:3px;top:28%;background:rgba(255,255,255,.7);transform:rotate(5deg);"></div>
+          <div class="map-road" style="width:100%;height:3px;top:72%;background:rgba(255,255,255,.6);transform:rotate(-3deg);"></div>
+          <div class="map-road" style="width:3px;height:100%;top:0;left:30%;background:rgba(255,255,255,.7);"></div>
+          <div class="map-road" style="width:3px;height:100%;top:0;left:60%;background:rgba(255,255,255,.6);"></div>
+          <div class="map-road" style="width:4px;height:100%;top:0;left:80%;background:rgba(255,255,255,.8);"></div>
+
+          <!-- Flood zones (blobs) -->
+          <div style="position:absolute;width:60px;height:45px;background:rgba(239,59,59,.25);border-radius:50%;filter:blur(8px);top:20%;left:50%;"></div>
+          <div style="position:absolute;width:50px;height:38px;background:rgba(249,115,22,.2);border-radius:50%;filter:blur(6px);top:55%;left:20%;"></div>
+          <div style="position:absolute;width:70px;height:52px;background:rgba(239,59,59,.3);border-radius:50%;filter:blur(10px);top:35%;right:8%;"></div>
+
+          <!-- Pins -->
+          <div class="map-pin" style="top:15%;left:52%;">
+            <div class="map-pin-dot danger">무</div>
+            <div class="map-pin-label">Bình Thạnh</div>
+          </div>
+          <div class="map-pin" style="top:50%;left:22%;">
+            <div class="map-pin-dot warn" style="background:#F97316;">발</div>
+            <div class="map-pin-label">D4</div>
+          </div>
+          <div class="map-pin" style="top:30%;right:12%;">
+            <div class="map-pin-dot danger">허</div>
+            <div class="map-pin-label">Thủ Đức</div>
+          </div>
+          <div class="map-pin" style="top:62%;left:58%;">
+            <div class="map-pin-dot info">발</div>
+            <div class="map-pin-label">Phú Nhuận</div>
+          </div>
+
+          <!-- My location -->
+          <div style="position:absolute;top:42%;left:44%;width:20px;height:20px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 0 0 4px rgba(59,130,246,.3);"></div>
+          </div>
+
+          <!-- Legend -->
+          <div style="position:absolute;top:10px;left:10px;background:rgba(255,255,255,.92);border-radius:10px;padding:8px 10px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:4px;">침수 깊이</div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <div class="row" style="gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#F59E0B;"></div><span style="font-size:9px;color:var(--text2);">🟡 발목</span></div>
+              <div class="row" style="gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#F97316;"></div><span style="font-size:9px;color:var(--text2);">🟠 무릎</span></div>
+              <div class="row" style="gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#EF3B3B;"></div><span style="font-size:9px;color:var(--text2);">🔴 허벅지+</span></div>
+            </div>
+          </div>
+
+          <!-- FAB -->
+          <div class="map-fab">+</div>
+        </div>
+
+        <!-- Flood list -->
+        <div style="padding:14px 16px 4px;">
+          <div class="fs13 fw700" style="color:var(--text);margin-bottom:8px;">🔴 활성 침수 (5)</div>
+        </div>
+        <div class="card" style="margin:0 16px;border-radius:14px;">
+          <div style="padding:13px 14px;border-bottom:1px solid var(--line);">
+            <div class="row-between" style="margin-bottom:4px;">
+              <div class="row" style="gap:6px;"><div class="badge badge-danger">🔴 무릎</div><span class="fs13 fw700" style="color:var(--text);">Bình Thạnh · Xô Viết Nghệ Tĩnh</span></div>
+            </div>
+            <div class="fs12 text2">30분 전 신고 · 8건 확인 · <span class="mono">2.3km</span></div>
+          </div>
+          <div style="padding:13px 14px;border-bottom:1px solid var(--line);">
+            <div class="row-between" style="margin-bottom:4px;">
+              <div class="row" style="gap:6px;"><div class="badge badge-warn">🟠 발목</div><span class="fs13 fw700" style="color:var(--text);">District 4 · Đoàn Văn Bơ</span></div>
+            </div>
+            <div class="fs12 text2">1시간 전 신고 · 3건 확인 · <span class="mono">1.5km</span></div>
+          </div>
+          <div style="padding:13px 14px;opacity:.6;">
+            <div class="row" style="gap:6px;margin-bottom:4px;"><div class="badge badge-neutral">⚪ 해소됨</div><span class="fs13 fw600" style="color:var(--text3);">Phú Nhuận · Phan Đăng Lưu</span></div>
+            <div class="fs12 text3">30분 전 해소 확인</div>
+          </div>
+        </div>
+
+        <!-- Hotspot stats -->
+        <div style="padding:14px 16px 20px;">
+          <div class="fs13 fw700" style="color:var(--text);margin-bottom:8px;">📊 침수 다발 구역 (최근 30일)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="row-between"><span class="fs13 text2">D4 Lò Lu</span><span class="mono fs13 fw700" style="color:var(--danger);">18건</span></div>
+            <div class="row-between"><span class="fs13 text2">Bình Thạnh Xô Viết</span><span class="mono fs13 fw700" style="color:var(--danger);">14건</span></div>
+            <div class="row-between"><span class="fs13 text2">Thủ Đức Phạm Văn Đồng</span><span class="mono fs13 fw700" style="color:var(--warn);">12건</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 5: INFO-FLOOD-REPORT -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-FLOOD-REPORT · 침수 신고 폼</div>
+  <div class="screen-id">1탭 신고 · 깊이 4 버튼 · GP 보상</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg></div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">침수 신고</span>
+      <span class="navbar-action">저장</span>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <div style="padding:16px;">
+          <!-- Location -->
+          <div style="background:var(--surface);border-radius:14px;padding:14px;border:1.5px solid var(--line);margin-bottom:14px;">
+            <div class="row" style="gap:8px;margin-bottom:6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span class="fs13 fw600" style="color:var(--text);">📍 자동 위치 감지됨</span>
+            </div>
+            <div class="fs15 fw700" style="color:var(--text);margin-bottom:4px;">Bình Thạnh · Xô Viết Nghệ Tĩnh</div>
+            <div style="font-size:11px;color:var(--info);font-weight:600;">정확하지 않으면 지도에서 수정 →</div>
+          </div>
+
+          <!-- Depth selection -->
+          <div class="fs14 fw700" style="color:var(--text);margin-bottom:12px;">💧 깊이는 얼마나?</div>
+          <div class="depth-grid">
+            <div class="depth-btn ankle">
+              <div class="depth-emoji">🟡</div>
+              <div class="depth-label-ko">발목</div>
+              <div class="depth-label-en">ankle</div>
+            </div>
+            <div class="depth-btn knee active">
+              <div class="depth-emoji">🟠</div>
+              <div class="depth-label-ko fw700">무릎 ✓</div>
+              <div class="depth-label-en">knee</div>
+            </div>
+            <div class="depth-btn thigh">
+              <div class="depth-emoji">🔴</div>
+              <div class="depth-label-ko">허벅지</div>
+              <div class="depth-label-en">thigh</div>
+            </div>
+            <div class="depth-btn above">
+              <div class="depth-emoji">🔴⚠️</div>
+              <div class="depth-label-ko">그 이상</div>
+              <div class="depth-label-en">above</div>
+            </div>
+          </div>
+
+          <!-- Photo -->
+          <div class="fs13 fw700" style="color:var(--text);margin-bottom:8px;margin-top:4px;">📷 사진 (옵션, +5 GP)</div>
+          <div style="border:2px dashed var(--line);border-radius:14px;padding:20px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span class="fs13 text3">+ 사진 추가</span>
+          </div>
+
+          <div class="divider" style="margin-bottom:14px;"></div>
+
+          <!-- GP Reward -->
+          <div class="gp-box" style="margin-bottom:16px;">
+            <div class="fs13 fw700" style="color:#92400E;margin-bottom:8px;">💰 보상</div>
+            <div class="gp-row"><span>신고하기</span><span class="mono fw600" style="color:var(--warn);">+10 GP</span></div>
+            <div class="gp-row"><span>사진 추가</span><span class="mono fw600" style="color:var(--warn);">+5 GP</span></div>
+            <div class="gp-row"><span>다른 사용자 확인 시</span><span class="mono fw600" style="color:var(--warn);">+5 GP</span></div>
+            <div class="gp-total gp-row"><span>지금 신고하면</span><span class="mono">🪙 15 GP</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- CTA -->
+      <div style="padding:12px 16px 20px;background:var(--surface);border-top:1px solid var(--line);flex-shrink:0;">
+        <div style="background:var(--danger);border-radius:16px;padding:16px;text-align:center;color:white;font-size:17px;font-weight:700;letter-spacing:-.01em;">🌊 신고하기</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 6: INFO-GAS-LIST -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-GAS-LIST · 주유소 리스트</div>
+  <div class="screen-id">가격 + 대기 도트 + 거리 한눈에</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg></div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">주유소</span>
+      <div style="display:flex;gap:6px;">
+        <div class="navbar-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+      </div>
+    </div>
+    <!-- Official price bar -->
+    <div style="background:#EFF6FF;border-bottom:1px solid #BFDBFE;padding:8px 16px;display:flex;align-items:center;gap:8px;">
+      <span class="fs11 fw700" style="color:#1D4ED8;">📊 RON 95 공식가</span>
+      <span class="mono fs13 fw700" style="color:#1E40AF;">25,420 ₫/L</span>
+    </div>
+    <!-- Sort bar -->
+    <div style="background:var(--surface);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;align-items:center;gap:6px;">
+      <span class="fs12 text3">📍 District 1 기준 ·</span>
+      <div style="background:#EFF6FF;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--info);">가까운 순 ▾</div>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <div class="card" style="margin:12px 16px;border-radius:14px;">
+          <!-- Gas 1 -->
+          <div class="gas-card">
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:6px;">
+                <span class="gas-badge rank1">🥇 1위</span>
+                <span class="fs14 fw700" style="color:var(--text);">Petrolimex · Trần Hưng Đạo</span>
+              </div>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <span class="fs13 text2">💧 RON 95</span>
+              <span class="mono fs16 fw700" style="color:var(--text);">25,420 ₫/L</span>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:6px;">
+                <span class="fs12 text2">⏱ 대기 5분</span>
+                <div class="wait-dots"><div class="dot filled level3"></div><div class="dot filled level3"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+              </div>
+              <span class="fs11 text3">2건 · 10분 전</span>
+            </div>
+            <div class="row-between">
+              <span class="fs12 text3">🚶 <span class="mono">1.2km</span> · 06:00–22:00</span>
+              <div style="display:flex;gap:6px;">
+                <div style="background:#EFF6FF;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--info);">경로</div>
+                <div style="background:var(--bg);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--text2);">전화</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gas 2 cheap -->
+          <div class="gas-card" style="background:#F0FFF4;">
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:6px;">
+                <span style="background:#DCFCE7;border:1px solid #BBF7D0;color:#15803D;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;">💰 저렴</span>
+                <span class="fs14 fw700" style="color:var(--text);">PV Oil · Lê Lai</span>
+              </div>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <span class="fs13 text2">💧 RON 95</span>
+              <span class="mono fs16 fw700" style="color:var(--safe);">25,380 ₫/L</span>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:6px;">
+                <span class="fs12 text2">⏱ 대기 없음</span>
+                <div class="wait-dots"><div class="dot filled level1"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+              </div>
+              <span class="fs11 text3">5건 · 5분 전</span>
+            </div>
+            <div class="row-between">
+              <span class="fs12 text3">🚶 <span class="mono">1.8km</span> · 24/7</span>
+              <div style="display:flex;gap:6px;">
+                <div style="background:#16A34A;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:white;">경로</div>
+                <div style="background:var(--bg);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--text2);">전화</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gas 3 -->
+          <div class="gas-card">
+            <div style="margin-bottom:6px;"><span class="fs14 fw700" style="color:var(--text);">Petrolimex · Nguyễn Trãi</span></div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <span class="fs13 text2">💧 RON 95</span>
+              <span class="mono fs16 fw700" style="color:var(--text);">25,420 ₫/L</span>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <span class="fs12 text3">⏱ 대기 정보 없음</span>
+            </div>
+            <div class="fs12 text3">🚶 <span class="mono">2.3km</span></div>
+          </div>
+        </div>
+
+        <!-- Report CTA -->
+        <div style="margin:0 16px 20px;background:#FFFBEB;border:1.5px solid #FED7AA;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">⛽</span>
+          <span class="fs13 fw600" style="color:#92400E;">+ 내 주유 대기 신고하기 (+3 GP)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 7: INFO-REPAIR-LIST -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-REPAIR-LIST · 정비소 리스트</div>
+  <div class="screen-id">별점 + 평균 가격 + 키워드 칩</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg></div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">정비소</span>
+      <div class="navbar-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+    </div>
+    <!-- Filter bar -->
+    <div style="background:var(--surface);border-bottom:1px solid var(--line);padding:10px 16px;">
+      <div class="row" style="gap:8px;margin-bottom:8px;">
+        <span class="fs12 text3">내 차종:</span>
+        <div style="background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;color:#92400E;">Honda SH 350i ▾</div>
+      </div>
+      <div class="row" style="gap:8px;">
+        <span class="fs12 text3">작업:</span>
+        <div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;color:#1D4ED8;">엔진오일 교체 ▾</div>
+        <div style="border:1.5px dashed var(--line);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text3);">+ 다른 작업</div>
+      </div>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <div class="card" style="margin:12px 16px;border-radius:14px;">
+          <!-- Repair 1 -->
+          <div class="repair-card">
+            <div class="row" style="gap:6px;margin-bottom:6px;">
+              <span style="background:#FFFBEB;border:1px solid #FDE68A;color:#B45309;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;">🥇 1위</span>
+              <span class="fs14 fw700" style="color:var(--text);">Honda Head 2S · Phú Nhuận</span>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:4px;">
+                <span class="mono fs15 fw700" style="color:var(--text);">⭐ 4.7</span>
+                <span class="fs12 text3">(87 리뷰)</span>
+              </div>
+              <span class="mono fs16 fw700" style="color:var(--text);">250,000 ₫</span>
+            </div>
+            <div style="margin-bottom:6px;">
+              <span class="chip pos">정직</span>
+              <span class="chip pos">Honda 정품</span>
+              <span class="chip pos">빠름</span>
+            </div>
+            <div class="row-between">
+              <span class="fs12 text3">🚶 <span class="mono">2.1km</span></span>
+              <div style="background:var(--brand);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:white;">상세 →</div>
+            </div>
+          </div>
+
+          <!-- Repair 2 cheap -->
+          <div class="repair-card" style="background:#F0FFF4;">
+            <div class="row" style="gap:6px;margin-bottom:6px;">
+              <span style="background:#DCFCE7;border:1px solid #BBF7D0;color:#15803D;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;">💰 저렴</span>
+              <span class="fs14 fw700" style="color:var(--text);">Hùng Auto Shop</span>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:4px;">
+                <span class="mono fs15 fw700" style="color:var(--text);">⭐ 4.5</span>
+                <span class="fs12 text3">(43 리뷰)</span>
+              </div>
+              <span class="mono fs16 fw700" style="color:var(--safe);">180,000 ₫</span>
+            </div>
+            <div style="margin-bottom:6px;">
+              <span class="chip pos">가성비</span>
+              <span class="chip pos">친절</span>
+            </div>
+            <div class="fs12 text3">🚶 <span class="mono">1.4km</span></div>
+          </div>
+
+          <!-- Repair 3 warning -->
+          <div class="repair-card">
+            <div class="row" style="gap:6px;margin-bottom:6px;">
+              <span style="background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;">⚠️ 주의</span>
+              <span class="fs14 fw700" style="color:var(--text);">Tâm Motor</span>
+            </div>
+            <div class="row-between" style="margin-bottom:6px;">
+              <div class="row" style="gap:4px;">
+                <span class="mono fs15 fw700" style="color:var(--danger);">⭐ 3.2</span>
+                <span class="fs12 text3">(12 리뷰)</span>
+              </div>
+              <span class="mono fs16 fw700" style="color:var(--danger);">350,000 ₫</span>
+            </div>
+            <div style="margin-bottom:6px;">
+              <span class="chip neg">바가지</span>
+              <span class="chip neg">비싸요</span>
+            </div>
+            <div class="fs12 text3">🚶 <span class="mono">0.8km</span></div>
+          </div>
+        </div>
+
+        <div style="margin:0 16px 20px;background:#FFFBEB;border:1.5px solid #FED7AA;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">💡</span>
+          <span class="fs13 fw600" style="color:#92400E;">정비받고 리뷰 작성 시 +20 GP</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 8: INFO-REPAIR-DETAIL -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-REPAIR-DETAIL · 정비소 상세</div>
+  <div class="screen-id">사진 슬라이드 + 가격표 + 리뷰 카드</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg></div>
+    </div>
+    <div class="navbar" style="background:transparent;position:absolute;top:48px;left:0;right:0;z-index:5;border-bottom:none;">
+      <div class="navbar-back" style="background:rgba(0,0,0,.35);backdrop-filter:blur(4px);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span></span>
+      <div class="navbar-icon" style="background:rgba(0,0,0,.35);backdrop-filter:blur(4px);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <!-- Photo Slide -->
+        <div style="height:200px;background:linear-gradient(160deg,#1E293B,#334155,#1E293B);position:relative;overflow:hidden;flex-shrink:0;">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.4;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <div style="position:absolute;bottom:12px;left:0;right:0;display:flex;gap:5px;justify-content:center;">
+            <div style="width:20px;height:4px;border-radius:2px;background:white;"></div>
+            <div style="width:8px;height:4px;border-radius:2px;background:rgba(255,255,255,.4);"></div>
+            <div style="width:8px;height:4px;border-radius:2px;background:rgba(255,255,255,.4);"></div>
+          </div>
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,.5);border-radius:8px;padding:3px 8px;">
+            <span style="font-size:11px;color:white;font-weight:600;">1 / 3</span>
+          </div>
+        </div>
+
+        <!-- Info block -->
+        <div style="padding:14px 16px;">
+          <div class="fs18 fw700" style="color:var(--text);margin-bottom:2px;">Honda Head 2S</div>
+          <div class="fs13 text2" style="margin-bottom:8px;">Phú Nhuận, Hồ Chí Minh</div>
+          <div class="row" style="gap:8px;margin-bottom:12px;">
+            <span class="mono fs15 fw700">⭐ 4.7</span>
+            <span class="fs13 text2">(87 리뷰)</span>
+            <div class="badge badge-safe">평균 가격 합리적</div>
+          </div>
+          <div class="row" style="gap:8px;margin-bottom:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A4F62" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.71 12 19.79 19.79 0 0 1 1.65 3.38 2 2 0 0 1 3.64 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.1a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16z"/></svg>
+            <span class="fs13 text2 mono">028 1234 5678</span>
+          </div>
+          <div class="row" style="gap:8px;margin-bottom:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A4F62" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="fs13 text2">07:00–19:00 (월–토)</span>
+          </div>
+          <div class="row" style="gap:8px;margin-bottom:14px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A4F62" stroke-width="2" stroke-linecap="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="fs13 text2">123 Phan Đăng Lưu, P.7</span>
+          </div>
+          <!-- CTA 3 buttons -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+            <div style="background:var(--brand);border-radius:12px;padding:10px;text-align:center;"><span style="font-size:13px;font-weight:700;color:white;">☎ 전화</span></div>
+            <div style="background:var(--info);border-radius:12px;padding:10px;text-align:center;"><span style="font-size:13px;font-weight:700;color:white;">📍 경로</span></div>
+            <div style="background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:10px;text-align:center;"><span style="font-size:13px;font-weight:700;color:var(--text2);">📤 공유</span></div>
+          </div>
+        </div>
+
+        <div class="divider-thick"></div>
+
+        <!-- Price table -->
+        <div style="padding:14px 16px;">
+          <div class="fs13 fw700" style="color:var(--text);margin-bottom:4px;">💵 작업별 평균 가격</div>
+          <div class="price-row"><span class="fs13 text2">엔진오일 교체</span><span class="mono fs14 fw700" style="color:var(--text);">250,000 ₫</span></div>
+          <div class="price-row"><span class="fs13 text2">타이어 교체</span><span class="mono fs14 fw700" style="color:var(--text);">800,000 ₫</span></div>
+          <div class="price-row"><span class="fs13 text2">체인 교체</span><span class="mono fs14 fw700" style="color:var(--text);">600,000 ₫</span></div>
+          <div class="price-row"><span class="fs13 text2">브레이크 패드</span><span class="mono fs14 fw700" style="color:var(--text);">350,000 ₫</span></div>
+        </div>
+
+        <div class="divider-thick"></div>
+
+        <!-- Reviews -->
+        <div style="padding:14px 16px 8px;">
+          <div class="fs13 fw700" style="color:var(--text);margin-bottom:4px;">📝 최근 리뷰 (87)</div>
+        </div>
+        <div style="padding:0 16px;">
+          <div class="review-card">
+            <div class="row-between" style="margin-bottom:4px;">
+              <div class="row" style="gap:6px;"><span class="fs13 fw700" style="color:var(--text);">Anh Tuấn</span><span class="mono fs12" style="color:#F59E0B;">⭐ 5</span></div>
+              <span class="fs11 text3">어제</span>
+            </div>
+            <div class="row" style="gap:8px;margin-bottom:6px;">
+              <div class="badge badge-neutral fs11">Honda SH 350i</div>
+              <div class="badge badge-neutral fs11">엔진오일</div>
+              <span class="mono fs12 fw700" style="color:var(--safe);">250,000 ₫</span>
+            </div>
+            <div class="fs13 text2" style="line-height:1.5;margin-bottom:6px;">"정직한 정비소예요. Honda 정품을 쓰고 30분 만에 끝났어요."</div>
+            <div class="row" style="gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A8E9E" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg><span class="fs12 text3">12</span></div>
+          </div>
+          <div class="review-card">
+            <div class="row-between" style="margin-bottom:4px;">
+              <div class="row" style="gap:6px;"><span class="fs13 fw700" style="color:var(--text);">Chị Mai</span><span class="mono fs12" style="color:#F59E0B;">⭐ 4</span></div>
+              <span class="fs11 text3">3일 전</span>
+            </div>
+            <div class="row" style="gap:8px;margin-bottom:6px;">
+              <div class="badge badge-neutral fs11">Honda Wave</div>
+              <div class="badge badge-neutral fs11">타이어 교체</div>
+              <span class="mono fs12 fw700" style="color:var(--safe);">790,000 ₫</span>
+            </div>
+            <div class="fs13 text2" style="line-height:1.5;">"빠르고 친절해요. 다음에도 올게요!"</div>
+          </div>
+        </div>
+
+        <!-- Review CTA -->
+        <div style="margin:12px 16px 20px;background:linear-gradient(135deg,#FFFBEB,#FFF7ED);border:1.5px solid #FED7AA;border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div class="fs13 fw700" style="color:#92400E;">+ 리뷰 작성하기</div>
+            <div class="fs11 text3">최대 30 GP 적립 가능</div>
+          </div>
+          <div style="background:var(--brand);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;color:white;">+20 GP</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 9: INFO-REPAIR-WRITE -->
+<div class="screen-wrap">
+  <div class="screen-label">INFO-REPAIR-WRITE · 리뷰 작성</div>
+  <div class="screen-id">별점 5개 큰 별 + GP 실시간 계산</div>
+  <div class="phone">
+    <div class="status-bar light">
+      <span class="status-time">09:41</span>
+      <div class="status-icons"><svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="1" fill="#0B0D14"/><rect x="4.5" y="2" width="3" height="10" rx="1" fill="#0B0D14"/><rect x="9" y="0" width="3" height="12" rx="1" fill="#0B0D14"/></svg></div>
+    </div>
+    <div class="navbar">
+      <div class="navbar-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0D14" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+      <span class="navbar-title">Honda Head 2S 리뷰</span>
+      <span class="navbar-action">저장</span>
+    </div>
+    <div class="scroll-content">
+      <div class="scroll-inner">
+        <div style="padding:16px;">
+          <!-- Star rating -->
+          <div style="background:var(--surface);border-radius:14px;padding:20px;text-align:center;margin-bottom:14px;border:1.5px solid var(--line);">
+            <div class="fs13 fw700 text2" style="margin-bottom:12px;">⭐ 별점을 선택하세요</div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px;">
+              <span style="font-size:40px;cursor:pointer;">★</span>
+              <span style="font-size:40px;cursor:pointer;">★</span>
+              <span style="font-size:40px;cursor:pointer;">★</span>
+              <span style="font-size:40px;cursor:pointer;color:#F59E0B;">★</span>
+              <span style="font-size:40px;cursor:pointer;color:#F59E0B;">★</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:0 4px;">
+              <span class="fs11 text3">나쁨</span>
+              <span class="fs11 text3">보통</span>
+              <span class="fs11 text3">훌륭함</span>
+            </div>
+          </div>
+
+          <!-- Vehicle type -->
+          <div style="margin-bottom:12px;">
+            <div class="fs13 fw700" style="color:var(--text);margin-bottom:6px;">🛵 내 차종</div>
+            <div style="border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+              <span class="fs13 fw600" style="color:var(--text);">Honda SH 350i</span>
+              <span class="fs13 text3">▾</span>
+            </div>
+          </div>
+
+          <!-- Work type -->
+          <div style="margin-bottom:12px;">
+            <div class="fs13 fw700" style="color:var(--text);margin-bottom:6px;">🔧 작업 종류</div>
+            <div style="border:1.5px solid var(--info);background:#EFF6FF;border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+              <span class="fs13 fw600" style="color:var(--info);">엔진오일 교체</span>
+              <span class="fs13" style="color:var(--info);">▾</span>
+            </div>
+          </div>
+
+          <!-- Price -->
+          <div style="margin-bottom:12px;">
+            <div class="fs13 fw700" style="color:var(--text);margin-bottom:6px;">💵 받은 금액 (선택)</div>
+            <div style="border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+              <span class="mono fs15 fw700" style="color:var(--text);">250,000</span>
+              <span class="fs13 text3">₫</span>
+            </div>
+          </div>
+
+          <!-- Comment -->
+          <div style="margin-bottom:12px;">
+            <div class="fs13 fw700" style="color:var(--text);margin-bottom:6px;">💬 한 줄 평가 (선택)</div>
+            <div style="border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;min-height:72px;background:var(--surface);">
+              <span class="fs13 fw600" style="color:var(--text);">정직하고 빨라요 👍</span>
+            </div>
+          </div>
+
+          <!-- Photo -->
+          <div style="margin-bottom:12px;">
+            <div class="fs13 fw700" style="color:var(--text);margin-bottom:6px;">📷 사진 (선택, +5 GP)</div>
+            <div style="border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--text3);font-size:13px;">+ 사진 추가</div>
+          </div>
+
+          <!-- Anonymous -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;background:var(--surface);border-radius:12px;border:1.5px solid var(--line);">
+            <div style="width:20px;height:20px;border-radius:6px;border:2px solid var(--line);background:var(--bg);flex-shrink:0;"></div>
+            <div>
+              <div class="fs13 fw600" style="color:var(--text);">익명으로 작성</div>
+              <div class="fs11 text3">사장님이 내 닉네임을 볼 수 없어요</div>
+            </div>
+          </div>
+
+          <div class="divider" style="margin-bottom:14px;"></div>
+
+          <!-- GP Live Calc -->
+          <div class="gp-box" style="margin-bottom:4px;">
+            <div class="fs13 fw700" style="color:#92400E;margin-bottom:8px;">💰 보상 예상</div>
+            <div class="gp-row"><span>리뷰 작성</span><span class="mono fw600" style="color:var(--warn);">+20 GP</span></div>
+            <div class="gp-row"><span>사진 첨부</span><span class="mono fw600" style="color:var(--text3);">+5 GP (미완료)</span></div>
+            <div class="gp-row"><span>가격 정보</span><span class="mono fw600" style="color:var(--warn);">+5 GP</span></div>
+            <div class="gp-total gp-row">
+              <span>지금 작성하면</span>
+              <span class="mono">🪙 25 GP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- CTA -->
+      <div style="padding:12px 16px 20px;background:var(--surface);border-top:1px solid var(--line);flex-shrink:0;">
+        <div style="background:var(--brand);border-radius:16px;padding:16px;text-align:center;color:white;font-size:17px;font-weight:700;letter-spacing:-.01em;">📝 리뷰 작성 (+25 GP)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end screens-grid -->
+
+<!-- Checklist -->
+<div class="section-label">v6 검수 체크리스트</div>
+<div style="background:white;border-radius:16px;padding:24px 28px;max-width:900px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 24px;font-size:13px;color:#2A2010;line-height:1.6;">
+    <div>✅ <b>HOME</b>: INFO 카드 4개 가로 슬라이드<br>✅ INFO 허브 위험 배너 + 카드 4개<br>✅ 침수 active 시 빨강 강조</div>
+    <div>✅ 날씨 비 레이더 지도 + 타임슬라이더<br>✅ 24h 예보 막대 그래프<br>✅ AI 추천 메시지</div>
+    <div>✅ 침수 지도 full-bleed + 핀 4색<br>✅ FAB 신고 버튼 고정<br>✅ 다발 구역 통계</div>
+    <div>✅ 신고 폼 깊이 4버튼 (큰 사이즈)<br>✅ 사진 옵션 + GP 보상<br>✅ CTA 하단 고정</div>
+    <div>✅ 주유소 가격 mono + 공식가<br>✅ 대기 ●●○○○ 도트 5단계<br>✅ 💰 저렴 배지</div>
+    <div>✅ 정비소 별점 mono + 평균가격 큰 글씨<br>✅ 키워드 칩 (긍정/부정 색)<br>✅ 차종 필터 상단 고정</div>
+    <div>✅ 상세 사진 슬라이드 + 가격표<br>✅ 전화/경로/공유 CTA 3버튼<br>✅ 리뷰 카드 (닉+별점+차종+가격)</div>
+    <div>✅ 리뷰 폼 큰 별 5개 (40px)<br>✅ GP 실시간 계산 표시<br>✅ 익명 옵션 체크박스</div>
+    <div>✅ 모든 숫자 JetBrains Mono<br>✅ 상태색 일관 (위험/주의/안전/정보)<br>✅ 베트남어 + 영어 보조</div>
+  </div>
+</div>
+
+<footer style="margin-top:60px;text-align:center;font-size:12px;color:#8A8E9E;">
+  SAIGON RIDER · v6 Info Modules · 9 Screens · Bloomberg × Waze Design Language · © 2026 Skywork.ai
+</footer>
+
+<script>
+if (window.lucide) { lucide.createIcons(); }
+</script>
+</body>
+</html>

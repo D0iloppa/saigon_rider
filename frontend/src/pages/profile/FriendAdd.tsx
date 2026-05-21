@@ -94,7 +94,7 @@ export default function FriendAdd() {
   const handleFollow = async (targetId: string) => {
     try {
       await followUser(targetId);
-      toast.success(t('follow.followedSuccess', '팔로우했습니다!'));
+      toast.success(t('follow.followedSuccess'));
       // Mutual follow is check-as-friend, so just following is enough for now
     } catch (err: any) {
       toast.error(err.message || 'Error');
@@ -112,7 +112,7 @@ export default function FriendAdd() {
           className={`${styles.tab} ${activeTab === 'search' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('search')}
         >
-          {t('common.search', '검색')}
+          {t('common.search')}
         </button>
         <button 
           className={`${styles.tab} ${activeTab === 'qr' ? styles.tabActive : ''}`}

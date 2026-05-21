@@ -1,0 +1,375 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #F7F5F0;
+}
+
+/* ── Scroll ── */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── Transparent TopBar ── */
+.transparentBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 48px 16px 12px;
+}
+
+.transparentBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .35);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+
+/* ── Hero Area ── */
+.heroArea {
+  height: 200px;
+  background: linear-gradient(160deg, #1E293B, #334155, #1E293B);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.heroInner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slideIndicator {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.slideDotActive {
+  width: 20px;
+  height: 4px;
+  border-radius: 2px;
+  background: white;
+}
+
+.slideDot {
+  width: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.4);
+}
+
+.slideCount {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(0,0,0,.5);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+}
+
+/* ── Info Block ── */
+.infoBlock {
+  padding: 14px 16px;
+  background: #FFFFFF;
+}
+
+.shopName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0B0D14;
+  margin-bottom: 2px;
+}
+
+.shopAddr {
+  font-size: 13px;
+  color: #4A4F62;
+  margin-bottom: 8px;
+}
+
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ratingVal {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0B0D14;
+}
+
+.ratingCount {
+  font-size: 13px;
+  color: #4A4F62;
+}
+
+.badgeSafe {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #DCFCE7;
+  color: #16A34A;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.infoText {
+  font-size: 13px;
+  color: #4A4F62;
+}
+
+/* ── Action Grid ── */
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 2px;
+}
+
+.actionBtn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+
+.actionBtnBrand   { background: #FF5A1F; color: white; }
+.actionBtnInfo    { background: #3B82F6; color: white; }
+.actionBtnNeutral { background: #F7F5F0; border: 1.5px solid #E8E3DA; color: #4A4F62; }
+
+/* ── Dividers ── */
+.dividerThick {
+  height: 8px;
+  background: #F7F5F0;
+}
+
+/* ── Price Section ── */
+.priceSection {
+  padding: 14px 16px;
+  background: #FFFFFF;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0B0D14;
+  margin-bottom: 4px;
+}
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #E8E3DA;
+}
+.priceRow:last-child { border-bottom: none; }
+
+.priceLabel {
+  font-size: 13px;
+  color: #4A4F62;
+}
+
+.priceVal {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0B0D14;
+}
+
+/* ── Reviews ── */
+.reviewSection {
+  padding: 14px 16px 8px;
+  background: #FFFFFF;
+}
+
+.reviewCard {
+  padding: 14px 0;
+  border-bottom: 1px solid #E8E3DA;
+}
+.reviewCard:last-child { border-bottom: none; }
+
+.reviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.reviewLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reviewerName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0B0D14;
+}
+
+.reviewRating {
+  font-size: 12px;
+  color: #F59E0B;
+}
+
+.reviewDate {
+  font-size: 11px;
+  color: #8A8E9E;
+}
+
+.reviewBadges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.reviewBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #F7F5F0;
+  color: #8A8E9E;
+}
+
+.reviewPrice {
+  font-size: 12px;
+  font-weight: 700;
+  color: #16A34A;
+}
+
+.reviewComment {
+  font-size: 13px;
+  color: #4A4F62;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.reviewUpvote {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.upvoteCount {
+  font-size: 12px;
+  color: #8A8E9E;
+}
+
+/* ── Stars ── */
+.stars { display: inline-flex; gap: 2px; }
+.starFilled { color: #F59E0B; }
+.starEmpty  { color: #E2E8F0; }
+
+/* ── Review CTA ── */
+.reviewCta {
+  margin: 12px 16px 20px;
+  background: linear-gradient(135deg, #FFFBEB, #FFF7ED);
+  border: 1.5px solid #FED7AA;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.reviewCtaTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400E;
+}
+
+.reviewCtaSub {
+  font-size: 11px;
+  color: #8A8E9E;
+  margin-top: 2px;
+}
+
+.reviewCtaBtn {
+  background: #FF5A1F;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+}
+
+/* ── Loading ── */
+.skeletonHero {
+  height: 200px;
+  background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skeletonBody {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton {
+  height: 60px;
+  background: linear-gradient(90deg, #E8E3DA 25%, #FFFFFF 50%, #E8E3DA 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+}
+
+.errorMsg {
+  padding: 40px;
+  text-align: center;
+  font-size: 14px;
+  color: #8A8E9E;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }

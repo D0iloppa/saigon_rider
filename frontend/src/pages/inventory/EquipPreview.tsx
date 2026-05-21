@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { fetchInventory, equipItem, slotLabel } from '@/api/inventory';
 import type { InventoryItem } from '@/api/inventory';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
+import { ItemName } from '@/components/ui/items/ItemName';
 import { useUserStore } from '@/store/useUserStore';
 import { toast } from 'sonner';
 import s from './EquipPreview.module.css';
@@ -44,7 +45,7 @@ export default function EquipPreview() {
     setSaving(true);
     try {
       await equipItem(user.id, selectedCode);
-      toast.success(`${slotLabel(activeSlot)} 장착 완료`);
+      toast.success(t('equipPreview.equip_done', { slot: slotLabel(activeSlot) }));
       setItems((prev) =>
         prev.map((i) =>
           i.item_slot === activeSlot
@@ -67,7 +68,7 @@ export default function EquipPreview() {
       {/* Header */}
       <div className={s.header}>
         <button className={s.backBtn} onClick={() => navigate(-1)}>‹</button>
-        <span className={s.title}>장착 미리보기</span>
+        <span className={s.title}>{t('equipPreview.title')}</span>
       </div>
 
       {/* Slot tabs */}
@@ -91,13 +92,13 @@ export default function EquipPreview() {
             <ItemSvgRenderer itemCode={previewItem.item_code} size={120} rarity={previewItem.rarity} />
           </div>
         ) : (
-          <div className={s.previewEmpty}>슬롯 비어 있음</div>
+          <div className={s.previewEmpty}>{t('equipPreview.slot_empty')}</div>
         )}
       </div>
 
       {previewItem && (
         <div className={s.equippedLabel}>
-          {previewItem.item_name} · <span className="rarity-chip" data-r={previewItem.rarity} style={{ fontSize: 9 }}>{previewItem.rarity}</span>
+          <ItemName code={previewItem.item_code} fallback={previewItem.item_name} /> · <span className="rarity-chip" data-r={previewItem.rarity} style={{ fontSize: 9 }}>{previewItem.rarity}</span>
         </div>
       )}
 
@@ -105,7 +106,7 @@ export default function EquipPreview() {
       <div className={s.itemList}>
         {slotItems.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 24 }}>
-            {slotLabel(activeSlot)} 슬롯 아이템 없음
+            {t('equipPreview.no_items', { slot: slotLabel(activeSlot) })}
           </div>
         ) : (
           slotItems.map((item) => {
@@ -121,7 +122,7 @@ export default function EquipPreview() {
                   <ItemSvgRenderer itemCode={item.item_code} size={36} rarity={item.rarity} />
                 </div>
                 <div className={s.itemRowInfo}>
-                  <div className={s.itemRowName}>{item.item_name}</div>
+                  <div className={s.itemRowName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
                   <div className={s.itemRowMeta}>
                     <span className="rarity-chip" data-r={item.rarity} style={{ fontSize: 9 }}>{item.rarity}</span>
                     {isEquipped && <span className={s.equippedBadge}>EQUIPPED</span>}
@@ -140,7 +141,7 @@ export default function EquipPreview() {
           onClick={handleSave}
           disabled={!hasChange || saving}
         >
-          {saving ? '저장 중…' : hasChange ? '장착 저장' : '변경 없음'}
+          {saving ? t('equipPreview.saving') : hasChange ? t('equipPreview.save') : t('equipPreview.no_change')}
         </button>
       </div>
     </div>

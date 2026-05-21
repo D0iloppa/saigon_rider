@@ -5,6 +5,7 @@ import { fetchShopItems, purchaseShopItem, slotLabel } from '@/api/shop';
 import type { ShopItem } from '@/api/shop';
 import type { ItemRarity } from '@/api/gacha';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
+import { ItemName } from '@/components/ui/items/ItemName';
 import { MythicCardOverlay } from '@/components/ui/items/MythicCardOverlay';
 import { ItemSparkle } from '@/components/ui/items/ItemSparkle';
 import { toast } from 'sonner';
@@ -50,7 +51,7 @@ export default function ItemDetail() {
     try {
       const currency = item.price_xp ? 'XP' : 'GOLD';
       await purchaseShopItem(item.item_code, currency);
-      toast.success('구매 완료!');
+      toast.success(t('itemDetail.purchase_success'));
       setItem({ ...item, is_owned: true });
     } catch {
       toast.error(t('common.errorUnexpected'));
@@ -62,8 +63,8 @@ export default function ItemDetail() {
   if (notFound) {
     return (
       <div className={s.page} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 13 }}>아이템을 찾을 수 없습니다</span>
-        <button onClick={() => navigate(-1)} style={{ color: 'var(--brand-500)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>← 돌아가기</button>
+        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 13 }}>{t('itemDetail.not_found')}</span>
+        <button onClick={() => navigate(-1)} style={{ color: 'var(--brand-500)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>{t('itemDetail.go_back')}</button>
       </div>
     );
   }
@@ -79,7 +80,7 @@ export default function ItemDetail() {
   const r = item.rarity;
   const col = item.collection_code ? COLLECTION_MOCK[item.collection_code] : null;
   const colPct = col ? Math.round((col.owned / col.total) * 100) : 0;
-  const priceVal = item.price_xp ? `${item.price_xp} XP` : `${item.price_gold?.toLocaleString()} GOLD`;
+  const priceVal = item.price_xp ? `${item.price_xp} XP` : `${item.price_gold?.toLocaleString()} ${t('currency.gold')}`;
 
   return (
     <div className={s.page}>
@@ -114,8 +115,8 @@ export default function ItemDetail() {
           )}
         </div>
 
-        <div className={s.itemName}>{item.item_name}</div>
-        <div className={s.itemSlot}>{slotLabel(item.item_slot)} 슬롯</div>
+        <div className={s.itemName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
+        <div className={s.itemSlot}>{slotLabel(item.item_slot)} {t('itemDetail.slot_suffix')}</div>
 
         {col && (
           <div className={s.collectionRow}>
@@ -123,7 +124,7 @@ export default function ItemDetail() {
             <div className={s.collectionBar}>
               <div className={s.collectionFill} style={{ width: `${colPct}%` }} />
             </div>
-            <div className={s.collectionMeta}>{col.owned} / {col.total} 보유 · {colPct}%</div>
+            <div className={s.collectionMeta}>{col.owned} / {col.total} {t('itemDetail.owned')} · {colPct}%</div>
           </div>
         )}
 
@@ -131,7 +132,7 @@ export default function ItemDetail() {
           <div className={s.priceStack}>
             <div className={s.priceMain}>
               {item.is_owned ? (
-                <span style={{ fontSize: 14, color: 'rgba(255,255,255,.5)' }}>보유 중</span>
+                <span style={{ fontSize: 14, color: 'rgba(255,255,255,.5)' }}>{t('itemDetail.owned')}</span>
               ) : priceVal}
             </div>
           </div>
@@ -143,7 +144,7 @@ export default function ItemDetail() {
             onClick={handleBuy}
             disabled={item.is_owned || buying}
           >
-            {item.is_owned ? '보유 중' : buying ? '구매 중…' : t('shop.buy')}
+            {item.is_owned ? t('itemDetail.owned') : buying ? t('itemDetail.buying') : t('shop.buy')}
           </button>
           <button className={s.btnWishlist} aria-label="wishlist">♡</button>
         </div>

@@ -12,7 +12,8 @@ from app.enums import (
     AcquisitionSourceEnum, BoxStatusEnum, CollectionStatusEnum,
     EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
     IntegrationTypeEnum, ItemRarityEnum, ItemSlotEnum,
-    MissionStatusEnum, RedemptionStatusEnum, RewardActionTypeEnum,
+    MissionStatusEnum, QuestCardStatusEnum, QuestCardTypeEnum,
+    RedemptionStatusEnum, RewardActionTypeEnum,
     SeasonStatusEnum, TxTypeEnum, UserStatusEnum,
 )
 
@@ -841,4 +842,42 @@ class UserPolicyLog(Base):
 
     __table_args__ = (
         Index("idx_policy_log_user_policy", "user_id", "policy_id", rewarded_at.desc()),
+    )
+
+
+class SreSeedConfig(Base):
+    __tablename__ = "sre_seed_config"
+
+    seed_code = Column(String(60), primary_key=True)
+    value_text = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    updated_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+
+
+class SreQuestCard(Base):
+    __tablename__ = "sre_quest_card"
+
+    card_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
+    external_quest_id = Column(String(64), nullable=False)
+    user_quest_id = Column(String(64), nullable=False)
+    card_type = Column(
+        Enum(QuestCardTypeEnum, name="quest_card_type_enum", create_type=False),
+        nullable=False,
+    )
+    target_distance_m = Column(Integer, nullable=True)
+    current_distance_m = Column(Integer, nullable=False, default=0, server_default="0")
+    target_lat = Column(Numeric(9, 6), nullable=True)
+    target_lng = Column(Numeric(9, 6), nullable=True)
+    status = Column(
+        Enum(QuestCardStatusEnum, name="quest_card_status_enum", create_type=False),
+        nullable=False, default=QuestCardStatusEnum.ACTIVE, server_default="ACTIVE",
+    )
+    accepted_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+    completed_at = Column(_TS, nullable=True)
+    expires_at = Column(_TS, nullable=True)
+
+    __table_args__ = (
+        Index("idx_quest_card_user_active", "user_id", "status",
+              postgresql_where="status = 'ACTIVE'"),
     )

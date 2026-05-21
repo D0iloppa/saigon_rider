@@ -135,8 +135,8 @@ export default function RideResultSuccess() {
             </div>
           </div>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--gold)' }}>
-            <img className={styles.rewardIcon} src={emojiUrl('1fa99')} width={28} height={28} alt="GOLD" />
-            <div className={styles.rewardLabel}>GOLD</div>
+            <img className={styles.rewardIcon} src={emojiUrl('1fa99')} width={28} height={28} alt={t('currency.gold')} />
+            <div className={styles.rewardLabel}>{t('currency.gold')}</div>
             <div className={styles.rewardNum} style={{ color: 'var(--gold)' }}>
               +{data.rewards.goldEarned}
             </div>

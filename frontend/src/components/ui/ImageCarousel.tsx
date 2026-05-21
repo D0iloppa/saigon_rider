@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppImage } from './AppImage';
 import styles from './ImageCarousel.module.css';
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function ImageCarousel({ urls, onImageClick }: Props) {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
@@ -21,7 +23,7 @@ export function ImageCarousel({ urls, onImageClick }: Props) {
   if (count === 0) return null;
   if (count === 1) {
     return (
-      <button className={styles.single} onClick={() => onImageClick?.(0)} aria-label="사진 자세히 보기">
+      <button className={styles.single} onClick={() => onImageClick?.(0)} aria-label={t('common.viewPhoto')}>
         <AppImage src={urls[0]} alt="" className={styles.img} />
       </button>
     );
@@ -89,7 +91,7 @@ export function ImageCarousel({ urls, onImageClick }: Props) {
         onTouchEnd={handleTouchEnd}
       >
         {urls.map((url, i) => (
-          <button key={i} className={styles.slide} onClick={() => handleClick(i)} aria-label="사진 자세히 보기">
+          <button key={i} className={styles.slide} onClick={() => handleClick(i)} aria-label={t('common.viewPhoto')}>
             <AppImage src={url} alt="" className={styles.img} />
           </button>
         ))}

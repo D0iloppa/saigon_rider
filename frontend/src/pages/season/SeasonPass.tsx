@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { fetchSeasonPass } from '@/api/season';
 import type { SeasonPass as SeasonPassData, SeasonRewardNode } from '@/api/season';
 import { emojiUrl } from '@/lib/emoji';
@@ -9,7 +10,7 @@ const REWARD_ICON_CODES: Record<string, string> = {
   GOLD: '1fa99', XP: '1f48e', ITEM: '1f381', BOX: '1f4e6',
 };
 
-function useCountdown(targetIso: string | undefined) {
+function useCountdown(targetIso: string | undefined, t: (key: string, opts?: Record<string, unknown>) => string) {
   const [label, setLabel] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -17,16 +18,16 @@ function useCountdown(targetIso: string | undefined) {
     if (!targetIso) return;
     function tick() {
       const diff = new Date(targetIso!).getTime() - Date.now();
-      if (diff <= 0) { setLabel('종료'); return; }
+      if (diff <= 0) { setLabel(t('seasonPass.ended')); return; }
       const d = Math.floor(diff / 86400000);
       const h = Math.floor((diff % 86400000) / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
-      setLabel(d > 0 ? `${d}일 ${h}시간` : `${h}h ${m}m`);
+      setLabel(d > 0 ? t('seasonPass.days_hours', { days: d, hours: h }) : `${h}h ${m}m`);
     }
     tick();
     timerRef.current = setInterval(tick, 60000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [targetIso]);
+  }, [targetIso, t]);
 
   return label;
 }
@@ -78,16 +79,17 @@ function RewardNodeCard({ node, isCurrent }: { node: SeasonRewardNode; isCurrent
 
 export default function SeasonPass() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [data, setData] = useState<SeasonPassData | null>(null);
 
   useEffect(() => { fetchSeasonPass().then(setData); }, []);
 
-  const countdown = useCountdown(data?.season.ends_at);
+  const countdown = useCountdown(data?.season.ends_at, t);
 
   if (!data) {
     return (
       <div className={s.page} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 13 }}>로딩 중…</span>
+        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 13 }}>{t('common.loading')}</span>
       </div>
     );
   }
@@ -102,7 +104,7 @@ export default function SeasonPass() {
         <div className={s.headerTop}>
           <button className={s.backBtn} onClick={() => navigate(-1)}>‹</button>
           <span className={s.seasonName}>{season.name}</span>
-          {countdown && <span className={s.countdown}>{countdown} 남음</span>}
+          {countdown && <span className={s.countdown}>{countdown} {t('seasonPass.ends_in')}</span>}
         </div>
 
         {/* Level card */}
@@ -125,10 +127,10 @@ export default function SeasonPass() {
       {!is_premium && (
         <div className={s.upsell}>
           <div className={s.upsellText}>
-            <div className={s.upsellTitle}>프리미엄 패스 업그레이드</div>
-            <div className={s.upsellSub}>프리미엄 보상을 모두 잠금 해제하세요</div>
+            <div className={s.upsellTitle}>{t('seasonPass.upsell_title')}</div>
+            <div className={s.upsellSub}>{t('seasonPass.upsell_sub')}</div>
           </div>
-          <button className={s.upsellBtn}>업그레이드</button>
+          <button className={s.upsellBtn}>{t('seasonPass.upsell_btn')}</button>
         </div>
       )}
 

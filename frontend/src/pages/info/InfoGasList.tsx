@@ -1,0 +1,180 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { gasApi } from '@/api/info';
+import type { GasStation } from '@/api/info';
+import { TopBar } from '@/components/layout/TopBar';
+import styles from './InfoGasList.module.css';
+
+const DEFAULT_COORDS = { lat: 10.776, lng: 106.700 };
+const OFFICIAL_PRICE = 25420;
+
+function getWaitDotCount(waitMinutes: number | null): number {
+  if (waitMinutes === null) return 0;
+  return Math.min(5, Math.ceil(waitMinutes / 3));
+}
+
+function getDotLevel(filledCount: number): string {
+  if (filledCount <= 1) return styles.dotLevel1;
+  if (filledCount === 2) return styles.dotLevel2;
+  if (filledCount === 3) return styles.dotLevel3;
+  if (filledCount === 4) return styles.dotLevel4;
+  return styles.dotLevel5;
+}
+
+function WaitDots({ waitMinutes }: { waitMinutes: number | null }) {
+  const filled = getWaitDotCount(waitMinutes);
+  const levelCls = getDotLevel(filled);
+  return (
+    <div className={styles.waitDots}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className={`${styles.dot} ${i < filled ? `${styles.dotFilled} ${levelCls}` : ''}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function InfoGasList() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const [stations, setStations] = useState<GasStation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const { lat, lng } = DEFAULT_COORDS;
+    gasApi.getNearby(lat, lng, 5)
+      .then((r) => setStations(r.stations))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const minPrice = stations.reduce<number | null>((min, s) => {
+    if (s.price_vnd === null) return min;
+    if (min === null || s.price_vnd < min) return s.price_vnd;
+    return min;
+  }, null);
+
+  const filterBtn = (
+    <div className={styles.iconBtn}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M3 6h18M3 12h18M3 18h18"/>
+      </svg>
+    </div>
+  );
+
+  function handleWaitReport() {
+    alert(`+5 XP! ${t('info.gas.comingSoon')}`);
+  }
+
+  return (
+    <div className={styles.page}>
+      <TopBar
+        title={t('info.gas.title')}
+        onBack={() => navigate(-1)}
+        rightContent={filterBtn}
+      />
+
+      {/* Official price banner */}
+      <div className={styles.officialBar}>
+        <span className={styles.officialLabel}>📊 {t('info.gas.priceBar')}</span>
+        <span className={`${styles.mono} ${styles.officialPrice}`}>
+          {OFFICIAL_PRICE.toLocaleString()} ₫/L
+        </span>
+      </div>
+
+      {/* Sort bar */}
+      <div className={styles.sortBar}>
+        <span className={styles.sortText}>📍 {t('info.gas.sortDistrict')} ·</span>
+        <div className={styles.sortChip}>{t('info.gas.sortNearest')} ▾</div>
+      </div>
+
+      <div className={styles.scroll}>
+        {loading ? (
+          <div className={styles.skeletonWrap}>
+            {[0, 1, 2].map((i) => <div key={i} className={styles.skeleton} />)}
+          </div>
+        ) : (
+          <div className={styles.card}>
+            {stations.map((s, idx) => {
+              const isCheapest = s.price_vnd !== null && s.price_vnd === minPrice;
+              const isFirst = idx === 0;
+              return (
+                <div
+                  key={s.station_id}
+                  className={`${styles.gasCard} ${isCheapest ? styles.gasCardCheap : ''}`}
+                >
+                  {/* Name + badge */}
+                  <div className={styles.gasTopRow}>
+                    <div className={styles.gasBadgeRow}>
+                      {isFirst && !isCheapest && (
+                        <span className={`${styles.gasBadge} ${styles.gasBadgeRank1}`}>{t('info.gas.rank1')}</span>
+                      )}
+                      {isCheapest && (
+                        <span className={`${styles.gasBadge} ${styles.gasBadgeCheap}`}>{t('info.gas.cheapBadge')}</span>
+                      )}
+                      <span className={styles.gasName}>{s.name ?? `${s.brand} · ${s.street_name}`}</span>
+                    </div>
+                  </div>
+
+                  {/* Price */}
+                  <div className={styles.priceRow}>
+                    <span className={styles.fuelLabel}>💧 RON 95</span>
+                    <span className={`${styles.mono} ${styles.price} ${isCheapest ? styles.priceCheap : ''}`}>
+                      {s.price_vnd !== null ? `${s.price_vnd.toLocaleString()} ₫/L` : t('info.gas.noPriceInfo')}
+                    </span>
+                  </div>
+
+                  {/* Wait */}
+                  {s.wait_minutes !== null ? (
+                    <div className={styles.waitRow}>
+                      <div className={styles.waitLeft}>
+                        <span className={styles.waitLabel}>
+                          ⏱ {s.wait_minutes === 0
+                            ? t('info.gas.noWait')
+                            : t('info.gas.waitMin', { min: s.wait_minutes })}
+                        </span>
+                        <WaitDots waitMinutes={s.wait_minutes} />
+                      </div>
+                      {s.wait_confidence !== null && (
+                        <span className={styles.waitMeta}>
+                          {t('info.gas.waitConfidence', { count: s.wait_confidence })}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={styles.waitRow}>
+                      <span className={styles.waitLabelDim}>⏱ {t('info.gas.noWaitInfo')}</span>
+                    </div>
+                  )}
+
+                  {/* Distance + actions */}
+                  <div className={styles.distanceRow}>
+                    <span className={styles.distanceText}>
+                      🚶 <span className={styles.mono}>{s.distance_km.toFixed(1)}km</span>
+                      {s.opening_hours ? ` · ${s.opening_hours}` : ''}
+                    </span>
+                    <div className={styles.actionBtns}>
+                      <button className={`${styles.actionBtn} ${isCheapest ? styles.actionBtnCheap : styles.actionBtnInfo}`}>
+                        {t('info.gas.routeBtn')}
+                      </button>
+                      <button className={styles.actionBtnNeutral}>{t('info.gas.callBtn')}</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Wait report CTA */}
+        <button className={styles.reportCta} onClick={handleWaitReport}>
+          <span>⛽</span>
+          <span>{t('info.gas.reportWait')}</span>
+        </button>
+      </div>
+    </div>
+  );
+}

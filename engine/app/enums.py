@@ -80,25 +80,29 @@ class CollectionStatusEnum(str, enum.Enum):
 
 
 class ItemSlotEnum(str, enum.Enum):
-    HELMET = "HELMET"
-    JACKET = "JACKET"
+    MOTORCYCLE_BODY = "MOTORCYCLE_BODY"
+    SEAT = "SEAT"
+    STICKER = "STICKER"
+    RANK_CARD = "RANK_CARD"
+    HANDLEBAR = "HANDLEBAR"
+    TAIL_LIGHT = "TAIL_LIGHT"
+    ENGINE_COVER = "ENGINE_COVER"
+    HEADLIGHT = "HEADLIGHT"
+    MIRROR = "MIRROR"
+    NUMBER = "NUMBER"
     GLOVES = "GLOVES"
     BOOTS = "BOOTS"
     EYEWEAR = "EYEWEAR"
     NAMEPLATE = "NAMEPLATE"
-    BODY_PAINT = "BODY_PAINT"
-    WHEEL = "WHEEL"
-    EXHAUST = "EXHAUST"
-    HEADLIGHT = "HEADLIGHT"
-    MIRROR = "MIRROR"
-    DECAL = "DECAL"
-    NUMBER = "NUMBER"
     FRAME = "FRAME"
     BACKDROP = "BACKDROP"
     TITLE = "TITLE"
     TRAIL = "TRAIL"
     HORN = "HORN"
     START_ANIM = "START_ANIM"
+    EMOTE = "EMOTE"
+    BANNER = "BANNER"
+    PET = "PET"
 
 
 class ItemRarityEnum(str, enum.Enum):
@@ -143,3 +147,15 @@ class RewardActionTypeEnum(str, enum.Enum):
     GRANT_BADGE = "GRANT_BADGE"
     GRANT_XP = "GRANT_XP"
     GRANT_GOLD = "GRANT_GOLD"
+
+
+class QuestCardTypeEnum(str, enum.Enum):
+    DISTANCE = "DISTANCE"
+    CHECKPOINT = "CHECKPOINT"
+
+
+class QuestCardStatusEnum(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"

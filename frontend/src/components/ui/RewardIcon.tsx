@@ -16,10 +16,10 @@ export const REWARD_COLOR: Record<RewardType, string> = {
   ITEM: '#F59E0B',
 };
 
-export const REWARD_LABEL: Record<RewardType, string> = {
-  EXP:  'EXP',
-  XP:   'XP',
-  GOLD: 'GOLD',
+export const REWARD_LABEL_KEY: Record<RewardType, string> = {
+  EXP:  'currency.xp',
+  XP:   'currency.xp',
+  GOLD: 'currency.gold',
   ITEM: 'Item',
 };
 
@@ -37,7 +37,7 @@ export function RewardIcon({ type, size = 20, className, style }: RewardIconProp
       src={emojiUrl(REWARD_EMOJI_CODE[type])}
       width={size}
       height={size}
-      alt={REWARD_LABEL[type]}
+      alt={type}
       style={{ display: 'inline-block', ...style }}
     />
   );

@@ -1984,25 +1984,29 @@ async def admin_settings_service_config(
 # ── SRE: 아이템 정의 관리 ────────────────────────────────────────────
 
 _ITEM_SLOTS = [
-    "HELMET",
-    "JACKET",
+    "MOTORCYCLE_BODY",
+    "SEAT",
+    "STICKER",
+    "RANK_CARD",
+    "HANDLEBAR",
+    "TAIL_LIGHT",
+    "ENGINE_COVER",
+    "HEADLIGHT",
+    "MIRROR",
+    "NUMBER",
     "GLOVES",
     "BOOTS",
     "EYEWEAR",
     "NAMEPLATE",
-    "BODY_PAINT",
-    "WHEEL",
-    "EXHAUST",
-    "HEADLIGHT",
-    "MIRROR",
-    "DECAL",
-    "NUMBER",
     "FRAME",
     "BACKDROP",
     "TITLE",
     "TRAIL",
     "HORN",
     "START_ANIM",
+    "EMOTE",
+    "BANNER",
+    "PET",
 ]
 _ITEM_RARITIES = ["C", "R", "E", "L", "M"]
 _RARITY_LABEL = {"C": "Common", "R": "Rare", "E": "Epic", "L": "Legendary", "M": "Mythic"}
@@ -2118,7 +2122,7 @@ def _item_form_html(*, item: dict | None = None, error: str = "") -> str:
         f'<input type="hidden" name="item_code" value="{code}" /></div>'
         if is_edit
         else f'<div class="field"><label class="field-label">아이템 코드 <span style="color:#f87171;">*</span></label>'
-        f'<input type="text" name="item_code" value="{code}" placeholder="HELMET_STREET_CLASSIC_C_01" required style="width:100%;font-family:monospace;" /></div>'
+        f'<input type="text" name="item_code" value="{code}" placeholder="MOTORCYCLE_BODY_STREET_CLASSIC_C_01" required style="width:100%;font-family:monospace;" /></div>'
     )
     action = f"/admin/sre/items/{code}/edit" if is_edit else "/admin/sre/items/new"
     submit_label = "저장" if is_edit else "아이템 등록"

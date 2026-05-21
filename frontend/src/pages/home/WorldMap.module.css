@@ -39,8 +39,9 @@
   gap: 8px;
 }
 
-.goldBadge {
-  background: #FFF7ED;
+.walletBadge {
+  background: var(--surface);
+  border: 1.5px solid var(--line);
   border-radius: 20px;
   padding: 5px 10px;
   display: flex;
@@ -48,14 +49,23 @@
   gap: 5px;
 }
 
-.goldEmoji {
-  font-size: 13px;
+.walletDivider {
+  width: 1px;
+  height: 12px;
+  background: var(--line);
+  flex-shrink: 0;
 }
 
 .goldValue {
   font-size: 13px;
   font-weight: 600;
   color: #B45309;
+}
+
+.xpValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0369A1;
 }
 
 .avatarCircle {

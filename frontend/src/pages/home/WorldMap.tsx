@@ -21,6 +21,7 @@ export default function WorldMap() {
   const [recommendedList, setRecommendedList] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
   const [gold, setGold] = useState(0);
+  const [xp, setXp] = useState(0);
   const [totalRides, setTotalRides] = useState(0);
   const didInit = useRef(false);
 
@@ -44,6 +45,7 @@ export default function WorldMap() {
     }
     fetchWallet().then((w) => {
       setGold(w.gold_balance);
+      setXp(w.xp_balance);
     }).catch(() => {});
     if (uid) {
       fetchUserStats(uid).then((s) => setTotalRides(s.quest_count)).catch(() => {});
@@ -89,9 +91,12 @@ export default function WorldMap() {
           <div className={styles.userName}>{user.nickname}</div>
         </div>
         <div className={styles.headerRight}>
-          <div className={styles.goldBadge}>
-            <img src={emojiUrl('1fa99')} width={18} height={18} alt="" style={{ display: 'block' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <div className={styles.walletBadge}>
+            <img src={emojiUrl('1fa99')} width={16} height={16} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <span className={`mono ${styles.goldValue}`}>{formatNumber(gold)}</span>
+            <span className={styles.walletDivider} />
+            <img src={emojiUrl('1f48e')} width={16} height={16} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            <span className={`mono ${styles.xpValue}`}>{formatNumber(xp)}</span>
           </div>
           <div className={styles.avatarCircle}>
             {user.avatarUrl ? (

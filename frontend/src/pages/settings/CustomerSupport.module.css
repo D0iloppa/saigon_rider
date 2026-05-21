@@ -1,0 +1,117 @@
+.body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.newBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--color-primary, #ff8055);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card {
+  background: var(--color-surface, rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  position: relative;
+}
+
+.cardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--color-text-primary, #fff);
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary, rgba(255,255,255,.5));
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badgeOpen { background: rgba(255,165,0,.2); color: #ffa500; }
+.badgeInProgress { background: rgba(100,180,255,.2); color: #64b4ff; }
+.badgeResolved { background: rgba(80,220,120,.2); color: #50dc78; }
+
+.unreadDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5555;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-secondary, rgba(255,255,255,.4));
+  font-size: 14px;
+  padding: 48px 0;
+}
+
+/* 문의 등록 폼 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--color-text-secondary, rgba(255,255,255,.6));
+  margin-bottom: 4px;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--color-surface, rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  color: var(--color-text-primary, #fff);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.textarea {
+  composes: input;
+  height: 120px;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.input:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #ff8055);
+}
+
+.submitBtn {
+  composes: newBtn;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

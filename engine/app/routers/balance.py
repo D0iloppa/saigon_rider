@@ -7,9 +7,9 @@ from sqlalchemy import select
 from app.database import AsyncSession
 from app.deps import get_session, verify_service_key
 from app.enums import TxTypeEnum
-from app.models import RpBalance, RpExpirationSchedule, RpTransaction, SreUser
+from app.models import XpBalance, XpExpirationSchedule, XpTransaction, SreUser
 from app.schemas import BalanceRead, ExpirationItemRead, TransactionRead, WalletRead
-from app.services.point_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_user
 
 router = APIRouter(prefix="/v1/users", tags=["balance"])
 
@@ -21,7 +21,7 @@ async def get_wallet(
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     user = await get_or_create_user(db, user_uuid)
-    balance = await db.get(RpBalance, user.user_id)
+    balance = await db.get(XpBalance, user.user_id)
     gp = int(balance.current_balance) if balance else 0
     gc = int(balance.gc_balance) if balance else 0
     return {"user_uuid": user_uuid, "gp_balance": gp, "gc_balance": gc}
@@ -37,7 +37,7 @@ async def get_balance(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    balance = await db.get(RpBalance, user_id)
+    balance = await db.get(XpBalance, user_id)
     if balance is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Balance not found")
 
@@ -46,11 +46,11 @@ async def get_balance(
     from sqlalchemy import func
     from app.enums import ExpireStatusEnum
     expiring_result = await db.execute(
-        select(func.coalesce(func.sum(RpExpirationSchedule.remaining_amount), 0)).where(
-            RpExpirationSchedule.user_id == user_id,
-            RpExpirationSchedule.expires_at <= threshold,
-            RpExpirationSchedule.expires_at > datetime.now(timezone.utc),
-            RpExpirationSchedule.status.in_([ExpireStatusEnum.PENDING, ExpireStatusEnum.PARTIALLY_USED]),
+        select(func.coalesce(func.sum(XpExpirationSchedule.remaining_amount), 0)).where(
+            XpExpirationSchedule.user_id == user_id,
+            XpExpirationSchedule.expires_at <= threshold,
+            XpExpirationSchedule.expires_at > datetime.now(timezone.utc),
+            XpExpirationSchedule.status.in_([ExpireStatusEnum.PENDING, ExpireStatusEnum.PARTIALLY_USED]),
         )
     )
     expiring_in_30d = expiring_result.scalar_one() or 0
@@ -78,15 +78,15 @@ async def list_transactions(
     to_dt: Optional[datetime] = Query(None, alias="to"),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_session),
-) -> list[RpTransaction]:
-    query = select(RpTransaction).where(RpTransaction.user_id == user_id)
+) -> list[XpTransaction]:
+    query = select(XpTransaction).where(XpTransaction.user_id == user_id)
     if tx_type:
-        query = query.where(RpTransaction.tx_type == tx_type)
+        query = query.where(XpTransaction.tx_type == tx_type)
     if from_dt:
-        query = query.where(RpTransaction.occurred_at >= from_dt)
+        query = query.where(XpTransaction.occurred_at >= from_dt)
     if to_dt:
-        query = query.where(RpTransaction.occurred_at <= to_dt)
-    query = query.order_by(RpTransaction.occurred_at.desc()).limit(limit)
+        query = query.where(XpTransaction.occurred_at <= to_dt)
+    query = query.order_by(XpTransaction.occurred_at.desc()).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -97,15 +97,15 @@ async def list_expirations(
     user_id: int,
     within_days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_session),
-) -> list[RpExpirationSchedule]:
+) -> list[XpExpirationSchedule]:
     from app.enums import ExpireStatusEnum
     threshold = datetime.now(timezone.utc) + timedelta(days=within_days)
     result = await db.execute(
-        select(RpExpirationSchedule).where(
-            RpExpirationSchedule.user_id == user_id,
-            RpExpirationSchedule.expires_at <= threshold,
-            RpExpirationSchedule.expires_at > datetime.now(timezone.utc),
-            RpExpirationSchedule.status.in_([ExpireStatusEnum.PENDING, ExpireStatusEnum.PARTIALLY_USED]),
-        ).order_by(RpExpirationSchedule.expires_at.asc())
+        select(XpExpirationSchedule).where(
+            XpExpirationSchedule.user_id == user_id,
+            XpExpirationSchedule.expires_at <= threshold,
+            XpExpirationSchedule.expires_at > datetime.now(timezone.utc),
+            XpExpirationSchedule.status.in_([ExpireStatusEnum.PENDING, ExpireStatusEnum.PARTIALLY_USED]),
+        ).order_by(XpExpirationSchedule.expires_at.asc())
     )
     return result.scalars().all()

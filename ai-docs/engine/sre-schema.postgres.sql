@@ -51,7 +51,7 @@ CREATE TABLE action_definition (
   action_code          VARCHAR(40)  NOT NULL,
   category_code        VARCHAR(20)  NOT NULL,  -- RIDING / MAINT / MARKET / COMMUNITY / DELIVERY ...
   display_name         VARCHAR(80)  NOT NULL,
-  base_rp              INT          NOT NULL DEFAULT 0,
+  base_xp              INT          NOT NULL DEFAULT 0,
   daily_count_limit    INT          NULL,
   is_active            BOOLEAN      NOT NULL DEFAULT TRUE,
   metadata_schema      JSONB        NULL,
@@ -71,7 +71,7 @@ CREATE TABLE action_event (
   occurred_at          TIMESTAMPTZ(3) NOT NULL,
   payload              JSONB        NULL,
   idempotency_key      VARCHAR(80)  NOT NULL,
-  calculated_rp        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  calculated_xp        NUMERIC(12,2) NOT NULL DEFAULT 0,
   applied_multiplier   NUMERIC(4,2) NOT NULL DEFAULT 1.00,
   process_status       event_status_enum NOT NULL DEFAULT 'PENDING',
   reject_reason_code   VARCHAR(40)  NULL,
@@ -94,7 +94,7 @@ CREATE TABLE mission_definition (
   description          VARCHAR(500) NULL,
   category_code        VARCHAR(20)  NOT NULL,
   target_rule          JSONB        NOT NULL,    -- e.g. { "action_code":"RIDE_KM", "agg":"sum_field", "field":"distance_km", "target":5 }
-  reward_rp            INT          NOT NULL,
+  reward_xp            INT          NOT NULL,
   duration_hours       INT          NULL,         -- null = 만료 없음
   is_repeatable        BOOLEAN      NOT NULL DEFAULT FALSE,
   starts_at            TIMESTAMPTZ(3) NULL,
@@ -139,7 +139,7 @@ CREATE INDEX idx_rec_user_recommended ON mission_recommendation (user_id, recomm
 -- ----------------------------------------------------------
 -- 4. 포인트 원장 (Ledger)
 -- ----------------------------------------------------------
-CREATE TABLE rp_balance (
+CREATE TABLE xp_balance (
   user_id              BIGINT       NOT NULL,
   current_balance      BIGINT       NOT NULL DEFAULT 0,
   lifetime_earned      BIGINT       NOT NULL DEFAULT 0,
@@ -150,7 +150,7 @@ CREATE TABLE rp_balance (
   CONSTRAINT fk_balance_user FOREIGN KEY (user_id) REFERENCES sre_user(user_id)
 );
 
-CREATE TABLE rp_transaction (
+CREATE TABLE xp_transaction (
   transaction_id       BIGINT       GENERATED ALWAYS AS IDENTITY,
   user_id              BIGINT       NOT NULL,
   tx_type              tx_type_enum NOT NULL,
@@ -166,11 +166,11 @@ CREATE TABLE rp_transaction (
   CONSTRAINT fk_tx_user  FOREIGN KEY (user_id)          REFERENCES sre_user(user_id),
   CONSTRAINT fk_tx_event FOREIGN KEY (related_event_id) REFERENCES action_event(event_id)
 );
-CREATE INDEX idx_tx_user_occurred ON rp_transaction (user_id, occurred_at);
-CREATE INDEX idx_tx_user_type     ON rp_transaction (user_id, tx_type);
-CREATE INDEX idx_tx_expires       ON rp_transaction (expires_at);
+CREATE INDEX idx_tx_user_occurred ON xp_transaction (user_id, occurred_at);
+CREATE INDEX idx_tx_user_type     ON xp_transaction (user_id, tx_type);
+CREATE INDEX idx_tx_expires       ON xp_transaction (expires_at);
 
-CREATE TABLE rp_expiration_schedule (
+CREATE TABLE xp_expiration_schedule (
   expire_id            BIGINT       GENERATED ALWAYS AS IDENTITY,
   user_id              BIGINT       NOT NULL,
   source_transaction_id BIGINT      NOT NULL,
@@ -179,10 +179,10 @@ CREATE TABLE rp_expiration_schedule (
   status               expire_status_enum NOT NULL DEFAULT 'PENDING',
   PRIMARY KEY (expire_id),
   CONSTRAINT fk_exp_user FOREIGN KEY (user_id)               REFERENCES sre_user(user_id),
-  CONSTRAINT fk_exp_tx   FOREIGN KEY (source_transaction_id) REFERENCES rp_transaction(transaction_id)
+  CONSTRAINT fk_exp_tx   FOREIGN KEY (source_transaction_id) REFERENCES xp_transaction(transaction_id)
 );
-CREATE INDEX idx_exp_user_expires   ON rp_expiration_schedule (user_id, expires_at);
-CREATE INDEX idx_exp_status_expires ON rp_expiration_schedule (status, expires_at);
+CREATE INDEX idx_exp_user_expires   ON xp_expiration_schedule (user_id, expires_at);
+CREATE INDEX idx_exp_status_expires ON xp_expiration_schedule (status, expires_at);
 
 -- ----------------------------------------------------------
 -- 5. 다양성 / 등급
@@ -250,7 +250,7 @@ CREATE TABLE reward_catalog (
   item_code            VARCHAR(60)  NOT NULL,
   item_name            VARCHAR(120) NOT NULL,
   category_code        VARCHAR(20)  NOT NULL,
-  required_rp          INT          NOT NULL,
+  required_xp          INT          NOT NULL,
   face_value_vnd       INT          NULL,
   monthly_quota        INT          NULL,
   monthly_issued       INT          NOT NULL DEFAULT 0,
@@ -267,7 +267,7 @@ CREATE TABLE reward_redemption (
   redemption_id        BIGINT       GENERATED ALWAYS AS IDENTITY,
   user_id              BIGINT       NOT NULL,
   catalog_id           BIGINT       NOT NULL,
-  rp_transaction_id    BIGINT       NULL,
+  xp_transaction_id    BIGINT       NULL,
   status               redemption_status_enum NOT NULL DEFAULT 'REQUESTED',
   voucher_code         VARCHAR(120) NULL,
   external_response    JSONB        NULL,
@@ -279,7 +279,7 @@ CREATE TABLE reward_redemption (
   CONSTRAINT uq_redeem_idem UNIQUE (idempotency_key),
   CONSTRAINT fk_red_user    FOREIGN KEY (user_id)           REFERENCES sre_user(user_id),
   CONSTRAINT fk_red_catalog FOREIGN KEY (catalog_id)        REFERENCES reward_catalog(catalog_id),
-  CONSTRAINT fk_red_tx      FOREIGN KEY (rp_transaction_id) REFERENCES rp_transaction(transaction_id)
+  CONSTRAINT fk_red_tx      FOREIGN KEY (xp_transaction_id) REFERENCES xp_transaction(transaction_id)
 );
 CREATE INDEX idx_red_user_status ON reward_redemption (user_id, status);
 
@@ -348,7 +348,7 @@ INSERT INTO tier_definition (tier_code, tier_name, min_lifetime_rp, min_diversit
   ('PRO',     'Pro',     100000,   4, 4),
   ('LEGEND',  'Legend',  500000,   5, 5);
 
-INSERT INTO action_definition (action_code, category_code, display_name, base_rp, daily_count_limit) VALUES
+INSERT INTO action_definition (action_code, category_code, display_name, base_xp, daily_count_limit) VALUES
   ('RIDE_KM',             'RIDING',    '주행 거리 1km',        1,    NULL),
   ('QUEST_COMPLETE',      'RIDING',    '퀘스트 완료',         50,   NULL),
   ('STREAK_7',            'RIDING',    '7일 연속 라이딩',    500,    1),
@@ -373,7 +373,7 @@ INSERT INTO reward_partner (partner_code, partner_name, integration_type, is_act
   ('VIETTEL',  'Viettel 데이터 충전',  'TELCO',    TRUE),
   ('GOTIT',    'Got It 베트남',        'GOTIT',    TRUE);
 
-INSERT INTO reward_catalog (partner_id, item_code, item_name, category_code, required_rp, face_value_vnd, is_active) VALUES
+INSERT INTO reward_catalog (partner_id, item_code, item_name, category_code, required_xp, face_value_vnd, is_active) VALUES
   ((SELECT partner_id FROM reward_partner WHERE partner_code='INTERNAL'),
    'BADGE_FOUNDER', '창립 멤버 한정 뱃지', 'BADGE',  200,    NULL, TRUE),
   ((SELECT partner_id FROM reward_partner WHERE partner_code='VIETTEL'),
@@ -386,6 +386,77 @@ INSERT INTO reward_catalog (partner_id, item_code, item_name, category_code, req
    'GOTIT_100K',    'Got It 100K VND',      'GIFTCARD', 3000, 100000, TRUE),
   ((SELECT partner_id FROM reward_partner WHERE partner_code='INTERNAL'),
    'BADGE_LEGEND_FIRST100', 'Legend 1호~100호 한정 뱃지', 'BADGE', 7000, NULL, TRUE);
+
+-- ===========================================================
+-- 마일리지 & 보상 정책 엔진 (019_mileage_policy_tables)
+-- ===========================================================
+
+CREATE TYPE reward_action_type_enum AS ENUM (
+  'GRANT_EXP','GRANT_BADGE','GRANT_XP','GRANT_GOLD'
+);
+
+ALTER TABLE sre_user
+  ADD COLUMN total_distance_m BIGINT NOT NULL DEFAULT 0;
+
+CREATE TABLE device_user_map (
+  device_uuid  VARCHAR(128) PRIMARY KEY,
+  user_id      BIGINT       NOT NULL REFERENCES sre_user(user_id),
+  logged_in_at TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_device_user_map_user ON device_user_map (user_id);
+
+CREATE TABLE user_mileage_log (
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id     BIGINT        NOT NULL REFERENCES sre_user(user_id),
+  distance_m  NUMERIC(12,2) NOT NULL,
+  device_uuid TEXT,
+  recorded_at TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_mileage_log_user_ts
+  ON user_mileage_log (user_id, recorded_at DESC);
+
+CREATE TABLE reward_policy (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  policy_code     VARCHAR(60)  NOT NULL UNIQUE,
+  name            VARCHAR(120) NOT NULL,
+  description     TEXT,
+  conditions      JSONB        NOT NULL DEFAULT '[]',
+  is_repeatable   BOOLEAN      NOT NULL DEFAULT FALSE,
+  repeat_interval BIGINT,
+  is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
+  priority        SMALLINT     NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- conditions: [{"metric":"total_distance_m","op":">=","value":100000}] — AND 평가
+-- repeat_interval: is_repeatable=true일 때 반복 주기 (metric 단위)
+CREATE INDEX idx_reward_policy_active
+  ON reward_policy (is_active, priority) WHERE is_active = TRUE;
+
+CREATE TABLE reward_policy_action (
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  policy_id   BIGINT NOT NULL REFERENCES reward_policy(id) ON DELETE CASCADE,
+  action_type reward_action_type_enum NOT NULL,
+  value       INTEGER NOT NULL DEFAULT 0,
+  ref_id      VARCHAR(64),
+  sort_order  SMALLINT NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_policy_action_policy
+  ON reward_policy_action (policy_id, sort_order);
+
+CREATE TABLE user_policy_log (
+  id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id           BIGINT NOT NULL REFERENCES sre_user(user_id),
+  policy_id         BIGINT NOT NULL REFERENCES reward_policy(id),
+  trigger_snapshot  JSONB,
+  rewarded_at       TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_policy_log_user_policy
+  ON user_policy_log (user_id, policy_id, rewarded_at DESC);
+
+CREATE TRIGGER trg_reward_policy_updated_at
+  BEFORE UPDATE ON reward_policy
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ===========================================================
 -- 끝

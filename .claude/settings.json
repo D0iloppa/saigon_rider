@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "saigon-dev": {
+      "type": "http",
+      "url": "http://localhost:18090/mcp-dev/mcp/"
+    }
+  }
+}

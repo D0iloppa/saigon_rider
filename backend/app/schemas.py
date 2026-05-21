@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Generic, TypeVar
@@ -158,7 +159,7 @@ class RandomNicknameResponse(BaseModel):
     nickname: str
 
 
-class RpBalanceResponse(BaseModel):
+class XpBalanceResponse(BaseModel):
     user_id: str
     current_balance: int
     total_earned: int | None = None
@@ -793,3 +794,39 @@ class AppVersionUpdateRequest(BaseModel):
     release_note: str | None = None
     is_force_update: bool | None = None
     is_active: bool | None = None
+
+
+# ── 고객센터 ──────────────────────────────────────────────────────
+
+
+class SupportTicketCreate(BaseModel):
+    title: str
+    body: str
+
+
+class SupportReplyOut(BaseModel):
+    id: int
+    author_type: str
+    body: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SupportTicketOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    body: str
+    status: str
+    has_unread_reply: bool
+    reply_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SupportTicketDetail(SupportTicketOut):
+    replies: list[SupportReplyOut] = []

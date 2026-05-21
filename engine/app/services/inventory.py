@@ -8,7 +8,7 @@ from app.enums import ItemSlotEnum
 from app.exceptions import raise_not_found
 from app.models import ItemCollection, ItemDefinition, UserEquipment, UserItem
 from app.schemas import CollectionProgressRead
-from app.services.point_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_user
 
 
 async def get_items(db: AsyncSession, user_uuid: str) -> list[UserItem]:

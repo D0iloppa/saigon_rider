@@ -354,5 +354,40 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    # ── 보상 정책 관리 ────────────────────────────────────────────
+
+    async def admin_get_policies(self) -> list[dict]:
+        resp = await self._client.get("/v1/admin/policies")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def admin_get_policy(self, policy_id: int) -> dict:
+        resp = await self._client.get(f"/v1/admin/policies/{policy_id}")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def admin_create_policy(self, data: dict) -> dict:
+        resp = await self._client.post("/v1/admin/policies", json=data)
+        resp.raise_for_status()
+        return resp.json()
+
+    async def admin_update_policy(self, policy_id: int, data: dict) -> dict:
+        resp = await self._client.put(f"/v1/admin/policies/{policy_id}", json=data)
+        resp.raise_for_status()
+        return resp.json()
+
+    async def admin_delete_policy(self, policy_id: int) -> dict:
+        resp = await self._client.delete(f"/v1/admin/policies/{policy_id}")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def upsert_device_map(self, device_uuid: str, external_user_uuid: str) -> dict:
+        resp = await self._client.post(
+            "/v1/device-map",
+            json={"device_uuid": device_uuid, "external_user_uuid": external_user_uuid},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
 
 engine_client = EngineClient()

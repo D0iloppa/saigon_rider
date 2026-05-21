@@ -14,8 +14,11 @@ from app.models import (
     DailyFeaturedItem,
     GachaDefinition,
     ItemDefinition,
-    RpTransaction,
+    RewardPolicy,
+    RewardPolicyAction,
+    XpTransaction,
     SreUser,
+    UserPolicyLog,
     UserTier,
 )
 from app.schemas import (
@@ -25,7 +28,7 @@ from app.schemas import (
     UserSummary,
 )
 from app.services import audit as audit_svc
-from app.services import point_ledger
+from app.services import xp_ledger
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
 
@@ -90,7 +93,7 @@ async def list_action_definitions(
             "action_code": d.action_code,
             "category_code": d.category_code,
             "display_name": d.display_name,
-            "base_rp": d.base_rp,
+            "base_xp": d.base_xp,
             "daily_count_limit": d.daily_count_limit,
             "is_active": d.is_active,
             "metadata_schema": d.metadata_schema,
@@ -140,14 +143,14 @@ async def get_user_summary(
     user_id: int,
     db: AsyncSession = Depends(get_session),
 ) -> dict:
-    from app.models import RpBalance
+    from app.models import XpBalance
 
     user = await db.get(SreUser, user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    balance = await db.get(RpBalance, user_id)
+    balance = await db.get(XpBalance, user_id)
     tier = await db.get(UserTier, user_id)
     return {
         "user_id": user.user_id,
@@ -172,14 +175,14 @@ async def adjust_balance(
     data: AdminAdjustCreate,
     admin: dict = _admin,
     db: AsyncSession = Depends(get_session),
-) -> RpTransaction:
+) -> XpTransaction:
     if data.tx_type not in (TxTypeEnum.ADJUST_PLUS, TxTypeEnum.ADJUST_MINUS):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="tx_type must be ADJUST_PLUS or ADJUST_MINUS",
         )
     try:
-        tx = await point_ledger.admin_adjust(
+        tx = await xp_ledger.admin_adjust(
             db,
             user_id=user_id,
             amount=data.amount,
@@ -189,7 +192,7 @@ async def adjust_balance(
         )
         await audit_svc.record(
             db,
-            entity_type="rp_balance",
+            entity_type="xp_balance",
             entity_id=user_id,
             actor_user_id=admin.get("sub"),
             action_code=data.tx_type.value,
@@ -475,7 +478,7 @@ async def admin_ops_daily_net(db: AsyncSession = Depends(get_session)) -> list[d
           SUM(amount) FILTER (WHERE tx_type = 'SPEND') AS spent,
           SUM(amount) FILTER (WHERE tx_type = 'EARN')
             - SUM(amount) FILTER (WHERE tx_type = 'SPEND') AS net
-        FROM rp_transaction
+        FROM xp_transaction
         WHERE occurred_at >= NOW() - INTERVAL '7 days'
         GROUP BY day, currency
         ORDER BY day DESC, currency
@@ -640,3 +643,193 @@ async def admin_stream_messages(
         messages.append({"id": msg_id, **fields})
 
     return messages
+
+
+# ── 보상 정책 CRUD ──────────────────────────────────────────────
+
+
+def _policy_to_dict(p: RewardPolicy, actions: list[RewardPolicyAction] | None = None) -> dict:
+    d = {
+        "id": p.id,
+        "policy_code": p.policy_code,
+        "name": p.name,
+        "description": p.description,
+        "conditions": p.conditions,
+        "is_repeatable": p.is_repeatable,
+        "repeat_interval": p.repeat_interval,
+        "repeat_metric": p.repeat_metric,
+        "repeat_metric_interval": p.repeat_metric_interval,
+        "is_active": p.is_active,
+        "priority": p.priority,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+    }
+    if actions is not None:
+        d["actions"] = [
+            {
+                "id": a.id,
+                "action_type": a.action_type.value if a.action_type else None,
+                "value": a.value,
+                "ref_id": a.ref_id,
+                "sort_order": a.sort_order,
+            }
+            for a in actions
+        ]
+    return d
+
+
+@router.get("/policies", dependencies=[_svc])
+async def admin_policy_list(db: AsyncSession = Depends(get_session)) -> list[dict]:
+    result = await db.execute(
+        select(RewardPolicy).order_by(RewardPolicy.priority.desc(), RewardPolicy.id)
+    )
+    policies = result.scalars().all()
+    out = []
+    for p in policies:
+        actions_result = await db.execute(
+            select(RewardPolicyAction)
+            .where(RewardPolicyAction.policy_id == p.id)
+            .order_by(RewardPolicyAction.sort_order)
+        )
+        out.append(_policy_to_dict(p, actions_result.scalars().all()))
+    return out
+
+
+@router.get("/policies/{policy_id}", dependencies=[_svc])
+async def admin_policy_get(
+    policy_id: int, db: AsyncSession = Depends(get_session)
+) -> dict:
+    p = await db.get(RewardPolicy, policy_id)
+    if p is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
+    actions_result = await db.execute(
+        select(RewardPolicyAction)
+        .where(RewardPolicyAction.policy_id == p.id)
+        .order_by(RewardPolicyAction.sort_order)
+    )
+    return _policy_to_dict(p, actions_result.scalars().all())
+
+
+@router.post("/policies", status_code=status.HTTP_201_CREATED, dependencies=[_svc])
+async def admin_policy_create(
+    data: dict, db: AsyncSession = Depends(get_session)
+) -> dict:
+    if not data.get("policy_code"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="policy_code required"
+        )
+    existing = await db.execute(
+        select(RewardPolicy).where(RewardPolicy.policy_code == data["policy_code"])
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="policy_code already exists"
+        )
+
+    actions_data = data.pop("actions", [])
+    policy = RewardPolicy(
+        policy_code=data["policy_code"],
+        name=data.get("name", ""),
+        description=data.get("description"),
+        conditions=data.get("conditions", []),
+        is_repeatable=data.get("is_repeatable", False),
+        repeat_interval=data.get("repeat_interval"),
+        repeat_metric=data.get("repeat_metric"),
+        repeat_metric_interval=data.get("repeat_metric_interval"),
+        is_active=data.get("is_active", True),
+        priority=data.get("priority", 0),
+    )
+    db.add(policy)
+    await db.flush()
+
+    actions = []
+    for idx, ad in enumerate(actions_data):
+        a = RewardPolicyAction(
+            policy_id=policy.id,
+            action_type=ad["action_type"],
+            value=ad.get("value", 0),
+            ref_id=ad.get("ref_id"),
+            sort_order=ad.get("sort_order", idx),
+        )
+        db.add(a)
+        actions.append(a)
+
+    await db.commit()
+    await db.refresh(policy)
+    return _policy_to_dict(policy, actions)
+
+
+_POLICY_EDITABLE = {"name", "description", "conditions", "is_repeatable", "repeat_interval", "repeat_metric", "repeat_metric_interval", "is_active", "priority"}
+
+
+@router.put("/policies/{policy_id}", dependencies=[_svc])
+async def admin_policy_update(
+    policy_id: int, data: dict, db: AsyncSession = Depends(get_session)
+) -> dict:
+    p = await db.get(RewardPolicy, policy_id)
+    if p is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
+
+    for k, v in data.items():
+        if k in _POLICY_EDITABLE:
+            setattr(p, k, v)
+
+    if "actions" in data:
+        await db.execute(
+            RewardPolicyAction.__table__.delete().where(
+                RewardPolicyAction.policy_id == policy_id
+            )
+        )
+        await db.flush()
+        actions = []
+        for idx, ad in enumerate(data["actions"]):
+            a = RewardPolicyAction(
+                policy_id=policy_id,
+                action_type=ad["action_type"],
+                value=ad.get("value", 0),
+                ref_id=ad.get("ref_id"),
+                sort_order=ad.get("sort_order", idx),
+            )
+            db.add(a)
+            actions.append(a)
+        await db.flush()
+    else:
+        actions_result = await db.execute(
+            select(RewardPolicyAction)
+            .where(RewardPolicyAction.policy_id == policy_id)
+            .order_by(RewardPolicyAction.sort_order)
+        )
+        actions = actions_result.scalars().all()
+
+    await db.commit()
+    await db.refresh(p)
+    return _policy_to_dict(p, actions)
+
+
+@router.delete("/policies/{policy_id}", dependencies=[_svc])
+async def admin_policy_delete(
+    policy_id: int, db: AsyncSession = Depends(get_session)
+) -> dict:
+    p = await db.get(RewardPolicy, policy_id)
+    if p is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
+
+    log_count = (
+        await db.execute(
+            select(func.count()).where(UserPolicyLog.policy_id == policy_id)
+        )
+    ).scalar() or 0
+    if log_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete: {log_count} execution log(s) exist. Deactivate instead.",
+        )
+
+    await db.execute(
+        RewardPolicyAction.__table__.delete().where(
+            RewardPolicyAction.policy_id == policy_id
+        )
+    )
+    await db.delete(p)
+    await db.commit()
+    return {"deleted": True, "policy_id": policy_id}

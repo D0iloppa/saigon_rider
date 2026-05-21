@@ -52,7 +52,7 @@ title: "기능 점검 진척도 (Progress Tracker)"
 - [ ] **§2.8** RIDE-ACTIVE/PAUSE/GPS-ERROR 기능 12종
 - [ ] **§2.9** RIDE-RESULT-S/F 기능 7종
 - [x] **§2.10** FEED 기능 15종 (F-09-8·9 미점검, F-09-3 BFF 미구현으로 🟡, F-09-10 ⛔)
-- [ ] **§2.11** PROFILE-001 기능 10종 (+RP 잔액)
+- [ ] **§2.11** PROFILE-001 기능 10종 (+XP 잔액)
 - [ ] **§2.12** SETTINGS 메인 기능 4종
 - [ ] **§2.13** SET-NOTI 기능
 - [ ] **§2.14** SET-LANG 기능

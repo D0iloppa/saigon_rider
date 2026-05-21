@@ -15,6 +15,7 @@ from app.routers import (
     admin,
     balance,
     catalog,
+    device_map,
     events,
     gacha,
     inventory,
@@ -33,11 +34,11 @@ log = logging.getLogger(__name__)
 
 
 def _make_scheduler() -> AsyncIOScheduler:
-    from app.jobs import cleanup_idem, expire_missions, expire_rp, verify_balance
+    from app.jobs import cleanup_idem, expire_missions, expire_xp, trim_stream, verify_balance
 
     scheduler = AsyncIOScheduler(timezone=VN_TZ)
     scheduler.add_job(
-        expire_rp.run, CronTrigger(hour=4, minute=0, timezone=VN_TZ), id="expire_rp"
+        expire_xp.run, CronTrigger(hour=4, minute=0, timezone=VN_TZ), id="expire_xp"
     )
     scheduler.add_job(
         expire_missions.run,
@@ -48,6 +49,11 @@ def _make_scheduler() -> AsyncIOScheduler:
         cleanup_idem.run,
         CronTrigger(hour=4, minute=10, timezone=VN_TZ),
         id="cleanup_idem",
+    )
+    scheduler.add_job(
+        trim_stream.run,
+        CronTrigger(hour=4, minute=15, timezone=VN_TZ),
+        id="trim_stream",
     )
     scheduler.add_job(
         verify_balance.run,
@@ -75,6 +81,9 @@ async def lifespan(app: FastAPI):
     log.info("APScheduler stopped")
     await close_redis()
     log.info("Redis connection closed")
+    from app.bff_client import bff_client
+    await bff_client.close()
+    log.info("BFF client closed")
 
 
 # ── FastAPI 앱 ────────────────────────────────────────────────
@@ -118,6 +127,7 @@ app.include_router(catalog.router)
 app.include_router(redemptions.router)
 app.include_router(admin.router)
 app.include_router(message.router)
+app.include_router(device_map.router)
 app.include_router(gacha.router)
 app.include_router(shop.router)
 app.include_router(inventory.router)

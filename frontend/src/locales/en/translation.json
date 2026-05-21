@@ -355,5 +355,23 @@
     "shop": "Shop",
     "gacha": "Gacha",
     "season": "Season Pass"
+  },
+  "support": {
+    "title": "Support",
+    "newTicket": "+ New Inquiry",
+    "empty": "No inquiries yet.",
+    "fieldTitle": "Title",
+    "fieldBody": "Description",
+    "titlePlaceholder": "Enter a title for your inquiry",
+    "bodyPlaceholder": "Describe your issue in detail",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "replies": "Replies",
+    "noReply": "No replies yet.",
+    "adminLabel": "Support",
+    "userLabel": "You",
+    "status_open": "Open",
+    "status_in_progress": "In Progress",
+    "status_resolved": "Resolved"
   }
 }

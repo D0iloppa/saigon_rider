@@ -14,6 +14,7 @@ import type { Quest, QuestType } from '@/api/types';
 import { Chip } from '@/components/ui/Chip';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { toast } from '@/components/ui/Toast';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './QuestDetail.module.css';
 
 export default function QuestDetail() {
@@ -152,22 +153,22 @@ export default function QuestDetail() {
           <h3 className={styles.boxTitle}>{t('quest.rewards')}</h3>
           <div className={styles.rewardGrid}>
             <div className={styles.rewardCell}>
-              <span className={styles.rewardIcon}>⭐</span>
+              <img className={styles.rewardIcon} src={emojiUrl('2b50')} width={22} height={22} alt="EXP" />
               <div className={styles.rewardLabel}>EXP</div>
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardExp)}</div>
             </div>
             <div className={styles.rewardCell}>
-              <span className={styles.rewardIcon}>💎</span>
+              <img className={styles.rewardIcon} src={emojiUrl('1f48e')} width={22} height={22} alt="XP" />
               <div className={styles.rewardLabel}>XP</div>
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardXpPoints)}</div>
             </div>
             <div className={styles.rewardCell}>
-              <span className={styles.rewardIcon}>🪙</span>
+              <img className={styles.rewardIcon} src={emojiUrl('1fa99')} width={22} height={22} alt="GOLD" />
               <div className={styles.rewardLabel}>GOLD</div>
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardGold)}</div>
             </div>
             <div className={styles.rewardCell}>
-              <span className={styles.rewardIcon}>🎁</span>
+              <img className={styles.rewardIcon} src={emojiUrl('1f381')} width={22} height={22} alt="ITEM" />
               <div className={styles.rewardLabel}>ITEM</div>
               <div className={styles.rewardNum}>
                 ×{quest.rewardItems.length}

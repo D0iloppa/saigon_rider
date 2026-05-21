@@ -1,4 +1,4 @@
-"""RP 계산 파이프라인 오케스트레이터 (business-rules §1.4).
+"""XP 계산 파이프라인 오케스트레이터 (business-rules §1.4).
 
 파이프라인 순서:
   1. idempotency_key 중복 검사
@@ -6,8 +6,8 @@
   3. 어뷰징 룰 평가 (REJECT / REDUCE / CAP)
   4. daily_count_limit 검사
   5. 다양성 계수 조회
-  6. RP 계산
-  7. rp_transaction INSERT (credit)
+  6. XP 계산
+  7. xp_transaction INSERT (credit)
   8. behavior_category_log INSERT
   9. user_mission_progress 갱신
  10. user_tier 재평가
@@ -27,7 +27,7 @@ from app.exceptions import DuplicateEventError
 from app.metrics import event_processing_seconds, events_processed_total
 from app.models import ActionDefinition, ActionEvent, IdempotencyKey, SreUser
 from app.schemas import EventCreate, EventResult
-from app.services import anti_abuse, audit, diversity, mission, point_ledger, tier as tier_svc
+from app.services import anti_abuse, audit, diversity, mission, xp_ledger, tier as tier_svc
 
 
 async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # noqa: C901
@@ -51,7 +51,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
     if action_def is None or not action_def.is_active:
         return await _reject_event(db, data, reason="UNKNOWN_ACTION")
 
-    user = await point_ledger.get_or_create_user(db, str(data.user_id))
+    user = await xp_ledger.get_or_create_user(db, str(data.user_id))
     if user.status != UserStatusEnum.ACTIVE:
         return await _reject_event(db, data, reason="USER_SUSPENDED", user=user)
 
@@ -65,7 +65,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
         if user.is_driver_verified
         else settings.sre_daily_cap_standard
     )
-    daily_earned = await point_ledger.get_daily_earned(db, user_id=user.user_id, date_vn=occurred_at)
+    daily_earned = await xp_ledger.get_daily_earned(db, user_id=user.user_id, date_vn=occurred_at)
 
     abuse_result = await anti_abuse.evaluate(
         db,
@@ -105,8 +105,8 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
     payload = data.payload or {}
     volume = _extract_volume(data.action_code, payload)
     total_multiplier = Decimal(str(diversity_mult)) * Decimal(str(abuse_result.penalty_multiplier))
-    raw_rp = Decimal(str(action_def.base_rp)) * Decimal(str(volume)) * total_multiplier
-    final_rp = point_ledger.round_rp(raw_rp)
+    raw_xp = Decimal(str(action_def.base_xp)) * Decimal(str(volume)) * total_multiplier
+    final_xp = xp_ledger.round_xp(raw_xp)
 
     # ── 7. action_event INSERT ───────────────────────────────
     event = ActionEvent(
@@ -115,7 +115,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
         occurred_at=occurred_at,
         payload=data.payload,
         idempotency_key=data.idempotency_key,
-        calculated_rp=raw_rp,
+        calculated_xp=raw_xp,
         applied_multiplier=float(total_multiplier),
         process_status=EventStatusEnum.PROCESSED,
         reject_reason_code=abuse_result.reject_reason_code,
@@ -125,11 +125,11 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
 
     # RP 적립 (RP > 0 일 때만)
     tx = None
-    if final_rp > 0:
-        tx = await point_ledger.credit(
+    if final_xp > 0:
+        tx = await xp_ledger.credit(
             db,
             user_id=user.user_id,
-            amount=final_rp,
+            amount=final_xp,
             source_type="ACTION",
             source_id=event.event_id,
             related_event_id=event.event_id,
@@ -157,8 +157,8 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
 
     # ── 10. 등급 재평가 ───────────────────────────────────────
     if tx is not None:
-        balance = await db.get(point_ledger.RpBalance, user.user_id)
-        lifetime = balance.lifetime_earned if balance else final_rp
+        balance = await db.get(xp_ledger.XpBalance, user.user_id)
+        lifetime = balance.lifetime_earned if balance else final_xp
         await tier_svc.evaluate(db, user_id=user.user_id, lifetime_earned=lifetime)
 
     # ── 11. 멱등성 키 등록 + 감사 로그 ──────────────────────
@@ -175,7 +175,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
         entity_type="action_event",
         entity_id=event.event_id,
         action_code="PROCESS_EVENT",
-        after={"rp_awarded": final_rp, "process_status": "PROCESSED"},
+        after={"rp_awarded": final_xp, "process_status": "PROCESSED"},
     )
 
     await db.commit()
@@ -185,7 +185,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
     return EventResult(
         event_id=event.event_id,
         process_status=EventStatusEnum.PROCESSED,
-        rp_awarded=final_rp,
+        xp_awarded=final_xp,
         applied_multiplier=float(total_multiplier),
         diversity_multiplier=diversity_mult,
         transaction_id=tx.transaction_id if tx else None,
@@ -216,7 +216,7 @@ async def _reject_event(
 
     # user가 없으면 임시 조회 시도 (reject 전 user 생성 불필요)
     if user_id == 0:
-        _user = await point_ledger.get_or_create_user(db, str(data.user_id))
+        _user = await xp_ledger.get_or_create_user(db, str(data.user_id))
         user_id = _user.user_id
 
     event = ActionEvent(
@@ -225,7 +225,7 @@ async def _reject_event(
         occurred_at=occurred_at,
         payload=data.payload,
         idempotency_key=data.idempotency_key,
-        calculated_rp=Decimal("0"),
+        calculated_xp=Decimal("0"),
         applied_multiplier=0.0,
         process_status=EventStatusEnum.REJECTED,
         reject_reason_code=reason,
@@ -248,7 +248,7 @@ async def _reject_event(
     return EventResult(
         event_id=event.event_id,
         process_status=EventStatusEnum.REJECTED,
-        rp_awarded=0,
+        xp_awarded=0,
         applied_multiplier=0.0,
         diversity_multiplier=1.0,
         transaction_id=None,
@@ -260,7 +260,7 @@ def _build_result_from_event(event: ActionEvent) -> EventResult:
     return EventResult(
         event_id=event.event_id,
         process_status=event.process_status,
-        rp_awarded=int(event.calculated_rp or 0),
+        xp_awarded=int(event.calculated_xp or 0),
         applied_multiplier=float(event.applied_multiplier or 1.0),
         diversity_multiplier=1.0,
         transaction_id=None,

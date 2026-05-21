@@ -136,3 +136,10 @@ class GachaStatusEnum(str, enum.Enum):
     UPCOMING = "UPCOMING"
     ACTIVE = "ACTIVE"
     ENDED = "ENDED"
+
+
+class RewardActionTypeEnum(str, enum.Enum):
+    GRANT_EXP = "GRANT_EXP"
+    GRANT_BADGE = "GRANT_BADGE"
+    GRANT_XP = "GRANT_XP"
+    GRANT_GOLD = "GRANT_GOLD"

@@ -49,7 +49,7 @@ docker compose --profile wiki up --build -d
 백엔드는 두 컨테이너(`saigon_bff` :8080, `saigon_engine` :8090)로 분리되어 있으며 nginx 에서 namespace 로 구분합니다.
 
 - `/api/bff/*` → BFF (앱 화면 API: 인증·퀘스트·라이드·피드·프로필)
-- `/api/sre/*` → SRE Engine (RP·미션·보상·어뷰징)
+- `/api/sre/*` → SRE Engine (XP·미션·보상·어뷰징)
 
 모바일 앱은 BFF 만 호출하며, Engine 직접 호출은 차단되어 있습니다.
 :::

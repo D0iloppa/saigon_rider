@@ -18,6 +18,7 @@ from .routers import (
     feed,
     follows,
     gacha,
+    internal,
     inventory,
     master,
     notifications,
@@ -26,6 +27,7 @@ from .routers import (
     ride,
     season,
     shop,
+    support,
     users,
     wallet,
 )
@@ -103,10 +105,11 @@ app.include_router(gacha.router, prefix="/api")
 app.include_router(shop.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(season.router, prefix="/api")
-app.include_router(dev_context.router, prefix="/api")
 app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
 app.include_router(admin.router)
+app.include_router(support.router, prefix="/api")
+app.include_router(internal.router, prefix="/api")
 
 app.mount("/admin/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")
 

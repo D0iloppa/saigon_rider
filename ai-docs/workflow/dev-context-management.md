@@ -65,6 +65,25 @@
 | `/api/dev/features` | GET / POST / PATCH / DELETE | Feature CRUD |
 | `/api/dev/todos` | GET / POST / PATCH / DELETE | Todo CRUD |
 
+
+### MCP (Claude Code — 자동 갱신)
+
+> **saigon-dev** MCP 서버 (`.claude/settings.json`에 등록됨). 스레드 시작 시 `get_dev_summary`를 호출하면 전체 현황을 한 번에 파악할 수 있다.
+
+| 도구 | 용도 |
+|---|---|
+| `get_dev_summary()` | Context + Feature/Todo 전체 요약 (스레드 진입 시 첫 호출) |
+| `upsert_context(key, value, status)` | Context KV 추가·갱신 (착수: 🔧 / 완료: ✅) |
+| `delete_context(key)` | Context KV 삭제 |
+| `list_features(category?, status?)` | Feature 목록 조회 |
+| `create_feature(category, name, status?)` | Feature 등록 |
+| `update_feature(feature_id, status?, ...)` | Feature 상태·속성 갱신 |
+| `delete_feature(feature_id)` | Feature 삭제 |
+| `list_todos(status?, priority?, feature_id?)` | Todo 목록 조회 |
+| `create_todo(title, priority?, feature_id?)` | Todo 등록 |
+| `update_todo(todo_id, status?, priority?, ...)` | Todo 상태·속성 갱신 |
+| `delete_todo(todo_id)` | Todo 삭제 |
+
 ### 직접 SQL (초기 시드·벌크 갱신)
 
 ```bash

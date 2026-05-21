@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.enums import SeasonStatusEnum
 from app.models import Season, UserSeasonPass
 from app.schemas import ClaimSeasonRewardResult, SeasonLevelRead
-from app.services.point_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_user
 
 
 async def get_current(db: AsyncSession) -> Season | None:

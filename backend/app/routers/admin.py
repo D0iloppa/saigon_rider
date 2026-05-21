@@ -29,10 +29,13 @@ from ..models import (
     NicknameWord,
     Quest,
     RideSession,
+    SupportReply,
+    SupportTicket,
     User,
     UserBadge,
 )
 from ..utils import (
+    APP_TZ,
     MOCK_IMG_ENDPOINT,
     build_imgproxy_url,
     default_avatar_url,
@@ -68,7 +71,21 @@ ALLOWED_IMAGE_MIME = {
 }
 
 # role 별 사이드바 메뉴 노출
-_NAV_KEYS = ("dashboard", "quests", "feed", "users", "admins", "badges", "sre", "items", "stream", "dev", "settings")
+_NAV_KEYS = (
+    "dashboard",
+    "quests",
+    "feed",
+    "users",
+    "admins",
+    "badges",
+    "sre",
+    "items",
+    "policies",
+    "stream",
+    "support",
+    "dev",
+    "settings",
+)
 _ROOT_ONLY_NAV = {"admins"}
 
 
@@ -2659,7 +2676,7 @@ async def admin_stream_page(
         msg_type = msg.get("type", "gps")
         ts_raw = msg.get("ts", "")
         try:
-            ts_dt = datetime.fromtimestamp(float(ts_raw), tz=UTC)
+            ts_dt = datetime.fromtimestamp(float(ts_raw), tz=UTC).astimezone(APP_TZ)
             ts_str = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         except (ValueError, OSError):
             ts_str = ts_raw
@@ -2715,8 +2732,8 @@ async def admin_gps_trace_popup(
     if not uuid_q or not start or not end:
         return HTMLResponse("<h2>필수 파라미터 누락 (uuid, start, end)</h2>", status_code=400)
 
-    start_dt = datetime.fromisoformat(start)
-    end_dt = datetime.fromisoformat(end)
+    start_dt = datetime.fromisoformat(start).replace(tzinfo=APP_TZ)
+    end_dt = datetime.fromisoformat(end).replace(tzinfo=APP_TZ)
     start_ts = start_dt.timestamp()
     end_ts = end_dt.timestamp()
 
@@ -2763,3 +2780,238 @@ async def admin_gps_trace_popup(
         .replace("{{point_count}}", str(len(points_js)))
     )
     return HTMLResponse(html)
+
+
+# ── SRE: 보상 정책 관리 ────────────────────────────────────────
+
+
+@router.get("/sre/policies", include_in_schema=False)
+async def admin_sre_policies_page(session: AdminSession = Depends(verify_admin_session)):
+    return _render_page(
+        "policies.html",
+        nav="policies",
+        page_title="보상 정책 관리",
+        session=session,
+    )
+
+
+@router.get("/api/sre/policies", include_in_schema=False)
+async def admin_api_policy_list(session: AdminSession = Depends(verify_admin_session)):
+    try:
+        policies = await engine_client.admin_get_policies()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return JSONResponse(policies)
+
+
+@router.get("/api/sre/policies/{policy_id}", include_in_schema=False)
+async def admin_api_policy_get(policy_id: int, session: AdminSession = Depends(verify_admin_session)):
+    try:
+        policy = await engine_client.admin_get_policy(policy_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return JSONResponse(policy)
+
+
+@router.post("/api/sre/policies", include_in_schema=False)
+async def admin_api_policy_create(request: Request, session: AdminSession = Depends(verify_admin_session)):
+    data = await request.json()
+    try:
+        result = await engine_client.admin_create_policy(data)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return JSONResponse(result, status_code=201)
+
+
+@router.put("/api/sre/policies/{policy_id}", include_in_schema=False)
+async def admin_api_policy_update(
+    policy_id: int, request: Request, session: AdminSession = Depends(verify_admin_session)
+):
+    data = await request.json()
+    try:
+        result = await engine_client.admin_update_policy(policy_id, data)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return JSONResponse(result)
+
+
+@router.delete("/api/sre/policies/{policy_id}", include_in_schema=False)
+async def admin_api_policy_delete(policy_id: int, session: AdminSession = Depends(verify_admin_session)):
+    try:
+        result = await engine_client.admin_delete_policy(policy_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return JSONResponse(result)
+
+
+# ── 고객센터 ─────────────────────────────────────────────────────
+
+_SUPPORT_STATUS_LABEL = {"OPEN": "접수", "IN_PROGRESS": "처리중", "RESOLVED": "해결"}
+_SUPPORT_STATUS_CLASS = {"OPEN": "warn", "IN_PROGRESS": "info", "RESOLVED": "ok"}
+
+_SUPPORT_FLASHES = {
+    "replied": ("답변이 등록되었습니다.", True),
+    "status_updated": ("상태가 변경되었습니다.", True),
+    "reply_empty": ("답변 내용을 입력하세요.", False),
+}
+
+
+@router.get("/support", include_in_schema=False)
+async def admin_support_list(
+    status: str = "",
+    page: int = 1,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    page = max(1, page)
+    size = 30
+    offset = (page - 1) * size
+
+    stmt = select(SupportTicket)
+    count_stmt = select(func.count()).select_from(SupportTicket)
+    if status:
+        stmt = stmt.where(SupportTicket.status == status)
+        count_stmt = count_stmt.where(SupportTicket.status == status)
+
+    total = (await db.execute(count_stmt)).scalar_one()
+    tickets = (
+        (await db.execute(stmt.order_by(SupportTicket.created_at.desc()).offset(offset).limit(size))).scalars().all()
+    )
+
+    rows_html = []
+    for t in tickets:
+        st = t.status
+        pill = f'<span class="pill {_SUPPORT_STATUS_CLASS.get(st, "")}">{_SUPPORT_STATUS_LABEL.get(st, st)}</span>'
+        unread = '<span class="pill warn">NEW</span>' if t.has_unread_reply else ""
+        rows_html.append(
+            f"<tr onclick=\"location.href='/admin/support/{t.id}'\" style='cursor:pointer'>"
+            f"<td>{h(str(t.id)[:8])}…</td>"
+            f"<td>{h(t.title)}</td>"
+            f"<td>{pill}</td>"
+            f"<td>{unread}</td>"
+            f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{t.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
+            f"</tr>"
+        )
+    if not rows_html:
+        rows_html.append('<tr><td colspan="5" class="empty">문의가 없습니다.</td></tr>')
+
+    pagination = _build_pagination("/admin/support", page, size, total, status=status)
+
+    status_tabs = ""
+    for val, label in [("", "전체"), ("OPEN", "접수"), ("IN_PROGRESS", "처리중"), ("RESOLVED", "해결")]:
+        active = "active" if status == val else ""
+        status_tabs += f'<a href="/admin/support?status={val}" class="tab {active}">{label}</a>'
+
+    return _render_page(
+        "support_list.html",
+        nav="support",
+        page_title="고객센터",
+        session=session,
+        rows="\n".join(rows_html),
+        total=str(total),
+        status_tabs=status_tabs,
+        pagination=pagination,
+    )
+
+
+@router.get("/support/{ticket_id}", include_in_schema=False)
+async def admin_support_detail(
+    ticket_id: uuid.UUID,
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.replies), selectinload(SupportTicket.user))
+        .where(SupportTicket.id == ticket_id)
+    )
+    ticket = result.scalar_one_or_none()
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    replies_html = ""
+    for r in ticket.replies:
+        side = "admin" if r.author_type == "admin" else "user"
+        replies_html += (
+            f'<div class="reply-item reply-{side}">'
+            f'<div class="reply-meta">{h("관리자" if side == "admin" else "유저")} '
+            f"<span>{r.created_at.strftime('%Y-%m-%d %H:%M')}</span></div>"
+            f'<div class="reply-body">{h(r.body)}</div>'
+            f"</div>"
+        )
+    if not replies_html:
+        replies_html = '<p class="empty">아직 답변이 없습니다.</p>'
+
+    st = ticket.status
+    status_options = ""
+    for val, label in [("OPEN", "접수"), ("IN_PROGRESS", "처리중"), ("RESOLVED", "해결")]:
+        sel = "selected" if val == st else ""
+        status_options += f'<option value="{val}" {sel}>{label}</option>'
+
+    flash_html = ""
+    if flash and flash in _SUPPORT_FLASHES:
+        msg, ok = _SUPPORT_FLASHES[flash]
+        cls = "ok" if ok else "warn"
+        flash_html = f'<div class="flash {cls}">{msg}</div>'
+
+    user_nick = h(ticket.user.nickname or str(ticket.user_id)) if ticket.user else h(str(ticket.user_id))
+
+    return _render_page(
+        "support_detail.html",
+        nav="support",
+        page_title="문의 상세",
+        session=session,
+        ticket_id=h(str(ticket.id)),
+        ticket_title=h(ticket.title),
+        ticket_body=h(ticket.body),
+        ticket_status=h(st),
+        ticket_created=ticket.created_at.strftime("%Y-%m-%d %H:%M"),
+        user_nick=user_nick,
+        status_options=status_options,
+        replies_html=replies_html,
+        flash_html=flash_html,
+    )
+
+
+@router.post("/support/{ticket_id}/reply", include_in_schema=False)
+async def admin_support_reply(
+    ticket_id: uuid.UUID,
+    reply_body: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    ticket = await db.get(SupportTicket, ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    body = reply_body.strip()
+    if not body:
+        return RedirectResponse(f"/admin/support/{ticket_id}?flash=reply_empty", status_code=303)
+
+    reply = SupportReply(ticket_id=ticket_id, author_type="admin", body=body)
+    db.add(reply)
+    ticket.has_unread_reply = True
+    if ticket.status == "OPEN":
+        ticket.status = "IN_PROGRESS"
+    await db.commit()
+    return RedirectResponse(f"/admin/support/{ticket_id}?flash=replied", status_code=303)
+
+
+@router.post("/support/{ticket_id}/status", include_in_schema=False)
+async def admin_support_status(
+    ticket_id: uuid.UUID,
+    new_status: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    ticket = await db.get(SupportTicket, ticket_id)
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    if new_status in ("OPEN", "IN_PROGRESS", "RESOLVED"):
+        ticket.status = new_status
+        await db.commit()
+    return RedirectResponse(f"/admin/support/{ticket_id}?flash=status_updated", status_code=303)

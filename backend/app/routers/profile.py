@@ -20,8 +20,8 @@ from ..schemas import (
     NicknameUpdateRequest,
     ProfileSaveRequest,
     RandomNicknameResponse,
-    RpBalanceResponse,
     UserOut,
+    XpBalanceResponse,
 )
 
 log = logging.getLogger(__name__)
@@ -179,11 +179,11 @@ async def random_nickname(db: AsyncSession = Depends(get_db)):
     return RandomNicknameResponse(nickname=f"{adj} {noun} {suffix}")
 
 
-@router.get("/{user_id}/rp-balance", response_model=RpBalanceResponse, summary="RP 잔액 조회")
-async def get_rp_balance(user_id: uuid.UUID):
+@router.get("/{user_id}/xp-balance", response_model=XpBalanceResponse, summary="XP 잔액 조회")
+async def get_xp_balance(user_id: uuid.UUID):
     try:
         data = await engine_client.get_balance(str(user_id))
-        return RpBalanceResponse(**data)
+        return XpBalanceResponse(**data)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail="User not found in SRE engine") from exc

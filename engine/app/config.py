@@ -14,9 +14,13 @@ class SreSettings(BaseSettings):
     engine_service_key: str
     engine_admin_jwt_secret: str
 
+    # BFF (cross-DB grant calls)
+    bff_base_url: str = "http://backend:8000"
+
     # SRE business rules
     sre_timezone: str = "Asia/Ho_Chi_Minh"
-    sre_rp_expiry_months: int = 3
+    sre_xp_expiry_months: int = 3
+    sre_exp_per_level: int = 100
     sre_daily_cap_standard: int = 250
     sre_daily_cap_driver: int = 2000
     sre_new_account_penalty_days: int = 3

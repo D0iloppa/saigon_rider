@@ -5,7 +5,7 @@ title: SRE Engine
 
 # Saigon Rider Engine (SRE)
 
-> **Saigon Rider Reward Engine** — 라이딩·미션·보상의 RP(리워드 포인트) 경제를 전담하는 채널-중립 마이크로서비스.
+> **Saigon Rider Reward Engine** — 라이딩·미션·보상의 XP(리워드 포인트) 경제를 전담하는 채널-중립 마이크로서비스.
 >
 > 핵심 원칙: **"엔진은 똑똑하게, 보상은 단순하게"**
 >
@@ -15,7 +15,7 @@ title: SRE Engine
 
 ## 1. SRE는 무엇이고, 왜 분리되어 있는가
 
-SRE는 **"어떤 사용자가 어떤 행동을 했다"는 이벤트만 받아 RP를 계산·적립·교환하는 책임**만 갖습니다. UI / 인증 / 푸시 / 결제 / GPS 트래킹은 모두 SRE 바깥의 책임입니다.
+SRE는 **"어떤 사용자가 어떤 행동을 했다"는 이벤트만 받아 XP를 계산·적립·교환하는 책임**만 갖습니다. UI / 인증 / 푸시 / 결제 / GPS 트래킹은 모두 SRE 바깥의 책임입니다.
 
 ### 분리 이유
 
@@ -28,10 +28,10 @@ SRE는 **"어떤 사용자가 어떤 행동을 했다"는 이벤트만 받아 RP
 | 정산·감사 분산 | 단일 트랜잭션 원장 |
 
 ### In-Scope (SRE가 한다)
-- 행동 이벤트 수집 → RP 계산 → 적립
+- 행동 이벤트 수집 → XP 계산 → 적립
 - 미션 정의 / 진행률 / 완료 처리
 - 다양성 계수 / 등급 / 스트릭 계산
-- RP 잔액 / 거래 원장 / 만료
+- XP 잔액 / 거래 원장 / 만료
 - 보상 카탈로그 / 교환 / 외부 발급 API 호출
 - 어뷰징 검증 (속도·빈도·GPS·중복)
 - 모든 거래의 감사 로그
@@ -72,7 +72,7 @@ SRE는 **"어떤 사용자가 어떤 행동을 했다"는 이벤트만 받아 RP
 │  └────────────┘ │ Calculator │ │ Tier &     │ │ Log      │   │
 │                 └────────────┘ │ Streak     │ └──────────┘   │
 │                                └────────────┘                │
-│  + APScheduler 4종 일배치 (RP 만료, 정합성 검증 등)           │
+│  + APScheduler 4종 일배치 (XP 만료, 정합성 검증 등)           │
 └────────────────────────┬─────────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
@@ -93,22 +93,22 @@ SRE는 **"어떤 사용자가 어떤 행동을 했다"는 이벤트만 받아 RP
 | 용어 | 정의 |
 |---|---|
 | **SRE** | Saigon Rider (Reward) Engine — 본 서비스 |
-| **RP** | Reward Point. 사용자가 축적하는 단일 화폐 단위. `BIGINT` 정수로 저장 |
+| **XP** | Reward Point (eXchange Point). 사용자가 축적하는 단일 화폐 단위. `BIGINT` 정수로 저장 |
 | **Action** | 사용자가 일으킨 의미 있는 행동 (`RIDE_KM`, `QUEST_COMPLETE` 등). `action_definition` 테이블의 한 행 |
 | **Action Event** | Action이 실제로 발생한 1건의 인스턴스. `action_event` 테이블의 한 행 |
 | **action_code** | Action의 식별자 문자열 (예: `RIDE_KM`). DB 외래키이자 미션/룰 어휘 |
 | **payload** | Action Event에 첨부되는 JSONB 메타데이터 (`distance_km`, `ride_id`, `weather` 등) |
-| **base_rp** | Action 정의에 명시된 기본 RP (예: RIDE_KM은 1km당 1) |
+| **base_xp** | Action 정의에 명시된 기본 XP (예: RIDE_KM은 1km당 1) |
 | **volume** | 이벤트의 수량 계수. `payload`에서 추출 (예: `distance_km` 값), 없으면 1 |
 | **diversity_multiplier** | 다양성 계수. 월간 활성 카테고리 수에 따라 1.0~2.0 |
 | **abuse_penalty** | 어뷰징 페널티 배율. 1.0 = 페널티 없음 |
-| **final_rp** | `ROUND(base_rp × volume × diversity × abuse_penalty)` 의 결과. 실제 적립되는 정수 RP |
+| **final_xp** | `ROUND(base_xp × volume × diversity × abuse_penalty)` 의 결과. 실제 적립되는 정수 XP |
 | **Mission** | 사용자에게 부여되는 달성 과제. `mission_definition` (정의) + `user_mission_progress` (진행도) |
 | **target_rule** | 미션의 달성 조건을 표현하는 JSONB 스키마 (`agg`/`target`/`action_code`/`filters`/`window`) |
-| **Tier** | 누적 RP + 다양성 카테고리 기준의 사용자 등급 (Rookie → Rider → Veteran → Pro → Legend) |
+| **Tier** | 누적 XP + 다양성 카테고리 기준의 사용자 등급 (Rookie → Rider → Veteran → Pro → Legend) |
 | **Streak** | 연속 라이딩 일수 |
 | **Category** | 행동의 상위 분류 (`RIDING`, `MAINT`, `MARKET`, `COMMUNITY`, `DELIVERY` — 5종) |
-| **Ledger** | 이중 원장. `rp_transaction` (진실의 원천) + `rp_balance` (캐시 잔액) |
+| **Ledger** | 이중 원장. `xp_transaction` (진실의 원천) + `xp_balance` (캐시 잔액) |
 | **Idempotency Key** | 호출자가 발급하는 중복 차단 키 (예: `ride-9876-final`). 7일 TTL |
 | **Redemption** | 보상 교환 1건. `reward_redemption` 행 |
 | **Voucher Code** | 외부 파트너로부터 받은 발급 코드 (UUID 또는 외부 시스템 코드) |
@@ -116,6 +116,10 @@ SRE는 **"어떤 사용자가 어떤 행동을 했다"는 이벤트만 받아 RP
 | **Advisory Lock** | PostgreSQL의 애플리케이션 정의 락. APScheduler 일배치의 단일 실행 보장에 사용 |
 | **VN_TZ** | `Asia/Ho_Chi_Minh` (UTC+7). 월 경계·일배치 시각의 기준 타임존 |
 | **`__META__`** | 다른 미션 완료 개수를 카운트하는 시스템 가상 액션 |
+| **EXP** | Experience Point. 레벨업에 사용되는 경험치. `sre_user.total_exp_granted` 누적 |
+| **Policy Engine** | 조건(JSONB) + 액션(1:N) 기반 자동 보상 시스템. GPS 마일리지·레벨업·뱃지 등 |
+| **reward_policy** | 정책 정의 테이블. `conditions` JSONB, `repeat_metric`/`repeat_metric_interval` 로 메트릭 기반 반복 |
+| **Level** | `total_exp_granted // SRE_EXP_PER_LEVEL` (기본값 100). 정책 엔진의 가상 메트릭 |
 
 ---
 
@@ -127,12 +131,13 @@ SRE 내부는 8개 논리 모듈로 구성되며, `engine/app/services/` 하위 
 |---|---|---|---|
 | 1 | **Event Bus** | 외부 이벤트의 단일 진입점. 인증·멱등성·라우팅 | `services/event_bus.py` |
 | 2 | **Mission Module** | 미션 CRUD, 진행률 추적, 자동 추천, 완료 처리 | `services/mission.py` |
-| 3 | **Point Ledger** | `rp_transaction` 이중 원장, `rp_balance` 캐시, 만료 처리 | `services/point_ledger.py` |
+| 3 | **XP Ledger** | `xp_transaction` 이중 원장, `xp_balance` 캐시, 만료 처리 | `services/xp_ledger.py` |
+| 3-1 | **Policy Engine** | 조건 기반 자동 보상 (마일리지·레벨업·뱃지) 평가·디스패치 | `services/policy_engine.py` |
 | 4 | **Reward Module** | 보상 카탈로그, 교환 트랜잭션, 외부 발급 호출, 실패 환불 | `services/reward.py` |
 | 5 | **Anti-Abuse Module** | 속도·빈도·GPS·중복 검증, REJECT / REDUCE / CAP 룰 평가 | `services/anti_abuse.py` |
-| 6 | **Tier & Streak** | 누적 RP + 다양성으로 등급 갱신, 연속일 추적 | `services/tier.py` |
+| 6 | **Tier & Streak** | 누적 XP + 다양성으로 등급 갱신, 연속일 추적 | `services/tier.py` |
 | 7 | **Diversity Calculator** | 월간 카테고리 카운트, 다양성 계수 1.0~2.0 계산 | `services/diversity.py` |
-| 8 | **Audit Log** | 모든 RP 변동·교환·미션 완료의 영구 기록 | `services/audit.py` |
+| 8 | **Audit Log** | 모든 XP 변동·교환·미션 완료의 영구 기록 | `services/audit.py` |
 
 ---
 
@@ -145,22 +150,23 @@ SRE 내부는 8개 논리 모듈로 구성되며, `engine/app/services/` 하위 
 | 사용자 식별 | `sre_user` (외부 user_id 매핑만) |
 | 이벤트 | `action_definition`, `action_event` |
 | 미션 | `mission_definition`, `user_mission_progress`, `mission_recommendation` |
-| 포인트 (Ledger) | `rp_balance`, `rp_transaction`, `rp_expiration_schedule` |
+| 포인트 (Ledger) | `xp_balance`, `xp_transaction`, `xp_expiration_schedule` |
 | 다양성 / 등급 | `behavior_category_log`, `user_diversity_score`, `tier_definition`, `user_tier` |
 | 보상 | `reward_partner`, `reward_catalog`, `reward_redemption` |
+| 정책 엔진 | `reward_policy`, `reward_policy_action`, `user_policy_log` |
 | 어뷰징 | `abuse_rule`, `abuse_event`, `idempotency_key` |
 | 감사 | `audit_log` |
 
-### 5.2 핵심 원칙: 진실의 원천 = `rp_transaction`
+### 5.2 핵심 원칙: 진실의 원천 = `xp_transaction`
 
 ```
-rp_balance     = 빠른 조회용 캐시(잔액 스냅샷)
-rp_transaction = 진실의 원천 (EARN/REDEEM/EXPIRE/REFUND/ADJUST_* 변동 모두 기록)
+xp_balance     = 빠른 조회용 캐시(잔액 스냅샷)
+xp_transaction = 진실의 원천 (EARN/REDEEM/EXPIRE/REFUND/ADJUST_* 변동 모두 기록)
 ```
 
-배치로 `rp_transaction` 합계를 재계산해 `rp_balance`와 대조 가능해야 합니다 (정합성 검증, 매일 04:30 배치).
+배치로 `xp_transaction` 합계를 재계산해 `xp_balance`와 대조 가능해야 합니다 (정합성 검증, 매일 04:30 배치).
 
-### 5.3 `rp_transaction` 트랜잭션 타입
+### 5.3 `xp_transaction` 트랜잭션 타입
 
 | `tx_type` | 의미 | 부호 |
 |---|---|---|
@@ -172,14 +178,14 @@ rp_transaction = 진실의 원천 (EARN/REDEEM/EXPIRE/REFUND/ADJUST_* 변동 모
 
 ---
 
-## 6. RP 계산 공식 (단일 진실)
+## 6. XP 계산 공식 (단일 진실)
 
 ```
-final_rp = ROUND( base_rp × volume × diversity_multiplier × abuse_penalty )
+final_xp = ROUND( base_xp × volume × diversity_multiplier × abuse_penalty )
 ```
 
 - **반올림 규칙**: 소수점 첫째 자리에서 반올림 (`Decimal.quantize(ROUND_HALF_UP)`). 최종 저장은 정수
-- **중간값 저장**: `action_event.calculated_rp NUMERIC(12,2)` 에 계산 중간값 보관, `applied_multiplier` 에는 `diversity × penalty` 기록 — 감사 시 역산 가능
+- **중간값 저장**: `action_event.calculated_xp NUMERIC(12,2)` 에 계산 중간값 보관, `applied_multiplier` 에는 `diversity × penalty` 기록 — 감사 시 역산 가능
 
 ### 6.1 멀티 이벤트 결합 정책
 
@@ -189,8 +195,8 @@ final_rp = ROUND( base_rp × volume × diversity_multiplier × abuse_penalty )
 
 ```
 [라이딩 종료]
-  POST /v1/events  action=RIDE_KM         volume=5.2  → rp_transaction A (+7)
-  POST /v1/events  action=QUEST_COMPLETE  volume=1    → rp_transaction B (+70)
+  POST /v1/events  action=RIDE_KM         volume=5.2  → xp_transaction A (+7)
+  POST /v1/events  action=QUEST_COMPLETE  volume=1    → xp_transaction B (+70)
 ```
 
 이유: 환불·감사·정산 단위가 명확해야 하고, 클라이언트의 묶음 시점/순서를 보장하기 어렵습니다.
@@ -199,11 +205,11 @@ final_rp = ROUND( base_rp × volume × diversity_multiplier × abuse_penalty )
 
 | 룰 종류 | 동작 |
 |---|---|
-| **REJECT** (`GPS_SPEED_RANGE`, `DUPLICATE_RECEIPT`) | 이벤트 자체를 거부, `process_status='REJECTED'`. `rp_transaction` 생성 안 함 |
+| **REJECT** (`GPS_SPEED_RANGE`, `DUPLICATE_RECEIPT`) | 이벤트 자체를 거부, `process_status='REJECTED'`. `xp_transaction` 생성 안 함 |
 | **REDUCE** (`NEW_ACCOUNT_50`) | `abuse_penalty=0.5` 곱셈 (가입 후 3일간) |
-| **CAP** (`DAILY_RP_CAP`) | 누적이 상한 초과 시 해당 이벤트는 RP 0으로 PROCESSED (`reject_reason_code='DAILY_CAP_EXCEEDED'`) |
+| **CAP** (`DAILY_XP_CAP`) | 누적이 상한 초과 시 해당 이벤트는 XP 0으로 PROCESSED (`reject_reason_code='DAILY_CAP_EXCEEDED'`) |
 
-### 6.3 RP 계산 파이프라인
+### 6.3 XP 계산 파이프라인
 
 ```
 1. action_event 수신, idempotency_key 검사
@@ -211,11 +217,11 @@ final_rp = ROUND( base_rp × volume × diversity_multiplier × abuse_penalty )
 3. 어뷰징 룰 평가
    3-1. REJECT 룰 (GPS_SPEED_RANGE, DUPLICATE_RECEIPT) → 위반 시 즉시 REJECTED
    3-2. REDUCE 룰 (NEW_ACCOUNT_50) → abuse_penalty 결정
-   3-3. CAP 룰 (DAILY_RP_CAP) → 일일 누적 조회 후 0/1 결정
+   3-3. CAP 룰 (DAILY_XP_CAP) → 일일 누적 조회 후 0/1 결정
 4. daily_count_limit 검사 (action_definition) → 초과 시 REJECTED
-5. RP 계산 (§6 공식)
-6. rp_transaction INSERT
-7. rp_balance UPDATE (SELECT FOR UPDATE)
+5. XP 계산 (§6 공식)
+6. xp_transaction INSERT
+7. xp_balance UPDATE (SELECT FOR UPDATE)
 8. behavior_category_log INSERT
 9. user_mission_progress 갱신 (해당 미션 모두)
 10. user_tier 재평가
@@ -242,7 +248,7 @@ final_rp = ROUND( base_rp × volume × diversity_multiplier × abuse_penalty )
 
 ### 7.2 적용 시점
 
-- RP 계산 시 `user_diversity_score` 에서 (user_id, 현재 month_key) 실시간 SELECT
+- XP 계산 시 `user_diversity_score` 에서 (user_id, 현재 month_key) 실시간 SELECT
 - 행이 없으면 multiplier=1.00
 - 이벤트 처리 후 `behavior_category_log` INSERT, 배경 작업이 `multiplier` 재계산
 - **예외**: 새 카테고리 첫 진입은 같은 트랜잭션에서 UPSERT (사용자 경험 보호)
@@ -259,17 +265,17 @@ month_key = int(occurred_at.astimezone(VN_TZ).strftime("%Y%m"))
 
 ---
 
-## 8. RP 만료
+## 8. XP 만료
 
 | 항목 | 결정 |
 |---|---|
 | 만료 기간 | 적립일 기준 **3개월** |
 | 소진 순서 | **FIFO** (만료일 오름차순) |
 | 만료 배치 | 매일 베트남 시간 **04:00** |
-| 락 정책 | REDEEM 시 `rp_expiration_schedule`을 `FOR UPDATE` |
+| 락 정책 | REDEEM 시 `xp_expiration_schedule`을 `FOR UPDATE` |
 | 환불 시 만료일 | **환불일 기준 3개월** (원본 만료일 복원 X) |
 
-`EARN` 트랜잭션 생성 시 `rp_expiration_schedule (PENDING, remaining_amount=amount, expires_at=occurred_at+3mo)` 행을 함께 INSERT. `REDEEM` / `EXPIRE` 가 이 행들을 FIFO로 소진.
+`EARN` 트랜잭션 생성 시 `xp_expiration_schedule (PENDING, remaining_amount=amount, expires_at=occurred_at+3mo)` 행을 함께 INSERT. `REDEEM` / `EXPIRE` 가 이 행들을 FIFO로 소진.
 
 ---
 
@@ -338,15 +344,15 @@ month_key = int(occurred_at.astimezone(VN_TZ).strftime("%Y%m"))
 
 ### 9.4 미션 완료 시 보상 처리
 
-미션 완료 보상도 §6 RP 파이프라인을 통과합니다 (다양성·페널티 적용). 단 별도 `action_event` 는 생성하지 않습니다 — 이미 트리거된 이벤트의 후속 처리입니다.
+미션 완료 보상도 §6 XP 파이프라인을 통과합니다 (다양성·페널티 적용). 단 별도 `action_event` 는 생성하지 않습니다 — 이미 트리거된 이벤트의 후속 처리입니다.
 
-`rp_transaction (tx_type='EARN', source_type='MISSION', source_id=mission_id)` 로 적립.
+`xp_transaction (tx_type='EARN', source_type='MISSION', source_id=mission_id)` 로 적립.
 
 ---
 
 ## 10. 등급 (Tier)
 
-| 등급 | 누적 RP | 다양성 요건 |
+| 등급 | 누적 XP | 다양성 요건 |
 |---|---|---|
 | Rookie | 0 | — |
 | Rider | 5,000 | 카테고리 2+ |
@@ -356,7 +362,7 @@ month_key = int(occurred_at.astimezone(VN_TZ).strftime("%Y%m"))
 
 - **평가 시점**: 매 `EARN` 트랜잭션 직후 동기 재평가 (`REDEEM`/`EXPIRE`/`REFUND` 는 트리거 안 함)
 - **다양성 카운트 기준**: **lifetime distinct categories** (한 번이라도 활동한 카테고리)
-- **강등 없음**: lifetime RP·distinct 카테고리 모두 줄지 않으므로 자연 강등 시나리오 없음. 관리자가 `ADJUST_MINUS` + 수동 갱신 시에만 강등
+- **강등 없음**: lifetime XP·distinct 카테고리 모두 줄지 않으므로 자연 강등 시나리오 없음. 관리자가 `ADJUST_MINUS` + 수동 갱신 시에만 강등
 
 ---
 
@@ -364,8 +370,8 @@ month_key = int(occurred_at.astimezone(VN_TZ).strftime("%Y%m"))
 
 | 룰 | 값 | 종류 |
 |---|---|---|
-| 일일 RP 상한 (일반) | 250 | CAP |
-| 일일 RP 상한 (드라이버) | 2,000 | CAP |
+| 일일 XP 상한 (일반) | 250 | CAP |
+| 일일 XP 상한 (드라이버) | 2,000 | CAP |
 | 신규 계정 페널티 | 가입 후 3일간 ×0.5 | REDUCE |
 | GPS 속도 범위 | 5~80 km/h | REJECT |
 | 중복 영수증 | OCR 해시 동일 | REJECT |
@@ -384,19 +390,19 @@ month_key = int(occurred_at.astimezone(VN_TZ).strftime("%Y%m"))
 | `integration_type` | v1 동작 |
 |---|---|
 | `INTERNAL` | 즉시 발급. `voucher_code` 는 UUID (뱃지·프로필 프레임 등) |
-| `TELCO` / `GOTIT` / `URBOX` | **Stub 모드**: RP 차감 후 `status='REQUESTED'` 큐 적재. 외부 연동 추가 시 자동 발급 |
+| `TELCO` / `GOTIT` / `URBOX` | **Stub 모드**: XP 차감 후 `status='REQUESTED'` 큐 적재. 외부 연동 추가 시 자동 발급 |
 | `MANUAL` | 차감 후 운영자 알림, 운영자가 수기로 `voucher_code` 입력 → `FULFILLED` |
 
 ### 12.2 교환 트랜잭션 흐름
 
 ```
 1. POST /v1/users/123/redemptions (catalog_id: 42)
-2. Reward Module → 잔액 조회 (≥ required_rp 검증)
-3. RP 차감 트랜잭션 (rp_transaction: REDEEM, -1200)
-4. rp_expiration_schedule FIFO 차감
+2. Reward Module → 잔액 조회 (≥ required_xp 검증)
+3. XP 차감 트랜잭션 (xp_transaction: REDEEM, -1200)
+4. xp_expiration_schedule FIFO 차감
 5. PartnerAdapter.issue_voucher(...)
 6. 성공  → reward_redemption (FULFILLED, voucher_code)
-   실패  → rp_transaction (REFUND, +1200), reward_redemption (FAILED)
+   실패  → xp_transaction (REFUND, +1200), reward_redemption (FAILED)
 7. audit_log INSERT
 8. 응답 (바우처 코드 / 사용 가이드)
 ```
@@ -409,15 +415,15 @@ month_key = int(occurred_at.astimezone(VN_TZ).strftime("%Y%m"))
 
 ```sql
 BEGIN;
-SELECT current_balance FROM rp_balance WHERE user_id = :user_id FOR UPDATE;
+SELECT current_balance FROM xp_balance WHERE user_id = :user_id FOR UPDATE;
 -- 계산
-INSERT INTO rp_transaction ...;
-UPDATE rp_balance SET current_balance = :new ... WHERE user_id = :user_id;
+INSERT INTO xp_transaction ...;
+UPDATE xp_balance SET current_balance = :new ... WHERE user_id = :user_id;
 INSERT INTO audit_log ...;
 COMMIT;
 ```
 
-REDEEM 시에는 `rp_expiration_schedule` 도 같은 트랜잭션에서 `FOR UPDATE`.
+REDEEM 시에는 `xp_expiration_schedule` 도 같은 트랜잭션에서 `FOR UPDATE`.
 
 ### 13.2 정합성 검증 (일 1회 배치, 04:30)
 
@@ -425,16 +431,16 @@ REDEEM 시에는 `rp_expiration_schedule` 도 같은 트랜잭션에서 `FOR UPD
 SELECT user_id,
   SUM(CASE WHEN tx_type IN ('EARN','REFUND','ADJUST_PLUS') THEN amount
            WHEN tx_type IN ('REDEEM','EXPIRE','ADJUST_MINUS') THEN -amount END) AS computed
-FROM rp_transaction
+FROM xp_transaction
 GROUP BY user_id
-HAVING computed != (SELECT current_balance FROM rp_balance WHERE user_id = rp_transaction.user_id);
+HAVING computed != (SELECT current_balance FROM xp_balance WHERE user_id = xp_transaction.user_id);
 ```
 
 불일치 1행이라도 발견 시 알림 → 수동 조사.
 
 ### 13.3 `balance_after` 의 의미
 
-`rp_transaction.balance_after` 는 **트랜잭션 커밋 순서의 잔액**입니다. `occurred_at` 정렬 시점의 잔액과는 다를 수 있음에 주의.
+`xp_transaction.balance_after` 는 **트랜잭션 커밋 순서의 잔액**입니다. `occurred_at` 정렬 시점의 잔액과는 다를 수 있음에 주의.
 
 ---
 
@@ -489,7 +495,7 @@ Path 의 `{user_id}` 와 `X-User-Id` 헤더가 다르면 **403**.
 | `GET` | `/v1/version` | 버전 정보 |
 | `GET` | `/v1/metrics` | Prometheus 메트릭 (내부망) |
 | `POST` | `/v1/events` | 이벤트 발행 (RIDE_KM, QUEST_COMPLETE 등) |
-| `GET` | `/v1/users/{id}/balance` | RP 잔액·등급·30일 내 만료 |
+| `GET` | `/v1/users/{id}/balance` | XP 잔액·등급·30일 내 만료 |
 | `GET` | `/v1/users/{id}/wallet` | GP/GC 잔액 조회 |
 | `GET` | `/v1/users/{id}/transactions` | 거래 내역 |
 | `GET` | `/v1/users/{id}/missions` | 미션 진행도 (status 필터) |
@@ -548,7 +554,7 @@ Content-Type: application/json
 
 ```json
 {
-  "rp_awarded": 7,
+  "xp_awarded": 7,
   "transaction_id": 1234567,
   "diversity_multiplier": 1.4,
   "abuse_penalty": 1.0,
@@ -571,10 +577,10 @@ Nginx 가 `/api/sre/*` → 내부 `/v1/*` 로 rewrite. OpenAPI 스펙은 외부 
 
 | Job | Cron | lock_id | 책임 |
 |---|---|---|---|
-| `expire_rp` | `0 4 * * *` | 1001 | `rp_expiration_schedule` PENDING 중 만료된 행 → EXPIRE 트랜잭션 |
+| `expire_xp` | `0 4 * * *` | 1001 | `xp_expiration_schedule` PENDING 중 만료된 행 → EXPIRE 트랜잭션 |
 | `expire_missions` | `5 4 * * *` | 1002 | `user_mission_progress.expires_at` 경과 → `EXPIRED` |
 | `cleanup_idempotency` | `10 4 * * *` | 1003 | 7일 지난 멱등 키 삭제 |
-| `verify_balance` | `30 4 * * *` | 1004 | `rp_transaction` 합계 ↔ `rp_balance` 정합성 검증 |
+| `verify_balance` | `30 4 * * *` | 1004 | `xp_transaction` 합계 ↔ `xp_balance` 정합성 검증 |
 
 **단일 실행 보장**: PostgreSQL `pg_try_advisory_lock(lock_id)` 으로 N개 인스턴스 동시 기동 시 중복 방지.
 
@@ -598,24 +604,25 @@ async def run_with_lock(lock_id: int, fn):
 | `SRE_SERVICE_API_KEY` | (필수) | BFF ↔ SRE 호출 인증 키 |
 | `SRE_ADMIN_JWT_SECRET` | (필수) | 관리자 JWT 서명 키 |
 | `SRE_TIMEZONE` | `Asia/Ho_Chi_Minh` | 기준 타임존 |
-| `SRE_RP_EXPIRY_MONTHS` | `3` | RP 만료 월수 |
-| `SRE_DAILY_CAP_STANDARD` | `250` | 일반 사용자 일일 RP 상한 |
-| `SRE_DAILY_CAP_DRIVER` | `2000` | 드라이버 일일 RP 상한 |
+| `SRE_XP_EXPIRY_MONTHS` | `3` | XP 만료 월수 |
+| `SRE_DAILY_CAP_STANDARD` | `250` | 일반 사용자 일일 XP 상한 |
+| `SRE_DAILY_CAP_DRIVER` | `2000` | 드라이버 일일 XP 상한 |
 | `SRE_NEW_ACCOUNT_PENALTY_DAYS` | `3` | 신규 패널티 적용일 |
 | `SRE_NEW_ACCOUNT_MULTIPLIER` | `0.5` | 신규 패널티 배율 |
 | `SRE_IDEMPOTENCY_TTL_DAYS` | `7` | 멱등 키 TTL |
+| `SRE_EXP_PER_LEVEL` | `100` | 1레벨당 필요 EXP |
 | `SRE_LOG_LEVEL` | `INFO` | 로그 레벨 |
 | `SRE_METRICS_ENABLED` | `true` | `/v1/metrics` 노출 여부 |
 
-`action_definition.base_rp` 처럼 행동별 값은 환경변수가 아닌 **DB 관리자 API**로 조정합니다.
+`action_definition.base_xp` 처럼 행동별 값은 환경변수가 아닌 **DB 관리자 API**로 조정합니다.
 
 ---
 
 ## 18. 기본 룰 (v1)
 
-### 18.1 행동별 기본 RP
+### 18.1 행동별 기본 XP
 
-| action_code | 설명 | base_rp |
+| action_code | 설명 | base_xp (XP) |
 |---|---|---|
 | `RIDE_KM` | 1km 주행 | 1 |
 | `QUEST_COMPLETE` | 퀘스트 완료 | 50~500 |
@@ -634,11 +641,11 @@ async def run_with_lock(lock_id: int, fn):
 
 | 액션 | 생성되는 row |
 |---|---|
-| EARN | `rp_transaction(EARN)`, `rp_balance` UPDATE, `rp_expiration_schedule(PENDING)`, `audit_log` |
-| REDEEM | `rp_transaction(REDEEM)`, `rp_balance` UPDATE, `rp_expiration_schedule` 차감 N행, `reward_redemption`, `audit_log` |
-| EXPIRE (배치) | `rp_transaction(EXPIRE)`, `rp_balance` UPDATE, `rp_expiration_schedule.status='EXPIRED'`, `audit_log` |
-| REFUND | `rp_transaction(REFUND)`, `rp_balance` UPDATE, `rp_expiration_schedule(PENDING)` 신규 생성, `audit_log` |
-| ADJUST_PLUS / MINUS | `rp_transaction(ADJUST_*)`, `rp_balance` UPDATE, `audit_log` (actor=관리자) |
+| EARN | `xp_transaction(EARN)`, `xp_balance` UPDATE, `xp_expiration_schedule(PENDING)`, `audit_log` |
+| REDEEM | `xp_transaction(REDEEM)`, `xp_balance` UPDATE, `xp_expiration_schedule` 차감 N행, `reward_redemption`, `audit_log` |
+| EXPIRE (배치) | `xp_transaction(EXPIRE)`, `xp_balance` UPDATE, `xp_expiration_schedule.status='EXPIRED'`, `audit_log` |
+| REFUND | `xp_transaction(REFUND)`, `xp_balance` UPDATE, `xp_expiration_schedule(PENDING)` 신규 생성, `audit_log` |
+| ADJUST_PLUS / MINUS | `xp_transaction(ADJUST_*)`, `xp_balance` UPDATE, `audit_log` (actor=관리자) |
 
 ---
 
@@ -651,7 +658,7 @@ async def run_with_lock(lock_id: int, fn):
 | DB | PostgreSQL 15 | `TIMESTAMPTZ` 강제 |
 | 마이그레이션 | Alembic | `database/init/` 는 baseline 후 비활성 |
 | 스케줄러 | APScheduler | v1; v2에서 Celery 검토 |
-| 캐시 | 없음 | `rp_balance`/메모리 lru_cache 로 충분 |
+| 캐시 | 없음 | `xp_balance`/메모리 lru_cache 로 충분 |
 | 로깅 | `structlog` + JSON | |
 | 메트릭 | `prometheus-client` | `/v1/metrics` |
 | 트레이싱 | (v1 미도입) | v2 OpenTelemetry |
@@ -663,30 +670,30 @@ async def run_with_lock(lock_id: int, fn):
 
 ## 20. 트랜잭션 흐름 예시
 
-### 20.1 라이딩 종료 → RP 적립
+### 20.1 라이딩 종료 → XP 적립
 
 ```
 1. 모바일 → BFF (라이딩 결과 업로드)
 2. BFF → POST /v1/events (action=RIDE_KM, distance_km=5.2)
 3. SRE Event Bus → Anti-Abuse 검증 (GPS 속도 OK, 일일 cap 미초과)
-4. base_rp(1) × volume(5.2) × diversity(1.4) × penalty(1.0) = 7.28 → 7
-5. rp_transaction INSERT (+7), rp_balance UPDATE
+4. base_xp(1) × volume(5.2) × diversity(1.4) × penalty(1.0) = 7.28 → 7
+5. xp_transaction INSERT (+7), xp_balance UPDATE
 6. behavior_category_log (RIDING) INSERT
 7. user_mission_progress 갱신 (해당 미션 모두)
 8. user_tier 재평가
 9. audit_log INSERT
-10. 응답: { rp_awarded: 7, transaction_id: ..., diversity_multiplier: 1.4 }
+10. 응답: { xp_awarded: 7, transaction_id: ..., diversity_multiplier: 1.4 }
 ```
 
 ### 20.2 보상 교환
 
 ```
 1. 모바일 → BFF → POST /v1/users/123/redemptions (catalog_id: 42)
-2. Reward Module → 잔액 조회, required_rp(1200) 검증
-3. rp_transaction (REDEEM, -1200) + rp_expiration_schedule FIFO 차감
+2. Reward Module → 잔액 조회, required_xp(1200) 검증
+3. xp_transaction (REDEEM, -1200) + xp_expiration_schedule FIFO 차감
 4. PartnerAdapter.issue_voucher() (INTERNAL → 즉시 / GOTIT → stub 큐)
 5. 성공 → reward_redemption (FULFILLED, voucher_code)
-   실패 → rp_transaction (REFUND, +1200) + reward_redemption (FAILED)
+   실패 → xp_transaction (REFUND, +1200) + reward_redemption (FAILED)
 6. audit_log INSERT
 7. 응답: 바우처 코드 / 사용 가이드
 ```
@@ -709,7 +716,7 @@ async def run_with_lock(lock_id: int, fn):
 ### 모니터링 핵심 지표
 - DAU 대비 이벤트 수 (정상 범위)
 - 평균 다양성 계수 (1.0~1.4 분포)
-- RP 발행량 vs 소진량 (인플레이션 감시)
+- XP 발행량 vs 소진량 (인플레이션 감시)
 - 보상 교환 성공률 (외부 API SLA)
 - `sre_balance_verification_drift` (정합성 불일치 사용자 수)
 
@@ -758,14 +765,14 @@ curl http://localhost:18090/api/sre/health
 
 | # | 항목 | 결정 |
 |---|---|---|
-| 1 | RP 계산식 | `ROUND(base × volume × diversity × penalty)` |
+| 1 | XP 계산식 | `ROUND(base × volume × diversity × penalty)` |
 | 2 | 멀티 이벤트 | 결합하지 않음 (1 이벤트 = 1 트랜잭션) |
-| 3 | NEW_ACCOUNT 페널티 | 최종 RP ×0.5 (3일) |
-| 4 | DAILY_RP_CAP | 초과분은 RP 0으로 PROCESSED |
+| 3 | NEW_ACCOUNT 페널티 | 최종 XP ×0.5 (3일) |
+| 4 | DAILY_XP_CAP | 초과분은 XP 0으로 PROCESSED |
 | 5 | 다양성 계수 단위 | (user_id, month_key) |
 | 6 | 계수 적용 | 실시간 조회 + 비동기 갱신 (첫 카테고리 진입만 동기 UPSERT) |
 | 7 | 월 경계 타임존 | Asia/Ho_Chi_Minh |
-| 8 | RP 만료 | 3개월, FIFO |
+| 8 | XP 만료 | 3개월, FIFO |
 | 9 | 만료 배치 시각 | 매일 베트남 04:00 |
 | 10 | 환불 만료일 | 환불일 기준 3개월 (원본 복원 X) |
 | 11 | 등급 평가 | 매 EARN 직후 동기 |
@@ -860,7 +867,61 @@ docker exec saigon_redis redis-cli XTRIM sre:messages MAXLEN 0
 
 ---
 
-## 26. 참고 문서 (내부)
+## 26. 정책 엔진 (Policy Engine)
+
+GPS 마일리지·레벨업·뱃지 등 **조건 기반 자동 보상**을 관리하는 모듈. `reward_policy` + `reward_policy_action` (1:N) 구조로 관리자 콘솔에서 CRUD.
+
+### 26.1 데이터 흐름
+
+```
+GPS Agent (update_mileage)
+    → sre_user.total_distance_m 갱신
+    → evaluate_policies(user_id)   ← AOP after-returning
+        ├── _check_conditions()    ← policy.conditions JSONB 평가
+        ├── _already_rewarded()    ← user_policy_log + repeat_metric 기반 중복 차단
+        └── _dispatch_action()     ← GRANT_EXP / GRANT_XP / GRANT_GOLD / GRANT_BADGE
+            └── GRANT_EXP → total_exp_granted 갱신 → flush (동일 사이클 내 레벨 변화 감지)
+```
+
+### 26.2 시드 정책 (v1)
+
+| policy_code | 설명 | 조건 | 반복 메트릭 | 간격 |
+|---|---|---|---|---|
+| `MILEAGE_EXP` | 매 1km EXP 10 | `total_distance_m >= 1000` | `total_distance_m` | 1000 |
+| `MILEAGE_XP` | 매 5km XP 30 | `total_distance_m >= 5000` | `total_distance_m` | 5000 |
+| `LEVELUP_REWARD` | 레벨업 시 XP 100 + GOLD 50 | `level >= 2` | `level` | 1 |
+| `BADGE_10KM` | 10km 달성 뱃지 | `total_distance_m >= 10000` | — | 1회성 |
+
+### 26.3 메트릭 기반 반복
+
+`repeat_metric` + `repeat_metric_interval` 로 시간이 아닌 **메트릭 델타** 기반 반복:
+
+```
+last_value = user_policy_log.trigger_snapshot[repeat_metric]
+current_value = _resolve_metric(user, repeat_metric)
+already_rewarded = (current_value - last_value) < repeat_metric_interval
+```
+
+### 26.4 가상 메트릭
+
+| 메트릭 | 원천 | 계산 |
+|---|---|---|
+| `total_distance_m` | `sre_user.total_distance_m` | GPS Agent 누적 |
+| `total_exp_granted` | `sre_user.total_exp_granted` | GRANT_EXP 디스패치 누적 |
+| `level` | 가상 | `total_exp_granted // SRE_EXP_PER_LEVEL` |
+
+### 26.5 화폐 체계 요약
+
+| 화폐 | 용도 | 적립 경로 |
+|---|---|---|
+| **EXP** | 레벨업 (비소비성) | 마일리지 → 정책 GRANT_EXP |
+| **XP** | 보상 교환·상점·가챠 (소비성) | 이벤트·미션·정책 GRANT_XP |
+| **GOLD** | 프리미엄 화폐 (소비성) | 레벨업 보상·정책 GRANT_GOLD |
+| **SXP** | 시즌 전용 (시즌 종료 시 소멸) | 시즌 미션 |
+
+---
+
+## 27. 참고 문서 (내부)
 
 본 페이지는 다음 내부 설계 문서의 공개 요약입니다.
 

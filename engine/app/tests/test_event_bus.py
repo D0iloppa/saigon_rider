@@ -32,12 +32,12 @@ def _make_event_data(**overrides) -> EventCreate:
     return EventCreate(**defaults)
 
 
-def _make_action_def(action_code: str = "RIDE_KM", base_rp: int = 10) -> ActionDefinition:
+def _make_action_def(action_code: str = "RIDE_KM", base_xp: int = 10) -> ActionDefinition:
     ad = ActionDefinition()
     ad.action_code = action_code
     ad.category_code = "RIDING"
     ad.display_name = "Ride KM"
-    ad.base_rp = base_rp
+    ad.base_xp = base_xp
     ad.daily_count_limit = None
     ad.is_active = True
     return ad
@@ -62,7 +62,7 @@ async def test_duplicate_idem_key_with_existing_event(mock_db: AsyncMock):
     orig_event = ActionEvent()
     orig_event.event_id = 42
     orig_event.process_status = EventStatusEnum.PROCESSED
-    orig_event.calculated_rp = Decimal("50")
+    orig_event.calculated_xp = Decimal("50")
     orig_event.applied_multiplier = 1.0
     orig_event.reject_reason_code = None
 
@@ -95,7 +95,7 @@ async def test_unknown_action_code_rejected(mock_db: AsyncMock):
     # _reject_event 내에서 get_or_create_user 호출
     mock_db.execute.return_value = make_execute_result(scalar_one_or_none=None)
 
-    with patch("app.services.event_bus.point_ledger") as mock_ledger:
+    with patch("app.services.event_bus.xp_ledger") as mock_ledger:
         mock_user = _make_sre_user()
         mock_ledger.get_or_create_user = AsyncMock(return_value=mock_user)
 
@@ -104,7 +104,7 @@ async def test_unknown_action_code_rejected(mock_db: AsyncMock):
 
     assert result.process_status == EventStatusEnum.REJECTED
     assert result.reject_reason_code == "UNKNOWN_ACTION"
-    assert result.rp_awarded == 0
+    assert result.xp_awarded == 0
 
 
 # ── _extract_volume ───────────────────────────────────────────────
@@ -130,13 +130,13 @@ def test_build_result_from_event():
     event = ActionEvent()
     event.event_id = 99
     event.process_status = EventStatusEnum.PROCESSED
-    event.calculated_rp = Decimal("120")
+    event.calculated_xp = Decimal("120")
     event.applied_multiplier = 1.2
     event.reject_reason_code = None
 
     result = event_bus._build_result_from_event(event)
 
     assert result.event_id == 99
-    assert result.rp_awarded == 120
+    assert result.xp_awarded == 120
     assert result.applied_multiplier == 1.2
     assert result.reject_reason_code is None

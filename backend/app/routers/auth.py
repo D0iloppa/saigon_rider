@@ -1,13 +1,18 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from passlib.context import CryptContext
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..engine_client import engine_client
 from ..models import User
 from ..schemas import LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, UserOut
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["인증 (Auth)"])
 
@@ -74,6 +79,22 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
 
     return LoginResponse(user=UserOut.model_validate(user))
+
+
+class DeviceMapRequest(BaseModel):
+    device_uuid: str
+    user_id: str
+
+
+@router.post("/device-map", summary="단말-유저 매핑 등록", response_description="매핑 결과")
+async def register_device_map(body: DeviceMapRequest):
+    """로그인 후 단말 UUID와 유저를 매핑. Engine device_user_map UPSERT."""
+    try:
+        result = await engine_client.upsert_device_map(body.device_uuid, body.user_id)
+        return result
+    except Exception as e:
+        log.exception("device-map upsert failed")
+        raise HTTPException(status_code=502, detail="Engine device-map unavailable") from e
 
 
 @router.get("/me", response_model=LoginResponse, summary="유저 조회", response_description="유저 정보")

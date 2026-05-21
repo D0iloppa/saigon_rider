@@ -45,6 +45,46 @@ class NativeInterface {
     return Capacitor.isNativePlatform();
   }
 
+  // ── Native WebView Bridge ───────────────────────────────────────────────
+
+  private postNativeMessage(msg: string): void {
+    try {
+      const w = window as any;
+      if (w.webkit?.messageHandlers?.native) {
+        w.webkit.messageHandlers.native.postMessage(msg);
+      } else if (w.native?.postMessage) {
+        w.native.postMessage(msg);
+      }
+    } catch (e) {
+      console.warn('[NativeInterface] postNativeMessage failed:', e);
+    }
+  }
+
+  getDeviceUUID(): Promise<string> {
+    return new Promise((resolve) => {
+      const handler = (event: MessageEvent) => {
+        if (typeof event.data === 'string' && event.data.length >= 8 && !event.data.includes(',')) {
+          window.removeEventListener('message', handler);
+          resolve(event.data);
+        }
+      };
+      window.addEventListener('message', handler);
+      this.postNativeMessage('getUUID');
+      setTimeout(() => {
+        window.removeEventListener('message', handler);
+        resolve('');
+      }, 3000);
+    });
+  }
+
+  startGPS(): void {
+    this.postNativeMessage('startGPS');
+  }
+
+  stopGPS(): void {
+    this.postNativeMessage('stopGPS');
+  }
+
   // ── Geolocation (@capacitor/geolocation) ────────────────────────────────
 
   async getLocation(): Promise<GeoPosition> {

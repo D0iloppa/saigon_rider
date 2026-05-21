@@ -1,0 +1,96 @@
+.body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.originalCard {
+  background: var(--color-surface, rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.originalTitle {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--color-text-primary, #fff);
+}
+
+.originalBody {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-secondary, rgba(255,255,255,.7));
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.originalMeta {
+  font-size: 12px;
+  color: var(--color-text-secondary, rgba(255,255,255,.4));
+  margin-top: 10px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.badgeOpen { background: rgba(255,165,0,.2); color: #ffa500; }
+.badgeInProgress { background: rgba(100,180,255,.2); color: #64b4ff; }
+.badgeResolved { background: rgba(80,220,120,.2); color: #50dc78; }
+
+.replies {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.replySectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary, rgba(255,255,255,.5));
+  padding: 0 2px;
+}
+
+.replyBubble {
+  max-width: 85%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.replyUser {
+  align-self: flex-start;
+  background: rgba(255,255,255,.07);
+  border-radius: 4px 12px 12px 12px;
+}
+
+.replyAdmin {
+  align-self: flex-end;
+  background: rgba(255,128,85,.15);
+  border: 1px solid rgba(255,128,85,.25);
+  border-radius: 12px 4px 12px 12px;
+}
+
+.replyMeta {
+  font-size: 11px;
+  color: var(--color-text-secondary, rgba(255,255,255,.4));
+  margin-bottom: 4px;
+}
+
+.noReply {
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary, rgba(255,255,255,.35));
+  padding: 24px 0;
+}

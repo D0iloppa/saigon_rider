@@ -1,10 +1,12 @@
+import { emojiUrl } from '@/lib/emoji';
+
 export type RewardType = 'EXP' | 'XP' | 'GOLD' | 'ITEM';
 
-export const REWARD_ICON: Record<RewardType, string> = {
-  EXP:  '⭐',
-  XP:   '💎',
-  GOLD: '🪙',
-  ITEM: '🎁',
+export const REWARD_EMOJI_CODE: Record<RewardType, string> = {
+  EXP:  '2b50',
+  XP:   '1f48e',
+  GOLD: '1fa99',
+  ITEM: '1f381',
 };
 
 export const REWARD_COLOR: Record<RewardType, string> = {
@@ -23,22 +25,20 @@ export const REWARD_LABEL: Record<RewardType, string> = {
 
 interface RewardIconProps {
   type: RewardType;
-  /** 이모지만 표시 (default: true) */
-  iconOnly?: boolean;
   size?: number;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function RewardIcon({ type, iconOnly: _iconOnly = true, size = 20, className, style }: RewardIconProps) {
+export function RewardIcon({ type, size = 20, className, style }: RewardIconProps) {
   return (
-    <span
+    <img
       className={className}
-      style={{ fontSize: size, lineHeight: 1, display: 'inline-block', ...style }}
-      role="img"
-      aria-label={REWARD_LABEL[type]}
-    >
-      {REWARD_ICON[type]}
-    </span>
+      src={emojiUrl(REWARD_EMOJI_CODE[type])}
+      width={size}
+      height={size}
+      alt={REWARD_LABEL[type]}
+      style={{ display: 'inline-block', ...style }}
+    />
   );
 }

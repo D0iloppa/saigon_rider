@@ -78,6 +78,6 @@ title: 전체 아키텍처
 [앱] → POST /api/bff/ride/submit
      → BFF.ride_router → engine_client.post_event()
      → HTTP POST /v1/events (X-Service-Key 포함)
-     → Engine: RIDE_KM 이벤트 처리 → RP 계산 → 응답
+     → Engine: RIDE_KM 이벤트 처리 → XP 계산 → 응답
      → BFF → 앱에 결과 반환
 ```

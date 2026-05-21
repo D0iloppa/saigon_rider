@@ -1,6 +1,6 @@
-"""일배치: 만료된 RP 처리 (베트남 시간 04:00).
+"""일배치: 만료된 XP 처리 (베트남 시간 04:00).
 
-만료 조건: rp_expiration_schedule.expires_at <= NOW()
+만료 조건: xp_expiration_schedule.expires_at <= NOW()
            AND status IN (PENDING, PARTIALLY_USED)
 """
 from __future__ import annotations
@@ -12,28 +12,28 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.enums import ExpireStatusEnum, TxTypeEnum
-from app.models import RpExpirationSchedule, RpTransaction
+from app.models import XpExpirationSchedule, XpTransaction
 
 log = logging.getLogger(__name__)
 
 
 async def run() -> None:
-    log.info("expire_rp job started")
+    log.info("expire_xp job started")
     now = datetime.now(timezone.utc)
     count = 0
 
     async with AsyncSessionLocal() as db:
         schedules = (
             await db.execute(
-                select(RpExpirationSchedule)
+                select(XpExpirationSchedule)
                 .where(
-                    RpExpirationSchedule.status.in_([
+                    XpExpirationSchedule.status.in_([
                         ExpireStatusEnum.PENDING,
                         ExpireStatusEnum.PARTIALLY_USED,
                     ]),
-                    RpExpirationSchedule.expires_at <= now,
+                    XpExpirationSchedule.expires_at <= now,
                 )
-                .order_by(RpExpirationSchedule.user_id, RpExpirationSchedule.expire_id)
+                .order_by(XpExpirationSchedule.user_id, XpExpirationSchedule.expire_id)
                 .with_for_update(skip_locked=True)
             )
         ).scalars().all()
@@ -46,10 +46,10 @@ async def run() -> None:
             if total_expire == 0:
                 continue
 
-            from app.models import RpBalance
+            from app.models import XpBalance
             balance = (
                 await db.execute(
-                    select(RpBalance).where(RpBalance.user_id == user_id).with_for_update()
+                    select(XpBalance).where(XpBalance.user_id == user_id).with_for_update()
                 )
             ).scalar_one_or_none()
             if balance is None:
@@ -58,7 +58,7 @@ async def run() -> None:
             actual_expire = min(total_expire, balance.current_balance)
             new_balance = balance.current_balance - actual_expire
 
-            tx = RpTransaction(
+            tx = XpTransaction(
                 user_id=user_id,
                 tx_type=TxTypeEnum.EXPIRE,
                 amount=actual_expire,
@@ -79,4 +79,4 @@ async def run() -> None:
 
         await db.commit()
 
-    log.info("expire_rp job done: %d schedules expired", count)
+    log.info("expire_xp job done: %d schedules expired", count)

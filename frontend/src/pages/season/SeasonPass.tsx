@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchSeasonPass } from '@/api/season';
 import type { SeasonPass as SeasonPassData, SeasonRewardNode } from '@/api/season';
+import { emojiUrl } from '@/lib/emoji';
 import s from './SeasonPass.module.css';
 
-const REWARD_ICONS: Record<string, string> = {
-  GOLD: '🪙', XP: '💎', ITEM: '🎁', BOX: '📦',
+const REWARD_ICON_CODES: Record<string, string> = {
+  GOLD: '1fa99', XP: '1f48e', ITEM: '1f381', BOX: '1f4e6',
 };
 
 function useCountdown(targetIso: string | undefined) {
@@ -31,8 +32,8 @@ function useCountdown(targetIso: string | undefined) {
 }
 
 function RewardNodeCard({ node, isCurrent }: { node: SeasonRewardNode; isCurrent: boolean }) {
-  const freeIcon = REWARD_ICONS[node.free_reward.type] ?? '🎁';
-  const premIcon = node.premium_reward ? (REWARD_ICONS[node.premium_reward.type] ?? '🎁') : null;
+  const freeCode = REWARD_ICON_CODES[node.free_reward.type] ?? '1f381';
+  const premCode = node.premium_reward ? (REWARD_ICON_CODES[node.premium_reward.type] ?? '1f381') : null;
 
   return (
     <div className={s.node}>
@@ -43,7 +44,7 @@ function RewardNodeCard({ node, isCurrent }: { node: SeasonRewardNode; isCurrent
       {/* free row */}
       <div className={`${s.rewardCard} ${node.is_claimed_free ? s.rewardCardClaimed : ''}`}>
         {node.is_claimed_free && <span className={s.rewardCardClaimedBadge}>✓</span>}
-        <span className={s.rewardIcon}>{freeIcon}</span>
+        <img className={s.rewardIcon} src={emojiUrl(freeCode)} width={20} height={20} alt="" />
         <div
           className={`${s.rewardCardLabel} rarity-chip`}
           data-r={node.free_reward.rarity ?? 'C'}
@@ -54,10 +55,10 @@ function RewardNodeCard({ node, isCurrent }: { node: SeasonRewardNode; isCurrent
       </div>
 
       {/* premium row (or placeholder) */}
-      {premIcon ? (
+      {premCode ? (
         <div className={`${s.rewardCard} ${s.rewardCardPremium} ${node.is_claimed_premium ? s.rewardCardClaimed : ''}`}>
           {node.is_claimed_premium && <span className={s.rewardCardClaimedBadge}>✓</span>}
-          <span className={s.rewardIcon}>{premIcon}</span>
+          <img className={s.rewardIcon} src={emojiUrl(premCode)} width={20} height={20} alt="" />
           <div
             className={`${s.rewardCardLabel} rarity-chip`}
             data-r={node.premium_reward!.rarity ?? 'C'}

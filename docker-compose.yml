@@ -18,6 +18,7 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/docker-entrypoint.d:/docker-entrypoint.d:ro
+      - ./nginx/pages:/etc/nginx/pages:ro
     networks:
       - dev-net
     depends_on:
@@ -91,6 +92,27 @@ services:
       - ADMIN_PASS_HASH=${ADMIN_PASS_HASH}
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-dev_admin_jwt_secret}
       - WIKI_BASE_PATH=${WIKI_BASE_PATH:-/wiki/}
+    restart: unless-stopped
+
+  # ── MCP Dev Server ───────────────────────────────────────
+  # docker compose --profile backend up
+  mcp_dev:
+    build:
+      context: ./mcp_dev
+      dockerfile: Dockerfile
+    container_name: saigon_mcp_dev
+    profiles: [backend]
+    ports:
+      - "${MCP_DEV_PORT:-8095}:8095"
+    volumes:
+      - ./mcp_dev:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
     restart: unless-stopped
 
   # ── Engine (SRE, 신규) ────────────────────────────────────

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { formatDurationShort } from '@/lib/format';
 import type { Quest, SafetyGrade } from '@/api/types';
 import type { RewardResult } from '@/lib/rewards';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './RideResult.module.css';
 
 interface State {
@@ -120,21 +121,21 @@ export default function RideResultSuccess() {
         {/* Rewards */}
         <div className={styles.rewards}>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--exp)' }}>
-            <span className={styles.rewardIcon}>⭐</span>
+            <img className={styles.rewardIcon} src={emojiUrl('2b50')} width={28} height={28} alt="EXP" />
             <div className={styles.rewardLabel}>EXP</div>
             <div className={styles.rewardNum} style={{ color: 'var(--exp)' }}>
               +{data.rewards.expEarned}
             </div>
           </div>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--xp)' }}>
-            <span className={styles.rewardIcon}>✨</span>
+            <img className={styles.rewardIcon} src={emojiUrl('1f48e')} width={28} height={28} alt="XP" />
             <div className={styles.rewardLabel}>{t('ride.xpPointsLabel')}</div>
             <div className={styles.rewardNum} style={{ color: 'var(--xp)' }}>
               +{data.rewards.xpEarned}
             </div>
           </div>
           <div className={styles.rewardRow} style={{ borderColor: 'var(--gold)' }}>
-            <span className={styles.rewardIcon}>🪙</span>
+            <img className={styles.rewardIcon} src={emojiUrl('1fa99')} width={28} height={28} alt="GOLD" />
             <div className={styles.rewardLabel}>GOLD</div>
             <div className={styles.rewardNum} style={{ color: 'var(--gold)' }}>
               +{data.rewards.goldEarned}
@@ -142,7 +143,7 @@ export default function RideResultSuccess() {
           </div>
           {data.rewards.itemsEarned.map((item) => (
             <div key={item.key} className={`${styles.rewardRow} ${styles.itemRow}`}>
-              <span className={styles.rewardIcon}>🎁</span>
+              <img className={styles.rewardIcon} src={emojiUrl('1f381')} width={28} height={28} alt="ITEM" />
               <div className={styles.rewardLabel}>
                 {t('ride.itemEarned', { name: item.name })}
               </div>

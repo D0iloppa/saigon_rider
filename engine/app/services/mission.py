@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import MissionStatusEnum, TxTypeEnum
-from app.models import MissionDefinition, RpTransaction, UserMissionProgress
+from app.models import MissionDefinition, XpTransaction, UserMissionProgress
 
 
 async def update_progress(
@@ -19,7 +19,7 @@ async def update_progress(
     occurred_at: datetime,
     payload: Optional[dict],
     event_id: int,
-) -> list[RpTransaction]:
+) -> list[XpTransaction]:
     """PROCESSED 이벤트 후 해당 user의 활성 미션 진행도를 갱신하고
     완료된 미션에 대한 보상 적립 트랜잭션 리스트를 반환한다."""
     progresses = (
@@ -34,7 +34,7 @@ async def update_progress(
         )
     ).scalars().all()
 
-    reward_txs: list[RpTransaction] = []
+    reward_txs: list[XpTransaction] = []
 
     for prog in progresses:
         mission = await db.get(MissionDefinition, prog.mission_id)
@@ -56,12 +56,12 @@ async def update_progress(
             prog.status = MissionStatusEnum.COMPLETED
             prog.completed_at = occurred_at
 
-            # 미션 보상 적립 (point_ledger.credit 직접 호출 대신 TX 생성)
-            from app.services import point_ledger
-            tx = await point_ledger.credit(
+            # 미션 보상 적립 (xp_ledger.credit 직접 호출 대신 TX 생성)
+            from app.services import xp_ledger
+            tx = await xp_ledger.credit(
                 db,
                 user_id=user_id,
-                amount=mission.reward_rp,
+                amount=mission.reward_xp,
                 source_type="MISSION",
                 source_id=mission.mission_id,
                 related_event_id=event_id,

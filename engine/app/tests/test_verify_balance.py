@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.models import RpBalance
+from app.models import XpBalance
 
 
 # ── 잔액 비교 로직 (jobs/verify_balance.py 핵심 로직 추출) ────────
@@ -63,7 +63,7 @@ def test_positive_diff_mismatch():
 def test_missing_balance_skipped():
     computed = [
         {"user_id": 1, "computed_balance": 100},
-        {"user_id": 99, "computed_balance": 999},  # rp_balance 없는 유저
+        {"user_id": 99, "computed_balance": 999},  # xp_balance 없는 유저
     ]
     balances = {1: 100}
 

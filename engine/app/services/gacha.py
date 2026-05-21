@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enums import GachaStatusEnum
 from app.models import GachaDefinition, GachaPullLog, UserGachaPity
 from app.schemas import GachaEligibility, GachaPullResult, GachaPullResultItem
-from app.services.point_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_user
 
 
 async def list_active(db: AsyncSession) -> list[GachaDefinition]:
@@ -64,7 +64,7 @@ async def check_eligibility(
 
     user = await get_or_create_user(db, user_uuid)
     row = await db.execute(
-        text("SELECT current_balance, COALESCE(gc_balance, 0) FROM rp_balance WHERE user_id = :uid"),
+        text("SELECT current_balance, COALESCE(gc_balance, 0) FROM xp_balance WHERE user_id = :uid"),
         {"uid": user.user_id},
     )
     bal = row.one_or_none()

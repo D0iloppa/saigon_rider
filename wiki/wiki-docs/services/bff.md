@@ -43,7 +43,7 @@ FastAPI 기반 백엔드. 모바일 앱(프론트엔드)의 API 요청을 처리
 | `POST` | `/api/bff/profile/avatar` | 프로필 사진 업로드 및 변경 |
 | `PUT` | `/api/bff/profile/nickname` | 닉네임 변경 |
 | `GET` | `/api/bff/profile/check-nickname` | 닉네임 중복 확인 |
-| `GET` | `/api/bff/profile/{user_id}/rp-balance` | RP 잔액 조회 `{current_balance, lifetime_earned, expiring_in_30d, tier}` |
+| `GET` | `/api/bff/profile/{user_id}/xp-balance` | XP 잔액 조회 `{current_balance, lifetime_earned, expiring_in_30d, tier}` |
 
 ### Quests
 | Method | Path | 설명 |

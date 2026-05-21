@@ -5,6 +5,55 @@
 
 ---
 
+## Task 7: 관리자 보상 정책 관리 UI (2026-05-20) — ✅ DONE
+
+- `backend/app/templates/admin/policies.html` 신규 생성 — 정책 CRUD 전체 UI
+  - 정책 목록 테이블 (코드, 이름, 조건 요약, 액션 수, 우선순위, 반복, 활성 상태)
+  - 모달 폼: 조건 배열 동적 추가/삭제 (metric, op, value), 액션 배열 동적 추가/삭제 (GRANT_RP/EXP/GOLD/BADGE)
+  - 활성/비활성 토글, 삭제(confirm 다이얼로그)
+  - 기존 API 엔드포인트(`/admin/api/sre/policies`) fetch 연동
+- `backend/app/routers/admin.py` — `GET /sre/policies` HTML 핸들러 추가, `_NAV_KEYS`에 `"policies"` 추가
+- `backend/app/templates/admin/_layout.html` — 사이드바에 "보상 정책" 링크 추가
+- 기존 admin 페이지 스타일(배지, 아이템) 패턴 일관성 유지
+
+---
+
+## DEV Context 정리 + 월드맵 기획 등록 (2026-05-20) — ✅ DONE
+
+- IN_PROGRESS Features 7건 전부 DONE 처리 (#3, #4, #41, #42, #44, #45, #46)
+- `current_focus` → "월드맵 페이지 개편 기획", `current_sprint` → "월드맵 개편 Phase 1"
+- Feature #48 등록 (`home`, "월드맵 개편 — 날씨/유가/AQI 정보 허브", PLANNED)
+- 위키 기획문서 카테고리 신설 + 3건 작성 (개요/날씨&AQI/유가)
+- `sidebars.ts`에 기획문서 카테고리 추가
+
+## Redis Streams 메시지 큐 도입 (2026-05-20) — ✅ DONE
+
+- Feature #47 (`infra`): `sre_message_tbl` 직접 INSERT → Redis Streams 버퍼 + Consumer Worker 전환
+- 서브태스크 7건 전부 완료 (Redis 서비스, redis-py, XADD 전환, Consumer Worker, docker-compose, Fallback, 통합 테스트)
+- 태스크: `task/active/260520_redis_message_queue_task.md`
+
+## Capacitor 도입 — NativeInterface 전환 (2026-05-20) — ✅ DONE
+
+- Feature #46 (`infra`): `native.ts` 전면 재작성 (319줄 → ~120줄), Capacitor 플러그인 기반
+- FeedCreate, FeedList 마이그레이션 완료, `vite-env.d.ts` 레거시 타입 제거
+- 태스크: `task/active/260520_capacitor_migration_task.md`
+
+## SRE 게이미피케이션 v2 — 전 서브태스크 완료 (2026-05-18~20) — ✅ DONE
+
+- Features #42, #44, #45 완료 (가챠/상점/시즌 시스템, 아이템 컬렉션, 시즌패스)
+- GAP-H2 6개 API 완료, GAP-H3 5개 UI 컴포넌트 완료, GAP-H4 시즌 시드 완료
+- FAB → Game Hub Sheet 전환, 문서 현행화 전면 완료
+- 태스크: `task/active/260518_sre_upgrade_plan_task.md`
+
+## 프로필 기록/배지 실데이터 연동 (2026-05-19) — ✅ DONE
+
+- 기록 탭: `GET /api/users/me/quest-history` 연동
+- 배지 탭: `GET /api/badges?user_id=` 연동 + 관리자 CRUD
+- 이번 달 통계 카드: `GET /api/users/me/stats` 연동
+- 032 마이그레이션 (badge condition_rule JSONB + 다국어)
+
+---
+
 ## ProfileCard Draggable Sheet + 피드 조회 (2026-05-18, 25차) — 🔧 코드 완료, 실기기 검증 대기
 
 - `ProfileCard.tsx` — BottomSheet 제거 → 커스텀 draggable overlay (createPortal)

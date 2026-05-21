@@ -1,7 +1,7 @@
-"""일배치: RP 잔액 정합성 검증 (베트남 시간 04:30).
+"""일배치: XP 잔액 정합성 검증 (베트남 시간 04:30).
 
-진실: rp_transaction 합계
-캐시: rp_balance.current_balance
+진실: xp_transaction 합계
+캐시: xp_balance.current_balance
 불일치 시 structlog 경고 출력 (수동 조사용).
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ from sqlalchemy import case, func, select, text
 from app.database import AsyncSessionLocal
 from app.enums import TxTypeEnum
 from app.metrics import balance_mismatches_total
-from app.models import RpBalance, RpTransaction
+from app.models import XpBalance, XpTransaction
 
 log = logging.getLogger(__name__)
 
@@ -29,20 +29,20 @@ async def run() -> None:
         computed = (
             await db.execute(
                 select(
-                    RpTransaction.user_id,
+                    XpTransaction.user_id,
                     func.sum(
                         case(
-                            (RpTransaction.tx_type.in_(_EARN_TYPES), RpTransaction.amount),
-                            else_=-RpTransaction.amount,
+                            (XpTransaction.tx_type.in_(_EARN_TYPES), XpTransaction.amount),
+                            else_=-XpTransaction.amount,
                         )
                     ).label("computed_balance"),
-                ).group_by(RpTransaction.user_id)
+                ).group_by(XpTransaction.user_id)
             )
         ).all()
 
         mismatches = []
         for row in computed:
-            balance = await db.get(RpBalance, row.user_id)
+            balance = await db.get(XpBalance, row.user_id)
             if balance is None:
                 continue
             if balance.current_balance != row.computed_balance:

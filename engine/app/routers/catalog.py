@@ -35,7 +35,7 @@ async def list_catalog(
         from app.models import RewardPartner
         query = query.join(RewardPartner).where(RewardPartner.partner_code == partner_code)
 
-    query = query.order_by(RewardCatalog.required_rp.asc()).limit(limit)
+    query = query.order_by(RewardCatalog.required_xp.asc()).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 

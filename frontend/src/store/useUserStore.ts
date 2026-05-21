@@ -3,7 +3,9 @@ import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
 import type { UserDto } from '@/api/auth';
 import { apiGetMe } from '@/api/auth';
+import { apiRegisterDeviceMap } from '@/api/device';
 import i18n, { changeLang } from '@/lib/i18n';
+import { native } from '@/lib/native';
 import { clearSession } from '@/lib/session';
 
 interface UserState {
@@ -62,6 +64,15 @@ export const useUserStore = create<UserState>()(
           isAuthenticated: true,
           ...(passcode !== undefined ? { passcode } : {}),
         });
+
+        if (native.isNative) {
+          native.getDeviceUUID().then((uuid) => {
+            if (uuid) {
+              apiRegisterDeviceMap(uuid, dto.id).catch(() => {});
+              native.startGPS();
+            }
+          });
+        }
       },
 
       refreshUser: async () => {
@@ -94,6 +105,9 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: () => {
+        if (native.isNative) {
+          native.stopGPS();
+        }
         clearSession();
         set({ user: null, passcode: null, isAuthenticated: false });
       },

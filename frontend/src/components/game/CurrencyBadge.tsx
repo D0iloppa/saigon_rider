@@ -1,6 +1,8 @@
+import { emojiUrl } from '@/lib/emoji';
+
 type Currency = 'GOLD' | 'XP' | 'SXP';
 
-const ICON: Record<Currency, string> = { GOLD: '🪙', XP: '💎', SXP: '⚡' };
+const ICON_CODE: Record<Currency, string> = { GOLD: '1fa99', XP: '1f48e', SXP: '26a1' };
 const COLOR: Record<Currency, string> = {
   GOLD: 'var(--gold)',
   XP:   'var(--gc)',
@@ -48,7 +50,7 @@ export function CurrencyBadge({
         lineHeight: 1,
       }}
     >
-      <span style={{ fontSize: 11 }}>{ICON[currency]}</span>
+      <img src={emojiUrl(ICON_CODE[currency])} width={11} height={11} alt="" style={{ display: 'block' }} />
       <span>{fmt(amount)}</span>
       <span
         style={{

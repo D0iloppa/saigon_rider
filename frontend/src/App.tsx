@@ -72,6 +72,8 @@ import NotiSettings from '@/pages/settings/NotiSettings';
 import LangSettings from '@/pages/settings/LangSettings';
 import AccountSettings from '@/pages/settings/AccountSettings';
 import ProfileEdit from '@/pages/settings/ProfileEdit';
+import CustomerSupport from '@/pages/settings/CustomerSupport';
+import SupportDetail from '@/pages/settings/SupportDetail';
 
 // Deep link
 import LinkRouter from '@/pages/link/LinkRouter';
@@ -225,6 +227,8 @@ export default function App() {
           <Route path="/settings/language" element={<PrivateRoute><LangSettings /></PrivateRoute>} />
           <Route path="/settings/account" element={<PrivateRoute><AccountSettings /></PrivateRoute>} />
           <Route path="/settings/profile" element={<PrivateRoute><ProfileEdit /></PrivateRoute>} />
+          <Route path="/settings/support" element={<PrivateRoute><CustomerSupport /></PrivateRoute>} />
+          <Route path="/settings/support/:id" element={<PrivateRoute><SupportDetail /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />

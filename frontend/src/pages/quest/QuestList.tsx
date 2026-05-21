@@ -293,6 +293,16 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
             />
             <span className={styles.rewardNum} style={{ color: 'var(--xp)' }}>+{formatNumber(quest.rewardExp, { compact: true })}</span>
           </span>
+          {quest.rewardGold > 0 && (
+            <span className={styles.rewardItem}>
+              <img
+                src={emojiUrl('1fa99')}
+                width={16} height={16} alt=""
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+              <span className={styles.rewardNum} style={{ color: 'var(--gold)' }}>+{formatNumber(quest.rewardGold, { compact: true })}</span>
+            </span>
+          )}
           {timeLeft && (
             <Chip
               style={{ background: timerStyle.bg, color: timerStyle.color, border: 'none' }}

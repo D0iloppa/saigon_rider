@@ -355,5 +355,23 @@
     "shop": "상점",
     "gacha": "가챠",
     "season": "시즌패스"
+  },
+  "support": {
+    "title": "고객센터",
+    "newTicket": "+ 새 문의 등록",
+    "empty": "등록된 문의가 없습니다.",
+    "fieldTitle": "제목",
+    "fieldBody": "내용",
+    "titlePlaceholder": "문의 제목을 입력하세요",
+    "bodyPlaceholder": "문의 내용을 자세히 입력해주세요",
+    "submit": "문의 등록",
+    "submitting": "등록 중...",
+    "replies": "답변",
+    "noReply": "아직 답변이 등록되지 않았습니다.",
+    "adminLabel": "관리자",
+    "userLabel": "나",
+    "status_open": "접수",
+    "status_in_progress": "처리중",
+    "status_resolved": "해결"
   }
 }

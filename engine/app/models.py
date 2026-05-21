@@ -12,8 +12,8 @@ from app.enums import (
     AcquisitionSourceEnum, BoxStatusEnum, CollectionStatusEnum,
     EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
     IntegrationTypeEnum, ItemRarityEnum, ItemSlotEnum,
-    MissionStatusEnum, RedemptionStatusEnum, SeasonStatusEnum,
-    TxTypeEnum, UserStatusEnum,
+    MissionStatusEnum, RedemptionStatusEnum, RewardActionTypeEnum,
+    SeasonStatusEnum, TxTypeEnum, UserStatusEnum,
 )
 
 # ─────────────────────────────────────────────
@@ -36,9 +36,11 @@ class SreUser(Base):
         Enum(UserStatusEnum, name="user_status_enum", create_type=False),
         nullable=False, default=UserStatusEnum.ACTIVE, server_default="ACTIVE",
     )
+    total_distance_m = Column(BigInteger, nullable=False, default=0, server_default="0")
+    total_exp_granted = Column(BigInteger, nullable=False, default=0, server_default="0")
     created_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
 
-    balance = relationship("RpBalance", back_populates="user", uselist=False, lazy="select")
+    balance = relationship("XpBalance", back_populates="user", uselist=False, lazy="select")
     tier = relationship("UserTier", back_populates="user", uselist=False, lazy="select")
 
 
@@ -48,7 +50,7 @@ class ActionDefinition(Base):
     action_code = Column(String(40), primary_key=True)
     category_code = Column(String(20), nullable=False)
     display_name = Column(String(80), nullable=False)
-    base_rp = Column(Integer, nullable=False, default=0, server_default="0")
+    base_xp = Column(Integer, nullable=False, default=0, server_default="0")
     daily_count_limit = Column(Integer, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     metadata_schema = Column(JSONB, nullable=True)
@@ -64,7 +66,7 @@ class ActionEvent(Base):
     occurred_at = Column(_TS, nullable=False)
     payload = Column(JSONB, nullable=True)
     idempotency_key = Column(String(80), nullable=False, unique=True)
-    calculated_rp = Column(Numeric(12, 2), nullable=False, default=0, server_default="0")
+    calculated_xp = Column(Numeric(12, 2), nullable=False, default=0, server_default="0")
     applied_multiplier = Column(Numeric(4, 2), nullable=False, default=1.00, server_default="1.00")
     process_status = Column(
         Enum(EventStatusEnum, name="event_status_enum", create_type=False),
@@ -88,7 +90,7 @@ class MissionDefinition(Base):
     description = Column(String(500), nullable=True)
     category_code = Column(String(20), nullable=False)
     target_rule = Column(JSONB, nullable=False)
-    reward_rp = Column(Integer, nullable=False)
+    reward_xp = Column(Integer, nullable=False)
     duration_hours = Column(Integer, nullable=True)
     is_repeatable = Column(Boolean, nullable=False, default=False, server_default="false")
     starts_at = Column(_TS, nullable=True)
@@ -136,8 +138,8 @@ class MissionRecommendation(Base):
     __table_args__ = (Index("idx_rec_user_recommended", "user_id", "recommended_at"),)
 
 
-class RpBalance(Base):
-    __tablename__ = "rp_balance"
+class XpBalance(Base):
+    __tablename__ = "xp_balance"
 
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_balance_user"), primary_key=True)
     current_balance = Column(BigInteger, nullable=False, default=0, server_default="0")
@@ -150,8 +152,8 @@ class RpBalance(Base):
     user = relationship("SreUser", back_populates="balance")
 
 
-class RpTransaction(Base):
-    __tablename__ = "rp_transaction"
+class XpTransaction(Base):
+    __tablename__ = "xp_transaction"
 
     transaction_id = Column(BigInteger, Identity(always=True), primary_key=True)
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_tx_user"), nullable=False)
@@ -175,12 +177,12 @@ class RpTransaction(Base):
     )
 
 
-class RpExpirationSchedule(Base):
-    __tablename__ = "rp_expiration_schedule"
+class XpExpirationSchedule(Base):
+    __tablename__ = "xp_expiration_schedule"
 
     expire_id = Column(BigInteger, Identity(always=True), primary_key=True)
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_exp_user"), nullable=False)
-    source_transaction_id = Column(BigInteger, ForeignKey("rp_transaction.transaction_id", name="fk_exp_tx"), nullable=False)
+    source_transaction_id = Column(BigInteger, ForeignKey("xp_transaction.transaction_id", name="fk_exp_tx"), nullable=False)
     remaining_amount = Column(BigInteger, nullable=False)
     expires_at = Column(_TS, nullable=False)
     status = Column(
@@ -225,7 +227,7 @@ class TierDefinition(Base):
 
     tier_code = Column(String(20), primary_key=True)
     tier_name = Column(String(40), nullable=False)
-    min_lifetime_rp = Column(BigInteger, nullable=False, default=0, server_default="0")
+    min_lifetime_xp = Column(BigInteger, nullable=False, default=0, server_default="0")
     min_diversity_count = Column(Integer, nullable=False, default=0, server_default="0")
     sort_order = Column(Integer, nullable=False)
 
@@ -267,7 +269,7 @@ class RewardCatalog(Base):
     item_code = Column(String(60), nullable=False, unique=True)
     item_name = Column(String(120), nullable=False)
     category_code = Column(String(20), nullable=False)
-    required_rp = Column(Integer, nullable=False)
+    required_xp = Column(Integer, nullable=False)
     face_value_vnd = Column(Integer, nullable=True)
     monthly_quota = Column(Integer, nullable=True)
     monthly_issued = Column(Integer, nullable=False, default=0, server_default="0")
@@ -286,7 +288,7 @@ class RewardRedemption(Base):
     redemption_id = Column(BigInteger, Identity(always=True), primary_key=True)
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_red_user"), nullable=False)
     catalog_id = Column(BigInteger, ForeignKey("reward_catalog.catalog_id", name="fk_red_catalog"), nullable=False)
-    rp_transaction_id = Column(BigInteger, ForeignKey("rp_transaction.transaction_id", name="fk_red_tx"), nullable=True)
+    xp_transaction_id = Column(BigInteger, ForeignKey("xp_transaction.transaction_id", name="fk_red_tx"), nullable=True)
     status = Column(
         Enum(RedemptionStatusEnum, name="redemption_status_enum", create_type=False),
         nullable=False, default=RedemptionStatusEnum.REQUESTED, server_default="REQUESTED",
@@ -748,4 +750,95 @@ class ShopPurchaseLog(Base):
     __table_args__ = (
         Index("idx_shop_log_user", "user_id", purchased_at.desc()),
         Index("idx_shop_log_item", "item_code", purchased_at.desc()),
+    )
+
+
+# ─────────────────────────────────────────────
+# 단말-유저 매핑 & 마일리지 & 보상 정책 엔진
+# ─────────────────────────────────────────────
+
+
+class DeviceUserMap(Base):
+    __tablename__ = "device_user_map"
+
+    device_uuid = Column(String(128), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
+    logged_in_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+
+    __table_args__ = (
+        Index("idx_device_user_map_user", "user_id"),
+    )
+
+
+class UserMileageLog(Base):
+    __tablename__ = "user_mileage_log"
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
+    distance_m = Column(Numeric(12, 2), nullable=False)
+    device_uuid = Column(Text, nullable=True)
+    recorded_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+
+    __table_args__ = (
+        Index("idx_mileage_log_user_ts", "user_id", recorded_at.desc()),
+    )
+
+
+class RewardPolicy(Base):
+    __tablename__ = "reward_policy"
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    policy_code = Column(String(60), nullable=False, unique=True)
+    name = Column(String(120), nullable=False)
+    description = Column(Text, nullable=True)
+    conditions = Column(JSONB, nullable=False, server_default="[]")
+    is_repeatable = Column(Boolean, nullable=False, default=False, server_default="false")
+    repeat_interval = Column(BigInteger, nullable=True)
+    repeat_metric = Column(String(40), nullable=True)
+    repeat_metric_interval = Column(BigInteger, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    priority = Column(Integer, nullable=False, default=0, server_default="0")
+    created_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+    updated_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+
+    actions = relationship("RewardPolicyAction", back_populates="policy", lazy="select",
+                           order_by="RewardPolicyAction.sort_order")
+
+    __table_args__ = (
+        Index("idx_reward_policy_active", "is_active", "priority",
+              postgresql_where=(is_active.is_(True))),
+    )
+
+
+class RewardPolicyAction(Base):
+    __tablename__ = "reward_policy_action"
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    policy_id = Column(BigInteger, ForeignKey("reward_policy.id", ondelete="CASCADE"), nullable=False)
+    action_type = Column(
+        Enum(RewardActionTypeEnum, name="reward_action_type_enum", create_type=False),
+        nullable=False,
+    )
+    value = Column(Integer, nullable=False, default=0, server_default="0")
+    ref_id = Column(String(64), nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
+
+    policy = relationship("RewardPolicy", back_populates="actions")
+
+    __table_args__ = (
+        Index("idx_policy_action_policy", "policy_id", "sort_order"),
+    )
+
+
+class UserPolicyLog(Base):
+    __tablename__ = "user_policy_log"
+
+    id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
+    policy_id = Column(BigInteger, ForeignKey("reward_policy.id"), nullable=False)
+    trigger_snapshot = Column(JSONB, nullable=True)
+    rewarded_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+
+    __table_args__ = (
+        Index("idx_policy_log_user_policy", "user_id", "policy_id", rewarded_at.desc()),
     )

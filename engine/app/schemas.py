@@ -37,7 +37,7 @@ class EventCreate(BaseModel):
 class EventResult(BaseModel):
     event_id: Optional[int]
     process_status: EventStatusEnum
-    rp_awarded: int
+    xp_awarded: int
     applied_multiplier: float
     diversity_multiplier: float
     transaction_id: Optional[int] = None
@@ -51,7 +51,7 @@ class EventRead(BaseModel):
     occurred_at: datetime
     payload: Optional[dict[str, Any]] = None
     idempotency_key: str
-    calculated_rp: float
+    calculated_xp: float
     applied_multiplier: float
     process_status: EventStatusEnum
     reject_reason_code: Optional[str] = None
@@ -119,7 +119,7 @@ class MissionDefinitionRead(BaseModel):
     description: Optional[str] = None
     category_code: str
     target_rule: dict[str, Any]
-    reward_rp: int
+    reward_xp: int
     duration_hours: Optional[int] = None
     is_repeatable: bool
     starts_at: Optional[datetime] = None
@@ -151,7 +151,7 @@ class CatalogItemRead(BaseModel):
     item_code: str
     item_name: str
     category_code: str
-    required_rp: int
+    required_xp: int
     face_value_vnd: Optional[int] = None
     monthly_quota: Optional[int] = None
     monthly_issued: int
@@ -171,7 +171,7 @@ class RedemptionRead(BaseModel):
     redemption_id: int
     user_id: int
     catalog: CatalogItemRead
-    rp_transaction_id: Optional[int] = None
+    xp_transaction_id: Optional[int] = None
     status: RedemptionStatusEnum
     voucher_code: Optional[str] = None
     requested_at: datetime
@@ -187,7 +187,7 @@ class RedemptionRead(BaseModel):
 class TierDefinitionRead(BaseModel):
     tier_code: str
     tier_name: str
-    min_lifetime_rp: int
+    min_lifetime_xp: int
     min_diversity_count: int
     sort_order: int
 

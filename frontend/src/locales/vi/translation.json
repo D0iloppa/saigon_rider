@@ -355,5 +355,23 @@
     "shop": "Cửa hàng",
     "gacha": "Gacha",
     "season": "Season Pass"
+  },
+  "support": {
+    "title": "Hỗ trợ",
+    "newTicket": "+ Gửi câu hỏi mới",
+    "empty": "Chưa có câu hỏi nào.",
+    "fieldTitle": "Tiêu đề",
+    "fieldBody": "Nội dung",
+    "titlePlaceholder": "Nhập tiêu đề câu hỏi",
+    "bodyPlaceholder": "Mô tả chi tiết vấn đề của bạn",
+    "submit": "Gửi câu hỏi",
+    "submitting": "Đang gửi...",
+    "replies": "Phản hồi",
+    "noReply": "Chưa có phản hồi.",
+    "adminLabel": "Quản trị viên",
+    "userLabel": "Tôi",
+    "status_open": "Đã nhận",
+    "status_in_progress": "Đang xử lý",
+    "status_resolved": "Đã giải quyết"
   }
 }

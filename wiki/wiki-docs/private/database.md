@@ -130,7 +130,7 @@ psql -h localhost -p 5435 -U saigon -d saigon_rider
 `(user_id, quest_id, period_key)` UNIQUE 인덱스 (`WHERE status='COMPLETED'`) — 같은 기간에 같은 퀘스트 중복 완료 차단. accept 시 이미 COMPLETED 레코드 존재하면 409 반환.
 :::
 
-### point_ledger (Engine 관리)
+### xp_ledger (Engine 관리, 구 point_ledger)
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
 | `id` | UUID PK | 레코드 ID |

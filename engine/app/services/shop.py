@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import DailyFeaturedItem, ItemDefinition, SreUser, UserItem
 from app.schemas import ShopPurchaseResult
-from app.services.point_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_user
 
 
 async def list_shop_items(

@@ -5,6 +5,16 @@ const sidebars: SidebarsConfig = {
     'intro',
     {
       type: 'category',
+      label: '기획문서',
+      collapsed: false,
+      items: [
+        'planning/world-map-overview',
+        'planning/world-map-weather',
+        'planning/world-map-fuel',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Services',
       items: [
         'services/overview',
@@ -20,6 +30,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'private/architecture',
         'private/database',
+        'private/server-spec',
         {
           type: 'category',
           label: 'Test / QA',

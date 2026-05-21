@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enums import RedemptionStatusEnum, TxTypeEnum
 from app.exceptions import InsufficientBalanceError, RewardUnavailableError
 from app.models import RewardCatalog, RewardRedemption, SreUser
-from app.services import point_ledger
+from app.services import xp_ledger
 
 
 async def redeem(
@@ -38,10 +38,10 @@ async def redeem(
         raise RewardUnavailableError("Monthly quota exceeded")
 
     # 잔액 검사
-    balance = await point_ledger.lock_balance(db, user.user_id)
-    if balance.current_balance < catalog.required_rp:
+    balance = await xp_ledger.lock_balance(db, user.user_id)
+    if balance.current_balance < catalog.required_xp:
         raise InsufficientBalanceError(
-            f"Required {catalog.required_rp} RP but balance is {balance.current_balance}"
+            f"Required {catalog.required_xp} XP but balance is {balance.current_balance}"
         )
 
     # 어댑터 선택 및 바우처 발급
@@ -55,10 +55,10 @@ async def redeem(
     )
 
     # RP 차감
-    tx = await point_ledger.debit(
+    tx = await xp_ledger.debit(
         db,
         user_id=user.user_id,
-        amount=catalog.required_rp,
+        amount=catalog.required_xp,
         source_type="REDEMPTION",
         source_id=catalog_id,
         memo=f"교환: {catalog.item_name}",
@@ -72,7 +72,7 @@ async def redeem(
     redemption = RewardRedemption(
         user_id=user.user_id,
         catalog_id=catalog_id,
-        rp_transaction_id=tx.transaction_id,
+        xp_transaction_id=tx.transaction_id,
         status=(
             RedemptionStatusEnum.FULFILLED
             if voucher.voucher_code else RedemptionStatusEnum.REQUESTED
@@ -95,7 +95,7 @@ async def redeem(
         action_code="REDEEM",
         after={
             "catalog_id": catalog_id,
-            "rp_spent": catalog.required_rp,
+            "xp_spent": catalog.required_xp,
             "status": redemption.status.value,
         },
     )

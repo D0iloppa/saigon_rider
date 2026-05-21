@@ -10,6 +10,7 @@ import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/inf
 import { formatNumber } from '@/lib/format';
 import type { Quest } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
+import { emojiUrl } from '@/lib/emoji';
 import styles from './WorldMap.module.css';
 
 export default function WorldMap() {
@@ -89,7 +90,7 @@ export default function WorldMap() {
         </div>
         <div className={styles.headerRight}>
           <div className={styles.goldBadge}>
-            <span className={styles.goldEmoji}>🪙</span>
+            <img src={emojiUrl('1fa99')} width={18} height={18} alt="" style={{ display: 'block' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <span className={`mono ${styles.goldValue}`}>{formatNumber(gold)}</span>
           </div>
           <div className={styles.avatarCircle}>
@@ -175,10 +176,16 @@ export default function WorldMap() {
               </div>
               <div className={styles.missionRewards}>
                 {todayQuest.rewardGold > 0 && (
-                  <span className={styles.rewardChip}>🪙 +{formatNumber(todayQuest.rewardGold)} Gold</span>
+                  <span className={styles.rewardChip}>
+                    <img src={emojiUrl('1fa99')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    +{formatNumber(todayQuest.rewardGold)} Gold
+                  </span>
                 )}
                 {todayQuest.rewardXpPoints > 0 && (
-                  <span className={styles.rewardChip}>XP +{formatNumber(todayQuest.rewardXpPoints)}</span>
+                  <span className={styles.rewardChip}>
+                    <img src={emojiUrl('1f48e')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    XP +{formatNumber(todayQuest.rewardXpPoints)}
+                  </span>
                 )}
               </div>
             </button>

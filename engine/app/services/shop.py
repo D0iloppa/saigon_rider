@@ -6,6 +6,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.enums import ItemSlotEnum
 from app.models import DailyFeaturedItem, ItemDefinition, SreUser, UserItem
 from app.schemas import ShopPurchaseResult
 from app.services.xp_ledger import get_or_create_user
@@ -29,6 +30,9 @@ async def list_shop_items(
     if rarity:
         query = query.where(ItemDefinition.rarity == rarity)
     if slot:
+        # 알 수 없는 슬롯(폐기된 구 enum 값 등)은 빈 결과 반환 — invalid enum 으로 인한 500 방지
+        if slot not in ItemSlotEnum.__members__:
+            return []
         query = query.where(ItemDefinition.slot == slot)
 
     query = query.order_by(

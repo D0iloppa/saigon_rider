@@ -9,20 +9,21 @@ import { ItemName } from '@/components/ui/items/ItemName';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './ShopCatalog.module.css';
 
-const SLOT_FILTERS = ['all', 'HELMET', 'JACKET', 'BODY_PAINT', 'WHEEL', 'EXHAUST', 'DECAL'] as const;
-const SLOT_I18N: Record<string, string> = {
-  all: 'shop.filter_all',
-  HELMET: 'equipPreview.tab_rider',
-  JACKET: 'equipPreview.tab_rider',
-  BODY_PAINT: 'equipPreview.tab_bike',
-  WHEEL: 'equipPreview.tab_bike',
-  EXHAUST: 'equipPreview.tab_bike',
-  DECAL: 'equipPreview.tab_effect',
-};
-const SLOT_LABEL: Record<string, string> = {
-  all: 'All', HELMET: 'Helmet', JACKET: 'Jacket', BODY_PAINT: 'Paint',
-  WHEEL: 'Wheel', EXHAUST: 'Exhaust', DECAL: 'Decal',
-};
+// 신규 슬롯 23종 (item_slot_enum 과 일치) — 'all' 은 전체. 라벨은 api/shop 의 slotLabel() 사용.
+const SLOT_FILTERS = [
+  'all',
+  // 오토바이
+  'MOTORCYCLE_BODY', 'SEAT', 'STICKER', 'HANDLEBAR', 'TAIL_LIGHT', 'ENGINE_COVER',
+  'HEADLIGHT', 'MIRROR', 'NUMBER',
+  // 라이더
+  'GLOVES', 'BOOTS', 'EYEWEAR', 'NAMEPLATE',
+  // 프로필
+  'RANK_CARD', 'FRAME', 'BACKDROP', 'TITLE',
+  // 이펙트
+  'TRAIL', 'HORN', 'START_ANIM',
+  // 소셜
+  'EMOTE', 'BANNER', 'PET',
+] as const;
 
 function useCountdown(targetIso: string) {
   const [remaining, setRemaining] = useState('');

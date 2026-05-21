@@ -102,12 +102,13 @@ const MOCK_SHOP_ITEMS: ShopItem[] = [
 ];
 
 const SLOT_LABELS: Record<string, string> = {
-  HELMET: 'Helmet', JACKET: 'Jacket', GLOVES: 'Gloves', BOOTS: 'Boots',
-  EYEWEAR: 'Eyewear', NAMEPLATE: 'Nameplate',
-  BODY_PAINT: 'Paint', WHEEL: 'Wheel', EXHAUST: 'Exhaust',
-  HEADLIGHT: 'Headlight', MIRROR: 'Mirror', DECAL: 'Decal', NUMBER_PLATE: 'Number Plate',
-  FRAME: 'Frame', BACKDROP: 'Backdrop',
-  TITLE_BANNER: 'Title', TRAIL: 'Trail', HORN: 'Horn',
+  MOTORCYCLE_BODY: 'Body', SEAT: 'Seat', STICKER: 'Sticker', RANK_CARD: 'Rank Card',
+  HANDLEBAR: 'Handlebar', TAIL_LIGHT: 'Tail Light', ENGINE_COVER: 'Engine Cover',
+  HEADLIGHT: 'Headlight', MIRROR: 'Mirror', NUMBER: 'Number',
+  GLOVES: 'Gloves', BOOTS: 'Boots', EYEWEAR: 'Eyewear', NAMEPLATE: 'Nameplate',
+  FRAME: 'Frame', BACKDROP: 'Backdrop', TITLE: 'Title',
+  TRAIL: 'Trail', HORN: 'Horn', START_ANIM: 'Start',
+  EMOTE: 'Emote', BANNER: 'Banner', PET: 'Pet',
 };
 
 export function slotLabel(slot: string): string {

@@ -14,6 +14,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import UserFavoriteLocation, WeatherCache
+from ..utils import find_district_by_point
 
 log = logging.getLogger(__name__)
 
@@ -28,35 +29,10 @@ _TTL_FORECAST_24H = int(os.getenv("WEATHER_CACHE_TTL_FORECAST_24H", "3600"))
 
 _DEPTH_LABEL = {"ankle": "발목", "knee": "무릎", "thigh": "허벅지", "above": "그 이상"}
 
-# 호치민 District 경계 (간략화 bbox)
-_HCM_DISTRICTS: dict[str, dict] = {
-    "Q1": {"lat_min": 10.762, "lat_max": 10.790, "lng_min": 10.695, "lng_max": 106.716},
-    "Q3": {"lat_min": 10.770, "lat_max": 10.795, "lng_min": 106.672, "lng_max": 106.695},
-    "Q4": {"lat_min": 10.748, "lat_max": 10.772, "lng_min": 106.696, "lng_max": 106.722},
-    "Q5": {"lat_min": 10.746, "lat_max": 10.768, "lng_min": 106.655, "lng_max": 106.683},
-    "Q7": {"lat_min": 10.718, "lat_max": 10.750, "lng_min": 106.697, "lng_max": 106.748},
-    "BinhThanh": {"lat_min": 10.793, "lat_max": 10.830, "lng_min": 106.685, "lng_max": 106.725},
-    "PhuNhuan": {"lat_min": 10.785, "lat_max": 10.806, "lng_min": 106.663, "lng_max": 106.685},
-    "GoVap": {"lat_min": 10.818, "lat_max": 10.865, "lng_min": 106.651, "lng_max": 106.695},
-    "ThuDuc": {"lat_min": 10.818, "lat_max": 10.890, "lng_min": 106.715, "lng_max": 106.808},
-    "TanBinh": {"lat_min": 10.789, "lat_max": 10.820, "lng_min": 106.629, "lng_max": 106.666},
-    "TanPhu": {"lat_min": 10.773, "lat_max": 10.795, "lng_min": 106.616, "lng_max": 106.650},
-    "Q6": {"lat_min": 10.742, "lat_max": 10.773, "lng_min": 106.626, "lng_max": 106.663},
-    "Q8": {"lat_min": 10.724, "lat_max": 10.754, "lng_min": 106.641, "lng_max": 106.696},
-    "BinhChanh": {"lat_min": 10.650, "lat_max": 10.730, "lng_min": 106.560, "lng_max": 106.680},
-}
-
 
 def _grid_code(lat: float, lng: float) -> str:
     """1km 그리드 코드 (캐시 키). 좌표를 0.01도 단위로 스냅."""
     return f"{round(lat, 2)}_{round(lng, 2)}"
-
-
-def _find_district(lat: float, lng: float) -> str:
-    for code, b in _HCM_DISTRICTS.items():
-        if b["lat_min"] <= lat <= b["lat_max"] and b["lng_min"] <= lng <= b["lng_max"]:
-            return code
-    return _grid_code(lat, lng)
 
 
 def _condition_emoji(condition: str) -> str:
@@ -211,7 +187,7 @@ async def get_weather(
     user_id: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
-    district = _find_district(lat, lng)
+    district = await find_district_by_point(db, lat, lng) or _grid_code(lat, lng)
     api_key = await _get_api_key()
 
     # Current weather

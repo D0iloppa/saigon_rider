@@ -12,6 +12,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import FloodConfirmation, FloodReport
+from ..utils import find_district_by_point
 
 router = APIRouter(prefix="/info/flood", tags=["Info — 침수"])
 
@@ -59,30 +60,6 @@ async def _expire_stale(db: AsyncSession) -> None:
 
 
 # ── District lookup ─────────────────────────────────────────────────────────
-
-_HCM_DISTRICTS: dict[str, dict] = {
-    "Q1": {"lat_min": 10.762, "lat_max": 10.790, "lng_min": 106.695, "lng_max": 106.716},
-    "Q3": {"lat_min": 10.770, "lat_max": 10.795, "lng_min": 106.672, "lng_max": 106.695},
-    "Q4": {"lat_min": 10.748, "lat_max": 10.772, "lng_min": 106.696, "lng_max": 106.722},
-    "Q5": {"lat_min": 10.746, "lat_max": 10.768, "lng_min": 106.655, "lng_max": 106.683},
-    "Q7": {"lat_min": 10.718, "lat_max": 10.750, "lng_min": 106.697, "lng_max": 106.748},
-    "BinhThanh": {"lat_min": 10.793, "lat_max": 10.830, "lng_min": 106.685, "lng_max": 106.725},
-    "PhuNhuan": {"lat_min": 10.785, "lat_max": 10.806, "lng_min": 106.663, "lng_max": 106.685},
-    "GoVap": {"lat_min": 10.818, "lat_max": 10.865, "lng_min": 106.651, "lng_max": 106.695},
-    "ThuDuc": {"lat_min": 10.818, "lat_max": 10.890, "lng_min": 106.715, "lng_max": 106.808},
-    "TanBinh": {"lat_min": 10.789, "lat_max": 10.820, "lng_min": 106.629, "lng_max": 106.666},
-    "TanPhu": {"lat_min": 10.773, "lat_max": 10.795, "lng_min": 106.616, "lng_max": 106.650},
-    "Q6": {"lat_min": 10.742, "lat_max": 10.773, "lng_min": 106.626, "lng_max": 106.663},
-    "Q8": {"lat_min": 10.724, "lat_max": 10.754, "lng_min": 106.641, "lng_max": 106.696},
-    "BinhChanh": {"lat_min": 10.650, "lat_max": 10.730, "lng_min": 106.560, "lng_max": 106.680},
-}
-
-
-def _find_district(lat: float, lng: float) -> str:
-    for code, b in _HCM_DISTRICTS.items():
-        if b["lat_min"] <= lat <= b["lat_max"] and b["lng_min"] <= lng <= b["lng_max"]:
-            return code
-    return f"{round(lat, 2)}_{round(lng, 2)}"
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
@@ -196,7 +173,7 @@ async def report_flood(
 ):
     await _check_abuse(db, user_id, body.lat, body.lng)
 
-    district = _find_district(body.lat, body.lng)
+    district = await find_district_by_point(db, body.lat, body.lng) or f"{round(body.lat, 2)}_{round(body.lng, 2)}"
     expires_at = datetime.now(UTC) + timedelta(hours=6)
 
     report = FloodReport(

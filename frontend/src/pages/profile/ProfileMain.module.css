@@ -323,6 +323,279 @@
   margin-top: 2px;
 }
 
+/* Garage Banner */
+.garageBanner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.garageBanner:active { transform: scale(.98); }
+
+.garageIconWrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #FF7438, #B82C08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255, 90, 31, .25);
+}
+
+.garageIconWrapEmpty {
+  composes: garageIconWrap;
+  background: linear-gradient(135deg, #8A8E9E, #6B6478);
+}
+
+.garageInfo { flex: 1; min-width: 0; }
+
+.garageTitle {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.garageBadge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--brand-50);
+  color: var(--brand-500);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.garageEquipped {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.garageItemThumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.garageItemRare { composes: garageItemThumb; border-color: #60A5FA; box-shadow: 0 2px 6px rgba(59, 130, 246, .2); }
+.garageItemEpic { composes: garageItemThumb; border-color: #A78BFA; box-shadow: 0 2px 6px rgba(139, 92, 246, .2); }
+.garageItemLegend { composes: garageItemThumb; border-color: #FF9966; box-shadow: 0 2px 6px rgba(255, 116, 56, .2); }
+.garageItemMythic { composes: garageItemThumb; border-color: #FF5A1F; box-shadow: 0 2px 6px rgba(255, 90, 31, .3); }
+
+.garageItemEmpty {
+  composes: garageItemThumb;
+  opacity: .35;
+  border-style: dashed;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.garageEmptyHint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.garageArrow {
+  font-size: 18px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+/* Odometer Card */
+.odometerCard {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 18px 18px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.odometerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.odometerTitle {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.odometerTierBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: .02em;
+}
+
+.odometerBig {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.odometerNum {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1;
+}
+
+.odometerUnit {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+.odometerSubtitle {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.odometerProgress { margin-bottom: 12px; }
+
+.odometerBarWrap {
+  height: 10px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.odometerBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .6s cubic-bezier(.2, .8, .2, 1);
+  position: relative;
+}
+
+.odometerBarFill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: inherit;
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+
+.odometerBarLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.odometerBarLabel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.odometerBarLabelCurrent { composes: odometerBarLabel; color: var(--text); }
+.odometerBarLabelNext { composes: odometerBarLabel; color: var(--brand-500); }
+
+.tierMilestones {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tierMilestones::-webkit-scrollbar { display: none; }
+
+.tierMilestone {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  transition: all .2s;
+}
+
+.tierMilestoneAchieved {
+  composes: tierMilestone;
+  background: var(--brand-50);
+  border-color: var(--brand-300);
+  color: var(--brand-700);
+}
+
+.tierMilestoneCurrent {
+  composes: tierMilestone;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 1px var(--brand-500);
+}
+
+.tierMilestoneAchievedCurrent {
+  composes: tierMilestone;
+  background: var(--brand-50);
+  border-color: var(--brand-500);
+  color: var(--brand-700);
+  box-shadow: 0 0 0 1px var(--brand-500);
+}
+
+.tierIcon { font-size: 14px; }
+
+.tierName {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.tierKm {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  color: var(--text-3);
+}
+
 /* Stats */
 .statsCard {
   background: var(--surface);

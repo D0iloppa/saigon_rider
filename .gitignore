@@ -3,6 +3,12 @@
 # =============================================================
 .env
 *.local
+id_ed25519*
+id_rsa*
+*.pem
+id_ed25519*
+id_rsa*
+*.pem
 
 # =============================================================
 # Docker volumes / generated data
@@ -68,3 +74,8 @@ contents/user-contents/*
 # =============================================================
 #GUIDELINE.md
 #docs/
+
+# SSH keys / secrets
+id_ed25519*
+id_rsa*
+*.pem

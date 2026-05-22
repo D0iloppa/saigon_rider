@@ -10,7 +10,10 @@ import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/inf
 import { formatNumber } from '@/lib/format';
 import type { Quest } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
+import { LevelBadge } from '@/components/ui/LevelBadge';
 import { emojiUrl } from '@/lib/emoji';
+import { expToNextLevel } from '@/lib/rewards';
+import DistrictMap from './DistrictMap';
 import styles from './WorldMap.module.css';
 
 export default function WorldMap() {
@@ -22,7 +25,8 @@ export default function WorldMap() {
   const [loading, setLoading] = useState(true);
   const [gold, setGold] = useState(0);
   const [xp, setXp] = useState(0);
-  const [totalRides, setTotalRides] = useState(0);
+  const [monthlyKm, setMonthlyKm] = useState(0);
+  const [userDistrictCode, setUserDistrictCode] = useState<string | null>(null);
   const didInit = useRef(false);
 
   const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
@@ -48,7 +52,9 @@ export default function WorldMap() {
       setXp(w.xp_balance);
     }).catch(() => {});
     if (uid) {
-      fetchUserStats(uid).then((s) => setTotalRides(s.quest_count)).catch(() => {});
+      fetchUserStats(uid).then((s) => {
+        setMonthlyKm(Math.round(Number(s.total_km)));
+      }).catch(() => {});
     }
   }, [refreshUser]);
 
@@ -58,7 +64,7 @@ export default function WorldMap() {
       (p) => {
         const la = p.coords.latitude, lo = p.coords.longitude;
         Promise.allSettled([
-          weatherApi.get(la, lo).then(setInfoWeather),
+          weatherApi.get(la, lo).then((w) => { setInfoWeather(w); setUserDistrictCode(w.location?.district ?? null); }),
           floodApi.getActive(la, lo, 5).then((r) => setInfoFloods(r.floods)),
           gasApi.getNearby(la, lo, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
           repairApi.getNearby(la, lo, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
@@ -66,7 +72,7 @@ export default function WorldMap() {
       },
       () => {
         Promise.allSettled([
-          weatherApi.get(lat, lng).then(setInfoWeather),
+          weatherApi.get(lat, lng).then((w) => { setInfoWeather(w); setUserDistrictCode(w.location?.district ?? null); }),
           floodApi.getActive(lat, lng, 5).then((r) => setInfoFloods(r.floods)),
           gasApi.getNearby(lat, lng, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
           repairApi.getNearby(lat, lng, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
@@ -84,20 +90,24 @@ export default function WorldMap() {
 
   return (
     <div className={styles.root}>
-      {/* ── Simple Header ── */}
+      {/* ── Profile Header ── */}
+      {(() => {
+        const MONTHLY_KM_GOAL = 500;
+        const ringPct = Math.min(monthlyKm / MONTHLY_KM_GOAL, 1);
+        const RING_R = 28;
+        const RING_C = 2 * Math.PI * RING_R;
+        return (
       <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <div className={styles.greetText}>{t('home.greet')}</div>
-          <div className={styles.userName}>{user.nickname}</div>
-        </div>
-        <div className={styles.headerRight}>
-          <div className={styles.walletBadge}>
-            <img src={emojiUrl('1fa99')} width={16} height={16} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-            <span className={`mono ${styles.goldValue}`}>{formatNumber(gold)}</span>
-            <span className={styles.walletDivider} />
-            <img src={emojiUrl('1f48e')} width={16} height={16} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-            <span className={`mono ${styles.xpValue}`}>{formatNumber(xp)}</span>
-          </div>
+        <div className={styles.avatarWrap} onClick={() => navigate('/profile')}>
+          <svg className={styles.ring} viewBox="0 0 64 64" aria-hidden>
+            <circle cx="32" cy="32" r={RING_R} className={styles.ringTrack} />
+            <circle
+              cx="32" cy="32" r={RING_R}
+              className={styles.ringFill}
+              strokeDasharray={`${ringPct * RING_C} ${RING_C}`}
+              transform="rotate(-90 32 32)"
+            />
+          </svg>
           <div className={styles.avatarCircle}>
             {user.avatarUrl ? (
               <AppImage src={user.avatarUrl} alt="" className={styles.avatar} variant="circle" />
@@ -105,8 +115,38 @@ export default function WorldMap() {
               <span className={styles.avatarLetter}>{user.nickname.charAt(0).toUpperCase()}</span>
             )}
           </div>
+          <LevelBadge level={user.level} className={styles.levelOverlay} />
+          <div className={styles.mileageLabel}>
+            <span className={`mono ${styles.mileageValue}`}>{formatNumber(monthlyKm)}</span>
+            <span className={styles.mileageUnit}>km</span>
+          </div>
+        </div>
+        <div className={styles.headerInfo}>
+          <div className={styles.headerTop}>
+            <div className={styles.userName}>{user.nickname}</div>
+            <div className={styles.walletRow}>
+              <div className={styles.walletChip}>
+                <img src={emojiUrl('1fa99')} width={14} height={14} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <span className={`mono ${styles.goldValue}`}>{formatNumber(gold)}</span>
+              </div>
+              <div className={styles.walletChip}>
+                <img src={emojiUrl('1f48e')} width={14} height={14} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <span className={`mono ${styles.xpValue}`}>{formatNumber(xp)}</span>
+              </div>
+            </div>
+          </div>
+          <div className={styles.xpBarWrap}>
+            <div className={styles.xpBar}>
+              <div className={styles.xpBarFill} style={{ width: `${expToNextLevel(user.levelExp, user.level).progress * 100}%` }} />
+            </div>
+            <span className={`mono ${styles.xpBarLabel}`}>
+              {formatNumber(user.levelExp)} / {formatNumber(user.levelExp + expToNextLevel(user.levelExp, user.level).needed)}
+            </span>
+          </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Scrollable content */}
       <div className={styles.scroll}>
@@ -163,6 +203,11 @@ export default function WorldMap() {
           </div>
         </div>
 
+        {/* ── District Map ── */}
+        <div className={styles.mapSection}>
+          <DistrictMap activeCode={userDistrictCode} />
+        </div>
+
         {/* ── Today's Mission ── */}
         <div className={styles.missionSection}>
           <div className={styles.sectionLabel}>📍 {t('home.todayMission')}</div>
@@ -199,21 +244,6 @@ export default function WorldMap() {
           )}
         </div>
 
-        {/* ── Quick Stats ── */}
-        <div className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <div className={`mono ${styles.statValue}`}>{formatNumber(totalRides)}</div>
-            <div className={styles.statLabel}>{t('home.totalRides')}</div>
-          </div>
-          <div className={styles.statCard}>
-            <div className={`mono ${styles.statValue}`}>{formatNumber(gold)}</div>
-            <div className={styles.statLabel}>{t('home.goldHeld')}</div>
-          </div>
-          <div className={styles.statCard}>
-            <div className={styles.statValueAccent}>Lv.{user.level}</div>
-            <div className={styles.statLabel}>{t('home.riderLevel')}</div>
-          </div>
-        </div>
       </div>
     </div>
   );

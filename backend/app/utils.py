@@ -73,3 +73,21 @@ def resolve_feed_image_url(post) -> str | None:
     if content is not None and getattr(content, "file_path", None):
         return build_imgproxy_url(content.file_path)
     return getattr(post, "image_url", None)
+
+
+async def find_district_by_point(db, lat: float, lng: float) -> str | None:
+    """PostGIS ST_Covers로 좌표가 속하는 구역 코드를 반환한다. 없으면 None."""
+    from sqlalchemy import text
+
+    row = (
+        await db.execute(
+            text(
+                "SELECT code FROM districts "
+                "WHERE boundary IS NOT NULL "
+                "AND ST_Covers(boundary, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) "
+                "LIMIT 1"
+            ),
+            {"lat": lat, "lng": lng},
+        )
+    ).first()
+    return row[0] if row else None

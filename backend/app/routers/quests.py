@@ -143,6 +143,26 @@ async def get_quests(
     return Page(items=items, total=total, page=page, size=size)
 
 
+@router.get("/district-counts", summary="구역별 활성 퀘스트 수")
+async def get_district_quest_counts(db: AsyncSession = Depends(get_db)):
+    rows = (
+        await db.execute(
+            select(Quest.district_id, func.count())
+            .where(Quest.is_active == True, Quest.district_id.is_not(None))
+            .group_by(Quest.district_id)
+        )
+    ).all()
+    from ..models import District
+
+    district_ids = [r[0] for r in rows]
+    if district_ids:
+        districts = (await db.execute(select(District).where(District.id.in_(district_ids)))).scalars().all()
+        code_map = {d.id: d.code for d in districts}
+    else:
+        code_map = {}
+    return {code_map.get(did, ""): cnt for did, cnt in rows if did in code_map}
+
+
 # Q-1b
 @router.get("/completed-ids", response_model=list[str], summary="현재 주기 완료된 퀘스트 ID 목록")
 async def get_completed_ids(

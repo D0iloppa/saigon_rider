@@ -118,6 +118,13 @@ export async function fetchCompletedQuestIds(userId: string, type: 'daily' | 'we
   return new Set(ids);
 }
 
+export async function fetchDistrictQuestCounts(): Promise<Record<string, number>> {
+  if (USE_MOCK) {
+    return api.delay({ QUAN_1: 3, QUAN_3: 1, GO_VAP: 2, THU_DUC: 5, BINH_THANH: 2, QUAN_7: 1 }, 100);
+  }
+  return api.realFetch<Record<string, number>>('/quests/district-counts');
+}
+
 export async function fetchRecommendedQuests(userId: string): Promise<Quest[]> {
   if (USE_MOCK) {
     return api.delay(MOCK_QUESTS.slice(0, 3), 200);

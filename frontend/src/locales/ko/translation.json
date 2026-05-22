@@ -89,7 +89,22 @@
     "noMission": "오늘 예정된 미션이 없어요",
     "totalRides": "총 라이드",
     "goldHeld": "Gold 보유",
-    "riderLevel": "라이더 등급"
+    "riderLevel": "라이더 등급",
+    "district": {
+      "title": "사이공 구역",
+      "goVap": "고밥",
+      "tanBinh": "떤빈",
+      "binhThanh": "빈탄",
+      "thuDuc": "투득",
+      "phuNhuan": "푸뉴언",
+      "d3": "3군",
+      "d10": "10군",
+      "d1": "1군",
+      "d8": "8군",
+      "d4": "4군",
+      "d5": "5군",
+      "d7": "7군"
+    }
   },
   "quest": {
     "title": "퀘스트",
@@ -201,7 +216,19 @@
     "emptyBadgesSub": "배지를 획득하면 여기에 표시돼요",
     "unknownQuest": "퀘스트",
     "loadMore": "더 보기",
-    "openGarage": "개러지 열기 →"
+    "openGarage": "개러지 열기 →",
+    "myRide": "내 바이크",
+    "equipped": "{{count}}개 장착",
+    "garageEmpty": "개러지에서 커스텀해보세요 →",
+    "odometer": "주행 거리",
+    "totalDistance": "총 누적 주행 거리",
+    "tierStarter": "스타터",
+    "tierBronze": "브론즈",
+    "tierSilver": "실버",
+    "tierGold": "골드",
+    "tierPlatinum": "플래티넘",
+    "tierLegend": "레전드",
+    "tierMax": "MAX"
   },
   "settings": {
     "title": "설정",

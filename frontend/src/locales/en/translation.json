@@ -89,7 +89,22 @@
     "noMission": "No missions scheduled for today",
     "totalRides": "Total Rides",
     "goldHeld": "Gold",
-    "riderLevel": "Rider Level"
+    "riderLevel": "Rider Level",
+    "district": {
+      "title": "Saigon Districts",
+      "goVap": "Go Vap",
+      "tanBinh": "Tan Binh",
+      "binhThanh": "Binh Thanh",
+      "thuDuc": "Thu Duc City",
+      "phuNhuan": "Phu Nhuan",
+      "d3": "District 3",
+      "d10": "District 10",
+      "d1": "District 1",
+      "d8": "District 8",
+      "d4": "District 4",
+      "d5": "District 5",
+      "d7": "District 7"
+    }
   },
   "quest": {
     "title": "Quests",
@@ -201,7 +216,19 @@
     "emptyBadgesSub": "Earn badges by completing challenges",
     "unknownQuest": "Quest",
     "loadMore": "Load more",
-    "openGarage": "Open Garage →"
+    "openGarage": "Open Garage →",
+    "myRide": "My Ride",
+    "equipped": "{{count}} equipped",
+    "garageEmpty": "Customize your ride in the garage →",
+    "odometer": "Odometer",
+    "totalDistance": "total distance ridden",
+    "tierStarter": "Starter",
+    "tierBronze": "Bronze",
+    "tierSilver": "Silver",
+    "tierGold": "Gold",
+    "tierPlatinum": "Platinum",
+    "tierLegend": "Legend",
+    "tierMax": "MAX"
   },
   "settings": {
     "title": "Settings",

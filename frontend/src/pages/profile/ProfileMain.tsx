@@ -17,12 +17,62 @@ import { fetchWallet } from '@/api/wallet';
 import { fetchFollowCounts } from '@/api/follows';
 import { fetchMyFeed, deleteFeedPost } from '@/api/feed';
 import type { FeedPage } from '@/api/feed';
+import { fetchInventory } from '@/api/inventory';
+import type { InventoryItem } from '@/api/inventory';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { ImageViewer } from '@/pages/feed/FeedList';
 import { toast } from '@/components/ui/Toast';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './ProfileMain.module.css';
+
+interface MileageTier {
+  key: string;
+  icon: string;
+  km: number;
+  color: string;
+  bg: string;
+  grad: string;
+}
+
+const MILEAGE_TIERS: MileageTier[] = [
+  { key: 'Starter',  icon: '🏁', km: 0,     color: '#8A8E9E', bg: 'rgba(138,142,158,.1)',  grad: 'linear-gradient(90deg,#8A8E9E,#A0AEC0)' },
+  { key: 'Bronze',   icon: '🥉', km: 100,   color: '#CD7F32', bg: 'rgba(205,127,50,.12)',   grad: 'linear-gradient(90deg,#CD7F32,#E8A84C)' },
+  { key: 'Silver',   icon: '🥈', km: 500,   color: '#718096', bg: 'rgba(160,174,192,.12)',   grad: 'linear-gradient(90deg,#718096,#A0AEC0)' },
+  { key: 'Gold',     icon: '🥇', km: 2000,  color: '#D69E2E', bg: 'rgba(255,184,0,.12)',     grad: 'linear-gradient(90deg,#D69E2E,#FFB800)' },
+  { key: 'Platinum', icon: '💎', km: 5000,  color: '#00B5A0', bg: 'rgba(0,229,204,.12)',     grad: 'linear-gradient(90deg,#00B5A0,#00E5CC)' },
+  { key: 'Legend',   icon: '🏆', km: 10000, color: '#FF5A1F', bg: 'rgba(255,90,31,.12)',     grad: 'linear-gradient(90deg,#FF5A1F,#FF9966)' },
+];
+
+function getTier(km: number): MileageTier {
+  let tier = MILEAGE_TIERS[0];
+  for (const t of MILEAGE_TIERS) {
+    if (km >= t.km) tier = t;
+  }
+  return tier;
+}
+
+function getNextTier(km: number): MileageTier | null {
+  for (const t of MILEAGE_TIERS) {
+    if (km < t.km) return t;
+  }
+  return null;
+}
+
+const SLOT_EMOJI: Record<string, string> = {
+  HELMET: '1fa96', JACKET: '1f9e5', GLOVES: '1f9e4', BOOTS: '1f97e',
+  EYEWEAR: '1f576', NAMEPLATE: '1f3f7',
+  BODY_PAINT: '1f3a8', WHEEL: '2699', EXHAUST: '1f525',
+  HEADLIGHT: '1f4a1', MIRROR: '1f9f0', DECAL: '1f409',
+  FRAME: '1f5bc', BACKDROP: '1f304',
+};
+
+const RARITY_STYLE: Record<string, string> = {
+  R: 'garageItemRare',
+  E: 'garageItemEpic',
+  L: 'garageItemLegend',
+  M: 'garageItemMythic',
+};
 
 export default function ProfileMain() {
   // ── hooks (must be before any early return) ──────────────
@@ -49,6 +99,8 @@ export default function ProfileMain() {
   const [activeBadge, setActiveBadge] = useState<BadgeWithEarned | null>(null);
 
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [equippedItems, setEquippedItems] = useState<InventoryItem[]>([]);
+  const [totalMileage, setTotalMileage] = useState(0);
   const [questHistory, setQuestHistory] = useState<QuestHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
@@ -151,8 +203,14 @@ export default function ProfileMain() {
   useEffect(() => {
     if (!user?.id) return;
     fetchFollowCounts(user.id).then(setFollowCounts);
-    fetchUserStats(user.id).then(setStats).catch(() => {});
+    fetchUserStats(user.id).then((s) => {
+      setStats(s);
+      setTotalMileage(Math.round(Number(s.total_km)));
+    }).catch(() => {});
     fetchAllBadges(user.id).then(setBadges).catch(() => {});
+    fetchInventory(user.id).then((inv) => {
+      setEquippedItems(inv.items.filter((i) => i.is_equipped));
+    }).catch(() => {});
   }, [user?.id]);
 
   const loadHistory = useCallback(async (page: number, reset = false) => {
@@ -338,6 +396,109 @@ export default function ProfileMain() {
             <div className={styles.currencyLabel}>{t('profile.skillPt')}</div>
           </div>
         </div>
+
+        {/* Garage Banner */}
+        <div className={styles.garageBanner} onClick={() => navigate('/garage')}>
+          <div className={equippedItems.length > 0 ? styles.garageIconWrap : styles.garageIconWrapEmpty}>
+            <img src={emojiUrl('1f3cd')} width={28} height={28} alt="" onError={(e) => { e.currentTarget.textContent = '🏍'; }} />
+          </div>
+          <div className={styles.garageInfo}>
+            {equippedItems.length > 0 ? (
+              <>
+                <div className={styles.garageTitle}>
+                  {t('profile.myRide')}
+                  <span className={styles.garageBadge}>{t('profile.equipped', { count: equippedItems.length })}</span>
+                </div>
+                <div className={styles.garageEquipped}>
+                  {equippedItems.slice(0, 5).map((item) => (
+                    <div
+                      key={item.user_item_id}
+                      className={styles[RARITY_STYLE[item.rarity] as keyof typeof styles] as string || styles.garageItemThumb}
+                    >
+                      <img src={emojiUrl(SLOT_EMOJI[item.item_slot] ?? '1f4e6')} width={18} height={18} alt="" />
+                    </div>
+                  ))}
+                  {equippedItems.length < 5 && Array.from({ length: 5 - equippedItems.length }).map((_, i) => (
+                    <div key={`empty-${i}`} className={styles.garageItemEmpty}>+</div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.garageTitle}>{t('profile.myRide')}</div>
+                <div className={styles.garageEmptyHint}>{t('profile.garageEmpty')}</div>
+              </>
+            )}
+          </div>
+          <div className={styles.garageArrow}>›</div>
+        </div>
+
+        {/* Odometer Card */}
+        {(() => {
+          const tier = getTier(totalMileage);
+          const next = getNextTier(totalMileage);
+          const tierI18nKey = `profile.tier${tier.key}` as const;
+          const barPct = next
+            ? Math.max(5, Math.min(95, ((totalMileage - tier.km) / (next.km - tier.km)) * 100))
+            : 100;
+          return (
+            <div className={styles.odometerCard}>
+              <div className={styles.odometerHeader}>
+                <div className={styles.odometerTitle}>🛣 {t('profile.odometer')}</div>
+                <div className={styles.odometerTierBadge} style={{ background: tier.bg, color: tier.color }}>
+                  {tier.icon} {t(tierI18nKey)}
+                </div>
+              </div>
+
+              <div className={styles.odometerBig}>
+                <span className={styles.odometerNum}>{formatNumber(totalMileage)}</span>
+                <span className={styles.odometerUnit}>km</span>
+                <div className={styles.odometerSubtitle}>{t('profile.totalDistance')}</div>
+              </div>
+
+              <div className={styles.odometerProgress}>
+                <div className={styles.odometerBarWrap}>
+                  <div className={styles.odometerBarFill} style={{ width: `${barPct}%`, background: tier.grad }} />
+                </div>
+                <div className={styles.odometerBarLabels}>
+                  <span className={styles.odometerBarLabelCurrent}>
+                    {tier.icon} {t(tierI18nKey)} {formatNumber(tier.km)}km
+                  </span>
+                  {next ? (
+                    <span className={styles.odometerBarLabelNext}>
+                      {next.icon} {t(`profile.tier${next.key}` as const)} {formatNumber(next.km)}km →
+                    </span>
+                  ) : (
+                    <span className={styles.odometerBarLabelNext} style={{ color: tier.color }}>
+                      🏆 {t('profile.tierMax')}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.tierMilestones}>
+                {MILEAGE_TIERS.map((mt) => {
+                  const achieved = totalMileage >= mt.km;
+                  const isCurrent = tier.key === mt.key;
+                  const cls = achieved && isCurrent
+                    ? styles.tierMilestoneAchievedCurrent
+                    : achieved
+                    ? styles.tierMilestoneAchieved
+                    : isCurrent
+                    ? styles.tierMilestoneCurrent
+                    : styles.tierMilestone;
+                  return (
+                    <div key={mt.key} className={cls}>
+                      <span className={styles.tierIcon}>{mt.icon}</span>
+                      <span className={styles.tierName}>{t(`profile.tier${mt.key}` as const)}</span>
+                      <span className={styles.tierKm}>{formatNumber(mt.km)}km</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className={styles.statsCard}>
           <h3 className={styles.cardTitle}>{t('profile.thisMonth')}</h3>

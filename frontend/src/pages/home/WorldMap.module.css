@@ -6,78 +6,61 @@
   background: var(--bg);
 }
 
-/* ── Header (simple white) ── */
+/* ── Header (profile) ── */
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--status-bar-height) 20px 12px;
+  gap: 14px;
+  padding: var(--status-bar-height) 16px 26px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
-.headerLeft {
-  display: flex;
-  flex-direction: column;
-}
-
-.greetText {
-  font-size: 13px;
-  color: var(--text-3);
-}
-
-.userName {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.headerRight {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.walletBadge {
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: 20px;
-  padding: 5px 10px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.walletDivider {
-  width: 1px;
-  height: 12px;
-  background: var(--line);
+.avatarWrap {
+  position: relative;
   flex-shrink: 0;
+  cursor: pointer;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.goldValue {
-  font-size: 13px;
-  font-weight: 600;
-  color: #B45309;
+.ring {
+  position: absolute;
+  inset: 0;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
 }
 
-.xpValue {
-  font-size: 13px;
-  font-weight: 600;
-  color: #0369A1;
+.ringTrack {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.08);
+  stroke-width: 3.5;
+}
+
+.ringFill {
+  fill: none;
+  stroke: var(--brand-500);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray .6s ease-out;
 }
 
 .avatarCircle {
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand-500), #FF9966);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  flex-shrink: 0;
+  border: 2px solid var(--surface);
+  z-index: 1;
 }
 
 .avatar {
@@ -89,7 +72,126 @@
 .avatarLetter {
   color: white;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 18px;
+}
+
+.levelOverlay {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.mileageLabel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.mileageValue {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.mileageUnit {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-3);
+  line-height: 1;
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.userName {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.walletRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.walletChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-2, var(--bg));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 3px 8px;
+}
+
+.goldValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #B45309;
+}
+
+.xpValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0369A1;
+}
+
+/* XP progress bar */
+.xpBarWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xpBar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.xpBarFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--brand-500), #FF9966);
+  transition: width .3s ease;
+}
+
+.xpBarLabel {
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── Scroll area ── */
@@ -181,6 +283,11 @@
 
 .miniSubDanger { color: var(--danger); }
 
+/* ── District Map ── */
+.mapSection {
+  padding: 12px 0;
+}
+
 /* ── Today's Mission ── */
 .missionSection {
   padding: 16px;
@@ -256,36 +363,3 @@
   border: 1.5px solid var(--line);
 }
 
-/* ── Quick Stats ── */
-.statsGrid {
-  padding: 0 16px 16px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.statCard {
-  background: var(--surface);
-  border-radius: 14px;
-  padding: 12px;
-  text-align: center;
-  border: 1.5px solid var(--line);
-}
-
-.statValue {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.statValueAccent {
-  font-size: 18px;
-  font-weight: 700;
-  color: #B45309;
-}
-
-.statLabel {
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: 2px;
-}

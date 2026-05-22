@@ -89,7 +89,22 @@
     "noMission": "Không có nhiệm vụ nào hôm nay",
     "totalRides": "Tổng chuyến đi",
     "goldHeld": "Gold",
-    "riderLevel": "Cấp tay đua"
+    "riderLevel": "Cấp tay đua",
+    "district": {
+      "title": "Quận Sài Gòn",
+      "goVap": "Gò Vấp",
+      "tanBinh": "Tân Bình",
+      "binhThanh": "Bình Thạnh",
+      "thuDuc": "TP. Thủ Đức",
+      "phuNhuan": "Phú Nhuận",
+      "d3": "Quận 3",
+      "d10": "Quận 10",
+      "d1": "Quận 1",
+      "d8": "Quận 8",
+      "d4": "Quận 4",
+      "d5": "Quận 5",
+      "d7": "Quận 7"
+    }
   },
   "quest": {
     "title": "Nhiệm vụ",
@@ -201,7 +216,19 @@
     "emptyBadgesSub": "Nhận huy hiệu bằng cách hoàn thành thử thách",
     "unknownQuest": "Nhiệm vụ",
     "loadMore": "Xem thêm",
-    "openGarage": "Mở Garage →"
+    "openGarage": "Mở Garage →",
+    "myRide": "Xe của tôi",
+    "equipped": "{{count}} đã trang bị",
+    "garageEmpty": "Tuỳ chỉnh xe trong garage →",
+    "odometer": "Quãng đường",
+    "totalDistance": "tổng quãng đường đã đi",
+    "tierStarter": "Khởi đầu",
+    "tierBronze": "Đồng",
+    "tierSilver": "Bạc",
+    "tierGold": "Vàng",
+    "tierPlatinum": "Bạch kim",
+    "tierLegend": "Huyền thoại",
+    "tierMax": "MAX"
   },
   "settings": {
     "title": "Cài đặt",

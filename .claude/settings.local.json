@@ -355,7 +355,22 @@
       "Bash(sed -n '110,120p' pages/shop/ItemDetail.tsx)",
       "Bash(sed -n '65,75p' pages/shop/ShopCatalog.tsx)",
       "Bash(sed -n '195,202p' pages/shop/ShopCatalog.tsx)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "WebSearch",
+      "WebFetch(domain:overpass-api.de)",
+      "Bash(curl -s --max-time 120 \"https://overpass-api.de/api/interpreter\" --data-urlencode 'data=[out:json][timeout:60];area[\"name\"=\"Thành phố Hồ Chí Minh\"]->.hcmc;\\(relation[\"admin_level\"=\"6\"][\"boundary\"=\"administrative\"]\\(area.hcmc\\);\\);\\(._;>;\\);out body;' -o /tmp/hcmc_raw.json)",
+      "Bash(curl -s --max-time 120 -H \"Accept: application/json\" -X POST \"https://overpass-api.de/api/interpreter\" -d 'data=[out:json][timeout:60];area[\"name\"=\"Thành phố Hồ Chí Minh\"]->.hcmc;\\(relation[\"admin_level\"=\"6\"][\"boundary\"=\"administrative\"]\\(area.hcmc\\);\\);\\(._;>;\\);out body;' -o /tmp/hcmc_raw.json)",
+      "Bash(curl -v -s --max-time 120 \"https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A60%5D%3Barea%5B%22name%22%3D%22Th%C3%A0nh%20ph%E1%BB%91%20H%E1%BB%93%20Ch%C3%AD%20Minh%22%5D-%3E.hcmc%3B\\(relation%5B%22admin_level%22%3D%226%22%5D%5B%22boundary%22%3D%22administrative%22%5D\\(area.hcmc\\)%3B\\)%3B\\(._%3B%3E%3B\\)%3Bout%20body%3B\" -o /tmp/hcmc_raw.json)",
+      "Bash(curl -s --max-time 120 -H \"User-Agent: Mozilla/5.0\" \"https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A60%5D%3Barea%5B%22name%22%3D%22Th%C3%A0nh+ph%E1%BB%91+H%E1%BB%93+Ch%C3%AD+Minh%22%5D-%3E.hcmc%3B\\(relation%5B%22admin_level%22%3D%226%22%5D%5B%22boundary%22%3D%22administrative%22%5D\\(area.hcmc\\)%3B\\)%3B\\(._%3B%3E%3B\\)%3Bout+body%3B\" -o /tmp/hcmc_raw.json)",
+      "Bash(pip show *)",
+      "Bash(curl -s --max-time 120 -H 'User-Agent: Mozilla/5.0' https://overpass.kumi.systems/api/interpreter --data-urlencode 'data=[out:json][timeout:60];area[name=\"Thành phố Hồ Chí Minh\"][\"admin_level\"=\"4\"]->.hcmc;\\(relation[\"boundary\"=\"administrative\"]\\(area.hcmc\\);\\);out tags;' -o /tmp/hcmc_levels.json)",
+      "Bash(curl -s --max-time 120 -H 'User-Agent: Mozilla/5.0' https://overpass.kumi.systems/api/interpreter --data-urlencode 'data=[out:json][timeout:60];relation[\"boundary\"=\"administrative\"]\\(10.35,106.35,11.16,107.03\\);out tags;' -o /tmp/hcmc_all.json)",
+      "Bash(curl -s --max-time 60 -H 'User-Agent: Mozilla/5.0' https://overpass.kumi.systems/api/interpreter --data-urlencode 'data=[out:json][timeout:60];relation\\(1973756\\);out body;' -o /tmp/hcmc_rel.json)",
+      "Bash(curl -sL --max-time 30 \"https://raw.githubusercontent.com/daohoangson/dvhcvn/master/data/dvhcvn.json\" -o /tmp/dvhcvn.json)",
+      "Bash(curl -sL --max-time 30 \"https://raw.githubusercontent.com/TungTh/vnm-hcm-geojson/master/hcm.geojson\" -o /tmp/hcm_geo.json)",
+      "Bash(curl -sL --max-time 30 \"https://raw.githubusercontent.com/nguyenduy1133/data/main/hcm_quan_huyen.geojson\" -o /tmp/hcm_geo.json)",
+      "Bash(PGPASSWORD='dbdnpfzjs1!' psql -h localhost -p 35435 -U wellconn -d saigon_rider -f /mnt/c/DEV/saigon_rider/database/init/036_district_geo.sql)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")"
     ]
   }
 }

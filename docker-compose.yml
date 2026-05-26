@@ -179,6 +179,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
       - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
+      - BFF_INTERNAL_URL=http://bff:8080
       - SRE_LOG_LEVEL=INFO
     restart: unless-stopped
 

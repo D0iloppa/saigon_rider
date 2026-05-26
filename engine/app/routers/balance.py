@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.database import AsyncSession
 from app.deps import get_session, verify_service_key
 from app.enums import TxTypeEnum
-from app.models import XpBalance, XpExpirationSchedule, XpTransaction, SreUser
+from app.models import UserMileageLog, XpBalance, XpExpirationSchedule, XpTransaction, SreUser
 from app.schemas import BalanceRead, ExpirationItemRead, TransactionRead, WalletRead
 from app.services.xp_ledger import get_or_create_user
 
@@ -89,6 +89,38 @@ async def list_transactions(
     query = query.order_by(XpTransaction.occurred_at.desc()).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.get("/{user_uuid}/mileage", dependencies=[Depends(verify_service_key)])
+async def get_mileage(
+    user_uuid: str,
+    since: Optional[str] = Query(None, description="ISO8601 UTC. 미지정 시 전체 누적만 반환"),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """GPS 누적 마일리지. since 가 주어지면 그 시점 이후 합도 함께 반환."""
+    from sqlalchemy import func
+
+    user = await get_or_create_user(db, user_uuid)
+
+    total = user.total_distance_m or 0
+    period_m = 0
+    if since:
+        since_dt = datetime.fromisoformat(since)
+        if since_dt.tzinfo is None:
+            since_dt = since_dt.replace(tzinfo=timezone.utc)
+        result = await db.execute(
+            select(func.coalesce(func.sum(UserMileageLog.distance_m), 0)).where(
+                UserMileageLog.user_id == user.user_id,
+                UserMileageLog.recorded_at >= since_dt,
+            )
+        )
+        period_m = int(result.scalar_one() or 0)
+
+    return {
+        "user_uuid": user_uuid,
+        "total_distance_m": int(total),
+        "period_distance_m": period_m,
+    }
 
 
 @router.get("/{user_id}/expirations", response_model=list[ExpirationItemRead],

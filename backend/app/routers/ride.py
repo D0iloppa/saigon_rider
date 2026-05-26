@@ -20,7 +20,7 @@ from ..schemas import (
     SafetyGradeRequest,
     SafetyGradeResponse,
 )
-from ..utils import APP_TZ
+from ..utils import APP_TZ, apply_level_up
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ride", tags=["라이딩 (Ride)"])
@@ -109,6 +109,7 @@ async def submit_ride(
         if user:
             user.exp += reward_exp
             user.gold += reward_gold
+            apply_level_up(user)
 
         await _upsert_streak(db, body.user_id)
 

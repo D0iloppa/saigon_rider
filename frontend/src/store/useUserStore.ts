@@ -67,10 +67,14 @@ export const useUserStore = create<UserState>()(
 
         if (native.isNative) {
           native.getDeviceUUID().then((uuid) => {
-            if (uuid) {
-              apiRegisterDeviceMap(uuid, dto.id).catch(() => {});
-              native.startGPS();
+            if (!uuid) {
+              console.warn('[device-map] getDeviceUUID empty — skip register');
+              return;
             }
+            apiRegisterDeviceMap(uuid, dto.id)
+              .then(() => console.info('[device-map] registered', uuid))
+              .catch((e) => console.warn('[device-map] register failed', e));
+            native.startGPS();
           });
         }
       },

@@ -87,6 +87,7 @@
     "noRecommendedQuest": "Không có nhiệm vụ đề xuất",
     "todayMission": "Nhiệm vụ hôm nay",
     "noMission": "Không có nhiệm vụ nào hôm nay",
+    "resetToMyLocation": "Vị trí của tôi",
     "totalRides": "Tổng chuyến đi",
     "goldHeld": "Gold",
     "riderLevel": "Cấp tay đua",
@@ -136,7 +137,11 @@
     "lockSub": "Lv.{{currentLevel}} hiện tại · Đến level tiếp theo",
     "lockEasierBtn": "Xem nhiệm vụ dễ hơn",
     "tonightsTag": "NHIỆM VỤ TỐI NAY",
-    "everywhere": "Khắp nơi"
+    "everywhere": "Khắp nơi",
+    "modeCatalog": "Có sẵn",
+    "modeAccepted": "Nhiệm vụ của tôi",
+    "acceptedEmptySub": "Hãy nhận nhiệm vụ từ tab Có sẵn",
+    "acceptedToast": "Đã nhận. Kiểm tra trong tab Nhiệm vụ của tôi."
   },
   "ride": {
     "distance": "Khoảng cách",

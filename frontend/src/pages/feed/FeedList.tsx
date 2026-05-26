@@ -263,8 +263,8 @@ export default function FeedList() {
       <div style={contentStyle}>
         <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       <div className={styles.body}>
-        {/* Story strip */}
-        <div className={styles.storyRow}>
+        {/* Story strip — 추후 구현 예정, 임시 숨김 */}
+        <div className={styles.storyRow} style={{ display: 'none' }}>
           <div className={`${styles.story} ${styles.storyMe}`}>
             <StoryAvatar label={t('feed.myStory')} isMe />
           </div>

@@ -1,6 +1,10 @@
 # Saigon Rider — Document Map
 
-> **이 파일은 산출물의 안정적 지도입니다.** 현재 작업 상태는 [`context/current.md`](context/current.md), 규칙은 [`/GUIDELINE.md`](../GUIDELINE.md).
+> **이 파일은 산출물의 안정적 지도입니다.** 현재 작업 상태는 [`context/current.md`](context/current.md). 행동 원칙은 [`/CLAUDE.md`](../CLAUDE.md).
+
+## 🛠 운용 규칙 (Operating Rules)
+
+- [AI Agent Guideline](agent-guidelines.md) — 진입 순서, 기본 작업 워크플로우, SoT 매핑, 보안, __DEV Context, 린터, 컨텐츠 관리 — **Session Start 직후 반드시 로드**
 
 ## 🏗 아키텍처 / 설계
 

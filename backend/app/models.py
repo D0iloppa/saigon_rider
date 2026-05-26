@@ -146,6 +146,9 @@ class Quest(Base):
     badge: Mapped[str | None] = mapped_column(_quest_badge_enum, nullable=True)
     required_level: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     target_distance_km: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    card_type: Mapped[str] = mapped_column(String(20), nullable=False, default="DISTANCE")
+    target_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    target_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     min_safety_grade_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("safety_grades.id"), nullable=True)
     min_safety_grade: Mapped["SafetyGrade | None"] = relationship(
         "SafetyGrade", foreign_keys=[min_safety_grade_id], lazy="selectin"

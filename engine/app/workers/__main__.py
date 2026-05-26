@@ -21,6 +21,7 @@ from app.redis_client import (
 from app.workers.base import BaseAgent
 from app.workers.event_agent import EventAgent
 from app.workers.gps_agent import GpsAgent
+from app.workers.quest_completed_agent import QuestCompletedAgent
 
 configure_logging(os.getenv("SRE_LOG_LEVEL", "INFO"))
 log = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ def _build_dispatch_table(agents: list[BaseAgent]) -> dict[str, BaseAgent]:
 AGENTS: list[BaseAgent] = [
     GpsAgent(),
     EventAgent(),
+    QuestCompletedAgent(),
 ]
 DISPATCH = _build_dispatch_table(AGENTS)
 

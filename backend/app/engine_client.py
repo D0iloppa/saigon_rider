@@ -50,6 +50,12 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_mileage(self, user_uuid: str, since: str | None = None) -> dict:
+        params = {"since": since} if since else None
+        resp = await self._client.get(f"/v1/users/{user_uuid}/mileage", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
     # ── 가챠 ────────────────────────────────────────────────────
 
     async def get_gacha_list(self) -> list[dict]:
@@ -426,6 +432,14 @@ class EngineClient:
 
     async def get_daily_quest_slots_by_uuid(self, user_uuid: str) -> dict:
         resp = await self._client.get("/v1/quest-cards/daily-slots", params={"user_uuid": user_uuid})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_card_by_user_quest(self, user_quest_id: str) -> dict:
+        resp = await self._client.get(
+            "/v1/quest-cards/by-user-quest",
+            params={"user_quest_id": user_quest_id},
+        )
         resp.raise_for_status()
         return resp.json()
 

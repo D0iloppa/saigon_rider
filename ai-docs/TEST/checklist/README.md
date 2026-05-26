@@ -1,6 +1,6 @@
 # 기능 점검 체크리스트 — 섹션 인덱스
 
-> 진척도(휘발성): [`../progress.md`](../progress.md) · 이슈 로그: [`../issues.md`](../issues.md) · 규칙: [`/GUIDELINE.md`](../../../GUIDELINE.md)
+> 진척도(휘발성): [`../progress.md`](../progress.md) · 이슈 로그: [`../issues.md`](../issues.md) · 규칙: [`agent-guidelines.md`](../../agent-guidelines.md)
 
 ## 섹션
 

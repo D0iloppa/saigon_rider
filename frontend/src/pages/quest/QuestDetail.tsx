@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
-import { fetchQuest, fetchCompletedQuestIds, completeQuest } from '@/api/quests';
+import { fetchQuest, fetchCompletedQuestIds, completeQuest, acceptQuest, fetchMyAccepted, startRide as apiStartRide, dropAccepted } from '@/api/quests';
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
 import { expToNextLevel } from '@/lib/rewards';
@@ -30,6 +30,8 @@ export default function QuestDetail() {
   const [quest, setQuest] = useState<Quest | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [acceptedUserQuestId, setAcceptedUserQuestId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [dbgDialog, setDbgDialog] = useState(false);
   const [dbgLoading, setDbgLoading] = useState(false);
 
@@ -38,8 +40,13 @@ export default function QuestDetail() {
     fetchQuest(id).then(async (q) => {
       setQuest(q);
       if (q) {
-        const ids = await fetchCompletedQuestIds(user.id, q.questType as QuestType);
-        setIsCompleted(ids.has(q.id));
+        const [completedIds, accepted] = await Promise.all([
+          fetchCompletedQuestIds(user.id, q.questType as QuestType),
+          fetchMyAccepted(user.id),
+        ]);
+        setIsCompleted(completedIds.has(q.id));
+        const mine = accepted.find((a) => a.quest.id === q.id);
+        setAcceptedUserQuestId(mine?.userQuestId ?? null);
       }
       setLoading(false);
     });
@@ -65,10 +72,46 @@ export default function QuestDetail() {
 
   const isLocked = user.level < quest.minLevel;
 
-  const handleStart = () => {
-    if (isLocked || isCompleted) return;
-    startRide(quest);
-    navigate('/ride/active');
+  const handleAccept = async () => {
+    if (isLocked || isCompleted || !user || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const { userQuestId } = await acceptQuest(quest.id, user.id);
+      setAcceptedUserQuestId(userQuestId);
+      toast.success(t('quest.acceptedToast', { defaultValue: '수령했어요. 내 퀘스트 탭에서 확인할 수 있습니다.' }));
+    } catch (err: any) {
+      toast.error(err?.message ?? t('quest.acceptFailed', { defaultValue: '퀘스트 수령 실패' }));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStartRide = async () => {
+    if (!acceptedUserQuestId || !user || actionLoading) return;
+    setActionLoading(true);
+    try {
+      await apiStartRide(acceptedUserQuestId);
+      startRide(quest, acceptedUserQuestId);
+      navigate('/ride/active');
+    } catch (err: any) {
+      toast.error(err?.message ?? t('quest.startRideFailed', { defaultValue: '수행 시작 실패' }));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDrop = async () => {
+    if (!acceptedUserQuestId || actionLoading) return;
+    setActionLoading(true);
+    try {
+      await dropAccepted(acceptedUserQuestId);
+      setAcceptedUserQuestId(null);
+      toast.success(t('quest.dropToast', { defaultValue: '수령 취소됨' }));
+    } catch (err: any) {
+      toast.error(err?.message ?? t('quest.dropFailed', { defaultValue: '수령 포기 실패' }));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDbgComplete = async () => {
@@ -177,21 +220,40 @@ export default function QuestDetail() {
           </div>
         </div>
 
-        <Button onClick={handleStart} disabled={isLocked || isCompleted}>
-          {isLocked
-            ? t('quest.lockedLevel', { level: quest.minLevel })
-            : isCompleted
-            ? t('quest.completedBtn')
-            : t('quest.startBtn')}
-        </Button>
+        {isCompleted ? (
+          <Button disabled>{t('quest.completedBtn')}</Button>
+        ) : isLocked ? (
+          <Button disabled>{t('quest.lockedLevel', { level: quest.minLevel })}</Button>
+        ) : acceptedUserQuestId ? (
+          <>
+            <Button onClick={handleStartRide} disabled={actionLoading}>
+              {t('quest.startRideBtn', { defaultValue: '수행 시작' })}
+            </Button>
+            <button
+              onClick={handleDrop}
+              disabled={actionLoading}
+              style={{
+                width: '100%', marginTop: 8, padding: '12px',
+                background: 'transparent', color: 'var(--text-3)',
+                fontSize: 13, border: 'none',
+              }}
+            >
+              {t('quest.dropBtn', { defaultValue: '수령 포기' })}
+            </button>
+          </>
+        ) : (
+          <Button onClick={handleAccept} disabled={actionLoading}>
+            {t('quest.acceptBtn', { defaultValue: '수령하기' })}
+          </Button>
+        )}
       </div>
 
       {/* [DBG] 완료 버튼 */}
-      {!isCompleted && (
+      {/* {!isCompleted && (
         <button className={styles.dbgBtn} onClick={() => setDbgDialog(true)}>
           [DBG]
         </button>
-      )}
+      )} */}
 
       {/* [DBG] AlertDialog */}
       {dbgDialog && (

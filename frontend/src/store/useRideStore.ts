@@ -1,52 +1,71 @@
 import { create } from 'zustand';
 import type { SafetyGrade, Quest } from '@/api/types';
+import { fetchActiveCard } from '@/api/quests';
+import { native as NativeInterface } from '@/lib/native';
 
 interface RideState {
-  // 현재 라이딩
   isActive: boolean;
   isPaused: boolean;
   questId: string | null;
   questTitle: string | null;
+  userQuestId: string | null;
+
+  cardType: 'DISTANCE' | 'CHECKPOINT';
   targetDistanceM: number;
-  startedAt: number | null;       // timestamp
-  pausedTotalMs: number;          // 누적 일시정지 시간
+  targetLat: number | null;
+  targetLng: number | null;
+
+  startedAt: number | null;
+  pausedTotalMs: number;
   pausedAt: number | null;
 
-  // 실시간 측정값
   distanceM: number;
   durationSec: number;
   speedKmh: number;
   avgSpeedKmh: number;
   safetyGrade: SafetyGrade;
 
-  // 시뮬레이션 인터벌
-  _intervalId: number | null;
+  currentLat: number | null;
+  currentLng: number | null;
+  distanceToTargetM: number | null;
+  reachedTarget: boolean;
 
-  // actions
-  startRide: (quest: Quest) => void;
+  _pollId: number | null;
+  _durationId: number | null;
+  _stopGeoWatch: (() => void) | null;
+
+  startRide: (quest: Quest, userQuestId: string) => void;
   pauseRide: () => void;
   resumeRide: () => void;
   abandonRide: () => void;
   completeRide: () => 'success' | 'failed';
-  tick: () => void;
   reset: () => void;
+}
+
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 const INITIAL: Omit<
   RideState,
-  | 'startRide'
-  | 'pauseRide'
-  | 'resumeRide'
-  | 'abandonRide'
-  | 'completeRide'
-  | 'tick'
-  | 'reset'
+  'startRide' | 'pauseRide' | 'resumeRide' | 'abandonRide' | 'completeRide' | 'reset'
 > = {
   isActive: false,
   isPaused: false,
   questId: null,
   questTitle: null,
+  userQuestId: null,
+  cardType: 'DISTANCE',
   targetDistanceM: 0,
+  targetLat: null,
+  targetLng: null,
   startedAt: null,
   pausedTotalMs: 0,
   pausedAt: null,
@@ -55,31 +74,98 @@ const INITIAL: Omit<
   speedKmh: 0,
   avgSpeedKmh: 0,
   safetyGrade: 'A',
-  _intervalId: null,
+  currentLat: null,
+  currentLng: null,
+  distanceToTargetM: null,
+  reachedTarget: false,
+  _pollId: null,
+  _durationId: null,
+  _stopGeoWatch: null,
 };
+
+const POLL_INTERVAL_MS = 3000;
+const CHECKPOINT_PROXIMITY_M = 100;
 
 export const useRideStore = create<RideState>((set, get) => ({
   ...INITIAL,
 
-  startRide: (quest) => {
+  startRide: (quest, userQuestId) => {
     const prev = get();
-    if (prev._intervalId) window.clearInterval(prev._intervalId);
-    const id = window.setInterval(() => get().tick(), 1000);
+    if (prev._pollId) window.clearInterval(prev._pollId);
+    if (prev._durationId) window.clearInterval(prev._durationId);
+    if (prev._stopGeoWatch) prev._stopGeoWatch();
+
+    const cardType: 'DISTANCE' | 'CHECKPOINT' = quest.cardType ?? 'DISTANCE';
+    const targetLat = quest.targetLat ?? null;
+    const targetLng = quest.targetLng ?? null;
+
     set({
       ...INITIAL,
       isActive: true,
       isPaused: false,
       questId: quest.id,
       questTitle: quest.title,
+      userQuestId,
+      cardType,
       targetDistanceM: quest.minDistanceM,
+      targetLat,
+      targetLng,
       startedAt: Date.now(),
-      _intervalId: id,
     });
+
+    NativeInterface.startGPS();
+
+    const lastSampleRef = { distanceM: 0, ts: Date.now() };
+    const pollId = window.setInterval(async () => {
+      const s = get();
+      if (!s.isActive || s.isPaused || !s.userQuestId) return;
+      const card = await fetchActiveCard(s.userQuestId);
+      if (!card) return;
+
+      const now = Date.now();
+      const newDist = card.current_distance_m ?? 0;
+      const dtSec = Math.max(1, (now - lastSampleRef.ts) / 1000);
+      const speedKmh = Math.max(0, ((newDist - lastSampleRef.distanceM) / dtSec) * 3.6);
+      lastSampleRef.distanceM = newDist;
+      lastSampleRef.ts = now;
+
+      const elapsedSec = Math.max(1, (now - (s.startedAt ?? now) - s.pausedTotalMs) / 1000);
+      const avgSpeedKmh = (newDist / elapsedSec) * 3.6;
+
+      set({
+        distanceM: newDist,
+        speedKmh: Math.round(speedKmh * 10) / 10,
+        avgSpeedKmh: Math.round(avgSpeedKmh * 10) / 10,
+      });
+
+      if (card.status === 'COMPLETED' && !s.reachedTarget) {
+        set({ reachedTarget: true });
+      }
+    }, POLL_INTERVAL_MS);
+
+    const durationId = window.setInterval(() => {
+      const s = get();
+      if (!s.isActive || s.isPaused || !s.startedAt) return;
+      const elapsedMs = Date.now() - s.startedAt - s.pausedTotalMs;
+      set({ durationSec: Math.floor(elapsedMs / 1000) });
+    }, 1000);
+
+    let stopGeoWatch: (() => void) | null = null;
+    if (cardType === 'CHECKPOINT' && targetLat != null && targetLng != null) {
+      stopGeoWatch = NativeInterface.watchLocation((loc) => {
+        const dist = haversineM(loc.lat, loc.lng, targetLat, targetLng);
+        set({
+          currentLat: loc.lat,
+          currentLng: loc.lng,
+          distanceToTargetM: Math.round(dist),
+        });
+      });
+    }
+
+    set({ _pollId: pollId, _durationId: durationId, _stopGeoWatch: stopGeoWatch });
   },
 
-  pauseRide: () => {
-    set({ isPaused: true, pausedAt: Date.now() });
-  },
+  pauseRide: () => set({ isPaused: true, pausedAt: Date.now() }),
 
   resumeRide: () => {
     const s = get();
@@ -96,47 +182,41 @@ export const useRideStore = create<RideState>((set, get) => ({
 
   abandonRide: () => {
     const s = get();
-    if (s._intervalId) window.clearInterval(s._intervalId);
+    if (s._pollId) window.clearInterval(s._pollId);
+    if (s._durationId) window.clearInterval(s._durationId);
+    if (s._stopGeoWatch) s._stopGeoWatch();
+    NativeInterface.stopGPS();
     set({ ...INITIAL });
   },
 
   completeRide: () => {
     const s = get();
-    if (s._intervalId) window.clearInterval(s._intervalId);
+    if (s._pollId) window.clearInterval(s._pollId);
+    if (s._durationId) window.clearInterval(s._durationId);
+    if (s._stopGeoWatch) s._stopGeoWatch();
+    NativeInterface.stopGPS();
+
     const result: 'success' | 'failed' =
-      s.distanceM >= s.targetDistanceM ? 'success' : 'failed';
-    set({ isActive: false, isPaused: false, _intervalId: null });
+      s.cardType === 'CHECKPOINT'
+        ? s.reachedTarget
+          ? 'success'
+          : 'failed'
+        : s.distanceM >= s.targetDistanceM
+          ? 'success'
+          : 'failed';
+
+    set({ isActive: false, isPaused: false, _pollId: null, _durationId: null, _stopGeoWatch: null });
     return result;
-  },
-
-  tick: () => {
-    const s = get();
-    if (!s.isActive || s.isPaused || !s.startedAt) return;
-
-    const elapsedMs = Date.now() - s.startedAt - s.pausedTotalMs;
-    const durationSec = Math.floor(elapsedMs / 1000);
-
-    // 시뮬레이션: 평균 30~40km/h, 살짝 변동
-    // 1초당 평균 9~11미터 진행
-    const incrementM = 8 + Math.random() * 4;
-    const distanceM = Math.min(s.distanceM + incrementM, s.targetDistanceM * 1.2);
-    const speedKmh = Math.round((incrementM * 3.6) * 10) / 10 + 20;
-    const avgSpeedKmh =
-      durationSec > 0 ? Math.round((distanceM / durationSec) * 3.6 * 10) / 10 : 0;
-
-    // 안전 등급: 시간이 지날수록 약간씩 변동
-    let safetyGrade: SafetyGrade = s.safetyGrade;
-    if (Math.random() < 0.02) {
-      const r = Math.random();
-      safetyGrade = r > 0.85 ? 'C' : r > 0.55 ? 'B' : 'A';
-    }
-
-    set({ distanceM, durationSec, speedKmh, avgSpeedKmh, safetyGrade });
   },
 
   reset: () => {
     const s = get();
-    if (s._intervalId) window.clearInterval(s._intervalId);
+    if (s._pollId) window.clearInterval(s._pollId);
+    if (s._durationId) window.clearInterval(s._durationId);
+    if (s._stopGeoWatch) s._stopGeoWatch();
+    NativeInterface.stopGPS();
     set({ ...INITIAL });
   },
 }));
+
+export { CHECKPOINT_PROXIMITY_M };

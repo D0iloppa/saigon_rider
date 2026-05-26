@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 
 def _make_scheduler() -> AsyncIOScheduler:
-    from app.jobs import cleanup_idem, expire_missions, expire_quest_cards, expire_xp, trim_stream, verify_balance
+    from app.jobs import cleanup_idem, expire_missions, expire_quest_cards, expire_user_quests, expire_xp, trim_stream, verify_balance
 
     scheduler = AsyncIOScheduler(timezone=VN_TZ)
     scheduler.add_job(
@@ -50,6 +50,11 @@ def _make_scheduler() -> AsyncIOScheduler:
         expire_quest_cards.run,
         CronTrigger(hour=4, minute=10, timezone=VN_TZ),
         id="expire_quest_cards",
+    )
+    scheduler.add_job(
+        expire_user_quests.run,
+        CronTrigger(hour=0, minute=5, timezone=VN_TZ),
+        id="expire_user_quests",
     )
     scheduler.add_job(
         cleanup_idem.run,

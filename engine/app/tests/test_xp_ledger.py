@@ -1,7 +1,7 @@
 """xp_ledger 단위 테스트 (DB mock)."""
 from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

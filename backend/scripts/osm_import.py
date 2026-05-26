@@ -38,7 +38,12 @@ out center;
 
 def _fetch_osm(query: str, label: str) -> list[dict]:
     print(f"[OSM] Fetching {label}...", flush=True)
-    resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=180)
+    resp = requests.post(
+        OVERPASS_URL,
+        data={"data": query},
+        headers={"User-Agent": "saigon-rider-osm-import/1.0"},
+        timeout=180,
+    )
     resp.raise_for_status()
     elements = resp.json().get("elements", [])
     print(f"[OSM]   → {len(elements)} raw elements", flush=True)

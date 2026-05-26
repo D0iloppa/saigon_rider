@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
+from ..engine_client import engine_client
 from ..models import Badge, Quest, RideSession, User, UserBadge, UserFollow, UserQuest
 from ..schemas import (
     BadgeOut,
@@ -68,18 +69,13 @@ async def get_user_stats(
     now_local = datetime.now(APP_TZ)
     month_label = now_local.strftime("%Y-%m")
 
-    # 이번 달 라이딩 합산
-    ride_result = await db.execute(
-        select(
-            func.coalesce(func.sum(RideSession.distance_km), 0).label("total_km"),
-        ).where(
-            RideSession.user_id == user_id,
-            RideSession.created_at >= month_start,
-            RideSession.created_at < month_end,
-        )
-    )
-    ride_row = ride_result.one()
-    total_km = Decimal(str(ride_row.total_km))
+    # 이번 달 GPS 마일리지 (Engine user_mileage_log 기반)
+    try:
+        mileage = await engine_client.get_mileage(str(user_id), since=month_start.isoformat())
+        period_m = int(mileage.get("period_distance_m", 0))
+    except Exception:
+        period_m = 0
+    total_km = Decimal(period_m) / Decimal(1000)
 
     # 완료 퀘스트 수
     quest_result = await db.execute(

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { floodApi } from '@/api/info';
 import type { FloodReport, FloodHotspot } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { resolveInfoCoords } from '@/lib/infoCoords';
 import styles from './InfoFloodMap.module.css';
 
 function depthBadgeClass(depth: string): string {
@@ -18,8 +19,6 @@ function depthPinClass(depth: string): string {
   return styles.pinThigh;
 }
 
-const DEFAULT_COORDS = { lat: 10.776, lng: 106.700 };
-
 const MOCK_PINS = [
   { top: '15%', left: '52%', depth: 'knee', label: 'Bình Thạnh' },
   { top: '50%', left: '22%', depth: 'ankle', label: 'D4' },
@@ -30,10 +29,21 @@ const MOCK_PINS = [
 export default function InfoFloodMap() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { search } = useLocation();
 
   const [floods, setFloods] = useState<FloodReport[]>([]);
   const [hotspots, setHotspots] = useState<FloodHotspot[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchAll = () => {
+    setLoading(true);
+    resolveInfoCoords(search).then(({ lat, lng }) => {
+      Promise.allSettled([
+        floodApi.getActive(lat, lng, 5).then((r) => setFloods(r.floods)),
+        floodApi.getHotspots().then((r) => setHotspots(r.hotspots)),
+      ]).finally(() => setLoading(false));
+    });
+  };
 
   const depthLabel = (depth: string) => {
     const key = `info.flood.depth${depth.charAt(0).toUpperCase()}${depth.slice(1)}`;
@@ -47,25 +57,15 @@ export default function InfoFloodMap() {
   };
 
   useEffect(() => {
-    const { lat, lng } = DEFAULT_COORDS;
-    Promise.allSettled([
-      floodApi.getActive(lat, lng, 5).then((r) => setFloods(r.floods)),
-      floodApi.getHotspots().then((r) => setHotspots(r.hotspots)),
-    ]).finally(() => setLoading(false));
-  }, []);
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const activeFloods = floods.filter((f) => f.status === 'ACTIVE');
   const resolvedFloods = floods.filter((f) => f.status === 'RESOLVED' || f.status === 'EXPIRED');
 
   const refreshBtn = (
-    <button className={styles.iconBtn} onClick={() => {
-      setLoading(true);
-      const { lat, lng } = DEFAULT_COORDS;
-      Promise.allSettled([
-        floodApi.getActive(lat, lng, 5).then((r) => setFloods(r.floods)),
-        floodApi.getHotspots().then((r) => setHotspots(r.hotspots)),
-      ]).finally(() => setLoading(false));
-    }}>
+    <button className={styles.iconBtn} onClick={fetchAll}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M23 4v6h-6M1 20v-6h6"/>
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>

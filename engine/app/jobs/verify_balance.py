@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
-from sqlalchemy import case, func, select, text
+from sqlalchemy import case, func, select
 
 from app.database import AsyncSessionLocal
 from app.enums import TxTypeEnum

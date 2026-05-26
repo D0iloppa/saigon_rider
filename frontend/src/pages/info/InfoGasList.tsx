@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { gasApi } from '@/api/info';
 import type { GasStation } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { resolveInfoCoords } from '@/lib/infoCoords';
 import styles from './InfoGasList.module.css';
 
-const DEFAULT_COORDS = { lat: 10.776, lng: 106.700 };
 const OFFICIAL_PRICE = 25420;
 
 function getWaitDotCount(waitMinutes: number | null): number {
@@ -40,16 +40,19 @@ function WaitDots({ waitMinutes }: { waitMinutes: number | null }) {
 export default function InfoGasList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { search } = useLocation();
 
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { lat, lng } = DEFAULT_COORDS;
-    gasApi.getNearby(lat, lng, 5)
-      .then((r) => setStations(r.stations))
-      .finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    resolveInfoCoords(search).then(({ lat, lng }) => {
+      gasApi.getNearby(lat, lng, 5)
+        .then((r) => setStations(r.stations))
+        .finally(() => setLoading(false));
+    });
+  }, [search]);
 
   const minPrice = stations.reduce<number | null>((min, s) => {
     if (s.price_vnd === null) return min;

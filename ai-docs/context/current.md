@@ -2,7 +2,7 @@
 
 > 다음 스레드가 이 파일만 읽고도 작업을 이어받을 수 있도록 작성.  
 > 완료 이력은 [`context/history.md`](history.md)로 이관됨. 여기에는 활성 상태만 유지.  
-> **마지막 갱신**: 2026-05-22 (퀘스트 달성 체크 시스템 Phase 1~3 전체 완료 — 카드+슬롯+노이즈필터+만료배치+Push+Wiki)
+> **마지막 갱신**: 2026-05-24 (퀘스트 상세 [DBG] 숨김 / abandonRide 토스트 우회 / 게러지 빈 슬롯 부위별 그림자 아이콘)
 
 ---
 
@@ -114,6 +114,10 @@ GPS Stream → GpsAgent
 | (inline) | **골드 용어 통일** — "GP" / "GOLD" → "골드" (ko), "Gold" (en), "Vàng" (vi) | ✅ DONE |
 | (inline) | **퀘스트 달성 체크 전체** — Phase 1~3 완료 (카드+슬롯+노이즈필터+만료배치+Push) | ✅ DONE |
 | (inline) | **퀘스트 달성 체크 검증** — 빌드·마이그레이션·Swagger·API 동작·슬롯·노이즈필터·만료배치 | 📋 TODO |
+| (inline) | **TODO #52 침수 핫스팟 시드** — HCMC 상습 침수 지점 30개 큐레이션 → `flood_hotspot_stats` (`database/init/037_flood_hotspot_seed.sql`, 12개 구, ankle 19/knee 10/thigh 1, 멱등 가드) | ✅ DONE |
+| (inline) | **퀘스트 상세 [DBG] 버튼 숨김** — `QuestDetail.tsx:251-256` 트리거만 주석 처리 (다이얼로그 로직은 보존, 복구 용이) | ✅ DONE (2026-05-24) |
+| (inline) | **abandonRide 토스트 노이즈 차단** — fire-and-forget 호출이 `realFetch` 토스트로 새지 않게 raw `fetch` 로 우회 (`api/quests.ts:119-126`). 502 토스트 오인 귀속 방지 | ✅ DONE (2026-05-24) |
+| (inline) | **게러지 빈 슬롯 그림자 아이콘** — 빈 슬롯에 부위별 유니코드 이모지(🪖🧥🧤🕶️🥾 등)를 `<span>` 로 출력, opacity 0.55 + grayscale 적용. `emojiUrl` CDN 폴백 실패 회피 (`Garage.tsx` + `Garage.module.css .slotSilhouette`) | ✅ DONE (2026-05-24) |
 
 > 이전 활성 태스크는 모두 아카이브 완료 → [`task/archive.md`](../task/archive.md)
 

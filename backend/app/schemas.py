@@ -32,6 +32,8 @@ class DistrictOut(BaseModel):
     name_en: str
     image_content_id: UUID | None = None
     image_url: str | None = None
+    center_lat: float | None = None
+    center_lng: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -48,6 +50,8 @@ class DistrictOut(BaseModel):
                 "name_en": data.name_en,
                 "image_content_id": data.image_content_id,
                 "image_url": build_imgproxy_url(image_content.file_path),
+                "center_lat": data.center_lat,
+                "center_lng": data.center_lng,
             }
         return data
 
@@ -197,6 +201,9 @@ class QuestOut(BaseModel):
     badge: str | None
     required_level: int
     target_distance_km: Decimal
+    card_type: str = "DISTANCE"
+    target_lat: Decimal | None = None
+    target_lng: Decimal | None = None
     min_safety_grade: SafetyGradeOut | None = None
     reward_exp: int
     reward_gold: int

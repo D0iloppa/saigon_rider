@@ -87,6 +87,7 @@
     "noRecommendedQuest": "No recommended quests",
     "todayMission": "Today's Mission",
     "noMission": "No missions scheduled for today",
+    "resetToMyLocation": "My location",
     "totalRides": "Total Rides",
     "goldHeld": "Gold",
     "riderLevel": "Rider Level",
@@ -136,7 +137,11 @@
     "lockSub": "Current Lv.{{currentLevel}} · Until next level",
     "lockEasierBtn": "View easier quests",
     "tonightsTag": "TONIGHT'S QUEST",
-    "everywhere": "Everywhere"
+    "everywhere": "Everywhere",
+    "modeCatalog": "Available",
+    "modeAccepted": "My Quests",
+    "acceptedEmptySub": "Accept a quest from the Available tab",
+    "acceptedToast": "Accepted. Check it in the My Quests tab."
   },
   "ride": {
     "distance": "Distance",

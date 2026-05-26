@@ -600,7 +600,7 @@ http://localhost:18090/img/insecure/fill/400/300/sm/0/plain/local:///user-conten
 
 ## 환경변수 (.env)
 
-> ⚠ **보안 규약 (GUIDELINE.md §7)**
+> ⚠ **보안 규약 (ai-docs/agent-guidelines.md §7)**
 > - `.env` 는 절대 노출 금지 (git/PR/로그/채팅/AI 프롬프트 어디에도).
 > - `.env` 와 `.env.example` 은 **항상 동일한 키셋** 을 유지 — 한쪽에 키 추가/삭제 시 반대쪽도 즉시 갱신. 배포본은 `.env.example` 만 함께 나가므로 키 인터페이스 어긋나면 부팅 실패.
 > - 보안 정보 하드코딩 금지 — 소스·`docker-compose.yml`·`nginx.conf` 어디에도 평문 금지, **반드시** `${VAR}` 보간 또는 `os.getenv()` / `import.meta.env` 로 `.env` 값 참조.

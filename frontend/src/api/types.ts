@@ -34,6 +34,9 @@ export interface Quest {
   riderType: RiderType | null;
   minLevel: number;
   minDistanceM: number;
+  cardType?: 'DISTANCE' | 'CHECKPOINT';
+  targetLat?: number | null;
+  targetLng?: number | null;
   maxDurationSec: number | null;
   timeRestriction: { from: string; to: string } | null;
   safetyGrade: SafetyGradeMaster | null;

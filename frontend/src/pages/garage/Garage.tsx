@@ -33,6 +33,7 @@ interface SlotDef {
   key: string;
   emoji: string;
   label: string;
+  icon: string;
 }
 
 interface TabDef {
@@ -49,13 +50,13 @@ const TABS: Record<TabKey, TabDef> = {
     icon: '🧑',
     silhouette: '/assets/equip/rider.png',
     left: [
-      { key: 'HELMET', emoji: '1fa96', label: 'HELMET' },
-      { key: 'JACKET', emoji: '1f9e5', label: 'JACKET' },
-      { key: 'GLOVES', emoji: '1f9e4', label: 'GLOVES' },
+      { key: 'HELMET', emoji: '1fa96', label: 'HELMET', icon: '🪖' },
+      { key: 'JACKET', emoji: '1f9e5', label: 'JACKET', icon: '🧥' },
+      { key: 'GLOVES', emoji: '1f9e4', label: 'GLOVES', icon: '🧤' },
     ],
     right: [
-      { key: 'EYEWEAR', emoji: '1f576', label: 'EYEWEAR' },
-      { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS' },
+      { key: 'EYEWEAR', emoji: '1f576', label: 'EYEWEAR', icon: '🕶️' },
+      { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS', icon: '🥾' },
     ],
   },
   bike: {
@@ -63,14 +64,14 @@ const TABS: Record<TabKey, TabDef> = {
     icon: '🏍️',
     silhouette: '/assets/equip/bike.png',
     left: [
-      { key: 'HEADLIGHT', emoji: '1f4a1', label: 'LIGHT' },
-      { key: 'MIRROR', emoji: '1f9f0', label: 'MIRROR' },
-      { key: 'WHEEL', emoji: '2699', label: 'WHEEL' },
+      { key: 'HEADLIGHT', emoji: '1f4a1', label: 'LIGHT', icon: '💡' },
+      { key: 'MIRROR', emoji: '1f9f0', label: 'MIRROR', icon: '🪞' },
+      { key: 'WHEEL', emoji: '2699', label: 'WHEEL', icon: '⚙️' },
     ],
     right: [
-      { key: 'DECAL', emoji: '1f409', label: 'DECAL' },
-      { key: 'BODY_PAINT', emoji: '1f3a8', label: 'PAINT' },
-      { key: 'EXHAUST', emoji: '1f525', label: 'EXHAUST' },
+      { key: 'DECAL', emoji: '1f409', label: 'DECAL', icon: '🐉' },
+      { key: 'BODY_PAINT', emoji: '1f3a8', label: 'PAINT', icon: '🎨' },
+      { key: 'EXHAUST', emoji: '1f525', label: 'EXHAUST', icon: '🔥' },
     ],
   },
   effect: {
@@ -78,13 +79,13 @@ const TABS: Record<TabKey, TabDef> = {
     icon: '✨',
     silhouette: '/assets/equip/effect.png',
     left: [
-      { key: 'TITLE_BANNER', emoji: '1f3f4', label: 'TITLE' },
-      { key: 'HORN', emoji: '1f514', label: 'HORN' },
-      { key: 'TRAIL', emoji: '2728', label: 'TRAIL' },
+      { key: 'TITLE_BANNER', emoji: '1f3f4', label: 'TITLE', icon: '🏴' },
+      { key: 'HORN', emoji: '1f514', label: 'HORN', icon: '🔔' },
+      { key: 'TRAIL', emoji: '2728', label: 'TRAIL', icon: '✨' },
     ],
     right: [
-      { key: 'NAMEPLATE', emoji: '1f3f7', label: 'NAME' },
-      { key: 'BACKDROP', emoji: '1f304', label: 'BACKDROP' },
+      { key: 'NAMEPLATE', emoji: '1f3f7', label: 'NAME', icon: '🏷️' },
+      { key: 'BACKDROP', emoji: '1f304', label: 'BACKDROP', icon: '🌄' },
     ],
   },
 };
@@ -210,9 +211,7 @@ export default function Garage() {
           {equipped ? (
             <ItemSvgRenderer itemCode={equipped.item_code} slot={slot.key} size={32} rarity={equipped.rarity} />
           ) : (
-            <div className={s.slotSilhouette}>
-              <ItemSvgRenderer itemCode="" slot={slot.key} size={32} />
-            </div>
+            <span className={s.slotSilhouette}>{slot.icon}</span>
           )}
           {equipped && (
             <span className={s.slotRarity} style={{ background: RARITY_BG[equipped.rarity] }}>

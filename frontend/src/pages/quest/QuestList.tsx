@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { fetchQuests, fetchCompletedQuestIds } from '@/api/quests';
+import { fetchQuests, fetchCompletedQuestIds, fetchMyAccepted, type MyAcceptedItem } from '@/api/quests';
 import { fetchDistricts, fetchRiderTypes, fetchSafetyGrades, localizedName } from '@/api/master';
 import { useUserStore } from '@/store/useUserStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -53,7 +53,10 @@ export default function QuestList() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
+  const [mode, setMode] = useState<'catalog' | 'accepted'>('catalog');
   const [tab, setTab] = useState<QuestType>('daily');
+  const [accepted, setAccepted] = useState<MyAcceptedItem[]>([]);
+  const [acceptedLoading, setAcceptedLoading] = useState(false);
   const [activeDistrictId, setActiveDistrictId] = useState<number | null>(null);
   const [activeRiderTypeId, setActiveRiderTypeId] = useState<number | null>(null);
   const [activeSafetyGradeId, setActiveSafetyGradeId] = useState<number | null>(null);
@@ -77,7 +80,7 @@ export default function QuestList() {
     { key: 'event',  label: t('quest.tabEvent') },
   ];
 
-  // completedIds를 먼저 가져온 다음 excludeCompleted로 메인 리스트 fetch
+  // 카탈로그: 이미 수령(ACCEPTED)했거나 완료한 항목 제외
   const fetchPage = useCallback(async (page: number) => {
     const params = buildFilterParams(activeDistrictId, activeRiderTypeId, activeSafetyGradeId);
     return fetchQuests({
@@ -86,8 +89,18 @@ export default function QuestList() {
       page,
       userId: userId ?? undefined,
       excludeCompleted: !!userId,
+      excludeAccepted: !!userId,
     });
   }, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
+
+  // 내 퀘스트(수령함) — mode 전환 또는 userId 변경 시 로드
+  useEffect(() => {
+    if (mode !== 'accepted' || !userId) return;
+    setAcceptedLoading(true);
+    fetchMyAccepted(userId)
+      .then(setAccepted)
+      .finally(() => setAcceptedLoading(false));
+  }, [mode, userId]);
 
   const { items: quests, isLoading: loading, isLoadingMore, hasMore, sentinelRef, reset } =
     useInfiniteScroll<Quest>(fetchPage, 20, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
@@ -141,8 +154,25 @@ export default function QuestList() {
           <GifIcon code="1f4cd" size={32} />
         </div>
 
-        {/* Segment tabs */}
-        <div className={styles.segmentWrap}>
+        {/* Mode toggle: 가능 / 내 퀘스트 */}
+        <div className={styles.segmentWrap} style={{ marginBottom: 8 }}>
+          <button
+            className={`${styles.segTab} ${mode === 'catalog' ? styles.segTabActive : ''}`}
+            onClick={() => setMode('catalog')}
+          >
+            {t('quest.modeCatalog', { defaultValue: '가능' })}
+          </button>
+          <button
+            className={`${styles.segTab} ${mode === 'accepted' ? styles.segTabActive : ''}`}
+            onClick={() => setMode('accepted')}
+          >
+            {t('quest.modeAccepted', { defaultValue: '내 퀘스트' })}
+            {accepted.length > 0 && <span style={{ marginLeft: 6, opacity: .7 }}>({accepted.length})</span>}
+          </button>
+        </div>
+
+        {/* Segment tabs (카탈로그 모드에서만) */}
+        {mode === 'catalog' && <div className={styles.segmentWrap}>
           {TABS.map((tb) => (
             <button
               key={tb.key}
@@ -152,10 +182,10 @@ export default function QuestList() {
               {tb.label}
             </button>
           ))}
-        </div>
+        </div>}
 
         {/* District chips */}
-        <div className={styles.filterRow}>
+        {mode === 'catalog' && <div className={styles.filterRow}>
           {districts.map((d) => (
             <Chip
               key={d.id}
@@ -166,10 +196,10 @@ export default function QuestList() {
               🌆 {localizedName(d)}
             </Chip>
           ))}
-        </div>
+        </div>}
 
         {/* Rider type + Safety grade chips */}
-        <div className={styles.filterRow}>
+        {mode === 'catalog' && <div className={styles.filterRow}>
           {riderTypes.map((r) => (
             <Chip
               key={r.id}
@@ -190,14 +220,28 @@ export default function QuestList() {
               🛡 {localizedName(s)}
             </Chip>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* List */}
       <div className={styles.listArea} ref={listRef as React.RefObject<HTMLDivElement>}>
       <div className={styles.listContent} style={contentStyle}>
         <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
-        {loading ? (
+        {mode === 'accepted' ? (
+          acceptedLoading ? (
+            <div className={`shimmer ${styles.skeleton}`} />
+          ) : accepted.length === 0 ? (
+            <div className={styles.empty}>
+              <GifIcon code="1f4dd" size={120} />
+              <h2 className={styles.emptyTitle}>{t('quest.acceptedEmptyTitle', { defaultValue: '수령한 퀘스트가 없어요' })}</h2>
+              <p className={styles.emptySub}>{t('quest.acceptedEmptySub', { defaultValue: '가능 탭에서 퀘스트를 수령해보세요' })}</p>
+            </div>
+          ) : (
+            accepted.map((a) => (
+              <QuestCard key={a.userQuestId} quest={a.quest} onClick={() => navigate(`/quests/${a.quest.id}`)} />
+            ))
+          )
+        ) : loading ? (
           <>
             {[1, 2, 3].map((i) => (
               <div key={i} className={`shimmer ${styles.skeleton}`} />

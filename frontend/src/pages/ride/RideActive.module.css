@@ -44,20 +44,6 @@
   z-index: 10;
 }
 
-.glassBtn {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgba(255,255,255,.1);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,.12);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-}
-
 .questChip {
   font-size: 14px;
   font-weight: 600;
@@ -223,37 +209,6 @@
   z-index: 10;
 }
 
-.testBar {
-  position: absolute;
-  bottom: calc(20px + var(--bottom-safe));
-  left: 20px;
-  right: 20px;
-  z-index: 10;
-}
-
-.testBtn {
-  width: 100%;
-  height: 36px;
-  background: rgba(34,197,94,.2);
-  border: 1px dashed var(--success);
-  color: var(--success);
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.gpsTest {
-  position: absolute;
-  top: 80px;
-  right: 20px;
-  font-size: 10px;
-  color: rgba(255,255,255,.4);
-  background: rgba(255,255,255,.05);
-  padding: 4px 10px;
-  border-radius: 999px;
-  z-index: 10;
-}
-
 /* Pause sheet */
 .pauseContent {
   color: var(--text);
@@ -302,25 +257,3 @@
   font-weight: 600;
 }
 
-.gpsContent {
-  text-align: center;
-  color: var(--text);
-  padding: 24px 12px;
-}
-
-.gpsIcon {
-  font-size: 64px;
-  margin-bottom: 12px;
-}
-
-.gpsContent h2 {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.gpsContent p {
-  font-size: 14px;
-  color: var(--text-2);
-  margin-bottom: 24px;
-}

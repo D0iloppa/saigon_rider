@@ -32,6 +32,7 @@ from .routers import (
     season,
     shop,
     support,
+    user_quests,
     users,
     wallet,
 )
@@ -96,6 +97,7 @@ app.include_router(master.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(quests.router, prefix="/api")
+app.include_router(user_quests.router, prefix="/api")
 app.include_router(ride.router, prefix="/api")
 app.include_router(feed.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

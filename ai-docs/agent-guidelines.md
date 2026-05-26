@@ -1,19 +1,19 @@
 # AI Agent Guideline
 
-새 스레드에서 AI가 따라야 할 운용 규칙. 산출물 색인은 [`ai-docs/INDEX.md`](ai-docs/INDEX.md), 현재 작업 상태는 [`ai-docs/context/current.md`](ai-docs/context/current.md).
+새 스레드에서 AI가 따라야 할 운용 규칙. 산출물 색인은 [`INDEX.md`](INDEX.md), 현재 작업 상태는 [`context/current.md`](context/current.md). 행동 원칙(카파시 4원칙)은 [`/CLAUDE.md`](../CLAUDE.md).
 
 ## 1. 진입 순서
 
 새 스레드는 항상 다음 순서로 두 파일만 읽고 시작한다:
 
-1. [`ai-docs/INDEX.md`](ai-docs/INDEX.md) — 산출물 지도
-2. [`ai-docs/context/current.md`](ai-docs/context/current.md) — 직전 작업 상태 / 다음 우선순위
+1. [`INDEX.md`](INDEX.md) — 산출물 지도
+2. [`context/current.md`](context/current.md) — 직전 작업 상태 / 다음 우선순위
 
 전체 파일 풀텍스트 검색 금지. 위 두 파일에서 필요한 문서만 선택적으로 로드한다.
 
 ## 1.5 기본 작업 워크플로우 (모든 구현 작업에 자동 적용)
 
-별도 지시가 없더라도 구현 작업을 받으면 **항상** 아래 순서를 따른다. 상세 API·도구 사용법은 [§9 __DEV Context](#9-__dev-context-진행-상태-관리) 및 [`dev-context-management.md`](ai-docs/workflow/dev-context-management.md) 참조.
+별도 지시가 없더라도 구현 작업을 받으면 **항상** 아래 순서를 따른다. 상세 API·도구 사용법은 [§9 __DEV Context](#9-__dev-context-진행-상태-관리) 및 [`workflow/dev-context-management.md`](workflow/dev-context-management.md) 참조.
 
 ### A. 착수 — 태스크 등록
 
@@ -58,7 +58,7 @@
 
 ## 3. 컨텍스트 이어받기
 
-큰 작업(섹션 완료, 결함 수정, 구조 변경) 직후 [`context/current.md`](ai-docs/context/current.md)를 갱신한다. 다음 스레드가 `INDEX.md` + `current.md` 두 파일만 읽고 작업을 이어받을 수 있어야 한다.
+큰 작업(섹션 완료, 결함 수정, 구조 변경) 직후 [`context/current.md`](context/current.md)를 갱신한다. 다음 스레드가 `INDEX.md` + `current.md` 두 파일만 읽고 작업을 이어받을 수 있어야 한다.
 
 ## 4. 구현 반영
 
@@ -134,7 +134,7 @@ python3 -m ruff format backend/app/      # 포맷팅
 
 ## 9. __DEV Context (진행 상태 관리)
 
-프로젝트 진행 상태는 DB(`__DEV_context`, `__DEV_features`, `__DEV_todos`)로 관리하며, 외부 사용자가 위키·어드민에서 실시간 추적한다. 상세 절차는 [`ai-docs/workflow/dev-context-management.md`](ai-docs/workflow/dev-context-management.md).
+프로젝트 진행 상태는 DB(`__DEV_context`, `__DEV_features`, `__DEV_todos`)로 관리하며, 외부 사용자가 위키·어드민에서 실시간 추적한다. 상세 절차는 [`workflow/dev-context-management.md`](workflow/dev-context-management.md).
 
 **핵심 용어**
 

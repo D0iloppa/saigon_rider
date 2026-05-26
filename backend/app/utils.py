@@ -75,6 +75,32 @@ def resolve_feed_image_url(post) -> str | None:
     return getattr(post, "image_url", None)
 
 
+def exp_required_for_level(level: int) -> int:
+    """레벨업에 필요한 EXP. frontend/src/lib/rewards.ts와 동일한 곡선."""
+    if level <= 1:
+        return 200
+    if level == 2:
+        return 500
+    if level == 3:
+        return 1000
+    if level == 4:
+        return 2000
+    return exp_required_for_level(level - 1) * 2
+
+
+def apply_level_up(user) -> int:
+    """user.exp 기준으로 user.level 을 갱신. 멀티 레벨업 처리. 변경된 레벨 수 반환."""
+    gained = 0
+    while True:
+        need = exp_required_for_level(user.level)
+        if user.exp < need:
+            break
+        user.exp -= need
+        user.level += 1
+        gained += 1
+    return gained
+
+
 async def find_district_by_point(db, lat: float, lng: float) -> str | None:
     """PostGIS ST_Covers로 좌표가 속하는 구역 코드를 반환한다. 없으면 None."""
     from sqlalchemy import text

@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,7 +6,7 @@ from sqlalchemy import select
 from app.database import AsyncSession
 from app.deps import get_session, verify_service_key
 from app.enums import MissionStatusEnum
-from app.models import MissionDefinition, SreUser, UserMissionProgress
+from app.models import MissionDefinition, UserMissionProgress
 from app.schemas import MissionProgressRead
 
 router = APIRouter(prefix="/v1/users", tags=["missions"])

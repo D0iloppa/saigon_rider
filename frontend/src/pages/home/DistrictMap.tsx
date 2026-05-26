@@ -6,6 +6,7 @@ import styles from './DistrictMap.module.css';
 
 interface Props {
   activeCode?: string | null;
+  onSelect?: (code: string | null) => void;
 }
 
 interface VB {
@@ -40,7 +41,7 @@ function fitDistrictCapped(id: string): VB {
   return { x: d.cx - w / 2, y: d.cy - h / 2, w, h };
 }
 
-export default function DistrictMap({ activeCode }: Props) {
+export default function DistrictMap({ activeCode, onSelect }: Props) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<string | null>(null);
   const [vb, setVb] = useState<VB>(FULL);
@@ -91,11 +92,13 @@ export default function DistrictMap({ activeCode }: Props) {
     if (selected === id) {
       setSelected(null);
       applyVb(FULL);
+      onSelect?.(null);
     } else {
       setSelected(id);
       applyVb(fitDistrict(id));
+      onSelect?.(DISTRICTS[id].code);
     }
-  }, [selected, applyVb]);
+  }, [selected, applyVb, onSelect]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     const g = gest.current;

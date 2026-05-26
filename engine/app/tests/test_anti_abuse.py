@@ -5,7 +5,6 @@ business-rules §1.4 — REJECT → REDUCE → CAP 순서 검증.
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
-import pytest
 
 from app.enums import AbuseActionEnum, AbuseSeverityEnum
 from app.models import AbuseRule, SreUser

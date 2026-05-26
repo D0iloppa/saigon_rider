@@ -22,9 +22,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.enums import AbuseActionEnum, EventStatusEnum, TxTypeEnum, UserStatusEnum
+from app.enums import EventStatusEnum, UserStatusEnum
 from app.exceptions import DuplicateEventError
-from app.metrics import event_processing_seconds, events_processed_total
+from app.metrics import events_processed_total
 from app.models import ActionDefinition, ActionEvent, IdempotencyKey, SreUser
 from app.schemas import EventCreate, EventResult
 from app.services import anti_abuse, audit, diversity, mission, xp_ledger, tier as tier_svc

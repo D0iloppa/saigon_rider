@@ -26,6 +26,9 @@ function transformQuest(raw: any): Quest {
     minDistanceM: raw.target_distance_km != null
       ? Math.round(Number(raw.target_distance_km) * 1000)
       : 0,
+    cardType: (raw.card_type ?? 'DISTANCE') as 'DISTANCE' | 'CHECKPOINT',
+    targetLat: raw.target_lat != null ? Number(raw.target_lat) : null,
+    targetLng: raw.target_lng != null ? Number(raw.target_lng) : null,
     maxDurationSec: null,
     timeRestriction: null,
     safetyGrade,
@@ -58,6 +61,7 @@ export async function fetchQuests(filter?: {
   userId?: string;
   excludeCompleted?: boolean;
   onlyCompleted?: boolean;
+  excludeAccepted?: boolean;
   page?: number;
   size?: number;
 }): Promise<QuestPage> {
@@ -78,6 +82,7 @@ export async function fetchQuests(filter?: {
   if (filter?.userId) params.set('user_id', filter.userId);
   if (filter?.excludeCompleted) params.set('exclude_completed', 'true');
   if (filter?.onlyCompleted) params.set('only_completed', 'true');
+  if (filter?.excludeAccepted) params.set('exclude_accepted', 'true');
   const raw = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/quests?${params}`);
   return { items: raw.items.map(transformQuest), total: raw.total, page: raw.page, size: raw.size };
 }
@@ -89,6 +94,80 @@ export async function fetchQuest(id: string): Promise<Quest | null> {
   }
   const raw = await api.realFetch<any>(`/quests/${id}`);
   return transformQuest(raw);
+}
+
+export interface AcceptQuestResult {
+  userQuestId: string;
+}
+
+export async function acceptQuest(questId: string, userId: string): Promise<AcceptQuestResult> {
+  if (USE_MOCK) return { userQuestId: 'mock-user-quest-' + Date.now() };
+  const raw = await api.realFetch<{ user_quest_id: string }>(`/quests/${questId}/accept`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+  return { userQuestId: raw.user_quest_id };
+}
+
+export async function startRide(userQuestId: string): Promise<void> {
+  if (USE_MOCK) return;
+  await api.realFetch<{ user_quest_id: string }>(`/user-quests/${userQuestId}/start-ride`, {
+    method: 'POST',
+  });
+}
+
+export async function abandonRide(userQuestId: string): Promise<void> {
+  if (USE_MOCK) return;
+  // fire-and-forget: 호출자가 에러를 무시하므로 realFetch의 토스트를 우회한다
+  const session = (await import('@/lib/session')).loadSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session?.userId) headers['X-User-Id'] = session.userId;
+  await fetch(`/api/bff/user-quests/${userQuestId}/abandon-ride`, { method: 'POST', headers });
+}
+
+export async function dropAccepted(userQuestId: string): Promise<void> {
+  if (USE_MOCK) return;
+  await api.realFetch<unknown>(`/user-quests/${userQuestId}`, { method: 'DELETE' });
+}
+
+export interface MyAcceptedItem {
+  userQuestId: string;
+  acceptedAt: string;
+  periodKey: string | null;
+  quest: Quest;
+}
+
+export async function fetchMyAccepted(userId: string): Promise<MyAcceptedItem[]> {
+  if (USE_MOCK) return [];
+  const raw = await api.realFetch<Array<{ user_quest_id: string; accepted_at: string; period_key: string | null; quest: any }>>(
+    `/quests/my-accepted?user_id=${userId}`,
+  );
+  return raw.map((r) => ({
+    userQuestId: r.user_quest_id,
+    acceptedAt: r.accepted_at,
+    periodKey: r.period_key,
+    quest: transformQuest(r.quest),
+  }));
+}
+
+export interface ActiveCardState {
+  card_id: number;
+  card_type: 'DISTANCE' | 'CHECKPOINT';
+  target_distance_m: number | null;
+  current_distance_m: number;
+  target_lat: number | null;
+  target_lng: number | null;
+  status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+  completed_at: string | null;
+}
+
+export async function fetchActiveCard(userQuestId: string): Promise<ActiveCardState | null> {
+  if (USE_MOCK) return null;
+  try {
+    return await api.realFetch<ActiveCardState>(`/quests/active-card?user_quest_id=${userQuestId}`);
+  } catch {
+    return null;
+  }
 }
 
 export interface CompleteQuestResult {

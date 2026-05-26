@@ -5,6 +5,8 @@ import { useUserStore } from '@/store/useUserStore';
 import { fetchRecommendedQuests } from '@/api/quests';
 import { fetchWallet } from '@/api/wallet';
 import { fetchUserStats } from '@/api/profile';
+import { fetchDistricts, localizedName } from '@/api/master';
+import type { District } from '@/api/master';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { formatNumber } from '@/lib/format';
@@ -33,6 +35,9 @@ export default function WorldMap() {
   const [infoFloods, setInfoFloods] = useState<FloodReport[]>([]);
   const [infoGas, setInfoGas] = useState<GasStation | null>(null);
   const [infoRepair, setInfoRepair] = useState<RepairShop | null>(null);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -53,37 +58,58 @@ export default function WorldMap() {
     }).catch(() => {});
     if (uid) {
       fetchUserStats(uid).then((s) => {
-        setMonthlyKm(Math.round(Number(s.total_km)));
+        setMonthlyKm(Number(s.total_km));
       }).catch(() => {});
     }
   }, [refreshUser]);
 
   useEffect(() => {
-    const lat = 10.776, lng = 106.700;
+    fetchDistricts().then(setDistricts).catch(() => {});
+    const FALLBACK = { lat: 10.776, lng: 106.700 };
     navigator.geolocation?.getCurrentPosition(
-      (p) => {
-        const la = p.coords.latitude, lo = p.coords.longitude;
-        Promise.allSettled([
-          weatherApi.get(la, lo).then((w) => { setInfoWeather(w); setUserDistrictCode(w.location?.district ?? null); }),
-          floodApi.getActive(la, lo, 5).then((r) => setInfoFloods(r.floods)),
-          gasApi.getNearby(la, lo, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
-          repairApi.getNearby(la, lo, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
-        ]);
-      },
-      () => {
-        Promise.allSettled([
-          weatherApi.get(lat, lng).then((w) => { setInfoWeather(w); setUserDistrictCode(w.location?.district ?? null); }),
-          floodApi.getActive(lat, lng, 5).then((r) => setInfoFloods(r.floods)),
-          gasApi.getNearby(lat, lng, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
-          repairApi.getNearby(lat, lng, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
-        ]);
-      },
+      (p) => setUserCoords({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => setUserCoords(FALLBACK),
     );
   }, []);
 
+  // 선택된 구역의 centroid 또는 유저 GPS 좌표로 info API 4종 호출
+  const activeCoords: { lat: number; lng: number } | null = (() => {
+    if (selectedDistrict) {
+      const d = districts.find((x) => x.code === selectedDistrict);
+      if (d?.center_lat != null && d?.center_lng != null) {
+        return { lat: d.center_lat, lng: d.center_lng };
+      }
+    }
+    return userCoords;
+  })();
+
+  const infoNavQuery = activeCoords
+    ? `?lat=${activeCoords.lat}&lng=${activeCoords.lng}${selectedDistrict ? `&district=${selectedDistrict}` : ''}`
+    : '';
+
+  useEffect(() => {
+    if (!activeCoords) return;
+    const { lat, lng } = activeCoords;
+    Promise.allSettled([
+      weatherApi.get(lat, lng).then((w) => {
+        setInfoWeather(w);
+        if (!selectedDistrict) setUserDistrictCode(w.location?.district ?? null);
+      }),
+      floodApi.getActive(lat, lng, 5).then((r) => setInfoFloods(r.floods)),
+      gasApi.getNearby(lat, lng, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
+      repairApi.getNearby(lat, lng, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
+    ]);
+  }, [selectedDistrict, districts, userCoords]);
+
+  const selectedDistrictName = selectedDistrict
+    ? (() => {
+        const d = districts.find((x) => x.code === selectedDistrict);
+        return d ? localizedName(d) : selectedDistrict;
+      })()
+    : null;
+
   if (!user) return null;
 
-  const todayQuest = recommendedList[0] ?? null;
   const activeFloods = infoFloods.filter((f) => f.status === 'ACTIVE');
   const cur = infoWeather?.current;
   const district = infoWeather?.location?.district ?? 'District 1';
@@ -117,7 +143,7 @@ export default function WorldMap() {
           </div>
           <LevelBadge level={user.level} className={styles.levelOverlay} />
           <div className={styles.mileageLabel}>
-            <span className={`mono ${styles.mileageValue}`}>{formatNumber(monthlyKm)}</span>
+            <span className={`mono ${styles.mileageValue}`}>{monthlyKm.toFixed(2)}</span>
             <span className={styles.mileageUnit}>km</span>
           </div>
         </div>
@@ -153,13 +179,20 @@ export default function WorldMap() {
         {/* ── INFO Strip ── */}
         <div className={styles.infoSection}>
           <div className={styles.infoSectionHeader}>
-            <span className={styles.infoSectionLabel}>📍 {district} — {t('info.hub.currentSituation')}</span>
-            {activeFloods.length > 0 && (
+            <span className={styles.infoSectionLabel}>
+              📍 {selectedDistrictName ?? district} — {t('info.hub.currentSituation')}
+            </span>
+            {selectedDistrict && (
+              <button className={styles.resetChip} onClick={() => setSelectedDistrict(null)}>
+                {t('home.resetToMyLocation')}
+              </button>
+            )}
+            {!selectedDistrict && activeFloods.length > 0 && (
               <span className={styles.infoBadgeDanger}>{t('info.hub.floodDangerBadge', { count: activeFloods.length })}</span>
             )}
           </div>
           <div className={styles.infoStrip}>
-            <button className={styles.miniCard} onClick={() => navigate('/info/weather')}>
+            <button className={styles.miniCard} onClick={() => navigate(`/info/weather${infoNavQuery}`)}>
               <div className={styles.miniIcon}>{cur?.emoji ?? '🌡'}</div>
               <div className={styles.miniTitle}>{t('info.hub.miniWeather')}</div>
               <div className={styles.miniValue}>{cur ? `${cur.temp_c}°C` : '--'}</div>
@@ -169,7 +202,7 @@ export default function WorldMap() {
             </button>
             <button
               className={`${styles.miniCard} ${activeFloods.length > 0 ? styles.miniCardDanger : ''}`}
-              onClick={() => navigate('/info/flood')}
+              onClick={() => navigate(`/info/flood${infoNavQuery}`)}
             >
               <div className={styles.miniIcon}>🌊</div>
               <div className={styles.miniTitle}>{t('info.hub.miniFlood')}</div>
@@ -180,21 +213,21 @@ export default function WorldMap() {
                 {activeFloods.length > 0 ? (activeFloods[0].district_code ?? '') : t('info.hub.miniFloodNone')}
               </div>
             </button>
-            <button className={styles.miniCard} onClick={() => navigate('/info/gas')}>
+            <button className={styles.miniCard} onClick={() => navigate(`/info/gas${infoNavQuery}`)}>
               <div className={styles.miniIcon}>⛽</div>
               <div className={styles.miniTitle}>{t('info.hub.miniGas')}</div>
               <div className={`${styles.miniValue} mono`}>
-                {infoGas ? `${infoGas.price_vnd?.toLocaleString()}₫` : '--'}
+                {infoGas?.price_vnd != null ? `${infoGas.price_vnd.toLocaleString()}₫` : '--'}
               </div>
               <div className={styles.miniSub}>
                 {infoGas ? `${infoGas.distance_km.toFixed(1)}km · ${infoGas.wait_minutes === 0 ? t('info.hub.miniGasNoWait') : infoGas.wait_minutes ? t('info.hub.miniGasWait', { min: infoGas.wait_minutes }) : ''}` : t('info.hub.miniLoading')}
               </div>
             </button>
-            <button className={styles.miniCard} onClick={() => navigate('/info/repair')}>
+            <button className={styles.miniCard} onClick={() => navigate(`/info/repair${infoNavQuery}`)}>
               <div className={styles.miniIcon}>🔧</div>
               <div className={styles.miniTitle}>{t('info.hub.miniRepair')}</div>
               <div className={styles.miniValue}>
-                {infoRepair ? `⭐ ${infoRepair.avg_rating?.toFixed(1)}` : '--'}
+                {infoRepair?.avg_rating != null ? `⭐ ${infoRepair.avg_rating.toFixed(1)}` : '⭐ --'}
               </div>
               <div className={styles.miniSub}>
                 {infoRepair?.name ?? t('info.hub.miniLoading')}
@@ -205,7 +238,7 @@ export default function WorldMap() {
 
         {/* ── District Map ── */}
         <div className={styles.mapSection}>
-          <DistrictMap activeCode={userDistrictCode} />
+          <DistrictMap activeCode={userDistrictCode} onSelect={setSelectedDistrict} />
         </div>
 
         {/* ── Today's Mission ── */}
@@ -213,32 +246,36 @@ export default function WorldMap() {
           <div className={styles.sectionLabel}>📍 {t('home.todayMission')}</div>
           {loading ? (
             <div className={`shimmer ${styles.missionSkeleton}`} />
-          ) : todayQuest ? (
-            <button className={styles.missionCard} onClick={() => navigate(`/quests/${todayQuest.id}`)}>
-              <div className={styles.missionTag}>
-                {todayQuest.questType.toUpperCase()} QUEST
-              </div>
-              <div className={styles.missionTitle}>{todayQuest.title}</div>
-              <div className={styles.missionDesc}>
-                {todayQuest.districtName}
-                {todayQuest.minDistanceM > 0 ? ` · ${(todayQuest.minDistanceM / 1000).toFixed(1)}km` : ''}
-                {todayQuest.timeRestriction ? ` · ${todayQuest.timeRestriction.from}–${todayQuest.timeRestriction.to}` : ''}
-              </div>
-              <div className={styles.missionRewards}>
-                {todayQuest.rewardGold > 0 && (
-                  <span className={styles.rewardChip}>
-                    <img src={emojiUrl('1fa99')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                    +{formatNumber(todayQuest.rewardGold)} Gold
-                  </span>
-                )}
-                {todayQuest.rewardXpPoints > 0 && (
-                  <span className={styles.rewardChip}>
-                    <img src={emojiUrl('1f48e')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                    XP +{formatNumber(todayQuest.rewardXpPoints)}
-                  </span>
-                )}
-              </div>
-            </button>
+          ) : recommendedList.length > 0 ? (
+            <div className={styles.missionCarousel}>
+              {recommendedList.map((q) => (
+                <button key={q.id} className={styles.missionCard} onClick={() => navigate(`/quests/${q.id}`)}>
+                  <div className={styles.missionTag}>
+                    {q.questType.toUpperCase()} QUEST
+                  </div>
+                  <div className={styles.missionTitle}>{q.title}</div>
+                  <div className={styles.missionDesc}>
+                    {q.districtName}
+                    {q.minDistanceM > 0 ? ` · ${(q.minDistanceM / 1000).toFixed(1)}km` : ''}
+                    {q.timeRestriction ? ` · ${q.timeRestriction.from}–${q.timeRestriction.to}` : ''}
+                  </div>
+                  <div className={styles.missionRewards}>
+                    {q.rewardGold > 0 && (
+                      <span className={styles.rewardChip}>
+                        <img src={emojiUrl('1fa99')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        +{formatNumber(q.rewardGold)} Gold
+                      </span>
+                    )}
+                    {q.rewardXpPoints > 0 && (
+                      <span className={styles.rewardChip}>
+                        <img src={emojiUrl('1f48e')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                        XP +{formatNumber(q.rewardXpPoints)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
           ) : (
             <div className={styles.missionEmpty}>{t('home.noMission')}</div>
           )}

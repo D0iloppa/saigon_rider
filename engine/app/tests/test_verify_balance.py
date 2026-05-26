@@ -2,11 +2,8 @@
 
 실제 DB 없이 불일치 감지 로직만 격리해서 검증한다.
 """
-from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
-from app.models import XpBalance
 
 
 # ── 잔액 비교 로직 (jobs/verify_balance.py 핵심 로직 추출) ────────

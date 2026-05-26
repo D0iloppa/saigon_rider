@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import RedemptionStatusEnum, TxTypeEnum
+from app.enums import RedemptionStatusEnum
 from app.exceptions import InsufficientBalanceError, RewardUnavailableError
 from app.models import RewardCatalog, RewardRedemption, SreUser
 from app.services import xp_ledger

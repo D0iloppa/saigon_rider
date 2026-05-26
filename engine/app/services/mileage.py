@@ -2,7 +2,6 @@ import logging
 from decimal import Decimal
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from app.models import DeviceUserMap, SreUser, UserMileageLog

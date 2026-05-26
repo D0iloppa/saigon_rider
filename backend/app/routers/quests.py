@@ -71,6 +71,35 @@ def _calc_card_expires(period: str, ends_at: datetime | None) -> str | None:
 router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
 
 
+async def _daily_slot_max(db: AsyncSession) -> int:
+    """sre_seed_config에서 일일 퀘스트 슬롯 기본값을 직접 읽음 (공유 DB).
+    레벨/아이템 보너스는 추후 추가 — 현재는 base만."""
+    row = (
+        await db.execute(text("SELECT value_text FROM sre_seed_config WHERE seed_code='DAILY_QUEST_BASE_SLOTS'"))
+    ).first()
+    try:
+        return int(row[0]) if row else 3
+    except (TypeError, ValueError):
+        return 3
+
+
+async def _daily_slot_used(db: AsyncSession, user_id: uuid.UUID, period_key: str) -> int:
+    """오늘 수령한 DAILY 퀘스트 수. ACCEPTED+COMPLETED+EXPIRED 모두 카운트
+    (포기로 삭제된 row만 미카운트 — 환불 효과)."""
+    result = await db.execute(
+        select(func.count())
+        .select_from(UserQuest)
+        .join(Quest, Quest.id == UserQuest.quest_id)
+        .where(
+            UserQuest.user_id == user_id,
+            UserQuest.period_key == period_key,
+            Quest.period == "DAILY",
+            UserQuest.status.in_(["ACCEPTED", "COMPLETED", "EXPIRED"]),
+        )
+    )
+    return int(result.scalar_one())
+
+
 def _to_out(quest: Quest) -> QuestOut:
     out = QuestOut.model_validate(quest)
     chain: list[str] = []
@@ -105,6 +134,7 @@ async def get_quests(
     user_id: uuid.UUID | None = Query(None),
     exclude_completed: bool = Query(False),
     only_completed: bool = Query(False),
+    exclude_accepted: bool = Query(False),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -134,6 +164,14 @@ async def get_quests(
         elif only_completed:
             conditions.append(Quest.id.in_(completed_subq))
 
+    if user_id and exclude_accepted:
+        accepted_subq = (
+            select(UserQuest.quest_id)
+            .where(UserQuest.user_id == user_id, UserQuest.status == "ACCEPTED")
+            .scalar_subquery()
+        )
+        conditions.append(Quest.id.not_in(accepted_subq))
+
     total = (await db.execute(select(func.count()).select_from(Quest).where(*conditions))).scalar_one()
 
     offset = (page - 1) * size
@@ -141,6 +179,43 @@ async def get_quests(
     result = await db.execute(stmt)
     items = [_to_out(q) for q in result.scalars().all()]
     return Page(items=items, total=total, page=page, size=size)
+
+
+@router.get("/my-accepted", summary="내 퀘스트 — 수령했고 미완료인 UserQuest 목록")
+async def get_my_accepted(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(UserQuest, Quest)
+            .join(Quest, Quest.id == UserQuest.quest_id)
+            .where(
+                UserQuest.user_id == user_id,
+                UserQuest.status == "ACCEPTED",
+                Quest.is_active == True,
+            )
+            .order_by(UserQuest.accepted_at.desc())
+        )
+    ).all()
+    return [
+        {
+            "user_quest_id": str(uq.id),
+            "accepted_at": uq.accepted_at.isoformat(),
+            "period_key": uq.period_key,
+            "quest": _to_out(q).model_dump(mode="json"),
+        }
+        for uq, q in rows
+    ]
+
+
+@router.get("/active-card", summary="라이드 화면 폴링 — 활성 퀘스트 카드 상태")
+async def get_active_quest_card(user_quest_id: uuid.UUID):
+    try:
+        return await engine_client.get_card_by_user_quest(str(user_quest_id))
+    except Exception as exc:
+        log.warning("active-card lookup failed: %s", exc)
+        raise HTTPException(status_code=404, detail="Card not found") from exc
 
 
 @router.get("/district-counts", summary="구역별 활성 퀘스트 수")
@@ -268,14 +343,21 @@ async def accept_quest(
         raise HTTPException(status_code=409, detail="이미 완료한 퀘스트입니다.")
 
     if quest.period == "DAILY":
-        try:
-            slots = await engine_client.get_daily_quest_slots_by_uuid(str(body.user_id))
-            if slots.get("remaining", 1) <= 0:
-                raise HTTPException(status_code=409, detail="일일 퀘스트 슬롯이 가득 찼습니다.")
-        except HTTPException:
-            raise
-        except Exception:
-            log.warning("Daily slot check failed, allowing accept", exc_info=True)
+        max_slots = await _daily_slot_max(db)
+        used = await _daily_slot_used(db, body.user_id, period_key)
+        if used >= max_slots:
+            raise HTTPException(status_code=409, detail="일일 퀘스트 슬롯이 가득 찼습니다.")
+
+    existing_active = await db.execute(
+        select(UserQuest).where(
+            UserQuest.user_id == body.user_id,
+            UserQuest.quest_id == quest.id,
+            UserQuest.period_key == period_key,
+            UserQuest.status == "ACCEPTED",
+        )
+    )
+    if existing_active.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="이미 수령한 퀘스트입니다.")
 
     user_quest = UserQuest(
         user_id=body.user_id,
@@ -286,20 +368,6 @@ async def accept_quest(
     db.add(user_quest)
     await db.commit()
     await db.refresh(user_quest)
-
-    try:
-        target_distance_m = int(quest.target_distance_km * 1000) if quest.target_distance_km else None
-        expires_at = _calc_card_expires(quest.period, quest.ends_at)
-        await engine_client.create_quest_card(
-            user_uuid=str(body.user_id),
-            external_quest_id=str(quest.id),
-            user_quest_id=str(user_quest.id),
-            card_type="DISTANCE",
-            target_distance_m=target_distance_m,
-            expires_at=expires_at,
-        )
-    except Exception:
-        log.warning("Engine quest card creation failed for quest=%s", quest_id, exc_info=True)
 
     return QuestAcceptResponse(session_id=user_quest.id, user_quest_id=user_quest.id)
 

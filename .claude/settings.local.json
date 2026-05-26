@@ -370,7 +370,17 @@
       "Bash(curl -sL --max-time 30 \"https://raw.githubusercontent.com/TungTh/vnm-hcm-geojson/master/hcm.geojson\" -o /tmp/hcm_geo.json)",
       "Bash(curl -sL --max-time 30 \"https://raw.githubusercontent.com/nguyenduy1133/data/main/hcm_quan_huyen.geojson\" -o /tmp/hcm_geo.json)",
       "Bash(PGPASSWORD='dbdnpfzjs1!' psql -h localhost -p 35435 -U wellconn -d saigon_rider -f /mnt/c/DEV/saigon_rider/database/init/036_district_geo.sql)",
-      "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")",
+      "Bash(sort -t: -k2 -n)",
+      "Bash(curl -s http://localhost:18090/api/bff/master/districts)",
+      "Bash(curl -s \"http://localhost:18090/api/bff/dev/todos?feature_id=49\")",
+      "Bash(curl -s -X PUT http://localhost:18090/api/bff/dev/context/current_focus -H 'Content-Type: application/json' -d '{\"value\":\"info 모듈 시드 데이터 작업 — OSM Overpass import \\(주유소/정비소 마스터\\) 실행\",\"status\":\"🔧\"}')",
+      "Bash(curl -s -X POST http://localhost:18090/api/bff/dev/todos -H 'Content-Type: application/json' -d '{\"title\":\"OSM Overpass import 실행 — 주유소/정비소 마스터 시드\",\"description\":\"backend/scripts/osm_import.py 실행. 호치민 amenity=fuel, shop=motorcycle_repair/motorcycle 노드/way를 Overpass API로 받아 gas_station / repair_shop 테이블에 upsert. 동시에 fuel_price_official 기본가\\(RON95/RON92/DO\\) 시드. 설계: ai-docs/H-info-modules-instructions.md §3\",\"priority\":\"HIGH\",\"status\":\"IN_PROGRESS\",\"feature_id\":49}')",
+      "Bash(curl -s -X POST http://localhost:18090/api/bff/dev/todos -H 'Content-Type: application/json' -d '{\"title\":\"운영팀 시드 데이터 작성 — 정비소 50개 방문/리뷰 100건\",\"description\":\"설계서 H-info-modules-instructions.md §13 기준. 운영팀 3명이 4주간 D1+빈탄 지역 정비소 50개를 직접 방문해 오일체크/정비 후 리뷰 작성. backend/scripts/seed_repair_reviews.py 도구 작성 필요\\(현재 미존재\\). 침수 hotspot 1년치 매핑도 동반.\",\"priority\":\"MEDIUM\",\"status\":\"TODO\",\"feature_id\":49}')",
+      "Bash(curl -s \"http://localhost:18090/api/bff/dev/context\")",
+      "Bash(curl -s -X PUT http://localhost:18090/api/bff/dev/context -H 'Content-Type: application/json' -d '{\"key\":\"current_focus\",\"value\":\"info 모듈 시드 데이터 작업 — OSM Overpass import \\(주유소/정비소 마스터\\) 실행\",\"status\":\"🔧\"}')",
+      "Bash(curl -s -X PATCH http://localhost:18090/api/bff/dev/todos/50 -H 'Content-Type: application/json' -d '{\"status\":\"DONE\",\"description\":\"실행 완료: gas_station 759개, repair_shop 215개 upsert. fuel_price_official RON95/RON92/DO 시드. assign_districts.py 후속 실행으로 gas 450개·repair 170개 district_code 매핑 \\(D1+빈탄+투득 등 분포\\). Overpass User-Agent 헤더 추가 패치 적용.\"}')",
+      "Bash(curl -s -X PUT http://localhost:18090/api/bff/dev/context -H 'Content-Type: application/json' -d '{\"key\":\"current_focus\",\"value\":\"info 모듈 시드 OSM import 완료 — gas 759 / repair 215 / fuel_price 3 / district 매핑 620건\",\"status\":\"✅\"}')"
     ]
   }
 }

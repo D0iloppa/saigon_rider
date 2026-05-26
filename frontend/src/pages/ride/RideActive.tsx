@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useRideStore } from '@/store/useRideStore';
@@ -6,7 +6,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { calculateRewards } from '@/lib/rewards';
-import { fetchQuest } from '@/api/quests';
+import { fetchQuest, abandonRide as apiAbandonRide } from '@/api/quests';
 import { formatDistance, formatDuration } from '@/lib/format';
 import { StatusBar } from '@/components/layout/StatusBar';
 import styles from './RideActive.module.css';
@@ -20,39 +20,8 @@ export default function RideActive() {
   const addGold = useUserStore((s) => s.addGold);
 
   const [showPause, setShowPause] = useState(false);
-  const [showGpsError, setShowGpsError] = useState(false);
 
-  useEffect(() => {
-    if (!ride.isActive) {
-      navigate('/home', { replace: true });
-    }
-  }, [ride.isActive, navigate]);
-
-  if (!ride.isActive || !user) return null;
-
-  const progress = Math.min(ride.distanceM / ride.targetDistanceM, 1);
-  const progressPercent = Math.round(progress * 100);
-
-  const RADIUS = 120;
-  const CIRC = 2 * Math.PI * RADIUS;
-  const offset = CIRC * (1 - progress);
-
-  const handlePauseClick = () => {
-    ride.pauseRide();
-    setShowPause(true);
-  };
-
-  const handleResume = () => {
-    ride.resumeRide();
-    setShowPause(false);
-  };
-
-  const handleAbandon = () => {
-    ride.abandonRide();
-    navigate('/home');
-  };
-
-  const handleComplete = async () => {
+  const handleComplete = useCallback(async () => {
     const result = ride.completeRide();
     const quest = await fetchQuest(ride.questId!);
 
@@ -76,13 +45,59 @@ export default function RideActive() {
       });
     } else {
       navigate('/ride/result/fail', {
-        state: {
-          quest,
-          distance: ride.distanceM,
-          target: ride.targetDistanceM,
-        },
+        state: { quest, distance: ride.distanceM, target: ride.targetDistanceM },
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!ride.isActive) {
+      navigate('/home', { replace: true });
+    }
+  }, [ride.isActive, navigate]);
+
+  useEffect(() => {
+    if (ride.cardType === 'CHECKPOINT' && ride.reachedTarget) {
+      handleComplete();
+    }
+  }, [ride.cardType, ride.reachedTarget, handleComplete]);
+
+  useEffect(() => {
+    if (ride.cardType === 'DISTANCE' && ride.distanceM >= ride.targetDistanceM && ride.targetDistanceM > 0) {
+      handleComplete();
+    }
+  }, [ride.cardType, ride.distanceM, ride.targetDistanceM, handleComplete]);
+
+  if (!ride.isActive || !user) return null;
+
+  const isCheckpoint = ride.cardType === 'CHECKPOINT';
+  const progress = isCheckpoint
+    ? (ride.reachedTarget ? 1 : 0)
+    : Math.min(ride.distanceM / Math.max(1, ride.targetDistanceM), 1);
+  const progressPercent = Math.round(progress * 100);
+
+  const RADIUS = 120;
+  const CIRC = 2 * Math.PI * RADIUS;
+  const offset = CIRC * (1 - progress);
+
+  const handlePauseClick = () => {
+    ride.pauseRide();
+    setShowPause(true);
+  };
+
+  const handleResume = () => {
+    ride.resumeRide();
+    setShowPause(false);
+  };
+
+  const handleAbandon = async () => {
+    const uqId = ride.userQuestId;
+    ride.abandonRide();
+    if (uqId) {
+      try { await apiAbandonRide(uqId); } catch { /* 카드 없을 수도 있음 — 무시 */ }
+    }
+    navigate('/home');
   };
 
   return (
@@ -96,9 +111,6 @@ export default function RideActive() {
         <StatusBar variant="light" />
       </div>
       <div className={styles.hud} style={{ paddingTop: 40 }}>
-        <button className={styles.glassBtn} onClick={handlePauseClick}>
-          ❚❚
-        </button>
         <div className={styles.questChip}>{ride.questTitle}</div>
         <div className={styles.gpsBars}>
           <span /><span /><span />
@@ -137,13 +149,39 @@ export default function RideActive() {
         </svg>
 
         <div className={styles.ringContent}>
-          <div className={styles.ringDist}>
-            {(ride.distanceM / 1000).toFixed(1)}
-          </div>
-          <div className={styles.ringTarget}>
-            / {(ride.targetDistanceM / 1000).toFixed(1)} km
-          </div>
-          <div className={styles.ringPercent}>{t('ride.percentComplete', { percent: progressPercent })}</div>
+          {isCheckpoint ? (
+            <>
+              <div className={styles.ringDist}>
+                {ride.distanceToTargetM == null
+                  ? '—'
+                  : ride.distanceToTargetM >= 1000
+                    ? (ride.distanceToTargetM / 1000).toFixed(2)
+                    : ride.distanceToTargetM}
+              </div>
+              <div className={styles.ringTarget}>
+                {ride.distanceToTargetM == null
+                  ? t('ride.waitingGps', { defaultValue: 'GPS 대기' })
+                  : ride.distanceToTargetM >= 1000
+                    ? 'km 남음'
+                    : 'm 남음'}
+              </div>
+              <div className={styles.ringPercent}>
+                {ride.reachedTarget
+                  ? t('ride.reached', { defaultValue: '도착!' })
+                  : t('ride.headTo', { defaultValue: '목표 지점으로 이동' })}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.ringDist}>
+                {(ride.distanceM / 1000).toFixed(1)}
+              </div>
+              <div className={styles.ringTarget}>
+                / {(ride.targetDistanceM / 1000).toFixed(1)} km
+              </div>
+              <div className={styles.ringPercent}>{t('ride.percentComplete', { percent: progressPercent })}</div>
+            </>
+          )}
         </div>
       </div>
 
@@ -175,21 +213,7 @@ export default function RideActive() {
       </div>
 
       <button className={styles.pauseBtn} onClick={handlePauseClick}>
-        ❚❚ {t('ride.paused')}
-      </button>
-
-      {/* Test helpers — prototype only */}
-      <div className={styles.testBar}>
-        <button onClick={handleComplete} className={styles.testBtn}>
-          ✓ Complete (test)
-        </button>
-      </div>
-
-      <button
-        className={styles.gpsTest}
-        onClick={() => setShowGpsError(true)}
-      >
-        GPS error sim
+        ❚❚ {t('ride.pauseBtn', { defaultValue: '일시정지' })}
       </button>
 
       <BottomSheet open={showPause} onClose={handleResume} height="half">
@@ -217,17 +241,6 @@ export default function RideActive() {
         </div>
       </BottomSheet>
 
-      <BottomSheet open={showGpsError} onClose={() => setShowGpsError(false)} height="half">
-        <div className={styles.gpsContent}>
-          <div className={styles.gpsIcon}>📡</div>
-          <h2>{t('ride.gpsErrorTitle')}</h2>
-          <p>{t('ride.gpsErrorSub')}</p>
-          <Button onClick={() => setShowGpsError(false)}>{t('ride.retryBtn')}</Button>
-          <button className={styles.abandonBtn} onClick={handleAbandon}>
-            {t('ride.abandonBtn')}
-          </button>
-        </div>
-      </BottomSheet>
     </div>
   );
 }

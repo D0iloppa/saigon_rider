@@ -205,7 +205,7 @@ export default function ProfileMain() {
     fetchFollowCounts(user.id).then(setFollowCounts);
     fetchUserStats(user.id).then((s) => {
       setStats(s);
-      setTotalMileage(Math.round(Number(s.total_km)));
+      setTotalMileage(Number(s.total_km));
     }).catch(() => {});
     fetchAllBadges(user.id).then(setBadges).catch(() => {});
     fetchInventory(user.id).then((inv) => {
@@ -504,7 +504,7 @@ export default function ProfileMain() {
           <h3 className={styles.cardTitle}>{t('profile.thisMonth')}</h3>
           <div className={styles.statsRow}>
             <div>
-              <div className={styles.statBig}>{stats ? Math.round(Number(stats.total_km)) : '—'}</div>
+              <div className={styles.statBig}>{stats ? Number(stats.total_km).toFixed(2) : '—'}</div>
               <div className={styles.statSmall}>km</div>
             </div>
             <div>

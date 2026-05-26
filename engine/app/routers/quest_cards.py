@@ -93,6 +93,27 @@ async def get_completed_cards(
     return list(result.scalars().all())
 
 
+@router.get(
+    "/quest-cards/by-user-quest",
+    response_model=QuestCardRead,
+    dependencies=[Depends(verify_service_key)],
+)
+async def get_card_by_user_quest(
+    user_quest_id: str = Query(...),
+    db: AsyncSession = Depends(get_session),
+) -> SreQuestCard:
+    result = await db.execute(
+        select(SreQuestCard)
+        .where(SreQuestCard.user_quest_id == user_quest_id)
+        .order_by(SreQuestCard.accepted_at.desc())
+        .limit(1)
+    )
+    card = result.scalar_one_or_none()
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return card
+
+
 @router.post(
     "/quest-cards/{card_id}/cancel",
     status_code=status.HTTP_204_NO_CONTENT,

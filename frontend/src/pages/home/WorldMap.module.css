@@ -230,6 +230,19 @@
   padding: 2px 8px;
 }
 
+.resetChip {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.resetChip:active { transform: scale(0.96); }
+
 .infoStrip {
   padding: 6px 16px 12px;
   display: flex;
@@ -307,8 +320,21 @@
   border-radius: 16px;
 }
 
+.missionCarousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+.missionCarousel::-webkit-scrollbar { display: none; }
+
 .missionCard {
-  width: 100%;
+  flex: 0 0 calc(100% - 32px);
+  scroll-snap-align: center;
   background: linear-gradient(135deg, #FF7438, #B82C08);
   border-radius: 16px;
   padding: 20px;
@@ -316,6 +342,10 @@
   text-align: left;
   cursor: pointer;
   transition: transform .15s ease;
+}
+
+.missionCarousel:has(> .missionCard:only-child) .missionCard {
+  flex-basis: 100%;
 }
 
 .missionCard:active { transform: scale(0.98); }

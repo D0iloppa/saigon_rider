@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import type { RepairShop } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { resolveInfoCoords } from '@/lib/infoCoords';
 import styles from './InfoRepairList.module.css';
 
-const DEFAULT_COORDS = { lat: 10.776, lng: 106.700 };
 const MOTO_OPTIONS = ['Honda SH 350i', 'Honda Wave', 'Honda Exciter', 'Yamaha NVX', 'Yamaha Sirius', 'Suzuki Raider'];
 const SERVICE_CODES = ['OIL_CHANGE', 'TIRE', 'CHAIN', 'ENGINE', 'BRAKE', 'BATTERY', 'GENERAL_CHECK', 'WASH'];
 
 export default function InfoRepairList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { search } = useLocation();
 
   const serviceOptions = SERVICE_CODES.map((code) => ({
     code,
@@ -27,11 +28,13 @@ export default function InfoRepairList() {
   const [showServiceSelect, setShowServiceSelect] = useState(false);
 
   useEffect(() => {
-    const { lat, lng } = DEFAULT_COORDS;
-    repairApi.getNearby(lat, lng, 5, service, moto)
-      .then((r) => setShops(r.shops))
-      .finally(() => setLoading(false));
-  }, [moto, service]);
+    setLoading(true);
+    resolveInfoCoords(search).then(({ lat, lng }) => {
+      repairApi.getNearby(lat, lng, 5, service, moto)
+        .then((r) => setShops(r.shops))
+        .finally(() => setLoading(false));
+    });
+  }, [moto, service, search]);
 
   const minPrice = shops.reduce<number | null>((min, s) => {
     if (s.avg_price === null) return min;

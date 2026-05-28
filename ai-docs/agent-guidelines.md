@@ -4,12 +4,7 @@
 
 ## 1. 진입 순서
 
-새 스레드는 항상 다음 순서로 두 파일만 읽고 시작한다:
-
-1. [`INDEX.md`](INDEX.md) — 산출물 지도
-2. [`context/current.md`](context/current.md) — 직전 작업 상태 / 다음 우선순위
-
-전체 파일 풀텍스트 검색 금지. 위 두 파일에서 필요한 문서만 선택적으로 로드한다.
+[`/CLAUDE.md`](../CLAUDE.md) "Session Start Protocol" 을 따른다. 전체 파일 풀텍스트 검색 금지.
 
 ## 1.5 기본 작업 워크플로우 (모든 구현 작업에 자동 적용)
 
@@ -76,9 +71,9 @@ docker compose --env-file .env up --build -d frontend
 ./wikidoc_publish.sh
 ```
 
-## 6. 로컬 전용
+## 6. ai-docs git 추적 정책
 
-`GUIDELINE.md`, `ai-docs/`는 git에 커밋하지 않는다. AI 컨텍스트 유지 전용.
+`ai-docs/` 는 표준 정책상 로컬 전용 디렉터리지만, 본 프로젝트는 **private repo 운영 중이라 git 추적을 의도적으로 허용**한다. 환경 마이그레이션 시 컨텍스트가 함께 이동하는 이점을 위해 유지하는 예외이므로, "추적되지 말아야 한다"는 지적·정리를 시도하지 않는다.
 
 ## 7. 보안 / 환경 변수
 
@@ -96,7 +91,6 @@ docker compose --env-file .env up --build -d frontend
 3. **보안 정보 하드코딩 금지** — JWT 시크릿, DB 비밀번호, ADMIN 자격, ENGINE_SERVICE_KEY, imgproxy KEY/SALT, OAuth 시크릿 등은 **반드시** `.env` 값을 코드/설정에서 `os.getenv()` / `import.meta.env` / `process.env` / `${VAR}` 보간 등으로 참조한다. 소스 파일·docker-compose.yml·nginx.conf 어디에도 평문으로 적지 않는다.
 4. **신규 비밀이 필요할 때** — 먼저 `.env.example` 에 키와 `change_me_*` placeholder 추가 → `.env` 에 실제 값 추가 → 코드는 그 키만 참조. 순서를 지키면 한쪽에만 들어가는 사고를 막을 수 있다.
 5. **샘플 값 정책** — `.env.example` 의 비밀 항목 값은 `change_me_*` 로 통일(기존 컨벤션). 포트·타임존 등 공개 가능한 항목은 합리적 기본값을 적어 즉시 사용 가능하게 한다.
-6. **AI 와 대화할 때** — 실제 비밀 값을 프롬프트에 붙여 넣지 않는다. 필요한 경우 `.env.example` 의 키 이름만 공유한다.
 
 위반을 발견하면 즉시 (a) 비밀 회전, (b) git 히스토리 정리(`git filter-repo` 등), (c) 외부 노출 경위 추적 순으로 대응한다.
 
@@ -144,13 +138,7 @@ python3 -m ruff format backend/app/      # 포맷팅
 | `__DEV_features` | 기능 단위 진행 상태 — `PLANNED → IN_PROGRESS → DONE / DEFERRED` |
 | `__DEV_todos` | 할일 단위 — `TODO → IN_PROGRESS → DONE / BLOCKED` |
 
-**선 보고 후 진행 (Report First, Fix Later)**
-
-1. 작업 **착수 전** `current_focus`를 진행중 상태로 갱신한다.
-2. 코드 수정을 수행한다.
-3. 검증 완료 **후** 완료 상태로 갱신하거나 다음 작업으로 교체한다.
-
-IN_PROGRESS와 DONE을 혼동하지 않는다. 구현과 동시에 DONE 처리 금지.
+**선 보고 후 진행**: 상세 흐름은 §1.5 참조. 핵심은 IN_PROGRESS와 DONE 혼동 금지 — 구현과 동시에 DONE 처리하지 않는다.
 
 ## 10. 컨텐츠 관리 (이미지 / 파일)
 

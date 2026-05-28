@@ -4,10 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 핵심 행동 원칙 — 카파시 지침 (Karpathy's Guidelines)
 
-> **출처:** Andrej Karpathy 의 agentic coding 후기(2026-01-26, X) 에서 지적된 LLM 코딩 안티패턴을 정리한 4원칙.
-> 원본: [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) (GitHub Trending 1위, 110k+ stars)
->
-> 이 4원칙은 본 파일과 [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) 의 모든 규칙보다 **우선**한다. 충돌 시 이쪽을 따른다.
+> Andrej Karpathy 의 agentic coding 안티패턴 4원칙. 본 파일과 [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) 의 모든 규칙보다 **우선**한다.
 
 ### 1. Think Before Coding — 가정하지 말고, 헷갈림을 숨기지 말 것
 - 구현 전에 **가정을 명시**한다. 불확실하면 묻는다.
@@ -90,33 +87,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 시스템 아키텍처 (BFF/Engine 상세) | [`ai-docs/context/architecture.md`](ai-docs/context/architecture.md) |
 | 프론트엔드 패턴 | [`ai-docs/context/frontend.md`](ai-docs/context/frontend.md) |
 
-## 자주 쓰는 명령 (핵심만)
-
-```bash
-# 전체 스택 기동
-docker compose --profile backend up --build -d
-
-# 프론트만 재배포
-docker compose --env-file .env up --build -d frontend
-
-# 위키 무중단 재발행
-./wikidoc_publish.sh
-
-# 린트 (pre-commit 훅이 자동 실행)
-python3 -m ruff check backend/app/ --fix
-python3 -m ruff check engine/app/ --fix
-cd frontend && npx eslint src/ --fix
-```
-
-| 접속 URL | 설명 |
-|---|---|
-| http://localhost:18090 | 메인 앱 |
-| http://localhost:18090/api/bff/docs | BFF Swagger |
-| http://localhost:18090/api/sre/docs | Engine Swagger |
-| http://localhost:18090/admin/login | 관리자 콘솔 |
-
 ## 보안 최소 룰 (전문은 agent-guidelines §7)
 
 - `.env` 와 `.env.example` 은 항상 동일한 키셋. 한쪽에 키 추가/삭제/이름변경 시 **즉시** 반대쪽도 갱신.
-- **실제 비밀값을 AI 프롬프트·로그·커밋·채팅 어디에도 노출 금지.** 필요 시 키 이름만 공유.
-- 소스/`docker-compose.yml`/`nginx.conf` 어디에도 비밀값 하드코딩 금지. `os.getenv()` / `import.meta.env` / `${VAR}` 참조.
+
+## Push 전 코드 리뷰 게이트
+
+`git push` 직전(또는 PR open 직전)에 **`/code-review`** 를 한 번 실행해 diff 를 검토한다. 린트(pre-commit)와 별개 층위로 *로직 버그·중복·단순화 여지·비효율*을 잡는다.
+
+- **트리거**: push 또는 PR open 직전. 매 commit 마다 돌리지 않는다(토큰 낭비).
+- **기본 effort**: `medium`. RP·보상·결제·인증 등 고위험 영역 변경이 포함됐을 때만 `high` 이상.
+- **diff 가 크면**(파일 10개+ 또는 500줄+) 영역별(BFF/Engine/Frontend) PR 로 쪼개고 각각 리뷰. 한 번에 1000줄+ 리뷰는 품질·비용 모두 손해.
+- 발견된 지적은 push 전에 처리한다. 무시할 거면 *이유를* 커밋 메시지나 PR 본문에 남긴다.

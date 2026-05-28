@@ -167,6 +167,8 @@ class Quest(Base):
     description_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
     description_vi: Mapped[str | None] = mapped_column(Text, nullable=True)
     description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mission_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    rarity: Mapped[str] = mapped_column(String(1), nullable=False, default="C")
 
 
 class UserQuest(Base):
@@ -628,6 +630,7 @@ class GasStation(Base):
     station_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     osm_id: Mapped[str | None] = mapped_column(String(50), nullable=True, unique=True)
     brand: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    brand_normalized: Mapped[str | None] = mapped_column(String(32), nullable=True)
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     lat: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
     lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
@@ -635,19 +638,57 @@ class GasStation(Base):
     street_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     opening_hours: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
+    source_type: Mapped[str | None] = mapped_column(String(30), default="OSM", nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    is_24h: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class FuelPriceOfficial(Base):
-    __tablename__ = "fuel_price_official"
+class FuelPriceSnapshot(Base):
+    __tablename__ = "fuel_price_snapshot"
 
-    price_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    snapshot_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    region: Mapped[str] = mapped_column(String(10), nullable=False)
+    brand: Mapped[str] = mapped_column(String(32), nullable=False)
     fuel_type: Mapped[str] = mapped_column(String(20), nullable=False)
     price_vnd: Mapped[int] = mapped_column(Integer, nullable=False)
-    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
-    effective_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    validated_by: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FuelPriceReport(Base):
+    __tablename__ = "fuel_price_report"
+
+    report_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    station_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("gas_station.station_id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    fuel_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    price_vnd: Mapped[int] = mapped_column(Integer, nullable=False)
+    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    deviation_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class FuelPriceFetchLog(Base):
+    __tablename__ = "fuel_price_fetch_log"
+
+    log_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    items_found: Mapped[int] = mapped_column(Integer, default=0)
+    items_inserted: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class GasStationWaitReport(Base):

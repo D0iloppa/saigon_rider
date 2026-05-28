@@ -1,13 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { gasApi } from '@/api/info';
+import { gasApi, type TodayPrices } from '@/api/info';
 import type { GasStation } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { resolveInfoCoords } from '@/lib/infoCoords';
+import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
+import GasStationSheet from '@/components/gas/GasStationSheet';
+import { deriveBrandCode } from '@/components/gas/gas-tokens';
+import type { GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
 
-const OFFICIAL_PRICE = 25420;
+function pickReferenceRon95(prices: TodayPrices | null): number | null {
+  if (!prices) return null;
+  const brands = ['PETROLIMEX', 'MARKET_AVG', 'PVOIL'] as const;
+  for (const b of brands) {
+    const bucket = prices[b];
+    if (bucket && typeof bucket === 'object' && 'RON95_III' in bucket) {
+      const cell = (bucket as Record<string, { price: number }>).RON95_III;
+      if (cell?.price) return cell.price;
+    }
+  }
+  return null;
+}
 
 function getWaitDotCount(waitMinutes: number | null): number {
   if (waitMinutes === null) return 0;
@@ -44,6 +59,30 @@ export default function InfoGasList() {
 
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<'list' | 'map'>('list');
+  const [todayPrices, setTodayPrices] = useState<TodayPrices | null>(null);
+  const [selectedStation, setSelectedStation] = useState<number | null>(null);
+
+  const gasMarkers = useMemo<MapMarker[]>(
+    () =>
+      stations.map((s) => {
+        const data: GasMarkerData = {
+          brand_code: deriveBrandCode(s.brand),
+          ref_price: s.price_vnd,
+          is_24h: false,
+          show_price: false,
+        };
+        return {
+          type: 'gas',
+          lat: s.lat,
+          lng: s.lng,
+          label: s.name ?? s.brand ?? '',
+          onClick: () => setSelectedStation(s.station_id),
+          data,
+        };
+      }),
+    [stations],
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -52,7 +91,11 @@ export default function InfoGasList() {
         .then((r) => setStations(r.stations))
         .finally(() => setLoading(false));
     });
+    gasApi.getTodayPrices().then(setTodayPrices).catch(() => setTodayPrices(null));
   }, [search]);
+
+  const referencePrice = pickReferenceRon95(todayPrices);
+  const updatedAt = todayPrices?.updated_at ?? null;
 
   const minPrice = stations.reduce<number | null>((min, s) => {
     if (s.price_vnd === null) return min;
@@ -80,11 +123,16 @@ export default function InfoGasList() {
         rightContent={filterBtn}
       />
 
-      {/* Official price banner */}
+      {/* Official price banner — "오늘의 참고가" + 갱신 시각 */}
       <div className={styles.officialBar}>
-        <span className={styles.officialLabel}>📊 {t('info.gas.priceBar')}</span>
+        <span className={styles.officialLabel}>
+          📊 {t('info.gas.priceBar')}
+          {updatedAt && (
+            <span className={styles.officialUpdated}> · {t('info.gas.priceBarUpdated', { time: updatedAt })}</span>
+          )}
+        </span>
         <span className={`${styles.mono} ${styles.officialPrice}`}>
-          {OFFICIAL_PRICE.toLocaleString()} ₫/L
+          {referencePrice != null ? `${referencePrice.toLocaleString()} ₫/L` : '—'}
         </span>
       </div>
 
@@ -94,12 +142,34 @@ export default function InfoGasList() {
         <div className={styles.sortChip}>{t('info.gas.sortNearest')} ▾</div>
       </div>
 
+      <div className={styles.viewToggle}>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
+          onClick={() => setView('list')}
+        >
+          {t('info.gas.viewList')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${view === 'map' ? styles.viewToggleActive : ''}`}
+          onClick={() => setView('map')}
+        >
+          {t('info.gas.viewMap')}
+        </button>
+      </div>
+
       <div className={styles.scroll}>
-        {loading ? (
+        {view === 'map' && (
+          <div className={styles.mapWrap}>
+            <SaigonDistrictMap height={360} markers={gasMarkers} showLegend />
+          </div>
+        )}
+        {view === 'list' && loading ? (
           <div className={styles.skeletonWrap}>
             {[0, 1, 2].map((i) => <div key={i} className={styles.skeleton} />)}
           </div>
-        ) : (
+        ) : view === 'list' ? (
           <div className={styles.card}>
             {stations.map((s, idx) => {
               const isCheapest = s.price_vnd !== null && s.price_vnd === minPrice;
@@ -108,6 +178,9 @@ export default function InfoGasList() {
                 <div
                   key={s.station_id}
                   className={`${styles.gasCard} ${isCheapest ? styles.gasCardCheap : ''}`}
+                  onClick={() => setSelectedStation(s.station_id)}
+                  role="button"
+                  tabIndex={0}
                 >
                   {/* Name + badge */}
                   <div className={styles.gasTopRow}>
@@ -170,7 +243,7 @@ export default function InfoGasList() {
               );
             })}
           </div>
-        )}
+        ) : null}
 
         {/* Wait report CTA */}
         <button className={styles.reportCta} onClick={handleWaitReport}>
@@ -178,6 +251,13 @@ export default function InfoGasList() {
           <span>{t('info.gas.reportWait')}</span>
         </button>
       </div>
+
+      {selectedStation !== null && (
+        <GasStationSheet
+          stationId={selectedStation}
+          onClose={() => setSelectedStation(null)}
+        />
+      )}
     </div>
   );
 }

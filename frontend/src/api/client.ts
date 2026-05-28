@@ -81,6 +81,7 @@ async function realFetch<T>(
     toast.error(message);
     throw new Error(message);
   }
+  if (res.status === 204) return null as T;
   return res.json();
 }
 

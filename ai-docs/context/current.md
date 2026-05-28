@@ -2,7 +2,48 @@
 
 > 다음 스레드가 이 파일만 읽고도 작업을 이어받을 수 있도록 작성.  
 > 완료 이력은 [`context/history.md`](history.md)로 이관됨. 여기에는 활성 상태만 유지.  
-> **마지막 갱신**: 2026-05-24 (퀘스트 상세 [DBG] 숨김 / abandonRide 토스트 우회 / 게러지 빈 슬롯 부위별 그림자 아이콘)
+> **마지막 갱신**: 2026-05-27 (Capacitor 마이그 완료 작업 IN_PROGRESS)
+
+---
+
+## Capacitor 마이그레이션 완료 — 🟢 JS-SIDE DONE / PENDING NATIVE BUILD VERIFICATION (2026-05-27)
+
+이전 [`260520_capacitor_migration_task.md`](../task/active/260520_capacitor_migration_task.md) 는 web 단만 (JS) 처리되었고 native(iOS WKScriptMessageHandler, Android @JavascriptInterface) 가 raw 상태로 남아있던 절반 완료 상태였음. 이번 세션에서 native 양쪽을 Capacitor Plugin 으로 재정의 후 단일 PR 일괄 컷오버.
+
+### 스코프
+- `capacitor.config.ts` 신규, `ios.path=../native/ios`, `android.path=../native/android`
+- iOS: `native/ios/App/` 산하 Capacitor scaffold + 커스텀 Plugin (Device/Gps/IAP/Ad/Camera/ImageViewer/Fcm)
+- Android: `native/android/app/` 의 build.gradle Capacitor deps, `MainActivity → BridgeActivity`, 커스텀 Plugin (Device/Gps/Camera)
+- `frontend/src/lib/native.ts` 내부 교체 (시그니처 유지, 폴리필·raw 분기 제거)
+- raw 브리지 native 코드(WebViewController.swift WKScriptMessageHandler, MainActivity.WebAppInterface) 동일 PR 내 제거
+
+### 합의 사항
+- 기존 native/ios, native/android 위치 유지 (capacitor.config 의 path 로 지정)
+- `@capacitor/device` 미사용 — 기존 device_uuid base 호환 필수 (iOS Keychain UUID / Android `Settings.Secure.ANDROID_ID` 유지)
+- 단일 PR 일괄 컷오버 (과도기 양립 금지)
+- WSL 에서 JS-side `npm run build` 만 검증, iOS/Android 실 빌드는 사용자측 Mac/Android Studio
+
+### Anti-scope
+- admin UI/새 기능/무관한 리팩토링 금지
+
+### 완료 산출물
+- `frontend/capacitor.config.ts` 신규
+- `frontend/src/lib/plugins/{Device,Gps,IAP,Ad,Camera,ImageViewer,Fcm}.ts` + `index.ts`
+- `frontend/src/lib/native.ts` 재작성 — 폴리필 IIFE 제거, raw 분기 제거, Capacitor 호출 1:1 매핑, 시그니처 유지
+- `native/ios/Podfile`, `native/ios/App/capacitor.config.json`
+- `native/ios/Shared/SaigonRiderApp.swift` 재작성 (CAPBridgeViewController 호스트)
+- `native/ios/Shared/Plugins/{Device,Gps,IAP,Ad,Camera,ImageViewer,Fcm}Plugin.swift` 신규
+- `native/ios/Shared/{WebViewController,WebView,ContentView}.swift` 삭제
+- `native/android/{build.gradle,settings.gradle}` + `app/build.gradle` Capacitor deps
+- `native/android/.../{MainActivity}.java` 재작성 (BridgeActivity)
+- `native/android/.../{Device,Gps,Camera}Plugin.java` 신규
+- `native/CAPACITOR_MIGRATION.md` — Mac/Android Studio 통합 가이드
+- `frontend/npm run build` 통과
+
+### 다음 작업 (Mac 측)
+1. `cd frontend && npm install && npm run build && npx cap sync`
+2. `cd native/ios && pod install`, `SaigonRider.xcworkspace` 열어 `Shared/Plugins/` 폴더 target membership 확인
+3. iOS / Android 빌드 → [`native/CAPACITOR_MIGRATION.md`](../../native/CAPACITOR_MIGRATION.md) §3 회귀 체크리스트 수행
 
 ---
 
@@ -117,6 +158,7 @@ GPS Stream → GpsAgent
 | (inline) | **TODO #52 침수 핫스팟 시드** — HCMC 상습 침수 지점 30개 큐레이션 → `flood_hotspot_stats` (`database/init/037_flood_hotspot_seed.sql`, 12개 구, ankle 19/knee 10/thigh 1, 멱등 가드) | ✅ DONE |
 | (inline) | **퀘스트 상세 [DBG] 버튼 숨김** — `QuestDetail.tsx:251-256` 트리거만 주석 처리 (다이얼로그 로직은 보존, 복구 용이) | ✅ DONE (2026-05-24) |
 | (inline) | **abandonRide 토스트 노이즈 차단** — fire-and-forget 호출이 `realFetch` 토스트로 새지 않게 raw `fetch` 로 우회 (`api/quests.ts:119-126`). 502 토스트 오인 귀속 방지 | ✅ DONE (2026-05-24) |
+| [`260527_fuel_price_pipeline_task.md`](../task/active/260527_fuel_price_pipeline_task.md) | **유가 정보 표출** — 스크래퍼 3종(스텁) + 3-way validation + Redis 캐시 + 브랜드 마커/바텀시트 + admin manual upsert. 지시서 `docs/fuel-price-instructions.md` | ✅ DONE (2026-05-27) — 외부 자동 수집은 v1.1 R&D 이월 (D9) |
 | (inline) | **게러지 빈 슬롯 그림자 아이콘** — 빈 슬롯에 부위별 유니코드 이모지(🪖🧥🧤🕶️🥾 등)를 `<span>` 로 출력, opacity 0.55 + grayscale 적용. `emojiUrl` CDN 폴백 실패 회피 (`Garage.tsx` + `Garage.module.css .slotSilhouette`) | ✅ DONE (2026-05-24) |
 
 > 이전 활성 태스크는 모두 아카이브 완료 → [`task/archive.md`](../task/archive.md)

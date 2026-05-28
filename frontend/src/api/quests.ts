@@ -43,6 +43,8 @@ function transformQuest(raw: any): Quest {
       : [raw.thumbnail_url ?? raw.hero_image_url ?? ''].filter(Boolean),
     thumbnailUrl: (raw.thumbnail_urls?.[0] ?? raw.thumbnail_url ?? raw.hero_image_url ?? ''),
     expiresAt: raw.ends_at ?? undefined,
+    missionCode: raw.mission_code ?? null,
+    rarity: (raw.rarity ?? 'C') as Quest['rarity'],
   };
 }
 

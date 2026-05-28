@@ -1,5 +1,6 @@
 import contextlib
 import json as _json
+import logging
 import os
 import re
 import uuid
@@ -44,6 +45,7 @@ from ..utils import (
 )
 
 router = APIRouter(prefix="/admin", tags=["관리자 (Admin)"])
+_log = logging.getLogger(__name__)
 
 _TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "admin"
 
@@ -2654,6 +2656,7 @@ async def admin_stream_page(
     uuid_q: str | None = None,
     count: int = 50,
     session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
 ):
     uuid_q = request.query_params.get("uuid", None)
 
@@ -2667,6 +2670,27 @@ async def admin_stream_page(
     except Exception:
         info = {"length": 0, "groups": [], "exists": False}
         messages = []
+
+    device_uuids = list({m.get("uuid") for m in messages if m.get("uuid")})
+    device_to_external: dict[str, str | None] = {}
+    external_to_phone: dict[str, str] = {}
+    if device_uuids:
+        try:
+            device_to_external = await engine_client.admin_resolve_device_uuids(device_uuids)
+        except Exception:
+            _log.exception("admin_resolve_device_uuids failed (engine restart 필요할 수 있음)")
+            device_to_external = {}
+        ext_ids: list[uuid.UUID] = []
+        for ext in device_to_external.values():
+            if not ext:
+                continue
+            try:
+                ext_ids.append(uuid.UUID(ext))
+            except (ValueError, TypeError):
+                continue
+        if ext_ids:
+            rows = (await db.execute(select(User.id, User.phone).where(User.id.in_(ext_ids)))).all()
+            external_to_phone = {str(uid): phone for uid, phone in rows}
 
     stream_length = info.get("length", 0)
     groups = info.get("groups", [])
@@ -2685,11 +2709,20 @@ async def admin_stream_page(
         except (ValueError, OSError):
             ts_str = ts_raw
 
+        device_uuid = msg.get("uuid", "")
+        external = device_to_external.get(device_uuid)
+        phone = external_to_phone.get(external) if external else None
+        if phone:
+            suffix = f'<span style="color:rgba(255,255,255,.6);">({h(phone)})</span>'
+        else:
+            suffix = '<span style="color:rgba(255,255,255,.4);">(unlinked)</span>'
+        display = f"{h(device_uuid)} {suffix}"
+
         rows_html += (
             f"<tr>"
             f'<td class="stream-id">{h(msg.get("id", ""))}</td>'
             f'<td><span class="pill type-{msg_type}">{h(msg_type)}</span></td>'
-            f'<td class="uuid-cell" title="{h(msg.get("uuid", ""))}">{h(msg.get("uuid", ""))}</td>'
+            f'<td class="uuid-cell" title="{h(device_uuid)}">{display}</td>'
             f'<td class="msg-cell" data-type="{h(msg_type)}" data-raw="{h(msg.get("message", ""))}">{h(msg.get("message", ""))}</td>'
             f'<td style="font-size:12px; color:rgba(255,255,255,.5);">{h(ts_str)}</td>'
             f"</tr>"

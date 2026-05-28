@@ -107,6 +107,34 @@
       "d7": "7군"
     }
   },
+  "questCard": {
+    "category": {
+      "RIDING": "라이딩",
+      "COMMUNITY": "커뮤니티",
+      "MAINT": "정비",
+      "MARKET": "마켓",
+      "MIXED": "혼합",
+      "DELIVERY": "배달",
+      "ONBOARDING": "입문",
+      "SEASON": "시즌",
+      "MYTHIC": "신화"
+    },
+    "window": {
+      "DAILY": "오늘",
+      "WEEKLY": "이번 주",
+      "MONTHLY": "이번 달"
+    },
+    "season": {
+      "TET": "Tết 음력설",
+      "HUNG_KINGS": "시조 기념일",
+      "REUNIFICATION": "4/30 해방일",
+      "GHOST": "음력 7월",
+      "MID_AUTUMN": "중추절",
+      "RAIN": "우기",
+      "NEW_YEAR": "양력 신년",
+      "SAIGON_BDAY": "사이공 생일"
+    }
+  },
   "quest": {
     "title": "퀘스트",
     "tabDaily": "오늘",
@@ -400,6 +428,9 @@
     "saving": "저장 중…",
     "no_change": "변경 없음",
     "equip_done": "{{slot}} 장착 완료",
+    "unequip_done": "{{slot}} 장착 해제",
+    "unequip_confirm": "{{slot}} 슬롯의 아이템을 장착 해제할까요?",
+    "unequip_action": "장착 해제",
     "tab_rider": "라이더",
     "tab_bike": "바이크",
     "tab_effect": "이펙트",
@@ -489,7 +520,8 @@
       "miniFloodActive": "{{count}}건 활성",
       "miniFloodNone": "주변 침수 없음",
       "miniGasNoWait": "대기없음",
-      "miniGasWait": "대기{{min}}분"
+      "miniGasWait": "대기{{min}}분",
+      "miniMapTitle": "지금 우리 동네"
     },
     "weather": {
       "title": "날씨",
@@ -534,6 +566,7 @@
       "resolvedBadge": "해소됨",
       "resolvedAgoText": "해소 확인됨",
       "locationDetected": "자동 위치 감지됨",
+      "locationDetecting": "위치 확인 중...",
       "locationEditHint": "정확하지 않으면 지도에서 수정 →",
       "depthQuestion": "💧 깊이는 얼마나?",
       "photoOption": "📷 사진 (옵션, +10 XP)",
@@ -547,11 +580,23 @@
       "xpNow": "지금 신고하면",
       "ctaDone": "✅ 신고 완료!",
       "ctaSubmitting": "신고 중...",
-      "ctaSubmit": "🌊 신고하기"
+      "ctaSubmit": "🌊 신고하기",
+      "trustPending": "확인 중",
+      "trustConfirmed": "확인됨",
+      "trustVerified": "라이더 검증",
+      "btnStillFlooded": "맞아요",
+      "btnResolved": "해결됨",
+      "btnFalse": "오신고"
     },
     "gas": {
       "title": "주유소",
-      "priceBar": "RON 95 공식가",
+      "priceBar": "오늘의 참고가 · Vùng 1",
+      "priceBarUpdated": "{{time}} 갱신",
+      "badge24h": "24시간 영업",
+      "referenceSource": "Vùng 1 {{src}}",
+      "updatedAt": "{{time}} 갱신",
+      "disclaimer": "베트남 정부 공시 참고가입니다. 실제 가격은 매장별로 ±100 VND 차이날 수 있어요.",
+      "sheetNotFound": "주유소 정보를 찾을 수 없습니다.",
       "noWait": "대기 없음",
       "waitMin": "대기 {{min}}분",
       "noWaitInfo": "대기 정보 없음",
@@ -564,7 +609,9 @@
       "sortDistrict": "District 1 기준",
       "comingSoon": "대기 신고 기능은 준비 중이에요.",
       "routeBtn": "경로",
-      "callBtn": "전화"
+      "callBtn": "전화",
+      "viewList": "리스트",
+      "viewMap": "지도"
     },
     "repair": {
       "title": "정비소",
@@ -624,7 +671,9 @@
       "service_BRAKE": "브레이크",
       "service_BATTERY": "배터리",
       "service_GENERAL_CHECK": "종합 점검",
-      "service_WASH": "세차"
+      "service_WASH": "세차",
+      "viewList": "리스트",
+      "viewMap": "지도"
     }
   },
   "items": {
@@ -879,5 +928,19 @@
     "PET_NEON_SAIGON_E_01": "NEON PHOENIX",
     "PET_LEGEND_OF_SAIGON_L_01": "DRAGON CUB",
     "PET_LEGEND_OF_SAIGON_M_01": "COSMIC CAT"
+  },
+  "map": {
+    "legendTitle": "범례",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "toggleLegend": "범례",
+    "legend": {
+      "me": "내 위치",
+      "flood": "침수 활성",
+      "repair": "🔧 정비소",
+      "gas": "⛽ 주유소",
+      "road": "주요 도로",
+      "bridge": "다리"
+    }
   }
 }

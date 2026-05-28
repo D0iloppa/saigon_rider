@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
-import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
+import QuestCard from '@/components/quest/QuestCard';
 import { fetchQuest, fetchCompletedQuestIds, completeQuest, acceptQuest, fetchMyAccepted, startRide as apiStartRide, dropAccepted } from '@/api/quests';
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
@@ -139,15 +139,14 @@ export default function QuestDetail() {
       <TopBar transparent showBack />
 
       <div className={styles.hero}>
-        <AppImage src={quest.thumbnailUrls} alt="" className={styles.heroImg} />
-        <div className={styles.heroOverlay} />
-        <div className={styles.heroContent}>
-          <div className={styles.heroTag}>{t('quest.tonightsTag')}</div>
-          <h1 className={styles.heroTitle}>{quest.title}</h1>
-          {isCompleted && (
-            <div className={styles.completedBadge}>✓ {t('quest.completedBadge')}</div>
-          )}
-        </div>
+        <QuestCard
+          missionCode={quest.missionCode}
+          rarity={quest.rarity}
+          title={quest.title}
+          level={quest.minLevel}
+          badges={isCompleted ? [`✓ ${t('quest.completedBadge')}`] : []}
+          variant="detail"
+        />
       </div>
 
       <div className={styles.sheet}>

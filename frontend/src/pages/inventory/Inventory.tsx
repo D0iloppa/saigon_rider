@@ -168,7 +168,7 @@ export default function Inventory() {
               <InventoryCell
                 key={item.user_item_id}
                 rarity={item.rarity}
-                onClick={() => navigate(`/inventory/item/${item.item_code}`)}
+                onClick={() => navigate(`/garage?slot=${item.item_slot}`)}
                 className={`rarity-card ${styles.itemCell}`}
               >
                 {item.is_equipped && (

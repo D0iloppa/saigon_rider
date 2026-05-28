@@ -107,6 +107,34 @@
       "d7": "Quận 7"
     }
   },
+  "questCard": {
+    "category": {
+      "RIDING": "Lái xe",
+      "COMMUNITY": "Cộng đồng",
+      "MAINT": "Bảo dưỡng",
+      "MARKET": "Chợ",
+      "MIXED": "Tổng hợp",
+      "DELIVERY": "Giao hàng",
+      "ONBOARDING": "Chào mừng",
+      "SEASON": "Mùa",
+      "MYTHIC": "Huyền thoại"
+    },
+    "window": {
+      "DAILY": "Hôm nay",
+      "WEEKLY": "Tuần này",
+      "MONTHLY": "Tháng này"
+    },
+    "season": {
+      "TET": "Tết Nguyên Đán",
+      "HUNG_KINGS": "Giỗ Tổ Hùng Vương",
+      "REUNIFICATION": "Ngày 30/4",
+      "GHOST": "Tháng 7 Âm Lịch",
+      "MID_AUTUMN": "Tết Trung Thu",
+      "RAIN": "Mùa Mưa",
+      "NEW_YEAR": "Năm Mới",
+      "SAIGON_BDAY": "Sài Gòn"
+    }
+  },
   "quest": {
     "title": "Nhiệm vụ",
     "tabDaily": "Hôm nay",
@@ -400,6 +428,9 @@
     "saving": "Đang lưu…",
     "no_change": "Không thay đổi",
     "equip_done": "Đã trang bị {{slot}}",
+    "unequip_done": "Đã tháo {{slot}}",
+    "unequip_confirm": "Tháo trang bị ở khe {{slot}}?",
+    "unequip_action": "Tháo trang bị",
     "tab_rider": "Tay đua",
     "tab_bike": "Xe máy",
     "tab_effect": "Hiệu ứng",
@@ -489,7 +520,8 @@
       "miniFloodActive": "{{count}} đang hoạt động",
       "miniFloodNone": "Không có ngập quanh đây",
       "miniGasNoWait": "Không chờ",
-      "miniGasWait": "Chờ {{min}} phút"
+      "miniGasWait": "Chờ {{min}} phút",
+      "miniMapTitle": "Khu vực quanh bạn"
     },
     "weather": {
       "title": "Thời tiết",
@@ -534,6 +566,7 @@
       "resolvedBadge": "Đã thoát",
       "resolvedAgoText": "Đã thoát",
       "locationDetected": "Vị trí tự động",
+      "locationDetecting": "Đang xác định vị trí...",
       "locationEditHint": "Nhấn bản đồ để chỉnh →",
       "depthQuestion": "💧 Sâu bao nhiêu?",
       "photoOption": "📷 Ảnh (tùy chọn, +10 XP)",
@@ -547,11 +580,23 @@
       "xpNow": "Nếu báo ngay",
       "ctaDone": "✅ Đã báo!",
       "ctaSubmitting": "Đang gửi...",
-      "ctaSubmit": "🌊 Báo ngập"
+      "ctaSubmit": "🌊 Báo ngập",
+      "trustPending": "Đang chờ",
+      "trustConfirmed": "Đã xác nhận",
+      "trustVerified": "Rider xác minh",
+      "btnStillFlooded": "Vẫn ngập",
+      "btnResolved": "Đã hết",
+      "btnFalse": "Báo sai"
     },
     "gas": {
       "title": "Xăng",
-      "priceBar": "Giá chính thức RON 95",
+      "priceBar": "Giá tham khảo hôm nay · Vùng 1",
+      "priceBarUpdated": "Cập nhật {{time}}",
+      "badge24h": "Mở 24 giờ",
+      "referenceSource": "Vùng 1 {{src}}",
+      "updatedAt": "Cập nhật {{time}}",
+      "disclaimer": "Giá tham khảo do nhà nước công bố. Giá thực tế có thể ±100 VND tùy trạm.",
+      "sheetNotFound": "Không tìm thấy thông tin trạm.",
       "noWait": "Không chờ",
       "waitMin": "Chờ {{min}} phút",
       "noWaitInfo": "Không có dữ liệu chờ",
@@ -564,7 +609,9 @@
       "sortDistrict": "Khu vực Quận 1",
       "comingSoon": "Tính năng báo chờ đang phát triển.",
       "routeBtn": "Đường đi",
-      "callBtn": "Gọi"
+      "callBtn": "Gọi",
+      "viewList": "Danh sách",
+      "viewMap": "Bản đồ"
     },
     "repair": {
       "title": "Sửa xe",
@@ -624,7 +671,9 @@
       "service_BRAKE": "Phanh",
       "service_BATTERY": "Ắc quy",
       "service_GENERAL_CHECK": "Kiểm tra tổng quát",
-      "service_WASH": "Rửa xe"
+      "service_WASH": "Rửa xe",
+      "viewList": "Danh sách",
+      "viewMap": "Bản đồ"
     }
   },
   "items": {
@@ -879,5 +928,19 @@
     "PET_NEON_SAIGON_E_01": "NEON PHOENIX",
     "PET_LEGEND_OF_SAIGON_L_01": "DRAGON CUB",
     "PET_LEGEND_OF_SAIGON_M_01": "COSMIC CAT"
+  },
+  "map": {
+    "legendTitle": "Chú giải",
+    "zoomIn": "Phóng to",
+    "zoomOut": "Thu nhỏ",
+    "toggleLegend": "Chú giải",
+    "legend": {
+      "me": "Vị trí của tôi",
+      "flood": "Ngập đang hoạt động",
+      "repair": "🔧 Tiệm sửa xe",
+      "gas": "⛽ Trạm xăng",
+      "road": "Đường chính",
+      "bridge": "Cầu"
+    }
   }
 }

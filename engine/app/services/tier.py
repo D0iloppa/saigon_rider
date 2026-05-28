@@ -32,7 +32,7 @@ async def evaluate(db: AsyncSession, *, user_id: int, lifetime_earned: int) -> N
 
     new_tier_code = tiers[-1].tier_code  # 최하위 등급 기본값
     for tier in tiers:
-        if (lifetime_earned >= tier.min_lifetime_rp and
+        if (lifetime_earned >= tier.min_lifetime_xp and
                 lifetime_categories >= tier.min_diversity_count):
             new_tier_code = tier.tier_code
             break

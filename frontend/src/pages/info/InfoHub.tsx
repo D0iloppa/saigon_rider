@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
+import { findNearestDistrict } from '@/components/maps/district-data';
 import styles from './InfoHub.module.css';
 
 function useGeolocation() {
@@ -43,6 +45,27 @@ export default function InfoHub() {
   }, [coords]);
 
   const activeFloods = floods.filter((f) => f.status === 'ACTIVE');
+
+  const userDistrictCode = useMemo(
+    () => (coords ? findNearestDistrict(coords.lat, coords.lng)?.code : undefined),
+    [coords],
+  );
+  const dangerDistrictCodes = useMemo(() => {
+    const codes = new Set<string>();
+    for (const f of activeFloods) {
+      const w = findNearestDistrict(f.lat, f.lng);
+      if (w) codes.add(w.code);
+    }
+    return Array.from(codes);
+  }, [activeFloods]);
+  const miniMapMarkers = useMemo<MapMarker[]>(() => {
+    const out: MapMarker[] = [];
+    if (coords) out.push({ type: 'me', lat: coords.lat, lng: coords.lng });
+    for (const f of activeFloods.slice(0, 3)) {
+      out.push({ type: 'flood', lat: f.lat, lng: f.lng });
+    }
+    return out;
+  }, [coords, activeFloods]);
 
   const depthLabel = (depth: string) =>
     t(`info.flood.depth${depth.charAt(0).toUpperCase()}${depth.slice(1)}`, depth);
@@ -186,6 +209,28 @@ export default function InfoHub() {
               ) : (
                 <div className={styles.cardLine}>{t('info.hub.repairLoading')}</div>
               )}
+            </button>
+
+            <button
+              type="button"
+              className={styles.miniMapCard}
+              onClick={() => navigate('/info/flood')}
+            >
+              <div className={styles.cardHeader}>
+                <span className={styles.cardIcon}>🗺</span>
+                <span className={styles.cardTitle}>{t('info.hub.miniMapTitle')}</span>
+              </div>
+              <div className={styles.miniMapWrap}>
+                <SaigonDistrictMap
+                  height={140}
+                  showLabels={false}
+                  showLegend={false}
+                  highlightedDistricts={userDistrictCode ? [userDistrictCode] : []}
+                  dangerDistricts={dangerDistrictCodes}
+                  markers={miniMapMarkers}
+                  interactive={false}
+                />
+              </div>
             </button>
 
             <div className={styles.gpTip}>

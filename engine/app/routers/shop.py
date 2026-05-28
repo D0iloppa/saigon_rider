@@ -21,7 +21,7 @@ async def list_shop_items(
     collection: Optional[str] = Query(None),
     rarity: Optional[str] = Query(None),
     slot: Optional[str] = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=500),
     user_uuid: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_session),
 ) -> list:

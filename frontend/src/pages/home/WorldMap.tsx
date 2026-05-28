@@ -10,12 +10,16 @@ import type { District } from '@/api/master';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { formatNumber } from '@/lib/format';
+import { native } from '@/lib/native';
+import { apiRegisterDeviceMap } from '@/api/device';
 import type { Quest } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { emojiUrl } from '@/lib/emoji';
 import { expToNextLevel } from '@/lib/rewards';
-import DistrictMap from './DistrictMap';
+import SaigonDistrictMap from '@/components/maps/SaigonDistrictMap';
+import { findNearestDistrict } from '@/components/maps/district-data';
+import type { District as MapDistrict } from '@/components/maps/district-data';
 import styles from './WorldMap.module.css';
 
 export default function WorldMap() {
@@ -49,6 +53,20 @@ export default function WorldMap() {
         setRecommendedList(list);
         setLoading(false);
       });
+      native.getDeviceUUID()
+        .then((deviceUuid) => {
+          if (!deviceUuid) {
+            console.warn('[device-map] home: getDeviceUUID empty — skip', {
+              isNative: native.isNative,
+              platform: native.platform,
+            });
+            return;
+          }
+          apiRegisterDeviceMap(deviceUuid, uid).catch((e) =>
+            console.warn('[device-map] home re-register failed', e),
+          );
+        })
+        .catch((e) => console.error('[device-map] home getDeviceUUID threw', e));
     } else {
       setLoading(false);
     }
@@ -111,6 +129,42 @@ export default function WorldMap() {
   if (!user) return null;
 
   const activeFloods = infoFloods.filter((f) => f.status === 'ACTIVE');
+
+  // ── District map state derivation ──
+  const highlightDistrictCode: string | undefined = (() => {
+    const d = districts.find((x) => x.code === (selectedDistrict ?? userDistrictCode ?? ''));
+    if (d?.center_lat != null && d?.center_lng != null) {
+      return findNearestDistrict(d.center_lat, d.center_lng)?.code;
+    }
+    if (userCoords) return findNearestDistrict(userCoords.lat, userCoords.lng)?.code;
+    return undefined;
+  })();
+
+  const dangerDistrictCodes: string[] = (() => {
+    const set = new Set<string>();
+    for (const f of activeFloods) {
+      const w = findNearestDistrict(f.lat, f.lng);
+      if (w) set.add(w.code);
+    }
+    return Array.from(set);
+  })();
+
+  const handleDistrictClick = (mapDistrict: MapDistrict) => {
+    // mapDistrict.gps 에 가장 가까운 district 를 선택
+    let nearest: District | null = null;
+    let minDist = Infinity;
+    for (const d of districts) {
+      if (d.center_lat == null || d.center_lng == null) continue;
+      const dLat = d.center_lat - mapDistrict.gps.lat;
+      const dLng = d.center_lng - mapDistrict.gps.lng;
+      const dist = dLat * dLat + dLng * dLng;
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = d;
+      }
+    }
+    if (nearest) setSelectedDistrict(nearest.code);
+  };
   const cur = infoWeather?.current;
   const district = infoWeather?.location?.district ?? 'District 1';
 
@@ -191,6 +245,23 @@ export default function WorldMap() {
               <span className={styles.infoBadgeDanger}>{t('info.hub.floodDangerBadge', { count: activeFloods.length })}</span>
             )}
           </div>
+        </div>
+
+        {/* ── District Map ── */}
+        <div className={styles.mapSection}>
+          <SaigonDistrictMap
+            height={300}
+            highlightedDistricts={highlightDistrictCode ? [highlightDistrictCode] : []}
+            dangerDistricts={dangerDistrictCodes}
+            onDistrictClick={handleDistrictClick}
+            showLabels
+            showLegend
+            zoomable
+          />
+        </div>
+
+        {/* ── INFO Strip (지도 아래) ── */}
+        <div className={styles.infoSection}>
           <div className={styles.infoStrip}>
             <button className={styles.miniCard} onClick={() => navigate(`/info/weather${infoNavQuery}`)}>
               <div className={styles.miniIcon}>{cur?.emoji ?? '🌡'}</div>
@@ -234,11 +305,6 @@ export default function WorldMap() {
               </div>
             </button>
           </div>
-        </div>
-
-        {/* ── District Map ── */}
-        <div className={styles.mapSection}>
-          <DistrictMap activeCode={userDistrictCode} onSelect={setSelectedDistrict} />
         </div>
 
         {/* ── Today's Mission ── */}

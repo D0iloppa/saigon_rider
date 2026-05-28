@@ -13,7 +13,7 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { Chip } from '@/components/ui/Chip';
-import { AppImage } from '@/components/ui/AppImage';
+import { getQuestCard } from '@/components/quest/quest-card-map';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './QuestList.module.css';
 
@@ -314,9 +314,11 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
         </span>
       )}
 
-      {/* Thumbnail */}
+      {/* Thumbnail — SVG sprite card */}
       <div className={styles.thumb}>
-        <AppImage src={quest.thumbnailUrls} alt="" />
+        <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true">
+          <use href={getQuestCard(quest.missionCode, quest.rarity).href} />
+        </svg>
       </div>
 
       {/* Content */}

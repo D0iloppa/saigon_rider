@@ -110,11 +110,8 @@ export default function RideActive() {
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 }}>
         <StatusBar variant="light" />
       </div>
-      <div className={styles.hud} style={{ paddingTop: 40 }}>
+      <div className={styles.hud}>
         <div className={styles.questChip}>{ride.questTitle}</div>
-        <div className={styles.gpsBars}>
-          <span /><span /><span />
-        </div>
       </div>
 
       {/* Main progress ring */}

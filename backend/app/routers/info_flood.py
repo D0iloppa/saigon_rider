@@ -256,6 +256,103 @@ async def confirm_flood(
     return {"confirmed": True, "xp_earned": xp_earned}
 
 
+def _trust_level(score: int | None) -> str:
+    s = score or 0
+    if s >= 3:
+        return "VERIFIED"
+    if s >= 1:
+        return "CONFIRMED"
+    return "PENDING"
+
+
+@router.get("/map-data")
+async def get_map_data(
+    lat: float,
+    lng: float,
+    radius_km: float = 5.0,
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+):
+    await _expire_stale(db)
+
+    reports_result = await db.execute(
+        text("""
+            SELECT
+                fr.report_id,
+                fr.lat,
+                fr.lng,
+                fr.district_code,
+                fr.street_name,
+                fr.depth_level,
+                fr.photo_url,
+                fr.reported_at,
+                fr.confidence_score,
+                fr.status,
+                fr.expires_at,
+                EXTRACT(EPOCH FROM (NOW() - fr.reported_at)) / 60 AS minutes_ago,
+                ST_Distance(
+                    fr.geom,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+                ) / 1000.0 AS distance_km
+            FROM flood_report fr
+            WHERE fr.status = 'ACTIVE'
+              AND fr.expires_at > NOW()
+              AND ST_DWithin(
+                    fr.geom,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                    :radius_m
+                  )
+            ORDER BY fr.confidence_score DESC, fr.reported_at DESC
+            LIMIT 50
+        """),
+        {"lat": lat, "lng": lng, "radius_m": radius_km * 1000},
+    )
+
+    reports = []
+    for row in reports_result:
+        r = dict(row._mapping)
+        mins = int(r.pop("minutes_ago", 0))
+        r["time_ago"] = f"{mins}분 전" if mins < 60 else f"{mins // 60}시간 전"
+        r["minutes_ago"] = mins
+        r["lat"] = float(r["lat"])
+        r["lng"] = float(r["lng"])
+        r["distance_km"] = round(float(r["distance_km"]), 2)
+        r["trust_level"] = _trust_level(r.get("confidence_score"))
+        reports.append(r)
+
+    hotspots_result = await db.execute(
+        text("""
+            SELECT
+                hotspot_id,
+                district_code,
+                street_name,
+                centroid_lat,
+                centroid_lng,
+                flood_count_30d,
+                last_flood_at,
+                avg_depth_level,
+                updated_at
+            FROM flood_hotspot_stats
+            ORDER BY flood_count_30d DESC
+            LIMIT 50
+        """)
+    )
+    hotspots = []
+    for row in hotspots_result:
+        h = dict(row._mapping)
+        if h.get("centroid_lat") is not None:
+            h["centroid_lat"] = float(h["centroid_lat"])
+        if h.get("centroid_lng") is not None:
+            h["centroid_lng"] = float(h["centroid_lng"])
+        hotspots.append(h)
+
+    return {
+        "hotspots": hotspots,
+        "reports": reports,
+        "fetched_at": datetime.now(UTC).isoformat(),
+    }
+
+
 @router.get("/hotspots")
 async def get_hotspots(
     district_code: str | None = None,

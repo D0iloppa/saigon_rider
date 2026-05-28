@@ -10,9 +10,17 @@ import { toast } from 'sonner';
 import s from './EquipPreview.module.css';
 
 const SLOTS = [
-  'HELMET', 'JACKET', 'GLOVES', 'BOOTS',
-  'BODY_PAINT', 'WHEEL', 'EXHAUST', 'HEADLIGHT',
-  'MIRROR', 'DECAL',
+  // Rider
+  'GLOVES', 'BOOTS', 'EYEWEAR', 'NAMEPLATE',
+  // Motorcycle
+  'MOTORCYCLE_BODY', 'SEAT', 'STICKER', 'HANDLEBAR', 'TAIL_LIGHT',
+  'ENGINE_COVER', 'HEADLIGHT', 'MIRROR', 'NUMBER',
+  // Profile
+  'RANK_CARD', 'FRAME', 'BACKDROP', 'TITLE',
+  // Effect
+  'TRAIL', 'HORN', 'START_ANIM',
+  // Social
+  'EMOTE', 'BANNER', 'PET',
 ];
 
 export default function EquipPreview() {
@@ -22,9 +30,10 @@ export default function EquipPreview() {
   const user = useUserStore((s) => s.user);
 
   const initSlot = searchParams.get('slot') ?? SLOTS[0];
+  const initCode = searchParams.get('code');
   const [activeSlot, setActiveSlot] = useState(initSlot);
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [selectedCode, setSelectedCode] = useState<string | null>(initCode);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

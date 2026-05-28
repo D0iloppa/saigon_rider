@@ -49,6 +49,8 @@ export interface Quest {
   thumbnailUrl: string;
   thumbnailUrls: string[];
   expiresAt?: string;
+  missionCode?: string | null;
+  rarity?: 'C' | 'R' | 'E' | 'L' | 'M';
 }
 
 export interface QuestAttempt {

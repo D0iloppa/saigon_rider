@@ -107,6 +107,34 @@
       "d7": "District 7"
     }
   },
+  "questCard": {
+    "category": {
+      "RIDING": "RIDING",
+      "COMMUNITY": "COMMUNITY",
+      "MAINT": "MAINT",
+      "MARKET": "MARKET",
+      "MIXED": "MIXED",
+      "DELIVERY": "DELIVERY",
+      "ONBOARDING": "WELCOME",
+      "SEASON": "SEASON",
+      "MYTHIC": "MYTHIC"
+    },
+    "window": {
+      "DAILY": "DAILY",
+      "WEEKLY": "WEEKLY",
+      "MONTHLY": "MONTHLY"
+    },
+    "season": {
+      "TET": "Tết",
+      "HUNG_KINGS": "Hùng Kings",
+      "REUNIFICATION": "30/4",
+      "GHOST": "Ghost Month",
+      "MID_AUTUMN": "Mid-Autumn",
+      "RAIN": "Rainy Season",
+      "NEW_YEAR": "New Year",
+      "SAIGON_BDAY": "Sài Gòn"
+    }
+  },
   "quest": {
     "title": "Quests",
     "tabDaily": "Today",
@@ -400,6 +428,9 @@
     "saving": "Saving…",
     "no_change": "No Changes",
     "equip_done": "{{slot}} equipped",
+    "unequip_done": "{{slot}} unequipped",
+    "unequip_confirm": "Unequip the item in the {{slot}} slot?",
+    "unequip_action": "Unequip",
     "tab_rider": "Rider",
     "tab_bike": "Bike",
     "tab_effect": "Effect",
@@ -489,7 +520,8 @@
       "miniFloodActive": "{{count}} active",
       "miniFloodNone": "No flood nearby",
       "miniGasNoWait": "No wait",
-      "miniGasWait": "Wait {{min}}min"
+      "miniGasWait": "Wait {{min}}min",
+      "miniMapTitle": "Around you now"
     },
     "weather": {
       "title": "Weather",
@@ -534,6 +566,7 @@
       "resolvedBadge": "Cleared",
       "resolvedAgoText": "Cleared",
       "locationDetected": "Auto location detected",
+      "locationDetecting": "Detecting location...",
       "locationEditHint": "Tap map to correct →",
       "depthQuestion": "💧 How deep?",
       "photoOption": "📷 Photo (optional, +10 XP)",
@@ -547,11 +580,23 @@
       "xpNow": "If you report now",
       "ctaDone": "✅ Report sent!",
       "ctaSubmitting": "Submitting...",
-      "ctaSubmit": "🌊 Report Flood"
+      "ctaSubmit": "🌊 Report Flood",
+      "trustPending": "Pending",
+      "trustConfirmed": "Confirmed",
+      "trustVerified": "Rider-verified",
+      "btnStillFlooded": "Still flooded",
+      "btnResolved": "Resolved",
+      "btnFalse": "False report"
     },
     "gas": {
       "title": "Gas",
-      "priceBar": "RON 95 official price",
+      "priceBar": "Today's reference · Region 1",
+      "priceBarUpdated": "Updated {{time}}",
+      "badge24h": "Open 24h",
+      "referenceSource": "Region 1 {{src}}",
+      "updatedAt": "Updated {{time}}",
+      "disclaimer": "Government-published reference price. Actual prices may vary ±100 VND per station.",
+      "sheetNotFound": "Station not found.",
       "noWait": "No wait",
       "waitMin": "{{min}} min wait",
       "noWaitInfo": "No wait data",
@@ -564,7 +609,9 @@
       "sortDistrict": "Near District 1",
       "comingSoon": "Wait reporting coming soon.",
       "routeBtn": "Route",
-      "callBtn": "Call"
+      "callBtn": "Call",
+      "viewList": "List",
+      "viewMap": "Map"
     },
     "repair": {
       "title": "Repair",
@@ -624,7 +671,9 @@
       "service_BRAKE": "Brake",
       "service_BATTERY": "Battery",
       "service_GENERAL_CHECK": "General Inspection",
-      "service_WASH": "Wash"
+      "service_WASH": "Wash",
+      "viewList": "List",
+      "viewMap": "Map"
     }
   },
   "items": {
@@ -879,5 +928,19 @@
     "PET_NEON_SAIGON_E_01": "NEON PHOENIX",
     "PET_LEGEND_OF_SAIGON_L_01": "DRAGON CUB",
     "PET_LEGEND_OF_SAIGON_M_01": "COSMIC CAT"
+  },
+  "map": {
+    "legendTitle": "Legend",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "toggleLegend": "Legend",
+    "legend": {
+      "me": "My location",
+      "flood": "Flood active",
+      "repair": "🔧 Repair shop",
+      "gas": "⛽ Gas station",
+      "road": "Major road",
+      "bridge": "Bridge"
+    }
   }
 }

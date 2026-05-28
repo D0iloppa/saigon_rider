@@ -79,3 +79,8 @@ export async function equipItem(
     body: JSON.stringify({ item_code: itemCode }),
   });
 }
+
+export async function unequipSlot(slot: string): Promise<void> {
+  if (USE_MOCK) { await api.delay(null, 150); return; }
+  await api.realFetch(`/inventory/equip/${slot}`, { method: 'DELETE' });
+}

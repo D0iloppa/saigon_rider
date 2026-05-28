@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { SpriteProvider } from '@/lib/items/SpriteProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { changeLang } from '@/lib/i18n';
@@ -179,6 +180,7 @@ export default function App() {
       <SpriteProvider />
       <Toaster position="bottom-center" gap={6} visibleToasts={3} />
       <Dialog />
+      <ConfirmDialog />
       <AppShell splashVisible={splashVisible} splashFade={splashFade} gifReady={gifReady}>
         {bootstrapped && <Routes>
           {/* default */}

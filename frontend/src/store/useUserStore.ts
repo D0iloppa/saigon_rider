@@ -65,18 +65,21 @@ export const useUserStore = create<UserState>()(
           ...(passcode !== undefined ? { passcode } : {}),
         });
 
-        if (native.isNative) {
-          native.getDeviceUUID().then((uuid) => {
+        native.getDeviceUUID()
+          .then((uuid) => {
             if (!uuid) {
-              console.warn('[device-map] getDeviceUUID empty — skip register');
+              console.warn('[device-map] getDeviceUUID empty — skip register', {
+                isNative: native.isNative,
+                platform: native.platform,
+              });
               return;
             }
             apiRegisterDeviceMap(uuid, dto.id)
               .then(() => console.info('[device-map] registered', uuid))
               .catch((e) => console.warn('[device-map] register failed', e));
-            native.startGPS();
-          });
-        }
+            if (native.isNative) native.startGPS();
+          })
+          .catch((e) => console.error('[device-map] getDeviceUUID threw', e));
       },
 
       refreshUser: async () => {

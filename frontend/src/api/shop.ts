@@ -124,7 +124,7 @@ export async function fetchDailyFeatured(): Promise<DailyFeaturedItem | null> {
   }
 }
 
-export async function fetchShopItems(filter?: { slot?: string }): Promise<ShopItem[]> {
+export async function fetchShopItems(filter?: { slot?: string; limit?: number }): Promise<ShopItem[]> {
   if (USE_MOCK) {
     let items = MOCK_SHOP_ITEMS;
     if (filter?.slot) items = items.filter((i) => i.item_slot === filter.slot);
@@ -132,6 +132,7 @@ export async function fetchShopItems(filter?: { slot?: string }): Promise<ShopIt
   }
   const params = new URLSearchParams();
   if (filter?.slot) params.set('slot', filter.slot);
+  if (filter?.limit) params.set('limit', String(filter.limit));
   return api.realFetch<ShopItem[]>(`/shop/items${params.size ? `?${params}` : ''}`);
 }
 

@@ -269,6 +269,16 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def admin_resolve_device_uuids(self, device_uuids: list[str]) -> dict[str, str | None]:
+        if not device_uuids:
+            return {}
+        resp = await self._client.post(
+            "/v1/admin/stream/resolve-uuids",
+            json={"device_uuids": device_uuids},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def close(self) -> None:
         await self._client.aclose()
 

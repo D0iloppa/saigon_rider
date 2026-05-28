@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { fetchShopItems, fetchDailyFeatured, slotLabel } from '@/api/shop';
 import type { ShopItem, DailyFeaturedItem } from '@/api/shop';
+import { fetchWallet } from '@/api/wallet';
 import { useUserStore } from '@/store/useUserStore';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
@@ -95,6 +96,11 @@ export default function ShopCatalog() {
   const [items, setItems] = useState<ShopItem[]>([]);
   const [activeSlot, setActiveSlot] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [wallet, setWallet] = useState<{ gold: number; xp: number }>({ gold: 0, xp: 0 });
+
+  useEffect(() => {
+    fetchWallet().then((w) => setWallet({ gold: w.gold_balance, xp: w.xp_balance })).catch(() => {});
+  }, []);
 
   const load = useCallback(async (slot: string) => {
     setLoading(true);
@@ -135,7 +141,7 @@ export default function ShopCatalog() {
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
             <span className={styles.balanceGp}>
-              {t('currency.gold')} {(user?.gold ?? 0).toLocaleString()}
+              {t('currency.gold')} {wallet.gold.toLocaleString()}
             </span>
           </div>
           <div className={styles.balanceRow}>
@@ -144,7 +150,7 @@ export default function ShopCatalog() {
               className={styles.balanceIcon} alt=""
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
-            <span className={styles.balanceGc}>XP 240</span>
+            <span className={styles.balanceGc}>XP {wallet.xp.toLocaleString()}</span>
           </div>
         </div>
       </div>

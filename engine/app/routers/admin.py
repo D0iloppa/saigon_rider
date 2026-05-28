@@ -12,6 +12,7 @@ from app.models import (
     ActionDefinition,
     AuditLog,
     DailyFeaturedItem,
+    DeviceUserMap,
     GachaDefinition,
     ItemDefinition,
     RewardPolicy,
@@ -643,6 +644,30 @@ async def admin_stream_messages(
         messages.append({"id": msg_id, **fields})
 
     return messages
+
+
+@router.post("/stream/resolve-uuids", dependencies=[_svc])
+async def admin_stream_resolve_uuids(
+    body: dict,
+    db: AsyncSession = Depends(get_session),
+) -> dict[str, str | None]:
+    """device_uuid 목록을 받아 external_user_uuid 로 매핑. 미매핑은 None."""
+    device_uuids = body.get("device_uuids") or []
+    if not isinstance(device_uuids, list) or not device_uuids:
+        return {}
+    uniq = list({str(u) for u in device_uuids if u})
+    if not uniq:
+        return {}
+    stmt = (
+        select(DeviceUserMap.device_uuid, SreUser.external_user_uuid)
+        .join(SreUser, SreUser.user_id == DeviceUserMap.user_id)
+        .where(DeviceUserMap.device_uuid.in_(uniq))
+    )
+    rows = (await db.execute(stmt)).all()
+    mapping: dict[str, str | None] = {u: None for u in uniq}
+    for device_uuid, external_user_uuid in rows:
+        mapping[device_uuid] = external_user_uuid
+    return mapping
 
 
 # ── 보상 정책 CRUD ──────────────────────────────────────────────

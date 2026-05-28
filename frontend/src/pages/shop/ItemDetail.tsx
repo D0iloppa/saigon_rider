@@ -38,7 +38,7 @@ export default function ItemDetail() {
 
   useEffect(() => {
     if (!itemCode) return;
-    fetchShopItems().then((all) => {
+    fetchShopItems({ limit: 500 }).then((all) => {
       const found = all.find((i) => i.item_code === itemCode);
       if (found) setItem(found);
       else setNotFound(true);

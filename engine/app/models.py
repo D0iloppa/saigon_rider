@@ -1,6 +1,6 @@
 from sqlalchemy import (
     BigInteger, Boolean, Column, Date, Enum, ForeignKey,
-    Identity, Index, Integer, Numeric, String, Text,
+    Identity, Index, Integer, Numeric, String, Text, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
@@ -767,7 +767,7 @@ class DeviceUserMap(Base):
     logged_in_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
 
     __table_args__ = (
-        Index("idx_device_user_map_user", "user_id"),
+        UniqueConstraint("user_id", name="uq_device_user_map_user_id"),
     )
 
 

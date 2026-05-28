@@ -122,14 +122,20 @@ def _import_repair(cur, items: list[dict]) -> None:
 def _seed_fuel_prices(cur) -> None:
     cur.execute(
         """
-        INSERT INTO fuel_price_official (fuel_type, price_vnd, effective_from)
-        VALUES ('RON95', 25420, CURRENT_DATE),
-               ('RON92', 24300, CURRENT_DATE),
-               ('DO',    22100, CURRENT_DATE)
-        ON CONFLICT DO NOTHING
+        INSERT INTO fuel_price_snapshot
+            (effective_date, effective_time, region, brand, fuel_type, price_vnd,
+             source, raw_fetched_at, validated_by, status)
+        VALUES
+            (CURRENT_DATE, NOW(), 'VUNG_1', 'MARKET_AVG', 'RON95_III',  25420,
+             'seed:osm_import', NOW(), '{"seeded":true}'::jsonb, 'ACTIVE'),
+            (CURRENT_DATE, NOW(), 'VUNG_1', 'MARKET_AVG', 'E5_RON92_II', 24300,
+             'seed:osm_import', NOW(), '{"seeded":true}'::jsonb, 'ACTIVE'),
+            (CURRENT_DATE, NOW(), 'VUNG_1', 'MARKET_AVG', 'DO_001S_V',   22100,
+             'seed:osm_import', NOW(), '{"seeded":true}'::jsonb, 'ACTIVE')
+        ON CONFLICT (effective_date, region, brand, fuel_type, source) DO NOTHING
         """
     )
-    print("[DB]  ✓ fuel prices seeded (RON95/RON92/DO)", flush=True)
+    print("[DB]  ✓ fuel prices seeded (RON95_III / E5_RON92_II / DO_001S_V as MARKET_AVG)", flush=True)
 
 
 def main() -> None:

@@ -54,6 +54,23 @@ export interface FloodHotspot {
   street_name: string | null;
   flood_count_30d: number;
   avg_depth_level: string | null;
+  centroid_lat?: number | null;
+  centroid_lng?: number | null;
+  last_flood_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type FloodTrustLevel = 'PENDING' | 'CONFIRMED' | 'VERIFIED';
+
+export interface FloodReportWithTrust extends FloodReport {
+  trust_level: FloodTrustLevel;
+  minutes_ago?: number;
+}
+
+export interface FloodMapData {
+  hotspots: FloodHotspot[];
+  reports: FloodReportWithTrust[];
+  fetched_at: string;
 }
 
 export interface GasStation {
@@ -284,6 +301,33 @@ export const floodApi = {
     const q = district_code ? `?district_code=${district_code}` : '';
     return api.realFetch<{ hotspots: FloodHotspot[] }>(`/info/flood/hotspots${q}`);
   },
+  async getMapData(lat: number, lng: number, radius_km = 5): Promise<FloodMapData> {
+    if (USE_MOCK) {
+      return api.delay(
+        {
+          hotspots: MOCK_HOTSPOTS,
+          reports: MOCK_FLOODS.map((f) => ({
+            ...f,
+            trust_level:
+              (f.confidence_score ?? 0) >= 3
+                ? ('VERIFIED' as const)
+                : (f.confidence_score ?? 0) >= 1
+                  ? ('CONFIRMED' as const)
+                  : ('PENDING' as const),
+            minutes_ago: Math.max(
+              0,
+              Math.floor((Date.now() - new Date(f.reported_at).getTime()) / 60000),
+            ),
+          })),
+          fetched_at: new Date().toISOString(),
+        },
+        300,
+      );
+    }
+    return api.realFetch<FloodMapData>(
+      `/info/flood/map-data?lat=${lat}&lng=${lng}&radius_km=${radius_km}`,
+    );
+  },
 };
 
 export const gasApi = {
@@ -304,7 +348,67 @@ export const gasApi = {
     if (USE_MOCK) return api.delay([{ fuel_type: 'RON95', price_vnd: 25420 }], 100);
     return api.realFetch<{ fuel_type: string; price_vnd: number }[]>('/info/gas/prices');
   },
+  /** v2: 오늘의 브랜드×연료별 참고가 매트릭스 + 갱신 시각. */
+  async getTodayPrices(): Promise<TodayPrices> {
+    if (USE_MOCK) {
+      return api.delay({
+        PETROLIMEX: { RON95_III: { price: 21560, effective_time: new Date().toISOString() } },
+        MARKET_AVG: { RON95_III: { price: 21540, effective_time: new Date().toISOString() } },
+        updated_at: '16:30',
+        updated_at_iso: new Date().toISOString(),
+      }, 200);
+    }
+    return api.realFetch<TodayPrices>('/info/gas/today-prices');
+  },
+  /** v2: 주유소 상세 (바텀시트용). */
+  async getStation(station_id: number): Promise<GasStationDetail> {
+    if (USE_MOCK) {
+      return api.delay({
+        station_id,
+        name: 'Mock Station',
+        brand: 'Petrolimex',
+        brand_normalized: 'PETROLIMEX',
+        lat: 10.78, lng: 106.7,
+        is_24h: true,
+        reference_price: { RON95_III: 21560, E5_RON92_II: 20890, source: 'PETROLIMEX 공식', updated_at: '16:30', updated_at_iso: new Date().toISOString() },
+        crowd_price: null,
+      } as GasStationDetail, 200);
+    }
+    return api.realFetch<GasStationDetail>(`/info/gas/station/${station_id}`);
+  },
 };
+
+export interface TodayPrices {
+  [brand: string]:
+    | { [fuel: string]: { price: number; effective_time: string } }
+    | string
+    | null
+    | undefined;
+  updated_at?: string | null;
+  updated_at_iso?: string | null;
+}
+
+export interface GasStationDetail {
+  station_id: number;
+  name: string | null;
+  brand: string | null;
+  brand_normalized: string;
+  lat: number;
+  lng: number;
+  is_24h: boolean;
+  district_code: string | null;
+  street_name: string | null;
+  opening_hours: string | null;
+  reference_price: {
+    RON95_III?: number;
+    RON95_V?: number;
+    E5_RON92_II?: number;
+    source: string;
+    updated_at: string | null;
+    updated_at_iso: string | null;
+  };
+  crowd_price: null;
+}
 
 export const repairApi = {
   async getNearby(lat: number, lng: number, radius_km = 5, service_code?: string, motorcycle_model?: string): Promise<{ shops: RepairShop[] }> {

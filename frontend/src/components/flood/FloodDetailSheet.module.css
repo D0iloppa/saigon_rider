@@ -1,0 +1,111 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: calc(var(--status-bar-height, 0px) + 16px) 16px 24px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #E5E7EB;
+  margin: 0 auto 14px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trustBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0B0D14;
+  margin: 4px 0 2px;
+}
+
+.meta {
+  font-size: 12px;
+  color: #4A4F62;
+  margin-bottom: 12px;
+}
+
+.photo {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: #F3F4F6;
+}
+
+.stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #4A4F62;
+  margin-bottom: 16px;
+}
+
+.btnRow {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid #E8E3DA;
+  background: #fff;
+  color: #0B0D14;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnConfirm { background: #DCFCE7; color: #15803D; border-color: #BBF7D0; }
+.btnResolved { background: #DBEAFE; color: #1D4ED8; border-color: #BFDBFE; }
+.btnFalse { background: #FEE2E2; color: #B91C1C; border-color: #FECACA; }

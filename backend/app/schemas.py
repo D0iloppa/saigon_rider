@@ -218,6 +218,8 @@ class QuestOut(BaseModel):
     description_ko: str | None = None
     description_vi: str | None = None
     description_en: str | None = None
+    mission_code: str | None = None
+    rarity: str = "C"
 
     model_config = {"from_attributes": True}
 

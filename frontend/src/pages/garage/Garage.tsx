@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { fetchInventory, equipItem, slotLabel } from '@/api/inventory';
+import { fetchInventory, equipItem, unequipSlot, slotLabel } from '@/api/inventory';
 import type { InventoryItem } from '@/api/inventory';
 import type { ItemRarity } from '@/api/gacha';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
 import { useUserStore } from '@/store/useUserStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { emojiUrl } from '@/lib/emoji';
 import { toast } from 'sonner';
 import s from './Garage.module.css';
@@ -15,12 +16,18 @@ type TabKey = 'rider' | 'bike' | 'effect';
 type SortMode = 'rarity' | 'slot' | 'name';
 
 const SLOT_EMOJI: Record<string, string> = {
-  HELMET: '1fa96', JACKET: '1f9e5', GLOVES: '1f9e4', BOOTS: '1f97e',
-  EYEWEAR: '1f576', NAMEPLATE: '1f3f7',
-  BODY_PAINT: '1f3a8', WHEEL: '2699', EXHAUST: '1f525',
-  HEADLIGHT: '1f4a1', MIRROR: '1f9f0', DECAL: '1f409',
-  FRAME: '1f5bc', BACKDROP: '1f304',
-  TITLE_BANNER: '1f3f4', TRAIL: '2728', HORN: '1f514',
+  // Rider
+  GLOVES: '1f9e4', BOOTS: '1f97e', EYEWEAR: '1f576', NAMEPLATE: '1f3f7',
+  // Motorcycle
+  MOTORCYCLE_BODY: '1f3cd', SEAT: '1f4ba', STICKER: '1f4a0', HANDLEBAR: '2699',
+  TAIL_LIGHT: '1f534', ENGINE_COVER: '2699', HEADLIGHT: '1f4a1',
+  MIRROR: '1f9f0', NUMBER: '1f522',
+  // Profile
+  RANK_CARD: '1faaa', FRAME: '1f5bc', BACKDROP: '1f304', TITLE: '1f451',
+  // Effect
+  TRAIL: '2728', HORN: '1f514', START_ANIM: '1f3ac',
+  // Social
+  EMOTE: '1f600', BANNER: '1f3f3', PET: '1f436',
 };
 
 const RARITY_BG: Record<ItemRarity, string> = {
@@ -42,6 +49,8 @@ interface TabDef {
   silhouette: string;
   left: SlotDef[];
   right: SlotDef[];
+  top?: SlotDef[];
+  bottom?: SlotDef[];
 }
 
 const TABS: Record<TabKey, TabDef> = {
@@ -50,42 +59,57 @@ const TABS: Record<TabKey, TabDef> = {
     icon: '🧑',
     silhouette: '/assets/equip/rider.png',
     left: [
-      { key: 'HELMET', emoji: '1fa96', label: 'HELMET', icon: '🪖' },
-      { key: 'JACKET', emoji: '1f9e5', label: 'JACKET', icon: '🧥' },
       { key: 'GLOVES', emoji: '1f9e4', label: 'GLOVES', icon: '🧤' },
+      { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS', icon: '🥾' },
     ],
     right: [
       { key: 'EYEWEAR', emoji: '1f576', label: 'EYEWEAR', icon: '🕶️' },
-      { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS', icon: '🥾' },
+      { key: 'NAMEPLATE', emoji: '1f3f7', label: 'NAME', icon: '🏷️' },
     ],
   },
   bike: {
     i18nKey: 'equipPreview.tab_bike',
     icon: '🏍️',
     silhouette: '/assets/equip/bike.png',
-    left: [
-      { key: 'HEADLIGHT', emoji: '1f4a1', label: 'LIGHT', icon: '💡' },
+    top: [
+      { key: 'HANDLEBAR', emoji: '2699', label: 'HANDLE', icon: '⚙️' },
       { key: 'MIRROR', emoji: '1f9f0', label: 'MIRROR', icon: '🪞' },
-      { key: 'WHEEL', emoji: '2699', label: 'WHEEL', icon: '⚙️' },
+      { key: 'HEADLIGHT', emoji: '1f4a1', label: 'LIGHT', icon: '💡' },
+    ],
+    left: [
+      { key: 'MOTORCYCLE_BODY', emoji: '1f3cd', label: 'BODY', icon: '🏍️' },
+      { key: 'SEAT', emoji: '1f4ba', label: 'SEAT', icon: '💺' },
     ],
     right: [
-      { key: 'DECAL', emoji: '1f409', label: 'DECAL', icon: '🐉' },
-      { key: 'BODY_PAINT', emoji: '1f3a8', label: 'PAINT', icon: '🎨' },
-      { key: 'EXHAUST', emoji: '1f525', label: 'EXHAUST', icon: '🔥' },
+      { key: 'ENGINE_COVER', emoji: '2699', label: 'ENGINE', icon: '⚙️' },
+      { key: 'STICKER', emoji: '1f4a0', label: 'STICKER', icon: '💠' },
+    ],
+    bottom: [
+      { key: 'TAIL_LIGHT', emoji: '1f534', label: 'TAIL', icon: '🔴' },
+      { key: 'NUMBER', emoji: '1f522', label: 'NUMBER', icon: '🔢' },
     ],
   },
   effect: {
     i18nKey: 'equipPreview.tab_effect',
     icon: '✨',
     silhouette: '/assets/equip/effect.png',
+    top: [
+      { key: 'TITLE', emoji: '1f451', label: 'TITLE', icon: '👑' },
+      { key: 'RANK_CARD', emoji: '1faaa', label: 'RANK', icon: '🪪' },
+      { key: 'FRAME', emoji: '1f5bc', label: 'FRAME', icon: '🖼️' },
+    ],
     left: [
-      { key: 'TITLE_BANNER', emoji: '1f3f4', label: 'TITLE', icon: '🏴' },
-      { key: 'HORN', emoji: '1f514', label: 'HORN', icon: '🔔' },
       { key: 'TRAIL', emoji: '2728', label: 'TRAIL', icon: '✨' },
+      { key: 'HORN', emoji: '1f514', label: 'HORN', icon: '🔔' },
     ],
     right: [
-      { key: 'NAMEPLATE', emoji: '1f3f7', label: 'NAME', icon: '🏷️' },
+      { key: 'START_ANIM', emoji: '1f3ac', label: 'START', icon: '🎬' },
+      { key: 'BANNER', emoji: '1f3f3', label: 'BANNER', icon: '🏳️' },
+    ],
+    bottom: [
       { key: 'BACKDROP', emoji: '1f304', label: 'BACKDROP', icon: '🌄' },
+      { key: 'EMOTE', emoji: '1f600', label: 'EMOTE', icon: '😀' },
+      { key: 'PET', emoji: '1f436', label: 'PET', icon: '🐶' },
     ],
   },
 };
@@ -106,15 +130,29 @@ function sortItems(items: InventoryItem[], mode: SortMode): InventoryItem[] {
   }
 }
 
+function findTabForSlot(slot: string | null): TabKey | null {
+  if (!slot) return null;
+  for (const k of TAB_KEYS) {
+    const t = TABS[k];
+    if ([...(t.top ?? []), ...t.left, ...t.right, ...(t.bottom ?? [])].some((s) => s.key === slot)) return k;
+  }
+  return null;
+}
+
 export default function Garage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useTranslation();
   const user = useUserStore((st) => st.user);
+  const openConfirm = useConfirmStore((st) => st.open);
+
+  const initSlot = searchParams.get('slot');
+  const initTab = findTabForSlot(initSlot) ?? 'rider';
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<TabKey>('rider');
-  const [activeSlot, setActiveSlot] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState<TabKey>(initTab);
+  const [activeSlot, setActiveSlot] = useState<string | null>(initSlot);
   const [currentSort, setCurrentSort] = useState<SortMode>('rarity');
   const [animKey, setAnimKey] = useState(0);
 
@@ -132,7 +170,7 @@ export default function Garage() {
   useEffect(() => { load(); }, [load]);
 
   const tab = TABS[currentTab];
-  const allSlots = useMemo(() => [...tab.left, ...tab.right], [tab]);
+  const allSlots = useMemo(() => [...(tab.top ?? []), ...tab.left, ...tab.right, ...(tab.bottom ?? [])], [tab]);
   const tabSlotKeys = useMemo(() => new Set(allSlots.map((sl) => sl.key)), [allSlots]);
 
   const equippedMap = useMemo(() => {
@@ -171,9 +209,35 @@ export default function Garage() {
     setActiveSlot((prev) => (prev === slotKey ? null : slotKey));
   }
 
+  async function performUnequip(item: InventoryItem) {
+    try {
+      await unequipSlot(item.item_slot);
+      setItems((prev) =>
+        prev.map((i) =>
+          i.item_slot === item.item_slot ? { ...i, is_equipped: false } : i,
+        ),
+      );
+      toast.success(t('equipPreview.unequip_done', { slot: slotLabel(item.item_slot) }));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  }
+
   async function handleEquip(item: InventoryItem) {
     if (!user?.id) return;
-    if (item.is_equipped) return;
+    if (item.is_equipped) {
+      openConfirm(
+        {
+          mode: 'text',
+          value: t('equipPreview.unequip_confirm', { slot: slotLabel(item.item_slot) }),
+        },
+        () => { void performUnequip(item); },
+        {
+          confirmLabel: { mode: 'code', value: 'equipPreview.unequip_action' },
+        },
+      );
+      return;
+    }
     try {
       await equipItem(user.id, item.item_code);
       toast.success(t('equipPreview.equip_done', { slot: slotLabel(item.item_slot) }));
@@ -258,7 +322,13 @@ export default function Garage() {
               {tab.left.map(renderSlotCard)}
             </div>
             <div className={s.center}>
+              {tab.top && tab.top.length > 0 && (
+                <div className={s.topRow}>{tab.top.map(renderSlotCard)}</div>
+              )}
               <img className={s.silImg} src={tab.silhouette} alt="" />
+              {tab.bottom && tab.bottom.length > 0 && (
+                <div className={s.bottomRow}>{tab.bottom.map(renderSlotCard)}</div>
+              )}
             </div>
             <div className={`${s.side} ${s.sideR}`}>
               {tab.right.map(renderSlotCard)}

@@ -40,8 +40,26 @@ from .routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
-    await engine_client.close()
+    # ── 유가 갱신 cron (Asia/Ho_Chi_Minh) ──────────────────────────────
+    # 04:00 / 15:30 / 22:30 / 23:30 ICT — 정부 조정 시각대 캐치.
+    # 현재 외부 스크래퍼는 스텁 (D9), admin manual upsert 가 1차 운영 경로.
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    from .jobs.fetch_fuel_prices import run_fetch_cycle
+
+    scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
+    for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
+        scheduler.add_job(
+            run_fetch_cycle, CronTrigger(hour=hour, minute=minute), id=f"fuel_fetch_{hour:02d}{minute:02d}"
+        )
+    scheduler.start()
+
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
+        await engine_client.close()
 
 
 # Nginx 가 외부 `/api/bff/*` → 내부 `/api/*` 로 rewrite 하므로

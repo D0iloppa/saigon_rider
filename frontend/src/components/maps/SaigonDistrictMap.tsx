@@ -1,0 +1,507 @@
+import { useCallback, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import styles from './SaigonDistrictMap.module.css';
+import { HCMC_DISTRICTS, findNearestDistrict, type District } from './district-data';
+import { getBrand, formatPriceShort } from '../gas/gas-tokens';
+
+export interface GasMarkerData {
+  brand_code?: string | null;
+  ref_price?: number | null;
+  is_24h?: boolean;
+  show_price?: boolean;
+}
+
+const VIEW_W = 400;
+const VIEW_H = 280;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 1.5;
+
+export interface MapMarker {
+  type: 'me' | 'flood' | 'repair' | 'gas' | 'custom';
+  lat: number;
+  lng: number;
+  label?: string;
+  onClick?: () => void;
+  data?: unknown;
+}
+
+export interface SaigonDistrictMapProps {
+  highlightedDistricts?: string[];
+  highlightColor?: string;
+  dangerDistricts?: string[];
+  markers?: MapMarker[];
+  height?: number | string;
+  showLabels?: boolean;
+  showLegend?: boolean;
+  background?: string;
+  interactive?: boolean;
+  onDistrictClick?: (district: District) => void;
+  /** Zoom/pan 컨트롤 활성 (기본 true). 미니맵은 false 권장 */
+  zoomable?: boolean;
+  /** SVG 내부에 주입할 자식 (예: 침수 오버레이). pan/zoom viewBox 좌표계를 그대로 사용. */
+  children?: ReactNode;
+}
+
+type DistrictVisualState = 'highlight' | 'danger' | 'special' | 'outer' | 'normal';
+
+function getDistrictState(
+  district: District,
+  highlighted: Set<string>,
+  danger: Set<string>,
+): DistrictVisualState {
+  if (danger.has(district.code)) return 'danger';
+  if (highlighted.has(district.code)) return 'highlight';
+  if (district.special === 'new_district') return 'special';
+  if (district.zone === 'outer') return 'outer';
+  return 'normal';
+}
+
+function districtFill(state: DistrictVisualState, highlightColor: string): string {
+  switch (state) {
+    case 'highlight': return highlightColor;
+    case 'danger': return '#FEE2E2';
+    case 'special': return '#FFF3E8';
+    case 'outer': return '#F0F0F0';
+    default: return '#FFFFFF';
+  }
+}
+
+function districtStroke(state: DistrictVisualState): string {
+  switch (state) {
+    case 'highlight':
+    case 'special': return '#FF5A1F';
+    case 'danger': return '#EF4444';
+    case 'outer': return '#E0E0E0';
+    default: return '#D1D5DB';
+  }
+}
+
+function districtStrokeWidth(state: DistrictVisualState): number {
+  switch (state) {
+    case 'highlight': return 1.5;
+    case 'danger': return 1.5;
+    case 'special': return 1.8;
+    case 'outer': return 0.8;
+    default: return 1;
+  }
+}
+
+function labelFill(state: DistrictVisualState): string {
+  switch (state) {
+    case 'highlight': return '#9A3412';
+    case 'danger': return '#B91C1C';
+    case 'special': return '#FF5A1F';
+    case 'outer': return '#9CA3AF';
+    default: return '#4B5563';
+  }
+}
+
+function labelWeight(state: DistrictVisualState): number {
+  return state === 'normal' || state === 'outer' ? 400 : 600;
+}
+
+/**
+ * Saigon District Map — 168 district (주요 29) 행정구역 지도.
+ * 시안: docs/saigon-map-v2-accurate.html · viewBox 0 0 400 280.
+ */
+export default function SaigonDistrictMap({
+  highlightedDistricts = [],
+  highlightColor = '#FFBB8A',
+  dangerDistricts = [],
+  markers = [],
+  height = 320,
+  showLabels = true,
+  showLegend = false,
+  background = '#EEF7F5',
+  interactive = true,
+  onDistrictClick,
+  zoomable = true,
+  children,
+}: SaigonDistrictMapProps) {
+  const { t } = useTranslation();
+  const [legendOpen, setLegendOpen] = useState(false);
+  const highlightedSet = useMemo(() => new Set(highlightedDistricts), [highlightedDistricts]);
+  const dangerSet = useMemo(() => new Set(dangerDistricts), [dangerDistricts]);
+
+  const svgMarkers = useMemo(() => {
+    return markers.map((m) => {
+      const nearest = findNearestDistrict(m.lat, m.lng);
+      const pos = nearest ? { x: nearest.label.x, y: nearest.label.y } : { x: 200, y: 140 };
+      return { ...m, svg: pos };
+    });
+  }, [markers]);
+
+  // ── Zoom / Pan state ──
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    panStartX: number;
+    panStartY: number;
+    moved: boolean;
+  } | null>(null);
+  // 멀티터치 핀치: 두 포인터의 client 좌표 보관
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ startDist: number; startZoom: number; startPan: { x: number; y: number } } | null>(null);
+  const wasGesture = useRef(false);
+
+  const viewW = VIEW_W / zoom;
+  const viewH = VIEW_H / zoom;
+
+  const clampPan = useCallback((px: number, py: number, z: number) => {
+    const maxX = Math.max(0, VIEW_W - VIEW_W / z);
+    const maxY = Math.max(0, VIEW_H - VIEW_H / z);
+    return {
+      x: Math.max(0, Math.min(maxX, px)),
+      y: Math.max(0, Math.min(maxY, py)),
+    };
+  }, []);
+
+  const applyZoom = useCallback(
+    (nextZoom: number) => {
+      const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
+      const centerX = pan.x + VIEW_W / zoom / 2;
+      const centerY = pan.y + VIEW_H / zoom / 2;
+      const newPan = clampPan(centerX - VIEW_W / z / 2, centerY - VIEW_H / z / 2, z);
+      setZoom(z);
+      setPan(newPan);
+    },
+    [pan, zoom, clampPan],
+  );
+
+  const pointerDistance = () => {
+    const pts = Array.from(pointersRef.current.values());
+    if (pts.length < 2) return 0;
+    const [a, b] = pts;
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  const onPointerDown = (e: PointerEvent<SVGSVGElement>) => {
+    if (!zoomable) return;
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size === 2) {
+      // 핀치 시작
+      pinchRef.current = {
+        startDist: pointerDistance(),
+        startZoom: zoom,
+        startPan: { ...pan },
+      };
+      dragRef.current = null;
+      wasGesture.current = true;
+      return;
+    }
+
+    if (zoom > 1) {
+      // 1포인터 드래그 pan
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        panStartX: pan.x,
+        panStartY: pan.y,
+        moved: false,
+      };
+    }
+  };
+
+  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // 핀치 진행
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const dist = pointerDistance();
+      if (pinchRef.current.startDist > 0) {
+        const ratio = dist / pinchRef.current.startDist;
+        const targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchRef.current.startZoom * ratio));
+        const startZ = pinchRef.current.startZoom;
+        const startP = pinchRef.current.startPan;
+        const centerX = startP.x + VIEW_W / startZ / 2;
+        const centerY = startP.y + VIEW_H / startZ / 2;
+        setZoom(targetZoom);
+        setPan(clampPan(centerX - VIEW_W / targetZoom / 2, centerY - VIEW_H / targetZoom / 2, targetZoom));
+      }
+      return;
+    }
+
+    // 1포인터 pan
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scaleX = viewW / rect.width;
+    const scaleY = viewH / rect.height;
+    const dx = (e.clientX - d.startX) * scaleX;
+    const dy = (e.clientY - d.startY) * scaleY;
+    if (Math.abs(dx) + Math.abs(dy) > 1) d.moved = true;
+    setPan(clampPan(d.panStartX - dx, d.panStartY - dy, zoom));
+  };
+
+  const onPointerUp = (e: PointerEvent<SVGSVGElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) {
+      // 한 프레임 뒤 gesture 플래그 리셋 (직후 click 무시용)
+      setTimeout(() => { wasGesture.current = false; }, 0);
+    }
+    const d = dragRef.current;
+    if (d && d.pointerId === e.pointerId) dragRef.current = null;
+    try {
+      (e.currentTarget as Element).releasePointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  };
+
+  const wasDragged = () => dragRef.current?.moved === true || wasGesture.current;
+
+  return (
+    <div
+      className={styles.mapContainer}
+      style={{
+        height: typeof height === 'number' ? `${height}px` : height,
+        background,
+      }}
+    >
+      <svg
+        viewBox={`${pan.x} ${pan.y} ${viewW} ${viewH}`}
+        xmlns="http://www.w3.org/2000/svg"
+        xmlLang="vi"
+        className={styles.mapSvg}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ cursor: zoomable && zoom > 1 ? (dragRef.current ? 'grabbing' : 'grab') : undefined }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <defs>
+          <filter id="srMapPinShadow">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.25" />
+          </filter>
+        </defs>
+
+        <rect width="400" height="280" fill={background} />
+
+        {/* 주요 도로 */}
+        <line x1="262" y1="92" x2="335" y2="62" stroke="#C8C8C8" strokeWidth="1.8" opacity="0.65" />
+        <line x1="195" y1="68" x2="295" y2="58" stroke="#C8C8C8" strokeWidth="1.8" opacity="0.65" />
+        <line x1="130" y1="185" x2="238" y2="188" stroke="#C8C8C8" strokeWidth="1.5" opacity="0.6" />
+
+        {/* 사이공 강 */}
+        <path
+          d="M 262,88 C 268,106 272,122 268,142 C 262,160 258,177 252,196 C 245,215 238,232 232,248"
+          fill="none" stroke="#6ED8D0" strokeWidth="16" strokeLinecap="round" opacity="0.7"
+        />
+        <path
+          d="M 262,88 C 268,106 272,122 268,142 C 262,160 258,177 252,196 C 245,215 238,232 232,248"
+          fill="none" stroke="#A8EAE6" strokeWidth="7" strokeLinecap="round" opacity="0.45"
+        />
+        <path
+          d="M 158,175 C 168,182 178,188 185,195"
+          fill="none" stroke="#6ED8D0" strokeWidth="5" strokeLinecap="round" opacity="0.4"
+        />
+        <ellipse cx="232" cy="258" rx="18" ry="9" fill="#6ED8D0" opacity="0.25" />
+
+        {/* district 폴리곤 + 라벨 */}
+        {HCMC_DISTRICTS.map((d) => {
+          const state = getDistrictState(d, highlightedSet, dangerSet);
+          const isSpecial = state === 'special';
+          return (
+            <g
+              key={d.code}
+              style={{
+                cursor: interactive && onDistrictClick ? 'pointer' : 'default',
+              }}
+              onClick={() => {
+                if (wasDragged()) return;
+                if (interactive) onDistrictClick?.(d);
+              }}
+            >
+              <polygon
+                points={d.polygon}
+                fill={districtFill(state, highlightColor)}
+                stroke={districtStroke(state)}
+                strokeWidth={districtStrokeWidth(state)}
+                strokeDasharray={isSpecial ? '3,2' : undefined}
+              />
+              {showLabels && (
+                <text
+                  x={d.label.x}
+                  y={d.label.y}
+                  fontFamily="'Noto Sans', sans-serif"
+                  fontSize={d.label.fontSize}
+                  fontWeight={labelWeight(state)}
+                  fill={labelFill(state)}
+                  textAnchor="middle"
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                  {d.label.text ?? d.nameVi}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* 다리 마커 */}
+        {showLabels && (
+          <g style={{ pointerEvents: 'none' }}>
+            <text x="258" y="112" fontSize="9" textAnchor="middle">▲</text>
+            <text x="272" y="110" fontFamily="'Noto Sans', sans-serif" fontSize="5" fill="#6B7280">Cầu Sài Gòn</text>
+            <text x="248" y="165" fontSize="9" textAnchor="middle">▲</text>
+            <text x="262" y="163" fontFamily="'Noto Sans', sans-serif" fontSize="5" fill="#6B7280">Cầu Phú Mỹ</text>
+            <text x="242" y="135" fontSize="9" textAnchor="middle">▲</text>
+            <text x="248" y="133" fontFamily="'Noto Sans', sans-serif" fontSize="5" fill="#6B7280">Thủ Thiêm</text>
+          </g>
+        )}
+
+        {/* 사용자 정의 마커 */}
+        {svgMarkers.map((m, i) => (
+          <g
+            key={i}
+            transform={`translate(${m.svg.x}, ${m.svg.y})`}
+            style={{ cursor: interactive && m.onClick ? 'pointer' : 'default' }}
+            onClick={() => {
+              if (wasDragged()) return;
+              if (interactive) m.onClick?.();
+            }}
+          >
+            {m.type === 'me' && (
+              <>
+                <circle r="8" fill="#FF5A1F" stroke="#fff" strokeWidth="2" filter="url(#srMapPinShadow)" />
+                <circle r="3" fill="#fff" />
+                {m.label && (
+                  <text y="-12" fontSize="7" fontWeight={700} fill="#FF5A1F" textAnchor="middle">
+                    {m.label}
+                  </text>
+                )}
+              </>
+            )}
+            {m.type === 'flood' && (
+              <>
+                <circle r="6" fill="#EF4444" stroke="#fff" strokeWidth="1.5" />
+                <text fontSize="7" textAnchor="middle" dy="2.5" fill="#fff">💧</text>
+                {m.label && (
+                  <text y="14" fontSize="6" fontWeight={600} fill="#B91C1C" textAnchor="middle">
+                    {m.label}
+                  </text>
+                )}
+              </>
+            )}
+            {m.type === 'repair' && (
+              <>
+                <circle r="6" fill="#F59E0B" stroke="#fff" strokeWidth="1.5" />
+                <text fontSize="7" textAnchor="middle" dy="2.5">🔧</text>
+                {m.label && (
+                  <text y="14" fontSize="6" fontWeight={600} fill="#374151" textAnchor="middle">
+                    {m.label}
+                  </text>
+                )}
+              </>
+            )}
+            {m.type === 'gas' && (() => {
+              const d = (m.data ?? {}) as GasMarkerData;
+              const brand = getBrand(d.brand_code);
+              const showPrice = !!d.show_price && d.ref_price != null;
+              return (
+                <>
+                  <circle r={showPrice ? 8 : 6} fill={brand.primary} stroke="#fff" strokeWidth="1.5" />
+                  {d.is_24h && <circle cx="5" cy="-5" r="2" fill="#FFCC00" stroke="#fff" strokeWidth="0.5" />}
+                  {showPrice ? (
+                    <g transform="translate(0, -14)">
+                      <rect x="-14" y="-7" width="28" height="11" rx="4" fill={brand.primary} opacity="0.95" />
+                      <text y="1" fontSize="7" fontWeight={700} fill={brand.textColor} textAnchor="middle">
+                        {formatPriceShort(d.ref_price ?? null)}
+                      </text>
+                    </g>
+                  ) : (
+                    m.label && (
+                      <text y="14" fontSize="6" fontWeight={600} fill="#374151" textAnchor="middle">
+                        {m.label}
+                      </text>
+                    )
+                  )}
+                </>
+              );
+            })()}
+            {m.type === 'custom' && m.label && (
+              <text fontSize="7" fontWeight={600} fill="#374151" textAnchor="middle">
+                {m.label}
+              </text>
+            )}
+          </g>
+        ))}
+
+        {children}
+      </svg>
+
+      {zoomable && (
+        <div className={styles.zoomControls}>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            aria-label={t('map.zoomIn')}
+            onClick={() => applyZoom(zoom * ZOOM_STEP)}
+            disabled={zoom >= MAX_ZOOM}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            aria-label={t('map.zoomOut')}
+            onClick={() => applyZoom(zoom / ZOOM_STEP)}
+            disabled={zoom <= MIN_ZOOM}
+          >
+            −
+          </button>
+        </div>
+      )}
+
+      {showLegend && (
+        <div className={styles.legendWrap}>
+          <button
+            type="button"
+            className={styles.legendToggle}
+            aria-label={t('map.toggleLegend')}
+            aria-expanded={legendOpen}
+            onClick={() => setLegendOpen((v) => !v)}
+          >
+            {legendOpen ? '×' : 'i'}
+          </button>
+          {legendOpen && (
+            <div className={styles.legend} role="region" aria-label={t('map.legendTitle')}>
+              <div className={styles.legendTitle}>{t('map.legendTitle')}</div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendDot} style={{ background: '#FFBB8A', border: '1.5px solid #FF5A1F' }} />
+                {t('map.legend.me')}
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendDot} style={{ background: '#FEE2E2', border: '1.5px solid #EF4444' }} />
+                {t('map.legend.flood')}
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendCircle} style={{ background: '#F59E0B' }} />
+                {t('map.legend.repair')}
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendCircle} style={{ background: '#3B82F6' }} />
+                {t('map.legend.gas')}
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendLine} /> {t('map.legend.road')}
+              </div>
+              <div className={styles.legendItem}>
+                <span className={styles.legendIcon}>▲</span> {t('map.legend.bridge')}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

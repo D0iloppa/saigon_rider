@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import type { RepairShop } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { resolveInfoCoords } from '@/lib/infoCoords';
+import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoRepairList.module.css';
 
 const MOTO_OPTIONS = ['Honda SH 350i', 'Honda Wave', 'Honda Exciter', 'Yamaha NVX', 'Yamaha Sirius', 'Suzuki Raider'];
@@ -26,6 +27,19 @@ export default function InfoRepairList() {
   const [service, setService] = useState('OIL_CHANGE');
   const [showMotoSelect, setShowMotoSelect] = useState(false);
   const [showServiceSelect, setShowServiceSelect] = useState(false);
+  const [view, setView] = useState<'list' | 'map'>('list');
+
+  const repairMarkers = useMemo<MapMarker[]>(
+    () =>
+      shops.map((s) => ({
+        type: 'repair',
+        lat: s.lat,
+        lng: s.lng,
+        label: s.name,
+        onClick: () => navigate(`/info/repair/${s.shop_id}`),
+      })),
+    [shops, navigate],
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -111,12 +125,34 @@ export default function InfoRepairList() {
         </div>
       )}
 
+      <div className={styles.viewToggle}>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
+          onClick={() => setView('list')}
+        >
+          {t('info.repair.viewList')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${view === 'map' ? styles.viewToggleActive : ''}`}
+          onClick={() => setView('map')}
+        >
+          {t('info.repair.viewMap')}
+        </button>
+      </div>
+
       <div className={styles.scroll}>
-        {loading ? (
+        {view === 'map' && (
+          <div className={styles.mapWrap}>
+            <SaigonDistrictMap height={360} markers={repairMarkers} showLegend />
+          </div>
+        )}
+        {view === 'list' && loading ? (
           <div className={styles.skeletonWrap}>
             {[0, 1, 2].map((i) => <div key={i} className={styles.skeleton} />)}
           </div>
-        ) : (
+        ) : view === 'list' ? (
           <div className={styles.card}>
             {shops.map((shop) => {
               const badge = getShopBadge(shop);
@@ -172,7 +208,7 @@ export default function InfoRepairList() {
               );
             })}
           </div>
-        )}
+        ) : null}
 
         {/* CTA */}
         <div className={styles.gpCta}>

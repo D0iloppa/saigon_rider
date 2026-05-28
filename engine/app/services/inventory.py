@@ -73,7 +73,7 @@ async def equip_item(
         equip.item_code = item_code
 
     await db.commit()
-    await db.refresh(equip)
+    await db.refresh(equip, ["item_def"])
     return equip
 
 

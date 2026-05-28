@@ -3,11 +3,17 @@ import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 
 router = APIRouter(prefix="/inventory", tags=["인벤토리 (Inventory)"])
+
+
+class EquipRequest(BaseModel):
+    item_code: str
+
 
 _RARITY_RANK = {"C": 0, "R": 1, "E": 2, "L": 3, "M": 4}
 _RANK_RARITY = ["C", "R", "E", "L", "M"]
@@ -16,7 +22,7 @@ _RANK_RARITY = ["C", "R", "E", "L", "M"]
 def _avg_rarity(items: list[dict]) -> str:
     if not items:
         return "C"
-    ranks = [_RARITY_RANK.get(i.get("item", {}).get("rarity", "C"), 0) for i in items]
+    ranks = [_RARITY_RANK.get((i.get("item_def") or i.get("item") or {}).get("rarity", "C"), 0) for i in items]
     avg = sum(ranks) / len(ranks)
     return _RANK_RARITY[round(avg)]
 
@@ -39,7 +45,7 @@ async def get_items(
 
     items: list[dict] = []
     for raw in items_raw:
-        defn = raw.get("item") or {}
+        defn = raw.get("item_def") or raw.get("item") or {}
         items.append(
             {
                 "user_item_id": str(raw.get("user_item_id", "")),
@@ -78,11 +84,11 @@ async def get_equipment(
 
 @router.put("/equip")
 async def equip_item(
-    item_code: str,
+    payload: EquipRequest,
     uid: uuid.UUID = Depends(verify_user_session),
 ) -> dict:
     try:
-        return await engine_client.equip_item(str(uid), item_code)
+        return await engine_client.equip_item(str(uid), payload.item_code)
     except httpx.HTTPStatusError as e:
         raise HTTPException(
             status_code=e.response.status_code, detail=e.response.json().get("detail", str(e))

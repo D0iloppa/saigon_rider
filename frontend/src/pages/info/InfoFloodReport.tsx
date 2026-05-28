@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { floodApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { resolveInfoCoords, type Coords } from '@/lib/infoCoords';
+import { findNearestDistrict } from '@/components/maps/district-data';
 import styles from './InfoFloodReport.module.css';
 
 type DepthLevel = 'ankle' | 'knee' | 'thigh' | 'above';
@@ -15,16 +17,22 @@ const DEPTH_EMOJI: Record<DepthLevel, string> = {
   above: '🔴⚠️',
 };
 
-const DEFAULT_COORDS = { lat: 10.776, lng: 106.700 };
-
 export default function InfoFloodReport() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { search } = useLocation();
 
+  const [coords, setCoords] = useState<Coords | null>(null);
   const [depth, setDepth] = useState<DepthLevel | null>(null);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    resolveInfoCoords(search).then(setCoords);
+  }, [search]);
+
+  const locationDistrict = coords ? findNearestDistrict(coords.lat, coords.lng) : null;
 
   const baseXP = 30;
   const photoXP = hasPhoto ? 10 : 0;
@@ -35,12 +43,12 @@ export default function InfoFloodReport() {
     t(`info.flood.depth${d.charAt(0).toUpperCase()}${d.slice(1)}`, d);
 
   async function handleSubmit() {
-    if (!depth || submitting) return;
+    if (!depth || submitting || !coords) return;
     setSubmitting(true);
     try {
       await floodApi.report({
-        lat: DEFAULT_COORDS.lat,
-        lng: DEFAULT_COORDS.lng,
+        lat: coords.lat,
+        lng: coords.lng,
         depth_level: depth,
       });
       setDone(true);
@@ -57,7 +65,7 @@ export default function InfoFloodReport() {
     <button
       className={styles.saveBtn}
       onClick={handleSubmit}
-      disabled={!depth || submitting}
+      disabled={!depth || submitting || !coords}
     >
       {t('common.save')}
     </button>
@@ -81,7 +89,11 @@ export default function InfoFloodReport() {
             </svg>
             <span className={styles.locationLabel}>📍 {t('info.flood.locationDetected')}</span>
           </div>
-          <div className={styles.locationName}>Bình Thạnh · Xô Viết Nghệ Tĩnh</div>
+          <div className={styles.locationName}>
+            {locationDistrict
+              ? `${locationDistrict.oldDistrict} · ${locationDistrict.nameVi}`
+              : t('info.flood.locationDetecting')}
+          </div>
           <div className={styles.locationEdit}>{t('info.flood.locationEditHint')}</div>
         </div>
 
@@ -149,7 +161,7 @@ export default function InfoFloodReport() {
         <button
           className={`${styles.cta} ${done ? styles.ctaDone : ''}`}
           onClick={handleSubmit}
-          disabled={!depth || submitting}
+          disabled={!depth || submitting || !coords}
         >
           {done
             ? t('info.flood.ctaDone')

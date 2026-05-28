@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Saigon Map v2 · Accurate Layout (2025 Reform) — Saigon Rider</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #FF5A1F;
+    --cyan: #6ED8D0;
+    --surface: #FFFFFF;
+    --user-fill: #FFBB8A;
+    --flood-fill: #FEE2E2;
+    --flood-stroke: #EF4444;
+    --road: #C0C0C0;
+    --text-main: #1F2937;
+    --text-sub: #4B5563;
+    --text-micro: #9CA3AF;
+    --bg: #E8F4F0;
+    --outer-fill: #F5F5F5;
+    --border: #D1D5DB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: 'Space Grotesk', sans-serif; min-height: 100vh; }
+
+  /* ── 헤더 ── */
+  .page-header { padding: 24px 32px 16px; display: flex; align-items: center; gap: 12px; }
+  .badge { background: #1F2937; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .06em; padding: 3px 10px; border-radius: 99px; }
+  .badge-sub { background: #E8F4F0; color: #4B5563; border: 1px solid #D1D5DB; font-size: 10px; padding: 3px 10px; border-radius: 99px; }
+  .page-title { font-size: 20px; font-weight: 700; color: #1F2937; }
+  .page-sub   { font-size: 11px; color: var(--text-micro); margin-left: auto; }
+
+  /* ── 레이아웃 ── */
+  .layout { display: flex; gap: 32px; padding: 0 32px 48px; flex-wrap: wrap; }
+
+  /* 모바일 폰 프레임 */
+  .phone-wrap { flex: 0 0 auto; }
+  .phone-frame { width: 320px; background: #1C1C1E; border-radius: 44px; padding: 14px 10px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.08); }
+  .phone-screen { background: var(--bg); border-radius: 32px; overflow: hidden; padding: 14px 10px 10px; }
+  .phone-label { font-size: 9px; font-weight: 700; color: var(--text-micro); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; text-align: center; }
+
+  /* 지도 카드 */
+  .map-card { background: #fff; border-radius: 14px; overflow: hidden; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+  .map-card-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; font-size: 11px; font-weight: 600; color: var(--text-main); }
+  .map-card svg { display: block; width: 100%; }
+
+  /* 범례 카드 */
+  .legend-card { background: #fff; border-radius: 10px; border: 1px solid #E5E7EB; padding: 10px 12px; margin-top: 10px; }
+  .legend-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--text-sub); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .legend-line { width: 14px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+
+  /* 핀 범례 */
+  .pin-legend { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* 데스크탑 풀폭 */
+  .desktop-wrap { flex: 1; min-width: 400px; }
+  .desktop-label { font-size: 10px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .desktop-map { background: #fff; border-radius: 20px; overflow: hidden; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 16px; }
+  .desktop-map svg { display: block; width: 100%; max-width: 800px; height: auto; }
+
+  /* 데스크탑 범례 */
+  .desktop-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; padding: 12px 0 0; border-top: 1px solid #F3F4F6; }
+  .desktop-legend .legend-item { font-size: 11px; }
+  .desktop-legend .legend-dot { width: 11px; height: 11px; border-radius: 3px; }
+  .desktop-legend .legend-line { width: 18px; height: 2px; }
+  .desktop-legend .pin-legend { width: 11px; height: 11px; }
+
+  /* 안내 박스 */
+  .info-box { background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 11px; color: #166534; line-height: 1.6; }
+  .info-box strong { color: #16A34A; }
+
+  /* 개편 안내 배너 */
+  .reform-banner { background: linear-gradient(135deg, #1F2937, #374151); color: #fff; border-radius: 12px; padding: 12px 16px; margin: 0 32px 20px; font-size: 12px; display: flex; align-items: center; gap: 10px; }
+  .reform-banner .tag { background: #FF5A1F; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 99px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <span class="badge">MAP v2</span>
+  <span class="badge-sub">2025 Reform</span>
+  <span class="page-title">168 Ward · Accurate Layout</span>
+  <span class="page-sub">시안 B — 실용 정보 지도</span>
+</div>
+
+<!-- 개편 안내 배너 -->
+<div class="reform-banner">
+  <span class="tag">신규</span>
+  <span>2025년 7월 1일부로 호치민시 행정개편 — 24 District → 168 Ward/Commune 체계 시행.</span>
+  <span style="margin-left:auto;font-size:10px;opacity:.7">HCMC Administrative Reform 2025</span>
+</div>
+
+<div class="layout">
+
+  <!-- ① 모바일 폰 프레임 -->
+  <div class="phone-wrap">
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="phone-label">MAP v2 · ACCURATE LAYOUT (2025 reform)</div>
+
+        <div class="map-card">
+          <div class="map-card-header">
+            <span>📍</span>
+            <span>Hồ Chí Minh — Ward Map</span>
+            <span style="margin-left:auto;font-size:9px;color:var(--text-micro);background:#FEE2E2;color:#EF4444;padding:2px 6px;border-radius:6px">침수 2건</span>
+          </div>
+          <!-- 모바일 SVG (400×280 viewBox) -->
+          <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg" xml:lang="vi" style="height:210px">
+            <defs>
+              <filter id="wardShadow">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+              </filter>
+              <filter id="pinShadow">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/>
+              </filter>
+            </defs>
+
+            <!-- 배경 -->
+            <rect width="400" height="280" fill="#EEF7F5"/>
+
+            <!-- ═══ 주요 도로 ═══ -->
+            <line x1="262" y1="92" x2="335" y2="62" stroke="#C8C8C8" stroke-width="1.8" opacity="0.65"/>
+            <line x1="195" y1="68" x2="295" y2="58" stroke="#C8C8C8" stroke-width="1.8" opacity="0.65"/>
+            <line x1="130" y1="185" x2="238" y2="188" stroke="#C8C8C8" stroke-width="1.5" opacity="0.6"/>
+
+            <!-- ═══ 사이공 강 ═══ -->
+            <path d="M 262,88 C 268,106 272,122 268,142 C 262,160 258,177 252,196 C 245,215 238,232 232,248" 
+                  fill="none" stroke="#6ED8D0" stroke-width="16" stroke-linecap="round" opacity="0.7"/>
+            <path d="M 262,88 C 268,106 272,122 268,142 C 262,160 258,177 252,196 C 245,215 238,232 232,248" 
+                  fill="none" stroke="#A8EAE6" stroke-width="7" stroke-linecap="round" opacity="0.45"/>
+            <!-- 지류 -->
+            <path d="M 158,175 C 168,182 178,188 185,195" fill="none" stroke="#6ED8D0" stroke-width="5" stroke-linecap="round" opacity="0.4"/>
+            <!-- 강 어귀 -->
+            <ellipse cx="232" cy="258" rx="18" ry="9" fill="#6ED8D0" opacity="0.25"/>
+
+            <!-- ═══ 외곽 commune ═══ -->
+            <polygon points="55,12 118,10 118,42 100,45 102,42 65,40" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+            <text x="88" y="28" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#9CA3AF" text-anchor="middle">Củ Chi</text>
+            <polygon points="100,45 150,42 150,62 128,65 102,62" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+            <text x="126" y="55" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#9CA3AF" text-anchor="middle">Hóc Môn</text>
+            <polygon points="72,155 118,148 120,192 108,208 82,205 68,195" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+            <text x="92" y="178" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#9CA3AF" text-anchor="middle">Bình Chánh</text>
+            <polygon points="178,210 225,208 228,235 215,245 190,248 178,238" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+            <text x="202" y="228" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#9CA3AF" text-anchor="middle">Nhà Bè</text>
+            <polygon points="192,248 225,245 230,270 215,272 192,270" fill="#EAF3F1" stroke="#C8DEDA" stroke-width="0.8"/>
+            <text x="210" y="260" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#9CA3AF" text-anchor="middle">Cần Giờ</text>
+
+            <!-- ═══ 북부 권역 ═══ -->
+            <polygon points="158,52 192,48 195,68 178,72 160,68" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="176" y="63" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Tân Thới Hiệp</text>
+            <polygon points="130,52 158,50 160,68 145,72 132,65" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="145" y="62" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Thới An</text>
+            <polygon points="155,75 192,70 192,88 175,92 158,88" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="174" y="83" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Tân Bình ✈</text>
+            <polygon points="182,65 215,62 218,82 202,88 182,85" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="200" y="78" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Gò Vấp</text>
+            <polygon points="130,102 155,98 158,115 148,122 132,118" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="143" y="112" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Hòa Bình</text>
+            <polygon points="155,98 182,92 185,108 172,115 158,112" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="169" y="108" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Hòa Hưng</text>
+
+            <!-- 서부 권역 -->
+            <polygon points="88,108 130,100 132,125 118,132 90,128" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="110" y="118" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Bình Tân</text>
+
+            <!-- ═══ 동부 권역 ═══ -->
+            <polygon points="310,65 348,60 358,85 348,108 322,118 305,112 298,98 310,82" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="330" y="90" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="7" font-weight="600" fill="#1F2937" text-anchor="middle">Thủ Đức</text>
+            <polygon points="250,78 275,75 275,85 272,98 252,95" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="262" y="88" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Linh Trung</text>
+            <polygon points="275,85 310,80 315,98 295,102 272,98" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="292" y="93" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Linh Xuân</text>
+            <polygon points="250,108 275,102 278,118 265,122 250,120" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="263" y="114" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Thảo Điền</text>
+
+            <!-- ═══ Bình Thạnh (침수 활성) ═══ -->
+            <polygon points="222,105 258,100 262,120 250,130 235,128 225,118" fill="#FEE2E2" stroke="#EF4444" stroke-width="1.5"/>
+            <text x="242" y="116" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" font-weight="600" fill="#B91C1C" text-anchor="middle">Bình Thạnh</text>
+
+            <!-- ═══ 중심부 City Core ═══ -->
+            <!-- Chợ Lớn -->
+            <polygon points="130,135 148,128 145,138 140,150 128,148" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="137" y="141" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#4B5563" text-anchor="middle">Chợ Lớn</text>
+            <!-- An Đông -->
+            <polygon points="148,128 172,122 175,138 168,148 155,145 145,138" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="158" y="137" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">An Đông</text>
+            <!-- Chánh Hưng -->
+            <polygon points="128,158 158,155 160,175 148,182 128,178" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="143" y="170" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#4B5563" text-anchor="middle">Chánh Hưng</text>
+            <!-- Nguyễn Thái Bình -->
+            <polygon points="185,122 200,118 200,130 185,130 178,128" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="190" y="127" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5" fill="#4B5563" text-anchor="middle">N.T.Bình</text>
+            <!-- Cô Giang -->
+            <polygon points="172,128 185,122 185,130 175,138 168,135" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="177" y="132" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5" fill="#4B5563" text-anchor="middle">Cô Giang</text>
+            <!-- Phạm Ngũ Lão -->
+            <polygon points="175,138 185,130 182,148 175,155 168,148" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="176" y="144" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5" fill="#4B5563" text-anchor="middle">P.N.Lão</text>
+            <!-- Bến Thành -->
+            <polygon points="185,130 200,125 200,135 205,155 192,158 182,148" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="193" y="143" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#374151" text-anchor="middle">Bến Thành</text>
+            <!-- Saigon Ward 특별 -->
+            <polygon points="200,118 220,115 225,128 215,128 200,128" fill="#FFF3E8" stroke="#FF5A1F" stroke-width="1.8" stroke-dasharray="3,2"/>
+            <text x="212" y="124" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" font-weight="600" fill="#FF5A1F" text-anchor="middle">Saigon</text>
+            <!-- Bến Nghé (사용자 위치) -->
+            <polygon points="200,128 215,128 225,132 228,145 220,155 205,155" fill="#FFBB8A" stroke="#FF5A1F" stroke-width="1.5"/>
+            <text x="213" y="142" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" font-weight="600" fill="#9A3412" text-anchor="middle">Bến Nghé</text>
+
+            <!-- ═══ 남부 권역 ═══ -->
+            <!-- Phú Mỹ Hưng -->
+            <polygon points="192,175 225,172 228,195 215,208 195,210 185,200" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="206" y="192" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Phú Mỹ</text>
+            <!-- Tân Mỹ (침수 활성) -->
+            <polygon points="175,162 195,160 192,175 185,185 172,182" fill="#FEE2E2" stroke="#EF4444" stroke-width="1.5"/>
+            <text x="182" y="172" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" font-weight="600" fill="#B91C1C" text-anchor="middle">Tân Mỹ</text>
+            <!-- Tân Thuận -->
+            <polygon points="210,158 232,155 235,175 225,180 210,178" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+            <text x="220" y="169" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#4B5563" text-anchor="middle">Tân Thuận</text>
+
+            <!-- ═══ 다리 아이콘 ═══ -->
+            <!-- Cầu Sài Gòn -->
+            <text x="258" y="112" font-size="9" text-anchor="middle">▲</text>
+            <text x="272" y="110" font-family="'Noto Sans',sans-serif" font-size="5" fill="#6B7280" text-anchor="start">Cầu Sài Gòn</text>
+            <!-- Cầu Phú Mỹ -->
+            <text x="248" y="165" font-size="9" text-anchor="middle">▲</text>
+            <text x="262" y="163" font-family="'Noto Sans',sans-serif" font-size="5" fill="#6B7280" text-anchor="start">Cầu Phú Mỹ</text>
+            <!-- Cầu Thủ Thiêm -->
+            <text x="242" y="135" font-size="9" text-anchor="middle">▲</text>
+            <text x="248" y="133" font-family="'Noto Sans',sans-serif" font-size="5" fill="#6B7280" text-anchor="start">Thủ Thiêm</text>
+
+            <!-- ═══ 핀 예시 ═══ -->
+            <!-- 사용자 위치 핀 (Bến Nghé) -->
+            <g filter="url(#pinShadow)">
+              <circle cx="213" cy="138" r="8" fill="#FF5A1F" stroke="#fff" stroke-width="2"/>
+              <text x="213" y="142" font-size="8" text-anchor="middle" fill="white" font-weight="bold">📍</text>
+            </g>
+            <!-- 사용자 라벨 -->
+            <rect x="188" y="112" width="50" height="14" rx="7" fill="#FF5A1F"/>
+            <text x="213" y="121.5" font-family="Space Grotesk" font-size="6.5" font-weight="700" fill="#fff" text-anchor="middle">나의 위치</text>
+
+            <!-- 침수 핀 1 (Bình Thạnh) -->
+            <circle cx="242" cy="112" r="6" fill="#EF4444" stroke="#fff" stroke-width="1.5"/>
+            <text x="242" y="115.5" font-size="7" text-anchor="middle" fill="white">💧</text>
+            <!-- 침수 핀 2 (Tân Mỹ) -->
+            <circle cx="180" cy="168" r="6" fill="#EF4444" stroke="#fff" stroke-width="1.5"/>
+            <text x="180" y="171.5" font-size="7" text-anchor="middle" fill="white">💧</text>
+
+            <!-- 정비소 핀 (🔧) -->
+            <circle cx="168" cy="128" r="6" fill="#F59E0B" stroke="#fff" stroke-width="1.5"/>
+            <text x="168" y="131.5" font-size="7" text-anchor="middle">🔧</text>
+            <circle cx="295" cy="108" r="6" fill="#F59E0B" stroke="#fff" stroke-width="1.5"/>
+            <text x="295" y="111.5" font-size="7" text-anchor="middle">🔧</text>
+
+            <!-- 범례 (우상단) -->
+            <rect x="298" y="8" width="94" height="72" rx="8" fill="rgba(255,255,255,0.92)" stroke="#E5E7EB" stroke-width="1"/>
+            <text x="345" y="21" font-family="Space Grotesk" font-size="6.5" font-weight="700" fill="#1F2937" text-anchor="middle">범례 Legend</text>
+            <!-- 내 위치 -->
+            <rect x="306" y="26" width="8" height="8" rx="2" fill="#FFBB8A" stroke="#FF5A1F" stroke-width="1"/>
+            <text x="318" y="34" font-family="'Noto Sans',sans-serif" font-size="6" fill="#374151" text-anchor="start">내 위치</text>
+            <!-- 침수 활성 -->
+            <rect x="306" y="37" width="8" height="8" rx="2" fill="#FEE2E2" stroke="#EF4444" stroke-width="1"/>
+            <text x="318" y="45" font-family="'Noto Sans',sans-serif" font-size="6" fill="#374151" text-anchor="start">침수 활성</text>
+            <!-- 정비소 -->
+            <circle cx="310" cy="52" r="4" fill="#F59E0B" stroke="#fff" stroke-width="1"/>
+            <text x="318" y="55" font-family="'Noto Sans',sans-serif" font-size="6" fill="#374151" text-anchor="start">🔧 정비소</text>
+            <!-- 주요 도로 -->
+            <line x1="306" y1="63" x2="316" y2="63" stroke="#C0C0C0" stroke-width="2"/>
+            <text x="318" y="66" font-family="'Noto Sans',sans-serif" font-size="6" fill="#374151" text-anchor="start">주요 도로</text>
+            <!-- 다리 -->
+            <text x="309" y="75" font-size="7" text-anchor="middle">▲</text>
+            <text x="318" y="76" font-family="'Noto Sans',sans-serif" font-size="6" fill="#374151" text-anchor="start">다리</text>
+          </svg>
+        </div>
+
+        <!-- 모바일 범례 카드 -->
+        <div class="legend-card" style="margin-top:8px">
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-dot" style="background:#FFBB8A;border:1.5px solid #FF5A1F"></div>내 위치</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FEE2E2;border:1.5px solid #EF4444"></div>침수 활성</div>
+            <div class="legend-item"><div class="pin-legend" style="background:#F59E0B"></div>🔧 정비소</div>
+            <div class="legend-item"><div class="legend-line" style="background:#C0C0C0"></div>주요 도로</div>
+            <div class="legend-item" style="grid-column:1/-1"><span style="font-size:9px;color:#6B7280">▲ 다리 &nbsp;|&nbsp; ---- Saigon Ward (신설)</span></div>
+          </div>
+        </div>
+      </div><!-- phone-screen -->
+    </div><!-- phone-frame -->
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--text-micro)">393×852 모바일 프레임</div>
+  </div><!-- phone-wrap -->
+
+  <!-- ② 데스크탑 풀폭 -->
+  <div class="desktop-wrap">
+    <div class="desktop-label">DESKTOP FULL WIDTH</div>
+    <div class="desktop-map">
+      <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg" xml:lang="vi" style="width:100%;max-width:800px;height:auto">
+        <defs>
+          <filter id="dPinShadow">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+          </filter>
+        </defs>
+        <rect width="400" height="280" fill="#EEF7F5"/>
+
+        <!-- 주요 도로 -->
+        <line x1="262" y1="92" x2="335" y2="62" stroke="#CBCBCB" stroke-width="2" opacity="0.6"/>
+        <line x1="195" y1="68" x2="295" y2="58" stroke="#CBCBCB" stroke-width="2" opacity="0.6"/>
+        <line x1="130" y1="185" x2="238" y2="188" stroke="#CBCBCB" stroke-width="1.5" opacity="0.55"/>
+        <!-- 도로 라벨 -->
+        <text x="295" y="72" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#A0A0A0" transform="rotate(-18,295,72)">Võ Nguyên Giáp</text>
+        <text x="232" y="62" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#A0A0A0" transform="rotate(-8,232,62)">Phạm Văn Đồng</text>
+        <text x="172" y="182" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#A0A0A0">Nguyễn Văn Linh</text>
+
+        <!-- 사이공 강 -->
+        <path d="M 262,88 C 268,106 272,122 268,142 C 262,160 258,177 252,196 C 245,215 238,232 232,248" 
+              fill="none" stroke="#6ED8D0" stroke-width="15" stroke-linecap="round" opacity="0.72"/>
+        <path d="M 262,88 C 268,106 272,122 268,142 C 262,160 258,177 252,196 C 245,215 238,232 232,248" 
+              fill="none" stroke="#A8EAE6" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+        <path d="M 158,175 C 168,182 178,188 185,195" fill="none" stroke="#6ED8D0" stroke-width="5" stroke-linecap="round" opacity="0.38"/>
+        <ellipse cx="232" cy="258" rx="20" ry="10" fill="#6ED8D0" opacity="0.22"/>
+
+        <!-- 외곽 commune -->
+        <polygon points="55,12 118,10 118,42 100,45 102,42 65,40" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+        <text x="88" y="28" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#9CA3AF" text-anchor="middle">Củ Chi</text>
+        <polygon points="100,45 150,42 150,62 128,65 102,62" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+        <text x="126" y="55" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#9CA3AF" text-anchor="middle">Hóc Môn</text>
+        <polygon points="72,155 118,148 120,192 108,208 82,205 68,195" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+        <text x="92" y="178" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#9CA3AF" text-anchor="middle">Bình Chánh</text>
+        <polygon points="178,210 225,208 228,235 215,245 190,248 178,238" fill="#F0F0F0" stroke="#E0E0E0" stroke-width="0.8"/>
+        <text x="202" y="228" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#9CA3AF" text-anchor="middle">Nhà Bè</text>
+        <polygon points="192,248 225,245 230,270 215,272 192,270" fill="#EAF3F1" stroke="#C8DEDA" stroke-width="0.8"/>
+        <text x="210" y="261" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#9CA3AF" text-anchor="middle">Cần Giờ</text>
+
+        <!-- 북부 -->
+        <polygon points="158,52 192,48 195,68 178,72 160,68" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="176" y="63" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Tân Thới Hiệp</text>
+        <polygon points="130,52 158,50 160,68 145,72 132,65" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="145" y="62" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Thới An</text>
+        <polygon points="155,75 192,70 192,88 175,92 158,88" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="174" y="83" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Tân Bình ✈</text>
+        <polygon points="182,65 215,62 218,82 202,88 182,85" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="200" y="78" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Gò Vấp</text>
+        <polygon points="130,102 155,98 158,115 148,122 132,118" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="143" y="112" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Hòa Bình</text>
+        <polygon points="155,98 182,92 185,108 172,115 158,112" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="169" y="108" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Hòa Hưng</text>
+
+        <!-- 서부 -->
+        <polygon points="88,108 130,100 132,125 118,132 90,128" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="110" y="118" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Bình Tân</text>
+
+        <!-- 동부 권역 -->
+        <polygon points="310,65 348,60 358,85 348,108 322,118 305,112 298,98 310,82" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="330" y="90" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="8" font-weight="600" fill="#1F2937" text-anchor="middle">Thủ Đức</text>
+        <polygon points="250,78 275,75 275,85 272,98 252,95" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="262" y="88" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Linh Trung</text>
+        <polygon points="275,85 310,80 315,98 295,102 272,98" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="292" y="93" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Linh Xuân</text>
+        <polygon points="250,108 275,102 278,118 265,122 250,120" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="263" y="114" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Thảo Điền</text>
+
+        <!-- Bình Thạnh 침수 -->
+        <polygon points="222,105 258,100 262,120 250,130 235,128 225,118" fill="#FEE2E2" stroke="#EF4444" stroke-width="1.5"/>
+        <text x="242" y="116" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" font-weight="600" fill="#B91C1C" text-anchor="middle">Bình Thạnh</text>
+
+        <!-- 중심부 -->
+        <polygon points="130,135 148,128 145,138 140,150 128,148" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="137" y="141" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Chợ Lớn</text>
+        <polygon points="148,128 172,122 175,138 168,148 155,145 145,138" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="158" y="137" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">An Đông</text>
+        <polygon points="128,158 158,155 160,175 148,182 128,178" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="143" y="170" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Chánh Hưng</text>
+        <polygon points="185,122 200,118 200,130 185,130 178,128" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="190" y="127" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#4B5563" text-anchor="middle">Ng. Thái Bình</text>
+        <polygon points="172,128 185,122 185,130 175,138 168,135" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="177" y="132" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#4B5563" text-anchor="middle">Cô Giang</text>
+        <polygon points="175,138 185,130 182,148 175,155 168,148" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="176" y="145" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="5.5" fill="#4B5563" text-anchor="middle">P.N.Lão</text>
+        <polygon points="185,130 200,125 200,135 205,155 192,158 182,148" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="193" y="143" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#374151" text-anchor="middle">Bến Thành</text>
+        <!-- Saigon Ward 신설 특별 -->
+        <polygon points="200,118 220,115 225,128 215,128 200,128" fill="#FFF3E8" stroke="#FF5A1F" stroke-width="2" stroke-dasharray="4,2"/>
+        <text x="212" y="124" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" font-weight="600" fill="#FF5A1F" text-anchor="middle">Saigon ★</text>
+        <!-- Bến Nghé 사용자 위치 -->
+        <polygon points="200,128 215,128 225,132 228,145 220,155 205,155" fill="#FFBB8A" stroke="#FF5A1F" stroke-width="1.8"/>
+        <text x="213" y="143" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="7" font-weight="600" fill="#9A3412" text-anchor="middle">Bến Nghé</text>
+
+        <!-- 남부 -->
+        <polygon points="192,175 225,172 228,195 215,208 195,210 185,200" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="206" y="192" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6.5" fill="#4B5563" text-anchor="middle">Phú Mỹ</text>
+        <polygon points="175,162 195,160 192,175 185,185 172,182" fill="#FEE2E2" stroke="#EF4444" stroke-width="1.5"/>
+        <text x="182" y="173" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" font-weight="600" fill="#B91C1C" text-anchor="middle">Tân Mỹ</text>
+        <polygon points="210,158 232,155 235,175 225,180 210,178" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="1"/>
+        <text x="220" y="169" font-family="'Noto Sans',sans-serif" xml:lang="vi" font-size="6" fill="#4B5563" text-anchor="middle">Tân Thuận</text>
+
+        <!-- 다리 아이콘 -->
+        <text x="258" y="112" font-size="9" text-anchor="middle">▲</text>
+        <text x="266" y="110" font-family="'Noto Sans',sans-serif" font-size="6" fill="#6B7280">Cầu Sài Gòn</text>
+        <text x="248" y="165" font-size="9" text-anchor="middle">▲</text>
+        <text x="256" y="163" font-family="'Noto Sans',sans-serif" font-size="6" fill="#6B7280">Cầu Phú Mỹ</text>
+        <text x="242" y="135" font-size="9" text-anchor="middle">▲</text>
+        <text x="248" y="133" font-family="'Noto Sans',sans-serif" font-size="6" fill="#6B7280">Thủ Thiêm</text>
+
+        <!-- 핀 -->
+        <g filter="url(#dPinShadow)">
+          <circle cx="213" cy="138" r="9" fill="#FF5A1F" stroke="#fff" stroke-width="2.5"/>
+        </g>
+        <rect x="188" y="112" width="50" height="14" rx="7" fill="#FF5A1F"/>
+        <text x="213" y="121.5" font-family="Space Grotesk" font-size="6.5" font-weight="700" fill="#fff" text-anchor="middle">나의 위치</text>
+        <!-- 침수 핀 -->
+        <circle cx="242" cy="112" r="7" fill="#EF4444" stroke="#fff" stroke-width="2"/>
+        <text x="242" y="115.5" font-size="7.5" text-anchor="middle" fill="white">💧</text>
+        <circle cx="180" cy="168" r="7" fill="#EF4444" stroke="#fff" stroke-width="2"/>
+        <text x="180" y="171.5" font-size="7.5" text-anchor="middle" fill="white">💧</text>
+        <!-- 정비소 핀 -->
+        <circle cx="168" cy="128" r="7" fill="#F59E0B" stroke="#fff" stroke-width="2"/>
+        <text x="168" y="131.5" font-size="7.5" text-anchor="middle">🔧</text>
+        <circle cx="295" cy="108" r="7" fill="#F59E0B" stroke="#fff" stroke-width="2"/>
+        <text x="295" y="111.5" font-size="7.5" text-anchor="middle">🔧</text>
+
+        <!-- 범례 (우상단) -->
+        <rect x="300" y="8" width="92" height="80" rx="9" fill="rgba(255,255,255,0.94)" stroke="#E5E7EB" stroke-width="1"/>
+        <text x="346" y="22" font-family="Space Grotesk" font-size="7" font-weight="700" fill="#1F2937" text-anchor="middle">범례 Legend</text>
+        <rect x="308" y="27" width="9" height="9" rx="2" fill="#FFBB8A" stroke="#FF5A1F" stroke-width="1.2"/>
+        <text x="321" y="35.5" font-family="'Noto Sans',sans-serif" font-size="7" fill="#374151">내 위치</text>
+        <rect x="308" y="39" width="9" height="9" rx="2" fill="#FEE2E2" stroke="#EF4444" stroke-width="1.2"/>
+        <text x="321" y="47.5" font-family="'Noto Sans',sans-serif" font-size="7" fill="#374151">침수 활성</text>
+        <circle cx="312.5" cy="56" r="4.5" fill="#F59E0B" stroke="#fff" stroke-width="1"/>
+        <text x="321" y="59.5" font-family="'Noto Sans',sans-serif" font-size="7" fill="#374151">🔧 정비소</text>
+        <line x1="308" y1="67" x2="318" y2="67" stroke="#C0C0C0" stroke-width="2"/>
+        <text x="321" y="70.5" font-family="'Noto Sans',sans-serif" font-size="7" fill="#374151">주요 도로</text>
+        <text x="312" y="81" font-size="8" text-anchor="middle">▲</text>
+        <text x="321" y="82" font-family="'Noto Sans',sans-serif" font-size="7" fill="#374151">다리</text>
+      </svg>
+
+      <div class="desktop-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#FFBB8A;border:1.5px solid #FF5A1F"></div>내 위치 (Bến Nghé)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FEE2E2;border:1.5px solid #EF4444"></div>침수 활성 (Bình Thạnh, Tân Mỹ)</div>
+        <div class="legend-item"><div class="pin-legend" style="background:#F59E0B"></div>🔧 정비소 다발</div>
+        <div class="legend-item"><div class="legend-line" style="background:#C0C0C0;width:20px;height:2px"></div>주요 도로</div>
+        <div class="legend-item"><span style="font-size:11px;color:#6B7280">▲</span>&nbsp;다리</div>
+        <div class="legend-item"><span style="font-size:11px;color:#6ED8D0">━━</span>&nbsp;사이공 강</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FFF3E8;border:2px dashed #FF5A1F"></div>Saigon Ward (신설)</div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>시안 B 사용처:</strong> 침수 신고 (INFO-FLOOD-MAP) · 정비소 위치 (INFO-REPAIR-LIST) · 주유소 위치 (INFO-GAS-LIST) · 사용자 위치 ward 매핑 (백엔드) · 운영자 어뷰징 대시보드
+    </div>
+  </div>
+
+</div><!-- layout -->
+
+<div style="text-align:center;padding:0 0 32px;font-size:11px;color:var(--text-micro)">
+  Saigon Rider · Map v2 · ACCURATE LAYOUT (2025 reform) · 168 wards · © 2026 Skywork.ai
+</div>
+
+</body>
+</html>

@@ -12,6 +12,7 @@ from app.enums import QuestCardStatusEnum, QuestCardTypeEnum
 from app.models import SreQuestCard, SreUser
 from app.schemas import DailySlotInfo, QuestCardCreate, QuestCardRead
 from app.services import quest_tracker
+from app.services.xp_ledger import get_or_create_user
 
 log = logging.getLogger(__name__)
 
@@ -28,12 +29,7 @@ async def create_quest_card(
     body: QuestCardCreate,
     db: AsyncSession = Depends(get_session),
 ) -> SreQuestCard:
-    result = await db.execute(
-        select(SreUser).where(SreUser.external_user_uuid == body.user_uuid)
-    )
-    sre_user = result.scalar_one_or_none()
-    if sre_user is None:
-        raise HTTPException(status_code=404, detail="SRE user not found")
+    sre_user = await get_or_create_user(db, body.user_uuid)
 
     if body.card_type == QuestCardTypeEnum.DISTANCE and body.target_distance_m is None:
         raise HTTPException(status_code=422, detail="DISTANCE requires target_distance_m")

@@ -34,7 +34,16 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    native.checkLocationPermission().then(setLocPerm).catch(() => setLocPerm(null));
+    const refresh = () => {
+      native.checkLocationPermission().then(setLocPerm).catch(() => setLocPerm(null));
+    };
+    refresh();
+    // OS 앱 설정에서 권한을 바꾸고 포그라운드로 돌아오면 즉시 재조회.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   const handleLocationTap = useCallback(async () => {

@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-06-01
+
+- **위치 권한 네이티브 정비 (SGR-199)** — 커스텀 GpsPlugin 권한 API 세트 완성. native(ios/android): `checkPermission`/`requestPermission`/`openAppSettings` 추가(외부 pod 0개, CoreLocation 시스템 프레임워크). web: `native.ts` 가 `Gps.*` 호출로 전환, `Settings.tsx` 임시 폴백 다이얼로그(`locationSettingsGuide`) 제거 → denied 시 OS 앱 설정 직행 + 포그라운드 복귀(`visibilitychange`) 시 권한 즉시 재조회. `@capacitor/geolocation` 활성화는 폐기(IONGeolocationLib ↔ Xcode 16.x 빌드 충돌). 실기기 검증·배포 완료, Plane SGR-199 DONE. TS-10(위치정보 표기만 됨) 해소.
+
 ## 2026-05-28
 
 - **SaigonDistrictMap 마커 District 집계 배지** — bbox affine → district 집계 배지 전환, MAX_ZOOM 4→6. 코드완료, 시각검증 대기. 태스크: `task/active/260528_map_marker_projection_task.md`

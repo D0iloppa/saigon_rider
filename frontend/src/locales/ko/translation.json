@@ -465,7 +465,8 @@
     "sort_slot": "부위별",
     "sort_name": "이름순",
     "gear_suffix": "장비",
-    "select_slot": "장비를 착용할 부위를 선택해주세요"
+    "select_slot": "장비를 착용할 부위를 선택해주세요",
+    "all_items": "전체 아이템"
   },
   "seasonPass": {
     "ends_in": "남음",

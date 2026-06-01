@@ -465,7 +465,8 @@
     "sort_slot": "Vị trí",
     "sort_name": "Tên",
     "gear_suffix": "Trang bị",
-    "select_slot": "Chọn vị trí để trang bị"
+    "select_slot": "Chọn vị trí để trang bị",
+    "all_items": "Tất cả vật phẩm"
   },
   "seasonPass": {
     "ends_in": "còn lại",

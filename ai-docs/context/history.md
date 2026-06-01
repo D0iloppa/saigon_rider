@@ -7,6 +7,7 @@
 
 ## 2026-06-01
 
+- **게러지 '바이크' 프리뷰 레이아웃 + 아이템 정렬 (SGR-200)** — ①bike 탭 슬롯 칩 순서 보정(우측 `[NUMBER,TAIL]`/하단 `[ENGINE,STICKER]`) ②`BIKE_LAYOUT` 착용 좌표 튜닝(ENGINE/SEAT/STICKER/NUMBER/TAIL, 시각검증 반복) ③부위 미선택 시 해당 탭 전체 아이템 표시(`equipPreview.all_items` i18n ko/en/vi) ④`sortItems` 착용 아이템 최상단 우선 정렬. 배포·시각검증 완료, Plane SGR-200 DONE. 태스크: `task/active/260601_garage_bike_preview_layout_task.md`
 - **위치 권한 네이티브 정비 (SGR-199)** — 커스텀 GpsPlugin 권한 API 세트 완성. native(ios/android): `checkPermission`/`requestPermission`/`openAppSettings` 추가(외부 pod 0개, CoreLocation 시스템 프레임워크). web: `native.ts` 가 `Gps.*` 호출로 전환, `Settings.tsx` 임시 폴백 다이얼로그(`locationSettingsGuide`) 제거 → denied 시 OS 앱 설정 직행 + 포그라운드 복귀(`visibilitychange`) 시 권한 즉시 재조회. `@capacitor/geolocation` 활성화는 폐기(IONGeolocationLib ↔ Xcode 16.x 빌드 충돌). 실기기 검증·배포 완료, Plane SGR-199 DONE. TS-10(위치정보 표기만 됨) 해소.
 
 ## 2026-05-28

@@ -85,12 +85,12 @@ const TABS: Record<TabKey, TabDef> = {
       { key: 'SEAT', emoji: '1f4ba', label: 'SEAT', icon: '💺' },
     ],
     right: [
-      { key: 'ENGINE', emoji: '2699', label: 'ENGINE', icon: '⚙️' },
-      { key: 'STICKER', emoji: '1f4a0', label: 'STICKER', icon: '💠' },
+      { key: 'NUMBER', emoji: '1f522', label: 'NUMBER', icon: '🔢' },
+      { key: 'TAIL', emoji: '1f534', label: 'TAIL', icon: '🔴' },
     ],
     bottom: [
-      { key: 'TAIL', emoji: '1f534', label: 'TAIL', icon: '🔴' },
-      { key: 'NUMBER', emoji: '1f522', label: 'NUMBER', icon: '🔢' },
+      { key: 'ENGINE', emoji: '2699', label: 'ENGINE', icon: '⚙️' },
+      { key: 'STICKER', emoji: '1f4a0', label: 'STICKER', icon: '💠' },
     ],
   },
   effect: {
@@ -121,17 +121,22 @@ const TABS: Record<TabKey, TabDef> = {
 const TAB_KEYS: TabKey[] = ['rider', 'bike', 'effect'];
 
 function sortItems(items: InventoryItem[], mode: SortMode): InventoryItem[] {
-  const arr = [...items];
-  switch (mode) {
-    case 'rarity':
-      return arr.sort((a, b) => (RARITY_ORDER[a.rarity] ?? 9) - (RARITY_ORDER[b.rarity] ?? 9));
-    case 'slot':
-      return arr.sort((a, b) => a.item_slot.localeCompare(b.item_slot) || (RARITY_ORDER[a.rarity] ?? 9) - (RARITY_ORDER[b.rarity] ?? 9));
-    case 'name':
-      return arr.sort((a, b) => a.item_name.localeCompare(b.item_name, 'ko'));
-    default:
-      return arr;
-  }
+  const byMode = (a: InventoryItem, b: InventoryItem): number => {
+    switch (mode) {
+      case 'rarity':
+        return (RARITY_ORDER[a.rarity] ?? 9) - (RARITY_ORDER[b.rarity] ?? 9);
+      case 'slot':
+        return a.item_slot.localeCompare(b.item_slot) || (RARITY_ORDER[a.rarity] ?? 9) - (RARITY_ORDER[b.rarity] ?? 9);
+      case 'name':
+        return a.item_name.localeCompare(b.item_name, 'ko');
+      default:
+        return 0;
+    }
+  };
+  // 착용 중인 아이템을 항상 최상단으로 (선택된 정렬 기준보다 우선)
+  return [...items].sort((a, b) =>
+    (a.is_equipped === b.is_equipped ? 0 : a.is_equipped ? -1 : 1) || byMode(a, b),
+  );
 }
 
 function findTabForSlot(slot: string | null): TabKey | null {
@@ -193,13 +198,12 @@ export default function Garage() {
     return map;
   }, [equippedMap]);
 
-  const slotItems = useMemo(() => {
-    if (!activeSlot) return [];
-    return sortItems(
-      items.filter((it) => it.item_slot === activeSlot),
-      currentSort,
-    );
-  }, [items, activeSlot, currentSort]);
+  const displayItems = useMemo(() => {
+    const base = activeSlot
+      ? items.filter((it) => it.item_slot === activeSlot)
+      : items.filter((it) => tabSlotKeys.has(it.item_slot));
+    return sortItems(base, currentSort);
+  }, [items, activeSlot, tabSlotKeys, currentSort]);
 
   const equippedSlots = useMemo(
     () => allSlots.filter((sl) => equippedMap[sl.key]),
@@ -208,7 +212,7 @@ export default function Garage() {
 
   const PLACEHOLDER_COUNT = 10;
   const emptyCardCount = activeSlot
-    ? Math.max(0, PLACEHOLDER_COUNT - slotItems.length)
+    ? Math.max(0, PLACEHOLDER_COUNT - displayItems.length)
     : 0;
 
   function handleTabChange(key: TabKey) {
@@ -386,10 +390,10 @@ export default function Garage() {
 
           {/* Item Grid */}
           <div className={s.gridSection}>
-            {activeSlot ? (
+            {activeSlot || displayItems.length > 0 ? (
               <>
                 <div className={s.gridToolbar}>
-                  <span className={s.gridTitle}>{slotLabel(activeSlot)}</span>
+                  <span className={s.gridTitle}>{activeSlot ? slotLabel(activeSlot) : t('equipPreview.all_items')}</span>
                   <div className={s.sortPills}>
                     {(['rarity', 'slot', 'name'] as SortMode[]).map((mode) => (
                       <button
@@ -404,7 +408,7 @@ export default function Garage() {
                 </div>
                 <div className={s.gridScroll}>
                   <div className={s.grid}>
-                    {slotItems.map((item) => (
+                    {displayItems.map((item) => (
                       <button
                         key={item.user_item_id}
                         className={`${s.gridItem} ${item.is_equipped ? s.gridItemEquipped : ''}`}

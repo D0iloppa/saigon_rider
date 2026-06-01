@@ -46,6 +46,10 @@
 | TS-14 | 설정/계정 | 고객센터 확인 | 미확인 |
 | TS-15 | 설정/계정 | 계정탈퇴 기능 확인 필요 | 미확인 |
 
+## 활성 태스크 (🔧)
+
+- **SGR-201** 신규 아이템 부위 3종 추가 (PANTS/KNEE/WHEEL, 15아이템) — IN_PROGRESS(티켓 발행, **구현은 신규 스레드**). slot enum 마이그+시드+metadata/slotLayout/inventory/Garage/SVG. SoT: `ai-docs/task/active/260601_new_item_slots_task.md`
+
 ## 부분 점검 (🟡)
 
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요

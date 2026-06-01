@@ -39,16 +39,16 @@ export const RIDER_LAYOUT: SlotLayoutEntry[] = [
 export const BIKE_LAYOUT: SlotLayoutEntry[] = [
   { slot: 'BODY',    zOrder: 1, points: [{ x: 80,  y: 60,  w: 240, h: 80,  viewBox: '0 0 240 80' }] },
   { slot: 'ENGINE',  zOrder: 2, points: [{ x: 165, y: 118, w: 60,  h: 40,  viewBox: '0 0 60 40' }] },
-  { slot: 'SEAT',    zOrder: 3, points: [{ x: 200, y: 70,  w: 80,  h: 30,  viewBox: '0 0 80 30' }] },
-  { slot: 'STICKER', zOrder: 4, points: [{ x: 160, y: 90,  w: 80,  h: 40,  viewBox: '0 0 80 40' }] },
+  { slot: 'SEAT',    zOrder: 3, points: [{ x: 200, y: 44,  w: 80,  h: 30,  viewBox: '0 0 80 30' }] },
+  { slot: 'STICKER', zOrder: 4, points: [{ x: 222, y: 74,  w: 80,  h: 36,  viewBox: '0 0 80 40' }] },
   { slot: 'HANDLE',  zOrder: 5, points: [{ x: 100, y: 60,  w: 60,  h: 20,  viewBox: '0 0 60 20' }] },
   { slot: 'MIRROR',  zOrder: 6, points: [
     { x: 95,  y: 42, w: 25, h: 25, viewBox: '0 0 25 25' },
     { x: 127, y: 42, w: 25, h: 25, viewBox: '0 0 25 25', mirror: true },
   ]},
   { slot: 'LIGHT',   zOrder: 7, points: [{ x: 48,  y: 80,  w: 40,  h: 40,  viewBox: '0 0 40 40' }] },
-  { slot: 'TAIL',    zOrder: 8, points: [{ x: 343, y: 99,  w: 30,  h: 30,  viewBox: '0 0 30 30' }] },
-  { slot: 'NUMBER',  zOrder: 9, points: [{ x: 295, y: 147, w: 50,  h: 26,  viewBox: '0 0 50 30' }] },
+  { slot: 'TAIL',    zOrder: 8, points: [{ x: 216, y: 136, w: 64,  h: 34,  viewBox: '0 0 30 30' }] },
+  { slot: 'NUMBER',  zOrder: 9, points: [{ x: 332, y: 102, w: 46,  h: 22,  viewBox: '0 0 50 30' }] },
 ];
 
 export const RIDER_SLOTS = RIDER_LAYOUT.map(e => e.slot);

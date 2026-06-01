@@ -465,7 +465,8 @@
     "sort_slot": "Slot",
     "sort_name": "Name",
     "gear_suffix": "Gear",
-    "select_slot": "Select a slot to equip"
+    "select_slot": "Select a slot to equip",
+    "all_items": "All Items"
   },
   "seasonPass": {
     "ends_in": "remaining",

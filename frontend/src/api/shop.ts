@@ -103,8 +103,9 @@ const MOCK_SHOP_ITEMS: ShopItem[] = [
 
 const SLOT_LABELS: Record<string, string> = {
   HELMET: 'Helmet', JACKET: 'Jacket', GLOVES: 'Gloves', EYEWEAR: 'Eyewear', BOOTS: 'Boots',
+  PANTS: 'Pants', KNEE: 'Knee Guard',
   BODY: 'Body', ENGINE: 'Engine', SEAT: 'Seat', STICKER: 'Sticker', HANDLE: 'Handle',
-  MIRROR: 'Mirror', LIGHT: 'Light', TAIL: 'Tail', NUMBER: 'Number',
+  MIRROR: 'Mirror', LIGHT: 'Light', TAIL: 'Tail', NUMBER: 'Number', WHEEL: 'Wheel',
   NAME: 'Name', RANK: 'Rank', FRAME: 'Frame', TITLE: 'Title', BACKDROP: 'Backdrop',
   TRAIL: 'Trail', START: 'Start', HORN: 'Horn',
   BANNER: 'Banner', EMOTE: 'Emote', PET: 'Pet',
@@ -125,8 +126,8 @@ export async function fetchDailyFeatured(): Promise<DailyFeaturedItem | null> {
 
 // 드릴다운 그룹 → 슬롯 집합 (BFF/엔진 SHOP_GROUPS 와 일치, mock 필터용)
 const SHOP_GROUP_SLOTS: Record<string, string[]> = {
-  rider: ['HELMET', 'JACKET', 'GLOVES', 'EYEWEAR', 'BOOTS'],
-  bike: ['BODY', 'ENGINE', 'SEAT', 'STICKER', 'HANDLE', 'MIRROR', 'LIGHT', 'TAIL', 'NUMBER'],
+  rider: ['HELMET', 'JACKET', 'GLOVES', 'EYEWEAR', 'BOOTS', 'PANTS', 'KNEE'],
+  bike: ['BODY', 'ENGINE', 'SEAT', 'STICKER', 'HANDLE', 'MIRROR', 'LIGHT', 'TAIL', 'NUMBER', 'WHEEL'],
   effect: ['NAME', 'RANK', 'FRAME', 'TITLE', 'BACKDROP', 'TRAIL', 'START', 'HORN', 'BANNER', 'EMOTE', 'PET'],
 };
 

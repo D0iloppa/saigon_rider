@@ -832,7 +832,22 @@
     "PET_MEKONG_DELTA_R_01": "Delta Frog",
     "PET_NEON_SAIGON_E_01": "Neon Drone",
     "PET_TET_FESTIVAL_L_01": "Lucky Koi",
-    "PET_LEGEND_OF_SAIGON_M_01": "Golden Dragon"
+    "PET_LEGEND_OF_SAIGON_M_01": "Golden Dragon",
+    "PANTS_STREET_CLASSIC_C_01": "Daily Jeans",
+    "PANTS_DELIVERY_HUSTLE_R_01": "Express Cargo",
+    "PANTS_SAIGON_GHOST_E_01": "Phantom Trousers",
+    "PANTS_LEGEND_OF_SAIGON_L_01": "Imperial Trousers",
+    "PANTS_LEGEND_OF_SAIGON_M_01": "Saigon Sovereign Pants",
+    "KNEE_STREET_CLASSIC_C_01": "Basic Pads",
+    "KNEE_MEKONG_DELTA_R_01": "Delta Guard",
+    "KNEE_NEON_SAIGON_E_01": "Cyber Knee",
+    "KNEE_LEGEND_OF_SAIGON_L_01": "Golden Guard",
+    "KNEE_LEGEND_OF_SAIGON_M_01": "Saigon Royalty Knee",
+    "WHEEL_STREET_CLASSIC_C_01": "Stock Alloy",
+    "WHEEL_DELIVERY_HUSTLE_R_01": "Hustle Spoke",
+    "WHEEL_NEON_SAIGON_E_01": "Cyber Rim",
+    "WHEEL_LEGEND_OF_SAIGON_L_01": "Golden Rim",
+    "WHEEL_LEGEND_OF_SAIGON_M_01": "Phoenix Wheel"
   },
   "legal": {
     "privacyHtml": "<h2>Chính sách Bảo mật</h2><p><strong>Ngày hiệu lực:</strong> 1 tháng 6, 2026</p><p>Saigon Rider (\"Ứng dụng\") được vận hành bởi Công ty WellConn Co., Ltd. (\"chúng tôi\"). Chúng tôi tôn trọng quyền riêng tư của bạn và cam kết bảo vệ dữ liệu cá nhân mà bạn chia sẻ.</p><h2>1. Dữ liệu chúng tôi thu thập</h2><ul><li><strong>Thông tin tài khoản:</strong> số điện thoại, biệt danh, phong cách rider</li><li><strong>Dữ liệu vị trí:</strong> tọa độ GPS trong khi đi xe (chỉ khi sử dụng ứng dụng)</li><li><strong>Dữ liệu sử dụng:</strong> tiến trình nhiệm vụ, lịch sử đi xe, mua hàng trong ứng dụng</li><li><strong>Thông tin thiết bị:</strong> UUID thiết bị, phiên bản OS, FCM token</li></ul><h2>2. Cách chúng tôi sử dụng dữ liệu</h2><ul><li>Cung cấp và cải thiện theo dõi chuyến đi, nhiệm vụ và phần thưởng</li><li>Gửi thông báo đẩy mà bạn đã đồng ý nhận</li><li>Phân tích mẫu sử dụng tổng hợp (không lập hồ sơ cá nhân)</li></ul><h2>3. Chia sẻ dữ liệu</h2><p>Chúng tôi không bán dữ liệu cá nhân của bạn. Chúng tôi có thể chia sẻ dữ liệu hạn chế với:</p><ul><li>Nhà cung cấp hạ tầng đám mây (hosting)</li><li>Dịch vụ thông báo đẩy (Firebase)</li></ul><h2>4. Lưu trữ dữ liệu</h2><p>Chúng tôi lưu giữ dữ liệu khi tài khoản còn hoạt động. Khi xóa tài khoản, tất cả dữ liệu cá nhân sẽ bị xóa vĩnh viễn trong vòng 30 ngày.</p><h2>5. Quyền của bạn</h2><ul><li>Truy cập và tải xuống dữ liệu (Cài đặt → Tài khoản)</li><li>Xóa tài khoản và tất cả dữ liệu liên quan</li><li>Rút lại đồng ý về vị trí hoặc thông báo bất cứ lúc nào</li></ul><h2>6. Liên hệ</h2><p>Để hỏi về bảo mật, hãy sử dụng Hỗ trợ trong ứng dụng hoặc gửi email đến support@sgr.com.</p>",

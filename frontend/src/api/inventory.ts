@@ -53,8 +53,9 @@ const RARITY_LABEL: Record<ItemRarity, string> = {
 
 const SLOT_LABELS: Record<string, string> = {
   HELMET: 'Helmet', JACKET: 'Jacket', GLOVES: 'Gloves', EYEWEAR: 'Eyewear', BOOTS: 'Boots',
+  PANTS: 'Pants', KNEE: 'Knee Guard',
   BODY: 'Body', ENGINE: 'Engine', SEAT: 'Seat', STICKER: 'Sticker', HANDLE: 'Handle',
-  MIRROR: 'Mirror', LIGHT: 'Light', TAIL: 'Tail', NUMBER: 'Number',
+  MIRROR: 'Mirror', LIGHT: 'Light', TAIL: 'Tail', NUMBER: 'Number', WHEEL: 'Wheel',
   NAME: 'Name', RANK: 'Rank', FRAME: 'Frame', TITLE: 'Title', BACKDROP: 'Backdrop',
   TRAIL: 'Trail', START: 'Start', HORN: 'Horn',
   BANNER: 'Banner', EMOTE: 'Emote', PET: 'Pet',

@@ -832,7 +832,22 @@
     "PET_MEKONG_DELTA_R_01": "Delta Frog",
     "PET_NEON_SAIGON_E_01": "Neon Drone",
     "PET_TET_FESTIVAL_L_01": "Lucky Koi",
-    "PET_LEGEND_OF_SAIGON_M_01": "Golden Dragon"
+    "PET_LEGEND_OF_SAIGON_M_01": "Golden Dragon",
+    "PANTS_STREET_CLASSIC_C_01": "Daily Jeans",
+    "PANTS_DELIVERY_HUSTLE_R_01": "Express Cargo",
+    "PANTS_SAIGON_GHOST_E_01": "Phantom Trousers",
+    "PANTS_LEGEND_OF_SAIGON_L_01": "Imperial Trousers",
+    "PANTS_LEGEND_OF_SAIGON_M_01": "Saigon Sovereign Pants",
+    "KNEE_STREET_CLASSIC_C_01": "Basic Pads",
+    "KNEE_MEKONG_DELTA_R_01": "Delta Guard",
+    "KNEE_NEON_SAIGON_E_01": "Cyber Knee",
+    "KNEE_LEGEND_OF_SAIGON_L_01": "Golden Guard",
+    "KNEE_LEGEND_OF_SAIGON_M_01": "Saigon Royalty Knee",
+    "WHEEL_STREET_CLASSIC_C_01": "Stock Alloy",
+    "WHEEL_DELIVERY_HUSTLE_R_01": "Hustle Spoke",
+    "WHEEL_NEON_SAIGON_E_01": "Cyber Rim",
+    "WHEEL_LEGEND_OF_SAIGON_L_01": "Golden Rim",
+    "WHEEL_LEGEND_OF_SAIGON_M_01": "Phoenix Wheel"
   },
   "legal": {
     "privacyHtml": "<h2>개인정보처리방침</h2><p><strong>시행일:</strong> 2026년 6월 1일</p><p>사이공 라이더(\"앱\")는 주식회사 웰콘(\"회사\")이 운영합니다. 회사는 이용자의 개인정보를 소중히 보호합니다.</p><h2>1. 수집하는 개인정보</h2><ul><li><strong>계정 정보:</strong> 전화번호, 닉네임, 라이더 스타일</li><li><strong>위치 정보:</strong> 라이딩 중 GPS 좌표 (앱 사용 중에만)</li><li><strong>이용 정보:</strong> 퀘스트 진행, 라이딩 기록, 인앱 구매</li><li><strong>기기 정보:</strong> 기기 UUID, OS 버전, FCM 토큰</li></ul><h2>2. 개인정보 이용 목적</h2><ul><li>라이딩 추적, 퀘스트, 보상 제공 및 개선</li><li>수신 동의한 푸시 알림 발송</li><li>집계된 이용 패턴 분석 (개인 프로파일링 없음)</li></ul><h2>3. 개인정보 제공</h2><p>회사는 개인정보를 판매하지 않습니다. 다음의 경우 제한적으로 공유할 수 있습니다:</p><ul><li>클라우드 인프라 제공업체 (호스팅)</li><li>푸시 알림 서비스 (Firebase)</li></ul><h2>4. 개인정보 보유 기간</h2><p>계정이 활성 상태인 동안 보유합니다. 계정 삭제 시 30일 이내에 모든 개인정보가 영구 삭제됩니다.</p><h2>5. 이용자의 권리</h2><ul><li>내 데이터 접근 및 다운로드 (설정 → 계정)</li><li>계정 및 모든 관련 데이터 삭제</li><li>위치 또는 알림에 대한 동의를 언제든 철회</li></ul><h2>6. 문의</h2><p>개인정보 관련 문의는 앱 내 고객센터 또는 support@sgr.com로 연락해 주세요.</p>",

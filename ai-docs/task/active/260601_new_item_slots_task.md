@@ -1,6 +1,6 @@
 # 신규 아이템 부위 3종 추가 — PANTS / KNEE / WHEEL (2026-06-01)
 
-> **Status**: 🔧 IN_PROGRESS (티켓만 발행, 구현은 신규 스레드)
+> **Status**: ✅ DONE (2026-06-01) — 구현+라이더 프리뷰 정비(소매·다리·좌표) 완료, 배포됨. 바이크 프리뷰는 SGR-202로 분리.
 > **Plane Todo**: SGR-201
 > **Notion**: https://www.notion.so/3723bd6b405d814fbbb2cbb9cec23735
 > **선행 참조**: 아이템 시스템 리셋 `task/active/260529_item_system_reset_task.md`, slot enum 마이그 `engine/alembic/versions/030_item_slot_enum_v7.py`, 시드 `031_item_v7_seed.py`

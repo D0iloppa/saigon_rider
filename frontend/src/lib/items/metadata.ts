@@ -1,7 +1,7 @@
 export type ItemSlot =
-  | 'HELMET' | 'JACKET' | 'GLOVES' | 'EYEWEAR' | 'BOOTS'
+  | 'HELMET' | 'JACKET' | 'GLOVES' | 'EYEWEAR' | 'BOOTS' | 'PANTS' | 'KNEE'
   | 'BODY' | 'ENGINE' | 'SEAT' | 'STICKER' | 'HANDLE'
-  | 'MIRROR' | 'LIGHT' | 'TAIL' | 'NUMBER'
+  | 'MIRROR' | 'LIGHT' | 'TAIL' | 'NUMBER' | 'WHEEL'
   | 'NAME' | 'RANK' | 'FRAME' | 'TITLE' | 'BACKDROP'
   | 'TRAIL' | 'START' | 'HORN'
   | 'BANNER' | 'EMOTE' | 'PET';
@@ -151,6 +151,22 @@ export const ITEMS: ItemMeta[] = [
   { num: 123, itemCode: "PET_NEON_SAIGON_E_01", slot: "PET", collection: "NEON_SAIGON", rarity: "E", sprite: "saigon-rider-items.svg" },
   { num: 124, itemCode: "PET_TET_FESTIVAL_L_01", slot: "PET", collection: "TET_FESTIVAL", rarity: "L", sprite: "saigon-rider-items.svg" },
   { num: 125, itemCode: "PET_LEGEND_OF_SAIGON_M_01", slot: "PET", collection: "LEGEND_OF_SAIGON", rarity: "M", sprite: "saigon-rider-items.svg" },
+  // ── SGR-201 신규 부위 3종 (PANTS / KNEE / WHEEL) ──
+  { num: 126, itemCode: "PANTS_STREET_CLASSIC_C_01", slot: "PANTS", collection: "STREET_CLASSIC", rarity: "C", sprite: "saigon-rider-items.svg" },
+  { num: 127, itemCode: "PANTS_DELIVERY_HUSTLE_R_01", slot: "PANTS", collection: "DELIVERY_HUSTLE", rarity: "R", sprite: "saigon-rider-items.svg" },
+  { num: 128, itemCode: "PANTS_SAIGON_GHOST_E_01", slot: "PANTS", collection: "SAIGON_GHOST", rarity: "E", sprite: "saigon-rider-items.svg" },
+  { num: 129, itemCode: "PANTS_LEGEND_OF_SAIGON_L_01", slot: "PANTS", collection: "LEGEND_OF_SAIGON", rarity: "L", sprite: "saigon-rider-items.svg" },
+  { num: 130, itemCode: "PANTS_LEGEND_OF_SAIGON_M_01", slot: "PANTS", collection: "LEGEND_OF_SAIGON", rarity: "M", sprite: "saigon-rider-items.svg" },
+  { num: 131, itemCode: "KNEE_STREET_CLASSIC_C_01", slot: "KNEE", collection: "STREET_CLASSIC", rarity: "C", sprite: "saigon-rider-items.svg" },
+  { num: 132, itemCode: "KNEE_MEKONG_DELTA_R_01", slot: "KNEE", collection: "MEKONG_DELTA", rarity: "R", sprite: "saigon-rider-items.svg" },
+  { num: 133, itemCode: "KNEE_NEON_SAIGON_E_01", slot: "KNEE", collection: "NEON_SAIGON", rarity: "E", sprite: "saigon-rider-items.svg" },
+  { num: 134, itemCode: "KNEE_LEGEND_OF_SAIGON_L_01", slot: "KNEE", collection: "LEGEND_OF_SAIGON", rarity: "L", sprite: "saigon-rider-items.svg" },
+  { num: 135, itemCode: "KNEE_LEGEND_OF_SAIGON_M_01", slot: "KNEE", collection: "LEGEND_OF_SAIGON", rarity: "M", sprite: "saigon-rider-items.svg" },
+  { num: 136, itemCode: "WHEEL_STREET_CLASSIC_C_01", slot: "WHEEL", collection: "STREET_CLASSIC", rarity: "C", sprite: "saigon-rider-items.svg" },
+  { num: 137, itemCode: "WHEEL_DELIVERY_HUSTLE_R_01", slot: "WHEEL", collection: "DELIVERY_HUSTLE", rarity: "R", sprite: "saigon-rider-items.svg" },
+  { num: 138, itemCode: "WHEEL_NEON_SAIGON_E_01", slot: "WHEEL", collection: "NEON_SAIGON", rarity: "E", sprite: "saigon-rider-items.svg" },
+  { num: 139, itemCode: "WHEEL_LEGEND_OF_SAIGON_L_01", slot: "WHEEL", collection: "LEGEND_OF_SAIGON", rarity: "L", sprite: "saigon-rider-items.svg" },
+  { num: 140, itemCode: "WHEEL_LEGEND_OF_SAIGON_M_01", slot: "WHEEL", collection: "LEGEND_OF_SAIGON", rarity: "M", sprite: "saigon-rider-items.svg" },
 ];
 
 export const itemByCode = (code: string): ItemMeta | undefined =>
@@ -172,11 +188,12 @@ export const itemNameKey = (code: string): string => `items.${code}`;
  *  심볼마다 viewBox 가 달라(60×20 ~ 240×80) 고정 박스에 <use> 하면 스케일이 깨지므로,
  *  ItemSvgRenderer 가 이 값으로 정규화(scale-to-fit)한다. */
 export const SLOT_VIEWBOX: Record<ItemSlot, string> = {
-  HELMET: '0 0 100 100', JACKET: '0 0 120 120', GLOVES: '0 0 50 100',
+  HELMET: '0 0 100 100', JACKET: '0 0 180 150', GLOVES: '0 0 50 100',
   EYEWEAR: '0 0 100 100', BOOTS: '0 0 50 100',
+  PANTS: '0 0 120 130', KNEE: '0 0 50 50',
   BODY: '0 0 240 80', ENGINE: '0 0 60 40', SEAT: '0 0 80 30',
   STICKER: '0 0 80 40', HANDLE: '0 0 60 20', MIRROR: '0 0 25 25',
-  LIGHT: '0 0 40 40', TAIL: '0 0 30 30', NUMBER: '0 0 50 30',
+  LIGHT: '0 0 40 40', TAIL: '0 0 30 30', NUMBER: '0 0 50 30', WHEEL: '0 0 68 68',
   NAME: '0 0 100 100', RANK: '0 0 100 100', FRAME: '0 0 100 100',
   TITLE: '0 0 100 100', BACKDROP: '0 0 100 100',
   TRAIL: '0 0 100 100', START: '0 0 100 100', HORN: '0 0 100 100',

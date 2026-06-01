@@ -86,6 +86,8 @@ class ItemSlotEnum(str, enum.Enum):
     GLOVES = "GLOVES"
     EYEWEAR = "EYEWEAR"
     BOOTS = "BOOTS"
+    PANTS = "PANTS"
+    KNEE = "KNEE"
     # 바이크 파츠
     BODY = "BODY"
     ENGINE = "ENGINE"
@@ -96,6 +98,7 @@ class ItemSlotEnum(str, enum.Enum):
     LIGHT = "LIGHT"
     TAIL = "TAIL"
     NUMBER = "NUMBER"
+    WHEEL = "WHEEL"
     # 프로필
     NAME = "NAME"
     RANK = "RANK"

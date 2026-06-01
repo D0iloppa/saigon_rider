@@ -13,8 +13,8 @@ from app.services.xp_ledger import get_or_create_user
 
 # 상점 드릴다운 그룹 → 슬롯 집합 (프론트 ShopCatalog 그룹과 일치)
 SHOP_GROUPS: dict[str, tuple[str, ...]] = {
-    "rider": ("HELMET", "JACKET", "GLOVES", "EYEWEAR", "BOOTS"),
-    "bike": ("BODY", "ENGINE", "SEAT", "STICKER", "HANDLE", "MIRROR", "LIGHT", "TAIL", "NUMBER"),
+    "rider": ("HELMET", "JACKET", "GLOVES", "EYEWEAR", "BOOTS", "PANTS", "KNEE"),
+    "bike": ("BODY", "ENGINE", "SEAT", "STICKER", "HANDLE", "MIRROR", "LIGHT", "TAIL", "NUMBER", "WHEEL"),
     "effect": ("NAME", "RANK", "FRAME", "TITLE", "BACKDROP",
                "TRAIL", "START", "HORN", "BANNER", "EMOTE", "PET"),
 }

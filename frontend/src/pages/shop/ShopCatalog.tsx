@@ -15,8 +15,8 @@ import styles from './ShopCatalog.module.css';
 type GroupKey = 'rider' | 'bike' | 'effect';
 const GROUP_ORDER: GroupKey[] = ['rider', 'bike', 'effect'];
 const GROUPS: Record<GroupKey, { i18nKey: string; slots: string[] }> = {
-  rider:  { i18nKey: 'equipPreview.tab_rider',  slots: ['HELMET', 'JACKET', 'GLOVES', 'EYEWEAR', 'BOOTS'] },
-  bike:   { i18nKey: 'equipPreview.tab_bike',   slots: ['BODY', 'ENGINE', 'SEAT', 'STICKER', 'HANDLE', 'MIRROR', 'LIGHT', 'TAIL', 'NUMBER'] },
+  rider:  { i18nKey: 'equipPreview.tab_rider',  slots: ['HELMET', 'JACKET', 'GLOVES', 'EYEWEAR', 'BOOTS', 'PANTS', 'KNEE'] },
+  bike:   { i18nKey: 'equipPreview.tab_bike',   slots: ['BODY', 'ENGINE', 'SEAT', 'STICKER', 'HANDLE', 'MIRROR', 'LIGHT', 'TAIL', 'NUMBER', 'WHEEL'] },
   effect: { i18nKey: 'equipPreview.tab_effect', slots: ['NAME', 'RANK', 'FRAME', 'TITLE', 'BACKDROP', 'TRAIL', 'START', 'HORN', 'BANNER', 'EMOTE', 'PET'] },
 };
 

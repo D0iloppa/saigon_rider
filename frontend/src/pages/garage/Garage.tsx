@@ -20,10 +20,11 @@ type SortMode = 'rarity' | 'slot' | 'name';
 const SLOT_EMOJI: Record<string, string> = {
   // Rider
   HELMET: '26d1', JACKET: '1f9e5', GLOVES: '1f9e4', BOOTS: '1f97e', EYEWEAR: '1f576',
+  PANTS: '1f456', KNEE: '1f9b5',
   // Motorcycle
   BODY: '1f3cd', SEAT: '1f4ba', STICKER: '1f4a0', HANDLE: '2699',
   TAIL: '1f534', ENGINE: '2699', LIGHT: '1f4a1',
-  MIRROR: '1f9f0', NUMBER: '1f522',
+  MIRROR: '1f9f0', NUMBER: '1f522', WHEEL: '1f6de',
   // Profile
   NAME: '1f3f7', RANK: '1faaa', FRAME: '1f5bc', BACKDROP: '1f304', TITLE: '1f451',
   // Effect
@@ -64,10 +65,12 @@ const TABS: Record<TabKey, TabDef> = {
       { key: 'HELMET', emoji: '26d1', label: 'HELMET', icon: '⛑️' },
       { key: 'JACKET', emoji: '1f9e5', label: 'JACKET', icon: '🧥' },
       { key: 'GLOVES', emoji: '1f9e4', label: 'GLOVES', icon: '🧤' },
+      { key: 'PANTS', emoji: '1f456', label: 'PANTS', icon: '👖' },
     ],
     right: [
       { key: 'EYEWEAR', emoji: '1f576', label: 'EYEWEAR', icon: '🕶️' },
       { key: 'NAME', emoji: '1f3f7', label: 'NAME', icon: '🏷️' },
+      { key: 'KNEE', emoji: '1f9b5', label: 'KNEE', icon: '🦵' },
       { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS', icon: '🥾' },
     ],
   },
@@ -91,6 +94,7 @@ const TABS: Record<TabKey, TabDef> = {
     bottom: [
       { key: 'ENGINE', emoji: '2699', label: 'ENGINE', icon: '⚙️' },
       { key: 'STICKER', emoji: '1f4a0', label: 'STICKER', icon: '💠' },
+      { key: 'WHEEL', emoji: '1f6de', label: 'WHEEL', icon: '🛞' },
     ],
   },
   effect: {

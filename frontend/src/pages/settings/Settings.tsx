@@ -8,6 +8,7 @@ import { useDialogStore } from '@/store/useDialogStore';
 import { useState, useEffect, useCallback } from 'react';
 import { AppImage } from '@/components/ui/AppImage';
 import { fetchCurrentVersion, type AppVersionCurrent } from '@/api/appVersion';
+import { native, type LocationPermissionState } from '@/lib/native';
 import styles from './Settings.module.css';
 
 export default function Settings() {
@@ -19,6 +20,7 @@ export default function Settings() {
   const [dark, setDark] = useState(false);
   const [appVersion, setAppVersion] = useState<string>('');
   const [versionData, setVersionData] = useState<AppVersionCurrent | null>(null);
+  const [locPerm, setLocPerm] = useState<LocationPermissionState | null>(null);
 
   useEffect(() => {
     fetchCurrentVersion()
@@ -28,6 +30,24 @@ export default function Settings() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    native.checkLocationPermission().then(setLocPerm).catch(() => setLocPerm(null));
+  }, []);
+
+  const handleLocationTap = useCallback(async () => {
+    if (locPerm === 'granted') return; // 이미 허용 — 별도 동작 없음
+    // 미허용(denied/prompt/불명) → 권한 재요청 팝업.
+    try {
+      const next = await native.requestLocationPermission();
+      setLocPerm(next);
+      if (next === 'granted') return;
+    } catch {
+      // geolocation 네이티브 미등록 등 — 안내로 폴백
+    }
+    // 재요청이 막힌 경우의 임시 폴백. SGR-199(openAppSettings) 완료 시 제거 예정.
+    openDialog({ message: { mode: 'code', value: 'settings.locationSettingsGuide' } });
+  }, [locPerm, openDialog]);
 
   const showVersionInfo = useCallback(() => {
     if (!versionData) return;
@@ -103,7 +123,14 @@ export default function Settings() {
           <SettingsRow
             icon="📍"
             label={t('settings.locationPermission')}
-            value={t('settings.locationAllowed')}
+            value={
+              locPerm === 'granted' ? t('settings.locationAllowed') :
+              locPerm === 'denied' ? t('settings.locationDenied') :
+              locPerm === 'prompt' ? t('settings.locationPrompt') :
+              '…'
+            }
+            arrow
+            onClick={handleLocationTap}
           />
         </Section>
 

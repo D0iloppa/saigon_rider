@@ -31,6 +31,9 @@ export interface GeoPosition {
   accuracy?: number;
 }
 
+/** @capacitor/geolocation 의 4상태를 UI용 3상태로 정규화 */
+export type LocationPermissionState = 'granted' | 'denied' | 'prompt';
+
 export interface DeviceInfo {
   platform: string;
   osVersion: string;
@@ -121,6 +124,16 @@ class NativeInterface {
     return () => {
       if (watchId) Geolocation.clearWatch({ id: watchId });
     };
+  }
+
+  async checkLocationPermission(): Promise<LocationPermissionState> {
+    const status = await Geolocation.checkPermissions();
+    return normalizeLocationPermission(status.location);
+  }
+
+  async requestLocationPermission(): Promise<LocationPermissionState> {
+    const status = await Geolocation.requestPermissions();
+    return normalizeLocationPermission(status.location);
   }
 
   // ── In-App Purchase (iOS only) ──────────────────────────────────────────
@@ -256,6 +269,12 @@ class NativeInterface {
   onDeepLink(_handler: DeepLinkHandler): () => void {
     return () => {};
   }
+}
+
+function normalizeLocationPermission(state: string): LocationPermissionState {
+  if (state === 'granted') return 'granted';
+  if (state === 'denied') return 'denied';
+  return 'prompt'; // 'prompt' | 'prompt-with-rationale'
 }
 
 // ─── 싱글턴 export ──────────────────────────────────────────────────────────

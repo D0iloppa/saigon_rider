@@ -360,7 +360,6 @@ export default function FeedList() {
                     <button className={styles.actionBtn} onClick={() => setActivePost(p)}>
                       💬 <span>{p.commentCount}</span>
                     </button>
-                    <button className={styles.actionBtn}>↗</button>
                   </div>
                 </div>
               </article>

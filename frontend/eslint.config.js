@@ -27,6 +27,16 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-expressions': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'warn',
+
+      // ── Native Bridge 강제: 브라우저 네이티브 API 직접 사용 금지 ──
+      // Capacitor WebView 환경에서 브라우저 API는 권한 체계가 다르므로
+      // 반드시 native.ts (NativeInterface)를 경유해야 한다.
+      'no-restricted-globals': ['error',
+        { name: 'navigator', message: 'Use native.ts (NativeInterface) instead of navigator.*. Direct browser API access bypasses Capacitor permission handling.' },
+      ],
+      'no-restricted-properties': ['error',
+        { object: 'window', property: 'navigator', message: 'Use native.ts (NativeInterface) instead of window.navigator.*.' },
+      ],
     },
   },
 );

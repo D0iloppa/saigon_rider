@@ -236,6 +236,17 @@
   z-index: 0;
   padding: 12px;
 }
+.compositeImg {
+  max-width: 100%;
+  max-height: 100%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  padding: 8px;
+}
 
 /* ── Stats Bar ── */
 .statsBar {

@@ -49,11 +49,13 @@ async function delay<T>(value: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-function extractErrorMessage(err: any, status: number): string {
+function extractErrorMessage(err: any, status: number, call: string): string {
   const detail = err?.detail;
-  if (typeof detail === 'string') return detail;
-  if (detail) return JSON.stringify(detail);
-  return `HTTP ${status}`;
+  let msg: string;
+  if (typeof detail === 'string') msg = detail;
+  else if (detail) msg = JSON.stringify(detail);
+  else msg = call;
+  return `HTTP ${status} | ${msg}`;
 }
 
 function sessionHeaders(): Record<string, string> {
@@ -64,9 +66,12 @@ function sessionHeaders(): Record<string, string> {
 async function realFetch<T>(
   endpoint: string,
   options: RequestInit = {},
-  service: Service = 'bff'
+  service: Service = 'bff',
+  _opts: { silent?: boolean; rethrow?: boolean } = {},
 ): Promise<T> {
-  const res = await fetch(`${baseUrl(service)}${endpoint}`, {
+  const method = (options.method || 'GET').toUpperCase();
+  const url = `${baseUrl(service)}${endpoint}`;
+  const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -77,8 +82,12 @@ async function realFetch<T>(
   if (!res.ok) {
     if (res.status === 419 || res.status === 401) handleSessionError();
     const err = await res.json().catch(() => ({}));
-    const message = extractErrorMessage(err, res.status);
-    toast.error(message);
+    const message = extractErrorMessage(err, res.status, `${method} ${url}`);
+    if (_opts.silent) {
+      console.warn(`[silent] ${message}`);
+      return null as T;
+    }
+    if (!_opts.rethrow) toast.error(message);
     throw new Error(message);
   }
   if (res.status === 204) return null as T;
@@ -88,9 +97,11 @@ async function realFetch<T>(
 async function realFetchForm<T>(
   endpoint: string,
   body: FormData,
-  service: Service = 'bff'
+  service: Service = 'bff',
+  _opts: { silent?: boolean } = {},
 ): Promise<T> {
-  const res = await fetch(`${baseUrl(service)}${endpoint}`, {
+  const url = `${baseUrl(service)}${endpoint}`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { ...sessionHeaders() },
     body,
@@ -98,7 +109,11 @@ async function realFetchForm<T>(
   if (!res.ok) {
     if (res.status === 419 || res.status === 401) handleSessionError();
     const err = await res.json().catch(() => ({}));
-    const message = extractErrorMessage(err, res.status);
+    const message = extractErrorMessage(err, res.status, `POST ${url}`);
+    if (_opts.silent) {
+      console.warn(`[silent] ${message}`);
+      return null as T;
+    }
     toast.error(message);
     throw new Error(message);
   }

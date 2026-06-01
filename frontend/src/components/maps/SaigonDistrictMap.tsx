@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './SaigonDistrictMap.module.css';
 import { HCMC_DISTRICTS, findNearestDistrict, type District } from './district-data';
-import { getBrand, formatPriceShort } from '../gas/gas-tokens';
 
 export interface GasMarkerData {
   brand_code?: string | null;
@@ -14,8 +13,17 @@ export interface GasMarkerData {
 const VIEW_W = 400;
 const VIEW_H = 280;
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 4;
+const MAX_ZOOM = 6;
 const ZOOM_STEP = 1.5;
+const LABEL_FONT_SCALE = 0.75;
+
+type AggregatedType = 'gas' | 'repair' | 'flood' | 'custom';
+const BADGE_COLOR: Record<AggregatedType, { fill: string; text: string }> = {
+  gas: { fill: '#3B82F6', text: '#fff' },
+  repair: { fill: '#F59E0B', text: '#fff' },
+  flood: { fill: '#EF4444', text: '#fff' },
+  custom: { fill: '#6B7280', text: '#fff' },
+};
 
 export interface MapMarker {
   type: 'me' | 'flood' | 'repair' | 'gas' | 'custom';
@@ -39,6 +47,8 @@ export interface SaigonDistrictMapProps {
   onDistrictClick?: (district: District) => void;
   /** Zoom/pan 컨트롤 활성 (기본 true). 미니맵은 false 권장 */
   zoomable?: boolean;
+  /** 지정 시 해당 district 폴리곤을 채우도록 자동 줌인. null/undefined 면 줌 리셋 */
+  focusDistrictCode?: string | null;
   /** SVG 내부에 주입할 자식 (예: 침수 오버레이). pan/zoom viewBox 좌표계를 그대로 사용. */
   children?: ReactNode;
 }
@@ -117,6 +127,7 @@ export default function SaigonDistrictMap({
   interactive = true,
   onDistrictClick,
   zoomable = true,
+  focusDistrictCode,
   children,
 }: SaigonDistrictMapProps) {
   const { t } = useTranslation();
@@ -124,12 +135,43 @@ export default function SaigonDistrictMap({
   const highlightedSet = useMemo(() => new Set(highlightedDistricts), [highlightedDistricts]);
   const dangerSet = useMemo(() => new Set(dangerDistricts), [dangerDistricts]);
 
-  const svgMarkers = useMemo(() => {
-    return markers.map((m) => {
+  // 'me' 마커는 집계 대상에서 제외 (단일 위치 마커이므로 그대로 표시).
+  const meMarkers = useMemo(() => {
+    return markers
+      .filter((m) => m.type === 'me')
+      .map((m) => {
+        const nearest = findNearestDistrict(m.lat, m.lng);
+        const pos = nearest ? { x: nearest.label.x, y: nearest.label.y } : { x: 200, y: 140 };
+        return { ...m, svg: pos };
+      });
+  }, [markers]);
+
+  // 그 외 마커는 (district × type) 으로 집계해 1배지/그룹으로 표시.
+  const aggregatedBadges = useMemo(() => {
+    const groups = new Map<string, {
+      districtCode: string;
+      type: AggregatedType;
+      count: number;
+      pos: { x: number; y: number };
+    }>();
+    for (const m of markers) {
+      if (m.type === 'me') continue;
       const nearest = findNearestDistrict(m.lat, m.lng);
-      const pos = nearest ? { x: nearest.label.x, y: nearest.label.y } : { x: 200, y: 140 };
-      return { ...m, svg: pos };
-    });
+      if (!nearest) continue;
+      const key = `${nearest.code}|${m.type}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        groups.set(key, {
+          districtCode: nearest.code,
+          type: m.type as AggregatedType,
+          count: 1,
+          pos: { x: nearest.label.x, y: nearest.label.y },
+        });
+      }
+    }
+    return Array.from(groups.values());
   }, [markers]);
 
   // ── Zoom / Pan state ──
@@ -171,6 +213,45 @@ export default function SaigonDistrictMap({
     },
     [pan, zoom, clampPan],
   );
+
+  const focusOnDistrict = useCallback((code: string | null) => {
+    if (!code) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    const d = HCMC_DISTRICTS.find((x) => x.code === code);
+    if (!d) return;
+    const pts = d.polygon
+      .trim()
+      .split(/\s+/)
+      .map((p) => p.split(',').map(Number))
+      .filter((p) => p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]));
+    if (pts.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of pts) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const bboxW = Math.max(1, maxX - minX);
+    const bboxH = Math.max(1, maxY - minY);
+    // 폴리곤이 화면의 ~60% 차지하도록 zoom 계산
+    const targetZoom = Math.max(
+      MIN_ZOOM,
+      Math.min(MAX_ZOOM, Math.min((VIEW_W / bboxW) * 0.6, (VIEW_H / bboxH) * 0.6)),
+    );
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const newPan = clampPan(cx - VIEW_W / targetZoom / 2, cy - VIEW_H / targetZoom / 2, targetZoom);
+    setZoom(targetZoom);
+    setPan(newPan);
+  }, [clampPan]);
+
+  useEffect(() => {
+    focusOnDistrict(focusDistrictCode ?? null);
+  }, [focusDistrictCode, focusOnDistrict]);
 
   const pointerDistance = () => {
     const pts = Array.from(pointersRef.current.values());
@@ -308,9 +389,25 @@ export default function SaigonDistrictMap({
         <ellipse cx="232" cy="258" rx="18" ry="9" fill="#6ED8D0" opacity="0.25" />
 
         {/* district 폴리곤 + 라벨 */}
-        {HCMC_DISTRICTS.map((d) => {
+        {(() => {
+          const hasFocus = highlightedSet.size > 0 || dangerSet.size > 0;
+          // 선택/위험/특수 구역을 뒤에 그려 최상단에 오도록 정렬
+          const ordered = [...HCMC_DISTRICTS].sort((a, b) => {
+            const rank = (d: District) => {
+              const s = getDistrictState(d, highlightedSet, dangerSet);
+              if (s === 'highlight' || s === 'danger') return 2;
+              if (s === 'special') return 1;
+              return 0;
+            };
+            return rank(a) - rank(b);
+          });
+          return ordered.map((d) => {
           const state = getDistrictState(d, highlightedSet, dangerSet);
           const isSpecial = state === 'special';
+          // 선택/위험/특수 외 라벨은 focus 상태에서 축소·반투명 처리해 겹침 완화
+          const isFocused = state === 'highlight' || state === 'danger' || state === 'special';
+          const labelScale = hasFocus && !isFocused ? 0.5 : 1;
+          const labelOpacity = hasFocus && !isFocused ? 0.3 : 1;
           return (
             <g
               key={d.code}
@@ -334,9 +431,10 @@ export default function SaigonDistrictMap({
                   x={d.label.x}
                   y={d.label.y}
                   fontFamily="'Noto Sans', sans-serif"
-                  fontSize={d.label.fontSize}
+                  fontSize={d.label.fontSize * labelScale * LABEL_FONT_SCALE}
                   fontWeight={labelWeight(state)}
                   fill={labelFill(state)}
+                  opacity={labelOpacity}
                   textAnchor="middle"
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
                 >
@@ -345,7 +443,8 @@ export default function SaigonDistrictMap({
               )}
             </g>
           );
-        })}
+          });
+        })()}
 
         {/* 다리 마커 */}
         {showLabels && (
@@ -359,82 +458,55 @@ export default function SaigonDistrictMap({
           </g>
         )}
 
-        {/* 사용자 정의 마커 */}
-        {svgMarkers.map((m, i) => (
+        {/* 사용자 위치 마커 ('me') — 집계 대상 아님 */}
+        {meMarkers.map((m, i) => (
           <g
-            key={i}
-            transform={`translate(${m.svg.x}, ${m.svg.y})`}
+            key={`me-${i}`}
+            transform={`translate(${m.svg.x}, ${m.svg.y}) scale(${1 / zoom})`}
             style={{ cursor: interactive && m.onClick ? 'pointer' : 'default' }}
             onClick={() => {
               if (wasDragged()) return;
               if (interactive) m.onClick?.();
             }}
           >
-            {m.type === 'me' && (
-              <>
-                <circle r="8" fill="#FF5A1F" stroke="#fff" strokeWidth="2" filter="url(#srMapPinShadow)" />
-                <circle r="3" fill="#fff" />
-                {m.label && (
-                  <text y="-12" fontSize="7" fontWeight={700} fill="#FF5A1F" textAnchor="middle">
-                    {m.label}
-                  </text>
-                )}
-              </>
-            )}
-            {m.type === 'flood' && (
-              <>
-                <circle r="6" fill="#EF4444" stroke="#fff" strokeWidth="1.5" />
-                <text fontSize="7" textAnchor="middle" dy="2.5" fill="#fff">💧</text>
-                {m.label && (
-                  <text y="14" fontSize="6" fontWeight={600} fill="#B91C1C" textAnchor="middle">
-                    {m.label}
-                  </text>
-                )}
-              </>
-            )}
-            {m.type === 'repair' && (
-              <>
-                <circle r="6" fill="#F59E0B" stroke="#fff" strokeWidth="1.5" />
-                <text fontSize="7" textAnchor="middle" dy="2.5">🔧</text>
-                {m.label && (
-                  <text y="14" fontSize="6" fontWeight={600} fill="#374151" textAnchor="middle">
-                    {m.label}
-                  </text>
-                )}
-              </>
-            )}
-            {m.type === 'gas' && (() => {
-              const d = (m.data ?? {}) as GasMarkerData;
-              const brand = getBrand(d.brand_code);
-              const showPrice = !!d.show_price && d.ref_price != null;
-              return (
-                <>
-                  <circle r={showPrice ? 8 : 6} fill={brand.primary} stroke="#fff" strokeWidth="1.5" />
-                  {d.is_24h && <circle cx="5" cy="-5" r="2" fill="#FFCC00" stroke="#fff" strokeWidth="0.5" />}
-                  {showPrice ? (
-                    <g transform="translate(0, -14)">
-                      <rect x="-14" y="-7" width="28" height="11" rx="4" fill={brand.primary} opacity="0.95" />
-                      <text y="1" fontSize="7" fontWeight={700} fill={brand.textColor} textAnchor="middle">
-                        {formatPriceShort(d.ref_price ?? null)}
-                      </text>
-                    </g>
-                  ) : (
-                    m.label && (
-                      <text y="14" fontSize="6" fontWeight={600} fill="#374151" textAnchor="middle">
-                        {m.label}
-                      </text>
-                    )
-                  )}
-                </>
-              );
-            })()}
-            {m.type === 'custom' && m.label && (
-              <text fontSize="7" fontWeight={600} fill="#374151" textAnchor="middle">
+            <circle r="8" fill="#FF5A1F" stroke="#fff" strokeWidth="2" filter="url(#srMapPinShadow)" />
+            <circle r="3" fill="#fff" />
+            {m.label && (
+              <text y="-12" fontSize="7" fontWeight={700} fill="#FF5A1F" textAnchor="middle">
                 {m.label}
               </text>
             )}
           </g>
         ))}
+
+        {/* District 집계 배지 — (district × type) 그룹 1개당 1배지 */}
+        {aggregatedBadges.map((b) => {
+          const color = BADGE_COLOR[b.type];
+          return (
+            <g
+              key={`${b.districtCode}-${b.type}`}
+              transform={`translate(${b.pos.x}, ${b.pos.y}) scale(${1 / zoom})`}
+              style={{ cursor: interactive ? 'pointer' : 'default' }}
+              onClick={() => {
+                if (wasDragged()) return;
+                if (!interactive) return;
+                focusOnDistrict(b.districtCode);
+              }}
+            >
+              <circle r="9" fill={color.fill} stroke="#fff" strokeWidth="2" filter="url(#srMapPinShadow)" />
+              <text
+                fontSize="10"
+                fontWeight={700}
+                fill={color.text}
+                textAnchor="middle"
+                dy="3.5"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {b.count}
+              </text>
+            </g>
+          );
+        })}
 
         {children}
       </svg>

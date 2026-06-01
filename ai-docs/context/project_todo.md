@@ -2,9 +2,8 @@
 
 > 영역(프론트엔드 / BFF / Engine / DB / 인프라) 을 가로지르거나, 임시·데모 코드를 정식 흐름으로 승격해야 하는 후속 구현 항목.
 >
-> **운영 규칙**: 등록·착수·완료(아카이브)·보류의 모든 절차는 [`workflow/project-todo-management.md`](workflow/project-todo-management.md) 단일 워크플로우 문서를 따른다.
->
-> **상태 범례**: ⬜ 미착수 · 🚧 진행중 · ⏸ 보류 (✅ 완료 항목은 본 파일에 남기지 않는다 — 즉시 [`task/archive.md`](task/archive.md) 로 이관)
+> **상태 범례**: ⬜ 미착수 · 🚧 진행중 · ⏸ 보류 (✅ 완료 항목은 즉시 제거)
+> **추적 SoT**: `__DEV_todos` DB. 이 파일은 DB에 담기 어려운 **다영역 상세 스펙**을 보관한다.
 
 ---
 
@@ -118,8 +117,3 @@
 - 현재 `frontend/src/lib/session.ts` 가 passcode 를 평문 쿠키에 저장.
 - 정식 출시 전 HttpOnly 쿠키 + 서버 발급 JWT 로 교체 필요. (README 인증 구조 섹션의 보안 참고 참조)
 
----
-
----
-
-> 항목 추가·착수·완료 아카이빙 절차는 [`workflow/project-todo-management.md`](workflow/project-todo-management.md) 참조.

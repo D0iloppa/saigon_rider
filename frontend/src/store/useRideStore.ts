@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { SafetyGrade, Quest } from '@/api/types';
-import { fetchActiveCard } from '@/api/quests';
+import { fetchActiveCard, fetchRidePolicy } from '@/api/quests';
 import { native as NativeInterface } from '@/lib/native';
 
 interface RideState {
@@ -30,6 +30,9 @@ interface RideState {
   distanceToTargetM: number | null;
   reachedTarget: boolean;
 
+  policyProximityM: number;
+  policyBands: Array<{ code: string; thresholdM: number }>;
+
   _pollId: number | null;
   _durationId: number | null;
   _stopGeoWatch: (() => void) | null;
@@ -40,17 +43,6 @@ interface RideState {
   abandonRide: () => void;
   completeRide: () => 'success' | 'failed';
   reset: () => void;
-}
-
-function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6_371_000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 const INITIAL: Omit<
@@ -78,13 +70,17 @@ const INITIAL: Omit<
   currentLng: null,
   distanceToTargetM: null,
   reachedTarget: false,
+  policyProximityM: 100,
+  policyBands: [
+    { code: 'BAND_5KM', thresholdM: 5000 },
+    { code: 'BAND_1KM', thresholdM: 1000 },
+  ],
   _pollId: null,
   _durationId: null,
   _stopGeoWatch: null,
 };
 
 const POLL_INTERVAL_MS = 3000;
-const CHECKPOINT_PROXIMITY_M = 100;
 
 export const useRideStore = create<RideState>((set, get) => ({
   ...INITIAL,
@@ -115,7 +111,17 @@ export const useRideStore = create<RideState>((set, get) => ({
 
     NativeInterface.startGPS();
 
-    const lastSampleRef = { distanceM: 0, ts: Date.now() };
+    fetchRidePolicy()
+      .then((policy) => {
+        set({
+          policyProximityM: policy.checkpointProximityM,
+          policyBands: policy.checkpointDistanceBands,
+        });
+      })
+      .catch(() => {
+        // 폴백은 INITIAL 의 기본값 유지
+      });
+
     const pollId = window.setInterval(async () => {
       const s = get();
       if (!s.isActive || s.isPaused || !s.userQuestId) return;
@@ -124,19 +130,18 @@ export const useRideStore = create<RideState>((set, get) => ({
 
       const now = Date.now();
       const newDist = card.current_distance_m ?? 0;
-      const dtSec = Math.max(1, (now - lastSampleRef.ts) / 1000);
-      const speedKmh = Math.max(0, ((newDist - lastSampleRef.distanceM) / dtSec) * 3.6);
-      lastSampleRef.distanceM = newDist;
-      lastSampleRef.ts = now;
-
       const elapsedSec = Math.max(1, (now - (s.startedAt ?? now) - s.pausedTotalMs) / 1000);
       const avgSpeedKmh = (newDist / elapsedSec) * 3.6;
 
-      set({
+      const next: Partial<RideState> = {
         distanceM: newDist,
-        speedKmh: Math.round(speedKmh * 10) / 10,
+        speedKmh: card.last_speed_kmh ?? 0,
         avgSpeedKmh: Math.round(avgSpeedKmh * 10) / 10,
-      });
+        distanceToTargetM: card.distance_to_target_m,
+        currentLat: card.last_lat,
+        currentLng: card.last_lng,
+      };
+      set(next);
 
       if (card.status === 'COMPLETED' && !s.reachedTarget) {
         set({ reachedTarget: true });
@@ -150,19 +155,7 @@ export const useRideStore = create<RideState>((set, get) => ({
       set({ durationSec: Math.floor(elapsedMs / 1000) });
     }, 1000);
 
-    let stopGeoWatch: (() => void) | null = null;
-    if (cardType === 'CHECKPOINT' && targetLat != null && targetLng != null) {
-      stopGeoWatch = NativeInterface.watchLocation((loc) => {
-        const dist = haversineM(loc.lat, loc.lng, targetLat, targetLng);
-        set({
-          currentLat: loc.lat,
-          currentLng: loc.lng,
-          distanceToTargetM: Math.round(dist),
-        });
-      });
-    }
-
-    set({ _pollId: pollId, _durationId: durationId, _stopGeoWatch: stopGeoWatch });
+    set({ _pollId: pollId, _durationId: durationId, _stopGeoWatch: null });
   },
 
   pauseRide: () => set({ isPaused: true, pausedAt: Date.now() }),
@@ -219,4 +212,3 @@ export const useRideStore = create<RideState>((set, get) => ({
   },
 }));
 
-export { CHECKPOINT_PROXIMITY_M };

@@ -1,9 +1,11 @@
 # 워크플로우 — __DEV Context 현행화
 
-> **대상 테이블**: `__DEV_context`, `__DEV_features`, `__DEV_todos`  
+> **데이터 소스**: **Plane CE** (https://plane.doil.me) — Features/Todos는 Plane Issues로 관리  
+> **Context KV**: `__DEV_context` 테이블 (DB 유지)  
 > **관리 경로**: Admin Console `/admin/dev` 또는 API `/api/dev/*`  
-> **목적**: 프로젝트 진행 상태를 DB로 관리하여 위키 홈·어드민·AI 컨텍스트에서 실시간 참조할 수 있게 한다.  
-> **핵심 원칙**: 작업 시작/완료 시 반드시 갱신한다. md 파일이 아닌 DB가 진행 상태의 SoT(Source of Truth)이다.
+> **목적**: 프로젝트 진행 상태를 Plane + DB로 관리하여 위키 홈·어드민·AI 컨텍스트에서 실시간 참조할 수 있게 한다.  
+> **핵심 원칙**: 작업 시작/완료 시 반드시 갱신한다. Plane이 Features/Todos의 SoT(Source of Truth)이다.
+> **폴백**: Plane API 연동 실패 시 기존 DB(`__DEV_features`, `__DEV_todos`)로 자동 폴백.
 
 ---
 
@@ -58,37 +60,57 @@
 
 ### REST API (자동화·스크립트 연동)
 
-| 엔드포인트 | 메서드 | 용도 |
-|---|---|---|
-| `/api/dev/summary` | GET | 위키·대시보드용 통합 요약 |
-| `/api/dev/context` | GET / PUT / DELETE | Context KV 조회·수정·삭제 |
-| `/api/dev/features` | GET / POST / PATCH / DELETE | Feature CRUD |
-| `/api/dev/todos` | GET / POST / PATCH / DELETE | Todo CRUD |
+| 엔드포인트 | 메서드 | 용도 | 데이터 소스 |
+|---|---|---|---|
+| `/api/dev/summary` | GET | 위키·대시보드용 통합 요약 | Plane + DB Context |
+| `/api/dev/context` | GET / PUT / DELETE | Context KV 조회·수정·삭제 | DB |
+| `/api/dev/features` | GET / POST / PATCH / DELETE | Feature CRUD | Plane (폴백: DB) |
+| `/api/dev/todos` | GET / POST / PATCH / DELETE | Todo CRUD | Plane (폴백: DB) |
 
+### MCP (Claude Code — Plane MCP)
 
-### MCP (Claude Code — 자동 갱신)
-
-> **saigon-dev** MCP 서버 (`.claude/settings.json`에 등록됨). 스레드 시작 시 `get_dev_summary`를 호출하면 전체 현황을 한 번에 파악할 수 있다.
+> Plane MCP 서버 (`.claude/settings.json`에 등록됨). Plane의 issue/state/label API를 직접 호출한다.
 
 | 도구 | 용도 |
 |---|---|
-| `get_dev_summary()` | Context + Feature/Todo 전체 요약 (스레드 진입 시 첫 호출) |
-| `upsert_context(key, value, status)` | Context KV 추가·갱신 (착수: 🔧 / 완료: ✅) |
-| `delete_context(key)` | Context KV 삭제 |
-| `list_features(category?, status?)` | Feature 목록 조회 |
-| `create_feature(category, name, status?)` | Feature 등록 |
-| `update_feature(feature_id, status?, ...)` | Feature 상태·속성 갱신 |
-| `delete_feature(feature_id)` | Feature 삭제 |
-| `list_todos(status?, priority?, feature_id?)` | Todo 목록 조회 |
-| `create_todo(title, priority?, feature_id?)` | Todo 등록 |
-| `update_todo(todo_id, status?, priority?, ...)` | Todo 상태·속성 갱신 |
-| `delete_todo(todo_id)` | Todo 삭제 |
+| Plane MCP `list_issues` | Plane 이슈 목록 조회 (스레드 진입 시 첫 호출) |
+| Plane MCP `create_issue` | 이슈 생성 |
+| Plane MCP `update_issue` | 이슈 상태·속성 갱신 |
+| BFF API `/api/dev/context` | Context KV 조회·갱신 (DB) |
 
-### 직접 SQL (초기 시드·벌크 갱신)
+---
 
-```bash
-docker exec -i saigon_db psql -U wellconn -d saigon_rider < database/init/026_dev_context_seed.sql
-```
+## Plane ↔ DB 매핑
+
+### State 매핑
+
+| Plane State | Feature 상태 | Todo 상태 |
+|---|---|---|
+| Backlog | PLANNED | TODO |
+| Todo | PLANNED | TODO |
+| In Progress | IN_PROGRESS | IN_PROGRESS |
+| Done | DONE | DONE |
+| Cancelled | DEFERRED | BLOCKED |
+
+### Feature → Plane Issue
+
+| Feature 필드 | Plane 필드 |
+|---|---|
+| `category` | `labels` (라벨 이름) |
+| `name` | `name` |
+| `description` | `description_html` |
+| `status` | `state` (위 매핑) |
+| `sort_order` | `sort_order` |
+
+### Todo → Plane Issue (같은 이슈의 다른 뷰)
+
+| Todo 필드 | Plane 필드 |
+|---|---|
+| `title` | `name` |
+| `priority` | `priority` (urgent/high/medium/low/none) |
+| `status` | `state` |
+| `due_date` | `target_date` |
+| `feature` | 이슈의 label에서 카테고리 추출 |
 
 ---
 
@@ -115,12 +137,15 @@ curl -X POST /api/dev/features \
 | `home` | 월드맵·홈 화면 |
 | `quest` | 퀘스트 목록·상세·수락 |
 | `ride` | 라이딩 HUD·결과·GPS |
+| `item` | 아이템·인벤토리·상점·가챠 |
 | `feed` | 피드·좋아요·댓글·DM |
 | `profile` | 프로필·팔로우·배지·QR |
+| `info` | 유가·정비소 등 정보 탭 |
+| `engine` | SRE 엔진 내부 (RP·미션·보상) |
 | `settings` | 설정·알림·언어·계정 |
 | `infra` | Docker·Nginx·DB·위키·어드민 |
 
-필요 시 카테고리를 추가할 수 있으나, 기존 카테고리와 중복되지 않도록 한다.
+> **새 카테고리 추가 시**: BFF의 Plane label 캐시는 프로세스 기동 시 1회만 로드된다. Plane API로 label을 직접 생성한 뒤, BFF 캐시에 반영되려면 **BFF 컨테이너 재시작** 또는 Plane API를 직접 호출하여 이슈에 label을 붙여야 한다.
 
 ### 상태 전이
 
@@ -130,21 +155,14 @@ PLANNED → IN_PROGRESS → DONE
             DEFERRED
 ```
 
-| 상태 | 의미 | 전환 시점 |
+| 상태 | Plane State | 전환 시점 |
 |---|---|---|
-| `PLANNED` | 명세에 정의됨, 미착수 | 초기 등록 시 |
-| `IN_PROGRESS` | 구현 진행 중 | 활성 태스크 생성 시 |
-| `DONE` | 구현 완료 + 기본 동작 확인 | 코드 머지 후 |
-| `DEFERRED` | 의도적 보류 | 우선순위 밀림·외부 의존 시 |
+| `PLANNED` | Backlog | 초기 등록 시 |
+| `IN_PROGRESS` | In Progress | 활성 태스크 생성 시 |
+| `DONE` | Done | 코드 머지 후 |
+| `DEFERRED` | Cancelled | 우선순위 밀림·외부 의존 시 |
 
 **어드민에서**: ↻ 버튼 클릭으로 순환 (PLANNED → IN_PROGRESS → DONE → DEFERRED → PLANNED)
-
-**API에서**:
-```bash
-curl -X PATCH /api/dev/features/{id} \
-  -H 'Content-Type: application/json' \
-  -d '{"status": "DONE"}'
-```
 
 ---
 
@@ -152,23 +170,32 @@ curl -X PATCH /api/dev/features/{id} \
 
 ### 신규 Todo 등록
 
-**어드민**: `/admin/dev` → Todos 하단 폼 → 제목·우선순위·연결 Feature 입력 → 추가
+**어드민**: `/admin/dev` → Todos 하단 폼 → 제목·우선순위 입력 → 추가
 
 **API**:
 ```bash
 curl -X POST /api/dev/todos \
   -H 'Content-Type: application/json' \
-  -d '{"title": "AUTH: 닉네임 중복확인 API 연결", "priority": "HIGH", "feature_id": 4}'
+  -d '{"title": "AUTH: 닉네임 중복확인 API 연결", "priority": "HIGH"}'
+```
+
+**Notion 링크 삽입** — 태스크 문서가 있는 경우, Plane 이슈 description에 Notion URL을 넣어 상세 문서로 연결한다. Plane API로 직접 패치:
+```bash
+# Plane 이슈의 description에 Notion 링크 삽입
+curl -X PATCH "$PLANE_BASE/issues/$ISSUE_UUID/" \
+  -H "x-api-key: $PLANE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"description_html":"<p>상세: <a href=\"NOTION_URL\">Notion 태스크 문서</a> | SoT: ai-docs/task/active/…</p>"}'
 ```
 
 ### 우선순위
 
-| 값 | 기준 |
-|---|---|
-| `URGENT` | 다른 작업 차단 중, 즉시 해결 필요 |
-| `HIGH` | 현 스프린트 내 반드시 처리 |
-| `MEDIUM` | 다음 스프린트에 처리해도 무방 |
-| `LOW` | 여유 있을 때 개선 |
+| 값 | Plane | 기준 |
+|---|---|---|
+| `URGENT` | urgent | 다른 작업 차단 중, 즉시 해결 필요 |
+| `HIGH` | high | 현 스프린트 내 반드시 처리 |
+| `MEDIUM` | medium | 다음 스프린트에 처리해도 무방 |
+| `LOW` | low | 여유 있을 때 개선 |
 
 ### 상태 전이
 
@@ -178,24 +205,11 @@ TODO → IN_PROGRESS → DONE
         BLOCKED
 ```
 
-| 상태 | 의미 |
-|---|---|
-| `TODO` | 미착수 |
-| `IN_PROGRESS` | 작업 중 |
-| `DONE` | 완료 |
-| `BLOCKED` | 외부 요인으로 진행 불가 (사유를 description에 기재) |
-
-### Todo → Feature 연결
-
-Todo 등록 시 관련 Feature를 `feature_id`로 연결하면:
-- 어드민·위키에서 Feature 단위로 Todo를 묶어 볼 수 있다
-- Feature 삭제 시 연결된 Todo의 `feature_id`는 자동 NULL 처리 (Todo는 유지)
-
 ---
 
 ## 3. Context 갱신
 
-Context는 key-value 저장소로, **현재 상태를 한 줄로 요약**하는 용도이다.
+Context는 key-value 저장소로, **현재 상태를 한 줄로 요약**하는 용도이다. DB에서 직접 관리 (Plane 미사용).
 
 ### 표준 키
 
@@ -207,18 +221,7 @@ Context는 key-value 저장소로, **현재 상태를 한 줄로 요약**하는 
 | `blocker` | 블로커 발생/해소 시 | `AUTH 플로우 실 연동 미완` |
 | `next_milestone` | 다음 목표 설정 시 | `Ride HUD 실기기 GPS 연동` |
 
-**어드민**: `/admin/dev` → Context 하단 폼 → Key/Value 입력 → 추가/갱신 (같은 Key면 덮어씀)
-
-**API**:
-```bash
-curl -X PUT /api/dev/context \
-  -H 'Content-Type: application/json' \
-  -d '{"key": "current_sprint", "value": "Ride HUD + 안전등급"}'
-```
-
-### 커스텀 키
-
-표준 키 외에 자유롭게 추가할 수 있다. 단, 위키 CLI 디스플레이에 표준 5개 키만 표시되므로, 추가 키는 어드민·API에서만 조회된다.
+**어드민**: `/admin/dev` → Context 하단 폼 → Key/Value 입력 → 추가/갱신
 
 ---
 
@@ -236,7 +239,6 @@ curl -X PUT /api/dev/context \
 | `BLOCKED` Todo의 차단 사유가 해소됐는가 | `TODO`로 환원 |
 | `blocker` Context가 여전히 유효한가 | 해소 시 삭제 또는 값 갱신 |
 | `current_sprint`·`current_focus`가 실제 작업과 일치하는가 | 불일치 시 갱신 |
-| 완료된 Todo가 쌓여있는가 | 주기적으로 DONE 항목 삭제 (이력은 git에 남음) |
 
 ---
 
@@ -244,18 +246,9 @@ curl -X PUT /api/dev/context \
 
 위키 홈(`/wiki/`)의 CLI 프로그레스 디스플레이는 `/api/dev/summary`를 실시간 fetch한다.
 
-- DB 갱신 즉시 위키에 반영 (위키 재빌드 불필요)
+- Plane 갱신 즉시 위키에 반영 (위키 재빌드 불필요)
 - `saigon status --detail` 클릭 시 `/api/dev/features`, `/api/dev/todos`를 추가 fetch
 - API 서버 미기동 시 프로그레스 영역이 자동 숨김 (graceful degradation)
-
-### 위키에 표시되는 항목
-
-| 영역 | 데이터 소스 |
-|---|---|
-| sprint / focus / deploy / blocker / next | `__DEV_context` 테이블의 표준 5개 키 |
-| features 진행바 | `__DEV_features` 테이블의 status별 count |
-| todos 진행바 | `__DEV_todos` 테이블의 status별 count |
-| 상세 체크리스트 | `__DEV_features` (카테고리별) + `__DEV_todos` (미완료분) |
 
 ---
 
@@ -265,29 +258,6 @@ curl -X PUT /api/dev/context \
 |---|---|---|
 | 활성 태스크 생성 | 해당 Feature → `IN_PROGRESS` | `project-todo-management.md` §2 수행 |
 | 활성 태스크 완료 | Feature → `DONE`, 관련 Todo → `DONE` | `project-todo-management.md` §3 수행 |
-| 새 후속 작업 발견 | Todo 등록 | `project_todo.md`에 ⬜ 항목 등록 (다영역인 경우) |
-| 위키 내용 변경 | 해당 사항 없음 (자동 반영) | `wiki-update.md` 절차 수행 (위키 파일 직접 수정분만) |
+| 새 후속 작업 발견 | Todo 등록 | `project_todo.md`에 항목 등록 (다영역인 경우) |
+| 위키 내용 변경 | 해당 사항 없음 (자동 반영) | `wiki-update.md` 절차 수행 |
 | 스프린트 전환 | Context 5개 키 전부 갱신 | `context/current.md` 갱신 |
-
----
-
-## 7. SQL 직접 갱신 (벌크)
-
-대량 변경이 필요한 경우 SQL로 처리한다.
-
-```sql
--- Feature 일괄 상태 변경 (카테고리 단위)
-UPDATE "__DEV_features" SET status = 'DONE', updated_at = NOW()
-WHERE category = 'feed' AND status = 'IN_PROGRESS';
-
--- 완료 Todo 일괄 삭제
-DELETE FROM "__DEV_todos" WHERE status = 'DONE';
-
--- Context 갱신
-INSERT INTO "__DEV_context" (key, value) VALUES ('current_sprint', '새 스프린트명')
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
-```
-
-```bash
-docker exec -i saigon_db psql -U wellconn -d saigon_rider -c "위 SQL"
-```

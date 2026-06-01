@@ -99,10 +99,14 @@ services:
       - WEATHER_CACHE_TTL_CURRENT=${WEATHER_CACHE_TTL_CURRENT:-600}
       - WEATHER_CACHE_TTL_FORECAST_1H=${WEATHER_CACHE_TTL_FORECAST_1H:-1800}
       - WEATHER_CACHE_TTL_FORECAST_24H=${WEATHER_CACHE_TTL_FORECAST_24H:-3600}
+      - PLANE_API_KEY=${PLANE_API_KEY:-}
+      - PLANE_URL=${PLANE_URL:-https://plane.doil.me}
+      - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
+      - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
     restart: unless-stopped
 
-  # ── MCP Dev Server ───────────────────────────────────────
-  # docker compose --profile backend up
+  # ── MCP Dev Server (legacy — Plane으로 대체) ─────────────
+  # docker compose --profile legacy up
   mcp_dev:
     build:
       context: ./mcp_dev
@@ -120,6 +124,10 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - PLANE_API_KEY=${PLANE_API_KEY:-}
+      - PLANE_URL=${PLANE_URL:-https://plane.doil.me}
+      - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
+      - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
     restart: unless-stopped
 
   # ── Engine (SRE, 신규) ────────────────────────────────────
@@ -146,6 +154,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
       - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
+      - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON:-/app/firebase-credentials.json}
+      - FCM_PUSH_HISTORY_TTL_DAYS=${FCM_PUSH_HISTORY_TTL_DAYS:-7}
       - SRE_TIMEZONE=Asia/Ho_Chi_Minh
       - SRE_RP_EXPIRY_MONTHS=3
       - SRE_DAILY_CAP_STANDARD=250

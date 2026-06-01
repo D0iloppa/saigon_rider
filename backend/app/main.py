@@ -27,6 +27,7 @@ from .routers import (
     master,
     notifications,
     profile,
+    quest_cards,
     quests,
     ride,
     season,
@@ -115,6 +116,7 @@ app.include_router(master.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(quests.router, prefix="/api")
+app.include_router(quest_cards.router, prefix="/api")
 app.include_router(user_quests.router, prefix="/api")
 app.include_router(ride.router, prefix="/api")
 app.include_router(feed.router, prefix="/api")

@@ -110,14 +110,14 @@ export default function SeasonPass() {
         {/* Level card */}
         <div className={s.levelCard}>
           <div className={s.levelRow}>
-            <span className={s.levelLabel}>Lv. {current_level}</span>
-            <span className={s.levelSub}>/ {season.total_levels}</span>
+            <span className={s.levelLabel}>{t('seasonPass.level_label', { level: current_level })}</span>
+            <span className={s.levelSub}>{t('seasonPass.level_of', { total: season.total_levels })}</span>
           </div>
           <div className={s.xpBar}>
             <div className={s.xpFill} style={{ width: `${xpPct}%` }} />
           </div>
           <div className={s.xpMeta}>
-            {current_sxp.toLocaleString()} / {sxp_to_next.toLocaleString()} XP
+            {t('seasonPass.xp_meta', { current: current_sxp.toLocaleString(), next: sxp_to_next.toLocaleString() })}
           </div>
           <div className={s.tierBadge}>★ {tier_label}</div>
         </div>
@@ -135,15 +135,15 @@ export default function SeasonPass() {
       )}
 
       {/* Track */}
-      <div className={s.trackLabel}>REWARD TRACK</div>
+      <div className={s.trackLabel}>{t('seasonPass.reward_track')}</div>
 
       <div className={s.trackWrap}>
         <div className={s.track}>
           <div className={s.node} style={{ width: 40, flexShrink: 0 }}>
             <div style={{ height: 16 }} />
-            <div className={s.trackRowLabel} style={{ width: 40 }}>FREE</div>
+            <div className={s.trackRowLabel} style={{ width: 40 }}>{t('seasonPass.free')}</div>
             <div className={s.trackRowLabel} style={{ width: 40 }} />
-            <div className={`${s.trackRowLabel} ${s.trackRowLabelPremium}`} style={{ width: 40 }}>PREM</div>
+            <div className={`${s.trackRowLabel} ${s.trackRowLabelPremium}`} style={{ width: 40 }}>{t('seasonPass.premium')}</div>
           </div>
           {rewards.map((node) => (
             <RewardNodeCard

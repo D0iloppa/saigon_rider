@@ -6,6 +6,8 @@ import type { InventoryItem } from '@/api/inventory';
 import type { ItemRarity } from '@/api/gacha';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
+import { RiderComposite } from '@/components/equip/RiderComposite';
+import { BikeComposite } from '@/components/equip/BikeComposite';
 import { useUserStore } from '@/store/useUserStore';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { emojiUrl } from '@/lib/emoji';
@@ -17,15 +19,15 @@ type SortMode = 'rarity' | 'slot' | 'name';
 
 const SLOT_EMOJI: Record<string, string> = {
   // Rider
-  GLOVES: '1f9e4', BOOTS: '1f97e', EYEWEAR: '1f576', NAMEPLATE: '1f3f7',
+  HELMET: '26d1', JACKET: '1f9e5', GLOVES: '1f9e4', BOOTS: '1f97e', EYEWEAR: '1f576',
   // Motorcycle
-  MOTORCYCLE_BODY: '1f3cd', SEAT: '1f4ba', STICKER: '1f4a0', HANDLEBAR: '2699',
-  TAIL_LIGHT: '1f534', ENGINE_COVER: '2699', HEADLIGHT: '1f4a1',
+  BODY: '1f3cd', SEAT: '1f4ba', STICKER: '1f4a0', HANDLE: '2699',
+  TAIL: '1f534', ENGINE: '2699', LIGHT: '1f4a1',
   MIRROR: '1f9f0', NUMBER: '1f522',
   // Profile
-  RANK_CARD: '1faaa', FRAME: '1f5bc', BACKDROP: '1f304', TITLE: '1f451',
+  NAME: '1f3f7', RANK: '1faaa', FRAME: '1f5bc', BACKDROP: '1f304', TITLE: '1f451',
   // Effect
-  TRAIL: '2728', HORN: '1f514', START_ANIM: '1f3ac',
+  TRAIL: '2728', HORN: '1f514', START: '1f3ac',
   // Social
   EMOTE: '1f600', BANNER: '1f3f3', PET: '1f436',
 };
@@ -59,12 +61,14 @@ const TABS: Record<TabKey, TabDef> = {
     icon: '🧑',
     silhouette: '/assets/equip/rider.png',
     left: [
+      { key: 'HELMET', emoji: '26d1', label: 'HELMET', icon: '⛑️' },
+      { key: 'JACKET', emoji: '1f9e5', label: 'JACKET', icon: '🧥' },
       { key: 'GLOVES', emoji: '1f9e4', label: 'GLOVES', icon: '🧤' },
-      { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS', icon: '🥾' },
     ],
     right: [
       { key: 'EYEWEAR', emoji: '1f576', label: 'EYEWEAR', icon: '🕶️' },
-      { key: 'NAMEPLATE', emoji: '1f3f7', label: 'NAME', icon: '🏷️' },
+      { key: 'NAME', emoji: '1f3f7', label: 'NAME', icon: '🏷️' },
+      { key: 'BOOTS', emoji: '1f97e', label: 'BOOTS', icon: '🥾' },
     ],
   },
   bike: {
@@ -72,20 +76,20 @@ const TABS: Record<TabKey, TabDef> = {
     icon: '🏍️',
     silhouette: '/assets/equip/bike.png',
     top: [
-      { key: 'HANDLEBAR', emoji: '2699', label: 'HANDLE', icon: '⚙️' },
+      { key: 'HANDLE', emoji: '2699', label: 'HANDLE', icon: '⚙️' },
       { key: 'MIRROR', emoji: '1f9f0', label: 'MIRROR', icon: '🪞' },
-      { key: 'HEADLIGHT', emoji: '1f4a1', label: 'LIGHT', icon: '💡' },
+      { key: 'LIGHT', emoji: '1f4a1', label: 'LIGHT', icon: '💡' },
     ],
     left: [
-      { key: 'MOTORCYCLE_BODY', emoji: '1f3cd', label: 'BODY', icon: '🏍️' },
+      { key: 'BODY', emoji: '1f3cd', label: 'BODY', icon: '🏍️' },
       { key: 'SEAT', emoji: '1f4ba', label: 'SEAT', icon: '💺' },
     ],
     right: [
-      { key: 'ENGINE_COVER', emoji: '2699', label: 'ENGINE', icon: '⚙️' },
+      { key: 'ENGINE', emoji: '2699', label: 'ENGINE', icon: '⚙️' },
       { key: 'STICKER', emoji: '1f4a0', label: 'STICKER', icon: '💠' },
     ],
     bottom: [
-      { key: 'TAIL_LIGHT', emoji: '1f534', label: 'TAIL', icon: '🔴' },
+      { key: 'TAIL', emoji: '1f534', label: 'TAIL', icon: '🔴' },
       { key: 'NUMBER', emoji: '1f522', label: 'NUMBER', icon: '🔢' },
     ],
   },
@@ -95,7 +99,7 @@ const TABS: Record<TabKey, TabDef> = {
     silhouette: '/assets/equip/effect.png',
     top: [
       { key: 'TITLE', emoji: '1f451', label: 'TITLE', icon: '👑' },
-      { key: 'RANK_CARD', emoji: '1faaa', label: 'RANK', icon: '🪪' },
+      { key: 'RANK', emoji: '1faaa', label: 'RANK', icon: '🪪' },
       { key: 'FRAME', emoji: '1f5bc', label: 'FRAME', icon: '🖼️' },
     ],
     left: [
@@ -103,7 +107,7 @@ const TABS: Record<TabKey, TabDef> = {
       { key: 'HORN', emoji: '1f514', label: 'HORN', icon: '🔔' },
     ],
     right: [
-      { key: 'START_ANIM', emoji: '1f3ac', label: 'START', icon: '🎬' },
+      { key: 'START', emoji: '1f3ac', label: 'START', icon: '🎬' },
       { key: 'BANNER', emoji: '1f3f3', label: 'BANNER', icon: '🏳️' },
     ],
     bottom: [
@@ -180,6 +184,14 @@ export default function Garage() {
     }
     return map;
   }, [items]);
+
+  const equippedCodeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const [slot, item] of Object.entries(equippedMap)) {
+      map[slot] = item.item_code;
+    }
+    return map;
+  }, [equippedMap]);
 
   const slotItems = useMemo(() => {
     if (!activeSlot) return [];
@@ -325,7 +337,13 @@ export default function Garage() {
               {tab.top && tab.top.length > 0 && (
                 <div className={s.topRow}>{tab.top.map(renderSlotCard)}</div>
               )}
-              <img className={s.silImg} src={tab.silhouette} alt="" />
+              {currentTab === 'rider' ? (
+                <RiderComposite equipment={equippedCodeMap} className={s.compositeImg} />
+              ) : currentTab === 'bike' ? (
+                <BikeComposite equipment={equippedCodeMap} className={s.compositeImg} />
+              ) : (
+                <img className={s.silImg} src={tab.silhouette} alt="" />
+              )}
               {tab.bottom && tab.bottom.length > 0 && (
                 <div className={s.bottomRow}>{tab.bottom.map(renderSlotCard)}</div>
               )}

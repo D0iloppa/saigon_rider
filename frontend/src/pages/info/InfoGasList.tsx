@@ -1,15 +1,38 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { gasApi, type TodayPrices } from '@/api/info';
 import type { GasStation } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
-import { resolveInfoCoords } from '@/lib/infoCoords';
+import { resolveInfoCoordsSync, getDefaultLabel } from '@/lib/infoCoords';
+import type { ResolvedCoords } from '@/lib/infoCoords';
 import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
 import GasStationSheet from '@/components/gas/GasStationSheet';
 import { deriveBrandCode } from '@/components/gas/gas-tokens';
 import type { GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
+
+const SWR_TTL_MS = 5 * 60 * 1000;
+
+function swrRead<T>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw) as { ts: number; data: T };
+    if (Date.now() - ts > SWR_TTL_MS) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function swrWrite<T>(key: string, data: T): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
+  } catch {
+    /* quota — ignore */
+  }
+}
 
 function pickReferenceRon95(prices: TodayPrices | null): number | null {
   if (!prices) return null;
@@ -59,13 +82,28 @@ export default function InfoGasList() {
 
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'map'>('list');
+  const [error, setError] = useState(false);
+  const [view, setView] = useState<'list' | 'map'>('map');
   const [todayPrices, setTodayPrices] = useState<TodayPrices | null>(null);
   const [selectedStation, setSelectedStation] = useState<number | null>(null);
+  const [sortMode, setSortMode] = useState<'nearest' | 'cheapest'>('nearest');
+  const [coordsSource, setCoordsSource] = useState<ResolvedCoords['source']>('default');
+  const coordsRef = useRef<ResolvedCoords>({ lat: 0, lng: 0, source: 'default' });
+
+  const displayStations = useMemo<GasStation[]>(() => {
+    if (sortMode === 'cheapest') {
+      return [...stations].sort((a, b) => {
+        if (a.price_vnd === null) return 1;
+        if (b.price_vnd === null) return -1;
+        return a.price_vnd - b.price_vnd;
+      });
+    }
+    return stations;
+  }, [stations, sortMode]);
 
   const gasMarkers = useMemo<MapMarker[]>(
     () =>
-      stations.map((s) => {
+      displayStations.map((s) => {
         const data: GasMarkerData = {
           brand_code: deriveBrandCode(s.brand),
           ref_price: s.price_vnd,
@@ -81,18 +119,38 @@ export default function InfoGasList() {
           data,
         };
       }),
-    [stations],
+    [displayStations],
   );
 
+  const fetchStations = useCallback((coords: ResolvedCoords) => {
+    const { lat, lng } = coords;
+    coordsRef.current = coords;
+    setCoordsSource(coords.source);
+    const nearbyKey = `gas:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}`;
+    const cachedNearby = swrRead<GasStation[]>(nearbyKey);
+    if (cachedNearby) {
+      setStations(cachedNearby);
+      setLoading(false);
+      setError(false);
+    } else {
+      setLoading(true);
+    }
+    gasApi.getNearby(lat, lng, 5)
+      .then((r) => { if (!r) return; setStations(r.stations); swrWrite(nearbyKey, r.stations); setError(false); })
+      .catch(() => { if (!cachedNearby) setError(true); })
+      .finally(() => setLoading(false));
+  }, []);
+
   useEffect(() => {
-    setLoading(true);
-    resolveInfoCoords(search).then(({ lat, lng }) => {
-      gasApi.getNearby(lat, lng, 5)
-        .then((r) => setStations(r.stations))
-        .finally(() => setLoading(false));
-    });
-    gasApi.getTodayPrices().then(setTodayPrices).catch(() => setTodayPrices(null));
-  }, [search]);
+    const cachedPrices = swrRead<TodayPrices>('gas:today-prices');
+    if (cachedPrices) setTodayPrices(cachedPrices);
+    gasApi.getTodayPrices()
+      .then((p) => { setTodayPrices(p); swrWrite('gas:today-prices', p); })
+      .catch(() => { if (!cachedPrices) setTodayPrices(null); });
+
+    const instant = resolveInfoCoordsSync(search, (fresh) => fetchStations(fresh));
+    fetchStations(instant);
+  }, [search, fetchStations]);
 
   const referencePrice = pickReferenceRon95(todayPrices);
   const updatedAt = todayPrices?.updated_at ?? null;
@@ -138,24 +196,39 @@ export default function InfoGasList() {
 
       {/* Sort bar */}
       <div className={styles.sortBar}>
-        <span className={styles.sortText}>📍 {t('info.gas.sortDistrict')} ·</span>
-        <div className={styles.sortChip}>{t('info.gas.sortNearest')} ▾</div>
+        <span className={styles.sortText}>📍 {coordsSource === 'gps'
+          ? t('info.distFromGps')
+          : t('info.distFromFallback', { area: getDefaultLabel() })} ·</span>
+        <button
+          type="button"
+          className={`${styles.sortChip} ${sortMode === 'nearest' ? styles.sortChipActive : ''}`}
+          onClick={() => setSortMode('nearest')}
+        >
+          {t('info.gas.sortNearest')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.sortChip} ${sortMode === 'cheapest' ? styles.sortChipActive : ''}`}
+          onClick={() => setSortMode('cheapest')}
+        >
+          {t('info.gas.sortCheapest', '저렴한 순')}
+        </button>
       </div>
 
       <div className={styles.viewToggle}>
-        <button
-          type="button"
-          className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
-          onClick={() => setView('list')}
-        >
-          {t('info.gas.viewList')}
-        </button>
         <button
           type="button"
           className={`${styles.viewToggleBtn} ${view === 'map' ? styles.viewToggleActive : ''}`}
           onClick={() => setView('map')}
         >
           {t('info.gas.viewMap')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
+          onClick={() => setView('list')}
+        >
+          {t('info.gas.viewList')}
         </button>
       </div>
 
@@ -169,9 +242,16 @@ export default function InfoGasList() {
           <div className={styles.skeletonWrap}>
             {[0, 1, 2].map((i) => <div key={i} className={styles.skeleton} />)}
           </div>
+        ) : view === 'list' && error ? (
+          <div className={styles.errorWrap}>
+            <p>{t('info.gas.loadError', '정보를 불러오지 못했습니다')}</p>
+            <button className={styles.retryBtn} onClick={() => fetchStations(coordsRef.current)}>
+              {t('common.retry', '다시 시도')}
+            </button>
+          </div>
         ) : view === 'list' ? (
           <div className={styles.card}>
-            {stations.map((s, idx) => {
+            {displayStations.map((s, idx) => {
               const isCheapest = s.price_vnd !== null && s.price_vnd === minPrice;
               const isFirst = idx === 0;
               return (

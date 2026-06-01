@@ -5,6 +5,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { SettingsRow } from '@/components/ui/SettingsRow';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
+import { useThemeStore } from '@/store/useThemeStore';
 import { useState, useEffect, useCallback } from 'react';
 import { AppImage } from '@/components/ui/AppImage';
 import { fetchCurrentVersion, type AppVersionCurrent } from '@/api/appVersion';
@@ -17,7 +18,8 @@ export default function Settings() {
   const user = useUserStore((s) => s.user);
   const logout = useUserStore((s) => s.logout);
   const openDialog = useDialogStore((s) => s.open);
-  const [dark, setDark] = useState(false);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const [appVersion, setAppVersion] = useState<string>('');
   const [versionData, setVersionData] = useState<AppVersionCurrent | null>(null);
   const [locPerm, setLocPerm] = useState<LocationPermissionState | null>(null);
@@ -37,17 +39,15 @@ export default function Settings() {
 
   const handleLocationTap = useCallback(async () => {
     if (locPerm === 'granted') return; // 이미 허용 — 별도 동작 없음
-    // 미허용(denied/prompt/불명) → 권한 재요청 팝업.
-    try {
-      const next = await native.requestLocationPermission();
-      setLocPerm(next);
-      if (next === 'granted') return;
-    } catch {
-      // geolocation 네이티브 미등록 등 — 안내로 폴백
+    if (locPerm === 'denied') {
+      // 재요청이 막힘(시스템이 더 이상 권한 팝업을 띄우지 않음) → OS 앱 설정으로 유도.
+      await native.openAppSettings();
+      return;
     }
-    // 재요청이 막힌 경우의 임시 폴백. SGR-199(openAppSettings) 완료 시 제거 예정.
-    openDialog({ message: { mode: 'code', value: 'settings.locationSettingsGuide' } });
-  }, [locPerm, openDialog]);
+    // prompt/불명 → 권한 재요청 팝업.
+    const next = await native.requestLocationPermission();
+    setLocPerm(next);
+  }, [locPerm]);
 
   const showVersionInfo = useCallback(() => {
     if (!versionData) return;
@@ -118,7 +118,7 @@ export default function Settings() {
           <SettingsRow
             icon="🌙"
             label={t('settings.darkMode')}
-            right={<Toggle checked={dark} onChange={setDark} />}
+            right={<Toggle checked={theme === 'dark'} onChange={(v) => setTheme(v ? 'dark' : 'light')} />}
           />
           <SettingsRow
             icon="📍"
@@ -147,8 +147,8 @@ export default function Settings() {
             arrow
             onClick={() => navigate('/settings/account')}
           />
-          <SettingsRow icon="🔒" label={t('settings.privacy')} arrow />
-          <SettingsRow icon="📄" label={t('settings.terms')} arrow />
+          <SettingsRow icon="🔒" label={t('settings.privacy')} arrow onClick={() => navigate('/settings/privacy')} />
+          <SettingsRow icon="📄" label={t('settings.terms')} arrow onClick={() => navigate('/settings/terms')} />
         </Section>
 
         <Section title={t('settings.sectionOther')}>

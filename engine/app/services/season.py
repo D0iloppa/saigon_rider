@@ -40,7 +40,15 @@ async def get_user_pass(
             UserSeasonPass.season_code == season_code,
         )
     )
-    return result.scalar_one_or_none()
+    sp = result.scalar_one_or_none()
+    if sp is not None:
+        return sp
+
+    sp = UserSeasonPass(user_id=user.user_id, season_code=season_code)
+    db.add(sp)
+    await db.commit()
+    await db.refresh(sp, attribute_names=["season"])
+    return sp
 
 
 async def get_season_levels(

@@ -75,6 +75,8 @@ import AccountSettings from '@/pages/settings/AccountSettings';
 import ProfileEdit from '@/pages/settings/ProfileEdit';
 import CustomerSupport from '@/pages/settings/CustomerSupport';
 import SupportDetail from '@/pages/settings/SupportDetail';
+import PrivacyPolicy from '@/pages/settings/PrivacyPolicy';
+import TermsOfService from '@/pages/settings/TermsOfService';
 
 // Info
 import InfoHub from '@/pages/info/InfoHub';
@@ -251,6 +253,8 @@ export default function App() {
           <Route path="/settings/profile" element={<PrivateRoute><ProfileEdit /></PrivateRoute>} />
           <Route path="/settings/support" element={<PrivateRoute><CustomerSupport /></PrivateRoute>} />
           <Route path="/settings/support/:id" element={<PrivateRoute><SupportDetail /></PrivateRoute>} />
+          <Route path="/settings/privacy" element={<PrivateRoute><PrivacyPolicy /></PrivateRoute>} />
+          <Route path="/settings/terms" element={<PrivateRoute><TermsOfService /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />

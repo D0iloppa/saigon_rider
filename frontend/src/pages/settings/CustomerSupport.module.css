@@ -96,7 +96,7 @@
 .input {
   width: 100%;
   padding: 12px 14px;
-  background: var(--bg, #f7f5f0);
+  background: var(--bg);
   border: 1px solid var(--border, rgba(0,0,0,.08));
   border-radius: 10px;
   color: var(--text-primary, #1a1a1a);

@@ -8,19 +8,26 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.questCard:active { transform: scale(0.98); }
-.questCard:hover  { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16); }
+.questCard:active {
+  transform: scale(0.98);
+}
+
+.questCard:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+}
 
 .list {
   display: flex;
   flex-direction: row;
   height: 96px;
 }
+
 .list .illustration {
   width: 96px;
   height: 96px;
   flex-shrink: 0;
 }
+
 .list .overlay {
   flex: 1;
   padding: 12px 14px;
@@ -34,10 +41,12 @@
   display: flex;
   flex-direction: column;
 }
+
 .detail .illustration {
   width: 100%;
   aspect-ratio: 320 / 200;
 }
+
 .detail .overlay {
   padding: 16px 20px;
   background: linear-gradient(180deg, transparent 0%, #1A1925 60%);
@@ -47,19 +56,42 @@
   right: 0;
 }
 
-.mini { width: 80px; height: 80px; }
-.mini .illustration { width: 100%; height: 100%; }
-.mini .overlay { display: none; }
+.mini {
+  width: 80px;
+  height: 80px;
+}
+
+.mini .illustration {
+  width: 100%;
+  height: 100%;
+}
+
+.mini .overlay {
+  display: none;
+}
 
 .illustration {
   position: relative;
   overflow: hidden;
   background: #0E0D1A;
 }
+
 .illustration svg {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.illustrationImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.illustrationImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .cardLabels {
@@ -112,6 +144,7 @@
   flex-wrap: wrap;
   margin-bottom: 4px;
 }
+
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -135,6 +168,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 .detail .title {
   font-size: 22px;
   font-weight: 800;
@@ -148,6 +182,7 @@
   color: rgba(255, 255, 255, 0.7);
   margin-top: 2px;
 }
+
 .rating {
   color: #FFB800;
   letter-spacing: 0.5px;
@@ -160,6 +195,7 @@
   margin-top: 8px;
   flex-wrap: wrap;
 }
+
 .rewardChip {
   display: inline-flex;
   align-items: center;
@@ -183,6 +219,7 @@
     0 0 16px rgba(255, 184, 0, 0.25),
     0 2px 8px rgba(0, 0, 0, 0.16);
 }
+
 .mythic .rewardChip {
   background: linear-gradient(135deg, #FFB800 0%, #FF8C42 100%);
   color: white;
@@ -190,7 +227,16 @@
 }
 
 @media (max-width: 480px) {
-  .list { height: 88px; }
-  .list .illustration { width: 88px; height: 88px; }
-  .detail .title { font-size: 20px; }
+  .list {
+    height: 88px;
+  }
+
+  .list .illustration {
+    width: 88px;
+    height: 88px;
+  }
+
+  .detail .title {
+    font-size: 20px;
+  }
 }

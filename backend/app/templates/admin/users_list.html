@@ -25,6 +25,7 @@
         <th>Gold</th>
         <th>Rider Type</th>
         <th>가입일</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -34,3 +35,36 @@
 </div>
 
 <div class="pagination">{{pagination}}</div>
+
+<div id="deviceModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.6);align-items:center;justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#1e1e2e;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:24px;min-width:360px;max-width:480px;">
+    <p style="font-size:15px;font-weight:600;margin:0 0 16px;">디바이스 연동 정보</p>
+    <table class="table" style="font-size:13px;">
+      <tr><td style="color:rgba(255,255,255,.5);width:100px;">Device UUID</td><td id="dm-device" style="font-family:monospace;word-break:break-all;">—</td></tr>
+      <tr><td style="color:rgba(255,255,255,.5);">FCM Token</td><td id="dm-fcm" style="font-family:monospace;word-break:break-all;max-width:320px;overflow:hidden;text-overflow:ellipsis;">—</td></tr>
+      <tr><td style="color:rgba(255,255,255,.5);">마지막 연동</td><td id="dm-at">—</td></tr>
+    </table>
+    <div style="text-align:right;margin-top:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('deviceModal').style.display='none'">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function showDeviceInfo(userId) {
+  const modal = document.getElementById('deviceModal');
+  document.getElementById('dm-device').textContent = '조회 중…';
+  document.getElementById('dm-fcm').textContent = '—';
+  document.getElementById('dm-at').textContent = '—';
+  modal.style.display = 'flex';
+  try {
+    const res = await fetch('/admin/users/' + userId + '/device');
+    const d = await res.json();
+    document.getElementById('dm-device').textContent = d.device_uuid || 'unlinked';
+    document.getElementById('dm-fcm').textContent = d.fcm_token || 'unlinked';
+    document.getElementById('dm-at').textContent = d.logged_in_at ? d.logged_in_at.replace('T', ' ').slice(0, 19) + ' (UTC)' : 'unlinked';
+  } catch (e) {
+    document.getElementById('dm-device').textContent = '조회 실패';
+  }
+}
+</script>

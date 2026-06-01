@@ -28,22 +28,22 @@ export interface InventoryResponse {
 
 const MOCK_INVENTORY: InventoryResponse = {
   stats: {
-    total_owned: 47,
-    total_catalog: 213,
+    total_owned: 9,
+    total_catalog: 125,
     avg_rarity: 'R',
-    completed_collections: 3,
+    completed_collections: 0,
     total_collections: 7,
   },
   items: [
-    { user_item_id: '1', item_code: 'DECAL_DRAGON_SKIN_M_01',        item_name: 'Dragon Skin',       item_slot: 'DECAL',      rarity: 'M', collection_code: 'LEGEND_OF_SAIGON', is_equipped: false, is_new: false, acquired_at: '2026-05-10' },
-    { user_item_id: '2', item_code: 'HELMET_CYBER_SAIGON_L_01',      item_name: 'Cyber Saigon',      item_slot: 'HELMET',     rarity: 'L', collection_code: 'NEON_SAIGON',      is_equipped: true,  is_new: false, acquired_at: '2026-05-12' },
-    { user_item_id: '3', item_code: 'BODY_PAINT_SAIGON_SUNSET_L_01', item_name: 'Sunset Wrap',       item_slot: 'BODY_PAINT', rarity: 'L', collection_code: 'LEGEND_OF_SAIGON', is_equipped: false, is_new: false, acquired_at: '2026-05-14' },
-    { user_item_id: '4', item_code: 'EXHAUST_GHOST_WHISPER_E_01',    item_name: 'Ghost Whisper',     item_slot: 'EXHAUST',    rarity: 'E', collection_code: 'SAIGON_GHOST',     is_equipped: true,  is_new: false, acquired_at: '2026-05-15' },
-    { user_item_id: '5', item_code: 'WHEEL_NEON_SPOKE_E_01',         item_name: 'Neon Spoke 17',     item_slot: 'WHEEL',      rarity: 'E', collection_code: 'NEON_SAIGON',      is_equipped: false, is_new: true,  acquired_at: '2026-05-17' },
-    { user_item_id: '6', item_code: 'HEADLIGHT_TET_LANTERN_R_01',    item_name: 'Tết Lantern',       item_slot: 'HEADLIGHT',  rarity: 'R', collection_code: 'TET_FESTIVAL',     is_equipped: true,  is_new: false, acquired_at: '2026-05-13' },
-    { user_item_id: '7', item_code: 'MIRROR_STANDARD_CHROME_C_01',   item_name: 'Standard Chrome',   item_slot: 'MIRROR',     rarity: 'C', collection_code: 'STREET_CLASSIC',   is_equipped: false, is_new: false, acquired_at: '2026-05-11' },
-    { user_item_id: '8', item_code: 'JACKET_GHOST_RIDER_E_01',       item_name: 'Ghost Rider Coat',  item_slot: 'JACKET',     rarity: 'E', collection_code: 'SAIGON_GHOST',     is_equipped: true,  is_new: false, acquired_at: '2026-05-16' },
-    { user_item_id: '9', item_code: 'BOOTS_MEKONG_DELTA_R_01',       item_name: 'Mekong Delta Boot', item_slot: 'BOOTS',      rarity: 'R', collection_code: 'MEKONG_DELTA',     is_equipped: true,  is_new: false, acquired_at: '2026-05-10' },
+    { user_item_id: '1', item_code: 'HELMET_STREET_CLASSIC_C_01',       item_name: 'Street Lid',       item_slot: 'HELMET',  rarity: 'C', collection_code: 'STREET_CLASSIC',   is_equipped: true,  is_new: false, acquired_at: '2026-05-29' },
+    { user_item_id: '2', item_code: 'JACKET_SAIGON_GHOST_E_01',         item_name: 'Shadow Rider',     item_slot: 'JACKET',  rarity: 'E', collection_code: 'SAIGON_GHOST',     is_equipped: true,  is_new: false, acquired_at: '2026-05-29' },
+    { user_item_id: '3', item_code: 'GLOVES_NEON_SAIGON_E_01',          item_name: 'Cyber Knuckle',    item_slot: 'GLOVES',  rarity: 'E', collection_code: 'NEON_SAIGON',      is_equipped: true,  is_new: false, acquired_at: '2026-05-29' },
+    { user_item_id: '4', item_code: 'EYEWEAR_LEGEND_OF_SAIGON_L_01',    item_name: 'Golden Aviator',   item_slot: 'EYEWEAR', rarity: 'L', collection_code: 'LEGEND_OF_SAIGON', is_equipped: true,  is_new: false, acquired_at: '2026-05-29' },
+    { user_item_id: '5', item_code: 'BOOTS_MEKONG_DELTA_R_01',          item_name: 'Delta Trekker',    item_slot: 'BOOTS',   rarity: 'R', collection_code: 'MEKONG_DELTA',     is_equipped: true,  is_new: false, acquired_at: '2026-05-29' },
+    { user_item_id: '6', item_code: 'BODY_NEON_SAIGON_E_01',            item_name: 'Cyber Neon Body',  item_slot: 'BODY',    rarity: 'E', collection_code: 'NEON_SAIGON',      is_equipped: true,  is_new: true,  acquired_at: '2026-05-29' },
+    { user_item_id: '7', item_code: 'MIRROR_STREET_CLASSIC_C_01',       item_name: 'Stock Round',      item_slot: 'MIRROR',  rarity: 'C', collection_code: 'STREET_CLASSIC',   is_equipped: false, is_new: false, acquired_at: '2026-05-29' },
+    { user_item_id: '8', item_code: 'STICKER_LEGEND_OF_SAIGON_M_01',    item_name: 'Saigon Dragon',    item_slot: 'STICKER', rarity: 'M', collection_code: 'LEGEND_OF_SAIGON', is_equipped: false, is_new: true,  acquired_at: '2026-05-29' },
+    { user_item_id: '9', item_code: 'TRAIL_NEON_SAIGON_E_01',           item_name: '(TBD)',            item_slot: 'TRAIL',   rarity: 'E', collection_code: 'NEON_SAIGON',      is_equipped: false, is_new: false, acquired_at: '2026-05-29' },
   ],
 };
 
@@ -52,13 +52,12 @@ const RARITY_LABEL: Record<ItemRarity, string> = {
 };
 
 const SLOT_LABELS: Record<string, string> = {
-  MOTORCYCLE_BODY: 'Body', SEAT: 'Seat', STICKER: 'Sticker', RANK_CARD: 'Rank Card',
-  HANDLEBAR: 'Handlebar', TAIL_LIGHT: 'Tail Light', ENGINE_COVER: 'Engine Cover',
-  HEADLIGHT: 'Headlight', MIRROR: 'Mirror', NUMBER: 'Number',
-  GLOVES: 'Gloves', BOOTS: 'Boots', EYEWEAR: 'Eyewear', NAMEPLATE: 'Nameplate',
-  FRAME: 'Frame', BACKDROP: 'Backdrop', TITLE: 'Title',
-  TRAIL: 'Trail', HORN: 'Horn', START_ANIM: 'Start',
-  EMOTE: 'Emote', BANNER: 'Banner', PET: 'Pet',
+  HELMET: 'Helmet', JACKET: 'Jacket', GLOVES: 'Gloves', EYEWEAR: 'Eyewear', BOOTS: 'Boots',
+  BODY: 'Body', ENGINE: 'Engine', SEAT: 'Seat', STICKER: 'Sticker', HANDLE: 'Handle',
+  MIRROR: 'Mirror', LIGHT: 'Light', TAIL: 'Tail', NUMBER: 'Number',
+  NAME: 'Name', RANK: 'Rank', FRAME: 'Frame', TITLE: 'Title', BACKDROP: 'Backdrop',
+  TRAIL: 'Trail', START: 'Start', HORN: 'Horn',
+  BANNER: 'Banner', EMOTE: 'Emote', PET: 'Pet',
 };
 
 export function rarityLabel(r: ItemRarity) { return RARITY_LABEL[r] ?? r; }

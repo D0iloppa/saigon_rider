@@ -17,6 +17,10 @@ class SreSettings(BaseSettings):
     # BFF (cross-DB grant calls)
     bff_base_url: str = "http://backend:8000"
 
+    # Firebase / FCM
+    firebase_credentials_json: str = "/app/firebase-credentials.json"
+    fcm_push_history_ttl_days: int = 7
+
     # SRE business rules
     sre_timezone: str = "Asia/Ho_Chi_Minh"
     sre_xp_expiry_months: int = 3

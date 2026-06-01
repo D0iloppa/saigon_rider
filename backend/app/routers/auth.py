@@ -40,7 +40,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     - passcode는 UUID 기반 32자 문자열로 발급되며 bcrypt 해시로 저장됨
     """
     phone = body.phone.strip()
-    result = await db.execute(select(User).where(User.phone == phone))
+    result = await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
 
     raw_passcode = str(uuid.uuid4()).replace("-", "")
@@ -57,7 +57,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         is_new = False
 
     # avatar_content 관계 selectin 로드를 위해 재조회 (UserOut 직렬화 시 필요)
-    user = (await db.execute(select(User).where(User.phone == phone))).scalar_one()
+    user = (await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))).scalar_one()
 
     return RegisterResponse(
         passcode=raw_passcode,
@@ -69,7 +69,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=LoginResponse, summary="로그인", response_description="유저 정보")
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     """전화번호 + passcode 검증 후 유저 정보 반환."""
-    result = await db.execute(select(User).where(User.phone == body.phone.strip()))
+    result = await db.execute(select(User).where(User.phone == body.phone.strip(), User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
 
     if user is None or user.passcode_hash is None:
@@ -84,13 +84,14 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 class DeviceMapRequest(BaseModel):
     device_uuid: str
     user_id: str
+    fcm_token: str | None = None
 
 
 @router.post("/device-map", summary="단말-유저 매핑 등록", response_description="매핑 결과")
 async def register_device_map(body: DeviceMapRequest):
     """로그인 후 단말 UUID와 유저를 매핑. Engine device_user_map UPSERT."""
     try:
-        result = await engine_client.upsert_device_map(body.device_uuid, body.user_id)
+        result = await engine_client.upsert_device_map(body.device_uuid, body.user_id, body.fcm_token)
         return result
     except Exception as e:
         log.exception("device-map upsert failed")
@@ -100,7 +101,7 @@ async def register_device_map(body: DeviceMapRequest):
 @router.get("/me", response_model=LoginResponse, summary="유저 조회", response_description="유저 정보")
 async def get_me_by_phone(phone: str, db: AsyncSession = Depends(get_db)):
     """phone 쿼리 파라미터로 유저 조회. 프로필 설정 완료 후 최신 정보 갱신 용도."""
-    result = await db.execute(select(User).where(User.phone == phone.strip()))
+    result = await db.execute(select(User).where(User.phone == phone.strip(), User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")

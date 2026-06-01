@@ -22,11 +22,11 @@ function GifIcon({ code, size = 44 }: { code: string; size?: number }) {
 }
 
 const GACHA_ICON: Record<string, string> = {
-  GARAGE_NORMAL:  '1f4e6',
-  GARAGE_PREMIUM: '1f48e',
-  CRYSTAL:        '1f48e',
-  TET_SEASON:     '1f3ee',
-  LEGEND:         '1f3c6',
+  BASIC_PULL:      '1f4e6',
+  PREMIUM_PULL:    '1f48e',
+  GC_PREMIUM_PULL: '1f48e',
+  SEASON_PULL:     '1f3ee',
+  LEGEND_PULL:     '1f3c6',
 };
 
 const SEGMENT_KEYS = ['all', 'gold', 'xp', 'season'] as const;
@@ -49,12 +49,12 @@ function matchesSegment(g: GachaDefinition, seg: Segment): boolean {
 
 function cardClass(g: GachaDefinition, s: typeof styles): string {
   switch (g.code) {
-    case 'GARAGE_NORMAL':  return `${s.gachaCard} ${s.cardGpNormal}`;
-    case 'GARAGE_PREMIUM': return `${s.gachaCard} ${s.cardGpPremium}`;
-    case 'CRYSTAL':        return `${s.gachaCard} ${s.cardGcCrystal}`;
-    case 'TET_SEASON':     return `${s.gachaCard} ${s.cardSeason}`;
-    case 'LEGEND':         return `${s.gachaCard} ${s.cardLegend}`;
-    default:               return `${s.gachaCard} ${s.cardGpNormal}`;
+    case 'BASIC_PULL':      return `${s.gachaCard} ${s.cardGpNormal}`;
+    case 'PREMIUM_PULL':    return `${s.gachaCard} ${s.cardGpPremium}`;
+    case 'GC_PREMIUM_PULL': return `${s.gachaCard} ${s.cardGcCrystal}`;
+    case 'SEASON_PULL':     return `${s.gachaCard} ${s.cardSeason}`;
+    case 'LEGEND_PULL':     return `${s.gachaCard} ${s.cardLegend}`;
+    default:                return `${s.gachaCard} ${s.cardGpNormal}`;
   }
 }
 
@@ -111,8 +111,8 @@ export default function GachaMain() {
   useEffect(() => { load(); }, [load]);
 
   const filtered = gachaList.filter((g) => matchesSegment(g, segment));
-  const isLegend = (g: GachaDefinition) => g.code === 'LEGEND';
-  const isGcCrystal = (g: GachaDefinition) => g.code === 'CRYSTAL';
+  const isLegend = (g: GachaDefinition) => g.code === 'LEGEND_PULL';
+  const isGcCrystal = (g: GachaDefinition) => g.code === 'GC_PREMIUM_PULL';
   const isSeasonLimited = (g: GachaDefinition) => g.gacha_type === 'SEASON';
 
   return (
@@ -154,7 +154,7 @@ export default function GachaMain() {
         ) : (
           filtered.map((g) => {
             const pity = pityMap[g.code];
-            const dark = isLegend(g);
+            const dark = false;
             const gcStyle = isGcCrystal(g);
             const season = isSeasonLimited(g);
 
@@ -174,8 +174,8 @@ export default function GachaMain() {
                       {g.cost_currency} GACHA
                       {g.pity_hard_ceiling > 0 && ` · ${t('gachaPull.ceiling')} ${g.pity_hard_ceiling}`}
                     </div>
-                    <div className={styles.cardTitle}>{g.name}</div>
-                    <div className={styles.cardRates}>{g.description}</div>
+                    <div className={styles.cardTitle}>{t(`gacha.name_${g.code}`, g.name)}</div>
+                    <div className={styles.cardRates}>{t(`gacha.desc_${g.code}`, g.description ?? '')}</div>
                   </div>
                 </div>
 

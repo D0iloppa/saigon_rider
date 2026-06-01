@@ -1,199 +1,22 @@
 # 현재 상황 (Session Carry-Over)
 
-> 다음 스레드가 이 파일만 읽고도 작업을 이어받을 수 있도록 작성.  
-> 완료 이력은 [`context/history.md`](history.md)로 이관됨. 여기에는 활성 상태만 유지.  
-> **마지막 갱신**: 2026-05-27 (Capacitor 마이그 완료 작업 IN_PROGRESS)
+> 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
+> Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
+> 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-05-29 (Plane 동기화 완료)
 
 ---
 
-## Capacitor 마이그레이션 완료 — 🟢 JS-SIDE DONE / PENDING NATIVE BUILD VERIFICATION (2026-05-27)
+## 외부 의존 / 대기 중
 
-이전 [`260520_capacitor_migration_task.md`](../task/active/260520_capacitor_migration_task.md) 는 web 단만 (JS) 처리되었고 native(iOS WKScriptMessageHandler, Android @JavascriptInterface) 가 raw 상태로 남아있던 절반 완료 상태였음. 이번 세션에서 native 양쪽을 Capacitor Plugin 으로 재정의 후 단일 PR 일괄 컷오버.
-
-### 스코프
-- `capacitor.config.ts` 신규, `ios.path=../native/ios`, `android.path=../native/android`
-- iOS: `native/ios/App/` 산하 Capacitor scaffold + 커스텀 Plugin (Device/Gps/IAP/Ad/Camera/ImageViewer/Fcm)
-- Android: `native/android/app/` 의 build.gradle Capacitor deps, `MainActivity → BridgeActivity`, 커스텀 Plugin (Device/Gps/Camera)
-- `frontend/src/lib/native.ts` 내부 교체 (시그니처 유지, 폴리필·raw 분기 제거)
-- raw 브리지 native 코드(WebViewController.swift WKScriptMessageHandler, MainActivity.WebAppInterface) 동일 PR 내 제거
-
-### 합의 사항
-- 기존 native/ios, native/android 위치 유지 (capacitor.config 의 path 로 지정)
-- `@capacitor/device` 미사용 — 기존 device_uuid base 호환 필수 (iOS Keychain UUID / Android `Settings.Secure.ANDROID_ID` 유지)
-- 단일 PR 일괄 컷오버 (과도기 양립 금지)
-- WSL 에서 JS-side `npm run build` 만 검증, iOS/Android 실 빌드는 사용자측 Mac/Android Studio
-
-### Anti-scope
-- admin UI/새 기능/무관한 리팩토링 금지
-
-### 완료 산출물
-- `frontend/capacitor.config.ts` 신규
-- `frontend/src/lib/plugins/{Device,Gps,IAP,Ad,Camera,ImageViewer,Fcm}.ts` + `index.ts`
-- `frontend/src/lib/native.ts` 재작성 — 폴리필 IIFE 제거, raw 분기 제거, Capacitor 호출 1:1 매핑, 시그니처 유지
-- `native/ios/Podfile`, `native/ios/App/capacitor.config.json`
-- `native/ios/Shared/SaigonRiderApp.swift` 재작성 (CAPBridgeViewController 호스트)
-- `native/ios/Shared/Plugins/{Device,Gps,IAP,Ad,Camera,ImageViewer,Fcm}Plugin.swift` 신규
-- `native/ios/Shared/{WebViewController,WebView,ContentView}.swift` 삭제
-- `native/android/{build.gradle,settings.gradle}` + `app/build.gradle` Capacitor deps
-- `native/android/.../{MainActivity}.java` 재작성 (BridgeActivity)
-- `native/android/.../{Device,Gps,Camera}Plugin.java` 신규
-- `native/CAPACITOR_MIGRATION.md` — Mac/Android Studio 통합 가이드
-- `frontend/npm run build` 통과
-
-### 다음 작업 (Mac 측)
-1. `cd frontend && npm install && npm run build && npx cap sync`
-2. `cd native/ios && pod install`, `SaigonRider.xcworkspace` 열어 `Shared/Plugins/` 폴더 target membership 확인
-3. iOS / Android 빌드 → [`native/CAPACITOR_MIGRATION.md`](../../native/CAPACITOR_MIGRATION.md) §3 회귀 체크리스트 수행
-
----
-
-## 월드맵 페이지 개편 — 라이더 정보 유틸리티 허브 (2026-05-20) — 📋 PLANNED
-
-**Feature #48** (`home`) | 현재 월드맵(SVG 지도 + 통화 카드)을 라이더 실용 정보 허브로 전환.
-
-### 배경
-서비스 초기 유저 유입 hook으로 **"유용한 정보 제공"** 전략. 베트남 오토바이 라이더가 매일 확인할 날씨/유가/대기질 정보를 홈 화면에서 바로 제공.
-
-### 페이지 레이아웃
-
-```
-프로필 헤더 (간소화: avatar + nick + level + 알림/설정 아이콘)
-├── 날씨 & 대기질 위젯 (현재 기온, 체감, 바람, 습도, AQI, 시간별 예보 12시간)
-├── 유가 위젯 (Ron 95/92/E5 가격 + 기준일)
-└── 추천 퀘스트 캐러셀 (기존 유지)
-```
-
-### 제거 대상
-- SVG 구역 지도 + 퀘스트 핀 → 퀘스트 탭에서 접근
-- 통화 카드 (XP/Gold/SP) → 프로필/Game Hub에서 접근
-- 인사 메시지 + 레벨 프로그레스 바
-
-### 단계별 로드맵
-- **Phase 1**: Mock 데이터 기반 UI 완성 (현재 단계)
-- **Phase 2**: 실제 외부 API 연동 (WeatherAPI.com 등) + Redis 캐싱
-- **Phase 3**: 교통 정보, 주유소 지도, 커뮤니티 침수 리포트
-
-### Phase 1 서브태스크
-
-**Backend (4건)**:
-1. DB 마이그레이션 — `fuel_prices` 테이블 (033)
-2. FuelPrice 모델 + Pydantic 스키마
-3. `world-info` API 라우터 (GET /api/world-info/fuel-prices)
-4. 관리자 유가 관리 페이지
-
-**Frontend (6건)**:
-5. API 모듈 `worldInfo.ts` (Types + Mock + fetch 함수)
-6. WeatherWidget 컴포넌트 (기온/바람/습도/AQI/시간별 예보)
-7. FuelPriceWidget 컴포넌트 (3종 연료가격)
-8. i18n 키 추가 (ko/vi/en)
-9. WorldMap.tsx 재작성 (위젯 통합)
-10. WorldMap.module.css 정리
-
-**검증 (1건)**:
-11. 빌드 검증 + 브라우저 확인
-
-### 기획문서 (위키)
-- [`월드맵 페이지 개편 — 개요`](/wiki/docs/planning/world-map-overview)
-- [`날씨 & 대기질 정보 서비스`](/wiki/docs/planning/world-map-weather)
-- [`유가 정보 서비스`](/wiki/docs/planning/world-map-fuel)
-
-### 구현 플랜 파일
-`~/.claude/plans/generic-mapping-horizon.md` (상세 기술 명세)
-
----
-
-## 퀘스트 달성 체크 시스템 — ✅ DONE (2026-05-22)
-
-**설계서**: [`engine/sre-quest-completion-design.md`](../engine/sre-quest-completion-design.md)
-
-### 핵심 구조
-
-```
-GPS Stream → GpsAgent
-  → mileage.update_mileage()     (기존)
-  → quest_tracker.update()       (신규)
-    → 활성 퀘스트 카드 순회
-    → DISTANCE 카드: 거리 차감 → 완료 체크
-    → CHECKPOINT 카드: 좌표 근접(100m) → 완료 체크
-```
-
-### 3단계 구현 계획
-
-| Phase | 내용 | 상태 |
-|-------|------|------|
-| **Phase 1** | `sre_quest_card` 테이블 + `quest_tracker.py` + GpsAgent 체이닝 + Engine/BFF API | ✅ DONE |
-| **Phase 2** | 데일리 슬롯 제한 (BFF accept 시 Engine 슬롯 체크, uuid 기반) | ✅ DONE |
-| **Phase 3** | GPS 노이즈 필터, Push 통지, 만료 배치(APScheduler) | ✅ DONE |
-
-### 설계 결정 사항
-
-- **카드 타입**: DISTANCE (거리 누적), CHECKPOINT (좌표 근접)
-- **데일리 슬롯**: seed 정책 기본 3개, 레벨·아이템으로 증가
-- **트랜잭션**: mileage와 quest_tracker 별도 세션 (실패 격리, 다음 GPS에서 재시도)
-- **완료 통지**: Phase 1은 Pull (BFF 폴링), Phase 2에서 Push 추가 검토
-- **기존 MissionDefinition과 병렬 운용**: 미션은 이벤트 카운팅, 카드는 GPS 실시간
-
----
-
-## 활성 태스크
-
-| 태스크 파일 | 요약 | 상태 |
+| 항목 | 상태 | 다음 액션 |
 |---|---|---|
-| [`260522_item_catalog_replace_task.md`](../task/active/260522_item_catalog_replace_task.md) | 아이템 카탈로그 **251개** 전면 교체 (8 sprite, display_name=code + i18n) | ✅ DONE (sre025 적용·DB 검증·프론트 재빌드) |
-| [`260518_sre_upgrade_plan_task.md`](../task/active/260518_sre_upgrade_plan_task.md) | SRE 게이미피케이션 v2 연계 플랜 | ✅ DONE (전 서브태스크 완료) |
-| [`260520_capacitor_migration_task.md`](../task/active/260520_capacitor_migration_task.md) | Capacitor 도입 — NativeInterface 전환 | ✅ DONE |
-| [`260520_redis_message_queue_task.md`](../task/active/260520_redis_message_queue_task.md) | Redis Streams 메시지 큐 도입 | ✅ DONE |
-| (inline) | Task 7: 관리자 보상 정책 관리 UI | ✅ DONE |
-| (inline) | **정보 모듈 Phase 0** — 환경·DB·스크립트 | ✅ DONE |
-| (inline) | **정보 모듈 Phase 1** — BFF 날씨 라우터 + 프론트 9개 화면 | ✅ DONE |
-| (inline) | **정보 모듈 Phase 2** — 침수 라우터 (PostGIS, 어뷰징, 확인) | ✅ DONE |
-| (inline) | **정보 모듈 Phase 3** — 주유소 라우터 (CTE, 대기 신고) | ✅ DONE |
-| (inline) | **정보 모듈 Phase 4** — 정비소 라우터 (리뷰, 통계 뷰) | ✅ DONE |
-| (inline) | **TabBar 피드탭 복구** — `/feed` 탭 원복 (`1f4f7` 📷 + Camera), `/info` 제거 | ✅ DONE |
-| (inline) | **GameHubSheet 정보 추가** — FAB 6번째 메뉴에 `/info` 추가 (`1f4cd` 📍) | ✅ DONE |
-| (inline) | **날씨 500 버그 fix** — `_MOCK_CURRENT/FORECAST`에 `"main"` 키 누락 수정 | ✅ DONE |
-| (inline) | **골드 용어 통일** — "GP" / "GOLD" → "골드" (ko), "Gold" (en), "Vàng" (vi) | ✅ DONE |
-| (inline) | **퀘스트 달성 체크 전체** — Phase 1~3 완료 (카드+슬롯+노이즈필터+만료배치+Push) | ✅ DONE |
-| (inline) | **퀘스트 달성 체크 검증** — 빌드·마이그레이션·Swagger·API 동작·슬롯·노이즈필터·만료배치 | 📋 TODO |
-| (inline) | **TODO #52 침수 핫스팟 시드** — HCMC 상습 침수 지점 30개 큐레이션 → `flood_hotspot_stats` (`database/init/037_flood_hotspot_seed.sql`, 12개 구, ankle 19/knee 10/thigh 1, 멱등 가드) | ✅ DONE |
-| (inline) | **퀘스트 상세 [DBG] 버튼 숨김** — `QuestDetail.tsx:251-256` 트리거만 주석 처리 (다이얼로그 로직은 보존, 복구 용이) | ✅ DONE (2026-05-24) |
-| (inline) | **abandonRide 토스트 노이즈 차단** — fire-and-forget 호출이 `realFetch` 토스트로 새지 않게 raw `fetch` 로 우회 (`api/quests.ts:119-126`). 502 토스트 오인 귀속 방지 | ✅ DONE (2026-05-24) |
-| [`260527_fuel_price_pipeline_task.md`](../task/active/260527_fuel_price_pipeline_task.md) | **유가 정보 표출** — 스크래퍼 3종(스텁) + 3-way validation + Redis 캐시 + 브랜드 마커/바텀시트 + admin manual upsert. 지시서 `docs/fuel-price-instructions.md` | ✅ DONE (2026-05-27) — 외부 자동 수집은 v1.1 R&D 이월 (D9) |
-| (inline) | **게러지 빈 슬롯 그림자 아이콘** — 빈 슬롯에 부위별 유니코드 이모지(🪖🧥🧤🕶️🥾 등)를 `<span>` 로 출력, opacity 0.55 + grayscale 적용. `emojiUrl` CDN 폴백 실패 회피 (`Garage.tsx` + `Garage.module.css .slotSilhouette`) | ✅ DONE (2026-05-24) |
+| 다크모드 (SGR-192) | 코어 완료·빌드/배포 됨, 시각검증 대기 | Settings 토글로 라이트/다크 확인 → Feature DONE 전환. 잔여 P4(status 틴트·glass-light·rarity)는 SGR-197 |
+| Capacitor 네이티브 빌드 검증 | Mac 측 대기 | `native/CAPACITOR_MIGRATION.md` §3 회귀 체크리스트 |
+| SaigonDistrictMap 집계 배지 | 시각검증 대기 | 브라우저에서 줌/배지 탭 확인 |
+| OpenWeather API 키 | `.env`에 설정 완료, 활성화 대기 | mock fallback 동작 중 |
 
-> 이전 활성 태스크는 모두 아카이브 완료 → [`task/archive.md`](../task/archive.md)
-
----
-
-### GAP 잔여 TODO (변경 없음)
-
-| Todo | GAP | 내용 | 상태 |
-|---|---|---|---|
-| #32 | H1 | E2E 테스트 시나리오 5개 | TODO |
-| #36 | M1 | PostgreSQL 뷰 7개 검토 | TODO |
-| #37 | M2 | DB 보안 정책 (RLS) 검토 | TODO |
-| #38 | M3 | PostgREST RPC → Engine 매핑 확인 | TODO |
-| #39 | L1 | 파일 인벤토리 불일치 정리 | TODO |
-| #40 | L2 | Tailwind 아이템 토큰 확장 | TODO |
-
----
-
-### 다음 우선순위
-1. **CHECKPOINT BFF 연동** — BFF Quest 모델에 target_lat/lng 추가 또는 quest_pins 테이블 연동
-2. **정보 모듈 Phase 5** — OSM 데이터 시드 (`backend/scripts/osm_import.py`), 어뷰징 모니터링 대시보드
-3. **OpenWeather API 키** — `.env`의 `OPENWEATHER_API_KEY` 에 설정 완료(값은 `.env` 참조, 문서에는 비노출), 활성화 대기 중 (mock fallback 동작 중)
-4. **OSM 데이터 import** — `backend/scripts/osm_import.py` 실행하여 주유소·정비소 초기 데이터 적재
-5. **GAP-H1 (#32)** E2E 테스트 시나리오 5개
-
-### 정보 모듈 완료 현황 (2026-05-21)
-- **12개 API 엔드포인트**: `/api/bff/info/{weather,flood,gas,repair}/*`
-- **9개 프론트 화면**: InfoHub, InfoWeather, InfoFloodMap, InfoFloodReport, InfoGasList, InfoRepairList, InfoRepairDetail, InfoRepairWrite
-- **HOME 통합**: WorldMap.tsx에 INFO 미니카드 4종 스트립 추가
-- **XP 보상 통일**: 모든 "GP" 표현을 엔진 base_xp 기준 "XP"로 통일
-
----
-
-## 미해결 결함 (❌, [issues.md](../TEST/issues.md))
+## 미해결 결함 ([issues.md](../TEST/issues.md))
 
 | 기능 ID | 화면 | 수정 방향 |
 |---|---|---|
@@ -201,45 +24,61 @@ GPS Stream → GpsAgent
 | F-02-7 | AUTH-002 재전송 | 재전송 버튼 onClick에 `apiRegister(phone)` 호출 추가 |
 | F-03-2 | PROFILE-SETUP 닉네임 중복 | debounce + `check-nickname` API 연동 |
 
----
+## 트러블슈팅 (QA 점검) — 2026-05-30
 
-## 진행 중 / 부분 점검 (🟡)
+> 메인 티켓: "트러블슈팅 (QA 점검)" / Plane 서브이슈로 개별 추적
+
+| # | 그룹 | 항목 | 상태 |
+|---|---|---|---|
+| TS-1 | 에러/502 | 페이지 이동시 502에러 발생 | 미확인 |
+| TS-2 | 에러/502 | 시즌패스 404 에러발생 | 미확인 |
+| TS-3 | 아이템/상점 | 아이템 작업 후 구매시 에러발생 | 미확인 |
+| TS-4 | 아이템/상점 | 아이템 구매시 골드 부족 → 구매불가 알림 안뜸 | 미확인 |
+| TS-5 | 아이템/상점 | 가차 내역이 없음 | 미확인 |
+| TS-6 | 피드/SNS | 댓글 열었을때 채팅창 짤림 | 미확인 |
+| TS-7 | 피드/SNS | 댓글 누르고 닫을수 없음 | 미확인 |
+| TS-8 | 피드/SNS | 공유하기 아이콘 제거 | 미확인 |
+| TS-9 | 설정/계정 | 알림설정 연동 | 미확인 |
+| TS-10 | 설정/계정 | 위치정보 표기만 됨 | 미확인 |
+| TS-11 | 설정/계정 | 계정관리 아이디 확인 및 다운로드 기능 | 미확인 |
+| TS-12 | 설정/계정 | 개인정보 미구현 | 미확인 |
+| TS-13 | 설정/계정 | 이용약관 미구현 | 미확인 |
+| TS-14 | 설정/계정 | 고객센터 확인 | 미확인 |
+| TS-15 | 설정/계정 | 계정탈퇴 기능 확인 필요 | 미확인 |
+
+## 부분 점검 (🟡)
 
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요
-- 퀘스트 `thumbnail_content_id` 미연결 — DB 퀘스트가 mock 데이터와 달라 직접 매핑 필요
+- 퀘스트 `thumbnail_content_id` 미연결 — 어드민 퀘스트 편집 시 컨텐츠 연결 UI 필요
+
+## 다음 우선순위
+
+1. **CHECKPOINT BFF 연동** — BFF Quest 모델에 target_lat/lng 추가 또는 quest_pins 연동
+2. **유가 후속 (Feature #50)** — admin 페이지, WorldMap 위젯 적용, InfoGasList nearby-v2
+3. **GAP-H1 (#32)** E2E 테스트 시나리오 5개
 
 ---
 
-## 이미지 서빙 아키텍처 (2026-05-15 확정)
+## TODO 리스트 (스프레드시트 기준)
 
-> 신규 이미지 추가 시 반드시 확인 — 상세는 [`workflow/system-contents-upload.md`](../workflow/system-contents-upload.md)
+### 그룹 A — 아이템·퀘스트·푸시
 
-```
-thumbnail_url 결정 순서 (_to_out in quests.py):
-  1. quest.thumbnail_content.file_path  → build_imgproxy_url()
-  2. quest.district.image_content.file_path → build_imgproxy_url()
-  3. MOCK_IMG_ENDPOINT (BFF_PUBLIC_URL/contents/mock-img → 랜덤 302)
-```
+| # | 내용 | 상태 | 비고 |
+|---|---|---|---|
+| A-1 | 퀘스트 개수를 20개로 줄이기 | 미진행 | |
+| A-2 | 아이템 효과정의 | 미진행 | 기존 작업 완료 후 진행 |
+| A-3 | 아이템 착용시 개러지에 캐릭터에 착용 효과 보여주기 | 미진행 | 기존 작업 완료 후 진행 |
+| A-4 | 아이템 개수도 부위별 5개로 줄이기 | 미진행 | |
+| A-5 | 앱에서 접속시 FCM 토큰 서버전송 | 미진행 | |
+| A-6 | 관리자페이지에서 PUSH 기능 | 미진행 | |
 
-- **content_id 기반 서빙**: `GET /api/bff/contents/{id}/img?w=800&h=450` → 302 → imgproxy
-- **owner_type**: `system` / `user` / `mock` / `profile_mock`
+### 그룹 B — 연동·테스트·알림
 
----
-
-## 현재 프론트엔드 CSS 아키텍처 핵심 규칙
-
-> **신규 페이지 추가 시 반드시 확인** — 상세는 [`context/frontend.md`](frontend.md) §2~§3
-
-- `<StatusBar>` 를 헤더 최상단 첫 자식으로 배치, 헤더 `padding-top: 0` 유지
-- `TopBar` 컴포넌트 사용 시 내부에 StatusBar 포함 → 추가 불필요
-- 고정 px 값으로 상단 여백 지정 금지 → `var(--status-bar-height)` 사용
-- 플랫폼 분기 필요 시 `[data-platform="ios"]` / `[data-platform="android"]` CSS 선택자 활용
-
----
-
-## 다음 스레드 진입 시 권장 순서
-
-1. [INDEX.md](../INDEX.md) → 이 파일 (`current.md`) 확인
-2. 필요한 활성 태스크 로드 (파일명으로 선택적 로드)
-3. 완료 이력이 필요하면 [`context/history.md`](history.md) 참조
-4. 필요 시 [`TEST/issues.md`](../TEST/issues.md) 와 해당 섹션 체크리스트만 추가 로드
+| # | 내용 | 상태 | 비고 |
+|---|---|---|---|
+| B-1 | 쿠폰연동 | 미진행 | 기존 작업 완료 후 진행 |
+| B-2 | 회원가입 OAuth 연동 | 미진행 | 기존 작업 완료 후 진행 |
+| B-3 | 안드로이드 14일 테스트 | 미진행 | 크몽에서 5000~6000원정도에 가능, 14일 테스트가 필수이기 때문에 앱등록이 필요함 |
+| B-4 | 아이폰 알림서비스 클릭시 페이지 이동 | 미진행 | |
+| B-5 | 안드로이드 알림서비스 클릭시 페이지 이동 | 미진행 | |
+| B-6 | 앱푸시연동 | **진행중** | DB에 해당 단말에 미열람개수를 확인하여 변수로 넘겨야함(1000보다크면 무조건 999로) |

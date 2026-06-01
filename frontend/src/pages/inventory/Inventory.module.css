@@ -1,7 +1,7 @@
 .page {
   position: absolute;
   inset: 0;
-  background: var(--bg, #F7F5F0);
+  background: var(--bg);
   display: flex;
   flex-direction: column;
 }

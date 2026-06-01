@@ -41,3 +41,15 @@ export async function apiLogin(phone: string, passcode: string): Promise<LoginRe
 export async function apiGetMe(phone: string): Promise<LoginResult> {
   return api.realFetch<LoginResult>(`/auth/me?phone=${encodeURIComponent(phone)}`);
 }
+
+export async function apiDeleteAccount(userId: string): Promise<void> {
+  await api.realFetch(`/users/me?user_id=${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function apiExportMyData(userId: string): Promise<Record<string, unknown>> {
+  return api.realFetch<Record<string, unknown>>(
+    `/users/me/export?user_id=${encodeURIComponent(userId)}`,
+  );
+}

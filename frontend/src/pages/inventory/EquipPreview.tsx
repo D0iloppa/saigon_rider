@@ -11,16 +11,16 @@ import s from './EquipPreview.module.css';
 
 const SLOTS = [
   // Rider
-  'GLOVES', 'BOOTS', 'EYEWEAR', 'NAMEPLATE',
+  'HELMET', 'JACKET', 'GLOVES', 'EYEWEAR', 'BOOTS',
   // Motorcycle
-  'MOTORCYCLE_BODY', 'SEAT', 'STICKER', 'HANDLEBAR', 'TAIL_LIGHT',
-  'ENGINE_COVER', 'HEADLIGHT', 'MIRROR', 'NUMBER',
+  'BODY', 'ENGINE', 'SEAT', 'STICKER', 'HANDLE',
+  'MIRROR', 'LIGHT', 'TAIL', 'NUMBER',
   // Profile
-  'RANK_CARD', 'FRAME', 'BACKDROP', 'TITLE',
+  'NAME', 'RANK', 'FRAME', 'TITLE', 'BACKDROP',
   // Effect
-  'TRAIL', 'HORN', 'START_ANIM',
+  'TRAIL', 'START', 'HORN',
   // Social
-  'EMOTE', 'BANNER', 'PET',
+  'BANNER', 'EMOTE', 'PET',
 ];
 
 export default function EquipPreview() {

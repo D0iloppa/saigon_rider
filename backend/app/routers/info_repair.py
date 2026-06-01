@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import RepairReview, RepairShop
+from ..services.redis_cache import cache_get, cache_set
 
 router = APIRouter(prefix="/info/repair", tags=["Info — 정비소"])
 
@@ -54,6 +55,11 @@ async def get_nearby_repair_shops(
     service_code: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    cache_key = f"repair:nearby:{round(lat, 3)}:{round(lng, 3)}:{radius_km}:{service_code or '_'}"
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     result = await db.execute(
         text("""
             SELECT
@@ -104,7 +110,9 @@ async def get_nearby_repair_shops(
             r["avg_price"] = int(r["avg_price"])
         shops.append(r)
 
-    return {"shops": shops}
+    response = {"shops": shops}
+    await cache_set(cache_key, response, ttl=600)
+    return response
 
 
 @router.get("/{shop_id}")

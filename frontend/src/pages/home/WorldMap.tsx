@@ -32,7 +32,6 @@ export default function WorldMap() {
   const [gold, setGold] = useState(0);
   const [xp, setXp] = useState(0);
   const [monthlyKm, setMonthlyKm] = useState(0);
-  const [userDistrictCode, setUserDistrictCode] = useState<string | null>(null);
   const didInit = useRef(false);
 
   const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
@@ -54,7 +53,7 @@ export default function WorldMap() {
         setLoading(false);
       });
       native.getDeviceUUID()
-        .then((deviceUuid) => {
+        .then(async (deviceUuid) => {
           if (!deviceUuid) {
             console.warn('[device-map] home: getDeviceUUID empty — skip', {
               isNative: native.isNative,
@@ -62,7 +61,8 @@ export default function WorldMap() {
             });
             return;
           }
-          apiRegisterDeviceMap(deviceUuid, uid).catch((e) =>
+          const fcmToken = await native.getFCMToken().catch(() => '');
+          apiRegisterDeviceMap(deviceUuid, uid, fcmToken || undefined).catch((e) =>
             console.warn('[device-map] home re-register failed', e),
           );
         })
@@ -84,11 +84,41 @@ export default function WorldMap() {
   useEffect(() => {
     fetchDistricts().then(setDistricts).catch(() => {});
     const FALLBACK = { lat: 10.776, lng: 106.700 };
-    navigator.geolocation?.getCurrentPosition(
-      (p) => setUserCoords({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => setUserCoords(FALLBACK),
-    );
+    native.getLocation()
+      .then((pos) => setUserCoords({ lat: pos.lat, lng: pos.lng }))
+      .catch(() => setUserCoords(FALLBACK));
   }, []);
+
+  // 좌표 → 매핑 가능한 district code 해석. HCMC bbox 밖이면 null(unselected).
+  const resolveMyDistrict = (): string | null => {
+    if (!userCoords || districts.length === 0) return null;
+    const inHcmc =
+      userCoords.lat >= 10.40 && userCoords.lat <= 11.10 &&
+      userCoords.lng >= 106.40 && userCoords.lng <= 107.00;
+    if (!inHcmc) return null;
+    const nearest = findNearestDistrict(userCoords.lat, userCoords.lng);
+    if (nearest && districts.some((d) => d.code === nearest.code)) return nearest.code;
+    return null;
+  };
+
+  // "내 위치로": ① unselected 복귀 ② 좌표→district 조회 ③ 매핑되면 select & focus, 아니면 unselected 유지(전체화면).
+  const goToMyLocation = () => {
+    setSelectedDistrict(resolveMyDistrict());
+  };
+
+  // 최초 진입 1회: '내 위치로' 호출 → unselected면 default(BEN_THANH) 선택.
+  const didInitFocus = useRef(false);
+  useEffect(() => {
+    if (didInitFocus.current) return;
+    if (!userCoords || districts.length === 0) return;
+    didInitFocus.current = true;
+    const resolved = resolveMyDistrict();
+    if (resolved) {
+      setSelectedDistrict(resolved);
+    } else if (districts.some((d) => d.code === 'BEN_THANH')) {
+      setSelectedDistrict('BEN_THANH');
+    }
+  }, [userCoords, districts]);
 
   // 선택된 구역의 centroid 또는 유저 GPS 좌표로 info API 4종 호출
   const activeCoords: { lat: number; lng: number } | null = (() => {
@@ -111,11 +141,14 @@ export default function WorldMap() {
     Promise.allSettled([
       weatherApi.get(lat, lng).then((w) => {
         setInfoWeather(w);
-        if (!selectedDistrict) setUserDistrictCode(w.location?.district ?? null);
       }),
-      floodApi.getActive(lat, lng, 5).then((r) => setInfoFloods(r.floods)),
-      gasApi.getNearby(lat, lng, 5).then((r) => setInfoGas(r.stations[0] ?? null)),
-      repairApi.getNearby(lat, lng, 5).then((r) => setInfoRepair(r.shops[0] ?? null)),
+      floodApi.getActive(lat, lng, 5).then((r) => r && setInfoFloods(r.floods)),
+      gasApi.getNearby(lat, lng, 5).then((r) => r && setInfoGas(r.stations[0] ?? null)),
+      repairApi.getNearby(lat, lng, 5).then((r) => {
+        if (!r) return;
+        const named = r.shops.find((s) => s.name && s.name !== 'Unknown');
+        setInfoRepair(named ?? r.shops[0] ?? null);
+      }),
     ]);
   }, [selectedDistrict, districts, userCoords]);
 
@@ -131,13 +164,14 @@ export default function WorldMap() {
   const activeFloods = infoFloods.filter((f) => f.status === 'ACTIVE');
 
   // ── District map state derivation ──
+  // selectedDistrict 가 있을 때만 highlight/focus. 없으면 전체 지도(zoom 최소) 노출.
   const highlightDistrictCode: string | undefined = (() => {
-    const d = districts.find((x) => x.code === (selectedDistrict ?? userDistrictCode ?? ''));
+    if (!selectedDistrict) return undefined;
+    const d = districts.find((x) => x.code === selectedDistrict);
     if (d?.center_lat != null && d?.center_lng != null) {
       return findNearestDistrict(d.center_lat, d.center_lng)?.code;
     }
-    if (userCoords) return findNearestDistrict(userCoords.lat, userCoords.lng)?.code;
-    return undefined;
+    return selectedDistrict;
   })();
 
   const dangerDistrictCodes: string[] = (() => {
@@ -237,7 +271,7 @@ export default function WorldMap() {
               📍 {selectedDistrictName ?? district} — {t('info.hub.currentSituation')}
             </span>
             {selectedDistrict && (
-              <button className={styles.resetChip} onClick={() => setSelectedDistrict(null)}>
+              <button className={styles.resetChip} onClick={goToMyLocation}>
                 {t('home.resetToMyLocation')}
               </button>
             )}
@@ -254,6 +288,7 @@ export default function WorldMap() {
             highlightedDistricts={highlightDistrictCode ? [highlightDistrictCode] : []}
             dangerDistricts={dangerDistrictCodes}
             onDistrictClick={handleDistrictClick}
+            focusDistrictCode={highlightDistrictCode}
             showLabels
             showLegend
             zoomable
@@ -316,28 +351,30 @@ export default function WorldMap() {
             <div className={styles.missionCarousel}>
               {recommendedList.map((q) => (
                 <button key={q.id} className={styles.missionCard} onClick={() => navigate(`/quests/${q.id}`)}>
-                  <div className={styles.missionTag}>
-                    {q.questType.toUpperCase()} QUEST
+                  <div className={styles.missionTopRow}>
+                    <div className={styles.missionTag}>
+                      {q.questType.toUpperCase()} QUEST
+                    </div>
+                    <div className={styles.missionRewards}>
+                      {q.rewardGold > 0 && (
+                        <span className={styles.rewardChip}>
+                          <img src={emojiUrl('1fa99')} width={12} height={12} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 2 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          +{formatNumber(q.rewardGold)}
+                        </span>
+                      )}
+                      {q.rewardXpPoints > 0 && (
+                        <span className={styles.rewardChip}>
+                          <img src={emojiUrl('1f48e')} width={12} height={12} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 2 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          +{formatNumber(q.rewardXpPoints)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className={styles.missionTitle}>{q.title}</div>
                   <div className={styles.missionDesc}>
                     {q.districtName}
                     {q.minDistanceM > 0 ? ` · ${(q.minDistanceM / 1000).toFixed(1)}km` : ''}
                     {q.timeRestriction ? ` · ${q.timeRestriction.from}–${q.timeRestriction.to}` : ''}
-                  </div>
-                  <div className={styles.missionRewards}>
-                    {q.rewardGold > 0 && (
-                      <span className={styles.rewardChip}>
-                        <img src={emojiUrl('1fa99')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        +{formatNumber(q.rewardGold)} Gold
-                      </span>
-                    )}
-                    {q.rewardXpPoints > 0 && (
-                      <span className={styles.rewardChip}>
-                        <img src={emojiUrl('1f48e')} width={14} height={14} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 3 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        XP +{formatNumber(q.rewardXpPoints)}
-                      </span>
-                    )}
                   </div>
                 </button>
               ))}

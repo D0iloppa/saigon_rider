@@ -1,0 +1,64 @@
+<p class="page-title">라이딩 표시 정책</p>
+<p class="page-sub">체크포인트 도달 반경 · 잔여거리 표시 밴드</p>
+
+{{flash}}
+
+<form method="post" action="/admin/config/ride">
+  <div class="card" style="margin-bottom:24px;">
+    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">체크포인트 도달 반경</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
+      사용자가 목적지로부터 이 거리(m) 이내로 진입하면 도달로 인정됩니다.
+    </p>
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;">
+      <label style="font-size:12px;color:rgba(255,255,255,.6);">CHECKPOINT_PROXIMITY_M</label>
+      <div>
+        <input type="number" name="proximity_m" value="{{proximity_m}}" min="1" max="10000" required
+               style="width:120px;font-size:13px;text-align:center;" />
+        <span style="font-size:11px;color:rgba(255,255,255,.35);margin-left:8px;">미터 (1 ~ 10000)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
+      <div>
+        <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">잔여거리 표시 밴드</p>
+        <p style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6;">
+          남은 거리 D 가 threshold(m) 이상이면 해당 코드에 매핑된 라벨(i18n)이 표시됩니다.
+          저장 시 내림차순으로 정렬되며, 어떤 밴드에도 매칭되지 않으면 정확한 미터값이 노출됩니다.
+        </p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addBandRow()">+ 행 추가</button>
+    </div>
+
+    <table class="table" id="bandsTable">
+      <thead>
+        <tr>
+          <th style="width:40%;">코드 (i18n key)</th>
+          <th style="width:40%;">thresholdM</th>
+          <th style="width:20%;"></th>
+        </tr>
+      </thead>
+      <tbody id="bandsBody">
+        {{band_rows}}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button type="submit" class="btn">저장</button>
+    <span style="font-size:11px;color:rgba(255,255,255,.35);">밴드는 1개 이상, threshold &gt; 0, 코드 중복 불가.</span>
+  </div>
+</form>
+
+<script>
+  function addBandRow(code, threshold) {
+    var tbody = document.getElementById('bandsBody');
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" name="band_code" value="' + (code || '') + '" placeholder="BAND_5KM" style="width:100%;" required></td>' +
+      '<td><input type="number" name="band_threshold" value="' + (threshold != null ? threshold : '') + '" min="1" placeholder="5000" style="width:100%;" required></td>' +
+      '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()">삭제</button></td>';
+    tbody.appendChild(tr);
+  }
+</script>

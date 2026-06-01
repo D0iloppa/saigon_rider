@@ -181,6 +181,12 @@
   filter: saturate(1.2);
 }
 
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 /* Card body */
 .cardBody {
   flex: 1;

@@ -764,6 +764,7 @@ class DeviceUserMap(Base):
 
     device_uuid = Column(String(128), primary_key=True)
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
+    fcm_token = Column(Text, nullable=True)
     logged_in_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
 
     __table_args__ = (
@@ -876,6 +877,12 @@ class SreQuestCard(Base):
     accepted_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
     completed_at = Column(_TS, nullable=True)
     expires_at = Column(_TS, nullable=True)
+
+    last_lat = Column(Numeric(9, 6), nullable=True)
+    last_lng = Column(Numeric(9, 6), nullable=True)
+    last_speed_kmh = Column(Numeric(6, 2), nullable=True)
+    last_gps_at = Column(_TS, nullable=True)
+    distance_to_target_m = Column(Integer, nullable=True)
 
     __table_args__ = (
         Index("idx_quest_card_user_active", "user_id", "status",

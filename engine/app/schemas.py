@@ -557,6 +557,11 @@ class QuestCardRead(BaseModel):
     completed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 
+    last_lat: Optional[float] = None
+    last_lng: Optional[float] = None
+    last_speed_kmh: Optional[float] = None
+    distance_to_target_m: Optional[int] = None
+
     model_config = {"from_attributes": True}
 
 

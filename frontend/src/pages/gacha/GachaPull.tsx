@@ -80,35 +80,42 @@ export default function GachaPull() {
     if (!gachaCode || didPull.current) return;
     didPull.current = true;
 
+    const timeout = setTimeout(() => {
+      setErrorMsg(t('common.errorUnexpected'));
+    }, 15000);
+
     pullGacha(gachaCode, is10)
       .then((r) => {
+        clearTimeout(timeout);
         setResult(r);
-        return fetchGachaPity(gachaCode);
+        fetchGachaPity(gachaCode)
+          .then((p) => { if (p) setPityAfter(p.pull_count); })
+          .catch(() => {});
       })
-      .then((p) => {
-        if (p) setPityAfter(p.pull_count);
-      })
-      .catch((e: Error) => {
-        const msg = e?.message ?? '';
+      .catch((e: any) => {
+        clearTimeout(timeout);
+        const msg = e?.message ?? String(e);
         const balanceMatch = msg.match(/insufficient (?:GP|GC|GOLD|XP) balance: have (\d+), need (\d+)/i);
         if (balanceMatch) {
           setErrorMsg(t('gacha.error_insufficient_balance', { have: balanceMatch[1], need: balanceMatch[2] }));
         } else {
-          setErrorMsg(t('common.errorUnexpected'));
+          setErrorMsg(msg || t('common.errorUnexpected'));
         }
       });
+
+    return () => clearTimeout(timeout);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (errorMsg) {
     return (
       <div className={s.page}>
         <div className={s.loadingWrap}>
-          <p style={{ color: 'rgba(255,255,255,.6)', fontSize: 14 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
             {errorMsg}
           </p>
           <button
             onClick={() => navigate(-1)}
-            style={{ marginTop: 12, color: 'rgba(255,255,255,.5)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
+            style={{ marginTop: 12, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
           >
             {t('common.back')}
           </button>

@@ -2,21 +2,22 @@
 
 새 스레드에서 AI가 따라야 할 운용 규칙. 산출물 색인은 [`INDEX.md`](INDEX.md), 현재 작업 상태는 [`context/current.md`](context/current.md). 행동 원칙(카파시 4원칙)은 [`/CLAUDE.md`](../CLAUDE.md).
 
-## 1. 진입 순서
+## 1. 기본 작업 워크플로우 (모든 구현 작업에 자동 적용)
 
-[`/CLAUDE.md`](../CLAUDE.md) "Session Start Protocol" 을 따른다. 전체 파일 풀텍스트 검색 금지.
-
-## 1.5 기본 작업 워크플로우 (모든 구현 작업에 자동 적용)
-
-별도 지시가 없더라도 구현 작업을 받으면 **항상** 아래 순서를 따른다. 상세 API·도구 사용법은 [§9 __DEV Context](#9-__dev-context-진행-상태-관리) 및 [`workflow/dev-context-management.md`](workflow/dev-context-management.md) 참조.
+별도 지시가 없더라도 구현 작업을 받으면 **항상** 아래 순서를 따른다. 상세 API·도구 사용법은 [§6 __DEV Context](#6-__dev-context-진행-상태-관리) 및 [`workflow/dev-context-management.md`](workflow/dev-context-management.md) 참조.
 
 ### A. 착수 — 태스크 등록
 
-1. **Feature 등록/확인** — 해당 기능이 `__DEV_features`에 없으면 등록, 있으면 `IN_PROGRESS`로 전환.
-2. **메인 Todo 등록** — 작업 제목을 `__DEV_todos`에 등록 (`feature_id`로 Feature에 연결).
-3. **서브 Todo 분해** — 메인 Todo를 단계별 서브태스크로 쪼개어 각각 등록. 서브태스크는 검증 가능한 단위로 나눈다.
-   - 예: `[메인] 게러지 페이지 리디자인` → `[서브] CSS 재작성` → `[서브] TSX 재작성` → `[서브] i18n 적용` → `[서브] 빌드 검증`
-4. **Context 갱신** — `current_focus`를 🔧 상태로 갱신.
+1. **Feature 등록/확인** — 해당 기능이 `__DEV_features`에 없으면 등록, 있으면 `IN_PROGRESS`로 전환. Plane에 해당 label이 없으면 **label을 먼저 생성**한 뒤 Feature에 연결한다.
+2. **태스크 문서 생성** — `ai-docs/task/active/${YYMMDD}_${title}_task.md`에 상세 문서(목적·Phase·서브태스크 목록·제약사항) 작성. 이 md 파일이 **SoT**.
+3. **Notion 미러 페이지 생성** — md 내용을 Notion `Task > Active` 하위에 페이지로 생성. 생성된 **Notion URL을 기록**한다.
+4. **서브 Todo 등록 (Plane)** — 서브태스크를 Plane에 각각 등록. 서브태스크는 검증 가능한 단위로 나눈다. **각 이슈의 description에 Notion 태스크 문서 링크를 삽입**한다 (상세 내용은 Notion에서 열람).
+   - 예: `[P1-1] CSS 재작성` → `[P1-2] TSX 재작성` → `[P1-3] i18n 적용` → `[P1-4] 빌드 검증`
+   - Plane 이슈 description: `상세: <Notion URL> | SoT: ai-docs/task/active/…`
+5. **Feature에도 Notion 링크** — Feature 이슈의 description에도 동일한 Notion 링크 + md SoT 경로를 기재한다.
+6. **Context 갱신** — `current_focus`를 🔧 상태로 갱신.
+
+> **3개 시스템의 역할 분담**: md 파일 = SoT (상세 내용), Notion = 팀 열람용 미러 (클릭 가능 링크), Plane = 진행 상태 추적 (상태·우선순위). Plane에는 상세 내용을 쓰지 않고 Notion 링크로 대체한다.
 
 ### B. 진행 — 단계별 실행
 
@@ -31,7 +32,15 @@
 3. Feature → `DONE` (해당 Feature의 모든 작업이 완료된 경우).
 4. `current_focus` status를 ✅로 전환.
 5. **리빌드** — 프론트/백엔드 변경분에 따라 컨테이너 재빌드.
-6. **`current.md` 갱신** — 다음 스레드가 이어받을 수 있도록.
+6. **`__DEV Context` + `current.md` 현행화 (필수, 생략 금지)** — 이 두 가지는 독립적인 갱신 대상이다. DB(`__DEV_features`/`__DEV_todos`/`__DEV_context`)는 추적 SoT, `current.md`는 DB에 담기 어려운 맥락(외부 의존·결정사항·대기 항목)을 기록한다. 어느 한쪽만 갱신하고 다른 쪽을 빠뜨리면 다음 세션이 불완전한 상태로 시작된다. DONE 항목은 `current.md`에 남기지 않고 `history.md`로 이관한다.
+7. **명세 반영** — 구현 완료된 기능은 `/README.md`(사용자 시점)와 `ai-docs/spec/overview.md`(명세 시점)에 반영.
+
+### 자주 쓰는 빌드 명령
+
+```bash
+docker compose --env-file .env up --build -d frontend   # 프론트 재배포
+./wikidoc_publish.sh                                     # 위키 동기화
+```
 
 ---
 
@@ -42,7 +51,7 @@
 | 활성 태스크 | `ai-docs/task/active/${YYMMDD}_${title}.md` | `current.md` 활성 태스크 라인 |
 | 완료 태스크 | `ai-docs/task/${YYMMDD}/${file}.md` | `task/archive.md` |
 | 트러블슈팅 | `ai-docs/trouble/${YYMMDD}/${YYMMDD}_${title}_troubleshooting.md` | `trouble/index.md` |
-| 다영역 협업 후속 TODO | `ai-docs/project_todo.md` 카테고리 섹션에 항목 추가 | `INDEX.md` (이미 색인됨) |
+| 다영역 협업 후속 TODO | `ai-docs/context/project_todo.md` 카테고리 섹션에 항목 추가 | `INDEX.md` (이미 색인됨) |
 | 체크리스트 항목 변경 | `TEST/checklist/s${N}_*.md` 상태 컬럼 | — |
 | 결함 발견 | `TEST/issues.md` 표에 행 추가 | `current.md` 미해결 결함 라인 |
 | 진척률 변경 | `TEST/progress.md` 표 갱신 | — |
@@ -51,31 +60,32 @@
 
 **중복 금지**: 한 사실은 한 곳에만. 진척률은 `progress.md`만, 현재 상태는 `current.md`만, 산출물 위치는 `INDEX.md`만.
 
-## 3. 컨텍스트 이어받기
+## 3. 문서 관리 정책
 
-큰 작업(섹션 완료, 결함 수정, 구조 변경) 직후 [`context/current.md`](context/current.md)를 갱신한다. 다음 스레드가 `INDEX.md` + `current.md` 두 파일만 읽고 작업을 이어받을 수 있어야 한다.
-
-## 4. 구현 반영
-
-구현 완료된 기능은 다음 위치에 반영한다:
-- `/README.md` (사용자 시점)
-- `ai-docs/spec/overview.md` (명세 시점)
-
-## 5. 자주 쓰는 명령
-
-```bash
-# 프론트 재배포
-docker compose --env-file .env up --build -d frontend
-
-# 위키 동기화 (docs/TEST/* 변경 후, saigon_wiki 무중단 재빌드)
-./wikidoc_publish.sh
-```
-
-## 6. ai-docs git 추적 정책
+### 3-A. git 추적
 
 `ai-docs/` 는 표준 정책상 로컬 전용 디렉터리지만, 본 프로젝트는 **private repo 운영 중이라 git 추적을 의도적으로 허용**한다. 환경 마이그레이션 시 컨텍스트가 함께 이동하는 이점을 위해 유지하는 예외이므로, "추적되지 말아야 한다"는 지적·정리를 시도하지 않는다.
 
-## 7. 보안 / 환경 변수
+### 3-B. Notion 동기화
+
+`ai-docs/` 의 마크다운 문서는 **Notion 워크스페이스**에도 동일한 계층 구조로 관리된다.
+
+**Notion 루트 페이지**: [🏍️ Saigon Rider](https://www.notion.so/doiloppa/Saigon-Rider-36f3bd6b405d81d2b42ce4ba025da4e3)
+
+| 저장소 | 역할 | SoT 여부 |
+|---|---|---|
+| `ai-docs/*.md` (git) | 코드와 함께 버전 관리, AI 세션 시작 시 직접 로드 | **Primary SoT** |
+| Notion Pages | 팀 열람·검색·코멘트, 비개발자 접근 | 미러 (읽기 편의) |
+
+**규칙**
+
+1. **md 파일이 SoT** — 문서 수정은 항상 `ai-docs/*.md` 파일에서 먼저 한다. Notion은 미러이므로, Notion에서만 수정하고 md에 반영하지 않으면 다음 동기화 시 덮어쓰여질 수 있다.
+2. **신규 문서 작성 시** — md 파일 생성 후 Notion에도 해당 섹션 하위에 페이지를 추가한다. Notion MCP(`notion-create-pages`)로 자동화 가능.
+3. **Notion 계층 구조** — `ai-docs/` 디렉터리 구조를 그대로 따른다. 디렉터리 = Notion 부모 페이지, md 파일 = Notion 하위 페이지.
+4. **HTML 파일은 제외** — `v6_info/` 등의 HTML 화면 스펙은 Notion에 올리지 않는다. 마크다운만 동기화 대상.
+5. **Plane ↔ Notion 연계** — Plane 이슈(Feature/Todo)에는 상세 내용을 직접 쓰지 않는다. 대신 Notion 페이지 URL을 description에 삽입하여 **클릭 한 번으로 상세 문서에 접근**할 수 있게 한다. 이렇게 하면 Plane은 상태 추적, Notion은 내용 열람, md 파일은 SoT로 역할이 분명하게 분리된다.
+
+## 4. 보안 / 환경 변수
 
 `.env` 와 `.env.example` 두 파일을 짝으로 운영한다. **위반은 곧 비밀 누출** 이므로 예외 없이 따른다.
 
@@ -94,7 +104,7 @@ docker compose --env-file .env up --build -d frontend
 
 위반을 발견하면 즉시 (a) 비밀 회전, (b) git 히스토리 정리(`git filter-repo` 등), (c) 외부 노출 경위 추적 순으로 대응한다.
 
-## 8. 린터
+## 5. 린터
 
 코드 품질은 린터로 자동 관리한다. `pre-commit` 훅이 커밋 시 자동 실행되므로 별도 워크플로우 없이 동작한다.
 
@@ -126,21 +136,40 @@ python3 -m ruff check backend/app/ --fix # 자동 수정
 python3 -m ruff format backend/app/      # 포맷팅
 ```
 
-## 9. __DEV Context (진행 상태 관리)
+## 6. __DEV Context (진행 상태 관리)
 
-프로젝트 진행 상태는 DB(`__DEV_context`, `__DEV_features`, `__DEV_todos`)로 관리하며, 외부 사용자가 위키·어드민에서 실시간 추적한다. 상세 절차는 [`workflow/dev-context-management.md`](workflow/dev-context-management.md).
+프로젝트 진행 상태는 **Plane CE** (https://plane.doil.me) + DB(`__DEV_context`)로 관리하며, 외부 사용자가 위키·어드민에서 실시간 추적한다. 상세 절차·API·Plane 매핑은 [`workflow/dev-context-management.md`](workflow/dev-context-management.md) 참조.
 
-**핵심 용어**
-
-| 테이블 | 역할 |
+| 소스 | 역할 |
 |--------|------|
-| `__DEV_context` | Key-Value 저장소 + `status` 이모지(🔧진행중/✅완료/⏸대기/❌취소) — `current_focus`, `current_sprint`, `last_deploy`, `blocker`, `next_milestone` |
-| `__DEV_features` | 기능 단위 진행 상태 — `PLANNED → IN_PROGRESS → DONE / DEFERRED` |
-| `__DEV_todos` | 할일 단위 — `TODO → IN_PROGRESS → DONE / BLOCKED` |
+| `__DEV_context` (DB) | Key-Value 저장소 + `status` 이모지(🔧/✅/⏸/❌) — `current_focus`, `current_sprint`, `last_deploy`, `blocker`, `next_milestone` |
+| Plane Issues (label 필터) | Feature 단위 — `PLANNED → IN_PROGRESS → DONE / DEFERRED` |
+| Plane Issues (priority 뷰) | Todo 단위 — `TODO → IN_PROGRESS → DONE / BLOCKED` |
+| DB `__DEV_features` / `__DEV_todos` | Plane 연동 실패 시 자동 폴백 |
 
-**선 보고 후 진행**: 상세 흐름은 §1.5 참조. 핵심은 IN_PROGRESS와 DONE 혼동 금지 — 구현과 동시에 DONE 처리하지 않는다.
+### Plane MCP 도구 (`doil-services`)
 
-## 10. 컨텐츠 관리 (이미지 / 파일)
+Plane CE 조회·갱신은 **`doil-services` MCP 서버**의 도구를 사용한다. BFF API(`/api/bff/dev/*`)를 경유하지 않고 Plane API를 직접 호출한다.
+
+| MCP 도구 | 용도 |
+|---|---|
+| `plane_list_workspaces` | 워크스페이스 목록 |
+| `plane_list_projects` | 프로젝트 목록 (`workspace` 파라미터 생략 시 기본 `doil`) |
+| `plane_list_states` | 프로젝트의 상태(State) 목록 — issue 상태 변경 시 `state` ID 필요 |
+| `plane_list_labels` | 프로젝트의 라벨 목록 |
+| `plane_list_issues` | 이슈 목록 조회 (state 필터 가능) |
+| `plane_create_issue` | 이슈 생성 |
+| `plane_update_issue` | 이슈 상태·우선순위·제목 변경 |
+
+**공통 파라미터:**
+- `workspace`: 기본값 `doil` (생략 가능)
+- `project`: **필수** — saigon_rider = `53da5691-c368-4d50-a843-43eb67ec7ab0`
+
+**상태 변경 시:** `plane_list_states`로 해당 프로젝트의 state ID를 먼저 조회한 뒤, `plane_update_issue`의 `state` 파라미터에 ID를 전달한다.
+
+**설정 위치:** MCP 서버 코드 `/mnt/c/DEV/docker/doil-sb/mcp/`, 설정 `config.yml`.
+
+## 7. 컨텐츠 관리 (이미지 / 파일)
 
 **모든 이미지·파일 컨텐츠는 `contents` 테이블로 중개되고 `content_id`(UUID)로 매핑된다.** 관리자·프론트·BFF 모두 예외 없이 적용한다.
 
@@ -152,3 +181,17 @@ python3 -m ruff format backend/app/      # 포맷팅
 4. **레거시 URL 컬럼은 read-only 폴백** — 기존 `image_url`·`avatar_url`·`hero_image_url` 등은 조회 폴백으로만 사용하고, **신규 쓰기 금지**. resolver 우선순위는 항상 `content_id > 레거시 url > 기본값`.
 5. **폴백 체인은 모두 contents 중개분으로 구성** — 예: 퀘스트 썸네일 = `thumbnail_content > district.image_content > mock`. contents 미중개 소스를 체인에 끼우지 않는다.
 6. **신규 이미지 필드 추가 시** — `*_content_id` FK 컬럼 + 마이그레이션 → 모델 관계(`relationship`, `lazy="selectin"`) → resolver → 출력 스키마 순으로 일관되게 배선한다.
+
+## 8. 네이티브 브리지 규칙 (Capacitor WebView)
+
+**모든 네이티브 기능(GPS, 카메라, 디바이스 정보, 공유, 알림 등)은 반드시 `native.ts`(NativeInterface)를 경유한다. 브라우저 API 직접 호출 금지.**
+
+이 프로젝트는 Capacitor WebView 기반 하이브리드 앱이다. 브라우저 네이티브 API(`navigator.*`)는 WebView에서 OS 레벨 권한 체계와 분리되어 있어, 직접 호출하면 권한 요청 실패·무한 대기·무응답 등 디바이스별 불안정 동작이 발생한다.
+
+**규칙**
+
+1. **`navigator.*` 직접 접근 금지** — `navigator.geolocation`, `navigator.share`, `navigator.vibrate` 등을 컴포넌트·유틸에서 직접 호출하지 않는다. ESLint `no-restricted-globals: navigator`가 error 레벨로 강제된다.
+2. **`native.ts`가 유일한 브리지** — 네이티브 기능이 필요하면 `NativeInterface`에 메서드를 추가하고, 내부에서 Capacitor 플러그인(`@capacitor/geolocation`, `@capacitor/camera` 등) 또는 커스텀 플러그인(`plugins/Gps`, `plugins/Device` 등)을 호출한다.
+3. **`native.ts` 내부만 예외** — 브리지 구현체인 `native.ts` 파일만 `eslint-disable no-restricted-globals`를 사용할 수 있다. 다른 파일에서의 disable은 PR 리뷰에서 차단한다.
+4. **`navigator.clipboard` 같은 웹 전용 API** — Capacitor 대응 플러그인이 없고 WebView에서 안정적으로 동작하는 API는 인라인 `eslint-disable`로 예외 처리하되, 사유를 주석으로 남긴다. 향후 `native.ts`로 흡수 가능.
+5. **좌표 획득은 `native.getLocation()` 또는 `infoCoords.ts`** — `@capacitor/geolocation`을 래핑한 `native.getLocation()`을 사용한다. Info 페이지들은 `resolveInfoCoordsSync()`가 이를 내부 호출한다.

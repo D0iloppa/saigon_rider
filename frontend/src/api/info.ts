@@ -257,14 +257,14 @@ const MOCK_REPAIR_DETAIL: RepairDetail = {
 export const weatherApi = {
   async get(lat: number, lng: number): Promise<WeatherData> {
     if (USE_MOCK) return api.delay(MOCK_WEATHER, 300);
-    return api.realFetch<WeatherData>(`/info/weather?lat=${lat}&lng=${lng}`);
+    return api.realFetch<WeatherData>(`/info/weather?lat=${lat}&lng=${lng}`, {}, 'bff', { silent: true });
   },
   async getRainRadar(lat: number, lng: number): Promise<RainRadarData> {
     if (USE_MOCK) return api.delay({
       tile_url: 'https://tilecache.rainviewer.com/v2/radar/mock/256/{z}/{x}/{y}/2/1_1.png',
       last_updated: Math.floor(Date.now() / 1000),
     }, 200);
-    return api.realFetch<RainRadarData>(`/info/weather/rain-radar?lat=${lat}&lng=${lng}`);
+    return api.realFetch<RainRadarData>(`/info/weather/rain-radar?lat=${lat}&lng=${lng}`, {}, 'bff', { silent: true });
   },
   async notifyRain(label: string, lat: number, lng: number): Promise<{ ok: boolean; gp_earned: number }> {
     if (USE_MOCK) return api.delay({ ok: true, gp_earned: 5 }, 200);
@@ -279,7 +279,7 @@ export const floodApi = {
   async getActive(lat: number, lng: number, radius_km = 5): Promise<{ floods: FloodReport[] }> {
     if (USE_MOCK) return api.delay({ floods: MOCK_FLOODS }, 300);
     return api.realFetch<{ floods: FloodReport[] }>(
-      `/info/flood/active?lat=${lat}&lng=${lng}&radius_km=${radius_km}`,
+      `/info/flood/active?lat=${lat}&lng=${lng}&radius_km=${radius_km}`, {}, 'bff', { silent: true },
     );
   },
   async report(data: { lat: number; lng: number; depth_level: string; photo_url?: string }): Promise<{ report_id: number; gp_earned: number }> {
@@ -299,7 +299,7 @@ export const floodApi = {
   async getHotspots(district_code?: string): Promise<{ hotspots: FloodHotspot[] }> {
     if (USE_MOCK) return api.delay({ hotspots: MOCK_HOTSPOTS }, 200);
     const q = district_code ? `?district_code=${district_code}` : '';
-    return api.realFetch<{ hotspots: FloodHotspot[] }>(`/info/flood/hotspots${q}`);
+    return api.realFetch<{ hotspots: FloodHotspot[] }>(`/info/flood/hotspots${q}`, {}, 'bff', { silent: true });
   },
   async getMapData(lat: number, lng: number, radius_km = 5): Promise<FloodMapData> {
     if (USE_MOCK) {
@@ -325,7 +325,7 @@ export const floodApi = {
       );
     }
     return api.realFetch<FloodMapData>(
-      `/info/flood/map-data?lat=${lat}&lng=${lng}&radius_km=${radius_km}`,
+      `/info/flood/map-data?lat=${lat}&lng=${lng}&radius_km=${radius_km}`, {}, 'bff', { silent: true },
     );
   },
 };
@@ -334,7 +334,7 @@ export const gasApi = {
   async getNearby(lat: number, lng: number, radius_km = 5, fuel_type = 'RON95'): Promise<{ stations: GasStation[] }> {
     if (USE_MOCK) return api.delay({ stations: MOCK_GAS }, 300);
     return api.realFetch<{ stations: GasStation[] }>(
-      `/info/gas/nearby?lat=${lat}&lng=${lng}&radius_km=${radius_km}&fuel_type=${fuel_type}`,
+      `/info/gas/nearby?lat=${lat}&lng=${lng}&radius_km=${radius_km}&fuel_type=${fuel_type}`, {}, 'bff', { silent: true },
     );
   },
   async reportWait(station_id: number, wait_minutes: number): Promise<{ wait_id: number; gp_earned: number }> {
@@ -346,7 +346,7 @@ export const gasApi = {
   },
   async getPrices(): Promise<{ fuel_type: string; price_vnd: number }[]> {
     if (USE_MOCK) return api.delay([{ fuel_type: 'RON95', price_vnd: 25420 }], 100);
-    return api.realFetch<{ fuel_type: string; price_vnd: number }[]>('/info/gas/prices');
+    return api.realFetch<{ fuel_type: string; price_vnd: number }[]>('/info/gas/prices', {}, 'bff', { silent: true });
   },
   /** v2: 오늘의 브랜드×연료별 참고가 매트릭스 + 갱신 시각. */
   async getTodayPrices(): Promise<TodayPrices> {
@@ -358,7 +358,7 @@ export const gasApi = {
         updated_at_iso: new Date().toISOString(),
       }, 200);
     }
-    return api.realFetch<TodayPrices>('/info/gas/today-prices');
+    return api.realFetch<TodayPrices>('/info/gas/today-prices', {}, 'bff', { silent: true });
   },
   /** v2: 주유소 상세 (바텀시트용). */
   async getStation(station_id: number): Promise<GasStationDetail> {
@@ -374,7 +374,7 @@ export const gasApi = {
         crowd_price: null,
       } as GasStationDetail, 200);
     }
-    return api.realFetch<GasStationDetail>(`/info/gas/station/${station_id}`);
+    return api.realFetch<GasStationDetail>(`/info/gas/station/${station_id}`, {}, 'bff', { silent: true });
   },
 };
 
@@ -416,11 +416,11 @@ export const repairApi = {
     const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius_km: String(radius_km) });
     if (service_code) params.set('service_code', service_code);
     if (motorcycle_model) params.set('motorcycle_model', motorcycle_model);
-    return api.realFetch<{ shops: RepairShop[] }>(`/info/repair/nearby?${params}`);
+    return api.realFetch<{ shops: RepairShop[] }>(`/info/repair/nearby?${params}`, {}, 'bff', { silent: true });
   },
   async getDetail(shop_id: number): Promise<RepairDetail> {
     if (USE_MOCK) return api.delay(MOCK_REPAIR_DETAIL, 300);
-    return api.realFetch<RepairDetail>(`/info/repair/${shop_id}`);
+    return api.realFetch<RepairDetail>(`/info/repair/${shop_id}`, {}, 'bff', { silent: true });
   },
   async writeReview(data: {
     shop_id: number; service_code: string; motorcycle_model?: string;

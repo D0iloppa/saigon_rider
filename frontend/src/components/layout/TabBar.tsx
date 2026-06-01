@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Target, Camera, ShieldCheck } from 'lucide-react';
 import { emojiUrl } from '@/lib/emoji';
-import { GameHubSheet } from '@/components/game/GameHubSheet';
 import styles from './TabBar.module.css';
 
 function GifTabIcon({
@@ -40,7 +38,6 @@ function GifTabIcon({
 }
 
 export function TabBar() {
-  const [hubOpen, setHubOpen] = useState(false);
   const { t } = useTranslation();
 
   const tabs = [
@@ -65,20 +62,8 @@ export function TabBar() {
         </NavLink>
       ))}
 
-      <button
-        className={styles.fab}
-        onClick={() => setHubOpen(true)}
-        aria-label={t('tabbar.startRide')}
-      >
-        <img
-          className={styles.fabIcon}
-          src={emojiUrl('1f3cd')}
-          alt="🏍"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        />
-      </button>
-
-      <GameHubSheet open={hubOpen} onClose={() => setHubOpen(false)} />
+      {/* FAB spacer */}
+      <div className={styles.fabSpacer} />
 
       {tabs.slice(2).map((tab) => (
         <NavLink

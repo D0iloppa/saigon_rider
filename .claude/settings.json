@@ -1,8 +1,19 @@
 {
+  "worktree": {
+    "bgIsolation": "none"
+  },
   "mcpServers": {
-    "saigon-dev": {
-      "type": "http",
-      "url": "http://localhost:18090/mcp-dev/mcp/"
+    "doil-services": {
+      "command": "node",
+      "args": [
+        "/mnt/c/DEV/docker/doil-sb/mcp/index.js"
+      ],
+      "env": {
+        "PLANE_URL": "https://plane.doil.me",
+        "PLANE_API_KEY": "plane_api_a928325fd0bf4c95bedc5b6faf657b9f",
+        "MATTERMOST_URL": "https://doil.me/mm",
+        "MATTERMOST_TOKEN": ""
+      }
     }
   }
 }

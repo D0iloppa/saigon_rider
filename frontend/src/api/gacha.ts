@@ -44,8 +44,8 @@ export interface GachaPullResult {
 
 const MOCK_GACHA_LIST: GachaDefinition[] = [
   {
-    code: 'GARAGE_NORMAL',
-    name: 'Garage Normal',
+    code: 'BASIC_PULL',
+    name: 'Garage 일반 뽑기',
     gacha_type: 'GOLD',
     cost_currency: 'GOLD',
     cost_single: 200,
@@ -59,8 +59,8 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     description: 'C 70% · R 28% · E 2%',
   },
   {
-    code: 'GARAGE_PREMIUM',
-    name: 'Garage Premium',
+    code: 'PREMIUM_PULL',
+    name: 'Garage 프리미엄 뽑기',
     gacha_type: 'GOLD',
     cost_currency: 'GOLD',
     cost_single: 1500,
@@ -74,8 +74,8 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     description: 'R 65% · E 33% · L 2%',
   },
   {
-    code: 'CRYSTAL',
-    name: 'Crystal Pull',
+    code: 'GC_PREMIUM_PULL',
+    name: '크리스탈 뽑기',
     gacha_type: 'XP',
     cost_currency: 'XP',
     cost_single: 30,
@@ -89,8 +89,8 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     description: 'R 50% · E 40% · L 9% · M 1%',
   },
   {
-    code: 'TET_SEASON',
-    name: 'Tết Festival Limited',
+    code: 'SEASON_PULL',
+    name: '시즌 한정 뽑기',
     gacha_type: 'SEASON',
     cost_currency: 'XP',
     cost_single: 25,
@@ -103,11 +103,10 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     rate_mythic: 1,
     description: 'R 60% · E 30% · L 9% · M 1%',
     limited_label: 'Tết 18 days',
-    expires_at: new Date(Date.now() + 18 * 24 * 3600 * 1000).toISOString(),
   },
   {
-    code: 'LEGEND',
-    name: 'Legend Pull',
+    code: 'LEGEND_PULL',
+    name: '전설 뽑기',
     gacha_type: 'LEGEND',
     cost_currency: 'XP',
     cost_single: 80,
@@ -123,10 +122,10 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
 ];
 
 const MOCK_PITY: Record<string, GachaPity> = {
-  GARAGE_PREMIUM: { gacha_code: 'GARAGE_PREMIUM', pull_count: 87, pity_hard_ceiling: 100 },
-  CRYSTAL:        { gacha_code: 'CRYSTAL',        pull_count: 42, pity_hard_ceiling: 80 },
-  TET_SEASON:     { gacha_code: 'TET_SEASON',     pull_count: 23, pity_hard_ceiling: 60 },
-  LEGEND:         { gacha_code: 'LEGEND',          pull_count: 31, pity_hard_ceiling: 50 },
+  PREMIUM_PULL:    { gacha_code: 'PREMIUM_PULL',    pull_count: 87, pity_hard_ceiling: 100 },
+  GC_PREMIUM_PULL: { gacha_code: 'GC_PREMIUM_PULL', pull_count: 42, pity_hard_ceiling: 80 },
+  SEASON_PULL:     { gacha_code: 'SEASON_PULL',      pull_count: 23, pity_hard_ceiling: 60 },
+  LEGEND_PULL:     { gacha_code: 'LEGEND_PULL',      pull_count: 31, pity_hard_ceiling: 50 },
 };
 
 export async function fetchGachaList(): Promise<GachaDefinition[]> {
@@ -137,6 +136,25 @@ export async function fetchGachaList(): Promise<GachaDefinition[]> {
 export async function fetchGachaPity(gachaCode: string): Promise<GachaPity | null> {
   if (USE_MOCK) return api.delay(MOCK_PITY[gachaCode] ?? null, 100);
   return api.realFetch<GachaPity>(`/gacha/pity/${gachaCode}`);
+}
+
+export interface GachaPullLogEntry {
+  gacha_code: string;
+  is_10_pull: boolean;
+  picked_rarity: ItemRarity;
+  picked_item_code: string;
+  was_pity_hit: boolean;
+  cost_currency: string;
+  cost_amount: number | null;
+  pulled_at: string;
+}
+
+export async function fetchGachaPullLog(
+  limit = 50,
+  offset = 0,
+): Promise<GachaPullLogEntry[]> {
+  if (USE_MOCK) return api.delay([], 100);
+  return api.realFetch<GachaPullLogEntry[]>(`/gacha/log?limit=${limit}&offset=${offset}`);
 }
 
 export async function pullGacha(

@@ -106,6 +106,48 @@
   --status-bar-height: max(env(safe-area-inset-top, 0px), 24px);
 }
 
+/* =====================================================================
+ * DARK MODE — Night Ride 팔레트
+ * 라이트(:root)는 기본값이며 절대 건드리지 않는다. 여기서 surface 계열
+ * 토큰값만 재정의한다. 브랜드/네온/재화/status 액센트는 양 테마 공통.
+ * 초기 페인트는 index.html 인라인 스크립트가 data-theme 를 선반영(FOUC 방지),
+ * 런타임 토글은 useThemeStore 가 documentElement 에 data-theme 를 세팅.
+ * ===================================================================== */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg:        #08090F;   /* ← #F7F5F0 */
+  --surface:   #11131C;   /* ← #FFFFFF */
+  --surface-2: #1A1D2A;   /* ← #FAF7F2 */
+  --line:      #262A3D;   /* ← #E8E3DA */
+  --text:      #F4F2EC;   /* ← #0B0D14 */
+  --text-2:    #A8AEC2;   /* ← #4A4F62 */
+  --text-3:    #7A8094;   /* ← #8A8E9E */
+
+  /* Elevation — 다크 배경에선 그림자 대신 깊은 흑색 + 미세 보더감 */
+  --shadow-card:
+    0 1px 2px rgba(0,0,0,.40),
+    0 4px 12px rgba(0,0,0,.45),
+    0 16px 40px rgba(0,0,0,.55);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,.05);
+
+  /* Rarity 카드 배경 — 라이트 surface 전제였던 값들을 다크 surface 로 */
+  --r-c-bg:     #1E2230;
+  --r-r-bg:     #14223D;
+  --r-e-bg:     #221A3A;
+  --r-l-bg:     #2E1B12;
+}
+
+/* shimmer 스켈레톤 중간색(globals.css 의 #F0ECE5 하드코딩) 다크 대응 */
+[data-theme="dark"] .shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    #242838 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+}
+
 /* Item domain tokens (Skywork v4 — 컬렉션 + 등급 효과) */
 @import './items.css';
 

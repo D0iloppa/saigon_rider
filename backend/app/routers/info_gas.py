@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -64,6 +65,14 @@ async def get_nearby_gas_stations(
     user_id: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
+    cache_key = f"nearby:v1:{round(lat, 3)}:{round(lng, 3)}:{radius_km}:{fuel_type}"
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        today = datetime.now(UTC).date().isoformat()
+        idem_key = f"gas-view-{user_id}-{today}"
+        asyncio.create_task(_earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key))  # noqa: RUF006 -- fire-and-forget GP 적립
+        return cached
+
     result = await db.execute(
         text("""
             WITH nearby AS (
@@ -121,12 +130,15 @@ async def get_nearby_gas_stations(
     )
 
     stations = [dict(row._mapping) for row in result]
+    response = {"stations": stations}
+
+    await cache_set(cache_key, response, ttl=600)
 
     today = datetime.now(UTC).date().isoformat()
     idem_key = f"gas-view-{user_id}-{today}"
-    await _earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key)
+    asyncio.create_task(_earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key))  # noqa: RUF006 -- fire-and-forget GP 적립
 
-    return {"stations": stations}
+    return response
 
 
 @router.post("/wait-report", status_code=201)

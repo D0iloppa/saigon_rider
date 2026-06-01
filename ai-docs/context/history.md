@@ -5,167 +5,72 @@
 
 ---
 
-## Task 7: 관리자 보상 정책 관리 UI (2026-05-20) — ✅ DONE
+## 2026-05-28
 
-- `backend/app/templates/admin/policies.html` 신규 생성 — 정책 CRUD 전체 UI
-  - 정책 목록 테이블 (코드, 이름, 조건 요약, 액션 수, 우선순위, 반복, 활성 상태)
-  - 모달 폼: 조건 배열 동적 추가/삭제 (metric, op, value), 액션 배열 동적 추가/삭제 (GRANT_RP/EXP/GOLD/BADGE)
-  - 활성/비활성 토글, 삭제(confirm 다이얼로그)
-  - 기존 API 엔드포인트(`/admin/api/sre/policies`) fetch 연동
-- `backend/app/routers/admin.py` — `GET /sre/policies` HTML 핸들러 추가, `_NAV_KEYS`에 `"policies"` 추가
-- `backend/app/templates/admin/_layout.html` — 사이드바에 "보상 정책" 링크 추가
-- 기존 admin 페이지 스타일(배지, 아이템) 패턴 일관성 유지
+- **SaigonDistrictMap 마커 District 집계 배지** — bbox affine → district 집계 배지 전환, MAX_ZOOM 4→6. 코드완료, 시각검증 대기. 태스크: `task/active/260528_map_marker_projection_task.md`
 
----
+## 2026-05-27
 
-## DEV Context 정리 + 월드맵 기획 등록 (2026-05-20) — ✅ DONE
+- **유가 정보 표출** — 스크래퍼 3종(스텁) + 3-way validation + Redis 캐시 + 브랜드 마커/바텀시트 + admin manual upsert. 외부 자동 수집은 v1.1 이월. 태스크: `task/active/260527_fuel_price_pipeline_task.md`
+- **Capacitor 마이그레이션 완료** — JS-side + native(iOS/Android) 양쪽 Capacitor Plugin 재정의. `capacitor.config.ts`, 커스텀 Plugin 7종(iOS) / 3종(Android), `native.ts` 재작성. Mac 측 빌드 검증 대기. 태스크: `task/active/260520_capacitor_migration_task.md`
 
-- IN_PROGRESS Features 7건 전부 DONE 처리 (#3, #4, #41, #42, #44, #45, #46)
-- `current_focus` → "월드맵 페이지 개편 기획", `current_sprint` → "월드맵 개편 Phase 1"
-- Feature #48 등록 (`home`, "월드맵 개편 — 날씨/유가/AQI 정보 허브", PLANNED)
-- 위키 기획문서 카테고리 신설 + 3건 작성 (개요/날씨&AQI/유가)
-- `sidebars.ts`에 기획문서 카테고리 추가
+## 2026-05-24
 
-## Redis Streams 메시지 큐 도입 (2026-05-20) — ✅ DONE
+- **퀘스트 상세 [DBG] 버튼 숨김** — `QuestDetail.tsx:251-256` 트리거 주석 처리
+- **abandonRide 토스트 노이즈 차단** — fire-and-forget → raw `fetch` 우회 (`api/quests.ts:119-126`)
+- **게러지 빈 슬롯 그림자 아이콘** — 부위별 유니코드 이모지 + grayscale (`Garage.tsx`)
 
-- Feature #47 (`infra`): `sre_message_tbl` 직접 INSERT → Redis Streams 버퍼 + Consumer Worker 전환
-- 서브태스크 7건 전부 완료 (Redis 서비스, redis-py, XADD 전환, Consumer Worker, docker-compose, Fallback, 통합 테스트)
-- 태스크: `task/active/260520_redis_message_queue_task.md`
+## 2026-05-22
 
-## Capacitor 도입 — NativeInterface 전환 (2026-05-20) — ✅ DONE
+- **퀘스트 달성 체크 Phase 1~3 전체 완료** — `sre_quest_card` + `quest_tracker.py` + GpsAgent 체이닝 + 데일리 슬롯 + GPS 노이즈 필터 + Push + 만료 배치. 설계서: `engine/sre-quest-completion-design.md`
+- **아이템 카탈로그 251개 전면 교체** — 8 sprite, display_name=code + i18n. 태스크: `task/active/260522_item_catalog_replace_task.md`
+- **TODO #52 침수 핫스팟 시드** — HCMC 30개 지점 (`037_flood_hotspot_seed.sql`)
 
-- Feature #46 (`infra`): `native.ts` 전면 재작성 (319줄 → ~120줄), Capacitor 플러그인 기반
-- FeedCreate, FeedList 마이그레이션 완료, `vite-env.d.ts` 레거시 타입 제거
-- 태스크: `task/active/260520_capacitor_migration_task.md`
+## 2026-05-21
 
-## SRE 게이미피케이션 v2 — 전 서브태스크 완료 (2026-05-18~20) — ✅ DONE
+- **정보 모듈 Phase 0~4 완료** — 12개 API + 9개 프론트 화면 (InfoHub, InfoWeather, InfoFloodMap, InfoFloodReport, InfoGasList, InfoRepairList, InfoRepairDetail, InfoRepairWrite) + HOME 통합
+- **TabBar 피드탭 복구** + **GameHubSheet 정보 추가** + **날씨 500 버그 fix** + **골드 용어 통일**
 
-- Features #42, #44, #45 완료 (가챠/상점/시즌 시스템, 아이템 컬렉션, 시즌패스)
-- GAP-H2 6개 API 완료, GAP-H3 5개 UI 컴포넌트 완료, GAP-H4 시즌 시드 완료
-- FAB → Game Hub Sheet 전환, 문서 현행화 전면 완료
-- 태스크: `task/active/260518_sre_upgrade_plan_task.md`
+## 2026-05-20
 
-## 프로필 기록/배지 실데이터 연동 (2026-05-19) — ✅ DONE
+- Task 7: 관리자 보상 정책 관리 UI — `admin/policies.html` CRUD
+- DEV Context 정리 + 월드맵 기획 등록 — Feature #48 등록
+- Redis Streams 메시지 큐 도입 — Feature #47, 서브태스크 7건 완료
+- Capacitor 도입 (JS-side) — Feature #46, `native.ts` 319→120줄
+- SRE 게이미피케이션 v2 전 서브태스크 완료 — Features #42, #44, #45
 
-- 기록 탭: `GET /api/users/me/quest-history` 연동
-- 배지 탭: `GET /api/badges?user_id=` 연동 + 관리자 CRUD
-- 이번 달 통계 카드: `GET /api/users/me/stats` 연동
-- 032 마이그레이션 (badge condition_rule JSONB + 다국어)
+## 2026-05-19
 
----
+- 프로필 기록/배지 실데이터 연동 — quest-history, badges, stats API 연동 + 032 마이그레이션
 
-## ProfileCard Draggable Sheet + 피드 조회 (2026-05-18, 25차) — 🔧 코드 완료, 실기기 검증 대기
+## 2026-05-18
 
-- `ProfileCard.tsx` — BottomSheet 제거 → 커스텀 draggable overlay (createPortal)
-  - 기본(collapsed): 프로필 카드, 확장(expanded): 유저 피드 리스트
-  - 두 스냅 지점, 속도 기반 스냅 (velocity threshold 0.4px/ms)
-- `ProfileCard.module.css` 전면 재작성
-- `FollowerList.tsx`, `FollowingList.tsx` — 아바타/닉네임 클릭 → ProfileCard 오픈
-- 태스크: [`task/active/260518_profilecard_draggable_feed.md`](../task/active/260518_profilecard_draggable_feed.md)
+- ProfileCard Draggable Sheet + 피드 조회 (코드 완료, 실기기 검증 대기)
+- Profile Sheet 스크롤 UX 수정 (코드 완료, 실기기 검증 대기)
+- AppImage 폴백 체인 시스템
+- 월드맵 SECTION 1/2 실데이터 연동 (코드 완료, UI 검증 대기)
+- 피드 팔로우 카운트 버그 수정 + 언팔로우 확인 다이얼로그
+- 앱 버전 관리 시스템 — `app_versions` 테이블 + API 3종 + 관리자 CRUD
+- 건너뛰기 시 기본 닉네임 부여 — `nickname_words` 테이블 + 관리자 CRUD
+- PTR 러버밴딩 + ProfileSetup 온보딩 UX
+- Overscroll Bounce + Profile Sheet 스크롤 Block
+- API 에러 Toast + 프로필 수정
 
-## Profile Sheet 스크롤 UX 수정 (2026-05-18, 24차) — 🔧 코드 완료, 실기기 검증 대기
+## 2026-05-17
 
-- ImageCarousel x/y 동시 스크롤 → `.wrap`에 `touch-action: none`
-- Sheet 상한 도달 후 이중 제스처 → setTimeout 350 → 100ms
-- 태스크: [`task/active/260518_profile_sheet_scroll_ux.md`](../task/active/260518_profile_sheet_scroll_ux.md)
+- 프로필 피드 관리 기능 — GET/PUT/DELETE `/feed/{post_id}`
+- 친구 기능 마무리 — ProfileCard BottomSheet, QR 공유 (FriendAdd 미완)
 
-## AppImage 폴백 체인 시스템 (2026-05-18, 23차) — ✅ DONE
+## 2026-05-16
 
-- 퀘스트 썸네일 최종 폴백 실패 시 shimmer 영구 표시 버그 수정
-- `_to_out()` 4단계 체인 배열 빌드, `AppImage` 체인 walking + 재시도 + 에러 이미지
-- 트러블슈팅: [`trouble/260518/260518_appimage_fallback_shimmer.md`](../trouble/260518/260518_appimage_fallback_shimmer.md)
+- 무한스크롤 + Pull-to-Refresh + 퀘스트 완료 구조
+- 피드 소셜 기능 확장 — DB 020-023, 프론트 5개 신규 페이지
+- 기본 프로필 이미지 풀 (profile_mock) — `owner_type='profile_mock'` 6장
+- 관리자 콘솔 콘텐츠 contents 중개 — contents 테이블 원칙 확립
+- 관리자 콘솔 전체 기능 구현 — admin 7개 페이지
+- 보안/환경 변수 규약 신설 — GUIDELINE §7
+- BFF 타임존 확정 — `APP_TIMEZONE` 환경변수
 
-## 월드맵 SECTION 1/2 실데이터 연동 (2026-05-18, 22차) — 🔧 코드 완료, UI 검증 대기
+## 2026-05-15
 
-- SECTION 1: `useUserStore.refreshUser()` → 월드맵 진입 시 xp/gold/skill_pt 갱신
-- SECTION 2: `GET /quests/recommended` + `app_config` 기반 추천 퀘스트 N개
-- AppConfig 모델 + 관리자 설정 (`030_app_config_seed.sql`)
-
-## 피드 팔로우 카운트 버그 수정 + 언팔로우 확인 다이얼로그 (2026-05-18, 21차) — ✅ DONE
-
-- ProfileCard 팔로우/언팔로우 시 팔로워 수 미갱신 버그 수정
-- 언팔로우 확인 다이얼로그 3곳 (ProfileCard, FollowingList, FollowerList)
-
-## 앱 버전 관리 시스템 (2026-05-18, 20차) — ✅ DONE
-
-- `app_versions` 테이블 트리 구조 (primary → ios/android)
-- 공개 API 3종 + 관리자 CRUD
-- DB `029_app_versions.sql`, 백엔드 `routers/app_version.py`
-
-## 건너뛰기 시 기본 닉네임 부여 (2026-05-18, 19차) — ✅ DONE
-
-- `[형용사] [명사] [3자리숫자]` 영어 기본 닉네임 자동 부여
-- `nickname_words` 테이블 + 관리자 단어풀 CRUD
-- DB `028_nickname_words.sql`
-
-## PTR 러버밴딩 + ProfileSetup 온보딩 UX (2026-05-18, 18차) — ✅ DONE
-
-- PTR 러버밴딩 효과 (`contentStyle` translateY), ProfileSetup StatusBar 누락, 건너뛰기 버튼
-
-## Overscroll Bounce + Profile Sheet 스크롤 Block (2026-05-18, 17차) — ✅ DONE
-
-- `overscroll-behavior: none`, Sheet `scrollable` state + setTimeout 지연, ImageCarousel 축 잠금
-- 트러블슈팅: [`trouble/260518/`](../trouble/index.md)
-
-## API 에러 Toast + 프로필 수정 (2026-05-18, 16차) — ✅ (부분)
-
-- API 클라이언트 에러 Toast 일괄 적용 (✅)
-- 프로필 PUT 500 → `rider_type_id` FK 할당으로 수정 (✅)
-- ⚠ 인증 방식 미구현 → `task/active/260515_auth_todo.md`에서 추적
-
-## 프로필 피드 관리 기능 (2026-05-17, 15차) — ✅ DONE
-
-- 백엔드 API 3종 (GET/PUT/DELETE `/feed/{post_id}`), 프로필 feeds 탭, 피드 수정 페이지
-
-## 친구 기능 마무리 (2026-05-17, 14차) — ✅ DONE (FriendAdd 미완)
-
-- ProfileCard BottomSheet, 프로필 Draggable Sheet, QR 프로필 공유
-- FriendAdd 검색/QR스캔 탭 미완 → `task/active/260516_friend_feature.md`
-
-## 무한스크롤 + Pull-to-Refresh + 퀘스트 완료 구조 (2026-05-16, 13차) — ✅ DONE
-
-- `useInfiniteScroll<T>`, `usePullToRefresh`, ScrollSentinel, PullIndicator
-- 퀘스트 서버사이드 완료 필터링
-
-## 피드 소셜 기능 확장 (2026-05-16, 12차) — ✅ DONE
-
-- DB 020-023, UserFollow/DmConversation/DmMessage, 피드 위치 필터, 프론트 5개 신규 페이지
-
-## 기본 프로필 이미지 풀 (profile_mock) 도입 (2026-05-16, 11차) — ✅ DONE
-
-- `owner_type='profile_mock'` 6장, `GET /contents/profile-mock-img` 결정론적 선택
-
-## 관리자 콘솔 콘텐츠 contents 중개 (2026-05-16, 10차) — ✅ DONE
-
-- contents 테이블 중개 원칙 확립, 마이그레이션 017, resolver 체계
-
-## 관리자 콘솔 전체 기능 구현 (2026-05-16, 9차) — ✅ DONE
-
-- admin 7개 페이지, 사이드바 레이아웃, admin user 시드 (015)
-
-## 퀘스트 페이지 핀 버튼 등재 (2026-05-16) — 메모
-
-- 핀 필터 UX 의도 확인, District 중심 좌표 미결 → `project_todo.md`에 등재
-
-## 보안 / 환경 변수 규약 신설 (2026-05-16) — ✅ DONE
-
-- GUIDELINE §7 신설, `.env.example` 키 6종 추가
-
-## BFF 타임존 (2026-05-16 확정) — ✅ DONE
-
-- `APP_TIMEZONE` 환경변수, `APP_TZ` 유틸, 일자 경계 제어 3곳 적용
-
-## 최근 작업 이력 (2026-05-15 — 6차)
-
-| # | 작업 | 결과 |
-|---|---|---|
-| 20 | 시스템 이미지 imgproxy 서빙 구조 구축 | `contents/system/` 배치, `build_imgproxy_url(options)` 확장 |
-| 21 | DB 마이그레이션 011 | `districts.image_content_id UUID FK` |
-| 22 | DB 마이그레이션 012 | district 5개 + quest 썸네일 6개 contents 시드 |
-| 23 | BFF District 모델 확장 | `DistrictOut` model_validator imgproxy resolve |
-| 24 | BFF contents 엔드포인트 2종 | `GET /contents/{id}/img`, `GET /contents/mock-img` |
-| 25 | quests `_to_out()` fallback 체인 | quest thumbnail → district image → mock-img |
-| 26 | DB 마이그레이션 013 | `content_owner_type` mock 추가, mock 5개 시드 |
-| 27 | Mock 이미지 5장 배치 | `contents/system/mock/mock-01~05.jpg` |
-| 28 | `BFF_PUBLIC_URL` 환경변수 | `.env` + docker-compose 반영 |
-| 29 | 워크플로우 현행화 | `system-contents-upload.md` |
+- 시스템 이미지 imgproxy 서빙 구조, DB 마이그레이션 011-013, BFF District 확장, contents 엔드포인트 2종, quests fallback 체인, Mock 이미지 배치, `BFF_PUBLIC_URL` 환경변수, 워크플로우 현행화

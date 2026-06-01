@@ -36,6 +36,34 @@ out center;
 """
 
 
+_TYPE_LABEL = {
+    "motorcycle_repair": "Tiệm sửa xe",
+    "motorcycle": "Tiệm xe máy",
+    "fuel": "Cây xăng",
+}
+
+
+def _derive_name(tags: dict) -> str:
+    explicit = (
+        tags.get("name") or tags.get("name:vi") or tags.get("name:en") or tags.get("brand") or tags.get("operator")
+    )
+    if explicit:
+        return explicit
+
+    type_key = tags.get("shop") or tags.get("amenity")
+    type_label = _TYPE_LABEL.get(type_key, type_key) if type_key else None
+
+    street = tags.get("addr:street")
+    housenumber = tags.get("addr:housenumber")
+    addr = f"{housenumber} {street}" if street and housenumber else street
+
+    if type_label and addr:
+        return f"{type_label} - {addr}"
+    if type_label:
+        return type_label
+    return "Unknown"
+
+
 def _fetch_osm(query: str, label: str) -> list[dict]:
     print(f"[OSM] Fetching {label}...", flush=True)
     resp = requests.post(
@@ -61,7 +89,7 @@ def _fetch_osm(query: str, label: str) -> list[dict]:
         items.append(
             {
                 "osm_id": f"{el['type']}/{el['id']}",
-                "name": tags.get("name") or tags.get("brand") or "Unknown",
+                "name": _derive_name(tags),
                 "brand": tags.get("brand"),
                 "lat": lat,
                 "lng": lng,

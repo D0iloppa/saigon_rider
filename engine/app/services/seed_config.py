@@ -40,3 +40,11 @@ async def get_seed_json(seed_code: str, default: Any = None) -> Any:
     raw = await get_seed(seed_code, "null")
     parsed = json.loads(raw)
     return parsed if parsed is not None else default
+
+
+def invalidate(seed_code: str | None = None) -> None:
+    """seed_code 단건 또는 전체 캐시 무효화. Admin 의 PUT 핸들러에서 호출."""
+    if seed_code is None:
+        _cache.clear()
+    else:
+        _cache.pop(seed_code, None)

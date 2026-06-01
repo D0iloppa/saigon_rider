@@ -1,11 +1,8 @@
 :root {
+  /* surface 토큰(--bg/--surface/--line/--text/--text-2/--text-3)은 tokens.css 전역
+   * 정의를 따른다. 여기서 라이트 값으로 재정의하면 다크모드를 전역 무력화하므로 제거.
+   * 아래는 전역 미정의 액센트만 로컬 보강. */
   --brand: #FF5A1F;
-  --bg: #F7F5F0;
-  --surface: #FFFFFF;
-  --line: #E8E3DA;
-  --text: #0B0D14;
-  --text-2: #4A4F62;
-  --text-3: #8A8E9E;
   --danger: #EF3B3B;
   --warn: #F59E0B;
   --safe: #16A34A;

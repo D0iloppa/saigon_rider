@@ -53,8 +53,14 @@ export default function ItemDetail() {
       await purchaseShopItem(item.item_code, currency);
       toast.success(t('itemDetail.purchase_success'));
       setItem({ ...item, is_owned: true });
-    } catch {
-      toast.error(t('common.errorUnexpected'));
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      const m = msg.match(/insufficient (?:GP|GC|GOLD|XP) balance: have (\d+), need (\d+)/i);
+      if (m) {
+        toast.error(t('itemDetail.error_insufficient_balance', { have: m[1], need: m[2] }));
+      } else {
+        toast.error(t('common.errorUnexpected'));
+      }
     } finally {
       setBuying(false);
     }
@@ -63,7 +69,7 @@ export default function ItemDetail() {
   if (notFound) {
     return (
       <div className={s.page} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 13 }}>{t('itemDetail.not_found')}</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('itemDetail.not_found')}</span>
         <button onClick={() => navigate(-1)} style={{ color: 'var(--brand-500)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>{t('itemDetail.go_back')}</button>
       </div>
     );
@@ -72,7 +78,7 @@ export default function ItemDetail() {
   if (!item) {
     return (
       <div className={s.page} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 13 }}>{t('common.loading')}</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('common.loading')}</span>
       </div>
     );
   }
@@ -109,7 +115,7 @@ export default function ItemDetail() {
         <div className={s.rarityChipRow}>
           <span className="rarity-chip" data-r={r}>{RARITY_LABEL[r]}</span>
           {item.is_limited && item.limited_label && (
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', background: 'rgba(255,90,31,.12)', border: '1px solid rgba(255,90,31,.25)', borderRadius: 99, padding: '2px 8px' }}>
+            <span style={{ fontSize: 10, color: 'var(--brand-700)', background: 'rgba(255,90,31,.10)', border: '1px solid rgba(255,90,31,.28)', borderRadius: 99, padding: '2px 8px' }}>
               {item.limited_label}
             </span>
           )}
@@ -132,20 +138,29 @@ export default function ItemDetail() {
           <div className={s.priceStack}>
             <div className={s.priceMain}>
               {item.is_owned ? (
-                <span style={{ fontSize: 14, color: 'rgba(255,255,255,.5)' }}>{t('itemDetail.owned')}</span>
+                <span style={{ fontSize: 14, color: 'var(--text-3)' }}>{t('itemDetail.owned')}</span>
               ) : priceVal}
             </div>
           </div>
         </div>
 
         <div className={s.ctaRow}>
-          <button
-            className={`${s.btnBuy} ${item.is_owned ? s.btnBuyDisabled : ''}`}
-            onClick={handleBuy}
-            disabled={item.is_owned || buying}
-          >
-            {item.is_owned ? t('itemDetail.owned') : buying ? t('itemDetail.buying') : t('shop.buy')}
-          </button>
+          {item.is_owned ? (
+            <button
+              className={s.btnBuy}
+              onClick={() => navigate(`/garage?slot=${item.item_slot}`)}
+            >
+              {t('itemDetail.equip_in_garage')}
+            </button>
+          ) : (
+            <button
+              className={s.btnBuy}
+              onClick={handleBuy}
+              disabled={buying}
+            >
+              {buying ? t('itemDetail.buying') : t('shop.buy')}
+            </button>
+          )}
           <button className={s.btnWishlist} aria-label="wishlist">♡</button>
         </div>
       </div>

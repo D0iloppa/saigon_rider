@@ -84,28 +84,8 @@
   padding-top: 10px;   /* 상단 10px 여백 → 인디케이터 밀착 유지하면서 아이콘 내려옴 */
 }
 
-/* ─── FAB ─────────────────────────────────────────────────────── */
-.fab {
+/* ─── FAB spacer (actual FAB is in FloatingActionButton) ───── */
+.fabSpacer {
   flex-shrink: 0;
   width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: var(--grad-sunset);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: -16px;
-  box-shadow: var(--shadow-pop);
-  position: relative;
-  overflow: hidden;
-  transition: transform .15s ease;
-}
-
-.fab:active {
-  transform: scale(0.95);
-}
-
-.fabIcon {
-  width: 36px;
-  height: 36px;
 }

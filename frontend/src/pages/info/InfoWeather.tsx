@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { weatherApi } from '@/api/info';
 import type { WeatherData, ForecastHour } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { native } from '@/lib/native';
 import styles from './InfoWeather.module.css';
 
 const RAIN_COLOR = (pct: number) => {
@@ -17,10 +18,9 @@ const RAIN_COLOR = (pct: number) => {
 function useGeolocation() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (p) => setCoords({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => setCoords({ lat: 10.776, lng: 106.700 }),
-    );
+    native.getLocation()
+      .then((pos) => setCoords({ lat: pos.lat, lng: pos.lng }))
+      .catch(() => setCoords({ lat: 10.776, lng: 106.700 }));
   }, []);
   return coords;
 }

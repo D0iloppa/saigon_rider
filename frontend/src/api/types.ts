@@ -22,6 +22,7 @@ export interface User {
   skillPoints: number;
   language: Language;
   skills: Record<SkillKey, number>;  // 각 스킬 레벨 0~3
+  createdAt: string;
 }
 
 export interface Quest {

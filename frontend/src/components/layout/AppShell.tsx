@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { TabBar } from './TabBar';
+import { FloatingActionButton } from './FloatingActionButton';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './AppShell.module.css';
 
@@ -25,8 +26,9 @@ export function AppShell({ children, splashVisible, splashFade, gifReady }: Prop
 
   return (
     <div className={styles.shell}>
-      <div className={styles.frame}>
+      <div id="app-frame" className={styles.frame}>
         <div className={styles.viewport}>{children}</div>
+        {!hideTabBar && <FloatingActionButton />}
         {!hideTabBar && <TabBar />}
         {splashVisible && (
           <div className={`${styles.splash} ${splashFade ? styles.splashFade : ''}`}>

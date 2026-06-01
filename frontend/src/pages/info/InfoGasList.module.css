@@ -2,18 +2,18 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #F7F5F0;
+  background: var(--bg);
 }
 
 .iconBtn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #F7F5F0;
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4A4F62;
+  color: var(--text-2);
 }
 
 /* ── Official Price Bar ── */
@@ -41,8 +41,8 @@
 
 /* ── Sort Bar ── */
 .sortBar {
-  background: #FFFFFF;
-  border-bottom: 1px solid #E8E3DA;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
   padding: 8px 16px;
   display: flex;
   align-items: center;
@@ -52,15 +52,22 @@
 
 .sortText {
   font-size: 12px;
-  color: #8A8E9E;
+  color: var(--text-3);
 }
 
 .sortChip {
-  background: #EFF6FF;
+  background: #F3F4F6;
+  border: none;
   border-radius: 20px;
   padding: 3px 10px;
   font-size: 12px;
   font-weight: 600;
+  color: #6B7280;
+  cursor: pointer;
+}
+
+.sortChipActive {
+  background: #EFF6FF;
   color: #3B82F6;
 }
 
@@ -75,7 +82,7 @@
 
 /* ── Card ── */
 .card {
-  background: #FFFFFF;
+  background: var(--surface);
   border-radius: 14px;
   box-shadow: 0 1px 2px rgba(11,13,20,.04), 0 4px 12px rgba(11,13,20,.08);
   overflow: hidden;
@@ -85,7 +92,7 @@
 /* ── Gas Card ── */
 .gasCard {
   padding: 14px 16px;
-  border-bottom: 1px solid #E8E3DA;
+  border-bottom: 1px solid var(--line);
 }
 .gasCard:last-child { border-bottom: none; }
 
@@ -126,7 +133,7 @@
 .gasName {
   font-size: 14px;
   font-weight: 700;
-  color: #0B0D14;
+  color: var(--text);
 }
 
 /* ── Price ── */
@@ -139,13 +146,13 @@
 
 .fuelLabel {
   font-size: 13px;
-  color: #4A4F62;
+  color: var(--text-2);
 }
 
 .price {
   font-size: 16px;
   font-weight: 700;
-  color: #0B0D14;
+  color: var(--text);
 }
 
 .priceCheap { color: #16A34A; }
@@ -166,17 +173,17 @@
 
 .waitLabel {
   font-size: 12px;
-  color: #4A4F62;
+  color: var(--text-2);
 }
 
 .waitLabelDim {
   font-size: 12px;
-  color: #8A8E9E;
+  color: var(--text-3);
 }
 
 .waitMeta {
   font-size: 11px;
-  color: #8A8E9E;
+  color: var(--text-3);
 }
 
 .waitDots {
@@ -189,7 +196,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #E8E3DA;
+  background: var(--line);
 }
 
 .dotFilled { }
@@ -208,7 +215,7 @@
 
 .distanceText {
   font-size: 12px;
-  color: #8A8E9E;
+  color: var(--text-3);
 }
 
 .actionBtns {
@@ -234,8 +241,8 @@
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 600;
-  background: #F7F5F0;
-  color: #4A4F62;
+  background: var(--bg);
+  color: var(--text-2);
   cursor: pointer;
 }
 
@@ -261,7 +268,7 @@
 
 .skeleton {
   height: 100px;
-  background: linear-gradient(90deg, #E8E3DA 25%, #FFFFFF 50%, #E8E3DA 75%);
+  background: linear-gradient(90deg, var(--line) 25%, var(--surface) 50%, var(--line) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   border-radius: 14px;
@@ -270,6 +277,27 @@
 @keyframes shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+.errorWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 16px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.retryBtn {
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: 1px solid var(--brand, #FF5A1F);
+  background: transparent;
+  color: var(--brand, #FF5A1F);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .mono { font-family: 'JetBrains Mono', monospace; }

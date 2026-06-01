@@ -1,0 +1,264 @@
+<link href="/admin/static/vendor/tom-select/tom-select.css" rel="stylesheet">
+<script src="/admin/static/vendor/tom-select/tom-select.complete.min.js"></script>
+<style>
+  .ts-wrapper { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; }
+  .ts-wrapper .ts-control { background: transparent; color: #e2e8f0; border: none; padding: 6px 10px; }
+  .ts-wrapper .ts-control input { color: #e2e8f0 !important; }
+  .ts-wrapper .ts-control .item { background: rgba(99,102,241,.25); border: 1px solid rgba(99,102,241,.4); color: #c7d2fe; border-radius: 5px; padding: 2px 8px; font-size: 12px; }
+  .ts-wrapper .ts-control .item .remove { color: rgba(255,255,255,.5); border-left-color: rgba(255,255,255,.15); }
+  .ts-wrapper .ts-dropdown { background: #1e1e2e; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; margin-top: 2px; }
+  .ts-wrapper .ts-dropdown .option { color: #cbd5e1; padding: 8px 12px; font-size: 13px; }
+  .ts-wrapper .ts-dropdown .option:hover, .ts-wrapper .ts-dropdown .active { background: rgba(99,102,241,.15); color: #e2e8f0; }
+  .ts-wrapper .ts-dropdown .no-results { color: rgba(255,255,255,.35); padding: 10px; font-size: 13px; }
+  .ts-wrapper.focus .ts-control { box-shadow: 0 0 0 2px rgba(99,102,241,.3); }
+
+  .modal-overlay { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.6); align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal-box { background:#1e1e2e; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:24px; width:90%; max-width:680px; max-height:80vh; overflow-y:auto; }
+  .modal-title { font-size:15px; font-weight:600; margin:0 0 16px; }
+  .modal-close { float:right; cursor:pointer; opacity:.5; font-size:18px; }
+  .modal-close:hover { opacity:1; }
+  .badge-count { display:inline-block; background:rgba(239,68,68,.2); color:#fca5a5; border:1px solid rgba(239,68,68,.3); border-radius:10px; padding:1px 8px; font-size:12px; font-weight:600; min-width:24px; text-align:center; }
+</style>
+
+<div class="toolbar">
+  <div>
+    <p class="page-title">FCM 메시지 관리</p>
+    <p class="page-sub">푸시 알림 발송 (전체 / 개인) · 미열람 현황 조회</p>
+  </div>
+</div>
+
+<!-- ── 발송 폼 ──────────────────────────────────── -->
+<div class="card" style="padding:24px;">
+  <div style="margin-bottom:20px;">
+    <label style="font-size:13px;color:rgba(255,255,255,.5);display:block;margin-bottom:8px;">발송 모드</label>
+    <div style="display:flex;gap:16px;">
+      <label style="cursor:pointer;"><input type="radio" name="mode" value="broadcast" checked onchange="toggleMode()"> 전체 발송</label>
+      <label style="cursor:pointer;"><input type="radio" name="mode" value="individual" onchange="toggleMode()"> 개인 발송</label>
+    </div>
+  </div>
+
+  <div id="recipientSection" style="display:none;margin-bottom:20px;">
+    <label style="font-size:13px;color:rgba(255,255,255,.5);display:block;margin-bottom:8px;">수신인</label>
+    <select id="recipientSelect" multiple placeholder="유저 검색 (닉네임 / ID)"></select>
+    <div id="recipientLoading" style="font-size:12px;color:rgba(255,255,255,.3);margin-top:4px;">유저 목록 로딩 중...</div>
+  </div>
+
+  <div style="margin-bottom:16px;">
+    <label style="font-size:13px;color:rgba(255,255,255,.5);display:block;margin-bottom:8px;">제목</label>
+    <input type="text" id="pushTitle" placeholder="푸시 제목" style="width:100%;" />
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <label style="font-size:13px;color:rgba(255,255,255,.5);display:block;margin-bottom:8px;">내용</label>
+    <textarea id="pushBody" placeholder="푸시 내용" rows="3" style="width:100%;resize:vertical;"></textarea>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="btn btn-primary" onclick="sendPush()" id="sendBtn">발송</button>
+    <span id="sendResult" style="font-size:13px;"></span>
+  </div>
+</div>
+
+<!-- ── 최근 발송 이력 + 미열람 현황 버튼 ────────── -->
+<div class="card" style="padding:0;overflow:hidden;margin-top:16px;">
+  <div style="padding:16px 20px 8px;display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:14px;font-weight:600;">최근 발송 이력</span>
+    <button class="btn btn-ghost btn-sm" onclick="showBadges()">미열람 현황</button>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>시간</th>
+        <th>제목</th>
+        <th>모드</th>
+        <th>성공</th>
+        <th>실패</th>
+        <th>발송자</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{history_rows}}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── 미열람 현황 모달 ────────────────────────── -->
+<div id="badgeModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <span class="modal-close" onclick="document.getElementById('badgeModal').classList.remove('open')">&times;</span>
+    <p class="modal-title">미열람 푸시 현황 <span style="font-weight:400;font-size:12px;color:rgba(255,255,255,.4);">(앱 진입 시 자동 clear)</span></p>
+    <div id="badgeSummary" style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:10px;"></div>
+    <input type="text" id="badgeSearch" placeholder="유저 ID / 닉네임 검색" oninput="renderBadgePage()" style="width:100%;margin-bottom:12px;padding:6px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#e2e8f0;font-size:13px;" />
+    <div id="badgeContent" style="font-size:13px;color:rgba(255,255,255,.4);">로딩 중...</div>
+    <div id="badgePager" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;font-size:13px;"></div>
+  </div>
+</div>
+
+<script>
+let recipientSelect = null;
+
+function toggleMode() {
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  document.getElementById('recipientSection').style.display = mode === 'individual' ? 'block' : 'none';
+}
+
+// ── Tom Select ──
+(async function initRecipientSelect() {
+  let users = [];
+  try {
+    const res = await fetch('/admin/push/search-users?q=');
+    users = await res.json();
+  } catch(e) { console.error('유저 목록 로드 실패', e); }
+
+  document.getElementById('recipientLoading').style.display = 'none';
+
+  const options = users.map(u => ({
+    value: String(u.user_id),
+    text: u.nickname
+      ? '#' + u.user_id + ' ' + u.nickname
+      : '#' + u.user_id + ' (' + (u.external_user_uuid || '').slice(0, 8) + '…)',
+    nickname: u.nickname || '',
+    uid: String(u.user_id),
+  }));
+
+  recipientSelect = new TomSelect('#recipientSelect', {
+    options: options,
+    items: [],
+    maxItems: null,
+    searchField: ['text', 'nickname', 'uid'],
+    render: {
+      option: function(data, escape) { return '<div>' + escape(data.text) + '</div>'; },
+      item: function(data, escape) { return '<div>' + escape(data.text) + '</div>'; },
+      no_results: function() { return '<div class="no-results">검색 결과 없음</div>'; },
+    },
+  });
+})();
+
+// ── 발송 ──
+async function sendPush() {
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  const title = document.getElementById('pushTitle').value.trim();
+  const body = document.getElementById('pushBody').value.trim();
+  const resultEl = document.getElementById('sendResult');
+  const btn = document.getElementById('sendBtn');
+
+  if (!title || !body) { resultEl.textContent = '제목과 내용을 입력해주세요.'; resultEl.style.color = '#f87171'; return; }
+  const selectedIds = recipientSelect ? recipientSelect.getValue() : [];
+  if (mode === 'individual' && !selectedIds.length) { resultEl.textContent = '수신인을 선택해주세요.'; resultEl.style.color = '#f87171'; return; }
+
+  const confirmMsg = mode === 'broadcast'
+    ? '전체 사용자에게 푸시를 발송합니다. 계속할까요?'
+    : selectedIds.length + '명에게 푸시를 발송합니다. 계속할까요?';
+  if (!confirm(confirmMsg)) return;
+
+  btn.disabled = true; btn.textContent = '발송 중...'; resultEl.textContent = '';
+
+  const payload = { title, body, mode };
+  if (mode === 'individual') payload.user_ids = selectedIds.map(Number);
+
+  try {
+    const res = await fetch('/admin/push/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      resultEl.style.color = '#4ade80';
+      resultEl.textContent = '발송 완료 — 성공: ' + data.sent_count + ', 실패: ' + data.failed_count;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      resultEl.style.color = '#f87171';
+      resultEl.textContent = '발송 실패: ' + (data.error || 'unknown');
+    }
+  } catch(e) { resultEl.style.color = '#f87171'; resultEl.textContent = '네트워크 오류: ' + e.message; }
+  finally { btn.disabled = false; btn.textContent = '발송'; }
+}
+
+function esc(s) { const el = document.createElement('span'); el.textContent = s; return el.innerHTML; }
+
+// ── 미열람 현황 모달 (검색 + 페이징) ──
+let _badgeData = [];
+let _badgePage = 1;
+const _badgePerPage = 20;
+
+async function showBadges() {
+  const modal = document.getElementById('badgeModal');
+  const content = document.getElementById('badgeContent');
+  document.getElementById('badgeSummary').textContent = '';
+  document.getElementById('badgePager').innerHTML = '';
+  document.getElementById('badgeSearch').value = '';
+  content.innerHTML = '<span style="color:rgba(255,255,255,.4)">로딩 중...</span>';
+  modal.classList.add('open');
+
+  try {
+    const res = await fetch('/admin/push/badges');
+    _badgeData = await res.json();
+    _badgeData.sort((a, b) => b.badge_count - a.badge_count);
+    _badgePage = 1;
+    renderBadgePage();
+  } catch(e) {
+    content.innerHTML = '<span style="color:#f87171;">조회 실패: ' + e.message + '</span>';
+  }
+}
+
+function getFilteredBadges() {
+  const q = (document.getElementById('badgeSearch').value || '').trim().toLowerCase();
+  if (!q) return _badgeData;
+  return _badgeData.filter(item =>
+    String(item.user_id).includes(q) ||
+    (item.nickname || '').toLowerCase().includes(q) ||
+    (item.fcm_token || '').toLowerCase().includes(q)
+  );
+}
+
+function renderBadgePage() {
+  const content = document.getElementById('badgeContent');
+  const summary = document.getElementById('badgeSummary');
+  const pager = document.getElementById('badgePager');
+  const filtered = getFilteredBadges();
+
+  if (!_badgeData.length) {
+    summary.textContent = '';
+    pager.innerHTML = '';
+    content.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,.3);">미열람 푸시가 없습니다. (모든 유저 badge = 0)</div>';
+    return;
+  }
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / _badgePerPage));
+  if (_badgePage > totalPages) _badgePage = totalPages;
+  const start = (_badgePage - 1) * _badgePerPage;
+  const page = filtered.slice(start, start + _badgePerPage);
+
+  const q = document.getElementById('badgeSearch').value.trim();
+  summary.textContent = q
+    ? '검색 결과: ' + totalFiltered + '명 (전체 ' + _badgeData.length + '명)'
+    : '총 ' + _badgeData.length + '명의 유저에게 미열람 푸시가 있습니다.';
+
+  if (!page.length) {
+    content.innerHTML = '<div style="text-align:center;padding:16px;color:rgba(255,255,255,.3);">검색 결과 없음</div>';
+    pager.innerHTML = '';
+    return;
+  }
+
+  let html = '<table class="table" style="font-size:13px;">' +
+    '<thead><tr><th>유저</th><th>닉네임</th><th>FCM 토큰</th><th style="text-align:right;">미열람</th></tr></thead><tbody>';
+  page.forEach(item => {
+    html += '<tr>' +
+      '<td style="font-family:monospace;">#' + item.user_id + '</td>' +
+      '<td>' + esc(item.nickname || '-') + '</td>' +
+      '<td style="font-family:monospace;font-size:11px;color:rgba(255,255,255,.4);">' + esc(item.fcm_token || '-') + '</td>' +
+      '<td style="text-align:right;"><span class="badge-count">' + item.badge_count + '</span></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  content.innerHTML = html;
+
+  // pager
+  if (totalPages <= 1) { pager.innerHTML = ''; return; }
+  let ph = '<button class="btn btn-ghost btn-sm" onclick="badgeGo(' + (_badgePage - 1) + ')"' + (_badgePage <= 1 ? ' disabled' : '') + '>&lsaquo;</button>';
+  ph += '<span style="color:rgba(255,255,255,.5);">' + _badgePage + ' / ' + totalPages + '</span>';
+  ph += '<button class="btn btn-ghost btn-sm" onclick="badgeGo(' + (_badgePage + 1) + ')"' + (_badgePage >= totalPages ? ' disabled' : '') + '>&rsaquo;</button>';
+  pager.innerHTML = ph;
+}
+
+function badgeGo(p) { _badgePage = p; renderBadgePage(); }
+</script>

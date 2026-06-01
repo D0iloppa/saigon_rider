@@ -22,8 +22,31 @@ async def update(user_id: int, lat: float, lng: float, distance_m: float) -> lis
     async with AsyncSessionLocal() as db:
         active_cards = await _get_active_cards(db, user_id)
         completed_ids: list[int] = []
+        has_coord = not (lat == 0 and lng == 0)
+        now = datetime.now(timezone.utc)
 
         for card in active_cards:
+            # ── 라이브 텔레메트리 갱신 (모든 카드 공통) ──
+            if has_coord:
+                prev_ts = card.last_gps_at
+                dt = (now - prev_ts).total_seconds() if prev_ts is not None else 0.0
+                if distance_m > 0 and dt > 0:
+                    card.last_speed_kmh = round(distance_m / dt * 3.6, 2)
+                elif distance_m <= 0:
+                    card.last_speed_kmh = 0.0
+                # dt == 0 (첫 핑) 케이스는 이전 값 유지
+
+                card.last_lat = lat
+                card.last_lng = lng
+                card.last_gps_at = now
+
+                if card.card_type == QuestCardTypeEnum.CHECKPOINT \
+                        and card.target_lat is not None and card.target_lng is not None:
+                    card.distance_to_target_m = int(
+                        _haversine(lat, lng, float(card.target_lat), float(card.target_lng))
+                    )
+
+            # ── 달성 판정 ──
             if card.card_type == QuestCardTypeEnum.DISTANCE:
                 if distance_m <= 0:
                     continue
@@ -33,11 +56,10 @@ async def update(user_id: int, lat: float, lng: float, distance_m: float) -> lis
                     completed_ids.append(card.card_id)
 
             elif card.card_type == QuestCardTypeEnum.CHECKPOINT:
-                if lat == 0 and lng == 0:
+                if not has_coord or card.distance_to_target_m is None:
                     continue
                 threshold = await seed_config.get_seed_int("CHECKPOINT_PROXIMITY_M", 100)
-                dist = _haversine(lat, lng, float(card.target_lat), float(card.target_lng))
-                if dist <= threshold:
+                if card.distance_to_target_m <= threshold:
                     await _complete_card(card)
                     completed_ids.append(card.card_id)
 

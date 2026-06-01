@@ -11,6 +11,14 @@ from app.models import DailyFeaturedItem, ItemDefinition, SreUser, UserItem
 from app.schemas import ShopPurchaseResult
 from app.services.xp_ledger import get_or_create_user
 
+# 상점 드릴다운 그룹 → 슬롯 집합 (프론트 ShopCatalog 그룹과 일치)
+SHOP_GROUPS: dict[str, tuple[str, ...]] = {
+    "rider": ("HELMET", "JACKET", "GLOVES", "EYEWEAR", "BOOTS"),
+    "bike": ("BODY", "ENGINE", "SEAT", "STICKER", "HANDLE", "MIRROR", "LIGHT", "TAIL", "NUMBER"),
+    "effect": ("NAME", "RANK", "FRAME", "TITLE", "BACKDROP",
+               "TRAIL", "START", "HORN", "BANNER", "EMOTE", "PET"),
+}
+
 
 async def list_shop_items(
     db: AsyncSession,
@@ -18,7 +26,9 @@ async def list_shop_items(
     collection: str | None = None,
     rarity: str | None = None,
     slot: str | None = None,
+    group: str | None = None,
     limit: int = 50,
+    offset: int = 0,
     user_uuid: str | None = None,
 ) -> list[dict]:
     query = (
@@ -34,11 +44,16 @@ async def list_shop_items(
         if slot not in ItemSlotEnum.__members__:
             return []
         query = query.where(ItemDefinition.slot == slot)
+    if group:
+        # 알 수 없는 그룹은 빈 결과
+        if group not in SHOP_GROUPS:
+            return []
+        query = query.where(ItemDefinition.slot.in_(SHOP_GROUPS[group]))
 
     query = query.order_by(
         ItemDefinition.rarity.asc(),
         ItemDefinition.collection_code.asc(),
-    ).limit(limit)
+    ).offset(offset).limit(limit)
 
     result = await db.execute(query)
     items = list(result.scalars().all())

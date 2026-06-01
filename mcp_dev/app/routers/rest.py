@@ -1,13 +1,14 @@
 from datetime import UTC, datetime
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import DevContext, DevFeature, DevTodo
+from .. import plane_client as plane
+from ..models import DevFeature, DevTodo
 from ..schemas import (
-    DevContextOut,
     DevContextUpsertRequest,
     DevFeatureCreateRequest,
     DevFeatureOut,
@@ -18,6 +19,8 @@ from ..schemas import (
     Page,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["__DEV Context"])
 
 _VALID_FEATURE_STATUS = {"PLANNED", "IN_PROGRESS", "DONE", "DEFERRED"}
@@ -25,51 +28,36 @@ _VALID_TODO_STATUS = {"TODO", "IN_PROGRESS", "DONE", "BLOCKED"}
 _VALID_TODO_PRIORITY = {"LOW", "MEDIUM", "HIGH", "URGENT"}
 
 
-# ── Context ─────────────────────────────────────────────────────
+# ── Context (key-value) — Plane (ctx 라벨) ──────────────────────
 
 
-@router.get("/context", response_model=list[DevContextOut])
-async def list_context(db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(select(DevContext).order_by(DevContext.key))).scalars().all()
-    return rows
+@router.get("/context")
+async def list_context():
+    return await plane.list_context()
 
 
-@router.get("/context/{key}", response_model=DevContextOut)
-async def get_context(key: str, db: AsyncSession = Depends(get_db)):
-    row = (await db.execute(select(DevContext).where(DevContext.key == key))).scalar_one_or_none()
-    if row is None:
+@router.get("/context/{key}")
+async def get_context(key: str):
+    ctx = await plane.get_context(key)
+    if ctx is None:
         raise HTTPException(status_code=404, detail="Context key not found")
-    return row
+    return ctx
 
 
-@router.put("/context", response_model=DevContextOut)
-async def upsert_context(body: DevContextUpsertRequest, db: AsyncSession = Depends(get_db)):
-    row = (await db.execute(select(DevContext).where(DevContext.key == body.key))).scalar_one_or_none()
-    if row is None:
-        row = DevContext(key=body.key, value=body.value, status=body.status or "⏸", meta=body.meta)
-        db.add(row)
-    else:
-        row.value = body.value
-        if body.status is not None:
-            row.status = body.status
-        row.meta = body.meta
-        row.updated_at = datetime.now(UTC)
-    await db.commit()
-    await db.refresh(row)
-    return row
+@router.put("/context")
+async def upsert_context(body: DevContextUpsertRequest):
+    return await plane.upsert_context(body.key, body.value or "", body.status or "⏸")
 
 
 @router.delete("/context/{key}")
-async def delete_context(key: str, db: AsyncSession = Depends(get_db)):
-    row = (await db.execute(select(DevContext).where(DevContext.key == key))).scalar_one_or_none()
-    if row is None:
+async def delete_context(key: str):
+    ok = await plane.delete_context(key)
+    if not ok:
         raise HTTPException(status_code=404, detail="Context key not found")
-    await db.delete(row)
-    await db.commit()
     return {"ok": True}
 
 
-# ── Features ────────────────────────────────────────────────────
+# ── Features — Plane 우선, DB 폴백 ─────────────────────────────
 
 
 @router.get("/features", response_model=Page[DevFeatureOut])
@@ -80,6 +68,11 @@ async def list_features(
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
+    try:
+        return await plane.list_features(category=category, status=status, page=page, size=size)
+    except Exception:
+        logger.warning("Plane API failed for list_features, falling back to DB", exc_info=True)
+
     stmt = select(DevFeature)
     count_stmt = select(func.count()).select_from(DevFeature)
     if category:
@@ -91,15 +84,10 @@ async def list_features(
 
     total = (await db.execute(count_stmt)).scalar_one()
     rows = (
-        (
-            await db.execute(
-                stmt.order_by(DevFeature.category, DevFeature.sort_order, DevFeature.id)
-                .offset((page - 1) * size)
-                .limit(size)
-            )
-        )
-        .scalars()
-        .all()
+        (await db.execute(
+            stmt.order_by(DevFeature.category, DevFeature.sort_order, DevFeature.id)
+            .offset((page - 1) * size).limit(size)
+        )).scalars().all()
     )
     return Page(items=rows, total=total, page=page, size=size)
 
@@ -108,6 +96,12 @@ async def list_features(
 async def create_feature(body: DevFeatureCreateRequest, db: AsyncSession = Depends(get_db)):
     if body.status not in _VALID_FEATURE_STATUS:
         raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}")
+    try:
+        issue = await plane.create_issue(body.name, description=body.description, state=body.status, label=body.category)
+        return plane._issue_to_feature(issue)
+    except Exception:
+        logger.warning("Plane API failed for create_feature, falling back to DB", exc_info=True)
+
     row = DevFeature(**body.model_dump())
     db.add(row)
     await db.commit()
@@ -117,12 +111,22 @@ async def create_feature(body: DevFeatureCreateRequest, db: AsyncSession = Depen
 
 @router.patch("/features/{feature_id}", response_model=DevFeatureOut)
 async def update_feature(feature_id: int, body: DevFeatureUpdateRequest, db: AsyncSession = Depends(get_db)):
-    row = await db.get(DevFeature, feature_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Feature not found")
     updates = body.model_dump(exclude_unset=True)
     if "status" in updates and updates["status"] not in _VALID_FEATURE_STATUS:
         raise HTTPException(status_code=400, detail=f"Invalid status: {updates['status']}")
+
+    try:
+        issue = await plane.get_issue_by_sequence_id(feature_id)
+        if issue:
+            result = await plane.update_issue(issue["id"], **updates)
+            if result:
+                return plane._issue_to_feature(result)
+    except Exception:
+        logger.warning("Plane API failed for update_feature, falling back to DB", exc_info=True)
+
+    row = await db.get(DevFeature, feature_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Feature not found")
     for k, v in updates.items():
         setattr(row, k, v)
     row.updated_at = datetime.now(UTC)
@@ -133,6 +137,14 @@ async def update_feature(feature_id: int, body: DevFeatureUpdateRequest, db: Asy
 
 @router.delete("/features/{feature_id}")
 async def delete_feature(feature_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        issue = await plane.get_issue_by_sequence_id(feature_id)
+        if issue:
+            await plane.delete_issue(issue["id"])
+            return {"ok": True}
+    except Exception:
+        logger.warning("Plane API failed for delete_feature, falling back to DB", exc_info=True)
+
     row = await db.get(DevFeature, feature_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Feature not found")
@@ -141,7 +153,7 @@ async def delete_feature(feature_id: int, db: AsyncSession = Depends(get_db)):
     return {"ok": True}
 
 
-# ── Todos ───────────────────────────────────────────────────────
+# ── Todos — Plane 우선, DB 폴백 ────────────────────────────────
 
 
 @router.get("/todos", response_model=Page[DevTodoOut])
@@ -153,6 +165,11 @@ async def list_todos(
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
+    try:
+        return await plane.list_todos(status=status, priority=priority, page=page, size=size)
+    except Exception:
+        logger.warning("Plane API failed for list_todos, falling back to DB", exc_info=True)
+
     stmt = select(DevTodo)
     count_stmt = select(func.count()).select_from(DevTodo)
     if status and status in _VALID_TODO_STATUS:
@@ -167,15 +184,10 @@ async def list_todos(
 
     total = (await db.execute(count_stmt)).scalar_one()
     rows = (
-        (
-            await db.execute(
-                stmt.order_by(DevTodo.status, DevTodo.priority.desc(), DevTodo.created_at.desc())
-                .offset((page - 1) * size)
-                .limit(size)
-            )
-        )
-        .scalars()
-        .all()
+        (await db.execute(
+            stmt.order_by(DevTodo.status, DevTodo.priority.desc(), DevTodo.created_at.desc())
+            .offset((page - 1) * size).limit(size)
+        )).scalars().all()
     )
     return Page(items=rows, total=total, page=page, size=size)
 
@@ -186,6 +198,15 @@ async def create_todo(body: DevTodoCreateRequest, db: AsyncSession = Depends(get
         raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}")
     if body.priority not in _VALID_TODO_PRIORITY:
         raise HTTPException(status_code=400, detail=f"Invalid priority: {body.priority}")
+    try:
+        issue = await plane.create_issue(
+            body.title, description=body.description, state=body.status, priority=body.priority,
+            due_date=str(body.due_date) if body.due_date else None,
+        )
+        return plane._issue_to_todo(issue)
+    except Exception:
+        logger.warning("Plane API failed for create_todo, falling back to DB", exc_info=True)
+
     row = DevTodo(**body.model_dump())
     db.add(row)
     await db.commit()
@@ -195,15 +216,33 @@ async def create_todo(body: DevTodoCreateRequest, db: AsyncSession = Depends(get
 
 @router.patch("/todos/{todo_id}", response_model=DevTodoOut)
 async def update_todo(todo_id: int, body: DevTodoUpdateRequest, db: AsyncSession = Depends(get_db)):
-    row = await db.get(DevTodo, todo_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Todo not found")
     updates = body.model_dump(exclude_unset=True)
     if "status" in updates and updates["status"] not in _VALID_TODO_STATUS:
         raise HTTPException(status_code=400, detail=f"Invalid status: {updates['status']}")
     if "priority" in updates and updates["priority"] not in _VALID_TODO_PRIORITY:
         raise HTTPException(status_code=400, detail=f"Invalid priority: {updates['priority']}")
-    for k, v in updates.items():
+
+    plane_updates = {}
+    if "title" in updates:
+        plane_updates["name"] = updates.pop("title")
+    if "due_date" in updates:
+        plane_updates["due_date"] = str(updates.pop("due_date")) if updates["due_date"] else None
+    plane_updates.update(updates)
+
+    try:
+        issue = await plane.get_issue_by_sequence_id(todo_id)
+        if issue:
+            result = await plane.update_issue(issue["id"], **plane_updates)
+            if result:
+                return plane._issue_to_todo(result)
+    except Exception:
+        logger.warning("Plane API failed for update_todo, falling back to DB", exc_info=True)
+
+    row = await db.get(DevTodo, todo_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    orig_updates = body.model_dump(exclude_unset=True)
+    for k, v in orig_updates.items():
         setattr(row, k, v)
     row.updated_at = datetime.now(UTC)
     await db.commit()
@@ -213,6 +252,14 @@ async def update_todo(todo_id: int, body: DevTodoUpdateRequest, db: AsyncSession
 
 @router.delete("/todos/{todo_id}")
 async def delete_todo(todo_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        issue = await plane.get_issue_by_sequence_id(todo_id)
+        if issue:
+            await plane.delete_issue(issue["id"])
+            return {"ok": True}
+    except Exception:
+        logger.warning("Plane API failed for delete_todo, falling back to DB", exc_info=True)
+
     row = await db.get(DevTodo, todo_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Todo not found")
@@ -221,26 +268,12 @@ async def delete_todo(todo_id: int, db: AsyncSession = Depends(get_db)):
     return {"ok": True}
 
 
-# ── Summary ─────────────────────────────────────────────────────
+# ── Summary — Plane 전용 ───────────────────────────────────────
 
 
 @router.get("/summary")
-async def dev_summary(db: AsyncSession = Depends(get_db)):
-    context_rows = (await db.execute(select(DevContext).order_by(DevContext.key))).scalars().all()
-    context = {r.key: {"value": r.value, "status": r.status} for r in context_rows}
-
-    feature_counts = {}
-    for st in _VALID_FEATURE_STATUS:
-        cnt = (await db.execute(select(func.count()).where(DevFeature.status == st))).scalar_one()
-        feature_counts[st] = cnt
-
-    todo_counts = {}
-    for st in _VALID_TODO_STATUS:
-        cnt = (await db.execute(select(func.count()).where(DevTodo.status == st))).scalar_one()
-        todo_counts[st] = cnt
-
-    return {
-        "context": context,
-        "features": feature_counts,
-        "todos": todo_counts,
-    }
+async def dev_summary():
+    context_list = await plane.list_context()
+    context = {c["key"]: {"value": c["value"], "status": c["status"]} for c in context_list}
+    plane_summary = await plane.get_summary()
+    return {"context": context, **plane_summary}

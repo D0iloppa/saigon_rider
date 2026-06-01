@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useDialogStore } from '@/store/useDialogStore';
 import { expToNextLevel } from '@/lib/rewards';
-import { formatNumber, formatRelativeTime } from '@/lib/format';
+import { formatNumber, formatRelativeTime, splitNumberParts } from '@/lib/format';
 import type { BadgeWithEarned, FeedPost, QuestHistoryItem, UserStats } from '@/api/types';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
@@ -451,7 +451,15 @@ export default function ProfileMain() {
               </div>
 
               <div className={styles.odometerBig}>
-                <span className={styles.odometerNum}>{formatNumber(totalMileage)}</span>
+                {(() => {
+                  const { int, frac } = splitNumberParts(totalMileage);
+                  return (
+                    <>
+                      <span className={styles.odometerNum}>{int}</span>
+                      {frac && <span className={styles.odometerFrac}>{frac}</span>}
+                    </>
+                  );
+                })()}
                 <span className={styles.odometerUnit}>km</span>
                 <div className={styles.odometerSubtitle}>{t('profile.totalDistance')}</div>
               </div>

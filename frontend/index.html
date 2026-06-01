@@ -37,6 +37,22 @@
       })();
     </script>
 
+    <!--
+      테마 선반영 — React 렌더링 전에 data-theme 를 세팅해 다크모드 깜박임(FOUC) 방지.
+      저장 형식은 zustand persist(키 'saigon-rider-theme')의 {state:{theme}} 래핑.
+      값이 없으면 'light'(기본). 런타임 토글은 useThemeStore 가 갱신한다.
+    -->
+    <script>
+      (function () {
+        var theme = 'light';
+        try {
+          var raw = localStorage.getItem('saigon-rider-theme');
+          if (raw && JSON.parse(raw).state.theme === 'dark') theme = 'dark';
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

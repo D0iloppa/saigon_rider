@@ -858,3 +858,159 @@ async def admin_policy_delete(
     await db.delete(p)
     await db.commit()
     return {"deleted": True, "policy_id": policy_id}
+
+
+# ── FCM 푸시 발송 ──────────────────────────────────────────────
+
+
+@router.get("/push/users", dependencies=[_svc])
+async def admin_push_users(
+    q: str = Query(""),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """FCM 토큰이 있는 유저 목록 (검색 가능)."""
+    stmt = (
+        select(
+            SreUser.user_id,
+            SreUser.external_user_uuid,
+            DeviceUserMap.fcm_token,
+            DeviceUserMap.device_uuid,
+        )
+        .join(DeviceUserMap, DeviceUserMap.user_id == SreUser.user_id)
+        .where(DeviceUserMap.fcm_token.isnot(None))
+        .where(DeviceUserMap.fcm_token != "")
+    )
+    if q:
+        stmt = stmt.where(SreUser.external_user_uuid.ilike(f"%{q}%"))
+    stmt = stmt.order_by(SreUser.user_id).limit(50)
+    rows = (await db.execute(stmt)).all()
+    return [
+        {
+            "user_id": r.user_id,
+            "external_user_uuid": r.external_user_uuid,
+            "fcm_token": r.fcm_token,
+            "device_uuid": r.device_uuid,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/push/send", dependencies=[_svc])
+async def admin_push_send(
+    data: dict,
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """FCM 푸시 발송 (broadcast / individual)."""
+    from app.services.fcm_push import send_push
+
+    title = data.get("title", "")
+    body = data.get("body", "")
+    mode = data.get("mode", "broadcast")
+    user_ids = data.get("user_ids")
+    push_data = data.get("data")
+    sender = data.get("sender", "admin")
+
+    if not title or not body:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="title and body required",
+        )
+
+    if mode == "individual":
+        if not user_ids:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="user_ids required for individual mode",
+            )
+        stmt = (
+            select(DeviceUserMap.user_id, DeviceUserMap.fcm_token)
+            .where(DeviceUserMap.user_id.in_(user_ids))
+            .where(DeviceUserMap.fcm_token.isnot(None))
+            .where(DeviceUserMap.fcm_token != "")
+        )
+    else:
+        stmt = (
+            select(DeviceUserMap.user_id, DeviceUserMap.fcm_token)
+            .where(DeviceUserMap.fcm_token.isnot(None))
+            .where(DeviceUserMap.fcm_token != "")
+        )
+
+    rows = (await db.execute(stmt)).all()
+    targets = [{"user_id": r.user_id, "fcm_token": r.fcm_token} for r in rows]
+
+    if not targets:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No users with FCM tokens found",
+        )
+
+    try:
+        result = await send_push(
+            title=title,
+            body=body,
+            mode=mode,
+            targets=targets,
+            data=push_data,
+            sender=sender,
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+    return {"success": True, **result.to_dict()}
+
+
+@router.get("/push/history", dependencies=[_svc])
+async def admin_push_history(
+    limit: int = Query(50, ge=1, le=200),
+) -> list[dict]:
+    """최근 발송 이력 (Redis TTL 내)."""
+    from app.services.fcm_push import get_push_history
+
+    return await get_push_history(limit=limit)
+
+
+@router.get("/push/log/{message_id}", dependencies=[_svc])
+async def admin_push_log_detail(message_id: str) -> dict:
+    """단건 발송 상세 (수신자 목록 포함)."""
+    from app.services.fcm_push import get_push_log
+
+    data = await get_push_log(message_id)
+    if data is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log not found")
+    return data
+
+
+@router.get("/push/badges", dependencies=[_svc])
+async def admin_push_badges(
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """미열람 badge가 1 이상인 유저 현황."""
+    from app.services.fcm_push import get_all_badges
+
+    badges = await get_all_badges()
+    if not badges:
+        return []
+
+    rows = (
+        await db.execute(
+            select(
+                SreUser.user_id,
+                SreUser.external_user_uuid,
+                DeviceUserMap.fcm_token,
+            )
+            .join(DeviceUserMap, DeviceUserMap.user_id == SreUser.user_id)
+            .where(SreUser.user_id.in_(list(badges.keys())))
+        )
+    ).all()
+
+    return [
+        {
+            "user_id": r.user_id,
+            "external_user_uuid": r.external_user_uuid,
+            "fcm_token": (r.fcm_token or "")[:20] + "…" if r.fcm_token else "",
+            "badge_count": badges.get(r.user_id, 0),
+        }
+        for r in rows
+    ]

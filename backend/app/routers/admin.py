@@ -10,8 +10,9 @@ from html import escape as h
 from pathlib import Path
 
 import bcrypt
+import httpx
 import jwt
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,6 +84,8 @@ _NAV_KEYS = (
     "sre",
     "items",
     "policies",
+    "ride_config",
+    "push",
     "stream",
     "support",
     "dev",
@@ -994,10 +997,11 @@ async def admin_users_list(
             f"<td>{u.gold}</td>"
             f"<td>{h(rider_type_name)}</td>"
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{u.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
+            f'<td><button class="btn btn-ghost btn-sm" onclick="showDeviceInfo(\'{u.id}\')">상세</button></td>'
             f"</tr>"
         )
     if not rows_html:
-        rows_html.append('<tr><td colspan="8" class="empty">조건에 맞는 유저가 없습니다.</td></tr>')
+        rows_html.append('<tr><td colspan="9" class="empty">조건에 맞는 유저가 없습니다.</td></tr>')
 
     pagination = _build_pagination("/admin/users", page, size, total, q=q)
     return _render_page(
@@ -1009,6 +1013,32 @@ async def admin_users_list(
         total=str(total),
         q=h(q),
         pagination=pagination,
+    )
+
+
+# ── 유저 상세 (디바이스 연동 정보) ────────────────────────────────
+
+
+@router.get("/users/{user_id}/device", include_in_schema=False)
+async def admin_user_device(
+    user_id: str,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        info = await engine_client.lookup_device_map(str(user.id))
+    except Exception:
+        _log.exception("device-map lookup failed for user %s", user_id)
+        info = {}
+    return JSONResponse(
+        {
+            "device_uuid": info.get("device_uuid") or None,
+            "fcm_token": info.get("fcm_token") or None,
+            "logged_in_at": info.get("logged_in_at") or None,
+        }
     )
 
 
@@ -2881,6 +2911,122 @@ async def admin_api_policy_delete(policy_id: int, session: AdminSession = Depend
     return JSONResponse(result)
 
 
+# ── SRE: 라이딩 표시 정책 (Checkpoint proximity / distance bands) ──
+
+
+_RIDE_CONFIG_FLASHES = {
+    "saved": ("저장되었습니다.", True),
+    "empty_bands": ("밴드는 1개 이상 필요합니다.", False),
+    "invalid_threshold": ("threshold 는 0 보다 큰 정수여야 합니다.", False),
+    "duplicate_code": ("밴드 코드가 중복되었습니다.", False),
+    "invalid_proximity": ("proximity_m 은 0 보다 큰 정수여야 합니다.", False),
+    "engine_error": ("엔진 호출에 실패했습니다.", False),
+}
+
+
+def _render_band_rows(bands: list[dict]) -> str:
+    rows = []
+    for b in bands:
+        code = h(str(b.get("code", "")))
+        thr = h(str(b.get("thresholdM", "")))
+        rows.append(
+            "<tr>"
+            f'<td><input type="text" name="band_code" value="{code}" placeholder="BAND_5KM" style="width:100%;" required></td>'
+            f'<td><input type="number" name="band_threshold" value="{thr}" min="1" placeholder="5000" style="width:100%;" required></td>'
+            '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()">삭제</button></td>'
+            "</tr>"
+        )
+    if not rows:
+        rows.append(
+            "<tr>"
+            '<td><input type="text" name="band_code" placeholder="BAND_5KM" style="width:100%;" required></td>'
+            '<td><input type="number" name="band_threshold" min="1" placeholder="5000" style="width:100%;" required></td>'
+            '<td><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove()">삭제</button></td>'
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+@router.get("/config/ride", include_in_schema=False)
+async def admin_ride_config_page(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        policy = await engine_client.get_ride_policy()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    proximity_m = int(policy.get("checkpointProximityM", 100))
+    bands = policy.get("checkpointDistanceBands") or []
+
+    flash_html = ""
+    if flash and flash in _RIDE_CONFIG_FLASHES:
+        msg, ok = _RIDE_CONFIG_FLASHES[flash]
+        cls = "ok" if ok else "warn"
+        flash_html = f'<div class="flash {cls}">{msg}</div>'
+
+    return _render_page(
+        "sre_ride_config.html",
+        nav="ride_config",
+        page_title="라이딩 표시 정책",
+        session=session,
+        proximity_m=str(proximity_m),
+        band_rows=_render_band_rows(bands),
+        flash=flash_html,
+    )
+
+
+@router.post("/config/ride", include_in_schema=False)
+async def admin_ride_config_save(
+    request: Request,
+    session: AdminSession = Depends(verify_admin_session),
+):
+    form = await request.form()
+
+    # proximity
+    try:
+        proximity_m = int(form.get("proximity_m", ""))
+        if proximity_m <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return RedirectResponse("/admin/config/ride?flash=invalid_proximity", status_code=303)
+
+    codes = form.getlist("band_code")
+    thresholds = form.getlist("band_threshold")
+
+    bands: list[dict] = []
+    seen_codes: set[str] = set()
+    for code_raw, thr_raw in zip(codes, thresholds, strict=False):
+        code = (code_raw or "").strip()
+        if not code:
+            continue
+        try:
+            thr = int(thr_raw)
+        except (TypeError, ValueError):
+            return RedirectResponse("/admin/config/ride?flash=invalid_threshold", status_code=303)
+        if thr <= 0:
+            return RedirectResponse("/admin/config/ride?flash=invalid_threshold", status_code=303)
+        if code in seen_codes:
+            return RedirectResponse("/admin/config/ride?flash=duplicate_code", status_code=303)
+        seen_codes.add(code)
+        bands.append({"code": code, "thresholdM": thr})
+
+    if not bands:
+        return RedirectResponse("/admin/config/ride?flash=empty_bands", status_code=303)
+
+    bands.sort(key=lambda b: b["thresholdM"], reverse=True)
+
+    try:
+        await engine_client.update_seed("CHECKPOINT_PROXIMITY_M", str(proximity_m))
+        await engine_client.update_seed("CHECKPOINT_DISTANCE_BANDS", _json.dumps(bands, ensure_ascii=False))
+    except Exception as e:
+        _log.exception("ride config save failed: %s", e)
+        return RedirectResponse("/admin/config/ride?flash=engine_error", status_code=303)
+
+    return RedirectResponse("/admin/config/ride?flash=saved", status_code=303)
+
+
 # ── 고객센터 ─────────────────────────────────────────────────────
 
 _SUPPORT_STATUS_LABEL = {"OPEN": "접수", "IN_PROGRESS": "처리중", "RESOLVED": "해결"}
@@ -3052,3 +3198,145 @@ async def admin_support_status(
         ticket.status = new_status
         await db.commit()
     return RedirectResponse(f"/admin/support/{ticket_id}?flash=status_updated", status_code=303)
+
+
+# ── FCM 푸시 관리 ──────────────────────────────────────────────
+
+
+@router.get("/push", include_in_schema=False)
+async def admin_push_page(
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        history = await engine_client.push_history(limit=50)
+    except Exception:
+        history = []
+
+    rows_html = []
+    for item in history:
+        sent_at = item.get("sent_at", "")
+        if sent_at and sent_at.isdigit():
+            from datetime import datetime
+
+            dt = datetime.fromtimestamp(int(sent_at), tz=UTC)
+            sent_at = dt.strftime("%m-%d %H:%M")
+        mode_label = "전체" if item.get("mode") == "broadcast" else "개인"
+        rows_html.append(
+            f"<tr><td>{h(sent_at)}</td><td>{h(item.get('title', ''))}</td>"
+            f"<td>{mode_label}</td>"
+            f"<td>{h(item.get('sent_count', '0'))}</td>"
+            f"<td>{h(item.get('failed_count', '0'))}</td>"
+            f"<td>{h(item.get('sender', ''))}</td></tr>"
+        )
+
+    return _render_page(
+        "push.html",
+        nav="push",
+        page_title="FCM 메시지 관리",
+        session=session,
+        history_rows="\n".join(rows_html)
+        if rows_html
+        else '<tr><td colspan="6" style="text-align:center;opacity:.5">발송 이력 없음</td></tr>',
+    )
+
+
+@router.get("/push/search-users", include_in_schema=False)
+async def admin_push_search_users(
+    q: str = Query(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        engine_users = await engine_client.push_user_list(q=q)
+    except Exception:
+        engine_users = []
+
+    uuids = [eu.get("external_user_uuid") for eu in engine_users if eu.get("external_user_uuid")]
+    if uuids:
+        bff_rows = (await db.execute(select(User.id, User.nickname).where(User.id.in_(uuids)))).all()
+        nick_map = {str(u.id): u.nickname for u in bff_rows}
+        for eu in engine_users:
+            eu["nickname"] = nick_map.get(eu.get("external_user_uuid"), "")
+
+    return JSONResponse(engine_users)
+
+
+@router.post("/push/send", include_in_schema=False)
+async def admin_push_send(
+    request: Request,
+    session: AdminSession = Depends(verify_admin_session),
+):
+    body = await request.json()
+    body["sender"] = session.username
+    try:
+        result = await engine_client.send_push(body)
+        return JSONResponse(result)
+    except httpx.HTTPStatusError as exc:
+        try:
+            detail = exc.response.json().get("detail", str(exc))
+        except Exception:
+            detail = exc.response.text
+        _log.warning("push send failed: %s", detail)
+        return JSONResponse({"success": False, "error": detail}, status_code=exc.response.status_code)
+    except Exception as exc:
+        _log.exception("push send failed")
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=500)
+
+
+@router.get("/push/log/{message_id}", include_in_schema=False)
+async def admin_push_log_detail(
+    message_id: str,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await engine_client.push_log_detail(message_id)
+    except Exception:
+        return JSONResponse({"error": "조회 실패"}, status_code=500)
+
+    recipients_raw = data.get("recipients", "[]")
+    try:
+        recipient_ids = _json.loads(recipients_raw) if isinstance(recipients_raw, str) else recipients_raw
+    except Exception:
+        recipient_ids = []
+
+    nick_map: dict[str, str] = {}
+    if recipient_ids:
+        str_ids = [str(rid) for rid in recipient_ids]
+        rows = (await db.execute(select(User.id, User.nickname).where(User.id.in_(str_ids)))).all()
+        nick_map = {str(u.id): u.nickname or "" for u in rows}
+
+    data["recipient_details"] = [{"user_id": rid, "nickname": nick_map.get(str(rid), "")} for rid in recipient_ids]
+    return JSONResponse(data)
+
+
+@router.get("/push/history-all", include_in_schema=False)
+async def admin_push_history_all(
+    session: AdminSession = Depends(verify_admin_session),
+):
+    try:
+        history = await engine_client.push_history(limit=200)
+    except Exception:
+        history = []
+    return JSONResponse(history)
+
+
+@router.get("/push/badges", include_in_schema=False)
+async def admin_push_badges(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        badges = await engine_client.push_badges()
+    except Exception:
+        return JSONResponse([])
+
+    uuids = [b.get("external_user_uuid") for b in badges if b.get("external_user_uuid")]
+    nick_map: dict[str, str] = {}
+    if uuids:
+        rows = (await db.execute(select(User.id, User.nickname).where(User.id.in_(uuids)))).all()
+        nick_map = {str(u.id): u.nickname or "" for u in rows}
+
+    for b in badges:
+        b["nickname"] = nick_map.get(b.get("external_user_uuid", ""), "")
+    return JSONResponse(badges)

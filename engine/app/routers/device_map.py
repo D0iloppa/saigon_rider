@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -18,12 +18,19 @@ log = logging.getLogger(__name__)
 class DeviceMapRequest(BaseModel):
     device_uuid: str
     external_user_uuid: str
+    fcm_token: str | None = None
 
 
 class DeviceMapResponse(BaseModel):
     device_uuid: str
     user_id: int
     logged_in_at: str
+
+
+class DeviceMapDetailResponse(BaseModel):
+    device_uuid: str | None = None
+    fcm_token: str | None = None
+    logged_in_at: str | None = None
 
 
 @router.post("", dependencies=[Depends(verify_service_key)], response_model=DeviceMapResponse)
@@ -67,10 +74,11 @@ async def upsert_device_map(
     stmt = pg_insert(DeviceUserMap).values(
         device_uuid=body.device_uuid,
         user_id=sre_user.user_id,
+        fcm_token=body.fcm_token,
         logged_in_at=now,
     ).on_conflict_do_update(
         constraint="uq_device_user_map_user_id",
-        set_={"device_uuid": body.device_uuid, "logged_in_at": now},
+        set_={"device_uuid": body.device_uuid, "fcm_token": body.fcm_token, "logged_in_at": now},
     )
     await db.execute(stmt)
     await db.commit()
@@ -79,10 +87,39 @@ async def upsert_device_map(
         invalidate_device_cache(old_uuid)
     invalidate_device_cache(body.device_uuid)
 
+    try:
+        from app.services.fcm_push import reset_badge
+        await reset_badge(sre_user.user_id)
+    except Exception:
+        log.debug("badge reset skipped for user_id=%d", sre_user.user_id)
+
     log.info("device_map: user_id=%d device_uuid=%s (prev=%s)", sre_user.user_id, body.device_uuid, old_uuid)
 
     return DeviceMapResponse(
         device_uuid=body.device_uuid,
         user_id=sre_user.user_id,
         logged_in_at=now.isoformat(),
+    )
+
+
+@router.get("/lookup", dependencies=[Depends(verify_service_key)], response_model=DeviceMapDetailResponse)
+async def lookup_device_map(
+    external_user_uuid: str = Query(...),
+    db: AsyncSession = Depends(get_session),
+) -> DeviceMapDetailResponse:
+    row = (
+        await db.execute(
+            select(DeviceUserMap)
+            .join(SreUser, SreUser.user_id == DeviceUserMap.user_id)
+            .where(SreUser.external_user_uuid == external_user_uuid)
+        )
+    ).scalar_one_or_none()
+
+    if row is None:
+        return DeviceMapDetailResponse()
+
+    return DeviceMapDetailResponse(
+        device_uuid=row.device_uuid,
+        fcm_token=row.fcm_token,
+        logged_in_at=row.logged_in_at.isoformat() if row.logged_in_at else None,
     )

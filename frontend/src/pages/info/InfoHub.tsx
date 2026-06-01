@@ -7,16 +7,15 @@ import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/inf
 import { TopBar } from '@/components/layout/TopBar';
 import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
 import { findNearestDistrict } from '@/components/maps/district-data';
+import { native } from '@/lib/native';
 import styles from './InfoHub.module.css';
 
 function useGeolocation() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setCoords({ lat: 10.776, lng: 106.700 }),
-    );
+    native.getLocation()
+      .then((pos) => setCoords({ lat: pos.lat, lng: pos.lng }))
+      .catch(() => setCoords({ lat: 10.776, lng: 106.700 }));
   }, []);
   return coords;
 }
@@ -38,9 +37,9 @@ export default function InfoHub() {
     const { lat, lng } = coords;
     Promise.allSettled([
       weatherApi.get(lat, lng).then(setWeather),
-      floodApi.getActive(lat, lng, 5).then((r) => setFloods(r.floods)),
-      gasApi.getNearby(lat, lng, 5).then((r) => setGas(r.stations[0] ?? null)),
-      repairApi.getNearby(lat, lng, 5).then((r) => setRepair(r.shops[0] ?? null)),
+      floodApi.getActive(lat, lng, 5).then((r) => r && setFloods(r.floods)),
+      gasApi.getNearby(lat, lng, 5).then((r) => r && setGas(r.stations[0] ?? null)),
+      repairApi.getNearby(lat, lng, 5).then((r) => r && setRepair(r.shops[0] ?? null)),
     ]).finally(() => setLoading(false));
   }, [coords]);
 

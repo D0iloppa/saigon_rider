@@ -15,6 +15,7 @@ from app.routers import (
     admin,
     balance,
     catalog,
+    config,
     device_map,
     events,
     gacha,
@@ -144,6 +145,7 @@ app.include_router(shop.router)
 app.include_router(inventory.router)
 app.include_router(season.router)
 app.include_router(quest_cards.router)
+app.include_router(config.router)
 
 
 # ── 헬스체크 / 메타 ──────────────────────────────────────────

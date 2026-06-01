@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { getQuestCard, getCardLabels, type Rarity } from './quest-card-map';
+import { useQuestCardImages } from './use-quest-card-images';
+import { AppImage } from '@/components/ui/AppImage';
 import styles from './QuestCard.module.css';
 
 export interface QuestCardProps {
@@ -38,6 +40,8 @@ export default function QuestCard({
   const { t } = useTranslation();
   const card = getQuestCard(missionCode, rarity);
   const labels = getCardLabels(card.cardCode, card.category);
+  const cardImages = useQuestCardImages();
+  const imageUrl = cardImages[card.cardCode];
   const cls = [
     styles.questCard,
     styles[variant],
@@ -48,9 +52,13 @@ export default function QuestCard({
   return (
     <div className={cls} onClick={onClick} role={onClick ? 'button' : undefined}>
       <div className={styles.illustration}>
-        <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <use href={card.href} />
-        </svg>
+        {imageUrl ? (
+          <AppImage src={imageUrl} alt="" className={styles.illustrationImg} />
+        ) : (
+          <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <use href={card.href} />
+          </svg>
+        )}
         <div className={styles.cardLabels}>
           <span className={styles.cardLabelCategory}>
             {labels.season

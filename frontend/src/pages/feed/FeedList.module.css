@@ -361,6 +361,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 .commentTitle {
@@ -373,11 +375,12 @@
 
 .commentList {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-bottom: 80px;
+  padding-bottom: 16px;
 }
 
 .comment {
@@ -433,13 +436,12 @@
 }
 
 .commentInputBar {
-  position: absolute;
-  bottom: var(--bottom-safe);
-  left: 0; right: 0;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  margin: 0 -20px;
+  padding: 12px 20px;
   background: var(--surface);
   border-top: 1px solid var(--line);
 }

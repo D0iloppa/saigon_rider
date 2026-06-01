@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enums import GachaStatusEnum
 from app.models import GachaDefinition, GachaPullLog, UserGachaPity
 from app.schemas import GachaEligibility, GachaPullResult, GachaPullResultItem
-from app.services.xp_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_balance, get_or_create_user
 
 
 async def list_active(db: AsyncSession) -> list[GachaDefinition]:
@@ -63,13 +63,11 @@ async def check_eligibility(
         raise ValueError(f"Gacha '{gacha_code}' not found or not active")
 
     user = await get_or_create_user(db, user_uuid)
-    row = await db.execute(
-        text("SELECT current_balance, COALESCE(gc_balance, 0) FROM xp_balance WHERE user_id = :uid"),
-        {"uid": user.user_id},
-    )
-    bal = row.one_or_none()
-    gp_balance = int(bal[0]) if bal else 0
-    gc_balance = int(bal[1]) if bal else 0
+    bal = await get_or_create_balance(db, user.user_id)
+    await db.commit()
+    await db.refresh(bal)
+    gp_balance = bal.current_balance
+    gc_balance = bal.gc_balance
 
     cost_single = gacha.cost_per_pull
     cost_10 = gacha.cost_per_10_pull
@@ -96,6 +94,8 @@ async def pull(
     is_10_pull: bool = False,
 ) -> GachaPullResult:
     user = await get_or_create_user(db, user_uuid)
+    await get_or_create_balance(db, user.user_id)
+    await db.flush()
 
     row = await db.execute(
         text("SELECT pull_gacha(:uid, :code, :ten)"),

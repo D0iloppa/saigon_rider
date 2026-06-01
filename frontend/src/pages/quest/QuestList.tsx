@@ -14,6 +14,8 @@ import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { Chip } from '@/components/ui/Chip';
 import { getQuestCard } from '@/components/quest/quest-card-map';
+import { useQuestCardImages } from '@/components/quest/use-quest-card-images';
+import { AppImage } from '@/components/ui/AppImage';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './QuestList.module.css';
 
@@ -292,6 +294,9 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
   const timeLeft = formatTimeLeft(quest.expiresAt);
   const timerStyle = getTimerStyle(quest.expiresAt);
   const tag = quest.tags[0];
+  const cardImages = useQuestCardImages();
+  const card = getQuestCard(quest.missionCode, quest.rarity);
+  const imageUrl = cardImages[card.cardCode];
 
   return (
     <button className={`${styles.card} ${completed ? styles.cardCompleted : ''}`} onClick={onClick}>
@@ -314,11 +319,15 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
         </span>
       )}
 
-      {/* Thumbnail — SVG sprite card */}
+      {/* Thumbnail — contents 시드 이미지 (있으면) / 없으면 SVG sprite 폴백 */}
       <div className={styles.thumb}>
-        <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true">
-          <use href={getQuestCard(quest.missionCode, quest.rarity).href} />
-        </svg>
+        {imageUrl ? (
+          <AppImage src={imageUrl} alt="" className={styles.thumbImg} />
+        ) : (
+          <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true">
+            <use href={card.href} />
+          </svg>
+        )}
       </div>
 
       {/* Content */}

@@ -31,7 +31,7 @@ export interface GeoPosition {
   accuracy?: number;
 }
 
-/** @capacitor/geolocation 의 4상태를 UI용 3상태로 정규화 */
+/** 위치 권한 UI 상태 (커스텀 Gps 플러그인 권한 API 결과) */
 export type LocationPermissionState = 'granted' | 'denied' | 'prompt';
 
 export interface DeviceInfo {
@@ -127,13 +127,17 @@ class NativeInterface {
   }
 
   async checkLocationPermission(): Promise<LocationPermissionState> {
-    const status = await Geolocation.checkPermissions();
-    return normalizeLocationPermission(status.location);
+    const { status } = await Gps.checkPermission();
+    return normalizeLocationPermission(status);
   }
 
   async requestLocationPermission(): Promise<LocationPermissionState> {
-    const status = await Geolocation.requestPermissions();
-    return normalizeLocationPermission(status.location);
+    const { status } = await Gps.requestPermission();
+    return normalizeLocationPermission(status);
+  }
+
+  async openAppSettings(): Promise<void> {
+    await Gps.openAppSettings();
   }
 
   // ── In-App Purchase (iOS only) ──────────────────────────────────────────
@@ -210,8 +214,12 @@ class NativeInterface {
 
   // ── FCM ─────────────────────────────────────────────────────────────────
 
-  async getFcmToken(): Promise<string> {
+  async getFCMToken(): Promise<string> {
     if (!this.isNative) return '';
+    if (this.platform === 'android') {
+      const { token } = await Device.getFcmToken();
+      return token;
+    }
     const { token } = await Fcm.getToken();
     return token;
   }
@@ -236,7 +244,9 @@ class NativeInterface {
   // ── Share (Web Share API only) ──────────────────────────────────────────
 
   async share(options: ShareOptions): Promise<void> {
+    // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
     if (navigator.share) {
+      // eslint-disable-next-line no-restricted-globals
       await navigator.share(options);
     } else {
       console.warn('[NativeInterface] share not available');

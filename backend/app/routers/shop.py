@@ -23,14 +23,18 @@ async def list_shop_items(
     collection: str | None = Query(None),
     rarity: str | None = Query(None),
     slot: str | None = Query(None),
+    group: str | None = Query(None),
     limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     uid: uuid.UUID = Depends(verify_user_session),
 ) -> list[dict]:
     return await engine_client.get_shop_items(
         collection=collection,
         rarity=rarity,
         slot=slot,
+        group=group,
         limit=limit,
+        offset=offset,
         user_uuid=str(uid),
     )
 

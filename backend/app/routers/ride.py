@@ -197,3 +197,10 @@ async def get_ride_history(
 async def calc_safety_grade(body: SafetyGradeRequest):
     grade = _calc_safety_grade(body.avg_speed_kmh, body.braking_count)
     return SafetyGradeResponse(grade=grade)
+
+
+@router.get("/policy", summary="라이딩 화면 정책 (체크포인트 반경/잔여거리 밴드)")
+async def get_ride_policy(
+    user_id: uuid.UUID = Depends(verify_user_session),
+):
+    return await engine_client.get_ride_policy()

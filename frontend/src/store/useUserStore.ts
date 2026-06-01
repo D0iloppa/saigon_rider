@@ -48,6 +48,7 @@ function dtoToUser(dto: UserDto): User {
     skillPoints: dto.skill_pt,
     language,
     skills: { distance_rider: 0, gold_hunter: 0, safe_rider: 0 },
+    createdAt: dto.created_at,
   };
 }
 
@@ -66,7 +67,7 @@ export const useUserStore = create<UserState>()(
         });
 
         native.getDeviceUUID()
-          .then((uuid) => {
+          .then(async (uuid) => {
             if (!uuid) {
               console.warn('[device-map] getDeviceUUID empty — skip register', {
                 isNative: native.isNative,
@@ -74,7 +75,8 @@ export const useUserStore = create<UserState>()(
               });
               return;
             }
-            apiRegisterDeviceMap(uuid, dto.id)
+            const fcmToken = await native.getFCMToken().catch(() => '');
+            apiRegisterDeviceMap(uuid, dto.id, fcmToken || undefined)
               .then(() => console.info('[device-map] registered', uuid))
               .catch((e) => console.warn('[device-map] register failed', e));
             if (native.isNative) native.startGPS();

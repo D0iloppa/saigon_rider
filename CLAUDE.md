@@ -71,6 +71,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 모든 이미지는 `contents` 테이블 중개 — 엔티티는 `*_content_id UUID` FK 만. 출력 시 `build_imgproxy_url()` 변환. 레거시 `*_url` 컬럼은 read-only 폴백.
 - 프론트 동적 이미지는 `<AppImage>` 컴포넌트 래핑 (`<img>` 직접 사용 금지).
 - 상단 여백은 `var(--status-bar-height)` 변수 사용 (고정 px 금지). 플랫폼 분기는 `[data-platform="ios"]` / `[data-platform="android"]`.
+- 프론트 네이티브 기능(`navigator.*`)은 `native.ts`(NativeInterface) 경유 필수 — 브라우저 API 직접 호출 금지 (ESLint error 강제).
 
 **상세 설계 문서는** `ai-docs/context/architecture.md`, `ai-docs/context/frontend.md`, `ai-docs/engine/sre-design-spec.md` 참조.
 
@@ -78,16 +79,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 알고 싶은 것 | 어디에 |
 |---|---|
+| 기본 작업 워크플로우 (Feature/Todo 등록) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1 |
 | 파일 작성 위치 (SoT) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §2 |
-| 기본 작업 워크플로우 (Feature/Todo 등록) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1.5 |
-| `.env` 보안 규약 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §7 |
-| __DEV Context 운용 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §9 |
-| 린터 규칙·명령 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §8 |
-| 컨텐츠(이미지) 관리 규칙 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §10 |
+| `.env` 보안 규약 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §4 |
+| 린터 규칙·명령 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §5 |
+| __DEV Context 운용 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §6 |
+| 컨텐츠(이미지) 관리 규칙 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §7 |
+| 네이티브 브리지 규칙 (navigator.* 금지) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §8 |
 | 시스템 아키텍처 (BFF/Engine 상세) | [`ai-docs/context/architecture.md`](ai-docs/context/architecture.md) |
 | 프론트엔드 패턴 | [`ai-docs/context/frontend.md`](ai-docs/context/frontend.md) |
 
-## 보안 최소 룰 (전문은 agent-guidelines §7)
+## 보안 최소 룰 (전문은 agent-guidelines §4)
 
 - `.env` 와 `.env.example` 은 항상 동일한 키셋. 한쪽에 키 추가/삭제/이름변경 시 **즉시** 반대쪽도 갱신.
 

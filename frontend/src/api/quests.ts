@@ -161,6 +161,10 @@ export interface ActiveCardState {
   target_lng: number | null;
   status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
   completed_at: string | null;
+  last_lat: number | null;
+  last_lng: number | null;
+  last_speed_kmh: number | null;
+  distance_to_target_m: number | null;
 }
 
 export async function fetchActiveCard(userQuestId: string): Promise<ActiveCardState | null> {
@@ -212,4 +216,25 @@ export async function fetchRecommendedQuests(userId: string): Promise<Quest[]> {
   }
   const raw = await api.realFetch<any[]>(`/quests/recommended?user_id=${userId}`);
   return raw.map(transformQuest);
+}
+
+export interface RidePolicy {
+  checkpointProximityM: number;
+  checkpointDistanceBands: Array<{ code: string; thresholdM: number }>;
+}
+
+export async function fetchRidePolicy(): Promise<RidePolicy> {
+  if (USE_MOCK) {
+    return api.delay(
+      {
+        checkpointProximityM: 100,
+        checkpointDistanceBands: [
+          { code: 'BAND_5KM', thresholdM: 5000 },
+          { code: 'BAND_1KM', thresholdM: 1000 },
+        ],
+      },
+      50,
+    );
+  }
+  return api.realFetch<RidePolicy>('/ride/policy');
 }

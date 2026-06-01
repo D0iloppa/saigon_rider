@@ -80,28 +80,35 @@ class CollectionStatusEnum(str, enum.Enum):
 
 
 class ItemSlotEnum(str, enum.Enum):
-    MOTORCYCLE_BODY = "MOTORCYCLE_BODY"
+    # 라이더 장비
+    HELMET = "HELMET"
+    JACKET = "JACKET"
+    GLOVES = "GLOVES"
+    EYEWEAR = "EYEWEAR"
+    BOOTS = "BOOTS"
+    # 바이크 파츠
+    BODY = "BODY"
+    ENGINE = "ENGINE"
     SEAT = "SEAT"
     STICKER = "STICKER"
-    RANK_CARD = "RANK_CARD"
-    HANDLEBAR = "HANDLEBAR"
-    TAIL_LIGHT = "TAIL_LIGHT"
-    ENGINE_COVER = "ENGINE_COVER"
-    HEADLIGHT = "HEADLIGHT"
+    HANDLE = "HANDLE"
     MIRROR = "MIRROR"
+    LIGHT = "LIGHT"
+    TAIL = "TAIL"
     NUMBER = "NUMBER"
-    GLOVES = "GLOVES"
-    BOOTS = "BOOTS"
-    EYEWEAR = "EYEWEAR"
-    NAMEPLATE = "NAMEPLATE"
+    # 프로필
+    NAME = "NAME"
+    RANK = "RANK"
     FRAME = "FRAME"
-    BACKDROP = "BACKDROP"
     TITLE = "TITLE"
+    BACKDROP = "BACKDROP"
+    # 이펙트
     TRAIL = "TRAIL"
+    START = "START"
     HORN = "HORN"
-    START_ANIM = "START_ANIM"
-    EMOTE = "EMOTE"
+    # 소셜
     BANNER = "BANNER"
+    EMOTE = "EMOTE"
     PET = "PET"
 
 

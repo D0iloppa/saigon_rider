@@ -136,16 +136,20 @@ class EngineClient:
         collection: str | None = None,
         rarity: str | None = None,
         slot: str | None = None,
+        group: str | None = None,
         limit: int = 50,
+        offset: int = 0,
         user_uuid: str | None = None,
     ) -> list[dict]:
-        params: dict = {"limit": limit}
+        params: dict = {"limit": limit, "offset": offset}
         if collection:
             params["collection"] = collection
         if rarity:
             params["rarity"] = rarity
         if slot:
             params["slot"] = slot
+        if group:
+            params["group"] = group
         if user_uuid:
             params["user_uuid"] = user_uuid
         resp = await self._client.get("/v1/shop/items", params=params)
@@ -397,11 +401,51 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def upsert_device_map(self, device_uuid: str, external_user_uuid: str) -> dict:
-        resp = await self._client.post(
-            "/v1/device-map",
-            json={"device_uuid": device_uuid, "external_user_uuid": external_user_uuid},
+    async def upsert_device_map(
+        self,
+        device_uuid: str,
+        external_user_uuid: str,
+        fcm_token: str | None = None,
+    ) -> dict:
+        payload: dict = {"device_uuid": device_uuid, "external_user_uuid": external_user_uuid}
+        if fcm_token:
+            payload["fcm_token"] = fcm_token
+        resp = await self._client.post("/v1/device-map", json=payload)
+        resp.raise_for_status()
+        return resp.json()
+
+    async def lookup_device_map(self, external_user_uuid: str) -> dict:
+        resp = await self._client.get(
+            "/v1/device-map/lookup",
+            params={"external_user_uuid": external_user_uuid},
         )
+        resp.raise_for_status()
+        return resp.json()
+
+    # ── FCM Push ─────────────────────────────────────────────
+
+    async def push_user_list(self, q: str = "") -> list[dict]:
+        resp = await self._client.get("/v1/admin/push/users", params={"q": q})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def send_push(self, payload: dict) -> dict:
+        resp = await self._client.post("/v1/admin/push/send", json=payload)
+        resp.raise_for_status()
+        return resp.json()
+
+    async def push_history(self, limit: int = 50) -> list[dict]:
+        resp = await self._client.get("/v1/admin/push/history", params={"limit": limit})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def push_log_detail(self, message_id: str) -> dict:
+        resp = await self._client.get(f"/v1/admin/push/log/{message_id}")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def push_badges(self) -> list[dict]:
+        resp = await self._client.get("/v1/admin/push/badges")
         resp.raise_for_status()
         return resp.json()
 
@@ -461,6 +505,21 @@ class EngineClient:
     async def cancel_quest_card(self, card_id: int) -> None:
         resp = await self._client.post(f"/v1/quest-cards/{card_id}/cancel")
         resp.raise_for_status()
+
+    # ── Ride policy / seed config ────────────────────────────
+
+    async def get_ride_policy(self) -> dict:
+        resp = await self._client.get("/v1/config/ride-policy")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def update_seed(self, seed_code: str, value_text: str) -> dict:
+        resp = await self._client.put(
+            f"/v1/config/seed/{seed_code}",
+            json={"value_text": value_text},
+        )
+        resp.raise_for_status()
+        return resp.json()
 
 
 engine_client = EngineClient()

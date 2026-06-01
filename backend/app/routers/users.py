@@ -1,8 +1,9 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,7 +17,6 @@ from ..schemas import (
     Page,
     QuestHistoryOut,
     UserBadgeOut,
-    UserExportResponse,
     UserProfileOut,
     UserStatsOut,
 )
@@ -183,22 +183,76 @@ async def get_quest_history(
 
 
 # A-3
-@router.delete("/me", status_code=204, summary="계정 탈퇴 (hard delete)")
+@router.delete("/me", status_code=204, summary="계정 탈퇴 (논리 삭제)")
 async def delete_account(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     user = await _get_user_or_404(user_id, db)
-    await db.delete(user)
+    now = datetime.now(UTC)
+    user.deleted_at = now
+    ts_hex = f"{int(now.timestamp()):x}"
+    user.phone = f"del_{ts_hex}"
+    if user.nickname:
+        user.nickname = f"del_{ts_hex}"
+    user.passcode_hash = None
     await db.commit()
     return Response(status_code=204)
 
 
 # A-4
-@router.post("/export", response_model=UserExportResponse, summary="데이터 내보내기 요청 (stub)")
+@router.get("/me/export", summary="내 데이터 JSON 다운로드")
 async def export_user_data(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    await _get_user_or_404(user_id, db)
-    return UserExportResponse(
-        request_id=str(uuid.uuid4()),
-        status="QUEUED",
-        estimated_ready_at=datetime.now(UTC) + timedelta(hours=24),
+    user = await _get_user_or_404(user_id, db)
+
+    rides_result = await db.execute(
+        select(RideSession).where(RideSession.user_id == user_id).order_by(RideSession.created_at.desc())
+    )
+    rides = [
+        {
+            "date": r.created_at.isoformat(),
+            "distance_km": float(r.distance_km),
+            "duration_sec": r.duration_sec,
+            "avg_speed_kmh": float(r.avg_speed_kmh) if r.avg_speed_kmh else None,
+            "safety_grade": r.safety_grade,
+            "reward_exp": r.reward_exp,
+            "reward_gold": r.reward_gold,
+        }
+        for r in rides_result.scalars()
+    ]
+
+    quests_result = await db.execute(
+        select(UserQuest).where(UserQuest.user_id == user_id).order_by(UserQuest.accepted_at.desc())
+    )
+    quests = [
+        {
+            "quest_id": str(q.quest_id),
+            "status": q.status,
+            "accepted_at": q.accepted_at.isoformat(),
+            "completed_at": q.completed_at.isoformat() if q.completed_at else None,
+        }
+        for q in quests_result.scalars()
+    ]
+
+    badges_result = await db.execute(select(UserBadge).where(UserBadge.user_id == user_id))
+    badges = [{"badge_id": str(b.badge_id), "earned_at": b.earned_at.isoformat()} for b in badges_result.scalars()]
+
+    data = {
+        "profile": {
+            "id": str(user.id),
+            "phone": user.phone,
+            "nickname": user.nickname,
+            "level": user.level,
+            "exp": user.exp,
+            "xp": user.xp,
+            "gold": user.gold,
+            "created_at": user.created_at.isoformat(),
+        },
+        "rides": rides,
+        "quests": quests,
+        "badges": badges,
+        "exported_at": datetime.now(UTC).isoformat(),
+    }
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": "attachment; filename=saigon_rider_data.json"},
     )
 
 

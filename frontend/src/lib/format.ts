@@ -73,3 +73,18 @@ export function formatNumber(n: number, options?: { compact?: boolean }): string
   }
   return new Intl.NumberFormat(locale).format(n);
 }
+
+/** 숫자를 정수부 / 소수부(구분자 포함)로 분리. 소수부를 작은 폰트로 렌더해
+ *  "10.473"(10.473km)이 "10,473"(천단위)로 오독되는 것을 방지하기 위함. */
+export function splitNumberParts(n: number): { int: string; frac: string | null } {
+  const parts = new Intl.NumberFormat(getLocale()).formatToParts(n);
+  let int = '';
+  let dec = '';
+  let frac = '';
+  for (const part of parts) {
+    if (part.type === 'integer' || part.type === 'group') int += part.value;
+    else if (part.type === 'decimal') dec = part.value;
+    else if (part.type === 'fraction') frac += part.value;
+  }
+  return { int, frac: frac ? dec + frac : null };
+}

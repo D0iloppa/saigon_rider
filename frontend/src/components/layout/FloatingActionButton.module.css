@@ -1,0 +1,26 @@
+.fab {
+  position: absolute;
+  bottom: calc(var(--tabbar-height, 72px) + var(--bottom-safe, 0px) - 64px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: var(--grad-sunset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  transition: transform .15s ease;
+}
+
+.fab:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.fabIcon {
+  width: 36px;
+  height: 36px;
+}

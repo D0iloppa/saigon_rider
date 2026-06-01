@@ -81,6 +81,15 @@ export default function RideActive() {
   const CIRC = 2 * Math.PI * RADIUS;
   const offset = CIRC * (1 - progress);
 
+  const matchBandCode = (distanceM: number): string | null => {
+    for (const band of ride.policyBands) {
+      if (distanceM >= band.thresholdM) return band.code;
+    }
+    return null;
+  };
+  const checkpointBandCode =
+    isCheckpoint && ride.distanceToTargetM != null ? matchBandCode(ride.distanceToTargetM) : null;
+
   const handlePauseClick = () => {
     ride.pauseRide();
     setShowPause(true);
@@ -148,24 +157,29 @@ export default function RideActive() {
         <div className={styles.ringContent}>
           {isCheckpoint ? (
             <>
-              <div className={styles.ringDist}>
-                {ride.distanceToTargetM == null
-                  ? '—'
-                  : ride.distanceToTargetM >= 1000
-                    ? (ride.distanceToTargetM / 1000).toFixed(2)
-                    : ride.distanceToTargetM}
-              </div>
-              <div className={styles.ringTarget}>
-                {ride.distanceToTargetM == null
-                  ? t('ride.waitingGps', { defaultValue: 'GPS 대기' })
-                  : ride.distanceToTargetM >= 1000
-                    ? 'km 남음'
-                    : 'm 남음'}
-              </div>
+              {ride.distanceToTargetM == null ? (
+                <>
+                  <div className={styles.ringDist}>—</div>
+                  <div className={styles.ringTarget}>
+                    {t('ride.waitingGps', { defaultValue: 'GPS 대기' })}
+                  </div>
+                </>
+              ) : checkpointBandCode ? (
+                <div className={styles.ringDist}>
+                  {t(`ride.checkpoint.band.${checkpointBandCode}`)}
+                </div>
+              ) : (
+                <>
+                  <div className={styles.ringDist}>{ride.distanceToTargetM}</div>
+                  <div className={styles.ringTarget}>
+                    {t('ride.checkpoint.remainExact', { m: ride.distanceToTargetM })}
+                  </div>
+                </>
+              )}
               <div className={styles.ringPercent}>
                 {ride.reachedTarget
                   ? t('ride.reached', { defaultValue: '도착!' })
-                  : t('ride.headTo', { defaultValue: '목표 지점으로 이동' })}
+                  : t('ride.checkpoint.proximityNotice', { m: ride.policyProximityM })}
               </div>
             </>
           ) : (
@@ -201,9 +215,9 @@ export default function RideActive() {
           </div>
         </div>
         <div className={styles.metric}>
-          <div className={styles.metricLabel}>{t('ride.avgSpeed').toUpperCase()}</div>
+          <div className={styles.metricLabel}>{t('ride.currentSpeed').toUpperCase()}</div>
           <div className={styles.metricValue}>
-            {ride.avgSpeedKmh.toFixed(1)}
+            {ride.speedKmh.toFixed(1)}
             <span className={styles.unit}> km/h</span>
           </div>
         </div>

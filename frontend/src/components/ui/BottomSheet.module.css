@@ -3,7 +3,7 @@
   inset: 0;
   background: rgba(11,13,20,.55);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  z-index: 50;
   display: flex;
   align-items: flex-end;
   animation: fadein .2s ease;
@@ -15,14 +15,15 @@
 }
 
 .sheet {
+  position: relative;
   width: 100%;
   background: var(--surface);
   border-radius: 28px 28px 0 0;
-  padding: 12px 20px calc(20px + var(--bottom-safe));
+  padding: 12px 20px 20px;
   box-shadow: 0 -20px 60px rgba(0,0,0,.3);
   animation: slideup .25s cubic-bezier(.2,.8,.2,1);
   max-height: calc(100% - 60px);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 @keyframes slideup {
@@ -32,7 +33,10 @@
 
 .auto { /* default */ }
 .half { min-height: 50%; }
-.full { height: calc(100% - 60px); }
+.full {
+  height: calc(100% - 40px);
+  padding-bottom: calc(var(--tabbar-height) + var(--bottom-safe) + 16px);
+}
 
 .grabber {
   width: 40px;
@@ -40,4 +44,24 @@
   background: var(--line);
   border-radius: 999px;
   margin: 0 auto 16px;
+  cursor: grab;
+  padding: 10px 0;
+  background-clip: content-box;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
 }

@@ -75,6 +75,10 @@ def resolve_feed_image_url(post) -> str | None:
     return getattr(post, "image_url", None)
 
 
+# 퀘스트 카드 이미지(static system asset). 시드: 047_quest_card_contents_seed.sql
+QUEST_CARD_IMGPROXY_OPTIONS = "rs:fill:640:400:1"
+
+
 def exp_required_for_level(level: int) -> int:
     """레벨업에 필요한 EXP. frontend/src/lib/rewards.ts와 동일한 곡선."""
     if level <= 1:

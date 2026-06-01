@@ -335,64 +335,57 @@
 
 .missionCarousel {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  margin: 0 -16px;
-  padding: 0 16px;
 }
-.missionCarousel::-webkit-scrollbar { display: none; }
 
 .missionCard {
-  flex: 0 0 calc(100% - 32px);
-  scroll-snap-align: center;
   background: linear-gradient(135deg, #FF7438, #B82C08);
   border-radius: 16px;
-  padding: 20px;
+  padding: 14px 16px;
   color: white;
   text-align: left;
   cursor: pointer;
   transition: transform .15s ease;
 }
 
-.missionCarousel:has(> .missionCard:only-child) .missionCard {
-  flex-basis: 100%;
-}
-
 .missionCard:active { transform: scale(0.98); }
+
+.missionTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
 
 .missionTag {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .08em;
   opacity: .8;
-  margin-bottom: 6px;
 }
 
 .missionTitle {
   font-size: 17px;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .missionDesc {
   font-size: 12px;
   opacity: .8;
-  margin-bottom: 14px;
 }
 
 .missionRewards {
   display: flex;
-  gap: 10px;
+  gap: 6px;
 }
 
 .rewardChip {
   background: rgba(255,255,255,.2);
-  border-radius: 10px;
-  padding: 6px 12px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
   font-weight: 700;
 }
 

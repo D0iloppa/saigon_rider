@@ -1,6 +1,6 @@
 # 워크플로우 — Project TODO 관리
 
-> **대상 파일**: [`ai-docs/project_todo.md`](../project_todo.md)
+> **대상 파일**: [`ai-docs/context/project_todo.md`](../context/project_todo.md)
 > **목적**: 다영역(프론트/BFF/Engine/DB/인프라) 협업이 필요한 후속 구현 항목을 등록·진행·아카이브하는 일관된 절차 정의.
 > **핵심 원칙**: `project_todo.md` 에는 **미착수(⬜) / 진행중(🚧) / 보류(⏸) 항목만 남는다.** 완료 항목은 즉시 제거하여 AI 컨텍스트 로딩 비용을 낮춘다.
 

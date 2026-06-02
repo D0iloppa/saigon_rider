@@ -388,7 +388,11 @@
       "Bash(fc-list :lang=ko)",
       "Bash(fc-list :lang=vi)",
       "Bash(node generate.mjs)",
-      "Bash(node -e 'const b=require\\('\\\\''fs'\\\\''\\).readFileSync\\('\\\\''__TRACKED_VAR__'\\\\''\\);console.log\\('\\\\''__TRACKED_VAR__'\\\\'', b.readUInt32BE\\(16\\)+'\\\\''x'\\\\''+b.readUInt32BE\\(20\\)\\);')"
+      "Bash(node -e 'const b=require\\('\\\\''fs'\\\\''\\).readFileSync\\('\\\\''__TRACKED_VAR__'\\\\''\\);console.log\\('\\\\''__TRACKED_VAR__'\\\\'', b.readUInt32BE\\(16\\)+'\\\\''x'\\\\''+b.readUInt32BE\\(20\\)\\);')",
+      "Bash(node mock_detect.mjs)",
+      "Bash(awk '{print $NF, \"\\(\"$5\" bytes\\)\"}')",
+      "Bash(node base_plate.mjs)",
+      "Bash(node pano_bg.mjs)"
     ]
   }
 }

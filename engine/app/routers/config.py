@@ -40,6 +40,11 @@ class SeedUpdateResponse(BaseModel):
     value_text: str
 
 
+class SeedValueResponse(BaseModel):
+    seed_code: str
+    value_text: str
+
+
 @router.get(
     "/ride-policy",
     response_model=RidePolicyResponse,
@@ -56,6 +61,27 @@ async def get_ride_policy() -> RidePolicyResponse:
         checkpointProximityM=proximity_m,
         checkpointDistanceBands=bands,
     )
+
+
+@router.get(
+    "/seed/{seed_code}",
+    response_model=SeedValueResponse,
+    dependencies=[Depends(verify_service_key)],
+)
+async def get_seed(
+    seed_code: str,
+    db: AsyncSession = Depends(get_session),
+) -> SeedValueResponse:
+    row = await db.execute(
+        select(SreSeedConfig).where(SreSeedConfig.seed_code == seed_code)
+    )
+    obj = row.scalar_one_or_none()
+    if obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"seed_code not found: {seed_code}",
+        )
+    return SeedValueResponse(seed_code=seed_code, value_text=obj.value_text)
 
 
 @router.put(

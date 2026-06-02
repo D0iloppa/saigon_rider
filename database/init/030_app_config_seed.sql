@@ -2,8 +2,6 @@
 -- 030_app_config_seed.sql
 -- app_config 초기 시드 — 서비스 설정값
 -- =============================================================
-
-INSERT INTO app_config (group_name, key, value, description)
-VALUES
-  ('quest', 'recommend_max_count', '3', '월드맵 추천 퀘스트 최대 표시 개수 (1~5)')
-ON CONFLICT (group_name, key) DO NOTHING;
+-- (비움) quest/recommend_max_count 시드는 SGR-206에서 제거됨.
+--   홈 추천 개수는 이제 일일 수령가능 슬롯(_daily_claimable_max)에서 동적 산출.
+--   현재 app_config 초기 시드 대상 없음 — dm/unread_poll_interval 등은 admin에서 on-demand 생성.

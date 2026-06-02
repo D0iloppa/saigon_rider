@@ -1,5 +1,5 @@
 <p class="page-title">라이딩 표시 정책</p>
-<p class="page-sub">체크포인트 도달 반경 · 잔여거리 표시 밴드</p>
+<p class="page-sub">체크포인트 도달 반경 · 잔여거리 표시 밴드 · 일일 퀘스트 슬롯</p>
 
 {{flash}}
 
@@ -15,6 +15,21 @@
         <input type="number" name="proximity_m" value="{{proximity_m}}" min="1" max="10000" required
                style="width:120px;font-size:13px;text-align:center;" />
         <span style="font-size:11px;color:rgba(255,255,255,.35);margin-left:8px;">미터 (1 ~ 10000)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase;">일일 퀘스트 기본 슬롯</p>
+    <p style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.6;">
+      하루 동안 수령 가능한 데일리 퀘스트의 기본 개수입니다. 레벨·착용 아이템 효과로 추가(+α)될 수 있습니다.
+    </p>
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;">
+      <label style="font-size:12px;color:rgba(255,255,255,.6);">DAILY_QUEST_BASE_SLOTS</label>
+      <div>
+        <input type="number" name="daily_quest_base_slots" value="{{daily_quest_base_slots}}" min="1" max="10" required
+               style="width:120px;font-size:13px;text-align:center;" />
+        <span style="font-size:11px;color:rgba(255,255,255,.35);margin-left:8px;">개 (1 ~ 10)</span>
       </div>
     </div>
   </div>

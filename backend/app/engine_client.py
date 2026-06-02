@@ -513,6 +513,11 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_seed(self, seed_code: str) -> dict:
+        resp = await self._client.get(f"/v1/config/seed/{seed_code}")
+        resp.raise_for_status()
+        return resp.json()
+
     async def update_seed(self, seed_code: str, value_text: str) -> dict:
         resp = await self._client.put(
             f"/v1/config/seed/{seed_code}",

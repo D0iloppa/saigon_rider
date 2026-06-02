@@ -1099,13 +1099,6 @@ async def admin_settings(
     adj_count = sum(1 for w in words if w.word_type == "adjective")
     noun_count = sum(1 for w in words if w.word_type == "noun")
 
-    recommend_max_row = (
-        await db.execute(
-            select(AppConfig).where(AppConfig.group_name == "quest", AppConfig.key == "recommend_max_count")
-        )
-    ).scalar_one_or_none()
-    recommend_max_count = recommend_max_row.value if recommend_max_row else "3"
-
     dm_poll_row = (
         await db.execute(select(AppConfig).where(AppConfig.group_name == "dm", AppConfig.key == "unread_poll_interval"))
     ).scalar_one_or_none()
@@ -1185,7 +1178,6 @@ async def admin_settings(
         noun_count=str(noun_count),
         version_rows=version_rows,
         version_count=str(len(primary_versions)),
-        recommend_max_count=h(recommend_max_count),
         dm_poll_interval=h(dm_poll_interval),
     )
 
@@ -1960,39 +1952,14 @@ async def admin_sre_daily_featured_refresh(
 async def admin_settings_service_config(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
-    recommend_max_count: str = Form("3"),
     dm_poll_interval: str = Form("30"),
 ):
-    try:
-        quest_val = int(recommend_max_count)
-        if not 1 <= quest_val <= 5:
-            raise ValueError
-    except ValueError:
-        return RedirectResponse(url="/admin/settings?flash=config_error", status_code=302)
-
     try:
         dm_val = int(dm_poll_interval)
         if not 10 <= dm_val <= 300:
             raise ValueError
     except ValueError:
         return RedirectResponse(url="/admin/settings?flash=config_error", status_code=302)
-
-    row = (
-        await db.execute(
-            select(AppConfig).where(AppConfig.group_name == "quest", AppConfig.key == "recommend_max_count")
-        )
-    ).scalar_one_or_none()
-    if row:
-        row.value = str(quest_val)
-    else:
-        db.add(
-            AppConfig(
-                group_name="quest",
-                key="recommend_max_count",
-                value=str(quest_val),
-                description="월드맵 추천 퀘스트 최대 표시 개수",
-            )
-        )
 
     dm_row = (
         await db.execute(select(AppConfig).where(AppConfig.group_name == "dm", AppConfig.key == "unread_poll_interval"))
@@ -2920,6 +2887,7 @@ _RIDE_CONFIG_FLASHES = {
     "invalid_threshold": ("threshold 는 0 보다 큰 정수여야 합니다.", False),
     "duplicate_code": ("밴드 코드가 중복되었습니다.", False),
     "invalid_proximity": ("proximity_m 은 0 보다 큰 정수여야 합니다.", False),
+    "invalid_daily_slots": ("일일 퀘스트 기본 슬롯은 1 ~ 10 사이의 정수여야 합니다.", False),
     "engine_error": ("엔진 호출에 실패했습니다.", False),
 }
 
@@ -2960,6 +2928,12 @@ async def admin_ride_config_page(
     proximity_m = int(policy.get("checkpointProximityM", 100))
     bands = policy.get("checkpointDistanceBands") or []
 
+    try:
+        slot_row = await engine_client.get_seed("DAILY_QUEST_BASE_SLOTS")
+        daily_slots = int(slot_row.get("value_text") or 3)
+    except Exception:
+        daily_slots = 3
+
     flash_html = ""
     if flash and flash in _RIDE_CONFIG_FLASHES:
         msg, ok = _RIDE_CONFIG_FLASHES[flash]
@@ -2972,6 +2946,7 @@ async def admin_ride_config_page(
         page_title="라이딩 표시 정책",
         session=session,
         proximity_m=str(proximity_m),
+        daily_quest_base_slots=str(daily_slots),
         band_rows=_render_band_rows(bands),
         flash=flash_html,
     )
@@ -2991,6 +2966,14 @@ async def admin_ride_config_save(
             raise ValueError
     except (TypeError, ValueError):
         return RedirectResponse("/admin/config/ride?flash=invalid_proximity", status_code=303)
+
+    # 일일 퀘스트 기본 슬롯
+    try:
+        daily_slots = int(form.get("daily_quest_base_slots", ""))
+        if not 1 <= daily_slots <= 10:
+            raise ValueError
+    except (TypeError, ValueError):
+        return RedirectResponse("/admin/config/ride?flash=invalid_daily_slots", status_code=303)
 
     codes = form.getlist("band_code")
     thresholds = form.getlist("band_threshold")
@@ -3020,6 +3003,7 @@ async def admin_ride_config_save(
     try:
         await engine_client.update_seed("CHECKPOINT_PROXIMITY_M", str(proximity_m))
         await engine_client.update_seed("CHECKPOINT_DISTANCE_BANDS", _json.dumps(bands, ensure_ascii=False))
+        await engine_client.update_seed("DAILY_QUEST_BASE_SLOTS", str(daily_slots))
     except Exception as e:
         _log.exception("ride config save failed: %s", e)
         return RedirectResponse("/admin/config/ride?flash=engine_error", status_code=303)

@@ -77,7 +77,7 @@ services:
       database:
         condition: service_healthy
       engine:
-        condition: service_started
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - ENGINE_BASE_URL=http://engine:8090
@@ -103,6 +103,12 @@ services:
       - PLANE_URL=${PLANE_URL:-https://plane.doil.me}
       - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
       - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   # ── MCP Dev Server (legacy — Plane으로 대체) ─────────────
@@ -164,6 +170,12 @@ services:
       - SRE_NEW_ACCOUNT_MULTIPLIER=0.5
       - SRE_IDEMPOTENCY_TTL_DAYS=7
       - SRE_LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/v1/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   # ── Worker (Redis Streams Consumer) ──────────────────────

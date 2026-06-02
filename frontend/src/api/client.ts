@@ -63,24 +63,40 @@ function sessionHeaders(): Record<string, string> {
   return session?.userId ? { 'X-User-Id': session.userId } : {};
 }
 
+// 게이트웨이/전송 계층 일시 오류 — 재시도 대상 (간헐적 502 대응, SGR-208)
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+
 async function realFetch<T>(
   endpoint: string,
   options: RequestInit = {},
   service: Service = 'bff',
-  _opts: { silent?: boolean; rethrow?: boolean } = {},
+  _opts: { silent?: boolean; rethrow?: boolean; retries?: number } = {},
 ): Promise<T> {
   const method = (options.method || 'GET').toUpperCase();
   const url = `${baseUrl(service)}${endpoint}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...sessionHeaders(),
-      ...options.headers,
-    },
-  });
-  if (!res.ok) {
+  // GET 만 재시도 (비멱등 요청의 중복 실행 방지)
+  const retries = method === 'GET' ? (_opts.retries ?? 3) : 0;
+  const maxAttempts = retries + 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...sessionHeaders(),
+        ...options.headers,
+      },
+    });
+    if (res.ok) {
+      if (res.status === 204) return null as T;
+      return res.json();
+    }
     if (res.status === 419 || res.status === 401) handleSessionError();
+    // 재시도 가능한 오류면 toast 없이 다음 시도 (마지막 시도 제외)
+    if (RETRYABLE_STATUS.has(res.status) && attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+      continue;
+    }
     const err = await res.json().catch(() => ({}));
     const message = extractErrorMessage(err, res.status, `${method} ${url}`);
     if (_opts.silent) {
@@ -90,8 +106,8 @@ async function realFetch<T>(
     if (!_opts.rethrow) toast.error(message);
     throw new Error(message);
   }
-  if (res.status === 204) return null as T;
-  return res.json();
+  // 도달 불가 — 루프는 항상 return 하거나 throw 한다
+  throw new Error(`HTTP request failed | ${method} ${url}`);
 }
 
 async function realFetchForm<T>(

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 
 import httpx
@@ -7,6 +8,8 @@ from pydantic import BaseModel
 
 from ..deps import verify_user_session
 from ..engine_client import engine_client
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/inventory", tags=["인벤토리 (Inventory)"])
 
@@ -38,7 +41,9 @@ async def get_items(
             engine_client.get_equipment(uid_str),
             engine_client.get_collection_progress(uid_str),
         )
-    except Exception as err:
+    except httpx.HTTPError as err:
+        # 타임아웃·연결 실패·Engine 5xx 등 게이트웨이성 오류만 502 로 변환
+        log.warning("inventory engine call failed: %r", err)
         raise HTTPException(status_code=502, detail="Engine unavailable") from err
 
     equipped_codes = {e["item_code"] for e in equip_raw if e.get("item_code")}

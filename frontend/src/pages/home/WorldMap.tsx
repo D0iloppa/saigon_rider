@@ -31,7 +31,7 @@ export default function WorldMap() {
   const [loading, setLoading] = useState(true);
   const [gold, setGold] = useState(0);
   const [xp, setXp] = useState(0);
-  const [monthlyKm, setMonthlyKm] = useState(0);
+  const [totalKm, setTotalKm] = useState(0);
   const didInit = useRef(false);
 
   const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
@@ -76,7 +76,7 @@ export default function WorldMap() {
     }).catch(() => {});
     if (uid) {
       fetchUserStats(uid).then((s) => {
-        setMonthlyKm(Number(s.total_km));
+        setTotalKm(Number(s.lifetime_km));
       }).catch(() => {});
     }
   }, [refreshUser]);
@@ -206,8 +206,8 @@ export default function WorldMap() {
     <div className={styles.root}>
       {/* ── Profile Header ── */}
       {(() => {
-        const MONTHLY_KM_GOAL = 500;
-        const ringPct = Math.min(monthlyKm / MONTHLY_KM_GOAL, 1);
+        const TOTAL_KM_GOAL = 500;
+        const ringPct = Math.min(totalKm / TOTAL_KM_GOAL, 1);
         const RING_R = 28;
         const RING_C = 2 * Math.PI * RING_R;
         return (
@@ -231,7 +231,7 @@ export default function WorldMap() {
           </div>
           <LevelBadge level={user.level} className={styles.levelOverlay} />
           <div className={styles.mileageLabel}>
-            <span className={`mono ${styles.mileageValue}`}>{monthlyKm.toFixed(2)}</span>
+            <span className={`mono ${styles.mileageValue}`}>{totalKm.toFixed(2)}</span>
             <span className={styles.mileageUnit}>km</span>
           </div>
         </div>

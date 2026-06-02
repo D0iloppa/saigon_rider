@@ -69,13 +69,16 @@ async def get_user_stats(
     now_local = datetime.now(APP_TZ)
     month_label = now_local.strftime("%Y-%m")
 
-    # 이번 달 GPS 마일리지 (Engine user_mileage_log 기반)
+    # GPS 마일리지: 이번 달(total_km) + 평생 누적(lifetime_km) 둘 다 Engine 에서 조회
     try:
         mileage = await engine_client.get_mileage(str(user_id), since=month_start.isoformat())
         period_m = int(mileage.get("period_distance_m", 0))
+        lifetime_m = int(mileage.get("total_distance_m", 0))
     except Exception:
         period_m = 0
+        lifetime_m = 0
     total_km = Decimal(period_m) / Decimal(1000)
+    lifetime_km = Decimal(lifetime_m) / Decimal(1000)
 
     # 완료 퀘스트 수
     quest_result = await db.execute(
@@ -107,6 +110,7 @@ async def get_user_stats(
     return UserStatsOut(
         month=month_label,
         total_km=total_km,
+        lifetime_km=lifetime_km,
         quest_count=quest_count,
         avg_safety_grade=avg_safety_grade,
     )

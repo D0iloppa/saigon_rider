@@ -198,7 +198,7 @@ export default function ProfileMain() {
     fetchFollowCounts(user.id).then(setFollowCounts);
     fetchUserStats(user.id).then((s) => {
       setStats(s);
-      setTotalMileage(Number(s.total_km));
+      setTotalMileage(Number(s.lifetime_km));
     }).catch(() => {});
     fetchAllBadges(user.id).then(setBadges).catch(() => {});
     fetchInventory(user.id).then((inv) => {

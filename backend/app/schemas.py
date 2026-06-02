@@ -579,7 +579,8 @@ class QuestHistoryOut(BaseModel):
 
 class UserStatsOut(BaseModel):
     month: str  # "YYYY-MM" (VN 시간 UTC+7 기준)
-    total_km: Decimal
+    total_km: Decimal  # 이번 달 주행거리
+    lifetime_km: Decimal  # 평생 누적 주행거리
     quest_count: int
     avg_safety_grade: str | None  # "A" / "B" / "C" or None
 

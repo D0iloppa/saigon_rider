@@ -157,6 +157,7 @@ export interface QuestHistoryItem {
 export interface UserStats {
   month: string;
   total_km: number;
+  lifetime_km: number;
   quest_count: number;
   avg_safety_grade: string | null;
 }

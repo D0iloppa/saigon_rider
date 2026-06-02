@@ -77,6 +77,7 @@ def _item_to_dict(i: ItemDefinition) -> dict:
         "season_lock": i.season_lock,
         "required_season_code": i.required_season_code,
         "asset_uri": i.asset_uri,
+        "effect_type": i.effect_type.value if i.effect_type else None,
     }
 
 
@@ -283,6 +284,7 @@ _ITEM_EDITABLE = {
     "is_shop_visible",
     "season_lock",
     "required_season_code",
+    "effect_type",
 }
 
 

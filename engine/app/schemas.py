@@ -572,3 +572,10 @@ class DailySlotInfo(BaseModel):
     base: int
     level_bonus: int
     item_bonus: int
+
+
+class EquipEffectsRead(BaseModel):
+    rp_mult_pct: int
+    gold_mult_pct: int
+    quest_slot_bonus: int
+    cost_discount_pct: int

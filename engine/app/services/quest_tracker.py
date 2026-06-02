@@ -13,7 +13,7 @@ from app.database import AsyncSessionLocal
 from app.enums import QuestCardStatusEnum, QuestCardTypeEnum
 from app.models import SreQuestCard, SreUser
 from app.schemas import DailySlotInfo
-from app.services import seed_config
+from app.services import equip_effects, seed_config
 
 log = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ async def calc_daily_slots(db: AsyncSession, user_id: int) -> DailySlotInfo:
         if user_level >= threshold:
             level_bonus += bonus
 
-    item_bonus = 0
+    item_bonus = (await equip_effects._resolve_by_user_id(db, user_id)).quest_slot_bonus
 
     today_vn = func.date(func.timezone("Asia/Ho_Chi_Minh", func.now()))
     result = await db.execute(

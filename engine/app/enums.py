@@ -123,6 +123,13 @@ class ItemRarityEnum(str, enum.Enum):
     M = "M"
 
 
+class ItemEffectEnum(str, enum.Enum):
+    RP_MULT = "RP_MULT"
+    GOLD_MULT = "GOLD_MULT"
+    QUEST_SLOT = "QUEST_SLOT"
+    COST_DISCOUNT = "COST_DISCOUNT"
+
+
 class AcquisitionSourceEnum(str, enum.Enum):
     MISSION = "MISSION"
     SEASON_PASS = "SEASON_PASS"

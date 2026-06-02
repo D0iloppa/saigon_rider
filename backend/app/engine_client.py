@@ -199,6 +199,11 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_equip_effects(self, user_uuid: str) -> dict:
+        resp = await self._client.get(f"/v1/inventory/{user_uuid}/equip-effects")
+        resp.raise_for_status()
+        return resp.json()
+
     async def equip_item(self, user_uuid: str, item_code: str) -> dict:
         resp = await self._client.put(
             f"/v1/inventory/{user_uuid}/equip",

@@ -2009,6 +2009,13 @@ _ITEM_SLOTS = [
 ]
 _ITEM_RARITIES = ["C", "R", "E", "L", "M"]
 _RARITY_LABEL = {"C": "Common", "R": "Rare", "E": "Epic", "L": "Legendary", "M": "Mythic"}
+_ITEM_EFFECTS = {
+    "": "효과 없음",
+    "RP_MULT": "RP(경험치) 획득 배수",
+    "GOLD_MULT": "Gold 획득 배수",
+    "QUEST_SLOT": "일일 퀘스트 슬롯 +",
+    "COST_DISCOUNT": "가챠/상점 비용 할인",
+}
 
 
 @router.get("/sre/items", include_in_schema=False)
@@ -2104,8 +2111,13 @@ def _item_form_html(*, item: dict | None = None, error: str = "") -> str:
     lock_yes = "selected" if i.get("season_lock") else ""
     lock_no = "" if i.get("season_lock") else "selected"
     season_code = h(i.get("required_season_code", "") or "")
+    curr_effect = i.get("effect_type", "") or ""
 
     slot_opts = "".join(f'<option value="{s}" {"selected" if s == curr_slot else ""}>{s}</option>' for s in _ITEM_SLOTS)
+    effect_opts = "".join(
+        f'<option value="{e}" {"selected" if e == curr_effect else ""}>{label}</option>'
+        for e, label in _ITEM_EFFECTS.items()
+    )
     rarity_opts = "".join(
         f'<option value="{r}" {"selected" if r == curr_rarity else ""}>{_RARITY_LABEL[r]} ({r})</option>'
         for r in _ITEM_RARITIES
@@ -2184,6 +2196,10 @@ def _item_form_html(*, item: dict | None = None, error: str = "") -> str:
     <label class="field-label">시즌 코드 (시즌 잠금 시)</label>
     <input type="text" name="required_season_code" value="{season_code}" placeholder="SEASON_2026_Q2" style="width:100%;font-family:monospace;" />
   </div>
+  <div class="field">
+    <label class="field-label">착용효과 (수치는 등급별 고정 테이블에서 자동)</label>
+    <select name="effect_type" style="width:100%;">{effect_opts}</select>
+  </div>
   <div style="display:flex;gap:12px;margin-top:8px;">
     <button type="submit" class="btn">{submit_label}</button>
     <a href="/admin/sre/items" class="btn btn-ghost">취소</a>
@@ -2219,6 +2235,7 @@ async def admin_sre_items_create(
     is_shop_visible: str = Form("0"),
     season_lock: str = Form("0"),
     required_season_code: str = Form(""),
+    effect_type: str = Form(""),
 ):
     data = {
         "item_code": item_code.strip(),
@@ -2232,6 +2249,7 @@ async def admin_sre_items_create(
         "is_shop_visible": is_shop_visible == "1",
         "season_lock": season_lock == "1",
         "required_season_code": required_season_code.strip() or None,
+        "effect_type": effect_type or None,
     }
     try:
         await engine_client.admin_create_item(data)
@@ -2288,6 +2306,7 @@ async def admin_sre_items_update(
     is_shop_visible: str = Form("0"),
     season_lock: str = Form("0"),
     required_season_code: str = Form(""),
+    effect_type: str = Form(""),
 ):
     data = {
         "display_name": display_name.strip(),
@@ -2300,6 +2319,7 @@ async def admin_sre_items_update(
         "is_shop_visible": is_shop_visible == "1",
         "season_lock": season_lock == "1",
         "required_season_code": required_season_code.strip() or None,
+        "effect_type": effect_type or None,
     }
     try:
         await engine_client.admin_update_item(item_code, data)

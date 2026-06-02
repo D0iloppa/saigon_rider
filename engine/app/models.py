@@ -11,7 +11,7 @@ from app.enums import (
     AbuseSeverityEnum, AbuseActionEnum, AccountTypeEnum,
     AcquisitionSourceEnum, BoxStatusEnum, CollectionStatusEnum,
     EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
-    IntegrationTypeEnum, ItemRarityEnum, ItemSlotEnum,
+    IntegrationTypeEnum, ItemEffectEnum, ItemRarityEnum, ItemSlotEnum,
     MissionStatusEnum, QuestCardStatusEnum, QuestCardTypeEnum,
     RedemptionStatusEnum, RewardActionTypeEnum,
     SeasonStatusEnum, TxTypeEnum, UserStatusEnum,
@@ -430,6 +430,10 @@ class ItemDefinition(Base):
     season_lock = Column(Boolean, nullable=False, default=False, server_default="false")
     required_season_code = Column(String(40), nullable=True)
     asset_uri = Column(String(200), nullable=True)
+    effect_type = Column(
+        Enum(ItemEffectEnum, name="item_effect_enum", create_type=False),
+        nullable=True,
+    )
     created_at = Column(_TS, nullable=False, server_default="NOW()")
 
     collection = relationship("ItemCollection", back_populates="items", lazy="select")
@@ -438,6 +442,20 @@ class ItemDefinition(Base):
         Index("idx_item_def_collection_rarity", "collection_code", "rarity"),
         Index("idx_item_def_slot", "slot"),
     )
+
+
+class ItemEffectValue(Base):
+    __tablename__ = "item_effect_value"
+
+    effect_type = Column(
+        Enum(ItemEffectEnum, name="item_effect_enum", create_type=False),
+        primary_key=True,
+    )
+    rarity = Column(
+        Enum(ItemRarityEnum, name="item_rarity_enum", create_type=False),
+        primary_key=True,
+    )
+    stat_value = Column(Integer, nullable=False)
 
 
 class UserItem(Base):

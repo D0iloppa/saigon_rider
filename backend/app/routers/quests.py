@@ -2,6 +2,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, time, timedelta
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from passlib.context import CryptContext
 from sqlalchemy import func, or_, select, text
@@ -88,8 +89,14 @@ def _level_slot_bonus(user: User | None) -> int:
 
 
 async def _item_slot_bonus(db: AsyncSession, user: User | None) -> int:
-    """착용 아이템 효과에 따른 추가 수령 슬롯. TODO(A-2 아이템/효과 정의): 규칙 확정 후 구현. 현재 0."""
-    return 0
+    """착용 아이템 QUEST_SLOT 효과의 추가 수령 슬롯. 엔진 장애 시 0(graceful)."""
+    if user is None:
+        return 0
+    try:
+        eff = await engine_client.get_equip_effects(str(user.id))
+    except httpx.HTTPError:
+        return 0
+    return int(eff.get("quest_slot_bonus", 0))
 
 
 async def _daily_claimable_max(db: AsyncSession, user: User | None) -> int:
@@ -431,11 +438,20 @@ async def complete_quest(
         db.add(uq)
 
     # 이미 완료된 경우 보상 중복 지급 방지
+    reward_exp = 0
+    reward_gold = 0
     if not already_completed:
         user = await db.get(User, body.user_id)
         if user:
-            user.exp += quest.reward_exp
-            user.gold += quest.reward_gold
+            # 착용효과 RP/Gold 배수 적용(가산 %). 엔진 장애 시 배수 없이 기본 보상.
+            try:
+                eff = await engine_client.get_equip_effects(str(body.user_id))
+            except httpx.HTTPError:
+                eff = {}
+            reward_exp = int(quest.reward_exp * (1 + eff.get("rp_mult_pct", 0) / 100))
+            reward_gold = int(quest.reward_gold * (1 + eff.get("gold_mult_pct", 0) / 100))
+            user.exp += reward_exp
+            user.gold += reward_gold
 
     await db.commit()
     await db.refresh(uq)
@@ -443,8 +459,8 @@ async def complete_quest(
         quest_id=quest.id,
         user_quest_id=uq.id,
         status=uq.status,
-        reward_exp=quest.reward_exp if not already_completed else 0,
-        reward_gold=quest.reward_gold if not already_completed else 0,
+        reward_exp=reward_exp,
+        reward_gold=reward_gold,
         reward_item=quest.reward_item if not already_completed else None,
     )
 

@@ -3,7 +3,11 @@ from fastapi import APIRouter, Depends, Response
 from app.database import AsyncSession
 from app.deps import get_session, verify_service_key
 from app.enums import ItemSlotEnum
-from app.schemas import CollectionProgressRead, EquipRequest, UserEquipmentRead, UserItemRead
+from app.schemas import (
+    CollectionProgressRead, EquipEffectsRead, EquipRequest,
+    UserEquipmentRead, UserItemRead,
+)
+from app.services import equip_effects as eff_svc
 from app.services import inventory as inv_svc
 
 router = APIRouter(prefix="/v1/inventory", tags=["inventory"])
@@ -35,6 +39,21 @@ async def equip_item(
     db: AsyncSession = Depends(get_session),
 ) -> UserEquipmentRead:
     return await inv_svc.equip_item(db, user_uuid, data.item_code)
+
+
+@router.get("/{user_uuid}/equip-effects", response_model=EquipEffectsRead,
+            dependencies=[Depends(verify_service_key)])
+async def get_equip_effects(
+    user_uuid: str,
+    db: AsyncSession = Depends(get_session),
+) -> EquipEffectsRead:
+    eff = await eff_svc.resolve_effects(db, user_uuid)
+    return EquipEffectsRead(
+        rp_mult_pct=eff.rp_mult_pct,
+        gold_mult_pct=eff.gold_mult_pct,
+        quest_slot_bonus=eff.quest_slot_bonus,
+        cost_discount_pct=eff.cost_discount_pct,
+    )
 
 
 @router.get("/{user_uuid}/collection-progress", response_model=list[CollectionProgressRead],

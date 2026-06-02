@@ -24,6 +24,7 @@ import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { ImageViewer } from '@/pages/feed/FeedList';
 import { toast } from '@/components/ui/Toast';
 import { emojiUrl } from '@/lib/emoji';
+import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import styles from './ProfileMain.module.css';
 
 interface MileageTier {
@@ -58,14 +59,6 @@ function getNextTier(km: number): MileageTier | null {
   }
   return null;
 }
-
-const SLOT_EMOJI: Record<string, string> = {
-  HELMET: '1fa96', JACKET: '1f9e5', GLOVES: '1f9e4', BOOTS: '1f97e',
-  EYEWEAR: '1f576', NAMEPLATE: '1f3f7',
-  BODY_PAINT: '1f3a8', WHEEL: '2699', EXHAUST: '1f525',
-  HEADLIGHT: '1f4a1', MIRROR: '1f9f0', DECAL: '1f409',
-  FRAME: '1f5bc', BACKDROP: '1f304',
-};
 
 const RARITY_STYLE: Record<string, string> = {
   R: 'garageItemRare',
@@ -415,7 +408,7 @@ export default function ProfileMain() {
                       key={item.user_item_id}
                       className={styles[RARITY_STYLE[item.rarity] as keyof typeof styles] as string || styles.garageItemThumb}
                     >
-                      <img src={emojiUrl(SLOT_EMOJI[item.item_slot] ?? '1f4e6')} width={18} height={18} alt="" />
+                      <ItemSvgRenderer itemCode={item.item_code} slot={item.item_slot} size={18} rarity={item.rarity} />
                     </div>
                   ))}
                   {equippedItems.length < 5 && Array.from({ length: 5 - equippedItems.length }).map((_, i) => (

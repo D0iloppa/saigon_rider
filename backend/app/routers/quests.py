@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import AppConfig, Bookmark, Quest, User, UserQuest
+from ..models import Bookmark, Quest, User, UserQuest
 from ..schemas import (
     BookmarkToggleRequest,
     BookmarkToggleResponse,
@@ -71,9 +71,8 @@ def _calc_card_expires(period: str, ends_at: datetime | None) -> str | None:
 router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
 
 
-async def _daily_slot_max(db: AsyncSession) -> int:
-    """sre_seed_config에서 일일 퀘스트 슬롯 기본값을 직접 읽음 (공유 DB).
-    레벨/아이템 보너스는 추후 추가 — 현재는 base만."""
+async def _daily_slot_base(db: AsyncSession) -> int:
+    """sre_seed_config에서 일일 퀘스트 슬롯 기본값을 직접 읽음 (공유 DB)."""
     row = (
         await db.execute(text("SELECT value_text FROM sre_seed_config WHERE seed_code='DAILY_QUEST_BASE_SLOTS'"))
     ).first()
@@ -81,6 +80,22 @@ async def _daily_slot_max(db: AsyncSession) -> int:
         return int(row[0]) if row else 3
     except (TypeError, ValueError):
         return 3
+
+
+def _level_slot_bonus(user: User | None) -> int:
+    """레벨에 따른 추가 수령 슬롯. TODO(A-2 아이템/효과 정의): 규칙 확정 후 구현. 현재 0."""
+    return 0
+
+
+async def _item_slot_bonus(db: AsyncSession, user: User | None) -> int:
+    """착용 아이템 효과에 따른 추가 수령 슬롯. TODO(A-2 아이템/효과 정의): 규칙 확정 후 구현. 현재 0."""
+    return 0
+
+
+async def _daily_claimable_max(db: AsyncSession, user: User | None) -> int:
+    """일일 퀘스트 수령가능 최대 횟수 = base + 레벨 보너스 + 착용아이템 보너스.
+    수령 게이트(accept)와 홈 추천 개수가 공유하는 단일 소스."""
+    return await _daily_slot_base(db) + _level_slot_bonus(user) + await _item_slot_bonus(db, user)
 
 
 async def _daily_slot_used(db: AsyncSession, user_id: uuid.UUID, period_key: str) -> int:
@@ -284,29 +299,34 @@ async def get_recommended_quests(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    max_row = (
-        await db.execute(
-            select(AppConfig).where(AppConfig.group_name == "quest", AppConfig.key == "recommend_max_count")
-        )
-    ).scalar_one_or_none()
-    limit = int(max_row.value) if max_row else 3
+    # 수령가능 횟수만큼만 제공 (= 공통 max - 오늘 사용량). 0 이하면 더 제공할 퀘스트 없음.
+    period_key = _calc_period_key("DAILY")
+    max_slots = await _daily_claimable_max(db, user)
+    used = await _daily_slot_used(db, user_id, period_key)
+    remaining = max(max_slots - used, 0)
+    if remaining <= 0:
+        return []
 
-    completed_sub = (
+    # 오늘 이미 수령/완료/만료된 DAILY 퀘스트는 풀에서 제외
+    claimed_today_sub = (
         select(UserQuest.quest_id).where(
             UserQuest.user_id == user_id,
-            UserQuest.status == "COMPLETED",
+            UserQuest.period_key == period_key,
+            UserQuest.status.in_(["ACCEPTED", "COMPLETED", "EXPIRED"]),
         )
     ).correlate(None)
 
+    # 수행가능한 DAILY 퀘스트 중 랜덤으로 remaining 개 선정
     result = await db.execute(
         select(Quest)
         .where(
             Quest.is_active == True,
+            Quest.period == "DAILY",
             Quest.required_level <= user.level,
-            Quest.id.not_in(completed_sub),
+            Quest.id.not_in(claimed_today_sub),
         )
-        .order_by((Quest.reward_exp + Quest.reward_gold).desc())
-        .limit(limit)
+        .order_by(func.random())
+        .limit(remaining)
     )
     quests = result.scalars().all()
     return [_to_out(q) for q in quests]
@@ -343,7 +363,8 @@ async def accept_quest(
         raise HTTPException(status_code=409, detail="이미 완료한 퀘스트입니다.")
 
     if quest.period == "DAILY":
-        max_slots = await _daily_slot_max(db)
+        user = await db.get(User, body.user_id)
+        max_slots = await _daily_claimable_max(db, user)
         used = await _daily_slot_used(db, body.user_id, period_key)
         if used >= max_slots:
             raise HTTPException(status_code=409, detail="일일 퀘스트 슬롯이 가득 찼습니다.")

@@ -6,8 +6,8 @@
 }
 
 .originalCard {
-  background: var(--color-surface, rgba(255,255,255,.06));
-  border: 1px solid rgba(255,255,255,.08);
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e8e3da);
   border-radius: 12px;
   padding: 16px;
 }
@@ -16,20 +16,20 @@
   font-size: 15px;
   font-weight: 700;
   margin-bottom: 8px;
-  color: var(--color-text-primary, #fff);
+  color: var(--text, #0b0d14);
 }
 
 .originalBody {
   font-size: 14px;
   line-height: 1.7;
-  color: var(--color-text-secondary, rgba(255,255,255,.7));
+  color: var(--text-2, #4a4f62);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .originalMeta {
   font-size: 12px;
-  color: var(--color-text-secondary, rgba(255,255,255,.4));
+  color: var(--text-3, #8a8e9e);
   margin-top: 10px;
 }
 
@@ -55,7 +55,7 @@
 .replySectionTitle {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-secondary, rgba(255,255,255,.5));
+  color: var(--text-2, #4a4f62);
   padding: 0 2px;
 }
 
@@ -65,13 +65,15 @@
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.6;
+  color: var(--text, #0b0d14);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .replyUser {
   align-self: flex-start;
-  background: rgba(255,255,255,.07);
+  background: var(--surface-2, #faf7f2);
+  border: 1px solid var(--line, #e8e3da);
   border-radius: 4px 12px 12px 12px;
 }
 
@@ -84,13 +86,13 @@
 
 .replyMeta {
   font-size: 11px;
-  color: var(--color-text-secondary, rgba(255,255,255,.4));
+  color: var(--text-3, #8a8e9e);
   margin-bottom: 4px;
 }
 
 .noReply {
   text-align: center;
   font-size: 14px;
-  color: var(--color-text-secondary, rgba(255,255,255,.35));
+  color: var(--text-3, #8a8e9e);
   padding: 24px 0;
 }

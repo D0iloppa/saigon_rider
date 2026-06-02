@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-01 (SGR-202 바이크 프리뷰 전면 정비 완료)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-02 (SGR-206 홈 오늘의미션 수령가능횟수 공통화 + 수령 시작확인 alert 완료)
 
 ---
 
@@ -48,7 +48,7 @@
 
 ## 활성 태스크 (🔧)
 
-- (없음) — SGR-202 완료 후 다음 우선순위는 아래 참조
+- (없음) — SGR-205·SGR-211(가챠 hang+시네마틱) 완료. 다음 우선순위는 아래 참조
 
 ## 부분 점검 (🟡)
 

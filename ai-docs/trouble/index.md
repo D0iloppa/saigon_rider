@@ -20,6 +20,11 @@
 - [팔로우 Session Expired 토스트](260518/260518_follow_session_expired.md) — 팔로우 시 "Session expired" 토스트만 표시되고 /splash 리다이렉트 미동작 → 419 세션 만료 프로토콜 도입으로 해소 ✅
 - [AppImage 폴백 실패 시 무한 Shimmer](260518/260518_appimage_fallback_shimmer.md) — mock-img 최종 폴백 URL 로드 실패 시 onError 미처리로 shimmer 영구 표시 → 체인 배열 + 재시도 + 로컬 에러 이미지로 해소 ✅
 
+## 260602
+
+- [프로필 '내 바이크' 장착 아이콘 깨짐](260602/260602_profile_mybike_broken_icons_troubleshooting.md) — stale SLOT_EMOJI(구 슬롯 체계)→폴백 `1f4e6` 이모지 CDN 404 + onError 부재로 broken-image, `ItemSvgRenderer`로 교체해 해소 ✅
+- [가차 hang — 재진입 시 신규 화면 미연결 (SGR-205)](260602/260602_gacha_hang_reentry_troubleshooting.md) — "다시 뽑기"/재진입 시 빈-deps effect 재실행 불가로 `SUMMONING…` 영구 정지, 뽑기 로직 `runPull()` 추출 + param-key 가드로 해소 ✅ (후속 시네마틱 연출 SGR-211)
+
 ## 260522
 
 - [피드/고객센터 입력 영역 카드 배경 누락](260522/260522_input_section_no_card_bg_troubleshooting.md) — FeedCreate, CustomerSupport 입력 섹션에 카드 컨테이너 없어 회색 배경 위 텍스트만 노출, 카드 스타일 추가로 해소

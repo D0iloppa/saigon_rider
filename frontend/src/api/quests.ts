@@ -104,10 +104,11 @@ export interface AcceptQuestResult {
 
 export async function acceptQuest(questId: string, userId: string): Promise<AcceptQuestResult> {
   if (USE_MOCK) return { userQuestId: 'mock-user-quest-' + Date.now() };
+  // rethrow: 전역 토스트를 억제하고 호출자(handleAccept)가 메시지를 직접 결정 (예: 409 슬롯 만석)
   const raw = await api.realFetch<{ user_quest_id: string }>(`/quests/${questId}/accept`, {
     method: 'POST',
     body: JSON.stringify({ user_id: userId }),
-  });
+  }, 'bff', { rethrow: true });
   return { userQuestId: raw.user_quest_id };
 }
 

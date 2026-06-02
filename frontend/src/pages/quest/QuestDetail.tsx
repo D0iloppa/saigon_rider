@@ -34,6 +34,7 @@ export default function QuestDetail() {
   const [actionLoading, setActionLoading] = useState(false);
   const [dbgDialog, setDbgDialog] = useState(false);
   const [dbgLoading, setDbgLoading] = useState(false);
+  const [startConfirm, setStartConfirm] = useState(false);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -78,9 +79,12 @@ export default function QuestDetail() {
     try {
       const { userQuestId } = await acceptQuest(quest.id, user.id);
       setAcceptedUserQuestId(userQuestId);
-      toast.success(t('quest.acceptedToast', { defaultValue: '수령했어요. 내 퀘스트 탭에서 확인할 수 있습니다.' }));
+      // SGR-206: 수령 직후 바로 시작 여부 확인
+      setStartConfirm(true);
     } catch (err: any) {
-      toast.error(err?.message ?? t('quest.acceptFailed', { defaultValue: '퀘스트 수령 실패' }));
+      // "HTTP 409 | …" 접두사를 떼고 서버 메시지만 노출 (예: 일일 퀘스트 슬롯이 가득 찼습니다.)
+      const detail = (err?.message ?? '').replace(/^HTTP \d+ \| /, '');
+      toast.error(detail || t('quest.acceptFailed', { defaultValue: '퀘스트 수령 실패' }));
     } finally {
       setActionLoading(false);
     }
@@ -269,6 +273,39 @@ export default function QuestDetail() {
               </Button>
               <Button onClick={handleDbgComplete} disabled={dbgLoading}>
                 {dbgLoading ? t('quest.dbg_processing') : t('quest.dbg_confirm')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SGR-206: 수령 후 바로 시작 확인 */}
+      {startConfirm && (
+        <div className={styles.dialogBackdrop}>
+          <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.dialogIcon}>🏍</div>
+            <h3 className={styles.dialogTitle}>
+              {t('quest.startConfirmTitle', { defaultValue: '해당 퀘스트를 바로 시작하겠습니까?' })}
+            </h3>
+            <div className={styles.dialogActions}>
+              <Button
+                variant="ghost"
+                disabled={actionLoading}
+                onClick={() => {
+                  setStartConfirm(false);
+                  toast.success(t('quest.acceptedToast', { defaultValue: '수령했어요. 내 퀘스트 탭에서 확인할 수 있습니다.' }));
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                disabled={actionLoading}
+                onClick={() => {
+                  setStartConfirm(false);
+                  handleStartRide();
+                }}
+              >
+                {t('quest.startRideBtn', { defaultValue: '수행 시작' })}
               </Button>
             </div>
           </div>

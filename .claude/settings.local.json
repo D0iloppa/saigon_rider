@@ -380,7 +380,15 @@
       "Bash(curl -s \"http://localhost:18090/api/bff/dev/context\")",
       "Bash(curl -s -X PUT http://localhost:18090/api/bff/dev/context -H 'Content-Type: application/json' -d '{\"key\":\"current_focus\",\"value\":\"info 모듈 시드 데이터 작업 — OSM Overpass import \\(주유소/정비소 마스터\\) 실행\",\"status\":\"🔧\"}')",
       "Bash(curl -s -X PATCH http://localhost:18090/api/bff/dev/todos/50 -H 'Content-Type: application/json' -d '{\"status\":\"DONE\",\"description\":\"실행 완료: gas_station 759개, repair_shop 215개 upsert. fuel_price_official RON95/RON92/DO 시드. assign_districts.py 후속 실행으로 gas 450개·repair 170개 district_code 매핑 \\(D1+빈탄+투득 등 분포\\). Overpass User-Agent 헤더 추가 패치 적용.\"}')",
-      "Bash(curl -s -X PUT http://localhost:18090/api/bff/dev/context -H 'Content-Type: application/json' -d '{\"key\":\"current_focus\",\"value\":\"info 모듈 시드 OSM import 완료 — gas 759 / repair 215 / fuel_price 3 / district 매핑 620건\",\"status\":\"✅\"}')"
+      "Bash(curl -s -X PUT http://localhost:18090/api/bff/dev/context -H 'Content-Type: application/json' -d '{\"key\":\"current_focus\",\"value\":\"info 모듈 시드 OSM import 완료 — gas 759 / repair 215 / fuel_price 3 / district 매핑 620건\",\"status\":\"✅\"}')",
+      "Bash(npx playwright *)",
+      "Bash(fc-list)",
+      "Read(//home/doil/.cache/ms-playwright/**)",
+      "Read(//home/doil/Library/Caches/**)",
+      "Bash(fc-list :lang=ko)",
+      "Bash(fc-list :lang=vi)",
+      "Bash(node generate.mjs)",
+      "Bash(node -e 'const b=require\\('\\\\''fs'\\\\''\\).readFileSync\\('\\\\''__TRACKED_VAR__'\\\\''\\);console.log\\('\\\\''__TRACKED_VAR__'\\\\'', b.readUInt32BE\\(16\\)+'\\\\''x'\\\\''+b.readUInt32BE\\(20\\)\\);')"
     ]
   }
 }

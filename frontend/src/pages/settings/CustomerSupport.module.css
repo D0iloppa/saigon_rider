@@ -18,8 +18,8 @@
 }
 
 .card {
-  background: var(--color-surface, rgba(255,255,255,.06));
-  border: 1px solid rgba(255,255,255,.08);
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e8e3da);
   border-radius: 12px;
   padding: 16px;
   cursor: pointer;
@@ -30,7 +30,7 @@
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 6px;
-  color: var(--color-text-primary, #fff);
+  color: var(--text, #0b0d14);
 }
 
 .cardMeta {
@@ -38,7 +38,7 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--color-text-secondary, rgba(255,255,255,.5));
+  color: var(--text-2, #4a4f62);
 }
 
 .badge {
@@ -64,7 +64,7 @@
 
 .empty {
   text-align: center;
-  color: var(--color-text-secondary, rgba(255,255,255,.4));
+  color: var(--text-3, #8a8e9e);
   font-size: 14px;
   padding: 48px 0;
 }

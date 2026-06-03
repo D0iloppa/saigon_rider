@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-02 (SGR-210 아이템 착용효과 정의 — RP/Gold 배수·퀘스트 슬롯·비용 할인, rarity별 고정 테이블)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-03 (SGR-210 DONE — 착용효과 사용자 노출 UI: 개러지 합산 HUD+상세 시트, 개별 배지. Engine→BFF→Front effect 필드 추가. 홈 오늘의미션 3개 표출 제한)
 
 ---
 
@@ -70,7 +70,7 @@
 | # | 내용 | 상태 | 비고 |
 |---|---|---|---|
 | A-1 | 퀘스트 개수를 20개로 줄이기 | 미진행 | |
-| A-2 | 아이템 효과정의 | ✅ 완료 (SGR-210) | 착용효과 4종(RP/Gold 배수·퀘스트 슬롯·비용 할인), rarity별 고정 테이블. 슬롯별 시드(sre036, 주제별 균형) 부여 완료. 개별 조정은 어드민 effect_type. main 반영 |
+| A-2 | 아이템 효과정의 | ✅ 완료 (SGR-210 DONE) | 착용효과 4종(RP/Gold 배수·퀘스트 슬롯·비용 할인), rarity별 고정 테이블. 슬롯별 시드(sre036). **사용자 노출 UI 완료**: 개러지 합산 HUD(탭→상세 시트)+개러지/인벤토리 개별 배지, effect 필드 Engine→BFF→Front. 개별 조정은 어드민 effect_type |
 | A-3 | 아이템 착용시 개러지에 캐릭터에 착용 효과 보여주기 | 미진행 | A-2 완료, 시각화는 별도 |
 | A-4 | 아이템 개수도 부위별 5개로 줄이기 | 미진행 | |
 | A-5 | 앱에서 접속시 FCM 토큰 서버전송 | 미진행 | |

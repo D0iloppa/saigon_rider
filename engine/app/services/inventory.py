@@ -6,9 +6,23 @@ from sqlalchemy.orm import selectinload
 
 from app.enums import ItemSlotEnum
 from app.exceptions import raise_not_found
-from app.models import ItemCollection, ItemDefinition, UserEquipment, UserItem
+from app.models import (
+    ItemCollection, ItemDefinition, ItemEffectValue, UserEquipment, UserItem,
+)
 from app.schemas import CollectionProgressRead
 from app.services.xp_ledger import get_or_create_user
+
+
+async def _effect_value_lookup(db: AsyncSession) -> dict[tuple, int]:
+    """(effect_type, rarity) → stat_value 룩업. 정적 20행 테이블."""
+    rows = await db.execute(
+        select(
+            ItemEffectValue.effect_type,
+            ItemEffectValue.rarity,
+            ItemEffectValue.stat_value,
+        )
+    )
+    return {(et, r): v for et, r, v in rows.all()}
 
 
 async def get_items(db: AsyncSession, user_uuid: str) -> list[UserItem]:
@@ -19,7 +33,15 @@ async def get_items(db: AsyncSession, user_uuid: str) -> list[UserItem]:
         .where(UserItem.user_id == user.user_id)
         .order_by(UserItem.acquired_at.desc())
     )
-    return list(result.scalars().all())
+    items = list(result.scalars().all())
+
+    lookup = await _effect_value_lookup(db)
+    for ui in items:
+        defn = ui.item_def
+        if defn is not None and defn.effect_type is not None:
+            defn.effect_value = lookup.get((defn.effect_type, defn.rarity))
+
+    return items
 
 
 async def get_equipment(db: AsyncSession, user_uuid: str) -> list[UserEquipment]:

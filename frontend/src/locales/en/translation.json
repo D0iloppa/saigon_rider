@@ -866,5 +866,13 @@
       "road": "Major road",
       "bridge": "Bridge"
     }
+  },
+  "effects": {
+    "none": "No equip effects",
+    "rp": "RP Gain",
+    "gold": "Gold Gain",
+    "quest_slot": "Quest Slots",
+    "cost_discount": "Cost Discount",
+    "sheet_title": "Equip Effects"
   }
 }

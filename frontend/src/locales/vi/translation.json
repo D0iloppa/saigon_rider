@@ -866,5 +866,13 @@
       "road": "Đường chính",
       "bridge": "Cầu"
     }
+  },
+  "effects": {
+    "none": "Không có hiệu ứng",
+    "rp": "Nhận RP",
+    "gold": "Nhận Vàng",
+    "quest_slot": "Khe nhiệm vụ",
+    "cost_discount": "Giảm chi phí",
+    "sheet_title": "Chi tiết hiệu ứng"
   }
 }

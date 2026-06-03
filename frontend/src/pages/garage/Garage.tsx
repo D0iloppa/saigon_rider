@@ -11,27 +11,13 @@ import { BikeComposite } from '@/components/equip/BikeComposite';
 import { useUserStore } from '@/store/useUserStore';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { emojiUrl } from '@/lib/emoji';
+import { EFFECT_META, aggregateEquippedEffects, formatEffectValue } from '@/lib/items/effects';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from 'sonner';
 import s from './Garage.module.css';
 
 type TabKey = 'rider' | 'bike' | 'effect';
 type SortMode = 'rarity' | 'slot' | 'name';
-
-const SLOT_EMOJI: Record<string, string> = {
-  // Rider
-  HELMET: '26d1', JACKET: '1f9e5', GLOVES: '1f9e4', BOOTS: '1f97e', EYEWEAR: '1f576',
-  PANTS: '1f456', KNEE: '1f9b5',
-  // Motorcycle
-  BODY: '1f3cd', SEAT: '1f4ba', STICKER: '1f4a0', HANDLE: '2699',
-  TAIL: '1f534', ENGINE: '2699', LIGHT: '1f4a1',
-  MIRROR: '1f9f0', NUMBER: '1f522', WHEEL: '1f6de',
-  // Profile
-  NAME: '1f3f7', RANK: '1faaa', FRAME: '1f5bc', BACKDROP: '1f304', TITLE: '1f451',
-  // Effect
-  TRAIL: '2728', HORN: '1f514', START: '1f3ac',
-  // Social
-  EMOTE: '1f600', BANNER: '1f3f3', PET: '1f436',
-};
 
 const RARITY_BG: Record<ItemRarity, string> = {
   C: '#9CA3AF', R: '#3B82F6', E: '#8B5CF6', L: '#F59E0B', M: '#FF2D9C',
@@ -168,6 +154,7 @@ export default function Garage() {
   const [activeSlot, setActiveSlot] = useState<string | null>(initSlot);
   const [currentSort, setCurrentSort] = useState<SortMode>('rarity');
   const [animKey, setAnimKey] = useState(0);
+  const [effectSheetOpen, setEffectSheetOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -209,10 +196,8 @@ export default function Garage() {
     return sortItems(base, currentSort);
   }, [items, activeSlot, tabSlotKeys, currentSort]);
 
-  const equippedSlots = useMemo(
-    () => allSlots.filter((sl) => equippedMap[sl.key]),
-    [allSlots, equippedMap],
-  );
+  // 착용 중 전체 아이템(탭 무관)의 효과 합산 — 빌드 총 효과 HUD
+  const effectTotals = useMemo(() => aggregateEquippedEffects(items), [items]);
 
   const PLACEHOLDER_COUNT = 10;
   const emptyCardCount = activeSlot
@@ -361,36 +346,29 @@ export default function Garage() {
             </div>
           </div>
 
-          {/* Stats Bar */}
-          <div className={s.statsBar}>
-            {equippedSlots.length > 0 ? (
-              <>
-                {equippedSlots.slice(0, 3).map((sl) => {
-                  const item = equippedMap[sl.key]!;
-                  return (
-                    <div key={sl.key} className={s.statChip}>
-                      <img
-                        src={emojiUrl(SLOT_EMOJI[sl.key] ?? '1f4e6')}
-                        width={16}
-                        height={16}
-                        alt=""
-                        className={s.statEmoji}
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                      <span className={s.statVal}><ItemName code={item.item_code} fallback={item.item_name} /></span>
-                    </div>
-                  );
-                })}
-                {equippedSlots.length > 3 && (
-                  <div className={s.statChip} style={{ color: 'var(--text-3)' }}>
-                    +{equippedSlots.length - 3}
-                  </div>
-                )}
-              </>
-            ) : (
-              <span className={s.statsEmpty}>{t('equipPreview.no_equipped')}</span>
-            )}
-          </div>
+          {/* Effect HUD — 착용 중 빌드 총 효과 합산 (탭 → 상세 시트) */}
+          {effectTotals.length > 0 ? (
+            <button className={s.statsBar} onClick={() => setEffectSheetOpen(true)}>
+              {effectTotals.map((e) => (
+                <span key={e.type} className={s.effectChip} data-effect={e.type}>
+                  <img
+                    src={emojiUrl(EFFECT_META[e.type].emoji)}
+                    width={16}
+                    height={16}
+                    alt=""
+                    className={s.statEmoji}
+                    onError={(e2) => { e2.currentTarget.style.display = 'none'; }}
+                  />
+                  <span className={s.effectVal}>{formatEffectValue(e.type, e.total)}</span>
+                </span>
+              ))}
+              <span className={s.effectMore} aria-hidden>›</span>
+            </button>
+          ) : (
+            <div className={s.statsBar}>
+              <span className={s.statsEmpty}>{t('effects.none')}</span>
+            </div>
+          )}
 
           {/* Item Grid */}
           <div className={s.gridSection}>
@@ -424,7 +402,13 @@ export default function Garage() {
                           <ItemSvgRenderer itemCode={item.item_code} slot={item.item_slot} size={32} rarity={item.rarity} />
                         </div>
                         <span className={s.gridItemName}><ItemName code={item.item_code} fallback={item.item_name} /></span>
-                        <span className={s.rarityChip} data-r={item.rarity}>{item.rarity}</span>
+                        {item.effect_type && item.effect_value ? (
+                          <span className={s.effectBadge} data-effect={item.effect_type}>
+                            {formatEffectValue(item.effect_type, item.effect_value)}
+                          </span>
+                        ) : (
+                          <span className={s.rarityChip} data-r={item.rarity}>{item.rarity}</span>
+                        )}
                       </button>
                     ))}
                     {Array.from({ length: emptyCardCount }, (_, i) => (
@@ -443,6 +427,39 @@ export default function Garage() {
           </div>
         </>
       )}
+
+      {/* 착용 효과 상세 시트 */}
+      <BottomSheet open={effectSheetOpen} onClose={() => setEffectSheetOpen(false)}>
+        <div className={s.effectSheet}>
+          <h3 className={s.effectSheetTitle}>{t('effects.sheet_title')}</h3>
+          {effectTotals.map((e) => (
+            <div key={e.type} className={s.effectSheetRow}>
+              <div className={s.effectSheetHead}>
+                <img
+                  src={emojiUrl(EFFECT_META[e.type].emoji)}
+                  width={18}
+                  height={18}
+                  alt=""
+                  className={s.statEmoji}
+                  onError={(e2) => { e2.currentTarget.style.display = 'none'; }}
+                />
+                <span className={s.effectSheetLabel}>{t(EFFECT_META[e.type].i18nKey)}</span>
+                <span className={s.effectSheetTotal} data-effect={e.type}>
+                  {formatEffectValue(e.type, e.total)}
+                </span>
+              </div>
+              <div className={s.effectSheetItems}>
+                {e.items.map((c) => (
+                  <div key={c.item_code} className={s.effectSheetItem}>
+                    <ItemName code={c.item_code} fallback={c.item_name} />
+                    <span className={s.effectSheetItemVal}>{formatEffectValue(e.type, c.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </BottomSheet>
     </div>
   );
 }

@@ -254,12 +254,25 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  width: 100%;
   padding: 8px 12px;
   background: var(--surface, #fff);
+  border: none;
   border-top: 1px solid var(--line, #E8E3DA);
   border-bottom: 1px solid var(--line, #E8E3DA);
   flex-shrink: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.statsBar:active { background: var(--surface-2, #FAF7F2); }
+.effectMore {
+  margin-left: 2px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-3, #8A8E9E);
+  flex-shrink: 0;
 }
 .statChip {
   display: inline-flex;
@@ -288,6 +301,104 @@
   font-size: 12px;
   color: var(--text-3, #8A8E9E);
 }
+
+/* ── Effect HUD chips (착용 효과 합산, 아이콘+수치만) ── */
+.effectChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 9px;
+  background: var(--surface-2, #FAF7F2);
+  border-radius: 20px;
+  border: 1px solid var(--line, #E8E3DA);
+  white-space: nowrap;
+}
+.effectVal {
+  font-weight: 800;
+  color: var(--brand-500, #FF5A1F);
+}
+.effectChip[data-effect="GOLD_MULT"] .effectVal { color: #C8860D; }
+.effectChip[data-effect="QUEST_SLOT"] .effectVal { color: #2563EB; }
+.effectChip[data-effect="COST_DISCOUNT"] .effectVal { color: #16A34A; }
+
+/* ── Effect detail sheet (상세 오버레이) ── */
+.effectSheet {
+  padding: 4px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.effectSheetTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text, #1A1D29);
+  margin: 0;
+  text-align: center;
+}
+.effectSheetRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line, #E8E3DA);
+}
+.effectSheetRow:last-child { border-bottom: none; padding-bottom: 0; }
+.effectSheetHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.effectSheetLabel {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #1A1D29);
+}
+.effectSheetTotal {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--brand-500, #FF5A1F);
+}
+.effectSheetTotal[data-effect="GOLD_MULT"] { color: #C8860D; }
+.effectSheetTotal[data-effect="QUEST_SLOT"] { color: #2563EB; }
+.effectSheetTotal[data-effect="COST_DISCOUNT"] { color: #16A34A; }
+.effectSheetItems {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 26px;
+}
+.effectSheetItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-2, #4A4F62);
+}
+.effectSheetItemVal {
+  font-family: 'Space Grotesk', monospace;
+  font-weight: 700;
+  color: var(--text-3, #8A8E9E);
+}
+
+/* per-item effect badge (그리드 카드) */
+.effectBadge {
+  display: inline-flex;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #fff;
+  background: var(--brand-500, #FF5A1F);
+}
+.effectBadge[data-effect="GOLD_MULT"] { background: #C8860D; }
+.effectBadge[data-effect="QUEST_SLOT"] { background: #2563EB; }
+.effectBadge[data-effect="COST_DISCOUNT"] { background: #16A34A; }
 
 /* ── Item Grid (scrollable) ── */
 .gridSection {

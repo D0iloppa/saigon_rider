@@ -9,7 +9,7 @@ from app.enums import (
     AbuseSeverityEnum, AbuseActionEnum, AccountTypeEnum,
     AcquisitionSourceEnum, CollectionStatusEnum,
     EventStatusEnum, ExpireStatusEnum, GachaStatusEnum,
-    ItemRarityEnum, ItemSlotEnum,
+    ItemEffectEnum, ItemRarityEnum, ItemSlotEnum,
     MissionStatusEnum, QuestCardStatusEnum, QuestCardTypeEnum,
     RedemptionStatusEnum, SeasonStatusEnum,
     TxTypeEnum, UserStatusEnum,
@@ -303,6 +303,8 @@ class ItemDefinitionRead(BaseModel):
     required_season_code: Optional[str] = None
     asset_uri: Optional[str] = None
     is_owned: bool = False
+    effect_type: Optional[ItemEffectEnum] = None
+    effect_value: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

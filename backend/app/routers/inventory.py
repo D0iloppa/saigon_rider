@@ -62,6 +62,8 @@ async def get_items(
                 "is_equipped": raw.get("item_code") in equipped_codes,
                 "is_new": False,
                 "acquired_at": str(raw.get("acquired_at", ""))[:10],
+                "effect_type": defn.get("effect_type"),
+                "effect_value": defn.get("effect_value"),
             }
         )
 

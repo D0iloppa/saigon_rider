@@ -866,5 +866,13 @@
       "road": "주요 도로",
       "bridge": "다리"
     }
+  },
+  "effects": {
+    "none": "착용 효과 없음",
+    "rp": "RP 획득",
+    "gold": "골드 획득",
+    "quest_slot": "퀘스트 슬롯",
+    "cost_discount": "비용 할인",
+    "sheet_title": "착용 효과 상세"
   }
 }

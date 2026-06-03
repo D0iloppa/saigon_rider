@@ -263,3 +263,12 @@
   font-size: 9px;
   color: var(--text-3);
 }
+.itemEffect {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--brand-500, #FF5A1F);
+}
+.itemEffect[data-effect="GOLD_MULT"] { color: #C8860D; }
+.itemEffect[data-effect="QUEST_SLOT"] { color: #2563EB; }
+.itemEffect[data-effect="COST_DISCOUNT"] { color: #16A34A; }

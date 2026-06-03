@@ -9,6 +9,7 @@ import { InventoryCell } from '@/components/ui/items/InventoryCell';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
 import { emojiUrl } from '@/lib/emoji';
+import { formatEffectValue } from '@/lib/items/effects';
 import styles from './Inventory.module.css';
 
 function ItemImg({ item }: { item: InventoryItem }) {
@@ -185,7 +186,13 @@ export default function Inventory() {
 
                 <ItemImg item={item} />
                 <div className={styles.itemName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
-                <div className={styles.itemSlot}>{slotLabel(item.item_slot)}</div>
+                {item.effect_type && item.effect_value ? (
+                  <div className={styles.itemEffect} data-effect={item.effect_type}>
+                    {formatEffectValue(item.effect_type, item.effect_value)}
+                  </div>
+                ) : (
+                  <div className={styles.itemSlot}>{slotLabel(item.item_slot)}</div>
+                )}
               </InventoryCell>
             ))}
           </div>

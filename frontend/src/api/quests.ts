@@ -216,7 +216,7 @@ export async function fetchRecommendedQuests(userId: string): Promise<Quest[]> {
     return api.delay(MOCK_QUESTS.slice(0, 3), 200);
   }
   const raw = await api.realFetch<any[]>(`/quests/recommended?user_id=${userId}`);
-  return raw.map(transformQuest);
+  return raw.map(transformQuest).slice(0, 3);
 }
 
 export interface RidePolicy {

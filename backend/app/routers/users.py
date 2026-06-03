@@ -17,6 +17,7 @@ from ..schemas import (
     Page,
     QuestHistoryOut,
     UserBadgeOut,
+    UserOut,
     UserProfileOut,
     UserStatsOut,
 )
@@ -55,6 +56,35 @@ async def _get_user_or_404(user_id: uuid.UUID, db: AsyncSession) -> User:
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+# SGR-209 A3: 스킬 키 → users 컬럼
+_SKILL_COLUMN = {
+    "distance_rider": "skill_distance_rider",
+    "gold_hunter": "skill_gold_hunter",
+    "safe_rider": "skill_safe_rider",
+}
+
+
+@router.post("/me/skills/{skill_key}/invest", response_model=UserOut, summary="스킬 투자 (SP 1 차감, 레벨 +1)")
+async def invest_skill(
+    skill_key: str,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    col = _SKILL_COLUMN.get(skill_key)
+    if col is None:
+        raise HTTPException(status_code=422, detail="invalid skill_key")
+    user = await _get_user_or_404(user_id, db)
+    if user.skill_pt < 1:
+        raise HTTPException(status_code=409, detail="insufficient skill points")
+    if getattr(user, col) >= 3:
+        raise HTTPException(status_code=409, detail="skill at max level")
+    user.skill_pt -= 1
+    setattr(user, col, getattr(user, col) + 1)
+    await db.commit()
+    await db.refresh(user)
+    return UserOut.model_validate(user)
 
 
 # U-1

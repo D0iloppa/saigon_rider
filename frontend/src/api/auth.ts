@@ -10,6 +10,7 @@ export interface UserDto {
   xp: number;
   gold: number;
   skill_pt: number;
+  skills?: { distance_rider: number; gold_hunter: number; safe_rider: number };
   avatar_url: string | null;
   created_at: string;
 }
@@ -40,6 +41,14 @@ export async function apiLogin(phone: string, passcode: string): Promise<LoginRe
 
 export async function apiGetMe(phone: string): Promise<LoginResult> {
   return api.realFetch<LoginResult>(`/auth/me?phone=${encodeURIComponent(phone)}`);
+}
+
+// SGR-209 A3: 스킬 투자 (SP 1 차감 → 레벨 +1). 갱신된 유저 반환.
+export async function apiInvestSkill(userId: string, key: string): Promise<UserDto> {
+  return api.realFetch<UserDto>(
+    `/users/me/skills/${key}/invest?user_id=${encodeURIComponent(userId)}`,
+    { method: 'POST' },
+  );
 }
 
 export async function apiDeleteAccount(userId: string): Promise<void> {

@@ -50,6 +50,35 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    # ── 쿠폰/기프티콘 (RP 교환) — SGR-213 P1 ──────────────────
+    async def list_catalog(
+        self, *, category: str | None = None, partner_code: str | None = None, limit: int = 20
+    ) -> list[dict]:
+        params: dict = {"limit": limit}
+        if category:
+            params["category"] = category
+        if partner_code:
+            params["partner_code"] = partner_code
+        resp = await self._client.get("/v1/catalog", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+    async def create_redemption(self, user_uuid: str, *, catalog_id: int, idempotency_key: str) -> dict:
+        resp = await self._client.post(
+            f"/v1/users/{user_uuid}/redemptions",
+            json={"catalog_id": catalog_id, "idempotency_key": idempotency_key},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def list_redemptions(self, user_uuid: str, *, status: str | None = None, limit: int = 20) -> list[dict]:
+        params: dict = {"limit": limit}
+        if status:
+            params["status"] = status
+        resp = await self._client.get(f"/v1/users/{user_uuid}/redemptions", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_mileage(self, user_uuid: str, since: str | None = None) -> dict:
         params = {"since": since} if since else None
         resp = await self._client.get(f"/v1/users/{user_uuid}/mileage", params=params)

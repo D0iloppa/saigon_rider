@@ -101,6 +101,7 @@ def apply_level_up(user) -> int:
             break
         user.exp -= need
         user.level += 1
+        user.skill_pt += 1  # SGR-209 A1: 레벨업 시 스킬포인트 1 적립
         gained += 1
     return gained
 

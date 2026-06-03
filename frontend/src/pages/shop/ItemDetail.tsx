@@ -86,7 +86,7 @@ export default function ItemDetail() {
   const r = item.rarity;
   const col = item.collection_code ? COLLECTION_MOCK[item.collection_code] : null;
   const colPct = col ? Math.round((col.owned / col.total) * 100) : 0;
-  const priceVal = item.price_xp ? `${item.price_xp} XP` : `${item.price_gold?.toLocaleString()} ${t('currency.gold')}`;
+  const priceVal = item.price_xp ? `${item.price_xp} ${t('currency.xp')}` : `${item.price_gold?.toLocaleString()} ${t('currency.gold')}`;
 
   return (
     <div className={s.page}>

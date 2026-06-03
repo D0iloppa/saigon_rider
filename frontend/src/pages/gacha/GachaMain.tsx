@@ -127,7 +127,7 @@ export default function GachaMain() {
             {t('currency.gold')} {wallet ? wallet.gold_balance.toLocaleString() : '—'}
           </div>
           <div className={`${styles.headerBalanceRow} ${styles.headerBalanceGc}`}>
-            XP {wallet ? wallet.xp_balance.toLocaleString() : '—'}
+            {t('currency.xp')} {wallet ? wallet.xp_balance.toLocaleString() : '—'}
           </div>
         </div>
       </div>

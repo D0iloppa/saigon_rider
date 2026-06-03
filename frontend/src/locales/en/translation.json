@@ -509,10 +509,45 @@
     "status_resolved": "Resolved",
     "reply_count": "{{count}} replies"
   },
+  "coupon": {
+    "shop_title": "Coupon Shop",
+    "shop_entry": "Redeem gifticons",
+    "my_box": "My Coupons",
+    "balance": "Your RP",
+    "confirm": "Redeem for {{rp}} RP?",
+    "insufficient": "Not enough RP",
+    "redeem": "Redeem",
+    "redeem_failed": "Redemption failed",
+    "load_failed": "Failed to load",
+    "empty": "No coupons available",
+    "box_empty": "No coupons yet",
+    "more_needed": "{{rp}} RP more needed",
+    "redeemed_title": "Redeemed!",
+    "voucher_ready": "Your coupon is ready",
+    "voucher_pending": "Issuing in progress",
+    "go_my_box": "View my coupons",
+    "status": {
+      "REQUESTED": "Processing",
+      "FULFILLED": "Issued",
+      "FAILED": "Failed",
+      "REFUNDED": "Refunded",
+      "CANCELLED": "Cancelled"
+    }
+  },
+  "skill": {
+    "title": "Skills",
+    "points_available": "{{count}} skill points",
+    "invest": "Invest",
+    "invest_failed": "Cannot invest",
+    "max": "MAX",
+    "distance_rider": { "name": "Distance Rider", "effect": "EXP +{{value}}%" },
+    "gold_hunter": { "name": "Gold Hunter", "effect": "Gold +{{value}}%" },
+    "safe_rider": { "name": "Safe Rider", "effect": "Safety A: XP +{{value}}" }
+  },
   "currency": {
     "gold": "Gold",
     "goldAmount": "Gold {{amount}}",
-    "xp": "XP",
+    "xp": "RP",
     "skillPt": "SKILL PT"
   },
   "info": {

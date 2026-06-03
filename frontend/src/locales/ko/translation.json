@@ -509,10 +509,45 @@
     "status_resolved": "해결",
     "reply_count": "답변 {{count}}건"
   },
+  "coupon": {
+    "shop_title": "쿠폰샵",
+    "shop_entry": "기프티콘 교환",
+    "my_box": "내 쿠폰함",
+    "balance": "보유 RP",
+    "confirm": "{{rp}} RP로 교환하시겠어요?",
+    "insufficient": "RP가 부족합니다",
+    "redeem": "교환",
+    "redeem_failed": "교환에 실패했습니다",
+    "load_failed": "불러오지 못했습니다",
+    "empty": "교환 가능한 쿠폰이 없습니다",
+    "box_empty": "아직 교환한 쿠폰이 없습니다",
+    "more_needed": "{{rp}} RP 더 필요",
+    "redeemed_title": "교환 완료!",
+    "voucher_ready": "쿠폰이 발급되었습니다",
+    "voucher_pending": "발급 처리 중입니다",
+    "go_my_box": "내 쿠폰함 보기",
+    "status": {
+      "REQUESTED": "처리중",
+      "FULFILLED": "발급완료",
+      "FAILED": "실패",
+      "REFUNDED": "환불",
+      "CANCELLED": "취소"
+    }
+  },
+  "skill": {
+    "title": "스킬",
+    "points_available": "스킬포인트 {{count}}",
+    "invest": "투자",
+    "invest_failed": "투자할 수 없습니다",
+    "max": "MAX",
+    "distance_rider": { "name": "거리 라이더", "effect": "EXP +{{value}}%" },
+    "gold_hunter": { "name": "골드 헌터", "effect": "Gold +{{value}}%" },
+    "safe_rider": { "name": "세이프 라이더", "effect": "안전 A 시 XP +{{value}}" }
+  },
   "currency": {
     "gold": "골드",
     "goldAmount": "골드 {{amount}}",
-    "xp": "XP",
+    "xp": "RP",
     "skillPt": "SKILL PT"
   },
   "info": {

@@ -204,8 +204,8 @@ export default function QuestDetail() {
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardExp)}</div>
             </div>
             <div className={styles.rewardCell}>
-              <img className={styles.rewardIcon} src={emojiUrl('1f48e')} width={22} height={22} alt="XP" />
-              <div className={styles.rewardLabel}>XP</div>
+              <img className={styles.rewardIcon} src={emojiUrl('1f48e')} width={22} height={22} alt="RP" />
+              <div className={styles.rewardLabel}>{t('currency.xp')}</div>
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardXpPoints)}</div>
             </div>
             <div className={styles.rewardCell}>

@@ -101,6 +101,9 @@ class User(Base):
     xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     gold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     skill_pt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    skill_distance_rider: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    skill_gold_hunter: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    skill_safe_rider: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_content_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True

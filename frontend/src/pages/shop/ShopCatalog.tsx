@@ -173,12 +173,27 @@ export default function ShopCatalog() {
               className={styles.balanceIcon} alt=""
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
-            <span className={styles.balanceGc}>XP {wallet.xp.toLocaleString()}</span>
+            <span className={styles.balanceGc}>{t('currency.xp')} {wallet.xp.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
       <div className={styles.body}>
+        {/* SGR-213 P3: 쿠폰샵 진입 (RP 기프티콘 교환) */}
+        <button
+          type="button"
+          onClick={() => navigate('/shop/coupons')}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', margin: '4px 0 12px', padding: '14px 16px', borderRadius: 14,
+            border: 'none', background: 'var(--brand-500, #ffb300)', color: '#1a1a1a',
+            fontWeight: 700, fontSize: 15, cursor: 'pointer',
+          }}
+        >
+          <span>🎁 {t('coupon.shop_entry')}</span>
+          <span>›</span>
+        </button>
+
         {/* Featured */}
         {featured && <FeaturedCard item={featured} />}
 
@@ -268,7 +283,7 @@ export default function ShopCatalog() {
                     </span>
                   ) : (
                     <span className={styles.priceGc}>
-                      {item.price_xp} XP
+                      {item.price_xp} {t('currency.xp')}
                     </span>
                   )}
                   {!item.is_owned && (

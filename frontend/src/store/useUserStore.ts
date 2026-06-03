@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
 import type { UserDto } from '@/api/auth';
-import { apiGetMe } from '@/api/auth';
+import { apiGetMe, apiInvestSkill } from '@/api/auth';
 import { apiRegisterDeviceMap } from '@/api/device';
 import i18n, { changeLang } from '@/lib/i18n';
 import { native } from '@/lib/native';
@@ -24,7 +24,7 @@ interface UserState {
   addGold: (gold: number) => void;
   spendXp: (xp: number) => boolean;
   setLanguage: (lang: Language) => void;
-  investSkill: (key: SkillKey) => boolean;
+  investSkill: (key: SkillKey) => Promise<boolean>;
 }
 
 function extractRiderStyle(rt: UserDto['rider_type']): RiderStyle {
@@ -47,7 +47,7 @@ function dtoToUser(dto: UserDto): User {
     gold: dto.gold,
     skillPoints: dto.skill_pt,
     language,
-    skills: { distance_rider: 0, gold_hunter: 0, safe_rider: 0 },
+    skills: dto.skills ?? { distance_rider: 0, gold_hunter: 0, safe_rider: 0 },
     createdAt: dto.created_at,
   };
 }
@@ -147,17 +147,16 @@ export const useUserStore = create<UserState>()(
         changeLang(language);
       },
 
-      investSkill: (key) => {
+      investSkill: async (key) => {
         const u = get().user;
         if (!u || u.skillPoints < 1 || u.skills[key] >= 3) return false;
-        set({
-          user: {
-            ...u,
-            skillPoints: u.skillPoints - 1,
-            skills: { ...u.skills, [key]: u.skills[key] + 1 },
-          },
-        });
-        return true;
+        try {
+          const dto = await apiInvestSkill(u.id, key);
+          set({ user: dtoToUser(dto) });
+          return true;
+        } catch {
+          return false;
+        }
       },
     }),
     { name: 'saigon-rider-user' }

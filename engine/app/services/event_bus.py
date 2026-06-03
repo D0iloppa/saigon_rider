@@ -123,7 +123,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
     db.add(event)
     await db.flush()
 
-    # RP 적립 (RP > 0 일 때만)
+    # 골드(current_balance) 적립 (> 0 일 때만)
     tx = None
     if final_xp > 0:
         tx = await xp_ledger.credit(
@@ -135,6 +135,15 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
             related_event_id=event.event_id,
             occurred_at=occurred_at,
         )
+
+    # RP(gc_balance) 적립 — 성취 보상, 상한 없음 (SGR-213).
+    # 퀘스트는 per-quest 값을 payload.rp 로 전달(표시 rewardXpPoints와 일치), 그 외는 action_def.rp_grant 폴백.
+    rp_amount = (
+        int(payload["rp"]) if isinstance(payload.get("rp"), (int, float))
+        else (action_def.rp_grant or 0)
+    )
+    if rp_amount > 0:
+        await xp_ledger.credit_gc(db, user_id=user.user_id, amount=rp_amount)
 
     # ── 8. 다양성 카테고리 로그 ───────────────────────────────
     await diversity.log_category(

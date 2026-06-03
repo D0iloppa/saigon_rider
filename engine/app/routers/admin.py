@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,7 +6,7 @@ from sqlalchemy import func, select, text as sa_text
 
 from app.database import AsyncSession
 from app.deps import get_session, verify_admin_jwt, verify_service_key
-from app.enums import TxTypeEnum
+from app.enums import IntegrationTypeEnum, RedemptionStatusEnum, TxTypeEnum
 from app.exceptions import InsufficientBalanceError
 from app.models import (
     ActionDefinition,
@@ -15,8 +15,11 @@ from app.models import (
     DeviceUserMap,
     GachaDefinition,
     ItemDefinition,
+    RewardCatalog,
+    RewardPartner,
     RewardPolicy,
     RewardPolicyAction,
+    RewardRedemption,
     XpTransaction,
     SreUser,
     UserPolicyLog,
@@ -1016,3 +1019,176 @@ async def admin_push_badges(
         }
         for r in rows
     ]
+
+
+# ── 쿠폰/리워드 카탈로그 관리 (SGR-213 P2) ────────────────────
+_CATALOG_EDITABLE = {
+    "partner_id", "item_name", "category_code", "required_xp",
+    "face_value_vnd", "monthly_quota", "is_active", "thumbnail_asset_uri",
+}
+
+
+def _catalog_to_dict(c: RewardCatalog) -> dict:
+    return {
+        "catalog_id": c.catalog_id,
+        "partner_id": c.partner_id,
+        "item_code": c.item_code,
+        "item_name": c.item_name,
+        "category_code": c.category_code,
+        "required_xp": c.required_xp,
+        "face_value_vnd": c.face_value_vnd,
+        "monthly_quota": c.monthly_quota,
+        "monthly_issued": c.monthly_issued,
+        "is_active": c.is_active,
+        "thumbnail_asset_uri": c.thumbnail_asset_uri,
+    }
+
+
+def _partner_to_dict(p: RewardPartner) -> dict:
+    return {
+        "partner_id": p.partner_id,
+        "partner_code": p.partner_code,
+        "partner_name": p.partner_name,
+        "integration_type": p.integration_type.value,
+        "is_active": p.is_active,
+    }
+
+
+def _redemption_admin_dict(r: RewardRedemption) -> dict:
+    return {
+        "redemption_id": r.redemption_id,
+        "user_id": r.user_id,
+        "catalog_id": r.catalog_id,
+        "status": r.status.value,
+        "voucher_code": r.voucher_code,
+        "idempotency_key": r.idempotency_key,
+        "requested_at": r.requested_at.isoformat() if r.requested_at else None,
+        "fulfilled_at": r.fulfilled_at.isoformat() if r.fulfilled_at else None,
+    }
+
+
+@router.get("/reward-partners", dependencies=[_svc])
+async def admin_partner_list(db: AsyncSession = Depends(get_session)) -> list[dict]:
+    result = await db.execute(select(RewardPartner).order_by(RewardPartner.partner_id))
+    return [_partner_to_dict(p) for p in result.scalars().all()]
+
+
+@router.post("/reward-partners", status_code=status.HTTP_201_CREATED, dependencies=[_svc])
+async def admin_partner_create(data: dict, db: AsyncSession = Depends(get_session)) -> dict:
+    for f in ("partner_code", "partner_name", "integration_type"):
+        if not data.get(f):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{f} required"
+            )
+    try:
+        integration = IntegrationTypeEnum(data["integration_type"])
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid integration_type"
+        ) from e
+    partner = RewardPartner(
+        partner_code=data["partner_code"],
+        partner_name=data["partner_name"],
+        integration_type=integration,
+        api_config=data.get("api_config"),
+        is_active=data.get("is_active", True),
+    )
+    db.add(partner)
+    await db.commit()
+    await db.refresh(partner)
+    return _partner_to_dict(partner)
+
+
+@router.get("/reward-catalog", dependencies=[_svc])
+async def admin_catalog_list(db: AsyncSession = Depends(get_session)) -> list[dict]:
+    result = await db.execute(select(RewardCatalog).order_by(RewardCatalog.catalog_id))
+    return [_catalog_to_dict(c) for c in result.scalars().all()]
+
+
+@router.post("/reward-catalog", status_code=status.HTTP_201_CREATED, dependencies=[_svc])
+async def admin_catalog_create(data: dict, db: AsyncSession = Depends(get_session)) -> dict:
+    for f in ("item_code", "partner_id", "item_name", "category_code", "required_xp"):
+        if data.get(f) in (None, ""):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{f} required"
+            )
+    if (
+        await db.execute(select(RewardCatalog).where(RewardCatalog.item_code == data["item_code"]))
+    ).scalar_one_or_none() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="item_code already exists")
+    allowed = {"item_code", "partner_id"} | _CATALOG_EDITABLE
+    catalog = RewardCatalog(**{k: v for k, v in data.items() if k in allowed})
+    db.add(catalog)
+    await db.commit()
+    await db.refresh(catalog)
+    return _catalog_to_dict(catalog)
+
+
+@router.put("/reward-catalog/{catalog_id}", dependencies=[_svc])
+async def admin_catalog_update(
+    catalog_id: int, data: dict, db: AsyncSession = Depends(get_session)
+) -> dict:
+    catalog = await db.get(RewardCatalog, catalog_id)
+    if catalog is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog not found")
+    for k, v in data.items():
+        if k in _CATALOG_EDITABLE:
+            setattr(catalog, k, v)
+    await db.commit()
+    await db.refresh(catalog)
+    return _catalog_to_dict(catalog)
+
+
+@router.delete("/reward-catalog/{catalog_id}", dependencies=[_svc])
+async def admin_catalog_delete(catalog_id: int, db: AsyncSession = Depends(get_session)) -> dict:
+    catalog = await db.get(RewardCatalog, catalog_id)
+    if catalog is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog not found")
+    used = (
+        await db.execute(
+            select(func.count()).where(RewardRedemption.catalog_id == catalog_id)
+        )
+    ).scalar() or 0
+    if used > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{used} redemption(s) reference this catalog",
+        )
+    await db.delete(catalog)
+    await db.commit()
+    return {"deleted": True, "catalog_id": catalog_id}
+
+
+@router.get("/redemptions", dependencies=[_svc])
+async def admin_redemption_list(
+    redemption_status: Optional[RedemptionStatusEnum] = Query(None, alias="status"),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    query = select(RewardRedemption)
+    if redemption_status:
+        query = query.where(RewardRedemption.status == redemption_status)
+    query = query.order_by(RewardRedemption.requested_at.desc()).limit(limit)
+    result = await db.execute(query)
+    return [_redemption_admin_dict(r) for r in result.scalars().all()]
+
+
+@router.put("/redemptions/{redemption_id}/fulfill", dependencies=[_svc])
+async def admin_redemption_fulfill(
+    redemption_id: int, data: dict, db: AsyncSession = Depends(get_session)
+) -> dict:
+    """수동 발급: REQUESTED 건에 voucher_code 입력 → FULFILLED."""
+    voucher_code = (data.get("voucher_code") or "").strip()
+    if not voucher_code:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="voucher_code required"
+        )
+    redemption = await db.get(RewardRedemption, redemption_id)
+    if redemption is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Redemption not found")
+    redemption.voucher_code = voucher_code
+    redemption.status = RedemptionStatusEnum.FULFILLED
+    redemption.fulfilled_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(redemption)
+    return _redemption_admin_dict(redemption)

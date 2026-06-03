@@ -159,6 +159,7 @@ class CatalogItemRead(BaseModel):
     is_active: bool
     visible_from: Optional[datetime] = None
     visible_until: Optional[datetime] = None
+    thumbnail_asset_uri: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

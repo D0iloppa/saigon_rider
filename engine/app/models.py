@@ -52,6 +52,7 @@ class ActionDefinition(Base):
     category_code = Column(String(20), nullable=False)
     display_name = Column(String(80), nullable=False)
     base_xp = Column(Integer, nullable=False, default=0, server_default="0")
+    rp_grant = Column(Integer, nullable=False, default=0, server_default="0")  # SGR-213: 성취 보상 RP(gc) 적립액
     daily_count_limit = Column(Integer, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     metadata_schema = Column(JSONB, nullable=True)
@@ -277,6 +278,7 @@ class RewardCatalog(Base):
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     visible_from = Column(_TS, nullable=True)
     visible_until = Column(_TS, nullable=True)
+    thumbnail_asset_uri = Column(String(255), nullable=True)  # SGR-213 P1: BFF가 imgproxy 변환
 
     partner = relationship("RewardPartner", back_populates="catalogs")
 

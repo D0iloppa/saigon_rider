@@ -130,7 +130,12 @@ async def submit_ride(
                 user_uuid=str(body.user_id),
                 action_code="QUEST_COMPLETE",
                 occurred_at=now,
-                payload={"quest_id": str(body.quest_id), "ride_id": str(session.id)},
+                payload={
+                    "quest_id": str(body.quest_id),
+                    "ride_id": str(session.id),
+                    # SGR-213: per-quest RP(gc) 적립액 = rewardXpPoints (reward_exp*0.3, 표시값과 일치)
+                    "rp": int(reward_exp * 0.3 + 0.5),
+                },
                 idem_key=f"ride-{session.id}-quest-{body.quest_id}",
             )
     except (httpx.HTTPError, httpx.RequestError) as exc:

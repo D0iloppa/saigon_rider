@@ -56,6 +56,15 @@ async def lock_balance(db: AsyncSession, user_id: int) -> XpBalance:
     return balance
 
 
+async def credit_gc(db: AsyncSession, *, user_id: int, amount: int) -> None:
+    """RP(gc_balance) 적립 — 성취 보상. 골드 원장/FIFO 만료와 무관한 단순 가산, 상한 없음."""
+    if amount <= 0:
+        return
+    balance = await lock_balance(db, user_id)
+    balance.gc_balance += amount
+    await db.flush()
+
+
 # ── XP 적립 ──────────────────────────────────────────────────
 
 def round_xp(value: Decimal) -> int:

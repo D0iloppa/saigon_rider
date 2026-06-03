@@ -346,7 +346,7 @@ function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClic
               width={16} height={16} alt=""
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
-            <span className={styles.rewardNum} style={{ color: 'var(--xp)' }}>+{formatNumber(quest.rewardExp, { compact: true })}</span>
+            <span className={styles.rewardNum} style={{ color: 'var(--xp)' }}>+{formatNumber(quest.rewardXpPoints, { compact: true })}</span>
           </span>
           {quest.rewardGold > 0 && (
             <span className={styles.rewardItem}>

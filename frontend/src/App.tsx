@@ -56,6 +56,8 @@ import GachaPull from '@/pages/gacha/GachaPull';
 // Shop
 import ShopCatalog from '@/pages/shop/ShopCatalog';
 import ItemDetail from '@/pages/shop/ItemDetail';
+import CouponShop from '@/pages/shop/CouponShop';
+import MyCoupons from '@/pages/shop/MyCoupons';
 
 // Garage
 import Garage from '@/pages/garage/Garage';
@@ -224,6 +226,8 @@ export default function App() {
           {/* Protected: Shop */}
           <Route path="/shop" element={<PrivateRoute><ShopCatalog /></PrivateRoute>} />
           <Route path="/shop/item/:itemCode" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
+          <Route path="/shop/coupons" element={<PrivateRoute><CouponShop /></PrivateRoute>} />
+          <Route path="/coupons/mine" element={<PrivateRoute><MyCoupons /></PrivateRoute>} />
 
           {/* Protected: Garage */}
           <Route path="/garage" element={<PrivateRoute><Garage /></PrivateRoute>} />

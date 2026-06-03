@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useUserStore } from '@/store/useUserStore';
+import { SkillTree } from './SkillTree';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useDialogStore } from '@/store/useDialogStore';
@@ -376,7 +377,7 @@ export default function ProfileMain() {
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gc)' }}>
             <img src={emojiUrl('1f48e')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <div className={styles.currencyNum}>{formatNumber(gc)}</div>
-            <div className={styles.currencyLabel}>XP</div>
+            <div className={styles.currencyLabel}>{t('currency.xp')}</div>
           </div>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gold)' }}>
             <img src={emojiUrl('1fa99')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
@@ -389,6 +390,26 @@ export default function ProfileMain() {
             <div className={styles.currencyLabel}>{t('profile.skillPt')}</div>
           </div>
         </div>
+
+        {/* SGR-209 A4: 스킬 트리 */}
+        <SkillTree />
+
+        {/* SGR-213: 내 쿠폰함 진입 */}
+        <button
+          type="button"
+          onClick={() => navigate('/coupons/mine')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+            margin: '12px 0', padding: '14px 16px', borderRadius: 16,
+            border: '1px solid var(--line)', background: 'white', cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🎁</span>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+            {t('coupon.my_box')}
+          </span>
+          <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
+        </button>
 
         {/* Garage Banner */}
         <div className={styles.garageBanner} onClick={() => navigate('/garage')}>

@@ -99,6 +99,7 @@ class UserOut(BaseModel):
     xp: int
     gold: int
     skill_pt: int
+    skills: dict[str, int]
     avatar_url: str | None
     created_at: datetime
 
@@ -120,6 +121,11 @@ class UserOut(BaseModel):
             "xp": data.xp,
             "gold": data.gold,
             "skill_pt": data.skill_pt,
+            "skills": {
+                "distance_rider": data.skill_distance_rider,
+                "gold_hunter": data.skill_gold_hunter,
+                "safe_rider": data.skill_safe_rider,
+            },
             "avatar_url": resolve_avatar_url(data),
             "created_at": data.created_at,
         }

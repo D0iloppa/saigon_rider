@@ -509,10 +509,45 @@
     "status_resolved": "Đã giải quyết",
     "reply_count": "{{count}} phản hồi"
   },
+  "coupon": {
+    "shop_title": "Cửa hàng phiếu",
+    "shop_entry": "Đổi quà tặng",
+    "my_box": "Phiếu của tôi",
+    "balance": "RP hiện có",
+    "confirm": "Đổi với {{rp}} RP?",
+    "insufficient": "Không đủ RP",
+    "redeem": "Đổi",
+    "redeem_failed": "Đổi thất bại",
+    "load_failed": "Không tải được",
+    "empty": "Không có phiếu nào",
+    "box_empty": "Chưa có phiếu nào",
+    "more_needed": "Cần thêm {{rp}} RP",
+    "redeemed_title": "Đổi thành công!",
+    "voucher_ready": "Phiếu đã được phát hành",
+    "voucher_pending": "Đang xử lý phát hành",
+    "go_my_box": "Xem phiếu của tôi",
+    "status": {
+      "REQUESTED": "Đang xử lý",
+      "FULFILLED": "Đã phát hành",
+      "FAILED": "Thất bại",
+      "REFUNDED": "Hoàn tiền",
+      "CANCELLED": "Đã hủy"
+    }
+  },
+  "skill": {
+    "title": "Kỹ năng",
+    "points_available": "Điểm kỹ năng {{count}}",
+    "invest": "Đầu tư",
+    "invest_failed": "Không thể đầu tư",
+    "max": "MAX",
+    "distance_rider": { "name": "Tay đua đường dài", "effect": "EXP +{{value}}%" },
+    "gold_hunter": { "name": "Thợ săn vàng", "effect": "Vàng +{{value}}%" },
+    "safe_rider": { "name": "Tay đua an toàn", "effect": "Hạng A: XP +{{value}}" }
+  },
   "currency": {
     "gold": "Vàng",
     "goldAmount": "Vàng {{amount}}",
-    "xp": "XP",
+    "xp": "RP",
     "skillPt": "SKILL PT"
   },
   "info": {

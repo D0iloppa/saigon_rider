@@ -39,9 +39,9 @@ async def redeem(
 
     # 잔액 검사
     balance = await xp_ledger.lock_balance(db, user.user_id)
-    if balance.current_balance < catalog.required_xp:
+    if balance.gc_balance < catalog.required_xp:
         raise InsufficientBalanceError(
-            f"Required {catalog.required_xp} XP but balance is {balance.current_balance}"
+            f"Required {catalog.required_xp} RP but balance is {balance.gc_balance}"
         )
 
     # 어댑터 선택 및 바우처 발급
@@ -54,15 +54,8 @@ async def redeem(
         idempotency_key=idempotency_key,
     )
 
-    # RP 차감
-    tx = await xp_ledger.debit(
-        db,
-        user_id=user.user_id,
-        amount=catalog.required_xp,
-        source_type="REDEMPTION",
-        source_id=catalog_id,
-        memo=f"교환: {catalog.item_name}",
-    )
+    # RP(GC) 차감 — 쿠폰은 RP(gc_balance)로 구매. 골드(current_balance)와 별개.
+    balance.gc_balance -= catalog.required_xp
 
     # monthly_issued 증가
     catalog.monthly_issued += 1
@@ -72,7 +65,7 @@ async def redeem(
     redemption = RewardRedemption(
         user_id=user.user_id,
         catalog_id=catalog_id,
-        xp_transaction_id=tx.transaction_id,
+        xp_transaction_id=None,
         status=(
             RedemptionStatusEnum.FULFILLED
             if voucher.voucher_code else RedemptionStatusEnum.REQUESTED

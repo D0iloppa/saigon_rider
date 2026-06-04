@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-03 (SGR-210 DONE — 착용효과 사용자 노출 UI: 개러지 합산 HUD+상세 시트, 개별 배지. Engine→BFF→Front effect 필드 추가. 홈 오늘의미션 3개 표출 제한)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-04 (SGR-220 DONE — 개발→운영 1차 배포 + 배포 SOP/도메인 마이그레이션 규칙 수립. 운영 letantonsheriff.com 가동. 후속 SGR-227 init 스키마 결함)
 
 ---
 
@@ -48,11 +48,8 @@
 
 ## 활성 태스크 (🔧)
 
-- **SGR-220 개발→운영 배포 (SOP+1차배포)** — **운영 가동 중** `https://letantonsheriff.com`(임시 도메인, 기존 lsh 대체). SoT `task/active/260604_deploy_prod_task.md`. 완료: 프로비저닝(Docker/그룹/clone)·P2 compose override·P3 운영.env(시크릿 회전)·P4 호스트 nginx 라우팅(lsh_api.conf root+www 분리, saigon.conf)·P5 데이터 이관(dev 전체 dump→drop&recreate, 테스트유저 정리, item140/quest243). cert 갱신 자동화(saigon-cert-renew.sh+cron).
-  - cert: ✅ 2-SAN(root+www) 축소 + 자동갱신(saigon-cert-renew.sh+cron) 정상화. BFF_PUBLIC_URL `/api/bff` 누락 버그 교정(아바타 폴백 302→imgproxy 검증).
-  - 네이티브: ✅ AppConfig baseURL dev/prod 빌드 분기(iOS `#if DEBUG`/Android `BuildConfig.DEBUG`) 적용·푸시(각 origin main). serviceKey는 단일 유지 → 운영 ENGINE_SERVICE_KEY를 앱 값으로 정렬(SRE 인증 200 검증). grand-opening 공식 피드(Saigon-Rider) 이관·이미지 content_id 배선·카운터 재계산 완료.
-  - **남은 것**: ① FCM firebase json 마운트 미배선(초기 off) ② official/grand-opening.jpg 1건(saigon.doil.me 오프라인) ③ **SGR-227**: init 스키마 베이스라인 결함(fresh DB 빌드 불가, dump-restore 우회)
-  - 도메인 마이그레이션 규칙·host 참조 7지점은 runbook에 문서화(전용 도메인 구매 시 적용)
+- (없음) — **SGR-220 개발→운영 1차 배포 + SOP 완료** (운영 `https://letantonsheriff.com` 가동). 이력은 [`history.md`](history.md) 2026-06-04, runbook `task/active/260604_deploy_prod_task.md`.
+  - **배포 후속(backlog)**: ① **SGR-227** init 스키마 베이스라인 결함(fresh DB 빌드 불가 — dump-restore 우회 중) ② FCM firebase json 마운트(푸시 활성화) ③ official/grand-opening.jpg 1건(saigon.doil.me 복구 시) ④ 전용 도메인 구매 시 마이그레이션(규칙은 runbook §도메인 마이그레이션)
 
 ## 부분 점검 (🟡)
 

@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-06-04
+
+- **개발서버 → 운영서버 1차 배포 + 배포 SOP 수립 (SGR-220 DONE)** — 운영 `https://letantonsheriff.com`(임시 도메인, 기존 lsh 대체) 가동. SoT: `task/active/260604_deploy_prod_task.md`(runbook, 배포 기준 지침). **결정**: 별도 운영 호스트(Rocky 9.6, `ssh saigon-prod`)·git pull+compose build·**nginx 2계층(ADR-001, 호스트 nginx→`127.0.0.1:18090`)**·`/app/SaigonRider` 격리. **수행**: 프로비저닝(Docker 설치·wellconn docker그룹·read-only deploy key clone) → P2 `docker-compose.prod.yml`(포트 비노출·소스마운트 제거·mcp_dev 제외, `!override/!reset`) → P3 운영 `.env`(시크릿 회전, 키셋 일치) → P4 호스트 nginx(`lsh_api.conf`에서 root+www 분리, `saigon.conf` 추가, 기존 cert 2-SAN 축소+자동갱신 `saigon-cert-renew.sh`+cron) → P6 빌드·기동(8컨테이너, 포트격리 검증) → P5 데이터(dev 전체 dump→drop&recreate&restore, 테스트유저 정리: item140/quest243/district41, users0). 이미지·아바타 서빙 200 검증. **버그 교정**: `BFF_PUBLIC_URL`에 `/api/bff` 누락(아바타 폴백 SPA 루프백)→교정. **네이티브**(별 repo): AppConfig baseURL dev/prod 빌드 분기(iOS `#if DEBUG`/Android `BuildConfig.DEBUG`), serviceKey 단일 유지 위해 운영 `ENGINE_SERVICE_KEY`를 앱 값으로 정렬(SRE 200/401 검증). grand-opening 공식 피드(Saigon-Rider) 이관·content_id 배선·카운터 재계산. **도메인 마이그레이션 규칙**(host 참조 7지점 + 절차) 문서화. md+Notion+Plane(P1~P6+main DONE) 동기화. **후속**: SGR-227(init 스키마 베이스라인 결함 — fresh DB 빌드 불가, dump-restore 우회), FCM firebase json 마운트, official/grand-opening.jpg 1건.
+
 ## 2026-06-02
 
 - **주행거리(마일리지) 표시 누적 전환 (SGR-207)** — "10km+ 쌓인 마일리지가 0.x로 줄어듦" 점검. 원인은 초기화 로직/테스트 쿼리 아님: 화면이 보여주던 값이 BFF `/users/me/stats`의 `total_km`=**이번 달**(period, `user_mileage_log` since month_start)이라 6/1 월 경계에서 5월 누적분이 집계 이탈. 평생 누적은 `sre_user.total_distance_m`에 보존(검증: user_id 1 → 5월 10,473m + 6월 2,981m = 13,454m, 로그 602건 합계 일치). 조치: BFF가 `lifetime_km`(=`total_distance_m`/1000) 필드 신설해 함께 반환(`total_km`=이번 달 유지), 프론트는 ①`WorldMap.tsx` 홈 아바타 옆 마일리지 ②`ProfileMain.tsx` "총 누적 주행 거리" odometer 카드(+tier 배지/진행바)를 `lifetime_km`으로 전환(odometer는 라벨이 "총 누적"인데 월간값 읽던 버그). "이번 달" 통계 카드는 `total_km` 유지. 변경: backend `routers/users.py`,`schemas.py` · frontend `api/types.ts`,`api/profile.ts`,`pages/home/WorldMap.tsx`,`pages/profile/ProfileMain.tsx`. bff+frontend 재배포·시각검증 완료, Plane SGR-207 DONE. (커밋/푸시 미실행)

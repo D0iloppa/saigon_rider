@@ -539,9 +539,7 @@ class QuestCardCreate(BaseModel):
     external_quest_id: str
     user_quest_id: str
     card_type: QuestCardTypeEnum
-    target_distance_m: Optional[int] = None
-    target_lat: Optional[float] = None
-    target_lng: Optional[float] = None
+    criteria: dict
     expires_at: Optional[datetime] = None
 
 
@@ -551,10 +549,8 @@ class QuestCardRead(BaseModel):
     external_quest_id: str
     user_quest_id: str
     card_type: QuestCardTypeEnum
-    target_distance_m: Optional[int] = None
+    criteria: dict
     current_distance_m: int = 0
-    target_lat: Optional[float] = None
-    target_lng: Optional[float] = None
     status: QuestCardStatusEnum
     accepted_at: datetime
     completed_at: Optional[datetime] = None

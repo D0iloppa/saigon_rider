@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_session, verify_service_key
-from app.enums import QuestCardStatusEnum, QuestCardTypeEnum
+from app.enums import QuestCardStatusEnum
 from app.models import SreQuestCard, SreUser
 from app.schemas import DailySlotInfo, QuestCardCreate, QuestCardRead
 from app.services import quest_tracker
@@ -31,19 +31,12 @@ async def create_quest_card(
 ) -> SreQuestCard:
     sre_user = await get_or_create_user(db, body.user_uuid)
 
-    if body.card_type == QuestCardTypeEnum.DISTANCE and body.target_distance_m is None:
-        raise HTTPException(status_code=422, detail="DISTANCE requires target_distance_m")
-    if body.card_type == QuestCardTypeEnum.CHECKPOINT and (body.target_lat is None or body.target_lng is None):
-        raise HTTPException(status_code=422, detail="CHECKPOINT requires target_lat and target_lng")
-
     card = SreQuestCard(
         user_id=sre_user.user_id,
         external_quest_id=body.external_quest_id,
         user_quest_id=body.user_quest_id,
         card_type=body.card_type,
-        target_distance_m=body.target_distance_m,
-        target_lat=body.target_lat,
-        target_lng=body.target_lng,
+        criteria=body.criteria,
         expires_at=body.expires_at,
     )
     db.add(card)

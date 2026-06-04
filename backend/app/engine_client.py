@@ -492,9 +492,7 @@ class EngineClient:
         external_quest_id: str,
         user_quest_id: str,
         card_type: str,
-        target_distance_m: int | None = None,
-        target_lat: float | None = None,
-        target_lng: float | None = None,
+        criteria: dict,
         expires_at: str | None = None,
     ) -> dict:
         resp = await self._client.post(
@@ -504,9 +502,7 @@ class EngineClient:
                 "external_quest_id": external_quest_id,
                 "user_quest_id": user_quest_id,
                 "card_type": card_type,
-                "target_distance_m": target_distance_m,
-                "target_lat": target_lat,
-                "target_lng": target_lng,
+                "criteria": criteria,
                 "expires_at": expires_at,
             },
         )

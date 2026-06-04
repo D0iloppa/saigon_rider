@@ -49,25 +49,22 @@ async def start_ride(
     expires_at = _calc_card_expires_from_quest(quest)
     try:
         if quest.card_type == "CHECKPOINT":
-            resp = await engine_client.create_quest_card(
-                user_uuid=str(uq.user_id),
-                external_quest_id=str(quest.id),
-                user_quest_id=str(uq.id),
-                card_type="CHECKPOINT",
-                target_lat=float(quest.target_lat) if quest.target_lat is not None else None,
-                target_lng=float(quest.target_lng) if quest.target_lng is not None else None,
-                expires_at=expires_at,
-            )
+            criteria = {
+                "target_lat": float(quest.target_lat) if quest.target_lat is not None else None,
+                "target_lng": float(quest.target_lng) if quest.target_lng is not None else None,
+            }
         else:
-            target_distance_m = int(quest.target_distance_km * 1000) if quest.target_distance_km else None
-            resp = await engine_client.create_quest_card(
-                user_uuid=str(uq.user_id),
-                external_quest_id=str(quest.id),
-                user_quest_id=str(uq.id),
-                card_type="DISTANCE",
-                target_distance_m=target_distance_m,
-                expires_at=expires_at,
-            )
+            criteria = {
+                "target_distance_m": int(quest.target_distance_km * 1000) if quest.target_distance_km else None,
+            }
+        resp = await engine_client.create_quest_card(
+            user_uuid=str(uq.user_id),
+            external_quest_id=str(quest.id),
+            user_quest_id=str(uq.id),
+            card_type=quest.card_type or "DISTANCE",
+            criteria=criteria,
+            expires_at=expires_at,
+        )
     except Exception as exc:
         log.warning("Engine card creation failed for user_quest=%s: %s", user_quest_id, exc)
         raise HTTPException(status_code=502, detail="Engine 카드 생성 실패") from exc

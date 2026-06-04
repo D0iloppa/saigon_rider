@@ -156,10 +156,8 @@ export async function fetchMyAccepted(userId: string): Promise<MyAcceptedItem[]>
 export interface ActiveCardState {
   card_id: number;
   card_type: 'DISTANCE' | 'CHECKPOINT';
-  target_distance_m: number | null;
+  criteria: Record<string, unknown>;
   current_distance_m: number;
-  target_lat: number | null;
-  target_lng: number | null;
   status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
   completed_at: string | null;
   last_lat: number | null;

@@ -886,10 +886,8 @@ class SreQuestCard(Base):
         Enum(QuestCardTypeEnum, name="quest_card_type_enum", create_type=False),
         nullable=False,
     )
-    target_distance_m = Column(Integer, nullable=True)
+    criteria = Column(JSONB, nullable=False)
     current_distance_m = Column(Integer, nullable=False, default=0, server_default="0")
-    target_lat = Column(Numeric(9, 6), nullable=True)
-    target_lng = Column(Numeric(9, 6), nullable=True)
     status = Column(
         Enum(QuestCardStatusEnum, name="quest_card_status_enum", create_type=False),
         nullable=False, default=QuestCardStatusEnum.ACTIVE, server_default="ACTIVE",

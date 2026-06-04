@@ -1,70 +1,71 @@
-"""퀘스트 카드 달성 체크 — GPS 수신마다 호출."""
+"""퀘스트 카드 달성 체크 — 신호(Signal) 기반 validator 디스패치."""
 from __future__ import annotations
 
 import json
 import logging
 from datetime import datetime, timezone
-from math import atan2, cos, radians, sin, sqrt
 
 from sqlalchemy import Date, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
-from app.enums import QuestCardStatusEnum, QuestCardTypeEnum
+from app.enums import QuestCardStatusEnum
 from app.models import SreQuestCard, SreUser
 from app.schemas import DailySlotInfo
 from app.services import equip_effects, seed_config
+from app.services.quest_validators import EventSignal, GpsSignal, Signal, registry
 
 log = logging.getLogger(__name__)
 
 
 async def update(user_id: int, lat: float, lng: float, distance_m: float) -> list[int]:
+    """GPS 수신 시 진입점 — GpsSignal 로 변환해 디스패치."""
+    return await dispatch(user_id, GpsSignal(lat=lat, lng=lng, distance_m=distance_m))
+
+
+async def dispatch_event(user_id: int, kind: str, payload: dict | None = None) -> list[int]:
+    """비-GPS 도메인 이벤트 진입점 — EventSignal 로 디스패치."""
+    return await dispatch(user_id, EventSignal(kind=kind, payload=payload or {}))
+
+
+async def dispatch(user_id: int, signal: Signal) -> list[int]:
     async with AsyncSessionLocal() as db:
         active_cards = await _get_active_cards(db, user_id)
         completed_ids: list[int] = []
-        has_coord = not (lat == 0 and lng == 0)
         now = datetime.now(timezone.utc)
 
         for card in active_cards:
-            # ── 라이브 텔레메트리 갱신 (모든 카드 공통) ──
-            if has_coord:
-                prev_ts = card.last_gps_at
-                dt = (now - prev_ts).total_seconds() if prev_ts is not None else 0.0
-                if distance_m > 0 and dt > 0:
-                    card.last_speed_kmh = round(distance_m / dt * 3.6, 2)
-                elif distance_m <= 0:
-                    card.last_speed_kmh = 0.0
-                # dt == 0 (첫 핑) 케이스는 이전 값 유지
+            validator = registry.get(card.card_type)
+            if validator is None or not validator.accepts(signal):
+                continue
 
-                card.last_lat = lat
-                card.last_lng = lng
-                card.last_gps_at = now
+            # GPS 공통 텔레메트리 (속도·last_*)
+            if isinstance(signal, GpsSignal):
+                _update_gps_telemetry(card, signal, now)
 
-                if card.card_type == QuestCardTypeEnum.CHECKPOINT \
-                        and card.target_lat is not None and card.target_lng is not None:
-                    card.distance_to_target_m = int(
-                        _haversine(lat, lng, float(card.target_lat), float(card.target_lng))
-                    )
-
-            # ── 달성 판정 ──
-            if card.card_type == QuestCardTypeEnum.DISTANCE:
-                if distance_m <= 0:
-                    continue
-                card.current_distance_m += int(distance_m)
-                if card.current_distance_m >= card.target_distance_m:
-                    await _complete_card(card)
-                    completed_ids.append(card.card_id)
-
-            elif card.card_type == QuestCardTypeEnum.CHECKPOINT:
-                if not has_coord or card.distance_to_target_m is None:
-                    continue
-                threshold = await seed_config.get_seed_int("CHECKPOINT_PROXIMITY_M", 100)
-                if card.distance_to_target_m <= threshold:
-                    await _complete_card(card)
-                    completed_ids.append(card.card_id)
+            result = await validator.on_signal(card, signal, db)
+            if result.completed:
+                await _complete_card(card)
+                completed_ids.append(card.card_id)
 
         await db.commit()
     return completed_ids
+
+
+def _update_gps_telemetry(card: SreQuestCard, signal: GpsSignal, now: datetime) -> None:
+    if signal.lat == 0 and signal.lng == 0:
+        return  # 좌표 없는 핑은 텔레메트리 갱신하지 않음
+    prev_ts = card.last_gps_at
+    dt = (now - prev_ts).total_seconds() if prev_ts is not None else 0.0
+    if signal.distance_m > 0 and dt > 0:
+        card.last_speed_kmh = round(signal.distance_m / dt * 3.6, 2)
+    elif signal.distance_m <= 0:
+        card.last_speed_kmh = 0.0
+    # dt == 0 (첫 핑) 케이스는 이전 값 유지
+
+    card.last_lat = signal.lat
+    card.last_lng = signal.lng
+    card.last_gps_at = now
 
 
 async def calc_daily_slots(db: AsyncSession, user_id: int) -> DailySlotInfo:
@@ -138,11 +139,3 @@ async def _complete_card(card: SreQuestCard) -> None:
         })
     except Exception:
         log.warning("Failed to publish quest_completed event for card=%d", card.card_id)
-
-
-def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    R = 6_371_000
-    dlat = radians(lat2 - lat1)
-    dlng = radians(lng2 - lng1)
-    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
-    return R * 2 * atan2(sqrt(a), sqrt(1 - a))

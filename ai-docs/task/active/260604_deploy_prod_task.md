@@ -233,6 +233,34 @@ server {
 
 ---
 
+## 도메인 마이그레이션 규칙 (임시 letantonsheriff → 전용 도메인)
+
+> **현재 `letantonsheriff.com`+`www`는 임시**(미사용 기존 도메인 차용). 전용 도메인 구매 시 아래 절차로 이전한다. 이 규칙은 host가 참조되는 **모든 지점**을 빠짐없이 바꾸기 위한 체크리스트다.
+
+### host 참조 지점 (전수 — 06-04 조사)
+
+| # | 지점 | 파일/위치 | 도메인 변경 시 |
+|---|---|---|---|
+| 1 | 웹 프론트 | (없음) — 상대경로 `/api/*` (`frontend/src/api/client.ts:44`) | ❌ **변경 불필요**. Dockerfile은 `VITE_USE_MOCK`만 build-arg, host는 vite로 전이 안 됨. same-origin 자동 |
+| 2 | **네이티브 앱** | `frontend/capacitor.config.ts` `server.url` (+ `native/android/app/src/main/assets/capacitor.config.json`, `native/ios/App/capacitor.config.json` — `cap sync`로 생성) | ✅ **`server.url` 변경 → `npx cap sync` → 네이티브 재빌드 → 스토어 재배포**. 현재 `https://saigon.doil.me` 가리킴 |
+| 3 | 서버측 BFF | `.env` `BFF_PUBLIC_URL`·`IMGPROXY_BASE_URL` (`backend/app/utils.py` os.getenv) | ✅ `.env` 값 수정 → `bff` 재시작 |
+| 4 | 호스트 nginx | `deploy/saigon.conf` `server_name` + cert 경로 | ✅ server_name·cert 경로 교체 → cp → reload |
+| 5 | SSL 인증서 | `/etc/letsencrypt/live/<도메인>/` | ✅ 신규 도메인 cert 발급 (certbot) |
+| 6 | mock 데이터 | `frontend/src/data/quests.ts:6` (`saigon.doil.me` 하드코딩) | ⚪ mock 폴백 전용, 실데이터 무관 (선택 정리) |
+| 7 | OAuth redirect URI | (B-2 OAuth 구현 시) | ✅ 추후 OAuth 추가 시 신규 도메인 등록 |
+
+### 마이그레이션 절차 (신규 전용 도메인 D)
+
+1. DNS A레코드 `D` → 운영 호스트 IP.
+2. cert 발급: `certbot certonly --nginx --cert-name <name> -d D -d www.D` (또는 단일).
+3. `deploy/saigon.conf`: `server_name` → `D www.D`, `ssl_certificate` 경로 → 신규 cert. commit/push/pull → `sudo cp` → `nginx -t` → reload.
+4. `.env`: `BFF_PUBLIC_URL`/`IMGPROXY_BASE_URL` → `https://D`. → `docker compose ... up -d bff`(재시작).
+5. **네이티브**: `capacitor.config.ts` `server.url` → `https://D` → `npx cap sync` → iOS/Android 재빌드 → **스토어 재배포**(심사 기간 고려).
+6. 갱신 스크립트(`/usr/local/bin/saigon-cert-renew.sh`) `--cert-name` 신규 cert로 교체.
+7. (선택) 임시 letantonsheriff cert/conf 정리.
+
+> **웹은 무중단 교체 가능**(상대경로). **네이티브는 server.url이 박혀 스토어 재배포 필요** — 도메인 확정 후 한 번에 가는 게 비용 최소. 전용 도메인은 **네이티브 첫 스토어 등록(B-3) 전에** 확정하는 것이 이상적.
+
 ## 배포 절차 (git pull + build)
 
 ```bash

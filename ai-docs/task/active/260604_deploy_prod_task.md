@@ -298,6 +298,18 @@ sudo nginx -t && sudo systemctl reload nginx
 - 이후(2차+) 스키마 변경 마이그레이션 경로 — dev에서 쓰는 도구/순서를 운영에 동일 적용 (P5에서 확정).
 - **타이밍**: 운영 DB 컨테이너 기동(P6 배포) 후 restore. dev가 계속 바뀌므로 **컷오버 직전에 덤프**.
 
+### P5 실행 결과 (06-04) + 🔴 스키마 베이스라인 결함 발견
+
+**중대 발견**: `database/init/*.sql`(001~048)을 **fresh DB에 처음부터 순서대로 돌리면 `014_quest_full_mapping.sql`에서 `column "rider_type_id" does not exist`로 실패** → 후속 스크립트 누락 → prod에 **테이블 25개만** 생성(item_definition 등 누락). init은 dev에 점진 적용된 마이그레이션 모음이라 **클린 from-scratch 빌드가 안 됨**. (bff/engine "healthy"는 `/health`만 봐서 스키마 미검증 — 오탐.) → **SOP 결함: 별도 티켓**(init 베이스라인 정리 또는 alembic upgrade 배포 포함).
+
+**해결(이번 적용)**: init 의존 포기 → **dev 전체 dump → prod DB drop&recreate&restore** 로 스키마+데이터를 dev와 동일 복제.
+- dev `pg_dump --no-owner --exclude-table-data=spatial_ref_sys -Fc` (전체) → prod `bff/engine/worker stop → DROP/CREATE DATABASE → pg_restore` (exit 0, 에러 0, 테이블 95개).
+- 테스트 유저 정리: FK 동작 분석(24 no-action·20 cascade·5 set-null) 후 **① txn/유저 테이블 TRUNCATE ② `DELETE FROM users/sre_user`(contents·repair_shop owner→NULL 보존) ③ `DELETE contents WHERE owner_type='user'`(16건)**.
+- 결과: item 140·quest 243·district 41·contents 49·gas_station 759·repair_shop 215 / users·sre_user·feed·xp = 0.
+- `contents/` 이미지: 52개 git 추적분이 clone으로 prod 동기화됨(93M). 이미지 서빙 검증 200(image/png).
+- ⚠️ 잔여: contents 1건 파일 누락(`official/grand-opening.jpg`) — 고아 참조, 무해.
+- dev DB_USER=`wellconn` ≠ prod=`saigon` → `--no-owner`로 처리.
+
 ---
 
 ## 검증 체크리스트 (1차 배포 후)

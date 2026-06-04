@@ -48,7 +48,9 @@
 
 ## 활성 태스크 (🔧)
 
-- **SGR-220 개발→운영 배포 (SOP+1차배포)** — runbook 작성됨(`task/active/260604_deploy_prod_task.md`), Notion 미러·서브 Todo P1~P6(SGR-221~226) 등록 완료. nginx 2계층(A안)·git pull+build·`/app/SaigonRider` 격리 결정. **선결 블로커**: 운영 호스트(Rocky 9.6, `ssh saigon-prod`)에 Docker 미설치 → 설치+wellconn docker그룹+`/app/SaigonRider` 생성(sudo 필요)이 P6 착수 전제. 호스트 nginx는 `lsh_api.conf` 가동 중 → `saigon.conf` 별도 추가
+- **SGR-220 개발→운영 배포 (SOP+1차배포)** — **운영 가동 중** `https://letantonsheriff.com`(임시 도메인, 기존 lsh 대체). SoT `task/active/260604_deploy_prod_task.md`. 완료: 프로비저닝(Docker/그룹/clone)·P2 compose override·P3 운영.env(시크릿 회전)·P4 호스트 nginx 라우팅(lsh_api.conf root+www 분리, saigon.conf)·P5 데이터 이관(dev 전체 dump→drop&recreate, 테스트유저 정리, item140/quest243). cert 갱신 자동화(saigon-cert-renew.sh+cron).
+  - **남은 것**: ① 🔴 cert SAN 2개 축소 미완(7-SAN이라 갱신 실패 위험, `certbot certonly --cert-name letantonsheriff.com -d ... ` 프롬프트 승인 필요) ② 네이티브 `capacitor.config.ts` server.url 환경별(현 `saigon.doil.me`) ③ FCM firebase json 마운트 미배선 ④ **SGR-227**: init 스키마 베이스라인 결함(fresh DB 빌드 불가, 우회 배포함)
+  - 도메인 마이그레이션 규칙·host 참조 7지점은 runbook에 문서화(전용 도메인 구매 시 적용)
 
 ## 부분 점검 (🟡)
 

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_service_key
 from ..models import Badge, Quest, User, UserBadge, UserQuest
-from ..utils import apply_level_up
+from ..utils import gain_exp
 
 router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[Depends(verify_service_key)])
 log = logging.getLogger(__name__)
@@ -42,8 +42,7 @@ async def grant_exp(body: GrantExpRequest, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.exp += body.amount
-    gained = apply_level_up(user)
+    gained = await gain_exp(db, user, body.amount)
     await db.commit()
     log.info(
         "internal grant-exp: user=%s +%d → level=%d exp=%d (+%d levels)",
@@ -125,9 +124,8 @@ async def quest_card_completed(
 
     uq.status = "COMPLETED"
     uq.completed_at = datetime.now(UTC)
-    user.exp += quest.reward_exp
     user.gold += quest.reward_gold
-    apply_level_up(user)
+    await gain_exp(db, user, quest.reward_exp)
     await db.commit()
     log.info(
         "internal quest-card-completed: user_quest=%s quest=%s card=%s +exp=%d +gold=%d",

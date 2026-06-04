@@ -24,7 +24,7 @@ from ..schemas import (
     QuestParticipantOut,
     QuestPinOut,
 )
-from ..utils import APP_TZ, MOCK_IMG_ENDPOINT, build_imgproxy_url, resolve_avatar_url
+from ..utils import APP_TZ, MOCK_IMG_ENDPOINT, build_imgproxy_url, gain_exp, resolve_avatar_url
 
 log = logging.getLogger(__name__)
 
@@ -450,8 +450,8 @@ async def complete_quest(
                 eff = {}
             reward_exp = int(quest.reward_exp * (1 + eff.get("rp_mult_pct", 0) / 100))
             reward_gold = int(quest.reward_gold * (1 + eff.get("gold_mult_pct", 0) / 100))
-            user.exp += reward_exp
             user.gold += reward_gold
+            await gain_exp(db, user, reward_exp)
 
     await db.commit()
     await db.refresh(uq)

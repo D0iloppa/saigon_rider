@@ -773,3 +773,13 @@ class AppVersion(Base):
     released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class LevelupRewardPolicy(Base):
+    """레벨업 보상 정책 (단일행 config). gain_exp() 가 레벨업 시 읽어 적용. SGR-228."""
+
+    __tablename__ = "levelup_reward_policy"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
+    gold: Mapped[int] = mapped_column(Integer, nullable=False, default=200)
+    skill_pt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

@@ -9,7 +9,7 @@ from ..engine_client import engine_client
 router = APIRouter(prefix="/gacha", tags=["가챠 (Gacha)"])
 
 
-_CURRENCY_MAP = {"GP": "GOLD", "GC": "XP"}
+_CURRENCY_MAP = {"GP": "GOLD", "GC": "RP"}
 
 
 def _gacha_type(g: dict) -> str:
@@ -20,7 +20,7 @@ def _gacha_type(g: dict) -> str:
         return "SEASON"
     if (g.get("cost_per_pull") or 0) >= 80:
         return "LEGEND"
-    return "XP"
+    return "RP"
 
 
 def _to_frontend(g: dict) -> dict:

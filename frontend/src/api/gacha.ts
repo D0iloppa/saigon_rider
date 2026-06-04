@@ -5,8 +5,8 @@ export type ItemRarity = 'C' | 'R' | 'E' | 'L' | 'M';
 export interface GachaDefinition {
   code: string;
   name: string;
-  gacha_type: 'GOLD' | 'XP' | 'SEASON' | 'LEGEND';
-  cost_currency: 'GOLD' | 'XP';
+  gacha_type: 'GOLD' | 'RP' | 'SEASON' | 'LEGEND';
+  cost_currency: 'GOLD' | 'RP';
   cost_single: number;
   cost_10pull: number;
   pity_hard_ceiling: number;
@@ -39,7 +39,7 @@ export interface GachaPullResult {
   new_pity_count: number;
   ceiling_reset: boolean;
   cost_paid: number;
-  currency: 'GOLD' | 'XP';
+  currency: 'GOLD' | 'RP';
 }
 
 const MOCK_GACHA_LIST: GachaDefinition[] = [
@@ -76,8 +76,8 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
   {
     code: 'GC_PREMIUM_PULL',
     name: '크리스탈 뽑기',
-    gacha_type: 'XP',
-    cost_currency: 'XP',
+    gacha_type: 'RP',
+    cost_currency: 'RP',
     cost_single: 30,
     cost_10pull: 270,
     pity_hard_ceiling: 80,
@@ -92,7 +92,7 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     code: 'SEASON_PULL',
     name: '시즌 한정 뽑기',
     gacha_type: 'SEASON',
-    cost_currency: 'XP',
+    cost_currency: 'RP',
     cost_single: 25,
     cost_10pull: 225,
     pity_hard_ceiling: 60,
@@ -108,7 +108,7 @@ const MOCK_GACHA_LIST: GachaDefinition[] = [
     code: 'LEGEND_PULL',
     name: '전설 뽑기',
     gacha_type: 'LEGEND',
-    cost_currency: 'XP',
+    cost_currency: 'RP',
     cost_single: 80,
     cost_10pull: 720,
     pity_hard_ceiling: 50,

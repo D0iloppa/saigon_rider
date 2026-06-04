@@ -92,17 +92,26 @@ def exp_required_for_level(level: int) -> int:
     return exp_required_for_level(level - 1) * 2
 
 
-def apply_level_up(user) -> int:
-    """user.exp 기준으로 user.level 을 갱신. 멀티 레벨업 처리. 변경된 레벨 수 반환."""
+async def gain_exp(db, user, amount: int) -> int:
+    """경험치 적립의 단일 진입점. exp 적립 → 레벨업 판정 → 레벨업 보상 지급까지 처리.
+    모든 exp 획득은 이 함수를 거친다. 획득한 레벨 수를 반환한다.
+
+    레벨업 보상(gold·skill_pt)은 코드에 하드코딩하지 않고 levelup_reward_policy(DB seed)
+    에서 읽어 레벨당 적립한다 (SGR-228). 환율 골드 100:스킬 10:RP 1.
+    """
+    from .models import LevelupRewardPolicy
+
+    user.exp += amount
     gained = 0
-    while True:
-        need = exp_required_for_level(user.level)
-        if user.exp < need:
-            break
-        user.exp -= need
+    while user.exp >= exp_required_for_level(user.level):
+        user.exp -= exp_required_for_level(user.level)
         user.level += 1
-        user.skill_pt += 1  # SGR-209 A1: 레벨업 시 스킬포인트 1 적립
         gained += 1
+    if gained:
+        policy = await db.get(LevelupRewardPolicy, 1)
+        if policy is not None:
+            user.gold += policy.gold * gained
+            user.skill_pt += policy.skill_pt * gained
     return gained
 
 

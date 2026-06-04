@@ -48,8 +48,26 @@
 
 ## 활성 태스크 (🔧)
 
+- **SGR-236 info 화면 마무리** — 발행 2026-06-04. 4모듈 골격은 완성, 마무리만 남음. 하위 P1~P4(SGR-237~240): P1 비 레이더 RainViewer 실연동(현 CSS 목업), P2 유가 후속 #50(admin 가격입력·WorldMap 위젯), P3 **초기 seed 정확화**(gas_station/repair_shop/repair_review/fuel_price INSERT 0건 — 현재 프론트 MOCK 의존), P4 시각 QA·통일성. 순서: P3→P4 선행, P1/P2 병렬. SoT `task/active/260604_info_screens_finalize_task.md`, Notion `3753bd6b-405d-819e...`.
+- **SGR-228 재화 개념 정의 + 밸런싱 (RP·골드·스킬포인트)** — In Progress. 환율 **골드 100 : 스킬 10 : 크리스탈(RP) 1**. 골드=퀘스트+레벨업→아이템/가차, 스킬=레벨업→스킬. 확정 사항:
+  - **RP 가치 = 1 RP : 100 VND**. 커피 한 잔(50,000 VND) = **500 RP**. 쿠폰 카탈로그 face_value 항목 재가격(mig **sre040**): DATA_1GB 140 / GOTIT_50K 500(커피) / GOTIT_100K 1000.
+  - **데일리 퀘스트 RP = 0** (`ride.py` payload.rp→0). RP 수급은 **이벤트 퀘스트 전용**(재고 예측). 현재는 일괄 0, 경제밸런스 확정 후 이벤트 한정 도입(분기 미구현). 엔진 `action_definition.rp_grant`는 sre039서 이미 0.
+  - **코스메틱 재가격**(mig **sre041**): BADGE_FOUNDER 100 / FRAME_NEON 300 / BADGE_LEGEND 2000 (커피 500 기준).
+  - **마일리지 = EXP 전용**(mig **sre042**): MILEAGE_XP(고아 XP) 비활성, MILEAGE_EXP(10/km) 유지.
+  - **레벨업 보상 단일 발동점 + 정책 주도**: `gain_exp(db,user,amt)` 단일 함수(`utils.py`)로 exp+레벨업+보상 통합(`apply_level_up` 폐기). 보상값은 BFF `levelup_reward_policy`(init **049**, seed GOLD 200/SKILL_PT 1)에서 읽음. 엔진 `LEVELUP_REWARD` 비활성(**sre044**; sre043은 SGR-229 criteria 점유). 호출처 전부(ride/quests/internal) gain_exp 경유 — quests 퀘완료 레벨업 누락도 교정.
+  - 가챠 통화 라벨 `XP→RP` 통일(BFF `_CURRENCY_MAP`/`_gacha_type` + 프론트 gacha.ts/GachaMain + i18n tab_gc).
+  - **Gold 확정**: 퀘 50/건 유지 + 레벨업 정책 GOLD 200/레벨.
+  - ✅ **보고서 SGR-235 Done** — `ai-docs/spec/economy-balance-report.md` + Notion "260604 재화 경제 체계 정립 보고서". sink-economy-design.md `reward_exp×0.3` OBSOLETE 배너 정정 완료.
+  - **미결(설계상 후속)**: 이벤트 퀘 RP 도입 / monthly_quota 실값(비즈니스 입력) / 마이그·049 활성화(기존 DB 수동, 배포 시). Notion 260604.
 - (없음) — **SGR-220 개발→운영 1차 배포 + SOP 완료** (운영 `https://letantonsheriff.com` 가동). 이력은 [`history.md`](history.md) 2026-06-04, runbook `task/active/260604_deploy_prod_task.md`.
   - **배포 후속(backlog)**: ① **SGR-227** init 스키마 베이스라인 결함(fresh DB 빌드 불가 — dump-restore 우회 중) ② FCM firebase json 마운트(푸시 활성화) ③ official/grand-opening.jpg 1건(saigon.doil.me 복구 시) ④ 전용 도메인 구매 시 마이그레이션(규칙은 runbook §도메인 마이그레이션)
+
+## 활성 — 검증 대기 (🔧)
+
+- **SGR-229 퀘스트 검증 인터페이스 추상화 (전략패턴 + 신호 기반)** — 코드 DONE(P1~P4), **P5 BLOCKED**. 서브 P1~P5(SGR-230~234).
+  - 완료: `quest_tracker`를 Signal(GpsSignal/EventSignal) 기반 `QuestValidator` 전략 + `ValidatorRegistry` 디스패치로 리팩토링. DISTANCE/CHECKPOINT → `quest_validators/{distance,checkpoint}.py`. 목표 파라미터 `criteria JSONB` 전면 이관(mig **sre043**, 타입별 컬럼·CHECK 제약 제거). BFF `start_ride`/`engine_client`/프론트 `ActiveCardState`까지 criteria 배선. `dispatch_event()` 이벤트 진입점 시드(구체 타입은 제품 요구 시). ruff clean·validator 등록·alembic head 단일 검증 완료.
+  - **BLOCKED**: dev DB가 sre039이고 `upgrade head`가 **SGR-228 미적용 마이그 040에서 실패**(아래 결함 참조) → 제 043 적용·엔진 재시작·라이드 회귀 불가. 현재 가동 엔진은 구코드(sre039)로 정상, DB 롤백됨. SoT `task/active/260604_quest_validation_strategy_task.md`, Notion `3753bd6b...`.
+- **✅ RESOLVED(SGR-228 마이그 결함)**: `040`/`041`의 `required_rp`→**`required_xp`** 교정 완료(/code-review 2026-06-04). 추가로 levelup 비활성 마이그가 SGR-229 `043_quest_card_criteria`(sre043)와 ID 충돌 → **sre044**로 재번호. 체인 선형화: sre042→043(criteria)→044(levelup). **→ SGR-229 P5 BLOCKED 해소**(이제 `upgrade head` 040에서 안 막힘). ruff·체인 단일 head 검증 완료.
 
 ## 부분 점검 (🟡)
 

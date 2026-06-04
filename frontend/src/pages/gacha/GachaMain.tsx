@@ -29,20 +29,20 @@ const GACHA_ICON: Record<string, string> = {
   LEGEND_PULL:     '1f3c6',
 };
 
-const SEGMENT_KEYS = ['all', 'gold', 'xp', 'season'] as const;
+const SEGMENT_KEYS = ['all', 'gold', 'rp', 'season'] as const;
 type Segment = typeof SEGMENT_KEYS[number];
 
 const SEGMENT_I18N: Record<Segment, string> = {
   all: 'gacha.tab_all',
   gold: 'gacha.tab_gp',
-  xp: 'gacha.tab_gc',
+  rp: 'gacha.tab_gc',
   season: 'gacha.tab_season',
 };
 
 function matchesSegment(g: GachaDefinition, seg: Segment): boolean {
   if (seg === 'all') return true;
   if (seg === 'gold') return g.gacha_type === 'GOLD';
-  if (seg === 'xp') return g.gacha_type === 'XP';
+  if (seg === 'rp') return g.gacha_type === 'RP';
   if (seg === 'season') return g.gacha_type === 'SEASON';
   return true;
 }

@@ -197,7 +197,10 @@ CouponProvider (interface)
 - BFF CouponShop: 잔액 = `wallet.xp_balance`(=gc_balance=RP) 표시, 💎 아이콘.
 - 프론트 전역 "XP" 표기(프로필 셀·상점/가챠 잔액·아이템 XP가격) → "RP"(`currency.xp`="RP").
 
-### ✅ RP 적립 경로 — 확정·구현 (2026-06-03)
+### ⚠️ RP 적립 경로 (2026-06-03 구현) — **SGR-228(2026-06-04)로 폐기·대체**
+
+> **OBSOLETE**: 아래 `reward_exp×0.3` per-quest RP 적립은 **데일리 퀘스트 RP=0** 으로 변경됨(`ride.py` payload.rp→0). RP 수급은 **이벤트 퀘스트 전용**(재고 예측, 현재 일괄 0·후속 도입). RP 가치 기준도 **1 RP = 100 VND**(커피 500 RP)로 확정. 최신 상태는 [`economy-balance-report.md`](economy-balance-report.md). 아래는 역사적 기록으로만 보존.
+
 **RP는 퀘스트 완료 전용, per-quest 값으로 적립, 상한 없음. 표시=적립=사용 일치.**
 - **per-quest RP = rewardXpPoints (`reward_exp*0.3`)** — 화면 표시값과 동일(난이도별 18/24/30…).
 - 흐름: BFF `ride.py`가 `QUEST_COMPLETE` 이벤트 payload에 `rp=int(reward_exp*0.3+0.5)` 전달 → 엔진 `event_bus`가 그 값으로 `gc_balance`(RP) 무상한 크레딧(`xp_ledger.credit_gc`). 골드(current_balance)는 별도로 일일상한·어뷰징 적용.

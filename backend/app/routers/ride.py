@@ -20,7 +20,7 @@ from ..schemas import (
     SafetyGradeRequest,
     SafetyGradeResponse,
 )
-from ..utils import APP_TZ, apply_level_up
+from ..utils import APP_TZ, gain_exp
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ride", tags=["라이딩 (Ride)"])
@@ -107,9 +107,8 @@ async def submit_ride(
 
         user = await db.get(User, body.user_id)
         if user:
-            user.exp += reward_exp
             user.gold += reward_gold
-            apply_level_up(user)
+            await gain_exp(db, user, reward_exp)
 
         await _upsert_streak(db, body.user_id)
 
@@ -133,8 +132,9 @@ async def submit_ride(
                 payload={
                     "quest_id": str(body.quest_id),
                     "ride_id": str(session.id),
-                    # SGR-213: per-quest RP(gc) 적립액 = rewardXpPoints (reward_exp*0.3, 표시값과 일치)
-                    "rp": int(reward_exp * 0.3 + 0.5),
+                    # SGR-228: 데일리 퀘스트 RP 적립 0. RP 수급은 이벤트 퀘스트로만(재고 예측).
+                    # 경제밸런스 확정 후 이벤트 퀘 한정 도입 예정(분기 미구현, 현재는 일괄 0).
+                    "rp": 0,
                 },
                 idem_key=f"ride-{session.id}-quest-{body.quest_id}",
             )

@@ -243,7 +243,8 @@ server {
 | # | 지점 | 파일/위치 | 도메인 변경 시 |
 |---|---|---|---|
 | 1 | 웹 프론트 | (없음) — 상대경로 `/api/*` (`frontend/src/api/client.ts:44`) | ❌ **변경 불필요**. Dockerfile은 `VITE_USE_MOCK`만 build-arg, host는 vite로 전이 안 됨. same-origin 자동 |
-| 2 | **네이티브 앱** | `frontend/capacitor.config.ts` `server.url` (+ `native/android/app/src/main/assets/capacitor.config.json`, `native/ios/App/capacitor.config.json` — `cap sync`로 생성) | ✅ **`server.url` 변경 → `npx cap sync` → 네이티브 재빌드 → 스토어 재배포**. 현재 `https://saigon.doil.me` 가리킴 |
+| 2 | **네이티브 앱 (정정 06-04)** | 실제 host 소스는 **`AppConfig`**: iOS `native/ios/Shared/AppConfig.swift` `baseURL`(entryURL+sreEndpoint), Android `native/android/app/src/main/java/com/saigonrider/user/AppConfig.java` `BASE_URL`. (+ `capacitor.config.json` `url`은 보조). **capacitor.config.ts `server.url`만 바꾸면 불충분** — AppConfig가 진짜. | ✅ AppConfig `baseURL`/`BASE_URL` 변경(빌드 시 컴파일됨) → 네이티브 재빌드 → 스토어 재배포. 현재 `https://saigon.doil.me` |
+| 2-b | **🔴 네이티브 `serviceKey`** | `AppConfig.swift`/`AppConfig.java` `serviceKey="dev_engine_service_key_change_in_prod"` → 백그라운드 GPS가 `X-Service-Key`로 `/api/sre/sreMessage`에 전송 | ✅ **prod 겨냥 빌드는 prod `ENGINE_SERVICE_KEY`(회전됨)로 교체 필수** — 안 하면 SRE 인증 거부(GPS 실패). baseURL과 한 세트 |
 | 3 | 서버측 BFF | `.env` `BFF_PUBLIC_URL`·`IMGPROXY_BASE_URL` (`backend/app/utils.py` os.getenv) | ✅ `.env` 값 수정 → `bff` 재시작 |
 | 4 | 호스트 nginx | `deploy/saigon.conf` `server_name` + cert 경로 | ✅ server_name·cert 경로 교체 → cp → reload |
 | 5 | SSL 인증서 | `/etc/letsencrypt/live/<도메인>/` | ✅ 신규 도메인 cert 발급 (certbot) |
@@ -256,7 +257,7 @@ server {
 2. cert 발급: `certbot certonly --nginx --cert-name <name> -d D -d www.D` (또는 단일).
 3. `deploy/saigon.conf`: `server_name` → `D www.D`, `ssl_certificate` 경로 → 신규 cert. commit/push/pull → `sudo cp` → `nginx -t` → reload.
 4. `.env`: `BFF_PUBLIC_URL`/`IMGPROXY_BASE_URL` → `https://D`. → `docker compose ... up -d bff`(재시작).
-5. **네이티브**: `capacitor.config.ts` `server.url` → `https://D` → `npx cap sync` → iOS/Android 재빌드 → **스토어 재배포**(심사 기간 고려).
+5. **네이티브**: `AppConfig.swift` `baseURL` + `AppConfig.java` `BASE_URL` → `https://D` **및** `serviceKey`/`SERVICE_KEY` → **prod `ENGINE_SERVICE_KEY`**(+ capacitor.config.json) → iOS/Android 재빌드 → **스토어 재배포**(심사 기간 고려). 권장: 하드코딩 대신 빌드설정 주입(iOS xcconfig/scheme, Android buildConfigField/flavor)으로 dev/prod 분리.
 6. 갱신 스크립트(`/usr/local/bin/saigon-cert-renew.sh`) `--cert-name` 신규 cert로 교체.
 7. (선택) 임시 letantonsheriff cert/conf 정리.
 

@@ -8,37 +8,18 @@ import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
+import { swrRead, swrWrite } from '@/lib/swrCache';
 import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc } from '@/components/maps/district-data';
 import InfoMap from '@/components/maps/InfoMap';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
+import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import GasStationSheet from '@/components/gas/GasStationSheet';
 import { deriveBrandCode } from '@/components/gas/gas-tokens';
 import type { MapMarker, GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
 
-const SWR_TTL_MS = 5 * 60 * 1000;
 const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 구역별 클러스터/필터.
 const DEFAULT_DISTRICT = 'BEN_THANH';
-
-function swrRead<T>(key: string): T | null {
-  try {
-    const raw = sessionStorage.getItem(key);
-    if (!raw) return null;
-    const { ts, data } = JSON.parse(raw) as { ts: number; data: T };
-    if (Date.now() - ts > SWR_TTL_MS) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-function swrWrite<T>(key: string, data: T): void {
-  try {
-    sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
-  } catch {
-    /* quota — ignore */
-  }
-}
 
 function getWaitDotCount(waitMinutes: number | null): number {
   if (waitMinutes === null) return 0;
@@ -89,10 +70,6 @@ export default function InfoGasList() {
 
   // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
-  const [reportName, setReportName] = useState('');
-  const [reportPhone, setReportPhone] = useState('');
-  const [reportNote, setReportNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   const gasMarkers = useMemo<MapMarker[]>(
     () =>
@@ -143,7 +120,8 @@ export default function InfoGasList() {
 
   // 거리 기준 origin 결정: HCMC 안 → GPS, 밖 → 선택(or 기본) 구역 centroid.
   const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
-    const within = coords.source === 'gps' && isWithinHcmc(coords.lat, coords.lng);
+    // 메인에서 넘어온 좌표(incomingCode)는 구역 centroid 이므로 GPS 로 오판 금지 → 구역 기준.
+    const within = coords.source === 'gps' && !incomingCode && isWithinHcmc(coords.lat, coords.lng);
     setInHcm(within);
     const district = incomingCode ?? findNearestDistrict(coords.lat, coords.lng)?.code ?? DEFAULT_DISTRICT;
     setSelectedDistrict(district);
@@ -170,27 +148,16 @@ export default function InfoGasList() {
     alert(`+5 XP! ${t('info.gas.comingSoon')}`);
   }
 
-  async function handleSubmitReport() {
-    if (!reportName.trim() || submitting) return;
-    setSubmitting(true);
+  async function handleSubmitReport(fields: ReportFields): Promise<boolean> {
     try {
       const pos = await native.getLocation();
-      await gasApi.reportStation({
-        name: reportName.trim(),
-        lat: pos.lat,
-        lng: pos.lng,
-        phone: reportPhone.trim() || undefined,
-        note: reportNote.trim() || undefined,
-      });
+      await gasApi.reportStation({ name: fields.name, lat: pos.lat, lng: pos.lng, phone: fields.phone, note: fields.note });
       toast.success(t('info.gas.reportSuccess'));
       setShowReport(false);
-      setReportName('');
-      setReportPhone('');
-      setReportNote('');
+      return true;
     } catch {
       toast.error(t('info.gas.reportError'));
-    } finally {
-      setSubmitting(false);
+      return false;
     }
   }
 
@@ -329,40 +296,18 @@ export default function InfoGasList() {
         </button>
       </div>
 
-      {showReport && (
-        <div className={styles.reportBackdrop} onClick={() => !submitting && setShowReport(false)}>
-          <div className={styles.reportSheet} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.reportTitle}>{t('info.gas.reportTitle')}</div>
-            <div className={styles.reportDesc}>{t('info.gas.reportDesc')}</div>
-            <input
-              className={styles.reportField}
-              placeholder={t('info.gas.reportNamePlaceholder')}
-              value={reportName}
-              onChange={(e) => setReportName(e.target.value)}
-            />
-            <input
-              className={styles.reportField}
-              placeholder={t('info.gas.reportPhonePlaceholder')}
-              value={reportPhone}
-              onChange={(e) => setReportPhone(e.target.value)}
-            />
-            <input
-              className={styles.reportField}
-              placeholder={t('info.gas.reportNotePlaceholder')}
-              value={reportNote}
-              onChange={(e) => setReportNote(e.target.value)}
-            />
-            <div className={styles.reportActions}>
-              <button className={styles.reportCancel} onClick={() => setShowReport(false)} disabled={submitting}>
-                {t('common.cancel', '취소')}
-              </button>
-              <button className={styles.reportSubmit} onClick={handleSubmitReport} disabled={!reportName.trim() || submitting}>
-                {submitting ? t('info.gas.reportSubmitting') : t('info.gas.reportSubmit')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReportSheet
+        open={showReport}
+        title={t('info.gas.reportTitle')}
+        desc={t('info.gas.reportDesc')}
+        namePlaceholder={t('info.gas.reportNamePlaceholder')}
+        phonePlaceholder={t('info.gas.reportPhonePlaceholder')}
+        notePlaceholder={t('info.gas.reportNotePlaceholder')}
+        submitLabel={t('info.gas.reportSubmit')}
+        submittingLabel={t('info.gas.reportSubmitting')}
+        onSubmit={handleSubmitReport}
+        onClose={() => setShowReport(false)}
+      />
 
       {selectedStation !== null && (
         <GasStationSheet

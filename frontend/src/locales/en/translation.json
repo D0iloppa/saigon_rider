@@ -566,7 +566,6 @@
   "info": {
     "tab": "Info",
     "switchTitle": "Other info",
-    "routeComingSoon": "Route guidance is coming soon.",
     "distFromGps": "From my location",
     "distFromFallback": "Near {{area}}",
     "hub": {

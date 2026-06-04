@@ -7,6 +7,7 @@
 실제 침수(flood_report)와는 분리 테이블 — 예측을 실신고로 위장하지 않는다.
 """
 
+import asyncio
 import logging
 import os
 from datetime import UTC, datetime, timedelta
@@ -64,19 +65,22 @@ async def run_flood_risk_prediction() -> dict:
             .all()
         )
 
-        # 구역별 대표 좌표로 강수확률 1회씩만 조회 (호출 절약).
+        # 구역별 대표 좌표로 강수확률 조회 — 동시 실행(순차 await 시 느린 구역이 전체 지연).
         rep_by_district: dict[str, dict] = {}
         for h in hotspots:
             rep_by_district.setdefault(h["district_code"], h)
-        pop_by_district: dict[str, float] = {}
-        for dc, rep in rep_by_district.items():
-            pop_by_district[dc] = await _max_pop_24h(rep["lat"], rep["lng"], api_key)
+        districts = list(rep_by_district.items())
+        pops = await asyncio.gather(*[_max_pop_24h(rep["lat"], rep["lng"], api_key) for _, rep in districts])
+        pop_by_district: dict[str, float] = {dc: p for (dc, _), p in zip(districts, pops, strict=True)}
 
         now = datetime.now(UTC)
         today = now.date()
         expires_at = now + timedelta(hours=24)
 
-        await db.execute(text("DELETE FROM flood_risk_daily WHERE predicted_date = :d"), {"d": today})
+        # 매 실행이 도시 전역 전체 재계산 → 기존 예측 전부 제거(멱등). predicted_date 를
+        # UTC 기준으로 부분 삭제하면 ICT(05:30/15:00) 두 실행이 다른 UTC 날짜로 적재돼
+        # 중복 누적되므로 전체 삭제로 단순화.
+        await db.execute(text("DELETE FROM flood_risk_daily"))
 
         inserted = 0
         for h in hotspots:

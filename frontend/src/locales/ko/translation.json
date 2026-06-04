@@ -566,7 +566,6 @@
   "info": {
     "tab": "정보",
     "switchTitle": "다른 정보 보기",
-    "routeComingSoon": "경로 안내는 서비스 준비 중입니다.",
     "distFromGps": "내 위치 기준",
     "distFromFallback": "{{area}} 기준",
     "hub": {

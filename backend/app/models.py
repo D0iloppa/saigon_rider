@@ -763,7 +763,7 @@ class RepairShop(Base):
     lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
     district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     street_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
     opening_hours: Mapped[str | None] = mapped_column(String(100), nullable=True)
     brand_focus: Mapped[str | None] = mapped_column(String(100), nullable=True)

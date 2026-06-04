@@ -566,7 +566,6 @@
   "info": {
     "tab": "Thông tin",
     "switchTitle": "Thông tin khác",
-    "routeComingSoon": "Tính năng chỉ đường đang được chuẩn bị.",
     "distFromGps": "Từ vị trí của tôi",
     "distFromFallback": "Gần {{area}}",
     "hub": {

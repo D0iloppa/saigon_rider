@@ -16,6 +16,12 @@ import { getDepth, TRUST_TOKENS, trustFromScore } from '@/components/flood/flood
 import styles from './InfoFloodMap.module.css';
 
 const REFRESH_INTERVAL_MS = 60_000;
+const FETCH_RADIUS_KM = 30; // HCMC 전역 reports/risks 로드 (마커는 도시 전역, 리스트는 구역 필터).
+
+type FloodEntry =
+  | { ts: number; kind: 'report'; report: FloodReportWithTrust }
+  | { ts: number; kind: 'risk'; risk: FloodRisk }
+  | { ts: number; kind: 'hotspot'; hot: FloodHotspot };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const isToday = (iso: string) => {
@@ -49,7 +55,7 @@ export default function InfoFloodMap() {
     resolveInfoCoords(search).then(({ lat, lng }) => {
       coordsRef.current = { lat, lng };
       floodApi
-        .getMapData(lat, lng, 5)
+        .getMapData(lat, lng, FETCH_RADIUS_KM)
         .then((r) => {
           setReports(r.reports);
           setHotspots(r.hotspots);
@@ -64,7 +70,7 @@ export default function InfoFloodMap() {
     const id = window.setInterval(() => {
       if (coordsRef.current) {
         floodApi
-          .getMapData(coordsRef.current.lat, coordsRef.current.lng, 5)
+          .getMapData(coordsRef.current.lat, coordsRef.current.lng, FETCH_RADIUS_KM)
           .then((r) => {
             setReports(r.reports);
             setHotspots(r.hotspots);
@@ -86,63 +92,58 @@ export default function InfoFloodMap() {
   // 구역 선택 (좌표→구역 클라이언트 매칭으로 BFF 코드 스킴 불일치 회피).
   const [selectedDistrictCode, setSelectedDistrictCode] = useState<string | null>(incomingCode);
   const reportDistrict = (f: FloodReportWithTrust) => findNearestDistrict(f.lat, f.lng)?.code ?? null;
-  const inSelected = (f: FloodReportWithTrust) =>
-    !selectedDistrictCode || reportDistrict(f) === selectedDistrictCode;
 
-  // 지도 마커: 오늘 제보 (도시 전체 — "오늘 제보 있는 지역" 표시).
-  const todayReports = reports.filter((f) => isToday(f.reported_at));
-  // 리스트: 선택 구역(없으면 전체)의 최근 7일 제보, 최신순.
-  const listReports = reports
-    .filter((f) => within7d(f.reported_at))
-    .filter(inSelected)
-    .sort((a, b) => new Date(b.reported_at).getTime() - new Date(a.reported_at).getTime());
+  // 파생 리스트(제보·예측·핫스팟)는 행마다 findNearestDistrict 스캔이라 메모이즈
+  // — 리포트 시트 타이핑 등 무관한 리렌더에 재계산되지 않도록.
+  const { todayReports, floodEntries, markerHotspots } = useMemo(() => {
+    const inSel = (lat: number, lng: number) =>
+      !selectedDistrictCode || findNearestDistrict(lat, lng)?.code === selectedDistrictCode;
 
-  // ② 날씨 기반 예측 위험(오늘): 선택 구역 필터.
-  const risksInSel = risks.filter(
-    (r) => !selectedDistrictCode || findNearestDistrict(r.lat, r.lng)?.code === selectedDistrictCode,
-  );
-  const riskHotspotIds = new Set(risksInSel.map((r) => r.hotspot_id).filter((id): id is number => id != null));
+    const today = reports.filter((f) => isToday(f.reported_at));
+    const listReports = reports
+      .filter((f) => within7d(f.reported_at))
+      .filter((f) => inSel(f.lat, f.lng))
+      .sort((a, b) => new Date(b.reported_at).getTime() - new Date(a.reported_at).getTime());
 
-  // 상습 침수 지역(baseline): centroid→구역 매칭. 단 오늘 예측 위험이 있는 핫스팟은 위험 항목으로 대체(중복 억제).
-  const hotspotsInSel = hotspots.filter(
-    (h) =>
-      (!selectedDistrictCode ||
-        (h.centroid_lat != null && h.centroid_lng != null &&
-          findNearestDistrict(h.centroid_lat, h.centroid_lng)?.code === selectedDistrictCode)) &&
-      !riskHotspotIds.has(h.hotspot_id),
-  );
+    const risksInSel = risks.filter((r) => inSel(r.lat, r.lng));
+    const riskHotspotIds = new Set(risksInSel.map((r) => r.hotspot_id).filter((id): id is number => id != null));
 
-  // 실시간 제보 + 예측 위험 + 상습 핫스팟을 하나의 리스트로 흡수, 최신순.
-  const todayStartTs = (() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  })();
-  type FloodEntry =
-    | { ts: number; kind: 'report'; report: FloodReportWithTrust }
-    | { ts: number; kind: 'risk'; risk: FloodRisk }
-    | { ts: number; kind: 'hotspot'; hot: FloodHotspot };
-  const floodEntries: FloodEntry[] = [
-    ...listReports.map((f): FloodEntry => ({ ts: new Date(f.reported_at).getTime(), kind: 'report', report: f })),
-    ...risksInSel.map((r): FloodEntry => ({ ts: todayStartTs, kind: 'risk', risk: r })),
-    ...hotspotsInSel.map((h): FloodEntry => ({
-      ts: h.last_flood_at ? new Date(h.last_flood_at).getTime() : 0,
-      kind: 'hotspot',
-      hot: h,
-    })),
-  ].sort((a, b) => b.ts - a.ts);
+    // 오늘 예측 위험이 있는 핫스팟은 위험 항목으로 대체(중복 억제).
+    const hotspotsInSel = hotspots.filter(
+      (h) =>
+        ((selectedDistrictCode == null) ||
+          (h.centroid_lat != null && h.centroid_lng != null && inSel(h.centroid_lat, h.centroid_lng))) &&
+        !riskHotspotIds.has(h.hotspot_id),
+    );
+
+    const todayStartTs = (() => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    })();
+    const entries: FloodEntry[] = [
+      ...listReports.map((f): FloodEntry => ({ ts: new Date(f.reported_at).getTime(), kind: 'report', report: f })),
+      ...risksInSel.map((r): FloodEntry => ({ ts: todayStartTs, kind: 'risk', risk: r })),
+      ...hotspotsInSel.map((h): FloodEntry => ({
+        ts: h.last_flood_at ? new Date(h.last_flood_at).getTime() : 0,
+        kind: 'hotspot',
+        hot: h,
+      })),
+    ].sort((a, b) => b.ts - a.ts);
+
+    // 지도 마커는 도시 전역(리스트는 구역 필터지만 다른 지역도 파악).
+    const cityRiskHotspotIds = new Set(risks.map((r) => r.hotspot_id).filter((id): id is number => id != null));
+    const markers = hotspots.filter(
+      (h) => h.centroid_lat != null && h.centroid_lng != null && !cityRiskHotspotIds.has(h.hotspot_id),
+    );
+    return { todayReports: today, floodEntries: entries, markerHotspots: markers };
+  }, [reports, risks, hotspots, selectedDistrictCode]);
 
   const daysAgo = (iso?: string | null) => {
     if (!iso) return null;
-    const d = Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
-    return d;
+    return Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
   };
 
-  // 지도 마커는 도시 전역으로 표시(리스트는 구역 필터지만, 다른 지역 정보도 파악).
-  const cityRiskHotspotIds = new Set(risks.map((r) => r.hotspot_id).filter((id): id is number => id != null));
-  const markerHotspots = hotspots.filter(
-    (h) => h.centroid_lat != null && h.centroid_lng != null && !cityRiskHotspotIds.has(h.hotspot_id),
-  );
   const selectDistrictAt = (lat: number, lng: number) =>
     setSelectedDistrictCode(findNearestDistrict(lat, lng)?.code ?? null);
 

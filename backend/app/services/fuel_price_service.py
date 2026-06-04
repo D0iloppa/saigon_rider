@@ -3,15 +3,86 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .redis_cache import CacheKeys, cache_get, cache_set
+from .redis_cache import CacheKeys, cache_get, cache_invalidate, cache_set
 
 log = logging.getLogger(__name__)
 
 CACHE_TTL = 3600  # 1h
+
+FUEL_BRANDS = ("PETROLIMEX", "PVOIL", "SAIGON_PETRO", "MIPEC", "COMECO", "MARKET_AVG")
+FUEL_TYPES = ("RON95_III", "RON95_V", "E5_RON92_II", "DO_001S_V", "DO_005S_II")
+
+
+async def upsert_fuel_price(
+    session: AsyncSession,
+    *,
+    brand: str,
+    fuel_type: str,
+    price_vnd: int,
+    effective_time: datetime | None = None,
+    region: str = "VUNG_1",
+    source_label: str = "manual:admin",
+) -> dict:
+    """운영자 수동 입력: fuel_price_snapshot upsert + 캐시 무효화.
+
+    BFF service-key 엔드포인트(/info/gas/admin/upsert)와 admin 세션 페이지가 공유한다.
+    호출자가 brand/fuel_type 유효성(FUEL_BRANDS/FUEL_TYPES)을 검증한다.
+    """
+    now = datetime.now(UTC)
+    effective = effective_time or now
+    if effective.tzinfo is None:
+        effective = effective.replace(tzinfo=UTC)
+
+    # 같은 날짜·region·brand·fuel_type 의 다른 source ACTIVE 행은 SUPERSEDED 로
+    await session.execute(
+        text("""
+        UPDATE fuel_price_snapshot
+           SET status = 'SUPERSEDED'
+         WHERE effective_date = :d
+           AND region = :r
+           AND brand  = :b
+           AND fuel_type = :f
+           AND status = 'ACTIVE'
+           AND source <> :s
+    """),
+        {"d": effective.date(), "r": region, "b": brand, "f": fuel_type, "s": source_label},
+    )
+
+    await session.execute(
+        text("""
+        INSERT INTO fuel_price_snapshot
+            (effective_date, effective_time, region, brand, fuel_type, price_vnd,
+             source, raw_fetched_at, validated_by, status)
+        VALUES
+            (:d, :et, :r, :b, :f, :p, :s, :n, CAST(:v AS JSONB), 'ACTIVE')
+        ON CONFLICT (effective_date, region, brand, fuel_type, source)
+        DO UPDATE SET price_vnd = EXCLUDED.price_vnd,
+                      effective_time = EXCLUDED.effective_time,
+                      raw_fetched_at = EXCLUDED.raw_fetched_at,
+                      status = 'ACTIVE',
+                      validated_by = EXCLUDED.validated_by
+    """),
+        {
+            "d": effective.date(),
+            "et": effective,
+            "r": region,
+            "b": brand,
+            "f": fuel_type,
+            "p": price_vnd,
+            "s": source_label,
+            "n": now,
+            "v": '{"manual":true}',
+        },
+    )
+    await session.commit()
+
+    invalidated = await cache_invalidate("*")
+    return {"ok": True, "cache_invalidated": invalidated}
 
 
 async def get_today_reference_prices(session: AsyncSession) -> dict:
@@ -72,7 +143,7 @@ async def get_station_with_price(session: AsyncSession, station_id: int) -> dict
             text("""
         SELECT station_id, name, brand, brand_normalized,
                CAST(lat AS FLOAT) AS lat, CAST(lng AS FLOAT) AS lng,
-               is_24h, district_code, street_name, opening_hours
+               is_24h, district_code, street_name, opening_hours, phone
         FROM gas_station
         WHERE station_id = :id AND status = 'ACTIVE'
     """),
@@ -119,6 +190,7 @@ async def get_station_with_price(session: AsyncSession, station_id: int) -> dict
         "district_code": station_row.district_code,
         "street_name": station_row.street_name,
         "opening_hours": station_row.opening_hours,
+        "phone": station_row.phone,
         "reference_price": {
             **fuel_prices,
             "source": source_label,

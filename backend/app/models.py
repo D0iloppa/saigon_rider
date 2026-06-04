@@ -628,6 +628,25 @@ class FloodConfirmation(Base):
     confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class FloodRiskDaily(Base):
+    """날씨 기반 일일 침수 예측 위험 (상습 핫스팟 x 강수예보). 실제 제보와 분리."""
+
+    __tablename__ = "flood_risk_daily"
+
+    risk_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    hotspot_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    street_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    lat: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    rain_prob: Mapped[int] = mapped_column(Integer, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(10), nullable=False)
+    depth_hint: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    predicted_date: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class GasStation(Base):
     __tablename__ = "gas_station"
 
@@ -641,11 +660,39 @@ class GasStation(Base):
     district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     street_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     opening_hours: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     source_type: Mapped[str | None] = mapped_column(String(30), default="OSM", nullable=True)
     external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     is_24h: Mapped[bool] = mapped_column(Boolean, default=False)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class GasStationSubmission(Base):
+    """사용자 신규 주유소 제보 대기큐. confirm 시에만 gas_station 으로 upsert."""
+
+    __tablename__ = "gas_station_submission"
+
+    submission_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    lat: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    brand: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    brand_normalized: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reporter_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resulting_station_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("gas_station.station_id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -717,12 +764,37 @@ class RepairShop(Base):
     district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     street_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
     opening_hours: Mapped[str | None] = mapped_column(String(100), nullable=True)
     brand_focus: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     added_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RepairShopSubmission(Base):
+    """사용자 신규 정비소 제보 대기큐. confirm 시에만 repair_shop 으로 upsert."""
+
+    __tablename__ = "repair_shop_submission"
+
+    submission_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    lat: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reporter_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resulting_shop_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("repair_shop.shop_id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

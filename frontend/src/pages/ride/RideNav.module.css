@@ -1,0 +1,108 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+/* ── 턴 지시 배너 ── */
+.turnBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 16px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--brand, #FF5A1F), #ED4310);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(255,90,31,.25);
+}
+.turnIcon { font-size: 28px; line-height: 1; }
+.turnText { flex: 1; min-width: 0; }
+.turnMain { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.turnSub { font-size: 12px; opacity: .85; margin-top: 2px; }
+.turnDist { font-size: 18px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+
+/* ── 지도 영역 (미리보기) ── */
+.mapArea {
+  flex: 1;
+  margin: 12px 16px;
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(at 20% 20%, #DAF0E8 0%, transparent 55%),
+    radial-gradient(at 80% 70%, #D4EBF5 0%, transparent 55%),
+    linear-gradient(160deg, #E8F4F8, #C8E3F0);
+  min-height: 180px;
+}
+.routeLine {
+  position: absolute;
+  left: 18%;
+  bottom: 16%;
+  width: 64%;
+  height: 4px;
+  background: var(--brand, #FF5A1F);
+  border-radius: 4px;
+  transform: rotate(-28deg);
+  transform-origin: left center;
+  box-shadow: 0 0 0 4px rgba(255,90,31,.15);
+}
+.previewWatermark {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: rgba(255,255,255,.8);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+/* ── 하단 시트 ── */
+.sheet {
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 24px rgba(11,13,20,.08);
+  padding: 8px 18px calc(18px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px));
+  flex-shrink: 0;
+}
+.sheetHandle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  margin: 0 auto 12px;
+}
+.summaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.eta { display: block; font-size: 15px; font-weight: 700; color: var(--text); }
+.summaryDesc { display: block; font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.distBig { font-size: 24px; font-weight: 800; color: var(--brand, #FF5A1F); }
+.distUnit { font-size: 13px; font-weight: 700; margin-left: 2px; }
+
+.steps { display: flex; flex-direction: column; gap: 0; }
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.stepRow:last-child { border-bottom: none; }
+.stepDot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--success, #16A34A); flex-shrink: 0;
+}
+.stepDotMid { background: var(--text-3); }
+.stepDotEnd { background: var(--danger, #EF3B3B); }
+.stepText { font-size: 13px; font-weight: 600; color: var(--text); }
+.stepTextMuted { font-size: 13px; color: var(--text-3); }
+
+.mono { font-family: 'JetBrains Mono', monospace; }

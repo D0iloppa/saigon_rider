@@ -160,6 +160,22 @@ export function getDistrictByCode(code: string): District | undefined {
   return HCMC_DISTRICTS.find((d) => d.code === code);
 }
 
+/**
+ * district_code(예: BINH_THANH, QUAN_8)를 사람이 읽을 표기로. 정적 데이터에 있으면 nameVi,
+ * 없으면 QUAN_N→"Quận N" / SNAKE_CASE→Title Case 로 폴백. (raw 코드 노출 방지)
+ */
+export function districtLabelByCode(code: string): string {
+  if (!code) return '';
+  const d = getDistrictByCode(code);
+  if (d) return d.nameVi;
+  const quan = code.match(/^QUAN_(\d+)$/);
+  if (quan) return `Quận ${quan[1]}`;
+  return code
+    .split('_')
+    .map((w) => (w ? w[0] + w.slice(1).toLowerCase() : w))
+    .join(' ');
+}
+
 /** GPS 좌표로 가장 가까운 district (단순 유클리드) */
 export function findNearestDistrict(lat: number, lng: number): District | null {
   if (!HCMC_DISTRICTS.length) return null;
@@ -175,6 +191,18 @@ export function findNearestDistrict(lat: number, lng: number): District | null {
     }
   }
   return nearest;
+}
+
+/**
+ * 좌표가 HCMC 권역 안인지(가장 가까운 구역 centroid 와의 거리 ≤ maxKm) 판정.
+ * 내 위치가 HCMC 밖이면 거리 기준을 선택 구역 centroid 로 바꾸기 위한 판정용.
+ */
+export function isWithinHcmc(lat: number, lng: number, maxKm = 25): boolean {
+  const n = findNearestDistrict(lat, lng);
+  if (!n) return false;
+  const dy = (n.gps.lat - lat) * 110.57;
+  const dx = (n.gps.lng - lng) * 111.32 * Math.cos((lat * Math.PI) / 180);
+  return Math.hypot(dx, dy) <= maxKm;
 }
 
 /**

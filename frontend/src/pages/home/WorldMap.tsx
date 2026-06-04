@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
@@ -17,7 +17,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { emojiUrl } from '@/lib/emoji';
 import { expToNextLevel } from '@/lib/rewards';
-import SaigonDistrictMap from '@/components/maps/SaigonDistrictMap';
+import InfoMap from '@/components/maps/InfoMap';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import type { District as MapDistrict } from '@/components/maps/district-data';
 import styles from './WorldMap.module.css';
@@ -37,10 +37,11 @@ export default function WorldMap() {
   const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
   const [infoFloods, setInfoFloods] = useState<FloodReport[]>([]);
   const [infoGas, setInfoGas] = useState<GasStation | null>(null);
+  const [infoGasCount, setInfoGasCount] = useState(0);
   const [infoRepair, setInfoRepair] = useState<RepairShop | null>(null);
+  const [infoRepairCount, setInfoRepairCount] = useState(0);
   const [districts, setDistricts] = useState<District[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -83,44 +84,26 @@ export default function WorldMap() {
 
   useEffect(() => {
     fetchDistricts().then(setDistricts).catch(() => {});
-    const FALLBACK = { lat: 10.776, lng: 106.700 };
-    native.getLocation()
-      .then((pos) => setUserCoords({ lat: pos.lat, lng: pos.lng }))
-      .catch(() => setUserCoords(FALLBACK));
   }, []);
 
-  // 좌표 → 매핑 가능한 district code 해석. HCMC bbox 밖이면 null(unselected).
-  const resolveMyDistrict = (): string | null => {
-    if (!userCoords || districts.length === 0) return null;
-    const inHcmc =
-      userCoords.lat >= 10.40 && userCoords.lat <= 11.10 &&
-      userCoords.lng >= 106.40 && userCoords.lng <= 107.00;
-    if (!inHcmc) return null;
-    const nearest = findNearestDistrict(userCoords.lat, userCoords.lng);
-    if (nearest && districts.some((d) => d.code === nearest.code)) return nearest.code;
-    return null;
-  };
-
-  // "내 위치로": ① unselected 복귀 ② 좌표→district 조회 ③ 매핑되면 select & focus, 아니면 unselected 유지(전체화면).
-  const goToMyLocation = () => {
-    setSelectedDistrict(resolveMyDistrict());
-  };
-
-  // 최초 진입 1회: '내 위치로' 호출 → unselected면 default(BEN_THANH) 선택.
-  const didInitFocus = useRef(false);
-  useEffect(() => {
-    if (didInitFocus.current) return;
-    if (!userCoords || districts.length === 0) return;
-    didInitFocus.current = true;
-    const resolved = resolveMyDistrict();
-    if (resolved) {
-      setSelectedDistrict(resolved);
-    } else if (districts.some((d) => d.code === 'BEN_THANH')) {
+  // 지도(SaigonDistrictMap)가 '내 위치로'(GPS+resolve)를 소유하고 결과 code 를 emit.
+  // 페이지는 선택 상태를 정하고, '초기 진입 자동 locate 실패'일 때만 default 도시(BEN_THANH)로 폴백.
+  // 버튼 클릭 실패(code=null)는 전체 지도 유지 — default 도시 폴백 없음.
+  const didInitLocate = useRef(false);
+  const handleLocate = useCallback((code: string | null) => {
+    const initial = !didInitLocate.current;
+    didInitLocate.current = true;
+    const valid = code && districts.some((d) => d.code === code) ? code : null;
+    if (valid) {
+      setSelectedDistrict(valid);
+    } else if (initial && districts.some((d) => d.code === 'BEN_THANH')) {
       setSelectedDistrict('BEN_THANH');
+    } else {
+      setSelectedDistrict(null);
     }
-  }, [userCoords, districts]);
+  }, [districts]);
 
-  // 선택된 구역의 centroid 또는 유저 GPS 좌표로 info API 4종 호출
+  // 선택된 구역의 centroid 로 info API 4종 호출 (init 후 항상 구역이 선택됨: locate 결과 또는 default 도시)
   const activeCoords: { lat: number; lng: number } | null = (() => {
     if (selectedDistrict) {
       const d = districts.find((x) => x.code === selectedDistrict);
@@ -128,7 +111,7 @@ export default function WorldMap() {
         return { lat: d.center_lat, lng: d.center_lng };
       }
     }
-    return userCoords;
+    return null;
   })();
 
   const infoNavQuery = activeCoords
@@ -138,19 +121,30 @@ export default function WorldMap() {
   useEffect(() => {
     if (!activeCoords) return;
     const { lat, lng } = activeCoords;
+    // 반경 5km 로 받아오되, 선택 구역(좌표→구역 매칭)에 속한 항목만 노출 → "선택 지역 정보만".
+    const selCode = findNearestDistrict(lat, lng)?.code ?? null;
+    const inSel = (la: number, ln: number) =>
+      !selCode || findNearestDistrict(la, ln)?.code === selCode;
     Promise.allSettled([
       weatherApi.get(lat, lng).then((w) => {
         setInfoWeather(w);
       }),
-      floodApi.getActive(lat, lng, 5).then((r) => r && setInfoFloods(r.floods)),
-      gasApi.getNearby(lat, lng, 5).then((r) => r && setInfoGas(r.stations[0] ?? null)),
+      floodApi.getActive(lat, lng, 5).then((r) => r && setInfoFloods(r.floods.filter((f) => inSel(f.lat, f.lng)))),
+      gasApi.getNearby(lat, lng, 5).then((r) => {
+        if (!r) return;
+        const inDist = r.stations.filter((s) => inSel(s.lat, s.lng));
+        setInfoGasCount(inDist.length);
+        setInfoGas(inDist[0] ?? null);
+      }),
       repairApi.getNearby(lat, lng, 5).then((r) => {
         if (!r) return;
-        const named = r.shops.find((s) => s.name && s.name !== 'Unknown');
-        setInfoRepair(named ?? r.shops[0] ?? null);
+        const shops = r.shops.filter((s) => inSel(s.lat, s.lng));
+        setInfoRepairCount(shops.length);
+        const named = shops.find((s) => s.name && s.name !== 'Unknown');
+        setInfoRepair(named ?? shops[0] ?? null);
       }),
     ]);
-  }, [selectedDistrict, districts, userCoords]);
+  }, [selectedDistrict, districts]);
 
   const selectedDistrictName = selectedDistrict
     ? (() => {
@@ -270,11 +264,6 @@ export default function WorldMap() {
             <span className={styles.infoSectionLabel}>
               📍 {selectedDistrictName ?? district} — {t('info.hub.currentSituation')}
             </span>
-            {selectedDistrict && (
-              <button className={styles.resetChip} onClick={goToMyLocation}>
-                {t('home.resetToMyLocation')}
-              </button>
-            )}
             {!selectedDistrict && activeFloods.length > 0 && (
               <span className={styles.infoBadgeDanger}>{t('info.hub.floodDangerBadge', { count: activeFloods.length })}</span>
             )}
@@ -283,15 +272,14 @@ export default function WorldMap() {
 
         {/* ── District Map ── */}
         <div className={styles.mapSection}>
-          <SaigonDistrictMap
-            height={300}
+          <InfoMap
+            variant="section"
             highlightedDistricts={highlightDistrictCode ? [highlightDistrictCode] : []}
             dangerDistricts={dangerDistrictCodes}
             onDistrictClick={handleDistrictClick}
             focusDistrictCode={highlightDistrictCode}
-            showLabels
-            showLegend
-            zoomable
+            onLocate={handleLocate}
+            locateOnMount={districts.length > 0}
           />
         </div>
 
@@ -322,21 +310,21 @@ export default function WorldMap() {
             <button className={styles.miniCard} onClick={() => navigate(`/info/gas${infoNavQuery}`)}>
               <div className={styles.miniIcon}>⛽</div>
               <div className={styles.miniTitle}>{t('info.hub.miniGas')}</div>
-              <div className={`${styles.miniValue} mono`}>
-                {infoGas?.price_vnd != null ? `${infoGas.price_vnd.toLocaleString()}₫` : '--'}
+              <div className={styles.miniValue}>
+                {infoGasCount > 0 ? t('info.hub.miniCount', { count: infoGasCount }) : '--'}
               </div>
               <div className={styles.miniSub}>
-                {infoGas ? `${infoGas.distance_km.toFixed(1)}km · ${infoGas.wait_minutes === 0 ? t('info.hub.miniGasNoWait') : infoGas.wait_minutes ? t('info.hub.miniGasWait', { min: infoGas.wait_minutes }) : ''}` : t('info.hub.miniLoading')}
+                {infoGas ? `${infoGas.distance_km.toFixed(1)}km` : t('info.hub.miniLoading')}
               </div>
             </button>
             <button className={styles.miniCard} onClick={() => navigate(`/info/repair${infoNavQuery}`)}>
               <div className={styles.miniIcon}>🔧</div>
               <div className={styles.miniTitle}>{t('info.hub.miniRepair')}</div>
               <div className={styles.miniValue}>
-                {infoRepair?.avg_rating != null ? `⭐ ${infoRepair.avg_rating.toFixed(1)}` : '⭐ --'}
+                {infoRepairCount > 0 ? t('info.hub.miniCount', { count: infoRepairCount }) : '--'}
               </div>
               <div className={styles.miniSub}>
-                {infoRepair?.name ?? t('info.hub.miniLoading')}
+                {infoRepair ? `${infoRepair.distance_km.toFixed(1)}km` : t('info.hub.miniLoading')}
               </div>
             </button>
           </div>

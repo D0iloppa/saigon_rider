@@ -140,6 +140,15 @@ class NativeInterface {
     await Gps.openAppSettings();
   }
 
+  /**
+   * 외부 URL 열기 (구글맵 길안내 등). 웹/네이티브 모두 새 컨텍스트로 열어
+   * 인앱 웹뷰가 아닌 시스템 핸들러(설치된 앱)가 처리하도록 위임.
+   * 네이티브 외부-앱 직링크 보강이 필요하면 이 메서드만 교체(@capacitor/browser 등).
+   */
+  openUrl(url: string): void {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   // ── In-App Purchase (iOS only) ──────────────────────────────────────────
 
   async purchase(command: string): Promise<void> {

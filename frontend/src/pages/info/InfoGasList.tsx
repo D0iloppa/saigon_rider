@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { gasApi, type TodayPrices } from '@/api/info';
+import { gasApi } from '@/api/info';
 import type { GasStation } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
-import { resolveInfoCoordsSync, getDefaultLabel } from '@/lib/infoCoords';
+import { toast } from '@/components/ui/Toast';
+import { native } from '@/lib/native';
+import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
-import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
+import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc } from '@/components/maps/district-data';
+import InfoMap from '@/components/maps/InfoMap';
+import InfoSwitcher from '@/components/info/InfoSwitcher';
 import GasStationSheet from '@/components/gas/GasStationSheet';
 import { deriveBrandCode } from '@/components/gas/gas-tokens';
-import type { GasMarkerData } from '@/components/maps/SaigonDistrictMap';
+import type { MapMarker, GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
 
 const SWR_TTL_MS = 5 * 60 * 1000;
+const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 구역별 클러스터/필터.
+const DEFAULT_DISTRICT = 'BEN_THANH';
 
 function swrRead<T>(key: string): T | null {
   try {
@@ -32,19 +38,6 @@ function swrWrite<T>(key: string, data: T): void {
   } catch {
     /* quota — ignore */
   }
-}
-
-function pickReferenceRon95(prices: TodayPrices | null): number | null {
-  if (!prices) return null;
-  const brands = ['PETROLIMEX', 'MARKET_AVG', 'PVOIL'] as const;
-  for (const b of brands) {
-    const bucket = prices[b];
-    if (bucket && typeof bucket === 'object' && 'RON95_III' in bucket) {
-      const cell = (bucket as Record<string, { price: number }>).RON95_III;
-      if (cell?.price) return cell.price;
-    }
-  }
-  return null;
 }
 
 function getWaitDotCount(waitMinutes: number | null): number {
@@ -79,34 +72,34 @@ export default function InfoGasList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { search } = useLocation();
+  const incomingCode = useMemo(() => {
+    const c = parseCoordsFromQuery(search);
+    return c ? findNearestDistrict(c.lat, c.lng)?.code ?? null : null;
+  }, [search]);
 
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [view, setView] = useState<'list' | 'map'>('map');
-  const [todayPrices, setTodayPrices] = useState<TodayPrices | null>(null);
   const [selectedStation, setSelectedStation] = useState<number | null>(null);
-  const [sortMode, setSortMode] = useState<'nearest' | 'cheapest'>('nearest');
-  const [coordsSource, setCoordsSource] = useState<ResolvedCoords['source']>('default');
-  const coordsRef = useRef<ResolvedCoords>({ lat: 0, lng: 0, source: 'default' });
+  // 선택 구역(지도 탭/초기 위치). 리스트는 이 구역 소속만 표시 → 지도 뱃지 수와 일치.
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(incomingCode);
+  // GPS 가 HCMC 안이면 거리=내 위치 기준, 밖이면 선택 구역 centroid 기준.
+  const [inHcm, setInHcm] = useState(false);
+  const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
 
-  const displayStations = useMemo<GasStation[]>(() => {
-    if (sortMode === 'cheapest') {
-      return [...stations].sort((a, b) => {
-        if (a.price_vnd === null) return 1;
-        if (b.price_vnd === null) return -1;
-        return a.price_vnd - b.price_vnd;
-      });
-    }
-    return stations;
-  }, [stations, sortMode]);
+  // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
+  const [showReport, setShowReport] = useState(false);
+  const [reportName, setReportName] = useState('');
+  const [reportPhone, setReportPhone] = useState('');
+  const [reportNote, setReportNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const gasMarkers = useMemo<MapMarker[]>(
     () =>
-      displayStations.map((s) => {
+      stations.map((s) => {
         const data: GasMarkerData = {
           brand_code: deriveBrandCode(s.brand),
-          ref_price: s.price_vnd,
+          ref_price: null,
           is_24h: false,
           show_price: false,
         };
@@ -119,145 +112,140 @@ export default function InfoGasList() {
           data,
         };
       }),
-    [displayStations],
+    [stations],
   );
 
-  const fetchStations = useCallback((coords: ResolvedCoords) => {
-    const { lat, lng } = coords;
-    coordsRef.current = coords;
-    setCoordsSource(coords.source);
+  // 선택 구역 소속 주유소만 (지도 클러스터와 동일한 findNearestDistrict 기준) + 거리순.
+  const listStations = useMemo<GasStation[]>(() => {
+    const filtered = selectedDistrict
+      ? stations.filter((s) => findNearestDistrict(s.lat, s.lng)?.code === selectedDistrict)
+      : stations;
+    return [...filtered].sort((a, b) => a.distance_km - b.distance_km);
+  }, [stations, selectedDistrict]);
+
+  const fetchStations = useCallback((origin: { lat: number; lng: number }) => {
+    const { lat, lng } = origin;
+    coordsRef.current = origin;
     const nearbyKey = `gas:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}`;
-    const cachedNearby = swrRead<GasStation[]>(nearbyKey);
-    if (cachedNearby) {
-      setStations(cachedNearby);
+    const cached = swrRead<GasStation[]>(nearbyKey);
+    if (cached) {
+      setStations(cached);
       setLoading(false);
       setError(false);
     } else {
       setLoading(true);
     }
-    gasApi.getNearby(lat, lng, 5)
+    gasApi.getNearby(lat, lng, FETCH_RADIUS_KM)
       .then((r) => { if (!r) return; setStations(r.stations); swrWrite(nearbyKey, r.stations); setError(false); })
-      .catch(() => { if (!cachedNearby) setError(true); })
+      .catch(() => { if (!cached) setError(true); })
       .finally(() => setLoading(false));
   }, []);
 
+  // 거리 기준 origin 결정: HCMC 안 → GPS, 밖 → 선택(or 기본) 구역 centroid.
+  const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
+    const within = coords.source === 'gps' && isWithinHcmc(coords.lat, coords.lng);
+    setInHcm(within);
+    const district = incomingCode ?? findNearestDistrict(coords.lat, coords.lng)?.code ?? DEFAULT_DISTRICT;
+    setSelectedDistrict(district);
+    if (within) {
+      fetchStations({ lat: coords.lat, lng: coords.lng });
+    } else {
+      const c = getDistrictByCode(district);
+      fetchStations(c ? { lat: c.gps.lat, lng: c.gps.lng } : { lat: coords.lat, lng: coords.lng });
+    }
+  }, [incomingCode, fetchStations]);
+
   useEffect(() => {
-    const cachedPrices = swrRead<TodayPrices>('gas:today-prices');
-    if (cachedPrices) setTodayPrices(cachedPrices);
-    gasApi.getTodayPrices()
-      .then((p) => { setTodayPrices(p); swrWrite('gas:today-prices', p); })
-      .catch(() => { if (!cachedPrices) setTodayPrices(null); });
+    const instant = resolveInfoCoordsSync(search, (fresh) => resolveAndLoad(fresh));
+    resolveAndLoad(instant);
+  }, [search, resolveAndLoad]);
 
-    const instant = resolveInfoCoordsSync(search, (fresh) => fetchStations(fresh));
-    fetchStations(instant);
-  }, [search, fetchStations]);
-
-  const referencePrice = pickReferenceRon95(todayPrices);
-  const updatedAt = todayPrices?.updated_at ?? null;
-
-  const minPrice = stations.reduce<number | null>((min, s) => {
-    if (s.price_vnd === null) return min;
-    if (min === null || s.price_vnd < min) return s.price_vnd;
-    return min;
-  }, null);
-
-  const filterBtn = (
-    <div className={styles.iconBtn}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M3 6h18M3 12h18M3 18h18"/>
-      </svg>
-    </div>
-  );
+  const handleDistrictClick = useCallback((code: string, gps: { lat: number; lng: number }) => {
+    setSelectedDistrict(code);
+    // HCMC 밖이면 거리 기준을 새 구역 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
+    if (!inHcm) fetchStations(gps);
+  }, [inHcm, fetchStations]);
 
   function handleWaitReport() {
     alert(`+5 XP! ${t('info.gas.comingSoon')}`);
   }
+
+  async function handleSubmitReport() {
+    if (!reportName.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const pos = await native.getLocation();
+      await gasApi.reportStation({
+        name: reportName.trim(),
+        lat: pos.lat,
+        lng: pos.lng,
+        phone: reportPhone.trim() || undefined,
+        note: reportNote.trim() || undefined,
+      });
+      toast.success(t('info.gas.reportSuccess'));
+      setShowReport(false);
+      setReportName('');
+      setReportPhone('');
+      setReportNote('');
+    } catch {
+      toast.error(t('info.gas.reportError'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const distLabel = inHcm
+    ? t('info.distFromGps')
+    : t('info.distFromFallback', { area: selectedDistrict ? districtLabelByCode(selectedDistrict) : '' });
 
   return (
     <div className={styles.page}>
       <TopBar
         title={t('info.gas.title')}
         onBack={() => navigate(-1)}
-        rightContent={filterBtn}
+        rightContent={<InfoSwitcher current="gas" />}
       />
 
-      {/* Official price banner — "오늘의 참고가" + 갱신 시각 */}
-      <div className={styles.officialBar}>
-        <span className={styles.officialLabel}>
-          📊 {t('info.gas.priceBar')}
-          {updatedAt && (
-            <span className={styles.officialUpdated}> · {t('info.gas.priceBarUpdated', { time: updatedAt })}</span>
-          )}
-        </span>
-        <span className={`${styles.mono} ${styles.officialPrice}`}>
-          {referencePrice != null ? `${referencePrice.toLocaleString()} ₫/L` : '—'}
-        </span>
-      </div>
-
-      {/* Sort bar */}
+      {/* Distance basis */}
       <div className={styles.sortBar}>
-        <span className={styles.sortText}>📍 {coordsSource === 'gps'
-          ? t('info.distFromGps')
-          : t('info.distFromFallback', { area: getDefaultLabel() })} ·</span>
-        <button
-          type="button"
-          className={`${styles.sortChip} ${sortMode === 'nearest' ? styles.sortChipActive : ''}`}
-          onClick={() => setSortMode('nearest')}
-        >
-          {t('info.gas.sortNearest')}
-        </button>
-        <button
-          type="button"
-          className={`${styles.sortChip} ${sortMode === 'cheapest' ? styles.sortChipActive : ''}`}
-          onClick={() => setSortMode('cheapest')}
-        >
-          {t('info.gas.sortCheapest', '저렴한 순')}
-        </button>
-      </div>
-
-      <div className={styles.viewToggle}>
-        <button
-          type="button"
-          className={`${styles.viewToggleBtn} ${view === 'map' ? styles.viewToggleActive : ''}`}
-          onClick={() => setView('map')}
-        >
-          {t('info.gas.viewMap')}
-        </button>
-        <button
-          type="button"
-          className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
-          onClick={() => setView('list')}
-        >
-          {t('info.gas.viewList')}
-        </button>
+        <span className={styles.sortText}>📍 {distLabel}</span>
       </div>
 
       <div className={styles.scroll}>
-        {view === 'map' && (
-          <div className={styles.mapWrap}>
-            <SaigonDistrictMap height={360} markers={gasMarkers} showLegend />
-          </div>
-        )}
-        {view === 'list' && loading ? (
+        <div className={styles.mapWrap}>
+          <InfoMap
+            variant="fullscreen"
+            markers={gasMarkers}
+            focusDistrictCode={selectedDistrict}
+            onDistrictClick={(d) => handleDistrictClick(d.code, d.gps)}
+          />
+        </div>
+        <div className={styles.sectionHeader}>
+          <span>⛽ {t('info.gas.nearbyTitle')} · {listStations.length}</span>
+        </div>
+        {loading ? (
           <div className={styles.skeletonWrap}>
             {[0, 1, 2].map((i) => <div key={i} className={styles.skeleton} />)}
           </div>
-        ) : view === 'list' && error ? (
+        ) : error ? (
           <div className={styles.errorWrap}>
             <p>{t('info.gas.loadError', '정보를 불러오지 못했습니다')}</p>
             <button className={styles.retryBtn} onClick={() => fetchStations(coordsRef.current)}>
               {t('common.retry', '다시 시도')}
             </button>
           </div>
-        ) : view === 'list' ? (
+        ) : listStations.length === 0 ? (
+          <div className={styles.errorWrap}>
+            <p>{t('info.gas.emptyDistrict', '이 지역에 등록된 주유소가 없어요')}</p>
+          </div>
+        ) : (
           <div className={styles.card}>
-            {displayStations.map((s, idx) => {
-              const isCheapest = s.price_vnd !== null && s.price_vnd === minPrice;
+            {listStations.map((s, idx) => {
               const isFirst = idx === 0;
               return (
                 <div
                   key={s.station_id}
-                  className={`${styles.gasCard} ${isCheapest ? styles.gasCardCheap : ''}`}
+                  className={styles.gasCard}
                   onClick={() => setSelectedStation(s.station_id)}
                   role="button"
                   tabIndex={0}
@@ -265,23 +253,20 @@ export default function InfoGasList() {
                   {/* Name + badge */}
                   <div className={styles.gasTopRow}>
                     <div className={styles.gasBadgeRow}>
-                      {isFirst && !isCheapest && (
+                      {isFirst && (
                         <span className={`${styles.gasBadge} ${styles.gasBadgeRank1}`}>{t('info.gas.rank1')}</span>
-                      )}
-                      {isCheapest && (
-                        <span className={`${styles.gasBadge} ${styles.gasBadgeCheap}`}>{t('info.gas.cheapBadge')}</span>
                       )}
                       <span className={styles.gasName}>{s.name ?? `${s.brand} · ${s.street_name}`}</span>
                     </div>
                   </div>
 
-                  {/* Price */}
-                  <div className={styles.priceRow}>
-                    <span className={styles.fuelLabel}>💧 RON 95</span>
-                    <span className={`${styles.mono} ${styles.price} ${isCheapest ? styles.priceCheap : ''}`}>
-                      {s.price_vnd !== null ? `${s.price_vnd.toLocaleString()} ₫/L` : t('info.gas.noPriceInfo')}
-                    </span>
-                  </div>
+                  {/* Phone */}
+                  {s.phone && (
+                    <div className={styles.priceRow}>
+                      <span className={styles.fuelLabel}>☎ {t('info.gas.phoneLabel')}</span>
+                      <span className={styles.mono}>{s.phone}</span>
+                    </div>
+                  )}
 
                   {/* Wait */}
                   {s.wait_minutes !== null ? (
@@ -313,17 +298,29 @@ export default function InfoGasList() {
                       {s.opening_hours ? ` · ${s.opening_hours}` : ''}
                     </span>
                     <div className={styles.actionBtns}>
-                      <button className={`${styles.actionBtn} ${isCheapest ? styles.actionBtnCheap : styles.actionBtnInfo}`}>
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnInfo}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/ride-nav?name=${encodeURIComponent(s.name ?? s.brand ?? '')}&lat=${s.lat}&lng=${s.lng}&dist=${s.distance_km.toFixed(1)}`);
+                        }}
+                      >
                         {t('info.gas.routeBtn')}
                       </button>
-                      <button className={styles.actionBtnNeutral}>{t('info.gas.callBtn')}</button>
+                      <button className={styles.actionBtnNeutral} onClick={(e) => e.stopPropagation()}>{t('info.gas.callBtn')}</button>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : null}
+        )}
+
+        {/* Report a missing station */}
+        <button className={styles.reportCta} onClick={() => setShowReport(true)}>
+          <span>➕</span>
+          <span>{t('info.gas.reportStationCta')}</span>
+        </button>
 
         {/* Wait report CTA */}
         <button className={styles.reportCta} onClick={handleWaitReport}>
@@ -331,6 +328,41 @@ export default function InfoGasList() {
           <span>{t('info.gas.reportWait')}</span>
         </button>
       </div>
+
+      {showReport && (
+        <div className={styles.reportBackdrop} onClick={() => !submitting && setShowReport(false)}>
+          <div className={styles.reportSheet} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.reportTitle}>{t('info.gas.reportTitle')}</div>
+            <div className={styles.reportDesc}>{t('info.gas.reportDesc')}</div>
+            <input
+              className={styles.reportField}
+              placeholder={t('info.gas.reportNamePlaceholder')}
+              value={reportName}
+              onChange={(e) => setReportName(e.target.value)}
+            />
+            <input
+              className={styles.reportField}
+              placeholder={t('info.gas.reportPhonePlaceholder')}
+              value={reportPhone}
+              onChange={(e) => setReportPhone(e.target.value)}
+            />
+            <input
+              className={styles.reportField}
+              placeholder={t('info.gas.reportNotePlaceholder')}
+              value={reportNote}
+              onChange={(e) => setReportNote(e.target.value)}
+            />
+            <div className={styles.reportActions}>
+              <button className={styles.reportCancel} onClick={() => setShowReport(false)} disabled={submitting}>
+                {t('common.cancel', '취소')}
+              </button>
+              <button className={styles.reportSubmit} onClick={handleSubmitReport} disabled={!reportName.trim() || submitting}>
+                {submitting ? t('info.gas.reportSubmitting') : t('info.gas.reportSubmit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedStation !== null && (
         <GasStationSheet

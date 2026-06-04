@@ -5,7 +5,8 @@ import { useUserStore } from '@/store/useUserStore';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
-import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
+import InfoMap from '@/components/maps/InfoMap';
+import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import { native } from '@/lib/native';
 import styles from './InfoHub.module.css';
@@ -220,14 +221,11 @@ export default function InfoHub() {
                 <span className={styles.cardTitle}>{t('info.hub.miniMapTitle')}</span>
               </div>
               <div className={styles.miniMapWrap}>
-                <SaigonDistrictMap
-                  height={140}
-                  showLabels={false}
-                  showLegend={false}
+                <InfoMap
+                  variant="mini"
                   highlightedDistricts={userDistrictCode ? [userDistrictCode] : []}
                   dangerDistricts={dangerDistrictCodes}
                   markers={miniMapMarkers}
-                  interactive={false}
                 />
               </div>
             </button>

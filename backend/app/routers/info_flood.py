@@ -9,7 +9,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..deps import verify_user_session
+from ..deps import verify_service_key, verify_user_session
 from ..engine_client import engine_client
 from ..models import FloodConfirmation, FloodReport
 from ..utils import find_district_by_point
@@ -346,11 +346,43 @@ async def get_map_data(
             h["centroid_lng"] = float(h["centroid_lng"])
         hotspots.append(h)
 
+    # ② 날씨 기반 예측 위험 (당일, 만료 전) — 실제 제보와 분리.
+    risks_result = await db.execute(
+        text("""
+            SELECT risk_id, hotspot_id, district_code, street_name,
+                   CAST(lat AS FLOAT) AS lat, CAST(lng AS FLOAT) AS lng,
+                   rain_prob, risk_level, depth_hint, predicted_date
+            FROM flood_risk_daily
+            WHERE expires_at > NOW()
+              AND ST_DWithin(
+                    geom,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                    :radius_m
+                  )
+            ORDER BY rain_prob DESC
+            LIMIT 50
+        """),
+        {"lat": lat, "lng": lng, "radius_m": radius_km * 1000},
+    )
+    risks = [dict(row._mapping) for row in risks_result]
+
     return {
         "hotspots": hotspots,
         "reports": reports,
+        "risks": risks,
         "fetched_at": datetime.now(UTC).isoformat(),
     }
+
+
+@router.post("/admin/predict-risk", dependencies=[Depends(verify_service_key)])
+async def admin_predict_risk():
+    """운영자/스케줄러 수동 트리거: 날씨 기반 일일 침수 예측 1회 실행.
+
+    평소엔 BFF APScheduler 가 매일(05:30/15:00 ICT) 자동 실행. X-Service-Key 필요.
+    """
+    from ..jobs.predict_flood_risk import run_flood_risk_prediction
+
+    return await run_flood_risk_prediction()
 
 
 @router.get("/hotspots")

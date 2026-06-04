@@ -48,6 +48,22 @@
 
 ## 활성 태스크 (🔧)
 
+- **침수 데이터 전략 3층 모델 (결정 2026-06-04)** — ①상습 핫스팟 baseline + ③실시간 UGC 제보 **안정화 완료**, ②날씨 기반 일일 예측은 **OpenWeather 실연동 후로 보류**.
+  - ① baseline: `flood_hotspot_stats` 30건(037 시드, dev 적용됨) → 플러드 페이지 "🌧 상습 침수 지역" 섹션으로 표출(좌표→구역 필터). 제보 0건이어도 화면 채워짐.
+  - ③ UGC: 침수 신고 = 주유/정비식 **바텀시트**(FAB→하단 CTA 이동), 깊이 select, **사진 실첨부**(`/contents/upload`→imgproxy_url을 photo_url 저장, FloodDetailSheet 표시), 현재 GPS. 즉시 반영(주유/정비와 달리 admin 큐 없음 — 실시간 특성).
+  - **② 구현 완료(SGR-268, 시각검증 대기)**: OpenWeather **이미 라이브**(키 유효·BFF 전달·프론트 `VITE_USE_MOCK=false`; 메모리 "mock fallback" stale). init `054_flood_risk_daily.sql`+`FloodRiskDaily` 모델(flood_report와 분리). 잡 `jobs/predict_flood_risk.py`(구역별 24h pop≥50%→핫스팟 예측위험 당일 적재, BFF APScheduler 05:30/15:00 ICT). map-data에 `risks`+수동 트리거 `POST /info/flood/admin/predict-risk`(service key). 프론트: 통합 리스트에 "⚠️ 오늘 침수 위험 N%"(예측·실신고 아님 명시)+중복 핫스팟 억제. 만료 24h. 가짜 실신고 seed 없음.
+  - **흡수/정렬**: 핫스팟·예측위험·실시간 제보를 "최근 침수" 단일 리스트로 통합·최신순(제보 reported_at > 예측 today > 핫스팟 last_flood). 헤더 "최근 침수 · N건".
+
+
+- **SGR-251 정보 서브페이지 지도/리스트 템플릿 통일** — 코드 DONE, **시각검증 대기**. 부모 SGR-242(메인화면/지도 개편). 기준 템플릿=침수(InfoFloodMap): 토글 없이 [지도(상단)→활성리스트(하단)] 동시 표시.
+  - **주유/정비**: `view` 토글(`[지도|리스트]`) 제거, `InfoMap variant="fullscreen"`(침수와 동일, mapWrap height 280px) + 리스트 하단 동시 표시. 죽은 `viewToggle*` CSS 정리.
+  - **날씨**: 날씨 카드 기준은 현 동작(선택 구역 따라감) 유지. 지도 컴포넌트를 메인과 동일한 `InfoMap variant="section"`(구역 지도, 현 위치 구역 highlight)으로 교체. **RainRadar(RainViewer 강수 레이더) 제거**(`RainRadar.tsx` 삭제, weather `mapTitle` i18n 3종 추가). 잔여: `api/info.ts getRainRadar`/`RainRadarData`는 미사용 export로 잔존(라이브러리 메서드), weather radarTitle/radarUpdated/myLocation i18n 키 dead.
+  - 검증: `tsc -b` 0, eslint 에러 0. seed 데이터(gas/repair) 정확화는 본 작업 후 별도(SGR-236 P3).
+- **주유소 CSV 시드 전면교체 + UGC 제보 대기큐 + admin 검증** — P1~P3 코드 DONE, **시각검증 대기**(앱 제보 제출·admin 승인/반려 클릭). SGR-236 info 후속.
+  - **P1 스키마+시드**: init `050_gas_ugc.sql`(gas_station +phone/url, `gas_station_submission` 대기큐 PENDING/CONFIRMED/REJECTED), `051_gas_seed_csv.sql`(OSM 759건 클리어→Google CSV 58건, **가격 없음**·district NULL·source=GOOGLE·brand 파생). dev DB 적용 완료(58건).
+  - **P2 제보+화면**: BFF `POST /info/gas/report`→submission 적재(브랜드 서버 파생), nearby/상세에 phone. 프론트 **가격 UI 전면 숨김**(공식가 배너·cheapest 정렬·가격행 제거)→전화번호 표시, 하단 "주유소 제보" CTA+시트(현재 GPS). i18n 12종×3.
+  - **P3 admin**: `/admin/gas-submissions` 큐(PENDING 상단)+승인(→gas_station upsert USER_REPORTED·verified_at)/반려. nav "주유소 제보" 추가. QA용 테스트 제보 1건(submission_id=1) 삽입해둠.
+  - **결정**: 가격은 화면만 숨김(백엔드 fuel_price 유지), 제보는 신규추가만. **잔여**: 시각 QA / 향후 AI 자동검증(submission.status·review_note 개방) / 정비소 동일 패턴은 미요청. dead: gas viewMap/viewList·price CSS·formatPriceFull.
 - **SGR-236 info 화면 마무리** — 발행 2026-06-04. 4모듈 골격은 완성, 마무리만 남음. 하위 P1~P4(SGR-237~240): P1 비 레이더 RainViewer 실연동(현 CSS 목업), P2 유가 후속 #50(admin 가격입력·WorldMap 위젯), P3 **초기 seed 정확화**(gas_station/repair_shop/repair_review/fuel_price INSERT 0건 — 현재 프론트 MOCK 의존), P4 시각 QA·통일성. 순서: P3→P4 선행, P1/P2 병렬. SoT `task/active/260604_info_screens_finalize_task.md`, Notion `3753bd6b-405d-819e...`.
 - **SGR-228 재화 개념 정의 + 밸런싱 (RP·골드·스킬포인트)** — In Progress. 환율 **골드 100 : 스킬 10 : 크리스탈(RP) 1**. 골드=퀘스트+레벨업→아이템/가차, 스킬=레벨업→스킬. 확정 사항:
   - **RP 가치 = 1 RP : 100 VND**. 커피 한 잔(50,000 VND) = **500 RP**. 쿠폰 카탈로그 face_value 항목 재가격(mig **sre040**): DATA_1GB 140 / GOTIT_50K 500(커피) / GOTIT_100K 1000.

@@ -1,10 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { weatherApi } from '@/api/info';
 import type { WeatherData, ForecastHour } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { native } from '@/lib/native';
+import { parseCoordsFromQuery } from '@/lib/infoCoords';
+import InfoMap from '@/components/maps/InfoMap';
+import InfoSwitcher from '@/components/info/InfoSwitcher';
+import { findNearestDistrict, districtLabelByCode } from '@/components/maps/district-data';
 import styles from './InfoWeather.module.css';
 
 const RAIN_COLOR = (pct: number) => {
@@ -15,20 +19,28 @@ const RAIN_COLOR = (pct: number) => {
   return '#16A34A';
 };
 
-function useGeolocation() {
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+// 메인에서 넘어온 좌표(?lat&lng)가 있으면 그 지역 기준, 없으면 GPS(실패 시 기본 도시).
+// 지도에서 구역을 선택하면 setCoords 로 그 지역 기준 재조회.
+function useGeolocation(search: string) {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => parseCoordsFromQuery(search));
   useEffect(() => {
+    const q = parseCoordsFromQuery(search);
+    if (q) {
+      setCoords(q);
+      return;
+    }
     native.getLocation()
       .then((pos) => setCoords({ lat: pos.lat, lng: pos.lng }))
       .catch(() => setCoords({ lat: 10.776, lng: 106.700 }));
-  }, []);
-  return coords;
+  }, [search]);
+  return [coords, setCoords] as const;
 }
 
 export default function InfoWeather() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const coords = useGeolocation();
+  const { search } = useLocation();
+  const [coords, setCoords] = useGeolocation(search);
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifyLabel, setNotifyLabel] = useState('');
@@ -54,7 +66,13 @@ export default function InfoWeather() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={t('info.weather.title')} onBack={() => navigate(-1)} />
+      <TopBar title={t('info.weather.title')} onBack={() => navigate(-1)} rightContent={<InfoSwitcher current="weather" />} />
+
+      <div className={styles.locBar}>
+        📍 {coords
+          ? t('info.distFromFallback', { area: districtLabelByCode(findNearestDistrict(coords.lat, coords.lng)?.code ?? '') })
+          : t('info.distFromGps')}
+      </div>
 
       {loading ? (
         <div className={styles.loadingWrap}>
@@ -62,83 +80,69 @@ export default function InfoWeather() {
         </div>
       ) : (
         <div className={styles.scroll}>
-          {/* Hero */}
-          <div className={styles.hero}>
-            <div className={styles.heroMeta}>📍 {data?.location?.district?.toUpperCase() ?? 'DISTRICT 1'} · {timeStr}</div>
-            <div className={styles.heroEmoji}>{cur?.emoji ?? '🌡'}</div>
-            <div className={styles.heroTemp}>{cur?.temp_c ?? '--'}°C</div>
-            <div className={styles.heroDesc}>{cur?.condition_desc ?? ''}</div>
-            <div className={styles.heroSub}>
-              {t('info.weather.humidity')} {cur?.humidity}% ·&nbsp;
-              {t('info.weather.wind')} {cur?.wind_kmh}km/h
-            </div>
+          {/* Location map — 침수 지도와 동일 레이아웃(풀블리드) */}
+          <div className={styles.mapArea}>
+            {coords && (() => {
+              const code = findNearestDistrict(coords.lat, coords.lng)?.code ?? null;
+              return (
+                <InfoMap
+                  variant="fullscreen"
+                  focusDistrictCode={code}
+                  highlightedDistricts={code ? [code] : []}
+                  onDistrictClick={(d) => setCoords({ lat: d.gps.lat, lng: d.gps.lng })}
+                />
+              );
+            })()}
           </div>
 
-          {/* Rain alert */}
-          {cur && cur.rain_prob_1h >= 50 && (
-            <div className={styles.rainAlert}>
-              <span>⛈</span>
-              <span>{t('info.weather.rainAlert1h', { prob: cur.rain_prob_1h })}</span>
-            </div>
-          )}
-
-          {/* Radar placeholder */}
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>🌧 {t('info.weather.radarTitle')}</div>
-            <div className={styles.radarMap}>
-              <div className={styles.radarRoad} style={{ width: '100%', height: 3, top: '40%', transform: 'rotate(-3deg)' }} />
-              <div className={styles.radarRoad} style={{ width: 3, height: '100%', top: 0, left: '30%' }} />
-              <div className={styles.radarRoad} style={{ width: 3, height: '100%', top: 0, left: '65%' }} />
-              {cur && cur.rain_prob_1h >= 50 && (
-                <>
-                  <div className={styles.radarBlob} style={{ width: 90, height: 70, background: '#1D4ED8', top: '30%', right: '5%', filter: 'blur(16px)' }} />
-                  <div className={styles.radarBlob} style={{ width: 40, height: 30, background: '#EF3B3B', top: '25%', right: '15%', filter: 'blur(8px)' }} />
-                  <div className={styles.radarLabel} style={{ right: 10, bottom: 40 }}>
-                    {t('info.weather.radarRainPct', { prob: cur.rain_prob_1h })}
-                  </div>
-                </>
-              )}
-              <div className={styles.radarMyPos} />
-              <div className={styles.radarMyLabel}>{t('info.weather.myLocation')}</div>
-              <div className={styles.radarTimeline}>
-                <div className={styles.radarDot} />
-                <span>{t('info.weather.forecast1h')}</span>
-              </div>
-            </div>
-            <div className={styles.radarControls}>
-              <button className={styles.radarBtn}>◀▶ {t('info.weather.radarPlay')}</button>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button className={styles.radarBtn}>−3h</button>
-                <button className={`${styles.radarBtn} ${styles.radarBtnActive}`}>{t('info.weather.radarNow')}</button>
-                <button className={styles.radarBtn}>+6h</button>
-              </div>
-            </div>
+          {/* 현재 날씨 */}
+          <div className={styles.sectionHeader}>
+            <span>📍 {data?.location?.district?.toUpperCase() ?? 'DISTRICT 1'} · {timeStr}</span>
           </div>
-
-          <div className={styles.divider} />
+          <div className={styles.card}>
+            <div className={styles.current}>
+              <div className={styles.heroEmoji}>{cur?.emoji ?? '🌡'}</div>
+              <div className={styles.heroTemp}>{cur?.temp_c ?? '--'}°C</div>
+              <div className={styles.heroDesc}>{cur?.condition_desc ?? ''}</div>
+              <div className={styles.heroSub}>
+                {t('info.weather.humidity')} {cur?.humidity}% ·&nbsp;
+                {t('info.weather.wind')} {cur?.wind_kmh}km/h
+              </div>
+            </div>
+            {cur && cur.rain_prob_1h >= 50 && (
+              <div className={styles.rainAlert}>
+                <span>⛈</span>
+                <span>{t('info.weather.rainAlert1h', { prob: cur.rain_prob_1h })}</span>
+              </div>
+            )}
+          </div>
 
           {/* 24h forecast */}
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>📅 {t('info.weather.forecastTitle')}</div>
-            {forecast.map((h: ForecastHour, i: number) => {
-              const isHigh = h.rain_prob >= 70;
-              return (
-                <div key={i} className={`${styles.forecastRow} ${isHigh ? styles.forecastHighlight : ''}`}>
-                  <span className={styles.forecastTime}>{h.time}</span>
-                  <span className={styles.forecastIcon}>{h.emoji}</span>
-                  <span className={styles.forecastTemp}>{h.temp_c}°</span>
-                  <div className={styles.forecastBarWrap}>
-                    <div
-                      className={styles.forecastBar}
-                      style={{ width: `${h.rain_prob}%`, background: RAIN_COLOR(h.rain_prob) }}
-                    />
+          <div className={styles.sectionHeader}>
+            <span>📅 {t('info.weather.forecastTitle')}</span>
+          </div>
+          <div className={styles.card}>
+            <div className={styles.cardPad}>
+              {forecast.map((h: ForecastHour, i: number) => {
+                const isHigh = h.rain_prob >= 70;
+                return (
+                  <div key={i} className={`${styles.forecastRow} ${isHigh ? styles.forecastHighlight : ''}`}>
+                    <span className={styles.forecastTime}>{h.time}</span>
+                    <span className={styles.forecastIcon}>{h.emoji}</span>
+                    <span className={styles.forecastTemp}>{h.temp_c}°</span>
+                    <div className={styles.forecastBarWrap}>
+                      <div
+                        className={styles.forecastBar}
+                        style={{ width: `${h.rain_prob}%`, background: RAIN_COLOR(h.rain_prob) }}
+                      />
+                    </div>
+                    <span className={styles.forecastPct} style={{ color: isHigh ? RAIN_COLOR(h.rain_prob) : undefined }}>
+                      {h.rain_prob}%
+                    </span>
                   </div>
-                  <span className={styles.forecastPct} style={{ color: isHigh ? RAIN_COLOR(h.rain_prob) : undefined }}>
-                    {h.rain_prob}%
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Recommendation */}

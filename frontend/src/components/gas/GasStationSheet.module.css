@@ -13,7 +13,8 @@
 .sheet {
   background: white;
   border-radius: 24px 24px 0 0;
-  padding: 20px 20px 32px;
+  /* 하단 탭바 + 세이프에어리어 만큼 여백 → 내용이 네비에 가리지 않게 */
+  padding: 20px 20px calc(32px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px));
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
   width: 100%;
   max-width: 480px;
@@ -112,4 +113,24 @@
   text-align: center;
   line-height: 1.4;
   margin: 0;
+}
+
+/* phone / meta (가격 대체) */
+.phoneRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.metaRow {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-2);
 }

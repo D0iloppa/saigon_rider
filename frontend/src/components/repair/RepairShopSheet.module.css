@@ -1,0 +1,96 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 60;
+}
+
+.sheet {
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  /* 하단 탭바 + 세이프에어리어 만큼 여백 → 내용이 네비에 가리지 않게 */
+  padding: 20px 20px calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px));
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  max-width: 480px;
+  animation: slideUp 0.25s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+
+.skeleton { padding: 40px 0; text-align: center; color: var(--text-3); font-size: 13px; }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shopName {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+  flex: 1;
+}
+
+.closeBtn {
+  border: none;
+  background: var(--bg);
+  color: var(--text-2);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rating {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.reviewCount { font-size: 13px; font-weight: 400; color: var(--text-3); margin-left: 4px; }
+
+.phoneRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.metaRow {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.chips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+.chipPos { background: #DCFCE7; color: #15803D; }
+.chipNeg { background: #FEE2E2; color: #B91C1C; }
+
+.writeBtn {
+  margin-top: 16px;
+  width: 100%;
+  border: none;
+  background: var(--brand, #FF5A1F);
+  color: #fff;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}

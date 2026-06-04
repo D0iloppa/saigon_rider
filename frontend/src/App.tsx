@@ -89,6 +89,7 @@ import InfoGasList from '@/pages/info/InfoGasList';
 import InfoRepairList from '@/pages/info/InfoRepairList';
 import InfoRepairDetail from '@/pages/info/InfoRepairDetail';
 import InfoRepairWrite from '@/pages/info/InfoRepairWrite';
+import RideNav from '@/pages/ride/RideNav';
 
 // Deep link
 import LinkRouter from '@/pages/link/LinkRouter';
@@ -182,7 +183,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <SpriteProvider />
-      <Toaster position="bottom-center" gap={6} visibleToasts={3} />
+      <Toaster position="top-center" gap={6} visibleToasts={3} />
       <Dialog />
       <ConfirmDialog />
       <AppShell splashVisible={splashVisible} splashFade={splashFade} gifReady={gifReady}>
@@ -248,6 +249,7 @@ export default function App() {
           <Route path="/info/repair" element={<PrivateRoute><InfoRepairList /></PrivateRoute>} />
           <Route path="/info/repair/:shopId" element={<PrivateRoute><InfoRepairDetail /></PrivateRoute>} />
           <Route path="/info/repair/:shopId/write" element={<PrivateRoute><InfoRepairWrite /></PrivateRoute>} />
+          <Route path="/ride-nav" element={<PrivateRoute><RideNav /></PrivateRoute>} />
 
           {/* Protected: Settings */}
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

@@ -67,9 +67,23 @@ export interface FloodReportWithTrust extends FloodReport {
   minutes_ago?: number;
 }
 
+export interface FloodRisk {
+  risk_id: number;
+  hotspot_id: number | null;
+  district_code: string | null;
+  street_name: string | null;
+  lat: number;
+  lng: number;
+  rain_prob: number;
+  risk_level: 'MEDIUM' | 'HIGH';
+  depth_hint: string | null;
+  predicted_date: string;
+}
+
 export interface FloodMapData {
   hotspots: FloodHotspot[];
   reports: FloodReportWithTrust[];
+  risks?: FloodRisk[];
   fetched_at: string;
 }
 
@@ -77,6 +91,7 @@ export interface GasStation {
   station_id: number;
   brand: string | null;
   name: string | null;
+  phone: string | null;
   district_code: string | null;
   street_name: string | null;
   distance_km: number;
@@ -122,7 +137,7 @@ export interface RepairReview {
 
 export interface RepairDetail {
   shop: RepairShop;
-  stats: { avg_rating: number; review_count: number; avg_price: number | null };
+  stats: { avg_rating: number; review_count: number; avg_price: number | null } | null;
   price_by_service: Record<string, number>;
   recent_reviews: RepairReview[];
 }
@@ -181,18 +196,21 @@ const MOCK_GAS: GasStation[] = [
   {
     station_id: 1, brand: 'Petrolimex', name: 'Petrolimex · Trần Hưng Đạo',
     district_code: 'Q1', street_name: 'Trần Hưng Đạo', distance_km: 1.2,
+    phone: null,
     opening_hours: '06:00–22:00', lat: 10.770, lng: 106.699,
     price_vnd: 25420, wait_minutes: 5, wait_confidence: 2, wait_reported_at: null,
   },
   {
     station_id: 2, brand: 'PV Oil', name: 'PV Oil · Lê Lai',
     district_code: 'Q1', street_name: 'Lê Lai', distance_km: 1.8,
+    phone: null,
     opening_hours: '24/7', lat: 10.773, lng: 106.698,
     price_vnd: 25380, wait_minutes: 0, wait_confidence: 5, wait_reported_at: null,
   },
   {
     station_id: 3, brand: 'Petrolimex', name: 'Petrolimex · Nguyễn Trãi',
     district_code: 'Q1', street_name: 'Nguyễn Trãi', distance_km: 2.3,
+    phone: null,
     opening_hours: '06:00–22:00', lat: 10.768, lng: 106.696,
     price_vnd: 25420, wait_minutes: null, wait_confidence: null, wait_reported_at: null,
   },
@@ -344,6 +362,14 @@ export const gasApi = {
       body: JSON.stringify({ station_id, wait_minutes }),
     });
   },
+  /** 신규 주유소 제보 → 대기큐(PENDING). admin confirm 시에만 반영. */
+  async reportStation(body: { name: string; lat: number; lng: number; phone?: string; note?: string }): Promise<{ submission_id: number; status: string }> {
+    if (USE_MOCK) return api.delay({ submission_id: 999, status: 'PENDING' }, 300);
+    return api.realFetch<{ submission_id: number; status: string }>('/info/gas/report', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
   async getPrices(): Promise<{ fuel_type: string; price_vnd: number }[]> {
     if (USE_MOCK) return api.delay([{ fuel_type: 'RON95', price_vnd: 25420 }], 100);
     return api.realFetch<{ fuel_type: string; price_vnd: number }[]>('/info/gas/prices', {}, 'bff', { silent: true });
@@ -399,6 +425,7 @@ export interface GasStationDetail {
   district_code: string | null;
   street_name: string | null;
   opening_hours: string | null;
+  phone: string | null;
   reference_price: {
     RON95_III?: number;
     RON95_V?: number;
@@ -421,6 +448,14 @@ export const repairApi = {
   async getDetail(shop_id: number): Promise<RepairDetail> {
     if (USE_MOCK) return api.delay(MOCK_REPAIR_DETAIL, 300);
     return api.realFetch<RepairDetail>(`/info/repair/${shop_id}`, {}, 'bff', { silent: true });
+  },
+  /** 신규 정비소 제보 → 대기큐(PENDING). admin confirm 시에만 반영. */
+  async reportShop(body: { name: string; lat: number; lng: number; phone?: string; note?: string }): Promise<{ submission_id: number; status: string }> {
+    if (USE_MOCK) return api.delay({ submission_id: 999, status: 'PENDING' }, 300);
+    return api.realFetch<{ submission_id: number; status: string }>('/info/repair/report', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   },
   async writeReview(data: {
     shop_id: number; service_code: string; motorcycle_model?: string;

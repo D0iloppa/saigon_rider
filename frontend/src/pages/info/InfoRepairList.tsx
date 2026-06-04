@@ -4,15 +4,20 @@ import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import type { RepairShop } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
-import { resolveInfoCoordsSync, getDefaultLabel } from '@/lib/infoCoords';
+import { toast } from '@/components/ui/Toast';
+import { native } from '@/lib/native';
+import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
-import SaigonDistrictMap, { type MapMarker } from '@/components/maps/SaigonDistrictMap';
+import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc } from '@/components/maps/district-data';
+import InfoMap from '@/components/maps/InfoMap';
+import InfoSwitcher from '@/components/info/InfoSwitcher';
+import RepairShopSheet from '@/components/repair/RepairShopSheet';
+import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoRepairList.module.css';
 
-const MOTO_OPTIONS = ['Honda SH 350i', 'Honda Wave', 'Honda Exciter', 'Yamaha NVX', 'Yamaha Sirius', 'Suzuki Raider'];
-const SERVICE_CODES = ['OIL_CHANGE', 'TIRE', 'CHAIN', 'ENGINE', 'BRAKE', 'BATTERY', 'GENERAL_CHECK', 'WASH'];
-
 const SWR_TTL_MS = 5 * 60 * 1000;
+const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 구역별 클러스터/필터.
+const DEFAULT_DISTRICT = 'BEN_THANH';
 
 function swrRead<T>(key: string): T | null {
   try {
@@ -38,25 +43,27 @@ export default function InfoRepairList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { search } = useLocation();
-
-  const serviceOptions = [
-    { code: '', label: t('info.repair.serviceAll', '전체') },
-    ...SERVICE_CODES.map((code) => ({
-      code,
-      label: t(`info.repair.service_${code}`, code),
-    })),
-  ];
+  const incomingCode = useMemo(() => {
+    const c = parseCoordsFromQuery(search);
+    return c ? findNearestDistrict(c.lat, c.lng)?.code ?? null : null;
+  }, [search]);
 
   const [shops, setShops] = useState<RepairShop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [moto, setMoto] = useState('Honda SH 350i');
-  const [service, setService] = useState('');
-  const [showMotoSelect, setShowMotoSelect] = useState(false);
-  const [showServiceSelect, setShowServiceSelect] = useState(false);
-  const [view, setView] = useState<'list' | 'map'>('map');
-  const [coordsSource, setCoordsSource] = useState<ResolvedCoords['source']>('default');
-  const coordsRef = useRef<ResolvedCoords>({ lat: 0, lng: 0, source: 'default' });
+  // 선택 구역(지도 탭/초기 위치). 리스트는 이 구역 소속만 → 지도 뱃지 수와 일치.
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(incomingCode);
+  const [selectedShop, setSelectedShop] = useState<number | null>(null);
+  // GPS 가 HCMC 안이면 거리=내 위치 기준, 밖이면 선택 구역 centroid 기준.
+  const [inHcm, setInHcm] = useState(false);
+  const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
+
+  // 신규 정비소 제보 (현재 GPS 기준 → 대기큐 적재).
+  const [showReport, setShowReport] = useState(false);
+  const [reportName, setReportName] = useState('');
+  const [reportPhone, setReportPhone] = useState('');
+  const [reportNote, setReportNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const repairMarkers = useMemo<MapMarker[]>(
     () =>
@@ -65,16 +72,23 @@ export default function InfoRepairList() {
         lat: s.lat,
         lng: s.lng,
         label: s.name,
-        onClick: () => navigate(`/info/repair/${s.shop_id}`),
+        onClick: () => setSelectedShop(s.shop_id),
       })),
-    [shops, navigate],
+    [shops],
   );
 
-  const fetchShops = useCallback((coords: ResolvedCoords) => {
-    const { lat, lng } = coords;
-    coordsRef.current = coords;
-    setCoordsSource(coords.source);
-    const cacheKey = `repair:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}:${service || 'ALL'}:${moto}`;
+  // 선택 구역 소속 정비소만 (지도 클러스터와 동일한 findNearestDistrict 기준) + 거리순.
+  const listShops = useMemo<RepairShop[]>(() => {
+    const filtered = selectedDistrict
+      ? shops.filter((s) => findNearestDistrict(s.lat, s.lng)?.code === selectedDistrict)
+      : shops;
+    return [...filtered].sort((a, b) => a.distance_km - b.distance_km);
+  }, [shops, selectedDistrict]);
+
+  const fetchShops = useCallback((origin: { lat: number; lng: number }) => {
+    const { lat, lng } = origin;
+    coordsRef.current = origin;
+    const cacheKey = `repair:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}`;
     const cached = swrRead<RepairShop[]>(cacheKey);
     if (cached) {
       setShops(cached);
@@ -83,29 +97,40 @@ export default function InfoRepairList() {
     } else {
       setLoading(true);
     }
-    repairApi.getNearby(lat, lng, 5, service, moto)
+    repairApi.getNearby(lat, lng, FETCH_RADIUS_KM)
       .then((r) => { if (!r) return; setShops(r.shops); swrWrite(cacheKey, r.shops); setError(false); })
       .catch(() => { if (!cached) setError(true); })
       .finally(() => setLoading(false));
-  }, [moto, service]);
+  }, []);
+
+  // 거리 기준 origin 결정: HCMC 안 → GPS, 밖 → 선택(or 기본) 구역 centroid.
+  const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
+    const within = coords.source === 'gps' && isWithinHcmc(coords.lat, coords.lng);
+    setInHcm(within);
+    const district = incomingCode ?? findNearestDistrict(coords.lat, coords.lng)?.code ?? DEFAULT_DISTRICT;
+    setSelectedDistrict(district);
+    if (within) {
+      fetchShops({ lat: coords.lat, lng: coords.lng });
+    } else {
+      const c = getDistrictByCode(district);
+      fetchShops(c ? { lat: c.gps.lat, lng: c.gps.lng } : { lat: coords.lat, lng: coords.lng });
+    }
+  }, [incomingCode, fetchShops]);
 
   useEffect(() => {
-    const instant = resolveInfoCoordsSync(search, (fresh) => fetchShops(fresh));
-    fetchShops(instant);
-  }, [search, fetchShops]);
+    const instant = resolveInfoCoordsSync(search, (fresh) => resolveAndLoad(fresh));
+    resolveAndLoad(instant);
+  }, [search, resolveAndLoad]);
 
-  const minPrice = shops.reduce<number | null>((min, s) => {
-    if (s.avg_price === null) return min;
-    if (min === null || s.avg_price < min) return s.avg_price;
-    return min;
-  }, null);
+  const handleDistrictClick = useCallback((code: string, gps: { lat: number; lng: number }) => {
+    setSelectedDistrict(code);
+    // HCMC 밖이면 거리 기준을 새 구역 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
+    if (!inHcm) fetchShops(gps);
+  }, [inHcm, fetchShops]);
 
   function getShopBadge(shop: RepairShop): { label: string; cls: string } | null {
     if (shop.avg_rating !== null && shop.avg_rating >= 4.5) {
       return { label: t('info.repair.rank1'), cls: styles.badgeTop };
-    }
-    if (minPrice !== null && shop.avg_price !== null && shop.avg_price === minPrice) {
-      return { label: t('info.repair.cheapBadge'), cls: styles.badgeCheap };
     }
     if (shop.avg_rating !== null && shop.avg_rating < 3.5) {
       return { label: t('info.repair.warningBadge'), cls: styles.badgeWarn };
@@ -113,116 +138,98 @@ export default function InfoRepairList() {
     return null;
   }
 
-  const filterBtn = (
-    <div className={styles.iconBtn}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M3 6h18M3 12h18M3 18h18"/>
-      </svg>
-    </div>
-  );
-
-  const currentServiceLabel = serviceOptions.find((o) => o.code === service)?.label ?? service;
+  async function handleSubmitReport() {
+    if (!reportName.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const pos = await native.getLocation();
+      await repairApi.reportShop({
+        name: reportName.trim(),
+        lat: pos.lat,
+        lng: pos.lng,
+        phone: reportPhone.trim() || undefined,
+        note: reportNote.trim() || undefined,
+      });
+      toast.success(t('info.repair.reportSuccess'));
+      setShowReport(false);
+      setReportName('');
+      setReportPhone('');
+      setReportNote('');
+    } catch {
+      toast.error(t('info.repair.reportError'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className={styles.page}>
       <TopBar
         title={t('info.repair.title')}
         onBack={() => navigate(-1)}
-        rightContent={filterBtn}
+        rightContent={<InfoSwitcher current="repair" />}
       />
 
-      {/* Filter bar */}
-      <div className={styles.filterBar}>
-        <div className={styles.filterRow}>
-          <span className={styles.filterLabel}>{t('info.repair.filterVehicle')}</span>
-          <div className={styles.filterChipOrange} onClick={() => setShowMotoSelect((v) => !v)}>
-            {moto} ▾
-          </div>
-        </div>
-        <div className={styles.filterRow}>
-          <span className={styles.filterLabel}>{t('info.repair.filterService')}</span>
-          <div className={styles.filterChipBlue} onClick={() => setShowServiceSelect((v) => !v)}>
-            {currentServiceLabel} ▾
-          </div>
-        </div>
-      </div>
-
-      {/* Dropdowns */}
-      {showMotoSelect && (
-        <div className={styles.dropdown}>
-          {MOTO_OPTIONS.map((m) => (
-            <button key={m} className={`${styles.dropdownItem} ${m === moto ? styles.dropdownItemActive : ''}`}
-              onClick={() => { setMoto(m); setShowMotoSelect(false); }}>
-              {m}
-            </button>
-          ))}
-        </div>
-      )}
-      {showServiceSelect && (
-        <div className={styles.dropdown}>
-          {serviceOptions.map((s) => (
-            <button key={s.code} className={`${styles.dropdownItem} ${s.code === service ? styles.dropdownItemActive : ''}`}
-              onClick={() => { setService(s.code); setShowServiceSelect(false); }}>
-              {s.label}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className={styles.distLabel}>
-        📍 {coordsSource === 'gps'
+        📍 {inHcm
           ? t('info.distFromGps')
-          : t('info.distFromFallback', { area: getDefaultLabel() })}
-      </div>
-
-      <div className={styles.viewToggle}>
-        <button
-          type="button"
-          className={`${styles.viewToggleBtn} ${view === 'map' ? styles.viewToggleActive : ''}`}
-          onClick={() => setView('map')}
-        >
-          {t('info.repair.viewMap')}
-        </button>
-        <button
-          type="button"
-          className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
-          onClick={() => setView('list')}
-        >
-          {t('info.repair.viewList')}
-        </button>
+          : t('info.distFromFallback', { area: selectedDistrict ? districtLabelByCode(selectedDistrict) : '' })}
       </div>
 
       <div className={styles.scroll}>
-        {view === 'map' && (
-          <div className={styles.mapWrap}>
-            <SaigonDistrictMap height={360} markers={repairMarkers} showLegend />
-          </div>
-        )}
-        {view === 'list' && loading ? (
+        <div className={styles.mapWrap}>
+          <InfoMap
+            variant="fullscreen"
+            markers={repairMarkers}
+            focusDistrictCode={selectedDistrict}
+            onDistrictClick={(d) => handleDistrictClick(d.code, d.gps)}
+          />
+        </div>
+        <div className={styles.sectionHeader}>
+          <span>🔧 {t('info.repair.nearbyTitle')} · {listShops.length}</span>
+        </div>
+        {loading ? (
           <div className={styles.skeletonWrap}>
             {[0, 1, 2].map((i) => <div key={i} className={styles.skeleton} />)}
           </div>
-        ) : view === 'list' && error ? (
+        ) : error ? (
           <div className={styles.errorWrap}>
             <p>{t('info.repair.loadError', '정보를 불러오지 못했습니다')}</p>
             <button className={styles.retryBtn} onClick={() => fetchShops(coordsRef.current)}>
               {t('common.retry', '다시 시도')}
             </button>
           </div>
-        ) : view === 'list' ? (
+        ) : listShops.length === 0 ? (
+          <div className={styles.errorWrap}>
+            <p>{t('info.repair.emptyDistrict', '이 지역에 등록된 정비소가 없어요')}</p>
+          </div>
+        ) : (
           <div className={styles.card}>
-            {shops.map((shop) => {
+            {listShops.map((shop) => {
               const badge = getShopBadge(shop);
-              const isCheap = badge?.cls === styles.badgeCheap;
               return (
-                <div key={shop.shop_id} className={`${styles.repairCard} ${isCheap ? styles.repairCardCheap : ''}`}>
-                  {/* Badge + name */}
+                <div
+                  key={shop.shop_id}
+                  className={styles.repairCard}
+                  onClick={() => setSelectedShop(shop.shop_id)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {/* Name + badge */}
                   <div className={styles.repairTopRow}>
                     {badge && <span className={`${styles.repairBadge} ${badge.cls}`}>{badge.label}</span>}
                     <span className={styles.repairName}>{shop.name}</span>
                   </div>
 
-                  {/* Rating + price */}
+                  {/* Phone (주유소 priceRow 스타일) */}
+                  {shop.phone && (
+                    <div className={styles.priceRow}>
+                      <span className={styles.fuelLabel}>☎ {t('info.repair.phoneLabel')}</span>
+                      <span className={styles.mono}>{shop.phone}</span>
+                    </div>
+                  )}
+
+                  {/* Rating (메트릭 행, 주유소 waitRow 자리) */}
                   <div className={styles.ratingRow}>
                     <div className={styles.ratingLeft}>
                       <span className={`${styles.mono} ${styles.ratingVal} ${shop.avg_rating !== null && shop.avg_rating < 3.5 ? styles.ratingDanger : ''}`}>
@@ -230,9 +237,6 @@ export default function InfoRepairList() {
                       </span>
                       <span className={styles.reviewCount}>({shop.review_count} {t('info.repair.reviewCount')})</span>
                     </div>
-                    <span className={`${styles.mono} ${styles.avgPrice} ${isCheap ? styles.avgPriceCheap : ''} ${shop.avg_rating !== null && shop.avg_rating < 3.5 ? styles.avgPriceDanger : ''}`}>
-                      {shop.avg_price !== null ? `${shop.avg_price.toLocaleString()} ₫` : '-'}
-                    </span>
                   </div>
 
                   {/* Keywords */}
@@ -249,30 +253,89 @@ export default function InfoRepairList() {
                     </div>
                   )}
 
-                  {/* Distance + detail */}
+                  {/* Distance + actions (주유소와 동일: 경로/상세) */}
                   <div className={styles.distanceRow}>
                     <span className={styles.distanceText}>
                       🚶 <span className={styles.mono}>{shop.distance_km.toFixed(1)}km</span>
                     </span>
-                    <button
-                      className={styles.detailBtn}
-                      onClick={() => navigate(`/info/repair/${shop.shop_id}`)}
-                    >
-                      {t('info.repair.detailBtn')}
-                    </button>
+                    <div className={styles.actionBtns}>
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnInfo}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/ride-nav?name=${encodeURIComponent(shop.name)}&lat=${shop.lat}&lng=${shop.lng}&dist=${shop.distance_km.toFixed(1)}`);
+                        }}
+                      >
+                        {t('info.repair.routeBtn')}
+                      </button>
+                      <button
+                        className={styles.actionBtnNeutral}
+                        onClick={(e) => { e.stopPropagation(); setSelectedShop(shop.shop_id); }}
+                      >
+                        {t('info.repair.detailBtn')}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : null}
+        )}
 
-        {/* CTA */}
+        {/* Report a missing shop */}
+        <button className={styles.reportCta} onClick={() => setShowReport(true)}>
+          <span>➕</span>
+          <span>{t('info.repair.reportShopCta')}</span>
+        </button>
+
+        {/* Review CTA */}
         <div className={styles.gpCta}>
           <span>💡</span>
           <span>{t('info.repair.reviewCta')}</span>
         </div>
       </div>
+
+      {showReport && (
+        <div className={styles.reportBackdrop} onClick={() => !submitting && setShowReport(false)}>
+          <div className={styles.reportSheet} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.reportTitle}>{t('info.repair.reportTitle')}</div>
+            <div className={styles.reportDesc}>{t('info.repair.reportDesc')}</div>
+            <input
+              className={styles.reportField}
+              placeholder={t('info.repair.reportNamePlaceholder')}
+              value={reportName}
+              onChange={(e) => setReportName(e.target.value)}
+            />
+            <input
+              className={styles.reportField}
+              placeholder={t('info.repair.reportPhonePlaceholder')}
+              value={reportPhone}
+              onChange={(e) => setReportPhone(e.target.value)}
+            />
+            <input
+              className={styles.reportField}
+              placeholder={t('info.repair.reportNotePlaceholder')}
+              value={reportNote}
+              onChange={(e) => setReportNote(e.target.value)}
+            />
+            <div className={styles.reportActions}>
+              <button className={styles.reportCancel} onClick={() => setShowReport(false)} disabled={submitting}>
+                {t('common.cancel', '취소')}
+              </button>
+              <button className={styles.reportSubmit} onClick={handleSubmitReport} disabled={!reportName.trim() || submitting}>
+                {submitting ? t('info.repair.reportSubmitting') : t('info.repair.reportSubmit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedShop !== null && (
+        <RepairShopSheet
+          shopId={selectedShop}
+          onClose={() => setSelectedShop(null)}
+        />
+      )}
     </div>
   );
 }

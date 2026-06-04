@@ -1,0 +1,24 @@
+<p class="page-title">주유소 제보</p>
+<p class="page-sub">사용자 신규 주유소 제보 대기큐 · 승인 시에만 gas_station 에 반영(USER_REPORTED) · 대기 {{pending_count}}건</p>
+
+{{flash}}
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>제보일</th>
+        <th>이름</th>
+        <th>브랜드</th>
+        <th>좌표</th>
+        <th>전화</th>
+        <th>메모</th>
+        <th>상태</th>
+        <th>처리</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{submission_rows}}
+    </tbody>
+  </table>
+</div>

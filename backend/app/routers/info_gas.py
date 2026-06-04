@@ -11,9 +11,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_service_key, verify_user_session
 from ..engine_client import engine_client
-from ..models import GasStation, GasStationWaitReport
-from ..services.fuel_price_service import get_station_with_price, get_today_reference_prices
-from ..services.redis_cache import CacheKeys, cache_get, cache_invalidate, cache_set
+from ..models import GasStation, GasStationSubmission, GasStationWaitReport
+from ..services.fuel_price_service import (
+    FUEL_BRANDS as _FUEL_BRANDS,
+)
+from ..services.fuel_price_service import (
+    FUEL_TYPES as _FUEL_TYPES,
+)
+from ..services.fuel_price_service import (
+    get_station_with_price,
+    get_today_reference_prices,
+    upsert_fuel_price,
+)
+from ..services.redis_cache import CacheKeys, cache_get, cache_set
 
 router = APIRouter(prefix="/info/gas", tags=["Info — 주유소"])
 
@@ -40,8 +50,28 @@ class WaitReportCreate(BaseModel):
     wait_minutes: int = Field(..., ge=0, le=120)
 
 
-_FUEL_BRANDS = ("PETROLIMEX", "PVOIL", "SAIGON_PETRO", "MIPEC", "COMECO", "MARKET_AVG")
-_FUEL_TYPES = ("RON95_III", "RON95_V", "E5_RON92_II", "DO_001S_V", "DO_005S_II")
+class GasStationReportCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    lat: float
+    lng: float
+    phone: str | None = Field(None, max_length=30)
+    note: str | None = Field(None, max_length=500)
+
+
+def _derive_brand(name: str) -> tuple[str | None, str]:
+    """자유 텍스트 업체명 → (brand, brand_normalized). gas-tokens.ts deriveBrandCode 와 동일 매핑."""
+    s = name.lower()
+    if "petrolimex" in s:
+        return ("Petrolimex", "PETROLIMEX")
+    if "pvoil" in s or "pv oil" in s or "pv-oil" in s:
+        return ("PVOil", "PVOIL")
+    if "saigon petro" in s or "saigonpetro" in s or "sài gòn petro" in s or "sai gon petro" in s:
+        return ("Saigon Petro", "SAIGON_PETRO")
+    if "mipec" in s:
+        return ("Mipec", "MIPEC")
+    if "comeco" in s:
+        return ("Comeco", "COMECO")
+    return (None, "UNKNOWN")
 
 
 class FuelPriceUpsert(BaseModel):
@@ -77,7 +107,7 @@ async def get_nearby_gas_stations(
         text("""
             WITH nearby AS (
                 SELECT
-                    gs.station_id, gs.brand, gs.name,
+                    gs.station_id, gs.brand, gs.name, gs.phone,
                     CAST(gs.lat AS FLOAT) AS lat,
                     CAST(gs.lng AS FLOAT) AS lng,
                     gs.district_code, gs.street_name, gs.opening_hours,
@@ -93,7 +123,7 @@ async def get_nearby_gas_stations(
                         :radius_m
                       )
                 ORDER BY distance_km
-                LIMIT 20
+                LIMIT 100
             ),
             wait_summary AS (
                 SELECT
@@ -179,6 +209,32 @@ async def report_wait_time(
     await _earn_gp_safe(user_id, "INFO_GAS_WAIT_REPORT", idem_key)
 
     return {"wait_id": report.wait_id, "xp_earned": 5}
+
+
+@router.post("/report", status_code=201)
+async def report_new_station(
+    body: GasStationReportCreate,
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """신규 주유소 제보. gas_station 에 직접 쓰지 않고 대기큐(PENDING)에 적재 →
+    admin 수동 검증(confirm) 시에만 gas_station 으로 upsert."""
+    brand, brand_norm = _derive_brand(body.name)
+    submission = GasStationSubmission(
+        name=body.name.strip(),
+        lat=body.lat,
+        lng=body.lng,
+        phone=body.phone,
+        brand=brand,
+        brand_normalized=brand_norm,
+        note=body.note,
+        reporter_user_id=user_id,
+        status="PENDING",
+    )
+    db.add(submission)
+    await db.commit()
+    await db.refresh(submission)
+    return {"submission_id": submission.submission_id, "status": submission.status}
 
 
 # ── v2 Endpoints (fuel_price_snapshot 기반, "오늘의 참고가") ────────────────
@@ -273,57 +329,15 @@ async def admin_upsert_fuel_price(
     if body.fuel_type not in _FUEL_TYPES:
         raise HTTPException(400, f"fuel_type must be one of {_FUEL_TYPES}")
 
-    now = datetime.now(UTC)
-    effective = body.effective_time or now
-    if effective.tzinfo is None:
-        effective = effective.replace(tzinfo=UTC)
-
-    # 기존 같은 날짜 같은 brand/fuel_type 의 다른 source ACTIVE 행은 SUPERSEDED 로
-    await db.execute(
-        text("""
-        UPDATE fuel_price_snapshot
-           SET status = 'SUPERSEDED'
-         WHERE effective_date = :d
-           AND region = :r
-           AND brand  = :b
-           AND fuel_type = :f
-           AND status = 'ACTIVE'
-           AND source <> :s
-    """),
-        {"d": effective.date(), "r": body.region, "b": body.brand, "f": body.fuel_type, "s": body.source_label},
+    return await upsert_fuel_price(
+        db,
+        brand=body.brand,
+        fuel_type=body.fuel_type,
+        price_vnd=body.price_vnd,
+        effective_time=body.effective_time,
+        region=body.region,
+        source_label=body.source_label,
     )
-
-    # upsert (same source key)
-    await db.execute(
-        text("""
-        INSERT INTO fuel_price_snapshot
-            (effective_date, effective_time, region, brand, fuel_type, price_vnd,
-             source, raw_fetched_at, validated_by, status)
-        VALUES
-            (:d, :et, :r, :b, :f, :p, :s, :n, CAST(:v AS JSONB), 'ACTIVE')
-        ON CONFLICT (effective_date, region, brand, fuel_type, source)
-        DO UPDATE SET price_vnd = EXCLUDED.price_vnd,
-                      effective_time = EXCLUDED.effective_time,
-                      raw_fetched_at = EXCLUDED.raw_fetched_at,
-                      status = 'ACTIVE',
-                      validated_by = EXCLUDED.validated_by
-    """),
-        {
-            "d": effective.date(),
-            "et": effective,
-            "r": body.region,
-            "b": body.brand,
-            "f": body.fuel_type,
-            "p": body.price_vnd,
-            "s": body.source_label,
-            "n": now,
-            "v": '{"manual":true}',
-        },
-    )
-    await db.commit()
-
-    invalidated = await cache_invalidate("*")
-    return {"ok": True, "cache_invalidated": invalidated}
 
 
 @router.get("/station/{station_id}")

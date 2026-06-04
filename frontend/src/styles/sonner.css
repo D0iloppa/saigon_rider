@@ -17,6 +17,15 @@
   bottom: calc(72px + 12px) !important;
 }
 
+/*
+ * 상단 배치 — 상태바와 겹치지 않도록 상태바 높이만큼 여백 보장.
+ * --status-bar-height 는 플랫폼별로 분기됨(iOS = env(safe-area-inset-top),
+ * Android = max(inset, 24px), web = 24px) → iOS 상태바 offset 자동 보장.
+ */
+[data-sonner-toaster][data-y-position="top"] {
+  top: calc(var(--status-bar-height) + 12px) !important;
+}
+
 [data-sonner-toast] [data-title] {
   color: #0B0D14 !important;
   font-size: 13px !important;

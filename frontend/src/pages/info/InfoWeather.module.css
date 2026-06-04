@@ -8,6 +8,49 @@
 .scroll {
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── Map (침수 지도와 동일: 풀블리드) ── */
+.mapArea {
+  height: 240px;
+  background: linear-gradient(160deg, #E8F4F8 0%, #D4EBF5 30%, #C8E3F0 60%, #DAF0E8 100%);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Section header / Card (침수 지도와 동일) ── */
+.sectionHeader {
+  padding: 14px 16px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 14px;
+  margin: 0 16px 16px;
+  box-shadow: 0 1px 2px rgba(11,13,20,.04), 0 4px 12px rgba(11,13,20,.08);
+  overflow: hidden;
+}
+
+.cardPad { padding: 6px 14px; }
+
+/* 상단 위치 바 (주유소 sortBar 와 동일 chrome) */
+.locBar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
 }
 
 .loadingWrap { padding: 16px; }
@@ -24,20 +67,11 @@
   100% { background-position: -200% 0; }
 }
 
-/* ── Hero ─────────────────────────────────── */
+/* ── Current weather (카드 내부) ───────────── */
 
-.hero {
-  background: linear-gradient(160deg, #FEF9C3, #FFF7ED);
-  padding: 20px 20px 16px;
+.current {
+  padding: 18px 16px;
   text-align: center;
-}
-
-.heroMeta {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-3);
-  letter-spacing: .08em;
-  margin-bottom: 8px;
 }
 
 .heroEmoji { font-size: 64px; line-height: 1.1; }
@@ -70,125 +104,7 @@
   color: #F59E0B;
   font-size: 13px;
   font-weight: 600;
-}
-
-/* ── Section ─────────────────────────────────── */
-
-.section { padding: 14px 16px 8px; }
-
-.sectionTitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-
-.divider { height: 1px; background: var(--line); margin: 4px 0; }
-
-/* ── Radar ─────────────────────────────────── */
-
-.radarMap {
-  height: 160px;
-  background: linear-gradient(160deg, #0F172A 0%, #1E293B 40%, #0F172A 100%);
-  border-radius: 14px 14px 0 0;
-  position: relative;
-  overflow: hidden;
-}
-
-.radarRoad {
-  position: absolute;
-  background: rgba(255,255,255,.7);
-  border-radius: 2px;
-}
-
-.radarBlob {
-  position: absolute;
-  border-radius: 50%;
-  opacity: .6;
-}
-
-.radarLabel {
-  position: absolute;
-  background: rgba(239,59,59,.8);
-  border-radius: 8px;
-  padding: 3px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  color: white;
-}
-
-.radarMyPos {
-  position: absolute;
-  top: 42%;
-  left: 44%;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #3B82F6;
-  border: 3px solid white;
-  box-shadow: 0 0 0 4px rgba(59,130,246,.3);
-}
-
-.radarMyLabel {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: rgba(255,255,255,.15);
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  color: white;
-}
-
-.radarTimeline {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 6px 10px;
-  background: rgba(15,14,23,.8);
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: white;
-}
-
-.radarDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #F59E0B;
-}
-
-.radarControls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #F8FAFC;
-  border: 1px solid var(--line);
-  border-top: none;
-  border-radius: 0 0 14px 14px;
-}
-
-.radarBtn {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1.5px solid var(--line);
-  background: var(--surface);
-  color: var(--text-2);
-  cursor: pointer;
-}
-
-.radarBtnActive {
-  background: #EFF6FF;
-  border-color: #3B82F6;
-  color: #3B82F6;
+  border-top: 1px solid var(--line);
 }
 
 /* ── Forecast ─────────────────────────────────── */
@@ -200,6 +116,7 @@
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
+.forecastRow:last-child { border-bottom: none; }
 
 .forecastHighlight {
   background: #FEF2F2;

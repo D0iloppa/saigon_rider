@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import RepairReview, RepairShop
+from ..models import RepairReview, RepairShop, RepairShopSubmission
 from ..services.redis_cache import cache_get, cache_set
 
 router = APIRouter(prefix="/info/repair", tags=["Info — 정비소"])
@@ -31,6 +31,14 @@ async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, pay
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
+
+
+class RepairShopReportCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    lat: float
+    lng: float
+    phone: str | None = Field(None, max_length=30)
+    note: str | None = Field(None, max_length=500)
 
 
 class ReviewCreate(BaseModel):
@@ -96,7 +104,7 @@ async def get_nearby_repair_shops(
             ORDER BY
                 COALESCE(st.review_count, 0) DESC,
                 distance_km
-            LIMIT 30
+            LIMIT 300
         """),
         {"lat": lat, "lng": lng, "radius_m": radius_km * 1000, "service_code": service_code},
     )
@@ -113,6 +121,29 @@ async def get_nearby_repair_shops(
     response = {"shops": shops}
     await cache_set(cache_key, response, ttl=600)
     return response
+
+
+@router.post("/report", status_code=201)
+async def report_new_shop(
+    body: RepairShopReportCreate,
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """신규 정비소 제보. repair_shop 에 직접 쓰지 않고 대기큐(PENDING)에 적재 →
+    admin 수동 검증(confirm) 시에만 repair_shop 으로 upsert."""
+    submission = RepairShopSubmission(
+        name=body.name.strip(),
+        lat=body.lat,
+        lng=body.lng,
+        phone=body.phone,
+        note=body.note,
+        reporter_user_id=user_id,
+        status="PENDING",
+    )
+    db.add(submission)
+    await db.commit()
+    await db.refresh(submission)
+    return {"submission_id": submission.submission_id, "status": submission.status}
 
 
 @router.get("/{shop_id}")

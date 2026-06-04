@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { CurrencyHUD } from '@/components/ui/CurrencyHUD';
 import { fetchWallet } from '@/api/wallet';
+import { useDialogStore } from '@/store/useDialogStore';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './GameHubSheet.module.css';
 
@@ -17,8 +18,8 @@ const HUBS = [
   { path: '/inventory', emoji: '1f4e6', label: 'gameHub.inventory' },
   { path: '/shop',      emoji: '1f6d2', label: 'gameHub.shop' },
   { path: '/gacha',     emoji: '1f48e', label: 'gameHub.gacha' },
-  { path: '/season',    emoji: '2b50',  label: 'gameHub.season' },
-  { path: '/info',      emoji: '1f4cd', label: 'gameHub.info' },
+  { path: '/season',    emoji: '2b50',  label: 'gameHub.season', comingSoon: true },
+  { path: '/info',      emoji: '1f4cd', label: 'gameHub.info', comingSoon: true },
 ] as const;
 
 export function GameHubSheet({ open, onClose }: GameHubSheetProps) {
@@ -35,9 +36,16 @@ export function GameHubSheet({ open, onClose }: GameHubSheetProps) {
     }).catch(() => {});
   }, [open]);
 
-  const go = (path: string) => {
+  const go = (hub: (typeof HUBS)[number]) => {
+    if ('comingSoon' in hub && hub.comingSoon) {
+      onClose();
+      useDialogStore.getState().open({
+        message: { mode: 'code', value: 'gameHub.comingSoon' },
+      });
+      return;
+    }
     onClose();
-    navigate(path);
+    navigate(hub.path);
   };
 
   return (
@@ -51,7 +59,7 @@ export function GameHubSheet({ open, onClose }: GameHubSheetProps) {
           <button
             key={hub.path + hub.emoji}
             className={styles.cell}
-            onClick={() => go(hub.path)}
+            onClick={() => go(hub)}
           >
             <div className={styles.iconWrap}>
               <img

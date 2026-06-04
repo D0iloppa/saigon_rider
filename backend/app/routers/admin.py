@@ -14,7 +14,7 @@ import httpx
 import jwt
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -28,14 +28,19 @@ from ..models import (
     District,
     FeedPost,
     FeedPostImage,
+    GasStation,
+    GasStationSubmission,
     NicknameWord,
     Quest,
+    RepairShop,
+    RepairShopSubmission,
     RideSession,
     SupportReply,
     SupportTicket,
     User,
     UserBadge,
 )
+from ..services.fuel_price_service import FUEL_BRANDS, FUEL_TYPES, upsert_fuel_price
 from ..utils import (
     APP_TZ,
     MOCK_IMG_ENDPOINT,
@@ -85,6 +90,9 @@ _NAV_KEYS = (
     "items",
     "policies",
     "ride_config",
+    "fuel",
+    "gas_submissions",
+    "repair_submissions",
     "push",
     "stream",
     "support",
@@ -3029,6 +3037,360 @@ async def admin_ride_config_save(
         return RedirectResponse("/admin/config/ride?flash=engine_error", status_code=303)
 
     return RedirectResponse("/admin/config/ride?flash=saved", status_code=303)
+
+
+# ── 유가 관리 ─────────────────────────────────────────────────────
+
+_FUEL_FLASHES = {
+    "saved": ("저장되었습니다.", True),
+    "invalid_brand": ("브랜드 값이 올바르지 않습니다.", False),
+    "invalid_fuel": ("연료 종류가 올바르지 않습니다.", False),
+    "invalid_price": ("가격은 10,000 ~ 60,000 사이여야 합니다.", False),
+    "invalid_date": ("적용일 형식이 올바르지 않습니다 (YYYY-MM-DD).", False),
+}
+_FUEL_BRAND_LABEL = {
+    "PETROLIMEX": "Petrolimex",
+    "PVOIL": "PV Oil",
+    "SAIGON_PETRO": "Saigon Petro",
+    "MIPEC": "Mipec",
+    "COMECO": "Comeco",
+    "MARKET_AVG": "시장 평균",
+}
+_FUEL_TYPE_LABEL = {
+    "RON95_III": "RON 95-III",
+    "RON95_V": "RON 95-V",
+    "E5_RON92_II": "E5 RON 92-II",
+    "DO_001S_V": "DO 0.01S-V",
+    "DO_005S_II": "DO 0.05S-II",
+}
+
+
+@router.get("/fuel", include_in_schema=False)
+async def admin_fuel_page(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        (
+            await db.execute(
+                text("""
+            SELECT brand, fuel_type, price_vnd, effective_date, source
+              FROM fuel_price_snapshot
+             WHERE status = 'ACTIVE'
+             ORDER BY brand, fuel_type
+        """)
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    if rows:
+        price_rows = "".join(
+            f"<tr><td>{h(_FUEL_BRAND_LABEL.get(r['brand'], r['brand']))}</td>"
+            f"<td>{h(_FUEL_TYPE_LABEL.get(r['fuel_type'], r['fuel_type']))}</td>"
+            f"<td style='text-align:right;font-variant-numeric:tabular-nums;'>{r['price_vnd']:,}</td>"
+            f"<td>{r['effective_date']}</td>"
+            f"<td style='color:rgba(255,255,255,.45);'>{h(r['source'])}</td></tr>"
+            for r in rows
+        )
+    else:
+        price_rows = '<tr><td colspan="5" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">등록된 ACTIVE 참고가가 없습니다.</td></tr>'
+
+    flash_html = ""
+    if flash and flash in _FUEL_FLASHES:
+        msg, ok = _FUEL_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    return _render_page(
+        "fuel_prices.html",
+        nav="fuel",
+        page_title="유가 관리",
+        session=session,
+        today=datetime.now(UTC).date().isoformat(),
+        price_rows=price_rows,
+        flash=flash_html,
+    )
+
+
+@router.post("/fuel", include_in_schema=False)
+async def admin_fuel_save(
+    brand: str = Form(...),
+    fuel_type: str = Form(...),
+    price_vnd: int = Form(...),
+    effective_date: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    if brand not in FUEL_BRANDS:
+        return RedirectResponse("/admin/fuel?flash=invalid_brand", status_code=303)
+    if fuel_type not in FUEL_TYPES:
+        return RedirectResponse("/admin/fuel?flash=invalid_fuel", status_code=303)
+    if not 10_000 <= price_vnd <= 60_000:
+        return RedirectResponse("/admin/fuel?flash=invalid_price", status_code=303)
+
+    effective_time = None
+    if effective_date.strip():
+        try:
+            effective_time = datetime.strptime(effective_date.strip(), "%Y-%m-%d").replace(tzinfo=UTC)
+        except ValueError:
+            return RedirectResponse("/admin/fuel?flash=invalid_date", status_code=303)
+
+    await upsert_fuel_price(
+        db,
+        brand=brand,
+        fuel_type=fuel_type,
+        price_vnd=price_vnd,
+        effective_time=effective_time,
+    )
+    return RedirectResponse("/admin/fuel?flash=saved", status_code=303)
+
+
+# ── 주유소 제보 검증 큐 ──────────────────────────────────────────
+
+_GAS_SUB_FLASHES = {
+    "confirmed": ("제보를 승인해 주유소에 반영했습니다.", True),
+    "rejected": ("제보를 반려했습니다.", True),
+    "notfound": ("제보를 찾을 수 없습니다.", False),
+    "done": ("이미 처리된 제보입니다.", False),
+}
+
+_GAS_SUB_STATUS_COLOR = {"PENDING": "#F59E0B", "CONFIRMED": "#16A34A", "REJECTED": "#9CA3AF"}
+
+
+@router.get("/gas-submissions", include_in_schema=False)
+async def admin_gas_submissions(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        (await db.execute(select(GasStationSubmission).order_by(GasStationSubmission.created_at.desc())))
+        .scalars()
+        .all()
+    )
+    # PENDING 을 상단으로 (그 안에서는 최신순 유지).
+    rows = sorted(rows, key=lambda s: (s.status != "PENDING", -s.submission_id))
+
+    if rows:
+        body_rows = ""
+        for s in rows:
+            color = _GAS_SUB_STATUS_COLOR.get(s.status, "#9CA3AF")
+            if s.status == "PENDING":
+                actions = (
+                    f'<form method="post" action="/admin/gas-submissions/{s.submission_id}/confirm" style="display:inline;">'
+                    f'<button class="btn btn-sm" type="submit">승인</button></form> '
+                    f'<form method="post" action="/admin/gas-submissions/{s.submission_id}/reject" style="display:inline;margin-left:6px;">'
+                    f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
+                )
+            else:
+                actions = f'<span style="color:rgba(255,255,255,.4);">{h(s.review_note or "—")}</span>'
+            body_rows += (
+                f"<tr>"
+                f"<td>{s.created_at.strftime('%m-%d %H:%M')}</td>"
+                f"<td>{h(s.name)}</td>"
+                f"<td>{h(s.brand or '—')}</td>"
+                f"<td style='font-variant-numeric:tabular-nums;'>{s.lat}, {s.lng}</td>"
+                f"<td>{h(s.phone or '—')}</td>"
+                f"<td>{h(s.note or '—')}</td>"
+                f'<td><span style="color:{color};font-weight:700;">{s.status}</span></td>'
+                f"<td>{actions}</td>"
+                f"</tr>"
+            )
+    else:
+        body_rows = '<tr><td colspan="8" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">제보가 없습니다.</td></tr>'
+
+    flash_html = ""
+    if flash and flash in _GAS_SUB_FLASHES:
+        msg, ok = _GAS_SUB_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    pending_count = sum(1 for s in rows if s.status == "PENDING")
+
+    return _render_page(
+        "gas_submissions.html",
+        nav="gas_submissions",
+        page_title="주유소 제보",
+        session=session,
+        pending_count=str(pending_count),
+        submission_rows=body_rows,
+        flash=flash_html,
+    )
+
+
+@router.post("/gas-submissions/{submission_id}/confirm", include_in_schema=False)
+async def admin_gas_submission_confirm(
+    submission_id: int,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(GasStationSubmission, submission_id)
+    if not sub:
+        return RedirectResponse("/admin/gas-submissions?flash=notfound", status_code=303)
+    if sub.status != "PENDING":
+        return RedirectResponse("/admin/gas-submissions?flash=done", status_code=303)
+
+    station = GasStation(
+        name=sub.name,
+        lat=sub.lat,
+        lng=sub.lng,
+        phone=sub.phone,
+        brand=sub.brand,
+        brand_normalized=sub.brand_normalized,
+        district_code=sub.district_code,
+        source_type="USER_REPORTED",
+        status="ACTIVE",
+        verified_at=datetime.now(UTC),
+    )
+    db.add(station)
+    await db.flush()
+
+    sub.status = "CONFIRMED"
+    sub.resulting_station_id = station.station_id
+    sub.reviewed_at = datetime.now(UTC)
+    await db.commit()
+    return RedirectResponse("/admin/gas-submissions?flash=confirmed", status_code=303)
+
+
+@router.post("/gas-submissions/{submission_id}/reject", include_in_schema=False)
+async def admin_gas_submission_reject(
+    submission_id: int,
+    review_note: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(GasStationSubmission, submission_id)
+    if not sub:
+        return RedirectResponse("/admin/gas-submissions?flash=notfound", status_code=303)
+    if sub.status != "PENDING":
+        return RedirectResponse("/admin/gas-submissions?flash=done", status_code=303)
+
+    sub.status = "REJECTED"
+    sub.review_note = review_note.strip() or "반려"
+    sub.reviewed_at = datetime.now(UTC)
+    await db.commit()
+    return RedirectResponse("/admin/gas-submissions?flash=rejected", status_code=303)
+
+
+# ── 정비소 제보 검증 큐 ──────────────────────────────────────────
+
+_REPAIR_SUB_FLASHES = {
+    "confirmed": ("제보를 승인해 정비소에 반영했습니다.", True),
+    "rejected": ("제보를 반려했습니다.", True),
+    "notfound": ("제보를 찾을 수 없습니다.", False),
+    "done": ("이미 처리된 제보입니다.", False),
+}
+
+
+@router.get("/repair-submissions", include_in_schema=False)
+async def admin_repair_submissions(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        (await db.execute(select(RepairShopSubmission).order_by(RepairShopSubmission.created_at.desc())))
+        .scalars()
+        .all()
+    )
+    rows = sorted(rows, key=lambda s: (s.status != "PENDING", -s.submission_id))
+
+    if rows:
+        body_rows = ""
+        for s in rows:
+            color = _GAS_SUB_STATUS_COLOR.get(s.status, "#9CA3AF")
+            if s.status == "PENDING":
+                actions = (
+                    f'<form method="post" action="/admin/repair-submissions/{s.submission_id}/confirm" style="display:inline;">'
+                    f'<button class="btn btn-sm" type="submit">승인</button></form> '
+                    f'<form method="post" action="/admin/repair-submissions/{s.submission_id}/reject" style="display:inline;margin-left:6px;">'
+                    f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
+                )
+            else:
+                actions = f'<span style="color:rgba(255,255,255,.4);">{h(s.review_note or "—")}</span>'
+            body_rows += (
+                f"<tr>"
+                f"<td>{s.created_at.strftime('%m-%d %H:%M')}</td>"
+                f"<td>{h(s.name)}</td>"
+                f"<td style='font-variant-numeric:tabular-nums;'>{s.lat}, {s.lng}</td>"
+                f"<td>{h(s.phone or '—')}</td>"
+                f"<td>{h(s.note or '—')}</td>"
+                f'<td><span style="color:{color};font-weight:700;">{s.status}</span></td>'
+                f"<td>{actions}</td>"
+                f"</tr>"
+            )
+    else:
+        body_rows = '<tr><td colspan="7" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">제보가 없습니다.</td></tr>'
+
+    flash_html = ""
+    if flash and flash in _REPAIR_SUB_FLASHES:
+        msg, ok = _REPAIR_SUB_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    pending_count = sum(1 for s in rows if s.status == "PENDING")
+
+    return _render_page(
+        "repair_submissions.html",
+        nav="repair_submissions",
+        page_title="정비소 제보",
+        session=session,
+        pending_count=str(pending_count),
+        submission_rows=body_rows,
+        flash=flash_html,
+    )
+
+
+@router.post("/repair-submissions/{submission_id}/confirm", include_in_schema=False)
+async def admin_repair_submission_confirm(
+    submission_id: int,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(RepairShopSubmission, submission_id)
+    if not sub:
+        return RedirectResponse("/admin/repair-submissions?flash=notfound", status_code=303)
+    if sub.status != "PENDING":
+        return RedirectResponse("/admin/repair-submissions?flash=done", status_code=303)
+
+    shop = RepairShop(
+        name=sub.name,
+        lat=sub.lat,
+        lng=sub.lng,
+        phone=sub.phone,
+        district_code=sub.district_code,
+        is_verified=True,
+        status="ACTIVE",
+        added_by_user_id=sub.reporter_user_id,
+    )
+    db.add(shop)
+    await db.flush()
+
+    sub.status = "CONFIRMED"
+    sub.resulting_shop_id = shop.shop_id
+    sub.reviewed_at = datetime.now(UTC)
+    await db.commit()
+    return RedirectResponse("/admin/repair-submissions?flash=confirmed", status_code=303)
+
+
+@router.post("/repair-submissions/{submission_id}/reject", include_in_schema=False)
+async def admin_repair_submission_reject(
+    submission_id: int,
+    review_note: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(RepairShopSubmission, submission_id)
+    if not sub:
+        return RedirectResponse("/admin/repair-submissions?flash=notfound", status_code=303)
+    if sub.status != "PENDING":
+        return RedirectResponse("/admin/repair-submissions?flash=done", status_code=303)
+
+    sub.status = "REJECTED"
+    sub.review_note = review_note.strip() or "반려"
+    sub.reviewed_at = datetime.now(UTC)
+    await db.commit()
+    return RedirectResponse("/admin/repair-submissions?flash=rejected", status_code=303)
 
 
 # ── 고객센터 ─────────────────────────────────────────────────────

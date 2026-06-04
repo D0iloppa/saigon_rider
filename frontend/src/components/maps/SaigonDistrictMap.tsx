@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, t
 import { useTranslation } from 'react-i18next';
 import styles from './SaigonDistrictMap.module.css';
 import { HCMC_DISTRICTS, findNearestDistrict, type District } from './district-data';
+import { native } from '@/lib/native';
 
 export interface GasMarkerData {
   brand_code?: string | null;
@@ -49,6 +50,13 @@ export interface SaigonDistrictMapProps {
   zoomable?: boolean;
   /** 지정 시 해당 district 폴리곤을 채우도록 자동 줌인. null/undefined 면 줌 리셋 */
   focusDistrictCode?: string | null;
+  /**
+   * 제공 시 '내 위치로' 컨트롤을 렌더한다. 실시간 GPS 조회 → HCMC 매핑 시 구역 code,
+   * 실패/HCMC 밖이면 null 을 콜백으로 emit. 실제 focus·상태·default-도시 폴백은 부모 몫.
+   */
+  onLocate?: (code: string | null) => void;
+  /** true & onLocate 존재 시 마운트 1회 자동으로 '내 위치로' 실행 (초기 진입 포커싱). */
+  locateOnMount?: boolean;
   /** SVG 내부에 주입할 자식 (예: 침수 오버레이). pan/zoom viewBox 좌표계를 그대로 사용. */
   children?: ReactNode;
 }
@@ -60,9 +68,10 @@ function getDistrictState(
   highlighted: Set<string>,
   danger: Set<string>,
 ): DistrictVisualState {
-  if (danger.has(district.code)) return 'danger';
+  // 영역 채우기/강조는 '선택(highlight)' 전용. 제보 지역(danger)은 영역을 칠하지 않고
+  // 빨간 마커로만 표시한다 (선택과의 혼동 방지). danger 인자는 현재 미사용으로 유지(호환).
+  void danger;
   if (highlighted.has(district.code)) return 'highlight';
-  if (district.special === 'new_district') return 'special';
   if (district.zone === 'outer') return 'outer';
   return 'normal';
 }
@@ -128,11 +137,24 @@ export default function SaigonDistrictMap({
   onDistrictClick,
   zoomable = true,
   focusDistrictCode,
+  onLocate,
+  locateOnMount = false,
   children,
 }: SaigonDistrictMapProps) {
   const { t } = useTranslation();
   const [legendOpen, setLegendOpen] = useState(false);
-  const highlightedSet = useMemo(() => new Set(highlightedDistricts), [highlightedDistricts]);
+  // GPS 가 HCMC 밖일 때 표시할 내 좌표 (구역 선택 대신 좌표 라벨만 노출).
+  const [outsideCoords, setOutsideCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // '내 위치로' 로 찾은 구역 (지도 내부에서 하이라이트). 페이지의 highlightedDistricts 와 합집합.
+  const [locatedCode, setLocatedCode] = useState<string | null>(null);
+  const highlightedSet = useMemo(() => {
+    const s = new Set(highlightedDistricts);
+    if (locatedCode) s.add(locatedCode);
+    // 포커스된 구역도 강조 집합에 포함 → focusDistrictCode 만 넘긴 페이지(침수 등)도
+    // 메인과 동일하게 선택 구역 강조 + 비선택 라벨 축소/흐림(hasFocus) 적용.
+    if (focusDistrictCode) s.add(focusDistrictCode);
+    return s;
+  }, [highlightedDistricts, locatedCode, focusDistrictCode]);
   const dangerSet = useMemo(() => new Set(dangerDistricts), [dangerDistricts]);
 
   // 'me' 마커는 집계 대상에서 제외 (단일 위치 마커이므로 그대로 표시).
@@ -252,6 +274,40 @@ export default function SaigonDistrictMap({
   useEffect(() => {
     focusOnDistrict(focusDistrictCode ?? null);
   }, [focusDistrictCode, focusOnDistrict]);
+
+  // '내 위치로': 모든 interactive 지도에 내장. 실시간 GPS →
+  //  · HCMC 안: 해당 구역으로 지도 자체 줌 + 하이라이트 (페이지 무관 통일 동작)
+  //  · HCMC 밖: 구역 스냅 없이 내 좌표 라벨만, 전체 지도 유지
+  // onLocate(code|null) 는 페이지가 추가로 반응(선택 상태·default 도시 폴백)하도록 선택적 emit.
+  const runLocate = useCallback(async (): Promise<void> => {
+    try {
+      const pos = await native.getLocation();
+      const inHcmc =
+        pos.lat >= 10.40 && pos.lat <= 11.10 && pos.lng >= 106.40 && pos.lng <= 107.00;
+      if (inHcmc) {
+        const code = findNearestDistrict(pos.lat, pos.lng)?.code ?? null;
+        setOutsideCoords(null);
+        setLocatedCode(code);
+        if (code) focusOnDistrict(code);
+        onLocate?.(code);
+      } else {
+        setLocatedCode(null);
+        setOutsideCoords({ lat: pos.lat, lng: pos.lng });
+        focusOnDistrict(null);
+        onLocate?.(null);
+      }
+    } catch {
+      setOutsideCoords(null);
+      onLocate?.(null);
+    }
+  }, [onLocate, focusOnDistrict]);
+
+  const didLocateOnMount = useRef(false);
+  useEffect(() => {
+    if (!locateOnMount || didLocateOnMount.current) return;
+    didLocateOnMount.current = true;
+    void runLocate();
+  }, [locateOnMount, runLocate]);
 
   const pointerDistance = () => {
     const pts = Array.from(pointersRef.current.values());
@@ -390,7 +446,7 @@ export default function SaigonDistrictMap({
 
         {/* district 폴리곤 + 라벨 */}
         {(() => {
-          const hasFocus = highlightedSet.size > 0 || dangerSet.size > 0;
+          const hasFocus = highlightedSet.size > 0;
           // 선택/위험/특수 구역을 뒤에 그려 최상단에 오도록 정렬
           const ordered = [...HCMC_DISTRICTS].sort((a, b) => {
             const rank = (d: District) => {
@@ -511,8 +567,22 @@ export default function SaigonDistrictMap({
         {children}
       </svg>
 
+      {outsideCoords && (
+        <div className={styles.coordLabel}>
+          📍 {outsideCoords.lat.toFixed(4)}, {outsideCoords.lng.toFixed(4)} · {t('map.outsideArea')}
+        </div>
+      )}
+
       {zoomable && (
         <div className={styles.zoomControls}>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            aria-label={t('map.locate')}
+            onClick={() => { void runLocate(); }}
+          >
+            ◎
+          </button>
           <button
             type="button"
             className={styles.zoomBtn}

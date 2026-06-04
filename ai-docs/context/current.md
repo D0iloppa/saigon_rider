@@ -49,7 +49,8 @@
 ## 활성 태스크 (🔧)
 
 - **SGR-220 개발→운영 배포 (SOP+1차배포)** — **운영 가동 중** `https://letantonsheriff.com`(임시 도메인, 기존 lsh 대체). SoT `task/active/260604_deploy_prod_task.md`. 완료: 프로비저닝(Docker/그룹/clone)·P2 compose override·P3 운영.env(시크릿 회전)·P4 호스트 nginx 라우팅(lsh_api.conf root+www 분리, saigon.conf)·P5 데이터 이관(dev 전체 dump→drop&recreate, 테스트유저 정리, item140/quest243). cert 갱신 자동화(saigon-cert-renew.sh+cron).
-  - **남은 것**: ① 🔴 cert SAN 2개 축소 미완(7-SAN이라 갱신 실패 위험, `certbot certonly --cert-name letantonsheriff.com -d ... ` 프롬프트 승인 필요) ② 네이티브 `capacitor.config.ts` server.url 환경별(현 `saigon.doil.me`) ③ FCM firebase json 마운트 미배선 ④ **SGR-227**: init 스키마 베이스라인 결함(fresh DB 빌드 불가, 우회 배포함)
+  - cert: ✅ 2-SAN(root+www) 축소 + 자동갱신(saigon-cert-renew.sh+cron) 정상화. BFF_PUBLIC_URL `/api/bff` 누락 버그 교정(아바타 폴백 302→imgproxy 검증).
+  - **남은 것**: ① 네이티브 `capacitor.config.ts` server.url 환경별(현 `saigon.doil.me`) ② FCM firebase json 마운트 미배선(초기 off) ③ official/grand-opening.jpg 1건(saigon.doil.me 오프라인) ④ **SGR-227**: init 스키마 베이스라인 결함(fresh DB 빌드 불가, dump-restore 우회)
   - 도메인 마이그레이션 규칙·host 참조 7지점은 runbook에 문서화(전용 도메인 구매 시 적용)
 
 ## 부분 점검 (🟡)

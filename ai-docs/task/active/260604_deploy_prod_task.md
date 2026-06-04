@@ -83,7 +83,8 @@
 
 - **lsh 스택은 네이티브**(Docker 아님): 80/443 = 호스트 nginx(`user root`), `:8180` = `apache-tomcat-8.5.99`(lsh_api 백엔드). → **Saigon Rider가 유일한 docker 스택**, 컨테이너 충돌 없음.
 - **인증서 갱신**: 커스텀 스크립트 아님. 표준 `certbot-renew.timer`(systemd) → `certbot renew`, `authenticator = nginx`(installer=nginx). **webroot 비의존** → root+www를 saigon.conf로 가져가도 certbot이 server_name 매칭으로 챌린지 처리(호환). lsh_api.conf의 acme webroot(`/app/nginx/`)는 구 방식 잔재.
-- ✅ **cert 갱신 해소 (06-04)**: letantonsheriff 단독 갱신 → 서빙 cert `Sep 1 2026`로 복구(root+www). 전용 `/usr/local/bin/saigon-cert-renew.sh`(nginx authenticator, 성공 시 reload) + root cron `0 3,15 * * *` 등록 → 이후 자동 갱신. 기존 `certbot-renew.sh`(공유, manual 인증서 묶음)는 미변경.
+- ✅ **cert 갱신 해소 (06-04)**: letantonsheriff 단독 갱신 → 서빙 cert 복구(root+www). 전용 `/usr/local/bin/saigon-cert-renew.sh`(nginx authenticator, 성공 시 reload) + root cron `0 3,15 * * *` 등록 → 이후 자동 갱신. 기존 `certbot-renew.sh`(공유, manual 인증서 묶음)는 미변경.
+- ✅ **cert SAN 2개로 축소 (06-04)**: lsh 분리 후 7-SAN(admin/console/go/mail/manager 포함)은 갱신 불가 → `certbot certonly --nginx --cert-name letantonsheriff.com -d letantonsheriff.com -d www.letantonsheriff.com`로 **root+www 2개로 축소 재발급**(만료 Sep 2). 이제 갱신 시 2개만 검증(둘 다 saigon.conf 서빙) → 자동갱신 안전. cert-name 유지라 saigon.conf·갱신스크립트 무변경.
 - 🔴 **(해소된) 원인 기록**:
   - 갱신 주체 = root crontab `0 1 * * * /usr/local/bin/certbot-renew.sh` → `certbot renew --quiet --webroot -w /app/nginx/` → 성공 시 `systemctl reload nginx`(reload는 정상).
   - **5/29부터 매일 실패**: 같은 런에서 `wellconn.co.kr`·`schoolsafe24.tracer.co.kr`가 **`authenticator=manual` + `pref_challs=dns-01`**로 발급돼 webroot(http-01)로 갱신 불가 → `None of the preferred challenges are supported` → **renew 런 전체 실패**, letantonsheriff까지 만료.

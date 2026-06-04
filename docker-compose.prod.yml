@@ -1,0 +1,52 @@
+# =============================================================
+# Saigon Rider — 운영(prod) override
+# dev docker-compose.yml 위에 덧씌워 운영 구조 차이만 반영한다.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     --env-file .env --profile backend up --build -d
+#
+# 이 파일은 "구조 변경"만 담는다 (포트 비노출 / 소스 bind-mount 제거 / mcp_dev 제외).
+# 도메인·시크릿 등 "값"은 운영 .env 가 담당한다.
+#
+# 주의: docker compose 는 override 시 ports/volumes/profiles 같은 리스트를
+#       기본값에 "병합(append)"한다. 그래서 merge 태그를 쓴다 (compose v2.24+):
+#         !reset    → 값 비우기 (dev 정의 제거)
+#         !override → 값 교체 (dev 정의를 새 값으로 대체, 병합 안 함)
+#       값을 새로 넣어야 하는 항목(nginx loopback, bff contents)은 반드시 !override.
+#       단순 제거는 !reset.
+# =============================================================
+
+services:
+
+  # ── 진입 nginx: 외부 직접접근 차단 → loopback 에만 바인딩 ──
+  # 호스트 nginx 만 127.0.0.1:18090 으로 들어온다.
+  nginx:
+    ports: !override
+      - "127.0.0.1:${NGINX_PORT}:80"
+
+  # ── frontend: 호스트 포트 미노출 (컨테이너 nginx 경유만) ──
+  frontend:
+    ports: !reset []
+
+  # ── BFF: 포트 미노출 + 소스 bind-mount 제거(이미지 권위화), contents 데이터만 유지 ──
+  bff:
+    ports: !reset []
+    volumes: !override
+      - ./contents:/data
+
+  # ── Engine: 포트 미노출 + 소스 bind-mount 제거 ──
+  engine:
+    ports: !reset []
+    volumes: !reset []
+
+  # ── Worker: 소스 bind-mount 제거 ──
+  worker:
+    volumes: !reset []
+
+  # ── Database: 포트 절대 미노출 (외부 DB 접근 차단). 데이터 볼륨은 base 유지 ──
+  database:
+    ports: !reset []
+
+  # ── MCP Dev (legacy): 운영 불필요 → backend 프로필에서 떼어내 미기동 ──
+  mcp_dev:
+    profiles: !override ["legacy"]

@@ -48,7 +48,7 @@
 
 ## 활성 태스크 (🔧)
 
-- (없음) — SGR-205·SGR-211(가챠 hang+시네마틱) 완료. 다음 우선순위는 아래 참조
+- **SGR-220 개발→운영 배포 (SOP+1차배포)** — runbook 작성됨(`task/active/260604_deploy_prod_task.md`), Notion 미러·서브 Todo P1~P6(SGR-221~226) 등록 완료. nginx 2계층(A안)·git pull+build·`/app/SaigonRider` 격리 결정. **선결 블로커**: 운영 호스트(Rocky 9.6, `ssh saigon-prod`)에 Docker 미설치 → 설치+wellconn docker그룹+`/app/SaigonRider` 생성(sudo 필요)이 P6 착수 전제. 호스트 nginx는 `lsh_api.conf` 가동 중 → `saigon.conf` 별도 추가
 
 ## 부분 점검 (🟡)
 

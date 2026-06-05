@@ -634,7 +634,8 @@
       "miniFloodNone": "Không có ngập quanh đây",
       "miniGasNoWait": "Không chờ",
       "miniGasWait": "Chờ {{min}} phút",
-      "miniMapTitle": "Khu vực quanh bạn"
+      "miniMapTitle": "Khu vực quanh bạn",
+      "locationFallback": "Đang định vị…"
     },
     "weather": {
       "title": "Thời tiết",

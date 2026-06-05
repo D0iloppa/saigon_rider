@@ -634,7 +634,8 @@
       "miniFloodNone": "No flood nearby",
       "miniGasNoWait": "No wait",
       "miniGasWait": "Wait {{min}}min",
-      "miniMapTitle": "Around you now"
+      "miniMapTitle": "Around you now",
+      "locationFallback": "Locating…"
     },
     "weather": {
       "title": "Weather",

@@ -634,7 +634,8 @@
       "miniFloodNone": "주변 침수 없음",
       "miniGasNoWait": "대기없음",
       "miniGasWait": "대기{{min}}분",
-      "miniMapTitle": "지금 우리 동네"
+      "miniMapTitle": "지금 우리 동네",
+      "locationFallback": "위치 확인 중"
     },
     "weather": {
       "title": "날씨",

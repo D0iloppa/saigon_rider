@@ -84,7 +84,7 @@ export default function InfoHub() {
       <div className={styles.scroll}>
         <div className={styles.locationRow}>
           <span className={styles.locationPin}>📍</span>
-          <span className={styles.locationText}>{weather?.location?.district ?? 'District 1'}</span>
+          <span className={styles.locationText}>{weather?.location?.district ?? t('info.hub.locationFallback')}</span>
           <span className={styles.locationSub}>{t('info.hub.location')}</span>
         </div>
 

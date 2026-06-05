@@ -509,6 +509,8 @@
     "ends_in": "remaining",
     "ended": "Ended",
     "days_hours": "{{days}}d {{hours}}h",
+    "hours_mins": "{{hours}}h {{mins}}m",
+    "node_level": "Lv.{{level}}",
     "level_label": "Lv. {{level}}",
     "level_of": "/ {{total}}",
     "xp_meta": "{{current}} / {{next}} XP",

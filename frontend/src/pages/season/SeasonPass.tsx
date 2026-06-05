@@ -22,7 +22,7 @@ function useCountdown(targetIso: string | undefined, t: (key: string, opts?: Rec
       const d = Math.floor(diff / 86400000);
       const h = Math.floor((diff % 86400000) / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
-      setLabel(d > 0 ? t('seasonPass.days_hours', { days: d, hours: h }) : `${h}h ${m}m`);
+      setLabel(d > 0 ? t('seasonPass.days_hours', { days: d, hours: h }) : t('seasonPass.hours_mins', { hours: h, mins: m }));
     }
     tick();
     timerRef.current = setInterval(tick, 60000);
@@ -33,13 +33,14 @@ function useCountdown(targetIso: string | undefined, t: (key: string, opts?: Rec
 }
 
 function RewardNodeCard({ node, isCurrent }: { node: SeasonRewardNode; isCurrent: boolean }) {
+  const { t } = useTranslation();
   const freeCode = REWARD_ICON_CODES[node.free_reward.type] ?? '1f381';
   const premCode = node.premium_reward ? (REWARD_ICON_CODES[node.premium_reward.type] ?? '1f381') : null;
 
   return (
     <div className={s.node}>
       <div className={`${s.nodeLevel} ${isCurrent ? s.nodeLevelCurrent : ''}`}>
-        Lv.{node.level}
+        {t('seasonPass.node_level', { level: node.level })}
       </div>
 
       {/* free row */}

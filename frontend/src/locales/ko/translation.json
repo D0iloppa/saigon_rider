@@ -509,6 +509,8 @@
     "ends_in": "남음",
     "ended": "종료",
     "days_hours": "{{days}}일 {{hours}}시간",
+    "hours_mins": "{{hours}}시간 {{mins}}분",
+    "node_level": "Lv.{{level}}",
     "level_label": "Lv. {{level}}",
     "level_of": "/ {{total}}",
     "xp_meta": "{{current}} / {{next}} XP",

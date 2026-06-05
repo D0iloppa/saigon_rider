@@ -509,6 +509,8 @@
     "ends_in": "còn lại",
     "ended": "Đã kết thúc",
     "days_hours": "{{days}} ngày {{hours}} giờ",
+    "hours_mins": "{{hours}} giờ {{mins}} phút",
+    "node_level": "Lv.{{level}}",
     "level_label": "Lv. {{level}}",
     "level_of": "/ {{total}}",
     "xp_meta": "{{current}} / {{next}} XP",

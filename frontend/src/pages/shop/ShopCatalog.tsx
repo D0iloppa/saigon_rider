@@ -7,6 +7,7 @@ import { fetchWallet } from '@/api/wallet';
 import { useUserStore } from '@/store/useUserStore';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
+import { AppImage } from '@/components/ui/AppImage';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './ShopCatalog.module.css';
 
@@ -64,7 +65,7 @@ function FeaturedCard({ item }: { item: DailyFeaturedItem }) {
       <div className={styles.featuredInfo}>
         <div className={styles.featuredBadge}>
           <span className={styles.featuredBadgeText}>
-            TODAY · {item.discount_percent}% OFF
+            {t('shop.featured_badge', { pct: item.discount_percent })}
           </span>
         </div>
         <div className={styles.featuredTimer}>⏰ {timer}</div>
@@ -150,7 +151,7 @@ export default function ShopCatalog() {
         <div className={styles.headerTitle}>{t('shop.title')}</div>
         <div className={styles.headerUser}>
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} className={styles.headerAvatar} alt="" />
+            <AppImage src={user.avatarUrl} className={styles.headerAvatar} alt="" variant="circle" />
           ) : (
             <div className={styles.headerAvatar} />
           )}
@@ -258,7 +259,7 @@ export default function ShopCatalog() {
               >
                 {item.is_owned && (
                   <div className={styles.ownedOverlay}>
-                    <span className={styles.ownedLabel}>✓ OWNED</span>
+                    <span className={styles.ownedLabel}>{t('shop.owned')}</span>
                   </div>
                 )}
 

@@ -693,7 +693,7 @@ export default function ProfileMain() {
               return (
                 <button key={bw.badge.id} className={`${styles.badgeCell} ${!bw.earned ? styles.badgeLocked : ''}`} onClick={() => setActiveBadge(bw)}>
                   <div className={styles.badgeIcon}>
-                    {isEmoji ? iconEmoji : <img src={iconEmoji} alt="" style={{ width: 40, height: 40, objectFit: 'contain' }} />}
+                    {isEmoji ? iconEmoji : <AppImage src={iconEmoji} alt="" style={{ width: 40, height: 40, objectFit: 'contain' }} />}
                   </div>
                   <div className={styles.badgeName}>{displayName}</div>
                 </button>
@@ -741,7 +741,7 @@ export default function ProfileMain() {
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
               <div className={styles.modalHero}>
                 <div className={styles.modalBadgeIcon}>
-                  {isEmoji ? iconEmoji : <img src={iconEmoji} alt="" style={{ width: 96, height: 96, objectFit: 'contain' }} />}
+                  {isEmoji ? iconEmoji : <AppImage src={iconEmoji} alt="" style={{ width: 96, height: 96, objectFit: 'contain' }} />}
                 </div>
               </div>
               <div className={styles.modalBody}>

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { fetchQuests, fetchCompletedQuestIds, fetchMyAccepted, type MyAcceptedItem } from '@/api/quests';
-import { fetchDistricts, fetchRiderTypes, fetchSafetyGrades, localizedName } from '@/api/master';
+import { fetchQuests, fetchMyAccepted, fetchMyCompleted, type MyAcceptedItem, type MyCompletedItem } from '@/api/quests';
+import { fetchDistricts, fetchRiderTypes, localizedName } from '@/api/master';
 import { useUserStore } from '@/store/useUserStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import type { District, RiderType, SafetyGrade } from '@/api/master';
+import type { District, RiderType } from '@/api/master';
 import { formatDistance } from '@/lib/format';
 import type { Quest, QuestType } from '@/api/types';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -27,17 +27,15 @@ function GifIcon({ code, size = 18 }: { code: string; size?: number }) {
   );
 }
 
-type FilterParams = { districtId?: number; riderTypeId?: number; safetyGradeId?: number };
+type FilterParams = { districtId?: number; riderTypeId?: number };
 
 function buildFilterParams(
   districtId: number | null,
   riderTypeId: number | null,
-  safetyGradeId: number | null,
 ): FilterParams {
   const p: FilterParams = {};
   if (districtId)    p.districtId    = districtId;
   if (riderTypeId)   p.riderTypeId   = riderTypeId;
-  if (safetyGradeId) p.safetyGradeId = safetyGradeId;
   return p;
 }
 
@@ -45,25 +43,22 @@ export default function QuestList() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
+  const userLevel = useUserStore((s) => s.user?.level) ?? 1;
   const [mode, setMode] = useState<'catalog' | 'accepted'>('catalog');
+  const [acceptedSub, setAcceptedSub] = useState<'active' | 'completed'>('active');
   const [tab, setTab] = useState<QuestType>('daily');
   const [accepted, setAccepted] = useState<MyAcceptedItem[]>([]);
   const [acceptedLoading, setAcceptedLoading] = useState(false);
   const [activeDistrictId, setActiveDistrictId] = useState<number | null>(null);
   const [activeRiderTypeId, setActiveRiderTypeId] = useState<number | null>(null);
-  const [activeSafetyGradeId, setActiveSafetyGradeId] = useState<number | null>(null);
   const [districts, setDistricts] = useState<District[]>([]);
   const [riderTypes, setRiderTypes] = useState<RiderType[]>([]);
-  const [safetyGrades, setSafetyGrades] = useState<SafetyGrade[]>([]);
-  const [completedCount, setCompletedCount] = useState(0);
-  const [completedOpen, setCompletedOpen] = useState(false);
-  const [completedQuests, setCompletedQuests] = useState<Quest[]>([]);
+  const [completedQuests, setCompletedQuests] = useState<MyCompletedItem[]>([]);
   const [completedLoading, setCompletedLoading] = useState(false);
 
   useEffect(() => {
     fetchDistricts().then(setDistricts);
     fetchRiderTypes().then(setRiderTypes);
-    fetchSafetyGrades().then(setSafetyGrades);
   }, []);
 
   const TABS: { key: QuestType; label: string }[] = [
@@ -74,7 +69,7 @@ export default function QuestList() {
 
   // 카탈로그: 이미 수령(ACCEPTED)했거나 완료한 항목 제외
   const fetchPage = useCallback(async (page: number) => {
-    const params = buildFilterParams(activeDistrictId, activeRiderTypeId, activeSafetyGradeId);
+    const params = buildFilterParams(activeDistrictId, activeRiderTypeId);
     return fetchQuests({
       type: tab,
       ...params,
@@ -83,7 +78,7 @@ export default function QuestList() {
       excludeCompleted: !!userId,
       excludeAccepted: !!userId,
     });
-  }, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
+  }, [tab, activeDistrictId, activeRiderTypeId, userId]);
 
   // 내 퀘스트(수령함) — mode 전환 또는 userId 변경 시 로드
   useEffect(() => {
@@ -94,43 +89,22 @@ export default function QuestList() {
       .finally(() => setAcceptedLoading(false));
   }, [mode, userId]);
 
-  const { items: quests, isLoading: loading, isLoadingMore, hasMore, sentinelRef, reset } =
-    useInfiniteScroll<Quest>(fetchPage, 20, [tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
-
-  // 완료 퀘스트 수 별도 fetch (카운트 표시용)
+  // 완료 퀘스트 — '내 퀘스트 > 완료' 하위 탭 진입 시 전체 기간 로드
   useEffect(() => {
-    if (!userId) { setCompletedCount(0); return; }
-    fetchCompletedQuestIds(userId, tab).then((ids) => setCompletedCount(ids.size));
-    setCompletedOpen(false);
-    setCompletedQuests([]);
-  }, [tab, userId]);
+    if (mode !== 'accepted' || acceptedSub !== 'completed' || !userId) return;
+    setCompletedLoading(true);
+    fetchMyCompleted(userId)
+      .then(setCompletedQuests)
+      .finally(() => setCompletedLoading(false));
+  }, [mode, acceptedSub, userId]);
 
-  const handleToggleCompleted = useCallback(async () => {
-    if (completedOpen) {
-      setCompletedOpen(false);
-      return;
-    }
-    setCompletedOpen(true);
-    if (completedQuests.length === 0 && completedCount > 0) {
-      setCompletedLoading(true);
-      try {
-        const params = buildFilterParams(activeDistrictId, activeRiderTypeId, activeSafetyGradeId);
-        const page = await fetchQuests({ type: tab, ...params, userId: userId ?? undefined, onlyCompleted: true, size: 50 });
-        setCompletedQuests(page.items);
-      } finally {
-        setCompletedLoading(false);
-      }
-    }
-  }, [completedOpen, completedQuests.length, completedCount, tab, activeDistrictId, activeRiderTypeId, activeSafetyGradeId, userId]);
+  const { items: quests, isLoading: loading, isLoadingMore, hasMore, sentinelRef, reset } =
+    useInfiniteScroll<Quest>(fetchPage, 20, [tab, activeDistrictId, activeRiderTypeId, userId]);
 
   const handleRefresh = useCallback(async () => {
-    if (userId) {
-      fetchCompletedQuestIds(userId, tab).then((ids) => setCompletedCount(ids.size));
-    }
-    setCompletedOpen(false);
     setCompletedQuests([]);
     reset();
-  }, [reset, userId, tab]);
+  }, [reset]);
 
   const { containerRef: listRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(handleRefresh);
 
@@ -163,6 +137,22 @@ export default function QuestList() {
           </button>
         </div>
 
+        {/* Accepted 하위 토글: 수령 중 / 완료 */}
+        {mode === 'accepted' && <div className={styles.segmentWrap}>
+          <button
+            className={`${styles.segTab} ${acceptedSub === 'active' ? styles.segTabActive : ''}`}
+            onClick={() => setAcceptedSub('active')}
+          >
+            {t('quest.acceptedSubActive', { defaultValue: '수령 중' })}
+          </button>
+          <button
+            className={`${styles.segTab} ${acceptedSub === 'completed' ? styles.segTabActive : ''}`}
+            onClick={() => setAcceptedSub('completed')}
+          >
+            {t('quest.completedSection')}
+          </button>
+        </div>}
+
         {/* Segment tabs (카탈로그 모드에서만) */}
         {mode === 'catalog' && <div className={styles.segmentWrap}>
           {TABS.map((tb) => (
@@ -190,7 +180,7 @@ export default function QuestList() {
           ))}
         </div>}
 
-        {/* Rider type + Safety grade chips */}
+        {/* Rider type chips */}
         {mode === 'catalog' && <div className={styles.filterRow}>
           {riderTypes.map((r) => (
             <Chip
@@ -202,16 +192,6 @@ export default function QuestList() {
               {r.icon} {localizedName(r)}
             </Chip>
           ))}
-          {safetyGrades.map((s) => (
-            <Chip
-              key={s.id}
-              variant={activeSafetyGradeId === s.id ? 'dark' : 'surface'}
-              onClick={() => setActiveSafetyGradeId(activeSafetyGradeId === s.id ? null : s.id)}
-              style={{ cursor: 'pointer' }}
-            >
-              🛡 {localizedName(s)}
-            </Chip>
-          ))}
         </div>}
       </div>
 
@@ -220,18 +200,34 @@ export default function QuestList() {
       <div className={styles.listContent} style={contentStyle}>
         <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
         {mode === 'accepted' ? (
-          acceptedLoading ? (
-            <div className={`shimmer ${styles.skeleton}`} />
-          ) : accepted.length === 0 ? (
-            <div className={styles.empty}>
-              <GifIcon code="1f4dd" size={120} />
-              <h2 className={styles.emptyTitle}>{t('quest.acceptedEmptyTitle', { defaultValue: '수령한 퀘스트가 없어요' })}</h2>
-              <p className={styles.emptySub}>{t('quest.acceptedEmptySub', { defaultValue: '가능 탭에서 퀘스트를 수령해보세요' })}</p>
-            </div>
+          acceptedSub === 'active' ? (
+            acceptedLoading ? (
+              <div className={`shimmer ${styles.skeleton}`} />
+            ) : accepted.length === 0 ? (
+              <div className={styles.empty}>
+                <GifIcon code="1f4dd" size={120} />
+                <h2 className={styles.emptyTitle}>{t('quest.acceptedEmptyTitle', { defaultValue: '수령한 퀘스트가 없어요' })}</h2>
+                <p className={styles.emptySub}>{t('quest.acceptedEmptySub', { defaultValue: '가능 탭에서 퀘스트를 수령해보세요' })}</p>
+              </div>
+            ) : (
+              accepted.map((a) => (
+                <QuestCard key={a.userQuestId} quest={a.quest} onClick={() => navigate(`/quests/${a.quest.id}`)} />
+              ))
+            )
           ) : (
-            accepted.map((a) => (
-              <QuestCard key={a.userQuestId} quest={a.quest} onClick={() => navigate(`/quests/${a.quest.id}`)} />
-            ))
+            completedLoading ? (
+              <div className={`shimmer ${styles.skeleton}`} />
+            ) : completedQuests.length === 0 ? (
+              <div className={styles.empty}>
+                <GifIcon code="2705" size={120} />
+                <h2 className={styles.emptyTitle}>{t('quest.completedEmptyTitle', { defaultValue: '완료한 퀘스트가 없어요' })}</h2>
+                <p className={styles.emptySub}>{t('quest.completedEmptySub', { defaultValue: '퀘스트를 완료하면 여기에 모여요' })}</p>
+              </div>
+            ) : (
+              completedQuests.map((c) => (
+                <QuestCard key={c.userQuestId} quest={c.quest} completed completedAt={c.completedAt} />
+              ))
+            )
           )
         ) : loading ? (
           <>
@@ -239,7 +235,7 @@ export default function QuestList() {
               <div key={i} className={`shimmer ${styles.skeleton}`} />
             ))}
           </>
-        ) : quests.length === 0 && completedCount === 0 ? (
+        ) : quests.length === 0 ? (
           <div className={styles.empty}>
             <GifIcon code="1f9ed" size={120} />
             <h2 className={styles.emptyTitle}>{t('quest.emptyTitle')}</h2>
@@ -249,27 +245,13 @@ export default function QuestList() {
         ) : (
           <>
             {quests.map((q) => (
-              <QuestCard key={q.id} quest={q} onClick={() => navigate(`/quests/${q.id}`)} />
+              <QuestCard
+                key={q.id}
+                quest={q}
+                locked={userLevel < q.minLevel}
+                onClick={() => navigate(`/quests/${q.id}`)}
+              />
             ))}
-            {completedCount > 0 && !loading && (
-              <>
-                <button className={styles.completedDivider} onClick={handleToggleCompleted}>
-                  <span>{t('quest.completedSection')} ({completedCount})</span>
-                  <span className={`${styles.completedToggleIcon} ${completedOpen ? styles.completedToggleIconOpen : ''}`}>
-                    ▼
-                  </span>
-                </button>
-                {completedOpen && (
-                  completedLoading ? (
-                    <div className={`shimmer ${styles.skeleton}`} />
-                  ) : (
-                    completedQuests.map((q) => (
-                      <QuestCard key={q.id} quest={q} completed onClick={() => navigate(`/quests/${q.id}`)} />
-                    ))
-                  )
-                )}
-              </>
-            )}
             <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
           </>
         )}
@@ -279,22 +261,24 @@ export default function QuestList() {
   );
 }
 
-function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClick: () => void; completed?: boolean }) {
+function QuestCard({ quest, onClick, completed = false, completedAt, locked = false }: { quest: Quest; onClick?: () => void; completed?: boolean; completedAt?: string | null; locked?: boolean }) {
   const { t } = useTranslation();
   return (
     <QuestCardBase
       variant="list"
       missionCode={quest.missionCode}
       rarity={quest.rarity}
+      csv={quest.csv}
       customImageUrl={quest.thumbnailImageUrl}
       title={quest.title}
       level={quest.minLevel}
-      rating={quest.difficulty}
       distance={[quest.districtName || t('quest.everywhere'), formatDistance(quest.minDistanceM)].filter(Boolean).join(' · ')}
       tags={quest.tags}
       rewards={{ xp: quest.rewardXpPoints, gp: quest.rewardGold }}
       expiresAt={quest.expiresAt}
       completed={completed}
+      completedAt={completedAt}
+      locked={locked}
       onClick={onClick}
     />
   );

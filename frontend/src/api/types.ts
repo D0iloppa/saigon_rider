@@ -55,6 +55,7 @@ export interface Quest {
   expiresAt?: string;
   missionCode?: string | null;
   rarity?: 'C' | 'R' | 'E' | 'L' | 'M';
+  csv?: string | null; // 정적 SVG 카드 id(카드코드) → sprite #card-{csv}
 }
 
 export interface QuestAttempt {

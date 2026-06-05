@@ -48,6 +48,7 @@ function transformQuest(raw: any): Quest {
     expiresAt: raw.ends_at ?? undefined,
     missionCode: raw.mission_code ?? null,
     rarity: (raw.rarity ?? 'C') as Quest['rarity'],
+    csv: raw.csv ?? null,
   };
 }
 
@@ -151,6 +152,26 @@ export async function fetchMyAccepted(userId: string): Promise<MyAcceptedItem[]>
   return raw.map((r) => ({
     userQuestId: r.user_quest_id,
     acceptedAt: r.accepted_at,
+    periodKey: r.period_key,
+    quest: transformQuest(r.quest),
+  }));
+}
+
+export interface MyCompletedItem {
+  userQuestId: string;
+  completedAt: string | null;
+  periodKey: string | null;
+  quest: Quest;
+}
+
+export async function fetchMyCompleted(userId: string): Promise<MyCompletedItem[]> {
+  if (USE_MOCK) return [];
+  const raw = await api.realFetch<Array<{ user_quest_id: string; completed_at: string | null; period_key: string | null; quest: any }>>(
+    `/quests/my-completed?user_id=${userId}`,
+  );
+  return raw.map((r) => ({
+    userQuestId: r.user_quest_id,
+    completedAt: r.completed_at,
     periodKey: r.period_key,
     quest: transformQuest(r.quest),
   }));

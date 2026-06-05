@@ -146,6 +146,7 @@ export default function QuestDetail() {
         <QuestCard
           missionCode={quest.missionCode}
           rarity={quest.rarity}
+          csv={quest.csv}
           customImageUrl={quest.mainImageUrl}
           title={quest.title}
           level={quest.minLevel}

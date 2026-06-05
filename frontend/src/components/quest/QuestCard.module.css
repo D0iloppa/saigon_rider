@@ -21,25 +21,17 @@
   --mission-bg: #E5531F;
   display: flex;
   flex-direction: row;
-  height: 110px;
+  min-height: 110px;
   background: var(--mission-bg);
 }
 
 .list .illustration {
   width: 130px;
-  height: 100%;
+  align-self: stretch;
   flex-shrink: 0;
 }
 
-/* 썸네일 우측을 배경색으로 자연스럽게 mix */
-.list .illustration::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to right, transparent 35%, var(--mission-bg) 100%);
-  pointer-events: none;
-  z-index: 1;
-}
+/* 그라데이션 블렌드 제거 — v4 SVG 카드를 평면(flat)으로 노출 */
 
 .list .overlay {
   flex: 1;
@@ -54,6 +46,8 @@
 
 /* list variant: 주황 배경 위 가독성 보정 */
 .list .cardLabels {
+  left: auto;
+  right: 10px;
   z-index: 2;
 }
 
@@ -63,10 +57,6 @@
 
 .list .meta {
   color: rgba(255, 255, 255, 0.85);
-}
-
-.list .rating {
-  color: #FFE08A;
 }
 
 .list .rewards {
@@ -131,6 +121,40 @@
   --mission-bg: #6B5B53;
 }
 
+/* 레벨 미달 잠금 카드 */
+.locked {
+  cursor: default;
+  filter: grayscale(0.7);
+  opacity: 0.65;
+}
+
+.lockOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.lockIcon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.lockLevel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
 .detail {
   display: flex;
   flex-direction: column;
@@ -143,7 +167,7 @@
 
 .detail .overlay {
   padding: 16px 20px;
-  background: linear-gradient(180deg, transparent 0%, #1A1925 60%);
+  background: rgba(0, 0, 0, 0.45);
   position: absolute;
   bottom: 0;
   left: 0;
@@ -256,7 +280,8 @@
   font-weight: 700;
   color: white;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.4;
+  padding-bottom: 2px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -277,12 +302,6 @@
   margin-top: 2px;
 }
 
-.rating {
-  color: #FFB800;
-  letter-spacing: 0.5px;
-  font-size: 10px;
-}
-
 .rewards {
   display: flex;
   gap: 6px;
@@ -301,6 +320,12 @@
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.rewardChipIcon {
+  display: inline-block;
+  vertical-align: -2px;
+  object-fit: contain;
 }
 
 .season {

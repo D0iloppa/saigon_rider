@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Generic, TypeVar
 from uuid import UUID
@@ -213,8 +213,11 @@ class QuestOut(BaseModel):
     required_level: int
     target_distance_km: Decimal
     card_type: str = "DISTANCE"
+    csv: str | None = None  # 정적 SVG 카드 id(카드코드) → 프론트 sprite #card-{csv}
     target_lat: Decimal | None = None
     target_lng: Decimal | None = None
+    available_from: time | None = None
+    available_to: time | None = None
     min_safety_grade: SafetyGradeOut | None = None
     reward_exp: int
     reward_gold: int

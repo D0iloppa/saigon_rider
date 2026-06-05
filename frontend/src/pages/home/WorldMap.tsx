@@ -8,7 +8,7 @@ import { fetchUserStats } from '@/api/profile';
 import { fetchDistricts, localizedName } from '@/api/master';
 import type { District } from '@/api/master';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
-import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
+import type { WeatherData, FloodReport } from '@/api/info';
 import { formatNumber } from '@/lib/format';
 import { native } from '@/lib/native';
 import { apiRegisterDeviceMap } from '@/api/device';
@@ -37,9 +37,7 @@ export default function WorldMap() {
 
   const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
   const [infoFloods, setInfoFloods] = useState<FloodReport[]>([]);
-  const [infoGas, setInfoGas] = useState<GasStation | null>(null);
   const [infoGasCount, setInfoGasCount] = useState(0);
-  const [infoRepair, setInfoRepair] = useState<RepairShop | null>(null);
   const [infoRepairCount, setInfoRepairCount] = useState(0);
   const [districts, setDistricts] = useState<District[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
@@ -135,14 +133,11 @@ export default function WorldMap() {
         if (!r) return;
         const inDist = r.stations.filter((s) => inSel(s.lat, s.lng));
         setInfoGasCount(inDist.length);
-        setInfoGas(inDist[0] ?? null);
       }),
       repairApi.getNearby(lat, lng, 5).then((r) => {
         if (!r) return;
         const shops = r.shops.filter((s) => inSel(s.lat, s.lng));
         setInfoRepairCount(shops.length);
-        const named = shops.find((s) => s.name && s.name !== 'Unknown');
-        setInfoRepair(named ?? shops[0] ?? null);
       }),
     ]);
   }, [selectedDistrict, districts]);
@@ -288,8 +283,10 @@ export default function WorldMap() {
         <div className={styles.infoSection}>
           <div className={styles.infoStrip}>
             <button className={styles.miniCard} onClick={() => navigate(`/info/weather${infoNavQuery}`)}>
-              <div className={styles.miniIcon}>{cur?.emoji ?? '🌡'}</div>
-              <div className={styles.miniTitle}>{t('info.hub.miniWeather')}</div>
+              <div className={styles.miniHeader}>
+                <div className={styles.miniIcon}>{cur?.emoji ?? '🌡'}</div>
+                <div className={styles.miniTitle}>{t('info.hub.miniWeather')}</div>
+              </div>
               <div className={styles.miniValue}>{cur ? `${cur.temp_c}°C` : '--'}</div>
               <div className={styles.miniSub}>
                 {cur && cur.rain_prob_1h > 0 ? t('info.hub.miniRainIn1h', { prob: cur.rain_prob_1h }) : cur ? t('info.hub.miniClear') : t('info.hub.miniLoading')}
@@ -299,8 +296,10 @@ export default function WorldMap() {
               className={`${styles.miniCard} ${activeFloods.length > 0 ? styles.miniCardDanger : ''}`}
               onClick={() => navigate(`/info/flood${infoNavQuery}`)}
             >
-              <div className={styles.miniIcon}>🌊</div>
-              <div className={styles.miniTitle}>{t('info.hub.miniFlood')}</div>
+              <div className={styles.miniHeader}>
+                <div className={styles.miniIcon}>🌊</div>
+                <div className={styles.miniTitle}>{t('info.hub.miniFlood')}</div>
+              </div>
               <div className={`${styles.miniValue} ${activeFloods.length > 0 ? styles.miniValueDanger : ''}`}>
                 {activeFloods.length > 0 ? t('info.hub.miniFloodActive', { count: activeFloods.length }) : t('info.hub.floodNoIssue')}
               </div>
@@ -309,23 +308,21 @@ export default function WorldMap() {
               </div>
             </button>
             <button className={styles.miniCard} onClick={() => navigate(`/info/gas${infoNavQuery}`)}>
-              <div className={styles.miniIcon}>⛽</div>
-              <div className={styles.miniTitle}>{t('info.hub.miniGas')}</div>
+              <div className={styles.miniHeader}>
+                <div className={styles.miniIcon}>⛽</div>
+                <div className={styles.miniTitle}>{t('info.hub.miniGas')}</div>
+              </div>
               <div className={styles.miniValue}>
                 {infoGasCount > 0 ? t('info.hub.miniCount', { count: infoGasCount }) : '--'}
               </div>
-              <div className={styles.miniSub}>
-                {infoGas ? `${infoGas.distance_km.toFixed(1)}km` : t('info.hub.miniLoading')}
-              </div>
             </button>
             <button className={styles.miniCard} onClick={() => navigate(`/info/repair${infoNavQuery}`)}>
-              <div className={styles.miniIcon}>🔧</div>
-              <div className={styles.miniTitle}>{t('info.hub.miniRepair')}</div>
+              <div className={styles.miniHeader}>
+                <div className={styles.miniIcon}>🔧</div>
+                <div className={styles.miniTitle}>{t('info.hub.miniRepair')}</div>
+              </div>
               <div className={styles.miniValue}>
                 {infoRepairCount > 0 ? t('info.hub.miniCount', { count: infoRepairCount }) : '--'}
-              </div>
-              <div className={styles.miniSub}>
-                {infoRepair ? `${infoRepair.distance_km.toFixed(1)}km` : t('info.hub.miniLoading')}
               </div>
             </button>
           </div>
@@ -344,10 +341,10 @@ export default function WorldMap() {
                   variant="list"
                   missionCode={q.missionCode}
                   rarity={q.rarity}
+                  csv={q.csv}
                   customImageUrl={q.thumbnailImageUrl}
                   title={q.title}
                   level={q.minLevel}
-                  rating={q.difficulty}
                   distance={[q.districtName, q.minDistanceM > 0 ? `${(q.minDistanceM / 1000).toFixed(1)}km` : null].filter(Boolean).join(' · ')}
                   tags={q.tags}
                   rewards={{ xp: q.rewardXpPoints, gp: q.rewardGold }}

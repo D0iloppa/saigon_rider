@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -14,6 +14,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    Time,
 )
 from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -164,6 +165,9 @@ class Quest(Base):
     card_type: Mapped[str] = mapped_column(String(20), nullable=False, default="DISTANCE")
     target_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     target_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # 수행가능 시간대 (ICT 로컬시각, NULL=제약없음). start-ride 게이트에서 검사.
+    available_from: Mapped[time | None] = mapped_column(Time, nullable=True)
+    available_to: Mapped[time | None] = mapped_column(Time, nullable=True)
     min_safety_grade_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("safety_grades.id"), nullable=True)
     min_safety_grade: Mapped["SafetyGrade | None"] = relationship(
         "SafetyGrade", foreign_keys=[min_safety_grade_id], lazy="selectin"
@@ -184,6 +188,7 @@ class Quest(Base):
     description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     mission_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     rarity: Mapped[str] = mapped_column(String(1), nullable=False, default="C")
+    csv: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
 class UserQuest(Base):

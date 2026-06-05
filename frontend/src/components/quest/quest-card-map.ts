@@ -129,6 +129,13 @@ function makeMythicCard(cardCode: string): QuestCardMeta {
   };
 }
 
+// 카드코드(csv) → 메타. 코드 접미사로 sprite 카테고리 판정.
+export function getCardByCode(cardCode: string): QuestCardMeta {
+  if (cardCode.endsWith('_M')) return makeMythicCard(cardCode);
+  if (cardCode.endsWith('_SEASON')) return makeSeasonCard(cardCode);
+  return makeRiderCard(cardCode);
+}
+
 // cardCode → 분해된 라벨 키 (i18n용)
 export interface CardLabels {
   category: 'RIDING' | 'COMMUNITY' | 'MAINT' | 'MARKET' | 'MIXED' | 'DELIVERY' | 'ONBOARDING' | 'SEASON' | 'MYTHIC';

@@ -361,6 +361,7 @@
   },
   "dm": {
     "title": "메시지",
+    "detailTitle": "대화",
     "empty": "아직 대화가 없어요",
     "inputPlaceholder": "메시지 입력...",
     "sendBtn": "전송",

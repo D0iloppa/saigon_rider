@@ -23,7 +23,7 @@ export default function DmDetail() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const otherName = locationState?.conv?.otherUserNickname ?? 'Chat';
+  const otherName = locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
 
   useEffect(() => {
     if (!conversationId) return;

@@ -361,6 +361,7 @@
   },
   "dm": {
     "title": "Tin nhắn",
+    "detailTitle": "Trò chuyện",
     "empty": "Chưa có cuộc trò chuyện nào",
     "inputPlaceholder": "Nhập tin nhắn...",
     "sendBtn": "Gửi",

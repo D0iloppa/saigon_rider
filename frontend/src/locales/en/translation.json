@@ -361,6 +361,7 @@
   },
   "dm": {
     "title": "Messages",
+    "detailTitle": "Chat",
     "empty": "No conversations yet",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",

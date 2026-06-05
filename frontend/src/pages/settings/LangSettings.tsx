@@ -7,10 +7,10 @@ import type { Language } from '@/api/types';
 import styles from './Settings.module.css';
 import { changeLang } from '@/lib/i18n';
 
-const LANGS: { key: Language; flag: string; title: string; sub: string }[] = [
-  { key: 'vi', flag: '🇻🇳', title: 'Tiếng Việt', sub: 'Vietnamese' },
-  { key: 'en', flag: '🇺🇸', title: 'English', sub: 'English' },
-  { key: 'ko', flag: '🇰🇷', title: '한국어', sub: 'Korean' },
+const LANGS: { key: Language; flag: string; title: string; subKey: string }[] = [
+  { key: 'vi', flag: '🇻🇳', title: 'Tiếng Việt', subKey: 'settings.langNameVi' },
+  { key: 'en', flag: '🇺🇸', title: 'English', subKey: 'settings.langNameEn' },
+  { key: 'ko', flag: '🇰🇷', title: '한국어', subKey: 'settings.langNameKo' },
 ];
 
 export default function LangSettings() {
@@ -40,7 +40,7 @@ export default function LangSettings() {
               <span className={styles.langFlag}>{l.flag}</span>
               <div className={styles.langText}>
                 <div className={styles.langTitle}>{l.title}</div>
-                <div className={styles.langSub}>{l.sub}</div>
+                <div className={styles.langSub}>{t(l.subKey)}</div>
               </div>
               <RadioCircle checked={user.language === l.key} />
             </button>

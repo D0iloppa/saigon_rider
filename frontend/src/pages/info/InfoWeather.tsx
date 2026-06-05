@@ -97,7 +97,7 @@ export default function InfoWeather() {
 
           {/* 현재 날씨 */}
           <div className={styles.sectionHeader}>
-            <span>📍 {data?.location?.district?.toUpperCase() ?? 'DISTRICT 1'} · {timeStr}</span>
+            <span>📍 {data?.location?.district?.toUpperCase() ?? t('info.hub.locationFallback')} · {timeStr}</span>
           </div>
           <div className={styles.card}>
             <div className={styles.current}>

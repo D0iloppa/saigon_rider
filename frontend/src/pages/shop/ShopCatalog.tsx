@@ -70,7 +70,7 @@ function FeaturedCard({ item }: { item: DailyFeaturedItem }) {
         </div>
         <div className={styles.featuredTimer}>⏰ {timer}</div>
         <div className={styles.featuredName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
-        <span className="rarity-chip" data-r={item.rarity}>LEGENDARY</span>
+        <span className="rarity-chip" data-r={item.rarity}>{item.rarity}</span>
         <div className={styles.featuredPrices}>
           {item.original_price_gold && (
             <span className={styles.originalPrice}>

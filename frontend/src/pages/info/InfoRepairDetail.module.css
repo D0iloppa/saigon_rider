@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 48px 16px 12px;
+  padding: calc(var(--status-bar-height) + 12px) 16px 12px;
 }
 
 .transparentBtn {

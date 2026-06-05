@@ -452,6 +452,9 @@
   },
   "gachaPull": {
     "summoning": "Summoning…",
+    "pull_result": "Pull Result",
+    "pull_single": "1-Pull",
+    "pull_ten": "10-Pull",
     "again_single": "Pull Again",
     "again_ten": "10-Pull Again",
     "to_inventory": "Inventory",

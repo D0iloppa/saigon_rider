@@ -218,7 +218,7 @@ export default function GachaPull() {
 
       {/* SKIP — 결과 화면 외 모든 단계에서 노출 */}
       {phase !== 'result' && (
-        <button className={s.skipBtn} onClick={handleSkip}>SKIP ›</button>
+        <button className={s.skipBtn} onClick={handleSkip}>{t('common.skip')} ›</button>
       )}
 
       {/* 차징 오브 */}
@@ -231,7 +231,7 @@ export default function GachaPull() {
             <div className={s.orbRing} />
             <div className={s.orbRing2} />
           </div>
-          <div className={s.chargeText}>{tease ? (isHigh ? '!!!' : '!') : 'SUMMONING'}</div>
+          <div className={s.chargeText}>{tease ? (isHigh ? '!!!' : '!') : t('gachaPull.summoning')}</div>
         </div>
       )}
 
@@ -245,7 +245,7 @@ export default function GachaPull() {
       {inReveal && result && (
         <>
           <div className={s.topLabel}>
-            <div className={s.pullType}>{is10 ? '10-PULL' : '1-PULL'}</div>
+            <div className={s.pullType}>{is10 ? t('gachaPull.pull_ten') : t('gachaPull.pull_single')}</div>
             <div className={s.pullMeta}>{gachaCode?.replace('_', ' ')}</div>
           </div>
 
@@ -278,7 +278,7 @@ export default function GachaPull() {
           {/* 결과 시트 — result 단계에서만 슬라이드업 */}
           {phase === 'result' && (
             <div className={s.sheet}>
-              <div className={s.sheetLabel}>PULL RESULT</div>
+              <div className={s.sheetLabel}>{t('gachaPull.pull_result')}</div>
 
               <div className={s.breakdown}>
                 {(['M', 'L', 'E', 'R', 'C'] as ItemRarity[]).map((r) =>

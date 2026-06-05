@@ -452,6 +452,9 @@
   },
   "gachaPull": {
     "summoning": "Đang triệu hồi…",
+    "pull_result": "Kết quả quay",
+    "pull_single": "Quay 1 lần",
+    "pull_ten": "Quay 10 lần",
     "again_single": "Quay lại",
     "again_ten": "Quay 10 lần",
     "to_inventory": "Kho đồ",

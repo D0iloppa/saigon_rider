@@ -452,6 +452,9 @@
   },
   "gachaPull": {
     "summoning": "소환 중…",
+    "pull_result": "뽑기 결과",
+    "pull_single": "1회 뽑기",
+    "pull_ten": "10연 뽑기",
     "again_single": "1회 다시",
     "again_ten": "10연 다시",
     "to_inventory": "인벤토리",

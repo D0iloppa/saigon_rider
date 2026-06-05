@@ -270,6 +270,13 @@ class NativeInterface {
     }
   }
 
+  // ── Clipboard (Clipboard API only) ──────────────────────────────────────
+
+  async copyToClipboard(text: string): Promise<void> {
+    // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+    await navigator.clipboard?.writeText(text);
+  }
+
   // ── Stubs (no native counterpart yet — install Capacitor plugin to enable) ─
 
   async openCamera(): Promise<string> {

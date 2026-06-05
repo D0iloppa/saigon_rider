@@ -8,6 +8,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
 import { apiDeleteAccount, apiExportMyData } from '@/api/auth';
 import { clearSession } from '@/lib/session';
+import { native } from '@/lib/native';
 import styles from './Settings.module.css';
 
 function formatAccountId(uuid: string): string {
@@ -97,8 +98,7 @@ export default function AccountSettings() {
               <button
                 className={styles.copyBtn}
                 onClick={() => {
-                  // eslint-disable-next-line no-restricted-globals -- clipboard is web-safe
-                  navigator.clipboard?.writeText(accountId);
+                  native.copyToClipboard(accountId);
                   toast(t('common.copied'));
                 }}
               >

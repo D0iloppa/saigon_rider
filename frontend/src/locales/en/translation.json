@@ -481,6 +481,7 @@
   },
   "equipPreview": {
     "title": "Equip Preview",
+    "equipped_badge": "EQUIPPED",
     "slot_empty": "Slot empty",
     "no_items": "No {{slot}} items",
     "save": "Save Loadout",

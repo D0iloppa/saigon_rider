@@ -481,6 +481,7 @@
   },
   "equipPreview": {
     "title": "Xem trước trang bị",
+    "equipped_badge": "ĐANG TRANG BỊ",
     "slot_empty": "Vị trí trống",
     "no_items": "Không có vật phẩm {{slot}}",
     "save": "Lưu trang bị",

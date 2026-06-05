@@ -134,7 +134,7 @@ export default function EquipPreview() {
                   <div className={s.itemRowName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
                   <div className={s.itemRowMeta}>
                     <span className="rarity-chip" data-r={item.rarity} style={{ fontSize: 9 }}>{item.rarity}</span>
-                    {isEquipped && <span className={s.equippedBadge}>EQUIPPED</span>}
+                    {isEquipped && <span className={s.equippedBadge}>{t('equipPreview.equipped_badge')}</span>}
                   </div>
                 </div>
               </div>

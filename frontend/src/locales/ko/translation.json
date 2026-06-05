@@ -481,6 +481,7 @@
   },
   "equipPreview": {
     "title": "장착 미리보기",
+    "equipped_badge": "장착 중",
     "slot_empty": "슬롯 비어 있음",
     "no_items": "{{slot}} 슬롯 아이템 없음",
     "save": "장착 저장",

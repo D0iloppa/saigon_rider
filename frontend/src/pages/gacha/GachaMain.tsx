@@ -121,7 +121,7 @@ export default function GachaMain() {
       <div className={styles.header}>
         <div className={styles.headerBg} />
         <button className={styles.headerBack} onClick={() => navigate(-1)}>←</button>
-        <div className={styles.headerTitle}>GACHA</div>
+        <div className={styles.headerTitle}>{t('gacha.title')}</div>
         <div className={styles.headerBalance}>
           <div className={`${styles.headerBalanceRow} ${styles.headerBalanceGp}`}>
             {t('currency.gold')} {wallet ? wallet.gold_balance.toLocaleString() : '—'}

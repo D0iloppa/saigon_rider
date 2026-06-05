@@ -17,24 +17,118 @@
 }
 
 .list {
+  /* 우측 배경 = 썸네일이 녹아드는 끝색 (그라데이션 끝색과 동일해야 seamless) */
+  --mission-bg: #E5531F;
   display: flex;
   flex-direction: row;
-  height: 96px;
+  height: 110px;
+  background: var(--mission-bg);
 }
 
 .list .illustration {
-  width: 96px;
-  height: 96px;
+  width: 130px;
+  height: 100%;
   flex-shrink: 0;
+}
+
+/* 썸네일 우측을 배경색으로 자연스럽게 mix */
+.list .illustration::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent 35%, var(--mission-bg) 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .list .overlay {
   flex: 1;
+  min-width: 0;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #1A1925 0%, #221F2F 100%);
+  justify-content: center;
+  gap: 4px;
+  background: var(--mission-bg);
+}
+
+/* list variant: 주황 배경 위 가독성 보정 */
+.list .cardLabels {
+  z-index: 2;
+}
+
+.list .badgeRow {
+  margin-bottom: 0;
+}
+
+.list .meta {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.list .rating {
+  color: #FFE08A;
+}
+
+.list .rewards {
+  margin-top: 2px;
+}
+
+.list .rewardChip {
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+}
+
+.completedBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.tagHOT {
+  background: rgba(220, 38, 38, 0.9);
+}
+
+.tagNEW {
+  background: rgba(34, 139, 230, 0.9);
+}
+
+.tagLIMITED {
+  background: rgba(0, 0, 0, 0.5);
+  color: #FFE08A;
+}
+
+.timerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* list variant 에서 completed 카드는 채도 낮춤 */
+.list.completed {
+  --mission-bg: #6B5B53;
 }
 
 .detail {
@@ -227,15 +321,6 @@
 }
 
 @media (max-width: 480px) {
-  .list {
-    height: 88px;
-  }
-
-  .list .illustration {
-    width: 88px;
-    height: 88px;
-  }
-
   .detail .title {
     font-size: 20px;
   }

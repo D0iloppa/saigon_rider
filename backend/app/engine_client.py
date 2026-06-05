@@ -128,6 +128,7 @@ class EngineClient:
         user_uuid: str,
         gacha_code: str,
         is_10_pull: bool = False,
+        skill_discount_pct: int = 0,
     ) -> dict:
         resp = await self._client.post(
             "/v1/gacha/pull",
@@ -135,6 +136,7 @@ class EngineClient:
                 "user_uuid": user_uuid,
                 "gacha_code": gacha_code,
                 "is_10_pull": is_10_pull,
+                "skill_discount_pct": skill_discount_pct,
             },
         )
         resp.raise_for_status()
@@ -204,6 +206,7 @@ class EngineClient:
         user_uuid: str,
         item_code: str,
         currency: str,
+        skill_discount_pct: int = 0,
     ) -> dict:
         resp = await self._client.post(
             "/v1/shop/purchase",
@@ -211,6 +214,7 @@ class EngineClient:
                 "user_uuid": user_uuid,
                 "item_code": item_code,
                 "currency": currency,
+                "skill_discount_pct": skill_discount_pct,
             },
         )
         resp.raise_for_status()

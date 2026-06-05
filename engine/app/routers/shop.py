@@ -54,6 +54,7 @@ async def purchase_item(
             user_uuid=data.user_uuid,
             item_code=data.item_code,
             currency=data.currency,
+            skill_discount_pct=data.skill_discount_pct,
         )
     except Exception as e:
         msg = str(e)

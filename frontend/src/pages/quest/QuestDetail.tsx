@@ -96,7 +96,7 @@ export default function QuestDetail() {
     try {
       await apiStartRide(acceptedUserQuestId);
       startRide(quest, acceptedUserQuestId);
-      navigate('/ride/active');
+      navigate('/ride-nav?type=quest');
     } catch (err: any) {
       toast.error(err?.message ?? t('quest.startRideFailed', { defaultValue: '수행 시작 실패' }));
     } finally {
@@ -146,6 +146,7 @@ export default function QuestDetail() {
         <QuestCard
           missionCode={quest.missionCode}
           rarity={quest.rarity}
+          customImageUrl={quest.mainImageUrl}
           title={quest.title}
           level={quest.minLevel}
           badges={isCompleted ? [`✓ ${t('quest.completedBadge')}`] : []}

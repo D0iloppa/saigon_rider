@@ -78,6 +78,11 @@ def resolve_feed_image_url(post) -> str | None:
 # 퀘스트 카드 이미지(static system asset). 시드: 047_quest_card_contents_seed.sql
 QUEST_CARD_IMGPROXY_OPTIONS = "rs:fill:640:400:1"
 
+# 퀘스트 이미지 3종 슬롯의 출력 crop. 메인이 원본, 썸네일/배너는 메인에서 crop 파생.
+QUEST_MAIN_IMGPROXY_OPTIONS = "rs:fill:640:400:1"  # 상세 히어로 (8:5)
+QUEST_THUMB_IMGPROXY_OPTIONS = "rs:fill:480:300:1"  # 리스트 카드 (8:5, 경량)
+QUEST_BANNER_IMGPROXY_OPTIONS = "rs:fill:1200:400:1/g:ce"  # 홈/이벤트 배너 (3:1, 중앙 crop)
+
 
 def exp_required_for_level(level: int) -> int:
     """레벨업에 필요한 EXP. frontend/src/lib/rewards.ts와 동일한 곡선."""
@@ -113,6 +118,47 @@ async def gain_exp(db, user, amount: int) -> int:
             user.gold += policy.gold * gained
             user.skill_pt += policy.skill_pt * gained
     return gained
+
+
+# 보상 가산% 안전캡 — 풀장비+스킬만렙이 닿는 설계 상한. cap은 안전장치, 실제 밸런스는 시드값으로 맞춤.
+REWARD_PCT_CAP = 50
+
+
+async def resolve_reward_pct(db, user) -> tuple[int, int]:
+    """RP(EXP+RP)·Gold 가산 % = 착용아이템(RP_MULT/GOLD_MULT) + 스킬(거리라이더/골드헌터 5%/lv).
+    각 +{REWARD_PCT_CAP}% 안전캡. user None 또는 엔진 장애 시 아이템분 0(스킬분은 항상)."""
+    if user is None:
+        return 0, 0
+    import httpx
+
+    from .engine_client import engine_client
+
+    try:
+        eff = await engine_client.get_equip_effects(str(user.id))
+    except httpx.HTTPError:
+        eff = {}
+    rp_pct = min(eff.get("rp_mult_pct", 0) + user.skill_distance_rider * 5, REWARD_PCT_CAP)
+    gold_pct = min(eff.get("gold_mult_pct", 0) + user.skill_gold_hunter * 5, REWARD_PCT_CAP)
+    return rp_pct, gold_pct
+
+
+def skill_cost_discount_pct(user) -> int:
+    """cost_discount 스킬 할인 % (레벨당 -2%). 가차/상점이 엔진에 전달하는 단일 환산."""
+    return (user.skill_cost_discount * 2) if user else 0
+
+
+async def apply_quest_reward_multiplier(db, user, base_exp: int, base_gold: int) -> tuple[int, int]:
+    """퀘스트 EXP/Gold 보상에 아이템+스킬 배수를 적용 (RP_MULT→EXP, GOLD_MULT→Gold).
+    모든 보상 지급 경로(ride/submit, internal/quest-card-completed, quests[DBG])의 단일 소스 —
+    개러지 효과 표시와 실지급을 일치시킨다.
+    """
+    if user is None:
+        return base_exp, base_gold
+    rp_pct, gold_pct = await resolve_reward_pct(db, user)
+    return (
+        int(base_exp * (1 + rp_pct / 100)),
+        int(base_gold * (1 + gold_pct / 100)),
+    )
 
 
 async def find_district_by_point(db, lat: float, lng: float) -> str | None:

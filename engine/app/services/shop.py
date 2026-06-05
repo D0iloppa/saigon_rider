@@ -94,12 +94,14 @@ async def purchase(
     user_uuid: str,
     item_code: str,
     currency: str,
+    skill_discount_pct: int = 0,
 ) -> ShopPurchaseResult:
     user = await get_or_create_user(db, user_uuid)
 
     row = await db.execute(
-        text("SELECT purchase_shop_item(:uid, :item, :cur)"),
-        {"uid": user.user_id, "item": item_code, "cur": currency},
+        text("SELECT purchase_shop_item(:uid, :item, :cur, :disc)"),
+        {"uid": user.user_id, "item": item_code, "cur": currency,
+         "disc": skill_discount_pct},
     )
     raw = row.scalar_one()
     await db.commit()

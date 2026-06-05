@@ -42,6 +42,9 @@ function transformQuest(raw: any): Quest {
       ? raw.thumbnail_urls
       : [raw.thumbnail_url ?? raw.hero_image_url ?? ''].filter(Boolean),
     thumbnailUrl: (raw.thumbnail_urls?.[0] ?? raw.thumbnail_url ?? raw.hero_image_url ?? ''),
+    thumbnailImageUrl: raw.thumbnail_image_url ?? null,
+    mainImageUrl: raw.main_image_url ?? null,
+    bannerImageUrl: raw.banner_image_url ?? null,
     expiresAt: raw.ends_at ?? undefined,
     missionCode: raw.mission_code ?? null,
     rarity: (raw.rarity ?? 'C') as Quest['rarity'],
@@ -172,6 +175,21 @@ export async function fetchActiveCard(userQuestId: string): Promise<ActiveCardSt
     return await api.realFetch<ActiveCardState>(`/quests/active-card?user_quest_id=${userQuestId}`);
   } catch {
     return null;
+  }
+}
+
+export interface TrailPoint { lat: number; lng: number; }
+
+/** 라이드 이동경로 — 엔진 redis 스트림의 해당 device gps 핑을 좌표열(오래된→최신)로. 시각화 전용. */
+export async function fetchRideTrail(deviceUuid: string, sinceTs?: number): Promise<TrailPoint[]> {
+  if (USE_MOCK || !deviceUuid) return [];
+  const params = new URLSearchParams({ device_uuid: deviceUuid });
+  if (sinceTs) params.set('since_ts', String(sinceTs));
+  try {
+    const raw = await api.realFetch<{ points: TrailPoint[] }>(`/quests/ride-trail?${params}`);
+    return raw.points ?? [];
+  } catch {
+    return [];
   }
 }
 

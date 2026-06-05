@@ -475,3 +475,38 @@ export const repairApi = {
     });
   },
 };
+
+// ── 경로 미리보기 (SGR-269) ────────────────────────────────────────
+
+export interface RouteStep {
+  instruction: string;
+  distance_text: string;
+  maneuver?: string | null;
+}
+
+export interface RouteData {
+  /** GOOGLE_MAPS_API_KEY 미설정/호출 실패 시 false → 프론트는 "준비 중" 폴백. */
+  configured: boolean;
+  distance_m?: number | null;
+  duration_s?: number | null;
+  distance_text?: string | null;
+  duration_text?: string | null;
+  polyline?: string | null;
+  steps: RouteStep[];
+}
+
+export const routeApi = {
+  /** 현재 위치(origin)→목적지(dest) 경로. 키 없으면 configured:false. */
+  async getRoute(
+    origin: { lat: number; lng: number },
+    dest: { lat: number; lng: number },
+  ): Promise<RouteData | null> {
+    const params = new URLSearchParams({
+      origin_lat: String(origin.lat),
+      origin_lng: String(origin.lng),
+      dest_lat: String(dest.lat),
+      dest_lng: String(dest.lng),
+    });
+    return api.realFetch<RouteData>(`/info/route?${params}`, {}, 'bff', { silent: true });
+  },
+};

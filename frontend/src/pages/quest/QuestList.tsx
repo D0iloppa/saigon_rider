@@ -7,25 +7,15 @@ import { useUserStore } from '@/store/useUserStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { District, RiderType, SafetyGrade } from '@/api/master';
-import { formatDistance, formatTimeLeft, formatNumber } from '@/lib/format';
+import { formatDistance } from '@/lib/format';
 import type { Quest, QuestType } from '@/api/types';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { Chip } from '@/components/ui/Chip';
-import { getQuestCard } from '@/components/quest/quest-card-map';
-import { useQuestCardImages } from '@/components/quest/use-quest-card-images';
-import { AppImage } from '@/components/ui/AppImage';
+import QuestCardBase from '@/components/quest/QuestCard';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './QuestList.module.css';
-
-function getTimerStyle(iso?: string): { bg: string; color: string } {
-  if (!iso) return { bg: 'var(--surface-2)', color: 'var(--text-3)' };
-  const diffMin = (new Date(iso).getTime() - Date.now()) / 60000;
-  if (diffMin < 180) return { bg: 'rgba(239,59,59,.1)', color: 'var(--danger)' };
-  if (diffMin < 480) return { bg: 'rgba(245,158,11,.1)', color: 'var(--warn)' };
-  return { bg: 'rgba(139,92,246,.1)', color: 'var(--xp)' };
-}
 
 function GifIcon({ code, size = 18 }: { code: string; size?: number }) {
   return (
@@ -291,82 +281,21 @@ export default function QuestList() {
 
 function QuestCard({ quest, onClick, completed = false }: { quest: Quest; onClick: () => void; completed?: boolean }) {
   const { t } = useTranslation();
-  const timeLeft = formatTimeLeft(quest.expiresAt);
-  const timerStyle = getTimerStyle(quest.expiresAt);
-  const tag = quest.tags[0];
-  const cardImages = useQuestCardImages();
-  const card = getQuestCard(quest.missionCode, quest.rarity);
-  const imageUrl = cardImages[card.cardCode];
-
   return (
-    <button className={`${styles.card} ${completed ? styles.cardCompleted : ''}`} onClick={onClick}>
-      {/* Top shine */}
-      <div className={styles.cardShine} />
-
-      {/* Completed badge */}
-      {completed && (
-        <span className={styles.completedBadge}>✓ DONE</span>
-      )}
-
-      {/* Tag chip */}
-      {!completed && tag && (
-        <span className={`${styles.tag} ${
-          tag === 'HOT' ? styles.tagHot :
-          tag === 'NEW' ? styles.tagNew :
-          styles.tagLimited
-        }`}>
-          {tag}
-        </span>
-      )}
-
-      {/* Thumbnail — contents 시드 이미지 (있으면) / 없으면 SVG sprite 폴백 */}
-      <div className={styles.thumb}>
-        {imageUrl ? (
-          <AppImage src={imageUrl} alt="" className={styles.thumbImg} />
-        ) : (
-          <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true">
-            <use href={card.href} />
-          </svg>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className={styles.cardBody}>
-        <div className={styles.metaRow}>
-          <Chip variant="surface">Lv.{quest.minLevel} · {quest.districtName || t('quest.everywhere')}</Chip>
-        </div>
-        <h3 className={styles.cardTitle}>{quest.title}</h3>
-        <div className={styles.cardMeta}>
-          {formatDistance(quest.minDistanceM)} · {'★'.repeat(quest.difficulty)}{'☆'.repeat(5 - quest.difficulty)}
-        </div>
-        <div className={styles.cardFooter}>
-          <span className={styles.rewardItem}>
-            <img
-              src={emojiUrl('1f48e')}
-              width={16} height={16} alt=""
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-            <span className={styles.rewardNum} style={{ color: 'var(--xp)' }}>+{formatNumber(quest.rewardXpPoints, { compact: true })}</span>
-          </span>
-          {quest.rewardGold > 0 && (
-            <span className={styles.rewardItem}>
-              <img
-                src={emojiUrl('1fa99')}
-                width={16} height={16} alt=""
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
-              <span className={styles.rewardNum} style={{ color: 'var(--gold)' }}>+{formatNumber(quest.rewardGold, { compact: true })}</span>
-            </span>
-          )}
-          {timeLeft && (
-            <Chip
-              style={{ background: timerStyle.bg, color: timerStyle.color, border: 'none' }}
-            >
-              ⏱ {timeLeft}
-            </Chip>
-          )}
-        </div>
-      </div>
-    </button>
+    <QuestCardBase
+      variant="list"
+      missionCode={quest.missionCode}
+      rarity={quest.rarity}
+      customImageUrl={quest.thumbnailImageUrl}
+      title={quest.title}
+      level={quest.minLevel}
+      rating={quest.difficulty}
+      distance={[quest.districtName || t('quest.everywhere'), formatDistance(quest.minDistanceM)].filter(Boolean).join(' · ')}
+      tags={quest.tags}
+      rewards={{ xp: quest.rewardXpPoints, gp: quest.rewardGold }}
+      expiresAt={quest.expiresAt}
+      completed={completed}
+      onClick={onClick}
+    />
   );
 }

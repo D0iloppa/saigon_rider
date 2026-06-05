@@ -3,6 +3,17 @@
     "title": "Chỉ đường",
     "destination": "Điểm đến",
     "previewLabel": "Xem trước lộ trình",
+    "loading": "Đang tính lộ trình…",
+    "eta": "Dự kiến {{duration}}",
+    "etaArrive": "Dự kiến đến · {{duration}}",
+    "routeLabel": "Lộ trình",
+    "startGuidance": "Bắt đầu chỉ đường",
+    "questInProgress": "Đang làm nhiệm vụ",
+    "questCheckpoint": "Đến điểm mốc",
+    "questDistance": "Mục tiêu {{target}}km",
+    "questArrived": "Đã đến điểm mốc! Đang xác minh…",
+    "questServerNote": "Hoàn thành được xác minh trên máy chủ.",
+    "summaryLive": "Lộ trình dự kiến đến điểm đến",
     "etaPending": "Dự kiến đến —",
     "summaryPending": "Chỉ đường trực tiếp sắp ra mắt",
     "stepStart": "Xuất phát · Vị trí của tôi",
@@ -478,7 +489,10 @@
     "sort_name": "Tên",
     "gear_suffix": "Trang bị",
     "select_slot": "Chọn vị trí để trang bị",
-    "all_items": "Tất cả vật phẩm"
+    "all_items": "Tất cả vật phẩm",
+    "equip_all": "Trang bị tất cả",
+    "equip_all_done": "Đã trang bị {{count}} vật phẩm",
+    "equip_all_none": "Đã trang bị trang bị tốt nhất"
   },
   "seasonPass": {
     "ends_in": "còn lại",
@@ -555,7 +569,8 @@
     "max": "MAX",
     "distance_rider": { "name": "Tay đua đường dài", "effect": "EXP +{{value}}%" },
     "gold_hunter": { "name": "Thợ săn vàng", "effect": "Vàng +{{value}}%" },
-    "safe_rider": { "name": "Tay đua an toàn", "effect": "Hạng A: XP +{{value}}" }
+    "quest_slot": { "name": "Bậc thầy nhiệm vụ", "effect": "Ô nhiệm vụ +{{value}}" },
+    "cost_discount": { "name": "Người tiết kiệm", "effect": "Gacha/Cửa hàng -{{value}}%" }
   },
   "currency": {
     "gold": "Vàng",
@@ -968,6 +983,7 @@
     "gold": "Nhận Vàng",
     "quest_slot": "Khe nhiệm vụ",
     "cost_discount": "Giảm chi phí",
-    "sheet_title": "Chi tiết hiệu ứng"
+    "sheet_title": "Chi tiết hiệu ứng",
+    "skill_tag": "Kỹ năng"
   }
 }

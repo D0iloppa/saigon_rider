@@ -29,6 +29,10 @@ export interface GeoPosition {
   lat: number;
   lng: number;
   accuracy?: number;
+  /** m/s (기기 제공 시). 속도계용. */
+  speed?: number | null;
+  /** 진행 방위(도, 0=북). 마커 회전용. */
+  heading?: number | null;
 }
 
 /** 위치 권한 UI 상태 (커스텀 Gps 플러그인 권한 API 결과) */
@@ -102,6 +106,8 @@ class NativeInterface {
       lat: pos.coords.latitude,
       lng: pos.coords.longitude,
       accuracy: pos.coords.accuracy,
+      speed: pos.coords.speed,
+      heading: pos.coords.heading,
     };
   }
 
@@ -114,6 +120,8 @@ class NativeInterface {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
+          speed: pos.coords.speed,
+          heading: pos.coords.heading,
         });
       }
       if (err) console.warn('[NativeInterface] watchLocation error:', err);

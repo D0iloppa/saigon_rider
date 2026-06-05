@@ -92,14 +92,16 @@ async def pull(
     user_uuid: str,
     gacha_code: str,
     is_10_pull: bool = False,
+    skill_discount_pct: int = 0,
 ) -> GachaPullResult:
     user = await get_or_create_user(db, user_uuid)
     await get_or_create_balance(db, user.user_id)
     await db.flush()
 
     row = await db.execute(
-        text("SELECT pull_gacha(:uid, :code, :ten)"),
-        {"uid": user.user_id, "code": gacha_code, "ten": is_10_pull},
+        text("SELECT pull_gacha(:uid, :code, :ten, :disc)"),
+        {"uid": user.user_id, "code": gacha_code, "ten": is_10_pull,
+         "disc": skill_discount_pct},
     )
     raw = row.scalar_one()
     await db.commit()

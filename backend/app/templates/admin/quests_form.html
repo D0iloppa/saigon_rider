@@ -109,14 +109,8 @@
   </div>
 
   <div class="card" style="margin-bottom:24px;">
-    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">썸네일</p>
-    <div style="display:flex;gap:20px;align-items:flex-start;">
-      <img src="{{current_thumb}}" alt="" style="width:120px;height:80px;object-fit:cover;border-radius:8px;background:rgba(255,255,255,.05);" />
-      <div style="flex:1;">
-        <input type="file" name="thumbnail" accept="image/*" style="font-size:12px;color:rgba(255,255,255,.6);" />
-        <p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:6px;">JPG/PNG/WEBP. 미선택 시 기존 이미지 유지.</p>
-      </div>
-    </div>
+    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">이미지 (contents/system)</p>
+    {{image_slots}}
   </div>
 
   <div style="display:flex;gap:10px;justify-content:flex-end;">

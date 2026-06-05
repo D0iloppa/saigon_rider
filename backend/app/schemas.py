@@ -124,7 +124,8 @@ class UserOut(BaseModel):
             "skills": {
                 "distance_rider": data.skill_distance_rider,
                 "gold_hunter": data.skill_gold_hunter,
-                "safe_rider": data.skill_safe_rider,
+                "quest_slot": data.skill_quest_slot,
+                "cost_discount": data.skill_cost_discount,
             },
             "avatar_url": resolve_avatar_url(data),
             "created_at": data.created_at,
@@ -201,6 +202,10 @@ class QuestOut(BaseModel):
     hero_image_url: str | None
     thumbnail_url: str | None = None
     thumbnail_urls: list[str] = []
+    # 퀘스트 이미지 3종 (개별 연결 시에만 세팅, 미설정이면 None → 프론트가 공유 카드아트 폴백)
+    thumbnail_image_url: str | None = None  # 리스트 카드
+    main_image_url: str | None = None  # 상세 히어로
+    banner_image_url: str | None = None  # 홈/이벤트 배너
     district: DistrictOut | None = None
     rider_type: RiderTypeOut | None = None
     period: str

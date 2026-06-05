@@ -402,6 +402,7 @@ class GachaPullRequest(BaseModel):
     user_uuid: str
     gacha_code: str = Field(max_length=40)
     is_10_pull: bool = False
+    skill_discount_pct: int = 0  # BFF가 전달하는 cost_discount 스킬 할인%
 
 
 class GachaPullResultItem(BaseModel):
@@ -508,6 +509,7 @@ class ShopPurchaseRequest(BaseModel):
     user_uuid: str
     item_code: str = Field(max_length=60)
     currency: str = Field(pattern=r"^(GP|GC)$")
+    skill_discount_pct: int = 0  # BFF가 전달하는 cost_discount 스킬 할인%
 
 
 class ShopPurchaseResult(BaseModel):

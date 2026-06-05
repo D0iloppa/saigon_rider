@@ -5,6 +5,7 @@
 ## 🛠 운용 규칙 (Operating Rules)
 
 - [AI Agent Guideline](agent-guidelines.md) — 진입 순서, 기본 작업 워크플로우, SoT 매핑, 보안, __DEV Context, 린터, 컨텐츠 관리 — **Session Start 직후 반드시 로드**
+- [서브에이전트 QM 루프 핸드오프](subagent-handoff.md) — 화면별 품질 점검 2-에이전트 루프(implementer→reviewer) 구성물·실행 절차. **새 세션에서만 가동**(커스텀 에이전트는 세션 시작 시 등록)
 
 ## 🏗 아키텍처 / 설계
 

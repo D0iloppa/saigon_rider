@@ -383,6 +383,24 @@
   font-weight: 700;
   color: var(--text-3, #8A8E9E);
 }
+/* 스킬 기여 row — 아이템과 구분(브랜드 틴트) */
+.effectSheetSkill {
+  color: var(--brand-600, #E04E1A);
+}
+.effectSkillName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.skillTag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: var(--brand-600, #E04E1A);
+  background: var(--brand-50, #FFF1E8);
+}
 
 /* per-item effect badge (그리드 카드) */
 .effectBadge {
@@ -420,6 +438,25 @@
   font-weight: 700;
   color: var(--text, #0B0D14);
   flex: 1;
+}
+.headerEquipAll {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', monospace;
+  padding: 5px 10px;
+  border-radius: 7px;
+  color: #fff;
+  background: var(--brand-500, #FF5A1F);
+  border: 1px solid var(--brand-500, #FF5A1F);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.headerEquipAll:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .sortPills {
   display: flex;

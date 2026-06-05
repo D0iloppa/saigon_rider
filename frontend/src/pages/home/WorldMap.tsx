@@ -17,6 +17,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { emojiUrl } from '@/lib/emoji';
 import { expToNextLevel } from '@/lib/rewards';
+import QuestCard from '@/components/quest/QuestCard';
 import InfoMap from '@/components/maps/InfoMap';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import type { District as MapDistrict } from '@/components/maps/district-data';
@@ -338,33 +339,21 @@ export default function WorldMap() {
           ) : recommendedList.length > 0 ? (
             <div className={styles.missionCarousel}>
               {recommendedList.map((q) => (
-                <button key={q.id} className={styles.missionCard} onClick={() => navigate(`/quests/${q.id}`)}>
-                  <div className={styles.missionTopRow}>
-                    <div className={styles.missionTag}>
-                      {q.questType.toUpperCase()} QUEST
-                    </div>
-                    <div className={styles.missionRewards}>
-                      {q.rewardGold > 0 && (
-                        <span className={styles.rewardChip}>
-                          <img src={emojiUrl('1fa99')} width={12} height={12} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 2 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                          +{formatNumber(q.rewardGold)}
-                        </span>
-                      )}
-                      {q.rewardXpPoints > 0 && (
-                        <span className={styles.rewardChip}>
-                          <img src={emojiUrl('1f48e')} width={12} height={12} alt="" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 2 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                          +{formatNumber(q.rewardXpPoints)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className={styles.missionTitle}>{q.title}</div>
-                  <div className={styles.missionDesc}>
-                    {q.districtName}
-                    {q.minDistanceM > 0 ? ` · ${(q.minDistanceM / 1000).toFixed(1)}km` : ''}
-                    {q.timeRestriction ? ` · ${q.timeRestriction.from}–${q.timeRestriction.to}` : ''}
-                  </div>
-                </button>
+                <QuestCard
+                  key={q.id}
+                  variant="list"
+                  missionCode={q.missionCode}
+                  rarity={q.rarity}
+                  customImageUrl={q.thumbnailImageUrl}
+                  title={q.title}
+                  level={q.minLevel}
+                  rating={q.difficulty}
+                  distance={[q.districtName, q.minDistanceM > 0 ? `${(q.minDistanceM / 1000).toFixed(1)}km` : null].filter(Boolean).join(' · ')}
+                  tags={q.tags}
+                  rewards={{ xp: q.rewardXpPoints, gp: q.rewardGold }}
+                  expiresAt={q.expiresAt}
+                  onClick={() => navigate(`/quests/${q.id}`)}
+                />
               ))}
             </div>
           ) : (

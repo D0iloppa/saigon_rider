@@ -15,8 +15,8 @@ interface Props {
 const HIDE_TABBAR_PATHS = [
   '/splash',
   '/auth/',
-  '/ride/active',
   '/ride/result/',
+  '/ride-nav',
   '/link',
 ];
 

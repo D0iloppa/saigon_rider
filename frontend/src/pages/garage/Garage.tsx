@@ -155,6 +155,7 @@ export default function Garage() {
   const [currentSort, setCurrentSort] = useState<SortMode>('rarity');
   const [animKey, setAnimKey] = useState(0);
   const [effectSheetOpen, setEffectSheetOpen] = useState(false);
+  const [equippingAll, setEquippingAll] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -196,8 +197,8 @@ export default function Garage() {
     return sortItems(base, currentSort);
   }, [items, activeSlot, tabSlotKeys, currentSort]);
 
-  // 착용 중 전체 아이템(탭 무관)의 효과 합산 — 빌드 총 효과 HUD
-  const effectTotals = useMemo(() => aggregateEquippedEffects(items), [items]);
+  // 착용 중 전체 아이템 + 스킬 효과 합산 — 빌드 총 효과 HUD
+  const effectTotals = useMemo(() => aggregateEquippedEffects(items, user?.skills), [items, user?.skills]);
 
   const PLACEHOLDER_COUNT = 10;
   const emptyCardCount = activeSlot
@@ -258,6 +259,50 @@ export default function Garage() {
     }
   }
 
+  // 현재 탭 각 슬롯에서 보유 아이템 중 가장 좋은 것 선택
+  // (레어도 최고 → 효과값 큰 것 → 최근 획득순)
+  function bestForSlot(slotKey: string): InventoryItem | undefined {
+    return items
+      .filter((it) => it.item_slot === slotKey)
+      .reduce<InventoryItem | undefined>((best, it) => {
+        if (!best) return it;
+        const dr = (RARITY_ORDER[it.rarity] ?? 9) - (RARITY_ORDER[best.rarity] ?? 9);
+        if (dr !== 0) return dr < 0 ? it : best;
+        const de = (it.effect_value ?? 0) - (best.effect_value ?? 0);
+        if (de !== 0) return de > 0 ? it : best;
+        return it.acquired_at > best.acquired_at ? it : best;
+      }, undefined);
+  }
+
+  async function handleEquipAll() {
+    if (!user?.id || equippingAll) return;
+    // 전 탭(라이더/바이크/이펙트) 보유 슬롯 전체 대상
+    const targets: InventoryItem[] = [];
+    for (const slotKey of new Set(items.map((it) => it.item_slot))) {
+      const best = bestForSlot(slotKey);
+      if (best && !best.is_equipped) targets.push(best);
+    }
+    if (targets.length === 0) {
+      toast(t('equipPreview.equip_all_none'));
+      return;
+    }
+    setEquippingAll(true);
+    try {
+      const results = await Promise.allSettled(
+        targets.map((it) => equipItem(user.id, it.item_code)),
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      await load();
+      if (ok < targets.length) {
+        toast.error(t('common.errorUnexpected'));
+      } else {
+        toast.success(t('equipPreview.equip_all_done', { count: ok }));
+      }
+    } finally {
+      setEquippingAll(false);
+    }
+  }
+
   function renderSlotCard(slot: SlotDef) {
     const equipped = equippedMap[slot.key];
     const isActive = activeSlot === slot.key;
@@ -302,6 +347,13 @@ export default function Garage() {
       <div className={s.header}>
         <button className={s.headerBack} onClick={() => navigate(-1)}>←</button>
         <span className={s.headerTitle}>{t('gameHub.garage')}</span>
+        <button
+          className={s.headerEquipAll}
+          onClick={handleEquipAll}
+          disabled={equippingAll || loading}
+        >
+          {t('equipPreview.equip_all')}
+        </button>
       </div>
 
       {/* Category Tabs */}
@@ -450,8 +502,15 @@ export default function Garage() {
               </div>
               <div className={s.effectSheetItems}>
                 {e.items.map((c) => (
-                  <div key={c.item_code} className={s.effectSheetItem}>
-                    <ItemName code={c.item_code} fallback={c.item_name} />
+                  <div key={c.item_code} className={`${s.effectSheetItem} ${c.is_skill ? s.effectSheetSkill : ''}`}>
+                    {c.is_skill ? (
+                      <span className={s.effectSkillName}>
+                        {t(c.skill_i18n!)}
+                        <span className={s.skillTag}>{t('effects.skill_tag')}</span>
+                      </span>
+                    ) : (
+                      <ItemName code={c.item_code} fallback={c.item_name} />
+                    )}
                     <span className={s.effectSheetItemVal}>{formatEffectValue(e.type, c.value)}</span>
                   </div>
                 ))}

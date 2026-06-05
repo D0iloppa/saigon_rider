@@ -75,6 +75,7 @@ async def pull_gacha(
             user_uuid=data.user_uuid,
             gacha_code=data.gacha_code,
             is_10_pull=data.is_10_pull,
+            skill_discount_pct=data.skill_discount_pct,
         )
     except Exception as e:
         msg = str(e)

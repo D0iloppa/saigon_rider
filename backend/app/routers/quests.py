@@ -1,6 +1,9 @@
+import json
 import logging
+import os
 import uuid
 from datetime import UTC, datetime, time, timedelta
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -24,11 +27,33 @@ from ..schemas import (
     QuestParticipantOut,
     QuestPinOut,
 )
-from ..utils import APP_TZ, MOCK_IMG_ENDPOINT, build_imgproxy_url, gain_exp, resolve_avatar_url
+from ..utils import (
+    APP_TZ,
+    MOCK_IMG_ENDPOINT,
+    QUEST_BANNER_IMGPROXY_OPTIONS,
+    QUEST_MAIN_IMGPROXY_OPTIONS,
+    QUEST_THUMB_IMGPROXY_OPTIONS,
+    apply_quest_reward_multiplier,
+    build_imgproxy_url,
+    gain_exp,
+    resolve_avatar_url,
+)
 
 log = logging.getLogger(__name__)
 
 _pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+_CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
+
+
+def _quest_img_url(file_path: str, options: str) -> str:
+    """imgproxy URL + 파일 mtime 캐시버스터. 동일 경로 파일이 교체돼도 클라가 새로 받게 한다
+    (imgproxy 응답 Cache-Control max-age=1y 대응)."""
+    url = build_imgproxy_url(file_path, options=options)
+    try:
+        return f"{url}?v={int((_CONTENTS_BASE_PATH / file_path).stat().st_mtime)}"
+    except OSError:
+        return url
 
 
 async def _verify_passcode(
@@ -89,14 +114,18 @@ def _level_slot_bonus(user: User | None) -> int:
 
 
 async def _item_slot_bonus(db: AsyncSession, user: User | None) -> int:
-    """착용 아이템 QUEST_SLOT 효과의 추가 수령 슬롯. 엔진 장애 시 0(graceful)."""
+    """추가 수령 슬롯 = 착용 아이템 QUEST_SLOT + 스킬(quest_slot Lv3에서 +1).
+    엔진 장애 시 아이템분만 0(graceful)."""
     if user is None:
         return 0
+    skill_bonus = 1 if user.skill_quest_slot >= 3 else 0
     try:
         eff = await engine_client.get_equip_effects(str(user.id))
     except httpx.HTTPError:
-        return 0
-    return int(eff.get("quest_slot_bonus", 0))
+        return skill_bonus
+    # 아이템 슬롯 보너스는 +1 상한(cap +2 = 아이템 1 + 스킬 1). 복리(슬롯↑→RP↑) 억제.
+    item_bonus = min(int(eff.get("quest_slot_bonus", 0)), 1)
+    return item_bonus + skill_bonus
 
 
 async def _daily_claimable_max(db: AsyncSession, user: User | None) -> int:
@@ -124,6 +153,14 @@ async def _daily_slot_used(db: AsyncSession, user_id: uuid.UUID, period_key: str
 
 def _to_out(quest: Quest) -> QuestOut:
     out = QuestOut.model_validate(quest)
+    # 퀘스트 이미지 3종 — 각 슬롯은 자기 컨텐츠 파일에 매핑된다(썸네일·배너는 메인에서 생성된 파생 파일).
+    # 슬롯별 교체(관리자 업로드)는 해당 슬롯 컨텐츠만 바꾼다. 옵션은 비표준 업로드를 정규화하는 안전장치.
+    if quest.main_content and quest.main_content.file_path:
+        out.main_image_url = _quest_img_url(quest.main_content.file_path, QUEST_MAIN_IMGPROXY_OPTIONS)
+    if quest.thumbnail_content and quest.thumbnail_content.file_path:
+        out.thumbnail_image_url = _quest_img_url(quest.thumbnail_content.file_path, QUEST_THUMB_IMGPROXY_OPTIONS)
+    if quest.banner_content and quest.banner_content.file_path:
+        out.banner_image_url = _quest_img_url(quest.banner_content.file_path, QUEST_BANNER_IMGPROXY_OPTIONS)
     chain: list[str] = []
     if quest.thumbnail_content and quest.thumbnail_content.file_path:
         chain.append(build_imgproxy_url(quest.thumbnail_content.file_path))
@@ -238,6 +275,38 @@ async def get_active_quest_card(user_quest_id: uuid.UUID):
     except Exception as exc:
         log.warning("active-card lookup failed: %s", exc)
         raise HTTPException(status_code=404, detail="Card not found") from exc
+
+
+@router.get("/ride-trail", summary="라이드 화면 폴링 — GPS 이동경로(스트림 시각화)")
+async def get_ride_trail(
+    device_uuid: str = Query(...),
+    since_ts: float | None = Query(None, description="라이드 시작 epoch(초). 이전 핑 제외"),
+    count: int = Query(500, ge=1, le=500),
+):
+    """현재 라이드의 GPS 이동경로 — engine redis 스트림에서 해당 device 의 gps 핑을 좌표열로 반환.
+    오래된→최신 순. 시각화 전용(거리/완료 판정은 quest_tracker 가 담당)."""
+    try:
+        messages = await engine_client.admin_stream_messages(
+            count=count,
+            type_filter="gps",
+            uuid_filter=device_uuid,
+            start_ts=since_ts,
+        )
+    except Exception as exc:
+        log.warning("ride-trail lookup failed: %s", exc)
+        return {"points": []}
+
+    points: list[dict] = []
+    for msg in reversed(messages):  # 스트림은 최신→오래된 → 경로는 오래된→최신
+        try:
+            obj = json.loads(msg.get("message", "{}"))
+            lat, lng = float(obj.get("y", 0)), float(obj.get("x", 0))
+        except (ValueError, TypeError):
+            continue
+        if lat == 0 and lng == 0:
+            continue
+        points.append({"lat": lat, "lng": lng})
+    return {"points": points}
 
 
 @router.get("/district-counts", summary="구역별 활성 퀘스트 수")
@@ -443,13 +512,8 @@ async def complete_quest(
     if not already_completed:
         user = await db.get(User, body.user_id)
         if user:
-            # 착용효과 RP/Gold 배수 적용(가산 %). 엔진 장애 시 배수 없이 기본 보상.
-            try:
-                eff = await engine_client.get_equip_effects(str(body.user_id))
-            except httpx.HTTPError:
-                eff = {}
-            reward_exp = int(quest.reward_exp * (1 + eff.get("rp_mult_pct", 0) / 100))
-            reward_gold = int(quest.reward_gold * (1 + eff.get("gold_mult_pct", 0) / 100))
+            # 실지급 = base * (1 + 아이템% + 스킬%). 공용 헬퍼로 ride/internal 과 동일 적용.
+            reward_exp, reward_gold = await apply_quest_reward_multiplier(db, user, quest.reward_exp, quest.reward_gold)
             user.gold += reward_gold
             await gain_exp(db, user, reward_exp)
 

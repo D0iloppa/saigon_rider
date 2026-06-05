@@ -15,6 +15,7 @@
 | Capacitor 네이티브 빌드 검증 | Mac 측 대기 | `native/CAPACITOR_MIGRATION.md` §3 회귀 체크리스트 |
 | SaigonDistrictMap 집계 배지 | 시각검증 대기 | 브라우저에서 줌/배지 탭 확인 |
 | OpenWeather API 키 | `.env`에 설정 완료, 활성화 대기 | mock fallback 동작 중 |
+| Google Maps Directions 키 (SGR-269) | 코드 완료·휴면, 키 발급 대기 | `GOOGLE_MAPS_API_KEY` 발급→`.env` 입력→`restart bff`. 가이드: [`google-maps-api-key-setup.md`](../google-maps-api-key-setup.md). 미설정 시 "준비 중" 폴백 |
 
 ## 미해결 결함 ([issues.md](../TEST/issues.md))
 
@@ -80,10 +81,17 @@
 
 ## 활성 — 검증 대기 (🔧)
 
-- **SGR-229 퀘스트 검증 인터페이스 추상화 (전략패턴 + 신호 기반)** — 코드 DONE(P1~P4), **P5 BLOCKED**. 서브 P1~P5(SGR-230~234).
-  - 완료: `quest_tracker`를 Signal(GpsSignal/EventSignal) 기반 `QuestValidator` 전략 + `ValidatorRegistry` 디스패치로 리팩토링. DISTANCE/CHECKPOINT → `quest_validators/{distance,checkpoint}.py`. 목표 파라미터 `criteria JSONB` 전면 이관(mig **sre043**, 타입별 컬럼·CHECK 제약 제거). BFF `start_ride`/`engine_client`/프론트 `ActiveCardState`까지 criteria 배선. `dispatch_event()` 이벤트 진입점 시드(구체 타입은 제품 요구 시). ruff clean·validator 등록·alembic head 단일 검증 완료.
-  - **BLOCKED**: dev DB가 sre039이고 `upgrade head`가 **SGR-228 미적용 마이그 040에서 실패**(아래 결함 참조) → 제 043 적용·엔진 재시작·라이드 회귀 불가. 현재 가동 엔진은 구코드(sre039)로 정상, DB 롤백됨. SoT `task/active/260604_quest_validation_strategy_task.md`, Notion `3753bd6b...`.
-- **✅ RESOLVED(SGR-228 마이그 결함)**: `040`/`041`의 `required_rp`→**`required_xp`** 교정 완료(/code-review 2026-06-04). 추가로 levelup 비활성 마이그가 SGR-229 `043_quest_card_criteria`(sre043)와 ID 충돌 → **sre044**로 재번호. 체인 선형화: sre042→043(criteria)→044(levelup). **→ SGR-229 P5 BLOCKED 해소**(이제 `upgrade head` 040에서 안 막힘). ruff·체인 단일 head 검증 완료.
+- **SGR-271 퀘스트 수행 인터페이스 RideNav 완전 이관** — 코드 DONE, **실기기 시각검증 대기**. 부모 SGR-242. 발견: 엔진 검증·보상은 **이미 완결**(네이티브 bg GPS→`/v1/sreMessage`→Redis→GpsAgent→`quest_tracker.update`→validators→`quest_completed`→BFF `/internal/quest-card-completed` 멱등 지급). 실작업=프론트 배선 교체.
+  - RideNav `type=quest`을 `useRideStore`(서버 폴링값) 기반으로 재배선: 진행도(distance=서버 `current_distance_m`/target, checkpoint=`distance_to_target_m`)·완료(`reachedTarget`=서버 status COMPLETED, 두 타입 공통)·속도 전부 서버값. 클라 haversine 누적 제거.
+  - GPS 소스 = **기존 네이티브 핑 재사용**(신규 BFF 채널 미신설). QuestDetail "수행 시작"→`/ride-nav?type=quest`. **RideActive.tsx+CSS 삭제**, `/ride/active` 라우트·AppShell hide 제거.
+  - **보상 서버 권위화**: 클라 이중지급(`addExp/addGold`) 제거→완료 시 `refreshUser()`로 잔액 동기화. 결과화면 표시는 `calculateRewards`(display 전용) 유지.
+  - 잔여: ① 실기기 시각검증 ② `RideResultFail` 진입점 고아(라우트만 잔존, 보존) ③ `refreshUser`가 워커 비동기 지급보다 빠를 수 있음(자가치유). `tsc -b` 0·eslint 에러 0.
+  - **이동경로(trail) 시각화 추가(2026-06-05)**: BFF `GET /quests/ride-trail`(engine `/v1/admin/stream/messages?type=gps&uuid=` 재사용)로 서버 수신 GPS 궤적을 RideNav `MapCanvas`에 시안색 폴리라인 표시. FE 3초 폴링(`native.getDeviceUUID()` 기반).
+  - **⚠️ DEBUG 임시조치 — 복구 필요**: RideNav quest origin 의 HCMC D1 폴백을 비활성화함(`resolveOrigin()`→`native.getLocation()` 직접, 실패 시 origin=null). 코드 `DEBUG(SGR-271)` 주석. 디버그 종료 시 `resolveOrigin()`으로 되돌릴 것.
+- **SGR-229 퀘스트 검증 인터페이스 추상화 (전략패턴 + 신호 기반)** — 코드 DONE(P1~P4), **✅ P5 마이그 적용 완료(2026-06-05)**. 서브 P1~P5(SGR-230~234).
+  - 완료: `quest_tracker`를 Signal(GpsSignal/EventSignal) 기반 `QuestValidator` 전략 + `ValidatorRegistry` 디스패치로 리팩토링. DISTANCE/CHECKPOINT → `quest_validators/{distance,checkpoint}.py`. 목표 파라미터 `criteria JSONB` 전면 이관(mig **sre043**, 타입별 컬럼·CHECK 제약 제거). BFF `start_ride`/`engine_client`/프론트 `ActiveCardState`까지 criteria 배선. `dispatch_event()` 이벤트 진입점 시드(구체 타입은 제품 요구 시). SoT `task/active/260604_quest_validation_strategy_task.md`, Notion `3753bd6b...`.
+- **✅ RESOLVED(SGR-228/229 dev 마이그 미적용 — SGR-271 테스트 중 발견 2026-06-05)**: dev DB가 sre039 고정 + 엔진 코드는 신버전 → 코드↔스키마 불일치로 퀘스트 카드 생성 **502**(`criteria` 컬럼 없음) + 가챠/상점 깨짐(엔진이 4-arg `pull_gacha`/`purchase_shop_item` 호출하나 DB는 sre035 3-arg). **`alembic upgrade head` 로 sre039→sre046 전체 적용**(040·041 reprice / 042 mileage / 043 criteria / 044 levelup / 045 skill discount / 046 item rebalance). **마이그 결함 수정**: `045`/`046` 의 `op.execute`/`exec_driver_sql` 가 한 호출에 다중 SQL문(DROP;CREATE, 다중 UPDATE) → asyncpg `cannot insert multiple commands into a prepared statement`. 문장 단위로 분리 실행하도록 수정(SQL 본문 불변). 엔진 재시작 불필요(신규 enum 값 없음). → **SGR-229 P5 해소 + 502/TS-3/TS-5(가챠·상점) 동시 해소**.
+  - 이전 `040`/`041` `required_rp`→`required_xp` 교정 + levelup 마이그 ID 충돌(sre044 재번호)은 2026-06-04 처리분.
 
 ## 부분 점검 (🟡)
 

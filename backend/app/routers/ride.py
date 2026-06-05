@@ -20,7 +20,10 @@ from ..schemas import (
     SafetyGradeRequest,
     SafetyGradeResponse,
 )
-from ..utils import APP_TZ, gain_exp
+from ..utils import APP_TZ, gain_exp, resolve_reward_pct
+
+# 데일리 퀘 RP 지급량(커피 경제 베이스: 3슬롯x7=21RP/일 -> 500RP 커피 ~24일). RP_MULT 가산 적용.
+DAILY_QUEST_RP = 7
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ride", tags=["라이딩 (Ride)"])
@@ -79,9 +82,19 @@ async def submit_ride(
     if quest is None:
         raise HTTPException(status_code=404, detail="Quest not found")
 
-    reward_exp = quest.reward_exp if body.is_success else 0
-    reward_gold = quest.reward_gold if body.is_success else 0
-    reward_item = quest.reward_item if body.is_success else None
+    # 이미 완료된 user_quest 재제출 시 보상 재지급 차단(멱등). RP/Gold/EXP farm 방지.
+    grant = body.is_success and uq.status != "COMPLETED"
+    # 실지급 = base * (1 + 아이템% + 스킬%). RP_MULT 는 EXP·RP 둘 다 가속.
+    user = await db.get(User, body.user_id) if grant else None
+    if grant:
+        rp_pct, gold_pct = await resolve_reward_pct(db, user)
+        reward_exp = int(quest.reward_exp * (1 + rp_pct / 100))
+        reward_gold = int(quest.reward_gold * (1 + gold_pct / 100))
+        # 데일리 퀘만 RP 지급(커피 경제). 위클리/이벤트는 0(이벤트 RP 별도 미도입).
+        rp_grant = int(DAILY_QUEST_RP * (1 + rp_pct / 100)) if quest.period == "DAILY" else 0
+    else:
+        reward_exp, reward_gold, rp_grant = 0, 0, 0
+    reward_item = quest.reward_item if grant else None
 
     session = RideSession(
         user_quest_id=body.user_quest_id,
@@ -101,11 +114,10 @@ async def submit_ride(
     db.add(session)
     await db.flush()
 
-    if body.is_success:
+    if grant:
         uq.status = "COMPLETED"
         uq.completed_at = now
 
-        user = await db.get(User, body.user_id)
         if user:
             user.gold += reward_gold
             await gain_exp(db, user, reward_exp)
@@ -124,7 +136,7 @@ async def submit_ride(
             payload={"distance_km": float(body.distance_km), "ride_id": str(session.id)},
             idem_key=f"ride-{session.id}-km",
         )
-        if body.is_success:
+        if grant:
             await engine_client.post_event(
                 user_uuid=str(body.user_id),
                 action_code="QUEST_COMPLETE",
@@ -132,9 +144,9 @@ async def submit_ride(
                 payload={
                     "quest_id": str(body.quest_id),
                     "ride_id": str(session.id),
-                    # SGR-228: 데일리 퀘스트 RP 적립 0. RP 수급은 이벤트 퀘스트로만(재고 예측).
-                    # 경제밸런스 확정 후 이벤트 퀘 한정 도입 예정(분기 미구현, 현재는 일괄 0).
-                    "rp": 0,
+                    # SGR-245: 데일리 퀘 RP 재도입(소액, 커피 경제). RP_MULT 가산 반영.
+                    # 비용 차단은 쿠폰 교환단 monthly_quota 로 유지(획득은 풀고 교환을 상한).
+                    "rp": rp_grant,
                 },
                 idem_key=f"ride-{session.id}-quest-{body.quest_id}",
             )

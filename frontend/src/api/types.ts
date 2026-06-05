@@ -6,7 +6,7 @@ export type QuestType = 'daily' | 'weekly' | 'event';
 export type QuestStatus = 'available' | 'locked' | 'completed';
 export type AttemptStatus = 'in_progress' | 'success' | 'failed' | 'abandoned';
 export type SafetyGrade = 'A' | 'B' | 'C';
-export type SkillKey = 'distance_rider' | 'gold_hunter' | 'safe_rider';
+export type SkillKey = 'distance_rider' | 'gold_hunter' | 'quest_slot' | 'cost_discount';
 export type Language = 'ko' | 'vi' | 'en';
 
 export interface User {
@@ -49,6 +49,9 @@ export interface Quest {
   tags: ('HOT' | 'NEW' | 'LIMITED')[];
   thumbnailUrl: string;
   thumbnailUrls: string[];
+  thumbnailImageUrl?: string | null;
+  mainImageUrl?: string | null;
+  bannerImageUrl?: string | null;
   expiresAt?: string;
   missionCode?: string | null;
   rarity?: 'C' | 'R' | 'E' | 'L' | 'M';

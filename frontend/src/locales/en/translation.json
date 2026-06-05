@@ -3,6 +3,17 @@
     "title": "Directions",
     "destination": "Destination",
     "previewLabel": "Route preview",
+    "loading": "Calculating route…",
+    "eta": "Est. {{duration}}",
+    "etaArrive": "Arrival · {{duration}}",
+    "routeLabel": "Route",
+    "startGuidance": "Start guidance",
+    "questInProgress": "Quest in progress",
+    "questCheckpoint": "To checkpoint",
+    "questDistance": "Goal {{target}}km",
+    "questArrived": "Checkpoint reached! Verifying…",
+    "questServerNote": "Completion is verified on the server.",
+    "summaryLive": "Estimated route to your destination",
     "etaPending": "ETA —",
     "summaryPending": "Live guidance coming soon",
     "stepStart": "Start · My location",
@@ -478,7 +489,10 @@
     "sort_name": "Name",
     "gear_suffix": "Gear",
     "select_slot": "Select a slot to equip",
-    "all_items": "All Items"
+    "all_items": "All Items",
+    "equip_all": "Equip All",
+    "equip_all_done": "Equipped {{count}} item(s)",
+    "equip_all_none": "Already equipped with the best gear"
   },
   "seasonPass": {
     "ends_in": "remaining",
@@ -555,7 +569,8 @@
     "max": "MAX",
     "distance_rider": { "name": "Distance Rider", "effect": "EXP +{{value}}%" },
     "gold_hunter": { "name": "Gold Hunter", "effect": "Gold +{{value}}%" },
-    "safe_rider": { "name": "Safe Rider", "effect": "Safety A: XP +{{value}}" }
+    "quest_slot": { "name": "Quest Master", "effect": "Quest slots +{{value}}" },
+    "cost_discount": { "name": "Bargainer", "effect": "Gacha/Shop -{{value}}%" }
   },
   "currency": {
     "gold": "Gold",
@@ -968,6 +983,7 @@
     "gold": "Gold Gain",
     "quest_slot": "Quest Slots",
     "cost_discount": "Cost Discount",
-    "sheet_title": "Equip Effects"
+    "sheet_title": "Equip Effects",
+    "skill_tag": "Skill"
   }
 }

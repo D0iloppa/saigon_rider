@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_service_key
 from ..models import Badge, Quest, User, UserBadge, UserQuest
-from ..utils import gain_exp
+from ..utils import apply_quest_reward_multiplier, gain_exp
 
 router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[Depends(verify_service_key)])
 log = logging.getLogger(__name__)
@@ -122,17 +122,19 @@ async def quest_card_completed(
     if quest is None or user is None:
         raise HTTPException(status_code=404, detail="quest/user not found")
 
+    # 실지급 = base * (1 + 아이템% + 스킬%). 공용 헬퍼로 ride/quests 와 동일 적용.
+    reward_exp, reward_gold = await apply_quest_reward_multiplier(db, user, quest.reward_exp, quest.reward_gold)
     uq.status = "COMPLETED"
     uq.completed_at = datetime.now(UTC)
-    user.gold += quest.reward_gold
-    await gain_exp(db, user, quest.reward_exp)
+    user.gold += reward_gold
+    await gain_exp(db, user, reward_exp)
     await db.commit()
     log.info(
         "internal quest-card-completed: user_quest=%s quest=%s card=%s +exp=%d +gold=%d",
         body.user_quest_id,
         body.external_quest_id,
         body.card_id,
-        quest.reward_exp,
-        quest.reward_gold,
+        reward_exp,
+        reward_gold,
     )
     return GrantResponse(ok=True)

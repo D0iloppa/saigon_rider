@@ -40,10 +40,10 @@ from ..models import (
     User,
     UserBadge,
 )
+from ..quest_card_map import quest_card_file_path, resolve_quest_card_code
 from ..services.fuel_price_service import FUEL_BRANDS, FUEL_TYPES, upsert_fuel_price
 from ..utils import (
     APP_TZ,
-    MOCK_IMG_ENDPOINT,
     build_imgproxy_url,
     default_avatar_url,
     resolve_avatar_url,
@@ -289,19 +289,133 @@ async def admin_dashboard(
 # ── 공통 헬퍼 ────────────────────────────────────────────────────
 
 
-def _resolve_thumb_url(quest: Quest) -> str:
-    """퀘스트 썸네일 표시용 URL — quests.py `_to_out` 폴백 체인을 따른다.
+def _thumb_cache_bust(file_path: str) -> str:
+    """파일 mtime 기반 캐시버스터 쿼리. 동일 경로 파일이 교체돼도 브라우저가 새로 받게 한다."""
+    try:
+        return f"?v={int((CONTENTS_BASE_PATH / file_path).stat().st_mtime)}"
+    except OSError:
+        return ""
 
-    우선순위 (모두 contents 테이블 중개):
-      1. 자체 등록 이미지 (quests.thumbnail_content_id)
-      2. district 대표 이미지 (districts.image_content_id)
-      3. mockup 이미지
+
+_THUMB_OPTS = "rs:fill:120:80:1"
+
+
+def _shared_card_url(quest: Quest) -> str:
+    """mission_code → 공유 카드아트 URL (앱 QuestCard 폴백과 동일)."""
+    card_path = quest_card_file_path(resolve_quest_card_code(quest.mission_code, quest.rarity))
+    return build_imgproxy_url(card_path, options=_THUMB_OPTS) + _thumb_cache_bust(card_path)
+
+
+def _content_url(content: Content | None) -> str:
+    if content is not None and content.file_path:
+        return build_imgproxy_url(content.file_path, options=_THUMB_OPTS) + _thumb_cache_bust(content.file_path)
+    return ""
+
+
+# 슬롯 → 공유 기본 파생 파일 prefix (메인=원본 카드, 썸네일/배너=파생).
+_SLOT_DEFAULT_PREFIX = {"main_content_id": "card", "thumbnail_content_id": "thumb", "banner_content_id": "banner"}
+
+
+def _is_custom_slot(content: Content | None) -> bool:
+    """슬롯이 공유 기본 파일(system/quest-cards/*)이 아니라 관리자가 올린 개별 이미지인지."""
+    return content is not None and bool(content.file_path) and not content.file_path.startswith("system/quest-cards/")
+
+
+async def _default_slot_content_id(db: AsyncSession, quest: Quest, attr: str) -> uuid.UUID | None:
+    """슬롯의 공유 기본 파생 파일 content.id (mission_code→cardCode 해석)."""
+    code = resolve_quest_card_code(quest.mission_code, quest.rarity)
+    file_path = f"system/quest-cards/{_SLOT_DEFAULT_PREFIX[attr]}-{code}.png"
+    return (
+        await db.execute(select(Content.id).where(Content.owner_type == "system", Content.file_path == file_path))
+    ).scalar_one_or_none()
+
+
+def _resolve_thumb_url(quest: Quest) -> str:
+    """퀘스트 리스트 썸네일 URL — 앱(QuestCard)과 동일하게 해석한다.
+
+    우선순위 (모두 contents/system 중개):
+      1. 개별 썸네일 (thumbnail_content_id, 관리자 override)
+      2. 메인 이미지에서 crop 파생 (main_content_id)
+      3. mission_code → 공유 카드아트 (system/quest-cards/card-{CODE}.png)
     """
-    if quest.thumbnail_content and quest.thumbnail_content.file_path:
-        return build_imgproxy_url(quest.thumbnail_content.file_path, options="rs:fill:120:80:1")
-    if quest.district and quest.district.image_content and quest.district.image_content.file_path:
-        return build_imgproxy_url(quest.district.image_content.file_path, options="rs:fill:120:80:1")
-    return f"{MOCK_IMG_ENDPOINT}?seed={quest.id}&w=120&h=80"
+    return _content_url(quest.thumbnail_content) or _content_url(quest.main_content) or _shared_card_url(quest)
+
+
+def _image_slot_html(
+    label: str, hint: str, file_field: str, preview_url: str, restore_field: str, can_restore: bool
+) -> str:
+    """어드민 폼의 이미지 슬롯 1개 (라벨·미리보기·업로드·제거)."""
+    if preview_url:
+        img = (
+            f'<img src="{h(preview_url)}" alt="" '
+            'style="width:120px;height:80px;object-fit:cover;border-radius:8px;background:rgba(255,255,255,.05);" />'
+        )
+    else:
+        img = (
+            '<div style="width:120px;height:80px;border-radius:8px;background:rgba(255,255,255,.05);'
+            'display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.3);">미설정</div>'
+        )
+    restore = (
+        f'<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:rgba(255,255,255,.6);margin-top:6px;">'
+        f'<input type="checkbox" name="{restore_field}" value="1" /> 기본 이미지로 복원</label>'
+        if can_restore
+        else ""
+    )
+    return (
+        '<div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;'
+        'padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.06);">'
+        f'<div><p style="font-size:12px;font-weight:600;color:rgba(255,255,255,.7);margin-bottom:6px;">{h(label)}</p>{img}</div>'
+        '<div style="flex:1;">'
+        f'<input type="file" name="{file_field}" accept="image/*" style="font-size:12px;color:rgba(255,255,255,.6);" />'
+        f"{restore}"
+        f'<p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:6px;">{h(hint)}</p>'
+        "</div></div>"
+    )
+
+
+def _quest_image_slots(quest: Quest | None) -> str:
+    """메인(상세)/썸네일(리스트)/배너(홈·이벤트) 3종 슬롯 HTML.
+
+    각 슬롯은 자기 파일에 매핑된다(메인=원본 카드, 썸네일/배너=메인에서 생성된 파생 파일).
+    관리자가 개별 이미지를 올리면 '기본 이미지로 복원' 체크박스로 공유 기본 파일로 되돌릴 수 있다.
+    """
+    main_hint = "미선택 시 공유 카드아트(mission_code 기반)"
+    thumb_hint = "미선택 시 메인에서 생성된 썸네일 파일"
+    banner_hint = "미선택 시 메인에서 생성된 배너 파일"
+    if quest is None:
+        rows = [
+            ("메인 (상세 화면)", main_hint, "main_image", "", "", False),
+            ("썸네일 (리스트 카드)", thumb_hint, "thumbnail", "", "", False),
+            ("배너 (홈/이벤트)", banner_hint, "banner_image", "", "", False),
+        ]
+    else:
+        rows = [
+            (
+                "메인 (상세 화면)",
+                main_hint,
+                "main_image",
+                _content_url(quest.main_content) or _shared_card_url(quest),
+                "restore_main",
+                _is_custom_slot(quest.main_content),
+            ),
+            (
+                "썸네일 (리스트 카드)",
+                thumb_hint,
+                "thumbnail",
+                _content_url(quest.thumbnail_content),
+                "restore_thumbnail",
+                _is_custom_slot(quest.thumbnail_content),
+            ),
+            (
+                "배너 (홈/이벤트)",
+                banner_hint,
+                "banner_image",
+                _content_url(quest.banner_content),
+                "restore_banner",
+                _is_custom_slot(quest.banner_content),
+            ),
+        ]
+    return "".join(_image_slot_html(*r) for r in rows)
 
 
 async def _save_uploaded_image(
@@ -344,6 +458,15 @@ async def _save_uploaded_image(
     db.add(content)
     await db.flush()
     return content
+
+
+async def _apply_image_slot(db: AsyncSession, quest: Quest, attr: str, file: UploadFile | None, restore: str) -> None:
+    """이미지 슬롯 1개 반영 — 업로드 시 새 system 컨텐츠 연결, 복원 체크 시 공유 기본 파생 파일로 되돌림."""
+    if file and file.filename:
+        content = await _save_uploaded_image(file, db, owner_type="system")
+        setattr(quest, attr, content.id)
+    elif restore == "1":
+        setattr(quest, attr, await _default_slot_content_id(db, quest, attr))
 
 
 def _parse_dt_local(value: str | None) -> datetime | None:
@@ -509,7 +632,7 @@ async def admin_quest_new(
         submit_label="등록",
         delete_btn="",
         district_options=await _districts_options(db, None),
-        current_thumb=f"{MOCK_IMG_ENDPOINT}?w=120&h=80",
+        image_slots=_quest_image_slots(None),
     )
     return _render_page("quests_form.html", nav="quests", page_title="신규 퀘스트", session=session, **ctx)
 
@@ -540,6 +663,8 @@ async def admin_quest_create(
     starts_at: str = Form(""),
     ends_at: str = Form(""),
     thumbnail: UploadFile | None = File(None),
+    main_image: UploadFile | None = File(None),
+    banner_image: UploadFile | None = File(None),
 ):
     if period not in ("DAILY", "WEEKLY", "EVENT"):
         raise HTTPException(status_code=400, detail="Invalid period")
@@ -561,11 +686,11 @@ async def admin_quest_create(
         ends_at=_parse_dt_local(ends_at),
     )
 
-    if thumbnail and thumbnail.filename:
-        content = await _save_uploaded_image(thumbnail, db, owner_type="system")
-        quest.thumbnail_content_id = content.id
-
     db.add(quest)
+    # 업로드가 있으면 그 파일, 없으면 mission_code 기반 공유 기본 파일로 매핑(restore="1").
+    await _apply_image_slot(db, quest, "main_content_id", main_image, "1")
+    await _apply_image_slot(db, quest, "thumbnail_content_id", thumbnail, "1")
+    await _apply_image_slot(db, quest, "banner_content_id", banner_image, "1")
     await db.commit()
     return RedirectResponse(url="/admin/quests", status_code=302)
 
@@ -592,7 +717,7 @@ async def admin_quest_edit(
             '<button type="submit" class="btn btn-danger">삭제</button></form>'
         ),
         district_options=await _districts_options(db, quest.district_id),
-        current_thumb=h(_resolve_thumb_url(quest)),
+        image_slots=_quest_image_slots(quest),
     )
     return _render_page("quests_form.html", nav="quests", page_title="퀘스트 수정", session=session, **ctx)
 
@@ -617,6 +742,11 @@ async def admin_quest_update(
     starts_at: str = Form(""),
     ends_at: str = Form(""),
     thumbnail: UploadFile | None = File(None),
+    main_image: UploadFile | None = File(None),
+    banner_image: UploadFile | None = File(None),
+    restore_thumbnail: str = Form(""),
+    restore_main: str = Form(""),
+    restore_banner: str = Form(""),
 ):
     quest = (await db.execute(select(Quest).where(Quest.id == quest_id))).scalar_one_or_none()
     if quest is None:
@@ -639,9 +769,9 @@ async def admin_quest_update(
     quest.starts_at = _parse_dt_local(starts_at)
     quest.ends_at = _parse_dt_local(ends_at)
 
-    if thumbnail and thumbnail.filename:
-        content = await _save_uploaded_image(thumbnail, db, owner_type="system")
-        quest.thumbnail_content_id = content.id
+    await _apply_image_slot(db, quest, "thumbnail_content_id", thumbnail, restore_thumbnail)
+    await _apply_image_slot(db, quest, "main_content_id", main_image, restore_main)
+    await _apply_image_slot(db, quest, "banner_content_id", banner_image, restore_banner)
 
     await db.commit()
     return RedirectResponse(url="/admin/quests", status_code=302)

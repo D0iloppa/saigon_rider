@@ -10,7 +10,7 @@ export interface UserDto {
   xp: number;
   gold: number;
   skill_pt: number;
-  skills?: { distance_rider: number; gold_hunter: number; safe_rider: number };
+  skills?: { distance_rider: number; gold_hunter: number; quest_slot: number; cost_discount: number };
   avatar_url: string | null;
   created_at: string;
 }

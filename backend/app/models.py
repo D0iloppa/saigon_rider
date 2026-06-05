@@ -103,7 +103,8 @@ class User(Base):
     skill_pt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     skill_distance_rider: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     skill_gold_hunter: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
-    skill_safe_rider: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    skill_quest_slot: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    skill_cost_discount: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_content_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
@@ -141,6 +142,16 @@ class Quest(Base):
     )
     thumbnail_content: Mapped["Content | None"] = relationship(
         "Content", foreign_keys=[thumbnail_content_id], lazy="selectin"
+    )
+    main_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    main_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[main_content_id], lazy="selectin")
+    banner_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    banner_content: Mapped["Content | None"] = relationship(
+        "Content", foreign_keys=[banner_content_id], lazy="selectin"
     )
     district_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("districts.id"), nullable=True)
     district: Mapped["District | None"] = relationship("District", foreign_keys=[district_id], lazy="selectin")

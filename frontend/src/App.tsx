@@ -29,7 +29,6 @@ import QuestList from '@/pages/quest/QuestList';
 import QuestDetail from '@/pages/quest/QuestDetail';
 
 // Ride
-import RideActive from '@/pages/ride/RideActive';
 import RideResultSuccess from '@/pages/ride/RideResultSuccess';
 import RideResultFail from '@/pages/ride/RideResultFail';
 
@@ -216,7 +215,6 @@ export default function App() {
           <Route path="/friends/add" element={<PrivateRoute><FriendAdd /></PrivateRoute>} />
 
           {/* Protected: Ride flow */}
-          <Route path="/ride/active" element={<PrivateRoute><RideActive /></PrivateRoute>} />
           <Route path="/ride/result/success" element={<PrivateRoute><RideResultSuccess /></PrivateRoute>} />
           <Route path="/ride/result/fail" element={<PrivateRoute><RideResultFail /></PrivateRoute>} />
 

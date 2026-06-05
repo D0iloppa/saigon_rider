@@ -2,9 +2,13 @@ import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
+from ..models import User
+from ..utils import skill_cost_discount_pct
 
 router = APIRouter(prefix="/gacha", tags=["가챠 (Gacha)"])
 
@@ -93,12 +97,16 @@ async def pull_gacha(
     gacha_code: str,
     is_10_pull: bool = False,
     uid: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
+    user = await db.get(User, uid)
+    skill_disc = skill_cost_discount_pct(user)
     try:
         raw = await engine_client.pull_gacha(
             user_uuid=str(uid),
             gacha_code=gacha_code,
             is_10_pull=is_10_pull,
+            skill_discount_pct=skill_disc,
         )
     except httpx.HTTPStatusError as e:
         raise HTTPException(

@@ -1,0 +1,27 @@
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.14);
+  min-width: 130px;
+  max-width: 200px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand, #FF5A1F);
+  box-shadow: 0 0 8px rgba(255,90,31,.6);
+  flex-shrink: 0;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: .6; }
+}
+.body { min-width: 0; }
+.title { font-size: 10px; font-weight: 800; color: #1A1D2A; letter-spacing: 0.04em; }
+.sub { font-size: 11px; color: #8A8E9E; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

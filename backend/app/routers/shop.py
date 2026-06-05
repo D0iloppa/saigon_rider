@@ -5,9 +5,13 @@ import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
+from ..models import User
+from ..utils import skill_cost_discount_pct
 
 
 class ShopPurchaseRequest(BaseModel):
@@ -53,13 +57,17 @@ _CURRENCY_TO_ENGINE = {"GOLD": "GP", "XP": "GC", "GP": "GP", "GC": "GC"}
 async def purchase_item(
     payload: ShopPurchaseRequest,
     uid: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     engine_currency = _CURRENCY_TO_ENGINE.get(payload.currency, payload.currency)
+    user = await db.get(User, uid)
+    skill_disc = skill_cost_discount_pct(user)
     try:
         return await engine_client.purchase_shop_item(
             user_uuid=str(uid),
             item_code=payload.item_code,
             currency=engine_currency,
+            skill_discount_pct=skill_disc,
         )
     except httpx.HTTPStatusError as e:
         raise HTTPException(

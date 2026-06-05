@@ -62,7 +62,8 @@ async def _get_user_or_404(user_id: uuid.UUID, db: AsyncSession) -> User:
 _SKILL_COLUMN = {
     "distance_rider": "skill_distance_rider",
     "gold_hunter": "skill_gold_hunter",
-    "safe_rider": "skill_safe_rider",
+    "quest_slot": "skill_quest_slot",
+    "cost_discount": "skill_cost_discount",
 }
 
 

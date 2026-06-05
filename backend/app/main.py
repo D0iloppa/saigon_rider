@@ -22,6 +22,7 @@ from .routers import (
     info_flood,
     info_gas,
     info_repair,
+    info_route,
     info_weather,
     internal,
     inventory,
@@ -149,6 +150,7 @@ app.include_router(internal.router, prefix="/api")
 app.include_router(info_flood.router, prefix="/api")
 app.include_router(info_gas.router, prefix="/api")
 app.include_router(info_repair.router, prefix="/api")
+app.include_router(info_route.router, prefix="/api")
 app.include_router(info_weather.router, prefix="/api")
 
 app.mount("/admin/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")

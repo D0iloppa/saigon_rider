@@ -3,6 +3,17 @@
     "title": "경로 안내",
     "destination": "목적지",
     "previewLabel": "경로 미리보기",
+    "loading": "경로 계산 중…",
+    "eta": "예상 {{duration}}",
+    "etaArrive": "도착 예정 · {{duration}}",
+    "routeLabel": "경로",
+    "startGuidance": "경로 안내 시작",
+    "questInProgress": "퀘스트 진행 중",
+    "questCheckpoint": "체크포인트까지",
+    "questDistance": "목표 {{target}}km",
+    "questArrived": "체크포인트 도착! 검증 중…",
+    "questServerNote": "완료는 서버에서 자동 검증됩니다.",
+    "summaryLive": "도착까지 예상 경로입니다",
     "etaPending": "도착 예정 —",
     "summaryPending": "실시간 안내 준비 중",
     "stepStart": "출발 · 내 위치",
@@ -478,7 +489,10 @@
     "sort_name": "이름순",
     "gear_suffix": "장비",
     "select_slot": "장비를 착용할 부위를 선택해주세요",
-    "all_items": "전체 아이템"
+    "all_items": "전체 아이템",
+    "equip_all": "일괄착용",
+    "equip_all_done": "{{count}}개 일괄 착용 완료",
+    "equip_all_none": "이미 최고 등급으로 착용 중입니다"
   },
   "seasonPass": {
     "ends_in": "남음",
@@ -555,7 +569,8 @@
     "max": "MAX",
     "distance_rider": { "name": "거리 라이더", "effect": "EXP +{{value}}%" },
     "gold_hunter": { "name": "골드 헌터", "effect": "Gold +{{value}}%" },
-    "safe_rider": { "name": "세이프 라이더", "effect": "안전 A 시 XP +{{value}}" }
+    "quest_slot": { "name": "퀘스트 마스터", "effect": "퀘스트 슬롯 +{{value}}" },
+    "cost_discount": { "name": "절약가", "effect": "가차/상점 -{{value}}%" }
   },
   "currency": {
     "gold": "골드",
@@ -968,6 +983,7 @@
     "gold": "골드 획득",
     "quest_slot": "퀘스트 슬롯",
     "cost_discount": "비용 할인",
-    "sheet_title": "착용 효과 상세"
+    "sheet_title": "착용 효과 상세",
+    "skill_tag": "스킬"
   }
 }

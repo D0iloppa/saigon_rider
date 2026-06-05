@@ -26,6 +26,9 @@ import styles from './FeedList.module.css';
 
 type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
 
+// AppImage 와 동일한 폴백 자산 (src/components/ui/AppImage.tsx ERROR_IMG)
+const ERROR_IMG = '/img-error.png';
+
 // ─── ImageViewer (다중 이미지 + 확대/축소/스와이프) ─────────────────────────
 interface ViewerTouchState {
   type: 'none' | 'single' | 'pinch';
@@ -154,7 +157,18 @@ export function ImageViewer({ srcs, initialIndex = 0, onClose }: { srcs: string[
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <img src={srcs[idx]} alt="" style={imgStyle} className={styles.lightboxImg} draggable={false} />
+        <img
+          src={srcs[idx]}
+          alt=""
+          style={imgStyle}
+          className={styles.lightboxImg}
+          draggable={false}
+          onError={(e) => {
+            const el = e.currentTarget;
+            if (el.src.endsWith(ERROR_IMG)) return;
+            el.src = ERROR_IMG;
+          }}
+        />
       </div>
       {srcs.length > 1 && (
         <div className={styles.lightboxDots}>

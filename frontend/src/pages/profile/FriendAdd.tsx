@@ -97,7 +97,7 @@ export default function FriendAdd() {
       toast.success(t('follow.followedSuccess'));
       // Mutual follow is check-as-friend, so just following is enough for now
     } catch (err: any) {
-      toast.error(err.message || 'Error');
+      toast.error(err.message || t('follow.followError'));
     }
   };
 
@@ -206,7 +206,7 @@ export default function FriendAdd() {
             ) : (
               <div className={styles.scanBox}>
                 <div id="reader" className={styles.reader}></div>
-                {!isScanning && <div className={styles.scannerError}>Camera initialization failed</div>}
+                {!isScanning && <div className={styles.scannerError}>{t('follow.cameraError')}</div>}
                 <p className={styles.qrGuide}>{t('follow.scanGuide')}</p>
               </div>
             )}

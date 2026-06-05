@@ -383,7 +383,9 @@
     "myQrGuide": "Show your QR code",
     "unfollowConfirm": "Are you sure you want to unfollow?",
     "followedSuccess": "Followed!",
-    "dmError": "Could not start DM"
+    "dmError": "Could not start DM",
+    "cameraError": "Camera initialization failed",
+    "followError": "Failed to follow"
   },
   "feedEdit": {
     "title": "Edit Post",

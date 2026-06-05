@@ -383,7 +383,9 @@
     "myQrGuide": "Hiển thị mã QR của bạn",
     "unfollowConfirm": "Bạn có chắc muốn hủy theo dõi không?",
     "followedSuccess": "Đã theo dõi!",
-    "dmError": "Không thể bắt đầu DM"
+    "dmError": "Không thể bắt đầu DM",
+    "cameraError": "Không thể khởi động máy ảnh",
+    "followError": "Theo dõi thất bại"
   },
   "feedEdit": {
     "title": "Sửa bài viết",

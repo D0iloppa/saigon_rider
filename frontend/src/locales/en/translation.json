@@ -192,6 +192,7 @@
     "everywhere": "Everywhere",
     "modeCatalog": "Available",
     "modeAccepted": "My Quests",
+    "acceptedEmptyTitle": "No accepted quests yet",
     "acceptedEmptySub": "Accept a quest from the Available tab",
     "acceptedToast": "Accepted. Check it in the My Quests tab."
   },

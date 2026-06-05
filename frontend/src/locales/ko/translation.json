@@ -192,6 +192,7 @@
     "everywhere": "어디서나",
     "modeCatalog": "가능",
     "modeAccepted": "내 퀘스트",
+    "acceptedEmptyTitle": "수령한 퀘스트가 없어요",
     "acceptedEmptySub": "가능 탭에서 퀘스트를 수령해보세요",
     "acceptedToast": "수령했어요. 내 퀘스트 탭에서 확인할 수 있습니다."
   },

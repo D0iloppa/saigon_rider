@@ -192,6 +192,7 @@
     "everywhere": "Khắp nơi",
     "modeCatalog": "Có sẵn",
     "modeAccepted": "Nhiệm vụ của tôi",
+    "acceptedEmptyTitle": "Chưa có nhiệm vụ nào được nhận",
     "acceptedEmptySub": "Hãy nhận nhiệm vụ từ tab Có sẵn",
     "acceptedToast": "Đã nhận. Kiểm tra trong tab Nhiệm vụ của tôi."
   },

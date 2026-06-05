@@ -21,7 +21,10 @@
     "stepEnd": "Đến nơi",
     "comingSoonTitle": "Điều hướng trong ứng dụng sắp ra mắt",
     "comingSoonDesc": "Chỉ đường trong ứng dụng đang được chuẩn bị. Hiện tại bạn có thể dùng Google Maps.",
-    "openGoogleMaps": "Mở Google Maps"
+    "openGoogleMaps": "Mở Google Maps",
+    "offRouteTitle": "Bạn đã đi chệch lộ trình",
+    "offRouteReroute": "Chỉ đường lại bằng Google Maps",
+    "compassRemaining": "Còn khoảng {{dist}}m đến nơi"
   },
   "common": {
     "welcome": "Chào mừng",
@@ -70,6 +73,7 @@
     "errorInvalidPhone": "Vui lòng nhập số hợp lệ (10-11 số)",
     "getAuthCodeBtn": "Đăng ký",
     "loginBtn": "Đăng nhập",
+    "searchPlaceholder": "Tìm kiếm...",
     "errorAlreadyExists": "Số này đã được đăng ký. Vui lòng đăng nhập.",
     "errorNotFound": "Không tìm thấy tài khoản. Vui lòng đăng ký trước.",
     "errorNoSession": "Không có phiên lưu trên thiết bị này. Vui lòng đăng ký lại hoặc liên hệ hỗ trợ.",

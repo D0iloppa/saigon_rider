@@ -21,7 +21,10 @@
     "stepEnd": "Arrive",
     "comingSoonTitle": "In-app navigation coming soon",
     "comingSoonDesc": "In-app guidance is in preparation. For now you can navigate via Google Maps.",
-    "openGoogleMaps": "Open in Google Maps"
+    "openGoogleMaps": "Open in Google Maps",
+    "offRouteTitle": "You're off route",
+    "offRouteReroute": "Reroute in Google Maps",
+    "compassRemaining": "About {{dist}}m to destination"
   },
   "common": {
     "welcome": "Welcome",
@@ -70,6 +73,7 @@
     "errorInvalidPhone": "Please enter a valid number (10-11 digits)",
     "getAuthCodeBtn": "Sign Up",
     "loginBtn": "Log In",
+    "searchPlaceholder": "Search...",
     "errorAlreadyExists": "This number is already registered. Please log in instead.",
     "errorNotFound": "No account found for this number. Please sign up first.",
     "errorNoSession": "No saved session on this device. Please re-register or contact support.",

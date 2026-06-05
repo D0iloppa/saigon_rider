@@ -21,7 +21,10 @@
     "stepEnd": "도착",
     "comingSoonTitle": "실시간 경로 안내 준비 중",
     "comingSoonDesc": "앱 내 길안내는 준비 중입니다. 지금은 Google 지도로 안내받을 수 있어요.",
-    "openGoogleMaps": "Google 지도로 이동"
+    "openGoogleMaps": "Google 지도로 이동",
+    "offRouteTitle": "경로를 이탈했어요",
+    "offRouteReroute": "Google 지도로 재안내",
+    "compassRemaining": "목적지까지 약 {{dist}}m"
   },
   "common": {
     "welcome": "환영합니다",
@@ -70,6 +73,7 @@
     "errorInvalidPhone": "올바른 번호를 입력해주세요 (10-11자리)",
     "getAuthCodeBtn": "회원가입",
     "loginBtn": "로그인",
+    "searchPlaceholder": "검색...",
     "errorAlreadyExists": "이미 가입된 번호입니다. 로그인을 이용해주세요.",
     "errorNotFound": "가입되지 않은 번호입니다. 회원가입을 먼저 해주세요.",
     "errorNoSession": "이 기기에 저장된 세션이 없습니다. 재가입 또는 고객센터에 문의해주세요.",

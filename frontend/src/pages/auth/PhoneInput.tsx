@@ -120,7 +120,7 @@ export default function PhoneInput() {
               <div className={pickerStyles.dropdown}>
                 <input
                   className={pickerStyles.search}
-                  placeholder="Search..."
+                  placeholder={t('phoneInput.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus

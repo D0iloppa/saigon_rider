@@ -51,7 +51,7 @@
 /* Language selector */
 .langPickerWrap {
   position: absolute;
-  top: 60px;
+  top: calc(var(--status-bar-height) + 16px);
   right: 20px;
   z-index: 25;
 }

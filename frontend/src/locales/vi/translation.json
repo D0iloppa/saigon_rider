@@ -581,6 +581,8 @@
     "gold": "Vàng",
     "goldAmount": "Vàng {{amount}}",
     "xp": "RP",
+    "exp": "EXP",
+    "item": "Vật phẩm",
     "skillPt": "SKILL PT"
   },
   "info": {

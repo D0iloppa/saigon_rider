@@ -581,6 +581,8 @@
     "gold": "골드",
     "goldAmount": "골드 {{amount}}",
     "xp": "RP",
+    "exp": "EXP",
+    "item": "아이템",
     "skillPt": "SKILL PT"
   },
   "info": {

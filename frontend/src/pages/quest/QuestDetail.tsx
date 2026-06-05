@@ -201,7 +201,7 @@ export default function QuestDetail() {
           <div className={styles.rewardGrid}>
             <div className={styles.rewardCell}>
               <img className={styles.rewardIcon} src={emojiUrl('2b50')} width={22} height={22} alt="EXP" />
-              <div className={styles.rewardLabel}>EXP</div>
+              <div className={styles.rewardLabel}>{t('currency.exp')}</div>
               <div className={styles.rewardNum}>+{formatNumber(quest.rewardExp)}</div>
             </div>
             <div className={styles.rewardCell}>
@@ -216,7 +216,7 @@ export default function QuestDetail() {
             </div>
             <div className={styles.rewardCell}>
               <img className={styles.rewardIcon} src={emojiUrl('1f381')} width={22} height={22} alt="ITEM" />
-              <div className={styles.rewardLabel}>ITEM</div>
+              <div className={styles.rewardLabel}>{t('currency.item')}</div>
               <div className={styles.rewardNum}>
                 ×{quest.rewardItems.length}
               </div>

@@ -363,7 +363,8 @@
     "title": "Messages",
     "empty": "No conversations yet",
     "inputPlaceholder": "Type a message...",
-    "sendBtn": "Send"
+    "sendBtn": "Send",
+    "button": "DM"
   },
   "follow": {
     "followers": "Followers",

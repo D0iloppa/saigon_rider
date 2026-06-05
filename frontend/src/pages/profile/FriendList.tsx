@@ -55,7 +55,7 @@ export default function FriendList() {
               </div>
               {me && u.id !== me.id && (
                 <Button size="sm" variant="secondary" onClick={() => handleDm(u)}>
-                  DM
+                  {t('dm.button')}
                 </Button>
               )}
             </div>

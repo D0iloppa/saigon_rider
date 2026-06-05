@@ -363,7 +363,8 @@
     "title": "메시지",
     "empty": "아직 대화가 없어요",
     "inputPlaceholder": "메시지 입력...",
-    "sendBtn": "전송"
+    "sendBtn": "전송",
+    "button": "DM"
   },
   "follow": {
     "followers": "팔로워",

@@ -363,7 +363,8 @@
     "title": "Tin nhắn",
     "empty": "Chưa có cuộc trò chuyện nào",
     "inputPlaceholder": "Nhập tin nhắn...",
-    "sendBtn": "Gửi"
+    "sendBtn": "Gửi",
+    "button": "DM"
   },
   "follow": {
     "followers": "Người theo dõi",

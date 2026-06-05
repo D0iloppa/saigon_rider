@@ -28,6 +28,7 @@
   },
   "common": {
     "welcome": "Chào mừng",
+    "skip": "Bỏ qua",
     "loading": "Đang tải...",
     "close": "Đóng",
     "back": "Quay lại",

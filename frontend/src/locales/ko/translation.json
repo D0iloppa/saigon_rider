@@ -28,6 +28,7 @@
   },
   "common": {
     "welcome": "환영합니다",
+    "skip": "건너뛰기",
     "loading": "로딩 중...",
     "close": "닫기",
     "back": "뒤로",

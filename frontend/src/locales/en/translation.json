@@ -28,6 +28,7 @@
   },
   "common": {
     "welcome": "Welcome",
+    "skip": "Skip",
     "loading": "Loading...",
     "close": "Close",
     "back": "Back",

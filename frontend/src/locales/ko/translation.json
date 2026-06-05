@@ -52,7 +52,8 @@
     "hoursAgo": "{{count}}시간 전",
     "daysAgoShort": "{{count}}일 전",
     "expired": "만료",
-    "viewPhoto": "사진 자세히 보기"
+    "viewPhoto": "사진 자세히 보기",
+    "retry": "다시 시도"
   },
   "tabbar": {
     "home": "홈",
@@ -760,6 +761,7 @@
       "title": "정비소",
       "nearbyTitle": "주변 정비소",
       "emptyDistrict": "이 지역에 등록된 정비소가 없어요",
+      "loadError": "정보를 불러오지 못했습니다",
       "phoneLabel": "전화",
       "reportShopCta": "안 보이는 정비소 제보하기",
       "writeReviewBtn": "리뷰 작성",

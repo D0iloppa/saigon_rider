@@ -52,7 +52,8 @@
     "hoursAgo": "{{count}}h ago",
     "daysAgoShort": "{{count}}d ago",
     "expired": "Expired",
-    "viewPhoto": "View photo"
+    "viewPhoto": "View photo",
+    "retry": "Try again"
   },
   "tabbar": {
     "home": "Home",
@@ -760,6 +761,7 @@
       "title": "Repair",
       "nearbyTitle": "Nearby Shops",
       "emptyDistrict": "No repair shops in this area",
+      "loadError": "Could not load information",
       "phoneLabel": "Phone",
       "reportShopCta": "Report a missing shop",
       "writeReviewBtn": "Write review",

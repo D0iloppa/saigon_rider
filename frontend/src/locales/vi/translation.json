@@ -52,7 +52,8 @@
     "hoursAgo": "{{count}} giờ trước",
     "daysAgoShort": "{{count}} ngày trước",
     "expired": "Đã hết hạn",
-    "viewPhoto": "Xem ảnh"
+    "viewPhoto": "Xem ảnh",
+    "retry": "Thử lại"
   },
   "tabbar": {
     "home": "Trang chủ",
@@ -760,6 +761,7 @@
       "title": "Sửa xe",
       "nearbyTitle": "Tiệm sửa gần đây",
       "emptyDistrict": "Không có tiệm sửa trong khu vực này",
+      "loadError": "Không thể tải thông tin",
       "phoneLabel": "Điện thoại",
       "reportShopCta": "Báo tiệm sửa còn thiếu",
       "writeReviewBtn": "Viết đánh giá",

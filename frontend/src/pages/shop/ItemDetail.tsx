@@ -126,7 +126,7 @@ export default function ItemDetail() {
 
         {col && (
           <div className={s.collectionRow}>
-            <div className={s.collectionLabel}>COLLECTION · {col.name.toUpperCase()}</div>
+            <div className={s.collectionLabel}>{t('itemDetail.collection_label')} · {col.name.toUpperCase()}</div>
             <div className={s.collectionBar}>
               <div className={s.collectionFill} style={{ width: `${colPct}%` }} />
             </div>

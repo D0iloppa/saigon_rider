@@ -464,6 +464,7 @@
     "quote_C": "다음엔 더 좋은 것이."
   },
   "itemDetail": {
+    "collection_label": "컬렉션",
     "slot_suffix": "슬롯",
     "owned": "보유 중",
     "buying": "구매 중…",

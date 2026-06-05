@@ -464,6 +464,7 @@
     "quote_C": "Better luck next time."
   },
   "itemDetail": {
+    "collection_label": "COLLECTION",
     "slot_suffix": "slot",
     "owned": "Owned",
     "buying": "Buying…",

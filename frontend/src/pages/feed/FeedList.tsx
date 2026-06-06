@@ -256,7 +256,7 @@ export default function FeedList() {
                 <path d="M5 20c0-3.3 2.7-6 7-6s7 2.7 7 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
-            <button className={styles.iconBtn} onClick={() => navigate('/dm')} aria-label="DM" style={{ position: 'relative' }}>
+            <button className={styles.iconBtn} onClick={() => navigate('/dm')} aria-label={t('dm.title')} style={{ position: 'relative' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

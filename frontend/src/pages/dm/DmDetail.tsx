@@ -101,6 +101,7 @@ export default function DmDetail() {
           className={`${styles.sendBtn} ${input.trim() ? styles.sendBtnActive : ''}`}
           onClick={handleSend}
           disabled={!input.trim() || sending}
+          aria-label={t('dm.sendBtn')}
         >
           ↗
         </button>

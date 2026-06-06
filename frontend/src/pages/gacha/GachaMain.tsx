@@ -120,7 +120,7 @@ export default function GachaMain() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerBg} />
-        <button className={styles.headerBack} onClick={() => navigate(-1)}>←</button>
+        <button className={styles.headerBack} onClick={() => navigate(-1)} aria-label={t('common.back')}>←</button>
         <div className={styles.headerTitle}>{t('gacha.title')}</div>
         <div className={styles.headerBalance}>
           <div className={`${styles.headerBalanceRow} ${styles.headerBalanceGp}`}>
@@ -171,7 +171,7 @@ export default function GachaMain() {
                   />
                   <div className={styles.cardInfo}>
                     <div className={styles.cardBadge}>
-                      {g.cost_currency} GACHA
+                      {g.cost_currency} {t('gacha.badge_label')}
                       {g.pity_hard_ceiling > 0 && ` · ${t('gachaPull.ceiling')} ${g.pity_hard_ceiling}`}
                     </div>
                     <div className={styles.cardTitle}>{t(`gacha.name_${g.code}`, g.name)}</div>

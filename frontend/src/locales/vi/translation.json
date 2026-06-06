@@ -409,6 +409,7 @@
   },
   "gacha": {
     "title": "GACHA",
+    "badge_label": "GACHA",
     "tab_all": "Tất cả",
     "tab_gp": "Vàng",
     "tab_gc": "RP",

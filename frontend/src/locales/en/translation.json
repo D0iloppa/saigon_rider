@@ -409,6 +409,7 @@
   },
   "gacha": {
     "title": "GACHA",
+    "badge_label": "GACHA",
     "tab_all": "All",
     "tab_gp": "Gold",
     "tab_gc": "RP",

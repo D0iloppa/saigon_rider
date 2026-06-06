@@ -172,7 +172,7 @@ export default function FeedEdit() {
                     {slot.uploading && <div className={styles.uploadingOverlay}>⏳</div>}
                   </>
                 )}
-                <button className={styles.removeImg} onClick={() => removeSlot(idx)}>✕</button>
+                <button className={styles.removeImg} aria-label={t('feedCreate.removeImage')} onClick={() => removeSlot(idx)}>✕</button>
               </div>
             ))}
           </div>

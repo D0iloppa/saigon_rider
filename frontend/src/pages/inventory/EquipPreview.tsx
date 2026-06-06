@@ -54,7 +54,7 @@ export default function EquipPreview() {
     setSaving(true);
     try {
       await equipItem(user.id, selectedCode);
-      toast.success(t('equipPreview.equip_done', { slot: slotLabel(activeSlot) }));
+      toast.success(t('equipPreview.equip_done', { slot: t(`shop.slots.${activeSlot}`, { defaultValue: slotLabel(activeSlot) }) }));
       setItems((prev) =>
         prev.map((i) =>
           i.item_slot === activeSlot
@@ -88,7 +88,7 @@ export default function EquipPreview() {
             className={`${s.slotTab} ${slot === activeSlot ? s.slotTabActive : ''}`}
             onClick={() => { setActiveSlot(slot); setSelectedCode(null); }}
           >
-            {slotLabel(slot)}
+            {t(`shop.slots.${slot}`, { defaultValue: slotLabel(slot) })}
           </button>
         ))}
       </div>
@@ -115,7 +115,7 @@ export default function EquipPreview() {
       <div className={s.itemList}>
         {slotItems.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 24 }}>
-            {t('equipPreview.no_items', { slot: slotLabel(activeSlot) })}
+            {t('equipPreview.no_items', { slot: t(`shop.slots.${activeSlot}`, { defaultValue: slotLabel(activeSlot) }) })}
           </div>
         ) : (
           slotItems.map((item) => {

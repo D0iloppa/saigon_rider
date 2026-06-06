@@ -359,6 +359,7 @@
     "locationAttached": "Đã đính kèm vị trí",
     "locationError": "Không thể lấy vị trí",
     "uploadError": "Tải ảnh thất bại",
+    "removeImage": "Xóa ảnh",
     "postBtn": "Đăng",
     "posting": "Đang đăng...",
     "postError": "Đăng bài thất bại"

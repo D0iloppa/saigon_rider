@@ -142,7 +142,7 @@ export default function FeedCreate() {
                 <div key={idx} className={styles.previewItem}>
                   <img src={img.preview} alt="" className={styles.previewThumb} />
                   {img.uploading && <div className={styles.uploadingOverlay}>⏳</div>}
-                  <button className={styles.removeImg} onClick={() => removeImage(idx)}>✕</button>
+                  <button className={styles.removeImg} onClick={() => removeImage(idx)} aria-label={t('feedCreate.removeImage')}>✕</button>
                 </div>
               ))}
             </div>

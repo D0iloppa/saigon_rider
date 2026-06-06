@@ -359,6 +359,7 @@
     "locationAttached": "Location attached",
     "locationError": "Unable to get location",
     "uploadError": "Image upload failed",
+    "removeImage": "Remove image",
     "postBtn": "Post",
     "posting": "Posting...",
     "postError": "Failed to post"

@@ -359,6 +359,7 @@
     "locationAttached": "위치 첨부됨",
     "locationError": "위치 정보를 가져올 수 없어요",
     "uploadError": "이미지 업로드에 실패했어요",
+    "removeImage": "이미지 삭제",
     "postBtn": "게시",
     "posting": "게시 중...",
     "postError": "게시에 실패했어요"

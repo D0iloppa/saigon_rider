@@ -88,7 +88,7 @@ export default function PhoneInput() {
       <button
         onClick={() => navigate(-1)}
         style={{ position: 'absolute', top: 'calc(var(--status-bar-height) + 28px)', right: 24, zIndex: 10, padding: '4px 0', color: 'var(--text-2)', fontSize: 14, fontWeight: 600, lineHeight: 1 }}
-        aria-label="back"
+        aria-label={t('common.close')}
       >
         {t('common.close')}
       </button>

@@ -16,68 +16,199 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
 }
 
-.list {
-  /* 우측 배경 = 썸네일이 녹아드는 끝색 (그라데이션 끝색과 동일해야 seamless) */
-  --mission-bg: #E5531F;
+/* 풀블리드 배너 카드 (list/detail 공통) — 배너 이미지를 100% 노출, 라벨은 떠있는 칩 */
+.list,
+.detail {
+  display: block;
+  aspect-ratio: 320 / 200;
+}
+
+/* illustration = 카드 전체 배경 */
+.illustration {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0E0D1A;
+}
+
+.illustration svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.illustrationImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.illustrationImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 상세 히어로: 하단 ~40%를 크림(#FFF7F2)으로 페이드 → 본문 카드와 자연 블렌드 */
+.heroFade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 42%;
+  background: linear-gradient(to top, #FFF7F2 0%, rgba(255, 247, 242, 0) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ── 상단 우측: 태그 + 카테고리/윈도우 (떠있는 칩) ───────────── */
+.topRow {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
   display: flex;
-  flex-direction: row;
-  min-height: 110px;
-  background: var(--mission-bg);
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 2;
+  pointer-events: none;
 }
 
-.list .illustration {
-  width: 130px;
-  align-self: stretch;
-  flex-shrink: 0;
-}
-
-/* 그라데이션 블렌드 제거 — v4 SVG 카드를 평면(flat)으로 노출 */
-
-.list .overlay {
-  flex: 1;
-  min-width: 0;
+/* ── 하단 좌측: Lv·제목·거리·보상 (스크림 없이 섀도우/칩으로 가독성) ─── */
+.overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: flex-start;
   gap: 4px;
-  background: var(--mission-bg);
-}
-
-/* list variant: 주황 배경 위 가독성 보정 */
-.list .cardLabels {
-  left: auto;
-  right: 10px;
   z-index: 2;
 }
 
-.list .badgeRow {
-  margin-bottom: 0;
+.metaRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
-.list .meta {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.list .rewards {
-  margin-top: 2px;
-}
-
-.list .rewardChip {
-  background: rgba(0, 0, 0, 0.28);
+.title {
+  font-size: 15px;
+  font-weight: 700;
   color: #fff;
+  margin: 0;
+  line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 10px rgba(0, 0, 0, 0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.completedBadge {
+/* 상세 히어로: 하단이 크림으로 블렌드되므로 텍스트는 다크 */
+.detail .title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2A2218;
+  text-shadow: none;
+}
+
+.detail .overlay {
+  padding: 14px 18px 18px;
+}
+
+.detail .meta {
+  color: #6B5B53;
+  text-shadow: none;
+}
+
+.detail .badge {
+  background: rgba(255, 255, 255, 0.85);
+  color: #FF6B35;
+}
+
+.meta {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  margin-top: 1px;
+}
+
+.rewards {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.rewardChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #FFD86B;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.rewardChipIcon {
+  display: inline-block;
+  vertical-align: -2px;
+  object-fit: contain;
+}
+
+/* ── 칩/뱃지/라벨 (반투명 pill, 이미지 위 가독성) ───────────── */
+.badge {
   display: inline-block;
   padding: 2px 8px;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   border-radius: 10px;
   font-size: 10px;
   font-weight: 700;
   line-height: 1.4;
   white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.cardLabelCategory,
+.cardLabelWindow {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.cardLabelWindow {
+  color: #FFB800;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.mythic .cardLabelCategory {
+  color: #FFB800;
+  background: rgba(20, 8, 0, 0.65);
+}
+
+.season .cardLabelCategory {
+  background: rgba(20, 0, 8, 0.55);
 }
 
 .tag {
@@ -89,20 +220,34 @@
   line-height: 1.4;
   white-space: nowrap;
   color: #fff;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
 }
 
 .tagHOT {
-  background: rgba(220, 38, 38, 0.9);
+  background: rgba(220, 38, 38, 0.92);
 }
 
 .tagNEW {
-  background: rgba(34, 139, 230, 0.9);
+  background: rgba(34, 139, 230, 0.92);
 }
 
 .tagLIMITED {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   color: #FFE08A;
+}
+
+.completedBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
 }
 
 .timerChip {
@@ -114,11 +259,12 @@
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+  backdrop-filter: blur(4px);
 }
 
-/* list variant 에서 completed 카드는 채도 낮춤 */
-.list.completed {
-  --mission-bg: #6B5B53;
+/* 완료 카드 — 채도 낮춤 */
+.completed .illustration {
+  filter: saturate(0.5) brightness(0.82);
 }
 
 /* 레벨 미달 잠금 카드 */
@@ -155,177 +301,10 @@
   border-radius: 6px;
 }
 
-.detail {
-  display: flex;
-  flex-direction: column;
-}
-
-.detail .illustration {
-  width: 100%;
-  aspect-ratio: 320 / 200;
-}
-
-.detail .overlay {
-  padding: 16px 20px;
-  background: rgba(0, 0, 0, 0.45);
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-}
-
+/* mini — 정사각 썸네일, 오버레이 없음 */
 .mini {
   width: 80px;
   height: 80px;
-}
-
-.mini .illustration {
-  width: 100%;
-  height: 100%;
-}
-
-.mini .overlay {
-  display: none;
-}
-
-.illustration {
-  position: relative;
-  overflow: hidden;
-  background: #0E0D1A;
-}
-
-.illustration svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.illustrationImg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.illustrationImg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cardLabels {
-  position: absolute;
-  top: 8px;
-  left: 10px;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.detail .cardLabels {
-  left: auto;
-  right: 12px;
-}
-
-.cardLabelCategory,
-.cardLabelWindow {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  white-space: nowrap;
-  backdrop-filter: blur(4px);
-}
-
-.cardLabelWindow {
-  color: #FFB800;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.mythic .cardLabelCategory {
-  color: #FFB800;
-  background: rgba(20, 8, 0, 0.65);
-}
-
-.season .cardLabelCategory {
-  background: rgba(20, 0, 8, 0.55);
-}
-
-.badgeRow {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.85);
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.title {
-  font-size: 15px;
-  font-weight: 700;
-  color: white;
-  margin: 0;
-  line-height: 1.4;
-  padding-bottom: 2px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.detail .title {
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.meta {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 2px;
-}
-
-.rewards {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.rewardChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px 8px;
-  background: rgba(255, 90, 31, 0.12);
-  color: #FFB800;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.rewardChipIcon {
-  display: inline-block;
-  vertical-align: -2px;
-  object-fit: contain;
 }
 
 .season {
@@ -337,12 +316,6 @@
   box-shadow:
     0 0 16px rgba(255, 184, 0, 0.25),
     0 2px 8px rgba(0, 0, 0, 0.16);
-}
-
-.mythic .rewardChip {
-  background: linear-gradient(135deg, #FFB800 0%, #FF8C42 100%);
-  color: white;
-  box-shadow: 0 1px 4px rgba(255, 184, 0, 0.4);
 }
 
 @media (max-width: 480px) {

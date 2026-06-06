@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -45,6 +47,15 @@ async def start_ride(
     quest = await db.get(Quest, uq.quest_id)
     if quest is None:
         raise HTTPException(status_code=404, detail="quest not found")
+
+    # 수행가능 시간대 게이트 (ICT 로컬시각, 둘 다 있으면 검사). 자정 미교차 가정.
+    if quest.available_from is not None and quest.available_to is not None:
+        now_ict = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).time()
+        if not (quest.available_from <= now_ict <= quest.available_to):
+            raise HTTPException(
+                status_code=409,
+                detail=f"수행 가능 시간이 아닙니다 ({quest.available_from:%H:%M}~{quest.available_to:%H:%M})",
+            )
 
     expires_at = _calc_card_expires_from_quest(quest)
     try:

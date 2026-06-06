@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { native } from '@/lib/native';
 import { resolveInfoCoordsSync } from '@/lib/infoCoords';
+import { decodePolyline, bearing, haversineM, distanceToPolylineM } from '@/lib/polyline';
 import MapCanvas, { type MapCanvasHandle } from '@/components/ride/MapCanvas';
 import MapControls from '@/components/ride/MapControls';
 import Speedometer from '@/components/ride/Speedometer';
@@ -17,6 +18,16 @@ import { calculateRewards } from '@/lib/rewards';
 import styles from './RideNav.module.css';
 
 type Coords = { lat: number; lng: number };
+
+// [DBG] SGR-271: quest 모드에서 GPS 실패 시 HCMC D1 폴백을 한시적 허용.
+//       실기기 GPS 검증 완료 후 false 로 되돌리거나 이 플래그째 제거할 것.
+const DBG_ALLOW_QUEST_HCMC_FALLBACK = true;
+
+// 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
+const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
+const OFF_ROUTE_SECONDS = 5; // 이탈 지속 시간(이 이상 지속해야 이탈 확정)
+const GPS_ACCURACY_LIMIT_M = 35; // GPS 신뢰 임계값(초과 시 판정 스킵)
+const COMPASS_RADIUS_M = 500; // 라스트마일 나침반 모드 전환 반경
 
 /** 출발지: 권한 요청 후 현재 GPS 우선, 실패 시 캐시/기본 좌표(throw 안 함). */
 async function resolveOrigin(): Promise<Coords> {
@@ -39,6 +50,20 @@ function maneuverIcon(maneuver?: string | null, isLast = false): string {
   if (m.includes('left')) return '⬅️';
   if (m.includes('right')) return '➡️';
   return '⬆️';
+}
+
+/** 거리 표기: 1km 이상 → "1.23 km", 미만 → "750 m". */
+function formatDistance(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
+}
+
+/** 경과 시간: 1시간 이상 h:mm:ss, 미만 m:ss. */
+function formatDuration(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
 }
 
 /** Google 4색 G 로고 (공식 마크). 흰 배경 위에서 정확히 렌더. */
@@ -105,9 +130,14 @@ export default function RideNav() {
   const [guidanceStarted, setGuidanceStarted] = useState(isQuest); // quest 는 진입 즉시 추적
 
   // 실시간 위치/속도 (속도계·마커용 — foreground watch. 검증은 서버 폴링이 담당)
-  const [current, setCurrent] = useState<Coords & { heading?: number | null }>();
+  const [current, setCurrent] = useState<Coords & { heading?: number | null; accuracy?: number }>();
   const [speedMs, setSpeedMs] = useState<number | null>(null);
   const completedRef = useRef(false);
+
+  // nav 경로 이탈 감지(로컬) — 이탈 확정 배너 / 라스트마일 나침반 모드. quest 미적용.
+  const offRouteStartRef = useRef<number | null>(null);
+  const [offRoute, setOffRoute] = useState(false);
+  const [compass, setCompass] = useState<{ bearing: number; distM: number } | null>(null);
 
   // quest 이동경로(서버 스트림 GPS) — 거리 퀘스트 궤적 표시.
   const [trail, setTrail] = useState<TrailPoint[]>([]);
@@ -138,15 +168,20 @@ export default function RideNav() {
     return () => { cancelled = true; };
   }, [type, dest]);
 
-  // quest: 진입 시 출발지 확보.
-  // DEBUG(SGR-271): HCMC D1 폴백(resolveInfoCoords 기본값) 임시 비활성화 — 실제 GPS 만 사용,
-  // 실패 시 origin=null 로 두고 지도는 스트림 트레일에 센터. (복구: resolveOrigin() 으로 되돌릴 것)
+  // quest: 진입 시 출발지 확보. 실제 GPS 우선.
+  // [DBG] SGR-271: GPS 실패 시 HCMC D1 폴백을 DBG_ALLOW_QUEST_HCMC_FALLBACK 로 한시적 허용.
+  //       플래그 off 면 origin=null 로 두고 지도는 스트림 트레일에 센터.
   useEffect(() => {
     if (!isQuest) return;
     let cancelled = false;
     native.getLocation()
       .then((p) => { if (!cancelled) setOrigin({ lat: p.lat, lng: p.lng }); })
-      .catch(() => { /* no HCMC fallback (debug) */ });
+      .catch(() => {
+        if (!DBG_ALLOW_QUEST_HCMC_FALLBACK || cancelled) return;
+        const fb = resolveInfoCoordsSync('');
+        console.warn('[DBG] quest GPS 실패 → HCMC D1 폴백 좌표 사용 (임시, SGR-271)', fb);
+        setOrigin({ lat: fb.lat, lng: fb.lng });
+      });
     native.getDeviceUUID().then((u) => { if (!cancelled) setDeviceUuid(u); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [isQuest]);
@@ -195,15 +230,49 @@ export default function RideNav() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isQuest, ride.reachedTarget]);
 
-  // 실시간 GPS watch — 안내 시작(nav) 또는 퀘스트 추적 중일 때. 마커·속도계 표시 전용.
+  // 이탈 거리 계산용 활성 경로 폴리라인(디코드). route 변경 시에만 재계산.
+  const activePts = useMemo<Array<[number, number]>>(
+    () => (route?.polyline ? decodePolyline(route.polyline) : []),
+    [route],
+  );
+
+  // 실시간 GPS watch — 안내 시작(nav) 또는 퀘스트 추적 중일 때. 마커·속도계 표시 + nav 이탈 감지.
   useEffect(() => {
     if (!guidanceStarted) return;
     const stop = native.watchLocation((pos) => {
-      setCurrent({ lat: pos.lat, lng: pos.lng, heading: pos.heading });
+      setCurrent({ lat: pos.lat, lng: pos.lng, heading: pos.heading, accuracy: pos.accuracy });
       setSpeedMs(pos.speed ?? null);
+
+      // nav: 로컬 경로 이탈 감지 (작업지시서 §3 플로우). GPS 틱당 로컬 계산만 — API 호출 0.
+      //   정확도 게이트 → 라스트마일 나침반 모드 → 이탈 50m·5초 지속 시 'Google 지도 재안내' 배너.
+      //   (재탐색 API 호출 대신 사용자 탭 기반 Google 지도 딥링크 핸드오프로 전환.)
+      if (type !== 'nav') return;
+      if (pos.accuracy != null && pos.accuracy > GPS_ACCURACY_LIMIT_M) return; // GPS 튐 방어
+      if (dest) {
+        const toDest = haversineM(pos.lat, pos.lng, dest.lat, dest.lng);
+        if (toDest <= COMPASS_RADIUS_M) {
+          // 라스트마일: 목적지 반경 진입 → 나침반 모드(방향+직선거리), 이탈 평가 중단.
+          setCompass({ bearing: bearing(pos.lat, pos.lng, dest.lat, dest.lng), distM: Math.round(toDest) });
+          offRouteStartRef.current = null;
+          setOffRoute(false);
+          return;
+        }
+      }
+      setCompass(null);
+      if (activePts.length < 2) return;
+      const off = distanceToPolylineM(pos.lat, pos.lng, activePts);
+      if (off <= OFF_ROUTE_DISTANCE_M) {
+        offRouteStartRef.current = null;
+        setOffRoute(false);
+        return;
+      }
+      // 이탈 거리 초과 — 5초 이상 지속해야 확정(잠깐 골목 진입 등 노이즈 무시).
+      const now = Date.now();
+      if (offRouteStartRef.current == null) { offRouteStartRef.current = now; return; }
+      if ((now - offRouteStartRef.current) / 1000 >= OFF_ROUTE_SECONDS) setOffRoute(true);
     });
     return stop;
-  }, [guidanceStarted]);
+  }, [guidanceStarted, type, dest, activePts]);
 
   const startGuidance = () => {
     setGuidanceStarted(true);
@@ -236,9 +305,29 @@ export default function RideNav() {
   const checkpointDistM = isQuest && mode === 'checkpoint' ? ride.distanceToTargetM : null;
   const targetM = isQuest ? ride.targetDistanceM : null;
   const distPct = targetM ? Math.min(100, Math.round((ride.distanceM / targetM) * 100)) : 0;
+  // 거리 퀘스트: 이동/남은 거리. 진행 시간은 두 타입 공통(스토어가 1초마다 갱신).
+  const remainingDistM = targetM != null ? Math.max(0, targetM - ride.distanceM) : null;
 
-  const recenter = () => { if (current) mapRef.current?.recenter(current); };
+  // 현재위치 dot — foreground GPS 우선, 없으면 서버 스트림 trail 의 최신 포인트(=서버가 본 현재위치).
+  const dotPos = current
+    ?? (isQuest && trail.length ? { lat: trail[trail.length - 1].lat, lng: trail[trail.length - 1].lng } : undefined);
+
+  const recenter = () => { if (dotPos) mapRef.current?.recenter(dotPos); };
   const resetNorth = () => mapRef.current?.resetNorth();
+
+  // 이동 시 지도를 현재 좌표로 따라감 (카메라만 이동, 경로 재검색 없음).
+  useEffect(() => {
+    if (dotPos) mapRef.current?.follow(dotPos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dotPos?.lat, dotPos?.lng]);
+
+  // 경로 이탈 확정 → Google 지도 딥링크로 재안내(현재 위치→목적지, 오토바이). 재탐색 API 미호출.
+  const openGoogleReroute = () => {
+    if (!dest) return;
+    const o = current ? `&origin=${current.lat},${current.lng}` : '';
+    native.openUrl(`https://www.google.com/maps/dir/?api=1${o}&destination=${dest.lat},${dest.lng}&travelmode=two_wheeler`);
+    setOffRoute(false);
+  };
 
   return (
     <div className={styles.page}>
@@ -251,7 +340,7 @@ export default function RideNav() {
             origin={origin}
             dest={dest}
             polyline={route?.polyline}
-            current={current}
+            current={dotPos}
             trail={isQuest ? trail : null}
             className={styles.map}
           />
@@ -277,6 +366,32 @@ export default function RideNav() {
             <button className={styles.startFab} onClick={startGuidance}>
               ▶ {t('rideNav.startGuidance', '경로 안내 시작')}
             </button>
+          )}
+
+          {/* 경로 이탈 — Google 지도 재안내 배너 (nav). 재탐색 API 대신 수동 핸드오프. */}
+          {type === 'nav' && guidanceStarted && offRoute && (
+            <div className={styles.rerouteBanner}>
+              <span className={styles.rerouteText}>{t('rideNav.offRouteTitle', '경로를 이탈했어요')}</span>
+              <button className={styles.rerouteBtn} onClick={openGoogleReroute}>
+                <span className={styles.gIcon}><GoogleGIcon /></span>
+                {t('rideNav.offRouteReroute', 'Google 지도로 재안내')}
+              </button>
+            </div>
+          )}
+
+          {/* 라스트마일 나침반 모드 (nav). 목적지 500m 반경 — 방향+직선거리만, 재안내 차단. */}
+          {type === 'nav' && guidanceStarted && compass && (
+            <div className={styles.compassChip}>
+              <span
+                className={styles.compassArrow}
+                style={{ transform: `rotate(${compass.bearing - (current?.heading ?? 0)}deg)` }}
+              >
+                ↑
+              </span>
+              <span className={styles.compassDist}>
+                {t('rideNav.compassRemaining', { dist: compass.distM, defaultValue: '목적지까지 약 {{dist}}m' })}
+              </span>
+            </div>
           )}
 
           {/* 하단 시트 */}
@@ -313,7 +428,7 @@ export default function RideNav() {
                   <div className={styles.etaDist}>
                     <div className={`${styles.distVal} mono`}>
                       {mode === 'checkpoint'
-                        ? (checkpointDistM != null ? `${checkpointDistM}m` : '—')
+                        ? (checkpointDistM != null ? formatDistance(checkpointDistM) : '—')
                         : `${distPct}%`}
                     </div>
                   </div>
@@ -355,10 +470,48 @@ export default function RideNav() {
               </>
             ) : (
               <div className={styles.questBody}>
-                {mode !== 'checkpoint' && targetM != null && (
-                  <div className={styles.progressTrack}>
-                    <div className={styles.progressFill} style={{ width: `${distPct}%` }} />
-                  </div>
+                {mode === 'checkpoint' ? (
+                  <>
+                    <div className={styles.statRow}>
+                      <div className={styles.statCell}>
+                        <div className={`${styles.statVal} mono`}>
+                          {checkpointDistM != null ? formatDistance(checkpointDistM) : '—'}
+                        </div>
+                        <div className={styles.statLabel}>{t('rideNav.remaining', '남은 거리')}</div>
+                      </div>
+                      <div className={styles.statCell}>
+                        <div className={`${styles.statVal} mono`}>{formatDuration(ride.durationSec)}</div>
+                        <div className={styles.statLabel}>{t('rideNav.elapsed', '진행 시간')}</div>
+                      </div>
+                    </div>
+                    <div className={styles.proximityNote}>
+                      {t('ride.checkpoint.proximityNotice', { m: radiusM, defaultValue: '{{m}}m 이내 도달 시 인정' })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {targetM != null && (
+                      <div className={styles.progressTrack}>
+                        <div className={styles.progressFill} style={{ width: `${distPct}%` }} />
+                      </div>
+                    )}
+                    <div className={styles.statRow}>
+                      <div className={styles.statCell}>
+                        <div className={`${styles.statVal} mono`}>{formatDistance(ride.distanceM)}</div>
+                        <div className={styles.statLabel}>{t('rideNav.traveled', '이동 거리')}</div>
+                      </div>
+                      <div className={styles.statCell}>
+                        <div className={`${styles.statVal} mono`}>
+                          {remainingDistM != null ? formatDistance(remainingDistM) : '—'}
+                        </div>
+                        <div className={styles.statLabel}>{t('rideNav.remaining', '남은 거리')}</div>
+                      </div>
+                      <div className={styles.statCell}>
+                        <div className={`${styles.statVal} mono`}>{formatDuration(ride.durationSec)}</div>
+                        <div className={styles.statLabel}>{t('rideNav.elapsed', '진행 시간')}</div>
+                      </div>
+                    </div>
+                  </>
                 )}
                 <div className={styles.questHint}>
                   {t('rideNav.questServerNote', '완료는 서버에서 자동 검증됩니다.')}

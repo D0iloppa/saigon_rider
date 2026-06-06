@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { Toaster } from 'sonner';
 import { SpriteProvider } from '@/lib/items/SpriteProvider';
+import { QuestCardSprites } from '@/components/quest/QuestCardSprites';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -182,6 +183,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <SpriteProvider />
+      <QuestCardSprites />
       <Toaster position="top-center" gap={6} visibleToasts={3} />
       <Dialog />
       <ConfirmDialog />

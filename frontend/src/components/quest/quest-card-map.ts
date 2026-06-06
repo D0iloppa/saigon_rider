@@ -107,7 +107,7 @@ function makeRiderCard(cardCode: string): QuestCardMeta {
     cardCode,
     spriteName: 'rider-sprite',
     category: 'rider',
-    href: `/assets/quest-cards/rider-sprite.svg#card-${cardCode}`,
+    href: `#card-${cardCode}`,
   };
 }
 
@@ -116,7 +116,7 @@ function makeSeasonCard(cardCode: string): QuestCardMeta {
     cardCode,
     spriteName: 'season-sprite',
     category: 'season',
-    href: `/assets/quest-cards/season-sprite.svg#card-${cardCode}`,
+    href: `#card-${cardCode}`,
   };
 }
 
@@ -125,7 +125,7 @@ function makeMythicCard(cardCode: string): QuestCardMeta {
     cardCode,
     spriteName: 'mythic-sprite',
     category: 'mythic',
-    href: `/assets/quest-cards/mythic-sprite.svg#card-${cardCode}`,
+    href: `#card-${cardCode}`,
   };
 }
 

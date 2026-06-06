@@ -24,7 +24,10 @@
     "openGoogleMaps": "Open in Google Maps",
     "offRouteTitle": "You're off route",
     "offRouteReroute": "Reroute in Google Maps",
-    "compassRemaining": "About {{dist}}m to destination"
+    "compassRemaining": "About {{dist}}m to destination",
+    "traveled": "Traveled",
+    "remaining": "Remaining",
+    "elapsed": "Elapsed"
   },
   "common": {
     "welcome": "Welcome",
@@ -200,7 +203,11 @@
     "modeAccepted": "My Quests",
     "acceptedEmptyTitle": "No accepted quests yet",
     "acceptedEmptySub": "Accept a quest from the Available tab",
-    "acceptedToast": "Accepted. Check it in the My Quests tab."
+    "acceptedToast": "Accepted. Check it in the My Quests tab.",
+    "acceptedSubActive": "Active",
+    "completedEmptyTitle": "No completed quests yet",
+    "completedEmptySub": "Completed quests will appear here",
+    "completedAt": "Completed {{date}}"
   },
   "ride": {
     "distance": "Distance",

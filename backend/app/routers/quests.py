@@ -268,6 +268,33 @@ async def get_my_accepted(
     ]
 
 
+@router.get("/my-completed", summary="내 퀘스트 — 완료한 UserQuest 목록")
+async def get_my_completed(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(UserQuest, Quest)
+            .join(Quest, Quest.id == UserQuest.quest_id)
+            .where(
+                UserQuest.user_id == user_id,
+                UserQuest.status == "COMPLETED",
+            )
+            .order_by(UserQuest.completed_at.desc())
+        )
+    ).all()
+    return [
+        {
+            "user_quest_id": str(uq.id),
+            "completed_at": uq.completed_at.isoformat() if uq.completed_at else None,
+            "period_key": uq.period_key,
+            "quest": _to_out(q).model_dump(mode="json"),
+        }
+        for uq, q in rows
+    ]
+
+
 @router.get("/active-card", summary="라이드 화면 폴링 — 활성 퀘스트 카드 상태")
 async def get_active_quest_card(user_quest_id: uuid.UUID):
     try:

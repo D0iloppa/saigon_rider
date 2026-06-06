@@ -24,7 +24,10 @@
     "openGoogleMaps": "Mở Google Maps",
     "offRouteTitle": "Bạn đã đi chệch lộ trình",
     "offRouteReroute": "Chỉ đường lại bằng Google Maps",
-    "compassRemaining": "Còn khoảng {{dist}}m đến nơi"
+    "compassRemaining": "Còn khoảng {{dist}}m đến nơi",
+    "traveled": "Đã đi",
+    "remaining": "Còn lại",
+    "elapsed": "Thời gian"
   },
   "common": {
     "welcome": "Chào mừng",
@@ -200,7 +203,11 @@
     "modeAccepted": "Nhiệm vụ của tôi",
     "acceptedEmptyTitle": "Chưa có nhiệm vụ nào được nhận",
     "acceptedEmptySub": "Hãy nhận nhiệm vụ từ tab Có sẵn",
-    "acceptedToast": "Đã nhận. Kiểm tra trong tab Nhiệm vụ của tôi."
+    "acceptedToast": "Đã nhận. Kiểm tra trong tab Nhiệm vụ của tôi.",
+    "acceptedSubActive": "Đang nhận",
+    "completedEmptyTitle": "Chưa có nhiệm vụ nào hoàn thành",
+    "completedEmptySub": "Nhiệm vụ đã hoàn thành sẽ xuất hiện ở đây",
+    "completedAt": "Hoàn thành {{date}}"
   },
   "ride": {
     "distance": "Khoảng cách",

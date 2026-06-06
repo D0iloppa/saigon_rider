@@ -68,9 +68,9 @@ INSERT INTO gacha_definition (
   NULL,
   '{
     "weighted": [
-      {"rarity": "R", "weight": 50},
-      {"rarity": "E", "weight": 40},
-      {"rarity": "L", "weight": 9},
+      {"rarity": "R", "weight": 91},
+      {"rarity": "E", "weight": 5},
+      {"rarity": "L", "weight": 3},
       {"rarity": "M", "weight": 1}
     ],
     "guaranteed_at_10": "E",
@@ -89,9 +89,9 @@ INSERT INTO gacha_definition (
   'TET_FESTIVAL',           -- 초기값. 시즌 변경 시 UPDATE 필요
   '{
     "weighted": [
-      {"rarity": "R", "weight": 60},
-      {"rarity": "E", "weight": 30},
-      {"rarity": "L", "weight": 9},
+      {"rarity": "R", "weight": 91},
+      {"rarity": "E", "weight": 5},
+      {"rarity": "L", "weight": 3},
       {"rarity": "M", "weight": 1}
     ],
     "guaranteed_at_10": "E",
@@ -109,9 +109,9 @@ INSERT INTO gacha_definition (
   NULL,
   '{
     "weighted": [
-      {"rarity": "E", "weight": 70},
-      {"rarity": "L", "weight": 25},
-      {"rarity": "M", "weight": 5}
+      {"rarity": "E", "weight": 96},
+      {"rarity": "L", "weight": 3},
+      {"rarity": "M", "weight": 1}
     ],
     "guaranteed_at_10": "L",
     "duplicate_policy": "REFUND_GC"

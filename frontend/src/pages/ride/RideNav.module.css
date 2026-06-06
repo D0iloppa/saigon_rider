@@ -71,6 +71,64 @@
   box-shadow: 0 8px 24px rgba(255,90,31,.35);
 }
 
+/* ── 경로 이탈 재안내 배너 (nav) ── */
+.rerouteBanner {
+  position: absolute;
+  top: calc(var(--status-bar-height, 0px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  width: calc(100% - 32px);
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.rerouteText { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--text, #1A1D2A); }
+.rerouteBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 12px;
+  padding: 9px 12px;
+  background: var(--brand, #FF5A1F);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* ── 라스트마일 나침반 칩 (nav) ── */
+.compassChip {
+  position: absolute;
+  top: calc(var(--status-bar-height, 0px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 6px 20px rgba(0,0,0,.16);
+}
+.compassArrow {
+  display: inline-block;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--brand, #FF5A1F);
+  transition: transform .3s;
+}
+.compassDist { font-size: 14px; font-weight: 800; color: var(--text, #1A1D2A); }
+
 /* ── 시트 헤더 (ETA / 퀘스트 진행) ── */
 .etaRow {
   display: flex;
@@ -133,7 +191,7 @@
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(255,90,31,.2);
-  display: flex;
+  display: none; /* 구글맵 이동 버튼 숨김 (앱 내 추적 사용) */
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -165,6 +223,29 @@
   transition: width 0.4s ease;
 }
 .questHint { font-size: 12px; color: var(--text-3, #8A8E9E); text-align: center; }
+
+/* ── 퀘스트 진행 스탯 (이동/남은 거리·진행 시간) ── */
+.statRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.statCell {
+  flex: 1;
+  text-align: center;
+  padding: 10px 6px;
+  background: var(--surface-2, #FAF7F2);
+  border-radius: 12px;
+}
+.statVal { font-size: 17px; font-weight: 800; color: var(--text, #1A1D2A); letter-spacing: -0.01em; }
+.statLabel { font-size: 11px; color: var(--text-3, #8A8E9E); margin-top: 2px; }
+.proximityNote {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand, #FF5A1F);
+  text-align: center;
+  margin-bottom: 10px;
+}
 
 /* ── 폴백 (키 미설정) ── */
 .fallback {

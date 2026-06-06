@@ -6,34 +6,42 @@
   color: var(--text-2);
 }
 
+/* 히어로 = 풀블리드 배너(QuestCard detail). 하단은 카드가 크림으로 페이드 → 시트와 블렌드 */
 .hero {
   position: relative;
   overflow: hidden;
-  padding-top: var(--status-bar-height, 0px);
-  padding-bottom: 32px;
-  background: #0E0D1A;
-}
-
-[data-platform="ios"] .hero {
-  padding-top: max(env(safe-area-inset-top, 44px), 44px);
+  background: transparent;
 }
 
 .sheet {
   position: relative;
-  margin-top: -28px;
-  padding: 24px 20px calc(24px + var(--bottom-safe));
-  background: var(--surface);
-  border-radius: 32px 32px 0 0;
+  margin-top: -24px;
+  padding: 20px 20px calc(24px + var(--bottom-safe));
+  background: #FFF7F2;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
 }
 
+/* 가로 스크롤 태그 칩 줄 */
 .metaRow {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  margin-bottom: 14px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.metaRow::-webkit-scrollbar {
+  display: none;
+}
+
+.metaRow > * {
+  flex-shrink: 0;
 }
 
 .metaChip {
+  flex-shrink: 0;
   font-family: 'Space Grotesk', sans-serif;
   font-size: 11px;
   font-weight: 700;

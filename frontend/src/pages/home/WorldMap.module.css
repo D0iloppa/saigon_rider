@@ -241,7 +241,7 @@
 .miniCard {
   flex-shrink: 0;
   width: 148px;
-  height: 108px;
+  height: 88px;
   background: var(--surface);
   border-radius: 14px;
   padding: 12px;
@@ -259,7 +259,14 @@
   background: #FFF8F8;
 }
 
-.miniIcon { font-size: 20px; margin-bottom: 6px; }
+.miniHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.miniIcon { font-size: 20px; }
 
 .miniTitle {
   font-size: 10px;
@@ -267,7 +274,6 @@
   color: var(--text-3);
   letter-spacing: .06em;
   text-transform: uppercase;
-  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

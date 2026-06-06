@@ -8,8 +8,10 @@ export interface MapCanvasHandle {
   overview: () => void;
   /** 출발점 기준 진행방향으로 spin + 강한 zoom(경로안내 시작 연출). 틸트 없음. */
   startGuidance: () => void;
-  /** 현재 위치로 부드럽게 이동. */
+  /** 현재 위치로 부드럽게 이동(줌 16 고정). 수동 '내 위치' 버튼용. */
   recenter: (pos: { lat: number; lng: number }) => void;
+  /** 현재 위치로 카메라만 따라감(줌 유지). 이동 추적용. */
+  follow: (pos: { lat: number; lng: number }) => void;
   /** 북향으로 회전 리셋. */
   resetNorth: () => void;
 }
@@ -101,6 +103,9 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     },
     recenter(pos) {
       mapRef.current?.easeTo({ center: [pos.lng, pos.lat], zoom: 16, duration: 700 });
+    },
+    follow(pos) {
+      mapRef.current?.easeTo({ center: [pos.lng, pos.lat], duration: 500 });
     },
     resetNorth() {
       mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 500 });
@@ -243,13 +248,22 @@ function pinEl(emoji: string): HTMLElement {
   return el;
 }
 
-/** 파란 현재위치 + 방향 화살표(자식 요소를 heading 으로 회전). */
+/** 파란 현재위치 dot + 살아있는 듯 깜빡이는 펄스 링(WAAPI, CSS 파일 불필요). */
 function headingEl(): HTMLElement {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'width:22px;height:22px;position:relative';
-  const arrow = document.createElement('div');
-  arrow.style.cssText =
-    'width:22px;height:22px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 0 0 5px rgba(37,99,235,.25),0 1px 3px rgba(0,0,0,.3);transition:transform .3s';
-  wrap.appendChild(arrow);
+  // firstElementChild = dot(회전 대상 유지). 방향 없는 trail 위치도 원형이라 시각 영향 없음.
+  const dot = document.createElement('div');
+  dot.style.cssText =
+    'position:absolute;inset:0;width:22px;height:22px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:1;transition:transform .3s';
+  const ring = document.createElement('div');
+  ring.style.cssText =
+    'position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#2563EB;z-index:0';
+  wrap.appendChild(dot);
+  wrap.appendChild(ring);
+  ring.animate(
+    [{ transform: 'scale(1)', opacity: 0.55 }, { transform: 'scale(2.8)', opacity: 0 }],
+    { duration: 1600, iterations: Infinity, easing: 'ease-out' },
+  );
   return wrap;
 }

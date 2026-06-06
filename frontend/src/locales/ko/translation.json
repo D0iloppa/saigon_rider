@@ -440,7 +440,16 @@
     "charge": "+ 충전",
     "gacha_banner_title": "더 짜릿한 한 방?",
     "gacha_banner_sub": "5종 가챠가 기다린다",
-    "load_more": "더보기"
+    "load_more": "더보기",
+    "slots": {
+      "HELMET": "헬멧", "JACKET": "재킷", "GLOVES": "장갑", "EYEWEAR": "고글", "BOOTS": "부츠",
+      "PANTS": "팬츠", "KNEE": "무릎 보호대",
+      "BODY": "차체", "ENGINE": "엔진", "SEAT": "시트", "STICKER": "스티커", "HANDLE": "핸들",
+      "MIRROR": "미러", "LIGHT": "라이트", "TAIL": "테일", "NUMBER": "번호판", "WHEEL": "휠",
+      "NAME": "네임", "RANK": "랭크", "FRAME": "프레임", "TITLE": "타이틀", "BACKDROP": "배경",
+      "TRAIL": "트레일", "START": "스타트", "HORN": "경적",
+      "BANNER": "배너", "EMOTE": "이모트", "PET": "펫"
+    }
   },
   "inventory": {
     "title": "인벤토리",

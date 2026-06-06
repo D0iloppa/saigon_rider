@@ -89,6 +89,8 @@ function FeaturedCard({ item }: { item: DailyFeaturedItem }) {
 export default function ShopCatalog() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  // 슬롯명 i18n: shop.slots.* (ko/en/vi). 누락 시 shop.ts 공유 영문 헬퍼로 폴백(키원문 노출 방지).
+  const slotName = useCallback((slot: string) => t(`shop.slots.${slot}`, { defaultValue: slotLabel(slot) }), [t]);
   const user = useUserStore((s) => s.user);
   const [featured, setFeatured] = useState<DailyFeaturedItem | null>(null);
   const [items, setItems] = useState<ShopItem[]>([]);
@@ -235,7 +237,7 @@ export default function ShopCatalog() {
                   className={`${styles.chip} ${slot === sl ? styles.chipActive : styles.chipInactive}`}
                   onClick={() => setSlot(sl)}
                 >
-                  {slotLabel(sl)}
+                  {slotName(sl)}
                 </button>
               ))}
             </>
@@ -275,7 +277,7 @@ export default function ShopCatalog() {
                   <ItemSvgRenderer itemCode={item.item_code} slot={item.item_slot} size={64} rarity={item.rarity} className={styles.itemThumbImg} />
                 </div>
                 <div className={styles.itemName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
-                <div className={styles.itemSlot}>{slotLabel(item.item_slot)}</div>
+                <div className={styles.itemSlot}>{slotName(item.item_slot)}</div>
 
                 <div className={styles.itemFooter}>
                   {item.price_gold ? (

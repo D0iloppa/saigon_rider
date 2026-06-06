@@ -440,7 +440,16 @@
     "charge": "+ Nạp thêm",
     "gacha_banner_title": "Muốn thú vị hơn?",
     "gacha_banner_sub": "5 loại gacha đang chờ",
-    "load_more": "Xem thêm"
+    "load_more": "Xem thêm",
+    "slots": {
+      "HELMET": "Mũ bảo hiểm", "JACKET": "Áo khoác", "GLOVES": "Găng tay", "EYEWEAR": "Kính", "BOOTS": "Giày",
+      "PANTS": "Quần", "KNEE": "Bảo vệ gối",
+      "BODY": "Thân xe", "ENGINE": "Động cơ", "SEAT": "Yên xe", "STICKER": "Sticker", "HANDLE": "Tay lái",
+      "MIRROR": "Gương", "LIGHT": "Đèn", "TAIL": "Đuôi xe", "NUMBER": "Biển số", "WHEEL": "Bánh xe",
+      "NAME": "Tên", "RANK": "Hạng", "FRAME": "Khung", "TITLE": "Danh hiệu", "BACKDROP": "Phông nền",
+      "TRAIL": "Vệt sáng", "START": "Khởi đầu", "HORN": "Còi",
+      "BANNER": "Biểu ngữ", "EMOTE": "Biểu cảm", "PET": "Thú cưng"
+    }
   },
   "inventory": {
     "title": "Kho đồ",

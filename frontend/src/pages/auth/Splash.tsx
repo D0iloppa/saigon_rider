@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { AppImage } from '@/components/ui/AppImage';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
@@ -61,13 +62,11 @@ export default function Splash() {
 
       {/* Photo hero */}
       <div className={styles.photoHero}>
-        <img
-          src="https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800&q=80"
-          onError={(e) => {
-            const t = e.currentTarget;
-            t.onerror = null;
-            t.src = 'https://picsum.photos/seed/saigon-night/800/1000';
-          }}
+        <AppImage
+          src={[
+            'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800&q=80',
+            'https://picsum.photos/seed/saigon-night/800/1000',
+          ]}
           alt=""
         />
         <div className={styles.heroOverlay} />

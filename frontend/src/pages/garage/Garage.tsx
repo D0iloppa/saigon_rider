@@ -223,7 +223,7 @@ export default function Garage() {
           i.item_slot === item.item_slot ? { ...i, is_equipped: false } : i,
         ),
       );
-      toast.success(t('equipPreview.unequip_done', { slot: slotLabel(item.item_slot) }));
+      toast.success(t('equipPreview.unequip_done', { slot: t(`shop.slots.${item.item_slot}`, { defaultValue: slotLabel(item.item_slot) }) }));
     } catch {
       toast.error(t('common.errorUnexpected'));
     }
@@ -235,7 +235,7 @@ export default function Garage() {
       openConfirm(
         {
           mode: 'text',
-          value: t('equipPreview.unequip_confirm', { slot: slotLabel(item.item_slot) }),
+          value: t('equipPreview.unequip_confirm', { slot: t(`shop.slots.${item.item_slot}`, { defaultValue: slotLabel(item.item_slot) }) }),
         },
         () => { void performUnequip(item); },
         {
@@ -246,7 +246,7 @@ export default function Garage() {
     }
     try {
       await equipItem(user.id, item.item_code);
-      toast.success(t('equipPreview.equip_done', { slot: slotLabel(item.item_slot) }));
+      toast.success(t('equipPreview.equip_done', { slot: t(`shop.slots.${item.item_slot}`, { defaultValue: slotLabel(item.item_slot) }) }));
       setItems((prev) =>
         prev.map((i) =>
           i.item_slot === item.item_slot
@@ -335,7 +335,7 @@ export default function Garage() {
         </div>
         <div className={s.slotMeta}>
           <span className={s.slotLabel}>{slot.label}</span>
-          {equipped && <span className={s.slotStat}>{slotLabel(slot.key)}</span>}
+          {equipped && <span className={s.slotStat}>{t(`shop.slots.${slot.key}`, { defaultValue: slotLabel(slot.key) })}</span>}
         </div>
       </button>
     );
@@ -427,7 +427,7 @@ export default function Garage() {
             {activeSlot || displayItems.length > 0 ? (
               <>
                 <div className={s.gridToolbar}>
-                  <span className={s.gridTitle}>{activeSlot ? slotLabel(activeSlot) : t('equipPreview.all_items')}</span>
+                  <span className={s.gridTitle}>{activeSlot ? t(`shop.slots.${activeSlot}`, { defaultValue: slotLabel(activeSlot) }) : t('equipPreview.all_items')}</span>
                   <div className={s.sortPills}>
                     {(['rarity', 'slot', 'name'] as SortMode[]).map((mode) => (
                       <button

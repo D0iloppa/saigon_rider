@@ -191,7 +191,7 @@ export default function Inventory() {
                     {formatEffectValue(item.effect_type, item.effect_value)}
                   </div>
                 ) : (
-                  <div className={styles.itemSlot}>{slotLabel(item.item_slot)}</div>
+                  <div className={styles.itemSlot}>{t(`shop.slots.${item.item_slot}`, { defaultValue: slotLabel(item.item_slot) })}</div>
                 )}
               </InventoryCell>
             ))}

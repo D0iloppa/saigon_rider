@@ -32,7 +32,7 @@ export default function FriendList() {
   };
 
   const rightContent = (
-    <button style={{ fontSize: '24px', background: 'none', border: 'none', color: 'var(--brand-400)' }} onClick={() => navigate('/friends/add')}>
+    <button style={{ fontSize: '24px', background: 'none', border: 'none', color: 'var(--brand-400)' }} onClick={() => navigate('/friends/add')} aria-label={t('follow.addFriend')}>
       +
     </button>
   );

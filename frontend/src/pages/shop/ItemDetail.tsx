@@ -122,7 +122,7 @@ export default function ItemDetail() {
         </div>
 
         <div className={s.itemName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
-        <div className={s.itemSlot}>{slotLabel(item.item_slot)} {t('itemDetail.slot_suffix')}</div>
+        <div className={s.itemSlot}>{t(`shop.slots.${item.item_slot}`, { defaultValue: slotLabel(item.item_slot) })} {t('itemDetail.slot_suffix')}</div>
 
         {col && (
           <div className={s.collectionRow}>

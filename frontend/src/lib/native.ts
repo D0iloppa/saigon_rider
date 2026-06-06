@@ -277,6 +277,28 @@ class NativeInterface {
     await navigator.clipboard?.writeText(text);
   }
 
+  // ── Data export (web blob download; native has no file-save plugin yet) ──
+
+  /**
+   * 텍스트를 파일로 저장한다.
+   * 웹: Blob + anchor 다운로드. 네이티브(Capacitor WebView): anchor 다운로드가
+   * 실제 파일 저장으로 동작하지 않으므로 share()로 폴백(파일첨부 미지원 — 텍스트 공유).
+   * 네이티브 파일저장 플러그인(@capacitor/filesystem 등) 도입 시 이 메서드만 교체.
+   */
+  async saveTextFile(filename: string, text: string, mimeType: string): Promise<void> {
+    if (this.isNative) {
+      await this.share({ title: filename, text });
+      return;
+    }
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // ── Stubs (no native counterpart yet — install Capacitor plugin to enable) ─
 
   async openCamera(): Promise<string> {

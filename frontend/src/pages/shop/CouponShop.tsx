@@ -65,7 +65,7 @@ export default function CouponShop() {
     <div className={styles.page}>
       <div className={styles.header}>
         <div className={styles.headerBg} />
-        <button className={styles.back} onClick={() => navigate(-1)} aria-label="back">‹</button>
+        <button className={styles.back} onClick={() => navigate(-1)} aria-label={t('common.back')}>‹</button>
         <div className={styles.headerTitle}>{t('coupon.shop_title')}</div>
         <button className={styles.myBtn} onClick={() => navigate('/coupons/mine')}>
           {t('coupon.my_box')}

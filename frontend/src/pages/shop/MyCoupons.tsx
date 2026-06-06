@@ -39,7 +39,7 @@ export default function MyCoupons() {
     <div className={styles.page}>
       <StatusBar />
       <div className={styles.header}>
-        <button className={styles.back} onClick={() => navigate(-1)} aria-label="back">‹</button>
+        <button className={styles.back} onClick={() => navigate(-1)} aria-label={t('common.back')}>‹</button>
         <span className={styles.headerTitle}>{t('coupon.my_box')}</span>
       </div>
 

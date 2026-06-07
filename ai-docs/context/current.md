@@ -76,6 +76,10 @@
   - **Gold 확정**: 퀘 50/건 유지 + 레벨업 정책 GOLD 200/레벨.
   - ✅ **보고서 SGR-235 Done** — `ai-docs/spec/economy-balance-report.md` + Notion "260604 재화 경제 체계 정립 보고서". sink-economy-design.md `reward_exp×0.3` OBSOLETE 배너 정정 완료.
   - **미결(설계상 후속)**: 이벤트 퀘 RP 도입 / monthly_quota 실값(비즈니스 입력) / 마이그·049 활성화(기존 DB 수동, 배포 시). Notion 260604.
+  - **✅ 상한 체계 + 리밸런싱 (2026-06-07, dev 적용·E2E PASS)** — SoT [`economy-cap-rebalance-design.md`](../spec/economy-cap-rebalance-design.md). 앵커: 커피≈30일(액티브 3슬롯)·RP예산 월100만원.
+    - 구현: RP단가 7→6(`ride.py`) / 가챠 GP인하 BASIC 150·PREMIUM 1050(mig **sre049**) / 쿠폰 `monthly_quota` 200·50·100(sre049) / RP 일일캡 60·초과폐기(`xp_ledger.credit_gc`+`XpBalance.daily_gc_*`, mig **sre050**) / Lv30·SP누적12 캡(`utils.gain_exp`) / 슬롯합산 9 명문화(`quests`).
+    - **보류(합의)**: 골드·마일리지 일일캡 — 무비용이라 ROI 낮음(예산은 quota가 보호).
+    - **⚠️ 선재 갭 수정**: dev DB에 `levelup_reward_policy` 미존재(init/049 미적용)→레벨업 `gain_exp` 크래시 상태였음. init/049 적용함. **운영 배포 시 sre049·sre050 + init/049 + 엔진·워커 재시작 필요**.
 - (없음) — **SGR-220 개발→운영 1차 배포 + SOP 완료** (운영 `https://letantonsheriff.com` 가동). 이력은 [`history.md`](history.md) 2026-06-04, runbook `task/active/260604_deploy_prod_task.md`.
   - **배포 후속(backlog)**: ① **SGR-227** init 스키마 베이스라인 결함(fresh DB 빌드 불가 — dump-restore 우회 중) ② FCM firebase json 마운트(푸시 활성화) ③ official/grand-opening.jpg 1건(saigon.doil.me 복구 시) ④ 전용 도메인 구매 시 마이그레이션(규칙은 runbook §도메인 마이그레이션)
 

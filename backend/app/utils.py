@@ -97,18 +97,25 @@ def exp_required_for_level(level: int) -> int:
     return exp_required_for_level(level - 1) * 2
 
 
+# 누적·레벨 상한 (SGR-228 후속 economy-cap-rebalance). 슬롯 보너스 곡선이 Lv30에서 종료되므로
+# Lv30 하드캡. SP는 4스킬 x Lv3 = 12 가 유효 투자 한계 → 그 이상은 죽은 숫자라 미발행(레벨업 골드는 계속).
+MAX_LEVEL = 30
+MAX_SKILL_PT_TOTAL = 12
+
+
 async def gain_exp(db, user, amount: int) -> int:
     """경험치 적립의 단일 진입점. exp 적립 → 레벨업 판정 → 레벨업 보상 지급까지 처리.
     모든 exp 획득은 이 함수를 거친다. 획득한 레벨 수를 반환한다.
 
     레벨업 보상(gold·skill_pt)은 코드에 하드코딩하지 않고 levelup_reward_policy(DB seed)
     에서 읽어 레벨당 적립한다 (SGR-228). 환율 골드 100:스킬 10:RP 1.
+    Lv30 하드캡, SP 누적 12 상한(=4스킬 x Lv3). 초과 EXP/SP는 적립하지 않는다.
     """
     from .models import LevelupRewardPolicy
 
     user.exp += amount
     gained = 0
-    while user.exp >= exp_required_for_level(user.level):
+    while user.level < MAX_LEVEL and user.exp >= exp_required_for_level(user.level):
         user.exp -= exp_required_for_level(user.level)
         user.level += 1
         gained += 1
@@ -116,7 +123,12 @@ async def gain_exp(db, user, amount: int) -> int:
         policy = await db.get(LevelupRewardPolicy, 1)
         if policy is not None:
             user.gold += policy.gold * gained
-            user.skill_pt += policy.skill_pt * gained
+            # SP 누적 상한: (보유 + 이미 투자) <= 12. 초과분은 미발행.
+            invested = (
+                user.skill_distance_rider + user.skill_gold_hunter + user.skill_quest_slot + user.skill_cost_discount
+            )
+            sp_room = max(0, MAX_SKILL_PT_TOTAL - (user.skill_pt + invested))
+            user.skill_pt += min(policy.skill_pt * gained, sp_room)
     return gained
 
 

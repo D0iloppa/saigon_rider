@@ -150,6 +150,9 @@ class XpBalance(Base):
     lifetime_spent = Column(BigInteger, nullable=False, default=0, server_default="0")
     expiring_soon = Column(BigInteger, nullable=False, default=0, server_default="0")
     last_recalculated_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+    # RP(gc) 일일 적립 누적 — 일일 하드캡(DAILY_RP_CAP) 회로차단용. VN 일자 경계로 리셋.
+    daily_gc_today = Column(Integer, nullable=False, default=0, server_default="0")
+    daily_gc_date = Column(Date, nullable=True)
 
     user = relationship("SreUser", back_populates="balance")
 

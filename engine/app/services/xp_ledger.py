@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import select
@@ -56,12 +57,28 @@ async def lock_balance(db: AsyncSession, user_id: int) -> XpBalance:
     return balance
 
 
+# RP(gc) 일일 적립 하드캡 (economy-cap-rebalance, SGR-228 후속). VN 일자 경계로 리셋.
+# 정상 액티브(3슬롯x6=18)는 안 닿는 회로차단기 — 미감사 social rp_grant 폭주·화이트 인플레 차단.
+# 초과분은 이월하지 않고 폐기.
+DAILY_RP_CAP = 60
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
 async def credit_gc(db: AsyncSession, *, user_id: int, amount: int) -> None:
-    """RP(gc_balance) 적립 — 성취 보상. 골드 원장/FIFO 만료와 무관한 단순 가산, 상한 없음."""
+    """RP(gc_balance) 적립 — 성취 보상. 골드 원장/FIFO 만료와 무관한 단순 가산.
+    일일 DAILY_RP_CAP 상한 적용(초과분 폐기)."""
     if amount <= 0:
         return
     balance = await lock_balance(db, user_id)
-    balance.gc_balance += amount
+    today = datetime.now(VN_TZ).date()
+    if balance.daily_gc_date != today:
+        balance.daily_gc_today = 0
+        balance.daily_gc_date = today
+    grant = min(amount, max(0, DAILY_RP_CAP - balance.daily_gc_today))
+    if grant <= 0:
+        return
+    balance.gc_balance += grant
+    balance.daily_gc_today += grant
     await db.flush()
 
 

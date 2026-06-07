@@ -22,8 +22,8 @@ from ..schemas import (
 )
 from ..utils import APP_TZ, gain_exp, resolve_reward_pct
 
-# 데일리 퀘 RP 지급량(커피 경제 베이스: 3슬롯x7=21RP/일 -> 500RP 커피 ~24일). RP_MULT 가산 적용.
-DAILY_QUEST_RP = 7
+# 데일리 퀘 RP 지급량(커피 경제 베이스: 3슬롯x6=18RP/일 -> 500RP 커피 ~28일, 목표 30일 근사). RP_MULT 가산 적용.
+DAILY_QUEST_RP = 6
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ride", tags=["라이딩 (Ride)"])

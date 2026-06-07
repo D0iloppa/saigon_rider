@@ -128,10 +128,16 @@ async def _item_slot_bonus(db: AsyncSession, user: User | None) -> int:
     return item_bonus + skill_bonus
 
 
+# 일일 슬롯 합산 하드캡 (SGR-228 후속). base3 + 레벨 +4 + 아이템 +2 = 9 가 설계 상한.
+# RP/골드 일 수급 천장이 슬롯수에 직결되므로 명문화한다.
+MAX_DAILY_SLOTS = 9
+
+
 async def _daily_claimable_max(db: AsyncSession, user: User | None) -> int:
-    """일일 퀘스트 수령가능 최대 횟수 = base + 레벨 보너스 + 착용아이템 보너스.
+    """일일 퀘스트 수령가능 최대 횟수 = base + 레벨 보너스 + 착용아이템 보너스 (상한 9).
     수령 게이트(accept)와 홈 추천 개수가 공유하는 단일 소스."""
-    return await _daily_slot_base(db) + _level_slot_bonus(user) + await _item_slot_bonus(db, user)
+    total = await _daily_slot_base(db) + _level_slot_bonus(user) + await _item_slot_bonus(db, user)
+    return min(total, MAX_DAILY_SLOTS)
 
 
 async def _daily_slot_used(db: AsyncSession, user_id: uuid.UUID, period_key: str) -> int:

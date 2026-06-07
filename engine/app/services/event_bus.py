@@ -139,7 +139,7 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
             occurred_at=occurred_at,
         )
 
-    # RP(gc_balance) 적립 — 성취 보상, 상한 없음 (SGR-213).
+    # RP(gc_balance) 적립 — 성취 보상. 일일 하드캡 DAILY_RP_CAP 적용(credit_gc 내부, 초과분 폐기; SGR-228).
     # 퀘스트는 per-quest 값을 payload.rp 로 전달(표시 rewardXpPoints와 일치), 그 외는 action_def.rp_grant 폴백.
     rp_amount = (
         int(payload["rp"]) if isinstance(payload.get("rp"), (int, float))

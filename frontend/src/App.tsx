@@ -28,6 +28,7 @@ import WorldMap from '@/pages/home/WorldMap';
 // Quest
 import QuestList from '@/pages/quest/QuestList';
 import QuestDetail from '@/pages/quest/QuestDetail';
+import QuestCheckPage from '@/pages/quest/QuestCheckPage';
 
 // Ride
 import RideResultSuccess from '@/pages/ride/RideResultSuccess';
@@ -205,6 +206,7 @@ export default function App() {
           <Route path="/home" element={<PrivateRoute><WorldMap /></PrivateRoute>} />
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
+          <Route path="/quest-check/:userQuestId" element={<PrivateRoute><QuestCheckPage /></PrivateRoute>} />
           <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
           <Route path="/feed/new" element={<PrivateRoute><FeedCreate /></PrivateRoute>} />
           <Route path="/feed/edit/:postId" element={<PrivateRoute><FeedEdit /></PrivateRoute>} />

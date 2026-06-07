@@ -91,7 +91,8 @@ export const useRideStore = create<RideState>((set, get) => ({
     if (prev._durationId) window.clearInterval(prev._durationId);
     if (prev._stopGeoWatch) prev._stopGeoWatch();
 
-    const cardType: 'DISTANCE' | 'CHECKPOINT' = quest.cardType ?? 'DISTANCE';
+    // ride-nav 는 지도형(DISTANCE/CHECKPOINT)만 진입. COUNT_EVENT 등은 QuestChecker 경유라 여기 오지 않음.
+    const cardType: 'DISTANCE' | 'CHECKPOINT' = quest.cardType === 'CHECKPOINT' ? 'CHECKPOINT' : 'DISTANCE';
     const targetLat = quest.targetLat ?? null;
     const targetLng = quest.targetLng ?? null;
 

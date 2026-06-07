@@ -26,7 +26,7 @@ function transformQuest(raw: any): Quest {
     minDistanceM: raw.target_distance_km != null
       ? Math.round(Number(raw.target_distance_km) * 1000)
       : 0,
-    cardType: (raw.card_type ?? 'DISTANCE') as 'DISTANCE' | 'CHECKPOINT',
+    cardType: (raw.card_type ?? 'DISTANCE') as 'DISTANCE' | 'CHECKPOINT' | 'COUNT_EVENT' | 'COUNT_DISTINCT',
     targetLat: raw.target_lat != null ? Number(raw.target_lat) : null,
     targetLng: raw.target_lng != null ? Number(raw.target_lng) : null,
     maxDurationSec: null,
@@ -179,8 +179,9 @@ export async function fetchMyCompleted(userId: string): Promise<MyCompletedItem[
 
 export interface ActiveCardState {
   card_id: number;
-  card_type: 'DISTANCE' | 'CHECKPOINT';
+  card_type: 'DISTANCE' | 'CHECKPOINT' | 'COUNT_EVENT' | 'COUNT_DISTINCT';
   criteria: Record<string, unknown>;
+  progress?: Record<string, unknown>;
   current_distance_m: number;
   status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
   completed_at: string | null;

@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -28,6 +29,8 @@ from app.metrics import events_processed_total
 from app.models import ActionDefinition, ActionEvent, IdempotencyKey, SreUser
 from app.schemas import EventCreate, EventResult
 from app.services import anti_abuse, audit, diversity, mission, xp_ledger, tier as tier_svc
+
+log = logging.getLogger(__name__)
 
 
 async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # noqa: C901
@@ -190,6 +193,15 @@ async def process_event(db: AsyncSession, data: EventCreate) -> EventResult:  # 
     await db.commit()
 
     events_processed_total.labels(action_code=data.action_code, status="PROCESSED").inc()
+
+    # 퀘스트 카드(count_event 등 EventSignal 구독 타입) 진행도 갱신.
+    # 자체 세션으로 처리되며, 실패해도 이벤트 처리 결과에는 영향 주지 않는다.
+    try:
+        from app.services import quest_tracker
+        await quest_tracker.dispatch_event(user.user_id, data.action_code, data.payload or {})
+    except Exception:
+        log.warning("quest_tracker.dispatch_event failed for user=%d action=%s",
+                    user.user_id, data.action_code)
 
     return EventResult(
         event_id=event.event_id,

@@ -12,6 +12,7 @@
 | [§3 엔진 (SRE)](s3_engine.md) | Engine API/서비스/배치/SQL 정합성 |
 | [§4 시스템 전반](s4_system.md) | E2E 인프라·인증·라우팅·연계 |
 | [§6 부록](s6_appendix.md) | 빠른 진단 명령 모음 |
+| [§7 퀘스트 COUNT_EVENT](s7_quest_count_event.md) | count_event 검증기 종단 점검 |
 | §5 이슈 로그 → [`issues.md`](../issues.md) | ❌/🟡 항목 상세 |
 
 ## 사용 규칙

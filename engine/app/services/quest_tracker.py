@@ -39,14 +39,18 @@ async def dispatch(user_id: int, signal: Signal) -> list[int]:
             if validator is None or not validator.accepts(signal):
                 continue
 
-            # GPS 공통 텔레메트리 (속도·last_*)
-            if isinstance(signal, GpsSignal):
-                _update_gps_telemetry(card, signal, now)
+            # 한 카드의 검증 실패가 같은 신호의 다른 카드 진행도까지 롤백하지 않도록 카드 단위 격리.
+            try:
+                # GPS 공통 텔레메트리 (속도·last_*)
+                if isinstance(signal, GpsSignal):
+                    _update_gps_telemetry(card, signal, now)
 
-            result = await validator.on_signal(card, signal, db)
-            if result.completed:
-                await _complete_card(card)
-                completed_ids.append(card.card_id)
+                result = await validator.on_signal(card, signal, db)
+                if result.completed:
+                    await _complete_card(card)
+                    completed_ids.append(card.card_id)
+            except Exception:
+                log.exception("quest validator failed for card=%d type=%s", card.card_id, card.card_type)
 
         await db.commit()
     return completed_ids

@@ -11,10 +11,14 @@ from .base import (
     registry,
 )
 from .checkpoint import CheckpointValidator
+from .count_distinct import CountDistinctValidator
+from .count_event import CountEventValidator
 from .distance import DistanceValidator
 
 registry.register(DistanceValidator())
 registry.register(CheckpointValidator())
+registry.register(CountEventValidator())
+registry.register(CountDistinctValidator())
 
 __all__ = [
     "EventSignal",
@@ -25,5 +29,7 @@ __all__ = [
     "ValidatorRegistry",
     "registry",
     "CheckpointValidator",
+    "CountDistinctValidator",
+    "CountEventValidator",
     "DistanceValidator",
 ]

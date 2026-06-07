@@ -95,8 +95,13 @@ export default function QuestDetail() {
     setActionLoading(true);
     try {
       await apiStartRide(acceptedUserQuestId);
-      startRide(quest, acceptedUserQuestId);
-      navigate('/ride-nav?type=quest');
+      // 지도/GPS 가 필요한 타입(DISTANCE/CHECKPOINT)만 ride-nav, 그 외 검증타입은 범용 QuestChecker 로.
+      if (quest.cardType === 'DISTANCE' || quest.cardType === 'CHECKPOINT') {
+        startRide(quest, acceptedUserQuestId);
+        navigate('/ride-nav?type=quest');
+      } else {
+        navigate(`/quest-check/${acceptedUserQuestId}`, { state: { questTitle: quest.title } });
+      }
     } catch (err: any) {
       toast.error(err?.message ?? t('quest.startRideFailed', { defaultValue: '수행 시작 실패' }));
     } finally {

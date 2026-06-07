@@ -887,6 +887,8 @@ class SreQuestCard(Base):
         nullable=False,
     )
     criteria = Column(JSONB, nullable=False)
+    # 검증기 런타임 진행상태 (count_event 카운터 등). 타입별로 키 자유.
+    progress = Column(JSONB, nullable=False, default=dict, server_default="'{}'::jsonb")
     current_distance_m = Column(Integer, nullable=False, default=0, server_default="0")
     status = Column(
         Enum(QuestCardStatusEnum, name="quest_card_status_enum", create_type=False),

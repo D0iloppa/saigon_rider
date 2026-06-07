@@ -35,7 +35,7 @@ export interface Quest {
   riderType: RiderType | null;
   minLevel: number;
   minDistanceM: number;
-  cardType?: 'DISTANCE' | 'CHECKPOINT';
+  cardType?: 'DISTANCE' | 'CHECKPOINT' | 'COUNT_EVENT' | 'COUNT_DISTINCT';
   targetLat?: number | null;
   targetLng?: number | null;
   maxDurationSec: number | null;

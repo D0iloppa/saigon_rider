@@ -552,6 +552,7 @@ class QuestCardRead(BaseModel):
     user_quest_id: str
     card_type: QuestCardTypeEnum
     criteria: dict
+    progress: dict = {}
     current_distance_m: int = 0
     status: QuestCardStatusEnum
     accepted_at: datetime

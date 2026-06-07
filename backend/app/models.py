@@ -165,6 +165,8 @@ class Quest(Base):
     card_type: Mapped[str] = mapped_column(String(20), nullable=False, default="DISTANCE")
     target_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     target_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # 비-GPS 검증타입(COUNT_EVENT 등) 목표 파라미터. start-ride 가 그대로 엔진 카드 criteria 로 전달.
+    criteria: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # 수행가능 시간대 (ICT 로컬시각, NULL=제약없음). start-ride 게이트에서 검사.
     available_from: Mapped[time | None] = mapped_column(Time, nullable=True)
     available_to: Mapped[time | None] = mapped_column(Time, nullable=True)

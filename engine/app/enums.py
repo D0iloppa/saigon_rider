@@ -169,6 +169,8 @@ class RewardActionTypeEnum(str, enum.Enum):
 class QuestCardTypeEnum(str, enum.Enum):
     DISTANCE = "DISTANCE"
     CHECKPOINT = "CHECKPOINT"
+    COUNT_EVENT = "COUNT_EVENT"
+    COUNT_DISTINCT = "COUNT_DISTINCT"
 
 
 class QuestCardStatusEnum(str, enum.Enum):

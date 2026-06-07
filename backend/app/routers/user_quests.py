@@ -64,6 +64,9 @@ async def start_ride(
                 "target_lat": float(quest.target_lat) if quest.target_lat is not None else None,
                 "target_lng": float(quest.target_lng) if quest.target_lng is not None else None,
             }
+        elif quest.card_type in ("COUNT_EVENT", "COUNT_DISTINCT"):
+            # 비-GPS 검증형 — 목표 파라미터(action_code/target_count/distinct_key)는 quest.criteria 에 저장.
+            criteria = quest.criteria or {}
         else:
             criteria = {
                 "target_distance_m": int(quest.target_distance_km * 1000) if quest.target_distance_km else None,

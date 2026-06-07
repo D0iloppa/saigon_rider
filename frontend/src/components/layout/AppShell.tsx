@@ -18,6 +18,8 @@ const HIDE_TABBAR_PATHS = [
   '/ride/result/',
   '/ride-nav',
   '/link',
+  '/dm/',
+  '/quest-check/',
 ];
 
 export function AppShell({ children, splashVisible, splashFade, gifReady }: Props) {

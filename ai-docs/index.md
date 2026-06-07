@@ -33,6 +33,7 @@
   - [§3 엔진](TEST/checklist/s3_engine.md)
   - [§4 시스템](TEST/checklist/s4_system.md)
   - [§6 부록 (진단 명령)](TEST/checklist/s6_appendix.md)
+  - [§7 퀘스트 COUNT_EVENT](TEST/checklist/s7_quest_count_event.md)
 
 ## 🛠 엔진 내부 설계 (SRE)
 
@@ -40,6 +41,8 @@
 - [ERD (PostgreSQL)](engine/sre-erd-mermaid.postgres.md)
 - [게이미피케이션 v2 배포 가이드](engine/sre-gamification-deployment-guide.md) — 가챠/상점/시즌 RPG 경제 패러다임 (v2.0)
 - [퀘스트 달성 체크 시스템 설계](engine/sre-quest-completion-design.md) — GPS 기반 퀘스트 카드 체크 + 데일리 슬롯 정책
+- [퀘스트 COUNT_EVENT 종단 구현](engine/quest-count-event-implementation.md) — agg=count_event 검증기(A안) 종단 구현 보고서
+- [퀘스트 비라이딩 재분류 결정서](engine/quest-reclassification-proposal.md) — DISTANCE 폴백 퀘스트의 제목기준(B) 재분류 적용/보류 내역
 - [미션 매핑 리포트](engine/sre-mission-mapping-report.md) · [미션 룰 매핑](engine/sre-mission-rule-mapping.md)
 - [code 명령어](engine/code명령어.md)
 

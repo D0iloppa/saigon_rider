@@ -65,19 +65,24 @@
 }
 .dots {
   display: flex;
-  gap: 4px;
+  gap: 8px; /* 단계 그룹 간 간격 */
   margin-top: 6px;
 }
-.dotOn,
-.dotOff {
-  width: 18px;
-  height: 6px;
-  border-radius: 3px;
+/* SGR-280: 한 단계 = 3 서브칸 (1 SP/칸). 단계 그룹 내부는 좁게, 그룹 간은 넓게. */
+.tierGroup {
+  display: flex;
+  gap: 3px;
 }
-.dotOn {
+.segOn,
+.segOff {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+}
+.segOn {
   background: var(--brand-500);
 }
-.dotOff {
+.segOff {
   background: var(--line);
 }
 

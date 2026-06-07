@@ -80,6 +80,9 @@
     - 구현: RP단가 7→6(`ride.py`) / 가챠 GP인하 BASIC 150·PREMIUM 1050(mig **sre049**) / 쿠폰 `monthly_quota` 200·50·100(sre049) / RP 일일캡 60·초과폐기(`xp_ledger.credit_gc`+`XpBalance.daily_gc_*`, mig **sre050**) / Lv30·SP누적12 캡(`utils.gain_exp`) / 슬롯합산 9 명문화(`quests`).
     - **보류(합의)**: 골드·마일리지 일일캡 — 무비용이라 ROI 낮음(예산은 quota가 보호).
     - **⚠️ 선재 갭 수정**: dev DB에 `levelup_reward_policy` 미존재(init/049 미적용)→레벨업 `gain_exp` 크래시 상태였음. init/049 적용함. **운영 배포 시 sre049·sre050 + init/049 + 엔진·워커 재시작 필요**.
+  - **✅ 스킬 단계당 비용 1→3 SP (SGR-280, 2026-06-07 dev 적용·E2E PASS)** — SoT [`260607_skill_cost_3x_subpoints_task.md`](../task/active/260607_skill_cost_3x_subpoints_task.md). 효과 단계는 0~3 유지, 내부 저장을 **0~9 서브포인트**로 전환(단계=`//3`). 한 단계 = 3 서브칸 = 3 SP, 클릭당 1 SP 점진 투자. SP 적립 1/레벨 유지·**누적 상한 12→36**(`MAX_SKILL_PT_TOTAL`). 프론트 SkillTree는 3단계×3서브칸 시각화. 기존 단계값 ×3 보존(`init/072`).
+    - 소비처 전부 `//3` 환산: `utils.resolve_reward_pct`(EXP/Gold)·`skill_cost_discount_pct`·`quests._item_slot_bonus`(슬롯 단계3 = `>=9`)·프론트 `rewards.ts`. invest 캡 `>=9`.
+    - **⚠️ 운영 배포 시**: `init/072` 적용(CHECK 0..9 재설정 + 기존값 ×3) + BFF 재시작. 엔진 무관.
 - (없음) — **SGR-220 개발→운영 1차 배포 + SOP 완료** (운영 `https://letantonsheriff.com` 가동). 이력은 [`history.md`](history.md) 2026-06-04, runbook `task/active/260604_deploy_prod_task.md`.
   - **배포 후속(backlog)**: ① **SGR-227** init 스키마 베이스라인 결함(fresh DB 빌드 불가 — dump-restore 우회 중) ② FCM firebase json 마운트(푸시 활성화) ③ official/grand-opening.jpg 1건(saigon.doil.me 복구 시) ④ 전용 도메인 구매 시 마이그레이션(규칙은 runbook §도메인 마이그레이션)
 

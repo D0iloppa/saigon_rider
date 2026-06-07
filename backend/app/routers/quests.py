@@ -114,11 +114,11 @@ def _level_slot_bonus(user: User | None) -> int:
 
 
 async def _item_slot_bonus(db: AsyncSession, user: User | None) -> int:
-    """추가 수령 슬롯 = 착용 아이템 QUEST_SLOT + 스킬(quest_slot Lv3에서 +1).
-    엔진 장애 시 아이템분만 0(graceful)."""
+    """추가 수령 슬롯 = 착용 아이템 QUEST_SLOT + 스킬(quest_slot 단계3에서 +1).
+    스킬 컬럼은 0~9 서브포인트라 단계3 = 9 (SGR-280). 엔진 장애 시 아이템분만 0(graceful)."""
     if user is None:
         return 0
-    skill_bonus = 1 if user.skill_quest_slot >= 3 else 0
+    skill_bonus = 1 if user.skill_quest_slot >= 9 else 0
     try:
         eff = await engine_client.get_equip_effects(str(user.id))
     except httpx.HTTPError:

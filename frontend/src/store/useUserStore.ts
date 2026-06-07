@@ -149,7 +149,8 @@ export const useUserStore = create<UserState>()(
 
       investSkill: async (key) => {
         const u = get().user;
-        if (!u || u.skillPoints < 1 || u.skills[key] >= 3) return false;
+        // SGR-280: 스킬은 0~9 서브포인트(단계=//3). 클릭당 1 SP, 9에서 만렙.
+        if (!u || u.skillPoints < 1 || u.skills[key] >= 9) return false;
         try {
           const dto = await apiInvestSkill(u.id, key);
           set({ user: dtoToUser(dto) });

@@ -67,19 +67,20 @@ _SKILL_COLUMN = {
 }
 
 
-@router.post("/me/skills/{skill_key}/invest", response_model=UserOut, summary="스킬 투자 (SP 1 차감, 레벨 +1)")
+@router.post("/me/skills/{skill_key}/invest", response_model=UserOut, summary="스킬 투자 (SP 1 차감, 서브포인트 +1)")
 async def invest_skill(
     skill_key: str,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
+    # SGR-280: 스킬은 0~9 서브포인트, 단계 = //3. 클릭당 SP 1 차감·서브포인트 +1 (한 단계 = 3 SP).
     col = _SKILL_COLUMN.get(skill_key)
     if col is None:
         raise HTTPException(status_code=422, detail="invalid skill_key")
     user = await _get_user_or_404(user_id, db)
     if user.skill_pt < 1:
         raise HTTPException(status_code=409, detail="insufficient skill points")
-    if getattr(user, col) >= 3:
+    if getattr(user, col) >= 9:
         raise HTTPException(status_code=409, detail="skill at max level")
     user.skill_pt -= 1
     setattr(user, col, getattr(user, col) + 1)

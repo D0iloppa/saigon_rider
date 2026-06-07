@@ -98,9 +98,10 @@ def exp_required_for_level(level: int) -> int:
 
 
 # 누적·레벨 상한 (SGR-228 후속 economy-cap-rebalance). 슬롯 보너스 곡선이 Lv30에서 종료되므로
-# Lv30 하드캡. SP는 4스킬 x Lv3 = 12 가 유효 투자 한계 → 그 이상은 죽은 숫자라 미발행(레벨업 골드는 계속).
+# Lv30 하드캡. SP는 4스킬 x 9서브포인트 = 36 이 유효 투자 한계(SGR-280: 단계당 3 SP)
+# → 그 이상은 죽은 숫자라 미발행(레벨업 골드는 계속).
 MAX_LEVEL = 30
-MAX_SKILL_PT_TOTAL = 12
+MAX_SKILL_PT_TOTAL = 36
 
 
 async def gain_exp(db, user, amount: int) -> int:
@@ -109,7 +110,7 @@ async def gain_exp(db, user, amount: int) -> int:
 
     레벨업 보상(gold·skill_pt)은 코드에 하드코딩하지 않고 levelup_reward_policy(DB seed)
     에서 읽어 레벨당 적립한다 (SGR-228). 환율 골드 100:스킬 10:RP 1.
-    Lv30 하드캡, SP 누적 12 상한(=4스킬 x Lv3). 초과 EXP/SP는 적립하지 않는다.
+    Lv30 하드캡, SP 누적 36 상한(=4스킬 x 9서브포인트). 초과 EXP/SP는 적립하지 않는다.
     """
     from .models import LevelupRewardPolicy
 
@@ -123,7 +124,7 @@ async def gain_exp(db, user, amount: int) -> int:
         policy = await db.get(LevelupRewardPolicy, 1)
         if policy is not None:
             user.gold += policy.gold * gained
-            # SP 누적 상한: (보유 + 이미 투자) <= 12. 초과분은 미발행.
+            # SP 누적 상한: (보유 + 이미 투자한 서브포인트) <= 36. 초과분은 미발행.
             invested = (
                 user.skill_distance_rider + user.skill_gold_hunter + user.skill_quest_slot + user.skill_cost_discount
             )
@@ -137,8 +138,9 @@ REWARD_PCT_CAP = 50
 
 
 async def resolve_reward_pct(db, user) -> tuple[int, int]:
-    """RP(EXP+RP)·Gold 가산 % = 착용아이템(RP_MULT/GOLD_MULT) + 스킬(거리라이더/골드헌터 5%/lv).
-    각 +{REWARD_PCT_CAP}% 안전캡. user None 또는 엔진 장애 시 아이템분 0(스킬분은 항상)."""
+    """RP(EXP+RP)·Gold 가산 % = 착용아이템(RP_MULT/GOLD_MULT) + 스킬(거리라이더/골드헌터 5%/단계).
+    스킬 컬럼은 0~9 서브포인트라 단계 = //3 (SGR-280). 각 +{REWARD_PCT_CAP}% 안전캡.
+    user None 또는 엔진 장애 시 아이템분 0(스킬분은 항상)."""
     if user is None:
         return 0, 0
     import httpx
@@ -149,14 +151,15 @@ async def resolve_reward_pct(db, user) -> tuple[int, int]:
         eff = await engine_client.get_equip_effects(str(user.id))
     except httpx.HTTPError:
         eff = {}
-    rp_pct = min(eff.get("rp_mult_pct", 0) + user.skill_distance_rider * 5, REWARD_PCT_CAP)
-    gold_pct = min(eff.get("gold_mult_pct", 0) + user.skill_gold_hunter * 5, REWARD_PCT_CAP)
+    rp_pct = min(eff.get("rp_mult_pct", 0) + (user.skill_distance_rider // 3) * 5, REWARD_PCT_CAP)
+    gold_pct = min(eff.get("gold_mult_pct", 0) + (user.skill_gold_hunter // 3) * 5, REWARD_PCT_CAP)
     return rp_pct, gold_pct
 
 
 def skill_cost_discount_pct(user) -> int:
-    """cost_discount 스킬 할인 % (레벨당 -2%). 가차/상점이 엔진에 전달하는 단일 환산."""
-    return (user.skill_cost_discount * 2) if user else 0
+    """cost_discount 스킬 할인 % (단계당 -2%). 컬럼은 0~9 서브포인트라 단계 = //3 (SGR-280).
+    가차/상점이 엔진에 전달하는 단일 환산."""
+    return ((user.skill_cost_discount // 3) * 2) if user else 0
 
 
 async def apply_quest_reward_multiplier(db, user, base_exp: int, base_gold: int) -> tuple[int, int]:

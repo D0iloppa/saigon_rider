@@ -37,12 +37,12 @@ export function calculateRewards(opts: {
   expMul += firstClearBonus;
   goldMul += firstClearBonus;
 
-  // 스킬: gold_hunter Lv.1/2/3 → Gold +5/10/15%
-  const goldSkill = user.skills.gold_hunter * 0.05;
+  // 스킬: gold_hunter 단계1/2/3 → Gold +5/10/15% (SGR-280: skills는 0~9 서브포인트, 단계=//3)
+  const goldSkill = Math.floor(user.skills.gold_hunter / 3) * 0.05;
   goldMul += goldSkill;
 
-  // 스킬: distance_rider Lv.1/2/3 → EXP +5/10/15% (SGR-209 A4)
-  expMul += user.skills.distance_rider * 0.05;
+  // 스킬: distance_rider 단계1/2/3 → EXP +5/10/15% (SGR-209 A4 / SGR-280 단계=//3)
+  expMul += Math.floor(user.skills.distance_rider / 3) * 0.05;
 
   // 분배: 총 EXP의 70%가 레벨 EXP, 30%가 XP 포인트
   const totalExp = Math.round(quest.rewardExp * expMul);

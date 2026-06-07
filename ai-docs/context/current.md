@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-04 (SGR-220 DONE — 개발→운영 1차 배포 + 배포 SOP/도메인 마이그레이션 규칙 수립. 운영 letantonsheriff.com 가동. 후속 SGR-227 init 스키마 결함)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-07 (SGR-274 DM 푸시 알림+알림클릭 딥링크 코드 DONE — 실기기/FCM자격증명 검증 대기. 직전 SGR-228 재화 상한·리밸런싱 dev 적용)
 
 ---
 
@@ -85,6 +85,11 @@
 
 ## 활성 — 검증 대기 (🔧)
 
+- **SGR-274 DM 푸시 알림 + 알림 클릭 → 해당 DM 딥링크** — 코드 DONE(P1~P5), **실기기 시각검증 + FCM 자격증명 대기**. 서브 SGR-275~279. SoT [`260607_dm_push_deeplink_task.md`](../task/active/260607_dm_push_deeplink_task.md), Notion `3783bd6b-405d-8163…`.
+  - **연결고리 5곳**: DM 기능·FCM 인프라는 완비됐으나 미연결이었음 → ① BFF `dm.py send_message`가 수신자(`_other_user_id`)에 푸시 트리거(try/except로 흡수, DM 전송 우선) ② engine `POST /v1/push/notify`(service-key, external_uuid→`device_user_map.fcm_token` 해석, 토큰無=no-op 200, `send_push(log_history=False)`로 admin 이력 미오염) ③ `engine_client.notify_user_push` ④ 웹 `LinkRouter` `dm` 케이스 + `NotificationBridge`(BrowserRouter 내 상주, `onNotificationClick`→`/link?action=dm&id=<conv>` + 콜드스타트 `getPendingNotification` drain) ⑤ native: iOS `FcmPlugin.getPendingNotification`(콜드스타트 `pendingPushPayload` 소비) + Android `FcmPlugin.java` 신규(jsName "Fcm", emit/setPending) · `MyFirebaseMessagingService`가 data `navigateTo`를 Intent extra로 · `MainActivity` onCreate(콜드)/onNewIntent(웜) 분기.
+  - **딥링크 규약**: `data.navigateTo="dm&id=<conv_id>"` → `/link?action=dm&id=<conv_id>` → `/dm/<conv_id>`. 기존 quest 컨벤션 동일.
+  - **검증 완료**: ruff/eslint/tsc 0, frontend vite build·BFF·engine 기동 클린, `/v1/push/notify` 단위(토큰有=발송시도/無=no-op/키無=401), BFF→engine `notify_user_push` 종단 배선.
+  - **⚠️ 잔여 의존**: ① **실기기 클릭→DM 이동**(iOS/Android, 빌드머신 Mac 대기. native는 각 origin main 직접 push) ② **실제 FCM 전달**: dev 발송 시 FCM 401 `THIRD_PARTY_AUTH_ERROR`(firebase-credentials 미인가) — 배포 후속 ② firebase json 마운트/인가 후 활성. 코드 경로는 정상(실패 흡수). ③ 웹 라우팅 브라우저 시각확인.
 - **SGR-271 퀘스트 수행 인터페이스 RideNav 완전 이관** — 코드 DONE, **실기기 시각검증 대기**. 부모 SGR-242. 발견: 엔진 검증·보상은 **이미 완결**(네이티브 bg GPS→`/v1/sreMessage`→Redis→GpsAgent→`quest_tracker.update`→validators→`quest_completed`→BFF `/internal/quest-card-completed` 멱등 지급). 실작업=프론트 배선 교체.
   - RideNav `type=quest`을 `useRideStore`(서버 폴링값) 기반으로 재배선: 진행도(distance=서버 `current_distance_m`/target, checkpoint=`distance_to_target_m`)·완료(`reachedTarget`=서버 status COMPLETED, 두 타입 공통)·속도 전부 서버값. 클라 haversine 누적 제거.
   - GPS 소스 = **기존 네이티브 핑 재사용**(신규 BFF 채널 미신설). QuestDetail "수행 시작"→`/ride-nav?type=quest`. **RideActive.tsx+CSS 삭제**, `/ride/active` 라우트·AppShell hide 제거.
@@ -131,6 +136,6 @@
 | B-1 | 쿠폰연동 | 미진행 | 기존 작업 완료 후 진행 |
 | B-2 | 회원가입 OAuth 연동 | 미진행 | 기존 작업 완료 후 진행 |
 | B-3 | 안드로이드 14일 테스트 | 미진행 | 크몽에서 5000~6000원정도에 가능, 14일 테스트가 필수이기 때문에 앱등록이 필요함 |
-| B-4 | 아이폰 알림서비스 클릭시 페이지 이동 | 미진행 | |
-| B-5 | 안드로이드 알림서비스 클릭시 페이지 이동 | 미진행 | |
-| B-6 | 앱푸시연동 | **진행중** | DB에 해당 단말에 미열람개수를 확인하여 변수로 넘겨야함(1000보다크면 무조건 999로) |
+| B-4 | 아이폰 알림서비스 클릭시 페이지 이동 | 코드DONE·검증대기 | SGR-274. iOS FcmPlugin navigateTo 포워딩(실행중)+콜드스타트 getPendingNotification. 실기기 대기 |
+| B-5 | 안드로이드 알림서비스 클릭시 페이지 이동 | 코드DONE·검증대기 | SGR-274. Android FcmPlugin.java 신규+Intent extra+onNewIntent. 실기기 대기 |
+| B-6 | 앱푸시연동 | **진행중** | DM 푸시(SGR-274) 연동됨. 미열람개수는 기존 badge(Redis incr_badge, 999 cap)·DM unread_count 별개. 1000→999 캡 잔여 |

@@ -94,6 +94,7 @@ import RideNav from '@/pages/ride/RideNav';
 
 // Deep link
 import LinkRouter from '@/pages/link/LinkRouter';
+import NotificationBridge from '@/pages/link/NotificationBridge';
 
 export default function App() {
   const user = useUserStore((s) => s.user);
@@ -183,6 +184,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <NotificationBridge />
       <SpriteProvider />
       <QuestCardSprites />
       <Toaster position="top-center" gap={6} visibleToasts={3} />

@@ -472,6 +472,20 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def notify_user_push(
+        self,
+        external_user_uuid: str,
+        title: str,
+        body: str,
+        data: dict | None = None,
+    ) -> dict:
+        payload: dict = {"external_user_uuid": external_user_uuid, "title": title, "body": body}
+        if data:
+            payload["data"] = data
+        resp = await self._client.post("/v1/push/notify", json=payload)
+        resp.raise_for_status()
+        return resp.json()
+
     async def push_history(self, limit: int = 50) -> list[dict]:
         resp = await self._client.get("/v1/admin/push/history", params={"limit": limit})
         resp.raise_for_status()

@@ -12,6 +12,7 @@ from app.models import DeviceUserMap, SreUser
 from app.services.mileage import invalidate_device_cache
 
 router = APIRouter(prefix="/v1/device-map", tags=["device-map"])
+push_router = APIRouter(prefix="/v1/push", tags=["push"])
 log = logging.getLogger(__name__)
 
 
@@ -31,6 +32,18 @@ class DeviceMapDetailResponse(BaseModel):
     device_uuid: str | None = None
     fcm_token: str | None = None
     logged_in_at: str | None = None
+
+
+class PushNotifyRequest(BaseModel):
+    external_user_uuid: str
+    title: str
+    body: str
+    data: dict[str, str] | None = None
+
+
+class PushNotifyResponse(BaseModel):
+    sent: int
+    failed: int
 
 
 @router.post("", dependencies=[Depends(verify_service_key)], response_model=DeviceMapResponse)
@@ -123,3 +136,36 @@ async def lookup_device_map(
         fcm_token=row.fcm_token,
         logged_in_at=row.logged_in_at.isoformat() if row.logged_in_at else None,
     )
+
+
+@push_router.post("/notify", dependencies=[Depends(verify_service_key)], response_model=PushNotifyResponse)
+async def notify_user(
+    body: PushNotifyRequest,
+    db: AsyncSession = Depends(get_session),
+) -> PushNotifyResponse:
+    """외부 UUID 기준 단건 푸시 (DM 등). 토큰 없으면 무발송(에러 아님). 이력 미적재."""
+    from app.services.fcm_push import send_push
+
+    row = (
+        await db.execute(
+            select(DeviceUserMap.user_id, DeviceUserMap.fcm_token)
+            .join(SreUser, SreUser.user_id == DeviceUserMap.user_id)
+            .where(SreUser.external_user_uuid == body.external_user_uuid)
+            .where(DeviceUserMap.fcm_token.isnot(None))
+            .where(DeviceUserMap.fcm_token != "")
+        )
+    ).first()
+
+    if row is None:
+        return PushNotifyResponse(sent=0, failed=0)
+
+    result = await send_push(
+        title=body.title,
+        body=body.body,
+        mode="individual",
+        targets=[{"user_id": row.user_id, "fcm_token": row.fcm_token}],
+        data=body.data,
+        sender="dm",
+        log_history=False,
+    )
+    return PushNotifyResponse(sent=result.sent, failed=result.failed)

@@ -258,6 +258,13 @@ class NativeInterface {
     return () => sub.remove();
   }
 
+  /** 콜드 스타트로 진입했을 때 버퍼된 알림 navigateTo 를 1회 가져온다 (없으면 null). */
+  async getPendingNotification(): Promise<string | null> {
+    if (!this.isNative) return null;
+    const { navigateTo } = await Fcm.getPendingNotification();
+    return navigateTo || null;
+  }
+
   // ── Share (Web Share API only) ──────────────────────────────────────────
 
   async share(options: ShareOptions): Promise<void> {

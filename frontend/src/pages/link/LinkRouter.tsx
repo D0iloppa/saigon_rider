@@ -9,6 +9,7 @@ import { useUserStore } from '@/store/useUserStore';
  *   home                    → /home
  *   quests                  → /quests
  *   quest&id=<questId>      → /quests/:questId
+ *   dm&id=<conversationId>  → /dm/:conversationId
  *   feed                    → /feed
  *   profile                 → /profile
  *   settings                → /settings
@@ -45,6 +46,7 @@ function resolveAction(action: string, id: string | null): string {
     case 'home':                   return '/home';
     case 'quests':                 return '/quests';
     case 'quest':                  return id ? `/quests/${id}` : '/quests';
+    case 'dm':                     return id ? `/dm/${id}` : '/dm';
     case 'feed':                   return '/feed';
     case 'profile':                return '/profile';
     case 'settings':               return '/settings';

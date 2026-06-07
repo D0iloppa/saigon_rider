@@ -251,10 +251,12 @@ async def send_push(
     targets: list[dict[str, Any]],
     data: dict[str, str] | None = None,
     sender: str = "admin",
+    log_history: bool = True,
 ) -> PushResult:
     """FCM 발송.
 
     targets: list of {"user_id": int, "fcm_token": str}
+    log_history: False 면 발송 이력(_save_log) 적재를 건너뛴다 (DM 등 고빈도 발송용). badge 증가는 유지.
     """
     result = PushResult()
     message_id = uuid.uuid4().hex[:12]
@@ -279,16 +281,17 @@ async def send_push(
         else:
             result.failed += 1
 
-    await _save_log(
-        message_id,
-        title=title,
-        body=body,
-        mode=mode,
-        sent_count=result.sent,
-        failed_count=result.failed,
-        sender=sender,
-        recipient_ids=[t["user_id"] for t in targets],
-    )
+    if log_history:
+        await _save_log(
+            message_id,
+            title=title,
+            body=body,
+            mode=mode,
+            sent_count=result.sent,
+            failed_count=result.failed,
+            sender=sender,
+            recipient_ids=[t["user_id"] for t in targets],
+        )
 
     log.info("push %s: sent=%d failed=%d id=%s", mode, result.sent, result.failed, message_id)
     return result

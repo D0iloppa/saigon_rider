@@ -21,7 +21,8 @@ const config: CapacitorConfig = {
   android: {
     path: '../native/android',
     allowMixedContent: true,
-    captureInput: true,
+    // captureInput=true 는 한글 IME 조합을 깬다(CapacitorWebView 가 조합 미지원 InputConnection 반환). F-03-IME.
+    captureInput: false,
     webContentsDebuggingEnabled: false,
     backgroundColor: '#000000',
   },

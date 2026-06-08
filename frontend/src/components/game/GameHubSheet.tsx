@@ -19,7 +19,7 @@ const HUBS = [
   { path: '/shop',      emoji: '1f6d2', label: 'gameHub.shop' },
   { path: '/gacha',     emoji: '1f48e', label: 'gameHub.gacha' },
   { path: '/season',    emoji: '2b50',  label: 'gameHub.season', comingSoon: true },
-  { path: '/info',      emoji: '1f4cd', label: 'gameHub.info', comingSoon: true },
+  { path: '/info',      emoji: '1f4cd', label: 'gameHub.info' },
 ] as const;
 
 export function GameHubSheet({ open, onClose }: GameHubSheetProps) {

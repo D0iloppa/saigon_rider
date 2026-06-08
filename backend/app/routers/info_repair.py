@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -22,11 +22,11 @@ router = APIRouter(prefix="/info/repair", tags=["Info — 정비소"])
 async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
     with contextlib.suppress(Exception):
         await engine_client.post_event(
-            user_id=str(user_id),
+            user_uuid=str(user_id),
             action_code=action_code,
-            occurred_at=datetime.now(UTC).isoformat(),
+            occurred_at=datetime.now(UTC),
             payload=payload or {},
-            idempotency_key=idem_key,
+            idem_key=idem_key,
         )
 
 
@@ -192,7 +192,7 @@ async def get_repair_shop_detail(
             SELECT rr.review_id, rr.service_code, rr.motorcycle_model,
                    rr.rating, rr.price_vnd, rr.comment, rr.photo_url,
                    rr.is_anonymous, rr.reviewed_at, rr.upvotes,
-                   CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END AS reviewer_name
+                   CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END AS reviewer_nickname
             FROM repair_review rr
             LEFT JOIN users u ON u.id = rr.reviewer_user_id
             WHERE rr.shop_id = :shop_id AND rr.flagged = FALSE
@@ -222,6 +222,48 @@ async def get_repair_shop_detail(
         "stats": stats,
         "price_by_service": price_by_service,
         "recent_reviews": recent_reviews,
+    }
+
+
+@router.get("/{shop_id}/reviews")
+async def list_repair_shop_reviews(
+    shop_id: int,
+    limit: int = 20,
+    offset: int = 0,
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """정비소 전체 리뷰 목록 (페이지네이션). 상세 화면의 '전체 보기'에서 사용."""
+    limit = max(1, min(limit, 50))
+    offset = max(0, offset)
+    total = (
+        await db.scalar(
+            select(func.count())
+            .select_from(RepairReview)
+            .where(RepairReview.shop_id == shop_id, RepairReview.flagged == False)
+        )
+        or 0
+    )
+
+    rows = await db.execute(
+        text("""
+            SELECT rr.review_id, rr.service_code, rr.motorcycle_model,
+                   rr.rating, rr.price_vnd, rr.comment, rr.photo_url,
+                   rr.is_anonymous, rr.reviewed_at, rr.upvotes,
+                   CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END AS reviewer_nickname
+            FROM repair_review rr
+            LEFT JOIN users u ON u.id = rr.reviewer_user_id
+            WHERE rr.shop_id = :shop_id AND rr.flagged = FALSE
+            ORDER BY rr.reviewed_at DESC
+            LIMIT :limit OFFSET :offset
+        """),
+        {"shop_id": shop_id, "limit": limit, "offset": offset},
+    )
+    reviews = [dict(row._mapping) for row in rows]
+    return {
+        "reviews": reviews,
+        "total": int(total),
+        "has_more": offset + len(reviews) < int(total),
     }
 
 
@@ -264,15 +306,15 @@ async def create_repair_review(
     except Exception:
         pass
 
-    # XP earning
-    xp_earned = 0
+    # RP(gc) 적립 — action_definition.rp_grant 기반 (sre051: REVIEW 50 / PHOTO 10 / PRICE 10)
+    rp_earned = 0
 
     await _earn_gp_safe(
         user_id,
         "INFO_REPAIR_REVIEW",
         f"repair-review-{user_id}-{review.review_id}",
     )
-    xp_earned = 50
+    rp_earned = 50
 
     if body.photo_url:
         await _earn_gp_safe(
@@ -280,7 +322,7 @@ async def create_repair_review(
             "INFO_REPAIR_PHOTO",
             f"repair-photo-{user_id}-{review.review_id}",
         )
-        xp_earned += 10
+        rp_earned += 10
 
     if body.price_vnd is not None:
         await _earn_gp_safe(
@@ -288,6 +330,6 @@ async def create_repair_review(
             "INFO_REPAIR_PRICE",
             f"repair-price-{user_id}-{review.review_id}",
         )
-        xp_earned += 10
+        rp_earned += 10
 
-    return {"review_id": review.review_id, "xp_earned": xp_earned}
+    return {"review_id": review.review_id, "rp_earned": rp_earned}

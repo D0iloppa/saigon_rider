@@ -28,11 +28,11 @@ _DEDUP_MINUTES = 30
 async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
     with contextlib.suppress(Exception):
         await engine_client.post_event(
-            user_id=str(user_id),
+            user_uuid=str(user_id),
             action_code=action_code,
-            occurred_at=datetime.now(UTC).isoformat(),
+            occurred_at=datetime.now(UTC),
             payload=payload or {},
-            idempotency_key=idem_key,
+            idem_key=idem_key,
         )
 
 

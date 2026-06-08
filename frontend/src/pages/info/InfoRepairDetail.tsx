@@ -6,7 +6,7 @@ import type { RepairDetail, RepairReview } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import styles from './InfoRepairDetail.module.css';
 
-function ReviewCard({ review }: { review: RepairReview }) {
+export function ReviewCard({ review }: { review: RepairReview }) {
   const { t } = useTranslation();
   const diff = Date.now() - new Date(review.reviewed_at).getTime();
   const days = Math.floor(diff / 86400000);
@@ -209,8 +209,18 @@ export default function InfoRepairDetail() {
 
         {/* Reviews */}
         <div className={styles.reviewSection}>
-          <div className={styles.sectionTitle}>
-            {t('info.repair.reviewsTitle', { count: stats?.review_count ?? detail.recent_reviews.length })}
+          <div className={styles.reviewSectionHead}>
+            <div className={styles.sectionTitle}>
+              {t('info.repair.reviewsTitle', { count: stats?.review_count ?? detail.recent_reviews.length })}
+            </div>
+            {(stats?.review_count ?? detail.recent_reviews.length) > 0 && (
+              <button
+                className={styles.viewAllLink}
+                onClick={() => navigate(`/info/repair/${shopId}/reviews`)}
+              >
+                {t('info.repair.viewAllReviews')}
+              </button>
+            )}
           </div>
           {detail.recent_reviews.map((r) => (
             <ReviewCard key={r.review_id} review={r} />
@@ -223,7 +233,7 @@ export default function InfoRepairDetail() {
             <div className={styles.reviewCtaTitle}>{t('info.repair.writeReviewCta')}</div>
             <div className={styles.reviewCtaSub}>{t('info.repair.maxXpEarn')}</div>
           </div>
-          <div className={styles.reviewCtaBtn}>+50 XP</div>
+          <div className={styles.reviewCtaBtn}>+50 RP</div>
         </div>
       </div>
     </div>

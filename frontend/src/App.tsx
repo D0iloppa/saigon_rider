@@ -90,6 +90,7 @@ import InfoGasList from '@/pages/info/InfoGasList';
 import InfoRepairList from '@/pages/info/InfoRepairList';
 import InfoRepairDetail from '@/pages/info/InfoRepairDetail';
 import InfoRepairWrite from '@/pages/info/InfoRepairWrite';
+import InfoRepairReviews from '@/pages/info/InfoRepairReviews';
 import RideNav from '@/pages/ride/RideNav';
 
 // Deep link
@@ -253,6 +254,7 @@ export default function App() {
           <Route path="/info/repair" element={<PrivateRoute><InfoRepairList /></PrivateRoute>} />
           <Route path="/info/repair/:shopId" element={<PrivateRoute><InfoRepairDetail /></PrivateRoute>} />
           <Route path="/info/repair/:shopId/write" element={<PrivateRoute><InfoRepairWrite /></PrivateRoute>} />
+          <Route path="/info/repair/:shopId/reviews" element={<PrivateRoute><InfoRepairReviews /></PrivateRoute>} />
           <Route path="/ride-nav" element={<PrivateRoute><RideNav /></PrivateRoute>} />
 
           {/* Protected: Settings */}

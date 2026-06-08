@@ -34,11 +34,11 @@ router = APIRouter(prefix="/info/gas", tags=["Info — 주유소"])
 async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
     with contextlib.suppress(Exception):
         await engine_client.post_event(
-            user_id=str(user_id),
+            user_uuid=str(user_id),
             action_code=action_code,
-            occurred_at=datetime.now(UTC).isoformat(),
+            occurred_at=datetime.now(UTC),
             payload=payload or {},
-            idempotency_key=idem_key,
+            idem_key=idem_key,
         )
 
 
@@ -132,7 +132,7 @@ async def get_nearby_gas_stations(
                     COUNT(*) AS wait_confidence,
                     MAX(reported_at) AS wait_reported_at
                 FROM gas_station_wait_report
-                WHERE reported_at > NOW() - INTERVAL '90 minutes'
+                WHERE reported_at > NOW() - INTERVAL '30 minutes'
                 GROUP BY station_id
             ),
             current_price AS (
@@ -182,18 +182,18 @@ async def report_wait_time(
     if not station:
         raise HTTPException(404, "Gas station not found")
 
-    # Abuse guard: one report per station per 90 minutes per user
+    # Abuse guard: one report per station per 30 minutes per user (혼잡도는 빨리 변하므로 30분 후 갱신 허용)
     recent = await db.scalar(
         select(GasStationWaitReport).where(
             GasStationWaitReport.station_id == body.station_id,
             GasStationWaitReport.reporter_user_id == user_id,
-            GasStationWaitReport.reported_at > datetime.now(UTC) - timedelta(minutes=90),
+            GasStationWaitReport.reported_at > datetime.now(UTC) - timedelta(minutes=30),
         )
     )
     if recent:
-        raise HTTPException(429, "Already reported within 90 minutes")
+        raise HTTPException(429, "Already reported within 30 minutes")
 
-    expires_at = datetime.now(UTC) + timedelta(minutes=90)
+    expires_at = datetime.now(UTC) + timedelta(minutes=30)
     report = GasStationWaitReport(
         station_id=body.station_id,
         reporter_user_id=user_id,
@@ -208,7 +208,7 @@ async def report_wait_time(
     idem_key = f"gas-wait-{user_id}-{body.station_id}-{bucket}"
     await _earn_gp_safe(user_id, "INFO_GAS_WAIT_REPORT", idem_key)
 
-    return {"wait_id": report.wait_id, "xp_earned": 5}
+    return {"wait_id": report.wait_id, "rp_earned": 5}
 
 
 @router.post("/report", status_code=201)

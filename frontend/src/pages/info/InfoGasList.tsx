@@ -14,6 +14,7 @@ import InfoMap from '@/components/maps/InfoMap';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import GasStationSheet from '@/components/gas/GasStationSheet';
+import WaitReportSheet from '@/components/gas/WaitReportSheet';
 import { deriveBrandCode } from '@/components/gas/gas-tokens';
 import type { MapMarker, GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
@@ -24,6 +25,12 @@ const DEFAULT_DISTRICT = 'BEN_THANH';
 function getWaitDotCount(waitMinutes: number | null): number {
   if (waitMinutes === null) return 0;
   return Math.min(5, Math.ceil(waitMinutes / 3));
+}
+
+// 제보 신선도(몇 분 전). 30분 윈도우 안의 값만 서버가 내려줌.
+function minsAgo(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 }
 
 function getDotLevel(filledCount: number): string {
@@ -70,6 +77,8 @@ export default function InfoGasList() {
 
   // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
+  // 대기상태(혼잡도) 실시간 제보 시트.
+  const [showWaitReport, setShowWaitReport] = useState(false);
 
   const gasMarkers = useMemo<MapMarker[]>(
     () =>
@@ -99,6 +108,16 @@ export default function InfoGasList() {
       : stations;
     return [...filtered].sort((a, b) => a.distance_km - b.distance_km);
   }, [stations, selectedDistrict]);
+
+  // 대기 제보 시트용 주유소 옵션(최대 12) — 참조 안정화로 시트 내 reset effect 오작동 방지.
+  const waitStationOptions = useMemo(
+    () => listStations.slice(0, 12).map((s) => ({
+      station_id: s.station_id,
+      name: s.name ?? s.brand ?? `#${s.station_id}`,
+      distance_km: s.distance_km,
+    })),
+    [listStations],
+  );
 
   const fetchStations = useCallback((origin: { lat: number; lng: number }) => {
     const { lat, lng } = origin;
@@ -144,8 +163,16 @@ export default function InfoGasList() {
     if (!inHcm) fetchStations(gps);
   }, [inHcm, fetchStations]);
 
-  function handleWaitReport() {
-    alert(`+5 XP! ${t('info.gas.comingSoon')}`);
+  async function handleSubmitWait(stationId: number, waitMinutes: number): Promise<boolean> {
+    try {
+      await gasApi.reportWait(stationId, waitMinutes);
+      toast.success(t('info.gas.waitReportSuccess'));
+      fetchStations(coordsRef.current); // 방금 제보가 반영된 최신 대기 요약 재조회
+      return true;
+    } catch {
+      toast.error(t('info.gas.waitReportError'));
+      return false;
+    }
   }
 
   async function handleSubmitReport(fields: ReportFields): Promise<boolean> {
@@ -209,6 +236,7 @@ export default function InfoGasList() {
           <div className={styles.card}>
             {listStations.map((s, idx) => {
               const isFirst = idx === 0;
+              const waitAgeMin = minsAgo(s.wait_reported_at);
               return (
                 <div
                   key={s.station_id}
@@ -246,9 +274,11 @@ export default function InfoGasList() {
                         </span>
                         <WaitDots waitMinutes={s.wait_minutes} />
                       </div>
-                      {s.wait_confidence !== null && (
+                      {s.wait_confidence !== null && s.wait_confidence > 0 && (
                         <span className={styles.waitMeta}>
-                          {t('info.gas.waitConfidence', { count: s.wait_confidence })}
+                          {waitAgeMin === null
+                            ? t('info.gas.waitConfidence', { count: s.wait_confidence })
+                            : t('info.gas.waitAge', { min: waitAgeMin, count: s.wait_confidence })}
                         </span>
                       )}
                     </div>
@@ -290,11 +320,22 @@ export default function InfoGasList() {
         </button>
 
         {/* Wait report CTA */}
-        <button className={styles.reportCta} onClick={handleWaitReport}>
+        <button
+          className={styles.reportCta}
+          onClick={() => setShowWaitReport(true)}
+          disabled={listStations.length === 0}
+        >
           <span>⛽</span>
           <span>{t('info.gas.reportWait')}</span>
         </button>
       </div>
+
+      <WaitReportSheet
+        open={showWaitReport}
+        stations={waitStationOptions}
+        onSubmit={handleSubmitWait}
+        onClose={() => setShowWaitReport(false)}
+      />
 
       <ReportSheet
         open={showReport}

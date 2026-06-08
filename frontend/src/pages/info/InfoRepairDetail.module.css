@@ -194,6 +194,21 @@
   margin-bottom: 4px;
 }
 
+.reviewSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.viewAllLink {
+  border: none;
+  background: none;
+  color: var(--brand, #FF5A1F);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
 .priceRow {
   display: flex;
   justify-content: space-between;

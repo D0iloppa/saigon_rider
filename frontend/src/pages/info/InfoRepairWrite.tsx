@@ -3,18 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { toast } from '@/components/ui/Toast';
 import styles from './InfoRepairWrite.module.css';
 
-const MOTO_OPTIONS = [
-  'Honda SH 350i',
-  'Honda Wave Alpha',
-  'Honda Exciter 150',
-  'Honda Air Blade',
-  'Yamaha NVX 155',
-  'Yamaha Sirius',
-  'Yamaha Grande',
-  'Suzuki Raider R150',
-];
+// 차종은 주소록처럼 자유 입력 + 마지막 입력값을 기기에 기억.
+const VEHICLE_LS_KEY = 'sgr.repair.lastVehicle';
 const SERVICE_CODES = ['OIL_CHANGE', 'TIRE', 'CHAIN', 'ENGINE', 'BRAKE', 'BATTERY', 'GENERAL_CHECK', 'WASH'];
 
 export default function InfoRepairWrite() {
@@ -29,7 +22,7 @@ export default function InfoRepairWrite() {
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [moto, setMoto] = useState('Honda SH 350i');
+  const [moto, setMoto] = useState(() => localStorage.getItem(VEHICLE_LS_KEY) ?? '');
   const [service, setService] = useState('OIL_CHANGE');
   const [price, setPrice] = useState('');
   const [comment, setComment] = useState('');
@@ -39,10 +32,10 @@ export default function InfoRepairWrite() {
   const [done, setDone] = useState(false);
 
   const hasPrice = price.trim().length > 0 && !isNaN(Number(price));
-  const xpReview = 50;
-  const xpPhoto = hasPhoto ? 10 : 0;
-  const xpPrice = hasPrice ? 10 : 0;
-  const totalXP = xpReview + xpPhoto + xpPrice;
+  const rpReview = 50;
+  const rpPhoto = hasPhoto ? 10 : 0;
+  const rpPrice = hasPrice ? 10 : 0;
+  const totalRP = rpReview + rpPhoto + rpPrice;
 
   async function handleSubmit() {
     if (rating === 0 || submitting) return;
@@ -51,17 +44,18 @@ export default function InfoRepairWrite() {
       await repairApi.writeReview({
         shop_id: Number(shopId),
         service_code: service,
-        motorcycle_model: moto,
+        motorcycle_model: moto.trim() || undefined,
         rating,
         price_vnd: hasPrice ? Number(price) : undefined,
         comment: comment.trim() || undefined,
         is_anonymous: isAnonymous,
       });
+      // 다음 작성 시 자동 채움(주소록처럼).
+      if (moto.trim()) localStorage.setItem(VEHICLE_LS_KEY, moto.trim());
       setDone(true);
       setTimeout(() => navigate(-1), 800);
     } catch {
-      setDone(true);
-      setTimeout(() => navigate(-1), 800);
+      toast.error(t('info.repair.submitError'));
     } finally {
       setSubmitting(false);
     }
@@ -112,15 +106,13 @@ export default function InfoRepairWrite() {
         {/* Motorcycle */}
         <div className={styles.fieldGroup}>
           <div className={styles.fieldLabel}>🛵 {t('info.repair.vehicleLabel')}</div>
-          <select
+          <input
             className={styles.select}
+            type="text"
             value={moto}
+            placeholder={t('info.repair.vehiclePlaceholder')}
             onChange={(e) => setMoto(e.target.value)}
-          >
-            {MOTO_OPTIONS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* Service */}
@@ -191,28 +183,28 @@ export default function InfoRepairWrite() {
 
         <div className={styles.divider} />
 
-        {/* XP live calc */}
+        {/* RP live calc */}
         <div className={styles.gpBox}>
           <div className={styles.gpTitle}>⭐ {t('info.repair.gpEstimate')}</div>
           <div className={styles.gpRow}>
             <span>{t('info.repair.xpReviewRow')}</span>
-            <span className={`${styles.mono} ${styles.gpAmount}`}>+{xpReview} XP</span>
+            <span className={`${styles.mono} ${styles.gpAmount}`}>+{rpReview} RP</span>
           </div>
           <div className={styles.gpRow}>
             <span>{t('info.repair.xpPhotoRow')}</span>
             <span className={`${styles.mono} ${hasPhoto ? styles.gpAmount : styles.gpDim}`}>
-              +10 XP{!hasPhoto ? ` ${t('info.repair.xpIncomplete')}` : ''}
+              +10 RP{!hasPhoto ? ` ${t('info.repair.xpIncomplete')}` : ''}
             </span>
           </div>
           <div className={styles.gpRow}>
             <span>{t('info.repair.xpPriceRow')}</span>
             <span className={`${styles.mono} ${hasPrice ? styles.gpAmount : styles.gpDim}`}>
-              +10 XP{!hasPrice ? ` ${t('info.repair.xpMissing')}` : ''}
+              +10 RP{!hasPrice ? ` ${t('info.repair.xpMissing')}` : ''}
             </span>
           </div>
           <div className={`${styles.gpRow} ${styles.gpTotal}`}>
             <span>{t('info.repair.xpNow')}</span>
-            <span className={styles.mono}>⭐ {totalXP} XP</span>
+            <span className={styles.mono}>⭐ {totalRP} RP</span>
           </div>
         </div>
       </div>
@@ -228,7 +220,7 @@ export default function InfoRepairWrite() {
             ? t('info.repair.ctaDone')
             : submitting
             ? t('info.repair.ctaSubmitting')
-            : `${t('info.repair.ctaWrite')} (+${totalXP} XP)`}
+            : `${t('info.repair.ctaWrite')} (+${totalRP} RP)`}
         </button>
       </div>
     </div>

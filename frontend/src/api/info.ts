@@ -355,9 +355,9 @@ export const gasApi = {
       `/info/gas/nearby?lat=${lat}&lng=${lng}&radius_km=${radius_km}&fuel_type=${fuel_type}`, {}, 'bff', { silent: true },
     );
   },
-  async reportWait(station_id: number, wait_minutes: number): Promise<{ wait_id: number; gp_earned: number }> {
-    if (USE_MOCK) return api.delay({ wait_id: 999, gp_earned: 3 }, 300);
-    return api.realFetch<{ wait_id: number; gp_earned: number }>('/info/gas/wait-report', {
+  async reportWait(station_id: number, wait_minutes: number): Promise<{ wait_id: number; rp_earned: number }> {
+    if (USE_MOCK) return api.delay({ wait_id: 999, rp_earned: 5 }, 300);
+    return api.realFetch<{ wait_id: number; rp_earned: number }>('/info/gas/wait-report', {
       method: 'POST',
       body: JSON.stringify({ station_id, wait_minutes }),
     });
@@ -449,6 +449,16 @@ export const repairApi = {
     if (USE_MOCK) return api.delay(MOCK_REPAIR_DETAIL, 300);
     return api.realFetch<RepairDetail>(`/info/repair/${shop_id}`, {}, 'bff', { silent: true });
   },
+  /** 전체 리뷰 목록 (페이지네이션). 상세 '전체 보기'에서 사용. */
+  async getReviews(shop_id: number, offset = 0, limit = 20): Promise<{ reviews: RepairReview[]; total: number; has_more: boolean }> {
+    if (USE_MOCK) {
+      const all = MOCK_REPAIR_DETAIL.recent_reviews;
+      return api.delay({ reviews: all.slice(offset, offset + limit), total: all.length, has_more: offset + limit < all.length }, 300);
+    }
+    return api.realFetch<{ reviews: RepairReview[]; total: number; has_more: boolean }>(
+      `/info/repair/${shop_id}/reviews?offset=${offset}&limit=${limit}`, {}, 'bff', { silent: true },
+    );
+  },
   /** 신규 정비소 제보 → 대기큐(PENDING). admin confirm 시에만 반영. */
   async reportShop(body: { name: string; lat: number; lng: number; phone?: string; note?: string }): Promise<{ submission_id: number; status: string }> {
     if (USE_MOCK) return api.delay({ submission_id: 999, status: 'PENDING' }, 300);
@@ -460,9 +470,9 @@ export const repairApi = {
   async writeReview(data: {
     shop_id: number; service_code: string; motorcycle_model?: string;
     rating: number; price_vnd?: number; comment?: string; photo_url?: string; is_anonymous?: boolean;
-  }): Promise<{ review_id: number; gp_earned: number }> {
-    if (USE_MOCK) return api.delay({ review_id: 999, gp_earned: 20 }, 500);
-    return api.realFetch<{ review_id: number; gp_earned: number }>('/info/repair/review', {
+  }): Promise<{ review_id: number; rp_earned: number }> {
+    if (USE_MOCK) return api.delay({ review_id: 999, rp_earned: 70 }, 500);
+    return api.realFetch<{ review_id: number; rp_earned: number }>('/info/repair/review', {
       method: 'POST',
       body: JSON.stringify(data),
     });

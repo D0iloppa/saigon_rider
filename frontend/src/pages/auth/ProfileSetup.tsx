@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { native } from '@/lib/native';
@@ -37,29 +37,19 @@ export default function ProfileSetup() {
   const { t } = useTranslation();
 
   const [nickname, setNickname] = useState('');
-  // F-03-IME (Android 한정): 삼성 WebView 는 한글 조합 중 React onChange·compositionend 를
-  // 안정적으로 발화하지 않아(공백/영문이 들어와야 그제서야 발화) 닉네임 state 가 비어 [시작하기]가
-  // 안 켜진다. 또 controlled value 를 조합 중 되써넣으면 한 글자씩 밀린다.
-  // → Android 는 input 을 uncontrolled 로 두고(React 가 DOM value 를 안 건드림 = 밀림 방지),
-  //   네이티브 'input' 이벤트(조합 포함 매 입력마다 발화)로 DOM 값을 읽어 state 동기화한다.
-  //   iOS/PC 는 기존 controlled+onChange 그대로(무영향).
+  // F-03-IME (Android 한정): Android WebView 는 한글 조합 중 input 이 React 로 리렌더되면
+  // 조합 버퍼를 강제로 끊어 글자가 밀리고 누락된다. 따라서 Android 는 입력 도중 절대 setState 하지
+  // 않고(uncontrolled + ref), 제출 시점에만 ref.value 를 읽는다 → React 가 타이핑에 일절 개입 안 함.
+  // iOS/PC 는 기존 controlled+onChange 그대로(무영향).
   const inputRef = useRef<HTMLInputElement>(null);
   const isAndroid = native.platform === 'android';
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
 
-  // Android: uncontrolled input 의 네이티브 'input' 이벤트로 state 동기화 (위 F-03-IME 주석 참조).
-  useEffect(() => {
-    if (!isAndroid) return;
-    const el = inputRef.current;
-    if (!el) return;
-    const sync = () => setNickname(el.value);
-    el.addEventListener('input', sync);
-    return () => el.removeEventListener('input', sync);
-  }, [isAndroid]);
-
-  const isValid = nickname.length >= 2 && nickname.length <= 12 && style;
+  // Android 는 닉네임 state 를 안 들고 있으므로(타이핑 중 리렌더 금지) 스타일만 선택돼 있으면 활성.
+  // 실제 닉네임 길이 검증은 제출 시 ref 값으로 한다. iOS/PC 는 기존대로 닉네임 길이 기반.
+  const isValid = isAndroid ? !!style : nickname.length >= 2 && nickname.length <= 12 && style;
 
   const handleSkip = async () => {
     if (!user?.id || skipping) return;
@@ -82,7 +72,9 @@ export default function ProfileSetup() {
   };
 
   const handleSubmit = async () => {
-    if (nickname.length < 2) {
+    // Android 는 타이핑 중 state 를 안 들고 있으므로 제출 시 ref 값을 읽는다(IME 안전).
+    const nick = (isAndroid ? (inputRef.current?.value ?? '') : nickname).trim();
+    if (nick.length < 2) {
       toast.error(t('profileSetup.errorNicknameTooShort'));
       return;
     }
@@ -98,8 +90,8 @@ export default function ProfileSetup() {
 
     setSaving(true);
     try {
-      await apiSaveProfileSetup(user.id, nickname, style);
-      setProfile(nickname, style);
+      await apiSaveProfileSetup(user.id, nick, style);
+      setProfile(nick, style);
       navigate('/home');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.errorUnexpected'));

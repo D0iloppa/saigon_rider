@@ -12,6 +12,9 @@ import { fetchCurrentVersion, type AppVersionCurrent } from '@/api/appVersion';
 import { native, type LocationPermissionState } from '@/lib/native';
 import styles from './Settings.module.css';
 
+// 다크모드 메뉴 노출 토글 — SGR-192 시각검증 대기로 임시 숨김. 검증 완료 시 true 로.
+const DARK_MODE_MENU_ENABLED = false;
+
 export default function Settings() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -124,11 +127,14 @@ export default function Settings() {
             arrow
             onClick={() => navigate('/settings/language')}
           />
-          <SettingsRow
-            icon="🌙"
-            label={t('settings.darkMode')}
-            right={<Toggle checked={theme === 'dark'} onChange={(v) => setTheme(v ? 'dark' : 'light')} />}
-          />
+          {/* 다크모드 메뉴 임시 숨김(SGR-192 시각검증 대기) — 복구 시 false→true. theme 로직은 그대로 유지. */}
+          {DARK_MODE_MENU_ENABLED && (
+            <SettingsRow
+              icon="🌙"
+              label={t('settings.darkMode')}
+              right={<Toggle checked={theme === 'dark'} onChange={(v) => setTheme(v ? 'dark' : 'light')} />}
+            />
+          )}
           <SettingsRow
             icon="📍"
             label={t('settings.locationPermission')}

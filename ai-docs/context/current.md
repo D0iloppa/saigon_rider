@@ -109,12 +109,12 @@
 ## 부분 점검 (🟡)
 
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요
-- **SGR-285 회원가입 Android 버그 (F-03-IME / F-03-KBD / F-03-NICK)** — 코드 DONE, **Android 실기기 검증 대기**. 사용자 제약: **Android 조치가 iOS에 영향 금지**.
-  - **근본 원인(실기기 확인됨)**: 모바일 Chrome 정상 / Android **WebView(Capacitor)만** 깨짐 → React 결함 아님. 키보드 표시 시 네이티브 리사이즈 churn 이 한글 IME 조합 버퍼를 끊음. **프론트 우회(controlled 가드/uncontrolled)만으로는 이 WebView에서 미해결** → **네이티브 조치 필수**(사용자 4회 검증).
-  - ① **F-03-IME 한글 밀림+[시작하기] 미활성(블로커)** & ② **F-03-KBD 압축**: **네이티브 — `AndroidManifest` MainActivity `windowSoftInputMode="adjustPan"`** 추가(리사이즈 제거 → 압축 방지 + 조합 버퍼 간섭 제거). **Android APK 재빌드 필요**(dev 웹 재시작으론 반영 안 됨). android repo `2b7ce8d` push. iOS 무관(매니페스트 Android 전용).
-    - 프론트 병행 우회(보조): `ProfileSetup.tsx` Android 한정 **uncontrolled input + 네이티브 `input` 리스너**(value 미바인딩 → 리렌더가 DOM 안 건드림), iOS/PC는 controlled 그대로. `index.html` 정적 `interactive-widget=resizes-visual`(Blink는 초기 파싱만 읽음 / WebKit 미구현→iOS 무시). 단독으론 불충분, 네이티브 빌드와 병행.
-  - ③ **F-03-NICK 공백 닉네임(해결)**: **가입 시점 랜덤 닉네임 기본 부여**(`auth.register`), login·재가입 공백이면 self-heal. `utils.generate_random_nickname`(UNIQUE 충돌 회피 재시도). ProfileSetup 건너뛰기는 랜덤 유지(`handleSkip`). dev E2E PASS.
-  - **⚠️ 핵심: ①②는 Android APK 재빌드(빌드머신)로만 검증 가능. 디바이스 앱은 dev=`saigon.doil.me` 서빙이나 native 변경은 웹 배포로 안 들어감.**
+- **✅ SGR-285 회원가입 Android 버그 (F-03) — 해결 (2026-06-08)**. 사용자 제약 준수: Android 조치가 iOS 무영향.
+  - ① **F-03-IME 전역 한글 밀림(블로커, 진짜 원인)**: Capacitor **`captureInput=true`** → `CapacitorWebView.onCreateInputConnection` 이 조합 미지원 `BaseInputConnection(this,false)` 반환 → **모든 입력창** 한글 조합 깨짐. React/controlled 무관(그래서 프론트 우회 전부 무효였음). **모바일 Chrome 정상 = 앱 WebView 설정 문제로 격리**. 해결 = **`captureInput=false`**: MainActivity CapConfig **+ `android/.../assets/capacitor.config.json`(WebView 실제 로드 파일 — cap sync 미실행으로 true 잔존했던 게 막판 핵심)** + `capacitor.config.ts`. → [[project_capacitor_captureinput_breaks_ime]]
+  - ② **F-03-KBD 입력창 압축**: 키보드 무관 CSS — `.nickField`/`.styleCard` flex 자식 기본 `flex-shrink:1` 눌림 → **`flex-shrink:0`**(web). 보조 native `windowSoftInputMode=adjustPan`.
+  - ③ **F-03-NICK 공백 닉네임**: 가입 시점 랜덤 닉네임 기본 부여(`auth.register`)+login/재가입 self-heal(`utils.generate_random_nickname`, UNIQUE 회피). 건너뛰기는 랜덤 유지.
+  - 헛다리(원복됨): ProfileSetup uncontrolled+리스너/state-free, interactive-widget 런타임/정적 — IME엔 무효(captureInput이 원인이라). **교훈: 모바일 Chrome vs 앱 WebView 비교로 React vs WebView-config 를 먼저 격리**할 것.
+  - 푸시: android `1d5a01f`(captureInput·adjustPan), primary `dbe8b30`. CSS/닉네임/다크모드숨김은 web 반영.
 - 퀘스트 `thumbnail_content_id` 미연결 — 어드민 퀘스트 편집 시 컨텐츠 연결 UI 필요
 
 ## 다음 우선순위

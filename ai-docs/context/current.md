@@ -109,6 +109,11 @@
 ## 부분 점검 (🟡)
 
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요
+- **SGR-285 회원가입 Android 버그 (F-03-IME / F-03-KBD / F-03-NICK)** — 코드 DONE, **Android 실기기 검증 대기**. 사용자 제약: **Android 조치가 iOS에 영향 금지**.
+  - ① **F-03-IME 한글 한 글자 밀림(블로커)**: controlled `value={nickname}` + 한글 IME 조합 중 setState 리렌더가 DOM value 되써넣어 조합 끊김(lag-by-one). 1차로 넣은 `onCompositionEnd`만으론 미해결 → **조합 중 setState 건너뛰고 compositionEnd 커밋(composingRef 가드)**, 조합 핸들러는 **Android 한정** 부착(iOS 기존 onChange 그대로). `ProfileSetup.tsx`.
+  - ② **F-03-KBD 키보드 레이아웃 압축**: **Android 한정** 런타임 `interactive-widget=resizes-visual` 주입(`main.tsx`, `native.platform==='android'` 게이트 — iOS 공용 index.html 정적 meta 불변).
+  - ③ **F-03-NICK 공백 닉네임**: 가입만 하고 ProfileSetup 종료 시 공백 닉네임 → **가입 시점 랜덤 닉네임 기본 부여**(`auth.register`), login·재가입 공백이면 self-heal. `utils.generate_random_nickname`(nickname UNIQUE 충돌 회피 재시도, profile/random-nickname과 공용). ProfileSetup 건너뛰기는 그 랜덤 유지(`handleSkip`).
+  - **⚠️ 디바이스 앱은 dev=`saigon.doil.me`(이 머신 nginx) 서빙. 검증 시 앱 완전 종료 후 재실행(index.html no-store, 신번들 `index-BLOQDWfc.js` 픽업).** AppConfig.BASE_URL은 PROD 고정이나 사용자 테스트 앱은 dev 빌드.
 - 퀘스트 `thumbnail_content_id` 미연결 — 어드민 퀘스트 편집 시 컨텐츠 연결 UI 필요
 
 ## 다음 우선순위

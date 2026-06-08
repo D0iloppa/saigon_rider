@@ -18,6 +18,36 @@ except ZoneInfoNotFoundError:
     APP_TZ = ZoneInfo("Asia/Seoul")
 
 MOCK_IMG_ENDPOINT = f"{BFF_PUBLIC_URL}/contents/mock-img"
+
+
+async def generate_random_nickname(db) -> str | None:
+    """닉네임 단어 풀에서 랜덤 닉네임 생성("형용사 명사 NNN"). 단어 풀이 비면 None.
+
+    users.nickname 은 UNIQUE 라 충돌을 피해야 한다 → 최대 10회 재시도하며 미사용 값을 고른다.
+    가입(register)·로그인(login) 시 공백 닉네임 보정과 /profile/random-nickname 에서 공용.
+    """
+    import random
+
+    from sqlalchemy import select
+
+    from .models import NicknameWord, User
+
+    adj_rows = (
+        (await db.execute(select(NicknameWord.word).where(NicknameWord.word_type == "adjective"))).scalars().all()
+    )
+    noun_rows = (await db.execute(select(NicknameWord.word).where(NicknameWord.word_type == "noun"))).scalars().all()
+    if not adj_rows or not noun_rows:
+        return None
+
+    candidate = ""
+    for _ in range(10):
+        candidate = f"{random.choice(adj_rows)} {random.choice(noun_rows)} {random.randint(100, 999)}"
+        taken = (await db.execute(select(User.id).where(User.nickname == candidate))).scalar_one_or_none()
+        if taken is None:
+            return candidate
+    return candidate  # 10회 모두 충돌(극히 드묾) — 마지막 후보 반환(상위 호출부가 처리)
+
+
 # 프로필 사진 미설정 시 폴백 풀 (owner_type='profile_mock') 서빙 엔드포인트
 PROFILE_MOCK_ENDPOINT = f"{BFF_PUBLIC_URL}/contents/profile-mock-img"
 

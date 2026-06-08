@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { native } from '@/lib/native';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { RadioCircle } from '@/components/ui/RadioCircle';
 import { emojiUrl } from '@/lib/emoji';
@@ -36,6 +37,11 @@ export default function ProfileSetup() {
   const { t } = useTranslation();
 
   const [nickname, setNickname] = useState('');
+  // Android WebView 한글 IME: controlled input 의 value 를 조합(composition) 중 React 가
+  // 되써넣으면 조합 버퍼가 끊겨 한 글자씩 밀린다(F-03-IME). 조합 중에는 setState 를 건너뛰고
+  // 조합 완료 시 한 번에 커밋. iOS 는 영향 없도록 핸들러를 Android 에서만 부착(아래 input).
+  const composingRef = useRef(false);
+  const isAndroid = native.platform === 'android';
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -46,12 +52,14 @@ export default function ProfileSetup() {
     if (!user?.id || skipping) return;
     setSkipping(true);
     try {
-      const randomNick = await fetchRandomNickname();
-      const saved = await apiSaveProfileSetup(user.id, randomNick, null);
+      // 가입 시 이미 랜덤 닉네임이 부여됨 → 건너뛰기는 현재(랜덤) 닉네임 유지.
+      // 혹시 비어 있으면(구버전 계정) 그때만 새로 발급.
+      const keepNick = user.nickname || (await fetchRandomNickname());
+      const saved = await apiSaveProfileSetup(user.id, keepNick, null);
       const rtCode: RiderStyle = (typeof saved.rider_type === 'object' && saved.rider_type !== null
         ? (saved.rider_type.code?.toLowerCase() ?? 'commuter')
         : typeof saved.rider_type === 'string' ? saved.rider_type.toLowerCase() : 'commuter') as RiderStyle;
-      setProfile(saved.nickname ?? randomNick, rtCode);
+      setProfile(saved.nickname ?? keepNick, rtCode);
       navigate('/home');
     } catch {
       navigate('/home');
@@ -115,7 +123,12 @@ export default function ProfileSetup() {
           <input
             placeholder={t('profileSetup.nicknamePlaceholder')}
             value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
+            onChange={(e) => { if (!composingRef.current) setNickname(e.target.value); }}
+            onCompositionStart={isAndroid ? () => { composingRef.current = true; } : undefined}
+            onCompositionEnd={isAndroid ? (e) => {
+              composingRef.current = false;
+              setNickname(e.currentTarget.value);
+            } : undefined}
             maxLength={12}
           />
           {nickname.length >= 2 && <GifIcon code="2705" size={24} />}

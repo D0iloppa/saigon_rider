@@ -1,6 +1,5 @@
 import logging
 import os
-import random
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import Content, NicknameWord, RiderType, User
+from ..models import Content, RiderType, User
 from ..schemas import (
     AvatarUpdateResponse,
     NicknameCheckResponse,
@@ -23,6 +22,7 @@ from ..schemas import (
     UserOut,
     XpBalanceResponse,
 )
+from ..utils import generate_random_nickname
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["프로필 (Profile)"])
@@ -167,16 +167,10 @@ async def save_profile(
 
 @router.get("/random-nickname", response_model=RandomNicknameResponse, summary="랜덤 닉네임 생성")
 async def random_nickname(db: AsyncSession = Depends(get_db)):
-    adj_rows = (
-        (await db.execute(select(NicknameWord.word).where(NicknameWord.word_type == "adjective"))).scalars().all()
-    )
-    noun_rows = (await db.execute(select(NicknameWord.word).where(NicknameWord.word_type == "noun"))).scalars().all()
-    if not adj_rows or not noun_rows:
+    nick = await generate_random_nickname(db)
+    if nick is None:
         raise HTTPException(status_code=503, detail="Nickname word pool is empty")
-    adj = random.choice(adj_rows)
-    noun = random.choice(noun_rows)
-    suffix = random.randint(100, 999)
-    return RandomNicknameResponse(nickname=f"{adj} {noun} {suffix}")
+    return RandomNicknameResponse(nickname=nick)
 
 
 @router.get("/{user_id}/xp-balance", response_model=XpBalanceResponse, summary="XP 잔액 조회")

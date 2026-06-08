@@ -18,6 +18,9 @@
 | 2026-05-14 | F-03-4 | PROFILE-SETUP · 프로필 저장 | `setProfile(nickname, style)`로 Zustand만 업데이트, `PUT /api/bff/profile` 미호출. rider_type 소문자(`night_rider`) → BFF 400 | ProfileSetup `handleSubmit`에 API 호출 없음 + rider_type 대소문자 불일치 | ① `PUT /api/bff/profile` 호출 추가 ② `rider_type` 대문자 변환 (`toUpperCase()`) | ❌ |
 | 2026-05-14 | F-03-1-b | PROFILE-SETUP · 라이더 타입 카드 아이콘 | 출퇴근러(1f3d9 🏙)·나이트라이더(1f319 🌙) Google Fonts noto emoji 404 → onError로 아이콘 숨겨짐 | 체크리스트 미등재 항목 — 휴먼 점검 중 발견 | ProfileSetup.tsx emoji 코드 교체: 1f3d9→1f3cd(🏍️), 1f319→1f31f(🌟). 리빌드 완료 | 🔧 수정됨 |
 | 2026-05-14 | F-03-1 | PROFILE-SETUP · 닉네임 1자 제출 가능 여부 | 휴먼 점검 중 "한 글자 입력 시 버튼 활성화" 보고 | 코드상 `length >= 2` 조건 존재 — 한국어 IME 조합 중 length 계산 차이 가능성 | 재빌드 후 재점검 필요 | 🟡 |
+| 2026-06-07 | F-03-IME | PROFILE-SETUP · 닉네임 한글 입력 한 글자 밀림 (Android) | Android 회원가입 시 한글이 한 글자씩 밀려 입력됨(두 글자 쳐야 앞 글자 커밋) → [시작하기] 비활성(블로커). 아이폰 정상 | controlled `<input value={nickname}>` + 한글 IME: 조합 중 onChange→setState→리렌더가 React 가 DOM value 를 되써넣어 조합 버퍼를 끊음(lag-by-one) | **조합 중 setState 건너뛰고 compositionEnd 에 커밋**(composingRef 가드, ProfileSetup.tsx). **조합 핸들러는 Android 에서만 부착** → iOS 는 기존 onChange 그대로(무영향). 코드 DONE·실기기 검증 대기 | 🔧 |
+| 2026-06-07 | F-03-NICK | 회원가입 · 공백 닉네임 계정 | ProfileSetup 미완료(앱 종료)로 가입만 된 계정이 공백 닉네임 상태로 실행됨 | register 가 닉네임 없이 User 생성 → ProfileSetup 에서만 설정되는데 건너뛰기/완료 안 하고 종료하면 공백 | **가입 시점 랜덤 닉네임 기본 부여**(auth.register). login·재가입 시 공백이면 self-heal 보정. `generate_random_nickname`(UNIQUE 충돌 회피 재시도). ProfileSetup 건너뛰기는 그 랜덤 유지. 코드 DONE·검증 대기 | 🔧 |
+| 2026-06-07 | F-03-KBD | PROFILE-SETUP · 키보드 시 레이아웃 압축 (Android) | Android 키보드 표시 시 컴포넌트 영역 압축. 아이폰 정상 | softInputMode 기본 adjustResize + AppShell `100dvh` → 뷰포트 축소 따라 압축 | **Android 한정** 런타임 `viewport interactive-widget=resizes-visual` 주입(main.tsx, `platform==='android'` 게이트). iOS 공용 index.html meta 불변 | 🔧 |
 
 ## 미구현 / Mock 잔여 (⛔ 분류 모음)
 

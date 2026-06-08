@@ -11,6 +11,7 @@ from ..database import get_db
 from ..engine_client import engine_client
 from ..models import User
 from ..schemas import LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, UserOut
+from ..utils import generate_random_nickname
 
 log = logging.getLogger(__name__)
 
@@ -47,12 +48,20 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     hashed = _hash(raw_passcode)
 
     if user is None:
-        user = User(phone=phone, passcode_hash=hashed)
+        # 가입 시점에 랜덤 닉네임을 기본 부여 → ProfileSetup 미완료(앱 종료)여도 공백 닉네임 방지.
+        # 사용자는 이후 ProfileSetup 에서 커스텀 지정하거나 건너뛰기(랜덤 유지)한다.
+        nick = await generate_random_nickname(db)
+        user = User(phone=phone, passcode_hash=hashed, nickname=nick)
         db.add(user)
         await db.commit()
         is_new = True
     else:
         user.passcode_hash = hashed
+        # 구버전에서 닉네임 없이 생성된 기존 유저 보정(self-heal).
+        if not (user.nickname and user.nickname.strip()):
+            nick = await generate_random_nickname(db)
+            if nick:
+                user.nickname = nick
         await db.commit()
         is_new = False
 
@@ -77,6 +86,16 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     if not _verify(body.passcode, user.passcode_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
+
+    # 구버전에서 닉네임 없이 생성된 기존 유저 보정(self-heal) — 공백 닉네임 방지.
+    if not (user.nickname and user.nickname.strip()):
+        nick = await generate_random_nickname(db)
+        if nick:
+            user.nickname = nick
+            await db.commit()
+            user = (
+                await db.execute(select(User).where(User.phone == body.phone.strip(), User.deleted_at.is_(None)))
+            ).scalar_one()
 
     return LoginResponse(user=UserOut.model_validate(user))
 

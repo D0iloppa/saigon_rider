@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { native } from '@/lib/native';
@@ -37,14 +37,27 @@ export default function ProfileSetup() {
   const { t } = useTranslation();
 
   const [nickname, setNickname] = useState('');
-  // Android WebView 한글 IME: controlled input 의 value 를 조합(composition) 중 React 가
-  // 되써넣으면 조합 버퍼가 끊겨 한 글자씩 밀린다(F-03-IME). 조합 중에는 setState 를 건너뛰고
-  // 조합 완료 시 한 번에 커밋. iOS 는 영향 없도록 핸들러를 Android 에서만 부착(아래 input).
-  const composingRef = useRef(false);
+  // F-03-IME (Android 한정): 삼성 WebView 는 한글 조합 중 React onChange·compositionend 를
+  // 안정적으로 발화하지 않아(공백/영문이 들어와야 그제서야 발화) 닉네임 state 가 비어 [시작하기]가
+  // 안 켜진다. 또 controlled value 를 조합 중 되써넣으면 한 글자씩 밀린다.
+  // → Android 는 input 을 uncontrolled 로 두고(React 가 DOM value 를 안 건드림 = 밀림 방지),
+  //   네이티브 'input' 이벤트(조합 포함 매 입력마다 발화)로 DOM 값을 읽어 state 동기화한다.
+  //   iOS/PC 는 기존 controlled+onChange 그대로(무영향).
+  const inputRef = useRef<HTMLInputElement>(null);
   const isAndroid = native.platform === 'android';
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
+
+  // Android: uncontrolled input 의 네이티브 'input' 이벤트로 state 동기화 (위 F-03-IME 주석 참조).
+  useEffect(() => {
+    if (!isAndroid) return;
+    const el = inputRef.current;
+    if (!el) return;
+    const sync = () => setNickname(el.value);
+    el.addEventListener('input', sync);
+    return () => el.removeEventListener('input', sync);
+  }, [isAndroid]);
 
   const isValid = nickname.length >= 2 && nickname.length <= 12 && style;
 
@@ -120,17 +133,23 @@ export default function ProfileSetup() {
         {/* Nickname */}
         <div className={styles.nickField}>
           <GifIcon code="1f3cd" size={28} />
-          <input
-            placeholder={t('profileSetup.nicknamePlaceholder')}
-            value={nickname}
-            onChange={(e) => { if (!composingRef.current) setNickname(e.target.value); }}
-            onCompositionStart={isAndroid ? () => { composingRef.current = true; } : undefined}
-            onCompositionEnd={isAndroid ? (e) => {
-              composingRef.current = false;
-              setNickname(e.currentTarget.value);
-            } : undefined}
-            maxLength={12}
-          />
+          {isAndroid ? (
+            // Android: uncontrolled — React 가 DOM value 를 되써넣지 않음(밀림 방지). state 는 위 useEffect 가 동기화.
+            <input
+              ref={inputRef}
+              placeholder={t('profileSetup.nicknamePlaceholder')}
+              defaultValue=""
+              maxLength={12}
+            />
+          ) : (
+            // iOS/PC: 기존 controlled 동작 그대로 (무영향).
+            <input
+              placeholder={t('profileSetup.nicknamePlaceholder')}
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              maxLength={12}
+            />
+          )}
           {nickname.length >= 2 && <GifIcon code="2705" size={24} />}
         </div>
 

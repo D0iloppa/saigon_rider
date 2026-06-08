@@ -110,10 +110,11 @@
 
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요
 - **SGR-285 회원가입 Android 버그 (F-03-IME / F-03-KBD / F-03-NICK)** — 코드 DONE, **Android 실기기 검증 대기**. 사용자 제약: **Android 조치가 iOS에 영향 금지**.
-  - ① **F-03-IME 한글 한 글자 밀림(블로커)**: controlled `value={nickname}` + 한글 IME 조합 중 setState 리렌더가 DOM value 되써넣어 조합 끊김(lag-by-one). 1차로 넣은 `onCompositionEnd`만으론 미해결 → **조합 중 setState 건너뛰고 compositionEnd 커밋(composingRef 가드)**, 조합 핸들러는 **Android 한정** 부착(iOS 기존 onChange 그대로). `ProfileSetup.tsx`.
-  - ② **F-03-KBD 키보드 레이아웃 압축**: **Android 한정** 런타임 `interactive-widget=resizes-visual` 주입(`main.tsx`, `native.platform==='android'` 게이트 — iOS 공용 index.html 정적 meta 불변).
-  - ③ **F-03-NICK 공백 닉네임**: 가입만 하고 ProfileSetup 종료 시 공백 닉네임 → **가입 시점 랜덤 닉네임 기본 부여**(`auth.register`), login·재가입 공백이면 self-heal. `utils.generate_random_nickname`(nickname UNIQUE 충돌 회피 재시도, profile/random-nickname과 공용). ProfileSetup 건너뛰기는 그 랜덤 유지(`handleSkip`).
-  - **⚠️ 디바이스 앱은 dev=`saigon.doil.me`(이 머신 nginx) 서빙. 검증 시 앱 완전 종료 후 재실행(index.html no-store, 신번들 `index-BLOQDWfc.js` 픽업).** AppConfig.BASE_URL은 PROD 고정이나 사용자 테스트 앱은 dev 빌드.
+  - **근본 원인(실기기 확인됨)**: 모바일 Chrome 정상 / Android **WebView(Capacitor)만** 깨짐 → React 결함 아님. 키보드 표시 시 네이티브 리사이즈 churn 이 한글 IME 조합 버퍼를 끊음. **프론트 우회(controlled 가드/uncontrolled)만으로는 이 WebView에서 미해결** → **네이티브 조치 필수**(사용자 4회 검증).
+  - ① **F-03-IME 한글 밀림+[시작하기] 미활성(블로커)** & ② **F-03-KBD 압축**: **네이티브 — `AndroidManifest` MainActivity `windowSoftInputMode="adjustPan"`** 추가(리사이즈 제거 → 압축 방지 + 조합 버퍼 간섭 제거). **Android APK 재빌드 필요**(dev 웹 재시작으론 반영 안 됨). android repo `2b7ce8d` push. iOS 무관(매니페스트 Android 전용).
+    - 프론트 병행 우회(보조): `ProfileSetup.tsx` Android 한정 **uncontrolled input + 네이티브 `input` 리스너**(value 미바인딩 → 리렌더가 DOM 안 건드림), iOS/PC는 controlled 그대로. `index.html` 정적 `interactive-widget=resizes-visual`(Blink는 초기 파싱만 읽음 / WebKit 미구현→iOS 무시). 단독으론 불충분, 네이티브 빌드와 병행.
+  - ③ **F-03-NICK 공백 닉네임(해결)**: **가입 시점 랜덤 닉네임 기본 부여**(`auth.register`), login·재가입 공백이면 self-heal. `utils.generate_random_nickname`(UNIQUE 충돌 회피 재시도). ProfileSetup 건너뛰기는 랜덤 유지(`handleSkip`). dev E2E PASS.
+  - **⚠️ 핵심: ①②는 Android APK 재빌드(빌드머신)로만 검증 가능. 디바이스 앱은 dev=`saigon.doil.me` 서빙이나 native 변경은 웹 배포로 안 들어감.**
 - 퀘스트 `thumbnail_content_id` 미연결 — 어드민 퀘스트 편집 시 컨텐츠 연결 UI 필요
 
 ## 다음 우선순위

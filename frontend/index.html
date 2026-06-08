@@ -2,7 +2,11 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- interactive-widget=resizes-visual (F-03-KBD): 소프트 키보드가 레이아웃 뷰포트(100dvh)를
+         줄이지 않고 오버레이 → 키보드 표시 시 컴포넌트 압축 방지. Blink(Android WebView)는 초기
+         파싱 때만 읽으므로 정적 선언 필수(런타임 변경은 무시됨). iOS WebKit 은 이 속성을 미구현 →
+         무시(무영향), 게다가 resizes-visual 은 iOS 기본 동작과 동일. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual" />
     <meta name="theme-color" content="#FF5A1F" />
     <title>Saigon Rider</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />

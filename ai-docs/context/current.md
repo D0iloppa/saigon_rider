@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-07 (SGR-274 DM 푸시 알림+알림클릭 딥링크 코드 DONE — 실기기/FCM자격증명 검증 대기. 직전 SGR-228 재화 상한·리밸런싱 dev 적용)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-08 (info 탭 정비리뷰·주유대기 RP 전환 + 리뷰 조회 화면 + `_earn_gp_safe` 적립버그 수정 — 코드 DONE·커밋 94d71ec, 시각검증 대기. 직전 SGR-285 회원가입 IME)
 
 ---
 
@@ -87,6 +87,16 @@
   - **배포 후속(backlog)**: ① **SGR-227** init 스키마 베이스라인 결함(fresh DB 빌드 불가 — dump-restore 우회 중) ② FCM firebase json 마운트(푸시 활성화) ③ official/grand-opening.jpg 1건(saigon.doil.me 복구 시) ④ 전용 도메인 구매 시 마이그레이션(규칙은 runbook §도메인 마이그레이션)
 
 ## 활성 — 검증 대기 (🔧)
+
+- **info 탭 정비리뷰·주유대기 RP 전환 + 리뷰 조회 화면 (2026-06-08, 커밋 `94d71ec`)** — 코드 DONE, **시각검증 대기**.
+  - **🔑 근본버그(전 영역 영향)**: info 모듈 `_earn_gp_safe`가 `engine_client.post_event`를 잘못된 인자명(`user_id=`/`isoformat()`/`idempotency_key=` ↔ 실제 `user_uuid=`/`datetime`/`idem_key=`)으로 호출 → 매 호출 TypeError가 `contextlib.suppress`에 삼켜져 **info 리워드 이벤트가 엔진에 한 번도 전송된 적 없었음**(repair/gas/flood 전부 GP·RP 0 적립). repair/gas/flood 교정(weather는 원래 정상). → 이제 침수/주유 제보·정비 리뷰 보상이 실제 발동.
+  - **정비 리뷰 XP→RP**: 마이그 **sre051**(INFO_REPAIR_REVIEW/PHOTO/PRICE `base_xp→0`, `rp_grant→50/10/10`). RP=gc_balance, 일일캡 60(=리뷰50+사진10, 가격분 폐기). UI XP→RP(ko/en/vi), 응답키 `rp_earned`. 종단검증: 엔진 발행→`gc_balance 0→50` 확인.
+  - **차종**: 고정 select→자유입력+localStorage(`sgr.repair.lastVehicle`) 최근값. **사진 +10 RP는 실제 미적립**(토글만 있고 실업로드 없어 `photo_url` 미전송 → INFO_REPAIR_PHOTO 미발동). 실첨부는 별도(침수처럼 `/contents/upload`).
+  - **리뷰 등록 정직화**: 실패 시 가짜 성공(setDone) 제거→에러 토스트.
+  - **주유 대기 제보 화면 신규**: `WaitReportSheet`(혼잡도 3단계 여유/보통/혼잡 → 기존 `wait_minutes` 0/5/15 매핑, 인프라 재사용). 보상 RP 전환(마이그 **sre052**, +5). **신선도 윈도우 90→30분**(nearby 집계+어뷰징가드+expires_at) + 카드 'N분 전' 표기.
+  - **정비소 전체 리뷰 화면 신규**: `/info/repair/:id/reviews`(InfoRepairReviews) + BFF `GET /{shop_id}/reviews`(페이지네이션, offset clamp) + 상세 '전체 보기' 링크. 상세 `reviewer_name→reviewer_nickname` alias 정합(리뷰어명 익명표시 버그 교정).
+  - **FAB**: 정보 탭 활성화(시즌패스만 비활성).
+  - **⚠️ 잔여**: ① 시각검증(브라우저: 리뷰 등록→RP↑, 혼잡도 제보, 전체 리뷰) ② 마이그 sre051/sre052는 dev 적용·엔진 재시작 완료, **운영 배포 시 적용+엔진 재시작 필요** ③ 사진 실첨부 미구현 ④ push 미실행.
 
 - **SGR-274 DM 푸시 알림 + 알림 클릭 → 해당 DM 딥링크** — 코드 DONE(P1~P5), **실기기 시각검증 + FCM 자격증명 대기**. 서브 SGR-275~279. SoT [`260607_dm_push_deeplink_task.md`](../task/active/260607_dm_push_deeplink_task.md), Notion `3783bd6b-405d-8163…`.
   - **연결고리 5곳**: DM 기능·FCM 인프라는 완비됐으나 미연결이었음 → ① BFF `dm.py send_message`가 수신자(`_other_user_id`)에 푸시 트리거(try/except로 흡수, DM 전송 우선) ② engine `POST /v1/push/notify`(service-key, external_uuid→`device_user_map.fcm_token` 해석, 토큰無=no-op 200, `send_push(log_history=False)`로 admin 이력 미오염) ③ `engine_client.notify_user_push` ④ 웹 `LinkRouter` `dm` 케이스 + `NotificationBridge`(BrowserRouter 내 상주, `onNotificationClick`→`/link?action=dm&id=<conv>` + 콜드스타트 `getPendingNotification` drain) ⑤ native: iOS `FcmPlugin.getPendingNotification`(콜드스타트 `pendingPushPayload` 소비) + Android `FcmPlugin.java` 신규(jsName "Fcm", emit/setPending) · `MyFirebaseMessagingService`가 data `navigateTo`를 Intent extra로 · `MainActivity` onCreate(콜드)/onNewIntent(웜) 분기.

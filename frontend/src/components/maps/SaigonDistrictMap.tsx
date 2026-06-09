@@ -50,6 +50,8 @@ export interface SaigonDistrictMapProps {
   zoomable?: boolean;
   /** 지정 시 해당 district 폴리곤을 채우도록 자동 줌인. null/undefined 면 줌 리셋 */
   focusDistrictCode?: string | null;
+  /** 지정 시 해당 구역에 단일 집계 뱃지(=마커 총수)만 표시. nearest-district 분산 안 함. */
+  singleBadgeDistrictCode?: string | null;
   /**
    * 제공 시 '내 위치로' 컨트롤을 렌더한다. 실시간 GPS 조회 → HCMC 매핑 시 구역 code,
    * 실패/HCMC 밖이면 null 을 콜백으로 emit. 실제 focus·상태·default-도시 폴백은 부모 몫.
@@ -137,6 +139,7 @@ export default function SaigonDistrictMap({
   onDistrictClick,
   zoomable = true,
   focusDistrictCode,
+  singleBadgeDistrictCode,
   onLocate,
   locateOnMount = false,
   children,
@@ -170,6 +173,19 @@ export default function SaigonDistrictMap({
 
   // 그 외 마커는 (district × type) 으로 집계해 1배지/그룹으로 표시.
   const aggregatedBadges = useMemo(() => {
+    const nonMe = markers.filter((m) => m.type !== 'me');
+    // singleBadge 모드: 선택 구역에 마커 총수 뱃지 하나만 (nearest 분산 안 함 → 리스트 수와 일치).
+    if (singleBadgeDistrictCode) {
+      if (nonMe.length === 0) return [];
+      const d = HCMC_DISTRICTS.find((x) => x.code === singleBadgeDistrictCode);
+      if (!d) return [];
+      return [{
+        districtCode: d.code,
+        type: nonMe[0].type as AggregatedType,
+        count: nonMe.length,
+        pos: { x: d.label.x, y: d.label.y },
+      }];
+    }
     const groups = new Map<string, {
       districtCode: string;
       type: AggregatedType;
@@ -194,7 +210,7 @@ export default function SaigonDistrictMap({
       }
     }
     return Array.from(groups.values());
-  }, [markers]);
+  }, [markers, singleBadgeDistrictCode]);
 
   // ── Zoom / Pan state ──
   const [zoom, setZoom] = useState(1);

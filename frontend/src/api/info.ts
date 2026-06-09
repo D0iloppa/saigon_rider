@@ -25,7 +25,7 @@ export interface WeatherData {
   location: { lat: number; lng: number; district: string };
   current: WeatherCurrent;
   forecast: { next_24h: ForecastHour[] };
-  recommendation: string;
+  recommendation_code: string; // CLEAR | RAIN_MED | RAIN_HIGH — i18n 으로 번역
 }
 
 export interface RainRadarData {
@@ -133,6 +133,7 @@ export interface RepairReview {
   is_anonymous: boolean;
   reviewed_at: string;
   upvotes: number;
+  source?: string;
 }
 
 export interface RepairDetail {
@@ -168,7 +169,7 @@ const MOCK_WEATHER: WeatherData = {
       { time: '22:00', temp_c: 27, condition: 'Clear',         emoji: '🌙', rain_prob: 5  },
     ],
   },
-  recommendation: 'No rain expected. Great riding weather ✅',
+  recommendation_code: 'CLEAR',
 };
 
 const MOCK_FLOODS: FloodReport[] = [

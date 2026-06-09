@@ -205,6 +205,34 @@ export function isWithinHcmc(lat: number, lng: number, maxKm = 25): boolean {
   return Math.hypot(dx, dy) <= maxKm;
 }
 
+/** 두 좌표 간 거리(km). isWithinHcmc/isWithinDistrictRadius 와 동일 근사(110.57/111.32). */
+export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dy = (lat2 - lat1) * 110.57;
+  const dx = (lng2 - lng1) * 111.32 * Math.cos((lat1 * Math.PI) / 180);
+  return Math.hypot(dx, dy);
+}
+
+/** 구역 리스트/뱃지/메인 카운트 공통 반경(km). 중심부 ward 과분할(Voronoi) 보정용. */
+export const DISTRICT_RADIUS_KM = 2;
+
+/**
+ * 좌표가 특정 구역(code) centroid 반경 radiusKm 이내인지.
+ * 주유/정비 리스트·지도 뱃지·메인 미니카운트가 동일 기준을 쓰도록 공유. code 불명이면 true(필터 안 함).
+ */
+export function isWithinDistrictRadius(
+  lat: number,
+  lng: number,
+  code: string | null,
+  radiusKm = DISTRICT_RADIUS_KM,
+): boolean {
+  if (!code) return true;
+  const d = getDistrictByCode(code);
+  if (!d) return true;
+  const dy = (d.gps.lat - lat) * 110.57;
+  const dx = (d.gps.lng - lng) * 111.32 * Math.cos((lat * Math.PI) / 180);
+  return Math.hypot(dx, dy) <= radiusKm;
+}
+
 /**
  * GPS → SVG viewBox 좌표 변환.
  * 시안의 district 좌표가 정확한 GPS 투영이 아니라 디자인 배치 좌표이기 때문에,

@@ -2,59 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { gasApi } from '@/api/info';
-import type { GasStation } from '@/api/info';
+import type { GasStation, TodayPrices } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc } from '@/components/maps/district-data';
+import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc, isWithinDistrictRadius, distanceKm } from '@/components/maps/district-data';
 import InfoMap from '@/components/maps/InfoMap';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import GasStationSheet from '@/components/gas/GasStationSheet';
-import WaitReportSheet from '@/components/gas/WaitReportSheet';
 import { deriveBrandCode } from '@/components/gas/gas-tokens';
 import type { MapMarker, GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
 
 const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 구역별 클러스터/필터.
 const DEFAULT_DISTRICT = 'BEN_THANH';
-
-function getWaitDotCount(waitMinutes: number | null): number {
-  if (waitMinutes === null) return 0;
-  return Math.min(5, Math.ceil(waitMinutes / 3));
-}
-
-// 제보 신선도(몇 분 전). 30분 윈도우 안의 값만 서버가 내려줌.
-function minsAgo(iso: string | null): number | null {
-  if (!iso) return null;
-  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
-}
-
-function getDotLevel(filledCount: number): string {
-  if (filledCount <= 1) return styles.dotLevel1;
-  if (filledCount === 2) return styles.dotLevel2;
-  if (filledCount === 3) return styles.dotLevel3;
-  if (filledCount === 4) return styles.dotLevel4;
-  return styles.dotLevel5;
-}
-
-function WaitDots({ waitMinutes }: { waitMinutes: number | null }) {
-  const filled = getWaitDotCount(waitMinutes);
-  const levelCls = getDotLevel(filled);
-  return (
-    <div className={styles.waitDots}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className={`${styles.dot} ${i < filled ? `${styles.dotFilled} ${levelCls}` : ''}`}
-        />
-      ))}
-    </div>
-  );
-}
 
 export default function InfoGasList() {
   const { t } = useTranslation();
@@ -68,21 +33,36 @@ export default function InfoGasList() {
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // 표준유가(권역 참고가) — 전국 규제가라 주유소별이 아닌 상단 카드 1개로 노출.
+  const [todayPrices, setTodayPrices] = useState<TodayPrices | null>(null);
   const [selectedStation, setSelectedStation] = useState<number | null>(null);
   // 선택 구역(지도 탭/초기 위치). 리스트는 이 구역 소속만 표시 → 지도 뱃지 수와 일치.
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(incomingCode);
-  // GPS 가 HCMC 안이면 거리=내 위치 기준, 밖이면 선택 구역 centroid 기준.
+  // inHcm: fetch origin 결정용(HCMC 안=GPS, 밖=구역 centroid).
   const [inHcm, setInHcm] = useState(false);
+  // 실제 GPS 좌표(있으면 HCMC 밖이어도 거리=내 위치 기준). 없으면 null → 구역 centroid 폴백.
+  const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
 
   // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
-  // 대기상태(혼잡도) 실시간 제보 시트.
-  const [showWaitReport, setShowWaitReport] = useState(false);
 
+  // 선택 구역 centroid 반경 내 주유소(소속) + 거리순.
+  // 소속은 주유소좌표↔구역centroid 로만 결정(거리 origin 무관). 거리/정렬은 GPS 있으면 내 위치 기준 재계산.
+  const listStations = useMemo<GasStation[]>(() => {
+    const filtered = selectedDistrict
+      ? stations.filter((s) => isWithinDistrictRadius(s.lat, s.lng, selectedDistrict))
+      : stations;
+    const ranked = userGps
+      ? filtered.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
+      : [...filtered];
+    return ranked.sort((a, b) => a.distance_km - b.distance_km);
+  }, [stations, selectedDistrict, userGps]);
+
+  // 지도 마커도 선택 구역 반경 것만 (전역 노출 안 함 — 리스트와 동일 집합).
   const gasMarkers = useMemo<MapMarker[]>(
     () =>
-      stations.map((s) => {
+      listStations.map((s) => {
         const data: GasMarkerData = {
           brand_code: deriveBrandCode(s.brand),
           ref_price: null,
@@ -98,26 +78,9 @@ export default function InfoGasList() {
           data,
         };
       }),
-    [stations],
-  );
-
-  // 선택 구역 소속 주유소만 (지도 클러스터와 동일한 findNearestDistrict 기준) + 거리순.
-  const listStations = useMemo<GasStation[]>(() => {
-    const filtered = selectedDistrict
-      ? stations.filter((s) => findNearestDistrict(s.lat, s.lng)?.code === selectedDistrict)
-      : stations;
-    return [...filtered].sort((a, b) => a.distance_km - b.distance_km);
-  }, [stations, selectedDistrict]);
-
-  // 대기 제보 시트용 주유소 옵션(최대 12) — 참조 안정화로 시트 내 reset effect 오작동 방지.
-  const waitStationOptions = useMemo(
-    () => listStations.slice(0, 12).map((s) => ({
-      station_id: s.station_id,
-      name: s.name ?? s.brand ?? `#${s.station_id}`,
-      distance_km: s.distance_km,
-    })),
     [listStations],
   );
+
 
   const fetchStations = useCallback((origin: { lat: number; lng: number }) => {
     const { lat, lng } = origin;
@@ -157,23 +120,48 @@ export default function InfoGasList() {
     resolveAndLoad(instant);
   }, [search, resolveAndLoad]);
 
+  // 거리 기준 = 실제 단말 GPS (URL/구역 좌표와 독립). 성공 시 내 위치 기준, 실패 시 null → 구역 centroid 폴백.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await native.ensureLocationPermission();
+        const pos = await native.getLocation();
+        if (alive) setUserGps({ lat: pos.lat, lng: pos.lng });
+      } catch {
+        if (alive) setUserGps(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // 표준유가 로드 (전국 규제가, 마운트 1회).
+  useEffect(() => {
+    gasApi.getTodayPrices().then(setTodayPrices).catch(() => {});
+  }, []);
+
+  // PETROLIMEX 우선, 없으면 첫 브랜드 버킷에서 RON95-III / E5 / 디젤 추출.
+  const refPrices = useMemo(() => {
+    if (!todayPrices) return null;
+    const brand = (todayPrices.PETROLIMEX ?? Object.entries(todayPrices)
+      .find(([k, v]) => k !== 'updated_at' && k !== 'updated_at_iso' && v && typeof v === 'object')?.[1]) as
+      | Record<string, { price: number; effective_time: string }>
+      | undefined;
+    if (!brand || typeof brand !== 'object') return null;
+    const rows = [
+      { key: 'RON95_III', label: 'RON 95-III' },
+      { key: 'E5_RON92_II', label: 'E5 RON 92' },
+      { key: 'DO_005S_II', label: 'Diesel 0.05S' },
+    ].map((f) => ({ label: f.label, price: brand[f.key]?.price ?? null }))
+      .filter((r) => r.price != null);
+    return rows.length ? { rows, updatedAt: todayPrices.updated_at ?? null } : null;
+  }, [todayPrices]);
+
   const handleDistrictClick = useCallback((code: string, gps: { lat: number; lng: number }) => {
     setSelectedDistrict(code);
     // HCMC 밖이면 거리 기준을 새 구역 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
     if (!inHcm) fetchStations(gps);
   }, [inHcm, fetchStations]);
-
-  async function handleSubmitWait(stationId: number, waitMinutes: number): Promise<boolean> {
-    try {
-      await gasApi.reportWait(stationId, waitMinutes);
-      toast.success(t('info.gas.waitReportSuccess'));
-      fetchStations(coordsRef.current); // 방금 제보가 반영된 최신 대기 요약 재조회
-      return true;
-    } catch {
-      toast.error(t('info.gas.waitReportError'));
-      return false;
-    }
-  }
 
   async function handleSubmitReport(fields: ReportFields): Promise<boolean> {
     try {
@@ -188,7 +176,7 @@ export default function InfoGasList() {
     }
   }
 
-  const distLabel = inHcm
+  const distLabel = userGps
     ? t('info.distFromGps')
     : t('info.distFromFallback', { area: selectedDistrict ? districtLabelByCode(selectedDistrict) : '' });
 
@@ -211,9 +199,30 @@ export default function InfoGasList() {
             variant="fullscreen"
             markers={gasMarkers}
             focusDistrictCode={selectedDistrict}
+            singleBadgeDistrictCode={selectedDistrict}
             onDistrictClick={(d) => handleDistrictClick(d.code, d.gps)}
           />
         </div>
+        {refPrices && (
+          <div className={styles.priceCard}>
+            <div className={styles.priceCardHead}>
+              <span className={styles.priceCardTitle}>⛽ {t('info.gas.priceBar')}</span>
+              {refPrices.updatedAt && (
+                <span className={styles.priceCardUpdated}>{t('info.gas.priceBarUpdated', { time: refPrices.updatedAt })}</span>
+              )}
+            </div>
+            <div className={styles.priceRows}>
+              {refPrices.rows.map((r) => (
+                <div key={r.label} className={styles.priceItem}>
+                  <span className={styles.priceFuel}>{r.label}</span>
+                  <span className={styles.priceVal}>{r.price!.toLocaleString()}₫</span>
+                </div>
+              ))}
+            </div>
+            <div className={styles.priceDisc}>{t('info.gas.disclaimer')}</div>
+          </div>
+        )}
+
         <div className={styles.sectionHeader}>
           <span>⛽ {t('info.gas.nearbyTitle')} · {listStations.length}</span>
         </div>
@@ -236,7 +245,6 @@ export default function InfoGasList() {
           <div className={styles.card}>
             {listStations.map((s, idx) => {
               const isFirst = idx === 0;
-              const waitAgeMin = minsAgo(s.wait_reported_at);
               return (
                 <div
                   key={s.station_id}
@@ -260,31 +268,6 @@ export default function InfoGasList() {
                     <div className={styles.priceRow}>
                       <span className={styles.fuelLabel}>☎ {t('info.gas.phoneLabel')}</span>
                       <span className={styles.mono}>{s.phone}</span>
-                    </div>
-                  )}
-
-                  {/* Wait */}
-                  {s.wait_minutes !== null ? (
-                    <div className={styles.waitRow}>
-                      <div className={styles.waitLeft}>
-                        <span className={styles.waitLabel}>
-                          ⏱ {s.wait_minutes === 0
-                            ? t('info.gas.noWait')
-                            : t('info.gas.waitMin', { min: s.wait_minutes })}
-                        </span>
-                        <WaitDots waitMinutes={s.wait_minutes} />
-                      </div>
-                      {s.wait_confidence !== null && s.wait_confidence > 0 && (
-                        <span className={styles.waitMeta}>
-                          {waitAgeMin === null
-                            ? t('info.gas.waitConfidence', { count: s.wait_confidence })
-                            : t('info.gas.waitAge', { min: waitAgeMin, count: s.wait_confidence })}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className={styles.waitRow}>
-                      <span className={styles.waitLabelDim}>⏱ {t('info.gas.noWaitInfo')}</span>
                     </div>
                   )}
 
@@ -319,23 +302,7 @@ export default function InfoGasList() {
           <span>{t('info.gas.reportStationCta')}</span>
         </button>
 
-        {/* Wait report CTA */}
-        <button
-          className={styles.reportCta}
-          onClick={() => setShowWaitReport(true)}
-          disabled={listStations.length === 0}
-        >
-          <span>⛽</span>
-          <span>{t('info.gas.reportWait')}</span>
-        </button>
       </div>
-
-      <WaitReportSheet
-        open={showWaitReport}
-        stations={waitStationOptions}
-        onSubmit={handleSubmitWait}
-        onClose={() => setShowWaitReport(false)}
-      />
 
       <ReportSheet
         open={showReport}

@@ -19,7 +19,7 @@ import { emojiUrl } from '@/lib/emoji';
 import { expToNextLevel } from '@/lib/rewards';
 import QuestCard from '@/components/quest/QuestCard';
 import InfoMap from '@/components/maps/InfoMap';
-import { findNearestDistrict } from '@/components/maps/district-data';
+import { findNearestDistrict, isWithinDistrictRadius } from '@/components/maps/district-data';
 import type { District as MapDistrict } from '@/components/maps/district-data';
 import styles from './WorldMap.module.css';
 
@@ -120,10 +120,10 @@ export default function WorldMap() {
   useEffect(() => {
     if (!activeCoords) return;
     const { lat, lng } = activeCoords;
-    // 반경 5km 로 받아오되, 선택 구역(좌표→구역 매칭)에 속한 항목만 노출 → "선택 지역 정보만".
-    const selCode = findNearestDistrict(lat, lng)?.code ?? null;
-    const inSel = (la: number, ln: number) =>
-      !selCode || findNearestDistrict(la, ln)?.code === selCode;
+    // 5km 로 받아오되, 선택 구역 centroid 반경(DISTRICT_RADIUS_KM) 내 항목만 노출.
+    // 주유/정비 리스트·지도 뱃지와 동일 기준(isWithinDistrictRadius) → 메인 미니카운트와 일치.
+    const selCode = selectedDistrict ?? findNearestDistrict(lat, lng)?.code ?? null;
+    const inSel = (la: number, ln: number) => isWithinDistrictRadius(la, ln, selCode);
     Promise.allSettled([
       weatherApi.get(lat, lng).then((w) => {
         setInfoWeather(w);

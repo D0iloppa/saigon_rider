@@ -25,6 +25,7 @@ export interface InfoMapProps {
   highlightColor?: string;
   dangerDistricts?: string[];
   focusDistrictCode?: string | null;
+  singleBadgeDistrictCode?: string | null;
   onDistrictClick?: (district: District) => void;
   onLocate?: (code: string | null) => void;
   locateOnMount?: boolean;

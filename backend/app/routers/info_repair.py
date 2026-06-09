@@ -101,9 +101,9 @@ async def get_nearby_repair_shops(
                     SELECT 1 FROM repair_review
                     WHERE shop_id = rs.shop_id AND service_code = CAST(:service_code AS TEXT) AND flagged = FALSE
               ))
-            ORDER BY
-                COALESCE(st.review_count, 0) DESC,
-                distance_km
+            -- "nearby"는 거리순으로 잘라야 근처 가게가 누락되지 않음.
+            -- (review_count DESC 로 자르면 30km fetch 시 리뷰 적은 근처 가게가 멀리 있는 인기 가게에 밀려 탈락 → 메인/info 개수 불일치)
+            ORDER BY distance_km
             LIMIT 300
         """),
         {"lat": lat, "lng": lng, "radius_m": radius_km * 1000, "service_code": service_code},
@@ -191,12 +191,12 @@ async def get_repair_shop_detail(
         text("""
             SELECT rr.review_id, rr.service_code, rr.motorcycle_model,
                    rr.rating, rr.price_vnd, rr.comment, rr.photo_url,
-                   rr.is_anonymous, rr.reviewed_at, rr.upvotes,
-                   CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END AS reviewer_nickname
+                   rr.is_anonymous, rr.reviewed_at, rr.upvotes, rr.source,
+                   COALESCE(CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END, rr.author_name) AS reviewer_nickname
             FROM repair_review rr
             LEFT JOIN users u ON u.id = rr.reviewer_user_id
             WHERE rr.shop_id = :shop_id AND rr.flagged = FALSE
-            ORDER BY rr.reviewed_at DESC
+            ORDER BY (rr.source = 'GOOGLE'), rr.reviewed_at DESC
             LIMIT 10
         """),
         {"shop_id": shop_id},
@@ -249,12 +249,12 @@ async def list_repair_shop_reviews(
         text("""
             SELECT rr.review_id, rr.service_code, rr.motorcycle_model,
                    rr.rating, rr.price_vnd, rr.comment, rr.photo_url,
-                   rr.is_anonymous, rr.reviewed_at, rr.upvotes,
-                   CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END AS reviewer_nickname
+                   rr.is_anonymous, rr.reviewed_at, rr.upvotes, rr.source,
+                   COALESCE(CASE WHEN rr.is_anonymous THEN NULL ELSE u.nickname END, rr.author_name) AS reviewer_nickname
             FROM repair_review rr
             LEFT JOIN users u ON u.id = rr.reviewer_user_id
             WHERE rr.shop_id = :shop_id AND rr.flagged = FALSE
-            ORDER BY rr.reviewed_at DESC
+            ORDER BY (rr.source = 'GOOGLE'), rr.reviewed_at DESC
             LIMIT :limit OFFSET :offset
         """),
         {"shop_id": shop_id, "limit": limit, "offset": offset},

@@ -68,6 +68,14 @@ export default function GasStationSheet({ stationId, onClose }: Props) {
         {data.street_name && (
           <div className={styles.metaRow}>📍 {data.street_name}</div>
         )}
+
+        {data.reference_price && (data.reference_price.RON95_III || data.reference_price.E5_RON92_II) && (
+          <div className={styles.metaRow}>
+            ⛽ {data.reference_price.RON95_III ? `RON95-III ${data.reference_price.RON95_III.toLocaleString()}₫` : ''}
+            {data.reference_price.RON95_III && data.reference_price.E5_RON92_II ? '  ·  ' : ''}
+            {data.reference_price.E5_RON92_II ? `E5 ${data.reference_price.E5_RON92_II.toLocaleString()}₫` : ''}
+          </div>
+        )}
       </div>
     </div>
   );

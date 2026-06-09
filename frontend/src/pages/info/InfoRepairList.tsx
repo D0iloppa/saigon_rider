@@ -9,7 +9,7 @@ import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc } from '@/components/maps/district-data';
+import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc, isWithinDistrictRadius, distanceKm } from '@/components/maps/district-data';
 import InfoMap from '@/components/maps/InfoMap';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
@@ -35,32 +35,37 @@ export default function InfoRepairList() {
   // 선택 구역(지도 탭/초기 위치). 리스트는 이 구역 소속만 → 지도 뱃지 수와 일치.
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(incomingCode);
   const [selectedShop, setSelectedShop] = useState<number | null>(null);
-  // GPS 가 HCMC 안이면 거리=내 위치 기준, 밖이면 선택 구역 centroid 기준.
+  // inHcm: fetch origin 결정용. userGps: 실제 GPS(있으면 HCMC 밖이어도 거리=내 위치 기준).
   const [inHcm, setInHcm] = useState(false);
+  const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
 
   // 신규 정비소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
 
+  // 소속은 정비소좌표↔구역centroid 로만 결정. 거리/정렬은 GPS 있으면 내 위치 기준 재계산. (gas 와 동일)
+  const listShops = useMemo<RepairShop[]>(() => {
+    const filtered = selectedDistrict
+      ? shops.filter((s) => isWithinDistrictRadius(s.lat, s.lng, selectedDistrict))
+      : shops;
+    const ranked = userGps
+      ? filtered.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
+      : [...filtered];
+    return ranked.sort((a, b) => a.distance_km - b.distance_km);
+  }, [shops, selectedDistrict, userGps]);
+
+  // 지도 마커도 선택 구역 반경 것만 (리스트와 동일 집합 → 뱃지 수 == 리스트 수).
   const repairMarkers = useMemo<MapMarker[]>(
     () =>
-      shops.map((s) => ({
+      listShops.map((s) => ({
         type: 'repair',
         lat: s.lat,
         lng: s.lng,
         label: s.name,
         onClick: () => setSelectedShop(s.shop_id),
       })),
-    [shops],
+    [listShops],
   );
-
-  // 선택 구역 소속 정비소만 (지도 클러스터와 동일한 findNearestDistrict 기준) + 거리순.
-  const listShops = useMemo<RepairShop[]>(() => {
-    const filtered = selectedDistrict
-      ? shops.filter((s) => findNearestDistrict(s.lat, s.lng)?.code === selectedDistrict)
-      : shops;
-    return [...filtered].sort((a, b) => a.distance_km - b.distance_km);
-  }, [shops, selectedDistrict]);
 
   const fetchShops = useCallback((origin: { lat: number; lng: number }) => {
     const { lat, lng } = origin;
@@ -100,6 +105,21 @@ export default function InfoRepairList() {
     resolveAndLoad(instant);
   }, [search, resolveAndLoad]);
 
+  // 거리 기준 = 실제 단말 GPS (URL/구역 좌표와 독립). 성공 시 내 위치 기준, 실패 시 null → 구역 centroid 폴백.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await native.ensureLocationPermission();
+        const pos = await native.getLocation();
+        if (alive) setUserGps({ lat: pos.lat, lng: pos.lng });
+      } catch {
+        if (alive) setUserGps(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const handleDistrictClick = useCallback((code: string, gps: { lat: number; lng: number }) => {
     setSelectedDistrict(code);
     // HCMC 밖이면 거리 기준을 새 구역 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
@@ -138,7 +158,7 @@ export default function InfoRepairList() {
       />
 
       <div className={styles.distLabel}>
-        📍 {inHcm
+        📍 {userGps
           ? t('info.distFromGps')
           : t('info.distFromFallback', { area: selectedDistrict ? districtLabelByCode(selectedDistrict) : '' })}
       </div>
@@ -149,6 +169,7 @@ export default function InfoRepairList() {
             variant="fullscreen"
             markers={repairMarkers}
             focusDistrictCode={selectedDistrict}
+            singleBadgeDistrictCode={selectedDistrict}
             onDistrictClick={(d) => handleDistrictClick(d.code, d.gps)}
           />
         </div>

@@ -325,3 +325,57 @@
   flex-shrink: 0;
 }
 
+/* 표준유가 카드 (권역 참고가) */
+.priceCard {
+  margin: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.priceCardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.priceCardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.priceCardUpdated {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.priceRows {
+  display: flex;
+  gap: 8px;
+}
+.priceItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #EFF6FF;
+  border-radius: 10px;
+}
+.priceFuel {
+  font-size: 11px;
+  color: var(--text-2);
+}
+.priceVal {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.priceDisc {
+  margin-top: 10px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+

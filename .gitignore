@@ -95,3 +95,6 @@ __pycache__/
 # =============================================================
 node_modules/
 .vite/
+
+# 배너 수동 백업 더미(로컬 보존, 추적 제외 — 109MB 중복본)
+contents/system/quest-banners/bak/

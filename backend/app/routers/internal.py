@@ -8,8 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_service_key
+from ..engine_client import engine_client
 from ..models import Badge, Quest, User, UserBadge, UserQuest
 from ..utils import apply_quest_reward_multiplier, gain_exp
+
+# 퀘스트 RP 상한(표시=실지급). 일일 총량은 데일리에 한해 engine DAILY_RP_CAP(60)로 별도 제한.
+QUEST_RP_CAP = 200
 
 router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[Depends(verify_service_key)])
 log = logging.getLogger(__name__)
@@ -129,12 +133,34 @@ async def quest_card_completed(
     user.gold += reward_gold
     await gain_exp(db, user, reward_exp)
     await db.commit()
+
+    # RP(gc) 적립 — 표시값(reward_exp*0.3)을 실제 지급, 퀘스트당 200 상한.
+    # 주간/이벤트만 일일캡(60) 면제, 그 외(데일리·미상)는 fail-closed 로 캡 적용.
+    # 멱등: 위 status 가드로 1회만 진입 → 실패해도 재시도 안 되므로 침묵 금지(로그 경고).
+    rp_grant = min(QUEST_RP_CAP, round(quest.reward_exp * 0.3))
+    rp_capped = quest.period not in ("WEEKLY", "EVENT")
+    rp_ok = False
+    if rp_grant > 0:
+        try:
+            await engine_client.credit_rp(str(user.id), amount=rp_grant, apply_daily_cap=rp_capped)
+            rp_ok = True
+        except Exception:
+            log.warning(
+                "quest-card-completed RP 적립 실패(재시도 안 됨): user_quest=%s rp=%d",
+                body.user_quest_id,
+                rp_grant,
+                exc_info=True,
+            )
+
     log.info(
-        "internal quest-card-completed: user_quest=%s quest=%s card=%s +exp=%d +gold=%d",
+        "internal quest-card-completed: user_quest=%s quest=%s card=%s +exp=%d +gold=%d +rp=%d(ok=%s,capped=%s)",
         body.user_quest_id,
         body.external_quest_id,
         body.card_id,
         reward_exp,
         reward_gold,
+        rp_grant if rp_ok else 0,
+        rp_ok,
+        rp_capped,
     )
     return GrantResponse(ok=True)

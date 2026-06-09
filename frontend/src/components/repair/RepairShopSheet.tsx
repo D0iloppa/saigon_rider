@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { repairApi, type RepairDetail } from '@/api/info';
+import { ReviewCard } from '@/pages/info/InfoRepairDetail';
 import styles from './RepairShopSheet.module.css';
 
 interface Props {
@@ -76,6 +77,22 @@ export default function RepairShopSheet({ shopId, onClose }: Props) {
               >
                 {kw.keyword}
               </span>
+            ))}
+          </div>
+        )}
+
+        {data.recent_reviews.length > 0 && (
+          <div className={styles.reviewPreview}>
+            <button
+              type="button"
+              className={styles.reviewPreviewHead}
+              onClick={() => navigate(`/info/repair/${shopId}/reviews`)}
+            >
+              <span>{t('info.repair.recentReviews')}</span>
+              <span className={styles.viewAll}>{t('info.repair.viewAllReviews')}</span>
+            </button>
+            {data.recent_reviews.slice(0, 2).map((r) => (
+              <ReviewCard key={r.review_id} review={r} />
             ))}
           </div>
         )}

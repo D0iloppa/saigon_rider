@@ -2,6 +2,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.database import AsyncSession
@@ -9,9 +10,33 @@ from app.deps import get_session, verify_service_key
 from app.enums import TxTypeEnum
 from app.models import UserMileageLog, XpBalance, XpExpirationSchedule, XpTransaction, SreUser
 from app.schemas import BalanceRead, ExpirationItemRead, TransactionRead, WalletRead
+from app.services import xp_ledger
 from app.services.xp_ledger import get_or_create_user
 
 router = APIRouter(prefix="/v1/users", tags=["balance"])
+
+
+class CreditRpRequest(BaseModel):
+    amount: int
+    # False 면 일일 RP 캡(60) 무시·전액 적립 (주간/이벤트 퀘 등 특별 보상)
+    apply_daily_cap: bool = True
+
+
+@router.post("/{user_uuid}/credit-rp", dependencies=[Depends(verify_service_key)])
+async def credit_rp(
+    user_uuid: str,
+    body: CreditRpRequest,
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """RP(gc_balance) 직접 적립 (service-key). 퀘스트 보상 등 BFF 측 지급 경로용.
+    apply_daily_cap=False 면 일일캡 면제(주간/이벤트)."""
+    user = await get_or_create_user(db, user_uuid)
+    await xp_ledger.credit_gc(
+        db, user_id=user.user_id, amount=body.amount, apply_daily_cap=body.apply_daily_cap
+    )
+    await db.commit()
+    balance = await db.get(XpBalance, user.user_id)
+    return {"ok": True, "gc_balance": int(balance.gc_balance) if balance else 0}
 
 
 @router.get("/{user_uuid}/wallet", response_model=WalletRead,

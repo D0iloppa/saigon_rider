@@ -113,7 +113,9 @@ export default function InfoHub() {
                     </div>
                   )}
                   <div className={styles.cardFooter}>
-                    <span className={styles.cardMeta}>{weather.recommendation}</span>
+                    <span className={styles.cardMeta}>
+                      {t(`info.weather.rec_${weather.recommendation_code}`, { prob: weather.current?.rain_prob_1h ?? 0 })}
+                    </span>
                   </div>
                 </>
               ) : (

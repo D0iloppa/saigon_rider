@@ -146,10 +146,12 @@ export default function InfoWeather() {
           </div>
 
           {/* Recommendation */}
-          {data?.recommendation && (
+          {data?.recommendation_code && (
             <div className={styles.recommend}>
               <div className={styles.recommendLabel}>💡 {t('info.weather.recommendation')}</div>
-              <div className={styles.recommendText}>{data.recommendation}</div>
+              <div className={styles.recommendText}>
+                {t(`info.weather.rec_${data.recommendation_code}`, { prob: data.current?.rain_prob_1h ?? 0 })}
+              </div>
             </div>
           )}
 

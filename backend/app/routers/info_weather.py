@@ -27,8 +27,6 @@ _TTL_CURRENT = int(os.getenv("WEATHER_CACHE_TTL_CURRENT", "600"))
 _TTL_FORECAST_1H = int(os.getenv("WEATHER_CACHE_TTL_FORECAST_1H", "1800"))
 _TTL_FORECAST_24H = int(os.getenv("WEATHER_CACHE_TTL_FORECAST_24H", "3600"))
 
-_DEPTH_LABEL = {"ankle": "발목", "knee": "무릎", "thigh": "허벅지", "above": "그 이상"}
-
 
 def _grid_code(lat: float, lng: float) -> str:
     """1km 그리드 코드 (캐시 키). 좌표를 0.01도 단위로 스냅."""
@@ -50,12 +48,13 @@ def _condition_emoji(condition: str) -> str:
     return mapping.get(condition, "🌡")
 
 
-def _generate_recommendation(rain_prob_1h: int) -> str:
+def _recommendation_code(rain_prob_1h: int) -> str:
+    """라이딩 추천 코드. 문구는 프론트가 i18n 으로 번역(rain_prob_1h 는 current 에 동봉)."""
     if rain_prob_1h >= 80:
-        return "지금 출발은 비 위험. 30분 후 재확인 추천"
+        return "RAIN_HIGH"
     if rain_prob_1h >= 50:
-        return f"1시간 내 비 가능성 {rain_prob_1h}%. 빠른 라이딩 OK"
-    return "비 안 옴. 좋은 라이딩 날씨 ✅"
+        return "RAIN_MED"
+    return "CLEAR"
 
 
 async def _get_api_key() -> str:
@@ -177,7 +176,7 @@ class WeatherOut(BaseModel):
     location: dict
     current: dict
     forecast: dict
-    recommendation: str
+    recommendation_code: str  # CLEAR | RAIN_MED | RAIN_HIGH — 프론트 i18n 번역
 
 
 @router.get("", response_model=WeatherOut)
@@ -234,7 +233,7 @@ async def get_weather(
         location={"lat": lat, "lng": lng, "district": district},
         current={**current_data, "rain_prob_1h": rain_prob_1h},
         forecast={"next_24h": forecast_data["hourly"]},
-        recommendation=_generate_recommendation(rain_prob_1h),
+        recommendation_code=_recommendation_code(rain_prob_1h),
     )
 
 

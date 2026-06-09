@@ -64,12 +64,17 @@ DAILY_RP_CAP = 60
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
-async def credit_gc(db: AsyncSession, *, user_id: int, amount: int) -> None:
+async def credit_gc(db: AsyncSession, *, user_id: int, amount: int, apply_daily_cap: bool = True) -> None:
     """RP(gc_balance) 적립 — 성취 보상. 골드 원장/FIFO 만료와 무관한 단순 가산.
-    일일 DAILY_RP_CAP 상한 적용(초과분 폐기)."""
+    apply_daily_cap=True 면 일일 DAILY_RP_CAP 상한 적용(초과분 폐기) — 데일리 퀘·info 등 루틴 수급.
+    False 면 캡 무시·전액 적립(주간/이벤트 퀘 등 특별 보상). 일일 카운터(daily_gc_today)에도 산입 안 함."""
     if amount <= 0:
         return
     balance = await lock_balance(db, user_id)
+    if not apply_daily_cap:
+        balance.gc_balance += amount
+        await db.flush()
+        return
     today = datetime.now(VN_TZ).date()
     if balance.daily_gc_date != today:
         balance.daily_gc_today = 0

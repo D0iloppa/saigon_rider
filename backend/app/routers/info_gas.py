@@ -23,7 +23,7 @@ from ..services.fuel_price_service import (
     get_today_reference_prices,
     upsert_fuel_price,
 )
-from ..services.redis_cache import CacheKeys, cache_get, cache_set
+from ..services.redis_cache import CacheKeys, cache_get, cache_invalidate, cache_set
 
 router = APIRouter(prefix="/info/gas", tags=["Info — 주유소"])
 
@@ -207,6 +207,9 @@ async def report_wait_time(
     bucket = int(datetime.now(UTC).timestamp()) // 5400
     idem_key = f"gas-wait-{user_id}-{body.station_id}-{bucket}"
     await _earn_gp_safe(user_id, "INFO_GAS_WAIT_REPORT", idem_key)
+
+    # 제보가 nearby 응답에 즉시 반영되도록 캐시 무효화 (제보 위치를 알 수 없어 nearby 전체 삭제)
+    await cache_invalidate("nearby:v1:*")
 
     return {"wait_id": report.wait_id, "rp_earned": 5}
 

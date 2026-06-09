@@ -48,9 +48,11 @@ export default function InfoRepairReviews() {
             <div className={styles.countLine}>
               {t('info.repair.reviewsTitle', { count: total })}
             </div>
-            {reviews.map((r) => (
-              <ReviewCard key={r.review_id} review={r} />
-            ))}
+            <div className={styles.list}>
+              {reviews.map((r) => (
+                <ReviewCard key={r.review_id} review={r} />
+              ))}
+            </div>
             {hasMore && (
               <button className={styles.loadMore} onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? t('info.repair.ctaSubmitting') : t('info.repair.loadMore')}

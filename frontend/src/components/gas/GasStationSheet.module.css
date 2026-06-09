@@ -134,3 +134,31 @@
   font-size: 13px;
   color: var(--text-2);
 }
+.waitRow {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-radius: 12px;
+}
+.waitLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.reportWaitBtn {
+  margin-top: 12px;
+  width: 100%;
+  border: 1px solid var(--brand, #ff5a1f);
+  background: transparent;
+  color: var(--brand, #ff5a1f);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.reportWaitBtn:disabled {
+  border-color: var(--line, #e5e7eb);
+  color: var(--text-3, #9ca3af);
+  cursor: default;
+}

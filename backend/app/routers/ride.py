@@ -22,8 +22,9 @@ from ..schemas import (
 )
 from ..utils import APP_TZ, gain_exp, resolve_reward_pct
 
-# 데일리 퀘 RP 지급량(커피 경제 베이스: 3슬롯x6=18RP/일 -> 500RP 커피 ~28일, 목표 30일 근사). RP_MULT 가산 적용.
-DAILY_QUEST_RP = 6
+# 퀘스트 RP = 화면 표시값(reward_exp*0.3)을 실제 지급, 200 상한.
+# 일일 총 수급은 engine credit_gc 의 DAILY_RP_CAP(=60) 으로 별도 제한된다(초과분 폐기).
+QUEST_RP_CAP = 200
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ride", tags=["라이딩 (Ride)"])
@@ -90,8 +91,8 @@ async def submit_ride(
         rp_pct, gold_pct = await resolve_reward_pct(db, user)
         reward_exp = int(quest.reward_exp * (1 + rp_pct / 100))
         reward_gold = int(quest.reward_gold * (1 + gold_pct / 100))
-        # 데일리 퀘만 RP 지급(커피 경제). 위클리/이벤트는 0(이벤트 RP 별도 미도입).
-        rp_grant = int(DAILY_QUEST_RP * (1 + rp_pct / 100)) if quest.period == "DAILY" else 0
+        # 표시 RP(reward_exp*0.3)를 실제 지급하되 200 상한. 표시값과 실지급 일치.
+        rp_grant = min(QUEST_RP_CAP, round(quest.reward_exp * 0.3))
     else:
         reward_exp, reward_gold, rp_grant = 0, 0, 0
     reward_item = quest.reward_item if grant else None

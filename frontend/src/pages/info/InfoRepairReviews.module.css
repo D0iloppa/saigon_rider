@@ -13,6 +13,11 @@
   gap: 10px;
 }
 .countLine { font-size: 13px; color: var(--text-3); padding: 2px 2px 4px; }
+.list {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 2px 16px;
+}
 .empty {
   text-align: center;
   color: var(--text-3);

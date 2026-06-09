@@ -17,7 +17,18 @@
 리뷰어는 **현재 검토 중 SCREEN 파일 + 그 locale JSON 만** 근거로 삼고, 구현자 커밋이 있으면 `git show <commit>` 을, 없으면 SCREEN 파일 현재 상태를 본다. 그 외 더티 파일은 전부 무시. **ride 도메인(RideNav/RideResultFail/RideResultSuccess)은 이번 패스 제외.**
 주의: locale JSON·QuestCard 컴포넌트는 quest 화면과 공유되어 더티 상태일 수 있다 — 구현자는 staged-diff 가드(자기 키만 커밋)를 유지한다.
 
-## 화면 목록 — 전체 재패스 (47화면, ride 3 제외)
+## 화면 목록 — 현재 패스: 신규 quest 검증 화면 (이번 세션 산출물, commit 1f49214)
+
+> 드라이버는 이 표의 PENDING 을 먼저 순회한다. 아래 "전체 재패스" 표는 47/47 PASS 완료분(접힌 기록).
+> AppShell.tsx(HIDE_TABBAR_PATHS 경로 추가)는 i18n/img/native/상단여백 표면이 없어 제외.
+
+| # | SCREEN (ID / 경로) | 화면별 메모/범위(선택) | 상태 | 라운드 | 판정/비고 |
+|---|---|---|---|---|---|
+| N1 | frontend/src/pages/quest/QuestCheckPage.tsx | 신규 폴링 컨테이너 — i18n·상단여백·TopBar | PASS | 0 | 규약 4종 충족, 변경 없음. setInterval 타이머(native 비대상), 상단 TopBar 위임, questCheck.*+common.loading 3종 실재 |
+| N2 | frontend/src/components/quest/QuestChecker.tsx | 신규 표시 컴포넌트 — i18n(questCheck.*)·동적이미지 유무 | PASS | 0 | 규약 4종 충족, 변경 없음. questCheck.* 27키 3종 실재, ProgressBar 재사용, top:18px 카드내부 점. [비차단] 미매핑 action_code raw노출 추적 |
+| N3 | frontend/src/pages/quest/QuestDetail.tsx | 변경분(start-ride 분기) 재점검 — 신규 하드코딩/규약 회귀 | PASS | 0 | 변경 hunk(cardType 분기+navigate quest-check) 규약 4종 무회귀. 경로/state.questTitle i18n 비대상 |
+
+## 화면 목록 — [완료] 전체 재패스 (47화면, ride 3 제외)
 
 | # | SCREEN (ID / 경로) | 화면별 메모/범위(선택) | 상태 | 라운드 | 판정/비고 |
 |---|---|---|---|---|---|
@@ -74,6 +85,12 @@
 ## 진행 로그 (드라이버가 append)
 
 <!-- 형식: [화면] PASS@r2 commit=abc123 — 한줄요약 / 또는 [화면] BLOCKED — 결정필요 내용 -->
+[신규 quest 화면 패스 시작] 대표 지시(1번) — 이번 세션 산출물(commit 1f49214) QuestCheckPage/QuestChecker/QuestDetail 변경분을 규약 4종으로 점검. 47화면 전체 재패스는 [완료] 상태로 보존.
+[N1 QuestCheckPage] PASS@r0 commit=none(no change) — <img>無, setInterval 타이머(native 비대상), 상단 TopBar→StatusBar 위임·.module.css 고정px無·하단 env(safe-area-inset-bottom), questCheck.title/backDone/backLater+common.loading 3종 실재. reviewer 직접검증 PASS.
+[N2 QuestChecker] PASS@r0 commit=none(no change) — <img>無/navigator無, top:18px 카드내부 점(상단여백 대상 아님), questCheck.* 27키(6직접+21 action) 전부 ko/en/vi 실재·비공백, ProgressBar(@/components/ui) 재사용. [비차단] ACTION_LABEL_KEY 미등록 action_code/비-COUNT card_type 진입 시 raw 식별자 라벨 노출 — 데이터 의존이라 규약위반 아님, 콘텐츠 커버리지로 추적 권장.
+[N3 QuestDetail] PASS@r0 commit=none(no change) — 범위한정 변경분만: start-ride 분기(DISTANCE/CHECKPOINT→ride-nav, else→/quest-check) 규약 4종 무회귀. navigate 경로·state.questTitle 식별자/데이터로 i18n 비대상. 전체 재검증은 직전 PASS@r0 승계.
+[신규 quest 화면 패스 종료] 3/3 PASS, 코드수정 0(전부 no-change). 대표 게이트 0·CHANGES 환류 0. push 안 함(대표 소관). 산출물(1f49214)이 규약 4종을 이미 충족한 상태로 추가됐음을 확인. [추적후보] QuestChecker raw 식별자 폴백(미매핑 action_code).
+
 [전체 재패스 시작] 대표 지시 — 직전 패스(47/47 PASS, 24커밋) 종료 후 전체 리셋. quest 카드 일러스트 병렬작업이 워킹트리에 미커밋 상태이므로 더티트리 노트 갱신(quest/ride/locale 등 SCREEN 외 무시). 동일 규약 4종 과업으로 처음부터 재점검.
 [WorldMap] PASS@r0 commit=none(no change) — 규약 4종 충족. avatar AppImage(L217)/emoji 정적예외/native.* 경유/header padding var/i18n 15키 실재. (선택)L193 'District 1' 폴백은 master 지역명 고유명사 — 리뷰어 PASS, i18n화는 제품 정책시 별도(직전 InfoHub info.hub.locationFallback 재사용 가능).
 [QuestList] PASS@r0 commit=none(no change) — 규약 4종 충족. 본체 직접<img>는 GifIcon emoji 정적예외 1건, 동적 thumbnail 은 QuestCardBase(대표 작업) 위임. navigator無/StatusBar(var)/16키 ko/en/vi 실재. 직전패스 acceptedEmptyTitle 키 이미 반영됨.

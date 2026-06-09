@@ -33,7 +33,7 @@ function transformQuest(raw: any): Quest {
     timeRestriction: null,
     safetyGrade,
     rewardExp: raw.reward_exp ?? 0,
-    rewardXpPoints: Math.round((raw.reward_exp ?? 0) * 0.3),
+    rewardXpPoints: Math.min(200, Math.round((raw.reward_exp ?? 0) * 0.3)), // RP 상한 200 (표시=실지급, ride.py QUEST_RP_CAP)
     rewardGold: raw.reward_gold ?? 0,
     rewardItems: raw.reward_item ? [raw.reward_item] : [],
     difficulty: 1,

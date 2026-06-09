@@ -82,6 +82,26 @@
 .chipPos { background: #DCFCE7; color: #15803D; }
 .chipNeg { background: #FEE2E2; color: #B91C1C; }
 
+.reviewPreview {
+  margin-top: 16px;
+  border-top: 1px solid var(--border, #e5e7eb);
+  padding-top: 12px;
+}
+.reviewPreviewHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: none;
+  background: none;
+  padding: 0 0 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.viewAll { font-size: 13px; font-weight: 600; color: var(--brand, #ff5a1f); }
+
 .writeBtn {
   margin-top: 16px;
   width: 100%;

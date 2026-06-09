@@ -50,6 +50,15 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def credit_rp(self, user_uuid: str, *, amount: int, apply_daily_cap: bool = True) -> dict:
+        """RP(gc_balance) 직접 적립. apply_daily_cap=False 면 일일캡(60) 면제(주간/이벤트 퀘)."""
+        resp = await self._client.post(
+            f"/v1/users/{user_uuid}/credit-rp",
+            json={"amount": amount, "apply_daily_cap": apply_daily_cap},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     # ── 쿠폰/기프티콘 (RP 교환) — SGR-213 P1 ──────────────────
     async def list_catalog(
         self, *, category: str | None = None, partner_code: str | None = None, limit: int = 20

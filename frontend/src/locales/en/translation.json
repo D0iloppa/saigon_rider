@@ -598,7 +598,11 @@
       "FAILED": "Failed",
       "REFUNDED": "Refunded",
       "CANCELLED": "Cancelled"
-    }
+    },
+    "show_qr": "Show QR",
+    "qr_hint": "Show this QR at the store",
+    "qr_save": "Save image",
+    "qr_save_failed": "Failed to save"
   },
   "skill": {
     "title": "Skills",

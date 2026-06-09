@@ -114,3 +114,93 @@
   color: var(--text-3);
   padding: 48px 0;
 }
+
+/* QR 발급 버튼 (voucher 보유 행) */
+.qrBtn {
+  flex-shrink: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--brand-500);
+  color: white;
+  cursor: pointer;
+}
+
+/* QR 모달 */
+.qrOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.qrCard {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 18px;
+  background: white;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.qrTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+.qrCanvas {
+  padding: 12px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.qrCode {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  margin-top: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.qrHint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 12px;
+}
+.qrActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
+}
+.qrSave,
+.qrClose {
+  flex: 1;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.qrSave {
+  border: none;
+  background: var(--brand-500);
+  color: white;
+}
+.qrClose {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--text);
+}

@@ -112,18 +112,22 @@
 }
 .thumb {
   width: 100%;
-  aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 6px 0 10px;
+}
+.thumb > span {
+  /* AppImage wrapper — medium, 가운데 정렬 */
+  width: 104px;
+  height: 104px;
+  flex: 0 0 auto;
 }
 .thumb img {
-  width: 72px;
-  height: 72px;
   object-fit: contain;
 }
 .thumbFallback {
-  font-size: 44px;
+  font-size: 56px;
 }
 .name {
   font-size: 13px;

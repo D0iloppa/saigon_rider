@@ -313,6 +313,23 @@ class NativeInterface {
     URL.revokeObjectURL(url);
   }
 
+  /**
+   * 이미지(data URL)를 파일로 저장한다. saveTextFile 과 동일 전략.
+   * 웹: anchor 다운로드. 네이티브(Capacitor WebView): anchor 가 실제 저장으로
+   * 동작하지 않아 share()로 폴백(텍스트만 — 이미지 첨부 미지원).
+   * 네이티브 갤러리 저장 플러그인(@capacitor/filesystem 등) 도입 시 이 메서드만 교체.
+   */
+  async saveImageFile(filename: string, dataUrl: string): Promise<void> {
+    if (this.isNative) {
+      await this.share({ title: filename, text: dataUrl });
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  }
+
   // ── Stubs (no native counterpart yet — install Capacitor plugin to enable) ─
 
   async openCamera(): Promise<string> {

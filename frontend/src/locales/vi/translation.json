@@ -598,7 +598,11 @@
       "FAILED": "Thất bại",
       "REFUNDED": "Hoàn tiền",
       "CANCELLED": "Đã hủy"
-    }
+    },
+    "show_qr": "Xem QR",
+    "qr_hint": "Xuất trình mã QR này tại cửa hàng",
+    "qr_save": "Lưu ảnh",
+    "qr_save_failed": "Lưu thất bại"
   },
   "skill": {
     "title": "Kỹ năng",

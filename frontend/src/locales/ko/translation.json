@@ -598,7 +598,11 @@
       "FAILED": "실패",
       "REFUNDED": "환불",
       "CANCELLED": "취소"
-    }
+    },
+    "show_qr": "QR 보기",
+    "qr_hint": "매장에서 이 QR을 제시하세요",
+    "qr_save": "이미지 저장",
+    "qr_save_failed": "저장에 실패했습니다"
   },
   "skill": {
     "title": "스킬",

@@ -13,3 +13,4 @@ lxml>=4.9
 tenacity>=8.2
 apscheduler>=3.10
 redis[hiredis]>=5.0
+playwright>=1.49

@@ -1,96 +1,77 @@
 """유가 갱신 cron job.
 
-⚠️ Phase 0/2 검증 결과 (2026-05-27): 외부 소스 자동 스크래핑이 실제로 불가능 상태.
-   - Petrolimex: 보도자료가 이미지로 발표됨 → HTML 파싱 불가
-   - VNExpress /chu-de/: 일반 뉴스 목록, 가격 페이지 아님
-   - PVOil: 403 WAF 차단
-   현재 cron 은 골격(스크래퍼 호출 + 3-way validation + 로그) 만 유지. fetch() 본문이 모두 빈 리스트.
-   1차 운영은 admin manual upsert (/info/gas/admin/upsert). 자동 수집은 v1.1 R&D 이월.
+자동 수집(A): Petrolimex 공식 홈페이지를 Playwright 헤드리스로 렌더해 권역(Vùng 1=호치민)
+유종별 소매가를 추출 → upsert_fuel_price 로 ACTIVE 반영(이전 source 자동 supersede + 캐시 무효화).
+권역 규제가라 전 주유소 공통. 실패 시 fetch_log 에 FAILED 기록 → 관리자 패널이 노후도/연속실패로
+경고하고, 운영자가 /admin/fuel 에서 수동 보정(B)한다.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import UTC, datetime
 
 from sqlalchemy import text
 
 from ..database import AsyncSessionLocal
-from ..scrapers.base_scraper import BaseFuelScraper
-from ..scrapers.petrolimex_scraper import PetrolimexScraper
-from ..scrapers.price_validator import validate_prices
-from ..scrapers.pvoil_scraper import PVOilScraper
-from ..scrapers.vnexpress_scraper import VNExpressScraper
-from ..services.redis_cache import cache_invalidate
+from ..scrapers.petrolimex_headless_scraper import PetrolimexHeadlessScraper
+from ..services.fuel_price_service import upsert_fuel_price
 
 log = logging.getLogger(__name__)
 
 
-async def _safe_fetch(scraper: BaseFuelScraper) -> list:
-    try:
-        return await scraper.fetch()
-    except Exception as e:
-        log.error("[%s] fetch failed: %s", scraper.SOURCE_NAME, e, exc_info=True)
-        return []
-
-
 async def run_fetch_cycle() -> dict:
-    """1회 fetch cycle 실행. 모든 소스 병렬 호출 → validation → DB insert → cache invalidate."""
+    """1회 fetch cycle: Petrolimex 헤드리스 렌더 → 유종별 ACTIVE upsert → fetch_log 기록."""
     start = datetime.now(UTC)
     log.info("=== Fuel price fetch cycle started %s ===", start.isoformat())
 
-    p, v, o = await asyncio.gather(
-        _safe_fetch(PetrolimexScraper()),
-        _safe_fetch(VNExpressScraper()),
-        _safe_fetch(PVOilScraper()),
-    )
-
-    validation = validate_prices(p, v, o)
-    log.info("Validation: %d fuel_types", len(validation))
+    scraper = PetrolimexHeadlessScraper()
+    error_message: str | None = None
+    records: list = []
+    try:
+        records = await scraper.fetch()
+    except Exception as e:
+        error_message = f"{type(e).__name__}: {e}"[:500]
+        log.error("[%s] fetch failed: %s", scraper.SOURCE_NAME, e, exc_info=True)
 
     inserted = 0
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            text("""
-            UPDATE fuel_price_snapshot
-               SET status = 'SUPERSEDED'
-             WHERE status = 'ACTIVE' AND effective_date < CURRENT_DATE
-        """)
-        )
+    for rec in records:
+        try:
+            async with AsyncSessionLocal() as session:
+                await upsert_fuel_price(
+                    session,
+                    brand=rec.brand,
+                    fuel_type=rec.fuel_type,
+                    price_vnd=rec.price_vnd,
+                    effective_time=rec.effective_time,
+                    region=rec.region,
+                    source_label=rec.source,
+                )
+            inserted += 1
+        except Exception as e:
+            error_message = (error_message or "") + f" | upsert {rec.fuel_type}: {e}"
 
-        for record in p + v + o:
-            v_info = validation.get(record.fuel_type, {})
+    status_overall = "SUCCESS" if inserted > 0 else "FAILED"
+    if status_overall == "FAILED" and not error_message:
+        error_message = "scraper returned 0 records"
+
+    # 수집 성공 시 갓 수집한 set(source+적용일)만 ACTIVE 유지, 나머지(이전 조정·타소스·잘못된 날짜)는 SUPERSEDED.
+    if inserted > 0 and records:
+        eff_date = records[0].effective_time.date()
+        async with AsyncSessionLocal() as session:
             await session.execute(
                 text("""
-                INSERT INTO fuel_price_snapshot
-                    (effective_date, effective_time, region, brand, fuel_type, price_vnd,
-                     source, source_url, raw_fetched_at, validated_by, status)
-                VALUES
-                    (:d, :et, :r, :b, :f, :p, :s, :u, :n, CAST(:v AS JSONB), :st)
-                ON CONFLICT (effective_date, region, brand, fuel_type, source)
-                DO UPDATE SET price_vnd = EXCLUDED.price_vnd,
-                              raw_fetched_at = EXCLUDED.raw_fetched_at,
-                              validated_by = EXCLUDED.validated_by
+                UPDATE fuel_price_snapshot
+                   SET status = 'SUPERSEDED'
+                 WHERE status = 'ACTIVE' AND region = 'VUNG_1'
+                   AND NOT (source = :src AND effective_date = :d)
             """),
-                {
-                    "d": record.effective_time.date(),
-                    "et": record.effective_time,
-                    "r": record.region,
-                    "b": record.brand,
-                    "f": record.fuel_type,
-                    "p": record.price_vnd,
-                    "s": record.source,
-                    "u": record.source_url,
-                    "n": start,
-                    "v": json.dumps(v_info, default=str),
-                    "st": "ACTIVE" if v_info.get("trusted") else "PENDING",
-                },
+                {"d": eff_date, "src": records[0].source},
             )
-            inserted += 1
+            await session.commit()
 
-        status_overall = "SUCCESS" if (len(p) + len(v) + len(o)) > 0 else "FAILED"
+    async with AsyncSessionLocal() as session:
         await session.execute(
             text("""
             INSERT INTO fuel_price_fetch_log
@@ -100,23 +81,20 @@ async def run_fetch_cycle() -> dict:
             {
                 "start": start,
                 "st": status_overall,
-                "found": len(p) + len(v) + len(o),
+                "found": len(records),
                 "ins": inserted,
-                "err": None if status_overall == "SUCCESS" else "all scrapers returned empty (R&D pending)",
+                "err": error_message,
             },
         )
         await session.commit()
 
-    invalidated = await cache_invalidate("*")
-    log.info("Cache invalidated: %d keys", invalidated)
-
+    log.info("Fuel cycle done: status=%s found=%d inserted=%d", status_overall, len(records), inserted)
     return {
-        "petrolimex": len(p),
-        "vnexpress": len(v),
-        "pvoil": len(o),
+        "source": scraper.SOURCE_NAME,
+        "found": len(records),
         "inserted": inserted,
-        "validated_trusted": sum(1 for x in validation.values() if x.get("trusted")),
-        "cache_invalidated": invalidated,
+        "status": status_overall,
+        "error": error_message,
     }
 
 

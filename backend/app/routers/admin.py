@@ -3233,6 +3233,8 @@ async def admin_fuel_page(
         msg, ok = _FUEL_FLASHES[flash]
         flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
 
+    pipeline_health = await _fuel_pipeline_health_html(db, rows)
+
     return _render_page(
         "fuel_prices.html",
         nav="fuel",
@@ -3240,7 +3242,80 @@ async def admin_fuel_page(
         session=session,
         today=datetime.now(UTC).date().isoformat(),
         price_rows=price_rows,
+        pipeline_health=pipeline_health,
         flash=flash_html,
+    )
+
+
+async def _fuel_pipeline_health_html(db: AsyncSession, active_rows: list) -> str:
+    """유가 수집 파이프라인 상태 카드 — 최신가 노후도 + fetch_log 성패 이력."""
+    # 노후도: ACTIVE 참고가 중 가장 최근 적용일
+    latest_eff = max((r["effective_date"] for r in active_rows), default=None)
+    today = datetime.now(UTC).date()
+    stale_days = (today - latest_eff).days if latest_eff else None
+    # 베트남은 주1회(약 10일) 규제조정 → 14일 초과면 파이프라인 점검 필요
+    if stale_days is None:
+        badge = '<span style="color:#F87171;">현재가 없음</span>'
+    elif stale_days > 14:
+        badge = f'<span style="color:#F87171;">⚠ {stale_days}일 전 (점검 필요)</span>'
+    elif stale_days > 10:
+        badge = f'<span style="color:#F59E0B;">{stale_days}일 전 (조정 임박)</span>'
+    else:
+        badge = f'<span style="color:#34D399;">{stale_days}일 전 (정상)</span>'
+
+    logs = (
+        (
+            await db.execute(
+                text("""
+            SELECT source, scheduled_at, finished_at, status, items_found, items_inserted, error_message
+              FROM fuel_price_fetch_log
+             ORDER BY scheduled_at DESC
+             LIMIT 8
+        """)
+            )
+        )
+        .mappings()
+        .all()
+    )
+    last_success = next((lg["scheduled_at"] for lg in logs if lg["status"] == "SUCCESS"), None)
+    fails_in_row = 0
+    for lg in logs:
+        if lg["status"] == "SUCCESS":
+            break
+        fails_in_row += 1
+
+    if logs:
+        log_rows = "".join(
+            f"<tr><td style='white-space:nowrap;'>{lg['scheduled_at']:%m-%d %H:%M}</td>"
+            f"<td>{h(lg['source'] or '')}</td>"
+            f"<td style='color:{'#34D399' if lg['status'] == 'SUCCESS' else '#F87171'};'>{h(lg['status'] or '')}</td>"
+            f"<td style='text-align:right;'>{lg['items_inserted'] or 0}/{lg['items_found'] or 0}</td>"
+            f"<td style='color:rgba(255,255,255,.45);'>{h((lg['error_message'] or '')[:80])}</td></tr>"
+            for lg in logs
+        )
+    else:
+        log_rows = '<tr><td colspan="5" style="color:rgba(255,255,255,.4);text-align:center;padding:16px;">수집 로그가 없습니다.</td></tr>'
+
+    last_ok = f"{last_success:%Y-%m-%d %H:%M}" if last_success else "없음"
+    fails_html = (
+        f'<span style="color:#F87171;">연속 실패 {fails_in_row}회</span>'
+        if fails_in_row
+        else '<span style="color:#34D399;">최근 정상</span>'
+    )
+    return (
+        '<div class="card" style="margin-bottom:24px;">'
+        '<p style="font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase;">수집 파이프라인 상태</p>'
+        '<div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;">'
+        f"<div>최신가 노후도: {badge}</div>"
+        f"<div>마지막 성공 수집: <b>{last_ok}</b></div>"
+        f"<div>{fails_html}</div>"
+        "</div>"
+        '<table class="table"><thead><tr>'
+        '<th>예정시각</th><th>source</th><th>상태</th><th style="text-align:right;">적재/발견</th><th>오류</th>'
+        "</tr></thead><tbody>"
+        f"{log_rows}"
+        "</tbody></table>"
+        "</div>"
     )
 
 

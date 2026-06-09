@@ -415,6 +415,8 @@ class FeedPostEnrichedOut(BaseModel):
     distance_km: Decimal | None = None
     safety_grade: str | None = None
     reward_exp: int | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
 
 
 class FeedCreateRequest(BaseModel):
@@ -435,6 +437,9 @@ class FeedUpdateRequest(BaseModel):
     content: str | None = None
     image_content_id: UUID | None = None
     image_content_ids: list[UUID] | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    update_location: bool = False  # True 시 lat/lng 갱신(None 이면 위치 해제)
 
 
 class FeedDeleteRequest(BaseModel):

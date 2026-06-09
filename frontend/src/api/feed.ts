@@ -33,6 +33,8 @@ function transformPost(raw: any): FeedPost {
     commentCount: raw.comment_count ?? 0,
     iCheered: false,
     createdAt: raw.created_at,
+    latitude: raw.latitude != null ? Number(raw.latitude) : null,
+    longitude: raw.longitude != null ? Number(raw.longitude) : null,
   };
 }
 
@@ -130,6 +132,9 @@ export async function updateFeedPost(postId: string, params: {
   userId: string;
   content?: string;
   imageContentIds?: string[];
+  latitude?: number;
+  longitude?: number;
+  updateLocation?: boolean;
 }): Promise<void> {
   if (USE_MOCK) return api.delay(undefined, 200);
   await api.realFetch(`/feed/${postId}`, {
@@ -138,6 +143,9 @@ export async function updateFeedPost(postId: string, params: {
       user_id: params.userId,
       content: params.content ?? null,
       image_content_ids: params.imageContentIds ?? null,
+      latitude: params.latitude ?? null,
+      longitude: params.longitude ?? null,
+      update_location: params.updateLocation ?? false,
     }),
   });
 }

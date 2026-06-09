@@ -21,6 +21,7 @@ import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadSession } from '@/lib/session';
 import { native } from '@/lib/native';
+import { toast } from '@/components/ui/Toast';
 import { ProfileCard } from '@/components/ProfileCard';
 import styles from './FeedList.module.css';
 
@@ -193,31 +194,40 @@ export default function FeedList() {
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
   const [stories, setStories] = useState<StoryItem[]>([]);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
-  const locationRef = useRef<{ lat: number; lng: number } | null>(null);
+  // neighborhood 필터용 현재 위치 (state — 도착 시 재fetch 트리거)
+  const [neighborhoodLoc, setNeighborhoodLoc] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => { fetchStories().then(setStories); }, []);
 
-  // neighborhood 필터 시 위치를 미리 캐시
+  // neighborhood 필터 선택 시 현재 위치 획득. 실패하면 안내 후 전체로 복귀.
   useEffect(() => {
-    if (filter === 'neighborhood') {
-      native.getLocation()
-        .then((pos) => { locationRef.current = { lat: pos.lat, lng: pos.lng }; })
-        .catch(() => {});
-    }
-  }, [filter]);
+    if (filter !== 'neighborhood') return;
+    (async () => {
+      try {
+        await native.ensureLocationPermission();
+        const pos = await native.getLocation();
+        setNeighborhoodLoc({ lat: pos.lat, lng: pos.lng });
+      } catch {
+        toast.error(t('feedCreate.locationError'));
+        setFilter('all');
+      }
+    })();
+  }, [filter, t]);
 
   const fetchPage = useCallback(async (page: number) => {
-    if (filter === 'neighborhood' && locationRef.current) {
-      return fetchFeed({ filter, lat: locationRef.current.lat, lng: locationRef.current.lng, userId: user?.id, page });
+    if (filter === 'neighborhood') {
+      // 위치 확보 전엔 빈 페이지 — 위치 도착 시 deps 변경으로 재fetch
+      if (!neighborhoodLoc) return { items: [], total: 0, page, size: 20 };
+      return fetchFeed({ filter, lat: neighborhoodLoc.lat, lng: neighborhoodLoc.lng, userId: user?.id, page });
     }
     if (filter === 'friends' && user) {
       return fetchFeed({ filter, userId: user.id, page });
     }
     return fetchFeed({ filter, page });
-  }, [filter, user]);
+  }, [filter, user, neighborhoodLoc]);
 
   const { items: posts, setItems: setPosts, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
-    useInfiniteScroll<FeedPost>(fetchPage, 20, [filter, user?.id]);
+    useInfiniteScroll<FeedPost>(fetchPage, 20, [filter, user?.id, neighborhoodLoc]);
 
   const { containerRef: scrollBodyRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(reset);
 

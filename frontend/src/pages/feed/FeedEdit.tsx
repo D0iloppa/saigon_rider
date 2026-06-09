@@ -8,6 +8,7 @@ import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
+import { native } from '@/lib/native';
 import styles from './FeedCreate.module.css';
 
 const MAX_IMAGES = 10;
@@ -38,6 +39,7 @@ export default function FeedEdit() {
   const [imageSlots, setImageSlots] = useState<ImageSlot[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!postId) return;
@@ -54,6 +56,9 @@ export default function FeedEdit() {
           url,
           contentId: post.imageContentIds[i] ?? '',
         })));
+      }
+      if (post.latitude != null && post.longitude != null) {
+        setLocation({ lat: post.latitude, lng: post.longitude });
       }
       setLoaded(true);
     });
@@ -102,6 +107,20 @@ export default function FeedEdit() {
     }
   };
 
+  const handleLocation = async () => {
+    if (location) {
+      setLocation(null);
+      return;
+    }
+    try {
+      await native.ensureLocationPermission();
+      const pos = await native.getLocation();
+      setLocation({ lat: pos.lat, lng: pos.lng });
+    } catch {
+      toast.error(t('feedCreate.locationError'));
+    }
+  };
+
   const removeSlot = (idx: number) => {
     setImageSlots((prev) => {
       const removed = prev[idx];
@@ -122,6 +141,9 @@ export default function FeedEdit() {
         userId: user.id,
         content: content.trim() || undefined,
         imageContentIds: contentIds,
+        latitude: location?.lat,
+        longitude: location?.lng,
+        updateLocation: true,
       });
       toast.success(t('feedEdit.saveSuccess'));
       navigate('/profile', { replace: true });
@@ -151,32 +173,34 @@ export default function FeedEdit() {
       />
 
       <div className={styles.body}>
-        <textarea
-          className={styles.textarea}
-          placeholder={t('feedCreate.textPlaceholder')}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={6}
-          maxLength={2000}
-        />
+        <div className={styles.card}>
+          <textarea
+            className={styles.textarea}
+            placeholder={t('feedCreate.textPlaceholder')}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={6}
+            maxLength={2000}
+          />
 
-        {imageSlots.length > 0 && (
-          <div className={styles.previewGrid}>
-            {imageSlots.map((slot, idx) => (
-              <div key={idx} className={styles.previewItem}>
-                {slot.type === 'existing' ? (
-                  <AppImage src={slot.url} alt="" className={styles.previewThumb} />
-                ) : (
-                  <>
-                    <img src={slot.preview} alt="" className={styles.previewThumb} />
-                    {slot.uploading && <div className={styles.uploadingOverlay}>⏳</div>}
-                  </>
-                )}
-                <button className={styles.removeImg} aria-label={t('feedCreate.removeImage')} onClick={() => removeSlot(idx)}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
+          {imageSlots.length > 0 && (
+            <div className={styles.previewGrid}>
+              {imageSlots.map((slot, idx) => (
+                <div key={idx} className={styles.previewItem}>
+                  {slot.type === 'existing' ? (
+                    <AppImage src={slot.url} alt="" className={styles.previewThumb} />
+                  ) : (
+                    <>
+                      <img src={slot.preview} alt="" className={styles.previewThumb} />
+                      {slot.uploading && <div className={styles.uploadingOverlay}>⏳</div>}
+                    </>
+                  )}
+                  <button className={styles.removeImg} aria-label={t('feedCreate.removeImage')} onClick={() => removeSlot(idx)}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className={styles.toolbar}>
           <label className={styles.toolBtn}>
@@ -190,6 +214,13 @@ export default function FeedEdit() {
               disabled={imageSlots.length >= MAX_IMAGES}
             />
           </label>
+
+          <button
+            className={`${styles.toolBtn} ${location ? styles.toolBtnActive : ''}`}
+            onClick={handleLocation}
+          >
+            📍 {location ? t('feedCreate.locationAttached') : t('feedCreate.addLocation')}
+          </button>
         </div>
       </div>
     </div>

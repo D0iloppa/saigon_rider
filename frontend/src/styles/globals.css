@@ -6,6 +6,8 @@
   padding: 0;
   -webkit-user-select: none;
   user-select: none;
+  /* iOS WebView: 이미지 꾹 누름 시 저장/공유 콜아웃 차단 (user-select로는 안 막힘) */
+  -webkit-touch-callout: none;
 }
 
 html, body, #root {

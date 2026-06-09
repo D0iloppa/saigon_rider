@@ -79,6 +79,7 @@ export default function FeedCreate() {
       return;
     }
     try {
+      await native.ensureLocationPermission();
       const pos = await native.getLocation();
       setLocation({ lat: pos.lat, lng: pos.lng });
     } catch {

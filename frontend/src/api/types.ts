@@ -94,6 +94,8 @@ export interface FeedPost {
   commentCount: number;
   iCheered: boolean;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Comment {

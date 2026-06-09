@@ -97,6 +97,13 @@ class NativeInterface {
 
   // ── Foreground Geolocation (@capacitor/geolocation) ─────────────────────
 
+  /** getLocation 전에 호출 — 네이티브에서 위치 권한을 확인하고 필요 시 요청. */
+  async ensureLocationPermission(): Promise<void> {
+    if (!this.isNative) return;
+    const st = await this.checkLocationPermission().catch((): LocationPermissionState => 'prompt');
+    if (st !== 'granted') await this.requestLocationPermission().catch(() => undefined);
+  }
+
   async getLocation(): Promise<GeoPosition> {
     const pos = await Geolocation.getCurrentPosition({
       enableHighAccuracy: true,

@@ -71,6 +71,8 @@ def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> Feed
         distance_km=ride.distance_km if ride else None,
         safety_grade=ride.safety_grade if ride else None,
         reward_exp=ride.reward_exp if ride else None,
+        latitude=post.latitude,
+        longitude=post.longitude,
     )
 
 
@@ -238,6 +240,9 @@ async def update_feed_post(
         post.image_content_id = body.image_content_ids[0] if body.image_content_ids else None
     elif body.image_content_id is not None:
         post.image_content_id = body.image_content_id
+    if body.update_location:
+        post.latitude = body.latitude
+        post.longitude = body.longitude
     post.updated_at = datetime.now(UTC)
     await db.commit()
 

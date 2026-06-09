@@ -159,3 +159,25 @@
 ## 후속
 
 - emitter 연결(배달/정비/마켓 action 발행), count_distinct·streak·composite 검증기 추가.
+
+---
+
+## Phase 1 — 거리 target 현실화 (init `073`, 적용 2026-06-08)
+
+DISTANCE 1km 스텁 중 **2차 의미 없는 순수 주행 거리형만** 기간별 기본 스킴으로 보정.
+card_type 변경 없음(=재분류 아님, `target_distance_km`만). 스킴: 첫라이딩 1km / DAILY 5 / 통근왕복 10 / 롱슬로우 15 / WEEKLY 30 / EVENT·월간 50.
+
+| mission_code | 제목 | km |
+|---|---|---|
+| D-RD-01 | 주행거리 기록 | 5 |
+| D-RD-09 | 통근 왕복 | 10 |
+| D-RD-19 | 롱 슬로우 | 15 |
+| D-MK-01 | 시장 라이딩 | 5 |
+| A-MX-07 | 통근 풀패스 | 30 |
+
+유지(변경 없음): `O-RD-01` 첫 라이딩·`D-RD-23` 오늘의 1km (1km 리터럴).
+
+**Phase 1 미실행(이관):**
+- **위치형**(랜드마크 좌표 부재 / District=면적) → Phase 3. CheckpointValidator 는 단일점+100m라 District(면적)엔 부적합, `districts.boundary` 폴리곤 기반 면적 validator 필요.
+- **시간대형**(새벽/야간 라이더) → 거리+시간게이트, 후속 micro-step.
+- **사진/횟수/그룹/일수/영수증** → Phase 2(emitter)·Phase 3(streak/multi-checkpoint).

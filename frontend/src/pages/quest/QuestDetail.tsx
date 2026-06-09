@@ -161,23 +161,21 @@ export default function QuestDetail() {
       </div>
 
       <div className={styles.sheet}>
-        <div className={styles.metaRow}>
-          <Chip variant="surface">Lv.{quest.minLevel}+</Chip>
-          <Chip variant="surface">{quest.districtName || t('quest.everywhere')}</Chip>
-          {quest.riderType && (
-            <Chip variant="surface">
-              {quest.riderType.icon ? `${quest.riderType.icon} ` : ''}{localizedName(quest.riderType)}
-            </Chip>
-          )}
-          {quest.safetyGrade && (
-            <Chip variant="surface">🛡 {quest.safetyGrade.code}+</Chip>
-          )}
-          <Chip variant="surface">
-            {'★'.repeat(quest.difficulty)}
-            {'☆'.repeat(5 - quest.difficulty)}
-          </Chip>
+        {/* 헤더(고정): 칩 정보 */}
+        <div className={styles.sheetHeader}>
+          <div className={styles.metaRow}>
+            <Chip variant="surface">Lv.{quest.minLevel}+</Chip>
+            <Chip variant="surface">{quest.districtName || t('quest.everywhere')}</Chip>
+            {quest.riderType && (
+              <Chip variant="surface">
+                {quest.riderType.icon ? `${quest.riderType.icon} ` : ''}{localizedName(quest.riderType)}
+              </Chip>
+            )}
+          </div>
         </div>
 
+        {/* 본문(이 영역만 스크롤) */}
+        <div className={styles.sheetBody}>
         <p className={styles.desc}>{quest.description}</p>
 
         <div className={styles.conditionBox}>
@@ -194,12 +192,6 @@ export default function QuestDetail() {
             <span>📍</span>
             <span>{t('quest.totalDistance', { distance: formatDistance(quest.minDistanceM) })}</span>
           </div>
-          {quest.safetyGrade && (
-            <div className={styles.conditionRow}>
-              <span>🛡</span>
-              <span>{t('quest.safetyGradeMin', { grade: quest.safetyGrade.code })}</span>
-            </div>
-          )}
         </div>
 
         <div className={styles.rewardBox}>
@@ -229,7 +221,10 @@ export default function QuestDetail() {
             </div>
           </div>
         </div>
+        </div>
 
+        {/* 푸터(고정): 액션 버튼 */}
+        <div className={styles.sheetFooter}>
         {isCompleted ? (
           <Button disabled>{t('quest.completedBtn')}</Button>
         ) : isLocked ? (
@@ -256,6 +251,7 @@ export default function QuestDetail() {
             {t('quest.acceptBtn', { defaultValue: '수령하기' })}
           </Button>
         )}
+        </div>
       </div>
 
       {/* [DBG] 완료 버튼 */}

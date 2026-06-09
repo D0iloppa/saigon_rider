@@ -90,9 +90,6 @@ export default function QuestCard({
         )}
       </div>
 
-      {/* 상세 히어로: 하단을 카드 배경(크림)으로 자연스럽게 블렌드 */}
-      {variant === 'detail' && <div className={styles.heroFade} aria-hidden="true" />}
-
       {locked && (
         <div className={styles.lockOverlay}>
           <span className={styles.lockIcon}>🔒</span>

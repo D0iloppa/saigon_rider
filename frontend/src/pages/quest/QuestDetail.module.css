@@ -1,4 +1,15 @@
-.root { position: relative; }
+.root {
+  position: relative;
+  /* 상단 띠(배너 위 영역) 배경 = '보상' 박스와 동일한 살구색 */
+  background: var(--brand-50);
+  /* 페이지(배너+시트)는 뷰포트에 고정 → 페이지 전체 스크롤 차단(넘치면 시트 내부만 스크롤) */
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* 배너를 상단 뒤로가기/칩 띠 높이까지 내림 → 위쪽 상태바 영역은 크림 배경 노출 */
+  padding-top: calc(var(--status-bar-height) + 8px);
+}
 
 .loading {
   padding: 60px 20px;
@@ -11,22 +22,51 @@
   position: relative;
   overflow: hidden;
   background: transparent;
+  /* 배너 높이 확대(4:3). 고정 크기 → 시트는 남는 공간을 차지하고 넘칠 때만 내부 스크롤 */
+  aspect-ratio: 320 / 240;
+  flex: 0 0 auto;
 }
 
 .sheet {
   position: relative;
-  margin-top: -24px;
-  padding: 20px 20px calc(24px + var(--bottom-safe));
+  /* 남은 화면 높이를 차지. 시트 자체는 스크롤하지 않고 헤더/푸터 고정, body 만 내부 스크롤 */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 겹침 = 시트 radius(28px) → 둥근 모서리 구간이 모두 배너 위로 올라와 완전히 덮음 */
+  margin-top: -28px;
   background: #FFF7F2;
   border-radius: 28px 28px 0 0;
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* 헤더(칩) — 고정. body 확보 위해 여백 최소화 */
+.sheetHeader {
+  flex: 0 0 auto;
+  padding: 16px 20px 6px;
+}
+
+/* 본문 — 이 영역만 스크롤 */
+.sheetBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 20px;
+}
+
+/* 푸터(버튼) — 고정. 하단 패딩 축소로 버튼을 더 내려 body 확보(상단 간격은 유지) */
+.sheetFooter {
+  flex: 0 0 auto;
+  padding: 16px 20px calc(12px + var(--bottom-safe, 0px));
 }
 
 /* 가로 스크롤 태그 칩 줄 */
 .metaRow {
   display: flex;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
@@ -54,16 +94,16 @@
 
 .desc {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.45;
   color: var(--text-2);
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .conditionBox, .rewardBox {
   background: var(--surface-2);
-  border-radius: 20px;
-  padding: 16px;
-  margin-bottom: 12px;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 10px;
 }
 
 .rewardBox {
@@ -76,7 +116,7 @@
   color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .conditionRow {
@@ -84,7 +124,7 @@
   gap: 12px;
   font-size: 14px;
   font-weight: 600;
-  padding: 8px 0;
+  padding: 5px 0;
   align-items: center;
 }
 
@@ -97,7 +137,7 @@
 .rewardCell {
   background: white;
   border-radius: 14px;
-  padding: 10px 6px;
+  padding: 8px 6px;
   text-align: center;
 }
 

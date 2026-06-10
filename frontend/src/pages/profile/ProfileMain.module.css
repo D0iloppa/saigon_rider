@@ -723,6 +723,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  padding-bottom: 32px;
 }
 
 .badgeCell {

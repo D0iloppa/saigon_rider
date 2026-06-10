@@ -89,7 +89,7 @@ export default function ProfileMain() {
   }, []);
   const { t, i18n } = useTranslation();
 
-  const [tab, setTab] = useState<'feeds' | 'history' | 'badges' | 'gear'>('feeds');
+  const [tab, setTab] = useState<'feeds' | 'history' | 'badges'>('feeds');
   const [activeBadge, setActiveBadge] = useState<BadgeWithEarned | null>(null);
 
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -274,7 +274,6 @@ export default function ProfileMain() {
     { key: 'feeds'   as const, label: t('profile.tabFeeds') },
     { key: 'history' as const, label: t('profile.tabHistory') },
     { key: 'badges'  as const, label: t('profile.tabBadges') },
-    { key: 'gear'    as const, label: t('profile.tabGear') },
   ];
 
   return (
@@ -699,20 +698,6 @@ export default function ProfileMain() {
                 </button>
               );
             })}
-          </div>
-        )}
-
-        {tab === 'gear' && (
-          <div className={styles.emptyTab}>
-            <span style={{ fontSize: 48 }}>🏍</span>
-            <p>{t('profile.noGear')}</p>
-            <button
-              className={styles.newPostBtn}
-              style={{ marginTop: 16, maxWidth: 200 }}
-              onClick={() => navigate('/garage')}
-            >
-              {t('profile.openGarage')}
-            </button>
           </div>
         )}
       </div>{/* sheet */}

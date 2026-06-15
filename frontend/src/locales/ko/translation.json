@@ -613,7 +613,8 @@
     "distance_rider": { "name": "거리 라이더", "effect": "EXP +{{value}}%" },
     "gold_hunter": { "name": "골드 헌터", "effect": "Gold +{{value}}%" },
     "quest_slot": { "name": "퀘스트 마스터", "effect": "퀘스트 슬롯 +{{value}}" },
-    "cost_discount": { "name": "절약가", "effect": "가차/상점 -{{value}}%" }
+    "cost_discount": { "name": "절약가", "effect": "가차/상점 -{{value}}%" },
+    "mileage_rate": { "name": "마일리지 부스터", "effect": "마일리지 보상 +{{value}}%" }
   },
   "currency": {
     "gold": "골드",

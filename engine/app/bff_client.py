@@ -39,6 +39,19 @@ class BffClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_mileage_skill_pct(self, user_uuid: str) -> int:
+        """마일리지 보상 증폭 스킬 배율(%) 조회. 실패 시 0 (배율 미적용)."""
+        try:
+            resp = await self._client.get(
+                "/api/internal/mileage-skill-pct",
+                params={"user_uuid": user_uuid},
+            )
+            resp.raise_for_status()
+            return int(resp.json().get("pct", 0))
+        except httpx.HTTPError:
+            log.warning("mileage-skill-pct fetch failed for %s; applying 0%%", user_uuid)
+            return 0
+
     async def close(self) -> None:
         await self._client.aclose()
 

@@ -64,6 +64,7 @@ _SKILL_COLUMN = {
     "gold_hunter": "skill_gold_hunter",
     "quest_slot": "skill_quest_slot",
     "cost_discount": "skill_cost_discount",
+    "mileage_rate": "skill_mileage_rate",
 }
 
 

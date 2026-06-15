@@ -6,7 +6,7 @@ export type QuestType = 'daily' | 'weekly' | 'event';
 export type QuestStatus = 'available' | 'locked' | 'completed';
 export type AttemptStatus = 'in_progress' | 'success' | 'failed' | 'abandoned';
 export type SafetyGrade = 'A' | 'B' | 'C';
-export type SkillKey = 'distance_rider' | 'gold_hunter' | 'quest_slot' | 'cost_discount';
+export type SkillKey = 'distance_rider' | 'gold_hunter' | 'quest_slot' | 'cost_discount' | 'mileage_rate';
 export type Language = 'ko' | 'vi' | 'en';
 
 export interface User {

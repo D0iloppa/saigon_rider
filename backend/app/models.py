@@ -106,6 +106,7 @@ class User(Base):
     skill_gold_hunter: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     skill_quest_slot: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     skill_cost_discount: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    skill_mileage_rate: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_content_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True

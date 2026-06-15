@@ -613,7 +613,8 @@
     "distance_rider": { "name": "Distance Rider", "effect": "EXP +{{value}}%" },
     "gold_hunter": { "name": "Gold Hunter", "effect": "Gold +{{value}}%" },
     "quest_slot": { "name": "Quest Master", "effect": "Quest slots +{{value}}" },
-    "cost_discount": { "name": "Bargainer", "effect": "Gacha/Shop -{{value}}%" }
+    "cost_discount": { "name": "Bargainer", "effect": "Gacha/Shop -{{value}}%" },
+    "mileage_rate": { "name": "Mileage Booster", "effect": "Mileage rewards +{{value}}%" }
   },
   "currency": {
     "gold": "Gold",

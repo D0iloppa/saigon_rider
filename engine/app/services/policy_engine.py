@@ -101,12 +101,16 @@ async def _dispatch_action(
     user: SreUser,
     action: RewardPolicyAction,
     policy_id: int,
+    skill_pct: int = 0,
 ) -> None:
-    if action.action_type == RewardActionTypeEnum.GRANT_XP:
+    # skill_pct: 마일리지 증폭 스킬 배율(%). 마일리지 정책에서만 >0 전달된다.
+    amount = round(action.value * (1 + skill_pct / 100)) if skill_pct else action.value
+
+    if action.action_type in (RewardActionTypeEnum.GRANT_XP, RewardActionTypeEnum.GRANT_RP):
         await xp_ledger.credit(
             db,
             user_id=user.user_id,
-            amount=action.value,
+            amount=amount,
             source_type="POLICY",
             source_id=policy_id,
             memo=f"policy#{policy_id}",
@@ -117,11 +121,11 @@ async def _dispatch_action(
 
     ext_uuid = user.external_user_uuid
     if action.action_type == RewardActionTypeEnum.GRANT_EXP:
-        await bff_client.grant_exp(ext_uuid, action.value)
-        user.total_exp_granted = (user.total_exp_granted or 0) + action.value
+        await bff_client.grant_exp(ext_uuid, amount)
+        user.total_exp_granted = (user.total_exp_granted or 0) + amount
         await db.flush()
     elif action.action_type == RewardActionTypeEnum.GRANT_GOLD:
-        await bff_client.grant_gold(ext_uuid, action.value)
+        await bff_client.grant_gold(ext_uuid, amount)
     elif action.action_type == RewardActionTypeEnum.GRANT_BADGE:
         await bff_client.grant_badge(ext_uuid, action.ref_id)
 
@@ -142,6 +146,9 @@ async def evaluate_policies(user_id: int) -> list[int]:
         )
         policies = policies_result.scalars().all()
 
+        # 마일리지 증폭 스킬 배율(%) — 마일리지 정책이 실제 발동할 때만 1회 lazy 조회.
+        mileage_skill_pct: int | None = None
+
         for policy in policies:
             if not _check_conditions(policy.conditions, user):
                 continue
@@ -155,9 +162,19 @@ async def evaluate_policies(user_id: int) -> list[int]:
             )
             actions = actions_result.scalars().all()
 
+            is_mileage_policy = policy.repeat_metric == "total_distance_m"
+            skill_pct = 0
+            if is_mileage_policy:
+                if mileage_skill_pct is None:
+                    from app.bff_client import bff_client
+                    mileage_skill_pct = await bff_client.get_mileage_skill_pct(
+                        user.external_user_uuid
+                    )
+                skill_pct = mileage_skill_pct
+
             for action in actions:
                 try:
-                    await _dispatch_action(db, user, action, policy.id)
+                    await _dispatch_action(db, user, action, policy.id, skill_pct)
                 except Exception:
                     log.exception("policy#%d action#%d dispatch failed", policy.id, action.id)
 

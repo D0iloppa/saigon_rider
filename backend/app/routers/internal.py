@@ -72,6 +72,16 @@ async def grant_gold(body: GrantGoldRequest, db: AsyncSession = Depends(get_db))
     return GrantResponse(ok=True)
 
 
+@router.get("/mileage-skill-pct")
+async def mileage_skill_pct(user_uuid: str, db: AsyncSession = Depends(get_db)):
+    """마일리지 보상 증폭 스킬 배율(%) 조회. 단계당 +1% (단계 = skill_mileage_rate // 3, 최대 +3%)."""
+    uid = uuid.UUID(user_uuid)
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"pct": (user.skill_mileage_rate // 3) * 1}
+
+
 @router.post("/grant-badge", response_model=GrantResponse)
 async def grant_badge(body: GrantBadgeRequest, db: AsyncSession = Depends(get_db)):
     uid = uuid.UUID(body.user_uuid)

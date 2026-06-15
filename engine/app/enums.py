@@ -164,6 +164,8 @@ class RewardActionTypeEnum(str, enum.Enum):
     GRANT_BADGE = "GRANT_BADGE"
     GRANT_XP = "GRANT_XP"
     GRANT_GOLD = "GRANT_GOLD"
+    # 마일리지 정책 전용: current_balance 적립을 'RP' 명칭으로 노출 (020 XP 개명을 되돌리지 않음)
+    GRANT_RP = "GRANT_RP"
 
 
 class QuestCardTypeEnum(str, enum.Enum):

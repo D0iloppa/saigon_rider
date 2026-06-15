@@ -126,6 +126,7 @@ class UserOut(BaseModel):
                 "gold_hunter": data.skill_gold_hunter,
                 "quest_slot": data.skill_quest_slot,
                 "cost_discount": data.skill_cost_discount,
+                "mileage_rate": data.skill_mileage_rate,
             },
             "avatar_url": resolve_avatar_url(data),
             "created_at": data.created_at,

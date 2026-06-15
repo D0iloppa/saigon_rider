@@ -613,7 +613,8 @@
     "distance_rider": { "name": "Tay đua đường dài", "effect": "EXP +{{value}}%" },
     "gold_hunter": { "name": "Thợ săn vàng", "effect": "Vàng +{{value}}%" },
     "quest_slot": { "name": "Bậc thầy nhiệm vụ", "effect": "Ô nhiệm vụ +{{value}}" },
-    "cost_discount": { "name": "Người tiết kiệm", "effect": "Gacha/Cửa hàng -{{value}}%" }
+    "cost_discount": { "name": "Người tiết kiệm", "effect": "Gacha/Cửa hàng -{{value}}%" },
+    "mileage_rate": { "name": "Tăng tốc dặm đường", "effect": "Thưởng dặm đường +{{value}}%" }
   },
   "currency": {
     "gold": "Vàng",

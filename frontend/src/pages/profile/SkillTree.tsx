@@ -15,6 +15,7 @@ const SKILLS: { key: SkillKey; emoji: string; value: (tier: number) => number }[
   { key: 'gold_hunter', emoji: '💰', value: (tier) => tier * 5 },       // GOLD_MULT: Gold +5%/단계
   { key: 'quest_slot', emoji: '🎯', value: (tier) => (tier >= 3 ? 1 : 0) }, // QUEST_SLOT: 단계3에서 +1
   { key: 'cost_discount', emoji: '💸', value: (tier) => tier * 2 },     // COST_DISCOUNT: -2%/단계
+  { key: 'mileage_rate', emoji: '📏', value: (tier) => tier * 1 },      // 마일리지 RP/Gold/EXP +1%/단계
 ];
 
 /** SGR-280: 스킬 트리 — SP 투자(1 SP → 서브포인트 +1, 3칸=1단계, 최대 9). 효과는 rewards.ts 가산. */

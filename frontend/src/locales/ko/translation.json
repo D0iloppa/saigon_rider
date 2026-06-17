@@ -65,7 +65,10 @@
     "market": "장터",
     "feed": "피드",
     "profile": "프로필",
-    "startRide": "라이딩 시작"
+    "startRide": "라이딩 시작",
+    "community": "커뮤니티",
+    "map": "동네지도",
+    "chat": "채팅"
   },
   "market": {
     "district": "Bình Thạnh",
@@ -126,7 +129,11 @@
     "keywordAdd": "추가",
     "keywordEmpty": "등록한 키워드가 없어요",
     "keywordRemove": "삭제",
-    "alertError": "알림 처리 실패"
+    "alertError": "알림 처리 실패",
+    "showTranslation": "번역 보기",
+    "showOriginal": "원문 보기",
+    "translating": "번역 중…",
+    "translateError": "번역 실패"
   },
   "splash": {
     "subtitle": "Where every ride becomes a quest",

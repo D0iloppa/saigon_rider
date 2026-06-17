@@ -309,6 +309,8 @@
 
 /* ── Today's Mission ── */
 .missionSection {
+  /* SGR-287: '오늘의 미션' 섹션 임시 비활성화(코드 보존 — 나중에 복원 가능) */
+  display: none;
   padding: 16px;
 }
 

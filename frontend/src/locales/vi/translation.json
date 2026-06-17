@@ -65,7 +65,10 @@
     "market": "Chợ",
     "feed": "Bảng tin",
     "profile": "Hồ sơ",
-    "startRide": "Bắt đầu đi"
+    "startRide": "Bắt đầu đi",
+    "community": "Cộng đồng",
+    "map": "Bản đồ",
+    "chat": "Trò chuyện"
   },
   "market": {
     "district": "Bình Thạnh",
@@ -126,7 +129,11 @@
     "keywordAdd": "Thêm",
     "keywordEmpty": "Chưa có từ khóa",
     "keywordRemove": "Xóa",
-    "alertError": "Cập nhật thất bại"
+    "alertError": "Cập nhật thất bại",
+    "showTranslation": "Xem bản dịch",
+    "showOriginal": "Xem bản gốc",
+    "translating": "Đang dịch…",
+    "translateError": "Dịch thất bại"
   },
   "splash": {
     "subtitle": "Nơi mỗi chuyến đi là một nhiệm vụ",

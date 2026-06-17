@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { createConversation } from '@/api/dm';
 import { followUser, unfollowUser } from '@/api/follows';
+import { translateText } from '@/api/translate';
 import {
   fetchListing,
   updateListingStatus,
@@ -35,6 +36,9 @@ export default function MarketDetail() {
   const [loading, setLoading] = useState(true);
   const [priceOpen, setPriceOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
+  const [translatedDesc, setTranslatedDesc] = useState<string | null>(null);
+  const [showTranslated, setShowTranslated] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -87,6 +91,24 @@ export default function MarketDetail() {
       setDetail({ ...detail, seller: { ...detail.seller, isFollowing: !wasFollowing } });
     } catch {
       toast.error(t('market.followError', { defaultValue: '단골 처리 실패' }));
+    }
+  };
+
+  const handleTranslate = async () => {
+    if (!detail?.description) return;
+    if (translatedDesc !== null) {
+      setShowTranslated((v) => !v);
+      return;
+    }
+    setTranslating(true);
+    try {
+      const res = await translateText(detail.description);
+      setTranslatedDesc(res.translated);
+      setShowTranslated(true);
+    } catch {
+      toast.error(t('market.translateError', { defaultValue: '번역 실패' }));
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -181,8 +203,22 @@ export default function MarketDetail() {
                 )}
               </div>
 
-              {/* Description */}
-              {detail.description && <p className={styles.description}>{detail.description}</p>}
+              {/* Description + 번역 토글 */}
+              {detail.description && (
+                <>
+                  <p className={styles.description}>
+                    {showTranslated && translatedDesc ? translatedDesc : detail.description}
+                  </p>
+                  <button className={styles.translateBtn} type="button" onClick={handleTranslate} disabled={translating}>
+                    🌐{' '}
+                    {translating
+                      ? t('market.translating', { defaultValue: '번역 중…' })
+                      : showTranslated
+                        ? t('market.showOriginal', { defaultValue: '원문 보기' })
+                        : t('market.showTranslation', { defaultValue: '번역 보기' })}
+                  </button>
+                </>
+              )}
 
               {/* Seller's other listings */}
               {detail.otherListings.length > 0 && (

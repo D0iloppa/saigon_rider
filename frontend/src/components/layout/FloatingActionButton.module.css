@@ -1,4 +1,6 @@
 .fab {
+  /* SGR-287: 게임 허브 FAB 임시 비활성화(나중에 복원 가능 — 삭제 금지) */
+  display: none !important;
   position: absolute;
   bottom: calc(var(--tabbar-height, 72px) + var(--bottom-safe, 0px) - 64px);
   left: 50%;

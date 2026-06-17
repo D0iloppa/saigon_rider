@@ -229,7 +229,8 @@ export default function WorldMap() {
           <div className={styles.headerTop}>
             <div className={styles.userName}>{user.nickname}</div>
             <div className={styles.walletRow}>
-              <div className={styles.walletChip}>
+              {/* SGR-287: Gold 숨김, RP만 노출(코드 보존) */}
+              <div className={styles.walletChip} style={{ display: 'none' }}>
                 <img src={emojiUrl('1fa99')} width={14} height={14} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                 <span className={`mono ${styles.goldValue}`}>{formatNumber(gold)}</span>
               </div>

@@ -294,7 +294,7 @@
 
 /* Currency */
 .currencyBento {
-  display: grid;
+  display: none !important; /* SGR-287: 재화 영역 임시 숨김(코드 보존) */
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 16px;
@@ -325,7 +325,7 @@
 
 /* Garage Banner */
 .garageBanner {
-  display: flex;
+  display: none !important; /* SGR-287: My Ride 임시 숨김(코드 보존) */
   align-items: center;
   gap: 14px;
   background: var(--surface);
@@ -607,6 +607,7 @@
 
 /* Stats */
 .statsCard {
+  display: none; /* SGR-287: This Month 통계 임시 숨김(코드 보존) */
   background: var(--surface);
   border-radius: 24px;
   padding: 16px;
@@ -647,8 +648,16 @@
 }
 
 /* Tabs */
+.feedSectionLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 4px 0 12px;
+}
+
 .tabRow {
-  display: flex;
+  display: none !important; /* SGR-287: 피드/이력/뱃지 탭 제거(코드 보존, 피드만 노출) */
   background: var(--surface);
   border-radius: 14px;
   padding: 4px;

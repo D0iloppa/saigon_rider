@@ -65,7 +65,10 @@
     "market": "Market",
     "feed": "Feed",
     "profile": "Profile",
-    "startRide": "Start Ride"
+    "startRide": "Start Ride",
+    "community": "Community",
+    "map": "Map",
+    "chat": "Chat"
   },
   "market": {
     "district": "Bình Thạnh",
@@ -126,7 +129,11 @@
     "keywordAdd": "Add",
     "keywordEmpty": "No keywords yet",
     "keywordRemove": "Remove",
-    "alertError": "Failed to update alerts"
+    "alertError": "Failed to update alerts",
+    "showTranslation": "See translation",
+    "showOriginal": "See original",
+    "translating": "Translating…",
+    "translateError": "Translation failed"
   },
   "splash": {
     "subtitle": "Where every ride becomes a quest",

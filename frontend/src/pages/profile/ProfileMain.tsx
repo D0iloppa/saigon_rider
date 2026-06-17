@@ -355,6 +355,11 @@ export default function ProfileMain() {
               <line x1="16" y1="11" x2="22" y2="11" />
             </svg>
           </button>
+          <button className={styles.addFriendIconBtn} onClick={() => navigate('/dm')} aria-label={t('tabbar.chat')}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -390,8 +395,10 @@ export default function ProfileMain() {
           </div>
         </div>
 
-        {/* SGR-209 A4: 스킬 트리 */}
-        <SkillTree />
+        {/* SGR-209 A4: 스킬 트리 — SGR-287 마켓 피벗으로 임시 숨김(코드 보존) */}
+        <div style={{ display: 'none' }}>
+          <SkillTree />
+        </div>
 
         {/* SGR-213: 내 쿠폰함 진입 */}
         <button
@@ -558,6 +565,9 @@ export default function ProfileMain() {
             </button>
           ))}
         </div>
+
+        {/* SGR-287: 피드/이력/뱃지 탭 제거 — 피드만 노출(피드 영역 라벨) */}
+        <h3 className={styles.feedSectionLabel}>{t('profile.tabFeeds')}</h3>
 
         {tab === 'feeds' && (
           <div className={styles.feedsList}>

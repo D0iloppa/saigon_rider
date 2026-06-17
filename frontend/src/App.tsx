@@ -25,6 +25,9 @@ import ProfileSetup from '@/pages/auth/ProfileSetup';
 // Home
 import WorldMap from '@/pages/home/WorldMap';
 
+// 동네지도 (RideNav 지도 재사용)
+import NeighborhoodMap from '@/pages/map/NeighborhoodMap';
+
 // Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
 import MarketMain from '@/pages/market/MarketMain';
 import MarketCreate from '@/pages/market/MarketCreate';
@@ -213,6 +216,7 @@ export default function App() {
 
           {/* Protected: Main */}
           <Route path="/home" element={<PrivateRoute><WorldMap /></PrivateRoute>} />
+          <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
           <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
           <Route path="/market/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />

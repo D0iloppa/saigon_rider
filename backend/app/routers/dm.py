@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import DmConversation, DmMessage, User
+from ..models import DmConversation, DmMessage, MarketplaceListing, User
 from ..schemas import (
     DmConversationCreateRequest,
     DmConversationOut,
@@ -19,9 +19,20 @@ from ..schemas import (
     Page,
 )
 from ..utils import resolve_avatar_url
+from .market import _card as _market_card
 
 router = APIRouter(prefix="/dm", tags=["DM (Direct Message)"])
 log = logging.getLogger(__name__)
+
+
+async def _listing_context(db: AsyncSession, listing_id: uuid.UUID | None):
+    """대화에 연결된 매물 카드(brief). 없으면 None."""
+    if listing_id is None:
+        return None
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
+    ).scalar_one_or_none()
+    return _market_card(listing) if listing else None
 
 
 def _resolve_dm_image(msg: DmMessage) -> str | None:
@@ -94,9 +105,36 @@ async def get_conversations(
                 last_message_preview=last_msg.content[:50] if last_msg and last_msg.content else None,
                 last_message_at=conv.last_message_at,
                 unread_count=unread,
+                context_type=conv.context_type,
+                context_id=conv.context_id,
             )
         )
     return result
+
+
+@router.get("/conversations/{conv_id}", response_model=DmConversationOut, summary="대화방 단건 조회")
+async def get_conversation(
+    conv_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    other_id = _other_user_id(conv, user_id)
+    other_user = await db.get(User, other_id)
+    return DmConversationOut(
+        id=conv.id,
+        other_user_id=other_id,
+        other_user_nickname=other_user.nickname if other_user else None,
+        other_user_avatar_url=resolve_avatar_url(other_user) if other_user else None,
+        last_message_preview=None,
+        last_message_at=conv.last_message_at,
+        unread_count=0,
+        context_type=conv.context_type,
+        context_id=conv.context_id,
+        context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
+    )
 
 
 @router.post("/conversations", response_model=DmConversationOut, status_code=201, summary="대화방 생성/조회")
@@ -121,8 +159,15 @@ async def create_conversation(
 
     if existing:
         conv = existing
+        # 컨텍스트가 아직 없고 이번에 들어왔으면 연결(기존 일반 DM → 매물 대화로 승격)
+        if body.context_type and not conv.context_type:
+            conv.context_type = body.context_type
+            conv.context_id = body.context_id
+            await db.commit()
     else:
-        conv = DmConversation(participant_1=p1, participant_2=p2)
+        conv = DmConversation(
+            participant_1=p1, participant_2=p2, context_type=body.context_type, context_id=body.context_id
+        )
         db.add(conv)
         await db.commit()
         await db.refresh(conv)
@@ -136,6 +181,9 @@ async def create_conversation(
         last_message_preview=None,
         last_message_at=conv.last_message_at,
         unread_count=0,
+        context_type=conv.context_type,
+        context_id=conv.context_id,
+        context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
     )
 
 
@@ -175,6 +223,8 @@ async def get_messages(
             image_url=_resolve_dm_image(m),
             read_at=m.read_at,
             created_at=m.created_at,
+            message_type=m.message_type,
+            meta=m.meta,
         )
         for m in rows
     ]
@@ -201,6 +251,8 @@ async def send_message(
         conversation_id=conv_id,
         sender_id=body.sender_id,
         content=body.content,
+        message_type=body.message_type or "text",
+        meta=body.meta,
         image_content_id=body.image_content_id,
         created_at=now,
     )
@@ -232,6 +284,8 @@ async def send_message(
         image_url=_resolve_dm_image(msg),
         read_at=msg.read_at,
         created_at=msg.created_at,
+        message_type=msg.message_type,
+        meta=msg.meta,
     )
 
 

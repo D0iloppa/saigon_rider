@@ -77,6 +77,137 @@ class SafetyGradeOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── 거래 플랫폼 (Marketplace, SGR-287) ────────────────────────────
+
+
+class MarketplaceCategoryOut(BaseModel):
+    id: int
+    code: str
+    name_ko: str
+    name_vi: str
+    name_en: str
+    icon: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class DistrictBrief(BaseModel):
+    id: int
+    name_ko: str
+    name_vi: str
+    name_en: str
+
+
+class SellerBrief(BaseModel):
+    id: UUID
+    nickname: str | None = None
+    avatar_url: str | None = None
+    level: int = 1
+    manner_temp: float = 36.5
+    is_following: bool = False
+
+
+class MarketplaceListingCard(BaseModel):
+    id: UUID
+    title: str
+    price_vnd: int
+    original_price_vnd: int | None = None
+    is_negotiable: bool
+    status: str
+    category_code: str | None = None
+    thumbnail_url: str | None = None
+    district: DistrictBrief | None = None
+    like_count: int = 0
+    bumped_at: datetime
+    distance_m: int | None = None
+
+
+class MarketplaceListingDetail(BaseModel):
+    id: UUID
+    title: str
+    description: str | None = None
+    price_vnd: int
+    original_price_vnd: int | None = None
+    is_negotiable: bool
+    status: str
+    category: MarketplaceCategoryOut | None = None
+    image_urls: list[str] = []
+    seller: SellerBrief
+    district: DistrictBrief | None = None
+    like_count: int = 0
+    view_count: int = 0
+    created_at: datetime
+    bumped_at: datetime
+    liked: bool = False
+    other_listings: list[MarketplaceListingCard] = []
+
+
+class MarketplaceListingCreateRequest(BaseModel):
+    seller_id: UUID
+    category_id: int | None = None
+    title: str
+    description: str | None = None
+    price_vnd: int = 0
+    is_negotiable: bool = False
+    district_id: int | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    image_content_ids: list[UUID] = []
+
+
+class MarketplaceListingCreated(BaseModel):
+    id: UUID
+
+
+class MarketplaceListingStatusUpdate(BaseModel):
+    seller_id: UUID
+    status: str  # ON_SALE | RESERVED | SOLD
+
+
+class MarketplaceListingPriceUpdate(BaseModel):
+    seller_id: UUID
+    price_vnd: int
+
+
+class MarketplaceReviewCreateRequest(BaseModel):
+    reviewer_id: UUID
+    target_id: UUID
+    listing_id: UUID | None = None
+    rating: str  # GOOD | BAD
+    manner_tags: list[str] = []
+    comment: str | None = None
+
+
+class MarketplaceReviewResult(BaseModel):
+    id: UUID
+    target_manner_temp: float
+
+
+class MarketplaceLikeRequest(BaseModel):
+    user_id: UUID
+
+
+class MarketplaceLikeResult(BaseModel):
+    liked: bool
+    like_count: int
+
+
+class MarketplaceKeywordAlertOut(BaseModel):
+    id: UUID
+    keyword: str
+
+    model_config = {"from_attributes": True}
+
+
+class MarketplaceKeywordAlertCreateRequest(BaseModel):
+    user_id: UUID
+    keyword: str
+
+
+class MarketplaceKeywordAlertDeleteRequest(BaseModel):
+    user_id: UUID
+
+
 # ── Auth / User ──────────────────────────────────────────────────
 
 
@@ -654,11 +785,16 @@ class DmConversationOut(BaseModel):
     last_message_preview: str | None
     last_message_at: datetime
     unread_count: int
+    context_type: str | None = None
+    context_id: UUID | None = None
+    context_listing: MarketplaceListingCard | None = None
 
 
 class DmConversationCreateRequest(BaseModel):
     user_id: UUID
     other_user_id: UUID
+    context_type: str | None = None
+    context_id: UUID | None = None
 
 
 class DmMessageOut(BaseModel):
@@ -669,12 +805,16 @@ class DmMessageOut(BaseModel):
     image_url: str | None
     read_at: datetime | None
     created_at: datetime
+    message_type: str = "text"
+    meta: dict | None = None
 
 
 class DmMessageCreateRequest(BaseModel):
     sender_id: UUID
     content: str | None = None
     image_content_id: UUID | None = None
+    message_type: str = "text"
+    meta: dict | None = None
 
 
 class DmMarkReadRequest(BaseModel):

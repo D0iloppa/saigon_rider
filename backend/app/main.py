@@ -26,6 +26,7 @@ from .routers import (
     info_weather,
     internal,
     inventory,
+    market,
     master,
     notifications,
     profile,
@@ -123,6 +124,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(master.router, prefix="/api")
+app.include_router(market.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(quests.router, prefix="/api")

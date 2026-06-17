@@ -114,6 +114,7 @@ class User(Base):
     avatar_content: Mapped["Content | None"] = relationship(
         "Content", foreign_keys=[avatar_content_id], lazy="selectin"
     )
+    manner_temp: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False, default=Decimal("36.5"))
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -314,6 +315,122 @@ class FeedPostImage(Base):
     content: Mapped["Content"] = relationship("Content", lazy="selectin")
 
 
+# ── 거래 플랫폼 (Marketplace, SGR-287) ───────────────────────────
+
+
+class MarketplaceCategory(Base):
+    __tablename__ = "marketplace_categories"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
+    name_ko: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_vi: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
+    icon: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class MarketplaceListing(Base):
+    __tablename__ = "marketplace_listings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    seller_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    seller: Mapped["User"] = relationship("User", foreign_keys=[seller_id], lazy="selectin")
+    category_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("marketplace_categories.id", ondelete="SET NULL"), nullable=True
+    )
+    category: Mapped["MarketplaceCategory | None"] = relationship(
+        "MarketplaceCategory", foreign_keys=[category_id], lazy="selectin"
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    original_price_vnd: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    is_negotiable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ON_SALE")
+    district_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
+    )
+    district: Mapped["District | None"] = relationship("District", foreign_keys=[district_id], lazy="selectin")
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bumped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    images: Mapped[list["MarketplaceListingImage"]] = relationship(
+        "MarketplaceListingImage",
+        back_populates="listing",
+        lazy="selectin",
+        order_by="MarketplaceListingImage.sort_order",
+        cascade="all, delete-orphan",
+    )
+
+
+class MarketplaceListingImage(Base):
+    __tablename__ = "marketplace_listing_images"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    content_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="CASCADE"), nullable=False
+    )
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    listing: Mapped["MarketplaceListing"] = relationship("MarketplaceListing", back_populates="images")
+    content: Mapped["Content"] = relationship("Content", lazy="selectin")
+
+
+class MarketplaceReview(Base):
+    __tablename__ = "marketplace_reviews"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    target_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    rating: Mapped[str] = mapped_column(String(8), nullable=False)
+    manner_tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MarketplaceListingLike(Base):
+    __tablename__ = "marketplace_listing_likes"
+
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MarketplaceKeywordAlert(Base):
+    __tablename__ = "marketplace_keyword_alerts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    keyword: Mapped[str] = mapped_column(String(60), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class PostLike(Base):
     __tablename__ = "post_likes"
 
@@ -457,6 +574,8 @@ class DmConversation(Base):
     participant_2: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    context_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    context_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -472,6 +591,8 @@ class DmMessage(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    message_type: Mapped[str] = mapped_column(String(20), nullable=False, default="text")
+    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     image_content_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
     )

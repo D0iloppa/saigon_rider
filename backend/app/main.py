@@ -36,6 +36,7 @@ from .routers import (
     season,
     shop,
     support,
+    translate,
     user_quests,
     users,
     wallet,
@@ -125,6 +126,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(master.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
+app.include_router(translate.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(quests.router, prefix="/api")

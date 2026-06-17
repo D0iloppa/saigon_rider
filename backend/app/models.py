@@ -431,6 +431,19 @@ class MarketplaceKeywordAlert(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class Translation(Base):
+    __tablename__ = "translations"
+
+    source_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source_lang: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    source_text: Mapped[str] = mapped_column(Text, nullable=False)
+    text_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_vi: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class PostLike(Base):
     __tablename__ = "post_likes"
 

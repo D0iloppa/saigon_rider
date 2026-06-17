@@ -208,6 +208,22 @@ class MarketplaceKeywordAlertDeleteRequest(BaseModel):
     user_id: UUID
 
 
+# ── 실시간 번역 ───────────────────────────────────────────────────
+
+
+class TranslateRequest(BaseModel):
+    text: str
+    target_lang: str  # ko | en | vi
+    source_lang: str | None = None
+
+
+class TranslateResponse(BaseModel):
+    translated: str
+    target_lang: str
+    source_lang: str | None = None
+    cached: bool
+
+
 # ── Auth / User ──────────────────────────────────────────────────
 
 

@@ -84,17 +84,24 @@ export default function DmDetail() {
   };
 
   const handleSendAppointment = async () => {
-    if (!conversationId || !apptWhen) return;
+    if (!conversationId || !apptWhen || sending) return;
     const whenLabel = apptWhen.replace('T', ' ');
     const summary = t('dm.apptSummary', { when: whenLabel, place: apptPlace, defaultValue: `약속 제안: ${whenLabel} ${apptPlace}` });
-    const msg = await sendMessage(conversationId, summary, {
-      messageType: 'appointment',
-      meta: { when: apptWhen, place: apptPlace || undefined },
-    });
-    setMessages((prev) => [...prev, msg]);
-    setApptOpen(false);
-    setApptWhen('');
-    setApptPlace('');
+    setSending(true);
+    try {
+      const msg = await sendMessage(conversationId, summary, {
+        messageType: 'appointment',
+        meta: { when: apptWhen, place: apptPlace || undefined },
+      });
+      setMessages((prev) => [...prev, msg]);
+      setApptOpen(false);
+      setApptWhen('');
+      setApptPlace('');
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSending(false);
+    }
   };
 
   const toggleTag = (tag: string) =>

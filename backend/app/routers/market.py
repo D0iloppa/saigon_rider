@@ -385,6 +385,17 @@ async def create_review(
     if body.reviewer_id != session_uid:
         raise HTTPException(status_code=403, detail="reviewer mismatch")
 
+    # 무결성: 후기는 실제 매물의 판매자에게만 (임의 유저 대상 매너온도 어뷰징 차단)
+    listing = (
+        (
+            await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == body.listing_id))
+        ).scalar_one_or_none()
+        if body.listing_id is not None
+        else None
+    )
+    if listing is None or listing.seller_id != body.target_id:
+        raise HTTPException(status_code=400, detail="review target must be the listing seller")
+
     # 중복 방지: 같은 매물·리뷰어·대상 조합이 이미 있으면 거절
     dup = (
         await db.execute(

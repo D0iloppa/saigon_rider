@@ -94,7 +94,7 @@ export default function MarketDetail() {
     if (!detail || !myId || status === detail.status) return;
     try {
       await updateListingStatus(detail.id, myId, status);
-      setDetail(await fetchListing(detail.id));
+      setDetail(await fetchListing(detail.id, myId));
     } catch {
       toast.error(t('market.statusError', { defaultValue: '상태 변경 실패' }));
     }

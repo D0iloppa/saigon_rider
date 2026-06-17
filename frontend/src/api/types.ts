@@ -201,6 +201,14 @@ export interface DmConversation {
   lastMessagePreview: string | null;
   lastMessageAt: string;
   unreadCount: number;
+  contextType: string | null;
+  contextId: string | null;
+  contextListing: import('./market').ListingCard | null;
+}
+
+export interface DmAppointmentMeta {
+  when?: string;
+  place?: string;
 }
 
 export interface DmMessage {
@@ -211,4 +219,6 @@ export interface DmMessage {
   imageUrl: string | null;
   readAt: string | null;
   createdAt: string;
+  messageType: string;
+  meta: DmAppointmentMeta | null;
 }

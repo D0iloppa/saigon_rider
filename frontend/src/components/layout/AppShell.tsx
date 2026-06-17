@@ -19,6 +19,7 @@ const HIDE_TABBAR_PATHS = [
   '/ride-nav',
   '/link',
   '/dm/',
+  '/market/',
   '/quest-check/',
 ];
 

@@ -47,6 +47,7 @@ function resolveAction(action: string, id: string | null): string {
     case 'quests':                 return '/quests';
     case 'quest':                  return id ? `/quests/${id}` : '/quests';
     case 'dm':                     return id ? `/dm/${id}` : '/dm';
+    case 'market':                 return id ? `/market/${id}` : '/market';
     case 'feed':                   return '/feed';
     case 'profile':                return '/profile';
     case 'settings':               return '/settings';

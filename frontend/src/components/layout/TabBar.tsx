@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Target, Camera, ShieldCheck } from 'lucide-react';
+import { Home, Store, Camera, ShieldCheck } from 'lucide-react';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './TabBar.module.css';
 
@@ -42,7 +42,7 @@ export function TabBar() {
 
   const tabs = [
     { path: '/home',    label: t('tabbar.home'),    code: '1f3e0', Fallback: Home        },
-    { path: '/quests',  label: t('tabbar.quests'),  code: '1f3af', Fallback: Target      },
+    { path: '/market',  label: t('tabbar.market'),  code: '1f6d2', Fallback: Store       },
     { path: '/feed',    label: t('tabbar.feed'),    code: '1f4f7', Fallback: Camera      },
     { path: '/profile', label: t('tabbar.profile'), code: '2705',  Fallback: ShieldCheck },
   ];

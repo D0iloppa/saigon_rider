@@ -1,0 +1,339 @@
+.root {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Header ── */
+.header {
+  padding: 0 20px 0;
+  flex-shrink: 0;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.caret {
+  color: var(--text-3);
+  font-size: 18px;
+}
+
+.tagline {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.wishlistBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--text-2);
+}
+
+.wishlistBtn:active {
+  transform: scale(0.9);
+}
+
+/* Filter chips */
+.filterRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filterRow::-webkit-scrollbar { display: none; }
+
+/* Sort + hide-sold controls */
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.sortGroup {
+  display: flex;
+  gap: 4px;
+}
+
+.sortBtn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  transition: color .15s ease;
+}
+
+.sortBtnActive {
+  color: var(--brand-500);
+  font-weight: 700;
+}
+
+/* 글쓰기 FAB — 네비 바로 위 고정 overlay (스크롤·아이템 수 무관) */
+.writeFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(255, 90, 31, .42);
+}
+
+.writeFab:active {
+  transform: scale(0.94);
+}
+
+/* ── List area ── */
+.listArea {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.listContent {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Listing card (1열, REF-02) ── */
+.card {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: var(--shadow-card);
+  transition: transform .12s ease;
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.statusTag {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.skeleton {
+  height: 108px;
+  border-radius: 18px;
+  flex-shrink: 0;
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.cardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardMeta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dropBadge {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.likes {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* Empty state */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  gap: 12px;
+  text-align: center;
+}
+
+.emptyEmoji {
+  font-size: 64px;
+}
+
+.emptyTitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.emptySub {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* ── 키워드 알림 시트 ── */
+.alertSheet {
+  padding: 8px 20px 24px;
+}
+
+.alertTitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.alertDesc {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.alertInputRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.alertInput {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 11px 14px;
+  font-size: 15px;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.alertInput:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
+.alertChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.alertChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 7px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.alertChipX {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-3);
+  color: #fff;
+}
+
+.alertEmpty {
+  font-size: 13px;
+  color: var(--text-3);
+}

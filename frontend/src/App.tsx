@@ -25,6 +25,12 @@ import ProfileSetup from '@/pages/auth/ProfileSetup';
 // Home
 import WorldMap from '@/pages/home/WorldMap';
 
+// Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
+import MarketMain from '@/pages/market/MarketMain';
+import MarketCreate from '@/pages/market/MarketCreate';
+import MarketDetail from '@/pages/market/MarketDetail';
+import MarketWishlist from '@/pages/market/MarketWishlist';
+
 // Quest
 import QuestList from '@/pages/quest/QuestList';
 import QuestDetail from '@/pages/quest/QuestDetail';
@@ -207,6 +213,11 @@ export default function App() {
 
           {/* Protected: Main */}
           <Route path="/home" element={<PrivateRoute><WorldMap /></PrivateRoute>} />
+          <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
+          <Route path="/market/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
+          <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
+          <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
+          {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
           <Route path="/quest-check/:userQuestId" element={<PrivateRoute><QuestCheckPage /></PrivateRoute>} />

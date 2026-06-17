@@ -50,7 +50,7 @@ async def translate(
     # 캐시 미스 → provider 호출(키 없으면 stub=원문) 후 적재
     try:
         translated, detected = await provider_translate(text, target, body.source_lang, api_key, provider)
-    except (httpx.HTTPError, httpx.RequestError) as exc:
+    except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
         log.warning("translate provider failed: %s", exc)
         raise HTTPException(status_code=502, detail="translation provider error") from exc
 

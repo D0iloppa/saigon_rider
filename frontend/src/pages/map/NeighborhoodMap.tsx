@@ -31,6 +31,11 @@ export default function NeighborhoodMap() {
     };
   }, []);
 
+  // GPS 확정 시 내 위치로 자동 이동(초기 진입 시 HCMC 폴백에 머무는 문제 방지)
+  useEffect(() => {
+    if (pos) mapRef.current?.recenter(pos);
+  }, [pos]);
+
   const recenter = () => {
     if (pos) mapRef.current?.recenter(pos);
   };

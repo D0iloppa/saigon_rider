@@ -50,7 +50,9 @@ async def resolve_config(db: AsyncSession) -> tuple[str, str]:
     cfg = {r.key: r.value for r in rows}
     api_key = cfg.get("api_key", "")
     provider = cfg.get("provider") or _ENV_PROVIDER or "google"
-    _config_cache = (now + _CONFIG_TTL, api_key, provider)
+    # 키가 설정된 경우만 캐시 — 미설정 시 매번 재조회(어드민이 키 넣으면 즉시 반영)
+    if api_key:
+        _config_cache = (now + _CONFIG_TTL, api_key, provider)
     return api_key, provider
 
 
@@ -62,11 +64,14 @@ async def provider_translate(
         return text, source_lang
 
     if provider == "google":
-        params = {"key": api_key, "q": text, "target": target_lang, "format": "text"}
-        if source_lang:
-            params["source"] = source_lang
+        # q/target/format 는 POST 바디로(긴 텍스트 URL 길이초과 방지). source 미전송=자동감지
+        #  → 캐시가 (원문,대상)만으로 정합(요청자 source_lang 힌트가 결과를 바꾸지 않음).
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post("https://translation.googleapis.com/language/translate/v2", params=params)
+            resp = await client.post(
+                "https://translation.googleapis.com/language/translate/v2",
+                params={"key": api_key},
+                json={"q": text, "target": target_lang, "format": "text"},
+            )
             resp.raise_for_status()
             tr = resp.json()["data"]["translations"][0]
             return tr["translatedText"], tr.get("detectedSourceLanguage", source_lang)

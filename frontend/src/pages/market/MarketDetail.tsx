@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MoreVertical } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
@@ -11,16 +11,21 @@ import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { createConversation } from '@/api/dm';
 import { followUser, unfollowUser } from '@/api/follows';
-import { translateText } from '@/api/translate';
 import {
   fetchListing,
   updateListingStatus,
   updateListingPrice,
+  bumpListing,
+  BUMP_COOLDOWN_MS,
+  reportListing,
+  blockUser,
+  REPORT_REASONS,
   toggleLike,
   localizedName,
   type ListingCard,
   type ListingDetail,
   type ListingStatus,
+  type ReportReason,
 } from '@/api/market';
 import { formatMannerTemp, formatPriceVnd, mannerEmoji, relativeTime, statusLabelKey } from './marketFormat';
 import styles from './MarketDetail.module.css';
@@ -36,9 +41,8 @@ export default function MarketDetail() {
   const [loading, setLoading] = useState(true);
   const [priceOpen, setPriceOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
-  const [translatedDesc, setTranslatedDesc] = useState<string | null>(null);
-  const [showTranslated, setShowTranslated] = useState(false);
-  const [translating, setTranslating] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -94,24 +98,6 @@ export default function MarketDetail() {
     }
   };
 
-  const handleTranslate = async () => {
-    if (!detail?.description) return;
-    if (translatedDesc !== null) {
-      setShowTranslated((v) => !v);
-      return;
-    }
-    setTranslating(true);
-    try {
-      const res = await translateText(detail.description);
-      setTranslatedDesc(res.translated);
-      setShowTranslated(true);
-    } catch {
-      toast.error(t('market.translateError', { defaultValue: '번역 실패' }));
-    } finally {
-      setTranslating(false);
-    }
-  };
-
   const handleStatus = async (status: ListingStatus) => {
     if (!detail || !myId || status === detail.status) return;
     try {
@@ -122,14 +108,60 @@ export default function MarketDetail() {
     }
   };
 
+  const handleBump = async () => {
+    if (!detail) return;
+    try {
+      await bumpListing(detail.id);
+      setDetail(await fetchListing(detail.id, myId));
+      toast.success(t('market.bumpDone', { defaultValue: '끌어올렸어요' }));
+    } catch {
+      toast.error(t('market.bumpCooldown', { defaultValue: '아직 끌어올릴 수 없어요' }));
+    }
+  };
+
+  const bumpRemainingMs = detail
+    ? Math.max(0, Math.min(BUMP_COOLDOWN_MS, BUMP_COOLDOWN_MS - (Date.now() - new Date(detail.bumpedAt).getTime())))
+    : 0;
+  const canBump = detail?.status === 'ON_SALE' && bumpRemainingMs <= 0;
+
+  const handleReport = async (reason: ReportReason) => {
+    if (!detail) return;
+    try {
+      await reportListing(detail.id, reason);
+      setReportOpen(false);
+      toast.success(t('market.reportDone', { defaultValue: '신고가 접수되었어요' }));
+    } catch {
+      toast.error(t('market.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+    }
+  };
+
+  const handleBlock = async () => {
+    if (!detail) return;
+    try {
+      await blockUser(detail.seller.id);
+      setMoreOpen(false);
+      toast.success(t('market.blockDone', { defaultValue: '차단했어요' }));
+      navigate(-1);
+    } catch {
+      toast.error(t('market.blockError', { defaultValue: '차단 처리에 실패했어요' }));
+    }
+  };
+
   return (
     <div className={styles.root}>
       {/* Top bar */}
       <div className={styles.topbar}>
         <StatusBar variant="dark" />
-        <button className={styles.backBtn} type="button" onClick={() => navigate(-1)} aria-label={t('common.back', { defaultValue: '뒤로' })}>
-          <ArrowLeft size={24} strokeWidth={2} />
-        </button>
+        <div className={styles.topbarRow}>
+          <button className={styles.backBtn} type="button" onClick={() => navigate(-1)} aria-label={t('common.back', { defaultValue: '뒤로' })}>
+            <ArrowLeft size={24} strokeWidth={2} />
+          </button>
+          {!isSeller && detail && (
+            <button className={styles.backBtn} type="button" onClick={() => setMoreOpen(true)} aria-label={t('market.more', { defaultValue: '더보기' })}>
+              <MoreVertical size={24} strokeWidth={2} />
+            </button>
+          )}
+        </div>
       </div>
 
       {loading || !detail ? (
@@ -203,22 +235,8 @@ export default function MarketDetail() {
                 )}
               </div>
 
-              {/* Description + 번역 토글 */}
-              {detail.description && (
-                <>
-                  <p className={styles.description}>
-                    {showTranslated && translatedDesc ? translatedDesc : detail.description}
-                  </p>
-                  <button className={styles.translateBtn} type="button" onClick={handleTranslate} disabled={translating}>
-                    🌐{' '}
-                    {translating
-                      ? t('market.translating', { defaultValue: '번역 중…' })
-                      : showTranslated
-                        ? t('market.showOriginal', { defaultValue: '원문 보기' })
-                        : t('market.showTranslation', { defaultValue: '번역 보기' })}
-                  </button>
-                </>
-              )}
+              {/* Description (서버가 조회 언어로 번역해 제공) */}
+              {detail.description && <p className={styles.description}>{detail.description}</p>}
 
               {/* Seller's other listings */}
               {detail.otherListings.length > 0 && (
@@ -242,6 +260,17 @@ export default function MarketDetail() {
           {/* Bottom action bar */}
           {isSeller ? (
             <div className={styles.sellerControls}>
+              {detail.status === 'ON_SALE' && (
+                <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>
+                  ⬆️{' '}
+                  {canBump
+                    ? t('market.bump', { defaultValue: '끌어올리기' })
+                    : t('market.bumpWait', {
+                        hours: Math.ceil(bumpRemainingMs / 3_600_000),
+                        defaultValue: `${Math.ceil(bumpRemainingMs / 3_600_000)}시간 후 끌어올리기`,
+                      })}
+                </button>
+              )}
               <button
                 className={styles.priceEditBtn}
                 type="button"
@@ -305,6 +334,36 @@ export default function MarketDetail() {
               <div className={styles.priceSubmit}>
                 <Button onClick={handleUpdatePrice}>{t('common.save', { defaultValue: '저장' })}</Button>
               </div>
+            </div>
+          </BottomSheet>
+
+          {/* 더보기: 신고/차단 (비판매자) */}
+          <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+            <div className={styles.moreSheet}>
+              <button
+                className={styles.moreItem}
+                onClick={() => {
+                  setMoreOpen(false);
+                  setReportOpen(true);
+                }}
+              >
+                🚩 {t('market.report', { defaultValue: '신고하기' })}
+              </button>
+              <button className={`${styles.moreItem} ${styles.moreDanger}`} onClick={handleBlock}>
+                🚫 {t('market.block', { defaultValue: '이 사용자 차단' })}
+              </button>
+            </div>
+          </BottomSheet>
+
+          {/* 신고 사유 */}
+          <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)}>
+            <div className={styles.moreSheet}>
+              <h2 className={styles.priceSheetTitle}>{t('market.reportTitle', { defaultValue: '신고 사유' })}</h2>
+              {REPORT_REASONS.map((r) => (
+                <button key={r} className={styles.moreItem} onClick={() => handleReport(r)}>
+                  {t(`market.reportReason_${r}`)}
+                </button>
+              ))}
             </div>
           </BottomSheet>
         </>

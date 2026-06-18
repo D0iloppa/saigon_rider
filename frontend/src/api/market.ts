@@ -12,6 +12,29 @@ export interface MarketCategory {
   name_vi: string;
   name_en: string;
   icon: string | null;
+  parent_id: number | null;
+  depth: number;
+  sort_order: number;
+}
+
+export interface CategoryNode extends MarketCategory {
+  children: MarketCategory[];
+}
+
+/** flat 카테고리 목록 → 대분류(depth 0) + 자식(depth 1) 2-depth 트리 */
+export function buildCategoryTree(flat: MarketCategory[]): CategoryNode[] {
+  const byParent = new Map<number, MarketCategory[]>();
+  for (const c of flat) {
+    if (c.parent_id == null) continue;
+    const arr = byParent.get(c.parent_id) ?? [];
+    arr.push(c);
+    byParent.set(c.parent_id, arr);
+  }
+  const bySort = (a: MarketCategory, b: MarketCategory) => a.sort_order - b.sort_order;
+  return flat
+    .filter((c) => c.parent_id == null)
+    .sort(bySort)
+    .map((top) => ({ ...top, children: (byParent.get(top.id) ?? []).sort(bySort) }));
 }
 
 export interface DistrictBrief {
@@ -73,6 +96,7 @@ export interface ListingDetail {
   likeCount: number;
   viewCount: number;
   createdAt: string;
+  bumpedAt: string;
   liked: boolean;
   otherListings: ListingCard[];
 }
@@ -112,13 +136,19 @@ export interface ListingPage {
 
 export interface ListingQuery {
   category?: string;
+  categoryId?: number | null;
+  q?: string;
   sort?: ListingSort;
   hideSold?: boolean;
   lat?: number | null;
   lng?: number | null;
+  viewerId?: string | null;
   page?: number;
   size?: number;
 }
+
+export type ReportReason = 'SPAM' | 'FRAUD' | 'PROHIBITED' | 'DUPLICATE' | 'OTHER';
+export const REPORT_REASONS: ReportReason[] = ['FRAUD', 'PROHIBITED', 'SPAM', 'DUPLICATE', 'OTHER'];
 
 export interface CreateListingParams {
   sellerId: string;
@@ -137,15 +167,51 @@ export async function fetchCategories(): Promise<MarketCategory[]> {
   return api.realFetch<MarketCategory[]>('/market/categories');
 }
 
+export interface MarketAd {
+  id: string;
+  partnerName: string;
+  title: string;
+  body: string | null;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  districtId: number | null;
+}
+
+function transformAd(a: any): MarketAd {
+  return {
+    id: a.id,
+    partnerName: a.partner_name,
+    title: a.title,
+    body: a.body ?? null,
+    imageUrl: a.image_url ?? null,
+    linkUrl: a.link_url ?? null,
+    districtId: a.district_id ?? null,
+  };
+}
+
+export async function fetchAds(districtId?: number | null): Promise<MarketAd[]> {
+  const qs = districtId != null ? `?district_id=${districtId}` : '';
+  const raw = await api.realFetch<any[]>(`/market/ads${qs}`);
+  return (raw ?? []).map(transformAd);
+}
+
+export async function fetchAd(id: string): Promise<MarketAd> {
+  return transformAd(await api.realFetch<any>(`/market/ads/${id}`));
+}
+
 export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> {
   const params = new URLSearchParams();
   if (q.category && q.category !== 'all') params.set('category', q.category);
+  if (q.categoryId != null) params.set('category_id', String(q.categoryId));
+  if (q.q && q.q.trim()) params.set('q', q.q.trim());
   if (q.sort) params.set('sort', q.sort);
   if (q.hideSold) params.set('hide_sold', 'true');
   if (q.lat != null && q.lng != null) {
     params.set('lat', String(q.lat));
     params.set('lng', String(q.lng));
   }
+  if (q.viewerId) params.set('viewer_id', q.viewerId);
+  params.set('lang', i18n.language);
   params.set('page', String(q.page ?? 1));
   params.set('size', String(q.size ?? 20));
   const raw = await api.realFetch<any>(`/market/listings?${params.toString()}`);
@@ -168,11 +234,33 @@ export async function updateListingStatus(
   });
 }
 
+/** 끌올 쿨다운 (BFF _BUMP_COOLDOWN 과 동일하게 유지) */
+export const BUMP_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+
+export async function bumpListing(id: string): Promise<{ id: string; bumped_at: string }> {
+  return api.realFetch<{ id: string; bumped_at: string }>(`/market/listings/${id}/bump`, { method: 'POST' });
+}
+
 export async function updateListingPrice(id: string, sellerId: string, priceVnd: number): Promise<{ id: string }> {
   return api.realFetch<{ id: string }>(`/market/listings/${id}/price`, {
     method: 'PATCH',
     body: JSON.stringify({ seller_id: sellerId, price_vnd: priceVnd }),
   });
+}
+
+export async function reportListing(id: string, reason: ReportReason, note?: string): Promise<void> {
+  await api.realFetch(`/market/listings/${id}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, note: note ?? null }),
+  });
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  await api.realFetch(`/market/users/${userId}/block`, { method: 'POST' });
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  await api.realFetch(`/market/users/${userId}/block`, { method: 'DELETE' });
 }
 
 export async function createReview(p: CreateReviewParams): Promise<{ id: string; target_manner_temp: number }> {
@@ -239,8 +327,10 @@ export function resolveDistrict(lat: number, lng: number, districts: District[])
 }
 
 export async function fetchListing(id: string, userId?: string): Promise<ListingDetail> {
-  const qs = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
-  const r = await api.realFetch<any>(`/market/listings/${id}${qs}`);
+  const p = new URLSearchParams();
+  if (userId) p.set('user_id', userId);
+  p.set('lang', i18n.language);
+  const r = await api.realFetch<any>(`/market/listings/${id}?${p.toString()}`);
   return {
     id: r.id,
     title: r.title,
@@ -263,6 +353,7 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
     likeCount: r.like_count ?? 0,
     viewCount: r.view_count ?? 0,
     createdAt: r.created_at,
+    bumpedAt: r.bumped_at,
     liked: r.liked ?? false,
     otherListings: (r.other_listings ?? []).map(transformCard),
   };

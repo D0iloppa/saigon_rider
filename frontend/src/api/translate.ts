@@ -29,3 +29,24 @@ export async function translateText(
     cached: r.cached ?? false,
   };
 }
+
+export interface TranslateBundle {
+  kr: string;
+  en: string;
+  vi: string;
+  sourceLang: string;
+}
+
+/** 원문 → 3개 언어 번들({kr,en,vi}). 채팅 등 on-demand 번역용. */
+export async function translateAll(text: string): Promise<TranslateBundle> {
+  const r = await api.realFetch<any>('/translate/all', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+  return { kr: r.kr, en: r.en, vi: r.vi, sourceLang: r.source_lang };
+}
+
+/** 번들에서 현재 UI 언어 번역문 선택 (ko→kr). */
+export function pickLang(b: TranslateBundle, lang = i18n.language as string): string {
+  return lang === 'ko' ? b.kr : lang === 'vi' ? b.vi : b.en;
+}

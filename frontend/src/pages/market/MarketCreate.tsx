@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ChevronRight, MapPin } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
@@ -10,6 +11,8 @@ import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchDistricts, type District } from '@/api/master';
 import { createListing, fetchCategories, localizedName, resolveDistrict, type MarketCategory } from '@/api/market';
+import CategoryPickerSheet from './CategoryPickerSheet';
+import LocationPickerSheet from './LocationPickerSheet';
 import styles from './MarketCreate.module.css';
 
 const MAX_IMAGES = 10;
@@ -30,29 +33,32 @@ export default function MarketCreate() {
   const [title, setTitle] = useState('');
   const [categories, setCategories] = useState<MarketCategory[]>([]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [catSheetOpen, setCatSheetOpen] = useState(false);
   const [price, setPrice] = useState(''); // digits only
   const [negotiable, setNegotiable] = useState(false);
   const [description, setDescription] = useState('');
+  const [districts, setDistricts] = useState<District[]>([]);
   const [district, setDistrict] = useState<District | null>(null);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locOpen, setLocOpen] = useState(false);
   const [posting, setPosting] = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
 
-  // GPS → 동네 자동 인증 (HCMC 밖이면 Bình Thạnh 폴백)
+  // 거래 희망 장소 default = 내 위치의 구 (HCMC 밖이면 Bình Thạnh 폴백). 이후 picker 로 변경 가능.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const districts = await fetchDistricts().catch(() => [] as District[]);
-      const fallback = districts.find((d) => d.code === 'BINH_THANH') ?? districts[0] ?? null;
+      const list = await fetchDistricts().catch(() => [] as District[]);
+      if (cancelled) return;
+      setDistricts(list);
+      const fallback = list.find((d) => d.code === 'BINH_THANH') ?? list[0] ?? null;
       try {
         await native.ensureLocationPermission();
         const pos = await native.getLocation();
         if (cancelled) return;
-        setLocation({ lat: pos.lat, lng: pos.lng });
-        setDistrict(resolveDistrict(pos.lat, pos.lng, districts) ?? fallback);
+        setDistrict(resolveDistrict(pos.lat, pos.lng, list) ?? fallback);
       } catch {
         if (!cancelled) setDistrict(fallback);
       }
@@ -102,7 +108,9 @@ export default function MarketCreate() {
 
   const contentIds = images.filter((i) => i.contentId).map((i) => i.contentId!);
   const allUploaded = images.every((i) => !i.uploading);
-  const canPost = !posting && allUploaded && !!user && title.trim().length > 0 && categoryId !== null && contentIds.length > 0;
+  const canPost =
+    !posting && allUploaded && !!user && title.trim().length > 0 && contentIds.length > 0 && district !== null;
+  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
 
   const handleSubmit = async () => {
     if (!canPost || !user) return;
@@ -116,8 +124,8 @@ export default function MarketCreate() {
         priceVnd: price ? parseInt(price, 10) : 0,
         isNegotiable: negotiable,
         districtId: district?.id ?? null,
-        latitude: location?.lat ?? null,
-        longitude: location?.lng ?? null,
+        latitude: district?.center_lat ?? null,
+        longitude: district?.center_lng ?? null,
         imageContentIds: contentIds,
       });
       navigate(`/market/${id}`, { replace: true });
@@ -178,19 +186,19 @@ export default function MarketCreate() {
           maxLength={120}
         />
 
-        {/* Category */}
+        {/* Category (선택 — 지정 시 노출↑) */}
         <p className={styles.label}>{t('market.category', { defaultValue: '카테고리' })}</p>
-        <div className={styles.catRow}>
-          {categories.map((c) => (
-            <button
-              key={c.code}
-              className={`${styles.catChip} ${categoryId === c.id ? styles.catChipActive : ''}`}
-              onClick={() => setCategoryId(c.id)}
-            >
-              {c.icon} {localizedName(c)}
-            </button>
-          ))}
-        </div>
+        <button className={styles.catSelect} onClick={() => setCatSheetOpen(true)}>
+          <span className={selectedCategory ? styles.catSelectValue : styles.catSelectPlaceholder}>
+            {selectedCategory
+              ? `${selectedCategory.icon ? `${selectedCategory.icon} ` : ''}${localizedName(selectedCategory)}`
+              : t('market.categoryPlaceholder', { defaultValue: '카테고리 선택 (선택)' })}
+          </span>
+          <ChevronRight size={18} className={styles.catSelectChev} />
+        </button>
+        <p className={styles.catHint}>
+          💡 {t('market.categoryHint', { defaultValue: '카테고리를 지정하면 더 빨리 팔려요' })}
+        </p>
 
         {/* Price */}
         <p className={styles.label}>{t('market.price', { defaultValue: '가격' })}</p>
@@ -221,11 +229,31 @@ export default function MarketCreate() {
           maxLength={2000}
         />
 
-        {/* Location (auto) */}
-        <p className={styles.locationRow}>
-          📍 {district ? localizedName(district) : t('market.locating', { defaultValue: '위치 확인 중…' })}
-        </p>
+        {/* 거래 희망 장소 (지도 picker, default=내 위치 구) */}
+        <p className={styles.label}>{t('market.tradeLocation', { defaultValue: '거래 희망 장소' })}</p>
+        <button className={styles.catSelect} onClick={() => setLocOpen(true)}>
+          <span className={district ? styles.locValue : styles.catSelectPlaceholder}>
+            <MapPin size={16} className={styles.locPin} />
+            {district ? localizedName(district) : t('market.locating', { defaultValue: '위치 확인 중…' })}
+          </span>
+          <ChevronRight size={18} className={styles.catSelectChev} />
+        </button>
       </div>
+
+      <CategoryPickerSheet
+        open={catSheetOpen}
+        onClose={() => setCatSheetOpen(false)}
+        categories={categories}
+        selectedId={categoryId}
+        onSelect={(c) => setCategoryId(c?.id ?? null)}
+      />
+
+      <LocationPickerSheet
+        open={locOpen}
+        onClose={() => setLocOpen(false)}
+        value={district?.center_lat != null && district?.center_lng != null ? { lat: district.center_lat, lng: district.center_lng } : null}
+        onConfirm={({ districtCode }) => setDistrict(districts.find((d) => d.code === districtCode) ?? district)}
+      />
     </div>
   );
 }

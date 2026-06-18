@@ -224,6 +224,43 @@
   border-color: var(--brand-500);
 }
 
+.translated {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.translateBtn {
+  margin-top: 4px;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand-500);
+  opacity: 0.85;
+}
+
+.apptPlaceBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+}
+
+.apptPlacePin {
+  flex-shrink: 0;
+  color: var(--brand-500);
+}
+
 .apptSubmit {
   margin-top: 22px;
 }

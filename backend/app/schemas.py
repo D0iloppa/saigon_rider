@@ -87,6 +87,9 @@ class MarketplaceCategoryOut(BaseModel):
     name_vi: str
     name_en: str
     icon: str | None = None
+    parent_id: int | None = None
+    depth: int = 0
+    sort_order: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -161,6 +164,28 @@ class MarketplaceListingCreated(BaseModel):
     id: UUID
 
 
+class MarketplaceBumpResult(BaseModel):
+    id: UUID
+    bumped_at: datetime
+
+
+class MarketplaceReportCreateRequest(BaseModel):
+    reason: str
+    note: str | None = None
+
+
+class MarketplaceAdOut(BaseModel):
+    id: UUID
+    partner_name: str
+    title: str
+    body: str | None = None
+    image_url: str | None = None
+    link_url: str | None = None
+    district_id: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class MarketplaceListingStatusUpdate(BaseModel):
     seller_id: UUID
     status: str  # ON_SALE | RESERVED | SOLD
@@ -224,6 +249,17 @@ class TranslateResponse(BaseModel):
     target_lang: str
     source_lang: str | None = None
     cached: bool
+
+
+class TranslateAllRequest(BaseModel):
+    text: str
+
+
+class TranslateAllResponse(BaseModel):
+    kr: str
+    en: str
+    vi: str
+    source_lang: str
 
 
 # ── Auth / User ──────────────────────────────────────────────────

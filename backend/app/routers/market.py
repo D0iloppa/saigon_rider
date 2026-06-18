@@ -1,27 +1,32 @@
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, literal_column, select, text
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import func, literal_column, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import (
+    MarketplaceAd,
     MarketplaceCategory,
     MarketplaceKeywordAlert,
     MarketplaceListing,
     MarketplaceListingImage,
     MarketplaceListingLike,
+    MarketplaceListingReport,
     MarketplaceReview,
     User,
+    UserBlock,
     UserFollow,
 )
 from ..schemas import (
     DistrictBrief,
+    MarketplaceAdOut,
+    MarketplaceBumpResult,
     MarketplaceCategoryOut,
     MarketplaceKeywordAlertCreateRequest,
     MarketplaceKeywordAlertDeleteRequest,
@@ -34,17 +39,20 @@ from ..schemas import (
     MarketplaceListingDetail,
     MarketplaceListingPriceUpdate,
     MarketplaceListingStatusUpdate,
+    MarketplaceReportCreateRequest,
     MarketplaceReviewCreateRequest,
     MarketplaceReviewResult,
     Page,
     SellerBrief,
 )
+from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 log = logging.getLogger(__name__)
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD"}
+_BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
 
 
 async def _notify_keyword_matches(db: AsyncSession, listing: MarketplaceListing) -> None:
@@ -145,14 +153,45 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
     return rows
 
 
+# M-8 제휴광고 (활성·지역 타게팅: 해당 구 + 전역). 피드 중간 삽입용.
+@router.get("/ads", response_model=list[MarketplaceAdOut], summary="제휴 광고 목록")
+async def get_ads(
+    district_id: int | None = Query(None, description="지역 타게팅 (해당 구 + 전역 광고)"),
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(UTC)
+    q = select(MarketplaceAd).where(MarketplaceAd.is_active == True)
+    if district_id is not None:
+        q = q.where(or_(MarketplaceAd.district_id == district_id, MarketplaceAd.district_id.is_(None)))
+    q = q.where(or_(MarketplaceAd.starts_at.is_(None), MarketplaceAd.starts_at <= now))
+    q = q.where(or_(MarketplaceAd.ends_at.is_(None), MarketplaceAd.ends_at >= now))
+    q = q.order_by(MarketplaceAd.sort_order)
+    return (await db.execute(q)).scalars().all()
+
+
+# M-8b 제휴 광고 상세 (앱 내 — 외부 라우팅 X)
+@router.get("/ads/{ad_id}", response_model=MarketplaceAdOut, summary="제휴 광고 상세")
+async def get_ad(ad_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    ad = (
+        await db.execute(select(MarketplaceAd).where(MarketplaceAd.id == ad_id, MarketplaceAd.is_active == True))
+    ).scalar_one_or_none()
+    if ad is None:
+        raise HTTPException(status_code=404, detail="Ad not found")
+    return ad
+
+
 # M-2 동네 피드 (매물 목록 — 카테고리·정렬·거래완료 숨김·거리·페이지네이션)
 @router.get("/listings", response_model=Page[MarketplaceListingCard], summary="매물 목록 (동네 피드)")
 async def get_listings(
     category: str | None = Query(None, description="카테고리 code (예: PARTS). 'all'/미지정 시 전체"),
+    category_id: int | None = Query(None, description="카테고리 id (하위 포함 subtree 매칭 — 검색용)"),
+    keyword: str | None = Query(None, alias="q", description="제목 키워드 검색"),
     sort: str = Query("recent", description="recent | price_low | price_high | distance"),
     hide_sold: bool = Query(False, description="거래완료(SOLD) 매물 제외"),
     lat: float | None = Query(None, description="내 위치 위도 (거리 계산·거리순)"),
     lng: float | None = Query(None, description="내 위치 경도"),
+    viewer_id: uuid.UUID | None = Query(None, description="조회자(차단 사용자 매물 제외용)"),
+    lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목을 캐시된 번역으로 표기"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
@@ -180,6 +219,25 @@ async def get_listings(
             MarketplaceCategory.code == category.upper()
         )
 
+    if category_id is not None:
+        # 대분류 선택 시 자식까지 포함(2-depth subtree)
+        subtree = select(MarketplaceCategory.id).where(
+            (MarketplaceCategory.id == category_id) | (MarketplaceCategory.parent_id == category_id)
+        )
+        q = q.where(MarketplaceListing.category_id.in_(subtree))
+        count_q = count_q.where(MarketplaceListing.category_id.in_(subtree))
+
+    if keyword and keyword.strip():
+        like = f"%{keyword.strip()}%"
+        q = q.where(MarketplaceListing.title.ilike(like))
+        count_q = count_q.where(MarketplaceListing.title.ilike(like))
+
+    if viewer_id is not None:
+        # 내가 차단한 사용자의 매물 제외
+        blocked = select(UserBlock.blocked_id).where(UserBlock.blocker_id == viewer_id)
+        q = q.where(MarketplaceListing.seller_id.notin_(blocked))
+        count_q = count_q.where(MarketplaceListing.seller_id.notin_(blocked))
+
     if hide_sold:
         q = q.where(MarketplaceListing.status != "SOLD")
         count_q = count_q.where(MarketplaceListing.status != "SOLD")
@@ -200,6 +258,12 @@ async def get_listings(
         items = [_card(row[0], int(row[1]) if row[1] is not None else None) for row in rows]
     else:
         items = [_card(row[0]) for row in rows]
+
+    # 조회 언어로 제목 표기(캐시 히트만, 없으면 원문). 배치(MGET+IN) — API 호출 안 함.
+    if lang:
+        titles = await lookup_lang_batch([it.title for it in items], lang, db)
+        for it, tt in zip(items, titles, strict=True):
+            it.title = tt
     return Page(items=items, total=total, page=page, size=size)
 
 
@@ -208,6 +272,7 @@ async def get_listings(
 async def get_listing(
     listing_id: uuid.UUID,
     user_id: uuid.UUID | None = Query(None, description="조회자(찜 여부 판정용)"),
+    lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·설명을 번역해 표기(미스 시 번역·워밍)"),
     db: AsyncSession = Depends(get_db),
 ):
     listing = (
@@ -254,10 +319,17 @@ async def get_listing(
         .all()
     )
 
+    title_out = listing.title
+    desc_out = listing.description
+    if lang:
+        title_out = await translate_to(listing.title, lang, db)
+        if listing.description:
+            desc_out = await translate_to(listing.description, lang, db)
+
     detail = MarketplaceListingDetail(
         id=listing.id,
-        title=listing.title,
-        description=listing.description,
+        title=title_out,
+        description=desc_out,
         price_vnd=listing.price_vnd,
         original_price_vnd=listing.original_price_vnd,
         is_negotiable=listing.is_negotiable,
@@ -281,6 +353,7 @@ async def get_listing(
 @router.post("/listings", response_model=MarketplaceListingCreated, status_code=201, summary="매물 등록")
 async def create_listing(
     body: MarketplaceListingCreateRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
@@ -312,6 +385,8 @@ async def create_listing(
 
     await db.commit()
     await _notify_keyword_matches(db, listing)
+    # 번역 세트 워밍(백그라운드) — 조회 시 캐시 히트로 번역본 즉시 로딩
+    background.add_task(warm_translations, [listing.title, listing.description or ""])
     return MarketplaceListingCreated(id=listing_id)
 
 
@@ -371,6 +446,106 @@ async def update_price(
     listing.updated_at = datetime.now(UTC)
     await db.commit()
     return MarketplaceListingCreated(id=listing.id)
+
+
+# M-5c 끌어올리기 (판매자 전용, ON_SALE 만, 쿨다운). bumped_at 갱신 → 피드 상단 노출.
+@router.post("/listings/{listing_id}/bump", response_model=MarketplaceBumpResult, summary="매물 끌어올리기")
+async def bump_listing(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id != session_uid:
+        raise HTTPException(status_code=403, detail="Not the seller")
+    if listing.status != "ON_SALE":
+        raise HTTPException(status_code=400, detail="only on-sale listings can be bumped")
+
+    now = datetime.now(UTC)
+    elapsed = now - listing.bumped_at
+    if elapsed < _BUMP_COOLDOWN:
+        retry_after = int((_BUMP_COOLDOWN - elapsed).total_seconds())
+        raise HTTPException(status_code=429, detail={"code": "cooldown", "retry_after": retry_after})
+
+    listing.bumped_at = now
+    listing.updated_at = now
+    await db.commit()
+    return MarketplaceBumpResult(id=listing.id, bumped_at=now)
+
+
+_VALID_REPORT_REASONS = {"SPAM", "FRAUD", "PROHIBITED", "DUPLICATE", "OTHER"}
+
+
+# M-5d 매물 신고 (모더레이션 적재). 신고자당 매물 1회, 자기 매물 신고 불가.
+@router.post("/listings/{listing_id}/report", status_code=201, summary="매물 신고")
+async def report_listing(
+    listing_id: uuid.UUID,
+    body: MarketplaceReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.reason not in _VALID_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report your own listing")
+
+    dup = (
+        await db.execute(
+            select(MarketplaceListingReport.id).where(
+                MarketplaceListingReport.listing_id == listing_id,
+                MarketplaceListingReport.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        MarketplaceListingReport(
+            listing_id=listing_id,
+            reporter_id=session_uid,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}
+
+
+# M-7 사용자 차단 (차단자 피드에서 피차단자 매물 제외).
+@router.post("/users/{user_id}/block", status_code=204, summary="사용자 차단")
+async def block_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if user_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot block yourself")
+    if await db.get(UserBlock, {"blocker_id": session_uid, "blocked_id": user_id}) is None:
+        db.add(UserBlock(blocker_id=session_uid, blocked_id=user_id))
+        await db.commit()
+
+
+@router.delete("/users/{user_id}/block", status_code=204, summary="사용자 차단 해제")
+async def unblock_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    block = await db.get(UserBlock, {"blocker_id": session_uid, "blocked_id": user_id})
+    if block is not None:
+        await db.delete(block)
+        await db.commit()
 
 
 # M-6 거래 후기 (만족도+칭찬+텍스트 → 대상 매너온도 재계산). '별로예요'는 미노출.

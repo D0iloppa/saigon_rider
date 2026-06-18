@@ -33,6 +33,8 @@ import MarketMain from '@/pages/market/MarketMain';
 import MarketCreate from '@/pages/market/MarketCreate';
 import MarketDetail from '@/pages/market/MarketDetail';
 import MarketWishlist from '@/pages/market/MarketWishlist';
+import MarketSearch from '@/pages/market/MarketSearch';
+import AdDetail from '@/pages/market/AdDetail';
 
 // Quest
 import QuestList from '@/pages/quest/QuestList';
@@ -218,6 +220,8 @@ export default function App() {
           <Route path="/home" element={<PrivateRoute><WorldMap /></PrivateRoute>} />
           <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
           <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
+          <Route path="/market/search" element={<PrivateRoute><MarketSearch /></PrivateRoute>} />
+          <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
           <Route path="/market/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
           <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />

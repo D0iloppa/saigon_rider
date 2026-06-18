@@ -81,6 +81,10 @@ export interface SaigonMapV2Props {
   markers?: MapMarkerV2[];
   /** 선택/성공 locate 시 선택 지역(동) emit. 페이지가 상단 라벨·info 좌표·영역 필터에 사용. */
   onRegionSelect?: (region: SelectedRegion) => void;
+  /** depth3(블록 상세)에서 임의 지점 탭 → 정밀 좌표 핀 선택 모드. */
+  pickMode?: boolean;
+  /** pickMode 에서 depth3 탭 시 선택 좌표(lat/lng) emit. */
+  onPointPick?: (lat: number, lng: number) => void;
   className?: string;
 }
 
@@ -92,6 +96,8 @@ export default function SaigonMapV2({
   initialGps,
   markers = [],
   onRegionSelect,
+  pickMode = false,
+  onPointPick,
   className,
 }: SaigonMapV2Props) {
   const { t } = useTranslation();
@@ -103,6 +109,7 @@ export default function SaigonMapV2({
   const [loading, setLoading] = useState(false);
   const [me, setMe] = useState<LatLng | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [pickPt, setPickPt] = useState<{ x: number; y: number } | null>(null);
 
   const clipId = useId().replace(/:/g, '');
   const svgRefs = useRef<Record<number, SVGSVGElement | null>>({});
@@ -356,6 +363,20 @@ export default function SaigonMapV2({
     g.pts.delete(e.pointerId);
     if (g.pts.size < 2) g.lastD = 0;
     if (g.pts.size === 0) g.lastP = null;
+    // pickMode: depth3 단일 탭(드래그/핀치 아님) → 정밀 좌표 핀
+    if (pickMode && depthRef.current === 3 && d3 && !g.moved && g.pts.size === 0) {
+      const svg = svgRefs.current[3];
+      if (svg) {
+        const r = svg.getBoundingClientRect();
+        const vb = vbRef.current[3];
+        const sx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
+        const sy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
+        setPickPt({ x: sx, y: sy });
+        const lng = d3.bbox.W + (sx / d3.VW) * (d3.bbox.E - d3.bbox.W);
+        const lat = d3.bbox.N - (sy / d3.VH) * (d3.bbox.N - d3.bbox.S);
+        onPointPick?.(lat, lng);
+      }
+    }
     try { (e.currentTarget as Element).releasePointerCapture(e.pointerId); } catch { /* noop */ }
   };
   const pan = { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
@@ -492,6 +513,20 @@ export default function SaigonMapV2({
     );
   };
 
+  // pickMode 선택 핀 (depth3, viewBox 좌표). 줌 무관 화면 크기 고정(data-zmarker).
+  const renderPick = (d: number) => {
+    if (!pickPt) return null;
+    const unit = fullRef.current[d].w;
+    const s = vbRef.current[d].w / unit;
+    const r = unit * 0.014;
+    return (
+      <g data-zmarker data-mx={pickPt.x} data-my={pickPt.y} transform={`translate(${pickPt.x} ${pickPt.y}) scale(${s})`}>
+        <circle r={r * 2.2} fill="#FF5A1F" fillOpacity={0.22} />
+        <circle r={r} fill="#FF5A1F" stroke="#fff" strokeWidth={r * 0.32} />
+      </g>
+    );
+  };
+
   // depth2/3: 개별 마커 핀 (해당 depth bbox 안일 때만, 클릭 가능)
   const renderMarkers = (vw: number, vh: number, bbox: Bbox, d: number) => {
     const unit = fullRef.current[d].w;
@@ -591,6 +626,7 @@ export default function SaigonMapV2({
           <polygon ref={edgeRef} points="" className={styles.blockedge} />
           {d3 && renderMarkers(d3.VW, d3.VH, d3.bbox, 3)}
           {d3 && renderMe(d3.VW, d3.VH, d3.bbox, 3)}
+          {renderPick(3)}
         </svg>
       </div>
 

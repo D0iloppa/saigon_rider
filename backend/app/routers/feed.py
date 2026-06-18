@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +24,7 @@ from ..schemas import (
     LikeToggleResponse,
     Page,
 )
+from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
 log = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ async def get_feed(
     lat: Decimal | None = Query(None),
     lng: Decimal | None = Query(None),
     radius_m: int = Query(5000),
+    lang: str | None = Query(None, description="조회 언어(ko|en|vi). 내용을 캐시된 번역으로 표기"),
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
@@ -129,6 +131,12 @@ async def get_feed(
     rows = (await db.execute(base_q.order_by(*order).offset(offset).limit(size))).all()
 
     items = [_enrich(post, user, ride) for post, user, ride in rows]
+    # 조회 언어로 내용 표기(캐시 히트만, 없으면 원문). 배치(MGET+IN) — API 호출 안 함.
+    if lang:
+        contents = await lookup_lang_batch([it.content or "" for it in items], lang, db)
+        for it, ct in zip(items, contents, strict=True):
+            if it.content:
+                it.content = ct
     return Page(items=items, total=total, page=page, size=size)
 
 
@@ -150,7 +158,11 @@ async def get_stories(db: AsyncSession = Depends(get_db)):
 
 # F-2b
 @router.get("/{post_id}", response_model=FeedPostEnrichedOut, summary="피드 단건 조회")
-async def get_feed_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_feed_post(
+    post_id: uuid.UUID,
+    lang: str | None = Query(None, description="조회 언어(ko|en|vi). 내용을 번역해 표기(미스 시 번역·워밍)"),
+    db: AsyncSession = Depends(get_db),
+):
     row = (
         await db.execute(
             select(FeedPost, User, RideSession)
@@ -162,13 +174,19 @@ async def get_feed_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")
     post, user, ride = row
-    return _enrich(post, user, ride)
+    enriched = _enrich(post, user, ride)
+    if lang and enriched.content:
+        enriched.content = await translate_to(enriched.content, lang, db)
+    return enriched
 
 
 # F-3
 @router.post("", response_model=FeedPostOut, status_code=201, summary="피드 공유 (라이딩 결과 게시)")
 async def create_feed_post(
-    body: FeedCreateRequest, db: AsyncSession = Depends(get_db), _session_uid: uuid.UUID = Depends(verify_user_session)
+    body: FeedCreateRequest,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     has_images = bool(body.image_content_ids) or body.image_content_id is not None
     if body.content is None and body.image_url is None and not has_images:
@@ -212,6 +230,9 @@ async def create_feed_post(
         )
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.warning("Engine SHARE_SNS event failed for post %s: %s", post_id, exc)
+
+    if body.content:
+        background.add_task(warm_translations, [body.content])
 
     post = (await db.execute(select(FeedPost).where(FeedPost.id == post_id))).scalar_one()
     return FeedPostOut.model_validate(post)

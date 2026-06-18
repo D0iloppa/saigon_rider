@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarPlus } from 'lucide-react';
+import { CalendarPlus, MapPin } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
+import LocationPickerSheet, { type PickedLocation } from '../market/LocationPickerSheet';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { fetchMessages, sendMessage, markRead, fetchConversation } from '@/api/dm';
 import { createReview, type ReviewRating } from '@/api/market';
+import { translateAll, pickLang } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
@@ -34,7 +36,10 @@ export default function DmDetail() {
   const [sending, setSending] = useState(false);
   const [apptOpen, setApptOpen] = useState(false);
   const [apptWhen, setApptWhen] = useState('');
-  const [apptPlace, setApptPlace] = useState('');
+  const [apptPlace, setApptPlace] = useState<PickedLocation | null>(null);
+  const [apptLocOpen, setApptLocOpen] = useState(false);
+  const [tr, setTr] = useState<Record<string, string>>({});
+  const [trOpen, setTrOpen] = useState<Record<string, boolean>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<ReviewRating | null>(null);
   const [reviewTags, setReviewTags] = useState<string[]>([]);
@@ -86,21 +91,41 @@ export default function DmDetail() {
   const handleSendAppointment = async () => {
     if (!conversationId || !apptWhen || sending) return;
     const whenLabel = apptWhen.replace('T', ' ');
-    const summary = t('dm.apptSummary', { when: whenLabel, place: apptPlace, defaultValue: `약속 제안: ${whenLabel} ${apptPlace}` });
+    const placeName = apptPlace?.districtName ?? '';
+    const summary = t('dm.apptSummary', { when: whenLabel, place: placeName, defaultValue: `약속 제안: ${whenLabel} ${placeName}` });
     setSending(true);
     try {
       const msg = await sendMessage(conversationId, summary, {
         messageType: 'appointment',
-        meta: { when: apptWhen, place: apptPlace || undefined },
+        meta: {
+          when: apptWhen,
+          place: placeName || undefined,
+          placeLat: apptPlace?.lat,
+          placeLng: apptPlace?.lng,
+        },
       });
       setMessages((prev) => [...prev, msg]);
       setApptOpen(false);
       setApptWhen('');
-      setApptPlace('');
+      setApptPlace(null);
     } catch {
       toast.error(t('common.errorUnexpected'));
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleTranslateMsg = async (msgId: string, content: string) => {
+    if (tr[msgId]) {
+      setTrOpen((prev) => ({ ...prev, [msgId]: !prev[msgId] }));
+      return;
+    }
+    try {
+      const bundle = await translateAll(content);
+      setTr((prev) => ({ ...prev, [msgId]: pickLang(bundle) }));
+      setTrOpen((prev) => ({ ...prev, [msgId]: true }));
+    } catch {
+      toast.error(t('dm.translateError', { defaultValue: '번역 실패' }));
     }
   };
 
@@ -168,6 +193,16 @@ export default function DmDetail() {
             <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
               {m.content && <div className={styles.text}>{m.content}</div>}
               {m.imageUrl && <AppImage src={m.imageUrl} alt="" className={styles.msgImg} />}
+              {m.content && trOpen[m.id] && tr[m.id] && (
+                <div className={styles.translated}>{tr[m.id]}</div>
+              )}
+              {m.content && (
+                <button className={styles.translateBtn} type="button" onClick={() => handleTranslateMsg(m.id, m.content!)}>
+                  {trOpen[m.id]
+                    ? t('dm.showOriginal', { defaultValue: '원문' })
+                    : t('dm.translate', { defaultValue: '번역' })}
+                </button>
+              )}
               <div className={styles.meta}>
                 {formatRelativeTime(m.createdAt)}
                 {isMine && m.readAt && <span className={styles.read}> ✓</span>}
@@ -210,13 +245,12 @@ export default function DmDetail() {
             onChange={(e) => setApptWhen(e.target.value)}
           />
           <label className={styles.apptLabel}>{t('dm.apptPlace', { defaultValue: '장소' })}</label>
-          <input
-            type="text"
-            className={styles.apptInput}
-            placeholder={t('dm.apptPlacePlaceholder', { defaultValue: '예: Bình Thạnh 카페 앞' })}
-            value={apptPlace}
-            onChange={(e) => setApptPlace(e.target.value)}
-          />
+          <button className={styles.apptPlaceBtn} onClick={() => setApptLocOpen(true)}>
+            <MapPin size={16} className={styles.apptPlacePin} />
+            {apptPlace
+              ? apptPlace.districtName
+              : t('dm.apptPlacePick', { defaultValue: '지도에서 동네 선택' })}
+          </button>
           <div className={styles.apptSubmit}>
             <Button onClick={handleSendAppointment} disabled={!apptWhen}>
               {t('dm.apptSend', { defaultValue: '약속 제안 보내기' })}
@@ -224,6 +258,13 @@ export default function DmDetail() {
           </div>
         </div>
       </BottomSheet>
+
+      <LocationPickerSheet
+        open={apptLocOpen}
+        onClose={() => setApptLocOpen(false)}
+        value={apptPlace ? { lat: apptPlace.lat, lng: apptPlace.lng } : null}
+        onConfirm={setApptPlace}
+      />
 
       {/* 거래 후기 시트 (REF-05) */}
       <BottomSheet open={reviewOpen} onClose={() => setReviewOpen(false)}>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
+import { useLocationStore } from '@/store/useLocationStore';
 import { fetchWallet } from '@/api/wallet';
 import { fetchUserStats } from '@/api/profile';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
@@ -36,6 +37,7 @@ export default function WorldMap() {
   const [infoGasCount, setInfoGasCount] = useState(0);
   const [infoRepairCount, setInfoRepairCount] = useState(0);
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
+  const setSharedCoords = useLocationStore((s) => s.setCoords);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -118,7 +120,8 @@ export default function WorldMap() {
   // v2 지도가 선택 동(이름+centroid+경계)을 emit → 상단 라벨·info 좌표·영역 필터에 그대로 사용.
   const handleRegionSelect = useCallback((region: SelectedRegion) => {
     setSelectedRegion(region);
-  }, []);
+    setSharedCoords({ lat: region.lat, lng: region.lng });
+  }, [setSharedCoords]);
 
   const selectedDistrictName = selectedRegion?.name ?? null;
 

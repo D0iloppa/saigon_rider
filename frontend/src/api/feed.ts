@@ -1,3 +1,4 @@
+import i18n from '@/lib/i18n';
 import { USE_MOCK, api, requireSession } from './client';
 import { MOCK_FEED, MOCK_COMMENTS } from '@/data/feed';
 import type { FeedPost, Comment } from './types';
@@ -71,7 +72,7 @@ export async function fetchFeed(
     return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
   }
 
-  const params = new URLSearchParams({ filter, page: String(page), size: String(size) });
+  const params = new URLSearchParams({ filter, page: String(page), size: String(size), lang: i18n.language });
   if (opts.userId) params.set('user_id', opts.userId);
   if (opts.lat != null) params.set('lat', String(opts.lat));
   if (opts.lng != null) params.set('lng', String(opts.lng));
@@ -113,7 +114,7 @@ export async function fetchFeedPost(postId: string): Promise<FeedPost> {
     if (!post) throw new Error('Not found');
     return api.delay(post, 100);
   }
-  const raw = await api.realFetch<any>(`/feed/${postId}`);
+  const raw = await api.realFetch<any>(`/feed/${postId}?lang=${i18n.language}`);
   return transformPost(raw);
 }
 
@@ -123,7 +124,7 @@ export async function fetchMyFeed(userId: string, page = 1, size = 20): Promise<
     const start = (page - 1) * size;
     return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
   }
-  const params = new URLSearchParams({ filter: 'all', page: String(page), size: String(size), author_id: userId });
+  const params = new URLSearchParams({ filter: 'all', page: String(page), size: String(size), author_id: userId, lang: i18n.language });
   const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/feed?${params}`);
   return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size };
 }

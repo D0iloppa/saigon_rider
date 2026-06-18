@@ -8,13 +8,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..models import Translation
-from ..schemas import TranslateRequest, TranslateResponse
-from ..services.translate import SUPPORTED_LANGS, provider_translate, resolve_config, source_hash
+from ..schemas import TranslateAllRequest, TranslateAllResponse, TranslateRequest, TranslateResponse
+from ..services.translate import (
+    SUPPORTED_LANGS,
+    provider_translate,
+    resolve_config,
+    source_hash,
+    translate_all,
+)
 
 router = APIRouter(prefix="/translate", tags=["번역 (Translation)"])
 log = logging.getLogger(__name__)
 
 _LANG_ATTR = {"ko": "text_ko", "en": "text_en", "vi": "text_vi"}
+
+
+@router.post("/all", response_model=TranslateAllResponse, summary="원문 → 3개 언어 번들({kr,en,vi})")
+async def translate_bundle(
+    body: TranslateAllRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid=Depends(verify_user_session),
+):
+    """원문 1개 입력 → 언어감지 후 나머지 2개만 번역 → {kr,en,vi} 반환."""
+    try:
+        result = await translate_all(body.text, db)
+    except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
+        log.warning("translate_all failed: %s", exc)
+        raise HTTPException(status_code=502, detail="translation provider error") from exc
+    return TranslateAllResponse(**result)
 
 
 @router.post("", response_model=TranslateResponse, summary="실시간 번역(원문 해시 캐시)")

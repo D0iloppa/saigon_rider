@@ -209,6 +209,8 @@ export interface DmConversation {
 export interface DmAppointmentMeta {
   when?: string;
   place?: string;
+  placeLat?: number;
+  placeLng?: number;
 }
 
 export interface DmMessage {

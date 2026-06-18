@@ -11,6 +11,12 @@
   padding: 0 8px;
 }
 
+.topbarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .backBtn {
   display: flex;
   align-items: center;
@@ -18,6 +24,28 @@
   width: 40px;
   height: 40px;
   color: var(--text);
+}
+
+.moreSheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.moreItem {
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.moreItem:active {
+  background: var(--surface-2);
+}
+
+.moreDanger {
+  color: #DC2626;
 }
 
 .backBtn:active {
@@ -312,6 +340,7 @@
 }
 
 .priceEditBtn:active { opacity: .7; }
+.priceEditBtn:disabled { color: var(--text-3); }
 
 /* Seller status control bar */
 .statusBar {

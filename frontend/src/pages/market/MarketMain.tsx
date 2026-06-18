@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Heart, Plus, X } from 'lucide-react';
+import { Bell, ChevronDown, Heart, Plus, Search, X } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Chip } from '@/components/ui/Chip';
-import { AppImage } from '@/components/ui/AppImage';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { PullIndicator } from '@/components/ui/PullIndicator';
@@ -14,22 +13,26 @@ import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
+import { useLocationStore } from '@/store/useLocationStore';
 import { fetchDistricts, type District } from '@/api/master';
 import {
   addKeywordAlert,
-  fetchCategories,
+  fetchAds,
   fetchKeywordAlerts,
   fetchListings,
   localizedName,
   removeKeywordAlert,
   resolveDistrict,
   type KeywordAlert,
-  type ListingCard,
+  type ListingCard as Listing,
   type ListingSort,
-  type MarketCategory,
+  type MarketAd,
 } from '@/api/market';
-import { formatDistance, formatPriceVnd, relativeTime, statusLabelKey } from './marketFormat';
+import ListingCard from './ListingCard';
+import AdCard from './AdCard';
 import styles from './MarketMain.module.css';
+
+const AD_EVERY = 5; // 매물 N개마다 광고 1개 삽입
 
 const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
 
@@ -43,26 +46,34 @@ export default function MarketMain() {
   const { t } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
 
-  const [categories, setCategories] = useState<MarketCategory[]>([]);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alerts, setAlerts] = useState<KeywordAlert[]>([]);
   const [newKw, setNewKw] = useState('');
-  const [cat, setCat] = useState<string>('all');
   const [sort, setSort] = useState<ListingSort>('recent');
+  const [sortOpen, setSortOpen] = useState(false);
   const [hideSold, setHideSold] = useState(false);
   const [district, setDistrict] = useState<District | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [ads, setAds] = useState<MarketAd[]>([]);
+  const homeCoords = useLocationStore((s) => s.coords);
 
+  // 제휴 광고(지역 타게팅) — 동네 확정 후 1회 로드. 피드 중간 삽입용.
   useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => setCategories([]));
-  }, []);
+    fetchAds(district?.id ?? null).then(setAds).catch(() => setAds([]));
+  }, [district?.id]);
 
-  // GPS → 동네(구) 해석. HCMC 밖이거나 권한 거부 시 Bình Thạnh 폴백.
+  // 기본 동네 우선순위: home(동네 지도)에서 선택한 위치 > 현재 GPS > Bình Thạnh 폴백.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const districts = await fetchDistricts().catch(() => [] as District[]);
       const fallback = districts.find((d) => d.code === 'BINH_THANH') ?? districts[0] ?? null;
+      if (homeCoords) {
+        if (cancelled) return;
+        setCoords(homeCoords);
+        setDistrict(resolveDistrict(homeCoords.lat, homeCoords.lng, districts) ?? fallback);
+        return;
+      }
       try {
         await native.ensureLocationPermission();
         const pos = await native.getLocation();
@@ -76,16 +87,16 @@ export default function MarketMain() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [homeCoords]);
 
   const fetchPage = useCallback(
     (page: number) =>
-      fetchListings({ category: cat, sort, hideSold, lat: coords?.lat, lng: coords?.lng, page, size: 20 }),
-    [cat, sort, hideSold, coords],
+      fetchListings({ sort, hideSold, lat: coords?.lat, lng: coords?.lng, viewerId: userId, page, size: 20 }),
+    [sort, hideSold, coords, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
-    useInfiniteScroll<ListingCard>(fetchPage, 20, [cat, sort, hideSold, coords]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -134,6 +145,9 @@ export default function MarketMain() {
             <p className={styles.tagline}>{t('market.tagline', { defaultValue: '내 근처 라이더 장터' })}</p>
           </div>
           <div className={styles.headerActions}>
+            <button className={styles.wishlistBtn} onClick={() => navigate('/market/search')} aria-label={t('market.search', { defaultValue: '검색' })}>
+              <Search size={23} strokeWidth={2} />
+            </button>
             <button className={styles.wishlistBtn} onClick={openAlerts} aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}>
               <Bell size={23} strokeWidth={2} />
             </button>
@@ -143,36 +157,12 @@ export default function MarketMain() {
           </div>
         </div>
 
-        {/* Category chips (DB master) */}
-        <div className={styles.filterRow}>
-          <Chip variant={cat === 'all' ? 'dark' : 'surface'} onClick={() => setCat('all')} style={{ cursor: 'pointer' }}>
-            {t('market.catAll', { defaultValue: '전체' })}
-          </Chip>
-          {categories.map((c) => (
-            <Chip
-              key={c.code}
-              variant={cat === c.code ? 'dark' : 'surface'}
-              onClick={() => setCat(c.code)}
-              style={{ cursor: 'pointer' }}
-            >
-              {localizedName(c)}
-            </Chip>
-          ))}
-        </div>
-
-        {/* Sort + hide-sold controls */}
+        {/* Sort (bottom sheet) + hide-sold toggle */}
         <div className={styles.controlRow}>
-          <div className={styles.sortGroup}>
-            {SORTS.map((s) => (
-              <button
-                key={s}
-                className={`${styles.sortBtn} ${sort === s ? styles.sortBtnActive : ''}`}
-                onClick={() => setSort(s)}
-              >
-                {t(`market.sort_${s}`)}
-              </button>
-            ))}
-          </div>
+          <button className={styles.sortSelect} onClick={() => setSortOpen(true)}>
+            {t(`market.sort_${sort}`)}
+            <ChevronDown size={16} strokeWidth={2.2} />
+          </button>
           <Chip
             variant={hideSold ? 'dark' : 'surface'}
             onClick={() => setHideSold((v) => !v)}
@@ -190,37 +180,27 @@ export default function MarketMain() {
           {isLoading ? (
             [1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)
           ) : listings.length === 0 ? (
-            <div className={styles.empty}>
-              <span className={styles.emptyEmoji}>🏍️</span>
-              <h2 className={styles.emptyTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</h2>
-              <p className={styles.emptySub}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</p>
-            </div>
+            <>
+              {/* 매물이 없어도 제휴광고는 노출 */}
+              {ads.map((ad) => (
+                <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />
+              ))}
+              <div className={styles.empty}>
+                <span className={styles.emptyEmoji}>🏍️</span>
+                <h2 className={styles.emptyTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</h2>
+                <p className={styles.emptySub}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</p>
+              </div>
+            </>
           ) : (
             <>
-              {listings.map((l) => (
-                <button key={l.id} className={styles.card} type="button" onClick={() => navigate(`/market/${l.id}`)}>
-                  <span className={styles.thumb}>
-                    <AppImage src={l.thumbnailUrl ?? undefined} alt={l.title} className={styles.thumbImg} />
-                    {l.status !== 'ON_SALE' && <span className={styles.statusTag}>{t(statusLabelKey(l.status))}</span>}
-                  </span>
-                  <div className={styles.cardBody}>
-                    <p className={styles.cardTitle}>{l.title}</p>
-                    <p className={styles.cardMeta}>
-                      {[localizedName(l.district), formatDistance(l.distanceM), relativeTime(l.bumpedAt, t)]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.price}>
-                        {l.originalPriceVnd != null && l.originalPriceVnd > l.priceVnd && (
-                          <span className={styles.dropBadge}>{t('market.priceDrop', { defaultValue: '가격내림' })}</span>
-                        )}
-                        {formatPriceVnd(l.priceVnd, t)}
-                      </span>
-                      <span className={styles.likes}>♥ {l.likeCount}</span>
-                    </div>
-                  </div>
-                </button>
+              {listings.map((l, i) => (
+                <Fragment key={l.id}>
+                  <ListingCard listing={l} onClick={() => navigate(`/market/${l.id}`)} />
+                  {ads.length > 0 && i % AD_EVERY === AD_EVERY - 1 && (() => {
+                    const ad = ads[Math.floor(i / AD_EVERY) % ads.length];
+                    return <AdCard ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />;
+                  })()}
+                </Fragment>
               ))}
               <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
             </>
@@ -232,6 +212,25 @@ export default function MarketMain() {
       <button className={styles.writeFab} type="button" onClick={() => navigate('/market/new')} aria-label={t('market.create', { defaultValue: '매물 등록' })}>
         <Plus size={26} strokeWidth={2.4} />
       </button>
+
+      {/* 정렬 시트 */}
+      <BottomSheet open={sortOpen} onClose={() => setSortOpen(false)}>
+        <div className={styles.sortSheet}>
+          <h2 className={styles.sortSheetTitle}>{t('market.sortTitle', { defaultValue: '정렬' })}</h2>
+          {SORTS.map((s) => (
+            <button
+              key={s}
+              className={`${styles.sortOption} ${sort === s ? styles.sortOptionActive : ''}`}
+              onClick={() => {
+                setSort(s);
+                setSortOpen(false);
+              }}
+            >
+              {t(`market.sort_${s}`)}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
 
       {/* 키워드 알림 관리 시트 */}
       <BottomSheet open={alertOpen} onClose={() => setAlertOpen(false)}>

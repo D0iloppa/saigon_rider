@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
@@ -7,6 +7,9 @@ import { createFeedPost } from '@/api/feed';
 import { api } from '@/api/client';
 import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
+import { useLocationStore } from '@/store/useLocationStore';
+import { resolveDistrict, localizedName } from '@/api/market';
+import { fetchDistricts, type District } from '@/api/master';
 import { toast } from '@/components/ui/Toast';
 import styles from './FeedCreate.module.css';
 
@@ -26,8 +29,40 @@ export default function FeedCreate() {
 
   const [content, setContent] = useState('');
   const [images, setImages] = useState<ImageItem[]>([]);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [district, setDistrict] = useState<District | null>(null);
+  const [locOn, setLocOn] = useState(true); // 위치 자동 첨부(기본 ON), 끄기만 가능
   const [posting, setPosting] = useState(false);
+
+  // 작성 시 현재 위치 자동 첨부(피드는 '올린 곳' = 현위치). 거부/HCMC 밖이면 홈 선택 동네 → 기본도시 폴백.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = await fetchDistricts().catch(() => [] as District[]);
+      if (cancelled) return;
+      const fallback = list.find((d) => d.code === 'BINH_THANH') ?? list[0] ?? null;
+      try {
+        await native.ensureLocationPermission();
+        const pos = await native.getLocation();
+        if (cancelled) return;
+        setCoords({ lat: pos.lat, lng: pos.lng });
+        setDistrict(resolveDistrict(pos.lat, pos.lng, list) ?? fallback);
+      } catch {
+        if (cancelled) return;
+        const home = useLocationStore.getState().coords;
+        if (home) {
+          setCoords(home);
+          setDistrict(resolveDistrict(home.lat, home.lng, list) ?? fallback);
+        } else if (fallback && fallback.center_lat != null && fallback.center_lng != null) {
+          setCoords({ lat: fallback.center_lat, lng: fallback.center_lng });
+          setDistrict(fallback);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -73,20 +108,6 @@ export default function FeedCreate() {
     });
   };
 
-  const handleLocation = async () => {
-    if (location) {
-      setLocation(null);
-      return;
-    }
-    try {
-      await native.ensureLocationPermission();
-      const pos = await native.getLocation();
-      setLocation({ lat: pos.lat, lng: pos.lng });
-    } catch {
-      toast.error(t('feedCreate.locationError'));
-    }
-  };
-
   const handlePost = async () => {
     const contentIds = images.filter((i) => i.contentId).map((i) => i.contentId!);
     if (!user || (!content.trim() && contentIds.length === 0)) return;
@@ -96,8 +117,9 @@ export default function FeedCreate() {
         userId: user.id,
         content: content.trim() || undefined,
         imageContentIds: contentIds,
-        latitude: location?.lat,
-        longitude: location?.lng,
+        latitude: locOn ? coords?.lat : undefined,
+        longitude: locOn ? coords?.lng : undefined,
+        districtId: locOn ? district?.id : undefined,
       });
       navigate('/feed', { replace: true });
     } catch (err: any) {
@@ -164,10 +186,14 @@ export default function FeedCreate() {
           </label>
 
           <button
-            className={`${styles.toolBtn} ${location ? styles.toolBtnActive : ''}`}
-            onClick={handleLocation}
+            className={`${styles.toolBtn} ${locOn ? styles.toolBtnActive : ''}`}
+            onClick={() => setLocOn((v) => !v)}
           >
-            📍 {location ? t('feedCreate.locationAttached') : t('feedCreate.addLocation')}
+            📍 {locOn
+              ? district
+                ? localizedName(district)
+                : t('feedCreate.locating', { defaultValue: '위치 확인 중…' })
+              : t('feedCreate.locationOff', { defaultValue: '위치 끔' })}
           </button>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { fetchWallet } from '@/api/wallet';
 import { fetchUserStats } from '@/api/profile';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport } from '@/api/info';
-import { fetchListings, localizedName as marketLocalizedName, type ListingCard } from '@/api/market';
+import { fetchListings, fetchAds, localizedName as marketLocalizedName, type ListingCard, type MarketAd } from '@/api/market';
 import { formatPriceVnd, relativeTime } from '@/pages/market/marketFormat';
 import { formatNumber } from '@/lib/format';
 import { native } from '@/lib/native';
@@ -27,6 +27,7 @@ export default function WorldMap() {
   const { t } = useTranslation();
   const [products, setProducts] = useState<ListingCard[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [ads, setAds] = useState<MarketAd[]>([]);
   const [gold, setGold] = useState(0);
   const [xp, setXp] = useState(0);
   const [totalKm, setTotalKm] = useState(0);
@@ -108,6 +109,8 @@ export default function WorldMap() {
     if (!selectedRegion) return;
     const region = selectedRegion;
     setProductsLoading(true);
+    // 상품이 없을 때 노출할 제휴광고(활성 전체). products 비면 폴백 표시.
+    fetchAds(null).then(setAds).catch(() => setAds([]));
     fetchListings({ lat: region.lat, lng: region.lng, sort: 'recent', hideSold: true, size: 40 })
       .then((p) => {
         const inWard = p.items.filter((it) => it.lat != null && it.lng != null && regionContains(region, it.lat, it.lng));
@@ -272,10 +275,27 @@ export default function WorldMap() {
               {[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.productSkeleton}`} />)}
             </div>
           ) : products.length === 0 ? (
-            <div className={styles.productEmpty}>
-              <p className={styles.productEmptyText}>{t('home.noProductsHere')}</p>
-              <button className={styles.productEmptyCta} onClick={() => navigate(`/market${infoNavQuery}`)}>{t('home.browseMarket')} ›</button>
-            </div>
+            ads.length > 0 ? (
+              <div className={styles.productList}>
+                {ads.slice(0, 3).map((ad) => (
+                  <button key={ad.id} type="button" className={styles.productCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
+                    <span className={styles.productThumb}>
+                      <AppImage src={ad.imageUrl ?? undefined} alt={ad.title} className={styles.productThumbImg} />
+                    </span>
+                    <div className={styles.productBody}>
+                      <span className={styles.adBadge}>{t('market.adLabel', { defaultValue: '광고' })}</span>
+                      <p className={styles.productTitle}>{ad.title}</p>
+                      <p className={styles.productMeta}>{ad.partnerName}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.productEmpty}>
+                <p className={styles.productEmptyText}>{t('home.noProductsHere')}</p>
+                <button className={styles.productEmptyCta} onClick={() => navigate(`/market${infoNavQuery}`)}>{t('home.browseMarket')} ›</button>
+              </div>
+            )
           ) : (
             <div className={styles.productList}>
               {products.map((p) => (

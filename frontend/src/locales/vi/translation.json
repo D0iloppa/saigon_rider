@@ -478,7 +478,9 @@
     "removeImage": "Xóa ảnh",
     "postBtn": "Đăng",
     "posting": "Đang đăng...",
-    "postError": "Đăng bài thất bại"
+    "postError": "Đăng bài thất bại",
+    "locating": "Đang định vị…",
+    "locationOff": "Tắt vị trí"
   },
   "dm": {
     "title": "Tin nhắn",
@@ -1215,7 +1217,12 @@
       "gas": "⛽ Trạm xăng",
       "road": "Đường chính",
       "bridge": "Cầu"
-    }
+    },
+    "tabListings": "Tin",
+    "tabFeed": "Feed",
+    "count": "{{count}}",
+    "emptyListings": "Chưa có tin ở khu này",
+    "emptyFeed": "Chưa có bài feed ở khu này"
   },
   "effects": {
     "none": "Không có hiệu ứng",

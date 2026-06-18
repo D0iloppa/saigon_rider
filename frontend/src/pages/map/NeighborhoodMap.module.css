@@ -6,7 +6,7 @@
 }
 
 .header {
-  padding: 0 20px 12px;
+  padding: 0 20px 10px;
   flex-shrink: 0;
 }
 
@@ -17,12 +17,117 @@
 }
 
 .mapWrap {
-  flex: 1;
+  flex-shrink: 0;
   position: relative;
+  overflow: hidden;
+  margin: 0 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+
+/* 매물/피드 세그먼트 */
+.segment {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px 8px;
+}
+
+.segBtn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.segActive {
+  color: #fff;
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton {
+  height: 96px;
+  border-radius: 18px;
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: 48px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* 피드 행 (컴팩트) */
+.feedRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.feedAvatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.feedBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feedName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.feedCaption {
+  font-size: 13px;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.map {
-  width: 100%;
-  height: 100%;
+.feedThumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
 }

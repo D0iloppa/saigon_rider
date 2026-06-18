@@ -478,7 +478,9 @@
     "removeImage": "Remove image",
     "postBtn": "Post",
     "posting": "Posting...",
-    "postError": "Failed to post"
+    "postError": "Failed to post",
+    "locating": "Locating…",
+    "locationOff": "Location off"
   },
   "dm": {
     "title": "Messages",
@@ -1215,7 +1217,12 @@
       "gas": "⛽ Gas station",
       "road": "Major road",
       "bridge": "Bridge"
-    }
+    },
+    "tabListings": "Items",
+    "tabFeed": "Feed",
+    "count": "{{count}}",
+    "emptyListings": "No items in this area",
+    "emptyFeed": "No feed posts in this area"
   },
   "effects": {
     "none": "No equip effects",

@@ -478,7 +478,9 @@
     "removeImage": "이미지 삭제",
     "postBtn": "게시",
     "posting": "게시 중...",
-    "postError": "게시에 실패했어요"
+    "postError": "게시에 실패했어요",
+    "locating": "위치 확인 중…",
+    "locationOff": "위치 끔"
   },
   "dm": {
     "title": "메시지",
@@ -1215,7 +1217,12 @@
       "gas": "⛽ 주유소",
       "road": "주요 도로",
       "bridge": "다리"
-    }
+    },
+    "tabListings": "매물",
+    "tabFeed": "피드",
+    "count": "{{count}}건",
+    "emptyListings": "이 동네 매물이 없어요",
+    "emptyFeed": "이 동네 피드가 없어요"
   },
   "effects": {
     "none": "착용 효과 없음",

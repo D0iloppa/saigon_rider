@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { floodApi } from '@/api/info';
@@ -8,10 +8,10 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
 import { resolveInfoCoords, parseCoordsFromQuery } from '@/lib/infoCoords';
-import InfoMap from '@/components/maps/InfoMap';
+import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
-import { findNearestDistrict, districtLabelByCode, type District } from '@/components/maps/district-data';
-import FloodMarker from '@/components/flood/FloodMarker';
+import { districtLabelByCode } from '@/components/maps/district-data';
 import { getDepth, TRUST_TOKENS, trustFromScore } from '@/components/flood/flood-tokens';
 import styles from './InfoFloodMap.module.css';
 
@@ -83,21 +83,17 @@ export default function InfoFloodMap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  // 메인에서 넘어온 좌표(?lat&lng) → 해당 구역으로 init 포커싱. 직접 진입이면 null → GPS locate.
-  const incomingCode = useMemo(() => {
-    const c = parseCoordsFromQuery(search);
-    return c ? findNearestDistrict(c.lat, c.lng)?.code ?? null : null;
-  }, [search]);
+  // 메인에서 넘어온 좌표(?lat&lng) → 해당 동으로 init 포커싱. 직접 진입이면 null → GPS locate.
+  const incomingCoords = useMemo(() => parseCoordsFromQuery(search), [search]);
 
-  // 구역 선택 (좌표→구역 클라이언트 매칭으로 BFF 코드 스킴 불일치 회피).
-  const [selectedDistrictCode, setSelectedDistrictCode] = useState<string | null>(incomingCode);
-  const reportDistrict = (f: FloodReportWithTrust) => findNearestDistrict(f.lat, f.lng)?.code ?? null;
+  // 선택 동(지도 emit). 리스트는 이 동 경계 내부만, 지도 마커는 도시 전역.
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
 
-  // 파생 리스트(제보·예측·핫스팟)는 행마다 findNearestDistrict 스캔이라 메모이즈
+  // 파생 리스트(제보·예측·핫스팟)는 행마다 regionContains 판정이라 메모이즈
   // — 리포트 시트 타이핑 등 무관한 리렌더에 재계산되지 않도록.
   const { todayReports, floodEntries, markerHotspots } = useMemo(() => {
     const inSel = (lat: number, lng: number) =>
-      !selectedDistrictCode || findNearestDistrict(lat, lng)?.code === selectedDistrictCode;
+      !selectedRegion || regionContains(selectedRegion, lat, lng);
 
     const today = reports.filter((f) => isToday(f.reported_at));
     const listReports = reports
@@ -111,7 +107,7 @@ export default function InfoFloodMap() {
     // 오늘 예측 위험이 있는 핫스팟은 위험 항목으로 대체(중복 억제).
     const hotspotsInSel = hotspots.filter(
       (h) =>
-        ((selectedDistrictCode == null) ||
+        (!selectedRegion ||
           (h.centroid_lat != null && h.centroid_lng != null && inSel(h.centroid_lat, h.centroid_lng))) &&
         !riskHotspotIds.has(h.hotspot_id),
     );
@@ -137,19 +133,21 @@ export default function InfoFloodMap() {
       (h) => h.centroid_lat != null && h.centroid_lng != null && !cityRiskHotspotIds.has(h.hotspot_id),
     );
     return { todayReports: today, floodEntries: entries, markerHotspots: markers };
-  }, [reports, risks, hotspots, selectedDistrictCode]);
+  }, [reports, risks, hotspots, selectedRegion]);
 
   const daysAgo = (iso?: string | null) => {
     if (!iso) return null;
     return Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
   };
 
-  const selectDistrictAt = (lat: number, lng: number) =>
-    setSelectedDistrictCode(findNearestDistrict(lat, lng)?.code ?? null);
+  // 지도 마커(도시 전역): 상습=회색 · 예측=주황 · 제보=빨강.
+  const floodMarkers = useMemo<MapMarkerV2[]>(() => [
+    ...markerHotspots.map((h) => ({ id: `h-${h.hotspot_id}`, lat: h.centroid_lat as number, lng: h.centroid_lng as number, color: '#9CA3AF', r: 0.75 })),
+    ...risks.map((r) => ({ id: `r-${r.risk_id}`, lat: r.lat, lng: r.lng, color: '#F59E0B', r: 1.2 })),
+    ...todayReports.map((f) => ({ id: `f-${f.report_id}`, lat: f.lat, lng: f.lng, color: '#EF3B3B', r: 1.0 })),
+  ], [markerHotspots, risks, todayReports]);
 
-  // 지도 구역 탭: 같은 구역 재탭이면 해제(전체), 아니면 선택. locate(마운트)도 내 구역으로 선택.
-  const handleDistrictClick = (d: District) =>
-    setSelectedDistrictCode((cur) => (cur === d.code ? null : d.code));
+  const handleRegionSelect = useCallback((region: SelectedRegion) => setSelectedRegion(region), []);
 
   const DEPTH_CODES = ['ankle', 'knee', 'thigh', 'above'] as const;
 
@@ -220,48 +218,23 @@ export default function InfoFloodMap() {
       <div className={styles.scroll}>
         {/* District map */}
         <div className={styles.mapArea}>
-          <InfoMap
-            variant="fullscreen"
-            focusDistrictCode={selectedDistrictCode}
-            onDistrictClick={handleDistrictClick}
-            onLocate={setSelectedDistrictCode}
-            locateOnMount={!incomingCode}
-          >
-            {/* ① 상습 핫스팟 (회색, baseline) */}
-            {markerHotspots.map((h) => (
-              <FloodMarker
-                key={`h-${h.hotspot_id}`}
-                lat={h.centroid_lat as number}
-                lng={h.centroid_lng as number}
-                color="#9CA3AF"
-                r={1.3}
-                onClick={() => selectDistrictAt(h.centroid_lat as number, h.centroid_lng as number)}
-              />
-            ))}
-            {/* ② 오늘 예측 위험 (주황) */}
-            {risks.map((r) => (
-              <FloodMarker
-                key={`r-${r.risk_id}`}
-                lat={r.lat}
-                lng={r.lng}
-                color="#F59E0B"
-                r={2.1}
-                onClick={() => selectDistrictAt(r.lat, r.lng)}
-              />
-            ))}
-            {/* ③ 실제 제보 (빨강, 최상단) */}
-            {todayReports.map((f) => (
-              <FloodMarker key={f.report_id} lat={f.lat} lng={f.lng} onClick={() => setSelectedDistrictCode(reportDistrict(f))} />
-            ))}
-          </InfoMap>
+          <SaigonMapV2
+            height="100%"
+            markerMode="pins"
+            markers={floodMarkers}
+            onRegionSelect={handleRegionSelect}
+            initialGps={incomingCoords ?? undefined}
+            defaultWardSlug="ben-thanh"
+            locateOnMount={!incomingCoords}
+          />
         </div>
 
         {/* 최근 침수 (실시간 제보 + 상습 핫스팟 통합, 최신순) */}
         <div className={styles.sectionHeader}>
           <span>🔴 {t('info.flood.recentTitle', { count: floodEntries.length })}</span>
-          {selectedDistrictCode && (
-            <button className={styles.filterChip} onClick={() => setSelectedDistrictCode(null)}>
-              📍 {districtLabelByCode(selectedDistrictCode)} · {t('info.flood.showAll')}
+          {selectedRegion && (
+            <button className={styles.filterChip} onClick={() => setSelectedRegion(null)}>
+              📍 {selectedRegion.name} · {t('info.flood.showAll')}
             </button>
           )}
         </div>

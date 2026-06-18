@@ -54,6 +54,8 @@ export interface ListingCard {
   likeCount: number;
   bumpedAt: string;
   distanceM: number | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface ListingDetail {
@@ -96,6 +98,8 @@ export function transformCard(r: any): ListingCard {
     likeCount: r.like_count ?? 0,
     bumpedAt: r.bumped_at,
     distanceM: r.distance_m ?? null,
+    lat: r.lat ?? null,
+    lng: r.lng ?? null,
   };
 }
 

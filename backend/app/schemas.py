@@ -120,6 +120,8 @@ class MarketplaceListingCard(BaseModel):
     like_count: int = 0
     bumped_at: datetime
     distance_m: int | None = None
+    lat: float | None = None
+    lng: float | None = None
 
 
 class MarketplaceListingDetail(BaseModel):

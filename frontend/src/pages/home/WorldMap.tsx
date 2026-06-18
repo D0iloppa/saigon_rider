@@ -2,25 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchRecommendedQuests } from '@/api/quests';
 import { fetchWallet } from '@/api/wallet';
 import { fetchUserStats } from '@/api/profile';
-import { fetchDistricts, localizedName } from '@/api/master';
-import type { District } from '@/api/master';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport } from '@/api/info';
+import { fetchListings, localizedName as marketLocalizedName, type ListingCard } from '@/api/market';
+import { formatPriceVnd, relativeTime } from '@/pages/market/marketFormat';
 import { formatNumber } from '@/lib/format';
 import { native } from '@/lib/native';
 import { apiRegisterDeviceMap } from '@/api/device';
-import type { Quest } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { emojiUrl } from '@/lib/emoji';
 import { expToNextLevel } from '@/lib/rewards';
-import QuestCard from '@/components/quest/QuestCard';
-import InfoMap from '@/components/maps/InfoMap';
-import { findNearestDistrict, isWithinDistrictRadius } from '@/components/maps/district-data';
-import type { District as MapDistrict } from '@/components/maps/district-data';
+import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import { regionContains, type SelectedRegion } from '@/components/maps/v2/region';
 import styles from './WorldMap.module.css';
 
 export default function WorldMap() {
@@ -28,8 +24,8 @@ export default function WorldMap() {
   const refreshUser = useUserStore((s) => s.refreshUser);
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [recommendedList, setRecommendedList] = useState<Quest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<ListingCard[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [gold, setGold] = useState(0);
   const [xp, setXp] = useState(0);
   const [totalKm, setTotalKm] = useState(0);
@@ -39,8 +35,7 @@ export default function WorldMap() {
   const [infoFloods, setInfoFloods] = useState<FloodReport[]>([]);
   const [infoGasCount, setInfoGasCount] = useState(0);
   const [infoRepairCount, setInfoRepairCount] = useState(0);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -48,10 +43,6 @@ export default function WorldMap() {
     refreshUser();
     const uid = useUserStore.getState().user?.id;
     if (uid) {
-      fetchRecommendedQuests(uid).then((list) => {
-        setRecommendedList(list);
-        setLoading(false);
-      });
       native.getDeviceUUID()
         .then(async (deviceUuid) => {
           if (!deviceUuid) {
@@ -67,8 +58,6 @@ export default function WorldMap() {
           );
         })
         .catch((e) => console.error('[device-map] home getDeviceUUID threw', e));
-    } else {
-      setLoading(false);
     }
     fetchWallet().then((w) => {
       setGold(w.gold_balance);
@@ -81,49 +70,19 @@ export default function WorldMap() {
     }
   }, [refreshUser]);
 
-  useEffect(() => {
-    fetchDistricts().then(setDistricts).catch(() => {});
-  }, []);
+  // info API 는 선택된 동(ward) 의 centroid 좌표 기준. 동 선택은 SaigonMapV2 가 onRegionSelect 로 emit
+  // (탭/성공 locate/마운트 default). 대표지역 default 는 페이지가 defaultWardSlug 로 지정.
+  const activeCoords: { lat: number; lng: number } | null = selectedRegion
+    ? { lat: selectedRegion.lat, lng: selectedRegion.lng }
+    : null;
 
-  // 지도(SaigonDistrictMap)가 '내 위치로'(GPS+resolve)를 소유하고 결과 code 를 emit.
-  // 페이지는 선택 상태를 정하고, '초기 진입 자동 locate 실패'일 때만 default 도시(BEN_THANH)로 폴백.
-  // 버튼 클릭 실패(code=null)는 전체 지도 유지 — default 도시 폴백 없음.
-  const didInitLocate = useRef(false);
-  const handleLocate = useCallback((code: string | null) => {
-    const initial = !didInitLocate.current;
-    didInitLocate.current = true;
-    const valid = code && districts.some((d) => d.code === code) ? code : null;
-    if (valid) {
-      setSelectedDistrict(valid);
-    } else if (initial && districts.some((d) => d.code === 'BEN_THANH')) {
-      setSelectedDistrict('BEN_THANH');
-    } else {
-      setSelectedDistrict(null);
-    }
-  }, [districts]);
-
-  // 선택된 구역의 centroid 로 info API 4종 호출 (init 후 항상 구역이 선택됨: locate 결과 또는 default 도시)
-  const activeCoords: { lat: number; lng: number } | null = (() => {
-    if (selectedDistrict) {
-      const d = districts.find((x) => x.code === selectedDistrict);
-      if (d?.center_lat != null && d?.center_lng != null) {
-        return { lat: d.center_lat, lng: d.center_lng };
-      }
-    }
-    return null;
-  })();
-
-  const infoNavQuery = activeCoords
-    ? `?lat=${activeCoords.lat}&lng=${activeCoords.lng}${selectedDistrict ? `&district=${selectedDistrict}` : ''}`
-    : '';
+  const infoNavQuery = activeCoords ? `?lat=${activeCoords.lat}&lng=${activeCoords.lng}` : '';
 
   useEffect(() => {
-    if (!activeCoords) return;
-    const { lat, lng } = activeCoords;
-    // 5km 로 받아오되, 선택 구역 centroid 반경(DISTRICT_RADIUS_KM) 내 항목만 노출.
-    // 주유/정비 리스트·지도 뱃지와 동일 기준(isWithinDistrictRadius) → 메인 미니카운트와 일치.
-    const selCode = selectedDistrict ?? findNearestDistrict(lat, lng)?.code ?? null;
-    const inSel = (la: number, ln: number) => isWithinDistrictRadius(la, ln, selCode);
+    if (!selectedRegion) return;
+    const { lat, lng } = selectedRegion;
+    // 5km 로 받아오되, 선택 동(경계 폴리곤) 내부 항목만 노출.
+    const inSel = (la: number, ln: number) => regionContains(selectedRegion, la, ln);
     Promise.allSettled([
       weatherApi.get(lat, lng).then((w) => {
         setInfoWeather(w);
@@ -140,55 +99,33 @@ export default function WorldMap() {
         setInfoRepairCount(shops.length);
       }),
     ]);
-  }, [selectedDistrict, districts]);
+  }, [selectedRegion]);
 
-  const selectedDistrictName = selectedDistrict
-    ? (() => {
-        const d = districts.find((x) => x.code === selectedDistrict);
-        return d ? localizedName(d) : selectedDistrict;
-      })()
-    : null;
+  // 선택 동(depth1) 경계 내부의 최신 상품 6개 — Home 추천. 동 변경 시 갱신(상세는 마켓에서).
+  useEffect(() => {
+    if (!selectedRegion) return;
+    const region = selectedRegion;
+    setProductsLoading(true);
+    fetchListings({ lat: region.lat, lng: region.lng, sort: 'recent', hideSold: true, size: 40 })
+      .then((p) => {
+        const inWard = p.items.filter((it) => it.lat != null && it.lng != null && regionContains(region, it.lat, it.lng));
+        setProducts(inWard.slice(0, 6));
+      })
+      .catch(() => setProducts([]))
+      .finally(() => setProductsLoading(false));
+  }, [selectedRegion]);
+
+  // v2 지도가 선택 동(이름+centroid+경계)을 emit → 상단 라벨·info 좌표·영역 필터에 그대로 사용.
+  const handleRegionSelect = useCallback((region: SelectedRegion) => {
+    setSelectedRegion(region);
+  }, []);
+
+  const selectedDistrictName = selectedRegion?.name ?? null;
 
   if (!user) return null;
 
   const activeFloods = infoFloods.filter((f) => f.status === 'ACTIVE');
 
-  // ── District map state derivation ──
-  // selectedDistrict 가 있을 때만 highlight/focus. 없으면 전체 지도(zoom 최소) 노출.
-  const highlightDistrictCode: string | undefined = (() => {
-    if (!selectedDistrict) return undefined;
-    const d = districts.find((x) => x.code === selectedDistrict);
-    if (d?.center_lat != null && d?.center_lng != null) {
-      return findNearestDistrict(d.center_lat, d.center_lng)?.code;
-    }
-    return selectedDistrict;
-  })();
-
-  const dangerDistrictCodes: string[] = (() => {
-    const set = new Set<string>();
-    for (const f of activeFloods) {
-      const w = findNearestDistrict(f.lat, f.lng);
-      if (w) set.add(w.code);
-    }
-    return Array.from(set);
-  })();
-
-  const handleDistrictClick = (mapDistrict: MapDistrict) => {
-    // mapDistrict.gps 에 가장 가까운 district 를 선택
-    let nearest: District | null = null;
-    let minDist = Infinity;
-    for (const d of districts) {
-      if (d.center_lat == null || d.center_lng == null) continue;
-      const dLat = d.center_lat - mapDistrict.gps.lat;
-      const dLng = d.center_lng - mapDistrict.gps.lng;
-      const dist = dLat * dLat + dLng * dLng;
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = d;
-      }
-    }
-    if (nearest) setSelectedDistrict(nearest.code);
-  };
   const cur = infoWeather?.current;
   const district = infoWeather?.location?.district ?? 'District 1';
 
@@ -261,23 +198,15 @@ export default function WorldMap() {
             <span className={styles.infoSectionLabel}>
               📍 {selectedDistrictName ?? district} — {t('info.hub.currentSituation')}
             </span>
-            {!selectedDistrict && activeFloods.length > 0 && (
+            {!selectedRegion && activeFloods.length > 0 && (
               <span className={styles.infoBadgeDanger}>{t('info.hub.floodDangerBadge', { count: activeFloods.length })}</span>
             )}
           </div>
         </div>
 
-        {/* ── District Map ── */}
+        {/* ── District Map (v2: OSM 실측 3-depth 드릴다운) ── */}
         <div className={styles.mapSection}>
-          <InfoMap
-            variant="section"
-            highlightedDistricts={highlightDistrictCode ? [highlightDistrictCode] : []}
-            dangerDistricts={dangerDistrictCodes}
-            onDistrictClick={handleDistrictClick}
-            focusDistrictCode={highlightDistrictCode}
-            onLocate={handleLocate}
-            locateOnMount={districts.length > 0}
-          />
+          <SaigonMapV2 height={188} onRegionSelect={handleRegionSelect} locateOnMount defaultWardSlug="ben-thanh" />
         </div>
 
         {/* ── INFO Strip (지도 아래) ── */}
@@ -329,33 +258,38 @@ export default function WorldMap() {
           </div>
         </div>
 
-        {/* ── Today's Mission ── */}
-        <div className={styles.missionSection}>
-          <div className={styles.sectionLabel}>📍 {t('home.todayMission')}</div>
-          {loading ? (
-            <div className={`shimmer ${styles.missionSkeleton}`} />
-          ) : recommendedList.length > 0 ? (
-            <div className={styles.missionCarousel}>
-              {recommendedList.map((q) => (
-                <QuestCard
-                  key={q.id}
-                  variant="list"
-                  missionCode={q.missionCode}
-                  rarity={q.rarity}
-                  csv={q.csv}
-                  customImageUrl={q.thumbnailImageUrl}
-                  title={q.title}
-                  level={q.minLevel}
-                  distance={[q.districtName, q.minDistanceM > 0 ? `${(q.minDistanceM / 1000).toFixed(1)}km` : null].filter(Boolean).join(' · ')}
-                  tags={q.tags}
-                  rewards={{ xp: q.rewardXpPoints, gp: q.rewardGold }}
-                  expiresAt={q.expiresAt}
-                  onClick={() => navigate(`/quests/${q.id}`)}
-                />
-              ))}
+        {/* ── 선택 지역 최신 상품 (마켓 추천) ── */}
+        <div className={styles.productSection}>
+          <div className={styles.productHeader}>
+            <span className={styles.sectionLabel}>🛒 {selectedDistrictName ? `${selectedDistrictName} · ` : ''}{t('home.nearbyProducts')}</span>
+            <button className={styles.seeMore} onClick={() => navigate(`/market${infoNavQuery}`)}>{t('home.seeMore')} ›</button>
+          </div>
+          {productsLoading ? (
+            <div className={styles.productList}>
+              {[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.productSkeleton}`} />)}
+            </div>
+          ) : products.length === 0 ? (
+            <div className={styles.productEmpty}>
+              <p className={styles.productEmptyText}>{t('home.noProductsHere')}</p>
+              <button className={styles.productEmptyCta} onClick={() => navigate(`/market${infoNavQuery}`)}>{t('home.browseMarket')} ›</button>
             </div>
           ) : (
-            <div className={styles.missionEmpty}>{t('home.noMission')}</div>
+            <div className={styles.productList}>
+              {products.map((p) => (
+                <button key={p.id} type="button" className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
+                  <span className={styles.productThumb}>
+                    <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
+                  </span>
+                  <div className={styles.productBody}>
+                    <p className={styles.productTitle}>{p.title}</p>
+                    <p className={styles.productMeta}>
+                      {[marketLocalizedName(p.district), relativeTime(p.bumpedAt, t)].filter(Boolean).join(' · ')}
+                    </p>
+                    <span className={styles.productPrice}>{formatPriceVnd(p.priceVnd, t)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

@@ -9,31 +9,27 @@ import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc, isWithinDistrictRadius, distanceKm } from '@/components/maps/district-data';
-import InfoMap from '@/components/maps/InfoMap';
+import { isWithinHcmc, distanceKm } from '@/components/maps/district-data';
+import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import RepairShopSheet from '@/components/repair/RepairShopSheet';
-import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoRepairList.module.css';
 
-const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 구역별 클러스터/필터.
-const DEFAULT_DISTRICT = 'BEN_THANH';
+const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 선택 동(ward) 내부로 필터.
 
 export default function InfoRepairList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { search } = useLocation();
-  const incomingCode = useMemo(() => {
-    const c = parseCoordsFromQuery(search);
-    return c ? findNearestDistrict(c.lat, c.lng)?.code ?? null : null;
-  }, [search]);
+  const incomingCoords = useMemo(() => parseCoordsFromQuery(search), [search]);
 
   const [shops, setShops] = useState<RepairShop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  // 선택 구역(지도 탭/초기 위치). 리스트는 이 구역 소속만 → 지도 뱃지 수와 일치.
-  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(incomingCode);
+  // 선택 동(지도 emit). 리스트는 이 동 경계 내부만 → 지도 집계배지 수와 일치.
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
   const [selectedShop, setSelectedShop] = useState<number | null>(null);
   // inHcm: fetch origin 결정용. userGps: 실제 GPS(있으면 HCMC 밖이어도 거리=내 위치 기준).
   const [inHcm, setInHcm] = useState(false);
@@ -45,25 +41,24 @@ export default function InfoRepairList() {
 
   // 소속은 정비소좌표↔구역centroid 로만 결정. 거리/정렬은 GPS 있으면 내 위치 기준 재계산. (gas 와 동일)
   const listShops = useMemo<RepairShop[]>(() => {
-    const filtered = selectedDistrict
-      ? shops.filter((s) => isWithinDistrictRadius(s.lat, s.lng, selectedDistrict))
+    const filtered = selectedRegion
+      ? shops.filter((s) => regionContains(selectedRegion, s.lat, s.lng))
       : shops;
     const ranked = userGps
       ? filtered.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
       : [...filtered];
     return ranked.sort((a, b) => a.distance_km - b.distance_km);
-  }, [shops, selectedDistrict, userGps]);
+  }, [shops, selectedRegion, userGps]);
 
-  // 지도 마커도 선택 구역 반경 것만 (리스트와 동일 집합 → 뱃지 수 == 리스트 수).
-  const repairMarkers = useMemo<MapMarker[]>(
-    () =>
-      listShops.map((s) => ({
-        type: 'repair',
-        lat: s.lat,
-        lng: s.lng,
-        label: s.name,
-        onClick: () => setSelectedShop(s.shop_id),
-      })),
+  // 지도 마커 = 선택 동 내부 정비소 (리스트와 동일 집합). depth1 집계배지 / depth2·3 개별핀.
+  const repairMarkers = useMemo<MapMarkerV2[]>(
+    () => listShops.map((s) => ({
+      id: s.shop_id,
+      lat: s.lat,
+      lng: s.lng,
+      label: s.name,
+      onClick: () => setSelectedShop(s.shop_id),
+    })),
     [listShops],
   );
 
@@ -85,20 +80,12 @@ export default function InfoRepairList() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 거리 기준 origin 결정: HCMC 안 → GPS, 밖 → 선택(or 기본) 구역 centroid.
+  // 거리 기준 origin 결정: HCMC 안(실 GPS) → GPS, 밖/메인 진입 → 넘어온 좌표. 선택 동은 지도가 emit.
   const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
-    // 메인에서 넘어온 좌표(incomingCode)는 구역 centroid 이므로 GPS 로 오판 금지 → 구역 기준.
-    const within = coords.source === 'gps' && !incomingCode && isWithinHcmc(coords.lat, coords.lng);
+    const within = coords.source === 'gps' && !incomingCoords && isWithinHcmc(coords.lat, coords.lng);
     setInHcm(within);
-    const district = incomingCode ?? findNearestDistrict(coords.lat, coords.lng)?.code ?? DEFAULT_DISTRICT;
-    setSelectedDistrict(district);
-    if (within) {
-      fetchShops({ lat: coords.lat, lng: coords.lng });
-    } else {
-      const c = getDistrictByCode(district);
-      fetchShops(c ? { lat: c.gps.lat, lng: c.gps.lng } : { lat: coords.lat, lng: coords.lng });
-    }
-  }, [incomingCode, fetchShops]);
+    fetchShops({ lat: coords.lat, lng: coords.lng });
+  }, [incomingCoords, fetchShops]);
 
   useEffect(() => {
     const instant = resolveInfoCoordsSync(search, (fresh) => resolveAndLoad(fresh));
@@ -120,10 +107,10 @@ export default function InfoRepairList() {
     return () => { alive = false; };
   }, []);
 
-  const handleDistrictClick = useCallback((code: string, gps: { lat: number; lng: number }) => {
-    setSelectedDistrict(code);
-    // HCMC 밖이면 거리 기준을 새 구역 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
-    if (!inHcm) fetchShops(gps);
+  const handleRegionSelect = useCallback((region: SelectedRegion) => {
+    setSelectedRegion(region);
+    // HCMC 밖이면 거리 기준을 선택 동 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
+    if (!inHcm) fetchShops({ lat: region.lat, lng: region.lng });
   }, [inHcm, fetchShops]);
 
   function getShopBadge(shop: RepairShop): { label: string; cls: string } | null {
@@ -160,17 +147,18 @@ export default function InfoRepairList() {
       <div className={styles.distLabel}>
         📍 {userGps
           ? t('info.distFromGps')
-          : t('info.distFromFallback', { area: selectedDistrict ? districtLabelByCode(selectedDistrict) : '' })}
+          : t('info.distFromFallback', { area: selectedRegion?.name ?? '' })}
       </div>
 
       <div className={styles.scroll}>
         <div className={styles.mapWrap}>
-          <InfoMap
-            variant="fullscreen"
+          <SaigonMapV2
+            height="100%"
             markers={repairMarkers}
-            focusDistrictCode={selectedDistrict}
-            singleBadgeDistrictCode={selectedDistrict}
-            onDistrictClick={(d) => handleDistrictClick(d.code, d.gps)}
+            onRegionSelect={handleRegionSelect}
+            initialGps={incomingCoords ?? undefined}
+            defaultWardSlug="ben-thanh"
+            locateOnMount={!incomingCoords}
           />
         </div>
         <div className={styles.sectionHeader}>

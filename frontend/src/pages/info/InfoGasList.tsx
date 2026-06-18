@@ -9,26 +9,21 @@ import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { findNearestDistrict, districtLabelByCode, getDistrictByCode, isWithinHcmc, isWithinDistrictRadius, distanceKm } from '@/components/maps/district-data';
-import InfoMap from '@/components/maps/InfoMap';
+import { isWithinHcmc, distanceKm } from '@/components/maps/district-data';
+import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import GasStationSheet from '@/components/gas/GasStationSheet';
-import { deriveBrandCode } from '@/components/gas/gas-tokens';
-import type { MapMarker, GasMarkerData } from '@/components/maps/SaigonDistrictMap';
 import styles from './InfoGasList.module.css';
 
-const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 구역별 클러스터/필터.
-const DEFAULT_DISTRICT = 'BEN_THANH';
+const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 선택 동(ward) 내부로 필터.
 
 export default function InfoGasList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { search } = useLocation();
-  const incomingCode = useMemo(() => {
-    const c = parseCoordsFromQuery(search);
-    return c ? findNearestDistrict(c.lat, c.lng)?.code ?? null : null;
-  }, [search]);
+  const incomingCoords = useMemo(() => parseCoordsFromQuery(search), [search]);
 
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +31,8 @@ export default function InfoGasList() {
   // 표준유가(권역 참고가) — 전국 규제가라 주유소별이 아닌 상단 카드 1개로 노출.
   const [todayPrices, setTodayPrices] = useState<TodayPrices | null>(null);
   const [selectedStation, setSelectedStation] = useState<number | null>(null);
-  // 선택 구역(지도 탭/초기 위치). 리스트는 이 구역 소속만 표시 → 지도 뱃지 수와 일치.
-  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(incomingCode);
+  // 선택 동(지도 emit). 리스트는 이 동 경계 내부만 표시 → 지도 집계배지 수와 일치.
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
   // inHcm: fetch origin 결정용(HCMC 안=GPS, 밖=구역 centroid).
   const [inHcm, setInHcm] = useState(false);
   // 실제 GPS 좌표(있으면 HCMC 밖이어도 거리=내 위치 기준). 없으면 null → 구역 centroid 폴백.
@@ -50,34 +45,24 @@ export default function InfoGasList() {
   // 선택 구역 centroid 반경 내 주유소(소속) + 거리순.
   // 소속은 주유소좌표↔구역centroid 로만 결정(거리 origin 무관). 거리/정렬은 GPS 있으면 내 위치 기준 재계산.
   const listStations = useMemo<GasStation[]>(() => {
-    const filtered = selectedDistrict
-      ? stations.filter((s) => isWithinDistrictRadius(s.lat, s.lng, selectedDistrict))
+    const filtered = selectedRegion
+      ? stations.filter((s) => regionContains(selectedRegion, s.lat, s.lng))
       : stations;
     const ranked = userGps
       ? filtered.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
       : [...filtered];
     return ranked.sort((a, b) => a.distance_km - b.distance_km);
-  }, [stations, selectedDistrict, userGps]);
+  }, [stations, selectedRegion, userGps]);
 
-  // 지도 마커도 선택 구역 반경 것만 (전역 노출 안 함 — 리스트와 동일 집합).
-  const gasMarkers = useMemo<MapMarker[]>(
-    () =>
-      listStations.map((s) => {
-        const data: GasMarkerData = {
-          brand_code: deriveBrandCode(s.brand),
-          ref_price: null,
-          is_24h: false,
-          show_price: false,
-        };
-        return {
-          type: 'gas',
-          lat: s.lat,
-          lng: s.lng,
-          label: s.name ?? s.brand ?? '',
-          onClick: () => setSelectedStation(s.station_id),
-          data,
-        };
-      }),
+  // 지도 마커 = 선택 동 내부 주유소 (리스트와 동일 집합). depth1 집계배지 / depth2·3 개별핀.
+  const gasMarkers = useMemo<MapMarkerV2[]>(
+    () => listStations.map((s) => ({
+      id: s.station_id,
+      lat: s.lat,
+      lng: s.lng,
+      label: s.name ?? s.brand ?? '',
+      onClick: () => setSelectedStation(s.station_id),
+    })),
     [listStations],
   );
 
@@ -100,20 +85,12 @@ export default function InfoGasList() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 거리 기준 origin 결정: HCMC 안 → GPS, 밖 → 선택(or 기본) 구역 centroid.
+  // 거리 기준 origin 결정: HCMC 안(실 GPS) → GPS, 밖/메인 진입 → 넘어온 좌표. 선택 동은 지도가 emit.
   const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
-    // 메인에서 넘어온 좌표(incomingCode)는 구역 centroid 이므로 GPS 로 오판 금지 → 구역 기준.
-    const within = coords.source === 'gps' && !incomingCode && isWithinHcmc(coords.lat, coords.lng);
+    const within = coords.source === 'gps' && !incomingCoords && isWithinHcmc(coords.lat, coords.lng);
     setInHcm(within);
-    const district = incomingCode ?? findNearestDistrict(coords.lat, coords.lng)?.code ?? DEFAULT_DISTRICT;
-    setSelectedDistrict(district);
-    if (within) {
-      fetchStations({ lat: coords.lat, lng: coords.lng });
-    } else {
-      const c = getDistrictByCode(district);
-      fetchStations(c ? { lat: c.gps.lat, lng: c.gps.lng } : { lat: coords.lat, lng: coords.lng });
-    }
-  }, [incomingCode, fetchStations]);
+    fetchStations({ lat: coords.lat, lng: coords.lng });
+  }, [incomingCoords, fetchStations]);
 
   useEffect(() => {
     const instant = resolveInfoCoordsSync(search, (fresh) => resolveAndLoad(fresh));
@@ -157,10 +134,10 @@ export default function InfoGasList() {
     return rows.length ? { rows, updatedAt: todayPrices.updated_at ?? null } : null;
   }, [todayPrices]);
 
-  const handleDistrictClick = useCallback((code: string, gps: { lat: number; lng: number }) => {
-    setSelectedDistrict(code);
-    // HCMC 밖이면 거리 기준을 새 구역 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
-    if (!inHcm) fetchStations(gps);
+  const handleRegionSelect = useCallback((region: SelectedRegion) => {
+    setSelectedRegion(region);
+    // HCMC 밖이면 거리 기준을 선택 동 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
+    if (!inHcm) fetchStations({ lat: region.lat, lng: region.lng });
   }, [inHcm, fetchStations]);
 
   async function handleSubmitReport(fields: ReportFields): Promise<boolean> {
@@ -178,7 +155,7 @@ export default function InfoGasList() {
 
   const distLabel = userGps
     ? t('info.distFromGps')
-    : t('info.distFromFallback', { area: selectedDistrict ? districtLabelByCode(selectedDistrict) : '' });
+    : t('info.distFromFallback', { area: selectedRegion?.name ?? '' });
 
   return (
     <div className={styles.page}>
@@ -195,12 +172,13 @@ export default function InfoGasList() {
 
       <div className={styles.scroll}>
         <div className={styles.mapWrap}>
-          <InfoMap
-            variant="fullscreen"
+          <SaigonMapV2
+            height="100%"
             markers={gasMarkers}
-            focusDistrictCode={selectedDistrict}
-            singleBadgeDistrictCode={selectedDistrict}
-            onDistrictClick={(d) => handleDistrictClick(d.code, d.gps)}
+            onRegionSelect={handleRegionSelect}
+            initialGps={incomingCoords ?? undefined}
+            defaultWardSlug="ben-thanh"
+            locateOnMount={!incomingCoords}
           />
         </div>
         {refPrices && (

@@ -123,6 +123,8 @@ def _card(listing: MarketplaceListing, distance_m: int | None = None) -> Marketp
         like_count=listing.like_count,
         bumped_at=listing.bumped_at,
         distance_m=distance_m,
+        lat=float(listing.latitude) if listing.latitude is not None else None,
+        lng=float(listing.longitude) if listing.longitude is not None else None,
     )
 
 

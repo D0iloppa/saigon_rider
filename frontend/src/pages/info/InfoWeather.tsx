@@ -6,9 +6,9 @@ import type { WeatherData, ForecastHour } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { native } from '@/lib/native';
 import { parseCoordsFromQuery } from '@/lib/infoCoords';
-import InfoMap from '@/components/maps/InfoMap';
+import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import { type SelectedRegion } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
-import { findNearestDistrict, districtLabelByCode } from '@/components/maps/district-data';
 import styles from './InfoWeather.module.css';
 
 const RAIN_COLOR = (pct: number) => {
@@ -41,6 +41,7 @@ export default function InfoWeather() {
   const navigate = useNavigate();
   const { search } = useLocation();
   const [coords, setCoords] = useGeolocation(search);
+  const [regionName, setRegionName] = useState('');
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifyLabel, setNotifyLabel] = useState('');
@@ -69,9 +70,7 @@ export default function InfoWeather() {
       <TopBar title={t('info.weather.title')} onBack={() => navigate(-1)} rightContent={<InfoSwitcher current="weather" />} />
 
       <div className={styles.locBar}>
-        📍 {coords
-          ? t('info.distFromFallback', { area: districtLabelByCode(findNearestDistrict(coords.lat, coords.lng)?.code ?? '') })
-          : t('info.distFromGps')}
+        📍 {regionName ? t('info.distFromFallback', { area: regionName }) : t('info.distFromGps')}
       </div>
 
       {loading ? (
@@ -82,17 +81,15 @@ export default function InfoWeather() {
         <div className={styles.scroll}>
           {/* Location map — 침수 지도와 동일 레이아웃(풀블리드) */}
           <div className={styles.mapArea}>
-            {coords && (() => {
-              const code = findNearestDistrict(coords.lat, coords.lng)?.code ?? null;
-              return (
-                <InfoMap
-                  variant="fullscreen"
-                  focusDistrictCode={code}
-                  highlightedDistricts={code ? [code] : []}
-                  onDistrictClick={(d) => setCoords({ lat: d.gps.lat, lng: d.gps.lng })}
-                />
-              );
-            })()}
+            {coords && (
+              <SaigonMapV2
+                height="100%"
+                onRegionSelect={(r: SelectedRegion) => { setCoords({ lat: r.lat, lng: r.lng }); setRegionName(r.name); }}
+                initialGps={coords ?? undefined}
+                defaultWardSlug="ben-thanh"
+                locateOnMount={!coords}
+              />
+            )}
           </div>
 
           {/* 현재 날씨 */}

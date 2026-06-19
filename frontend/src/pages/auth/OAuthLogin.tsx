@@ -122,6 +122,22 @@ export default function OAuthLogin() {
     }
   };
 
+  const handleNativeZalo = async () => {
+    setError(null);
+    setLoading('zalo');
+    try {
+      const { userId, sessionToken, isNew } = await native.signInWith('zalo');
+      saveSession({ userId, sessionToken });
+      const result = await apiGetMeById(userId);
+      loginFromBackend(result.user);
+      navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      setLoading(null);
+    }
+  };
+
   const handleNativeApple = async () => {
     setError(null);
     setLoading('apple');
@@ -181,6 +197,14 @@ export default function OAuthLogin() {
               >
                 <span className={styles.oauthBtnIcon}></span>
                 {loading === 'apple' ? t('oauthLogin.loading') : t('oauthLogin.appleBtn')}
+              </button>
+              <button
+                className={`${styles.oauthBtn} ${styles.oauthBtnZalo}`}
+                onClick={handleNativeZalo}
+                disabled={loading !== null}
+              >
+                <span className={styles.oauthBtnIcon}>Z</span>
+                {loading === 'zalo' ? t('oauthLogin.loading') : t('oauthLogin.zaloBtn')}
               </button>
             </>
           ) : (

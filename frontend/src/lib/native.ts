@@ -340,9 +340,9 @@ class NativeInterface {
    * 반환된 {userId, sessionToken}은 BFF가 이미 발급한 세션이므로 apiOAuthLogin 불필요.
    */
   async signInWith(
-    provider: 'google' | 'apple' | 'facebook',
+    provider: 'google' | 'apple' | 'facebook' | 'zalo',
   ): Promise<{ userId: string; sessionToken: string; isNew: boolean }> {
-    if (provider !== 'google' && provider !== 'apple') {
+    if (provider !== 'google' && provider !== 'apple' && provider !== 'zalo') {
       throw new Error(`[NativeInterface] signInWith: ${provider} not yet supported`);
     }
 

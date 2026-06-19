@@ -205,6 +205,63 @@ async def exchange_apple_code(
     )
 
 
+_ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/oa/access_token"
+_ZALO_ME_URL = "https://graph.zalo.me/v2.0/me"
+
+
+async def exchange_zalo_code(
+    code: str,
+    app_id: str,
+    app_secret: str,
+    code_verifier: str,
+) -> OAuthProfile:
+    """Zalo authorization code를 PKCE로 교환하고 사용자 프로필을 반환한다."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        token_resp = await client.post(
+            _ZALO_TOKEN_URL,
+            headers={"secret_key": app_secret},
+            data={
+                "code": code,
+                "app_id": app_id,
+                "grant_type": "authorization_code",
+                "code_verifier": code_verifier,
+            },
+        )
+    if token_resp.status_code != 200:
+        raise ValueError(f"Zalo token exchange failed: {token_resp.text}")
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        raise ValueError(f"No access_token in Zalo response: {token_data}")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        me_resp = await client.get(
+            _ZALO_ME_URL,
+            params={"fields": "id,name,picture"},
+            headers={"access_token": access_token, "secret_key": app_secret},
+        )
+    if me_resp.status_code != 200:
+        raise ValueError(f"Zalo /me failed: {me_resp.text}")
+    me: dict[str, Any] = me_resp.json()
+
+    zalo_id = str(me.get("id", ""))
+    if not zalo_id:
+        raise ValueError("Zalo /me missing id")
+
+    picture_url: str | None = None
+    if isinstance(me.get("picture"), dict):
+        picture_url = me["picture"].get("data", {}).get("url")
+
+    return OAuthProfile(
+        provider="zalo",
+        provider_user_id=zalo_id,
+        email=None,  # Zalo는 이메일 미제공
+        display_name=me.get("name"),
+        picture_url=picture_url,
+        raw=me,
+    )
+
+
 async def verify_facebook_token(access_token: str, app_id: str, app_secret: str) -> OAuthProfile:
     """Facebook access token을 Graph API debug_token으로 검증한다."""
     async with httpx.AsyncClient(timeout=10.0) as client:

@@ -25,7 +25,13 @@ from ..schemas import (
     SessionVerifyRequest,
     UserOut,
 )
-from ..services.oauth import exchange_apple_code, exchange_google_code, verify_facebook_token, verify_google_token
+from ..services.oauth import (
+    exchange_apple_code,
+    exchange_google_code,
+    exchange_zalo_code,
+    verify_facebook_token,
+    verify_google_token,
+)
 from ..utils import generate_random_nickname
 
 log = logging.getLogger(__name__)
@@ -274,22 +280,26 @@ _APP_DEEP_LINK = "com.saigonrider.user://oauth/callback"
 _STATE_TTL = 600  # 10분
 
 # CSRF state 임시 저장소 (단일 프로세스 — BFF 재시작 시 진행 중인 인증은 실패)
-_oauth_states: dict[str, float] = {}
+# value: (expires_at, extra) — extra는 PKCE code_verifier 등 provider별 부가 데이터
+_oauth_states: dict[str, tuple[float, str | None]] = {}
 
 
-def _make_state() -> str:
+def _make_state(extra: str | None = None) -> str:
     token = secrets.token_urlsafe(32)
-    _oauth_states[token] = time.monotonic() + _STATE_TTL
+    _oauth_states[token] = (time.monotonic() + _STATE_TTL, extra)
     # 만료된 state 정리
-    expired = [k for k, exp in _oauth_states.items() if time.monotonic() > exp]
+    expired = [k for k, (exp, _) in _oauth_states.items() if time.monotonic() > exp]
     for k in expired:
         del _oauth_states[k]
     return token
 
 
-def _consume_state(state: str) -> bool:
-    exp = _oauth_states.pop(state, None)
-    return exp is not None and time.monotonic() <= exp
+def _consume_state(state: str) -> tuple[bool, str | None]:
+    entry = _oauth_states.pop(state, None)
+    if entry is None:
+        return False, None
+    exp, extra = entry
+    return time.monotonic() <= exp, extra
 
 
 def _bff_base_url() -> str:
@@ -337,7 +347,8 @@ async def oauth_google_callback(
     if error or not code:
         return deep_link_error(error or "auth_cancelled")
 
-    if not state or not _consume_state(state):
+    valid, _ = _consume_state(state) if state else (False, None)
+    if not state or not valid:
         return deep_link_error("invalid_state")
 
     cfg = await _load_oauth_config(db)
@@ -441,7 +452,8 @@ async def oauth_apple_callback(
     if error or not code:
         return deep_link_error(error or "auth_cancelled")
 
-    if not state or not _consume_state(state):
+    valid, _ = _consume_state(state) if state else (False, None)
+    if not state or not valid:
         return deep_link_error("invalid_state")
 
     cfg = await _load_oauth_config(db)
@@ -460,6 +472,119 @@ async def oauth_apple_callback(
         return deep_link_error("token_exchange_failed")
 
     # find-or-create
+    identity_row = (
+        await db.execute(
+            select(UserOAuthIdentity).where(
+                UserOAuthIdentity.provider == profile.provider,
+                UserOAuthIdentity.provider_user_id == profile.provider_user_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    is_new = False
+    if identity_row is None:
+        nick = await generate_random_nickname(db)
+        user = User(phone=None, passcode_hash=None, nickname=nick)
+        db.add(user)
+        await db.flush()
+        identity_row = UserOAuthIdentity(
+            user_id=user.id,
+            provider=profile.provider,
+            provider_user_id=profile.provider_user_id,
+            email=profile.email,
+            raw_profile=profile.raw,
+        )
+        db.add(identity_row)
+        is_new = True
+    else:
+        user = (
+            await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
+        ).scalar_one_or_none()
+        if user is None:
+            return deep_link_error("account_deleted")
+
+    raw_token = str(uuid.uuid4()).replace("-", "")
+    user.passcode_hash = _hash(raw_token)
+    if not (user.nickname and user.nickname.strip()):
+        user.nickname = await generate_random_nickname(db)
+    await db.commit()
+
+    return RedirectResponse(
+        url=f"{_APP_DEEP_LINK}?userId={user.id}&sessionToken={raw_token}&isNew={'1' if is_new else '0'}",
+        status_code=302,
+    )
+
+
+_ZALO_AUTH_URL = "https://oauth.zaloapp.com/v4/oa/permission"
+_ZALO_CALLBACK_PATH = "/auth/oauth/zalo/callback"
+
+
+def _make_pkce() -> tuple[str, str]:
+    """code_verifier + code_challenge(S256) 쌍 생성."""
+    import base64
+    import hashlib
+
+    verifier = secrets.token_urlsafe(48)
+    digest = hashlib.sha256(verifier.encode()).digest()
+    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    return verifier, challenge
+
+
+@router.get("/oauth/zalo/start", summary="Zalo 로그인 시작 (PKCE redirect flow)")
+async def oauth_zalo_start(db: AsyncSession = Depends(get_db)):
+    """PKCE code_verifier를 생성해 state에 바인딩하고 Zalo 인증 페이지로 리다이렉트한다."""
+    cfg = await _load_oauth_config(db)
+    app_id = cfg.get("zalo_app_id", "")
+    if not app_id or app_id == "CHANGE_ME":
+        raise HTTPException(status_code=500, detail="Zalo OAuth not configured")
+
+    verifier, challenge = _make_pkce()
+    state = _make_state(extra=verifier)
+    redirect_uri = _bff_base_url() + _ZALO_CALLBACK_PATH
+    params = {
+        "app_id": app_id,
+        "redirect_uri": redirect_uri,
+        "code_challenge": challenge,
+        "state": state,
+    }
+    return RedirectResponse(url=f"{_ZALO_AUTH_URL}?{urlencode(params)}", status_code=302)
+
+
+@router.get("/oauth/zalo/callback", summary="Zalo 로그인 콜백 (PKCE redirect flow)")
+async def oauth_zalo_callback(
+    code: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Zalo 인증 결과를 처리하고 앱 딥링크로 리다이렉트한다.
+    성공: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1
+    실패: com.saigonrider.user://oauth/callback?error=...
+    """
+
+    def deep_link_error(msg: str) -> RedirectResponse:
+        return RedirectResponse(url=f"{_APP_DEEP_LINK}?error={msg}", status_code=302)
+
+    if error or not code:
+        return deep_link_error(error or "auth_cancelled")
+
+    valid, verifier = _consume_state(state) if state else (False, None)
+    if not state or not valid or not verifier:
+        return deep_link_error("invalid_state")
+
+    cfg = await _load_oauth_config(db)
+    app_id = cfg.get("zalo_app_id", "")
+    app_secret = cfg.get("zalo_app_secret", "")
+    if not app_id or app_id == "CHANGE_ME" or not app_secret or app_secret == "CHANGE_ME":
+        return deep_link_error("server_not_configured")
+
+    try:
+        profile = await exchange_zalo_code(code, app_id, app_secret, verifier)
+    except Exception:
+        log.exception("Zalo code exchange failed")
+        return deep_link_error("token_exchange_failed")
+
     identity_row = (
         await db.execute(
             select(UserOAuthIdentity).where(

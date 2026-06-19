@@ -1,4 +1,4 @@
-"""OAuth 토큰 검증 서비스 — Google + Facebook (P0).
+"""OAuth 토큰 검증 서비스 — Google + Facebook + Apple (P0).
 
 공통 OAuthProfile을 반환하며, 각 provider 검증기가 이 형태로 변환한다.
 
@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+import jwt
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +108,101 @@ async def exchange_google_code(code: str, client_id: str, client_secret: str, re
     if not id_token:
         raise ValueError("No id_token in Google token response")
     return await verify_google_token(id_token, client_id)
+
+
+_APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
+_APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
+
+# Apple JWKS 캐시 (60분 TTL)
+_apple_jwks_cache: tuple[float, list] | None = None
+
+
+async def _fetch_apple_jwks() -> list:
+    global _apple_jwks_cache
+    now = time.monotonic()
+    if _apple_jwks_cache and _apple_jwks_cache[0] > now:
+        return _apple_jwks_cache[1]
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(_APPLE_KEYS_URL)
+        resp.raise_for_status()
+        keys = resp.json().get("keys", [])
+    _apple_jwks_cache = (now + _JWKS_TTL, keys)
+    return keys
+
+
+def _make_apple_client_secret(team_id: str, client_id: str, key_id: str, private_key_pem: str) -> str:
+    """Apple ES256 JWT client_secret 생성 (유효기간 180일)."""
+    # DB에 \n 리터럴로 저장된 경우 실제 개행으로 변환
+    pem = private_key_pem.replace("\\n", "\n")
+    now = int(time.time())
+    payload = {
+        "iss": team_id,
+        "iat": now,
+        "exp": now + 86400 * 180,
+        "aud": "https://appleid.apple.com",
+        "sub": client_id,
+    }
+    return jwt.encode(payload, pem, algorithm="ES256", headers={"kid": key_id})
+
+
+async def exchange_apple_code(
+    code: str,
+    team_id: str,
+    client_id: str,
+    key_id: str,
+    private_key_pem: str,
+    redirect_uri: str,
+) -> OAuthProfile:
+    """Apple authorization code를 token endpoint에서 교환 후 id_token을 검증한다."""
+    client_secret = _make_apple_client_secret(team_id, client_id, key_id, private_key_pem)
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            _APPLE_TOKEN_URL,
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            },
+        )
+    if resp.status_code != 200:
+        raise ValueError(f"Apple token exchange failed: {resp.text}")
+
+    tokens = resp.json()
+    id_token = tokens.get("id_token")
+    if not id_token:
+        raise ValueError("No id_token in Apple token response")
+
+    # JWKS로 서명 검증
+    jwks = await _fetch_apple_jwks()
+    header = jwt.get_unverified_header(id_token)
+    kid = header.get("kid")
+    key_data = next((k for k in jwks if k.get("kid") == kid), None)
+    if key_data is None:
+        raise ValueError(f"Apple JWKS key not found for kid={kid}")
+
+    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key_data)
+    claims: dict[str, Any] = jwt.decode(
+        id_token,
+        public_key,
+        algorithms=["RS256"],
+        audience=client_id,
+    )
+
+    sub = claims.get("sub")
+    if not sub:
+        raise ValueError("Apple id_token missing sub")
+
+    return OAuthProfile(
+        provider="apple",
+        provider_user_id=sub,
+        email=claims.get("email"),
+        display_name=None,  # Apple은 최초 인증 시에만 name 제공 (form POST body에서 별도 파싱 필요)
+        picture_url=None,
+        raw=claims,
+    )
 
 
 async def verify_facebook_token(access_token: str, app_id: str, app_secret: str) -> OAuthProfile:

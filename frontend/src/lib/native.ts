@@ -342,9 +342,11 @@ class NativeInterface {
   async signInWith(
     provider: 'google' | 'apple' | 'facebook',
   ): Promise<{ userId: string; sessionToken: string; isNew: boolean }> {
-    if (provider !== 'google') {
+    if (provider !== 'google' && provider !== 'apple') {
       throw new Error(`[NativeInterface] signInWith: ${provider} not yet supported`);
     }
+
+    const startUrl = `https://saigon.doil.me/api/bff/auth/oauth/${provider}/start`;
 
     return new Promise((resolve, reject) => {
       const CALLBACK_SCHEME = 'com.saigonrider.user://oauth/callback';
@@ -372,7 +374,7 @@ class NativeInterface {
         }
       }).then((handle) => {
         listenerHandle = handle;
-        return Browser.open({ url: 'https://saigon.doil.me/api/bff/auth/oauth/google/start' });
+        return Browser.open({ url: startUrl });
       }).catch((err) => {
         cleanup();
         reject(err);

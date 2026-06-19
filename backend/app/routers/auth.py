@@ -5,7 +5,7 @@ import time
 import uuid
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ from ..schemas import (
     SessionVerifyRequest,
     UserOut,
 )
-from ..services.oauth import exchange_google_code, verify_facebook_token, verify_google_token
+from ..services.oauth import exchange_apple_code, exchange_google_code, verify_facebook_token, verify_google_token
 from ..utils import generate_random_nickname
 
 log = logging.getLogger(__name__)
@@ -351,6 +351,112 @@ async def oauth_google_callback(
         profile = await exchange_google_code(code, client_id, client_secret, redirect_uri)
     except Exception:
         log.exception("Google code exchange failed")
+        return deep_link_error("token_exchange_failed")
+
+    # find-or-create
+    identity_row = (
+        await db.execute(
+            select(UserOAuthIdentity).where(
+                UserOAuthIdentity.provider == profile.provider,
+                UserOAuthIdentity.provider_user_id == profile.provider_user_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    is_new = False
+    if identity_row is None:
+        nick = await generate_random_nickname(db)
+        user = User(phone=None, passcode_hash=None, nickname=nick)
+        db.add(user)
+        await db.flush()
+        identity_row = UserOAuthIdentity(
+            user_id=user.id,
+            provider=profile.provider,
+            provider_user_id=profile.provider_user_id,
+            email=profile.email,
+            raw_profile=profile.raw,
+        )
+        db.add(identity_row)
+        is_new = True
+    else:
+        user = (
+            await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
+        ).scalar_one_or_none()
+        if user is None:
+            return deep_link_error("account_deleted")
+
+    raw_token = str(uuid.uuid4()).replace("-", "")
+    user.passcode_hash = _hash(raw_token)
+    if not (user.nickname and user.nickname.strip()):
+        user.nickname = await generate_random_nickname(db)
+    await db.commit()
+
+    return RedirectResponse(
+        url=f"{_APP_DEEP_LINK}?userId={user.id}&sessionToken={raw_token}&isNew={'1' if is_new else '0'}",
+        status_code=302,
+    )
+
+
+_APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
+_APPLE_CALLBACK_PATH = "/auth/oauth/apple/callback"
+
+
+@router.get("/oauth/apple/start", summary="Apple Sign In 시작 (네이티브 redirect flow)")
+async def oauth_apple_start(db: AsyncSession = Depends(get_db)):
+    """CSRF state를 생성하고 Apple 인증 페이지로 리다이렉트한다."""
+    cfg = await _load_oauth_config(db)
+    client_id = cfg.get("apple_services_id", "")
+    if not client_id or client_id == "CHANGE_ME":
+        raise HTTPException(status_code=500, detail="Apple OAuth not configured")
+
+    state = _make_state()
+    redirect_uri = _bff_base_url() + _APPLE_CALLBACK_PATH
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "response_mode": "form_post",
+        "scope": "name email",
+        "state": state,
+    }
+    return RedirectResponse(url=f"{_APPLE_AUTH_URL}?{urlencode(params)}", status_code=302)
+
+
+@router.post("/oauth/apple/callback", summary="Apple Sign In 콜백 (form_post)")
+async def oauth_apple_callback(
+    code: str | None = Form(default=None),
+    state: str | None = Form(default=None),
+    error: str | None = Form(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Apple이 form POST로 전달하는 인증 결과를 처리하고 앱 딥링크로 리다이렉트한다.
+    성공: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1
+    실패: com.saigonrider.user://oauth/callback?error=...
+    """
+
+    def deep_link_error(msg: str) -> RedirectResponse:
+        return RedirectResponse(url=f"{_APP_DEEP_LINK}?error={msg}", status_code=302)
+
+    if error or not code:
+        return deep_link_error(error or "auth_cancelled")
+
+    if not state or not _consume_state(state):
+        return deep_link_error("invalid_state")
+
+    cfg = await _load_oauth_config(db)
+    team_id = cfg.get("apple_team_id", "")
+    services_id = cfg.get("apple_services_id", "")
+    key_id = cfg.get("apple_key_id", "")
+    private_key = cfg.get("apple_private_key", "")
+    if not all([team_id, services_id, key_id, private_key]) or "CHANGE_ME" in (team_id, services_id, key_id):
+        return deep_link_error("server_not_configured")
+
+    redirect_uri = _bff_base_url() + _APPLE_CALLBACK_PATH
+    try:
+        profile = await exchange_apple_code(code, team_id, services_id, key_id, private_key, redirect_uri)
+    except Exception:
+        log.exception("Apple code exchange failed")
         return deep_link_error("token_exchange_failed")
 
     # find-or-create

@@ -122,6 +122,22 @@ export default function OAuthLogin() {
     }
   };
 
+  const handleNativeApple = async () => {
+    setError(null);
+    setLoading('apple');
+    try {
+      const { userId, sessionToken, isNew } = await native.signInWith('apple');
+      saveSession({ userId, sessionToken });
+      const result = await apiGetMeById(userId);
+      loginFromBackend(result.user);
+      navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      setLoading(null);
+    }
+  };
+
   const handleDevLogin = async () => {
     setError(null);
     setLoading('dev');
@@ -149,14 +165,24 @@ export default function OAuthLogin() {
         <div className={styles.oauthButtons}>
           {native.isNative ? (
             // 네이티브: 커스텀 버튼 → Capacitor 플러그인
-            <button
-              className={`${styles.oauthBtn} ${styles.oauthBtnGoogle}`}
-              onClick={handleNativeGoogle}
-              disabled={loading !== null}
-            >
-              <span className={styles.oauthBtnIcon}>G</span>
-              {loading === 'google' ? t('oauthLogin.loading') : t('oauthLogin.googleBtn')}
-            </button>
+            <>
+              <button
+                className={`${styles.oauthBtn} ${styles.oauthBtnGoogle}`}
+                onClick={handleNativeGoogle}
+                disabled={loading !== null}
+              >
+                <span className={styles.oauthBtnIcon}>G</span>
+                {loading === 'google' ? t('oauthLogin.loading') : t('oauthLogin.googleBtn')}
+              </button>
+              <button
+                className={`${styles.oauthBtn} ${styles.oauthBtnApple}`}
+                onClick={handleNativeApple}
+                disabled={loading !== null}
+              >
+                <span className={styles.oauthBtnIcon}></span>
+                {loading === 'apple' ? t('oauthLogin.loading') : t('oauthLogin.appleBtn')}
+              </button>
+            </>
           ) : (
             // 웹: GIS renderButton이 여기에 그려짐 (React DOM과 분리)
             <>

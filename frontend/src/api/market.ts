@@ -142,6 +142,7 @@ export interface ListingQuery {
   hideSold?: boolean;
   lat?: number | null;
   lng?: number | null;
+  districtId?: number | null;
   viewerId?: string | null;
   page?: number;
   size?: number;
@@ -174,6 +175,9 @@ export interface MarketAd {
   body: string | null;
   imageUrl: string | null;
   linkUrl: string | null;
+  phone: string | null;
+  address: string | null;
+  ownerId: string | null;
   districtId: number | null;
 }
 
@@ -185,18 +189,23 @@ function transformAd(a: any): MarketAd {
     body: a.body ?? null,
     imageUrl: a.image_url ?? null,
     linkUrl: a.link_url ?? null,
+    phone: a.phone ?? null,
+    address: a.address ?? null,
+    ownerId: a.owner_id ?? null,
     districtId: a.district_id ?? null,
   };
 }
 
 export async function fetchAds(districtId?: number | null): Promise<MarketAd[]> {
-  const qs = districtId != null ? `?district_id=${districtId}` : '';
-  const raw = await api.realFetch<any[]>(`/market/ads${qs}`);
+  const p = new URLSearchParams();
+  if (districtId != null) p.set('district_id', String(districtId));
+  p.set('lang', i18n.language);
+  const raw = await api.realFetch<any[]>(`/market/ads?${p.toString()}`);
   return (raw ?? []).map(transformAd);
 }
 
 export async function fetchAd(id: string): Promise<MarketAd> {
-  return transformAd(await api.realFetch<any>(`/market/ads/${id}`));
+  return transformAd(await api.realFetch<any>(`/market/ads/${id}?lang=${i18n.language}`));
 }
 
 export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> {
@@ -210,6 +219,7 @@ export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> 
     params.set('lat', String(q.lat));
     params.set('lng', String(q.lng));
   }
+  if (q.districtId != null) params.set('district_id', String(q.districtId));
   if (q.viewerId) params.set('viewer_id', q.viewerId);
   params.set('lang', i18n.language);
   params.set('page', String(q.page ?? 1));

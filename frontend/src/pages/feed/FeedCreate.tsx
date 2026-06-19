@@ -40,7 +40,7 @@ export default function FeedCreate() {
     (async () => {
       const list = await fetchDistricts().catch(() => [] as District[]);
       if (cancelled) return;
-      const fallback = list.find((d) => d.code === 'BINH_THANH') ?? list[0] ?? null;
+      const fallback = list.find((d) => d.code === 'BEN_THANH') ?? list[0] ?? null;
       try {
         await native.ensureLocationPermission();
         const pos = await native.getLocation();

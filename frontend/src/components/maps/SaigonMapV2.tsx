@@ -79,12 +79,16 @@ export interface SaigonMapV2Props {
   initialGps?: { lat: number; lng: number };
   /** 지도에 찍을 마커. depth1=선택동 집계배지, depth2/3=개별 핀(클릭). */
   markers?: MapMarkerV2[];
+  /** depth1 배지. 제공 시 markers 기반 ward-count 계산 대신 이 데이터를 직접 투영해 배지 렌더링. */
+  wardCountBadges?: { lat: number; lng: number; count: number }[];
   /** 선택/성공 locate 시 선택 지역(동) emit. 페이지가 상단 라벨·info 좌표·영역 필터에 사용. */
   onRegionSelect?: (region: SelectedRegion) => void;
   /** depth3(블록 상세)에서 임의 지점 탭 → 정밀 좌표 핀 선택 모드. */
   pickMode?: boolean;
   /** pickMode 에서 depth3 탭 시 선택 좌표(lat/lng) emit. */
   onPointPick?: (lat: number, lng: number) => void;
+  /** depth3 pan/zoom 완료 시 현재 viewport 안에 있는 마커 id Set emit. depth3 아니면 null. */
+  onVisibleMarkersChange?: (visibleIds: Set<string | number> | null) => void;
   className?: string;
 }
 
@@ -95,9 +99,11 @@ export default function SaigonMapV2({
   markerMode = 'badge',
   initialGps,
   markers = [],
+  wardCountBadges,
   onRegionSelect,
   pickMode = false,
   onPointPick,
+  onVisibleMarkersChange,
   className,
 }: SaigonMapV2Props) {
   const { t } = useTranslation();
@@ -132,6 +138,26 @@ export default function SaigonMapV2({
   });
   const depthRef = useRef(depth);
   useEffect(() => { depthRef.current = depth; }, [depth]);
+
+  // depth3 viewport 내 마커 계산 — 항상 최신 값 참조하도록 ref에 함수 저장
+  const wheelEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emitVisibleRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    emitVisibleRef.current = () => {
+      if (!onVisibleMarkersChange) return;
+      if (depthRef.current !== 3 || !d3) { onVisibleMarkersChange(null); return; }
+      const vb = vbRef.current[3];
+      const ids = new Set(
+        markers
+          .filter((m) => { const [x, y] = projGps(m, d3.VW, d3.VH, d3.bbox); return x >= vb.x && x <= vb.x + vb.w && y >= vb.y && y <= vb.y + vb.h; })
+          .map((m) => m.id),
+      );
+      onVisibleMarkersChange(ids);
+    };
+  });
+  // depth 변경·d3 로드·markers 변경 시 자동 emit
+  useEffect(() => { emitVisibleRef.current(); }, [depth, d3, markers]);
+
   const gest = useRef<{ pts: Map<number, { x: number; y: number }>; lastD: number; lastP: { x: number; y: number } | null; moved: boolean }>({
     pts: new Map(), lastD: 0, lastP: null, moved: false,
   });
@@ -264,6 +290,7 @@ export default function SaigonMapV2({
     const d = depthRef.current, full = fullRef.current[d], vb = vbRef.current[d];
     if (vb.w < full.w - 0.5) { vbRef.current[d] = { ...full }; setVBAttr(d); } // 1단계: full 로
     else popDepth(d); // 2단계: 상위 (depth1 full = 무동작)
+    if (d === 3) emitVisibleRef.current();
   }, [popDepth, setVBAttr]);
 
   const onZoomIn = useCallback(() => {
@@ -290,6 +317,7 @@ export default function SaigonMapV2({
       if (idx >= 0) { setSel2(idx); void drillIntoBlock(d2.blocks[idx].p); }
     } else {
       zoomToWidth(d, vb.w * 0.6, vb.x + vb.w / 2, vb.y + vb.h / 2); // depth3 등: 더 줌인
+      if (d === 3) emitVisibleRef.current();
     }
   }, [sel1, sel2, d2, zoomToWidth, drillIntoWard, drillIntoBlock]);
 
@@ -307,6 +335,11 @@ export default function SaigonMapV2({
         const cx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
         const cy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
         applyZoom(d, e.deltaY > 0 ? 1.12 : 0.89, cx, cy);
+        // depth3 wheel zoom: 마지막 wheel 이벤트 300ms 후 emit
+        if (d === 3) {
+          if (wheelEndTimer.current) clearTimeout(wheelEndTimer.current);
+          wheelEndTimer.current = setTimeout(() => emitVisibleRef.current(), 300);
+        }
       };
       el.addEventListener('wheel', onWheel, { passive: false });
       offs.push(() => el.removeEventListener('wheel', onWheel));
@@ -377,6 +410,8 @@ export default function SaigonMapV2({
         onPointPick?.(lat, lng);
       }
     }
+    // pan/pinch 종료 후 depth3이면 visible 마커 emit
+    if (g.pts.size === 0 && g.moved && depthRef.current === 3) emitVisibleRef.current();
     try { (e.currentTarget as Element).releasePointerCapture(e.pointerId); } catch { /* noop */ }
   };
   const pan = { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
@@ -527,7 +562,38 @@ export default function SaigonMapV2({
     );
   };
 
-  // depth2/3: 개별 마커 핀 (해당 depth bbox 안일 때만, 클릭 가능)
+  // depth-2: 마커를 근접도로 클러스터링 → badge count 표시
+  const renderClusterBadges = (vw: number, vh: number, bbox: Bbox) => {
+    const threshold = vw * 0.07;
+    const projected = markers
+      .map((m) => { const [x, y] = projGps(m, vw, vh, bbox); return { m, x, y }; })
+      .filter(({ x, y }) => x >= 0 && x <= vw && y >= 0 && y <= vh);
+    const used = new Array(projected.length).fill(false);
+    const clusters: { cx: number; cy: number; count: number }[] = [];
+    for (let i = 0; i < projected.length; i++) {
+      if (used[i]) continue;
+      const group = [projected[i]];
+      used[i] = true;
+      for (let j = i + 1; j < projected.length; j++) {
+        if (used[j]) continue;
+        const dx = projected[i].x - projected[j].x;
+        const dy = projected[i].y - projected[j].y;
+        if (Math.sqrt(dx * dx + dy * dy) < threshold) { group.push(projected[j]); used[j] = true; }
+      }
+      const cx = group.reduce((s, p) => s + p.x, 0) / group.length;
+      const cy = group.reduce((s, p) => s + p.y, 0) / group.length;
+      clusters.push({ cx, cy, count: group.length });
+    }
+    const r = vw * 0.013;
+    return clusters.map((cl, i) => (
+      <g key={`cl${i}`}>
+        <circle cx={cl.cx} cy={cl.cy} r={r * 1.9} className={styles.badge} strokeWidth={r * 0.4} />
+        <text x={cl.cx} y={cl.cy} className={styles.badgeText} fontSize={r * 2} dominantBaseline="central">{cl.count}</text>
+      </g>
+    ));
+  };
+
+  // depth3: 개별 마커 핀 (해당 depth bbox 안일 때만, 클릭 가능)
   const renderMarkers = (vw: number, vh: number, bbox: Bbox, d: number) => {
     const unit = fullRef.current[d].w;
     const s = vbRef.current[d].w / unit;
@@ -573,15 +639,33 @@ export default function SaigonMapV2({
           )}
           {markerMode === 'pins'
             ? renderMarkers(depth1.VW, depth1.VH, D1_BBOX, 1)
-            : markers.length > 0 && sel1 != null && (() => {
-                const w = depth1.wards[sel1];
+            : (() => {
                 const r = depth1.VW * 0.013;
-                return (
-                  <g>
-                    <circle cx={w.lx} cy={w.ly} r={r * 1.9} className={styles.badge} strokeWidth={r * 0.4} />
-                    <text x={w.lx} y={w.ly} className={styles.badgeText} fontSize={r * 2} dominantBaseline="central">{markers.length}</text>
-                  </g>
-                );
+                if (wardCountBadges && wardCountBadges.length > 0) {
+                  return wardCountBadges.map((b, i) => {
+                    const [bx, by] = projGps(b, depth1.VW, depth1.VH, D1_BBOX);
+                    return (
+                      <g key={`wb${i}`}>
+                        <circle cx={bx} cy={by} r={r * 1.9} className={styles.badge} strokeWidth={r * 0.4} />
+                        <text x={bx} y={by} className={styles.badgeText} fontSize={r * 2} dominantBaseline="central">{b.count}</text>
+                      </g>
+                    );
+                  });
+                }
+                if (markers.length === 0) return null;
+                return depth1.wards.map((w, i) => {
+                  const cnt = markers.filter((m) => {
+                    const [mx, my] = projGps(m, depth1.VW, depth1.VH, D1_BBOX);
+                    return pointInPoly(mx, my, w.p);
+                  }).length;
+                  if (cnt === 0) return null;
+                  return (
+                    <g key={`badge${i}`}>
+                      <circle cx={w.lx} cy={w.ly} r={r * 1.9} className={styles.badge} strokeWidth={r * 0.4} />
+                      <text x={w.lx} y={w.ly} className={styles.badgeText} fontSize={r * 2} dominantBaseline="central">{cnt}</text>
+                    </g>
+                  );
+                });
               })()}
           {renderMe(depth1.VW, depth1.VH, D1_BBOX, 1)}
         </svg>
@@ -600,7 +684,7 @@ export default function SaigonMapV2({
               {sel2 != null && (
                 <polygon key="bsel" points={d2.blocks[sel2].p} className={styles.blkSel} onClick={(e) => onBlockTap(sel2, e.timeStamp)} />
               )}
-              {renderMarkers(d2.VW, d2.VH, d2.bbox, 2)}
+              {markerMode === 'pins' ? renderMarkers(d2.VW, d2.VH, d2.bbox, 2) : renderClusterBadges(d2.VW, d2.VH, d2.bbox)}
               {renderMe(d2.VW, d2.VH, d2.bbox, 2)}
             </>
           )}

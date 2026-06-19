@@ -9,6 +9,8 @@
  */
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { Geolocation } from '@capacitor/geolocation';
 
 import { Device } from './plugins/Device';
@@ -328,6 +330,54 @@ class NativeInterface {
     a.href = dataUrl;
     a.download = filename;
     a.click();
+  }
+
+  // ── OAuth (@capacitor/browser redirect flow) ────────────────────────────
+
+  /**
+   * Google 로그인 — BFF 서버사이드 redirect flow.
+   * @capacitor/browser 로 인앱 브라우저를 열고 딥링크 콜백을 기다린다.
+   * 반환된 {userId, sessionToken}은 BFF가 이미 발급한 세션이므로 apiOAuthLogin 불필요.
+   */
+  async signInWith(
+    provider: 'google' | 'apple' | 'facebook',
+  ): Promise<{ userId: string; sessionToken: string; isNew: boolean }> {
+    if (provider !== 'google') {
+      throw new Error(`[NativeInterface] signInWith: ${provider} not yet supported`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const CALLBACK_SCHEME = 'com.saigonrider.user://oauth/callback';
+      let listenerHandle: PluginListenerHandle | null = null;
+
+      const cleanup = () => {
+        listenerHandle?.remove();
+        listenerHandle = null;
+      };
+
+      CapApp.addListener('appUrlOpen', (event) => {
+        if (!event.url.startsWith(CALLBACK_SCHEME)) return;
+        cleanup();
+        try {
+          const url = new URL(event.url);
+          const err = url.searchParams.get('error');
+          if (err) { reject(new Error(err)); return; }
+          resolve({
+            userId: url.searchParams.get('userId') ?? '',
+            sessionToken: url.searchParams.get('sessionToken') ?? '',
+            isNew: url.searchParams.get('isNew') === '1',
+          });
+        } catch (e) {
+          reject(e);
+        }
+      }).then((handle) => {
+        listenerHandle = handle;
+        return Browser.open({ url: 'https://saigon.doil.me/api/bff/auth/oauth/google/start' });
+      }).catch((err) => {
+        cleanup();
+        reject(err);
+      });
+    });
   }
 
   // ── Stubs (no native counterpart yet — install Capacitor plugin to enable) ─

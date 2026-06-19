@@ -78,7 +78,7 @@ export default function AccountSettings() {
         <div className={styles.sectionCard}>
           <SettingsRow
             label={t('settings.phone')}
-            value={user.phone}
+            value={user.phone ?? undefined}
             right={<button className={styles.copyBtn}>{t('common.change')}</button>}
           />
           <SettingsRow

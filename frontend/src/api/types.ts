@@ -11,7 +11,7 @@ export type Language = 'ko' | 'vi' | 'en';
 
 export interface User {
   id: string;
-  phone: string;
+  phone: string | null;
   nickname: string;
   riderStyle: RiderStyle;
   avatarUrl?: string;

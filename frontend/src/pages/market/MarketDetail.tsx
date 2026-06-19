@@ -94,7 +94,7 @@ export default function MarketDetail() {
       else await followUser(detail.seller.id);
       setDetail({ ...detail, seller: { ...detail.seller, isFollowing: !wasFollowing } });
     } catch {
-      toast.error(t('market.followError', { defaultValue: '단골 처리 실패' }));
+      toast.error(t('market.followError', { defaultValue: '팔로우 처리 실패' }));
     }
   };
 
@@ -201,8 +201,8 @@ export default function MarketDetail() {
                     onClick={handleToggleFollow}
                   >
                     {detail.seller.isFollowing
-                      ? t('market.regular', { defaultValue: '단골' })
-                      : t('market.makeRegular', { defaultValue: '단골 맺기' })}
+                      ? t('market.following', { defaultValue: '팔로잉' })
+                      : t('market.follow', { defaultValue: '팔로우' })}
                   </button>
                 )}
                 {detail.status !== 'ON_SALE' && (

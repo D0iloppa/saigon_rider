@@ -122,7 +122,7 @@
     "priceDropHint": "기존보다 낮추면 가격내림 배지가 붙어요",
     "regular": "단골",
     "makeRegular": "단골 맺기",
-    "followError": "단골 처리 실패",
+    "followError": "팔로우 처리 실패",
     "keywordAlerts": "키워드 알림",
     "keywordAlertsDesc": "키워드와 맞는 매물이 올라오면 알려드려요",
     "keywordPlaceholder": "예: 헬멧, 타이어",
@@ -169,7 +169,11 @@
     "reportReason_OTHER": "기타",
     "adLabel": "광고",
     "adPartnerLabel": "제휴 광고",
-    "adNotice": "가맹점 제휴 광고입니다."
+    "adNotice": "가맹점 제휴 광고입니다.",
+    "follow": "팔로우",
+    "following": "팔로잉",
+    "adCta": "자세히 보기",
+    "adInquiry": "전화 문의하기"
   },
   "splash": {
     "subtitle": "Where every ride becomes a quest",
@@ -193,6 +197,19 @@
     "legalMid": "과 ",
     "privacy": "개인정보처리방침",
     "legalSuffix": "에 동의합니다"
+  },
+  "oauthLogin": {
+    "titleLine1": "사이공 라이더에",
+    "titleLine2": "오신 것을 환영합니다",
+    "googleBtn": "Google로 계속하기",
+    "facebookBtn": "Facebook으로 계속하기",
+    "loading": "로그인 중...",
+    "legalPrefix": "계속을 누르면 ",
+    "terms": "이용약관",
+    "legalMid": "과 ",
+    "privacy": "개인정보처리방침",
+    "legalSuffix": "에 동의합니다",
+    "devBtn": "⚡ Dev 테스트 로그인 (개발 전용)"
   },
   "otpInput": {
     "title": "인증 코드 입력",
@@ -513,7 +530,9 @@
     "apptPlacePick": "지도에서 동네 선택",
     "translate": "번역",
     "showOriginal": "원문",
-    "translateError": "번역 실패"
+    "hideTranslation": "번역 숨기기",
+    "translateError": "번역 실패",
+    "navigate": "길안내"
   },
   "follow": {
     "followers": "팔로워",

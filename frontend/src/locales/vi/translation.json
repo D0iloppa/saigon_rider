@@ -122,7 +122,7 @@
     "priceDropHint": "Hạ thấp hơn giá cũ sẽ gắn nhãn giảm giá",
     "regular": "Khách quen",
     "makeRegular": "Kết khách quen",
-    "followError": "Không thể cập nhật",
+    "followError": "Không thể theo dõi",
     "keywordAlerts": "Thông báo từ khóa",
     "keywordAlertsDesc": "Báo cho bạn khi có tin khớp từ khóa",
     "keywordPlaceholder": "VD: mũ bảo hiểm, lốp",
@@ -169,7 +169,11 @@
     "reportReason_OTHER": "Khác",
     "adLabel": "Quảng cáo",
     "adPartnerLabel": "Quảng cáo đối tác",
-    "adNotice": "Đây là quảng cáo đối tác."
+    "adNotice": "Đây là quảng cáo đối tác.",
+    "follow": "Theo dõi",
+    "following": "Đang theo dõi",
+    "adCta": "Xem chi tiết",
+    "adInquiry": "Gọi điện hỏi"
   },
   "splash": {
     "subtitle": "Nơi mỗi chuyến đi là một nhiệm vụ",
@@ -193,6 +197,19 @@
     "legalMid": " và ",
     "privacy": "Chính sách bảo mật",
     "legalSuffix": " của chúng tôi."
+  },
+  "oauthLogin": {
+    "titleLine1": "Chào mừng đến với",
+    "titleLine2": "Saigon Rider",
+    "googleBtn": "Tiếp tục với Google",
+    "facebookBtn": "Tiếp tục với Facebook",
+    "loading": "Đang đăng nhập...",
+    "legalPrefix": "Bằng cách tiếp tục, bạn đồng ý với ",
+    "terms": "Điều khoản dịch vụ",
+    "legalMid": " và ",
+    "privacy": "Chính sách bảo mật",
+    "legalSuffix": " của chúng tôi.",
+    "devBtn": "⚡ Dev Test Login (chỉ dev)"
   },
   "otpInput": {
     "title": "Nhập mã xác thực",
@@ -513,7 +530,9 @@
     "apptPlacePick": "Chọn trên bản đồ",
     "translate": "Dịch",
     "showOriginal": "Gốc",
-    "translateError": "Dịch thất bại"
+    "hideTranslation": "Ẩn bản dịch",
+    "translateError": "Dịch thất bại",
+    "navigate": "Chỉ đường"
   },
   "follow": {
     "followers": "Người theo dõi",

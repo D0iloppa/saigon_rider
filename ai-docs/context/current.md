@@ -49,6 +49,15 @@
 
 ## 활성 태스크 (🔧)
 
+- **B-2 OAuth 로그인 전환 (SGR-B2, 2026-06-19)** — P1~P5 코드 DONE, dev 검증 완료. SoT [`ai-docs/task/active/260619_oauth_login_task.md`](../task/active/260619_oauth_login_task.md).
+  - P1: DB 마이그 100(users.phone nullable + user_oauth_identities) + 101(oauth app_config seed) — dev 적용 완료.
+  - P2: BFF `POST /auth/oauth/login`(Google tokeninfo + Facebook debug_token) + `POST /auth/session/verify` + `POST /auth/dev-login`(개발 전용). `backend/app/services/oauth.py` 신규.
+  - P3: `session.ts` → `{userId, sessionToken}`, `App.tsx` bootstrap → session/verify, `api/auth.ts` apiOAuthLogin/apiSessionVerify/apiDevLogin.
+  - P4: `native.ts` signInWith stub, `OAuthLogin.tsx` 신규(Google/Facebook 버튼 + dev 테스트 버튼), i18n ko/en/vi. PhoneInput/OtpInput 폐기 삭제.
+  - P5: `101_oauth_config_seed.sql` placeholder-only.
+  - **⚠️ 잔여**: ① 실제 Google/Facebook client_id → app_config UPDATE(키 발급 안내 문서 `260619_oauth_login_task.md` §7) ② native SDK 통합(Android Capacitor 플러그인 — Mac 빌드 의존) ③ `01085213251` 테스트 계정 OAuth 연동(OAuth 완성 후) ④ 운영배포 시 APP_ENV=production 설정 필요(dev-login 차단).
+  - **tsc 0 / eslint warning 0(기존 코드 경고만) / vite build 성공 / dev-login 200 / session-verify valid→200 bad→401**
+
 - **침수 데이터 전략 3층 모델 (결정 2026-06-04)** — ①상습 핫스팟 baseline + ③실시간 UGC 제보 **안정화 완료**, ②날씨 기반 일일 예측은 **OpenWeather 실연동 후로 보류**.
   - ① baseline: `flood_hotspot_stats` 30건(037 시드, dev 적용됨) → 플러드 페이지 "🌧 상습 침수 지역" 섹션으로 표출(좌표→구역 필터). 제보 0건이어도 화면 채워짐.
   - ③ UGC: 침수 신고 = 주유/정비식 **바텀시트**(FAB→하단 CTA 이동), 깊이 select, **사진 실첨부**(`/contents/upload`→imgproxy_url을 photo_url 저장, FloodDetailSheet 표시), 현재 GPS. 즉시 반영(주유/정비와 달리 admin 큐 없음 — 실시간 특성).

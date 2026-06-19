@@ -19,6 +19,7 @@ async def get_app_config(db: AsyncSession = Depends(get_db)) -> dict:
     cfg = {f"{r.group_name}.{r.key}": r.value for r in rows}
     return {
         "dm_poll_interval": int(cfg.get("dm.unread_poll_interval", "30")),
+        "google_client_id": cfg.get("oauth.google_client_id_web", ""),
     }
 
 

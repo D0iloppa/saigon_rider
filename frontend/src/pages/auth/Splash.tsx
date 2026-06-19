@@ -119,10 +119,10 @@ export default function Splash() {
 
       {/* Bottom sheet */}
       <div className={styles.sheet}>
-        <Button onClick={() => navigate('/auth/phone?mode=register')}>{t('splash.startBtn')}</Button>
+        <Button onClick={() => navigate('/auth/oauth')}>{t('splash.startBtn')}</Button>
         <button
           className={styles.loginBtn}
-          onClick={() => navigate('/auth/phone?mode=login')}
+          onClick={() => navigate('/auth/oauth')}
         >
           {t('splash.loginBtn')}
         </button>

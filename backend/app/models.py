@@ -93,7 +93,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     nickname: Mapped[str | None] = mapped_column(String(30), unique=True, nullable=True)
     rider_type_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("rider_types.id"), nullable=True)
     rider_type: Mapped["RiderType | None"] = relationship("RiderType", foreign_keys=[rider_type_id], lazy="selectin")
@@ -116,9 +116,25 @@ class User(Base):
     )
     manner_temp: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False, default=Decimal("36.5"))
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_advertiser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class UserOAuthIdentity(Base):
+    __tablename__ = "user_oauth_identities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    raw_profile: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
 class Content(Base):
@@ -472,6 +488,11 @@ class MarketplaceAd(Base):
     body: Mapped[str | None] = mapped_column(String(160), nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     link_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     district_id: Mapped[int | None] = mapped_column(
         SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
     )

@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import (
+    District,
     MarketplaceAd,
     MarketplaceCategory,
     MarketplaceKeywordAlert,
@@ -45,7 +46,7 @@ from ..schemas import (
     Page,
     SellerBrief,
 )
-from ..services.translate import lookup_lang_batch, translate_to, warm_translations
+from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
@@ -157,6 +158,7 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
 @router.get("/ads", response_model=list[MarketplaceAdOut], summary="제휴 광고 목록")
 async def get_ads(
     district_id: int | None = Query(None, description="지역 타게팅 (해당 구 + 전역 광고)"),
+    lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·본문을 캐시된 번역으로 표기"),
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now(UTC)
@@ -166,18 +168,39 @@ async def get_ads(
     q = q.where(or_(MarketplaceAd.starts_at.is_(None), MarketplaceAd.starts_at <= now))
     q = q.where(or_(MarketplaceAd.ends_at.is_(None), MarketplaceAd.ends_at >= now))
     q = q.order_by(MarketplaceAd.sort_order)
-    return (await db.execute(q)).scalars().all()
+    ads = (await db.execute(q)).scalars().all()
+    if not lang:
+        return ads
+    # 조회 언어로 제목·본문 표기(캐시 히트만, 없으면 원문). 배치 — API 호출 안 함.
+    out = [MarketplaceAdOut.model_validate(a) for a in ads]
+    titles = await lookup_lang_batch([o.title for o in out], lang, db)
+    bodies = await lookup_lang_batch([o.body or "" for o in out], lang, db)
+    for o, tt, bb in zip(out, titles, bodies, strict=True):
+        o.title = tt
+        o.body = bb or o.body
+    return out
 
 
 # M-8b 제휴 광고 상세 (앱 내 — 외부 라우팅 X)
 @router.get("/ads/{ad_id}", response_model=MarketplaceAdOut, summary="제휴 광고 상세")
-async def get_ad(ad_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_ad(
+    ad_id: uuid.UUID,
+    lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·본문 번역"),
+    db: AsyncSession = Depends(get_db),
+):
     ad = (
         await db.execute(select(MarketplaceAd).where(MarketplaceAd.id == ad_id, MarketplaceAd.is_active == True))
     ).scalar_one_or_none()
     if ad is None:
         raise HTTPException(status_code=404, detail="Ad not found")
-    return ad
+    if not lang:
+        return ad
+    out = MarketplaceAdOut.model_validate(ad)
+    out.title = await translate_to(ad.title, lang, db)
+    if ad.body:
+        out.body = await translate_to(ad.body, lang, db)
+    await db.commit()  # translate_to 워밍 결과 영속화
+    return out
 
 
 # M-2 동네 피드 (매물 목록 — 카테고리·정렬·거래완료 숨김·거리·페이지네이션)
@@ -190,6 +213,7 @@ async def get_listings(
     hide_sold: bool = Query(False, description="거래완료(SOLD) 매물 제외"),
     lat: float | None = Query(None, description="내 위치 위도 (거리 계산·거리순)"),
     lng: float | None = Query(None, description="내 위치 경도"),
+    district_id: int | None = Query(None, description="구 id — 해당 구 매물만 조회"),
     viewer_id: uuid.UUID | None = Query(None, description="조회자(차단 사용자 매물 제외용)"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목을 캐시된 번역으로 표기"),
     page: int = Query(1, ge=1),
@@ -228,9 +252,22 @@ async def get_listings(
         count_q = count_q.where(MarketplaceListing.category_id.in_(subtree))
 
     if keyword and keyword.strip():
-        like = f"%{keyword.strip()}%"
-        q = q.where(MarketplaceListing.title.ilike(like))
-        count_q = count_q.where(MarketplaceListing.title.ilike(like))
+        # 다국어 검색: 검색어를 3개국어로 변환 → 원문 제목을 모든 변형으로 OR 매칭
+        # (사용자는 번역된 제목을 보지만 제목은 원문 저장 → 원문/번역 양쪽 매칭).
+        kw = keyword.strip()
+        variants = {kw}
+        try:
+            b = await translate_all(kw, db)
+            variants.update(v for v in (b["kr"], b["en"], b["vi"]) if v)
+        except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
+            log.warning("search query translate failed: %s", exc)
+        kw_cond = or_(*(MarketplaceListing.title.ilike(f"%{v}%") for v in variants))
+        q = q.where(kw_cond)
+        count_q = count_q.where(kw_cond)
+
+    if district_id is not None:
+        q = q.where(MarketplaceListing.district_id == district_id)
+        count_q = count_q.where(MarketplaceListing.district_id == district_id)
 
     if viewer_id is not None:
         # 내가 차단한 사용자의 매물 제외
@@ -359,6 +396,22 @@ async def create_listing(
 ):
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
+
+    if body.latitude is not None and body.longitude is not None:
+        point_wkt = f"SRID=4326;POINT({float(body.longitude)} {float(body.latitude)})"
+        in_hcmc = await db.scalar(
+            select(func.count())
+            .select_from(District)
+            .where(
+                District.boundary.isnot(None),
+                func.ST_Contains(
+                    func.ST_GeomFromEWKT(func.ST_AsEWKT(District.boundary)),
+                    func.ST_GeomFromText(point_wkt),
+                ),
+            )
+        )
+        if not in_hcmc:
+            raise HTTPException(status_code=422, detail="location must be within Ho Chi Minh City")
 
     now = datetime.now(UTC)
     listing = MarketplaceListing(

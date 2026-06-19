@@ -1,0 +1,260 @@
+/* Reset & Base */
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    -webkit-tap-highlight-color: transparent;
+}
+
+body { 
+    background-color: #f8f9fa; /* 앱 배경과 유사한 밝은 톤 */
+    color: #333; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    min-height: 100vh; 
+    padding: 20px; 
+}
+
+/* Main Container */
+#app { 
+    width: 100%; 
+    max-width: 380px; 
+    position: relative; 
+    padding-bottom: 20px;
+}
+
+/* --- Loading Style --- */
+.loading { 
+    text-align: center; 
+    padding: 40px;
+    background: white;
+    border: 2px solid #333;
+    border-radius: 8px 12px 6px 10px;
+    box-shadow: 6px 6px 0px #c1c1c1;
+    transform: rotate(-0.5deg);
+}
+
+.loading-text {
+    font-weight: 600;
+    color: #555;
+    margin-top: 15px;
+}
+
+.spinner { 
+    width: 30px; height: 30px; 
+    border: 3px solid #eee; 
+    border-top-color: #333; 
+    border-radius: 50%; 
+    animation: spin 1s linear infinite; 
+    margin: 0 auto; 
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Ticket Card (Sketch Style) --- */
+.ticket-card {
+    background: white;
+    border: 2px solid #333;
+    border-radius: 8px 12px 6px 10px; /* 손그림 느낌의 불규칙한 모서리 */
+    box-shadow: 6px 6px 0px #c1c1c1; /* 하드 그림자 */
+    padding: 0;
+    position: relative;
+    transform: rotate(-0.5deg); /* 살짝 기울기 */
+    overflow: hidden;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn { 
+    0% { opacity: 0; transform: scale(0.9) rotate(-0.5deg); } 
+    100% { opacity: 1; transform: scale(1) rotate(-0.5deg); } 
+}
+
+/* Header Section */
+.ticket-header {
+    background: #fff;
+    padding: 25px 20px 15px;
+    text-align: center;
+    border-bottom: 2px dashed #ddd; /* 영수증 절취선 느낌 */
+}
+
+.venue-name {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #333;
+    margin-bottom: 10px;
+    word-break: keep-all;
+    line-height: 1.3;
+}
+
+/* Status Badge */
+.status-badge { 
+    display: inline-block; 
+    padding: 6px 14px; 
+    border: 2px solid #333;
+    /* 뱃지도 불규칙한 라운딩 */
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; 
+    font-size: 0.85rem; 
+    font-weight: 700; 
+    background: #fff;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+    text-transform: uppercase;
+}
+
+/* Status Colors */
+.ticket-card.valid .status-badge { color: #22c55e; border-color: #22c55e; background-color: #f0fdf4; }
+.ticket-card.used .status-badge { color: #64748b; border-color: #64748b; background-color: #f1f5f9; }
+.ticket-card.invalid .status-badge { color: #ef4444; border-color: #ef4444; background-color: #fef2f2; }
+
+/* Body Section */
+.ticket-body { padding: 25px 20px; }
+
+/* Info Rows */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    align-items: baseline;
+    border-bottom: 1px solid #f4f4f4;
+    padding-bottom: 8px;
+}
+.info-row:last-of-type { border-bottom: none; }
+
+.label { 
+    font-size: 0.8rem; 
+    color: #888; 
+    font-weight: 600; 
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.value { 
+    font-size: 1.05rem; 
+    font-weight: 700; 
+    color: #333; 
+    text-align: right; 
+    word-break: break-word;
+    max-width: 65%;
+}
+
+/* --- Special Sections --- */
+
+/* 1. Escort Service (Yellow Box) */
+.escort-row {
+    background-color: #fffbeb; /* 연한 노란색 */
+    border: 2px solid #fbbf24;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 2px 2px 0px rgba(251, 191, 36, 0.2);
+}
+
+.escort-label { 
+    font-weight: 800; 
+    color: #d97706; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    font-size: 0.95rem;
+}
+
+.escort-badge {
+    background: #d97706; 
+    color: white;
+    font-size: 0.75rem; 
+    font-weight: 800;
+    padding: 4px 8px; 
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+/* 2. Memo Section (Dashed Box) */
+.memo-section {
+    margin-top: 25px;
+    background-color: #f8f9fa;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 15px;
+    position: relative;
+}
+
+.memo-title {
+    font-size: 0.8rem; 
+    color: #666; 
+    font-weight: 700; 
+    margin-bottom: 8px;
+    display: flex; 
+    align-items: center; 
+    gap: 5px;
+    text-transform: uppercase;
+}
+
+.memo-content {
+    font-size: 0.95rem; 
+    color: #333; 
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+/* --- Buttons --- */
+.btn-container { 
+    margin-top: 10px; 
+    padding: 0 20px 25px; 
+}
+
+.btn-use {
+    width: 100%; 
+    background: #333; 
+    color: white; 
+    border: 2px solid #333;
+    /* 손그림 스타일 라운딩 */
+    border-top-left-radius: 255px 15px; 
+    border-top-right-radius: 15px 225px; 
+    border-bottom-right-radius: 225px 15px; 
+    border-bottom-left-radius: 15px 255px;
+    
+    padding: 16px; 
+    font-size: 1.1rem; 
+    font-weight: 800; 
+    cursor: pointer;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.2); 
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-use:active { 
+    transform: translateY(2px); 
+    box-shadow: none; 
+}
+
+.btn-use:disabled { 
+    background: #ccc; 
+    border-color: #ccc; 
+    cursor: not-allowed; 
+    box-shadow: none; 
+    transform: none;
+    color: #888;
+}
+
+/* --- Error State --- */
+.error-card { 
+    text-align: center; 
+    padding: 40px 20px; 
+    background: white; 
+    border: 2px solid #333; 
+    border-radius: 8px 12px 6px 10px; 
+    box-shadow: 6px 6px 0px #ccc; 
+    transform: rotate(-0.5deg); 
+}
+
+.coupon-title {
+    margin-bottom: 10px;
+    font-size: 20px;
+    font-weight: bold;
+}

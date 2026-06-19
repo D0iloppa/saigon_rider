@@ -2,7 +2,7 @@ import { api } from './client';
 
 export interface UserDto {
   id: string;
-  phone: string;
+  phone: string | null;
   nickname: string | null;
   rider_type: string | { code: string } | null;
   level: number;
@@ -41,6 +41,34 @@ export async function apiLogin(phone: string, passcode: string): Promise<LoginRe
 
 export async function apiGetMe(phone: string): Promise<LoginResult> {
   return api.realFetch<LoginResult>(`/auth/me?phone=${encodeURIComponent(phone)}`);
+}
+
+export async function apiGetMeById(userId: string): Promise<LoginResult> {
+  return api.realFetch<LoginResult>(`/auth/me/by-id?user_id=${encodeURIComponent(userId)}`);
+}
+
+export interface OAuthLoginResult {
+  user: UserDto;
+  session_token: string;
+  is_new: boolean;
+}
+
+export async function apiOAuthLogin(provider: string, token: string, tokenType: string = 'id_token'): Promise<OAuthLoginResult> {
+  return api.realFetch<OAuthLoginResult>('/auth/oauth/login', {
+    method: 'POST',
+    body: JSON.stringify({ provider, token, token_type: tokenType }),
+  });
+}
+
+export async function apiSessionVerify(userId: string, sessionToken: string): Promise<LoginResult> {
+  return api.realFetch<LoginResult>('/auth/session/verify', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, session_token: sessionToken }),
+  });
+}
+
+export async function apiDevLogin(): Promise<OAuthLoginResult> {
+  return api.realFetch<OAuthLoginResult>('/auth/dev-login', { method: 'POST' });
 }
 
 // SGR-209 A3: 스킬 투자 (SP 1 차감 → 레벨 +1). 갱신된 유저 반환.

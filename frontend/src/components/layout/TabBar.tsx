@@ -1,9 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Store, Map, Users, User } from 'lucide-react';
-import { emojiUrl } from '@/lib/emoji';
+// import { emojiUrl } from '@/lib/emoji'; // gif 버전 전환 시 필요
 import styles from './TabBar.module.css';
 
+/*
+// GIF 버전 — 향후 피드백 이후 교체 시 GifTabIcon 컴포넌트 복원
 function GifTabIcon({
   code,
   FallbackIcon,
@@ -37,17 +39,19 @@ function GifTabIcon({
   );
 }
 
+// gif code: home='1f3e0' market='1f6d2' map='1f5fa' community='1f465' profile='1f464'
+*/
+
 export function TabBar() {
   const { t } = useTranslation();
 
-  // 5탭: 홈(WorldMap 대시보드)·마켓(거래)·동네지도(RideNav 지도)·커뮤니티(피드)·프로필
-  // 채팅은 nav에서 제외 — 프로필 및 마켓 '채팅하기' 등에서 진입.
+  // 5탭: 홈·마켓·동네지도·커뮤니티·프로필 (채팅은 nav 제외)
   const tabs = [
-    { path: '/home',    label: t('tabbar.home'),      code: '1f3e0', Fallback: Home  },
-    { path: '/market',  label: t('tabbar.market'),    code: '1f6d2', Fallback: Store },
-    { path: '/map',     label: t('tabbar.map'),       code: '1f5fa', Fallback: Map   },
-    { path: '/feed',    label: t('tabbar.community'),  code: '1f465', Fallback: Users },
-    { path: '/profile', label: t('tabbar.profile'),    code: '1f464', Fallback: User  },
+    { path: '/home',    label: t('tabbar.home'),      Icon: Home  },
+    { path: '/market',  label: t('tabbar.market'),    Icon: Store },
+    { path: '/map',     label: t('tabbar.map'),       Icon: Map   },
+    { path: '/feed',    label: t('tabbar.community'), Icon: Users },
+    { path: '/profile', label: t('tabbar.profile'),   Icon: User  },
   ];
 
   return (
@@ -60,7 +64,9 @@ export function TabBar() {
             `${styles.tab} ${isActive ? styles.active : ''}`
           }
         >
-          <GifTabIcon code={tab.code} FallbackIcon={tab.Fallback} />
+          <span className={styles.iconWrap}>
+            <tab.Icon size={24} strokeWidth={1.8} />
+          </span>
           <span className={styles.label}>{tab.label}</span>
         </NavLink>
       ))}

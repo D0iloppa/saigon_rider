@@ -176,6 +176,17 @@
   font-size: 13px;
   color: var(--text-2);
 }
+.apptNavBtn {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.apptNavBtn:active { opacity: .85; }
 
 /* ── 약속잡기 버튼/시트 ── */
 .apptBtn {

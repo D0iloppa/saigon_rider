@@ -43,7 +43,7 @@ const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
  */
 export default function MarketMain() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
 
   const [alertOpen, setAlertOpen] = useState(false);
@@ -57,10 +57,10 @@ export default function MarketMain() {
   const [ads, setAds] = useState<MarketAd[]>([]);
   const homeCoords = useLocationStore((s) => s.coords);
 
-  // 제휴 광고(지역 타게팅) — 동네 확정 후 1회 로드. 피드 중간 삽입용.
+  // 제휴 광고(지역 타게팅) — 동네/언어 확정 후 로드. 피드 중간 삽입용.
   useEffect(() => {
     fetchAds(district?.id ?? null).then(setAds).catch(() => setAds([]));
-  }, [district?.id]);
+  }, [district?.id, i18n.language]);
 
   // 기본 동네 우선순위: home(동네 지도)에서 선택한 위치 > 현재 GPS > Bình Thạnh 폴백.
   useEffect(() => {
@@ -91,12 +91,12 @@ export default function MarketMain() {
 
   const fetchPage = useCallback(
     (page: number) =>
-      fetchListings({ sort, hideSold, lat: coords?.lat, lng: coords?.lng, viewerId: userId, page, size: 20 }),
-    [sort, hideSold, coords, userId],
+      fetchListings({ sort, hideSold, lat: coords?.lat, lng: coords?.lng, districtId: district?.id, viewerId: userId, page, size: 20 }),
+    [sort, hideSold, coords, district?.id, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, district?.id, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
 import type { UserDto } from '@/api/auth';
-import { apiGetMe, apiInvestSkill } from '@/api/auth';
+import { apiGetMe, apiGetMeById, apiInvestSkill } from '@/api/auth';
 import { apiRegisterDeviceMap } from '@/api/device';
 import i18n, { changeLang } from '@/lib/i18n';
 import { native } from '@/lib/native';
@@ -88,7 +88,7 @@ export const useUserStore = create<UserState>()(
         const u = get().user;
         if (!u) return;
         try {
-          const res = await apiGetMe(u.phone);
+          const res = u.phone ? await apiGetMe(u.phone) : await apiGetMeById(u.id);
           set({ user: dtoToUser(res.user) });
         } catch {
           // silent fail

@@ -8,7 +8,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { fetchMessages, sendMessage, markRead, fetchConversation } from '@/api/dm';
 import { createReview, type ReviewRating } from '@/api/market';
-import { translateAll, pickLang } from '@/api/translate';
+import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
@@ -46,6 +46,8 @@ export default function DmDetail() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewed, setReviewed] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  // 한글/베트남어 IME 조합 중 controlled value 재설정이 글자를 중복시킴 → 조합 중 state 갱신 보류
+  const composingRef = useRef(false);
   const otherName = conv?.otherUserNickname ?? locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
 
   useEffect(() => {
@@ -121,8 +123,8 @@ export default function DmDetail() {
       return;
     }
     try {
-      const bundle = await translateAll(content);
-      setTr((prev) => ({ ...prev, [msgId]: pickLang(bundle) }));
+      const { translated } = await translateText(content);
+      setTr((prev) => ({ ...prev, [msgId]: translated }));
       setTrOpen((prev) => ({ ...prev, [msgId]: true }));
     } catch {
       toast.error(t('dm.translateError', { defaultValue: '번역 실패' }));
@@ -185,6 +187,15 @@ export default function DmDetail() {
                 <span className={styles.apptBadge}>📅 {t('dm.appointment', { defaultValue: '약속' })}</span>
                 <div className={styles.apptWhen}>{(m.meta?.when ?? '').replace('T', ' ')}</div>
                 {m.meta?.place && <div className={styles.apptPlace}>📍 {m.meta.place}</div>}
+                {m.meta?.placeLat != null && m.meta?.placeLng != null && (
+                  <button
+                    className={styles.apptNavBtn}
+                    type="button"
+                    onClick={() => navigate(`/ride-nav?type=nav&lat=${m.meta!.placeLat}&lng=${m.meta!.placeLng}`)}
+                  >
+                    🧭 {t('dm.navigate', { defaultValue: '길안내' })}
+                  </button>
+                )}
                 <div className={styles.meta}>{formatRelativeTime(m.createdAt)}</div>
               </div>
             );
@@ -196,10 +207,10 @@ export default function DmDetail() {
               {m.content && trOpen[m.id] && tr[m.id] && (
                 <div className={styles.translated}>{tr[m.id]}</div>
               )}
-              {m.content && (
+              {m.content && !isMine && (
                 <button className={styles.translateBtn} type="button" onClick={() => handleTranslateMsg(m.id, m.content!)}>
                   {trOpen[m.id]
-                    ? t('dm.showOriginal', { defaultValue: '원문' })
+                    ? t('dm.hideTranslation', { defaultValue: '번역 숨기기' })
                     : t('dm.translate', { defaultValue: '번역' })}
                 </button>
               )}
@@ -220,8 +231,18 @@ export default function DmDetail() {
           className={styles.input}
           placeholder={t('dm.inputPlaceholder')}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          onChange={(e) => {
+            if (composingRef.current) return; // 조합 중에는 갱신 보류(IME가 직접 표시)
+            setInput(e.target.value);
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            setInput((e.target as HTMLInputElement).value); // 조합 확정값 1회 반영
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSend()}
         />
         <button
           className={`${styles.sendBtn} ${input.trim() ? styles.sendBtnActive : ''}`}

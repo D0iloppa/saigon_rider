@@ -2,14 +2,18 @@ import { api } from './client';
 
 export interface AppConfig {
   dmPollInterval: number;
+  googleClientId: string;
 }
 
 export async function fetchAppConfig(): Promise<AppConfig> {
   try {
-    const raw = await api.realFetch<{ dm_poll_interval: number }>('/app-config');
-    return { dmPollInterval: raw.dm_poll_interval ?? 30 };
+    const raw = await api.realFetch<{ dm_poll_interval: number; google_client_id: string }>('/app-config');
+    return {
+      dmPollInterval: raw.dm_poll_interval ?? 30,
+      googleClientId: raw.google_client_id ?? '',
+    };
   } catch {
-    return { dmPollInterval: 30 };
+    return { dmPollInterval: 30, googleClientId: '' };
   }
 }
 

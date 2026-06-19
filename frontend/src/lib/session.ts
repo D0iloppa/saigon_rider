@@ -1,17 +1,16 @@
 /**
  * 인증 세션 관리 모듈
  *
- * 현재 구현: 쿠키 기반 (phone + passcode 쌍 저장)
- * 보안 개선 시 이 파일 내부만 교체하면 됨 (JWT, HttpOnly cookie 등)
+ * OAuth 전환 후 세션 규약: {userId, sessionToken}
+ * 이전 {phone, passcode} 쿠키는 검증 실패 → OAuthLogin으로 리다이렉트 (자연 만료)
  */
 
 const COOKIE_KEY = 'sr_session';
 const MAX_AGE = 60 * 60 * 24 * 180; // 180일
 
 export interface Session {
-  phone: string;
-  passcode: string;
   userId: string;
+  sessionToken: string;
 }
 
 function encode(value: string): string {
@@ -33,7 +32,10 @@ export function loadSession(): Session | null {
     .find((row) => row.startsWith(`${COOKIE_KEY}=`));
   if (!match) return null;
   try {
-    return JSON.parse(decode(match.split('=').slice(1).join('=')));
+    const parsed = JSON.parse(decode(match.split('=').slice(1).join('=')));
+    // 구형 {phone, passcode} 포맷은 무시 (OAuth 전환 후 자연 만료)
+    if (!parsed.userId || !parsed.sessionToken) return null;
+    return parsed as Session;
   } catch {
     return null;
   }

@@ -10,7 +10,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
-import { apiLogin } from '@/api/auth';
+import { apiSessionVerify } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
 import { setSessionExpiredHandler, SessionExpiredError } from '@/api/client';
 import { fetchAppConfig } from '@/api/appVersion';
@@ -18,8 +18,7 @@ import PrivateRoute from '@/components/auth/PrivateRoute';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
-import PhoneInput from '@/pages/auth/PhoneInput';
-import OtpInput from '@/pages/auth/OtpInput';
+import OAuthLogin from '@/pages/auth/OAuthLogin';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
 
 // Home
@@ -171,7 +170,7 @@ export default function App() {
       return;
     }
 
-    apiLogin(session.phone, session.passcode)
+    apiSessionVerify(session.userId, session.sessionToken)
       .then((result) => {
         loginFromBackend(result.user);
       })
@@ -209,8 +208,7 @@ export default function App() {
 
           {/* Auth flow (public) */}
           <Route path="/splash" element={<Splash />} />
-          <Route path="/auth/phone" element={<PhoneInput />} />
-          <Route path="/auth/otp" element={<OtpInput />} />
+          <Route path="/auth/oauth" element={<OAuthLogin />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
 
           {/* Deep link entry (auth-aware inside) */}

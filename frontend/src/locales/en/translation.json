@@ -122,7 +122,7 @@
     "priceDropHint": "Lower than before adds a price-drop badge",
     "regular": "Regular",
     "makeRegular": "Add as regular",
-    "followError": "Could not update",
+    "followError": "Could not update follow",
     "keywordAlerts": "Keyword alerts",
     "keywordAlertsDesc": "We'll notify you when a matching listing is posted",
     "keywordPlaceholder": "e.g. helmet, tire",
@@ -169,7 +169,11 @@
     "reportReason_OTHER": "Other",
     "adLabel": "Ad",
     "adPartnerLabel": "Partner ad",
-    "adNotice": "This is a partner advertisement."
+    "adNotice": "This is a partner advertisement.",
+    "follow": "Follow",
+    "following": "Following",
+    "adCta": "View details",
+    "adInquiry": "Call now"
   },
   "splash": {
     "subtitle": "Where every ride becomes a quest",
@@ -193,6 +197,19 @@
     "legalMid": " and ",
     "privacy": "Privacy Policy",
     "legalSuffix": "."
+  },
+  "oauthLogin": {
+    "titleLine1": "Welcome to",
+    "titleLine2": "Saigon Rider",
+    "googleBtn": "Continue with Google",
+    "facebookBtn": "Continue with Facebook",
+    "loading": "Signing in...",
+    "legalPrefix": "By continuing, you agree to our ",
+    "terms": "Terms of Service",
+    "legalMid": " and ",
+    "privacy": "Privacy Policy",
+    "legalSuffix": ".",
+    "devBtn": "⚡ Dev Test Login (dev only)"
   },
   "otpInput": {
     "title": "Enter Auth Code",
@@ -513,7 +530,9 @@
     "apptPlacePick": "Pick on map",
     "translate": "Translate",
     "showOriginal": "Original",
-    "translateError": "Translation failed"
+    "hideTranslation": "Hide translation",
+    "translateError": "Translation failed",
+    "navigate": "Directions"
   },
   "follow": {
     "followers": "Followers",

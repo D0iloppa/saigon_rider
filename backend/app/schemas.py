@@ -181,6 +181,9 @@ class MarketplaceAdOut(BaseModel):
     body: str | None = None
     image_url: str | None = None
     link_url: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    owner_id: UUID | None = None
     district_id: int | None = None
 
     model_config = {"from_attributes": True}
@@ -274,9 +277,20 @@ class LoginRequest(BaseModel):
     passcode: str
 
 
+class OAuthLoginRequest(BaseModel):
+    provider: str  # 'google' | 'facebook' | 'apple'
+    token: str
+    token_type: str = "id_token"  # 'id_token' | 'access_token'
+
+
+class SessionVerifyRequest(BaseModel):
+    user_id: UUID
+    session_token: str
+
+
 class UserOut(BaseModel):
     id: UUID
-    phone: str
+    phone: str | None
     nickname: str | None
     rider_type: RiderTypeOut | None = None
     level: int
@@ -326,6 +340,12 @@ class RegisterResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     user: UserOut
+
+
+class OAuthLoginResponse(BaseModel):
+    user: UserOut
+    session_token: str
+    is_new: bool
 
 
 # ── Profile ──────────────────────────────────────────────────────

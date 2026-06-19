@@ -104,6 +104,23 @@ docker compose --env-file .env up --build -d frontend   # 프론트 재배포
 
 위반을 발견하면 즉시 (a) 비밀 회전, (b) git 히스토리 정리(`git filter-repo` 등), (c) 외부 노출 경위 추적 순으로 대응한다.
 
+### 키 파일 (.p8 / .pem) 보관 위치
+
+`.env`로 관리할 수 없는 파일형 비밀(Apple .p8, TLS 인증서 등)은 아래 규칙을 따른다.
+
+| 위치 | 용도 |
+|---|---|
+| `_secrets/` (프로젝트 루트, `.gitignore`) | 로컬 작업본. git 추적 제외. |
+| 운영 서버 `~/secrets/` | 서버 작업본. |
+
+**현재 등록된 키 파일**
+
+| 파일명 | 용도 | Key ID | 발급일 |
+|---|---|---|---|
+| `AuthKey_XW649V7JXK.p8` | Apple Sign In with Apple (ES256) | `XW649V7JXK` | 2026-06-19 |
+
+> ⚠ `.p8` 파일은 Apple Developer Portal에서 **단 한 번만 다운로드** 가능. 분실 시 재발급(기존 키 폐기)이 필요하다. `_secrets/` 외에 패스워드 매니저 등 오프라인 백업을 권장한다.
+
 ## 5. 린터
 
 코드 품질은 린터로 자동 관리한다. `pre-commit` 훅이 커밋 시 자동 실행되므로 별도 워크플로우 없이 동작한다.

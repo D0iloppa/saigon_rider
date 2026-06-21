@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Store, Map, Users, User } from 'lucide-react';
+import { useDmStore } from '@/store/useDmStore';
 // import { emojiUrl } from '@/lib/emoji'; // gif 버전 전환 시 필요
 import styles from './TabBar.module.css';
 
@@ -44,14 +45,16 @@ function GifTabIcon({
 
 export function TabBar() {
   const { t } = useTranslation();
+  const dmUnread = useDmStore((s) => s.totalUnread);
 
   // 5탭: 홈·마켓·동네지도·커뮤니티·프로필 (채팅은 nav 제외)
+  // 프로필 탭 = DM 진입점 → 안 읽은 DM 있으면 빨간 dot 으로 알림
   const tabs = [
-    { path: '/home',    label: t('tabbar.home'),      Icon: Home  },
-    { path: '/market',  label: t('tabbar.market'),    Icon: Store },
-    { path: '/map',     label: t('tabbar.map'),       Icon: Map   },
-    { path: '/feed',    label: t('tabbar.community'), Icon: Users },
-    { path: '/profile', label: t('tabbar.profile'),   Icon: User  },
+    { path: '/home',    label: t('tabbar.home'),      Icon: Home,  dot: false },
+    { path: '/market',  label: t('tabbar.market'),    Icon: Store, dot: false },
+    { path: '/map',     label: t('tabbar.map'),       Icon: Map,   dot: false },
+    { path: '/feed',    label: t('tabbar.community'), Icon: Users, dot: false },
+    { path: '/profile', label: t('tabbar.profile'),   Icon: User,  dot: dmUnread > 0 },
   ];
 
   return (
@@ -66,6 +69,7 @@ export function TabBar() {
         >
           <span className={styles.iconWrap}>
             <tab.Icon size={24} strokeWidth={1.8} />
+            {tab.dot && <span className={styles.navDot} />}
           </span>
           <span className={styles.label}>{tab.label}</span>
         </NavLink>

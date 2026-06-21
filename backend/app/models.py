@@ -686,6 +686,28 @@ class DmMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class MarketplaceAppointment(Base):
+    __tablename__ = "marketplace_appointments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    proposer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    when_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    place_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    place_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    place_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PROPOSED")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 # ── __DEV: 프로젝트 컨텍스트 관리 ────────────────────────────────
 
 _dev_feature_status_enum = ENUM(

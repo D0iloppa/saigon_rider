@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import func, literal_column, or_, select, text
+from sqlalchemy import func, literal_column, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -12,7 +12,10 @@ from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import (
     District,
+    DmConversation,
+    DmMessage,
     MarketplaceAd,
+    MarketplaceAppointment,
     MarketplaceCategory,
     MarketplaceKeywordAlert,
     MarketplaceListing,
@@ -25,7 +28,10 @@ from ..models import (
     UserFollow,
 )
 from ..schemas import (
+    AppointmentOut,
+    AppointmentProposeRequest,
     DistrictBrief,
+    DmMessageOut,
     MarketplaceAdOut,
     MarketplaceBumpResult,
     MarketplaceCategoryOut,
@@ -45,6 +51,7 @@ from ..schemas import (
     MarketplaceReviewResult,
     Page,
     SellerBrief,
+    TradeHistoryItem,
 )
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url
@@ -760,3 +767,234 @@ async def delete_keyword_alert(
         raise HTTPException(status_code=403, detail="Not the owner")
     await db.delete(alert)
     await db.commit()
+
+
+# ── 거래 약속 (Appointments, SGR-287) ─────────────────────────────
+# DM 메시지 meta → 도메인 엔티티 승격. 거래 1건의 만남 = 단일 진실.
+# 생명주기: PROPOSED → ACCEPTED(listing RESERVED) → COMPLETED(listing SOLD) / CANCELLED
+
+
+def _appt_out(a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> AppointmentOut:
+    return AppointmentOut(
+        id=a.id,
+        listing_id=a.listing_id,
+        conversation_id=a.conversation_id,
+        proposer_id=a.proposer_id,
+        seller_id=seller_id,
+        when_at=a.when_at,
+        place_name=a.place_name,
+        place_lat=float(a.place_lat) if a.place_lat is not None else None,
+        place_lng=float(a.place_lng) if a.place_lng is not None else None,
+        status=a.status,
+    )
+
+
+@router.post("/appointments", response_model=DmMessageOut, status_code=201, summary="거래 약속 제안")
+async def propose_appointment(
+    body: AppointmentProposeRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """약속을 제안한다. 같은 대화의 기존 PROPOSED 약속은 supersede(CANCELLED).
+    채팅 타임라인 유지를 위해 message_type='appointment' DM 메시지도 함께 생성해 반환한다."""
+    conv = await db.get(DmConversation, body.conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
+    if conv.context_type != "listing" or conv.context_id is None:
+        raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
+
+    now = datetime.now(UTC)
+    # 대화당 활성 제안 1건 — 직전 PROPOSED 들은 무효화
+    await db.execute(
+        update(MarketplaceAppointment)
+        .where(
+            MarketplaceAppointment.conversation_id == conv.id,
+            MarketplaceAppointment.status == "PROPOSED",
+        )
+        .values(status="CANCELLED", updated_at=now)
+    )
+
+    appt = MarketplaceAppointment(
+        listing_id=conv.context_id,
+        conversation_id=conv.id,
+        proposer_id=session_uid,
+        when_at=body.when_at,
+        place_name=body.place_name,
+        place_lat=body.place_lat,
+        place_lng=body.place_lng,
+        status="PROPOSED",
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(appt)
+    await db.flush()
+
+    when_label = body.when_at.strftime("%Y-%m-%d %H:%M")
+    summary = f"약속 제안: {when_label}" + (f" {body.place_name}" if body.place_name else "")
+    msg = DmMessage(
+        conversation_id=conv.id,
+        sender_id=session_uid,
+        content=summary,
+        message_type="appointment",
+        meta={"appointmentId": str(appt.id)},
+        created_at=now,
+    )
+    db.add(msg)
+    conv.last_message_at = now
+    listing = await db.get(MarketplaceListing, conv.context_id)
+    await db.commit()
+
+    return DmMessageOut(
+        id=msg.id,
+        conversation_id=msg.conversation_id,
+        sender_id=msg.sender_id,
+        content=msg.content,
+        image_url=None,
+        read_at=msg.read_at,
+        created_at=msg.created_at,
+        message_type=msg.message_type,
+        meta=msg.meta,
+        appointment=_appt_out(appt, listing.seller_id if listing else None),
+    )
+
+
+async def _load_appointment(
+    db: AsyncSession, appointment_id: uuid.UUID, session_uid: uuid.UUID
+) -> tuple[MarketplaceAppointment, DmConversation, MarketplaceListing]:
+    appt = await db.get(MarketplaceAppointment, appointment_id)
+    if appt is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    conv = await db.get(DmConversation, appt.conversation_id)
+    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
+    listing = await db.get(MarketplaceListing, appt.listing_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return appt, conv, listing
+
+
+@router.patch("/appointments/{appointment_id}/accept", response_model=AppointmentOut, summary="약속 수락")
+async def accept_appointment(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """제안 상대(제안자가 아닌 참여자)가 수락 → ACCEPTED, 매물 ON_SALE→RESERVED."""
+    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    if session_uid == appt.proposer_id:
+        raise HTTPException(status_code=403, detail="Proposer cannot accept own appointment")
+    if appt.status != "PROPOSED":
+        raise HTTPException(status_code=409, detail=f"Cannot accept appointment in status {appt.status}")
+
+    now = datetime.now(UTC)
+    appt.status = "ACCEPTED"
+    appt.updated_at = now
+    if listing.status == "ON_SALE":
+        listing.status = "RESERVED"
+        listing.updated_at = now
+    await db.commit()
+    return _appt_out(appt, listing.seller_id)
+
+
+@router.patch("/appointments/{appointment_id}/complete", response_model=AppointmentOut, summary="거래 완료")
+async def complete_appointment(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """판매자만 거래 완료 처리 → COMPLETED, 매물 SOLD. (제안은 누가 했든 완료는 판매자)"""
+    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    if listing.seller_id != session_uid:
+        raise HTTPException(status_code=403, detail="Only the seller can complete the deal")
+    if appt.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail=f"Cannot complete appointment in status {appt.status}")
+
+    now = datetime.now(UTC)
+    appt.status = "COMPLETED"
+    appt.updated_at = now
+    listing.status = "SOLD"
+    listing.updated_at = now
+    await db.commit()
+    return _appt_out(appt, listing.seller_id)
+
+
+@router.patch("/appointments/{appointment_id}/cancel", response_model=AppointmentOut, summary="약속 취소")
+async def cancel_appointment(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """참여자 누구나 취소 → CANCELLED. 수락 상태였으면 매물 RESERVED→ON_SALE 복귀."""
+    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    # 멱등: 이미 취소됨(또는 supersede)면 그대로 반환. 완료된 건만 취소 불가.
+    if appt.status == "CANCELLED":
+        return _appt_out(appt, listing.seller_id)
+    if appt.status == "COMPLETED":
+        raise HTTPException(status_code=409, detail="Cannot cancel a completed appointment")
+
+    now = datetime.now(UTC)
+    was_accepted = appt.status == "ACCEPTED"
+    appt.status = "CANCELLED"
+    appt.updated_at = now
+    if was_accepted and listing.status == "RESERVED":
+        listing.status = "ON_SALE"
+        listing.updated_at = now
+    await db.commit()
+    return _appt_out(appt, listing.seller_id)
+
+
+@router.get("/trades", response_model=list[TradeHistoryItem], summary="거래 이력 (완료된 거래)")
+async def get_trades(
+    user_id: uuid.UUID = Query(..., description="대상 사용자"),
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """내가 참여한 COMPLETED 약속 = 완료 거래 목록. 역할(판매/구매)·상대·후기여부 포함."""
+    rows = (
+        await db.execute(
+            select(MarketplaceAppointment, DmConversation)
+            .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
+            .where(
+                MarketplaceAppointment.status == "COMPLETED",
+                or_(DmConversation.participant_1 == user_id, DmConversation.participant_2 == user_id),
+            )
+            .order_by(MarketplaceAppointment.updated_at.desc())
+        )
+    ).all()
+
+    out: list[TradeHistoryItem] = []
+    for appt, conv in rows:
+        listing = await db.get(MarketplaceListing, appt.listing_id)
+        if listing is None:
+            continue
+        counterpart_id = conv.participant_2 if conv.participant_1 == user_id else conv.participant_1
+        counterpart = await db.get(User, counterpart_id)
+        reviewed = (
+            await db.execute(
+                select(func.count())
+                .select_from(MarketplaceReview)
+                .where(
+                    MarketplaceReview.reviewer_id == user_id,
+                    MarketplaceReview.listing_id == appt.listing_id,
+                )
+            )
+        ).scalar_one()
+        out.append(
+            TradeHistoryItem(
+                appointment_id=appt.id,
+                conversation_id=conv.id,
+                listing_id=listing.id,
+                listing_title=listing.title,
+                thumbnail_url=_thumbnail_url(listing),
+                price_vnd=listing.price_vnd,
+                role="sold" if listing.seller_id == user_id else "bought",
+                counterpart_id=counterpart_id,
+                counterpart_nickname=counterpart.nickname if counterpart else None,
+                counterpart_avatar_url=resolve_avatar_url(counterpart) if counterpart else None,
+                completed_at=appt.updated_at,
+                review_left=reviewed > 0,
+            )
+        )
+    return out

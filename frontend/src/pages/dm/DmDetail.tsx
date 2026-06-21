@@ -3,10 +3,21 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CalendarPlus, MapPin } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
-import LocationPickerSheet, { type PickedLocation } from '../market/LocationPickerSheet';
+import { type PickedLocation } from '../market/LocationPickerSheet';
+import AppointmentLocationPicker from './AppointmentLocationPicker';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
-import { fetchMessages, sendMessage, markRead, fetchConversation } from '@/api/dm';
+import {
+  fetchMessages,
+  sendMessage,
+  markRead,
+  fetchConversation,
+  proposeAppointment,
+  acceptAppointment,
+  completeAppointment,
+  cancelAppointment,
+} from '@/api/dm';
+import type { Appointment } from '@/api/types';
 import { createReview, type ReviewRating } from '@/api/market';
 import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
@@ -92,19 +103,13 @@ export default function DmDetail() {
 
   const handleSendAppointment = async () => {
     if (!conversationId || !apptWhen || sending) return;
-    const whenLabel = apptWhen.replace('T', ' ');
-    const placeName = apptPlace?.districtName ?? '';
-    const summary = t('dm.apptSummary', { when: whenLabel, place: placeName, defaultValue: `약속 제안: ${whenLabel} ${placeName}` });
     setSending(true);
     try {
-      const msg = await sendMessage(conversationId, summary, {
-        messageType: 'appointment',
-        meta: {
-          when: apptWhen,
-          place: placeName || undefined,
-          placeLat: apptPlace?.lat,
-          placeLng: apptPlace?.lng,
-        },
+      const msg = await proposeAppointment(conversationId, {
+        whenAt: apptWhen,
+        placeName: apptPlace?.districtName ?? null,
+        placeLat: apptPlace?.lat ?? null,
+        placeLng: apptPlace?.lng ?? null,
       });
       setMessages((prev) => [...prev, msg]);
       setApptOpen(false);
@@ -112,6 +117,32 @@ export default function DmDetail() {
       setApptPlace(null);
     } catch {
       toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // 약속 상태 변경 후 해당 메시지의 appointment를 갱신 (5초 폴링과 별개로 즉시 반영)
+  const patchAppointment = (appt: Appointment) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.appointment?.id === appt.id ? { ...msg, appointment: appt } : msg)),
+    );
+  };
+
+  const handleAppointmentAction = async (
+    action: (id: string) => Promise<Appointment>,
+    appointmentId: string,
+  ) => {
+    if (sending) return;
+    setSending(true);
+    try {
+      patchAppointment(await action(appointmentId));
+      // 약속 상태 변경이 매물 상태(RESERVED/SOLD/ON_SALE)를 바꾸므로 컨텍스트 갱신
+      if (conversationId) fetchConversation(conversationId).then(setConv).catch(() => {});
+    } catch {
+      // 카드가 stale(이미 변경된 약속) → 메시지 재동기화로 카드 상태 교정
+      if (conversationId) fetchMessages(conversationId).then((res) => setMessages(res.items)).catch(() => {});
+      toast.error(t('dm.apptOutdated', { defaultValue: '약속 상태가 변경되어 새로고침했어요' }));
     } finally {
       setSending(false);
     }
@@ -182,21 +213,87 @@ export default function DmDetail() {
         {messages.map((m) => {
           const isMine = m.senderId === myId;
           if (m.messageType === 'appointment') {
+            const appt = m.appointment;
+            const status = appt?.status;
+            const iAmProposer = !!appt && appt.proposerId === myId;
+            const whenRaw = appt?.whenAt ?? m.meta?.when ?? '';
+            const dateText = whenRaw.slice(0, 10).replace(/-/g, '.');
+            const timeText = whenRaw.slice(11, 16);
+            const placeText = appt?.placeName ?? m.meta?.place ?? null;
+            const lat = appt?.placeLat ?? m.meta?.placeLat ?? null;
+            const lng = appt?.placeLng ?? m.meta?.placeLng ?? null;
+            const statusLabel: Record<string, string> = {
+              PROPOSED: t('dm.apptProposed', { defaultValue: '제안됨' }),
+              ACCEPTED: t('dm.apptAccepted', { defaultValue: '확정' }),
+              COMPLETED: t('dm.apptCompleted', { defaultValue: '거래완료' }),
+              CANCELLED: t('dm.apptCancelled', { defaultValue: '취소됨' }),
+            };
+            const hasCoords = lat != null && lng != null;
+            const showNav = hasCoords && status !== 'CANCELLED';
+            const isSeller = !!appt?.sellerId && appt.sellerId === myId;
             return (
-              <div key={m.id} className={styles.apptCard}>
-                <span className={styles.apptBadge}>📅 {t('dm.appointment', { defaultValue: '약속' })}</span>
-                <div className={styles.apptWhen}>{(m.meta?.when ?? '').replace('T', ' ')}</div>
-                {m.meta?.place && <div className={styles.apptPlace}>📍 {m.meta.place}</div>}
-                {m.meta?.placeLat != null && m.meta?.placeLng != null && (
-                  <button
-                    className={styles.apptNavBtn}
-                    type="button"
-                    onClick={() => navigate(`/ride-nav?type=nav&lat=${m.meta!.placeLat}&lng=${m.meta!.placeLng}`)}
-                  >
-                    🧭 {t('dm.navigate', { defaultValue: '길안내' })}
-                  </button>
-                )}
-                <div className={styles.meta}>{formatRelativeTime(m.createdAt)}</div>
+              <div key={m.id} className={`${styles.apptCard} ${status ? styles[`appt_${status}`] : ''}`}>
+                <div className={styles.apptHeader}>
+                  <span className={styles.apptTitle}>
+                    <CalendarPlus size={15} /> {t('dm.appointment', { defaultValue: '약속' })}
+                  </span>
+                  {status && <span className={styles.apptStatusPill} data-status={status}>{statusLabel[status]}</span>}
+                </div>
+                <div className={styles.apptInfo}>
+                  <div className={styles.apptRow}>
+                    <span className={styles.apptRowLabel}>{t('dm.apptDate', { defaultValue: '날짜' })}</span>
+                    <span className={styles.apptRowVal}>{dateText}</span>
+                  </div>
+                  <div className={styles.apptRow}>
+                    <span className={styles.apptRowLabel}>{t('dm.apptTime', { defaultValue: '시간' })}</span>
+                    <span className={styles.apptRowVal}>{timeText}</span>
+                  </div>
+                  {placeText && (
+                    <div className={styles.apptRow}>
+                      <span className={styles.apptRowLabel}>{t('dm.apptPlace', { defaultValue: '장소' })}</span>
+                      <span className={styles.apptRowVal}>{placeText}</span>
+                    </div>
+                  )}
+                </div>
+                <div className={styles.apptActions}>
+                  {appt && status === 'PROPOSED' && !iAmProposer && (
+                    <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                      onClick={() => handleAppointmentAction(acceptAppointment, appt.id)}>
+                      {t('dm.apptAccept', { defaultValue: '약속 수락' })}
+                    </button>
+                  )}
+                  {appt && status === 'ACCEPTED' && isSeller && (
+                    <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                      onClick={() => handleAppointmentAction(completeAppointment, appt.id)}>
+                      🤝 {t('dm.apptComplete', { defaultValue: '거래 완료' })}
+                    </button>
+                  )}
+                  {showNav && (
+                    <button className={styles.apptBtnSecondary} type="button"
+                      onClick={() => navigate(`/ride-nav?type=nav&lat=${lat}&lng=${lng}`)}>
+                      🧭 {t('dm.navigate', { defaultValue: '길안내' })}
+                    </button>
+                  )}
+                  {appt && status === 'PROPOSED' && !iAmProposer && (
+                    <button className={styles.apptBtnText} type="button" disabled={sending}
+                      onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
+                      {t('dm.apptReject', { defaultValue: '거절' })}
+                    </button>
+                  )}
+                  {appt && status === 'PROPOSED' && iAmProposer && (
+                    <button className={styles.apptBtnText} type="button" disabled={sending}
+                      onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
+                      {t('dm.apptCancel', { defaultValue: '제안 취소' })}
+                    </button>
+                  )}
+                  {appt && status === 'ACCEPTED' && (
+                    <button className={styles.apptBtnText} type="button" disabled={sending}
+                      onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
+                      {t('dm.apptCancel', { defaultValue: '약속 취소' })}
+                    </button>
+                  )}
+                </div>
+                <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
               </div>
             );
           }
@@ -270,7 +367,7 @@ export default function DmDetail() {
             <MapPin size={16} className={styles.apptPlacePin} />
             {apptPlace
               ? apptPlace.districtName
-              : t('dm.apptPlacePick', { defaultValue: '지도에서 동네 선택' })}
+              : t('dm.apptPlacePick', { defaultValue: '지도를 탭해 장소 찍기' })}
           </button>
           <div className={styles.apptSubmit}>
             <Button onClick={handleSendAppointment} disabled={!apptWhen}>
@@ -280,7 +377,7 @@ export default function DmDetail() {
         </div>
       </BottomSheet>
 
-      <LocationPickerSheet
+      <AppointmentLocationPicker
         open={apptLocOpen}
         onClose={() => setApptLocOpen(false)}
         value={apptPlace ? { lat: apptPlace.lat, lng: apptPlace.lng } : null}

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import DmConversation, DmMessage, MarketplaceListing, User
+from ..models import DmConversation, DmMessage, MarketplaceAppointment, MarketplaceListing, User
 from ..schemas import (
     DmConversationCreateRequest,
     DmConversationOut,
@@ -19,6 +19,7 @@ from ..schemas import (
     Page,
 )
 from ..utils import resolve_avatar_url
+from .market import _appt_out
 from .market import _card as _market_card
 
 router = APIRouter(prefix="/dm", tags=["DM (Direct Message)"])
@@ -214,6 +215,32 @@ async def get_messages(
     offset = (page - 1) * size
     rows = (await db.execute(base.order_by(DmMessage.created_at.asc()).offset(offset).limit(size))).scalars().all()
 
+    # 약속 메시지의 appointment 임베드 (상태/장소를 매 폴링마다 최신으로) — 배치 조회
+    appt_ids = [
+        uuid.UUID(m.meta["appointmentId"])
+        for m in rows
+        if m.message_type == "appointment" and m.meta and m.meta.get("appointmentId")
+    ]
+    appts: dict[uuid.UUID, MarketplaceAppointment] = {}
+    seller_id: uuid.UUID | None = None
+    if appt_ids:
+        appt_rows = (
+            (await db.execute(select(MarketplaceAppointment).where(MarketplaceAppointment.id.in_(appt_ids))))
+            .scalars()
+            .all()
+        )
+        appts = {a.id: a for a in appt_rows}
+        # 대화의 매물 판매자 — 거래완료 권한(판매자 전용) 판별용
+        if conv.context_type == "listing" and conv.context_id is not None:
+            listing = await db.get(MarketplaceListing, conv.context_id)
+            seller_id = listing.seller_id if listing else None
+
+    def _appt_for(m: DmMessage):
+        if m.message_type == "appointment" and m.meta and m.meta.get("appointmentId"):
+            a = appts.get(uuid.UUID(m.meta["appointmentId"]))
+            return _appt_out(a, seller_id) if a else None
+        return None
+
     items = [
         DmMessageOut(
             id=m.id,
@@ -225,6 +252,7 @@ async def get_messages(
             created_at=m.created_at,
             message_type=m.message_type,
             meta=m.meta,
+            appointment=_appt_for(m),
         )
         for m in rows
     ]

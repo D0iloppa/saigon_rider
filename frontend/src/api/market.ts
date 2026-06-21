@@ -287,6 +287,39 @@ export async function createReview(p: CreateReviewParams): Promise<{ id: string;
   });
 }
 
+export interface TradeHistory {
+  appointmentId: string;
+  conversationId: string;
+  listingId: string;
+  listingTitle: string;
+  thumbnailUrl: string | null;
+  priceVnd: number;
+  role: 'sold' | 'bought';
+  counterpartId: string;
+  counterpartNickname: string | null;
+  counterpartAvatarUrl: string | null;
+  completedAt: string;
+  reviewLeft: boolean;
+}
+
+export async function fetchTrades(userId: string): Promise<TradeHistory[]> {
+  const raw = await api.realFetch<any[]>(`/market/trades?user_id=${encodeURIComponent(userId)}`);
+  return raw.map((r) => ({
+    appointmentId: r.appointment_id,
+    conversationId: r.conversation_id,
+    listingId: r.listing_id,
+    listingTitle: r.listing_title,
+    thumbnailUrl: r.thumbnail_url ?? null,
+    priceVnd: r.price_vnd,
+    role: r.role,
+    counterpartId: r.counterpart_id,
+    counterpartNickname: r.counterpart_nickname ?? null,
+    counterpartAvatarUrl: r.counterpart_avatar_url ?? null,
+    completedAt: r.completed_at,
+    reviewLeft: !!r.review_left,
+  }));
+}
+
 export async function createListing(p: CreateListingParams): Promise<{ id: string }> {
   return api.realFetch<{ id: string }>('/market/listings', {
     method: 'POST',

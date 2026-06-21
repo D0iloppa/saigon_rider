@@ -81,6 +81,7 @@
 }
 
 .addFriendIconBtn {
+  position: relative;
   width: 34px; height: 34px;
   border-radius: 8px;
   background: rgba(255,255,255,.22);
@@ -90,6 +91,111 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+/* 거래 이력 섹션 */
+.tradeSection {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.tradeSectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.tradeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.tradeRow:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.tradeThumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.tradeThumb img { width: 100%; height: 100%; object-fit: cover; }
+.tradeInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tradeTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.tradeRoleBadge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 111, 60, .14);
+  color: var(--brand-500);
+}
+.tradeRoleBadge[data-role="bought"] { background: #e7eeff; color: #3b6fe5; }
+.tradeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tradeMeta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.tradeReviewBtn {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tradeReviewBtn:active { opacity: .85; }
+.tradeReviewed {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* 안 읽은 DM 수 배지 (채팅 진입 아이콘) — 컴팩트 */
+.chatBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #f5333f;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  border: 1.5px solid var(--surface);
+  box-sizing: content-box;
 }
 
 .avatarWrap {

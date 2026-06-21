@@ -871,6 +871,42 @@ class DmConversationCreateRequest(BaseModel):
     context_id: UUID | None = None
 
 
+class AppointmentOut(BaseModel):
+    id: UUID
+    listing_id: UUID
+    conversation_id: UUID
+    proposer_id: UUID
+    seller_id: UUID | None = None
+    when_at: datetime
+    place_name: str | None = None
+    place_lat: float | None = None
+    place_lng: float | None = None
+    status: str
+
+
+class AppointmentProposeRequest(BaseModel):
+    conversation_id: UUID
+    when_at: datetime
+    place_name: str | None = None
+    place_lat: float | None = None
+    place_lng: float | None = None
+
+
+class TradeHistoryItem(BaseModel):
+    appointment_id: UUID
+    conversation_id: UUID
+    listing_id: UUID
+    listing_title: str
+    thumbnail_url: str | None = None
+    price_vnd: int
+    role: str  # 'sold' | 'bought'
+    counterpart_id: UUID
+    counterpart_nickname: str | None = None
+    counterpart_avatar_url: str | None = None
+    completed_at: datetime
+    review_left: bool
+
+
 class DmMessageOut(BaseModel):
     id: UUID
     conversation_id: UUID
@@ -881,6 +917,7 @@ class DmMessageOut(BaseModel):
     created_at: datetime
     message_type: str = "text"
     meta: dict | None = None
+    appointment: AppointmentOut | None = None
 
 
 class DmMessageCreateRequest(BaseModel):

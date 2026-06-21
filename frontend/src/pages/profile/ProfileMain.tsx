@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useUserStore } from '@/store/useUserStore';
+import { useDmStore } from '@/store/useDmStore';
+import { fetchTrades, type TradeHistory } from '@/api/market';
+import ReviewSheet from '@/components/market/ReviewSheet';
+import { formatPriceVnd } from '@/pages/market/marketFormat';
 import { SkillTree } from './SkillTree';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -73,9 +77,23 @@ export default function ProfileMain() {
   const user = useUserStore((s) => s.user);
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const navigate = useNavigate();
+  const dmUnread = useDmStore((s) => s.totalUnread);
+  const refreshDmUnread = useDmStore((s) => s.refreshUnread);
 
   const [gp, setGp] = useState(0);
   const [gc, setGc] = useState(0);
+
+  useEffect(() => {
+    refreshDmUnread();
+  }, [refreshDmUnread]);
+
+  const [trades, setTrades] = useState<TradeHistory[]>([]);
+  const [reviewTarget, setReviewTarget] = useState<{ targetId: string; listingId: string } | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchTrades(user.id).then(setTrades).catch(() => setTrades([]));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.phone) return;
@@ -359,6 +377,7 @@ export default function ProfileMain() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
             </svg>
+            {dmUnread > 0 && <span className={styles.chatBadge}>{dmUnread > 300 ? '300+' : dmUnread}</span>}
           </button>
         </div>
       </div>
@@ -416,6 +435,42 @@ export default function ProfileMain() {
           </span>
           <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
         </button>
+
+        {/* SGR-287: 거래 이력 */}
+        {trades.length > 0 && (
+          <div className={styles.tradeSection}>
+            <h3 className={styles.tradeSectionTitle}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</h3>
+            {trades.map((tr) => (
+              <div key={tr.appointmentId} className={styles.tradeRow}>
+                <div className={styles.tradeThumb}>
+                  <AppImage src={tr.thumbnailUrl ?? undefined} alt="" />
+                </div>
+                <div className={styles.tradeInfo}>
+                  <div className={styles.tradeTitleRow}>
+                    <span className={styles.tradeRoleBadge} data-role={tr.role}>
+                      {tr.role === 'sold' ? t('profile.tradeSold', { defaultValue: '판매' }) : t('profile.tradeBought', { defaultValue: '구매' })}
+                    </span>
+                    <span className={styles.tradeTitle}>{tr.listingTitle}</span>
+                  </div>
+                  <span className={styles.tradeMeta}>
+                    {formatPriceVnd(tr.priceVnd, t)} · {tr.counterpartNickname ?? '—'}
+                  </span>
+                </div>
+                {tr.reviewLeft ? (
+                  <span className={styles.tradeReviewed}>{t('profile.reviewDone', { defaultValue: '후기완료' })}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.tradeReviewBtn}
+                    onClick={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
+                  >
+                    {t('profile.leaveReview', { defaultValue: '후기 남기기' })}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Garage Banner */}
         <div className={styles.garageBanner} onClick={() => navigate('/garage')}>
@@ -790,6 +845,14 @@ export default function ProfileMain() {
           <p className={styles.qrGuide}>{t('profile.shareGuide')}</p>
         </div>
       </BottomSheet>
+
+      <ReviewSheet
+        open={!!reviewTarget}
+        onClose={() => setReviewTarget(null)}
+        targetId={reviewTarget?.targetId ?? ''}
+        listingId={reviewTarget?.listingId}
+        onSubmitted={() => { if (user?.id) fetchTrades(user.id).then(setTrades).catch(() => {}); }}
+      />
     </div>
   );
 }

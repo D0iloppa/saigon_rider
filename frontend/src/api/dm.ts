@@ -1,6 +1,21 @@
 import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
-import type { DmAppointmentMeta, DmConversation, DmMessage } from './types';
+import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage } from './types';
+
+function transformAppointment(raw: any): Appointment {
+  return {
+    id: raw.id,
+    listingId: raw.listing_id,
+    conversationId: raw.conversation_id,
+    proposerId: raw.proposer_id,
+    sellerId: raw.seller_id ?? null,
+    whenAt: raw.when_at,
+    placeName: raw.place_name ?? null,
+    placeLat: raw.place_lat ?? null,
+    placeLng: raw.place_lng ?? null,
+    status: raw.status,
+  };
+}
 
 function transformConversation(raw: any): DmConversation {
   return {
@@ -28,6 +43,7 @@ function transformMessage(raw: any): DmMessage {
     createdAt: raw.created_at,
     messageType: raw.message_type ?? 'text',
     meta: raw.meta ?? null,
+    appointment: raw.appointment ? transformAppointment(raw.appointment) : null,
   };
 }
 
@@ -114,6 +130,7 @@ export async function sendMessage(
       createdAt: new Date().toISOString(),
       messageType: opts.messageType ?? 'text',
       meta: opts.meta ?? null,
+      appointment: null,
     }, 100);
   }
   const session = requireSession();
@@ -137,4 +154,42 @@ export async function markRead(conversationId: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ user_id: session.userId }),
   });
+}
+
+// ── 거래 약속 (SGR-287) — DM 메시지 meta → 도메인 엔티티 ────────────
+export interface ProposeAppointmentInput {
+  whenAt: string;
+  placeName?: string | null;
+  placeLat?: number | null;
+  placeLng?: number | null;
+}
+
+/** 약속 제안. 채팅 타임라인용 appointment 메시지를 반환한다. */
+export async function proposeAppointment(
+  conversationId: string,
+  input: ProposeAppointmentInput,
+): Promise<DmMessage> {
+  const raw = await api.realFetch<any>('/market/appointments', {
+    method: 'POST',
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      when_at: input.whenAt,
+      place_name: input.placeName ?? null,
+      place_lat: input.placeLat ?? null,
+      place_lng: input.placeLng ?? null,
+    }),
+  });
+  return transformMessage(raw);
+}
+
+export async function acceptAppointment(appointmentId: string): Promise<Appointment> {
+  return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/accept`, { method: 'PATCH' }));
+}
+
+export async function completeAppointment(appointmentId: string): Promise<Appointment> {
+  return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/complete`, { method: 'PATCH' }));
+}
+
+export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
+  return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
 }

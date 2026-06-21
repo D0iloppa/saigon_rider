@@ -1,9 +1,12 @@
 import { useLocation } from 'react-router-dom';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { TabBar } from './TabBar';
 import { FloatingActionButton } from './FloatingActionButton';
+import { useDmStore } from '@/store/useDmStore';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './AppShell.module.css';
+
+const DM_POLL_MS = 20_000;
 
 interface Props {
   children: ReactNode;
@@ -26,6 +29,14 @@ const HIDE_TABBAR_PATHS = [
 export function AppShell({ children, splashVisible, splashFade, gifReady }: Props) {
   const { pathname } = useLocation();
   const hideTabBar = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
+  const refreshDmUnread = useDmStore((s) => s.refreshUnread);
+
+  // 전역 DM 안 읽음 폴링 — 새 메시지 수신 시 배지 갱신(읽으면 markRead+refresh로 자동 0)
+  useEffect(() => {
+    refreshDmUnread();
+    const id = setInterval(refreshDmUnread, DM_POLL_MS);
+    return () => clearInterval(id);
+  }, [refreshDmUnread]);
 
   return (
     <div className={styles.shell}>

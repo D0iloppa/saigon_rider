@@ -207,10 +207,26 @@ export interface DmConversation {
 }
 
 export interface DmAppointmentMeta {
+  appointmentId?: string;
   when?: string;
   place?: string;
   placeLat?: number;
   placeLng?: number;
+}
+
+export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
+
+export interface Appointment {
+  id: string;
+  listingId: string;
+  conversationId: string;
+  proposerId: string;
+  sellerId: string | null;
+  whenAt: string;
+  placeName: string | null;
+  placeLat: number | null;
+  placeLng: number | null;
+  status: AppointmentStatus;
 }
 
 export interface DmMessage {
@@ -223,4 +239,5 @@ export interface DmMessage {
   createdAt: string;
   messageType: string;
   meta: DmAppointmentMeta | null;
+  appointment: Appointment | null;
 }

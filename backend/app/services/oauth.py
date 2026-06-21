@@ -189,6 +189,7 @@ async def exchange_apple_code(
         public_key,
         algorithms=["RS256"],
         audience=client_id,
+        leeway=30,  # 서버-Apple 간 시계 오차(iat 미래) 허용 — ImmatureSignatureError 방지
     )
 
     sub = claims.get("sub")

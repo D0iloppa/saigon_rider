@@ -9,11 +9,10 @@
  */
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
-import { App as CapApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 import { Geolocation } from '@capacitor/geolocation';
 
 import { Device } from './plugins/Device';
+import { WebAuth } from './plugins/WebAuth';
 import { Gps } from './plugins/Gps';
 import { IAP, type IAPResult } from './plugins/IAP';
 import { Ad } from './plugins/Ad';
@@ -332,11 +331,11 @@ class NativeInterface {
     a.click();
   }
 
-  // ── OAuth (@capacitor/browser redirect flow) ────────────────────────────
+  // ── OAuth (ASWebAuthenticationSession redirect flow) ─────────────────────
 
   /**
-   * Google 로그인 — BFF 서버사이드 redirect flow.
-   * @capacitor/browser 로 인앱 브라우저를 열고 딥링크 콜백을 기다린다.
+   * 3사(Google/Apple/Zalo) 로그인 — BFF 서버사이드 redirect flow.
+   * 커스텀 WebAuth 플러그인(ASWebAuthenticationSession)으로 인증 URL을 열고 커스텀 스킴 콜백을 직접 받는다.
    * 반환된 {userId, sessionToken}은 BFF가 이미 발급한 세션이므로 apiOAuthLogin 불필요.
    */
   async signInWith(
@@ -347,39 +346,19 @@ class NativeInterface {
     }
 
     const startUrl = `https://saigon.doil.me/api/bff/auth/oauth/${provider}/start`;
-
-    return new Promise((resolve, reject) => {
-      const CALLBACK_SCHEME = 'com.saigonrider.user://oauth/callback';
-      let listenerHandle: PluginListenerHandle | null = null;
-
-      const cleanup = () => {
-        listenerHandle?.remove();
-        listenerHandle = null;
-      };
-
-      CapApp.addListener('appUrlOpen', (event) => {
-        if (!event.url.startsWith(CALLBACK_SCHEME)) return;
-        cleanup();
-        try {
-          const url = new URL(event.url);
-          const err = url.searchParams.get('error');
-          if (err) { reject(new Error(err)); return; }
-          resolve({
-            userId: url.searchParams.get('userId') ?? '',
-            sessionToken: url.searchParams.get('sessionToken') ?? '',
-            isNew: url.searchParams.get('isNew') === '1',
-          });
-        } catch (e) {
-          reject(e);
-        }
-      }).then((handle) => {
-        listenerHandle = handle;
-        return Browser.open({ url: startUrl });
-      }).catch((err) => {
-        cleanup();
-        reject(err);
-      });
+    const { callbackUrl } = await WebAuth.authenticate({
+      url: startUrl,
+      callbackScheme: 'com.saigonrider.user',
     });
+
+    const url = new URL(callbackUrl);
+    const err = url.searchParams.get('error');
+    if (err) throw new Error(err);
+    return {
+      userId: url.searchParams.get('userId') ?? '',
+      sessionToken: url.searchParams.get('sessionToken') ?? '',
+      isNew: url.searchParams.get('isNew') === '1',
+    };
   }
 
   // ── Stubs (no native counterpart yet — install Capacitor plugin to enable) ─

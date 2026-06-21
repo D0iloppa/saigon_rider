@@ -205,7 +205,7 @@ async def exchange_apple_code(
     )
 
 
-_ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/oa/access_token"
+_ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token"
 _ZALO_ME_URL = "https://graph.zalo.me/v2.0/me"
 
 

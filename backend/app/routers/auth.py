@@ -515,7 +515,7 @@ async def oauth_apple_callback(
     )
 
 
-_ZALO_AUTH_URL = "https://oauth.zaloapp.com/v4/oa/permission"
+_ZALO_AUTH_URL = "https://oauth.zaloapp.com/v4/permission"
 _ZALO_CALLBACK_PATH = "/auth/oauth/zalo/callback"
 
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { StatusBar } from '@/components/layout/StatusBar';
+import { TopBar } from '@/components/layout/TopBar';
 import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
 import { native } from '@/lib/native';
@@ -154,6 +154,12 @@ export default function OAuthLogin() {
     }
   };
 
+  const handleWebZalo = () => {
+    setError(null);
+    setLoading('zalo');
+    window.location.href = '/api/bff/auth/oauth/zalo/start';
+  };
+
   const handleDevLogin = async () => {
     setError(null);
     setLoading('dev');
@@ -171,7 +177,7 @@ export default function OAuthLogin() {
 
   return (
     <div className={styles.container}>
-      <StatusBar />
+      <TopBar />
       <div className={styles.content}>
         <div className={styles.titleBlock}>
           <p className={styles.titleLine1}>{t('oauthLogin.titleLine1')}</p>
@@ -182,6 +188,14 @@ export default function OAuthLogin() {
           {native.isNative ? (
             // 네이티브: 커스텀 버튼 → Capacitor 플러그인
             <>
+              <button
+                className={`${styles.oauthBtn} ${styles.oauthBtnZalo}`}
+                onClick={handleNativeZalo}
+                disabled={loading !== null}
+              >
+                <span className={styles.oauthBtnIcon}>Z</span>
+                {loading === 'zalo' ? t('oauthLogin.loading') : t('oauthLogin.zaloBtn')}
+              </button>
               <button
                 className={`${styles.oauthBtn} ${styles.oauthBtnGoogle}`}
                 onClick={handleNativeGoogle}
@@ -195,21 +209,23 @@ export default function OAuthLogin() {
                 onClick={handleNativeApple}
                 disabled={loading !== null}
               >
-                <span className={styles.oauthBtnIcon}></span>
+                <svg className={styles.oauthBtnIcon} viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.39.07 2.35.74 3.17.8 1.21-.24 2.37-.93 3.67-.84 1.57.12 2.75.71 3.52 1.9-3.22 1.93-2.6 6.19.65 7.36-.51 1.3-1.17 2.58-3.01 3.66M12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25" />
+                </svg>
                 {loading === 'apple' ? t('oauthLogin.loading') : t('oauthLogin.appleBtn')}
-              </button>
-              <button
-                className={`${styles.oauthBtn} ${styles.oauthBtnZalo}`}
-                onClick={handleNativeZalo}
-                disabled={loading !== null}
-              >
-                <span className={styles.oauthBtnIcon}>Z</span>
-                {loading === 'zalo' ? t('oauthLogin.loading') : t('oauthLogin.zaloBtn')}
               </button>
             </>
           ) : (
             // 웹: GIS renderButton이 여기에 그려짐 (React DOM과 분리)
             <>
+              <button
+                className={`${styles.oauthBtn} ${styles.oauthBtnZalo}`}
+                onClick={handleWebZalo}
+                disabled={loading !== null}
+              >
+                <span className={styles.oauthBtnIcon}>Z</span>
+                {loading === 'zalo' ? t('oauthLogin.loading') : t('oauthLogin.zaloBtn')}
+              </button>
               {!gisReady && (
                 <div className={`${styles.oauthBtn} ${styles.oauthBtnGoogle} ${styles.oauthBtnPlaceholder}`}>
                   <span className={styles.oauthBtnIcon}>G</span>

@@ -106,17 +106,41 @@ class NativeInterface {
   }
 
   async getLocation(): Promise<GeoPosition> {
-    const pos = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 10_000,
-    });
-    return {
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      accuracy: pos.coords.accuracy,
-      speed: pos.coords.speed,
-      heading: pos.coords.heading,
-    };
+    try {
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10_000,
+      });
+      return {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        speed: pos.coords.speed,
+        heading: pos.coords.heading,
+      };
+    } catch (e) {
+      // iOS 빌드는 @capacitor/geolocation 을 vendoring 하지 않음(Podfile: GpsPlugin 이 직접 CoreLocation).
+      // WKWebView/브라우저의 navigator.geolocation 으로 폴백.
+      // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        return await new Promise<GeoPosition>((resolve, reject) => {
+          // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+          navigator.geolocation.getCurrentPosition(
+            (p) =>
+              resolve({
+                lat: p.coords.latitude,
+                lng: p.coords.longitude,
+                accuracy: p.coords.accuracy,
+                speed: p.coords.speed,
+                heading: p.coords.heading,
+              }),
+            (err) => reject(err),
+            { enableHighAccuracy: true, timeout: 10_000 },
+          );
+        });
+      }
+      throw e;
+    }
   }
 
   watchLocation(handler: LocationUpdateHandler): () => void {

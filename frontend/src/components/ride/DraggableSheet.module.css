@@ -19,6 +19,28 @@
   transform: translateY(calc(100% - var(--peek)));
 }
 
+/* 중간 스냅: 접힘 오프셋의 midFrac 만큼만 내림 → 카드 일부 노출. */
+.mid {
+  transform: translateY(calc((100% - var(--peek)) * var(--mid-frac, 0.5)));
+}
+
+/* TabBar 등 다른 하단 크롬 위에 얹힐 때: safe-area 여백 제거 → 펼침 시 헤더↔본문 빈 패딩 방지. */
+.embedded {
+  padding-bottom: 12px;
+  max-height: 68vh; /* 카드 3개 이상 한 화면에 */
+}
+.embedded .dragZone {
+  padding-bottom: 8px;
+}
+
+/* 시트 상단 바로 위에 떠서 시트와 함께 오르내리는 슬롯(예: 내 위치 버튼). */
+.floatingTopRight {
+  position: absolute;
+  bottom: 100%;
+  right: 14px;
+  margin-bottom: 12px;
+}
+
 .dragZone {
   flex-shrink: 0;
   cursor: grab;

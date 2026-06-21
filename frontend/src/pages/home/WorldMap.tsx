@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
@@ -19,6 +19,8 @@ import { expToNextLevel } from '@/lib/rewards';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
 import { regionContains, type SelectedRegion } from '@/components/maps/v2/region';
 import styles from './WorldMap.module.css';
+
+const AD_EVERY = 3; // 근처 상품 N개마다 광고 1개 삽입
 
 export default function WorldMap() {
   const user = useUserStore((s) => s.user);
@@ -298,20 +300,39 @@ export default function WorldMap() {
             )
           ) : (
             <div className={styles.productList}>
-              {products.map((p) => (
-                <button key={p.id} type="button" className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
-                  <span className={styles.productThumb}>
-                    <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
-                  </span>
-                  <div className={styles.productBody}>
-                    <p className={styles.productTitle}>{p.title}</p>
-                    <p className={styles.productMeta}>
-                      {[marketLocalizedName(p.district), relativeTime(p.bumpedAt, t)].filter(Boolean).join(' · ')}
-                    </p>
-                    <span className={styles.productPrice}>{formatPriceVnd(p.priceVnd, t)}</span>
-                  </div>
-                </button>
-              ))}
+              {products.map((p, i) => {
+                // 2번째 상품 뒤(인덱스 1)부터 AD_EVERY 간격으로 광고 삽입
+                const showAd = ads.length > 0 && i >= 1 && (i - 1) % AD_EVERY === 0;
+                const ad = showAd ? ads[Math.floor((i - 1) / AD_EVERY) % ads.length] : null;
+                return (
+                  <Fragment key={p.id}>
+                    <button type="button" className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
+                      <span className={styles.productThumb}>
+                        <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
+                      </span>
+                      <div className={styles.productBody}>
+                        <p className={styles.productTitle}>{p.title}</p>
+                        <p className={styles.productMeta}>
+                          {[marketLocalizedName(p.district), relativeTime(p.bumpedAt, t)].filter(Boolean).join(' · ')}
+                        </p>
+                        <span className={styles.productPrice}>{formatPriceVnd(p.priceVnd, t)}</span>
+                      </div>
+                    </button>
+                    {ad && (
+                      <button type="button" className={styles.productCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
+                        <span className={styles.productThumb}>
+                          <AppImage src={ad.imageUrl ?? undefined} alt={ad.title} className={styles.productThumbImg} />
+                        </span>
+                        <div className={styles.productBody}>
+                          <span className={styles.adBadge}>{t('market.adLabel', { defaultValue: '광고' })}</span>
+                          <p className={styles.productTitle}>{ad.title}</p>
+                          <p className={styles.productMeta}>{ad.partnerName}</p>
+                        </div>
+                      </button>
+                    )}
+                  </Fragment>
+                );
+              })}
             </div>
           )}
         </div>

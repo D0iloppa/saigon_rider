@@ -53,10 +53,15 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 0 4px;
+  /* 좌우 4px: selected ring(box-shadow 2px)이 overflow 클립으로 잘리지 않도록 */
+  padding: 8px 4px 4px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+/* flex column 스크롤 영역에서 카드/광고가 눌려 찌부러지지 않도록 */
+.list > * {
+  flex-shrink: 0;
 }
 
 .skeleton {
@@ -103,9 +108,9 @@
 .locateBtn:active { transform: scale(0.94); }
 .locateBtn:disabled { opacity: .6; }
 
-/* 지도 점 탭으로 선택된 카드 강조 */
+/* 지도 점 탭으로 선택된 카드 강조 — ListingCard radius(18px)와 일치시켜 모서리 어긋남 방지 */
 .selected {
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: 0 0 0 2px var(--brand-500);
 }
 

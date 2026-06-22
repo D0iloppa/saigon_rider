@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { native } from '@/lib/native';
+import { inServiceArea } from '@/lib/serviceArea';
 import { resolveInfoCoordsSync } from '@/lib/infoCoords';
 import { decodePolyline, bearing, haversineM, distanceToPolylineM } from '@/lib/polyline';
 import MapCanvas, { type MapCanvasHandle } from '@/components/ride/MapCanvas';
@@ -22,6 +23,11 @@ type Coords = { lat: number; lng: number };
 // [DBG] SGR-271: quest 모드에서 GPS 실패 시 HCMC D1 폴백을 한시적 허용.
 //       실기기 GPS 검증 완료 후 false 로 되돌리거나 이 플래그째 제거할 것.
 const DBG_ALLOW_QUEST_HCMC_FALLBACK = true;
+
+// [DEV] HCMC 내부 가정 테스트용 — nav 출발지를 벤탄(HCMC 도심)으로 강제. 실제 GPS/HCMC밖 판정 무시.
+//       ⚠️ 정식 배포 전 반드시 false 로 되돌릴 것(실사용 시 실제 위치 사용).
+const DEV_FORCE_HCMC_ORIGIN = true;
+const HCMC_BEN_THANH = { lat: 10.776, lng: 106.7 };
 
 // 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
 const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
@@ -149,9 +155,15 @@ export default function RideNav() {
     if (type !== 'nav' || !dest) return;
     let cancelled = false;
     (async () => {
-      const from = await resolveOrigin();
+      const from = DEV_FORCE_HCMC_ORIGIN ? HCMC_BEN_THANH : await resolveOrigin();
       if (cancelled) return;
       setOrigin(from);
+      // 출발지가 HCMC 밖이면 앱 내 안내(서비스 지역) 대신 '서비스 외 → 구글맵' 안내 다이얼로그.
+      if (from && !inServiceArea(from.lat, from.lng)) {
+        setDialogOpen(true);
+        setLoading(false);
+        return;
+      }
       const data = await routeApi.getRoute(from, dest).catch(() => null);
       if (cancelled) return;
       if (data?.configured) {
@@ -304,6 +316,7 @@ export default function RideNav() {
   };
 
   const keyMissing = type === 'nav' && !loading && !route?.configured;
+  const originOutOfArea = !!origin && !inServiceArea(origin.lat, origin.lng);
   const showMap = isQuest || (!!dest && !keyMissing);
 
   // 퀘스트 진행 표시 — 모두 서버(useRideStore 폴링)값.
@@ -545,8 +558,12 @@ export default function RideNav() {
 
       <AlertDialog
         open={dialogOpen}
-        title={t('rideNav.comingSoonTitle', '실시간 경로 안내 준비 중')}
-        message={t('rideNav.comingSoonDesc', '앱 내 길안내는 준비 중입니다. 지금은 Google 지도로 안내받을 수 있어요.')}
+        title={originOutOfArea
+          ? t('rideNav.outServiceTitle', '서비스 지역이 아니에요')
+          : t('rideNav.comingSoonTitle', '실시간 경로 안내 준비 중')}
+        message={originOutOfArea
+          ? t('rideNav.outServiceDesc', '호치민(HCMC) 외 지역은 Google 지도로 안내해 드려요.')
+          : t('rideNav.comingSoonDesc', '앱 내 길안내는 준비 중입니다. 지금은 Google 지도로 안내받을 수 있어요.')}
         confirmLabel={t('rideNav.openGoogleMaps', 'Google 지도로 이동')}
         cancelLabel={t('common.cancel', '취소')}
         onConfirm={openGoogleMaps}

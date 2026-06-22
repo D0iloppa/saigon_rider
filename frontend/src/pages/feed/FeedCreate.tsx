@@ -11,6 +11,8 @@ import { useLocationStore } from '@/store/useLocationStore';
 import { resolveDistrict, localizedName } from '@/api/market';
 import { fetchDistricts, type District } from '@/api/master';
 import { toast } from '@/components/ui/Toast';
+import MarkerLocationPicker from '@/components/maps/MarkerLocationPicker';
+import type { PickedLocation } from '@/pages/market/LocationPickerSheet';
 import styles from './FeedCreate.module.css';
 
 const MAX_IMAGES = 10;
@@ -32,7 +34,16 @@ export default function FeedCreate() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [district, setDistrict] = useState<District | null>(null);
   const [locOn, setLocOn] = useState(true); // 위치 자동 첨부(기본 ON), 끄기만 가능
+  const [locPickerOpen, setLocPickerOpen] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  const handleLocationConfirm = (loc: PickedLocation) => {
+    setCoords({ lat: loc.lat, lng: loc.lng });
+    fetchDistricts()
+      .then((list) => setDistrict(resolveDistrict(loc.lat, loc.lng, list)))
+      .catch(() => {});
+    setLocOn(true);
+  };
 
   // 작성 시 현재 위치 자동 첨부(피드는 '올린 곳' = 현위치). 거부/HCMC 밖이면 홈 선택 동네 → 기본도시 폴백.
   useEffect(() => {
@@ -185,18 +196,37 @@ export default function FeedCreate() {
             />
           </label>
 
-          <button
-            className={`${styles.toolBtn} ${locOn ? styles.toolBtnActive : ''}`}
-            onClick={() => setLocOn((v) => !v)}
-          >
-            📍 {locOn
-              ? district
+          {locOn ? (
+            <button
+              className={`${styles.toolBtn} ${styles.toolBtnActive}`}
+              onClick={() => setLocPickerOpen(true)}
+            >
+              📍 {district
                 ? localizedName(district)
-                : t('feedCreate.locating', { defaultValue: '위치 확인 중…' })
-              : t('feedCreate.locationOff', { defaultValue: '위치 끔' })}
-          </button>
+                : t('feedCreate.locating', { defaultValue: '위치 확인 중…' })}
+              <span
+                role="button"
+                aria-label={t('feedCreate.locationOff', { defaultValue: '위치 끔' })}
+                onClick={(e) => { e.stopPropagation(); setLocOn(false); }}
+                style={{ marginLeft: 6, opacity: 0.7 }}
+              >✕</span>
+            </button>
+          ) : (
+            <button className={styles.toolBtn} onClick={() => setLocOn(true)}>
+              📍 {t('feedCreate.locationOff', { defaultValue: '위치 끔' })}
+            </button>
+          )}
         </div>
       </div>
+
+      <MarkerLocationPicker
+        open={locPickerOpen}
+        onClose={() => setLocPickerOpen(false)}
+        value={coords}
+        onConfirm={handleLocationConfirm}
+        title={t('feedCreate.pickLocation', { defaultValue: '게시 위치' })}
+        desc={t('feedCreate.pickLocationDesc', { defaultValue: '지도를 탭해 위치에 마커를 찍으세요' })}
+      />
     </div>
   );
 }

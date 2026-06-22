@@ -24,6 +24,8 @@ import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { loadSession } from '@/lib/session';
+import { native } from '@/lib/native';
+import { inServiceArea } from '@/lib/serviceArea';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
@@ -165,6 +167,21 @@ export default function DmDetail() {
   const toggleTag = (tag: string) =>
     setReviewTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]));
 
+  // 약속 길안내: 내 위치가 HCMC 안이면 앱 내 RideNav, 밖이면 바로 구글맵(오토바이).
+  const handleNavigate = async (lat: number, lng: number) => {
+    try {
+      await native.ensureLocationPermission();
+      const pos = await native.getLocation();
+      if (inServiceArea(pos.lat, pos.lng)) {
+        navigate(`/ride-nav?type=nav&lat=${lat}&lng=${lng}`);
+        return;
+      }
+    } catch {
+      /* 위치 불가 — 구글맵으로 폴백 */
+    }
+    native.openUrl(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=two_wheeler`);
+  };
+
   const handleSubmitReview = async () => {
     if (!conv || !myId || !reviewRating) return;
     try {
@@ -270,7 +287,7 @@ export default function DmDetail() {
                   )}
                   {showNav && (
                     <button className={styles.apptBtnSecondary} type="button"
-                      onClick={() => navigate(`/ride-nav?type=nav&lat=${lat}&lng=${lng}`)}>
+                      onClick={() => handleNavigate(lat!, lng!)}>
                       🧭 {t('dm.navigate', { defaultValue: '길안내' })}
                     </button>
                   )}

@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/Toast';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { native } from '@/lib/native';
+import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { fetchDistricts, type District } from '@/api/master';
@@ -55,11 +56,13 @@ export default function MarketMain() {
   const [district, setDistrict] = useState<District | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ads, setAds] = useState<MarketAd[]>([]);
+  const [adLimit, setAdLimit] = useState(randAdBatch); // 광고 3~4개로 시작, 스크롤 시 증가
   const homeCoords = useLocationStore((s) => s.coords);
 
-  // 제휴 광고(지역 타게팅) — 동네/언어 확정 후 로드. 피드 중간 삽입용.
+  // 제휴 광고(지역 타게팅) — 동네/언어 확정 후 로드. 셔플해 랜덤 노출. 피드 중간 삽입용.
   useEffect(() => {
-    fetchAds(district?.id ?? null).then(setAds).catch(() => setAds([]));
+    fetchAds(district?.id ?? null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
+    setAdLimit(randAdBatch());
   }, [district?.id, i18n.language]);
 
   // 기본 동네 우선순위: home(동네 지도)에서 선택한 위치 > 현재 GPS > Bình Thạnh 폴백.
@@ -174,15 +177,22 @@ export default function MarketMain() {
       </div>
 
       {/* Listing feed */}
-      <div className={styles.listArea} ref={containerRef as React.RefObject<HTMLDivElement>}>
+      <div
+        className={styles.listArea}
+        ref={containerRef as React.RefObject<HTMLDivElement>}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) setAdLimit((p) => p + randAdBatch());
+        }}
+      >
         <div className={styles.listContent} style={contentStyle}>
           <PullIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
           {isLoading ? (
             [1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)
           ) : listings.length === 0 ? (
             <>
-              {/* 매물이 없어도 제휴광고는 노출 */}
-              {ads.map((ad) => (
+              {/* 매물이 없어도 제휴광고는 노출 — 단 한도(3~4개, 스크롤 시 증가)만 */}
+              {ads.slice(0, adLimit).map((ad) => (
                 <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />
               ))}
               <div className={styles.empty}>
@@ -193,15 +203,17 @@ export default function MarketMain() {
             </>
           ) : (
             <>
-              {listings.map((l, i) => (
-                <Fragment key={l.id}>
-                  <ListingCard listing={l} onClick={() => navigate(`/market/${l.id}`)} />
-                  {ads.length > 0 && i % AD_EVERY === AD_EVERY - 1 && (() => {
-                    const ad = ads[Math.floor(i / AD_EVERY) % ads.length];
-                    return <AdCard ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />;
-                  })()}
-                </Fragment>
-              ))}
+              {listings.map((l, i) => {
+                const ord = i / AD_EVERY; // 광고 순번(정수일 때만 삽입)
+                const showAd = ads.length > 0 && i % AD_EVERY === 0 && ord < adLimit;
+                const ad = showAd ? ads[ord % ads.length] : null;
+                return (
+                  <Fragment key={l.id}>
+                    <ListingCard listing={l} onClick={() => navigate(`/market/${l.id}`)} />
+                    {ad && <AdCard ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />}
+                  </Fragment>
+                );
+              })}
               <ScrollSentinel sentinelRef={sentinelRef} isLoadingMore={isLoadingMore} hasMore={hasMore} />
             </>
           )}

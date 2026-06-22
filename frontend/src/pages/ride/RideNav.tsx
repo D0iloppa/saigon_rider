@@ -137,6 +137,7 @@ export default function RideNav() {
   // nav 경로 이탈 감지(로컬) — 이탈 확정 배너 / 라스트마일 나침반 모드. quest 미적용.
   const offRouteStartRef = useRef<number | null>(null);
   const [offRoute, setOffRoute] = useState(false);
+  const [offRouteCount, setOffRouteCount] = useState(0); // 이탈 확정 누적 — 3회면 구글맵 자동 전환
   const [compass, setCompass] = useState<{ bearing: number; distM: number } | null>(null);
 
   // quest 이동경로(서버 스트림 GPS) — 거리 퀘스트 궤적 표시.
@@ -269,7 +270,11 @@ export default function RideNav() {
       // 이탈 거리 초과 — 5초 이상 지속해야 확정(잠깐 골목 진입 등 노이즈 무시).
       const now = Date.now();
       if (offRouteStartRef.current == null) { offRouteStartRef.current = now; return; }
-      if ((now - offRouteStartRef.current) / 1000 >= OFF_ROUTE_SECONDS) setOffRoute(true);
+      if ((now - offRouteStartRef.current) / 1000 >= OFF_ROUTE_SECONDS) {
+        setOffRoute(true);
+        offRouteStartRef.current = null; // 리셋 → 계속 이탈 시 다음 확정까지 다시 5초(재이탈마다 카운트)
+        setOffRouteCount((c) => c + 1);
+      }
     });
     return stop;
   }, [guidanceStarted, type, dest, activePts]);
@@ -328,6 +333,14 @@ export default function RideNav() {
     native.openUrl(`https://www.google.com/maps/dir/?api=1${o}&destination=${dest.lat},${dest.lng}&travelmode=two_wheeler`);
     setOffRoute(false);
   };
+
+  // 경로 이탈 3회 누적(nav) → 배너 없이 구글맵으로 자동 전환.
+  useEffect(() => {
+    if (type === 'nav' && offRouteCount >= 3) {
+      openGoogleReroute();
+      setOffRouteCount(0);
+    }
+  }, [offRouteCount, type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={styles.page}>

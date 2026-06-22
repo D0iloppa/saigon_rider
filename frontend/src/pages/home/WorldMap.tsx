@@ -8,6 +8,7 @@ import { fetchUserStats } from '@/api/profile';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport } from '@/api/info';
 import { fetchListings, fetchAds, localizedName as marketLocalizedName, type ListingCard, type MarketAd } from '@/api/market';
+import { shuffle } from '@/lib/shuffle';
 import { formatPriceVnd, relativeTime } from '@/pages/market/marketFormat';
 import { formatNumber } from '@/lib/format';
 import { native } from '@/lib/native';
@@ -111,8 +112,8 @@ export default function WorldMap() {
     if (!selectedRegion) return;
     const region = selectedRegion;
     setProductsLoading(true);
-    // 상품이 없을 때 노출할 제휴광고(활성 전체). products 비면 폴백 표시.
-    fetchAds(null).then(setAds).catch(() => setAds([]));
+    // 상품이 없을 때 노출할 제휴광고(셔플). products 비면 폴백 표시.
+    fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
     fetchListings({ lat: region.lat, lng: region.lng, sort: 'recent', hideSold: true, size: 40 })
       .then((p) => {
         const inWard = p.items.filter((it) => it.lat != null && it.lng != null && regionContains(region, it.lat, it.lng));
@@ -301,9 +302,9 @@ export default function WorldMap() {
           ) : (
             <div className={styles.productList}>
               {products.map((p, i) => {
-                // 2번째 상품 뒤(인덱스 1)부터 AD_EVERY 간격으로 광고 삽입
-                const showAd = ads.length > 0 && i >= 1 && (i - 1) % AD_EVERY === 0;
-                const ad = showAd ? ads[Math.floor((i - 1) / AD_EVERY) % ads.length] : null;
+                // 첫 상품 뒤(인덱스 0)부터 AD_EVERY 간격으로 광고 삽입 (상품 1개여도 노출)
+                const showAd = ads.length > 0 && i % AD_EVERY === 0;
+                const ad = showAd ? ads[Math.floor(i / AD_EVERY) % ads.length] : null;
                 return (
                   <Fragment key={p.id}>
                     <button type="button" className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>

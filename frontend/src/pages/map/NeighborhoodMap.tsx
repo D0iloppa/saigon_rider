@@ -8,6 +8,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
+import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, type ListingCard as Listing, type MarketAd } from '@/api/market';
@@ -58,6 +59,8 @@ export default function NeighborhoodMap() {
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
+  // 광고 노출 한도(3~4개로 시작, 스크롤 내리면 += 3~4). 카드 사이 광고가 무제한 누적되지 않게.
+  const [adLimit, setAdLimit] = useState(randAdBatch);
 
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -84,9 +87,12 @@ export default function NeighborhoodMap() {
     return () => { cancelled = true; };
   }, [setSharedCoords]);
 
+  // 광고 로드 시 셔플(랜덤 노출). 탭/지역 바뀌면 광고 한도 초기화.
   useEffect(() => {
-    fetchAds(null).then(setAds).catch(() => setAds([]));
+    fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
   }, []);
+
+  useEffect(() => { setAdLimit(randAdBatch()); }, [tab, center]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 집계 배지용 동네별 건수 (탭별)
   useEffect(() => {
@@ -212,12 +218,21 @@ export default function NeighborhoodMap() {
     </div>
   );
 
-  // 매물·피드 공통: 첫 광고를 2번째 카드 뒤(인덱스 1)에, 이후 AD_EVERY 간격으로 삽입.
-  // (뷰포트 필터로 보이는 카드가 적어도 광고가 노출되도록)
+  // 매물·피드 공통: 첫 카드 뒤(인덱스 0)부터 AD_EVERY 간격으로 광고 삽입. 단 adLimit 까지만(스크롤 시 증가).
   const adAt = (i: number) => {
-    if (ads.length === 0 || i < 1 || (i - 1) % AD_EVERY !== 0) return null;
-    const ad = ads[Math.floor((i - 1) / AD_EVERY) % ads.length];
+    if (ads.length === 0 || i % AD_EVERY !== 0) return null;
+    const ord = Math.floor(i / AD_EVERY); // 광고 순번
+    if (ord >= adLimit) return null;
+    const ad = ads[ord % ads.length];
     return <AdCard ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />;
+  };
+
+  // 리스트 스크롤이 바닥 근처면 광고 한도 += 3~4 (무한 스크롤 추가 노출)
+  const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
+      setAdLimit((prev) => prev + randAdBatch());
+    }
   };
 
   // 시트 본문: 서비스밖 → 안내 / 넓게 → 확대 가이드 / 좁게 → 카드
@@ -354,7 +369,7 @@ export default function NeighborhoodMap() {
           </button>
         }
       >
-        <div className={styles.list}>{renderBody()}</div>
+        <div className={styles.list} onScroll={handleListScroll}>{renderBody()}</div>
       </DraggableSheet>
 
       <ProfileCard

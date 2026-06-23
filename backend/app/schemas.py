@@ -1,14 +1,31 @@
+import re
 import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Generic, TypeVar
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, field_validator, model_validator
 
 from .utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
 T = TypeVar("T")
+
+_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def _compute_is_open(business_hours: str) -> bool | None:
+    """'HH:MM - HH:MM' 형식 파싱 → 현재 VN 시각 기준 영업 중 여부. '24시간'이면 항상 True."""
+    if "24" in business_hours:
+        return True
+    m = re.match(r"(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})", business_hours)
+    if not m:
+        return None
+    now = datetime.now(_VN_TZ).time()
+    open_t = time(int(m.group(1)), int(m.group(2)))
+    close_t = time(int(m.group(3)), int(m.group(4)))
+    return open_t <= now < close_t
 
 
 # ── 공통 ─────────────────────────────────────────────────────────
@@ -54,6 +71,19 @@ class DistrictOut(BaseModel):
                 "center_lng": data.center_lng,
             }
         return data
+
+
+class WardOut(BaseModel):
+    id: int
+    code: str
+    city_code: str
+    name_vi: str
+    name_en: str
+    name_ko: str | None = None
+    center_lat: float | None = None
+    center_lng: float | None = None
+
+    model_config = {"from_attributes": True}
 
 
 class RiderTypeOut(BaseModel):
@@ -107,6 +137,8 @@ class SellerBrief(BaseModel):
     avatar_url: str | None = None
     level: int = 1
     manner_temp: float = 36.5
+    review_count: int = 0
+    avg_rating: float | None = None
     is_following: bool = False
 
 
@@ -185,8 +217,22 @@ class MarketplaceAdOut(BaseModel):
     address: str | None = None
     owner_id: UUID | None = None
     district_id: int | None = None
+    category: str | None = None
+    rating: float | None = None
+    service_count: int | None = None
+    established_year: int | None = None
+    business_hours: str | None = None
+    is_open: bool | None = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def resolve_image_and_status(self) -> "MarketplaceAdOut":
+        if self.image_url and not self.image_url.startswith("http"):
+            self.image_url = build_imgproxy_url(self.image_url, options="rs:fill:360:200:1")
+        if self.business_hours:
+            self.is_open = _compute_is_open(self.business_hours)
+        return self
 
 
 class MarketplaceListingStatusUpdate(BaseModel):
@@ -203,7 +249,7 @@ class MarketplaceReviewCreateRequest(BaseModel):
     reviewer_id: UUID
     target_id: UUID
     listing_id: UUID | None = None
-    rating: str  # GOOD | BAD
+    rating: int  # 1~5
     manner_tags: list[str] = []
     comment: str | None = None
 
@@ -300,6 +346,7 @@ class UserOut(BaseModel):
     skill_pt: int
     skills: dict[str, int]
     avatar_url: str | None
+    manner_temp: float = 36.5
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -328,6 +375,7 @@ class UserOut(BaseModel):
                 "mileage_rate": data.skill_mileage_rate,
             },
             "avatar_url": resolve_avatar_url(data),
+            "manner_temp": float(data.manner_temp) if data.manner_temp is not None else 36.5,
             "created_at": data.created_at,
         }
 
@@ -808,6 +856,8 @@ class UserStatsOut(BaseModel):
     lifetime_km: Decimal  # 평생 누적 주행거리
     quest_count: int
     avg_safety_grade: str | None  # "A" / "B" / "C" or None
+    review_count: int = 0  # 전체 거래 후기 수 (GOOD + BAD)
+    avg_rating: float | None = None  # 0.0~5.0, 후기 없으면 None
 
 
 class UserExportResponse(BaseModel):
@@ -892,6 +942,19 @@ class AppointmentProposeRequest(BaseModel):
     place_lng: float | None = None
 
 
+class BlockedUserOut(BaseModel):
+    user_id: UUID
+    nickname: str | None = None
+    avatar_url: str | None = None
+
+
+class ReviewBrief(BaseModel):
+    rating: int  # 1~5
+    manner_tags: list | None = None
+    comment: str | None = None
+    created_at: datetime
+
+
 class TradeHistoryItem(BaseModel):
     appointment_id: UUID
     conversation_id: UUID
@@ -905,6 +968,7 @@ class TradeHistoryItem(BaseModel):
     counterpart_avatar_url: str | None = None
     completed_at: datetime
     review_left: bool
+    my_review: ReviewBrief | None = None
 
 
 class DmMessageOut(BaseModel):

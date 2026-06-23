@@ -92,7 +92,7 @@ export async function fetchUserProfile(userId: string, requesterId?: string): Pr
 
 export async function fetchUserStats(userId: string): Promise<UserStats> {
   if (USE_MOCK) {
-    return { month: '2026-05', total_km: 0, lifetime_km: 0, quest_count: 0, avg_safety_grade: null };
+    return { month: '2026-05', total_km: 0, lifetime_km: 0, quest_count: 0, avg_safety_grade: null, review_count: 0, avg_rating: null };
   }
   return api.realFetch<UserStats>(`/users/me/stats?user_id=${userId}`);
 }

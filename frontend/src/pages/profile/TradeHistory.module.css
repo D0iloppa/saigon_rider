@@ -1,0 +1,49 @@
+.page {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.list {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton {
+  height: 68px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.empty {
+  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.emptyEmoji {
+  font-size: 44px;
+  margin-bottom: 14px;
+}
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.emptySub {
+  font-size: 14px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+.emptyCta {
+  padding: 11px 22px;
+  border-radius: 12px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.emptyCta:active { opacity: .85; }

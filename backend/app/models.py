@@ -68,6 +68,23 @@ class District(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class Ward(Base):
+    """2025-07-01 베트남 행정 통폐합 이후 최하위 행정 단위 (phường/xã/특구)."""
+
+    __tablename__ = "wards"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    city_code: Mapped[str] = mapped_column(String(10), nullable=False, default="HCMC")
+    name_vi: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_ko: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    center_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    center_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class RiderType(Base):
     __tablename__ = "rider_types"
 
@@ -375,6 +392,10 @@ class MarketplaceListing(Base):
         SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
     )
     district: Mapped["District | None"] = relationship("District", foreign_keys=[district_id], lazy="selectin")
+    ward_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("wards.id", ondelete="SET NULL"), nullable=True
+    )
+    ward: Mapped["Ward | None"] = relationship("Ward", foreign_keys=[ward_id], lazy="selectin")
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -422,7 +443,7 @@ class MarketplaceReview(Base):
     target_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    rating: Mapped[str] = mapped_column(String(8), nullable=False)
+    rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     manner_tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -496,6 +517,11 @@ class MarketplaceAd(Base):
     district_id: Mapped[int | None] = mapped_column(
         SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
     )
+    category: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    rating: Mapped[float | None] = mapped_column(Numeric(2, 1), nullable=True)
+    service_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    established_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    business_hours: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

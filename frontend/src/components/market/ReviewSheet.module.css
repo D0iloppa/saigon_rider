@@ -30,32 +30,38 @@
   font-family: inherit;
 }
 
-.ratingRow {
+.starWrap {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 8px;
 }
 
-.ratingBtn {
-  flex: 1;
-  height: 46px;
-  border-radius: 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
+.starRow {
+  display: flex;
+  gap: 4px;
+}
+
+.starBtn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.starBtn:active {
+  transform: scale(0.9);
+}
+
+.starLabel {
   font-size: 14px;
   font-weight: 700;
-  color: var(--text-2);
-}
-
-.ratingGood {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: #fff;
-}
-
-.ratingBad {
-  background: var(--text-3);
-  border-color: var(--text-3);
-  color: #fff;
+  color: #f59e0b;
+  letter-spacing: -0.2px;
+  min-height: 20px;
 }
 
 .tagRow {

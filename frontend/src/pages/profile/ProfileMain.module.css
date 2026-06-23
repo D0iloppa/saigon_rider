@@ -101,11 +101,27 @@
   border: 1px solid var(--line);
   background: #fff;
 }
+.tradeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
 .tradeSectionTitle {
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 12px;
+}
+.tradeMore {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.tradeEmpty {
+  padding: 14px 4px 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
 }
 .tradeRow {
   display: flex;
@@ -1131,4 +1147,90 @@
   font-size: 13px;
   color: var(--text-dim);
   text-align: center;
+}
+
+/* ── 내 매물 탭 ── */
+.myListingRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: var(--shadow-card);
+  width: 100%;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.myListingThumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.myListingInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.myListingTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myListingPrice {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.myListingStatus {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.myListingStatus[data-status="SOLD"] {
+  color: var(--text-3);
+}
+
+.myListingStatus[data-status="RESERVED"] {
+  color: #f59e0b;
+}
+.tradeSubTabRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tradeSubTab {
+  padding: 5px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tradeSubTabActive {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+  color: #fff;
 }

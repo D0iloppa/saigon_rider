@@ -9,15 +9,15 @@ import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { isWithinHcmc, distanceKm } from '@/components/maps/district-data';
+import { distanceKm } from '@/components/maps/district-data';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
-import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
+import { type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import GasStationSheet from '@/components/gas/GasStationSheet';
 import styles from './InfoGasList.module.css';
 
-const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 선택 동(ward) 내부로 필터.
+const FETCH_RADIUS_KM = 3; // 홈 카드와 동일 반경 — 일관된 기준
 
 export default function InfoGasList() {
   const { t } = useTranslation();
@@ -33,8 +33,6 @@ export default function InfoGasList() {
   const [selectedStation, setSelectedStation] = useState<number | null>(null);
   // 선택 동(지도 emit). 리스트는 이 동 경계 내부만 표시 → 지도 집계배지 수와 일치.
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
-  // inHcm: fetch origin 결정용(HCMC 안=GPS, 밖=구역 centroid).
-  const [inHcm, setInHcm] = useState(false);
   // 실제 GPS 좌표(있으면 HCMC 밖이어도 거리=내 위치 기준). 없으면 null → 구역 centroid 폴백.
   const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
@@ -42,17 +40,13 @@ export default function InfoGasList() {
   // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
 
-  // 선택 구역 centroid 반경 내 주유소(소속) + 거리순.
-  // 소속은 주유소좌표↔구역centroid 로만 결정(거리 origin 무관). 거리/정렬은 GPS 있으면 내 위치 기준 재계산.
+  // 반경 내 주유소 거리순 정렬 (GPS 있으면 내 위치 기준, 없으면 fetched origin 기준).
   const listStations = useMemo<GasStation[]>(() => {
-    const filtered = selectedRegion
-      ? stations.filter((s) => regionContains(selectedRegion, s.lat, s.lng))
-      : stations;
     const ranked = userGps
-      ? filtered.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
-      : [...filtered];
+      ? stations.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
+      : [...stations];
     return ranked.sort((a, b) => a.distance_km - b.distance_km);
-  }, [stations, selectedRegion, userGps]);
+  }, [stations, userGps]);
 
   // 지도 마커 = 선택 동 내부 주유소 (리스트와 동일 집합). depth1 집계배지 / depth2·3 개별핀.
   const gasMarkers = useMemo<MapMarkerV2[]>(
@@ -85,12 +79,9 @@ export default function InfoGasList() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 거리 기준 origin 결정: HCMC 안(실 GPS) → GPS, 밖/메인 진입 → 넘어온 좌표. 선택 동은 지도가 emit.
   const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
-    const within = coords.source === 'gps' && !incomingCoords && isWithinHcmc(coords.lat, coords.lng);
-    setInHcm(within);
     fetchStations({ lat: coords.lat, lng: coords.lng });
-  }, [incomingCoords, fetchStations]);
+  }, [fetchStations]);
 
   useEffect(() => {
     const instant = resolveInfoCoordsSync(search, (fresh) => resolveAndLoad(fresh));
@@ -136,9 +127,8 @@ export default function InfoGasList() {
 
   const handleRegionSelect = useCallback((region: SelectedRegion) => {
     setSelectedRegion(region);
-    // HCMC 밖이면 거리 기준을 선택 동 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
-    if (!inHcm) fetchStations({ lat: region.lat, lng: region.lng });
-  }, [inHcm, fetchStations]);
+    fetchStations({ lat: region.lat, lng: region.lng });
+  }, [fetchStations]);
 
   async function handleSubmitReport(fields: ReportFields): Promise<boolean> {
     try {

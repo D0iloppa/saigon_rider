@@ -12,6 +12,18 @@ export interface District {
   center_lng?: number | null;
 }
 
+/** 2025-07-01 행정 통폐합 이후 최하위 행정 단위 */
+export interface Ward {
+  id: number;
+  code: string;
+  city_code: string;
+  name_vi: string;
+  name_en: string;
+  name_ko: string | null;
+  center_lat: number | null;
+  center_lng: number | null;
+}
+
 export interface RiderType {
   id: number;
   code: string;
@@ -58,6 +70,37 @@ const MOCK_SAFETY_GRADES: SafetyGrade[] = [
 export async function fetchDistricts(): Promise<District[]> {
   if (USE_MOCK) return api.delay(MOCK_DISTRICTS, 0);
   return api.realFetch<District[]>('/master/districts');
+}
+
+export async function fetchWards(city = 'HCMC'): Promise<Ward[]> {
+  return api.realFetch<Ward[]>(`/master/wards?city=${city}`);
+}
+
+const HCMC_BBOX = { latMin: 10.35, latMax: 11.2, lngMin: 106.3, lngMax: 107.2 };
+
+function _haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/** GPS 좌표 → 가장 가까운 Ward (centroid haversine). HCMC bbox 밖이면 null. */
+export function resolveWardByCoords(lat: number, lng: number, wards: Ward[]): Ward | null {
+  if (lat < HCMC_BBOX.latMin || lat > HCMC_BBOX.latMax || lng < HCMC_BBOX.lngMin || lng > HCMC_BBOX.lngMax) {
+    return null;
+  }
+  let best: Ward | null = null;
+  let bestKm = Infinity;
+  for (const w of wards) {
+    if (w.center_lat == null || w.center_lng == null) continue;
+    const km = _haversineKm(lat, lng, w.center_lat, w.center_lng);
+    if (km < bestKm) { bestKm = km; best = w; }
+  }
+  return best;
 }
 
 export async function fetchRiderTypes(): Promise<RiderType[]> {

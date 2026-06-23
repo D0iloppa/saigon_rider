@@ -1,0 +1,553 @@
+<title>콜드스타트 전략 — 공급은 만들고 수요는 붙잡는다</title>
+<style>
+  :root {
+    --ground: #0F1E1C;
+    --ground-2: #15292610;
+    --surface: #16302C;
+    --surface-2: #1C3A35;
+    --line: #2A4843;
+    --text: #ECE6D8;
+    --muted: #9DB0AA;
+    --faint: #6F857F;
+    --accent: #F4A724;       /* headlight amber */
+    --accent-soft: #F4A72422;
+    --danger: #E24A36;       /* taillight red — danger only */
+    --danger-soft: #E24A3618;
+    --ok: #66B98E;           /* dim signal green — functional only */
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+            "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body, .page {
+    margin: 0;
+    background:
+      radial-gradient(120% 80% at 80% -10%, #1A3530 0%, transparent 55%),
+      radial-gradient(90% 70% at -10% 10%, #14302B 0%, transparent 50%),
+      var(--ground);
+    background-color: var(--ground);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- shared atoms ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 18px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .section { padding: 88px 0; border-top: 1px solid var(--line); }
+  .section-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 40px; flex-wrap: wrap; }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 4px 9px;
+    flex: none;
+  }
+  .section-title { font-size: clamp(24px, 3.4vw, 38px); font-weight: 800; letter-spacing: -0.02em; margin: 0; line-height: 1.15; }
+  .section-lede { color: var(--muted); max-width: 60ch; margin: 10px 0 0; font-size: 16px; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 80px 0 64px; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
+  .hero h1 {
+    font-size: clamp(38px, 6.4vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+    margin: 0 0 24px;
+  }
+  .hero h1 .lit { color: var(--accent); }
+  .hero p.sub { font-size: clamp(16px, 1.9vw, 19px); color: var(--muted); max-width: 46ch; margin: 0 0 28px; }
+  .hero-meta { display: flex; gap: 20px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: 0.05em; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  .map-card {
+    background: linear-gradient(160deg, var(--surface) 0%, #102521 100%);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px 18px 14px;
+    box-shadow: 0 30px 80px -40px #000;
+  }
+  .map-card canvas { width: 100%; height: auto; display: block; border-radius: 3px; }
+  .map-cap { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; gap: 12px; }
+  .map-cap .t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .map-cap .d { font-size: 13px; color: var(--muted); text-align: right; max-width: 30ch; }
+
+  /* ---------- tldr bets ---------- */
+  .bets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .bet { background: var(--surface); padding: 26px 24px; }
+  .bet .n { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
+  .bet h3 { margin: 12px 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+  .bet p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  /* ---------- decision ---------- */
+  .decision { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .opt { border: 1px solid var(--line); border-radius: 6px; padding: 22px 20px; background: var(--surface); position: relative; }
+  .opt.win { border-color: var(--accent); background: linear-gradient(180deg, var(--accent-soft), var(--surface) 60%); }
+  .opt .verdict { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; }
+  .opt.win .verdict { color: var(--accent); }
+  .opt.lose .verdict { color: var(--danger); }
+  .opt h4 { margin: 10px 0 8px; font-size: 17px; font-weight: 700; }
+  .opt p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* ---------- tactics ---------- */
+  .tactic { display: grid; grid-template-columns: 88px 1fr; gap: 28px; padding: 30px 0; border-top: 1px solid var(--line); }
+  .tactic:first-of-type { border-top: 0; }
+  .tactic .big-num { font-family: var(--mono); font-size: 44px; font-weight: 700; color: var(--line); line-height: 1; letter-spacing: -0.02em; }
+  .tactic.hero-tactic .big-num { color: var(--accent); }
+  .tactic h3 { margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: -0.015em; }
+  .tactic h3 .tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 3px 10px; margin-left: 12px; vertical-align: middle; white-space: nowrap; }
+  .tactic p { margin: 0 0 12px; color: var(--muted); font-size: 15px; max-width: 68ch; }
+  .tactic ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; }
+  .tactic li { padding-left: 22px; position: relative; color: var(--text); font-size: 14.5px; }
+  .tactic li::before { content: "›"; position: absolute; left: 4px; color: var(--accent); font-weight: 700; }
+  .flag { font-family: var(--mono); font-size: 13px; padding: 2px 7px; border-radius: 3px; }
+  .flag.no { color: var(--danger); background: var(--danger-soft); }
+  .flag.yes { color: var(--ok); background: #66B98E18; }
+
+  /* ---------- anti-patterns ---------- */
+  .anti { background: var(--danger-soft); border: 1px solid #E24A3640; }
+  .anti .section-num { border-color: var(--danger); color: var(--danger); }
+  .anti-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .anti-item { display: flex; gap: 14px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; }
+  .anti-item .x { color: var(--danger); font-family: var(--mono); font-weight: 700; font-size: 18px; line-height: 1.4; flex: none; }
+  .anti-item p { margin: 0; font-size: 14.5px; }
+  .anti-item p b { display: block; margin-bottom: 3px; font-size: 15px; color: var(--text); }
+  .anti-item p span { color: var(--muted); }
+
+  /* ---------- timeline ---------- */
+  .phase { display: grid; grid-template-columns: 130px 1fr; gap: 28px; padding: 26px 0; border-top: 1px dashed var(--line); }
+  .phase:first-child { border-top: 0; }
+  .phase .ph-label { }
+  .phase .ph-tag { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.06em; }
+  .phase .ph-when { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 4px; }
+  .phase h3 { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
+  .steps { display: grid; gap: 9px; }
+  .step { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; padding: 11px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; }
+  .step .what { font-size: 14.5px; }
+  .step .gate { font-family: var(--mono); font-size: 11.5px; color: var(--ok); text-align: right; max-width: 28ch; line-height: 1.4; }
+  .step .gate::before { content: "✓ "; }
+
+  /* ---------- kpi ---------- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .kpi { border: 1px solid var(--line); border-radius: 6px; padding: 22px 20px; background: var(--surface); }
+  .kpi .v { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; line-height: 1; }
+  .kpi .v small { font-size: 15px; color: var(--muted); }
+  .kpi .l { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
+
+  /* ---------- assets ---------- */
+  .assets { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .assets th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); padding: 0 14px 12px; font-weight: 500; border-bottom: 1px solid var(--line); }
+  .assets td { padding: 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .assets td:first-child { color: var(--text); font-weight: 600; }
+  .assets td:nth-child(2) { font-family: var(--mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .assets td:last-child { color: var(--muted); }
+  .pill { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+  .pill.live { color: var(--ok); background: #66B98E18; }
+  .pill.warn { color: var(--danger); background: var(--danger-soft); }
+
+  /* ---------- footer ---------- */
+  .foot { padding: 56px 0 80px; color: var(--faint); font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+  .foot a { color: var(--muted); }
+  .quote { border-left: 2px solid var(--accent); padding: 4px 0 4px 22px; margin: 0 0 40px; font-size: clamp(18px, 2.4vw, 24px); font-weight: 600; letter-spacing: -0.015em; line-height: 1.4; max-width: 30ch; }
+  .quote .lit { color: var(--accent); }
+
+  a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (max-width: 860px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+    .bets, .decision, .anti-list, .kpi-grid { grid-template-columns: 1fr; }
+    .tactic, .phase { grid-template-columns: 1fr; gap: 12px; }
+    .tactic .big-num { font-size: 32px; }
+    .step { grid-template-columns: 1fr; gap: 6px; }
+    .step .gate { text-align: left; max-width: none; }
+    .assets td:nth-child(2) { white-space: normal; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="page">
+  <header class="hero wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">SGR-287 · 콜드스타트 실행 전략</p>
+        <h1>공급은 <span class="lit">만들고</span>,<br>수요는 붙잡는다</h1>
+        <p class="sub">사용자 0에서 마켓플레이스를 띄우는 법. 빈 피드는 첫날 사용자를 잃는다. 답은 전역 런칭이 아니라 — 한 개 구의 임계 밀도다.</p>
+        <div class="hero-meta">
+          <span><b>HCMC</b> · 오토바이 라이더 부품·용품 직거래</span>
+          <span>벤치마크 <b>당근</b> · 경쟁 <b>Chợ Tốt</b></span>
+          <span>2026.06.23</span>
+        </div>
+      </div>
+      <div class="map-card">
+        <canvas id="density" width="520" height="380" aria-label="매물이 전역에 분산된 상태에서 한 개 구로 수렴하는 밀도 시각화"></canvas>
+        <div class="map-cap">
+          <span class="t">밀도 = 유동성</span>
+          <span class="d">분산된 매물은 거래를 못 만든다. 한 구(Bình Thạnh)에 몰아야 거래가 산다.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- TL;DR bets -->
+    <section class="section" aria-labelledby="bets-h">
+      <div class="section-head">
+        <span class="section-num">00</span>
+        <h2 class="section-title" id="bets-h">네 가지 베팅</h2>
+      </div>
+      <div class="bets">
+        <div class="bet">
+          <span class="n">BET 01</span>
+          <h3>공급이 먼저다</h3>
+          <p>닭-달걀에서 파는 물건이 먼저 보여야 한다. 공급은 소수 앵커로 통제 가능, 수요는 신호로 포착하면 된다.</p>
+        </div>
+        <div class="bet">
+          <span class="n">BET 02</span>
+          <h3>무기는 이미 DB에 있다</h3>
+          <p><b>정비소·용품점(repair_shop)</b>이 위치까지 박혀 있다. 점포 1곳 = 매물 20~50건. 범용 마켓이 못 가진 오프라인 공급원이다.</p>
+        </div>
+        <div class="bet">
+          <span class="n">BET 03</span>
+          <h3>가짜 매물은 사형선고</h3>
+          <p>연락하면 없는 매물은 신뢰를 한 번에 죽인다. 현 placeholder seed는 실런칭 전 반드시 제거.</p>
+        </div>
+        <div class="bet">
+          <span class="n">BET 04</span>
+          <h3>한 동네에 몰빵</h3>
+          <p>50개 분산 매물보다 1개 구 200개. Bình Thạnh 임계 밀도부터 증명하고 확장한다.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- decision -->
+    <section class="section" aria-labelledby="dec-h">
+      <div class="section-head">
+        <span class="section-num">01</span>
+        <div>
+          <h2 class="section-title" id="dec-h">닭-달걀: 어느 쪽을 먼저?</h2>
+          <p class="section-lede">만들 수 있는 쪽(공급)에 노동을 넣고, 못 만드는 쪽(수요)은 신호만 모은다.</p>
+        </div>
+      </div>
+      <div class="decision">
+        <div class="opt lose">
+          <span class="verdict">✕ 기각</span>
+          <h4>구매자 먼저</h4>
+          <p>살 물건이 없으면 즉시 떠나고 다시 안 온다. 모객 비용 낭비.</p>
+        </div>
+        <div class="opt win">
+          <span class="verdict">✓ 채택</span>
+          <h4>공급 먼저 — 직접 제조</h4>
+          <p>물건이 보이면 머문다. 공급은 소수 앵커로 집중 제어 가능. 우리가 손으로 깐다.</p>
+        </div>
+        <div class="opt lose">
+          <span class="verdict">✕ 기각</span>
+          <h4>양쪽 동시</h4>
+          <p>사용자 0 단계에서 자원 분산은 패착. 한 점에 화력 집중.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- tactics -->
+    <section class="section" aria-labelledby="tac-h">
+      <div class="section-head">
+        <span class="section-num">02</span>
+        <div>
+          <h2 class="section-title" id="tac-h">공급 시딩 4대 전술</h2>
+          <p class="section-lede">우선순위 순. 1번이 우리만의 불공정 우위다.</p>
+        </div>
+      </div>
+
+      <div class="tactic hero-tactic">
+        <div class="big-num">01</div>
+        <div>
+          <h3>앵커 셀러: 정비소·용품점 영입<span class="tag">★ 불공정 우위</span></h3>
+          <p>이미 <code>repair_shop</code> 테이블에 HCMC 점포가 위치까지 들어 있다. 라이더 개인 셀러를 한 명씩 모으는 것보다, 점포 1곳이 즉시 매물 20~50건을 가져온다.</p>
+          <ul>
+            <li>파일럿 구 점포 <b>10~30곳</b>을 Zalo 기반 오프라인 영업으로 영입</li>
+            <li><b>대신 등록(concierge)</b> — 점포는 사진·가격만, 리스팅은 운영팀이</li>
+            <li>"검증 셀러" 배지 + 매너온도 시드값으로 첫 신뢰 풀 형성</li>
+            <li><span class="flag yes">YES</span> 저가·고빈도 부품/용품 &nbsp; <span class="flag no">NO</span> 고가 중고 오토바이</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tactic">
+        <div class="big-num">02</div>
+        <div>
+          <h3>운영자 큐레이션 재고 — 정직한 단일플레이어</h3>
+          <p>운영팀이 <b>실제 보유·위탁받은</b> 인기 부품을 직접 올려 거래가 성사되게 한다. 핵심은 '정직한' 컨시어지 — 이행 불가능한 매물은 없다.</p>
+          <ul>
+            <li><span class="flag no">금지</span> 보유하지 않은 가짜 매물(ghost listing) — 신뢰 즉사</li>
+            <li><span class="flag yes">허용</span> 이행 가능한 실매물만, "운영 공식 셀러"로 투명 표기</li>
+            <li>유기적 P2P가 임계치를 넘으면 운영 재고 비중 단계적 축소</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tactic">
+        <div class="big-num">03</div>
+        <div>
+          <h3>기존 분산 공급의 이주 — FB · Zalo · Chợ Tốt</h3>
+          <p>공급은 이미 존재한다. 분산돼 있을 뿐. 타깃 구의 실판매자를 직접 섭외해 우리 앱으로 온보딩한다.</p>
+          <ul>
+            <li><span class="flag no">금지</span> 타인 매물 무단 스크래핑·재게시 — 반드시 판매자 동의 하 이전</li>
+            <li>미끼: "FB엔 없는 검색·찜·키워드 자동 알림" — 셀러에게 노출 이점 제시</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tactic">
+        <div class="big-num">04</div>
+        <div>
+          <h3>수요 신호로 공급 유도 — 이미 구현된 기능</h3>
+          <p>매물이 적어도 수요는 미리 잡는다. <b>찜 · 키워드 알림 · 위시리스트</b>가 곧 수요 히트맵이다. 무엇을 매입·영입할지(전술 1·2의 입력값)를 데이터가 정한다.</p>
+          <ul>
+            <li>빈 결과 화면 → "키워드 등록" 전환으로 이탈 대신 신호 수집</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- anti-patterns -->
+    <section class="section anti" aria-labelledby="anti-h">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="section-num">03</span>
+          <div>
+            <h2 class="section-title" id="anti-h">하지 말 것</h2>
+            <p class="section-lede">해자는 관계·정체성·동네 신뢰에 있다. 기능과 스케일로 붙으면 진다.</p>
+          </div>
+        </div>
+        <div class="anti-list">
+          <div class="anti-item"><span class="x">✕</span><p><b>가짜·유령 매물</b><span>어떤 이유로도 금지. 신뢰 즉사.</span></p></div>
+          <div class="anti-item"><span class="x">✕</span><p><b>전역 동시 런칭</b><span>밀도 희석. 1개 구부터.</span></p></div>
+          <div class="anti-item"><span class="x">✕</span><p><b>구매자 모객 선행</b><span>빈 매물에 데려오면 영구 이탈.</span></p></div>
+          <div class="anti-item"><span class="x">✕</span><p><b>고가 중고 오토바이 정면 진입</b><span>Chợ Tốt Xe의 에스크로·점검·보증 강점 영역.</span></p></div>
+          <div class="anti-item"><span class="x">✕</span><p><b>거래 기능 경쟁</b><span>찜·알림·채팅으로 이기려 말 것. 자본에서 진다.</span></p></div>
+          <div class="anti-item"><span class="x">✕</span><p><b>신규 인센티브 시스템 구축</b><span>RP·매너온도·배지로 충분.</span></p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- timeline -->
+    <section class="section" aria-labelledby="ph-h">
+      <div class="section-head">
+        <span class="section-num">04</span>
+        <div>
+          <h2 class="section-title" id="ph-h">단계별 실행 — 검증 게이트 포함</h2>
+          <p class="section-lede">각 단계는 통과 조건이 있다. 약한 목표("동작하게")가 아니라 측정 가능한 게이트로.</p>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-label"><div class="ph-tag">PHASE 0</div><div class="ph-when">D-4주 ~ D-1주</div></div>
+        <div>
+          <h3>공급 제조 — 빈 화면 박멸</h3>
+          <div class="steps">
+            <div class="step"><span class="what">파일럿 구 확정 (Bình Thạnh)</span><span class="gate">해당 구 점포 ≥ 20</span></div>
+            <div class="step"><span class="what">점포 영입 + 대신 등록</span><span class="gate">활성 매물 ≥ 150 · 검증셀러 ≥ 10</span></div>
+            <div class="step"><span class="what">운영 큐레이션 실재고 확보</span><span class="gate">이행 가능 매물만 · 가짜 0건</span></div>
+            <div class="step"><span class="what">placeholder seed 제거</span><span class="gate">loremflickr 매물 0건</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-label"><div class="ph-tag">PHASE 1</div><div class="ph-when">D0 — 런칭</div></div>
+        <div>
+          <h3>런칭 — 도구로 유입, 매물로 체류</h3>
+          <div class="steps">
+            <div class="step"><span class="what">단일플레이어 가치(정비/주유/침수)로 유입</span><span class="gate">매물 0건에도 동작</span></div>
+            <div class="step"><span class="what">수요 포착 ON — 찜·키워드알림·검색</span><span class="gate">키워드알림 등록으로 수요 히트맵</span></div>
+            <div class="step"><span class="what">창립 셀러 배지 부여</span><span class="gate">FOUNDER 지급 = 영입 셀러 수</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="ph-label"><div class="ph-tag">PHASE 2</div><div class="ph-when">D0 ~ D30</div></div>
+        <div>
+          <h3>유동성 플라이휠 — 첫 유기적 거래</h3>
+          <div class="steps">
+            <div class="step"><span class="what">수요 히트맵 → 데이터 주도 공급 보강</span><span class="gate">매입·영입을 신호가 결정</span></div>
+            <div class="step"><span class="what">유기적 P2P 비중↑ · 운영 재고↓</span><span class="gate">P2P 전환율 추적</span></div>
+            <div class="step"><span class="what">게이트 — 안 서면 전제 재검토</span><span class="gate">주간 거래완료 양수 전환 + D7</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- kpi -->
+    <section class="section" aria-labelledby="kpi-h">
+      <div class="section-head">
+        <span class="section-num">05</span>
+        <div>
+          <h2 class="section-title" id="kpi-h">밀도가 차별화보다 먼저</h2>
+          <p class="section-lede">차별화(라이더 정체성·동네 신뢰)는 밀도가 선 다음 측정한다. 임계 밀도 가설값:</p>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="v">150~250<small> 건</small></div><div class="l">구당 활성 매물</div></div>
+        <div class="kpi"><div class="v">10~30<small> 곳</small></div><div class="l">검증 셀러(점포)</div></div>
+        <div class="kpi"><div class="v">+1<small> 이상</small></div><div class="l">주간 거래완료 양수 전환</div></div>
+        <div class="kpi"><div class="v">D7</div><div class="l">리텐션 · 첫 거래까지 시간</div></div>
+      </div>
+    </section>
+
+    <!-- assets -->
+    <section class="section" aria-labelledby="as-h">
+      <div class="section-head">
+        <span class="section-num">06</span>
+        <div>
+          <h2 class="section-title" id="as-h">이미 가진 자산</h2>
+          <p class="section-lede">신규 구축이 아니라 레버리지. 새 시스템을 만들지 않는다.</p>
+        </div>
+      </div>
+      <table class="assets">
+        <thead><tr><th>자산</th><th>상태</th><th>콜드스타트 역할</th></tr></thead>
+        <tbody>
+          <tr><td>repair_shop DB (위치 포함)</td><td><span class="pill live">구현됨</span></td><td>앵커 셀러 영입 풀 — 최우선 무기</td></tr>
+          <tr><td>매너온도 · 후기 · 단골</td><td><span class="pill live">구현됨</span></td><td>셀러 신뢰 시드, 재방문 락인</td></tr>
+          <tr><td>찜 · 키워드알림 · 위시리스트</td><td><span class="pill live">085~091</span></td><td>수요 히트맵 → 공급 유도 입력</td></tr>
+          <tr><td>RP · BADGE_FOUNDER</td><td><span class="pill live">구현됨</span></td><td>셀러 인센티브 (예산 캡 내)</td></tr>
+          <tr><td>단일플레이어 정보(정비/주유/침수)</td><td><span class="pill live">구현됨</span></td><td>매물 0건에도 유입 동기</td></tr>
+          <tr><td>DM (약속 · 거래후기)</td><td><span class="pill live">구현됨</span></td><td>거래 성사 채널</td></tr>
+          <tr><td>placeholder seed (085/087)</td><td><span class="pill warn">dev only</span></td><td>실런칭 전 제거 필요 ⚠</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <p class="quote">"이미 있다"가 사형선고는 아니다. 당근도 중고나라 위에서 <span class="lit">동네 신뢰</span>로 새 시장을 열었다 — 단, 그 전에 <span class="lit">한 동네 밀도</span>를 증명해야 한다.</p>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    SoT — ai-docs/spec/marketplace-cold-start-strategy.md &nbsp;·&nbsp; 상위 맥락 — chotot-competitive-analysis.md §5·§6 &nbsp;·&nbsp; SGR-287
+  </footer>
+</div>
+
+<script>
+(function () {
+  var canvas = document.getElementById("density");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+  var amber = "#F4A724", dim = "#3C5C56", line = "#2A4843", faint = "#6F857F";
+
+  // target district cell (Bình Thạnh) — upper-right region
+  var cell = { x: W * 0.50, y: H * 0.14, w: W * 0.40, h: H * 0.46 };
+
+  // build dots: ~80% will migrate into the cell, ~20% stay scattered/dim
+  var N = 150;
+  var dots = [];
+  function rnd(a, b) { return a + (b - a) * fakeRand(); }
+  // deterministic-ish PRNG (Math.random is unavailable in some sandboxes, but fine in browser)
+  var seed = 20260623;
+  function fakeRand() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+
+  for (var i = 0; i < N; i++) {
+    var migrate = i % 5 !== 0; // 80%
+    var sx = rnd(16, W - 16), sy = rnd(16, H - 16);
+    var tx, ty;
+    if (migrate) {
+      tx = cell.x + rnd(10, cell.w - 10);
+      ty = cell.y + rnd(10, cell.h - 10);
+    } else {
+      tx = rnd(16, W - 16); ty = rnd(H * 0.66, H - 16);
+    }
+    dots.push({ sx: sx, sy: sy, tx: tx, ty: ty, migrate: migrate, r: rnd(1.6, 3.0), ph: rnd(0, 6.28) });
+  }
+
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var DUR = 2200, t0 = null;
+
+  function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+  function drawGrid() {
+    ctx.strokeStyle = line; ctx.lineWidth = 1;
+    for (var gx = 0; gx <= 5; gx++) { ctx.beginPath(); ctx.moveTo(gx / 5 * W, 0); ctx.lineTo(gx / 5 * W, H); ctx.stroke(); }
+    for (var gy = 0; gy <= 4; gy++) { ctx.beginPath(); ctx.moveTo(0, gy / 4 * H); ctx.lineTo(W, gy / 4 * H); ctx.stroke(); }
+  }
+
+  function drawCell(p) {
+    // highlight grows with progress
+    ctx.save();
+    ctx.strokeStyle = amber; ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.25 + 0.75 * p;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeRect(cell.x, cell.y, cell.w, cell.h);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = amber;
+    ctx.font = "600 11px ui-monospace, Menlo, monospace";
+    ctx.globalAlpha = 0.4 + 0.6 * p;
+    ctx.fillText("BÌNH THẠNH", cell.x + 6, cell.y - 8);
+    ctx.restore();
+  }
+
+  function frame(ts) {
+    if (t0 === null) t0 = ts;
+    var raw = reduce ? 1 : Math.min(1, (ts - t0) / DUR);
+    var p = ease(raw);
+
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+    drawCell(p);
+
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      var x = d.sx + (d.tx - d.sx) * p;
+      var y = d.sy + (d.ty - d.sy) * p;
+      // subtle idle drift after arrival
+      if (raw >= 1 && !reduce) {
+        var tt = ts / 1000;
+        x += Math.sin(tt + d.ph) * 0.6;
+        y += Math.cos(tt * 0.8 + d.ph) * 0.6;
+      }
+      var lit = d.migrate;
+      ctx.beginPath();
+      ctx.arc(x, y, d.r, 0, 6.2832);
+      if (lit) {
+        ctx.fillStyle = amber;
+        ctx.globalAlpha = 0.55 + 0.45 * p;
+        ctx.shadowColor = amber; ctx.shadowBlur = 6 * p;
+      } else {
+        ctx.fillStyle = dim;
+        ctx.globalAlpha = 0.9 - 0.4 * p;
+        ctx.shadowBlur = 0;
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    if (raw < 1 || (!reduce)) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>

@@ -162,6 +162,12 @@ export default function Settings() {
             arrow
             onClick={() => navigate('/settings/account')}
           />
+          <SettingsRow
+            icon="🚫"
+            label={t('settings.blockedUsers', { defaultValue: '차단 사용자 관리' })}
+            arrow
+            onClick={() => navigate('/settings/blocked')}
+          />
           <SettingsRow icon="🔒" label={t('settings.privacy')} arrow onClick={() => navigate('/settings/privacy')} />
           <SettingsRow icon="📄" label={t('settings.terms')} arrow onClick={() => navigate('/settings/terms')} />
         </Section>

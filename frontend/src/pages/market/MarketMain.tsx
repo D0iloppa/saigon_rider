@@ -15,7 +15,7 @@ import { native } from '@/lib/native';
 import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
-import { fetchDistricts, type District } from '@/api/master';
+import { fetchDistricts, fetchWards, resolveWardByCoords, type District, type Ward } from '@/api/master';
 import {
   addKeywordAlert,
   fetchAds,
@@ -54,6 +54,7 @@ export default function MarketMain() {
   const [sortOpen, setSortOpen] = useState(false);
   const [hideSold, setHideSold] = useState(false);
   const [district, setDistrict] = useState<District | null>(null);
+  const [ward, setWard] = useState<Ward | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [adLimit, setAdLimit] = useState(randAdBatch); // 광고 3~4개로 시작, 스크롤 시 증가
@@ -65,16 +66,31 @@ export default function MarketMain() {
     setAdLimit(randAdBatch());
   }, [district?.id, i18n.language]);
 
-  // 기본 동네 우선순위: home(동네 지도)에서 선택한 위치 > 현재 GPS > Bình Thạnh 폴백.
+  // 동네 우선순위: home 선택 위치 > 현재 GPS > Bình Thạnh 폴백.
+  // ward 데이터가 있으면 ward 단위로 표시, 없으면 district 폴백.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const districts = await fetchDistricts().catch(() => [] as District[]);
-      const fallback = districts.find((d) => d.code === 'BINH_THANH') ?? districts[0] ?? null;
-      if (homeCoords) {
+      const [wards, districts] = await Promise.all([
+        fetchWards().catch(() => [] as Ward[]),
+        fetchDistricts().catch(() => [] as District[]),
+      ]);
+      const useWards = wards.length > 0;
+      const fallbackDistrict = districts.find((d) => d.code === 'BINH_THANH') ?? districts[0] ?? null;
+
+      const applyCoords = (lat: number, lng: number) => {
         if (cancelled) return;
+        if (useWards) {
+          setWard(resolveWardByCoords(lat, lng, wards) ?? (wards[0] ?? null));
+          setDistrict(null);
+        } else {
+          setDistrict(resolveDistrict(lat, lng, districts) ?? fallbackDistrict);
+        }
+      };
+
+      if (homeCoords) {
         setCoords(homeCoords);
-        setDistrict(resolveDistrict(homeCoords.lat, homeCoords.lng, districts) ?? fallback);
+        applyCoords(homeCoords.lat, homeCoords.lng);
         return;
       }
       try {
@@ -82,24 +98,31 @@ export default function MarketMain() {
         const pos = await native.getLocation();
         if (cancelled) return;
         setCoords({ lat: pos.lat, lng: pos.lng });
-        setDistrict(resolveDistrict(pos.lat, pos.lng, districts) ?? fallback);
+        applyCoords(pos.lat, pos.lng);
       } catch {
-        if (!cancelled) setDistrict(fallback);
+        if (!cancelled) {
+          if (useWards) setWard(wards[0] ?? null);
+          else setDistrict(fallbackDistrict);
+        }
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [homeCoords]);
 
   const fetchPage = useCallback(
     (page: number) =>
-      fetchListings({ sort, hideSold, lat: coords?.lat, lng: coords?.lng, districtId: district?.id, viewerId: userId, page, size: 20 }),
-    [sort, hideSold, coords, district?.id, userId],
+      fetchListings({
+        sort, hideSold,
+        lat: coords?.lat, lng: coords?.lng,
+        wardId: ward?.id ?? null,
+        districtId: ward ? null : district?.id ?? null,
+        viewerId: userId, page, size: 20,
+      }),
+    [sort, hideSold, coords, ward?.id, district?.id, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, district?.id, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, ward?.id, district?.id, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -142,7 +165,7 @@ export default function MarketMain() {
         <div className={styles.headerRow}>
           <div>
             <h1 className={styles.title}>
-              {district ? localizedName(district) : t('market.district', { defaultValue: 'Bình Thạnh' })}{' '}
+              {ward ? ward.name_vi : district ? localizedName(district) : t('market.district', { defaultValue: 'Bình Thạnh' })}{' '}
               <span className={styles.caret}>▾</span>
             </h1>
             <p className={styles.tagline}>{t('market.tagline', { defaultValue: '내 근처 라이더 장터' })}</p>

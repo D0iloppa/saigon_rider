@@ -50,16 +50,18 @@ export interface SellerBrief {
   avatarUrl: string | null;
   level: number;
   mannerTemp: number;
+  reviewCount: number;
+  avgRating: number | null;
+  responseRate: number | null;
+  isPhoneVerified: boolean;
   isFollowing: boolean;
 }
-
-export type ReviewRating = 'GOOD' | 'BAD';
 
 export interface CreateReviewParams {
   reviewerId: string;
   targetId: string;
   listingId?: string | null;
-  rating: ReviewRating;
+  rating: number; // 1~5
   mannerTags: string[];
   comment?: string;
 }
@@ -140,10 +142,14 @@ export interface ListingQuery {
   q?: string;
   sort?: ListingSort;
   hideSold?: boolean;
+  priceMin?: number | null;
+  priceMax?: number | null;
   lat?: number | null;
   lng?: number | null;
+  wardId?: number | null;
   districtId?: number | null;
   viewerId?: string | null;
+  sellerId?: string | null;
   page?: number;
   size?: number;
 }
@@ -179,6 +185,12 @@ export interface MarketAd {
   address: string | null;
   ownerId: string | null;
   districtId: number | null;
+  category: string | null;
+  rating: number | null;
+  serviceCount: number | null;
+  establishedYear: number | null;
+  businessHours: string | null;
+  isOpen: boolean | null;
 }
 
 function transformAd(a: any): MarketAd {
@@ -193,6 +205,12 @@ function transformAd(a: any): MarketAd {
     address: a.address ?? null,
     ownerId: a.owner_id ?? null,
     districtId: a.district_id ?? null,
+    category: a.category ?? null,
+    rating: a.rating ?? null,
+    serviceCount: a.service_count ?? null,
+    establishedYear: a.established_year ?? null,
+    businessHours: a.business_hours ?? null,
+    isOpen: a.is_open ?? null,
   };
 }
 
@@ -219,8 +237,12 @@ export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> 
     params.set('lat', String(q.lat));
     params.set('lng', String(q.lng));
   }
+  if (q.priceMin != null) params.set('price_min', String(q.priceMin));
+  if (q.priceMax != null) params.set('price_max', String(q.priceMax));
+  if (q.wardId != null) params.set('ward_id', String(q.wardId));
   if (q.districtId != null) params.set('district_id', String(q.districtId));
   if (q.viewerId) params.set('viewer_id', q.viewerId);
+  if (q.sellerId) params.set('seller_id', q.sellerId);
   params.set('lang', i18n.language);
   params.set('page', String(q.page ?? 1));
   params.set('size', String(q.size ?? 20));
@@ -273,6 +295,17 @@ export async function unblockUser(userId: string): Promise<void> {
   await api.realFetch(`/market/users/${userId}/block`, { method: 'DELETE' });
 }
 
+export interface BlockedUser {
+  userId: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+}
+
+export async function fetchBlockedUsers(): Promise<BlockedUser[]> {
+  const raw = await api.realFetch<any[]>('/market/blocks');
+  return raw.map((r) => ({ userId: r.user_id, nickname: r.nickname ?? null, avatarUrl: r.avatar_url ?? null }));
+}
+
 export async function createReview(p: CreateReviewParams): Promise<{ id: string; target_manner_temp: number }> {
   return api.realFetch('/market/reviews', {
     method: 'POST',
@@ -285,6 +318,13 @@ export async function createReview(p: CreateReviewParams): Promise<{ id: string;
       comment: p.comment ?? null,
     }),
   });
+}
+
+export interface ReviewBrief {
+  rating: number; // 1~5
+  mannerTags: string[];
+  comment: string | null;
+  createdAt: string;
 }
 
 export interface TradeHistory {
@@ -300,6 +340,16 @@ export interface TradeHistory {
   counterpartAvatarUrl: string | null;
   completedAt: string;
   reviewLeft: boolean;
+  myReview: ReviewBrief | null;
+}
+
+function transformReviewBrief(r: any): ReviewBrief {
+  return {
+    rating: Number(r.rating),
+    mannerTags: r.manner_tags ?? [],
+    comment: r.comment ?? null,
+    createdAt: r.created_at,
+  };
 }
 
 export async function fetchTrades(userId: string): Promise<TradeHistory[]> {
@@ -317,7 +367,13 @@ export async function fetchTrades(userId: string): Promise<TradeHistory[]> {
     counterpartAvatarUrl: r.counterpart_avatar_url ?? null,
     completedAt: r.completed_at,
     reviewLeft: !!r.review_left,
+    myReview: r.my_review ? transformReviewBrief(r.my_review) : null,
   }));
+}
+
+export async function fetchMyReview(listingId: string): Promise<ReviewBrief | null> {
+  const raw = await api.realFetch<any>(`/market/reviews/mine?listing_id=${encodeURIComponent(listingId)}`);
+  return raw ? transformReviewBrief(raw) : null;
 }
 
 export async function createListing(p: CreateListingParams): Promise<{ id: string }> {
@@ -390,6 +446,10 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
       avatarUrl: r.seller.avatar_url ?? null,
       level: r.seller.level ?? 1,
       mannerTemp: r.seller.manner_temp ?? 36.5,
+      reviewCount: r.seller.review_count ?? 0,
+      avgRating: r.seller.avg_rating ?? null,
+      responseRate: r.seller.response_rate ?? null,
+      isPhoneVerified: r.seller.is_phone_verified ?? false,
       isFollowing: r.seller.is_following ?? false,
     },
     district: r.district ?? null,

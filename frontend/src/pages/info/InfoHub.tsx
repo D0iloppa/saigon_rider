@@ -9,6 +9,7 @@ import InfoMap from '@/components/maps/InfoMap';
 import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import { native } from '@/lib/native';
+import { StarIcon } from '@/components/ui/StarIcon';
 import styles from './InfoHub.module.css';
 
 function useGeolocation() {
@@ -197,7 +198,7 @@ export default function InfoHub() {
               {repair ? (
                 <>
                   <div className={styles.cardBig}>
-                    {repair.name} — ⭐ <span className={styles.mono}>{repair.avg_rating?.toFixed(1)}</span>
+                    {repair.name} — <StarIcon /> <span className={styles.mono}>{repair.avg_rating?.toFixed(1) ?? '—'}</span>
                     {' '}({repair.review_count})
                   </div>
                   <div className={styles.cardLine}>

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import type { RepairDetail, RepairReview } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { StarIcon } from '@/components/ui/StarIcon';
 import styles from './InfoRepairDetail.module.css';
 
 export function ReviewCard({ review }: { review: RepairReview }) {
@@ -162,7 +163,7 @@ export default function InfoRepairDetail() {
 
           {stats && (
             <div className={styles.ratingRow}>
-              <span className={`${styles.mono} ${styles.ratingVal}`}>⭐ {stats.avg_rating.toFixed(1)}</span>
+              <span className={`${styles.mono} ${styles.ratingVal}`}><StarIcon /> {stats.avg_rating?.toFixed(1) ?? '—'}</span>
               <span className={styles.ratingCount}>({stats.review_count} {t('info.repair.reviewCount')})</span>
               <span className={styles.badgeSafe}>{t('info.repair.priceReasonable')}</span>
             </div>

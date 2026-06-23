@@ -36,6 +36,25 @@ export function formatMannerTemp(temp: number): string {
   return `${temp.toFixed(1)}°C`;
 }
 
+/** 별점 표기: 후기 없으면 '—', 있으면 ⭐4.8 */
+export function formatRating(avg: number | null, count: number): string {
+  if (avg === null || count === 0) return '—';
+  return `⭐ ${avg.toFixed(1)}`;
+}
+
+/** 거래 완료 건수 */
+export function formatReviewCount(count: number, t: TFunction): string {
+  return t('market.reviewCount', { count, defaultValue: `거래 ${count}건` });
+}
+
+/** 응답률 — 60% 미만이면 빈 문자열(미표시) */
+export function formatResponseRate(rate: number | null, t: TFunction): string {
+  if (rate === null) return '';
+  if (rate >= 90) return t('market.responseVeryFast', { defaultValue: '응답 빠름' });
+  if (rate >= 60) return t('market.responseNormal', { defaultValue: '응답 보통' });
+  return '';
+}
+
 /** 상태 i18n 키 (ON_SALE/RESERVED/SOLD) */
 export function statusLabelKey(status: ListingStatus): string {
   if (status === 'RESERVED') return 'market.statusReserved';

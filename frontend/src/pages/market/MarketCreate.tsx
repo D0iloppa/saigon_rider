@@ -39,6 +39,7 @@ export default function MarketCreate() {
   const [description, setDescription] = useState('');
   const [districts, setDistricts] = useState<District[]>([]);
   const [district, setDistrict] = useState<District | null>(null);
+  const [tradeCoords, setTradeCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locOpen, setLocOpen] = useState(false);
   const [posting, setPosting] = useState(false);
 
@@ -124,8 +125,8 @@ export default function MarketCreate() {
         priceVnd: price ? parseInt(price, 10) : 0,
         isNegotiable: negotiable,
         districtId: district?.id ?? null,
-        latitude: district?.center_lat ?? null,
-        longitude: district?.center_lng ?? null,
+        latitude: tradeCoords?.lat ?? district?.center_lat ?? null,
+        longitude: tradeCoords?.lng ?? district?.center_lng ?? null,
         imageContentIds: contentIds,
       });
       navigate(`/market/${id}`, { replace: true });
@@ -252,7 +253,10 @@ export default function MarketCreate() {
         open={locOpen}
         onClose={() => setLocOpen(false)}
         value={district?.center_lat != null && district?.center_lng != null ? { lat: district.center_lat, lng: district.center_lng } : null}
-        onConfirm={({ districtCode }) => setDistrict(districts.find((d) => d.code === districtCode) ?? district)}
+        onConfirm={({ districtCode, lat, lng }) => {
+          setDistrict(districts.find((d) => d.code === districtCode) ?? district);
+          setTradeCoords({ lat, lng });
+        }}
       />
     </div>
   );

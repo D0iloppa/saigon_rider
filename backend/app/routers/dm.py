@@ -160,8 +160,8 @@ async def create_conversation(
 
     if existing:
         conv = existing
-        # 컨텍스트가 아직 없고 이번에 들어왔으면 연결(기존 일반 DM → 매물 대화로 승격)
-        if body.context_type and not conv.context_type:
+        # 새 매물 컨텍스트가 들어오면 항상 최신 매물로 갱신 (두 번째 거래 시 이전 매물 표시 방지)
+        if body.context_type and body.context_id and conv.context_id != body.context_id:
             conv.context_type = body.context_type
             conv.context_id = body.context_id
             await db.commit()

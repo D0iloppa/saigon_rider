@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..engine_client import engine_client
-from ..models import Badge, Quest, RideSession, User, UserBadge, UserFollow, UserQuest
+from ..models import Badge, MarketplaceReview, Quest, RideSession, User, UserBadge, UserFollow, UserQuest
 from ..schemas import (
     BadgeOut,
     FollowUserOut,
@@ -140,12 +140,23 @@ async def get_user_stats(
     else:
         avg_safety_grade = None
 
+    # 거래 후기 별점: 1~5 평균
+    review_scores = (
+        (await db.execute(select(MarketplaceReview.rating).where(MarketplaceReview.target_id == user_id)))
+        .scalars()
+        .all()
+    )
+    total_reviews = len(review_scores)
+    avg_rating = round(sum(review_scores) / total_reviews, 1) if total_reviews > 0 else None
+
     return UserStatsOut(
         month=month_label,
         total_km=total_km,
         lifetime_km=lifetime_km,
         quest_count=quest_count,
         avg_safety_grade=avg_safety_grade,
+        review_count=total_reviews,
+        avg_rating=avg_rating,
     )
 
 

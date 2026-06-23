@@ -46,6 +46,7 @@ function dtoToUser(dto: UserDto): User {
     xpPoints: dto.xp,
     gold: dto.gold,
     skillPoints: dto.skill_pt,
+    mannerTemp: dto.manner_temp ?? 36.5,
     language,
     skills: dto.skills ?? { distance_rider: 0, gold_hunter: 0, quest_slot: 0, cost_discount: 0, mileage_rate: 0 },
     createdAt: dto.created_at,

@@ -19,6 +19,8 @@ import {
   BUMP_COOLDOWN_MS,
   reportListing,
   blockUser,
+  unblockUser,
+  fetchBlockedUsers,
   REPORT_REASONS,
   toggleLike,
   localizedName,
@@ -27,7 +29,8 @@ import {
   type ListingStatus,
   type ReportReason,
 } from '@/api/market';
-import { formatMannerTemp, formatPriceVnd, mannerEmoji, relativeTime, statusLabelKey } from './marketFormat';
+import { StarIcon } from '@/components/ui/StarIcon';
+import { formatPriceVnd, formatResponseRate, relativeTime, statusLabelKey } from './marketFormat';
 import styles from './MarketDetail.module.css';
 
 const STATUSES: ListingStatus[] = ['ON_SALE', 'RESERVED', 'SOLD'];
@@ -43,6 +46,7 @@ export default function MarketDetail() {
   const [newPrice, setNewPrice] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -135,15 +139,28 @@ export default function MarketDetail() {
     }
   };
 
-  const handleBlock = async () => {
+  // 차단 상태 확인 — 차단/해제 토글 표시용
+  useEffect(() => {
+    const sid = detail?.seller.id;
+    if (!sid) return;
+    fetchBlockedUsers().then((list) => setBlocked(list.some((b) => b.userId === sid))).catch(() => {});
+  }, [detail?.seller.id]);
+
+  const handleToggleBlock = async () => {
     if (!detail) return;
     try {
-      await blockUser(detail.seller.id);
+      if (blocked) {
+        await unblockUser(detail.seller.id);
+        setBlocked(false);
+        toast.success(t('market.unblockDone', { defaultValue: '차단을 해제했어요' }));
+      } else {
+        await blockUser(detail.seller.id);
+        setBlocked(true);
+        toast.success(t('market.blockDone', { defaultValue: '차단했어요' }));
+      }
       setMoreOpen(false);
-      toast.success(t('market.blockDone', { defaultValue: '차단했어요' }));
-      navigate(-1);
     } catch {
-      toast.error(t('market.blockError', { defaultValue: '차단 처리에 실패했어요' }));
+      toast.error(t('market.blockError', { defaultValue: '처리에 실패했어요' }));
     }
   };
 
@@ -183,33 +200,51 @@ export default function MarketDetail() {
 
             <div className={styles.body}>
               {/* Seller */}
-              <div className={styles.sellerRow}>
-                <AppImage src={detail.seller.avatarUrl ?? undefined} alt="" className={styles.sellerAvatar} variant="circle" />
-                <div className={styles.sellerInfo}>
-                  <span className={styles.sellerName}>{detail.seller.nickname ?? '—'}</span>
-                  <span className={styles.sellerSub}>
-                    Lv.{detail.seller.level}
-                    {detail.district ? ` · ${localizedName(detail.district)}` : ''}
-                  </span>
+              <div className={styles.sellerBlock}>
+                <div className={styles.sellerRow}>
+                  <AppImage src={detail.seller.avatarUrl ?? undefined} alt="" className={styles.sellerAvatar} variant="circle" />
+                  <div className={styles.sellerInfo}>
+                    <span className={styles.sellerName}>{detail.seller.nickname ?? '—'}</span>
+                    <span className={styles.sellerSub}>
+                      Lv.{detail.seller.level}
+                      {detail.district ? ` · ${localizedName(detail.district)}` : ''}
+                    </span>
+                  </div>
+                  {!isSeller && (
+                    <button
+                      className={`${styles.regularBtn} ${detail.seller.isFollowing ? styles.regularBtnActive : ''}`}
+                      onClick={handleToggleFollow}
+                    >
+                      {detail.seller.isFollowing
+                        ? t('market.following', { defaultValue: '팔로잉' })
+                        : t('market.follow', { defaultValue: '팔로우' })}
+                    </button>
+                  )}
+                  {detail.status !== 'ON_SALE' && (
+                    <span className={`${styles.statusBadge} ${detail.status === 'SOLD' ? styles.statusSold : ''}`}>
+                      {t(statusLabelKey(detail.status))}
+                    </span>
+                  )}
                 </div>
-                <span className={styles.mannerBadge} title={t('market.mannerTemp', { defaultValue: '매너온도' })}>
-                  {mannerEmoji(detail.seller.mannerTemp)} {formatMannerTemp(detail.seller.mannerTemp)}
-                </span>
-                {!isSeller && (
-                  <button
-                    className={`${styles.regularBtn} ${detail.seller.isFollowing ? styles.regularBtnActive : ''}`}
-                    onClick={handleToggleFollow}
-                  >
-                    {detail.seller.isFollowing
-                      ? t('market.following', { defaultValue: '팔로잉' })
-                      : t('market.follow', { defaultValue: '팔로우' })}
-                  </button>
-                )}
-                {detail.status !== 'ON_SALE' && (
-                  <span className={`${styles.statusBadge} ${detail.status === 'SOLD' ? styles.statusSold : ''}`}>
-                    {t(statusLabelKey(detail.status))}
+                <div className={styles.trustBadges}>
+                  {detail.seller.isPhoneVerified && (
+                    <span className={styles.trustChip} title={t('market.phoneVerified', { defaultValue: '전화 인증 완료' })}>
+                      ✓ {t('market.verified', { defaultValue: '인증' })}
+                    </span>
+                  )}
+                  <span className={styles.trustChip}>
+                    <StarIcon size={12} />
+                    {' '}{detail.seller.avgRating !== null ? detail.seller.avgRating.toFixed(1) : '—'}
                   </span>
-                )}
+                  <span className={styles.trustChip}>
+                    {t('market.reviewCount', { count: detail.seller.reviewCount, defaultValue: `거래 ${detail.seller.reviewCount}건` })}
+                  </span>
+                  {formatResponseRate(detail.seller.responseRate, t) && (
+                    <span className={styles.trustChip}>
+                      {formatResponseRate(detail.seller.responseRate, t)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Title + meta */}
@@ -349,8 +384,10 @@ export default function MarketDetail() {
               >
                 🚩 {t('market.report', { defaultValue: '신고하기' })}
               </button>
-              <button className={`${styles.moreItem} ${styles.moreDanger}`} onClick={handleBlock}>
-                🚫 {t('market.block', { defaultValue: '이 사용자 차단' })}
+              <button className={`${styles.moreItem} ${blocked ? '' : styles.moreDanger}`} onClick={handleToggleBlock}>
+                {blocked
+                  ? `✅ ${t('market.unblock', { defaultValue: '차단 해제' })}`
+                  : `🚫 ${t('market.block', { defaultValue: '이 사용자 차단' })}`}
               </button>
             </div>
           </BottomSheet>

@@ -6,7 +6,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { fetchTrades, type TradeHistory } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
-import { formatPriceVnd } from '@/pages/market/marketFormat';
+import TradeRow from '@/components/market/TradeRow';
 import { SkillTree } from './SkillTree';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -202,6 +202,9 @@ export default function ProfileMain() {
 
   const [followCounts, setFollowCounts] = useState({ followerCount: 0, followingCount: 0 });
   const [qrSheetOpen, setQrSheetOpen] = useState(false);
+
+  // ── 거래 이력 서브탭 ──
+  const [tradeTab, setTradeTab] = useState<'bought' | 'sold'>('bought');
 
   // ── feeds 탭 상태 ──
   const [myFeeds, setMyFeeds] = useState<FeedPost[]>([]);
@@ -419,58 +422,53 @@ export default function ProfileMain() {
           <SkillTree />
         </div>
 
-        {/* SGR-213: 내 쿠폰함 진입 */}
-        <button
-          type="button"
-          onClick={() => navigate('/coupons/mine')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-            margin: '12px 0', padding: '14px 16px', borderRadius: 16,
-            border: '1px solid var(--line)', background: 'white', cursor: 'pointer',
-          }}
-        >
-          <span style={{ fontSize: 24 }}>🎁</span>
-          <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-            {t('coupon.my_box')}
-          </span>
-          <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
-        </button>
-
-        {/* SGR-287: 거래 이력 */}
-        {trades.length > 0 && (
-          <div className={styles.tradeSection}>
+        {/* 거래 이력 — 구매/판매 서브탭 */}
+        <div className={styles.tradeSection}>
+          <div className={styles.tradeHeader}>
             <h3 className={styles.tradeSectionTitle}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</h3>
-            {trades.map((tr) => (
-              <div key={tr.appointmentId} className={styles.tradeRow}>
-                <div className={styles.tradeThumb}>
-                  <AppImage src={tr.thumbnailUrl ?? undefined} alt="" />
-                </div>
-                <div className={styles.tradeInfo}>
-                  <div className={styles.tradeTitleRow}>
-                    <span className={styles.tradeRoleBadge} data-role={tr.role}>
-                      {tr.role === 'sold' ? t('profile.tradeSold', { defaultValue: '판매' }) : t('profile.tradeBought', { defaultValue: '구매' })}
-                    </span>
-                    <span className={styles.tradeTitle}>{tr.listingTitle}</span>
-                  </div>
-                  <span className={styles.tradeMeta}>
-                    {formatPriceVnd(tr.priceVnd, t)} · {tr.counterpartNickname ?? '—'}
-                  </span>
-                </div>
-                {tr.reviewLeft ? (
-                  <span className={styles.tradeReviewed}>{t('profile.reviewDone', { defaultValue: '후기완료' })}</span>
-                ) : (
-                  <button
-                    type="button"
-                    className={styles.tradeReviewBtn}
-                    onClick={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
-                  >
-                    {t('profile.leaveReview', { defaultValue: '후기 남기기' })}
-                  </button>
-                )}
-              </div>
-            ))}
+            {trades.length > 0 && (
+              <button type="button" className={styles.tradeMore} onClick={() => navigate('/trades')}>
+                {t('profile.seeAll', { defaultValue: '전체 보기' })} ›
+              </button>
+            )}
           </div>
-        )}
+          <div className={styles.tradeSubTabRow}>
+            <button
+              type="button"
+              className={`${styles.tradeSubTab} ${tradeTab === 'bought' ? styles.tradeSubTabActive : ''}`}
+              onClick={() => setTradeTab('bought')}
+            >
+              {t('profile.tradeBought', { defaultValue: '구매' })}
+            </button>
+            <button
+              type="button"
+              className={`${styles.tradeSubTab} ${tradeTab === 'sold' ? styles.tradeSubTabActive : ''}`}
+              onClick={() => setTradeTab('sold')}
+            >
+              {t('profile.tradeSold', { defaultValue: '판매' })}
+            </button>
+          </div>
+          {(() => {
+            const filtered = trades.filter((tr) => tr.role === (tradeTab === 'bought' ? 'bought' : 'sold'));
+            return filtered.length === 0 ? (
+              <p className={styles.tradeEmpty}>
+                {tradeTab === 'bought'
+                  ? t('profile.noTradesBought')
+                  : t('profile.noTradesSold')}
+              </p>
+            ) : (
+              filtered.slice(0, 3).map((tr) => (
+                <TradeRow
+                  key={tr.appointmentId}
+                  trade={tr}
+                  variant="plain"
+                  onOpen={() => navigate(`/market/${tr.listingId}`)}
+                  onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
+                />
+              ))
+            );
+          })()}
+        </div>
 
         {/* Garage Banner */}
         <div className={styles.garageBanner} onClick={() => navigate('/garage')}>
@@ -620,6 +618,40 @@ export default function ProfileMain() {
             </button>
           ))}
         </div>
+
+        {/* 내 매물 진입 버튼 */}
+        <button
+          type="button"
+          onClick={() => navigate('/market/search?mine=1')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+            margin: '12px 0 0', padding: '14px 16px', borderRadius: 16,
+            border: '1px solid var(--line)', background: 'white', cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🛵</span>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+            {t('profile.tabMyListings')}
+          </span>
+          <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
+        </button>
+
+        {/* SGR-213: 내 쿠폰함 진입 (주행 거리 아래) */}
+        <button
+          type="button"
+          onClick={() => navigate('/coupons/mine')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+            margin: '12px 0', padding: '14px 16px', borderRadius: 16,
+            border: '1px solid var(--line)', background: 'white', cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🎁</span>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+            {t('coupon.my_box')}
+          </span>
+          <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
+        </button>
 
         {/* SGR-287: 피드/이력/뱃지 탭 제거 — 피드만 노출(피드 영역 라벨) */}
         <h3 className={styles.feedSectionLabel}>{t('profile.tabFeeds')}</h3>

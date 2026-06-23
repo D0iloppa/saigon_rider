@@ -20,6 +20,7 @@ export interface User {
   xpPoints: number;        // 소모 가능 XP
   gold: number;
   skillPoints: number;
+  mannerTemp: number;
   language: Language;
   skills: Record<SkillKey, number>;  // 각 스킬 레벨 0~3
   createdAt: string;
@@ -166,6 +167,8 @@ export interface UserStats {
   lifetime_km: number;
   quest_count: number;
   avg_safety_grade: string | null;
+  review_count: number;
+  avg_rating: number | null;
 }
 
 export interface PageResponse<T> {

@@ -72,12 +72,18 @@
 }
 
 /* Seller */
+.sellerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
 .sellerRow {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
 }
 
 .sellerAvatar {
@@ -98,6 +104,9 @@
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sellerSub {
@@ -105,11 +114,24 @@
   color: var(--text-3);
 }
 
-.mannerBadge {
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--brand-500);
+.trustBadges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.trustChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface-2, #f4f4f5);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
 }
 
 .regularBtn {

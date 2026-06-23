@@ -22,7 +22,8 @@ import OAuthLogin from '@/pages/auth/OAuthLogin';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
 
 // Home
-import WorldMap from '@/pages/home/WorldMap';
+import WorldMap from '@/pages/home/WorldMap'; // 백업 (미사용)
+import WorldMapV2 from '@/pages/home/WorldMapV2';
 
 // 동네지도 (RideNav 지도 재사용)
 import NeighborhoodMap from '@/pages/map/NeighborhoodMap';
@@ -55,6 +56,7 @@ import DmDetail from '@/pages/dm/DmDetail';
 
 // Profile
 import ProfileMain from '@/pages/profile/ProfileMain';
+import TradeHistory from '@/pages/profile/TradeHistory';
 import FollowerList from '@/pages/profile/FollowerList';
 import FollowingList from '@/pages/profile/FollowingList';
 import FriendList from '@/pages/profile/FriendList';
@@ -85,11 +87,15 @@ import Settings from '@/pages/settings/Settings';
 import NotiSettings from '@/pages/settings/NotiSettings';
 import LangSettings from '@/pages/settings/LangSettings';
 import AccountSettings from '@/pages/settings/AccountSettings';
+import BlockedUsers from '@/pages/settings/BlockedUsers';
 import ProfileEdit from '@/pages/settings/ProfileEdit';
 import CustomerSupport from '@/pages/settings/CustomerSupport';
 import SupportDetail from '@/pages/settings/SupportDetail';
 import PrivacyPolicy from '@/pages/settings/PrivacyPolicy';
 import TermsOfService from '@/pages/settings/TermsOfService';
+
+// Guide
+import SafeTradeGuide from '@/pages/guide/SafeTradeGuide';
 
 // Info
 import InfoHub from '@/pages/info/InfoHub';
@@ -215,7 +221,7 @@ export default function App() {
           <Route path="/link" element={<LinkRouter />} />
 
           {/* Protected: Main */}
-          <Route path="/home" element={<PrivateRoute><WorldMap /></PrivateRoute>} />
+          <Route path="/home" element={<PrivateRoute><WorldMapV2 /></PrivateRoute>} />
           <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
           <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
           <Route path="/market/search" element={<PrivateRoute><MarketSearch /></PrivateRoute>} />
@@ -233,6 +239,7 @@ export default function App() {
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
+          <Route path="/trades" element={<PrivateRoute><TradeHistory /></PrivateRoute>} />
           <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />
           <Route path="/following/:userId" element={<PrivateRoute><FollowingList /></PrivateRoute>} />
           <Route path="/friends/:userId" element={<PrivateRoute><FriendList /></PrivateRoute>} />
@@ -274,11 +281,15 @@ export default function App() {
           <Route path="/info/repair/:shopId/reviews" element={<PrivateRoute><InfoRepairReviews /></PrivateRoute>} />
           <Route path="/ride-nav" element={<PrivateRoute><RideNav /></PrivateRoute>} />
 
+          {/* Guide */}
+          <Route path="/guide/safe-trade" element={<PrivateRoute><SafeTradeGuide /></PrivateRoute>} />
+
           {/* Protected: Settings */}
           <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
           <Route path="/settings/notifications" element={<PrivateRoute><NotiSettings /></PrivateRoute>} />
           <Route path="/settings/language" element={<PrivateRoute><LangSettings /></PrivateRoute>} />
           <Route path="/settings/account" element={<PrivateRoute><AccountSettings /></PrivateRoute>} />
+          <Route path="/settings/blocked" element={<PrivateRoute><BlockedUsers /></PrivateRoute>} />
           <Route path="/settings/profile" element={<PrivateRoute><ProfileEdit /></PrivateRoute>} />
           <Route path="/settings/support" element={<PrivateRoute><CustomerSupport /></PrivateRoute>} />
           <Route path="/settings/support/:id" element={<PrivateRoute><SupportDetail /></PrivateRoute>} />

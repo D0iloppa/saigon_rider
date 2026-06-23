@@ -18,7 +18,8 @@ import {
   cancelAppointment,
 } from '@/api/dm';
 import type { Appointment } from '@/api/types';
-import { createReview, type ReviewRating } from '@/api/market';
+import { fetchMyReview, type ReviewBrief } from '@/api/market';
+import ReviewSheet from '@/components/market/ReviewSheet';
 import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
@@ -30,7 +31,6 @@ import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
 import styles from './DmDetail.module.css';
 
-const MANNER_TAGS = ['PUNCTUAL', 'KIND', 'FAST_REPLY', 'GOOD_ITEM'] as const;
 
 export default function DmDetail() {
   const { t } = useTranslation();
@@ -52,10 +52,8 @@ export default function DmDetail() {
   const [tr, setTr] = useState<Record<string, string>>({});
   const [trOpen, setTrOpen] = useState<Record<string, boolean>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewRating, setReviewRating] = useState<ReviewRating | null>(null);
-  const [reviewTags, setReviewTags] = useState<string[]>([]);
-  const [reviewComment, setReviewComment] = useState('');
   const [reviewed, setReviewed] = useState(false);
+  const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 한글/베트남어 IME 조합 중 controlled value 재설정이 글자를 중복시킴 → 조합 중 state 갱신 보류
   const composingRef = useRef(false);
@@ -87,6 +85,15 @@ export default function DmDetail() {
   useEffect(() => {
     listRef.current?.scrollTo(0, listRef.current.scrollHeight);
   }, [messages]);
+
+  // 거래완료(SOLD) 매물에 이미 남긴 후기 확인 — 있으면 배너 숨김 + 내 후기 표시(409 방지).
+  useEffect(() => {
+    const lid = conv?.contextId;
+    if (!lid || conv?.contextListing?.status !== 'SOLD') return;
+    fetchMyReview(lid)
+      .then((r) => { setMyReview(r); if (r) setReviewed(true); })
+      .catch(() => {});
+  }, [conv?.contextId, conv?.contextListing?.status]);
 
   const handleSend = async () => {
     if (!input.trim() || !conversationId || sending) return;
@@ -162,31 +169,13 @@ export default function DmDetail() {
     }
   };
 
-  const toggleTag = (tag: string) =>
-    setReviewTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]));
-
   // 약속 길안내: 항상 RideNav 진입(위치 판정으로 막지 않음). HCMC 밖이면 RideNav가 내부에서 구글맵 전환.
   const handleNavigate = (lat: number, lng: number) => {
     navigate(`/ride-nav?type=nav&lat=${lat}&lng=${lng}`);
   };
 
-  const handleSubmitReview = async () => {
-    if (!conv || !myId || !reviewRating) return;
-    try {
-      await createReview({
-        reviewerId: myId,
-        targetId: conv.otherUserId,
-        listingId: conv.contextId ?? undefined,
-        rating: reviewRating,
-        mannerTags: reviewTags,
-        comment: reviewComment.trim() || undefined,
-      });
-      setReviewed(true);
-      setReviewOpen(false);
-      toast.success(t('dm.reviewSent', { defaultValue: '후기를 보냈습니다' }));
-    } catch {
-      toast.error(t('dm.reviewError', { defaultValue: '후기 전송 실패' }));
-    }
+  const handleReviewSubmitted = () => {
+    setReviewed(true);
   };
 
   const myId = session?.userId ?? user?.id;
@@ -207,11 +196,18 @@ export default function DmDetail() {
         </button>
       )}
 
-      {/* 거래완료 시 후기 보내기 (REF-05) */}
-      {listing?.status === 'SOLD' && !reviewed && (
-        <button className={styles.reviewBanner} type="button" onClick={() => setReviewOpen(true)}>
-          ⭐ {t('dm.sendReview', { defaultValue: '거래 후기 보내기' })}
-        </button>
+      {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) */}
+      {listing?.status === 'SOLD' && (
+        myReview ? (
+          <div className={styles.myReviewBanner}>
+            ⭐ {myReview.rating}.0 {t('dm.myReview', { defaultValue: '내 후기' })}
+            {myReview.comment ? ` · ${myReview.comment}` : ''}
+          </div>
+        ) : !reviewed ? (
+          <button className={styles.reviewBanner} type="button" onClick={() => setReviewOpen(true)}>
+            ⭐ {t('dm.sendReview', { defaultValue: '거래 후기 보내기' })}
+          </button>
+        ) : null
       )}
 
       <div className={styles.messages} ref={listRef}>
@@ -389,59 +385,14 @@ export default function DmDetail() {
         onConfirm={setApptPlace}
       />
 
-      {/* 거래 후기 시트 (REF-05) */}
-      <BottomSheet open={reviewOpen} onClose={() => setReviewOpen(false)}>
-        <div className={styles.apptSheet}>
-          <h2 className={styles.apptSheetTitle}>{t('dm.sendReview', { defaultValue: '거래 후기 보내기' })}</h2>
-
-          <label className={styles.apptLabel}>{t('dm.satisfaction', { defaultValue: '만족도' })}</label>
-          <div className={styles.ratingRow}>
-            <button
-              type="button"
-              className={`${styles.ratingBtn} ${reviewRating === 'GOOD' ? styles.ratingGood : ''}`}
-              onClick={() => setReviewRating('GOOD')}
-            >
-              👍 {t('dm.ratingGood', { defaultValue: '좋아요' })}
-            </button>
-            <button
-              type="button"
-              className={`${styles.ratingBtn} ${reviewRating === 'BAD' ? styles.ratingBad : ''}`}
-              onClick={() => setReviewRating('BAD')}
-            >
-              👎 {t('dm.ratingBad', { defaultValue: '별로예요' })}
-            </button>
-          </div>
-
-          <label className={styles.apptLabel}>{t('dm.mannerTags', { defaultValue: '매너 칭찬 (선택)' })}</label>
-          <div className={styles.tagRow}>
-            {MANNER_TAGS.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`${styles.tagChip} ${reviewTags.includes(tag) ? styles.tagChipActive : ''}`}
-                onClick={() => toggleTag(tag)}
-              >
-                {t(`dm.tag_${tag.toLowerCase()}`)}
-              </button>
-            ))}
-          </div>
-
-          <label className={styles.apptLabel}>{t('dm.reviewComment', { defaultValue: '후기 (선택)' })}</label>
-          <textarea
-            className={styles.apptInput}
-            rows={3}
-            value={reviewComment}
-            onChange={(e) => setReviewComment(e.target.value)}
-            placeholder={t('dm.reviewPlaceholder', { defaultValue: '거래 경험을 남겨주세요' })}
-          />
-
-          <div className={styles.apptSubmit}>
-            <Button onClick={handleSubmitReview} disabled={!reviewRating}>
-              {t('dm.reviewSubmit', { defaultValue: '후기 보내기' })}
-            </Button>
-          </div>
-        </div>
-      </BottomSheet>
+      {/* 거래 후기 시트 */}
+      <ReviewSheet
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        targetId={conv?.otherUserId ?? ''}
+        listingId={conv?.contextId ?? undefined}
+        onSubmitted={handleReviewSubmitted}
+      />
     </div>
   );
 }

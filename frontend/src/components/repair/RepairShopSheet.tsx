@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { repairApi, type RepairDetail } from '@/api/info';
 import { ReviewCard } from '@/pages/info/InfoRepairDetail';
+import { StarIcon } from '@/components/ui/StarIcon';
 import styles from './RepairShopSheet.module.css';
 
 interface Props {
@@ -55,7 +56,7 @@ export default function RepairShopSheet({ shopId, onClose }: Props) {
         </header>
 
         <div className={styles.rating}>
-          ⭐ {stats?.avg_rating ? stats.avg_rating.toFixed(1) : '-'}
+          <StarIcon /> {stats?.avg_rating?.toFixed(1) ?? '—'}
           <span className={styles.reviewCount}>({stats?.review_count ?? 0} {t('info.repair.reviewCount')})</span>
         </div>
 

@@ -8,6 +8,8 @@ import { persist } from 'zustand/middleware';
 interface LocationState {
   coords: { lat: number; lng: number } | null;
   setCoords: (coords: { lat: number; lng: number } | null) => void;
+  wardName: string | null;
+  setWardName: (name: string | null) => void;
 }
 
 export const useLocationStore = create<LocationState>()(
@@ -15,6 +17,8 @@ export const useLocationStore = create<LocationState>()(
     (set) => ({
       coords: null,
       setCoords: (coords) => set({ coords }),
+      wardName: null,
+      setWardName: (wardName) => set({ wardName }),
     }),
     { name: 'saigon-rider-location' },
   ),

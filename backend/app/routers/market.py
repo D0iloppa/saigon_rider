@@ -11,7 +11,6 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import (
-    District,
     DmConversation,
     DmMessage,
     MarketplaceAd,
@@ -30,6 +29,7 @@ from ..models import (
 from ..schemas import (
     AppointmentOut,
     AppointmentProposeRequest,
+    BlockedUserOut,
     DistrictBrief,
     DmMessageOut,
     MarketplaceAdOut,
@@ -50,6 +50,7 @@ from ..schemas import (
     MarketplaceReviewCreateRequest,
     MarketplaceReviewResult,
     Page,
+    ReviewBrief,
     SellerBrief,
     TradeHistoryItem,
 )
@@ -90,22 +91,16 @@ _MANNER_BASE = 36.5
 
 
 async def _recompute_manner_temp(db: AsyncSession, target_id) -> float:
-    """대상 유저의 후기로 매너온도 재계산: 36.5 + 0.5·좋아요 - 1.0·별로 (0~99)."""
-    good = (
-        await db.execute(
-            select(func.count())
-            .select_from(MarketplaceReview)
-            .where(MarketplaceReview.target_id == target_id, MarketplaceReview.rating == "GOOD")
-        )
-    ).scalar_one()
-    bad = (
-        await db.execute(
-            select(func.count())
-            .select_from(MarketplaceReview)
-            .where(MarketplaceReview.target_id == target_id, MarketplaceReview.rating == "BAD")
-        )
-    ).scalar_one()
-    temp = max(0.0, min(99.0, round(_MANNER_BASE + 0.5 * good - 1.0 * bad, 1)))
+    """별점 기반 매너온도 재계산: 36.5 + Σ delta(score) (0~99).
+    5★=+0.5, 4★=+0.25, 3★=0, 2★=-0.5, 1★=-1.0"""
+    _DELTA = {5: 0.5, 4: 0.25, 3: 0.0, 2: -0.5, 1: -1.0}
+    rows = (
+        (await db.execute(select(MarketplaceReview.rating).where(MarketplaceReview.target_id == target_id)))
+        .scalars()
+        .all()
+    )
+    delta = sum(_DELTA.get(int(r), 0.0) for r in rows)
+    temp = max(0.0, min(99.0, round(_MANNER_BASE + delta, 1)))
     user = await db.get(User, target_id)
     if user:
         user.manner_temp = temp
@@ -218,9 +213,13 @@ async def get_listings(
     keyword: str | None = Query(None, alias="q", description="제목 키워드 검색"),
     sort: str = Query("recent", description="recent | price_low | price_high | distance"),
     hide_sold: bool = Query(False, description="거래완료(SOLD) 매물 제외"),
+    price_min: int | None = Query(None, description="최저 가격 (VND)"),
+    price_max: int | None = Query(None, description="최고 가격 (VND)"),
     lat: float | None = Query(None, description="내 위치 위도 (거리 계산·거리순)"),
     lng: float | None = Query(None, description="내 위치 경도"),
-    district_id: int | None = Query(None, description="구 id — 해당 구 매물만 조회"),
+    district_id: int | None = Query(None, description="구 id — deprecated, ward_id 권장"),
+    ward_id: int | None = Query(None, description="ward id (2025 신 행정단위)"),
+    seller_id: uuid.UUID | None = Query(None, description="판매자 id — 내 매물 조회용"),
     viewer_id: uuid.UUID | None = Query(None, description="조회자(차단 사용자 매물 제외용)"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목을 캐시된 번역으로 표기"),
     page: int = Query(1, ge=1),
@@ -272,9 +271,16 @@ async def get_listings(
         q = q.where(kw_cond)
         count_q = count_q.where(kw_cond)
 
-    if district_id is not None:
+    if ward_id is not None:
+        q = q.where(MarketplaceListing.ward_id == ward_id)
+        count_q = count_q.where(MarketplaceListing.ward_id == ward_id)
+    elif district_id is not None:
         q = q.where(MarketplaceListing.district_id == district_id)
         count_q = count_q.where(MarketplaceListing.district_id == district_id)
+
+    if seller_id is not None:
+        q = q.where(MarketplaceListing.seller_id == seller_id)
+        count_q = count_q.where(MarketplaceListing.seller_id == seller_id)
 
     if viewer_id is not None:
         # 내가 차단한 사용자의 매물 제외
@@ -285,6 +291,13 @@ async def get_listings(
     if hide_sold:
         q = q.where(MarketplaceListing.status != "SOLD")
         count_q = count_q.where(MarketplaceListing.status != "SOLD")
+
+    if price_min is not None:
+        q = q.where(MarketplaceListing.price_vnd >= price_min)
+        count_q = count_q.where(MarketplaceListing.price_vnd >= price_min)
+    if price_max is not None:
+        q = q.where(MarketplaceListing.price_vnd <= price_max)
+        count_q = count_q.where(MarketplaceListing.price_vnd <= price_max)
 
     if sort == "price_low":
         q = q.order_by(MarketplaceListing.price_vnd.asc(), MarketplaceListing.bumped_at.desc())
@@ -341,12 +354,23 @@ async def get_listing(
     is_following = False
     if user_id is not None and user_id != seller.id:
         is_following = (await db.get(UserFollow, {"follower_id": user_id, "following_id": seller.id})) is not None
+
+    review_rows = (
+        (await db.execute(select(MarketplaceReview.rating).where(MarketplaceReview.target_id == seller.id)))
+        .scalars()
+        .all()
+    )
+    review_count = len(review_rows)
+    avg_rating = round(sum(review_rows) / review_count, 1) if review_count > 0 else None
+
     seller_brief = SellerBrief(
         id=seller.id,
         nickname=seller.nickname,
         avatar_url=resolve_avatar_url(seller) or default_avatar_url(seed=str(seller.id)),
         level=seller.level,
         manner_temp=float(seller.manner_temp),
+        review_count=review_count,
+        avg_rating=avg_rating,
         is_following=is_following,
     )
 
@@ -403,22 +427,6 @@ async def create_listing(
 ):
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
-
-    if body.latitude is not None and body.longitude is not None:
-        point_wkt = f"SRID=4326;POINT({float(body.longitude)} {float(body.latitude)})"
-        in_hcmc = await db.scalar(
-            select(func.count())
-            .select_from(District)
-            .where(
-                District.boundary.isnot(None),
-                func.ST_Contains(
-                    func.ST_GeomFromEWKT(func.ST_AsEWKT(District.boundary)),
-                    func.ST_GeomFromText(point_wkt),
-                ),
-            )
-        )
-        if not in_hcmc:
-            raise HTTPException(status_code=422, detail="location must be within Ho Chi Minh City")
 
     now = datetime.now(UTC)
     listing = MarketplaceListing(
@@ -608,6 +616,25 @@ async def unblock_user(
         await db.commit()
 
 
+@router.get("/blocks", response_model=list[BlockedUserOut], summary="내가 차단한 사용자 목록")
+async def list_blocks(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    rows = (await db.execute(select(UserBlock).where(UserBlock.blocker_id == session_uid))).scalars().all()
+    out: list[BlockedUserOut] = []
+    for b in rows:
+        u = await db.get(User, b.blocked_id)
+        out.append(
+            BlockedUserOut(
+                user_id=b.blocked_id,
+                nickname=u.nickname if u else None,
+                avatar_url=resolve_avatar_url(u) if u else None,
+            )
+        )
+    return out
+
+
 # M-6 거래 후기 (만족도+칭찬+텍스트 → 대상 매너온도 재계산). '별로예요'는 미노출.
 @router.post("/reviews", response_model=MarketplaceReviewResult, status_code=201, summary="거래 후기 작성")
 async def create_review(
@@ -615,14 +642,15 @@ async def create_review(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    if body.rating not in ("GOOD", "BAD"):
-        raise HTTPException(status_code=400, detail="invalid rating")
+    if body.rating not in (1, 2, 3, 4, 5):
+        raise HTTPException(status_code=400, detail="rating must be 1~5")
     if body.reviewer_id == body.target_id:
         raise HTTPException(status_code=400, detail="cannot review yourself")
     if body.reviewer_id != session_uid:
         raise HTTPException(status_code=403, detail="reviewer mismatch")
 
-    # 무결성: 후기는 실제 매물의 판매자에게만 (임의 유저 대상 매너온도 어뷰징 차단)
+    # 무결성: 후기는 해당 매물의 실제 거래 당사자에게만 (어뷰징 차단)
+    # 구매자→판매자, 판매자→구매자 모두 허용
     listing = (
         (
             await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == body.listing_id))
@@ -630,8 +658,32 @@ async def create_review(
         if body.listing_id is not None
         else None
     )
-    if listing is None or listing.seller_id != body.target_id:
-        raise HTTPException(status_code=400, detail="review target must be the listing seller")
+    if listing is None:
+        raise HTTPException(status_code=400, detail="listing not found")
+
+    is_seller = listing.seller_id == body.reviewer_id
+    is_buyer = listing.seller_id == body.target_id
+
+    if is_seller:
+        # 판매자가 리뷰: 구매자가 target이어야 함 — 완료된 약속에서 상대방 확인
+        completed_appt = (
+            await db.execute(
+                select(MarketplaceAppointment)
+                .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
+                .where(
+                    MarketplaceAppointment.listing_id == body.listing_id,
+                    MarketplaceAppointment.status == "COMPLETED",
+                    or_(
+                        DmConversation.participant_1 == body.target_id,
+                        DmConversation.participant_2 == body.target_id,
+                    ),
+                )
+            )
+        ).scalar_one_or_none()
+        if completed_appt is None:
+            raise HTTPException(status_code=400, detail="no completed trade with this buyer")
+    elif not is_buyer:
+        raise HTTPException(status_code=400, detail="review target must be a trade participant")
 
     # 중복 방지: 같은 매물·리뷰어·대상 조합이 이미 있으면 거절
     dup = (
@@ -971,16 +1023,18 @@ async def get_trades(
             continue
         counterpart_id = conv.participant_2 if conv.participant_1 == user_id else conv.participant_1
         counterpart = await db.get(User, counterpart_id)
-        reviewed = (
-            await db.execute(
-                select(func.count())
-                .select_from(MarketplaceReview)
-                .where(
-                    MarketplaceReview.reviewer_id == user_id,
-                    MarketplaceReview.listing_id == appt.listing_id,
+        review = (
+            (
+                await db.execute(
+                    select(MarketplaceReview).where(
+                        MarketplaceReview.reviewer_id == user_id,
+                        MarketplaceReview.listing_id == appt.listing_id,
+                    )
                 )
             )
-        ).scalar_one()
+            .scalars()
+            .first()
+        )
         out.append(
             TradeHistoryItem(
                 appointment_id=appt.id,
@@ -994,7 +1048,44 @@ async def get_trades(
                 counterpart_nickname=counterpart.nickname if counterpart else None,
                 counterpart_avatar_url=resolve_avatar_url(counterpart) if counterpart else None,
                 completed_at=appt.updated_at,
-                review_left=reviewed > 0,
+                review_left=review is not None,
+                my_review=ReviewBrief(
+                    rating=review.rating,
+                    manner_tags=review.manner_tags,
+                    comment=review.comment,
+                    created_at=review.created_at,
+                )
+                if review
+                else None,
             )
         )
     return out
+
+
+@router.get("/reviews/mine", response_model=ReviewBrief | None, summary="특정 매물에 내가 남긴 후기")
+async def get_my_review(
+    listing_id: uuid.UUID = Query(..., description="매물 id"),
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """거래완료(DM) 화면에서 내가 그 매물에 남긴 후기 내용을 표시하기 위한 조회. 없으면 null."""
+    review = (
+        (
+            await db.execute(
+                select(MarketplaceReview).where(
+                    MarketplaceReview.reviewer_id == session_uid,
+                    MarketplaceReview.listing_id == listing_id,
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if review is None:
+        return None
+    return ReviewBrief(
+        rating=review.rating,
+        manner_tags=review.manner_tags,
+        comment=review.comment,
+        created_at=review.created_at,
+    )

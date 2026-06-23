@@ -1,0 +1,149 @@
+/* Saigon Map v5 — 단일 통합 좌표계 연속줌 지도 */
+.stage {
+  position: relative;
+  overflow: hidden;
+  background: #d6e8f0;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* 배경 (수면) */
+.sea { fill: #d6e8f0; }
+
+/* Layer 1 — 동 경계 */
+.river { fill: #b0d8ea; stroke: none; }
+.rline { fill: none; stroke: #9ccee3; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.ward {
+  fill: #f8faf8;
+  stroke: #c8d4cc;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+.wardSel {
+  fill: #ffe0c4;
+  stroke: #ff5a1f;
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+/* 비선택 동 레이블 — 은은하게 */
+.wlab {
+  fill: rgba(60, 80, 90, 0.50);
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-family: system-ui, -apple-system, sans-serif;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 5;
+  paint-order: stroke fill;
+}
+/* 선택된 동 레이블 — 오렌지 강조 */
+.wlabSel {
+  fill: #e84c00;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-family: system-ui, -apple-system, sans-serif;
+  stroke: rgba(255, 255, 255, 0.90);
+  stroke-width: 6;
+  paint-order: stroke fill;
+}
+
+/* Layer 2 — 블록 */
+.blk {
+  fill: #f4f6f2;
+  stroke: #b8c8c0;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+/* Layer 3 — 건물·도로·수로 */
+.bldg {
+  fill: #e9e3d6;
+  stroke: #ddd6c4;
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+.road {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.water { fill: #b8e0f4; stroke: #80c4e0; stroke-width: 1; }
+.wline { fill: none; stroke: #90caec; stroke-width: 4; stroke-linecap: round; }
+
+/* 내 위치 */
+.meRing { fill: rgba(30, 136, 229, 0.16); }
+.meDot  { fill: #1e88e5; stroke: #fff; }
+
+/* 컨트롤 버튼 */
+.zoomControls {
+  position: absolute;
+  right: 12px;
+  top: calc(var(--status-bar-height, 0px) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 6;
+}
+.locateCtrl {
+  position: absolute;
+  right: 12px;
+  bottom: 28px;
+  z-index: 6;
+}
+.ctrlBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: #444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctrlBtn:active { background: #f0f0f0; }
+
+/* 토스트 */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: rgba(40, 44, 52, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 20px;
+  z-index: 7;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: v5toast 0.2s ease;
+}
+@keyframes v5toast {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* OSM 저작권 */
+.attrib {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  font-size: 9px;
+  color: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 5;
+}

@@ -3,21 +3,22 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import type { RepairShop } from '@/api/info';
+import { StarIcon } from '@/components/ui/StarIcon';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { isWithinHcmc, distanceKm } from '@/components/maps/district-data';
+import { distanceKm } from '@/components/maps/district-data';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
-import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
+import { type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
 import RepairShopSheet from '@/components/repair/RepairShopSheet';
 import styles from './InfoRepairList.module.css';
 
-const FETCH_RADIUS_KM = 30; // HCMC 전역 로드 → 선택 동(ward) 내부로 필터.
+const FETCH_RADIUS_KM = 3; // 홈 카드와 동일 반경 — 일관된 기준
 
 export default function InfoRepairList() {
   const { t } = useTranslation();
@@ -31,24 +32,19 @@ export default function InfoRepairList() {
   // 선택 동(지도 emit). 리스트는 이 동 경계 내부만 → 지도 집계배지 수와 일치.
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
   const [selectedShop, setSelectedShop] = useState<number | null>(null);
-  // inHcm: fetch origin 결정용. userGps: 실제 GPS(있으면 HCMC 밖이어도 거리=내 위치 기준).
-  const [inHcm, setInHcm] = useState(false);
   const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
 
   // 신규 정비소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
 
-  // 소속은 정비소좌표↔구역centroid 로만 결정. 거리/정렬은 GPS 있으면 내 위치 기준 재계산. (gas 와 동일)
+  // 반경 내 정비소 거리순 정렬 (GPS 있으면 내 위치 기준, 없으면 fetched origin 기준).
   const listShops = useMemo<RepairShop[]>(() => {
-    const filtered = selectedRegion
-      ? shops.filter((s) => regionContains(selectedRegion, s.lat, s.lng))
-      : shops;
     const ranked = userGps
-      ? filtered.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
-      : [...filtered];
+      ? shops.map((s) => ({ ...s, distance_km: distanceKm(userGps.lat, userGps.lng, s.lat, s.lng) }))
+      : [...shops];
     return ranked.sort((a, b) => a.distance_km - b.distance_km);
-  }, [shops, selectedRegion, userGps]);
+  }, [shops, userGps]);
 
   // 지도 마커 = 선택 동 내부 정비소 (리스트와 동일 집합). depth1 집계배지 / depth2·3 개별핀.
   const repairMarkers = useMemo<MapMarkerV2[]>(
@@ -80,12 +76,9 @@ export default function InfoRepairList() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 거리 기준 origin 결정: HCMC 안(실 GPS) → GPS, 밖/메인 진입 → 넘어온 좌표. 선택 동은 지도가 emit.
   const resolveAndLoad = useCallback((coords: ResolvedCoords) => {
-    const within = coords.source === 'gps' && !incomingCoords && isWithinHcmc(coords.lat, coords.lng);
-    setInHcm(within);
     fetchShops({ lat: coords.lat, lng: coords.lng });
-  }, [incomingCoords, fetchShops]);
+  }, [fetchShops]);
 
   useEffect(() => {
     const instant = resolveInfoCoordsSync(search, (fresh) => resolveAndLoad(fresh));
@@ -109,9 +102,8 @@ export default function InfoRepairList() {
 
   const handleRegionSelect = useCallback((region: SelectedRegion) => {
     setSelectedRegion(region);
-    // HCMC 밖이면 거리 기준을 선택 동 centroid 로 재조회. 안이면 GPS 거리 유지(필터만).
-    if (!inHcm) fetchShops({ lat: region.lat, lng: region.lng });
-  }, [inHcm, fetchShops]);
+    fetchShops({ lat: region.lat, lng: region.lng });
+  }, [fetchShops]);
 
   function getShopBadge(shop: RepairShop): { label: string; cls: string } | null {
     if (shop.avg_rating !== null && shop.avg_rating >= 4.5) {
@@ -209,7 +201,7 @@ export default function InfoRepairList() {
                   <div className={styles.ratingRow}>
                     <div className={styles.ratingLeft}>
                       <span className={`${styles.mono} ${styles.ratingVal} ${shop.avg_rating !== null && shop.avg_rating < 3.5 ? styles.ratingDanger : ''}`}>
-                        ⭐ {shop.avg_rating?.toFixed(1) ?? '-'}
+                        <StarIcon /> {shop.avg_rating?.toFixed(1) ?? '—'}
                       </span>
                       <span className={styles.reviewCount}>({shop.review_count} {t('info.repair.reviewCount')})</span>
                     </div>

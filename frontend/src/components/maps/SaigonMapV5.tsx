@@ -35,6 +35,9 @@ const BASE_H = Math.round(BASE_W * (HCMC.N - HCMC.S) / (HCMC.E - HCMC.W)); // �
 
 const lx = (lng: number) => (lng - HCMC.W) / (HCMC.E - HCMC.W) * BASE_W;
 const ly = (lat: number) => (HCMC.N - lat) / (HCMC.N - HCMC.S) * BASE_H;
+// 역변환: unified coord → lat/lng
+const ux2lng = (ux: number) => HCMC.W + (ux / BASE_W) * (HCMC.E - HCMC.W);
+const uy2lat = (uy: number) => HCMC.N - (uy / BASE_H) * (HCMC.N - HCMC.S);
 
 // LOD 임계값 — viewBox 너비 기준
 const L2_VBW = BASE_W * 0.35;  // 3500: 블록/도로 표시 (~5km)
@@ -103,6 +106,8 @@ export interface SaigonMapV5Props {
   locateOnMount?: boolean;
   markers?: MapMarkerV2[];
   onRegionSelect?: (region: SelectedRegion) => void;
+  onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
+  locateRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export default function SaigonMapV5({
@@ -111,6 +116,8 @@ export default function SaigonMapV5({
   locateOnMount,
   markers,
   onRegionSelect,
+  onBboxChange,
+  locateRef,
 }: SaigonMapV5Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -242,12 +249,19 @@ export default function SaigonMapV5({
       setVbSnap((n) => n + 1);
     }
 
+    onBboxChange?.({
+      N: uy2lat(vb.y),
+      S: uy2lat(vb.y + vb.h),
+      W: ux2lng(vb.x),
+      E: ux2lng(vb.x + vb.w),
+    });
+
     if (!l2) return;
     depth1.wards.forEach((w, i) => {
       if (!w.slug || !wardInView(i, vb)) return;
       void loadWardData(w.slug as string, l3);
     });
-  }, [loadWardData]);
+  }, [loadWardData, onBboxChange]);
 
   // ── GPS 위치 ───────────────────────────────────────────────
   const runLocate = useCallback(async () => {
@@ -331,6 +345,11 @@ export default function SaigonMapV5({
   useEffect(() => {
     if (locateOnMount) void runLocate();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (locateRef) locateRef.current = () => void runLocate();
+    return () => { if (locateRef) locateRef.current = null; };
+  }, [locateRef, runLocate]);
 
   // ── 비-passive wheel ───────────────────────────────────────
   useEffect(() => {

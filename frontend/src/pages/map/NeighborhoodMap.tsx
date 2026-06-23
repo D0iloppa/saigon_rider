@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
@@ -49,6 +49,26 @@ export default function NeighborhoodMap() {
 
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const locateRef = useRef<(() => void) | null>(null);
+  const [viewportBbox, setViewportBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
+  const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
+    clearTimeout(bboxTimerRef.current);
+    bboxTimerRef.current = setTimeout(() => setViewportBbox(bbox), 500);
+  }, []);
+
+  // 뷰포트 bbox가 선택 ward보다 1.8배 이상 넓으면 bbox 기반 필터 활성화
+  const bboxFilter = useMemo(() => {
+    if (!viewportBbox || !wardRegion) return null;
+    const lats = wardRegion.poly.map((p) => p.lat);
+    const lngs = wardRegion.poly.map((p) => p.lng);
+    const wardH = Math.max(...lats) - Math.min(...lats);
+    const wardW = Math.max(...lngs) - Math.min(...lngs);
+    const vbH = viewportBbox.N - viewportBbox.S;
+    const vbW = viewportBbox.E - viewportBbox.W;
+    return (vbH > wardH * 1.8 || vbW > wardW * 1.8) ? viewportBbox : null;
+  }, [viewportBbox, wardRegion]);
 
   useEffect(() => {
     fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
@@ -60,35 +80,52 @@ export default function NeighborhoodMap() {
     fetchDistrictCounts(tab).then(setDistrictCounts).catch(() => setDistrictCounts([]));
   }, [tab]);
 
-  // ward 로드 시 매물·피드 조회
+  // 매물·피드 조회 — ward 선택 시 또는 뷰포트가 크게 넓어질 때
   useEffect(() => {
-    if (!wardRegion) return;
-    const { lat, lng } = wardRegion;
+    const center = bboxFilter
+      ? { lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 }
+      : wardRegion ? { lat: wardRegion.lat, lng: wardRegion.lng } : null;
+    if (!center) return;
+    const size = bboxFilter ? 80 : 40;
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 40 }).catch(() => null),
-      fetchFeed({ filter: 'neighborhood', lat, lng, size: 40 }).catch(() => null),
+      fetchListings({ lat: center.lat, lng: center.lng, sort: 'recent', hideSold: true, size }).catch(() => null),
+      fetchFeed({ filter: 'neighborhood', lat: center.lat, lng: center.lng, size }).catch(() => null),
     ]).then(([lp, fp]) => {
       if (cancelled) return;
       setListings(lp?.items ?? []);
       setPosts(fp?.items ?? []);
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [wardRegion]);
+  }, [wardRegion, bboxFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 활성 영역: 블록 선택 있으면 블록, 없으면 ward 전체
   const activeRegion = blockRegion ?? wardRegion;
 
   const visibleListings = useMemo(() => {
+    if (bboxFilter) {
+      return listings.filter((l) =>
+        l.lat != null && l.lng != null &&
+        l.lat >= bboxFilter.S && l.lat <= bboxFilter.N &&
+        l.lng >= bboxFilter.W && l.lng <= bboxFilter.E,
+      );
+    }
     if (!activeRegion) return [];
     return listings.filter((l) => l.lat != null && l.lng != null && regionContains(activeRegion, l.lat!, l.lng!));
-  }, [listings, activeRegion]);
+  }, [listings, activeRegion, bboxFilter]);
 
   const visiblePosts = useMemo(() => {
+    if (bboxFilter) {
+      return posts.filter((p) =>
+        p.latitude != null && p.longitude != null &&
+        p.latitude >= bboxFilter.S && p.latitude <= bboxFilter.N &&
+        p.longitude >= bboxFilter.W && p.longitude <= bboxFilter.E,
+      );
+    }
     if (!activeRegion) return [];
     return posts.filter((p) => p.latitude != null && p.longitude != null && regionContains(activeRegion, p.latitude!, p.longitude!));
-  }, [posts, activeRegion]);
+  }, [posts, activeRegion, bboxFilter]);
 
   // depth2/3 마커 (선택 영역 기준)
   const markers = useMemo<MapMarkerV2[]>(() => {
@@ -105,6 +142,8 @@ export default function NeighborhoodMap() {
 
   const handleRegionSelect = (region: SelectedRegion) => {
     setWardRegion(region);
+    setViewportBbox(null);
+    clearTimeout(bboxTimerRef.current);
     setSelectedId(null);
     setExpandedPostId(null);
     setSharedCoords({ lat: region.lat, lng: region.lng });
@@ -275,7 +314,18 @@ export default function NeighborhoodMap() {
         locateOnMount
         markers={markers}
         onRegionSelect={handleRegionSelect}
+        onBboxChange={handleBboxChange}
+        locateRef={locateRef}
       />
+
+      <button
+        type="button"
+        className={styles.locateBtn}
+        onClick={() => locateRef.current?.()}
+        aria-label="내 위치로 이동"
+      >
+        ◎
+      </button>
 
       <DraggableSheet
         ref={sheetRef}

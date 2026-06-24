@@ -323,24 +323,32 @@ export default function WorldMapV2() {
         <div className={styles.hScroll}>
           {dataLoading
             ? [0,1,2,3].map((i) => <div key={i} className={`shimmer ${styles.productSkeleton}`} />)
-            : (nearbyProducts.length > 0 ? nearbyProducts : ads.slice(0,4).map((a) => ({
-                id: a.id, title: a.title, thumbnailUrl: a.imageUrl ?? null,
-                priceVnd: 0, district: null, bumpedAt: '', lat: null, lng: null,
-              } as ListingCard))).map((p) => (
-              <button key={p.id} className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
-                <div className={styles.productThumb}>
-                  <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
-                  <span className={styles.distBadge}>{marketLocalizedName(p.district) || 'HCMC'}</span>
-                  <span className={styles.heartOverlay}><IcoHeart /></span>
+            : nearbyProducts.length === 0 && ads.length === 0
+              ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyStateIcon}>🏍️</div>
+                  <div className={styles.emptyStateMsg}>{t('home.v2.emptyNearby')}</div>
+                  <div className={styles.emptyStateDesc}>{t('home.v2.emptyNearbyDesc')}</div>
                 </div>
-                <div className={styles.productName}>{p.title}</div>
-                <div className={styles.productPrice}>{formatPriceVnd(p.priceVnd, t)}</div>
-                <div className={styles.productMeta}>
-                  <span className={styles.condBadge}>{relativeTime(p.bumpedAt, t) || '—'}</span>
-                  <span className={styles.likeCount}><IcoHeart stroke="#f8602a" />0</span>
-                </div>
-              </button>
-            ))
+              )
+              : (nearbyProducts.length > 0 ? nearbyProducts : ads.slice(0,4).map((a) => ({
+                  id: a.id, title: a.title, thumbnailUrl: a.imageUrl ?? null,
+                  priceVnd: 0, district: null, bumpedAt: '', lat: null, lng: null,
+                } as ListingCard))).map((p) => (
+                <button key={p.id} className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
+                  <div className={styles.productThumb}>
+                    <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
+                    <span className={styles.distBadge}>{marketLocalizedName(p.district) || 'HCMC'}</span>
+                    <span className={styles.heartOverlay}><IcoHeart /></span>
+                  </div>
+                  <div className={styles.productName}>{p.title}</div>
+                  <div className={styles.productPrice}>{formatPriceVnd(p.priceVnd, t)}</div>
+                  <div className={styles.productMeta}>
+                    <span className={styles.condBadge}>{relativeTime(p.bumpedAt, t) || '—'}</span>
+                    <span className={styles.likeCount}><IcoHeart stroke="#f8602a" />0</span>
+                  </div>
+                </button>
+              ))
           }
         </div>
 
@@ -357,6 +365,14 @@ export default function WorldMapV2() {
         <div className={styles.hScroll}>
           {dataLoading
             ? [0,1,2,3].map((i) => <div key={i} className={`shimmer ${styles.productSkeleton}`} />)
+            : recentProducts.length === 0
+              ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyStateIcon}>📦</div>
+                  <div className={styles.emptyStateMsg}>{t('home.v2.emptyRecent')}</div>
+                  <div className={styles.emptyStateDesc}>{t('home.v2.emptyRecentDesc')}</div>
+                </div>
+              )
             : recentProducts.map((p, i) => {
               const ad = ads.length > 0 && i % 4 === 3 ? ads[(i / 4 | 0) % ads.length] : null;
               return (

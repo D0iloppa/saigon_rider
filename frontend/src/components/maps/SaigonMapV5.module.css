@@ -32,6 +32,23 @@
   stroke-linejoin: round;
   cursor: pointer;
 }
+/* polyActive 모드 — 선택 동 boundary만 */
+.wardBoundary {
+  fill: #f8faf8;
+  stroke: #ff5a1f;
+  stroke-width: 4;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+/* polyActive 모드 — 비선택 동 (아주 은은하게) */
+.wardDim {
+  fill: rgba(200, 210, 200, 0.12);
+  stroke: rgba(160, 175, 165, 0.22);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+
 /* 비선택 동 레이블 — 은은하게 */
 .wlab {
   fill: rgba(60, 80, 90, 0.50);

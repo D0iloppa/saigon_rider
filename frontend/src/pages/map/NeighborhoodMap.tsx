@@ -35,6 +35,7 @@ export default function NeighborhoodMap() {
   const user = useUserStore((s) => s.user);
 
   const [wardRegion, setWardRegion] = useState<SelectedRegion | null>(null);
+  const [polyActive, setPolyActive] = useState(true);
   const blockRegion = null;
   const [tab, setTab] = useState<Tab>('listings');
   const [listings, setListings] = useState<Listing[]>([]);
@@ -59,7 +60,9 @@ export default function NeighborhoodMap() {
   }, []);
 
   // 뷰포트 bbox가 선택 ward보다 1.8배 이상 넓으면 bbox 기반 필터 활성화
+  // polyActive=true(동 선택 중)에는 항상 ward polygon 필터 사용
   const bboxFilter = useMemo(() => {
+    if (polyActive) return null;
     if (!viewportBbox || !wardRegion) return null;
     const lats = wardRegion.poly.map((p) => p.lat);
     const lngs = wardRegion.poly.map((p) => p.lng);
@@ -68,7 +71,7 @@ export default function NeighborhoodMap() {
     const vbH = viewportBbox.N - viewportBbox.S;
     const vbW = viewportBbox.E - viewportBbox.W;
     return (vbH > wardH * 1.8 || vbW > wardW * 1.8) ? viewportBbox : null;
-  }, [viewportBbox, wardRegion]);
+  }, [viewportBbox, wardRegion, polyActive]);
 
   useEffect(() => {
     fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
@@ -86,7 +89,7 @@ export default function NeighborhoodMap() {
       ? { lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 }
       : wardRegion ? { lat: wardRegion.lat, lng: wardRegion.lng } : null;
     if (!center) return;
-    const size = bboxFilter ? 80 : 40;
+    const size = bboxFilter ? 50 : 40;
     let cancelled = false;
     setLoading(true);
     Promise.all([
@@ -313,16 +316,18 @@ export default function NeighborhoodMap() {
         height="100%"
         locateOnMount
         markers={markers}
+        districtBadges={districtCounts}
         onRegionSelect={handleRegionSelect}
         onBboxChange={handleBboxChange}
         locateRef={locateRef}
+        polyActive={polyActive}
       />
 
       <button
         type="button"
-        className={styles.locateBtn}
-        onClick={() => locateRef.current?.()}
-        aria-label="내 위치로 이동"
+        className={`${styles.locateBtn} ${polyActive ? styles.locateBtnActive : ''}`}
+        onClick={() => setPolyActive((p) => !p)}
+        aria-label="선택 동 폴리곤 표시/숨김"
       >
         ◎
       </button>

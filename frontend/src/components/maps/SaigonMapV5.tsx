@@ -100,14 +100,22 @@ function buildWardRegion(idx: number): SelectedRegion | null {
 }
 
 // ── 컴포넌트 ────────────────────────────────────────────────
+export interface DistrictBadge {
+  lat: number;
+  lng: number;
+  count: number;
+}
+
 export interface SaigonMapV5Props {
   height?: number | string;
   className?: string;
   locateOnMount?: boolean;
   markers?: MapMarkerV2[];
+  districtBadges?: DistrictBadge[];
   onRegionSelect?: (region: SelectedRegion) => void;
   onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
+  polyActive?: boolean;
 }
 
 export default function SaigonMapV5({
@@ -115,9 +123,11 @@ export default function SaigonMapV5({
   className,
   locateOnMount,
   markers,
+  districtBadges,
   onRegionSelect,
   onBboxChange,
   locateRef,
+  polyActive = true,
 }: SaigonMapV5Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -239,7 +249,7 @@ export default function SaigonMapV5({
   }, []);
 
   // ── 뷰포트 변경 후 호출: LOD 체크 + 데이터 프리로드 ────────
-  const onViewportChange = useCallback(() => {
+  const onViewportChange = useCallback((suppressBbox = false) => {
     const vb = vbRef.current;
     const l2 = vb.w < L2_VBW;
     const l3 = vb.w < L3_VBW;
@@ -249,12 +259,14 @@ export default function SaigonMapV5({
       setVbSnap((n) => n + 1);
     }
 
-    onBboxChange?.({
-      N: uy2lat(vb.y),
-      S: uy2lat(vb.y + vb.h),
-      W: ux2lng(vb.x),
-      E: ux2lng(vb.x + vb.w),
-    });
+    if (!suppressBbox) {
+      onBboxChange?.({
+        N: uy2lat(vb.y),
+        S: uy2lat(vb.y + vb.h),
+        W: ux2lng(vb.x),
+        E: ux2lng(vb.x + vb.w),
+      });
+    }
 
     if (!l2) return;
     depth1.wards.forEach((w, i) => {
@@ -309,7 +321,7 @@ export default function SaigonMapV5({
         vbRef.current = clampVB({ x: cx - targetW / 2, y: cy - targetW * ar / 2, w: targetW, h: targetW * ar });
       }
       setVBAttr();
-      onViewportChange();
+      onViewportChange(true);
       setVbSnap((n) => n + 1);
 
       if (idx >= 0) {
@@ -332,7 +344,7 @@ export default function SaigonMapV5({
         const targetW = Math.max(wb.x2 - wb.x1, (wb.y2 - wb.y1) / ar) * 1.3;
         vbRef.current = clampVB({ x: wardCX - targetW / 2, y: wardCY - targetW * ar / 2, w: targetW, h: targetW * ar });
         setVBAttr();
-        onViewportChange();
+        onViewportChange(true);
         setVbSnap((n) => n + 1);
         setSelWard(fallbackIdx);
         const region = buildWardRegion(fallbackIdx);
@@ -488,16 +500,26 @@ export default function SaigonMapV5({
           {(depth1.wline as { p: string; w: number }[]).map((wl, i) => (
             <polyline key={i} points={wl.p} className={styles.rline} />
           ))}
-          {depth1.wards.map((w, i) => (
-            <polygon key={i} points={w.p as string}
-              className={i === selWard ? styles.wardSel : styles.ward}
-            />
-          ))}
+          {depth1.wards.map((w, i) => {
+            if (polyActive && selWard !== null) {
+              return (
+                <polygon key={i} points={w.p as string}
+                  className={i === selWard ? styles.wardBoundary : styles.wardDim}
+                />
+              );
+            }
+            return (
+              <polygon key={i} points={w.p as string}
+                className={i === selWard ? styles.wardSel : styles.ward}
+              />
+            );
+          })}
         </svg>
 
         {/* Layer 2: 블록 (ward별 nested SVG) */}
         {showL2 && depth1.wards.map((w, i) => {
           if (!w.slug || !wardInView(i, vb)) return null;
+          if (polyActive && selWard !== null && i !== selWard) return null;
           const d = wardData[w.slug as string];
           if (!d?.d2) return null;
           const r = bboxToRect(d.d2.bbox);
@@ -514,6 +536,7 @@ export default function SaigonMapV5({
         {/* Layer 3: 건물 (ward별 nested SVG) */}
         {showL3 && depth1.wards.map((w, i) => {
           if (!w.slug || !wardInView(i, vb)) return null;
+          if (polyActive && selWard !== null && i !== selWard) return null;
           const d = wardData[w.slug as string];
           if (!d?.d3) return null;
           const r = bboxToRect(d.d3.bbox);
@@ -588,19 +611,41 @@ export default function SaigonMapV5({
           );
         })()}
 
-        {/* 마커 */}
-        {markers?.map((m) => {
-          const mx = lx(m.lng), my = ly(m.lat);
-          if (mx < vb.x - 50 || mx > vb.x + vb.w + 50) return null;
-          if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
-          const r = vb.w * 0.015;
-          return (
-            <g key={m.id} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
-              <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
-              <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
-            </g>
-          );
-        })}
+        {/* 마커 — depth1(줌아웃)이면 구역 count badge, depth2+이면 개별 dot */}
+        {/* polyActive+selWard 상태(동 선택 중)에는 배지 숨김 — 선택 동 외부 배지 노출 방지 */}
+        {vb.w >= L2_VBW && !(polyActive && selWard !== null)
+          ? districtBadges?.map((b, i) => {
+              const bx = lx(b.lng), by = ly(b.lat);
+              if (bx < vb.x - 200 || bx > vb.x + vb.w + 200) return null;
+              if (by < vb.y - 200 || by > vb.y + vb.h + 200) return null;
+              if (b.count === 0) return null;
+              const r = vb.w * 0.030;
+              const fs = r * 0.80;
+              const label = b.count >= 1000 ? `${Math.floor(b.count / 1000)}k` : String(b.count);
+              return (
+                <g key={i} pointerEvents="none">
+                  <circle cx={bx} cy={by} r={r} fill="#ff5a1f" opacity={0.92} />
+                  <text x={bx} y={by} fontSize={fs} fontWeight="700" fill="#fff"
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontFamily="system-ui,-apple-system,sans-serif">
+                    {label}
+                  </text>
+                </g>
+              );
+            })
+          : vb.w < L2_VBW && markers?.map((m) => {
+              const mx = lx(m.lng), my = ly(m.lat);
+              if (mx < vb.x - 50 || mx > vb.x + vb.w + 50) return null;
+              if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
+              const r = vb.w * 0.015;
+              return (
+                <g key={m.id} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
+                  <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
+                  <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
+                </g>
+              );
+            })
+        }
 
         {/* 내 위치 */}
         {meLatLng && (() => {

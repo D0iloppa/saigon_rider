@@ -11,7 +11,7 @@
   position: absolute;
   right: 12px;
   bottom: 80px;
-  z-index: 6;
+  z-index: 11;
   width: 32px;
   height: 32px;
   border: 1px solid #e0e0e0;
@@ -27,6 +27,11 @@
   justify-content: center;
 }
 .locateBtn:active { background: #f0f0f0; }
+.locateBtnActive {
+  color: #1e88e5;
+  border-color: #90caf9;
+  background: #e3f2fd;
+}
 
 .map {
   position: absolute;

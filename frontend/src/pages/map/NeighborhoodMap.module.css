@@ -6,11 +6,11 @@
   background: var(--bg);
 }
 
-/* 내 위치 버튼 — 드래거블 시트에 가리지 않는 좌상단 */
+/* 내 위치 버튼 — 드래거블 시트 위 우하단 */
 .locateBtn {
   position: absolute;
-  left: 12px;
-  top: calc(var(--status-bar-height, 0px) + 12px);
+  right: 12px;
+  bottom: 80px;
   z-index: 6;
   width: 32px;
   height: 32px;

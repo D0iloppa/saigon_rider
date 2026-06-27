@@ -19,6 +19,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { loadSession } from '@/lib/session';
 import { native } from '@/lib/native';
 import { toast } from '@/components/ui/Toast';
@@ -416,6 +417,7 @@ function CommentSheet({ post }: { post: FeedPost }) {
   const user = useUserStore((s) => s.user);
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
+  const keyboardInset = useKeyboardInset();
 
   useEffect(() => { fetchComments(post.id).then(setComments); }, [post.id]);
 
@@ -448,7 +450,7 @@ function CommentSheet({ post }: { post: FeedPost }) {
   };
 
   return (
-    <div className={styles.commentRoot}>
+    <div className={styles.commentRoot} style={{ height: keyboardInset > 0 ? `calc(100% - ${keyboardInset}px)` : undefined }}>
       <h3 className={styles.commentTitle}>
         {t('feed.commentsCount', { count: comments.length })}
       </h3>

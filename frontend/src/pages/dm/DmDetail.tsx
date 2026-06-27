@@ -26,6 +26,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
@@ -54,6 +55,7 @@ export default function DmDetail() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
+  const keyboardInset = useKeyboardInset();
   const listRef = useRef<HTMLDivElement>(null);
   // 한글/베트남어 IME 조합 중 controlled value 재설정이 글자를 중복시킴 → 조합 중 state 갱신 보류
   const composingRef = useRef(false);
@@ -182,7 +184,7 @@ export default function DmDetail() {
   const listing = conv?.contextListing ?? null;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} style={{ height: keyboardInset > 0 ? `calc(100% - ${keyboardInset}px)` : undefined }}>
       <TopBar title={otherName} />
 
       {/* 매물 컨텍스트 카드 */}

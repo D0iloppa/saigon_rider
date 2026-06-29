@@ -79,6 +79,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 알고 싶은 것 | 어디에 |
 |---|---|
+| **재빌드 명령 (프론트/백)** | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1 C — `docker compose --env-file .env up --build -d <service>` (`npm run build` 직접 실행 금지) |
 | 기본 작업 워크플로우 (Feature/Todo 등록) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1 |
 | 파일 작성 위치 (SoT) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §2 |
 | `.env` 보안 규약 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §4 |
@@ -88,6 +89,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 네이티브 브리지 규칙 (navigator.* 금지) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §8 |
 | 시스템 아키텍처 (BFF/Engine 상세) | [`ai-docs/context/architecture.md`](ai-docs/context/architecture.md) |
 | 프론트엔드 패턴 | [`ai-docs/context/frontend.md`](ai-docs/context/frontend.md) |
+| 서비스 규칙 (GPS·위치 등 도메인 불변식) | [`ai-docs/context/service-rules.md`](ai-docs/context/service-rules.md) |
 
 ## 보안 최소 룰 (전문은 agent-guidelines §4)
 

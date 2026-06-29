@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { LocateFixed, MapPin, RotateCw, X } from 'lucide-react';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
@@ -19,6 +20,7 @@ import { formatRelativeTime } from '@/lib/format';
 import styles from './NeighborhoodMap.module.css';
 
 type Tab = 'listings' | 'feed';
+type BrowseMode = 'viewport' | 'region';
 const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
@@ -30,23 +32,27 @@ const FEED_COLOR = '#3b82f6';
 export default function NeighborhoodMap() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const storedCoords = useLocationStore((s) => s.coords);
+  const storedWardName = useLocationStore((s) => s.wardName);
   const setSharedCoords = useLocationStore((s) => s.setCoords);
   const setSharedWardName = useLocationStore((s) => s.setWardName);
   const user = useUserStore((s) => s.user);
 
-  const [wardRegion, setWardRegion] = useState<SelectedRegion | null>(null);
-  const [polyActive, setPolyActive] = useState(true);
-  const blockRegion = null;
+  const [mode, setMode] = useState<BrowseMode>('viewport');
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
   const [tab, setTab] = useState<Tab>('listings');
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [districtCounts, setDistrictCounts] = useState<DistrictCount[]>([]);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   const [adLimit, setAdLimit] = useState(randAdBatch);
+  const [reloadSeq, setReloadSeq] = useState(0);
+  const [sheetVisibleHeight, setSheetVisibleHeight] = useState(0);
 
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -59,25 +65,15 @@ export default function NeighborhoodMap() {
     bboxTimerRef.current = setTimeout(() => setViewportBbox(bbox), 500);
   }, []);
 
-  // 뷰포트 bbox가 선택 ward보다 1.8배 이상 넓으면 bbox 기반 필터 활성화
-  // polyActive=true(동 선택 중)에는 항상 ward polygon 필터 사용
-  const bboxFilter = useMemo(() => {
-    if (polyActive) return null;
-    if (!viewportBbox || !wardRegion) return null;
-    const lats = wardRegion.poly.map((p) => p.lat);
-    const lngs = wardRegion.poly.map((p) => p.lng);
-    const wardH = Math.max(...lats) - Math.min(...lats);
-    const wardW = Math.max(...lngs) - Math.min(...lngs);
-    const vbH = viewportBbox.N - viewportBbox.S;
-    const vbW = viewportBbox.E - viewportBbox.W;
-    return (vbH > wardH * 1.8 || vbW > wardW * 1.8) ? viewportBbox : null;
-  }, [viewportBbox, wardRegion, polyActive]);
+  // polyActive=true(내 위치 필터 ON)에는 선택 ward polygon 필터를 사용하고,
+  // OFF 상태에서는 현재 지도 viewport 기준으로 주변 동네까지 함께 노출한다.
+  const bboxFilter = useMemo(() => (mode === 'viewport' ? viewportBbox : null), [mode, viewportBbox]);
 
   useEffect(() => {
     fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
   }, []);
 
-  useEffect(() => { setAdLimit(randAdBatch()); }, [tab, blockRegion]);
+  useEffect(() => { setAdLimit(randAdBatch()); }, [tab, mode, selectedRegion?.name]);
 
   useEffect(() => {
     fetchDistrictCounts(tab).then(setDistrictCounts).catch(() => setDistrictCounts([]));
@@ -87,24 +83,25 @@ export default function NeighborhoodMap() {
   useEffect(() => {
     const center = bboxFilter
       ? { lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 }
-      : wardRegion ? { lat: wardRegion.lat, lng: wardRegion.lng } : null;
+      : selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : null;
     if (!center) return;
     const size = bboxFilter ? 50 : 40;
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      fetchListings({ lat: center.lat, lng: center.lng, sort: 'recent', hideSold: true, size }).catch(() => null),
-      fetchFeed({ filter: 'neighborhood', lat: center.lat, lng: center.lng, size }).catch(() => null),
+    setLoadError(false);
+    Promise.allSettled([
+      fetchListings({ lat: center.lat, lng: center.lng, sort: 'recent', hideSold: true, size }),
+      fetchFeed({ filter: 'neighborhood', lat: center.lat, lng: center.lng, size }),
     ]).then(([lp, fp]) => {
       if (cancelled) return;
-      setListings(lp?.items ?? []);
-      setPosts(fp?.items ?? []);
+      const listingsOk = lp.status === 'fulfilled';
+      const feedOk = fp.status === 'fulfilled';
+      setListings(listingsOk ? lp.value.items ?? [] : []);
+      setPosts(feedOk ? fp.value.items ?? [] : []);
+      setLoadError(!listingsOk && !feedOk);
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [wardRegion, bboxFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 활성 영역: 블록 선택 있으면 블록, 없으면 ward 전체
-  const activeRegion = blockRegion ?? wardRegion;
+  }, [bboxFilter, reloadSeq, selectedRegion]);
 
   const visibleListings = useMemo(() => {
     if (bboxFilter) {
@@ -114,9 +111,9 @@ export default function NeighborhoodMap() {
         l.lng >= bboxFilter.W && l.lng <= bboxFilter.E,
       );
     }
-    if (!activeRegion) return [];
-    return listings.filter((l) => l.lat != null && l.lng != null && regionContains(activeRegion, l.lat!, l.lng!));
-  }, [listings, activeRegion, bboxFilter]);
+    if (!selectedRegion) return listings;
+    return listings.filter((l) => l.lat != null && l.lng != null && regionContains(selectedRegion, l.lat!, l.lng!));
+  }, [bboxFilter, listings, selectedRegion]);
 
   const visiblePosts = useMemo(() => {
     if (bboxFilter) {
@@ -126,9 +123,9 @@ export default function NeighborhoodMap() {
         p.longitude >= bboxFilter.W && p.longitude <= bboxFilter.E,
       );
     }
-    if (!activeRegion) return [];
-    return posts.filter((p) => p.latitude != null && p.longitude != null && regionContains(activeRegion, p.latitude!, p.longitude!));
-  }, [posts, activeRegion, bboxFilter]);
+    if (!selectedRegion) return posts;
+    return posts.filter((p) => p.latitude != null && p.longitude != null && regionContains(selectedRegion, p.latitude!, p.longitude!));
+  }, [bboxFilter, posts, selectedRegion]);
 
   // depth2/3 마커 (선택 영역 기준)
   const markers = useMemo<MapMarkerV2[]>(() => {
@@ -144,13 +141,15 @@ export default function NeighborhoodMap() {
   }, [tab, visibleListings, visiblePosts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRegionSelect = (region: SelectedRegion) => {
-    setWardRegion(region);
+    setMode('region');
+    setSelectedRegion(region);
     setViewportBbox(null);
     clearTimeout(bboxTimerRef.current);
     setSelectedId(null);
     setExpandedPostId(null);
     setSharedCoords({ lat: region.lat, lng: region.lng });
     setSharedWardName(region.name);
+    sheetRef.current?.snapToMid();
   };
 
   const handleMarkerClick = (id: string) => {
@@ -168,8 +167,24 @@ export default function NeighborhoodMap() {
     setSelectedId(null);
   };
 
+  const retryLoad = () => setReloadSeq((n) => n + 1);
+  const resetToViewport = () => {
+    setMode('viewport');
+    setSelectedRegion(null);
+    setSelectedId(null);
+    setExpandedPostId(null);
+    sheetRef.current?.snapToMid();
+  };
+  const switchToViewport = () => {
+    resetToViewport();
+  };
+  const clearRegionFilter = () => {
+    resetToViewport();
+  };
+
   const visibleCount = tab === 'listings' ? visibleListings.length : visiblePosts.length;
   const totalCount = districtCounts.reduce((s, d) => s + d.count, 0);
+  const headerCount = mode === 'region' ? visibleCount : (bboxFilter ? visibleCount : totalCount);
 
   const adAt = (i: number) => {
     if (ads.length === 0 || i % AD_EVERY !== 0) return null;
@@ -188,44 +203,83 @@ export default function NeighborhoodMap() {
 
   const sheetHeader = (
     <div className={styles.sheetHead}>
-      <div className={styles.segment}>
-        {(['listings', 'feed'] as Tab[]).map((tb) => (
-          <button
-            key={tb}
-            type="button"
-            className={`${styles.segBtn} ${tab === tb ? styles.segActive : ''}`}
-            onClick={() => switchTab(tb)}
-          >
-            {tb === 'listings' ? t('map.tabListings', { defaultValue: '상품' }) : t('map.tabFeed', { defaultValue: '피드' })}
-          </button>
-        ))}
+      <div className={styles.sheetTop}>
+        <div className={styles.segment}>
+          {(['listings', 'feed'] as Tab[]).map((tb) => (
+            <button
+              key={tb}
+              type="button"
+              className={`${styles.segBtn} ${tab === tb ? styles.segActive : ''}`}
+              onClick={() => switchTab(tb)}
+            >
+              {tb === 'listings' ? t('map.tabListings') : t('map.tabFeed')}
+            </button>
+          ))}
+        </div>
+        <span className={styles.count}>
+          {mode === 'region'
+            ? t('map.count', { count: visibleCount })
+            : t('map.totalCount', { count: headerCount })}
+        </span>
       </div>
-      <span className={styles.count}>
-        {wardRegion
-          ? t('map.count', { count: visibleCount, defaultValue: `${visibleCount}건` })
-          : t('map.totalCount', { count: totalCount, defaultValue: `총 ${totalCount}건` })}
-      </span>
     </div>
   );
 
   const renderBody = () => {
-    if (!wardRegion) {
+    if (mode === 'viewport' && !bboxFilter) {
       return (
-        <p className={styles.guide}>
-          📍 {t('map.locating', { defaultValue: '내 위치를 확인 중입니다…' })}
-        </p>
+        <div className={styles.guideWrap}>
+          <p className={styles.guide}>
+            {t('map.selectArea')}
+          </p>
+          <button type="button" className={styles.guideAction} onClick={() => locateRef.current?.()}>
+            <LocateFixed size={15} />
+            <span>{t('map.locateMe')}</span>
+          </button>
+        </div>
       );
     }
-    if (loading) {
+    const hasData = tab === 'listings' ? listings.length > 0 : posts.length > 0;
+    if (loading && !hasData) {
       return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
     }
+    if (loadError) {
+      return (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>
+            {t('map.loadError')}
+          </p>
+          <p className={styles.emptyBody}>
+            {t('map.loadErrorDesc')}
+          </p>
+          <button type="button" className={styles.emptyAction} onClick={retryLoad}>
+            <RotateCw size={15} />
+            <span>{t('common.retry', { defaultValue: '다시 시도' })}</span>
+          </button>
+        </div>
+      );
+    }
     const emptyMsg = tab === 'listings'
-      ? t('map.emptyListings', { defaultValue: '이 동네 매물이 없어요' })
-      : t('map.emptyFeed', { defaultValue: '이 동네 피드가 없어요' });
+      ? t('map.emptyListings')
+      : t('map.emptyFeed');
 
     if (tab === 'listings') {
       return visibleListings.length === 0 ? (
-        <p className={styles.empty}>{emptyMsg}</p>
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>{emptyMsg}</p>
+          <p className={styles.emptyBody}>
+            {mode === 'region' ? t('map.emptyWardHint') : t('map.emptyViewportHint')}
+          </p>
+          {mode === 'region' ? (
+            <button type="button" className={styles.emptyAction} onClick={switchToViewport}>
+              {t('map.scopeViewport')}
+            </button>
+          ) : (
+            <button type="button" className={styles.emptyGhost} onClick={() => locateRef.current?.()}>
+              {t('map.locateMe')}
+            </button>
+          )}
+        </div>
       ) : (
         visibleListings.map((l, i) => (
           <Fragment key={l.id}>
@@ -242,7 +296,21 @@ export default function NeighborhoodMap() {
     }
 
     return visiblePosts.length === 0 ? (
-      <p className={styles.empty}>{emptyMsg}</p>
+      <div className={styles.emptyState}>
+        <p className={styles.emptyTitle}>{emptyMsg}</p>
+        <p className={styles.emptyBody}>
+          {mode === 'region' ? t('map.emptyWardHint') : t('map.emptyViewportHint')}
+        </p>
+        {mode === 'region' ? (
+          <button type="button" className={styles.emptyAction} onClick={switchToViewport}>
+            {t('map.scopeViewport')}
+          </button>
+        ) : (
+          <button type="button" className={styles.emptyGhost} onClick={() => locateRef.current?.()}>
+            {t('map.locateMe')}
+          </button>
+        )}
+      </div>
     ) : (
       visiblePosts.map((p, i) => {
         const isExpanded = expandedPostId === p.id;
@@ -252,10 +320,17 @@ export default function NeighborhoodMap() {
               ref={(el) => { itemRefs.current[p.id] = el; }}
               className={`${styles.feedCard} ${p.id === selectedId ? styles.selected : ''}`}
             >
-              <button
-                type="button"
+              <div
                 className={styles.feedRow}
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpandedPostId(isExpanded ? null : p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedPostId(isExpanded ? null : p.id);
+                  }
+                }}
               >
                 <button
                   type="button"
@@ -278,7 +353,7 @@ export default function NeighborhoodMap() {
                   </div>
                 )}
                 <span className={styles.feedChevron}>{isExpanded ? '▲' : '▽'}</span>
-              </button>
+              </div>
               {isExpanded && (
                 <div className={styles.feedExpanded}>
                   {p.photoUrl && (
@@ -314,30 +389,39 @@ export default function NeighborhoodMap() {
       <SaigonMapV5
         className={styles.map}
         height="100%"
-        locateOnMount
+        initialGps={storedCoords ?? undefined}
+        locateOnMount={!storedCoords}
         markers={markers}
         districtBadges={districtCounts}
         onRegionSelect={handleRegionSelect}
         onBboxChange={handleBboxChange}
         locateRef={locateRef}
-        polyActive={polyActive}
+        polyActive={mode === 'region'}
+        onLocate={mode === 'region' ? resetToViewport : undefined}
+        selectRegionOnLocate={false}
+        bottomInsetPx={sheetVisibleHeight}
       />
-
-      <button
-        type="button"
-        className={`${styles.locateBtn} ${polyActive ? styles.locateBtnActive : ''}`}
-        onClick={() => setPolyActive((p) => !p)}
-        aria-label="선택 동 폴리곤 표시/숨김"
-      >
-        ◎
-      </button>
 
       <DraggableSheet
         ref={sheetRef}
         header={sheetHeader}
         initialCollapsed
         embedded
-        midSnap={0.5}
+        floatingTopLeft={mode === 'region' && selectedRegion ? (
+          <button
+            type="button"
+            className={styles.filterChip}
+            onClick={clearRegionFilter}
+          >
+            <MapPin size={14} strokeWidth={2.2} />
+            <span>{selectedRegion.name}</span>
+            <X size={14} />
+          </button>
+        ) : undefined}
+        maxHeight="65vh"
+        midHeight="42vh"
+        lockHeight
+        onVisibleHeightChange={setSheetVisibleHeight}
       >
         <div className={styles.list} onScroll={handleListScroll}>{renderBody()}</div>
       </DraggableSheet>

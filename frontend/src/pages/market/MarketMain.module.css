@@ -369,5 +369,9 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  z-index: 1;
 }

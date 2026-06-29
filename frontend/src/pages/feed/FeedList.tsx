@@ -19,7 +19,6 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { loadSession } from '@/lib/session';
 import { native } from '@/lib/native';
 import { toast } from '@/components/ui/Toast';
@@ -396,7 +395,7 @@ export default function FeedList() {
       </div>{/* contentStyle wrapper */}
       </div>{/* scrollBody */}
 
-      <BottomSheet open={!!activePost} onClose={() => setActivePost(null)} height="full">
+      <BottomSheet open={!!activePost} onClose={() => setActivePost(null)} height="fit" sheetStyle={{ height: '60vh' }}>
         {activePost && <CommentSheet post={activePost} />}
       </BottomSheet>
 
@@ -417,8 +416,6 @@ function CommentSheet({ post }: { post: FeedPost }) {
   const user = useUserStore((s) => s.user);
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
-  const keyboardInset = useKeyboardInset();
-
   useEffect(() => { fetchComments(post.id).then(setComments); }, [post.id]);
 
   const handleSend = async () => {
@@ -450,7 +447,7 @@ function CommentSheet({ post }: { post: FeedPost }) {
   };
 
   return (
-    <div className={styles.commentRoot} style={{ height: keyboardInset > 0 ? `calc(100% - ${keyboardInset}px)` : undefined }}>
+    <div className={styles.commentRoot}>
       <h3 className={styles.commentTitle}>
         {t('feed.commentsCount', { count: comments.length })}
       </h3>

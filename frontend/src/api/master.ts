@@ -22,6 +22,7 @@ export interface Ward {
   name_ko: string | null;
   center_lat: number | null;
   center_lng: number | null;
+  district: District | null;
 }
 
 export interface RiderType {

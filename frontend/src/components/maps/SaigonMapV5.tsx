@@ -1,3 +1,5 @@
+import { LocateFixed } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import { native } from '@/lib/native';
 import depth1 from './v2/saigon-depth1.json';
@@ -110,25 +112,36 @@ export interface SaigonMapV5Props {
   height?: number | string;
   className?: string;
   locateOnMount?: boolean;
+  initialGps?: { lat: number; lng: number };
   markers?: MapMarkerV2[];
   districtBadges?: DistrictBadge[];
   onRegionSelect?: (region: SelectedRegion) => void;
   onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
   polyActive?: boolean;
+  onLocate?: () => void;
+  selectRegionOnLocate?: boolean;
+  selectionOnly?: boolean;
+  bottomInsetPx?: number;
 }
 
 export default function SaigonMapV5({
   height = 400,
   className,
   locateOnMount,
+  initialGps,
   markers,
   districtBadges,
   onRegionSelect,
   onBboxChange,
   locateRef,
   polyActive = true,
+  onLocate,
+  selectRegionOnLocate = true,
+  selectionOnly = false,
+  bottomInsetPx = 0,
 }: SaigonMapV5Props) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -145,6 +158,7 @@ export default function SaigonMapV5({
   const loadingRef = useRef<Set<string>>(new Set());
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const prevLOD = useRef({ l2: false, l3: false });
+  const didApplyInitialGps = useRef(false);
 
   const gest = useRef<{
     pts: Map<number, { x: number; y: number }>;
@@ -166,19 +180,29 @@ export default function SaigonMapV5({
     svgRef.current?.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
   }, []);
 
+  const getBottomInsetUnits = useCallback((viewHeight: number) => {
+    const svg = svgRef.current;
+    const pxHeight = svg?.clientHeight || containerRef.current?.clientHeight || 1;
+    return Math.max(0, Math.min(viewHeight * 0.55, (bottomInsetPx / pxHeight) * viewHeight));
+  }, [bottomInsetPx]);
+
   const clampVB = useCallback((v: VB): VB => {
     const pad = BASE_W * 0.10;
-    // 뷰포트가 데이터보다 넓으면/높으면 → 중앙 정렬, 그렇지 않으면 일반 클램프
+    const bottomInsetUnits = getBottomInsetUnits(v.h);
+    const slackX = Math.max(pad, v.w * 0.275);
+    const slackYTop = Math.max(pad, v.h * 0.21);
+    const slackYBottom = Math.max(pad, v.h * 0.39) + bottomInsetUnits;
+    // 뷰포트가 데이터보다 넓으면/높으면 → 중앙 정렬, 그렇지 않으면 넉넉한 빈 여백까지 허용
     const DATA_CX = (lx(D1_BBOX.W) + lx(D1_BBOX.E)) / 2;
     const DATA_CY = (ly(D1_BBOX.N) + ly(D1_BBOX.S)) / 2;
-    const x = v.w >= BASE_W + 2 * pad
+    const x = v.w >= BASE_W + 2 * slackX
       ? DATA_CX - v.w / 2
-      : Math.max(-pad, Math.min(BASE_W - v.w + pad, v.x));
-    const y = v.h >= BASE_H + 2 * pad
+      : Math.max(-slackX, Math.min(BASE_W - v.w + slackX, v.x));
+    const y = v.h >= BASE_H + slackYTop + slackYBottom
       ? DATA_CY - v.h / 2
-      : Math.max(-pad, Math.min(BASE_H - v.h + pad, v.y));
+      : Math.max(-slackYTop, Math.min(BASE_H - v.h + slackYBottom, v.y));
     return { ...v, x, y };
-  }, []);
+  }, [getBottomInsetUnits]);
 
   const applyZoom = useCallback((f: number, cx: number, cy: number) => {
     const vb = vbRef.current;
@@ -208,7 +232,9 @@ export default function SaigonMapV5({
       const dataCX = (dataX1 + dataX2) / 2;
       const dataCY = (ly(D1_BBOX.N) + ly(D1_BBOX.S)) / 2;
       const initW = (dataX2 - dataX1) * 1.15;
-      vbRef.current = clampVB({ x: dataCX - initW / 2, y: dataCY - (initW * ar) / 2, w: initW, h: initW * ar });
+      const initH = initW * ar;
+      const insetUnits = getBottomInsetUnits(initH);
+      vbRef.current = clampVB({ x: dataCX - initW / 2, y: dataCY - initH / 2 + insetUnits / 2, w: initW, h: initH });
       setVBAttr();
       setVbSnap((n) => n + 1);
     });
@@ -275,96 +301,136 @@ export default function SaigonMapV5({
     });
   }, [loadWardData, onBboxChange]);
 
+  const centerOnUnified = useCallback((cx: number, cy: number) => {
+    const vb = vbRef.current;
+    const insetUnits = getBottomInsetUnits(vb.h);
+    vbRef.current = clampVB({
+      ...vb,
+      x: cx - vb.w / 2,
+      y: cy - vb.h / 2 + insetUnits * 0.5,
+    });
+    setVBAttr();
+    onViewportChange();
+    setVbSnap((n) => n + 1);
+  }, [clampVB, getBottomInsetUnits, onViewportChange, setVBAttr]);
+
+  const recenterCurrentContext = useCallback(() => {
+    if (polyActive && selWard !== null) {
+      const ward = depth1.wards[selWard];
+      const gps = ward.gps as { lat: number; lng: number } | undefined;
+      if (gps) {
+        centerOnUnified(lx(gps.lng), ly(gps.lat));
+        return;
+      }
+    }
+    const fallback = meLatLng ?? initialGps;
+    if (fallback) {
+      centerOnUnified(lx(fallback.lng), ly(fallback.lat));
+      return;
+    }
+    const DATA_CX = (lx(D1_BBOX.W) + lx(D1_BBOX.E)) / 2;
+    const DATA_CY = (ly(D1_BBOX.N) + ly(D1_BBOX.S)) / 2;
+    centerOnUnified(DATA_CX, DATA_CY);
+  }, [centerOnUnified, initialGps, meLatLng, polyActive, selWard]);
+
+  const focusLatLng = useCallback((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean }) => {
+    setMeLatLng(pos);
+
+    const d1x = (pos.lng - D1_BBOX.W) / (D1_BBOX.E - D1_BBOX.W) * depth1.VW;
+    const d1y = (D1_BBOX.N - pos.lat) / (D1_BBOX.N - D1_BBOX.S) * depth1.VH;
+    let idx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
+    const inHcmc = pos.lat >= D1_BBOX.S - 0.05 && pos.lat <= D1_BBOX.N + 0.05
+                && pos.lng >= D1_BBOX.W - 0.05 && pos.lng <= D1_BBOX.E + 0.05;
+    if (idx < 0 && inHcmc) {
+      let bestD = Infinity;
+      depth1.wards.forEach((w, i) => {
+        const g = w.gps as { lat: number; lng: number } | undefined;
+        if (!g) return;
+        const d = (g.lat - pos.lat) ** 2 + (g.lng - pos.lng) ** 2;
+        if (d < bestD) { bestD = d; idx = i; }
+      });
+    }
+    if (idx < 0) idx = depth1.wards.findIndex((w) => w.slug === 'ben-thanh');
+
+    const svg = svgRef.current;
+    const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
+    if (idx >= 0) {
+      const wb = WARD_UBBOXES[idx];
+      const wardW = wb.x2 - wb.x1;
+      const wardH = wb.y2 - wb.y1;
+      const wardCX = (wb.x1 + wb.x2) / 2;
+      const wardCY = (wb.y1 + wb.y2) / 2;
+      const targetW = Math.max(wardW, wardH / ar) * 1.3;
+      const targetH = targetW * ar;
+      const insetUnits = getBottomInsetUnits(targetH);
+      vbRef.current = clampVB({ x: wardCX - targetW / 2, y: wardCY - targetH / 2 + insetUnits / 2, w: targetW, h: targetH });
+    } else {
+      const targetW = L2_VBW * 0.55;
+      const cx = lx(pos.lng), cy = ly(pos.lat);
+      const targetH = targetW * ar;
+      const insetUnits = getBottomInsetUnits(targetH);
+      vbRef.current = clampVB({ x: cx - targetW / 2, y: cy - targetH / 2 + insetUnits / 2, w: targetW, h: targetH });
+    }
+    setVBAttr();
+    onViewportChange();
+    setVbSnap((n) => n + 1);
+
+    if (idx >= 0 && opts?.selectRegion !== false) {
+      setSelWard(idx);
+      const slug = depth1.wards[idx].slug as string | undefined;
+      if (slug) void loadWardData(slug, false);
+      const region = buildWardRegion(idx);
+      if (region) onRegionSelect?.(region);
+    } else if (idx >= 0) {
+      setSelWard(idx);
+      const slug = depth1.wards[idx].slug as string | undefined;
+      if (slug) void loadWardData(slug, false);
+    } else if (!opts?.silent) {
+      showToast('위치를 찾을 수 없어요');
+    }
+  }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, showToast]);
+
   // ── GPS 위치 ───────────────────────────────────────────────
   const runLocate = useCallback(async () => {
+    onLocate?.();
     try {
       await native.ensureLocationPermission();
       const pos = await native.getLocation();
-      setMeLatLng({ lat: pos.lat, lng: pos.lng });
-
-      // depth1 SVG 좌표로 변환해서 ward 탐색
-      const d1x = (pos.lng - D1_BBOX.W) / (D1_BBOX.E - D1_BBOX.W) * depth1.VW;
-      const d1y = (D1_BBOX.N - pos.lat) / (D1_BBOX.N - D1_BBOX.S) * depth1.VH;
-      let idx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
-      // HCMC 범위 밖이면 nearest-ward 폴백 생략 (한국 등 외부 좌표 방지)
-      const inHcmc = pos.lat >= D1_BBOX.S - 0.05 && pos.lat <= D1_BBOX.N + 0.05
-                  && pos.lng >= D1_BBOX.W - 0.05 && pos.lng <= D1_BBOX.E + 0.05;
-      if (idx < 0 && inHcmc) {
-        // HCMC 내부지만 폴리곤 miss → 가장 가까운 ward
-        let bestD = Infinity;
-        depth1.wards.forEach((w, i) => {
-          const g = w.gps as { lat: number; lng: number } | undefined;
-          if (!g) return;
-          const d = (g.lat - pos.lat) ** 2 + (g.lng - pos.lng) ** 2;
-          if (d < bestD) { bestD = d; idx = i; }
-        });
-      }
-      if (idx < 0) {
-        // HCMC 밖 or 완전 실패 → 벤탄 폴백
-        idx = depth1.wards.findIndex((w) => w.slug === 'ben-thanh');
-      }
-
-      const svg = svgRef.current;
-      const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
-      // ward 전체가 viewport에 들어오도록 ward bbox 기준 zoom
-      if (idx >= 0) {
-        const wb = WARD_UBBOXES[idx];
-        const wardW = wb.x2 - wb.x1;
-        const wardH = wb.y2 - wb.y1;
-        const wardCX = (wb.x1 + wb.x2) / 2;
-        const wardCY = (wb.y1 + wb.y2) / 2;
-        const targetW = Math.max(wardW, wardH / ar) * 1.3;
-        vbRef.current = clampVB({ x: wardCX - targetW / 2, y: wardCY - targetW * ar / 2, w: targetW, h: targetW * ar });
-      } else {
-        const targetW = L2_VBW * 0.55;
-        const cx = lx(pos.lng), cy = ly(pos.lat);
-        vbRef.current = clampVB({ x: cx - targetW / 2, y: cy - targetW * ar / 2, w: targetW, h: targetW * ar });
-      }
-      setVBAttr();
-      onViewportChange(true);
-      setVbSnap((n) => n + 1);
-
-      if (idx >= 0) {
-        setSelWard(idx);
-        // onViewportChange 와 독립적으로 직접 로드 (belt+suspenders)
-        const slug = depth1.wards[idx].slug as string | undefined;
-        if (slug) void loadWardData(slug, false);
-        const region = buildWardRegion(idx);
-        if (region) onRegionSelect?.(region);
-      }
+      focusLatLng({ lat: pos.lat, lng: pos.lng }, { selectRegion: selectRegionOnLocate });
     } catch {
-      // GPS 실패 → 벤탄 폴백
-      const fallbackIdx = depth1.wards.findIndex((w) => w.slug === 'ben-thanh');
-      if (fallbackIdx >= 0) {
-        const svg = svgRef.current;
-        const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
-        const wb = WARD_UBBOXES[fallbackIdx];
-        const wardCX = (wb.x1 + wb.x2) / 2;
-        const wardCY = (wb.y1 + wb.y2) / 2;
-        const targetW = Math.max(wb.x2 - wb.x1, (wb.y2 - wb.y1) / ar) * 1.3;
-        vbRef.current = clampVB({ x: wardCX - targetW / 2, y: wardCY - targetW * ar / 2, w: targetW, h: targetW * ar });
-        setVBAttr();
-        onViewportChange(true);
-        setVbSnap((n) => n + 1);
-        setSelWard(fallbackIdx);
-        const region = buildWardRegion(fallbackIdx);
-        if (region) onRegionSelect?.(region);
-      }
+      focusLatLng(initialGps ?? { lat: 10.772, lng: 106.697 }, { silent: true, selectRegion: selectRegionOnLocate });
       showToast('위치를 가져올 수 없어요');
     }
-  }, [clampVB, setVBAttr, onViewportChange, loadWardData, onRegionSelect, showToast]);
+  }, [focusLatLng, initialGps, onLocate, selectRegionOnLocate, showToast]);
 
   useEffect(() => {
+    if (initialGps && !didApplyInitialGps.current) {
+      didApplyInitialGps.current = true;
+      focusLatLng(initialGps, { silent: true, selectRegion: selectRegionOnLocate });
+      return;
+    }
     if (locateOnMount) void runLocate();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focusLatLng, initialGps, locateOnMount, runLocate, selectRegionOnLocate]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();
     return () => { if (locateRef) locateRef.current = null; };
   }, [locateRef, runLocate]);
 
+  useEffect(() => {
+    onViewportChange();
+  }, [bottomInsetPx, onViewportChange, polyActive]);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    vbRef.current = clampVB(vbRef.current);
+    setVBAttr();
+    setVbSnap((n) => n + 1);
+  }, [bottomInsetPx, clampVB, setVBAttr]);
+
   // ── 비-passive wheel ───────────────────────────────────────
   useEffect(() => {
+    if (selectionOnly) return;
     const el = svgRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
@@ -377,7 +443,7 @@ export default function SaigonMapV5({
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [applyZoom, onViewportChange]);
+  }, [applyZoom, onViewportChange, selectionOnly]);
 
   // ── 포인터: 팬 + 핀치줌 ───────────────────────────────────
   const onPointerDown = (e: PE<SVGSVGElement>) => {
@@ -396,6 +462,10 @@ export default function SaigonMapV5({
     const g = gest.current;
     if (!g.pts.has(e.pointerId)) return;
     g.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (selectionOnly) {
+      if (g.lastP && (Math.abs(e.clientX - g.lastP.x) + Math.abs(e.clientY - g.lastP.y) > 3)) g.moved = true;
+      return;
+    }
     const vb = vbRef.current;
     const r = e.currentTarget.getBoundingClientRect();
     if (g.pts.size === 2) {
@@ -510,7 +580,7 @@ export default function SaigonMapV5({
             }
             return (
               <polygon key={i} points={w.p as string}
-                className={i === selWard ? styles.wardSel : styles.ward}
+                className={styles.ward}
               />
             );
           })}
@@ -553,8 +623,8 @@ export default function SaigonMapV5({
           );
         })}
 
-        {/* 선택된 동 테두리 overlay — Layer 2/3 위에 항상 노출 */}
-        {selWard !== null && (
+        {/* 선택된 동 테두리 overlay — 지역선택 모드에서만 노출 */}
+        {polyActive && selWard !== null && (
           <svg x={d1Rect.x} y={d1Rect.y} width={d1Rect.w} height={d1Rect.h}
             viewBox={`0 0 ${depth1.VW} ${depth1.VH}`} preserveAspectRatio="none"
             overflow="visible" pointerEvents="none">
@@ -660,19 +730,26 @@ export default function SaigonMapV5({
         })()}
       </svg>
 
-      {/* OSM 저작권 표기 (하단 좌측) */}
-      <div className={styles.attrib}>© OpenStreetMap contributors</div>
 
-      {/* 줌 버튼 */}
-      <div className={styles.zoomControls}>
-        <button type="button" className={styles.ctrlBtn} onClick={zoomIn}>+</button>
-        <button type="button" className={styles.ctrlBtn} onClick={zoomOut}>−</button>
-      </div>
-
-      {/* 내 위치 버튼 */}
-      <div className={styles.locateCtrl}>
-        <button type="button" className={styles.ctrlBtn} onClick={() => void runLocate()}>◎</button>
-      </div>
+      {!selectionOnly && (
+        <>
+          <div className={styles.zoomControls}>
+            <button type="button" className={styles.ctrlBtn} onClick={zoomIn}>+</button>
+            <button type="button" className={styles.ctrlBtn} onClick={zoomOut}>−</button>
+          </div>
+          <div className={styles.locateCtrl}>
+            <button
+              type="button"
+              className={styles.ctrlBtn}
+              onClick={recenterCurrentContext}
+              aria-label={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
+              title={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
+            >
+              <LocateFixed size={16} strokeWidth={2.2} />
+            </button>
+          </div>
+        </>
+      )}
 
       {toast && <div className={styles.toast}>{toast}</div>}
 

@@ -8,11 +8,15 @@
   border-radius: 28px 28px 0 0;
   box-shadow: 0 -4px 30px rgba(11,13,20,.12);
   padding: 8px 20px calc(16px + var(--bottom-safe, 0px));
-  max-height: 50vh;
+  max-height: var(--sheet-max-height, 50vh);
   display: flex;
   flex-direction: column;
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: none;
+}
+
+.lockHeight {
+  height: var(--sheet-max-height, 50vh);
 }
 /* 접힘: header(peek)만 남기고 본문을 화면 아래로. */
 .collapsed {
@@ -27,13 +31,20 @@
 /* TabBar 등 다른 하단 크롬 위에 얹힐 때: safe-area 여백 제거 → 펼침 시 헤더↔본문 빈 패딩 방지. */
 .embedded {
   padding-bottom: 12px;
-  max-height: 68vh; /* 카드 3개 이상 한 화면에 */
+  max-height: var(--sheet-max-height, 80vh);
 }
 .embedded .dragZone {
   padding-bottom: 8px;
 }
 
 /* 시트 상단 바로 위에 떠서 시트와 함께 오르내리는 슬롯(예: 내 위치 버튼). */
+.floatingTopLeft {
+  position: absolute;
+  bottom: 100%;
+  left: 20px;
+  margin-bottom: 12px;
+}
+
 .floatingTopRight {
   position: absolute;
   bottom: 100%;

@@ -82,6 +82,7 @@ class WardOut(BaseModel):
     name_ko: str | None = None
     center_lat: float | None = None
     center_lng: float | None = None
+    district: DistrictOut | None = None
 
     model_config = {"from_attributes": True}
 

@@ -1,3 +1,5 @@
+@import './items.css';
+
 /* Saigon Rider Design Tokens */
 :root {
   /* Brand — Saigon Heat */
@@ -147,9 +149,6 @@
   );
   background-size: 200% 100%;
 }
-
-/* Item domain tokens (Skywork v4 — 컬렉션 + 등급 효과) */
-@import './items.css';
 
 /* ===== RPG ECONOMY — Light Surface Rarity System ===== */
 /* .rarity-card: 라이트 배경(상점/인벤토리) 위 아이템 카드 */

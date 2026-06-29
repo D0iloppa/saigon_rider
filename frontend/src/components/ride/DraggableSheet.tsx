@@ -2,8 +2,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   forwardRef,
+  useCallback,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -12,95 +14,203 @@ import styles from './DraggableSheet.module.css';
 export interface DraggableSheetHandle {
   collapse: () => void;
   expand: () => void;
+  snapToMid: () => void;
 }
 
 type Snap = 'full' | 'mid' | 'collapsed';
 
 interface DraggableSheetProps {
-  /** 접힘(peek) 상태에서도 항상 보이는 영역 + 드래그 핸들 존. */
   header: ReactNode;
-  /** 펼침 상태에서만 보이는 본문(접으면 아래로 숨김). */
   children: ReactNode;
-  /** 최초 렌더를 접힘 상태로 시작. (기본: 펼침) */
   initialCollapsed?: boolean;
-  /** TabBar 등 다른 하단 크롬 위에 얹힐 때 — safe-area 여백 제거(펼침 시 헤더↔본문 빈 패딩 방지). */
   embedded?: boolean;
-  /** 시트 상단 가장자리 바로 위(우측)에 떠서 시트와 함께 움직이는 요소(예: 내 위치 버튼). */
+  floatingTopLeft?: ReactNode;
   floatingTopRight?: ReactNode;
-  /**
-   * 중간 스냅 비율(0~1). 지정 시 full ↔ mid ↔ collapsed 3-스냅.
-   * mid 가시 높이 ≈ peek + (sheet-peek)·(1-midSnap). 예: 0.5 → 대략 카드 2개.
-   */
   midSnap?: number;
+  maxHeight?: number | string;
+  lockHeight?: boolean;
+  midHeight?: number | string;
+  onVisibleHeightChange?: (visibleHeight: number) => void;
 }
 
-/**
- * 드래그 바텀시트 (SGR-269). 기본 2-스냅(펼침 ↔ 접힘), midSnap 지정 시 3-스냅.
- * 접으면 header(peek)만 남고 본문은 화면 아래로. peek 높이는 header 실측값.
- * 중간/접힘 transform 은 calc((100% - peek)·비율) 로 px 측정 없이 처리.
- * collapse()/expand() 로 외부에서 스냅 제어 가능.
- */
+const DRAG_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const FLICK_VELOCITY = 0.42;
+
+function resolveLength(value: number | string | undefined, viewportHeight: number, fallback: number): number {
+  if (typeof value === 'number') return value;
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  if (trimmed.endsWith('vh')) return (Number.parseFloat(trimmed) / 100) * viewportHeight;
+  if (trimmed.endsWith('px')) return Number.parseFloat(trimmed);
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(function DraggableSheet(
-  { header, children, initialCollapsed = false, embedded = false, floatingTopRight, midSnap },
+  {
+    header,
+    children,
+    initialCollapsed = false,
+    embedded = false,
+    floatingTopLeft,
+    floatingTopRight,
+    midSnap,
+    maxHeight,
+    lockHeight = false,
+    midHeight,
+    onVisibleHeightChange,
+  },
   ref,
 ) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const drag = useRef({ startY: 0, startOffset: 0, active: false });
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({
+    active: false,
+    startY: 0,
+    startOffset: 0,
+    lastY: 0,
+    lastT: 0,
+    velocity: 0,
+  });
+
   const [peek, setPeek] = useState(0);
   const [snap, setSnap] = useState<Snap>(initialCollapsed ? 'collapsed' : 'full');
+  const [viewportHeight, setViewportHeight] = useState(() => (typeof window !== 'undefined' ? window.innerHeight : 1000));
 
   useLayoutEffect(() => {
-    if (headerRef.current) setPeek(headerRef.current.offsetHeight);
+    if (!headerRef.current) return;
+    const measure = () => setPeek(headerRef.current?.offsetHeight ?? 0);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(headerRef.current);
+    return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const onResize = () => setViewportHeight(window.innerHeight);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const expandedPx = useMemo(() => {
+    const fallback = viewportHeight * (embedded ? 0.8 : 0.5);
+    return resolveLength(maxHeight, viewportHeight, fallback);
+  }, [embedded, maxHeight, viewportHeight]);
+
+  const sheetHeight = useMemo(() => Math.max(peek, expandedPx), [expandedPx, peek]);
+  const midVisiblePx = useMemo(() => {
+    const fallback = peek + (sheetHeight - peek) * (1 - (midSnap ?? 0.5));
+    const raw = midHeight != null ? resolveLength(midHeight, viewportHeight, fallback) : fallback;
+    return Math.min(sheetHeight, Math.max(peek, raw));
+  }, [midHeight, midSnap, peek, sheetHeight, viewportHeight]);
+
+  const offsetOf = useCallback((next: Snap) => {
+    const visible = next === 'full' ? sheetHeight : next === 'mid' ? midVisiblePx : peek;
+    return Math.max(0, sheetHeight - visible);
+  }, [midVisiblePx, peek, sheetHeight]);
+
+  const emitVisibleHeight = useCallback((offset: number) => {
+    onVisibleHeightChange?.(Math.max(0, sheetHeight - offset));
+  }, [onVisibleHeightChange, sheetHeight]);
+
+  const animateTo = useCallback((targetOffset: number, distance: number) => {
+    if (!sheetRef.current) return;
+    const duration = Math.min(320, Math.max(180, 170 + distance * 0.12));
+    sheetRef.current.style.transition = `transform ${duration}ms ${DRAG_EASING}`;
+    void sheetRef.current.offsetHeight;
+    sheetRef.current.style.transform = `translateY(${targetOffset}px)`;
+    sheetRef.current.addEventListener('transitionend', () => {
+      if (!sheetRef.current) return;
+      sheetRef.current.style.transition = '';
+      sheetRef.current.style.transform = `translateY(${targetOffset}px)`;
+    }, { once: true });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (drag.current.active || !sheetRef.current) return;
+    const offset = offsetOf(snap);
+    sheetRef.current.style.transition = '';
+    sheetRef.current.style.transform = `translateY(${offset}px)`;
+    emitVisibleHeight(offset);
+  }, [emitVisibleHeight, offsetOf, snap, sheetHeight]);
 
   useImperativeHandle(ref, () => ({
     collapse: () => setSnap('collapsed'),
     expand: () => setSnap('full'),
+    snapToMid: () => setSnap('mid'),
   }));
 
-  const maxOffset = () => (sheetRef.current ? sheetRef.current.offsetHeight - peek : 0);
-  const midFrac = midSnap ?? 0.5;
-  // 스냅별 px 오프셋(0 = 펼침, max = 접힘)
-  const offsetOf = (s: Snap) => (s === 'full' ? 0 : s === 'collapsed' ? maxOffset() : maxOffset() * midFrac);
-  const snaps: Snap[] = midSnap != null ? ['full', 'mid', 'collapsed'] : ['full', 'collapsed'];
+  const orderedSnaps = useMemo(
+    () => (['full', 'mid', 'collapsed'] as Snap[]).map((item) => ({ snap: item, offset: offsetOf(item) })),
+    [offsetOf],
+  );
 
   const onPointerDown = (e: ReactPointerEvent) => {
     if (!sheetRef.current) return;
-    drag.current = { startY: e.clientY, startOffset: offsetOf(snap), active: true };
+    const now = performance.now();
+    drag.current = {
+      active: true,
+      startY: e.clientY,
+      startOffset: offsetOf(snap),
+      lastY: e.clientY,
+      lastT: now,
+      velocity: 0,
+    };
     sheetRef.current.style.transition = 'none';
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
     if (!drag.current.active || !sheetRef.current) return;
-    const max = maxOffset();
-    const off = Math.min(max, Math.max(0, drag.current.startOffset + (e.clientY - drag.current.startY)));
-    sheetRef.current.style.transform = `translateY(${off}px)`;
+    const now = performance.now();
+    const dy = e.clientY - drag.current.lastY;
+    const dt = Math.max(1, now - drag.current.lastT);
+    drag.current.velocity = drag.current.velocity * 0.72 + (dy / dt) * 0.28;
+    drag.current.lastY = e.clientY;
+    drag.current.lastT = now;
+
+    const minOffset = orderedSnaps[0].offset;
+    const maxOffset = orderedSnaps[orderedSnaps.length - 1].offset;
+    const nextOffset = drag.current.startOffset + (e.clientY - drag.current.startY);
+    const bounded = nextOffset < minOffset
+      ? minOffset
+      : nextOffset > maxOffset
+        ? maxOffset + (nextOffset - maxOffset) * 0.22
+        : nextOffset;
+    sheetRef.current.style.transform = `translateY(${bounded}px)`;
+    emitVisibleHeight(Math.min(maxOffset, Math.max(minOffset, bounded)));
   };
 
   const onPointerUp = (e: ReactPointerEvent) => {
-    if (!drag.current.active || !sheetRef.current) return;
+    if (!drag.current.active) return;
     drag.current.active = false;
-    const max = maxOffset();
-    const off = Math.min(max, Math.max(0, drag.current.startOffset + (e.clientY - drag.current.startY)));
-    sheetRef.current.style.transition = '';
-    sheetRef.current.style.transform = '';
-    // 가장 가까운 스냅으로
-    const nearest = snaps.reduce((best, s) =>
-      Math.abs(off - offsetOf(s)) < Math.abs(off - offsetOf(best)) ? s : best,
+    const off = drag.current.startOffset + (e.clientY - drag.current.startY);
+    const nearestIndex = orderedSnaps.reduce(
+      (best, item, idx, arr) => (Math.abs(off - item.offset) < Math.abs(off - arr[best].offset) ? idx : best),
+      0,
     );
-    setSnap(nearest);
+    let targetIndex = nearestIndex;
+    if (drag.current.velocity <= -FLICK_VELOCITY) targetIndex = Math.max(0, nearestIndex - 1);
+    else if (drag.current.velocity >= FLICK_VELOCITY) targetIndex = Math.min(orderedSnaps.length - 1, nearestIndex + 1);
+    const target = orderedSnaps[targetIndex];
+    animateTo(target.offset, Math.abs(target.offset - off));
+    setSnap(target.snap);
+    emitVisibleHeight(target.offset);
+    try { (e.currentTarget as Element).releasePointerCapture(e.pointerId); } catch { /* noop */ }
   };
-
-  const snapClass = snap === 'collapsed' ? styles.collapsed : snap === 'mid' ? styles.mid : '';
 
   return (
     <div
       ref={sheetRef}
-      className={`${styles.sheet} ${snapClass} ${embedded ? styles.embedded : ''}`}
-      style={{ ['--peek' as string]: `${peek}px`, ['--mid-frac' as string]: `${midFrac}` }}
+      className={`${styles.sheet} ${embedded ? styles.embedded : ''} ${lockHeight ? styles.lockHeight : ''}`}
+      style={{
+        ['--peek' as string]: `${peek}px`,
+        ['--sheet-max-height' as string]: `${sheetHeight}px`,
+      }}
     >
+      {floatingTopLeft && <div className={styles.floatingTopLeft}>{floatingTopLeft}</div>}
       {floatingTopRight && <div className={styles.floatingTopRight}>{floatingTopRight}</div>}
       <div
         ref={headerRef}
@@ -113,7 +223,9 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
         <div className={styles.handle} />
         {header}
       </div>
-      <div className={styles.body}>{children}</div>
+      <div ref={bodyRef} className={styles.body}>
+        {children}
+      </div>
     </div>
   );
 });

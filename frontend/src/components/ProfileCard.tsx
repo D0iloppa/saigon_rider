@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -53,6 +53,8 @@ export function ProfileCard({ userId, open, onClose }: Props) {
   const [activePost, setActivePost] = useState<FeedPost | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentInput, setCommentInput] = useState('');
+  const commentBackdropRef = useRef<HTMLDivElement>(null);
+  const commentSheetRef = useRef<HTMLDivElement>(null);
 
   // Draggable sheet
   const profileSectionRef = useRef<HTMLDivElement>(null);
@@ -166,6 +168,73 @@ export function ProfileCard({ userId, open, onClose }: Props) {
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, [open, onClose]);
+
+  // iOS visualViewport 기준으로 댓글 오버레이를 재배치해야
+  // 키보드 애니메이션 중 상단 검은 영역과 시트 점프를 막을 수 있다.
+  useLayoutEffect(() => {
+    if (!activePost) return;
+    const vv = window.visualViewport;
+
+    const update = () => {
+      const backdrop = commentBackdropRef.current;
+      const sheet = commentSheetRef.current;
+      if (!backdrop || !sheet) return;
+
+      if (!vv) {
+        backdrop.style.top = '';
+        backdrop.style.left = '';
+        backdrop.style.width = '';
+        backdrop.style.height = '';
+        sheet.style.left = '';
+        sheet.style.right = '';
+        sheet.style.bottom = '';
+        sheet.style.height = '';
+        sheet.style.maxHeight = '';
+        return;
+      }
+
+      const keyboardInset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      const sheetHeight = Math.max(260, Math.min(Math.round(vv.height * 0.6), Math.round(vv.height - 20)));
+
+      backdrop.style.top = `${vv.offsetTop}px`;
+      backdrop.style.left = `${vv.offsetLeft}px`;
+      backdrop.style.width = `${vv.width}px`;
+      backdrop.style.height = `${vv.height}px`;
+
+      sheet.style.left = `${vv.offsetLeft}px`;
+      sheet.style.right = `${Math.max(0, window.innerWidth - vv.width - vv.offsetLeft)}px`;
+      sheet.style.bottom = `${keyboardInset}px`;
+      sheet.style.height = `${sheetHeight}px`;
+      sheet.style.maxHeight = `${Math.max(240, Math.round(vv.height - 12))}px`;
+    };
+
+    update();
+    window.addEventListener('resize', update);
+    vv?.addEventListener('resize', update);
+    vv?.addEventListener('scroll', update);
+
+    return () => {
+      window.removeEventListener('resize', update);
+      vv?.removeEventListener('resize', update);
+      vv?.removeEventListener('scroll', update);
+
+      const backdrop = commentBackdropRef.current;
+      const sheet = commentSheetRef.current;
+      if (backdrop) {
+        backdrop.style.top = '';
+        backdrop.style.left = '';
+        backdrop.style.width = '';
+        backdrop.style.height = '';
+      }
+      if (sheet) {
+        sheet.style.left = '';
+        sheet.style.right = '';
+        sheet.style.bottom = '';
+        sheet.style.height = '';
+        sheet.style.maxHeight = '';
+      }
+    };
+  }, [activePost]);
 
   // ── Follow handlers ───────────────────────────────────────────
   async function doFollow() {
@@ -518,8 +587,8 @@ export function ProfileCard({ userId, open, onClose }: Props) {
       {/* Comment overlay — stacked above the sheet */}
       {activePost && (
         <>
-          <div className={styles.commentBackdrop} onClick={() => setActivePost(null)} />
-          <div className={styles.commentSheet}>
+          <div ref={commentBackdropRef} className={styles.commentBackdrop} onClick={() => setActivePost(null)} />
+          <div ref={commentSheetRef} className={styles.commentSheet}>
             <div className={styles.commentGrabber} />
             <h3 className={styles.commentTitle}>
               {t('feed.commentsCount', { count: comments.length })}
@@ -561,6 +630,6 @@ export function ProfileCard({ userId, open, onClose }: Props) {
         </>
       )}
     </div>,
-    document.body,
+    document.getElementById('app-frame') ?? document.body,
   );
 }

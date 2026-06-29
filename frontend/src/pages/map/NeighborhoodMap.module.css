@@ -6,44 +6,23 @@
   background: var(--bg);
 }
 
-/* 내 위치 버튼 — 드래거블 시트 위 우하단 */
-.locateBtn {
-  position: absolute;
-  right: 12px;
-  bottom: 80px;
-  z-index: 11;
-  width: 32px;
-  height: 32px;
-  border: 1px solid #e0e0e0;
-  background: #fff;
-  border-radius: 8px;
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  color: #444;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.locateBtn:active { background: #f0f0f0; }
-.locateBtnActive {
-  color: #1e88e5;
-  border-color: #90caf9;
-  background: #e3f2fd;
-}
-
 .map {
   position: absolute;
   inset: 0;
 }
 
-/* 시트 헤더(드래그존 안) — 탭 + 카운트. 세로 패딩으로 초기 peek 살짝 높게. */
+/* 시트 헤더(드래그존 안) */
 .sheetHead {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 10px;
   padding: 6px 0 14px;
+}
+
+.sheetTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .segment {
@@ -72,6 +51,28 @@
   margin-left: auto;
   font-size: 12px;
   color: var(--text-3);
+}
+
+.sheetMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 111, 60, 0.18);
+  background: var(--surface);
+  color: var(--brand-500);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(10, 18, 28, 0.16);
+  white-space: nowrap;
 }
 
 /* 시트 본문 리스트 (시트가 좌우 padding 보유 → 세로 여백만) */
@@ -104,19 +105,93 @@
   color: var(--text-3);
 }
 
+.emptyState {
+  padding: 36px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.emptyBody {
+  max-width: 280px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.emptyActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.emptyAction,
+.emptyGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.emptyAction {
+  color: #fff;
+  background: var(--brand-500);
+  border: 1px solid var(--brand-500);
+}
+
+.emptyGhost {
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
 /* 넓게 볼 때 확대 가이드 */
 .guide {
-  padding: 36px 20px;
   text-align: center;
   font-size: 15px;
   font-weight: 600;
   color: var(--text-2);
-  line-height: 1.7;
+  line-height: 1.6;
 }
 .guideSub {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-3);
+}
+
+.guideWrap {
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.guideAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 111, 60, 0.18);
+  background: rgba(255, 111, 60, 0.08);
+  color: var(--brand-500);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 /* 지도 점 탭으로 선택된 카드 강조 — ListingCard radius(18px)와 일치시켜 모서리 어긋남 방지 */
@@ -144,6 +219,7 @@
   text-align: left;
   background: var(--surface);
   padding: 12px;
+  cursor: pointer;
 }
 
 .feedAvatarBtn {

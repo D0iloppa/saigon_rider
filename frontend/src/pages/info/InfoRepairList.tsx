@@ -11,7 +11,7 @@ import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
 import { swrRead, swrWrite } from '@/lib/swrCache';
 import { distanceKm } from '@/components/maps/district-data';
-import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import ReportSheet, { type ReportFields } from '@/components/info/ReportSheet';
@@ -144,12 +144,11 @@ export default function InfoRepairList() {
 
       <div className={styles.scroll}>
         <div className={styles.mapWrap}>
-          <SaigonMapV2
+          <SaigonMapV5
             height="100%"
             markers={repairMarkers}
             onRegionSelect={handleRegionSelect}
             initialGps={incomingCoords ?? undefined}
-            defaultWardSlug="ben-thanh"
             locateOnMount={!incomingCoords}
           />
         </div>

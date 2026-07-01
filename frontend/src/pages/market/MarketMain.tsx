@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Bell, ChevronDown, Heart, MapPinned, Plus, Search, X } from 'lucide-react';
@@ -16,13 +16,14 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { native } from '@/lib/native';
 import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchWards, resolveWardByCoords, type Ward } from '@/api/master';
+import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
   addKeywordAlert,
   fetchAds,
   fetchKeywordAlerts,
   fetchListings,
   removeKeywordAlert,
+  resolveDistrict,
   type KeywordAlert,
   type ListingCard as Listing,
   type ListingSort,
@@ -33,6 +34,23 @@ import AdCard from './AdCard';
 import styles from './MarketMain.module.css';
 
 const AD_EVERY = 5; // 매물 N개마다 광고 1개 삽입
+
+const STORAGE_KEY = 'mkt_filter_v2';
+interface SavedState {
+  sort: ListingSort;
+  hideSold: boolean;
+  locationMode: 'all' | 'gps' | 'region';
+  district: District | null;
+  coords: { lat: number; lng: number } | null;
+  regionLabel: string | null;
+  scrollTop: number;
+}
+function readSaved(): SavedState | null {
+  try {
+    const s = sessionStorage.getItem(STORAGE_KEY);
+    return s ? (JSON.parse(s) as SavedState) : null;
+  } catch { return null; }
+}
 
 const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
 
@@ -46,38 +64,39 @@ export default function MarketMain() {
   const { t, i18n } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
 
+  const [savedState] = useState<SavedState | null>(readSaved);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alerts, setAlerts] = useState<KeywordAlert[]>([]);
   const [newKw, setNewKw] = useState('');
-  const [sort, setSort] = useState<ListingSort>('recent');
+  const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
   const [sortOpen, setSortOpen] = useState(false);
-  const [hideSold, setHideSold] = useState(false);
-  const [ward, setWard] = useState<Ward | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationMode, setLocationMode] = useState<'all' | 'gps' | 'region'>('all');
+  const [hideSold, setHideSold] = useState(savedState?.hideSold ?? false);
+  const [district, setDistrict] = useState<District | null>(savedState?.district ?? null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(savedState?.coords ?? null);
+  const [locationMode, setLocationMode] = useState<'all' | 'gps' | 'region'>(savedState?.locationMode ?? 'all');
   const [ads, setAds] = useState<MarketAd[]>([]);
-  const [allWards, setAllWards] = useState<Ward[]>([]);
+  const [allDistricts, setAllDistricts] = useState<District[]>([]);
   const [locMapOpen, setLocMapOpen] = useState(false);
-  const [regionLabel, setRegionLabel] = useState<string | null>(null);
+  const [regionLabel, setRegionLabel] = useState<string | null>(savedState?.regionLabel ?? null);
   const [draftLocationMode, setDraftLocationMode] = useState<'all' | 'gps' | 'region'>('all');
-  const [draftWard, setDraftWard] = useState<Ward | null>(null);
+  const [draftDistrict, setDraftDistrict] = useState<District | null>(null);
   const [draftCoords, setDraftCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [draftRegionLabel, setDraftRegionLabel] = useState<string | null>(null);
   const [adLimit, setAdLimit] = useState(randAdBatch); // 광고 3~4개로 시작, 스크롤 시 증가
   // 제휴 광고(지역 타게팅) — 동네/언어 확정 후 로드. 셔플해 랜덤 노출. 피드 중간 삽입용.
   useEffect(() => {
-    fetchAds(ward?.district?.id ?? null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
+    fetchAds(district?.id ?? null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
     setAdLimit(randAdBatch());
-  }, [ward?.district?.id, i18n.language]);
+  }, [district?.id, i18n.language]);
 
   // 마켓 기본 진입은 항상 전체 지역.
   // GPS 자동 실행 없음 — 사용자가 시트에서 명시적으로 선택한 경우에만 위치 반영.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const wards = await fetchWards().catch(() => [] as Ward[]);
+      const districts = await fetchDistricts().catch(() => [] as District[]);
       if (cancelled) return;
-      setAllWards(wards);
+      setAllDistricts(districts);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -87,9 +106,11 @@ export default function MarketMain() {
       await native.ensureLocationPermission();
       const pos = await native.getLocation();
       const pickedCoords = { lat: pos.lat, lng: pos.lng };
-      const w = resolveWardByCoords(pos.lat, pos.lng, allWards);
+      // HCMC 밖 GPS 좌표면 1군(벤탄) 폴백
+      const d = resolveDistrict(pos.lat, pos.lng, allDistricts)
+        ?? resolveDistrict(10.7748, 106.6879, allDistricts);
       setCoords(pickedCoords);
-      setWard(w ?? null);
+      setDistrict(d ?? null);
       setLocationMode('gps');
       setRegionLabel(null);
       setLocMapOpen(false);
@@ -100,16 +121,16 @@ export default function MarketMain() {
 
   const handleDraftRegion = (region: SelectedRegion) => {
     const nextCoords = { lat: region.lat, lng: region.lng };
-    const matched = resolveWardByCoords(nextCoords.lat, nextCoords.lng, allWards);
+    const matched = resolveDistrict(nextCoords.lat, nextCoords.lng, allDistricts);
     setDraftLocationMode('region');
-    setDraftWard(matched ?? null);
+    setDraftDistrict(matched ?? null);
     setDraftRegionLabel(matched ? null : region.name);
     setDraftCoords(nextCoords);
   };
 
   const handleApplyLocation = async () => {
     if (draftLocationMode === 'all') {
-      setWard(null);
+      setDistrict(null);
       setCoords(null);
       setRegionLabel(null);
       setLocationMode('all');
@@ -120,7 +141,7 @@ export default function MarketMain() {
       await handlePickGPS();
       return;
     }
-    setWard(draftWard);
+    setDistrict(draftDistrict);
     setCoords(draftCoords);
     setRegionLabel(draftRegionLabel);
     setLocationMode('region');
@@ -129,13 +150,13 @@ export default function MarketMain() {
 
   const openLocationSheet = () => {
     setDraftLocationMode(locationMode);
-    setDraftWard(ward);
+    setDraftDistrict(district);
     setDraftCoords(coords);
     setDraftRegionLabel(regionLabel);
     setLocMapOpen(true);
   };
 
-  const currentRegionName = ward ? `${ward.name_vi}${ward.district ? ` (${ward.district.name_vi})` : ''}` : regionLabel;
+  const currentRegionName = district ? localizedName(district) : regionLabel;
   const currentLocationTitle = locationMode === 'all'
     ? t('market.allAreas')
     : currentRegionName ?? t('market.currentLocation');
@@ -144,7 +165,7 @@ export default function MarketMain() {
     : locationMode === 'gps'
       ? t('market.locationMetaGps')
       : t('market.locationMetaRegion');
-  const draftRegionName = draftWard ? `${draftWard.name_vi}${draftWard.district ? ` (${draftWard.district.name_vi})` : ''}` : draftRegionLabel;
+  const draftRegionName = draftDistrict ? localizedName(draftDistrict) : draftRegionLabel;
   const canApplyLocation = draftLocationMode === 'all' || draftLocationMode === 'gps' || !!draftCoords;
 
   const fetchPage = useCallback(
@@ -152,19 +173,48 @@ export default function MarketMain() {
       fetchListings({
         sort, hideSold,
         lat: coords?.lat, lng: coords?.lng,
-        wardId: ward?.id ?? null,
-        districtId: null,
+        wardId: null,
+        districtId: district?.id ?? null,
         viewerId: userId, page, size: 20,
       }),
-    [sort, hideSold, coords, ward?.id, userId],
+    [sort, hideSold, coords, district?.id, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, ward?.id, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, district?.id, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
   );
+
+  // 필터 상태 변경 시 sessionStorage에 저장 (scrollTop은 0으로 리셋 — 새 필터는 처음부터)
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sort, hideSold, locationMode, district, coords, regionLabel, scrollTop: 0,
+      }));
+    } catch { /* ignore */ }
+  }, [sort, hideSold, locationMode, district, coords, regionLabel]);
+
+  // 상세 이동 전 현재 스크롤 위치 저장
+  const saveScroll = useCallback(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sort, hideSold, locationMode, district, coords, regionLabel,
+        scrollTop: containerRef.current?.scrollTop ?? 0,
+      }));
+    } catch { /* ignore */ }
+  }, [sort, hideSold, locationMode, district, coords, regionLabel, containerRef]);
+
+  // 초기 로딩 완료 후 저장된 스크롤 위치 복원
+  const scrollRestoredRef = useRef(false);
+  useEffect(() => {
+    const savedTop = savedState?.scrollTop ?? 0;
+    if (!isLoading && !scrollRestoredRef.current && savedTop > 0) {
+      scrollRestoredRef.current = true;
+      containerRef.current?.scrollTo({ top: savedTop, behavior: 'instant' });
+    }
+  }, [isLoading, savedState?.scrollTop, containerRef]);
 
   const openAlerts = () => {
     setAlertOpen(true);
@@ -252,9 +302,9 @@ export default function MarketMain() {
             [1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)
           ) : listings.length === 0 ? (
             <>
-              {/* 매물이 없어도 제휴광고는 노출 — 단 한도(3~4개, 스크롤 시 증가)만 */}
-              {ads.slice(0, adLimit).map((ad) => (
-                <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />
+              {/* 빈 상태: 광고 1개 고정 노출 (스크롤 확장 없음) */}
+              {ads.slice(0, 1).map((ad) => (
+                <AdCard key={ad.id} ad={ad} onClick={() => { saveScroll(); navigate(`/market/ad/${ad.id}`); }} />
               ))}
               <div className={styles.empty}>
                 <span className={styles.emptyEmoji}>🏍️</span>
@@ -270,8 +320,8 @@ export default function MarketMain() {
                 const ad = showAd ? ads[ord % ads.length] : null;
                 return (
                   <Fragment key={l.id}>
-                    <ListingCard listing={l} onClick={() => navigate(`/market/${l.id}`)} />
-                    {ad && <AdCard ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />}
+                    <ListingCard listing={l} onClick={() => { saveScroll(); navigate(`/market/${l.id}`); }} />
+                    {ad && <AdCard ad={ad} onClick={() => { saveScroll(); navigate(`/market/ad/${ad.id}`); }} />}
                   </Fragment>
                 );
               })}

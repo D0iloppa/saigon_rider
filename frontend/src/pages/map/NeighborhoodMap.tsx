@@ -149,7 +149,7 @@ export default function NeighborhoodMap() {
     setExpandedPostId(null);
     setSharedCoords({ lat: region.lat, lng: region.lng });
     setSharedWardName(region.name);
-    sheetRef.current?.snapToMid();
+    sheetRef.current?.expand();
   };
 
   const handleMarkerClick = (id: string) => {
@@ -405,7 +405,6 @@ export default function NeighborhoodMap() {
       <DraggableSheet
         ref={sheetRef}
         header={sheetHeader}
-        initialCollapsed
         embedded
         floatingTopLeft={mode === 'region' && selectedRegion ? (
           <button

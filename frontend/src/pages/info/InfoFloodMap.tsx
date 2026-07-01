@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
 import { resolveInfoCoords, parseCoordsFromQuery } from '@/lib/infoCoords';
-import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import { districtLabelByCode } from '@/components/maps/district-data';
@@ -218,13 +218,11 @@ export default function InfoFloodMap() {
       <div className={styles.scroll}>
         {/* District map */}
         <div className={styles.mapArea}>
-          <SaigonMapV2
+          <SaigonMapV5
             height="100%"
-            markerMode="pins"
             markers={floodMarkers}
             onRegionSelect={handleRegionSelect}
             initialGps={incomingCoords ?? undefined}
-            defaultWardSlug="ben-thanh"
             locateOnMount={!incomingCoords}
           />
         </div>

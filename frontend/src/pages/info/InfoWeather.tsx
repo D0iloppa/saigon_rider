@@ -6,7 +6,7 @@ import type { WeatherData, ForecastHour } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { native } from '@/lib/native';
 import { parseCoordsFromQuery } from '@/lib/infoCoords';
-import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { type SelectedRegion } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import styles from './InfoWeather.module.css';
@@ -82,11 +82,10 @@ export default function InfoWeather() {
           {/* Location map — 침수 지도와 동일 레이아웃(풀블리드) */}
           <div className={styles.mapArea}>
             {coords && (
-              <SaigonMapV2
+              <SaigonMapV5
                 height="100%"
                 onRegionSelect={(r: SelectedRegion) => { setCoords({ lat: r.lat, lng: r.lng }); setRegionName(r.name); }}
                 initialGps={coords ?? undefined}
-                defaultWardSlug="ben-thanh"
                 locateOnMount={!coords}
               />
             )}

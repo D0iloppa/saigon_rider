@@ -212,3 +212,33 @@ Plane CE 조회·갱신은 **`doil-services` MCP 서버**의 도구를 사용한
 3. **`native.ts` 내부만 예외** — 브리지 구현체인 `native.ts` 파일만 `eslint-disable no-restricted-globals`를 사용할 수 있다. 다른 파일에서의 disable은 PR 리뷰에서 차단한다.
 4. **`navigator.clipboard` 같은 웹 전용 API** — Capacitor 대응 플러그인이 없고 WebView에서 안정적으로 동작하는 API는 인라인 `eslint-disable`로 예외 처리하되, 사유를 주석으로 남긴다. 향후 `native.ts`로 흡수 가능.
 5. **좌표 획득은 `native.getLocation()` 또는 `infoCoords.ts`** — `@capacitor/geolocation`을 래핑한 `native.getLocation()`을 사용한다. Info 페이지들은 `resolveInfoCoordsSync()`가 이를 내부 호출한다.
+
+## 9. 코드베이스 그래프 (codebase-memory MCP)
+
+이 리포(`mnt-c-DEV-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프(노드/엣지)가 인덱싱되어 있다. 구조 파악·의존관계 추적을 풀텍스트 검색보다 우선 활용한다.
+
+### 사용 시점
+
+| 상황 | 도구 |
+|---|---|
+| 특정 함수/컴포넌트의 호출·참조 관계 추적 | `search_graph`, `trace_path` |
+| 임의 조건의 그래프 질의 (예: "이 테이블을 쓰는 라우터 전부") | `query_graph` |
+| 프로젝트 전체 구조·레이어 개요 필요 | `get_architecture` |
+| 코드 스니펫 확인 | `get_code_snippet` |
+| 인덱스 최신 여부 확인 | `index_status`, `detect_changes` |
+
+### 재인덱싱 규칙
+
+**코드를 수정한 세션에서는 마무리 전에 `index_repository`로 재인덱싱한다.**
+
+- `repo_path`: `/mnt/c/DEV/saigon_rider`
+- 파일 몇 개 수준의 소규모 변경 → `mode: fast` 또는 `moderate`
+- 라우터/모델 구조 변경, 대규모 리팩토링 → `mode: full`
+- 재인덱싱을 생략하면 다음 세션의 그래프 조회가 과거 코드 기준으로 응답하므로, §1-C 완료 체크리스트(커밋/작업 마무리)에 포함시켜 습관화한다.
+
+### 폴백 — MCP 가 로드되지 않은 환경
+
+`codebase-memory` MCP는 **글로벌(유저 스코프) 설치**이며 이 리포에 프로젝트 스코프로 묶여있지 않다. 즉 다른 유저 프로필이나 MCP 미설정 머신에서 이 리포를 열면 위 도구들이 아예 보이지 않을 수 있다.
+
+- 도구 목록에 `mcp__codebase-memory__*` 가 없으면, 없는 척 진행하지 말고 **유저에게 `codebase-memory` MCP 서버 설치·등록을 권고**한다.
+- 그 세션에서는 즉시 기존 방식(Explore 서브에이전트, `grep`/`find`)으로 대체해 작업을 이어간다. MCP 설치를 기다리며 작업을 막지 않는다.

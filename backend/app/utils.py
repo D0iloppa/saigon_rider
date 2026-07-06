@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import math
 import os
 from base64 import urlsafe_b64encode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -204,6 +205,43 @@ async def apply_quest_reward_multiplier(db, user, base_exp: int, base_gold: int)
         int(base_exp * (1 + rp_pct / 100)),
         int(base_gold * (1 + gold_pct / 100)),
     )
+
+
+def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """두 좌표 간 거리(m) — Haversine. (master.py resolve_ward와 동일 공식의 단일 정의)"""
+    r = 6_371_000
+    d_lat = math.radians(lat2 - lat1)
+    d_lng = math.radians(lng2 - lng1)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lng / 2) ** 2
+    )
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+async def find_nearest_ward_id(db, lat: float, lng: float, city: str = "HCMC") -> int | None:
+    """가장 가까운 active Ward의 id (센터 좌표 기준, /master/wards/resolve와 동일 기준).
+
+    동네지도 배지(map.py listings 탭)가 ward_id로 집계하므로, 매물 생성처럼 좌표를 아는
+    쓰기 경로에서는 이걸로 ward_id를 채워야 지도 집계에 노출된다.
+    """
+    from sqlalchemy import select
+
+    from .models import Ward
+
+    wards = (
+        await db.execute(
+            select(Ward.id, Ward.center_lat, Ward.center_lng).where(
+                Ward.is_active == True,
+                Ward.city_code == city.upper(),
+                Ward.center_lat.isnot(None),
+                Ward.center_lng.isnot(None),
+            )
+        )
+    ).all()
+    if not wards:
+        return None
+    return min(wards, key=lambda w: haversine_m(lat, lng, w.center_lat, w.center_lng)).id
 
 
 async def find_district_by_point(db, lat: float, lng: float) -> str | None:

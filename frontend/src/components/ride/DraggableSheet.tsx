@@ -23,6 +23,7 @@ interface DraggableSheetProps {
   header: ReactNode;
   children: ReactNode;
   initialCollapsed?: boolean;
+  initialSnap?: Snap;
   embedded?: boolean;
   floatingTopLeft?: ReactNode;
   floatingTopRight?: ReactNode;
@@ -51,6 +52,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     header,
     children,
     initialCollapsed = false,
+    initialSnap,
     embedded = false,
     floatingTopLeft,
     floatingTopRight,
@@ -75,7 +77,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
   });
 
   const [peek, setPeek] = useState(0);
-  const [snap, setSnap] = useState<Snap>(initialCollapsed ? 'collapsed' : 'full');
+  const [snap, setSnap] = useState<Snap>(initialSnap ?? (initialCollapsed ? 'collapsed' : 'full'));
   const [viewportHeight, setViewportHeight] = useState(() => (typeof window !== 'undefined' ? window.innerHeight : 1000));
 
   useLayoutEffect(() => {

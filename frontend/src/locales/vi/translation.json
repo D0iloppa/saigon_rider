@@ -56,7 +56,8 @@
     "daysAgoShort": "{{count}} ngày trước",
     "expired": "Đã hết hạn",
     "viewPhoto": "Xem ảnh",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "clear": "Xóa"
   },
   "tabbar": {
     "home": "Trang chủ",
@@ -1292,6 +1293,7 @@
     "scopeViewport": "Vùng bản đồ",
     "currentAreaFallback": "Gần tôi",
     "totalCount": "Tổng {{count}}",
+    "loading": "Đang tải...",
     "loadError": "Không thể tải kết quả",
     "loadErrorDesc": "Hãy kiểm tra mạng và thử lại.",
     "emptyWardHint": "Bạn có thể mở rộng ra các khu lân cận.",
@@ -1308,7 +1310,11 @@
     "tabFeed": "Feed",
     "count": "{{count}}",
     "emptyListings": "Chưa có tin ở khu này",
-    "emptyFeed": "Chưa có bài feed ở khu này"
+    "emptyFeed": "Chưa có bài feed ở khu này",
+    "searchPlaceholder": "Tìm tin trên bản đồ",
+    "emptySearch": "Không tìm thấy kết quả",
+    "recentSearches": "Tìm kiếm gần đây",
+    "clearAll": "Xóa tất cả"
   },
   "effects": {
     "none": "Không có hiệu ứng",

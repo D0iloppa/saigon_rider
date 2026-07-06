@@ -1,6 +1,6 @@
 import { LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useCallback, useEffect, useRef, useState, type PointerEvent as PE } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import { native } from '@/lib/native';
 import depth1 from './v2/saigon-depth1.json';
 import type { MapMarkerV2, SelectedRegion } from './v2/region';
@@ -42,7 +42,8 @@ const ux2lng = (ux: number) => HCMC.W + (ux / BASE_W) * (HCMC.E - HCMC.W);
 const uy2lat = (uy: number) => HCMC.N - (uy / BASE_H) * (HCMC.N - HCMC.S);
 
 // LOD 임계값 — viewBox 너비 기준
-const L2_VBW = BASE_W * 0.35;  // 3500: 블록/도로 표시 (~5km)
+const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
+const L2_VBW = BASE_W * 0.35;  // 3500: 블록/도로 표시 (~5km) — ward(동) 단위 뱃지
 const L3_VBW = BASE_W * 0.07;  // 700:  건물 표시  (~1km)
 const MIN_VBW = BASE_W * 0.01; // 100:  최대 줌인
 
@@ -115,31 +116,42 @@ export interface SaigonMapV5Props {
   initialGps?: { lat: number; lng: number };
   markers?: MapMarkerV2[];
   districtBadges?: DistrictBadge[];
+  /** 도시 전체 조망(vb.w >= L1_VBW)에서만 노출되는 더 굵은 단위(구) 뱃지 — 없으면 districtBadges로 대체 */
+  cityBadges?: DistrictBadge[];
   onRegionSelect?: (region: SelectedRegion) => void;
   onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
+  onDepthChange?: (showDistrictBadges: boolean) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
+  searchFitRef?: React.MutableRefObject<((points: { lat: number; lng: number }[]) => void) | null>;
+  forceMarkers?: boolean;
   polyActive?: boolean;
   onLocate?: () => void;
   selectRegionOnLocate?: boolean;
   selectionOnly?: boolean;
   bottomInsetPx?: number;
+  topInsetPx?: number;
 }
 
-export default function SaigonMapV5({
+function SaigonMapV5({
   height = 400,
   className,
   locateOnMount,
   initialGps,
   markers,
   districtBadges,
+  cityBadges,
   onRegionSelect,
   onBboxChange,
+  onDepthChange,
   locateRef,
+  searchFitRef,
+  forceMarkers = false,
   polyActive = true,
   onLocate,
   selectRegionOnLocate = true,
   selectionOnly = false,
   bottomInsetPx = 0,
+  topInsetPx = 0,
 }: SaigonMapV5Props) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -159,13 +171,19 @@ export default function SaigonMapV5({
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const prevLOD = useRef({ l2: false, l3: false });
   const didApplyInitialGps = useRef(false);
+  const didAutoLocate = useRef(false);
+  // 마운트 rAF(빈 deps 이펙트)가 최신 onViewportChange를 부르기 위한 latest-ref.
+  // 콜백을 빈 deps 이펙트에 직접 클로저 캡처하면 React Compiler가 수동 메모이제이션
+  // 보존을 포기해 컴포넌트 전체 최적화가 스킵된다(preserve-manual-memoization 에러).
+  const onViewportChangeRef = useRef<(suppressBbox?: boolean) => void>(() => {});
 
   const gest = useRef<{
     pts: Map<number, { x: number; y: number }>;
     lastP: { x: number; y: number } | null;
     lastD: number;
     moved: boolean;
-  }>({ pts: new Map(), lastP: null, lastD: 0, moved: false });
+    downTarget: EventTarget | null;
+  }>({ pts: new Map(), lastP: null, lastD: 0, moved: false, downTarget: null });
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
@@ -237,6 +255,10 @@ export default function SaigonMapV5({
       vbRef.current = clampVB({ x: dataCX - initW / 2, y: dataCY - initH / 2 + insetUnits / 2, w: initW, h: initH });
       setVBAttr();
       setVbSnap((n) => n + 1);
+      // focusLatLng(GPS 자동 진입)이 이 rAF보다 먼저 좁은 뷰로 줌인해도, 여기서 다시 넓은 뷰로
+      // 덮어쓰면서 onDepthChange를 안 부르면 화면(뱃지 표시)과 부모 showDistrictBadges 상태가
+      // 어긋난다(헤더 총건수가 실제 뱃지 합계와 안 맞는 버그) — 최종 vb 기준으로 항상 재통지.
+      onViewportChangeRef.current(true);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -274,8 +296,19 @@ export default function SaigonMapV5({
     }
   }, []);
 
+  // polyActive/selWard를 ref로 미러링 — onViewportChange가 이 둘을 deps로 물면
+  // 콜백 체인 전체(centerOnUnified/focusLatLng/runLocate/fitToPoints)가 ward 선택마다
+  // 재생성되어 이펙트가 연쇄 재실행된다(호출 시점의 최신 값만 필요하므로 ref로 충분).
+  // useEffect 미러: 렌더 중 ref 쓰기는 React Compiler가 최적화를 포기하는 패턴.
+  const polyActiveRef = useRef(polyActive);
+  const selWardRef = useRef(selWard);
+  useEffect(() => {
+    polyActiveRef.current = polyActive;
+    selWardRef.current = selWard;
+  }, [polyActive, selWard]);
+
   // ── 뷰포트 변경 후 호출: LOD 체크 + 데이터 프리로드 ────────
-  const onViewportChange = useCallback((suppressBbox = false) => {
+  const onViewportChange = useCallback((suppressBbox?: boolean) => {
     const vb = vbRef.current;
     const l2 = vb.w < L2_VBW;
     const l3 = vb.w < L3_VBW;
@@ -294,12 +327,18 @@ export default function SaigonMapV5({
       });
     }
 
+    onDepthChange?.(!l2 && !(polyActiveRef.current && selWardRef.current !== null));
+
     if (!l2) return;
     depth1.wards.forEach((w, i) => {
       if (!w.slug || !wardInView(i, vb)) return;
       void loadWardData(w.slug as string, l3);
     });
-  }, [loadWardData, onBboxChange]);
+  }, [loadWardData, onBboxChange, onDepthChange]);
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   const centerOnUnified = useCallback((cx: number, cy: number) => {
     const vb = vbRef.current;
@@ -314,26 +353,7 @@ export default function SaigonMapV5({
     setVbSnap((n) => n + 1);
   }, [clampVB, getBottomInsetUnits, onViewportChange, setVBAttr]);
 
-  const recenterCurrentContext = useCallback(() => {
-    if (polyActive && selWard !== null) {
-      const ward = depth1.wards[selWard];
-      const gps = ward.gps as { lat: number; lng: number } | undefined;
-      if (gps) {
-        centerOnUnified(lx(gps.lng), ly(gps.lat));
-        return;
-      }
-    }
-    const fallback = meLatLng ?? initialGps;
-    if (fallback) {
-      centerOnUnified(lx(fallback.lng), ly(fallback.lat));
-      return;
-    }
-    const DATA_CX = (lx(D1_BBOX.W) + lx(D1_BBOX.E)) / 2;
-    const DATA_CY = (ly(D1_BBOX.N) + ly(D1_BBOX.S)) / 2;
-    centerOnUnified(DATA_CX, DATA_CY);
-  }, [centerOnUnified, initialGps, meLatLng, polyActive, selWard]);
-
-  const focusLatLng = useCallback((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean }) => {
+  const focusLatLng = useCallback((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean }) => {
     setMeLatLng(pos);
 
     const d1x = (pos.lng - D1_BBOX.W) / (D1_BBOX.E - D1_BBOX.W) * depth1.VW;
@@ -372,7 +392,7 @@ export default function SaigonMapV5({
       vbRef.current = clampVB({ x: cx - targetW / 2, y: cy - targetH / 2 + insetUnits / 2, w: targetW, h: targetH });
     }
     setVBAttr();
-    onViewportChange();
+    onViewportChange(opts?.suppressBbox);
     setVbSnap((n) => n + 1);
 
     if (idx >= 0 && opts?.selectRegion !== false) {
@@ -403,13 +423,63 @@ export default function SaigonMapV5({
     }
   }, [focusLatLng, initialGps, onLocate, selectRegionOnLocate, showToast]);
 
+  // ◎ 버튼: 동 선택 중엔 그 동 중심으로, 아니면 GPS를 다시 측정해 진짜 "현재 위치"로 이동
+  const recenterCurrentContext = useCallback(() => {
+    if (polyActive && selWard !== null) {
+      const ward = depth1.wards[selWard];
+      const gps = ward.gps as { lat: number; lng: number } | undefined;
+      if (gps) {
+        centerOnUnified(lx(gps.lng), ly(gps.lat));
+        return;
+      }
+    }
+    void runLocate();
+  }, [centerOnUnified, polyActive, runLocate, selWard]);
+
+  // 검색 결과 등 임의의 좌표 집합이 모두 보이도록 뷰포트를 맞춤(ward 자동 줌과 동일한 방식)
+  const fitToPoints = useCallback((points: { lat: number; lng: number }[]) => {
+    if (points.length === 0) return;
+    const svg = svgRef.current;
+    const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    points.forEach((p) => {
+      const ux = lx(p.lng), uy = ly(p.lat);
+      if (ux < x1) x1 = ux; if (ux > x2) x2 = ux;
+      if (uy < y1) y1 = uy; if (uy > y2) y2 = uy;
+    });
+    const spanW = Math.max(x2 - x1, MIN_VBW) * 1.6;
+    const spanH = Math.max(y2 - y1, MIN_VBW) * 1.6;
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    const targetW = Math.max(spanW, spanH / ar);
+    const targetH = targetW * ar;
+    const insetUnits = getBottomInsetUnits(targetH);
+    vbRef.current = clampVB({ x: cx - targetW / 2, y: cy - targetH / 2 + insetUnits / 2, w: targetW, h: targetH });
+    setVBAttr();
+    onViewportChange();
+    setVbSnap((n) => n + 1);
+  }, [clampVB, getBottomInsetUnits, onViewportChange, setVBAttr]);
+
+  useEffect(() => {
+    if (searchFitRef) searchFitRef.current = fitToPoints;
+    return () => { if (searchFitRef) searchFitRef.current = null; };
+  }, [searchFitRef, fitToPoints]);
+
   useEffect(() => {
     if (initialGps && !didApplyInitialGps.current) {
       didApplyInitialGps.current = true;
-      focusLatLng(initialGps, { silent: true, selectRegion: selectRegionOnLocate });
+      // suppressBbox: 이 focus가 emit한 좁은 ward bbox를 부모가 debounce로 커밋하기 전에
+      // 마운트 rAF가 뷰포트를 전역 뷰로 덮어써서, 화면(전역)과 bboxFilter(ward)가 어긋나는
+      // 문제가 있었음 — 마운트 초기화 경로에서는 bbox를 emit하지 않는다.
+      focusLatLng(initialGps, { silent: true, selectRegion: selectRegionOnLocate, suppressBbox: true });
       return;
     }
-    if (locateOnMount) void runLocate();
+    // didAutoLocate 가드: focusLatLng/runLocate는 onRegionSelect 등 부모 prop에 의존해
+    // 재생성될 수 있어 이 이펙트가 여러 번 재실행될 수 있음 — 가드 없이는 그때마다
+    // GPS를 다시 측정해 짧은 시간에 수십 회 호출되는 문제가 있었음(마운트당 1회만 허용).
+    if (locateOnMount && !didAutoLocate.current) {
+      didAutoLocate.current = true;
+      void runLocate();
+    }
   }, [focusLatLng, initialGps, locateOnMount, runLocate, selectRegionOnLocate]);
 
   useEffect(() => {
@@ -418,8 +488,12 @@ export default function SaigonMapV5({
   }, [locateRef, runLocate]);
 
   useEffect(() => {
-    onViewportChange();
-  }, [bottomInsetPx, onViewportChange, polyActive]);
+    // suppressBbox: 이 이펙트는 시트 높이·선택모드/선택동 변화에 따른 LOD/뱃지 재계산용이지
+    // 사용자 뷰포트 의도가 아니다 — bbox까지 재-emit하면 handleRegionSelect가 방금
+    // 비운 viewportBbox를 500ms 뒤 되살리는 문제가 있었음. bbox는 제스처/줌/fit 경로만 emit.
+    // polyActive/selWard는 onDepthChange(뱃지 표시) 재통지를 위해 명시적 트리거로 유지.
+    onViewportChange(true);
+  }, [bottomInsetPx, onViewportChange, polyActive, selWard]);
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -452,6 +526,9 @@ export default function SaigonMapV5({
     g.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     g.lastP = { x: e.clientX, y: e.clientY };
     g.moved = false;
+    // 포인터 캡처 후엔 pointerup의 target이 svg로 재지정되므로, 탭 시작 시점의 실제
+    // 타깃을 기억해 마커 탭인지 판별한다 (마커 탭이 ward 선택까지 발화하는 것 방지).
+    g.downTarget = e.target;
     if (g.pts.size === 2) {
       const [a, b] = [...g.pts.values()];
       g.lastD = Math.hypot(b.x - a.x, b.y - a.y);
@@ -503,6 +580,8 @@ export default function SaigonMapV5({
     setVbSnap((n) => n + 1);
 
     if (!wasTap) return;
+    // 마커 위에서 시작된 탭은 마커 onClick에 맡기고 ward 히트테스트를 건너뛴다
+    if ((g.downTarget as Element | null)?.closest?.('[data-marker]')) return;
     const svgEl = svgRef.current;
     const r = svgEl?.getBoundingClientRect();
     if (!r || !svgEl) return;
@@ -683,8 +762,8 @@ export default function SaigonMapV5({
 
         {/* 마커 — depth1(줌아웃)이면 구역 count badge, depth2+이면 개별 dot */}
         {/* polyActive+selWard 상태(동 선택 중)에는 배지 숨김 — 선택 동 외부 배지 노출 방지 */}
-        {vb.w >= L2_VBW && !(polyActive && selWard !== null)
-          ? districtBadges?.map((b, i) => {
+        {!forceMarkers && vb.w >= L2_VBW && !(polyActive && selWard !== null)
+          ? (vb.w >= L1_VBW ? cityBadges ?? districtBadges : districtBadges)?.map((b, i) => {
               const bx = lx(b.lng), by = ly(b.lat);
               if (bx < vb.x - 200 || bx > vb.x + vb.w + 200) return null;
               if (by < vb.y - 200 || by > vb.y + vb.h + 200) return null;
@@ -703,13 +782,13 @@ export default function SaigonMapV5({
                 </g>
               );
             })
-          : vb.w < L2_VBW && markers?.map((m) => {
+          : (forceMarkers || vb.w < L2_VBW) && markers?.map((m) => {
               const mx = lx(m.lng), my = ly(m.lat);
               if (mx < vb.x - 50 || mx > vb.x + vb.w + 50) return null;
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
               const r = vb.w * 0.015;
               return (
-                <g key={m.id} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
+                <g key={m.id} data-marker="1" style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
                   <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
                 </g>
@@ -733,11 +812,14 @@ export default function SaigonMapV5({
 
       {!selectionOnly && (
         <>
-          <div className={styles.zoomControls}>
+          {/* topInsetPx: 검색창처럼 지도 위에 뜨는 상단 오버레이가 있으면 그 아래로 밀어냄 */}
+          <div className={styles.zoomControls} style={topInsetPx ? { top: `calc(var(--status-bar-height, 0px) + 12px + ${topInsetPx}px)` } : undefined}>
             <button type="button" className={styles.ctrlBtn} onClick={zoomIn}>+</button>
             <button type="button" className={styles.ctrlBtn} onClick={zoomOut}>−</button>
           </div>
-          <div className={styles.locateCtrl}>
+          {/* bottomInsetPx: 드래거블 시트의 현재 노출 높이 — 시트 위에 항상 붙어 다니도록.
+              미전달 시(정보 페이지들) CSS 기본값(bottom: 28px)을 그대로 쓴다 */}
+          <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
             <button
               type="button"
               className={styles.ctrlBtn}
@@ -758,3 +840,7 @@ export default function SaigonMapV5({
     </div>
   );
 }
+
+// memo: 부모(NeighborhoodMap)가 검색어 타이핑 등으로 재렌더될 때 props가 참조 동일하면
+// 수천 노드 SVG 리컨실을 건너뛴다 — 콜백 props는 소비처에서 useCallback 필수(기존 계약).
+export default memo(SaigonMapV5);

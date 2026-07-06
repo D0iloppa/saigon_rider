@@ -55,7 +55,7 @@ from ..schemas import (
     TradeHistoryItem,
 )
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
-from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url
+from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, resolve_avatar_url
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 log = logging.getLogger(__name__)
@@ -217,6 +217,10 @@ async def get_listings(
     price_max: int | None = Query(None, description="최고 가격 (VND)"),
     lat: float | None = Query(None, description="내 위치 위도 (거리 계산·거리순)"),
     lng: float | None = Query(None, description="내 위치 경도"),
+    min_lat: float | None = Query(None, description="지도 뷰포트 최소 위도 (bbox 필터)"),
+    max_lat: float | None = Query(None, description="지도 뷰포트 최대 위도"),
+    min_lng: float | None = Query(None, description="지도 뷰포트 최소 경도"),
+    max_lng: float | None = Query(None, description="지도 뷰포트 최대 경도"),
     district_id: int | None = Query(None, description="구 id — deprecated, ward_id 권장"),
     ward_id: int | None = Query(None, description="ward id (2025 신 행정단위)"),
     seller_id: uuid.UUID | None = Query(None, description="판매자 id — 내 매물 조회용"),
@@ -298,6 +302,21 @@ async def get_listings(
     if price_max is not None:
         q = q.where(MarketplaceListing.price_vnd <= price_max)
         count_q = count_q.where(MarketplaceListing.price_vnd <= price_max)
+
+    if min_lat is not None and max_lat is not None and min_lng is not None and max_lng is not None:
+        # 지도 뷰포트 확대 조회 — 반경/전역 최신순이 아니라 현재 화면 bbox 안의 매물만 필터
+        q = q.where(
+            MarketplaceListing.latitude >= min_lat,
+            MarketplaceListing.latitude <= max_lat,
+            MarketplaceListing.longitude >= min_lng,
+            MarketplaceListing.longitude <= max_lng,
+        )
+        count_q = count_q.where(
+            MarketplaceListing.latitude >= min_lat,
+            MarketplaceListing.latitude <= max_lat,
+            MarketplaceListing.longitude >= min_lng,
+            MarketplaceListing.longitude <= max_lng,
+        )
 
     if sort == "price_low":
         q = q.order_by(MarketplaceListing.price_vnd.asc(), MarketplaceListing.bumped_at.desc())
@@ -425,10 +444,19 @@ async def create_listing(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    # 세션 유저 명의로만 등록 가능 — body.seller_id 는 세션과 일치해야 함 (impersonation 차단)
+    if body.seller_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
 
     now = datetime.now(UTC)
+    # 동네지도 배지(map.py listings 탭)가 ward_id 기준 집계 — 좌표가 있으면 ward를 배정해야 지도에 노출된다
+    ward_id = (
+        await find_nearest_ward_id(db, body.latitude, body.longitude)
+        if body.latitude is not None and body.longitude is not None
+        else None
+    )
     listing = MarketplaceListing(
         seller_id=body.seller_id,
         category_id=body.category_id,
@@ -438,6 +466,7 @@ async def create_listing(
         is_negotiable=body.is_negotiable,
         status="ON_SALE",
         district_id=body.district_id,
+        ward_id=ward_id,
         latitude=body.latitude,
         longitude=body.longitude,
         bumped_at=now,

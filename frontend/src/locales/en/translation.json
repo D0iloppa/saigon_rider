@@ -56,7 +56,8 @@
     "daysAgoShort": "{{count}}d ago",
     "expired": "Expired",
     "viewPhoto": "View photo",
-    "retry": "Try again"
+    "retry": "Try again",
+    "clear": "Clear"
   },
   "tabbar": {
     "home": "Home",
@@ -1292,6 +1293,7 @@
     "scopeViewport": "Map area",
     "currentAreaFallback": "Nearby",
     "totalCount": "Total {{count}}",
+    "loading": "Loading...",
     "loadError": "Could not load results",
     "loadErrorDesc": "Check your network connection and try again.",
     "emptyWardHint": "You can widen the view to nearby neighborhoods.",
@@ -1308,7 +1310,11 @@
     "tabFeed": "Feed",
     "count": "{{count}}",
     "emptyListings": "No items in this area",
-    "emptyFeed": "No feed posts in this area"
+    "emptyFeed": "No feed posts in this area",
+    "searchPlaceholder": "Search items on the map",
+    "emptySearch": "No results found",
+    "recentSearches": "Recent searches",
+    "clearAll": "Clear all"
   },
   "effects": {
     "none": "No equip effects",

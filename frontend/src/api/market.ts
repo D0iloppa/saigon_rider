@@ -146,6 +146,10 @@ export interface ListingQuery {
   priceMax?: number | null;
   lat?: number | null;
   lng?: number | null;
+  minLat?: number | null;
+  maxLat?: number | null;
+  minLng?: number | null;
+  maxLng?: number | null;
   wardId?: number | null;
   districtId?: number | null;
   viewerId?: string | null;
@@ -236,6 +240,12 @@ export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> 
   if (q.lat != null && q.lng != null) {
     params.set('lat', String(q.lat));
     params.set('lng', String(q.lng));
+  }
+  if (q.minLat != null && q.maxLat != null && q.minLng != null && q.maxLng != null) {
+    params.set('min_lat', String(q.minLat));
+    params.set('max_lat', String(q.maxLat));
+    params.set('min_lng', String(q.minLng));
+    params.set('max_lng', String(q.maxLng));
   }
   if (q.priceMin != null) params.set('price_min', String(q.priceMin));
   if (q.priceMax != null) params.set('price_max', String(q.priceMax));

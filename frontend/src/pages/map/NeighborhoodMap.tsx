@@ -1,11 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LocateFixed, MapPin, RotateCw, X } from 'lucide-react';
+import { ChevronLeft, LocateFixed, MapPin, RotateCw, X } from 'lucide-react';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
 import { AppImage } from '@/components/ui/AppImage';
+import { SearchBox } from '@/components/ui/SearchBox';
 import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
@@ -24,6 +25,39 @@ type BrowseMode = 'viewport' | 'region';
 const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
+// SearchBox 높이(44px) + searchOverlay 상단 여백(10px) — 지도 확대/축소 버튼이 검색창 아래로 오도록
+const SEARCH_BAR_HEIGHT = 54;
+const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
+const RECENT_SEARCH_MAX = 8;
+const LISTINGS_PAGE_SIZE = 50;
+// 지도 핀은 리스트 페이지네이션과 달리 뷰포트 안의 매물이 전부 보여야 한다 —
+// 1페이지(50건)만 가져오면 recent 정렬 특성상 활동이 뜸한 구역이 잘려나가 특정 방향에
+// 핀이 안 보이는 문제가 생김. total을 다 채울 때까지 이어서 가져오되, 극단적으로 넓은
+// 뷰포트에서 무한정 요청하지 않도록 상한만 둔다.
+const MAX_MAP_LISTINGS = 300;
+// 로딩 표시가 너무 짧게 반짝이고 사라지면 눈에 안 띄므로 최소 노출 시간을 보장한다.
+const MIN_LOADING_MS = 2000;
+
+async function fetchAllListings(params: Parameters<typeof fetchListings>[0]): Promise<Listing[]> {
+  const acc: Listing[] = [];
+  let page = 1;
+  for (;;) {
+    const res = await fetchListings({ ...params, page, size: LISTINGS_PAGE_SIZE });
+    acc.push(...res.items);
+    if (acc.length >= res.total || res.items.length < LISTINGS_PAGE_SIZE || acc.length >= MAX_MAP_LISTINGS) break;
+    page++;
+  }
+  return acc;
+}
+
+function loadRecentSearches(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((v) => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * 동네지도 v4 (SGR-287) — SaigonMapV4 풀스크린 + 하단 드래거블 시트.
@@ -44,6 +78,9 @@ export default function NeighborhoodMap() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [districtCounts, setDistrictCounts] = useState<DistrictCount[]>([]);
+  // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
+  // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
+  const [cityCounts, setCityCounts] = useState<DistrictCount[]>([]);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -57,10 +94,102 @@ export default function NeighborhoodMap() {
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const locateRef = useRef<(() => void) | null>(null);
+  const searchFitRef = useRef<((points: { lat: number; lng: number }[]) => void) | null>(null);
   const [viewportBbox, setViewportBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
+  const [showDistrictBadges, setShowDistrictBadges] = useState(true);
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // 검색 — 위치 필터 무시하고 전역에서 매물을 찾음(매물 탭 전용, 피드는 키워드 검색 미지원)
+  // 검색은 전체화면 패널(당근 패턴)에서 입력받고, 패널을 닫으면 지도가 결과를 보여줌 — 지도 화면
+  // 자체는 바텀시트를 강제로 올리는 등 검색 중 레이아웃을 바꾸지 않는다.
+  // searchQuery = 패널 입력 draft, submittedQuery = 실제 검색 확정값(Enter/최근검색 탭).
+  // 패널이 결과를 보여주지 않으므로 타이핑 중 라이브 검색은 무의미 — 제출 시점에만 fetch한다
+  // (뒤로가기로 취소했는데 검색모드로 전환돼 버리던 문제 + 안 보이는 fetch/지도 re-fit 제거).
+  const [searchQuery, setSearchQuery] = useState('');
+  const [submittedQuery, setSubmittedQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Listing[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches);
+  const isSearching = submittedQuery.length > 0;
+
+  // 패널이 열리는 "그 순간"의 .root 높이를 한 번만 캡처해 고정한다 — 이후 키보드가 뜨면서
+  // 100dvh가 줄어들어도(WKWebView가 interactive-widget=resizes-visual을 지원 안 할 수 있음)
+  // 패널 자체는 이 픽셀값 그대로 유지되고, 키보드는 그 위에 순수 오버레이로만 뜬다.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [lockedPanelHeight, setLockedPanelHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (searchPanelOpen) setLockedPanelHeight(rootRef.current?.clientHeight ?? null);
+  }, [searchPanelOpen]);
+
+  const addRecentSearch = useCallback((keyword: string) => {
+    setRecentSearches((prev) => {
+      const next = [keyword, ...prev.filter((k) => k !== keyword)].slice(0, RECENT_SEARCH_MAX);
+      localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const removeRecentSearch = useCallback((keyword: string) => {
+    setRecentSearches((prev) => {
+      const next = prev.filter((k) => k !== keyword);
+      localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
+    localStorage.removeItem(RECENT_SEARCH_KEY);
+  }, []);
+
+  // 뒤로가기 = 검색 취소: 패널을 닫고 draft를 확정값으로 되돌린다(타이핑만 하고 나가도 흔적 없음)
+  const closeSearchPanel = useCallback(() => {
+    setSearchPanelOpen(false);
+    setSearchQuery(submittedQuery);
+  }, [submittedQuery]);
+
+  const submitSearch = useCallback((keyword: string) => {
+    const trimmed = keyword.trim();
+    setSearchQuery(trimmed);
+    setSubmittedQuery(trimmed);
+    if (trimmed) addRecentSearch(trimmed);
+    setSearchPanelOpen(false);
+  }, [addRecentSearch]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSubmittedQuery('');
+  }, []);
+
+  // 의도적으로 visualViewport를 추적하지 않는다 — 키보드가 뜨든 말든 패널 크기는 100dvh 고정,
+  // 키보드는 그 위에 순수 오버레이로만 뜨게 한다(탭바 포함 화면 전체를 항상 덮어야 함).
+
+  useEffect(() => {
+    if (!submittedQuery) { setSearchResults([]); return; }
+    let cancelled = false;
+    setSearchLoading(true);
+    fetchListings({ q: submittedQuery, hideSold: true, size: 40 })
+      .then((page) => {
+        if (cancelled) return;
+        const items = page.items ?? [];
+        setSearchResults(items);
+        const points = items.filter((l) => l.lat != null && l.lng != null).map((l) => ({ lat: l.lat!, lng: l.lng! }));
+        if (points.length > 0) searchFitRef.current?.(points);
+      })
+      .catch(() => { if (!cancelled) setSearchResults([]); })
+      .finally(() => { if (!cancelled) setSearchLoading(false); });
+    return () => { cancelled = true; };
+  }, [submittedQuery]);
+
+  // region 모드에서는 bbox emit을 소비하지 않는다 — 시트 높이 변화·팬 등으로 들어온 bbox가
+  // handleRegionSelect가 비워둔 viewportBbox를 몰래 되살려, 이후 뷰포트 모드 전환 시
+  // 가이드(빈 상태) 대신 필터 결과가 바로 뜨는 문제가 있었음. ref로 최신 mode를 읽는다.
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
   const handleBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
+    if (modeRef.current === 'region') return;
     clearTimeout(bboxTimerRef.current);
     bboxTimerRef.current = setTimeout(() => setViewportBbox(bbox), 500);
   }, []);
@@ -77,31 +206,49 @@ export default function NeighborhoodMap() {
 
   useEffect(() => {
     fetchDistrictCounts(tab).then(setDistrictCounts).catch(() => setDistrictCounts([]));
+    if (tab === 'listings') {
+      fetchDistrictCounts(tab, 'district').then(setCityCounts).catch(() => setCityCounts([]));
+    }
   }, [tab]);
 
-  // 매물·피드 조회 — ward 선택 시 또는 뷰포트가 크게 넓어질 때
+  // 매물·피드 조회 — ward 선택 시 또는 뷰포트가 크게 넓어질 때 (검색 중엔 검색 결과만 사용)
   useEffect(() => {
+    if (isSearching) return;
     const center = bboxFilter
       ? { lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 }
       : selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : null;
     if (!center) return;
     const size = bboxFilter ? 50 : 40;
     let cancelled = false;
+    const startedAt = Date.now();
     setLoading(true);
     setLoadError(false);
     Promise.allSettled([
-      fetchListings({ lat: center.lat, lng: center.lng, sort: 'recent', hideSold: true, size }),
+      fetchAllListings({
+        lat: center.lat,
+        lng: center.lng,
+        sort: 'recent',
+        hideSold: true,
+        ...(bboxFilter
+          ? { minLat: bboxFilter.S, maxLat: bboxFilter.N, minLng: bboxFilter.W, maxLng: bboxFilter.E }
+          : {}),
+      }),
       fetchFeed({ filter: 'neighborhood', lat: center.lat, lng: center.lng, size }),
     ]).then(([lp, fp]) => {
       if (cancelled) return;
       const listingsOk = lp.status === 'fulfilled';
       const feedOk = fp.status === 'fulfilled';
-      setListings(listingsOk ? lp.value.items ?? [] : []);
+      setListings(listingsOk ? lp.value ?? [] : []);
       setPosts(feedOk ? fp.value.items ?? [] : []);
       setLoadError(!listingsOk && !feedOk);
-    }).finally(() => { if (!cancelled) setLoading(false); });
+    }).finally(() => {
+      if (cancelled) return;
+      const remaining = MIN_LOADING_MS - (Date.now() - startedAt);
+      if (remaining > 0) setTimeout(() => { if (!cancelled) setLoading(false); }, remaining);
+      else setLoading(false);
+    });
     return () => { cancelled = true; };
-  }, [bboxFilter, reloadSeq, selectedRegion]);
+  }, [bboxFilter, reloadSeq, selectedRegion, isSearching]);
 
   const visibleListings = useMemo(() => {
     if (bboxFilter) {
@@ -127,8 +274,13 @@ export default function NeighborhoodMap() {
     return posts.filter((p) => p.latitude != null && p.longitude != null && regionContains(selectedRegion, p.latitude!, p.longitude!));
   }, [bboxFilter, posts, selectedRegion]);
 
-  // depth2/3 마커 (선택 영역 기준)
+  // depth2/3 마커 (선택 영역 기준) — 검색 중엔 위치 필터 무시하고 검색 결과만 표시
   const markers = useMemo<MapMarkerV2[]>(() => {
+    if (isSearching) {
+      return searchResults
+        .filter((l) => l.lat != null && l.lng != null)
+        .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, color: LISTING_COLOR, onClick: () => handleMarkerClick(l.id) }));
+    }
     const color = tab === 'listings' ? LISTING_COLOR : FEED_COLOR;
     if (tab === 'listings') {
       return visibleListings
@@ -138,9 +290,12 @@ export default function NeighborhoodMap() {
     return visiblePosts
       .filter((p) => p.latitude != null && p.longitude != null)
       .map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, color, onClick: () => handleMarkerClick(p.id) }));
-  }, [tab, visibleListings, visiblePosts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSearching, searchResults, tab, visibleListings, visiblePosts]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleRegionSelect = (region: SelectedRegion) => {
+  // useCallback 필수: SaigonMapV5의 onRegionSelect prop으로 전달되는데, 매 렌더마다
+  // 새 함수를 넘기면 내부 focusLatLng/runLocate가 재생성되어 locateOnMount 이펙트가
+  // 반복 재실행되며 GPS를 계속 재측정하는 루프가 발생함(관찰: 마운트 후 3초간 24회 호출).
+  const handleRegionSelect = useCallback((region: SelectedRegion) => {
     setMode('region');
     setSelectedRegion(region);
     setViewportBbox(null);
@@ -150,7 +305,7 @@ export default function NeighborhoodMap() {
     setSharedCoords({ lat: region.lat, lng: region.lng });
     setSharedWardName(region.name);
     sheetRef.current?.expand();
-  };
+  }, [setSharedCoords, setSharedWardName]);
 
   const handleMarkerClick = (id: string) => {
     setSelectedId(id);
@@ -168,13 +323,17 @@ export default function NeighborhoodMap() {
   };
 
   const retryLoad = () => setReloadSeq((n) => n + 1);
-  const resetToViewport = () => {
+  // useCallback 필수: SaigonMapV5의 onLocate prop으로 전달됨 (handleRegionSelect와 동일한 이유)
+  const resetToViewport = useCallback(() => {
     setMode('viewport');
     setSelectedRegion(null);
     setSelectedId(null);
     setExpandedPostId(null);
+    // 지역 필터 해제 직후엔 항상 가이드 상태에서 시작 — region 모드 중 쌓인 bbox 잔재 제거
+    setViewportBbox(null);
+    clearTimeout(bboxTimerRef.current);
     sheetRef.current?.snapToMid();
-  };
+  }, []);
   const switchToViewport = () => {
     resetToViewport();
   };
@@ -184,7 +343,7 @@ export default function NeighborhoodMap() {
 
   const visibleCount = tab === 'listings' ? visibleListings.length : visiblePosts.length;
   const totalCount = districtCounts.reduce((s, d) => s + d.count, 0);
-  const headerCount = mode === 'region' ? visibleCount : (bboxFilter ? visibleCount : totalCount);
+  const headerCount = mode === 'region' ? visibleCount : (showDistrictBadges ? totalCount : visibleCount);
 
   const adAt = (i: number) => {
     if (ads.length === 0 || i % AD_EVERY !== 0) return null;
@@ -204,28 +363,57 @@ export default function NeighborhoodMap() {
   const sheetHeader = (
     <div className={styles.sheetHead}>
       <div className={styles.sheetTop}>
-        <div className={styles.segment}>
-          {(['listings', 'feed'] as Tab[]).map((tb) => (
-            <button
-              key={tb}
-              type="button"
-              className={`${styles.segBtn} ${tab === tb ? styles.segActive : ''}`}
-              onClick={() => switchTab(tb)}
-            >
-              {tb === 'listings' ? t('map.tabListings') : t('map.tabFeed')}
-            </button>
-          ))}
-        </div>
-        <span className={styles.count}>
-          {mode === 'region'
-            ? t('map.count', { count: visibleCount })
-            : t('map.totalCount', { count: headerCount })}
-        </span>
+        {isSearching ? (
+          <span className={styles.count}>{t('map.count', { count: searchResults.length })}</span>
+        ) : (
+          <>
+            <div className={styles.segment}>
+              {(['listings', 'feed'] as Tab[]).map((tb) => (
+                <button
+                  key={tb}
+                  type="button"
+                  className={`${styles.segBtn} ${tab === tb ? styles.segActive : ''}`}
+                  onClick={() => switchTab(tb)}
+                >
+                  {tb === 'listings' ? t('map.tabListings') : t('map.tabFeed')}
+                </button>
+              ))}
+            </div>
+            <span className={styles.count}>
+              {mode === 'region'
+                ? t('map.count', { count: visibleCount })
+                : t('map.totalCount', { count: headerCount })}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
 
   const renderBody = () => {
+    if (isSearching) {
+      if (searchLoading && searchResults.length === 0) {
+        return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
+      }
+      if (searchResults.length === 0) {
+        return (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyTitle}>{t('map.emptySearch')}</p>
+          </div>
+        );
+      }
+      return searchResults.map((l, i) => (
+        <Fragment key={l.id}>
+          <div
+            ref={(el) => { itemRefs.current[l.id] = el; }}
+            className={l.id === selectedId ? styles.selected : undefined}
+          >
+            <ListingCard listing={l} onClick={() => navigate(`/market/${l.id}`)} />
+          </div>
+          {adAt(i)}
+        </Fragment>
+      ));
+    }
     if (mode === 'viewport' && !bboxFilter) {
       return (
         <div className={styles.guideWrap}>
@@ -385,7 +573,7 @@ export default function NeighborhoodMap() {
   };
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} ref={rootRef}>
       <SaigonMapV5
         className={styles.map}
         height="100%"
@@ -393,20 +581,79 @@ export default function NeighborhoodMap() {
         locateOnMount={!storedCoords}
         markers={markers}
         districtBadges={districtCounts}
+        cityBadges={tab === 'listings' ? cityCounts : undefined}
         onRegionSelect={handleRegionSelect}
         onBboxChange={handleBboxChange}
+        onDepthChange={setShowDistrictBadges}
         locateRef={locateRef}
+        searchFitRef={searchFitRef}
+        forceMarkers={isSearching}
         polyActive={mode === 'region'}
         onLocate={mode === 'region' ? resetToViewport : undefined}
         selectRegionOnLocate={false}
         bottomInsetPx={sheetVisibleHeight}
+        topInsetPx={SEARCH_BAR_HEIGHT}
       />
+
+      <div className={styles.searchOverlay}>
+        <SearchBox
+          value={submittedQuery}
+          onChange={clearSearch}
+          placeholder={t('map.searchPlaceholder')}
+          readOnly
+          onClick={() => setSearchPanelOpen(true)}
+        />
+      </div>
+
+      {loading && !isSearching && (bboxFilter || selectedRegion) && (
+        <div className={styles.mapLoading}>
+          <span className={styles.mapSpinner} />
+          <span>{t('map.loading')}</span>
+        </div>
+      )}
+
+      {searchPanelOpen && (
+        <div className={styles.searchPanel} style={lockedPanelHeight != null ? { height: lockedPanelHeight } : undefined}>
+          <div className={styles.searchPanelHeader}>
+            <button type="button" className={styles.searchPanelBack} onClick={closeSearchPanel} aria-label={t('common.back', { defaultValue: '뒤로' })}>
+              <ChevronLeft size={24} strokeWidth={2.2} />
+            </button>
+            <SearchBox
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={t('map.searchPlaceholder')}
+              autoFocus
+              onSubmit={submitSearch}
+              className={styles.searchPanelBox}
+            />
+          </div>
+          {recentSearches.length > 0 && (
+            <div className={styles.searchPanelBody}>
+              <div className={styles.searchPanelSectionHead}>
+                <span>{t('map.recentSearches')}</span>
+                <button type="button" onClick={clearRecentSearches}>{t('map.clearAll')}</button>
+              </div>
+              <div className={styles.recentChips}>
+                {recentSearches.map((kw) => (
+                  <span key={kw} className={styles.recentChip}>
+                    <button type="button" onClick={() => submitSearch(kw)}>{kw}</button>
+                    <button type="button" onClick={() => removeRecentSearch(kw)} aria-label={t('common.clear', { defaultValue: '지우기' })}>
+                      <X size={12} strokeWidth={2.4} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <DraggableSheet
         ref={sheetRef}
         header={sheetHeader}
         embedded
-        floatingTopLeft={mode === 'region' && selectedRegion ? (
+        initialSnap="collapsed"
+        floatingTopLeft={!isSearching && mode === 'region' && selectedRegion ? (
           <button
             type="button"
             className={styles.filterChip}

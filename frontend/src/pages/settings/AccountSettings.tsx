@@ -76,17 +76,10 @@ export default function AccountSettings() {
       <TopBar title={t('settings.accountManagement')} />
       <div className={styles.body}>
         <div className={styles.sectionCard}>
+          {/* 전화번호는 표시만 — 변경/인증 플로우는 만들지 않기로 결정 (OAuth 전환, 2026-07-06) */}
           <SettingsRow
             label={t('settings.phone')}
             value={user.phone ?? undefined}
-            right={
-              <button
-                className={styles.copyBtn}
-                onClick={() => toast(t('common.comingSoon'))}
-              >
-                {t('common.change')}
-              </button>
-            }
           />
           <SettingsRow
             label={t('settings.joinedDate')}

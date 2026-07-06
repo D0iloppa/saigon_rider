@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-07-06 (①**QM 웹 스윕 1차 완료** — 13유닛 브라우저+코드 점검, 결함 25건 중 P1/P2 18건 수정·리뷰 PASS·커밋(`4435edd`~`e413da5`), TS-1~15/F-* 전건 판정, **사용자 결정 8건 대기**. 보고서 [`TEST/qm_sweep_260706.md`](../TEST/qm_sweep_260706.md). QM 하네스 `tools/qm/qm-shot.mjs` 신설 ②**DM 가격제안 코드 DONE**(SoT [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md), 운영 배포 시 init/110) + DM 조회 3종 무인증 교정 ③점검 260703 후속 워킹트리 전부 커밋(보안 `46d13ee`/지도·마켓 `6e642be`/DM·키보드 `8c69a7c`) ④운영 방침 전환(대표): 작업 단위·웹앱 우선·QM 위임·모델 라우팅 AI 판단. **⚠️ codebase-memory 재인덱싱 여전히 미완**(MCP 끊김 — 다음 세션 `index_repository(moderate)` + ADR 확인 필수. 이번 세션 변경 대량: dm/market/auth/settings/shop/gacha/info 등). 직전 2026-07-04 전체 점검·P0 보안 S-1~S-7)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-07-06 (①**QM 웹 스윕 1차 완료** — 13유닛 브라우저+코드 점검, 결함 25건 중 P1/P2 18건 수정·리뷰 PASS·커밋(`4435edd`~`e413da5`), TS-1~15/F-* 전건 판정, **사용자 결정 8건 대기**. 보고서 [`TEST/qm_sweep_260706.md`](../TEST/qm_sweep_260706.md). QM 하네스 `tools/qm/qm-shot.mjs` 신설 ②**DM 가격제안 코드 DONE**(SoT [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md), 운영 배포 시 init/110) + DM 조회 3종 무인증 교정 ③점검 260703 후속 워킹트리 전부 커밋(보안 `46d13ee`/지도·마켓 `6e642be`/DM·키보드 `8c69a7c`) ④운영 방침 전환(대표): 작업 단위·웹앱 우선·QM 위임·모델 라우팅 AI 판단 ⑤**제품 결정(중고거래 피벗)**: FAB 비활성 유지·다크모드 안 만듦·전화번호 인증/변경 안 함(버튼 제거)·**Android에서 Apple 로그인 숨김(iOS 전용)**. **⚠️ codebase-memory 재인덱싱 여전히 미완**(MCP 끊김 — 다음 세션 `index_repository(moderate)` + ADR 확인 필수. 이번 세션 변경 대량: dm/market/auth/settings/shop/gacha/info 등). 직전 2026-07-04 전체 점검·P0 보안 S-1~S-7)
 
 ---
 
@@ -11,7 +11,7 @@
 
 | 항목 | 상태 | 다음 액션 |
 |---|---|---|
-| 다크모드 (SGR-192) | 코어 완료·빌드/배포 됨, 시각검증 대기 | Settings 토글로 라이트/다크 확인 → Feature DONE 전환. 잔여 P4(status 틴트·glass-light·rarity)는 SGR-197 |
+| ~~다크모드 (SGR-192/197)~~ | **종결 (2026-07-06 결정: 안 만듦)** | 메뉴 숨김(DARK_MODE_MENU_ENABLED=false) 유지. 코드는 보존, 후속 작업 없음 |
 | Capacitor 네이티브 빌드 검증 | Mac 측 대기 | `native/CAPACITOR_MIGRATION.md` §3 회귀 체크리스트 |
 | SaigonDistrictMap 집계 배지 | 시각검증 대기 | 브라우저에서 줌/배지 탭 확인 |
 | OpenWeather API 키 | `.env`에 설정 완료, 활성화 대기 | mock fallback 동작 중 |

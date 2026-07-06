@@ -1,0 +1,179 @@
+import { type ReactNode, forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Plus, ChevronLeft } from 'lucide-react';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
+import styles from './MessageComposer.module.css';
+
+export interface ComposerMenuItem {
+  /** 액션 식별자. */
+  key: string;
+  icon: ReactNode;
+  label: string;
+  /** 원샷 액션(앨범/카메라/약속 등). 탭 즉시 실행 후 패널 닫힘. */
+  onPress?: () => void;
+  /** 피커(스티커/이모지 등). 탭 시 같은 패널 안에서 이 콘텐츠로 전환(‹ 뒤로 제공). */
+  renderPanel?: () => ReactNode;
+}
+
+export interface MessageComposerProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSend: () => void;
+  placeholder?: string;
+  sending?: boolean;
+  sendAriaLabel?: string;
+  menuAriaLabel?: string;
+  /** '+' 컨텍스트 패널에 표시할 액션들. 비어있으면 '+' 버튼을 숨긴다. */
+  menuItems?: ComposerMenuItem[];
+  /** iOS 키보드 accessory bar(^ v Done) 표시 여부. 기본 false(숨김). iOS 전용. */
+  accessoryBar?: boolean;
+}
+
+export interface MessageComposerHandle {
+  /** 열려있는 '+' 패널을 키보드 없이 닫는다 (본문 탭 등 외부에서 호출). */
+  close: () => void;
+}
+
+const DEFAULT_PANEL_HEIGHT = 300;
+
+/**
+ * 채팅 입력 컴포넌트. 입력 row 는 [+] [입력] [전송] 만 두고, 액션들은 '+' 를 누르면
+ * 키보드 자리에 뜨는 컨텍스트 패널(아이콘+라벨 그리드)로 모은다 (당근마켓 패턴).
+ *
+ * WebView 에서 OS 키보드는 DOM 밖 네이티브 오버레이라, '+' 탭 시 input.blur() 로
+ * 키보드를 내리고 마지막 키보드 높이와 같은 크기의 패널을 같은 자리에 렌더한다.
+ */
+export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposerProps>(function MessageComposer(
+  {
+    value,
+    onChange,
+    onSend,
+    placeholder,
+    sending = false,
+    sendAriaLabel,
+    menuAriaLabel,
+    menuItems = [],
+    accessoryBar = false,
+  },
+  ref,
+) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  // 한글/베트남어 IME 조합 중 controlled value 재설정이 글자를 중복시킴 → 조합 중 갱신 보류
+  const composingRef = useRef(false);
+  // 'closed' | 'menu' | <item.key>(피커 서브뷰)
+  const [view, setView] = useState<string>('closed');
+  const kb = useKeyboard();
+
+  const hasMenu = menuItems.length > 0;
+  const open = view !== 'closed';
+  const subItem = menuItems.find((m) => m.key === view && m.renderPanel) ?? null;
+  // useKeyboard 는 키보드가 내려가도 마지막 높이를 유지 → 패널을 같은 크기로 스왑.
+  const panelHeight = kb.height || DEFAULT_PANEL_HEIGHT;
+
+  // 본문 탭 등 외부에서 패널을 닫을 수 있게 노출 (키보드 띄우지 않음).
+  useImperativeHandle(ref, () => ({ close: () => setView('closed') }), []);
+
+  // iOS accessory bar(^ v Done) 를 이 컴포저가 떠 있는 동안 원하는 상태로 설정하고,
+  // 언마운트(화면 이탈) 시 기본(표시)으로 복원한다. iOS 외에는 no-op.
+  useEffect(() => {
+    native.setAccessoryBarVisible(accessoryBar);
+    return () => {
+      native.setAccessoryBarVisible(true);
+    };
+  }, [accessoryBar]);
+
+  const toggleMenu = () => {
+    if (open) {
+      setView('closed'); // 닫을 땐 키보드 띄우지 않음
+    } else {
+      setView('menu');
+      inputRef.current?.blur(); // OS 키보드 dismiss
+    }
+  };
+
+  const handleMenuItem = (item: ComposerMenuItem) => {
+    if (item.renderPanel) {
+      setView(item.key); // 같은 패널 안에서 피커로 전환
+    } else {
+      item.onPress?.();
+      setView('closed');
+    }
+  };
+
+  return (
+    <div
+      className={styles.composer}
+      // 키보드가 떠 있을 땐 홈 인디케이터 safe-area 여백을 없앤다(키보드가 그 자리를 덮으므로).
+      style={{ paddingBottom: kb.visible ? 0 : undefined }}
+    >
+      <div className={styles.inputBar}>
+        {hasMenu && (
+          <button
+            type="button"
+            className={`${styles.plusBtn} ${open ? styles.plusBtnOpen : ''}`}
+            aria-label={menuAriaLabel}
+            onClick={toggleMenu}
+          >
+            <Plus size={24} strokeWidth={2.2} />
+          </button>
+        )}
+        <input
+          ref={inputRef}
+          className={styles.input}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            if (composingRef.current) return; // 조합 중에는 갱신 보류(IME가 직접 표시)
+            onChange(e.target.value);
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            onChange((e.target as HTMLInputElement).value); // 조합 확정값 1회 반영
+          }}
+          onFocus={() => setView('closed')}
+          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && onSend()}
+        />
+        <button
+          type="button"
+          className={`${styles.sendBtn} ${value.trim() ? styles.sendBtnActive : ''}`}
+          onClick={onSend}
+          disabled={!value.trim() || sending}
+          aria-label={sendAriaLabel}
+        >
+          ↗
+        </button>
+      </div>
+
+      {open && (
+        <div className={styles.panel} style={{ height: panelHeight }}>
+          {subItem ? (
+            <div className={styles.subPanel}>
+              <button type="button" className={styles.backBtn} onClick={() => setView('menu')}>
+                <ChevronLeft size={20} />
+                <span>{subItem.label}</span>
+              </button>
+              <div className={styles.subContent}>{subItem.renderPanel!()}</div>
+            </div>
+          ) : (
+            <div className={styles.menuGrid}>
+              {menuItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={styles.menuItem}
+                  onClick={() => handleMenuItem(item)}
+                >
+                  <span className={styles.menuIcon}>{item.icon}</span>
+                  <span className={styles.menuLabel}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});

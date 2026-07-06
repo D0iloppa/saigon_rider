@@ -27,7 +27,9 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
   useLayoutEffect(() => {
     if (!open) return;
     const vv = window.visualViewport;
-    const update = () => {
+    let rafId: number | null = null;
+
+    const apply = () => {
       const backdrop = backdropRef.current;
       const sheet = sheetRef.current;
       if (!backdrop || !sheet) return;
@@ -41,22 +43,41 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
         return;
       }
 
-      backdrop.style.top = `${vv.offsetTop}px`;
-      backdrop.style.left = `${vv.offsetLeft}px`;
+      // position:fixed backdrop 은 레이아웃 뷰포트 기준이라 iOS 키보드 팬(offsetTop)만큼
+      // top 으로 되돌려야 보이는 영역에 맞는다. 단 애니메이션 중 offsetTop 오버슛으로 튀는 것을
+      // 막기 위해 유효범위 [0, innerHeight - height] 로 clamp 한다. (DmDetail 과 동일 원리)
+      const clampedTop = Math.max(0, Math.min(vv.offsetTop, window.innerHeight - vv.height));
+      backdrop.style.top = `${clampedTop}px`;
+      backdrop.style.left = '0px';
       backdrop.style.width = `${vv.width}px`;
       backdrop.style.height = `${vv.height}px`;
       sheet.style.maxHeight = `${Math.max(vv.height - 60, 240)}px`;
     };
 
-    update();
+    // 키보드 등장/퇴장 애니메이션 중 resize/scroll이 짧은 간격으로 여러 번 발생 —
+    // 매번 즉시 반영하면 값이 튀는 중간 프레임이 그대로 스타일에 박혀 검은 여백이
+    // 잠깐 노출될 수 있어 requestAnimationFrame으로 프레임당 한 번만 반영한다.
+    const update = () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(apply);
+    };
+
+    apply();
     window.addEventListener('resize', update);
     vv?.addEventListener('resize', update);
     vv?.addEventListener('scroll', update);
+    // 일부 WebView는 입력 포커스를 빠르게 여러 번 전환하면 visualViewport 이벤트를
+    // 누락/coalescing 하는 경우가 있어 focusin/focusout에서도 재동기화한다(반복 토글 버그 대응).
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
 
     return () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
       window.removeEventListener('resize', update);
       vv?.removeEventListener('resize', update);
       vv?.removeEventListener('scroll', update);
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', update);
       const backdrop = backdropRef.current;
       const sheet = sheetRef.current;
       if (backdrop) {

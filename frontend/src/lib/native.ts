@@ -23,6 +23,7 @@ import {
   type ImageViewerShowOptions,
 } from './plugins/ImageViewer';
 import { Fcm, type FcmNotificationEvent } from './plugins/Fcm';
+import { KeyboardBridge } from './plugins/KeyboardBridge';
 
 // ─── 타입 정의 ──────────────────────────────────────────────────────────────
 
@@ -295,6 +296,27 @@ class NativeInterface {
     if (!this.isNative) return null;
     const { navigateTo } = await Fcm.getPendingNotification();
     return navigateTo || null;
+  }
+
+  // ── Keyboard ────────────────────────────────────────────────────────────
+
+  /**
+   * iOS 키보드 input accessory bar(^ v Done 줄) 표시 여부. iOS 전용 — 그 외 no-op.
+   * 화면별 제어를 위해 MessageComposer 가 마운트/언마운트 시 호출한다.
+   */
+  async setAccessoryBarVisible(visible: boolean): Promise<void> {
+    if (this.platform !== 'ios') return;
+    // 플러그인 미탑재(구 빌드) 시 not-implemented 로 reject → 무시.
+    await KeyboardBridge.setAccessoryBarVisible({ visible }).catch(() => {});
+  }
+
+  /**
+   * 네이티브 컨테이너/웹뷰 배경색 지정("#RRGGBB"). 키보드로 웹뷰가 리사이즈될 때 웹 콘텐츠가
+   * 아직 못 그린 영역이 검게 보이는 것을 막는다. 테마의 --bg 를 넘긴다. iOS 전용.
+   */
+  async setBackgroundColor(color: string): Promise<void> {
+    if (this.platform !== 'ios') return;
+    await KeyboardBridge.setBackgroundColor({ color }).catch(() => {});
   }
 
   // ── Share (Web Share API only) ──────────────────────────────────────────

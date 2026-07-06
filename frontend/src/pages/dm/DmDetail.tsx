@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarPlus, MapPin } from 'lucide-react';
+import { CalendarPlus, MapPin, Smile, ImagePlus } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
+import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
+import { api } from '@/api/client';
+import { MOCK_STICKERS, findSticker } from './mockStickers';
 import { type PickedLocation } from '../market/LocationPickerSheet';
 import AppointmentLocationPicker from './AppointmentLocationPicker';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -26,12 +29,10 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
-import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
 import styles from './DmDetail.module.css';
-
 
 export default function DmDetail() {
   const { t } = useTranslation();
@@ -55,10 +56,9 @@ export default function DmDetail() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
-  const keyboardInset = useKeyboardInset();
   const listRef = useRef<HTMLDivElement>(null);
-  // 한글/베트남어 IME 조합 중 controlled value 재설정이 글자를 중복시킴 → 조합 중 state 갱신 보류
-  const composingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<MessageComposerHandle>(null);
   const otherName = conv?.otherUserNickname ?? locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
 
   useEffect(() => {
@@ -105,6 +105,41 @@ export default function DmDetail() {
     try {
       const msg = await sendMessage(conversationId, text);
       setMessages((prev) => [...prev, msg]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // 사진 첨부: /contents/upload → sendMessage(imageContentId) (MarketCreate 업로드 패턴 동일)
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 같은 파일 재선택 허용
+    if (!file || !conversationId || !user || sending) return;
+    setSending(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('owner_type', 'user');
+      form.append('owner_id', user.id);
+      const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      const msg = await sendMessage(conversationId, '', { imageContentId: id });
+      setMessages((prev) => [...prev, msg]);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // 스티커 전송: message_type='sticker' + meta.stickerId (백엔드 meta 제네릭, 무변경)
+  const handleSendSticker = async (stickerId: string) => {
+    if (!conversationId || sending) return;
+    setSending(true);
+    try {
+      const msg = await sendMessage(conversationId, '', { messageType: 'sticker', meta: { stickerId } });
+      setMessages((prev) => [...prev, msg]);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
     } finally {
       setSending(false);
     }
@@ -184,7 +219,7 @@ export default function DmDetail() {
   const listing = conv?.contextListing ?? null;
 
   return (
-    <div className={styles.page} style={{ height: keyboardInset > 0 ? `calc(100% - ${keyboardInset}px)` : undefined }}>
+    <div className={styles.page}>
       <TopBar title={otherName} />
 
       {/* 매물 컨텍스트 카드 */}
@@ -212,7 +247,7 @@ export default function DmDetail() {
         ) : null
       )}
 
-      <div className={styles.messages} ref={listRef}>
+      <div className={styles.messages} ref={listRef} onClick={() => composerRef.current?.close()}>
         {messages.map((m) => {
           const isMine = m.senderId === myId;
           if (m.messageType === 'appointment') {
@@ -300,6 +335,25 @@ export default function DmDetail() {
               </div>
             );
           }
+          if (m.messageType === 'sticker') {
+            const st = findSticker(m.meta?.stickerId);
+            return (
+              <div
+                key={m.id}
+                className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}
+              >
+                {st ? (
+                  <img src={st.uri} alt="" className={styles.stickerImg} />
+                ) : (
+                  <div className={styles.text}>[sticker]</div>
+                )}
+                <div className={styles.meta}>
+                  {formatRelativeTime(m.createdAt)}
+                  {isMine && m.readAt && <span className={styles.read}> ✓</span>}
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
               {m.content && <div className={styles.text}>{m.content}</div>}
@@ -323,36 +377,57 @@ export default function DmDetail() {
         })}
       </div>
 
-      <div className={styles.inputBar}>
-        <button className={styles.apptBtn} onClick={() => setApptOpen(true)} aria-label={t('dm.makeAppointment', { defaultValue: '약속잡기' })}>
-          <CalendarPlus size={22} strokeWidth={2} />
-        </button>
-        <input
-          className={styles.input}
-          placeholder={t('dm.inputPlaceholder')}
-          value={input}
-          onChange={(e) => {
-            if (composingRef.current) return; // 조합 중에는 갱신 보류(IME가 직접 표시)
-            setInput(e.target.value);
-          }}
-          onCompositionStart={() => {
-            composingRef.current = true;
-          }}
-          onCompositionEnd={(e) => {
-            composingRef.current = false;
-            setInput((e.target as HTMLInputElement).value); // 조합 확정값 1회 반영
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSend()}
-        />
-        <button
-          className={`${styles.sendBtn} ${input.trim() ? styles.sendBtnActive : ''}`}
-          onClick={handleSend}
-          disabled={!input.trim() || sending}
-          aria-label={t('dm.sendBtn')}
-        >
-          ↗
-        </button>
-      </div>
+      <MessageComposer
+        ref={composerRef}
+        value={input}
+        onChange={setInput}
+        onSend={handleSend}
+        placeholder={t('dm.inputPlaceholder')}
+        sending={sending}
+        sendAriaLabel={t('dm.sendBtn')}
+        menuAriaLabel={t('dm.more', { defaultValue: '더보기' })}
+        menuItems={[
+          {
+            key: 'album',
+            icon: <ImagePlus size={26} strokeWidth={1.8} />,
+            label: t('dm.album', { defaultValue: '앨범' }),
+            onPress: () => fileInputRef.current?.click(),
+          },
+          {
+            key: 'appt',
+            icon: <CalendarPlus size={26} strokeWidth={1.8} />,
+            label: t('dm.makeAppointment', { defaultValue: '약속잡기' }),
+            onPress: () => setApptOpen(true),
+          },
+          {
+            key: 'emoticon',
+            icon: <Smile size={26} strokeWidth={1.8} />,
+            label: t('dm.emoticon', { defaultValue: '이모티콘' }),
+            renderPanel: () => (
+              <div className={styles.stickerGrid}>
+                {MOCK_STICKERS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={styles.stickerBtn}
+                    onClick={() => handleSendSticker(s.id)}
+                  >
+                    <img src={s.uri} alt="" className={styles.stickerThumb} />
+                  </button>
+                ))}
+              </div>
+            ),
+          },
+        ]}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: 'none' }}
+        onChange={handleImageSelect}
+      />
 
       {/* 약속잡기 시트 */}
       <BottomSheet open={apptOpen} onClose={() => setApptOpen(false)}>

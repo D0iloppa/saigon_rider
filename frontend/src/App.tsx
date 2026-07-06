@@ -13,6 +13,7 @@ import { loadSession, clearSession } from '@/lib/session';
 import { apiSessionVerify } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
 import { setSessionExpiredHandler, SessionExpiredError } from '@/api/client';
+import { native } from '@/lib/native';
 import { fetchAppConfig } from '@/api/appVersion';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 
@@ -141,6 +142,13 @@ export default function App() {
     }
     window.addEventListener('unhandledrejection', onUnhandled);
     return () => window.removeEventListener('unhandledrejection', onUnhandled);
+  }, []);
+
+  // 네이티브 컨테이너 배경을 현재 테마 배경(--bg)에 맞춘다 — iOS 에서 키보드로 웹뷰가
+  // 리사이즈될 때 노출되는 영역이 검게 보이는 것 방지 (초기 1회 보장; 테마 토글은 useThemeStore).
+  useEffect(() => {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    if (bg) native.setBackgroundColor(bg);
   }, []);
 
   // 인증된 경우 DM 미읽음 폴링 시작

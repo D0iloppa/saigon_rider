@@ -5,7 +5,9 @@
   width: 100%;
   height: 100%;
   background: rgba(11,13,20,.55);
-  backdrop-filter: blur(4px);
+  /* backdrop-filter 제거(260701): 이 요소는 키보드 표시 중 JS로 top/left/width/height를
+     매 프레임 갱신하는데, backdrop-filter는 크기가 자주 바뀌는 레이어에서 배경 샘플링에
+     실패해 통째로 검게 렌더링되는 WebKit/Chromium 컴포지팅 결함이 있음(간헐적 검은 화면). */
   z-index: 50;
   display: flex;
   align-items: flex-end;

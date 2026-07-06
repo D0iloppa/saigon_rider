@@ -215,6 +215,8 @@ export interface DmAppointmentMeta {
   place?: string;
   placeLat?: number;
   placeLng?: number;
+  /** message_type === 'sticker' 일 때 스티커 식별자. */
+  stickerId?: string;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';

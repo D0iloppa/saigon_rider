@@ -631,15 +631,25 @@ async def oauth_zalo_callback(
 _DEV_MODE = os.getenv("APP_ENV", "development").lower() not in ("production", "prod")
 
 
+class DevLoginRequest(BaseModel):
+    phone: str | None = None
+
+
 @router.post(
     "/dev-login", response_model=OAuthLoginResponse, include_in_schema=_DEV_MODE, summary="[DEV] 테스트 로그인"
 )
-async def dev_login(db: AsyncSession = Depends(get_db)):
-    """개발 환경 전용 — OAuth 없이 테스트 계정을 생성하거나 가져와 세션을 발급한다."""
+async def dev_login(body: DevLoginRequest | None = None, db: AsyncSession = Depends(get_db)):
+    """개발 환경 전용 — OAuth 없이 테스트 계정을 생성하거나 가져와 세션을 발급한다.
+
+    phone 을 주면 번호별 테스트 계정을 생성/재사용한다 (동시 QM 세션이 서로의 토큰을 덮어쓰지 않도록).
+    phone 이 없으면 기존 공유 계정(`__dev_test__`)을 사용한다.
+    """
     if not _DEV_MODE:
         raise HTTPException(status_code=403, detail="Not available in production")
 
-    dev_phone = "__dev_test__"
+    req_phone = body.phone.strip() if body and body.phone and body.phone.strip() else None
+    # User.phone 은 String(20) — 프리픽스 포함 20자로 잘라 컬럼 오버플로 방지
+    dev_phone = f"__dev_{req_phone}"[:20] if req_phone else "__dev_test__"
     result = await db.execute(select(User).where(User.phone == dev_phone, User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
 
@@ -651,7 +661,7 @@ async def dev_login(db: AsyncSession = Depends(get_db)):
         identity_row = UserOAuthIdentity(
             user_id=user.id,
             provider="dev",
-            provider_user_id="dev_test_user",
+            provider_user_id=dev_phone if req_phone else "dev_test_user",
             email="dev@test.local",
             raw_profile={"dev": True},
         )

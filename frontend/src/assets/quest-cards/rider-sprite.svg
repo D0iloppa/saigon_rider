@@ -684,7 +684,7 @@
   <!-- Stamp 4 (locked) -->
   <circle cx="285" cy="62" r="15" fill="#201800" stroke="#4A3800" stroke-width="2.5"/>
   <rect x="279" y="57" width="12" height="10" rx="3" fill="#2A2200" stroke="#4A3800" stroke-width="2"/>
-  <path d="M281,57 Q281,50 291,50 Q291,57" fill="none" stroke="#4A3800" stroke-width="2" stroke-linecap="round"/>
+  <path d="M281,57 Q281,50 286,50 Q291,50 291,57" fill="none" stroke="#4A3800" stroke-width="2" stroke-linecap="round"/>
   <!-- Map border decoration -->
   <rect x="18" y="18" width="284" height="164" rx="10" fill="none" stroke="#3A2C00" stroke-width="2.5"/>
   <!-- Compass rose (small, bottom right) -->

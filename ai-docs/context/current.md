@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-07-06 (①**점검 260703 후속 워킹트리 전부 커밋** — 보안 `46d13ee` / 지도·마켓 `6e642be` / DM·키보드 `8c69a7c`, 정적검증 tsc·eslint error·ruff 0 + API 스모크 통과. 브라우저 시각검증은 미실시 — 웹 QM 스윕에서 커버 예정 ②**운영 방침 전환(대표 피드백)**: 오류 단위 → 작업 단위, 웹앱에서 기능 완성·UI 에러 0 후 네이티브 포팅, 점검은 qm-implementer/reviewer 야간 루프 위임, 모델 라우팅은 AI가 판단 ③신규 작업 패키지 [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md) — DM 가격제안(당근 참조, 약속잡기 패턴 미러). **⚠️ codebase-memory 재인덱싱 여전히 미완**(MCP 연결 끊김 — 다음 세션 `index_repository(moderate)` + ADR 확인 필수). 직전 2026-07-04 ①전체 점검 260703 ②지도 v5 리뷰·수정 13건 ③P0 보안 S-1~S-7, SoT [`260704_p0_security_fixes_task.md`](../task/active/260704_p0_security_fixes_task.md))
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-07-06 (①**QM 웹 스윕 1차 완료** — 13유닛 브라우저+코드 점검, 결함 25건 중 P1/P2 18건 수정·리뷰 PASS·커밋(`4435edd`~`e413da5`), TS-1~15/F-* 전건 판정, **사용자 결정 8건 대기**. 보고서 [`TEST/qm_sweep_260706.md`](../TEST/qm_sweep_260706.md). QM 하네스 `tools/qm/qm-shot.mjs` 신설 ②**DM 가격제안 코드 DONE**(SoT [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md), 운영 배포 시 init/110) + DM 조회 3종 무인증 교정 ③점검 260703 후속 워킹트리 전부 커밋(보안 `46d13ee`/지도·마켓 `6e642be`/DM·키보드 `8c69a7c`) ④운영 방침 전환(대표): 작업 단위·웹앱 우선·QM 위임·모델 라우팅 AI 판단. **⚠️ codebase-memory 재인덱싱 여전히 미완**(MCP 끊김 — 다음 세션 `index_repository(moderate)` + ADR 확인 필수. 이번 세션 변경 대량: dm/market/auth/settings/shop/gacha/info 등). 직전 2026-07-04 전체 점검·P0 보안 S-1~S-7)
 
 ---
 
@@ -19,33 +19,17 @@
 
 ## 미해결 결함 ([issues.md](../TEST/issues.md))
 
+> QM 스윕 260706 판정: F-AUTH-LOGIN·F-02-7 은 **폐기**(OtpInput/PhoneInput 삭제, OAuth 전환으로 전제 소멸).
+
 | 기능 ID | 화면 | 수정 방향 |
 |---|---|---|
-| F-AUTH-LOGIN | AUTH-002 OtpInput | `handleVerify` → `apiLogin(phone, passcode)` 호출 |
-| F-02-7 | AUTH-002 재전송 | 재전송 버튼 onClick에 `apiRegister(phone)` 호출 추가 |
-| F-03-2 | PROFILE-SETUP 닉네임 중복 | debounce + `check-nickname` API 연동 |
+| F-03-2 | PROFILE-SETUP 닉네임 중복 | debounce + `check-nickname` API 연동 (QM 260706 재확정 — 서버 UNIQUE 있어 UX만 부족) |
 
-## 트러블슈팅 (QA 점검) — 2026-05-30
+## 트러블슈팅 (QA 점검) — 2026-05-30 → ✅ QM 스윕 260706 전건 판정 완료
 
-> 메인 티켓: "트러블슈팅 (QA 점검)" / Plane 서브이슈로 개별 추적
-
-| # | 그룹 | 항목 | 상태 |
-|---|---|---|---|
-| TS-1 | 에러/502 | 페이지 이동시 502에러 발생 | 미확인 |
-| TS-2 | 에러/502 | 시즌패스 404 에러발생 | 미확인 |
-| TS-3 | 아이템/상점 | 아이템 작업 후 구매시 에러발생 | 미확인 |
-| TS-4 | 아이템/상점 | 아이템 구매시 골드 부족 → 구매불가 알림 안뜸 | 미확인 |
-| TS-5 | 아이템/상점 | 가차 내역이 없음 | 미확인 |
-| TS-6 | 피드/SNS | 댓글 열었을때 채팅창 짤림 | 미확인 |
-| TS-7 | 피드/SNS | 댓글 누르고 닫을수 없음 | 미확인 |
-| TS-8 | 피드/SNS | 공유하기 아이콘 제거 | 미확인 |
-| TS-9 | 설정/계정 | 알림설정 연동 | 미확인 |
-| TS-10 | 설정/계정 | 위치정보 표기만 됨 | ✅ SGR-199 완료 (권한 조회/재요청/앱설정 직행) |
-| TS-11 | 설정/계정 | 계정관리 아이디 확인 및 다운로드 기능 | 미확인 |
-| TS-12 | 설정/계정 | 개인정보 미구현 | 미확인 |
-| TS-13 | 설정/계정 | 이용약관 미구현 | 미확인 |
-| TS-14 | 설정/계정 | 고객센터 확인 | 미확인 |
-| TS-15 | 설정/계정 | 계정탈퇴 기능 확인 필요 | 미확인 |
+> 판정 근거·상세는 [`TEST/qm_sweep_260706.md`](../TEST/qm_sweep_260706.md) §4. 요약:
+> - **해소/정상 확인**: TS-1(재현 안 됨 — 유사 증상 원인이던 dev-login 공유계정 레이스는 수정), TS-2, TS-3, TS-4, TS-6, TS-7, TS-8, TS-10, TS-11, TS-12, TS-13, TS-14, TS-15
+> - **잔여(결정 필요)**: TS-5 가챠 내역 화면 부재(API는 있음 — 노출 위치 결정), TS-9 알림설정 미연동(9↔5 필드 매핑 결정)
 
 ## 활성 태스크 (🔧)
 

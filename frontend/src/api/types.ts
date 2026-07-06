@@ -183,6 +183,7 @@ export interface FollowUser {
   nickname: string | null;
   avatarUrl: string | null;
   level: number;
+  isFollowing: boolean; // 뷰어(세션 유저) 기준 팔로우 여부
 }
 
 export interface UserProfile {

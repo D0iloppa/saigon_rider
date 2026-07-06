@@ -880,6 +880,7 @@ class FollowUserOut(BaseModel):
     nickname: str | None
     avatar_url: str | None
     level: int
+    is_following: bool = False  # 요청 세션 뷰어(X-User-Id) 기준 팔로우 여부
 
     model_config = {"from_attributes": True}
 

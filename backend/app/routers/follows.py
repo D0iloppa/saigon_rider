@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -14,13 +14,39 @@ from ..utils import resolve_avatar_url
 router = APIRouter(tags=["팔로우 (Follow)"])
 
 
-def _user_to_follow_out(user: User) -> FollowUserOut:
+def _user_to_follow_out(user: User, followed_ids: set[uuid.UUID] | None = None) -> FollowUserOut:
     return FollowUserOut(
         id=user.id,
         nickname=user.nickname,
         avatar_url=resolve_avatar_url(user),
         level=user.level,
+        is_following=user.id in followed_ids if followed_ids is not None else False,
     )
+
+
+def _parse_viewer_id(x_user_id: str | None) -> uuid.UUID | None:
+    """X-User-Id 헤더에서 뷰어 UUID 추출 (없거나 잘못된 형식이면 None)."""
+    if not x_user_id:
+        return None
+    try:
+        return uuid.UUID(x_user_id)
+    except ValueError:
+        return None
+
+
+async def _viewer_followed_ids(db: AsyncSession, viewer_id: uuid.UUID | None, users: list[User]) -> set[uuid.UUID]:
+    """목록 내 유저들 중 뷰어가 팔로우 중인 id 집합."""
+    if viewer_id is None or not users:
+        return set()
+    rows = (
+        await db.execute(
+            select(UserFollow.following_id).where(
+                UserFollow.follower_id == viewer_id,
+                UserFollow.following_id.in_([u.id for u in users]),
+            )
+        )
+    ).scalars()
+    return set(rows)
 
 
 @router.post("/follows/{target_user_id}", status_code=201, summary="팔로우")
@@ -67,6 +93,7 @@ async def get_followers(
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
+    x_user_id: str | None = Header(None),
 ):
     offset = (page - 1) * size
     total = (
@@ -88,7 +115,8 @@ async def get_followers(
         .all()
     )
 
-    return Page(items=[_user_to_follow_out(u) for u in rows], total=total, page=page, size=size)
+    followed_ids = await _viewer_followed_ids(db, _parse_viewer_id(x_user_id), rows)
+    return Page(items=[_user_to_follow_out(u, followed_ids) for u in rows], total=total, page=page, size=size)
 
 
 @router.get("/users/{user_id}/following", response_model=Page[FollowUserOut], summary="팔로잉 목록")
@@ -97,6 +125,7 @@ async def get_following(
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
+    x_user_id: str | None = Header(None),
 ):
     offset = (page - 1) * size
     total = (
@@ -118,7 +147,8 @@ async def get_following(
         .all()
     )
 
-    return Page(items=[_user_to_follow_out(u) for u in rows], total=total, page=page, size=size)
+    followed_ids = await _viewer_followed_ids(db, _parse_viewer_id(x_user_id), rows)
+    return Page(items=[_user_to_follow_out(u, followed_ids) for u in rows], total=total, page=page, size=size)
 
 
 @router.get("/users/{user_id}/follow-counts", response_model=FollowCountsOut, summary="팔로우 카운트")

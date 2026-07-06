@@ -20,7 +20,12 @@ export default function FollowerList() {
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userId) fetchFollowers(userId).then((r) => setUsers(r.items));
+    if (userId) {
+      fetchFollowers(userId).then((r) => {
+        setUsers(r.items);
+        setFollowedIds(new Set(r.items.filter((u) => u.isFollowing).map((u) => u.id)));
+      });
+    }
   }, [userId]);
 
   const handleFollow = async (u: FollowUser) => {
@@ -28,7 +33,7 @@ export default function FollowerList() {
       await followUser(u.id);
       setFollowedIds((prev) => new Set([...prev, u.id]));
     } catch {
-      // already following or error
+      // 실패 토스트는 api client(realFetch)에서 표시됨
     }
   };
 
@@ -36,12 +41,16 @@ export default function FollowerList() {
     useDialogStore.getState().open({
       message: { mode: 'code', value: 'follow.unfollowConfirm' },
       onConfirm: async () => {
-        await unfollowUser(u.id);
-        setFollowedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(u.id);
-          return next;
-        });
+        try {
+          await unfollowUser(u.id);
+          setFollowedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(u.id);
+            return next;
+          });
+        } catch {
+          // 실패 토스트는 api client(realFetch)에서 표시됨
+        }
       },
     });
   };

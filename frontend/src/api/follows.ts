@@ -7,6 +7,7 @@ function transformFollowUser(raw: any): FollowUser {
     nickname: raw.nickname ?? null,
     avatarUrl: raw.avatar_url ?? null,
     level: raw.level ?? 1,
+    isFollowing: raw.is_following ?? false,
   };
 }
 

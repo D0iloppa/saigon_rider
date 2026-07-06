@@ -11,6 +11,7 @@
 
 - [시스템 아키텍처 (BFF + Engine)](context/architecture.md) — `saigon_bff` + `saigon_engine` 분리, Nginx 라우팅, HTTP 클라이언트 연계
 - [프론트엔드 구조 및 패턴](context/frontend.md) — 네이티브 브릿지 API, iOS/Android 플랫폼 분기 CSS 아키텍처 (`--status-bar-height`, `data-platform`), StatusBar 여백 규칙, 공통 UI 컴포넌트 목록
+- [프론트엔드 페이지-메뉴-컴포넌트 맵](context/frontend-page-map.md) — 한글 메뉴명(탭바/게임허브) → 라우트 → 페이지/컴포넌트 파일 매핑, codebase-memory MCP 심화 조회 연결점
 - [ERD & DB 스키마](schema/erd.md) — 테이블 19종, Mermaid ERD, PostGIS, 마이그레이션 목록
 - [인증 구조](schema/auth.md) — FastAPI 인증, 쿠키 세션, passcode 발급
 
@@ -24,6 +25,7 @@
 
 ## ✅ 점검 / QA
 
+- [전체 시스템 점검 보고서 260703](TEST/inspection_260703.md) — 아키텍처·코드·서비스 전수 감사 (P0~P2 조치목록) + 핸드오프 [`context/handoff_260703.md`](context/handoff_260703.md)
 - [진척 트래커](TEST/progress.md) — 그룹별 진척도 (휘발성)
 - [이슈 로그](TEST/issues.md) — 발견된 결함 + 미구현(⛔) 잔여
 - [체크리스트 인덱스](TEST/checklist/README.md) — §0~§6 섹션 진입점

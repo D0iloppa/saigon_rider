@@ -3,7 +3,7 @@
 > 진행 상태의 SoT는 **Plane CE** (https://plane.doil.me)이다. Plane MCP 또는 `/admin/dev`로 확인.
 > Context KV는 DB(`__DEV_context`)에 유지. Features/Todos는 Plane Issues 기반 (폴백: DB).
 > 이 파일은 Plane에 담기 어려운 **맥락적 판단·결정사항·외부 의존**만 기록한다.
-> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-06-08 (info 탭 정비리뷰·주유대기 RP 전환 + 리뷰 조회 화면 + `_earn_gp_safe` 적립버그 수정 — 코드 DONE·커밋 94d71ec, 시각검증 대기. 직전 SGR-285 회원가입 IME)
+> 완료 이력은 [`history.md`](history.md). **마지막 갱신**: 2026-07-06 (①**점검 260703 후속 워킹트리 전부 커밋** — 보안 `46d13ee` / 지도·마켓 `6e642be` / DM·키보드 `8c69a7c`, 정적검증 tsc·eslint error·ruff 0 + API 스모크 통과. 브라우저 시각검증은 미실시 — 웹 QM 스윕에서 커버 예정 ②**운영 방침 전환(대표 피드백)**: 오류 단위 → 작업 단위, 웹앱에서 기능 완성·UI 에러 0 후 네이티브 포팅, 점검은 qm-implementer/reviewer 야간 루프 위임, 모델 라우팅은 AI가 판단 ③신규 작업 패키지 [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md) — DM 가격제안(당근 참조, 약속잡기 패턴 미러). **⚠️ codebase-memory 재인덱싱 여전히 미완**(MCP 연결 끊김 — 다음 세션 `index_repository(moderate)` + ADR 확인 필수). 직전 2026-07-04 ①전체 점검 260703 ②지도 v5 리뷰·수정 13건 ③P0 보안 S-1~S-7, SoT [`260704_p0_security_fixes_task.md`](../task/active/260704_p0_security_fixes_task.md))
 
 ---
 
@@ -49,6 +49,7 @@
 
 ## 활성 태스크 (🔧)
 
+- **DM 가격제안하기 (2026-07-06)** — 계획 수립 완료, 구현 미착수. SoT [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md). 약속잡기(SGR-287) 패턴 미러: `marketplace_price_offers` 테이블 + `message_type='price_offer'` + 채팅 카드(수락/거절). 진입점 = MarketDetail 버튼 + MessageComposer `[+]` 메뉴. **금주(~07/10) 대표 리뷰 대상 — 최우선.**
 - **B-2 OAuth 로그인 전환 (SGR-B2, 2026-06-19)** — P1~P5 코드 DONE, dev 검증 완료. SoT [`ai-docs/task/active/260619_oauth_login_task.md`](../task/active/260619_oauth_login_task.md).
   - P1: DB 마이그 100(users.phone nullable + user_oauth_identities) + 101(oauth app_config seed) — dev 적용 완료.
   - P2: BFF `POST /auth/oauth/login`(Google tokeninfo + Facebook debug_token) + `POST /auth/session/verify` + `POST /auth/dev-login`(개발 전용). `backend/app/services/oauth.py` 신규.

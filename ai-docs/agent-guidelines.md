@@ -226,6 +226,9 @@ Plane CE 조회·갱신은 **`doil-services` MCP 서버**의 도구를 사용한
 | 프로젝트 전체 구조·레이어 개요 필요 | `get_architecture` |
 | 코드 스니펫 확인 | `get_code_snippet` |
 | 인덱스 최신 여부 확인 | `index_status`, `detect_changes` |
+| 압축 아키텍처 요약(프론트 메뉴 구조 등) 조회/갱신 | `manage_adr` — 프로젝트당 문서 1개(싱글턴). `mode: "get"`은 항상 전체 내용을 반환하고, `mode: "sections"`는 `##` 헤더 목록만 반환(부분 조회 아님). 갱신은 `mode: "update"` + 전체 `content`로 덮어쓴다. 상세는 [`frontend-page-map.md`](context/frontend-page-map.md) 상단 안내 참조 |
+
+> ⚠️ **`index_repository` 재인덱싱이 `manage_adr` 내용을 초기화시킨다** (260701 확인 — 원인 불명, 재발 가능). 재인덱싱 직후 `manage_adr(mode='get')`으로 비어있는지 확인하고, 비어있으면 즉시 재작성한다. 작업 마무리 순서: ①ADR 내용 백업(현재 conversation에 남아있으면 그대로 재사용) → ②`index_repository` → ③`manage_adr(mode='get')`으로 확인 → ④비었으면 `mode='update'`로 복구.
 
 ### 재인덱싱 규칙
 
@@ -235,6 +238,13 @@ Plane CE 조회·갱신은 **`doil-services` MCP 서버**의 도구를 사용한
 - 파일 몇 개 수준의 소규모 변경 → `mode: fast` 또는 `moderate`
 - 라우터/모델 구조 변경, 대규모 리팩토링 → `mode: full`
 - 재인덱싱을 생략하면 다음 세션의 그래프 조회가 과거 코드 기준으로 응답하므로, §1-C 완료 체크리스트(커밋/작업 마무리)에 포함시켜 습관화한다.
+
+### 서브에이전트 위임 시 (Agent/Task 도구)
+
+이 지침은 메인 세션에는 자동 적용되지만, `Agent` 도구로 띄우는 서브에이전트(특히 `Explore` 타입)에는 **자동으로 전파되지 않는다** — `Explore`는 기본적으로 grep/glob/Read 기반으로 동작하도록 설계돼 있어, 위임 프롬프트에 명시하지 않으면 MCP 그래프 조회를 아예 시도하지 않는다.
+
+- 구조/의존관계/호출관계/데이터 흐름 파악을 서브에이전트에 위임할 때는, 프롬프트에 **"먼저 `search_graph`/`trace_path`/`get_architecture`(project: `mnt-c-DEV-saigon_rider`)로 조회하고, 부족한 부분만 grep/Read로 보완하라"**를 명시적으로 포함시킨다.
+- 위임 프롬프트에 이 지시를 빠뜨리지 않았는지, 결과 보고 후 실제로 MCP 도구를 호출했는지(트랜스크립트에서 `mcp__codebase-memory__*` 실제 tool_use 여부) 확인하는 습관을 들인다 — 도구 목록에 이름이 언급된 것과 실제 호출된 것은 다르다.
 
 ### 폴백 — MCP 가 로드되지 않은 환경
 

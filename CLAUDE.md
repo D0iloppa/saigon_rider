@@ -84,6 +84,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **상세 설계 문서는** `ai-docs/context/architecture.md`, `ai-docs/context/frontend.md`, `ai-docs/engine/sre-design-spec.md` 참조.
 
+**프론트 화면(한글 메뉴명) 관련 질문**("○○ 메뉴에 어떤 기능개선/부재가 있어?" 등)을 받으면 순서대로: (1) `mcp__codebase-memory__manage_adr`(mode: `get`, project: `mnt-c-DEV-saigon_rider`)로 압축 요약 ADR을 먼저 조회 — 메뉴 구조·SoT 위치·알려진 갭이 여기 있다. (2) 서브라우트/컴포넌트 세부 나열이 더 필요할 때만 [`ai-docs/context/frontend-page-map.md`](ai-docs/context/frontend-page-map.md)를 읽는다. (3) 실제 호출관계는 `search_graph`/`trace_path`로 조회한다. ADR과 md 파일은 항상 함께 갱신한다.
+
 ## 빠른 참조 포인터
 
 | 알고 싶은 것 | 어디에 |
@@ -99,6 +101,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 코드베이스 그래프 (codebase-memory MCP) 사용/재인덱싱/폴백 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §9 |
 | 시스템 아키텍처 (BFF/Engine 상세) | [`ai-docs/context/architecture.md`](ai-docs/context/architecture.md) |
 | 프론트엔드 패턴 | [`ai-docs/context/frontend.md`](ai-docs/context/frontend.md) |
+| 프론트 한글 메뉴명 → 페이지/컴포넌트 매핑 (예: "동네지도 기능개선?") | `manage_adr(get)` 압축요약 먼저 → 상세는 [`ai-docs/context/frontend-page-map.md`](ai-docs/context/frontend-page-map.md) |
 | 서비스 규칙 (GPS·위치 등 도메인 불변식) | [`ai-docs/context/service-rules.md`](ai-docs/context/service-rules.md) |
 
 ## 보안 최소 룰 (전문은 agent-guidelines §4)

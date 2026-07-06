@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarPlus, MapPin, Smile, ImagePlus } from 'lucide-react';
+import { CalendarPlus, HandCoins, MapPin, Smile, ImagePlus } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
 import { api } from '@/api/client';
@@ -19,8 +19,13 @@ import {
   acceptAppointment,
   completeAppointment,
   cancelAppointment,
+  proposePriceOffer,
+  acceptPriceOffer,
+  declinePriceOffer,
+  cancelPriceOffer,
 } from '@/api/dm';
-import type { Appointment } from '@/api/types';
+import type { Appointment, PriceOffer } from '@/api/types';
+import PriceOfferSheet from '@/components/market/PriceOfferSheet';
 import { fetchMyReview, type ReviewBrief } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import { translateText } from '@/api/translate';
@@ -48,6 +53,7 @@ export default function DmDetail() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [apptOpen, setApptOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
   const [apptWhen, setApptWhen] = useState('');
   const [apptPlace, setApptPlace] = useState<PickedLocation | null>(null);
   const [apptLocOpen, setApptLocOpen] = useState(false);
@@ -161,6 +167,44 @@ export default function DmDetail() {
       setApptPlace(null);
     } catch {
       toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendPriceOffer = async (amount: number) => {
+    if (!conversationId || sending) return;
+    setSending(true);
+    try {
+      const msg = await proposePriceOffer(conversationId, amount);
+      setMessages((prev) => [...prev, msg]);
+      setOfferOpen(false);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // 제안 상태 변경 후 해당 메시지의 priceOffer 갱신 (약속과 동일 패턴)
+  const patchPriceOffer = (offer: PriceOffer) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.priceOffer?.id === offer.id ? { ...msg, priceOffer: offer } : msg)),
+    );
+  };
+
+  const handlePriceOfferAction = async (
+    action: (id: string) => Promise<PriceOffer>,
+    offerId: string,
+  ) => {
+    if (sending) return;
+    setSending(true);
+    try {
+      patchPriceOffer(await action(offerId));
+    } catch {
+      // 카드가 stale(이미 변경된 제안) → 메시지 재동기화로 카드 상태 교정
+      if (conversationId) fetchMessages(conversationId).then((res) => setMessages(res.items)).catch(() => {});
+      toast.error(t('dm.priceOfferOutdated', { defaultValue: '제안 상태가 변경되어 새로고침했어요' }));
     } finally {
       setSending(false);
     }
@@ -335,6 +379,58 @@ export default function DmDetail() {
               </div>
             );
           }
+          // 임베드가 없으면(위조/삭제된 제안) 일반 버블로 폴백 — content에 요약 텍스트가 있다
+          if (m.messageType === 'price_offer' && m.priceOffer) {
+            const offer = m.priceOffer;
+            const status = offer.status;
+            const iAmProposer = offer.proposerId === myId;
+            const statusLabel: Record<string, string> = {
+              PROPOSED: t('dm.offerProposed', { defaultValue: '제안됨' }),
+              ACCEPTED: t('dm.offerAccepted', { defaultValue: '수락됨' }),
+              DECLINED: t('dm.offerDeclined', { defaultValue: '거절됨' }),
+              CANCELLED: t('dm.offerCancelled', { defaultValue: '취소됨' }),
+            };
+            return (
+              // 약속 카드(.apptCard) 공용 골격 재사용 — 가격제안 전용은 금액 표시뿐
+              <div key={m.id} className={`${styles.apptCard} ${styles[`appt_${status}`]}`}>
+                <div className={styles.apptHeader}>
+                  <span className={styles.apptTitle}>
+                    <HandCoins size={15} /> {t('dm.priceOffer', { defaultValue: '가격제안' })}
+                  </span>
+                  <span className={styles.apptStatusPill} data-status={status}>{statusLabel[status]}</span>
+                </div>
+                <div className={styles.offerAmount}>{formatPriceVnd(offer.amount, t)}</div>
+                {listing && offer.amount !== listing.priceVnd && (
+                  <div className={styles.offerCompare}>
+                    {t('dm.offerListedPrice', { defaultValue: '판매가' })} {formatPriceVnd(listing.priceVnd, t)}
+                  </div>
+                )}
+                {status === 'PROPOSED' && (
+                  <div className={styles.apptActions}>
+                    {!iAmProposer && (
+                      <>
+                        <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                          onClick={() => handlePriceOfferAction(acceptPriceOffer, offer.id)}>
+                          {t('dm.offerAccept', { defaultValue: '수락' })}
+                        </button>
+                        <button className={styles.apptBtnText} type="button" disabled={sending}
+                          onClick={() => handlePriceOfferAction(declinePriceOffer, offer.id)}>
+                          {t('dm.offerDecline', { defaultValue: '거절' })}
+                        </button>
+                      </>
+                    )}
+                    {iAmProposer && (
+                      <button className={styles.apptBtnText} type="button" disabled={sending}
+                        onClick={() => handlePriceOfferAction(cancelPriceOffer, offer.id)}>
+                        {t('dm.offerCancel', { defaultValue: '제안 취소' })}
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
+              </div>
+            );
+          }
           if (m.messageType === 'sticker') {
             const st = findSticker(m.meta?.stickerId);
             return (
@@ -399,6 +495,15 @@ export default function DmDetail() {
             label: t('dm.makeAppointment', { defaultValue: '약속잡기' }),
             onPress: () => setApptOpen(true),
           },
+          // 가격제안 — 매물 대화 + 가격제안 허용 + 판매 종결 전 (백엔드도 SOLD 409로 차단)
+          ...(listing?.isNegotiable && listing.status !== 'SOLD'
+            ? [{
+                key: 'offer',
+                icon: <HandCoins size={26} strokeWidth={1.8} />,
+                label: t('dm.priceOffer', { defaultValue: '가격제안' }),
+                onPress: () => setOfferOpen(true),
+              }]
+            : []),
           {
             key: 'emoticon',
             icon: <Smile size={26} strokeWidth={1.8} />,
@@ -461,6 +566,19 @@ export default function DmDetail() {
         value={apptPlace ? { lat: apptPlace.lat, lng: apptPlace.lng } : null}
         onConfirm={setApptPlace}
       />
+
+      {/* 가격제안 시트 */}
+      {listing && (
+        <PriceOfferSheet
+          open={offerOpen}
+          onClose={() => setOfferOpen(false)}
+          listingTitle={listing.title}
+          listingThumbnailUrl={listing.thumbnailUrl}
+          listingPriceVnd={listing.priceVnd}
+          onSubmit={handleSendPriceOffer}
+          submitting={sending}
+        />
+      )}
 
       {/* 거래 후기 시트 */}
       <ReviewSheet

@@ -943,6 +943,21 @@ class AppointmentProposeRequest(BaseModel):
     place_lng: float | None = None
 
 
+class PriceOfferOut(BaseModel):
+    id: UUID
+    listing_id: UUID
+    conversation_id: UUID
+    proposer_id: UUID
+    seller_id: UUID | None = None
+    amount: int
+    status: str
+
+
+class PriceOfferProposeRequest(BaseModel):
+    conversation_id: UUID
+    amount: int
+
+
 class BlockedUserOut(BaseModel):
     user_id: UUID
     nickname: str | None = None
@@ -983,6 +998,7 @@ class DmMessageOut(BaseModel):
     message_type: str = "text"
     meta: dict | None = None
     appointment: AppointmentOut | None = None
+    price_offer: PriceOfferOut | None = None
 
 
 class DmMessageCreateRequest(BaseModel):

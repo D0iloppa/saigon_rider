@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import DmConversation, DmMessage, MarketplaceAppointment, MarketplaceListing, User
+from ..models import DmConversation, DmMessage, MarketplaceAppointment, MarketplaceListing, MarketplacePriceOffer, User
 from ..schemas import (
     DmConversationCreateRequest,
     DmConversationOut,
@@ -19,7 +19,7 @@ from ..schemas import (
     Page,
 )
 from ..utils import resolve_avatar_url
-from .market import _appt_out
+from .market import _appt_out, _offer_out
 from .market import _card as _market_card
 
 router = APIRouter(prefix="/dm", tags=["DM (Direct Message)"])
@@ -53,7 +53,11 @@ def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
 async def get_conversations(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    # 본인 대화 목록만 — 타인 user_id 로 대화·미리보기 열람 차단
+    if user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         (
             await db.execute(
@@ -118,10 +122,13 @@ async def get_conversation(
     conv_id: uuid.UUID,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if _session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
     other_id = _other_user_id(conv, user_id)
     other_user = await db.get(User, other_id)
     return DmConversationOut(
@@ -195,10 +202,13 @@ async def get_messages(
     size: int = 50,
     after: datetime | None = None,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if _session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
 
     base = select(DmMessage).where(DmMessage.conversation_id == conv_id)
     if after:
@@ -215,14 +225,25 @@ async def get_messages(
     offset = (page - 1) * size
     rows = (await db.execute(base.order_by(DmMessage.created_at.asc()).offset(offset).limit(size))).scalars().all()
 
-    # 약속 메시지의 appointment 임베드 (상태/장소를 매 폴링마다 최신으로) — 배치 조회
+    # 약속/가격제안 메시지의 임베드 (상태를 매 폴링마다 최신으로) — 배치 조회
     appt_ids = [
         uuid.UUID(m.meta["appointmentId"])
         for m in rows
         if m.message_type == "appointment" and m.meta and m.meta.get("appointmentId")
     ]
-    appts: dict[uuid.UUID, MarketplaceAppointment] = {}
+    offer_ids = [
+        uuid.UUID(m.meta["priceOfferId"])
+        for m in rows
+        if m.message_type == "price_offer" and m.meta and m.meta.get("priceOfferId")
+    ]
+
+    # 대화의 매물 판매자 — 카드 액션 권한(판매자 전용) 판별용. 임베드 대상이 있을 때 1회만 조회
     seller_id: uuid.UUID | None = None
+    if (appt_ids or offer_ids) and conv.context_type == "listing" and conv.context_id is not None:
+        listing = await db.get(MarketplaceListing, conv.context_id)
+        seller_id = listing.seller_id if listing else None
+
+    appts: dict[uuid.UUID, MarketplaceAppointment] = {}
     if appt_ids:
         appt_rows = (
             (await db.execute(select(MarketplaceAppointment).where(MarketplaceAppointment.id.in_(appt_ids))))
@@ -230,15 +251,26 @@ async def get_messages(
             .all()
         )
         appts = {a.id: a for a in appt_rows}
-        # 대화의 매물 판매자 — 거래완료 권한(판매자 전용) 판별용
-        if conv.context_type == "listing" and conv.context_id is not None:
-            listing = await db.get(MarketplaceListing, conv.context_id)
-            seller_id = listing.seller_id if listing else None
 
     def _appt_for(m: DmMessage):
         if m.message_type == "appointment" and m.meta and m.meta.get("appointmentId"):
             a = appts.get(uuid.UUID(m.meta["appointmentId"]))
             return _appt_out(a, seller_id) if a else None
+        return None
+
+    offers: dict[uuid.UUID, MarketplacePriceOffer] = {}
+    if offer_ids:
+        offer_rows = (
+            (await db.execute(select(MarketplacePriceOffer).where(MarketplacePriceOffer.id.in_(offer_ids))))
+            .scalars()
+            .all()
+        )
+        offers = {o.id: o for o in offer_rows}
+
+    def _offer_for(m: DmMessage):
+        if m.message_type == "price_offer" and m.meta and m.meta.get("priceOfferId"):
+            o = offers.get(uuid.UUID(m.meta["priceOfferId"]))
+            return _offer_out(o, seller_id) if o else None
         return None
 
     items = [
@@ -253,6 +285,7 @@ async def get_messages(
             message_type=m.message_type,
             meta=m.meta,
             appointment=_appt_for(m),
+            price_offer=_offer_for(m),
         )
         for m in rows
     ]
@@ -270,6 +303,10 @@ async def send_message(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # 도메인 엔티티가 뒤따르는 타입은 전용 엔드포인트로만 — meta id 위조로 검증 우회 차단
+    if body.message_type in ("appointment", "price_offer"):
+        raise HTTPException(status_code=400, detail="Use the dedicated endpoint for this message type")
 
     if body.content is None and body.image_content_id is None:
         raise HTTPException(status_code=400, detail="content or image_content_id is required")

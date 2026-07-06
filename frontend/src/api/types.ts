@@ -217,6 +217,8 @@ export interface DmAppointmentMeta {
   placeLng?: number;
   /** message_type === 'sticker' 일 때 스티커 식별자. */
   stickerId?: string;
+  /** message_type === 'price_offer' 일 때 가격제안 식별자. */
+  priceOfferId?: string;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
@@ -234,6 +236,18 @@ export interface Appointment {
   status: AppointmentStatus;
 }
 
+export type PriceOfferStatus = 'PROPOSED' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED';
+
+export interface PriceOffer {
+  id: string;
+  listingId: string;
+  conversationId: string;
+  proposerId: string;
+  sellerId: string | null;
+  amount: number;
+  status: PriceOfferStatus;
+}
+
 export interface DmMessage {
   id: string;
   conversationId: string;
@@ -245,4 +259,5 @@ export interface DmMessage {
   messageType: string;
   meta: DmAppointmentMeta | null;
   appointment: Appointment | null;
+  priceOffer: PriceOffer | null;
 }

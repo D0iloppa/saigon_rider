@@ -1,6 +1,18 @@
 import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
-import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage } from './types';
+import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, PriceOffer } from './types';
+
+function transformPriceOffer(raw: any): PriceOffer {
+  return {
+    id: raw.id,
+    listingId: raw.listing_id,
+    conversationId: raw.conversation_id,
+    proposerId: raw.proposer_id,
+    sellerId: raw.seller_id ?? null,
+    amount: raw.amount,
+    status: raw.status,
+  };
+}
 
 function transformAppointment(raw: any): Appointment {
   return {
@@ -44,6 +56,7 @@ function transformMessage(raw: any): DmMessage {
     messageType: raw.message_type ?? 'text',
     meta: raw.meta ?? null,
     appointment: raw.appointment ? transformAppointment(raw.appointment) : null,
+    priceOffer: raw.price_offer ? transformPriceOffer(raw.price_offer) : null,
   };
 }
 
@@ -131,6 +144,7 @@ export async function sendMessage(
       messageType: opts.messageType ?? 'text',
       meta: opts.meta ?? null,
       appointment: null,
+      priceOffer: null,
     }, 100);
   }
   const session = requireSession();
@@ -192,4 +206,26 @@ export async function completeAppointment(appointmentId: string): Promise<Appoin
 
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
   return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
+}
+
+// ── 가격제안 — 약속(SGR-287)과 동일하게 DM 메시지 + 도메인 엔티티 ────
+/** 가격제안. 채팅 타임라인용 price_offer 메시지를 반환한다. 기존 PROPOSED 제안은 서버가 supersede. */
+export async function proposePriceOffer(conversationId: string, amount: number): Promise<DmMessage> {
+  const raw = await api.realFetch<any>('/market/price-offers', {
+    method: 'POST',
+    body: JSON.stringify({ conversation_id: conversationId, amount }),
+  });
+  return transformMessage(raw);
+}
+
+export async function acceptPriceOffer(offerId: string): Promise<PriceOffer> {
+  return transformPriceOffer(await api.realFetch<any>(`/market/price-offers/${offerId}/accept`, { method: 'PATCH' }));
+}
+
+export async function declinePriceOffer(offerId: string): Promise<PriceOffer> {
+  return transformPriceOffer(await api.realFetch<any>(`/market/price-offers/${offerId}/decline`, { method: 'PATCH' }));
+}
+
+export async function cancelPriceOffer(offerId: string): Promise<PriceOffer> {
+  return transformPriceOffer(await api.realFetch<any>(`/market/price-offers/${offerId}/cancel`, { method: 'PATCH' }));
 }

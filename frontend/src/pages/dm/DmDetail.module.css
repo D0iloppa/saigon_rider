@@ -170,6 +170,7 @@
 .appt_ACCEPTED { border-left-color: #16a34a; }
 .appt_COMPLETED { border-left-color: var(--text-3); }
 .appt_CANCELLED { border-left-color: var(--text-3); opacity: .6; }
+.appt_DECLINED { border-left-color: var(--text-3); opacity: .6; }
 
 .apptHeader {
   display: flex;
@@ -195,6 +196,20 @@
 .apptStatusPill[data-status="ACCEPTED"] { background: #e7f6ec; color: #16a34a; }
 .apptStatusPill[data-status="COMPLETED"] { background: var(--line); color: var(--text-2); }
 .apptStatusPill[data-status="CANCELLED"] { background: var(--line); color: var(--text-3); }
+.apptStatusPill[data-status="DECLINED"] { background: #fdecec; color: #dc2626; }
+
+/* 가격제안 카드 — .apptCard 골격 공용, 금액 표시만 전용 */
+.offerAmount {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+.offerCompare {
+  margin-top: -8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
 
 /* 라벨 행 (날짜/시간/장소) */
 .apptInfo {

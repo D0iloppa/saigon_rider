@@ -21,6 +21,7 @@ from ..models import (
     MarketplaceListingImage,
     MarketplaceListingLike,
     MarketplaceListingReport,
+    MarketplacePriceOffer,
     MarketplaceReview,
     User,
     UserBlock,
@@ -50,6 +51,8 @@ from ..schemas import (
     MarketplaceReviewCreateRequest,
     MarketplaceReviewResult,
     Page,
+    PriceOfferOut,
+    PriceOfferProposeRequest,
     ReviewBrief,
     SellerBrief,
     TradeHistoryItem,
@@ -1024,6 +1027,179 @@ async def cancel_appointment(
         listing.updated_at = now
     await db.commit()
     return _appt_out(appt, listing.seller_id)
+
+
+# ── 가격 제안 (Price Offers) ───────────────────────────────────────
+# DM 메시지 meta → 도메인 엔티티 승격. 거래 약속(Appointments)과 동일 원칙.
+# 생명주기: PROPOSED → ACCEPTED / DECLINED / CANCELLED (매물 상태는 변경 없음)
+
+
+def _offer_out(o: MarketplacePriceOffer, seller_id: uuid.UUID | None = None) -> PriceOfferOut:
+    return PriceOfferOut(
+        id=o.id,
+        listing_id=o.listing_id,
+        conversation_id=o.conversation_id,
+        proposer_id=o.proposer_id,
+        seller_id=seller_id,
+        amount=o.amount,
+        status=o.status,
+    )
+
+
+@router.post("/price-offers", response_model=DmMessageOut, status_code=201, summary="가격 제안")
+async def propose_price_offer(
+    body: PriceOfferProposeRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """가격을 제안한다. 같은 대화의 기존 PROPOSED 제안은 supersede(CANCELLED).
+    채팅 타임라인 유지를 위해 message_type='price_offer' DM 메시지도 함께 생성해 반환한다."""
+    conv = await db.get(DmConversation, body.conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
+    if conv.context_type != "listing" or conv.context_id is None:
+        raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
+
+    listing = await db.get(MarketplaceListing, conv.context_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if not listing.is_negotiable:
+        raise HTTPException(status_code=403, detail="Listing does not accept price offers")
+    # RESERVED 는 허용 (약속 수락 후에도 같은 대화에서 가격 협상 여지) — 판매 종결만 차단
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail="Listing already sold")
+    if session_uid == listing.seller_id:
+        raise HTTPException(status_code=403, detail="Seller cannot make an offer")
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+
+    now = datetime.now(UTC)
+    # 대화당 활성 제안 1건 — 직전 PROPOSED 들은 무효화
+    await db.execute(
+        update(MarketplacePriceOffer)
+        .where(
+            MarketplacePriceOffer.conversation_id == conv.id,
+            MarketplacePriceOffer.status == "PROPOSED",
+        )
+        .values(status="CANCELLED", updated_at=now)
+    )
+
+    offer = MarketplacePriceOffer(
+        listing_id=conv.context_id,
+        conversation_id=conv.id,
+        proposer_id=session_uid,
+        amount=body.amount,
+        status="PROPOSED",
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(offer)
+    await db.flush()
+
+    msg = DmMessage(
+        conversation_id=conv.id,
+        sender_id=session_uid,
+        content=f"가격 제안: {body.amount:,} VND",
+        message_type="price_offer",
+        meta={"priceOfferId": str(offer.id)},
+        created_at=now,
+    )
+    db.add(msg)
+    conv.last_message_at = now
+    await db.commit()
+
+    return DmMessageOut(
+        id=msg.id,
+        conversation_id=msg.conversation_id,
+        sender_id=msg.sender_id,
+        content=msg.content,
+        image_url=None,
+        read_at=msg.read_at,
+        created_at=msg.created_at,
+        message_type=msg.message_type,
+        meta=msg.meta,
+        price_offer=_offer_out(offer, listing.seller_id),
+    )
+
+
+async def _load_price_offer(
+    db: AsyncSession, offer_id: uuid.UUID, session_uid: uuid.UUID
+) -> tuple[MarketplacePriceOffer, DmConversation, MarketplaceListing]:
+    offer = await db.get(MarketplacePriceOffer, offer_id)
+    if offer is None:
+        raise HTTPException(status_code=404, detail="Price offer not found")
+    conv = await db.get(DmConversation, offer.conversation_id)
+    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
+    listing = await db.get(MarketplaceListing, offer.listing_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return offer, conv, listing
+
+
+@router.patch("/price-offers/{offer_id}/accept", response_model=PriceOfferOut, summary="가격 제안 수락")
+async def accept_price_offer(
+    offer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """제안 상대(제안자가 아닌 참여자)가 수락 → ACCEPTED. 매물 status 변경 없음."""
+    offer, _conv, listing = await _load_price_offer(db, offer_id, session_uid)
+    if session_uid == offer.proposer_id:
+        raise HTTPException(status_code=403, detail="Proposer cannot accept own offer")
+    if offer.status != "PROPOSED":
+        raise HTTPException(status_code=409, detail=f"Cannot accept offer in status {offer.status}")
+
+    now = datetime.now(UTC)
+    offer.status = "ACCEPTED"
+    offer.updated_at = now
+    await db.commit()
+    return _offer_out(offer, listing.seller_id)
+
+
+@router.patch("/price-offers/{offer_id}/decline", response_model=PriceOfferOut, summary="가격 제안 거절")
+async def decline_price_offer(
+    offer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """제안 상대(제안자가 아닌 참여자)가 거절 → DECLINED."""
+    offer, _conv, listing = await _load_price_offer(db, offer_id, session_uid)
+    if session_uid == offer.proposer_id:
+        raise HTTPException(status_code=403, detail="Proposer cannot decline own offer")
+    if offer.status != "PROPOSED":
+        raise HTTPException(status_code=409, detail=f"Cannot decline offer in status {offer.status}")
+
+    now = datetime.now(UTC)
+    offer.status = "DECLINED"
+    offer.updated_at = now
+    await db.commit()
+    return _offer_out(offer, listing.seller_id)
+
+
+@router.patch("/price-offers/{offer_id}/cancel", response_model=PriceOfferOut, summary="가격 제안 취소")
+async def cancel_price_offer(
+    offer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """제안자만 취소 → CANCELLED."""
+    offer, _conv, listing = await _load_price_offer(db, offer_id, session_uid)
+    if session_uid != offer.proposer_id:
+        raise HTTPException(status_code=403, detail="Only the proposer can cancel the offer")
+    # 멱등: 이미 취소됨(또는 supersede)면 그대로 반환.
+    if offer.status == "CANCELLED":
+        return _offer_out(offer, listing.seller_id)
+    if offer.status != "PROPOSED":
+        raise HTTPException(status_code=409, detail=f"Cannot cancel offer in status {offer.status}")
+
+    now = datetime.now(UTC)
+    offer.status = "CANCELLED"
+    offer.updated_at = now
+    await db.commit()
+    return _offer_out(offer, listing.seller_id)
 
 
 @router.get("/trades", response_model=list[TradeHistoryItem], summary="거래 이력 (완료된 거래)")

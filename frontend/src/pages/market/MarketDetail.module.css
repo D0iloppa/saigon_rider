@@ -339,6 +339,10 @@
   transform: scale(0.9);
 }
 
+.offerBtn {
+  flex: 1;
+}
+
 .chatBtn {
   flex: 1;
 }

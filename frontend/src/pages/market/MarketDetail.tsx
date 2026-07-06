@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
-import { createConversation } from '@/api/dm';
+import { createConversation, proposePriceOffer } from '@/api/dm';
+import PriceOfferSheet from '@/components/market/PriceOfferSheet';
 import { followUser, unfollowUser } from '@/api/follows';
 import {
   fetchListing,
@@ -47,6 +48,8 @@ export default function MarketDetail() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [offerSending, setOfferSending] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -76,6 +79,20 @@ export default function MarketDetail() {
       navigate(`/dm/${conv.id}`);
     } catch {
       toast.error(t('market.chatError', { defaultValue: '채팅을 시작할 수 없습니다' }));
+    }
+  };
+
+  // 가격제안: 대화 생성(매물 컨텍스트) → 제안 전송 → 해당 DM 으로 이동
+  const handleSendOffer = async (amount: number) => {
+    if (!detail || offerSending) return;
+    setOfferSending(true);
+    try {
+      const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id });
+      await proposePriceOffer(conv.id, amount);
+      navigate(`/dm/${conv.id}`);
+    } catch {
+      toast.error(t('market.offerError', { defaultValue: '가격제안을 보낼 수 없습니다' }));
+      setOfferSending(false);
     }
   };
 
@@ -337,6 +354,13 @@ export default function MarketDetail() {
               >
                 {detail.liked ? '♥' : '♡'} {detail.likeCount}
               </button>
+              {detail.status === 'ON_SALE' && detail.isNegotiable && (
+                <div className={styles.offerBtn}>
+                  <Button variant="secondary" onClick={() => setOfferOpen(true)}>
+                    {t('market.makeOffer', { defaultValue: '가격제안' })}
+                  </Button>
+                </div>
+              )}
               <div className={styles.chatBtn}>
                 {detail.status === 'ON_SALE' ? (
                   <Button variant="primary" onClick={handleChat}>
@@ -350,6 +374,17 @@ export default function MarketDetail() {
               </div>
             </div>
           )}
+
+          {/* 가격제안 시트 (구매자) */}
+          <PriceOfferSheet
+            open={offerOpen}
+            onClose={() => setOfferOpen(false)}
+            listingTitle={detail.title}
+            listingThumbnailUrl={detail.imageUrls[0] ?? null}
+            listingPriceVnd={detail.priceVnd}
+            onSubmit={handleSendOffer}
+            submitting={offerSending}
+          />
 
           {/* 가격 수정 시트 (판매자) */}
           <BottomSheet open={priceOpen} onClose={() => setPriceOpen(false)}>

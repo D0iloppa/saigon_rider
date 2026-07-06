@@ -378,7 +378,7 @@ export default function DmDetail() {
                   {appt && status === 'PROPOSED' && iAmProposer && (
                     <button className={styles.apptBtnText} type="button" disabled={sending}
                       onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
-                      {t('dm.apptCancel', { defaultValue: '제안 취소' })}
+                      {t('dm.apptCancelOffer', { defaultValue: '제안 취소' })}
                     </button>
                   )}
                   {appt && status === 'ACCEPTED' && (

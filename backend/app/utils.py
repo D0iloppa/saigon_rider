@@ -241,7 +241,9 @@ async def find_nearest_ward_id(db, lat: float, lng: float, city: str = "HCMC") -
     ).all()
     if not wards:
         return None
-    return min(wards, key=lambda w: haversine_m(lat, lng, w.center_lat, w.center_lng)).id
+    # Decimal(스키마) vs Float(컬럼) 혼합 연산 TypeError 방지 — 양쪽 다 float 정규화
+    lat_f, lng_f = float(lat), float(lng)
+    return min(wards, key=lambda w: haversine_m(lat_f, lng_f, float(w.center_lat), float(w.center_lng))).id
 
 
 async def find_district_by_point(db, lat: float, lng: float) -> str | None:

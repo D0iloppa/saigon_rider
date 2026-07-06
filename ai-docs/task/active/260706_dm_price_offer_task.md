@@ -1,5 +1,11 @@
 # 동네마켓 DM 가격제안하기 — 2026-07-06
 
+> **상태: 코드 DONE (2026-07-06)** — P1~P4 구현·스모크·8앵글 코드리뷰(지적 7건 반영) 완료. **잔여: 브라우저 시각검증**(웹 QM 스윕에서 커버).
+> 구현 요약: `marketplace_price_offers`(init 110, dev 적용) + `/market/price-offers` POST·accept/decline/cancel + DmMessageOut.price_offer 임베드 + PriceOfferSheet(진입점 2곳) + 타임라인 카드 + i18n 15키×3.
+> 결정 반영: 칩 = 가격대별 단위 절사(200만↑ 1만, 미만 1천 VND) −1/3/5% / 재제안 supersede / 수락은 상태 기록만(매물 불변).
+> 리뷰 추가분: DM 조회 3종 무인증 교정(세션+참여자 검증), send_message 타입 위조 차단, SOLD 매물 제안 409, 임베드 null 폴백, formatPriceVnd 통일.
+> 스모크: 무헤더 419 / 타인목록 403 / 위조타입 400 / 정상 201 / SOLD 409 / 자기제안수락 403 / amount 0 400 / supersede 확인.
+
 > SoT. 대표 피드백(2026-07-06, 당근마켓 참조 지시)에 따른 작업 패키지.
 > 레퍼런스 스크린샷: `~/workspace/w_dev/saigon_rider/_tmp/image copy 40.png` (당근 가격제안 화면 — 상단 상품카드 + 금액 입력 + 빠른 감액 칩[-2만/-3만/-5만] + 제안하기 CTA).
 > 기획 근거: [`260616_marketplace_pivot_planning_task.md`](260616_marketplace_pivot_planning_task.md) §10-B "채팅: 가격 제안 → 약속(시간·장소)" — 약속잡기(SGR-287)는 완료, 가격제안만 미착수.

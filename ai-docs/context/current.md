@@ -49,7 +49,7 @@
 
 ## 활성 태스크 (🔧)
 
-- **DM 가격제안하기 (2026-07-06)** — 계획 수립 완료, 구현 미착수. SoT [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md). 약속잡기(SGR-287) 패턴 미러: `marketplace_price_offers` 테이블 + `message_type='price_offer'` + 채팅 카드(수락/거절). 진입점 = MarketDetail 버튼 + MessageComposer `[+]` 메뉴. **금주(~07/10) 대표 리뷰 대상 — 최우선.**
+- **DM 가격제안하기 (2026-07-06)** — **코드 DONE·스모크 통과, 시각검증 잔여**. SoT [`260706_dm_price_offer_task.md`](../task/active/260706_dm_price_offer_task.md) (구현·리뷰 요약 상단 블록). 약속잡기 패턴 미러 + 리뷰 부수확보: **DM 조회 3종 무인증 구멍 교정**(260703 점검 누락분 — 세션+참여자 검증), send_message 예약타입 위조 차단. dev DB init/110 적용됨, **운영 배포 시 110 적용 필요**. **금주(~07/10) 대표 리뷰 대상.**
 - **B-2 OAuth 로그인 전환 (SGR-B2, 2026-06-19)** — P1~P5 코드 DONE, dev 검증 완료. SoT [`ai-docs/task/active/260619_oauth_login_task.md`](../task/active/260619_oauth_login_task.md).
   - P1: DB 마이그 100(users.phone nullable + user_oauth_identities) + 101(oauth app_config seed) — dev 적용 완료.
   - P2: BFF `POST /auth/oauth/login`(Google tokeninfo + Facebook debug_token) + `POST /auth/session/verify` + `POST /auth/dev-login`(개발 전용). `backend/app/services/oauth.py` 신규.

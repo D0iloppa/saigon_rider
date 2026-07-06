@@ -711,7 +711,7 @@ function SaigonMapV5({
               points={depth1.wards[selWard].p as string}
               fill="none"
               stroke="#ff5a1f"
-              strokeWidth={3}
+              strokeWidth={vb.w * 0.0006}
               strokeLinejoin="round"
             />
           </svg>

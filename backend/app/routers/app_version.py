@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,8 @@ async def get_app_config(db: AsyncSession = Depends(get_db)) -> dict:
     return {
         "dm_poll_interval": int(cfg.get("dm.unread_poll_interval", "30")),
         "google_client_id": cfg.get("oauth.google_client_id_web", ""),
+        # auth.py _DEV_MODE 와 동일 기준 — dev 테스트 로그인 버튼 노출 여부
+        "is_dev": os.getenv("APP_ENV", "development").lower() not in ("production", "prod"),
     }
 
 

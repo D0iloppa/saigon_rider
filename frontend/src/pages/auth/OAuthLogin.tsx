@@ -9,8 +9,6 @@ import { apiOAuthLogin, apiDevLogin, apiGetMeById } from '@/api/auth';
 import { fetchAppConfig } from '@/api/appVersion';
 import styles from './AuthForm.module.css';
 
-const IS_DEV = import.meta.env.DEV;
-
 declare global {
   interface Window {
     google?: {
@@ -48,6 +46,7 @@ export default function OAuthLogin() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
+  const [isDev, setIsDev] = useState(false);
 
   const handleOAuthResult = async (provider: string, token: string, tokenType: string) => {
     setLoading(provider);
@@ -64,11 +63,12 @@ export default function OAuthLogin() {
     }
   };
 
-  // 웹 모드: GIS 스크립트 로드 + Google 버튼 렌더링
+  // 앱 설정 로드: dev 여부(런타임 APP_ENV 기준) + 웹 모드 GIS 스크립트 로드/Google 버튼 렌더링
   useEffect(() => {
-    if (native.isNative) return;
-
     fetchAppConfig().then((cfg) => {
+      setIsDev(cfg.isDev);
+
+      if (native.isNative) return;
       if (!cfg.googleClientId) return;
 
       const initGis = () => {
@@ -247,7 +247,7 @@ export default function OAuthLogin() {
           {t('oauthLogin.legalSuffix')}
         </p>
 
-        {IS_DEV && (
+        {isDev && (
           <button
             className={styles.devLoginBtn}
             onClick={handleDevLogin}

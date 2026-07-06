@@ -183,6 +183,7 @@
 .priceRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* 배지·pill 로 좁아질 때 가격 대신 pill 이 줄바꿈되도록 */
   gap: 10px;
   margin-top: 14px;
 }
@@ -191,6 +192,7 @@
   font-size: 22px;
   font-weight: 800;
   color: var(--text);
+  white-space: nowrap; /* "3.220.000 đ" 의 đ 가 단독 줄바꿈되는 것 방지 */
 }
 
 .dropBadge {

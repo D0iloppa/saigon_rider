@@ -137,7 +137,6 @@ export default function MarketCreate() {
     }
   };
 
-  const priceLabel = price ? `${parseInt(price, 10).toLocaleString('vi-VN')} đ` : '';
 
   return (
     <div className={styles.page}>
@@ -217,7 +216,7 @@ export default function MarketCreate() {
           <span>{t('market.negotiableToggle', { defaultValue: '가격 제안 받기' })}</span>
           <Toggle checked={negotiable} onChange={setNegotiable} />
         </div>
-        {priceLabel === '' && <p className={styles.freeHint}>{t('market.freeHint', { defaultValue: '비워두면 나눔으로 등록됩니다' })}</p>}
+        {price === '' && <p className={styles.freeHint}>{t('market.freeHint', { defaultValue: '비워두면 나눔으로 등록됩니다' })}</p>}
 
         {/* Description */}
         <p className={styles.label}>{t('market.descLabel', { defaultValue: '설명' })}</p>

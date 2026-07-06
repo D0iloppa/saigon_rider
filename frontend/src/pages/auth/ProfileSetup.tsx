@@ -66,7 +66,7 @@ export default function ProfileSetup() {
   }, [nickname, user?.nickname]);
 
   const isValid =
-    nickname.length >= 2 && nickname.length <= 12 && style && nickStatus !== 'taken' && nickStatus !== 'checking';
+    nickname.length >= 2 && nickname.length <= 20 && style && nickStatus !== 'taken' && nickStatus !== 'checking';
 
   const handleSkip = async () => {
     if (!user?.id || skipping) return;
@@ -144,7 +144,7 @@ export default function ProfileSetup() {
             placeholder={t('profileSetup.nicknamePlaceholder')}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            maxLength={12}
+            maxLength={20} /* 자동부여 닉네임(형용사+명사+숫자, ~18자)이 잘리지 않게 — 12는 자기 닉네임도 truncate 해 중복확인이 오판됐음 */
           />
           {nickname.length >= 2 && <GifIcon code="2705" size={24} />}
         </div>

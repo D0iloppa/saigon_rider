@@ -342,6 +342,13 @@
   margin-bottom: 10px; /* 리스트 gap 0 전환에 따른 개별 간격 */
 }
 
+/* 피드 카드의 selected — .selected(단일 클래스)가 .feedCard 선언 순서에 밀려
+ * 무효화되므로 복합 선택자로 우선순위 확보 (지도 마커 탭 강조) */
+.feedCard.selected {
+  background: var(--brand-50);
+  box-shadow: 0 0 0 2px var(--brand-500), var(--shadow-card);
+}
+
 .feedRow {
   display: flex;
   align-items: center;

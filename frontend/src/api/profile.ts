@@ -48,6 +48,20 @@ export async function fetchRandomNickname(): Promise<string> {
   return res.nickname;
 }
 
+export interface NicknameCheckResult {
+  available: boolean;
+  nickname: string;
+}
+
+export async function checkNicknameAvailable(nickname: string): Promise<NicknameCheckResult> {
+  return api.realFetch<NicknameCheckResult>(
+    `/profile/check-nickname?nickname=${encodeURIComponent(nickname)}`,
+    {},
+    'bff',
+    { silent: true },
+  );
+}
+
 export async function fetchUserProfile(userId: string, requesterId?: string): Promise<UserProfile> {
   const params = new URLSearchParams();
   if (requesterId) params.set('requester_id', requesterId);

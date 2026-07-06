@@ -1,51 +1,82 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Toggle } from '@/components/ui/Toggle';
 import { SettingsRow } from '@/components/ui/SettingsRow';
+import { toast } from '@/components/ui/Toast';
+import { useUserStore } from '@/store/useUserStore';
+import {
+  fetchNotificationSettings,
+  updateNotificationSettings,
+  type NotificationSettingsFields,
+} from '@/api/notifications';
 import styles from './Settings.module.css';
 
-type NotiKey =
-  | 'notiItemRecommended'
-  | 'notiItemExpiring'
-  | 'notiItemEventStart'
-  | 'notiItemQuestDone'
-  | 'notiItemLevelUp'
-  | 'notiItemBadge'
-  | 'notiItemCheer'
-  | 'notiItemComment'
-  | 'notiItemFriendReq';
+type NotiField = keyof NotificationSettingsFields;
 
-const SECTIONS: { titleKey: string; items: NotiKey[] }[] = [
+const SECTIONS: { titleKey: string; items: NotiField[] }[] = [
   {
     titleKey: 'settings.notiSectionQuest',
-    items: ['notiItemRecommended', 'notiItemExpiring', 'notiItemEventStart'],
+    items: ['quest_recommend', 'quest_expire', 'event'],
   },
   {
     titleKey: 'settings.notiSectionResult',
-    items: ['notiItemQuestDone', 'notiItemLevelUp', 'notiItemBadge'],
+    items: ['ride_result'],
   },
   {
     titleKey: 'settings.notiSectionSocial',
-    items: ['notiItemCheer', 'notiItemComment', 'notiItemFriendReq'],
+    items: ['social'],
   },
 ];
 
-const DEFAULT_STATE: Record<NotiKey, boolean> = {
-  notiItemRecommended: true,
-  notiItemExpiring: true,
-  notiItemEventStart: false,
-  notiItemQuestDone: true,
-  notiItemLevelUp: true,
-  notiItemBadge: true,
-  notiItemCheer: true,
-  notiItemComment: true,
-  notiItemFriendReq: false,
+const LABEL_KEYS: Record<NotiField, string> = {
+  quest_recommend: 'settings.notiItemRecommended',
+  quest_expire: 'settings.notiItemExpiring',
+  event: 'settings.notiItemEventStart',
+  ride_result: 'settings.notiItemQuestDone',
+  social: 'settings.notiItemSocial',
+};
+
+const DEFAULT_STATE: NotificationSettingsFields = {
+  quest_recommend: true,
+  quest_expire: true,
+  event: true,
+  ride_result: true,
+  social: true,
 };
 
 export default function NotiSettings() {
   const { t } = useTranslation();
-  const [state, setState] = useState<Record<NotiKey, boolean>>(DEFAULT_STATE);
+  const userId = useUserStore((s) => s.user?.id);
+  const [state, setState] = useState<NotificationSettingsFields>(DEFAULT_STATE);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchNotificationSettings(userId)
+      .then((res) =>
+        setState({
+          quest_recommend: res.quest_recommend,
+          quest_expire: res.quest_expire,
+          event: res.event,
+          ride_result: res.ride_result,
+          social: res.social,
+        }),
+      )
+      .catch(() => toast.error(t('settings.notiLoadError', { defaultValue: '알림 설정을 불러오지 못했습니다' })));
+  }, [userId]);
+
+  const handleToggle = async (key: NotiField, value: boolean) => {
+    if (!userId) return;
+    const prev = state;
+    const next = { ...state, [key]: value };
+    setState(next);
+    try {
+      await updateNotificationSettings(userId, next);
+    } catch {
+      setState(prev);
+      toast.error(t('settings.notiSaveError', { defaultValue: '알림 설정을 저장하지 못했습니다' }));
+    }
+  };
 
   return (
     <>
@@ -58,11 +89,11 @@ export default function NotiSettings() {
               {s.items.map((key) => (
                 <SettingsRow
                   key={key}
-                  label={t(`settings.${key}`)}
+                  label={t(LABEL_KEYS[key])}
                   right={
                     <Toggle
                       checked={state[key]}
-                      onChange={(v) => setState((p) => ({ ...p, [key]: v }))}
+                      onChange={(v) => handleToggle(key, v)}
                     />
                   }
                 />

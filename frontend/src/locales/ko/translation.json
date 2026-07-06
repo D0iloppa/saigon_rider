@@ -256,7 +256,10 @@
     "startBtn": "시작하기 →",
     "errorNicknameTooShort": "닉네임은 2자 이상 입력해주세요",
     "errorNoStyle": "라이더 스타일을 선택해주세요",
-    "skip": "건너뛰기"
+    "skip": "건너뛰기",
+    "nicknameCheck_checking": "중복 확인 중…",
+    "nicknameCheck_available": "사용 가능한 닉네임입니다",
+    "nicknameCheck_taken": "이미 사용 중인 닉네임입니다"
   },
   "home": {
     "progressLabel": "오늘은 {{needed}}km 더 달리면 Lv.{{nextLevel}}",
@@ -425,6 +428,9 @@
     "filterAll": "🌐 전체",
     "filterNeighborhood": "📍 내 동네",
     "filterFriends": "👥 친구",
+    "detailTitle": "게시글",
+    "postNotFound": "게시글을 찾을 수 없어요",
+    "noComments": "첫 댓글을 남겨보세요",
     "filterHot": "🔥 핫",
     "emptyTitle": "첫 인증을 기다리고 있어요",
     "emptySub": "라이딩을 완료하고 사이공의 한 컷을 남겨보세요",
@@ -529,6 +535,7 @@
     "notiItemCheer": "응원 받음",
     "notiItemComment": "댓글",
     "notiItemFriendReq": "친구 신청",
+    "notiItemSocial": "응원·댓글·친구 신청",
     "notiImportantNote": "중요한 알림(보안·결제)은 끌 수 없어요",
     "langCaption": "변경 사항은 즉시 적용됩니다",
     "langNameKo": "한국어",
@@ -757,7 +764,6 @@
     "quote_C": "다음엔 더 좋은 것이."
   },
   "itemDetail": {
-    "collection_label": "컬렉션",
     "slot_suffix": "슬롯",
     "owned": "보유 중",
     "buying": "구매 중…",

@@ -256,7 +256,10 @@
     "startBtn": "Bắt đầu →",
     "errorNicknameTooShort": "Biệt danh phải có ít nhất 2 ký tự",
     "errorNoStyle": "Vui lòng chọn phong cách tay đua",
-    "skip": "Bỏ qua"
+    "skip": "Bỏ qua",
+    "nicknameCheck_checking": "Đang kiểm tra…",
+    "nicknameCheck_available": "Biệt danh này có thể dùng",
+    "nicknameCheck_taken": "Biệt danh này đã được sử dụng"
   },
   "home": {
     "progressLabel": "Đi thêm {{needed}}km để đạt Lv.{{nextLevel}} hôm nay",
@@ -425,6 +428,9 @@
     "filterAll": "🌐 Tất cả",
     "filterNeighborhood": "📍 Gần đây",
     "filterFriends": "👥 Bạn bè",
+    "detailTitle": "Bài viết",
+    "postNotFound": "Không tìm thấy bài viết",
+    "noComments": "Hãy là người bình luận đầu tiên",
     "filterHot": "🔥 Hot",
     "emptyTitle": "Đang chờ check-in đầu tiên",
     "emptySub": "Hoàn thành chuyến đi và lưu lại khoảnh khắc ở Sài Gòn",
@@ -529,6 +535,7 @@
     "notiItemCheer": "Được cổ vũ",
     "notiItemComment": "Bình luận",
     "notiItemFriendReq": "Lời mời kết bạn",
+    "notiItemSocial": "Cổ vũ, bình luận & lời mời kết bạn",
     "notiImportantNote": "Không thể tắt thông báo quan trọng (bảo mật & thanh toán)",
     "langCaption": "Thay đổi áp dụng ngay lập tức",
     "langNameKo": "Tiếng Hàn",
@@ -757,7 +764,6 @@
     "quote_C": "Lần sau sẽ may mắn hơn."
   },
   "itemDetail": {
-    "collection_label": "BỘ SƯU TẬP",
     "slot_suffix": "vị trí",
     "owned": "Đã sở hữu",
     "buying": "Đang mua…",

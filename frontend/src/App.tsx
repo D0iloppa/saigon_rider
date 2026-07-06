@@ -50,6 +50,7 @@ import RideResultFail from '@/pages/ride/RideResultFail';
 import FeedList from '@/pages/feed/FeedList';
 import FeedCreate from '@/pages/feed/FeedCreate';
 import FeedEdit from '@/pages/feed/FeedEdit';
+import FeedDetail from '@/pages/feed/FeedDetail';
 
 // DM
 import DmList from '@/pages/dm/DmList';
@@ -244,6 +245,7 @@ export default function App() {
           <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
           <Route path="/feed/new" element={<PrivateRoute><FeedCreate /></PrivateRoute>} />
           <Route path="/feed/edit/:postId" element={<PrivateRoute><FeedEdit /></PrivateRoute>} />
+          <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />

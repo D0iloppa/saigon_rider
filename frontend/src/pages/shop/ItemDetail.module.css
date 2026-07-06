@@ -98,38 +98,6 @@
   margin-bottom: 16px;
 }
 
-/* ── Collection progress ── */
-.collectionRow {
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 12px;
-  margin-bottom: 14px;
-}
-.collectionLabel {
-  font-size: 10px;
-  color: var(--text-3);
-  letter-spacing: .08em;
-  margin-bottom: 6px;
-}
-.collectionBar {
-  height: 4px;
-  background: var(--line);
-  border-radius: 99px;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-.collectionFill {
-  height: 100%;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--brand-300), var(--brand-500));
-}
-.collectionMeta {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 10px;
-  color: var(--text-3);
-}
-
 /* ── Price row ── */
 .priceRow {
   display: flex;

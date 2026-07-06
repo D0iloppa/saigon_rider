@@ -41,7 +41,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 - **페이지**: `pages/home/WorldMapV2.tsx` (구버전 `WorldMapV2` 이전의 `WorldMap.tsx`는 미사용 백업 — import 주석에 명시됨)
 - **성격**: 원래 퀘스트/미션 중심이었으나(→ i18n `home.*`에 `startQuestBtn`/`todayMission`/`noRecommendedQuest` 등 잔존) 현재는 **마켓·커뮤니티·생활정보 대시보드**로 재편됨. `home.*` i18n 키 중 퀘스트 관련 키들은 현재 WorldMapV2에서 미사용 — 구버전 흔적.
-- **핵심 하위 영역/컴포넌트**: 검색바 → `/market/search`, 내 주변 인기상품/최근 등록상품 카드 → `/market/:id`, `/market/ad/:id`, 안전거래 가이드 배너 → `/guide/safe-trade`, 정보 미니카드(날씨/침수/주유/정비) → `/info/*`, 커뮤니티 인기글 카드 → `/feed?filter=hot`, `/feed/:id`
+- **핵심 하위 영역/컴포넌트**: 검색바 → `/market/search`, 내 주변 인기상품/최근 등록상품 카드 → `/market/:id`, `/market/ad/:id`, 안전거래 가이드 배너 → `/guide/safe-trade`, 정보 미니카드(날씨/침수/주유/정비) → `/info/*`, 커뮤니티 인기글 카드 → `/feed/post/:postId`(더보기는 `/feed?filter=hot`)
 - **연결 API**: 마켓/피드/정보 관련 `api/market.ts`, `api/feed.ts`, `api/info*.ts` (추정 — 정확한 함수명은 MCP로 조회)
 
 ### 3.2 마켓 / 동네마켓 (`/market`)
@@ -61,7 +61,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 ### 3.4 커뮤니티 / 피드 (`/feed`)
 
 - **페이지**: `pages/feed/FeedList.tsx`
-- **하위 라우트**: `/feed/new`(`FeedCreate.tsx`), `/feed/edit/:postId`(`FeedEdit.tsx`)
+- **하위 라우트**: `/feed/new`(`FeedCreate.tsx`), `/feed/edit/:postId`(`FeedEdit.tsx`), `/feed/post/:postId`(`FeedDetail.tsx` — 게시글 상세+댓글 인라인, 탭바 숨김. 홈 인기글 카드에서 진입)
 - **핵심 컴포넌트**: `TopBar`, `StoryAvatar`, `AppImage`, `ImageCarousel`, `LevelBadge`, `Chip`, `ProfileCard`, `ImageViewer`
 - **DM 진입점**: FeedList 상단 메시지 아이콘 → `/dm`(`pages/dm/DmList.tsx`) → `/dm/:conversationId`(`DmDetail.tsx`). **탭바에는 없음** — "채팅"은 `tabbar.chat` i18n 키만 존재하고 실제 탭바 5개엔 포함 안 됨(TabBar.tsx 주석: "채팅은 nav 제외").
 

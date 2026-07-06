@@ -19,14 +19,6 @@ const RARITY_LABEL: Record<ItemRarity, string> = {
   C: 'COMMON', R: 'RARE', E: 'EPIC', L: 'LEGENDARY', M: 'MYTHIC',
 };
 
-const COLLECTION_MOCK: Record<string, { name: string; total: number; owned: number }> = {
-  LEGEND_OF_SAIGON: { name: 'Legend of Saigon', total: 6, owned: 2 },
-  SAIGON_GHOST:     { name: 'Saigon Ghost',     total: 5, owned: 1 },
-  TET_FESTIVAL:     { name: 'Tết Festival',      total: 8, owned: 3 },
-  NEON_SAIGON:      { name: 'Neon Saigon',       total: 7, owned: 4 },
-  STREET_CLASSIC:   { name: 'Street Classic',    total: 4, owned: 4 },
-};
-
 export default function ItemDetail() {
   const { itemCode } = useParams<{ itemCode: string }>();
   const navigate = useNavigate();
@@ -84,8 +76,6 @@ export default function ItemDetail() {
   }
 
   const r = item.rarity;
-  const col = item.collection_code ? COLLECTION_MOCK[item.collection_code] : null;
-  const colPct = col ? Math.round((col.owned / col.total) * 100) : 0;
   const priceVal = item.price_gold ? `${item.price_gold.toLocaleString()} ${t('currency.gold')}` : `${item.price_xp} ${t('currency.xp')}`;
 
   return (
@@ -123,16 +113,6 @@ export default function ItemDetail() {
 
         <div className={s.itemName}><ItemName code={item.item_code} fallback={item.item_name} /></div>
         <div className={s.itemSlot}>{t(`shop.slots.${item.item_slot}`, { defaultValue: slotLabel(item.item_slot) })} {t('itemDetail.slot_suffix')}</div>
-
-        {col && (
-          <div className={s.collectionRow}>
-            <div className={s.collectionLabel}>{t('itemDetail.collection_label')} · {col.name.toUpperCase()}</div>
-            <div className={s.collectionBar}>
-              <div className={s.collectionFill} style={{ width: `${colPct}%` }} />
-            </div>
-            <div className={s.collectionMeta}>{col.owned} / {col.total} {t('itemDetail.owned')} · {colPct}%</div>
-          </div>
-        )}
 
         <div className={s.priceRow}>
           <div className={s.priceStack}>

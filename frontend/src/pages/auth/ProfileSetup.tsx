@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -7,9 +7,13 @@ import { emojiUrl } from '@/lib/emoji';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
-import { apiSaveProfileSetup, fetchRandomNickname } from '@/api/profile';
+import { apiSaveProfileSetup, checkNicknameAvailable, fetchRandomNickname } from '@/api/profile';
 import type { RiderStyle } from '@/api/types';
 import styles from './ProfileSetup.module.css';
+
+type NicknameCheckStatus = 'idle' | 'checking' | 'available' | 'taken';
+
+const NICKNAME_CHECK_DEBOUNCE_MS = 400;
 
 const STYLES: { key: RiderStyle; gifCode: string; titleKey: string; subKey: string }[] = [
   { key: 'commuter',    gifCode: '1f3cd', titleKey: 'profileSetup.styleCommuterTitle',    subKey: 'profileSetup.styleCommuterSub' },
@@ -39,8 +43,30 @@ export default function ProfileSetup() {
   const [style, setStyle] = useState<RiderStyle | null>('night_rider');
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  const [nickStatus, setNickStatus] = useState<NicknameCheckStatus>('idle');
 
-  const isValid = nickname.length >= 2 && nickname.length <= 12 && style;
+  // 닉네임 중복 확인 — 입력 이벤트(onChange)는 그대로 두고 값 변화만 감지해 debounce (F-03-1: IME 조합 이슈 회피)
+  useEffect(() => {
+    const trimmed = nickname.trim();
+    // 현재(가입 시 부여된) 닉네임을 그대로 유지하는 경우는 중복이 아니므로 조회하지 않음
+    if (trimmed.length < 2 || trimmed === user?.nickname) {
+      setNickStatus('idle');
+      return;
+    }
+    setNickStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await checkNicknameAvailable(trimmed);
+        setNickStatus(res.available ? 'available' : 'taken');
+      } catch {
+        setNickStatus('idle');
+      }
+    }, NICKNAME_CHECK_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [nickname, user?.nickname]);
+
+  const isValid =
+    nickname.length >= 2 && nickname.length <= 12 && style && nickStatus !== 'taken' && nickStatus !== 'checking';
 
   const handleSkip = async () => {
     if (!user?.id || skipping) return;
@@ -122,6 +148,11 @@ export default function ProfileSetup() {
           />
           {nickname.length >= 2 && <GifIcon code="2705" size={24} />}
         </div>
+        {nickStatus !== 'idle' && (
+          <p className={`${styles.nickHint} ${styles[`nickHint_${nickStatus}`]}`}>
+            {t(`profileSetup.nicknameCheck_${nickStatus}`)}
+          </p>
+        )}
 
         {/* Rider style cards */}
         <div className={styles.styleList}>

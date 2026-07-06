@@ -24,6 +24,7 @@ const HIDE_TABBAR_PATHS = [
   '/dm/',
   '/market/',
   '/quest-check/',
+  '/feed/post/', // 게시글 상세 — 하단 댓글 입력바가 탭바 자리 사용
 ];
 
 export function AppShell({ children, splashVisible, splashFade, gifReady }: Props) {

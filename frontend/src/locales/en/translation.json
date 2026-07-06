@@ -256,7 +256,10 @@
     "startBtn": "Start →",
     "errorNicknameTooShort": "Nickname must be at least 2 characters",
     "errorNoStyle": "Please select a rider style",
-    "skip": "Skip"
+    "skip": "Skip",
+    "nicknameCheck_checking": "Checking availability…",
+    "nicknameCheck_available": "Nickname is available",
+    "nicknameCheck_taken": "Nickname already in use"
   },
   "home": {
     "progressLabel": "{{needed}}km more to reach Lv.{{nextLevel}} today",
@@ -425,6 +428,9 @@
     "filterAll": "🌐 All",
     "filterNeighborhood": "📍 Nearby",
     "filterFriends": "👥 Friends",
+    "detailTitle": "Post",
+    "postNotFound": "Post not found",
+    "noComments": "Be the first to comment",
     "filterHot": "🔥 Hot",
     "emptyTitle": "Waiting for the first check-in",
     "emptySub": "Complete a ride and capture a moment in Saigon",
@@ -529,6 +535,7 @@
     "notiItemCheer": "Cheered",
     "notiItemComment": "Comments",
     "notiItemFriendReq": "Friend Request",
+    "notiItemSocial": "Cheers, comments & friend requests",
     "notiImportantNote": "Important alerts (security & payments) cannot be disabled",
     "langCaption": "Changes apply immediately",
     "langNameKo": "Korean",
@@ -757,7 +764,6 @@
     "quote_C": "Better luck next time."
   },
   "itemDetail": {
-    "collection_label": "COLLECTION",
     "slot_suffix": "slot",
     "owned": "Owned",
     "buying": "Buying…",

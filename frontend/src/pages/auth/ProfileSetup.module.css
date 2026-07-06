@@ -76,6 +76,15 @@
   font-weight: 500;
 }
 
+.nickHint {
+  font-size: 12px;
+  margin: -8px 0 20px 4px;
+}
+
+.nickHint_checking { color: var(--text-2); }
+.nickHint_available { color: var(--success); }
+.nickHint_taken { color: var(--danger); }
+
 /* Rider style cards */
 .styleList {
   display: flex;

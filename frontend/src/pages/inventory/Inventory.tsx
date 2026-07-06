@@ -8,7 +8,6 @@ import { useUserStore } from '@/store/useUserStore';
 import { InventoryCell } from '@/components/ui/items/InventoryCell';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
-import { emojiUrl } from '@/lib/emoji';
 import { formatEffectValue } from '@/lib/items/effects';
 import styles from './Inventory.module.css';
 
@@ -75,13 +74,7 @@ export default function Inventory() {
       <div className={styles.header}>
         <button className={styles.headerBack} onClick={() => navigate(-1)}>←</button>
         <div className={styles.headerTitle}>{t('inventory.title')}</div>
-        <button className={styles.headerSearch}>
-          <img
-            src={emojiUrl('1f50d')}
-            width={24} height={24} alt=""
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
-        </button>
+        <span className={styles.headerSpacer} />
       </div>
 
       <div className={styles.body}>

@@ -79,7 +79,14 @@ export default function AccountSettings() {
           <SettingsRow
             label={t('settings.phone')}
             value={user.phone ?? undefined}
-            right={<button className={styles.copyBtn}>{t('common.change')}</button>}
+            right={
+              <button
+                className={styles.copyBtn}
+                onClick={() => toast(t('common.comingSoon'))}
+              >
+                {t('common.change')}
+              </button>
+            }
           />
           <SettingsRow
             label={t('settings.joinedDate')}

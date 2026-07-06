@@ -8,6 +8,7 @@
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(255, 120, 50, 0.12);
+  margin: 10px 0; /* 플랫 리스트(gap 0) 사이 박스 광고 간격 (업리프트 260706) */
 }
 
 .card:active {

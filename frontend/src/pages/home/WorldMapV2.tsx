@@ -343,9 +343,9 @@ export default function WorldMapV2() {
                   </div>
                   <div className={styles.productName}>{p.title}</div>
                   <div className={styles.productPrice}>{formatPriceVnd(p.priceVnd, t)}</div>
+                  {/* 좋아요 수는 이 데이터 소스에 없음 — 가짜 0 노출 대신 시간만 (업리프트 260706) */}
                   <div className={styles.productMeta}>
                     <span className={styles.condBadge}>{relativeTime(p.bumpedAt, t) || '—'}</span>
-                    <span className={styles.likeCount}><IcoHeart stroke="#f8602a" />0</span>
                   </div>
                 </button>
               ))

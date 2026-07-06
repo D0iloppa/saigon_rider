@@ -137,7 +137,7 @@ export default function MarketCreate() {
     }
   };
 
-  const priceLabel = price ? `₫${parseInt(price, 10).toLocaleString('vi-VN')}` : '';
+  const priceLabel = price ? `${parseInt(price, 10).toLocaleString('vi-VN')} đ` : '';
 
   return (
     <div className={styles.page}>

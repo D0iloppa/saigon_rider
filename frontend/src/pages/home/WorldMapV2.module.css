@@ -375,14 +375,6 @@
   letter-spacing: -0.1px;
 }
 
-.likeCount {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #f8602a;
-}
 
 /* ─── 스켈레톤 ─────────────────────────────────── */
 .productSkeleton {
@@ -433,8 +425,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  padding: 24px 22px;
-  background: linear-gradient(110deg, #ffe9d6, #ffd6b8);
+  padding: 18px 20px;
+  background: linear-gradient(110deg, #fff3e8, #ffe3cd);
   border-radius: 18px;
   border: none;
   cursor: pointer;
@@ -451,18 +443,18 @@
 }
 
 .guideBannerSub {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #9a5a32;
   letter-spacing: -0.3px;
 }
 
 .guideBannerTitle {
-  font-size: 27px;
-  font-weight: 900;
+  font-size: 20px;
+  font-weight: 800;
   color: #3a2a1c;
-  letter-spacing: -0.8px;
-  line-height: 1.1;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
 }
 
 .guideBannerCta {

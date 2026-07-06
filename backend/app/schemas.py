@@ -6,7 +6,7 @@ from typing import Generic, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, field_validator, model_validator
 
 from .utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
@@ -145,6 +145,7 @@ class SellerBrief(BaseModel):
 
 class MarketplaceListingCard(BaseModel):
     id: UUID
+    seller_id: UUID | None = None
     title: str
     price_vnd: int
     original_price_vnd: int | None = None
@@ -908,6 +909,9 @@ class DmConversationOut(BaseModel):
     other_user_nickname: str | None
     other_user_avatar_url: str | None
     last_message_preview: str | None
+    # price_offer/appointment 미리보기는 프론트가 뷰어 로케일로 조립 (DM-5)
+    last_message_type: str | None = None
+    last_message_meta: dict | None = None
     last_message_at: datetime
     unread_count: int
     context_type: str | None = None
@@ -937,7 +941,8 @@ class AppointmentOut(BaseModel):
 
 class AppointmentProposeRequest(BaseModel):
     conversation_id: UUID
-    when_at: datetime
+    # naive datetime 은 서버 OS 타임존에 따라 해석이 달라지므로 tz-aware 만 허용 (DM-1)
+    when_at: AwareDatetime
     place_name: str | None = None
     place_lat: float | None = None
     place_lng: float | None = None

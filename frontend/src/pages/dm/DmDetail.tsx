@@ -177,7 +177,15 @@ export default function DmDetail() {
     setSending(true);
     try {
       const msg = await proposePriceOffer(conversationId, amount);
-      setMessages((prev) => [...prev, msg]);
+      // 서버가 직전 PROPOSED 제안을 supersede(CANCELLED) 하므로 로컬 카드도 즉시 갱신 (DM-2)
+      setMessages((prev) => [
+        ...prev.map((m) =>
+          m.priceOffer?.status === 'PROPOSED' && m.priceOffer.id !== msg.priceOffer?.id
+            ? { ...m, priceOffer: { ...m.priceOffer, status: 'CANCELLED' as const } }
+            : m,
+        ),
+        msg,
+      ]);
       setOfferOpen(false);
     } catch {
       toast.error(t('common.errorUnexpected'));
@@ -299,8 +307,13 @@ export default function DmDetail() {
             const status = appt?.status;
             const iAmProposer = !!appt && appt.proposerId === myId;
             const whenRaw = appt?.whenAt ?? m.meta?.when ?? '';
-            const dateText = whenRaw.slice(0, 10).replace(/-/g, '.');
-            const timeText = whenRaw.slice(11, 16);
+            // 서버 저장값(UTC)을 뷰어 로컬 타임존으로 재변환해 표시 (DM-1)
+            const whenDate = whenRaw ? new Date(whenRaw) : null;
+            const pad2 = (n: number) => String(n).padStart(2, '0');
+            const dateText = whenDate
+              ? `${whenDate.getFullYear()}.${pad2(whenDate.getMonth() + 1)}.${pad2(whenDate.getDate())}`
+              : '';
+            const timeText = whenDate ? `${pad2(whenDate.getHours())}:${pad2(whenDate.getMinutes())}` : '';
             const placeText = appt?.placeName ?? m.meta?.place ?? null;
             const lat = appt?.placeLat ?? m.meta?.placeLat ?? null;
             const lng = appt?.placeLng ?? m.meta?.placeLng ?? null;
@@ -495,8 +508,8 @@ export default function DmDetail() {
             label: t('dm.makeAppointment', { defaultValue: '약속잡기' }),
             onPress: () => setApptOpen(true),
           },
-          // 가격제안 — 매물 대화 + 가격제안 허용 + 판매 종결 전 (백엔드도 SOLD 409로 차단)
-          ...(listing?.isNegotiable && listing.status !== 'SOLD'
+          // 가격제안 — 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
+          ...(listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId
             ? [{
                 key: 'offer',
                 icon: <HandCoins size={26} strokeWidth={1.8} />,

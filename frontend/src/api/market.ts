@@ -68,6 +68,7 @@ export interface CreateReviewParams {
 
 export interface ListingCard {
   id: string;
+  sellerId: string | null;
   title: string;
   priceVnd: number;
   originalPriceVnd: number | null;
@@ -113,6 +114,7 @@ export function localizedName(obj: { name_ko: string; name_vi: string; name_en: 
 export function transformCard(r: any): ListingCard {
   return {
     id: r.id,
+    sellerId: r.seller_id ?? null,
     title: r.title,
     priceVnd: r.price_vnd,
     originalPriceVnd: r.original_price_vnd ?? null,

@@ -36,6 +36,8 @@ function transformConversation(raw: any): DmConversation {
     otherUserNickname: raw.other_user_nickname ?? null,
     otherUserAvatarUrl: raw.other_user_avatar_url ?? null,
     lastMessagePreview: raw.last_message_preview ?? null,
+    lastMessageType: raw.last_message_type ?? null,
+    lastMessageMeta: raw.last_message_meta ?? null,
     lastMessageAt: raw.last_message_at,
     unreadCount: raw.unread_count ?? 0,
     contextType: raw.context_type ?? null,
@@ -83,6 +85,8 @@ export async function createConversation(
       otherUserNickname: null,
       otherUserAvatarUrl: null,
       lastMessagePreview: null,
+      lastMessageType: null,
+      lastMessageMeta: null,
       lastMessageAt: new Date().toISOString(),
       unreadCount: 0,
       contextType: context?.type ?? null,
@@ -187,7 +191,8 @@ export async function proposeAppointment(
     method: 'POST',
     body: JSON.stringify({
       conversation_id: conversationId,
-      when_at: input.whenAt,
+      // datetime-local(뷰어 로컬시각) → tz 포함 UTC ISO. 백엔드는 tz-aware 만 수용 (DM-1)
+      when_at: new Date(input.whenAt).toISOString(),
       place_name: input.placeName ?? null,
       place_lat: input.placeLat ?? null,
       place_lng: input.placeLng ?? null,

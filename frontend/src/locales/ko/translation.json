@@ -603,7 +603,22 @@
     "showOriginal": "원문",
     "hideTranslation": "번역 숨기기",
     "translateError": "번역 실패",
-    "navigate": "길안내"
+    "navigate": "길안내",
+    "apptProposed": "제안됨",
+    "apptAccepted": "확정",
+    "apptCompleted": "거래완료",
+    "apptCancelled": "취소됨",
+    "apptDate": "날짜",
+    "apptTime": "시간",
+    "apptAccept": "약속 수락",
+    "apptComplete": "거래 완료",
+    "apptReject": "거절",
+    "apptCancel": "약속 취소",
+    "apptOutdated": "약속 상태가 변경되어 새로고침했어요",
+    "album": "앨범",
+    "emoticon": "이모티콘",
+    "myReview": "내 후기",
+    "offerSummary": "가격 제안: {{amount}}"
   },
   "follow": {
     "followers": "팔로워",

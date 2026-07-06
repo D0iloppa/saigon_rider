@@ -202,6 +202,9 @@ export interface DmConversation {
   otherUserNickname: string | null;
   otherUserAvatarUrl: string | null;
   lastMessagePreview: string | null;
+  /** 마지막 메시지 타입 — price_offer/appointment 미리보기를 뷰어 로케일로 조립 (DM-5) */
+  lastMessageType: string | null;
+  lastMessageMeta: { amount?: number; when?: string; place?: string | null } | null;
   lastMessageAt: string;
   unreadCount: number;
   contextType: string | null;

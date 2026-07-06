@@ -126,6 +126,7 @@ def _district_brief(district) -> DistrictBrief | None:
 def _card(listing: MarketplaceListing, distance_m: int | None = None) -> MarketplaceListingCard:
     return MarketplaceListingCard(
         id=listing.id,
+        seller_id=listing.seller_id,
         title=listing.title,
         price_vnd=listing.price_vnd,
         original_price_vnd=listing.original_price_vnd,

@@ -7,10 +7,32 @@ import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { useDmStore } from '@/store/useDmStore';
+import { formatPriceVnd } from '../market/marketFormat';
 import styles from './DmList.module.css';
 
 export default function DmList() {
   const { t } = useTranslation();
+
+  // 가격제안/약속 메시지는 서버 content(한국어 하드코딩) 대신 메타 기반으로 뷰어 로케일 미리보기 조립 (DM-5)
+  const previewText = (c: DmConversation): string => {
+    if (c.lastMessageType === 'price_offer' && c.lastMessageMeta?.amount != null) {
+      return t('dm.offerSummary', {
+        amount: formatPriceVnd(c.lastMessageMeta.amount, t),
+        defaultValue: '가격 제안: {{amount}}',
+      });
+    }
+    if (c.lastMessageType === 'appointment' && c.lastMessageMeta?.when) {
+      const d = new Date(c.lastMessageMeta.when); // UTC → 뷰어 로컬 타임존 (DM-1)
+      const pad2 = (n: number) => String(n).padStart(2, '0');
+      const when = `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+      return t('dm.apptSummary', {
+        when,
+        place: c.lastMessageMeta.place ?? '',
+        defaultValue: '약속 제안: {{when}} {{place}}',
+      }).trim();
+    }
+    return c.lastMessagePreview ?? '';
+  };
   const navigate = useNavigate();
   const refreshUnread = useDmStore((s) => s.refreshUnread);
   const [conversations, setConversations] = useState<DmConversation[]>([]);
@@ -52,7 +74,7 @@ export default function DmList() {
                     <span className={styles.time}>{formatRelativeTime(c.lastMessageAt)}</span>
                   </div>
                   <div className={styles.preview}>
-                    {c.lastMessagePreview ?? ''}
+                    {previewText(c)}
                   </div>
                 </div>
                 {c.unreadCount > 0 && (

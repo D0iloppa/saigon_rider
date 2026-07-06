@@ -101,6 +101,20 @@ async def get_conversations(
             )
         ).scalar_one()
 
+        # price_offer/appointment 은 content(한국어 하드코딩) 대신 도메인 엔티티 기반 메타를 내려
+        # 프론트가 뷰어 로케일로 미리보기를 조립한다 (DM-5)
+        last_message_meta = None
+        if last_msg and last_msg.message_type == "price_offer" and last_msg.meta and last_msg.meta.get("priceOfferId"):
+            offer = await db.get(MarketplacePriceOffer, uuid.UUID(last_msg.meta["priceOfferId"]))
+            if offer:
+                last_message_meta = {"amount": offer.amount}
+        elif (
+            last_msg and last_msg.message_type == "appointment" and last_msg.meta and last_msg.meta.get("appointmentId")
+        ):
+            appt = await db.get(MarketplaceAppointment, uuid.UUID(last_msg.meta["appointmentId"]))
+            if appt:
+                last_message_meta = {"when": appt.when_at.isoformat(), "place": appt.place_name}
+
         result.append(
             DmConversationOut(
                 id=conv.id,
@@ -108,6 +122,8 @@ async def get_conversations(
                 other_user_nickname=other_user.nickname if other_user else None,
                 other_user_avatar_url=resolve_avatar_url(other_user) if other_user else None,
                 last_message_preview=last_msg.content[:50] if last_msg and last_msg.content else None,
+                last_message_type=last_msg.message_type if last_msg else None,
+                last_message_meta=last_message_meta,
                 last_message_at=conv.last_message_at,
                 unread_count=unread,
                 context_type=conv.context_type,

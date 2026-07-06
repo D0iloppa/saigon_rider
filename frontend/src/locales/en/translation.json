@@ -603,7 +603,22 @@
     "showOriginal": "Original",
     "hideTranslation": "Hide translation",
     "translateError": "Translation failed",
-    "navigate": "Directions"
+    "navigate": "Directions",
+    "apptProposed": "Proposed",
+    "apptAccepted": "Confirmed",
+    "apptCompleted": "Completed",
+    "apptCancelled": "Cancelled",
+    "apptDate": "Date",
+    "apptTime": "Time",
+    "apptAccept": "Accept meetup",
+    "apptComplete": "Complete deal",
+    "apptReject": "Decline",
+    "apptCancel": "Cancel meetup",
+    "apptOutdated": "The meetup was updated — refreshed",
+    "album": "Album",
+    "emoticon": "Stickers",
+    "myReview": "My review",
+    "offerSummary": "Price offer: {{amount}}"
   },
   "follow": {
     "followers": "Followers",

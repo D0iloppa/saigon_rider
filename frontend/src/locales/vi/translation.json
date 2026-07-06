@@ -603,7 +603,22 @@
     "showOriginal": "Gốc",
     "hideTranslation": "Ẩn bản dịch",
     "translateError": "Dịch thất bại",
-    "navigate": "Chỉ đường"
+    "navigate": "Chỉ đường",
+    "apptProposed": "Đã đề xuất",
+    "apptAccepted": "Đã xác nhận",
+    "apptCompleted": "Đã hoàn tất",
+    "apptCancelled": "Đã hủy",
+    "apptDate": "Ngày",
+    "apptTime": "Giờ",
+    "apptAccept": "Chấp nhận hẹn",
+    "apptComplete": "Hoàn tất giao dịch",
+    "apptReject": "Từ chối",
+    "apptCancel": "Hủy hẹn",
+    "apptOutdated": "Cuộc hẹn đã thay đổi — đã làm mới",
+    "album": "Album",
+    "emoticon": "Nhãn dán",
+    "myReview": "Đánh giá của tôi",
+    "offerSummary": "Trả giá: {{amount}}"
   },
   "follow": {
     "followers": "Người theo dõi",

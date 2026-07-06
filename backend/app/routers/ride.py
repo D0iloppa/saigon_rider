@@ -75,9 +75,18 @@ async def submit_ride(
 ):
     now = datetime.now(UTC)
 
+    # 보상 지급 대상은 세션 유저 본인만 (impersonation 차단)
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     uq = await db.get(UserQuest, body.user_quest_id)
     if uq is None:
         raise HTTPException(status_code=404, detail="UserQuest not found")
+    # 소유권·정합: 타인의 user_quest 제출, 저보상 uq에 고보상 quest_id 결합 차단
+    if uq.user_id != body.user_id:
+        raise HTTPException(status_code=403, detail="Not your quest")
+    if uq.quest_id != body.quest_id:
+        raise HTTPException(status_code=409, detail="quest_id does not match user_quest")
 
     quest = await db.get(Quest, body.quest_id)
     if quest is None:

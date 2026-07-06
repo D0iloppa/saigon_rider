@@ -27,7 +27,8 @@ services:
       - imgproxy
     environment:
       - WIKI_AUTH_USER=${WIKI_AUTH_USER:-admin}
-      - WIKI_AUTH_PASS=${WIKI_AUTH_PASS:-changeme}
+      # 기본값 금지 — .env 누락 시 공개 비밀번호로 조용히 기동되는 사고 방지 (fail-fast)
+      - WIKI_AUTH_PASS=${WIKI_AUTH_PASS:?WIKI_AUTH_PASS missing in .env}
     restart: unless-stopped
 
   # ── Frontend (React + Vite → nginx 정적 서빙) ────────────
@@ -91,7 +92,8 @@ services:
       - TZ=${APP_TIMEZONE:-Asia/Seoul}
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASS_HASH=${ADMIN_PASS_HASH}
-      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-dev_admin_jwt_secret}
+      # 기본값 금지 — 공개 문자열로 admin JWT가 서명되면 위조 가능 (fail-fast)
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET missing in .env}
       - WIKI_BASE_PATH=${WIKI_BASE_PATH:-/wiki/}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
       - RAINVIEWER_API_KEY=${RAINVIEWER_API_KEY:-}

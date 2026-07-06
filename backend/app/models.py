@@ -30,8 +30,9 @@ _content_owner_type_enum = ENUM("system", "user", "mock", "profile_mock", name="
 _quest_period_enum = ENUM("DAILY", "WEEKLY", "EVENT", name="quest_period", create_type=False)
 _quest_badge_enum = ENUM("HOT", "NEW", "LIMITED", name="quest_badge_type", create_type=False)
 _safety_grade_enum = ENUM("A", "B", "C", name="safety_grade", create_type=False)
+# EXPIRED: 엔진 expire 잡이 실제로 기록하는 값 — 모델에 빠져 있으면 해당 행 조회 시 LookupError 500
 _quest_status_enum = ENUM(
-    "ACCEPTED", "ACTIVE", "COMPLETED", "FAILED", "ABANDONED", name="quest_status", create_type=False
+    "ACCEPTED", "ACTIVE", "COMPLETED", "FAILED", "ABANDONED", "EXPIRED", name="quest_status", create_type=False
 )
 _notification_type_enum = ENUM(
     "QUEST_RECOMMEND", "QUEST_EXPIRE", "EVENT", "RIDE_RESULT", "SOCIAL", name="notification_type", create_type=False

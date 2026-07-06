@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..models import Content
 from ..schemas import ContentOut
 from ..utils import build_imgproxy_url
@@ -26,6 +27,9 @@ def _is_uuid(val: str) -> bool:
 
 
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
+
+# 업로드 단건 상한 — nginx client_max_body_size(25m)보다 약간 낮게, 전체 메모리 적재 방어
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
@@ -59,11 +63,13 @@ def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
 async def upload_content(
     file: UploadFile = File(...),
     owner_type: str = Form(...),
-    owner_id: str | None = Form(None),
+    owner_id: str | None = Form(None),  # 하위호환용으로 수신만 하고 무시 — 세션 uid 로 강제
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    if owner_type not in ("system", "user"):
-        raise HTTPException(status_code=400, detail="owner_type must be 'system' or 'user'")
+    # 앱 경로는 'user' 업로드만 — 'system'은 관리자 콘솔/배치 절차 전용 (클라이언트 지정 금지)
+    if owner_type != "user":
+        raise HTTPException(status_code=403, detail="owner_type must be 'user'")
 
     if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(status_code=415, detail=f"Unsupported media type: {file.content_type}")
@@ -76,10 +82,13 @@ async def upload_content(
     abs_path = abs_dir / filename
     file_path = f"{rel_dir}/{filename}"
 
-    data = await file.read()
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB)")
     abs_path.write_bytes(data)
 
-    parsed_owner_id = uuid.UUID(owner_id) if owner_id else None
+    # owner_id 는 클라이언트 값을 신뢰하지 않고 세션 유저로 강제
+    parsed_owner_id = _session_uid
 
     content = Content(
         id=content_id,

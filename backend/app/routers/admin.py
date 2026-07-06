@@ -57,7 +57,10 @@ _TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "admin"
 
 _ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 _ADMIN_PASS_HASH = os.getenv("ADMIN_PASS_HASH", "")
-_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "dev_admin_jwt_secret")
+# 폴백 금지 — 공개 리포에 노출된 고정 문자열로 서명되면 admin JWT를 누구나 위조할 수 있다.
+_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "")
+if not _JWT_SECRET:
+    raise RuntimeError("ADMIN_JWT_SECRET is not set — refusing to start with a forgeable admin session secret")
 _JWT_ALG = "HS256"
 _JWT_EXP_HOURS = 8
 _COOKIE = "admin_session"

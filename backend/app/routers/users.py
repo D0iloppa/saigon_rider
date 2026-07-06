@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
+from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import Badge, MarketplaceReview, Quest, RideSession, User, UserBadge, UserFollow, UserQuest
 from ..schemas import (
@@ -58,6 +59,12 @@ async def _get_user_or_404(user_id: uuid.UUID, db: AsyncSession) -> User:
     return user
 
 
+def _require_self(user_id: uuid.UUID, session_uid: uuid.UUID) -> None:
+    """본인 대상 엔드포인트에서 세션과 대상 user_id 대조 — 타인 계정 조작 차단."""
+    if user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
 # SGR-209 A3: 스킬 키 → users 컬럼
 _SKILL_COLUMN = {
     "distance_rider": "skill_distance_rider",
@@ -73,7 +80,9 @@ async def invest_skill(
     skill_key: str,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    _require_self(user_id, _session_uid)
     # SGR-280: 스킬은 0~9 서브포인트, 단계 = //3. 클릭당 SP 1 차감·서브포인트 +1 (한 단계 = 3 SP).
     col = _SKILL_COLUMN.get(skill_key)
     if col is None:
@@ -232,7 +241,12 @@ async def get_quest_history(
 
 # A-3
 @router.delete("/me", status_code=204, summary="계정 탈퇴 (논리 삭제)")
-async def delete_account(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_account(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    _require_self(user_id, _session_uid)
     user = await _get_user_or_404(user_id, db)
     now = datetime.now(UTC)
     user.deleted_at = now
@@ -247,7 +261,13 @@ async def delete_account(user_id: uuid.UUID, db: AsyncSession = Depends(get_db))
 
 # A-4
 @router.get("/me/export", summary="내 데이터 JSON 다운로드")
-async def export_user_data(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def export_user_data(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    # 전화번호 포함 전체 PII 덤프 — 반드시 본인만
+    _require_self(user_id, _session_uid)
     user = await _get_user_or_404(user_id, db)
 
     rides_result = await db.execute(
@@ -280,7 +300,7 @@ async def export_user_data(user_id: uuid.UUID, db: AsyncSession = Depends(get_db
     ]
 
     badges_result = await db.execute(select(UserBadge).where(UserBadge.user_id == user_id))
-    badges = [{"badge_id": str(b.badge_id), "earned_at": b.earned_at.isoformat()} for b in badges_result.scalars()]
+    badges = [{"badge_id": str(b.badge_id), "earned_at": b.acquired_at.isoformat()} for b in badges_result.scalars()]
 
     data = {
         "profile": {

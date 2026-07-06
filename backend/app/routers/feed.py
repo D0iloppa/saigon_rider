@@ -188,6 +188,9 @@ async def create_feed_post(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    # 세션 유저 명의로만 작성 가능 — body.user_id 는 세션과 일치해야 함 (impersonation 차단)
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     has_images = bool(body.image_content_ids) or body.image_content_id is not None
     if body.content is None and body.image_url is None and not has_images:
         raise HTTPException(status_code=400, detail="content, image_content_ids or image_url is required")
@@ -348,6 +351,9 @@ async def post_comment(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    # 세션 유저 명의로만 작성 가능 (impersonation 차단)
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     if body.content is None and body.image_url is None:
         raise HTTPException(status_code=400, detail="content or image_url is required")
 

@@ -161,6 +161,11 @@ export const useUserStore = create<UserState>()(
         }
       },
     }),
-    { name: 'saigon-rider-user' }
+    {
+      name: 'saigon-rider-user',
+      // passcode(살아있는 credential)는 localStorage에 영속화하지 않는다 — 세션 메모리 전용.
+      // 앱 재시작 후에는 null이 되며, 유일한 소비처인 [DBG] 퀘스트 강제완료만 재로그인을 요구한다.
+      partialize: (s) => Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'passcode')),
+    }
   )
 );

@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.enums import ItemSlotEnum
 from app.models import DailyFeaturedItem, ItemDefinition, SreUser, UserItem
 from app.schemas import ShopPurchaseResult
-from app.services.xp_ledger import get_or_create_user
+from app.services.xp_ledger import get_or_create_balance, get_or_create_user
 
 # 상점 드릴다운 그룹 → 슬롯 집합 (프론트 ShopCatalog 그룹과 일치)
 SHOP_GROUPS: dict[str, tuple[str, ...]] = {
@@ -97,6 +97,8 @@ async def purchase(
     skill_discount_pct: int = 0,
 ) -> ShopPurchaseResult:
     user = await get_or_create_user(db, user_uuid)
+    # 신규 유저는 xp_balance row 가 없어 DB 함수가 SQL 에러(원문 노출)로 터짐 — 가챠(pull)와 동일하게 선생성
+    await get_or_create_balance(db, user.user_id)
 
     row = await db.execute(
         text("SELECT purchase_shop_item(:uid, :item, :cur, :disc)"),

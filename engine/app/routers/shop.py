@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -57,11 +58,15 @@ async def purchase_item(
             skill_discount_pct=data.skill_discount_pct,
         )
     except Exception as e:
-        msg = str(e)
-        if "insufficient" in msg.lower():
+        # asyncpg RaiseError 원문(SQL 전문 포함)을 클라이언트에 노출하지 않도록 RAISE 메시지만 추출
+        raw = str(e)
+        m = re.search(r"RaiseError'>: ([^\n]+)", raw)
+        msg = m.group(1) if m else raw.split("\n")[0]
+        low = msg.lower()
+        if "insufficient" in low:
             raise HTTPException(status_code=402, detail=msg)
-        if "already owned" in msg.lower():
+        if "already owned" in low:
             raise HTTPException(status_code=409, detail=msg)
-        if "not found" in msg.lower() or "not available" in msg.lower():
+        if "not found" in low or "not available" in low:
             raise HTTPException(status_code=400, detail=msg)
         raise

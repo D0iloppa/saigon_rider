@@ -477,7 +477,7 @@ export default function WorldMapV2() {
           {dataLoading
             ? [0,1,2,3].map((i) => <div key={i} className={`shimmer ${styles.commSkeleton}`} />)
             : communityPosts.slice(0,6).map((post) => (
-              <button key={post.id} className={styles.commCard} onClick={() => navigate(`/feed/${post.id}`)}>
+              <button key={post.id} className={styles.commCard} onClick={() => navigate('/feed?filter=hot')}>
                 {post.photoUrl
                   ? <div className={styles.commCardThumb}><AppImage src={post.photoUrl} alt="" className={styles.commCardImg} /></div>
                   : <div className={styles.commCardNoImg} />

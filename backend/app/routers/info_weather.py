@@ -156,17 +156,15 @@ async def _upsert_cache(
     await db.commit()
 
 
-async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
-    try:
-        await engine_client.post_event(
-            user_uuid=str(user_id),
-            action_code=action_code,
-            occurred_at=datetime.now(UTC),
-            payload=payload or {},
-            idem_key=idem_key,
-        )
-    except Exception as exc:
-        log.warning("XP earn failed for %s / %s: %s", action_code, user_id, exc)
+async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> bool:
+    """부가 보상 적립 — 실패해도 본 요청은 성공시키되 로그를 남긴다 (suppress 침묵 소실 금지)."""
+    return await engine_client.post_event_safe(
+        user_uuid=str(user_id),
+        action_code=action_code,
+        occurred_at=datetime.now(UTC),
+        payload=payload or {},
+        idem_key=idem_key,
+    )
 
 
 # ── Endpoints ────────────────────────────────────────────────────

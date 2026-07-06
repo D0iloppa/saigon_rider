@@ -1,4 +1,3 @@
-import contextlib
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -25,15 +24,15 @@ _DEDUP_MINUTES = 30
 # ── XP helper ──────────────────────────────────────────────────────────────
 
 
-async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
-    with contextlib.suppress(Exception):
-        await engine_client.post_event(
-            user_uuid=str(user_id),
-            action_code=action_code,
-            occurred_at=datetime.now(UTC),
-            payload=payload or {},
-            idem_key=idem_key,
-        )
+async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> bool:
+    """부가 보상 적립 — 실패해도 본 요청은 성공시키되 로그를 남긴다 (suppress 침묵 소실 금지)."""
+    return await engine_client.post_event_safe(
+        user_uuid=str(user_id),
+        action_code=action_code,
+        occurred_at=datetime.now(UTC),
+        payload=payload or {},
+        idem_key=idem_key,
+    )
 
 
 # ── Lazy expiry ─────────────────────────────────────────────────────────────
@@ -191,11 +190,11 @@ async def report_flood(
     await db.refresh(report)
 
     idem_base = f"flood-report-{user_id}-{report.report_id}"
-    await _earn_gp_safe(user_id, "INFO_FLOOD_REPORT", idem_base, {"report_id": report.report_id})
-
-    xp_earned = 30
-    if body.photo_url:
-        await _earn_gp_safe(user_id, "INFO_FLOOD_PHOTO", f"{idem_base}-photo")
+    # 적립 실패/거절 시 응답 표기도 0 — 하드코딩 교정 (repair 와 동일 원칙)
+    xp_earned = 0
+    if await _earn_gp_safe(user_id, "INFO_FLOOD_REPORT", idem_base, {"report_id": report.report_id}):
+        xp_earned += 30
+    if body.photo_url and await _earn_gp_safe(user_id, "INFO_FLOOD_PHOTO", f"{idem_base}-photo"):
         xp_earned += 10
 
     return {
@@ -250,8 +249,8 @@ async def confirm_flood(
     xp_earned = 0
     if body.confirmation_type in ("still_flooded", "resolved"):
         idem_key = f"flood-confirm-{user_id}-{report_id}"
-        await _earn_gp_safe(user_id, "INFO_FLOOD_CONFIRM", idem_key)
-        xp_earned = 10
+        if await _earn_gp_safe(user_id, "INFO_FLOOD_CONFIRM", idem_key):
+            xp_earned = 10
 
     return {"confirmed": True, "xp_earned": xp_earned}
 

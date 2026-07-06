@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -31,15 +30,15 @@ router = APIRouter(prefix="/info/gas", tags=["Info — 주유소"])
 # ── XP helper ──────────────────────────────────────────────────────────────
 
 
-async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
-    with contextlib.suppress(Exception):
-        await engine_client.post_event(
-            user_uuid=str(user_id),
-            action_code=action_code,
-            occurred_at=datetime.now(UTC),
-            payload=payload or {},
-            idem_key=idem_key,
-        )
+async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> bool:
+    """부가 보상 적립 — 실패해도 본 요청은 성공시키되 로그를 남긴다 (suppress 침묵 소실 금지)."""
+    return await engine_client.post_event_safe(
+        user_uuid=str(user_id),
+        action_code=action_code,
+        occurred_at=datetime.now(UTC),
+        payload=payload or {},
+        idem_key=idem_key,
+    )
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
@@ -206,12 +205,12 @@ async def report_wait_time(
 
     bucket = int(datetime.now(UTC).timestamp()) // 5400
     idem_key = f"gas-wait-{user_id}-{body.station_id}-{bucket}"
-    await _earn_gp_safe(user_id, "INFO_GAS_WAIT_REPORT", idem_key)
+    earned = await _earn_gp_safe(user_id, "INFO_GAS_WAIT_REPORT", idem_key)
 
     # 제보가 nearby 응답에 즉시 반영되도록 캐시 무효화 (제보 위치를 알 수 없어 nearby 전체 삭제)
     await cache_invalidate("nearby:v1:*")
 
-    return {"wait_id": report.wait_id, "rp_earned": 5}
+    return {"wait_id": report.wait_id, "rp_earned": 5 if earned else 0}
 
 
 @router.post("/report", status_code=201)

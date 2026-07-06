@@ -1,4 +1,3 @@
-import contextlib
 import uuid
 from datetime import UTC, datetime
 
@@ -19,15 +18,15 @@ router = APIRouter(prefix="/info/repair", tags=["Info — 정비소"])
 # ── XP helper ──────────────────────────────────────────────────────────────
 
 
-async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> None:
-    with contextlib.suppress(Exception):
-        await engine_client.post_event(
-            user_uuid=str(user_id),
-            action_code=action_code,
-            occurred_at=datetime.now(UTC),
-            payload=payload or {},
-            idem_key=idem_key,
-        )
+async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, payload: dict | None = None) -> bool:
+    """부가 보상 적립 — 실패해도 본 요청은 성공시키되 로그를 남긴다 (suppress 침묵 소실 금지)."""
+    return await engine_client.post_event_safe(
+        user_uuid=str(user_id),
+        action_code=action_code,
+        occurred_at=datetime.now(UTC),
+        payload=payload or {},
+        idem_key=idem_key,
+    )
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
@@ -307,29 +306,28 @@ async def create_repair_review(
         pass
 
     # RP(gc) 적립 — action_definition.rp_grant 기반 (sre051: REVIEW 50 / PHOTO 10 / PRICE 10)
+    # 적립 실패 시 응답 표기도 0 — 실패했는데 +50 으로 보이던 하드코딩 교정
     rp_earned = 0
 
-    await _earn_gp_safe(
+    if await _earn_gp_safe(
         user_id,
         "INFO_REPAIR_REVIEW",
         f"repair-review-{user_id}-{review.review_id}",
-    )
-    rp_earned = 50
+    ):
+        rp_earned += 50
 
-    if body.photo_url:
-        await _earn_gp_safe(
-            user_id,
-            "INFO_REPAIR_PHOTO",
-            f"repair-photo-{user_id}-{review.review_id}",
-        )
+    if body.photo_url and await _earn_gp_safe(
+        user_id,
+        "INFO_REPAIR_PHOTO",
+        f"repair-photo-{user_id}-{review.review_id}",
+    ):
         rp_earned += 10
 
-    if body.price_vnd is not None:
-        await _earn_gp_safe(
-            user_id,
-            "INFO_REPAIR_PRICE",
-            f"repair-price-{user_id}-{review.review_id}",
-        )
+    if body.price_vnd is not None and await _earn_gp_safe(
+        user_id,
+        "INFO_REPAIR_PRICE",
+        f"repair-price-{user_id}-{review.review_id}",
+    ):
         rp_earned += 10
 
     return {"review_id": review.review_id, "rp_earned": rp_earned}

@@ -40,6 +40,39 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def post_event_safe(
+        self,
+        *,
+        user_uuid: str,
+        action_code: str,
+        occurred_at: datetime,
+        payload: dict,
+        idem_key: str,
+    ) -> bool:
+        """post_event 의 부가 보상용 변형 — 실패해도 본 트랜잭션을 막지 않되 반드시 로그를 남긴다.
+
+        contextlib.suppress 로 삼키던 과거 패턴은 시그니처 불일치 TypeError 까지 무음 소실시켜
+        info 보상이 수개월간 미발동된 사고의 원인이었다(260608). 성공 여부를 반환하므로
+        호출부는 적립 실패 시 응답의 보상 표기를 0 으로 정직하게 내릴 수 있다.
+        """
+        try:
+            res = await self.post_event(
+                user_uuid=user_uuid,
+                action_code=action_code,
+                occurred_at=occurred_at,
+                payload=payload,
+                idem_key=idem_key,
+            )
+        except Exception as exc:
+            log.warning("reward event failed action=%s user=%s: %s", action_code, user_uuid, exc)
+            return False
+        # 엔진은 일일캡 초과/미지정 액션/계정 정지도 201 + process_status=REJECTED 로
+        # 응답한다 — HTTP 성공 ≠ 실제 지급. 표기 정직성을 위해 여기서 걸러낸다.
+        if str(res.get("process_status", "")).upper() == "REJECTED":
+            log.info("reward event rejected action=%s user=%s", action_code, user_uuid)
+            return False
+        return True
+
     async def get_balance(self, user_uuid: str) -> dict:
         resp = await self._client.get(f"/v1/users/{user_uuid}/balance")
         resp.raise_for_status()

@@ -13,6 +13,9 @@ class BffClient:
             base_url=settings.bff_base_url,
             headers={"X-Service-Key": settings.engine_service_key},
             timeout=10.0,
+            # 연결 수립 실패(ConnectError — WSL2 Docker DNS, 72h 내 5회 실측) 재시도.
+            # 연결 단계만 재시도하므로 비멱등 POST 의 중복 실행 위험 없음.
+            transport=httpx.AsyncHTTPTransport(retries=3),
         )
 
     async def grant_exp(self, user_uuid: str, amount: int) -> dict:

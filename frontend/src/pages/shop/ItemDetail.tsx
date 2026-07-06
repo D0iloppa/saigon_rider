@@ -49,7 +49,7 @@ export default function ItemDetail() {
     if (!item || item.is_owned || buying) return;
     setBuying(true);
     try {
-      const currency = item.price_xp ? 'XP' : 'GOLD';
+      const currency = item.price_gold ? 'GOLD' : 'XP';
       await purchaseShopItem(item.item_code, currency);
       toast.success(t('itemDetail.purchase_success'));
       setItem({ ...item, is_owned: true });
@@ -86,7 +86,7 @@ export default function ItemDetail() {
   const r = item.rarity;
   const col = item.collection_code ? COLLECTION_MOCK[item.collection_code] : null;
   const colPct = col ? Math.round((col.owned / col.total) * 100) : 0;
-  const priceVal = item.price_xp ? `${item.price_xp} ${t('currency.xp')}` : `${item.price_gold?.toLocaleString()} ${t('currency.gold')}`;
+  const priceVal = item.price_gold ? `${item.price_gold.toLocaleString()} ${t('currency.gold')}` : `${item.price_xp} ${t('currency.xp')}`;
 
   return (
     <div className={s.page}>

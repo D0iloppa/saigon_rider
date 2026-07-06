@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { pullGacha, fetchGachaPity } from '@/api/gacha';
-import type { PulledItem, GachaPullResult, ItemRarity } from '@/api/gacha';
+import type { PulledItem, GachaPullResult, GachaPity, ItemRarity } from '@/api/gacha';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
 import { MythicCardOverlay } from '@/components/ui/items/MythicCardOverlay';
@@ -82,7 +82,7 @@ export default function GachaPull() {
   const is10 = searchParams.get('is10') === 'true';
 
   const [result, setResult] = useState<GachaPullResult | null>(null);
-  const [pityAfter, setPityAfter] = useState<number | null>(null);
+  const [pityAfter, setPityAfter] = useState<GachaPity | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [phase, setPhase] = useState<GachaPhase>('charging');
   const pulledKey = useRef<string | null>(null);
@@ -119,7 +119,7 @@ export default function GachaPull() {
         clearTimers();
         setResult(r);
         fetchGachaPity(gachaCode)
-          .then((p) => { if (p) setPityAfter(p.pull_count); })
+          .then((p) => { if (p) setPityAfter(p); })
           .catch(() => {});
 
         // 사용자가 차징 중 SKIP 했으면 즉시 결과로
@@ -202,8 +202,8 @@ export default function GachaPull() {
     breakdown[item.rarity] = (breakdown[item.rarity] ?? 0) + 1;
   }
 
-  const ceiling = (result as (GachaPullResult & { pity_hard_ceiling?: number }) | null)?.pity_hard_ceiling ?? 100;
-  const pityCount = pityAfter ?? result?.new_pity_count ?? 0;
+  const ceiling = pityAfter?.pity_hard_ceiling ?? 0;
+  const pityCount = pityAfter?.pull_count ?? result?.new_pity_count ?? 0;
   const pityPct = ceiling > 0 ? Math.min((pityCount / ceiling) * 100, 100) : 0;
   const spotlightIdx = items.findIndex((i) => i.rarity === best);
 

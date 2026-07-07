@@ -1,4 +1,12 @@
 {
+  "trust": {
+    "label": "Neighbor trust level",
+    "caution": "Caution",
+    "new": "New neighbor",
+    "good": "Good neighbor",
+    "trusted": "Trusted neighbor",
+    "top": "Top neighbor"
+  },
   "rideNav": {
     "title": "Directions",
     "destination": "Destination",
@@ -114,7 +122,6 @@
     "statusError": "Failed to change status",
     "emptyTitle": "No listings nearby",
     "emptySub": "Be the first to post",
-    "mannerTemp": "Manner temp",
     "reviewCount": "{{count}} trades",
     "responseVeryFast": "Fast reply",
     "responseNormal": "Normal reply",

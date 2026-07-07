@@ -1,4 +1,12 @@
 {
+  "trust": {
+    "label": "Mức tin cậy hàng xóm",
+    "caution": "Cần lưu ý",
+    "new": "Hàng xóm mới",
+    "good": "Hàng xóm tốt",
+    "trusted": "Hàng xóm đáng tin cậy",
+    "top": "Hàng xóm tuyệt vời"
+  },
   "rideNav": {
     "title": "Chỉ đường",
     "destination": "Điểm đến",
@@ -114,7 +122,6 @@
     "statusError": "Đổi trạng thái thất bại",
     "emptyTitle": "Chưa có tin gần đây",
     "emptySub": "Hãy đăng tin đầu tiên",
-    "mannerTemp": "Nhiệt độ thiện chí",
     "reviewCount": "Giao dịch {{count}}",
     "responseVeryFast": "Phản hồi nhanh",
     "responseNormal": "Phản hồi vừa",

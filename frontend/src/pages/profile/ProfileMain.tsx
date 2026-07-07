@@ -16,6 +16,7 @@ import { formatNumber, formatRelativeTime, splitNumberParts } from '@/lib/format
 import type { BadgeWithEarned, FeedPost, QuestHistoryItem, UserStats } from '@/api/types';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
+import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { fetchMe, fetchUserStats, fetchQuestHistory, fetchAllBadges } from '@/api/profile';
 import { fetchWallet } from '@/api/wallet';
@@ -329,7 +330,7 @@ export default function ProfileMain() {
           <h1 className={styles.nick}>{u.nickname}</h1>
         </div>
 
-        <div style={{ margin: '8px auto 24px', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ margin: '8px auto 24px', display: 'flex', justifyContent: 'center', gap: 6 }}>
           <Chip variant="surface">
             {u.riderStyle === 'commuter'
               ? `🏢 ${t('profileSetup.styleCommuterTitle')}`
@@ -337,6 +338,7 @@ export default function ProfileMain() {
               ? `☕ ${t('profileSetup.styleCafeHunterTitle')}`
               : `🌙 ${t('profileSetup.styleNightRiderTitle')}`}
           </Chip>
+          <TrustTierChip temp={u.mannerTemp} />
         </div>
 
         <div className={styles.levelRow}>

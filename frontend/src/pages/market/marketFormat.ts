@@ -23,19 +23,6 @@ export function formatDistance(m: number | null): string {
   return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`;
 }
 
-/** 매너온도 이모지 (REF-06: 별점 아닌 '체온' 은유) */
-export function mannerEmoji(temp: number): string {
-  if (temp >= 50) return '😍';
-  if (temp >= 40) return '😊';
-  if (temp >= 36.5) return '🙂';
-  return '😐';
-}
-
-/** 매너온도 표기 — 36.5°C */
-export function formatMannerTemp(temp: number): string {
-  return `${temp.toFixed(1)}°C`;
-}
-
 /** 별점 표기: 후기 없으면 '—', 있으면 ⭐4.8 */
 export function formatRating(avg: number | null, count: number): string {
   if (avg === null || count === 0) return '—';

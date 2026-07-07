@@ -1,4 +1,12 @@
 {
+  "trust": {
+    "label": "이웃 신뢰 등급",
+    "caution": "주의 필요",
+    "new": "새 이웃",
+    "good": "좋은 이웃",
+    "trusted": "믿음직한 이웃",
+    "top": "최고의 이웃"
+  },
   "rideNav": {
     "title": "경로 안내",
     "destination": "목적지",
@@ -114,7 +122,6 @@
     "statusError": "상태 변경 실패",
     "emptyTitle": "근처에 매물이 없어요",
     "emptySub": "첫 매물을 등록해보세요",
-    "mannerTemp": "매너온도",
     "reviewCount": "거래 {{count}}건",
     "responseVeryFast": "응답 빠름",
     "responseNormal": "응답 보통",

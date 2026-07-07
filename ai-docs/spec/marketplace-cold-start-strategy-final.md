@@ -222,7 +222,7 @@ Phase 2 — 유동성 플라이휠 (D0 ~ D30) · 목표: 첫 유기적 거래
 
 ## 부록 B — 별도 기술부채 (전략과 분리 추적)
 
-- **`manner_temp` 레거시 정리**: 마켓 UI는 별점(`avg_rating`)으로 전환됐으나 `manner_temp`가 잔존 — 백엔드(컬럼 + `_recompute_manner_temp` + 셀러 응답 dual-track + `target_manner_temp` 반환), 프론트(`formatMannerTemp` / `mannerTemp` 매핑). 별점 전환의 미완 마이그레이션. 콜드스타트 전략과 무관한 코드부채이므로 **별도 티켓으로 추적**(전략 반영과 묶지 않음).
+- **`manner_temp` 레거시 정리**: (2026-07-07 부분 해소) 온도 은유는 **신뢰 티어 표기로 전환 완료** — `lib/trustTier.ts` 5티어 매핑 + `TrustTierChip`(매물상세 판매자 블록·프로필 노출), `formatMannerTemp`/`mannerEmoji`/orphan i18n 키 제거. 스칼라 계산(`_recompute_manner_temp`)·API dual-track 은 내부 유지 — 스키마 필드 정리는 여전히 별도 티켓.
 
 ---
 

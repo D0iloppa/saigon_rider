@@ -31,6 +31,7 @@ import {
   type ReportReason,
 } from '@/api/market';
 import { StarIcon } from '@/components/ui/StarIcon';
+import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { formatPriceVnd, formatResponseRate, relativeTime, statusLabelKey } from './marketFormat';
 import styles from './MarketDetail.module.css';
 
@@ -244,6 +245,7 @@ export default function MarketDetail() {
                   )}
                 </div>
                 <div className={styles.trustBadges}>
+                  <TrustTierChip temp={detail.seller.mannerTemp} />
                   {detail.seller.isPhoneVerified && (
                     <span className={styles.trustChip} title={t('market.phoneVerified', { defaultValue: '전화 인증 완료' })}>
                       ✓ {t('market.verified', { defaultValue: '인증' })}

@@ -1,0 +1,36 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 티어별 점 색 — 승급 서사: 회색(주의) → 중립 → 초록 → 브랜드 → 골드 */
+.chip[data-tier='caution'] .dot { background: var(--text-3); }
+.chip[data-tier='caution'] { color: var(--text-3); }
+.chip[data-tier='new']     .dot { background: #94A3B8; }
+.chip[data-tier='good']    .dot { background: var(--success); }
+.chip[data-tier='trusted'] .dot { background: var(--brand-500); }
+.chip[data-tier='top']     .dot { background: var(--gold); }
+.chip[data-tier='top'] {
+  color: #8a6100;
+  background: #fff6df;
+}
+
+[data-theme='dark'] .chip[data-tier='top'] {
+  color: #ffd979;
+  background: #2e2712;
+}

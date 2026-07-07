@@ -420,7 +420,14 @@ export default function NeighborhoodMap() {
                 </button>
               ))}
             </div>
-            {mode === 'viewport' && showDistrictBadges && sheetSnap === 'collapsed' ? (
+            {loading && (bboxFilter || selectedRegion) ? (
+              // 로딩은 리스트의 상태 — 지도 오버레이(토스트와 겹침)가 아니라 결과가
+              // 도착할 자리(헤더 건수 위치)에 표시. 접힘/펼침 모두 보임
+              <span className={styles.headLoading}>
+                <span className={styles.mapSpinner} />
+                {t('map.loading')}
+              </span>
+            ) : mode === 'viewport' && showDistrictBadges && sheetSnap === 'collapsed' ? (
               // 게이트 힌트 필은 접힘 전용 — 펼치면 본문 가이드가 안내를 담당(중복 버튼 방지)
               <button
                 type="button"
@@ -670,13 +677,6 @@ export default function NeighborhoodMap() {
           onClick={() => setSearchPanelOpen(true)}
         />
       </div>
-
-      {loading && !isSearching && (bboxFilter || selectedRegion) && (
-        <div className={styles.mapLoading}>
-          <span className={styles.mapSpinner} />
-          <span>{t('map.loading')}</span>
-        </div>
-      )}
 
       {searchPanelOpen && (
         <div className={styles.searchPanel} style={lockedPanelHeight != null ? { height: lockedPanelHeight } : undefined}>

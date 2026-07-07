@@ -21,23 +21,16 @@
 
 /* 뷰포트/지역 변경으로 매물을 다시 불러오는 동안 지도 위에 뜨는 비차단 알림 —
    핀 목록이 조용히 바뀌면 "이게 최종 결과가 맞는지" 헷갈리는 문제를 막는다. */
-.mapLoading {
-  position: absolute;
-  top: calc(var(--status-bar-height) + 10px + 54px + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
+/* 시트 헤더 로딩 — 건수 자리 (지도 토스트와 표면 분리, 겹침 구조적 차단) */
+.headLoading {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text-2);
   font-size: 12px;
   font-weight: 600;
-  box-shadow: 0 10px 24px rgba(10, 18, 28, 0.16);
-  pointer-events: none;
+  color: var(--text-3);
+  white-space: nowrap;
 }
 
 .mapSpinner {

@@ -111,7 +111,13 @@ export default function DmDetail() {
     const deadline = performance.now() + 2000;
     let raf = 0;
     const tick = (now: number) => {
-      if (!pinnedRef.current || kbVisibleRef.current) return;
+      if (!pinnedRef.current) return;
+      if (kbVisibleRef.current) {
+        // 키보드 표시 중 새 메시지 — 프레임 스냅 루프는 smooth 스크롤과 싸우므로
+        // smooth 1회로 처리하고 루프는 재예약하지 않는다.
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        return;
+      }
       el.scrollTop = el.scrollHeight;
       if (now < deadline) raf = requestAnimationFrame(tick);
     };
@@ -122,7 +128,8 @@ export default function DmDetail() {
   // 키보드(iOS 오버레이)가 뜨면 컴포저 스페이서가 메시지 영역을 줄인다 —
   // 최근 메시지가 가려지지 않게 리스트를 바닥으로 부드럽게 재스크롤 (스페이서 렌더 반영 후).
   useEffect(() => {
-    if (!kb.visible) return;
+    // 과거 메시지를 읽는 중(pinned 해제)이면 읽던 위치를 보존한다.
+    if (!kb.visible || !pinnedRef.current) return;
     const t = window.setTimeout(() => {
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
     }, 80);
@@ -538,8 +545,10 @@ export default function DmDetail() {
                   src={m.imageUrl}
                   alt=""
                   className={styles.msgImg}
-                  /* 이미지 비동기 로드로 높이가 늦게 생겨 오토스크롤이 언더슛 — 로드 후 재스크롤 */
-                  onLoad={() => listRef.current?.scrollTo(0, listRef.current.scrollHeight)}
+                  /* 이미지 비동기 로드로 높이가 늦게 생겨 오토스크롤이 언더슛 — 바닥 고정 중이면 재스크롤 (스티커와 동일 가드) */
+                  onLoad={() => {
+                    if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
+                  }}
                 />
               )}
               {m.content && trOpen[m.id] && tr[m.id] && (

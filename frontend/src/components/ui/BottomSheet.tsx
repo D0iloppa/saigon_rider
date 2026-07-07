@@ -21,8 +21,10 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
   // 브리지 키보드 높이(useKeyboard) 단일 소스로만 하고 visualViewport 는 쓰지 않는다.
   // (최신 WKWebView 는 오버레이 키보드도 vv.height 를 줄여 보고하므로 섞으면 이중 보정)
   const isIosNative = native.platform === 'ios';
-  // 키보드 표시 중 시트 높이를 키우기 위한 명시 높이 (문자열 CSS 값만 지원, 예: '60vh')
-  const sheetStyleHeight = typeof sheetStyle?.height === 'string' ? sheetStyle.height : undefined;
+  // 키보드 표시 중 시트 높이를 키우기 위한 명시 높이 — 문자열('60vh')과 숫자(px) 모두 지원.
+  const rawHeight = sheetStyle?.height;
+  const sheetStyleHeight =
+    typeof rawHeight === 'string' ? rawHeight : typeof rawHeight === 'number' ? `${rawHeight}px` : undefined;
 
   useEffect(() => {
     if (!open) return;

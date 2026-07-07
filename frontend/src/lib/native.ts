@@ -338,30 +338,28 @@ class NativeInterface {
    * 웹/Android: 기존 계측 방식 유지 (baseline innerHeight delta + visualViewport
    * inset 의 max). Android 는 adjustPan + IME 패딩 현행 유지 — 회귀 금지.
    */
+  /** iOS 키보드 브리지 fan-out — 소비자가 여럿이어도(화면당 시트/컴포저 다수) 브리지 리스너는 1회만 등록 */
+  private kbHandlers = new Set<KeyboardChangeHandler>();
+  private kbBridgeStarted = false;
+
   onKeyboardChange(handler: KeyboardChangeHandler): () => void {
     if (this.platform === 'ios') {
-      const subs: PluginListenerHandle[] = [];
-      let disposed = false;
-      const track = (p: Promise<PluginListenerHandle>) => {
+      // 브리지 리스너는 최초 구독 시 1회 등록하고 앱 수명 동안 유지 — 이후 구독자는
+      // 핸들러 집합에만 추가/제거된다 (해제/재등록 경합 없음, Capacitor 핸들 누적 방지).
+      this.kbHandlers.add(handler);
+      if (!this.kbBridgeStarted) {
+        this.kbBridgeStarted = true;
+        const emit = (e: KeyboardChangeEvent) => this.kbHandlers.forEach((h) => h(e));
         // 플러그인 미탑재(구 빌드) 시 reject → 무시 (이벤트가 안 올 뿐).
-        p.then((sub) => {
-          if (disposed) sub.remove();
-          else subs.push(sub);
-        }).catch(() => {});
-      };
-      track(
         KeyboardBridge.addListener('keyboardWillShow', (e) =>
-          handler({ height: e.height, visible: true }),
-        ),
-      );
-      track(
+          emit({ height: e.height, visible: true }),
+        ).catch(() => {});
         KeyboardBridge.addListener('keyboardWillHide', () =>
-          handler({ height: 0, visible: false }),
-        ),
-      );
+          emit({ height: 0, visible: false }),
+        ).catch(() => {});
+      }
       return () => {
-        disposed = true;
-        subs.forEach((sub) => sub.remove());
+        this.kbHandlers.delete(handler);
       };
     }
 

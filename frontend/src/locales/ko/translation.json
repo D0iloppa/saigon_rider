@@ -1363,6 +1363,8 @@
     "clearAll": "전체 삭제",
     "zoomGateHint": "🔍 지도를 확대해 주변 매물을 봐요",
     "zoomGateShort": "확대해서 주변 보기",
+    "locateNotFound": "위치를 찾을 수 없어요",
+    "locateFailed": "위치를 가져올 수 없어요",
     "zoomGateMyArea": "📍 내 동네 보기"
   },
   "effects": {

@@ -1363,6 +1363,8 @@
     "clearAll": "Xóa tất cả",
     "zoomGateHint": "🔍 Phóng to bản đồ để xem tin quanh bạn",
     "zoomGateShort": "Phóng to để xem quanh bạn",
+    "locateNotFound": "Không tìm thấy vị trí",
+    "locateFailed": "Không thể lấy vị trí của bạn",
     "zoomGateMyArea": "📍 Xem khu phố của tôi"
   },
   "effects": {

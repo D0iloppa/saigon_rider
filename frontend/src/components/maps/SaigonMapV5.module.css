@@ -136,7 +136,8 @@
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  /* 하단 배치는 드래거블 시트(불투명, ~140px)에 가려짐 — 상단 노출 (시나리오 3.4) */
+  top: 64px;
   transform: translateX(-50%);
   background: rgba(40, 44, 52, 0.92);
   color: #fff;

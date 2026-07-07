@@ -124,10 +124,16 @@ export interface SaigonMapV5Props {
   onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
   onDepthChange?: (showDistrictBadges: boolean) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
+  /** 현재 뷰포트 기준 bbox 재발행 트리거 — region 해제 등 파이프라인 재동기화용 */
+  emitBboxRef?: React.MutableRefObject<(() => void) | null>;
   searchFitRef?: React.MutableRefObject<((points: { lat: number; lng: number }[]) => void) | null>;
   forceMarkers?: boolean;
   polyActive?: boolean;
   onLocate?: () => void;
+  /** GPS 측정 성공 시 좌표 통지 — 부모가 위치 스토어에 기억(재진입 복원용) */
+  onLocated?: (pos: { lat: number; lng: number }) => void;
+  /** 서비스 지역(HCMC) 밖 GPS 안내 문구 — 미지정 시 한국어 기본값 */
+  outsideAreaMessage?: string;
   selectRegionOnLocate?: boolean;
   selectionOnly?: boolean;
   bottomInsetPx?: number;
@@ -147,10 +153,13 @@ function SaigonMapV5({
   onBboxChange,
   onDepthChange,
   locateRef,
+  emitBboxRef,
   searchFitRef,
   forceMarkers = false,
   polyActive = true,
   onLocate,
+  onLocated,
+  outsideAreaMessage,
   selectRegionOnLocate = true,
   selectionOnly = false,
   bottomInsetPx = 0,
@@ -173,8 +182,9 @@ function SaigonMapV5({
   const loadingRef = useRef<Set<string>>(new Set());
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const prevLOD = useRef({ l2: false, l3: false });
-  const didApplyInitialGps = useRef(false);
   const didAutoLocate = useRef(false);
+  // 마운트 rAF(빈 deps)가 최신 focusLatLng 를 부르기 위한 latest-ref (onViewportChangeRef 와 동일 패턴)
+  const focusLatLngRef = useRef<((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean }) => void) | null>(null);
   // 마운트 rAF(빈 deps 이펙트)가 최신 onViewportChange를 부르기 위한 latest-ref.
   // 콜백을 빈 deps 이펙트에 직접 클로저 캡처하면 React Compiler가 수동 메모이제이션
   // 보존을 포기해 컴포넌트 전체 최적화가 스킵된다(preserve-manual-memoization 에러).
@@ -262,6 +272,13 @@ function SaigonMapV5({
         setVBAttr();
         setVbSnap((n) => n + 1);
         onViewportChangeRef.current();
+        return;
+      }
+      if (initialGps) {
+        // 재진입 좌표 기억: 예전엔 별도 이펙트가 focus 한 것을 이 rAF 가 전역 뷰로 덮어썼다
+        // (시나리오 1.3 회귀) — 레이아웃 확정 후 여기서 직접 Layer3 포커스하고 bbox 도
+        // emit 해(suppress 안 함) 게이트 통과 리스트 파이프라인을 바로 잇는다.
+        focusLatLngRef.current?.(initialGps, { silent: true, selectRegion: selectRegionOnLocate });
         return;
       }
       const dataX1 = lx(D1_BBOX.W), dataX2 = lx(D1_BBOX.E);
@@ -417,9 +434,10 @@ function SaigonMapV5({
       const slug = depth1.wards[idx].slug as string | undefined;
       if (slug) void loadWardData(slug, false);
     } else if (!opts?.silent) {
-      showToast('위치를 찾을 수 없어요');
+      showToast(t('map.locateNotFound', { defaultValue: '위치를 찾을 수 없어요' }));
     }
-  }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, showToast]);
+  }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, showToast, t]);
+  focusLatLngRef.current = focusLatLng;
 
   // ── GPS 위치 ───────────────────────────────────────────────
   const runLocate = useCallback(async () => {
@@ -427,12 +445,22 @@ function SaigonMapV5({
     try {
       await native.ensureLocationPermission();
       const pos = await native.getLocation();
+      // 서비스 지역(HCMC bbox + 0.05° 마진) 밖 — 가장자리 clamp 딥줌·무의미한 조회·
+      // 가짜 위치점을 만들지 않고 안내만 한다 (시나리오 3.3, V2/V3 outsideArea 가드 복원)
+      const inHcmc = pos.lat >= HCMC.S - 0.05 && pos.lat <= HCMC.N + 0.05
+                  && pos.lng >= HCMC.W - 0.05 && pos.lng <= HCMC.E + 0.05;
+      if (!inHcmc) {
+        showToast(outsideAreaMessage ?? '서비스 지역 밖이에요');
+        return;
+      }
       focusLatLng({ lat: pos.lat, lng: pos.lng }, { selectRegion: selectRegionOnLocate });
+      onLocated?.({ lat: pos.lat, lng: pos.lng });
     } catch {
-      focusLatLng(initialGps ?? { lat: 10.772, lng: 106.697 }, { silent: true, selectRegion: selectRegionOnLocate });
-      showToast('위치를 가져올 수 없어요');
+      // 측정 실패 시 임의 지역(기본 좌표) 딥줌·가짜 위치점 폴백을 하지 않는다 —
+      // 뷰포트 유지 + 안내만 (시나리오 3.4)
+      showToast(t('map.locateFailed', { defaultValue: '위치를 가져올 수 없어요' }));
     }
-  }, [focusLatLng, initialGps, onLocate, selectRegionOnLocate, showToast]);
+  }, [focusLatLng, onLocate, onLocated, outsideAreaMessage, selectRegionOnLocate, showToast, t]);
 
   // ◎ 버튼: 동 선택 중엔 그 동 중심으로, 아니면 GPS를 다시 측정해 진짜 "현재 위치"로 이동
   const recenterCurrentContext = useCallback(() => {
@@ -476,27 +504,24 @@ function SaigonMapV5({
   }, [searchFitRef, fitToPoints]);
 
   useEffect(() => {
-    if (initialGps && !didApplyInitialGps.current) {
-      didApplyInitialGps.current = true;
-      // suppressBbox: 이 focus가 emit한 좁은 ward bbox를 부모가 debounce로 커밋하기 전에
-      // 마운트 rAF가 뷰포트를 전역 뷰로 덮어써서, 화면(전역)과 bboxFilter(ward)가 어긋나는
-      // 문제가 있었음 — 마운트 초기화 경로에서는 bbox를 emit하지 않는다.
-      focusLatLng(initialGps, { silent: true, selectRegion: selectRegionOnLocate, suppressBbox: true });
-      return;
-    }
-    // didAutoLocate 가드: focusLatLng/runLocate는 onRegionSelect 등 부모 prop에 의존해
-    // 재생성될 수 있어 이 이펙트가 여러 번 재실행될 수 있음 — 가드 없이는 그때마다
-    // GPS를 다시 측정해 짧은 시간에 수십 회 호출되는 문제가 있었음(마운트당 1회만 허용).
+    // initialGps 마운트 포커스는 레이아웃 rAF(위 초기화 이펙트)로 이관됨 — 여기는 자동 locate 만.
+    // didAutoLocate 가드: runLocate는 부모 prop에 의존해 재생성될 수 있어 이 이펙트가 여러 번
+    // 재실행될 수 있음 — 가드 없이는 그때마다 GPS를 다시 측정(마운트당 1회만 허용).
     if (locateOnMount && !didAutoLocate.current) {
       didAutoLocate.current = true;
       void runLocate();
     }
-  }, [focusLatLng, initialGps, locateOnMount, runLocate, selectRegionOnLocate]);
+  }, [locateOnMount, runLocate]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();
     return () => { if (locateRef) locateRef.current = null; };
   }, [locateRef, runLocate]);
+
+  useEffect(() => {
+    if (emitBboxRef) emitBboxRef.current = () => onViewportChange();
+    return () => { if (emitBboxRef) emitBboxRef.current = null; };
+  }, [emitBboxRef, onViewportChange]);
 
   useEffect(() => {
     // suppressBbox: 이 이펙트는 시트 높이·선택모드/선택동 변화에 따른 LOD/뱃지 재계산용이지
@@ -591,8 +616,14 @@ function SaigonMapV5({
     setVbSnap((n) => n + 1);
 
     if (!wasTap) return;
-    // 마커 위에서 시작된 탭은 마커 onClick에 맡기고 ward 히트테스트를 건너뛴다
-    if ((g.downTarget as Element | null)?.closest?.('[data-marker]')) return;
+    // 마커 위에서 시작된 탭: setPointerCapture 가 click 을 svg 로 재타겟팅해 마커 g 의
+    // onClick 이 실입력에서 절대 발화하지 않으므로(시나리오 4.4) 여기서 직접 디스패치한다.
+    const markerEl = (g.downTarget as Element | null)?.closest?.('[data-marker]');
+    if (markerEl) {
+      const mid = markerEl.getAttribute('data-marker');
+      markers?.find((m) => String(m.id) === mid)?.onClick?.();
+      return;
+    }
     const svgEl = svgRef.current;
     const r = svgEl?.getBoundingClientRect();
     if (!r || !svgEl) return;
@@ -799,7 +830,7 @@ function SaigonMapV5({
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
               const r = vb.w * 0.015;
               return (
-                <g key={m.id} data-marker="1" style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
+                <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
                   <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
                 </g>

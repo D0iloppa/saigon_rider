@@ -48,7 +48,10 @@ async function fetchAllListings(params: Parameters<typeof fetchListings>[0]): Pr
     if (acc.length >= res.total || res.items.length < LISTINGS_PAGE_SIZE || acc.length >= MAX_MAP_LISTINGS) break;
     page++;
   }
-  return acc;
+  // offset 페이지네이션은 정렬 동률에서 페이지 간 중복/누락이 생길 수 있다(서버에 id
+  // tie-breaker 를 넣었지만 방어적으로 중복 제거 — React 중복 key/ghost 카드 차단)
+  const seen = new Set<string>();
+  return acc.filter((l) => (seen.has(l.id) ? false : (seen.add(l.id), true)));
 }
 
 type LatLngBbox = { N: number; S: number; E: number; W: number };
@@ -114,6 +117,7 @@ export default function NeighborhoodMap() {
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const locateRef = useRef<(() => void) | null>(null);
+  const emitBboxRef = useRef<(() => void) | null>(null);
   const searchFitRef = useRef<((points: { lat: number; lng: number }[]) => void) | null>(null);
   const [viewportBbox, setViewportBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
   const [showDistrictBadges, setShowDistrictBadges] = useState(true);
@@ -359,9 +363,14 @@ export default function NeighborhoodMap() {
     setSelectedRegion(null);
     setSelectedId(null);
     setExpandedPostId(null);
-    // 지역 필터 해제 직후엔 항상 가이드 상태에서 시작 — region 모드 중 쌓인 bbox 잔재 제거
+    // region 모드 중 쌓인 리스트/핀/카운트 잔재 제거 — 해제 후 "가이드+stale 헤더+stale 핀"
+    // 3중 불일치 방지 (시나리오 4.3)
+    setListings([]);
+    setPosts([]);
     setViewportBbox(null);
     clearTimeout(bboxTimerRef.current);
+    // 현재 뷰포트 기준 bbox 재발행 → 게이트 이상이면 재조회, 미만이면 가이드로 정합
+    emitBboxRef.current?.();
     sheetRef.current?.snapToMid();
   }, []);
   const switchToViewport = () => {
@@ -635,6 +644,9 @@ export default function NeighborhoodMap() {
         onRegionSelect={handleRegionSelect}
         onBboxChange={handleBboxChange}
         onDepthChange={setShowDistrictBadges}
+        onLocated={setSharedCoords}
+        emitBboxRef={emitBboxRef}
+        outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요' })}
         locateRef={locateRef}
         searchFitRef={searchFitRef}
         forceMarkers={isSearching}

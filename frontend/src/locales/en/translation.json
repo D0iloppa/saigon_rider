@@ -1363,6 +1363,8 @@
     "clearAll": "Clear all",
     "zoomGateHint": "🔍 Zoom in to see items around you",
     "zoomGateShort": "Zoom in to browse",
+    "locateNotFound": "Couldn't find that location",
+    "locateFailed": "Couldn't get your location",
     "zoomGateMyArea": "📍 Show my neighborhood"
   },
   "effects": {

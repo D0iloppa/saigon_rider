@@ -3,6 +3,7 @@ import {
   type ReactNode,
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -32,6 +33,8 @@ interface DraggableSheetProps {
   lockHeight?: boolean;
   midHeight?: number | string;
   onVisibleHeightChange?: (visibleHeight: number) => void;
+  /** 스냅 상태 변경 통지 — 접힘 전용 UI(지도 게이트 힌트 필 등) 게이팅용 */
+  onSnapChange?: (snap: Snap) => void;
 }
 
 const DRAG_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -61,6 +64,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     lockHeight = false,
     midHeight,
     onVisibleHeightChange,
+    onSnapChange,
   },
   ref,
 ) {
@@ -78,6 +82,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
 
   const [peek, setPeek] = useState(0);
   const [snap, setSnap] = useState<Snap>(initialSnap ?? (initialCollapsed ? 'collapsed' : 'full'));
+  useEffect(() => { onSnapChange?.(snap); }, [onSnapChange, snap]);
   const [viewportHeight, setViewportHeight] = useState(() => (typeof window !== 'undefined' ? window.innerHeight : 1000));
 
   useLayoutEffect(() => {

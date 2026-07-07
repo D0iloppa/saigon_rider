@@ -450,7 +450,11 @@ function SaigonMapV5({
       const inHcmc = pos.lat >= HCMC.S - 0.05 && pos.lat <= HCMC.N + 0.05
                   && pos.lng >= HCMC.W - 0.05 && pos.lng <= HCMC.E + 0.05;
       if (!inHcmc) {
-        showToast(outsideAreaMessage ?? '서비스 지역 밖이에요');
+        // 막다른 길 방지: 안내 후 서비스 중심가(Bến Thành)로 이동해 원격 사용자도
+        // 매물 탐색이 가능하게 한다. 가짜 위치점·좌표 저장은 하지 않는다.
+        showToast(outsideAreaMessage ?? '서비스 지역 밖이에요 · 호치민 중심을 보여드려요');
+        focusLatLng({ lat: 10.772, lng: 106.697 }, { silent: true, selectRegion: selectRegionOnLocate });
+        setMeLatLng(null);
         return;
       }
       focusLatLng({ lat: pos.lat, lng: pos.lng }, { selectRegion: selectRegionOnLocate });

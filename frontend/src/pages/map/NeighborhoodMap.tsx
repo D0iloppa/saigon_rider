@@ -113,6 +113,7 @@ export default function NeighborhoodMap() {
   const [adLimit, setAdLimit] = useState(randAdBatch);
   const [reloadSeq, setReloadSeq] = useState(0);
   const [sheetVisibleHeight, setSheetVisibleHeight] = useState(0);
+  const [sheetSnap, setSheetSnap] = useState<'full' | 'mid' | 'collapsed'>('collapsed');
 
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -419,8 +420,8 @@ export default function NeighborhoodMap() {
                 </button>
               ))}
             </div>
-            {mode === 'viewport' && showDistrictBadges ? (
-              // 게이트 상태는 접힌 시트에서도 보여야 한다 — 건수 대신 탭 가능한 확대 힌트
+            {mode === 'viewport' && showDistrictBadges && sheetSnap === 'collapsed' ? (
+              // 게이트 힌트 필은 접힘 전용 — 펼치면 본문 가이드가 안내를 담당(중복 버튼 방지)
               <button
                 type="button"
                 className={styles.zoomHintPill}
@@ -430,7 +431,7 @@ export default function NeighborhoodMap() {
               >
                 🔍 {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
               </button>
-            ) : (
+            ) : mode === 'viewport' && showDistrictBadges ? null : (
               <span className={styles.count}>{t('map.count', { count: visibleCount })}</span>
             )}
           </>
@@ -649,7 +650,7 @@ export default function NeighborhoodMap() {
         onDepthChange={setShowDistrictBadges}
         onLocated={setSharedCoords}
         emitBboxRef={emitBboxRef}
-        outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요' })}
+        outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
         locateRef={locateRef}
         searchFitRef={searchFitRef}
         forceMarkers={isSearching}
@@ -733,6 +734,7 @@ export default function NeighborhoodMap() {
         midHeight="42vh"
         lockHeight
         onVisibleHeightChange={setSheetVisibleHeight}
+        onSnapChange={setSheetSnap}
       >
         <div className={styles.list} onScroll={handleListScroll}>{renderBody()}</div>
       </DraggableSheet>

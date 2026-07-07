@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { fetchUserProfile } from '@/api/profile';
 import { fetchMyFeed, toggleCheer, fetchComments, postComment, toggleCommentLike } from '@/api/feed';
 import { followUser, unfollowUser } from '@/api/follows';
@@ -55,6 +57,10 @@ export function ProfileCard({ userId, open, onClose }: Props) {
   const [commentInput, setCommentInput] = useState('');
   const commentBackdropRef = useRef<HTMLDivElement>(null);
   const commentSheetRef = useRef<HTMLDivElement>(null);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → visualViewport 계측이
+  // 무의미해 KeyboardBridge 높이를 직접 써야 한다. 웹/Android 는 계측 유지.
+  const isIosNative = native.platform === 'ios';
 
   // Draggable sheet
   const profileSectionRef = useRef<HTMLDivElement>(null);
@@ -193,7 +199,9 @@ export function ProfileCard({ userId, open, onClose }: Props) {
         return;
       }
 
-      const keyboardInset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      const keyboardInset = isIosNative
+        ? (kb.visible ? kb.height : 0)
+        : Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
       const sheetHeight = Math.max(260, Math.min(Math.round(vv.height * 0.6), Math.round(vv.height - 20)));
 
       backdrop.style.top = `${vv.offsetTop}px`;
@@ -234,7 +242,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
         sheet.style.maxHeight = '';
       }
     };
-  }, [activePost]);
+  }, [activePost, isIosNative, kb.visible, kb.height]);
 
   // ── Follow handlers ───────────────────────────────────────────
   async function doFollow() {

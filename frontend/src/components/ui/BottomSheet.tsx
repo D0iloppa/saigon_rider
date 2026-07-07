@@ -1,5 +1,7 @@
 import { ReactNode, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './BottomSheet.module.css';
 
 interface Props {
@@ -14,6 +16,11 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const dragY = useRef({ startY: 0, currentY: 0, dragging: false });
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → visualViewport 가 안 줄어들어
+  // 아래 top/height 보정만으론 시트가 키보드에 덮인다. backdrop 하단에 키보드 높이만큼
+  // padding 을 둬 align-items:flex-end 인 시트를 그만큼 위로 밀어 올린다.
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +46,7 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
         backdrop.style.left = '';
         backdrop.style.width = '';
         backdrop.style.height = '';
+        backdrop.style.paddingBottom = '';
         sheet.style.maxHeight = '';
         return;
       }
@@ -51,6 +59,9 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
       backdrop.style.left = '0px';
       backdrop.style.width = `${vv.width}px`;
       backdrop.style.height = `${vv.height}px`;
+      // iOS 네이티브는 키보드가 순수 오버레이라 vv.height 가 줄지 않음 — backdrop 하단에
+      // 키보드 높이만큼 padding 을 둬 align-items:flex-end 시트를 그만큼 위로 밀어 올린다.
+      backdrop.style.paddingBottom = isIosNative && kb.visible ? `${kb.height}px` : '';
       sheet.style.maxHeight = `${Math.max(vv.height - 60, 240)}px`;
     };
 
@@ -85,12 +96,13 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
         backdrop.style.left = '';
         backdrop.style.width = '';
         backdrop.style.height = '';
+        backdrop.style.paddingBottom = '';
       }
       if (sheet) {
         sheet.style.maxHeight = '';
       }
     };
-  }, [open]);
+  }, [open, isIosNative, kb.height, kb.visible]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     dragY.current = { startY: e.touches[0].clientY, currentY: 0, dragging: true };

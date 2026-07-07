@@ -5,6 +5,7 @@ import { weatherApi } from '@/api/info';
 import type { WeatherData, ForecastHour } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { parseCoordsFromQuery } from '@/lib/infoCoords';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { type SelectedRegion } from '@/components/maps/v2/region';
@@ -46,6 +47,10 @@ export default function InfoWeather() {
   const [loading, setLoading] = useState(true);
   const [notifyLabel, setNotifyLabel] = useState('');
   const [notifyDone, setNotifyDone] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 알림 입력이 스크롤 최하단이면 스크롤로도
+  // 못 뺀다 — 키보드 높이만큼 하단 padding 을 더한다.
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     if (!coords) return;
@@ -78,7 +83,7 @@ export default function InfoWeather() {
           <div className={styles.skeleton} style={{ height: 200 }} />
         </div>
       ) : (
-        <div className={styles.scroll}>
+        <div className={styles.scroll} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
           {/* Location map — 침수 지도와 동일 레이아웃(풀블리드) */}
           <div className={styles.mapArea}>
             {coords && (

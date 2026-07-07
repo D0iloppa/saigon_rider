@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { fetchTickets, createTicket, type SupportTicket } from '@/api/support';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './CustomerSupport.module.css';
 
 type View = 'list' | 'new';
@@ -21,6 +23,10 @@ export default function CustomerSupport() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 본문 textarea 아래 제출 버튼뿐이면
+  // 스크롤로도 못 뺀다 — 키보드 높이만큼 하단 padding 을 더한다.
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     fetchTickets().then(setTickets).catch(() => {});
@@ -76,7 +82,7 @@ export default function CustomerSupport() {
       )}
 
       {view === 'new' && (
-        <div className={styles.form}>
+        <div className={styles.form} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
           <div className={styles.formCard}>
             <div>
               <p className={styles.label}>{t('support.fieldTitle')}</p>

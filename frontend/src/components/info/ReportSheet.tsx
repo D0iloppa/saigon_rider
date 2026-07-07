@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './ReportSheet.module.css';
 
 export interface ReportFields {
@@ -31,6 +33,10 @@ export default function ReportSheet({
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 하단에 고정된 이 시트를 그대로 덮는다 —
+  // backdrop 하단에 키보드 높이만큼 padding 을 둬 align-items:flex-end 시트를 밀어 올린다.
+  const isIosNative = native.platform === 'ios';
 
   if (!open) return null;
 
@@ -50,7 +56,11 @@ export default function ReportSheet({
   }
 
   return (
-    <div className={styles.backdrop} onClick={() => !submitting && onClose()}>
+    <div
+      className={styles.backdrop}
+      onClick={() => !submitting && onClose()}
+      style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}
+    >
       <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
         <div className={styles.title}>{title}</div>
         <div className={styles.desc}>{desc}</div>

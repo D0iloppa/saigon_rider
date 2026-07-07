@@ -62,13 +62,32 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
   const composingRef = useRef(false);
   // 'closed' | 'menu' | <item.key>(피커 서브뷰)
   const [view, setView] = useState<string>('closed');
+  const [focused, setFocused] = useState(false);
   const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈/팬 없음) → 입력바를 키보드
+  // 위로 올리는 건 아래 스페이서뿐. 웹/Android 는 OS·브라우저가 직접 밀어주므로 제외.
+  const isIosNative = native.platform === 'ios';
 
   const hasMenu = menuItems.length > 0;
   const open = view !== 'closed';
   const subItem = menuItems.find((m) => m.key === view && m.renderPanel) ?? null;
   // useKeyboard 는 키보드가 내려가도 마지막 높이를 유지 → 패널을 같은 크기로 스왑.
   const panelHeight = kb.height || DEFAULT_PANEL_HEIGHT;
+
+  // 입력바 아래 예약 공간 — 패널과 키보드가 공유하는 단일 슬롯. 패널↔키보드 전환에서
+  // 높이가 한 순간도 0 으로 붕괴하지 않아야 iOS 가 웹뷰를 팬하지 않는다.
+  const lastSpacerRef = useRef(0);
+  let spacerHeight = 0;
+  if (open) {
+    spacerHeight = panelHeight;
+  } else if (isIosNative && kb.visible) {
+    spacerHeight = kb.height;
+  } else if (isIosNative && focused && lastSpacerRef.current > 0) {
+    // 포커스 직후 ~ keyboardWillShow 도착 전 공백 래치: 직전 스페이서 높이 유지.
+    // (직전 높이가 0 이면 아무것도 예약하지 않음 → 하드웨어 키보드 등에서 빈 300px 방지)
+    spacerHeight = lastSpacerRef.current;
+  }
+  lastSpacerRef.current = spacerHeight;
 
   // 본문 탭 등 외부에서 패널을 닫을 수 있게 노출 (키보드 띄우지 않음).
   useImperativeHandle(ref, () => ({ close: () => setView('closed') }), []);
@@ -133,7 +152,11 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
             composingRef.current = false;
             onChange((e.target as HTMLInputElement).value); // 조합 확정값 1회 반영
           }}
-          onFocus={() => setView('closed')}
+          onFocus={() => {
+            setFocused(true);
+            setView('closed'); // 패널 내용은 닫되 스페이서는 래치로 유지 → 키보드가 자리를 이어받음
+          }}
+          onBlur={() => setFocused(false)}
           onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && onSend()}
         />
         <button
@@ -147,31 +170,32 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
         </button>
       </div>
 
-      {open && (
-        <div className={styles.panel} style={{ height: panelHeight }}>
-          {subItem ? (
-            <div className={styles.subPanel}>
-              <button type="button" className={styles.backBtn} onClick={() => setView('menu')}>
-                <ChevronLeft size={20} />
-                <span>{subItem.label}</span>
-              </button>
-              <div className={styles.subContent}>{subItem.renderPanel!()}</div>
-            </div>
-          ) : (
-            <div className={styles.menuGrid}>
-              {menuItems.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={styles.menuItem}
-                  onClick={() => handleMenuItem(item)}
-                >
-                  <span className={styles.menuIcon}>{item.icon}</span>
-                  <span className={styles.menuLabel}>{item.label}</span>
+      {spacerHeight > 0 && (
+        <div className={styles.panel} style={{ height: spacerHeight }}>
+          {open &&
+            (subItem ? (
+              <div className={styles.subPanel}>
+                <button type="button" className={styles.backBtn} onClick={() => setView('menu')}>
+                  <ChevronLeft size={20} />
+                  <span>{subItem.label}</span>
                 </button>
-              ))}
-            </div>
-          )}
+                <div className={styles.subContent}>{subItem.renderPanel!()}</div>
+              </div>
+            ) : (
+              <div className={styles.menuGrid}>
+                {menuItems.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={styles.menuItem}
+                    onClick={() => handleMenuItem(item)}
+                  >
+                    <span className={styles.menuIcon}>{item.icon}</span>
+                    <span className={styles.menuLabel}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
         </div>
       )}
     </div>

@@ -13,6 +13,8 @@ import { ProfileCard } from '@/components/ProfileCard';
 import { useUserStore } from '@/store/useUserStore';
 import { loadSession } from '@/lib/session';
 import { toast } from '@/components/ui/Toast';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { ImageViewer } from './FeedList';
 import feedStyles from './FeedList.module.css';
 import styles from './FeedDetail.module.css';
@@ -30,6 +32,10 @@ export default function FeedDetail() {
   const [input, setInput] = useState('');
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → 입력바가 flex 하단에
+  // 있어도 그 자리를 키보드가 그냥 덮는다. 키보드 높이만큼 padding 을 더해 위로 밀어낸다.
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     if (!postId) return;
@@ -178,7 +184,10 @@ export default function FeedDetail() {
       </div>
 
       {/* 하단 댓글 입력바 (탭바 숨김 화면 — safe-area 직접 처리) */}
-      <div className={styles.inputBarWrap}>
+      <div
+        className={styles.inputBarWrap}
+        style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}
+      >
         <div className={feedStyles.commentInputBar}>
           <AppImage src={user?.avatarUrl ?? undefined} alt="" className={feedStyles.commentAvatar} variant="circle" />
           <input

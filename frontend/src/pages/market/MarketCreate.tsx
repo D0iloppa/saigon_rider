@@ -8,6 +8,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/api/client';
 import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchDistricts, type District } from '@/api/master';
 import { createListing, fetchCategories, localizedName, resolveDistrict, type MarketCategory } from '@/api/market';
@@ -42,6 +43,10 @@ export default function MarketCreate() {
   const [tradeCoords, setTradeCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locOpen, setLocOpen] = useState(false);
   const [posting, setPosting] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 설명 textarea 아래 여백이 거의 없어
+  // 스크롤해도 키보드에 가려진다 — 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다.
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
@@ -149,7 +154,7 @@ export default function MarketCreate() {
         }
       />
 
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {/* Photos */}
         <div className={styles.photoRow}>
           <label className={styles.addPhoto}>

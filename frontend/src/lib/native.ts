@@ -63,6 +63,17 @@ export type CameraPermissionHandler = (granted: boolean) => void;
 export type FcmTokenHandler = (token: string) => void;
 export type FcmNotificationHandler = (event: FcmNotificationEvent) => void;
 
+export interface KeyboardChangeEvent {
+  /** 키보드가 웹뷰를 덮는(또는 밀어낸) 높이(px). 내려갈 땐 0. */
+  height: number;
+  /** 키보드가 떠 있는지. */
+  visible: boolean;
+}
+export type KeyboardChangeHandler = (event: KeyboardChangeEvent) => void;
+
+// 작은 뷰포트 변화(주소창 등)를 키보드로 오인하지 않기 위한 임계값 (계측 폴백용)
+const KEYBOARD_THRESHOLD = 120;
+
 // ─── NativeInterface ────────────────────────────────────────────────────────
 
 class NativeInterface {
@@ -317,6 +328,63 @@ class NativeInterface {
   async setBackgroundColor(color: string): Promise<void> {
     if (this.platform !== 'ios') return;
     await KeyboardBridge.setBackgroundColor({ color }).catch(() => {});
+  }
+
+  /**
+   * 키보드 표시/높이 변화 구독. 구독 해제 함수를 반환한다.
+   *
+   * iOS 네이티브: 키보드는 순수 오버레이(웹뷰 리사이즈 없음)라 innerHeight 계측이
+   * 무의미 — KeyboardBridge 의 keyboardWillShow/Hide 이벤트가 유일한 소스.
+   * 웹/Android: 기존 계측 방식 유지 (baseline innerHeight delta + visualViewport
+   * inset 의 max). Android 는 adjustPan + IME 패딩 현행 유지 — 회귀 금지.
+   */
+  onKeyboardChange(handler: KeyboardChangeHandler): () => void {
+    if (this.platform === 'ios') {
+      const subs: PluginListenerHandle[] = [];
+      let disposed = false;
+      const track = (p: Promise<PluginListenerHandle>) => {
+        // 플러그인 미탑재(구 빌드) 시 reject → 무시 (이벤트가 안 올 뿐).
+        p.then((sub) => {
+          if (disposed) sub.remove();
+          else subs.push(sub);
+        }).catch(() => {});
+      };
+      track(
+        KeyboardBridge.addListener('keyboardWillShow', (e) =>
+          handler({ height: e.height, visible: true }),
+        ),
+      );
+      track(
+        KeyboardBridge.addListener('keyboardWillHide', () =>
+          handler({ height: 0, visible: false }),
+        ),
+      );
+      return () => {
+        disposed = true;
+        subs.forEach((sub) => sub.remove());
+      };
+    }
+
+    // 웹/Android 계측 폴백
+    let baseline = window.innerHeight;
+    const measure = () => {
+      baseline = Math.max(baseline, window.innerHeight);
+      const vv = window.visualViewport;
+      // offsetTop(브라우저 키보드 팬)은 빼지 않는다 — 빼면 팬 시 0 이 되어 악순환.
+      const vpInset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
+      const resizeDelta = Math.max(0, baseline - window.innerHeight);
+      const kb = Math.max(vpInset, resizeDelta);
+      handler({ height: kb, visible: kb > KEYBOARD_THRESHOLD });
+    };
+    const vv = window.visualViewport;
+    window.addEventListener('resize', measure);
+    vv?.addEventListener('resize', measure);
+    vv?.addEventListener('scroll', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      vv?.removeEventListener('resize', measure);
+      vv?.removeEventListener('scroll', measure);
+    };
   }
 
   // ── Share (Web Share API only) ──────────────────────────────────────────

@@ -386,6 +386,14 @@ async def get_listing(
     review_count = len(review_rows)
     avg_rating = round(sum(review_rows) / review_count, 1) if review_count > 0 else None
 
+    sold_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(MarketplaceListing)
+            .where(MarketplaceListing.seller_id == seller.id, MarketplaceListing.status == "SOLD")
+        )
+    ).scalar_one()
+
     seller_brief = SellerBrief(
         id=seller.id,
         nickname=seller.nickname,
@@ -394,6 +402,7 @@ async def get_listing(
         manner_temp=float(seller.manner_temp),
         review_count=review_count,
         avg_rating=avg_rating,
+        sold_count=sold_count,
         is_following=is_following,
     )
 

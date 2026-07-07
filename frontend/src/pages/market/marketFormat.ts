@@ -17,10 +17,14 @@ export function relativeTime(iso: string, t: TFunction): string {
   return t('market.dayAgo', { count: Math.floor(h / 24) });
 }
 
-/** 거리 표기 — REF-02 '동네감' 핵심. m<1000이면 m, 아니면 km */
-export function formatDistance(m: number | null): string {
+/** 거리 표기 — REF-02 '동네감' 핵심. 1km 미만은 m(도보권 정밀도), 이상은 오토바이
+ * 소요시간(도심 ~20km/h ≈ 333m/분). "동네명만으론 거리감이 없다"는 당근 티어다운 비판을
+ * 번개장터 '자전거 N분' 패턴으로 보완 — 오토바이 도시 호치민에 맞춤 (design-uplift-260707 §후속 2) */
+export function formatDistance(m: number | null, t: TFunction): string {
   if (m == null) return '';
-  return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`;
+  if (m < 1000) return `${m}m`;
+  const mins = Math.max(1, Math.round(m / 333));
+  return `🛵 ${t('market.bikeMinutes', { count: mins, defaultValue: `${mins}분` })}`;
 }
 
 /** 별점 표기: 후기 없으면 '—', 있으면 ⭐4.8 */

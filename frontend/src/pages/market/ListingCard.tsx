@@ -21,7 +21,7 @@ export default function ListingCard({ listing: l, onClick }: Props) {
       <div className={styles.cardBody}>
         <p className={styles.cardTitle}>{l.title}</p>
         <p className={styles.cardMeta}>
-          {[localizedName(l.district), formatDistance(l.distanceM), relativeTime(l.bumpedAt, t)]
+          {[localizedName(l.district), formatDistance(l.distanceM, t), relativeTime(l.bumpedAt, t)]
             .filter(Boolean)
             .join(' · ')}
         </p>

@@ -1,5 +1,6 @@
 /* ─── Font & Root ──────────────────────────────── */
 .root {
+  position: relative; /* writeFab 기준 */
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -654,4 +655,25 @@
 /* ─── 하단 여백 ─────────────────────────────────── */
 .bottomPad {
   height: 16px;
+}
+
+/* 매물 등록 FAB — MarketMain .writeFab 과 동일 스펙 */
+.writeFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(255, 90, 31, .42);
+}
+
+.writeFab:active {
+  transform: scale(0.94);
 }

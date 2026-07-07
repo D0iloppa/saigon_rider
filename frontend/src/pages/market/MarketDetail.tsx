@@ -258,6 +258,11 @@ export default function MarketDetail() {
                   <span className={styles.trustChip}>
                     {t('market.reviewCount', { count: detail.seller.reviewCount, defaultValue: `거래 ${detail.seller.reviewCount}건` })}
                   </span>
+                  {detail.seller.soldCount > 0 && (
+                    <span className={styles.trustChip}>
+                      {t('market.soldCount', { count: detail.seller.soldCount, defaultValue: `판매 ${detail.seller.soldCount}건` })}
+                    </span>
+                  )}
                   {formatResponseRate(detail.seller.responseRate, t) && (
                     <span className={styles.trustChip}>
                       {formatResponseRate(detail.seller.responseRate, t)}

@@ -140,6 +140,7 @@ class SellerBrief(BaseModel):
     manner_temp: float = 36.5
     review_count: int = 0
     avg_rating: float | None = None
+    sold_count: int = 0
     is_following: bool = False
 
 

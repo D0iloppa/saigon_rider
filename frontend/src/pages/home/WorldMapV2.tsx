@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
@@ -494,6 +495,12 @@ export default function WorldMapV2() {
 
         <div className={styles.bottomPad} />
       </div>
+
+      {/* 매물 등록 FAB — 홈에 등록 진입점이 없던 갭 보완 (design-uplift-260707 §후속 4의 즉시 적용분.
+          탭바 상시 '등록' 탭 개편은 제품 결정 대기) */}
+      <button className={styles.writeFab} type="button" onClick={() => navigate('/market/new')} aria-label={t('market.create', { defaultValue: '매물 등록' })}>
+        <Plus size={26} strokeWidth={2.4} />
+      </button>
     </div>
   );
 }

@@ -52,6 +52,7 @@ export interface SellerBrief {
   mannerTemp: number;
   reviewCount: number;
   avgRating: number | null;
+  soldCount: number;
   responseRate: number | null;
   isPhoneVerified: boolean;
   isFollowing: boolean;
@@ -460,6 +461,7 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
       mannerTemp: r.seller.manner_temp ?? 36.5,
       reviewCount: r.seller.review_count ?? 0,
       avgRating: r.seller.avg_rating ?? null,
+      soldCount: r.seller.sold_count ?? 0,
       responseRate: r.seller.response_rate ?? null,
       isPhoneVerified: r.seller.is_phone_verified ?? false,
       isFollowing: r.seller.is_following ?? false,

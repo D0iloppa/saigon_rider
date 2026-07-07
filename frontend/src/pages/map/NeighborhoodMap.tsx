@@ -629,7 +629,8 @@ export default function NeighborhoodMap() {
         className={styles.map}
         height="100%"
         initialGps={storedCoords ?? undefined}
-        locateOnMount={!storedCoords && !savedViewport}
+        // locateOnMount 미사용 — 진입 시 GPS 자동 측정 금지(service-rules 원칙 1·2).
+        // 최초 방문은 전역 배지 + 줌 게이트 가이드([내 동네 보기] = 명시적 GPS)로 안내
         initialViewport={savedViewport ?? undefined}
         markers={markers}
         districtBadges={districtCounts}

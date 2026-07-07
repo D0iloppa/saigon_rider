@@ -110,6 +110,8 @@
 
 ## 부분 점검 (🟡)
 
+- **info 4페이지·LocationPickerSheet 의 locateOnMount(진입 시 GPS 자동 측정)** — 동네지도는 원칙 위반으로 제거(2026-07-07). info 페이지들은 위치 기반 정보 화면 특성상 의도적일 수 있으나 service-rules 원칙 1("화면 이동 시 GPS 자동 측정 금지") 문구와 긴장 — **의도인지 제품 결정 필요** (결정 시 service-rules 화면별 표에 info 추가 or 동네지도식 명시 버튼으로 전환)
+
 - F-03-1 닉네임 1자 IME 이슈 — 재빌드 후 재점검 필요
 - **✅ SGR-285 회원가입 Android 버그 (F-03) — 해결 (2026-06-08)**. 사용자 제약 준수: Android 조치가 iOS 무영향.
   - ① **F-03-IME 전역 한글 밀림(블로커, 진짜 원인)**: Capacitor **`captureInput=true`** → `CapacitorWebView.onCreateInputConnection` 이 조합 미지원 `BaseInputConnection(this,false)` 반환 → **모든 입력창** 한글 조합 깨짐. React/controlled 무관(그래서 프론트 우회 전부 무효였음). **모바일 Chrome 정상 = 앱 WebView 설정 문제로 격리**. 해결 = **`captureInput=false`**: MainActivity CapConfig **+ `android/.../assets/capacitor.config.json`(WebView 실제 로드 파일 — cap sync 미실행으로 true 잔존했던 게 막판 핵심)** + `capacitor.config.ts`. → [[project_capacitor_captureinput_breaks_ime]]

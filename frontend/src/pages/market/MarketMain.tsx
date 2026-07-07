@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Bell, ChevronDown, Heart, MapPinned, Plus, Search, X } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -61,6 +61,7 @@ const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
  */
 export default function MarketMain() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
 
@@ -100,6 +101,28 @@ export default function MarketMain() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // 홈 "내 주변 인기 상품 → 더보기"에서 ?lat=&lng= 로 진입 시: 신규 GPS 재측정 없이
+  // 홈이 이미 보유한 좌표로 gps 모드에 즉시 반영 (savedState 복원보다 우선).
+  useEffect(() => {
+    const latStr = searchParams.get('lat');
+    const lngStr = searchParams.get('lng');
+    if (latStr == null || lngStr == null) return;
+    if (allDistricts.length === 0) return; // 구 해석 가능해진 뒤 1회 소비
+    const lat = Number(latStr);
+    const lng = Number(lngStr);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const d = resolveDistrict(lat, lng, allDistricts)
+        ?? resolveDistrict(10.7748, 106.6879, allDistricts);
+      setCoords({ lat, lng });
+      setDistrict(d ?? null);
+      setLocationMode('gps');
+      setRegionLabel(null);
+      setSort('distance');
+    }
+    // 소비 즉시 쿼리 제거 — 잔존 시 리로드/리마운트마다 수동 지역 선택을 덮어씀 (회귀 xreg-C1)
+    setSearchParams({}, { replace: true });
+  }, [searchParams, allDistricts, setSearchParams]);
 
   const handlePickGPS = async () => {
     try {

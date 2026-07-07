@@ -151,6 +151,20 @@ export default function DmDetail() {
     }
   };
 
+  // 약속잡기 시트 오픈 시 일시 기본값 = 다음 정시(최소 30분 이후). datetime-local은 로컬 타임존 문자열이 필요해 toISOString() 사용 금지.
+  const getDefaultApptWhen = () => {
+    const d = new Date(Date.now() + 30 * 60 * 1000);
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+
+  const handleOpenAppt = () => {
+    if (!apptWhen) setApptWhen(getDefaultApptWhen());
+    setApptOpen(true);
+  };
+
   const handleSendAppointment = async () => {
     if (!conversationId || !apptWhen || sending) return;
     setSending(true);
@@ -209,6 +223,8 @@ export default function DmDetail() {
     setSending(true);
     try {
       patchPriceOffer(await action(offerId));
+      // 가격제안 수락이 약속잡기 게이트를 풀 수 있으므로 대화 컨텍스트 재조회
+      if (conversationId) fetchConversation(conversationId).then(setConv).catch(() => {});
     } catch {
       // 카드가 stale(이미 변경된 제안) → 메시지 재동기화로 카드 상태 교정
       if (conversationId) fetchMessages(conversationId).then((res) => setMessages(res.items)).catch(() => {});
@@ -326,8 +342,16 @@ export default function DmDetail() {
             const hasCoords = lat != null && lng != null;
             const showNav = hasCoords && status !== 'CANCELLED';
             const isSeller = !!appt?.sellerId && appt.sellerId === myId;
+            const canAccept = !!appt && status === 'PROPOSED' && !iAmProposer;
+            const canComplete = !!appt && status === 'ACCEPTED' && isSeller;
+            const canCancel = !!appt && (status === 'PROPOSED' || status === 'ACCEPTED');
+            const cancelLabel = status === 'ACCEPTED'
+              ? t('dm.apptCancel', { defaultValue: '약속 취소' })
+              : iAmProposer
+                ? t('dm.apptCancelOffer', { defaultValue: '제안 취소' })
+                : t('dm.apptReject', { defaultValue: '거절' });
             return (
-              <div key={m.id} className={`${styles.apptCard} ${status ? styles[`appt_${status}`] : ''}`}>
+              <div key={m.id} className={`${styles.apptCard} ${(status && styles[`appt_${status}`]) || ''}`}>
                 <div className={styles.apptHeader}>
                   <span className={styles.apptTitle}>
                     <CalendarPlus size={15} /> {t('dm.appointment', { defaultValue: '약속' })}
@@ -350,44 +374,34 @@ export default function DmDetail() {
                     </div>
                   )}
                 </div>
-                <div className={styles.apptActions}>
-                  {appt && status === 'PROPOSED' && !iAmProposer && (
-                    <button className={styles.apptBtnPrimary} type="button" disabled={sending}
-                      onClick={() => handleAppointmentAction(acceptAppointment, appt.id)}>
-                      {t('dm.apptAccept', { defaultValue: '약속 수락' })}
-                    </button>
-                  )}
-                  {appt && status === 'ACCEPTED' && isSeller && (
-                    <button className={styles.apptBtnPrimary} type="button" disabled={sending}
-                      onClick={() => handleAppointmentAction(completeAppointment, appt.id)}>
-                      🤝 {t('dm.apptComplete', { defaultValue: '거래 완료' })}
-                    </button>
-                  )}
-                  {showNav && (
-                    <button className={styles.apptBtnSecondary} type="button"
-                      onClick={() => handleNavigate(lat!, lng!)}>
-                      🧭 {t('dm.navigate', { defaultValue: '길안내' })}
-                    </button>
-                  )}
-                  {appt && status === 'PROPOSED' && !iAmProposer && (
-                    <button className={styles.apptBtnText} type="button" disabled={sending}
-                      onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
-                      {t('dm.apptReject', { defaultValue: '거절' })}
-                    </button>
-                  )}
-                  {appt && status === 'PROPOSED' && iAmProposer && (
-                    <button className={styles.apptBtnText} type="button" disabled={sending}
-                      onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
-                      {t('dm.apptCancelOffer', { defaultValue: '제안 취소' })}
-                    </button>
-                  )}
-                  {appt && status === 'ACCEPTED' && (
-                    <button className={styles.apptBtnText} type="button" disabled={sending}
-                      onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
-                      {t('dm.apptCancel', { defaultValue: '약속 취소' })}
-                    </button>
-                  )}
-                </div>
+                {(canAccept || canComplete || showNav || canCancel) && (
+                  <div className={styles.apptActions}>
+                    {canAccept && (
+                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                        onClick={() => handleAppointmentAction(acceptAppointment, appt.id)}>
+                        {t('dm.apptAccept', { defaultValue: '약속 수락' })}
+                      </button>
+                    )}
+                    {canComplete && (
+                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                        onClick={() => handleAppointmentAction(completeAppointment, appt.id)}>
+                        {t('dm.apptComplete', { defaultValue: '거래 완료' })}
+                      </button>
+                    )}
+                    {showNav && (
+                      <button className={styles.apptBtnGhost} type="button"
+                        onClick={() => handleNavigate(lat!, lng!)}>
+                        {t('dm.navigate', { defaultValue: '길안내' })}
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
+                        onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
+                        {cancelLabel}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
               </div>
             );
@@ -405,19 +419,21 @@ export default function DmDetail() {
             };
             return (
               // 약속 카드(.apptCard) 공용 골격 재사용 — 가격제안 전용은 금액 표시뿐
-              <div key={m.id} className={`${styles.apptCard} ${styles[`appt_${status}`]}`}>
+              <div key={m.id} className={`${styles.apptCard} ${styles[`appt_${status}`] || ''}`}>
                 <div className={styles.apptHeader}>
                   <span className={styles.apptTitle}>
                     <HandCoins size={15} /> {t('dm.priceOffer', { defaultValue: '가격제안' })}
                   </span>
                   <span className={styles.apptStatusPill} data-status={status}>{statusLabel[status]}</span>
                 </div>
-                <div className={styles.offerAmount}>{formatPriceVnd(offer.amount, t)}</div>
-                {listing && offer.amount !== listing.priceVnd && (
-                  <div className={styles.offerCompare}>
-                    {t('dm.offerListedPrice', { defaultValue: '판매가' })} {formatPriceVnd(listing.priceVnd, t)}
-                  </div>
-                )}
+                <div className={styles.offerBody}>
+                  <div className={styles.offerAmount}>{formatPriceVnd(offer.amount, t)}</div>
+                  {listing && offer.amount !== listing.priceVnd && (
+                    <div className={styles.offerCompare}>
+                      {t('dm.offerListedPrice', { defaultValue: '판매가' })} {formatPriceVnd(listing.priceVnd, t)}
+                    </div>
+                  )}
+                </div>
                 {status === 'PROPOSED' && (
                   <div className={styles.apptActions}>
                     {!iAmProposer && (
@@ -426,14 +442,14 @@ export default function DmDetail() {
                           onClick={() => handlePriceOfferAction(acceptPriceOffer, offer.id)}>
                           {t('dm.offerAccept', { defaultValue: '수락' })}
                         </button>
-                        <button className={styles.apptBtnText} type="button" disabled={sending}
+                        <button className={styles.apptBtnGhost} type="button" disabled={sending}
                           onClick={() => handlePriceOfferAction(declinePriceOffer, offer.id)}>
                           {t('dm.offerDecline', { defaultValue: '거절' })}
                         </button>
                       </>
                     )}
                     {iAmProposer && (
-                      <button className={styles.apptBtnText} type="button" disabled={sending}
+                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
                         onClick={() => handlePriceOfferAction(cancelPriceOffer, offer.id)}>
                         {t('dm.offerCancel', { defaultValue: '제안 취소' })}
                       </button>
@@ -466,7 +482,15 @@ export default function DmDetail() {
           return (
             <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
               {m.content && <div className={styles.text}>{m.content}</div>}
-              {m.imageUrl && <AppImage src={m.imageUrl} alt="" className={styles.msgImg} />}
+              {m.imageUrl && (
+                <AppImage
+                  src={m.imageUrl}
+                  alt=""
+                  className={styles.msgImg}
+                  /* 이미지 비동기 로드로 높이가 늦게 생겨 오토스크롤이 언더슛 — 로드 후 재스크롤 */
+                  onLoad={() => listRef.current?.scrollTo(0, listRef.current.scrollHeight)}
+                />
+              )}
               {m.content && trOpen[m.id] && tr[m.id] && (
                 <div className={styles.translated}>{tr[m.id]}</div>
               )}
@@ -502,12 +526,15 @@ export default function DmDetail() {
             label: t('dm.album', { defaultValue: '앨범' }),
             onPress: () => fileInputRef.current?.click(),
           },
-          {
-            key: 'appt',
-            icon: <CalendarPlus size={26} strokeWidth={1.8} />,
-            label: t('dm.makeAppointment', { defaultValue: '약속잡기' }),
-            onPress: () => setApptOpen(true),
-          },
+          // 약속잡기 — 판매자는 항상, 구매자는 판매자의 거래진행 액션 이후에만 (백엔드도 403으로 차단)
+          ...(conv?.appointmentUnlocked
+            ? [{
+                key: 'appt',
+                icon: <CalendarPlus size={26} strokeWidth={1.8} />,
+                label: t('dm.makeAppointment', { defaultValue: '약속잡기' }),
+                onPress: handleOpenAppt,
+              }]
+            : []),
           // 가격제안 — 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
           ...(listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId
             ? [{

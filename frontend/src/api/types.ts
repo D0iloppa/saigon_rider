@@ -211,6 +211,8 @@ export interface DmConversation {
   contextType: string | null;
   contextId: string | null;
   contextListing: import('./market').ListingCard | null;
+  /** 약속잡기 게이트 — 판매자는 항상 true, 구매자는 판매자의 거래진행 액션 이후에만 true */
+  appointmentUnlocked: boolean;
 }
 
 export interface DmAppointmentMeta {

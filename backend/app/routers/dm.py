@@ -19,7 +19,7 @@ from ..schemas import (
     Page,
 )
 from ..utils import resolve_avatar_url
-from .market import _appt_out, _offer_out
+from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
 
 router = APIRouter(prefix="/dm", tags=["DM (Direct Message)"])
@@ -158,6 +158,7 @@ async def get_conversation(
         context_type=conv.context_type,
         context_id=conv.context_id,
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
+        appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
     )
 
 
@@ -208,6 +209,7 @@ async def create_conversation(
         context_type=conv.context_type,
         context_id=conv.context_id,
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
+        appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
     )
 
 

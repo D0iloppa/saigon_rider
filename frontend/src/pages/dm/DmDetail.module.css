@@ -148,29 +148,25 @@
   color: var(--text);
 }
 
-/* ── 약속 메시지 카드 ── */
+/* ── 약속/가격제안 시스템 카드 (공용 골격) ── */
 .apptCard {
   align-self: center;
-  width: 94%;
-  max-width: 360px;
-  margin: 8px auto;
-  padding: 14px 16px 12px;
+  width: 84%;
+  max-width: 340px;
+  margin: 6px auto;
+  padding: 12px 14px;
   border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--brand-500);
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   text-align: left;
 }
-/* 상태별 좌측 액센트 */
-.appt_PROPOSED { border-left-color: var(--brand-500); }
-.appt_ACCEPTED { border-left-color: #16a34a; }
-.appt_COMPLETED { border-left-color: var(--text-3); }
-.appt_CANCELLED { border-left-color: var(--text-3); opacity: .6; }
-.appt_DECLINED { border-left-color: var(--text-3); opacity: .6; }
+/* 종결 상태는 카드 전체를 은은하게 — 상태 구분은 헤더 상태필이 담당 */
+.appt_CANCELLED,
+.appt_DECLINED { opacity: .6; }
 
 .apptHeader {
   display: flex;
@@ -198,83 +194,80 @@
 .apptStatusPill[data-status="CANCELLED"] { background: var(--line); color: var(--text-3); }
 .apptStatusPill[data-status="DECLINED"] { background: #fdecec; color: #dc2626; }
 
-/* 가격제안 카드 — .apptCard 골격 공용, 금액 표시만 전용 */
+/* 가격제안 본문 — 금액 + 판매가 보조행 */
+.offerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .offerAmount {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text);
   line-height: 1.2;
 }
 .offerCompare {
-  margin-top: -8px;
   font-size: 12px;
   color: var(--text-3);
 }
 
-/* 라벨 행 (날짜/시간/장소) */
+/* 라벨 행 (날짜/시간/장소) — 라벨 열은 로케일별 최장 라벨에 맞춰 자동 정렬 */
 .apptInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 12px;
 }
 .apptRow {
-  display: flex;
-  gap: 10px;
+  display: contents;
   font-size: 14px;
   line-height: 1.35;
 }
 .apptRowLabel {
-  width: 34px;
-  flex-shrink: 0;
+  white-space: nowrap;
   color: var(--text-3);
   font-weight: 600;
 }
 .apptRowVal {
-  flex: 1;
   min-width: 0;
   color: var(--text);
   font-weight: 700;
   word-break: break-word;
 }
 
-/* 세로 스택 액션 버튼 */
+/* 하단 CTA 행 — 카드 내부 풀폭 버튼 나란히 */
 .apptActions {
   display: flex;
-  flex-direction: column;
   gap: 8px;
   margin-top: 2px;
 }
 .apptBtnPrimary,
-.apptBtnSecondary {
-  width: 100%;
-  padding: 11px;
-  border-radius: 12px;
-  font-size: 14px;
+.apptBtnGhost {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 6px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  text-align: center;
+  /* vi 장문 라벨("Hoàn tất giao dịch")이 3버튼 행에서 클리핑되지 않게 줄바꿈 허용 */
+  white-space: normal;
+  line-height: 1.25;
 }
 .apptBtnPrimary { background: var(--brand-500); color: #fff; }
-.apptBtnSecondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
-.apptBtnText {
-  width: 100%;
-  padding: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-3);
-}
+.apptBtnGhost { background: transparent; color: var(--text-2); border: 1px solid var(--line); }
 .apptBtnPrimary:active,
-.apptBtnSecondary:active { opacity: .85; }
+.apptBtnGhost:active { opacity: .85; }
 .apptBtnPrimary:disabled,
-.apptBtnSecondary:disabled,
-.apptBtnText:disabled { opacity: .5; }
+.apptBtnGhost:disabled { opacity: .5; }
 
 .apptTime {
   align-self: flex-end;
   font-size: 11px;
   color: var(--text-3);
+  margin-top: -2px;
 }
 
 /* ── 약속잡기 시트 ── */

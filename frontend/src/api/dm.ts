@@ -43,6 +43,7 @@ function transformConversation(raw: any): DmConversation {
     contextType: raw.context_type ?? null,
     contextId: raw.context_id ?? null,
     contextListing: raw.context_listing ? transformCard(raw.context_listing) : null,
+    appointmentUnlocked: raw.appointment_unlocked ?? false,
   };
 }
 
@@ -92,6 +93,7 @@ export async function createConversation(
       contextType: context?.type ?? null,
       contextId: context?.id ?? null,
       contextListing: null,
+      appointmentUnlocked: false,
     }, 100);
   }
   const session = requireSession();

@@ -868,6 +868,41 @@ async def delete_keyword_alert(
 # 생명주기: PROPOSED → ACCEPTED(listing RESERVED) → COMPLETED(listing SOLD) / CANCELLED
 
 
+async def _appointment_unlocked(db: AsyncSession, conv: DmConversation, user_id: uuid.UUID) -> bool:
+    """약속잡기 게이트 — 판매자는 항상 가능. 구매자는 판매자의 거래진행 액션 이후에만:
+    ① 이 대화에 ACCEPTED 가격제안 존재, 또는 ② 판매자가 제안한 약속 존재."""
+    if conv.context_type != "listing" or conv.context_id is None:
+        return False
+    listing = await db.get(MarketplaceListing, conv.context_id)
+    if listing is None:
+        return False
+    if user_id == listing.seller_id:
+        return True
+    accepted_offer = (
+        await db.execute(
+            select(MarketplacePriceOffer.id)
+            .where(
+                MarketplacePriceOffer.conversation_id == conv.id,
+                MarketplacePriceOffer.status == "ACCEPTED",
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if accepted_offer is not None:
+        return True
+    seller_appt = (
+        await db.execute(
+            select(MarketplaceAppointment.id)
+            .where(
+                MarketplaceAppointment.conversation_id == conv.id,
+                MarketplaceAppointment.proposer_id == listing.seller_id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return seller_appt is not None
+
+
 def _appt_out(a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> AppointmentOut:
     return AppointmentOut(
         id=a.id,
@@ -898,6 +933,10 @@ async def propose_appointment(
         raise HTTPException(status_code=403, detail="Not a participant")
     if conv.context_type != "listing" or conv.context_id is None:
         raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
+
+    # 구매자 게이팅 — 판매자의 거래진행 액션(가격제안 수락 or 판매자 약속 제안) 전에는 제안 불가
+    if not await _appointment_unlocked(db, conv, session_uid):
+        raise HTTPException(status_code=403, detail="Appointment locked until the seller moves the deal forward")
 
     now = datetime.now(UTC)
     # 대화당 활성 제안 1건 — 직전 PROPOSED 들은 무효화

@@ -1360,7 +1360,9 @@
     "searchPlaceholder": "Search items on the map",
     "emptySearch": "No results found",
     "recentSearches": "Recent searches",
-    "clearAll": "Clear all"
+    "clearAll": "Clear all",
+    "zoomGateHint": "🔍 Zoom in to see items around you",
+    "zoomGateMyArea": "📍 Show my neighborhood"
   },
   "effects": {
     "none": "No equip effects",

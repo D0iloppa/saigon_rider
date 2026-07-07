@@ -29,6 +29,8 @@ const FEED_COLOR = '#3b82f6';
 const SEARCH_BAR_HEIGHT = 54;
 const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
 const RECENT_SEARCH_MAX = 8;
+// 마지막 뷰포트 기억 — 재진입 시 복원용 (측정이 아닌 "기억"이라 GPS 원칙 위반 아님)
+const VIEWPORT_KEY = 'sgr.map.viewport';
 const LISTINGS_PAGE_SIZE = 50;
 // 지도 핀은 리스트 페이지네이션과 달리 뷰포트 안의 매물이 전부 보여야 한다 —
 // 1페이지(50건)만 가져오면 recent 정렬 특성상 활동이 뜸한 구역이 잘려나가 특정 방향에
@@ -48,6 +50,27 @@ async function fetchAllListings(params: Parameters<typeof fetchListings>[0]): Pr
     page++;
   }
   return acc;
+}
+
+type LatLngBbox = { N: number; S: number; E: number; W: number };
+
+function loadSavedViewport(): LatLngBbox | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEWPORT_KEY) ?? 'null') as Partial<LatLngBbox> | null;
+    if (
+      v &&
+      typeof v.N === 'number' && typeof v.S === 'number' &&
+      typeof v.E === 'number' && typeof v.W === 'number' &&
+      Number.isFinite(v.N) && Number.isFinite(v.S) &&
+      Number.isFinite(v.E) && Number.isFinite(v.W) &&
+      v.N > v.S && v.E > v.W
+    ) {
+      return { N: v.N, S: v.S, E: v.E, W: v.W };
+    }
+  } catch {
+    // 손상된 저장값은 무시하고 기본(전역) 진입
+  }
+  return null;
 }
 
 function loadRecentSearches(): string[] {
@@ -98,6 +121,8 @@ export default function NeighborhoodMap() {
   const [viewportBbox, setViewportBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
   const [showDistrictBadges, setShowDistrictBadges] = useState(true);
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  // 마운트 시 1회만 읽는다 — 이후 저장은 handleBboxChange 디바운스가 담당
+  const [savedViewport] = useState(loadSavedViewport);
 
   // 검색 — 위치 필터 무시하고 전역에서 매물을 찾음(매물 탭 전용, 피드는 키워드 검색 미지원)
   // 검색은 전체화면 패널(당근 패턴)에서 입력받고, 패널을 닫으면 지도가 결과를 보여줌 — 지도 화면
@@ -187,11 +212,19 @@ export default function NeighborhoodMap() {
   // 가이드(빈 상태) 대신 필터 결과가 바로 뜨는 문제가 있었음. ref로 최신 mode를 읽는다.
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  // 줌 게이트 판정을 fetch 이펙트에서 ref로 읽는다 — state를 deps에 넣으면 게이트를
+  // 넘는 순간(배지 플래그가 먼저 뒤집히고 bbox 커밋은 500ms 뒤) 낡은 광역 bbox로
+  // 즉시 한 번 fetch가 나가는 낭비가 생김. bbox 커밋 시점에만 최신 게이트를 확인한다.
+  const showDistrictBadgesRef = useRef(showDistrictBadges);
+  showDistrictBadgesRef.current = showDistrictBadges;
 
   const handleBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
-    if (modeRef.current === 'region') return;
     clearTimeout(bboxTimerRef.current);
-    bboxTimerRef.current = setTimeout(() => setViewportBbox(bbox), 500);
+    bboxTimerRef.current = setTimeout(() => {
+      // 뷰포트 기억: 이동/줌이 멎은 시점의 뷰포트를 저장 → 재진입 시 복원
+      try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(bbox)); } catch { /* quota 등 저장 실패 무시 */ }
+      if (modeRef.current !== 'region') setViewportBbox(bbox);
+    }, 500);
   }, []);
 
   // polyActive=true(내 위치 필터 ON)에는 선택 ward polygon 필터를 사용하고,
@@ -214,6 +247,13 @@ export default function NeighborhoodMap() {
   // 매물·피드 조회 — ward 선택 시 또는 뷰포트가 크게 넓어질 때 (검색 중엔 검색 결과만 사용)
   useEffect(() => {
     if (isSearching) return;
+    // 줌 게이트: 구 집계 배지가 뜨는 줌아웃 상태에서는 리스트 fetch 자체를 생략한다
+    // (배지용 district-counts는 별도 이펙트로 유지). 게이트를 넘는 줌인은 반드시
+    // 새 bbox 커밋(bboxFilter 변경)을 동반하므로 그때 이 이펙트가 다시 돌아 fetch한다.
+    if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
+      setLoading(false);
+      return;
+    }
     const center = bboxFilter
       ? { lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 }
       : selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : null;
@@ -414,6 +454,17 @@ export default function NeighborhoodMap() {
         </Fragment>
       ));
     }
+    // 줌 게이트: 줌아웃(구 집계 배지) 상태에서는 리스트 대신 확대 가이드 — 매물/피드 공통
+    if (mode === 'viewport' && showDistrictBadges) {
+      return (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>{t('map.zoomGateHint')}</p>
+          <button type="button" className={styles.emptyAction} onClick={() => locateRef.current?.()}>
+            {t('map.zoomGateMyArea')}
+          </button>
+        </div>
+      );
+    }
     if (mode === 'viewport' && !bboxFilter) {
       return (
         <div className={styles.guideWrap}>
@@ -578,7 +629,8 @@ export default function NeighborhoodMap() {
         className={styles.map}
         height="100%"
         initialGps={storedCoords ?? undefined}
-        locateOnMount={!storedCoords}
+        locateOnMount={!storedCoords && !savedViewport}
+        initialViewport={savedViewport ?? undefined}
         markers={markers}
         districtBadges={districtCounts}
         cityBadges={tab === 'listings' ? cityCounts : undefined}

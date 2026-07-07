@@ -114,6 +114,8 @@ export interface SaigonMapV5Props {
   className?: string;
   locateOnMount?: boolean;
   initialGps?: { lat: number; lng: number };
+  /** 마운트 시 이 lat/lng bbox로 뷰포트를 복원 (재진입 뷰포트 기억 — GPS 없음). 마운트 이후 변경은 무시 */
+  initialViewport?: { N: number; S: number; E: number; W: number };
   markers?: MapMarkerV2[];
   districtBadges?: DistrictBadge[];
   /** 도시 전체 조망(vb.w >= L1_VBW)에서만 노출되는 더 굵은 단위(구) 뱃지 — 없으면 districtBadges로 대체 */
@@ -137,6 +139,7 @@ function SaigonMapV5({
   className,
   locateOnMount,
   initialGps,
+  initialViewport,
   markers,
   districtBadges,
   cityBadges,
@@ -246,6 +249,21 @@ function SaigonMapV5({
     requestAnimationFrame(() => {
       const { width, height: h } = el.getBoundingClientRect();
       const ar = (h || 1) / (width || 1);
+      if (initialViewport) {
+        // 재진입 복원: 저장된 마지막 뷰포트로 시작. 화면 비율이 달라졌을 수 있으므로
+        // 너비를 기준으로 중심을 유지해 재구성한다. 복원 경로는 bbox까지 emit해서
+        // (아래 기본 경로와 달리 suppress 안 함) 게이트 통과 줌이면 리스트 파이프라인이 바로 이어진다.
+        const rx1 = lx(initialViewport.W), rx2 = lx(initialViewport.E);
+        const rw = Math.max(MIN_VBW, Math.min(BASE_W * 1.2, rx2 - rx1));
+        const rh = rw * ar;
+        const rcx = (rx1 + rx2) / 2;
+        const rcy = (ly(initialViewport.N) + ly(initialViewport.S)) / 2;
+        vbRef.current = clampVB({ x: rcx - rw / 2, y: rcy - rh / 2, w: rw, h: rh });
+        setVBAttr();
+        setVbSnap((n) => n + 1);
+        onViewportChangeRef.current();
+        return;
+      }
       const dataX1 = lx(D1_BBOX.W), dataX2 = lx(D1_BBOX.E);
       const dataCX = (dataX1 + dataX2) / 2;
       const dataCY = (ly(D1_BBOX.N) + ly(D1_BBOX.S)) / 2;

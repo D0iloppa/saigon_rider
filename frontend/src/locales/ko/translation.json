@@ -1360,7 +1360,9 @@
     "searchPlaceholder": "동네지도에서 매물 검색",
     "emptySearch": "검색 결과가 없어요",
     "recentSearches": "최근 검색어",
-    "clearAll": "전체 삭제"
+    "clearAll": "전체 삭제",
+    "zoomGateHint": "🔍 지도를 확대해 주변 매물을 봐요",
+    "zoomGateMyArea": "📍 내 동네 보기"
   },
   "effects": {
     "none": "착용 효과 없음",

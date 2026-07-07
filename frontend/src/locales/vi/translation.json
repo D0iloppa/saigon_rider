@@ -1360,7 +1360,9 @@
     "searchPlaceholder": "Tìm tin trên bản đồ",
     "emptySearch": "Không tìm thấy kết quả",
     "recentSearches": "Tìm kiếm gần đây",
-    "clearAll": "Xóa tất cả"
+    "clearAll": "Xóa tất cả",
+    "zoomGateHint": "🔍 Phóng to bản đồ để xem tin quanh bạn",
+    "zoomGateMyArea": "📍 Xem khu phố của tôi"
   },
   "effects": {
     "none": "Không có hiệu ứng",

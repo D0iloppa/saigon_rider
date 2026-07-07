@@ -19,17 +19,24 @@ async def redeem(
     catalog_id: int,
     idempotency_key: str,
 ) -> RewardRedemption:
-    # 멱등성: 동일 키로 이미 처리된 요청이면 원본 반환
+    # 멱등성: 동일 키로 이미 처리된 요청이면 원본 반환.
+    # user 스코프 필수 — 전역 키 조회는 타인의 redemption(바우처 코드)을 반환할 수 있다 (E-12)
     existing = await db.execute(
         select(RewardRedemption).where(
-            RewardRedemption.idempotency_key == idempotency_key
+            RewardRedemption.idempotency_key == idempotency_key,
+            RewardRedemption.user_id == user.user_id,
         )
     )
     if (existing_row := existing.scalar_one_or_none()) is not None:
         return existing_row
 
-    # 카탈로그 조회
-    catalog = await db.get(RewardCatalog, catalog_id)
+    # 카탈로그 조회 — 행 잠금: 쿼터 검사~monthly_issued 증가가 락 없는 RMW 라
+    # 동시 교환 시 월 쿼터 초과 발급 가능했음 (E-6)
+    catalog = (
+        await db.execute(
+            select(RewardCatalog).where(RewardCatalog.catalog_id == catalog_id).with_for_update()
+        )
+    ).scalar_one_or_none()
     if catalog is None or not catalog.is_active:
         raise RewardUnavailableError("Catalog item not available")
 

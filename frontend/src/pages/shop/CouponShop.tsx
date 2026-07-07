@@ -43,13 +43,16 @@ export default function CouponShop() {
       toast.error(t('coupon.insufficient'));
       return;
     }
+    // 멱등키는 "교환 의도" 단위(다이얼로그 오픈 시점)로 생성 — 같은 의도의 중복
+    // 제출(더블탭/타임아웃 후 즉시 재확인)이 서버에서 원본 반환으로 흡수된다 (E-8)
+    const idemKey = crypto.randomUUID();
     openDialog({
       title: c.item_name,
       message: t('coupon.confirm', { rp: formatNumber(c.required_rp) }),
       onConfirm: async () => {
         setRedeeming(c.catalog_id);
         try {
-          const result = await redeemCoupon(c.catalog_id);
+          const result = await redeemCoupon(c.catalog_id, idemKey);
           setCelebrate(result);
           await load();
         } catch (err) {

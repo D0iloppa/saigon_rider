@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
 from app.models import DeviceUserMap, SreUser, UserMileageLog
@@ -35,8 +36,13 @@ async def update_mileage(
     user_id: int,
     distance_m: float,
     device_uuid: str | None = None,
+    msg_id: str | None = None,
 ) -> int:
-    """마일리지 누적. 갱신된 total_distance_m을 반환."""
+    """마일리지 누적. 갱신된 total_distance_m을 반환.
+
+    msg_id(스트림 메시지 id)가 주어지면 멱등 — 같은 메시지의 재전달(워커 재클레임,
+    xack 실패 등 at-least-once 창)에서는 로그도 총계도 다시 적립하지 않는다. (sre055)
+    """
     if distance_m <= 0:
         async with AsyncSessionLocal() as db:
             result = await db.execute(
@@ -45,11 +51,31 @@ async def update_mileage(
             return result.scalar_one_or_none() or 0
 
     async with AsyncSessionLocal() as db:
-        db.add(UserMileageLog(
-            user_id=user_id,
-            distance_m=Decimal(str(distance_m)),
-            device_uuid=device_uuid,
-        ))
+        if msg_id:
+            ins = (
+                pg_insert(UserMileageLog)
+                .values(
+                    user_id=user_id,
+                    distance_m=Decimal(str(distance_m)),
+                    device_uuid=device_uuid,
+                    msg_id=msg_id,
+                )
+                .on_conflict_do_nothing(index_elements=["msg_id"])
+            )
+            inserted = (await db.execute(ins)).rowcount
+            if inserted == 0:
+                # 이미 처리된 메시지 — 총계 갱신 없이 현재값만 반환
+                log.info("mileage: duplicate msg %s for user_id=%d — skipped", msg_id, user_id)
+                result = await db.execute(
+                    select(SreUser.total_distance_m).where(SreUser.user_id == user_id)
+                )
+                return result.scalar_one_or_none() or 0
+        else:
+            db.add(UserMileageLog(
+                user_id=user_id,
+                distance_m=Decimal(str(distance_m)),
+                device_uuid=device_uuid,
+            ))
 
         result = await db.execute(
             update(SreUser)

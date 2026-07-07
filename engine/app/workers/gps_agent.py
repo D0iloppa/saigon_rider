@@ -47,7 +47,7 @@ class GpsAgent(BaseAgent):
             d = 0.0
 
         if d > 0:
-            new_total = await update_mileage(user_id, d, device_uuid)
+            new_total = await update_mileage(user_id, d, device_uuid, msg_id=msg_id)
             log.info(
                 "[GPS] user=%d dev=%s | lat=%.6f lng=%.6f +%dm → %dm",
                 user_id, device_uuid, lat, lng, int(d), new_total,

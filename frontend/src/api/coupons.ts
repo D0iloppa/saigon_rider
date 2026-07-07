@@ -28,10 +28,10 @@ export async function fetchCoupons(category?: string): Promise<CouponItem[]> {
   return api.realFetch<CouponItem[]>(`/coupons${q}`);
 }
 
-export async function redeemCoupon(catalogId: number): Promise<RedemptionItem> {
+export async function redeemCoupon(catalogId: number, idempotencyKey: string): Promise<RedemptionItem> {
   return api.realFetch<RedemptionItem>('/coupons/redeem', {
     method: 'POST',
-    body: JSON.stringify({ catalog_id: catalogId }),
+    body: JSON.stringify({ catalog_id: catalogId, idempotency_key: idempotencyKey }),
   });
 }
 

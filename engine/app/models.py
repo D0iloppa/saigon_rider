@@ -802,10 +802,13 @@ class UserMileageLog(Base):
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
     distance_m = Column(Numeric(12, 2), nullable=False)
     device_uuid = Column(Text, nullable=True)
+    # 스트림 메시지 멱등키 — 재전달(xack 실패 등) 시 이중 적립 차단 (sre055)
+    msg_id = Column(Text, nullable=True)
     recorded_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
 
     __table_args__ = (
         Index("idx_mileage_log_user_ts", "user_id", recorded_at.desc()),
+        Index("uq_mileage_log_msg_id", "msg_id", unique=True),
     )
 
 

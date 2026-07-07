@@ -37,7 +37,8 @@ class CouponOut(BaseModel):
 
 class RedeemRequest(BaseModel):
     catalog_id: int
-    idempotency_key: str | None = None
+    # 필수 — 서버가 키를 생성하면(과거 or uuid4) 재시도마다 새 키가 되어 멱등이 무력화된다 (E-8)
+    idempotency_key: str
 
 
 class RedemptionOut(BaseModel):
@@ -96,7 +97,7 @@ async def redeem_coupon(
     body: RedeemRequest,
     user_id: uuid.UUID = Depends(verify_user_session),
 ):
-    idem = body.idempotency_key or uuid.uuid4().hex
+    idem = body.idempotency_key
     try:
         r = await engine_client.create_redemption(str(user_id), catalog_id=body.catalog_id, idempotency_key=idem)
     except httpx.HTTPStatusError as err:

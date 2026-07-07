@@ -32,10 +32,19 @@
 
 **적대 리뷰(High) 반영**: DLQ xadd 실패 시 배치 중단→이중 적립 경로(P2) 차단, tombstone `xack(None)` DataError livelock 가드, heartbeat 위치 이동(false healthy 방지), REJECTED 인지, 401/403 재시도.
 
-**후속 백로그 (리뷰어 권고)**:
-1. **GPS 마일리지 msg_id 멱등키** — xack 실패 창의 이중 적립 근본 해소 (`UserMileageLog.msg_id` unique + ON CONFLICT)
-2. quest-card-completed `SELECT FOR UPDATE` — 워커 스케일아웃 전제 시 TOCTOU
-3. E-5~E-8 멱등키/쿼터 락 (가챠·상점·쿠폰 — inspection §3 잔여)
-4. weather notify-rain 표기 정직화 (동일 클래스, 응답 비노출이라 후순위)
+## ③ 멱등성 후속 패키지 (같은 날 2차 — 리뷰 권고 반영)
 
-**운영 배포 시**: 워커 이미지 재빌드+재시작(코드 변경), compose healthcheck 반영. DB 마이그 없음.
+| 항목 | 조치 | 검증 |
+|---|---|---|
+| **GPS msg_id 멱등키** (근본 해소) | `UserMileageLog.msg_id` unique(**sre055**, dev 적용) + `ON CONFLICT DO NOTHING` — 재전달이면 로그·총계 모두 무적립. GpsAgent가 스트림 msg_id 전달 | 실DB 테스트: 동일 msg 2회 → 총계 1회만(+123), 신규 msg → +50, PASS |
+| **E-6 쿠폰 월쿼터 락** | 카탈로그 행 `with_for_update()` — 검사~증가 RMW 동시성 초과발급 차단 | 코드 (검사·증가 동일 트랜잭션 락) |
+| **E-8 쿠폰 멱등키 필수화** | BFF `idempotency_key` required(422) + **프론트가 교환 의도(다이얼로그 오픈) 단위로 키 생성** — 서버 생성 uuid4 폴백 제거 | 키 없이 422 / 같은 키 2회 → 동일 redemption·RP 1회 차감·쿼터 1회 증가 |
+| **E-12 멱등키 user 스코프** | redemption 멱등 조회에 `user_id` 조건 — 타인 키로 바우처 열람 차단 | 코드 |
+
+**보류 판정 (근거 기록)**:
+- **E-5 가챠/상점/credit-rp 멱등 레코드**: 현재 이중지급 경로 없음 확인 — ① credit-rp는 BFF status=COMPLETED 가드가 커밋 선행이라 콜백 재시도에 안전 ② 가챠/상점은 클라 pending 가드 + BFF/프론트 모두 POST 무재시도 + E-9는 연결단계만 재시도. 자동 재시도 도입/운영 트래픽 전 idempotency 레코드 테이블로 일괄 처리 권장.
+- E-7 바우처 2-phase: adapter 가 stub — 실 파트너 연동 시점에 REQUESTED 커밋→발급→갱신으로.
+- quest-card-completed `SELECT FOR UPDATE`: 워커 스케일아웃 전제 — 증설 전 처리.
+- weather notify-rain 표기 정직화: 응답 비노출이라 후순위.
+
+**운영 배포 시**: 워커 이미지 재빌드+재시작, compose healthcheck 반영, **`alembic upgrade head` (sre055)**.

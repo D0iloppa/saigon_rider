@@ -1,4 +1,4 @@
-import { type ReactNode, forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { type ReactNode, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { Plus, ChevronLeft } from 'lucide-react';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -25,8 +25,6 @@ export interface MessageComposerProps {
   menuAriaLabel?: string;
   /** '+' 컨텍스트 패널에 표시할 액션들. 비어있으면 '+' 버튼을 숨긴다. */
   menuItems?: ComposerMenuItem[];
-  /** iOS 키보드 accessory bar(^ v Done) 표시 여부. 기본 false(숨김). iOS 전용. */
-  accessoryBar?: boolean;
 }
 
 export interface MessageComposerHandle {
@@ -53,7 +51,6 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
     sendAriaLabel,
     menuAriaLabel,
     menuItems = [],
-    accessoryBar = false,
   },
   ref,
 ) {
@@ -92,14 +89,7 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
   // 본문 탭 등 외부에서 패널을 닫을 수 있게 노출 (키보드 띄우지 않음).
   useImperativeHandle(ref, () => ({ close: () => setView('closed') }), []);
 
-  // iOS accessory bar(^ v Done) 를 이 컴포저가 떠 있는 동안 원하는 상태로 설정하고,
-  // 언마운트(화면 이탈) 시 기본(표시)으로 복원한다. iOS 외에는 no-op.
-  useEffect(() => {
-    native.setAccessoryBarVisible(accessoryBar);
-    return () => {
-      native.setAccessoryBarVisible(true);
-    };
-  }, [accessoryBar]);
+  // accessory bar(^ v Done) 는 App 부트스트랩에서 전역으로 숨긴다 — 여기서 관리하지 않음.
 
   const toggleMenu = () => {
     if (open) {

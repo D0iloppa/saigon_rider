@@ -150,6 +150,57 @@ export default function App() {
   useEffect(() => {
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     if (bg) native.setBackgroundColor(bg);
+    // iOS 키보드 accessory bar(^ v Done)는 앱 전역에서 사용하지 않는다. iOS 외 no-op.
+    native.setAccessoryBarVisible(false);
+  }, []);
+
+  // iOS 순수 오버레이 키보드는 시스템의 scroll-to-focused-input 팬을 네이티브에서 억제하므로,
+  // "포커스된 입력이 키보드에 가리면 보이게 스크롤"은 전역으로 프론트가 대신한다.
+  // 이미 자체 보정(스페이서/시트 리프트)이 있는 화면은 겹침이 없어 no-op.
+  useEffect(() => {
+    if (native.platform !== 'ios') return;
+    let kbHeight = 0;
+    let kbVisible = false;
+    const timers: number[] = [];
+    const clearTimers = () => { while (timers.length) window.clearTimeout(timers.pop()); };
+
+    const revealFocused = () => {
+      const el = document.activeElement;
+      if (!(el instanceof HTMLElement)) return;
+      if (!el.matches('input, textarea, select, [contenteditable="true"]')) return;
+      const limit = window.innerHeight - kbHeight - 16;
+      const delta = el.getBoundingClientRect().bottom - limit;
+      if (delta <= 0) return;
+      // 가장 가까운 스크롤 가능한 조상만 스크롤 (body 스크롤은 이 앱에 없음)
+      let p: HTMLElement | null = el.parentElement;
+      while (p) {
+        const oy = getComputedStyle(p).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) break;
+        p = p.parentElement;
+      }
+      p?.scrollBy({ top: delta, behavior: 'smooth' });
+    };
+
+    // 키보드 높이 보정 padding 이 React 렌더로 반영된 뒤에 스크롤해야 공간이 있다 —
+    // 렌더 직후(80ms)와 키보드 애니메이션 종료 후(320ms) 두 번 시도(둘 다 멱등).
+    const schedule = () => {
+      clearTimers();
+      timers.push(window.setTimeout(revealFocused, 80), window.setTimeout(revealFocused, 320));
+    };
+
+    const off = native.onKeyboardChange(({ visible, height }) => {
+      kbVisible = visible;
+      kbHeight = height;
+      if (visible) schedule(); else clearTimers();
+    });
+    // 키보드가 떠 있는 채로 다른 입력으로 포커스 이동 시엔 키보드 이벤트가 다시 오지 않는다.
+    const onFocusIn = () => { if (kbVisible) schedule(); };
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      clearTimers();
+      off();
+      document.removeEventListener('focusin', onFocusIn);
+    };
   }, []);
 
   // 인증된 경우 DM 미읽음 폴링 시작

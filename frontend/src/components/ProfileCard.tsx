@@ -202,18 +202,35 @@ export function ProfileCard({ userId, open, onClose }: Props) {
       const keyboardInset = isIosNative
         ? (kb.visible ? kb.height : 0)
         : Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-      const sheetHeight = Math.max(260, Math.min(Math.round(vv.height * 0.6), Math.round(vv.height - 20)));
+      // iOS 네이티브는 레이아웃 뷰포트가 불변(팬/리사이즈 없음)이므로 지오메트리는 레이아웃
+      // 뷰포트 기준으로 잡는다 — 최신 WKWebView 는 오버레이 키보드도 vv 를 줄여 보고하므로
+      // vv 값을 쓰면 keyboardInset 과 이중 보정이 된다. 웹/Android 는 vv 계측 유지.
+      const vpTop = isIosNative ? 0 : vv.offsetTop;
+      const vpLeft = isIosNative ? 0 : vv.offsetLeft;
+      const vpWidth = isIosNative ? window.innerWidth : vv.width;
+      const vpHeight = isIosNative ? window.innerHeight - keyboardInset : vv.height;
+      const sheetHeight = Math.max(260, Math.min(Math.round(vpHeight * 0.6), Math.round(vpHeight - 20)));
 
-      backdrop.style.top = `${vv.offsetTop}px`;
-      backdrop.style.left = `${vv.offsetLeft}px`;
-      backdrop.style.width = `${vv.width}px`;
-      backdrop.style.height = `${vv.height}px`;
+      backdrop.style.top = `${vpTop}px`;
+      backdrop.style.left = `${vpLeft}px`;
+      backdrop.style.width = `${vpWidth}px`;
+      backdrop.style.height = `${vpHeight}px`;
 
-      sheet.style.left = `${vv.offsetLeft}px`;
-      sheet.style.right = `${Math.max(0, window.innerWidth - vv.width - vv.offsetLeft)}px`;
-      sheet.style.bottom = `${keyboardInset}px`;
-      sheet.style.height = `${sheetHeight}px`;
-      sheet.style.maxHeight = `${Math.max(240, Math.round(vv.height - 12))}px`;
+      sheet.style.left = `${vpLeft}px`;
+      sheet.style.right = `${Math.max(0, window.innerWidth - vpWidth - vpLeft)}px`;
+      if (isIosNative) {
+        // 시트를 띄우지 않고 바닥에 붙인 채 내부 하단에 키보드 높이만큼 흰 여백을 둔다 —
+        // 키보드가 시트의 흰 하단부를 덮어 시트와 키보드 사이로 딤 배경이 드러나지 않는다.
+        sheet.style.bottom = '0px';
+        sheet.style.height = `${sheetHeight + keyboardInset}px`;
+        sheet.style.paddingBottom = keyboardInset > 0 ? `${keyboardInset + 16}px` : ''; // 16px = CSS 기본 패딩 유지분
+        sheet.style.maxHeight = `${Math.max(240, Math.round(vpHeight - 12) + keyboardInset)}px`;
+      } else {
+        sheet.style.bottom = `${keyboardInset}px`;
+        sheet.style.height = `${sheetHeight}px`;
+        sheet.style.paddingBottom = '';
+        sheet.style.maxHeight = `${Math.max(240, Math.round(vpHeight - 12))}px`;
+      }
     };
 
     update();
@@ -239,6 +256,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
         sheet.style.right = '';
         sheet.style.bottom = '';
         sheet.style.height = '';
+        sheet.style.paddingBottom = '';
         sheet.style.maxHeight = '';
       }
     };

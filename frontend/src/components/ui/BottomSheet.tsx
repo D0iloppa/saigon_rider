@@ -17,10 +17,12 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
   const backdropRef = useRef<HTMLDivElement>(null);
   const dragY = useRef({ startY: 0, currentY: 0, dragging: false });
   const kb = useKeyboard();
-  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → visualViewport 가 안 줄어들어
-  // 아래 top/height 보정만으론 시트가 키보드에 덮인다. backdrop 하단에 키보드 높이만큼
-  // padding 을 둬 align-items:flex-end 인 시트를 그만큼 위로 밀어 올린다.
+  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈/팬 없음) — 키보드 회피는
+  // 브리지 키보드 높이(useKeyboard) 단일 소스로만 하고 visualViewport 는 쓰지 않는다.
+  // (최신 WKWebView 는 오버레이 키보드도 vv.height 를 줄여 보고하므로 섞으면 이중 보정)
   const isIosNative = native.platform === 'ios';
+  // 키보드 표시 중 시트 높이를 키우기 위한 명시 높이 (문자열 CSS 값만 지원, 예: '60vh')
+  const sheetStyleHeight = typeof sheetStyle?.height === 'string' ? sheetStyle.height : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -41,6 +43,29 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
       const sheet = sheetRef.current;
       if (!backdrop || !sheet) return;
 
+      // iOS 네이티브: 키보드가 순수 오버레이(웹뷰 리사이즈/팬 없음)라 레이아웃 뷰포트는
+      // 불변이지만, 최신 WKWebView 는 visualViewport 를 키보드만큼 줄여서 보고한다 —
+      // vv 를 지오메트리에 쓰면 키보드 보정과 이중이 된다. 브리지 높이(kb)만 단일 소스.
+      // 시트는 띄우지 않고 바닥에 붙인 채 내부 하단에 키보드 높이만큼 흰 여백을 둔다 —
+      // 키보드가 시트의 흰 하단부를 덮으므로 시트와 키보드 사이로 딤 배경이 드러나지 않는다.
+      // 콘텐츠 영역이 줄지 않게 명시 높이(sheetStyle.height)는 키보드만큼 키운다.
+      if (isIosNative) {
+        backdrop.style.top = '';
+        backdrop.style.left = '';
+        backdrop.style.width = '';
+        backdrop.style.height = '';
+        backdrop.style.paddingBottom = '';
+        if (kb.visible) {
+          sheet.style.paddingBottom = `${kb.height + 20}px`; // 20px = CSS 기본 하단 패딩 유지분
+          if (sheetStyleHeight) sheet.style.height = `calc(${sheetStyleHeight} + ${kb.height}px)`;
+        } else {
+          sheet.style.paddingBottom = '';
+          if (sheetStyleHeight) sheet.style.height = sheetStyleHeight;
+        }
+        sheet.style.maxHeight = ''; // CSS 기본 max-height(calc(100% - 60px)) 사용
+        return;
+      }
+
       if (!vv) {
         backdrop.style.top = '';
         backdrop.style.left = '';
@@ -59,9 +84,7 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
       backdrop.style.left = '0px';
       backdrop.style.width = `${vv.width}px`;
       backdrop.style.height = `${vv.height}px`;
-      // iOS 네이티브는 키보드가 순수 오버레이라 vv.height 가 줄지 않음 — backdrop 하단에
-      // 키보드 높이만큼 padding 을 둬 align-items:flex-end 시트를 그만큼 위로 밀어 올린다.
-      backdrop.style.paddingBottom = isIosNative && kb.visible ? `${kb.height}px` : '';
+      backdrop.style.paddingBottom = '';
       sheet.style.maxHeight = `${Math.max(vv.height - 60, 240)}px`;
     };
 
@@ -100,9 +123,10 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
       }
       if (sheet) {
         sheet.style.maxHeight = '';
+        sheet.style.paddingBottom = '';
       }
     };
-  }, [open, isIosNative, kb.height, kb.visible]);
+  }, [open, isIosNative, kb.height, kb.visible, sheetStyleHeight]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     dragY.current = { startY: e.touches[0].clientY, currentY: 0, dragging: true };

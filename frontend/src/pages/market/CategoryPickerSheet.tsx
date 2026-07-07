@@ -48,7 +48,10 @@ export default function CategoryPickerSheet({ open, onClose, categories, selecte
           <h2 className={styles.title}>
             {drill ? localizedName(drill) : t('market.pickCategory', { defaultValue: '카테고리 선택' })}
           </h2>
-          <span className={styles.backSpacer} />
+          {/* 목록이 길면 시트가 화면을 거의 덮어 백드롭 탭이 어렵다 — 명시적 닫기 버튼 제공 */}
+          <button className={styles.close} onClick={close} aria-label={t('common.close', { defaultValue: '닫기' })}>
+            ✕
+          </button>
         </div>
 
         <div className={styles.list}>

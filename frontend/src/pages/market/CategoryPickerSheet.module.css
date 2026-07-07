@@ -13,7 +13,8 @@
 }
 
 .back,
-.backSpacer {
+.backSpacer,
+.close {
   width: 32px;
   height: 32px;
   display: flex;
@@ -21,6 +22,14 @@
   justify-content: center;
   color: var(--text);
   flex-shrink: 0;
+}
+
+.close {
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .title {

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { CalendarPlus, HandCoins, MapPin, Smile, ImagePlus } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { api } from '@/api/client';
 import { MOCK_STICKERS, findSticker } from './mockStickers';
 import { type PickedLocation } from '../market/LocationPickerSheet';
@@ -90,9 +91,43 @@ export default function DmDetail() {
     return () => clearInterval(interval);
   }, [conversationId, messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 바닥 고정 여부 — 사용자가 위로 스크롤해 과거를 보는 중이면 false (자동 스크롤 중단)
+  const pinnedRef = useRef(true);
+  const kb = useKeyboard();
+  // 정착 윈도우 루프가 프레임 단위 스냅으로 키보드 smooth 스크롤을 덮어쓰지 않도록
+  // 키보드 표시 여부를 ref 로도 노출 (진입 직후 2초 내 첫 입력창 터치 시 경합 방지)
+  const kbVisibleRef = useRef(false);
   useEffect(() => {
-    listRef.current?.scrollTo(0, listRef.current.scrollHeight);
+    kbVisibleRef.current = kb.visible;
+  }, [kb.visible]);
+
+  // 진입/새 메시지 시 바닥 고정 — 스티커·이미지 등 늦게 로드되는 요소가 스크롤 이후에
+  // 높이를 키워도(언더슛) 정착 윈도우(2초) 동안 바닥을 유지한다. 사용자가 위로
+  // 스크롤하거나 키보드가 뜨면(smooth 스크롤 담당) 즉시 중단한다.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    pinnedRef.current = true;
+    const deadline = performance.now() + 2000;
+    let raf = 0;
+    const tick = (now: number) => {
+      if (!pinnedRef.current || kbVisibleRef.current) return;
+      el.scrollTop = el.scrollHeight;
+      if (now < deadline) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [messages]);
+
+  // 키보드(iOS 오버레이)가 뜨면 컴포저 스페이서가 메시지 영역을 줄인다 —
+  // 최근 메시지가 가려지지 않게 리스트를 바닥으로 부드럽게 재스크롤 (스페이서 렌더 반영 후).
+  useEffect(() => {
+    if (!kb.visible) return;
+    const t = window.setTimeout(() => {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [kb.visible]);
 
   // 거래완료(SOLD) 매물에 이미 남긴 후기 확인 — 있으면 배너 숨김 + 내 후기 표시(409 방지).
   useEffect(() => {
@@ -315,7 +350,15 @@ export default function DmDetail() {
         ) : null
       )}
 
-      <div className={styles.messages} ref={listRef} onClick={() => composerRef.current?.close()}>
+      <div
+        className={styles.messages}
+        ref={listRef}
+        onClick={() => composerRef.current?.close()}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+        }}
+      >
         {messages.map((m) => {
           const isMine = m.senderId === myId;
           if (m.messageType === 'appointment') {
@@ -468,7 +511,15 @@ export default function DmDetail() {
                 className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}
               >
                 {st ? (
-                  <img src={st.uri} alt="" className={styles.stickerImg} />
+                  <img
+                    src={st.uri}
+                    alt=""
+                    className={styles.stickerImg}
+                    // 스티커가 정착 윈도우(2초) 이후에 로드돼도 바닥 고정 중이면 재스크롤 (사진 메시지와 동일 패턴)
+                    onLoad={() => {
+                      if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
+                    }}
+                  />
                 ) : (
                   <div className={styles.text}>[sticker]</div>
                 )}

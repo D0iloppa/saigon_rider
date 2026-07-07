@@ -1362,6 +1362,7 @@
     "recentSearches": "최근 검색어",
     "clearAll": "전체 삭제",
     "zoomGateHint": "🔍 지도를 확대해 주변 매물을 봐요",
+    "zoomGateShort": "확대해서 주변 보기",
     "zoomGateMyArea": "📍 내 동네 보기"
   },
   "effects": {

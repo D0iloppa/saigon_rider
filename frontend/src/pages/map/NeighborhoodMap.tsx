@@ -419,11 +419,18 @@ export default function NeighborhoodMap() {
                 </button>
               ))}
             </div>
-            <span className={styles.count}>
-              {mode === 'region'
-                ? t('map.count', { count: visibleCount })
-                : t('map.totalCount', { count: headerCount })}
-            </span>
+            {mode === 'viewport' && showDistrictBadges ? (
+              // 게이트 상태는 접힌 시트에서도 보여야 한다 — 건수 대신 탭 가능한 확대 힌트
+              <button type="button" className={styles.zoomHintPill} onClick={() => locateRef.current?.()}>
+                🔍 {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
+              </button>
+            ) : (
+              <span className={styles.count}>
+                {mode === 'region'
+                  ? t('map.count', { count: visibleCount })
+                  : t('map.totalCount', { count: headerCount })}
+              </span>
+            )}
           </>
         )}
       </div>

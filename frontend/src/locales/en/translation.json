@@ -1362,6 +1362,7 @@
     "recentSearches": "Recent searches",
     "clearAll": "Clear all",
     "zoomGateHint": "🔍 Zoom in to see items around you",
+    "zoomGateShort": "Zoom in to browse",
     "zoomGateMyArea": "📍 Show my neighborhood"
   },
   "effects": {

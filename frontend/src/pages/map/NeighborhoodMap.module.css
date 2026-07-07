@@ -183,6 +183,19 @@
   color: var(--text-3);
 }
 
+/* 줌 게이트 힌트 필 — 접힌 시트에서도 게이트 상태가 보이게 (탭 = 내 동네 보기) */
+.zoomHintPill {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.zoomHintPill:active { opacity: .8; }
+
 .sheetMeta {
   display: flex;
   align-items: center;

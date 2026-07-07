@@ -409,7 +409,13 @@ export default function NeighborhoodMap() {
             </div>
             {mode === 'viewport' && showDistrictBadges ? (
               // 게이트 상태는 접힌 시트에서도 보여야 한다 — 건수 대신 탭 가능한 확대 힌트
-              <button type="button" className={styles.zoomHintPill} onClick={() => locateRef.current?.()}>
+              <button
+                type="button"
+                className={styles.zoomHintPill}
+                // DraggableSheet 헤더의 onPointerDown 드래그 캡처가 클릭을 삼키므로 전파 차단
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => locateRef.current?.()}
+              >
                 🔍 {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
               </button>
             ) : (

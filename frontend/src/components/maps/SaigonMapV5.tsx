@@ -392,18 +392,11 @@ function SaigonMapV5({
 
     const svg = svgRef.current;
     const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
-    if (idx >= 0) {
-      const wb = WARD_UBBOXES[idx];
-      const wardW = wb.x2 - wb.x1;
-      const wardH = wb.y2 - wb.y1;
-      const wardCX = (wb.x1 + wb.x2) / 2;
-      const wardCY = (wb.y1 + wb.y2) / 2;
-      const targetW = Math.max(wardW, wardH / ar) * 1.3;
-      const targetH = targetW * ar;
-      const insetUnits = getBottomInsetUnits(targetH);
-      vbRef.current = clampVB({ x: wardCX - targetW / 2, y: wardCY - targetH / 2 + insetUnits / 2, w: targetW, h: targetH });
-    } else {
-      const targetW = L2_VBW * 0.55;
+    {
+      // "내 위치" 포커스는 동 프레이밍(ward bbox×1.3 — 동 크기에 따라 Layer2에 머묾)이 아니라
+      // 사용자 지점 중심 + Layer3(건물/골목) 스테이지의 최소 줌으로 고정한다 (기획 260707:
+      // 3-stage[폴리곤→블록/도로→건물] 중 마지막 스테이지 진입 폭 = L3_VBW 바로 안쪽)
+      const targetW = L3_VBW * 0.9;
       const cx = lx(pos.lng), cy = ly(pos.lat);
       const targetH = targetW * ar;
       const insetUnits = getBottomInsetUnits(targetH);

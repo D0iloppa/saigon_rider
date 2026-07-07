@@ -323,13 +323,19 @@ async def get_listings(
         )
 
     if sort == "price_low":
-        q = q.order_by(MarketplaceListing.price_vnd.asc(), MarketplaceListing.bumped_at.desc())
+        q = q.order_by(
+            MarketplaceListing.price_vnd.asc(), MarketplaceListing.bumped_at.desc(), MarketplaceListing.id.desc()
+        )
     elif sort == "price_high":
-        q = q.order_by(MarketplaceListing.price_vnd.desc(), MarketplaceListing.bumped_at.desc())
+        q = q.order_by(
+            MarketplaceListing.price_vnd.desc(), MarketplaceListing.bumped_at.desc(), MarketplaceListing.id.desc()
+        )
     elif sort == "distance" and has_loc:
-        q = q.order_by(text("distance_m ASC NULLS LAST"))
+        q = q.order_by(text("distance_m ASC NULLS LAST"), MarketplaceListing.id.desc())
     else:
-        q = q.order_by(MarketplaceListing.bumped_at.desc())
+        # id tie-breaker: bumped_at 동률(시드 데이터 다수)에서 offset 페이지네이션이
+        # 페이지 간 중복/누락을 만들던 문제 차단 (시나리오 4.1/4.2 — ghost 카드 근인)
+        q = q.order_by(MarketplaceListing.bumped_at.desc(), MarketplaceListing.id.desc())
 
     total = (await db.execute(count_q)).scalar_one()
     rows = (await db.execute(q.offset(offset).limit(size))).all()

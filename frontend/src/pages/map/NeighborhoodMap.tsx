@@ -338,13 +338,16 @@ export default function NeighborhoodMap() {
     setExpandedPostId(null);
     setSharedCoords({ lat: region.lat, lng: region.lng });
     setSharedWardName(region.name);
-    sheetRef.current?.expand();
+    // 시트 자동 올림 없음 — 지역 선택은 "지도 탐색 중" 신호지 리스트를 보겠다는 의도가
+    // 아니다(UX 원칙: 시트는 사용자 의도로만 이동). 선택 결과는 접힘 헤더 칩/건수로 보인다.
   }, [setSharedCoords, setSharedWardName]);
 
   const handleMarkerClick = (id: string) => {
     setSelectedId(id);
     if (tab === 'feed') setExpandedPostId(id);
-    sheetRef.current?.expand();
+    // 핀 탭 = "이 매물을 보겠다"는 명시적 의도 — 시트를 올리되 지도(선택 핀)가 함께
+    // 보이도록 mid 까지만 (full 확장은 지도 컨텍스트를 잃음)
+    sheetRef.current?.snapToMid();
     requestAnimationFrame(() => {
       itemRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
@@ -371,7 +374,7 @@ export default function NeighborhoodMap() {
     clearTimeout(bboxTimerRef.current);
     // 현재 뷰포트 기준 bbox 재발행 → 게이트 이상이면 재조회, 미만이면 가이드로 정합
     emitBboxRef.current?.();
-    sheetRef.current?.snapToMid();
+    // 시트 자동 이동 없음 — 해제 역시 지도 컨텍스트 복귀 액션 (UX 원칙 동일)
   }, []);
   const switchToViewport = () => {
     resetToViewport();

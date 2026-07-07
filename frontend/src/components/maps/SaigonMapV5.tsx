@@ -875,7 +875,15 @@ function SaigonMapV5({
         </>
       )}
 
-      {toast && <div className={styles.toast}>{toast}</div>}
+      {/* topInsetPx(검색창 등 상단 오버레이) 아래로 배치 — 겹침 방지 (줌 컨트롤과 동일 공식) */}
+      {toast && (
+        <div
+          className={styles.toast}
+          style={topInsetPx ? { top: `calc(var(--status-bar-height, 0px) + 12px + ${topInsetPx}px)` } : undefined}
+        >
+          {toast}
+        </div>
+      )}
 
       {/* 변수 사용 억제 — vbSnap은 re-render 트리거 전용 */}
       <span hidden aria-hidden>{vbSnap}</span>

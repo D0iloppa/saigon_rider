@@ -12,7 +12,6 @@ import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, type ListingCard as Listing, type MarketAd } from '@/api/market';
 import { fetchFeed } from '@/api/feed';
-import { fetchDistrictCounts, type DistrictCount } from '@/api/map';
 import type { FeedPost } from '@/api/types';
 import ListingCard from '@/pages/market/ListingCard';
 import AdCard from '@/pages/market/AdCard';
@@ -100,10 +99,8 @@ export default function NeighborhoodMap() {
   const [tab, setTab] = useState<Tab>('listings');
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [districtCounts, setDistrictCounts] = useState<DistrictCount[]>([]);
   // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
   // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
-  const [cityCounts, setCityCounts] = useState<DistrictCount[]>([]);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -236,13 +233,6 @@ export default function NeighborhoodMap() {
   }, []);
 
   useEffect(() => { setAdLimit(randAdBatch()); }, [tab, mode, selectedRegion?.name]);
-
-  useEffect(() => {
-    fetchDistrictCounts(tab).then(setDistrictCounts).catch(() => setDistrictCounts([]));
-    if (tab === 'listings') {
-      fetchDistrictCounts(tab, 'district').then(setCityCounts).catch(() => setCityCounts([]));
-    }
-  }, [tab]);
 
   // 매물·피드 조회 — ward 선택 시 또는 뷰포트가 크게 넓어질 때 (검색 중엔 검색 결과만 사용)
   useEffect(() => {
@@ -382,8 +372,6 @@ export default function NeighborhoodMap() {
   };
 
   const visibleCount = tab === 'listings' ? visibleListings.length : visiblePosts.length;
-  const totalCount = districtCounts.reduce((s, d) => s + d.count, 0);
-  const headerCount = mode === 'region' ? visibleCount : (showDistrictBadges ? totalCount : visibleCount);
 
   const adAt = (i: number) => {
     if (ads.length === 0 || i % AD_EVERY !== 0) return null;
@@ -425,11 +413,7 @@ export default function NeighborhoodMap() {
                 🔍 {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
               </button>
             ) : (
-              <span className={styles.count}>
-                {mode === 'region'
-                  ? t('map.count', { count: visibleCount })
-                  : t('map.totalCount', { count: headerCount })}
-              </span>
+              <span className={styles.count}>{t('map.count', { count: visibleCount })}</span>
             )}
           </>
         )}
@@ -640,8 +624,8 @@ export default function NeighborhoodMap() {
         // 최초 방문은 전역 배지 + 줌 게이트 가이드([내 동네 보기] = 명시적 GPS)로 안내
         initialViewport={savedViewport ?? undefined}
         markers={markers}
-        districtBadges={districtCounts}
-        cityBadges={tab === 'listings' ? cityCounts : undefined}
+        // 배지(집계) 미사용 — 지도와 시트는 동일 데이터 소스(bbox 조회 결과)만 표시.
+        // 게이트 줌 진입 전에는 지도·시트 모두 비우고 가이드로 안내 (기획 260707)
         onRegionSelect={handleRegionSelect}
         onBboxChange={handleBboxChange}
         onDepthChange={setShowDistrictBadges}

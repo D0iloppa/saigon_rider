@@ -34,3 +34,7 @@
 
 - [x] 구현 (Fable 서브에이전트, 260707) — 게이트 fetch skip + 시트 가이드 + `sgr.map.viewport` 복원. 검증: tsc 0 / eslint error 0 / playwright(게이트·통과·리로드 복원) 통과
 - [x] QM 회귀 (교차회귀 260707: 검색·지역선택·피드 강조·현위치·뷰포트 복원 전건 PASS, GPS 호출 0회 계측)
+
+## 2차 교정 (2026-07-07 — 기획 재확인)
+
+1차 구현이 "리스트만" 게이트하고 구 집계 배지·총 N건(district-counts, 별도 소스)을 남긴 것은 **기획 오해석**. 확정 스펙: **지도와 바텀시트는 단일 데이터 소스(bbox 조회 결과)** — 게이트 미만에선 지도 배지·건수 집계 포함 아무 데이터도 표시하지 않고 가이드(시트 본문 + 접힘 헤더 힌트 필)만. district-counts 파이프라인(fetch·배지 prop·총N건·api/map.ts) 프론트에서 제거, service-rules 기본 상태 문구 개정. 백엔드 `/map/district-counts` API 는 존치(무소비 — 필요 시 재사용).

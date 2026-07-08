@@ -5,6 +5,7 @@ import { gasApi } from '@/api/info';
 import type { GasStation, TodayPrices } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
+import { extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
@@ -137,8 +138,8 @@ export default function InfoGasList() {
       toast.success(t('info.gas.reportSuccess'));
       setShowReport(false);
       return true;
-    } catch {
-      toast.error(t('info.gas.reportError'));
+    } catch (err) {
+      toast.error(extractDetail(err, t('info.gas.reportError')));
       return false;
     }
   }

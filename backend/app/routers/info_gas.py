@@ -190,7 +190,7 @@ async def report_wait_time(
         )
     )
     if recent:
-        raise HTTPException(429, "Already reported within 30 minutes")
+        raise HTTPException(429, "이 주유소는 30분 이내에 이미 제보했어요")
 
     expires_at = datetime.now(UTC) + timedelta(minutes=30)
     report = GasStationWaitReport(

@@ -6,6 +6,7 @@ import type { RepairShop } from '@/api/info';
 import { StarIcon } from '@/components/ui/StarIcon';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
+import { extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
 import { resolveInfoCoordsSync, parseCoordsFromQuery } from '@/lib/infoCoords';
 import type { ResolvedCoords } from '@/lib/infoCoords';
@@ -122,8 +123,8 @@ export default function InfoRepairList() {
       toast.success(t('info.repair.reportSuccess'));
       setShowReport(false);
       return true;
-    } catch {
-      toast.error(t('info.repair.reportError'));
+    } catch (err) {
+      toast.error(extractDetail(err, t('info.repair.reportError')));
       return false;
     }
   }

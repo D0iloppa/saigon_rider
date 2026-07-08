@@ -89,7 +89,7 @@ async def _check_abuse(db: AsyncSession, user_id: uuid.UUID, lat: float, lng: fl
         )
     )
     if (today_count or 0) >= _DAILY_REPORT_LIMIT:
-        raise HTTPException(429, "Daily report limit reached (5)")
+        raise HTTPException(429, f"오늘 제보 한도({_DAILY_REPORT_LIMIT}건)를 다 사용했어요")
 
     nearby_start = datetime.now(UTC) - timedelta(minutes=_DEDUP_MINUTES)
     nearby_count = await db.scalar(
@@ -102,7 +102,7 @@ async def _check_abuse(db: AsyncSession, user_id: uuid.UUID, lat: float, lng: fl
         )
     )
     if (nearby_count or 0) > 0:
-        raise HTTPException(429, "Same location within 30 minutes")
+        raise HTTPException(429, f"이 위치는 {_DEDUP_MINUTES}분 이내에 이미 제보했어요")
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────

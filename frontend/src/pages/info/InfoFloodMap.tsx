@@ -5,7 +5,7 @@ import { floodApi } from '@/api/info';
 import type { FloodReportWithTrust, FloodHotspot, FloodRisk } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
-import { api } from '@/api/client';
+import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
 import { resolveInfoCoords, parseCoordsFromQuery } from '@/lib/infoCoords';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
@@ -184,8 +184,8 @@ export default function InfoFloodMap() {
       setDepth('');
       setPhotoUrl(null);
       fetchAll();
-    } catch {
-      toast.error(t('info.flood.reportError', '제보에 실패했어요'));
+    } catch (err) {
+      toast.error(extractDetail(err, t('info.flood.reportError', '제보에 실패했어요')));
     } finally {
       setSubmitting(false);
     }

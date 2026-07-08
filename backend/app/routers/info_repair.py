@@ -281,7 +281,7 @@ async def create_repair_review(
         )
     )
     if existing:
-        raise HTTPException(409, "Already reviewed this shop for this service")
+        raise HTTPException(409, "이미 이 정비소의 해당 서비스에 리뷰를 남겼어요")
 
     review = RepairReview(
         shop_id=body.shop_id,

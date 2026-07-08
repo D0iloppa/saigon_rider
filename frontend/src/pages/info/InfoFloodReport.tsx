@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { floodApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
+import { toast } from '@/components/ui/Toast';
+import { extractDetail } from '@/api/client';
 import { resolveInfoCoords, type Coords } from '@/lib/infoCoords';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import styles from './InfoFloodReport.module.css';
@@ -53,9 +55,8 @@ export default function InfoFloodReport() {
       });
       setDone(true);
       setTimeout(() => navigate(-1), 800);
-    } catch {
-      setDone(true);
-      setTimeout(() => navigate(-1), 800);
+    } catch (err) {
+      toast.error(extractDetail(err, t('info.flood.reportError', '제보에 실패했어요')));
     } finally {
       setSubmitting(false);
     }

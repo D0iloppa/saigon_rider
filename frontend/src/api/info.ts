@@ -303,10 +303,11 @@ export const floodApi = {
   },
   async report(data: { lat: number; lng: number; depth_level: string; photo_url?: string }): Promise<{ report_id: number; gp_earned: number }> {
     if (USE_MOCK) return api.delay({ report_id: 999, gp_earned: 10 }, 500);
+    // rethrow: 전역 토스트를 억제하고 호출자가 메시지를 직접 결정 (예: 429 중복/한도 제보)
     return api.realFetch<{ report_id: number; gp_earned: number }>('/info/flood/report', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, 'bff', { rethrow: true });
   },
   async confirm(report_id: number, confirmation_type: string): Promise<{ confirmed: boolean; gp_earned: number }> {
     if (USE_MOCK) return api.delay({ confirmed: true, gp_earned: 5 }, 300);
@@ -366,10 +367,11 @@ export const gasApi = {
   /** 신규 주유소 제보 → 대기큐(PENDING). admin confirm 시에만 반영. */
   async reportStation(body: { name: string; lat: number; lng: number; phone?: string; note?: string }): Promise<{ submission_id: number; status: string }> {
     if (USE_MOCK) return api.delay({ submission_id: 999, status: 'PENDING' }, 300);
+    // rethrow: 전역 토스트를 억제하고 호출자가 메시지를 직접 결정
     return api.realFetch<{ submission_id: number; status: string }>('/info/gas/report', {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }, 'bff', { rethrow: true });
   },
   async getPrices(): Promise<{ fuel_type: string; price_vnd: number }[]> {
     if (USE_MOCK) return api.delay([{ fuel_type: 'RON95', price_vnd: 25420 }], 100);
@@ -463,20 +465,22 @@ export const repairApi = {
   /** 신규 정비소 제보 → 대기큐(PENDING). admin confirm 시에만 반영. */
   async reportShop(body: { name: string; lat: number; lng: number; phone?: string; note?: string }): Promise<{ submission_id: number; status: string }> {
     if (USE_MOCK) return api.delay({ submission_id: 999, status: 'PENDING' }, 300);
+    // rethrow: 전역 토스트를 억제하고 호출자가 메시지를 직접 결정
     return api.realFetch<{ submission_id: number; status: string }>('/info/repair/report', {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }, 'bff', { rethrow: true });
   },
   async writeReview(data: {
     shop_id: number; service_code: string; motorcycle_model?: string;
     rating: number; price_vnd?: number; comment?: string; photo_url?: string; is_anonymous?: boolean;
   }): Promise<{ review_id: number; rp_earned: number }> {
     if (USE_MOCK) return api.delay({ review_id: 999, rp_earned: 70 }, 500);
+    // rethrow: 전역 토스트를 억제하고 호출자가 메시지를 직접 결정 (예: 409 중복 리뷰)
     return api.realFetch<{ review_id: number; rp_earned: number }>('/info/repair/review', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, 'bff', { rethrow: true });
   },
   async addShop(data: { name: string; lat: number; lng: number; phone?: string }): Promise<{ shop_id: number; status: string }> {
     if (USE_MOCK) return api.delay({ shop_id: 999, status: 'PENDING_VERIFICATION' }, 300);

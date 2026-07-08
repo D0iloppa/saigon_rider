@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { repairApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
+import { extractDetail } from '@/api/client';
 import styles from './InfoRepairWrite.module.css';
 
 // 차종은 주소록처럼 자유 입력 + 마지막 입력값을 기기에 기억.
@@ -54,8 +55,8 @@ export default function InfoRepairWrite() {
       if (moto.trim()) localStorage.setItem(VEHICLE_LS_KEY, moto.trim());
       setDone(true);
       setTimeout(() => navigate(-1), 800);
-    } catch {
-      toast.error(t('info.repair.submitError'));
+    } catch (err) {
+      toast.error(extractDetail(err, t('info.repair.submitError')));
     } finally {
       setSubmitting(false);
     }

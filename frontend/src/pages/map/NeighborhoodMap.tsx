@@ -11,6 +11,7 @@ import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
+import { fetchBizMapItems, type BizMapItem } from '@/api/biz';
 import { fetchFeed } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
 import ListingCard from '@/pages/market/ListingCard';
@@ -24,6 +25,8 @@ type BrowseMode = 'viewport' | 'region';
 const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
+// 업체 핀 (SGR-323) — 브랜드 오렌지(매물)·파랑(피드)과 구분, tokens.css --success 정합
+const BIZ_COLOR = '#16a34a';
 // SearchBox 높이(44px) + searchOverlay 상단 여백(10px) — 지도 확대/축소 버튼이 검색창 아래로 오도록
 const SEARCH_BAR_HEIGHT = 54;
 const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
@@ -55,6 +58,17 @@ async function fetchAllListings(params: Parameters<typeof fetchListings>[0]): Pr
 }
 
 type LatLngBbox = { N: number; S: number; E: number; W: number };
+
+// region(동 선택) 모드에서 업체 bbox 조회용 — 폴리곤 외접 bbox (내부 여부는 regionContains로 재필터)
+function regionBbox(r: SelectedRegion): LatLngBbox {
+  if (r.poly.length < 3) {
+    const d = 0.01;
+    return { N: r.lat + d, S: r.lat - d, E: r.lng + d, W: r.lng - d };
+  }
+  const lats = r.poly.map((p) => p.lat);
+  const lngs = r.poly.map((p) => p.lng);
+  return { N: Math.max(...lats), S: Math.min(...lats), E: Math.max(...lngs), W: Math.min(...lngs) };
+}
 
 function loadSavedViewport(): LatLngBbox | null {
   try {
@@ -102,6 +116,7 @@ export default function NeighborhoodMap() {
   const [tab, setTab] = useState<Tab>('listings');
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
   // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
   // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
   const [ads, setAds] = useState<MarketAd[]>([]);
@@ -285,6 +300,23 @@ export default function NeighborhoodMap() {
     return () => { cancelled = true; };
   }, [bboxFilter, reloadSeq, selectedRegion, isSearching]);
 
+  // 업체 핀 레이어 (SGR-323, G-1) — 탭과 무관한 상시 제3 레이어. 매물·피드와 동일한
+  // 줌 게이트를 지키며(결정사항 2), region 모드에서는 폴리곤 외접 bbox로 조회한다.
+  useEffect(() => {
+    if (isSearching) return;
+    if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
+      setBizItems([]);
+      return;
+    }
+    const bbox = bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
+    if (!bbox) { setBizItems([]); return; }
+    let cancelled = false;
+    fetchBizMapItems({ minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E })
+      .then((items) => { if (!cancelled) setBizItems(items); })
+      .catch(() => { if (!cancelled) setBizItems([]); });
+    return () => { cancelled = true; };
+  }, [bboxFilter, reloadSeq, selectedRegion, isSearching]);
+
   const visibleListings = useMemo(() => {
     if (bboxFilter) {
       return listings.filter((l) =>
@@ -309,23 +341,47 @@ export default function NeighborhoodMap() {
     return posts.filter((p) => p.latitude != null && p.longitude != null && regionContains(selectedRegion, p.latitude!, p.longitude!));
   }, [bboxFilter, posts, selectedRegion]);
 
-  // depth2/3 마커 (선택 영역 기준) — 검색 중엔 위치 필터 무시하고 검색 결과만 표시
+  const visibleBiz = useMemo(() => {
+    if (bboxFilter) {
+      return bizItems.filter((b) =>
+        b.lat >= bboxFilter.S && b.lat <= bboxFilter.N &&
+        b.lng >= bboxFilter.W && b.lng <= bboxFilter.E,
+      );
+    }
+    if (!selectedRegion) return bizItems;
+    return bizItems.filter((b) => regionContains(selectedRegion, b.lat, b.lng));
+  }, [bboxFilter, bizItems, selectedRegion]);
+
+  // depth2/3 마커 (선택 영역 기준) — 검색 중엔 위치 필터 무시하고 검색 결과만 표시.
+  // 핀 레이어 배열 구조 (SGR-323): listing/feed 는 탭 배타(현행 유지), biz 는 상시 제3 레이어.
+  // 향후 info 계열 흡수 시 레이어 추가로 확장한다 (결정사항 1).
   const markers = useMemo<MapMarkerV2[]>(() => {
     if (isSearching) {
       return searchResults
         .filter((l) => l.lat != null && l.lng != null)
         .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, color: LISTING_COLOR, onClick: () => handleMarkerClick(l.id) }));
     }
-    const color = tab === 'listings' ? LISTING_COLOR : FEED_COLOR;
-    if (tab === 'listings') {
-      return visibleListings
-        .filter((l) => l.lat != null && l.lng != null)
-        .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, color, onClick: () => handleMarkerClick(l.id) }));
-    }
-    return visiblePosts
-      .filter((p) => p.latitude != null && p.longitude != null)
-      .map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, color, onClick: () => handleMarkerClick(p.id) }));
-  }, [isSearching, searchResults, tab, visibleListings, visiblePosts]); // eslint-disable-line react-hooks/exhaustive-deps
+    const layers: MapMarkerV2[][] = [
+      tab === 'listings'
+        ? visibleListings
+            .filter((l) => l.lat != null && l.lng != null)
+            .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, color: LISTING_COLOR, onClick: () => handleMarkerClick(l.id) }))
+        : visiblePosts
+            .filter((p) => p.latitude != null && p.longitude != null)
+            .map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, color: FEED_COLOR, onClick: () => handleMarkerClick(p.id) })),
+      // 업체 핀 — 아이콘 대신 색+라벨(상호명)로 시각 위계 분리 (당근 IN-1 변형)
+      visibleBiz.map((b) => ({
+        id: `biz:${b.id}`,
+        lat: b.lat,
+        lng: b.lng,
+        color: BIZ_COLOR,
+        r: 1.15,
+        label: b.name,
+        onClick: () => handleBizMarkerClick(b.id),
+      })),
+    ];
+    return layers.flat();
+  }, [isSearching, searchResults, tab, visibleListings, visiblePosts, visibleBiz]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // useCallback 필수: SaigonMapV5의 onRegionSelect prop으로 전달되는데, 매 렌더마다
   // 새 함수를 넘기면 내부 focusLatLng/runLocate가 재생성되어 locateOnMount 이펙트가
@@ -354,6 +410,11 @@ export default function NeighborhoodMap() {
     });
   };
 
+  // 업체 핀 탭 → 공개 프로필 직행 (T5에서 시트 카드 하이라이트로 확장 예정)
+  const handleBizMarkerClick = (id: string) => {
+    navigate(`/biz/${id}`);
+  };
+
   const switchTab = (tb: Tab) => {
     setTab(tb);
     setExpandedPostId(null);
@@ -371,6 +432,7 @@ export default function NeighborhoodMap() {
     // 3중 불일치 방지 (시나리오 4.3)
     setListings([]);
     setPosts([]);
+    setBizItems([]);
     setViewportBbox(null);
     clearTimeout(bboxTimerRef.current);
     // 현재 뷰포트 기준 bbox 재발행 → 게이트 이상이면 재조회, 미만이면 가이드로 정합

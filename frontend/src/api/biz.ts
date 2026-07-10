@@ -190,6 +190,56 @@ export async function resumeBusinessAd(id: string): Promise<BusinessAd> {
   return fromAdApi(res);
 }
 
+// ── 업체 지도 조회 (SGR-323 P1-3) ───────────────────────────────
+
+export interface BizMapItem {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  lat: number;
+  lng: number;
+  photoUrl: string | null;
+}
+
+interface BizMapItemApi {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  lat: string | number;
+  lng: string | number;
+  photo_url: string | null;
+}
+
+export async function fetchBizMapItems(params: {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  category?: string;
+  q?: string;
+}): Promise<BizMapItem[]> {
+  const qs = new URLSearchParams({
+    min_lat: String(params.minLat),
+    max_lat: String(params.maxLat),
+    min_lng: String(params.minLng),
+    max_lng: String(params.maxLng),
+  });
+  if (params.category) qs.set('category', params.category);
+  if (params.q) qs.set('q', params.q);
+  const res = await api.realFetch<BizMapItemApi[]>(`/biz/public/map?${qs}`);
+  return (res ?? []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    category: b.category,
+    address: b.address,
+    lat: Number(b.lat),
+    lng: Number(b.lng),
+    photoUrl: b.photo_url,
+  }));
+}
+
 // ── 공개 비즈니스 프로필 (SGR-312 BP-6) ─────────────────────────
 
 export interface BusinessPublicProfile {

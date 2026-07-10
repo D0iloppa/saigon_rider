@@ -832,11 +832,25 @@ function SaigonMapV5({
               const mx = lx(m.lng), my = ly(m.lat);
               if (mx < vb.x - 50 || mx > vb.x + vb.w + 50) return null;
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
-              const r = vb.w * 0.015;
+              const r = vb.w * 0.015 * (m.r ?? 1);
               return (
                 <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
                   <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
+                  {m.label && (
+                    // 업체 핀 상호명 라벨 (SGR-323, 당근 IN-1 패턴) — 동명 텍스트와 동일한 흰 헤일로
+                    <text
+                      x={mx} y={my + r * 2.0}
+                      fontSize={r * 1.5} fontWeight={700}
+                      fill="#1f2937"
+                      stroke="rgba(255,255,255,0.90)" strokeWidth={r * 0.42}
+                      paintOrder="stroke fill"
+                      textAnchor="middle" dominantBaseline="hanging"
+                      fontFamily="system-ui,-apple-system,sans-serif"
+                      pointerEvents="none">
+                      {m.label}
+                    </text>
+                  )}
                 </g>
               );
             })

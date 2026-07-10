@@ -580,7 +580,9 @@
     "title": "알림",
     "empty": "알림이 없어요",
     "emptyDesc": "새로운 소식이 오면 여기에 보여드릴게요",
-    "loadMore": "더보기"
+    "loadMore": "더보기",
+    "loadError": "알림을 불러오지 못했어요",
+    "loadErrorDesc": "네트워크 상태를 확인하고 다시 시도해 주세요."
   },
   "dm": {
     "title": "메시지",

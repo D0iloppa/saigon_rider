@@ -237,6 +237,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      engine:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - REDIS_URL=redis://redis:6379/0

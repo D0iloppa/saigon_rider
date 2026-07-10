@@ -580,7 +580,9 @@
     "title": "Notifications",
     "empty": "No notifications yet",
     "emptyDesc": "We'll show new updates here",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "loadError": "Couldn't load notifications",
+    "loadErrorDesc": "Check your network connection and try again."
   },
   "dm": {
     "title": "Messages",

@@ -20,13 +20,18 @@ export default function NotificationInbox() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadSeq, setReloadSeq] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
+    setLoading(true);
+    setLoadError(false);
     fetchNotifications(userId, 1, PAGE_SIZE)
       .then((r) => { setItems(r.items); setTotal(r.total); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, reloadSeq]);
 
   const hasMore = items.length < total;
 
@@ -42,7 +47,9 @@ export default function NotificationInbox() {
   function handleClick(n: NotificationDto) {
     if (!n.is_read) {
       setItems((prev) => prev.map((it) => (it.id === n.id ? { ...it, is_read: true } : it)));
-      markNotificationRead(n.id).catch(() => {});
+      markNotificationRead(n.id).catch(() => {
+        setItems((prev) => prev.map((it) => (it.id === n.id ? { ...it, is_read: false } : it)));
+      });
     }
     // link 는 LinkRouter 쿼리 규약 그대로 저장됨 (NotificationBridge 와 동일 경로)
     if (n.link) navigate(`/link?action=${n.link}`);
@@ -54,6 +61,15 @@ export default function NotificationInbox() {
       <div className={styles.scroll}>
         {loading ? (
           [0, 1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)
+        ) : loadError ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}><Bell size={38} strokeWidth={1.6} /></div>
+            <div className={styles.emptyMsg}>{t('noti.loadError')}</div>
+            <div className={styles.emptyDesc}>{t('noti.loadErrorDesc')}</div>
+            <button className={styles.loadMore} onClick={() => setReloadSeq((n) => n + 1)}>
+              {t('common.retry')}
+            </button>
+          </div>
         ) : items.length === 0 ? (
           <div className={styles.empty}>
             <div className={styles.emptyIcon}><Bell size={38} strokeWidth={1.6} /></div>

@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -14,6 +14,8 @@ from ..schemas import (
     BusinessProfileApplyRequest,
     BusinessProfileOut,
     BusinessProfileUpdateRequest,
+    BusinessPublicProfileOut,
+    MarketplaceAdOut,
 )
 from ..utils import build_imgproxy_url
 
@@ -280,3 +282,57 @@ async def resume_ad(
     await db.commit()
     await db.refresh(ad)
     return _ad_out(ad)
+
+
+# ── 공개 비즈니스 프로필 (SGR-312 BP-6 — AD 카드 탭 노출면) ─────────
+
+
+def _public_ad_out(ad: MarketplaceAd) -> MarketplaceAdOut:
+    """market.py GET /ads 의 이미지 해상 로직 미러 (BP-4 contents 중개 우선)."""
+    out = MarketplaceAdOut.model_validate(ad)
+    if ad.image_content:
+        out.image_url = build_imgproxy_url(ad.image_content.file_path, options="rs:fill:360:200:1")
+    return out
+
+
+@router.get("/public/{profile_id}", response_model=BusinessPublicProfileOut, summary="공개 비즈니스 프로필")
+async def get_public_profile(
+    profile_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """일반 유저가 AD 카드 탭으로 진입하는 공개 프로필면 — APPROVED 프로필만 노출(그 외 404)."""
+    profile = await db.get(BusinessProfile, profile_id)
+    if profile is None or profile.status != "APPROVED":
+        raise HTTPException(status_code=404, detail="Business profile not found")
+
+    now = datetime.now(UTC)
+    # 게시중 광고 노출 조건 — market.py GET /ads 미러 (APPROVED + is_active + 기간 유효)
+    ads = (
+        (
+            await db.execute(
+                select(MarketplaceAd)
+                .where(
+                    MarketplaceAd.owner_business_profile_id == profile_id,
+                    MarketplaceAd.is_active == True,
+                    MarketplaceAd.review_status == "APPROVED",
+                )
+                .where(or_(MarketplaceAd.starts_at.is_(None), MarketplaceAd.starts_at <= now))
+                .where(or_(MarketplaceAd.ends_at.is_(None), MarketplaceAd.ends_at >= now))
+                .order_by(MarketplaceAd.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    photo_url = build_imgproxy_url(profile.photo_content.file_path) if profile.photo_content else None
+    return BusinessPublicProfileOut(
+        id=profile.id,
+        name=profile.name,
+        category=profile.category,
+        address=profile.address,
+        latitude=profile.latitude,
+        longitude=profile.longitude,
+        phone=profile.phone,
+        photo_url=photo_url,
+        ads=[_public_ad_out(a) for a in ads],
+    )

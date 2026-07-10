@@ -1537,6 +1537,11 @@
     "adResumeCta": "Resume ad",
     "adActionError": "Something went wrong",
     "adLoadError": "Failed to load the ad",
-    "menuEntry": "Business Partner"
+    "menuEntry": "Business Partner",
+    "publicAdsTitle": "Active ads",
+    "publicAdsEmpty": "No ads posted yet",
+    "publicCallCta": "Call to inquire",
+    "publicNotFound": "Couldn't find this shop",
+    "viewProfileCta": "View shop profile"
   }
 }

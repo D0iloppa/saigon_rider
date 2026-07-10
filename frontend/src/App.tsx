@@ -44,6 +44,7 @@ import BizStatus from '@/pages/biz/BizStatus';
 import BizManage from '@/pages/biz/BizManage';
 import BizAdsNew from '@/pages/biz/BizAdsNew';
 import BizAdDetail from '@/pages/biz/BizAdDetail';
+import BizPublic from '@/pages/biz/BizPublic';
 
 // Quest
 import QuestList from '@/pages/quest/QuestList';
@@ -306,6 +307,7 @@ export default function App() {
           <Route path="/biz/manage" element={<PrivateRoute><BizManage /></PrivateRoute>} />
           <Route path="/biz/ads/new" element={<PrivateRoute><BizAdsNew /></PrivateRoute>} />
           <Route path="/biz/ads/:id" element={<PrivateRoute><BizAdDetail /></PrivateRoute>} />
+          <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
           {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />

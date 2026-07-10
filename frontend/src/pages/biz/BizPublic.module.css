@@ -1,0 +1,177 @@
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 120px;
+}
+
+.loading {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.heroWrap {
+  border-radius: 18px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: var(--surface-2);
+  margin-bottom: 14px;
+}
+
+.heroImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.categoryBadge {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--brand-600, #A8642E);
+  background: var(--brand-50, #F6E7DA);
+  padding: 5px 11px;
+  border-radius: 7px;
+  letter-spacing: 0.1px;
+}
+
+.infoCard {
+  margin-top: 16px;
+  background: var(--surface);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.infoRow + .infoRow {
+  border-top: 1px solid var(--divider);
+}
+
+.infoIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--brand-50, #FDEEE6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--brand-500, #F0531C);
+}
+
+.infoValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sectionTitle {
+  margin-top: 28px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.adsEmpty {
+  padding: 32px 16px;
+  border-radius: 14px;
+  border: 1px dashed var(--line);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.adList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+}
+
+.adThumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg);
+}
+
+.adRowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Sticky CTA (AdDetail 미러) ── */
+.ctaBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 18px 30px;
+  background: linear-gradient(180deg, rgba(var(--bg-rgb, 244, 240, 234), 0) 0%, var(--bg) 26%);
+  z-index: 20;
+}
+
+.ctaBtn {
+  width: 100%;
+  height: 58px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #F4602A, #EB4910);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.ctaBtn:active {
+  opacity: 0.88;
+}

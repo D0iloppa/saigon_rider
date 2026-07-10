@@ -191,6 +191,7 @@ export interface MarketAd {
   phone: string | null;
   address: string | null;
   ownerId: string | null;
+  ownerBusinessProfileId: string | null;
   districtId: number | null;
   category: string | null;
   rating: number | null;
@@ -200,7 +201,7 @@ export interface MarketAd {
   isOpen: boolean | null;
 }
 
-function transformAd(a: any): MarketAd {
+export function transformAd(a: any): MarketAd {
   return {
     id: a.id,
     partnerName: a.partner_name,
@@ -211,6 +212,7 @@ function transformAd(a: any): MarketAd {
     phone: a.phone ?? null,
     address: a.address ?? null,
     ownerId: a.owner_id ?? null,
+    ownerBusinessProfileId: a.owner_business_profile_id ?? null,
     districtId: a.district_id ?? null,
     category: a.category ?? null,
     rating: a.rating ?? null,
@@ -219,6 +221,11 @@ function transformAd(a: any): MarketAd {
     businessHours: a.business_hours ?? null,
     isOpen: a.is_open ?? null,
   };
+}
+
+/** AD 카드 탭 목적지 — owner 프로필 있으면 공개 비즈프로필(BP-6), 없으면(레거시) 기존 광고 상세로 폴백. */
+export function adHref(ad: MarketAd): string {
+  return ad.ownerBusinessProfileId ? `/biz/${ad.ownerBusinessProfileId}` : `/market/ad/${ad.id}`;
 }
 
 export async function fetchAds(districtId?: number | null): Promise<MarketAd[]> {

@@ -1537,6 +1537,11 @@
     "adResumeCta": "Tiếp tục hiển thị",
     "adActionError": "Xử lý thất bại",
     "adLoadError": "Không tải được quảng cáo",
-    "menuEntry": "Đối tác kinh doanh"
+    "menuEntry": "Đối tác kinh doanh",
+    "publicAdsTitle": "Quảng cáo đang hiển thị",
+    "publicAdsEmpty": "Chưa có quảng cáo nào được đăng",
+    "publicCallCta": "Gọi để liên hệ",
+    "publicNotFound": "Không tìm thấy cửa hàng này",
+    "viewProfileCta": "Xem hồ sơ cửa hàng"
   }
 }

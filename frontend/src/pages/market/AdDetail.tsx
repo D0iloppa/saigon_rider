@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Share2, Phone, MapPin, Clock, BadgeCheck, Info } from 'lucide-react';
+import { ArrowLeft, Share2, Phone, MapPin, Clock, BadgeCheck, Info, ChevronRight, Store } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { fetchAd, localizedName, type MarketAd } from '@/api/market';
@@ -137,7 +137,7 @@ export default function AdDetail() {
               {ad.body && <p className={styles.desc}>{ad.body}</p>}
 
               {/* Info card */}
-              {(ad.phone || ad.address || ad.businessHours) && (
+              {(ad.phone || ad.address || ad.businessHours || ad.ownerBusinessProfileId) && (
                 <div className={styles.infoCard}>
                   {ad.phone && (
                     <div className={styles.infoRow}>
@@ -180,6 +180,21 @@ export default function AdDetail() {
                         )}
                       </div>
                     </div>
+                  )}
+                  {ad.ownerBusinessProfileId && (
+                    <button
+                      type="button"
+                      className={`${styles.infoRow} ${styles.infoRowBtn}`}
+                      onClick={() => navigate(`/biz/${ad.ownerBusinessProfileId}`)}
+                    >
+                      <div className={styles.infoIconWrap}>
+                        <Store size={18} strokeWidth={2} />
+                      </div>
+                      <div className={styles.infoRowRight}>
+                        <div className={styles.infoValue}>{t('biz.viewProfileCta', { defaultValue: '가게 프로필 보기' })}</div>
+                        <ChevronRight size={18} strokeWidth={2} className={styles.chevron} />
+                      </div>
+                    </button>
                   )}
                 </div>
               )}

@@ -1537,6 +1537,11 @@
     "adResumeCta": "게시 재개",
     "adActionError": "처리에 실패했습니다",
     "adLoadError": "광고를 불러오지 못했습니다",
-    "menuEntry": "비즈니스 파트너"
+    "menuEntry": "비즈니스 파트너",
+    "publicAdsTitle": "게시중인 광고",
+    "publicAdsEmpty": "아직 게시중인 광고가 없어요",
+    "publicCallCta": "전화 문의하기",
+    "publicNotFound": "가게 정보를 찾을 수 없어요",
+    "viewProfileCta": "가게 프로필 보기"
   }
 }

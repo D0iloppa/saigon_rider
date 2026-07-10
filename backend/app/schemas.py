@@ -219,6 +219,7 @@ class MarketplaceAdOut(BaseModel):
     phone: str | None = None
     address: str | None = None
     owner_id: UUID | None = None
+    owner_business_profile_id: UUID | None = None
     district_id: int | None = None
     category: str | None = None
     rating: float | None = None
@@ -1268,3 +1269,18 @@ class BusinessAdOut(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     created_at: datetime
+
+
+# ── 공개 비즈니스 프로필 (SGR-312 BP-6) ───────────────────────────
+
+
+class BusinessPublicProfileOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    category: str | None = None
+    address: str | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    phone: str | None = None
+    photo_url: str | None = None
+    ads: list[MarketplaceAdOut]

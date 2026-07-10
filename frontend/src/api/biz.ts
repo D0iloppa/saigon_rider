@@ -1,4 +1,5 @@
 import { api } from './client';
+import { transformAd, type MarketAd } from './market';
 
 export type BusinessProfileStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
@@ -187,4 +188,45 @@ export async function stopBusinessAd(id: string): Promise<BusinessAd> {
 export async function resumeBusinessAd(id: string): Promise<BusinessAd> {
   const res = await api.realFetch<BusinessAdApi>(`/biz/ads/${id}/resume`, { method: 'POST' }, 'bff', { rethrow: true });
   return fromAdApi(res);
+}
+
+// ── 공개 비즈니스 프로필 (SGR-312 BP-6) ─────────────────────────
+
+export interface BusinessPublicProfile {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  photoUrl: string | null;
+  ads: MarketAd[];
+}
+
+interface BusinessPublicProfileApi {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
+  phone: string | null;
+  photo_url: string | null;
+  ads: any[];
+}
+
+export async function fetchBusinessPublicProfile(id: string): Promise<BusinessPublicProfile> {
+  const res = await api.realFetch<BusinessPublicProfileApi>(`/biz/public/${id}`, undefined, 'bff', { rethrow: true });
+  return {
+    id: res.id,
+    name: res.name,
+    category: res.category,
+    address: res.address,
+    latitude: res.latitude != null ? Number(res.latitude) : null,
+    longitude: res.longitude != null ? Number(res.longitude) : null,
+    phone: res.phone,
+    photoUrl: res.photo_url,
+    ads: (res.ads ?? []).map(transformAd),
+  };
 }

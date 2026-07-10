@@ -283,6 +283,20 @@
   min-width: 0;
 }
 
+.infoRowBtn {
+  width: 100%;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chevron {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
 .openBadge {
   font-size: 12px;
   font-weight: 700;

@@ -19,6 +19,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
   addKeywordAlert,
+  adHref,
   fetchAds,
   fetchKeywordAlerts,
   fetchListings,
@@ -327,7 +328,7 @@ export default function MarketMain() {
             <>
               {/* 빈 상태: 광고 1개 고정 노출 (스크롤 확장 없음) */}
               {ads.slice(0, 1).map((ad) => (
-                <AdCard key={ad.id} ad={ad} onClick={() => { saveScroll(); navigate(`/market/ad/${ad.id}`); }} />
+                <AdCard key={ad.id} ad={ad} onClick={() => { saveScroll(); navigate(adHref(ad)); }} />
               ))}
               <div className={styles.empty}>
                 <span className={styles.emptyEmoji}>🏍️</span>
@@ -344,7 +345,7 @@ export default function MarketMain() {
                 return (
                   <Fragment key={l.id}>
                     <ListingCard listing={l} onClick={() => { saveScroll(); navigate(`/market/${l.id}`); }} />
-                    {ad && <AdCard ad={ad} onClick={() => { saveScroll(); navigate(`/market/ad/${ad.id}`); }} />}
+                    {ad && <AdCard ad={ad} onClick={() => { saveScroll(); navigate(adHref(ad)); }} />}
                   </Fragment>
                 );
               })}

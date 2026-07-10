@@ -10,7 +10,7 @@ import { SearchBox } from '@/components/ui/SearchBox';
 import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchListings, fetchAds, type ListingCard as Listing, type MarketAd } from '@/api/market';
+import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
 import { fetchFeed } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
 import ListingCard from '@/pages/market/ListingCard';
@@ -391,7 +391,7 @@ export default function NeighborhoodMap() {
     const ord = Math.floor(i / AD_EVERY);
     if (ord >= adLimit) return null;
     const ad = ads[ord % ads.length];
-    return <AdCard ad={ad} onClick={() => navigate(`/market/ad/${ad.id}`)} />;
+    return <AdCard ad={ad} onClick={() => navigate(adHref(ad))} />;
   };
 
   const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {

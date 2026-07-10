@@ -15,11 +15,13 @@ services:
     container_name: saigon_nginx
     ports:
       - "${NGINX_PORT}:80"
+      - "${BIZ_LANDING_PORT}:81"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/docker-entrypoint.d:/docker-entrypoint.d:ro
       - ./nginx/pages:/etc/nginx/pages:ro
       - ./dev-test:/srv/dev-test:ro
+      - ./landing:/etc/nginx/landing:ro
     networks:
       - dev-net
     depends_on:

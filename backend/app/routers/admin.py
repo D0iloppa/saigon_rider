@@ -3918,6 +3918,7 @@ _BIZ_AD_FLASHES = {
     "rejected": ("광고를 반려했습니다.", True),
     "notfound": ("광고를 찾을 수 없습니다.", False),
     "done": ("이미 처리된 광고입니다.", False),
+    "profile_not_active": ("소유 프로필이 활성(APPROVED) 상태가 아니어서 승인할 수 없습니다.", False),
 }
 
 
@@ -3957,6 +3958,12 @@ async def admin_biz_ads(
             color = _BIZ_AD_STATUS_COLOR.get(ad.review_status, "#9CA3AF")
             img_url = _ad_image_url(ad)
             img = f'<img class="thumb" src="{h(img_url)}" alt="">' if img_url else "—"
+            # 소유 프로필 상태 — 정지 프로필의 대기 광고를 admin 이 큐에서 바로 인지 (승인은 서버 가드로도 차단)
+            if bp:
+                bp_color = _BIZ_STATUS_COLOR.get(bp.status, "#9CA3AF")
+                bp_status = f'<span style="color:{bp_color};font-weight:700;">{bp.status}</span>'
+            else:
+                bp_status = '<span style="color:rgba(255,255,255,.4);">—</span>'
             if ad.review_status == "PENDING":
                 actions = (
                     f'<form method="post" action="/admin/biz-ads/{ad.id}/approve" style="display:inline;">'
@@ -3977,13 +3984,14 @@ async def admin_biz_ads(
                 f"<td>{h(ad.body or '—')}</td>"
                 f"<td>{_ad_period(ad)}</td>"
                 f"<td>{h(bp.name) if bp else h(ad.partner_name)}</td>"
+                f"<td>{bp_status}</td>"
                 f'<td><span style="color:{color};font-weight:700;">{ad.review_status}</span></td>'
                 f"<td>{actions}</td>"
                 f"</tr>"
             )
     else:
         body_rows = (
-            '<tr><td colspan="8" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">'
+            '<tr><td colspan="9" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">'
             "등록된 광고가 없습니다.</td></tr>"
         )
 
@@ -4017,8 +4025,12 @@ async def admin_biz_ad_approve(
     if ad.review_status != "PENDING":
         return RedirectResponse("/admin/biz-ads?flash=done", status_code=303)
 
-    ad.review_status = "APPROVED"
     bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    # 정지(SUSPENDED) 등 비활성 프로필의 광고 승인 차단 — resume_ad 가드의 승인 경로 우회 방지
+    if bp and bp.status != "APPROVED":
+        return RedirectResponse("/admin/biz-ads?flash=profile_not_active", status_code=303)
+
+    ad.review_status = "APPROVED"
     await db.commit()
 
     if bp:

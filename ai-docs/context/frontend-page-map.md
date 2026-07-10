@@ -54,8 +54,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 ### 3.3 동네지도 (`/map`)
 
 - **페이지**: `pages/map/NeighborhoodMap.tsx` — 상단 주석: "동네지도 v4 (SGR-287) — SaigonMapV4 풀스크린 + 하단 드래거블 시트. GPS 기준 동 자동 진입 → 전체 depth3 오버레이 → 블록 탭으로 구역 필터링." (주석은 v4 시절 남은 것, 실제 지도 컴포넌트는 `SaigonMapV5`로 전환됨 — 최근 커밋 `dd3c80b`)
-- **핵심 컴포넌트**: `SaigonMapV5`(`components/maps/SaigonMapV5.tsx`), `DraggableSheet`(`components/ride/DraggableSheet.tsx`), `ListingCard`, `AdCard`, `ProfileCard`, `AppImage`
-- **연결 스토어/API** (실제 `trace_path` 조회로 확인됨): `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/map.ts`(`fetchDistrictCounts`) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
+- **시트 탭 3종 (SGR-315 P1, 2026-07-10)**: `listings`(매물, 주황 핀)·`feed`(피드, 파랑 핀)·`biz`(업체, 초록 `#16a34a` 핀+상호명 라벨). 매물/피드 핀은 탭 배타, **업체 핀은 탭 무관 상시 제3 레이어**(줌 게이트 동일 준수). 업체 탭 활성 시 지도 상단 카테고리 칩(전체/정비/세차/카페/음식/용품 = `repair/wash/cafe/food/parts`), 업체 카드 탭→`/biz/:id`, 업체 핀 탭→업체 탭 전환+시트 mid+하이라이트. 검색은 제출 시점 탭으로 스코프 고정(biz 탭=업체명 `q` 검색, 그 외=매물 검색).
+- **핵심 컴포넌트**: `SaigonMapV5`(`components/maps/SaigonMapV5.tsx` — `MapMarkerV2.label`/`r` 렌더 지원), `DraggableSheet`(`components/ride/DraggableSheet.tsx`), `ListingCard`, `AdCard`, `ProfileCard`, `AppImage`
+- **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/map.ts`(`fetchDistrictCounts`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
 - **⚠ 인덱스 노이즈**: 워킹트리에 `NeighborhoodMap_bak.tsx`, `NeighborhoodMap_v3bak.tsx`, `NeighborhoodMap_bak.module.css`(git 미추적, 라우팅에 연결 안 됨)가 존재 — codebase-memory 그래프에도 `NeighborhoodMap_bak`의 함수(`inView`, `switchTab`, `renderBody` 등)가 잡히므로, 그래프 조회 결과에서 `_bak`/`v3bak` 접미사가 붙은 노드는 죽은 백업 코드로 걸러서 읽는다.
 
 ### 3.4 커뮤니티 / 피드 (`/feed`)

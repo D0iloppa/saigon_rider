@@ -23,6 +23,10 @@
 - [프로젝트 TODO 리스트](context/project_todo.md) — 프론트/백엔드/엔진 등 다영역 협업이 필요한 후속 구현 항목 (예: 퀘스트 [DBG] 버튼 → 정식 완료 트리거)
 - [사용처(Sink) 경제 설계 — 스킬포인트 & 쿠폰 BM](spec/sink-economy-design.md) — 다마키 체험 디자인 관점. SGR-209 스킬 트리 + RP 쿠폰/기프티콘 교환 BM (재화↔sink 1:1, phase 분해)
 
+## 🔬 리서치
+
+- [당근 동네지도 조사 — 동네지도 개편 방향 제안서](research/260710_karrot_map/당근_동네지도_조사.md) — SGR-315 사전조사 정본. 채택/변형/배제 14항 + P1~P3 실행 순서. 원문 17건은 [`sources/`](research/260710_karrot_map/sources/), 재개 원장 [`_HANDOFF.md`](research/260710_karrot_map/_HANDOFF.md)
+
 ## ✅ 점검 / QA
 
 - [전체 시스템 점검 보고서 260703](TEST/inspection_260703.md) — 아키텍처·코드·서비스 전수 감사 (P0~P2 조치목록) + 핸드오프 [`context/handoff_260703.md`](context/handoff_260703.md)

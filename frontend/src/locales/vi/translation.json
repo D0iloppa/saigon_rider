@@ -1376,7 +1376,18 @@
     "zoomGateShort": "Phóng to để xem quanh bạn",
     "locateNotFound": "Không tìm thấy vị trí",
     "locateFailed": "Không thể lấy vị trí của bạn",
-    "zoomGateMyArea": "📍 Xem khu phố của tôi"
+    "zoomGateMyArea": "📍 Xem khu phố của tôi",
+    "tabBiz": "Cửa hàng",
+    "emptyBiz": "Chưa có cửa hàng ở khu này",
+    "emptyBizHint": "Hãy chọn danh mục khác hoặc di chuyển bản đồ.",
+    "bizCategoryAll": "Tất cả",
+    "bizCategories": {
+      "repair": "Sửa xe",
+      "wash": "Rửa xe",
+      "cafe": "Cà phê",
+      "food": "Ăn uống",
+      "parts": "Phụ tùng"
+    }
   },
   "effects": {
     "none": "Không có hiệu ứng",

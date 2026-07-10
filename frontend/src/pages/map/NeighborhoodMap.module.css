@@ -19,6 +19,39 @@
   z-index: 2;
 }
 
+/* 업체 카테고리 칩 (SGR-324) — 검색바(44px+10px) 바로 아래 가로 스크롤 한 줄 */
+.chipsOverlay {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 10px + 44px + 8px);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chipsOverlay::-webkit-scrollbar { display: none; }
+
+.catChip {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(10, 18, 28, 0.08);
+}
+
+.catChipActive {
+  color: #fff;
+  background: var(--text);
+  border-color: var(--text);
+}
+
 /* 뷰포트/지역 변경으로 매물을 다시 불러오는 동안 지도 위에 뜨는 비차단 알림 —
    핀 목록이 조용히 바뀌면 "이게 최종 결과가 맞는지" 헷갈리는 문제를 막는다. */
 /* 시트 헤더 로딩 — 건수 자리 (지도 토스트와 표면 분리, 겹침 구조적 차단) */
@@ -335,6 +368,62 @@
   border-radius: 12px;
   background: var(--brand-50);
   box-shadow: 0 0 0 2px var(--brand-500);
+}
+
+/* 업체 카드 (SGR-324) — 플랫 행, 탭 시 /biz/:id */
+.bizCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.bizThumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.bizBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bizName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bizMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.bizCat {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--success, #16a34a);
+}
+
+.bizAddr {
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 피드 카드 래퍼 (컴팩트 행 + 확장 영역 묶음) */

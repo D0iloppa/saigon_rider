@@ -20,13 +20,17 @@ import { ProfileCard } from '@/components/ProfileCard';
 import { formatRelativeTime } from '@/lib/format';
 import styles from './NeighborhoodMap.module.css';
 
-type Tab = 'listings' | 'feed';
+type Tab = 'listings' | 'feed' | 'biz';
 type BrowseMode = 'viewport' | 'region';
 const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
 // 업체 핀 (SGR-323) — 브랜드 오렌지(매물)·파랑(피드)과 구분, tokens.css --success 정합
 const BIZ_COLOR = '#16a34a';
+// T2 시드 category 값과 1:1 (SGR-324) — 칩 순서 = 노출 순서
+const BIZ_CATEGORIES = ['repair', 'wash', 'cafe', 'food', 'parts'] as const;
+// 업체 탭 카테고리 칩 줄 높이 — 지도 확대/축소 버튼을 그 아래로 밀어내는 데 사용
+const CATEGORY_CHIPS_HEIGHT = 42;
 // SearchBox 높이(44px) + searchOverlay 상단 여백(10px) — 지도 확대/축소 버튼이 검색창 아래로 오도록
 const SEARCH_BAR_HEIGHT = 54;
 const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
@@ -117,6 +121,8 @@ export default function NeighborhoodMap() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
+  const [bizCategory, setBizCategory] = useState<string | null>(null);
+  const [bizLoading, setBizLoading] = useState(false);
   // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
   // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
   const [ads, setAds] = useState<MarketAd[]>([]);
@@ -311,11 +317,16 @@ export default function NeighborhoodMap() {
     const bbox = bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
     if (!bbox) { setBizItems([]); return; }
     let cancelled = false;
-    fetchBizMapItems({ minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E })
+    setBizLoading(true);
+    fetchBizMapItems({
+      minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
+      category: bizCategory ?? undefined,
+    })
       .then((items) => { if (!cancelled) setBizItems(items); })
-      .catch(() => { if (!cancelled) setBizItems([]); });
+      .catch(() => { if (!cancelled) setBizItems([]); })
+      .finally(() => { if (!cancelled) setBizLoading(false); });
     return () => { cancelled = true; };
-  }, [bboxFilter, reloadSeq, selectedRegion, isSearching]);
+  }, [bboxFilter, reloadSeq, selectedRegion, isSearching, bizCategory]);
 
   const visibleListings = useMemo(() => {
     if (bboxFilter) {
@@ -366,9 +377,11 @@ export default function NeighborhoodMap() {
         ? visibleListings
             .filter((l) => l.lat != null && l.lng != null)
             .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, color: LISTING_COLOR, onClick: () => handleMarkerClick(l.id) }))
-        : visiblePosts
-            .filter((p) => p.latitude != null && p.longitude != null)
-            .map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, color: FEED_COLOR, onClick: () => handleMarkerClick(p.id) })),
+        : tab === 'feed'
+          ? visiblePosts
+              .filter((p) => p.latitude != null && p.longitude != null)
+              .map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, color: FEED_COLOR, onClick: () => handleMarkerClick(p.id) }))
+          : [], // biz 탭 — 아래 상시 biz 레이어만 표시 (핀↔리스트 집합 일치)
       // 업체 핀 — 아이콘 대신 색+라벨(상호명)로 시각 위계 분리 (당근 IN-1 변형)
       visibleBiz.map((b) => ({
         id: `biz:${b.id}`,
@@ -446,7 +459,9 @@ export default function NeighborhoodMap() {
     resetToViewport();
   };
 
-  const visibleCount = tab === 'listings' ? visibleListings.length : visiblePosts.length;
+  const visibleCount = tab === 'listings' ? visibleListings.length : tab === 'feed' ? visiblePosts.length : visibleBiz.length;
+
+  const bizCatLabel = (c: string | null) => (c ? t(`map.bizCategories.${c}`, { defaultValue: c }) : '');
 
   const adAt = (i: number) => {
     if (ads.length === 0 || i % AD_EVERY !== 0) return null;
@@ -471,14 +486,14 @@ export default function NeighborhoodMap() {
         ) : (
           <>
             <div className={styles.segment}>
-              {(['listings', 'feed'] as Tab[]).map((tb) => (
+              {(['listings', 'feed', 'biz'] as Tab[]).map((tb) => (
                 <button
                   key={tb}
                   type="button"
                   className={`${styles.segBtn} ${tab === tb ? styles.segActive : ''}`}
                   onClick={() => switchTab(tb)}
                 >
-                  {tb === 'listings' ? t('map.tabListings') : t('map.tabFeed')}
+                  {tb === 'listings' ? t('map.tabListings') : tb === 'feed' ? t('map.tabFeed') : t('map.tabBiz')}
                 </button>
               ))}
             </div>
@@ -556,6 +571,37 @@ export default function NeighborhoodMap() {
           </button>
         </div>
       );
+    }
+    if (tab === 'biz') {
+      if (bizLoading && visibleBiz.length === 0) {
+        return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
+      }
+      if (visibleBiz.length === 0) {
+        return (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyTitle}>{t('map.emptyBiz')}</p>
+            <p className={styles.emptyBody}>{t('map.emptyBizHint')}</p>
+          </div>
+        );
+      }
+      return visibleBiz.map((b) => (
+        <div
+          key={b.id}
+          ref={(el) => { itemRefs.current[b.id] = el; }}
+          className={b.id === selectedId ? styles.selected : undefined}
+        >
+          <button type="button" className={styles.bizCard} onClick={() => navigate(`/biz/${b.id}`)}>
+            <AppImage src={b.photoUrl ?? undefined} alt="" className={styles.bizThumb} />
+            <div className={styles.bizBody}>
+              <span className={styles.bizName}>{b.name}</span>
+              <span className={styles.bizMeta}>
+                {b.category && <span className={styles.bizCat}>{bizCatLabel(b.category)}</span>}
+                {b.address && <span className={styles.bizAddr}>{b.address}</span>}
+              </span>
+            </div>
+          </button>
+        </div>
+      ));
     }
     const hasData = tab === 'listings' ? listings.length > 0 : posts.length > 0;
     if (loading && !hasData) {
@@ -727,7 +773,7 @@ export default function NeighborhoodMap() {
         onLocate={mode === 'region' ? resetToViewport : undefined}
         selectRegionOnLocate={false}
         bottomInsetPx={sheetVisibleHeight}
-        topInsetPx={SEARCH_BAR_HEIGHT}
+        topInsetPx={tab === 'biz' && !isSearching ? SEARCH_BAR_HEIGHT + CATEGORY_CHIPS_HEIGHT : SEARCH_BAR_HEIGHT}
       />
 
       <div className={styles.searchOverlay}>
@@ -739,6 +785,22 @@ export default function NeighborhoodMap() {
           onClick={() => setSearchPanelOpen(true)}
         />
       </div>
+
+      {/* 업체 카테고리 칩 (SGR-324) — 업체 탭 전용, 검색바 아래 가로 스크롤 (당근 IN-1) */}
+      {tab === 'biz' && !isSearching && (
+        <div className={styles.chipsOverlay}>
+          {[null, ...BIZ_CATEGORIES].map((c) => (
+            <button
+              key={c ?? 'all'}
+              type="button"
+              className={`${styles.catChip} ${bizCategory === c ? styles.catChipActive : ''}`}
+              onClick={() => setBizCategory(c)}
+            >
+              {c ? bizCatLabel(c) : t('map.bizCategoryAll')}
+            </button>
+          ))}
+        </div>
+      )}
 
       {searchPanelOpen && (
         <div className={styles.searchPanel} style={lockedPanelHeight != null ? { height: lockedPanelHeight } : undefined}>

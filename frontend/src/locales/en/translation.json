@@ -1376,7 +1376,18 @@
     "zoomGateShort": "Zoom in to browse",
     "locateNotFound": "Couldn't find that location",
     "locateFailed": "Couldn't get your location",
-    "zoomGateMyArea": "📍 Show my neighborhood"
+    "zoomGateMyArea": "📍 Show my neighborhood",
+    "tabBiz": "Places",
+    "emptyBiz": "No businesses in this area",
+    "emptyBizHint": "Try another category or move the map.",
+    "bizCategoryAll": "All",
+    "bizCategories": {
+      "repair": "Repair",
+      "wash": "Wash",
+      "cafe": "Cafe",
+      "food": "Food",
+      "parts": "Parts"
+    }
   },
   "effects": {
     "none": "No equip effects",

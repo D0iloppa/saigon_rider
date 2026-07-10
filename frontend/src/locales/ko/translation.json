@@ -1376,7 +1376,18 @@
     "zoomGateShort": "확대해서 주변 보기",
     "locateNotFound": "위치를 찾을 수 없어요",
     "locateFailed": "위치를 가져올 수 없어요",
-    "zoomGateMyArea": "📍 내 동네 보기"
+    "zoomGateMyArea": "📍 내 동네 보기",
+    "tabBiz": "업체",
+    "emptyBiz": "이 동네 등록된 업체가 없어요",
+    "emptyBizHint": "다른 카테고리를 선택하거나 지도를 이동해 보세요.",
+    "bizCategoryAll": "전체",
+    "bizCategories": {
+      "repair": "정비",
+      "wash": "세차",
+      "cafe": "카페",
+      "food": "음식",
+      "parts": "용품"
+    }
   },
   "effects": {
     "none": "착용 효과 없음",

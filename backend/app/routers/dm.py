@@ -1,4 +1,3 @@
-import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -23,7 +22,6 @@ from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
 
 router = APIRouter(prefix="/dm", tags=["DM (Direct Message)"])
-log = logging.getLogger(__name__)
 
 
 async def _listing_context(db: AsyncSession, listing_id: uuid.UUID | None):

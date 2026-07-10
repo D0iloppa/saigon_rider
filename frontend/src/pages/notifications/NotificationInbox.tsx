@@ -1,0 +1,96 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Bell, MessageCircle } from 'lucide-react';
+import { useUserStore } from '@/store/useUserStore';
+import { fetchNotifications, markNotificationRead, type NotificationDto } from '@/api/notifications';
+import { TopBar } from '@/components/layout/TopBar';
+import { relativeTime } from '@/pages/market/marketFormat';
+import styles from './NotificationInbox.module.css';
+
+const PAGE_SIZE = 20;
+
+export default function NotificationInbox() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const userId = useUserStore((s) => s.user?.id);
+
+  const [items, setItems] = useState<NotificationDto[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchNotifications(userId, 1, PAGE_SIZE)
+      .then((r) => { setItems(r.items); setTotal(r.total); })
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  const hasMore = items.length < total;
+
+  function loadMore() {
+    if (!userId || loadingMore) return;
+    setLoadingMore(true);
+    const next = page + 1;
+    fetchNotifications(userId, next, PAGE_SIZE)
+      .then((r) => { setItems((prev) => [...prev, ...r.items]); setTotal(r.total); setPage(next); })
+      .finally(() => setLoadingMore(false));
+  }
+
+  function handleClick(n: NotificationDto) {
+    if (!n.is_read) {
+      setItems((prev) => prev.map((it) => (it.id === n.id ? { ...it, is_read: true } : it)));
+      markNotificationRead(n.id).catch(() => {});
+    }
+    // link 는 LinkRouter 쿼리 규약 그대로 저장됨 (NotificationBridge 와 동일 경로)
+    if (n.link) navigate(`/link?action=${n.link}`);
+  }
+
+  return (
+    <div className={styles.page}>
+      <TopBar title={t('noti.title')} onBack={() => navigate(-1)} />
+      <div className={styles.scroll}>
+        {loading ? (
+          [0, 1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)
+        ) : items.length === 0 ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}><Bell size={38} strokeWidth={1.6} /></div>
+            <div className={styles.emptyMsg}>{t('noti.empty')}</div>
+            <div className={styles.emptyDesc}>{t('noti.emptyDesc')}</div>
+          </div>
+        ) : (
+          <>
+            <div className={styles.list}>
+              {items.map((n) => (
+                <button
+                  key={n.id}
+                  className={`${styles.row} ${n.is_read ? '' : styles.rowUnread}`}
+                  onClick={() => handleClick(n)}
+                >
+                  <div className={`${styles.iconBubble} ${n.type === 'KEYWORD' ? styles.iconKeyword : styles.iconSocial}`}>
+                    {n.type === 'KEYWORD' ? <Bell size={18} /> : <MessageCircle size={18} />}
+                  </div>
+                  <div className={styles.rowBody}>
+                    <div className={styles.rowTitleLine}>
+                      <span className={styles.rowTitle}>{n.title}</span>
+                      <span className={styles.rowTime}>{relativeTime(n.created_at, t)}</span>
+                    </div>
+                    {n.body && <div className={styles.rowText}>{n.body}</div>}
+                  </div>
+                  {!n.is_read && <span className={styles.unreadDot} />}
+                </button>
+              ))}
+            </div>
+            {hasMore && (
+              <button className={styles.loadMore} onClick={loadMore} disabled={loadingMore}>
+                {t('noti.loadMore')}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

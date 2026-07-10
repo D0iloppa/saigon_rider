@@ -56,6 +56,9 @@ import FeedDetail from '@/pages/feed/FeedDetail';
 import DmList from '@/pages/dm/DmList';
 import DmDetail from '@/pages/dm/DmDetail';
 
+// 알림함
+import NotificationInbox from '@/pages/notifications/NotificationInbox';
+
 // Profile
 import ProfileMain from '@/pages/profile/ProfileMain';
 import TradeHistory from '@/pages/profile/TradeHistory';
@@ -299,6 +302,7 @@ export default function App() {
           <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
+          <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
           <Route path="/trades" element={<PrivateRoute><TradeHistory /></PrivateRoute>} />
           <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />

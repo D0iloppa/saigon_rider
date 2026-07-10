@@ -576,6 +576,12 @@
     "locating": "Locating…",
     "locationOff": "Location off"
   },
+  "noti": {
+    "title": "Notifications",
+    "empty": "No notifications yet",
+    "emptyDesc": "We'll show new updates here",
+    "loadMore": "Load more"
+  },
   "dm": {
     "title": "Messages",
     "detailTitle": "Chat",

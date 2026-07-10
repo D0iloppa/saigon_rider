@@ -152,6 +152,33 @@
   letter-spacing: -0.3px;
 }
 
+.bellBtn {
+  flex-shrink: 0;
+  position: relative;
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.bellBadge {
+  position: absolute;
+  top: -1px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #f8602a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
 /* ─── 검색바 ────────────────────────────────────── */
 .searchWrap {
   padding: 0 20px 16px;

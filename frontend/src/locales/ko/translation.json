@@ -576,6 +576,12 @@
     "locating": "위치 확인 중…",
     "locationOff": "위치 끔"
   },
+  "noti": {
+    "title": "알림",
+    "empty": "알림이 없어요",
+    "emptyDesc": "새로운 소식이 오면 여기에 보여드릴게요",
+    "loadMore": "더보기"
+  },
   "dm": {
     "title": "메시지",
     "detailTitle": "대화",

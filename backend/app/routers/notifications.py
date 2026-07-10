@@ -67,6 +67,27 @@ async def list_notifications(
     )
 
 
+# N-4 — 읽음 처리는 개별(클릭=읽음)만 제공. read-all 은 현 UX(목록 클릭 이동)에 필요 근거가 없어 미구현 (Simplicity First).
+@router.put("/{notification_id}/read", response_model=NotificationOut, summary="알림 개별 읽음 처리")
+async def mark_notification_read(
+    notification_id: int,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    result = await db.execute(select(Notification).where(Notification.id == notification_id))
+    notification = result.scalar_one_or_none()
+    # 타인 소유는 존재 자체를 숨긴다 (404)
+    if notification is None or notification.user_id != session_uid:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    if not notification.is_read:
+        notification.is_read = True
+        await db.commit()
+        await db.refresh(notification)
+
+    return NotificationOut.model_validate(notification)
+
+
 # N-2
 @router.get("/settings", response_model=NotificationSettingsOut, summary="알림 설정 조회")
 async def get_notification_settings(

@@ -576,6 +576,12 @@
     "locating": "Đang định vị…",
     "locationOff": "Tắt vị trí"
   },
+  "noti": {
+    "title": "Thông báo",
+    "empty": "Chưa có thông báo nào",
+    "emptyDesc": "Tin mới sẽ được hiển thị tại đây",
+    "loadMore": "Xem thêm"
+  },
   "dm": {
     "title": "Tin nhắn",
     "detailTitle": "Trò chuyện",

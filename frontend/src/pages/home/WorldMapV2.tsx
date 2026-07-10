@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { fetchWallet } from '@/api/wallet';
+import { fetchNotifications } from '@/api/notifications';
 import { fetchUserStats } from '@/api/profile';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport } from '@/api/info';
@@ -88,6 +89,12 @@ const IcoCommunity = () => (
     <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
     <circle cx="9" cy="7" r="4"/>
     <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13A4 4 0 0119 7a4 4 0 01-3 3.87"/>
+  </svg>
+);
+const IcoBell = () => (
+  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#5a5a5f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 01-3.46 0"/>
   </svg>
 );
 const IcoDiamond = () => (
@@ -177,6 +184,7 @@ export default function WorldMapV2() {
   const [repairCount, setRepairCount] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [notiUnread, setNotiUnread] = useState(0);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -190,6 +198,8 @@ export default function WorldMapV2() {
         setReviewScore(s.avg_rating ?? null);
       }).catch(() => {});
       fetchTrades(uid).then((t) => setTradeCount(t.length)).catch(() => {});
+      // 미읽음 뱃지 — 홈 진입 시 1회 fetch (폴링 없음)
+      fetchNotifications(uid, 1, 1).then((r) => setNotiUnread(r.unread_count)).catch(() => {});
       native.getDeviceUUID().then(async (uuid) => {
         if (!uuid) return;
         const fcm = await native.getFCMToken().catch(() => '');
@@ -289,6 +299,13 @@ export default function WorldMapV2() {
             <IcoDiamond />
             <span className={styles.xpVal}>{formatNumber(xp)}</span>
             <IcoChevron color="#aeaeb2" size={14} />
+          </button>
+
+          <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
+            <IcoBell />
+            {notiUnread > 0 && (
+              <span className={styles.bellBadge}>{notiUnread > 99 ? '99+' : notiUnread}</span>
+            )}
           </button>
         </div>
 

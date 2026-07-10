@@ -26,13 +26,7 @@
   </table>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">계정 정지</h3>
-  <p class="page-sub" style="margin-bottom:12px;">정지 시 게시중이던 보유 광고가 일괄 중단(STOPPED)됩니다.</p>
-  <form method="post" action="/admin/biz-accounts/{{profile_id}}/suspend">
-    <button type="submit" class="btn btn-danger">계정 정지</button>
-  </form>
-</div>
+{{suspend_html}}
 
 <div class="card">
   <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">그룹 지정 (브랜드 그룹, admin 전용)</h3>

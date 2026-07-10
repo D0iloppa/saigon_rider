@@ -3620,6 +3620,7 @@ _BIZ_FLASHES = {
 _BIZ_DETAIL_FLASHES = {
     "suspended": ("계정을 정지했습니다. 게시중이던 광고도 중단됐습니다.", True),
     "grouped": ("그룹 지정을 반영했습니다.", True),
+    "not_approved": ("승인(APPROVED) 상태의 계정만 정지할 수 있습니다.", False),
 }
 
 
@@ -3806,6 +3807,18 @@ async def admin_biz_account_detail(
         msg, ok = _BIZ_DETAIL_FLASHES[flash]
         flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
 
+    # 정지는 APPROVED 파트너 전용 (§10-1) — 다른 상태에서는 카드 자체를 렌더하지 않는다
+    suspend_html = ""
+    if bp.status == "APPROVED":
+        suspend_html = (
+            '<div class="card" style="margin-bottom:16px;">'
+            '<h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">계정 정지</h3>'
+            '<p class="page-sub" style="margin-bottom:12px;">정지 시 게시중이던 보유 광고가 일괄 중단(STOPPED)됩니다.</p>'
+            f'<form method="post" action="/admin/biz-accounts/{bp.id}/suspend">'
+            '<button type="submit" class="btn btn-danger">계정 정지</button></form>'
+            "</div>"
+        )
+
     return _render_page(
         "biz_account_detail.html",
         nav="biz_accounts",
@@ -3822,6 +3835,7 @@ async def admin_biz_account_detail(
         photo_html=photo_html,
         ads_rows=ads_rows,
         group_options=group_options,
+        suspend_html=suspend_html,
         flash_html=flash_html,
     )
 
@@ -3835,6 +3849,8 @@ async def admin_biz_account_suspend(
     bp = await db.get(BusinessProfile, profile_id)
     if not bp:
         raise HTTPException(status_code=404, detail="Profile not found")
+    if bp.status != "APPROVED":
+        return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=not_approved", status_code=303)
 
     bp.status = "SUSPENDED"
     bp.reviewed_at = datetime.now(UTC)
@@ -3882,7 +3898,10 @@ async def admin_biz_account_group(
         await db.flush()
         bp.group_id = group.id
     elif group_id:
-        bp.group_id = uuid.UUID(group_id)
+        try:
+            bp.group_id = uuid.UUID(group_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="잘못된 그룹 ID 형식입니다.") from None
     else:
         bp.group_id = None
     await db.commit()

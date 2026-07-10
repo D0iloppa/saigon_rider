@@ -508,6 +508,45 @@ class UserBlock(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BusinessGroup(Base):
+    """브랜드 그룹 (D4 — 스키마 자리만 선확보, 관리 UI 없음)."""
+
+    __tablename__ = "business_group"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BusinessProfile(Base):
+    """비즈니스 파트너 프로필 (D1 — 계정 부착형, 1계정:N프로필. 상한 3은 API 레벨 제약)."""
+
+    __tablename__ = "business_profile"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_group.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    photo_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    photo_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[photo_content_id], lazy="selectin")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class MarketplaceAd(Base):
     __tablename__ = "marketplace_ads"
 
@@ -522,6 +561,9 @@ class MarketplaceAd(Base):
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    owner_business_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="SET NULL"), nullable=True
+    )
     district_id: Mapped[int | None] = mapped_column(
         SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
     )
@@ -531,6 +573,8 @@ class MarketplaceAd(Base):
     established_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     business_hours: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    review_status: Mapped[str] = mapped_column(String(20), nullable=False, default="APPROVED")
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)

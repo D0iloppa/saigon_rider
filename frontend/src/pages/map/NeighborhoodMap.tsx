@@ -156,6 +156,10 @@ export default function NeighborhoodMap() {
   const [searchQuery, setSearchQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Listing[]>([]);
+  // 검색 스코프는 제출 시점의 탭으로 고정 (SGR-326) — 검색 중 탭 전환이 재조회·지도
+  // re-fit 을 일으키지 않게 한다. biz 탭에서 제출 = 업체명 검색(T1 q), 그 외 = 매물 검색.
+  const [searchScope, setSearchScope] = useState<'listings' | 'biz'>('listings');
+  const [bizSearchResults, setBizSearchResults] = useState<BizMapItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches);
@@ -201,9 +205,10 @@ export default function NeighborhoodMap() {
     const trimmed = keyword.trim();
     setSearchQuery(trimmed);
     setSubmittedQuery(trimmed);
+    setSearchScope(tab === 'biz' ? 'biz' : 'listings');
     if (trimmed) addRecentSearch(trimmed);
     setSearchPanelOpen(false);
-  }, [addRecentSearch]);
+  }, [addRecentSearch, tab]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
@@ -214,21 +219,31 @@ export default function NeighborhoodMap() {
   // 키보드는 그 위에 순수 오버레이로만 뜨게 한다(탭바 포함 화면 전체를 항상 덮어야 함).
 
   useEffect(() => {
-    if (!submittedQuery) { setSearchResults([]); return; }
+    if (!submittedQuery) { setSearchResults([]); setBizSearchResults([]); return; }
     let cancelled = false;
     setSearchLoading(true);
-    fetchListings({ q: submittedQuery, hideSold: true, size: 40 })
-      .then((page) => {
-        if (cancelled) return;
-        const items = page.items ?? [];
-        setSearchResults(items);
-        const points = items.filter((l) => l.lat != null && l.lng != null).map((l) => ({ lat: l.lat!, lng: l.lng! }));
-        if (points.length > 0) searchFitRef.current?.(points);
-      })
-      .catch(() => { if (!cancelled) setSearchResults([]); })
+    const req = searchScope === 'biz'
+      // 업체명 전역 검색 (SGR-326) — T1 API가 bbox 필수라 전 범위를 넘긴다 (상한 200건)
+      ? fetchBizMapItems({ minLat: -90, maxLat: 90, minLng: -180, maxLng: 180, q: submittedQuery })
+          .then((items) => {
+            if (cancelled) return;
+            setBizSearchResults(items);
+            const points = items.map((b) => ({ lat: b.lat, lng: b.lng }));
+            if (points.length > 0) searchFitRef.current?.(points);
+          })
+      : fetchListings({ q: submittedQuery, hideSold: true, size: 40 })
+          .then((page) => {
+            if (cancelled) return;
+            const items = page.items ?? [];
+            setSearchResults(items);
+            const points = items.filter((l) => l.lat != null && l.lng != null).map((l) => ({ lat: l.lat!, lng: l.lng! }));
+            if (points.length > 0) searchFitRef.current?.(points);
+          });
+    req
+      .catch(() => { if (!cancelled) { setSearchResults([]); setBizSearchResults([]); } })
       .finally(() => { if (!cancelled) setSearchLoading(false); });
     return () => { cancelled = true; };
-  }, [submittedQuery]);
+  }, [submittedQuery, searchScope]);
 
   // region 모드에서는 bbox emit을 소비하지 않는다 — 시트 높이 변화·팬 등으로 들어온 bbox가
   // handleRegionSelect가 비워둔 viewportBbox를 몰래 되살려, 이후 뷰포트 모드 전환 시
@@ -368,6 +383,12 @@ export default function NeighborhoodMap() {
   // 향후 info 계열 흡수 시 레이어 추가로 확장한다 (결정사항 1).
   const markers = useMemo<MapMarkerV2[]>(() => {
     if (isSearching) {
+      if (searchScope === 'biz') {
+        return bizSearchResults.map((b) => ({
+          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, color: BIZ_COLOR, r: 1.15, label: b.name,
+          onClick: () => handleBizMarkerClick(b.id),
+        }));
+      }
       return searchResults
         .filter((l) => l.lat != null && l.lng != null)
         .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, color: LISTING_COLOR, onClick: () => handleMarkerClick(l.id) }));
@@ -394,7 +415,7 @@ export default function NeighborhoodMap() {
       })),
     ];
     return layers.flat();
-  }, [isSearching, searchResults, tab, visibleListings, visiblePosts, visibleBiz]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // useCallback 필수: SaigonMapV5의 onRegionSelect prop으로 전달되는데, 매 렌더마다
   // 새 함수를 넘기면 내부 focusLatLng/runLocate가 재생성되어 locateOnMount 이펙트가
@@ -470,6 +491,26 @@ export default function NeighborhoodMap() {
 
   const bizCatLabel = (c: string | null) => (c ? t(`map.bizCategories.${c}`, { defaultValue: c }) : '');
 
+  // 업체 카드 — 업체 탭 리스트·업체 검색 결과 공용 (탭 시 /biz/:id)
+  const renderBizCard = (b: BizMapItem) => (
+    <div
+      key={b.id}
+      ref={(el) => { itemRefs.current[b.id] = el; }}
+      className={b.id === selectedId ? styles.selected : undefined}
+    >
+      <button type="button" className={styles.bizCard} onClick={() => navigate(`/biz/${b.id}`)}>
+        <AppImage src={b.photoUrl ?? undefined} alt="" className={styles.bizThumb} />
+        <div className={styles.bizBody}>
+          <span className={styles.bizName}>{b.name}</span>
+          <span className={styles.bizMeta}>
+            {b.category && <span className={styles.bizCat}>{bizCatLabel(b.category)}</span>}
+            {b.address && <span className={styles.bizAddr}>{b.address}</span>}
+          </span>
+        </div>
+      </button>
+    </div>
+  );
+
   const adAt = (i: number) => {
     if (ads.length === 0 || i % AD_EVERY !== 0) return null;
     const ord = Math.floor(i / AD_EVERY);
@@ -489,7 +530,9 @@ export default function NeighborhoodMap() {
     <div className={styles.sheetHead}>
       <div className={styles.sheetTop}>
         {isSearching ? (
-          <span className={styles.count}>{t('map.count', { count: searchResults.length })}</span>
+          <span className={styles.count}>
+            {t('map.count', { count: searchScope === 'biz' ? bizSearchResults.length : searchResults.length })}
+          </span>
         ) : (
           <>
             <div className={styles.segment}>
@@ -533,15 +576,19 @@ export default function NeighborhoodMap() {
 
   const renderBody = () => {
     if (isSearching) {
-      if (searchLoading && searchResults.length === 0) {
+      const searchCount = searchScope === 'biz' ? bizSearchResults.length : searchResults.length;
+      if (searchLoading && searchCount === 0) {
         return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
       }
-      if (searchResults.length === 0) {
+      if (searchCount === 0) {
         return (
           <div className={styles.emptyState}>
             <p className={styles.emptyTitle}>{t('map.emptySearch')}</p>
           </div>
         );
+      }
+      if (searchScope === 'biz') {
+        return bizSearchResults.map(renderBizCard);
       }
       return searchResults.map((l, i) => (
         <Fragment key={l.id}>
@@ -591,24 +638,7 @@ export default function NeighborhoodMap() {
           </div>
         );
       }
-      return visibleBiz.map((b) => (
-        <div
-          key={b.id}
-          ref={(el) => { itemRefs.current[b.id] = el; }}
-          className={b.id === selectedId ? styles.selected : undefined}
-        >
-          <button type="button" className={styles.bizCard} onClick={() => navigate(`/biz/${b.id}`)}>
-            <AppImage src={b.photoUrl ?? undefined} alt="" className={styles.bizThumb} />
-            <div className={styles.bizBody}>
-              <span className={styles.bizName}>{b.name}</span>
-              <span className={styles.bizMeta}>
-                {b.category && <span className={styles.bizCat}>{bizCatLabel(b.category)}</span>}
-                {b.address && <span className={styles.bizAddr}>{b.address}</span>}
-              </span>
-            </div>
-          </button>
-        </div>
-      ));
+      return visibleBiz.map(renderBizCard);
     }
     const hasData = tab === 'listings' ? listings.length > 0 : posts.length > 0;
     if (loading && !hasData) {

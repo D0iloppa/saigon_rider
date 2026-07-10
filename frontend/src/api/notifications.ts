@@ -7,12 +7,13 @@ export interface NotificationSettingsDto {
   event: boolean;
   ride_result: boolean;
   social: boolean;
+  keyword_alert: boolean;
   updated_at: string;
 }
 
 export type NotificationSettingsFields = Pick<
   NotificationSettingsDto,
-  'quest_recommend' | 'quest_expire' | 'event' | 'ride_result' | 'social'
+  'quest_recommend' | 'quest_expire' | 'event' | 'ride_result' | 'social' | 'keyword_alert'
 >;
 
 export async function fetchNotificationSettings(userId: string): Promise<NotificationSettingsDto> {
@@ -24,6 +25,7 @@ export async function fetchNotificationSettings(userId: string): Promise<Notific
       event: true,
       ride_result: true,
       social: true,
+      keyword_alert: true,
       updated_at: new Date().toISOString(),
     };
   }

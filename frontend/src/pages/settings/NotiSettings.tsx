@@ -13,28 +13,23 @@ import {
 import styles from './Settings.module.css';
 
 type NotiField = keyof NotificationSettingsFields;
+type VisibleField = 'social' | 'keyword_alert';
 
-const SECTIONS: { titleKey: string; items: NotiField[] }[] = [
-  {
-    titleKey: 'settings.notiSectionQuest',
-    items: ['quest_recommend', 'quest_expire', 'event'],
-  },
-  {
-    titleKey: 'settings.notiSectionResult',
-    items: ['ride_result'],
-  },
+const SECTIONS: { titleKey: string; items: VisibleField[]; captionKey?: string }[] = [
   {
     titleKey: 'settings.notiSectionSocial',
     items: ['social'],
   },
+  {
+    titleKey: 'settings.notiSectionKeyword',
+    items: ['keyword_alert'],
+    captionKey: 'settings.notiKeywordCaption',
+  },
 ];
 
-const LABEL_KEYS: Record<NotiField, string> = {
-  quest_recommend: 'settings.notiItemRecommended',
-  quest_expire: 'settings.notiItemExpiring',
-  event: 'settings.notiItemEventStart',
-  ride_result: 'settings.notiItemQuestDone',
+const LABEL_KEYS: Record<VisibleField, string> = {
   social: 'settings.notiItemSocial',
+  keyword_alert: 'settings.notiKeywordMaster',
 };
 
 const DEFAULT_STATE: NotificationSettingsFields = {
@@ -43,6 +38,7 @@ const DEFAULT_STATE: NotificationSettingsFields = {
   event: true,
   ride_result: true,
   social: true,
+  keyword_alert: true,
 };
 
 export default function NotiSettings() {
@@ -60,6 +56,7 @@ export default function NotiSettings() {
           event: res.event,
           ride_result: res.ride_result,
           social: res.social,
+          keyword_alert: res.keyword_alert,
         }),
       )
       .catch(() => toast.error(t('settings.notiLoadError', { defaultValue: '알림 설정을 불러오지 못했습니다' })));
@@ -99,6 +96,7 @@ export default function NotiSettings() {
                 />
               ))}
             </div>
+            {s.captionKey && <p className={styles.caption}>{t(s.captionKey)}</p>}
           </div>
         ))}
         <p className={styles.caption}>{t('settings.notiImportantNote')}</p>

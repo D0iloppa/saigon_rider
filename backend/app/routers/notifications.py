@@ -111,6 +111,7 @@ async def update_notification_settings(
     settings.event = body.event
     settings.ride_result = body.ride_result
     settings.social = body.social
+    settings.keyword_alert = body.keyword_alert
     settings.updated_at = datetime.now(UTC)
 
     await db.commit()

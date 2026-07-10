@@ -764,6 +764,7 @@ class NotificationSettingsOut(BaseModel):
     event: bool
     ride_result: bool
     social: bool
+    keyword_alert: bool
     updated_at: datetime
 
     model_config = {"from_attributes": True}
@@ -776,6 +777,7 @@ class NotificationSettingsUpdate(BaseModel):
     event: bool = True
     ride_result: bool = True
     social: bool = True
+    keyword_alert: bool = True
 
 
 # ── Badge ─────────────────────────────────────────────────────────

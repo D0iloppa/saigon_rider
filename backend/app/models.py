@@ -661,6 +661,7 @@ class NotificationSettings(Base):
     event: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     ride_result: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     social: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    keyword_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 

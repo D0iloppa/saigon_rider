@@ -1,0 +1,174 @@
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { ChevronRight, MapPin } from 'lucide-react';
+import { TopBar } from '@/components/layout/TopBar';
+import { Button } from '@/components/ui/Button';
+import { toast } from '@/components/ui/Toast';
+import { api, extractDetail } from '@/api/client';
+import { useUserStore } from '@/store/useUserStore';
+import { applyBusinessProfile, updateBusinessProfile, type BusinessProfile } from '@/api/biz';
+import LocationPickerSheet from '@/pages/market/LocationPickerSheet';
+import styles from './BizApply.module.css';
+
+const CATEGORIES = ['cafe', 'restaurant', 'repair', 'retail', 'service', 'other'] as const;
+
+interface LocationState {
+  reapplyProfile?: BusinessProfile;
+}
+
+export default function BizApply() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = useUserStore((s) => s.user);
+  const reapplyProfile = (location.state as LocationState | null)?.reapplyProfile;
+
+  const [name, setName] = useState(reapplyProfile?.name ?? '');
+  const [category, setCategory] = useState(reapplyProfile?.category ?? '');
+  const [phone, setPhone] = useState(reapplyProfile?.phone ?? '');
+  const [address, setAddress] = useState(reapplyProfile?.address ?? '');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    reapplyProfile?.latitude != null && reapplyProfile?.longitude != null
+      ? { lat: reapplyProfile.latitude, lng: reapplyProfile.longitude }
+      : null,
+  );
+  const [locOpen, setLocOpen] = useState(false);
+  const [photoContentId, setPhotoContentId] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(reapplyProfile?.photoUrl ?? null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const canSubmit =
+    !submitting && !uploadingPhoto && name.trim().length > 0 && category !== '' && phone.trim().length > 0 && !!coords && !!address;
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPhotoPreview(URL.createObjectURL(file));
+    setUploadingPhoto(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('owner_type', 'user');
+      if (user) form.append('owner_id', user.id);
+      const res = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      setPhotoContentId(res.id);
+    } catch (err: any) {
+      toast.error(err.message ?? t('biz.uploadError', { defaultValue: '사진 업로드 실패' }));
+      setPhotoPreview(null);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit || !coords) return;
+    setSubmitting(true);
+    try {
+      const input = {
+        name: name.trim(),
+        category,
+        address,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        phone: phone.trim(),
+        photoContentId,
+      };
+      if (reapplyProfile) {
+        await updateBusinessProfile(reapplyProfile.id, input);
+      } else {
+        await applyBusinessProfile(input);
+      }
+      navigate('/biz/status', { replace: true });
+    } catch (err: any) {
+      toast.error(extractDetail(err, t('biz.applyError', { defaultValue: '신청에 실패했습니다' })));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={styles.page}>
+      <TopBar title={t('biz.applyTitle', { defaultValue: '파트너 신청' })} />
+      <div className={styles.body}>
+        {/* Photo */}
+        <label className={styles.photoBox}>
+          {photoPreview ? (
+            <img src={photoPreview} alt="" className={styles.photoPreview} />
+          ) : (
+            <span className={styles.photoPlaceholder}>📷 {t('biz.photoOptional', { defaultValue: '대표사진 (선택)' })}</span>
+          )}
+          {uploadingPhoto && <div className={styles.photoOverlay}>⏳</div>}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={handlePhotoSelect}
+          />
+        </label>
+
+        {/* Name */}
+        <p className={styles.label}>{t('biz.name', { defaultValue: '상호명' })}</p>
+        <input
+          className={styles.input}
+          placeholder={t('biz.namePlaceholder', { defaultValue: '가게 이름을 입력하세요' })}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+        />
+
+        {/* Category */}
+        <p className={styles.label}>{t('biz.category', { defaultValue: '업종' })}</p>
+        <select className={styles.select} value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="" disabled>
+            {t('biz.categoryPlaceholder', { defaultValue: '업종 선택' })}
+          </option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {t(`biz.category_${c}`, { defaultValue: c })}
+            </option>
+          ))}
+        </select>
+
+        {/* Location */}
+        <p className={styles.label}>{t('biz.location', { defaultValue: '위치' })}</p>
+        <button type="button" className={styles.select} onClick={() => setLocOpen(true)}>
+          <span className={coords ? styles.locValue : styles.placeholder}>
+            <MapPin size={16} className={styles.locPin} />
+            {coords ? address : t('biz.locationPlaceholder', { defaultValue: '위치를 선택하세요' })}
+          </span>
+          <ChevronRight size={18} className={styles.chev} />
+        </button>
+
+        {/* Phone */}
+        <p className={styles.label}>{t('biz.phone', { defaultValue: '연락처' })}</p>
+        <input
+          className={styles.input}
+          placeholder={t('biz.phonePlaceholder', { defaultValue: '연락 가능한 번호를 입력하세요' })}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          inputMode="tel"
+          maxLength={30}
+        />
+      </div>
+
+      <div className={styles.footer}>
+        <Button onClick={handleSubmit} disabled={!canSubmit}>
+          {submitting ? t('biz.submitting', { defaultValue: '제출 중' }) : t('biz.submit', { defaultValue: '제출' })}
+        </Button>
+      </div>
+
+      <LocationPickerSheet
+        open={locOpen}
+        onClose={() => setLocOpen(false)}
+        value={coords}
+        onConfirm={({ districtName, lat, lng }) => {
+          setAddress(districtName);
+          setCoords({ lat, lng });
+        }}
+      />
+    </div>
+  );
+}

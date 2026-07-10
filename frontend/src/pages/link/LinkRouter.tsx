@@ -10,6 +10,8 @@ import { useUserStore } from '@/store/useUserStore';
  *   quests                  → /quests
  *   quest&id=<questId>      → /quests/:questId
  *   dm&id=<conversationId>  → /dm/:conversationId
+ *   biz                     → /biz/intro
+ *   biz&id=<profileId>      → /biz/status (PENDING/REJECTED 안내, APPROVED 는 status 화면이 /biz/manage 로 리다이렉트)
  *   feed                    → /feed
  *   profile                 → /profile
  *   settings                → /settings
@@ -48,6 +50,7 @@ function resolveAction(action: string, id: string | null): string {
     case 'quest':                  return id ? `/quests/${id}` : '/quests';
     case 'dm':                     return id ? `/dm/${id}` : '/dm';
     case 'market':                 return id ? `/market/${id}` : '/market';
+    case 'biz':                     return id ? '/biz/status' : '/biz/intro';
     case 'feed':                   return '/feed';
     case 'profile':                return '/profile';
     case 'settings':               return '/settings';

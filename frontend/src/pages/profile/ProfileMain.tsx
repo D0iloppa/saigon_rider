@@ -655,6 +655,23 @@ export default function ProfileMain() {
           <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
         </button>
 
+        {/* SGR-312: 비즈니스 파트너 진입 (상태 분기는 /biz/status 화면이 처리) */}
+        <button
+          type="button"
+          onClick={() => navigate('/biz/status')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+            margin: '12px 0', padding: '14px 16px', borderRadius: 16,
+            border: '1px solid var(--line)', background: 'white', cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🏪</span>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+            {t('biz.menuEntry', { defaultValue: '비즈니스 파트너' })}
+          </span>
+          <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
+        </button>
+
         {/* SGR-287: 피드/이력/뱃지 탭 제거 — 피드만 노출(피드 영역 라벨) */}
         <h3 className={styles.feedSectionLabel}>{t('profile.tabFeeds')}</h3>
 

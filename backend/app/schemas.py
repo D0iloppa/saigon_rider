@@ -1204,3 +1204,41 @@ class SupportTicketOut(BaseModel):
 
 class SupportTicketDetail(SupportTicketOut):
     replies: list[SupportReplyOut] = []
+
+
+# ── 비즈니스 파트너 (SGR-312 BP-2) ────────────────────────────────
+
+
+class BusinessProfileApplyRequest(BaseModel):
+    name: str
+    category: str | None = None
+    address: str
+    latitude: Decimal
+    longitude: Decimal
+    phone: str
+    photo_content_id: uuid.UUID | None = None
+
+
+class BusinessProfileUpdateRequest(BaseModel):
+    name: str
+    category: str | None = None
+    address: str
+    latitude: Decimal
+    longitude: Decimal
+    phone: str
+    photo_content_id: uuid.UUID | None = None
+
+
+class BusinessProfileOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    category: str | None = None
+    address: str | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    phone: str | None = None
+    photo_url: str | None = None
+    status: str
+    reject_reason: str | None = None
+    created_at: datetime
+    updated_at: datetime

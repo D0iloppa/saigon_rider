@@ -37,6 +37,12 @@ import MarketWishlist from '@/pages/market/MarketWishlist';
 import MarketSearch from '@/pages/market/MarketSearch';
 import AdDetail from '@/pages/market/AdDetail';
 
+// Biz (비즈니스 파트너, SGR-312 BP-2)
+import BizIntro from '@/pages/biz/BizIntro';
+import BizApply from '@/pages/biz/BizApply';
+import BizStatus from '@/pages/biz/BizStatus';
+import BizManage from '@/pages/biz/BizManage';
+
 // Quest
 import QuestList from '@/pages/quest/QuestList';
 import QuestDetail from '@/pages/quest/QuestDetail';
@@ -292,6 +298,10 @@ export default function App() {
           <Route path="/market/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
           <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
+          <Route path="/biz/intro" element={<PrivateRoute><BizIntro /></PrivateRoute>} />
+          <Route path="/biz/apply" element={<PrivateRoute><BizApply /></PrivateRoute>} />
+          <Route path="/biz/status" element={<PrivateRoute><BizStatus /></PrivateRoute>} />
+          <Route path="/biz/manage" element={<PrivateRoute><BizManage /></PrivateRoute>} />
           {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />

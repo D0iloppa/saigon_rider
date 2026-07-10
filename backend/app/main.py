@@ -12,6 +12,7 @@ from .routers import (
     app_version,
     auth,
     badges,
+    biz,
     contents,
     coupons,
     dev_context,
@@ -139,6 +140,7 @@ app.include_router(feed.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(badges.router, prefix="/api")
+app.include_router(biz.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")

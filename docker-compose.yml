@@ -218,6 +218,40 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  # ── Noti Worker (알림 이벤트 소비 — noti:events) ──────────
+  # docker compose --profile backend up
+  # backend(bff) 이미지 재사용 + command 오버라이드. 자동 reload 없음 — 코드 수정 시 재시작 필수.
+  noti_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saigon_noti_worker
+    profiles: [backend]
+    command: ["python", "-m", "app.noti_worker"]
+    volumes:
+      - ./backend:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
+      - ENGINE_BASE_URL=http://engine:8090
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
+      - TZ=${APP_TIMEZONE:-Asia/Seoul}
+    # 워커 루프가 매 iteration 마다 갱신하는 heartbeat(TTL 30s)로 liveness 판정 (engine worker 와 동일 패턴)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,redis; sys.exit(0 if (redis.Redis.from_url(os.environ['REDIS_URL']).ttl('noti:worker:heartbeat') or 0) > 0 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
   # ── Wiki (Docusaurus — 개발자 문서 포털) ──────────────────────
   # docker compose --profile wiki up --build -d
   wiki:

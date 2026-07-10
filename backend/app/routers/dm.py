@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..engine_client import engine_client
 from ..models import DmConversation, DmMessage, MarketplaceAppointment, MarketplaceListing, MarketplacePriceOffer, User
 from ..schemas import (
     DmConversationCreateRequest,
@@ -18,6 +17,7 @@ from ..schemas import (
     DmMessageOut,
     Page,
 )
+from ..services import noti_events
 from ..utils import resolve_avatar_url
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
@@ -345,19 +345,20 @@ async def send_message(
 
     msg = (await db.execute(select(DmMessage).where(DmMessage.id == msg.id))).scalar_one()
 
-    # 수신자에게 푸시 발송 (부가 기능 — 실패해도 메시지 전송은 성공)
+    # 수신자 푸시·인앱 알림은 noti_worker 로 이관 — 발행 실패는 내부에서 삼켜 전송을 막지 않는다
     recipient_id = _other_user_id(conv, body.sender_id)
     sender = await db.get(User, body.sender_id)
     preview = body.content[:50] if body.content else "사진을 보냈습니다"
-    try:
-        await engine_client.notify_user_push(
-            str(recipient_id),
-            title=sender.nickname if sender and sender.nickname else "새 메시지",
-            body=preview,
-            data={"navigateTo": f"dm&id={conv_id}"},
-        )
-    except Exception as e:  # 푸시 실패가 DM 전송을 막지 않도록
-        log.warning("DM push notify failed conv=%s recipient=%s: %s", conv_id, recipient_id, e)
+    await noti_events.publish(
+        "dm.message_sent",
+        {
+            "conversation_id": str(conv_id),
+            "sender_id": str(body.sender_id),
+            "recipient_id": str(recipient_id),
+            "sender_nickname": sender.nickname if sender and sender.nickname else "",
+            "preview": preview,
+        },
+    )
 
     return DmMessageOut(
         id=msg.id,

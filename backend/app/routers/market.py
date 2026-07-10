@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..engine_client import engine_client
 from ..models import (
     DmConversation,
     DmMessage,
@@ -57,6 +56,7 @@ from ..schemas import (
     SellerBrief,
     TradeHistoryItem,
 )
+from ..services import noti_events
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, resolve_avatar_url
 
@@ -65,29 +65,6 @@ log = logging.getLogger(__name__)
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
-
-
-async def _notify_keyword_matches(db: AsyncSession, listing: MarketplaceListing) -> None:
-    """등록된 매물 제목에 매칭되는 키워드 구독자에게 푸시(본인 제외). 실패해도 등록은 성공."""
-    title_lower = (listing.title or "").lower()
-    if not title_lower:
-        return
-    alerts = (await db.execute(select(MarketplaceKeywordAlert))).scalars().all()
-    seen: set[uuid.UUID] = set()
-    for alert in alerts:
-        if alert.user_id == listing.seller_id or alert.user_id in seen:
-            continue
-        if alert.keyword.lower() in title_lower:
-            seen.add(alert.user_id)
-            try:
-                await engine_client.notify_user_push(
-                    str(alert.user_id),
-                    title=f"🔔 {alert.keyword}",
-                    body=listing.title,
-                    data={"navigateTo": f"market&id={listing.id}"},
-                )
-            except (httpx.HTTPError, httpx.RequestError) as exc:
-                log.warning("keyword-alert push failed user=%s: %s", alert.user_id, exc)
 
 
 _MANNER_BASE = 36.5
@@ -500,7 +477,11 @@ async def create_listing(
         db.add(MarketplaceListingImage(listing_id=listing_id, content_id=cid, sort_order=idx))
 
     await db.commit()
-    await _notify_keyword_matches(db, listing)
+    # 키워드 매칭·푸시는 noti_worker 로 이관 — 발행 실패는 내부에서 삼켜 등록을 막지 않는다
+    await noti_events.publish(
+        "market.listing_created",
+        {"listing_id": str(listing_id), "title": listing.title, "seller_id": str(body.seller_id)},
+    )
     # 번역 세트 워밍(백그라운드) — 조회 시 캐시 히트로 번역본 즉시 로딩
     background.add_task(warm_translations, [listing.title, listing.description or ""])
     return MarketplaceListingCreated(id=listing_id)

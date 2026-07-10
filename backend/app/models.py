@@ -35,7 +35,14 @@ _quest_status_enum = ENUM(
     "ACCEPTED", "ACTIVE", "COMPLETED", "FAILED", "ABANDONED", "EXPIRED", name="quest_status", create_type=False
 )
 _notification_type_enum = ENUM(
-    "QUEST_RECOMMEND", "QUEST_EXPIRE", "EVENT", "RIDE_RESULT", "SOCIAL", name="notification_type", create_type=False
+    "QUEST_RECOMMEND",
+    "QUEST_EXPIRE",
+    "EVENT",
+    "RIDE_RESULT",
+    "SOCIAL",
+    "KEYWORD",
+    name="notification_type",
+    create_type=False,
 )
 _badge_condition_enum = ENUM(
     "QUEST_CLEAR_COUNT",
@@ -635,6 +642,8 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(_notification_type_enum, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 알림함 클릭 이동용 딥링크 — 기존 push navigateTo 규약과 동일 (예: 'dm&id=<conv_id>', 'market&id=<listing_id>')
+    link: Mapped[str | None] = mapped_column(String(200), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

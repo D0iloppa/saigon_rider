@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, or_, select
@@ -11,6 +12,7 @@ from ..models import BusinessProfile, MarketplaceAd
 from ..schemas import (
     BusinessAdCreateRequest,
     BusinessAdOut,
+    BusinessMapItemOut,
     BusinessProfileApplyRequest,
     BusinessProfileOut,
     BusinessProfileUpdateRequest,
@@ -293,6 +295,45 @@ def _public_ad_out(ad: MarketplaceAd) -> MarketplaceAdOut:
     if ad.image_content:
         out.image_url = build_imgproxy_url(ad.image_content.file_path, options="rs:fill:360:200:1")
     return out
+
+
+@router.get("/public/map", response_model=list[BusinessMapItemOut], summary="업체 지도 공개 조회 (bbox)")
+async def get_public_map(
+    min_lat: Decimal,
+    max_lat: Decimal,
+    min_lng: Decimal,
+    max_lng: Decimal,
+    category: str | None = None,
+    q: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """동네지도 업체 핀 레이어 — APPROVED + 좌표 보유 프로필만 bbox 범위로 노출."""
+    stmt = select(BusinessProfile).where(
+        BusinessProfile.status == "APPROVED",
+        BusinessProfile.latitude.is_not(None),
+        BusinessProfile.longitude.is_not(None),
+        BusinessProfile.latitude >= min_lat,
+        BusinessProfile.latitude <= max_lat,
+        BusinessProfile.longitude >= min_lng,
+        BusinessProfile.longitude <= max_lng,
+    )
+    if category:
+        stmt = stmt.where(BusinessProfile.category == category)
+    if q:
+        stmt = stmt.where(BusinessProfile.name.ilike(f"%{q}%"))
+    profiles = (await db.execute(stmt.limit(200))).scalars().all()
+    return [
+        BusinessMapItemOut(
+            id=p.id,
+            name=p.name,
+            category=p.category,
+            address=p.address,
+            lat=p.latitude,
+            lng=p.longitude,
+            photo_url=build_imgproxy_url(p.photo_content.file_path) if p.photo_content else None,
+        )
+        for p in profiles
+    ]
 
 
 @router.get("/public/{profile_id}", response_model=BusinessPublicProfileOut, summary="공개 비즈니스 프로필")

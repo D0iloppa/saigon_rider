@@ -1284,3 +1284,16 @@ class BusinessPublicProfileOut(BaseModel):
     phone: str | None = None
     photo_url: str | None = None
     ads: list[MarketplaceAdOut]
+
+
+# ── 업체 지도 공개 조회 (SGR-321) ─────────────────────────────────
+
+
+class BusinessMapItemOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    category: str | None = None
+    address: str | None = None
+    lat: Decimal
+    lng: Decimal
+    photo_url: str | None = None

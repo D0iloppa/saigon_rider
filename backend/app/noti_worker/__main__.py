@@ -136,9 +136,43 @@ async def _handle_listing_created(payload: dict) -> None:
         await _try_push(user_id, noti_title, listing_title, link)
 
 
+_BIZ_RESULT_COPY = {
+    "APPROVED": ("비즈니스 파트너 승인", "'{name}' 계정이 승인되었습니다. 지금 바로 광고를 등록해보세요."),
+    "REJECTED": ("비즈니스 파트너 반려", "'{name}' 신청이 반려되었습니다. 사유: {reason}"),
+    "SUSPENDED": ("비즈니스 계정 정지", "'{name}' 계정이 운영정지되었습니다."),
+}
+
+
+async def _handle_biz_profile_reviewed(payload: dict) -> None:
+    """비즈니스 프로필 심사 결과 통지(SGR-312 BP-3).
+
+    계정 상태 변경(승인/반려/정지)은 트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다 —
+    NotificationSettings 의 기존 필드(quest_recommend/quest_expire/event/ride_result/social/keyword_alert)는
+    전부 다른 목적이라 신규 토글을 만들지 않고 게이트 자체를 생략한다(Simplicity First).
+    """
+    user_id = uuid.UUID(payload["user_id"])
+    profile_id = payload["profile_id"]
+    name = payload.get("profile_name") or ""
+    result = payload.get("result", "")
+    reason = payload.get("reject_reason") or ""
+    link = f"biz&id={profile_id}"
+
+    title, body_tpl = _BIZ_RESULT_COPY.get(result, ("비즈니스 계정 알림", "'{name}' 계정 상태가 변경되었습니다."))
+    body = body_tpl.format(name=name, reason=reason)
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            Notification(user_id=user_id, type="BIZ", title=title, body=body, link=link, created_at=datetime.now(UTC))
+        )
+        await db.commit()
+
+    await _try_push(str(user_id), title, body, link)
+
+
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
     "market.listing_created": _handle_listing_created,
+    "biz.profile_reviewed": _handle_biz_profile_reviewed,
 }
 
 

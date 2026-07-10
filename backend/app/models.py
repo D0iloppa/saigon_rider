@@ -41,6 +41,7 @@ _notification_type_enum = ENUM(
     "RIDE_RESULT",
     "SOCIAL",
     "KEYWORD",
+    "BIZ",
     name="notification_type",
     create_type=False,
 )

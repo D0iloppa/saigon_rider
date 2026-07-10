@@ -24,12 +24,15 @@ from ..models import (
     AppConfig,
     AppVersion,
     Badge,
+    BusinessGroup,
+    BusinessProfile,
     Content,
     District,
     FeedPost,
     FeedPostImage,
     GasStation,
     GasStationSubmission,
+    MarketplaceAd,
     NicknameWord,
     Quest,
     RepairShop,
@@ -41,6 +44,7 @@ from ..models import (
     UserBadge,
 )
 from ..quest_card_map import quest_card_file_path, resolve_quest_card_code
+from ..services import noti_events
 from ..services.fuel_price_service import FUEL_BRANDS, FUEL_TYPES, upsert_fuel_price
 from ..utils import (
     APP_TZ,
@@ -96,6 +100,7 @@ _NAV_KEYS = (
     "fuel",
     "gas_submissions",
     "repair_submissions",
+    "biz_accounts",
     "push",
     "stream",
     "support",
@@ -3599,6 +3604,289 @@ async def admin_repair_submission_reject(
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
     return RedirectResponse("/admin/repair-submissions?flash=rejected", status_code=303)
+
+
+# ── 비즈니스 계정 심사 (SGR-312 BP-3) ────────────────────────────
+
+_BIZ_STATUS_COLOR = {"PENDING": "#F59E0B", "APPROVED": "#16A34A", "REJECTED": "#9CA3AF", "SUSPENDED": "#EF4444"}
+
+_BIZ_FLASHES = {
+    "approved": ("계정을 승인했습니다.", True),
+    "rejected": ("계정을 반려했습니다.", True),
+    "notfound": ("프로필을 찾을 수 없습니다.", False),
+    "done": ("이미 처리된 신청입니다.", False),
+}
+
+_BIZ_DETAIL_FLASHES = {
+    "suspended": ("계정을 정지했습니다. 게시중이던 광고도 중단됐습니다.", True),
+    "grouped": ("그룹 지정을 반영했습니다.", True),
+}
+
+
+@router.get("/biz-accounts", include_in_schema=False)
+async def admin_biz_accounts(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(BusinessProfile, User.nickname)
+            .join(User, User.id == BusinessProfile.user_id)
+            .order_by(BusinessProfile.created_at.desc())
+        )
+    ).all()
+    # PENDING 을 상단으로 (쿼리가 이미 최신순이라 stable sort 로 그 안 순서 유지).
+    rows = sorted(rows, key=lambda r: r[0].status != "PENDING")
+
+    if rows:
+        body_rows = ""
+        for bp, nickname in rows:
+            color = _BIZ_STATUS_COLOR.get(bp.status, "#9CA3AF")
+            photo = (
+                f'<img class="thumb" src="{h(_content_url(bp.photo_content))}" alt="">' if bp.photo_content_id else "—"
+            )
+            if bp.status == "PENDING":
+                actions = (
+                    f'<form method="post" action="/admin/biz-accounts/{bp.id}/approve" style="display:inline;">'
+                    f'<button class="btn btn-sm" type="submit">승인</button></form> '
+                    f'<form method="post" action="/admin/biz-accounts/{bp.id}/reject" '
+                    f'style="display:inline-flex;gap:4px;margin-left:6px;">'
+                    f'<input type="text" name="reason" placeholder="반려 사유" required '
+                    f'style="width:120px;padding:4px 8px;font-size:12px;">'
+                    f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
+                )
+            else:
+                actions = f'<span style="color:rgba(255,255,255,.4);">{h(bp.reject_reason or "—")}</span>'
+            body_rows += (
+                f"<tr>"
+                f"<td>{bp.created_at.strftime('%m-%d %H:%M')}</td>"
+                f"<td>{photo}</td>"
+                f'<td><a href="/admin/biz-accounts/{bp.id}" style="color:#fff;text-decoration:none;">{h(bp.name)}</a></td>'
+                f"<td>{h(bp.category or '—')}</td>"
+                f"<td>{h(bp.address or '—')}</td>"
+                f"<td>{h(bp.phone or '—')}</td>"
+                f"<td>{h(nickname or str(bp.user_id)[:8])}</td>"
+                f'<td><span style="color:{color};font-weight:700;">{bp.status}</span></td>'
+                f"<td>{actions}</td>"
+                f"</tr>"
+            )
+    else:
+        body_rows = (
+            '<tr><td colspan="9" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">'
+            "신청이 없습니다.</td></tr>"
+        )
+
+    flash_html = ""
+    if flash and flash in _BIZ_FLASHES:
+        msg, ok = _BIZ_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    pending_count = sum(1 for bp, _ in rows if bp.status == "PENDING")
+
+    return _render_page(
+        "biz_accounts.html",
+        nav="biz_accounts",
+        page_title="비즈니스 계정 심사",
+        session=session,
+        pending_count=str(pending_count),
+        account_rows=body_rows,
+        flash=flash_html,
+    )
+
+
+@router.post("/biz-accounts/{profile_id}/approve", include_in_schema=False)
+async def admin_biz_account_approve(
+    profile_id: uuid.UUID,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    bp = await db.get(BusinessProfile, profile_id)
+    if not bp:
+        return RedirectResponse("/admin/biz-accounts?flash=notfound", status_code=303)
+    if bp.status != "PENDING":
+        return RedirectResponse("/admin/biz-accounts?flash=done", status_code=303)
+
+    bp.status = "APPROVED"
+    bp.reviewed_at = datetime.now(UTC)
+    await db.commit()
+
+    await noti_events.publish(
+        "biz.profile_reviewed",
+        {"user_id": str(bp.user_id), "profile_id": str(bp.id), "profile_name": bp.name, "result": "APPROVED"},
+    )
+    return RedirectResponse("/admin/biz-accounts?flash=approved", status_code=303)
+
+
+@router.post("/biz-accounts/{profile_id}/reject", include_in_schema=False)
+async def admin_biz_account_reject(
+    profile_id: uuid.UUID,
+    reason: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    reason = reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="반려 사유는 필수입니다.")
+
+    bp = await db.get(BusinessProfile, profile_id)
+    if not bp:
+        return RedirectResponse("/admin/biz-accounts?flash=notfound", status_code=303)
+    if bp.status != "PENDING":
+        return RedirectResponse("/admin/biz-accounts?flash=done", status_code=303)
+
+    bp.status = "REJECTED"
+    bp.reject_reason = reason
+    bp.reviewed_at = datetime.now(UTC)
+    await db.commit()
+
+    await noti_events.publish(
+        "biz.profile_reviewed",
+        {
+            "user_id": str(bp.user_id),
+            "profile_id": str(bp.id),
+            "profile_name": bp.name,
+            "result": "REJECTED",
+            "reject_reason": reason,
+        },
+    )
+    return RedirectResponse("/admin/biz-accounts?flash=rejected", status_code=303)
+
+
+@router.get("/biz-accounts/{profile_id}", include_in_schema=False)
+async def admin_biz_account_detail(
+    profile_id: uuid.UUID,
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    row = (
+        await db.execute(
+            select(BusinessProfile, User.nickname)
+            .join(User, User.id == BusinessProfile.user_id)
+            .where(BusinessProfile.id == profile_id)
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    bp, nickname = row
+
+    ads = (
+        (
+            await db.execute(
+                select(MarketplaceAd)
+                .where(MarketplaceAd.owner_business_profile_id == profile_id)
+                .order_by(MarketplaceAd.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    ads_rows = "".join(
+        f"<tr><td>{h(ad.title)}</td><td>{h(ad.review_status)}</td><td>{ad.created_at.strftime('%Y-%m-%d')}</td></tr>"
+        for ad in ads
+    )
+    if not ads_rows:
+        ads_rows = '<tr><td colspan="3" class="empty">등록된 광고가 없습니다.</td></tr>'
+
+    groups = (await db.execute(select(BusinessGroup).order_by(BusinessGroup.name))).scalars().all()
+    group_options = '<option value="">그룹 없음</option>'
+    for g in groups:
+        sel = "selected" if bp.group_id == g.id else ""
+        group_options += f'<option value="{g.id}" {sel}>{h(g.name)}</option>'
+
+    photo_html = (
+        f'<img src="{h(_content_url(bp.photo_content))}" style="width:160px;border-radius:8px;" alt="">'
+        if bp.photo_content_id
+        else '<p class="empty">사진 없음</p>'
+    )
+
+    flash_html = ""
+    if flash and flash in _BIZ_DETAIL_FLASHES:
+        msg, ok = _BIZ_DETAIL_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    return _render_page(
+        "biz_account_detail.html",
+        nav="biz_accounts",
+        page_title="비즈니스 계정 상세",
+        session=session,
+        profile_id=str(bp.id),
+        profile_name=h(bp.name),
+        profile_category=h(bp.category or "—"),
+        profile_address=h(bp.address or "—"),
+        profile_phone=h(bp.phone or "—"),
+        applicant=h(nickname or str(bp.user_id)),
+        profile_status=h(bp.status),
+        reject_reason=h(bp.reject_reason or "—"),
+        photo_html=photo_html,
+        ads_rows=ads_rows,
+        group_options=group_options,
+        flash_html=flash_html,
+    )
+
+
+@router.post("/biz-accounts/{profile_id}/suspend", include_in_schema=False)
+async def admin_biz_account_suspend(
+    profile_id: uuid.UUID,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    bp = await db.get(BusinessProfile, profile_id)
+    if not bp:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    bp.status = "SUSPENDED"
+    bp.reviewed_at = datetime.now(UTC)
+
+    live_ads = (
+        (
+            await db.execute(
+                select(MarketplaceAd).where(
+                    MarketplaceAd.owner_business_profile_id == profile_id,
+                    MarketplaceAd.review_status == "APPROVED",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for ad in live_ads:
+        ad.review_status = "STOPPED"
+
+    await db.commit()
+
+    await noti_events.publish(
+        "biz.profile_reviewed",
+        {"user_id": str(bp.user_id), "profile_id": str(bp.id), "profile_name": bp.name, "result": "SUSPENDED"},
+    )
+    return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=suspended", status_code=303)
+
+
+@router.post("/biz-accounts/{profile_id}/group", include_in_schema=False)
+async def admin_biz_account_group(
+    profile_id: uuid.UUID,
+    group_id: str = Form(""),
+    new_group_name: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    bp = await db.get(BusinessProfile, profile_id)
+    if not bp:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    new_group_name = new_group_name.strip()
+    if new_group_name:
+        group = BusinessGroup(name=new_group_name)
+        db.add(group)
+        await db.flush()
+        bp.group_id = group.id
+    elif group_id:
+        bp.group_id = uuid.UUID(group_id)
+    else:
+        bp.group_id = None
+    await db.commit()
+    return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=grouped", status_code=303)
 
 
 # ── 고객센터 ─────────────────────────────────────────────────────

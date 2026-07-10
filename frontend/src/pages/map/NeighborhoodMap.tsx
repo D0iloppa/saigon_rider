@@ -423,9 +423,16 @@ export default function NeighborhoodMap() {
     });
   };
 
-  // 업체 핀 탭 → 공개 프로필 직행 (T5에서 시트 카드 하이라이트로 확장 예정)
+  // 업체 핀 탭 (SGR-325) — 매물 핀 패턴 미러: 업체 탭 전환 + 시트 mid + 카드 하이라이트.
+  // 상세(/biz/:id) 진입은 카드 탭에서만 (바텀시트 원칙: 핀 탭 시에만 시트 자동 이동)
   const handleBizMarkerClick = (id: string) => {
-    navigate(`/biz/${id}`);
+    setTab('biz');
+    setSelectedId(id);
+    setExpandedPostId(null);
+    sheetRef.current?.snapToMid();
+    requestAnimationFrame(() => {
+      itemRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   const switchTab = (tb: Tab) => {

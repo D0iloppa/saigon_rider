@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import Notification, NotificationSettings, User
+from ..models import Notification, NotificationSettings
 from ..schemas import (
     NotificationListResponse,
     NotificationOut,
@@ -16,14 +16,6 @@ from ..schemas import (
 )
 
 router = APIRouter(prefix="/notifications", tags=["알림 (Notifications)"])
-
-
-async def _get_user_or_404(user_id: uuid.UUID, db: AsyncSession) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
 
 
 # N-1
@@ -122,9 +114,11 @@ async def get_notification_settings(
 async def update_notification_settings(
     body: NotificationSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    _session_uid: uuid.UUID = Depends(verify_user_session),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    await _get_user_or_404(body.user_id, db)
+    # 본인 설정만 저장 가능 — 타 유저 스코프는 404 (존재 은닉)
+    if body.user_id != session_uid:
+        raise HTTPException(status_code=404, detail="User not found")
 
     result = await db.execute(select(NotificationSettings).where(NotificationSettings.user_id == body.user_id))
     settings = result.scalar_one_or_none()

@@ -88,7 +88,35 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 가챠 | `pages/gacha/GachaMain.tsx` (+ `/gacha/pull/:gachaCode` → `GachaPull.tsx`) | `PityBar`, `AlertDialog`, `GachaCardBack`, `ConfettiLayer` |
 | 정보 | `pages/info/InfoHub.tsx` | `InfoMap`, 하위: `/info/weather`(`InfoWeather.tsx`), `/info/flood`(`InfoFloodMap.tsx` · `/info/flood/report` → `InfoFloodReport.tsx`), `/info/gas`(`InfoGasList.tsx`), `/info/repair`(`InfoRepairList.tsx` · `/info/repair/:shopId`, `/write`, `/reviews`) |
 
-### 3.7 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)
+### 3.7 비즈니스 파트너 (`/biz`, SGR-312, 2026-07-10 구현)
+
+- **성격**: 일반 계정에 부착되는 비즈 프로필(광고 게재 주체) — 별도 가입/로그인 없음. SoT [`spec/business-partner-260710.md`](../spec/business-partner-260710.md).
+- **진입점**: 프로필 탭(`ProfileMain.tsx`) "비즈니스 파트너" 메뉴 1행 — 상태별 분기(미신청→`/biz/intro` / PENDING·REJECTED→`/biz/status` / APPROVED→`/biz/manage`). 마켓/홈 피드 `AdCard`(owner 有 시) → `/biz/:id`. 알림 딥링크 `biz&id=<profile_id>`/`bizad&id=<ad_id>` → `LinkRouter.tsx` `biz`/`bizad` 케이스.
+- **라우트/페이지 파일**:
+
+| 라우트 | 페이지 파일 | 내용 |
+|---|---|---|
+| `/biz/intro` | `pages/biz/BizIntro.tsx` | 파트너 안내(혜택·플로우·심사 고지) + 신청하기 CTA |
+| `/biz/apply` | `pages/biz/BizApply.tsx` | 신청 폼(상호명/위치/업종/연락처/대표사진) — 제출 시 PENDING |
+| `/biz/status` | `pages/biz/BizStatus.tsx` | 심사 상태 허브(PENDING 안내 / REJECTED 사유+재신청 CTA) |
+| `/biz/manage` | `pages/biz/BizManage.tsx` | 내 비즈 프로필 홈 — 정보 수정, 보유 광고 목록(상태 칩), 광고 등록 CTA, 광고 섹션 실배선 |
+| `/biz/ads/new` | `pages/biz/BizAdNew.tsx` | 광고 등록(소재+기간) — 제출 시 PENDING |
+| `/biz/ads/:id` | `pages/biz/BizAdDetail.tsx` | 광고 상세(파트너) — 심사 상태·반려 사유·중단/재개 |
+| `/biz/:id` | `pages/biz/BizPublic.tsx` | 공개 비즈프로필(무인증, APPROVED만 200) — 일반 유저가 보는 면 |
+
+- **핵심 헬퍼**: `adHref()` — 광고 카드 탭 시 owner 有→`/biz/:id`, 無(레거시 광고)→`/market/ad/:id` 폴백. `AdCard` 사용처(홈/마켓/동네지도) 3곳 전부 적용. `AdDetail.tsx`에 "가게 프로필 보기" 링크 추가.
+- **i18n**: `biz.*` 3벌(ko/en/vi).
+- **admin 3종** (Jinja 템플릿, `/admin/*`):
+
+| 라우트 | 템플릿/화면 | 액션 |
+|---|---|---|
+| `/admin/biz-accounts` | 계정 심사 큐(PENDING 상단) | 승인 / 반려(사유 필수) |
+| `/admin/biz-accounts/:id` | 계정 상세 | 정지(SUSPENDED, 게시중 광고 일괄 STOPPED) / 그룹(`group_id`) 지정 |
+| `/admin/biz-ads` | 광고 소재 심사 큐 | 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) |
+
+- **연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.
+
+### 3.8 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)
 
 | 메뉴 | 라우트 | 진입점 | 비고 |
 |---|---|---|---|

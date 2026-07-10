@@ -286,27 +286,31 @@ export default function WorldMapV2() {
               <IcoTrade />
               <span>{t('home.v2.tradeCount', { count: tradeCount })}</span>
             </div>
-            {/* Row 4: 위치 | 누적거리 */}
+          </div>
+
+          {/* 우측 컬럼: RP 필 + 벨 / 아래 줄 위치|누적거리 (P4 헤더 압축) */}
+          <div className={styles.headerRight}>
+            <div className={styles.headerRightTop}>
+              <button className={styles.xpBtn} onClick={() => navigate('/profile')}>
+                <IcoDiamond />
+                <span className={styles.xpVal}>{formatNumber(xp)}</span>
+                <IcoChevron color="#aeaeb2" size={14} />
+              </button>
+
+              <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
+                <IcoBell />
+                {notiUnread > 0 && (
+                  <span className={styles.bellBadge}>{notiUnread > 99 ? '99+' : notiUnread}</span>
+                )}
+              </button>
+            </div>
             <div className={styles.profileLoc}>
               <IcoPin />
-              <span>{storedWardName ?? (coords.name || FALLBACK.name)}</span>
+              <span className={styles.locName}>{storedWardName ?? (coords.name || FALLBACK.name)}</span>
               <span className={styles.statSep}>|</span>
               <span>{totalKm.toFixed(2)} km</span>
             </div>
           </div>
-
-          <button className={styles.xpBtn} onClick={() => navigate('/profile')}>
-            <IcoDiamond />
-            <span className={styles.xpVal}>{formatNumber(xp)}</span>
-            <IcoChevron color="#aeaeb2" size={14} />
-          </button>
-
-          <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
-            <IcoBell />
-            {notiUnread > 0 && (
-              <span className={styles.bellBadge}>{notiUnread > 99 ? '99+' : notiUnread}</span>
-            )}
-          </button>
         </div>
 
         <div className={styles.searchWrap}>

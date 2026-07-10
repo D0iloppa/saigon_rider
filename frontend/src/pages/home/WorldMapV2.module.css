@@ -37,17 +37,19 @@
 
 .avatarBtn {
   flex-shrink: 0;
+  position: relative; /* levelBadge overlay 기준 */
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
 }
 
 .levelBadge {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 10px;
   font-weight: 800;
   color: #f8602a;
@@ -60,8 +62,8 @@
 }
 
 .avatar {
-  width: 62px;
-  height: 62px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ffd9a8, #ff9d6c);
   display: flex;
@@ -77,7 +79,7 @@
 }
 
 .avatarLetter {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.4px;
@@ -133,6 +135,28 @@
   letter-spacing: -0.2px;
 }
 
+.locName {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 우측 컬럼: RP 필+벨 / 위치|누적거리 (P4 헤더 압축) */
+.headerRight {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.headerRightTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .xpBtn {
   flex-shrink: 0;
   display: flex;
@@ -155,18 +179,23 @@
 .bellBtn {
   flex-shrink: 0;
   position: relative;
+  /* 아이콘(23px) 시각 크기 불변, 터치영역 44px — 네거티브 마진으로 레이아웃 영향 상쇄 */
+  width: 44px;
+  height: 44px;
+  margin: -5px -10px -5px 0;
   background: none;
   border: none;
-  padding: 6px 2px;
+  padding: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .bellBadge {
   position: absolute;
-  top: -1px;
-  right: -7px;
+  top: 3px;
+  right: 1px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;

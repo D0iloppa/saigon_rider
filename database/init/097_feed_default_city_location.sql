@@ -1,14 +1,7 @@
 -- ================================================================
--- 097_feed_default_city_location.sql  (SGR-287)
--- 위치 없는 기존 피드 글을 기본 동네(Bến Thành, 지도 default ward) 좌표·구로 보정.
---   → 동네지도/동네피드(위치 기반 필터)에 노출되도록.
--- 신규 글은 작성 시 현위치 자동 첨부(FeedCreate). 멱등(latitude NULL 만 대상).
+-- 097_feed_default_city_location.sql  (SGR-287, SGR-314 로 폐기)
+-- [폐기] 위치 없는 피드 글에 벤탄 구역 중심좌표를 "정밀좌표처럼" 백필하던 로직.
+-- GPS 실패 폴백 좌표가 지도에 한 점으로 쌓이는 오염을 유발해 SGR-314 에서 근본 처치:
+-- 좌표 없음은 NULL 로 정직하게 남기고, 신규 글은 GPS 성공 시에만 좌표를 저장한다
+-- (FeedCreate.tsx). 기존에 이미 실행돼 분산 완료된 dev 데이터는 재조치하지 않는다.
 -- ================================================================
-
-UPDATE feed_posts
-   SET latitude = d.center_lat,
-       longitude = d.center_lng,
-       district_id = d.id
-  FROM districts d
- WHERE d.code = 'BEN_THANH'
-   AND feed_posts.latitude IS NULL;

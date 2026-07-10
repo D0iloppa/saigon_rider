@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { HCMC_DISPLAY_CENTER } from '@/lib/mapDefaults';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
-const HCMC: [number, number] = [106.7009, 10.7769]; // [lng, lat] fallback
+const HCMC: [number, number] = [HCMC_DISPLAY_CENTER.lng, HCMC_DISPLAY_CENTER.lat]; // [lng, lat] fallback
 
 export interface OsmMarker {
   id: string;

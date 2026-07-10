@@ -45,7 +45,8 @@ export default function FeedCreate() {
     setLocOn(true);
   };
 
-  // 작성 시 현재 위치 자동 첨부(피드는 '올린 곳' = 현위치). 거부/HCMC 밖이면 홈 선택 동네 → 기본도시 폴백.
+  // 작성 시 현재 위치 자동 첨부(피드는 '올린 곳' = 현위치). GPS 실패 시 좌표는 저장하지 않고
+  // (SGR-314) 동네만 홈 선택 동네 → 기본도시 폴백으로 근사 표시한다.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -62,10 +63,8 @@ export default function FeedCreate() {
         if (cancelled) return;
         const home = useLocationStore.getState().coords;
         if (home) {
-          setCoords(home);
           setDistrict(resolveDistrict(home.lat, home.lng, list) ?? fallback);
-        } else if (fallback && fallback.center_lat != null && fallback.center_lng != null) {
-          setCoords({ lat: fallback.center_lat, lng: fallback.center_lng });
+        } else {
           setDistrict(fallback);
         }
       }

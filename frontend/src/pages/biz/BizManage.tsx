@@ -69,7 +69,7 @@ export default function BizManage() {
         latitude: active.latitude ?? 0,
         longitude: active.longitude ?? 0,
         phone: phone.trim(),
-        photoContentId: null,
+        photoContentId: active.photoContentId, // 기존 사진 유지 (이 폼은 사진을 다루지 않음)
       });
       setProfiles((prev) => (prev ? prev.map((p, i) => (i === activeIdx ? updated : p)) : prev));
       setEditing(false);

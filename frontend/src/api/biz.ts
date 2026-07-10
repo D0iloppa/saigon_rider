@@ -10,6 +10,7 @@ export interface BusinessProfile {
   latitude: number | null;
   longitude: number | null;
   phone: string | null;
+  photoContentId: string | null;
   photoUrl: string | null;
   status: BusinessProfileStatus;
   rejectReason: string | null;
@@ -35,6 +36,7 @@ interface BusinessProfileApi {
   latitude: string | number | null;
   longitude: string | number | null;
   phone: string | null;
+  photo_content_id: string | null;
   photo_url: string | null;
   status: BusinessProfileStatus;
   reject_reason: string | null;
@@ -51,6 +53,7 @@ function fromApi(p: BusinessProfileApi): BusinessProfile {
     latitude: p.latitude != null ? Number(p.latitude) : null,
     longitude: p.longitude != null ? Number(p.longitude) : null,
     phone: p.phone,
+    photoContentId: p.photo_content_id,
     photoUrl: p.photo_url,
     status: p.status,
     rejectReason: p.reject_reason,

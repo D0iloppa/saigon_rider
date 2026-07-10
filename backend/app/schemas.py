@@ -1237,6 +1237,7 @@ class BusinessProfileOut(BaseModel):
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     phone: str | None = None
+    photo_content_id: uuid.UUID | None = None
     photo_url: str | None = None
     status: str
     reject_reason: str | None = None

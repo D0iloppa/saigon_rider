@@ -56,15 +56,28 @@ export default function BizStatus() {
           <div key={p.id} className={styles.card}>
             <div className={styles.cardHeader}>
               <span className={styles.cardName}>{p.name}</span>
-              <span className={p.status === 'REJECTED' ? styles.badgeRejected : styles.badgePending}>
+              <span
+                className={
+                  p.status === 'REJECTED' ? styles.badgeRejected :
+                  p.status === 'SUSPENDED' ? styles.badgeSuspended :
+                  styles.badgePending
+                }
+              >
                 {p.status === 'REJECTED'
                   ? t('biz.statusRejected', { defaultValue: '반려' })
-                  : t('biz.statusPending', { defaultValue: '심사중' })}
+                  : p.status === 'SUSPENDED'
+                    ? t('biz.statusSuspended', { defaultValue: '운영 정지' })
+                    : t('biz.statusPending', { defaultValue: '심사중' })}
               </span>
             </div>
             {p.status === 'PENDING' && (
               <p className={styles.cardDesc}>
                 {t('biz.pendingDesc', { defaultValue: '신청이 접수되었습니다. 통상 24시간 이내 심사 결과를 알려드려요.' })}
+              </p>
+            )}
+            {p.status === 'SUSPENDED' && (
+              <p className={styles.cardDesc}>
+                {t('biz.suspendedDesc', { defaultValue: '운영이 정지된 프로필이에요. 자세한 내용은 이메일로 문의해주세요.' })}
               </p>
             )}
             {p.status === 'REJECTED' && (

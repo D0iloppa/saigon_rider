@@ -27,6 +27,7 @@ def _out(p: BusinessProfile) -> BusinessProfileOut:
         latitude=p.latitude,
         longitude=p.longitude,
         phone=p.phone,
+        photo_content_id=p.photo_content_id,
         photo_url=photo_url,
         status=p.status,
         reject_reason=p.reject_reason,

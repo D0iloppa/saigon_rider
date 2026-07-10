@@ -59,6 +59,15 @@
   color: #d33;
 }
 
+.badgeSuspended {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(120, 120, 120, 0.14);
+  color: var(--text-3);
+}
+
 .cardDesc {
   font-size: 13px;
   color: var(--text-2);

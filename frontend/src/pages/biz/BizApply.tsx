@@ -6,6 +6,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
+import { AppImage } from '@/components/ui/AppImage';
 import { useUserStore } from '@/store/useUserStore';
 import { applyBusinessProfile, updateBusinessProfile, type BusinessProfile } from '@/api/biz';
 import LocationPickerSheet from '@/pages/market/LocationPickerSheet';
@@ -34,8 +35,11 @@ export default function BizApply() {
       : null,
   );
   const [locOpen, setLocOpen] = useState(false);
-  const [photoContentId, setPhotoContentId] = useState<string | null>(null);
+  // 재신청 시 기존 사진 유지 — 새 사진을 올리지 않으면 기존 content id 를 그대로 재전송한다
+  const [photoContentId, setPhotoContentId] = useState<string | null>(reapplyProfile?.photoContentId ?? null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(reapplyProfile?.photoUrl ?? null);
+  // 로컬 blob(<img>) vs 저장된 원격 URL(<AppImage>) 렌더 분기 — FeedEdit 패턴
+  const [photoIsLocal, setPhotoIsLocal] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,6 +51,7 @@ export default function BizApply() {
     e.target.value = '';
     if (!file) return;
     setPhotoPreview(URL.createObjectURL(file));
+    setPhotoIsLocal(true);
     setUploadingPhoto(true);
     try {
       const form = new FormData();
@@ -57,7 +62,9 @@ export default function BizApply() {
       setPhotoContentId(res.id);
     } catch (err: any) {
       toast.error(err.message ?? t('biz.uploadError', { defaultValue: '사진 업로드 실패' }));
-      setPhotoPreview(null);
+      // 업로드 실패 → 재신청 프리필 사진(있으면)으로 원복 (photoContentId 는 성공 시에만 덮으므로 그대로)
+      setPhotoPreview(reapplyProfile?.photoUrl ?? null);
+      setPhotoIsLocal(false);
     } finally {
       setUploadingPhoto(false);
     }
@@ -96,7 +103,11 @@ export default function BizApply() {
         {/* Photo */}
         <label className={styles.photoBox}>
           {photoPreview ? (
-            <img src={photoPreview} alt="" className={styles.photoPreview} />
+            photoIsLocal ? (
+              <img src={photoPreview} alt="" className={styles.photoPreview} />
+            ) : (
+              <AppImage src={photoPreview} alt="" className={styles.photoPreview} />
+            )
           ) : (
             <span className={styles.photoPlaceholder}>📷 {t('biz.photoOptional', { defaultValue: '대표사진 (선택)' })}</span>
           )}

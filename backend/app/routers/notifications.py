@@ -33,8 +33,11 @@ async def list_notifications(
     page: int = 1,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    await _get_user_or_404(user_id, db)
+    # 본인 알림만 열람 가능 — 타 유저 스코프는 404 (존재 은닉)
+    if user_id != session_uid:
+        raise HTTPException(status_code=404, detail="User not found")
 
     offset = (page - 1) * limit
 
@@ -93,8 +96,11 @@ async def mark_notification_read(
 async def get_notification_settings(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    await _get_user_or_404(user_id, db)
+    # 본인 설정만 열람 가능 — 타 유저 스코프는 404 (존재 은닉)
+    if user_id != session_uid:
+        raise HTTPException(status_code=404, detail="User not found")
 
     result = await db.execute(select(NotificationSettings).where(NotificationSettings.user_id == user_id))
     settings = result.scalar_one_or_none()

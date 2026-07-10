@@ -6,8 +6,22 @@ import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { extractDetail } from '@/api/client';
-import { fetchBusinessProfiles, updateBusinessProfile, type BusinessProfile } from '@/api/biz';
+import {
+  fetchBusinessProfiles,
+  updateBusinessProfile,
+  fetchBusinessAds,
+  type BusinessProfile,
+  type BusinessAd,
+  type BusinessAdStatus,
+} from '@/api/biz';
 import styles from './BizManage.module.css';
+
+const AD_CHIP_CLASS: Record<BusinessAdStatus, string> = {
+  PENDING: 'adChipPending',
+  APPROVED: 'adChipApproved',
+  REJECTED: 'adChipRejected',
+  STOPPED: 'adChipStopped',
+};
 
 export default function BizManage() {
   const { t } = useTranslation();
@@ -18,6 +32,8 @@ export default function BizManage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  // 프로필별 광고 목록 — profileId 를 함께 들고 스위처 전환 시 이전 프로필 목록 표시를 방지
+  const [ads, setAds] = useState<{ profileId: string; list: BusinessAd[] } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +55,23 @@ export default function BizManage() {
     };
   }, [navigate]);
 
+  // BP-4: 활성 프로필의 광고 목록
+  const activeId = profiles?.[activeIdx]?.id;
+  useEffect(() => {
+    if (!activeId) return;
+    let cancelled = false;
+    fetchBusinessAds(activeId)
+      .then((list) => {
+        if (!cancelled) setAds({ profileId: activeId, list });
+      })
+      .catch(() => {
+        if (!cancelled) setAds({ profileId: activeId, list: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId]);
+
   if (profiles === null) {
     return (
       <div className={styles.page}>
@@ -51,6 +84,7 @@ export default function BizManage() {
   }
 
   const active = profiles[activeIdx];
+  const adList = ads && ads.profileId === active.id ? ads.list : null;
 
   const startEdit = () => {
     setName(active.name);
@@ -128,11 +162,39 @@ export default function BizManage() {
           )}
         </div>
 
-        {/* BP-4: 광고 목록·등록은 후속 패키지 — 지금은 준비 중 안내만 */}
+        {/* BP-4: 광고 목록 (상태 칩) + 등록 CTA */}
         <h3 className={styles.sectionTitle}>{t('biz.adsTitle', { defaultValue: '내 광고' })}</h3>
-        <div className={styles.adsEmpty}>
-          <p>{t('biz.adsComingSoon', { defaultValue: '광고 등록 기능은 곧 제공될 예정이에요' })}</p>
-        </div>
+        {adList === null ? (
+          <p className={styles.loading}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
+        ) : adList.length === 0 ? (
+          <div className={styles.adsEmpty}>
+            <p>{t('biz.adsEmpty', { defaultValue: '아직 등록한 광고가 없어요' })}</p>
+          </div>
+        ) : (
+          <div className={styles.adList}>
+            {adList.map((ad) => (
+              <button key={ad.id} className={styles.adRow} onClick={() => navigate(`/biz/ads/${ad.id}`)}>
+                <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.adThumb} />
+                <span className={styles.adRowTitle}>{ad.title}</span>
+                <span className={`${styles.adChip} ${styles[AD_CHIP_CLASS[ad.reviewStatus]]}`}>
+                  {ad.reviewStatus === 'PENDING'
+                    ? t('biz.adStatusPending', { defaultValue: '심사중' })
+                    : ad.reviewStatus === 'APPROVED'
+                      ? t('biz.adStatusApproved', { defaultValue: '게시중' })
+                      : ad.reviewStatus === 'REJECTED'
+                        ? t('biz.adStatusRejected', { defaultValue: '반려' })
+                        : t('biz.adStatusStopped', { defaultValue: '게시 중단' })}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <Button
+          className={styles.adCreateBtn}
+          onClick={() => navigate('/biz/ads/new', { state: { profileId: active.id } })}
+        >
+          {t('biz.adCreateCta', { defaultValue: '광고 등록' })}
+        </Button>
       </div>
     </div>
   );

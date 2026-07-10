@@ -101,6 +101,7 @@ _NAV_KEYS = (
     "gas_submissions",
     "repair_submissions",
     "biz_accounts",
+    "biz_ads",
     "push",
     "stream",
     "support",
@@ -3906,6 +3907,162 @@ async def admin_biz_account_group(
         bp.group_id = None
     await db.commit()
     return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=grouped", status_code=303)
+
+
+# ── 광고 소재 심사 (SGR-312 BP-4, §10-1 /admin/biz-ads) ─────────
+
+_BIZ_AD_STATUS_COLOR = {"PENDING": "#F59E0B", "APPROVED": "#16A34A", "REJECTED": "#9CA3AF", "STOPPED": "#EF4444"}
+
+_BIZ_AD_FLASHES = {
+    "approved": ("광고를 승인했습니다. 즉시 게시됩니다.", True),
+    "rejected": ("광고를 반려했습니다.", True),
+    "notfound": ("광고를 찾을 수 없습니다.", False),
+    "done": ("이미 처리된 광고입니다.", False),
+}
+
+
+def _ad_image_url(ad: MarketplaceAd) -> str:
+    """contents 중개 이미지 우선, 레거시 image_url(외부 http) 폴백."""
+    if ad.image_content_id and ad.image_content:
+        return _content_url(ad.image_content)
+    return ad.image_url or ""
+
+
+def _ad_period(ad: MarketplaceAd) -> str:
+    if not ad.starts_at and not ad.ends_at:
+        return "상시"
+    fmt = "%y-%m-%d"
+    return f"{ad.starts_at.strftime(fmt) if ad.starts_at else '—'} ~ {ad.ends_at.strftime(fmt) if ad.ends_at else '—'}"
+
+
+@router.get("/biz-ads", include_in_schema=False)
+async def admin_biz_ads(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(MarketplaceAd, BusinessProfile)
+            .outerjoin(BusinessProfile, BusinessProfile.id == MarketplaceAd.owner_business_profile_id)
+            .order_by(MarketplaceAd.created_at.desc())
+        )
+    ).all()
+    # PENDING 을 상단으로 (biz_accounts 패턴 — stable sort 로 최신순 유지)
+    rows = sorted(rows, key=lambda r: r[0].review_status != "PENDING")
+
+    if rows:
+        body_rows = ""
+        for ad, bp in rows:
+            color = _BIZ_AD_STATUS_COLOR.get(ad.review_status, "#9CA3AF")
+            img_url = _ad_image_url(ad)
+            img = f'<img class="thumb" src="{h(img_url)}" alt="">' if img_url else "—"
+            if ad.review_status == "PENDING":
+                actions = (
+                    f'<form method="post" action="/admin/biz-ads/{ad.id}/approve" style="display:inline;">'
+                    f'<button class="btn btn-sm" type="submit">승인</button></form> '
+                    f'<form method="post" action="/admin/biz-ads/{ad.id}/reject" '
+                    f'style="display:inline-flex;gap:4px;margin-left:6px;">'
+                    f'<input type="text" name="reason" placeholder="반려 사유" required '
+                    f'style="width:120px;padding:4px 8px;font-size:12px;">'
+                    f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
+                )
+            else:
+                actions = f'<span style="color:rgba(255,255,255,.4);">{h(ad.reject_reason or "—")}</span>'
+            body_rows += (
+                f"<tr>"
+                f"<td>{ad.created_at.strftime('%m-%d %H:%M')}</td>"
+                f"<td>{img}</td>"
+                f"<td>{h(ad.title)}</td>"
+                f"<td>{h(ad.body or '—')}</td>"
+                f"<td>{_ad_period(ad)}</td>"
+                f"<td>{h(bp.name) if bp else h(ad.partner_name)}</td>"
+                f'<td><span style="color:{color};font-weight:700;">{ad.review_status}</span></td>'
+                f"<td>{actions}</td>"
+                f"</tr>"
+            )
+    else:
+        body_rows = (
+            '<tr><td colspan="8" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">'
+            "등록된 광고가 없습니다.</td></tr>"
+        )
+
+    flash_html = ""
+    if flash and flash in _BIZ_AD_FLASHES:
+        msg, ok = _BIZ_AD_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    pending_count = sum(1 for ad, _ in rows if ad.review_status == "PENDING")
+
+    return _render_page(
+        "biz_ads.html",
+        nav="biz_ads",
+        page_title="광고 소재 심사",
+        session=session,
+        pending_count=str(pending_count),
+        ad_rows=body_rows,
+        flash=flash_html,
+    )
+
+
+@router.post("/biz-ads/{ad_id}/approve", include_in_schema=False)
+async def admin_biz_ad_approve(
+    ad_id: uuid.UUID,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    ad = await db.get(MarketplaceAd, ad_id)
+    if not ad:
+        return RedirectResponse("/admin/biz-ads?flash=notfound", status_code=303)
+    if ad.review_status != "PENDING":
+        return RedirectResponse("/admin/biz-ads?flash=done", status_code=303)
+
+    ad.review_status = "APPROVED"
+    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    await db.commit()
+
+    if bp:
+        await noti_events.publish(
+            "biz.ad_reviewed",
+            {"user_id": str(bp.user_id), "ad_id": str(ad.id), "ad_title": ad.title, "result": "APPROVED"},
+        )
+    return RedirectResponse("/admin/biz-ads?flash=approved", status_code=303)
+
+
+@router.post("/biz-ads/{ad_id}/reject", include_in_schema=False)
+async def admin_biz_ad_reject(
+    ad_id: uuid.UUID,
+    reason: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    reason = reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="반려 사유는 필수입니다.")
+
+    ad = await db.get(MarketplaceAd, ad_id)
+    if not ad:
+        return RedirectResponse("/admin/biz-ads?flash=notfound", status_code=303)
+    if ad.review_status != "PENDING":
+        return RedirectResponse("/admin/biz-ads?flash=done", status_code=303)
+
+    ad.review_status = "REJECTED"
+    ad.reject_reason = reason
+    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    await db.commit()
+
+    if bp:
+        await noti_events.publish(
+            "biz.ad_reviewed",
+            {
+                "user_id": str(bp.user_id),
+                "ad_id": str(ad.id),
+                "ad_title": ad.title,
+                "result": "REJECTED",
+                "reject_reason": reason,
+            },
+        )
+    return RedirectResponse("/admin/biz-ads?flash=rejected", status_code=303)
 
 
 # ── 고객센터 ─────────────────────────────────────────────────────

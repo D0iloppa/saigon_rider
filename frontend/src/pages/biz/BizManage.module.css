@@ -115,3 +115,73 @@
   font-size: 13px;
   color: var(--text-3);
 }
+
+.adList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+}
+
+.adThumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg);
+}
+
+.adRowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adChip {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.adChipPending {
+  background: rgba(245, 158, 11, .12);
+  color: #b45309;
+}
+
+.adChipApproved {
+  background: rgba(22, 163, 74, .12);
+  color: #15803d;
+}
+
+.adChipRejected {
+  background: rgba(107, 114, 128, .12);
+  color: var(--text-2);
+}
+
+.adChipStopped {
+  background: rgba(239, 68, 68, .12);
+  color: #b91c1c;
+}
+
+.adCreateBtn {
+  margin-top: 12px;
+}

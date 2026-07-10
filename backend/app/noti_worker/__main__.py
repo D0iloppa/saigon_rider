@@ -169,10 +169,39 @@ async def _handle_biz_profile_reviewed(payload: dict) -> None:
     await _try_push(str(user_id), title, body, link)
 
 
+_BIZ_AD_RESULT_COPY = {
+    "APPROVED": ("광고 심사 승인", "'{title}' 광고가 승인되어 게시가 시작되었습니다."),
+    "REJECTED": ("광고 심사 반려", "'{title}' 광고가 반려되었습니다. 사유: {reason}"),
+}
+
+
+async def _handle_biz_ad_reviewed(payload: dict) -> None:
+    """광고 소재 심사 결과 통지(SGR-312 BP-4) — biz.profile_reviewed 와 동일하게
+    트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다. 딥링크는 광고 상세(/biz/ads/<id>)."""
+    user_id = uuid.UUID(payload["user_id"])
+    ad_id = payload["ad_id"]
+    ad_title = payload.get("ad_title") or ""
+    result = payload.get("result", "")
+    reason = payload.get("reject_reason") or ""
+    link = f"bizad&id={ad_id}"
+
+    title, body_tpl = _BIZ_AD_RESULT_COPY.get(result, ("광고 알림", "'{title}' 광고 상태가 변경되었습니다."))
+    body = body_tpl.format(title=ad_title, reason=reason)
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            Notification(user_id=user_id, type="BIZ", title=title, body=body, link=link, created_at=datetime.now(UTC))
+        )
+        await db.commit()
+
+    await _try_push(str(user_id), title, body, link)
+
+
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
     "market.listing_created": _handle_listing_created,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
+    "biz.ad_reviewed": _handle_biz_ad_reviewed,
 }
 
 

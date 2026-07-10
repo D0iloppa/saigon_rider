@@ -99,3 +99,92 @@ export async function updateBusinessProfile(id: string, p: BusinessProfileInput)
   }, 'bff', { rethrow: true });
   return fromApi(res);
 }
+
+// ── 파트너 광고 (SGR-312 BP-4) ─────────────────────────────────
+
+export type BusinessAdStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'STOPPED';
+
+export interface BusinessAd {
+  id: string;
+  profileId: string | null;
+  title: string;
+  body: string | null;
+  imageUrl: string | null;
+  reviewStatus: BusinessAdStatus;
+  rejectReason: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+}
+
+export interface BusinessAdInput {
+  profileId: string;
+  title: string;
+  body?: string | null;
+  imageContentId: string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+}
+
+interface BusinessAdApi {
+  id: string;
+  profile_id: string | null;
+  title: string;
+  body: string | null;
+  image_url: string | null;
+  review_status: BusinessAdStatus;
+  reject_reason: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+}
+
+function fromAdApi(a: BusinessAdApi): BusinessAd {
+  return {
+    id: a.id,
+    profileId: a.profile_id,
+    title: a.title,
+    body: a.body,
+    imageUrl: a.image_url,
+    reviewStatus: a.review_status,
+    rejectReason: a.reject_reason,
+    startsAt: a.starts_at,
+    endsAt: a.ends_at,
+    createdAt: a.created_at,
+  };
+}
+
+export async function createBusinessAd(input: BusinessAdInput): Promise<BusinessAd> {
+  const res = await api.realFetch<BusinessAdApi>('/biz/ads', {
+    method: 'POST',
+    body: JSON.stringify({
+      profile_id: input.profileId,
+      title: input.title,
+      body: input.body ?? null,
+      image_content_id: input.imageContentId,
+      starts_at: input.startsAt ?? null,
+      ends_at: input.endsAt ?? null,
+    }),
+  }, 'bff', { rethrow: true });
+  return fromAdApi(res);
+}
+
+export async function fetchBusinessAds(profileId: string): Promise<BusinessAd[]> {
+  const res = await api.realFetch<BusinessAdApi[]>(`/biz/ads?profile_id=${profileId}`);
+  return res.map(fromAdApi);
+}
+
+export async function fetchBusinessAd(id: string): Promise<BusinessAd> {
+  const res = await api.realFetch<BusinessAdApi>(`/biz/ads/${id}`, undefined, 'bff', { rethrow: true });
+  return fromAdApi(res);
+}
+
+export async function stopBusinessAd(id: string): Promise<BusinessAd> {
+  const res = await api.realFetch<BusinessAdApi>(`/biz/ads/${id}/stop`, { method: 'POST' }, 'bff', { rethrow: true });
+  return fromAdApi(res);
+}
+
+export async function resumeBusinessAd(id: string): Promise<BusinessAd> {
+  const res = await api.realFetch<BusinessAdApi>(`/biz/ads/${id}/resume`, { method: 'POST' }, 'bff', { rethrow: true });
+  return fromAdApi(res);
+}

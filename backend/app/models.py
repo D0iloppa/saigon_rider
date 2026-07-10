@@ -555,7 +555,13 @@ class MarketplaceAd(Base):
     partner_name: Mapped[str] = mapped_column(String(80), nullable=False)
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     body: Mapped[str | None] = mapped_column(String(160), nullable=True)
-    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # 레거시 read-only 폴백 (BP-4 이후 신규는 image_content_id)
+    image_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    image_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[image_content_id], lazy="selectin")
     link_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     address: Mapped[str | None] = mapped_column(String(200), nullable=True)

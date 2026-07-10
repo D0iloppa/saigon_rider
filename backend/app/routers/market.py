@@ -137,6 +137,14 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
     return rows
 
 
+def _public_ad_out(ad: MarketplaceAd) -> MarketplaceAdOut:
+    """BP-4: contents 중개 이미지(image_content_id) 우선 — 레거시 image_url 은 validator 폴백."""
+    out = MarketplaceAdOut.model_validate(ad)
+    if ad.image_content:
+        out.image_url = build_imgproxy_url(ad.image_content.file_path, options="rs:fill:360:200:1")
+    return out
+
+
 # M-8 제휴광고 (활성·지역 타게팅: 해당 구 + 전역). 피드 중간 삽입용.
 @router.get("/ads", response_model=list[MarketplaceAdOut], summary="제휴 광고 목록")
 async def get_ads(
@@ -145,7 +153,8 @@ async def get_ads(
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now(UTC)
-    q = select(MarketplaceAd).where(MarketplaceAd.is_active == True)
+    # BP-4 노출 게이트: 심사 통과(APPROVED) 광고만 노출 (PENDING/REJECTED/STOPPED 제외)
+    q = select(MarketplaceAd).where(MarketplaceAd.is_active == True, MarketplaceAd.review_status == "APPROVED")
     if district_id is not None:
         q = q.where(or_(MarketplaceAd.district_id == district_id, MarketplaceAd.district_id.is_(None)))
     q = q.where(or_(MarketplaceAd.starts_at.is_(None), MarketplaceAd.starts_at <= now))
@@ -153,9 +162,9 @@ async def get_ads(
     q = q.order_by(MarketplaceAd.sort_order)
     ads = (await db.execute(q)).scalars().all()
     if not lang:
-        return ads
+        return [_public_ad_out(a) for a in ads]
     # 조회 언어로 제목·본문 표기(캐시 히트만, 없으면 원문). 배치 — API 호출 안 함.
-    out = [MarketplaceAdOut.model_validate(a) for a in ads]
+    out = [_public_ad_out(a) for a in ads]
     titles = await lookup_lang_batch([o.title for o in out], lang, db)
     bodies = await lookup_lang_batch([o.body or "" for o in out], lang, db)
     for o, tt, bb in zip(out, titles, bodies, strict=True):
@@ -172,13 +181,19 @@ async def get_ad(
     db: AsyncSession = Depends(get_db),
 ):
     ad = (
-        await db.execute(select(MarketplaceAd).where(MarketplaceAd.id == ad_id, MarketplaceAd.is_active == True))
+        await db.execute(
+            select(MarketplaceAd).where(
+                MarketplaceAd.id == ad_id,
+                MarketplaceAd.is_active == True,
+                MarketplaceAd.review_status == "APPROVED",  # BP-4 노출 게이트
+            )
+        )
     ).scalar_one_or_none()
     if ad is None:
         raise HTTPException(status_code=404, detail="Ad not found")
     if not lang:
-        return ad
-    out = MarketplaceAdOut.model_validate(ad)
+        return _public_ad_out(ad)
+    out = _public_ad_out(ad)
     out.title = await translate_to(ad.title, lang, db)
     if ad.body:
         out.body = await translate_to(ad.body, lang, db)

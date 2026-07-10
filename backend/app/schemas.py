@@ -1243,3 +1243,28 @@ class BusinessProfileOut(BaseModel):
     reject_reason: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+# ── 비즈니스 파트너 광고 (SGR-312 BP-4) ───────────────────────────
+
+
+class BusinessAdCreateRequest(BaseModel):
+    profile_id: uuid.UUID
+    title: str
+    body: str | None = None
+    image_content_id: uuid.UUID
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+
+
+class BusinessAdOut(BaseModel):
+    id: uuid.UUID
+    profile_id: uuid.UUID | None = None
+    title: str
+    body: str | None = None
+    image_url: str | None = None
+    review_status: str
+    reject_reason: str | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    created_at: datetime

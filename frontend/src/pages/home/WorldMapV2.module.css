@@ -24,6 +24,7 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  padding-top: 22px; /* 구분선~첫 섹션 타이틀 — 섹션 간 리듬(hScroll bottom 22px)과 동일 */
 }
 .scroll::-webkit-scrollbar { display: none; }
 

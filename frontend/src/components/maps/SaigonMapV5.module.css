@@ -2,7 +2,7 @@
 .stage {
   position: relative;
   overflow: hidden;
-  background: #d6e8f0;
+  background: #dbe8e8;
 }
 
 .svg {
@@ -13,29 +13,29 @@
 }
 
 /* 배경 (수면) */
-.sea { fill: #d6e8f0; }
+.sea { fill: #dbe8e8; }
 
 /* Layer 1 — 동 경계 */
-.river { fill: #b0d8ea; stroke: none; }
-.rline { fill: none; stroke: #9ccee3; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.river { fill: #b9dfea; stroke: none; }
+.rline { fill: none; stroke: #9bcedd; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .ward {
-  fill: #f8faf8;
-  stroke: #c8d4cc;
+  fill: #fbfaf7;
+  stroke: #d7ddd5;
   stroke-width: 1.8;
   stroke-linejoin: round;
   cursor: pointer;
 }
 .wardSel {
-  fill: #ffe0c4;
-  stroke: #ff5a1f;
+  fill: #ffeadc;
+  stroke: var(--brand-500);
   stroke-width: 2.4;
   stroke-linejoin: round;
   cursor: pointer;
 }
 /* polyActive 모드 — 선택 동 boundary만 */
 .wardBoundary {
-  fill: #f8faf8;
-  stroke: #ff5a1f;
+  fill: #fbfaf7;
+  stroke: var(--brand-500);
   stroke-width: 4;
   stroke-linejoin: round;
   cursor: pointer;
@@ -74,16 +74,16 @@
 
 /* Layer 2 — 블록 */
 .blk {
-  fill: #f4f6f2;
-  stroke: #b8c8c0;
+  fill: #f6f5ef;
+  stroke: #cbd4ca;
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
 
 /* Layer 3 — 건물·도로·수로 */
 .bldg {
-  fill: #e9e3d6;
-  stroke: #ddd6c4;
+  fill: #eee9dd;
+  stroke: #e2dccf;
   stroke-width: 0.5;
   stroke-linejoin: round;
 }
@@ -118,19 +118,30 @@
 .ctrlBtn {
   width: 32px;
   height: 32px;
-  border: 1px solid #e0e0e0;
-  background: #fff;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
   font-size: 17px;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  color: #444;
+  box-shadow: var(--shadow-card);
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .ctrlBtn:active { background: #f0f0f0; }
+
+/* 앵커 오버레이 — 지도 좌표(lat/lng)에 고정되는 HTML 노드.
+   위치는 updateAnchorOverlay 가 transform 으로 직접 갱신 (초기엔 숨김 — 첫 배치 전 플래시 방지) */
+.anchorOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  visibility: hidden;
+  will-change: transform;
+}
 
 /* 토스트 */
 .toast {

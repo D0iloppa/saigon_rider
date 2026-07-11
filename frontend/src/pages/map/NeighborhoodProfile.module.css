@@ -1,0 +1,24 @@
+.root { min-height: 100%; overflow-y: auto; background: var(--surface); color: var(--text); padding: calc(var(--status-bar-height) + 12px) 20px 40px; }
+.header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; margin-bottom: 34px; }
+.header h1 { margin: 0; font-size: 24px; letter-spacing: -.6px; }
+.back { position: absolute; left: -8px; display: grid; width: 44px; height: 44px; place-items: center; color: var(--text); }
+.userRow { display: flex; align-items: center; gap: 14px; margin-bottom: 34px; }
+.avatar { display: grid; width: 72px; height: 72px; place-items: center; overflow: hidden; border-radius: 50%; background: var(--brand-100); color: var(--brand-700); font-size: 25px; font-weight: 800; }
+.avatar :global(img) { width: 100%; height: 100%; object-fit: cover; }
+.userRow strong { font-size: 21px; }
+.userRow p { margin: 5px 0 0; color: var(--text-3); font-size: 14px; }
+.shortcuts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 54px; }
+.shortcut { display: flex; flex-direction: column; align-items: center; gap: 9px; color: var(--text); font-size: 13px; white-space: nowrap; }
+.shortcut span { display: grid; width: 58px; height: 58px; place-items: center; border-radius: 18px; background: var(--surface-2); color: var(--text-3); }
+.section { margin-bottom: 54px; }
+.section h2 { margin: 0 0 18px; font-size: 24px; letter-spacing: -.5px; }
+.sectionHead { display: flex; align-items: center; justify-content: space-between; }
+.sectionHead button, .notice button { display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font-size: 13px; }
+.reviewSummary { display: grid; grid-template-columns: repeat(3, 1fr); padding: 20px 8px; border-radius: 18px; background: var(--surface-2); }
+.reviewSummary div { display: flex; flex-direction: column; align-items: center; gap: 8px; border-right: 1px solid var(--line); }
+.reviewSummary div:last-child { border: 0; }
+.reviewSummary span { color: var(--text-3); font-size: 12px; }
+.reviewSummary strong { font-size: 22px; }.star { color: var(--brand-500); }
+.notice { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--brand-50); font-size: 13px; }.notice span { font-size: 20px; }.notice button { margin-left: auto; text-decoration: underline; }
+.empty { margin: 58px 0 0; color: var(--text-3); text-align: center; font-size: 15px; }
+.placeEmpty { display: flex; min-height: 200px; flex-direction: column; align-items: center; justify-content: center; gap: 11px; border: 1px solid var(--line); border-radius: 20px; color: var(--text-3); text-align: center; }.placeEmpty p { margin: 0; font-size: 14px; }.placeEmpty button { margin-top: 5px; padding: 11px 16px; border-radius: 12px; background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 700; }

@@ -25,6 +25,8 @@ export interface MapMarkerV2 {
   r?: number;
   /** 핀 내부 글리프 — 24×24 기준 SVG path data (흰색 렌더). 업종 아이콘 등. */
   icon?: string;
+  /** 선택 강조 — 포스트 패널 포커싱 업체 등. 브랜드색 링 렌더. */
+  selected?: boolean;
 }
 
 /** 좌표가 선택 지역(동) 경계 안인지 — ray casting */

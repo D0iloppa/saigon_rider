@@ -296,6 +296,18 @@ export async function fetchBizMapItems(params: {
   }));
 }
 
+// ── 실시간 열람 핑 (W2 포스트 패널) — Redis 30s 윈도우, 응답 = 현재 열람 인원 ──
+
+export async function pingBizView(profileId: string): Promise<number> {
+  const res = await api.realFetch<{ viewer_count: number }>(
+    `/biz/public/${profileId}/view-ping`,
+    { method: 'POST' },
+    'bff',
+    { rethrow: true },
+  );
+  return res.viewer_count;
+}
+
 // ── 공개 비즈니스 프로필 (SGR-312 BP-6) ─────────────────────────
 
 export interface BusinessPublicProfile {

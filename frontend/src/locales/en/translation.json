@@ -1385,6 +1385,9 @@
     "viewMap": "Map view",
     "savedPlaces": "Saved places",
     "addPlace": "Add a place",
+    "postPanel": {
+      "viewing": "{{n}} viewing"
+    },
     "bizNews": {
       "label": "Updates",
       "categoryCopy": "A {{category}} specialist. ",

@@ -1,0 +1,174 @@
+/* 업체 포스트 패널 (W2) — 바텀시트(z10)를 대체, 검색 패널(z15)보다는 아래 */
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 11;
+}
+
+/* 패널 위 지도 여백에 뜨는 행 — 중앙 뷰어 칩 + 우측 닫기 (floatingTop* 관례) */
+.aboveRow {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.viewerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(10, 18, 28, 0.10);
+  color: var(--brand-600);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: auto;
+}
+
+.closeBtn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(10, 18, 28, 0.12);
+  color: var(--text-1);
+  pointer-events: auto;
+}
+
+/* 가로 스냅 캐러셀 */
+.scroller {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  touch-action: pan-x;
+  padding: 0 24px calc(12px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+.scroller::-webkit-scrollbar { display: none; }
+
+.card {
+  flex-shrink: 0;
+  width: calc(100% - 48px);
+  scroll-snap-align: center;
+}
+
+.cardBody {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 28px rgba(10, 18, 28, 0.16);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-2);
+  flex-shrink: 0;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bizName {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+  color: var(--success, #16a34a);
+}
+
+.time { color: var(--text-3); }
+
+.cardMain {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.copy {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.thumbWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--bg-2);
+}
+
+.thumbMore {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}

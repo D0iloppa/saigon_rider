@@ -15,6 +15,8 @@ import { fetchBizMapItems, fetchBizCategories, bizCategoryLabel, type BizMapItem
 import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchFeed } from '@/api/feed';
+import { PostPanel } from '@/pages/map/PostPanel';
+import { useBizViewerCount } from '@/hooks/useBizViewerCount';
 import type { FeedPost } from '@/api/types';
 import ListingCard from '@/pages/market/ListingCard';
 import AdCard from '@/pages/market/AdCard';
@@ -139,6 +141,16 @@ export default function NeighborhoodMap() {
   // 말풍선 데이터 = BizMapItem.latestNews (business_news 실데이터, 2026-07-11).
   // 소식이 없는 업체는 소개 카피(업종·주소)로 폴백한다.
   const [selectedBiz, setSelectedBiz] = useState<BizMapItem | null>(null);
+  // 포스트 패널 (W2, 당근 레퍼런스) — 핀 "직접 터치" 시 바텀시트를 대체하는 캐러셀.
+  // 항목은 열 때 스냅샷으로 고정 — 캐러셀이 유발한 recenter→bbox→visibleBiz 재계산이
+  // 다시 순서를 흔드는 피드백 루프 방지. selectedBiz(자동 말풍선)와 상태를 공유하지 않는다.
+  const [postPanelOpen, setPostPanelOpen] = useState(false);
+  const [carouselItems, setCarouselItems] = useState<BizMapItem[]>([]);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [postPanelHeight, setPostPanelHeight] = useState(0);
+  const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
+  const focusedBiz = postPanelOpen ? carouselItems[carouselIndex] ?? null : null;
+  const viewerCount = useBizViewerCount(focusedBiz?.id ?? null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   const [adLimit, setAdLimit] = useState(randAdBatch);
   const [reloadSeq, setReloadSeq] = useState(0);
@@ -218,6 +230,7 @@ export default function NeighborhoodMap() {
     setSearchScope(tab === 'biz' ? 'biz' : 'listings');
     if (trimmed) addRecentSearch(trimmed);
     setSearchPanelOpen(false);
+    setPostPanelOpen(false); // 검색 확정 = 새 탐색 컨텍스트 — 포스트 패널 해제 (W2)
   }, [addRecentSearch, tab]);
 
   const clearSearch = useCallback(() => {
@@ -414,6 +427,7 @@ export default function NeighborhoodMap() {
         return bizSearchResults.map((b) => ({
           id: `biz:${b.id}`, lat: b.lat, lng: b.lng, color: BIZ_COLOR, r: 1.35, label: b.name,
           icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
+          selected: focusedBiz?.id === b.id,
           onClick: () => handleBizMarkerClick(b),
         }));
       }
@@ -439,11 +453,12 @@ export default function NeighborhoodMap() {
               r: 1.35,
               label: b.name,
               icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
+              selected: focusedBiz?.id === b.id,
               onClick: () => handleBizMarkerClick(b),
             })),
     ];
     return layers.flat();
-  }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz, focusedBiz]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // useCallback 필수: SaigonMapV5의 onRegionSelect prop으로 전달되는데, 매 렌더마다
   // 새 함수를 넘기면 내부 focusLatLng/runLocate가 재생성되어 locateOnMount 이펙트가
@@ -456,6 +471,7 @@ export default function NeighborhoodMap() {
     setSelectedId(null);
     setExpandedPostId(null);
     setSelectedBiz(null);
+    setPostPanelOpen(false);
     setSharedCoords({ lat: region.lat, lng: region.lng });
     setSharedWardName(region.name);
     // 시트 자동 올림 없음 — 지역 선택은 "지도 탐색 중" 신호지 리스트를 보겠다는 의도가
@@ -486,17 +502,42 @@ export default function NeighborhoodMap() {
     });
   };
 
-  // 업체 핀 탭 (SGR-325) — 매물 핀 패턴 미러: 업체 탭 전환 + 시트 mid + 카드 하이라이트.
-  // 상세(/biz/:id) 진입은 카드 탭에서만 (바텀시트 원칙: 핀 탭 시에만 시트 자동 이동)
+  // 업체 핀 "직접 터치" (W2) — 시트 스냅 대신 포스트 패널을 연다. 캐러셀 후보 = 같은
+  // 소스(검색 중이면 검색 결과, 아니면 뷰포트 업체) 중 최신 소식 보유 업체를 탭한 업체
+  // 기준 가까운 순으로. 탭한 업체 자신은 소식이 없어도 항상 선두(폴백 카피 카드).
+  const openPostPanel = (biz: BizMapItem) => {
+    const source = isSearching && searchScope === 'biz' ? bizSearchResults : visibleBiz;
+    const d2 = (b: BizMapItem) => (b.lat - biz.lat) ** 2 + (b.lng - biz.lng) ** 2;
+    const others = source.filter((b) => b.id !== biz.id && b.latestNews).sort((a, b) => d2(a) - d2(b));
+    setCarouselItems([biz, ...others]);
+    setCarouselIndex(0);
+    setPostPanelOpen(true);
+    setSelectedBiz(null); // 자동 말풍선 상태와 분리 — 패널과 말풍선 이중 노출 방지
+    setSelectedId(biz.id);
+    focusPointRef.current?.({ lat: biz.lat, lng: biz.lng });
+  };
+
+  const closePostPanel = () => {
+    setPostPanelOpen(false);
+    setCarouselItems([]);
+    setCarouselIndex(0);
+    setSelectedId(null);
+  };
+
+  // 캐러셀 스냅 → 그 업체 핀으로 지도 recenter(줌 유지) + 하이라이트 (터치와 동일 효과)
+  const handleCarouselIndex = (i: number) => {
+    setCarouselIndex(i);
+    const b = carouselItems[i];
+    if (b) {
+      setSelectedId(b.id);
+      focusPointRef.current?.({ lat: b.lat, lng: b.lng });
+    }
+  };
+
   const handleBizMarkerClick = (biz: BizMapItem) => {
     setTab('biz');
-    setSelectedId(biz.id);
-    setSelectedBiz(biz);
     setExpandedPostId(null);
-    sheetRef.current?.snapToMid();
-    requestAnimationFrame(() => {
-      scrollItemIntoList(biz.id);
-    });
+    openPostPanel(biz);
   };
 
   // 자동 말풍선 (2026-07-11) — 제스처가 멎어 커밋된 뷰포트(bboxFilter, 500ms 디바운스)가
@@ -507,7 +548,9 @@ export default function NeighborhoodMap() {
   const selectedBizRef = useRef(selectedBiz);
   useEffect(() => { selectedBizRef.current = selectedBiz; }, [selectedBiz]);
   useEffect(() => {
-    if (tab !== 'biz' || isSearching || !bboxFilter) return;
+    // postPanelOpen 가드: 캐러셀 recenter 가 커밋한 bbox 로 이 이펙트가 재점화해
+    // 패널과 말풍선이 같은 업체에 이중 노출되는 것을 차단 (분석 리스크 #2)
+    if (tab !== 'biz' || isSearching || !bboxFilter || postPanelOpen) return;
     const latSpan = bboxFilter.N - bboxFilter.S;
     if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) return;
     const lngSpan = bboxFilter.E - bboxFilter.W;
@@ -530,13 +573,14 @@ export default function NeighborhoodMap() {
       setSelectedBiz(null);
       setSelectedId(null);
     }
-  }, [bboxFilter, visibleBiz, tab, isSearching]);
+  }, [bboxFilter, visibleBiz, tab, isSearching, postPanelOpen]);
 
   const switchTab = (tb: Tab) => {
     setTab(tb);
     setExpandedPostId(null);
     setSelectedId(null);
     if (tb !== 'biz') setSelectedBiz(null);
+    setPostPanelOpen(false);
   };
 
   const retryLoad = () => setReloadSeq((n) => n + 1);
@@ -547,6 +591,7 @@ export default function NeighborhoodMap() {
     setSelectedId(null);
     setExpandedPostId(null);
     setSelectedBiz(null);
+    setPostPanelOpen(false);
     // region 모드 중 쌓인 리스트/핀/카운트 잔재 제거 — 해제 후 "가이드+stale 헤더+stale 핀"
     // 3중 불일치 방지 (시나리오 4.3)
     setListings([]);
@@ -901,7 +946,7 @@ export default function NeighborhoodMap() {
         // 최초 방문은 전역 배지 + 줌 게이트 가이드([내 동네 보기] = 명시적 GPS)로 안내
         initialViewport={savedViewport ?? undefined}
         markers={markers}
-        anchorOverlay={bizNewsOverlay}
+        anchorOverlay={postPanelOpen ? undefined : bizNewsOverlay}
         // 배지(집계) 미사용 — 지도와 시트는 동일 데이터 소스(bbox 조회 결과)만 표시.
         // 게이트 줌 진입 전에는 지도·시트 모두 비우고 가이드로 안내 (기획 260707)
         onRegionSelect={handleRegionSelect}
@@ -917,7 +962,8 @@ export default function NeighborhoodMap() {
         polyActive={mode === 'region'}
         onLocate={mode === 'region' ? resetToViewport : undefined}
         selectRegionOnLocate={false}
-        bottomInsetPx={sheetVisibleHeight}
+        focusPointRef={focusPointRef}
+        bottomInsetPx={postPanelOpen ? postPanelHeight : sheetVisibleHeight}
         topInsetPx={tab === 'biz' && !isSearching ? SEARCH_BAR_HEIGHT + CATEGORY_CHIPS_HEIGHT : SEARCH_BAR_HEIGHT}
         showLocateControl={false}
       />
@@ -1012,6 +1058,8 @@ export default function NeighborhoodMap() {
         </div>
       )}
 
+      {/* 포스트 패널이 시트를 "대체" — unmount 하면 snap/스크롤 상태가 날아가므로 display 숨김 (W2 분석 판정) */}
+      <div style={{ display: postPanelOpen ? 'none' : undefined }}>
       <DraggableSheet
         ref={sheetRef}
         header={sheetHeader}
@@ -1048,6 +1096,20 @@ export default function NeighborhoodMap() {
       >
         <div ref={listRef} className={styles.list} onScroll={handleListScroll}>{renderBody()}</div>
       </DraggableSheet>
+      </div>
+
+      {postPanelOpen && carouselItems.length > 0 && (
+        <PostPanel
+          items={carouselItems}
+          index={carouselIndex}
+          viewerCount={viewerCount}
+          catLabel={bizCatLabel}
+          onIndexChange={handleCarouselIndex}
+          onCardTap={(b) => navigate(`/biz/${b.id}`)}
+          onClose={closePostPanel}
+          onHeightChange={setPostPanelHeight}
+        />
+      )}
 
       <ProfileCard
         userId={profileCardUserId}

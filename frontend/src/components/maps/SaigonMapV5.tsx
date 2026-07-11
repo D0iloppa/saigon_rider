@@ -131,6 +131,8 @@ export interface SaigonMapV5Props {
   /** 현재 뷰포트 기준 bbox 재발행 트리거 — region 해제 등 파이프라인 재동기화용 */
   emitBboxRef?: React.MutableRefObject<(() => void) | null>;
   searchFitRef?: React.MutableRefObject<((points: { lat: number; lng: number }[]) => void) | null>;
+  /** 줌 유지 recenter — 포스트 패널 캐러셀이 포커싱 업체로 지도만 이동할 때 사용 (focusLatLng 와 달리 줌·ward 선택 부작용 없음) */
+  focusPointRef?: React.MutableRefObject<((pos: { lat: number; lng: number }) => void) | null>;
   forceMarkers?: boolean;
   polyActive?: boolean;
   onLocate?: () => void;
@@ -163,6 +165,7 @@ function SaigonMapV5({
   locateRef,
   emitBboxRef,
   searchFitRef,
+  focusPointRef,
   forceMarkers = false,
   polyActive = true,
   onLocate,
@@ -575,6 +578,11 @@ function SaigonMapV5({
   }, [emitBboxRef, onViewportChange]);
 
   useEffect(() => {
+    if (focusPointRef) focusPointRef.current = (pos) => centerOnUnified(lx(pos.lng), ly(pos.lat));
+    return () => { if (focusPointRef) focusPointRef.current = null; };
+  }, [focusPointRef, centerOnUnified]);
+
+  useEffect(() => {
     // suppressBbox: 이 이펙트는 시트 높이·선택모드/선택동 변화에 따른 LOD/뱃지 재계산용이지
     // 사용자 뷰포트 의도가 아니다 — bbox까지 재-emit하면 handleRegionSelect가 방금
     // 비운 viewportBbox를 500ms 뒤 되살리는 문제가 있었음. bbox는 제스처/줌/fit 경로만 emit.
@@ -872,6 +880,10 @@ function SaigonMapV5({
               const r = vb.w * 0.015 * (m.r ?? 1);
               return (
                 <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
+                  {m.selected && (
+                    // 선택 강조 링 — 포스트 패널 포커싱 업체 (브랜드 오렌지)
+                    <circle cx={mx} cy={my} r={r * 1.75} fill="none" stroke="#ff5a1f" strokeWidth={r * 0.22} opacity={0.9} />
+                  )}
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
                   <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
                   {m.icon && (

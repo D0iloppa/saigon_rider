@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import BusinessNews, BusinessProfile, MarketplaceAd
+from ..models import BusinessCategory, BusinessNews, BusinessProfile, MarketplaceAd
 from ..schemas import (
     BusinessAdCreateRequest,
     BusinessAdOut,
+    BusinessCategoryOut,
     BusinessMapItemOut,
     BusinessNewsBrief,
     BusinessProfileApplyRequest,
@@ -336,7 +337,14 @@ async def get_public_map(
         )
         news_rows = (await db.execute(news_stmt)).scalars().all()
         latest_news_by_profile = {
-            n.profile_id: BusinessNewsBrief(title=n.title, created_at=n.created_at) for n in news_rows
+            n.profile_id: BusinessNewsBrief(
+                title=n.title,
+                created_at=n.created_at,
+                photos=[
+                    build_imgproxy_url(ph.content.file_path) for ph in n.photos if ph.content and ph.content.file_path
+                ],
+            )
+            for n in news_rows
         }
 
     return [
@@ -352,6 +360,23 @@ async def get_public_map(
         )
         for p in profiles
     ]
+
+
+# W3-BE T3: /public/{profile_id} 보다 먼저 등록 — 그래야 "categories" 가 UUID 파싱에 안 먹힌다.
+@router.get("/public/categories", response_model=list[BusinessCategoryOut], summary="업체 카테고리 목록")
+async def get_public_categories(db: AsyncSession = Depends(get_db)):
+    rows = (
+        (
+            await db.execute(
+                select(BusinessCategory)
+                .where(BusinessCategory.is_active == True)
+                .order_by(BusinessCategory.group_sort_order, BusinessCategory.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return rows
 
 
 @router.get("/public/{profile_id}", response_model=BusinessPublicProfileOut, summary="공개 비즈니스 프로필")

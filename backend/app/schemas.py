@@ -1210,6 +1210,21 @@ class SupportTicketDetail(SupportTicketOut):
 # ── 비즈니스 파트너 (SGR-312 BP-2) ────────────────────────────────
 
 
+class BusinessCategoryOut(BaseModel):
+    code: str
+    group_code: str
+    group_label_ko: str
+    group_label_vi: str
+    group_label_en: str
+    icon: str
+    label_ko: str
+    label_vi: str
+    label_en: str
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
 class BusinessProfileApplyRequest(BaseModel):
     name: str
     category: str | None = None
@@ -1292,6 +1307,7 @@ class BusinessPublicProfileOut(BaseModel):
 class BusinessNewsBrief(BaseModel):
     title: str
     created_at: datetime
+    photos: list[str] = []
 
 
 class BusinessMapItemOut(BaseModel):

@@ -548,6 +548,25 @@ class BusinessProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class BusinessCategory(Base):
+    """업체 카테고리 (W3-BE T1 — 오토바이 생활권 15종, 그룹 4종, 아이콘·3개국어 라벨)."""
+
+    __tablename__ = "business_category"
+
+    code: Mapped[str] = mapped_column(String(30), primary_key=True)
+    group_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    group_label_ko: Mapped[str] = mapped_column(String(40), nullable=False)
+    group_label_vi: Mapped[str] = mapped_column(String(40), nullable=False)
+    group_label_en: Mapped[str] = mapped_column(String(40), nullable=False)
+    group_sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    icon: Mapped[str] = mapped_column(String(30), nullable=False)
+    label_ko: Mapped[str] = mapped_column(String(40), nullable=False)
+    label_vi: Mapped[str] = mapped_column(String(40), nullable=False)
+    label_en: Mapped[str] = mapped_column(String(40), nullable=False)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class BusinessNews(Base):
     """업체 소식 (SGR-326 T1 — 광고 BusinessAd 와 별개, 당근 비즈프로필 '소식' 모델 미러)."""
 
@@ -560,6 +579,33 @@ class BusinessNews(Base):
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    photos: Mapped[list["BusinessNewsPhoto"]] = relationship(
+        "BusinessNewsPhoto",
+        back_populates="news",
+        lazy="selectin",
+        order_by="BusinessNewsPhoto.sort_order",
+        cascade="all, delete-orphan",
+    )
+
+
+class BusinessNewsPhoto(Base):
+    """업체 소식 사진 (W3-BE T1 — feed_post_images 패턴 미러)."""
+
+    __tablename__ = "business_news_photo"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    news_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_news.id", ondelete="CASCADE"), nullable=False
+    )
+    content_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="CASCADE"), nullable=False
+    )
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    news: Mapped["BusinessNews"] = relationship("BusinessNews", back_populates="photos")
+    content: Mapped["Content"] = relationship("Content", lazy="selectin")
 
 
 class MarketplaceAd(Base):

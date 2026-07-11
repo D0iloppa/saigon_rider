@@ -128,7 +128,8 @@ async function scenario2(browser, session) {
       const seg = document.querySelector('[class*="segBtn"]');
       return seg ? seg.offsetParent === null : null;
     });
-    const selectionRing = await page.evaluate(() => document.querySelectorAll('g[data-marker^="biz:"] circle[stroke="#ff5a1f"]').length);
+    // 선택 표시: teardrop 핀 꼭짓점 기준 scale(1.3) 확대 (구 선택 링 circle[stroke]은 teardrop 리디자인에서 제거됨)
+    const selectionRing = await page.evaluate(() => document.querySelectorAll('g[data-marker^="biz:"] g[transform*="scale(1.3)"]').length);
     const favBtn = await page.evaluate(() => document.querySelectorAll('[class*="favBtn"]').length);
     await page.screenshot({ path: 'tools/qm/shots/regr_s2_post_panel_open.png' });
 

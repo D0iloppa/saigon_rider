@@ -23,6 +23,8 @@ export interface MapMarkerV2 {
   color?: string;
   /** 핀 크기 배수 (기본 1). */
   r?: number;
+  /** 핀 내부 글리프 — 24×24 기준 SVG path data (흰색 렌더). 업종 아이콘 등. */
+  icon?: string;
 }
 
 /** 좌표가 선택 지역(동) 경계 안인지 — ray casting */

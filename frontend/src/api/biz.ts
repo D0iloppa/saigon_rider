@@ -200,6 +200,8 @@ export interface BizMapItem {
   lat: number;
   lng: number;
   photoUrl: string | null;
+  /** 최신 업체 소식 (business_news) — 없으면 null. 지도 말풍선에 노출. */
+  latestNews: { title: string; createdAt: string } | null;
 }
 
 interface BizMapItemApi {
@@ -210,6 +212,7 @@ interface BizMapItemApi {
   lat: string | number;
   lng: string | number;
   photo_url: string | null;
+  latest_news: { title: string; created_at: string } | null;
 }
 
 export async function fetchBizMapItems(params: {
@@ -237,6 +240,7 @@ export async function fetchBizMapItems(params: {
     lat: Number(b.lat),
     lng: Number(b.lng),
     photoUrl: b.photo_url,
+    latestNews: b.latest_news ? { title: b.latest_news.title, createdAt: b.latest_news.created_at } : null,
   }));
 }
 

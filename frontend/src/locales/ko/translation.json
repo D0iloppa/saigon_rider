@@ -1381,6 +1381,30 @@
     "emptyBiz": "이 동네 등록된 업체가 없어요",
     "emptyBizHint": "다른 카테고리를 선택하거나 지도를 이동해 보세요.",
     "bizCategoryAll": "전체",
+    "clearRegion": "선택 지역 해제",
+    "savedPlaces": "저장한 장소",
+    "addPlace": "장소 추가",
+    "bizNews": {
+      "label": "새소식",
+      "categoryCopy": "{{category}} 전문점이에요. ",
+      "fallbackCopy": "우리 동네에서 만나요."
+    },
+    "neighborhoodProfile": {
+      "title": "동네지도 프로필",
+      "defaultNickname": "라이더",
+      "activityComingSoon": "동네 활동은 준비 중이에요",
+      "shortcuts": { "coupons": "받은 쿠폰", "orders": "포장/주문", "wishlist": "관심목록", "favorites": "단골 업체" },
+      "reviews": "나의 후기",
+      "writeReview": "후기 작성",
+      "averageRating": "평균 별점",
+      "totalViews": "누적 조회수",
+      "helpfulCount": "도움돼요 수",
+      "reviewNotice": "후기 쓰고 동네탐험가가 되어보세요!",
+      "noReviews": "아직 작성한 후기가 없어요.",
+      "placeSuggestion": "장소 제안",
+      "placeHint": "우리 동네 장소를 등록해 보세요",
+      "addPlace": "장소 추가하기"
+    },
     "bizCategories": {
       "repair": "정비",
       "wash": "세차",

@@ -548,6 +548,20 @@ class BusinessProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class BusinessNews(Base):
+    """업체 소식 (SGR-326 T1 — 광고 BusinessAd 와 별개, 당근 비즈프로필 '소식' 모델 미러)."""
+
+    __tablename__ = "business_news"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class MarketplaceAd(Base):
     __tablename__ = "marketplace_ads"
 

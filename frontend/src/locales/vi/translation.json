@@ -1381,6 +1381,30 @@
     "emptyBiz": "Chưa có cửa hàng ở khu này",
     "emptyBizHint": "Hãy chọn danh mục khác hoặc di chuyển bản đồ.",
     "bizCategoryAll": "Tất cả",
+    "clearRegion": "Bỏ chọn khu vực",
+    "savedPlaces": "Địa điểm đã lưu",
+    "addPlace": "Thêm địa điểm",
+    "bizNews": {
+      "label": "Tin mới",
+      "categoryCopy": "Chuyên {{category}}. ",
+      "fallbackCopy": "Gặp bạn tại khu phố của chúng ta."
+    },
+    "neighborhoodProfile": {
+      "title": "Hồ sơ Bản đồ khu phố",
+      "defaultNickname": "Rider",
+      "activityComingSoon": "Hoạt động khu phố sắp ra mắt",
+      "shortcuts": { "coupons": "Phiếu đã nhận", "orders": "Đặt hàng", "wishlist": "Yêu thích", "favorites": "Cửa hàng quen" },
+      "reviews": "Đánh giá của tôi",
+      "writeReview": "Viết đánh giá",
+      "averageRating": "Điểm trung bình",
+      "totalViews": "Tổng lượt xem",
+      "helpfulCount": "Lượt hữu ích",
+      "reviewNotice": "Viết đánh giá và trở thành nhà khám phá khu phố!",
+      "noReviews": "Bạn chưa viết đánh giá nào.",
+      "placeSuggestion": "Đề xuất địa điểm",
+      "placeHint": "Đăng ký một địa điểm trong khu phố của bạn",
+      "addPlace": "Thêm địa điểm"
+    },
     "bizCategories": {
       "repair": "Sửa xe",
       "wash": "Rửa xe",

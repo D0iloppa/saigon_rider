@@ -1381,6 +1381,30 @@
     "emptyBiz": "No businesses in this area",
     "emptyBizHint": "Try another category or move the map.",
     "bizCategoryAll": "All",
+    "clearRegion": "Clear selected area",
+    "savedPlaces": "Saved places",
+    "addPlace": "Add a place",
+    "bizNews": {
+      "label": "Updates",
+      "categoryCopy": "A {{category}} specialist. ",
+      "fallbackCopy": "Meet us in your neighborhood."
+    },
+    "neighborhoodProfile": {
+      "title": "Neighborhood Map Profile",
+      "defaultNickname": "Rider",
+      "activityComingSoon": "Neighborhood activity is coming soon",
+      "shortcuts": { "coupons": "Coupons", "orders": "Orders", "wishlist": "Wishlist", "favorites": "Favorite places" },
+      "reviews": "My reviews",
+      "writeReview": "Write a review",
+      "averageRating": "Average rating",
+      "totalViews": "Total views",
+      "helpfulCount": "Helpful count",
+      "reviewNotice": "Write reviews and become a neighborhood explorer!",
+      "noReviews": "You have not written any reviews yet.",
+      "placeSuggestion": "Suggest a place",
+      "placeHint": "Add a place in your neighborhood",
+      "addPlace": "Add a place"
+    },
     "bizCategories": {
       "repair": "Repair",
       "wash": "Wash",

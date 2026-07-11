@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, LocateFixed, MapPin, RotateCw, X } from 'lucide-react';
+import { ChevronLeft, Heart, LocateFixed, MapPin, Plus, RotateCw, X } from 'lucide-react';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
@@ -12,6 +12,8 @@ import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
 import { fetchBizMapItems, type BizMapItem } from '@/api/biz';
+import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
+import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchFeed } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
 import ListingCard from '@/pages/market/ListingCard';
@@ -29,6 +31,11 @@ const FEED_COLOR = '#3b82f6';
 const BIZ_COLOR = '#16a34a';
 // T2 시드 category 값과 1:1 (SGR-324) — 칩 순서 = 노출 순서
 const BIZ_CATEGORIES = ['repair', 'wash', 'cafe', 'food', 'parts'] as const;
+// 자동 말풍선 (2026-07-11) — 뷰포트 세로 스팬이 이 값 이하일 때만 중앙 근접 업체를 터치 없이
+// 활성화한다. 세로 폰(≈2.16:1)에서 lat 스팬은 lng 스팬의 2배+ 로 복원되므로 0.03(가로 ≈1.5km,
+// 동 단위 줌인)으로 잡는다. 반경은 뷰포트 스팬 대비 정규화 거리(0.5=화면 가장자리).
+const AUTO_BUBBLE_MAX_LAT_SPAN = 0.03;
+const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 // 업체 탭 카테고리 칩 줄 높이 — 지도 확대/축소 버튼을 그 아래로 밀어내는 데 사용
 const CATEGORY_CHIPS_HEIGHT = 42;
 // SearchBox 높이(44px) + searchOverlay 상단 여백(10px) — 지도 확대/축소 버튼이 검색창 아래로 오도록
@@ -110,7 +117,6 @@ export default function NeighborhoodMap() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const storedCoords = useLocationStore((s) => s.coords);
-  const storedWardName = useLocationStore((s) => s.wardName);
   const setSharedCoords = useLocationStore((s) => s.setCoords);
   const setSharedWardName = useLocationStore((s) => s.setWardName);
   const user = useUserStore((s) => s.user);
@@ -130,6 +136,9 @@ export default function NeighborhoodMap() {
   const [loadError, setLoadError] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 말풍선 데이터 = BizMapItem.latestNews (business_news 실데이터, 2026-07-11).
+  // 소식이 없는 업체는 소개 카피(업종·주소)로 폴백한다.
+  const [selectedBiz, setSelectedBiz] = useState<BizMapItem | null>(null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   const [adLimit, setAdLimit] = useState(randAdBatch);
   const [reloadSeq, setReloadSeq] = useState(0);
@@ -137,6 +146,7 @@ export default function NeighborhoodMap() {
   const [sheetSnap, setSheetSnap] = useState<'full' | 'mid' | 'collapsed'>('collapsed');
 
   const sheetRef = useRef<DraggableSheetHandle>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const locateRef = useRef<(() => void) | null>(null);
   const emitBboxRef = useRef<(() => void) | null>(null);
@@ -321,10 +331,11 @@ export default function NeighborhoodMap() {
     return () => { cancelled = true; };
   }, [bboxFilter, reloadSeq, selectedRegion, isSearching]);
 
-  // 업체 핀 레이어 (SGR-323, G-1) — 탭과 무관한 상시 제3 레이어. 매물·피드와 동일한
+  // 업체 핀 레이어 (SGR-323, G-1) — biz 탭에서만 노출되는 레이어. 매물·피드와 동일한
   // 줌 게이트를 지키며(결정사항 2), region 모드에서는 폴리곤 외접 bbox로 조회한다.
   useEffect(() => {
     if (isSearching) return;
+    if (tab !== 'biz') { setBizItems([]); return; }
     if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
       setBizItems([]);
       return;
@@ -341,7 +352,7 @@ export default function NeighborhoodMap() {
       .catch(() => { if (!cancelled) setBizItems([]); })
       .finally(() => { if (!cancelled) setBizLoading(false); });
     return () => { cancelled = true; };
-  }, [bboxFilter, reloadSeq, selectedRegion, isSearching, bizCategory]);
+  }, [bboxFilter, reloadSeq, selectedRegion, isSearching, bizCategory, tab]);
 
   const visibleListings = useMemo(() => {
     if (bboxFilter) {
@@ -379,14 +390,15 @@ export default function NeighborhoodMap() {
   }, [bboxFilter, bizItems, selectedRegion]);
 
   // depth2/3 마커 (선택 영역 기준) — 검색 중엔 위치 필터 무시하고 검색 결과만 표시.
-  // 핀 레이어 배열 구조 (SGR-323): listing/feed 는 탭 배타(현행 유지), biz 는 상시 제3 레이어.
+  // 핀 레이어 배열 구조 (SGR-323): listing/feed/biz 모두 탭 배타 — biz 핀도 biz 탭에서만 노출.
   // 향후 info 계열 흡수 시 레이어 추가로 확장한다 (결정사항 1).
   const markers = useMemo<MapMarkerV2[]>(() => {
     if (isSearching) {
       if (searchScope === 'biz') {
         return bizSearchResults.map((b) => ({
-          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, color: BIZ_COLOR, r: 1.15, label: b.name,
-          onClick: () => handleBizMarkerClick(b.id),
+          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, color: BIZ_COLOR, r: 1.35, label: b.name,
+          icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
+          onClick: () => handleBizMarkerClick(b),
         }));
       }
       return searchResults
@@ -402,17 +414,17 @@ export default function NeighborhoodMap() {
           ? visiblePosts
               .filter((p) => p.latitude != null && p.longitude != null)
               .map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, color: FEED_COLOR, onClick: () => handleMarkerClick(p.id) }))
-          : [], // biz 탭 — 아래 상시 biz 레이어만 표시 (핀↔리스트 집합 일치)
-      // 업체 핀 — 아이콘 대신 색+라벨(상호명)로 시각 위계 분리 (당근 IN-1 변형)
-      visibleBiz.map((b) => ({
-        id: `biz:${b.id}`,
-        lat: b.lat,
-        lng: b.lng,
-        color: BIZ_COLOR,
-        r: 1.15,
-        label: b.name,
-        onClick: () => handleBizMarkerClick(b.id),
-      })),
+          // 업체 핀 — 색+라벨(상호명)+업종 글리프 (당근 IN-1 변형). biz 탭에서만 노출.
+          : visibleBiz.map((b) => ({
+              id: `biz:${b.id}`,
+              lat: b.lat,
+              lng: b.lng,
+              color: BIZ_COLOR,
+              r: 1.35,
+              label: b.name,
+              icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
+              onClick: () => handleBizMarkerClick(b),
+            })),
     ];
     return layers.flat();
   }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -427,11 +439,25 @@ export default function NeighborhoodMap() {
     clearTimeout(bboxTimerRef.current);
     setSelectedId(null);
     setExpandedPostId(null);
+    setSelectedBiz(null);
     setSharedCoords({ lat: region.lat, lng: region.lng });
     setSharedWardName(region.name);
     // 시트 자동 올림 없음 — 지역 선택은 "지도 탐색 중" 신호지 리스트를 보겠다는 의도가
     // 아니다(UX 원칙: 시트는 사용자 의도로만 이동). 선택 결과는 접힘 헤더 칩/건수로 보인다.
   }, [setSharedCoords, setSharedWardName]);
+
+  // scrollIntoView는 리스트 내부만이 아니라 모든 스크롤 가능 조상(AppShell 콘텐츠
+  // 컨테이너 포함)을 함께 스크롤해 검색 오버레이를 화면 밖으로 밀어내므로,
+  // 리스트 컨테이너 스크롤만 직접 계산해 이동시킨다.
+  const scrollItemIntoList = (id: string) => {
+    const list = listRef.current;
+    const item = itemRefs.current[id];
+    if (!list || !item) return;
+    const listRect = list.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const offset = (itemRect.top - listRect.top) - (listRect.height / 2 - itemRect.height / 2);
+    list.scrollTo({ top: list.scrollTop + offset, behavior: 'smooth' });
+  };
 
   const handleMarkerClick = (id: string) => {
     setSelectedId(id);
@@ -440,26 +466,61 @@ export default function NeighborhoodMap() {
     // 보이도록 mid 까지만 (full 확장은 지도 컨텍스트를 잃음)
     sheetRef.current?.snapToMid();
     requestAnimationFrame(() => {
-      itemRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      scrollItemIntoList(id);
     });
   };
 
   // 업체 핀 탭 (SGR-325) — 매물 핀 패턴 미러: 업체 탭 전환 + 시트 mid + 카드 하이라이트.
   // 상세(/biz/:id) 진입은 카드 탭에서만 (바텀시트 원칙: 핀 탭 시에만 시트 자동 이동)
-  const handleBizMarkerClick = (id: string) => {
+  const handleBizMarkerClick = (biz: BizMapItem) => {
     setTab('biz');
-    setSelectedId(id);
+    setSelectedId(biz.id);
+    setSelectedBiz(biz);
     setExpandedPostId(null);
     sheetRef.current?.snapToMid();
     requestAnimationFrame(() => {
-      itemRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      scrollItemIntoList(biz.id);
     });
   };
+
+  // 자동 말풍선 (2026-07-11) — 제스처가 멎어 커밋된 뷰포트(bboxFilter, 500ms 디바운스)가
+  // 충분히 줌인 상태면 중앙 부근 최근접 업체 1곳을 터치 없이 활성화하고, 중앙에서 벗어나면
+  // 해제한다(다른 핀이 오면 갈아탐). 임계 미만 줌에서는 완전 비활성 — 핀 탭 선택을 보존.
+  // selectedBiz 는 ref 로 읽는다: deps 에 넣으면 핀 탭 직후 이 이펙트가 되돌아 선택을 지운다.
+  // 시트는 움직이지 않는다 — 자동 활성화는 사용자 의도가 아니다(바텀시트 원칙). 하이라이트·스크롤만.
+  const selectedBizRef = useRef(selectedBiz);
+  useEffect(() => { selectedBizRef.current = selectedBiz; }, [selectedBiz]);
+  useEffect(() => {
+    if (tab !== 'biz' || isSearching || !bboxFilter) return;
+    const latSpan = bboxFilter.N - bboxFilter.S;
+    if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) return;
+    const lngSpan = bboxFilter.E - bboxFilter.W;
+    const cLat = (bboxFilter.N + bboxFilter.S) / 2;
+    const cLng = (bboxFilter.E + bboxFilter.W) / 2;
+    let best: BizMapItem | null = null;
+    let bestD = Infinity;
+    for (const b of visibleBiz) {
+      const d = Math.hypot((b.lat - cLat) / latSpan, (b.lng - cLng) / lngSpan);
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    if (best && bestD <= AUTO_BUBBLE_CENTER_RADIUS) {
+      if (selectedBizRef.current?.id !== best.id) {
+        const target = best;
+        setSelectedBiz(target);
+        setSelectedId(target.id);
+        requestAnimationFrame(() => scrollItemIntoList(target.id));
+      }
+    } else if (selectedBizRef.current) {
+      setSelectedBiz(null);
+      setSelectedId(null);
+    }
+  }, [bboxFilter, visibleBiz, tab, isSearching]);
 
   const switchTab = (tb: Tab) => {
     setTab(tb);
     setExpandedPostId(null);
     setSelectedId(null);
+    if (tb !== 'biz') setSelectedBiz(null);
   };
 
   const retryLoad = () => setReloadSeq((n) => n + 1);
@@ -469,6 +530,7 @@ export default function NeighborhoodMap() {
     setSelectedRegion(null);
     setSelectedId(null);
     setExpandedPostId(null);
+    setSelectedBiz(null);
     // region 모드 중 쌓인 리스트/핀/카운트 잔재 제거 — 해제 후 "가이드+stale 헤더+stale 핀"
     // 3중 불일치 방지 (시나리오 4.3)
     setListings([]);
@@ -491,6 +553,30 @@ export default function NeighborhoodMap() {
 
   const bizCatLabel = (c: string | null) => (c ? t(`map.bizCategories.${c}`, { defaultValue: c }) : '');
 
+  // 업체 새소식 말풍선 — 지도 앵커 오버레이로 핀(lat/lng)에 고정되어 팬/줌을 따라간다 (SGR-325).
+  // SaigonMapV5 는 memo — 객체 prop 은 useMemo 로 참조를 고정한다(기존 계약). key: 다른 핀 탭 시 pop 재생.
+  const bizNewsOverlay = useMemo(() => {
+    if (!selectedBiz) return undefined;
+    return {
+      lat: selectedBiz.lat,
+      lng: selectedBiz.lng,
+      node: (
+        <button key={selectedBiz.id} type="button" className={styles.bizNewsBubble} onClick={() => navigate(`/biz/${selectedBiz.id}`)}>
+          {/* eyebrow 는 실소식이 있을 때만 — 소식 없는 업체에 "새소식·방금 전"을 붙이지 않는다(정직화) */}
+          {selectedBiz.latestNews && (
+            <span className={styles.bizNewsEyebrow}>{t('map.bizNews.label')} <span>{formatRelativeTime(selectedBiz.latestNews.createdAt)}</span></span>
+          )}
+          <strong>{selectedBiz.name}</strong>
+          <span className={styles.bizNewsCopy}>
+            {selectedBiz.latestNews
+              ? selectedBiz.latestNews.title
+              : <>{selectedBiz.category ? t('map.bizNews.categoryCopy', { category: bizCatLabel(selectedBiz.category) }) : ''}{selectedBiz.address ?? t('map.bizNews.fallbackCopy')}</>}
+          </span>
+        </button>
+      ),
+    };
+  }, [selectedBiz, navigate, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 업체 카드 — 업체 탭 리스트·업체 검색 결과 공용 (탭 시 /biz/:id)
   const renderBizCard = (b: BizMapItem) => (
     <div
@@ -503,7 +589,7 @@ export default function NeighborhoodMap() {
         <div className={styles.bizBody}>
           <span className={styles.bizName}>{b.name}</span>
           <span className={styles.bizMeta}>
-            {b.category && <span className={styles.bizCat}>{bizCatLabel(b.category)}</span>}
+            {b.category && <span className={styles.bizCat}><BizCatIcon category={b.category} size={12} />{bizCatLabel(b.category)}</span>}
             {b.address && <span className={styles.bizAddr}>{b.address}</span>}
           </span>
         </div>
@@ -795,9 +881,11 @@ export default function NeighborhoodMap() {
         // 최초 방문은 전역 배지 + 줌 게이트 가이드([내 동네 보기] = 명시적 GPS)로 안내
         initialViewport={savedViewport ?? undefined}
         markers={markers}
+        anchorOverlay={bizNewsOverlay}
         // 배지(집계) 미사용 — 지도와 시트는 동일 데이터 소스(bbox 조회 결과)만 표시.
         // 게이트 줌 진입 전에는 지도·시트 모두 비우고 가이드로 안내 (기획 260707)
         onRegionSelect={handleRegionSelect}
+        onMapTap={() => setSelectedBiz(null)}
         onBboxChange={handleBboxChange}
         onDepthChange={setShowDistrictBadges}
         onLocated={setSharedCoords}
@@ -811,6 +899,7 @@ export default function NeighborhoodMap() {
         selectRegionOnLocate={false}
         bottomInsetPx={sheetVisibleHeight}
         topInsetPx={tab === 'biz' && !isSearching ? SEARCH_BAR_HEIGHT + CATEGORY_CHIPS_HEIGHT : SEARCH_BAR_HEIGHT}
+        showLocateControl={false}
       />
 
       <div className={styles.searchOverlay}>
@@ -821,7 +910,30 @@ export default function NeighborhoodMap() {
           readOnly
           onClick={() => setSearchPanelOpen(true)}
         />
+        <button
+          type="button"
+          className={styles.mapProfileButton}
+          onClick={() => navigate('/map/profile')}
+          aria-label={t('map.neighborhoodProfile.title')}
+        >
+          {user?.avatarUrl ? <AppImage src={user.avatarUrl} alt="" className={styles.mapProfileAvatar} variant="circle" /> : <span>{(user?.nickname || t('map.neighborhoodProfile.defaultNickname')).charAt(0).toUpperCase()}</span>}
+        </button>
       </div>
+
+      {/* 지도 전용 도구. GPS만 동작하며 나머지는 백엔드 기능 연동 전 시각 목업이다. */}
+      {!isSearching && (
+        <div className={styles.mapTools}>
+          <button type="button" className={styles.mapToolButton} onClick={() => locateRef.current?.()} aria-label={t('map.locateMe')}>
+            <LocateFixed size={18} strokeWidth={2.3} />
+          </button>
+          <button type="button" className={styles.mapToolButton} aria-label={t('map.savedPlaces')} aria-disabled="true">
+            <Heart size={17} strokeWidth={2.2} />
+          </button>
+          <button type="button" className={styles.mapToolButton} aria-label={t('map.addPlace')} aria-disabled="true">
+            <Plus size={18} strokeWidth={2.3} />
+          </button>
+        </div>
+      )}
 
       {/* 업체 카테고리 칩 (SGR-324) — 업체 탭 전용, 검색바 아래 가로 스크롤 (당근 IN-1) */}
       {tab === 'biz' && !isSearching && (
@@ -833,6 +945,7 @@ export default function NeighborhoodMap() {
               className={`${styles.catChip} ${bizCategory === c ? styles.catChipActive : ''}`}
               onClick={() => setBizCategory(c)}
             >
+              {c && <BizCatIcon category={c} size={13} />}
               {c ? bizCatLabel(c) : t('map.bizCategoryAll')}
             </button>
           ))}
@@ -880,15 +993,18 @@ export default function NeighborhoodMap() {
         header={sheetHeader}
         embedded
         initialSnap="collapsed"
-        floatingTopLeft={!isSearching && mode === 'region' && selectedRegion ? (
+        floatingTopLeft={!isSearching && selectedRegion ? (
           <button
             type="button"
-            className={styles.filterChip}
+            className={styles.areaPill}
             onClick={clearRegionFilter}
+            aria-label={t('map.clearRegion')}
           >
-            <MapPin size={14} strokeWidth={2.2} />
+            <span className={styles.areaPillIcon}>
+              <MapPin size={13} fill="currentColor" />
+            </span>
             <span>{selectedRegion.name}</span>
-            <X size={14} />
+            <span className={styles.areaPillClose}><X size={15} strokeWidth={2.4} /></span>
           </button>
         ) : undefined}
         maxHeight="65vh"
@@ -897,7 +1013,7 @@ export default function NeighborhoodMap() {
         onVisibleHeightChange={setSheetVisibleHeight}
         onSnapChange={setSheetSnap}
       >
-        <div className={styles.list} onScroll={handleListScroll}>{renderBody()}</div>
+        <div ref={listRef} className={styles.list} onScroll={handleListScroll}>{renderBody()}</div>
       </DraggableSheet>
 
       <ProfileCard

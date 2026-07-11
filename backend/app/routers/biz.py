@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import BusinessProfile, MarketplaceAd
+from ..models import BusinessNews, BusinessProfile, MarketplaceAd
 from ..schemas import (
     BusinessAdCreateRequest,
     BusinessAdOut,
     BusinessMapItemOut,
+    BusinessNewsBrief,
     BusinessProfileApplyRequest,
     BusinessProfileOut,
     BusinessProfileUpdateRequest,
@@ -322,6 +323,22 @@ async def get_public_map(
     if q:
         stmt = stmt.where(BusinessProfile.name.ilike(f"%{q}%"))
     profiles = (await db.execute(stmt.limit(200))).scalars().all()
+
+    # 최신 소식 1건씩 N+1 없이 조회 (DISTINCT ON — profile_id 별 created_at 최신 1행)
+    profile_ids = [p.id for p in profiles]
+    latest_news_by_profile: dict[uuid.UUID, BusinessNewsBrief] = {}
+    if profile_ids:
+        news_stmt = (
+            select(BusinessNews)
+            .where(BusinessNews.profile_id.in_(profile_ids))
+            .distinct(BusinessNews.profile_id)
+            .order_by(BusinessNews.profile_id, BusinessNews.created_at.desc())
+        )
+        news_rows = (await db.execute(news_stmt)).scalars().all()
+        latest_news_by_profile = {
+            n.profile_id: BusinessNewsBrief(title=n.title, created_at=n.created_at) for n in news_rows
+        }
+
     return [
         BusinessMapItemOut(
             id=p.id,
@@ -331,6 +348,7 @@ async def get_public_map(
             lat=p.latitude,
             lng=p.longitude,
             photo_url=build_imgproxy_url(p.photo_content.file_path) if p.photo_content else None,
+            latest_news=latest_news_by_profile.get(p.id),
         )
         for p in profiles
     ]

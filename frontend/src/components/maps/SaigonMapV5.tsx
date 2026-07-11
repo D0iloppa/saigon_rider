@@ -1,6 +1,6 @@
 import { LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { memo, useCallback, useEffect, useRef, useState, type PointerEvent as PE } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
 import { native } from '@/lib/native';
 import depth1 from './v2/saigon-depth1.json';
 import type { MapMarkerV2, SelectedRegion } from './v2/region';
@@ -117,10 +117,14 @@ export interface SaigonMapV5Props {
   /** 마운트 시 이 lat/lng bbox로 뷰포트를 복원 (재진입 뷰포트 기억 — GPS 없음). 마운트 이후 변경은 무시 */
   initialViewport?: { N: number; S: number; E: number; W: number };
   markers?: MapMarkerV2[];
+  /** 지도 좌표(lat/lng)에 고정되는 HTML 오버레이(핀 말풍선 등) — svg 형제로 렌더되어 팬/줌을 따라간다 */
+  anchorOverlay?: { lat: number; lng: number; node: ReactNode };
   districtBadges?: DistrictBadge[];
   /** 도시 전체 조망(vb.w >= L1_VBW)에서만 노출되는 더 굵은 단위(구) 뱃지 — 없으면 districtBadges로 대체 */
   cityBadges?: DistrictBadge[];
   onRegionSelect?: (region: SelectedRegion) => void;
+  /** 마커가 아닌 지도 영역을 탭했을 때 부모 오버레이를 정리하는 훅. */
+  onMapTap?: () => void;
   onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
   onDepthChange?: (showDistrictBadges: boolean) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
@@ -135,6 +139,8 @@ export interface SaigonMapV5Props {
   /** 서비스 지역(HCMC) 밖 GPS 안내 문구 — 미지정 시 한국어 기본값 */
   outsideAreaMessage?: string;
   selectRegionOnLocate?: boolean;
+  /** 부모가 동일 기능의 위치 CTA를 제공할 때 지도 내부 버튼을 숨긴다. */
+  showLocateControl?: boolean;
   selectionOnly?: boolean;
   bottomInsetPx?: number;
   topInsetPx?: number;
@@ -147,9 +153,11 @@ function SaigonMapV5({
   initialGps,
   initialViewport,
   markers,
+  anchorOverlay,
   districtBadges,
   cityBadges,
   onRegionSelect,
+  onMapTap,
   onBboxChange,
   onDepthChange,
   locateRef,
@@ -161,6 +169,7 @@ function SaigonMapV5({
   onLocated,
   outsideAreaMessage,
   selectRegionOnLocate = true,
+  showLocateControl = true,
   selectionOnly = false,
   bottomInsetPx = 0,
   topInsetPx = 0,
@@ -168,6 +177,9 @@ function SaigonMapV5({
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // anchorOverlay DOM + 좌표 미러 — 팬/핀치 fast-path(setVBAttr)가 React 재렌더 없이 위치를 갱신
+  const anchorElRef = useRef<HTMLDivElement>(null);
+  const anchorPosRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // viewBox: 애니메이션용 ref, 데이터 갱신용 state
   const vbRef = useRef<VB>({ x: 0, y: 0, w: BASE_W, h: BASE_W });
@@ -206,10 +218,45 @@ function SaigonMapV5({
     toastTimer.current = setTimeout(() => setToast(''), TOAST_MS);
   }, []);
 
+  // anchorOverlay 화면 배치 — 말풍선 하단-중앙이 핀 위를 향하도록 놓고, 좌우는 컨테이너 안으로
+  // 클램프하되 꼬리(--tail-x)는 핀의 실제 x를 계속 가리킨다. 핀이 화면 밖이면 숨김.
+  const updateAnchorOverlay = useCallback(() => {
+    const el = anchorElRef.current;
+    const svg = svgRef.current;
+    const pos = anchorPosRef.current;
+    if (!el || !svg || !pos) return;
+    const vb = vbRef.current;
+    const cw = svg.clientWidth || 1;
+    const ch = svg.clientHeight || 1;
+    const px = (lx(pos.lng) - vb.x) / vb.w * cw;
+    const py = (ly(pos.lat) - vb.y) / vb.h * ch;
+    if (px < 0 || px > cw || py < 0 || py > ch) {
+      el.style.visibility = 'hidden';
+      return;
+    }
+    const bw = el.offsetWidth;
+    const bh = el.offsetHeight;
+    // 꼬리 간격: 마커 halo 화면 반지름(r×1.4, 업체 핀 r:1.15 기준) + 꼬리 돌출(≈11px) + 여백
+    const gap = cw * 0.015 * 1.15 * 1.4 + 14;
+    const bx = Math.min(Math.max(px - bw / 2, 8), Math.max(8, cw - bw - 8));
+    const by = py - gap - bh;
+    el.style.transform = `translate(${bx}px, ${by}px)`;
+    el.style.setProperty('--tail-x', `${Math.min(Math.max(px - bx, 20), bw - 20)}px`);
+    el.style.visibility = 'visible';
+  }, []);
+
   const setVBAttr = useCallback(() => {
     const v = vbRef.current;
     svgRef.current?.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
-  }, []);
+    // 팬/핀치 중에는 vbSnap 재렌더가 없으므로 여기서 오버레이 위치도 함께 직접 갱신
+    updateAnchorOverlay();
+  }, [updateAnchorOverlay]);
+
+  // 앵커 좌표 미러 + 초기 배치 — 노드가 그려진 직후(페인트 전) 측정·배치해 (0,0) 플래시 방지
+  useLayoutEffect(() => {
+    anchorPosRef.current = anchorOverlay ? { lat: anchorOverlay.lat, lng: anchorOverlay.lng } : null;
+    updateAnchorOverlay();
+  }, [anchorOverlay, updateAnchorOverlay]);
 
   const getBottomInsetUnits = useCallback((viewHeight: number) => {
     const svg = svgRef.current;
@@ -628,6 +675,7 @@ function SaigonMapV5({
       markers?.find((m) => String(m.id) === mid)?.onClick?.();
       return;
     }
+    onMapTap?.();
     const svgEl = svgRef.current;
     const r = svgEl?.getBoundingClientRect();
     if (!r || !svgEl) return;
@@ -648,19 +696,8 @@ function SaigonMapV5({
     }
   };
 
-  // ── 줌 버튼 ────────────────────────────────────────────────
-  const zoomIn = () => {
-    const vb = vbRef.current;
-    applyZoom(0.6, vb.x + vb.w / 2, vb.y + vb.h / 2);
-    onViewportChange();
-    setVbSnap((n) => n + 1);
-  };
-  const zoomOut = () => {
-    const vb = vbRef.current;
-    applyZoom(1.5, vb.x + vb.w / 2, vb.y + vb.h / 2);
-    onViewportChange();
-    setVbSnap((n) => n + 1);
-  };
+  // 줌 +/- 도구는 핀치·휠 제스처와 중복되어 현재 숨김.
+  // 다시 노출할 때는 아래 위치에 zoomIn/zoomOut 핸들러와 .zoomControls JSX를 복원한다.
 
   // ── LOD 상태 (render 시점 기준) ────────────────────────────
   const vb = vbRef.current;
@@ -837,6 +874,13 @@ function SaigonMapV5({
                 <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
                   <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
+                  {m.icon && (
+                    // 업종 글리프 — 24×24 path 를 원 내접 정사각(변 1.24r, 대각 반지름 0.88r)으로 스케일
+                    <path
+                      d={m.icon} fill="#fff" pointerEvents="none"
+                      transform={`translate(${mx - r * 0.62}, ${my - r * 0.62}) scale(${(r * 1.24) / 24})`}
+                    />
+                  )}
                   {m.label && (
                     // 업체 핀 상호명 라벨 (SGR-323, 당근 IN-1 패턴) — 동명 텍스트와 동일한 흰 헤일로
                     <text
@@ -869,27 +913,33 @@ function SaigonMapV5({
         })()}
       </svg>
 
+      {/* 앵커 오버레이 — lat/lng 고정 HTML 노드. svg 형제라 setPointerCapture 재타겟팅과 무관하게
+          내부 onClick 이 정상 발화한다. 위치는 updateAnchorOverlay 가 transform 으로 직접 갱신. */}
+      {anchorOverlay && (
+        <div ref={anchorElRef} className={styles.anchorOverlay}>
+          {anchorOverlay.node}
+        </div>
+      )}
 
       {!selectionOnly && (
         <>
           {/* topInsetPx: 검색창처럼 지도 위에 뜨는 상단 오버레이가 있으면 그 아래로 밀어냄 */}
-          <div className={styles.zoomControls} style={topInsetPx ? { top: `calc(var(--status-bar-height, 0px) + 12px + ${topInsetPx}px)` } : undefined}>
-            <button type="button" className={styles.ctrlBtn} onClick={zoomIn}>+</button>
-            <button type="button" className={styles.ctrlBtn} onClick={zoomOut}>−</button>
-          </div>
+          {/* 줌 +/- 도구는 핀치·휠 제스처와 중복되어 현재 주석 처리 상태다. */}
           {/* bottomInsetPx: 드래거블 시트의 현재 노출 높이 — 시트 위에 항상 붙어 다니도록.
               미전달 시(정보 페이지들) CSS 기본값(bottom: 28px)을 그대로 쓴다 */}
-          <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
-            <button
-              type="button"
-              className={styles.ctrlBtn}
-              onClick={recenterCurrentContext}
-              aria-label={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
-              title={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
-            >
-              <LocateFixed size={16} strokeWidth={2.2} />
-            </button>
-          </div>
+          {showLocateControl && (
+            <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
+              <button
+                type="button"
+                className={styles.ctrlBtn}
+                onClick={recenterCurrentContext}
+                aria-label={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
+                title={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
+              >
+                <LocateFixed size={16} strokeWidth={2.2} />
+              </button>
+            </div>
+          )}
         </>
       )}
 

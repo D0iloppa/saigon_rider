@@ -1289,6 +1289,11 @@ class BusinessPublicProfileOut(BaseModel):
 # ── 업체 지도 공개 조회 (SGR-321) ─────────────────────────────────
 
 
+class BusinessNewsBrief(BaseModel):
+    title: str
+    created_at: datetime
+
+
 class BusinessMapItemOut(BaseModel):
     id: uuid.UUID
     name: str
@@ -1297,3 +1302,4 @@ class BusinessMapItemOut(BaseModel):
     lat: Decimal
     lng: Decimal
     photo_url: str | None = None
+    latest_news: BusinessNewsBrief | None = None

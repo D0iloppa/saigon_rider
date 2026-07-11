@@ -48,6 +48,12 @@ const L3_VBW = BASE_W * 0.07;  // 700:  건물 표시  (~1km)
 const MIN_VBW = BASE_W * 0.01; // 100:  최대 줌인
 
 const TOAST_MS = 2400;
+
+// 업체 teardrop 핀 — 로컬 24유닛 좌표계: 머리 원 중심 (12,9)·반지름 9, 꼬리 꼭짓점 (12,24).
+// 접선점 (4.8,14.4)/(19.2,14.4) 는 꼭짓점→원(거리 15, R 9)의 정확한 접선 계산값.
+const BIZ_PIN_PATH = 'M12 24 L4.8 14.4 A9 9 0 1 1 19.2 14.4 Z';
+// 내부 흰 원형 홀 반지름 (당근 레퍼런스) — 업종 글리프(변 9, 반대각 6.36)가 내접한다.
+const BIZ_PIN_HOLE_R = 6.4;
 const ASSET_BASE = `${import.meta.env.BASE_URL}maps/v2/`;
 
 // ── 모듈 시작 시 ward bbox 사전계산 (뷰포트 컬링용) ──────────
@@ -728,6 +734,16 @@ function SaigonMapV5({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
+        <defs>
+          {/* 업체 핀 접지 그림자 — feGaussianBlur filter 대신 radialGradient 타원
+              (핀 최대 200개에서 filter 는 래스터화 비용으로 프레임 드랍 위험, gradient 는 저비용) */}
+          <radialGradient id="sgrPinShadow">
+            <stop offset="0%" stopColor="#000" stopOpacity={0.30} />
+            <stop offset="60%" stopColor="#000" stopOpacity={0.16} />
+            <stop offset="100%" stopColor="#000" stopOpacity={0} />
+          </radialGradient>
+        </defs>
+
         {/* 배경 (수면) */}
         <rect x={-BASE_W} y={-BASE_H} width={BASE_W * 3} height={BASE_H * 3} className={styles.sea} />
 
@@ -878,6 +894,50 @@ function SaigonMapV5({
               if (mx < vb.x - 50 || mx > vb.x + vb.w + 50) return null;
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
               const r = vb.w * 0.015 * (m.r ?? 1);
+              if (m.kind === 'biz') {
+                // 업체 teardrop 핀 (당근 레퍼런스) — 꼬리 꼭짓점이 (mx,my) 좌표를 가리킨다
+                // (기존 원 중심 앵커와 좌표 의미 동일, 형상만 위로 올려 그림).
+                const s = (r * 1.25) / 9; // 머리 반지름 1.25r → 로컬 24유닛(머리 R=9) 스케일
+                const color = m.color ?? '#ff5a1f';
+                return (
+                  <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
+                    {/* 접지 그림자 — 선택 시 강조 */}
+                    <ellipse cx={mx} cy={my + r * 0.2} rx={r * (m.selected ? 1.1 : 0.8)} ry={r * (m.selected ? 0.4 : 0.28)}
+                      fill="url(#sgrPinShadow)" pointerEvents="none" />
+                    {/* 선택 강조 — 링 대신 꼭짓점(mx,my) 기준 1.3x 확대 */}
+                    <g transform={m.selected ? `translate(${mx}, ${my}) scale(1.3) translate(${-mx}, ${-my})` : undefined}>
+                      <g transform={`translate(${mx - 12 * s}, ${my - 24 * s}) scale(${s})`}>
+                        <path d={BIZ_PIN_PATH} fill={color} stroke="#fff" strokeWidth={1.5} />
+                        {/* 내부 흰 원형 홀 — 글리프를 핀 색으로 얹어 업종 구분 유지 */}
+                        <circle cx={12} cy={9} r={BIZ_PIN_HOLE_R} fill="#fff" pointerEvents="none" />
+                        {m.icon && (
+                          // 업종 글리프 — 24×24 path 를 홀 내접 정사각(변 9)으로 스케일
+                          <path d={m.icon} fill={color} pointerEvents="none"
+                            transform="translate(7.5, 4.5) scale(0.375)" />
+                        )}
+                        {m.badge && (
+                          // 미확인 소식 — 머리 원 우상단(45°) 빨간 점
+                          <circle cx={18.4} cy={2.6} r={3} fill="#ef4444" stroke="#fff" strokeWidth={1.1} pointerEvents="none" />
+                        )}
+                      </g>
+                    </g>
+                    {m.label && (
+                      // 업체 핀 상호명 라벨 — 꼭짓점 아래, 그림자 타원(바닥 ≈ my+0.6r)과 겹치지 않게
+                      <text
+                        x={mx} y={my + r * 0.7}
+                        fontSize={r * 1.5} fontWeight={700}
+                        fill="#1f2937"
+                        stroke="rgba(255,255,255,0.90)" strokeWidth={r * 0.42}
+                        paintOrder="stroke fill"
+                        textAnchor="middle" dominantBaseline="hanging"
+                        fontFamily="system-ui,-apple-system,sans-serif"
+                        pointerEvents="none">
+                        {m.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              }
               return (
                 <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                   {m.selected && (

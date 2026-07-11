@@ -30,8 +30,9 @@ type BrowseMode = 'viewport' | 'region';
 const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
-// 업체 핀 (SGR-323) — 브랜드 오렌지(매물)·파랑(피드)과 구분, tokens.css --success 정합
-const BIZ_COLOR = '#16a34a';
+// 업체 핀 (SGR-323) — teardrop 핀 브랜드 오렌지 (당근 레퍼런스). 탭 배타 구조라 매물 원형
+// 핀(#ff6f3c)과 동시 노출되지 않으며, 선택링·집계배지의 #ff5a1f 와 통일한다.
+const BIZ_COLOR = '#ff5a1f';
 // 자동 말풍선 (2026-07-11) — 뷰포트 세로 스팬이 이 값 이하일 때만 중앙 근접 업체를 터치 없이
 // 활성화한다. 세로 폰(≈2.16:1)에서 lat 스팬은 lng 스팬의 2배+ 로 복원되므로 0.03(가로 ≈1.5km,
 // 동 단위 줌인)으로 잡는다. 반경은 뷰포트 스팬 대비 정규화 거리(0.5=화면 가장자리).
@@ -431,7 +432,7 @@ export default function NeighborhoodMap() {
     if (isSearching) {
       if (searchScope === 'biz') {
         return bizSearchResults.map((b) => ({
-          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, color: BIZ_COLOR, r: 1.35, label: b.name,
+          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.35, label: b.name,
           icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
           selected: focusedBiz?.id === b.id,
           badge: isNewsUnread(b.id, b.latestNews?.createdAt),
@@ -456,6 +457,7 @@ export default function NeighborhoodMap() {
               id: `biz:${b.id}`,
               lat: b.lat,
               lng: b.lng,
+              kind: 'biz',
               color: BIZ_COLOR,
               r: 1.35,
               label: b.name,

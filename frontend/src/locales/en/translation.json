@@ -1597,6 +1597,10 @@
     "publicAdsEmpty": "No ads posted yet",
     "publicCallCta": "Call to inquire",
     "publicNotFound": "Couldn't find this shop",
+    "publicNewsTitle": "News",
+    "publicNewsEmpty": "No news posted yet",
+    "publicNewsReadMore": "Read more",
+    "publicNewsMore": "More news",
     "favoriteToggle": "Favorite business",
     "viewProfileCta": "View shop profile"
   }

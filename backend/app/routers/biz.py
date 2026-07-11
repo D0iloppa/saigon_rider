@@ -23,6 +23,7 @@ from ..schemas import (
     BusinessFavoriteOut,
     BusinessMapItemOut,
     BusinessNewsBrief,
+    BusinessNewsItemOut,
     BusinessProfileApplyRequest,
     BusinessProfileOut,
     BusinessProfileUpdateRequest,
@@ -448,6 +449,45 @@ async def get_public_profile(
         photo_url=photo_url,
         ads=[_public_ad_out(a) for a in ads],
     )
+
+
+@router.get("/public/{profile_id}/news", response_model=list[BusinessNewsItemOut], summary="업체 소식 목록 (공개)")
+async def get_public_news(
+    profile_id: uuid.UUID,
+    limit: int = 10,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """공개 프로필 '소식' 섹션 — APPROVED 프로필만(그 외 404), created_at DESC 페이지네이션."""
+    profile = await db.get(BusinessProfile, profile_id)
+    if profile is None or profile.status != "APPROVED":
+        raise HTTPException(status_code=404, detail="Business profile not found")
+
+    limit = max(1, min(limit, 30))
+    offset = max(0, offset)
+    rows = (
+        (
+            await db.execute(
+                select(BusinessNews)
+                .where(BusinessNews.profile_id == profile_id)
+                .order_by(BusinessNews.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        BusinessNewsItemOut(
+            id=n.id,
+            title=n.title,
+            body=n.body,
+            created_at=n.created_at,
+            photos=[build_imgproxy_url(ph.content.file_path) for ph in n.photos if ph.content and ph.content.file_path],
+        )
+        for n in rows
+    ]
 
 
 @router.post("/public/{profile_id}/view-ping", summary="업체 프로필 실시간 열람 핑")

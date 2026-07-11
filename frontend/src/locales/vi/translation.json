@@ -1597,6 +1597,10 @@
     "publicAdsEmpty": "Chưa có quảng cáo nào được đăng",
     "publicCallCta": "Gọi để liên hệ",
     "publicNotFound": "Không tìm thấy cửa hàng này",
+    "publicNewsTitle": "Tin tức",
+    "publicNewsEmpty": "Chưa có tin tức nào",
+    "publicNewsReadMore": "Xem thêm",
+    "publicNewsMore": "Xem thêm tin tức",
     "favoriteToggle": "Cửa hàng quan tâm",
     "viewProfileCta": "Xem hồ sơ cửa hàng"
   }

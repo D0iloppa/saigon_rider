@@ -1310,6 +1310,16 @@ class BusinessNewsBrief(BaseModel):
     photos: list[str] = []
 
 
+class BusinessNewsItemOut(BaseModel):
+    """업체 소식 목록 항목 (공개 프로필 '소식' 섹션) — photos 는 imgproxy URL."""
+
+    id: uuid.UUID
+    title: str
+    body: str | None = None
+    created_at: datetime
+    photos: list[str] = []
+
+
 class BusinessMapItemOut(BaseModel):
     id: uuid.UUID
     name: str

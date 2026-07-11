@@ -1597,6 +1597,10 @@
     "publicAdsEmpty": "아직 게시중인 광고가 없어요",
     "publicCallCta": "전화 문의하기",
     "publicNotFound": "가게 정보를 찾을 수 없어요",
+    "publicNewsTitle": "소식",
+    "publicNewsEmpty": "아직 등록된 소식이 없어요",
+    "publicNewsReadMore": "더보기",
+    "publicNewsMore": "소식 더보기",
     "favoriteToggle": "관심 업체",
     "viewProfileCta": "가게 프로필 보기"
   }

@@ -349,6 +349,42 @@ export async function fetchBusinessPublicProfile(id: string): Promise<BusinessPu
   };
 }
 
+// ── 업체 소식 목록 (공개 프로필 '소식' 섹션) ─────────────────────
+
+export interface BizNewsItem {
+  id: string;
+  title: string;
+  body: string | null;
+  createdAt: string;
+  photos: string[];
+}
+
+interface BizNewsItemApi {
+  id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+  photos: string[];
+}
+
+export async function fetchBizPublicNews(
+  profileId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<BizNewsItem[]> {
+  const qs = new URLSearchParams({
+    limit: String(params?.limit ?? 10),
+    offset: String(params?.offset ?? 0),
+  });
+  const res = await api.realFetch<BizNewsItemApi[]>(`/biz/public/${profileId}/news?${qs}`);
+  return (res ?? []).map((n) => ({
+    id: n.id,
+    title: n.title,
+    body: n.body,
+    createdAt: n.created_at,
+    photos: n.photos ?? [],
+  }));
+}
+
 // ── 관심 업체 (P-FE 동네지도 프로필 실배선) ───────────────────────
 
 export interface BizFavorite {

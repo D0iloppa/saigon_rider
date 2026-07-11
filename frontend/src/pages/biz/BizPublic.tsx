@@ -13,10 +13,21 @@ import {
   fetchBizFavorites,
   addBizFavorite,
   removeBizFavorite,
+  fetchBizPublicNews,
   type BusinessPublicProfile,
   type BizCategory,
+  type BizNewsItem,
 } from '@/api/biz';
+import { formatRelativeTime } from '@/lib/format';
+import { markBizNewsRead } from '@/lib/bizNewsRead';
 import styles from './BizPublic.module.css';
+
+const NEWS_PAGE = 10;
+
+/** 3줄 클램프를 넘길 개연성 판단 — 정밀 측정 대신 간단 휴리스틱 (길이·줄수) */
+function isLongBody(body: string): boolean {
+  return body.length > 90 || (body.match(/\n/g)?.length ?? 0) >= 3;
+}
 
 /** 공개 비즈니스 프로필 — AD 카드 탭 진입면(BP-6). 가게 정보 + 게시중 광고 목록. */
 export default function BizPublic() {
@@ -27,6 +38,10 @@ export default function BizPublic() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BizCategory[]>([]);
   const [favorited, setFavorited] = useState(false);
+  const [news, setNews] = useState<BizNewsItem[]>([]);
+  const [newsHasMore, setNewsHasMore] = useState(false);
+  const [newsLoadingMore, setNewsLoadingMore] = useState(false);
+  const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
@@ -63,6 +78,28 @@ export default function BizPublic() {
       })
       .finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!id) return;
+    fetchBizPublicNews(id, { limit: NEWS_PAGE, offset: 0 }).then((items) => {
+      setNews(items);
+      setNewsHasMore(items.length === NEWS_PAGE);
+      // 소식을 보여줬으면 지도 핀 unread 뱃지도 꺼지도록 읽음 처리 (최신 = DESC 첫 항목)
+      if (items.length > 0) markBizNewsRead(id, items[0].createdAt);
+    });
+  }, [id]);
+
+  const handleMoreNews = async () => {
+    if (!id || newsLoadingMore) return;
+    setNewsLoadingMore(true);
+    try {
+      const items = await fetchBizPublicNews(id, { limit: NEWS_PAGE, offset: news.length });
+      setNews((prev) => [...prev, ...items]);
+      setNewsHasMore(items.length === NEWS_PAGE);
+    } finally {
+      setNewsLoadingMore(false);
+    }
+  };
 
   const handleCall = () => {
     if (!profile?.phone) return;
@@ -128,6 +165,61 @@ export default function BizPublic() {
                 </div>
                 <div className={styles.infoValue}>{profile.address}</div>
               </div>
+            )}
+          </div>
+        )}
+
+        <h3 className={styles.sectionTitle}>{t('biz.publicNewsTitle', { defaultValue: '소식' })}</h3>
+        {news.length === 0 ? (
+          <div className={styles.adsEmpty}>
+            <p>{t('biz.publicNewsEmpty', { defaultValue: '아직 등록된 소식이 없어요' })}</p>
+          </div>
+        ) : (
+          <div className={styles.newsList}>
+            {news.map((n) => {
+              const expanded = expandedNews.has(n.id);
+              return (
+                <article key={n.id} className={styles.newsCard}>
+                  <div className={styles.newsHead}>
+                    <AppImage src={profile.photoUrl ?? undefined} alt="" variant="circle" className={styles.newsAvatar} />
+                    <div className={styles.newsHeadText}>
+                      <span className={styles.newsBizName}>{profile.name}</span>
+                      <span className={styles.newsTime}>{formatRelativeTime(n.createdAt)}</span>
+                    </div>
+                  </div>
+                  <p className={styles.newsTitle}>{n.title}</p>
+                  {n.body && (
+                    <p className={expanded ? styles.newsBody : `${styles.newsBody} ${styles.newsBodyClamp}`}>
+                      {n.body}
+                    </p>
+                  )}
+                  {!expanded && n.body != null && isLongBody(n.body) && (
+                    <button
+                      type="button"
+                      className={styles.newsReadMore}
+                      onClick={() => setExpandedNews((prev) => new Set(prev).add(n.id))}
+                    >
+                      {t('biz.publicNewsReadMore', { defaultValue: '더보기' })}
+                    </button>
+                  )}
+                  {n.photos.length > 0 && (
+                    <div className={styles.newsThumbWrap}>
+                      <AppImage src={n.photos[0]} alt="" className={styles.newsThumb} />
+                      {n.photos.length > 1 && <span className={styles.newsThumbMore}>+{n.photos.length - 1}</span>}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+            {newsHasMore && (
+              <button
+                type="button"
+                className={styles.newsMoreBtn}
+                onClick={handleMoreNews}
+                disabled={newsLoadingMore}
+              >
+                {t('biz.publicNewsMore', { defaultValue: '소식 더보기' })}
+              </button>
             )}
           </div>
         )}

@@ -1423,6 +1423,7 @@
         "submitting": "Đang gửi...",
         "cancel": "Hủy",
         "success": "Đề xuất của bạn đã được tiếp nhận",
+        "error": "Gửi đề xuất thất bại. Vui lòng thử lại sau",
         "statusPending": "Đang xét duyệt",
         "statusConfirmed": "Đã duyệt",
         "statusRejected": "Bị từ chối"

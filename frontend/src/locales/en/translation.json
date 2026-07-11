@@ -1423,6 +1423,7 @@
         "submitting": "Submitting...",
         "cancel": "Cancel",
         "success": "Your suggestion has been submitted",
+        "error": "Failed to submit your suggestion. Please try again later",
         "statusPending": "Reviewing",
         "statusConfirmed": "Approved",
         "statusRejected": "Rejected"

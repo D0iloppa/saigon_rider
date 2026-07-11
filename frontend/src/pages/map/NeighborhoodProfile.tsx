@@ -98,7 +98,7 @@ export default function NeighborhoodProfile() {
       setSheetOpen(false);
       fetchMyPlaceSuggestions().then(setSuggestions).catch(() => {});
     } catch (err) {
-      toast.error(extractDetail(err, t('map.neighborhoodProfile.placeForm.success')));
+      toast.error(extractDetail(err, t('map.neighborhoodProfile.placeForm.error')));
     } finally {
       setSubmitting(false);
     }

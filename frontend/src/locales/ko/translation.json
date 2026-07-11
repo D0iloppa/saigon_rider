@@ -1423,6 +1423,7 @@
         "submitting": "제안하는 중...",
         "cancel": "취소",
         "success": "제안이 접수됐어요",
+        "error": "제안 접수에 실패했어요. 잠시 후 다시 시도해주세요",
         "statusPending": "검토중",
         "statusConfirmed": "승인됨",
         "statusRejected": "반려됨"

@@ -539,7 +539,9 @@ export default function NeighborhoodMap() {
   };
 
   // 캐러셀 스냅 → 그 업체 핀으로 지도 recenter(줌 유지) + 하이라이트 (터치와 동일 효과)
-  const handleCarouselIndex = (i: number) => {
+  // useCallback: PostPanel 의 IntersectionObserver 이펙트 deps 로 들어가므로, 매 렌더
+  // (viewerCount 15s tick 포함) 새 참조가 되면 observer 가 불필요하게 재연결된다 (리뷰 P3).
+  const handleCarouselIndex = useCallback((i: number) => {
     setCarouselIndex(i);
     const b = carouselItems[i];
     if (b) {
@@ -547,7 +549,7 @@ export default function NeighborhoodMap() {
       focusPointRef.current?.({ lat: b.lat, lng: b.lng });
       markBizAsRead(b);
     }
-  };
+  }, [carouselItems]);
 
   const handleBizMarkerClick = (biz: BizMapItem) => {
     setTab('biz');

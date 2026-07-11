@@ -1390,7 +1390,9 @@
     "addMenu": {
       "label": "Post",
       "writeReview": "Write a review",
-      "suggestPlace": "Suggest a place"
+      "suggestPlace": "Suggest a place",
+      "noBizNearby": "No businesses around here to review yet",
+      "pickBizTitle": "Which business is this review for?"
     },
     "postPanel": {
       "viewing": "{{n}} viewing"
@@ -1609,6 +1611,24 @@
     "publicNewsReadMore": "Read more",
     "publicNewsMore": "More news",
     "favoriteToggle": "Favorite business",
-    "viewProfileCta": "View shop profile"
+    "viewProfileCta": "View shop profile",
+    "review": {
+      "sectionTitle": "Reviews",
+      "sectionTitleCount": "Reviews {{count}}",
+      "empty": "No reviews yet. Be the first to leave one",
+      "more": "More reviews",
+      "write": "Write a review",
+      "title": "Write a review",
+      "titleEdit": "Edit my review",
+      "bodyPlaceholder": "How was this place? Share details to help your neighbors",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "submitEdit": "Update",
+      "submitting": "Submitting…",
+      "success": "Review posted",
+      "successEdit": "Review updated",
+      "error": "Couldn't post your review",
+      "loginRequired": "Log in to write a review"
+    }
   }
 }

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin, Heart } from 'lucide-react';
+import { Phone, MapPin, Heart, Star } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
+import { useUserStore } from '@/store/useUserStore';
 import {
   fetchBusinessPublicProfile,
   fetchBizCategories,
@@ -14,15 +15,19 @@ import {
   addBizFavorite,
   removeBizFavorite,
   fetchBizPublicNews,
+  fetchBizReviews,
   type BusinessPublicProfile,
   type BizCategory,
   type BizNewsItem,
+  type BizReview,
 } from '@/api/biz';
+import BizReviewSheet from './BizReviewSheet';
 import { formatRelativeTime } from '@/lib/format';
 import { markBizNewsRead } from '@/lib/bizNewsRead';
 import styles from './BizPublic.module.css';
 
 const NEWS_PAGE = 10;
+const REVIEW_PAGE = 5;
 
 /** 3줄 클램프를 넘길 개연성 판단 — 정밀 측정 대신 간단 휴리스틱 (길이·줄수) */
 function isLongBody(body: string): boolean {
@@ -42,6 +47,13 @@ export default function BizPublic() {
   const [newsHasMore, setNewsHasMore] = useState(false);
   const [newsLoadingMore, setNewsLoadingMore] = useState(false);
   const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
+  const user = useUserStore((s) => s.user);
+  const [reviews, setReviews] = useState<BizReview[]>([]);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewAvg, setReviewAvg] = useState<number | null>(null);
+  const [reviewHasMore, setReviewHasMore] = useState(false);
+  const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
+  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
@@ -88,6 +100,44 @@ export default function BizPublic() {
       if (items.length > 0) markBizNewsRead(id, items[0].createdAt);
     });
   }, [id]);
+
+  const loadReviews = (profileId: string) => {
+    fetchBizReviews(profileId, { limit: REVIEW_PAGE, offset: 0 })
+      .then((res) => {
+        setReviews(res.reviews);
+        setReviewTotal(res.total);
+        setReviewAvg(res.avgRating);
+        setReviewHasMore(res.hasMore);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    loadReviews(id);
+  }, [id]);
+
+  const handleMoreReviews = async () => {
+    if (!id || reviewLoadingMore) return;
+    setReviewLoadingMore(true);
+    try {
+      const res = await fetchBizReviews(id, { limit: REVIEW_PAGE, offset: reviews.length });
+      setReviews((prev) => [...prev, ...res.reviews]);
+      setReviewTotal(res.total);
+      setReviewAvg(res.avgRating);
+      setReviewHasMore(res.hasMore);
+    } finally {
+      setReviewLoadingMore(false);
+    }
+  };
+
+  const handleWriteReview = () => {
+    if (!user) {
+      toast.info(t('biz.review.loginRequired'));
+      return;
+    }
+    setReviewSheetOpen(true);
+  };
 
   const handleMoreNews = async () => {
     if (!id || newsLoadingMore) return;
@@ -224,6 +274,60 @@ export default function BizPublic() {
           </div>
         )}
 
+        <div className={styles.reviewSectionHead}>
+          <h3 className={styles.sectionTitle}>
+            {reviewTotal > 0 ? t('biz.review.sectionTitleCount', { count: reviewTotal }) : t('biz.review.sectionTitle')}
+            {/* 요약 별점은 데이터가 있을 때만 — 0건이면 숨김 (섹션 헤더 전용, 타이틀 영역 개편은 범위 밖) */}
+            {reviewTotal > 0 && reviewAvg != null && (
+              <span className={styles.reviewAvg}>
+                <Star size={14} strokeWidth={0} fill="currentColor" />
+                {reviewAvg.toFixed(1)}
+              </span>
+            )}
+          </h3>
+          <button type="button" className={styles.reviewWriteBtn} onClick={handleWriteReview}>
+            {t('biz.review.write')}
+          </button>
+        </div>
+        {reviews.length === 0 ? (
+          <div className={styles.adsEmpty}>
+            <p>{t('biz.review.empty')}</p>
+          </div>
+        ) : (
+          <div className={styles.reviewList}>
+            {reviews.map((r) => (
+              <article key={r.id} className={styles.reviewCard}>
+                <div className={styles.reviewHead}>
+                  <span className={styles.reviewNick}>{r.reviewerNickname ?? '—'}</span>
+                  <span className={styles.reviewStars} aria-label={`${r.rating}/5`}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star
+                        key={n}
+                        size={13}
+                        strokeWidth={0}
+                        fill="currentColor"
+                        className={n <= r.rating ? styles.starOn : styles.starOff}
+                      />
+                    ))}
+                  </span>
+                  <span className={styles.reviewTime}>{formatRelativeTime(r.createdAt)}</span>
+                </div>
+                <p className={styles.reviewBody}>{r.body}</p>
+              </article>
+            ))}
+            {reviewHasMore && (
+              <button
+                type="button"
+                className={styles.newsMoreBtn}
+                onClick={handleMoreReviews}
+                disabled={reviewLoadingMore}
+              >
+                {t('biz.review.more')}
+              </button>
+            )}
+          </div>
+        )}
+
         <h3 className={styles.sectionTitle}>{t('biz.publicAdsTitle', { defaultValue: '게시중인 광고' })}</h3>
         {profile.ads.length === 0 ? (
           <div className={styles.adsEmpty}>
@@ -248,6 +352,15 @@ export default function BizPublic() {
             {t('biz.publicCallCta', { defaultValue: '전화 문의하기' })}
           </button>
         </div>
+      )}
+
+      {reviewSheetOpen && id && (
+        <BizReviewSheet
+          profileId={id}
+          profileName={profile.name}
+          onClose={() => setReviewSheetOpen(false)}
+          onSubmitted={() => loadReviews(id)}
+        />
       )}
     </div>
   );

@@ -18,6 +18,8 @@ import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchFeed } from '@/api/feed';
 import { PostPanel } from '@/pages/map/PostPanel';
+import BizReviewPickerSheet from '@/pages/map/BizReviewPickerSheet';
+import BizReviewSheet from '@/pages/biz/BizReviewSheet';
 import { useBizViewerCount } from '@/hooks/useBizViewerCount';
 import type { FeedPost } from '@/api/types';
 import ListingCard from '@/pages/market/ListingCard';
@@ -168,6 +170,10 @@ export default function NeighborhoodMap() {
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
   // 좌측 + 버튼 = 글쓰기 컨텍스트 메뉴 (후기쓰기/장소 제안하기)
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // 후기쓰기 플로우 — 대상 업체(작성 시트) / 후보 목록(선택 스텝). 둘 다 지도 위 오버레이라
+  // 뒤로가기 스냅샷(sgr.map.bizReturn)·시트 상태와 무관하다.
+  const [reviewTarget, setReviewTarget] = useState<{ id: string; name: string } | null>(null);
+  const [reviewPickerItems, setReviewPickerItems] = useState<BizMapItem[] | null>(null);
   // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
   // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
   const [ads, setAds] = useState<MarketAd[]>([]);
@@ -718,11 +724,38 @@ export default function NeighborhoodMap() {
       .catch(() => setFavIds(new Set()));
   };
 
-  const handleWriteReview = () => {
+  // + 메뉴 "후기쓰기" (업체 후기 실배선, 대표 결정) — 지도에서 선택/포커스된 업체가 있으면
+  // 그 업체로 바로 작성 시트, 없으면 현재 뷰포트 업체 중 선택 스텝. 업체 탭이 아니면
+  // bizItems 가 비어 있으므로 같은 bbox·게이트 규칙으로 1회 조회한다 (biz fetch 이펙트 미러).
+  const handleWriteReview = async () => {
     setAddMenuOpen(false);
-    // 지도 컨텍스트에 맞는 "이 업체 후기 작성" 진입점이 없다 — 나의 후기(NeighborhoodProfile)의
-    // 기존 진입점과 동일하게 정비소 목록으로 보낸다 (제품 결정 필요 항목, 보고서 참조).
-    navigate('/info/repair');
+    if (!user) {
+      toast.info(t('biz.review.loginRequired'));
+      return;
+    }
+    const target = focusedBiz ?? selectedBiz;
+    if (target) {
+      setReviewTarget({ id: target.id, name: target.name });
+      return;
+    }
+    let candidates = visibleBiz;
+    if (candidates.length === 0) {
+      const gateBlocked = mode === 'viewport' && showDistrictBadges;
+      const bbox = gateBlocked ? null : bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
+      if (bbox) {
+        const fetched = await fetchBizMapItems({
+          minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
+        }).catch(() => [] as BizMapItem[]);
+        candidates = selectedRegion
+          ? fetched.filter((b) => regionContains(selectedRegion, b.lat, b.lng))
+          : fetched;
+      }
+    }
+    if (candidates.length === 0) {
+      toast.info(t('map.addMenu.noBizNearby'));
+      return;
+    }
+    setReviewPickerItems(candidates);
   };
 
   const handleSuggestPlace = () => {
@@ -1287,6 +1320,26 @@ export default function NeighborhoodMap() {
           onCardTap={(b) => { saveBizReturnSnapshot(b); navigate(`/biz/${b.id}`); }}
           onClose={closePostPanel}
           onHeightChange={setPostPanelHeight}
+        />
+      )}
+
+      {reviewPickerItems && (
+        <BizReviewPickerSheet
+          items={reviewPickerItems}
+          catLabel={bizCatLabel}
+          onPick={(b) => {
+            setReviewPickerItems(null);
+            setReviewTarget({ id: b.id, name: b.name });
+          }}
+          onClose={() => setReviewPickerItems(null)}
+        />
+      )}
+
+      {reviewTarget && (
+        <BizReviewSheet
+          profileId={reviewTarget.id}
+          profileName={reviewTarget.name}
+          onClose={() => setReviewTarget(null)}
         />
       )}
 

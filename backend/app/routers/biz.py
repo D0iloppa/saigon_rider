@@ -12,8 +12,10 @@ from ..models import (
     BusinessCategory,
     BusinessNews,
     BusinessProfile,
+    BusinessReview,
     MarketplaceAd,
     PlaceSubmission,
+    User,
     UserFavoriteBusiness,
 )
 from ..schemas import (
@@ -28,6 +30,9 @@ from ..schemas import (
     BusinessProfileOut,
     BusinessProfileUpdateRequest,
     BusinessPublicProfileOut,
+    BusinessReviewCreateRequest,
+    BusinessReviewListOut,
+    BusinessReviewOut,
     MarketplaceAdOut,
     PlaceSuggestionCreateRequest,
     PlaceSuggestionOut,
@@ -488,6 +493,122 @@ async def get_public_news(
         )
         for n in rows
     ]
+
+
+# ── 업체 후기 (동네지도 + 메뉴 '후기쓰기' 실배선) ─────────────────
+# 장소 평가형(당근 모델): 유저당 업체 1건 UNIQUE + 재작성 시 갱신(upsert). init/123.
+
+
+def _review_out(r: BusinessReview, nickname: str | None) -> BusinessReviewOut:
+    return BusinessReviewOut(id=r.id, rating=r.rating, body=r.body, created_at=r.created_at, reviewer_nickname=nickname)
+
+
+async def _get_approved_profile(db: AsyncSession, profile_id: uuid.UUID) -> BusinessProfile:
+    profile = await db.get(BusinessProfile, profile_id)
+    if profile is None or profile.status != "APPROVED":
+        raise HTTPException(status_code=404, detail="Business profile not found")
+    return profile
+
+
+@router.get("/public/{profile_id}/reviews", response_model=BusinessReviewListOut, summary="업체 후기 목록 (공개)")
+async def get_public_reviews(
+    profile_id: uuid.UUID,
+    limit: int = 20,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """무인증 공개 조회 — APPROVED 프로필만(그 외 404), created_at DESC 페이지네이션.
+    응답 wrapper 에 합계·평균 별점 포함 (info_repair {reviews, total, has_more} 관례 미러)."""
+    await _get_approved_profile(db, profile_id)
+    limit = max(1, min(limit, 50))
+    offset = max(0, offset)
+
+    total, avg_rating = (
+        await db.execute(
+            select(func.count(), func.avg(BusinessReview.rating))
+            .select_from(BusinessReview)
+            .where(BusinessReview.profile_id == profile_id)
+        )
+    ).one()
+    rows = (
+        await db.execute(
+            select(BusinessReview, User.nickname)
+            .join(User, User.id == BusinessReview.user_id)
+            .where(BusinessReview.profile_id == profile_id)
+            .order_by(BusinessReview.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+    reviews = [_review_out(r, nickname) for r, nickname in rows]
+    return BusinessReviewListOut(
+        reviews=reviews,
+        total=int(total),
+        avg_rating=round(float(avg_rating), 1) if avg_rating is not None else None,
+        has_more=offset + len(reviews) < int(total),
+    )
+
+
+@router.get(
+    "/public/{profile_id}/reviews/mine",
+    response_model=BusinessReviewOut | None,
+    summary="이 업체에 내가 남긴 후기",
+)
+async def get_my_public_review(
+    profile_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """작성 시트 프리필용 (market GET /reviews/mine 미러) — 없으면 null."""
+    await _get_approved_profile(db, profile_id)
+    row = (
+        await db.execute(
+            select(BusinessReview, User.nickname)
+            .join(User, User.id == BusinessReview.user_id)
+            .where(BusinessReview.profile_id == profile_id, BusinessReview.user_id == session_uid)
+        )
+    ).first()
+    if row is None:
+        return None
+    return _review_out(row[0], row[1])
+
+
+@router.post("/public/{profile_id}/reviews", response_model=BusinessReviewOut, summary="업체 후기 작성/재작성 (upsert)")
+async def upsert_public_review(
+    profile_id: uuid.UUID,
+    body: BusinessReviewCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _get_approved_profile(db, profile_id)
+    body_text = body.body.strip()
+    if not body_text:
+        raise HTTPException(status_code=400, detail="Body is required")
+
+    review = (
+        await db.execute(
+            select(BusinessReview).where(BusinessReview.profile_id == profile_id, BusinessReview.user_id == session_uid)
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    if review is not None:
+        review.rating = body.rating
+        review.body = body_text
+        review.updated_at = now
+    else:
+        review = BusinessReview(
+            profile_id=profile_id,
+            user_id=session_uid,
+            rating=body.rating,
+            body=body_text,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(review)
+    await db.commit()
+    await db.refresh(review)
+    user = await db.get(User, session_uid)
+    return _review_out(review, user.nickname if user else None)
 
 
 @router.post("/public/{profile_id}/view-ping", summary="업체 프로필 실시간 열람 핑")

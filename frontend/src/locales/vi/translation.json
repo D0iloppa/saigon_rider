@@ -1390,7 +1390,9 @@
     "addMenu": {
       "label": "Đăng",
       "writeReview": "Viết đánh giá",
-      "suggestPlace": "Đề xuất địa điểm"
+      "suggestPlace": "Đề xuất địa điểm",
+      "noBizNearby": "Quanh đây chưa có cửa hàng để đánh giá",
+      "pickBizTitle": "Bạn muốn đánh giá cửa hàng nào?"
     },
     "postPanel": {
       "viewing": "{{n}} người đang xem"
@@ -1609,6 +1611,24 @@
     "publicNewsReadMore": "Xem thêm",
     "publicNewsMore": "Xem thêm tin tức",
     "favoriteToggle": "Cửa hàng quan tâm",
-    "viewProfileCta": "Xem hồ sơ cửa hàng"
+    "viewProfileCta": "Xem hồ sơ cửa hàng",
+    "review": {
+      "sectionTitle": "Đánh giá",
+      "sectionTitleCount": "Đánh giá {{count}}",
+      "empty": "Chưa có đánh giá nào. Hãy là người đầu tiên",
+      "more": "Xem thêm đánh giá",
+      "write": "Viết đánh giá",
+      "title": "Viết đánh giá",
+      "titleEdit": "Sửa đánh giá của tôi",
+      "bodyPlaceholder": "Cửa hàng này thế nào? Chia sẻ để giúp hàng xóm của bạn",
+      "cancel": "Hủy",
+      "submit": "Đăng",
+      "submitEdit": "Cập nhật",
+      "submitting": "Đang đăng…",
+      "success": "Đã đăng đánh giá",
+      "successEdit": "Đã cập nhật đánh giá",
+      "error": "Không thể đăng đánh giá",
+      "loginRequired": "Đăng nhập để viết đánh giá"
+    }
   }
 }

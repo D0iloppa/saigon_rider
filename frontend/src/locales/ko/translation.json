@@ -1390,7 +1390,9 @@
     "addMenu": {
       "label": "글쓰기",
       "writeReview": "후기쓰기",
-      "suggestPlace": "장소 제안하기"
+      "suggestPlace": "장소 제안하기",
+      "noBizNearby": "주변에 후기를 남길 업체가 없어요",
+      "pickBizTitle": "어느 업체 후기를 쓸까요?"
     },
     "postPanel": {
       "viewing": "{{n}}명이 보는중"
@@ -1609,6 +1611,24 @@
     "publicNewsReadMore": "더보기",
     "publicNewsMore": "소식 더보기",
     "favoriteToggle": "관심 업체",
-    "viewProfileCta": "가게 프로필 보기"
+    "viewProfileCta": "가게 프로필 보기",
+    "review": {
+      "sectionTitle": "후기",
+      "sectionTitleCount": "후기 {{count}}",
+      "empty": "아직 후기가 없어요. 첫 후기를 남겨보세요",
+      "more": "후기 더보기",
+      "write": "후기 쓰기",
+      "title": "후기 쓰기",
+      "titleEdit": "내 후기 수정",
+      "bodyPlaceholder": "이 업체는 어땠나요? 이웃에게 도움이 되도록 적어주세요",
+      "cancel": "취소",
+      "submit": "등록",
+      "submitEdit": "수정",
+      "submitting": "등록 중…",
+      "success": "후기가 등록됐어요",
+      "successEdit": "후기를 수정했어요",
+      "error": "후기 등록에 실패했어요",
+      "loginRequired": "로그인 후 후기를 쓸 수 있어요"
+    }
   }
 }

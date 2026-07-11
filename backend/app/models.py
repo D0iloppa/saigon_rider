@@ -581,6 +581,25 @@ class BusinessCategory(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class BusinessReview(Base):
+    """업체 후기 (동네지도 '후기쓰기' 실배선) — 장소 평가형: 유저당 업체 1건, 재작성 시 갱신.
+    RepairReview(방문 건별 기록형)와 도메인이 달라 UNIQUE(profile_id, user_id) 를 둔다 (init/123)."""
+
+    __tablename__ = "business_review"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class BusinessNews(Base):
     """업체 소식 (SGR-326 T1 — 광고 BusinessAd 와 별개, 당근 비즈프로필 '소식' 모델 미러)."""
 

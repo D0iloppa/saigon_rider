@@ -385,6 +385,77 @@ export async function fetchBizPublicNews(
   }));
 }
 
+// ── 업체 후기 (동네지도 + 메뉴 '후기쓰기' 실배선) ─────────────────
+
+export interface BizReview {
+  id: string;
+  rating: number;
+  body: string;
+  createdAt: string;
+  reviewerNickname: string | null;
+}
+
+export interface BizReviewList {
+  reviews: BizReview[];
+  total: number;
+  avgRating: number | null;
+  hasMore: boolean;
+}
+
+interface BizReviewApi {
+  id: string;
+  rating: number;
+  body: string;
+  created_at: string;
+  reviewer_nickname: string | null;
+}
+
+function fromBizReviewApi(r: BizReviewApi): BizReview {
+  return { id: r.id, rating: r.rating, body: r.body, createdAt: r.created_at, reviewerNickname: r.reviewer_nickname };
+}
+
+export async function fetchBizReviews(
+  profileId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<BizReviewList> {
+  const qs = new URLSearchParams({
+    limit: String(params?.limit ?? 20),
+    offset: String(params?.offset ?? 0),
+  });
+  const res = await api.realFetch<{
+    reviews: BizReviewApi[];
+    total: number;
+    avg_rating: number | null;
+    has_more: boolean;
+  }>(`/biz/public/${profileId}/reviews?${qs}`);
+  return {
+    reviews: (res.reviews ?? []).map(fromBizReviewApi),
+    total: res.total,
+    avgRating: res.avg_rating,
+    hasMore: res.has_more,
+  };
+}
+
+/** 이 업체에 내가 남긴 후기 — 없으면 null (작성 시트 프리필용) */
+export async function fetchMyBizReview(profileId: string): Promise<BizReview | null> {
+  const res = await api.realFetch<BizReviewApi | null>(
+    `/biz/public/${profileId}/reviews/mine`, undefined, 'bff', { rethrow: true },
+  );
+  return res ? fromBizReviewApi(res) : null;
+}
+
+/** 후기 작성/재작성 (서버 upsert — 기존 후기가 있으면 갱신) */
+export async function upsertBizReview(
+  profileId: string,
+  input: { rating: number; body: string },
+): Promise<BizReview> {
+  const res = await api.realFetch<BizReviewApi>(`/biz/public/${profileId}/reviews`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }, 'bff', { rethrow: true });
+  return fromBizReviewApi(res);
+}
+
 // ── 관심 업체 (P-FE 동네지도 프로필 실배선) ───────────────────────
 
 export interface BizFavorite {

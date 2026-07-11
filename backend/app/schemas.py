@@ -6,7 +6,7 @@ from typing import Generic, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import AwareDatetime, BaseModel, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 from .utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
@@ -1318,6 +1318,28 @@ class BusinessNewsItemOut(BaseModel):
     body: str | None = None
     created_at: datetime
     photos: list[str] = []
+
+
+class BusinessReviewCreateRequest(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    body: str
+
+
+class BusinessReviewOut(BaseModel):
+    id: uuid.UUID
+    rating: int
+    body: str
+    created_at: datetime
+    reviewer_nickname: str | None = None
+
+
+class BusinessReviewListOut(BaseModel):
+    """후기 목록 wrapper — info_repair {reviews, total, has_more} 관례 미러 + 평균 별점."""
+
+    reviews: list[BusinessReviewOut]
+    total: int
+    avg_rating: float | None = None
+    has_more: bool
 
 
 class BusinessMapItemOut(BaseModel):

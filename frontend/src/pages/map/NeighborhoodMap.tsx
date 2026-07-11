@@ -152,6 +152,8 @@ export default function NeighborhoodMap() {
   // 읽음 처리 직후 같은 데이터로도 markers(badge) 재계산을 트리거 (W4)
   const [readVersion, setReadVersion] = useState(0);
   const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
+  // [X]로 닫은 업체는 다음 지도 조작(새 bbox 커밋)까지 자동 말풍선 1회 억제 (대표 결정 2026-07-11)
+  const suppressAutoBubbleIdRef = useRef<string | null>(null);
   const focusedBiz = postPanelOpen ? carouselItems[carouselIndex] ?? null : null;
   const viewerCount = useBizViewerCount(focusedBiz?.id ?? null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
@@ -287,6 +289,7 @@ export default function NeighborhoodMap() {
     bboxTimerRef.current = setTimeout(() => {
       // 뷰포트 기억: 이동/줌이 멎은 시점의 뷰포트를 저장 → 재진입 시 복원
       try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(bbox)); } catch { /* quota 등 저장 실패 무시 */ }
+      suppressAutoBubbleIdRef.current = null; // 새 조작 = 억제 해제
       if (modeRef.current !== 'region') setViewportBbox(bbox);
     }, 500);
   }, []);
@@ -532,6 +535,8 @@ export default function NeighborhoodMap() {
   };
 
   const closePostPanel = () => {
+    // 닫은 시점의 포커싱 업체 = 지도 중앙 업체 — 자동 말풍선이 즉시 재점화하지 않게 억제
+    suppressAutoBubbleIdRef.current = focusedBiz?.id ?? null;
     setPostPanelOpen(false);
     setCarouselItems([]);
     setCarouselIndex(0);
@@ -580,6 +585,7 @@ export default function NeighborhoodMap() {
       if (d < bestD) { bestD = d; best = b; }
     }
     if (best && bestD <= AUTO_BUBBLE_CENTER_RADIUS) {
+      if (best.id === suppressAutoBubbleIdRef.current) return; // [X]로 닫은 업체 — 다음 조작까지 억제
       if (selectedBizRef.current?.id !== best.id) {
         const target = best;
         setSelectedBiz(target);

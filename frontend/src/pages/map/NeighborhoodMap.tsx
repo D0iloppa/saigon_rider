@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useNavigationType, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Heart, LocateFixed, MapPin, Plus, RotateCw, SlidersHorizontal, X } from 'lucide-react';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
@@ -47,6 +47,9 @@ const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
 const RECENT_SEARCH_MAX = 8;
 // 마지막 뷰포트 기억 — 재진입 시 복원용 (측정이 아닌 "기억"이라 GPS 원칙 위반 아님)
 const VIEWPORT_KEY = 'sgr.map.viewport';
+// BizPublic(/biz/:id) 이동 직전 지도 컨텍스트 스냅샷 — 뒤로가기(POP) 복귀 시 1회 소비
+// (MarketMain mkt_filter_v2 미러). 뷰포트는 VIEWPORT_KEY 가 별도로 복원하므로 담지 않는다.
+const BIZ_RETURN_KEY = 'sgr.map.bizReturn';
 const LISTINGS_PAGE_SIZE = 50;
 // 지도 핀은 리스트 페이지네이션과 달리 뷰포트 안의 매물이 전부 보여야 한다 —
 // 1페이지(50건)만 가져오면 recent 정렬 특성상 활동이 뜸한 구역이 잘려나가 특정 방향에
@@ -103,6 +106,28 @@ function loadSavedViewport(): LatLngBbox | null {
   return null;
 }
 
+type BizReturnUi =
+  | { kind: 'postPanel'; bizId: string; carouselIndex: number }
+  | { kind: 'bubble'; bizId: string }
+  | { kind: 'none' };
+
+interface BizReturnSnapshot {
+  tab: Tab;
+  bizCategory: string | null;
+  favOnly: boolean;
+  ui: BizReturnUi;
+  savedAt: number;
+}
+
+function readBizReturnSnapshot(): BizReturnSnapshot | null {
+  try {
+    const s = sessionStorage.getItem(BIZ_RETURN_KEY);
+    return s ? (JSON.parse(s) as BizReturnSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
 function loadRecentSearches(): string[] {
   try {
     const raw = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) ?? '[]');
@@ -119,23 +144,27 @@ function loadRecentSearches(): string[] {
 export default function NeighborhoodMap() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const [searchParams, setSearchParams] = useSearchParams();
   const storedCoords = useLocationStore((s) => s.coords);
   const setSharedCoords = useLocationStore((s) => s.setCoords);
   const setSharedWardName = useLocationStore((s) => s.setWardName);
   const user = useUserStore((s) => s.user);
 
+  // BizPublic 뒤로가기(POP) 복귀에서만 스냅샷을 읽는다 — 탭바 신규 진입(PUSH/REPLACE)은
+  // 기본 상태로 시작. 마운트 이펙트에서 진입 종류와 무관하게 즉시 삭제해 재적용을 차단한다.
+  const [returnSnapshot] = useState(() => (navigationType === 'POP' ? readBizReturnSnapshot() : null));
   const [mode, setMode] = useState<BrowseMode>('viewport');
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
-  const [tab, setTab] = useState<Tab>('listings');
+  const [tab, setTab] = useState<Tab>(returnSnapshot?.tab ?? 'listings');
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
   const [bizCategories, setBizCategories] = useState<BizCategory[]>([]);
-  const [bizCategory, setBizCategory] = useState<string | null>(null);
+  const [bizCategory, setBizCategory] = useState<string | null>(returnSnapshot?.bizCategory ?? null);
   const [bizLoading, setBizLoading] = useState(false);
   // 좌측 ♥ 버튼 = "찜한 업체만 보기" 토글 필터 (카테고리 칩과 AND 교집합, visibleBiz 에서 적용)
-  const [favOnly, setFavOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(returnSnapshot?.favOnly ?? false);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
   // 좌측 + 버튼 = 글쓰기 컨텍스트 메뉴 (후기쓰기/장소 제안하기)
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -161,6 +190,13 @@ export default function NeighborhoodMap() {
   const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
   // [X]로 닫은 업체는 다음 지도 조작(새 bbox 커밋)까지 자동 말풍선 1회 억제 (대표 결정 2026-07-11)
   const suppressAutoBubbleIdRef = useRef<string | null>(null);
+  // 뒤로가기 복원 2단계(선택 UI) — 업체 데이터는 bbox fetch 후에야 도착하므로 보류해 두고,
+  // 첫 fetch 완료 시 1회 소비한다 (MarketMain scrollRestoredRef 패턴).
+  const pendingUiRestoreRef = useRef<Exclude<BizReturnUi, { kind: 'none' }> | null>(
+    returnSnapshot && returnSnapshot.ui.kind !== 'none' ? returnSnapshot.ui : null,
+  );
+  // "fetch 가 실제로 완료됐는가" 표시 — 게이트/탭 전환의 setBizItems([]) 와 구분한다
+  const bizFetchedRef = useRef(false);
   const focusedBiz = postPanelOpen ? carouselItems[carouselIndex] ?? null : null;
   const viewerCount = useBizViewerCount(focusedBiz?.id ?? null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
@@ -315,6 +351,19 @@ export default function NeighborhoodMap() {
     fetchBizCategories().then(setBizCategories).catch(() => setBizCategories([]));
   }, []);
 
+  // 복귀 스냅샷은 진입 즉시 삭제(1회 소비) — 소비 여부(POP/PUSH)와 무관하게 지워 이후
+  // 진입에 재적용되지 않게 한다. favOnly 복원 시 찜 목록도 재조회해야 필터가 실제로
+  // 동작한다 (toggleFavOnly ON 과 동일 경로·동일 실패 폴백). returnSnapshot 은 마운트 후
+  // 불변이므로 이 이펙트는 1회만 돈다.
+  useEffect(() => {
+    sessionStorage.removeItem(BIZ_RETURN_KEY);
+    if (returnSnapshot?.favOnly) {
+      fetchBizFavorites()
+        .then((favs) => setFavIds(new Set(favs.map((f) => f.id))))
+        .catch(() => setFavIds(new Set()));
+    }
+  }, [returnSnapshot]);
+
   // 카테고리 페이지(/map/categories)에서 넘어온 ?category= 1회 소비 — MarketMain
   // ?lat=&lng= 패턴 미러: 소비 즉시 제거해 리로드/뒤로가기 시 재적용되지 않게 한다.
   useEffect(() => {
@@ -390,8 +439,8 @@ export default function NeighborhoodMap() {
       minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
       category: bizCategory ?? undefined,
     })
-      .then((items) => { if (!cancelled) setBizItems(items); })
-      .catch(() => { if (!cancelled) setBizItems([]); })
+      .then((items) => { if (!cancelled) { bizFetchedRef.current = true; setBizItems(items); } })
+      .catch(() => { if (!cancelled) { bizFetchedRef.current = true; setBizItems([]); } })
       .finally(() => { if (!cancelled) setBizLoading(false); });
     return () => { cancelled = true; };
   }, [bboxFilter, reloadSeq, selectedRegion, isSearching, bizCategory, tab]);
@@ -572,6 +621,22 @@ export default function NeighborhoodMap() {
     openPostPanel(biz);
   };
 
+  // BizPublic(/biz/:id) 이동 직전 지도 컨텍스트 스냅샷 (MarketMain saveScroll 미러) —
+  // 탭·카테고리 칩·찜 필터와 "열려 있던 UI"(포스트 패널 or 자동 말풍선)를 저장한다.
+  // panelBiz = 포스트 패널에서 실제 탭한 카드(포커스 카드와 다를 수 있음).
+  // useCallback 필수: bizNewsOverlay useMemo 가 이 함수를 캡처하므로, deps 없이 넘기면
+  // selectedBiz 가 안 바뀐 채 칩/찜 상태만 바뀌었을 때 낡은 값이 저장된다.
+  const saveBizReturnSnapshot = useCallback((panelBiz?: BizMapItem) => {
+    const focused = panelBiz ?? focusedBiz;
+    const ui: BizReturnUi = postPanelOpen && focused
+      ? { kind: 'postPanel', bizId: focused.id, carouselIndex }
+      : selectedBiz
+        ? { kind: 'bubble', bizId: selectedBiz.id }
+        : { kind: 'none' };
+    const snap: BizReturnSnapshot = { tab, bizCategory, favOnly, ui, savedAt: Date.now() };
+    try { sessionStorage.setItem(BIZ_RETURN_KEY, JSON.stringify(snap)); } catch { /* 저장 실패 시 복원만 포기 */ }
+  }, [tab, bizCategory, favOnly, postPanelOpen, focusedBiz, carouselIndex, selectedBiz]);
+
   // 자동 말풍선 (2026-07-11) — 제스처가 멎어 커밋된 뷰포트(bboxFilter, 500ms 디바운스)가
   // 충분히 줌인 상태면 중앙 부근 최근접 업체 1곳을 터치 없이 활성화하고, 중앙에서 벗어나면
   // 해제한다(다른 핀이 오면 갈아탐). 임계 미만 줌에서는 완전 비활성 — 핀 탭 선택을 보존.
@@ -607,6 +672,25 @@ export default function NeighborhoodMap() {
       setSelectedId(null);
     }
   }, [bboxFilter, visibleBiz, tab, isSearching, postPanelOpen]);
+
+  // 뒤로가기 복원 2단계 (선택 UI) — 업체 fetch 가 실제 완료된 뒤 1회만 소비한다. 대상이
+  // 결과에 없으면(뷰포트 밖·삭제) 조용히 스킵. 반드시 자동 말풍선 이펙트 "뒤"에 선언:
+  // 같은 커밋에서 둘이 함께 돌 때(이펙트는 선언 순서로 실행) 복원 setState 가 마지막에
+  // 적용되고, 다음 커밋에서 selectedBizRef 동기화 → 자동 말풍선 deps 불변이라 안 덮어쓴다.
+  useEffect(() => {
+    const pending = pendingUiRestoreRef.current;
+    if (!pending || !bizFetchedRef.current) return;
+    pendingUiRestoreRef.current = null; // 첫 fetch 완료 시점에 무조건 소비 — 한참 뒤 팬 이동에서 재점화 방지
+    const target = bizItems.find((b) => b.id === pending.bizId);
+    if (!target) return;
+    if (pending.kind === 'postPanel') {
+      // 캐러셀은 최신 fetch 로 재구성(대상 카드 선두) — 원래 인덱스의 이웃 순서는 재현 불가
+      openPostPanel(target);
+    } else {
+      setSelectedBiz(target);
+      setSelectedId(target.id);
+    }
+  }, [bizItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchTab = (tb: Tab) => {
     setTab(tb);
@@ -691,7 +775,7 @@ export default function NeighborhoodMap() {
       lat: selectedBiz.lat,
       lng: selectedBiz.lng,
       node: (
-        <button key={selectedBiz.id} type="button" className={styles.bizNewsBubble} onClick={() => navigate(`/biz/${selectedBiz.id}`)}>
+        <button key={selectedBiz.id} type="button" className={styles.bizNewsBubble} onClick={() => { saveBizReturnSnapshot(); navigate(`/biz/${selectedBiz.id}`); }}>
           {/* eyebrow 는 실소식이 있을 때만 — 소식 없는 업체에 "새소식·방금 전"을 붙이지 않는다(정직화) */}
           {selectedBiz.latestNews && (
             <span className={styles.bizNewsEyebrow}>{t('map.bizNews.label')} <span>{formatRelativeTime(selectedBiz.latestNews.createdAt)}</span></span>
@@ -705,7 +789,7 @@ export default function NeighborhoodMap() {
         </button>
       ),
     };
-  }, [selectedBiz, navigate, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedBiz, navigate, t, saveBizReturnSnapshot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 업체 카드 — 업체 탭 리스트·업체 검색 결과 공용 (탭 시 /biz/:id)
   const renderBizCard = (b: BizMapItem) => (
@@ -714,7 +798,7 @@ export default function NeighborhoodMap() {
       ref={(el) => { itemRefs.current[b.id] = el; }}
       className={b.id === selectedId ? styles.selected : undefined}
     >
-      <button type="button" className={styles.bizCard} onClick={() => navigate(`/biz/${b.id}`)}>
+      <button type="button" className={styles.bizCard} onClick={() => { saveBizReturnSnapshot(); navigate(`/biz/${b.id}`); }}>
         <AppImage src={b.photoUrl ?? undefined} alt="" className={styles.bizThumb} />
         <div className={styles.bizBody}>
           <span className={styles.bizName}>{b.name}</span>
@@ -1200,7 +1284,7 @@ export default function NeighborhoodMap() {
           viewerCount={viewerCount}
           catLabel={bizCatLabel}
           onIndexChange={handleCarouselIndex}
-          onCardTap={(b) => navigate(`/biz/${b.id}`)}
+          onCardTap={(b) => { saveBizReturnSnapshot(b); navigate(`/biz/${b.id}`); }}
           onClose={closePostPanel}
           onHeightChange={setPostPanelHeight}
         />

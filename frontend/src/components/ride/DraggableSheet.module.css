@@ -52,6 +52,14 @@
   margin-bottom: 12px;
 }
 
+.floatingTopCenter {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 12px;
+}
+
 .dragZone {
   flex-shrink: 0;
   cursor: grab;

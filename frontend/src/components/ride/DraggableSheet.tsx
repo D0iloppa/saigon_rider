@@ -28,6 +28,7 @@ interface DraggableSheetProps {
   embedded?: boolean;
   floatingTopLeft?: ReactNode;
   floatingTopRight?: ReactNode;
+  floatingTopCenter?: ReactNode;
   midSnap?: number;
   maxHeight?: number | string;
   lockHeight?: boolean;
@@ -59,6 +60,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     embedded = false,
     floatingTopLeft,
     floatingTopRight,
+    floatingTopCenter,
     midSnap,
     maxHeight,
     lockHeight = false,
@@ -219,6 +221,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     >
       {floatingTopLeft && <div className={styles.floatingTopLeft}>{floatingTopLeft}</div>}
       {floatingTopRight && <div className={styles.floatingTopRight}>{floatingTopRight}</div>}
+      {floatingTopCenter && <div className={styles.floatingTopCenter}>{floatingTopCenter}</div>}
       <div
         ref={headerRef}
         className={styles.dragZone}

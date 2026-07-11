@@ -1007,6 +1007,15 @@ export default function NeighborhoodMap() {
             <span className={styles.areaPillClose}><X size={15} strokeWidth={2.4} /></span>
           </button>
         ) : undefined}
+        floatingTopCenter={sheetSnap === 'full' ? (
+          <button
+            type="button"
+            className={styles.mapViewPill}
+            onClick={() => sheetRef.current?.collapse()}
+          >
+            <MapPin size={14} /> {t('map.viewMap')}
+          </button>
+        ) : undefined}
         maxHeight="65vh"
         midHeight="42vh"
         lockHeight

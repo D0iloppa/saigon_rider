@@ -17,8 +17,8 @@
 
 | # | 내용 | 담당 | 상태 |
 |---|---|---|---|
-| P-BE | user_favorite_business(init/121)+/biz/favorites API / place_submission(init/122)+제안 API+admin 큐 / GET /info/repair/my-reviews 집계 | Sonnet | 진행중 |
-| P-FE | 퀵메뉴 배선(쿠폰 navigate·관심목록 통합 탭 화면·단골 준비중), 나의 후기 실데이터(스탯+목록+후기작성 navigate), 장소 제안 폼+제출, 배너 카피·common.more 수정, /biz/:id 찜 토글 | Sonnet (W3-FE 완료 후 — i18n·App.tsx 충돌 방지) | 대기 |
+| P-BE | user_favorite_business(init/121)+/biz/favorites API / place_submission(init/122)+제안 API+admin 큐 / GET /info/repair/my-reviews 집계 | Sonnet | 완료 |
+| P-FE | 퀵메뉴 배선(쿠폰 navigate·관심목록 통합 탭 화면·단골 준비중), 나의 후기 실데이터(스탯+목록+후기작성 navigate), 장소 제안 폼+제출, 배너 카피·common.more 수정, /biz/:id 찜 토글 | Sonnet (W3-FE 완료 후 — i18n·App.tsx 충돌 방지) | 완료 |
 
 ## 분석 요지 (분석 에이전트, 2026-07-11)
 
@@ -29,3 +29,4 @@
 ## 진행 기록
 
 - 2026-07-11: 분석 완료, 대표 결정 4건+오케스트레이터 판단 2건 확정. P-BE 투입.
+- 2026-07-11: **P-BE·P-FE 전건 구현·검증 완료, 커밋됨.** P-BE `b61a806`(user_favorite_business init/121+`/biz/favorites`, place_submission init/122+`/biz/place-suggestions`+admin 큐 `/admin/place-suggestions`, `GET /info/repair/my-reviews` 집계) / P-FE `12789f1`(퀵메뉴 3종 — 포장·주문 제거·단골 준비중 토스트, 나의 후기 실데이터[평균별점/후기수/도움돼요 — 조회수는 소스 없어 교체], 장소 제안 바텀시트+내 제안 상태, 배너 카피 교체+`common.more` 버그 해소, `/map/favorites` 매물|업체 통합 탭, 찜 토글 BizPublic·PostPanel). **검증**: 통합 시각 회귀 8시나리오 PASS(`tools/qm/regr-map.mjs`). **qm-reviewer(Opus) 독립 리뷰 CHANGES → 수정 반영**(`7df2082`): 장소제안 실패 토스트 오문구 교정(`placeForm.error` 키 신설), 고아 훅 삭제, 캐러셀 핸들러 useCallback. **잔여**: 지도 플로팅 하트 "찜 업체만 보기" 필터는 범위 외(제품 결정 대기). 운영 배포 시 init/121·122 적용+BFF 재시작+프론트 재빌드.

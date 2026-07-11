@@ -54,9 +54,25 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 ### 3.3 동네지도 (`/map`)
 
 - **페이지**: `pages/map/NeighborhoodMap.tsx` — 상단 주석: "동네지도 v4 (SGR-287) — SaigonMapV4 풀스크린 + 하단 드래거블 시트. GPS 기준 동 자동 진입 → 전체 depth3 오버레이 → 블록 탭으로 구역 필터링." (주석은 v4 시절 남은 것, 실제 지도 컴포넌트는 `SaigonMapV5`로 전환됨 — 최근 커밋 `dd3c80b`)
-- **시트 탭 3종 (SGR-315 P1, 2026-07-10)**: `listings`(매물, 주황 핀)·`feed`(피드, 파랑 핀)·`biz`(업체, 초록 `#16a34a` 핀+상호명 라벨). 매물/피드 핀은 탭 배타, **업체 핀은 탭 무관 상시 제3 레이어**(줌 게이트 동일 준수). 업체 탭 활성 시 지도 상단 카테고리 칩(전체/정비/세차/카페/음식/용품 = `repair/wash/cafe/food/parts`), 업체 카드 탭→`/biz/:id`, 업체 핀 탭→업체 탭 전환+시트 mid+하이라이트. 검색은 제출 시점 탭으로 스코프 고정(biz 탭=업체명 `q` 검색, 그 외=매물 검색).
-- **핵심 컴포넌트**: `SaigonMapV5`(`components/maps/SaigonMapV5.tsx` — `MapMarkerV2.label`/`r` 렌더 지원), `DraggableSheet`(`components/ride/DraggableSheet.tsx`), `ListingCard`, `AdCard`, `ProfileCard`, `AppImage`
-- **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/map.ts`(`fetchDistrictCounts`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
+- **시트 탭 3종 (SGR-315 P1, 2026-07-10)**: `listings`(매물, 주황 핀)·`feed`(피드, 파랑 핀)·`biz`(업체, 초록 `#16a34a` 핀+상호명 라벨). 매물/피드 핀은 탭 배타, **업체 핀은 탭 무관 상시 제3 레이어**(줌 게이트 동일 준수). 업체 탭 활성 시 지도 상단 카테고리 칩(DB화 15종·4그룹, 아래 참조), 업체 카드 탭→`/biz/:id`, 업체 핀 탭→**포스트 패널**(아래 참조). 검색은 제출 시점 탭으로 스코프 고정(biz 탭=업체명 `q` 검색, 그 외=매물 검색).
+- **핵심 컴포넌트**: `SaigonMapV5`(`components/maps/SaigonMapV5.tsx` — `MapMarkerV2.label`/`r`/업종 글리프 렌더, unread 빨간 점), `DraggableSheet`(`components/ride/DraggableSheet.tsx` — `floatingTopCenter` 모드로 시트 full 시 [지도보기] 필 노출, W1 2026-07-11), `ListingCard`, `AdCard`, `ProfileCard`, `AppImage`
+- **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/map.ts`(`fetchDistrictCounts`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만, `latest_news`) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
+
+#### 포스트 패널 — `pages/map/PostPanel.tsx` (W2, 2026-07-11)
+
+업체 핀 직접 터치 시 바텀시트를 **대체**(숨김)하는 카드 패널. 뷰포트 내 최신 소식 보유 업체를 가까운 순 가로 캐러셀로 노출 — IntersectionObserver 스냅 시 `focusPointRef` 기준 줌 유지 recenter+핀 선택 링. 카드 상단 [X](닫기→시트 복귀)와 "N명이 보는중" 칩(view-ping, Redis ZADD 멱등 30s 윈도우, 15s 폴링 — 자기 포함 카운트 여부는 제품 결정 대기). 자동 새소식 말풍선과는 상호 가드(패널 열림 중엔 자동 말풍선 비활성). 핀 unread 빨간 점(`SaigonMapV5`)은 `localStorage sgr.biz.readNews`(뉴스 `createdAt` 저장, 폴 skew 안전)로 추적 — 포스트 패널에서 카드가 포커싱되면 읽음 처리(W4).
+
+#### 카테고리 그리드 — `/map/categories` → `pages/map/NeighborhoodCategories.tsx` (W3, 2026-07-11)
+
+칩 [더보기] 진입점. `business_category` DB 테이블(15종·4그룹·아이콘 키·ko/en/vi 라벨, init/119) 기준 그룹 섹션 그리드. 지도 상단 칩·`NeighborhoodCategories`·업체 카드·비즈 파트너 화면(`BizApply` 등)이 동일 카테고리 소스를 공유(기존 BizApply taxonomy 이원화 선재버그 해소).
+
+#### 관심목록 — `/map/favorites` → `pages/map/MapFavorites.tsx` (P-FE 3차, 2026-07-11)
+
+매물(`/market/wishlist` 데이터 재사용) | 업체(`user_favorite_business`, init/121) 통합 탭. 찜 토글 진입점은 `BizPublic.tsx`(`/biz/:id`)와 `PostPanel` 카드.
+
+#### 동네지도 프로필 — `/map/profile` → `pages/map/NeighborhoodProfile.tsx` (실배선 완료, 2026-07-11)
+
+이전 세션 목업(WIP)에서 실기능 배선 완료: 퀵메뉴 3종(쿠폰함 navigate·관심목록 통합 탭 연결·단골은 준비중 토스트, 포장/주문 퀵메뉴는 도메인 없어 제거), 나의 후기(평균 별점/후기 수/도움돼요 — 조회수는 소스 없어 교체, `GET /info/repair/my-reviews`), 장소 제안 바텀시트(`place_submission` init/122 제출+내 제안 상태 조회, admin 승인 큐 `/admin/place-suggestions`), 배너 카피 교체+`common.more` 미스키 버그 해소.
 - **⚠ 인덱스 노이즈**: 워킹트리에 `NeighborhoodMap_bak.tsx`, `NeighborhoodMap_v3bak.tsx`, `NeighborhoodMap_bak.module.css`(git 미추적, 라우팅에 연결 안 됨)가 존재 — codebase-memory 그래프에도 `NeighborhoodMap_bak`의 함수(`inView`, `switchTab`, `renderBody` 등)가 잡히므로, 그래프 조회 결과에서 `_bak`/`v3bak` 접미사가 붙은 노드는 죽은 백업 코드로 걸러서 읽는다.
 
 ### 3.4 커뮤니티 / 피드 (`/feed`)

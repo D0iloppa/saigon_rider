@@ -44,3 +44,4 @@
 - 2026-07-11: 패키지 발행. 대표 결정 3건 확정(말풍선 (a) 현행 유지 / 신규 소식 엔티티 / 아이콘 전체 범위).
 - 2026-07-11: **T1~T6 구현·검증 완료, 커밋됨.** T1/T2 Sonnet 서브에이전트(init/118 시드 4건·3업체, `/biz/public/map` latest_news DISTINCT ON, ruff 0, curl 검증). T3~T6 Fable 메인. 검증: tsc 0 / eslint 신규 경고 0 / 헤드리스 시각 3종 PASS — deep(자동 말풍선+실소식 "새소식 2시간 전") / nonews(폴백 카피, 가짜 라벨 없음) / wide(줌아웃 비활성). AUTO_BUBBLE_MAX_LAT_SPAN 은 세로 폰 종횡비 반영해 0.02→0.03 조정(검증 중 발견). **잔여**: T7 qm-reviewer 독립 리뷰(후속 패키지와 묶어 진행), codebase-memory 재인덱싱(이 세션 MCP 끊김), 운영 배포 시 init/118+BFF 재시작+프론트 재빌드.
 - 후속 패키지로 확장 이관: [`260711_map_daangn_ux_task.md`](260711_map_daangn_ux_task.md) (포스트 패널·카테고리 DB화·읽음 뱃지 — 소식 사진 N장 포함).
+- 2026-07-11: **T7 독립 리뷰 완료**(Opus qm-reviewer, 후속 2·3차 패키지와 묶어 진행) — 판정 CHANGES → P2 2건+P3 1건 수정 커밋(`7df2082`). 통합 시각 회귀 8시나리오 PASS(`tools/qm/regr-map.mjs`).

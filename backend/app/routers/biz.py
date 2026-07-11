@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,12 +21,29 @@ from ..schemas import (
     BusinessPublicProfileOut,
     MarketplaceAdOut,
 )
+from ..services.redis_cache import get_client
 from ..utils import build_imgproxy_url
 
 router = APIRouter(prefix="/biz", tags=["비즈니스 파트너 (Business Partner)"])
 
 # D2: 1계정 N프로필 상한 (당근 벤치마크 — REJECTED 는 카운트에서 제외)
 MAX_PROFILES_PER_USER = 3
+
+# VP-BE: 업체 프로필 실시간 열람 수 — Redis ZADD 멱등 윈도우 (소켓 없음)
+_VIEW_TTL_SEC = 30
+
+
+async def _view_ping(profile_id: uuid.UUID, user_id: str) -> int:
+    client = await get_client()
+    key = f"saigon:bizview:{profile_id}"
+    now = datetime.now(UTC).timestamp()
+    try:
+        await client.zadd(key, {user_id: now})
+        await client.zremrangebyscore(key, "-inf", now - _VIEW_TTL_SEC)
+        await client.expire(key, _VIEW_TTL_SEC * 2)
+        return await client.zcard(key)
+    except Exception:
+        return 0  # Redis 순단이 화면을 깨면 안 됨 (noti_events.py 관례)
 
 
 def _out(p: BusinessProfile) -> BusinessProfileOut:
@@ -420,3 +437,16 @@ async def get_public_profile(
         photo_url=photo_url,
         ads=[_public_ad_out(a) for a in ads],
     )
+
+
+@router.post("/public/{profile_id}/view-ping", summary="업체 프로필 실시간 열람 핑")
+async def view_ping(
+    profile_id: uuid.UUID,
+    x_user_id: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    profile = await db.get(BusinessProfile, profile_id)
+    if profile is None or profile.status != "APPROVED":
+        raise HTTPException(status_code=404, detail="Business profile not found")
+    count = await _view_ping(profile_id, x_user_id) if x_user_id else 0
+    return {"viewer_count": count}

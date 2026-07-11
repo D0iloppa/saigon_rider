@@ -54,7 +54,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 ### 3.3 동네지도 (`/map`)
 
 - **페이지**: `pages/map/NeighborhoodMap.tsx` — 상단 주석: "동네지도 v4 (SGR-287) — SaigonMapV4 풀스크린 + 하단 드래거블 시트. GPS 기준 동 자동 진입 → 전체 depth3 오버레이 → 블록 탭으로 구역 필터링." (주석은 v4 시절 남은 것, 실제 지도 컴포넌트는 `SaigonMapV5`로 전환됨 — 최근 커밋 `dd3c80b`)
-- **시트 탭 3종 (SGR-315 P1, 2026-07-10)**: `listings`(매물, 주황 핀)·`feed`(피드, 파랑 핀)·`biz`(업체, 초록 `#16a34a` 핀+상호명 라벨). 매물/피드 핀은 탭 배타, **업체 핀은 탭 무관 상시 제3 레이어**(줌 게이트 동일 준수). 업체 탭 활성 시 지도 상단 카테고리 칩(DB화 15종·4그룹, 아래 참조), 업체 카드 탭→`/biz/:id`, 업체 핀 탭→**포스트 패널**(아래 참조). 검색은 제출 시점 탭으로 스코프 고정(biz 탭=업체명 `q` 검색, 그 외=매물 검색).
+- **시트 탭 3종 (SGR-315 P1, 2026-07-10)**: `listings`(매물, 주황 원형 핀)·`feed`(피드, 파랑 원형 핀)·`biz`(업체, **당근식 teardrop 핀** — 2026-07-12 리디자인 `22688c5`: 오렌지 `#ff5a1f` 물방울+흰 홀+업종 글리프, 꼭짓점 앵커, 선택 시 1.3x 확대, `MapMarkerV2.kind='biz'` 분기+상호명 라벨). **세 탭 모두 배타 렌더**(현재 코드 기준 — T3 문서의 "업체 상시 제3 레이어" 결정은 미구현 상태, 줌 게이트 동일 준수). 업체 탭 활성 시 지도 상단 카테고리 칩(DB화 15종·4그룹, 아래 참조), 업체 카드 탭→`/biz/:id`, 업체 핀 탭→**포스트 패널**(아래 참조). 검색은 제출 시점 탭으로 스코프 고정(biz 탭=업체명 `q` 검색, 그 외=매물 검색).
+- **좌측 플로팅 버튼 3종 (2026-07-12, `7eff692`)**: 내 위치(GPS 측정) / ♥ **찜 업체만 보기 토글**(`favOnly` — ON 시 biz 탭 자동 전환, `fetchBizFavorites` 교집합, 칩 필터와 AND, 비로그인 토스트) / + **글쓰기 팝오버**(장소 제안=`/map/profile?openPlaceForm=1` 원샷 쿼리로 기존 시트 재사용, 후기쓰기=업체 후기 — 2026-07-12 신규 도메인 배선).
+- **업체 상세 뒤로가기 상태 복원 (2026-07-12, `18794b4`)**: `/biz/:id` 이동 3곳에서 sessionStorage `sgr.map.bizReturn`(tab·칩·favOnly·postPanel/bubble UI) 스냅샷 → `useNavigationType()===POP`일 때만 1회 복원(PUSH 진입은 폐기), 선택 UI는 첫 biz fetch 완료 후 가드 복원. 뷰포트는 기존 `sgr.map.viewport`(localStorage) 메커니즘 그대로. 회귀 하네스 `tools/qm/regr-biz-return.mjs`.
 - **핵심 컴포넌트**: `SaigonMapV5`(`components/maps/SaigonMapV5.tsx` — `MapMarkerV2.label`/`r`/업종 글리프 렌더, unread 빨간 점), `DraggableSheet`(`components/ride/DraggableSheet.tsx` — `floatingTopCenter` 모드로 시트 full 시 [지도보기] 필 노출, W1 2026-07-11), `ListingCard`, `AdCard`, `ProfileCard`, `AppImage`
 - **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/map.ts`(`fetchDistrictCounts`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만, `latest_news`) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
 
@@ -119,7 +121,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/biz/manage` | `pages/biz/BizManage.tsx` | 내 비즈 프로필 홈 — 정보 수정, 보유 광고 목록(상태 칩), 광고 등록 CTA, 광고 섹션 실배선 |
 | `/biz/ads/new` | `pages/biz/BizAdNew.tsx` | 광고 등록(소재+기간) — 제출 시 PENDING |
 | `/biz/ads/:id` | `pages/biz/BizAdDetail.tsx` | 광고 상세(파트너) — 심사 상태·반려 사유·중단/재개 |
-| `/biz/:id` | `pages/biz/BizPublic.tsx` | 공개 비즈프로필(무인증, APPROVED만 200) — 일반 유저가 보는 면 |
+| `/biz/:id` | `pages/biz/BizPublic.tsx` | 공개 비즈프로필(무인증, APPROVED만 200) — 일반 유저가 보는 면. **소식 섹션**(2026-07-12 `b5c008b`, `GET /biz/public/:id/news` 10건 페이지네이션+더보기, 로드 시 `markBizNewsRead`로 지도 핀 unread 뱃지 정합) + **후기 섹션**(2026-07-12, `business_review` init/123 — `GET/POST /biz/public/:id/reviews` wrapper `{reviews,total,avg_rating,has_more}`, UNIQUE(profile_id,user_id) upsert, 작성 시트 `BizReviewSheet.tsx`는 동네지도 + 메뉴와 공용) |
 
 - **핵심 헬퍼**: `adHref()` — 광고 카드 탭 시 owner 有→`/biz/:id`, 無(레거시 광고)→`/market/ad/:id` 폴백. `AdCard` 사용처(홈/마켓/동네지도) 3곳 전부 적용. `AdDetail.tsx`에 "가게 프로필 보기" 링크 추가.
 - **i18n**: `biz.*` 3벌(ko/en/vi).

@@ -548,6 +548,20 @@ class BusinessProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class UserFavoriteBusiness(Base):
+    """업체 찜 (동네지도 프로필 실배선 P-BE T1). marketplace_listing_likes 패턴 미러."""
+
+    __tablename__ = "user_favorite_business"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class BusinessCategory(Base):
     """업체 카테고리 (W3-BE T1 — 오토바이 생활권 15종, 그룹 4종, 아이콘·3개국어 라벨)."""
 
@@ -1108,6 +1122,28 @@ class GasStationSubmission(Base):
         BigInteger, ForeignKey("gas_station.station_id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PlaceSubmission(Base):
+    """사용자 장소 제안 대기큐 (동네지도 프로필 실배선 P-BE T2). gas_station_submission 패턴 미러 —
+    승인은 상태 전환만, business_profile 자동 upsert 는 이번 범위 아님."""
+
+    __tablename__ = "place_submission"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    lat: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reporter_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(12), default="PENDING")
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class FuelPriceSnapshot(Base):

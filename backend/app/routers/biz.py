@@ -8,11 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import BusinessCategory, BusinessNews, BusinessProfile, MarketplaceAd
+from ..models import (
+    BusinessCategory,
+    BusinessNews,
+    BusinessProfile,
+    MarketplaceAd,
+    PlaceSubmission,
+    UserFavoriteBusiness,
+)
 from ..schemas import (
     BusinessAdCreateRequest,
     BusinessAdOut,
     BusinessCategoryOut,
+    BusinessFavoriteOut,
     BusinessMapItemOut,
     BusinessNewsBrief,
     BusinessProfileApplyRequest,
@@ -20,6 +28,8 @@ from ..schemas import (
     BusinessProfileUpdateRequest,
     BusinessPublicProfileOut,
     MarketplaceAdOut,
+    PlaceSuggestionCreateRequest,
+    PlaceSuggestionOut,
 )
 from ..services.redis_cache import get_client
 from ..utils import build_imgproxy_url
@@ -316,6 +326,27 @@ def _public_ad_out(ad: MarketplaceAd) -> MarketplaceAdOut:
     return out
 
 
+async def _latest_news_map(db: AsyncSession, profile_ids: list[uuid.UUID]) -> dict[uuid.UUID, BusinessNewsBrief]:
+    """최신 소식 1건씩 N+1 없이 조회 (DISTINCT ON — profile_id 별 created_at 최신 1행)."""
+    if not profile_ids:
+        return {}
+    news_stmt = (
+        select(BusinessNews)
+        .where(BusinessNews.profile_id.in_(profile_ids))
+        .distinct(BusinessNews.profile_id)
+        .order_by(BusinessNews.profile_id, BusinessNews.created_at.desc())
+    )
+    news_rows = (await db.execute(news_stmt)).scalars().all()
+    return {
+        n.profile_id: BusinessNewsBrief(
+            title=n.title,
+            created_at=n.created_at,
+            photos=[build_imgproxy_url(ph.content.file_path) for ph in n.photos if ph.content and ph.content.file_path],
+        )
+        for n in news_rows
+    }
+
+
 @router.get("/public/map", response_model=list[BusinessMapItemOut], summary="업체 지도 공개 조회 (bbox)")
 async def get_public_map(
     min_lat: Decimal,
@@ -342,27 +373,7 @@ async def get_public_map(
         stmt = stmt.where(BusinessProfile.name.ilike(f"%{q}%"))
     profiles = (await db.execute(stmt.limit(200))).scalars().all()
 
-    # 최신 소식 1건씩 N+1 없이 조회 (DISTINCT ON — profile_id 별 created_at 최신 1행)
-    profile_ids = [p.id for p in profiles]
-    latest_news_by_profile: dict[uuid.UUID, BusinessNewsBrief] = {}
-    if profile_ids:
-        news_stmt = (
-            select(BusinessNews)
-            .where(BusinessNews.profile_id.in_(profile_ids))
-            .distinct(BusinessNews.profile_id)
-            .order_by(BusinessNews.profile_id, BusinessNews.created_at.desc())
-        )
-        news_rows = (await db.execute(news_stmt)).scalars().all()
-        latest_news_by_profile = {
-            n.profile_id: BusinessNewsBrief(
-                title=n.title,
-                created_at=n.created_at,
-                photos=[
-                    build_imgproxy_url(ph.content.file_path) for ph in n.photos if ph.content and ph.content.file_path
-                ],
-            )
-            for n in news_rows
-        }
+    latest_news_by_profile = await _latest_news_map(db, [p.id for p in profiles])
 
     return [
         BusinessMapItemOut(
@@ -450,3 +461,115 @@ async def view_ping(
         raise HTTPException(status_code=404, detail="Business profile not found")
     count = await _view_ping(profile_id, x_user_id) if x_user_id else 0
     return {"viewer_count": count}
+
+
+# ── 업체 찜 (동네지도 프로필 실배선 P-BE T1) ─────────────────────
+
+
+@router.post("/favorites/{profile_id}", status_code=201, summary="업체 찜 추가")
+async def add_favorite(
+    profile_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    profile = await db.get(BusinessProfile, profile_id)
+    if profile is None or profile.status != "APPROVED":
+        raise HTTPException(status_code=404, detail="Business profile not found")
+    existing = await db.get(UserFavoriteBusiness, {"user_id": session_uid, "profile_id": profile_id})
+    if existing is None:
+        db.add(UserFavoriteBusiness(user_id=session_uid, profile_id=profile_id))
+        await db.commit()
+    return {"favorited": True}
+
+
+@router.delete("/favorites/{profile_id}", summary="업체 찜 해제")
+async def remove_favorite(
+    profile_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    existing = await db.get(UserFavoriteBusiness, {"user_id": session_uid, "profile_id": profile_id})
+    if existing is not None:
+        await db.delete(existing)
+        await db.commit()
+    return {"favorited": False}
+
+
+@router.get("/favorites", response_model=list[BusinessFavoriteOut], summary="내 찜 업체 목록")
+async def get_favorites(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    rows = (
+        await db.execute(
+            select(BusinessProfile, UserFavoriteBusiness.created_at)
+            .join(UserFavoriteBusiness, UserFavoriteBusiness.profile_id == BusinessProfile.id)
+            .where(UserFavoriteBusiness.user_id == session_uid, BusinessProfile.status == "APPROVED")
+            .order_by(UserFavoriteBusiness.created_at.desc())
+            .limit(200)
+        )
+    ).all()
+
+    latest_news_by_profile = await _latest_news_map(db, [p.id for p, _ in rows])
+
+    return [
+        BusinessFavoriteOut(
+            id=p.id,
+            name=p.name,
+            category=p.category,
+            address=p.address,
+            lat=p.latitude,
+            lng=p.longitude,
+            photo_url=build_imgproxy_url(p.photo_content.file_path) if p.photo_content else None,
+            latest_news=latest_news_by_profile.get(p.id),
+            favorited_at=favorited_at,
+        )
+        for p, favorited_at in rows
+    ]
+
+
+# ── 장소 제안 (동네지도 프로필 실배선 P-BE T2) ───────────────────
+
+
+@router.post("/place-suggestions", response_model=PlaceSuggestionOut, status_code=201, summary="장소 제안")
+async def create_place_suggestion(
+    body: PlaceSuggestionCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if not body.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    submission = PlaceSubmission(
+        name=body.name.strip(),
+        category=body.category,
+        address=body.address,
+        lat=body.lat,
+        lng=body.lng,
+        note=body.note,
+        reporter_user_id=session_uid,
+        status="PENDING",
+    )
+    db.add(submission)
+    await db.commit()
+    await db.refresh(submission)
+    return submission
+
+
+@router.get("/place-suggestions/mine", response_model=list[PlaceSuggestionOut], summary="내가 제안한 장소 목록")
+async def list_my_place_suggestions(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    rows = (
+        (
+            await db.execute(
+                select(PlaceSubmission)
+                .where(PlaceSubmission.reporter_user_id == session_uid)
+                .order_by(PlaceSubmission.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return rows

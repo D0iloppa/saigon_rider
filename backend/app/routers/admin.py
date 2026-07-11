@@ -34,6 +34,7 @@ from ..models import (
     GasStationSubmission,
     MarketplaceAd,
     NicknameWord,
+    PlaceSubmission,
     Quest,
     RepairShop,
     RepairShopSubmission,
@@ -100,6 +101,7 @@ _NAV_KEYS = (
     "fuel",
     "gas_submissions",
     "repair_submissions",
+    "place_suggestions",
     "biz_accounts",
     "biz_ads",
     "push",
@@ -3605,6 +3607,110 @@ async def admin_repair_submission_reject(
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
     return RedirectResponse("/admin/repair-submissions?flash=rejected", status_code=303)
+
+
+# ── 장소 제안 큐 (동네지도 프로필 실배선 P-BE T2) ─────────────────
+# gas-submissions 패턴 미러 — 단, 승인은 상태 전환만(CONFIRMED). business_profile 자동 upsert 없음(운영 참고용).
+
+_PLACE_SUB_FLASHES = {
+    "confirmed": ("제안을 승인 처리했습니다.", True),
+    "rejected": ("제안을 반려했습니다.", True),
+    "notfound": ("제안을 찾을 수 없습니다.", False),
+    "done": ("이미 처리된 제안입니다.", False),
+}
+
+
+@router.get("/place-suggestions", include_in_schema=False)
+async def admin_place_suggestions(
+    flash: str = "",
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (await db.execute(select(PlaceSubmission).order_by(PlaceSubmission.created_at.desc()))).scalars().all()
+    rows = sorted(rows, key=lambda s: (s.status != "PENDING", -s.id))
+
+    if rows:
+        body_rows = ""
+        for s in rows:
+            color = _GAS_SUB_STATUS_COLOR.get(s.status, "#9CA3AF")
+            if s.status == "PENDING":
+                actions = (
+                    f'<form method="post" action="/admin/place-suggestions/{s.id}/confirm" style="display:inline;">'
+                    f'<button class="btn btn-sm" type="submit">승인</button></form> '
+                    f'<form method="post" action="/admin/place-suggestions/{s.id}/reject" style="display:inline;margin-left:6px;">'
+                    f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
+                )
+            else:
+                actions = f'<span style="color:rgba(255,255,255,.4);">{h(s.review_note or "—")}</span>'
+            body_rows += (
+                f"<tr>"
+                f"<td>{s.created_at.strftime('%m-%d %H:%M')}</td>"
+                f"<td>{h(s.name)}</td>"
+                f"<td>{h(s.category or '—')}</td>"
+                f"<td style='font-variant-numeric:tabular-nums;'>{s.lat}, {s.lng}</td>"
+                f"<td>{h(s.address or '—')}</td>"
+                f"<td>{h(s.note or '—')}</td>"
+                f'<td><span style="color:{color};font-weight:700;">{s.status}</span></td>'
+                f"<td>{actions}</td>"
+                f"</tr>"
+            )
+    else:
+        body_rows = '<tr><td colspan="8" style="color:rgba(255,255,255,.4);text-align:center;padding:24px;">제안이 없습니다.</td></tr>'
+
+    flash_html = ""
+    if flash and flash in _PLACE_SUB_FLASHES:
+        msg, ok = _PLACE_SUB_FLASHES[flash]
+        flash_html = f'<div class="flash {"ok" if ok else "warn"}">{msg}</div>'
+
+    pending_count = sum(1 for s in rows if s.status == "PENDING")
+
+    return _render_page(
+        "place_suggestions.html",
+        nav="place_suggestions",
+        page_title="장소 제안",
+        session=session,
+        pending_count=str(pending_count),
+        submission_rows=body_rows,
+        flash=flash_html,
+    )
+
+
+@router.post("/place-suggestions/{submission_id}/confirm", include_in_schema=False)
+async def admin_place_suggestion_confirm(
+    submission_id: int,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(PlaceSubmission, submission_id)
+    if not sub:
+        return RedirectResponse("/admin/place-suggestions?flash=notfound", status_code=303)
+    if sub.status != "PENDING":
+        return RedirectResponse("/admin/place-suggestions?flash=done", status_code=303)
+
+    sub.status = "CONFIRMED"
+    sub.reviewed_at = datetime.now(UTC)
+    await db.commit()
+    return RedirectResponse("/admin/place-suggestions?flash=confirmed", status_code=303)
+
+
+@router.post("/place-suggestions/{submission_id}/reject", include_in_schema=False)
+async def admin_place_suggestion_reject(
+    submission_id: int,
+    review_note: str = Form(""),
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    sub = await db.get(PlaceSubmission, submission_id)
+    if not sub:
+        return RedirectResponse("/admin/place-suggestions?flash=notfound", status_code=303)
+    if sub.status != "PENDING":
+        return RedirectResponse("/admin/place-suggestions?flash=done", status_code=303)
+
+    sub.status = "REJECTED"
+    sub.review_note = review_note.strip() or "반려"
+    sub.reviewed_at = datetime.now(UTC)
+    await db.commit()
+    return RedirectResponse("/admin/place-suggestions?flash=rejected", status_code=303)
 
 
 # ── 비즈니스 계정 심사 (SGR-312 BP-3) ────────────────────────────

@@ -1319,3 +1319,46 @@ class BusinessMapItemOut(BaseModel):
     lng: Decimal
     photo_url: str | None = None
     latest_news: BusinessNewsBrief | None = None
+
+
+# ── 업체 찜 (동네지도 프로필 실배선 P-BE T1) ─────────────────────
+
+
+class BusinessFavoriteOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    category: str | None = None
+    address: str | None = None
+    lat: Decimal | None = None
+    lng: Decimal | None = None
+    photo_url: str | None = None
+    latest_news: BusinessNewsBrief | None = None
+    favorited_at: datetime
+
+
+# ── 장소 제안 (동네지도 프로필 실배선 P-BE T2) ───────────────────
+
+
+class PlaceSuggestionCreateRequest(BaseModel):
+    name: str
+    category: str | None = None
+    address: str | None = None
+    lat: Decimal
+    lng: Decimal
+    note: str | None = None
+
+
+class PlaceSuggestionOut(BaseModel):
+    id: int
+    name: str
+    category: str | None = None
+    address: str | None = None
+    lat: Decimal
+    lng: Decimal
+    note: str | None = None
+    status: str
+    review_note: str | None = None
+    created_at: datetime
+    reviewed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}

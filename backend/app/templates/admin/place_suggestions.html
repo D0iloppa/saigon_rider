@@ -1,0 +1,24 @@
+<p class="page-title">장소 제안</p>
+<p class="page-sub">사용자 신규 장소 제안 대기큐 · 승인은 상태만 CONFIRMED 로 전환(참고용, 자동 반영 없음) · 대기 {{pending_count}}건</p>
+
+{{flash}}
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>제안일</th>
+        <th>이름</th>
+        <th>카테고리</th>
+        <th>좌표</th>
+        <th>주소</th>
+        <th>메모</th>
+        <th>상태</th>
+        <th>처리</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{submission_rows}}
+    </tbody>
+  </table>
+</div>

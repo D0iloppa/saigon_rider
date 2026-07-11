@@ -145,6 +145,55 @@ async def report_new_shop(
     return {"submission_id": submission.submission_id, "status": submission.status}
 
 
+@router.get("/my-reviews")
+async def list_my_repair_reviews(
+    limit: int = 20,
+    offset: int = 0,
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """내가 작성한 정비소 리뷰 목록 + 집계 (동네지도 프로필 '나의 후기'). /{shop_id} 보다 먼저 등록 —
+    안 그러면 'my-reviews' 가 int 파싱 실패로 422 난다 (biz.py public/categories 케이스 미러)."""
+    limit = max(1, min(limit, 50))
+    offset = max(0, offset)
+
+    summary_row = (
+        await db.execute(
+            select(
+                func.count(RepairReview.review_id),
+                func.avg(RepairReview.rating),
+                func.coalesce(func.sum(RepairReview.upvotes), 0),
+            ).where(RepairReview.reviewer_user_id == user_id)
+        )
+    ).one()
+    review_count, avg_rating, total_upvotes = summary_row
+
+    rows = await db.execute(
+        text("""
+            SELECT rr.review_id, rr.shop_id, rs.name AS shop_name,
+                   rr.rating, rr.comment, rr.photo_url, rr.reviewed_at, rr.upvotes
+            FROM repair_review rr
+            JOIN repair_shop rs ON rs.shop_id = rr.shop_id
+            WHERE rr.reviewer_user_id = :user_id
+            ORDER BY rr.reviewed_at DESC
+            LIMIT :limit OFFSET :offset
+        """),
+        {"user_id": user_id, "limit": limit, "offset": offset},
+    )
+    reviews = [dict(row._mapping) for row in rows]
+
+    return {
+        "reviews": reviews,
+        "total": int(review_count),
+        "has_more": offset + len(reviews) < int(review_count),
+        "summary": {
+            "review_count": int(review_count),
+            "avg_rating": round(float(avg_rating), 1) if avg_rating is not None else None,
+            "total_upvotes": int(total_upvotes),
+        },
+    }
+
+
 @router.get("/{shop_id}")
 async def get_repair_shop_detail(
     shop_id: int,

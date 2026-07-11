@@ -1406,13 +1406,8 @@
       "placeHint": "Add a place in your neighborhood",
       "addPlace": "Add a place"
     },
-    "bizCategories": {
-      "repair": "Repair",
-      "wash": "Wash",
-      "cafe": "Cafe",
-      "food": "Food",
-      "parts": "Parts"
-    }
+    "moreCategories": "More",
+    "categoriesTitle": "Categories"
   },
   "effects": {
     "none": "No equip effects",
@@ -1522,12 +1517,6 @@
     "namePlaceholder": "Enter your shop name",
     "category": "Category",
     "categoryPlaceholder": "Select category",
-    "category_cafe": "Cafe",
-    "category_restaurant": "Restaurant",
-    "category_repair": "Repair",
-    "category_retail": "Retail",
-    "category_service": "Service",
-    "category_other": "Other",
     "location": "Location",
     "locationPlaceholder": "Select a location",
     "phone": "Contact number",

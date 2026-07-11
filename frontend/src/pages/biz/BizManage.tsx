@@ -10,9 +10,12 @@ import {
   fetchBusinessProfiles,
   updateBusinessProfile,
   fetchBusinessAds,
+  fetchBizCategories,
+  bizCategoryLabel,
   type BusinessProfile,
   type BusinessAd,
   type BusinessAdStatus,
+  type BizCategory,
 } from '@/api/biz';
 import styles from './BizManage.module.css';
 
@@ -24,9 +27,18 @@ const AD_CHIP_CLASS: Record<BusinessAdStatus, string> = {
 };
 
 export default function BizManage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<BusinessProfile[] | null>(null);
+  const [categories, setCategories] = useState<BizCategory[]>([]);
+  useEffect(() => {
+    fetchBizCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
+  const categoryLabel = (code: string | null) => {
+    if (!code) return '';
+    const cat = categories.find((c) => c.code === code);
+    return cat ? bizCategoryLabel(cat, i18n.language) : code;
+  };
   const [activeIdx, setActiveIdx] = useState(0);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -138,7 +150,7 @@ export default function BizManage() {
             <>
               <div className={styles.profileName}>{active.name}</div>
               <div className={styles.profileMeta}>
-                {active.category && <span>{t(`biz.category_${active.category}`, { defaultValue: active.category })}</span>}
+                {active.category && <span>{categoryLabel(active.category)}</span>}
                 {active.address && <span> · {active.address}</span>}
               </div>
               <div className={styles.profileMeta}>{active.phone}</div>

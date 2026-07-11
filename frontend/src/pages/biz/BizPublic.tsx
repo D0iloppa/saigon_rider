@@ -6,16 +6,27 @@ import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
-import { fetchBusinessPublicProfile, type BusinessPublicProfile } from '@/api/biz';
+import {
+  fetchBusinessPublicProfile,
+  fetchBizCategories,
+  bizCategoryLabel,
+  type BusinessPublicProfile,
+  type BizCategory,
+} from '@/api/biz';
 import styles from './BizPublic.module.css';
 
 /** 공개 비즈니스 프로필 — AD 카드 탭 진입면(BP-6). 가게 정보 + 게시중 광고 목록. */
 export default function BizPublic() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<BusinessPublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<BizCategory[]>([]);
+
+  useEffect(() => {
+    fetchBizCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -56,7 +67,10 @@ export default function BizPublic() {
         <h1 className={styles.name}>{profile.name}</h1>
         {profile.category && (
           <span className={styles.categoryBadge}>
-            {t(`biz.category_${profile.category}`, { defaultValue: profile.category })}
+            {(() => {
+              const cat = categories.find((c) => c.code === profile.category);
+              return cat ? bizCategoryLabel(cat, i18n.language) : profile.category;
+            })()}
           </span>
         )}
 

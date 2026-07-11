@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Heart, LocateFixed, MapPin, Plus, RotateCw, X } from 'lucide-react';
+import { ChevronLeft, Heart, LocateFixed, MapPin, Plus, RotateCw, SlidersHorizontal, X } from 'lucide-react';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
@@ -11,7 +11,7 @@ import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
-import { fetchBizMapItems, type BizMapItem } from '@/api/biz';
+import { fetchBizMapItems, fetchBizCategories, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
 import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchFeed } from '@/api/feed';
@@ -29,8 +29,6 @@ const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
 // 업체 핀 (SGR-323) — 브랜드 오렌지(매물)·파랑(피드)과 구분, tokens.css --success 정합
 const BIZ_COLOR = '#16a34a';
-// T2 시드 category 값과 1:1 (SGR-324) — 칩 순서 = 노출 순서
-const BIZ_CATEGORIES = ['repair', 'wash', 'cafe', 'food', 'parts'] as const;
 // 자동 말풍선 (2026-07-11) — 뷰포트 세로 스팬이 이 값 이하일 때만 중앙 근접 업체를 터치 없이
 // 활성화한다. 세로 폰(≈2.16:1)에서 lat 스팬은 lng 스팬의 2배+ 로 복원되므로 0.03(가로 ≈1.5km,
 // 동 단위 줌인)으로 잡는다. 반경은 뷰포트 스팬 대비 정규화 거리(0.5=화면 가장자리).
@@ -114,8 +112,9 @@ function loadRecentSearches(): string[] {
  * GPS 기준 동 자동 진입 → 전체 depth3 오버레이 → 블록 탭으로 구역 필터링.
  */
 export default function NeighborhoodMap() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const storedCoords = useLocationStore((s) => s.coords);
   const setSharedCoords = useLocationStore((s) => s.setCoords);
   const setSharedWardName = useLocationStore((s) => s.setWardName);
@@ -127,6 +126,7 @@ export default function NeighborhoodMap() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
+  const [bizCategories, setBizCategories] = useState<BizCategory[]>([]);
   const [bizCategory, setBizCategory] = useState<string | null>(null);
   const [bizLoading, setBizLoading] = useState(false);
   // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
@@ -282,6 +282,22 @@ export default function NeighborhoodMap() {
   useEffect(() => {
     fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
   }, []);
+
+  // 업체 카테고리 (DB화, W3-FE) — 마운트 시 1회 fetch. 실패 시 빈 배열(칩 행에 '전체'와
+  // [더보기]만 남아도 동작).
+  useEffect(() => {
+    fetchBizCategories().then(setBizCategories).catch(() => setBizCategories([]));
+  }, []);
+
+  // 카테고리 페이지(/map/categories)에서 넘어온 ?category= 1회 소비 — MarketMain
+  // ?lat=&lng= 패턴 미러: 소비 즉시 제거해 리로드/뒤로가기 시 재적용되지 않게 한다.
+  useEffect(() => {
+    const cat = searchParams.get('category');
+    if (!cat) return;
+    setTab('biz');
+    setBizCategory(cat);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => { setAdLimit(randAdBatch()); }, [tab, mode, selectedRegion?.name]);
 
@@ -551,7 +567,11 @@ export default function NeighborhoodMap() {
 
   const visibleCount = tab === 'listings' ? visibleListings.length : tab === 'feed' ? visiblePosts.length : visibleBiz.length;
 
-  const bizCatLabel = (c: string | null) => (c ? t(`map.bizCategories.${c}`, { defaultValue: c }) : '');
+  const bizCatLabel = (c: string | null) => {
+    if (!c) return '';
+    const cat = bizCategories.find((x) => x.code === c);
+    return cat ? bizCategoryLabel(cat, i18n.language) : c;
+  };
 
   // 업체 새소식 말풍선 — 지도 앵커 오버레이로 핀(lat/lng)에 고정되어 팬/줌을 따라간다 (SGR-325).
   // SaigonMapV5 는 memo — 객체 prop 은 useMemo 로 참조를 고정한다(기존 계약). key: 다른 핀 탭 시 pop 재생.
@@ -935,10 +955,10 @@ export default function NeighborhoodMap() {
         </div>
       )}
 
-      {/* 업체 카테고리 칩 (SGR-324) — 업체 탭 전용, 검색바 아래 가로 스크롤 (당근 IN-1) */}
+      {/* 업체 카테고리 칩 (SGR-324, W3-FE DB화) — 업체 탭 전용, 검색바 아래 가로 스크롤 (당근 IN-1) */}
       {tab === 'biz' && !isSearching && (
         <div className={styles.chipsOverlay}>
-          {[null, ...BIZ_CATEGORIES].map((c) => (
+          {[null, ...bizCategories.map((c) => c.code)].map((c) => (
             <button
               key={c ?? 'all'}
               type="button"
@@ -949,6 +969,10 @@ export default function NeighborhoodMap() {
               {c ? bizCatLabel(c) : t('map.bizCategoryAll')}
             </button>
           ))}
+          <button type="button" className={styles.catChip} onClick={() => navigate('/map/categories')}>
+            <SlidersHorizontal size={13} />
+            {t('map.moreCategories')}
+          </button>
         </div>
       )}
 

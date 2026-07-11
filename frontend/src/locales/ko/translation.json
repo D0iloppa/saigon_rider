@@ -1406,13 +1406,8 @@
       "placeHint": "우리 동네 장소를 등록해 보세요",
       "addPlace": "장소 추가하기"
     },
-    "bizCategories": {
-      "repair": "정비",
-      "wash": "세차",
-      "cafe": "카페",
-      "food": "음식",
-      "parts": "용품"
-    }
+    "moreCategories": "더보기",
+    "categoriesTitle": "카테고리"
   },
   "effects": {
     "none": "착용 효과 없음",
@@ -1522,12 +1517,6 @@
     "namePlaceholder": "가게 이름을 입력하세요",
     "category": "업종",
     "categoryPlaceholder": "업종 선택",
-    "category_cafe": "카페",
-    "category_restaurant": "음식점",
-    "category_repair": "정비/수리",
-    "category_retail": "소매/판매",
-    "category_service": "서비스",
-    "category_other": "기타",
     "location": "위치",
     "locationPlaceholder": "위치를 선택하세요",
     "phone": "연락처",

@@ -190,6 +190,56 @@ export async function resumeBusinessAd(id: string): Promise<BusinessAd> {
   return fromAdApi(res);
 }
 
+// ── 업체 카테고리 (W3-FE, business_category DB화) ───────────────
+
+export interface BizCategory {
+  code: string;
+  groupCode: string;
+  groupLabelKo: string;
+  groupLabelVi: string;
+  groupLabelEn: string;
+  icon: string;
+  labelKo: string;
+  labelVi: string;
+  labelEn: string;
+  sortOrder: number;
+}
+
+interface BizCategoryApi {
+  code: string;
+  group_code: string;
+  group_label_ko: string;
+  group_label_vi: string;
+  group_label_en: string;
+  icon: string;
+  label_ko: string;
+  label_vi: string;
+  label_en: string;
+  sort_order: number;
+}
+
+export async function fetchBizCategories(): Promise<BizCategory[]> {
+  const res = await api.realFetch<BizCategoryApi[]>('/biz/public/categories');
+  return (res ?? []).map((c) => ({
+    code: c.code,
+    groupCode: c.group_code,
+    groupLabelKo: c.group_label_ko,
+    groupLabelVi: c.group_label_vi,
+    groupLabelEn: c.group_label_en,
+    icon: c.icon,
+    labelKo: c.label_ko,
+    labelVi: c.label_vi,
+    labelEn: c.label_en,
+    sortOrder: c.sort_order,
+  }));
+}
+
+/** BizCategory 의 현재 언어 라벨 (localizedName 패턴 미러) */
+export function bizCategoryLabel(cat: BizCategory, lang: string): string {
+  const l = lang as 'ko' | 'vi' | 'en';
+  return (l === 'ko' ? cat.labelKo : l === 'vi' ? cat.labelVi : cat.labelEn) || cat.labelEn || cat.labelKo;
+}
+
 // ── 업체 지도 조회 (SGR-323 P1-3) ───────────────────────────────
 
 export interface BizMapItem {
@@ -201,7 +251,7 @@ export interface BizMapItem {
   lng: number;
   photoUrl: string | null;
   /** 최신 업체 소식 (business_news) — 없으면 null. 지도 말풍선에 노출. */
-  latestNews: { title: string; createdAt: string } | null;
+  latestNews: { title: string; createdAt: string; photos: string[] } | null;
 }
 
 interface BizMapItemApi {
@@ -212,7 +262,7 @@ interface BizMapItemApi {
   lat: string | number;
   lng: string | number;
   photo_url: string | null;
-  latest_news: { title: string; created_at: string } | null;
+  latest_news: { title: string; created_at: string; photos: string[] } | null;
 }
 
 export async function fetchBizMapItems(params: {
@@ -240,7 +290,9 @@ export async function fetchBizMapItems(params: {
     lat: Number(b.lat),
     lng: Number(b.lng),
     photoUrl: b.photo_url,
-    latestNews: b.latest_news ? { title: b.latest_news.title, createdAt: b.latest_news.created_at } : null,
+    latestNews: b.latest_news
+      ? { title: b.latest_news.title, createdAt: b.latest_news.created_at, photos: b.latest_news.photos ?? [] }
+      : null,
   }));
 }
 

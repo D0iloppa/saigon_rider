@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, MapPin } from 'lucide-react';
@@ -8,22 +8,32 @@ import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
 import { useUserStore } from '@/store/useUserStore';
-import { applyBusinessProfile, updateBusinessProfile, type BusinessProfile } from '@/api/biz';
+import {
+  applyBusinessProfile,
+  updateBusinessProfile,
+  fetchBizCategories,
+  bizCategoryLabel,
+  type BusinessProfile,
+  type BizCategory,
+} from '@/api/biz';
 import LocationPickerSheet from '@/pages/market/LocationPickerSheet';
 import styles from './BizApply.module.css';
-
-const CATEGORIES = ['cafe', 'restaurant', 'repair', 'retail', 'service', 'other'] as const;
 
 interface LocationState {
   reapplyProfile?: BusinessProfile;
 }
 
 export default function BizApply() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUserStore((s) => s.user);
   const reapplyProfile = (location.state as LocationState | null)?.reapplyProfile;
+
+  const [categories, setCategories] = useState<BizCategory[]>([]);
+  useEffect(() => {
+    fetchBizCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
 
   const [name, setName] = useState(reapplyProfile?.name ?? '');
   const [category, setCategory] = useState(reapplyProfile?.category ?? '');
@@ -136,9 +146,9 @@ export default function BizApply() {
           <option value="" disabled>
             {t('biz.categoryPlaceholder', { defaultValue: '업종 선택' })}
           </option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {t(`biz.category_${c}`, { defaultValue: c })}
+          {categories.map((c) => (
+            <option key={c.code} value={c.code}>
+              {bizCategoryLabel(c, i18n.language)}
             </option>
           ))}
         </select>

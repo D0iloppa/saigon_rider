@@ -1406,13 +1406,8 @@
       "placeHint": "Đăng ký một địa điểm trong khu phố của bạn",
       "addPlace": "Thêm địa điểm"
     },
-    "bizCategories": {
-      "repair": "Sửa xe",
-      "wash": "Rửa xe",
-      "cafe": "Cà phê",
-      "food": "Ăn uống",
-      "parts": "Phụ tùng"
-    }
+    "moreCategories": "Thêm",
+    "categoriesTitle": "Danh mục"
   },
   "effects": {
     "none": "Không có hiệu ứng",
@@ -1522,12 +1517,6 @@
     "namePlaceholder": "Nhập tên cửa hàng của bạn",
     "category": "Ngành hàng",
     "categoryPlaceholder": "Chọn ngành hàng",
-    "category_cafe": "Cà phê",
-    "category_restaurant": "Nhà hàng",
-    "category_repair": "Sửa chữa",
-    "category_retail": "Bán lẻ",
-    "category_service": "Dịch vụ",
-    "category_other": "Khác",
     "location": "Vị trí",
     "locationPlaceholder": "Chọn vị trí",
     "phone": "Số điện thoại",

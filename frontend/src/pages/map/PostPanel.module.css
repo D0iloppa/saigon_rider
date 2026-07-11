@@ -66,9 +66,23 @@
 .scroller::-webkit-scrollbar { display: none; }
 
 .card {
+  position: relative;
   flex-shrink: 0;
   width: calc(100% - 48px);
   scroll-snap-align: center;
+}
+
+/* 찜 하트 (P-FE) — cardBody 가 button 이라 중첩 불가, 카드 우상단(cardHead 우측)에 absolute */
+.favBtn {
+  position: absolute;
+  top: 14px;
+  right: 10px;
+  z-index: 1;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: var(--brand-500, #FF5A1F);
 }
 
 .cardBody {

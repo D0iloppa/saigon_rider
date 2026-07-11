@@ -1397,20 +1397,46 @@
       "title": "동네지도 프로필",
       "defaultNickname": "라이더",
       "activityComingSoon": "동네 활동은 준비 중이에요",
-      "shortcuts": { "coupons": "받은 쿠폰", "orders": "포장/주문", "wishlist": "관심목록", "favorites": "단골 업체" },
+      "shortcuts": { "coupons": "받은 쿠폰", "wishlist": "관심목록", "favorites": "단골 업체" },
+      "regularsComingSoon": "단골 업체는 준비 중이에요",
       "reviews": "나의 후기",
       "writeReview": "후기 작성",
       "averageRating": "평균 별점",
-      "totalViews": "누적 조회수",
-      "helpfulCount": "도움돼요 수",
-      "reviewNotice": "후기 쓰고 동네탐험가가 되어보세요!",
+      "statReviews": "후기 수",
+      "statUpvotes": "도움돼요",
+      "reviewBannerText": "첫 후기를 남기고 이웃을 도와보세요!",
       "noReviews": "아직 작성한 후기가 없어요.",
       "placeSuggestion": "장소 제안",
       "placeHint": "우리 동네 장소를 등록해 보세요",
-      "addPlace": "장소 추가하기"
+      "addPlace": "장소 추가하기",
+      "placeForm": {
+        "title": "장소 제안하기",
+        "nameLabel": "이름",
+        "namePlaceholder": "장소 이름을 입력하세요",
+        "categoryLabel": "카테고리",
+        "categoryPlaceholder": "카테고리 선택 (선택)",
+        "addressLabel": "주소",
+        "addressPlaceholder": "주소 (선택)",
+        "noteLabel": "메모",
+        "notePlaceholder": "메모 (선택)",
+        "submit": "제안하기",
+        "submitting": "제안하는 중...",
+        "cancel": "취소",
+        "success": "제안이 접수됐어요",
+        "statusPending": "검토중",
+        "statusConfirmed": "승인됨",
+        "statusRejected": "반려됨"
+      }
     },
     "moreCategories": "더보기",
-    "categoriesTitle": "카테고리"
+    "categoriesTitle": "카테고리",
+    "favorites": {
+      "title": "관심목록",
+      "tabListings": "매물",
+      "tabBiz": "업체",
+      "emptyListings": "찜한 매물이 없어요",
+      "emptyBiz": "찜한 업체가 없어요"
+    }
   },
   "effects": {
     "none": "착용 효과 없음",
@@ -1570,6 +1596,7 @@
     "publicAdsEmpty": "아직 게시중인 광고가 없어요",
     "publicCallCta": "전화 문의하기",
     "publicNotFound": "가게 정보를 찾을 수 없어요",
+    "favoriteToggle": "관심 업체",
     "viewProfileCta": "가게 프로필 보기"
   }
 }

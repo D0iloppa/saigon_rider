@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
-import { Eye, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Eye, Heart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AppImage } from '@/components/ui/AppImage';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { formatRelativeTime } from '@/lib/format';
-import type { BizMapItem } from '@/api/biz';
+import { addBizFavorite, fetchBizFavorites, removeBizFavorite, type BizMapItem } from '@/api/biz';
 import styles from './PostPanel.module.css';
 
 // 업체 포스트 패널 (W2, 당근 레퍼런스) — 핀 직접 터치 시 바텀시트를 대체하는 가로 스와이프
@@ -26,6 +26,33 @@ export function PostPanel({ items, index, viewerCount, catLabel, onIndexChange, 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const reportedIdx = useRef(index);
+  // 찜 상태 (P-FE) — 단건 조회 API 가 없어 목록 1회 로드 후 낙관적 토글
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetchBizFavorites()
+      .then((favs) => setFavoriteIds(new Set(favs.map((f) => f.id))))
+      .catch(() => {});
+  }, []);
+
+  const toggleFavorite = async (id: string) => {
+    const next = !favoriteIds.has(id);
+    setFavoriteIds((prev) => {
+      const s = new Set(prev);
+      if (next) s.add(id); else s.delete(id);
+      return s;
+    });
+    try {
+      if (next) await addBizFavorite(id);
+      else await removeBizFavorite(id);
+    } catch {
+      setFavoriteIds((prev) => {
+        const s = new Set(prev);
+        if (next) s.delete(id); else s.add(id);
+        return s;
+      });
+    }
+  };
 
   // 패널 실높이 → 지도 bottomInset (시트의 onVisibleHeightChange 역할 대체)
   useEffect(() => {
@@ -74,6 +101,16 @@ export function PostPanel({ items, index, viewerCount, catLabel, onIndexChange, 
           const photo = news?.photos[0];
           return (
             <div key={b.id} ref={(el) => { cardRefs.current[i] = el; }} className={styles.card}>
+              {/* cardBody(button) 안에 button 중첩은 불가 — 형제로 두고 cardHead 우측에 absolute 배치 */}
+              <button
+                type="button"
+                className={styles.favBtn}
+                aria-pressed={favoriteIds.has(b.id)}
+                aria-label={t('map.favorites.title')}
+                onClick={(e) => { e.stopPropagation(); toggleFavorite(b.id); }}
+              >
+                <Heart size={18} strokeWidth={2} fill={favoriteIds.has(b.id) ? 'currentColor' : 'none'} />
+              </button>
               <button type="button" className={styles.cardBody} onClick={() => onCardTap(b)}>
                 <div className={styles.cardHead}>
                   <AppImage src={b.photoUrl ?? undefined} alt="" className={styles.avatar} />

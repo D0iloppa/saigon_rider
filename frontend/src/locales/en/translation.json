@@ -1397,20 +1397,46 @@
       "title": "Neighborhood Map Profile",
       "defaultNickname": "Rider",
       "activityComingSoon": "Neighborhood activity is coming soon",
-      "shortcuts": { "coupons": "Coupons", "orders": "Orders", "wishlist": "Wishlist", "favorites": "Favorite places" },
+      "shortcuts": { "coupons": "Coupons", "wishlist": "Wishlist", "favorites": "Favorite places" },
+      "regularsComingSoon": "Frequently visited businesses are coming soon",
       "reviews": "My reviews",
       "writeReview": "Write a review",
       "averageRating": "Average rating",
-      "totalViews": "Total views",
-      "helpfulCount": "Helpful count",
-      "reviewNotice": "Write reviews and become a neighborhood explorer!",
+      "statReviews": "Reviews",
+      "statUpvotes": "Helpful",
+      "reviewBannerText": "Leave your first review and help neighbors!",
       "noReviews": "You have not written any reviews yet.",
       "placeSuggestion": "Suggest a place",
       "placeHint": "Add a place in your neighborhood",
-      "addPlace": "Add a place"
+      "addPlace": "Add a place",
+      "placeForm": {
+        "title": "Suggest a place",
+        "nameLabel": "Name",
+        "namePlaceholder": "Enter a place name",
+        "categoryLabel": "Category",
+        "categoryPlaceholder": "Select a category (optional)",
+        "addressLabel": "Address",
+        "addressPlaceholder": "Address (optional)",
+        "noteLabel": "Note",
+        "notePlaceholder": "Note (optional)",
+        "submit": "Submit",
+        "submitting": "Submitting...",
+        "cancel": "Cancel",
+        "success": "Your suggestion has been submitted",
+        "statusPending": "Reviewing",
+        "statusConfirmed": "Approved",
+        "statusRejected": "Rejected"
+      }
     },
     "moreCategories": "More",
-    "categoriesTitle": "Categories"
+    "categoriesTitle": "Categories",
+    "favorites": {
+      "title": "Favorites",
+      "tabListings": "Listings",
+      "tabBiz": "Businesses",
+      "emptyListings": "No saved listings yet",
+      "emptyBiz": "No saved businesses yet"
+    }
   },
   "effects": {
     "none": "No equip effects",
@@ -1570,6 +1596,7 @@
     "publicAdsEmpty": "No ads posted yet",
     "publicCallCta": "Call to inquire",
     "publicNotFound": "Couldn't find this shop",
+    "favoriteToggle": "Favorite business",
     "viewProfileCta": "View shop profile"
   }
 }

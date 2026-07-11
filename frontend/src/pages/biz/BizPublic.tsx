@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin } from 'lucide-react';
+import { Phone, MapPin, Heart } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
@@ -10,6 +10,9 @@ import {
   fetchBusinessPublicProfile,
   fetchBizCategories,
   bizCategoryLabel,
+  fetchBizFavorites,
+  addBizFavorite,
+  removeBizFavorite,
   type BusinessPublicProfile,
   type BizCategory,
 } from '@/api/biz';
@@ -23,10 +26,31 @@ export default function BizPublic() {
   const [profile, setProfile] = useState<BusinessPublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BizCategory[]>([]);
+  const [favorited, setFavorited] = useState(false);
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    // 단건 찜 여부 조회 API 는 없음 — 목록에서 포함 여부만 확인(과설계 금지)
+    fetchBizFavorites()
+      .then((favs) => setFavorited(favs.some((f) => f.id === id)))
+      .catch(() => {});
+  }, [id]);
+
+  const handleToggleFavorite = async () => {
+    if (!id) return;
+    const next = !favorited;
+    setFavorited(next);
+    try {
+      if (next) await addBizFavorite(id);
+      else await removeBizFavorite(id);
+    } catch {
+      setFavorited(!next);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -58,7 +82,20 @@ export default function BizPublic() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={profile.name} />
+      <TopBar
+        title={profile.name}
+        rightContent={
+          <button
+            type="button"
+            className={styles.favoriteBtn}
+            onClick={handleToggleFavorite}
+            aria-label={t('biz.favoriteToggle', { defaultValue: '관심 업체' })}
+            aria-pressed={favorited}
+          >
+            <Heart size={22} strokeWidth={2} fill={favorited ? 'currentColor' : 'none'} />
+          </button>
+        }
+      />
       <div className={styles.body}>
         <div className={styles.heroWrap}>
           <AppImage src={profile.photoUrl ?? undefined} alt={profile.name} className={styles.heroImg} />

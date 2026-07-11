@@ -24,6 +24,7 @@ const HIDE_TABBAR_PATHS = [
   '/dm/',
   '/market/',
   '/map/profile',
+  '/map/favorites',
   '/map/categories',
   '/quest-check/',
   '/feed/post/', // 게시글 상세 — 하단 댓글 입력바가 탭바 자리 사용

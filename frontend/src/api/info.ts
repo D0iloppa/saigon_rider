@@ -491,6 +491,69 @@ export const repairApi = {
   },
 };
 
+// ── 나의 정비 후기 집계 (P-FE 동네지도 프로필 실배선) ───────────────
+
+export interface MyRepairReview {
+  reviewId: number;
+  shopId: number;
+  shopName: string;
+  rating: number;
+  comment: string | null;
+  photoUrl: string | null;
+  reviewedAt: string;
+  upvotes: number;
+}
+
+export interface MyRepairReviewsResult {
+  reviews: MyRepairReview[];
+  total: number;
+  hasMore: boolean;
+  summary: { reviewCount: number; avgRating: number | null; totalUpvotes: number };
+}
+
+interface MyRepairReviewApi {
+  review_id: number;
+  shop_id: number;
+  shop_name: string;
+  rating: number;
+  comment: string | null;
+  photo_url: string | null;
+  reviewed_at: string;
+  upvotes: number;
+}
+
+interface MyRepairReviewsApiResponse {
+  reviews: MyRepairReviewApi[];
+  total: number;
+  has_more: boolean;
+  summary: { review_count: number; avg_rating: number | null; total_upvotes: number };
+}
+
+export async function fetchMyRepairReviews(limit = 20, offset = 0): Promise<MyRepairReviewsResult> {
+  const res = await api.realFetch<MyRepairReviewsApiResponse>(
+    `/info/repair/my-reviews?limit=${limit}&offset=${offset}`, {}, 'bff', { silent: true },
+  );
+  return {
+    reviews: (res?.reviews ?? []).map((r) => ({
+      reviewId: r.review_id,
+      shopId: r.shop_id,
+      shopName: r.shop_name,
+      rating: r.rating,
+      comment: r.comment,
+      photoUrl: r.photo_url,
+      reviewedAt: r.reviewed_at,
+      upvotes: r.upvotes,
+    })),
+    total: res?.total ?? 0,
+    hasMore: res?.has_more ?? false,
+    summary: {
+      reviewCount: res?.summary?.review_count ?? 0,
+      avgRating: res?.summary?.avg_rating ?? null,
+      totalUpvotes: res?.summary?.total_upvotes ?? 0,
+    },
+  };
+}
+
 // ── 경로 미리보기 (SGR-269) ────────────────────────────────────────
 
 export interface RouteStep {

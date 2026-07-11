@@ -348,3 +348,133 @@ export async function fetchBusinessPublicProfile(id: string): Promise<BusinessPu
     ads: (res.ads ?? []).map(transformAd),
   };
 }
+
+// ── 관심 업체 (P-FE 동네지도 프로필 실배선) ───────────────────────
+
+export interface BizFavorite {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  lat: number;
+  lng: number;
+  photoUrl: string | null;
+  latestNews: { title: string; createdAt: string; photos: string[] } | null;
+  favoritedAt: string;
+}
+
+interface BizFavoriteApi {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  lat: string | number;
+  lng: string | number;
+  photo_url: string | null;
+  latest_news: { title: string; created_at: string; photos: string[] } | null;
+  favorited_at: string;
+}
+
+export async function fetchBizFavorites(): Promise<BizFavorite[]> {
+  const res = await api.realFetch<BizFavoriteApi[]>('/biz/favorites');
+  return (res ?? []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    category: b.category,
+    address: b.address,
+    lat: Number(b.lat),
+    lng: Number(b.lng),
+    photoUrl: b.photo_url,
+    latestNews: b.latest_news
+      ? { title: b.latest_news.title, createdAt: b.latest_news.created_at, photos: b.latest_news.photos ?? [] }
+      : null,
+    favoritedAt: b.favorited_at,
+  }));
+}
+
+export async function addBizFavorite(id: string): Promise<boolean> {
+  const res = await api.realFetch<{ favorited: boolean }>(`/biz/favorites/${id}`, { method: 'POST' }, 'bff', { rethrow: true });
+  return res.favorited;
+}
+
+export async function removeBizFavorite(id: string): Promise<boolean> {
+  const res = await api.realFetch<{ favorited: boolean }>(`/biz/favorites/${id}`, { method: 'DELETE' }, 'bff', { rethrow: true });
+  return res.favorited;
+}
+
+// ── 장소 제안 (P-FE 동네지도 프로필 실배선) ───────────────────────
+
+export type PlaceSuggestionStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED';
+
+export interface PlaceSuggestionInput {
+  name: string;
+  category?: string | null;
+  address?: string | null;
+  lat: number;
+  lng: number;
+  note?: string | null;
+}
+
+export interface PlaceSuggestion {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  lat: number;
+  lng: number;
+  note: string | null;
+  status: PlaceSuggestionStatus;
+  reviewNote: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+}
+
+interface PlaceSuggestionApi {
+  id: string;
+  name: string;
+  category: string | null;
+  address: string | null;
+  lat: string | number;
+  lng: string | number;
+  note: string | null;
+  status: PlaceSuggestionStatus;
+  review_note: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+function fromPlaceSuggestionApi(p: PlaceSuggestionApi): PlaceSuggestion {
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    address: p.address,
+    lat: Number(p.lat),
+    lng: Number(p.lng),
+    note: p.note,
+    status: p.status,
+    reviewNote: p.review_note,
+    createdAt: p.created_at,
+    reviewedAt: p.reviewed_at,
+  };
+}
+
+export async function createPlaceSuggestion(input: PlaceSuggestionInput): Promise<PlaceSuggestion> {
+  const res = await api.realFetch<PlaceSuggestionApi>('/biz/place-suggestions', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: input.name,
+      category: input.category ?? null,
+      address: input.address ?? null,
+      lat: input.lat,
+      lng: input.lng,
+      note: input.note ?? null,
+    }),
+  }, 'bff', { rethrow: true });
+  return fromPlaceSuggestionApi(res);
+}
+
+export async function fetchMyPlaceSuggestions(): Promise<PlaceSuggestion[]> {
+  const res = await api.realFetch<PlaceSuggestionApi[]>('/biz/place-suggestions/mine');
+  return (res ?? []).map(fromPlaceSuggestionApi);
+}

@@ -175,3 +175,15 @@
 .ctaBtn:active {
   opacity: 0.88;
 }
+
+/* 헤더 우측 찜 하트 토글 (P-FE) */
+.favoriteBtn {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  color: var(--brand-500, #FF5A1F);
+  background: none;
+  border: none;
+  cursor: pointer;
+}

@@ -1397,20 +1397,46 @@
       "title": "Hồ sơ Bản đồ khu phố",
       "defaultNickname": "Rider",
       "activityComingSoon": "Hoạt động khu phố sắp ra mắt",
-      "shortcuts": { "coupons": "Phiếu đã nhận", "orders": "Đặt hàng", "wishlist": "Yêu thích", "favorites": "Cửa hàng quen" },
+      "shortcuts": { "coupons": "Phiếu đã nhận", "wishlist": "Yêu thích", "favorites": "Cửa hàng quen" },
+      "regularsComingSoon": "Cửa hàng quen sắp ra mắt",
       "reviews": "Đánh giá của tôi",
       "writeReview": "Viết đánh giá",
       "averageRating": "Điểm trung bình",
-      "totalViews": "Tổng lượt xem",
-      "helpfulCount": "Lượt hữu ích",
-      "reviewNotice": "Viết đánh giá và trở thành nhà khám phá khu phố!",
+      "statReviews": "Lượt đánh giá",
+      "statUpvotes": "Hữu ích",
+      "reviewBannerText": "Hãy để lại đánh giá đầu tiên và giúp đỡ hàng xóm!",
       "noReviews": "Bạn chưa viết đánh giá nào.",
       "placeSuggestion": "Đề xuất địa điểm",
       "placeHint": "Đăng ký một địa điểm trong khu phố của bạn",
-      "addPlace": "Thêm địa điểm"
+      "addPlace": "Thêm địa điểm",
+      "placeForm": {
+        "title": "Đề xuất địa điểm",
+        "nameLabel": "Tên",
+        "namePlaceholder": "Nhập tên địa điểm",
+        "categoryLabel": "Danh mục",
+        "categoryPlaceholder": "Chọn danh mục (không bắt buộc)",
+        "addressLabel": "Địa chỉ",
+        "addressPlaceholder": "Địa chỉ (không bắt buộc)",
+        "noteLabel": "Ghi chú",
+        "notePlaceholder": "Ghi chú (không bắt buộc)",
+        "submit": "Gửi đề xuất",
+        "submitting": "Đang gửi...",
+        "cancel": "Hủy",
+        "success": "Đề xuất của bạn đã được tiếp nhận",
+        "statusPending": "Đang xét duyệt",
+        "statusConfirmed": "Đã duyệt",
+        "statusRejected": "Bị từ chối"
+      }
     },
     "moreCategories": "Thêm",
-    "categoriesTitle": "Danh mục"
+    "categoriesTitle": "Danh mục",
+    "favorites": {
+      "title": "Đã quan tâm",
+      "tabListings": "Tin đăng",
+      "tabBiz": "Cửa hàng",
+      "emptyListings": "Chưa có tin đăng đã lưu",
+      "emptyBiz": "Chưa có cửa hàng đã lưu"
+    }
   },
   "effects": {
     "none": "Không có hiệu ứng",
@@ -1570,6 +1596,7 @@
     "publicAdsEmpty": "Chưa có quảng cáo nào được đăng",
     "publicCallCta": "Gọi để liên hệ",
     "publicNotFound": "Không tìm thấy cửa hàng này",
+    "favoriteToggle": "Cửa hàng quan tâm",
     "viewProfileCta": "Xem hồ sơ cửa hàng"
   }
 }

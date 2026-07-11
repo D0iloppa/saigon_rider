@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Heart, MapPinned, Pencil, Star, Store, Ticket } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
@@ -39,6 +39,7 @@ function fallbackCoords(): { lat: number; lng: number } | null {
 /** 동네지도 전용 프로필. 퀵메뉴·나의 후기·장소 제안 실배선(P-FE). */
 export default function NeighborhoodProfile() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const user = useUserStore((s) => s.user);
   const savedCoords = useLocationStore((s) => s.coords);
@@ -61,6 +62,14 @@ export default function NeighborhoodProfile() {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
     fetchMyPlaceSuggestions().then(setSuggestions).catch(() => setSuggestions([]));
   }, []);
+
+  // 동네지도 + 메뉴 "장소 제안하기"에서 넘어온 ?openPlaceForm= 1회 소비 — NeighborhoodMap
+  // ?category= 소비 패턴 미러. 새 폼을 만들지 않고 기존 시트를 원격으로 연다.
+  useEffect(() => {
+    if (!searchParams.get('openPlaceForm')) return;
+    setSheetOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const shortcuts = [
     { label: t('map.neighborhoodProfile.shortcuts.coupons'), Icon: Ticket, onClick: () => navigate('/coupons/mine') },

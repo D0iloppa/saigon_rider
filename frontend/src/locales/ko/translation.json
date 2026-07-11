@@ -1385,6 +1385,13 @@
     "viewMap": "지도보기",
     "savedPlaces": "저장한 장소",
     "addPlace": "장소 추가",
+    "favoriteFilterLabel": "찜한 업체만 보기",
+    "favoriteFilterLoginRequired": "로그인 후 이용할 수 있어요",
+    "addMenu": {
+      "label": "글쓰기",
+      "writeReview": "후기쓰기",
+      "suggestPlace": "장소 제안하기"
+    },
     "postPanel": {
       "viewing": "{{n}}명이 보는중"
     },

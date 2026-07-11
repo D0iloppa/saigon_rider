@@ -11,8 +11,9 @@ import { shuffle, randAdBatch } from '@/lib/shuffle';
 import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
-import { fetchBizMapItems, fetchBizCategories, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
+import { fetchBizMapItems, fetchBizCategories, fetchBizFavorites, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
 import { isNewsUnread, markBizNewsRead } from '@/lib/bizNewsRead';
+import { toast } from '@/components/ui/Toast';
 import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchFeed } from '@/api/feed';
@@ -133,6 +134,11 @@ export default function NeighborhoodMap() {
   const [bizCategories, setBizCategories] = useState<BizCategory[]>([]);
   const [bizCategory, setBizCategory] = useState<string | null>(null);
   const [bizLoading, setBizLoading] = useState(false);
+  // 좌측 ♥ 버튼 = "찜한 업체만 보기" 토글 필터 (카테고리 칩과 AND 교집합, visibleBiz 에서 적용)
+  const [favOnly, setFavOnly] = useState(false);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  // 좌측 + 버튼 = 글쓰기 컨텍스트 메뉴 (후기쓰기/장소 제안하기)
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   // 도시 전체 조망(줌아웃)용 — ward보다 굵은 district 단위 집계. listings 탭에서만 쓰임
   // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
   const [ads, setAds] = useState<MarketAd[]>([]);
@@ -415,15 +421,17 @@ export default function NeighborhoodMap() {
   }, [bboxFilter, posts, selectedRegion]);
 
   const visibleBiz = useMemo(() => {
-    if (bboxFilter) {
-      return bizItems.filter((b) =>
-        b.lat >= bboxFilter.S && b.lat <= bboxFilter.N &&
-        b.lng >= bboxFilter.W && b.lng <= bboxFilter.E,
-      );
-    }
-    if (!selectedRegion) return bizItems;
-    return bizItems.filter((b) => regionContains(selectedRegion, b.lat, b.lng));
-  }, [bboxFilter, bizItems, selectedRegion]);
+    const base = bboxFilter
+      ? bizItems.filter((b) =>
+          b.lat >= bboxFilter.S && b.lat <= bboxFilter.N &&
+          b.lng >= bboxFilter.W && b.lng <= bboxFilter.E,
+        )
+      : selectedRegion
+        ? bizItems.filter((b) => regionContains(selectedRegion, b.lat, b.lng))
+        : bizItems;
+    // ♥ 찜 필터 — 카테고리 칩(서버 조회 시점 필터)과 AND 교집합
+    return favOnly ? base.filter((b) => favIds.has(b.id)) : base;
+  }, [bboxFilter, bizItems, selectedRegion, favOnly, favIds]);
 
   // depth2/3 마커 (선택 영역 기준) — 검색 중엔 위치 필터 무시하고 검색 결과만 표시.
   // 핀 레이어 배열 구조 (SGR-323): listing/feed/biz 모두 탭 배타 — biz 핀도 biz 탭에서만 노출.
@@ -606,6 +614,38 @@ export default function NeighborhoodMap() {
     setSelectedId(null);
     if (tb !== 'biz') setSelectedBiz(null);
     setPostPanelOpen(false);
+  };
+
+  // ♥ 토글 — ON 시 업체 탭이 아니면 업체 탭으로 전환한다(찜 필터는 업체 레이어 전용이라
+  // 매물/피드 탭에 켜둬도 아무 효과가 없어 혼란스러움 — 결정: 탭 배타 구조 위에서 자동 전환).
+  const toggleFavOnly = () => {
+    if (!user) {
+      toast.info(t('map.favoriteFilterLoginRequired'));
+      return;
+    }
+    if (favOnly) {
+      setFavOnly(false);
+      return;
+    }
+    setFavOnly(true);
+    if (tab !== 'biz') switchTab('biz');
+    fetchBizFavorites()
+      .then((favs) => setFavIds(new Set(favs.map((f) => f.id))))
+      .catch(() => setFavIds(new Set()));
+  };
+
+  const handleWriteReview = () => {
+    setAddMenuOpen(false);
+    // 지도 컨텍스트에 맞는 "이 업체 후기 작성" 진입점이 없다 — 나의 후기(NeighborhoodProfile)의
+    // 기존 진입점과 동일하게 정비소 목록으로 보낸다 (제품 결정 필요 항목, 보고서 참조).
+    navigate('/info/repair');
+  };
+
+  const handleSuggestPlace = () => {
+    setAddMenuOpen(false);
+    // NeighborhoodProfile 의 기존 장소 제안 시트를 재사용 — 쿼리 파라미터로 자동 오픈
+    // (?category= 소비 패턴 미러, 새 폼을 만들지 않는다)
+    navigate('/map/profile?openPlaceForm=1');
   };
 
   const retryLoad = () => setReloadSeq((n) => n + 1);
@@ -807,10 +847,12 @@ export default function NeighborhoodMap() {
         return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
       }
       if (visibleBiz.length === 0) {
+        // 찜 필터로 인한 0건은 "이 동네에 업체가 없다"가 아니라 "찜한 업체가 없다" — 관심목록
+        // 화면(map.favorites.emptyBiz)과 동일 문구로 정직화
         return (
           <div className={styles.emptyState}>
-            <p className={styles.emptyTitle}>{t('map.emptyBiz')}</p>
-            <p className={styles.emptyBody}>{t('map.emptyBizHint')}</p>
+            <p className={styles.emptyTitle}>{favOnly ? t('map.favorites.emptyBiz') : t('map.emptyBiz')}</p>
+            {!favOnly && <p className={styles.emptyBody}>{t('map.emptyBizHint')}</p>}
           </div>
         );
       }
@@ -1011,18 +1053,46 @@ export default function NeighborhoodMap() {
         </button>
       </div>
 
-      {/* 지도 전용 도구. GPS만 동작하며 나머지는 백엔드 기능 연동 전 시각 목업이다. */}
+      {/* backdrop 이 mapTools 보다 DOM 상 먼저(z-index 동률 시 이후 요소가 위) 와야
+          ♥/+ 버튼 자체(재탭 포함)는 계속 눌리고, 그 외 바깥 탭만 메뉴를 닫는다. */}
+      {addMenuOpen && <div className={styles.addMenuBackdrop} onClick={() => setAddMenuOpen(false)} />}
+
+      {/* 지도 전용 도구. 내 위치는 기존 GPS 동작 그대로, ♥/+ 는 실배선(찜 필터·글쓰기 메뉴). */}
       {!isSearching && (
         <div className={styles.mapTools}>
           <button type="button" className={styles.mapToolButton} onClick={() => locateRef.current?.()} aria-label={t('map.locateMe')}>
             <LocateFixed size={18} strokeWidth={2.3} />
           </button>
-          <button type="button" className={styles.mapToolButton} aria-label={t('map.savedPlaces')} aria-disabled="true">
-            <Heart size={17} strokeWidth={2.2} />
+          <button
+            type="button"
+            className={`${styles.mapToolButton} ${favOnly ? styles.mapToolButtonActive : ''}`}
+            onClick={toggleFavOnly}
+            aria-label={t('map.favoriteFilterLabel')}
+            aria-pressed={favOnly}
+          >
+            <Heart size={17} strokeWidth={2.2} fill={favOnly ? 'currentColor' : 'none'} />
           </button>
-          <button type="button" className={styles.mapToolButton} aria-label={t('map.addPlace')} aria-disabled="true">
-            <Plus size={18} strokeWidth={2.3} />
-          </button>
+          <div className={styles.addWrap}>
+            <button
+              type="button"
+              className={styles.mapToolButton}
+              onClick={() => setAddMenuOpen((v) => !v)}
+              aria-label={t('map.addMenu.label')}
+              aria-expanded={addMenuOpen}
+            >
+              <Plus size={18} strokeWidth={2.3} />
+            </button>
+            {addMenuOpen && (
+              <div className={styles.addMenu}>
+                <button type="button" className={styles.addMenuItem} onClick={handleWriteReview}>
+                  {t('map.addMenu.writeReview')}
+                </button>
+                <button type="button" className={styles.addMenuItem} onClick={handleSuggestPlace}>
+                  {t('map.addMenu.suggestPlace')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -1385,6 +1385,13 @@
     "viewMap": "Map view",
     "savedPlaces": "Saved places",
     "addPlace": "Add a place",
+    "favoriteFilterLabel": "Show favorites only",
+    "favoriteFilterLoginRequired": "Log in to use this",
+    "addMenu": {
+      "label": "Post",
+      "writeReview": "Write a review",
+      "suggestPlace": "Suggest a place"
+    },
     "postPanel": {
       "viewing": "{{n}} viewing"
     },

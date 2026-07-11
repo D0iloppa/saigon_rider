@@ -1385,6 +1385,13 @@
     "viewMap": "Xem bản đồ",
     "savedPlaces": "Địa điểm đã lưu",
     "addPlace": "Thêm địa điểm",
+    "favoriteFilterLabel": "Chỉ xem đã yêu thích",
+    "favoriteFilterLoginRequired": "Đăng nhập để sử dụng",
+    "addMenu": {
+      "label": "Đăng",
+      "writeReview": "Viết đánh giá",
+      "suggestPlace": "Đề xuất địa điểm"
+    },
     "postPanel": {
       "viewing": "{{n}} người đang xem"
     },

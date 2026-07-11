@@ -63,7 +63,48 @@
   color: var(--text);
 }
 
-.mapToolButton[aria-disabled="true"] { color: var(--text-3); }
+.mapToolButtonActive {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.addWrap { position: relative; }
+
+.addMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 4;
+  display: flex;
+  min-width: 148px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.addMenuItem {
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 650;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.addMenuItem:last-child { border-bottom: 0; }
+
+.addMenuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+}
 
 /* 지도 앵커 오버레이(anchorOverlay) 안에서 렌더 — 위치는 지도가 transform 으로 잡아준다 */
 .bizNewsBubble {

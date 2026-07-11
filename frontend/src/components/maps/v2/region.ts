@@ -27,6 +27,8 @@ export interface MapMarkerV2 {
   icon?: string;
   /** 선택 강조 — 포스트 패널 포커싱 업체 등. 브랜드색 링 렌더. */
   selected?: boolean;
+  /** 미확인 소식 표시 — 핀 우상단 빨간 점 (W4). */
+  badge?: boolean;
 }
 
 /** 좌표가 선택 지역(동) 경계 안인지 — ray casting */

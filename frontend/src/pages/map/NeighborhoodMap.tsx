@@ -12,6 +12,7 @@ import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
 import { fetchBizMapItems, fetchBizCategories, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
+import { isNewsUnread, markBizNewsRead } from '@/lib/bizNewsRead';
 import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchFeed } from '@/api/feed';
@@ -148,6 +149,8 @@ export default function NeighborhoodMap() {
   const [carouselItems, setCarouselItems] = useState<BizMapItem[]>([]);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [postPanelHeight, setPostPanelHeight] = useState(0);
+  // 읽음 처리 직후 같은 데이터로도 markers(badge) 재계산을 트리거 (W4)
+  const [readVersion, setReadVersion] = useState(0);
   const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
   const focusedBiz = postPanelOpen ? carouselItems[carouselIndex] ?? null : null;
   const viewerCount = useBizViewerCount(focusedBiz?.id ?? null);
@@ -428,6 +431,7 @@ export default function NeighborhoodMap() {
           id: `biz:${b.id}`, lat: b.lat, lng: b.lng, color: BIZ_COLOR, r: 1.35, label: b.name,
           icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
           selected: focusedBiz?.id === b.id,
+          badge: isNewsUnread(b.id, b.latestNews?.createdAt),
           onClick: () => handleBizMarkerClick(b),
         }));
       }
@@ -454,11 +458,12 @@ export default function NeighborhoodMap() {
               label: b.name,
               icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
               selected: focusedBiz?.id === b.id,
+              badge: isNewsUnread(b.id, b.latestNews?.createdAt),
               onClick: () => handleBizMarkerClick(b),
             })),
     ];
     return layers.flat();
-  }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz, focusedBiz]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz, focusedBiz, readVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // useCallback 필수: SaigonMapV5의 onRegionSelect prop으로 전달되는데, 매 렌더마다
   // 새 함수를 넘기면 내부 focusLatLng/runLocate가 재생성되어 locateOnMount 이펙트가
@@ -505,6 +510,14 @@ export default function NeighborhoodMap() {
   // 업체 핀 "직접 터치" (W2) — 시트 스냅 대신 포스트 패널을 연다. 캐러셀 후보 = 같은
   // 소스(검색 중이면 검색 결과, 아니면 뷰포트 업체) 중 최신 소식 보유 업체를 탭한 업체
   // 기준 가까운 순으로. 탭한 업체 자신은 소식이 없어도 항상 선두(폴백 카피 카드).
+  // 포스트 패널에서 포커싱된 업체의 최신 소식을 읽음 처리 (W4) — readVersion 이 markers 재계산을 트리거.
+  const markBizAsRead = (biz: BizMapItem) => {
+    if (biz.latestNews) {
+      markBizNewsRead(biz.id, biz.latestNews.createdAt);
+      setReadVersion((v) => v + 1);
+    }
+  };
+
   const openPostPanel = (biz: BizMapItem) => {
     const source = isSearching && searchScope === 'biz' ? bizSearchResults : visibleBiz;
     const d2 = (b: BizMapItem) => (b.lat - biz.lat) ** 2 + (b.lng - biz.lng) ** 2;
@@ -515,6 +528,7 @@ export default function NeighborhoodMap() {
     setSelectedBiz(null); // 자동 말풍선 상태와 분리 — 패널과 말풍선 이중 노출 방지
     setSelectedId(biz.id);
     focusPointRef.current?.({ lat: biz.lat, lng: biz.lng });
+    markBizAsRead(biz);
   };
 
   const closePostPanel = () => {
@@ -531,6 +545,7 @@ export default function NeighborhoodMap() {
     if (b) {
       setSelectedId(b.id);
       focusPointRef.current?.({ lat: b.lat, lng: b.lng });
+      markBizAsRead(b);
     }
   };
 

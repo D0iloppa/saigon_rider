@@ -893,6 +893,10 @@ function SaigonMapV5({
                       transform={`translate(${mx - r * 0.62}, ${my - r * 0.62}) scale(${(r * 1.24) / 24})`}
                     />
                   )}
+                  {m.badge && (
+                    <circle cx={mx + r * 0.75} cy={my - r * 0.75} r={r * 0.32}
+                      fill="#ef4444" stroke="#fff" strokeWidth={r * 0.12} pointerEvents="none" />
+                  )}
                   {m.label && (
                     // 업체 핀 상호명 라벨 (SGR-323, 당근 IN-1 패턴) — 동명 텍스트와 동일한 흰 헤일로
                     <text

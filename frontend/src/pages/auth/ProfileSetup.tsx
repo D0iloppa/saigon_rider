@@ -6,6 +6,8 @@ import { RadioCircle } from '@/components/ui/RadioCircle';
 import { emojiUrl } from '@/lib/emoji';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { apiSaveProfileSetup, checkNicknameAvailable, fetchRandomNickname } from '@/api/profile';
 import type { RiderStyle } from '@/api/types';
@@ -44,6 +46,10 @@ export default function ProfileSetup() {
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [nickStatus, setNickStatus] = useState<NicknameCheckStatus>('idle');
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 하단 CTA 버튼이 키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   // 닉네임 중복 확인 — 입력 이벤트(onChange)는 그대로 두고 값 변화만 감지해 debounce (F-03-1: IME 조합 이슈 회피)
   useEffect(() => {
@@ -130,7 +136,7 @@ export default function ProfileSetup() {
         </button>
       </div>
 
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         <h1 className={styles.title}>
           {t('profileSetup.titleLine1')}
           <br />

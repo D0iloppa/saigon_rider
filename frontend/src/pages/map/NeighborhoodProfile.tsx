@@ -6,19 +6,12 @@ import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
-import { useKeyboard } from '@/hooks/useKeyboard';
-import { native } from '@/lib/native';
-import { extractDetail } from '@/api/client';
+import { findWardAt } from '@/components/maps/SaigonMapV5';
+import MarkerLocationPicker from '@/components/maps/MarkerLocationPicker';
+import PlaceSuggestSheet from '@/pages/map/PlaceSuggestSheet';
 import { formatRelativeTime } from '@/lib/format';
 import { fetchMyRepairReviews, type MyRepairReviewsResult } from '@/api/info';
-import {
-  fetchBizCategories,
-  bizCategoryLabel,
-  createPlaceSuggestion,
-  fetchMyPlaceSuggestions,
-  type BizCategory,
-  type PlaceSuggestion,
-} from '@/api/biz';
+import { fetchMyPlaceSuggestions, type PlaceSuggestion } from '@/api/biz';
 import styles from './NeighborhoodProfile.module.css';
 
 // 지도 화면(NeighborhoodMap.tsx)이 기억해두는 마지막 뷰포트 — GPS 재측정 없이 "기억된 위치"만 폴백으로 쓴다.
@@ -40,26 +33,20 @@ function fallbackCoords(): { lat: number; lng: number } | null {
 export default function NeighborhoodProfile() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const savedCoords = useLocationStore((s) => s.coords);
   const nickname = user?.nickname || t('map.neighborhoodProfile.defaultNickname');
 
   const [reviewData, setReviewData] = useState<MyRepairReviewsResult | null>(null);
-  const [categories, setCategories] = useState<BizCategory[]>([]);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [placeName, setPlaceName] = useState('');
-  const [placeCategory, setPlaceCategory] = useState('');
-  const [placeAddress, setPlaceAddress] = useState('');
-  const [placeNote, setPlaceNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const kb = useKeyboard();
-  const isIosNative = native.platform === 'ios';
+  // 위치 [수정]으로 사용자가 직접 찍은 좌표 — 기본값(savedCoords ?? fallbackCoords)보다 우선
+  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     fetchMyRepairReviews().then(setReviewData).catch(() => setReviewData(null));
-    fetchBizCategories().then(setCategories).catch(() => setCategories([]));
     fetchMyPlaceSuggestions().then(setSuggestions).catch(() => setSuggestions([]));
   }, []);
 
@@ -85,33 +72,8 @@ export default function NeighborhoodProfile() {
   const avgRatingText = summary?.avgRating != null ? summary.avgRating.toFixed(1) : '–';
   const reviews = reviewData?.reviews ?? [];
 
-  const coords = savedCoords ?? fallbackCoords();
-
-  async function handleSubmitPlace() {
-    if (!placeName.trim() || !coords || submitting) return;
-    setSubmitting(true);
-    try {
-      await createPlaceSuggestion({
-        name: placeName.trim(),
-        category: placeCategory || null,
-        address: placeAddress.trim() || null,
-        lat: coords.lat,
-        lng: coords.lng,
-        note: placeNote.trim() || null,
-      });
-      toast.success(t('map.neighborhoodProfile.placeForm.success'));
-      setPlaceName('');
-      setPlaceCategory('');
-      setPlaceAddress('');
-      setPlaceNote('');
-      setSheetOpen(false);
-      fetchMyPlaceSuggestions().then(setSuggestions).catch(() => {});
-    } catch (err) {
-      toast.error(extractDetail(err, t('map.neighborhoodProfile.placeForm.error')));
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const coords = pickedCoords ?? savedCoords ?? fallbackCoords();
+  const wardName = coords ? findWardAt(coords.lat, coords.lng)?.region.name ?? null : null;
 
   function statusLabel(status: PlaceSuggestion['status']) {
     if (status === 'CONFIRMED') return t('map.neighborhoodProfile.placeForm.statusConfirmed');
@@ -128,6 +90,7 @@ export default function NeighborhoodProfile() {
         <h1>{t('map.neighborhoodProfile.title')}</h1>
       </header>
 
+      <div className={styles.body}>
       <section className={styles.userRow}>
         <div className={styles.avatar}>
           {user?.avatarUrl ? <AppImage src={user.avatarUrl} alt="" variant="circle" /> : <span>{nickname.charAt(0).toUpperCase()}</span>}
@@ -200,58 +163,26 @@ export default function NeighborhoodProfile() {
           </button>
         )}
       </section>
+      </div>
 
       {sheetOpen && (
-        <div
-          className={styles.sheetBackdrop}
-          onClick={() => !submitting && setSheetOpen(false)}
-          style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}
-        >
-          <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetTitle}>{t('map.neighborhoodProfile.placeForm.title')}</div>
-            <label className={styles.sheetLabel}>{t('map.neighborhoodProfile.placeForm.nameLabel')}</label>
-            <input
-              className={styles.field}
-              placeholder={t('map.neighborhoodProfile.placeForm.namePlaceholder')}
-              value={placeName}
-              onChange={(e) => setPlaceName(e.target.value)}
-            />
-            <label className={styles.sheetLabel}>{t('map.neighborhoodProfile.placeForm.categoryLabel')}</label>
-            <select className={styles.field} value={placeCategory} onChange={(e) => setPlaceCategory(e.target.value)}>
-              <option value="">{t('map.neighborhoodProfile.placeForm.categoryPlaceholder')}</option>
-              {categories.map((c) => (
-                <option key={c.code} value={c.code}>{bizCategoryLabel(c, i18n.language)}</option>
-              ))}
-            </select>
-            <label className={styles.sheetLabel}>{t('map.neighborhoodProfile.placeForm.addressLabel')}</label>
-            <input
-              className={styles.field}
-              placeholder={t('map.neighborhoodProfile.placeForm.addressPlaceholder')}
-              value={placeAddress}
-              onChange={(e) => setPlaceAddress(e.target.value)}
-            />
-            <label className={styles.sheetLabel}>{t('map.neighborhoodProfile.placeForm.noteLabel')}</label>
-            <input
-              className={styles.field}
-              placeholder={t('map.neighborhoodProfile.placeForm.notePlaceholder')}
-              value={placeNote}
-              onChange={(e) => setPlaceNote(e.target.value)}
-            />
-            <div className={styles.sheetActions}>
-              <button className={styles.sheetCancel} onClick={() => setSheetOpen(false)} disabled={submitting}>
-                {t('map.neighborhoodProfile.placeForm.cancel')}
-              </button>
-              <button
-                className={styles.sheetSubmit}
-                onClick={handleSubmitPlace}
-                disabled={!placeName.trim() || !coords || submitting}
-              >
-                {submitting ? t('map.neighborhoodProfile.placeForm.submitting') : t('map.neighborhoodProfile.placeForm.submit')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PlaceSuggestSheet
+          coords={coords}
+          wardName={wardName}
+          hidden={pickerOpen}
+          onPickLocation={() => setPickerOpen(true)}
+          onClose={() => setSheetOpen(false)}
+          onSubmitted={() => fetchMyPlaceSuggestions().then(setSuggestions).catch(() => {})}
+        />
       )}
+
+      {/* 프로필엔 지도가 없어 위치 [수정]은 탭-투-드롭 픽커(BizApply 등과 공용)로 처리 */}
+      <MarkerLocationPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={coords}
+        onConfirm={(loc) => setPickedCoords({ lat: loc.lat, lng: loc.lng })}
+      />
     </main>
   );
 }

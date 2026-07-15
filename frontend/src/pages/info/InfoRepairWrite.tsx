@@ -5,6 +5,8 @@ import { repairApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './InfoRepairWrite.module.css';
 
 // 차종은 주소록처럼 자유 입력 + 마지막 입력값을 기기에 기억.
@@ -31,6 +33,10 @@ export default function InfoRepairWrite() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 textarea/입력 필드가 sticky CTA·키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   const hasPrice = price.trim().length > 0 && !isNaN(Number(price));
   const rpReview = 50;
@@ -80,7 +86,7 @@ export default function InfoRepairWrite() {
         rightContent={saveBtn}
       />
 
-      <div className={styles.scroll}>
+      <div className={styles.scroll} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {/* Star rating card */}
         <div className={styles.starCard}>
           <div className={styles.starCardLabel}>⭐ {t('info.repair.ratingLabel')}</div>

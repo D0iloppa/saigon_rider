@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Star } from 'lucide-react';
 import { toast } from '@/components/ui/Toast';
+import { useKeyboard } from '@/hooks/useKeyboard';
+import { native } from '@/lib/native';
 import { extractDetail } from '@/api/client';
 import { fetchMyBizReview, upsertBizReview, type BizReview } from '@/api/biz';
 import styles from './BizReviewSheet.module.css';
@@ -24,6 +26,8 @@ export default function BizReviewSheet({ profileId, profileName, onClose, onSubm
   const [body, setBody] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const kb = useKeyboard();
+  const isIosNative = native.platform === 'ios';
 
   // 기존 후기 프리필 — 실패(네트워크 등)해도 신규 작성으로 진행 가능해야 하므로 조용히 무시
   useEffect(() => {
@@ -54,8 +58,23 @@ export default function BizReviewSheet({ profileId, profileName, onClose, onSubm
   };
 
   return (
-    <div className={styles.backdrop} onClick={onClose} role="presentation">
-      <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={styles.backdrop}
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className={styles.sheet}
+        onClick={(e) => e.stopPropagation()}
+        style={
+          isIosNative && kb.visible
+            ? {
+                maxHeight: 'calc(100% - var(--status-bar-height, 0px) - 12px)',
+                paddingBottom: `calc(${kb.height}px + 20px)`,
+              }
+            : undefined
+        }
+      >
         <div className={styles.title}>{editMode ? t('biz.review.titleEdit') : t('biz.review.title')}</div>
         <div className={styles.bizName}>{profileName}</div>
         <div className={styles.starsRow}>

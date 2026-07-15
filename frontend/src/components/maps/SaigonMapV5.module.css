@@ -2,7 +2,7 @@
 .stage {
   position: relative;
   overflow: hidden;
-  background: #dbe8e8;
+  background: #cfe3ea;
 }
 
 .svg {
@@ -12,13 +12,23 @@
   touch-action: none;
 }
 
+/* 팔레트 명도 위계 4단 (⑤-A): 수면 < 지면(ward) < 블록 < 건물 < 도로(흰 fill) — 저채도 웜톤 */
 /* 배경 (수면) */
-.sea { fill: #dbe8e8; }
+.sea { fill: #cfe3ea; }
 
 /* Layer 1 — 동 경계 */
-.river { fill: #b9dfea; stroke: none; }
-.rline { fill: none; stroke: #9bcedd; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.river { fill: #aad8e9; stroke: none; }
+.rline { fill: none; stroke: #8cc5d9; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .ward {
+  fill: #e7e1d0;
+  stroke: #d3cbb8;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+/* 오버뷰(블록 미표시) 전용 — 4단 명도 위계 도입 전 원래 흰색. 블록이 뜨는 순간부터는
+   .ward 가 블록 사이 틈의 街路 베드 역할을 겸하므로 위 베이지 톤을 그대로 쓴다. */
+.wardOverview {
   fill: #fbfaf7;
   stroke: #d7ddd5;
   stroke-width: 1.8;
@@ -34,7 +44,7 @@
 }
 /* polyActive 모드 — 선택 동 boundary만 */
 .wardBoundary {
-  fill: #fbfaf7;
+  fill: #e7e1d0;
   stroke: var(--brand-500);
   stroke-width: 4;
   stroke-linejoin: round;
@@ -72,28 +82,33 @@
   paint-order: stroke fill;
 }
 
-/* Layer 2 — 블록 */
+/* Layer 2 — 블록 (지면보다 한 단계 밝게 — 블록 사이 틈이 어두운 街路 베드로 읽힌다) */
 .blk {
-  fill: #f6f5ef;
-  stroke: #cbd4ca;
-  stroke-width: 1.5;
+  fill: #efeadd;
+  stroke: #d6ceba;
+  stroke-width: 1.2;
   stroke-linejoin: round;
 }
 
 /* Layer 3 — 건물·도로·수로 */
 .bldg {
-  fill: #eee9dd;
-  stroke: #e2dccf;
-  stroke-width: 0.5;
+  fill: #f6f2e6;
+  stroke: #d9d1bc; /* 채움보다 한 단계 어두운 hairline — 종이 오리기 평면감 제거 */
+  stroke-width: 0.45;
   stroke-linejoin: round;
+}
+/* 건물 음영 duplicate (딥줌 전용 2-pass — tsx 의 bldgShadow 게이트) */
+.bldgShadow {
+  fill: #ddd4bd;
+  stroke: none;
 }
 .road {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.water { fill: #b8e0f4; stroke: #80c4e0; stroke-width: 1; }
-.wline { fill: none; stroke: #90caec; stroke-width: 4; stroke-linecap: round; }
+.water { fill: #a9d9ef; stroke: #7cbedb; stroke-width: 1; }
+.wline { fill: none; stroke: #85c3e6; stroke-width: 4; stroke-linecap: round; }
 
 /* 내 위치 */
 .meRing { fill: rgba(30, 136, 229, 0.16); }

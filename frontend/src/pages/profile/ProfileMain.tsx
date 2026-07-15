@@ -123,6 +123,8 @@ export default function ProfileMain() {
   const headerRef = useRef<HTMLDivElement>(null);
   const socialRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetHandleRef = useRef<HTMLDivElement>(null);
+  const sheetBodyRef = useRef<HTMLDivElement>(null);
 
   // ── 드래그 가능 시트 로직 ──
   const [sheetTop, setSheetTop] = useState(9999);
@@ -131,6 +133,7 @@ export default function ProfileMain() {
   const snapMin = useRef(0);
   const snapMax = useRef(0);
   const dragging = useRef(false);
+  const dragFromHandle = useRef(false);
   const atTop = useRef(false);
   const dragStartY = useRef(0);
   const dragStartTop = useRef(0);
@@ -163,17 +166,18 @@ export default function ProfileMain() {
     dragStartY.current = e.touches[0].clientY;
     dragStartTop.current = sheetTop;
     dragging.current = false;
+    dragFromHandle.current = sheetHandleRef.current?.contains(e.target as Node) ?? false;
   }, [sheetTop]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
+    const body = sheetBodyRef.current;
+    if (!body) return;
     const dy = e.touches[0].clientY - dragStartY.current;
 
     if (!dragging.current) {
-      if (atTop.current) {
+      if (atTop.current && !dragFromHandle.current) {
         if (dy < 0) return;
-        if (sheet.scrollTop > 1) return;
+        if (body.scrollTop > 1) return;
       }
       if (Math.abs(dy) < 5) return;
       dragging.current = true;
@@ -198,6 +202,8 @@ export default function ProfileMain() {
     if (target === snapMin.current) {
       atTop.current = true;
       scrollTimer.current = window.setTimeout(() => setScrollable(true), 100);
+    } else if (sheetBodyRef.current) {
+      sheetBodyRef.current.scrollTop = 0; // 접힘 시 내부 스크롤 리셋
     }
   }, [sheetTop]);
 
@@ -394,13 +400,19 @@ export default function ProfileMain() {
         style={{
           top: sheetTop,
           transition: dragging.current ? 'none' : 'top .3s cubic-bezier(.2,.8,.2,1)',
-          overflowY: scrollable ? 'auto' : 'hidden',
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className={styles.sheetGrabber} />
+        <div className={styles.sheetHandle} ref={sheetHandleRef}>
+          <div className={styles.sheetGrabber} />
+        </div>
+        <div
+          className={styles.sheetBody}
+          ref={sheetBodyRef}
+          style={{ overflowY: scrollable ? 'auto' : 'hidden' }}
+        >
         <div className={styles.currencyBento}>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gc)' }}>
             <img src={emojiUrl('1f48e')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
@@ -816,6 +828,7 @@ export default function ProfileMain() {
             })}
           </div>
         )}
+        </div>{/* sheetBody */}
       </div>{/* sheet */}
 
       {viewerState && (

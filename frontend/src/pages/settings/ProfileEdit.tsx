@@ -5,6 +5,8 @@ import { useUserStore } from '@/store/useUserStore';
 import { apiUploadAvatar, apiSaveProfileSetup } from '@/api/profile';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import type { RiderStyle } from '@/api/types';
 import styles from './ProfileEdit.module.css';
 
@@ -25,6 +27,10 @@ export default function ProfileEdit() {
   const [nickInput, setNickInput] = useState(user?.nickname ?? '');
   const [selectedStyle, setSelectedStyle] = useState<RiderStyle>(user?.riderStyle ?? 'night_rider');
   const [saving, setSaving] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 저장 버튼이 키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   if (!user) return null;
 
@@ -66,7 +72,7 @@ export default function ProfileEdit() {
   return (
     <>
       <TopBar title={t('profileEdit.title')} />
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         <div className={styles.avatarWrap}>
           <AppImage
             src={user.avatarUrl}

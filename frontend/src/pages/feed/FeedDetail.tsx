@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { TopBar } from '@/components/layout/TopBar';
+import { ArrowLeft } from 'lucide-react';
+import { StatusBar } from '@/components/layout/StatusBar';
 import { fetchFeedPost, fetchComments, toggleCheer, toggleCommentLike, postComment } from '@/api/feed';
 import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost, Comment } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { LevelBadge } from '@/components/ui/LevelBadge';
-import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { ProfileCard } from '@/components/ProfileCard';
 import { useUserStore } from '@/store/useUserStore';
 import { loadSession } from '@/lib/session';
@@ -19,7 +19,7 @@ import { ImageViewer } from './FeedList';
 import feedStyles from './FeedList.module.css';
 import styles from './FeedDetail.module.css';
 
-/** 게시글 상세 — 홈 인기글 카드 등에서 진입. 게시글 + 댓글 인라인 + 하단 입력바. */
+/** 피드 상세 — 상품(매물) 상세(/market/:id)와 레이아웃 통일 (2026-07-12). 게시글 + 댓글 인라인 + 하단 액션바(응원·댓글 입력). */
 export default function FeedDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -94,117 +94,129 @@ export default function FeedDetail() {
   };
 
   return (
-    <div className={styles.page}>
-      <TopBar title={t('feed.detailTitle', { defaultValue: '게시글' })} />
-
-      <div className={styles.scroll}>
-        {loading || !post ? (
-          <div className={styles.loading}>
-            <ScrollSentinel sentinelRef={{ current: null }} isLoadingMore={true} hasMore={true} />
-          </div>
-        ) : (
-          <>
-            <article className={feedStyles.post}>
-              {post.photoUrls.length > 0 && (
-                <div className={feedStyles.postImgContainer}>
-                  <ImageCarousel
-                    urls={post.photoUrls}
-                    onImageClick={(i) => setViewerState({ srcs: post.photoUrls, index: i })}
-                  />
-                  {(post.distanceKm != null || post.safetyGrade) && (
-                    <div className={feedStyles.imgStats}>
-                      {post.distanceKm != null ? `${post.distanceKm.toFixed(1)}km` : ''}
-                      {post.distanceKm != null && post.safetyGrade ? ' · ' : ''}
-                      {post.safetyGrade ? t('feed.safetyLabel', { grade: post.safetyGrade }) : ''}
-                    </div>
-                  )}
-                  {post.rewardExp != null && <div className={feedStyles.imgReward}>+{post.rewardExp} EXP</div>}
-                </div>
-              )}
-              <div className={feedStyles.postBody}>
-                <button className={feedStyles.postHeader} onClick={handleAuthorTap}>
-                  <AppImage src={post.userAvatarUrl ?? undefined} alt="" className={feedStyles.userAvatar} variant="circle" />
-                  <div className={feedStyles.userInfo}>
-                    <div className={feedStyles.userName}>
-                      {post.userNickname ?? 'Unknown'}
-                      <LevelBadge level={post.userLevel} />
-                    </div>
-                    <div className={feedStyles.timestamp}>{formatRelativeTime(post.createdAt)}</div>
-                  </div>
-                </button>
-                {post.caption && <p className={feedStyles.caption}>{post.caption}</p>}
-                {post.hashtags.length > 0 && (
-                  <div className={feedStyles.hashtagRow}>
-                    {post.hashtags.map((tag) => (
-                      <span key={tag} className={feedStyles.hashtag}>#{tag}</span>
-                    ))}
-                  </div>
-                )}
-                <div className={feedStyles.actions}>
-                  <button
-                    className={`${feedStyles.actionBtn} ${post.iCheered ? feedStyles.actionActive : ''}`}
-                    onClick={handleCheer}
-                  >
-                    🔥 <span>{post.cheerCount}</span>
-                  </button>
-                  <span className={feedStyles.actionBtn}>
-                    💬 <span>{post.commentCount}</span>
-                  </span>
-                </div>
-              </div>
-            </article>
-
-            {/* 댓글 — 시트 대신 인라인 */}
-            <div className={styles.comments}>
-              <h3 className={feedStyles.commentTitle}>{t('feed.commentsCount', { count: comments.length })}</h3>
-              {comments.map((c) => (
-                <div key={c.id} className={`${feedStyles.comment} ${c.parentId ? feedStyles.commentReply : ''}`}>
-                  <AppImage src={c.userAvatarUrl} alt="" className={feedStyles.commentAvatar} variant="circle" />
-                  <div className={feedStyles.commentBody}>
-                    <div className={feedStyles.commentNick}>
-                      {c.userNickname}
-                      <span>{formatRelativeTime(c.createdAt)}</span>
-                    </div>
-                    <div className={feedStyles.commentText}>{c.content}</div>
-                  </div>
-                  <button
-                    className={`${feedStyles.commentLike} ${c.iLiked ? feedStyles.commentLikeActive : ''}`}
-                    onClick={() => handleCommentLike(c)}
-                  >
-                    ♥ {c.likeCount > 0 && c.likeCount}
-                  </button>
-                </div>
-              ))}
-              {comments.length === 0 && (
-                <p className={styles.noComments}>{t('feed.noComments', { defaultValue: '첫 댓글을 남겨보세요' })}</p>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 하단 댓글 입력바 (탭바 숨김 화면 — safe-area 직접 처리) */}
-      <div
-        className={styles.inputBarWrap}
-        style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}
-      >
-        <div className={feedStyles.commentInputBar}>
-          <AppImage src={user?.avatarUrl ?? undefined} alt="" className={feedStyles.commentAvatar} variant="circle" />
-          <input
-            placeholder={t('feed.commentPlaceholder')}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          />
-          <button
-            className={`${feedStyles.sendBtn} ${input.trim() ? feedStyles.sendBtnActive : ''}`}
-            onClick={handleSend}
-            disabled={!input.trim()}
-          >
-            ↗
+    <div className={styles.root}>
+      {/* Top bar (MarketDetail 미러 — back + 타이틀) */}
+      <div className={styles.topbar}>
+        <StatusBar variant="dark" />
+        <div className={styles.topbarRow}>
+          <button className={styles.backBtn} type="button" onClick={() => navigate(-1)} aria-label={t('common.back', { defaultValue: '뒤로' })}>
+            <ArrowLeft size={24} strokeWidth={2} />
           </button>
+          <h1 className={styles.topTitle}>{t('feed.detailTitle', { defaultValue: '피드' })}</h1>
+          <span className={styles.topSpacer} />
         </div>
       </div>
+
+      {loading || !post ? (
+        <div className={styles.scroll}>
+          <div className={`shimmer ${styles.heroSkeleton}`} />
+          <div className={styles.body}>
+            <div className={`shimmer ${styles.lineSkeleton}`} />
+            <div className={`shimmer ${styles.lineSkeleton}`} style={{ width: '60%' }} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={styles.scroll}>
+            {post.photoUrls.length > 0 && (
+              <div className={styles.hero}>
+                <ImageCarousel
+                  urls={post.photoUrls}
+                  onImageClick={(i) => setViewerState({ srcs: post.photoUrls, index: i })}
+                />
+                {(post.distanceKm != null || post.safetyGrade) && (
+                  <div className={feedStyles.imgStats}>
+                    {post.distanceKm != null ? `${post.distanceKm.toFixed(1)}km` : ''}
+                    {post.distanceKm != null && post.safetyGrade ? ' · ' : ''}
+                    {post.safetyGrade ? t('feed.safetyLabel', { grade: post.safetyGrade }) : ''}
+                  </div>
+                )}
+                {post.rewardExp != null && <div className={feedStyles.imgReward}>+{post.rewardExp} EXP</div>}
+              </div>
+            )}
+
+            <div className={styles.body}>
+              {/* Author (MarketDetail sellerRow 미러) */}
+              <div className={styles.authorBlock}>
+                <button className={styles.authorRow} type="button" onClick={handleAuthorTap}>
+                  <AppImage src={post.userAvatarUrl ?? undefined} alt="" className={styles.authorAvatar} variant="circle" />
+                  <div className={styles.authorInfo}>
+                    <span className={styles.authorName}>
+                      {post.userNickname ?? 'Unknown'}
+                      <LevelBadge level={post.userLevel} />
+                    </span>
+                    <span className={styles.authorSub}>{formatRelativeTime(post.createdAt)}</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Caption + hashtags */}
+              {post.caption && <p className={styles.description}>{post.caption}</p>}
+              {post.hashtags.length > 0 && (
+                <div className={styles.hashtagRow}>
+                  {post.hashtags.map((tag) => (
+                    <span key={tag} className={feedStyles.hashtag}>#{tag}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* 댓글 — 인라인 (MarketDetail otherSection 구획 관례) */}
+              <div className={styles.commentsSection}>
+                <h2 className={styles.commentsTitle}>{t('feed.commentsCount', { count: comments.length })}</h2>
+                {comments.map((c) => (
+                  <div key={c.id} className={`${feedStyles.comment} ${c.parentId ? feedStyles.commentReply : ''}`}>
+                    <AppImage src={c.userAvatarUrl} alt="" className={feedStyles.commentAvatar} variant="circle" />
+                    <div className={feedStyles.commentBody}>
+                      <div className={feedStyles.commentNick}>
+                        {c.userNickname}
+                        <span>{formatRelativeTime(c.createdAt)}</span>
+                      </div>
+                      <div className={feedStyles.commentText}>{c.content}</div>
+                    </div>
+                    <button
+                      className={`${feedStyles.commentLike} ${c.iLiked ? feedStyles.commentLikeActive : ''}`}
+                      onClick={() => handleCommentLike(c)}
+                    >
+                      ♥ {c.likeCount > 0 && c.likeCount}
+                    </button>
+                  </div>
+                ))}
+                {comments.length === 0 && (
+                  <p className={styles.noComments}>{t('feed.noComments', { defaultValue: '첫 댓글을 남겨보세요' })}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom action bar (MarketDetail actionBar 미러) — 🔥응원 토글 + 💬수 + 댓글 입력 (탭바 숨김 화면 — safe-area 직접 처리) */}
+          <div
+            className={styles.actionBar}
+            style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}
+          >
+            <button
+              className={`${styles.cheerBtn} ${post.iCheered ? styles.cheerBtnActive : ''}`}
+              onClick={handleCheer}
+            >
+              🔥 {post.cheerCount}
+            </button>
+            <span className={styles.countChip}>💬 {post.commentCount}</span>
+            <input
+              className={styles.commentInput}
+              placeholder={t('feed.commentPlaceholder')}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            />
+            <button
+              className={`${feedStyles.sendBtn} ${input.trim() ? feedStyles.sendBtnActive : ''}`}
+              onClick={handleSend}
+              disabled={!input.trim()}
+            >
+              ↗
+            </button>
+          </div>
+        </>
+      )}
 
       {viewerState && <ImageViewer srcs={viewerState.srcs} initialIndex={viewerState.index} onClose={() => setViewerState(null)} />}
 

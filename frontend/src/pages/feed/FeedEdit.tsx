@@ -9,6 +9,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './FeedCreate.module.css';
 
 const MAX_IMAGES = 10;
@@ -40,6 +41,10 @@ export default function FeedEdit() {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 textarea 아래 여백이 키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     if (!postId) return;
@@ -172,7 +177,7 @@ export default function FeedEdit() {
         }
       />
 
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         <div className={styles.card}>
           <textarea
             className={styles.textarea}

@@ -43,9 +43,11 @@
 
 .mapTools {
   position: absolute;
-  z-index: 3;
+  /* DraggableSheet(z:10)보다 위 — + 메뉴가 버튼 세로 중앙 기준이라 시트 상단에 수px 걸칠 수 있다 */
+  z-index: 11;
   left: 16px;
-  bottom: 190px;
+  /* bottom 은 인라인 style 로 항상 지정(시트/포스트패널 추적) — 여기 값은 미측정 순간의 안전 폴백 */
+  bottom: 90px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -71,19 +73,37 @@
 
 .addWrap { position: relative; }
 
+/* + 버튼 우측 말풍선 — 메뉴 세로 중앙 = 버튼 세로 중앙, 좌변 중앙 caret 이 버튼을 가리킨다.
+   max-width: 좌측 16px + 버튼 40px + 간격 12px 뒤 우측 여백 12px 확보 (en/vi 긴 항목은 줄바꿈) */
 .addMenu {
   position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
+  top: 50%;
+  left: calc(100% + 12px);
   z-index: 4;
   display: flex;
   min-width: 148px;
+  max-width: calc(100vw - 80px);
   flex-direction: column;
-  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);
   box-shadow: var(--shadow-card);
+  transform: translateY(-50%);
+}
+
+/* caret — 메뉴 배경색 회전 사각형. 좌변 border 를 덮어 이음새 없이 붙고,
+   노출되는 두 변(회전 전 left/bottom)에만 테두리를 그린다 */
+.addMenu::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -5.5px;
+  width: 10px;
+  height: 10px;
+  border-bottom: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .addMenuItem {
@@ -95,10 +115,14 @@
   font-size: 13.5px;
   font-weight: 650;
   text-align: left;
-  white-space: nowrap;
 }
 
 .addMenuItem:last-child { border-bottom: 0; }
+
+/* + 아이콘 마이크로 인터랙션 — 메뉴 열림 시 45° 회전해 × 로 보인다 */
+.addIcon { transition: transform 0.2s ease; }
+
+.addIconOpen { transform: rotate(45deg); }
 
 .addMenuBackdrop {
   position: fixed;
@@ -158,6 +182,56 @@
   color: var(--text-2);
   font-size: 13px;
   line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 리치 말풍선 (매물·피드) — .bizNewsBubble 베이스 위에 썸네일/아바타 행을 얹는 modifier.
+   기본 세로 스택을 [텍스트 컬럼 | 이미지] 가로 배치로 전환한다(썸네일 우측, .bizNewsBubble 은 무수정). */
+.richBubble {
+  width: auto;
+  max-width: min(300px, calc(100vw - 48px));
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 10px;
+}
+.richThumb {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--bg-2);
+}
+.richText {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.feedBubbleHead {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.feedBubbleAvatar {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-2);
+}
+.feedBubbleName {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -410,21 +484,57 @@
   color: var(--text-3);
 }
 
-/* 줌 게이트 힌트 필 — 접힌 시트에서도 게이트 상태가 보이게 (탭 = 내 동네 보기) */
+/* 줌 게이트 힌트 필 — 지도 우측 floating (mapTools 와 세트로 시트를 따라감, 탭 = 순수 확대).
+   bottom 은 mapTools 와 동일하게 인라인 style 로 항상 지정 — 여기 값은 미측정 순간의 안전 폴백 */
 .zoomHintPill {
-  margin-left: auto;
-  padding: 4px 10px;
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: 90px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--brand-50);
+  background: var(--surface);
   color: var(--brand-600);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+  box-shadow: var(--shadow-card);
 }
 .zoomHintPill:active { opacity: .8; }
 
-/* 지도보기 필 — 시트 full 스냅일 때만 시트 바깥 상단 중앙에 노출 (당근 동네지도 레퍼런스) */
+/* 접힌 시트 한정 현재 지역명 칩 — 정보 표시자(비버튼), 필 대비 차분한 톤 */
+.wardChip {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 칩 내 아이템 건수 — 지역명보다 한 단계 낮은 위계 (구분점 '·' 포함) */
+.wardChipCount {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+/* 지도보기 필 — 시트 full 스냅일 때 하단 중앙 floating(탭바 바로 위), 시트 위에 겹쳐 뜬다
+   (당근 동네지도 레퍼런스). .root 는 AppShell viewport 하위라 bottom:0 이 곧 탭바 바로 위. */
 .mapViewPill {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 11;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -437,6 +547,38 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
 }
 
+/* 장소 제안 핀 재배치 모드 — 지도 중앙 고정 크로스헤어 + 하단 확인/취소 바 */
+.pinCrosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 12;
+  /* 핀 하단 꼭지점이 정중앙(지도 bbox 중심)을 가리키도록 보정 */
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35));
+}
+
+.pinBar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + var(--bottom-safe, 0px));
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.pinHint { font-size: 13px; color: var(--text-2); text-align: center; }
+.pinBarActions { display: flex; gap: 8px; }
+.pinCancel { flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; }
+.pinConfirm { flex: 2; border: none; background: var(--brand-500); color: #fff; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; }
+
 /* 시트 본문 리스트 (시트가 좌우 padding 보유 → 세로 여백만) */
 .list {
   flex: 1;
@@ -448,6 +590,21 @@
   display: flex;
   flex-direction: column;
   gap: 0; /* 플랫 리스트 (ListingCard 업리프트 260706) — 박스형 카드는 개별 마진 */
+}
+
+/* 지도보기 필이 하단 floating 으로 겹칠 때 마지막 아이템이 가려지지 않도록 여유 확보 */
+.listPillPad {
+  padding-bottom: 64px;
+}
+
+/* 리스트 상단 지역 제목 (당근 '이웃들이 찾는 ○○' 스타일) — 섹션 타이틀 위계 */
+.wardTitle {
+  padding: 6px 6px 10px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--text);
 }
 /* flex column 스크롤 영역에서 카드/광고가 눌려 찌부러지지 않도록 */
 .list > * {

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin, Heart, Star } from 'lucide-react';
+import { Phone, MapPin, Heart, Share2, Star } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
@@ -28,6 +28,8 @@ import styles from './BizPublic.module.css';
 
 const NEWS_PAGE = 10;
 const REVIEW_PAGE = 5;
+const DETAIL_TABS = ['home', 'news', 'reviews', 'price', 'photos'] as const;
+type DetailTab = typeof DETAIL_TABS[number];
 
 /** 3줄 클램프를 넘길 개연성 판단 — 정밀 측정 대신 간단 휴리스틱 (길이·줄수) */
 function isLongBody(body: string): boolean {
@@ -54,6 +56,13 @@ export default function BizPublic() {
   const [reviewHasMore, setReviewHasMore] = useState(false);
   const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
   const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<DetailTab>('home');
+  const [compactHeader, setCompactHeader] = useState(false);
+  const [tabsPinned, setTabsPinned] = useState(false);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const introRef = useRef<HTMLElement | null>(null);
+  const tabsRef = useRef<HTMLElement | null>(null);
+  const pendingTabScrollRef = useRef(false);
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
@@ -156,6 +165,50 @@ export default function BizPublic() {
     native.openUrl(`tel:${profile.phone}`);
   };
 
+  const handleShare = () => {
+    if (!profile) return;
+    native.share({ title: profile.name, text: profile.address ?? profile.name, url: window.location.href });
+  };
+
+  const scrollToTabsTop = () => {
+    const body = bodyRef.current;
+    const intro = introRef.current;
+    if (body && intro) {
+      // sticky 로 stuck 된 .tabs 의 rect 는 고정 위치를 반환하므로, 비-sticky 인 .intro 의 flow 하단(= 탭바의 원래 위치)으로 목표를 계산한다.
+      const tabTop = intro.getBoundingClientRect().bottom - body.getBoundingClientRect().top + body.scrollTop;
+      body.scrollTo({ top: Math.max(0, tabTop), behavior: 'smooth' });
+    }
+  };
+
+  const handleTabChange = (tab: DetailTab) => {
+    if (tab === activeTab) {
+      scrollToTabsTop();
+      return;
+    }
+    // 짧은 탭으로 전환 시 콘텐츠 교체로 scrollTop 이 줄어든 scrollHeight 에 클램프되면서 진행 중인 smooth 스크롤을 중단시킨다.
+    // 커밋 이후(useLayoutEffect)에 스크롤을 시작해 이 경합을 피한다.
+    pendingTabScrollRef.current = true;
+    setActiveTab(tab);
+  };
+
+  useLayoutEffect(() => {
+    if (!pendingTabScrollRef.current) return;
+    pendingTabScrollRef.current = false;
+    scrollToTabsTop();
+  });
+
+  const handleBodyScroll = (scrollTop: number) => {
+    setCompactHeader(scrollTop > 72);
+    const body = bodyRef.current;
+    const tabs = tabsRef.current;
+    const tabTop = body && tabs ? tabs.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop : Number.POSITIVE_INFINITY;
+    setTabsPinned(scrollTop >= tabTop);
+  };
+
+  const photoUrls = useMemo(() => profile
+    ? [...new Set([profile.photoUrl, ...news.flatMap((item) => item.photos)].filter((url): url is string => !!url))]
+    : [], [profile, news]);
+
   if (loading || !profile) {
     return (
       <div className={styles.page}>
@@ -170,36 +223,53 @@ export default function BizPublic() {
   return (
     <div className={styles.page}>
       <TopBar
-        title={profile.name}
+        title={compactHeader ? profile.name : undefined}
         rightContent={
-          <button
-            type="button"
-            className={styles.favoriteBtn}
-            onClick={handleToggleFavorite}
-            aria-label={t('biz.favoriteToggle', { defaultValue: '관심 업체' })}
-            aria-pressed={favorited}
-          >
-            <Heart size={22} strokeWidth={2} fill={favorited ? 'currentColor' : 'none'} />
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.favoriteBtn}
+              onClick={handleToggleFavorite}
+              aria-label={t('biz.favoriteToggle', { defaultValue: '관심 업체' })}
+              aria-pressed={favorited}
+            >
+              <Heart size={22} strokeWidth={2} fill={favorited ? 'currentColor' : 'none'} />
+            </button>
+            <button type="button" className={styles.favoriteBtn} onClick={handleShare} aria-label={t('common.share', { defaultValue: '공유' })}>
+              <Share2 size={21} strokeWidth={2} />
+            </button>
+          </div>
         }
       />
-      <div className={styles.body}>
-        <div className={styles.heroWrap}>
-          <AppImage src={profile.photoUrl ?? undefined} alt={profile.name} className={styles.heroImg} />
-        </div>
+      <div ref={bodyRef} className={styles.body} onScroll={(e) => handleBodyScroll(e.currentTarget.scrollTop)}>
+        <section ref={introRef} className={styles.intro}>
+          <h1 className={styles.name}>{profile.name}</h1>
+          <div className={styles.profileMeta}>
+            {reviewAvg != null && <span><Star size={15} fill="currentColor" strokeWidth={0} /> {reviewAvg.toFixed(1)} · 후기 {reviewTotal}</span>}
+            {profile.category && <span>{(() => { const cat = categories.find((c) => c.code === profile.category); return cat ? bizCategoryLabel(cat, i18n.language) : profile.category; })()}</span>}
+            {profile.address && <span>{profile.address}</span>}
+          </div>
+          {profile.photoUrl ? (
+            <div className={styles.heroWrap}>
+              <AppImage src={profile.photoUrl} alt={profile.name} className={styles.heroImg} />
+            </div>
+          ) : (
+            <div className={styles.heroEmpty}>대표 사진이 아직 등록되지 않았습니다</div>
+          )}
+        </section>
 
-        <h1 className={styles.name}>{profile.name}</h1>
-        {profile.category && (
-          <span className={styles.categoryBadge}>
-            {(() => {
-              const cat = categories.find((c) => c.code === profile.category);
-              return cat ? bizCategoryLabel(cat, i18n.language) : profile.category;
-            })()}
-          </span>
-        )}
+        <nav ref={tabsRef} className={styles.tabs} aria-label="업체 정보">
+          {DETAIL_TABS.map((tab) => (
+            <button key={tab} type="button" className={activeTab === tab ? styles.tabActive : styles.tab} onClick={() => handleTabChange(tab)}>
+              {t(`biz.detailTabs.${tab}`, { defaultValue: { home: '홈', news: '소식', reviews: '후기', price: '가격', photos: '사진' }[tab] })}
+            </button>
+          ))}
+        </nav>
 
-        {(profile.phone || profile.address) && (
-          <div className={styles.infoCard}>
+        <div className={`${styles.tabContent} ${tabsPinned ? styles.tabContentPinned : ''}`}>
+          {activeTab === 'home' && <>
+            {(profile.phone || profile.address) ? (
+              <div className={styles.infoCard}>
             {profile.phone && (
               <div className={styles.infoRow}>
                 <div className={styles.infoIconWrap}>
@@ -216,10 +286,64 @@ export default function BizPublic() {
                 <div className={styles.infoValue}>{profile.address}</div>
               </div>
             )}
-          </div>
-        )}
+              </div>
+            ) : <EmptyArea label="업체 정보" />}
 
-        <h3 className={styles.sectionTitle}>{t('biz.publicNewsTitle', { defaultValue: '소식' })}</h3>
+            <HomePreview title="소식" onMore={() => handleTabChange('news')}>
+              {news[0] ? (
+                <article className={styles.previewNews}>
+                  <strong>{news[0].title}</strong>
+                  {news[0].body && <p>{news[0].body}</p>}
+                  {news[0].photos[0] && <AppImage src={news[0].photos[0]} alt="" className={styles.previewThumb} />}
+                </article>
+              ) : <EmptyArea label="소식" />}
+            </HomePreview>
+
+            <HomePreview title="후기" onMore={() => handleTabChange('reviews')}>
+              {reviews[0] ? (
+                <article className={styles.previewReview}>
+                  <span><Star size={14} fill="currentColor" strokeWidth={0} /> {reviews[0].rating} · {reviews[0].reviewerNickname ?? '—'}</span>
+                  <p>{reviews[0].body}</p>
+                </article>
+              ) : <EmptyArea label="후기" />}
+            </HomePreview>
+
+            <HomePreview title="가격" onMore={() => handleTabChange('price')}>
+              <EmptyArea label="가격표" />
+            </HomePreview>
+
+            <HomePreview title="사진" onMore={() => handleTabChange('photos')}>
+              {photoUrls.length > 0 ? (
+                <div className={styles.previewPhotos}>
+                  {photoUrls.slice(0, 3).map((url) => <AppImage key={url} src={url} alt="" className={styles.previewPhoto} />)}
+                </div>
+              ) : <EmptyArea label="사진" />}
+            </HomePreview>
+
+            <h3 className={styles.sectionTitle}>게시중인 광고</h3>
+            {profile.ads.length === 0 ? <EmptyArea label="게시중인 광고" /> : (
+              <div className={`${styles.adCarousel} ${profile.ads.length === 1 ? styles.adCarouselSingle : ''}`}>
+                {profile.ads.map((ad) => (
+                  <button key={ad.id} className={styles.bizAdCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
+                    <div className={styles.bizAdImageWrap}>
+                      <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.bizAdImage} />
+                    </div>
+                    <div className={styles.bizAdBody}>
+                      <div className={styles.bizAdLabelRow}>
+                        <span className={styles.bizAdLabel}>광고</span>
+                        <span className={styles.bizAdPartner}>{ad.partnerName}</span>
+                      </div>
+                      <strong className={styles.bizAdTitle}>{ad.title}</strong>
+                      {ad.body && <span className={styles.bizAdCopy}>{ad.body}</span>}
+                      <span className={styles.bizAdCta}>자세히 보기</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>}
+
+          {activeTab === 'news' && <>
         {news.length === 0 ? (
           <div className={styles.adsEmpty}>
             <p>{t('biz.publicNewsEmpty', { defaultValue: '아직 등록된 소식이 없어요' })}</p>
@@ -273,18 +397,16 @@ export default function BizPublic() {
             )}
           </div>
         )}
+          </>}
 
+          {activeTab === 'reviews' && <>
         <div className={styles.reviewSectionHead}>
-          <h3 className={styles.sectionTitle}>
-            {reviewTotal > 0 ? t('biz.review.sectionTitleCount', { count: reviewTotal }) : t('biz.review.sectionTitle')}
-            {/* 요약 별점은 데이터가 있을 때만 — 0건이면 숨김 (섹션 헤더 전용, 타이틀 영역 개편은 범위 밖) */}
-            {reviewTotal > 0 && reviewAvg != null && (
-              <span className={styles.reviewAvg}>
-                <Star size={14} strokeWidth={0} fill="currentColor" />
-                {reviewAvg.toFixed(1)}
-              </span>
-            )}
-          </h3>
+          {reviewTotal > 0 && reviewAvg != null && (
+            <span className={styles.reviewAvg}>
+              <Star size={14} strokeWidth={0} fill="currentColor" />
+              {reviewAvg.toFixed(1)} · 후기 {reviewTotal}
+            </span>
+          )}
           <button type="button" className={styles.reviewWriteBtn} onClick={handleWriteReview}>
             {t('biz.review.write')}
           </button>
@@ -327,22 +449,22 @@ export default function BizPublic() {
             )}
           </div>
         )}
+          </>}
 
-        <h3 className={styles.sectionTitle}>{t('biz.publicAdsTitle', { defaultValue: '게시중인 광고' })}</h3>
-        {profile.ads.length === 0 ? (
-          <div className={styles.adsEmpty}>
-            <p>{t('biz.publicAdsEmpty', { defaultValue: '아직 게시중인 광고가 없어요' })}</p>
-          </div>
-        ) : (
-          <div className={styles.adList}>
-            {profile.ads.map((ad) => (
-              <button key={ad.id} className={styles.adRow} onClick={() => navigate(`/market/ad/${ad.id}`)}>
-                <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.adThumb} />
-                <span className={styles.adRowTitle}>{ad.title}</span>
-              </button>
-            ))}
-          </div>
-        )}
+          {activeTab === 'price' && <>
+            <EmptyArea label="가격표" />
+          </>}
+
+          {activeTab === 'photos' && <>
+            {(() => {
+              return photoUrls.length === 0 ? <EmptyArea label="사진" /> : (
+                <div className={styles.photoGrid}>
+                  {photoUrls.map((url) => <AppImage key={url} src={url} alt="" className={styles.galleryImage} />)}
+                </div>
+              );
+            })()}
+          </>}
+        </div>
       </div>
 
       {profile.phone && (
@@ -363,5 +485,21 @@ export default function BizPublic() {
         />
       )}
     </div>
+  );
+}
+
+function EmptyArea({ label }: { label: string }) {
+  return <div className={styles.adsEmpty}><p>{label}이(가) 아직 등록되지 않았습니다</p></div>;
+}
+
+function HomePreview({ title, onMore, children }: { title: string; onMore: () => void; children: ReactNode }) {
+  return (
+    <section className={styles.homePreview}>
+      <div className={styles.previewHead}>
+        <h3>{title}</h3>
+        <button type="button" onClick={onMore}>자세히 보기</button>
+      </div>
+      {children}
+    </section>
   );
 }

@@ -35,7 +35,8 @@ export default function ReportSheet({
   const [submitting, setSubmitting] = useState(false);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 하단에 고정된 이 시트를 그대로 덮는다 —
-  // backdrop 하단에 키보드 높이만큼 padding 을 둬 align-items:flex-end 시트를 밀어 올린다.
+  // 시트 자신의 padding-bottom 을 키보드 높이만큼 늘려 여백을 확보한다.
+  // (ai-docs/context/keyboard-ux.md 케이스 2)
   const isIosNative = native.platform === 'ios';
 
   if (!open) return null;
@@ -59,9 +60,19 @@ export default function ReportSheet({
     <div
       className={styles.backdrop}
       onClick={() => !submitting && onClose()}
-      style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}
     >
-      <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.sheet}
+        onClick={(e) => e.stopPropagation()}
+        style={
+          isIosNative && kb.visible
+            ? {
+                maxHeight: 'calc(100% - var(--status-bar-height, 0px) - 12px)',
+                paddingBottom: `calc(${kb.height}px + 20px)`,
+              }
+            : undefined
+        }
+      >
         <div className={styles.title}>{title}</div>
         <div className={styles.desc}>{desc}</div>
         <input className={styles.field} placeholder={namePlaceholder} value={name} onChange={(e) => setName(e.target.value)} />

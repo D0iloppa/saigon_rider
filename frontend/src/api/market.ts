@@ -71,6 +71,7 @@ export interface ListingCard {
   id: string;
   sellerId: string | null;
   title: string;
+  description: string | null;
   priceVnd: number;
   originalPriceVnd: number | null;
   isNegotiable: boolean;
@@ -79,6 +80,8 @@ export interface ListingCard {
   thumbnailUrl: string | null;
   district: DistrictBrief | null;
   likeCount: number;
+  /** 이 매물로 시작된 DM 채팅 건수 (목록 API 만 채움 — 그 외 응답은 0) */
+  chatCount: number;
   bumpedAt: string;
   distanceM: number | null;
   lat: number | null;
@@ -117,6 +120,7 @@ export function transformCard(r: any): ListingCard {
     id: r.id,
     sellerId: r.seller_id ?? null,
     title: r.title,
+    description: r.description ?? null,
     priceVnd: r.price_vnd,
     originalPriceVnd: r.original_price_vnd ?? null,
     isNegotiable: r.is_negotiable,
@@ -125,6 +129,7 @@ export function transformCard(r: any): ListingCard {
     thumbnailUrl: r.thumbnail_url ?? null,
     district: r.district ?? null,
     likeCount: r.like_count ?? 0,
+    chatCount: r.chat_count ?? 0,
     bumpedAt: r.bumped_at,
     distanceM: r.distance_m ?? null,
     lat: r.lat ?? null,

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { createFeedPost } from '@/api/feed';
 import { api } from '@/api/client';
 import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { resolveDistrict, localizedName } from '@/api/market';
@@ -36,6 +37,10 @@ export default function FeedCreate() {
   const [locOn, setLocOn] = useState(true); // 위치 자동 첨부(기본 ON), 끄기만 가능
   const [locPickerOpen, setLocPickerOpen] = useState(false);
   const [posting, setPosting] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 textarea 아래 여백이 키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   const handleLocationConfirm = (loc: PickedLocation) => {
     setCoords({ lat: loc.lat, lng: loc.lng });
@@ -158,7 +163,7 @@ export default function FeedCreate() {
         }
       />
 
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         <div className={styles.card}>
           <textarea
             className={styles.textarea}

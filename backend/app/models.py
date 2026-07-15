@@ -581,6 +581,46 @@ class BusinessCategory(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class PoiCategory(Base):
+    """POI 대분류 (Phase A-1 — 지형·랜드마크/행정·생활 2종, 3개국어 라벨). BusinessCategory 미러."""
+
+    __tablename__ = "poi_category"
+
+    code: Mapped[str] = mapped_column(String(60), primary_key=True)
+    label_ko: Mapped[str] = mapped_column(String(80), nullable=False)
+    label_vi: Mapped[str] = mapped_column(String(80), nullable=False)
+    label_en: Mapped[str] = mapped_column(String(80), nullable=False)
+    icon: Mapped[str] = mapped_column(String(80), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class Poi(Base):
+    """POI (Phase A-1 — 읽기 전용 지도 핀. Phase B 에이전트 인제스천 대비). BusinessProfile 미러."""
+
+    __tablename__ = "poi"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category: Mapped[str] = mapped_column(String(60), ForeignKey("poi_category.code"), nullable=False)
+    name_ko: Mapped[str] = mapped_column(String(160), nullable=False)
+    name_vi: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    latitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    photo_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    photo_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[photo_content_id], lazy="selectin")
+    source: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    external_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class BusinessReview(Base):
     """업체 후기 (동네지도 '후기쓰기' 실배선) — 장소 평가형: 유저당 업체 1건, 재작성 시 갱신.
     RepairReview(방문 건별 기록형)와 도메인이 달라 UNIQUE(profile_id, user_id) 를 둔다 (init/123)."""

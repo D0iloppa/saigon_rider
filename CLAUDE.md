@@ -110,6 +110,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 시스템 아키텍처 (BFF/Engine 상세) | [`ai-docs/context/architecture.md`](ai-docs/context/architecture.md) |
 | 프론트엔드 패턴 | [`ai-docs/context/frontend.md`](ai-docs/context/frontend.md) |
 | 프론트 한글 메뉴명 → 페이지/컴포넌트 매핑 (예: "동네지도 기능개선?") | `manage_adr(get)` 압축요약 먼저 → 상세는 [`ai-docs/context/frontend-page-map.md`](ai-docs/context/frontend-page-map.md) |
+| 네이티브 키보드 연계 규칙 (키보드 여백·애니메이션·max-height) | [`ai-docs/context/keyboard-ux.md`](ai-docs/context/keyboard-ux.md) |
 | 서비스 규칙 (GPS·위치 등 도메인 불변식) | [`ai-docs/context/service-rules.md`](ai-docs/context/service-rules.md) |
 
 ## 보안 최소 룰 (전문은 agent-guidelines §4)

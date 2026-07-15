@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import {
   applyBusinessProfile,
@@ -52,6 +54,10 @@ export default function BizApply() {
   const [photoIsLocal, setPhotoIsLocal] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 설명 textarea 아래 여백이 거의 없어
+  // 스크롤해도 키보드에 가려진다 — 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다.
+  const isIosNative = native.platform === 'ios';
 
   const canSubmit =
     !submitting && !uploadingPhoto && name.trim().length > 0 && category !== '' && phone.trim().length > 0 && !!coords && !!address;
@@ -109,7 +115,7 @@ export default function BizApply() {
   return (
     <div className={styles.page}>
       <TopBar title={t('biz.applyTitle', { defaultValue: '파트너 신청' })} />
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {/* Photo */}
         <label className={styles.photoBox}>
           {photoPreview ? (

@@ -148,6 +148,7 @@ class MarketplaceListingCard(BaseModel):
     id: UUID
     seller_id: UUID | None = None
     title: str
+    description: str | None = None
     price_vnd: int
     original_price_vnd: int | None = None
     is_negotiable: bool
@@ -156,6 +157,7 @@ class MarketplaceListingCard(BaseModel):
     thumbnail_url: str | None = None
     district: DistrictBrief | None = None
     like_count: int = 0
+    chat_count: int = 0  # dm_conversations(context_type='listing') 집계 — 목록 API 만 채움
     bumped_at: datetime
     distance_m: int | None = None
     lat: float | None = None
@@ -1351,6 +1353,46 @@ class BusinessMapItemOut(BaseModel):
     lng: Decimal
     photo_url: str | None = None
     latest_news: BusinessNewsBrief | None = None
+
+
+# ── POI (Phase A-1 — 지형·랜드마크/행정·생활 지도 핀) ─────────────
+
+
+class POIMapItemOut(BaseModel):
+    id: uuid.UUID
+    category: str
+    name_ko: str
+    name_vi: str | None = None
+    name_en: str | None = None
+    address: str | None = None
+    lat: Decimal
+    lng: Decimal
+    photo_url: str | None = None
+
+
+class POIBulkItem(BaseModel):
+    """Phase B 에이전트 인제스천 — 단건 upsert 항목. (source, external_ref) 가 upsert 키."""
+
+    category: str
+    name_ko: str
+    name_vi: str | None = None
+    name_en: str | None = None
+    description: str | None = None
+    address: str | None = None
+    lat: Decimal
+    lng: Decimal
+    source: str
+    external_ref: str
+
+
+class POIBulkRequest(BaseModel):
+    items: list[POIBulkItem]
+
+
+class POIBulkResult(BaseModel):
+    inserted: int
+    updated: int
+    skipped: int
 
 
 # ── 업체 찜 (동네지도 프로필 실배선 P-BE T1) ─────────────────────

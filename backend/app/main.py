@@ -31,6 +31,7 @@ from .routers import (
     market,
     master,
     notifications,
+    poi,
     profile,
     quest_cards,
     quests,
@@ -141,6 +142,7 @@ app.include_router(notifications.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(badges.router, prefix="/api")
 app.include_router(biz.router, prefix="/api")
+app.include_router(poi.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")

@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, type Location } from 'react-router-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { SpriteProvider } from '@/lib/items/SpriteProvider';
 import { QuestCardSprites } from '@/components/quest/QuestCardSprites';
@@ -129,6 +129,33 @@ import RideNav from '@/pages/ride/RideNav';
 // Deep link
 import LinkRouter from '@/pages/link/LinkRouter';
 import NotificationBridge from '@/pages/link/NotificationBridge';
+
+import styles from './App.module.css';
+
+/**
+ * 라우트-모달 (2026-07-12): 동네지도에서 상세 진입 시 navigate state 로 backgroundLocation
+ * 을 실어 보내면, 배경 라우트(지도)를 그대로 유지한 채 상세 3종(업체/매물/피드)을 전체화면
+ * 오버레이 레이어로 얹는다. URL 은 실제 상세 경로 — 딥링크/공유/하드웨어 뒤로가기 모두 정상.
+ * backgroundLocation 없는 진입(마켓 리스트·커뮤니티·딥링크 등)은 기존 페이지 이동 그대로.
+ */
+function BackgroundRoutes({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+  return (
+    <>
+      <Routes location={backgroundLocation ?? location}>{children}</Routes>
+      {backgroundLocation && (
+        <div className={styles.detailOverlay}>
+          <Routes>
+            <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
+            <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
+            <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
+          </Routes>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function App() {
   const user = useUserStore((s) => s.user);
@@ -283,7 +310,7 @@ export default function App() {
       <Dialog />
       <ConfirmDialog />
       <AppShell splashVisible={splashVisible} splashFade={splashFade} gifReady={gifReady}>
-        {bootstrapped && <Routes>
+        {bootstrapped && <BackgroundRoutes>
           {/* default */}
           <Route path="/" element={<Navigate to="/splash" replace />} />
 
@@ -385,7 +412,7 @@ export default function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />
-        </Routes>}
+        </BackgroundRoutes>}
       </AppShell>
     </BrowserRouter>
   );

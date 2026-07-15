@@ -1,7 +1,8 @@
-.root { min-height: 100%; overflow-y: auto; background: var(--surface); color: var(--text); padding: calc(var(--status-bar-height) + 12px) 20px 40px; }
-.header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; margin-bottom: 34px; }
+.root { height: 100%; display: flex; flex-direction: column; background: var(--surface); color: var(--text); }
+.header { position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 52px; margin-bottom: 34px; padding: calc(var(--status-bar-height) + 12px) 20px 0; background: var(--surface); }
 .header h1 { margin: 0; font-size: 24px; letter-spacing: -.6px; }
 .back { position: absolute; left: -8px; display: grid; width: 44px; height: 44px; place-items: center; color: var(--text); }
+.body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 40px; }
 .userRow { display: flex; align-items: center; gap: 14px; margin-bottom: 34px; }
 .avatar { display: grid; width: 72px; height: 72px; place-items: center; overflow: hidden; border-radius: 50%; background: var(--brand-100); color: var(--brand-700); font-size: 25px; font-weight: 800; }
 .avatar :global(img) { width: 100%; height: 100%; object-fit: cover; }
@@ -35,13 +36,4 @@
 .badgeConfirmed { background: var(--success-100, #dcfce7); color: var(--success, #16a34a); }
 .badgeRejected { background: var(--danger-100, #fee2e2); color: var(--danger, #dc2626); }
 .addPlaceBtn { width: 100%; padding: 13px; border-radius: 14px; background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 700; }
-.sheetBackdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 60; }
-.sheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px)); display: flex; flex-direction: column; gap: 8px; max-height: 80vh; overflow-y: auto; }
-.sheetTitle { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-.sheetLabel { font-size: 12px; color: var(--text-3); margin-top: 4px; }
-.field { border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 12px; font-size: 14px; background: var(--bg); color: var(--text); }
-.field::placeholder { color: var(--text-3); }
-.sheetActions { display: flex; gap: 8px; margin-top: 10px; }
-.sheetCancel { flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; }
-.sheetSubmit { flex: 2; border: none; background: var(--brand-500, #FF5A1F); color: #fff; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; }
-.sheetSubmit:disabled { opacity: .5; }
+/* 장소 제안 시트 스타일은 PlaceSuggestSheet.module.css 로 공용화 이관 (2026-07-13) */

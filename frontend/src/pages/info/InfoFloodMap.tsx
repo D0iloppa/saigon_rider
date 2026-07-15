@@ -7,6 +7,8 @@ import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { resolveInfoCoords, parseCoordsFromQuery } from '@/lib/infoCoords';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
 import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
@@ -49,6 +51,11 @@ export default function InfoFloodMap() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 하단에 고정된 이 시트를 그대로 덮는다 —
+  // 시트 자신의 padding-bottom 을 키보드 높이만큼 늘려 여백을 확보한다.
+  // (ai-docs/context/keyboard-ux.md 케이스 2)
+  const isIosNative = native.platform === 'ios';
 
   const fetchAll = () => {
     setLoading(true);
@@ -337,7 +344,18 @@ export default function InfoFloodMap() {
 
       {showReport && (
         <div className={styles.reportBackdrop} onClick={() => !submitting && setShowReport(false)}>
-          <div className={styles.reportSheet} onClick={(e) => e.stopPropagation()}>
+          <div
+            className={styles.reportSheet}
+            onClick={(e) => e.stopPropagation()}
+            style={
+              isIosNative && kb.visible
+                ? {
+                    maxHeight: 'calc(100% - var(--status-bar-height, 0px) - 12px)',
+                    paddingBottom: `calc(${kb.height}px + 20px)`,
+                  }
+                : undefined
+            }
+          >
             <div className={styles.reportTitle}>{t('info.flood.reportTitle')}</div>
             <div className={styles.reportDesc}>{t('info.flood.reportDesc', '현재 위치로 제보됩니다.')}</div>
 

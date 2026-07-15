@@ -11,7 +11,7 @@ const BASE = 'http://localhost:18090';
 const EXE = `${homedir()}/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell`;
 if (!existsSync(EXE)) { console.error('no chromium'); process.exit(2); }
 
-const DEEP = { N: 10.8101, S: 10.7981, E: 106.7168, W: 106.7048 };
+const DEEP = { N: 10.80885, S: 10.79935, E: 106.71555, W: 106.70605 };
 const WIDE = { N: 10.88, S: 10.72, E: 106.79, W: 106.63 };
 const BIZ_ID = 'c3b89e18-ffec-46eb-950e-26775b636d54';
 
@@ -128,8 +128,8 @@ async function scenario2(browser, session) {
       const seg = document.querySelector('[class*="segBtn"]');
       return seg ? seg.offsetParent === null : null;
     });
-    // 선택 표시: teardrop 핀 꼭짓점 기준 scale(1.3) 확대 (구 선택 링 circle[stroke]은 teardrop 리디자인에서 제거됨)
-    const selectionRing = await page.evaluate(() => document.querySelectorAll('g[data-marker^="biz:"] g[transform*="scale(1.3)"]').length);
+    // 선택 표시: teardrop 핀 꼭짓점 기준 scale(1.5) 확대 (구 선택 링 circle[stroke]은 teardrop 리디자인에서 제거됨)
+    const selectionRing = await page.evaluate(() => document.querySelectorAll('g[data-marker^="biz:"] g[transform*="scale(1.5)"]').length);
     const favBtn = await page.evaluate(() => document.querySelectorAll('[class*="favBtn"]').length);
     await page.screenshot({ path: 'tools/qm/shots/regr_s2_post_panel_open.png' });
 
@@ -236,12 +236,20 @@ async function scenario4(browser, session) {
 }
 
 async function scenario5(browser, session) {
-  const name = 'S5_listing_tab_regression';
+  // 패키지 C (2026-07-12): 매물 핀 탭 = 팝업 카드 캐러셀 오픈이 정답 — 구 "postPanelOpened===false"
+  // 검증을 대체한다. 팝업 열림(매물 제목/가격 카드) + 바텀시트 리스트 비동기화(선택 하이라이트
+  // 없음) + 플리킹 → recenter(뷰포트 저장값 변경) + X 닫기 후 시트 복귀를 본다.
+  const name = 'S5_listing_pin_popup';
   const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, DEEP);
   try {
     await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
     await page.waitForTimeout(1200);
-    // default tab is listings already
+    // default tab is now biz — switch to listings tab explicitly
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('[class*="segBtn"]'));
+      const b = btns.find((x) => x.textContent?.includes('매물'));
+      b?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
     await page.waitForTimeout(2500);
     const listingMarkerCount = await page.evaluate(() => document.querySelectorAll('g[data-marker]:not([data-marker^="biz:"])').length);
     if (listingMarkerCount === 0) {
@@ -257,25 +265,72 @@ async function scenario5(browser, session) {
       const el = document.querySelector(`g[data-marker="${CSS.escape(mid)}"]`);
       el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     }, markerId);
-    await page.waitForTimeout(1200);
-    // PostPanel 전용 클래스(aboveRow) — ListingCard의 cardBody와 클래스명 base가 겹쳐 오탐 났던
-    // 지점을 PostPanel.tsx에서만 쓰이는 이름으로 특정해 수정.
+    await page.waitForTimeout(1800); // 오픈 recenter + bbox 커밋(500ms 디바운스)까지 소화
     const postPanelOpened = await page.evaluate(() => document.querySelectorAll('[class*="aboveRow"]').length > 0);
-    const sheetHeaderVisible = await page.evaluate(() => {
+    const cardCount = await page.evaluate(() => document.querySelectorAll('[class*="listingTitle"]').length);
+    const titleText = await page.evaluate(() => document.querySelector('[class*="listingTitle"]')?.textContent ?? null);
+    const priceText = await page.evaluate(() => document.querySelector('[class*="listingPrice"]')?.textContent ?? null);
+    // 업체 전용 요소(뷰어 칩·찜 하트)는 매물 팝업에 없어야 한다
+    const bizOnlyLeak = await page.evaluate(() => document.querySelectorAll('[class*="viewerChip"], [class*="favBtn"]').length);
+    const sheetHidden = await page.evaluate(() => {
       const seg = document.querySelector('[class*="segBtn"]');
-      return seg ? seg.offsetParent !== null : false;
+      return seg ? seg.offsetParent === null : null;
     });
-    const listVisible = await page.evaluate(() => {
-      const list = document.querySelector('[class*="list"]');
-      if (!list) return false;
-      const r = list.getBoundingClientRect();
-      return r.height > 100 && r.top < window.innerHeight;
+    // 지도-리스트 분리: 핀 탭이 리스트 선택 하이라이트를 만들지 않는다
+    const selectedInList = await page.evaluate(() => document.querySelectorAll('[class*="list"] [class*="selected"]').length);
+    await page.screenshot({ path: 'tools/qm/shots/regr_s5_listing_popup_open.png' });
+
+    // 플리킹: 캐러셀을 두 번째 카드로 스크롤 → 인덱스 전환 → recenter(뷰포트 저장값 변경).
+    // append 모드(패키지 C): 새 영역 아이템은 끝에 추가될 수 있으나(카드 수 불감소) 기존
+    // 순서·현재 인덱스(두 번째 카드 센터링)는 유지되어야 한다 — 인덱스 점프 없음.
+    const viewportBefore = await page.evaluate(() => localStorage.getItem('sgr.map.viewport'));
+    const flick = await page.evaluate(() => {
+      const scroller = document.querySelector('[class*="scroller"]');
+      if (!scroller || scroller.children.length < 2) return { skipped: true };
+      const card = scroller.children[1];
+      const cr = card.getBoundingClientRect();
+      const sr = scroller.getBoundingClientRect();
+      scroller.scrollLeft += cr.left - sr.left - (scroller.clientWidth - card.clientWidth) / 2;
+      return { skipped: false };
     });
-    await page.screenshot({ path: 'tools/qm/shots/regr_s5_listing_tab.png' });
+    await page.waitForTimeout(2800); // IO 스냅 + recenter + 커밋 + fetch 도착 + append 반영
+    const viewportAfter = await page.evaluate(() => localStorage.getItem('sgr.map.viewport'));
+    const cardCountAfterFlick = await page.evaluate(() => document.querySelectorAll('[class*="listingTitle"]').length);
+    // 인덱스 유지 검증: 두 번째 카드가 여전히 스크롤러 중앙에 있는가 (재구성이면 첫 카드로 점프)
+    const stillOnSecondCard = await page.evaluate(() => {
+      const scroller = document.querySelector('[class*="scroller"]');
+      if (!scroller || scroller.children.length < 2) return null;
+      const cr = scroller.children[1].getBoundingClientRect();
+      const sr = scroller.getBoundingClientRect();
+      return Math.abs((cr.left + cr.width / 2) - (sr.left + sr.width / 2)) < 40;
+    });
+    const recentered = flick.skipped ? null : viewportAfter !== viewportBefore;
+    const flickOk = flick.skipped ? true : (recentered === true && cardCountAfterFlick >= cardCount && stillOnSecondCard === true);
+    await page.screenshot({ path: 'tools/qm/shots/regr_s5_listing_popup_flick.png' });
+
+    // close → 시트 복귀
+    const closeClicked = await page.evaluate(() => {
+      const el = document.querySelector('[class*="aboveRow"] [class*="closeBtn"]');
+      if (!el) return false;
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return true;
+    });
+    await page.waitForTimeout(800);
+    const popupGone = await page.evaluate(() => document.querySelectorAll('[class*="aboveRow"]').length === 0);
+    const sheetBack = await page.evaluate(() => {
+      const seg = document.querySelector('[class*="segBtn"]');
+      return seg ? seg.offsetParent !== null : null;
+    });
+    await page.screenshot({ path: 'tools/qm/shots/regr_s5_listing_popup_closed.png' });
+
     results[name] = {
-      pass: !postPanelOpened && sheetHeaderVisible && listVisible,
-      listingMarkerCount, markerId, postPanelOpened, sheetHeaderVisible, listVisible, consoleErrors, failedRequests,
-      screenshot: 'tools/qm/shots/regr_s5_listing_tab.png',
+      pass: postPanelOpened && cardCount > 0 && !!titleText && !!priceText && bizOnlyLeak === 0
+        && sheetHidden === true && selectedInList === 0 && flickOk
+        && closeClicked && popupGone && sheetBack === true,
+      listingMarkerCount, markerId, postPanelOpened, cardCount, titleText, priceText, bizOnlyLeak,
+      sheetHidden, selectedInList, flick, recentered, cardCountAfterFlick, stillOnSecondCard,
+      closeClicked, popupGone, sheetBack, consoleErrors, failedRequests,
+      screenshots: ['tools/qm/shots/regr_s5_listing_popup_open.png', 'tools/qm/shots/regr_s5_listing_popup_flick.png', 'tools/qm/shots/regr_s5_listing_popup_closed.png'],
     };
   } catch (e) {
     results[name] = { pass: false, error: String(e) };
@@ -362,6 +417,33 @@ async function scenario7(browser, session) {
       return;
     }
     await page.screenshot({ path: 'tools/qm/shots/regr_s7_map_view_pill.png' });
+
+    // 무이동 탭 (결정적 재현: DraggableSheet 잔존 transitionend 리스너) — full 상태에서 같은
+    // 오프셋으로 pointerdown+up 하면 transition 이 발화하지 않아, 버그 시 과거 full 오프셋을
+    // 캡처한 리스너가 잔존 → 이후 collapse 애니메이션 끝에 시트가 다시 올라온다.
+    let tapDispatched = false;
+    const tapBox = await page.evaluate(() => {
+      const zone = document.querySelector('[class*="dragZone"]');
+      if (!zone) return null;
+      const r = zone.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    if (tapBox) {
+      await page.mouse.move(tapBox.x, tapBox.y); // pointerId 1 활성화 (setPointerCapture 오류 방지)
+      await page.dispatchEvent('[class*="dragZone"]', 'pointerdown', { pointerId: 1, clientX: tapBox.x, clientY: tapBox.y, bubbles: true });
+      await page.waitForTimeout(60);
+      await page.dispatchEvent('[class*="dragZone"]', 'pointerup', { pointerId: 1, clientX: tapBox.x, clientY: tapBox.y, bubbles: true });
+      await page.waitForTimeout(120);
+      tapDispatched = true;
+    }
+
+    // 하단 floating 위치 검증 (당근 레퍼런스 재배치) — 탭바 바로 위, 화면 하단 근처여야 한다
+    const pillNearBottom = await page.evaluate(() => {
+      const pill = document.querySelector('[class*="mapViewPill"]');
+      if (!pill) return null;
+      const r = pill.getBoundingClientRect();
+      return r.top > window.innerHeight * 0.7;
+    });
     const clicked = await jsClick(page, '[class*="mapViewPill"]');
     await page.waitForTimeout(700);
     const pillGone = await page.evaluate(() => !document.querySelector('[class*="mapViewPill"]'));
@@ -375,9 +457,156 @@ async function scenario7(browser, session) {
     await page.screenshot({ path: 'tools/qm/shots/regr_s7_map_view_pill_after.png' });
 
     results[name] = {
-      pass: pillVisible && clicked && pillGone,
-      pillVisible, clicked, pillGone, sheetCollapsed, attempts, consoleErrors, failedRequests,
+      // sheetCollapsed 포함: 무이동 탭 후 collapse 가 유지돼야 함 (잔존 리스너 재상승 회귀 가드)
+      pass: pillVisible && pillNearBottom && clicked && pillGone && sheetCollapsed === true,
+      pillVisible, pillNearBottom, clicked, pillGone, sheetCollapsed, tapDispatched, attempts, consoleErrors, failedRequests,
       screenshots: ['tools/qm/shots/regr_s7_map_view_pill.png', 'tools/qm/shots/regr_s7_map_view_pill_after.png'],
+    };
+  } catch (e) {
+    results[name] = { pass: false, error: String(e) };
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenario8(browser, session) {
+  // 게이트 이탈 고아 말풍선 (2026-07-13) — 딥줌에서 자동 말풍선이 뜬 상태로 휠 줌아웃해
+  // 핀 게이트(L3)를 이탈하면 핀과 말풍선이 함께 사라져야 한다 (말풍선만 잔존하는 회귀 가드).
+  const name = 'S8_bubble_gate_orphan';
+  const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, DEEP);
+  try {
+    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const b = btns.find((x) => x.textContent?.includes('업체'));
+      b?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.waitForTimeout(2500); // debounce(500ms) + fetch + auto-bubble effect (S1 미러)
+    const bubbleBefore = await page.evaluate(() => document.querySelectorAll('[class*="bizNewsBubble"]').length);
+    if (bubbleBefore !== 1) {
+      results[name] = { pass: false, error: 'precondition failed: auto bubble not shown at deep zoom', bubbleBefore };
+      await context.close();
+      return;
+    }
+    // 휠 줌아웃 — SaigonMapV5 wheel 핸들러(deltaY>0 = ×1.12/이벤트)로 L3 게이트(vbW 700)를
+    // 확실히 이탈시킨다 (×1.12^22 ≈ 12배). 말풍선(HTML 오버레이) 위를 피해 svg에 직접 디스패치.
+    await page.evaluate(() => {
+      const svg = document.querySelector('[class*="stage"] > svg');
+      if (!svg) return;
+      const r = svg.getBoundingClientRect();
+      for (let i = 0; i < 22; i++) {
+        svg.dispatchEvent(new WheelEvent('wheel', {
+          deltaY: 120, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+          bubbles: true, cancelable: true,
+        }));
+      }
+    });
+    await page.waitForTimeout(1500); // 게이트 플립(동기) + bbox 커밋(500ms) + 핀 데이터 클리어 소화
+    const gateExited = await page.evaluate(() => !!document.querySelector('[class*="zoomHintPill"]'));
+    const bizMarkerCount = await page.evaluate(() => document.querySelectorAll('g[data-marker^="biz:"]').length);
+    const bubbleAfter = await page.evaluate(() => document.querySelectorAll('[class*="bizNewsBubble"]').length);
+    await page.screenshot({ path: 'tools/qm/shots/regr_s8_bubble_gate_orphan.png' });
+    results[name] = {
+      pass: gateExited && bizMarkerCount === 0 && bubbleAfter === 0,
+      bubbleBefore, gateExited, bizMarkerCount, bubbleAfter, consoleErrors, failedRequests,
+      screenshot: 'tools/qm/shots/regr_s8_bubble_gate_orphan.png',
+    };
+  } catch (e) {
+    results[name] = { pass: false, error: String(e) };
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenario9(browser, session) {
+  // 줌힌트 필(확대해서 주변 보기) 클릭 버그 회귀 가드 — 필이 [내 위치로]와 동일한
+  // GPS 측위(runLocate)를 타면 팬한 위치와 무관하게 벤탄(10.772,106.697)으로 튄다.
+  // 수정 후에는 "현재 뷰포트 중심"으로만 줌인해야 하므로, 게이트 밖(WIDE)에서 GPS/벤탄과
+  // 뚜렷이 다른 곳으로 팬한 뒤 필을 클릭했을 때 그 지점 근처로 줌인되는지 확인한다.
+  const name = 'S9_zoom_hint_pill_center';
+  const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, WIDE);
+  try {
+    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const b = btns.find((x) => x.textContent?.includes('업체'));
+      b?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.waitForTimeout(2500); // debounce(500ms) + fetch + 게이트 반영 (S3 미러)
+    const pillBefore = await page.evaluate(() => !!document.querySelector('[class*="zoomHintPill"]'));
+    if (!pillBefore) {
+      results[name] = { pass: false, error: 'precondition failed: zoomHintPill not shown at WIDE bbox', pillBefore };
+      await context.close();
+      return;
+    }
+
+    // 필은 시트 밖 지도 우측 floating — 좌측 mapTools 의 [+] 버튼과 bottom 정렬(±4px)이어야 한다
+    // (둘 다 --sheet-visible-h 기반 동일 bottom 계산을 공유하는 세트 배치 검증)
+    const pillBottomDiff = await page.evaluate(() => {
+      const pill = document.querySelector('[class*="zoomHintPill"]');
+      const plus = document.querySelector('[class*="addWrap"] [class*="mapToolButton"]');
+      if (!pill || !plus) return null;
+      return Math.abs(pill.getBoundingClientRect().bottom - plus.getBoundingClientRect().bottom);
+    });
+    const pillAligned = pillBottomDiff !== null && pillBottomDiff <= 4;
+
+    // 팬: svg에 pointerdown → 여러 pointermove 스텝 → pointerup (S7 드래그 시퀀스 미러,
+    // dragZone 대신 지도 svg 대상). 큰 폭 이동으로 뷰포트 중심을 GPS/벤탄과 뚜렷이 다른 곳으로.
+    const box = await page.evaluate(() => {
+      const svg = document.querySelector('[class*="stage"] > svg');
+      if (!svg) return null;
+      const r = svg.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    if (!box) { results[name] = { pass: false, error: 'no map svg found' }; await context.close(); return; }
+    const startX = box.x, startY = box.y;
+    await page.dispatchEvent('[class*="stage"] > svg', 'pointerdown', { pointerId: 1, clientX: startX, clientY: startY, bubbles: true });
+    const steps = 10;
+    for (let i = 1; i <= steps; i++) {
+      const x = startX - (260 * i) / steps;
+      const y = startY - (260 * i) / steps;
+      await page.dispatchEvent('[class*="stage"] > svg', 'pointermove', { pointerId: 1, clientX: x, clientY: y, bubbles: true });
+      await page.waitForTimeout(20);
+    }
+    await page.dispatchEvent('[class*="stage"] > svg', 'pointerup', { pointerId: 1, clientX: startX - 260, clientY: startY - 260, bubbles: true });
+    await page.waitForTimeout(700); // bbox 커밋 디바운스(500ms) 소화 → viewportCenter 갱신
+
+    const viewportAfterPan = await page.evaluate(() => {
+      const raw = localStorage.getItem('sgr.map.viewport');
+      if (!raw) return null;
+      const b = JSON.parse(raw);
+      return { lat: (b.N + b.S) / 2, lng: (b.E + b.W) / 2 };
+    });
+
+    const clicked = await jsClick(page, '[class*="zoomHintPill"]');
+    await page.waitForTimeout(1500);
+
+    const pillAfter = await page.evaluate(() => !!document.querySelector('[class*="zoomHintPill"]'));
+    const viewportAfterZoom = await page.evaluate(() => {
+      const raw = localStorage.getItem('sgr.map.viewport');
+      if (!raw) return null;
+      const b = JSON.parse(raw);
+      return { lat: (b.N + b.S) / 2, lng: (b.E + b.W) / 2 };
+    });
+    await page.screenshot({ path: 'tools/qm/shots/regr_s9_zoom_hint_pill.png' });
+
+    const BEN_THANH = { lat: 10.772, lng: 106.697 };
+    const distToBenThanh = viewportAfterZoom
+      ? Math.hypot(viewportAfterZoom.lat - BEN_THANH.lat, viewportAfterZoom.lng - BEN_THANH.lng)
+      : null;
+    const distToPannedPoint = (viewportAfterZoom && viewportAfterPan)
+      ? Math.hypot(viewportAfterZoom.lat - viewportAfterPan.lat, viewportAfterZoom.lng - viewportAfterPan.lng)
+      : null;
+
+    results[name] = {
+      pass: clicked && !pillAfter && !!viewportAfterZoom && pillAligned
+        && distToBenThanh !== null && distToBenThanh > 0.015
+        && distToPannedPoint !== null && distToPannedPoint < 0.02,
+      pillBefore, pillBottomDiff, pillAligned, clicked, pillAfter, viewportAfterPan, viewportAfterZoom, distToBenThanh, distToPannedPoint,
+      consoleErrors, failedRequests,
+      screenshot: 'tools/qm/shots/regr_s9_zoom_hint_pill.png',
     };
   } catch (e) {
     results[name] = { pass: false, error: String(e) };
@@ -396,6 +625,8 @@ async function main() {
   await scenario5(browser, session);
   await scenario6(browser, session);
   await scenario7(browser, session);
+  await scenario8(browser, session);
+  await scenario9(browser, session);
   await browser.close();
   console.log(JSON.stringify(results, null, 2));
 }

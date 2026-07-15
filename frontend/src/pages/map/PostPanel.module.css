@@ -36,10 +36,12 @@
 }
 
 .closeBtn {
+  /* aboveRow 는 viewerChip 없으면 높이 0 (closeBtn 은 absolute 라 높이 기여 없음) —
+     top:50% 중앙정렬이면 버튼이 기준선 아래로 20px 내려와 카드 상단과 겹쳤다.
+     bottom 앵커로 어떤 카드 종류에서도 margin-bottom(12px) clearance 보장. */
   position: absolute;
   right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -56,27 +58,35 @@
 /* 가로 스냅 캐러셀 */
 .scroller {
   display: flex;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   touch-action: pan-x;
-  padding: 0 24px calc(12px + env(safe-area-inset-bottom));
+  /* 하단은 소액 고정 마진만 — 패널은 항상 탭바 위(AppShell .viewport 하단)에 앉고, 홈
+     인디케이터 inset(--bottom-safe)은 탭바(TabBar.module.css)가 이미 소화한다. 여기에
+     또 더하면 이중 적용으로 기기에서 ~42px 공백이 생겼음 (2026-07-12 사용자 지적). */
+  padding: 0 20px 8px;
   scrollbar-width: none;
 }
 .scroller::-webkit-scrollbar { display: none; }
 
+/* 단일 카드에는 캐러셀의 시작점이 없으므로 뷰포트 중앙에 고정한다. */
+.scrollerSingle { justify-content: center; }
+
 .card {
   position: relative;
   flex-shrink: 0;
-  width: calc(100% - 48px);
+  width: 100%; /* content box = 뷰포트 − 40px → 중앙 스냅 시 이웃 peek ≈ 12px */
+  height: 220px;
   scroll-snap-align: center;
 }
 
 /* 찜 하트 (P-FE) — cardBody 가 button 이라 중첩 불가, 카드 우상단(cardHead 우측)에 absolute */
 .favBtn {
   position: absolute;
-  top: 14px;
-  right: 10px;
+  top: 16px;
+  right: 12px;
   z-index: 1;
   display: grid;
   width: 36px;
@@ -86,24 +96,30 @@
 }
 
 .cardBody {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
+  height: 100%;
   text-align: left;
   background: var(--surface);
   border-radius: 16px;
-  padding: 14px;
+  padding: 18px;
   box-shadow: 0 10px 28px rgba(10, 18, 28, 0.16);
 }
 
 .cardHead {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
+  padding-right: 34px;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--bg-2);
@@ -118,7 +134,7 @@
 }
 
 .bizName {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   color: var(--text-1);
   overflow: hidden;
@@ -145,8 +161,10 @@
 
 .cardMain {
   display: flex;
+  flex: 0 0 auto;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 14px;
+  align-items: flex-start;
 }
 
 .copy {
@@ -154,10 +172,10 @@
   min-width: 0;
   margin: 0;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.45;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -168,8 +186,8 @@
 }
 
 .thumb {
-  width: 72px;
-  height: 72px;
+  width: 120px;
+  height: 120px;
   border-radius: 10px;
   object-fit: cover;
   background: var(--bg-2);
@@ -185,4 +203,174 @@
   color: #fff;
   font-size: 11px;
   font-weight: 700;
+}
+
+/* ── 매물 카드 (패키지 C) — 업체 카드와 같은 card/cardBody 스케일 프레임 공유 ── */
+.listingRow {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.listingThumbWrap {
+  position: relative;
+  flex-shrink: 0;
+  align-self: flex-start; /* row 는 stretch(가격 바닥 앵커용) — 썸네일만 제목과 상단 라인 정렬 */
+}
+
+/* 카드 220px 여백 제거(1안) — listingRow(flex:1) 가용 높이(~150px)를 큰 정사각 썸네일로
+   채워 이미지 아래 빈 밴드를 없앤다 (2026-07-14) */
+.listingThumb {
+  display: block;
+  width: 150px;
+  height: 150px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--bg-2);
+}
+
+/* 상태 태그(예약중/판매완료) — ListingCard.module.css .statusTag 시각 언어 미러 */
+.listingStatusTag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 텍스트 컬럼 — 제목·메타·설명(가격/카운트는 listingFooter 로 분리, 카드 전체 폭 사용) */
+.listingBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.listingTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.listingMeta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 상품설명 3줄 프리뷰(1안 — 여백 제거) — .feedCopy 클램프 패턴, 제목보다 낮은 위계 */
+.listingDescription {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 설명 미작성 플레이스홀더 — 본문보다 한 단계 낮은 위계 */
+.listingDescriptionEmpty {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 가격 + 카운트 1-row — cardBody 전체 폭 사용(썸네일 아래까지) — ListingCard.module.css
+   .cardFooter 시각 언어 미러. listingRow 형제로 배치해 가격이 텍스트 컬럼이 아닌
+   카드 좌측 끝(썸네일 기준)에 정렬되도록 함(2026-07-13 사용자 지적). */
+.listingFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.listingPrice {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+}
+
+/* ♥ 찜 · 💬 채팅 카운트 — 둘 다 0이어도 표시(찜 카운트와 일관성) */
+.listingCounts {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* ── 피드 카드 (패키지 C) — [아바타 닉네임 · 시간] / [본문|썸네일] / [🔥 💬] ── */
+.feedHead {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 34px;
+}
+
+.feedAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-2);
+  flex-shrink: 0;
+}
+
+.feedName {
+  composes: bizName;
+  flex-shrink: 1;
+}
+
+.feedTime {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.feedCopy {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 16px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.feedThumb {
+  width: 104px;
+  height: 104px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--bg-2);
+}
+
+.feedFooter {
+  display: flex;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
 }

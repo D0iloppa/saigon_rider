@@ -5,6 +5,8 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { extractDetail } from '@/api/client';
 import {
   fetchBusinessProfiles,
@@ -46,6 +48,10 @@ export default function BizManage() {
   const [saving, setSaving] = useState(false);
   // 프로필별 광고 목록 — profileId 를 함께 들고 스위처 전환 시 이전 프로필 목록 표시를 방지
   const [ads, setAds] = useState<{ profileId: string; list: BusinessAd[] } | null>(null);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 editForm 의 name/phone input 이 키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +135,7 @@ export default function BizManage() {
   return (
     <div className={styles.page}>
       <TopBar title={t('biz.manageTitle', { defaultValue: '비즈니스 프로필' })} />
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {profiles.length > 1 && (
           <div className={styles.switcher}>
             {profiles.map((p, idx) => (

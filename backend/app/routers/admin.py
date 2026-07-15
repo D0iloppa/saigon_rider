@@ -14,7 +14,8 @@ import httpx
 import jwt
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, tuple_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -35,6 +36,8 @@ from ..models import (
     MarketplaceAd,
     NicknameWord,
     PlaceSubmission,
+    Poi,
+    PoiCategory,
     Quest,
     RepairShop,
     RepairShopSubmission,
@@ -45,6 +48,7 @@ from ..models import (
     UserBadge,
 )
 from ..quest_card_map import quest_card_file_path, resolve_quest_card_code
+from ..schemas import POIBulkRequest, POIBulkResult
 from ..services import noti_events
 from ..services.fuel_price_service import FUEL_BRANDS, FUEL_TYPES, upsert_fuel_price
 from ..utils import (
@@ -4496,3 +4500,74 @@ async def admin_push_badges(
     for b in badges:
         b["nickname"] = nick_map.get(b.get("external_user_uuid", ""), "")
     return JSONResponse(badges)
+
+
+# ── POI 인제스천 (Phase B 에이전트 upsert) ───────────────────────
+
+
+@router.post("/poi/bulk", response_model=POIBulkResult, include_in_schema=False)
+async def admin_poi_bulk_upsert(
+    body: POIBulkRequest,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """에이전트/스크립트가 POI 를 대량 upsert 등록. (source, external_ref) 부분 유니크 인덱스 기준, published=true 로 직접 게시."""
+    valid_categories = set((await db.execute(select(PoiCategory.code))).scalars().all())
+
+    pairs = [(item.source, item.external_ref) for item in body.items if item.category in valid_categories]
+    existing_pairs: set[tuple[str, str]] = set()
+    if pairs:
+        rows = (
+            await db.execute(
+                select(Poi.source, Poi.external_ref).where(tuple_(Poi.source, Poi.external_ref).in_(pairs))
+            )
+        ).all()
+        existing_pairs = {(r.source, r.external_ref) for r in rows}
+
+    inserted = 0
+    updated = 0
+    skipped = 0
+
+    for item in body.items:
+        if item.category not in valid_categories:
+            skipped += 1
+            continue
+
+        stmt = pg_insert(Poi).values(
+            category=item.category,
+            name_ko=item.name_ko,
+            name_vi=item.name_vi,
+            name_en=item.name_en,
+            description=item.description,
+            address=item.address,
+            latitude=item.lat,
+            longitude=item.lng,
+            source=item.source,
+            external_ref=item.external_ref,
+            published=True,
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["source", "external_ref"],
+            index_where=Poi.external_ref.is_not(None),
+            set_={
+                "name_ko": stmt.excluded.name_ko,
+                "name_vi": stmt.excluded.name_vi,
+                "name_en": stmt.excluded.name_en,
+                "description": stmt.excluded.description,
+                "address": stmt.excluded.address,
+                "latitude": stmt.excluded.latitude,
+                "longitude": stmt.excluded.longitude,
+                "category": stmt.excluded.category,
+                "published": True,
+                "updated_at": datetime.now(UTC),
+            },
+        )
+        await db.execute(stmt)
+
+        if (item.source, item.external_ref) in existing_pairs:
+            updated += 1
+        else:
+            inserted += 1
+
+    await db.commit()
+    return POIBulkResult(inserted=inserted, updated=updated, skipped=skipped)

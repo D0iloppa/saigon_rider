@@ -32,7 +32,9 @@ export default function ListingCard({ listing: l, onClick }: Props) {
             )}
             {formatPriceVnd(l.priceVnd, t)}
           </span>
-          <span className={styles.likes}>♥ {l.likeCount}</span>
+          <span className={styles.likes}>
+            ♥ {l.likeCount} · 💬 {l.chatCount}
+          </span>
         </div>
       </div>
     </button>

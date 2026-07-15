@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
 import { native } from '@/lib/native';
 import depth1 from './v2/saigon-depth1.json';
-import type { MapMarkerV2, SelectedRegion } from './v2/region';
+import { regionContains, type MapMarkerV2, type SelectedRegion } from './v2/region';
 import styles from './SaigonMapV5.module.css';
 
 /**
@@ -54,7 +54,37 @@ const TOAST_MS = 2400;
 const BIZ_PIN_PATH = 'M12 24 L4.8 14.4 A9 9 0 1 1 19.2 14.4 Z';
 // 내부 흰 원형 홀 반지름 (당근 레퍼런스) — 업종 글리프(변 9, 반대각 6.36)가 내접한다.
 const BIZ_PIN_HOLE_R = 6.4;
+// 매물·피드 선택 teardrop 내부 도메인 글리프 (24×24 Material filled, biz 업종 글리프와 동일 방식).
+// 선택 시에만 teardrop 홀 안에 노출된다 — 비선택 dot 은 글리프 없이 기존 그대로.
+const LISTING_GLYPH_PATH = 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z'; // local_offer (가격표)
+const FEED_GLYPH_PATH = 'M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z'; // chat (말풍선)
 const ASSET_BASE = `${import.meta.env.BASE_URL}maps/v2/`;
+
+// ── 도로 케이싱 2-pass (표준 카토그래피 — Mapbox/OSM 관례) ──────
+// depth3 도로색(c)은 파이프라인 ROAD_STYLE 산출 6종 — 데이터 재생성 없이 렌더에서 fill/casing 파생.
+// casing 은 fill 보다 어두운 웜톤 한 단계. [casing 전체 → fill 전체] 순서로 그려 교차점을 자연 병합.
+// 골목(#f6f6f6)은 무케이싱 — 전체 도로의 ~55%라 노드 2배 부담이 크고, 최하등급 무케이싱이 관례.
+const ROAD_FILL: Record<string, string> = {
+  '#f6f6f6': '#fcfbf7', // 골목
+  '#ffffff': '#ffffff', // 이면도로
+  '#EDE6DA': '#f4eee0', // 보행로
+  '#FBD980': '#fde08f', // tertiary
+  '#F6C453': '#fbcd60', // secondary
+  '#F4A93C': '#f8ae42', // 간선 (진한 casing + 밝은 fill)
+};
+const ROAD_CASING: Record<string, string> = {
+  '#ffffff': '#cdc6b4',
+  '#EDE6DA': '#d6ccb6',
+  '#FBD980': '#e2b155',
+  '#F6C453': '#d89d2f',
+  '#F4A93C': '#c9801d',
+};
+const CASING_RATIO = 1.42; // casing 폭 = fill 폭 × 1.42
+// 줌 연동 도로폭 배율 — 스트로크는 nested viewBox 유닛이라 줌에 선형 비례 자동 스케일인데,
+// 그대로면 L3 진입(vbW=700)엔 헤어라인(간선 화면폭 ~1%)·MIN_VBW(100)엔 과대(~7%)다.
+// 지수 0.4 곡선으로 완만화: 진입 직후 ×1.5 → 딥줌 ×0.69 (간선 화면폭 ~1.5% → ~4.8%).
+// 클램프는 도로 노출 구간(MIN_VBW..L3_VBW) 밖 비정상 vb 방어용 상한/하한.
+const roadWidthK = (vbw: number) => Math.min(2.0, Math.max(0.6, 1.5 * ((vbw / L3_VBW) ** 0.4)));
 
 // ── 모듈 시작 시 ward bbox 사전계산 (뷰포트 컬링용) ──────────
 const parsePts = (s: string): [number, number][] =>
@@ -108,6 +138,26 @@ function buildWardRegion(idx: number): SelectedRegion | null {
   return { name: (w.n as string) ?? '', lat: gps.lat, lng: gps.lng, poly };
 }
 
+// 좌표가 속한 ward 판별 (패키지 B — 바텀시트 ward 리스트 소스) — 37개 폴리곤 순회는 가볍고,
+// SelectedRegion 빌드는 최초 1회만 수행해 모듈 캐시한다. 반환 객체도 캐시에서 그대로 돌려주므로
+// 같은 ward 안에서는 참조가 동일 — 호출부(useMemo/이펙트 deps)가 ward 변경만 감지할 수 있다.
+let wardRegionsCache: { slug: string; region: SelectedRegion }[] | null = null;
+export function findWardAt(lat: number, lng: number): { slug: string; region: SelectedRegion } | null {
+  if (!wardRegionsCache) {
+    wardRegionsCache = [];
+    for (let i = 0; i < depth1.wards.length; i++) {
+      const slug = (depth1.wards[i] as { slug?: string }).slug;
+      if (!slug) continue; // gps/slug 없는 ward 스킵 (buildWardRegion 가드와 동일)
+      const region = buildWardRegion(i);
+      if (region) wardRegionsCache.push({ slug, region });
+    }
+  }
+  for (const w of wardRegionsCache) {
+    if (regionContains(w.region, lat, lng)) return w;
+  }
+  return null;
+}
+
 // ── 컴포넌트 ────────────────────────────────────────────────
 export interface DistrictBadge {
   lat: number;
@@ -139,6 +189,8 @@ export interface SaigonMapV5Props {
   searchFitRef?: React.MutableRefObject<((points: { lat: number; lng: number }[]) => void) | null>;
   /** 줌 유지 recenter — 포스트 패널 캐러셀이 포커싱 업체로 지도만 이동할 때 사용 (focusLatLng 와 달리 줌·ward 선택 부작용 없음) */
   focusPointRef?: React.MutableRefObject<((pos: { lat: number; lng: number }) => void) | null>;
+  /** 좌표 중심 순수 확대 — GPS 측위 없이 주어진 좌표로 Layer3 줌인만 수행 (focusLatLng 와 달리 ward 선택·토스트 부작용 없음) */
+  zoomInRef?: React.MutableRefObject<((pos: { lat: number; lng: number }) => void) | null>;
   forceMarkers?: boolean;
   polyActive?: boolean;
   onLocate?: () => void;
@@ -172,6 +224,7 @@ function SaigonMapV5({
   emitBboxRef,
   searchFitRef,
   focusPointRef,
+  zoomInRef,
   forceMarkers = false,
   polyActive = true,
   onLocate,
@@ -205,7 +258,7 @@ function SaigonMapV5({
   const prevLOD = useRef({ l2: false, l3: false });
   const didAutoLocate = useRef(false);
   // 마운트 rAF(빈 deps)가 최신 focusLatLng 를 부르기 위한 latest-ref (onViewportChangeRef 와 동일 패턴)
-  const focusLatLngRef = useRef<((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean }) => void) | null>(null);
+  const focusLatLngRef = useRef<((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean; noMeDot?: boolean }) => void) | null>(null);
   // 마운트 rAF(빈 deps 이펙트)가 최신 onViewportChange를 부르기 위한 latest-ref.
   // 콜백을 빈 deps 이펙트에 직접 클로저 캡처하면 React Compiler가 수동 메모이제이션
   // 보존을 포기해 컴포넌트 전체 최적화가 스킵된다(preserve-manual-memoization 에러).
@@ -246,7 +299,8 @@ function SaigonMapV5({
     const bw = el.offsetWidth;
     const bh = el.offsetHeight;
     // 꼬리 간격: 마커 halo 화면 반지름(r×1.4, 업체 핀 r:1.15 기준) + 꼬리 돌출(≈11px) + 여백
-    const gap = cw * 0.015 * 1.15 * 1.4 + 14;
+    // 말풍선이 핀과 상호 라벨을 덮지 않도록 지도 위쪽으로 한 단계 더 띄운다.
+    const gap = cw * 0.015 * 1.15 * 1.4 + 26;
     const bx = Math.min(Math.max(px - bw / 2, 8), Math.max(8, cw - bw - 8));
     const by = py - gap - bh;
     el.style.transform = `translate(${bx}px, ${by}px)`;
@@ -334,7 +388,7 @@ function SaigonMapV5({
         // 재진입 좌표 기억: 예전엔 별도 이펙트가 focus 한 것을 이 rAF 가 전역 뷰로 덮어썼다
         // (시나리오 1.3 회귀) — 레이아웃 확정 후 여기서 직접 Layer3 포커스하고 bbox 도
         // emit 해(suppress 안 함) 게이트 통과 리스트 파이프라인을 바로 잇는다.
-        focusLatLngRef.current?.(initialGps, { silent: true, selectRegion: selectRegionOnLocate });
+        focusLatLngRef.current?.(initialGps, { silent: true, selectRegion: selectRegionOnLocate, noMeDot: true });
         return;
       }
       const dataX1 = lx(D1_BBOX.W), dataX2 = lx(D1_BBOX.E);
@@ -375,7 +429,11 @@ function SaigonMapV5({
       fetches.push(
         fetch(`${ASSET_BASE}${slug}/depth3.json`)
           .then((r) => r.json())
-          .then((d: Depth3Data) => { entry.d3 = d; })
+          .then((d: Depth3Data) => {
+            // 폭 오름차순 정렬 — 2-pass 렌더의 fill pass 에서 상위 등급 도로가 위에 그려진다 (캐시 전 1회)
+            d.roads.sort((a, b) => a.w - b.w);
+            entry.d3 = d;
+          })
           .catch(() => {})
           .finally(() => loadingRef.current.delete(key3)),
       );
@@ -418,7 +476,7 @@ function SaigonMapV5({
       });
     }
 
-    onDepthChange?.(!l2 && !(polyActiveRef.current && selWardRef.current !== null));
+    onDepthChange?.(!l3 && !(polyActiveRef.current && selWardRef.current !== null));
 
     if (!l2) return;
     depth1.wards.forEach((w, i) => {
@@ -444,8 +502,11 @@ function SaigonMapV5({
     setVbSnap((n) => n + 1);
   }, [clampVB, getBottomInsetUnits, onViewportChange, setVBAttr]);
 
-  const focusLatLng = useCallback((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean }) => {
-    setMeLatLng(pos);
+  const focusLatLng = useCallback((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean; noMeDot?: boolean }) => {
+    // noMeDot: 마운트 재진입 좌표(storedCoords)는 실제 GPS fix 가 아니라 폴백(HCMC 중심)일 수
+    // 있으므로 "내 위치" dot 을 찍지 않는다 — 서비스지역 밖 유저에게 가짜 위치점을 안 만드는
+    // runLocate 원칙(setMeLatLng(null))을 마운트 포커스에도 일관 적용. 카메라 이동만 수행.
+    if (!opts?.noMeDot) setMeLatLng(pos);
 
     const d1x = (pos.lng - D1_BBOX.W) / (D1_BBOX.E - D1_BBOX.W) * depth1.VW;
     const d1y = (D1_BBOX.N - pos.lat) / (D1_BBOX.N - D1_BBOX.S) * depth1.VH;
@@ -589,6 +650,24 @@ function SaigonMapV5({
   }, [focusPointRef, centerOnUnified]);
 
   useEffect(() => {
+    if (zoomInRef) {
+      zoomInRef.current = (pos) => {
+        const svg = svgRef.current;
+        const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
+        const targetW = L3_VBW * 0.9; // focusLatLng와 동일한 게이트 통과 목표 줌
+        const cx = lx(pos.lng), cy = ly(pos.lat);
+        const targetH = targetW * ar;
+        const insetUnits = getBottomInsetUnits(targetH);
+        vbRef.current = clampVB({ x: cx - targetW / 2, y: cy - targetH / 2 + insetUnits / 2, w: targetW, h: targetH });
+        setVBAttr();
+        onViewportChange();
+        setVbSnap((n) => n + 1);
+      };
+    }
+    return () => { if (zoomInRef) zoomInRef.current = null; };
+  }, [zoomInRef, clampVB, getBottomInsetUnits, onViewportChange, setVBAttr]);
+
+  useEffect(() => {
     // suppressBbox: 이 이펙트는 시트 높이·선택모드/선택동 변화에 따른 LOD/뱃지 재계산용이지
     // 사용자 뷰포트 의도가 아니다 — bbox까지 재-emit하면 handleRegionSelect가 방금
     // 비운 viewportBbox를 500ms 뒤 되살리는 문제가 있었음. bbox는 제스처/줌/fit 경로만 emit.
@@ -674,6 +753,9 @@ function SaigonMapV5({
     const tapX = e.clientX, tapY = e.clientY;
     g.pts.delete(e.pointerId);
     if (g.pts.size < 2) g.lastD = 0;
+    // 핀치(2)→팬(1) 전환: 남은 포인터로 팬 기준점(lastP)을 리셋한다. 안 하면 다음 팬 이동이
+    // 핀치 시작 시점의 stale lastP 와의 큰 차이를 dx/dy 로 계산해 지도가 튄다(간헐적 포커스 점프).
+    if (g.pts.size === 1) { const [p] = [...g.pts.values()]; g.lastP = { x: p.x, y: p.y }; }
     if (g.pts.size === 0) g.lastP = null;
     try { (e.currentTarget as Element).releasePointerCapture(e.pointerId); } catch { /* noop */ }
 
@@ -704,9 +786,13 @@ function SaigonMapV5({
 
     const idx = depth1.wards.findIndex((_, i) => wardInView(i, vb) && pointInPoly(d1x, d1y, depth1.wards[i].p));
     if (idx >= 0) {
-      setSelWard(idx);
-      const region = buildWardRegion(idx);
-      if (region) onRegionSelect?.(region);
+      // 지역선택 개념 제거(2026-07-13 결정) — 사용자가 오버뷰에서 ward 폴리곤을 탭하면
+      // setSelWard 되어 라벨이 주황으로 강조되던 과거 region 모드의 "탭→라벨 강조" 잔존물을
+      // 비활성화한다. setSelWard 자체는 focusLatLng([내 위치로]) 프로그래매틱 경로에서
+      // 계속 사용되므로 그쪽은 그대로 둔다.
+      // setSelWard(idx);
+      // const region = buildWardRegion(idx);
+      // if (region) onRegionSelect?.(region);
     }
   };
 
@@ -717,6 +803,10 @@ function SaigonMapV5({
   const vb = vbRef.current;
   const showL2 = vb.w < L2_VBW;
   const showL3 = vb.w < L3_VBW;
+  // 도로폭 배율·건물 음영 게이트 — 마커 r 과 동일하게 render 시점 vb 기준 (제스처 종료 시 재계산).
+  // 음영 duplicate 는 건물 노드를 2배로 만들므로 딥줌 절반(vbW<350)부터만 적용해 노드를 아낀다.
+  const roadK = roadWidthK(vb.w);
+  const bldgShadow = vb.w < L3_VBW * 0.5;
 
   // depth1 nested SVG 위치 (통합 좌표)
   const d1Rect = bboxToRect(D1_BBOX);
@@ -766,7 +856,7 @@ function SaigonMapV5({
             }
             return (
               <polygon key={i} points={w.p as string}
-                className={styles.ward}
+                className={showL2 ? styles.ward : styles.wardOverview}
               />
             );
           })}
@@ -801,9 +891,21 @@ function SaigonMapV5({
               viewBox={`0 0 ${d.d3.VW} ${d.d3.VH}`} preserveAspectRatio="none" overflow="visible">
               {d.d3.water.map((p, pi) => <polygon key={pi} points={p} className={styles.water} />)}
               {d.d3.wline.map((p, pi) => <polyline key={pi} points={p} className={styles.wline} />)}
+              {/* 건물 음영 — y+오프셋 어두운 duplicate 를 아래 깔아 입체감 (SVG filter 는 개수상 성능 위험) */}
+              {bldgShadow && (
+                <g transform="translate(0.9, 1.3)" pointerEvents="none">
+                  {d.d3.bldg.map((p, pi) => <polygon key={pi} points={p} className={styles.bldgShadow} />)}
+                </g>
+              )}
               {d.d3.bldg.map((p, pi) => <polygon key={pi} points={p} className={styles.bldg} />)}
+              {/* 도로 2-pass: casing 전체 → fill 전체 — fill 이 교차부 casing 을 덮어 자연 병합된다 */}
+              {d.d3.roads.map((road, ri) => ROAD_CASING[road.c] ? (
+                <polyline key={`c${ri}`} points={road.p} stroke={ROAD_CASING[road.c]}
+                  strokeWidth={road.w * roadK * CASING_RATIO} className={styles.road} />
+              ) : null)}
               {d.d3.roads.map((road, ri) => (
-                <polyline key={ri} points={road.p} stroke={road.c} strokeWidth={road.w} className={styles.road} />
+                <polyline key={ri} points={road.p} stroke={ROAD_FILL[road.c] ?? road.c}
+                  strokeWidth={road.w * roadK} className={styles.road} />
               ))}
             </svg>
           );
@@ -826,7 +928,10 @@ function SaigonMapV5({
 
         {/* 동 레이블 — depth3 레벨에서는 숨김 (건물 레벨에선 dot/맥락으로 충분) */}
         {vb.w >= L3_VBW && depth1.wards.map((w, i) => {
-          if (i === selWard || !wardInView(i, vb)) return null;
+          // selWard 는 polyActive(지역선택 모드)일 때만 건너뛴다 — 그때만 아래 오렌지 라벨(블록 B)이
+          // 대신 그리기 때문. viewport 모드(polyActive=false)에선 B 가 안 그리므로, 여기서 일반
+          // 회색 라벨로 정상 표시해야 stale selWard(폴백 ben-thanh 등) 동의 라벨이 사라지지 않는다.
+          if ((polyActive && i === selWard) || !wardInView(i, vb)) return null;
           const gps = w.gps as { lat: number; lng: number } | undefined;
           if (!gps || !(w.n)) return null;
           // clamp: city≈6px, ward≈9px, deep≈20px
@@ -845,8 +950,9 @@ function SaigonMapV5({
             </text>
           );
         })}
-        {/* 선택된 동 레이블 — depth3 레벨에서는 숨김 */}
-        {vb.w >= L3_VBW && selWard !== null && (() => {
+        {/* 선택된 동 레이블 — depth3 레벨에서는 숨김. polyActive 가드: 테두리(위)와 동일 —
+            viewport 모드에서 stale selWard 로 오렌지 강조가 남는 것 방지 */}
+        {vb.w >= L3_VBW && polyActive && selWard !== null && (() => {
           const w = depth1.wards[selWard];
           const gps = w.gps as { lat: number; lng: number } | undefined;
           if (!gps || !(w.n)) return null;
@@ -895,39 +1001,46 @@ function SaigonMapV5({
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
               const r = vb.w * 0.015 * (m.r ?? 1);
               if (m.kind === 'biz') {
-                // 업체 teardrop 핀 (당근 레퍼런스) — 꼬리 꼭짓점이 (mx,my) 좌표를 가리킨다
-                // (기존 원 중심 앵커와 좌표 의미 동일, 형상만 위로 올려 그림).
+                // 비선택 업체는 중립 원형 아이콘, 선택된 업체만 물방울 핀으로 승격한다.
                 const s = (r * 1.25) / 9; // 머리 반지름 1.25r → 로컬 24유닛(머리 R=9) 스케일
                 const color = m.color ?? '#ff5a1f';
                 return (
                   <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
-                    {/* 접지 그림자 — 선택 시 강조 */}
-                    <ellipse cx={mx} cy={my + r * 0.2} rx={r * (m.selected ? 1.1 : 0.8)} ry={r * (m.selected ? 0.4 : 0.28)}
-                      fill="url(#sgrPinShadow)" pointerEvents="none" />
-                    {/* 선택 강조 — 링 대신 꼭짓점(mx,my) 기준 1.3x 확대 */}
-                    <g transform={m.selected ? `translate(${mx}, ${my}) scale(1.3) translate(${-mx}, ${-my})` : undefined}>
-                      <g transform={`translate(${mx - 12 * s}, ${my - 24 * s}) scale(${s})`}>
-                        <path d={BIZ_PIN_PATH} fill={color} stroke="#fff" strokeWidth={1.5} />
-                        {/* 내부 흰 원형 홀 — 글리프를 핀 색으로 얹어 업종 구분 유지 */}
-                        <circle cx={12} cy={9} r={BIZ_PIN_HOLE_R} fill="#fff" pointerEvents="none" />
+                    {m.selected ? (
+                      <>
+                        <ellipse cx={mx} cy={my + r * 0.2} rx={r * 1.1} ry={r * 0.4}
+                          fill="url(#sgrPinShadow)" pointerEvents="none" />
+                        <g transform={`translate(${mx}, ${my}) scale(1.5) translate(${-mx}, ${-my})`}>
+                          <g transform={`translate(${mx - 12 * s}, ${my - 24 * s}) scale(${s})`}>
+                            <path d={BIZ_PIN_PATH} fill={color} stroke="#fff" strokeWidth={1.5} />
+                            <circle cx={12} cy={9} r={BIZ_PIN_HOLE_R} fill="#fff" pointerEvents="none" />
+                            {m.icon && (
+                              <path d={m.icon} fill={color} pointerEvents="none"
+                                transform="translate(7.5, 4.5) scale(0.375)" />
+                            )}
+                          </g>
+                        </g>
+                      </>
+                    ) : (
+                      <>
+                        <circle cx={mx} cy={my - r * 0.8} r={r * 0.92} fill="#8b93a1" stroke="#fff" strokeWidth={r * 0.22} />
                         {m.icon && (
-                          // 업종 글리프 — 24×24 path 를 홀 내접 정사각(변 9)으로 스케일
-                          <path d={m.icon} fill={color} pointerEvents="none"
-                            transform="translate(7.5, 4.5) scale(0.375)" />
+                          <path d={m.icon} fill="#fff" pointerEvents="none"
+                            transform={`translate(${mx - r * 0.46}, ${my - r * 1.26}) scale(${(r * 0.92) / 24})`} />
                         )}
                         {m.badge && (
-                          // 미확인 소식 — 머리 원 우상단(45°) 빨간 점
-                          <circle cx={18.4} cy={2.6} r={3} fill="#ef4444" stroke="#fff" strokeWidth={1.1} pointerEvents="none" />
+                          <circle cx={mx + r * 0.68} cy={my - r * 1.48} r={r * 0.28}
+                            fill="#ef4444" stroke="#fff" strokeWidth={r * 0.1} pointerEvents="none" />
                         )}
-                      </g>
-                    </g>
+                      </>
+                    )}
                     {m.label && (
-                      // 업체 핀 상호명 라벨 — 꼭짓점 아래, 그림자 타원(바닥 ≈ my+0.6r)과 겹치지 않게
+                      // 선택 상태에서만 상호명을 크게 승격한다.
                       <text
-                        x={mx} y={my + r * 0.7}
-                        fontSize={r * 1.5} fontWeight={700}
-                        fill="#1f2937"
-                        stroke="rgba(255,255,255,0.90)" strokeWidth={r * 0.42}
+                        x={mx} y={my + r * (m.selected ? 1.05 : 0.65)}
+                        fontSize={r * (m.selected ? 1.5 : 1.1)} fontWeight={m.selected ? 700 : 600}
+                        fill={m.selected ? '#1f2937' : '#667085'}
+                        stroke="rgba(255,255,255,0.90)" strokeWidth={r * (m.selected ? 0.42 : 0.3)}
                         paintOrder="stroke fill"
                         textAnchor="middle" dominantBaseline="hanging"
                         fontFamily="system-ui,-apple-system,sans-serif"
@@ -938,10 +1051,62 @@ function SaigonMapV5({
                   </g>
                 );
               }
+              // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체와 별개의 "위치 기준 표식".
+              // 콘텐츠 핀(오렌지/블루 dot·teardrop)과 구분되는 teal 스퀘어클 + 흰 halo + 이름 라벨 상시 노출.
+              // 크기·색 위계는 호출부가 r/color 로 주입(landmark > civic). 탭 동작이 없으므로
+              // pointerEvents none — 지도 제스처와 인접 콘텐츠 마커 클릭을 가리지 않는다.
+              if (m.kind === 'poi') {
+                const half = r * 1.05;
+                const color = m.color ?? '#0d9488';
+                return (
+                  <g key={m.id} data-marker={String(m.id)} pointerEvents="none">
+                    <rect x={mx - half * 1.26} y={my - half * 1.26} width={half * 2.52} height={half * 2.52}
+                      rx={half * 0.6} fill="rgba(255,255,255,0.65)" />
+                    <rect x={mx - half} y={my - half} width={half * 2} height={half * 2} rx={half * 0.42}
+                      fill={color} stroke="#fff" strokeWidth={half * 0.18} />
+                    {m.icon && (
+                      <path d={m.icon} fill="#fff"
+                        transform={`translate(${mx - half * 0.66}, ${my - half * 0.66}) scale(${(half * 1.32) / 24})`} />
+                    )}
+                    {m.label && (
+                      <text x={mx} y={my + half * 1.35}
+                        fontSize={r * 1.1} fontWeight={700}
+                        fill="#0f5c56"
+                        stroke="rgba(255,255,255,0.92)" strokeWidth={r * 0.34}
+                        paintOrder="stroke fill"
+                        textAnchor="middle" dominantBaseline="hanging"
+                        fontFamily="system-ui,-apple-system,sans-serif">
+                        {m.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              }
+              // 매물·피드 선택 승격 — biz 와 동일한 teardrop shape(BIZ_PIN_PATH), 채움은 레이어색,
+              // 홀 안 글리프만 도메인별(매물=가격표 / 피드=말풍선). 비선택은 아래 dot 로 폴백.
+              if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
+                const s = (r * 1.25) / 9;
+                const color = m.color ?? (m.kind === 'feed' ? '#3b82f6' : '#ff6f3c');
+                const glyph = m.kind === 'feed' ? FEED_GLYPH_PATH : LISTING_GLYPH_PATH;
+                return (
+                  <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
+                    <ellipse cx={mx} cy={my + r * 0.2} rx={r * 1.1} ry={r * 0.4}
+                      fill="url(#sgrPinShadow)" pointerEvents="none" />
+                    <g transform={`translate(${mx}, ${my}) scale(1.5) translate(${-mx}, ${-my})`}>
+                      <g transform={`translate(${mx - 12 * s}, ${my - 24 * s}) scale(${s})`}>
+                        <path d={BIZ_PIN_PATH} fill={color} stroke="#fff" strokeWidth={1.5} />
+                        <circle cx={12} cy={9} r={BIZ_PIN_HOLE_R} fill="#fff" pointerEvents="none" />
+                        <path d={glyph} fill={color} pointerEvents="none"
+                          transform="translate(7.5, 4.5) scale(0.375)" />
+                      </g>
+                    </g>
+                  </g>
+                );
+              }
               return (
                 <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                   {m.selected && (
-                    // 선택 강조 링 — 포스트 패널 포커싱 업체 (브랜드 오렌지)
+                    // 선택 강조 링 — 타 페이지의 dot 마커 선택용(피드·매물은 위 teardrop 으로 승격돼 미해당)
                     <circle cx={mx} cy={my} r={r * 1.75} fill="none" stroke="#ff5a1f" strokeWidth={r * 0.22} opacity={0.9} />
                   )}
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />

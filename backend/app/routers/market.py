@@ -100,11 +100,12 @@ def _district_brief(district) -> DistrictBrief | None:
     return DistrictBrief(id=district.id, name_ko=district.name_ko, name_vi=district.name_vi, name_en=district.name_en)
 
 
-def _card(listing: MarketplaceListing, distance_m: int | None = None) -> MarketplaceListingCard:
+def _card(listing: MarketplaceListing, distance_m: int | None = None, chat_count: int = 0) -> MarketplaceListingCard:
     return MarketplaceListingCard(
         id=listing.id,
         seller_id=listing.seller_id,
         title=listing.title,
+        description=listing.description,
         price_vnd=listing.price_vnd,
         original_price_vnd=listing.original_price_vnd,
         is_negotiable=listing.is_negotiable,
@@ -113,6 +114,7 @@ def _card(listing: MarketplaceListing, distance_m: int | None = None) -> Marketp
         thumbnail_url=_thumbnail_url(listing),
         district=_district_brief(listing.district),
         like_count=listing.like_count,
+        chat_count=chat_count,
         bumped_at=listing.bumped_at,
         distance_m=distance_m,
         lat=float(listing.latitude) if listing.latitude is not None else None,
@@ -332,10 +334,25 @@ async def get_listings(
     total = (await db.execute(count_q)).scalar_one()
     rows = (await db.execute(q.offset(offset).limit(size))).all()
 
+    # 매물별 채팅 건수 — 페이지 항목 id 로 dm_conversations 그룹 집계 1회 (항목별 COUNT N+1 금지)
+    chat_counts: dict[uuid.UUID, int] = {}
+    listing_ids = [row[0].id for row in rows]
+    if listing_ids:
+        chat_rows = (
+            await db.execute(
+                select(DmConversation.context_id, func.count())
+                .where(DmConversation.context_type == "listing", DmConversation.context_id.in_(listing_ids))
+                .group_by(DmConversation.context_id)
+            )
+        ).all()
+        chat_counts = {cid: cnt for cid, cnt in chat_rows}
+
     if has_loc:
-        items = [_card(row[0], int(row[1]) if row[1] is not None else None) for row in rows]
+        items = [
+            _card(row[0], int(row[1]) if row[1] is not None else None, chat_counts.get(row[0].id, 0)) for row in rows
+        ]
     else:
-        items = [_card(row[0]) for row in rows]
+        items = [_card(row[0], chat_count=chat_counts.get(row[0].id, 0)) for row in rows]
 
     # 조회 언어로 제목 표기(캐시 히트만, 없으면 원문). 배치(MGET+IN) — API 호출 안 함.
     if lang:

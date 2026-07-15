@@ -29,8 +29,9 @@ export interface MapMarkerV2 {
   selected?: boolean;
   /** 미확인 소식 표시 — 핀 우상단 빨간 점 (W4). */
   badge?: boolean;
-  /** 마커 종류 — 'biz' 는 teardrop(물방울) 핀으로 렌더. 미지정 시 원형 dot. */
-  kind?: 'biz';
+  /** 마커 종류 — 'biz' 는 항상 teardrop, 'listing'/'feed' 는 선택 시 teardrop 승격. 미지정 시 원형 dot.
+   * 'poi' 는 매물/피드/업체와 별개의 상시 참조 레이어(랜드마크·행정기관) — teal 스퀘어클 + 이름 라벨 상시 노출, 탭 동작 없음. */
+  kind?: 'biz' | 'listing' | 'feed' | 'poi';
 }
 
 /** 좌표가 선택 지역(동) 경계 안인지 — ray casting */

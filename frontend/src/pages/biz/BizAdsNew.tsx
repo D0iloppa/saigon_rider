@@ -5,6 +5,8 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
+import { native } from '@/lib/native';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { createBusinessAd, fetchBusinessProfiles } from '@/api/biz';
 import styles from './BizAdsNew.module.css';
@@ -29,6 +31,10 @@ export default function BizAdsNew() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const kb = useKeyboard();
+  // iOS 네이티브는 키보드가 순수 오버레이라 스크롤해도 키보드에 가려진다 —
+  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
+  const isIosNative = native.platform === 'ios';
 
   // 딥링크 등 state 없이 진입 시 — 첫 APPROVED 프로필로 폴백 (없으면 status 화면으로)
   useEffect(() => {
@@ -97,7 +103,7 @@ export default function BizAdsNew() {
   return (
     <div className={styles.page}>
       <TopBar title={t('biz.adNewTitle', { defaultValue: '광고 등록' })} />
-      <div className={styles.body}>
+      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {/* Image (required) — 등록 화면의 로컬 미리보기는 blob 이라 <img> (BizApply 패턴) */}
         <label className={styles.photoBox}>
           {imagePreview ? (

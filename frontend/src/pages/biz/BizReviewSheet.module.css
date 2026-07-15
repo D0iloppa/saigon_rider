@@ -1,6 +1,6 @@
 /* NeighborhoodProfile 장소 제안 시트 패턴 미러 */
 .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 70; }
-.sheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px)); display: flex; flex-direction: column; gap: 8px; max-height: 80vh; overflow-y: auto; }
+.sheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px)); display: flex; flex-direction: column; gap: 8px; max-height: 80vh; overflow-y: auto; transition: padding-bottom 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
 .title { font-size: 16px; font-weight: 700; color: var(--text); }
 .bizName { font-size: 13px; font-weight: 600; color: var(--text-3); }
 

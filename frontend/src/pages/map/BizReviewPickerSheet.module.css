@@ -1,6 +1,6 @@
 /* NeighborhoodProfile 시트 패턴 미러 — 업체 선택 리스트 전용 */
 .pickerBackdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 70; }
-.pickerSheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 18px calc(12px + var(--bottom-safe, 0px)); display: flex; flex-direction: column; gap: 10px; max-height: 70vh; }
+.pickerSheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px)); display: flex; flex-direction: column; gap: 10px; max-height: 70vh; }
 .pickerTitle { font-size: 16px; font-weight: 700; color: var(--text); }
 .pickerList { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 6px; }
 .pickerRow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); text-align: left; cursor: pointer; }

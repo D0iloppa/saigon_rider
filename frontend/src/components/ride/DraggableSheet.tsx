@@ -34,6 +34,8 @@ interface DraggableSheetProps {
   lockHeight?: boolean;
   midHeight?: number | string;
   onVisibleHeightChange?: (visibleHeight: number) => void;
+  /** 정착 통지 — 스냅 확정 시에만 호출(매 프레임 아님). 소비자가 React 상태 커밋을 제스처당 1회로 줄일 때 사용 */
+  onVisibleHeightSettle?: (visibleHeight: number) => void;
   /** 스냅 상태 변경 통지 — 접힘 전용 UI(지도 게이트 힌트 필 등) 게이팅용 */
   onSnapChange?: (snap: Snap) => void;
 }
@@ -66,6 +68,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     lockHeight = false,
     midHeight,
     onVisibleHeightChange,
+    onVisibleHeightSettle,
     onSnapChange,
   },
   ref,
@@ -81,6 +84,16 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     lastT: 0,
     velocity: 0,
   });
+  // 정착(transitionend) 리스너 추적 — 발화하지 못한 채 잔존한 리스너가 과거 targetOffset 을
+  // 캡처하고 있다가 나중 애니메이션 끝에 transform 을 되돌리는 누수 방지 (collapse 후 재상승 버그).
+  const settleHandlerRef = useRef<((e: TransitionEvent) => void) | null>(null);
+
+  const clearSettleHandler = useCallback(() => {
+    if (settleHandlerRef.current && sheetRef.current) {
+      sheetRef.current.removeEventListener('transitionend', settleHandlerRef.current);
+    }
+    settleHandlerRef.current = null;
+  }, []);
 
   const [peek, setPeek] = useState(0);
   const [snap, setSnap] = useState<Snap>(initialSnap ?? (initialCollapsed ? 'collapsed' : 'full'));
@@ -124,26 +137,48 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     onVisibleHeightChange?.(Math.max(0, sheetHeight - offset));
   }, [onVisibleHeightChange, sheetHeight]);
 
+  const emitVisibleHeightSettle = useCallback((offset: number) => {
+    onVisibleHeightSettle?.(Math.max(0, sheetHeight - offset));
+  }, [onVisibleHeightSettle, sheetHeight]);
+
   const animateTo = useCallback((targetOffset: number, distance: number) => {
-    if (!sheetRef.current) return;
+    const el = sheetRef.current;
+    if (!el) return;
+    clearSettleHandler();
+    // 무이동 정착(현재 transform ≈ target)이면 transition 이 시작되지 않아 transitionend 가
+    // 영영 안 오므로, 리스너 없이 최종 상태만 직접 세팅한다 (최다 빈도 누수 경로).
+    const match = /translateY\((-?[\d.]+)px\)/.exec(el.style.transform);
+    const currentOffset = match ? Number.parseFloat(match[1]) : null;
+    if (currentOffset != null && Math.abs(currentOffset - targetOffset) < 0.5) {
+      el.style.transition = '';
+      el.style.transform = `translateY(${targetOffset}px)`;
+      return;
+    }
     const duration = Math.min(320, Math.max(180, 170 + distance * 0.12));
-    sheetRef.current.style.transition = `transform ${duration}ms ${DRAG_EASING}`;
-    void sheetRef.current.offsetHeight;
-    sheetRef.current.style.transform = `translateY(${targetOffset}px)`;
-    sheetRef.current.addEventListener('transitionend', () => {
-      if (!sheetRef.current) return;
-      sheetRef.current.style.transition = '';
-      sheetRef.current.style.transform = `translateY(${targetOffset}px)`;
-    }, { once: true });
-  }, []);
+    el.style.transition = `transform ${duration}ms ${DRAG_EASING}`;
+    void el.offsetHeight;
+    el.style.transform = `translateY(${targetOffset}px)`;
+    const onSettle = (e: TransitionEvent) => {
+      // 자식 요소 transition 버블링 오발화 차단 — 시트 자신의 transform 완료만 정착 처리.
+      if (e.target !== el || e.propertyName !== 'transform') return;
+      el.removeEventListener('transitionend', onSettle);
+      if (settleHandlerRef.current === onSettle) settleHandlerRef.current = null;
+      el.style.transition = '';
+      el.style.transform = `translateY(${targetOffset}px)`;
+    };
+    settleHandlerRef.current = onSettle;
+    el.addEventListener('transitionend', onSettle);
+  }, [clearSettleHandler]);
 
   useLayoutEffect(() => {
     if (drag.current.active || !sheetRef.current) return;
+    clearSettleHandler(); // 목표 교체 — 이전 정착 리스너가 낡은 offset 을 되돌리지 못하게
     const offset = offsetOf(snap);
     sheetRef.current.style.transition = '';
     sheetRef.current.style.transform = `translateY(${offset}px)`;
     emitVisibleHeight(offset);
-  }, [emitVisibleHeight, offsetOf, snap, sheetHeight]);
+    emitVisibleHeightSettle(offset);
+  }, [clearSettleHandler, emitVisibleHeight, emitVisibleHeightSettle, offsetOf, snap, sheetHeight]);
 
   useImperativeHandle(ref, () => ({
     collapse: () => setSnap('collapsed'),
@@ -167,6 +202,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
       lastT: now,
       velocity: 0,
     };
+    clearSettleHandler(); // 진행 중 transition 취소 — pending 정착 리스너도 함께 폐기
     sheetRef.current.style.transition = 'none';
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -207,6 +243,7 @@ const DraggableSheet = forwardRef<DraggableSheetHandle, DraggableSheetProps>(fun
     animateTo(target.offset, Math.abs(target.offset - off));
     setSnap(target.snap);
     emitVisibleHeight(target.offset);
+    emitVisibleHeightSettle(target.offset);
     try { (e.currentTarget as Element).releasePointerCapture(e.pointerId); } catch { /* noop */ }
   };
 

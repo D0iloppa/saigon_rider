@@ -85,6 +85,10 @@ Capacitor 내장 웹 구현 활용:
 2. `native.ts`의 해당 stub 메서드를 실제 구현으로 교체
 3. 사용처에서 `native.methodName()` 호출
 
+### 1.6 키보드 연계 (`useKeyboard`)
+
+공식 `@capacitor/keyboard` 대신 자체 `KeyboardBridge` 플러그인을 사용한다. 화면에서 입력 필드/바텀시트에 키보드 여백을 적용해야 할 때는 전역 자동 보정이 없으므로 화면별로 직접 구현해야 한다 — 정답 패턴·안티패턴은 [네이티브 키보드 연계 UX 규약](keyboard-ux.md) 참조.
+
 ---
 
 ## 2. 플랫폼 분기 CSS 아키텍처 (iOS vs Android)

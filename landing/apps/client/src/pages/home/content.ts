@@ -32,6 +32,7 @@ interface HomeCopy {
   safetyHead: { kicker: string; heading: string };
   safety: CardCopy[];
   statsHead: { kicker: string; heading: string };
+  // stats: 프리런치 동안 정직한 fact 유지. 오픈 후 가입자/매물/업체 수 등 실측 지표로 교체할 슬롯 — 교체 시 기준일 병기 권장.
   stats: StatCopy[];
   ctaBand: { heading: string; cta: string };
   bizBanner: { copy: string; cta: string };
@@ -82,7 +83,7 @@ export const content: Record<Locale, HomeCopy> = {
       {
         eyebrow: "Phần thưởng khi đi xe",
         title: "Đi bao nhiêu, tích bấy nhiêu — đổi thành phần thưởng thiết thực",
-        body: "Mỗi chuyến đi hàng ngày sẽ trở thành điểm (RP). Đổi RP đã tích thành các gifticon thiết thực như một ly cà phê hay thẻ nạp data. Đường vẫn phải đi, cùng Saigon Rider thì đó cũng là phần thưởng.",
+        body: "Mỗi chuyến đi hàng ngày sẽ trở thành điểm (RP), sắp tới có thể đổi thành các gifticon thiết thực như một ly cà phê hay thẻ nạp data. Đường vẫn phải đi, cùng Saigon Rider thì đó cũng là phần thưởng.",
         bullets: [],
         cta: "Xem chi tiết Phần thưởng",
       },
@@ -109,6 +110,7 @@ export const content: Record<Locale, HomeCopy> = {
     ],
     statsHead: { kicker: "Saigon Rider", heading: "bắt đầu từ Thành phố Hồ Chí Minh" },
     stats: [
+      { value: "100% quảng cáo", label: "được kiểm duyệt trước khi hiển thị" },
       { value: "Toàn TP.HCM", label: "Khu vực phục vụ" },
       { value: "15 loại", label: "Danh mục quán khu phố" },
       { value: "3 ngôn ngữ", label: "Tiếng Việt · 한국어 · English" },
@@ -164,7 +166,7 @@ export const content: Record<Locale, HomeCopy> = {
       {
         eyebrow: "라이딩 리워드",
         title: "달린 만큼 쌓이고, 생활로 돌아오는 리워드",
-        body: "매일의 라이딩이 포인트(RP)가 됩니다. 쌓인 RP는 커피 한 잔, 데이터 충전권 같은 실속 있는 기프티콘으로 교환하세요. 어차피 달리는 길, 사이공라이더와 함께라면 보상이 됩니다.",
+        body: "매일의 라이딩이 포인트(RP)가 됩니다. 쌓인 RP는 커피 한 잔, 데이터 충전권 같은 실속 있는 기프티콘으로 곧 교환할 수 있게 됩니다. 어차피 달리는 길, 사이공라이더와 함께라면 보상이 됩니다.",
         bullets: [],
         cta: "리워드 자세히 보기",
       },
@@ -191,6 +193,7 @@ export const content: Record<Locale, HomeCopy> = {
     ],
     statsHead: { kicker: "사이공라이더는", heading: "호치민에서 시작합니다" },
     stats: [
+      { value: "광고 심사율 100%", label: "모든 비즈니스 광고, 게재 전 검수" },
       { value: "호치민시 전역", label: "서비스 지역" },
       { value: "15종", label: "동네 가게 카테고리" },
       { value: "3개 언어", label: "Tiếng Việt · 한국어 · English" },
@@ -246,7 +249,7 @@ export const content: Record<Locale, HomeCopy> = {
       {
         eyebrow: "Riding Rewards",
         title: "The more you ride, the more it pays you back",
-        body: "Every day's ride turns into points (RP). Trade your RP for practical gifticons like a coffee or a data top-up. You're riding anyway — with Saigon Rider, it pays off.",
+        body: "Every day's ride turns into points (RP), which you'll soon be able to trade for practical gifticons like a coffee or a data top-up. You're riding anyway — with Saigon Rider, it pays off.",
         bullets: [],
         cta: "See Rewards",
       },
@@ -273,6 +276,7 @@ export const content: Record<Locale, HomeCopy> = {
     ],
     statsHead: { kicker: "Saigon Rider", heading: "starts in Ho Chi Minh City" },
     stats: [
+      { value: "100% of ads", label: "reviewed before they go live" },
       { value: "Citywide", label: "Service Area" },
       { value: "15 categories", label: "Local shop categories" },
       { value: "3 languages", label: "Tiếng Việt · 한국어 · English" },

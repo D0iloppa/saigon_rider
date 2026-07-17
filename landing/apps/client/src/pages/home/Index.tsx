@@ -24,6 +24,9 @@ const BUSINESS_HREF = "https://business.saigon-rider.com";
 const PRIVACY_HREF = "https://app.saigon-rider.com/app_privacy/";
 const SUPPORT_MAIL = "mailto:partner@saigon-rider.com";
 
+// 스토어 정식 등록 전 비노출 — 등록 완료 후 true로 전환
+const SHOW_STORE_BADGES = false;
+
 const serviceMedia = [
   { id: "market", images: [{ src: "/screens/market-list.png" }, { src: "/screens/market-detail.png" }] },
   { id: "map", images: [{ src: "/screens/map-business.png" }, { src: "/screens/map-business-carousel.png" }] },
@@ -239,6 +242,12 @@ function SaigonRiderHome() {
               <Sparkles size={22} />
               <h2><BreakText text={t.ctaBand.heading} /></h2>
               <a className="sr-button sr-button--final" href={SPLASH_HREF}>{t.ctaBand.cta} <ArrowRight size={18} /></a>
+              {SHOW_STORE_BADGES && (
+                <div className="sr-store-badges">
+                  <img src="/images/badge-appstore.png" alt="Download on the App Store" />
+                  <img src="/images/badge-googleplay.png" alt="Get it on Google Play" />
+                </div>
+              )}
             </div>
             <div className="sr-shot sr-shot--cta">
               <img src="/screens/home.png" alt="Saigon Rider home screen" />

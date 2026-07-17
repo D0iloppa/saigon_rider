@@ -9,6 +9,9 @@ const CONTACT_MAIL = "mailto:partner@saigon-rider.com";
 const APP_HREF = "https://saigon-rider.com";
 const PRIVACY_HREF = "https://app.saigon-rider.com/app_privacy/";
 
+// 실후기 확보 전 placeholder — 시범운영 후기 확보 시 true로 전환
+const SHOW_TESTIMONIALS = false;
+
 const benefitIcons = [MapPin, BadgeCheck, Layers, Megaphone];
 
 function SaigonMark() {
@@ -143,6 +146,40 @@ function SaigonRiderBusiness() {
               <p>{t.showcase.body}</p>
               <a className="sr-button" href={CONTACT_MAIL}>{t.showcase.cta} <ArrowRight size={17} /></a>
             </div>
+          </div>
+        </section>
+
+        {/* @section: testimonials */}
+        {SHOW_TESTIMONIALS && (
+          <section className="sb-testimonials sr-shell">
+            <div className="sr-section-head">
+              <span className="sr-kicker">{t.testimonialsHead.kicker}</span>
+              <h2>{t.testimonialsHead.heading}</h2>
+            </div>
+            <div className="sb-testimonials__grid">
+              {t.testimonials.map((item) => (
+                <article className="sb-testimonial-card" key={item.label}>
+                  <p>“{item.quote}”</p>
+                  <span>{item.label}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* @section: faq */}
+        <section className="sb-faq sr-shell">
+          <div className="sr-section-head">
+            <span className="sr-kicker">{t.faqHead.kicker}</span>
+            <h2>{t.faqHead.heading}</h2>
+          </div>
+          <div className="sb-faq__list">
+            {t.faq.map((item) => (
+              <details className="sb-faq-item" key={item.q}>
+                <summary>{item.q}</summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
           </div>
         </section>
 

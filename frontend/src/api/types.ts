@@ -12,6 +12,7 @@ export type Language = 'ko' | 'vi' | 'en';
 export interface User {
   id: string;
   phone: string | null;
+  phoneVerified: boolean;
   nickname: string;
   riderStyle: RiderStyle;
   avatarUrl?: string;
@@ -195,6 +196,8 @@ export interface UserProfile {
   followerCount: number;
   followingCount: number;
   isFollowing: boolean;
+  isPhoneVerified: boolean;
+  phoneMasked: string | null;
 }
 
 export interface DmConversation {

@@ -70,7 +70,7 @@ async function realFetch<T>(
   endpoint: string,
   options: RequestInit = {},
   service: Service = 'bff',
-  _opts: { silent?: boolean; rethrow?: boolean; retries?: number } = {},
+  _opts: { silent?: boolean; rethrow?: boolean; retries?: number; keepSessionOn401?: boolean } = {},
 ): Promise<T> {
   const method = (options.method || 'GET').toUpperCase();
   const url = `${baseUrl(service)}${endpoint}`;
@@ -91,7 +91,8 @@ async function realFetch<T>(
       if (res.status === 204) return null as T;
       return res.json();
     }
-    if (res.status === 419 || res.status === 401) handleSessionError();
+    // OTP 검증(401=코드 오류) 등 세션 만료가 아닌 401 응답 호출부는 keepSessionOn401 로 강제 로그아웃을 건너뜀
+    if (res.status === 419 || (res.status === 401 && !_opts.keepSessionOn401)) handleSessionError();
     // 재시도 가능한 오류면 toast 없이 다음 시도 (마지막 시도 제외)
     if (RETRYABLE_STATUS.has(res.status) && attempt < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 300 * attempt));

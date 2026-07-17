@@ -16,11 +16,13 @@ import { setSessionExpiredHandler, SessionExpiredError } from '@/api/client';
 import { native } from '@/lib/native';
 import { fetchAppConfig } from '@/api/appVersion';
 import PrivateRoute from '@/components/auth/PrivateRoute';
+import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
 import OAuthLogin from '@/pages/auth/OAuthLogin';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
+import PhoneVerify from '@/pages/auth/PhoneVerify';
 
 // Home
 import WorldMap from '@/pages/home/WorldMap'; // 백업 (미사용)
@@ -318,6 +320,7 @@ export default function App() {
           <Route path="/splash" element={<Splash />} />
           <Route path="/auth/oauth" element={<OAuthLogin />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
+          <Route path="/auth/phone-verify" element={<PhoneVerify />} />
 
           {/* Deep link entry (auth-aware inside) */}
           <Route path="/link" element={<LinkRouter />} />
@@ -331,7 +334,7 @@ export default function App() {
           <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
           <Route path="/market/search" element={<PrivateRoute><MarketSearch /></PrivateRoute>} />
           <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
-          <Route path="/market/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
+          <Route path="/market/new" element={<VerifiedSellerRoute><MarketCreate /></VerifiedSellerRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
           <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
           <Route path="/biz/intro" element={<PrivateRoute><BizIntro /></PrivateRoute>} />

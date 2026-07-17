@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import math
 import os
+import re
 from base64 import urlsafe_b64encode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -96,6 +97,23 @@ def resolve_avatar_url(user) -> str:
         return legacy
     user_id = getattr(user, "id", None)
     return default_avatar_url(seed=str(user_id) if user_id else None)
+
+
+# E.164 베트남 번호(+84 + 국내 9자리)만 지원 — 형식 불일치는 마스킹 실패로 간주(fail closed)
+_PHONE_MASK_RE = re.compile(r"^\+84(\d{9})$", re.ASCII)
+
+
+def mask_phone(phone: str | None) -> str | None:
+    """전화번호 마스킹 — 판매자/유저 공개 API 노출용. 앞 2자리만 남기고 나머지 7자리는 '*'.
+    예: +84901234567 -> '+84 90*******'. None/공백/형식 불일치는 None(원문 노출 방지).
+    """
+    if not phone:
+        return None
+    match = _PHONE_MASK_RE.match(phone)
+    if not match:
+        return None
+    national = match.group(1)
+    return f"+84 {national[:2]}{'*' * 7}"
 
 
 def resolve_feed_image_url(post) -> str | None:

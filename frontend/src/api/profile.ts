@@ -78,6 +78,8 @@ export async function fetchUserProfile(userId: string, requesterId?: string): Pr
       followerCount: 12,
       followingCount: 8,
       isFollowing: false,
+      isPhoneVerified: false,
+      phoneMasked: null,
     };
   }
 
@@ -90,6 +92,8 @@ export async function fetchUserProfile(userId: string, requesterId?: string): Pr
     follower_count: number;
     following_count: number;
     is_following: boolean;
+    is_phone_verified: boolean;
+    phone_masked: string | null;
   }>(url);
 
   return {
@@ -101,6 +105,8 @@ export async function fetchUserProfile(userId: string, requesterId?: string): Pr
     followerCount: res.follower_count,
     followingCount: res.following_count,
     isFollowing: res.is_following,
+    isPhoneVerified: res.is_phone_verified ?? false,
+    phoneMasked: res.phone_masked ?? null,
   };
 }
 

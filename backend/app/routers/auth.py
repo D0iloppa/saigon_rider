@@ -1,25 +1,34 @@
 import logging
 import os
+import re
 import secrets
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import sms_client
 from ..database import get_db
+from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import AppConfig, User, UserOAuthIdentity
+from ..models import AppConfig, User, UserOAuthIdentity, UserOtp
 from ..schemas import (
     LoginRequest,
     LoginResponse,
     OAuthLoginRequest,
     OAuthLoginResponse,
+    OtpRequestIn,
+    OtpRequestOut,
+    OtpVerifyIn,
+    OtpVerifyOut,
     RegisterRequest,
     RegisterResponse,
     SessionVerifyRequest,
@@ -272,6 +281,149 @@ async def verify_session(body: SessionVerifyRequest, db: AsyncSession = Depends(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid")
 
     return LoginResponse(user=UserOut.model_validate(user))
+
+
+# ── 휴대폰 OTP 인증 (판매자 온보딩) ──────────────────────────────
+# OAuth 로그인 위에 얹는 레이어 — 인증 완료 시 users.phone 바인딩 + phone_verified_at 기록.
+# OTP 평문은 발송(sms_client) 외 어디에도 저장·응답·로그하지 않는다 (DB 는 pbkdf2 해시만).
+
+_OTP_TTL_SEC = 300  # 코드 유효 5분
+_OTP_RESEND_COOLDOWN_SEC = 60  # 재전송 최소 간격
+_OTP_MAX_SENDS_PER_HOUR = 5  # 유저·폰 단위 시간당 발송 상한
+_OTP_MAX_ATTEMPTS = 5  # 코드당 오입력 허용 횟수
+
+# VN 모바일: (+84 | 84 | 0) + 3/5/7/8/9 로 시작하는 9자리
+_VN_MOBILE_RE = re.compile(r"^(?:\+?84|0)([35789]\d{8})$", re.ASCII)
+
+
+def _normalize_vn_phone(raw: str) -> str | None:
+    """공백·구분자 제거 후 VN 모바일 검증, E.164(+84…) 정규형 반환. 비VN이면 None."""
+    compact = re.sub(r"[ \-.()]", "", raw.strip())
+    m = _VN_MOBILE_RE.match(compact)
+    return f"+84{m.group(1)}" if m else None
+
+
+@router.post("/otp/request", response_model=OtpRequestOut, summary="휴대폰 OTP 발송")
+async def request_otp(
+    body: OtpRequestIn,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """세션 유저의 휴대폰 인증 코드 발송. 응답에 코드는 절대 포함되지 않는다."""
+    phone = _normalize_vn_phone(body.phone)
+    if phone is None:
+        raise HTTPException(status_code=400, detail="Invalid Vietnamese mobile number")
+
+    now = datetime.now(UTC)
+
+    # 재전송 쿨다운 — 유저 또는 폰 기준 최근 발송 60s 이내 거부
+    cooldown_from = now - timedelta(seconds=_OTP_RESEND_COOLDOWN_SEC)
+    recent = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserOtp)
+            .where(
+                or_(UserOtp.user_id == session_uid, UserOtp.phone == phone),
+                UserOtp.last_sent_at > cooldown_from,
+            )
+        )
+    ).scalar_one()
+    if recent:
+        raise HTTPException(status_code=429, detail="Please wait before requesting another code")
+
+    # 시간당 발송 상한 — 유저 또는 폰 기준
+    hour_from = now - timedelta(hours=1)
+    hourly = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserOtp)
+            .where(
+                or_(UserOtp.user_id == session_uid, UserOtp.phone == phone),
+                UserOtp.created_at > hour_from,
+            )
+        )
+    ).scalar_one()
+    if hourly >= _OTP_MAX_SENDS_PER_HOUR:
+        raise HTTPException(status_code=429, detail="Too many OTP requests — try again later")
+
+    code = f"{secrets.randbelow(10**6):06d}"
+    db.add(
+        UserOtp(
+            user_id=session_uid,
+            phone=phone,
+            otp_hash=_hash(code),
+            attempt_count=0,
+            expires_at=now + timedelta(seconds=_OTP_TTL_SEC),
+            last_sent_at=now,
+        )
+    )
+    # 발송 실패와 무관하게 rate-limit 행은 남긴다 (SMS 펌핑 방지) — 커밋 먼저
+    await db.commit()
+
+    try:
+        await sms_client.send_otp(phone, code)
+    except Exception as e:
+        log.exception("OTP SMS send failed")
+        raise HTTPException(status_code=502, detail="SMS send failed") from e
+
+    return OtpRequestOut(
+        phone=phone,
+        expires_in_sec=_OTP_TTL_SEC,
+        resend_cooldown_sec=_OTP_RESEND_COOLDOWN_SEC,
+    )
+
+
+@router.post("/otp/verify", response_model=OtpVerifyOut, summary="휴대폰 OTP 검증 + 번호 바인딩")
+async def verify_otp(
+    body: OtpVerifyIn,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """코드 검증 성공 시 users.phone + phone_verified_at 설정. 폰 1개 = 계정 1개 (UNIQUE 강제)."""
+    phone = _normalize_vn_phone(body.phone)
+    if phone is None:
+        raise HTTPException(status_code=400, detail="Invalid Vietnamese mobile number")
+
+    now = datetime.now(UTC)
+    otp = (
+        await db.execute(
+            select(UserOtp)
+            .where(UserOtp.user_id == session_uid, UserOtp.phone == phone, UserOtp.verified_at.is_(None))
+            .order_by(UserOtp.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if otp is None or otp.otp_hash is None:
+        raise HTTPException(status_code=400, detail="No OTP requested for this phone")
+    if otp.expires_at < now:
+        raise HTTPException(status_code=400, detail="OTP expired — request a new code")
+    if otp.attempt_count >= _OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Too many attempts — request a new code")
+
+    if not _verify(body.code, otp.otp_hash):
+        otp.attempt_count += 1
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Invalid code")
+
+    # 폰 1개 = 계정 1개 — 다른 활성 유저에게 이미 바인딩된 번호 거부
+    other = (
+        await db.execute(select(User.id).where(User.phone == phone, User.id != session_uid, User.deleted_at.is_(None)))
+    ).scalar_one_or_none()
+    if other is not None:
+        raise HTTPException(status_code=409, detail="Phone number already linked to another account")
+
+    user = await db.get(User, session_uid)
+    user.phone = phone
+    user.phone_verified_at = now
+    otp.verified_at = now
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        # UNIQUE(users.phone) 레이스 / 탈퇴(soft-delete) 계정이 번호 점유 중인 경우
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Phone number already linked to another account") from e
+
+    return OtpVerifyOut(phone=phone, phone_verified=True)
 
 
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"

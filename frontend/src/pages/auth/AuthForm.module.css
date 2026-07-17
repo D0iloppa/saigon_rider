@@ -1,5 +1,5 @@
 .body {
-  padding: 24px 24px calc(24px + var(--bottom-safe));
+  padding: 8px 24px calc(24px + var(--bottom-safe));
   display: flex;
   flex-direction: column;
   min-height: calc(100% - 56px);

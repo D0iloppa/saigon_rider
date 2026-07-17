@@ -55,6 +55,7 @@ export interface SellerBrief {
   soldCount: number;
   responseRate: number | null;
   isPhoneVerified: boolean;
+  phoneMasked: string | null;
   isFollowing: boolean;
 }
 
@@ -416,7 +417,7 @@ export async function createListing(p: CreateListingParams): Promise<{ id: strin
       longitude: p.longitude ?? null,
       image_content_ids: p.imageContentIds,
     }),
-  });
+  }, 'bff', { rethrow: true });
 }
 
 // HCMC 대략 bounding box — 벗어나면 위치 폴백
@@ -476,6 +477,7 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
       soldCount: r.seller.sold_count ?? 0,
       responseRate: r.seller.response_rate ?? null,
       isPhoneVerified: r.seller.is_phone_verified ?? false,
+      phoneMasked: r.seller.phone_masked ?? null,
       isFollowing: r.seller.is_following ?? false,
     },
     district: r.district ?? null,

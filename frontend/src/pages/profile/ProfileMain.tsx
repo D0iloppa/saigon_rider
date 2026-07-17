@@ -413,6 +413,33 @@ export default function ProfileMain() {
           ref={sheetBodyRef}
           style={{ overflowY: scrollable ? 'auto' : 'hidden' }}
         >
+        {/* SGR-330: 휴대폰 인증 신뢰 카드 — 판매자 신뢰도 트리거 */}
+        <button
+          type="button"
+          onClick={() => { if (!u.phoneVerified) navigate('/auth/phone-verify'); }}
+          disabled={u.phoneVerified}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+            margin: '0 0 12px', padding: '14px 16px', borderRadius: 16,
+            border: u.phoneVerified ? '1px solid var(--line)' : '1.5px solid var(--brand-500)',
+            background: u.phoneVerified ? 'white' : 'var(--brand-50)',
+            cursor: u.phoneVerified ? 'default' : 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>{u.phoneVerified ? '✅' : '📱'}</span>
+          <span style={{ flex: 1, textAlign: 'left' }}>
+            <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+              {u.phoneVerified ? t('profile.phoneVerifyDone') : t('profile.phoneVerifyNeeded')}
+            </span>
+            {!u.phoneVerified && (
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                {t('profile.phoneVerifyNeededSub')}
+              </span>
+            )}
+          </span>
+          {!u.phoneVerified && <span style={{ color: 'var(--brand-500)', fontSize: 18 }}>›</span>}
+        </button>
+
         <div className={styles.currencyBento}>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gc)' }}>
             <img src={emojiUrl('1f48e')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />

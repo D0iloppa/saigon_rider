@@ -49,6 +49,7 @@ contents/user-contents/*
 # AI Agent Context (Local Only)
 #GUIDELINE.md
 #docs/
+TASK_CONTEXT.md
 # SSH keys / secrets
 # Temp workspace (작업용 임시 파일 — 절대 추적하지 않음)
 _tmp/

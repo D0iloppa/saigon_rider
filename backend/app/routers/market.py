@@ -58,7 +58,7 @@ from ..schemas import (
 )
 from ..services import noti_events
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
-from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, resolve_avatar_url
+from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, mask_phone, resolve_avatar_url
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 log = logging.getLogger(__name__)
@@ -419,6 +419,8 @@ async def get_listing(
         avg_rating=avg_rating,
         sold_count=sold_count,
         is_following=is_following,
+        is_phone_verified=seller.phone_verified_at is not None,
+        phone_masked=mask_phone(seller.phone) if seller.phone_verified_at is not None else None,
     )
 
     others = (
@@ -475,6 +477,10 @@ async def create_listing(
     # 세션 유저 명의로만 등록 가능 — body.seller_id 는 세션과 일치해야 함 (impersonation 차단)
     if body.seller_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    # 판매자 휴대폰 인증 게이트 — OTP 인증(phone_verified_at) 완료 전 매물 등록 불가
+    seller = await db.get(User, _session_uid)
+    if seller is None or seller.phone_verified_at is None:
+        raise HTTPException(status_code=403, detail="Phone verification required to list items")
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
 

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { Button } from '@/components/ui/Button';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -491,6 +492,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
                   <div className={styles.nickRow}>
                     <span className={styles.nickname}>{profile.nickname ?? 'Unknown'}</span>
                     <LevelBadge level={profile.level} />
+                    <VerifiedBadge verified={profile.isPhoneVerified} phoneMasked={profile.phoneMasked} />
                   </div>
                   {riderStyleLabel && (
                     <Chip variant="surface">🌙 {riderStyleLabel}</Chip>

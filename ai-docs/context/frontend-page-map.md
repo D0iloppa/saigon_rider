@@ -48,6 +48,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 - **페이지**: `pages/market/MarketMain.tsx`
 - **하위 라우트**: `/market/search`(`MarketSearch.tsx`), `/market/ad/:id`(`AdDetail.tsx`), `/market/new`(`MarketCreate.tsx`), `/market/wishlist`(`MarketWishlist.tsx`), `/market/:id`(`MarketDetail.tsx`)
+- **매물 등록 가드 변경 — 판매자 인증 (2026-07-16)**: `/market/new`는 기존 `PrivateRoute` 대신 신규 `VerifiedSellerRoute`(`components/auth/VerifiedSellerRoute.tsx`)로 래핑됨 — 로그인 상태여도 폰 미인증(`users.phone_verified_at IS NULL`) 유저는 `/auth/phone-verify`로 리다이렉트된다.
+- **인증 배지 — 신뢰 신호 UI (2026-07-17)**: 매물 상세 판매자 정보 블록(`MarketDetail.tsx`)과 공개 프로필 카드(`components/ProfileCard.tsx` — 피드/팔로워·팔로잉 리스트/동네지도에서도 공용)에 `VerifiedBadge`(`components/ui/VerifiedBadge.tsx`) 노출. 백엔드 `SellerBrief`/`UserProfileOut`(`GET /users/{id}/profile`)의 `is_phone_verified`+`phone_masked`로 구동(마스킹은 `mask_phone()`, `backend/app/utils.py`). 배지 탭 시 마스킹 번호를 클라이언트에서 토글 표시(payload에 이미 포함, 추가 API 없음).
 - **핵심 컴포넌트**: `SaigonMapV2`, `ListingCard`(`pages/market/ListingCard.tsx`), `AdCard`(`pages/market/AdCard.tsx`), `StatusBar`, `BottomSheet`, `Chip`, `ScrollSentinel`
 - **연결 API**: `api/market.ts` (`fetchListings`, `fetchAds` 등)
 
@@ -97,6 +99,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 - **페이지**: `pages/profile/ProfileMain.tsx` — 3레이어 + 드래거블 시트 구조 (상세: [`frontend.md`](frontend.md) §4)
 - **핵심 컴포넌트**: `StatusBar`, `SkillTree`, `ReviewSheet`, `TradeRow`, `LevelBadge`, `ImageCarousel`, `ItemSvgRenderer`
+- **휴대폰 인증 CTA 카드 (2026-07-17)**: sheetBody 최상단 카드, `user.phoneVerified` 기준 분기 — 미인증 → "휴대폰 인증 필요" 표시 + 탭 시 `/auth/phone-verify` 이동, 인증완료 → "휴대폰 인증 완료" 표시(비탭).
 - **하위 진입점** (모두 ProfileMain에서 navigate):
   - 설정 아이콘 → `/settings` (하위: `notifications`/`language`/`account`/`blocked`/`profile`/`support`/`support/:id`/`privacy`/`terms`)
   - 팔로워/팔로잉 카운트 → `/followers/:userId`, `/following/:userId`
@@ -151,6 +154,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 퀘스트 | `/quests`, `/quests/:id` | 딥링크(`LinkRouter.tsx`)와 라이딩 결과 화면(`RideResultSuccess.tsx`/`RideResultFail.tsx`)의 "다른 퀘스트"/실패 버튼뿐 | **홈/탭바/게임허브 어디에서도 직접 진입 버튼이 없음** — 퀘스트 기능 자체는 살아있으나(`QuestList.tsx`, `api/quests.ts`, `QuestChecker.tsx`) 상시 노출되는 메뉴 진입점이 빠져 있음. "퀘스트 관련 기능 부재?" 질문 시 이 갭을 우선 언급할 것 |
 | 라이딩 안내 | `/ride-nav` | 퀘스트 상세 등에서 진입(추정, 필요시 `trace_path`로 확인) | `RideNav.tsx` |
 | 안전거래 가이드 | `/guide/safe-trade` | 홈 배너(`WorldMapV2.tsx`) | `SafeTradeGuide.tsx` |
+| 판매자 인증(폰 인증) | `/auth/phone-verify` | 탭바/게임허브 직접 진입 버튼 없음 — `/market/new` 진입 시 `VerifiedSellerRoute` 가드가 미인증 유저를 리다이렉트 | `PhoneVerify.tsx` (2026-07-16) — VN 번호 입력 → SMS OTP 검증 2단계. 헤더 타이틀 "판매자 인증"(`phoneVerify.headerTitle`) + 상단 패딩 축소 (2026-07-17) |
 
 ---
 

@@ -19,6 +19,7 @@ interface UserState {
   setProfile: (nickname: string, riderStyle: RiderStyle) => void;
   updateNickname: (nickname: string) => void;
   updateAvatar: (avatarUrl: string) => void;
+  markPhoneVerified: (phone: string) => void;
   logout: () => void;
   addExp: (levelExp: number, xpPoints: number) => void;
   addGold: (gold: number) => void;
@@ -38,6 +39,7 @@ function dtoToUser(dto: UserDto): User {
   return {
     id: dto.id,
     phone: dto.phone,
+    phoneVerified: dto.phone_verified ?? false,
     nickname: dto.nickname ?? '',
     riderStyle: extractRiderStyle(dto.rider_type),
     avatarUrl: dto.avatar_url ?? undefined,
@@ -112,6 +114,13 @@ export const useUserStore = create<UserState>()(
         const u = get().user;
         if (!u) return;
         set({ user: { ...u, avatarUrl } });
+      },
+
+      // OTP 검증 성공 응답(phone, phone_verified)을 그대로 store 에 반영 — 재조회 없이 즉시 갱신
+      markPhoneVerified: (phone) => {
+        const u = get().user;
+        if (!u) return;
+        set({ user: { ...u, phone, phoneVerified: true } });
       },
 
       logout: () => {

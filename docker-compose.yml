@@ -102,6 +102,9 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
       - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}
+      - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      # dev/prod 분기 (SMS 스텁·dev-login 노출 제어). prod 는 docker-compose.prod.yml 이 production 으로 고정.
+      - APP_ENV=${APP_ENV:-development}
       - OSM_OVERPASS_ENDPOINT=${OSM_OVERPASS_ENDPOINT:-https://overpass-api.de/api/interpreter}
       - WEATHER_CACHE_TTL_CURRENT=${WEATHER_CACHE_TTL_CURRENT:-600}
       - WEATHER_CACHE_TTL_FORECAST_1H=${WEATHER_CACHE_TTL_FORECAST_1H:-1800}

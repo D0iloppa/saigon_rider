@@ -6,7 +6,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { toast } from '@/components/ui/Toast';
-import { api } from '@/api/client';
+import { api, extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
@@ -136,7 +136,12 @@ export default function MarketCreate() {
       });
       navigate(`/market/${id}`, { replace: true });
     } catch (err: any) {
-      toast.error(err.message ?? t('market.createError', { defaultValue: '등록 실패' }));
+      // 안전망: 라우트 가드를 우회해 도달한 경우(캐시된 store 등) 백엔드가 403으로 막으면 인증 화면으로 보낸다
+      if (/^HTTP 403 \|/.test(err?.message ?? '')) {
+        navigate('/auth/phone-verify', { state: { from: { pathname: '/market/new' } } });
+        return;
+      }
+      toast.error(extractDetail(err, t('market.createError', { defaultValue: '등록 실패' })));
     } finally {
       setPosting(false);
     }

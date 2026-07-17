@@ -3,6 +3,7 @@ import { api } from './client';
 export interface UserDto {
   id: string;
   phone: string | null;
+  phone_verified?: boolean;
   nickname: string | null;
   rider_type: string | { code: string } | null;
   level: number;
@@ -78,6 +79,31 @@ export async function apiInvestSkill(userId: string, key: string): Promise<UserD
     `/users/me/skills/${key}/invest?user_id=${encodeURIComponent(userId)}`,
     { method: 'POST' },
   );
+}
+
+export interface OtpRequestResult {
+  phone: string;
+  expires_in_sec: number;
+  resend_cooldown_sec: number;
+}
+
+export async function apiRequestOtp(phone: string): Promise<OtpRequestResult> {
+  return api.realFetch<OtpRequestResult>('/auth/otp/request', {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  }, 'bff', { rethrow: true });
+}
+
+export interface OtpVerifyResult {
+  phone: string;
+  phone_verified: boolean;
+}
+
+export async function apiVerifyOtp(phone: string, code: string): Promise<OtpVerifyResult> {
+  return api.realFetch<OtpVerifyResult>('/auth/otp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ phone, code }),
+  }, 'bff', { rethrow: true, keepSessionOn401: true });
 }
 
 export async function apiDeleteAccount(userId: string): Promise<void> {

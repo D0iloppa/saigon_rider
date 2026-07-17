@@ -142,6 +142,8 @@ class SellerBrief(BaseModel):
     avg_rating: float | None = None
     sold_count: int = 0
     is_following: bool = False
+    is_phone_verified: bool = False
+    phone_masked: str | None = None
 
 
 class MarketplaceListingCard(BaseModel):
@@ -343,6 +345,7 @@ class SessionVerifyRequest(BaseModel):
 class UserOut(BaseModel):
     id: UUID
     phone: str | None
+    phone_verified: bool = False
     nickname: str | None
     rider_type: RiderTypeOut | None = None
     level: int
@@ -366,6 +369,7 @@ class UserOut(BaseModel):
         return {
             "id": data.id,
             "phone": data.phone,
+            "phone_verified": data.phone_verified_at is not None,
             "nickname": data.nickname,
             "rider_type": data.rider_type,
             "level": data.level,
@@ -400,6 +404,29 @@ class OAuthLoginResponse(BaseModel):
     user: UserOut
     session_token: str
     is_new: bool
+
+
+# ── 휴대폰 OTP 인증 (판매자 온보딩) — 코드 평문은 요청에만 존재, 응답에 절대 미포함 ──
+
+
+class OtpRequestIn(BaseModel):
+    phone: str
+
+
+class OtpRequestOut(BaseModel):
+    phone: str  # 정규화된 E.164 (+84…) — verify 에 이 값을 그대로 보낼 것
+    expires_in_sec: int
+    resend_cooldown_sec: int
+
+
+class OtpVerifyIn(BaseModel):
+    phone: str
+    code: str
+
+
+class OtpVerifyOut(BaseModel):
+    phone: str
+    phone_verified: bool
 
 
 # ── Profile ──────────────────────────────────────────────────────
@@ -906,6 +933,8 @@ class UserProfileOut(BaseModel):
     follower_count: int
     following_count: int
     is_following: bool
+    is_phone_verified: bool = False
+    phone_masked: str | None = None
 
 
 # ── DM ───────────────────────────────────────────────────────────

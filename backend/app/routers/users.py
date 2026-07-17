@@ -22,7 +22,7 @@ from ..schemas import (
     UserProfileOut,
     UserStatsOut,
 )
-from ..utils import APP_TZ, resolve_avatar_url
+from ..utils import APP_TZ, mask_phone, resolve_avatar_url
 
 router = APIRouter(prefix="/users", tags=["유저 (Users)"])
 
@@ -252,6 +252,7 @@ async def delete_account(
     user.deleted_at = now
     ts_hex = f"{int(now.timestamp()):x}"
     user.phone = f"del_{ts_hex}"
+    user.phone_verified_at = None
     if user.nickname:
         user.nickname = f"del_{ts_hex}"
     user.passcode_hash = None
@@ -358,6 +359,8 @@ async def get_user_profile(
         follower_count=follower_count,
         following_count=following_count,
         is_following=is_following,
+        is_phone_verified=user.phone_verified_at is not None,
+        phone_masked=mask_phone(user.phone) if user.phone_verified_at is not None else None,
     )
 
 

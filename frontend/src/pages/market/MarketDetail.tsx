@@ -34,6 +34,7 @@ import { StarIcon } from '@/components/ui/StarIcon';
 import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { formatPriceVnd, formatResponseRate, relativeTime, statusLabelKey } from './marketFormat';
+import { noItemImage } from './noItemImage';
 import styles from './MarketDetail.module.css';
 
 const STATUSES: ListingStatus[] = ['ON_SALE', 'RESERVED', 'SOLD'];
@@ -211,9 +212,13 @@ export default function MarketDetail() {
       ) : (
         <>
           <div className={styles.scroll}>
-            {detail.imageUrls.length > 0 && (
+            {detail.imageUrls.length > 0 ? (
               <div className={styles.hero}>
                 <ImageCarousel urls={detail.imageUrls} />
+              </div>
+            ) : (
+              <div className={styles.hero}>
+                <AppImage src={noItemImage()} alt={detail.title} />
               </div>
             )}
 
@@ -453,7 +458,7 @@ function OtherCard({ item, onClick }: { item: ListingCard; onClick: () => void }
   return (
     <button className={styles.otherCard} type="button" onClick={onClick}>
       <span className={styles.otherThumb}>
-        <AppImage src={item.thumbnailUrl ?? undefined} alt={item.title} className={styles.otherThumbImg} />
+        <AppImage src={item.thumbnailUrl ?? noItemImage()} alt={item.title} className={styles.otherThumbImg} />
       </span>
       <p className={styles.otherCardTitle}>{item.title}</p>
       <p className={styles.otherCardPrice}>{formatPriceVnd(item.priceVnd, t)}</p>

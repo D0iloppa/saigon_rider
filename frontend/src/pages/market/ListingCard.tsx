@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { AppImage } from '@/components/ui/AppImage';
 import { localizedName, type ListingCard as Listing } from '@/api/market';
 import { formatDistance, formatPriceVnd, relativeTime, statusLabelKey } from './marketFormat';
+import { noItemImage } from './noItemImage';
 import styles from './ListingCard.module.css';
 
 interface Props {
@@ -15,7 +16,7 @@ export default function ListingCard({ listing: l, onClick }: Props) {
   return (
     <button className={styles.card} type="button" onClick={onClick}>
       <span className={styles.thumb}>
-        <AppImage src={l.thumbnailUrl ?? undefined} alt={l.title} className={styles.thumbImg} />
+        <AppImage src={l.thumbnailUrl ?? noItemImage()} alt={l.title} className={styles.thumbImg} />
         {l.status !== 'ON_SALE' && <span className={styles.statusTag}>{t(statusLabelKey(l.status))}</span>}
       </span>
       <div className={styles.cardBody}>

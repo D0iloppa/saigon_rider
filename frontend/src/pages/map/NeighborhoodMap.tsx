@@ -689,13 +689,13 @@ export default function NeighborhoodMap() {
     };
     // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체 탭 배타 구조와 무관하게 항상 append.
     // 이름 라벨은 현재 언어(name_ko/vi/en) 우선, 없으면 name_ko 폴백. 라벨 상시 노출.
-    // landmark(위치 기준 표식)는 civic 보다 크고 진한 teal — r/color 로 위계 주입.
+    // 아이콘 크기·라벨 폰트는 카테고리 무관 통일(r 고정) — landmark/civic 색만 구분.
     const poiMarkers: MapMarkerV2[] = poiItems.map((p) => ({
       id: `poi:${p.id}`,
       lat: p.lat,
       lng: p.lng,
       kind: 'poi',
-      r: p.category === 'landmark' ? 1.5 : 1.2,
+      r: 1.5,
       color: p.category === 'landmark' ? '#0d9488' : '#4f7d78',
       icon: POI_CAT_ICON_PATH[p.category as 'landmark' | 'civic'] ?? POI_CAT_ICON_FALLBACK,
       label: (i18n.language === 'vi' ? p.nameVi : i18n.language === 'en' ? p.nameEn : p.nameKo) || p.nameKo,

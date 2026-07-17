@@ -1053,7 +1053,7 @@ function SaigonMapV5({
               }
               // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체와 별개의 "위치 기준 표식".
               // 콘텐츠 핀(오렌지/블루 dot·teardrop)과 구분되는 teal 스퀘어클 + 흰 halo + 이름 라벨 상시 노출.
-              // 크기·색 위계는 호출부가 r/color 로 주입(landmark > civic). 탭 동작이 없으므로
+              // 크기는 카테고리 무관 통일, 색만 호출부가 주입(landmark > civic). 탭 동작이 없으므로
               // pointerEvents none — 지도 제스처와 인접 콘텐츠 마커 클릭을 가리지 않는다.
               if (m.kind === 'poi') {
                 const half = r * 1.05;
@@ -1070,7 +1070,7 @@ function SaigonMapV5({
                     )}
                     {m.label && (
                       <text x={mx} y={my + half * 1.35}
-                        fontSize={r * 1.1} fontWeight={700}
+                        fontSize={r * 1.1 + 2} fontWeight={700}
                         fill="#0f5c56"
                         stroke="rgba(255,255,255,0.92)" strokeWidth={r * 0.34}
                         paintOrder="stroke fill"

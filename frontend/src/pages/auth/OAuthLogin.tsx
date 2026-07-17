@@ -48,6 +48,7 @@ export default function OAuthLogin() {
   const [gisReady, setGisReady] = useState(false);
   const [isDev, setIsDev] = useState(false);
   const zaloMessageListenerRef = useRef<((event: MessageEvent) => void) | null>(null);
+  const zaloPopupCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleOAuthResult = async (provider: string, token: string, tokenType: string) => {
     setLoading(provider);
@@ -70,11 +71,14 @@ export default function OAuthLogin() {
     if (err) setError(err);
   }, []);
 
-  // 언마운트 시 등록된 Zalo 팝업 message 리스너 해제
+  // 언마운트 시 등록된 Zalo 팝업 message 리스너 + 팝업 감시 interval 해제
   useEffect(() => {
     return () => {
       if (zaloMessageListenerRef.current) {
         window.removeEventListener('message', zaloMessageListenerRef.current);
+      }
+      if (zaloPopupCheckRef.current) {
+        clearInterval(zaloPopupCheckRef.current);
       }
     };
   }, []);
@@ -187,6 +191,10 @@ export default function OAuthLogin() {
       if (event.data?.type !== 'oauth-result' || event.data?.provider !== 'zalo') return;
       window.removeEventListener('message', onMessage);
       zaloMessageListenerRef.current = null;
+      if (zaloPopupCheckRef.current) {
+        clearInterval(zaloPopupCheckRef.current);
+        zaloPopupCheckRef.current = null;
+      }
 
       const { error: resultError, userId, sessionToken, isNew } = event.data;
       if (resultError) {
@@ -207,6 +215,16 @@ export default function OAuthLogin() {
     };
     zaloMessageListenerRef.current = onMessage;
     window.addEventListener('message', onMessage);
+
+    // 사용자가 팝업을 수동으로 닫아 message가 오지 않는 경우 loading 데드엔드 방지
+    zaloPopupCheckRef.current = setInterval(() => {
+      if (!popup.closed) return;
+      clearInterval(zaloPopupCheckRef.current!);
+      zaloPopupCheckRef.current = null;
+      window.removeEventListener('message', onMessage);
+      zaloMessageListenerRef.current = null;
+      setLoading(null);
+    }, 500);
   };
 
   const handleDevLogin = async () => {

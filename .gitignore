@@ -66,3 +66,6 @@ contents/system/quest-banners/bak/
 # claude hooks 산출물
 .claude/.needs-reindex
 .claude/reindex.log
+
+# 로컬/운영 툴 스크래치 (Orca 등)
+.orca/

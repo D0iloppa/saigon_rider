@@ -113,6 +113,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 네이티브 키보드 연계 규칙 (키보드 여백·애니메이션·max-height) | [`ai-docs/context/keyboard-ux.md`](ai-docs/context/keyboard-ux.md) |
 | 서비스 규칙 (GPS·위치 등 도메인 불변식) | [`ai-docs/context/service-rules.md`](ai-docs/context/service-rules.md) |
 
+## 랜딩페이지 배포 — `랜딩배포`
+
+`landing/` (saigon-rider.com root+www 정적 SPA, 컨테이너 앱과 별개의 pnpm 워크스페이스) 수정 후 반영하는 절차. "랜딩배포"라고 하면 아래를 그대로 실행한다.
+
+- **수정 대상**: 일반 사용자 랜딩(saigon-rider.com root+www)은 `landing/apps/client/src/pages/home/Index.tsx` + `content.ts`(vi/ko/en). 비즈니스 랜딩(business.saigon-rider.com)은 `landing/apps/client/src/pages/business/Index.tsx` + `content.ts`. 두 페이지는 **같은 dist 하나**로 빌드되고, `App.tsx`가 `window.location.hostname`이 `business.`로 시작하는지 보고 어느 페이지를 렌더링할지 client-side로 분기한다 (호스트별 별도 빌드 아님). "랜딩페이지 수정"이라고 하면 어느 도메인 얘기인지 확인 후 해당 파일을 본다.
+- **빌드 + 배포** (일반/비즈니스 공통, dist 하나가 두 도메인 다 서빙):
+  ```bash
+  cd landing
+  pnpm run build                                          # apps/client/dist 생성 (홈+비즈니스 둘 다 포함)
+  sudo cp -r apps/client/dist/* /var/www/saigon-rider/     # 정적 배포 (root 필요) — 도메인별로 따로 배포할 필요 없음
+  ```
+  - nginx reload 불필요 (정적 파일 직접 서빙 — `deploy/saigon-rider.conf` 참조).
+  - `pnpm` 은 corepack shim(`~/.local/bin/pnpm`)으로 설치돼 있어 별도 PATH 설정 불필요.
+  - `node_modules` 가 빌드머신의 pnpm 가상 store 경로(`/opt/pnpm-vstore/...`)를 참조해 깨져 있으면 (`Cannot find module .../vite/bin/vite.js` 등) `pnpm install` 먼저 실행.
+  - esbuild 빌드 스크립트는 `landing/pnpm-workspace.yaml` 의 `onlyBuiltDependencies` 로 이미 승인돼 있음 — 재승인 불필요.
+- **i18n**: 공통 로케일 유틸은 `landing/apps/client/src/lib/locale.ts` (vi 기본, `/ko` `/en` 경로). 페이지별 텍스트는 각 페이지 폴더의 `content.ts`.
+- **라우팅**: root+www+business → `/var/www/saigon-rider` 정적 서빙 (React가 도메인별 분기), `app.saigon-rider.com` → 컨테이너 앱(:18090). 설정: `deploy/saigon-rider.conf`. 인증서는 saigon-rider.com 하나에 SAN 으로 root/www/app/business 전부 포함.
+
 ## 보안 최소 룰 (전문은 agent-guidelines §4)
 
 - `.env` 와 `.env.example` 은 항상 동일한 키셋. 한쪽에 키 추가/삭제/이름변경 시 **즉시** 반대쪽도 갱신.

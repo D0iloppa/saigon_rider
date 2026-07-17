@@ -672,18 +672,22 @@ async def oauth_apple_callback(
 _ZALO_AUTH_URL = "https://oauth.zaloapp.com/v4/permission"
 _ZALO_CALLBACK_PATH = "/auth/oauth/zalo/callback"
 _WEB_OAUTH_RESULT_PATH = "/auth/oauth-result"  # 웹 플로우 결과 수신 SPA 라우트 (같은 origin)
+_WEB_STATE_MARKER = ".w"  # web 플로우 state 문자열 접미사 — token_urlsafe 알파벳에 "."이 없어 충돌 불가
 
 
-def _peek_zalo_platform(state: str | None) -> str:
-    """state를 소비하지 않고 저장된 platform만 엿본다 (에러 조기 반환 시 라우팅용)."""
-    if not state:
-        return "native"
-    entry = _oauth_states.get(state)
-    if entry is None:
-        return "native"
-    _, extra = entry
-    platform, _, _ = (extra or "").partition(":")
-    return "web" if platform == "web" else "native"
+def _is_web_zalo_state(state: str | None) -> bool:
+    """state 문자열 자체만으로 web 플랫폼 여부를 판별 — 공유 _oauth_states dict 조회 없음.
+
+    _oauth_states는 다른 유저의 OAuth 시작 호출 시마다 lazy cleanup되는 프로세스 전역 dict라,
+    dict 조회에 의존하면 콜백이 지연되는 사이 엔트리가 정리돼 platform 판별이 native로
+    오폴백될 수 있었다. state 값 자체에 마커를 실어 이 의존을 제거한다.
+    """
+    return bool(state) and state.endswith(_WEB_STATE_MARKER)
+
+
+def _strip_web_marker(state: str) -> str:
+    """_oauth_states 조회용 원래 state 키로 복원 (마커 제거)."""
+    return state[: -len(_WEB_STATE_MARKER)] if state.endswith(_WEB_STATE_MARKER) else state
 
 
 def _make_pkce() -> tuple[str, str]:
@@ -713,7 +717,9 @@ async def oauth_zalo_start(
 
     platform = "web" if platform == "web" else "native"
     verifier, challenge = _make_pkce()
-    state = _make_state(extra=f"{platform}:{verifier}")
+    state = _make_state(extra=verifier)
+    if platform == "web":
+        state += _WEB_STATE_MARKER  # Zalo가 state를 그대로 에코 — 콜백에서 dict 조회 없이 판별
     redirect_uri = _bff_base_url() + _ZALO_CALLBACK_PATH
     params = {
         "app_id": app_id,
@@ -736,9 +742,8 @@ async def oauth_zalo_callback(
     native: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1 (또는 ?error=...)
     web:    /auth/oauth-result?userId=...&sessionToken=...&isNew=1 (또는 ?error=...)
     """
-    # state를 아직 소비하지 않고 platform만 엿본다 — error/no-code 조기 반환 시에도
-    # web 플로우는 커스텀 스킴이 아닌 SPA 라우트로 보내야 하기 때문.
-    platform = _peek_zalo_platform(state)
+    # platform은 state 문자열 자체의 마커로 결정 — dict 조회가 아니므로 만료/레이스 영향 없음.
+    platform = "web" if _is_web_zalo_state(state) else "native"
 
     def result_redirect(
         *,
@@ -758,8 +763,8 @@ async def oauth_zalo_callback(
     if error or not code:
         return result_redirect(error_code=error or "auth_cancelled")
 
-    valid, extra = _consume_state(state) if state else (False, None)
-    _, _, verifier = (extra or "").partition(":")
+    lookup_state = _strip_web_marker(state) if state else state
+    valid, verifier = _consume_state(lookup_state) if lookup_state else (False, None)
     if not state or not valid or not verifier:
         return result_redirect(error_code="invalid_state")
 

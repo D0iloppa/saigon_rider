@@ -225,17 +225,21 @@ async def exchange_zalo_code(
     code_verifier: str,
 ) -> OAuthProfile:
     """Zalo authorization code를 PKCE로 교환하고 사용자 프로필을 반환한다."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        token_resp = await client.post(
-            _ZALO_TOKEN_URL,
-            headers={"secret_key": app_secret},
-            data={
-                "code": code,
-                "app_id": app_id,
-                "grant_type": "authorization_code",
-                "code_verifier": code_verifier,
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_resp = await client.post(
+                _ZALO_TOKEN_URL,
+                headers={"secret_key": app_secret},
+                data={
+                    "code": code,
+                    "app_id": app_id,
+                    "grant_type": "authorization_code",
+                    "code_verifier": code_verifier,
+                },
+            )
+    except httpx.HTTPError as e:
+        # 타임아웃/커넥션 오류 등 — 상태코드 이전 단계 실패도 token exchange 단계로 명확히 귀속.
+        raise ZaloTokenExchangeError(f"Zalo token exchange request error: {type(e).__name__}") from e
     if token_resp.status_code != 200:
         raise ZaloTokenExchangeError(f"Zalo token exchange failed: status={token_resp.status_code}")
     token_data = token_resp.json()
@@ -244,12 +248,15 @@ async def exchange_zalo_code(
         raise ZaloTokenExchangeError("Zalo token exchange response missing access_token")
 
     # Zalo /v2.0/me는 access_token을 쿼리 파라미터로 요구한다 (헤더 전달 시 미인증 처리됨).
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        me_resp = await client.get(
-            _ZALO_ME_URL,
-            params={"access_token": access_token, "fields": "id,name,picture"},
-            headers={"secret_key": app_secret},
-        )
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            me_resp = await client.get(
+                _ZALO_ME_URL,
+                params={"access_token": access_token, "fields": "id,name,picture"},
+                headers={"secret_key": app_secret},
+            )
+    except httpx.HTTPError as e:
+        raise ZaloProfileFetchError(f"Zalo /me request error: {type(e).__name__}") from e
     if me_resp.status_code != 200:
         raise ZaloProfileFetchError(f"Zalo /me failed: status={me_resp.status_code}")
     me: dict[str, Any] = me_resp.json()

@@ -21,6 +21,7 @@ import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
 // Auth
 import Splash from '@/pages/auth/Splash';
 import OAuthLogin from '@/pages/auth/OAuthLogin';
+import OAuthResult from '@/pages/auth/OAuthResult';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
 import PhoneVerify from '@/pages/auth/PhoneVerify';
 
@@ -319,6 +320,7 @@ export default function App() {
           {/* Auth flow (public) */}
           <Route path="/splash" element={<Splash />} />
           <Route path="/auth/oauth" element={<OAuthLogin />} />
+          <Route path="/auth/oauth-result" element={<OAuthResult />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
           <Route path="/auth/phone-verify" element={<PhoneVerify />} />
 

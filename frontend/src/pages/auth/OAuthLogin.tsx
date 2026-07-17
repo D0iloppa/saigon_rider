@@ -47,6 +47,7 @@ export default function OAuthLogin() {
   const [error, setError] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
   const [isDev, setIsDev] = useState(false);
+  const zaloMessageListenerRef = useRef<((event: MessageEvent) => void) | null>(null);
 
   const handleOAuthResult = async (provider: string, token: string, tokenType: string) => {
     setLoading(provider);
@@ -62,6 +63,21 @@ export default function OAuthLogin() {
       setLoading(null);
     }
   };
+
+  // 팝업 차단 폴백(OAuthResult가 opener 없이 /auth/oauth?error=... 로 되돌아온 경우) 에러 표시
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get('error');
+    if (err) setError(err);
+  }, []);
+
+  // 언마운트 시 등록된 Zalo 팝업 message 리스너 해제
+  useEffect(() => {
+    return () => {
+      if (zaloMessageListenerRef.current) {
+        window.removeEventListener('message', zaloMessageListenerRef.current);
+      }
+    };
+  }, []);
 
   // 앱 설정 로드: dev 여부(런타임 APP_ENV 기준) + 웹 모드 GIS 스크립트 로드/Google 버튼 렌더링
   useEffect(() => {
@@ -157,7 +173,40 @@ export default function OAuthLogin() {
   const handleWebZalo = () => {
     setError(null);
     setLoading('zalo');
-    window.location.href = '/api/bff/auth/oauth/zalo/start';
+
+    const startUrl = '/api/bff/auth/oauth/zalo/start?platform=web';
+    const popup = window.open(startUrl, 'zalo-oauth', 'width=480,height=640');
+    if (!popup) {
+      // 팝업 차단 — 전체 페이지 리다이렉트로 폴백 (OAuthResult가 opener 없이 직접 처리)
+      window.location.href = startUrl;
+      return;
+    }
+
+    const onMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'oauth-result' || event.data?.provider !== 'zalo') return;
+      window.removeEventListener('message', onMessage);
+      zaloMessageListenerRef.current = null;
+
+      const { error: resultError, userId, sessionToken, isNew } = event.data;
+      if (resultError) {
+        setError(resultError);
+        setLoading(null);
+        return;
+      }
+      try {
+        saveSession({ userId, sessionToken });
+        const result = await apiGetMeById(userId);
+        loginFromBackend(result.user);
+        navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        setLoading(null);
+      }
+    };
+    zaloMessageListenerRef.current = onMessage;
+    window.addEventListener('message', onMessage);
   };
 
   const handleDevLogin = async () => {

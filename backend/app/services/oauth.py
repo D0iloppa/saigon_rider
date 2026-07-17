@@ -210,6 +210,14 @@ _ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token"
 _ZALO_ME_URL = "https://graph.zalo.me/v2.0/me"
 
 
+class ZaloTokenExchangeError(Exception):
+    """Zalo access_token 발급 실패 (authorization code 교환 단계)."""
+
+
+class ZaloProfileFetchError(Exception):
+    """access_token 발급은 성공했으나 /v2.0/me 프로필 조회에 실패."""
+
+
 async def exchange_zalo_code(
     code: str,
     app_id: str,
@@ -229,25 +237,26 @@ async def exchange_zalo_code(
             },
         )
     if token_resp.status_code != 200:
-        raise ValueError(f"Zalo token exchange failed: {token_resp.text}")
+        raise ZaloTokenExchangeError(f"Zalo token exchange failed: status={token_resp.status_code}")
     token_data = token_resp.json()
     access_token = token_data.get("access_token")
     if not access_token:
-        raise ValueError(f"No access_token in Zalo response: {token_data}")
+        raise ZaloTokenExchangeError("Zalo token exchange response missing access_token")
 
+    # Zalo /v2.0/me는 access_token을 쿼리 파라미터로 요구한다 (헤더 전달 시 미인증 처리됨).
     async with httpx.AsyncClient(timeout=10.0) as client:
         me_resp = await client.get(
             _ZALO_ME_URL,
-            params={"fields": "id,name,picture"},
-            headers={"access_token": access_token, "secret_key": app_secret},
+            params={"access_token": access_token, "fields": "id,name,picture"},
+            headers={"secret_key": app_secret},
         )
     if me_resp.status_code != 200:
-        raise ValueError(f"Zalo /me failed: {me_resp.text}")
+        raise ZaloProfileFetchError(f"Zalo /me failed: status={me_resp.status_code}")
     me: dict[str, Any] = me_resp.json()
 
     zalo_id = str(me.get("id", ""))
     if not zalo_id:
-        raise ValueError("Zalo /me missing id")
+        raise ZaloProfileFetchError("Zalo /me response missing id")
 
     picture_url: str | None = None
     if isinstance(me.get("picture"), dict):

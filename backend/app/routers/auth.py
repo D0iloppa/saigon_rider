@@ -35,6 +35,8 @@ from ..schemas import (
     UserOut,
 )
 from ..services.oauth import (
+    ZaloProfileFetchError,
+    ZaloTokenExchangeError,
     exchange_apple_code,
     exchange_google_code,
     exchange_zalo_code,
@@ -669,6 +671,19 @@ async def oauth_apple_callback(
 
 _ZALO_AUTH_URL = "https://oauth.zaloapp.com/v4/permission"
 _ZALO_CALLBACK_PATH = "/auth/oauth/zalo/callback"
+_WEB_OAUTH_RESULT_PATH = "/auth/oauth-result"  # 웹 플로우 결과 수신 SPA 라우트 (같은 origin)
+
+
+def _peek_zalo_platform(state: str | None) -> str:
+    """state를 소비하지 않고 저장된 platform만 엿본다 (에러 조기 반환 시 라우팅용)."""
+    if not state:
+        return "native"
+    entry = _oauth_states.get(state)
+    if entry is None:
+        return "native"
+    _, extra = entry
+    platform, _, _ = (extra or "").partition(":")
+    return "web" if platform == "web" else "native"
 
 
 def _make_pkce() -> tuple[str, str]:
@@ -683,15 +698,22 @@ def _make_pkce() -> tuple[str, str]:
 
 
 @router.get("/oauth/zalo/start", summary="Zalo 로그인 시작 (PKCE redirect flow)")
-async def oauth_zalo_start(db: AsyncSession = Depends(get_db)):
-    """PKCE code_verifier를 생성해 state에 바인딩하고 Zalo 인증 페이지로 리다이렉트한다."""
+async def oauth_zalo_start(
+    platform: str = Query(default="native"),
+    db: AsyncSession = Depends(get_db),
+):
+    """PKCE code_verifier를 생성해 state에 바인딩하고 Zalo 인증 페이지로 리다이렉트한다.
+
+    platform=web 이면 콜백이 앱 딥링크 대신 SPA 결과 라우트(/auth/oauth-result)로 리다이렉트한다.
+    """
     cfg = await _load_oauth_config(db)
     app_id = cfg.get("zalo_app_id", "")
     if not app_id or app_id == "CHANGE_ME":
         raise HTTPException(status_code=500, detail="Zalo OAuth not configured")
 
+    platform = "web" if platform == "web" else "native"
     verifier, challenge = _make_pkce()
-    state = _make_state(extra=verifier)
+    state = _make_state(extra=f"{platform}:{verifier}")
     redirect_uri = _bff_base_url() + _ZALO_CALLBACK_PATH
     params = {
         "app_id": app_id,
@@ -710,32 +732,54 @@ async def oauth_zalo_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Zalo 인증 결과를 처리하고 앱 딥링크로 리다이렉트한다.
-    성공: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1
-    실패: com.saigonrider.user://oauth/callback?error=...
+    Zalo 인증 결과를 처리하고 platform(native/web)에 맞는 목적지로 리다이렉트한다.
+    native: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1 (또는 ?error=...)
+    web:    /auth/oauth-result?userId=...&sessionToken=...&isNew=1 (또는 ?error=...)
     """
+    # state를 아직 소비하지 않고 platform만 엿본다 — error/no-code 조기 반환 시에도
+    # web 플로우는 커스텀 스킴이 아닌 SPA 라우트로 보내야 하기 때문.
+    platform = _peek_zalo_platform(state)
 
-    def deep_link_error(msg: str) -> RedirectResponse:
-        return RedirectResponse(url=f"{_APP_DEEP_LINK}?error={msg}", status_code=302)
+    def result_redirect(
+        *,
+        error_code: str | None = None,
+        user_id: str | None = None,
+        session_token: str | None = None,
+        is_new: bool = False,
+    ) -> RedirectResponse:
+        base = _WEB_OAUTH_RESULT_PATH if platform == "web" else _APP_DEEP_LINK
+        if error_code:
+            return RedirectResponse(url=f"{base}?error={error_code}", status_code=302)
+        return RedirectResponse(
+            url=f"{base}?userId={user_id}&sessionToken={session_token}&isNew={'1' if is_new else '0'}",
+            status_code=302,
+        )
 
     if error or not code:
-        return deep_link_error(error or "auth_cancelled")
+        return result_redirect(error_code=error or "auth_cancelled")
 
-    valid, verifier = _consume_state(state) if state else (False, None)
+    valid, extra = _consume_state(state) if state else (False, None)
+    _, _, verifier = (extra or "").partition(":")
     if not state or not valid or not verifier:
-        return deep_link_error("invalid_state")
+        return result_redirect(error_code="invalid_state")
 
     cfg = await _load_oauth_config(db)
     app_id = cfg.get("zalo_app_id", "")
     app_secret = cfg.get("zalo_app_secret", "")
     if not app_id or app_id == "CHANGE_ME" or not app_secret or app_secret == "CHANGE_ME":
-        return deep_link_error("server_not_configured")
+        return result_redirect(error_code="server_not_configured")
 
     try:
         profile = await exchange_zalo_code(code, app_id, app_secret, verifier)
+    except ZaloTokenExchangeError:
+        log.exception("Zalo token exchange failed")
+        return result_redirect(error_code="token_exchange_failed")
+    except ZaloProfileFetchError:
+        log.exception("Zalo profile fetch failed")
+        return result_redirect(error_code="profile_fetch_failed")
     except Exception:
-        log.exception("Zalo code exchange failed")
-        return deep_link_error("token_exchange_failed")
+        log.exception("Zalo OAuth exchange failed (unexpected)")
+        return result_redirect(error_code="token_exchange_failed")
 
     identity_row = (
         await db.execute(
@@ -766,7 +810,7 @@ async def oauth_zalo_callback(
             await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
         ).scalar_one_or_none()
         if user is None:
-            return deep_link_error("account_deleted")
+            return result_redirect(error_code="account_deleted")
 
     raw_token = str(uuid.uuid4()).replace("-", "")
     user.passcode_hash = _hash(raw_token)
@@ -774,10 +818,7 @@ async def oauth_zalo_callback(
         user.nickname = await generate_random_nickname(db)
     await db.commit()
 
-    return RedirectResponse(
-        url=f"{_APP_DEEP_LINK}?userId={user.id}&sessionToken={raw_token}&isNew={'1' if is_new else '0'}",
-        status_code=302,
-    )
+    return result_redirect(user_id=str(user.id), session_token=raw_token, is_new=is_new)
 
 
 _DEV_MODE = os.getenv("APP_ENV", "development").lower() not in ("production", "prod")

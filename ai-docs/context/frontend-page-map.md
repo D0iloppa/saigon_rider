@@ -49,7 +49,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **페이지**: `pages/market/MarketMain.tsx`
 - **하위 라우트**: `/market/search`(`MarketSearch.tsx`), `/market/ad/:id`(`AdDetail.tsx`), `/market/new`(`MarketCreate.tsx`), `/market/wishlist`(`MarketWishlist.tsx`), `/market/:id`(`MarketDetail.tsx`)
 - **매물 등록 가드 변경 — 판매자 인증 (2026-07-16)**: `/market/new`는 기존 `PrivateRoute` 대신 신규 `VerifiedSellerRoute`(`components/auth/VerifiedSellerRoute.tsx`)로 래핑됨 — 로그인 상태여도 폰 미인증(`users.phone_verified_at IS NULL`) 유저는 `/auth/phone-verify`로 리다이렉트된다.
-- **인증 배지 — 신뢰 신호 UI (2026-07-17)**: 매물 상세 판매자 정보 블록(`MarketDetail.tsx`)과 공개 프로필 카드(`components/ProfileCard.tsx` — 피드/팔로워·팔로잉 리스트/동네지도에서도 공용)에 `VerifiedBadge`(`components/ui/VerifiedBadge.tsx`) 노출. 백엔드 `SellerBrief`/`UserProfileOut`(`GET /users/{id}/profile`)의 `is_phone_verified`+`phone_masked`로 구동(마스킹은 `mask_phone()`, `backend/app/utils.py`). 배지 탭 시 마스킹 번호를 클라이언트에서 토글 표시(payload에 이미 포함, 추가 API 없음).
+- **인증 배지 — 신뢰 신호 UI (2026-07-17)**: 홈 헤더(`WorldMapV2.tsx`)의 배지는 `user.phoneVerified` 조건부로 "휴대폰 인증" 표기. 매물 상세 판매자 정보 블록(`MarketDetail.tsx`)과 공개 프로필 카드(`components/ProfileCard.tsx` — 피드/팔로워·팔로잉 리스트/동네지도에서도 공용)에 `VerifiedBadge`(`components/ui/VerifiedBadge.tsx`) 노출. 백엔드 `SellerBrief`/`UserProfileOut`(`GET /users/{id}/profile`)의 `is_phone_verified`+`phone_masked`로 구동(마스킹은 `mask_phone()`, `backend/app/utils.py`). 배지 탭 시 마스킹 번호를 클라이언트에서 토글 표시(payload에 이미 포함, 추가 API 없음). 시각 개선(2026-07-17): 기존 텍스트 pill "✓ 인증" → **오렌지(`--brand-500`) 스칼럽 체크 아이콘 + '인증' 라벨**로 격상.
+- **없음 이미지 플레이스홀더 (2026-07-17)**: 상품 등록 이미지 부재 시 로케일별 브랜드 플레이스홀더(`noItemImage()` — `assets/market/no_item_kr|vi|en.png`) 표시, 리스트 카드·상세 갤러리·다른 매물 카드에 적용.
 - **핵심 컴포넌트**: `SaigonMapV2`, `ListingCard`(`pages/market/ListingCard.tsx`), `AdCard`(`pages/market/AdCard.tsx`), `StatusBar`, `BottomSheet`, `Chip`, `ScrollSentinel`
 - **연결 API**: `api/market.ts` (`fetchListings`, `fetchAds` 등)
 
@@ -153,8 +154,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 |---|---|---|---|
 | 퀘스트 | `/quests`, `/quests/:id` | 딥링크(`LinkRouter.tsx`)와 라이딩 결과 화면(`RideResultSuccess.tsx`/`RideResultFail.tsx`)의 "다른 퀘스트"/실패 버튼뿐 | **홈/탭바/게임허브 어디에서도 직접 진입 버튼이 없음** — 퀘스트 기능 자체는 살아있으나(`QuestList.tsx`, `api/quests.ts`, `QuestChecker.tsx`) 상시 노출되는 메뉴 진입점이 빠져 있음. "퀘스트 관련 기능 부재?" 질문 시 이 갭을 우선 언급할 것 |
 | 라이딩 안내 | `/ride-nav` | 퀘스트 상세 등에서 진입(추정, 필요시 `trace_path`로 확인) | `RideNav.tsx` |
-| 안전거래 가이드 | `/guide/safe-trade` | 홈 배너(`WorldMapV2.tsx`) | `SafeTradeGuide.tsx` |
+| 안전거래 가이드 | `/guide/safe-trade` | 홈 배너(`WorldMapV2.tsx`) | `SafeTradeGuide.tsx` — feat1 "휴대폰 인증 판매자" 문구로 정정(eKYC 미구현) |
 | 판매자 인증(폰 인증) | `/auth/phone-verify` | 탭바/게임허브 직접 진입 버튼 없음 — `/market/new` 진입 시 `VerifiedSellerRoute` 가드가 미인증 유저를 리다이렉트 | `PhoneVerify.tsx` (2026-07-16) — VN 번호 입력 → SMS OTP 검증 2단계. 헤더 타이틀 "판매자 인증"(`phoneVerify.headerTitle`) + 상단 패딩 축소 (2026-07-17) |
+| OAuth 팝업 결과 수신 | `/auth/oauth-result` | 사용자 직접 진입 없음 — Zalo **웹** 로그인 팝업의 BFF 콜백(`/auth/oauth/zalo/callback`, `platform=web` state)이 리다이렉트하는 종착지 | `OAuthResult.tsx` (2026-07-17, `34355f9`) — 쿼리 파싱 후 `window.opener`에 origin 검증 `postMessage` → `window.close()`; opener 없으면(팝업차단 폴백) 직접 세션 저장 후 네비게이션. 공개 라우트(PrivateRoute 밖). 네이티브 Zalo/Google/Apple은 기존 딥링크 경로 무변경 |
 
 ---
 

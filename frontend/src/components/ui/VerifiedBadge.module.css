@@ -3,18 +3,38 @@
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-3);
   background: var(--surface-2, #f4f4f5);
   border-radius: 6px;
-  padding: 3px 8px;
+  padding: 3px 8px 3px 6px;
   white-space: nowrap;
 }
 
 .badgeInteractive {
   cursor: pointer;
+}
+
+/* 공식 인증 씰 아이콘 */
+.seal {
+  display: block;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+
+.sealBody {
+  fill: var(--brand-500);
+}
+
+.sealCheck {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .phone {

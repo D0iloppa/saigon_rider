@@ -327,7 +327,7 @@
       "d7": "7군"
     },
     "v2": {
-      "verified": "본인인증 완료",
+      "verified": "휴대폰 인증",
       "tradeCount": "거래 {{count}}건",
       "searchPlaceholder": "상품명, 키워드, 카테고리 검색",
       "nearbyPopular": "내 주변 인기 상품",
@@ -1559,8 +1559,8 @@
     "f4t1": "이체 전 계좌번호와 이름을 꼭 재확인하세요",
     "f4t2": "소액 테스트 이체로 먼저 확인하세요",
     "featuresTitle": "안전거래 기능",
-    "feat1Title": "본인인증 판매자",
-    "feat1Desc": "본인 인증을 완료한 신뢰도 높은 판매자를 확인하세요.",
+    "feat1Title": "휴대폰 인증 판매자",
+    "feat1Desc": "휴대폰(SMS) 인증을 완료한 판매자를 확인하세요.",
     "feat2Title": "거래 후기 확인",
     "feat2Desc": "다른 사용자들의 거래 후기와 평점을 확인해보세요.",
     "feat3Title": "신고하기",

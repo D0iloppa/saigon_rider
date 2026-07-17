@@ -327,7 +327,7 @@
       "d7": "District 7"
     },
     "v2": {
-      "verified": "Verified",
+      "verified": "Phone verified",
       "tradeCount": "{{count}} trades",
       "searchPlaceholder": "Search products, keywords, categories",
       "nearbyPopular": "Popular nearby",
@@ -1559,8 +1559,8 @@
     "f4t1": "Always reconfirm account number and name before transfer",
     "f4t2": "Send a small test amount first to verify",
     "featuresTitle": "Safe Trade Features",
-    "feat1Title": "Verified sellers",
-    "feat1Desc": "Check sellers who have completed identity verification.",
+    "feat1Title": "Phone-verified sellers",
+    "feat1Desc": "Check sellers who completed phone (SMS) verification.",
     "feat2Title": "Trade reviews",
     "feat2Desc": "Check reviews and ratings from other users.",
     "feat3Title": "Report",

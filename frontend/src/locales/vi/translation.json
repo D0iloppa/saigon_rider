@@ -327,7 +327,7 @@
       "d7": "Quận 7"
     },
     "v2": {
-      "verified": "Đã xác minh",
+      "verified": "Đã xác minh SĐT",
       "tradeCount": "{{count}} giao dịch",
       "searchPlaceholder": "Tìm sản phẩm, từ khóa, danh mục",
       "nearbyPopular": "Sản phẩm nổi bật gần bạn",
@@ -1559,8 +1559,8 @@
     "f4t1": "Kiểm tra lại số tài khoản và tên trước khi chuyển",
     "f4t2": "Chuyển thử số tiền nhỏ để xác nhận trước",
     "featuresTitle": "Tính năng giao dịch an toàn",
-    "feat1Title": "Người bán đã xác minh",
-    "feat1Desc": "Kiểm tra người bán đã hoàn thành xác minh danh tính.",
+    "feat1Title": "Người bán đã xác minh số điện thoại",
+    "feat1Desc": "Kiểm tra người bán đã xác minh số điện thoại (SMS).",
     "feat2Title": "Xem đánh giá giao dịch",
     "feat2Desc": "Xem đánh giá và điểm xếp hạng từ người dùng khác.",
     "feat3Title": "Báo cáo",

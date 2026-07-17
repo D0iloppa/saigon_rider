@@ -274,10 +274,12 @@ export default function WorldMapV2() {
           <div className={styles.profileInfo}>
             {/* Row 1: 닉네임 */}
             <div className={styles.profileName}>{user.nickname}</div>
-            {/* Row 2: 본인인증 */}
-            <div className={styles.profileVerified}>
-              <IcoVerified /><span>{t('home.v2.verified')}</span>
-            </div>
+            {/* Row 2: 휴대폰 인증 */}
+            {user?.phoneVerified && (
+              <div className={styles.profileVerified}>
+                <IcoVerified /><span>{t('home.v2.verified')}</span>
+              </div>
+            )}
             {/* Row 3: 별점 | 거래 n건 */}
             <div className={styles.profileStat}>
               <IcoStar />

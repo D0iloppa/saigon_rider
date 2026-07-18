@@ -7,7 +7,6 @@ import { fetchMe, type Me } from './api/auth'
 import AdminLayout from './components/AdminLayout'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
-import PlaceholderPage from './pages/PlaceholderPage'
 import ReportListPage from './pages/reports/ReportListPage'
 import ReportDetailPage from './pages/reports/ReportDetailPage'
 import UserListPage from './pages/users/UserListPage'
@@ -20,6 +19,7 @@ import NoticeListPage from './pages/cms/NoticeListPage'
 import NoticeEditPage from './pages/cms/NoticeEditPage'
 import FaqListPage from './pages/cms/FaqListPage'
 import BannedKeywordPage from './pages/cms/BannedKeywordPage'
+import AuditLogPage from './pages/audit/AuditLogPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,7 +78,7 @@ export default function App() {
               <Route path="/cms/notices/:id" element={<NoticeEditPage />} />
               <Route path="/cms/faqs" element={<FaqListPage />} />
               <Route path="/settings/banned-keywords" element={<BannedKeywordPage />} />
-              <Route path="/audit-logs" element={<PlaceholderPage title="감사 로그" />} />
+              <Route path="/audit-logs" element={<AuditLogPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

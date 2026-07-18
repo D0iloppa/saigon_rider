@@ -16,6 +16,10 @@ import ListingListPage from './pages/listings/ListingListPage'
 import ListingDetailPage from './pages/listings/ListingDetailPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
+import NoticeListPage from './pages/cms/NoticeListPage'
+import NoticeEditPage from './pages/cms/NoticeEditPage'
+import FaqListPage from './pages/cms/FaqListPage'
+import BannedKeywordPage from './pages/cms/BannedKeywordPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,9 +73,11 @@ export default function App() {
               <Route path="/listings/:id" element={<ListingDetailPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
-              <Route path="/cms/notices" element={<PlaceholderPage title="공지 관리" />} />
-              <Route path="/cms/faqs" element={<PlaceholderPage title="FAQ 관리" />} />
-              <Route path="/settings/banned-keywords" element={<PlaceholderPage title="금칙어" />} />
+              <Route path="/cms/notices" element={<NoticeListPage />} />
+              <Route path="/cms/notices/new" element={<NoticeEditPage />} />
+              <Route path="/cms/notices/:id" element={<NoticeEditPage />} />
+              <Route path="/cms/faqs" element={<FaqListPage />} />
+              <Route path="/settings/banned-keywords" element={<BannedKeywordPage />} />
               <Route path="/audit-logs" element={<PlaceholderPage title="감사 로그" />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

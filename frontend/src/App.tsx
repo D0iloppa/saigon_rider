@@ -114,6 +114,11 @@ import SupportDetail from '@/pages/settings/SupportDetail';
 import PrivacyPolicy from '@/pages/settings/PrivacyPolicy';
 import TermsOfService from '@/pages/settings/TermsOfService';
 
+// Notices / FAQ
+import NoticeList from '@/pages/notices/NoticeList';
+import NoticeDetail from '@/pages/notices/NoticeDetail';
+import FaqList from '@/pages/faq/FaqList';
+
 // Guide
 import SafeTradeGuide from '@/pages/guide/SafeTradeGuide';
 
@@ -414,6 +419,9 @@ export default function App() {
           <Route path="/settings/support/:id" element={<PrivateRoute><SupportDetail /></PrivateRoute>} />
           <Route path="/settings/privacy" element={<PrivateRoute><PrivacyPolicy /></PrivateRoute>} />
           <Route path="/settings/terms" element={<PrivateRoute><TermsOfService /></PrivateRoute>} />
+          <Route path="/notices" element={<PrivateRoute><NoticeList /></PrivateRoute>} />
+          <Route path="/notices/:id" element={<PrivateRoute><NoticeDetail /></PrivateRoute>} />
+          <Route path="/faq" element={<PrivateRoute><FaqList /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/home" replace />} />

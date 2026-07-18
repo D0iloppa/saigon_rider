@@ -31,6 +31,7 @@ from .routers import (
     map,
     market,
     master,
+    notices,
     notifications,
     poi,
     profile,
@@ -129,6 +130,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(master.router, prefix="/api")
+app.include_router(notices.router, prefix="/api")
 app.include_router(map.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
 app.include_router(translate.router, prefix="/api")

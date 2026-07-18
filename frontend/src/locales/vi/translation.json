@@ -558,6 +558,8 @@
     "privacy": "Chính sách bảo mật",
     "terms": "Điều khoản dịch vụ",
     "appInfo": "Thông tin ứng dụng",
+    "notices": "Thông báo",
+    "faq": "Câu hỏi thường gặp",
     "support": "Hỗ trợ",
     "logout": "Đăng xuất",
     "logoutConfirm": "Bạn có chắc muốn đăng xuất không?",
@@ -892,6 +894,20 @@
     "status_in_progress": "Đang xử lý",
     "status_resolved": "Đã giải quyết",
     "reply_count": "{{count}} phản hồi"
+  },
+  "notices": {
+    "title": "Thông báo",
+    "empty": "Chưa có thông báo nào.",
+    "pinned": "Ghim"
+  },
+  "faq": {
+    "title": "Câu hỏi thường gặp",
+    "empty": "Chưa có câu hỏi thường gặp.",
+    "category_general": "Chung",
+    "category_account": "Tài khoản",
+    "category_market": "Chợ",
+    "category_ride": "Đi xe",
+    "category_reward": "Phần thưởng"
   },
   "coupon": {
     "shop_title": "Cửa hàng phiếu",

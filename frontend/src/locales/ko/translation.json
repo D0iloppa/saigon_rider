@@ -558,6 +558,8 @@
     "privacy": "개인정보",
     "terms": "이용약관",
     "appInfo": "앱 정보",
+    "notices": "공지사항",
+    "faq": "자주 묻는 질문",
     "support": "고객센터",
     "logout": "로그아웃",
     "logoutConfirm": "정말 로그아웃 하시겠어요?",
@@ -892,6 +894,20 @@
     "status_in_progress": "처리중",
     "status_resolved": "해결",
     "reply_count": "답변 {{count}}건"
+  },
+  "notices": {
+    "title": "공지사항",
+    "empty": "등록된 공지사항이 없습니다.",
+    "pinned": "고정"
+  },
+  "faq": {
+    "title": "자주 묻는 질문",
+    "empty": "등록된 FAQ가 없습니다.",
+    "category_general": "일반",
+    "category_account": "계정",
+    "category_market": "마켓",
+    "category_ride": "라이딩",
+    "category_reward": "리워드"
   },
   "coupon": {
     "shop_title": "쿠폰샵",

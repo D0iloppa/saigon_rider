@@ -174,6 +174,8 @@ export default function Settings() {
 
         <Section title={t('settings.sectionOther')}>
           <SettingsRow icon="ⓘ" label={t('settings.appInfo')} value={appVersion || '...'} arrow onClick={showVersionInfo} />
+          <SettingsRow icon="📢" label={t('settings.notices')} arrow onClick={() => navigate('/notices')} />
+          <SettingsRow icon="❓" label={t('settings.faq')} arrow onClick={() => navigate('/faq')} />
           <SettingsRow icon="💬" label={t('settings.support')} arrow onClick={() => navigate('/settings/support')} />
         </Section>
 

@@ -1,0 +1,29 @@
+.body {
+  padding: 16px;
+}
+
+.card {
+  background: var(--surface, #fff);
+  border-radius: 12px;
+  padding: 20px 16px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text, #0b0d14);
+  margin-bottom: 8px;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-2, #4a4f62);
+  margin-bottom: 16px;
+}
+
+.content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text, #0b0d14);
+  white-space: pre-wrap;
+}

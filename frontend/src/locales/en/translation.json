@@ -558,6 +558,8 @@
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "appInfo": "App Info",
+    "notices": "Notices",
+    "faq": "FAQ",
     "support": "Support",
     "logout": "Log Out",
     "logoutConfirm": "Are you sure you want to log out?",
@@ -892,6 +894,20 @@
     "status_in_progress": "In Progress",
     "status_resolved": "Resolved",
     "reply_count": "{{count}} replies"
+  },
+  "notices": {
+    "title": "Notices",
+    "empty": "No notices yet.",
+    "pinned": "Pinned"
+  },
+  "faq": {
+    "title": "FAQ",
+    "empty": "No FAQs yet.",
+    "category_general": "General",
+    "category_account": "Account",
+    "category_market": "Market",
+    "category_ride": "Ride",
+    "category_reward": "Reward"
   },
   "coupon": {
     "shop_title": "Coupon Shop",

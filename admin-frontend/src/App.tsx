@@ -14,6 +14,8 @@ import UserListPage from './pages/users/UserListPage'
 import UserDetailPage from './pages/users/UserDetailPage'
 import ListingListPage from './pages/listings/ListingListPage'
 import ListingDetailPage from './pages/listings/ListingDetailPage'
+import SupportListPage from './pages/support/SupportListPage'
+import SupportDetailPage from './pages/support/SupportDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,7 +67,8 @@ export default function App() {
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/listings" element={<ListingListPage />} />
               <Route path="/listings/:id" element={<ListingDetailPage />} />
-              <Route path="/support" element={<PlaceholderPage title="고객센터" />} />
+              <Route path="/support" element={<SupportListPage />} />
+              <Route path="/support/:id" element={<SupportDetailPage />} />
               <Route path="/cms/notices" element={<PlaceholderPage title="공지 관리" />} />
               <Route path="/cms/faqs" element={<PlaceholderPage title="FAQ 관리" />} />
               <Route path="/settings/banned-keywords" element={<PlaceholderPage title="금칙어" />} />

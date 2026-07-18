@@ -23,7 +23,13 @@ const LISTING_STATUS: Record<string, StatusEntry> = {
   REMOVED: { color: 'red', label: '삭제됨' },
 }
 
-const MAPS = { report: REPORT_STATUS, user: USER_STATUS, listing: LISTING_STATUS } as const
+const SUPPORT_STATUS: Record<string, StatusEntry> = {
+  OPEN: { color: 'gold', label: '접수' },
+  IN_PROGRESS: { color: 'blue', label: '처리중' },
+  RESOLVED: { color: 'green', label: '해결' },
+}
+
+const MAPS = { report: REPORT_STATUS, user: USER_STATUS, listing: LISTING_STATUS, support: SUPPORT_STATUS } as const
 
 /** 신고/유저/매물 상태 → 색상 Tag 공용 매핑. */
 export default function StatusTag({ kind, status }: { kind: keyof typeof MAPS; status: string }) {

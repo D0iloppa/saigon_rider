@@ -8,6 +8,12 @@ import AdminLayout from './components/AdminLayout'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import PlaceholderPage from './pages/PlaceholderPage'
+import ReportListPage from './pages/reports/ReportListPage'
+import ReportDetailPage from './pages/reports/ReportDetailPage'
+import UserListPage from './pages/users/UserListPage'
+import UserDetailPage from './pages/users/UserDetailPage'
+import ListingListPage from './pages/listings/ListingListPage'
+import ListingDetailPage from './pages/listings/ListingDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,9 +59,12 @@ export default function App() {
               }
             >
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/reports" element={<PlaceholderPage title="신고센터" />} />
-              <Route path="/users" element={<PlaceholderPage title="유저 관리" />} />
-              <Route path="/listings" element={<PlaceholderPage title="매물 관리" />} />
+              <Route path="/reports" element={<ReportListPage />} />
+              <Route path="/reports/:id" element={<ReportDetailPage />} />
+              <Route path="/users" element={<UserListPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
+              <Route path="/listings" element={<ListingListPage />} />
+              <Route path="/listings/:id" element={<ListingDetailPage />} />
               <Route path="/support" element={<PlaceholderPage title="고객센터" />} />
               <Route path="/cms/notices" element={<PlaceholderPage title="공지 관리" />} />
               <Route path="/cms/faqs" element={<PlaceholderPage title="FAQ 관리" />} />

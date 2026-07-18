@@ -1,5 +1,23 @@
 /** fetch 래퍼 — same-origin 쿠키(admin_session), 401 시 로그인 이동, JSON 파싱·에러 정규화. */
 
+/** 백엔드 공통 페이지네이션 응답(schemas.Page) 미러. */
+export interface Page<T> {
+  items: T[]
+  total: number
+  page: number
+  size: number
+}
+
+/** undefined/빈 문자열 값은 생략하는 쿼리스트링 빌더. */
+export function buildQuery(params: Record<string, string | number | undefined>): string {
+  const usp = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') usp.set(key, String(value))
+  }
+  const s = usp.toString()
+  return s ? `?${s}` : ''
+}
+
 export class ApiError extends Error {
   status: number
 

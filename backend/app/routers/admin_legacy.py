@@ -1088,7 +1088,7 @@ async def admin_users_list(
             f"<tr>"
             f'<td><img class="avatar" src="{h(avatar)}" alt="" /></td>'
             f"<td>{h(nickname)}{admin_pill}</td>"
-            f'<td style="font-family:monospace;font-size:12px;">{h(u.phone)}</td>'
+            f'<td style="font-family:monospace;font-size:12px;">{h(u.phone or "—")}</td>'
             f"<td>{u.level}</td>"
             f"<td>{u.exp}</td>"
             f"<td>{u.gold}</td>"

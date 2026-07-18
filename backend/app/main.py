@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .engine_client import engine_client
 from .routers import (
+    admin_api,
     admin_legacy,
     app_version,
     auth,
@@ -155,6 +156,7 @@ app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
 app.include_router(coupons.router)
 app.include_router(admin_legacy.router)
+app.include_router(admin_api.router)
 app.include_router(support.router, prefix="/api")
 app.include_router(internal.router, prefix="/api")
 app.include_router(info_flood.router, prefix="/api")

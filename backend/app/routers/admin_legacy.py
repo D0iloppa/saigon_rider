@@ -9,15 +9,34 @@ from decimal import Decimal, InvalidOperation
 from html import escape as h
 from pathlib import Path
 
-import bcrypt
 import httpx
-import jwt
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..admin_auth import (
+    ADMIN_USER as _ADMIN_USER,
+)
+from ..admin_auth import (
+    COOKIE as _COOKIE,
+)
+from ..admin_auth import (
+    JWT_EXP_HOURS as _JWT_EXP_HOURS,
+)
+from ..admin_auth import (
+    AdminSession,
+    authenticate,
+    verify_admin_page,
+    verify_root_page,
+)
+from ..admin_auth import (
+    hash_password as _hash_password,
+)
+from ..admin_auth import (
+    issue_token as _issue_token,
+)
 from ..database import get_db
 from ..engine_client import engine_client
 from ..models import (
@@ -64,15 +83,7 @@ _log = logging.getLogger(__name__)
 
 _TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "admin"
 
-_ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-_ADMIN_PASS_HASH = os.getenv("ADMIN_PASS_HASH", "")
-# 폴백 금지 — 공개 리포에 노출된 고정 문자열로 서명되면 admin JWT를 누구나 위조할 수 있다.
-_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "")
-if not _JWT_SECRET:
-    raise RuntimeError("ADMIN_JWT_SECRET is not set — refusing to start with a forgeable admin session secret")
-_JWT_ALG = "HS256"
-_JWT_EXP_HOURS = 8
-_COOKIE = "admin_session"
+# 인증(JWT/쿠키/비밀번호) 계약은 admin_auth.py 공용 모듈로 이동 — 신규 admin API 와 SSO 공유.
 
 # Wiki 링크 — nginx /wiki/ 프록시 (ENV 로 override 가능)
 WIKI_BASE_PATH = os.getenv("WIKI_BASE_PATH", "/wiki/")
@@ -156,68 +167,10 @@ def _render_page(
     return HTMLResponse(layout)
 
 
-# ── JWT / 세션 ───────────────────────────────────────────────────
+# ── JWT / 세션 — 공용 모듈(admin_auth.py) 의존성에 legacy 이름 유지 ──
 
-
-class AdminSession:
-    """현재 로그인한 admin 의 컨텍스트."""
-
-    def __init__(self, username: str, role: str, account_id: str | None = None):
-        self.username = username
-        self.role = role  # "root" | "admin"
-        self.account_id = account_id
-
-    @property
-    def is_root(self) -> bool:
-        return self.role == "root"
-
-
-def _issue_token(*, username: str, role: str, account_id: str | None = None) -> str:
-    payload: dict[str, object] = {
-        "sub": username,
-        "role": role,
-        "exp": datetime.now(UTC) + timedelta(hours=_JWT_EXP_HOURS),
-    }
-    if account_id:
-        payload["aid"] = account_id
-    return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALG)
-
-
-def _decode_token(token: str) -> AdminSession | None:
-    try:
-        payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALG])
-    except jwt.PyJWTError:
-        return None
-    username = payload.get("sub") or ""
-    role = payload.get("role") or "root"  # 기존 토큰 (role 없음) 호환 — root 로 간주
-    account_id = payload.get("aid")
-    return AdminSession(username=username, role=role, account_id=account_id)
-
-
-async def verify_admin_session(admin_session: str | None = Cookie(default=None)) -> AdminSession:
-    sess = _decode_token(admin_session) if admin_session else None
-    if sess is None:
-        raise HTTPException(status_code=302, headers={"Location": "/admin-legacy/login"})
-    return sess
-
-
-async def verify_root_session(session: AdminSession = Depends(verify_admin_session)) -> AdminSession:
-    if not session.is_root:
-        raise HTTPException(status_code=403, detail="Root admin only")
-    return session
-
-
-def _hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
-
-
-def _verify_password(password: str, password_hash: str) -> bool:
-    if not password_hash:
-        return False
-    try:
-        return bcrypt.checkpw(password.encode(), password_hash.encode())
-    except ValueError:
-        return False
+verify_admin_session = verify_admin_page
+verify_root_session = verify_root_page
 
 
 # ── Pages ────────────────────────────────────────────────────────
@@ -240,23 +193,12 @@ async def admin_login_post(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    role: str | None = None
-    account_id: str | None = None
-
-    # 1) root (.env 정적 계정) 우선 매칭
-    if username == _ADMIN_USER and _verify_password(password, _ADMIN_PASS_HASH):
-        role = "root"
-    else:
-        # 2) DB 등록 admin_accounts 폴백
-        account = (await db.execute(select(AdminAccount).where(AdminAccount.username == username))).scalar_one_or_none()
-        if account and _verify_password(password, account.password_hash):
-            role = "admin"
-            account_id = str(account.id)
-
-    if role is None:
+    # root (.env 정적 계정) 우선 → admin_accounts 폴백 (admin_auth 공용)
+    sess = await authenticate(db, username, password)
+    if sess is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = _issue_token(username=username, role=role, account_id=account_id)
+    token = _issue_token(username=sess.username, role=sess.role, account_id=sess.account_id)
     resp = RedirectResponse(url="/admin-legacy/dashboard", status_code=302)
     resp.set_cookie(
         _COOKIE,

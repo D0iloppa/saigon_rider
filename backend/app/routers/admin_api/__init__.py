@@ -1,0 +1,12 @@
+"""신규 admin JSON API (`/admin/api/*`) — SPA 관리자 콘솔용.
+
+후속 패키지(P2·P3·P5·P6)가 reports / users / listings / dashboard / support / cms
+모듈을 추가하면 아래 include 목록에 등록한다.
+"""
+
+from fastapi import APIRouter
+
+from . import auth
+
+router = APIRouter(prefix="/admin/api", include_in_schema=False)
+router.include_router(auth.router)

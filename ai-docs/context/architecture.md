@@ -46,9 +46,10 @@
          ▼
 ┌─────────────────────────────────────────────────────┐
 │  Nginx (:18090) — saigon_nginx                      │
-│  /api/*      → bff:8080/api/*                       │
-│  /admin/*    → bff:8080/admin/*                     │
-│  /api/sre/*  → engine:8090/v1/*                     │
+│  /api/*        → bff:8080/api/*                     │
+│  /admin/api/*  → bff (JSON API) · /admin-legacy/*   │
+│    → bff (Jinja) · /admin/* → admin_frontend (SPA)  │
+│  /api/sre/*    → engine:8090/v1/*                   │
 └──────────┬──────────────────────┬───────────────────┘
            │                      │
 ┌──────────▼──────────┐  ┌────────▼────────────────────┐
@@ -350,6 +351,14 @@ location /api/ {
 location /admin/ {
     proxy_pass http://bff:8080/admin/;
 }
+```
+
+> **admin 라우팅 3분기 (2026-07-18 관리자 콘솔 리메이크 1차 — 위 `/admin/` 블록은 구버전, 현행은 `nginx/conf.d/default.conf`)**:
+> ① `/admin/api/*` → BFF JSON API (`backend/app/routers/admin_api/` — auth·dashboard·reports·users·listings·support·cms. 인증은 `backend/app/admin_auth.py` — JWT+httpOnly 쿠키 `admin_session`, `ADMIN_JWT_SECRET` 미설정 시 기동 거부)
+> ② `/admin-legacy/*` → BFF가 직접 서빙하는 기존 Jinja 콘솔 (`routers/admin_legacy.py`, 2차 이식 완료까지 병행 운영 — 신규↔legacy가 동일 쿠키 계약을 공유해 SSO 성립)
+> ③ 그 외 `/admin/*` → **신규 관리자 SPA 정적 서빙** — compose 서비스 `admin_frontend`(컨테이너 `saigon_admin_frontend`, `admin-frontend/` React+antd, vite base `/admin/`, 자체 nginx가 `/admin/index.html` fallback). 포트 미노출 — 진입 nginx 내부 프록시로만 접근.
+
+```nginx
 
 # 신규: Engine 내부 경로 (외부 직접 접근 차단 — 내부망에서만 허용)
 # 운영환경에서는 이 블록을 Nginx에 노출하지 않거나 IP 화이트리스트 적용

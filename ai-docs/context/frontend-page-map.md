@@ -102,7 +102,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **핵심 컴포넌트**: `StatusBar`, `SkillTree`, `ReviewSheet`, `TradeRow`, `LevelBadge`, `ImageCarousel`, `ItemSvgRenderer`
 - **휴대폰 인증 CTA 카드 (2026-07-17)**: sheetBody 최상단 카드, `user.phoneVerified` 기준 분기 — 미인증 → "휴대폰 인증 필요" 표시 + 탭 시 `/auth/phone-verify` 이동, 인증완료 → "휴대폰 인증 완료" 표시(비탭).
 - **하위 진입점** (모두 ProfileMain에서 navigate):
-  - 설정 아이콘 → `/settings` (하위: `notifications`/`language`/`account`/`blocked`/`profile`/`support`/`support/:id`/`privacy`/`terms`)
+  - 설정 아이콘 → `/settings` (하위: `notifications`/`language`/`account`/`blocked`/`profile`/`support`/`support/:id`/`privacy`/`terms`). 설정 메뉴에서 **공지사항(`/notices`)·FAQ(`/faq`)** 행 2개로도 진입 (2026-07-18, `Settings.tsx` — admin 콘솔 CMS 연동 화면, 아래 §3.8)
   - 팔로워/팔로잉 카운트 → `/followers/:userId`, `/following/:userId`
   - 친구추가 아이콘 → `/friends/add`(`FriendAdd.tsx`) / `/friends/:userId`(`FriendList.tsx`)
   - 거래이력 더보기 → `/trades`(`TradeHistory.tsx`)
@@ -157,6 +157,11 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 안전거래 가이드 | `/guide/safe-trade` | 홈 배너(`WorldMapV2.tsx`) | `SafeTradeGuide.tsx` — feat1 "휴대폰 인증 판매자" 문구로 정정(eKYC 미구현) |
 | 판매자 인증(폰 인증) | `/auth/phone-verify` | 탭바/게임허브 직접 진입 버튼 없음 — `/market/new` 진입 시 `VerifiedSellerRoute` 가드가 미인증 유저를 리다이렉트 | `PhoneVerify.tsx` (2026-07-16) — VN 번호 입력 → SMS OTP 검증 2단계. 헤더 타이틀 "판매자 인증"(`phoneVerify.headerTitle`) + 상단 패딩 축소 (2026-07-17) |
 | OAuth 팝업 결과 수신 | `/auth/oauth-result` | 사용자 직접 진입 없음 — Zalo **웹** 로그인 팝업의 BFF 콜백(`/auth/oauth/zalo/callback`, `platform=web` state)이 리다이렉트하는 종착지 | `OAuthResult.tsx` (2026-07-17, `34355f9`) — 쿼리 파싱 후 `window.opener`에 origin 검증 `postMessage` → `window.close()`; opener 없으면(팝업차단 폴백) 직접 세션 저장 후 네비게이션. 공개 라우트(PrivateRoute 밖). 네이티브 Zalo/Google/Apple은 기존 딥링크 경로 무변경 |
+| 공지사항 | `/notices`, `/notices/:id` | 설정(`Settings.tsx`) "공지사항" 행 | `pages/notices/NoticeList.tsx`/`NoticeDetail.tsx` (2026-07-18, `cdf5f6f`) — admin 콘솔 공지 CMS(`/admin/cms/notices`)가 발행한 글을 `GET /notices`로 표시 |
+| FAQ | `/faq` | 설정 "FAQ" 행 | `pages/faq/FaqList.tsx` (2026-07-18, `cdf5f6f`) — admin FAQ CMS 연동(`GET /faqs`), 카테고리 아코디언 |
+| 정지 안내 | `/suspended` | 직접 진입 없음 — `api/client.ts` 전역 핸들러가 401/403 `detail.code`(`account_suspended`/`account_banned`)를 세션만료보다 우선 감지해 리다이렉트(세션 유지 — 해제 후 재로그인 불필요). AppShell 탭바 숨김 | `pages/auth/Suspended.tsx` (2026-07-18, `7e12794`) |
+| 유저 신고 시트 | (라우트 없음 — 오버레이) | 공개 프로필 카드(`components/ProfileCard.tsx`) 헤더 신고 진입점 — 피드/팔로워·팔로잉/동네지도 공용 | 사유 선택 시트 자체 구현(공용 BottomSheet z-index 50 < ProfileCard 시트 201이라 상위 오버레이로 별도 구현), `api/profile.ts reportUser` (2026-07-18, `7e12794`) |
+| DM 신고 메뉴 | (라우트 없음 — 시트) | `/dm/:conversationId`(`DmDetail.tsx`) 헤더 더보기(케밥) | 사유 시트 → `api/dm.ts reportConversation`. 같은 화면에 DM 금칙어 차단 전용 토스트(`banned_keyword` 코드 분기)도 추가됨 (2026-07-18, `7e12794`) |
 
 ---
 

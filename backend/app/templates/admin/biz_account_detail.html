@@ -1,6 +1,6 @@
 <div class="toolbar">
   <div>
-    <a href="/admin/biz-accounts" style="color:rgba(255,255,255,.5);font-size:13px;text-decoration:none;">← 목록으로</a>
+    <a href="/admin-legacy/biz-accounts" style="color:rgba(255,255,255,.5);font-size:13px;text-decoration:none;">← 목록으로</a>
     <p class="page-title" style="margin-top:6px;">{{profile_name}}</p>
     <p class="page-sub">신청자: {{applicant}} · 상태: {{profile_status}}</p>
   </div>
@@ -30,7 +30,7 @@
 
 <div class="card">
   <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">그룹 지정 (브랜드 그룹, admin 전용)</h3>
-  <form method="post" action="/admin/biz-accounts/{{profile_id}}/group" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+  <form method="post" action="/admin-legacy/biz-accounts/{{profile_id}}/group" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
     <select name="group_id">
       {{group_options}}
     </select>

@@ -59,7 +59,7 @@ from ..utils import (
     resolve_feed_image_url,
 )
 
-router = APIRouter(prefix="/admin", tags=["관리자 (Admin)"])
+router = APIRouter(prefix="/admin-legacy", tags=["관리자 (Admin)"])
 _log = logging.getLogger(__name__)
 
 _TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "admin"
@@ -147,7 +147,9 @@ def _render_page(
     layout = layout.replace("{{admin_role}}", "ROOT" if is_root else "ADMIN")
     layout = layout.replace(
         "{{admins_menu}}",
-        '<a href="/admin/admins" class="{{nav_admins}}"><span class="icon">◆</span> 관리자 계정</a>' if is_root else "",
+        '<a href="/admin-legacy/admins" class="{{nav_admins}}"><span class="icon">◆</span> 관리자 계정</a>'
+        if is_root
+        else "",
     )
     for key in _NAV_KEYS:
         layout = layout.replace(f"{{{{nav_{key}}}}}", "active" if key == nav else "")
@@ -195,7 +197,7 @@ def _decode_token(token: str) -> AdminSession | None:
 async def verify_admin_session(admin_session: str | None = Cookie(default=None)) -> AdminSession:
     sess = _decode_token(admin_session) if admin_session else None
     if sess is None:
-        raise HTTPException(status_code=302, headers={"Location": "/admin/login"})
+        raise HTTPException(status_code=302, headers={"Location": "/admin-legacy/login"})
     return sess
 
 
@@ -223,7 +225,7 @@ def _verify_password(password: str, password_hash: str) -> bool:
 
 @router.get("/", include_in_schema=False)
 async def admin_root():
-    return RedirectResponse(url="/admin/login")
+    return RedirectResponse(url="/admin-legacy/login")
 
 
 @router.get("/login", include_in_schema=False)
@@ -255,7 +257,7 @@ async def admin_login_post(
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = _issue_token(username=username, role=role, account_id=account_id)
-    resp = RedirectResponse(url="/admin/dashboard", status_code=302)
+    resp = RedirectResponse(url="/admin-legacy/dashboard", status_code=302)
     resp.set_cookie(
         _COOKIE,
         token,
@@ -268,7 +270,7 @@ async def admin_login_post(
 
 @router.post("/logout", include_in_schema=False)
 async def admin_logout():
-    resp = RedirectResponse(url="/admin/login", status_code=302)
+    resp = RedirectResponse(url="/admin-legacy/login", status_code=302)
     resp.delete_cookie(_COOKIE)
     return resp
 
@@ -552,13 +554,13 @@ async def admin_quests_list(
             f"<td>{h(qu.reward_item or '—')}</td>"
             f"<td>{badge_pill}</td>"
             f"<td>{active_pill}</td>"
-            f'<td><a class="btn btn-ghost btn-sm" href="/admin/quests/{qu.id}/edit">수정</a></td>'
+            f'<td><a class="btn btn-ghost btn-sm" href="/admin-legacy/quests/{qu.id}/edit">수정</a></td>'
             f"</tr>"
         )
     if not rows_html:
         rows_html.append('<tr><td colspan="11" class="empty">조건에 맞는 퀘스트가 없습니다.</td></tr>')
 
-    pagination = _build_pagination("/admin/quests", page, size, total, q=q, period=period, active=active)
+    pagination = _build_pagination("/admin-legacy/quests", page, size, total, q=q, period=period, active=active)
 
     def sel(key, val, cur):
         return "selected" if cur == val else ""
@@ -643,7 +645,7 @@ async def admin_quest_new(
     ctx.update(
         mode_label="신규 퀘스트",
         form_sub="새 퀘스트를 등록합니다.",
-        form_action="/admin/quests/new",
+        form_action="/admin-legacy/quests/new",
         submit_label="등록",
         delete_btn="",
         district_options=await _districts_options(db, None),
@@ -707,7 +709,7 @@ async def admin_quest_create(
     await _apply_image_slot(db, quest, "thumbnail_content_id", thumbnail, "1")
     await _apply_image_slot(db, quest, "banner_content_id", banner_image, "1")
     await db.commit()
-    return RedirectResponse(url="/admin/quests", status_code=302)
+    return RedirectResponse(url="/admin-legacy/quests", status_code=302)
 
 
 @router.get("/quests/{quest_id}/edit", include_in_schema=False)
@@ -724,10 +726,10 @@ async def admin_quest_edit(
     ctx.update(
         mode_label="퀘스트 수정",
         form_sub=h(quest.title_ko or str(quest.id)),
-        form_action=f"/admin/quests/{quest.id}/edit",
+        form_action=f"/admin-legacy/quests/{quest.id}/edit",
         submit_label="저장",
         delete_btn=(
-            '<form method="post" action="/admin/quests/' + str(quest.id) + '/delete" '
+            '<form method="post" action="/admin-legacy/quests/' + str(quest.id) + '/delete" '
             'onsubmit="return confirm(&#39;정말 삭제하시겠습니까?&#39;);">'
             '<button type="submit" class="btn btn-danger">삭제</button></form>'
         ),
@@ -789,7 +791,7 @@ async def admin_quest_update(
     await _apply_image_slot(db, quest, "banner_content_id", banner_image, restore_banner)
 
     await db.commit()
-    return RedirectResponse(url="/admin/quests", status_code=302)
+    return RedirectResponse(url="/admin-legacy/quests", status_code=302)
 
 
 @router.post("/quests/{quest_id}/delete", include_in_schema=False)
@@ -803,7 +805,7 @@ async def admin_quest_delete(
         raise HTTPException(status_code=404, detail="Quest not found")
     await db.delete(quest)
     await db.commit()
-    return RedirectResponse(url="/admin/quests", status_code=302)
+    return RedirectResponse(url="/admin-legacy/quests", status_code=302)
 
 
 # ── 피드 관리 ────────────────────────────────────────────────────
@@ -885,8 +887,8 @@ async def admin_feed_list(
             f'<span class="feed-stat">&#9829; {post.like_count}</span>'
             f'<span class="feed-stat">&#128172; {post.comment_count}</span>'
             f'<span class="feed-actions">'
-            f'<a class="btn btn-ghost btn-sm" href="/admin/feed/{post.id}/edit">수정</a>'
-            f'<form method="post" action="/admin/feed/{post.id}/delete" style="display:inline;" '
+            f'<a class="btn btn-ghost btn-sm" href="/admin-legacy/feed/{post.id}/edit">수정</a>'
+            f'<form method="post" action="/admin-legacy/feed/{post.id}/delete" style="display:inline;" '
             f'onsubmit="{confirm_attr}">'
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
             f"</span>"
@@ -899,7 +901,7 @@ async def admin_feed_list(
         else ('<div class="empty" style="grid-column:1/-1;">등록된 피드가 없습니다.</div>')
     )
 
-    pagination = _build_pagination("/admin/feed", page, size, total)
+    pagination = _build_pagination("/admin-legacy/feed", page, size, total)
     return _render_page(
         "feed_list.html",
         nav="feed",
@@ -917,7 +919,7 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
         return {
             "mode_label": "관리자 피드 게시",
             "form_sub": "공통 계정 SaigonRider 로 새 피드를 게시합니다.",
-            "form_action": "/admin/feed/new",
+            "form_action": "/admin-legacy/feed/new",
             "submit_label": "게시",
             "content": "",
             "is_story_checked": "",
@@ -951,14 +953,14 @@ def _feed_form_ctx(post: FeedPost | None) -> dict[str, str]:
     else:
         current_image = ""
     delete_btn = (
-        '<form method="post" action="/admin/feed/' + str(post.id) + '/delete" '
+        '<form method="post" action="/admin-legacy/feed/' + str(post.id) + '/delete" '
         'onsubmit="return confirm(&#39;정말 삭제하시겠습니까?&#39;);">'
         '<button type="submit" class="btn btn-danger">삭제</button></form>'
     )
     return {
         "mode_label": "피드 수정",
         "form_sub": post.created_at.strftime("%Y-%m-%d %H:%M") + " 게시물",
-        "form_action": f"/admin/feed/{post.id}/edit",
+        "form_action": f"/admin-legacy/feed/{post.id}/edit",
         "submit_label": "저장",
         "content": h(post.content or ""),
         "is_story_checked": "checked" if post.is_story else "",
@@ -1013,7 +1015,7 @@ async def admin_feed_create(
         db.add(FeedPostImage(post_id=post.id, content_id=cid, sort_order=idx))
 
     await db.commit()
-    return RedirectResponse(url="/admin/feed", status_code=302)
+    return RedirectResponse(url="/admin-legacy/feed", status_code=302)
 
 
 @router.get("/feed/{post_id}/edit", include_in_schema=False)
@@ -1092,7 +1094,7 @@ async def admin_feed_update(
     post.is_story = str(is_story_val) == "1"
     post.updated_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse(url="/admin/feed", status_code=302)
+    return RedirectResponse(url="/admin-legacy/feed", status_code=302)
 
 
 @router.post("/feed/{post_id}/delete", include_in_schema=False)
@@ -1106,7 +1108,7 @@ async def admin_feed_delete(
         raise HTTPException(status_code=404, detail="Feed post not found")
     await db.delete(post)
     await db.commit()
-    return RedirectResponse(url="/admin/feed", status_code=302)
+    return RedirectResponse(url="/admin-legacy/feed", status_code=302)
 
 
 # ── 유저 관리 ────────────────────────────────────────────────────
@@ -1156,7 +1158,7 @@ async def admin_users_list(
     if not rows_html:
         rows_html.append('<tr><td colspan="9" class="empty">조건에 맞는 유저가 없습니다.</td></tr>')
 
-    pagination = _build_pagination("/admin/users", page, size, total, q=q)
+    pagination = _build_pagination("/admin-legacy/users", page, size, total, q=q)
     return _render_page(
         "users_list.html",
         nav="users",
@@ -1308,7 +1310,7 @@ async def admin_settings(
             f'<td style="color:#aaa;font-size:12px;">{note_preview}</td>'
             f"<td>{released}</td>"
             f"<td>"
-            f'<form method="post" action="/admin/settings/version/delete" style="display:inline;margin:0;">'
+            f'<form method="post" action="/admin-legacy/settings/version/delete" style="display:inline;margin:0;">'
             f'<input type="hidden" name="version_id" value="{pv.id}"/>'
             f'<button type="submit" class="btn btn-sm" style="background:rgba(239,59,59,.25);color:#fc8181;padding:2px 10px;font-size:11px;">삭제</button>'
             f"</form></td></tr>"
@@ -1344,17 +1346,17 @@ async def admin_settings_nickname(
     user = await _get_admin_user(db)
     nickname = nickname.strip()
     if not nickname:
-        return RedirectResponse(url="/admin/settings?flash=nickname_empty", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=nickname_empty", status_code=302)
     if len(nickname) > 30:
-        return RedirectResponse(url="/admin/settings?flash=nickname_long", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=nickname_long", status_code=302)
 
     dup = (await db.execute(select(User).where(User.nickname == nickname, User.id != user.id))).scalar_one_or_none()
     if dup is not None:
-        return RedirectResponse(url="/admin/settings?flash=nickname_dup", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=nickname_dup", status_code=302)
 
     user.nickname = nickname
     await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=nickname", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=nickname", status_code=302)
 
 
 # ── 관리자 계정 관리 (root 전용) ─────────────────────────────────
@@ -1402,8 +1404,8 @@ async def admin_admins_list(
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{a.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{a.updated_at.strftime("%Y-%m-%d %H:%M")}</td>'
             "<td>"
-            f'<a class="btn btn-ghost btn-sm" href="/admin/admins/{a.id}/edit">수정</a> '
-            f'<form method="post" action="/admin/admins/{a.id}/delete" style="display:inline;" '
+            f'<a class="btn btn-ghost btn-sm" href="/admin-legacy/admins/{a.id}/edit">수정</a> '
+            f'<form method="post" action="/admin-legacy/admins/{a.id}/delete" style="display:inline;" '
             f'onsubmit="{confirm_attr}">'
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
             "</td>"
@@ -1448,7 +1450,7 @@ async def admin_admin_new(
         session=session,
         mode_label="관리자 추가",
         form_sub="DB 등록 관리자 계정을 새로 만듭니다.",
-        form_action="/admin/admins/new",
+        form_action="/admin-legacy/admins/new",
         submit_label="등록",
         username="",
         username_readonly="",
@@ -1470,13 +1472,13 @@ async def admin_admin_create(
     username = username.strip()
     err = _validate_username(username)
     if err:
-        return RedirectResponse(url=f"/admin/admins?flash={err}", status_code=302)
+        return RedirectResponse(url=f"/admin-legacy/admins?flash={err}", status_code=302)
     if len(password) < 6:
-        return RedirectResponse(url="/admin/admins?flash=weak_password", status_code=302)
+        return RedirectResponse(url="/admin-legacy/admins?flash=weak_password", status_code=302)
 
     exists = (await db.execute(select(AdminAccount).where(AdminAccount.username == username))).scalar_one_or_none()
     if exists is not None:
-        return RedirectResponse(url="/admin/admins?flash=duplicate", status_code=302)
+        return RedirectResponse(url="/admin-legacy/admins?flash=duplicate", status_code=302)
 
     db.add(
         AdminAccount(
@@ -1486,7 +1488,7 @@ async def admin_admin_create(
         )
     )
     await db.commit()
-    return RedirectResponse(url="/admin/admins?flash=created", status_code=302)
+    return RedirectResponse(url="/admin-legacy/admins?flash=created", status_code=302)
 
 
 @router.get("/admins/{account_id}/edit", include_in_schema=False)
@@ -1505,7 +1507,7 @@ async def admin_admin_edit(
         session=session,
         mode_label="관리자 수정",
         form_sub=h(account.username),
-        form_action=f"/admin/admins/{account.id}/edit",
+        form_action=f"/admin-legacy/admins/{account.id}/edit",
         submit_label="저장",
         username=h(account.username),
         username_readonly="readonly",
@@ -1533,10 +1535,10 @@ async def admin_admin_update(
     account.note = note.strip() or None
     if password:
         if len(password) < 6:
-            return RedirectResponse(url="/admin/admins?flash=weak_password", status_code=302)
+            return RedirectResponse(url="/admin-legacy/admins?flash=weak_password", status_code=302)
         account.password_hash = _hash_password(password)
     await db.commit()
-    return RedirectResponse(url="/admin/admins?flash=updated", status_code=302)
+    return RedirectResponse(url="/admin-legacy/admins?flash=updated", status_code=302)
 
 
 @router.post("/admins/{account_id}/delete", include_in_schema=False)
@@ -1550,7 +1552,7 @@ async def admin_admin_delete(
         raise HTTPException(status_code=404, detail="Admin account not found")
     await db.delete(account)
     await db.commit()
-    return RedirectResponse(url="/admin/admins?flash=deleted", status_code=302)
+    return RedirectResponse(url="/admin-legacy/admins?flash=deleted", status_code=302)
 
 
 @router.post("/settings/nickname-word", include_in_schema=False)
@@ -1562,17 +1564,17 @@ async def admin_add_nickname_word(
 ):
     word = word.strip()
     if not word:
-        return RedirectResponse(url="/admin/settings?flash=word_empty", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=word_empty", status_code=302)
     if word_type not in ("adjective", "noun"):
         raise HTTPException(status_code=400, detail="Invalid word_type")
     dup = (
         await db.execute(select(NicknameWord).where(NicknameWord.word == word, NicknameWord.word_type == word_type))
     ).scalar_one_or_none()
     if dup:
-        return RedirectResponse(url="/admin/settings?flash=word_dup", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=word_dup", status_code=302)
     db.add(NicknameWord(word=word, word_type=word_type))
     await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=word_added", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=word_added", status_code=302)
 
 
 @router.post("/settings/nickname-word/delete", include_in_schema=False)
@@ -1585,7 +1587,7 @@ async def admin_delete_nickname_word(
     if row:
         await db.delete(row)
         await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=word_deleted", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=word_deleted", status_code=302)
 
 
 @router.post("/settings/nickname-word/api/add", include_in_schema=False)
@@ -1642,7 +1644,7 @@ async def admin_settings_version_add(
 ):
     version = version.strip()
     if not version:
-        return RedirectResponse(url="/admin/settings?flash=ver_error", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=ver_error", status_code=302)
 
     if is_active:
         await db.execute(select(AppVersion).where(AppVersion.is_active == True))
@@ -1682,7 +1684,7 @@ async def admin_settings_version_add(
     )
     db.add_all([ios, android])
     await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=ver_added", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=ver_added", status_code=302)
 
 
 @router.post("/settings/version/delete", include_in_schema=False)
@@ -1695,7 +1697,7 @@ async def admin_settings_version_delete(
     if v:
         await db.delete(v)
         await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=ver_deleted", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=ver_deleted", status_code=302)
 
 
 @router.post("/settings/avatar", include_in_schema=False)
@@ -1709,7 +1711,7 @@ async def admin_settings_avatar(
     # 프로필 사진은 contents 테이블로 중개 — content_id 만 저장 (URL 직접 저장 금지)
     user.avatar_content_id = saved.id
     await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=avatar", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=avatar", status_code=302)
 
 
 # ── SRE 관리자 콘솔 ──────────────────────────────────────────────
@@ -1717,7 +1719,7 @@ async def admin_settings_avatar(
 
 @router.get("/sre", include_in_schema=False)
 async def admin_sre_root():
-    return RedirectResponse(url="/admin/sre/ops")
+    return RedirectResponse(url="/admin-legacy/sre/ops")
 
 
 @router.get("/sre/ops", include_in_schema=False)
@@ -1818,7 +1820,7 @@ async def admin_sre_gacha_list(
             f"<td>{h(str(g.get('pity_threshold') or '—'))}</td>"
             f"<td>{pill}</td>"
             f"<td>{h(g.get('status', ''))}</td>"
-            f'<td><a class="btn btn-ghost btn-sm" href="/admin/sre/gacha/{code}/edit">수정</a></td>'
+            f'<td><a class="btn btn-ghost btn-sm" href="/admin-legacy/sre/gacha/{code}/edit">수정</a></td>'
             f"</tr>"
         )
 
@@ -1918,7 +1920,7 @@ async def admin_sre_gacha_update(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Engine 오류: {e}") from e
 
-    return RedirectResponse(url=f"/admin/sre/gacha/{gacha_code}/edit?flash=saved", status_code=302)
+    return RedirectResponse(url=f"/admin-legacy/sre/gacha/{gacha_code}/edit?flash=saved", status_code=302)
 
 
 @router.get("/sre/shop", include_in_schema=False)
@@ -1968,7 +1970,7 @@ async def admin_sre_shop_list(
             f"<td>{vis_pill}</td>"
             f"<td>{lock_pill}</td>"
             f"<td>"
-            f'<form method="post" action="/admin/sre/shop/{code}/edit" style="display:flex;gap:6px;align-items:center;">'
+            f'<form method="post" action="/admin-legacy/sre/shop/{code}/edit" style="display:flex;gap:6px;align-items:center;">'
             f'<input type="hidden" name="shop_price_gp" value="{gp}" />'
             f'<input type="hidden" name="shop_price_gc" value="{gc}" />'
             f'<select name="is_shop_visible" style="padding:4px 8px;font-size:12px;">'
@@ -2022,7 +2024,7 @@ async def admin_sre_shop_item_update(
         await engine_client.admin_update_shop_item(item_code, data)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Engine 오류: {e}") from e
-    return RedirectResponse(url="/admin/sre/shop", status_code=302)
+    return RedirectResponse(url="/admin-legacy/sre/shop", status_code=302)
 
 
 @router.get("/sre/daily-featured", include_in_schema=False)
@@ -2098,7 +2100,7 @@ async def admin_sre_daily_featured_refresh(
         await engine_client.admin_refresh_daily_featured(refresh_date, items)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Engine 오류: {e}") from e
-    return RedirectResponse(url="/admin/sre/daily-featured?flash=refreshed", status_code=302)
+    return RedirectResponse(url="/admin-legacy/sre/daily-featured?flash=refreshed", status_code=302)
 
 
 @router.post("/settings/service-config", include_in_schema=False)
@@ -2112,7 +2114,7 @@ async def admin_settings_service_config(
         if not 10 <= dm_val <= 300:
             raise ValueError
     except ValueError:
-        return RedirectResponse(url="/admin/settings?flash=config_error", status_code=302)
+        return RedirectResponse(url="/admin-legacy/settings?flash=config_error", status_code=302)
 
     dm_row = (
         await db.execute(select(AppConfig).where(AppConfig.group_name == "dm", AppConfig.key == "unread_poll_interval"))
@@ -2130,7 +2132,7 @@ async def admin_settings_service_config(
         )
 
     await db.commit()
-    return RedirectResponse(url="/admin/settings?flash=config_saved", status_code=302)
+    return RedirectResponse(url="/admin-legacy/settings?flash=config_saved", status_code=302)
 
 
 # ── SRE: 아이템 정의 관리 ────────────────────────────────────────────
@@ -2216,9 +2218,9 @@ async def admin_sre_items_list(
             f"<td>{gp} / {gc}</td>"
             f"<td>{vis_pill}</td>"
             f"<td style='white-space:nowrap;'>"
-            f"<a href='/admin/sre/items/{code}/edit' class='btn btn-ghost btn-sm'>수정</a>"
+            f"<a href='/admin-legacy/sre/items/{code}/edit' class='btn btn-ghost btn-sm'>수정</a>"
             f"&nbsp;"
-            f"<form method='post' action='/admin/sre/items/{code}/delete' style='display:inline;' "
+            f"<form method='post' action='/admin-legacy/sre/items/{code}/delete' style='display:inline;' "
             f"onsubmit=\"return confirm('아이템 [{code}]을 삭제할까요?\\n보유 유저가 있으면 삭제되지 않습니다.')\">"
             f"<button type='submit' class='btn btn-danger btn-sm'>삭제</button>"
             f"</form>"
@@ -2288,7 +2290,7 @@ def _item_form_html(*, item: dict | None = None, error: str = "") -> str:
         else f'<div class="field"><label class="field-label">아이템 코드 <span style="color:#f87171;">*</span></label>'
         f'<input type="text" name="item_code" value="{code}" placeholder="MOTORCYCLE_BODY_STREET_CLASSIC_C_01" required style="width:100%;font-family:monospace;" /></div>'
     )
-    action = f"/admin/sre/items/{code}/edit" if is_edit else "/admin/sre/items/new"
+    action = f"/admin-legacy/sre/items/{code}/edit" if is_edit else "/admin-legacy/sre/items/new"
     submit_label = "저장" if is_edit else "아이템 등록"
 
     return f"""
@@ -2355,7 +2357,7 @@ def _item_form_html(*, item: dict | None = None, error: str = "") -> str:
   </div>
   <div style="display:flex;gap:12px;margin-top:8px;">
     <button type="submit" class="btn">{submit_label}</button>
-    <a href="/admin/sre/items" class="btn btn-ghost">취소</a>
+    <a href="/admin-legacy/sre/items" class="btn btn-ghost">취소</a>
   </div>
 </form>
 """
@@ -2422,7 +2424,7 @@ async def admin_sre_items_create(
             form_title="새 아이템 등록",
             form_html=form_html,
         )
-    return RedirectResponse(url="/admin/sre/items", status_code=302)
+    return RedirectResponse(url="/admin-legacy/sre/items", status_code=302)
 
 
 @router.get("/sre/items/{item_code}/edit", include_in_schema=False)
@@ -2488,7 +2490,7 @@ async def admin_sre_items_update(
             form_title=f"수정 — {h(display_name)}",
             form_html=form_html,
         )
-    return RedirectResponse(url="/admin/sre/items", status_code=302)
+    return RedirectResponse(url="/admin-legacy/sre/items", status_code=302)
 
 
 @router.post("/sre/items/{item_code}/delete", include_in_schema=False)
@@ -2500,7 +2502,7 @@ async def admin_sre_items_delete(
         await engine_client.admin_delete_item(item_code)
     except Exception as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return RedirectResponse(url="/admin/sre/items", status_code=302)
+    return RedirectResponse(url="/admin-legacy/sre/items", status_code=302)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2547,7 +2549,7 @@ def _badge_table_rows(badges: list) -> str:
             f'<td style="font-size:11px;color:rgba(255,255,255,.5)">{cond}</td>'
             f"<td>{active}</td>"
             f"<td>{b.created_at.strftime('%Y-%m-%d') if b.created_at else ''}</td>"
-            f'<td><a href="/admin/badges/{b.id}/edit" class="btn btn-ghost btn-sm">수정</a></td>'
+            f'<td><a href="/admin-legacy/badges/{b.id}/edit" class="btn btn-ghost btn-sm">수정</a></td>'
             f"</tr>"
         )
     return "\n".join(rows)
@@ -2723,7 +2725,7 @@ async def admin_badge_create(
     )
     db.add(badge)
     await db.commit()
-    return RedirectResponse(url="/admin/badges", status_code=302)
+    return RedirectResponse(url="/admin-legacy/badges", status_code=302)
 
 
 @router.get("/badges/{badge_id}/edit", include_in_schema=False)
@@ -2799,7 +2801,7 @@ async def admin_badge_update(
     badge.is_active = is_active == "1"
     badge.condition_rule = rule
     await db.commit()
-    return RedirectResponse(url="/admin/badges", status_code=302)
+    return RedirectResponse(url="/admin-legacy/badges", status_code=302)
 
 
 @router.post("/badges/{badge_id}/delete", include_in_schema=False)
@@ -2813,7 +2815,7 @@ async def admin_badge_delete(
         raise HTTPException(status_code=404, detail="Badge not found")
     await db.delete(badge)
     await db.commit()
-    return RedirectResponse(url="/admin/badges", status_code=302)
+    return RedirectResponse(url="/admin-legacy/badges", status_code=302)
 
 
 # ── 메시지 스트림 모니터 ────────────────────────────────────────
@@ -3138,7 +3140,7 @@ async def admin_ride_config_save(
         if proximity_m <= 0:
             raise ValueError
     except (TypeError, ValueError):
-        return RedirectResponse("/admin/config/ride?flash=invalid_proximity", status_code=303)
+        return RedirectResponse("/admin-legacy/config/ride?flash=invalid_proximity", status_code=303)
 
     # 일일 퀘스트 기본 슬롯
     try:
@@ -3146,7 +3148,7 @@ async def admin_ride_config_save(
         if not 1 <= daily_slots <= 10:
             raise ValueError
     except (TypeError, ValueError):
-        return RedirectResponse("/admin/config/ride?flash=invalid_daily_slots", status_code=303)
+        return RedirectResponse("/admin-legacy/config/ride?flash=invalid_daily_slots", status_code=303)
 
     codes = form.getlist("band_code")
     thresholds = form.getlist("band_threshold")
@@ -3160,16 +3162,16 @@ async def admin_ride_config_save(
         try:
             thr = int(thr_raw)
         except (TypeError, ValueError):
-            return RedirectResponse("/admin/config/ride?flash=invalid_threshold", status_code=303)
+            return RedirectResponse("/admin-legacy/config/ride?flash=invalid_threshold", status_code=303)
         if thr <= 0:
-            return RedirectResponse("/admin/config/ride?flash=invalid_threshold", status_code=303)
+            return RedirectResponse("/admin-legacy/config/ride?flash=invalid_threshold", status_code=303)
         if code in seen_codes:
-            return RedirectResponse("/admin/config/ride?flash=duplicate_code", status_code=303)
+            return RedirectResponse("/admin-legacy/config/ride?flash=duplicate_code", status_code=303)
         seen_codes.add(code)
         bands.append({"code": code, "thresholdM": thr})
 
     if not bands:
-        return RedirectResponse("/admin/config/ride?flash=empty_bands", status_code=303)
+        return RedirectResponse("/admin-legacy/config/ride?flash=empty_bands", status_code=303)
 
     bands.sort(key=lambda b: b["thresholdM"], reverse=True)
 
@@ -3179,9 +3181,9 @@ async def admin_ride_config_save(
         await engine_client.update_seed("DAILY_QUEST_BASE_SLOTS", str(daily_slots))
     except Exception as e:
         _log.exception("ride config save failed: %s", e)
-        return RedirectResponse("/admin/config/ride?flash=engine_error", status_code=303)
+        return RedirectResponse("/admin-legacy/config/ride?flash=engine_error", status_code=303)
 
-    return RedirectResponse("/admin/config/ride?flash=saved", status_code=303)
+    return RedirectResponse("/admin-legacy/config/ride?flash=saved", status_code=303)
 
 
 # ── 유가 관리 ─────────────────────────────────────────────────────
@@ -3344,18 +3346,18 @@ async def admin_fuel_save(
     db: AsyncSession = Depends(get_db),
 ):
     if brand not in FUEL_BRANDS:
-        return RedirectResponse("/admin/fuel?flash=invalid_brand", status_code=303)
+        return RedirectResponse("/admin-legacy/fuel?flash=invalid_brand", status_code=303)
     if fuel_type not in FUEL_TYPES:
-        return RedirectResponse("/admin/fuel?flash=invalid_fuel", status_code=303)
+        return RedirectResponse("/admin-legacy/fuel?flash=invalid_fuel", status_code=303)
     if not 10_000 <= price_vnd <= 60_000:
-        return RedirectResponse("/admin/fuel?flash=invalid_price", status_code=303)
+        return RedirectResponse("/admin-legacy/fuel?flash=invalid_price", status_code=303)
 
     effective_time = None
     if effective_date.strip():
         try:
             effective_time = datetime.strptime(effective_date.strip(), "%Y-%m-%d").replace(tzinfo=UTC)
         except ValueError:
-            return RedirectResponse("/admin/fuel?flash=invalid_date", status_code=303)
+            return RedirectResponse("/admin-legacy/fuel?flash=invalid_date", status_code=303)
 
     await upsert_fuel_price(
         db,
@@ -3364,7 +3366,7 @@ async def admin_fuel_save(
         price_vnd=price_vnd,
         effective_time=effective_time,
     )
-    return RedirectResponse("/admin/fuel?flash=saved", status_code=303)
+    return RedirectResponse("/admin-legacy/fuel?flash=saved", status_code=303)
 
 
 # ── 주유소 제보 검증 큐 ──────────────────────────────────────────
@@ -3399,9 +3401,9 @@ async def admin_gas_submissions(
             color = _GAS_SUB_STATUS_COLOR.get(s.status, "#9CA3AF")
             if s.status == "PENDING":
                 actions = (
-                    f'<form method="post" action="/admin/gas-submissions/{s.submission_id}/confirm" style="display:inline;">'
+                    f'<form method="post" action="/admin-legacy/gas-submissions/{s.submission_id}/confirm" style="display:inline;">'
                     f'<button class="btn btn-sm" type="submit">승인</button></form> '
-                    f'<form method="post" action="/admin/gas-submissions/{s.submission_id}/reject" style="display:inline;margin-left:6px;">'
+                    f'<form method="post" action="/admin-legacy/gas-submissions/{s.submission_id}/reject" style="display:inline;margin-left:6px;">'
                     f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
                 )
             else:
@@ -3447,9 +3449,9 @@ async def admin_gas_submission_confirm(
 ):
     sub = await db.get(GasStationSubmission, submission_id)
     if not sub:
-        return RedirectResponse("/admin/gas-submissions?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/gas-submissions?flash=notfound", status_code=303)
     if sub.status != "PENDING":
-        return RedirectResponse("/admin/gas-submissions?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/gas-submissions?flash=done", status_code=303)
 
     station = GasStation(
         name=sub.name,
@@ -3470,7 +3472,7 @@ async def admin_gas_submission_confirm(
     sub.resulting_station_id = station.station_id
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse("/admin/gas-submissions?flash=confirmed", status_code=303)
+    return RedirectResponse("/admin-legacy/gas-submissions?flash=confirmed", status_code=303)
 
 
 @router.post("/gas-submissions/{submission_id}/reject", include_in_schema=False)
@@ -3482,15 +3484,15 @@ async def admin_gas_submission_reject(
 ):
     sub = await db.get(GasStationSubmission, submission_id)
     if not sub:
-        return RedirectResponse("/admin/gas-submissions?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/gas-submissions?flash=notfound", status_code=303)
     if sub.status != "PENDING":
-        return RedirectResponse("/admin/gas-submissions?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/gas-submissions?flash=done", status_code=303)
 
     sub.status = "REJECTED"
     sub.review_note = review_note.strip() or "반려"
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse("/admin/gas-submissions?flash=rejected", status_code=303)
+    return RedirectResponse("/admin-legacy/gas-submissions?flash=rejected", status_code=303)
 
 
 # ── 정비소 제보 검증 큐 ──────────────────────────────────────────
@@ -3522,9 +3524,9 @@ async def admin_repair_submissions(
             color = _GAS_SUB_STATUS_COLOR.get(s.status, "#9CA3AF")
             if s.status == "PENDING":
                 actions = (
-                    f'<form method="post" action="/admin/repair-submissions/{s.submission_id}/confirm" style="display:inline;">'
+                    f'<form method="post" action="/admin-legacy/repair-submissions/{s.submission_id}/confirm" style="display:inline;">'
                     f'<button class="btn btn-sm" type="submit">승인</button></form> '
-                    f'<form method="post" action="/admin/repair-submissions/{s.submission_id}/reject" style="display:inline;margin-left:6px;">'
+                    f'<form method="post" action="/admin-legacy/repair-submissions/{s.submission_id}/reject" style="display:inline;margin-left:6px;">'
                     f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
                 )
             else:
@@ -3569,9 +3571,9 @@ async def admin_repair_submission_confirm(
 ):
     sub = await db.get(RepairShopSubmission, submission_id)
     if not sub:
-        return RedirectResponse("/admin/repair-submissions?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/repair-submissions?flash=notfound", status_code=303)
     if sub.status != "PENDING":
-        return RedirectResponse("/admin/repair-submissions?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/repair-submissions?flash=done", status_code=303)
 
     shop = RepairShop(
         name=sub.name,
@@ -3590,7 +3592,7 @@ async def admin_repair_submission_confirm(
     sub.resulting_shop_id = shop.shop_id
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse("/admin/repair-submissions?flash=confirmed", status_code=303)
+    return RedirectResponse("/admin-legacy/repair-submissions?flash=confirmed", status_code=303)
 
 
 @router.post("/repair-submissions/{submission_id}/reject", include_in_schema=False)
@@ -3602,15 +3604,15 @@ async def admin_repair_submission_reject(
 ):
     sub = await db.get(RepairShopSubmission, submission_id)
     if not sub:
-        return RedirectResponse("/admin/repair-submissions?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/repair-submissions?flash=notfound", status_code=303)
     if sub.status != "PENDING":
-        return RedirectResponse("/admin/repair-submissions?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/repair-submissions?flash=done", status_code=303)
 
     sub.status = "REJECTED"
     sub.review_note = review_note.strip() or "반려"
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse("/admin/repair-submissions?flash=rejected", status_code=303)
+    return RedirectResponse("/admin-legacy/repair-submissions?flash=rejected", status_code=303)
 
 
 # ── 장소 제안 큐 (동네지도 프로필 실배선 P-BE T2) ─────────────────
@@ -3639,9 +3641,9 @@ async def admin_place_suggestions(
             color = _GAS_SUB_STATUS_COLOR.get(s.status, "#9CA3AF")
             if s.status == "PENDING":
                 actions = (
-                    f'<form method="post" action="/admin/place-suggestions/{s.id}/confirm" style="display:inline;">'
+                    f'<form method="post" action="/admin-legacy/place-suggestions/{s.id}/confirm" style="display:inline;">'
                     f'<button class="btn btn-sm" type="submit">승인</button></form> '
-                    f'<form method="post" action="/admin/place-suggestions/{s.id}/reject" style="display:inline;margin-left:6px;">'
+                    f'<form method="post" action="/admin-legacy/place-suggestions/{s.id}/reject" style="display:inline;margin-left:6px;">'
                     f'<button class="btn btn-danger btn-sm" type="submit">반려</button></form>'
                 )
             else:
@@ -3687,14 +3689,14 @@ async def admin_place_suggestion_confirm(
 ):
     sub = await db.get(PlaceSubmission, submission_id)
     if not sub:
-        return RedirectResponse("/admin/place-suggestions?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/place-suggestions?flash=notfound", status_code=303)
     if sub.status != "PENDING":
-        return RedirectResponse("/admin/place-suggestions?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/place-suggestions?flash=done", status_code=303)
 
     sub.status = "CONFIRMED"
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse("/admin/place-suggestions?flash=confirmed", status_code=303)
+    return RedirectResponse("/admin-legacy/place-suggestions?flash=confirmed", status_code=303)
 
 
 @router.post("/place-suggestions/{submission_id}/reject", include_in_schema=False)
@@ -3706,15 +3708,15 @@ async def admin_place_suggestion_reject(
 ):
     sub = await db.get(PlaceSubmission, submission_id)
     if not sub:
-        return RedirectResponse("/admin/place-suggestions?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/place-suggestions?flash=notfound", status_code=303)
     if sub.status != "PENDING":
-        return RedirectResponse("/admin/place-suggestions?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/place-suggestions?flash=done", status_code=303)
 
     sub.status = "REJECTED"
     sub.review_note = review_note.strip() or "반려"
     sub.reviewed_at = datetime.now(UTC)
     await db.commit()
-    return RedirectResponse("/admin/place-suggestions?flash=rejected", status_code=303)
+    return RedirectResponse("/admin-legacy/place-suggestions?flash=rejected", status_code=303)
 
 
 # ── 비즈니스 계정 심사 (SGR-312 BP-3) ────────────────────────────
@@ -3760,9 +3762,9 @@ async def admin_biz_accounts(
             )
             if bp.status == "PENDING":
                 actions = (
-                    f'<form method="post" action="/admin/biz-accounts/{bp.id}/approve" style="display:inline;">'
+                    f'<form method="post" action="/admin-legacy/biz-accounts/{bp.id}/approve" style="display:inline;">'
                     f'<button class="btn btn-sm" type="submit">승인</button></form> '
-                    f'<form method="post" action="/admin/biz-accounts/{bp.id}/reject" '
+                    f'<form method="post" action="/admin-legacy/biz-accounts/{bp.id}/reject" '
                     f'style="display:inline-flex;gap:4px;margin-left:6px;">'
                     f'<input type="text" name="reason" placeholder="반려 사유" required '
                     f'style="width:120px;padding:4px 8px;font-size:12px;">'
@@ -3774,7 +3776,7 @@ async def admin_biz_accounts(
                 f"<tr>"
                 f"<td>{bp.created_at.strftime('%m-%d %H:%M')}</td>"
                 f"<td>{photo}</td>"
-                f'<td><a href="/admin/biz-accounts/{bp.id}" style="color:#fff;text-decoration:none;">{h(bp.name)}</a></td>'
+                f'<td><a href="/admin-legacy/biz-accounts/{bp.id}" style="color:#fff;text-decoration:none;">{h(bp.name)}</a></td>'
                 f"<td>{h(bp.category or '—')}</td>"
                 f"<td>{h(bp.address or '—')}</td>"
                 f"<td>{h(bp.phone or '—')}</td>"
@@ -3815,9 +3817,9 @@ async def admin_biz_account_approve(
 ):
     bp = await db.get(BusinessProfile, profile_id)
     if not bp:
-        return RedirectResponse("/admin/biz-accounts?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-accounts?flash=notfound", status_code=303)
     if bp.status != "PENDING":
-        return RedirectResponse("/admin/biz-accounts?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-accounts?flash=done", status_code=303)
 
     bp.status = "APPROVED"
     bp.reviewed_at = datetime.now(UTC)
@@ -3827,7 +3829,7 @@ async def admin_biz_account_approve(
         "biz.profile_reviewed",
         {"user_id": str(bp.user_id), "profile_id": str(bp.id), "profile_name": bp.name, "result": "APPROVED"},
     )
-    return RedirectResponse("/admin/biz-accounts?flash=approved", status_code=303)
+    return RedirectResponse("/admin-legacy/biz-accounts?flash=approved", status_code=303)
 
 
 @router.post("/biz-accounts/{profile_id}/reject", include_in_schema=False)
@@ -3843,9 +3845,9 @@ async def admin_biz_account_reject(
 
     bp = await db.get(BusinessProfile, profile_id)
     if not bp:
-        return RedirectResponse("/admin/biz-accounts?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-accounts?flash=notfound", status_code=303)
     if bp.status != "PENDING":
-        return RedirectResponse("/admin/biz-accounts?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-accounts?flash=done", status_code=303)
 
     bp.status = "REJECTED"
     bp.reject_reason = reason
@@ -3862,7 +3864,7 @@ async def admin_biz_account_reject(
             "reject_reason": reason,
         },
     )
-    return RedirectResponse("/admin/biz-accounts?flash=rejected", status_code=303)
+    return RedirectResponse("/admin-legacy/biz-accounts?flash=rejected", status_code=303)
 
 
 @router.get("/biz-accounts/{profile_id}", include_in_schema=False)
@@ -3925,7 +3927,7 @@ async def admin_biz_account_detail(
             '<div class="card" style="margin-bottom:16px;">'
             '<h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">계정 정지</h3>'
             '<p class="page-sub" style="margin-bottom:12px;">정지 시 게시중이던 보유 광고가 일괄 중단(STOPPED)됩니다.</p>'
-            f'<form method="post" action="/admin/biz-accounts/{bp.id}/suspend">'
+            f'<form method="post" action="/admin-legacy/biz-accounts/{bp.id}/suspend">'
             '<button type="submit" class="btn btn-danger">계정 정지</button></form>'
             "</div>"
         )
@@ -3961,7 +3963,7 @@ async def admin_biz_account_suspend(
     if not bp:
         raise HTTPException(status_code=404, detail="Profile not found")
     if bp.status != "APPROVED":
-        return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=not_approved", status_code=303)
+        return RedirectResponse(f"/admin-legacy/biz-accounts/{profile_id}?flash=not_approved", status_code=303)
 
     bp.status = "SUSPENDED"
     bp.reviewed_at = datetime.now(UTC)
@@ -3987,7 +3989,7 @@ async def admin_biz_account_suspend(
         "biz.profile_reviewed",
         {"user_id": str(bp.user_id), "profile_id": str(bp.id), "profile_name": bp.name, "result": "SUSPENDED"},
     )
-    return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=suspended", status_code=303)
+    return RedirectResponse(f"/admin-legacy/biz-accounts/{profile_id}?flash=suspended", status_code=303)
 
 
 @router.post("/biz-accounts/{profile_id}/group", include_in_schema=False)
@@ -4016,7 +4018,7 @@ async def admin_biz_account_group(
     else:
         bp.group_id = None
     await db.commit()
-    return RedirectResponse(f"/admin/biz-accounts/{profile_id}?flash=grouped", status_code=303)
+    return RedirectResponse(f"/admin-legacy/biz-accounts/{profile_id}?flash=grouped", status_code=303)
 
 
 # ── 광고 소재 심사 (SGR-312 BP-4, §10-1 /admin/biz-ads) ─────────
@@ -4076,9 +4078,9 @@ async def admin_biz_ads(
                 bp_status = '<span style="color:rgba(255,255,255,.4);">—</span>'
             if ad.review_status == "PENDING":
                 actions = (
-                    f'<form method="post" action="/admin/biz-ads/{ad.id}/approve" style="display:inline;">'
+                    f'<form method="post" action="/admin-legacy/biz-ads/{ad.id}/approve" style="display:inline;">'
                     f'<button class="btn btn-sm" type="submit">승인</button></form> '
-                    f'<form method="post" action="/admin/biz-ads/{ad.id}/reject" '
+                    f'<form method="post" action="/admin-legacy/biz-ads/{ad.id}/reject" '
                     f'style="display:inline-flex;gap:4px;margin-left:6px;">'
                     f'<input type="text" name="reason" placeholder="반려 사유" required '
                     f'style="width:120px;padding:4px 8px;font-size:12px;">'
@@ -4131,14 +4133,14 @@ async def admin_biz_ad_approve(
 ):
     ad = await db.get(MarketplaceAd, ad_id)
     if not ad:
-        return RedirectResponse("/admin/biz-ads?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-ads?flash=notfound", status_code=303)
     if ad.review_status != "PENDING":
-        return RedirectResponse("/admin/biz-ads?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-ads?flash=done", status_code=303)
 
     bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
     # 정지(SUSPENDED) 등 비활성 프로필의 광고 승인 차단 — resume_ad 가드의 승인 경로 우회 방지
     if bp and bp.status != "APPROVED":
-        return RedirectResponse("/admin/biz-ads?flash=profile_not_active", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-ads?flash=profile_not_active", status_code=303)
 
     ad.review_status = "APPROVED"
     await db.commit()
@@ -4148,7 +4150,7 @@ async def admin_biz_ad_approve(
             "biz.ad_reviewed",
             {"user_id": str(bp.user_id), "ad_id": str(ad.id), "ad_title": ad.title, "result": "APPROVED"},
         )
-    return RedirectResponse("/admin/biz-ads?flash=approved", status_code=303)
+    return RedirectResponse("/admin-legacy/biz-ads?flash=approved", status_code=303)
 
 
 @router.post("/biz-ads/{ad_id}/reject", include_in_schema=False)
@@ -4164,9 +4166,9 @@ async def admin_biz_ad_reject(
 
     ad = await db.get(MarketplaceAd, ad_id)
     if not ad:
-        return RedirectResponse("/admin/biz-ads?flash=notfound", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-ads?flash=notfound", status_code=303)
     if ad.review_status != "PENDING":
-        return RedirectResponse("/admin/biz-ads?flash=done", status_code=303)
+        return RedirectResponse("/admin-legacy/biz-ads?flash=done", status_code=303)
 
     ad.review_status = "REJECTED"
     ad.reject_reason = reason
@@ -4184,7 +4186,7 @@ async def admin_biz_ad_reject(
                 "reject_reason": reason,
             },
         )
-    return RedirectResponse("/admin/biz-ads?flash=rejected", status_code=303)
+    return RedirectResponse("/admin-legacy/biz-ads?flash=rejected", status_code=303)
 
 
 # ── 고객센터 ─────────────────────────────────────────────────────
@@ -4227,7 +4229,7 @@ async def admin_support_list(
         pill = f'<span class="pill {_SUPPORT_STATUS_CLASS.get(st, "")}">{_SUPPORT_STATUS_LABEL.get(st, st)}</span>'
         unread = '<span class="pill warn">NEW</span>' if t.has_unread_reply else ""
         rows_html.append(
-            f"<tr onclick=\"location.href='/admin/support/{t.id}'\" style='cursor:pointer'>"
+            f"<tr onclick=\"location.href='/admin-legacy/support/{t.id}'\" style='cursor:pointer'>"
             f"<td>{h(str(t.id)[:8])}…</td>"
             f"<td>{h(t.title)}</td>"
             f"<td>{pill}</td>"
@@ -4238,12 +4240,12 @@ async def admin_support_list(
     if not rows_html:
         rows_html.append('<tr><td colspan="5" class="empty">문의가 없습니다.</td></tr>')
 
-    pagination = _build_pagination("/admin/support", page, size, total, status=status)
+    pagination = _build_pagination("/admin-legacy/support", page, size, total, status=status)
 
     status_tabs = ""
     for val, label in [("", "전체"), ("OPEN", "접수"), ("IN_PROGRESS", "처리중"), ("RESOLVED", "해결")]:
         active = "active" if status == val else ""
-        status_tabs += f'<a href="/admin/support?status={val}" class="tab {active}">{label}</a>'
+        status_tabs += f'<a href="/admin-legacy/support?status={val}" class="tab {active}">{label}</a>'
 
     return _render_page(
         "support_list.html",
@@ -4332,7 +4334,7 @@ async def admin_support_reply(
 
     body = reply_body.strip()
     if not body:
-        return RedirectResponse(f"/admin/support/{ticket_id}?flash=reply_empty", status_code=303)
+        return RedirectResponse(f"/admin-legacy/support/{ticket_id}?flash=reply_empty", status_code=303)
 
     reply = SupportReply(ticket_id=ticket_id, author_type="admin", body=body)
     db.add(reply)
@@ -4340,7 +4342,7 @@ async def admin_support_reply(
     if ticket.status == "OPEN":
         ticket.status = "IN_PROGRESS"
     await db.commit()
-    return RedirectResponse(f"/admin/support/{ticket_id}?flash=replied", status_code=303)
+    return RedirectResponse(f"/admin-legacy/support/{ticket_id}?flash=replied", status_code=303)
 
 
 @router.post("/support/{ticket_id}/status", include_in_schema=False)
@@ -4357,7 +4359,7 @@ async def admin_support_status(
     if new_status in ("OPEN", "IN_PROGRESS", "RESOLVED"):
         ticket.status = new_status
         await db.commit()
-    return RedirectResponse(f"/admin/support/{ticket_id}?flash=status_updated", status_code=303)
+    return RedirectResponse(f"/admin-legacy/support/{ticket_id}?flash=status_updated", status_code=303)
 
 
 # ── FCM 푸시 관리 ──────────────────────────────────────────────

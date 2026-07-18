@@ -23,7 +23,7 @@
 
 <!-- ── Filters ── -->
 <div class="card" style="margin-bottom:20px;">
-  <form method="get" action="/admin/stream" class="toolbar" style="margin-bottom:0;">
+  <form method="get" action="/admin-legacy/stream" class="toolbar" style="margin-bottom:0;">
     <div style="display:flex; gap:8px; align-items:center;">
       <select name="type" style="width:140px;">
         <option value="">전체 타입</option>
@@ -41,7 +41,7 @@
       <button type="submit" class="btn btn-ghost btn-sm">조회</button>
       <button type="button" class="btn btn-sm" style="background:#ff8055;color:#fff;margin-left:auto;" onclick="document.getElementById('gpsDialog').showModal()">GPS 체크</button>
     </div>
-    <a href="/admin/stream" class="btn btn-ghost btn-sm">초기화</a>
+    <a href="/admin-legacy/stream" class="btn btn-ghost btn-sm">초기화</a>
   </form>
 </div>
 
@@ -166,7 +166,7 @@ function openGpsTrace() {
   if (!uuid) { alert('UUID를 입력하세요.'); return; }
   if (!start || !end) { alert('시간 범위를 지정하세요.'); return; }
 
-  var url = '/admin/stream/gps-trace?uuid=' + encodeURIComponent(uuid)
+  var url = '/admin-legacy/stream/gps-trace?uuid=' + encodeURIComponent(uuid)
     + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end)
     + '&platform=' + platform;
 

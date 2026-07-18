@@ -25,7 +25,7 @@
     <img src="{{avatar_url}}" alt="avatar" style="width:120px;height:120px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);" />
 
     <div style="flex:1;">
-      <form method="post" action="/admin/settings/nickname" style="margin-bottom:22px;">
+      <form method="post" action="/admin-legacy/settings/nickname" style="margin-bottom:22px;">
         <div class="field" style="margin-bottom:0;">
           <label class="field-label">닉네임 (피드 표시 이름)</label>
           <div style="display:flex;gap:8px;">
@@ -37,7 +37,7 @@
         </div>
       </form>
 
-      <form method="post" action="/admin/settings/avatar" enctype="multipart/form-data">
+      <form method="post" action="/admin-legacy/settings/avatar" enctype="multipart/form-data">
         <div class="field" style="margin-bottom:12px;">
           <label class="field-label">프로필 이미지 업로드</label>
           <input type="file" name="avatar" accept="image/*" required style="font-size:12px;color:rgba(255,255,255,.6);" />
@@ -59,7 +59,7 @@
     앱 동작에 영향을 주는 런타임 설정값입니다.
   </p>
 
-  <form method="post" action="/admin/settings/service-config">
+  <form method="post" action="/admin-legacy/settings/service-config">
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div style="display:grid;grid-template-columns:220px 1fr auto;gap:12px;align-items:center;">
         <label style="font-size:12px;color:rgba(255,255,255,.6);">DM 미읽음 폴링 주기 (초)</label>
@@ -99,7 +99,7 @@
 
   <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">
     <p style="font-size:12px;font-weight:700;color:#ff8055;margin-bottom:12px;">새 버전 등록</p>
-    <form method="post" action="/admin/settings/version">
+    <form method="post" action="/admin-legacy/settings/version">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
         <div class="field" style="margin-bottom:0;">
           <label class="field-label">버전 (semver)</label>
@@ -131,8 +131,8 @@
   </div>
 </div>
 
-<link rel="stylesheet" href="/admin/static/vendor/tabulator/tabulator_midnight.min.css"/>
-<script src="/admin/static/vendor/tabulator/tabulator.min.js"></script>
+<link rel="stylesheet" href="/admin-legacy/static/vendor/tabulator/tabulator_midnight.min.css"/>
+<script src="/admin-legacy/static/vendor/tabulator/tabulator.min.js"></script>
 
 <style>
   .wp { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
@@ -273,7 +273,7 @@
       var row = cell.getRow();
       var data = row.getData();
       btn.disabled = true;
-      fetch("/admin/settings/nickname-word/api/delete", {
+      fetch("/admin-legacy/settings/nickname-word/api/delete", {
         method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({word_id: data.id})
       }).then(function(r){ return r.json(); }).then(function(res){
@@ -333,7 +333,7 @@
     if (!word) { input.focus(); return; }
 
     btn.disabled = true;
-    fetch("/admin/settings/nickname-word/api/add", {
+    fetch("/admin-legacy/settings/nickname-word/api/add", {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({word: word, word_type: type})
     }).then(function(r){ return r.json(); }).then(function(res){

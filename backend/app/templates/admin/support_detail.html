@@ -66,7 +66,7 @@
 
 <div class="toolbar">
   <div>
-    <a href="/admin/support" style="color:rgba(255,255,255,.5);font-size:13px;text-decoration:none;">← 목록으로</a>
+    <a href="/admin-legacy/support" style="color:rgba(255,255,255,.5);font-size:13px;text-decoration:none;">← 목록으로</a>
     <p class="page-title" style="margin-top:6px;">{{ticket_title}}</p>
     <p class="page-sub">유저: {{user_nick}} · 등록: {{ticket_created}}</p>
   </div>
@@ -88,7 +88,7 @@
 
 <div class="reply-form">
   <h3>답변 등록</h3>
-  <form method="post" action="/admin/support/{{ticket_id}}/reply">
+  <form method="post" action="/admin-legacy/support/{{ticket_id}}/reply">
     <textarea name="reply_body" placeholder="답변 내용을 입력하세요…"></textarea>
     <div style="margin-top:10px;display:flex;justify-content:flex-end;">
       <button type="submit" class="btn">답변 등록</button>
@@ -98,7 +98,7 @@
 
 <div class="status-form">
   <label>상태 변경</label>
-  <form method="post" action="/admin/support/{{ticket_id}}/status" style="display:flex;gap:8px;align-items:center;">
+  <form method="post" action="/admin-legacy/support/{{ticket_id}}/status" style="display:flex;gap:8px;align-items:center;">
     <select name="new_status">
       {{status_options}}
     </select>

@@ -94,7 +94,7 @@
     <thead><tr><th>Key</th><th>Value</th><th>Updated</th><th></th></tr></thead>
     <tbody>{{context_rows}}</tbody>
   </table>
-  <form class="add-form" method="post" action="/admin/dev/context">
+  <form class="add-form" method="post" action="/admin-legacy/dev/context">
     <div class="field">
       <label class="field-label">Key</label>
       <input type="text" name="key" required placeholder="e.g. current_sprint" style="width:160px;" />
@@ -111,7 +111,7 @@
 <div class="dev-grid">
   <div class="card">
     <div class="section-title">Features (기능 목록) <span class="count">{{feature_count}}건</span></div>
-    <form class="filter-form" method="get" action="/admin/dev">
+    <form class="filter-form" method="get" action="/admin-legacy/dev">
       <select name="f_status">
         <option value="">전체 상태</option>
         <option value="PLANNED" {{sel_f_PLANNED}}>PLANNED</option>
@@ -126,7 +126,7 @@
       <button type="submit" class="btn btn-ghost btn-sm">필터</button>
     </form>
     <div class="item-list">{{feature_rows}}</div>
-    <form class="add-form" method="post" action="/admin/dev/features">
+    <form class="add-form" method="post" action="/admin-legacy/dev/features">
       <div class="field">
         <label class="field-label">카테고리</label>
         <input type="text" name="category" required placeholder="e.g. feed" style="width:100px;" />
@@ -150,7 +150,7 @@
   <!-- Todos -->
   <div class="card">
     <div class="section-title">Todos <span class="count">{{todo_count}}건</span></div>
-    <form class="filter-form" method="get" action="/admin/dev">
+    <form class="filter-form" method="get" action="/admin-legacy/dev">
       <select name="t_status">
         <option value="">전체 상태</option>
         <option value="TODO" {{sel_t_TODO}}>TODO</option>
@@ -168,7 +168,7 @@
       <button type="submit" class="btn btn-ghost btn-sm">필터</button>
     </form>
     <div class="item-list">{{todo_rows}}</div>
-    <form class="add-form" method="post" action="/admin/dev/todos">
+    <form class="add-form" method="post" action="/admin-legacy/dev/todos">
       <div class="field">
         <label class="field-label">제목</label>
         <input type="text" name="title" required placeholder="할 일" style="width:200px;" />

@@ -1,5 +1,5 @@
-<link href="/admin/static/vendor/tom-select/tom-select.css" rel="stylesheet">
-<script src="/admin/static/vendor/tom-select/tom-select.complete.min.js"></script>
+<link href="/admin-legacy/static/vendor/tom-select/tom-select.css" rel="stylesheet">
+<script src="/admin-legacy/static/vendor/tom-select/tom-select.complete.min.js"></script>
 <style>
   .ts-wrapper { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; }
   .ts-wrapper .ts-control { background: transparent; color: #e2e8f0; border: none; padding: 6px 10px; }
@@ -107,7 +107,7 @@ function toggleMode() {
 (async function initRecipientSelect() {
   let users = [];
   try {
-    const res = await fetch('/admin/push/search-users?q=');
+    const res = await fetch('/admin-legacy/push/search-users?q=');
     users = await res.json();
   } catch(e) { console.error('유저 목록 로드 실패', e); }
 
@@ -158,7 +158,7 @@ async function sendPush() {
   if (mode === 'individual') payload.user_ids = selectedIds.map(Number);
 
   try {
-    const res = await fetch('/admin/push/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch('/admin-legacy/push/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await res.json();
     if (data.success) {
       resultEl.style.color = '#4ade80';
@@ -189,7 +189,7 @@ async function showBadges() {
   modal.classList.add('open');
 
   try {
-    const res = await fetch('/admin/push/badges');
+    const res = await fetch('/admin-legacy/push/badges');
     _badgeData = await res.json();
     _badgeData.sort((a, b) => b.badge_count - a.badge_count);
     _badgePage = 1;

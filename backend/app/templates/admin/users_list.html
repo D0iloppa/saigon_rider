@@ -5,7 +5,7 @@
   </div>
 </div>
 
-<form class="toolbar" method="get" action="/admin/users" style="margin-top:-8px;">
+<form class="toolbar" method="get" action="/admin-legacy/users" style="margin-top:-8px;">
   <div style="display:flex;gap:8px;">
     <input type="search" name="q" placeholder="닉네임 또는 전화번호" value="{{q}}" style="width:280px;" />
     <button type="submit" class="btn btn-ghost btn-sm">검색</button>
@@ -58,7 +58,7 @@ async function showDeviceInfo(userId) {
   document.getElementById('dm-at').textContent = '—';
   modal.style.display = 'flex';
   try {
-    const res = await fetch('/admin/users/' + userId + '/device');
+    const res = await fetch('/admin-legacy/users/' + userId + '/device');
     const d = await res.json();
     document.getElementById('dm-device').textContent = d.device_uuid || 'unlinked';
     document.getElementById('dm-fcm').textContent = d.fcm_token || 'unlinked';

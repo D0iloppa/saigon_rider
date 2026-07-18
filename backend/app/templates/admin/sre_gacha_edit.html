@@ -1,12 +1,12 @@
 <div class="breadcrumb">
-  <a href="/admin/sre/gacha">가챠 관리</a> › {{gacha_code}}
+  <a href="/admin-legacy/sre/gacha">가챠 관리</a> › {{gacha_code}}
 </div>
 <div class="page-title">가챠 수정</div>
 <p class="page-sub">{{gacha_code}}</p>
 
 {{flash}}
 
-<form method="post" action="/admin/sre/gacha/{{gacha_code}}/edit">
+<form method="post" action="/admin-legacy/sre/gacha/{{gacha_code}}/edit">
   <div class="card" style="max-width:720px;">
 
     <div class="field">
@@ -66,7 +66,7 @@
 
     <div style="display:flex;gap:12px;">
       <button type="submit" class="btn">저장</button>
-      <a href="/admin/sre/gacha" class="btn btn-ghost">취소</a>
+      <a href="/admin-legacy/sre/gacha" class="btn btn-ghost">취소</a>
     </div>
   </div>
 </form>

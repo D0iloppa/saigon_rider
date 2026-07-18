@@ -328,27 +328,27 @@
     </div>
 
     <nav class="nav">
-      <a href="/admin/dashboard" class="{{nav_dashboard}}"><span class="icon">▣</span> 대시보드</a>
-      <a href="/admin/quests" class="{{nav_quests}}"><span class="icon">◈</span> 퀘스트 관리</a>
-      <a href="/admin/feed" class="{{nav_feed}}"><span class="icon">▤</span> 피드 관리</a>
-      <a href="/admin/users" class="{{nav_users}}"><span class="icon">◉</span> 유저 관리</a>
+      <a href="/admin-legacy/dashboard" class="{{nav_dashboard}}"><span class="icon">▣</span> 대시보드</a>
+      <a href="/admin-legacy/quests" class="{{nav_quests}}"><span class="icon">◈</span> 퀘스트 관리</a>
+      <a href="/admin-legacy/feed" class="{{nav_feed}}"><span class="icon">▤</span> 피드 관리</a>
+      <a href="/admin-legacy/users" class="{{nav_users}}"><span class="icon">◉</span> 유저 관리</a>
       {{admins_menu}}
-      <a href="/admin/sre/ops" class="{{nav_sre}}"><span class="icon">⬡</span> SRE 운영</a>
-      <a href="/admin/badges" class="{{nav_badges}}"><span class="icon">★</span> 배지 관리</a>
-      <a href="/admin/sre/items" class="{{nav_items}}"><span class="icon">◈</span> 아이템 관리</a>
-      <a href="/admin/sre/policies" class="{{nav_policies}}"><span class="icon">⬢</span> 보상 정책</a>
-      <a href="/admin/config/ride" class="{{nav_ride_config}}"><span class="icon">◐</span> 라이딩 정책</a>
-      <a href="/admin/fuel" class="{{nav_fuel}}"><span class="icon">⛽</span> 유가 관리</a>
-      <a href="/admin/gas-submissions" class="{{nav_gas_submissions}}"><span class="icon">⛽</span> 주유소 제보</a>
-      <a href="/admin/repair-submissions" class="{{nav_repair_submissions}}"><span class="icon">🔧</span> 정비소 제보</a>
-      <a href="/admin/place-suggestions" class="{{nav_place_suggestions}}"><span class="icon">📍</span> 장소 제안</a>
-      <a href="/admin/biz-accounts" class="{{nav_biz_accounts}}"><span class="icon">🏢</span> 비즈니스 계정 심사</a>
-      <a href="/admin/biz-ads" class="{{nav_biz_ads}}"><span class="icon">📣</span> 광고 심사</a>
-      <a href="/admin/push" class="{{nav_push}}"><span class="icon">🔔</span> FCM 메시지</a>
-      <a href="/admin/stream" class="{{nav_stream}}"><span class="icon">◫</span> 메시지 스트림</a>
-      <a href="/admin/support" class="{{nav_support}}"><span class="icon">💬</span> 고객센터</a>
-      <a href="/admin/dev" class="{{nav_dev}}"><span class="icon">⟐</span> DEV Context</a>
-      <a href="/admin/settings" class="{{nav_settings}}"><span class="icon">⚙</span> 설정</a>
+      <a href="/admin-legacy/sre/ops" class="{{nav_sre}}"><span class="icon">⬡</span> SRE 운영</a>
+      <a href="/admin-legacy/badges" class="{{nav_badges}}"><span class="icon">★</span> 배지 관리</a>
+      <a href="/admin-legacy/sre/items" class="{{nav_items}}"><span class="icon">◈</span> 아이템 관리</a>
+      <a href="/admin-legacy/sre/policies" class="{{nav_policies}}"><span class="icon">⬢</span> 보상 정책</a>
+      <a href="/admin-legacy/config/ride" class="{{nav_ride_config}}"><span class="icon">◐</span> 라이딩 정책</a>
+      <a href="/admin-legacy/fuel" class="{{nav_fuel}}"><span class="icon">⛽</span> 유가 관리</a>
+      <a href="/admin-legacy/gas-submissions" class="{{nav_gas_submissions}}"><span class="icon">⛽</span> 주유소 제보</a>
+      <a href="/admin-legacy/repair-submissions" class="{{nav_repair_submissions}}"><span class="icon">🔧</span> 정비소 제보</a>
+      <a href="/admin-legacy/place-suggestions" class="{{nav_place_suggestions}}"><span class="icon">📍</span> 장소 제안</a>
+      <a href="/admin-legacy/biz-accounts" class="{{nav_biz_accounts}}"><span class="icon">🏢</span> 비즈니스 계정 심사</a>
+      <a href="/admin-legacy/biz-ads" class="{{nav_biz_ads}}"><span class="icon">📣</span> 광고 심사</a>
+      <a href="/admin-legacy/push" class="{{nav_push}}"><span class="icon">🔔</span> FCM 메시지</a>
+      <a href="/admin-legacy/stream" class="{{nav_stream}}"><span class="icon">◫</span> 메시지 스트림</a>
+      <a href="/admin-legacy/support" class="{{nav_support}}"><span class="icon">💬</span> 고객센터</a>
+      <a href="/admin-legacy/dev" class="{{nav_dev}}"><span class="icon">⟐</span> DEV Context</a>
+      <a href="/admin-legacy/settings" class="{{nav_settings}}"><span class="icon">⚙</span> 설정</a>
 
       <a href="{{wiki_url}}" target="_blank" rel="noopener" class="nav-external">
         <span class="icon">↗</span> 개발자 위키
@@ -360,7 +360,7 @@
         <div class="me-name">{{admin_username}}</div>
         <div class="me-role">{{admin_role}}</div>
       </div>
-      <form action="/admin/logout" method="post">
+      <form action="/admin-legacy/logout" method="post">
         <button class="logout-btn" type="submit">로그아웃</button>
       </form>
     </div>

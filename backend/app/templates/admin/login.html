@@ -250,14 +250,14 @@
       });
 
       try {
-        const res = await fetch('/admin/login', {
+        const res = await fetch('/admin-legacy/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body,
         });
 
         if (res.ok) {
-          window.location.href = '/admin/dashboard';
+          window.location.href = '/admin-legacy/dashboard';
         } else {
           errorMsg.classList.add('visible');
         }

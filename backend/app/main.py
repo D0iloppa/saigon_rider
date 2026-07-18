@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .engine_client import engine_client
 from .routers import (
-    admin,
+    admin_legacy,
     app_version,
     auth,
     badges,
@@ -154,7 +154,7 @@ app.include_router(season.router, prefix="/api")
 app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
 app.include_router(coupons.router)
-app.include_router(admin.router)
+app.include_router(admin_legacy.router)
 app.include_router(support.router, prefix="/api")
 app.include_router(internal.router, prefix="/api")
 app.include_router(info_flood.router, prefix="/api")
@@ -163,7 +163,7 @@ app.include_router(info_repair.router, prefix="/api")
 app.include_router(info_route.router, prefix="/api")
 app.include_router(info_weather.router, prefix="/api")
 
-app.mount("/admin/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")
+app.mount("/admin-legacy/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")
 
 
 @app.get("/api/health", tags=["system"], summary="헬스체크")

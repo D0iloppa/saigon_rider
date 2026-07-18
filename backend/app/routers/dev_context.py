@@ -22,7 +22,7 @@ from ..schemas import (
     Page,
 )
 from ..services import plane_client as plane
-from .admin import AdminSession, _render_page, verify_admin_session
+from .admin_legacy import AdminSession, _render_page, verify_admin_session
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +343,7 @@ async def dev_summary(db: AsyncSession = Depends(get_db)):
 
 # ── Admin HTML Pages — Plane 우선, DB 폴백 ─────────────────────
 
-admin_router = APIRouter(prefix="/admin", tags=["관리자 (Admin)"])
+admin_router = APIRouter(prefix="/admin-legacy", tags=["관리자 (Admin)"])
 
 
 def _status_pill(status: str) -> str:
@@ -404,9 +404,9 @@ async def admin_dev_page(
             f'<td class="kv-value">{h(r["value"] or "")}</td>'
             f'<td class="kv-time">{r["updated_at"][:16].replace("T", " ")}</td>'
             f'<td class="kv-actions">'
-            f'<form method="post" action="/admin/dev/context/{h(r["key"])}/status-cycle" style="display:inline;">'
+            f'<form method="post" action="/admin-legacy/dev/context/{h(r["key"])}/status-cycle" style="display:inline;">'
             f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
-            f'<form method="post" action="/admin/dev/context/{h(r["key"])}/delete" style="display:inline;"'
+            f'<form method="post" action="/admin-legacy/dev/context/{h(r["key"])}/delete" style="display:inline;"'
             f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
             f'<button type="submit" class="btn btn-danger btn-sm">삭제</button></form>'
             f"</td></tr>"
@@ -426,9 +426,9 @@ async def admin_dev_page(
                 f'<span class="item-cat">{h(f["category"])}</span>'
                 f'<span class="item-name">{h(f["name"])}{desc_line}</span>'
                 f"{_status_pill(f['status'])}"
-                f'<form method="post" action="/admin/dev/features/{f["id"]}/cycle" style="display:inline;">'
+                f'<form method="post" action="/admin-legacy/dev/features/{f["id"]}/cycle" style="display:inline;">'
                 f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
-                f'<form method="post" action="/admin/dev/features/{f["id"]}/delete" style="display:inline;"'
+                f'<form method="post" action="/admin-legacy/dev/features/{f["id"]}/delete" style="display:inline;"'
                 f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
                 f'<button type="submit" class="btn btn-danger btn-sm">×</button></form>'
                 f"</div>"
@@ -461,9 +461,9 @@ async def admin_dev_page(
                 f'<span class="item-cat">{h(f.category)}</span>'
                 f'<span class="item-name">{h(f.name)}{desc_line}</span>'
                 f"{_status_pill(f.status)}"
-                f'<form method="post" action="/admin/dev/features/{f.id}/cycle" style="display:inline;">'
+                f'<form method="post" action="/admin-legacy/dev/features/{f.id}/cycle" style="display:inline;">'
                 f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
-                f'<form method="post" action="/admin/dev/features/{f.id}/delete" style="display:inline;"'
+                f'<form method="post" action="/admin-legacy/dev/features/{f.id}/delete" style="display:inline;"'
                 f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
                 f'<button type="submit" class="btn btn-danger btn-sm">×</button></form>'
                 f"</div>"
@@ -492,9 +492,9 @@ async def admin_dev_page(
                 f'<span class="item-name">{h(t["title"])}{due}</span>'
                 f"{feat_label}"
                 f"{_status_pill(t['status'])}"
-                f'<form method="post" action="/admin/dev/todos/{t["id"]}/cycle" style="display:inline;">'
+                f'<form method="post" action="/admin-legacy/dev/todos/{t["id"]}/cycle" style="display:inline;">'
                 f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
-                f'<form method="post" action="/admin/dev/todos/{t["id"]}/delete" style="display:inline;"'
+                f'<form method="post" action="/admin-legacy/dev/todos/{t["id"]}/delete" style="display:inline;"'
                 f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
                 f'<button type="submit" class="btn btn-danger btn-sm">×</button></form>'
                 f"</div>"
@@ -530,9 +530,9 @@ async def admin_dev_page(
                 f'<span class="item-name">{h(t.title)}{due}</span>'
                 f"{feat_label}"
                 f"{_status_pill(t.status)}"
-                f'<form method="post" action="/admin/dev/todos/{t.id}/cycle" style="display:inline;">'
+                f'<form method="post" action="/admin-legacy/dev/todos/{t.id}/cycle" style="display:inline;">'
                 f'<button type="submit" class="btn btn-ghost btn-sm" title="상태 순환">↻</button></form>'
-                f'<form method="post" action="/admin/dev/todos/{t.id}/delete" style="display:inline;"'
+                f'<form method="post" action="/admin-legacy/dev/todos/{t.id}/delete" style="display:inline;"'
                 f" onsubmit=\"return confirm('삭제하시겠습니까?');\">"
                 f'<button type="submit" class="btn btn-danger btn-sm">×</button></form>'
                 f"</div>"
@@ -612,7 +612,7 @@ async def admin_dev_context_upsert(
     status: str = Form("⏸"),
 ):
     await plane.upsert_context(key.strip(), value.strip(), status.strip() or "⏸")
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 @admin_router.post("/dev/context/{key}/status-cycle", include_in_schema=False)
@@ -621,7 +621,7 @@ async def admin_dev_context_status_cycle(
     session: AdminSession = Depends(verify_admin_session),
 ):
     await plane.cycle_context_status(key)
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 @admin_router.post("/dev/context/{key}/delete", include_in_schema=False)
@@ -630,7 +630,7 @@ async def admin_dev_context_delete(
     session: AdminSession = Depends(verify_admin_session),
 ):
     await plane.delete_context(key)
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 @admin_router.post("/dev/features", include_in_schema=False)
@@ -645,13 +645,13 @@ async def admin_dev_feature_create(
         status = "PLANNED"
     try:
         await plane.create_issue(name.strip(), state=status, label=category.strip())
-        return RedirectResponse(url="/admin/dev", status_code=302)
+        return RedirectResponse(url="/admin-legacy/dev", status_code=302)
     except Exception:
         logger.warning("Plane API failed for admin_dev_feature_create, falling back to DB", exc_info=True)
 
     db.add(DevFeature(category=category.strip(), name=name.strip(), status=status))
     await db.commit()
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 _FEATURE_STATUS_CYCLE = ["PLANNED", "IN_PROGRESS", "DONE", "DEFERRED"]
@@ -668,7 +668,7 @@ async def admin_dev_feature_cycle(
         if issue:
             current = plane._state_to_status(issue["state"])
             await plane.cycle_feature_status(issue["id"], current)
-            return RedirectResponse(url="/admin/dev", status_code=302)
+            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
     except Exception:
         logger.warning("Plane API failed for admin_dev_feature_cycle, falling back to DB", exc_info=True)
 
@@ -678,7 +678,7 @@ async def admin_dev_feature_cycle(
         row.status = _FEATURE_STATUS_CYCLE[(idx + 1) % len(_FEATURE_STATUS_CYCLE)]
         row.updated_at = datetime.now(UTC)
         await db.commit()
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 @admin_router.post("/dev/features/{feature_id}/delete", include_in_schema=False)
@@ -691,7 +691,7 @@ async def admin_dev_feature_delete(
         issue = await plane.get_issue_by_sequence_id(feature_id)
         if issue:
             await plane.delete_issue(issue["id"])
-            return RedirectResponse(url="/admin/dev", status_code=302)
+            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
     except Exception:
         logger.warning("Plane API failed for admin_dev_feature_delete, falling back to DB", exc_info=True)
 
@@ -699,7 +699,7 @@ async def admin_dev_feature_delete(
     if row:
         await db.delete(row)
         await db.commit()
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 @admin_router.post("/dev/todos", include_in_schema=False)
@@ -714,14 +714,14 @@ async def admin_dev_todo_create(
         priority = "MEDIUM"
     try:
         await plane.create_issue(title.strip(), priority=priority)
-        return RedirectResponse(url="/admin/dev", status_code=302)
+        return RedirectResponse(url="/admin-legacy/dev", status_code=302)
     except Exception:
         logger.warning("Plane API failed for admin_dev_todo_create, falling back to DB", exc_info=True)
 
     fid = int(feature_id) if feature_id else None
     db.add(DevTodo(title=title.strip(), priority=priority, feature_id=fid))
     await db.commit()
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 _TODO_STATUS_CYCLE = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED"]
@@ -738,7 +738,7 @@ async def admin_dev_todo_cycle(
         if issue:
             current = plane._state_to_status(issue["state"])
             await plane.cycle_todo_status(issue["id"], current)
-            return RedirectResponse(url="/admin/dev", status_code=302)
+            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
     except Exception:
         logger.warning("Plane API failed for admin_dev_todo_cycle, falling back to DB", exc_info=True)
 
@@ -748,7 +748,7 @@ async def admin_dev_todo_cycle(
         row.status = _TODO_STATUS_CYCLE[(idx + 1) % len(_TODO_STATUS_CYCLE)]
         row.updated_at = datetime.now(UTC)
         await db.commit()
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
 @admin_router.post("/dev/todos/{todo_id}/delete", include_in_schema=False)
@@ -761,7 +761,7 @@ async def admin_dev_todo_delete(
         issue = await plane.get_issue_by_sequence_id(todo_id)
         if issue:
             await plane.delete_issue(issue["id"])
-            return RedirectResponse(url="/admin/dev", status_code=302)
+            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
     except Exception:
         logger.warning("Plane API failed for admin_dev_todo_delete, falling back to DB", exc_info=True)
 
@@ -769,4 +769,4 @@ async def admin_dev_todo_delete(
     if row:
         await db.delete(row)
         await db.commit()
-    return RedirectResponse(url="/admin/dev", status_code=302)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)

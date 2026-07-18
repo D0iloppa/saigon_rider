@@ -2,7 +2,7 @@
 <p class="page-sub">아이템 정의 등록 · 수정 · 삭제</p>
 
 <div class="toolbar">
-  <form method="get" action="/admin/sre/items" style="display:flex;gap:8px;flex-wrap:wrap;">
+  <form method="get" action="/admin-legacy/sre/items" style="display:flex;gap:8px;flex-wrap:wrap;">
     <input type="search" name="q" value="{{q}}" placeholder="코드 / 이름 검색" style="width:200px;" />
     <select name="slot">
       <option value="">슬롯 전체</option>
@@ -14,11 +14,11 @@
     </select>
     <input type="text" name="collection" value="{{collection}}" placeholder="컬렉션 코드" style="width:160px;font-family:monospace;" />
     <button type="submit" class="btn btn-ghost btn-sm">검색</button>
-    <a href="/admin/sre/items" class="btn btn-ghost btn-sm">초기화</a>
+    <a href="/admin-legacy/sre/items" class="btn btn-ghost btn-sm">초기화</a>
   </form>
   <div style="display:flex;align-items:center;gap:12px;">
     <span style="font-size:13px;color:rgba(255,255,255,.45);">총 <strong style="color:#fff;">{{total}}</strong>개</span>
-    <a href="/admin/sre/items/new" class="btn btn-sm">+ 아이템 등록</a>
+    <a href="/admin-legacy/sre/items/new" class="btn btn-sm">+ 아이템 등록</a>
   </div>
 </div>
 

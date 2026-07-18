@@ -129,3 +129,13 @@ export async function fetchAllBadges(userId?: string): Promise<BadgeWithEarned[]
   const qs = userId ? `?user_id=${userId}` : '';
   return api.realFetch<BadgeWithEarned[]>(`/badges${qs}`);
 }
+
+export type UserReportReason = 'ABUSE' | 'FRAUD' | 'INAPPROPRIATE_PROFILE' | 'SPAM' | 'OTHER';
+export const USER_REPORT_REASONS: UserReportReason[] = ['ABUSE', 'FRAUD', 'INAPPROPRIATE_PROFILE', 'SPAM', 'OTHER'];
+
+export async function reportUser(userId: string, reason: UserReportReason, note?: string): Promise<void> {
+  await api.realFetch(`/users/${userId}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, note: note ?? null }),
+  });
+}

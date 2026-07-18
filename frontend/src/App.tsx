@@ -12,7 +12,7 @@ import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
 import { apiSessionVerify } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
-import { setSessionExpiredHandler, SessionExpiredError } from '@/api/client';
+import { setSessionExpiredHandler, SessionExpiredError, setAccountRestrictedHandler, AccountRestrictedError } from '@/api/client';
 import { native } from '@/lib/native';
 import { fetchAppConfig } from '@/api/appVersion';
 import PrivateRoute from '@/components/auth/PrivateRoute';
@@ -24,6 +24,7 @@ import OAuthLogin from '@/pages/auth/OAuthLogin';
 import OAuthResult from '@/pages/auth/OAuthResult';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
 import PhoneVerify from '@/pages/auth/PhoneVerify';
+import Suspended from '@/pages/auth/Suspended';
 
 // Home
 import WorldMap from '@/pages/home/WorldMap'; // 백업 (미사용)
@@ -186,10 +187,19 @@ export default function App() {
     });
   }, [logout]);
 
-  // unhandled promise rejection에서 SessionExpiredError 무시 (이미 리다이렉트 처리됨)
+  // 정지/밴 계정 전역 핸들러 등록 — 세션은 유지(정지 해제 후 재로그인 불필요), 이미 /suspended 면
+  // 재기동 시 재확인 호출이 다시 403을 내도 리로드를 반복하지 않도록 가드.
+  useEffect(() => {
+    setAccountRestrictedHandler((code, until) => {
+      sessionStorage.setItem('account_restricted', JSON.stringify({ code, until }));
+      if (window.location.pathname !== '/suspended') window.location.replace('/suspended');
+    });
+  }, []);
+
+  // unhandled promise rejection에서 SessionExpiredError/AccountRestrictedError 무시 (이미 리다이렉트 처리됨)
   useEffect(() => {
     function onUnhandled(e: PromiseRejectionEvent) {
-      if (e.reason instanceof SessionExpiredError) e.preventDefault();
+      if (e.reason instanceof SessionExpiredError || e.reason instanceof AccountRestrictedError) e.preventDefault();
     }
     window.addEventListener('unhandledrejection', onUnhandled);
     return () => window.removeEventListener('unhandledrejection', onUnhandled);
@@ -289,8 +299,12 @@ export default function App() {
     apiSessionVerify(session.userId, session.sessionToken)
       .then((result) => {
         loginFromBackend(result.user);
+        // 정지 해제(lazy-lift) 후 정상 로그인 성공 — 이전 제재 안내 플래그 정리
+        sessionStorage.removeItem('account_restricted');
       })
-      .catch(() => {
+      .catch((err) => {
+        // 정지/밴 계정 — client.ts 핸들러가 이미 /suspended 리다이렉트 처리. 세션은 유지.
+        if (err instanceof AccountRestrictedError) return;
         clearSession();
         logout();
       })
@@ -328,6 +342,8 @@ export default function App() {
           <Route path="/auth/oauth-result" element={<OAuthResult />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
           <Route path="/auth/phone-verify" element={<PhoneVerify />} />
+          {/* 정지/밴 안내 — PrivateRoute 로 감싸지 않는다: 밴 유저는 최초 로그인부터 isAuthenticated 가 없을 수 있음 */}
+          <Route path="/suspended" element={<Suspended />} />
 
           {/* Deep link entry (auth-aware inside) */}
           <Route path="/link" element={<LinkRouter />} />

@@ -50,5 +50,6 @@ export function formatResponseRate(rate: number | null, t: TFunction): string {
 export function statusLabelKey(status: ListingStatus): string {
   if (status === 'RESERVED') return 'market.statusReserved';
   if (status === 'SOLD') return 'market.statusSold';
+  if (status === 'HIDDEN') return 'market.statusHidden';
   return 'market.statusOnSale';
 }

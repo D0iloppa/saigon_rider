@@ -23,6 +23,19 @@ export class SessionExpiredError extends Error {
   }
 }
 
+export type AccountRestrictionCode = 'account_suspended' | 'account_banned';
+
+export class AccountRestrictedError extends Error {
+  code: AccountRestrictionCode;
+  until: string | null;
+  constructor(code: AccountRestrictionCode, until: string | null) {
+    super('Account restricted');
+    this.name = 'AccountRestrictedError';
+    this.code = code;
+    this.until = until;
+  }
+}
+
 export function requireSession() {
   const session = loadSession();
   if (!session?.userId) handleSessionError();
@@ -35,10 +48,22 @@ export function setSessionExpiredHandler(handler: () => void) {
   _handleSessionExpired = handler;
 }
 
+let _handleAccountRestricted: ((code: AccountRestrictionCode, until: string | null) => void) | null = null;
+
+export function setAccountRestrictedHandler(handler: (code: AccountRestrictionCode, until: string | null) => void) {
+  _handleAccountRestricted = handler;
+}
+
 function handleSessionError(): never {
   clearSession();
   _handleSessionExpired?.();
   throw new SessionExpiredError();
+}
+
+// T&S 제재(정지/밴) — 세션은 유지한 채(정지 해제 후 재로그인 불필요) 전용 화면으로 유도
+function handleAccountRestricted(code: AccountRestrictionCode, until: string | null): never {
+  _handleAccountRestricted?.(code, until);
+  throw new AccountRestrictedError(code, until);
 }
 
 function baseUrl(service: Service = 'bff'): string {
@@ -91,8 +116,26 @@ async function realFetch<T>(
       if (res.status === 204) return null as T;
       return res.json();
     }
-    // OTP 검증(401=코드 오류) 등 세션 만료가 아닌 401 응답 호출부는 keepSessionOn401 로 강제 로그아웃을 건너뜀
-    if (res.status === 419 || (res.status === 401 && !_opts.keepSessionOn401)) handleSessionError();
+
+    // 정지/밴 계정 — 모든 인증 API가 403(로그인은 401)로 반환. 세션 만료 판정보다 우선 확인.
+    if (res.status === 401 || res.status === 403) {
+      const body: any = await res.json().catch(() => ({}));
+      const code = body?.detail?.code;
+      if (code === 'account_suspended' || code === 'account_banned') {
+        handleAccountRestricted(code, body?.detail?.until ?? null);
+      }
+      // OTP 검증(401=코드 오류) 등 세션 만료가 아닌 401 응답 호출부는 keepSessionOn401 로 강제 로그아웃을 건너뜀
+      if (res.status === 401 && !_opts.keepSessionOn401) handleSessionError();
+      const message = extractErrorMessage(body, res.status, `${method} ${url}`);
+      if (_opts.silent) {
+        console.warn(`[silent] ${message}`);
+        return null as T;
+      }
+      if (!_opts.rethrow) toast.error(message);
+      throw new Error(message);
+    }
+
+    if (res.status === 419) handleSessionError();
     // 재시도 가능한 오류면 toast 없이 다음 시도 (마지막 시도 제외)
     if (RETRYABLE_STATUS.has(res.status) && attempt < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
@@ -124,7 +167,22 @@ async function realFetchForm<T>(
     body,
   });
   if (!res.ok) {
-    if (res.status === 419 || res.status === 401) handleSessionError();
+    if (res.status === 401 || res.status === 403) {
+      const errBody: any = await res.json().catch(() => ({}));
+      const code = errBody?.detail?.code;
+      if (code === 'account_suspended' || code === 'account_banned') {
+        handleAccountRestricted(code, errBody?.detail?.until ?? null);
+      }
+      if (res.status === 401) handleSessionError();
+      const message = extractErrorMessage(errBody, res.status, `POST ${url}`);
+      if (_opts.silent) {
+        console.warn(`[silent] ${message}`);
+        return null as T;
+      }
+      toast.error(message);
+      throw new Error(message);
+    }
+    if (res.status === 419) handleSessionError();
     const err = await res.json().catch(() => ({}));
     const message = extractErrorMessage(err, res.status, `POST ${url}`);
     if (_opts.silent) {

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { MoreVertical } from 'lucide-react';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { Button } from '@/components/ui/Button';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
-import { fetchUserProfile } from '@/api/profile';
+import { fetchUserProfile, reportUser, USER_REPORT_REASONS, type UserReportReason } from '@/api/profile';
 import { fetchMyFeed, toggleCheer, fetchComments, postComment, toggleCommentLike } from '@/api/feed';
 import { followUser, unfollowUser } from '@/api/follows';
 import { createConversation } from '@/api/dm';
@@ -42,6 +43,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Feed
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
@@ -165,6 +167,7 @@ export function ProfileCard({ userId, open, onClose }: Props) {
       setTranslateY(typeof window !== 'undefined' ? window.innerHeight - 60 : 9999);
       setIsScrollable(false);
       setActivePost(null);
+      setReportOpen(false);
     }
   }, [open]);
 
@@ -305,6 +308,18 @@ export function ProfileCard({ userId, open, onClose }: Props) {
       toast.error(t('follow.dmError'));
     } finally {
       setDmLoading(false);
+    }
+  }
+
+  // ── 유저 신고 (T&S) ────────────────────────────────────────────
+  async function handleReport(reason: UserReportReason) {
+    if (!profile) return;
+    try {
+      await reportUser(profile.id, reason);
+      setReportOpen(false);
+      toast.success(t('follow.reportDone'));
+    } catch {
+      toast.error(t('follow.reportError'));
     }
   }
 
@@ -498,6 +513,16 @@ export function ProfileCard({ userId, open, onClose }: Props) {
                     <Chip variant="surface">🌙 {riderStyleLabel}</Chip>
                   )}
                 </div>
+                {me && me.id !== profile.id && (
+                  <button
+                    className={styles.reportBtn}
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    aria-label={t('follow.report')}
+                  >
+                    <MoreVertical size={20} />
+                  </button>
+                )}
               </div>
 
               <div className={styles.statsRow}>
@@ -654,6 +679,23 @@ export function ProfileCard({ userId, open, onClose }: Props) {
                 ↗
               </button>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* 신고 사유 — 공용 BottomSheet(z-index 50)는 이 시트(z-index 200대)보다 낮아 가려지므로
+          코멘트 오버레이와 같은 상위 z-index 티어로 자체 오버레이를 쓴다 */}
+      {reportOpen && (
+        <>
+          <div className={styles.reportBackdrop} onClick={() => setReportOpen(false)} />
+          <div className={styles.reportOverlaySheet}>
+            <div className={styles.commentGrabber} />
+            <h2 className={styles.reportSheetTitle}>{t('follow.reportTitle')}</h2>
+            {USER_REPORT_REASONS.map((r) => (
+              <button key={r} className={styles.reportItem} onClick={() => handleReport(r)}>
+                {t(`follow.reportReason_${r}`)}
+              </button>
+            ))}
           </div>
         </>
       )}

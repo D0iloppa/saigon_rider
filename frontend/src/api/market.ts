@@ -2,7 +2,7 @@ import i18n from '@/lib/i18n';
 import { api } from './client';
 import type { District } from './master';
 
-export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD';
+export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REMOVED';
 export type ListingSort = 'recent' | 'price_low' | 'price_high' | 'distance';
 
 export interface MarketCategory {

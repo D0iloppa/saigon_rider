@@ -90,6 +90,7 @@
     "statusOnSale": "판매중",
     "statusReserved": "예약중",
     "statusSold": "거래완료",
+    "statusHidden": "관리자에 의해 숨김",
     "negotiable": "가격 제안 가능",
     "bikeMinutes": "{{count}}분",
     "makeOffer": "가격제안",
@@ -677,7 +678,16 @@
     "album": "앨범",
     "emoticon": "이모티콘",
     "myReview": "내 후기",
-    "offerSummary": "가격 제안: {{amount}}"
+    "offerSummary": "가격 제안: {{amount}}",
+    "reportTitle": "신고 사유",
+    "reportDone": "신고가 접수되었어요",
+    "reportError": "이미 신고했거나 처리에 실패했어요",
+    "reportReason_ABUSE": "욕설·괴롭힘",
+    "reportReason_SCAM": "사기 의심",
+    "reportReason_SEXUAL": "성적 불쾌감",
+    "reportReason_SPAM": "스팸·광고",
+    "reportReason_OTHER": "기타",
+    "bannedKeyword": "금지된 표현이 포함되어 있습니다"
   },
   "follow": {
     "followers": "팔로워",
@@ -698,7 +708,16 @@
     "followedSuccess": "팔로우했습니다!",
     "dmError": "DM을 시작할 수 없습니다",
     "cameraError": "카메라를 시작할 수 없습니다",
-    "followError": "팔로우에 실패했습니다"
+    "followError": "팔로우에 실패했습니다",
+    "report": "신고하기",
+    "reportTitle": "신고 사유",
+    "reportDone": "신고가 접수되었어요",
+    "reportError": "이미 신고했거나 처리에 실패했어요",
+    "reportReason_ABUSE": "욕설·괴롭힘",
+    "reportReason_FRAUD": "사기 의심",
+    "reportReason_INAPPROPRIATE_PROFILE": "부적절한 프로필",
+    "reportReason_SPAM": "스팸·광고",
+    "reportReason_OTHER": "기타"
   },
   "feedEdit": {
     "title": "글 수정",
@@ -1691,5 +1710,13 @@
       "error": "후기 등록에 실패했어요",
       "loginRequired": "로그인 후 후기를 쓸 수 있어요"
     }
+  },
+  "suspended": {
+    "suspendedTitle": "이용이 일시 제한되었습니다",
+    "suspendedDesc": "{{date}} 이후 다시 이용하실 수 있어요",
+    "suspendedDescNoDate": "이용이 제한되었습니다",
+    "bannedTitle": "이용이 영구 제한되었습니다",
+    "bannedDesc": "이용 약관 위반으로 계정 이용이 영구적으로 제한되었습니다",
+    "contactHint": "이의가 있으시면 고객센터로 문의해주세요"
   }
 }

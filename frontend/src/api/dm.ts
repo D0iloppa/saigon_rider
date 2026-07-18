@@ -163,7 +163,7 @@ export async function sendMessage(
       message_type: opts.messageType ?? 'text',
       meta: opts.meta ?? null,
     }),
-  });
+  }, 'bff', { rethrow: true });
   return transformMessage(raw);
 }
 
@@ -235,4 +235,15 @@ export async function declinePriceOffer(offerId: string): Promise<PriceOffer> {
 
 export async function cancelPriceOffer(offerId: string): Promise<PriceOffer> {
   return transformPriceOffer(await api.realFetch<any>(`/market/price-offers/${offerId}/cancel`, { method: 'PATCH' }));
+}
+
+// ── T&S: 대화 신고 ────────────────────────────────────────────────
+export type DmReportReason = 'ABUSE' | 'SCAM' | 'SEXUAL' | 'SPAM' | 'OTHER';
+export const DM_REPORT_REASONS: DmReportReason[] = ['ABUSE', 'SCAM', 'SEXUAL', 'SPAM', 'OTHER'];
+
+export async function reportConversation(conversationId: string, reason: DmReportReason, note?: string): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, note: note ?? null }),
+  });
 }

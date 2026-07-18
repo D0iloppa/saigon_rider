@@ -90,6 +90,7 @@
     "statusOnSale": "Đang bán",
     "statusReserved": "Đang giữ chỗ",
     "statusSold": "Đã bán",
+    "statusHidden": "Đã bị ẩn bởi quản trị viên",
     "negotiable": "Có thể trả giá",
     "bikeMinutes": "{{count}} phút",
     "makeOffer": "Trả giá",
@@ -677,7 +678,16 @@
     "album": "Album",
     "emoticon": "Nhãn dán",
     "myReview": "Đánh giá của tôi",
-    "offerSummary": "Trả giá: {{amount}}"
+    "offerSummary": "Trả giá: {{amount}}",
+    "reportTitle": "Lý do báo cáo",
+    "reportDone": "Đã gửi báo cáo",
+    "reportError": "Bạn đã báo cáo trước đó hoặc xử lý thất bại",
+    "reportReason_ABUSE": "Lăng mạ · quấy rối",
+    "reportReason_SCAM": "Nghi ngờ lừa đảo",
+    "reportReason_SEXUAL": "Nội dung khiêu dâm",
+    "reportReason_SPAM": "Spam · quảng cáo",
+    "reportReason_OTHER": "Khác",
+    "bannedKeyword": "Tin nhắn chứa từ ngữ bị cấm"
   },
   "follow": {
     "followers": "Người theo dõi",
@@ -698,7 +708,16 @@
     "followedSuccess": "Đã theo dõi!",
     "dmError": "Không thể bắt đầu DM",
     "cameraError": "Không thể khởi động máy ảnh",
-    "followError": "Theo dõi thất bại"
+    "followError": "Theo dõi thất bại",
+    "report": "Báo cáo",
+    "reportTitle": "Lý do báo cáo",
+    "reportDone": "Đã gửi báo cáo",
+    "reportError": "Bạn đã báo cáo trước đó hoặc xử lý thất bại",
+    "reportReason_ABUSE": "Lăng mạ · quấy rối",
+    "reportReason_FRAUD": "Nghi ngờ lừa đảo",
+    "reportReason_INAPPROPRIATE_PROFILE": "Hồ sơ không phù hợp",
+    "reportReason_SPAM": "Spam · quảng cáo",
+    "reportReason_OTHER": "Khác"
   },
   "feedEdit": {
     "title": "Sửa bài viết",
@@ -1691,5 +1710,13 @@
       "error": "Không thể đăng đánh giá",
       "loginRequired": "Đăng nhập để viết đánh giá"
     }
+  },
+  "suspended": {
+    "suspendedTitle": "Tài khoản tạm thời bị hạn chế",
+    "suspendedDesc": "Bạn có thể sử dụng lại sau {{date}}",
+    "suspendedDescNoDate": "Tài khoản đang bị hạn chế",
+    "bannedTitle": "Tài khoản đã bị hạn chế vĩnh viễn",
+    "bannedDesc": "Tài khoản của bạn đã bị hạn chế vĩnh viễn do vi phạm điều khoản sử dụng",
+    "contactHint": "Nếu có thắc mắc, vui lòng liên hệ bộ phận hỗ trợ"
   }
 }

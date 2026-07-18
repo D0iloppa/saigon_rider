@@ -76,6 +76,63 @@
   gap: 16px;
 }
 
+.reportBtn {
+  margin-left: auto;
+  align-self: flex-start;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.reportBtn:active {
+  color: var(--text-2);
+}
+
+/* 프로필 시트(z-index 201) 위에 떠야 하므로 코멘트 오버레이와 같은 상위 티어 사용 */
+.reportBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 13, 20, 0.4);
+  z-index: 210;
+}
+
+.reportOverlaySheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 211;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px calc(20px + var(--bottom-safe));
+  display: flex;
+  flex-direction: column;
+}
+
+.reportSheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.reportItem {
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.reportItem:active {
+  background: var(--surface-2);
+}
+
 .avatar {
   width: 64px;
   height: 64px;

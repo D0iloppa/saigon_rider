@@ -90,6 +90,7 @@
     "statusOnSale": "On sale",
     "statusReserved": "Reserved",
     "statusSold": "Sold",
+    "statusHidden": "Hidden by admin",
     "negotiable": "Open to offers",
     "bikeMinutes": "{{count}} min",
     "makeOffer": "Make offer",
@@ -677,7 +678,16 @@
     "album": "Album",
     "emoticon": "Stickers",
     "myReview": "My review",
-    "offerSummary": "Price offer: {{amount}}"
+    "offerSummary": "Price offer: {{amount}}",
+    "reportTitle": "Report reason",
+    "reportDone": "Report submitted",
+    "reportError": "Already reported, or the request failed",
+    "reportReason_ABUSE": "Abuse or harassment",
+    "reportReason_SCAM": "Suspected scam",
+    "reportReason_SEXUAL": "Sexual content",
+    "reportReason_SPAM": "Spam / advertising",
+    "reportReason_OTHER": "Other",
+    "bannedKeyword": "Your message contains a banned word"
   },
   "follow": {
     "followers": "Followers",
@@ -698,7 +708,16 @@
     "followedSuccess": "Followed!",
     "dmError": "Could not start DM",
     "cameraError": "Camera initialization failed",
-    "followError": "Failed to follow"
+    "followError": "Failed to follow",
+    "report": "Report",
+    "reportTitle": "Report reason",
+    "reportDone": "Report submitted",
+    "reportError": "Already reported, or the request failed",
+    "reportReason_ABUSE": "Abuse or harassment",
+    "reportReason_FRAUD": "Suspected fraud",
+    "reportReason_INAPPROPRIATE_PROFILE": "Inappropriate profile",
+    "reportReason_SPAM": "Spam / advertising",
+    "reportReason_OTHER": "Other"
   },
   "feedEdit": {
     "title": "Edit Post",
@@ -1691,5 +1710,13 @@
       "error": "Couldn't post your review",
       "loginRequired": "Log in to write a review"
     }
+  },
+  "suspended": {
+    "suspendedTitle": "Your account is temporarily restricted",
+    "suspendedDesc": "You can use the app again after {{date}}",
+    "suspendedDescNoDate": "Your account is restricted",
+    "bannedTitle": "Your account has been permanently restricted",
+    "bannedDesc": "Your account has been permanently restricted for violating the terms of service",
+    "contactHint": "If you have any questions, please contact customer support"
   }
 }

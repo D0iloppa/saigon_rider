@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarPlus, HandCoins, MapPin, Smile, ImagePlus } from 'lucide-react';
+import { CalendarPlus, HandCoins, MapPin, Smile, ImagePlus, MoreVertical } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -24,6 +24,9 @@ import {
   acceptPriceOffer,
   declinePriceOffer,
   cancelPriceOffer,
+  reportConversation,
+  DM_REPORT_REASONS,
+  type DmReportReason,
 } from '@/api/dm';
 import type { Appointment, PriceOffer } from '@/api/types';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
@@ -63,6 +66,7 @@ export default function DmDetail() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<MessageComposerHandle>(null);
@@ -153,8 +157,27 @@ export default function DmDetail() {
     try {
       const msg = await sendMessage(conversationId, text);
       setMessages((prev) => [...prev, msg]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      toast.error(
+        msg.includes('banned_keyword')
+          ? t('dm.bannedKeyword', { defaultValue: '금지된 표현이 포함되어 있습니다' })
+          : t('common.errorUnexpected'),
+      );
     } finally {
       setSending(false);
+    }
+  };
+
+  // 대화 신고 (T&S)
+  const handleReport = async (reason: DmReportReason) => {
+    if (!conversationId) return;
+    try {
+      await reportConversation(conversationId, reason);
+      setReportOpen(false);
+      toast.success(t('dm.reportDone', { defaultValue: '신고가 접수되었어요' }));
+    } catch {
+      toast.error(t('dm.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
     }
   };
 
@@ -330,7 +353,19 @@ export default function DmDetail() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={otherName} />
+      <TopBar
+        title={otherName}
+        rightContent={
+          <button
+            className={styles.headerMoreBtn}
+            type="button"
+            onClick={() => setReportOpen(true)}
+            aria-label={t('dm.more', { defaultValue: '더보기' })}
+          >
+            <MoreVertical size={22} strokeWidth={2} />
+          </button>
+        }
+      />
 
       {/* 매물 컨텍스트 카드 */}
       {listing && (
@@ -688,6 +723,18 @@ export default function DmDetail() {
         listingId={conv?.contextId ?? undefined}
         onSubmitted={handleReviewSubmitted}
       />
+
+      {/* 대화 신고 사유 */}
+      <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.reportSheetTitle}>{t('dm.reportTitle', { defaultValue: '신고 사유' })}</h2>
+          {DM_REPORT_REASONS.map((r) => (
+            <button key={r} className={styles.reportItem} onClick={() => handleReport(r)}>
+              {t(`dm.reportReason_${r}`)}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
     </div>
   );
 }

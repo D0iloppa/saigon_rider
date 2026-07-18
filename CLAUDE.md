@@ -131,6 +131,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **i18n**: 공통 로케일 유틸은 `landing/apps/client/src/lib/locale.ts` (vi 기본, `/ko` `/en` 경로). 페이지별 텍스트는 각 페이지 폴더의 `content.ts`.
 - **라우팅**: root+www+business → `/var/www/saigon-rider` 정적 서빙 (React가 도메인별 분기), `app.saigon-rider.com` → 컨테이너 앱(:18090). 설정: `deploy/saigon-rider.conf`. 인증서는 saigon-rider.com 하나에 SAN 으로 root/www/app/business 전부 포함.
 
+## 관리자 콘솔 배포 — `어드민배포`
+
+`admin-frontend/` (React SPA 관리자 콘솔, `:18090/admin/`)는 landing 과 달리 **정적 배포 스크립트가 없다** — docker compose 서비스(`admin_frontend`)라서 재빌드가 곧 배포다. "어드민배포"라고 하면 아래를 실행한다.
+
+- **빌드 + 배포**:
+  ```bash
+  docker compose --env-file .env up --build -d admin_frontend   # Dockerfile 2-stage 가 npm build 수행 (호스트 npm 불필요)
+  ```
+  - admin API(백엔드) 변경이 같이 있으면 `bff` 도 함께: `... up --build -d bff admin_frontend`
+  - `/admin/` 은 nginx 가 변수+resolver 프록시라 **nginx 재시작 불필요**. 단 `bff`/`frontend` 재빌드 후 502 가 나면 리터럴 proxy_pass 의 구 IP 캐시 탓 — `docker restart saigon_nginx`.
+- **접속**: dev `http://<호스트>:18090/admin/`, 운영 `https://app.saigon-rider.com/admin/`. 로그인은 root(.env `ADMIN_USER`) 또는 `admin_accounts` 계정 (JWT 쿠키 `admin_session`, 구 어드민과 SSO).
+- **구 어드민(레거시)**: `/admin-legacy/` 로 병행 서빙 (서버렌더, bff 소유). 2차 이식 완료 전까지 유지.
+- **라우팅** (`nginx/conf.d/default.conf`): `/admin/api/` → bff:8080 (JSON API), `/admin-legacy/` → bff:8080, `/admin/` → admin_frontend:80 (SPA), `= /admin` → 301.
+
 ## 보안 최소 룰 (전문은 agent-guidelines §4)
 
 - `.env` 와 `.env.example` 은 항상 동일한 키셋. 한쪽에 키 추가/삭제/이름변경 시 **즉시** 반대쪽도 갱신.

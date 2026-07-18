@@ -45,6 +45,17 @@ services:
       - dev-net
     restart: unless-stopped
 
+  # ── Admin Frontend (React SPA → nginx 정적 서빙) ──────────
+  # 포트 미노출 — 진입 nginx 경유(/admin/)로만 접근 (내부 네트워크 전용)
+  admin_frontend:
+    build:
+      context: ./admin-frontend
+      dockerfile: Dockerfile
+    container_name: saigon_admin_frontend
+    networks:
+      - dev-net
+    restart: unless-stopped
+
   # ── Imgproxy (Image Processing) ───────────────────────────
   imgproxy:
     image: darthsim/imgproxy:latest

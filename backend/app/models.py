@@ -42,6 +42,7 @@ _notification_type_enum = ENUM(
     "SOCIAL",
     "KEYWORD",
     "BIZ",
+    "MODERATION",
     name="notification_type",
     create_type=False,
 )
@@ -144,6 +145,9 @@ class User(Base):
     manner_temp: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False, default=Decimal("36.5"))
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_advertiser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="ACTIVE", server_default="ACTIVE")
+    suspended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -429,6 +433,7 @@ class MarketplaceListing(Base):
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     bumped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -1383,3 +1388,109 @@ class LevelupRewardPolicy(Base):
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
     gold: Mapped[int] = mapped_column(Integer, nullable=False, default=200)
     skill_pt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+# ── T&S 관리자 콘솔 리메이크 (통합 신고/제재/감사로그/공지·FAQ/금칙어) ──────
+
+
+class Report(Base):
+    """통합 신고 (LISTING/USER/DM). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
+
+    __tablename__ = "reports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    target_type: Mapped[str] = mapped_column(String(12), nullable=False)
+    reporter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    reported_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=True
+    )
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=True
+    )
+    reason: Mapped[str] = mapped_column(String(30), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="PENDING")
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    handled_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserSanction(Base):
+    __tablename__ = "user_sanctions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(String(10), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    report_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("reports.id", ondelete="SET NULL"), nullable=True
+    )
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    admin_username: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    admin_username: Mapped[str] = mapped_column(String(50), nullable=False)
+    admin_role: Mapped[str] = mapped_column(String(10), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    detail: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Notice(Base):
+    __tablename__ = "notices"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    title_vi: Mapped[str] = mapped_column(String(200), nullable=False)
+    title_ko: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    title_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    body_vi: Mapped[str] = mapped_column(Text, nullable=False)
+    body_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Faq(Base):
+    __tablename__ = "faqs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, default="GENERAL")
+    question_vi: Mapped[str] = mapped_column(String(300), nullable=False)
+    question_ko: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    question_en: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    answer_vi: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answer_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class BannedKeyword(Base):
+    __tablename__ = "banned_keywords"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    keyword: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

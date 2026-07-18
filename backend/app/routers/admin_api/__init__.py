@@ -6,10 +6,11 @@
 
 from fastapi import APIRouter
 
-from . import auth, listings, reports, users
+from . import auth, dashboard, listings, reports, users
 
 router = APIRouter(prefix="/admin/api", include_in_schema=False)
 router.include_router(auth.router)
 router.include_router(reports.router)
 router.include_router(users.router)
 router.include_router(listings.router)
+router.include_router(dashboard.router)

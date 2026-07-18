@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
@@ -13,6 +14,8 @@ HTTP_419_SESSION_EXPIRED = 419
 _BFF_SERVICE_KEY = os.getenv("ENGINE_SERVICE_KEY", "")
 _service_key_header = APIKeyHeader(name="X-Service-Key", auto_error=False)
 
+_LAST_SEEN_THROTTLE = timedelta(minutes=10)  # DAU 소스 — 쓰기 스로틀
+
 
 async def verify_service_key(key: str = Security(_service_key_header)) -> None:
     if not key or key != _BFF_SERVICE_KEY:
@@ -20,6 +23,28 @@ async def verify_service_key(key: str = Security(_service_key_header)) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing X-Service-Key",
         )
+
+
+def enforce_account_active(user: User, now: datetime) -> bool:
+    """제재 상태 차단 — BANNED/SUSPENDED 는 403 (419 는 프론트 로그아웃 처리라 사용 금지).
+
+    만료된 정지는 lazy-lift(ACTIVE 복귀)하고 True 반환 — 커밋은 호출부 책임.
+    """
+    if user.status == "BANNED":
+        raise HTTPException(status_code=403, detail={"code": "account_banned"})
+    if user.status == "SUSPENDED":
+        if user.suspended_until is not None and user.suspended_until <= now:
+            user.status = "ACTIVE"
+            user.suspended_until = None
+            return True
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "account_suspended",
+                "until": user.suspended_until.isoformat() if user.suspended_until else None,
+            },
+        )
+    return False
 
 
 async def verify_user_session(
@@ -35,4 +60,12 @@ async def verify_user_session(
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=HTTP_419_SESSION_EXPIRED, detail="Session expired")
+
+    now = datetime.now(UTC)
+    dirty = enforce_account_active(user, now)
+    if user.last_seen_at is None or now - user.last_seen_at > _LAST_SEEN_THROTTLE:
+        user.last_seen_at = now
+        dirty = True
+    if dirty:
+        await db.commit()
     return uid

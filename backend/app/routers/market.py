@@ -19,9 +19,9 @@ from ..models import (
     MarketplaceListing,
     MarketplaceListingImage,
     MarketplaceListingLike,
-    MarketplaceListingReport,
     MarketplacePriceOffer,
     MarketplaceReview,
+    Report,
     User,
     UserBlock,
     UserFollow,
@@ -290,6 +290,13 @@ async def get_listings(
         q = q.where(MarketplaceListing.seller_id.notin_(blocked))
         count_q = count_q.where(MarketplaceListing.seller_id.notin_(blocked))
 
+    # T&S 모더레이션 가시성 — REMOVED 는 항상 제외, HIDDEN 은 판매자 본인 조회(seller_id==viewer_id)에만 노출
+    q = q.where(MarketplaceListing.status != "REMOVED")
+    count_q = count_q.where(MarketplaceListing.status != "REMOVED")
+    if seller_id is None or viewer_id != seller_id:
+        q = q.where(MarketplaceListing.status != "HIDDEN")
+        count_q = count_q.where(MarketplaceListing.status != "HIDDEN")
+
     if hide_sold:
         q = q.where(MarketplaceListing.status != "SOLD")
         count_q = count_q.where(MarketplaceListing.status != "SOLD")
@@ -373,7 +380,7 @@ async def get_listing(
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
     ).scalar_one_or_none()
-    if listing is None:
+    if listing is None or listing.status == "REMOVED":
         raise HTTPException(status_code=404, detail="Listing not found")
 
     listing.view_count += 1
@@ -427,7 +434,11 @@ async def get_listing(
         (
             await db.execute(
                 select(MarketplaceListing)
-                .where(MarketplaceListing.seller_id == listing.seller_id, MarketplaceListing.id != listing.id)
+                .where(
+                    MarketplaceListing.seller_id == listing.seller_id,
+                    MarketplaceListing.id != listing.id,
+                    MarketplaceListing.status.notin_(("HIDDEN", "REMOVED")),
+                )
                 .order_by(MarketplaceListing.bumped_at.desc())
                 .limit(10)
             )
@@ -543,6 +554,9 @@ async def update_status(
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Not the seller")
+    # 관리자 모더레이션(HIDDEN/REMOVED) 매물은 판매자가 상태를 되돌릴 수 없다
+    if listing.status in ("HIDDEN", "REMOVED"):
+        raise HTTPException(status_code=400, detail={"code": "moderated"})
 
     listing.status = body.status
     listing.updated_at = datetime.now(UTC)
@@ -634,11 +648,13 @@ async def report_listing(
     if listing.seller_id == session_uid:
         raise HTTPException(status_code=400, detail="cannot report your own listing")
 
+    # 중복 판정 — reports 부분 유니크(uq_reports_listing_once: listing_id x reporter_id WHERE LISTING)와 동일 조건
     dup = (
         await db.execute(
-            select(MarketplaceListingReport.id).where(
-                MarketplaceListingReport.listing_id == listing_id,
-                MarketplaceListingReport.reporter_id == session_uid,
+            select(Report.id).where(
+                Report.target_type == "LISTING",
+                Report.listing_id == listing_id,
+                Report.reporter_id == session_uid,
             )
         )
     ).first()
@@ -646,9 +662,11 @@ async def report_listing(
         raise HTTPException(status_code=409, detail="already reported")
 
     db.add(
-        MarketplaceListingReport(
-            listing_id=listing_id,
+        Report(
+            target_type="LISTING",
             reporter_id=session_uid,
+            reported_user_id=listing.seller_id,
+            listing_id=listing_id,
             reason=body.reason,
             note=(body.note or None),
         )

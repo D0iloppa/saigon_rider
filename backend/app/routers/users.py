@@ -11,12 +11,13 @@ from sqlalchemy.orm import selectinload
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import Badge, MarketplaceReview, Quest, RideSession, User, UserBadge, UserFollow, UserQuest
+from ..models import Badge, MarketplaceReview, Quest, Report, RideSession, User, UserBadge, UserFollow, UserQuest
 from ..schemas import (
     BadgeOut,
     FollowUserOut,
     Page,
     QuestHistoryOut,
+    ReportCreateRequest,
     UserBadgeOut,
     UserOut,
     UserProfileOut,
@@ -387,3 +388,45 @@ async def search_users(
         )
         for u in rows
     ]
+
+
+_USER_REPORT_REASONS = {"ABUSE", "FRAUD", "INAPPROPRIATE_PROFILE", "SPAM", "OTHER"}
+
+
+@router.post("/{user_id}/report", status_code=201, summary="유저 신고")
+async def report_user(
+    user_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.reason not in _USER_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+    if user_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report yourself")
+    await _get_user_or_404(user_id, db)
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_user_once: reported_user_id x reporter_id WHERE USER)와 동일 조건
+    dup = (
+        await db.execute(
+            select(Report.id).where(
+                Report.target_type == "USER",
+                Report.reported_user_id == user_id,
+                Report.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        Report(
+            target_type="USER",
+            reporter_id=session_uid,
+            reported_user_id=user_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}

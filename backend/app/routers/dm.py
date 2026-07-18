@@ -1,3 +1,4 @@
+import time
 import uuid
 from datetime import UTC, datetime
 
@@ -7,7 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import DmConversation, DmMessage, MarketplaceAppointment, MarketplaceListing, MarketplacePriceOffer, User
+from ..models import (
+    BannedKeyword,
+    DmConversation,
+    DmMessage,
+    MarketplaceAppointment,
+    MarketplaceListing,
+    MarketplacePriceOffer,
+    Report,
+    User,
+)
 from ..schemas import (
     DmConversationCreateRequest,
     DmConversationOut,
@@ -15,6 +25,7 @@ from ..schemas import (
     DmMessageCreateRequest,
     DmMessageOut,
     Page,
+    ReportCreateRequest,
 )
 from ..services import noti_events
 from ..utils import resolve_avatar_url
@@ -45,6 +56,23 @@ def _resolve_dm_image(msg: DmMessage) -> str | None:
 
 def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
     return conv.participant_2 if conv.participant_1 == me else conv.participant_1
+
+
+# 금칙어 모듈 레벨 캐시 (사전 수십 건 규모 — 60초 TTL 재조회로 충분, Redis 불필요)
+_BANNED_KEYWORDS_TTL_SEC = 60.0
+_banned_keywords_cache: tuple[float, list[str]] = (0.0, [])
+
+
+async def _banned_keywords(db: AsyncSession) -> list[str]:
+    global _banned_keywords_cache
+    loaded_at, keywords = _banned_keywords_cache
+    now = time.monotonic()
+    if now - loaded_at < _BANNED_KEYWORDS_TTL_SEC and loaded_at > 0:
+        return keywords
+    rows = (await db.execute(select(BannedKeyword.keyword))).scalars().all()
+    keywords = [k.lower() for k in rows]
+    _banned_keywords_cache = (now, keywords)
+    return keywords
 
 
 @router.get("/conversations", response_model=list[DmConversationOut], summary="대화방 목록")
@@ -327,6 +355,12 @@ async def send_message(
     if body.content is None and body.image_content_id is None:
         raise HTTPException(status_code=400, detail="content or image_content_id is required")
 
+    # 금칙어 차단 — 텍스트 타입 메시지에만 적용 (부분문자열, 대소문자 무시)
+    if (body.message_type or "text") == "text" and body.content:
+        content_lower = body.content.lower()
+        if any(kw in content_lower for kw in await _banned_keywords(db)):
+            raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
+
     now = datetime.now(UTC)
     msg = DmMessage(
         conversation_id=conv_id,
@@ -401,3 +435,48 @@ async def mark_read(
         msg.read_at = now
     await db.commit()
     return {"marked": len(unread)}
+
+
+_DM_REPORT_REASONS = {"ABUSE", "SCAM", "SEXUAL", "SPAM", "OTHER"}
+
+
+@router.post("/conversations/{conv_id}/report", status_code=201, summary="대화 신고")
+async def report_conversation(
+    conv_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.reason not in _DM_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_dm_once: conversation_id x reporter_id WHERE DM)와 동일 조건
+    dup = (
+        await db.execute(
+            select(Report.id).where(
+                Report.target_type == "DM",
+                Report.conversation_id == conv_id,
+                Report.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        Report(
+            target_type="DM",
+            reporter_id=session_uid,
+            reported_user_id=_other_user_id(conv, session_uid),
+            conversation_id=conv_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}

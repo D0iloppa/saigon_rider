@@ -213,6 +213,13 @@ class MarketplaceReportCreateRequest(BaseModel):
     note: str | None = None
 
 
+class ReportCreateRequest(BaseModel):
+    """통합 신고 접수 (유저/DM 신고 공용) — reports 테이블 적재."""
+
+    reason: str
+    note: str | None = None
+
+
 class MarketplaceAdOut(BaseModel):
     id: UUID
     partner_name: str

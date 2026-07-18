@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import sms_client
 from ..database import get_db
-from ..deps import verify_user_session
+from ..deps import enforce_account_active, verify_user_session
 from ..engine_client import engine_client
 from ..models import AppConfig, User, UserOAuthIdentity, UserOtp
 from ..schemas import (
@@ -118,6 +118,9 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     if not _verify(body.passcode, user.passcode_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
+
+    if user.status == "BANNED":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"code": "account_banned"})
 
     # 구버전에서 닉네임 없이 생성된 기존 유저 보정(self-heal) — 공백 닉네임 방지.
     if not (user.nickname and user.nickname.strip()):
@@ -248,6 +251,8 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
         ).scalar_one_or_none()
         if user is None:
             raise HTTPException(status_code=404, detail="User account deleted")
+        if user.status == "BANNED":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"code": "account_banned"})
 
     # 세션 토큰 발급 (passcode 메커니즘 재사용)
     raw_token = str(uuid.uuid4()).replace("-", "")
@@ -281,6 +286,10 @@ async def verify_session(body: SessionVerifyRequest, db: AsyncSession = Depends(
 
     if not _verify(body.session_token, user.passcode_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid")
+
+    # 제재 계정 차단 (BANNED 403 / SUSPENDED 403 or 만료 시 lazy-lift) — deps.verify_user_session 과 동일 규칙
+    if enforce_account_active(user, datetime.now(UTC)):
+        await db.commit()
 
     return LoginResponse(user=UserOut.model_validate(user))
 

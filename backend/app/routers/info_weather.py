@@ -14,7 +14,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import UserFavoriteLocation, WeatherCache
-from ..utils import find_district_by_point
+from .map._geo import find_district_by_point
 
 log = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ from ..database import get_db
 from ..deps import verify_service_key, verify_user_session
 from ..engine_client import engine_client
 from ..models import FloodConfirmation, FloodReport
-from ..utils import find_district_by_point
+from .map._geo import find_district_by_point
 
 router = APIRouter(prefix="/info/flood", tags=["Info — 침수"])
 

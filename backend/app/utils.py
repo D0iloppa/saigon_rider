@@ -262,21 +262,3 @@ async def find_nearest_ward_id(db, lat: float, lng: float, city: str = "HCMC") -
     # Decimal(스키마) vs Float(컬럼) 혼합 연산 TypeError 방지 — 양쪽 다 float 정규화
     lat_f, lng_f = float(lat), float(lng)
     return min(wards, key=lambda w: haversine_m(lat_f, lng_f, float(w.center_lat), float(w.center_lng))).id
-
-
-async def find_district_by_point(db, lat: float, lng: float) -> str | None:
-    """PostGIS ST_Covers로 좌표가 속하는 구역 코드를 반환한다. 없으면 None."""
-    from sqlalchemy import text
-
-    row = (
-        await db.execute(
-            text(
-                "SELECT code FROM districts "
-                "WHERE boundary IS NOT NULL "
-                "AND ST_Covers(boundary, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) "
-                "LIMIT 1"
-            ),
-            {"lat": lat, "lng": lng},
-        )
-    ).first()
-    return row[0] if row else None

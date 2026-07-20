@@ -14,7 +14,6 @@ from ..models import (
     BusinessProfile,
     BusinessReview,
     MarketplaceAd,
-    PlaceSubmission,
     User,
     UserFavoriteBusiness,
 )
@@ -34,8 +33,6 @@ from ..schemas import (
     BusinessReviewListOut,
     BusinessReviewOut,
     MarketplaceAdOut,
-    PlaceSuggestionCreateRequest,
-    PlaceSuggestionOut,
 )
 from ..services.redis_cache import get_client
 from ..utils import build_imgproxy_url
@@ -687,50 +684,3 @@ async def get_favorites(
         )
         for p, favorited_at in rows
     ]
-
-
-# ── 장소 제안 (동네지도 프로필 실배선 P-BE T2) ───────────────────
-
-
-@router.post("/place-suggestions", response_model=PlaceSuggestionOut, status_code=201, summary="장소 제안")
-async def create_place_suggestion(
-    body: PlaceSuggestionCreateRequest,
-    db: AsyncSession = Depends(get_db),
-    session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    if not body.name.strip():
-        raise HTTPException(status_code=400, detail="Name is required")
-
-    submission = PlaceSubmission(
-        name=body.name.strip(),
-        category=body.category,
-        address=body.address,
-        lat=body.lat,
-        lng=body.lng,
-        note=body.note,
-        reporter_user_id=session_uid,
-        status="PENDING",
-    )
-    db.add(submission)
-    await db.commit()
-    await db.refresh(submission)
-    return submission
-
-
-@router.get("/place-suggestions/mine", response_model=list[PlaceSuggestionOut], summary="내가 제안한 장소 목록")
-async def list_my_place_suggestions(
-    db: AsyncSession = Depends(get_db),
-    session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    rows = (
-        (
-            await db.execute(
-                select(PlaceSubmission)
-                .where(PlaceSubmission.reporter_user_id == session_uid)
-                .order_by(PlaceSubmission.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return rows

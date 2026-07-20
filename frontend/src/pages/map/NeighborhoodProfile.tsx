@@ -11,7 +11,7 @@ import MarkerLocationPicker from '@/components/maps/MarkerLocationPicker';
 import PlaceSuggestSheet from '@/pages/map/PlaceSuggestSheet';
 import { formatRelativeTime } from '@/lib/format';
 import { fetchMyRepairReviews, type MyRepairReviewsResult } from '@/api/info';
-import { fetchMyPlaceSuggestions, type PlaceSuggestion } from '@/api/biz';
+import { fetchMyPlaceSuggestions, type PlaceSuggestion } from '@/api/map';
 import styles from './NeighborhoodProfile.module.css';
 
 // 지도 화면(NeighborhoodMap.tsx)이 기억해두는 마지막 뷰포트 — GPS 재측정 없이 "기억된 위치"만 폴백으로 쓴다.

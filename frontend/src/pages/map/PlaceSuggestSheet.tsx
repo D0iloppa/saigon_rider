@@ -5,7 +5,8 @@ import { toast } from '@/components/ui/Toast';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { native } from '@/lib/native';
 import { extractDetail } from '@/api/client';
-import { fetchBizCategories, bizCategoryLabel, createPlaceSuggestion, type BizCategory } from '@/api/biz';
+import { fetchBizCategories, bizCategoryLabel, type BizCategory } from '@/api/biz';
+import { createPlaceSuggestion } from '@/api/map';
 import styles from './PlaceSuggestSheet.module.css';
 
 interface Props {

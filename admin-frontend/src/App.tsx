@@ -20,6 +20,11 @@ import NoticeEditPage from './pages/cms/NoticeEditPage'
 import FaqListPage from './pages/cms/FaqListPage'
 import BannedKeywordPage from './pages/cms/BannedKeywordPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
+import PoiListPage from './pages/map/PoiListPage'
+import PoiEditPage from './pages/map/PoiEditPage'
+import PlaceSuggestionListPage from './pages/map/PlaceSuggestionListPage'
+import GasSubmissionListPage from './pages/map/GasSubmissionListPage'
+import RepairSubmissionListPage from './pages/map/RepairSubmissionListPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +84,12 @@ export default function App() {
               <Route path="/cms/faqs" element={<FaqListPage />} />
               <Route path="/settings/banned-keywords" element={<BannedKeywordPage />} />
               <Route path="/audit-logs" element={<AuditLogPage />} />
+              <Route path="/map/poi" element={<PoiListPage />} />
+              <Route path="/map/poi/new" element={<PoiEditPage />} />
+              <Route path="/map/poi/:id" element={<PoiEditPage />} />
+              <Route path="/map/place-suggestions" element={<PlaceSuggestionListPage />} />
+              <Route path="/map/gas-submissions" element={<GasSubmissionListPage />} />
+              <Route path="/map/repair-submissions" element={<RepairSubmissionListPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

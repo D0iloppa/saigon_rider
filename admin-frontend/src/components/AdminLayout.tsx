@@ -2,13 +2,17 @@ import { Avatar, Breadcrumb, Button, Layout, Menu, Tag, Typography } from 'antd'
 import {
   AuditOutlined,
   BellOutlined,
+  CompassOutlined,
   CustomerServiceOutlined,
   DashboardOutlined,
+  EnvironmentOutlined,
   FileTextOutlined,
   FlagOutlined,
   SafetyCertificateOutlined,
   ShopOutlined,
   TeamOutlined,
+  ThunderboltOutlined,
+  ToolOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '../api/auth'
@@ -29,6 +33,12 @@ const MENU_ITEMS = [
     { key: '/cms/faqs', icon: <FileTextOutlined />, label: 'FAQ 관리' },
     { key: '/settings/banned-keywords', icon: <SafetyCertificateOutlined />, label: '금칙어' },
   ] },
+  { type: 'group' as const, label: '동네지도', children: [
+    { key: '/map/poi', icon: <EnvironmentOutlined />, label: 'POI 관리' },
+    { key: '/map/place-suggestions', icon: <CompassOutlined />, label: '장소 제보 심사' },
+    { key: '/map/gas-submissions', icon: <ThunderboltOutlined />, label: '주유소 제보 심사' },
+    { key: '/map/repair-submissions', icon: <ToolOutlined />, label: '정비소 제보 심사' },
+  ] },
 ]
 
 const PAGE_META = [
@@ -40,6 +50,10 @@ const PAGE_META = [
   { path: '/users', title: '유저 관리', description: '유저 상태, 제재 이력 및 신뢰 정보를 확인합니다.' },
   { path: '/listings', title: '매물 관리', description: '등록 매물을 검토하고 필요한 운영 조치를 적용합니다.' },
   { path: '/support', title: '고객센터', description: '사용자 문의와 답변 상태를 관리합니다.' },
+  { path: '/map/poi', title: 'POI 관리', description: '동네지도에 노출되는 POI를 등록하고 관리합니다.' },
+  { path: '/map/place-suggestions', title: '장소 제보 심사', description: '사용자가 제보한 장소를 승인하거나 반려합니다.' },
+  { path: '/map/gas-submissions', title: '주유소 제보 심사', description: '사용자가 제보한 주유소를 승인하거나 반려합니다.' },
+  { path: '/map/repair-submissions', title: '정비소 제보 심사', description: '사용자가 제보한 정비소를 승인하거나 반려합니다.' },
   { path: '/', title: '운영 현황', description: '오늘 확인해야 할 운영 지표와 처리 대기 항목입니다.' },
 ]
 

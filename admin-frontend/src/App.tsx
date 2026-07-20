@@ -53,7 +53,7 @@ function AuthGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={koKR}>
+      <ConfigProvider locale={koKR} theme={{ token: { colorPrimary: '#0f8f8b', colorInfo: '#0f8f8b', colorLink: '#0f766e', colorBgLayout: '#f5f7fa', colorBorder: '#dfe5ec', borderRadius: 10, fontSize: 14 }, components: { Layout: { siderBg: '#111b2d', headerBg: '#ffffff' }, Menu: { darkItemBg: '#111b2d' } } }}>
         <BrowserRouter basename="/admin">
           <Routes>
             <Route path="/login" element={<LoginPage />} />

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Card, Form, Input, Typography } from 'antd'
+import { Alert, Button, Card, Form, Input } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../api/auth'
 
@@ -21,19 +21,10 @@ export default function LoginPage() {
   })
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        background: '#f0f2f5',
-      }}
-    >
-      <Card style={{ width: 360 }}>
-        <Typography.Title level={4} style={{ textAlign: 'center', marginBottom: 24 }}>
-          Saigon Rider 관리자
-        </Typography.Title>
+    <div className="login-page">
+      <div className="login-panel">
+        <div className="login-intro"><strong>Saigon Rider</strong><span>Operations Console</span></div>
+        <Card>
         {mutation.isError && (
           <Alert type="error" message="아이디 또는 비밀번호가 올바르지 않습니다." style={{ marginBottom: 16 }} />
         )}
@@ -48,7 +39,8 @@ export default function LoginPage() {
             로그인
           </Button>
         </Form>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }

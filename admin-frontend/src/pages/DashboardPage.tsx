@@ -62,9 +62,9 @@ export default function DashboardPage() {
   const daily = dailyQ.data
 
   return (
-    <Row gutter={[16, 16]}>
+    <Row gutter={[16, 16]} className="dashboard-kpi">
       {/* 경고 스탯 — 0이면 기본색, >0이면 경고색. 클릭 시 해당 큐로 이동 */}
-      <Col xs={24} sm={12}>
+      <Col xs={24} sm={12} className="dashboard-priority">
         <Card hoverable onClick={() => navigate('/reports?status=open')}>
           <Statistic
             title={
@@ -81,7 +81,7 @@ export default function DashboardPage() {
           </Typography.Text>
         </Card>
       </Col>
-      <Col xs={24} sm={12}>
+      <Col xs={24} sm={12} className="dashboard-priority support">
         <Card hoverable onClick={() => navigate('/support?status=open')}>
           <Statistic
             title={

@@ -12,8 +12,8 @@
  * 알고리즘(접근안 A + 아이콘 장애물 확장):
  *  0) occupied 장애물 집합에 **모든 마커의 아이콘 AABB** 를 먼저 시드한다(라벨 유무 무관 —
  *     라벨 없는 마커의 아이콘도 다른 라벨을 막아야 한다). 아이콘 필드가 없는 마커는 스킵.
- *  1) 우선순위 랭크(1차): 선택됨 > 미확인뱃지 > POI(landmark > civic > 기타) > 일반.
- *  2) 동률 타이브레이커(2차): 가시영역 중앙과의 거리(가까울수록 우선).
+ *  1) 정렬 1차 키: 선택핀은 항상 최우선(거리 무관), 그 외는 가시영역 중앙과의 거리(가까울수록 우선).
+ *  2) 동률 타이브레이커(2차): 우선순위 랭크(미확인뱃지 > POI(landmark > civic > 기타) > 일반).
  *  3) 랭크 내림차순으로 각 라벨의 화면 AABB 를 (이미 채택된 라벨 박스 + 자기 자신을 제외한
  *     모든 아이콘 박스) 와 겹침 검사 — 안 겹치면 채택(Set 추가), 겹치면 라벨만 스킵.
  *     선택된 마커는 항상 채택(아이콘 충돌도 무시).
@@ -28,7 +28,7 @@ export const LABEL_HEIGHT_FACTOR = 1.15;
 /** 히스테리시스 — 직전에 보이던 라벨은 테스트 박스를 이 배율로 축소해 재충돌 임계를 높인다. */
 export const HYSTERESIS_SHRINK = 0.8;
 
-// 우선순위 랭크 (클수록 먼저 배치·우선). 동률은 화면 중앙 거리로 타이브레이크.
+// 우선순위 랭크 (클수록 먼저 배치·우선). 중앙거리 정렬의 2차 타이브레이커로만 쓰인다.
 const RANK_SELECTED = 1000;
 const RANK_BADGE = 800;
 const RANK_POI_LANDMARK = 600;
@@ -123,9 +123,12 @@ export function computeVisibleLabels(
   const cand = markers
     .filter((m) => m.text.length > 0)
     .sort((a, b) => {
-      const rd = rankOf(b) - rankOf(a);
-      if (rd !== 0) return rd;
-      return dist2(a) - dist2(b); // 동률: 중앙에 가까운 쪽 우선
+      // 1차: 중앙거리(가까울수록 우선) — 선택핀은 거리 무관 항상 최우선(그대로 유지).
+      const da = a.selected ? -1 : dist2(a);
+      const db = b.selected ? -1 : dist2(b);
+      const dd = da - db;
+      if (dd !== 0) return dd;
+      return rankOf(b) - rankOf(a); // 동률: 랭크로 타이브레이크
     });
 
   // 아이콘 장애물 시드 — 라벨 유무와 무관하게 화면 내 모든 마커의 아이콘 AABB 를 미리 채운다.

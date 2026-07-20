@@ -68,7 +68,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **동네지도 → 상세 3종(업체/매물/피드) 전체화면 오버레이 (2026-07-12 2차 배치)**: `App.tsx`에 신규 `BackgroundRoutes` 컴포넌트 — `navigate(path, { state: { backgroundLocation } })`로 진입하면 배경 `<Routes>`는 `backgroundLocation`(지도)으로 그대로 렌더되고, 실제 목적지(`/biz/:id`/`/market/:id`/`/feed/post/:postId`)는 `App.module.css` `.detailOverlay`(전체화면 absolute, z-index 30)로 그 위에 얹힌다. `NeighborhoodMap.tsx`의 지도 내 상세 진입 지점 전부(업체 말풍선·업체 카드·매물 카드 2곳(검색 결과/리스트)·포스트 패널 카드 3분기(업체/매물/피드) — `navigate()` 호출 7곳)가 `backgroundLocation` state를 싣는다. 뒤로가기는 오버레이만 닫고 지도는 언마운트되지 않아 탭·칩·찜필터·포스트패널·선택핀 상태가 그대로 유지된다. 마켓 리스트·커뮤니티 등 지도 바깥에서의 기존 상세 진입은 `backgroundLocation`을 싣지 않아 그대로 페이지 이동.
 - **`SaigonMapV5` 렌더 완성도 (2026-07-12 2차 배치, 마커·LOD·콜백 시그니처는 불변)**: 도로 케이싱 2-pass(케이싱 폴리라인 전체→fill 폴리라인 전체 순서로 그려 교차점 자연 병합, `ROAD_FILL`/`ROAD_CASING` 팔레트 매핑, 골목 `#f6f6f6`은 무케이싱) / 줌 연동 도로 폭(`roadWidthK(vbw)` — `(vbw/L3_VBW)^0.4` 지수 곡선, 0.6~2.0 클램프) / 팔레트 4단 명도 위계(수면<지면(ward)<블록<건물<도로 흰 fill) / 건물 음영 duplicate(`bldgShadow`, 딥줌 게이트 `vb.w < L3_VBW*0.5`에서만) / 도로·하천 `stroke-linecap`/`stroke-linejoin: round`.
 - **핵심 컴포넌트**: `SaigonMapV5`(`components/maps/SaigonMapV5.tsx` — `MapMarkerV2.label`/`r`/업종 글리프 렌더, unread 빨간 점), `DraggableSheet`(`components/ride/DraggableSheet.tsx`), `ListingCard`, `AdCard`, `ProfileCard`, `AppImage`
-- **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/map.ts`(`fetchDistrictCounts`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만, `latest_news`) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
+- **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/poi.ts`(`fetchPoiMapItems` → BFF `GET /api/poi/public/map`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만, `latest_news`) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
+- **(2026-07-20 정정) `fetchDistrictCounts` 관련 stale 서술 제거**: 이 문서가 과거 `api/map.ts`(`fetchDistrictCounts`)를 동네지도 연결 API로 언급했으나, 해당 함수는 애초에 프론트에 존재한 적이 없었다(파일 자체 없음, 사용처 0건). 대응 백엔드 `GET /district-counts`(구 `routers/map.py`)도 프론트 소비처가 전무해 폐기됨 — 신규 `routers/map/districts.py`에 도메인 파일 자리만 유지되고 엔드포인트 자체는 삭제. `api/map.ts`는 현재 존재하며 장소제보 함수만 담는다(아래 §3.3 프로필 항목 참조). ※ `GET /quests/district-counts`(퀘스트 도메인, `api/quests.ts fetchDistrictQuestCounts`)는 이름만 비슷한 별개 API — 영향 없음.
 
 #### 포스트 패널 — `pages/map/PostPanel.tsx` (W2, 2026-07-11; 2026-07-12 매물/피드로 일반화)
 
@@ -86,8 +87,22 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 #### 동네지도 프로필 — `/map/profile` → `pages/map/NeighborhoodProfile.tsx` (실배선 완료, 2026-07-11)
 
-이전 세션 목업(WIP)에서 실기능 배선 완료: 퀵메뉴 3종(쿠폰함 navigate·관심목록 통합 탭 연결·단골은 준비중 토스트, 포장/주문 퀵메뉴는 도메인 없어 제거), 나의 후기(평균 별점/후기 수/도움돼요 — 조회수는 소스 없어 교체, `GET /info/repair/my-reviews`), 장소 제안 바텀시트(`place_submission` init/122 제출+내 제안 상태 조회, admin 승인 큐 `/admin/place-suggestions`), 배너 카피 교체+`common.more` 미스키 버그 해소.
+이전 세션 목업(WIP)에서 실기능 배선 완료: 퀵메뉴 3종(쿠폰함 navigate·관심목록 통합 탭 연결·단골은 준비중 토스트, 포장/주문 퀵메뉴는 도메인 없어 제거), 나의 후기(평균 별점/후기 수/도움돼요 — 조회수는 소스 없어 교체, `GET /info/repair/my-reviews`), 장소 제안 바텀시트(`place_submission` init/122 제출+내 제안 상태 조회). **장소제보 API 경로 변경 (2026-07-20)**: `PlaceSuggestSheet.tsx`/`NeighborhoodProfile.tsx`가 쓰는 `createPlaceSuggestion`/`fetchMyPlaceSuggestions`는 `api/biz.ts`→`api/map.ts`로 이관되었고, BFF 경로도 `/api/biz/place-suggestions*`(구, `biz.py` 소속)→`/api/map/place-suggestions*`(신, `routers/map/place_suggestions.py`)로 바뀜 — 장소제보가 비즈니스 파트너 신청과 무관한 지도 도메인이라는 판단. admin 승인 큐는 레거시 Jinja `/admin-legacy/place-suggestions` 그대로 병행 유지되고, 신규로 JSON API(`/admin/api/map/place-suggestions*`)+admin-frontend SPA 화면(`/map/place-suggestions`)이 추가됨(아래 "관리자 콘솔" 항목 참조). 배너 카피 교체+`common.more` 미스키 버그 해소.
 - **⚠ 인덱스 노이즈**: 워킹트리에 `NeighborhoodMap_bak.tsx`, `NeighborhoodMap_v3bak.tsx`, `NeighborhoodMap_bak.module.css`(git 미추적, 라우팅에 연결 안 됨)가 존재 — codebase-memory 그래프에도 `NeighborhoodMap_bak`의 함수(`inView`, `switchTab`, `renderBody` 등)가 잡히므로, 그래프 조회 결과에서 `_bak`/`v3bak` 접미사가 붙은 노드는 죽은 백업 코드로 걸러서 읽는다.
+- **데드코드 삭제 (2026-07-20)**: `pages/home/DistrictMap.tsx`+`districtPaths.ts`(viewBox 1200×900, 구 행정구역 SVG, `<DistrictMap` 사용처·import 0건 확인됨)가 삭제됨. 동네지도가 실제로 쓰는 지오메트리는 이것과 무관한 별도 자산 — `SaigonMapV5`의 GeoJSON(`components/maps/v2/saigon-depth1.json` + `region.ts`)이다(§3.3 상단 "지도-리스트 분리" 항목 참조). 주변정보(주유소/정비소) 화면이 쓰는 `components/maps/district-data.ts`(`HCMC_DISTRICTS`, 신 SVG, 활성 사용 중)와도 별개.
+
+#### 관리자 콘솔 — 동네지도 관리 (`admin-frontend/src/pages/map/`, 2026-07-20)
+
+`AdminLayout.tsx` 사이드바 그룹 "동네지도" 4항목 → 신규 SPA 화면 5개(POI는 목록+편집 분리):
+
+| 라우트(`admin-frontend`, `/admin/` 아래) | 화면 파일 | 백엔드 API |
+|---|---|---|
+| `/map/poi`, `/map/poi/new`, `/map/poi/:id` | `PoiListPage.tsx`, `PoiEditPage.tsx` | `GET/POST/PUT /admin/api/map/poi*` + `GET /admin/api/map/poi-categories`(`admin_api/map/poi.py`) — 단건 CRUD+게시해제. 기존 bulk 업서트(`/admin-legacy/poi/bulk`, 스크립트 전용)는 그대로 유지, 사람용 단건 CRUD가 처음 생긴 것 |
+| `/map/place-suggestions` | `PlaceSuggestionListPage.tsx` | `/admin/api/map/place-suggestions*`(`admin_api/map/submissions.py`) — 승인은 상태 전환만(Poi 자동 승격 아님, 기존 `PlaceSubmission` 설계 그대로) |
+| `/map/gas-submissions` | `GasSubmissionListPage.tsx` | 동일 파일 — 승인 시 `GasStation` row 실제 생성 |
+| `/map/repair-submissions` | `RepairSubmissionListPage.tsx` | 동일 파일 — 승인 시 `RepairShop` row 실제 생성 |
+
+5화면 공용 fetch 함수는 `admin-frontend/src/api/map.ts`. 전부 `verify_admin_api`(JWT 쿠키) + 감사로그(`_audit.audit()`). 레거시 Jinja(`/admin-legacy/poi`·`/place-suggestions`·`/gas-submissions`·`/repair-submissions`)는 2차 이식 완료 전까지 병행 유지. 백엔드는 `backend/app/routers/map/`(앱 조회, poi.py/districts.py/place_suggestions.py)와 `backend/app/routers/admin_api/map/`(관리자 CRUD, poi.py/submissions.py) 두 패키지로 응집됐다(둘 다 기존 `admin_api/__init__.py` 서브패키지 관례 미러) — 앱이 호출하는 조회 URL 자체는 이번 재배선으로 바뀌지 않았다.
 
 ### 3.4 커뮤니티 / 피드 (`/feed`)
 
@@ -177,10 +192,10 @@ mcp__codebase-memory__trace_path(project="mnt-c-DEV-saigon_rider", function_name
 mcp__codebase-memory__search_graph(project="mnt-c-DEV-saigon_rider", query="SaigonMapV5")
 
 # 이 파일을 누가 쓰는지(영향범위) 역방향 추적
-mcp__codebase-memory__trace_path(project="mnt-c-DEV-saigon_rider", function_name="fetchDistrictCounts", direction="inbound")
+mcp__codebase-memory__trace_path(project="mnt-c-DEV-saigon_rider", function_name="findWardAt", direction="inbound")
 ```
 
-`trace_path(function_name="NeighborhoodMap", ...)`로 실제 조회하면 `fetchListings`/`fetchAds`(`api/market.ts`), `fetchFeed`(`api/feed.ts`), `fetchDistrictCounts`(`api/map.ts`), `useLocationStore`/`useUserStore`, `native.ts`의 위치 권한 함수까지 한 번에 나온다 — "동네지도가 어떤 백엔드/상태와 엮여있나"를 코드 안 뒤지고 바로 확인 가능.
+`trace_path(function_name="NeighborhoodMap", ...)`로 실제 조회하면 `fetchListings`/`fetchAds`(`api/market.ts`), `fetchFeed`(`api/feed.ts`), `fetchPoiMapItems`(`api/poi.ts`), `fetchBizMapItems`(`api/biz.ts`), `useLocationStore`/`useUserStore`, `native.ts`의 위치 권한 함수까지 한 번에 나온다 — "동네지도가 어떤 백엔드/상태와 엮여있나"를 코드 안 뒤지고 바로 확인 가능.
 
 **주의**: 그래프는 워킹트리 전체(미추적 백업 파일 포함)를 인덱싱하므로, `_bak`/`bak2`/`v3bak` 등 접미사가 붙은 결과는 죽은 코드로 간주하고 무시한다. 코드 변경 후에는 [`agent-guidelines.md`](../agent-guidelines.md) §9 재인덱싱 규칙에 따라 `index_repository`로 갱신해야 이 문서와 그래프가 계속 일치한다.
 

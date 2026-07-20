@@ -685,7 +685,7 @@ export default function NeighborhoodMap() {
           if (seen.has(id)) continue;
           seen.add(id);
           extra.push({
-            id, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.35, label: b.name,
+            id, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.6, label: b.name,
             icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
             selected: focusedBiz?.id === b.id,
             badge: isNewsUnread(b.id, b.latestNews?.createdAt),
@@ -711,7 +711,7 @@ export default function NeighborhoodMap() {
     if (isSearching) {
       if (searchScope === 'biz') {
         return [...withCarouselMarkers(bizSearchResults.map((b) => ({
-          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.35, label: b.name,
+          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.6, label: b.name,
           icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
           selected: focusedBiz?.id === b.id,
           badge: isNewsUnread(b.id, b.latestNews?.createdAt),
@@ -738,7 +738,7 @@ export default function NeighborhoodMap() {
               lng: b.lng,
               kind: 'biz',
               color: BIZ_COLOR,
-              r: 1.35,
+              r: 1.6,
               label: b.name,
               icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
               selected: focusedBiz?.id === b.id,

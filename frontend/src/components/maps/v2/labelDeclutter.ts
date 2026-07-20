@@ -32,6 +32,9 @@ export const HYSTERESIS_SHRINK = 0.8;
 const RANK_SELECTED = 1000;
 const RANK_BADGE = 800;
 const RANK_POI_LANDMARK = 600;
+// 업체(biz) 상호명 — POI(civic/other) 밀도만큼은 경쟁 가능하도록 POI 랭크대(450~600) 안에 배치.
+// landmark보다까지 위로 올리지는 않는다(중앙거리가 1차 기준이므로 rank는 타이브레이커일 뿐).
+const RANK_BIZ = 550;
 const RANK_POI_CIVIC = 500;
 const RANK_POI_OTHER = 450;
 const RANK_GENERAL = 100;
@@ -84,6 +87,7 @@ function rankOf(m: DeclutterMarker): number {
     if (m.poiTier === 1) return RANK_POI_CIVIC;
     return RANK_POI_OTHER;
   }
+  if (m.kind === 'biz') return RANK_BIZ;
   return RANK_GENERAL;
 }
 

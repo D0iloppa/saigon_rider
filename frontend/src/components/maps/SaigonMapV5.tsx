@@ -1272,7 +1272,7 @@ function SaigonMapV5({
                 return (
                   <g key={m.id} data-marker={String(m.id)} pointerEvents="none">
                     <rect x={mx - half * 1.26} y={my - half * 1.26} width={half * 2.52} height={half * 2.52}
-                      rx={half * 0.6} fill="rgba(255,255,255,0.65)" />
+                      rx={half * 0.6} fill="rgba(255,255,255,0.45)" />
                     <rect x={mx - half} y={my - half} width={half * 2} height={half * 2} rx={half * 0.42}
                       fill={color} stroke="#fff" strokeWidth={half * 0.18} />
                     {m.icon && (

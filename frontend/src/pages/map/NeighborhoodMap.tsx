@@ -273,6 +273,14 @@ export default function NeighborhoodMap() {
   const [reloadSeq, setReloadSeq] = useState(0);
   const [sheetVisibleHeight, setSheetVisibleHeight] = useState(0);
   const [sheetSnap, setSheetSnap] = useState<'full' | 'mid' | 'collapsed'>('collapsed');
+  // 검색범위(query bbox) 하단 크롭 전용 — sheetVisibleHeight는 시트가 펼쳐지면(mid/full) 커지는
+  // "현재" 실측값이라 그대로 못 쓴다. collapsed 스냅으로 정착할 때의 실측값(=DraggableSheet
+  // peek, 헤더 행 높이 — DraggableSheet.tsx:98,105 offsetOf('collapsed')와 동일 소스)만 캡처해
+  // 시트가 펼쳐져도 하단 경계를 최소화 높이로 고정한다(대표 명시 요구).
+  const [collapsedSheetHeight, setCollapsedSheetHeight] = useState(0);
+  useEffect(() => {
+    if (sheetSnap === 'collapsed') setCollapsedSheetHeight(sheetVisibleHeight);
+  }, [sheetSnap, sheetVisibleHeight]);
 
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -1600,6 +1608,7 @@ export default function NeighborhoodMap() {
         zoomInRef={zoomInRef}
         bottomInsetPx={postPanelOpen ? postPanelHeight : sheetVisibleHeight}
         topInsetPx={tab === 'biz' && !isSearching ? SEARCH_BAR_HEIGHT + CATEGORY_CHIPS_HEIGHT : SEARCH_BAR_HEIGHT}
+        queryBottomInsetPx={collapsedSheetHeight}
         showLocateControl={false}
       />
 

@@ -66,9 +66,20 @@ node_modules/
 # 배너 수동 백업 더미(로컬 보존, 추적 제외 — 109MB 중복본)
 contents/system/quest-banners/bak/
 
+# 매물 이미지 backfill 크롤본(dev 전용 — CC-BY 등 라이선스 이미지, 운영은 별도 절차)
+contents/system/marketplace-crawl/
+
 # claude hooks 산출물
 .claude/.needs-reindex
 .claude/reindex.log
 
 # 로컬/운영 툴 스크래치 (Orca 등)
 .orca/
+
+# 로컬 보존 자료 (추적 제외)
+# 회사 기밀문서(사업자등록증·회사소개서 등) — 원격 노출 금지
+docs/tt/
+# prod-sync 랜딩 구버전 로컬 백업
+landing_bak/
+# 로컬 편집 중 임시 메모
+untitled-2.md

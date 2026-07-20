@@ -103,13 +103,16 @@ const CASING_RATIO = 1.42; // casing 폭 = fill 폭 × 1.42
 // roads 배열은 로드 시 (랭크, 폭) 오름차순 정렬돼 있으므로, 랭크 경계에서만 끊어 연속 구간으로 그룹핑한다.
 // 그룹별로 casing→fill 쌍을 완결한 뒤 다음 그룹(다음 랭크)으로 넘어가야 상위 등급 casing이
 // 하위 등급 fill에 덮이지 않는다(표준 카토그래피 casing-fill-casing-fill 반복 패턴).
-function groupRoadsByRank(roads: Depth3Data['roads']): Depth3Data['roads'][] {
-  const groups: Depth3Data['roads'][] = [];
+// 도로 객체 대신 원본 배열 인덱스를 다룬다 — 뷰포트 컬링으로
+// 매 렌더 필터링된 부분집합을 그룹핑할 때, React key를 필터 결과의 로컬 위치가 아니라
+// 안정적인 원본 인덱스로 매길 수 있게 한다(필터링된 집합이 렌더마다 달라져도 key 불변).
+function groupRoadIdxByRank(idxs: number[], roads: Depth3Data['roads']): number[][] {
+  const groups: number[][] = [];
   let lastRank = -1;
-  for (const road of roads) {
-    const rank = ROAD_RANK[road.c] ?? 0;
+  for (const idx of idxs) {
+    const rank = ROAD_RANK[roads[idx].c] ?? 0;
     if (rank !== lastRank) { groups.push([]); lastRank = rank; }
-    groups[groups.length - 1].push(road);
+    groups[groups.length - 1].push(idx);
   }
   return groups;
 }
@@ -120,11 +123,14 @@ function groupRoadsByRank(roads: Depth3Data['roads']): Depth3Data['roads'][] {
 const roadWidthK = (vbw: number) => Math.min(2.0, Math.max(0.6, 1.5 * ((vbw / L3_VBW) ** 0.4)));
 
 // 피처 단위 뷰포트 컬링 마진 — React 재렌더는 제스처 종료 시(onPointerUp → setVbSnap)에만
-// 일어나므로, 팬/핀치 도중(같은 제스처 안에서)엔 컬링 결과가 갱신되지 않는다. 렌더 시점
-// 뷰포트 기준 이만큼 여유를 둬야 제스처가 끝나기 전까지 화면 안으로 들어오는 피처가
-// 미리 마운트돼 있다. 마커 컬링(고정 50유닛, vb.w=100~700 구간에서 vb.w 대비 7~50%)보다
-// 넉넉하게 뷰포트 폭/높이의 40%로 고정 — 정확성(피처 소실 방지) 우선, 값은 보수적 추정치.
-const FEATURE_CULL_MARGIN = 0.4;
+// 일어나므로, 팬/핀치 도중(같은 제스처 안에서)엔 컬링 결과가 갱신되지 않는다. 팬 자체는
+// DOM 속성 직접 갱신(setVBAttr)으로 무-리렌더 최적화돼 있고 이게 성능 핵심이라 팬 중
+// setVbSnap 을 추가로 유발하지 않는다 — 대신 렌더 시점 뷰포트 기준 사방으로 뷰포트
+// 폭/높이의 1.0배(= 3×3 뷰포트 영역)를 마진으로 둬, 한 번의 연속 드래그(화면폭 ~1배 이동)
+// 동안 마진 밖으로 나가는 일반적인 팬을 커버한다. 대형 ward도 3×3만 그리므로 컬링 성능
+// 이득은 유지된다. 이 마진을 넘는 초고속 장거리 드래그의 순간적 가장자리 공백은
+// pointerUp(=setVbSnap 재컬링)에서 즉시 해소되는 허용 트레이드오프.
+const FEATURE_CULL_MARGIN = 1.0;
 
 // ── 모듈 시작 시 ward bbox 사전계산 (뷰포트 컬링용) ──────────
 const parsePts = (s: string): [number, number][] =>
@@ -1012,13 +1018,16 @@ function SaigonMapV5({
           const mgy = (lvy2 - lvy1) * FEATURE_CULL_MARGIN;
           const cx1 = lvx1 - mgx, cy1 = lvy1 - mgy, cx2 = lvx2 + mgx, cy2 = lvy2 + mgy;
           const bldgBox = d3.bldgBox;
-          const bldgInView = bldgBox
-            ? d3.bldg.filter((_, bi) => boxIntersects(bldgBox[bi], cx1, cy1, cx2, cy2))
-            : d3.bldg;
+          // 필터링된 값 배열이 아니라 원본 인덱스 배열을 만든다 — React key를 필터 결과의
+          // 로컬 위치가 아니라 안정적인 원본 인덱스로 매겨, 컬링 결과가 렌더마다 달라져도
+          // 같은 건물/도로가 같은 key를 유지한다(순수 도형이라 기능버그는 아니었지만 더 안전).
+          const bldgIdxInView = bldgBox
+            ? d3.bldg.map((_, bi) => bi).filter((bi) => boxIntersects(bldgBox[bi], cx1, cy1, cx2, cy2))
+            : d3.bldg.map((_, bi) => bi);
           const roadBox = d3.roadBox;
-          const roadsInView = roadBox
-            ? d3.roads.filter((_, ri) => boxIntersects(roadBox[ri], cx1, cy1, cx2, cy2))
-            : d3.roads;
+          const roadIdxInView = roadBox
+            ? d3.roads.map((_, ri) => ri).filter((ri) => boxIntersects(roadBox[ri], cx1, cy1, cx2, cy2))
+            : d3.roads.map((_, ri) => ri);
           return (
             <svg key={`l3-${i}`} x={r.x} y={r.y} width={r.w} height={r.h}
               viewBox={`0 0 ${d3.VW} ${d3.VH}`} preserveAspectRatio="none" overflow="visible">
@@ -1027,22 +1036,28 @@ function SaigonMapV5({
               {/* 건물 음영 — y+오프셋 어두운 duplicate 를 아래 깔아 입체감 (SVG filter 는 개수상 성능 위험) */}
               {bldgShadow && (
                 <g transform="translate(0.9, 1.3)" pointerEvents="none">
-                  {bldgInView.map((p, pi) => <polygon key={pi} points={p} className={styles.bldgShadow} />)}
+                  {bldgIdxInView.map((bi) => <polygon key={bi} points={d3.bldg[bi]} className={styles.bldgShadow} />)}
                 </g>
               )}
-              {bldgInView.map((p, pi) => <polygon key={pi} points={p} className={styles.bldg} />)}
+              {bldgIdxInView.map((bi) => <polygon key={bi} points={d3.bldg[bi]} className={styles.bldg} />)}
               {/* 도로 랭크별 casing-fill 페어: 랭크 오름차순으로 그룹의 casing 전부 → 그 그룹의 fill 전부를 그려
                   상위 등급 casing이 하위 등급 fill에 덮이지 않는다 (표준 카토그래피 casing-fill-casing-fill 반복).
                   컬링은 그룹핑 전에 적용 — 순서는 그대로 유지되므로 랭크 그룹 경계는 안 깨진다. */}
-              {groupRoadsByRank(roadsInView).flatMap((group, gi) => [
-                ...group.map((road, ri) => ROAD_CASING[road.c] ? (
-                  <polyline key={`c${gi}-${ri}`} points={road.p} stroke={ROAD_CASING[road.c]}
-                    strokeWidth={road.w * roadK * CASING_RATIO} className={styles.road} />
-                ) : null),
-                ...group.map((road, ri) => (
-                  <polyline key={`f${gi}-${ri}`} points={road.p} stroke={ROAD_FILL[road.c] ?? road.c}
-                    strokeWidth={road.w * roadK} className={styles.road} />
-                )),
+              {groupRoadIdxByRank(roadIdxInView, d3.roads).flatMap((group) => [
+                ...group.map((ri) => {
+                  const road = d3.roads[ri];
+                  return ROAD_CASING[road.c] ? (
+                    <polyline key={`c${ri}`} points={road.p} stroke={ROAD_CASING[road.c]}
+                      strokeWidth={road.w * roadK * CASING_RATIO} className={styles.road} />
+                  ) : null;
+                }),
+                ...group.map((ri) => {
+                  const road = d3.roads[ri];
+                  return (
+                    <polyline key={`f${ri}`} points={road.p} stroke={ROAD_FILL[road.c] ?? road.c}
+                      strokeWidth={road.w * roadK} className={styles.road} />
+                  );
+                }),
               ])}
             </svg>
           );

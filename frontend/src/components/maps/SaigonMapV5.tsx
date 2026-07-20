@@ -878,7 +878,9 @@ function SaigonMapV5({
 
   // ── 라벨 디클러터 ──────────────────────────────────────────
   // 겹치는 라벨을 우선순위(선택>뱃지>POI>일반, 동률 시 가시영역 중앙거리)로 정리한다.
-  // 라벨(<text>)만 게이팅 — 아이콘/핀은 항상 유지. null 이면 디클러터 없이 전부 표시.
+  // 라벨(<text>)만 게이팅 — 아이콘/핀은 항상 유지. 단, 라벨은 다른 마커의 아이콘/핀과
+  // 겹쳐도 숨겨진다 — 그래서 라벨 없는 마커도 후보 배열에 넣어 아이콘 박스를 시드해야 한다.
+  // null 이면 디클러터 없이 전부 표시.
   // 제스처 종료(vbSnap 갱신) 시 1회 재계산 — vbRef 는 deps 에 넣지 않아 매 프레임 계산을 피한다.
   const visibleLabelIds = useMemo<Set<string | number> | null>(() => {
     if (!markers || !(forceMarkers || vb.w < L2_VBW)) return null;
@@ -889,35 +891,65 @@ function SaigonMapV5({
     const v = vbRef.current;
     const cands: DeclutterMarker[] = [];
     for (const m of markers) {
-      if (!m.label) continue;
-      // 선택된 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 후보 제외
-      if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) continue;
       const mx = lx(m.lng), my = ly(m.lat);
       if (mx < v.x - 50 || mx > v.x + v.w + 50 || my < v.y - 50 || my > v.y + v.h + 50) continue;
       const sx = ((mx - v.x) / v.w) * cw;
       const sy = ((my - v.y) / v.h) * ch;
       // 화면 px 는 줌 불변(r 이 vb.w 에 비례) — r_px = 0.015 × (m.r) × cw. 렌더 루프의 각 kind
-      // 라벨 오프셋/폰트(units)를 그대로 px 로 환산해 라벨 박스 위치를 맞춘다.
+      // 라벨 오프셋/폰트(units)와 아이콘 지오메트리(units)를 그대로 px 로 환산한다.
       const rpx = 0.015 * (m.r ?? 1) * cw;
-      let fontSize: number;
-      let labelTop: number;
+
+      // 선택된 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 라벨 후보 제외.
+      // 아이콘(teardrop)은 여전히 그려지므로 장애물 시드에는 포함한다.
+      const noLabel = !m.label || (m.selected && (m.kind === 'listing' || m.kind === 'feed'));
+      let fontSize = 0;
+      let labelTop = 0;
       let poiTier = 0;
-      if (m.kind === 'biz') {
-        fontSize = rpx * (m.selected ? 1.5 : 1.1);
-        labelTop = sy + rpx * (m.selected ? 1.05 : 0.65);
-      } else if (m.kind === 'poi') {
-        fontSize = rpx * 1.1 + 2 * (cw / v.w); // 렌더의 (r*1.1 + 2 units)
-        labelTop = sy + rpx * 1.05 * 1.35; // half=r*1.05, y=my+half*1.35
-        // POI 등급은 색으로만 판별 가능(MapMarkerV2 에 카테고리 필드 없음) — 호출부(NeighborhoodMap)
-        // landmark=#0d9488 / civic=#4f7d78 와 결합. 그 외/미지정은 기타 POI(tier 0).
-        poiTier = m.color === '#0d9488' ? 2 : m.color === '#4f7d78' ? 1 : 0;
-      } else {
-        fontSize = rpx * 1.5;
-        labelTop = sy + rpx * 2.0;
+      if (!noLabel) {
+        if (m.kind === 'biz') {
+          fontSize = rpx * (m.selected ? 1.5 : 1.1);
+          labelTop = sy + rpx * (m.selected ? 1.05 : 0.65);
+        } else if (m.kind === 'poi') {
+          fontSize = rpx * 1.1 + 2 * (cw / v.w); // 렌더의 (r*1.1 + 2 units)
+          labelTop = sy + rpx * 1.05 * 1.35; // half=r*1.05, y=my+half*1.35
+          // POI 등급은 색으로만 판별 가능(MapMarkerV2 에 카테고리 필드 없음) — 호출부(NeighborhoodMap)
+          // landmark=#0d9488 / civic=#4f7d78 와 결합. 그 외/미지정은 기타 POI(tier 0).
+          poiTier = m.color === '#0d9488' ? 2 : m.color === '#4f7d78' ? 1 : 0;
+        } else {
+          fontSize = rpx * 1.5;
+          labelTop = sy + rpx * 2.0;
+        }
       }
+
+      // 아이콘 AABB — 렌더 루프(아래 markers?.map 블록)의 실제 도형 크기를 화면 px 로 환산.
+      let iconLeft: number, iconRight: number, iconTop: number, iconBottom: number;
+      if (m.kind === 'biz' && m.selected) {
+        // teardrop 핀(BIZ_PIN_PATH) — 머리 半width 9·s(s=r*1.25/9)=1.25r, 상단 24·s=3.333r, 팁=중심.
+        // 외곽 scale(1.5) 가 (mx,my) 기준으로 적용되어 半width→1.875r, 상단 오프셋→5.0r.
+        iconLeft = sx - 1.875 * rpx; iconRight = sx + 1.875 * rpx;
+        iconTop = sy - 5.0 * rpx; iconBottom = sy;
+      } else if (m.kind === 'biz') {
+        // 원형 아이콘 — center (mx, my-0.8r) radius 0.92r(+stroke/badge 여유 포함 1.03r).
+        const cy = sy - 0.8 * rpx, cr = 1.03 * rpx;
+        iconLeft = sx - cr; iconRight = sx + cr; iconTop = cy - cr; iconBottom = cy + cr;
+      } else if (m.kind === 'poi') {
+        // 스퀘어클 halo — half=r*1.05, halo=half*1.26=1.323r.
+        const half = 1.323 * rpx;
+        iconLeft = sx - half; iconRight = sx + half; iconTop = sy - half; iconBottom = sy + half;
+      } else if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
+        // 매물/피드 선택 승격 teardrop — biz 선택과 동일 지오메트리(BIZ_PIN_PATH 공용).
+        iconLeft = sx - 1.875 * rpx; iconRight = sx + 1.875 * rpx;
+        iconTop = sy - 5.0 * rpx; iconBottom = sy;
+      } else {
+        // 원형 dot — halo 1.4r, 선택 시 강조링 1.75r(+stroke 여유 1.86r) 이 더 크다.
+        const dr = (m.selected ? 1.86 : 1.4) * rpx;
+        iconLeft = sx - dr; iconRight = sx + dr; iconTop = sy - dr; iconBottom = sy + dr;
+      }
+
       cands.push({
         id: m.id, kind: m.kind, selected: m.selected, badge: m.badge, poiTier,
-        labelCx: sx, labelTop, fontSize, text: m.label, sx, sy,
+        labelCx: sx, labelTop, fontSize, text: noLabel ? '' : (m.label as string), sx, sy,
+        iconLeft, iconRight, iconTop, iconBottom,
       });
     }
     const centerX = cw / 2;

@@ -3,15 +3,20 @@
  *
  * SaigonMapV5 의 마커 렌더 루프가 제스처 종료(vbSnap 갱신) 시 1회 호출한다.
  * 겹치는 라벨 중 우선순위가 낮은 것을 숨겨(아이콘/핀은 그대로) 가독성을 확보한다.
+ * 라벨은 다른 라벨뿐 아니라 **다른 마커의 아이콘/핀**과 겹쳐도 숨겨진다(표준 symbol
+ * collision) — 단, 자기 자신의 아이콘과는 겹쳐도 무방하다(라벨은 원래 자기 핀 옆/아래에
+ * 붙는다). 아이콘/핀 자체는 이 함수가 숨기지 않는다(항상 렌더 — 기존 동작 유지).
  *
  * 부수효과·DOM/window 접근 없음 — 입력으로 이미 투영된 화면좌표/폰트크기/중앙점을 받는다.
- * 라벨(<text>)만 대상이며 아이콘/핀 게이팅은 하지 않는다.
  *
- * 알고리즘(접근안 A):
+ * 알고리즘(접근안 A + 아이콘 장애물 확장):
+ *  0) occupied 장애물 집합에 **모든 마커의 아이콘 AABB** 를 먼저 시드한다(라벨 유무 무관 —
+ *     라벨 없는 마커의 아이콘도 다른 라벨을 막아야 한다). 아이콘 필드가 없는 마커는 스킵.
  *  1) 우선순위 랭크(1차): 선택됨 > 미확인뱃지 > POI(landmark > civic > 기타) > 일반.
  *  2) 동률 타이브레이커(2차): 가시영역 중앙과의 거리(가까울수록 우선).
- *  3) 랭크 내림차순으로 각 라벨의 화면 AABB 를 이미 채택된 박스들과 겹침 검사 —
- *     안 겹치면 채택(Set 추가), 겹치면 라벨만 스킵. 선택된 마커는 항상 채택.
+ *  3) 랭크 내림차순으로 각 라벨의 화면 AABB 를 (이미 채택된 라벨 박스 + 자기 자신을 제외한
+ *     모든 아이콘 박스) 와 겹침 검사 — 안 겹치면 채택(Set 추가), 겹치면 라벨만 스킵.
+ *     선택된 마커는 항상 채택(아이콘 충돌도 무시).
  *  4) 히스테리시스: 직전에 보이던 라벨은 테스트 박스를 축소해 더 끈적이게(끄는 임계 > 켜는 임계).
  */
 
@@ -49,6 +54,15 @@ export interface DeclutterMarker {
   /** 중앙거리 타이브레이커용 마커 화면 좌표 (screen px). */
   sx: number;
   sy: number;
+  /**
+   * 이 마커의 아이콘/핀이 화면에서 차지하는 AABB (screen px, 4개 모두 있어야 장애물로 시드됨).
+   * 라벨 유무와 무관하게 항상 채워 넣을 수 있다 — 라벨 없는 마커의 아이콘도 다른 라벨을 가릴 수 있다.
+   * 자기 자신의 라벨 배치 판정에서는 자기 아이콘 박스가 제외된다(id 매칭).
+   */
+  iconLeft?: number;
+  iconRight?: number;
+  iconTop?: number;
+  iconBottom?: number;
 }
 
 export interface DeclutterCtx {
@@ -79,6 +93,14 @@ function labelBox(m: DeclutterMarker): Box {
   return { left: m.labelCx - w / 2, right: m.labelCx + w / 2, top: m.labelTop, bottom: m.labelTop + h };
 }
 
+/** 마커의 아이콘 AABB. 4개 필드가 모두 없으면(아이콘 크기 미제공) null — 장애물 시드 생략. */
+function iconBoxOf(m: DeclutterMarker): Box | null {
+  if (m.iconLeft === undefined || m.iconRight === undefined || m.iconTop === undefined || m.iconBottom === undefined) {
+    return null;
+  }
+  return { left: m.iconLeft, right: m.iconRight, top: m.iconTop, bottom: m.iconBottom };
+}
+
 function shrink(b: Box, k: number): Box {
   const cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2;
   const hw = ((b.right - b.left) / 2) * k, hh = ((b.bottom - b.top) / 2) * k;
@@ -106,11 +128,19 @@ export function computeVisibleLabels(
       return dist2(a) - dist2(b); // 동률: 중앙에 가까운 쪽 우선
     });
 
+  // 아이콘 장애물 시드 — 라벨 유무와 무관하게 화면 내 모든 마커의 아이콘 AABB 를 미리 채운다.
+  // 아이콘은 항상 렌더되는 고정 장애물이라 라벨 배치보다 먼저, 그리고 라벨 유무와 무관하게 존재한다.
+  const iconBoxes: { id: string | number; box: Box }[] = [];
+  for (const m of markers) {
+    const box = iconBoxOf(m);
+    if (box) iconBoxes.push({ id: m.id, box });
+  }
+
   const occupied: Box[] = [];
   const visible = new Set<string | number>();
   for (const m of cand) {
     const box = labelBox(m);
-    // 선택된 마커는 항상 라벨 유지(최상위) — 겹쳐도 스킵하지 않고, 다른 라벨은 이 박스를 피한다.
+    // 선택된 마커는 항상 라벨 유지(최상위) — 겹쳐도(아이콘 포함) 스킵하지 않고, 다른 라벨은 이 박스를 피한다.
     if (m.selected) {
       visible.add(m.id);
       occupied.push(box);
@@ -120,6 +150,13 @@ export function computeVisibleLabels(
     let hit = false;
     for (const o of occupied) {
       if (overlaps(o, test)) { hit = true; break; }
+    }
+    if (!hit) {
+      // 자기 자신의 아이콘은 제외 — 라벨은 원래 자기 핀 옆/아래에 붙으므로 자기 아이콘과는 겹쳐도 된다.
+      for (const ib of iconBoxes) {
+        if (ib.id === m.id) continue;
+        if (overlaps(ib.box, test)) { hit = true; break; }
+      }
     }
     if (!hit) {
       visible.add(m.id);

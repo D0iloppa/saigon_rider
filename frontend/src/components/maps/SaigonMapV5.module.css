@@ -21,7 +21,11 @@
 .rline { fill: none; stroke: #8cc5d9; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .ward {
   fill: #e7e1d0;
-  stroke: #d3cbb8;
+  /* 저줌(vb.w 700~3500) 지역경계 대비 강화 — 기존 #d3cbb8 는 fill(#e7e1d0)과
+     명도차가 거의 없어(WCAG 대비 ~1.24:1) 저줌에서 ward 경계가 사실상 안 보였다.
+     같은 웜톤 계열에서 한 단계 더 진한 warm tan(대비 ~2.3:1)로 조정 — 시작값,
+     실기 확인 후 미세조정 대상. */
+  stroke: #a8916a;
   stroke-width: 1.8;
   stroke-linejoin: round;
   cursor: pointer;

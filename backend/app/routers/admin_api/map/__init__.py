@@ -6,7 +6,8 @@ POI 단건 CRUD(`poi.py`) + 제보심사 3종(`submissions.py`)을 `/map` prefix
 
 from fastapi import APIRouter
 
-from . import poi
+from . import poi, submissions
 
 router = APIRouter(prefix="/map")
 router.include_router(poi.router)
+router.include_router(submissions.router)

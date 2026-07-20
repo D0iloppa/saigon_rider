@@ -83,11 +83,10 @@
 }
 
 /* Layer 2 — 블록 (지면보다 한 단계 밝게 — 블록 사이 틈이 어두운 街路 베드로 읽힌다) */
+/* stroke 없음 — 저줌에서 블록 경계(간선도로 polygonize 산물)가 조각난 도로처럼 보이는
+   아티팩트 제거. Mapbox landuse 레이어 관행(stroke 없는 fill)과 동일. */
 .blk {
   fill: #efeadd;
-  stroke: #d6ceba;
-  stroke-width: 1.2;
-  stroke-linejoin: round;
 }
 
 /* Layer 3 — 건물·도로·수로 */

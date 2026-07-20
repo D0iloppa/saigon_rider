@@ -21,7 +21,15 @@ import styles from './SaigonMapV5.module.css';
 // ── 인터페이스 ──────────────────────────────────────────────
 interface Bbox { S: number; W: number; N: number; E: number }
 interface Depth2Data { VW: number; VH: number; bbox: Bbox; border: string; blocks: { p: string; cx: number; cy: number }[] }
-interface Depth3Data { VW: number; VH: number; bbox: Bbox; border: string; roads: { p: string; c: string; w: number }[]; bldg: string[]; water: string[]; wline: string[] }
+// roadBox/bldgBox: 피처 단위 뷰포트 컬링용 ward-local bbox — fetch 직후 1회 사전계산해 캐시
+// (roads.sort 와 동일하게 loadWardData 에서 채운다). 옵셔널인 이유는 로드 직후 아직
+// 계산 전인 과도기 프레임을 타입상 허용하기 위함(런타임엔 항상 함께 채워짐).
+type FeatureBBox = readonly [number, number, number, number]; // [x1,y1,x2,y2]
+interface Depth3Data {
+  VW: number; VH: number; bbox: Bbox; border: string;
+  roads: { p: string; c: string; w: number }[]; bldg: string[]; water: string[]; wline: string[];
+  roadBox?: FeatureBBox[]; bldgBox?: FeatureBBox[];
+}
 interface VB { x: number; y: number; w: number; h: number }
 
 // ── 통합 좌표계 ─────────────────────────────────────────────
@@ -111,6 +119,13 @@ function groupRoadsByRank(roads: Depth3Data['roads']): Depth3Data['roads'][] {
 // 클램프는 도로 노출 구간(MIN_VBW..L3_VBW) 밖 비정상 vb 방어용 상한/하한.
 const roadWidthK = (vbw: number) => Math.min(2.0, Math.max(0.6, 1.5 * ((vbw / L3_VBW) ** 0.4)));
 
+// 피처 단위 뷰포트 컬링 마진 — React 재렌더는 제스처 종료 시(onPointerUp → setVbSnap)에만
+// 일어나므로, 팬/핀치 도중(같은 제스처 안에서)엔 컬링 결과가 갱신되지 않는다. 렌더 시점
+// 뷰포트 기준 이만큼 여유를 둬야 제스처가 끝나기 전까지 화면 안으로 들어오는 피처가
+// 미리 마운트돼 있다. 마커 컬링(고정 50유닛, vb.w=100~700 구간에서 vb.w 대비 7~50%)보다
+// 넉넉하게 뷰포트 폭/높이의 40%로 고정 — 정확성(피처 소실 방지) 우선, 값은 보수적 추정치.
+const FEATURE_CULL_MARGIN = 0.4;
+
 // ── 모듈 시작 시 ward bbox 사전계산 (뷰포트 컬링용) ──────────
 const parsePts = (s: string): [number, number][] =>
   s.trim().split(/\s+/).map((p) => p.split(',').map(Number) as [number, number]);
@@ -143,6 +158,20 @@ const WARD_UBBOXES = depth1.wards.map((w) => {
 function wardInView(idx: number, vb: VB): boolean {
   const b = WARD_UBBOXES[idx];
   return b.x1 < vb.x + vb.w && b.x2 > vb.x && b.y1 < vb.y + vb.h && b.y2 > vb.y;
+}
+
+// ── 피처 단위 뷰포트 컬링 (depth3 건물/도로, ward-local 좌표) ────
+// points 문자열의 min/max — ward 데이터 로드 시 1회만 호출(entry.d3.bldgBox/roadBox), 매 렌더 재파싱 없음.
+function computeBBox(points: string): FeatureBBox {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const [x, y] of parsePts(points)) {
+    if (x < x1) x1 = x; if (x > x2) x2 = x;
+    if (y < y1) y1 = y; if (y > y2) y2 = y;
+  }
+  return [x1, y1, x2, y2];
+}
+function boxIntersects(b: FeatureBBox, x1: number, y1: number, x2: number, y2: number): boolean {
+  return b[0] < x2 && b[2] > x1 && b[1] < y2 && b[3] > y1;
 }
 
 // bbox → nested SVG 위치 (통합 좌표)
@@ -459,6 +488,9 @@ function SaigonMapV5({
           .then((d: Depth3Data) => {
             // (랭크, 폭) 오름차순 정렬 — 랭크 우선(등급별 casing-fill 그룹 경계), 폭은 그룹 내부 2차 키 (캐시 전 1회)
             d.roads.sort((a, b) => (ROAD_RANK[a.c] ?? 0) - (ROAD_RANK[b.c] ?? 0) || a.w - b.w);
+            // 피처 단위 뷰포트 컬링용 bbox 사전계산 (로드 시 1회, 정렬 이후라 roads 인덱스와 정합)
+            d.roadBox = d.roads.map((road) => computeBBox(road.p));
+            d.bldgBox = d.bldg.map((p) => computeBBox(p));
             entry.d3 = d;
           })
           .catch(() => {})
@@ -967,22 +999,42 @@ function SaigonMapV5({
           if (polyActive && selWard !== null && i !== selWard) return null;
           const d = wardData[w.slug as string];
           if (!d?.d3) return null;
-          const r = bboxToRect(d.d3.bbox);
+          const d3 = d.d3;
+          const r = bboxToRect(d3.bbox);
+          // 피처 단위 뷰포트 컬링 — ward 전체가 아니라 현재 뷰포트(+마진)와 교차하는
+          // 건물/도로만 렌더한다(§FEATURE_CULL_MARGIN). 통합 좌표(vb) → ward-local(VW/VH)
+          // 변환 후 사전계산된 bbox(entry.d3.bldgBox/roadBox, 로드 시 1회)와 비교.
+          const lvx1 = (vb.x - r.x) / r.w * d3.VW;
+          const lvy1 = (vb.y - r.y) / r.h * d3.VH;
+          const lvx2 = (vb.x + vb.w - r.x) / r.w * d3.VW;
+          const lvy2 = (vb.y + vb.h - r.y) / r.h * d3.VH;
+          const mgx = (lvx2 - lvx1) * FEATURE_CULL_MARGIN;
+          const mgy = (lvy2 - lvy1) * FEATURE_CULL_MARGIN;
+          const cx1 = lvx1 - mgx, cy1 = lvy1 - mgy, cx2 = lvx2 + mgx, cy2 = lvy2 + mgy;
+          const bldgBox = d3.bldgBox;
+          const bldgInView = bldgBox
+            ? d3.bldg.filter((_, bi) => boxIntersects(bldgBox[bi], cx1, cy1, cx2, cy2))
+            : d3.bldg;
+          const roadBox = d3.roadBox;
+          const roadsInView = roadBox
+            ? d3.roads.filter((_, ri) => boxIntersects(roadBox[ri], cx1, cy1, cx2, cy2))
+            : d3.roads;
           return (
             <svg key={`l3-${i}`} x={r.x} y={r.y} width={r.w} height={r.h}
-              viewBox={`0 0 ${d.d3.VW} ${d.d3.VH}`} preserveAspectRatio="none" overflow="visible">
-              {d.d3.water.map((p, pi) => <polygon key={pi} points={p} className={styles.water} />)}
-              {d.d3.wline.map((p, pi) => <polyline key={pi} points={p} className={styles.wline} />)}
+              viewBox={`0 0 ${d3.VW} ${d3.VH}`} preserveAspectRatio="none" overflow="visible">
+              {d3.water.map((p, pi) => <polygon key={pi} points={p} className={styles.water} />)}
+              {d3.wline.map((p, pi) => <polyline key={pi} points={p} className={styles.wline} />)}
               {/* 건물 음영 — y+오프셋 어두운 duplicate 를 아래 깔아 입체감 (SVG filter 는 개수상 성능 위험) */}
               {bldgShadow && (
                 <g transform="translate(0.9, 1.3)" pointerEvents="none">
-                  {d.d3.bldg.map((p, pi) => <polygon key={pi} points={p} className={styles.bldgShadow} />)}
+                  {bldgInView.map((p, pi) => <polygon key={pi} points={p} className={styles.bldgShadow} />)}
                 </g>
               )}
-              {d.d3.bldg.map((p, pi) => <polygon key={pi} points={p} className={styles.bldg} />)}
+              {bldgInView.map((p, pi) => <polygon key={pi} points={p} className={styles.bldg} />)}
               {/* 도로 랭크별 casing-fill 페어: 랭크 오름차순으로 그룹의 casing 전부 → 그 그룹의 fill 전부를 그려
-                  상위 등급 casing이 하위 등급 fill에 덮이지 않는다 (표준 카토그래피 casing-fill-casing-fill 반복) */}
-              {groupRoadsByRank(d.d3.roads).flatMap((group, gi) => [
+                  상위 등급 casing이 하위 등급 fill에 덮이지 않는다 (표준 카토그래피 casing-fill-casing-fill 반복).
+                  컬링은 그룹핑 전에 적용 — 순서는 그대로 유지되므로 랭크 그룹 경계는 안 깨진다. */}
+              {groupRoadsByRank(roadsInView).flatMap((group, gi) => [
                 ...group.map((road, ri) => ROAD_CASING[road.c] ? (
                   <polyline key={`c${gi}-${ri}`} points={road.p} stroke={ROAD_CASING[road.c]}
                     strokeWidth={road.w * roadK * CASING_RATIO} className={styles.road} />

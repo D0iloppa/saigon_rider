@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database import get_db
-from ..models import District, FeedPost, MarketplaceListing, Ward
+from ...database import get_db
+from ...models import District, FeedPost, MarketplaceListing, Ward
 
 router = APIRouter(prefix="/map", tags=["지도 (Map)"])
 

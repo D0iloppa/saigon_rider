@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database import get_db
-from ..models import Poi
-from ..schemas import POIMapItemOut
-from ..utils import build_imgproxy_url
+from ...database import get_db
+from ...models import Poi
+from ...schemas import POIMapItemOut
+from ...utils import build_imgproxy_url
 
 router = APIRouter(prefix="/poi", tags=["POI"])
 

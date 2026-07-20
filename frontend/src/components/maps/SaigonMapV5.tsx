@@ -1,9 +1,10 @@
 import { LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
 import { native } from '@/lib/native';
 import depth1 from './v2/saigon-depth1.json';
 import { regionContains, type MapMarkerV2, type SelectedRegion } from './v2/region';
+import { computeVisibleLabels, type DeclutterMarker } from './v2/labelDeclutter';
 import styles from './SaigonMapV5.module.css';
 
 /**
@@ -257,6 +258,8 @@ function SaigonMapV5({
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const prevLOD = useRef({ l2: false, l3: false });
   const didAutoLocate = useRef(false);
+  // 라벨 디클러터 히스테리시스 — 직전 프레임의 표시 라벨 집합(깜빡임 방지용)
+  const prevVisibleRef = useRef<ReadonlySet<string | number>>(new Set());
   // 마운트 rAF(빈 deps)가 최신 focusLatLng 를 부르기 위한 latest-ref (onViewportChangeRef 와 동일 패턴)
   const focusLatLngRef = useRef<((pos: { lat: number; lng: number }, opts?: { silent?: boolean; selectRegion?: boolean; suppressBbox?: boolean; noMeDot?: boolean }) => void) | null>(null);
   // 마운트 rAF(빈 deps 이펙트)가 최신 onViewportChange를 부르기 위한 latest-ref.
@@ -811,6 +814,61 @@ function SaigonMapV5({
   // depth1 nested SVG 위치 (통합 좌표)
   const d1Rect = bboxToRect(D1_BBOX);
 
+  // ── 라벨 디클러터 ──────────────────────────────────────────
+  // 겹치는 라벨을 우선순위(선택>뱃지>POI>일반, 동률 시 가시영역 중앙거리)로 정리한다.
+  // 라벨(<text>)만 게이팅 — 아이콘/핀은 항상 유지. null 이면 디클러터 없이 전부 표시.
+  // 제스처 종료(vbSnap 갱신) 시 1회 재계산 — vbRef 는 deps 에 넣지 않아 매 프레임 계산을 피한다.
+  const visibleLabelIds = useMemo<Set<string | number> | null>(() => {
+    if (!markers || !(forceMarkers || vb.w < L2_VBW)) return null;
+    const svg = svgRef.current;
+    const cw = svg?.clientWidth ?? 0;
+    const ch = svg?.clientHeight ?? 0;
+    if (cw <= 0 || ch <= 0) return null; // 컨테이너 미측정 — 디클러터 없이 전부 표시
+    const v = vbRef.current;
+    const cands: DeclutterMarker[] = [];
+    for (const m of markers) {
+      if (!m.label) continue;
+      // 선택된 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 후보 제외
+      if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) continue;
+      const mx = lx(m.lng), my = ly(m.lat);
+      if (mx < v.x - 50 || mx > v.x + v.w + 50 || my < v.y - 50 || my > v.y + v.h + 50) continue;
+      const sx = ((mx - v.x) / v.w) * cw;
+      const sy = ((my - v.y) / v.h) * ch;
+      // 화면 px 는 줌 불변(r 이 vb.w 에 비례) — r_px = 0.015 × (m.r) × cw. 렌더 루프의 각 kind
+      // 라벨 오프셋/폰트(units)를 그대로 px 로 환산해 라벨 박스 위치를 맞춘다.
+      const rpx = 0.015 * (m.r ?? 1) * cw;
+      let fontSize: number;
+      let labelTop: number;
+      let poiTier = 0;
+      if (m.kind === 'biz') {
+        fontSize = rpx * (m.selected ? 1.5 : 1.1);
+        labelTop = sy + rpx * (m.selected ? 1.05 : 0.65);
+      } else if (m.kind === 'poi') {
+        fontSize = rpx * 1.1 + 2 * (cw / v.w); // 렌더의 (r*1.1 + 2 units)
+        labelTop = sy + rpx * 1.05 * 1.35; // half=r*1.05, y=my+half*1.35
+        // POI 등급은 색으로만 판별 가능(MapMarkerV2 에 카테고리 필드 없음) — 호출부(NeighborhoodMap)
+        // landmark=#0d9488 / civic=#4f7d78 와 결합. 그 외/미지정은 기타 POI(tier 0).
+        poiTier = m.color === '#0d9488' ? 2 : m.color === '#4f7d78' ? 1 : 0;
+      } else {
+        fontSize = rpx * 1.5;
+        labelTop = sy + rpx * 2.0;
+      }
+      cands.push({
+        id: m.id, kind: m.kind, selected: m.selected, badge: m.badge, poiTier,
+        labelCx: sx, labelTop, fontSize, text: m.label, sx, sy,
+      });
+    }
+    const centerX = cw / 2;
+    const centerY = (topInsetPx + (ch - bottomInsetPx)) / 2; // 하단 시트/상단 오버레이 보정 중심
+    return computeVisibleLabels(cands, { centerX, centerY, prevVisible: prevVisibleRef.current });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers, vbSnap, forceMarkers, bottomInsetPx, topInsetPx]);
+
+  // 히스테리시스 미러 — 표시 집합을 다음 재계산의 직전 상태로 보관(렌더 중 ref 쓰기 회피)
+  useEffect(() => {
+    if (visibleLabelIds) prevVisibleRef.current = visibleLabelIds;
+  }, [visibleLabelIds]);
+
   // ── 렌더 ──────────────────────────────────────────────────
   return (
     <div ref={containerRef} className={`${styles.stage} ${className ?? ''}`} style={{ height }}>
@@ -1034,7 +1092,7 @@ function SaigonMapV5({
                         )}
                       </>
                     )}
-                    {m.label && (
+                    {m.label && (!visibleLabelIds || visibleLabelIds.has(m.id)) && (
                       // 선택 상태에서만 상호명을 크게 승격한다.
                       <text
                         x={mx} y={my + r * (m.selected ? 1.05 : 0.65)}
@@ -1068,7 +1126,7 @@ function SaigonMapV5({
                       <path d={m.icon} fill="#fff"
                         transform={`translate(${mx - half * 0.66}, ${my - half * 0.66}) scale(${(half * 1.32) / 24})`} />
                     )}
-                    {m.label && (
+                    {m.label && (!visibleLabelIds || visibleLabelIds.has(m.id)) && (
                       <text x={mx} y={my + half * 1.35}
                         fontSize={r * 1.1 + 2} fontWeight={700}
                         fill="#0f5c56"
@@ -1122,7 +1180,7 @@ function SaigonMapV5({
                     <circle cx={mx + r * 0.75} cy={my - r * 0.75} r={r * 0.32}
                       fill="#ef4444" stroke="#fff" strokeWidth={r * 0.12} pointerEvents="none" />
                   )}
-                  {m.label && (
+                  {m.label && (!visibleLabelIds || visibleLabelIds.has(m.id)) && (
                     // 업체 핀 상호명 라벨 (SGR-323, 당근 IN-1 패턴) — 동명 텍스트와 동일한 흰 헤일로
                     <text
                       x={mx} y={my + r * 2.0}

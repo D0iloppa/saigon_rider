@@ -61,9 +61,10 @@ const LISTING_GLYPH_PATH = 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2
 const FEED_GLYPH_PATH = 'M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z'; // chat (말풍선)
 const ASSET_BASE = `${import.meta.env.BASE_URL}maps/v2/`;
 
-// ── 도로 케이싱 2-pass (표준 카토그래피 — Mapbox/OSM 관례) ──────
+// ── 도로 케이싱 (표준 카토그래피 — Mapbox/OSM 관례) ──────
 // depth3 도로색(c)은 파이프라인 ROAD_STYLE 산출 6종 — 데이터 재생성 없이 렌더에서 fill/casing 파생.
-// casing 은 fill 보다 어두운 웜톤 한 단계. [casing 전체 → fill 전체] 순서로 그려 교차점을 자연 병합.
+// casing 은 fill 보다 어두운 웜톤 한 단계. 랭크(등급) 오름차순으로 그룹의 casing→fill 쌍을 완결한 뒤
+// 다음 그룹으로 넘어가 상위 등급 casing이 하위 등급 fill에 덮이지 않는다(ROAD_RANK 참고).
 // 골목(#f6f6f6)은 무케이싱 — 전체 도로의 ~55%라 노드 2배 부담이 크고, 최하등급 무케이싱이 관례.
 const ROAD_FILL: Record<string, string> = {
   '#f6f6f6': '#fcfbf7', // 골목
@@ -80,7 +81,30 @@ const ROAD_CASING: Record<string, string> = {
   '#F6C453': '#d89d2f',
   '#F4A93C': '#c9801d',
 };
+// 도로 등급 랭크 — gen_saigon_map_v2.py ROAD_STYLE 의 6단계 순서(motorway/trunk 최상위 … service 최하위)와 일치.
+// 폭(w)은 등급과 100% 단조 대응이 아니라(예: tertiary 2.4 > secondary_link 2), 정렬/그룹핑은 랭크를 1차 키로 쓴다.
+const ROAD_RANK: Record<string, number> = {
+  '#f6f6f6': 0, // 골목(service)
+  '#EDE6DA': 1, // 보행로(pedestrian)
+  '#ffffff': 2, // 이면도로(tertiary/residential/living_street/unclassified)
+  '#FBD980': 3, // secondary/secondary_link
+  '#F6C453': 4, // primary/primary_link
+  '#F4A93C': 5, // 간선(motorway/trunk/motorway_link/trunk_link)
+};
 const CASING_RATIO = 1.42; // casing 폭 = fill 폭 × 1.42
+// roads 배열은 로드 시 (랭크, 폭) 오름차순 정렬돼 있으므로, 랭크 경계에서만 끊어 연속 구간으로 그룹핑한다.
+// 그룹별로 casing→fill 쌍을 완결한 뒤 다음 그룹(다음 랭크)으로 넘어가야 상위 등급 casing이
+// 하위 등급 fill에 덮이지 않는다(표준 카토그래피 casing-fill-casing-fill 반복 패턴).
+function groupRoadsByRank(roads: Depth3Data['roads']): Depth3Data['roads'][] {
+  const groups: Depth3Data['roads'][] = [];
+  let lastRank = -1;
+  for (const road of roads) {
+    const rank = ROAD_RANK[road.c] ?? 0;
+    if (rank !== lastRank) { groups.push([]); lastRank = rank; }
+    groups[groups.length - 1].push(road);
+  }
+  return groups;
+}
 // 줌 연동 도로폭 배율 — 스트로크는 nested viewBox 유닛이라 줌에 선형 비례 자동 스케일인데,
 // 그대로면 L3 진입(vbW=700)엔 헤어라인(간선 화면폭 ~1%)·MIN_VBW(100)엔 과대(~7%)다.
 // 지수 0.4 곡선으로 완만화: 진입 직후 ×1.5 → 딥줌 ×0.69 (간선 화면폭 ~1.5% → ~4.8%).
@@ -433,8 +457,8 @@ function SaigonMapV5({
         fetch(`${ASSET_BASE}${slug}/depth3.json`)
           .then((r) => r.json())
           .then((d: Depth3Data) => {
-            // 폭 오름차순 정렬 — 2-pass 렌더의 fill pass 에서 상위 등급 도로가 위에 그려진다 (캐시 전 1회)
-            d.roads.sort((a, b) => a.w - b.w);
+            // (랭크, 폭) 오름차순 정렬 — 랭크 우선(등급별 casing-fill 그룹 경계), 폭은 그룹 내부 2차 키 (캐시 전 1회)
+            d.roads.sort((a, b) => (ROAD_RANK[a.c] ?? 0) - (ROAD_RANK[b.c] ?? 0) || a.w - b.w);
             entry.d3 = d;
           })
           .catch(() => {})
@@ -956,15 +980,18 @@ function SaigonMapV5({
                 </g>
               )}
               {d.d3.bldg.map((p, pi) => <polygon key={pi} points={p} className={styles.bldg} />)}
-              {/* 도로 2-pass: casing 전체 → fill 전체 — fill 이 교차부 casing 을 덮어 자연 병합된다 */}
-              {d.d3.roads.map((road, ri) => ROAD_CASING[road.c] ? (
-                <polyline key={`c${ri}`} points={road.p} stroke={ROAD_CASING[road.c]}
-                  strokeWidth={road.w * roadK * CASING_RATIO} className={styles.road} />
-              ) : null)}
-              {d.d3.roads.map((road, ri) => (
-                <polyline key={ri} points={road.p} stroke={ROAD_FILL[road.c] ?? road.c}
-                  strokeWidth={road.w * roadK} className={styles.road} />
-              ))}
+              {/* 도로 랭크별 casing-fill 페어: 랭크 오름차순으로 그룹의 casing 전부 → 그 그룹의 fill 전부를 그려
+                  상위 등급 casing이 하위 등급 fill에 덮이지 않는다 (표준 카토그래피 casing-fill-casing-fill 반복) */}
+              {groupRoadsByRank(d.d3.roads).flatMap((group, gi) => [
+                ...group.map((road, ri) => ROAD_CASING[road.c] ? (
+                  <polyline key={`c${gi}-${ri}`} points={road.p} stroke={ROAD_CASING[road.c]}
+                    strokeWidth={road.w * roadK * CASING_RATIO} className={styles.road} />
+                ) : null),
+                ...group.map((road, ri) => (
+                  <polyline key={`f${gi}-${ri}`} points={road.p} stroke={ROAD_FILL[road.c] ?? road.c}
+                    strokeWidth={road.w * roadK} className={styles.road} />
+                )),
+              ])}
             </svg>
           );
         })}

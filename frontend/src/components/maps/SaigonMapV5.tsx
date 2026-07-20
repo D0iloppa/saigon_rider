@@ -242,6 +242,14 @@ export interface SaigonMapV5Props {
   /** 마커가 아닌 지도 영역을 탭했을 때 부모 오버레이를 정리하는 훅. */
   onMapTap?: () => void;
   onBboxChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
+  /**
+   * onBboxChange와 동일 시점(같은 뷰포트 변경)에 함께 emit되는 크롭 이전(raw) 컨테이너
+   * 기하 사각형 — onBboxChange는 상/하 UI크롬 인셋만큼 비대칭 크롭돼(query bbox 인셋,
+   * fetch/카운트/리스트/마커 전용) (N+S)/2가 더 이상 "화면 진짜 중심"이 아니다. 핀
+   * 재배치 크로스헤어(컨테이너 정중앙 고정)·뷰포트 저장/복원·줌인 타겟처럼 실제 기하
+   * 중심이 필요한 소비처는 이 raw bbox의 중심을 써야 한다.
+   */
+  onRawViewportChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
   onDepthChange?: (showDistrictBadges: boolean) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
   /** 현재 뷰포트 기준 bbox 재발행 트리거 — region 해제 등 파이프라인 재동기화용 */
@@ -285,6 +293,7 @@ function SaigonMapV5({
   onRegionSelect,
   onMapTap,
   onBboxChange,
+  onRawViewportChange,
   onDepthChange,
   locateRef,
   emitBboxRef,
@@ -556,6 +565,15 @@ function SaigonMapV5({
     }
 
     if (!suppressBbox) {
+      // raw(크롭 이전) 컨테이너 기하 사각형을 먼저 emit — (N+S)/2가 실제 컨테이너 중심과
+      // 일치한다(핀 크로스헤어 등 raw 중심 소비처용). 아래 크롭 bbox보다 먼저 호출해, 소비자가
+      // 같은 tick 안에서 cropped 핸들러 실행 시점에 이미 최신 raw ref를 읽을 수 있게 한다.
+      onRawViewportChange?.({
+        N: uy2lat(vb.y),
+        S: uy2lat(vb.y + vb.h),
+        W: ux2lng(vb.x),
+        E: ux2lng(vb.x + vb.w),
+      });
       // 조회(query) bbox = UI 크롬(상단 검색바+칩, 하단 시트 최소화 높이)에 가린 영역을 뺀
       // "가시-안전 사각형" 기준 — LOD(l2/l3, 위 vb.w 기준)·렌더 뷰포트(viewBox)·제스처와는
       // 무관하게 이 emit 값에만 적용한다.
@@ -575,7 +593,7 @@ function SaigonMapV5({
       if (!w.slug || !wardInView(i, vb)) return;
       void loadWardData(w.slug as string, l3);
     });
-  }, [loadWardData, onBboxChange, onDepthChange, getQueryCropUnits]);
+  }, [loadWardData, onBboxChange, onRawViewportChange, onDepthChange, getQueryCropUnits]);
 
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;

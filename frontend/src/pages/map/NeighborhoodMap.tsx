@@ -446,17 +446,28 @@ export default function NeighborhoodMap() {
   const showDistrictBadgesRef = useRef(showDistrictBadges);
   showDistrictBadgesRef.current = showDistrictBadges;
 
-  // 마지막 emit bbox — 디바운스 커밋(viewportBbox)을 기다리지 않고 "지금 지도 중심"이 필요한
-  // 소비자용(장소 제안 핀 재배치 확정). 커밋 여부와 무관하게 매 emit 마다 갱신된다.
-  const latestBboxRef = useRef<LatLngBbox | null>(null);
+  // 크롭 이전(raw) bbox — SaigonMapV5.onRawViewportChange 가 onBboxChange(크롭된 fetch/카운트/
+  // 리스트/마커용)와 같은 tick에 "먼저" emit한다(SaigonMapV5.tsx 순서 보장). (N+S)/2가 실제
+  // 컨테이너 기하 중심과 일치하는 유일한 채널 — 핀 재배치 확정(latestBboxCenter)·뷰포트
+  // 저장(VIEWPORT_KEY)·커밋된 중심(viewportRawBbox)이 모두 이 값을 쓴다. 크롭 bbox(bboxFilter)는
+  // 여전히 fetch/카운트/리스트/마커 전용으로 남는다 — 이 raw 채널과 절대 섞지 않는다.
+  const latestRawBboxRef = useRef<LatLngBbox | null>(null);
+  const handleRawBboxChange = useCallback((bbox: LatLngBbox) => {
+    latestRawBboxRef.current = bbox;
+  }, []);
+
+  // 커밋된(디바운스 정착) raw bbox — viewportCenter/centerWard/줌인 타겟처럼 "지금 당장"이
+  // 아니라 이동이 멎은 시점의 중심이 필요한 소비자용. viewportBbox(크롭)와 동일한 커밋
+  // 타이밍(즉시/500ms 디바운스)으로 커밋하되 소스만 raw.
+  const [viewportRawBbox, setViewportRawBbox] = useState<LatLngBbox | null>(null);
 
   const handleBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
-    latestBboxRef.current = bbox;
     if (bboxImmediateRef.current) {
       // 지역선택 해제 직후 동기 emit — 호출자(resetToViewport)가 viewport 전환을 이미
       // 확정했으므로 modeRef 가드(아직 'region')를 우회해 즉시 커밋한다. 디바운스 경로와
       // 동일하게 뷰포트 저장·말풍선 억제 해제까지 수행.
-      try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(bbox)); } catch { /* quota 등 저장 실패 무시 */ }
+      // VIEWPORT_KEY는 raw bbox로 저장 — 크롭 bbox를 저장하면 재진입 복원 시 중심이 밀린다.
+      try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(latestRawBboxRef.current ?? bbox)); } catch { /* quota 등 저장 실패 무시 */ }
       suppressAutoBubbleIdRef.current = null;
       suppressAutoBubbleListingIdRef.current = null;
       suppressAutoBubbleFeedIdRef.current = null;
@@ -465,12 +476,13 @@ export default function NeighborhoodMap() {
         suppressedPanelBboxRef.current = bbox;
       }
       setViewportBbox(bbox);
+      setViewportRawBbox(latestRawBboxRef.current);
       return;
     }
     clearTimeout(bboxTimerRef.current);
     bboxTimerRef.current = setTimeout(() => {
-      // 뷰포트 기억: 이동/줌이 멎은 시점의 뷰포트를 저장 → 재진입 시 복원
-      try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(bbox)); } catch { /* quota 등 저장 실패 무시 */ }
+      // 뷰포트 기억: 이동/줌이 멎은 시점의 뷰포트를 저장 → 재진입 시 복원 (raw bbox — 위와 동일 이유)
+      try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(latestRawBboxRef.current ?? bbox)); } catch { /* quota 등 저장 실패 무시 */ }
       suppressAutoBubbleIdRef.current = null; // 새 조작 = 억제 해제
       suppressAutoBubbleListingIdRef.current = null;
       suppressAutoBubbleFeedIdRef.current = null;
@@ -481,6 +493,7 @@ export default function NeighborhoodMap() {
           suppressedPanelBboxRef.current = bbox;
         }
         setViewportBbox(bbox);
+        setViewportRawBbox(latestRawBboxRef.current);
       }
     }, 500);
   }, []);
@@ -488,11 +501,15 @@ export default function NeighborhoodMap() {
   // polyActive=true(내 위치 필터 ON)에는 선택 ward polygon 필터를 사용하고,
   // OFF 상태에서는 현재 지도 viewport 기준으로 주변 동네까지 함께 노출한다.
   const bboxFilter = useMemo(() => (mode === 'viewport' ? viewportBbox : null), [mode, viewportBbox]);
+  // raw bbox 쪽 viewport 모드 게이트 — bboxFilter(크롭, fetch/카운트/리스트/마커 전용)와 동일한
+  // mode 조건이지만 소스는 viewportRawBbox(raw, 중심 계산 전용).
+  const rawBboxFilter = useMemo(() => (mode === 'viewport' ? viewportRawBbox : null), [mode, viewportRawBbox]);
 
-  // 커밋된 뷰포트의 중심 — ward 판별과 핀 fetch 이펙트가 공용한다
+  // 커밋된 뷰포트의 중심 — ward 판별·핀 fetch 이펙트·줌인 타겟이 공용한다. raw bbox 기준
+  // (bboxFilter는 크롭돼 있어 (N+S)/2가 실제 컨테이너 중심과 어긋난다 — 회귀 수정).
   const viewportCenter = useMemo(
-    () => (bboxFilter ? { lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 } : null),
-    [bboxFilter],
+    () => (rawBboxFilter ? { lat: (rawBboxFilter.N + rawBboxFilter.S) / 2, lng: (rawBboxFilter.E + rawBboxFilter.W) / 2 } : null),
+    [rawBboxFilter],
   );
   // 지도 중심이 속한 ward (viewport 모드 전용 — region 모드는 bboxFilter=null 이라 자동 null).
   // 접힘 헤더 뱃지·리스트 상단 제목의 지역명 라벨로만 쓰인다. 커버리지 밖이면 null.
@@ -1141,9 +1158,9 @@ export default function NeighborhoodMap() {
     setReviewPickerItems(candidates);
   };
 
-  // 디바운스 미커밋 시(팬 직후 등) 폴백 — 마지막 emit bbox 의 중심
+  // 디바운스 미커밋 시(팬 직후 등) 폴백 — 마지막 emit raw bbox 의 중심(실제 컨테이너 기하중심).
   const latestBboxCenter = () => {
-    const b = latestBboxRef.current;
+    const b = latestRawBboxRef.current;
     return b ? { lat: (b.N + b.S) / 2, lng: (b.E + b.W) / 2 } : null;
   };
 
@@ -1154,7 +1171,7 @@ export default function NeighborhoodMap() {
     setPlaceSheet({ coords: c, wardName: c ? findWardAt(c.lat, c.lng)?.region.name ?? null : null });
   };
 
-  // 핀 재배치 확정 — 그 시점 지도 중심(latestBboxRef: 디바운스 커밋 대기 없이 최신)을 반영하고
+  // 핀 재배치 확정 — 그 시점 지도 중심(latestRawBboxRef: 디바운스 커밋 대기 없이 최신 raw)을 반영하고
   // 시트 복귀. 폼 값은 시트가 hidden 마운트로 보존한다.
   const confirmPlacePin = () => {
     const c = latestBboxCenter();
@@ -1594,6 +1611,7 @@ export default function NeighborhoodMap() {
         // onRegionSelect={handleRegionSelect}
         onMapTap={() => { setSelectedBiz(null); setSelectedListing(null); setSelectedPost(null); }}
         onBboxChange={handleBboxChange}
+        onRawViewportChange={handleRawBboxChange}
         onDepthChange={setShowDistrictBadges}
         onLocated={setSharedCoords}
         emitBboxRef={emitBboxRef}
@@ -1871,8 +1889,10 @@ export default function NeighborhoodMap() {
       )}
 
       {/* 핀 재배치 모드 — 지도 중앙 고정 크로스헤어 + 하단 확인/취소 바. 지도 팬으로 좌표 재지정.
-          onBboxChange 는 컨테이너 기하 중심을 그대로 반영하므로 크로스헤어를 컨테이너 정중앙
-          (50%/50%)에 두면 확정 좌표(latestBboxRef 중심)와 시각적으로 일치한다. */}
+          onBboxChange(크롭 bbox)는 상/하 UI크롬 인셋만큼 비대칭 크롭돼 있어 더 이상 컨테이너
+          기하 중심과 일치하지 않는다 — confirmPlacePin은 반드시 onRawViewportChange(raw, 크롭
+          이전) 기반 latestRawBboxRef 중심을 써야 크로스헤어(컨테이너 정중앙 50%/50%)와 시각적으로
+          일치한다. */}
       {placePinMode && (
         <>
           <div className={styles.pinCrosshair} aria-hidden>

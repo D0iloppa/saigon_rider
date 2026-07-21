@@ -572,6 +572,29 @@ export default function DmDetail() {
               </div>
             );
           }
+          // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)
+          if (m.imageUrl && !m.content) {
+            return (
+              <div
+                key={m.id}
+                className={`${styles.imageMsg} ${isMine ? styles.imageMine : styles.imageTheirs}`}
+              >
+                <AppImage
+                  src={m.imageUrl}
+                  alt=""
+                  className={styles.msgImg}
+                  /* 이미지 비동기 로드로 높이가 늦게 생겨 오토스크롤이 언더슛 — 바닥 고정 중이면 재스크롤 (스티커와 동일 가드) */
+                  onLoad={() => {
+                    if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
+                  }}
+                />
+                <div className={styles.meta}>
+                  {formatRelativeTime(m.createdAt)}
+                  {isMine && m.readAt && <span className={styles.read}> ✓</span>}
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
               {m.content && <div className={styles.text}>{m.content}</div>}

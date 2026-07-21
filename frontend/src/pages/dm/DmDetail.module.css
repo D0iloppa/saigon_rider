@@ -47,6 +47,23 @@
   margin-top: 4px;
 }
 
+/* 이미지 첨부 메시지 (버블 배경/패딩 없이 이미지만 — 스티커와 동일 패턴) */
+.imageMsg {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+}
+
+.imageMine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.imageTheirs {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
 .meta {
   font-size: 11px;
   opacity: 0.6;

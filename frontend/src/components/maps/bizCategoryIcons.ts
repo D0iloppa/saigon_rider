@@ -54,3 +54,28 @@ export const BIZ_CAT_ICON_PATH: Record<string, string> = {
 // 미지의 카테고리 코드 폴백 — 상점 (Material 'store')
 export const BIZ_CAT_ICON_FALLBACK =
   'M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z';
+
+// 업종별 마커 색 (마커 위계 역전, 2026-07-21) — 지도 핀 배경색 = 카테고리 색 + 흰 글리프.
+// 업체가 지도 주 콘텐츠(주인공)이므로 카테고리별 선명한 색으로 즉시 구분되게 한다
+// (Google place marker / 당근 동네지도 카테고리 핀 관례). 키는 BIZ_CAT_ICON_PATH 와 1:1.
+// ※ 전부 시작값 — 실기(실제 지도 배경 위) 확인 후 미세조정 대상.
+export const BIZ_CAT_COLOR: Record<string, string> = {
+  repair: '#ff5a1f',       // 정비 — 브랜드 오렌지 (핵심 업종)
+  wash: '#0ea5e9',         // 세차 — 스카이 (물)
+  tire: '#52525b',         // 타이어 — 징크 (고무)
+  fuel: '#d97706',         // 주유·충전 — 앰버
+  food: '#e11d48',         // 음식 — 로즈
+  cafe: '#8d6e63',         // 카페 — 브라운
+  parts: '#6366f1',        // 용품 — 인디고
+  gear: '#0891b2',         // 헬멧·보호구 — 시안
+  accessory: '#c026d3',    // 튜닝·액세서리 — 푸시아
+  convenience: '#059669',  // 편의점 — 에메랄드
+  parking: '#2563eb',      // 주차장 — 블루 (P 표지 관례)
+  laundry: '#0f766e',      // 세탁 — 틸
+  phone_repair: '#7c3aed', // 폰수리 — 바이올렛
+  towing: '#dc2626',       // 견인·출동 — 레드 (긴급)
+  etc: '#64748b',          // 기타 — 슬레이트
+};
+
+// 미지의 카테고리 코드 폴백 색 — 브랜드 오렌지 (기존 BIZ_COLOR 와 동일)
+export const BIZ_CAT_COLOR_FALLBACK = '#ff5a1f';

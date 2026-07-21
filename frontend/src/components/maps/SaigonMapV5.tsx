@@ -967,8 +967,8 @@ function SaigonMapV5({
           fontSize = rpx * 1.1 + 2 * (cw / v.w); // 렌더의 (r*1.1 + 2 units)
           labelTop = sy + rpx * 1.05 * 1.35; // half=r*1.05, y=my+half*1.35
           // POI 등급은 색으로만 판별 가능(MapMarkerV2 에 카테고리 필드 없음) — 호출부(NeighborhoodMap)
-          // landmark=#0d9488 / civic=#4f7d78 와 결합. 그 외/미지정은 기타 POI(tier 0).
-          poiTier = m.color === '#0d9488' ? 2 : m.color === '#4f7d78' ? 1 : 0;
+          // 뮤트 톤 landmark=#74847f / civic=#8b909a 와 결합. 그 외/미지정은 기타 POI(tier 0).
+          poiTier = m.color === '#74847f' ? 2 : m.color === '#8b909a' ? 1 : 0;
         } else {
           fontSize = rpx * 1.5;
           labelTop = sy + rpx * 2.0;
@@ -987,8 +987,8 @@ function SaigonMapV5({
         const cy = sy - 0.8 * rpx, cr = 1.03 * rpx;
         iconLeft = sx - cr; iconRight = sx + cr; iconTop = cy - cr; iconBottom = cy + cr;
       } else if (m.kind === 'poi') {
-        // 스퀘어클 halo — half=r*1.05, halo=half*1.26=1.323r.
-        const half = 1.323 * rpx;
+        // 뮤트 칩 — half=r*1.05 + 테두리(strokeWidth half*0.14 의 절반 돌출) ≈ 1.12r (halo 제거됨).
+        const half = 1.12 * rpx;
         iconLeft = sx - half; iconRight = sx + half; iconTop = sy - half; iconBottom = sy + half;
       } else if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
         // 매물/피드 선택 승격 teardrop — biz 선택과 동일 지오메트리(BIZ_PIN_PATH 공용).
@@ -1239,7 +1239,9 @@ function SaigonMapV5({
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
               const r = vb.w * 0.015 * (m.r ?? 1);
               if (m.kind === 'biz') {
-                // 비선택 업체는 중립 원형 아이콘, 선택된 업체만 물방울 핀으로 승격한다.
+                // 업체 = 지도 주 콘텐츠 (마커 위계 역전, 2026-07-21) — 비선택도 카테고리 색
+                // 원형 + 흰 글리프로 선명하게 부상시킨다(과거 중립 회색 #8b93a1 은 POI 에 묻혔음).
+                // 선택된 업체는 물방울 핀으로 한 단계 더 승격.
                 const s = (r * 1.25) / 9; // 머리 반지름 1.25r → 로컬 24유닛(머리 R=9) 스케일
                 const color = m.color ?? '#ff5a1f';
                 return (
@@ -1261,7 +1263,7 @@ function SaigonMapV5({
                       </>
                     ) : (
                       <>
-                        <circle cx={mx} cy={my - r * 0.8} r={r * 0.92} fill="#8b93a1" stroke="#fff" strokeWidth={r * 0.22} />
+                        <circle cx={mx} cy={my - r * 0.8} r={r * 0.92} fill={color} stroke="#fff" strokeWidth={r * 0.22} />
                         {m.icon && (
                           <path d={m.icon} fill="#fff" pointerEvents="none"
                             transform={`translate(${mx - r * 0.46}, ${my - r * 1.26}) scale(${(r * 0.92) / 24})`} />
@@ -1273,11 +1275,12 @@ function SaigonMapV5({
                       </>
                     )}
                     {m.label && (!visibleLabelIds || visibleLabelIds.has(m.id)) && (
-                      // 선택 상태에서만 상호명을 크게 승격한다.
+                      // 상호명 = 주인공 라벨 — 비선택도 진하게/굵게(과거 #667085/600 은 POI 라벨에
+                      // 밀렸음), 선택 시 크기만 한 단계 더 승격. ※ 색·굵기는 시작값.
                       <text
                         x={mx} y={my + r * (m.selected ? 1.05 : 0.65)}
-                        fontSize={r * (m.selected ? 1.5 : 1.1)} fontWeight={m.selected ? 700 : 600}
-                        fill={m.selected ? '#1f2937' : '#667085'}
+                        fontSize={r * (m.selected ? 1.5 : 1.1)} fontWeight={700}
+                        fill={m.selected ? '#1f2937' : '#333d4b'}
                         stroke="rgba(255,255,255,0.90)" strokeWidth={r * (m.selected ? 0.42 : 0.3)}
                         paintOrder="stroke fill"
                         textAnchor="middle" dominantBaseline="hanging"
@@ -1290,27 +1293,28 @@ function SaigonMapV5({
                 );
               }
               // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체와 별개의 "위치 기준 표식".
-              // 콘텐츠 핀(오렌지/블루 dot·teardrop)과 구분되는 teal 스퀘어클 + 흰 halo + 이름 라벨 상시 노출.
-              // 크기는 카테고리 무관 통일, 색만 호출부가 주입(landmark > civic). 탭 동작이 없으므로
-              // pointerEvents none — 지도 제스처와 인접 콘텐츠 마커 클릭을 가리지 않는다.
+              // 마커 위계 역전 (2026-07-21): POI 는 지표(orientation reference)일 뿐 사용자가 찾는
+              // 대상이 아니다 — 과거 청록 스퀘어클+흰 halo(footprint가 업체의 1.6배)를 버리고,
+              // 반투명 밝은 칩 + 뮤트 글리프(색은 호출부 주입, landmark/civic 뮤트 톤) + 얇은 회색
+              // 라벨로 배경에 후퇴시킨다. 위치 파악은 되되 시선은 안 끄는 것이 목표. 탭 동작이
+              // 없으므로 pointerEvents none — 지도 제스처와 콘텐츠 마커 클릭을 가리지 않는다.
+              // ※ 색·투명도·크기 계수는 시작값, 실기 조정 대상.
               if (m.kind === 'poi') {
                 const half = r * 1.05;
-                const color = m.color ?? '#0d9488';
+                const color = m.color ?? '#74847f';
                 return (
                   <g key={m.id} data-marker={String(m.id)} pointerEvents="none">
-                    <rect x={mx - half * 1.26} y={my - half * 1.26} width={half * 2.52} height={half * 2.52}
-                      rx={half * 0.6} fill="rgba(255,255,255,0.45)" />
                     <rect x={mx - half} y={my - half} width={half * 2} height={half * 2} rx={half * 0.42}
-                      fill={color} stroke="#fff" strokeWidth={half * 0.18} />
+                      fill="rgba(255,255,255,0.82)" stroke={color} strokeOpacity={0.55} strokeWidth={half * 0.14} />
                     {m.icon && (
-                      <path d={m.icon} fill="#fff"
+                      <path d={m.icon} fill={color}
                         transform={`translate(${mx - half * 0.66}, ${my - half * 0.66}) scale(${(half * 1.32) / 24})`} />
                     )}
                     {m.label && (!visibleLabelIds || visibleLabelIds.has(m.id)) && (
                       <text x={mx} y={my + half * 1.35}
-                        fontSize={r * 1.1 + 2} fontWeight={700}
-                        fill="#0f5c56"
-                        stroke="rgba(255,255,255,0.92)" strokeWidth={r * 0.34}
+                        fontSize={r * 1.1 + 2} fontWeight={500}
+                        fill="#7d8590"
+                        stroke="rgba(255,255,255,0.88)" strokeWidth={r * 0.3}
                         paintOrder="stroke fill"
                         textAnchor="middle" dominantBaseline="hanging"
                         fontFamily="system-ui,-apple-system,sans-serif">

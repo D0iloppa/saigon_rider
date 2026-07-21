@@ -14,7 +14,7 @@ import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type Mark
 import { fetchBizMapItems, fetchBizCategories, fetchBizFavorites, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
 import { isNewsUnread, markBizNewsRead } from '@/lib/bizNewsRead';
 import { toast } from '@/components/ui/Toast';
-import { BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
+import { BIZ_CAT_ICON_PATH, BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
 import { POI_CAT_ICON_PATH, POI_CAT_ICON_FALLBACK } from '@/components/maps/poiCategoryIcons';
@@ -37,9 +37,16 @@ type BrowseMode = 'viewport' | 'region';
 const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
-// 업체 핀 (SGR-323) — teardrop 핀 브랜드 오렌지 (당근 레퍼런스). 탭 배타 구조라 매물 원형
-// 핀(#ff6f3c)과 동시 노출되지 않으며, 선택링·집계배지의 #ff5a1f 와 통일한다.
-const BIZ_COLOR = '#ff5a1f';
+// 업체 핀 색 (마커 위계 역전, 2026-07-21) — 업체가 지도 주 콘텐츠이므로 카테고리 색
+// 원형 마커 + 흰 글리프로 부상시킨다 (Google place marker / 당근 카테고리 핀 관례).
+// 미지정/미지 카테고리는 브랜드 오렌지 폴백(기존 BIZ_COLOR 와 동일 값). ※ 색은 시작값.
+const bizCatColor = (category: string | null | undefined) =>
+  (category && BIZ_CAT_COLOR[category]) || BIZ_CAT_COLOR_FALLBACK;
+// POI 상시 참조 레이어 색 — POI 는 "지표(landmark)" 참조용이므로 저채도 뮤트 톤으로
+// 배경에 후퇴시킨다 (업체 마커 아래 위계). SaigonMapV5 라벨 디클러터의 poiTier 색 판별과
+// 값이 결합돼 있으므로 함께 변경할 것. ※ 색은 시작값.
+const POI_LANDMARK_COLOR = '#74847f'; // landmark — 그레이-틸 뮤트
+const POI_CIVIC_COLOR = '#8b909a';    // civic — 쿨 그레이 뮤트
 // 자동 말풍선 (2026-07-11) — 뷰포트 세로 스팬이 이 값 이하일 때만 중앙 근접 업체를 터치 없이
 // 활성화한다. 세로 폰(≈2.16:1)에서 lat 스팬은 lng 스팬의 2배+ 로 복원되므로 0.03(가로 ≈1.5km,
 // 동 단위 줌인)으로 잡는다. 반경은 뷰포트 스팬 대비 정규화 거리(0.5=화면 가장자리).
@@ -730,7 +737,7 @@ export default function NeighborhoodMap() {
           if (seen.has(id)) continue;
           seen.add(id);
           extra.push({
-            id, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.6, label: b.name,
+            id, lat: b.lat, lng: b.lng, kind: 'biz', color: bizCatColor(b.category), r: 1.6, label: b.name,
             icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
             selected: focusedBiz?.id === b.id,
             badge: isNewsUnread(b.id, b.latestNews?.createdAt),
@@ -740,32 +747,35 @@ export default function NeighborhoodMap() {
       }
       return extra.length > 0 ? [...base, ...extra] : base;
     };
-    // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체 탭 배타 구조와 무관하게 항상 append.
-    // 이름 라벨은 현재 언어(name_ko/vi/en) 우선, 없으면 name_ko 폴백. 라벨 상시 노출.
-    // 아이콘 크기·라벨 폰트는 카테고리 무관 통일(r 고정) — landmark/civic 색만 구분.
+    // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체 탭 배타 구조와 무관하게 항상 표시.
+    // 이름 라벨은 현재 언어(name_ko/vi/en) 우선, 없으면 name_ko 폴백.
+    // 마커 위계 역전 (2026-07-21): POI 는 위치 파악용 "지표"일 뿐 사용자가 찾는 대상이 아니다 —
+    // 작게(r 1.0 < biz 1.6)·저채도 뮤트 색으로 배경에 후퇴시키고, 배열 앞쪽(z-order 아래)에 깐다.
+    // ※ r/색은 시작값, 실기 조정 대상.
     const poiMarkers: MapMarkerV2[] = poiItems.map((p) => ({
       id: `poi:${p.id}`,
       lat: p.lat,
       lng: p.lng,
       kind: 'poi',
-      r: 1.5,
-      color: p.category === 'landmark' ? '#0d9488' : '#4f7d78',
+      r: 1.0,
+      color: p.category === 'landmark' ? POI_LANDMARK_COLOR : POI_CIVIC_COLOR,
       icon: POI_CAT_ICON_PATH[p.category as 'landmark' | 'civic'] ?? POI_CAT_ICON_FALLBACK,
       label: (i18n.language === 'vi' ? p.nameVi : i18n.language === 'en' ? p.nameEn : p.nameKo) || p.nameKo,
     }));
+    // z-order: POI(배경 지표)를 배열 앞에 깔아 업체/콘텐츠 마커가 항상 위에 그려지게 한다.
     if (isSearching) {
       if (searchScope === 'biz') {
-        return [...withCarouselMarkers(bizSearchResults.map((b) => ({
-          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, kind: 'biz', color: BIZ_COLOR, r: 1.6, label: b.name,
+        return [...poiMarkers, ...withCarouselMarkers(bizSearchResults.map((b) => ({
+          id: `biz:${b.id}`, lat: b.lat, lng: b.lng, kind: 'biz', color: bizCatColor(b.category), r: 1.6, label: b.name,
           icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
           selected: focusedBiz?.id === b.id,
           badge: isNewsUnread(b.id, b.latestNews?.createdAt),
           onClick: () => handleBizMarkerClick(b),
-        }))), ...poiMarkers];
+        })))];
       }
-      return [...withCarouselMarkers(searchResults
+      return [...poiMarkers, ...withCarouselMarkers(searchResults
         .filter((l) => l.lat != null && l.lng != null)
-        .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, kind: 'listing', color: LISTING_COLOR, selected: focusedListing?.id === l.id, onClick: () => openListingPanel(l) }))), ...poiMarkers];
+        .map((l) => ({ id: l.id, lat: l.lat!, lng: l.lng!, kind: 'listing', color: LISTING_COLOR, selected: focusedListing?.id === l.id, onClick: () => openListingPanel(l) })))];
     }
     const layers: MapMarkerV2[][] = [
       tab === 'listings'
@@ -782,7 +792,7 @@ export default function NeighborhoodMap() {
               lat: b.lat,
               lng: b.lng,
               kind: 'biz',
-              color: BIZ_COLOR,
+              color: bizCatColor(b.category),
               r: 1.6,
               label: b.name,
               icon: b.category ? BIZ_CAT_ICON_PATH[b.category] : undefined,
@@ -791,7 +801,7 @@ export default function NeighborhoodMap() {
               onClick: () => handleBizMarkerClick(b),
             })),
     ];
-    return [...withCarouselMarkers(layers.flat()), ...poiMarkers];
+    return [...poiMarkers, ...withCarouselMarkers(layers.flat())];
   }, [isSearching, searchScope, searchResults, bizSearchResults, tab, visibleListings, visiblePosts, visibleBiz, focusedBiz, focusedListing, focusedFeedPost, readVersion, postPanelOpen, carouselItems, poiItems, i18n.language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // useCallback 필수: SaigonMapV5의 onRegionSelect prop으로 전달되는데, 매 렌더마다

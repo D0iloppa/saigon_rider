@@ -49,6 +49,9 @@ const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 const CATEGORY_CHIPS_HEIGHT = 42;
 // SearchBox 높이(44px) + searchOverlay 상단 여백(10px) — 지도 확대/축소 버튼이 검색창 아래로 오도록
 const SEARCH_BAR_HEIGHT = 54;
+// 검색범위(query bbox) 상단 크롭 전용 여유값 — 실측한 검색바/칩 줄 하단 경계에 살짝 더 얹어
+// 마커가 크롬 가장자리에 바짝 붙지 않게 한다.
+const QUERY_TOP_INSET_PAD = 8;
 const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
 const RECENT_SEARCH_MAX = 8;
 // 마지막 뷰포트 기억 — 재진입 시 복원용 (측정이 아닌 "기억"이라 GPS 원칙 위반 아님)
@@ -327,6 +330,31 @@ export default function NeighborhoodMap() {
   useLayoutEffect(() => {
     if (searchPanelOpen) setLockedPanelHeight(rootRef.current?.clientHeight ?? null);
   }, [searchPanelOpen]);
+
+  // 검색범위(query bbox) 상단 크롭 전용 — searchOverlay/chipsOverlay는 상태바 높이(플랫폼별로
+  // 다름, --status-bar-height)만큼 아래에서 시작하는데, 상수(SEARCH_BAR_HEIGHT/
+  // CATEGORY_CHIPS_HEIGHT)는 그 상태바 여백을 포함하지 않아 실제 칩 줄 하단보다 위에서
+  // 크롭돼 칩에 가린 마커가 검색범위에 잡히는 버그가 있었다. .root 기준 실측 좌표로 잡아
+  // 플랫폼과 무관하게 항상 정확한 값을 쓴다. topInsetPx(라벨 디클러터 중앙 보정·줌 컨트롤
+  // 배치용, SaigonMapV5 참조)와는 별개 채널 — 저 값은 그대로 둔다.
+  const searchOverlayRef = useRef<HTMLDivElement>(null);
+  const chipsOverlayRef = useRef<HTMLDivElement>(null);
+  const [queryTopInsetPx, setQueryTopInsetPx] = useState(SEARCH_BAR_HEIGHT);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const root = rootRef.current;
+      const bottomEl = tab === 'biz' && !isSearching ? chipsOverlayRef.current : searchOverlayRef.current;
+      if (!root || !bottomEl) return;
+      const bottom = bottomEl.getBoundingClientRect().bottom - root.getBoundingClientRect().top;
+      setQueryTopInsetPx(Math.max(0, bottom + QUERY_TOP_INSET_PAD));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (searchOverlayRef.current) ro.observe(searchOverlayRef.current);
+    if (chipsOverlayRef.current) ro.observe(chipsOverlayRef.current);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [tab, isSearching]);
 
   // 시트 드래그 매 프레임 visible height — React setState 대신 CSS 변수만 기록(프레임당 DOM 1회,
   // 리렌더 0회). mapTools 의 bottom 이 이 변수를 따라가고, React 상태(sheetVisibleHeight)는
@@ -1626,11 +1654,12 @@ export default function NeighborhoodMap() {
         zoomInRef={zoomInRef}
         bottomInsetPx={postPanelOpen ? postPanelHeight : sheetVisibleHeight}
         topInsetPx={tab === 'biz' && !isSearching ? SEARCH_BAR_HEIGHT + CATEGORY_CHIPS_HEIGHT : SEARCH_BAR_HEIGHT}
+        queryTopInsetPx={queryTopInsetPx}
         queryBottomInsetPx={collapsedSheetHeight}
         showLocateControl={false}
       />
 
-      <div className={styles.searchOverlay}>
+      <div className={styles.searchOverlay} ref={searchOverlayRef}>
         <SearchBox
           value={submittedQuery}
           onChange={clearSearch}
@@ -1727,7 +1756,7 @@ export default function NeighborhoodMap() {
 
       {/* 업체 카테고리 칩 (SGR-324, W3-FE DB화) — 업체 탭 전용, 검색바 아래 가로 스크롤 (당근 IN-1) */}
       {tab === 'biz' && !isSearching && (
-        <div className={styles.chipsOverlay}>
+        <div className={styles.chipsOverlay} ref={chipsOverlayRef}>
           {[null, ...bizCategories.map((c) => c.code)].map((c) => (
             <button
               key={c ?? 'all'}

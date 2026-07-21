@@ -273,6 +273,13 @@ export interface SaigonMapV5Props {
   bottomInsetPx?: number;
   topInsetPx?: number;
   /**
+   * 검색범위(query bbox) 크롭 전용 상단 인셋 — topInsetPx(라벨 디클러터 중앙 보정·줌 컨트롤
+   * 배치용)와 별개 채널. topInsetPx는 검색바+칩 "고정 상수" 합산값이라 플랫폼별 상태바
+   * 높이가 빠져 있어 크롭에 그대로 쓰면 칩 줄에 가린 마커가 검색범위에 잡힌다. 부모가 실측한
+   * 값을 넘긴다. 미지정 시 topInsetPx로 폴백(기존 호출부 호환).
+   */
+  queryTopInsetPx?: number;
+  /**
    * 검색범위(query bbox) 크롭 전용 하단 인셋 — bottomInsetPx(팬/줌 클램프·센터링용, 시트
    * 펼침에 따라 변하는 실측값)와 별개로, 시트가 펼쳐져도 "최소화(collapsed) 높이"로
    * 고정된 값을 받는다(대표 명시 요구). 미지정 시 크롭 없음(0).
@@ -310,6 +317,7 @@ function SaigonMapV5({
   selectionOnly = false,
   bottomInsetPx = 0,
   topInsetPx = 0,
+  queryTopInsetPx = topInsetPx,
   queryBottomInsetPx = 0,
 }: SaigonMapV5Props) {
   const { t } = useTranslation();
@@ -408,18 +416,19 @@ function SaigonMapV5({
   // 검색범위(query bbox) 크롭 전용 — clampVB/센터링(getBottomInsetUnits, 팬·줌·포커스 전용)과는
   // 완전히 분리된 별도 산출식이다. px→unit 변환은 동일한 scaleY(viewHeight/pxHeight, preserveAspectRatio
   // ="none" 이므로 X/Y 스케일이 다를 수 있어 세로축은 반드시 세로 스케일로 환산)를 재사용하되,
-  // 상단은 topInsetPx(검색바+칩, 고정 상수), 하단은 queryBottomInsetPx(시트 최소화 높이, 고정)를 쓴다.
-  // 각 변을 최대 45%로 캡(둘 다 캡에 걸려도 최소 10%는 남아 bbox 역전 방지).
+  // 상단은 queryTopInsetPx(검색바+칩 실측, topInsetPx와 별개 — 상태바 높이 포함), 하단은
+  // queryBottomInsetPx(시트 최소화 높이, 고정)를 쓴다. 각 변을 최대 45%로 캡(둘 다 캡에 걸려도
+  // 최소 10%는 남아 bbox 역전 방지).
   const getQueryCropUnits = useCallback((viewHeight: number) => {
     const svg = svgRef.current;
     const pxHeight = svg?.clientHeight || containerRef.current?.clientHeight || 1;
     const scaleY = viewHeight / pxHeight;
     const cap = viewHeight * 0.45;
     return {
-      top: Math.max(0, Math.min(cap, topInsetPx * scaleY)),
+      top: Math.max(0, Math.min(cap, queryTopInsetPx * scaleY)),
       bottom: Math.max(0, Math.min(cap, queryBottomInsetPx * scaleY)),
     };
-  }, [topInsetPx, queryBottomInsetPx]);
+  }, [queryTopInsetPx, queryBottomInsetPx]);
 
   const clampVB = useCallback((v: VB): VB => {
     const pad = BASE_W * 0.10;

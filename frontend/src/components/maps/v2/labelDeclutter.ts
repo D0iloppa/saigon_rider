@@ -31,10 +31,11 @@ export const HYSTERESIS_SHRINK = 0.8;
 // 우선순위 랭크 (클수록 먼저 배치·우선). 중앙거리 정렬의 2차 타이브레이커로만 쓰인다.
 const RANK_SELECTED = 1000;
 const RANK_BADGE = 800;
+// 업체(biz) 상호명 — 마커 위계 역전 (2026-07-21): 업체가 지도 주 콘텐츠이고 POI 는 배경
+// 지표(orientation reference)이므로, 상호명이 landmark 를 포함한 모든 POI 라벨보다 우선한다.
+// (과거 550 — landmark(600) 아래 — 은 방향이 거꾸로였음.) ※ 시작값, 실기 조정 대상.
+const RANK_BIZ = 700;
 const RANK_POI_LANDMARK = 600;
-// 업체(biz) 상호명 — POI(civic/other) 밀도만큼은 경쟁 가능하도록 POI 랭크대(450~600) 안에 배치.
-// landmark보다까지 위로 올리지는 않는다(중앙거리가 1차 기준이므로 rank는 타이브레이커일 뿐).
-const RANK_BIZ = 550;
 const RANK_POI_CIVIC = 500;
 const RANK_POI_OTHER = 450;
 const RANK_GENERAL = 100;

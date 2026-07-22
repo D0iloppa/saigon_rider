@@ -24,7 +24,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
 from app.engine_client import engine_client
-from app.models import MarketplaceKeywordAlert, Notification, NotificationSettings, UserBlock
+from app.models import (
+    MarketplaceKeywordAlert,
+    Notification,
+    NotificationOutbox,
+    NotificationSettings,
+    UserBlock,
+)
 from app.readiness import check_readiness
 from app.services.noti_events import STREAM_KEY
 from app.services.redis_cache import get_client
@@ -43,6 +49,8 @@ BLOCK_MS = 1000
 MAX_DELIVERIES = 5  # 이 횟수 이상 실패한 메시지는 DLQ로 격리 (포이즌 메시지 무한 재처리 차단)
 HEARTBEAT_KEY = "noti:worker:heartbeat"
 HEARTBEAT_TTL_S = 30
+OUTBOX_STREAM_MAXLEN = 100_000  # relay 발행 스트림 상한 (publish() 와 동일 취지)
+OUTBOX_IDLE_SLEEP_S = 1  # outbox 가 비었을 때 폴링 간격
 
 _shutdown = False
 
@@ -366,9 +374,13 @@ async def _process_batch(batch: list[tuple[str, dict]], deliveries: dict[str, in
     for msg_id, fields in batch:
         msg_type = fields.get("type", "")
         handler = HANDLERS.get(msg_type)
+        # FD-6: outbox relay 가 실은 event_id(불변 outbox row id)를 멱등키로 우선한다 —
+        # stream 재발행 시 msg_id 는 바뀌지만 event_id 는 고정이라 중복 알림이 생기지 않는다.
+        # event_id 가 없는 즉시-publish() 이벤트는 기존대로 msg_id 를 사용한다.
+        source_event_id = fields.get("event_id") or msg_id
         try:
             if handler:
-                await handler(json.loads(fields.get("payload") or "{}"), source_event_id=msg_id)
+                await handler(json.loads(fields.get("payload") or "{}"), source_event_id=source_event_id)
             else:
                 log.warning("No handler for type=%s id=%s", msg_type, msg_id)
             await r.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
@@ -439,19 +451,57 @@ async def _claim_pending() -> tuple[list[tuple[str, dict]], dict[str, int]]:
     return [(msg_id, fields) for msg_id, fields in claimed if fields], counts
 
 
-async def run() -> None:
-    await check_readiness()
-    await _ensure_consumer_group()
+async def _drain_outbox_once() -> int:
+    """FD-6: notification_outbox 의 미발행 이벤트를 stream 으로 발행하고 published_at 을 찍는다.
+
+    xadd 성공 후 commit 실패/프로세스 종료 시 row 는 미발행으로 남아 재발행되지만, 실은 event_id
+    (row.id)로 소비자가 멱등 처리하므로 중복 알림이 생기지 않는다(at-least-once + 멱등 소비 = 실질 1회).
+    ``skip_locked`` 로 다중 워커 replica 가 같은 row 를 중복 발행하지 않는다.
+    """
     r = await get_client()
+    async with AsyncSessionLocal() as db:
+        rows = (
+            await db.execute(
+                select(NotificationOutbox)
+                .where(NotificationOutbox.published_at.is_(None))
+                .order_by(NotificationOutbox.id)
+                .limit(BATCH_SIZE)
+                .with_for_update(skip_locked=True)
+            )
+        ).scalars().all()
+        if not rows:
+            return 0
+        now = datetime.now(UTC)
+        for row in rows:
+            await r.xadd(
+                STREAM_KEY,
+                {
+                    "type": row.event_type,
+                    "payload": json.dumps(row.payload, default=str),
+                    "event_id": str(row.id),
+                },
+                maxlen=OUTBOX_STREAM_MAXLEN,
+                approximate=True,
+            )
+            row.published_at = now
+        await db.commit()
+        return len(rows)
 
-    log.info(
-        "Noti worker '%s' started — stream=%s group=%s types=%s",
-        CONSUMER_NAME,
-        STREAM_KEY,
-        CONSUMER_GROUP,
-        sorted(HANDLERS),
-    )
 
+async def _outbox_relay_loop() -> None:
+    log.info("Outbox relay started")
+    while not _shutdown:
+        try:
+            published = await _drain_outbox_once()
+        except Exception:
+            log.exception("Outbox relay error, retrying in %ds", OUTBOX_IDLE_SLEEP_S)
+            published = 0
+        if not published:
+            await asyncio.sleep(OUTBOX_IDLE_SLEEP_S)
+
+
+async def _consume_loop() -> None:
+    r = await get_client()
     while not _shutdown:
         try:
             pending_batch, pending_deliveries = await _claim_pending()
@@ -479,6 +529,22 @@ async def run() -> None:
         except Exception:
             log.exception("Worker loop error, retrying in 2s")
             await asyncio.sleep(2)
+
+
+async def run() -> None:
+    await check_readiness()
+    await _ensure_consumer_group()
+
+    log.info(
+        "Noti worker '%s' started — stream=%s group=%s types=%s",
+        CONSUMER_NAME,
+        STREAM_KEY,
+        CONSUMER_GROUP,
+        sorted(HANDLERS),
+    )
+
+    # 소비 루프와 outbox relay 를 동시 구동. 하나가 죽으면 전체 종료해 compose 가 재기동한다.
+    await asyncio.gather(_consume_loop(), _outbox_relay_loop())
 
     log.info("Noti worker '%s' stopped", CONSUMER_NAME)
 

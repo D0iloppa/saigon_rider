@@ -410,15 +410,14 @@ async def send_message(
     )
     db.add(msg)
     conv.last_message_at = now
-    await db.commit()
 
-    msg = (await db.execute(select(DmMessage).where(DmMessage.id == msg.id))).scalar_one()
-
-    # 수신자 푸시·인앱 알림은 noti_worker 로 이관 — 발행 실패는 내부에서 삼켜 전송을 막지 않는다
+    # 수신자 푸시·인앱 알림은 noti_worker 로 이관. FD-6: 메시지 저장과 같은 트랜잭션에 이벤트를
+    # 적재해(relay 가 발행) 커밋~발행 사이 유실을 막는다.
     recipient_id = _other_user_id(conv, _session_uid)
     sender = await db.get(User, _session_uid)
     preview = body.content[:50] if body.content else "사진을 보냈습니다"
-    await noti_events.publish(
+    noti_events.enqueue(
+        db,
         "dm.message_sent",
         {
             "conversation_id": str(conv_id),
@@ -428,6 +427,9 @@ async def send_message(
             "preview": preview,
         },
     )
+    await db.commit()
+
+    msg = (await db.execute(select(DmMessage).where(DmMessage.id == msg.id))).scalar_one()
 
     return DmMessageOut(
         id=msg.id,

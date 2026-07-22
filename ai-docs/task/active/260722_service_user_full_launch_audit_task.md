@@ -28,10 +28,11 @@
 
 - **ADM-6 (2026-07-23 해결)**: 관리자 로그인 브루트포스 throttle 도입. `backend/app/services/admin_login_throttle.py` — Redis 기반 escalating lockout(1분→5분→15분→1시간)을 **username** 과 **client IP** 두 축에 독립 적용(legacy `/admin-legacy/login` + JSON `/admin/api/auth/login` 양쪽 배선). client IP 는 nginx `$proxy_add_x_forwarded_for` 의 **마지막 홉**(위조 불가)에서 취한다. Redis 장애 시 fail-open(관리자 lockout 방지, 자격증명은 여전히 요구). 검증: `test_admin_login_throttle.py`(임계 lockout·429 Retry-After·fail-open·IP 파싱).
 - **DB-6 (2026-07-23 해결)**: `tools/check_migration_prefixes.py` — `database/init/*.sql` 의 기존 중복 prefix(002/042/092/093/138)를 baseline 로 grandfather 하고 **새 중복 도입만** 차단. pre-commit `migration-prefix-lint` 훅 배선. 검증: `test_migration_prefix_lint.py` 4/4.
-- **FD-6**: producer의 도메인 커밋과 Redis publish를 묶는 durable outbox가 없다. 또한 현재 알림 worker는 중복 푸시 방지를 우선해 at-most-once로 동작하므로, notification 행 커밋 직후 provider 호출 전에 프로세스가 종료되면 인앱 행만 남고 푸시는 유실될 수 있다. provider 멱등 키를 포함한 delivery outbox가 후속으로 필요하다.
-- **BIZ-9**: 번역 provider 실패 시 일부 소비 화면이 원문 fallback을 번역 성공처럼 보일 수 있어 공통 실패 표시가 필요하다.
+- **FD-6 producer outbox (2026-07-23 해결)**: producer의 도메인 커밋과 Redis publish를 묶는 transactional outbox 도입. `notification_outbox` 테이블(init `146` + `bff_migrate` fresh/기존 DB 적용, readiness 차단) + `noti_events.enqueue(db, ...)`(도메인 트랜잭션에 이벤트 적재, 커밋은 호출부) + noti_worker `_outbox_relay_loop`(미발행 row → stream 발행 후 published_at, `skip_locked` 다중 replica 안전). 사용자 대면 producer(DM `send_message`·매물 `create_listing`)를 enqueue로 전환. **재발행 멱등 안정화**: relay가 불변 `event_id`(outbox row id)를 stream에 실어 소비자가 msg_id 대신 그것을 `source_event_id`로 쓴다 → Redis 재전달·outbox 재발행 모두 중복 알림 없음. 운영/어드민 이벤트는 기존 best-effort `publish()` 유지(이미 커밋 후 호출·저volume). 검증: `test_notification_outbox.py`(enqueue 비커밋·relay 발행/마킹·event_id 우선·빈 outbox·init/compose/readiness 계약).
+- **FD-6 delivery outbox (잔여 후속)**: worker가 notification 행 커밋 후 provider 호출 전 프로세스가 kill되면(reclaim 시 `inserted=False`라 재푸시 안 함) 인앱 행만 남고 푸시가 유실되는 좁은 창이 남는다. 단 `_try_push`는 이미 재시도(backoff)+DLQ로 provider 실패에는 at-least-once를 제공하므로, 남은 것은 crash 창 한정. provider 멱등 키를 포함한 delivery-side outbox(push_state 재푸시)는 worker 통합 테스트 환경에서 별도 처리 권장.
+- **BIZ-9 (2026-07-23 해결)**: backend는 이미 `translate_to`가 `(text, failed)` 신호를 반환하고 market 상세·광고·feed 스키마에 `translation_failed`를 노출했으나 프론트가 소비하지 않았다. 프론트 매핑(`ListingDetail.translationFailed`·`FeedPost.translationFailed`)과 상세 화면(MarketDetail·FeedDetail) "번역 일시 불가 · 원문 표시" 배지(`common.translationUnavailable` ko/en/vi)를 추가. DM은 `/translate/all` 502→toast로 이미 실패를 노출(무변경).
 
-이 항목들(FD-6·BIZ-9)은 이번 재감사에서 P0/High 피해 경로와 분리한 중위험 후속이며, 해결 전까지 상태 문구를 전체 `COMPLETE`로 올리지 않는다.
+이 잔여(FD-6 delivery outbox)는 P0/High 피해 경로와 분리한 중위험 후속이며, 해결 전까지 상태 문구를 전체 `COMPLETE`로 올리지 않는다.
 
 ### 출시 전 외부 게이트
 

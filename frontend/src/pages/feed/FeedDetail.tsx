@@ -151,6 +151,9 @@ export default function FeedDetail() {
               </div>
 
               {/* Caption + hashtags */}
+              {post.translationFailed && (
+                <p className={styles.translationNote}>🌐 {t('common.translationUnavailable')}</p>
+              )}
               {post.caption && <p className={styles.description}>{post.caption}</p>}
               {post.hashtags.length > 0 && (
                 <div className={styles.hashtagRow}>

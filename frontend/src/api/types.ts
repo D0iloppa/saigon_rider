@@ -89,6 +89,7 @@ export interface FeedPost {
   imageContentIds: string[];
   caption: string | null;
   hashtags: string[];
+  translationFailed?: boolean;
   distanceKm: number | null;
   safetyGrade: SafetyGrade | null;
   rewardExp: number | null;

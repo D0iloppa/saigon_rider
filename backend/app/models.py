@@ -890,6 +890,31 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class NotificationOutbox(Base):
+    """FD-6: producer transactional outbox.
+
+    요청 핸들러가 도메인 변경과 **같은 트랜잭션**으로 이 row 를 적재하면(``noti_events.enqueue``),
+    noti_worker 의 relay 가 Redis stream(noti:events)으로 발행하고 published_at 을 찍는다. Redis 순단·
+    커밋~발행 사이 프로세스 종료로 인한 이벤트 유실을 막는다. 재발행 시 stream msg_id 가 바뀌어도
+    소비자 멱등키는 이 row.id(event_id)로 고정되므로 중복 알림이 생기지 않는다.
+    """
+
+    __tablename__ = "notification_outbox"
+    __table_args__ = (
+        Index(
+            "ix_notification_outbox_unpublished",
+            "id",
+            postgresql_where=text("published_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class AdminAccount(Base):
     __tablename__ = "admin_accounts"
 

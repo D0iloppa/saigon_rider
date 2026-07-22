@@ -79,9 +79,16 @@ services:
     container_name: saigon_bff_migrate
     profiles: [backend]
     entrypoint: ["psql"]
-    command: ["-v", "ON_ERROR_STOP=1", "-f", "/migrations/145_notifications_event_idempotency.sql"]
+    command:
+      - "-v"
+      - "ON_ERROR_STOP=1"
+      - "-f"
+      - "/migrations/145_notifications_event_idempotency.sql"
+      - "-f"
+      - "/migrations/146_notification_outbox.sql"
     volumes:
       - ./database/init/145_notifications_event_idempotency.sql:/migrations/145_notifications_event_idempotency.sql:ro
+      - ./database/init/146_notification_outbox.sql:/migrations/146_notification_outbox.sql:ro
     networks:
       - dev-net
     depends_on:

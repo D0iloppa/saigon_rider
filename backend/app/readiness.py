@@ -26,7 +26,8 @@ async def check_readiness() -> dict[str, str]:
                           AND column_name='source_event_id'
                       ) AS notification_event_id_ok,
                       to_regclass('public.uq_notifications_source_event_user') IS NOT NULL
-                        AS notification_event_index_ok
+                        AS notification_event_index_ok,
+                      to_regclass('public.notification_outbox') IS NOT NULL AS notification_outbox_ok
                     """
                 )
             )

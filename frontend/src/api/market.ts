@@ -107,6 +107,7 @@ export interface ListingDetail {
   createdAt: string;
   bumpedAt: string;
   liked: boolean;
+  translationFailed: boolean;
   otherListings: ListingCard[];
 }
 
@@ -482,6 +483,7 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
     createdAt: r.created_at,
     bumpedAt: r.bumped_at,
     liked: r.liked ?? false,
+    translationFailed: r.translation_failed ?? false,
     otherListings: (r.other_listings ?? []).map(transformCard),
   };
 }

@@ -27,6 +27,7 @@ function transformPost(raw: any): FeedPost {
     imageContentIds: (raw.image_content_ids ?? []).map(String),
     caption: stripHashtags(raw.content) ?? raw.content ?? null,
     hashtags: parseHashtags(raw.content),
+    translationFailed: raw.translation_failed ?? false,
     distanceKm: raw.distance_km != null ? Number(raw.distance_km) : null,
     safetyGrade: raw.safety_grade ?? null,
     rewardExp: raw.reward_exp ?? null,

@@ -41,6 +41,7 @@
   },
   "common": {
     "welcome": "Welcome",
+    "translationUnavailable": "Translation unavailable · showing original",
     "skip": "Skip",
     "loading": "Loading...",
     "close": "Close",

@@ -41,6 +41,7 @@
   },
   "common": {
     "welcome": "환영합니다",
+    "translationUnavailable": "번역 일시 불가 · 원문을 표시합니다",
     "skip": "건너뛰기",
     "loading": "로딩 중...",
     "close": "닫기",

@@ -298,6 +298,9 @@ export default function MarketDetail() {
               </div>
 
               {/* Description (서버가 조회 언어로 번역해 제공) */}
+              {detail.translationFailed && (
+                <p className={styles.translationNote}>🌐 {t('common.translationUnavailable')}</p>
+              )}
               {detail.description && <p className={styles.description}>{detail.description}</p>}
 
               {/* Seller's other listings */}

@@ -555,12 +555,14 @@ async def create_listing(
     for idx, cid in enumerate(body.image_content_ids):
         db.add(MarketplaceListingImage(listing_id=listing_id, content_id=cid, sort_order=idx))
 
-    await db.commit()
-    # 키워드 매칭·푸시는 noti_worker 로 이관 — 발행 실패는 내부에서 삼켜 등록을 막지 않는다
-    await noti_events.publish(
+    # 키워드 매칭·푸시는 noti_worker 로 이관. FD-6: 매물 등록과 같은 트랜잭션에 이벤트를 적재해
+    # (relay 가 발행) 커밋~발행 사이 유실을 막는다.
+    noti_events.enqueue(
+        db,
         "market.listing_created",
         {"listing_id": str(listing_id), "title": listing.title, "seller_id": str(body.seller_id)},
     )
+    await db.commit()
     # 번역 세트 워밍(백그라운드) — 조회 시 캐시 히트로 번역본 즉시 로딩
     background.add_task(warm_translations, [listing.title, listing.description or ""])
     return MarketplaceListingCreated(id=listing_id)

@@ -41,6 +41,7 @@
   },
   "common": {
     "welcome": "Chào mừng",
+    "translationUnavailable": "Không thể dịch · hiển thị bản gốc",
     "skip": "Bỏ qua",
     "loading": "Đang tải...",
     "close": "Đóng",

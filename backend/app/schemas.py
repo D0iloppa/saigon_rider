@@ -191,7 +191,7 @@ class MarketplaceListingCreateRequest(BaseModel):
     category_id: int | None = None
     title: str
     description: str | None = None
-    price_vnd: int = 0
+    price_vnd: int = Field(0, ge=0)  # MKT-9/DB-2: 음수가 금지 (0 = 나눔)
     is_negotiable: bool = False
     district_id: int | None = None
     latitude: Decimal | None = None

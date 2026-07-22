@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS marketplace_listings (
     category_id   SMALLINT REFERENCES marketplace_categories(id) ON DELETE SET NULL,
     title         VARCHAR(120) NOT NULL,
     description   TEXT,
-    price_vnd     BIGINT NOT NULL DEFAULT 0,            -- 0 = 나눔
+    price_vnd     BIGINT NOT NULL DEFAULT 0             -- 0 = 나눔
+                    CONSTRAINT ck_mp_listings_price_nonneg CHECK (price_vnd >= 0),
     is_negotiable BOOLEAN NOT NULL DEFAULT FALSE,       -- 가격 제안받기
     status        VARCHAR(20) NOT NULL DEFAULT 'ON_SALE'
                     CHECK (status IN ('ON_SALE', 'RESERVED', 'SOLD')),

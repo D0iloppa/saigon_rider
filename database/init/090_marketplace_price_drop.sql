@@ -5,7 +5,8 @@
 --   원가 이상으로 올리면 NULL 로 리셋.
 -- ================================================================
 
-ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS original_price_vnd BIGINT;
+ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS original_price_vnd BIGINT
+    CONSTRAINT ck_mp_listings_orig_price_nonneg CHECK (original_price_vnd >= 0);
 
 -- seed 시연: 미쉐린 타이어 750k → 620k 인하('가격내림' 배지)
 UPDATE marketplace_listings

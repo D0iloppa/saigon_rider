@@ -10,8 +10,11 @@ CREATE TABLE IF NOT EXISTS marketplace_price_offers (
     listing_id      UUID NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
     conversation_id UUID NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
     proposer_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    amount          BIGINT NOT NULL,
-    status          VARCHAR(20) NOT NULL DEFAULT 'PROPOSED',
+    amount          BIGINT NOT NULL
+                    CONSTRAINT ck_mp_price_offer_amount_nonneg CHECK (amount >= 0),
+    status          VARCHAR(20) NOT NULL DEFAULT 'PROPOSED'
+                    CONSTRAINT ck_mp_price_offer_status
+                    CHECK (status IN ('PROPOSED', 'ACCEPTED', 'DECLINED', 'CANCELLED')),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

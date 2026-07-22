@@ -15,10 +15,17 @@ CREATE TABLE IF NOT EXISTS marketplace_appointments (
     place_name      TEXT,
     place_lat       NUMERIC(9, 6),
     place_lng       NUMERIC(9, 6),
-    status          VARCHAR(20) NOT NULL DEFAULT 'PROPOSED',
+    status          VARCHAR(20) NOT NULL DEFAULT 'PROPOSED'
+                    CONSTRAINT ck_mp_appointment_status
+                    CHECK (status IN ('PROPOSED', 'ACCEPTED', 'COMPLETED', 'CANCELLED')),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_appointment_conversation ON marketplace_appointments(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_appointment_listing      ON marketplace_appointments(listing_id);
+
+-- MKT-2/DB-11: 매물당 활성(ACCEPTED) 약속은 최대 1건 — 서로 다른 대화의 이중 예약/판매 차단.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mp_appointment_active_per_listing
+    ON marketplace_appointments (listing_id)
+    WHERE status = 'ACCEPTED';

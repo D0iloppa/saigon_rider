@@ -428,11 +428,13 @@ async def get_listing(
     review_count = len(review_rows)
     avg_rating = round(sum(review_rows) / review_count, 1) if review_count > 0 else None
 
+    # MKT-3: 판매 신뢰지표는 실제 완료된 거래(COMPLETED 약속) 기준 — raw status='SOLD' 집계 금지
     sold_count = (
         await db.execute(
             select(func.count())
-            .select_from(MarketplaceListing)
-            .where(MarketplaceListing.seller_id == seller.id, MarketplaceListing.status == "SOLD")
+            .select_from(MarketplaceAppointment)
+            .join(MarketplaceListing, MarketplaceListing.id == MarketplaceAppointment.listing_id)
+            .where(MarketplaceListing.seller_id == seller.id, MarketplaceAppointment.status == "COMPLETED")
         )
     ).scalar_one()
 
@@ -568,6 +570,9 @@ async def update_status(
 ):
     if body.status not in _VALID_STATUSES:
         raise HTTPException(status_code=400, detail="invalid status")
+    # MKT-3: SOLD 는 거래 완료(complete_appointment) 경로로만 전이 — 수동 PATCH 금지
+    if body.status == "SOLD":
+        raise HTTPException(status_code=400, detail={"code": "sold_via_appointment"})
 
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
@@ -604,6 +609,9 @@ async def update_price(
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Not the seller")
+    # MKT-7: 판매 완료된 매물은 가격 변경 불가 (거래 이력의 합의가 정합성 근거)
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail="Cannot change price of a sold listing")
 
     new_price = body.price_vnd
     if new_price < listing.price_vnd:
@@ -789,7 +797,25 @@ async def create_review(
         ).scalar_one_or_none()
         if completed_appt is None:
             raise HTTPException(status_code=400, detail="no completed trade with this buyer")
-    elif not is_buyer:
+    elif is_buyer:
+        # MKT-1: 구매자가 판매자를 리뷰 — 대칭 참여 검증(완료된 약속에 리뷰어=참여자). 별점 테러 차단.
+        completed_appt = (
+            await db.execute(
+                select(MarketplaceAppointment)
+                .join(DmConversation, DmConversation.id == MarketplaceAppointment.conversation_id)
+                .where(
+                    MarketplaceAppointment.listing_id == body.listing_id,
+                    MarketplaceAppointment.status == "COMPLETED",
+                    or_(
+                        DmConversation.participant_1 == body.reviewer_id,
+                        DmConversation.participant_2 == body.reviewer_id,
+                    ),
+                )
+            )
+        ).scalar_one_or_none()
+        if completed_appt is None:
+            raise HTTPException(status_code=400, detail="no completed trade with this seller")
+    else:
         raise HTTPException(status_code=400, detail="review target must be a trade participant")
 
     # 중복 방지: 같은 매물·리뷰어·대상 조합이 이미 있으면 거절
@@ -1086,7 +1112,11 @@ async def _load_appointment(
         raise HTTPException(status_code=403, detail="Not a participant")
     counterpart_id = require_participant(conv, session_uid)
     await require_unblocked(db, session_uid, counterpart_id)
-    listing = await db.get(MarketplaceListing, appt.listing_id)
+    # MKT-2: 상태 전이(accept/complete/cancel)는 매물 행을 잠그고 원자적으로 재검사한다
+    # — 서로 다른 대화의 두 구매자가 동시에 ACCEPTED/COMPLETED 에 도달하는 경합 차단.
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == appt.listing_id).with_for_update())
+    ).scalar_one_or_none()
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
     if (
@@ -1111,13 +1141,15 @@ async def accept_appointment(
         raise HTTPException(status_code=403, detail="Proposer cannot accept own appointment")
     if appt.status != "PROPOSED":
         raise HTTPException(status_code=409, detail=f"Cannot accept appointment in status {appt.status}")
+    # MKT-2: 매물이 이미 다른 거래로 예약/판매됐으면 수락 불가 (잠근 행 기준 재검사)
+    if listing.status != "ON_SALE":
+        raise HTTPException(status_code=409, detail="Listing is no longer available")
 
     now = datetime.now(UTC)
     appt.status = "ACCEPTED"
     appt.updated_at = now
-    if listing.status == "ON_SALE":
-        listing.status = "RESERVED"
-        listing.updated_at = now
+    listing.status = "RESERVED"
+    listing.updated_at = now
     await db.commit()
     return _appt_out(appt, listing.seller_id)
 
@@ -1129,16 +1161,34 @@ async def complete_appointment(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """판매자만 거래 완료 처리 → COMPLETED, 매물 SOLD. (제안은 누가 했든 완료는 판매자)"""
-    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Only the seller can complete the deal")
     if appt.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail=f"Cannot complete appointment in status {appt.status}")
+    # MKT-2: 매물이 이미 다른 거래로 판매됐으면 완료 불가 (잠근 행 기준 재검사)
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail="Listing already sold")
+
+    # MKT-7: 합의가 스냅샷 — 수락된 가격제안이 있으면 그 금액, 없으면 완료 시점의 매물가.
+    # 이후 판매자가 가격을 바꿔도 거래 이력에는 합의가가 보존된다.
+    accepted_offer_amount = (
+        await db.execute(
+            select(MarketplacePriceOffer.amount)
+            .where(
+                MarketplacePriceOffer.conversation_id == conv.id,
+                MarketplacePriceOffer.status == "ACCEPTED",
+            )
+            .order_by(MarketplacePriceOffer.updated_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
     now = datetime.now(UTC)
     appt.status = "COMPLETED"
     appt.updated_at = now
     listing.status = "SOLD"
+    listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
     listing.updated_at = now
     await db.commit()
     return _appt_out(appt, listing.seller_id)
@@ -1400,7 +1450,8 @@ async def get_trades(
                 listing_id=listing.id,
                 listing_title=listing.title,
                 thumbnail_url=_thumbnail_url(listing),
-                price_vnd=listing.price_vnd,
+                # MKT-7: 합의가 스냅샷 우선(과거 완료건은 미기록 → 현재가 폴백)
+                price_vnd=listing.agreed_price_vnd if listing.agreed_price_vnd is not None else listing.price_vnd,
                 role="sold" if listing.seller_id == user_id else "bought",
                 counterpart_id=counterpart_id,
                 counterpart_nickname=counterpart.nickname if counterpart else None,

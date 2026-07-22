@@ -147,8 +147,10 @@ CREATE TABLE ride_sessions (
     duration_sec    INTEGER      NOT NULL DEFAULT 0 CHECK (duration_sec >= 0),
     avg_speed_kmh   NUMERIC(5,2),
     safety_grade    safety_grade,
-    reward_exp      INTEGER      NOT NULL DEFAULT 0,
-    reward_gold     INTEGER      NOT NULL DEFAULT 0,
+    reward_exp      INTEGER      NOT NULL DEFAULT 0
+                    CONSTRAINT ck_ride_sessions_reward_exp_nonneg CHECK (reward_exp >= 0),
+    reward_gold     INTEGER      NOT NULL DEFAULT 0
+                    CONSTRAINT ck_ride_sessions_reward_gold_nonneg CHECK (reward_gold >= 0),
     reward_item     VARCHAR(100),
     is_success      BOOLEAN      NOT NULL DEFAULT FALSE,
     fail_reason     TEXT,
@@ -302,6 +304,8 @@ CREATE INDEX idx_user_quests_quest_id ON user_quests(quest_id);
 CREATE INDEX idx_user_quests_status   ON user_quests(status);
 
 -- ride_sessions
+-- DB-3: user_quest 당 라이드 세션 1건 (재수행 시 UPSERT 계약)
+CREATE UNIQUE INDEX uq_ride_sessions_user_quest ON ride_sessions(user_quest_id);
 CREATE INDEX idx_ride_sessions_user_id   ON ride_sessions(user_id);
 CREATE INDEX idx_ride_sessions_quest_id  ON ride_sessions(quest_id);
 CREATE INDEX idx_ride_sessions_created_at ON ride_sessions(created_at DESC);

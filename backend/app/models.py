@@ -426,6 +426,8 @@ class MarketplaceListing(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     price_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     original_price_vnd: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # MKT-7: 거래 완료(complete_appointment) 시점의 합의가 스냅샷. 이력 정합성 근거.
+    agreed_price_vnd: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     is_negotiable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="ON_SALE")
     district_id: Mapped[int | None] = mapped_column(

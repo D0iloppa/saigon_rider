@@ -42,7 +42,7 @@ export default function PoiListPage() {
     {
       title: '좌표',
       key: 'coords',
-      render: (_: unknown, r: PoiRow) => `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`,
+      render: (_: unknown, r: PoiRow) => `${Number(r.lat).toFixed(5)}, ${Number(r.lng).toFixed(5)}`,
     },
     {
       title: '게시상태',

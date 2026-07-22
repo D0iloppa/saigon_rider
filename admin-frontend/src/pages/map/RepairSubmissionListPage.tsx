@@ -66,7 +66,7 @@ export default function RepairSubmissionListPage() {
     {
       title: '좌표',
       key: 'coords',
-      render: (_: unknown, r: RepairSubmissionRow) => `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`,
+      render: (_: unknown, r: RepairSubmissionRow) => `${Number(r.lat).toFixed(5)}, ${Number(r.lng).toFixed(5)}`,
     },
     { title: '메모', dataIndex: 'note', key: 'note', render: (v: string | null) => v ?? '-' },
     {

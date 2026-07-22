@@ -20,8 +20,8 @@ export interface PoiRow {
   name_en: string | null
   description: string | null
   address: string | null
-  lat: number
-  lng: number
+  lat: number | string
+  lng: number | string
   photo_content_id: string | null
   photo_url: string | null
   published: boolean
@@ -105,8 +105,8 @@ export interface PlaceSuggestionRow {
   name: string
   category: string | null
   address: string | null
-  lat: number
-  lng: number
+  lat: number | string
+  lng: number | string
   note: string | null
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED'
   review_note: string | null
@@ -146,8 +146,8 @@ export function useRejectPlaceSuggestion() {
 export interface GasSubmissionRow {
   submission_id: number
   name: string
-  lat: number
-  lng: number
+  lat: number | string
+  lng: number | string
   phone: string | null
   brand: string | null
   brand_normalized: string | null
@@ -194,8 +194,8 @@ export function useRejectGasSubmission() {
 export interface RepairSubmissionRow {
   submission_id: number
   name: string
-  lat: number
-  lng: number
+  lat: number | string
+  lng: number | string
   phone: string | null
   district_code: string | null
   note: string | null

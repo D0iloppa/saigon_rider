@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { emojiUrl } from '@/lib/emoji';
 
@@ -22,7 +21,8 @@ const pillStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,.08)',
   border: '1px solid rgba(255,255,255,.1)',
   backdropFilter: 'blur(12px)',
-  cursor: 'pointer',
+  // [게이미피케이션 잠정보류 — 재개 시 주석 해제] 원래 cursor: 'pointer' (샵 이동 클릭 힌트)
+  cursor: 'default',
   textDecoration: 'none',
 };
 
@@ -47,17 +47,17 @@ function formatCurrency(n: number): string {
 }
 
 export function CurrencyHUD({ gold = 0, xp = 0, className }: CurrencyHUDProps) {
-  const navigate = useNavigate();
   const { t } = useTranslation();
 
   return (
     <div style={baseStyle} className={className}>
       <div
         style={pillStyle}
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate('/shop')}
-        onKeyDown={(e) => e.key === 'Enter' && navigate('/shop')}
+        // [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+        // role="button"
+        // tabIndex={0}
+        // onClick={() => navigate('/shop')}
+        // onKeyDown={(e) => e.key === 'Enter' && navigate('/shop')}
         aria-label={`${t('currency.gold')} ${gold.toLocaleString()}`}
       >
         <img src={emojiUrl('1fa99')} width={14} height={14} alt="" style={{ display: 'block' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
@@ -66,10 +66,11 @@ export function CurrencyHUD({ gold = 0, xp = 0, className }: CurrencyHUDProps) {
       </div>
       <div
         style={pillStyle}
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate('/shop')}
-        onKeyDown={(e) => e.key === 'Enter' && navigate('/shop')}
+        // [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+        // role="button"
+        // tabIndex={0}
+        // onClick={() => navigate('/shop')}
+        // onKeyDown={(e) => e.key === 'Enter' && navigate('/shop')}
         aria-label={`${t('currency.xp')} ${xp.toLocaleString()}`}
       >
         <img src={emojiUrl('1f48e')} width={14} height={14} alt="" style={{ display: 'block' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />

@@ -84,24 +84,28 @@ import FriendList from '@/pages/profile/FriendList';
 import FriendAdd from '@/pages/profile/FriendAdd';
 
 // Gacha
-import GachaMain from '@/pages/gacha/GachaMain';
-import GachaPull from '@/pages/gacha/GachaPull';
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import GachaMain from '@/pages/gacha/GachaMain';
+// import GachaPull from '@/pages/gacha/GachaPull';
 
 // Shop
-import ShopCatalog from '@/pages/shop/ShopCatalog';
-import ItemDetail from '@/pages/shop/ItemDetail';
-import CouponShop from '@/pages/shop/CouponShop';
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import ShopCatalog from '@/pages/shop/ShopCatalog';
+// import ItemDetail from '@/pages/shop/ItemDetail';
+// import CouponShop from '@/pages/shop/CouponShop';
 import MyCoupons from '@/pages/shop/MyCoupons';
 
 // Garage
 import Garage from '@/pages/garage/Garage';
 
 // Inventory
-import Inventory from '@/pages/inventory/Inventory';
-import EquipPreview from '@/pages/inventory/EquipPreview';
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import Inventory from '@/pages/inventory/Inventory';
+// import EquipPreview from '@/pages/inventory/EquipPreview';
 
 // Season
-import SeasonPass from '@/pages/season/SeasonPass';
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import SeasonPass from '@/pages/season/SeasonPass';
 
 // Settings
 import Settings from '@/pages/settings/Settings';
@@ -399,24 +403,28 @@ export default function App() {
           <Route path="/ride/result/fail" element={<PrivateRoute><RideResultFail /></PrivateRoute>} />
 
           {/* Protected: Gacha */}
-          <Route path="/gacha" element={<PrivateRoute><GachaMain /></PrivateRoute>} />
-          <Route path="/gacha/pull/:gachaCode" element={<PrivateRoute><GachaPull /></PrivateRoute>} />
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/gacha" element={<PrivateRoute><GachaMain /></PrivateRoute>} /> */}
+          {/* <Route path="/gacha/pull/:gachaCode" element={<PrivateRoute><GachaPull /></PrivateRoute>} /> */}
 
           {/* Protected: Shop */}
-          <Route path="/shop" element={<PrivateRoute><ShopCatalog /></PrivateRoute>} />
-          <Route path="/shop/item/:itemCode" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
-          <Route path="/shop/coupons" element={<PrivateRoute><CouponShop /></PrivateRoute>} />
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/shop" element={<PrivateRoute><ShopCatalog /></PrivateRoute>} /> */}
+          {/* <Route path="/shop/item/:itemCode" element={<PrivateRoute><ItemDetail /></PrivateRoute>} /> */}
+          {/* <Route path="/shop/coupons" element={<PrivateRoute><CouponShop /></PrivateRoute>} /> */}
           <Route path="/coupons/mine" element={<PrivateRoute><MyCoupons /></PrivateRoute>} />
 
           {/* Protected: Garage */}
           <Route path="/garage" element={<PrivateRoute><Garage /></PrivateRoute>} />
 
           {/* Protected: Inventory */}
-          <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} />
-          <Route path="/inventory/equip-preview" element={<PrivateRoute><EquipPreview /></PrivateRoute>} />
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} /> */}
+          {/* <Route path="/inventory/equip-preview" element={<PrivateRoute><EquipPreview /></PrivateRoute>} /> */}
 
           {/* Protected: Season */}
-          <Route path="/season" element={<PrivateRoute><SeasonPass /></PrivateRoute>} />
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/season" element={<PrivateRoute><SeasonPass /></PrivateRoute>} /> */}
 
           {/* Protected: Info */}
           <Route path="/info" element={<PrivateRoute><InfoHub /></PrivateRoute>} />

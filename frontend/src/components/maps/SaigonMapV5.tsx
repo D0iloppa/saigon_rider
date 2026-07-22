@@ -498,6 +498,10 @@ function SaigonMapV5({
       const dataX1 = lx(D1_BBOX.W), dataX2 = lx(D1_BBOX.E);
       const dataCX = (dataX1 + dataX2) / 2;
       const dataCY = (ly(D1_BBOX.N) + ly(D1_BBOX.S)) / 2;
+      // [초기 줌 정책] 기본 = D1 전체 조망(줌 게이트 위: 구역 뱃지 O / 핀 X) — md/상급자 지시대로 전체지도 시작 유지.
+      //   (권도일 의견) 처음부터 줌인 상태가 UX상 나을 수 있음. 원하면 아래 initW 를 게이트 통과값
+      //   (예: Math.max(MIN_VBW, L3_VBW * 0.9))으로 바꿔 줌인 시작 — 값은 실기 튜닝 필요.
+      //   (const 재선언 불가라 "주석 해제"가 아니라 위 initW 값 교체 방식)
       const initW = (dataX2 - dataX1) * 1.15;
       const initH = initW * ar;
       const insetUnits = getBottomInsetUnits(initH);

@@ -6,7 +6,7 @@
 
 from fastapi import APIRouter
 
-from . import accounts, audit_logs, auth, biz, cms, dashboard, listings, map, reports, support, users
+from . import accounts, audit_logs, auth, biz, cms, dashboard, feed, listings, map, reports, support, users
 
 router = APIRouter(prefix="/admin/api", include_in_schema=False)
 router.include_router(auth.router)
@@ -20,3 +20,4 @@ router.include_router(audit_logs.router)
 router.include_router(map.router)
 router.include_router(biz.router)
 router.include_router(accounts.router)
+router.include_router(feed.router)

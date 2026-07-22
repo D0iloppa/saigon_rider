@@ -1,0 +1,90 @@
+import { useNavigate, useParams } from 'react-router-dom'
+import { Alert, Avatar, Button, Card, Descriptions, Image, Popconfirm, Skeleton, Space, Tag, message } from 'antd'
+import dayjs from 'dayjs'
+import { useDeleteFeedPost, useFeedPost } from '../../api/feed'
+
+export default function FeedDetailPage() {
+  const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const { data: post, isLoading, isError, error } = useFeedPost(id)
+  const deletePost = useDeleteFeedPost()
+
+  if (isError) {
+    return (
+      <Alert
+        type="error"
+        showIcon
+        message="피드 정보를 불러오지 못했습니다."
+        description={error instanceof Error ? error.message : undefined}
+      />
+    )
+  }
+  if (isLoading || !post) {
+    return (
+      <Card>
+        <Skeleton active paragraph={{ rows: 6 }} />
+      </Card>
+    )
+  }
+
+  const lat = post.latitude !== null ? Number(post.latitude) : null
+  const lng = post.longitude !== null ? Number(post.longitude) : null
+
+  return (
+    <Card
+      title={
+        <Space>
+          작성자
+          <a onClick={() => navigate(`/users/${post.author.id}`)}>
+            <Space size={6}>
+              <Avatar src={post.author.avatar_url} size={24} />
+              {post.author.nickname ?? '-'}
+            </Space>
+          </a>
+          {post.is_story && <Tag color="gold">STORY</Tag>}
+        </Space>
+      }
+      extra={
+        <Popconfirm
+          title="이 피드를 삭제하시겠습니까?"
+          okText="삭제"
+          cancelText="취소"
+          onConfirm={() =>
+            deletePost.mutate(id, {
+              onSuccess: () => {
+                message.success('피드가 삭제되었습니다.')
+                navigate('/community/feed')
+              },
+              onError: (err) => message.error(err instanceof Error ? err.message : '삭제에 실패했습니다.'),
+            })
+          }
+        >
+          <Button danger loading={deletePost.isPending}>
+            삭제
+          </Button>
+        </Popconfirm>
+      }
+    >
+      {post.image_urls.length > 0 && (
+        <Image.PreviewGroup>
+          <Space style={{ marginBottom: 16 }} wrap>
+            {post.image_urls.map((url) => (
+              <Image key={url} src={url} width={160} height={160} style={{ objectFit: 'cover' }} />
+            ))}
+          </Space>
+        </Image.PreviewGroup>
+      )}
+      <Descriptions column={2} bordered size="small">
+        <Descriptions.Item label="내용" span={2}>
+          <span style={{ whiteSpace: 'pre-line' }}>{post.content ?? '-'}</span>
+        </Descriptions.Item>
+        <Descriptions.Item label="좋아요">{post.like_count}</Descriptions.Item>
+        <Descriptions.Item label="댓글">{post.comment_count}</Descriptions.Item>
+        <Descriptions.Item label="지역">{post.district_name ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="좌표">{lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : '-'}</Descriptions.Item>
+        <Descriptions.Item label="등록일">{dayjs(post.created_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
+        <Descriptions.Item label="수정일">{dayjs(post.updated_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
+      </Descriptions>
+    </Card>
+  )
+}

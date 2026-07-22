@@ -15,6 +15,8 @@ import ListingListPage from './pages/listings/ListingListPage'
 import ListingDetailPage from './pages/listings/ListingDetailPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
+import FeedListPage from './pages/community/FeedListPage'
+import FeedDetailPage from './pages/community/FeedDetailPage'
 import NoticeListPage from './pages/cms/NoticeListPage'
 import NoticeEditPage from './pages/cms/NoticeEditPage'
 import FaqListPage from './pages/cms/FaqListPage'
@@ -113,6 +115,8 @@ export default function App() {
               <Route path="/listings/:id" element={<ListingDetailPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
+              <Route path="/community/feed" element={<FeedListPage />} />
+              <Route path="/community/feed/:id" element={<FeedDetailPage />} />
               <Route path="/cms/notices" element={<NoticeListPage />} />
               <Route path="/cms/notices/new" element={<NoticeEditPage />} />
               <Route path="/cms/notices/:id" element={<NoticeEditPage />} />

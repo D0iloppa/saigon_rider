@@ -10,6 +10,7 @@ import {
   FileTextOutlined,
   FlagOutlined,
   NotificationOutlined,
+  PictureOutlined,
   SafetyCertificateOutlined,
   ShopOutlined,
   SolutionOutlined,
@@ -38,6 +39,7 @@ const MENU_ITEMS = [
     { key: '/listings', icon: <ShopOutlined />, label: '매물 관리' },
   ] },
   { key: 'group-care', label: 'CUSTOMER CARE', children: [{ key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' }] },
+  { key: 'group-community', label: '커뮤니티', children: [{ key: '/community/feed', icon: <PictureOutlined />, label: '피드 관리' }] },
   { key: 'group-content', label: 'CONTENT & POLICY', children: [
     { key: '/cms/notices', icon: <BellOutlined />, label: '공지 관리' },
     { key: '/cms/faqs', icon: <FileTextOutlined />, label: 'FAQ 관리' },
@@ -70,6 +72,7 @@ const PAGE_META = [
   { path: '/users', title: '유저 관리', description: '유저 상태, 제재 이력 및 신뢰 정보를 확인합니다.' },
   { path: '/listings', title: '매물 관리', description: '등록 매물을 검토하고 필요한 운영 조치를 적용합니다.' },
   { path: '/support', title: '고객센터', description: '사용자 문의와 답변 상태를 관리합니다.' },
+  { path: '/community/feed', title: '피드 관리', description: '사용자 피드 게시물을 조회하고 필요 시 삭제합니다.' },
   { path: '/map/poi', title: 'POI 관리', description: '동네지도에 노출되는 POI를 등록하고 관리합니다.' },
   { path: '/map/place-suggestions', title: '장소 제보 심사', description: '사용자가 제보한 장소를 승인하거나 반려합니다.' },
   { path: '/map/gas-submissions', title: '주유소 제보 심사', description: '사용자가 제보한 주유소를 승인하거나 반려합니다.' },

@@ -10,6 +10,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: production-seed-safety
+        name: production seed safety
+        entry: python tools/check_production_seed_safety.py
+        language: system
+        pass_filenames: false
+        files: ^(database/init/.*\.sql|docker-compose(\.prod)?\.yml|tools/check_production_seed_safety\.py)$
       - id: eslint
         name: eslint
         entry: bash -c 'cd frontend && npx eslint "${@/#frontend\//}"' --

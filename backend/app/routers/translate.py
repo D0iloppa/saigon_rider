@@ -31,19 +31,21 @@ _RATE_WINDOW_SEC = 60
 
 
 async def _enforce_rate_limit(user_id: uuid.UUID) -> None:
-    """유저당 슬라이딩 카운터 (info_route._enforce_rate_limit 미러) — Redis 순단 시 열어둠(가용성 우선)."""
+    """유저당 fixed-window 카운터. Redis 장애 시 외부 유료 호출을 fail-closed 한다."""
     try:
         client = await get_client()
         key = f"saigon:translate:rate:{user_id}"
-        count = await client.incr(key)
-        if count == 1:
-            await client.expire(key, _RATE_WINDOW_SEC)
+        pipe = client.pipeline(transaction=True)
+        pipe.incr(key)
+        pipe.expire(key, _RATE_WINDOW_SEC, nx=True)
+        count, _ = await pipe.execute()
         if count > _RATE_LIMIT:
             raise HTTPException(status_code=429, detail="Translation request limit exceeded")
     except HTTPException:
         raise
     except Exception as exc:
-        log.warning("Translate rate limit unavailable; allowing request: %s", exc)
+        log.error("Translate rate limit unavailable; blocking provider request: %s", exc)
+        raise HTTPException(status_code=503, detail="Translation temporarily unavailable") from exc
 
 
 @router.post("/all", response_model=TranslateAllResponse, summary="원문 → 3개 언어 번들({kr,en,vi})")

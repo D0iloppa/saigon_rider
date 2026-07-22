@@ -1,4 +1,8 @@
-# 전 서비스 감사 — 현재 코드 기준 남은 작업 (reconciliation @ HEAD 6f94b93)
+# 전 서비스 감사 — 재조정 이력 (기존 reconciliation @ HEAD 6f94b93)
+
+> **상태: SUPERSEDED (2026-07-22).** 이 문서 아래 OPEN 목록은 `6f94b93` 당시 스냅샷이다.
+> 원격 `3755179`의 Batch A~F에서 해당 목록 대부분이 처리됐고, 후속 잔여인 OAuth Redis state/단회용 exchange, INTERNAL coupon·garage gate, 운영 `[DEV]` seed gate, 안전정보 실패 상태, 업로드 비동기 파일 I/O, 피드 차단 경계, 알림 재전달 멱등성, 번역 rate-limit fail-closed를 `260722_service_user_full_launch_audit_task.md` 재조정에 반영했다.
+> 현행 출시 판단과 외부 게이트는 [`260722_service_user_full_launch_audit_task.md`](./260722_service_user_full_launch_audit_task.md)를 따른다. 아래 표를 새 작업 목록으로 사용하지 않는다.
 
 > 작성 2026-07-22. 원본 감사(`260722_service_user_full_launch_audit_task.md` + `HANDOFF_FULL_SERVICE_REVIEW.md`)를 **codex1(지도)+codex2(auth PR-1)+데드코드정리 이후 현재 코드**에 대조한 결과.
 > 방법: 3개 서브에이전트(auth / reward·privacy / P1) 병렬 정독, 감독 종합. 근거는 현재 파일 file:line.

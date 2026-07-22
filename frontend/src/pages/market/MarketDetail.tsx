@@ -37,7 +37,8 @@ import { formatPriceVnd, formatResponseRate, relativeTime, statusLabelKey } from
 import { noItemImage } from './noItemImage';
 import styles from './MarketDetail.module.css';
 
-const STATUSES: ListingStatus[] = ['ON_SALE', 'RESERVED', 'SOLD'];
+// MKT-3: SOLD는 수동 전환 금지(서버 400) — 거래완료는 약속 complete 경로로만. 수동 셀렉터에서 제외(SOLD 뱃지 표시는 별도 유지).
+const STATUSES: ListingStatus[] = ['ON_SALE', 'RESERVED'];
 
 export default function MarketDetail() {
   const { id } = useParams<{ id: string }>();

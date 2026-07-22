@@ -196,7 +196,7 @@ export default function GachaMain() {
                         setInsufficientDialog({ currency: g.cost_currency, have, need: g.cost_single });
                         return;
                       }
-                      navigate(`/gacha/pull/${g.code}?is10=false`);
+                      navigate(`/gacha/pull/${g.code}?is10=false&intent=${crypto.randomUUID()}`);
                     }}
                   >
                     {t('gacha.single_pull')}
@@ -213,7 +213,7 @@ export default function GachaMain() {
                         setInsufficientDialog({ currency: g.cost_currency, have, need: g.cost_10pull });
                         return;
                       }
-                      navigate(`/gacha/pull/${g.code}?is10=true`);
+                      navigate(`/gacha/pull/${g.code}?is10=true&intent=${crypto.randomUUID()}`);
                     }}
                   >
                     {t('gacha.ten_pull')}

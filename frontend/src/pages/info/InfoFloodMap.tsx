@@ -42,7 +42,9 @@ export default function InfoFloodMap() {
   const [hotspots, setHotspots] = useState<FloodHotspot[]>([]);
   const [risks, setRisks] = useState<FloodRisk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [reportCoords, setReportCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // 침수 신고 (주유소 신고와 동일한 바텀시트 — 현재 GPS 기준).
   const [showReport, setShowReport] = useState(false);
@@ -59,6 +61,7 @@ export default function InfoFloodMap() {
 
   const fetchAll = () => {
     setLoading(true);
+    setLoadError(false);
     resolveInfoCoords(search).then(({ lat, lng }) => {
       coordsRef.current = { lat, lng };
       floodApi
@@ -68,11 +71,13 @@ export default function InfoFloodMap() {
           setHotspots(r.hotspots);
           setRisks(r.risks ?? []);
         })
+        .catch(() => setLoadError(true))
         .finally(() => setLoading(false));
-    });
+    }).catch(() => { setLoadError(true); setLoading(false); });
   };
 
   useEffect(() => {
+    setReportCoords(null);
     fetchAll();
     const id = window.setInterval(() => {
       if (coordsRef.current) {
@@ -90,7 +95,7 @@ export default function InfoFloodMap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  // 메인에서 넘어온 좌표(?lat&lng) → 해당 동으로 init 포커싱. 직접 진입이면 null → GPS locate.
+  // 메인에서 넘어온 좌표(?lat&lng)만 초기 포커싱. GPS는 지도 내 위치 버튼으로만 측정한다.
   const incomingCoords = useMemo(() => parseCoordsFromQuery(search), [search]);
 
   // 선택 동(지도 emit). 리스트는 이 동 경계 내부만, 지도 마커는 도시 전역.
@@ -178,11 +183,8 @@ export default function InfoFloodMap() {
 
   async function handleSubmitReport() {
     if (!depth || submitting) return;
-    let c = coordsRef.current;
-    if (!c) {
-      const r = await resolveInfoCoords(search);
-      c = { lat: r.lat, lng: r.lng };
-    }
+    const c = reportCoords;
+    if (!c) return;
     setSubmitting(true);
     try {
       await floodApi.report({ lat: c.lat, lng: c.lng, depth_level: depth, photo_url: photoUrl ?? undefined });
@@ -230,7 +232,15 @@ export default function InfoFloodMap() {
             markers={floodMarkers}
             onRegionSelect={handleRegionSelect}
             initialGps={incomingCoords ?? undefined}
-            locateOnMount={!incomingCoords}
+            onLocated={(coords) => {
+              coordsRef.current = coords;
+              setReportCoords(coords);
+              floodApi.getMapData(coords.lat, coords.lng, FETCH_RADIUS_KM).then((r) => {
+                setReports(r.reports);
+                setHotspots(r.hotspots);
+                setRisks(r.risks ?? []);
+              }).catch(() => undefined);
+            }}
           />
         </div>
 
@@ -250,6 +260,8 @@ export default function InfoFloodMap() {
               <div className={styles.skeleton} />
               <div className={styles.skeleton} />
             </div>
+          ) : loadError ? (
+            <div className={styles.emptyRow}>{t('info.flood.loadError', '침수 정보를 불러오지 못했어요. 다시 시도해주세요.')}</div>
           ) : floodEntries.length === 0 ? (
             <div className={styles.emptyRow}>{t('info.flood.noFloodNearby')}</div>
           ) : (
@@ -399,7 +411,7 @@ export default function InfoFloodMap() {
               <button className={styles.reportCancel} onClick={() => setShowReport(false)} disabled={submitting}>
                 {t('common.cancel', '취소')}
               </button>
-              <button className={styles.reportSubmit} onClick={handleSubmitReport} disabled={!depth || submitting}>
+              <button className={styles.reportSubmit} onClick={handleSubmitReport} disabled={!depth || submitting || !reportCoords}>
                 {submitting ? t('info.flood.ctaSubmitting') : t('info.flood.ctaSubmit')}
               </button>
             </div>

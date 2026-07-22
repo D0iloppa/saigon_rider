@@ -272,6 +272,7 @@ export async function fetchBizMapItems(params: {
   maxLng: number;
   category?: string;
   q?: string;
+  signal?: AbortSignal;
 }): Promise<BizMapItem[]> {
   const qs = new URLSearchParams({
     min_lat: String(params.minLat),
@@ -281,8 +282,20 @@ export async function fetchBizMapItems(params: {
   });
   if (params.category) qs.set('category', params.category);
   if (params.q) qs.set('q', params.q);
-  const res = await api.realFetch<BizMapItemApi[]>(`/biz/public/map?${qs}`);
-  return (res ?? []).map((b) => ({
+  qs.set('size', '100');
+  const all: BizMapItemApi[] = [];
+  let page = 1;
+  for (;;) {
+    qs.set('page', String(page));
+    const res = await api.realFetch<{ items: BizMapItemApi[]; has_more: boolean }>(
+      `/biz/public/map?${qs}`,
+      { signal: params.signal },
+    );
+    all.push(...(res.items ?? []));
+    if (!res.has_more) break;
+    page++;
+  }
+  return all.map((b) => ({
     id: b.id,
     name: b.name,
     category: b.category,

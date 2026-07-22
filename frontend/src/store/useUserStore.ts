@@ -3,10 +3,11 @@ import { persist } from 'zustand/middleware';
 import type { User, RiderStyle, Language, SkillKey } from '@/api/types';
 import type { UserDto } from '@/api/auth';
 import { apiGetMe, apiGetMeById, apiInvestSkill } from '@/api/auth';
-import { apiRegisterDeviceMap } from '@/api/device';
+import { apiRegisterDeviceMap, apiUnregisterDeviceMap } from '@/api/device';
 import i18n, { changeLang } from '@/lib/i18n';
 import { native } from '@/lib/native';
-import { clearSession } from '@/lib/session';
+import { clearSession, loadSession } from '@/lib/session';
+import { useLocationStore } from '@/store/useLocationStore';
 
 interface UserState {
   user: User | null;
@@ -63,6 +64,9 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: false,
 
       loginFromBackend: (dto, passcode) => {
+        if (get().user?.id !== dto.id) {
+          useLocationStore.getState().clearLocation();
+        }
         set({
           user: dtoToUser(dto),
           isAuthenticated: true,
@@ -79,10 +83,9 @@ export const useUserStore = create<UserState>()(
               return;
             }
             const fcmToken = await native.getFCMToken().catch(() => '');
-            apiRegisterDeviceMap(uuid, dto.id, fcmToken || undefined)
+            apiRegisterDeviceMap(uuid, fcmToken || undefined)
               .then(() => console.info('[device-map] registered', uuid))
               .catch((e) => console.warn('[device-map] register failed', e));
-            if (native.isNative) native.startGPS();
           })
           .catch((e) => console.error('[device-map] getDeviceUUID threw', e));
       },
@@ -124,10 +127,17 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: () => {
+        const session = loadSession();
+        if (session) {
+          native.getDeviceUUID()
+            .then((uuid) => uuid && apiUnregisterDeviceMap(uuid, session))
+            .catch((e) => console.warn('[device-map] unregister failed', e));
+        }
         if (native.isNative) {
           native.stopGPS();
         }
         clearSession();
+        useLocationStore.getState().clearLocation();
         set({ user: null, passcode: null, isAuthenticated: false });
       },
 

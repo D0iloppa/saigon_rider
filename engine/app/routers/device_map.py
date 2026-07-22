@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,15 @@ class DeviceMapDetailResponse(BaseModel):
     device_uuid: str | None = None
     fcm_token: str | None = None
     logged_in_at: str | None = None
+
+
+class DeviceMapDeleteRequest(BaseModel):
+    device_uuid: str
+    external_user_uuid: str
+
+
+class DeviceMapDeleteResponse(BaseModel):
+    removed: bool
 
 
 class PushNotifyRequest(BaseModel):
@@ -63,6 +72,29 @@ async def upsert_device_map(
         log.info("Auto-created sre_user for %s → user_id=%d", body.external_user_uuid, sre_user.user_id)
 
     now = datetime.now(timezone.utc)
+    cache_keys_to_invalidate: set[str] = set()
+
+    # FCM 토큰은 한 사용자에게만 귀속한다. 다른 소유자의 토큰을 비운 뒤 아래
+    # device-map UPSERT와 함께 commit하여 계정 전환 중 중복 푸시를 막는다.
+    if body.fcm_token:
+        previous_token_devices = (
+            await db.execute(
+                select(DeviceUserMap.device_uuid).where(
+                    DeviceUserMap.fcm_token == body.fcm_token,
+                    DeviceUserMap.user_id != sre_user.user_id,
+                )
+            )
+        ).scalars().all()
+        if previous_token_devices:
+            await db.execute(
+                update(DeviceUserMap)
+                .where(
+                    DeviceUserMap.fcm_token == body.fcm_token,
+                    DeviceUserMap.user_id != sre_user.user_id,
+                )
+                .values(fcm_token=None)
+            )
+            cache_keys_to_invalidate.update(previous_token_devices)
 
     # 단말 양도: 신규 device_uuid 가 다른 user 에 묶여 있으면 먼저 해제.
     # (device_uuid 가 PK 라 ON CONFLICT(user_id) 만으로는 PK 충돌을 피할 수 없음.)
@@ -74,7 +106,7 @@ async def upsert_device_map(
     if existing_device_user_id is not None and existing_device_user_id != sre_user.user_id:
         await db.execute(delete(DeviceUserMap).where(DeviceUserMap.device_uuid == body.device_uuid))
         await db.flush()
-        invalidate_device_cache(body.device_uuid)
+        cache_keys_to_invalidate.add(body.device_uuid)
 
     # user_id 기준 UPSERT — uq_device_user_map_user_id 제약을 키로 사용.
     # 기존 행이 있으면 device_uuid + logged_in_at 갱신, 없으면 INSERT.
@@ -97,8 +129,10 @@ async def upsert_device_map(
     await db.commit()
 
     if old_uuid is not None and old_uuid != body.device_uuid:
-        invalidate_device_cache(old_uuid)
-    invalidate_device_cache(body.device_uuid)
+        cache_keys_to_invalidate.add(old_uuid)
+    cache_keys_to_invalidate.add(body.device_uuid)
+    for device_uuid in cache_keys_to_invalidate:
+        invalidate_device_cache(device_uuid)
 
     try:
         from app.services.fcm_push import reset_badge
@@ -113,6 +147,26 @@ async def upsert_device_map(
         user_id=sre_user.user_id,
         logged_in_at=now.isoformat(),
     )
+
+
+@router.delete("", dependencies=[Depends(verify_service_key)], response_model=DeviceMapDeleteResponse)
+async def delete_device_map(
+    body: DeviceMapDeleteRequest,
+    db: AsyncSession = Depends(get_session),
+) -> DeviceMapDeleteResponse:
+    """단말과 외부 사용자 소유권이 모두 일치할 때만 매핑을 해제한다."""
+    user_id = select(SreUser.user_id).where(SreUser.external_user_uuid == body.external_user_uuid).scalar_subquery()
+    result = await db.execute(
+        delete(DeviceUserMap).where(
+            DeviceUserMap.device_uuid == body.device_uuid,
+            DeviceUserMap.user_id == user_id,
+        )
+    )
+    removed = bool(result.rowcount)
+    if removed:
+        await db.commit()
+        invalidate_device_cache(body.device_uuid)
+    return DeviceMapDeleteResponse(removed=removed)
 
 
 @router.get("/lookup", dependencies=[Depends(verify_service_key)], response_model=DeviceMapDetailResponse)
@@ -144,7 +198,7 @@ async def notify_user(
     db: AsyncSession = Depends(get_session),
 ) -> PushNotifyResponse:
     """외부 UUID 기준 단건 푸시 (DM 등). 토큰 없으면 무발송(에러 아님). 이력 미적재."""
-    from app.services.fcm_push import send_push
+    from app.services.fcm_push import RetryablePushError, send_push
 
     row = (
         await db.execute(
@@ -159,13 +213,17 @@ async def notify_user(
     if row is None:
         return PushNotifyResponse(sent=0, failed=0)
 
-    result = await send_push(
-        title=body.title,
-        body=body.body,
-        mode="individual",
-        targets=[{"user_id": row.user_id, "fcm_token": row.fcm_token}],
-        data=body.data,
-        sender="dm",
-        log_history=False,
-    )
+    try:
+        result = await send_push(
+            title=body.title, body=body.body, mode="individual",
+            targets=[{"user_id": row.user_id, "fcm_token": row.fcm_token}],
+            data=body.data, sender="dm", log_history=False,
+        )
+    except RetryablePushError as exc:
+        raise HTTPException(status_code=503, detail="Push provider temporarily unavailable") from exc
+    if result.invalid_tokens:
+        await db.execute(
+            update(DeviceUserMap).where(DeviceUserMap.fcm_token.in_(result.invalid_tokens)).values(fcm_token=None)
+        )
+        await db.commit()
     return PushNotifyResponse(sent=result.sent, failed=result.failed)

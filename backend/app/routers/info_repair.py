@@ -4,15 +4,26 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import RepairReview, RepairShop, RepairShopSubmission
+from ..services.coordinates import Latitude, Longitude
 from ..services.redis_cache import cache_get, cache_set
 
 router = APIRouter(prefix="/info/repair", tags=["Info — 정비소"])
+
+_REVIEW_UNIQUE_CONSTRAINTS = {
+    "repair_review_shop_id_reviewer_user_id_service_code_key",
+    "uq_repair_review_user_service_nulls_not_distinct",
+}
+
+
+def _is_duplicate_review_error(exc: IntegrityError) -> bool:
+    return getattr(getattr(exc.orig, "diag", None), "constraint_name", None) in _REVIEW_UNIQUE_CONSTRAINTS
 
 
 # ── XP helper ──────────────────────────────────────────────────────────────
@@ -34,8 +45,8 @@ async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, pay
 
 class RepairShopReportCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    lat: float
-    lng: float
+    lat: Latitude
+    lng: Longitude
     phone: str | None = Field(None, max_length=30)
     note: str | None = Field(None, max_length=500)
 
@@ -56,8 +67,8 @@ class ReviewCreate(BaseModel):
 
 @router.get("/nearby")
 async def get_nearby_repair_shops(
-    lat: float,
-    lng: float,
+    lat: Latitude,
+    lng: Longitude,
     radius_km: float = 5.0,
     service_code: str | None = None,
     db: AsyncSession = Depends(get_db),
@@ -344,15 +355,14 @@ async def create_repair_review(
         is_anonymous=body.is_anonymous,
     )
     db.add(review)
-    await db.commit()
-    await db.refresh(review)
-
-    # Refresh materialized view (best-effort)
     try:
-        await db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY repair_shop_stats"))
         await db.commit()
-    except Exception:
-        pass
+    except IntegrityError as exc:
+        await db.rollback()
+        if _is_duplicate_review_error(exc):
+            raise HTTPException(409, "이미 이 정비소의 해당 서비스에 리뷰를 남겼어요") from exc
+        raise
+    await db.refresh(review)
 
     # RP(gc) 적립 — action_definition.rp_grant 기반 (sre051: REVIEW 50 / PHOTO 10 / PRICE 10)
     # 적립 실패 시 응답 표기도 0 — 실패했는데 +50 으로 보이던 하드코딩 교정

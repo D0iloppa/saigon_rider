@@ -81,9 +81,12 @@ def _make_scheduler() -> AsyncIOScheduler:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.redis_client import close_redis, ensure_consumer_group
+    from app.services.fcm_push import credentials_available
 
     await ensure_consumer_group()
     log.info("Redis stream consumer group ready")
+    if not credentials_available():
+        log.error("FCM disabled: FIREBASE_CREDENTIALS_JSON does not point to a readable file")
 
     scheduler = _make_scheduler()
     scheduler.start()
@@ -154,7 +157,19 @@ app.include_router(config.router)
 
 @app.get("/v1/health", tags=["meta"])
 async def health() -> dict:
-    return {"status": "ok"}
+    from app.services.fcm_push import credentials_available
+    return {"status": "ok", "fcm_credentials": "ready" if credentials_available() else "missing"}
+
+
+@app.get("/v1/ready", tags=["meta"])
+async def readiness():
+    from app.readiness import check_readiness
+
+    try:
+        checks = await check_readiness()
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "not_ready"})
+    return {"status": "ready", "checks": checks}
 
 
 @app.get("/v1/metrics", include_in_schema=False)

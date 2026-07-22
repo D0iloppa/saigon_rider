@@ -33,6 +33,7 @@ services:
     ports: !reset []
     volumes: !override
       - ./contents:/data
+      - ./frontend/src/components/maps/v2/saigon-depth1.json:/service-area/saigon-depth1.json:ro
     # 운영 명시 — SMS __DEV 스텁 차단(키 없으면 fail-loud) + /auth/dev-login 비활성
     environment:
       - APP_ENV=production

@@ -110,7 +110,7 @@ export const TRUST_TOKENS: Record<FloodTrustLevel, FloodTrustToken> = {
 export function trustFromScore(score: number | null | undefined): FloodTrustLevel {
   const s = score ?? 0;
   if (s >= 3) return 'VERIFIED';
-  if (s >= 1) return 'CONFIRMED';
+  if (s >= 2) return 'CONFIRMED';
   return 'PENDING';
 }
 

@@ -23,7 +23,9 @@ def upgrade() -> None:
         op.execute(sa.text(f"TRUNCATE TABLE {t} CASCADE"))
 
     # 2. 정의 데이터 정리
-    for t in ["lootbox_definition", "gacha_definition", "item_definition", "item_collection"]:
+    # gacha/lootbox 정의는 sre014의 활성 seed이며 v7 아이템 재시드 대상이 아니다.
+    # 여기서 비우면 fresh DB에서 이후 migration이 복구하지 못해 카탈로그가 0건이 된다.
+    for t in ["item_definition", "item_collection"]:
         op.execute(sa.text(f"TRUNCATE TABLE {t} CASCADE"))
 
     # 3. 컬렉션 시드

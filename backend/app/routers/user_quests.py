@@ -15,6 +15,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import Quest, UserQuest
+from ..utils import quest_card_expires_at
 
 log = logging.getLogger(__name__)
 
@@ -22,14 +23,22 @@ router = APIRouter(prefix="/user-quests", tags=["UserQuest 라이프사이클"])
 
 
 def _calc_card_expires_from_quest(quest: Quest) -> str | None:
-    # 수행 시작 시 card 만료는 quest.ends_at 또는 자정(VN) 으로 BFF 카드 생성 시 결정.
-    # 단순화를 위해 ends_at 만 사용 — DAILY 자정 만료는 별도 배치가 처리.
-    return quest.ends_at.isoformat() if quest.ends_at else None
+    expires_at = quest_card_expires_at(quest.period, quest.ends_at)
+    return expires_at.isoformat() if expires_at else None
 
 
 class StartRideResponse(BaseModel):
     user_quest_id: uuid.UUID
     card_id: int | None = None
+
+
+async def _get_owned_user_quest(db: AsyncSession, user_quest_id: uuid.UUID, session_uid: uuid.UUID) -> UserQuest:
+    uq = await db.get(UserQuest, user_quest_id)
+    if uq is None:
+        raise HTTPException(status_code=404, detail="user_quest not found")
+    if uq.user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return uq
 
 
 @router.post("/{user_quest_id}/start-ride", response_model=StartRideResponse, summary="수행 시작 — Engine 카드 생성")
@@ -38,9 +47,7 @@ async def start_ride(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ) -> StartRideResponse:
-    uq = await db.get(UserQuest, user_quest_id)
-    if uq is None:
-        raise HTTPException(status_code=404, detail="user_quest not found")
+    uq = await _get_owned_user_quest(db, user_quest_id, _session_uid)
     if uq.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail=f"수행할 수 없는 상태입니다 ({uq.status})")
 
@@ -72,7 +79,7 @@ async def start_ride(
                 "target_distance_m": int(quest.target_distance_km * 1000) if quest.target_distance_km else None,
             }
         resp = await engine_client.create_quest_card(
-            user_uuid=str(uq.user_id),
+            user_uuid=str(_session_uid),
             external_quest_id=str(quest.id),
             user_quest_id=str(uq.id),
             card_type=quest.card_type or "DISTANCE",
@@ -92,9 +99,10 @@ async def abandon_ride(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ) -> dict:
-    uq = await db.get(UserQuest, user_quest_id)
-    if uq is None:
-        raise HTTPException(status_code=404, detail="user_quest not found")
+    uq = await _get_owned_user_quest(db, user_quest_id, _session_uid)
+
+    if uq.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail=f"중단할 수 없는 상태입니다 ({uq.status})")
 
     try:
         card = await engine_client.get_card_by_user_quest(str(user_quest_id))
@@ -112,9 +120,7 @@ async def drop_accepted_quest(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ) -> dict:
-    uq = await db.get(UserQuest, user_quest_id)
-    if uq is None:
-        raise HTTPException(status_code=404, detail="user_quest not found")
+    uq = await _get_owned_user_quest(db, user_quest_id, _session_uid)
     if uq.status != "ACCEPTED":
         raise HTTPException(status_code=409, detail=f"포기할 수 없는 상태입니다 ({uq.status})")
 

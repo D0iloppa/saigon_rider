@@ -1,31 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useUserStore } from '@/store/useUserStore';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import InfoMap from '@/components/maps/InfoMap';
 import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
 import { findNearestDistrict } from '@/components/maps/district-data';
-import { native } from '@/lib/native';
 import { StarIcon } from '@/components/ui/StarIcon';
 import styles from './InfoHub.module.css';
 
 function useGeolocation() {
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  useEffect(() => {
-    native.getLocation()
-      .then((pos) => setCoords({ lat: pos.lat, lng: pos.lng }))
-      .catch(() => setCoords({ lat: 10.776, lng: 106.700 }));
-  }, []);
-  return coords;
+  return { lat: 10.776, lng: 106.700 };
 }
 
 export default function InfoHub() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const user = useUserStore((s) => s.user);
   const coords = useGeolocation();
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -120,7 +111,7 @@ export default function InfoHub() {
                   </div>
                 </>
               ) : (
-                <div className={styles.cardLine}>{t('info.hub.weatherLoading')}</div>
+                <div className={styles.cardLine}>{t('info.weather.unavailable')}</div>
               )}
             </button>
 

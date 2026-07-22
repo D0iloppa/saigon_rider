@@ -86,21 +86,6 @@ export default function InfoRepairList() {
     resolveAndLoad(instant);
   }, [search, resolveAndLoad]);
 
-  // 거리 기준 = 실제 단말 GPS (URL/구역 좌표와 독립). 성공 시 내 위치 기준, 실패 시 null → 구역 centroid 폴백.
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        if (alive) setUserGps({ lat: pos.lat, lng: pos.lng });
-      } catch {
-        if (alive) setUserGps(null);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
-
   const handleRegionSelect = useCallback((region: SelectedRegion) => {
     setSelectedRegion(region);
     fetchShops({ lat: region.lat, lng: region.lng });
@@ -150,7 +135,7 @@ export default function InfoRepairList() {
             markers={repairMarkers}
             onRegionSelect={handleRegionSelect}
             initialGps={incomingCoords ?? undefined}
-            locateOnMount={!incomingCoords}
+            onLocated={(coords) => { setUserGps(coords); fetchShops(coords); }}
           />
         </div>
         <div className={styles.sectionHeader}>

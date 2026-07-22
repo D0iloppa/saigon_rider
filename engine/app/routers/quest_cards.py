@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_session, verify_service_key
@@ -30,6 +30,21 @@ async def create_quest_card(
     db: AsyncSession = Depends(get_session),
 ) -> SreQuestCard:
     sre_user = await get_or_create_user(db, body.user_uuid)
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:user_quest_id))"),
+        {"user_quest_id": body.user_quest_id},
+    )
+
+    existing = (await db.execute(
+        select(SreQuestCard).where(
+            SreQuestCard.user_quest_id == body.user_quest_id,
+            SreQuestCard.status == QuestCardStatusEnum.ACTIVE,
+        )
+    )).scalar_one_or_none()
+    if existing is not None:
+        if existing.user_id != sre_user.user_id:
+            raise HTTPException(status_code=409, detail="user_quest belongs to another user")
+        return existing
 
     card = SreQuestCard(
         user_id=sre_user.user_id,

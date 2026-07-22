@@ -1,28 +1,40 @@
 import json
 import logging
-import time as _time
+import math
+from datetime import datetime, timedelta, timezone
 
-from app.services.mileage import resolve_user_id, update_mileage
+from app.services.mileage import process_gps_event
 from app.workers.base import BaseAgent
 
 log = logging.getLogger(__name__)
 
-_MIN_SPEED_MS = 3 * 1000 / 3600   # 3 km/h → m/s
-_MAX_SPEED_MS = 150 * 1000 / 3600  # 150 km/h → m/s
-_last_ts: dict[str, float] = {}
+_MAX_FUTURE_SKEW = timedelta(minutes=5)
+_MAX_EVENT_AGE = timedelta(hours=24)
 
 
-def _is_noise(device_uuid: str, distance_m: float) -> bool:
-    now = _time.monotonic()
-    prev = _last_ts.get(device_uuid)
-    _last_ts[device_uuid] = now
-    if prev is None or distance_m <= 0:
-        return False
-    dt = now - prev
-    if dt <= 0:
-        return False
-    speed = distance_m / dt
-    return speed < _MIN_SPEED_MS or speed > _MAX_SPEED_MS
+def _parse_measured_at(value: object, now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    if isinstance(value, (int, float)):
+        seconds = float(value) / 1000 if float(value) > 10_000_000_000 else float(value)
+        measured_at = datetime.fromtimestamp(seconds, timezone.utc)
+    elif isinstance(value, str):
+        try:
+            numeric = float(value)
+        except ValueError:
+            measured_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        else:
+            seconds = numeric / 1000 if numeric > 10_000_000_000 else numeric
+            measured_at = datetime.fromtimestamp(seconds, timezone.utc)
+    else:
+        raise ValueError("GPS measured_at is required")
+    if measured_at.tzinfo is None:
+        raise ValueError("GPS measured_at must be timezone-aware")
+    measured_at = measured_at.astimezone(timezone.utc)
+    if measured_at > current + _MAX_FUTURE_SKEW:
+        raise ValueError("GPS measured_at is too far in the future")
+    if measured_at < current - _MAX_EVENT_AGE:
+        raise ValueError("GPS measured_at is too old")
+    return measured_at
 
 
 class GpsAgent(BaseAgent):
@@ -34,32 +46,32 @@ class GpsAgent(BaseAgent):
         try:
             o = json.loads(raw)
             lat, lng, d = float(o.get("y", 0)), float(o.get("x", 0)), float(o.get("d", 0))
-        except (json.JSONDecodeError, AttributeError, ValueError):
-            lat, lng, d = 0.0, 0.0, 0.0
+            if not all(math.isfinite(value) for value in (lat, lng, d)):
+                raise ValueError("GPS values must be finite")
+            if not -90 <= lat <= 90 or not -180 <= lng <= 180 or d < 0:
+                raise ValueError("GPS values out of range")
+            measured_at = _parse_measured_at(o.get("t") or o.get("measured_at"))
+        except (json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
+            raise ValueError("Invalid GPS payload") from exc
 
-        user_id = await resolve_user_id(device_uuid)
+        user_id, new_total, completed, duplicate = await process_gps_event(
+            msg_id=msg_id,
+            device_uuid=device_uuid,
+            latitude=lat,
+            longitude=lng,
+            distance_m=d,
+            measured_at=measured_at,
+        )
         if user_id is None:
-            log.debug("[GPS] unmapped device %s — skipped", device_uuid)
+            log.debug("[GPS] unmapped device — skipped")
             return
-
-        if d > 0 and _is_noise(device_uuid, d):
-            log.debug("[GPS] user=%d dev=%s | noise filtered (d=%dm)", user_id, device_uuid, int(d))
-            d = 0.0
-
+        if duplicate:
+            log.info("[GPS] duplicate msg=%s — skipped", msg_id)
+            return
         if d > 0:
-            new_total = await update_mileage(user_id, d, device_uuid, msg_id=msg_id)
-            log.info(
-                "[GPS] user=%d dev=%s | lat=%.6f lng=%.6f +%dm → %dm",
-                user_id, device_uuid, lat, lng, int(d), new_total,
-            )
+            log.info("[GPS] distance accepted: +%dm → %dm", int(d), new_total or 0)
         else:
-            log.debug("[GPS] user=%d dev=%s | lat=%.6f lng=%.6f d=0 — no distance", user_id, device_uuid, lat, lng)
+            log.debug("[GPS] sample produced no distance")
 
-        if d > 0 or (lat != 0 and lng != 0):
-            try:
-                from app.services.quest_tracker import update as quest_update
-                completed = await quest_update(user_id, lat, lng, d)
-                if completed:
-                    log.info("[GPS] user=%d quest cards completed: %s", user_id, completed)
-            except Exception:
-                log.exception("[GPS] quest_tracker failed for user=%d", user_id)
+        if completed:
+            log.info("[GPS] user=%d quest cards completed: %s", user_id, completed)

@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS flood_report (
     photo_url          TEXT,
     reported_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     resolved_at        TIMESTAMPTZ,
-    confidence_score   INT         DEFAULT 1,
+    confidence_score   INT         DEFAULT 0,
     status             VARCHAR(20) DEFAULT 'ACTIVE'
                        CHECK (status IN ('ACTIVE', 'RESOLVED', 'EXPIRED', 'FLAGGED')),
     expires_at         TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '6 hours'),
@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS flood_confirmation (
     user_id            UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     confirmation_type  VARCHAR(20) NOT NULL
                        CHECK (confirmation_type IN ('still_flooded', 'resolved', 'false')),
+    lat                DECIMAL(10, 7) NOT NULL,
+    lng                DECIMAL(10, 7) NOT NULL,
     confirmed_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (report_id, user_id)
 );

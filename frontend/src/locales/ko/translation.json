@@ -16,6 +16,7 @@
     "etaArrive": "도착 예정 · {{duration}}",
     "routeLabel": "경로",
     "startGuidance": "경로 안내 시작",
+    "locationError": "현재 위치를 확인할 수 없습니다. 위치 권한을 확인해 주세요.",
     "questInProgress": "퀘스트 진행 중",
     "questCheckpoint": "체크포인트까지",
     "questDistance": "목표 {{target}}km",
@@ -30,6 +31,7 @@
     "comingSoonTitle": "실시간 경로 안내 준비 중",
     "comingSoonDesc": "앱 내 길안내는 준비 중입니다. 지금은 Google 지도로 안내받을 수 있어요.",
     "openGoogleMaps": "Google 지도로 이동",
+    "twoWheelerWarning": "오토바이 경로는 베타 기능이며 실제 도로 규제와 다를 수 있습니다.",
     "offRouteTitle": "경로를 이탈했어요",
     "offRouteReroute": "Google 지도로 재안내",
     "compassRemaining": "목적지까지 약 {{dist}}m",
@@ -170,7 +172,7 @@
     "searchEmptyTitle": "검색 결과가 없어요",
     "searchEmptySub": "다른 키워드나 카테고리로 찾아보세요",
     "pickLocation": "거래 희망 장소",
-    "pickLocationDesc": "지도에서 동네를 선택하세요",
+    "pickLocationDesc": "지도에서 동네를 선택하세요. 공개 화면에는 동네 중심만 표시됩니다",
     "pickLocationNone": "동네를 선택하세요",
     "pickAreaOnMap": "지도에서 동네를 선택하세요",
     "tradeLocation": "거래 희망 장소",
@@ -209,6 +211,9 @@
     "adInquiry": "전화 문의하기"
   },
   "splash": {
+    "bootstrapErrorTitle": "서버에 연결할 수 없어요",
+    "bootstrapErrorBody": "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
+    "bootstrapLogin": "로그인 화면으로 이동",
     "subtitle": "Where every ride becomes a quest",
     "startBtn": "시작하기",
     "loginBtn": "로그인"
@@ -1034,6 +1039,10 @@
     },
     "weather": {
       "title": "날씨",
+      "unavailable": "날씨 정보를 일시적으로 사용할 수 없습니다. 잠시 후 다시 확인해 주세요.",
+      "unavailableShort": "조회 실패",
+      "staleShort": "이전 관측",
+      "staleAt": "최신 날씨를 가져오지 못했습니다. {{time}}에 조회한 이전 관측값입니다.",
       "radarTitle": "비 레이더",
       "radarUpdated": "{{time}} 기준",
       "forecastTitle": "24시간 예보",
@@ -1041,6 +1050,7 @@
       "rec_CLEAR": "비 안 옴. 좋은 라이딩 날씨 ✅",
       "rec_RAIN_MED": "1시간 내 비 가능성 {{prob}}%. 빠른 라이딩 OK",
       "rec_RAIN_HIGH": "지금 출발은 비 위험. 30분 후 재확인 추천",
+      "rec_UNCERTAIN": "최신 관측이 없어 라이딩 안전을 판단할 수 없습니다.",
       "notifyBtn": "즐겨찾기 위치 알림 받기",
       "notifyDesc": "비 오면 알려줘 (+5 RP)",
       "windUnit": "km/h",

@@ -16,11 +16,11 @@ import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { Chip } from '@/components/ui/Chip';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { useUserStore } from '@/store/useUserStore';
+import { useLocationStore } from '@/store/useLocationStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadSession } from '@/lib/session';
-import { native } from '@/lib/native';
 import { toast } from '@/components/ui/Toast';
 import { ProfileCard } from '@/components/ProfileCard';
 import styles from './FeedList.module.css';
@@ -199,20 +199,17 @@ export default function FeedList() {
 
   useEffect(() => { fetchStories().then(setStories); }, []);
 
-  // neighborhood 필터 선택 시 현재 위치 획득. 실패하면 안내 후 전체로 복귀.
+  // 동네 필터는 사용자가 앞서 명시적으로 선택한 위치만 사용한다.
   useEffect(() => {
     if (filter !== 'neighborhood') return;
-    (async () => {
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        setNeighborhoodLoc({ lat: pos.lat, lng: pos.lng });
-      } catch {
-        toast.error(t('feedCreate.locationError'));
-        setFilter('all');
-      }
-    })();
-  }, [filter, t]);
+    const saved = useLocationStore.getState().location;
+    if (saved && saved.accountId === user?.id) {
+      setNeighborhoodLoc(saved.coords);
+      return;
+    }
+    toast.error(t('feedCreate.locationError'));
+    setFilter('all');
+  }, [filter, t, user?.id]);
 
   const fetchPage = useCallback(async (page: number) => {
     if (filter === 'neighborhood') {

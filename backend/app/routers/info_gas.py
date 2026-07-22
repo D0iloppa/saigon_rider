@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -11,6 +10,7 @@ from ..database import get_db
 from ..deps import verify_service_key, verify_user_session
 from ..engine_client import engine_client
 from ..models import GasStation, GasStationSubmission, GasStationWaitReport
+from ..services.coordinates import Latitude, Longitude
 from ..services.fuel_price_service import (
     FUEL_BRANDS as _FUEL_BRANDS,
 )
@@ -22,9 +22,28 @@ from ..services.fuel_price_service import (
     get_today_reference_prices,
     upsert_fuel_price,
 )
-from ..services.redis_cache import CacheKeys, cache_get, cache_invalidate, cache_set
+from ..services.redis_cache import (
+    CacheKeys,
+    cache_get,
+    cache_set,
+    invalidate_gas_nearby_for_station,
+)
+from ..utils import haversine_m
 
 router = APIRouter(prefix="/info/gas", tags=["Info — 주유소"])
+
+
+def _with_request_distances(stations: list[dict], lat: float, lng: float) -> list[dict]:
+    result = []
+    for station in stations:
+        item = dict(station)
+        item["distance_km"] = round(haversine_m(lat, lng, float(item["lat"]), float(item["lng"])) / 1000, 3)
+        result.append(item)
+    return sorted(result, key=lambda item: (item["distance_km"], item["station_id"]))
+
+
+def _without_distances(stations: list[dict]) -> list[dict]:
+    return [{key: value for key, value in station.items() if key != "distance_km"} for station in stations]
 
 
 # ── XP helper ──────────────────────────────────────────────────────────────
@@ -51,8 +70,8 @@ class WaitReportCreate(BaseModel):
 
 class GasStationReportCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    lat: float
-    lng: float
+    lat: Latitude
+    lng: Longitude
     phone: str | None = Field(None, max_length=30)
     note: str | None = Field(None, max_length=500)
 
@@ -87,8 +106,8 @@ class FuelPriceUpsert(BaseModel):
 
 @router.get("/nearby")
 async def get_nearby_gas_stations(
-    lat: float,
-    lng: float,
+    lat: Latitude,
+    lng: Longitude,
     radius_km: float = 5.0,
     fuel_type: str = "RON95",
     user_id: uuid.UUID = Depends(verify_user_session),
@@ -99,8 +118,8 @@ async def get_nearby_gas_stations(
     if cached is not None:
         today = datetime.now(UTC).date().isoformat()
         idem_key = f"gas-view-{user_id}-{today}"
-        asyncio.create_task(_earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key))  # noqa: RUF006 -- fire-and-forget GP 적립
-        return cached
+        await _earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key)
+        return {**cached, "stations": _with_request_distances(cached["stations"], lat, lng)}
 
     result = await db.execute(
         text("""
@@ -159,15 +178,15 @@ async def get_nearby_gas_stations(
     )
 
     stations = [dict(row._mapping) for row in result]
-    response = {"stations": stations}
+    response = {"stations": _without_distances(stations)}
 
     await cache_set(cache_key, response, ttl=600)
 
     today = datetime.now(UTC).date().isoformat()
     idem_key = f"gas-view-{user_id}-{today}"
-    asyncio.create_task(_earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key))  # noqa: RUF006 -- fire-and-forget GP 적립
+    await _earn_gp_safe(user_id, "INFO_GAS_NEARBY_VIEW", idem_key)
 
-    return response
+    return {**response, "stations": _with_request_distances(response["stations"], lat, lng)}
 
 
 @router.post("/wait-report", status_code=201)
@@ -207,8 +226,8 @@ async def report_wait_time(
     idem_key = f"gas-wait-{user_id}-{body.station_id}-{bucket}"
     earned = await _earn_gp_safe(user_id, "INFO_GAS_WAIT_REPORT", idem_key)
 
-    # 제보가 nearby 응답에 즉시 반영되도록 캐시 무효화 (제보 위치를 알 수 없어 nearby 전체 삭제)
-    await cache_invalidate("nearby:v1:*")
+    # 제보가 반영될 수 있는 조회 반경의 캐시만 무효화한다.
+    await invalidate_gas_nearby_for_station(float(station.lat), float(station.lng))
 
     return {"wait_id": report.wait_id, "rp_earned": 5 if earned else 0}
 
@@ -250,8 +269,8 @@ async def get_today_prices(db: AsyncSession = Depends(get_db)):
 
 @router.get("/stations/nearby-v2")
 async def get_nearby_v2(
-    lat: float,
-    lng: float,
+    lat: Latitude,
+    lng: Longitude,
     radius_km: float = 3.0,
     user_id: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
@@ -260,7 +279,7 @@ async def get_nearby_v2(
     cache_key = CacheKeys.STATIONS_NEARBY.format(lat=round(lat, 3), lng=round(lng, 3), radius=radius_km)
     cached = await cache_get(cache_key)
     if cached:
-        return cached
+        return {**cached, "stations": _with_request_distances(cached["stations"], lat, lng)}
 
     result = await db.execute(
         text("""
@@ -300,12 +319,12 @@ async def get_nearby_v2(
         }
 
     response = {
-        "stations": stations,
+        "stations": _without_distances(stations),
         "global_updated_at": today_prices.get("updated_at"),
     }
 
     await cache_set(cache_key, response, ttl=600)
-    return response
+    return {**response, "stations": _with_request_distances(response["stations"], lat, lng)}
 
 
 @router.post("/admin/refresh", dependencies=[Depends(verify_service_key)])

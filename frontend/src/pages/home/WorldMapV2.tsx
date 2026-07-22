@@ -21,13 +21,8 @@ import { fetchWards, resolveWardByCoords, type Ward } from '@/api/master';
 import { AppImage } from '@/components/ui/AppImage';
 import styles from './WorldMapV2.module.css';
 
-const HCMC_LAT_MIN = 10.4, HCMC_LAT_MAX = 11.1;
-const HCMC_LNG_MIN = 106.4, HCMC_LNG_MAX = 107.1;
 // Bến Thành (Quận 1) — 앱 기본 동네
 const FALLBACK = { lat: 10.7716, lng: 106.6980, name: 'Bến Thành' };
-function isInHCMC(lat: number, lng: number) {
-  return lat >= HCMC_LAT_MIN && lat <= HCMC_LAT_MAX && lng >= HCMC_LNG_MIN && lng <= HCMC_LNG_MAX;
-}
 
 // ── SVG 아이콘 (이모지 대체) ─────────────────────────────────
 const IcoSearch = () => (
@@ -158,8 +153,8 @@ const IcoGear = () => (
 export default function WorldMapV2() {
   const user = useUserStore((s) => s.user);
   const refreshUser = useUserStore((s) => s.refreshUser);
-  const setSharedCoords = useLocationStore((s) => s.setCoords);
-  const storedWardName = useLocationStore((s) => s.wardName);
+  const storedLocation = useLocationStore((s) => s.location);
+  const storedWardName = storedLocation && storedLocation.accountId === user?.id ? storedLocation.wardName : null;
   const navigate = useNavigate();
   const { t } = useTranslation();
   const didInit = useRef(false);
@@ -179,6 +174,7 @@ export default function WorldMapV2() {
   const [dataLoading, setDataLoading] = useState(true);
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [floods, setFloods] = useState<FloodReport[]>([]);
   const [gasCount, setGasCount] = useState(0);
   const [repairCount, setRepairCount] = useState(0);
@@ -203,28 +199,17 @@ export default function WorldMapV2() {
       native.getDeviceUUID().then(async (uuid) => {
         if (!uuid) return;
         const fcm = await native.getFCMToken().catch(() => '');
-        apiRegisterDeviceMap(uuid, uid, fcm || undefined).catch(() => {});
+        apiRegisterDeviceMap(uuid, fcm || undefined).catch(() => {});
       }).catch(() => {});
     }
-    Promise.all([
-      native.getLocation(),
-      fetchWards().catch(() => [] as Ward[]),
-    ]).then(([pos, wardList]) => {
-      const pickWard = (lat: number, lng: number) => resolveWardByCoords(lat, lng, wardList);
-      if (isInHCMC(pos.lat, pos.lng)) {
-        const ward = pickWard(pos.lat, pos.lng);
-        setResolvedWard(ward);
-        setCoords({ lat: pos.lat, lng: pos.lng, name: ward?.name_vi ?? ward?.name_en ?? '' });
-        setSharedCoords({ lat: pos.lat, lng: pos.lng });
-      } else {
-        const ward = pickWard(FALLBACK.lat, FALLBACK.lng);
-        setResolvedWard(ward);
-        setCoords({ ...FALLBACK, name: ward?.name_vi ?? ward?.name_en ?? FALLBACK.name });
-        setSharedCoords({ lat: FALLBACK.lat, lng: FALLBACK.lng });
-      }
-    }).catch(() => { setCoords(FALLBACK); setSharedCoords({ lat: FALLBACK.lat, lng: FALLBACK.lng }); })
-      .finally(() => setLocationReady(true));
-  }, [refreshUser, setSharedCoords]);
+    fetchWards().then((wardList) => {
+      const saved = useLocationStore.getState().location;
+      const selected = saved && saved.accountId === uid ? saved.coords : FALLBACK;
+      const ward = resolveWardByCoords(selected.lat, selected.lng, wardList);
+      setResolvedWard(ward);
+      setCoords({ ...selected, name: ward?.name_vi ?? ward?.name_en ?? FALLBACK.name });
+    }).catch(() => setCoords(FALLBACK)).finally(() => setLocationReady(true));
+  }, [refreshUser]);
 
   useEffect(() => {
     if (!locationReady) return;
@@ -235,7 +220,7 @@ export default function WorldMapV2() {
     Promise.allSettled([
       fetchListings({ lat, lng, sort: 'distance', size: 8 }).then((p) => setNearbyProducts(p.items)),
       fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 8 }).then((p) => setRecentProducts(p.items)),
-      weatherApi.get(refLat, refLng).then(setWeather).catch(() => {}),
+      weatherApi.get(refLat, refLng).then((value) => { setWeather(value); setWeatherUnavailable(false); }).catch(() => { setWeather(null); setWeatherUnavailable(true); }),
       floodApi.getActive(refLat, refLng, 3).then((r) => r && setFloods(r.floods)).catch(() => {}),
       gasApi.getNearby(refLat, refLng, 3).then((r) => r && setGasCount(r.stations.length)).catch(() => {}),
       repairApi.getNearby(refLat, refLng, 3).then((r) => r && setRepairCount(r.shops.length)).catch(() => {}),
@@ -458,7 +443,7 @@ export default function WorldMapV2() {
           <button className={styles.infoItem} onClick={() => navigate(`/info/weather${infoNavQuery}`)}>
             <div className={`${styles.infoBubble} ${styles.infoBubbleWeather}`}><IcoSun /></div>
             <div className={styles.infoVal}>{cur ? `${cur.temp_c}°C` : '--'}</div>
-            <div className={styles.infoSub}>{cur ? (cur.rain_prob_1h > 0 ? t('home.v2.rainForecast') : t('home.v2.clear')) : '—'}</div>
+            <div className={styles.infoSub}>{weatherUnavailable ? t('info.weather.unavailableShort') : weather?.stale ? t('info.weather.staleShort') : cur ? (cur.rain_prob_1h > 0 ? t('home.v2.rainForecast') : t('home.v2.clear')) : '—'}</div>
             <div className={styles.infoLabel}>{t('info.weather.title')}</div>
           </button>
           <div className={styles.infoDivider} />

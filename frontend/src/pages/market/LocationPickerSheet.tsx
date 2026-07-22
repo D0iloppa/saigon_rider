@@ -7,6 +7,7 @@ import SaigonMapV2 from '@/components/maps/SaigonMapV2';
 import type { SelectedRegion } from '@/components/maps/v2/region';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import { resolveDistrict } from '@/api/market';
+import { inServiceArea } from '@/lib/serviceArea';
 import styles from './LocationPickerSheet.module.css';
 
 export interface PickedLocation {
@@ -52,6 +53,7 @@ export default function LocationPickerSheet({ open, onClose, value, onConfirm }:
   };
 
   const handleRegion = (r: SelectedRegion) => apply(r.lat, r.lng);
+  const outOfArea = !!picked && !inServiceArea(picked.lat, picked.lng);
 
   const confirm = () => {
     if (!picked || !district) return;
@@ -68,7 +70,6 @@ export default function LocationPickerSheet({ open, onClose, value, onConfirm }:
           <SaigonMapV2
             height={380}
             initialGps={value ?? undefined}
-            locateOnMount={!value}
             pickMode
             onPointPick={apply}
             onRegionSelect={handleRegion}
@@ -77,9 +78,11 @@ export default function LocationPickerSheet({ open, onClose, value, onConfirm }:
         <div className={styles.footer}>
           <span className={styles.selected}>
             <MapPin size={16} className={styles.pin} />
-            {district ? localizedName(district) : t('market.pickLocationNone', { defaultValue: '동네를 선택하세요' })}
+            {outOfArea
+              ? t('market.outOfService', { defaultValue: '서비스 미제공 지역입니다' })
+              : district ? localizedName(district) : t('market.pickLocationNone', { defaultValue: '동네를 선택하세요' })}
           </span>
-          <Button onClick={confirm} disabled={!picked || !district} fullWidth={false} style={{ minWidth: 72 }}>
+          <Button onClick={confirm} disabled={!picked || !district || outOfArea} fullWidth={false} style={{ minWidth: 72 }}>
             {t('common.confirm', { defaultValue: '확인' })}
           </Button>
         </div>

@@ -44,8 +44,13 @@ export interface FetchFeedOptions {
   userId?: string;
   lat?: number;
   lng?: number;
+  minLat?: number;
+  maxLat?: number;
+  minLng?: number;
+  maxLng?: number;
   page?: number;
   size?: number;
+  signal?: AbortSignal;
 }
 
 export interface FeedPage {
@@ -53,6 +58,7 @@ export interface FeedPage {
   total: number;
   page: number;
   size: number;
+  hasMore: boolean;
 }
 
 export async function fetchFeed(
@@ -69,16 +75,25 @@ export async function fetchFeed(
     let list = [...MOCK_FEED];
     if (filter === 'hot') list = list.sort((a, b) => b.cheerCount - a.cheerCount);
     const start = (page - 1) * size;
-    return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
+    return api.delay({ items: list.slice(start, start + size), total: list.length, page, size, hasMore: start + size < list.length }, 200);
   }
 
   const params = new URLSearchParams({ filter, page: String(page), size: String(size), lang: i18n.language });
   if (opts.userId) params.set('user_id', opts.userId);
   if (opts.lat != null) params.set('lat', String(opts.lat));
   if (opts.lng != null) params.set('lng', String(opts.lng));
+  if (opts.minLat != null && opts.maxLat != null && opts.minLng != null && opts.maxLng != null) {
+    params.set('min_lat', String(opts.minLat));
+    params.set('max_lat', String(opts.maxLat));
+    params.set('min_lng', String(opts.minLng));
+    params.set('max_lng', String(opts.maxLng));
+  }
 
-  const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/feed?${params}`);
-  return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size };
+  const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number; has_more: boolean }>(
+    `/feed?${params}`,
+    { signal: opts.signal },
+  );
+  return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size, hasMore: res.has_more };
 }
 
 export interface CreateFeedPostParams {
@@ -122,11 +137,17 @@ export async function fetchMyFeed(userId: string, page = 1, size = 20): Promise<
   if (USE_MOCK) {
     const list = MOCK_FEED.filter((p) => p.userId === userId);
     const start = (page - 1) * size;
-    return api.delay({ items: list.slice(start, start + size), total: list.length, page, size }, 200);
+    return api.delay({
+      items: list.slice(start, start + size), total: list.length, page, size,
+      hasMore: start + size < list.length,
+    }, 200);
   }
   const params = new URLSearchParams({ filter: 'all', page: String(page), size: String(size), author_id: userId, lang: i18n.language });
   const res = await api.realFetch<{ items: any[]; total: number; page: number; size: number }>(`/feed?${params}`);
-  return { items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size };
+  return {
+    items: res.items.map(transformPost), total: res.total, page: res.page, size: res.size,
+    hasMore: page * size < res.total,
+  };
 }
 
 export async function updateFeedPost(postId: string, params: {

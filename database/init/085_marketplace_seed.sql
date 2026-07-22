@@ -21,7 +21,9 @@ ON CONFLICT (id) DO NOTHING;
 -- L3 스쿠터 (BIKE, 예약중)       — 판매자 사이공라이더 (다른 매물 연계용)
 INSERT INTO marketplace_listings
     (id, seller_id, category_id, title, description, price_vnd, is_negotiable, status, district_id, latitude, longitude, like_count, view_count, bumped_at, created_at)
-VALUES
+SELECT id::uuid, seller_id::uuid, category_id, title, description, price_vnd,
+       is_negotiable, status, district_id, latitude, longitude, like_count,
+       view_count, bumped_at, created_at FROM (VALUES
     ('a0000000-0000-4000-8000-000000000001',
      'd80efb02-8a43-4e55-830a-050d7bf4403b',
      (SELECT id FROM marketplace_categories WHERE code = 'GEAR'),
@@ -42,13 +44,18 @@ VALUES
      'Honda Vision 2021 — 18.000 km',
      'Honda Vision 2021 bản tiêu chuẩn, đi 18.000 km. Máy êm, giấy tờ chính chủ đầy đủ. Đang giữ chỗ cho khách xem xe.',
      24500000, TRUE, 'RESERVED', 11, 10.812300, 106.711200, 28, 305, now() - interval '95 minutes', now() - interval '95 minutes')
+) AS seed(id, seller_id, category_id, title, description, price_vnd, is_negotiable, status, district_id, latitude, longitude, like_count, view_count, bumped_at, created_at)
+WHERE EXISTS (SELECT 1 FROM users WHERE users.id = seed.seller_id::uuid)
 ON CONFLICT (id) DO NOTHING;
 
 -- ── 매물 이미지 연결 ────────────────────────────────────────────
-INSERT INTO marketplace_listing_images (id, listing_id, content_id, sort_order) VALUES
+INSERT INTO marketplace_listing_images (id, listing_id, content_id, sort_order)
+SELECT id::uuid, listing_id::uuid, content_id::uuid, sort_order FROM (VALUES
     ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 0),
     ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002', 1),
     ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000003', 0),
     ('b0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000003', 'c0000000-0000-4000-8000-000000000004', 0),
     ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000003', 'c0000000-0000-4000-8000-000000000005', 1)
+) AS seed(id, listing_id, content_id, sort_order)
+WHERE EXISTS (SELECT 1 FROM marketplace_listings WHERE marketplace_listings.id = seed.listing_id::uuid)
 ON CONFLICT (id) DO NOTHING;

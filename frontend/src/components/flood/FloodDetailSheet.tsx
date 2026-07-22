@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { AppImage } from '@/components/ui/AppImage';
 import { floodApi, type FloodReport } from '@/api/info';
 import { getDepth, TRUST_TOKENS, formatTimeAgo, type FloodTrustLevel } from './flood-tokens';
+import { native } from '@/lib/native';
+import { toast } from '@/components/ui/Toast';
 import styles from './FloodDetailSheet.module.css';
 
 interface Props {
@@ -29,11 +31,16 @@ export default function FloodDetailSheet({ report, onClose, onConfirmed }: Props
     if (!report || submitting) return;
     setSubmitting(true);
     try {
-      await floodApi.confirm(report.report_id, confirmation_type);
+      await native.ensureLocationPermission();
+      const position = await native.getLocation();
+      await floodApi.confirm(report.report_id, confirmation_type, {
+        lat: position.lat,
+        lng: position.lng,
+      });
       onConfirmed?.();
       onClose();
     } catch {
-      onClose();
+      toast.error(t('info.flood.confirmLocationError', '현장 위치를 확인할 수 없어 처리하지 못했어요.'));
     } finally {
       setSubmitting(false);
     }

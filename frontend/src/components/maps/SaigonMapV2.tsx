@@ -440,21 +440,11 @@ export default function SaigonMapV2({
   };
 
   // ── 내 위치로: 커버리지 안에서 현재 depth 유지하며 재중심 ──
-  const nearestWard = useCallback((pos: LatLng) => {
-    let best = 0, bestD = Infinity;
-    depth1.wards.forEach((w, i) => {
-      if (!w.gps) return;
-      const dd = (w.gps.lat - pos.lat) ** 2 + (w.gps.lng - pos.lng) ** 2;
-      if (dd < bestD) { bestD = dd; best = i; }
-    });
-    return best;
-  }, []);
-
   const locateTo = useCallback(async (pos: LatLng, opts?: { marker?: boolean }) => {
-    if (opts?.marker !== false) setMe(pos);
     const [d1x, d1y] = projGps(pos, depth1.VW, depth1.VH, D1_BBOX);
-    let wardIdx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
-    if (wardIdx < 0) wardIdx = nearestWard(pos);
+    const wardIdx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
+    if (wardIdx < 0) return;
+    if (opts?.marker !== false) setMe(pos);
     const ward = depth1.wards[wardIdx];
     const cur = depthRef.current;
     setSel1(wardIdx);
@@ -488,7 +478,7 @@ export default function SaigonMapV2({
         await openBlock(ward.slug, myBlock); // 내 블록을 depth3 로 다시 열기
       }
     } catch { /* noop */ } finally { setLoading(false); }
-  }, [onRegionSelect, nearestWard, centerOn, loadWardD2, openBlock]);
+  }, [onRegionSelect, centerOn, loadWardD2, openBlock]);
 
   const runLocate = useCallback(async (opts?: { silent?: boolean }) => {
     // 수동 클릭이 실패(밖/GPS오류)할 때: 현재 depth 를 full(전체 보임·센터)로 리셋 + 토스트. 자동(mount)은 조용히.

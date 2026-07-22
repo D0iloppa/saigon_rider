@@ -15,7 +15,7 @@ class SreSettings(BaseSettings):
     engine_admin_jwt_secret: str
 
     # BFF (cross-DB grant calls)
-    bff_base_url: str = "http://backend:8000"
+    bff_internal_url: str = "http://bff:8080"
 
     # Firebase / FCM
     firebase_credentials_json: str = "/app/firebase-credentials.json"

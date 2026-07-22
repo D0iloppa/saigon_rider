@@ -20,19 +20,13 @@ const RAIN_COLOR = (pct: number) => {
   return '#16A34A';
 };
 
-// 메인에서 넘어온 좌표(?lat&lng)가 있으면 그 지역 기준, 없으면 GPS(실패 시 기본 도시).
+// 메인에서 넘어온 좌표(?lat&lng)가 있으면 그 지역 기준, 없으면 표시용 기본 도시.
 // 지도에서 구역을 선택하면 setCoords 로 그 지역 기준 재조회.
 function useGeolocation(search: string) {
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => parseCoordsFromQuery(search));
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>(() => parseCoordsFromQuery(search) ?? { lat: 10.776, lng: 106.700 });
   useEffect(() => {
     const q = parseCoordsFromQuery(search);
-    if (q) {
-      setCoords(q);
-      return;
-    }
-    native.getLocation()
-      .then((pos) => setCoords({ lat: pos.lat, lng: pos.lng }))
-      .catch(() => setCoords({ lat: 10.776, lng: 106.700 }));
+    if (q) setCoords(q);
   }, [search]);
   return [coords, setCoords] as const;
 }
@@ -45,6 +39,7 @@ export default function InfoWeather() {
   const [regionName, setRegionName] = useState('');
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
   const [notifyLabel, setNotifyLabel] = useState('');
   const [notifyDone, setNotifyDone] = useState(false);
   const kb = useKeyboard();
@@ -55,7 +50,14 @@ export default function InfoWeather() {
   useEffect(() => {
     if (!coords) return;
     weatherApi.get(coords.lat, coords.lng)
-      .then(setData)
+      .then((weather) => {
+        setData(weather);
+        setUnavailable(false);
+      })
+      .catch(() => {
+        setData(null);
+        setUnavailable(true);
+      })
       .finally(() => setLoading(false));
   }, [coords]);
 
@@ -67,8 +69,8 @@ export default function InfoWeather() {
 
   const cur = data?.current;
   const forecast = data?.forecast?.next_24h ?? [];
-  const now = new Date();
-  const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const basis = data?.observed_at ?? data?.fetched_at;
+  const timeStr = basis ? new Date(basis).toLocaleString() : '—';
 
   return (
     <div className={styles.page}>
@@ -82,8 +84,15 @@ export default function InfoWeather() {
         <div className={styles.loadingWrap}>
           <div className={styles.skeleton} style={{ height: 200 }} />
         </div>
+      ) : unavailable ? (
+        <div className={styles.loadingWrap}>{t('info.weather.unavailable')}</div>
       ) : (
         <div className={styles.scroll} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
+          {data?.stale && (
+            <div className={styles.rainAlert}>
+              {t('info.weather.staleAt', { time: new Date(data.fetched_at).toLocaleString() })}
+            </div>
+          )}
           {/* Location map — 침수 지도와 동일 레이아웃(풀블리드) */}
           <div className={styles.mapArea}>
             {coords && (
@@ -91,7 +100,7 @@ export default function InfoWeather() {
                 height="100%"
                 onRegionSelect={(r: SelectedRegion) => { setCoords({ lat: r.lat, lng: r.lng }); setRegionName(r.name); }}
                 initialGps={coords ?? undefined}
-                locateOnMount={!coords}
+                onLocated={setCoords}
               />
             )}
           </div>

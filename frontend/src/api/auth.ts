@@ -42,11 +42,13 @@ export async function apiLogin(phone: string, passcode: string): Promise<LoginRe
 }
 
 export async function apiGetMe(phone: string): Promise<LoginResult> {
-  return api.realFetch<LoginResult>(`/auth/me?phone=${encodeURIComponent(phone)}`);
+  void phone;
+  return api.realFetch<LoginResult>('/auth/me');
 }
 
 export async function apiGetMeById(userId: string): Promise<LoginResult> {
-  return api.realFetch<LoginResult>(`/auth/me/by-id?user_id=${encodeURIComponent(userId)}`);
+  void userId;
+  return api.realFetch<LoginResult>('/auth/me/by-id');
 }
 
 export interface OAuthLoginResult {

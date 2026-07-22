@@ -10,6 +10,9 @@
 
 import { clearSession, loadSession } from '@/lib/session';
 import { toast } from '@/components/ui/Toast';
+import { TimeoutError, createAttemptSignal, retryCount } from './requestPolicy';
+
+export { TimeoutError } from './requestPolicy';
 
 export const USE_MOCK =
   import.meta.env.VITE_USE_MOCK !== 'false';
@@ -85,35 +88,75 @@ function extractErrorMessage(err: any, status: number, call: string): string {
 
 function sessionHeaders(): Record<string, string> {
   const session = loadSession();
-  return session?.userId ? { 'X-User-Id': session.userId } : {};
+  return session?.userId && session.sessionToken
+    ? { 'X-User-Id': session.userId, 'X-Session-Token': session.sessionToken }
+    : {};
 }
 
 // 게이트웨이/전송 계층 일시 오류 — 재시도 대상 (간헐적 502 대응, SGR-208)
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
 
+const DEFAULT_TIMEOUT_MS = 10_000;
+
+function externalAbortReason(signal: AbortSignal | null | undefined): Error {
+  return signal?.reason instanceof Error
+    ? signal.reason
+    : new DOMException('The operation was aborted', 'AbortError');
+}
+
+async function retryDelay(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
+  if (signal?.aborted) throw externalAbortReason(signal);
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(externalAbortReason(signal));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 async function realFetch<T>(
   endpoint: string,
   options: RequestInit = {},
   service: Service = 'bff',
-  _opts: { silent?: boolean; rethrow?: boolean; retries?: number; keepSessionOn401?: boolean } = {},
+  _opts: { silent?: boolean; rethrow?: boolean; retries?: number; keepSessionOn401?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const method = (options.method || 'GET').toUpperCase();
   const url = `${baseUrl(service)}${endpoint}`;
-  // GET 만 재시도 (비멱등 요청의 중복 실행 방지)
-  const retries = method === 'GET' ? (_opts.retries ?? 3) : 0;
+  // 안전한 조회만 제한적으로 재시도한다. 쓰기 요청은 timeout 여부와 무관하게 재실행하지 않는다.
+  const retries = retryCount(method, _opts.retries);
   const maxAttempts = retries + 1;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...sessionHeaders(),
-        ...options.headers,
-      },
-    });
+    const attemptSignal = createAttemptSignal(options.signal, _opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        ...options,
+        signal: attemptSignal.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...sessionHeaders(),
+          ...options.headers,
+        },
+      });
+    } catch (error) {
+      attemptSignal.cleanup();
+      if (options.signal?.aborted) throw externalAbortReason(options.signal);
+      const normalized = attemptSignal.didTimeout() ? new TimeoutError() : error;
+      if (attempt < maxAttempts && (normalized instanceof TimeoutError || normalized instanceof TypeError)) {
+        await retryDelay(300 * attempt, options.signal);
+        continue;
+      }
+      throw normalized;
+    }
+    attemptSignal.cleanup();
     if (res.ok) {
-      if (res.status === 204) return null as T;
+      if (method === 'HEAD' || res.status === 204) return null as T;
       return res.json();
     }
 
@@ -138,7 +181,7 @@ async function realFetch<T>(
     if (res.status === 419) handleSessionError();
     // 재시도 가능한 오류면 toast 없이 다음 시도 (마지막 시도 제외)
     if (RETRYABLE_STATUS.has(res.status) && attempt < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+      await retryDelay(300 * attempt, options.signal);
       continue;
     }
     const err = await res.json().catch(() => ({}));
@@ -158,14 +201,23 @@ async function realFetchForm<T>(
   endpoint: string,
   body: FormData,
   service: Service = 'bff',
-  _opts: { silent?: boolean } = {},
+  _opts: { silent?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const url = `${baseUrl(service)}${endpoint}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { ...sessionHeaders() },
-    body,
-  });
+  const attemptSignal = createAttemptSignal(undefined, _opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      signal: attemptSignal.signal,
+      headers: { ...sessionHeaders() },
+      body,
+    });
+  } catch (error) {
+    throw attemptSignal.didTimeout() ? new TimeoutError() : error;
+  } finally {
+    attemptSignal.cleanup();
+  }
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
       const errBody: any = await res.json().catch(() => ({}));

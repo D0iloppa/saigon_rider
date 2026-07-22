@@ -12,6 +12,7 @@ from app.schemas import (
     ShopPurchaseResult,
 )
 from app.services import shop as shop_svc
+from app.services.operation_idempotency import IdempotencyConflictError
 
 router = APIRouter(prefix="/v1/shop", tags=["shop"])
 
@@ -53,10 +54,13 @@ async def purchase_item(
         return await shop_svc.purchase(
             db,
             user_uuid=data.user_uuid,
+            idempotency_key=data.idempotency_key,
             item_code=data.item_code,
             currency=data.currency,
             skill_discount_pct=data.skill_discount_pct,
         )
+    except IdempotencyConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     except Exception as e:
         # asyncpg RaiseError 원문(SQL 전문 포함)을 클라이언트에 노출하지 않도록 RAISE 메시지만 추출
         raw = str(e)

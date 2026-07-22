@@ -1,25 +1,35 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/**
- * 사용자가 home(동네 지도)에서 선택한 위치를 앱 전역에 공유한다.
- * market 등 다른 화면의 기본 동네를 home 선택과 일치시키는 용도.
- */
-interface LocationState {
-  coords: { lat: number; lng: number } | null;
-  setCoords: (coords: { lat: number; lng: number } | null) => void;
+export type LocationSource = 'manual' | 'gps';
+
+export interface LocationSnapshot {
+  coords: { lat: number; lng: number };
+  wardId: number | null;
   wardName: string | null;
-  setWardName: (name: string | null) => void;
+  source: LocationSource;
+  measuredAt: number;
+  accountId: string;
+}
+
+interface LocationState {
+  location: LocationSnapshot | null;
+  setLocation: (location: LocationSnapshot) => void;
+  clearLocation: () => void;
 }
 
 export const useLocationStore = create<LocationState>()(
   persist(
     (set) => ({
-      coords: null,
-      setCoords: (coords) => set({ coords }),
-      wardName: null,
-      setWardName: (wardName) => set({ wardName }),
+      location: null,
+      setLocation: (location) => set({ location }),
+      clearLocation: () => set({ location: null }),
     }),
-    { name: 'saigon-rider-location' },
+    {
+      name: 'saigon-rider-location',
+      version: 2,
+      migrate: () => ({ location: null }),
+      partialize: (state) => ({ location: state.location }),
+    },
   ),
 );

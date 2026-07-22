@@ -18,6 +18,7 @@ import socket
 import uuid
 from datetime import UTC, datetime
 
+import httpx
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
@@ -60,15 +61,36 @@ async def _push_enabled(db, user_id: uuid.UUID, field: str) -> bool:
 
 
 async def _try_push(user_id: str, title: str, body: str, link: str) -> None:
-    """FCM 푸시 시도 — 실패는 로그만 (기존 인라인 발송과 동일: 푸시 실패로 재시도하지 않는다).
+    """재시도 가능한 provider 실패만 제한 재시도하고 별도 DLQ로 격리한다."""
+    for attempt in range(1, MAX_DELIVERIES + 1):
+        try:
+            await engine_client.notify_user_push(user_id, title=title, body=body, data={"navigateTo": link})
+            log.info("push sent user=%s link=%s", user_id, link)
+            return
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 503:
+                log.warning("permanent push failure user=%s status=%d", user_id, exc.response.status_code)
+                return
+        except httpx.TransportError:
+            pass
+        except Exception as exc:
+            log.warning("permanent push failure user=%s: %s", user_id, exc)
+            return
+        if attempt < MAX_DELIVERIES:
+            await asyncio.sleep(min(2 ** (attempt - 1), 8))
 
-    푸시 실패를 raise 하면 재시도마다 notifications INSERT 가 중복되므로 커밋 후 best-effort 로 처리.
-    """
-    try:
-        await engine_client.notify_user_push(user_id, title=title, body=body, data={"navigateTo": link})
-        log.info("push sent user=%s link=%s", user_id, link)
-    except Exception as e:
-        log.warning("push failed user=%s link=%s: %s", user_id, link, e)
+    r = await get_client()
+    await r.xadd(
+        DLQ_STREAM_KEY,
+        {
+            "type": "push_failed",
+            "payload": json.dumps({"user_id": user_id, "title": title, "body": body, "link": link}),
+            "deliveries": str(MAX_DELIVERIES),
+        },
+        maxlen=10_000,
+        approximate=True,
+    )
+    log.error("retryable push failure moved to DLQ user=%s", user_id)
 
 
 # ── 타입별 핸들러 ───────────────────────────────────────────

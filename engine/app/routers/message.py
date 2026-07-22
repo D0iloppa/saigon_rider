@@ -1,9 +1,10 @@
 import json
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from app.deps import verify_service_key
 from app.redis_client import STREAM_KEY, get_redis
@@ -14,26 +15,24 @@ log = logging.getLogger(__name__)
 VALID_TYPES = {"gps", "heartbeat", "event"}
 
 
-@router.get("", dependencies=[Depends(verify_service_key)])
-async def sre_message(
-    uuid: str = Query(...),
-    message: str = Query(...),
-    type: str = Query("gps", description="Message type: gps | heartbeat | event"),
-    _extra: Optional[str] = Query(
-        None, description='JSON string. e.g. {"key":"value"}'
-    ),
-) -> dict:
-    msg_type = type if type in VALID_TYPES else "gps"
+class SreMessageRequest(BaseModel):
+    uuid: str
+    message: str
+    type: str = "gps"
+    extra: dict[str, Any] = Field(default_factory=dict, alias="_extra")
 
-    extra_val: dict[str, Any] = {}
-    if _extra:
-        extra_val = json.loads(_extra)
+
+@router.post("", dependencies=[Depends(verify_service_key)])
+async def sre_message(
+    body: SreMessageRequest,
+) -> dict:
+    msg_type = body.type if body.type in VALID_TYPES else "gps"
 
     fields = {
-        "uuid": uuid,
+        "uuid": body.uuid,
         "type": msg_type,
-        "message": message,
-        "_extra": json.dumps(extra_val) if extra_val else "{}",
+        "message": body.message,
+        "_extra": json.dumps(body.extra) if body.extra else "{}",
         "ts": str(time.time()),
     }
 

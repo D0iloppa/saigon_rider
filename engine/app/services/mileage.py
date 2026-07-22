@@ -1,7 +1,9 @@
 import logging
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from datetime import datetime
+
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
@@ -9,27 +11,104 @@ from app.models import DeviceUserMap, SreUser, UserMileageLog
 
 log = logging.getLogger(__name__)
 
-_device_cache: dict[str, int] = {}
-
-
 async def resolve_user_id(device_uuid: str) -> int | None:
-    cached = _device_cache.get(device_uuid)
-    if cached is not None:
-        return cached
-
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(DeviceUserMap.user_id).where(DeviceUserMap.device_uuid == device_uuid)
         )
         row = result.scalar_one_or_none()
 
-    if row is not None:
-        _device_cache[device_uuid] = row
     return row
 
 
 def invalidate_device_cache(device_uuid: str) -> None:
-    _device_cache.pop(device_uuid, None)
+    # 매 이벤트가 DB mapping을 조회하므로 프로세스 간 stale cache가 존재하지 않는다.
+    return None
+
+
+def _apply_event_time_policy(distance_m: float, previous_at: datetime | None, measured_at: datetime) -> tuple[bool, float]:
+    """역순은 진행도 미반영, 정상 순서는 측정시각 간 속도 범위로 거리 판정."""
+    ordered = previous_at is None or measured_at > previous_at
+    accepted_distance = distance_m if ordered and distance_m > 0 else 0.0
+    if accepted_distance > 0 and previous_at is not None:
+        speed_ms = accepted_distance / (measured_at - previous_at).total_seconds()
+        if speed_ms < 3 * 1000 / 3600 or speed_ms > 150 * 1000 / 3600:
+            accepted_distance = 0.0
+    return ordered, accepted_distance
+
+
+async def process_gps_event(
+    *, msg_id: str, device_uuid: str, latitude: float, longitude: float,
+    distance_m: float, measured_at: datetime,
+) -> tuple[int | None, int | None, list[int], bool]:
+    """GPS 이벤트 하나를 mileage와 모든 quest에 정확히 한 번 원자 반영한다."""
+    async with AsyncSessionLocal() as db:
+        user_id = (
+            await db.execute(
+                select(DeviceUserMap.user_id)
+                .where(DeviceUserMap.device_uuid == device_uuid)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if user_id is None:
+            return None, None, [], False
+
+        previous_at = (
+            await db.execute(
+                select(func.max(UserMileageLog.recorded_at)).where(UserMileageLog.device_uuid == device_uuid)
+            )
+        ).scalar_one_or_none()
+        ordered, accepted_distance = _apply_event_time_policy(distance_m, previous_at, measured_at)
+
+        ins = (
+            pg_insert(UserMileageLog)
+            .values(
+                user_id=user_id,
+                distance_m=Decimal(str(accepted_distance)),
+                device_uuid=device_uuid,
+                msg_id=msg_id,
+                recorded_at=measured_at,
+            )
+            .on_conflict_do_nothing(index_elements=["msg_id"])
+        )
+        if (await db.execute(ins)).rowcount == 0:
+            return user_id, None, [], True
+
+        new_total: int | None = None
+        if accepted_distance > 0:
+            new_total = (
+                await db.execute(
+                    update(SreUser)
+                    .where(SreUser.user_id == user_id)
+                    .values(total_distance_m=SreUser.total_distance_m + int(accepted_distance))
+                    .returning(SreUser.total_distance_m)
+                )
+            ).scalar_one()
+
+        completed: list[int] = []
+        if ordered:
+            from app.services.quest_tracker import dispatch_in_session
+            from app.services.quest_validators import GpsSignal
+
+            completed = await dispatch_in_session(
+                db,
+                user_id,
+                GpsSignal(
+                    lat=latitude,
+                    lng=longitude,
+                    distance_m=accepted_distance,
+                    measured_at=measured_at,
+                ),
+            )
+        await db.commit()
+
+    if accepted_distance > 0:
+        try:
+            from app.services.policy_engine import evaluate_policies
+            await evaluate_policies(user_id)
+        except Exception:
+            log.exception("policy evaluation failed for user_id=%d", user_id)
+    return user_id, new_total, completed, False
 
 
 async def update_mileage(

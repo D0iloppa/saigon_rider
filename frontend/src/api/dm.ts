@@ -96,11 +96,10 @@ export async function createConversation(
       appointmentUnlocked: false,
     }, 100);
   }
-  const session = requireSession();
+  requireSession();
   const raw = await api.realFetch<any>('/dm/conversations', {
     method: 'POST',
     body: JSON.stringify({
-      user_id: session.userId,
       other_user_id: otherUserId,
       context_type: context?.type ?? null,
       context_id: context?.id ?? null,
@@ -110,8 +109,8 @@ export async function createConversation(
 }
 
 export async function fetchConversation(conversationId: string): Promise<DmConversation> {
-  const session = requireSession();
-  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}?user_id=${session.userId}`);
+  requireSession();
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}`);
   return transformConversation(raw);
 }
 
@@ -153,11 +152,10 @@ export async function sendMessage(
       priceOffer: null,
     }, 100);
   }
-  const session = requireSession();
+  requireSession();
   const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/messages`, {
     method: 'POST',
     body: JSON.stringify({
-      sender_id: session.userId,
       content,
       image_content_id: opts.imageContentId ?? null,
       message_type: opts.messageType ?? 'text',
@@ -169,10 +167,10 @@ export async function sendMessage(
 
 export async function markRead(conversationId: string): Promise<void> {
   if (USE_MOCK) return api.delay(undefined, 50);
-  const session = requireSession();
+  requireSession();
   await api.realFetch(`/dm/conversations/${conversationId}/read`, {
     method: 'POST',
-    body: JSON.stringify({ user_id: session.userId }),
+    body: JSON.stringify({}),
   });
 }
 

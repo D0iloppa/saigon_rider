@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -17,17 +18,18 @@ from ..models import (
     MarketplacePriceOffer,
     Report,
     User,
+    UserBlock,
 )
 from ..schemas import (
     DmConversationCreateRequest,
     DmConversationOut,
-    DmMarkReadRequest,
     DmMessageCreateRequest,
     DmMessageOut,
     Page,
     ReportCreateRequest,
 )
 from ..services import noti_events
+from ..services.dm_policy import require_participant, require_unblocked
 from ..utils import resolve_avatar_url
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
@@ -84,6 +86,14 @@ async def get_conversations(
     # 본인 대화 목록만 — 타인 user_id 로 대화·미리보기 열람 차단
     if user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    block_rows = (
+        await db.execute(
+            select(UserBlock.blocker_id, UserBlock.blocked_id).where(
+                or_(UserBlock.blocker_id == _session_uid, UserBlock.blocked_id == _session_uid)
+            )
+        )
+    ).all()
+    blocked_ids = {blocked_id if blocker_id == _session_uid else blocker_id for blocker_id, blocked_id in block_rows}
     rows = (
         (
             await db.execute(
@@ -104,6 +114,8 @@ async def get_conversations(
     result = []
     for conv in rows:
         other_id = _other_user_id(conv, user_id)
+        if other_id in blocked_ids:
+            continue
         other_user = await db.get(User, other_id)
 
         last_msg = (
@@ -162,16 +174,14 @@ async def get_conversations(
 @router.get("/conversations/{conv_id}", response_model=DmConversationOut, summary="대화방 단건 조회")
 async def get_conversation(
     conv_id: uuid.UUID,
-    user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    if _session_uid not in (conv.participant_1, conv.participant_2):
-        raise HTTPException(status_code=403, detail="Not a participant")
-    other_id = _other_user_id(conv, user_id)
+    other_id = require_participant(conv, _session_uid)
+    await require_unblocked(db, _session_uid, other_id)
     other_user = await db.get(User, other_id)
     return DmConversationOut(
         id=conv.id,
@@ -194,36 +204,61 @@ async def create_conversation(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    if body.user_id == body.other_user_id:
+    if _session_uid == body.other_user_id:
         raise HTTPException(status_code=400, detail="Cannot create conversation with yourself")
 
-    p1, p2 = sorted([body.user_id, body.other_user_id])
+    other_user = await db.get(User, body.other_user_id)
+    if other_user is None or other_user.status != "ACTIVE":
+        raise HTTPException(status_code=404, detail="User not found")
+    await require_unblocked(db, _session_uid, body.other_user_id)
+
+    if body.context_type is not None and body.context_type != "listing":
+        raise HTTPException(status_code=400, detail="Unsupported conversation context")
+    if body.context_type == "listing":
+        listing = await db.get(MarketplaceListing, body.context_id)
+        if listing is None or listing.seller_id != body.other_user_id or listing.status in ("HIDDEN", "REMOVED"):
+            raise HTTPException(status_code=404, detail="Listing not found")
+
+    p1, p2 = sorted([_session_uid, body.other_user_id])
+
+    context_filter = (
+        (DmConversation.context_type == body.context_type) & (DmConversation.context_id == body.context_id)
+        if body.context_id is not None
+        else DmConversation.context_id.is_(None)
+    )
 
     existing = (
         await db.execute(
             select(DmConversation).where(
                 DmConversation.participant_1 == p1,
                 DmConversation.participant_2 == p2,
+                context_filter,
             )
         )
     ).scalar_one_or_none()
 
     if existing:
         conv = existing
-        # 새 매물 컨텍스트가 들어오면 항상 최신 매물로 갱신 (두 번째 거래 시 이전 매물 표시 방지)
-        if body.context_type and body.context_id and conv.context_id != body.context_id:
-            conv.context_type = body.context_type
-            conv.context_id = body.context_id
-            await db.commit()
     else:
         conv = DmConversation(
             participant_1=p1, participant_2=p2, context_type=body.context_type, context_id=body.context_id
         )
         db.add(conv)
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            conv = (
+                await db.execute(
+                    select(DmConversation).where(
+                        DmConversation.participant_1 == p1,
+                        DmConversation.participant_2 == p2,
+                        context_filter,
+                    )
+                )
+            ).scalar_one()
         await db.refresh(conv)
 
-    other_user = await db.get(User, body.other_user_id)
     return DmConversationOut(
         id=conv.id,
         other_user_id=body.other_user_id,
@@ -251,8 +286,8 @@ async def get_messages(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    if _session_uid not in (conv.participant_1, conv.participant_2):
-        raise HTTPException(status_code=403, detail="Not a participant")
+    require_participant(conv, _session_uid)
+    await require_unblocked(db, conv.participant_1, conv.participant_2)
 
     base = select(DmMessage).where(DmMessage.conversation_id == conv_id)
     if after:
@@ -347,6 +382,8 @@ async def send_message(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    require_participant(conv, _session_uid)
+    await require_unblocked(db, conv.participant_1, conv.participant_2)
 
     # 도메인 엔티티가 뒤따르는 타입은 전용 엔드포인트로만 — meta id 위조로 검증 우회 차단
     if body.message_type in ("appointment", "price_offer"):
@@ -364,7 +401,7 @@ async def send_message(
     now = datetime.now(UTC)
     msg = DmMessage(
         conversation_id=conv_id,
-        sender_id=body.sender_id,
+        sender_id=_session_uid,
         content=body.content,
         message_type=body.message_type or "text",
         meta=body.meta,
@@ -378,14 +415,14 @@ async def send_message(
     msg = (await db.execute(select(DmMessage).where(DmMessage.id == msg.id))).scalar_one()
 
     # 수신자 푸시·인앱 알림은 noti_worker 로 이관 — 발행 실패는 내부에서 삼켜 전송을 막지 않는다
-    recipient_id = _other_user_id(conv, body.sender_id)
-    sender = await db.get(User, body.sender_id)
+    recipient_id = _other_user_id(conv, _session_uid)
+    sender = await db.get(User, _session_uid)
     preview = body.content[:50] if body.content else "사진을 보냈습니다"
     await noti_events.publish(
         "dm.message_sent",
         {
             "conversation_id": str(conv_id),
-            "sender_id": str(body.sender_id),
+            "sender_id": str(_session_uid),
             "recipient_id": str(recipient_id),
             "sender_nickname": sender.nickname if sender and sender.nickname else "",
             "preview": preview,
@@ -408,13 +445,14 @@ async def send_message(
 @router.post("/conversations/{conv_id}/read", summary="읽음 처리")
 async def mark_read(
     conv_id: uuid.UUID,
-    body: DmMarkReadRequest,
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    require_participant(conv, _session_uid)
+    await require_unblocked(db, conv.participant_1, conv.participant_2)
 
     now = datetime.now(UTC)
     unread = (
@@ -422,7 +460,7 @@ async def mark_read(
             await db.execute(
                 select(DmMessage).where(
                     DmMessage.conversation_id == conv_id,
-                    DmMessage.sender_id != body.user_id,
+                    DmMessage.sender_id != _session_uid,
                     DmMessage.read_at.is_(None),
                 )
             )

@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.database import AsyncSession
@@ -11,6 +11,7 @@ from app.enums import TxTypeEnum
 from app.models import UserMileageLog, XpBalance, XpExpirationSchedule, XpTransaction, SreUser
 from app.schemas import BalanceRead, ExpirationItemRead, TransactionRead, WalletRead
 from app.services import xp_ledger
+from app.services.operation_idempotency import IdempotencyConflictError, claim_or_replay, store_response
 from app.services.xp_ledger import get_or_create_user
 
 router = APIRouter(prefix="/v1/users", tags=["balance"])
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/v1/users", tags=["balance"])
 
 class CreditRpRequest(BaseModel):
     amount: int
+    idempotency_key: str = Field(min_length=1, max_length=80)
     # False 면 일일 RP 캡(60) 무시·전액 적립 (주간/이벤트 퀘 등 특별 보상)
     apply_daily_cap: bool = True
 
@@ -30,13 +32,28 @@ async def credit_rp(
 ) -> dict:
     """RP(gc_balance) 직접 적립 (service-key). 퀘스트 보상 등 BFF 측 지급 경로용.
     apply_daily_cap=False 면 일일캡 면제(주간/이벤트)."""
-    user = await get_or_create_user(db, user_uuid)
-    await xp_ledger.credit_gc(
-        db, user_id=user.user_id, amount=body.amount, apply_daily_cap=body.apply_daily_cap
-    )
-    await db.commit()
-    balance = await db.get(XpBalance, user.user_id)
-    return {"ok": True, "gc_balance": int(balance.gc_balance) if balance else 0}
+    payload = {"amount": body.amount, "apply_daily_cap": body.apply_daily_cap}
+    try:
+        replay = await claim_or_replay(
+            db,
+            idempotency_key=body.idempotency_key,
+            operation="CREDIT_RP",
+            user_uuid=user_uuid,
+            payload=payload,
+        )
+        if replay is not None:
+            return replay
+        user = await get_or_create_user(db, user_uuid)
+        await xp_ledger.credit_gc(
+            db, user_id=user.user_id, amount=body.amount, apply_daily_cap=body.apply_daily_cap
+        )
+        balance = await db.get(XpBalance, user.user_id)
+        response = {"ok": True, "gc_balance": int(balance.gc_balance) if balance else 0}
+        await store_response(db, body.idempotency_key, response)
+        await db.commit()
+        return response
+    except IdempotencyConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
 
 
 @router.get("/{user_uuid}/wallet", response_model=WalletRead,

@@ -2,6 +2,7 @@ import { LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
 import { native } from '@/lib/native';
+import { inServiceArea } from '@/lib/serviceArea';
 import depth1 from './v2/saigon-depth1.json';
 import { regionContains, type MapMarkerV2, type SelectedRegion } from './v2/region';
 import { computeVisibleLabels, type DeclutterMarker } from './v2/labelDeclutter';
@@ -629,19 +630,7 @@ function SaigonMapV5({
 
     const d1x = (pos.lng - D1_BBOX.W) / (D1_BBOX.E - D1_BBOX.W) * depth1.VW;
     const d1y = (D1_BBOX.N - pos.lat) / (D1_BBOX.N - D1_BBOX.S) * depth1.VH;
-    let idx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
-    const inHcmc = pos.lat >= D1_BBOX.S - 0.05 && pos.lat <= D1_BBOX.N + 0.05
-                && pos.lng >= D1_BBOX.W - 0.05 && pos.lng <= D1_BBOX.E + 0.05;
-    if (idx < 0 && inHcmc) {
-      let bestD = Infinity;
-      depth1.wards.forEach((w, i) => {
-        const g = w.gps as { lat: number; lng: number } | undefined;
-        if (!g) return;
-        const d = (g.lat - pos.lat) ** 2 + (g.lng - pos.lng) ** 2;
-        if (d < bestD) { bestD = d; idx = i; }
-      });
-    }
-    if (idx < 0) idx = depth1.wards.findIndex((w) => w.slug === 'ben-thanh');
+    const idx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
 
     const svg = svgRef.current;
     const ar = svg ? svg.clientHeight / svg.clientWidth : 1;
@@ -683,13 +672,8 @@ function SaigonMapV5({
       const pos = await native.getLocation();
       // 서비스 지역(HCMC bbox + 0.05° 마진) 밖 — 가장자리 clamp 딥줌·무의미한 조회·
       // 가짜 위치점을 만들지 않고 안내만 한다 (시나리오 3.3, V2/V3 outsideArea 가드 복원)
-      const inHcmc = pos.lat >= HCMC.S - 0.05 && pos.lat <= HCMC.N + 0.05
-                  && pos.lng >= HCMC.W - 0.05 && pos.lng <= HCMC.E + 0.05;
-      if (!inHcmc) {
-        // 막다른 길 방지: 안내 후 서비스 중심가(Bến Thành)로 이동해 원격 사용자도
-        // 매물 탐색이 가능하게 한다. 가짜 위치점·좌표 저장은 하지 않는다.
-        showToast(outsideAreaMessage ?? '서비스 지역 밖이에요 · 호치민 중심을 보여드려요');
-        focusLatLng({ lat: 10.772, lng: 106.697 }, { silent: true, selectRegion: selectRegionOnLocate });
+      if (!inServiceArea(pos.lat, pos.lng)) {
+        showToast(outsideAreaMessage ?? '서비스 지역 밖이에요');
         setMeLatLng(null);
         return;
       }
@@ -786,13 +770,18 @@ function SaigonMapV5({
     return () => { if (zoomInRef) zoomInRef.current = null; };
   }, [zoomInRef, clampVB, getBottomInsetUnits, onViewportChange, setVBAttr]);
 
+  const lastQueryInsetRef = useRef(bottomInsetPx);
   useEffect(() => {
-    // suppressBbox: 이 이펙트는 시트 높이·선택모드/선택동 변화에 따른 LOD/뱃지 재계산용이지
-    // 사용자 뷰포트 의도가 아니다 — bbox까지 재-emit하면 handleRegionSelect가 방금
-    // 비운 viewportBbox를 500ms 뒤 되살리는 문제가 있었음. bbox는 제스처/줌/fit 경로만 emit.
-    // polyActive/selWard는 onDepthChange(뱃지 표시) 재통지를 위해 명시적 트리거로 유지.
+    if (lastQueryInsetRef.current === bottomInsetPx) return;
+    lastQueryInsetRef.current = bottomInsetPx;
+    // 가시 영역 inset이 실제로 달라졌으면 같은 카메라에서도 query bbox를 정확히 한 번 갱신한다.
+    onViewportChange();
+  }, [bottomInsetPx, onViewportChange]);
+
+  useEffect(() => {
+    // 선택 모드 변화는 LOD/뱃지만 다시 계산하고 query bbox는 유지한다.
     onViewportChange(true);
-  }, [bottomInsetPx, onViewportChange, polyActive, selWard]);
+  }, [onViewportChange, polyActive, selWard]);
 
   useEffect(() => {
     if (!svgRef.current) return;

@@ -160,6 +160,7 @@ export async function fetchGachaPullLog(
 export async function pullGacha(
   gachaCode: string,
   is10Pull: boolean,
+  idempotencyKey: string,
 ): Promise<GachaPullResult> {
   if (USE_MOCK) {
     const rarities: ItemRarity[] = is10Pull
@@ -175,5 +176,8 @@ export async function pullGacha(
     return api.delay({ items, new_pity_count: 0, ceiling_reset: true, cost_paid: is10Pull ? 13500 : 1500, currency: 'GOLD' }, 400);
   }
   const params = new URLSearchParams({ gacha_code: gachaCode, is_10_pull: String(is10Pull) });
-  return api.realFetch<GachaPullResult>(`/gacha/pull?${params}`, { method: 'POST' });
+  return api.realFetch<GachaPullResult>(`/gacha/pull?${params}`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
 }

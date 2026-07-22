@@ -312,8 +312,11 @@ CREATE INDEX idx_ae_user_detected ON abuse_event (user_id, detected_at);
 
 CREATE TABLE idempotency_key (
   idempotency_key      VARCHAR(80)  NOT NULL,
-  resource_type        VARCHAR(40)  NOT NULL,    -- EVENT / REDEMPTION
+  resource_type        VARCHAR(40)  NOT NULL,    -- EVENT / REDEMPTION / 재화 작업
   resource_id          BIGINT       NULL,
+  external_user_uuid   VARCHAR(36)  NULL,
+  request_hash         VARCHAR(64)  NULL,
+  response_json        JSONB        NULL,
   created_at           TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expires_at           TIMESTAMPTZ(3) NOT NULL,
   PRIMARY KEY (idempotency_key)

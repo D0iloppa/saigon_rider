@@ -37,11 +37,12 @@ export default function WorldMap() {
   const didInit = useRef(false);
 
   const [infoWeather, setInfoWeather] = useState<WeatherData | null>(null);
+  const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [infoFloods, setInfoFloods] = useState<FloodReport[]>([]);
   const [infoGasCount, setInfoGasCount] = useState(0);
   const [infoRepairCount, setInfoRepairCount] = useState(0);
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
-  const setSharedCoords = useLocationStore((s) => s.setCoords);
+  const setSharedLocation = useLocationStore((s) => s.setLocation);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -59,7 +60,7 @@ export default function WorldMap() {
             return;
           }
           const fcmToken = await native.getFCMToken().catch(() => '');
-          apiRegisterDeviceMap(deviceUuid, uid, fcmToken || undefined).catch((e) =>
+          apiRegisterDeviceMap(deviceUuid, fcmToken || undefined).catch((e) =>
             console.warn('[device-map] home re-register failed', e),
           );
         })
@@ -92,7 +93,8 @@ export default function WorldMap() {
     Promise.allSettled([
       weatherApi.get(lat, lng).then((w) => {
         setInfoWeather(w);
-      }),
+        setWeatherUnavailable(false);
+      }).catch(() => { setInfoWeather(null); setWeatherUnavailable(true); }),
       floodApi.getActive(lat, lng, 5).then((r) => r && setInfoFloods(r.floods.filter((f) => inSel(f.lat, f.lng)))),
       gasApi.getNearby(lat, lng, 5).then((r) => {
         if (!r) return;
@@ -126,8 +128,17 @@ export default function WorldMap() {
   // v2 지도가 선택 동(이름+centroid+경계)을 emit → 상단 라벨·info 좌표·영역 필터에 그대로 사용.
   const handleRegionSelect = useCallback((region: SelectedRegion) => {
     setSelectedRegion(region);
-    setSharedCoords({ lat: region.lat, lng: region.lng });
-  }, [setSharedCoords]);
+    if (user) {
+      setSharedLocation({
+        coords: { lat: region.lat, lng: region.lng },
+        wardId: null,
+        wardName: region.name,
+        source: 'manual',
+        measuredAt: Date.now(),
+        accountId: user.id,
+      });
+    }
+  }, [setSharedLocation, user]);
 
   const selectedDistrictName = selectedRegion?.name ?? null;
 
@@ -215,7 +226,7 @@ export default function WorldMap() {
 
         {/* ── District Map (v2: OSM 실측 3-depth 드릴다운) ── */}
         <div className={styles.mapSection}>
-          <SaigonMapV2 height={188} onRegionSelect={handleRegionSelect} locateOnMount defaultWardSlug="ben-thanh" />
+          <SaigonMapV2 height={188} onRegionSelect={handleRegionSelect} defaultWardSlug="ben-thanh" />
         </div>
 
         {/* ── INFO Strip (지도 아래) ── */}
@@ -228,7 +239,7 @@ export default function WorldMap() {
               </div>
               <div className={styles.miniValue}>{cur ? `${cur.temp_c}°C` : '--'}</div>
               <div className={styles.miniSub}>
-                {cur && cur.rain_prob_1h > 0 ? t('info.hub.miniRainIn1h', { prob: cur.rain_prob_1h }) : cur ? t('info.hub.miniClear') : t('info.hub.miniLoading')}
+                {weatherUnavailable ? t('info.weather.unavailableShort') : infoWeather?.stale ? t('info.weather.staleShort') : cur && cur.rain_prob_1h > 0 ? t('info.hub.miniRainIn1h', { prob: cur.rain_prob_1h }) : cur ? t('info.hub.miniClear') : t('info.hub.miniLoading')}
               </div>
             </button>
             <button

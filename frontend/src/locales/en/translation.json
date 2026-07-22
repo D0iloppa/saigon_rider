@@ -16,6 +16,7 @@
     "etaArrive": "Arrival · {{duration}}",
     "routeLabel": "Route",
     "startGuidance": "Start guidance",
+    "locationError": "Unable to get your current location. Check location permission and try again.",
     "questInProgress": "Quest in progress",
     "questCheckpoint": "To checkpoint",
     "questDistance": "Goal {{target}}km",
@@ -30,6 +31,7 @@
     "comingSoonTitle": "In-app navigation coming soon",
     "comingSoonDesc": "In-app guidance is in preparation. For now you can navigate via Google Maps.",
     "openGoogleMaps": "Open in Google Maps",
+    "twoWheelerWarning": "Motorcycle routes are in beta and may not reflect every road restriction.",
     "offRouteTitle": "You're off route",
     "offRouteReroute": "Reroute in Google Maps",
     "compassRemaining": "About {{dist}}m to destination",
@@ -170,7 +172,7 @@
     "searchEmptyTitle": "No results",
     "searchEmptySub": "Try a different keyword or category",
     "pickLocation": "Trade location",
-    "pickLocationDesc": "Pick a neighborhood on the map",
+    "pickLocationDesc": "Pick a neighborhood. Only its center is shown publicly",
     "pickLocationNone": "Select a neighborhood",
     "pickAreaOnMap": "Select a neighborhood on the map",
     "tradeLocation": "Trade location",
@@ -209,6 +211,9 @@
     "adInquiry": "Call now"
   },
   "splash": {
+    "bootstrapErrorTitle": "Unable to connect to the server",
+    "bootstrapErrorBody": "Check your network connection and try again.",
+    "bootstrapLogin": "Go to login",
     "subtitle": "Where every ride becomes a quest",
     "startBtn": "Get Started",
     "loginBtn": "Log In"
@@ -1034,6 +1039,10 @@
     },
     "weather": {
       "title": "Weather",
+      "unavailable": "Weather information is temporarily unavailable. Please try again later.",
+      "unavailableShort": "Unavailable",
+      "staleShort": "Earlier reading",
+      "staleAt": "Live weather is unavailable. Showing the reading fetched at {{time}}.",
       "radarTitle": "Rain Radar",
       "radarUpdated": "Updated {{time}}",
       "forecastTitle": "24h Forecast",
@@ -1041,6 +1050,7 @@
       "rec_CLEAR": "No rain expected. Great riding weather ✅",
       "rec_RAIN_MED": "{{prob}}% chance of rain within 1h. Quick ride OK",
       "rec_RAIN_HIGH": "Rain risk now. Recheck in 30 min",
+      "rec_UNCERTAIN": "Live observations are unavailable, so riding conditions are uncertain.",
       "notifyBtn": "Notify me at saved locations",
       "notifyDesc": "Alert when it rains (+5 RP)",
       "windUnit": "km/h",

@@ -23,8 +23,8 @@ interface Props {
 
 /**
  * 마커 위치 선택 — OSM 지도 탭으로 마커를 떨어뜨려 정밀 좌표 지정. (약속 장소·피드 위치 공용)
- * 진입 시 value 가 없으면 GPS(HCMC 안)로 마커를 찍는다. GPS 실패/HCMC 밖이면 마커 없이
- * 지도 중심만 벤탄(기본 도심)으로 보여준다 — 폴백 좌표를 정밀 좌표처럼 저장하지 않기 위함(SGR-314).
+ * 진입 시 value 가 없으면 마커 없이 지도 중심만 벤탄(기본 도심)으로 보여준다.
+ * GPS는 사용자가 내 위치 버튼을 누른 경우에만 측정한다.
  * 저장은 정밀 좌표, 표시는 동(resolveDistrict) 단위.
  */
 export default function MarkerLocationPicker({ open, onClose, value, onConfirm, title, desc }: Props) {
@@ -38,32 +38,19 @@ export default function MarkerLocationPicker({ open, onClose, value, onConfirm, 
     fetchDistricts().then(setDistricts).catch(() => setDistricts([]));
   }, []);
 
-  // 열릴 때 초기 좌표: value > GPS(HCMC 안) > 마커 없음(지도 중심만 벤탄 표시)
+  // 열릴 때 초기 좌표: value > 마커 없음(지도 중심만 벤탄 표시)
   useEffect(() => {
     if (!open || !districts.length) return;
     const benThanh = districts.find((d) => d.code === 'BEN_THANH') ?? districts[0] ?? null;
     const setTo = (lat: number, lng: number) => {
       setPicked({ lat, lng });
       setMapCenter({ lat, lng });
-      setDistrict(resolveDistrict(lat, lng, districts) ?? benThanh);
+      setDistrict(resolveDistrict(lat, lng, districts));
     };
     if (value) { setTo(value.lat, value.lng); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        if (cancelled) return;
-        if (inServiceArea(pos.lat, pos.lng)) setTo(pos.lat, pos.lng);
-        // HCMC 밖 GPS 좌표는 마커로 찍지 않음 — 지도 중심(벤탄)만 유지, 사용자가 직접 탭해야 확정
-      } catch {
-        /* GPS 실패 — 마커 미설정(지도 중심은 벤탄 유지, 표시용) */
-      }
-    })();
     if (benThanh?.center_lat != null && benThanh?.center_lng != null) {
       setMapCenter({ lat: benThanh.center_lat, lng: benThanh.center_lng });
     }
-    return () => { cancelled = true; };
   }, [open, value, districts]);
 
   const handlePick = (lat: number, lng: number) => {

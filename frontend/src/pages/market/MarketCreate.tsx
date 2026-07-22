@@ -11,7 +11,7 @@ import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchDistricts, type District } from '@/api/master';
-import { createListing, fetchCategories, localizedName, resolveDistrict, type MarketCategory } from '@/api/market';
+import { createListing, fetchCategories, localizedName, type MarketCategory } from '@/api/market';
 import CategoryPickerSheet from './CategoryPickerSheet';
 import LocationPickerSheet from './LocationPickerSheet';
 import styles from './MarketCreate.module.css';
@@ -52,26 +52,8 @@ export default function MarketCreate() {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
 
-  // 거래 희망 장소 default = 내 위치의 구 (HCMC 밖이면 Bình Thạnh 폴백). 이후 picker 로 변경 가능.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const list = await fetchDistricts().catch(() => [] as District[]);
-      if (cancelled) return;
-      setDistricts(list);
-      const fallback = list.find((d) => d.code === 'BINH_THANH') ?? list[0] ?? null;
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        if (cancelled) return;
-        setDistrict(resolveDistrict(pos.lat, pos.lng, list) ?? fallback);
-      } catch {
-        if (!cancelled) setDistrict(fallback);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    fetchDistricts().then(setDistricts).catch(() => setDistricts([]));
   }, []);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
@@ -8,7 +8,6 @@ import { api } from '@/api/client';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
-import { useLocationStore } from '@/store/useLocationStore';
 import { resolveDistrict, localizedName } from '@/api/market';
 import { fetchDistricts, type District } from '@/api/master';
 import { toast } from '@/components/ui/Toast';
@@ -34,7 +33,7 @@ export default function FeedCreate() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [district, setDistrict] = useState<District | null>(null);
-  const [locOn, setLocOn] = useState(true); // 위치 자동 첨부(기본 ON), 끄기만 가능
+  const [locOn, setLocOn] = useState(false);
   const [locPickerOpen, setLocPickerOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const kb = useKeyboard();
@@ -49,35 +48,6 @@ export default function FeedCreate() {
       .catch(() => {});
     setLocOn(true);
   };
-
-  // 작성 시 현재 위치 자동 첨부(피드는 '올린 곳' = 현위치). GPS 실패 시 좌표는 저장하지 않고
-  // (SGR-314) 동네만 홈 선택 동네 → 기본도시 폴백으로 근사 표시한다.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const list = await fetchDistricts().catch(() => [] as District[]);
-      if (cancelled) return;
-      const fallback = list.find((d) => d.code === 'BEN_THANH') ?? list[0] ?? null;
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        if (cancelled) return;
-        setCoords({ lat: pos.lat, lng: pos.lng });
-        setDistrict(resolveDistrict(pos.lat, pos.lng, list) ?? fallback);
-      } catch {
-        if (cancelled) return;
-        const home = useLocationStore.getState().coords;
-        if (home) {
-          setDistrict(resolveDistrict(home.lat, home.lng, list) ?? fallback);
-        } else {
-          setDistrict(fallback);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -216,7 +186,7 @@ export default function FeedCreate() {
               >✕</span>
             </button>
           ) : (
-            <button className={styles.toolBtn} onClick={() => setLocOn(true)}>
+            <button className={styles.toolBtn} onClick={() => setLocPickerOpen(true)}>
               📍 {t('feedCreate.locationOff', { defaultValue: '위치 끔' })}
             </button>
           )}

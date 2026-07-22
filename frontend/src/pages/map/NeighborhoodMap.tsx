@@ -73,27 +73,42 @@ let mapSessionEntered = false;
 // 키 상수는 과거 세션 잔존 키 정리 이펙트가 계속 사용한다.
 const BIZ_RETURN_KEY = 'sgr.map.bizReturn';
 const LISTINGS_PAGE_SIZE = 50;
-// 지도 핀은 리스트 페이지네이션과 달리 뷰포트 안의 매물이 전부 보여야 한다 —
-// 1페이지(50건)만 가져오면 recent 정렬 특성상 활동이 뜸한 구역이 잘려나가 특정 방향에
-// 핀이 안 보이는 문제가 생김. total을 다 채울 때까지 이어서 가져오되, 극단적으로 넓은
-// 뷰포트에서 무한정 요청하지 않도록 상한만 둔다.
-const MAX_MAP_LISTINGS = 300;
+// 지도 핀은 리스트 페이지네이션과 달리 뷰포트 안의 매물이 전부 보여야 한다.
+// 서버 total을 다 채울 때까지 조회해 bbox 결과를 조용히 절단하지 않는다.
 // 로딩 표시가 너무 짧게 반짝이고 사라지면 눈에 안 띄므로 최소 노출 시간을 보장한다.
 const MIN_LOADING_MS = 2000;
 
-async function fetchAllListings(params: Parameters<typeof fetchListings>[0]): Promise<Listing[]> {
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+async function fetchAllListings(params: Parameters<typeof fetchListings>[0], signal: AbortSignal): Promise<Listing[]> {
   const acc: Listing[] = [];
   let page = 1;
   for (;;) {
-    const res = await fetchListings({ ...params, page, size: LISTINGS_PAGE_SIZE });
+    const res = await fetchListings({ ...params, page, size: LISTINGS_PAGE_SIZE }, signal);
     acc.push(...res.items);
-    if (acc.length >= res.total || res.items.length < LISTINGS_PAGE_SIZE || acc.length >= MAX_MAP_LISTINGS) break;
+    if (acc.length >= res.total || res.items.length < LISTINGS_PAGE_SIZE) break;
     page++;
   }
   // offset 페이지네이션은 정렬 동률에서 페이지 간 중복/누락이 생길 수 있다(서버에 id
   // tie-breaker 를 넣었지만 방어적으로 중복 제거 — React 중복 key/ghost 카드 차단)
   const seen = new Set<string>();
   return acc.filter((l) => (seen.has(l.id) ? false : (seen.add(l.id), true)));
+}
+
+async function fetchAllFeed(params: Parameters<typeof fetchFeed>[0], signal: AbortSignal) {
+  const acc: Awaited<ReturnType<typeof fetchFeed>>['items'] = [];
+  const base = typeof params === 'string'
+    ? { filter: params as 'all' | 'neighborhood' | 'friends' | 'hot' }
+    : (params ?? {});
+  let page = 1;
+  for (;;) {
+    const res = await fetchFeed({ ...base, page, size: LISTINGS_PAGE_SIZE, signal });
+    acc.push(...res.items);
+    if (!res.hasMore) return acc;
+    page++;
+  }
 }
 
 type LatLngBbox = { N: number; S: number; E: number; W: number };
@@ -188,10 +203,10 @@ export default function NeighborhoodMap() {
   // 상세 3종(업체/매물/피드) 진입은 backgroundLocation state 로 오버레이 렌더 (App.tsx 라우트-모달)
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const storedCoords = useLocationStore((s) => s.coords);
-  const setSharedCoords = useLocationStore((s) => s.setCoords);
-  const setSharedWardName = useLocationStore((s) => s.setWardName);
+  const storedLocation = useLocationStore((s) => s.location);
+  const setSharedLocation = useLocationStore((s) => s.setLocation);
   const user = useUserStore((s) => s.user);
+  const storedCoords = storedLocation && storedLocation.accountId === user?.id ? storedLocation.coords : null;
 
   // BizPublic 뒤로가기(POP) 복귀에서만 스냅샷을 읽는다 — 탭바 신규 진입(PUSH/REPLACE)은
   // 기본 상태로 시작. 마운트 이펙트에서 진입 종류와 무관하게 즉시 삭제해 재적용을 차단한다.
@@ -227,7 +242,11 @@ export default function NeighborhoodMap() {
   // (feed 탭은 이미 district 단위라 별도 조회가 불필요).
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [listingError, setListingError] = useState(false);
+  const [feedError, setFeedError] = useState(false);
+  const [bizError, setBizError] = useState(false);
+  const [poiError, setPoiError] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // 말풍선 데이터 = BizMapItem.latestNews (business_news 실데이터, 2026-07-11).
@@ -444,31 +463,44 @@ export default function NeighborhoodMap() {
   // 키보드는 그 위에 순수 오버레이로만 뜨게 한다(탭바 포함 화면 전체를 항상 덮어야 함).
 
   useEffect(() => {
-    if (!submittedQuery) { setSearchResults([]); setBizSearchResults([]); return; }
+    if (!submittedQuery) {
+      setSearchResults([]); setBizSearchResults([]); setSearchError(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setSearchLoading(true);
+    setSearchError(false);
     const req = searchScope === 'biz'
       // 업체명 전역 검색 (SGR-326) — T1 API가 bbox 필수라 전 범위를 넘긴다 (상한 200건)
-      ? fetchBizMapItems({ minLat: -90, maxLat: 90, minLng: -180, maxLng: 180, q: submittedQuery })
+      ? fetchBizMapItems({ minLat: -90, maxLat: 90, minLng: -180, maxLng: 180, q: submittedQuery, signal: controller.signal })
           .then((items) => {
             if (cancelled) return;
+            setSearchError(false);
             setBizSearchResults(items);
             const points = items.map((b) => ({ lat: b.lat, lng: b.lng }));
             if (points.length > 0) searchFitRef.current?.(points);
           })
-      : fetchListings({ q: submittedQuery, hideSold: true, size: 40 })
+      : fetchListings({ q: submittedQuery, hideSold: true, size: 40 }, controller.signal)
           .then((page) => {
             if (cancelled) return;
+            setSearchError(false);
             const items = page.items ?? [];
             setSearchResults(items);
             const points = items.filter((l) => l.lat != null && l.lng != null).map((l) => ({ lat: l.lat!, lng: l.lng! }));
             if (points.length > 0) searchFitRef.current?.(points);
           });
     req
-      .catch(() => { if (!cancelled) { setSearchResults([]); setBizSearchResults([]); } })
+      .catch((error) => {
+        if (!cancelled && !isAbortError(error)) {
+          setSearchError(true);
+          setSearchResults([]);
+          setBizSearchResults([]);
+        }
+      })
       .finally(() => { if (!cancelled) setSearchLoading(false); });
-    return () => { cancelled = true; };
-  }, [submittedQuery, searchScope]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [submittedQuery, searchScope, reloadSeq]);
 
   // region 모드에서는 bbox emit을 소비하지 않는다 — 시트 높이 변화·팬 등으로 들어온 bbox가
   // handleRegionSelect가 비워둔 viewportBbox를 몰래 되살려, 이후 뷰포트 모드 전환 시
@@ -595,6 +627,8 @@ export default function NeighborhoodMap() {
     // 새 bbox 커밋(bboxFilter 변경)을 동반하므로 그때 이 이펙트가 다시 돌아 fetch한다.
     if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
       setLoading(false);
+      setListingError(false);
+      setFeedError(false);
       setListings([]); setPosts([]);
       return;
     }
@@ -603,9 +637,11 @@ export default function NeighborhoodMap() {
     if (!center) return;
     const size = bboxFilter ? 50 : 40;
     let cancelled = false;
+    const controller = new AbortController();
     const startedAt = Date.now();
     setLoading(true);
-    setLoadError(false);
+    setListingError(false);
+    setFeedError(false);
     Promise.allSettled([
       fetchAllListings({
         lat: center.lat,
@@ -615,45 +651,64 @@ export default function NeighborhoodMap() {
         ...(bboxFilter
           ? { minLat: bboxFilter.S, maxLat: bboxFilter.N, minLng: bboxFilter.W, maxLng: bboxFilter.E }
           : {}),
-      }),
-      fetchFeed({ filter: 'neighborhood', lat: center.lat, lng: center.lng, size }),
+      }, controller.signal),
+      bboxFilter
+        ? fetchAllFeed({
+            filter: 'neighborhood',
+            minLat: bboxFilter.S,
+            maxLat: bboxFilter.N,
+            minLng: bboxFilter.W,
+            maxLng: bboxFilter.E,
+          }, controller.signal)
+        : fetchAllFeed({ filter: 'neighborhood', lat: center.lat, lng: center.lng, size }, controller.signal),
     ]).then(([lp, fp]) => {
       if (cancelled) return;
       const listingsOk = lp.status === 'fulfilled';
       const feedOk = fp.status === 'fulfilled';
       setListings(listingsOk ? lp.value ?? [] : []);
-      setPosts(feedOk ? fp.value.items ?? [] : []);
-      setLoadError(!listingsOk && !feedOk);
+      setPosts(feedOk ? fp.value ?? [] : []);
+      setListingError(!listingsOk && (lp.reason as { name?: string } | undefined)?.name !== 'AbortError');
+      setFeedError(!feedOk && (fp.reason as { name?: string } | undefined)?.name !== 'AbortError');
     }).finally(() => {
       if (cancelled) return;
       const remaining = MIN_LOADING_MS - (Date.now() - startedAt);
       if (remaining > 0) setTimeout(() => { if (!cancelled) setLoading(false); }, remaining);
       else setLoading(false);
     });
-    return () => { cancelled = true; };
-  }, [bboxFilter, viewportCenter, reloadSeq, selectedRegion, isSearching]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [bboxFilter, viewportCenter, reloadSeq, selectedRegion, isSearching, tab]);
 
   // 업체 핀 레이어 (SGR-323, G-1) — biz 탭에서만 노출되는 레이어. 매물·피드와 동일한
   // 줌 게이트를 지키며(결정사항 2), region 모드에서는 폴리곤 외접 bbox로 조회한다.
   useEffect(() => {
     if (isSearching) return;
-    if (tab !== 'biz') { setBizItems([]); return; }
+    if (tab !== 'biz') { setBizItems([]); setBizError(false); return; }
     if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
       setBizItems([]);
+      setBizError(false);
       return;
     }
     const bbox = bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
-    if (!bbox) { setBizItems([]); return; }
+    if (!bbox) { setBizItems([]); setBizError(false); return; }
     let cancelled = false;
+    const controller = new AbortController();
     setBizLoading(true);
+    setBizError(false);
     fetchBizMapItems({
       minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
       category: bizCategory ?? undefined,
+      signal: controller.signal,
     })
-      .then((items) => { if (!cancelled) { bizFetchedRef.current = true; setBizItems(items); } })
-      .catch(() => { if (!cancelled) { bizFetchedRef.current = true; setBizItems([]); } })
+      .then((items) => { if (!cancelled) { bizFetchedRef.current = true; setBizError(false); setBizItems(items); } })
+      .catch((error) => {
+        if (!cancelled && !isAbortError(error)) {
+          bizFetchedRef.current = true;
+          setBizError(true);
+          setBizItems([]);
+        }
+      })
       .finally(() => { if (!cancelled) setBizLoading(false); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [bboxFilter, reloadSeq, selectedRegion, isSearching, bizCategory, tab]);
 
   // POI 상시 참조 레이어 (Phase A-2) — biz 핀 조회 이펙트 미러, 단 tab 조건 없이 항상 조회한다.
@@ -661,16 +716,24 @@ export default function NeighborhoodMap() {
     if (isSearching) return;
     if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
       setPoiItems([]);
+      setPoiError(false);
       return;
     }
     const bbox = bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
-    if (!bbox) { setPoiItems([]); return; }
+    if (!bbox) { setPoiItems([]); setPoiError(false); return; }
     let cancelled = false;
-    fetchPoiMapItems({ minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E })
-      .then((items) => { if (!cancelled) setPoiItems(items); })
-      .catch(() => { if (!cancelled) setPoiItems([]); });
-    return () => { cancelled = true; };
-  }, [bboxFilter, reloadSeq, selectedRegion, isSearching]);
+    const controller = new AbortController();
+    setPoiError(false);
+    fetchPoiMapItems({ minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E, signal: controller.signal })
+      .then((items) => { if (!cancelled) { setPoiError(false); setPoiItems(items); } })
+      .catch((error) => {
+        if (!cancelled && !isAbortError(error)) {
+          setPoiError(true);
+          setPoiItems([]);
+        }
+      });
+    return () => { cancelled = true; controller.abort(); };
+  }, [bboxFilter, reloadSeq, selectedRegion, isSearching, tab]);
 
   const visibleListings = useMemo(() => {
     if (bboxFilter) {
@@ -819,11 +882,32 @@ export default function NeighborhoodMap() {
     setExpandedPostId(null);
     setSelectedBiz(null);
     setPostPanelOpen(false);
-    setSharedCoords({ lat: region.lat, lng: region.lng });
-    setSharedWardName(region.name);
+    if (user) {
+      setSharedLocation({
+        coords: { lat: region.lat, lng: region.lng },
+        wardId: null,
+        wardName: region.name,
+        source: 'manual',
+        measuredAt: Date.now(),
+        accountId: user.id,
+      });
+    }
     // 시트 자동 올림 없음 — 지역 선택은 "지도 탐색 중" 신호지 리스트를 보겠다는 의도가
     // 아니다(UX 원칙: 시트는 사용자 의도로만 이동). 선택 결과는 접힘 헤더 칩/건수로 보인다.
-  }, [setSharedCoords, setSharedWardName]);
+  }, [setSharedLocation, user]);
+
+  const handleLocated = useCallback((coords: { lat: number; lng: number }) => {
+    if (!user) return;
+    const ward = findWardAt(coords.lat, coords.lng);
+    setSharedLocation({
+      coords,
+      wardId: null,
+      wardName: ward?.region.name ?? null,
+      source: 'gps',
+      measuredAt: Date.now(),
+      accountId: user.id,
+    });
+  }, [setSharedLocation, user]);
 
   // scrollIntoView는 리스트 내부만이 아니라 모든 스크롤 가능 조상(AppShell 콘텐츠
   // 컨테이너 포함)을 함께 스크롤해 검색 오버레이를 화면 밖으로 밀어내므로,
@@ -1255,7 +1339,7 @@ export default function NeighborhoodMap() {
   const listBiz = visibleBiz; // ♥ 찜 필터는 visibleBiz 에서 이미 적용됨
   const listLoading = loading;
   const listBizLoading = bizLoading;
-  const listError = loadError;
+  const listError = tab === 'listings' ? listingError : feedError;
 
   const visibleCount = tab === 'listings' ? listListings.length : tab === 'feed' ? listPosts.length : listBiz.length;
 
@@ -1426,6 +1510,17 @@ export default function NeighborhoodMap() {
       if (searchLoading && searchCount === 0) {
         return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
       }
+      if (searchError) {
+        return (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyTitle}>{t('map.loadError')}</p>
+            <button type="button" className={styles.emptyAction} onClick={retryLoad}>
+              <RotateCw size={15} />
+              <span>{t('common.retry', { defaultValue: '다시 시도' })}</span>
+            </button>
+          </div>
+        );
+      }
       if (searchCount === 0) {
         return (
           <div className={styles.emptyState}>
@@ -1468,6 +1563,17 @@ export default function NeighborhoodMap() {
     if (tab === 'biz') {
       if (listBizLoading && listBiz.length === 0) {
         return <>{[0, 1, 2].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}</>;
+      }
+      if (bizError) {
+        return (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyTitle}>{t('map.loadError')}</p>
+            <button type="button" className={styles.emptyAction} onClick={retryLoad}>
+              <RotateCw size={15} />
+              <span>{t('common.retry', { defaultValue: '다시 시도' })}</span>
+            </button>
+          </div>
+        );
       }
       if (listBiz.length === 0) {
         // 찜 필터로 인한 0건은 "이 동네에 업체가 없다"가 아니라 "찜한 업체가 없다" — 관심목록
@@ -1651,7 +1757,7 @@ export default function NeighborhoodMap() {
         onBboxChange={handleBboxChange}
         onRawViewportChange={handleRawBboxChange}
         onDepthChange={setShowDistrictBadges}
-        onLocated={setSharedCoords}
+        onLocated={handleLocated}
         emitBboxRef={emitBboxRef}
         outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
         locateRef={locateRef}
@@ -1668,6 +1774,18 @@ export default function NeighborhoodMap() {
         queryBottomInsetPx={collapsedSheetHeight}
         showLocateControl={false}
       />
+
+      {poiError && !isSearching && (
+        <button
+          type="button"
+          className={styles.emptyAction}
+          onClick={retryLoad}
+          style={{ position: 'absolute', top: 70, right: 12, zIndex: 4 }}
+        >
+          <RotateCw size={15} />
+          <span>{t('common.retry', { defaultValue: '다시 시도' })}</span>
+        </button>
+      )}
 
       <div className={styles.searchOverlay} ref={searchOverlayRef}>
         <SearchBox

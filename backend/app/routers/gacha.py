@@ -1,7 +1,7 @@
 import uuid
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -96,6 +96,7 @@ async def check_gacha_eligibility(
 async def pull_gacha(
     gacha_code: str,
     is_10_pull: bool = False,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=80),
     uid: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -104,6 +105,7 @@ async def pull_gacha(
     try:
         raw = await engine_client.pull_gacha(
             user_uuid=str(uid),
+            idempotency_key=idempotency_key,
             gacha_code=gacha_code,
             is_10_pull=is_10_pull,
             skill_discount_pct=skill_disc,

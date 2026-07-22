@@ -18,9 +18,9 @@ from app.services.quest_validators import EventSignal, GpsSignal, Signal, regist
 log = logging.getLogger(__name__)
 
 
-async def update(user_id: int, lat: float, lng: float, distance_m: float) -> list[int]:
+async def update(user_id: int, lat: float, lng: float, distance_m: float, measured_at: datetime) -> list[int]:
     """GPS 수신 시 진입점 — GpsSignal 로 변환해 디스패치."""
-    return await dispatch(user_id, GpsSignal(lat=lat, lng=lng, distance_m=distance_m))
+    return await dispatch(user_id, GpsSignal(lat=lat, lng=lng, distance_m=distance_m, measured_at=measured_at))
 
 
 async def dispatch_event(user_id: int, kind: str, payload: dict | None = None) -> list[int]:
@@ -30,37 +30,44 @@ async def dispatch_event(user_id: int, kind: str, payload: dict | None = None) -
 
 async def dispatch(user_id: int, signal: Signal) -> list[int]:
     async with AsyncSessionLocal() as db:
-        active_cards = await _get_active_cards(db, user_id)
-        completed_ids: list[int] = []
-        now = datetime.now(timezone.utc)
-
-        for card in active_cards:
-            validator = registry.get(card.card_type)
-            if validator is None or not validator.accepts(signal):
-                continue
-
-            # 한 카드의 검증 실패가 같은 신호의 다른 카드 진행도까지 롤백하지 않도록 카드 단위 격리.
-            try:
-                # GPS 공통 텔레메트리 (속도·last_*)
-                if isinstance(signal, GpsSignal):
-                    _update_gps_telemetry(card, signal, now)
-
-                result = await validator.on_signal(card, signal, db)
-                if result.completed:
-                    await _complete_card(card)
-                    completed_ids.append(card.card_id)
-            except Exception:
-                log.exception("quest validator failed for card=%d type=%s", card.card_id, card.card_type)
-
+        completed_ids = await dispatch_in_session(db, user_id, signal, strict=False)
         await db.commit()
     return completed_ids
 
 
-def _update_gps_telemetry(card: SreQuestCard, signal: GpsSignal, now: datetime) -> None:
+async def dispatch_in_session(
+    db: AsyncSession, user_id: int, signal: Signal, *, strict: bool = True
+) -> list[int]:
+    """호출자가 소유한 transaction에서 모든 카드에 신호를 원자적으로 반영한다."""
+    active_cards = await _get_active_cards(db, user_id)
+    completed_ids: list[int] = []
+
+    for card in active_cards:
+        validator = registry.get(card.card_type)
+        if validator is None or not validator.accepts(signal):
+            continue
+
+        try:
+            if isinstance(signal, GpsSignal):
+                _update_gps_telemetry(card, signal)
+
+            result = await validator.on_signal(card, signal, db)
+            if result.completed:
+                await _complete_card(card)
+                completed_ids.append(card.card_id)
+        except Exception:
+            if strict:
+                raise
+            log.exception("quest validator failed for card=%d type=%s", card.card_id, card.card_type)
+
+    return completed_ids
+
+
+def _update_gps_telemetry(card: SreQuestCard, signal: GpsSignal) -> None:
     if signal.lat == 0 and signal.lng == 0:
         return  # 좌표 없는 핑은 텔레메트리 갱신하지 않음
     prev_ts = card.last_gps_at
-    dt = (now - prev_ts).total_seconds() if prev_ts is not None else 0.0
+    dt = (signal.measured_at - prev_ts).total_seconds() if prev_ts is not None else 0.0
     if signal.distance_m > 0 and dt > 0:
         card.last_speed_kmh = round(signal.distance_m / dt * 3.6, 2)
     elif signal.distance_m <= 0:
@@ -69,7 +76,7 @@ def _update_gps_telemetry(card: SreQuestCard, signal: GpsSignal, now: datetime) 
 
     card.last_lat = signal.lat
     card.last_lng = signal.lng
-    card.last_gps_at = now
+    card.last_gps_at = signal.measured_at
 
 
 async def calc_daily_slots(db: AsyncSession, user_id: int) -> DailySlotInfo:

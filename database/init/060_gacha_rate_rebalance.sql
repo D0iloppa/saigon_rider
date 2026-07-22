@@ -13,6 +13,15 @@
 
 BEGIN;
 
+-- gacha_definition은 Engine Alembic이 소유한다. Fresh DB의 init 단계에는 아직
+-- 존재하지 않으므로 이 파일은 안전하게 no-op하고, 동일 정책은 sre059가 적용한다.
+DO $$
+BEGIN
+  IF to_regclass('public.gacha_definition') IS NULL THEN
+    RAISE NOTICE 'gacha_definition not present; deferred to Engine Alembic sre059';
+    RETURN;
+  END IF;
+
 -- GC_PREMIUM_PULL: R50 E40 L9 M1 → R91 E5 L3 M1
 UPDATE gacha_definition
    SET drop_table = jsonb_set(
@@ -47,6 +56,8 @@ UPDATE gacha_definition
            {"rarity": "M", "weight": 1}
          ]'::jsonb)
  WHERE gacha_code = 'LEGEND_PULL';
+
+END $$;
 
 COMMIT;
 

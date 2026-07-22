@@ -85,6 +85,7 @@ services:
     volumes:
       - ./backend:/app
       - ./contents:/data
+      - ./frontend/src/components/maps/v2/saigon-depth1.json:/service-area/saigon-depth1.json:ro
     networks:
       - dev-net
     depends_on:
@@ -101,8 +102,9 @@ services:
       - IMGPROXY_KEY=${IMGPROXY_KEY:-}
       - IMGPROXY_SALT=${IMGPROXY_SALT:-}
       - BFF_PUBLIC_URL=${BFF_PUBLIC_URL}
-      - APP_TIMEZONE=${APP_TIMEZONE:-Asia/Seoul}
-      - TZ=${APP_TIMEZONE:-Asia/Seoul}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - APP_TIMEZONE=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
+      - TZ=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASS_HASH=${ADMIN_PASS_HASH}
       # 기본값 금지 — 공개 문자열로 admin JWT가 서명되면 위조 가능 (fail-fast)
@@ -114,6 +116,8 @@ services:
       - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
       - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      # Zalo OAuth 인증 호출을 베트남 IP 프록시로 경유 (-501 우회). 미설정 시 직접 호출. CLAUDE.md '## Zalo 인증 프록시 VPS' 참조.
+      - ZALO_API_PROXY=${ZALO_API_PROXY:-}
       # dev/prod 분기 (SMS 스텁·dev-login 노출 제어). prod 는 docker-compose.prod.yml 이 production 으로 고정.
       - APP_ENV=${APP_ENV:-development}
       - OSM_OVERPASS_ENDPOINT=${OSM_OVERPASS_ENDPOINT:-https://overpass-api.de/api/interpreter}
@@ -125,7 +129,7 @@ services:
       - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
       - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/health').status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/ready').status==200 else 1)"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -165,6 +169,7 @@ services:
       dockerfile: Dockerfile
     container_name: saigon_engine
     profiles: [backend]
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8090 --reload"]
     ports:
       - "${ENGINE_PORT:-8090}:8090"
     volumes:
@@ -181,6 +186,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
       - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
+      - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
       - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON:-/app/firebase-credentials.json}
       - FCM_PUSH_HISTORY_TTL_DAYS=${FCM_PUSH_HISTORY_TTL_DAYS:-7}
       - SRE_TIMEZONE=Asia/Ho_Chi_Minh
@@ -192,7 +198,7 @@ services:
       - SRE_IDEMPOTENCY_TTL_DAYS=7
       - SRE_LOG_LEVEL=INFO
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/v1/health').status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/v1/ready').status==200 else 1)"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -217,17 +223,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      engine:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - REDIS_URL=redis://redis:6379/0
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
       - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
-      - BFF_INTERNAL_URL=http://bff:8080
+      - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
       - SRE_LOG_LEVEL=INFO
-    # 워커 루프가 매 iteration 마다 갱신하는 heartbeat(TTL 30s)로 liveness 판정 —
-    # 크래시 루프/행 상태를 compose 레벨에서 탐지 (과거: 죽어도 외부 신호 전무)
+    # 프로세스 생존은 Docker가 판단하고 healthcheck는 DB·Redis·migration readiness만 판정한다.
+    # 루프 heartbeat는 운영 관측용이며 readiness와 섞지 않는다.
     healthcheck:
-      test: ["CMD", "python", "-c", "import os,sys,redis; sys.exit(0 if (redis.Redis.from_url(os.environ['REDIS_URL']).ttl('sre:worker:heartbeat') or 0) > 0 else 1)"]
+      test: ["CMD", "python", "-m", "app.readiness"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -260,7 +268,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENGINE_BASE_URL=http://engine:8090
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
-      - TZ=${APP_TIMEZONE:-Asia/Seoul}
+      - TZ=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
     # 워커 루프가 매 iteration 마다 갱신하는 heartbeat(TTL 30s)로 liveness 판정 (engine worker 와 동일 패턴)
     healthcheck:
       test: ["CMD", "python", "-c", "import os,sys,redis; sys.exit(0 if (redis.Redis.from_url(os.environ['REDIS_URL']).ttl('noti:worker:heartbeat') or 0) > 0 else 1)"]

@@ -1,14 +1,16 @@
 import logging
 import operator
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.enums import RewardActionTypeEnum
-from app.models import RewardPolicy, RewardPolicyAction, SreUser, UserPolicyLog
+from app.models import PolicyActionGrant, RewardPolicy, RewardPolicyAction, SreUser, UserPolicyLog
 from app.services import xp_ledger
 
 log = logging.getLogger(__name__)
@@ -61,7 +63,11 @@ async def _already_rewarded(
 ) -> bool:
     stmt = (
         select(UserPolicyLog)
-        .where(UserPolicyLog.user_id == user_id, UserPolicyLog.policy_id == policy.id)
+        .where(
+            UserPolicyLog.user_id == user_id,
+            UserPolicyLog.policy_id == policy.id,
+            UserPolicyLog.status == "SUCCEEDED",
+        )
         .order_by(UserPolicyLog.rewarded_at.desc())
         .limit(1)
     )
@@ -101,8 +107,22 @@ async def _dispatch_action(
     user: SreUser,
     action: RewardPolicyAction,
     policy_id: int,
+    idempotency_key: str,
     skill_pct: int = 0,
 ) -> None:
+    claimed = await db.execute(
+        pg_insert(PolicyActionGrant)
+        .values(
+            idempotency_key=idempotency_key,
+            user_id=user.user_id,
+            policy_id=policy_id,
+            action_id=action.id,
+        )
+        .on_conflict_do_nothing(index_elements=["idempotency_key"])
+    )
+    if claimed.rowcount != 1:
+        return
+
     # skill_pct: 마일리지 증폭 스킬 배율(%). 마일리지 정책에서만 >0 전달된다.
     amount = round(action.value * (1 + skill_pct / 100)) if skill_pct else action.value
 
@@ -121,13 +141,13 @@ async def _dispatch_action(
 
     ext_uuid = user.external_user_uuid
     if action.action_type == RewardActionTypeEnum.GRANT_EXP:
-        await bff_client.grant_exp(ext_uuid, amount)
+        await bff_client.grant_exp(ext_uuid, amount, idempotency_key)
         user.total_exp_granted = (user.total_exp_granted or 0) + amount
         await db.flush()
     elif action.action_type == RewardActionTypeEnum.GRANT_GOLD:
-        await bff_client.grant_gold(ext_uuid, amount)
+        await bff_client.grant_gold(ext_uuid, amount, idempotency_key)
     elif action.action_type == RewardActionTypeEnum.GRANT_BADGE:
-        await bff_client.grant_badge(ext_uuid, action.ref_id)
+        await bff_client.grant_badge(ext_uuid, action.ref_id, idempotency_key)
 
 
 async def evaluate_policies(user_id: int) -> list[int]:
@@ -135,7 +155,9 @@ async def evaluate_policies(user_id: int) -> list[int]:
     triggered: list[int] = []
 
     async with AsyncSessionLocal() as db:
-        user = await db.get(SreUser, user_id)
+        user = (
+            await db.execute(select(SreUser).where(SreUser.user_id == user_id).with_for_update())
+        ).scalar_one_or_none()
         if user is None:
             return triggered
 
@@ -162,6 +184,33 @@ async def evaluate_policies(user_id: int) -> list[int]:
             )
             actions = actions_result.scalars().all()
 
+            pending = (
+                await db.execute(
+                    select(UserPolicyLog)
+                    .where(
+                        UserPolicyLog.user_id == user_id,
+                        UserPolicyLog.policy_id == policy.id,
+                        UserPolicyLog.status.in_(("PENDING", "FAILED")),
+                    )
+                    .order_by(UserPolicyLog.rewarded_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if pending is None:
+                pending = UserPolicyLog(
+                    user_id=user_id,
+                    policy_id=policy.id,
+                    trigger_snapshot=_build_snapshot(user),
+                    status="PENDING",
+                    idempotency_key=f"policy-{user_id}-{policy.id}-{uuid.uuid4()}",
+                )
+                db.add(pending)
+                await db.commit()
+            else:
+                pending.status = "PENDING"
+                pending.last_error = None
+                await db.commit()
+
             is_mileage_policy = policy.repeat_metric == "total_distance_m"
             skill_pct = 0
             if is_mileage_policy:
@@ -172,17 +221,27 @@ async def evaluate_policies(user_id: int) -> list[int]:
                     )
                 skill_pct = mileage_skill_pct
 
-            for action in actions:
-                try:
-                    await _dispatch_action(db, user, action, policy.id, skill_pct)
-                except Exception:
-                    log.exception("policy#%d action#%d dispatch failed", policy.id, action.id)
+            try:
+                for action in actions:
+                    await _dispatch_action(
+                        db,
+                        user,
+                        action,
+                        policy.id,
+                        f"{pending.idempotency_key}:action:{action.id}",
+                        skill_pct,
+                    )
+            except Exception as exc:
+                await db.rollback()
+                pending = await db.get(UserPolicyLog, pending.id)
+                pending.status = "FAILED"
+                pending.last_error = str(exc)[:500]
+                await db.commit()
+                log.exception("policy#%d reward dispatch failed; retryable", policy.id)
+                continue
 
-            db.add(UserPolicyLog(
-                user_id=user_id,
-                policy_id=policy.id,
-                trigger_snapshot=_build_snapshot(user),
-            ))
+            pending.status = "SUCCEEDED"
+            pending.last_error = None
             triggered.append(policy.id)
 
         await db.commit()

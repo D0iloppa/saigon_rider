@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -208,6 +209,9 @@ async def exchange_apple_code(
 
 _ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token"
 _ZALO_ME_URL = "https://graph.zalo.me/v2.0/me"
+# 베트남 밖 IP에서 Zalo Graph API 호출 시 error -501(IP restriction)이 발생 — 베트남 IP 프록시 경유용.
+# 미설정 시 None → httpx가 프록시 없이 직접 호출 (기존 동작과 동일).
+_ZALO_API_PROXY = os.getenv("ZALO_API_PROXY", "") or None
 
 
 class ZaloTokenExchangeError(Exception):
@@ -226,7 +230,7 @@ async def exchange_zalo_code(
 ) -> OAuthProfile:
     """Zalo authorization code를 PKCE로 교환하고 사용자 프로필을 반환한다."""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, proxy=_ZALO_API_PROXY) as client:
             token_resp = await client.post(
                 _ZALO_TOKEN_URL,
                 headers={"secret_key": app_secret},
@@ -249,7 +253,7 @@ async def exchange_zalo_code(
 
     # Zalo /v2.0/me는 access_token을 쿼리 파라미터로 요구한다 (헤더 전달 시 미인증 처리됨).
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, proxy=_ZALO_API_PROXY) as client:
             me_resp = await client.get(
                 _ZALO_ME_URL,
                 params={"access_token": access_token, "fields": "id,name,picture"},

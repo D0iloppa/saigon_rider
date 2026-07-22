@@ -11,7 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import FeedPost, FeedPostImage, PostComment, PostCommentLike, PostLike, RideSession, User, UserFollow
+from ..models import (
+    FeedPost,
+    FeedPostImage,
+    PostComment,
+    PostCommentLike,
+    PostLike,
+    RideSession,
+    User,
+    UserFollow,
+    Ward,
+)
 from ..schemas import (
     CommentCreateRequest,
     CommentOut,
@@ -24,6 +34,7 @@ from ..schemas import (
     LikeToggleResponse,
     Page,
 )
+from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
 
@@ -51,9 +62,40 @@ def _resolve_image_urls(post: FeedPost) -> list[str]:
     return urls
 
 
-def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> FeedPostEnrichedOut:
+async def _nearest_ward(latitude: Decimal, longitude: Decimal, db: AsyncSession) -> Ward | None:
+    if not in_service_area(latitude, longitude):
+        return None
+    distance = func.pow(Ward.center_lat - float(latitude), 2) + func.pow(Ward.center_lng - float(longitude), 2)
+    return (
+        await db.execute(
+            select(Ward)
+            .where(
+                Ward.is_active.is_(True),
+                Ward.city_code == "HCMC",
+                Ward.center_lat.isnot(None),
+                Ward.center_lng.isnot(None),
+            )
+            .order_by(distance)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def _public_coordinates(post: FeedPost, db: AsyncSession) -> tuple[Decimal | None, Decimal | None]:
+    if post.latitude is None or post.longitude is None:
+        return None, None
+    ward = post.ward
+    if ward is None:
+        ward = await _nearest_ward(post.latitude, post.longitude, db)
+    if ward is None or ward.center_lat is None or ward.center_lng is None:
+        return None, None
+    return Decimal(str(ward.center_lat)), Decimal(str(ward.center_lng))
+
+
+async def _enrich(post: FeedPost, user: User | None, ride: RideSession | None, db: AsyncSession) -> FeedPostEnrichedOut:
     image_urls = _resolve_image_urls(post)
     content_ids = [img.content_id for img in (post.images or [])]
+    public_latitude, public_longitude = await _public_coordinates(post, db)
     return FeedPostEnrichedOut(
         id=post.id,
         user_id=post.user_id,
@@ -72,13 +114,17 @@ def _enrich(post: FeedPost, user: User | None, ride: RideSession | None) -> Feed
         distance_km=ride.distance_km if ride else None,
         safety_grade=ride.safety_grade if ride else None,
         reward_exp=ride.reward_exp if ride else None,
-        latitude=post.latitude,
-        longitude=post.longitude,
+        latitude=public_latitude,
+        longitude=public_longitude,
     )
 
 
 # F-1
-@router.get("", response_model=Page[FeedPostEnrichedOut], summary="피드 목록")
+class FeedPageOut(Page[FeedPostEnrichedOut]):
+    has_more: bool
+
+
+@router.get("", response_model=FeedPageOut, summary="피드 목록")
 async def get_feed(
     filter: str = "all",
     page: int = 1,
@@ -88,15 +134,19 @@ async def get_feed(
     lat: Decimal | None = Query(None),
     lng: Decimal | None = Query(None),
     radius_m: int = Query(5000),
+    min_lat: Decimal | None = Query(None),
+    max_lat: Decimal | None = Query(None),
+    min_lng: Decimal | None = Query(None),
+    max_lng: Decimal | None = Query(None),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 내용을 캐시된 번역으로 표기"),
     db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * size
 
     if filter == "hot":
-        order = [FeedPost.like_count.desc(), FeedPost.created_at.desc()]
+        order = [FeedPost.like_count.desc(), FeedPost.created_at.desc(), FeedPost.id.desc()]
     else:
-        order = [FeedPost.created_at.desc()]
+        order = [FeedPost.created_at.desc(), FeedPost.id.desc()]
 
     base_q = (
         select(FeedPost, User, RideSession)
@@ -108,6 +158,27 @@ async def get_feed(
     if author_id:
         base_q = base_q.where(FeedPost.user_id == author_id)
         count_q = count_q.where(FeedPost.user_id == author_id)
+
+    bbox_values = (min_lat, max_lat, min_lng, max_lng)
+    if any(value is not None for value in bbox_values):
+        if not all(value is not None for value in bbox_values):
+            raise HTTPException(status_code=422, detail="bbox requires min/max latitude and longitude")
+        if min_lat > max_lat or min_lng > max_lng:
+            raise HTTPException(status_code=422, detail="invalid bbox")
+        # 공개 지도 계약은 원본 게시 좌표가 아니라 응답에 노출되는 Ward centroid 기준이다.
+        # 원본 좌표로 bbox를 자르면 응답 핀 좌표와 목록 포함 여부가 달라지고 위치 정보도 샌다.
+        base_q = base_q.join(Ward, Ward.id == FeedPost.ward_id)
+        count_q = count_q.join(Ward, Ward.id == FeedPost.ward_id)
+        bbox_filter = (
+            Ward.center_lat.isnot(None)
+            & Ward.center_lng.isnot(None)
+            & (Ward.center_lat >= min_lat)
+            & (Ward.center_lat <= max_lat)
+            & (Ward.center_lng >= min_lng)
+            & (Ward.center_lng <= max_lng)
+        )
+        base_q = base_q.where(bbox_filter)
+        count_q = count_q.where(bbox_filter)
 
     if filter == "friends" and user_id:
         following_ids = select(UserFollow.following_id).where(UserFollow.follower_id == user_id)
@@ -130,14 +201,14 @@ async def get_feed(
 
     rows = (await db.execute(base_q.order_by(*order).offset(offset).limit(size))).all()
 
-    items = [_enrich(post, user, ride) for post, user, ride in rows]
+    items = [await _enrich(post, user, ride, db) for post, user, ride in rows]
     # 조회 언어로 내용 표기(캐시 히트만, 없으면 원문). 배치(MGET+IN) — API 호출 안 함.
     if lang:
         contents = await lookup_lang_batch([it.content or "" for it in items], lang, db)
         for it, ct in zip(items, contents, strict=True):
             if it.content:
                 it.content = ct
-    return Page(items=items, total=total, page=page, size=size)
+    return FeedPageOut(items=items, total=total, page=page, size=size, has_more=offset + len(items) < total)
 
 
 # F-2
@@ -153,7 +224,7 @@ async def get_stories(db: AsyncSession = Depends(get_db)):
             .limit(50)
         )
     ).all()
-    return [_enrich(post, user, ride) for post, user, ride in rows]
+    return [await _enrich(post, user, ride, db) for post, user, ride in rows]
 
 
 # F-2b
@@ -174,7 +245,7 @@ async def get_feed_post(
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")
     post, user, ride = row
-    enriched = _enrich(post, user, ride)
+    enriched = await _enrich(post, user, ride, db)
     if lang and enriched.content:
         enriched.content = await translate_to(enriched.content, lang, db)
     return enriched
@@ -194,9 +265,16 @@ async def create_feed_post(
     has_images = bool(body.image_content_ids) or body.image_content_id is not None
     if body.content is None and body.image_url is None and not has_images:
         raise HTTPException(status_code=400, detail="content, image_content_ids or image_url is required")
+    if body.latitude is not None and body.longitude is not None and not in_service_area(body.latitude, body.longitude):
+        raise HTTPException(status_code=422, detail="Location is outside the service area")
 
     now = datetime.now(UTC)
     first_content_id = body.image_content_ids[0] if body.image_content_ids else body.image_content_id
+    ward = (
+        await _nearest_ward(body.latitude, body.longitude, db)
+        if body.latitude is not None and body.longitude is not None
+        else None
+    )
     post = FeedPost(
         user_id=body.user_id,
         ride_session_id=body.ride_session_id,
@@ -206,6 +284,7 @@ async def create_feed_post(
         is_story=body.is_story,
         latitude=body.latitude,
         longitude=body.longitude,
+        ward_id=ward.id if ward else None,
         district_id=body.district_id,
         created_at=now,
         updated_at=now,
@@ -250,7 +329,7 @@ async def update_feed_post(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     post = await _get_post_or_404(post_id, db)
-    if post.user_id != body.user_id:
+    if body.user_id != _session_uid or post.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Not the post owner")
 
     if body.content is not None:
@@ -265,8 +344,20 @@ async def update_feed_post(
     elif body.image_content_id is not None:
         post.image_content_id = body.image_content_id
     if body.update_location:
+        if (
+            body.latitude is not None
+            and body.longitude is not None
+            and not in_service_area(body.latitude, body.longitude)
+        ):
+            raise HTTPException(status_code=422, detail="Location is outside the service area")
         post.latitude = body.latitude
         post.longitude = body.longitude
+        ward = (
+            await _nearest_ward(body.latitude, body.longitude, db)
+            if body.latitude is not None and body.longitude is not None
+            else None
+        )
+        post.ward_id = ward.id if ward else None
     post.updated_at = datetime.now(UTC)
     await db.commit()
 
@@ -283,7 +374,7 @@ async def delete_feed_post(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     post = await _get_post_or_404(post_id, db)
-    if post.user_id != body.user_id:
+    if body.user_id != _session_uid or post.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Not the post owner")
 
     await db.delete(post)
@@ -298,6 +389,8 @@ async def toggle_like(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     post = await _get_post_or_404(post_id, db)
 
     existing = await db.get(PostLike, {"post_id": post_id, "user_id": body.user_id})
@@ -384,6 +477,8 @@ async def toggle_comment_like(
     _session_uid: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     await _get_post_or_404(post_id, db)
 
     result = await db.execute(select(PostComment).where(PostComment.id == comment_id))

@@ -50,6 +50,7 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["인증 (Auth)"])
 
 pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+SESSION_TTL = timedelta(days=180)
 
 
 def _hash(passcode: str) -> str:
@@ -63,39 +64,31 @@ def _verify(passcode: str, hashed: str) -> bool:
 @router.post(
     "/register",
     response_model=RegisterResponse,
-    summary="회원가입 / passcode 재발급",
+    summary="회원가입",
     response_description="발급된 passcode와 유저 정보",
 )
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """
     전화번호로 신규 가입.
-    - 이미 가입된 번호면 `is_new=False` + 새 passcode 재발급 (분실 복구 용도)
-    - passcode는 UUID 기반 32자 문자열로 발급되며 bcrypt 해시로 저장됨
+    - passcode는 UUID 기반 32자 문자열로 발급되며 PBKDF2 해시로 저장됨
     """
     phone = body.phone.strip()
     result = await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
 
-    raw_passcode = str(uuid.uuid4()).replace("-", "")
-    hashed = _hash(raw_passcode)
-
     if user is None:
+        raw_passcode = str(uuid.uuid4()).replace("-", "")
+        hashed = _hash(raw_passcode)
         # 가입 시점에 랜덤 닉네임을 기본 부여 → ProfileSetup 미완료(앱 종료)여도 공백 닉네임 방지.
         # 사용자는 이후 ProfileSetup 에서 커스텀 지정하거나 건너뛰기(랜덤 유지)한다.
         nick = await generate_random_nickname(db)
         user = User(phone=phone, passcode_hash=hashed, nickname=nick)
+        user.session_expires_at = datetime.now(UTC) + SESSION_TTL
         db.add(user)
         await db.commit()
         is_new = True
     else:
-        user.passcode_hash = hashed
-        # 구버전에서 닉네임 없이 생성된 기존 유저 보정(self-heal).
-        if not (user.nickname and user.nickname.strip()):
-            nick = await generate_random_nickname(db)
-            if nick:
-                user.nickname = nick
-        await db.commit()
-        is_new = False
+        raise HTTPException(status_code=409, detail="Phone number already registered")
 
     # avatar_content 관계 selectin 로드를 위해 재조회 (UserOut 직렬화 시 필요)
     user = (await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))).scalar_one()
@@ -119,8 +112,9 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not _verify(body.passcode, user.passcode_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
 
-    if user.status == "BANNED":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"code": "account_banned"})
+    enforce_account_active(user, datetime.now(UTC))
+    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
+    await db.commit()
 
     # 구버전에서 닉네임 없이 생성된 기존 유저 보정(self-heal) — 공백 닉네임 방지.
     if not (user.nickname and user.nickname.strip()):
@@ -137,40 +131,55 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 class DeviceMapRequest(BaseModel):
     device_uuid: str
-    user_id: str
     fcm_token: str | None = None
 
 
 @router.post("/device-map", summary="단말-유저 매핑 등록", response_description="매핑 결과")
-async def register_device_map(body: DeviceMapRequest):
+async def register_device_map(
+    body: DeviceMapRequest,
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
     """로그인 후 단말 UUID와 유저를 매핑. Engine device_user_map UPSERT."""
     try:
-        result = await engine_client.upsert_device_map(body.device_uuid, body.user_id, body.fcm_token)
+        result = await engine_client.upsert_device_map(body.device_uuid, str(session_uid), body.fcm_token)
         return result
     except Exception as e:
         log.exception("device-map upsert failed")
         raise HTTPException(status_code=502, detail="Engine device-map unavailable") from e
 
 
+@router.delete("/device-map/{device_uuid}", summary="단말-유저 매핑 해제", response_description="해제 결과")
+async def unregister_device_map(
+    device_uuid: str,
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """로그아웃 시 현재 세션 사용자 소유의 단말 매핑만 해제한다."""
+    try:
+        return await engine_client.delete_device_map(device_uuid, str(session_uid))
+    except Exception as e:
+        log.exception("device-map delete failed")
+        raise HTTPException(status_code=502, detail="Engine device-map unavailable") from e
+
+
 @router.get("/me", response_model=LoginResponse, summary="유저 조회", response_description="유저 정보")
-async def get_me_by_phone(phone: str, db: AsyncSession = Depends(get_db)):
-    """phone 쿼리 파라미터로 유저 조회. 프로필 설정 완료 후 최신 정보 갱신 용도."""
-    result = await db.execute(select(User).where(User.phone == phone.strip(), User.deleted_at.is_(None)))
-    user = result.scalar_one_or_none()
+async def get_me_by_phone(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """검증된 세션 사용자의 최신 정보 조회."""
+    user = await db.get(User, session_uid)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return LoginResponse(user=UserOut.model_validate(user))
 
 
 @router.get("/me/by-id", response_model=LoginResponse, summary="UUID로 유저 조회")
-async def get_me_by_id(user_id: str, db: AsyncSession = Depends(get_db)):
-    """user_id(UUID)로 유저 조회. OAuth 세션 검증 후 최신 정보 갱신 용도."""
-    try:
-        uid = uuid.UUID(user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid user_id") from e
-    result = await db.execute(select(User).where(User.id == uid, User.deleted_at.is_(None)))
-    user = result.scalar_one_or_none()
+async def get_me_by_id(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """검증된 세션 사용자의 최신 정보 조회."""
+    user = await db.get(User, session_uid)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return LoginResponse(user=UserOut.model_validate(user))
@@ -257,6 +266,7 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
     # 세션 토큰 발급 (passcode 메커니즘 재사용)
     raw_token = str(uuid.uuid4()).replace("-", "")
     user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
@@ -284,11 +294,16 @@ async def verify_session(body: SessionVerifyRequest, db: AsyncSession = Depends(
     if user is None or user.passcode_hash is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid")
 
-    if not _verify(body.session_token, user.passcode_hash):
+    now = datetime.now(UTC)
+    if (
+        not _verify(body.session_token, user.passcode_hash)
+        or user.session_expires_at is None
+        or user.session_expires_at <= now
+    ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid")
 
     # 제재 계정 차단 (BANNED 403 / SUSPENDED 403 or 만료 시 lazy-lift) — deps.verify_user_session 과 동일 규칙
-    if enforce_account_active(user, datetime.now(UTC)):
+    if enforce_account_active(user, now):
         await db.commit()
 
     return LoginResponse(user=UserOut.model_validate(user))
@@ -561,6 +576,7 @@ async def oauth_google_callback(
 
     raw_token = str(uuid.uuid4()).replace("-", "")
     user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     await db.commit()
@@ -668,6 +684,7 @@ async def oauth_apple_callback(
 
     raw_token = str(uuid.uuid4()).replace("-", "")
     user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     await db.commit()
@@ -828,6 +845,7 @@ async def oauth_zalo_callback(
 
     raw_token = str(uuid.uuid4()).replace("-", "")
     user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     await db.commit()
@@ -879,6 +897,7 @@ async def dev_login(body: DevLoginRequest | None = None, db: AsyncSession = Depe
 
     raw_token = str(uuid.uuid4()).replace("-", "")
     user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     await db.commit()
 
     user = (await db.execute(select(User).where(User.id == user.id))).scalar_one()

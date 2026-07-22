@@ -57,6 +57,7 @@ export async function fetchPoiMapItems(params: {
   maxLng: number;
   category?: string;
   q?: string;
+  signal?: AbortSignal;
 }): Promise<PoiMapItem[]> {
   const reqBbox: PoiBbox = { minLat: params.minLat, maxLat: params.maxLat, minLng: params.minLng, maxLng: params.maxLng };
   const now = Date.now();
@@ -83,8 +84,20 @@ export async function fetchPoiMapItems(params: {
   });
   if (params.category) qs.set('category', params.category);
   if (params.q) qs.set('q', params.q);
-  const res = await api.realFetch<PoiMapItemApi[]>(`/poi/public/map?${qs}`);
-  const items = (res ?? []).map((p) => ({
+  qs.set('size', '100');
+  const all: PoiMapItemApi[] = [];
+  let page = 1;
+  for (;;) {
+    qs.set('page', String(page));
+    const res = await api.realFetch<{ items: PoiMapItemApi[]; has_more: boolean }>(
+      `/poi/public/map?${qs}`,
+      { signal: params.signal },
+    );
+    all.push(...(res.items ?? []));
+    if (!res.has_more) break;
+    page++;
+  }
+  const items = all.map((p) => ({
     id: p.id,
     category: p.category,
     nameKo: p.name_ko,

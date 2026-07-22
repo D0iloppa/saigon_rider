@@ -178,7 +178,13 @@ async def submit_ride(
 
 # R-2
 @router.get("/streak", response_model=RideStreakOut, summary="라이딩 스트릭 조회")
-async def get_ride_streak(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_ride_streak(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     streak = await db.get(RideStreak, user_id)
     if streak is None:
         return RideStreakOut(user_id=user_id, current_streak=0, longest_streak=0, last_ride_date=None)
@@ -192,7 +198,10 @@ async def get_ride_history(
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     offset = (page - 1) * size
     total_result = await db.execute(select(func.count()).where(RideSession.user_id == user_id))
     total = total_result.scalar_one()

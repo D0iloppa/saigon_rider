@@ -92,10 +92,28 @@ async def purchase(
     db: AsyncSession,
     *,
     user_uuid: str,
+    idempotency_key: str,
     item_code: str,
     currency: str,
     skill_discount_pct: int = 0,
 ) -> ShopPurchaseResult:
+    from app.services.operation_idempotency import claim_or_replay, store_response
+
+    request_payload = {
+        "item_code": item_code,
+        "currency": currency,
+        "skill_discount_pct": skill_discount_pct,
+    }
+    replay = await claim_or_replay(
+        db,
+        idempotency_key=idempotency_key,
+        operation="SHOP_PURCHASE",
+        user_uuid=user_uuid,
+        payload=request_payload,
+    )
+    if replay is not None:
+        return ShopPurchaseResult.model_validate(replay)
+
     user = await get_or_create_user(db, user_uuid)
     # 신규 유저는 xp_balance row 가 없어 DB 함수가 SQL 에러(원문 노출)로 터짐 — 가챠(pull)와 동일하게 선생성
     await get_or_create_balance(db, user.user_id)
@@ -106,9 +124,7 @@ async def purchase(
          "disc": skill_discount_pct},
     )
     raw = row.scalar_one()
-    await db.commit()
-
-    return ShopPurchaseResult(
+    response = ShopPurchaseResult(
         item_code=raw["item_code"],
         cost_currency=raw["cost_currency"],
         base_price=raw["base_price"],
@@ -119,3 +135,6 @@ async def purchase(
         spend_tx_id=raw["spend_tx_id"],
         purchase_log_id=raw["purchase_log_id"],
     )
+    await store_response(db, idempotency_key, response.model_dump(mode="json"))
+    await db.commit()
+    return response

@@ -145,6 +145,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **구 어드민(레거시)**: `/admin-legacy/` 로 병행 서빙 (서버렌더, bff 소유). 2차 이식 완료 전까지 유지.
 - **라우팅** (`nginx/conf.d/default.conf`): `/admin/api/` → bff:8080 (JSON API), `/admin-legacy/` → bff:8080, `/admin/` → admin_frontend:80 (SPA), `= /admin` → 301.
 
+## Zalo 인증 프록시 VPS (베트남 egress)
+
+**왜 있나:** Zalo Graph API(`/v2.0/me`)는 **베트남 밖 IP를 error -501 로 차단**한다(개인정보 제한). BFF 는 한국 호스팅이라, Zalo OAuth 인증 호출만 **베트남 IP VPS 를 프록시 경유**시켜 우회한다. (일반 앱 트래픽은 직접 통신 — 프록시는 Zalo 로그인 경로에만 적용.)
+
+- **프로바이더/구축**: GreenCloudVPS (`greencloudvps.com`, Budget KVM `SSDKVM-1`, 호치민 리전), **개인 계정(doil qwon)**, 구축 **2026-07-21**. 월 ~$6 — 비용 정리 대상(대표 지시).
+- **서버**: IP `103.186.65.169`, Ho Chi Minh City, `AS151858 INTERDIGI JOINT STOCK COMPANY`(VN 등록 AS), Ubuntu 22.04.
+- **SSH 접속 전략**: `ssh root@103.186.65.169` — ed25519 키(`~/.ssh/id_ed25519`, comment `zalo-proxy`)로 인증. 키 미인식 시 `ssh -i ~/.ssh/id_ed25519 root@103.186.65.169`. (하드닝 TODO: 키 등록 완료됐으니 `sshd` `PasswordAuthentication no` 권장.)
+- **프록시**: tinyproxy(HTTP 포워드), 포트 `8888`, **BasicAuth** 로 접근제어(user `zaloproxy`, IP 화이트리스트 대신 인증 — dev/prod BFF egress IP 가변 대응). 방화벽 ufw 22/8888.
+- **코드 연동**: `backend/app/services/oauth.py` 의 `exchange_zalo_code()` 가 env `ZALO_API_PROXY` 로 Zalo 두 호출(access_token 교환·`/me` 프로필)만 프록시 경유. **미설정 시 직접 호출**(무변화). httpx 0.27 `proxy=`(HTTP 프록시만 — socks5 미지원).
+- **시크릿(커밋 금지)**: BasicAuth 비밀번호는 `.env` `ZALO_API_PROXY` 에만 — `ZALO_API_PROXY=http://zaloproxy:<pw>@103.186.65.169:8888`. SSH 개인키·비번은 어떤 커밋 파일에도 남기지 않는다.
+- **운영 주의**: 이 VPS 는 **Zalo 로그인의 단일 장애점(SPOF)** — 죽으면 로그인 차단. 업타임 모니터링 권장.
+- **검증**: 프록시 egress 가 VN 인지 — `curl -x http://zaloproxy:<pw>@103.186.65.169:8888 -s https://ipinfo.io/json` → `country: VN`. 최종 확인은 실제 Zalo 로그인(-501 미발생).
+
 ## 보안 최소 룰 (전문은 agent-guidelines §4)
 
 - `.env` 와 `.env.example` 은 항상 동일한 키셋. 한쪽에 키 추가/삭제/이름변경 시 **즉시** 반대쪽도 갱신.

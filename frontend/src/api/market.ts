@@ -1,6 +1,7 @@
 import i18n from '@/lib/i18n';
 import { api } from './client';
 import type { District } from './master';
+import { inServiceArea } from '@/lib/serviceArea';
 
 export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REMOVED';
 export type ListingSort = 'recent' | 'price_low' | 'price_high' | 'distance';
@@ -246,7 +247,7 @@ export async function fetchAd(id: string): Promise<MarketAd> {
   return transformAd(await api.realFetch<any>(`/market/ads/${id}?lang=${i18n.language}`));
 }
 
-export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> {
+export async function fetchListings(q: ListingQuery = {}, signal?: AbortSignal): Promise<ListingPage> {
   const params = new URLSearchParams();
   if (q.category && q.category !== 'all') params.set('category', q.category);
   if (q.categoryId != null) params.set('category_id', String(q.categoryId));
@@ -272,7 +273,7 @@ export async function fetchListings(q: ListingQuery = {}): Promise<ListingPage> 
   params.set('lang', i18n.language);
   params.set('page', String(q.page ?? 1));
   params.set('size', String(q.size ?? 20));
-  const raw = await api.realFetch<any>(`/market/listings?${params.toString()}`);
+  const raw = await api.realFetch<any>(`/market/listings?${params.toString()}`, { signal });
   return {
     items: (raw.items ?? []).map(transformCard),
     total: raw.total ?? 0,
@@ -420,9 +421,6 @@ export async function createListing(p: CreateListingParams): Promise<{ id: strin
   }, 'bff', { rethrow: true });
 }
 
-// HCMC 대략 bounding box — 벗어나면 위치 폴백
-const HCMC_BBOX = { latMin: 10.35, latMax: 11.2, lngMin: 106.3, lngMax: 107.05 };
-
 function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const R = 6371;
   const dLat = ((bLat - aLat) * Math.PI) / 180;
@@ -435,9 +433,7 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 
 /** GPS → 가장 가까운 HCMC 구. HCMC bbox 밖이면 null (호출부에서 폴백) */
 export function resolveDistrict(lat: number, lng: number, districts: District[]): District | null {
-  if (lat < HCMC_BBOX.latMin || lat > HCMC_BBOX.latMax || lng < HCMC_BBOX.lngMin || lng > HCMC_BBOX.lngMax) {
-    return null;
-  }
+  if (!inServiceArea(lat, lng)) return null;
   let best: District | null = null;
   let bestKm = Infinity;
   for (const d of districts) {

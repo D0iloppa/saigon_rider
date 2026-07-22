@@ -35,7 +35,7 @@ async function newPage(browser, session, viewportBbox) {
   await context.addInitScript((bbox) => {
     localStorage.removeItem('sgr.biz.readNews');
     localStorage.setItem('sr-lang', 'ko');
-    if (bbox) localStorage.setItem('sgr.map.viewport', JSON.stringify(bbox));
+    if (bbox) sessionStorage.setItem('sgr.regr.viewport', JSON.stringify(bbox));
   }, viewportBbox);
   const page = await context.newPage();
   const consoleErrors = [];
@@ -46,6 +46,18 @@ async function newPage(browser, session, viewportBbox) {
     if (r.status() >= 400) failedRequests.push(`${r.status()} ${r.request().method()} ${r.url().replace(BASE, '')}`);
   });
   return { context, page, consoleErrors, failedRequests };
+}
+
+async function openRestoredMap(page) {
+  // 최초 지도 진입은 제품 정책상 저장 viewport를 무시한다. 홈으로 나갔다가 같은 SPA
+  // 세션에서 재진입해 실제 viewport 복원 경로를 검증한다.
+  await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+  await page.locator('a[href="/home"]').click();
+  await page.evaluate(() => {
+    const viewport = sessionStorage.getItem('sgr.regr.viewport');
+    if (viewport) localStorage.setItem('sgr.map.viewport', viewport);
+  });
+  await page.locator('a[href="/map"]').click();
 }
 
 async function jsClick(page, selector) {
@@ -72,7 +84,7 @@ async function scenario1(browser, session) {
   const name = 'S1_auto_bubble';
   const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, DEEP);
   try {
-    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await openRestoredMap(page);
     await page.waitForTimeout(1200);
     // switch to biz tab
     await page.evaluate(() => {
@@ -102,7 +114,7 @@ async function scenario2(browser, session) {
   const name = 'S2_post_panel';
   const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, DEEP);
   try {
-    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await openRestoredMap(page);
     await page.waitForTimeout(1200);
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
@@ -174,7 +186,7 @@ async function scenario3(browser, session) {
   const name = 'S3_zoom_gate';
   const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, WIDE);
   try {
-    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await openRestoredMap(page);
     await page.waitForTimeout(1200);
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
@@ -242,7 +254,7 @@ async function scenario5(browser, session) {
   const name = 'S5_listing_pin_popup';
   const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, DEEP);
   try {
-    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await openRestoredMap(page);
     await page.waitForTimeout(1200);
     // default tab is now biz — switch to listings tab explicitly
     await page.evaluate(() => {
@@ -475,7 +487,7 @@ async function scenario8(browser, session) {
   const name = 'S8_bubble_gate_orphan';
   const { context, page, consoleErrors, failedRequests } = await newPage(browser, session, DEEP);
   try {
-    await page.goto(`${BASE}/map`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+    await openRestoredMap(page);
     await page.waitForTimeout(1200);
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));

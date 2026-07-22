@@ -1,5 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { ReactNode, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/Button';
 import { TabBar } from './TabBar';
 import { FloatingActionButton } from './FloatingActionButton';
 import { useDmStore } from '@/store/useDmStore';
@@ -13,6 +15,9 @@ interface Props {
   splashVisible: boolean;
   splashFade: boolean;
   gifReady: boolean;
+  bootstrapError: boolean;
+  onBootstrapRetry: () => void;
+  onBootstrapLogin: () => void;
 }
 
 const HIDE_TABBAR_PATHS = [
@@ -32,8 +37,12 @@ const HIDE_TABBAR_PATHS = [
   '/biz/', // 업체 상세 — 업체 전용 문의 CTA가 탭바 자리 사용
 ];
 
-export function AppShell({ children, splashVisible, splashFade, gifReady }: Props) {
+export function AppShell({
+  children, splashVisible, splashFade, gifReady,
+  bootstrapError, onBootstrapRetry, onBootstrapLogin,
+}: Props) {
   const { pathname } = useLocation();
+  const { t } = useTranslation();
   const hideTabBar = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
   const refreshDmUnread = useDmStore((s) => s.refreshUnread);
 
@@ -58,6 +67,16 @@ export function AppShell({ children, splashVisible, splashFade, gifReady }: Prop
               <span className={styles.splashIconEmoji} aria-hidden="true">🏍</span>
             )}
             <span className={styles.splashTitle}>Saigon Rider</span>
+            {bootstrapError && (
+              <div className={styles.bootstrapError} role="alert">
+                <strong>{t('splash.bootstrapErrorTitle')}</strong>
+                <p>{t('splash.bootstrapErrorBody')}</p>
+                <Button size="md" onClick={onBootstrapRetry}>{t('common.retry')}</Button>
+                <button className={styles.bootstrapLogin} onClick={onBootstrapLogin}>
+                  {t('splash.bootstrapLogin')}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

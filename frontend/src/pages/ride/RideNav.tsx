@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
-import { resolveInfoCoordsSync } from '@/lib/infoCoords';
 import { decodePolyline, bearing, haversineM, distanceToPolylineM } from '@/lib/polyline';
 import MapCanvas, { type MapCanvasHandle } from '@/components/ride/MapCanvas';
 import MapControls from '@/components/ride/MapControls';
@@ -20,32 +19,20 @@ import styles from './RideNav.module.css';
 
 type Coords = { lat: number; lng: number };
 
-// [DBG] SGR-271: quest 모드에서 GPS 실패 시 HCMC D1 폴백을 한시적 허용.
-//       실기기 GPS 검증 완료 후 false 로 되돌리거나 이 플래그째 제거할 것.
-const DBG_ALLOW_QUEST_HCMC_FALLBACK = true;
-
-// [DEV] HCMC 내부 가정 테스트용 — nav 출발지를 벤탄(HCMC 도심)으로 강제. 실제 GPS/HCMC밖 판정 무시.
-//       ⚠️ 정식 배포 전 반드시 false 로 되돌릴 것(실사용 시 실제 위치 사용).
-const DEV_FORCE_HCMC_ORIGIN = true;
-const HCMC_BEN_THANH = { lat: 10.776, lng: 106.7 };
-
 // 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
 const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
 const OFF_ROUTE_SECONDS = 5; // 이탈 지속 시간(이 이상 지속해야 이탈 확정)
 const GPS_ACCURACY_LIMIT_M = 35; // GPS 신뢰 임계값(초과 시 판정 스킵)
 const COMPASS_RADIUS_M = 500; // 라스트마일 나침반 모드 전환 반경
 
-/** 출발지: 권한 요청 후 현재 GPS 우선, 실패 시 캐시/기본 좌표(throw 안 함). */
+/** 사용자가 길찾기를 시작한 뒤에만 권한을 요청하고 현재 위치를 측정한다. */
 async function resolveOrigin(): Promise<Coords> {
-  try {
-    if (native.isNative) {
-      const st = await native.checkLocationPermission().catch(() => 'prompt');
-      if (st !== 'granted') await native.requestLocationPermission().catch(() => undefined);
-    }
-    return await native.getLocation();
-  } catch {
-    return resolveInfoCoordsSync('');
+  if (native.isNative) {
+    const current = await native.checkLocationPermission();
+    const granted = current === 'granted' ? current : await native.requestLocationPermission();
+    if (granted !== 'granted') throw new Error('location_permission_denied');
   }
+  return native.getLocation();
 }
 
 function maneuverIcon(maneuver?: string | null, isLast = false): string {
@@ -95,7 +82,7 @@ function GoogleGIcon() {
  * 실시간 턴바이턴은 Google ToS상 앱 내 불가 → Google 지도 핸드오프(nav 한정).
  */
 export default function RideNav() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
@@ -131,7 +118,9 @@ export default function RideNav() {
   const [route, setRoute] = useState<RouteData | null>(null);
   const [origin, setOrigin] = useState<Coords | null>(null);
   const [arrivalTime, setArrivalTime] = useState<string | null>(null);
-  const [loading, setLoading] = useState(type === 'nav');
+  const [loading, setLoading] = useState(false);
+  const [routeRequested, setRouteRequested] = useState(false);
+  const [locationError, setLocationError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [guidanceStarted, setGuidanceStarted] = useState(isQuest); // quest 는 진입 즉시 추적
 
@@ -150,51 +139,10 @@ export default function RideNav() {
   const [trail, setTrail] = useState<TrailPoint[]>([]);
   const [deviceUuid, setDeviceUuid] = useState<string | null>(null);
 
-  // nav: 진입 시 현재 위치(origin)→목적지 Directions 조회.
-  useEffect(() => {
-    if (type !== 'nav' || !dest) return;
-    let cancelled = false;
-    (async () => {
-      const from = DEV_FORCE_HCMC_ORIGIN ? HCMC_BEN_THANH : await resolveOrigin();
-      if (cancelled) return;
-      setOrigin(from);
-      // 출발지가 HCMC 밖이면 앱 내 안내(서비스 지역) 대신 '서비스 외 → 구글맵' 안내 다이얼로그.
-      if (from && !inServiceArea(from.lat, from.lng)) {
-        setDialogOpen(true);
-        setLoading(false);
-        return;
-      }
-      const data = await routeApi.getRoute(from, dest).catch(() => null);
-      if (cancelled) return;
-      if (data?.configured) {
-        setRoute(data);
-        setDialogOpen(false);
-        if (data.duration_s) {
-          const d = new Date(Date.now() + data.duration_s * 1000);
-          setArrivalTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-        }
-      } else {
-        setDialogOpen(true);
-      }
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [type, dest]);
-
-  // quest: 진입 시 출발지 확보. 실제 GPS 우선.
-  // [DBG] SGR-271: GPS 실패 시 HCMC D1 폴백을 DBG_ALLOW_QUEST_HCMC_FALLBACK 로 한시적 허용.
-  //       플래그 off 면 origin=null 로 두고 지도는 스트림 트레일에 센터.
+  // quest: 서버 스트림 조회에 필요한 단말 ID만 확보한다. 화면 진입 시 위치 측정은 하지 않는다.
   useEffect(() => {
     if (!isQuest) return;
     let cancelled = false;
-    native.getLocation()
-      .then((p) => { if (!cancelled) setOrigin({ lat: p.lat, lng: p.lng }); })
-      .catch(() => {
-        if (!DBG_ALLOW_QUEST_HCMC_FALLBACK || cancelled) return;
-        const fb = resolveInfoCoordsSync('');
-        console.warn('[DBG] quest GPS 실패 → HCMC D1 폴백 좌표 사용 (임시, SGR-271)', fb);
-        setOrigin({ lat: fb.lat, lng: fb.lng });
-      });
     native.getDeviceUUID().then((u) => { if (!cancelled) setDeviceUuid(u); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [isQuest]);
@@ -291,8 +239,39 @@ export default function RideNav() {
     return stop;
   }, [guidanceStarted, type, dest, activePts]);
 
-  const startGuidance = () => {
+  const startGuidance = async () => {
+    if (type !== 'nav' || !dest) return;
+    setRouteRequested(true);
+    setLocationError(false);
+    setLoading(true);
+    let from: Coords;
+    try {
+      from = await resolveOrigin();
+    } catch {
+      setLocationError(true);
+      setLoading(false);
+      return;
+    }
+    setOrigin(from);
+    if (!inServiceArea(from.lat, from.lng)) {
+      setDialogOpen(true);
+      setLoading(false);
+      return;
+    }
+    const locale = i18n.resolvedLanguage ?? i18n.language;
+    const data = await routeApi.getRoute(from, dest, locale).catch(() => null);
+    if (!data?.configured) {
+      setDialogOpen(true);
+      setLoading(false);
+      return;
+    }
+    setRoute(data);
+    if (data.duration_s) {
+      const d = new Date(Date.now() + data.duration_s * 1000);
+      setArrivalTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+    }
     setGuidanceStarted(true);
+    setLoading(false);
     mapRef.current?.startGuidance();
     sheetRef.current?.collapse(); // 핀(중앙)이 시트에 가리지 않도록 시트 내림
   };
@@ -315,7 +294,7 @@ export default function RideNav() {
     navigate(-1);
   };
 
-  const keyMissing = type === 'nav' && !loading && !route?.configured;
+  const keyMissing = type === 'nav' && routeRequested && !loading && !route?.configured;
   const originOutOfArea = !!origin && !inServiceArea(origin.lat, origin.lng);
   const showMap = isQuest || (!!dest && !keyMissing);
 
@@ -464,6 +443,9 @@ export default function RideNav() {
           >
             {type === 'nav' ? (
               <>
+                <div className={styles.twoWheelerWarning}>
+                  {t('rideNav.twoWheelerWarning', '오토바이 경로는 베타 기능이며 실제 도로 규제와 다를 수 있습니다.')}
+                </div>
                 <div className={styles.steps}>
                   {route && route.steps.length > 0 ? (
                     route.steps.map((s, i) => {
@@ -551,7 +533,16 @@ export default function RideNav() {
           <div className={styles.fallbackInner}>
             <div className={styles.fallbackIcon}>🧭</div>
             <div className={styles.fallbackTitle}>{name || t('rideNav.destination', '목적지')}</div>
-            <div className={styles.fallbackDesc}>{t('rideNav.summaryPending', '실시간 안내 준비 중')}</div>
+            <div className={styles.fallbackDesc}>
+              {locationError
+                ? t('rideNav.locationError', '현재 위치를 확인할 수 없습니다. 위치 권한을 확인해 주세요.')
+                : t('rideNav.summaryPending', '길찾기를 시작하면 현재 위치를 측정합니다.')}
+            </div>
+            {type === 'nav' && (!routeRequested || locationError) && (
+              <button className={styles.startFab} onClick={startGuidance}>
+                ▶ {t('rideNav.startGuidance', '경로 안내 시작')}
+              </button>
+            )}
           </div>
         </div>
       )}

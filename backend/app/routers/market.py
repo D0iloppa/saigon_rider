@@ -8,7 +8,7 @@ from sqlalchemy import func, literal_column, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..deps import verify_user_session
+from ..deps import optional_user_session, verify_user_session
 from ..models import (
     DmConversation,
     DmMessage,
@@ -57,6 +57,8 @@ from ..schemas import (
     TradeHistoryItem,
 )
 from ..services import noti_events
+from ..services.dm_policy import require_participant, require_unblocked
+from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, mask_phone, resolve_avatar_url
 
@@ -222,11 +224,12 @@ async def get_listings(
     district_id: int | None = Query(None, description="구 id — deprecated, ward_id 권장"),
     ward_id: int | None = Query(None, description="ward id (2025 신 행정단위)"),
     seller_id: uuid.UUID | None = Query(None, description="판매자 id — 내 매물 조회용"),
-    viewer_id: uuid.UUID | None = Query(None, description="조회자(차단 사용자 매물 제외용)"),
+    viewer_id: uuid.UUID | None = Query(None, description="deprecated — 조회자는 세션에서 파생"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목을 캐시된 번역으로 표기"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
     offset = (page - 1) * size
     has_loc = lat is not None and lng is not None
@@ -284,18 +287,20 @@ async def get_listings(
         q = q.where(MarketplaceListing.seller_id == seller_id)
         count_q = count_q.where(MarketplaceListing.seller_id == seller_id)
 
-    if viewer_id is not None:
-        # 내가 차단한 사용자의 매물 제외
-        blocked = select(UserBlock.blocked_id).where(UserBlock.blocker_id == viewer_id)
-        q = q.where(MarketplaceListing.seller_id.notin_(blocked))
-        count_q = count_q.where(MarketplaceListing.seller_id.notin_(blocked))
+    if session_uid is not None:
+        blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
+        blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
+        q = q.where(
+            MarketplaceListing.seller_id.notin_(blocked_users), MarketplaceListing.seller_id.notin_(blocking_users)
+        )
+        count_q = count_q.where(
+            MarketplaceListing.seller_id.notin_(blocked_users),
+            MarketplaceListing.seller_id.notin_(blocking_users),
+        )
 
-    # T&S 모더레이션 가시성 — REMOVED 는 항상 제외, HIDDEN 은 판매자 본인 조회(seller_id==viewer_id)에만 노출
-    q = q.where(MarketplaceListing.status != "REMOVED")
-    count_q = count_q.where(MarketplaceListing.status != "REMOVED")
-    if seller_id is None or viewer_id != seller_id:
-        q = q.where(MarketplaceListing.status != "HIDDEN")
-        count_q = count_q.where(MarketplaceListing.status != "HIDDEN")
+    # 공개 정책: 모더레이션된 매물은 query/viewer 값과 무관하게 항상 비노출.
+    q = q.where(MarketplaceListing.status.notin_(("HIDDEN", "REMOVED")))
+    count_q = count_q.where(MarketplaceListing.status.notin_(("HIDDEN", "REMOVED")))
 
     if hide_sold:
         q = q.where(MarketplaceListing.status != "SOLD")
@@ -373,21 +378,36 @@ async def get_listings(
 @router.get("/listings/{listing_id}", response_model=MarketplaceListingDetail, summary="매물 상세")
 async def get_listing(
     listing_id: uuid.UUID,
-    user_id: uuid.UUID | None = Query(None, description="조회자(찜 여부 판정용)"),
+    user_id: uuid.UUID | None = Query(None, description="deprecated — 조회자는 세션에서 파생"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·설명을 번역해 표기(미스 시 번역·워밍)"),
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
     ).scalar_one_or_none()
-    if listing is None or listing.status == "REMOVED":
+    if listing is None or listing.status in ("HIDDEN", "REMOVED"):
         raise HTTPException(status_code=404, detail="Listing not found")
+
+    if session_uid is not None:
+        blocked = (
+            await db.execute(
+                select(UserBlock.blocker_id).where(
+                    or_(
+                        (UserBlock.blocker_id == session_uid) & (UserBlock.blocked_id == listing.seller_id),
+                        (UserBlock.blocker_id == listing.seller_id) & (UserBlock.blocked_id == session_uid),
+                    )
+                )
+            )
+        ).first()
+        if blocked is not None:
+            raise HTTPException(status_code=404, detail="Listing not found")
 
     listing.view_count += 1
 
     liked = False
-    if user_id is not None:
-        liked = (await db.get(MarketplaceListingLike, {"listing_id": listing_id, "user_id": user_id})) is not None
+    if session_uid is not None:
+        liked = (await db.get(MarketplaceListingLike, {"listing_id": listing_id, "user_id": session_uid})) is not None
 
     image_urls = [
         build_imgproxy_url(img.content.file_path)
@@ -397,8 +417,8 @@ async def get_listing(
 
     seller = listing.seller
     is_following = False
-    if user_id is not None and user_id != seller.id:
-        is_following = (await db.get(UserFollow, {"follower_id": user_id, "following_id": seller.id})) is not None
+    if session_uid is not None and session_uid != seller.id:
+        is_following = (await db.get(UserFollow, {"follower_id": session_uid, "following_id": seller.id})) is not None
 
     review_rows = (
         (await db.execute(select(MarketplaceReview.rating).where(MarketplaceReview.target_id == seller.id)))
@@ -494,6 +514,8 @@ async def create_listing(
         raise HTTPException(status_code=403, detail="Phone verification required to list items")
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
+    if body.latitude is not None and body.longitude is not None and not in_service_area(body.latitude, body.longitude):
+        raise HTTPException(status_code=422, detail="Location is outside the service area")
 
     now = datetime.now(UTC)
     # 동네지도 배지(map.py listings 탭)가 ward_id 기준 집계 — 좌표가 있으면 ward를 배정해야 지도에 노출된다
@@ -806,6 +828,8 @@ async def toggle_like(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
     ).scalar_one_or_none()
@@ -827,7 +851,13 @@ async def toggle_like(
 
 # M-8 내 찜 목록 (마이 > 찜)
 @router.get("/wishlist", response_model=list[MarketplaceListingCard], summary="내 찜 목록")
-async def get_wishlist(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_wishlist(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         (
             await db.execute(
@@ -845,7 +875,13 @@ async def get_wishlist(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 # M-9 키워드 알림 구독 (🔔)
 @router.get("/keyword-alerts", response_model=list[MarketplaceKeywordAlertOut], summary="내 키워드 알림 목록")
-async def get_keyword_alerts(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_keyword_alerts(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         (
             await db.execute(
@@ -972,10 +1008,14 @@ async def propose_appointment(
     conv = await db.get(DmConversation, body.conversation_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    if session_uid not in (conv.participant_1, conv.participant_2):
-        raise HTTPException(status_code=403, detail="Not a participant")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
     if conv.context_type != "listing" or conv.context_id is None:
         raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
+
+    listing = await db.get(MarketplaceListing, conv.context_id)
+    if listing is None or listing.seller_id not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Invalid conversation context")
 
     # 구매자 게이팅 — 판매자의 거래진행 액션(가격제안 수락 or 판매자 약속 제안) 전에는 제안 불가
     if not await _appointment_unlocked(db, conv, session_uid):
@@ -1019,7 +1059,6 @@ async def propose_appointment(
     )
     db.add(msg)
     conv.last_message_at = now
-    listing = await db.get(MarketplaceListing, conv.context_id)
     await db.commit()
 
     return DmMessageOut(
@@ -1043,11 +1082,20 @@ async def _load_appointment(
     if appt is None:
         raise HTTPException(status_code=404, detail="Appointment not found")
     conv = await db.get(DmConversation, appt.conversation_id)
-    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+    if conv is None:
         raise HTTPException(status_code=403, detail="Not a participant")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
     listing = await db.get(MarketplaceListing, appt.listing_id)
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    if (
+        conv.context_type != "listing"
+        or conv.context_id != appt.listing_id
+        or listing.seller_id not in (conv.participant_1, conv.participant_2)
+        or appt.proposer_id not in (conv.participant_1, conv.participant_2)
+    ):
+        raise HTTPException(status_code=403, detail="Invalid conversation context")
     return appt, conv, listing
 
 
@@ -1149,14 +1197,16 @@ async def propose_price_offer(
     conv = await db.get(DmConversation, body.conversation_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    if session_uid not in (conv.participant_1, conv.participant_2):
-        raise HTTPException(status_code=403, detail="Not a participant")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
     if conv.context_type != "listing" or conv.context_id is None:
         raise HTTPException(status_code=400, detail="Conversation is not linked to a listing")
 
     listing = await db.get(MarketplaceListing, conv.context_id)
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Invalid conversation context")
     if not listing.is_negotiable:
         raise HTTPException(status_code=403, detail="Listing does not accept price offers")
     # RESERVED 는 허용 (약속 수락 후에도 같은 대화에서 가격 협상 여지) — 판매 종결만 차단
@@ -1223,11 +1273,20 @@ async def _load_price_offer(
     if offer is None:
         raise HTTPException(status_code=404, detail="Price offer not found")
     conv = await db.get(DmConversation, offer.conversation_id)
-    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+    if conv is None:
         raise HTTPException(status_code=403, detail="Not a participant")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
     listing = await db.get(MarketplaceListing, offer.listing_id)
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    if (
+        conv.context_type != "listing"
+        or conv.context_id != offer.listing_id
+        or listing.seller_id not in (conv.participant_1, conv.participant_2)
+        or offer.proposer_id not in (conv.participant_1, conv.participant_2)
+    ):
+        raise HTTPException(status_code=403, detail="Invalid conversation context")
     return offer, conv, listing
 
 
@@ -1301,6 +1360,8 @@ async def get_trades(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """내가 참여한 COMPLETED 약속 = 완료 거래 목록. 역할(판매/구매)·상대·후기여부 포함."""
+    if user_id != session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         await db.execute(
             select(MarketplaceAppointment, DmConversation)

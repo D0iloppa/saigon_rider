@@ -71,9 +71,10 @@ INSERT INTO safety_grades (code, name_ko, name_vi, name_en) VALUES
     ('B', '보통',   'Trung bình', 'Average'),
     ('C', '위험',   'Nguy hiểm',  'Risky');
 
--- ── quests: district_id, min_safety_grade_id 추가 ────────────────
+-- ── quests: district_id, rider_type_id, min_safety_grade_id 추가 ──
 ALTER TABLE quests
     ADD COLUMN IF NOT EXISTS district_id         SMALLINT REFERENCES districts(id),
+    ADD COLUMN IF NOT EXISTS rider_type_id       SMALLINT REFERENCES rider_types(id),
     ADD COLUMN IF NOT EXISTS min_safety_grade_id SMALLINT REFERENCES safety_grades(id);
 
 -- 기존 district enum 값 → district_id 매핑

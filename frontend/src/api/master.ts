@@ -1,5 +1,6 @@
 import i18n from '@/lib/i18n';
 import { USE_MOCK, api } from './client';
+import { inServiceArea } from '@/lib/serviceArea';
 
 export interface District {
   id: number;
@@ -77,8 +78,6 @@ export async function fetchWards(city = 'HCMC'): Promise<Ward[]> {
   return api.realFetch<Ward[]>(`/master/wards?city=${city}`);
 }
 
-const HCMC_BBOX = { latMin: 10.35, latMax: 11.2, lngMin: 106.3, lngMax: 107.2 };
-
 function _haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const R = 6371;
   const dLat = ((bLat - aLat) * Math.PI) / 180;
@@ -89,11 +88,9 @@ function _haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): n
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-/** GPS 좌표 → 가장 가까운 Ward (centroid haversine). HCMC bbox 밖이면 null. */
+/** GPS 좌표 → 가장 가까운 지원 Ward. 서비스 geometry 밖이면 null. */
 export function resolveWardByCoords(lat: number, lng: number, wards: Ward[]): Ward | null {
-  if (lat < HCMC_BBOX.latMin || lat > HCMC_BBOX.latMax || lng < HCMC_BBOX.lngMin || lng > HCMC_BBOX.lngMax) {
-    return null;
-  }
+  if (!inServiceArea(lat, lng)) return null;
   let best: Ward | null = null;
   let bestKm = Infinity;
   for (const w of wards) {

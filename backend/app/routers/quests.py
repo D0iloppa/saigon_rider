@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -28,14 +28,15 @@ from ..schemas import (
     QuestPinOut,
 )
 from ..utils import (
-    APP_TZ,
     MOCK_IMG_ENDPOINT,
     QUEST_BANNER_IMGPROXY_OPTIONS,
     QUEST_MAIN_IMGPROXY_OPTIONS,
     QUEST_THUMB_IMGPROXY_OPTIONS,
+    QUEST_TZ,
     apply_quest_reward_multiplier,
     build_imgproxy_url,
     gain_exp,
+    quest_card_expires_at,
     resolve_avatar_url,
 )
 
@@ -67,7 +68,7 @@ async def _verify_passcode(
 
 
 def _calc_period_key(period: str) -> str:
-    today = datetime.now(APP_TZ).date()
+    today = datetime.now(QUEST_TZ).date()
     if period == "DAILY":
         return today.isoformat()
     if period == "WEEKLY":
@@ -77,21 +78,8 @@ def _calc_period_key(period: str) -> str:
 
 
 def _calc_card_expires(period: str, ends_at: datetime | None) -> str | None:
-    now_vn = datetime.now(APP_TZ)
-    if period == "DAILY":
-        eod = datetime.combine(now_vn.date(), time(23, 59, 59), tzinfo=APP_TZ)
-        return eod.isoformat()
-    if period == "WEEKLY":
-        days_until_sunday = 6 - now_vn.weekday()
-        eow = datetime.combine(
-            now_vn.date() + timedelta(days=days_until_sunday),
-            time(23, 59, 59),
-            tzinfo=APP_TZ,
-        )
-        return eow.isoformat()
-    if ends_at is not None:
-        return ends_at.isoformat()
-    return None
+    expires_at = quest_card_expires_at(period, ends_at)
+    return expires_at.isoformat() if expires_at else None
 
 
 router = APIRouter(prefix="/quests", tags=["퀘스트 (Quest)"])
@@ -456,6 +444,8 @@ async def accept_quest(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     quest = await _get_quest_or_404(quest_id, db)
 
     period_key = _calc_period_key(quest.period)
@@ -511,6 +501,8 @@ async def complete_quest(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     await _verify_passcode(body.user_id, x_passcode, db)
     quest = await _get_quest_or_404(quest_id, db)
     period_key = _calc_period_key(quest.period)
@@ -570,6 +562,8 @@ async def toggle_bookmark(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     await _get_quest_or_404(quest_id, db)
 
     existing = await db.get(Bookmark, {"user_id": body.user_id, "quest_id": quest_id})

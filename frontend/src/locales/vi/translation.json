@@ -16,6 +16,7 @@
     "etaArrive": "Dự kiến đến · {{duration}}",
     "routeLabel": "Lộ trình",
     "startGuidance": "Bắt đầu chỉ đường",
+    "locationError": "Không thể xác định vị trí hiện tại. Hãy kiểm tra quyền vị trí và thử lại.",
     "questInProgress": "Đang làm nhiệm vụ",
     "questCheckpoint": "Đến điểm mốc",
     "questDistance": "Mục tiêu {{target}}km",
@@ -30,6 +31,7 @@
     "comingSoonTitle": "Điều hướng trong ứng dụng sắp ra mắt",
     "comingSoonDesc": "Chỉ đường trong ứng dụng đang được chuẩn bị. Hiện tại bạn có thể dùng Google Maps.",
     "openGoogleMaps": "Mở Google Maps",
+    "twoWheelerWarning": "Tuyến đường xe máy đang ở bản beta và có thể chưa phản ánh mọi hạn chế giao thông.",
     "offRouteTitle": "Bạn đã đi chệch lộ trình",
     "offRouteReroute": "Chỉ đường lại bằng Google Maps",
     "compassRemaining": "Còn khoảng {{dist}}m đến nơi",
@@ -170,7 +172,7 @@
     "searchEmptyTitle": "Không có kết quả",
     "searchEmptySub": "Thử từ khóa hoặc danh mục khác",
     "pickLocation": "Khu vực giao dịch",
-    "pickLocationDesc": "Chọn khu vực trên bản đồ",
+    "pickLocationDesc": "Chọn khu vực. Chỉ tâm phường được hiển thị công khai",
     "pickLocationNone": "Chọn khu vực",
     "pickAreaOnMap": "Chọn khu vực trên bản đồ",
     "tradeLocation": "Khu vực giao dịch",
@@ -209,6 +211,9 @@
     "adInquiry": "Gọi điện hỏi"
   },
   "splash": {
+    "bootstrapErrorTitle": "Không thể kết nối với máy chủ",
+    "bootstrapErrorBody": "Kiểm tra kết nối mạng rồi thử lại.",
+    "bootstrapLogin": "Đi đến đăng nhập",
     "subtitle": "Nơi mỗi chuyến đi là một nhiệm vụ",
     "startBtn": "Bắt đầu",
     "loginBtn": "Đăng nhập"
@@ -1034,6 +1039,10 @@
     },
     "weather": {
       "title": "Thời tiết",
+      "unavailable": "Thông tin thời tiết tạm thời không khả dụng. Vui lòng thử lại sau.",
+      "unavailableShort": "Không thể tải",
+      "staleShort": "Số liệu cũ",
+      "staleAt": "Không lấy được thời tiết trực tiếp. Đang hiển thị số liệu tải lúc {{time}}.",
       "radarTitle": "Radar mưa",
       "radarUpdated": "Cập nhật {{time}}",
       "forecastTitle": "Dự báo 24 giờ",
@@ -1041,6 +1050,7 @@
       "rec_CLEAR": "Không có mưa. Thời tiết lý tưởng để chạy ✅",
       "rec_RAIN_MED": "Khả năng mưa trong 1h là {{prob}}%. Chạy nhanh thì OK",
       "rec_RAIN_HIGH": "Nguy cơ mưa ngay bây giờ. Nên kiểm tra lại sau 30 phút",
+      "rec_UNCERTAIN": "Không có quan trắc mới nên chưa thể đánh giá điều kiện chạy xe.",
       "notifyBtn": "Thông báo tại vị trí yêu thích",
       "notifyDesc": "Cảnh báo khi có mưa (+5 RP)",
       "windUnit": "km/h",

@@ -16,7 +16,9 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO marketplace_listings
     (id, seller_id, category_id, title, description, price_vnd, is_negotiable, status, district_id, latitude, longitude, like_count, view_count, bumped_at, created_at)
-VALUES
+SELECT id::uuid, seller_id::uuid, category_id, title, description, price_vnd,
+       is_negotiable, status, district_id, latitude, longitude, like_count,
+       view_count, bumped_at, created_at FROM (VALUES
     ('a0000000-0000-4000-8000-000000000004', 'a4681186-a8b6-4914-8f89-9552e277794f',
      (SELECT id FROM marketplace_categories WHERE code='PARTS'),
      'Má phanh Brembo (mới)', 'Má phanh Brembo còn mới, mua nhầm đời xe. Quận 1.',
@@ -46,13 +48,18 @@ VALUES
      (SELECT id FROM marketplace_categories WHERE code='ACCESSORY'),
      'Bọc yên xe chống nóng', 'Bọc yên da chống nóng, đã bán. Bình Thạnh.',
      90000, FALSE, 'SOLD', 11, 10.813780, 106.713660, 2, 70, now() - interval '300 minutes', now() - interval '300 minutes')
+) AS seed(id, seller_id, category_id, title, description, price_vnd, is_negotiable, status, district_id, latitude, longitude, like_count, view_count, bumped_at, created_at)
+WHERE EXISTS (SELECT 1 FROM users WHERE users.id = seed.seller_id::uuid)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO marketplace_listing_images (id, listing_id, content_id, sort_order) VALUES
+INSERT INTO marketplace_listing_images (id, listing_id, content_id, sort_order)
+SELECT id::uuid, listing_id::uuid, content_id::uuid, sort_order FROM (VALUES
     ('b0000000-0000-4000-8000-000000000006', 'a0000000-0000-4000-8000-000000000004', 'c0000000-0000-4000-8000-000000000006', 0),
     ('b0000000-0000-4000-8000-000000000007', 'a0000000-0000-4000-8000-000000000005', 'c0000000-0000-4000-8000-000000000007', 0),
     ('b0000000-0000-4000-8000-000000000008', 'a0000000-0000-4000-8000-000000000006', 'c0000000-0000-4000-8000-000000000008', 0),
     ('b0000000-0000-4000-8000-000000000009', 'a0000000-0000-4000-8000-000000000007', 'c0000000-0000-4000-8000-000000000009', 0),
     ('b0000000-0000-4000-8000-00000000000a', 'a0000000-0000-4000-8000-000000000008', 'c0000000-0000-4000-8000-00000000000a', 0),
     ('b0000000-0000-4000-8000-00000000000b', 'a0000000-0000-4000-8000-000000000009', 'c0000000-0000-4000-8000-00000000000b', 0)
+) AS seed(id, listing_id, content_id, sort_order)
+WHERE EXISTS (SELECT 1 FROM marketplace_listings WHERE marketplace_listings.id = seed.listing_id::uuid)
 ON CONFLICT (id) DO NOTHING;

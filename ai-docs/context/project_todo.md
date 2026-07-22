@@ -116,4 +116,3 @@
 ### ⏸ passcode 평문 쿠키 → HttpOnly + JWT 전환
 - 현재 `frontend/src/lib/session.ts` 가 passcode 를 평문 쿠키에 저장.
 - 정식 출시 전 HttpOnly 쿠키 + 서버 발급 JWT 로 교체 필요. (README 인증 구조 섹션의 보안 참고 참조)
-

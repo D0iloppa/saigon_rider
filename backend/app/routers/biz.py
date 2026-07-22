@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +33,7 @@ from ..schemas import (
     BusinessReviewListOut,
     BusinessReviewOut,
     MarketplaceAdOut,
+    Page,
 )
 from ..services.redis_cache import get_client
 from ..utils import build_imgproxy_url
@@ -350,7 +351,11 @@ async def _latest_news_map(db: AsyncSession, profile_ids: list[uuid.UUID]) -> di
     }
 
 
-@router.get("/public/map", response_model=list[BusinessMapItemOut], summary="업체 지도 공개 조회 (bbox)")
+class BusinessMapPageOut(Page[BusinessMapItemOut]):
+    has_more: bool
+
+
+@router.get("/public/map", response_model=BusinessMapPageOut, summary="업체 지도 공개 조회 (bbox)")
 async def get_public_map(
     min_lat: Decimal,
     max_lat: Decimal,
@@ -358,6 +363,8 @@ async def get_public_map(
     max_lng: Decimal,
     category: str | None = None,
     q: str | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """동네지도 업체 핀 레이어 — APPROVED + 좌표 보유 프로필만 bbox 범위로 노출."""
@@ -374,11 +381,16 @@ async def get_public_map(
         stmt = stmt.where(BusinessProfile.category == category)
     if q:
         stmt = stmt.where(BusinessProfile.name.ilike(f"%{q}%"))
-    profiles = (await db.execute(stmt.limit(200))).scalars().all()
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    profiles = (
+        (await db.execute(stmt.order_by(BusinessProfile.id.asc()).offset((page - 1) * size).limit(size)))
+        .scalars()
+        .all()
+    )
 
     latest_news_by_profile = await _latest_news_map(db, [p.id for p in profiles])
 
-    return [
+    items = [
         BusinessMapItemOut(
             id=p.id,
             name=p.name,
@@ -391,6 +403,7 @@ async def get_public_map(
         )
         for p in profiles
     ]
+    return BusinessMapPageOut(items=items, total=total, page=page, size=size, has_more=page * size < total)
 
 
 # W3-BE T3: /public/{profile_id} 보다 먼저 등록 — 그래야 "categories" 가 UUID 파싱에 안 먹힌다.

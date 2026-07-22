@@ -25,6 +25,23 @@ _token_expires_at: float = 0
 _credentials: dict[str, Any] | None = None
 
 
+class RetryablePushError(RuntimeError):
+    pass
+
+
+class PermanentPushError(RuntimeError):
+    pass
+
+
+class InvalidPushTokenError(PermanentPushError):
+    pass
+
+
+def credentials_available() -> bool:
+    import os
+    return os.path.isfile(settings.firebase_credentials_json)
+
+
 def _load_credentials() -> dict[str, Any]:
     global _credentials
     if _credentials is None:
@@ -86,7 +103,10 @@ async def _send_single(
 ) -> bool:
     creds = _load_credentials()
     project_id = creds["project_id"]
-    access_token = await _get_access_token()
+    try:
+        access_token = await _get_access_token()
+    except (OSError, httpx.HTTPError) as exc:
+        raise RetryablePushError(str(exc)) from exc
 
     url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
     capped_badge = min(badge, 999)
@@ -111,22 +131,31 @@ async def _send_single(
         "data": data or {},
     }
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-            },
-            json={"message": message},
-            timeout=10.0,
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                json={"message": message}, timeout=10.0,
+            )
+    except httpx.TransportError as exc:
+        raise RetryablePushError(str(exc)) from exc
 
     if resp.status_code == 200:
         return True
 
-    log.warning("FCM send failed token=%s…: %d %s", fcm_token[:20], resp.status_code, resp.text)
-    return False
+    log.warning("FCM send failed: %d %s", resp.status_code, resp.text)
+    if resp.status_code in (401, 403, 429) or resp.status_code >= 500:
+        raise RetryablePushError(f"FCM HTTP {resp.status_code}")
+    error_code = ""
+    try:
+        details = resp.json().get("error", {}).get("details", [])
+        error_code = next((item.get("errorCode", "") for item in details if isinstance(item, dict)), "")
+    except (ValueError, AttributeError):
+        pass
+    if resp.status_code == 404 or error_code in {"UNREGISTERED", "INVALID_ARGUMENT"}:
+        raise InvalidPushTokenError(f"FCM token rejected: {error_code or resp.status_code}")
+    raise PermanentPushError(f"FCM HTTP {resp.status_code}")
 
 
 # ── Redis badge ──────────────────────────────────────────────
@@ -238,6 +267,7 @@ class PushResult:
     def __init__(self, sent: int = 0, failed: int = 0) -> None:
         self.sent = sent
         self.failed = failed
+        self.invalid_tokens: list[str] = []
 
     def to_dict(self) -> dict[str, Any]:
         return {"sent_count": self.sent, "failed_count": self.failed}
@@ -269,13 +299,17 @@ async def send_push(
             continue
 
         badge = await incr_badge(user_id)
-        ok = await _send_single(
-            fcm_token=fcm_token,
-            title=title,
-            body=body,
-            badge=badge,
-            data=data,
-        )
+        try:
+            ok = await _send_single(
+                fcm_token=fcm_token, title=title, body=body, badge=badge, data=data,
+            )
+        except InvalidPushTokenError:
+            result.failed += 1
+            result.invalid_tokens.append(fcm_token)
+            continue
+        except PermanentPushError:
+            result.failed += 1
+            continue
         if ok:
             result.sent += 1
         else:

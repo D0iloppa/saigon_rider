@@ -144,6 +144,7 @@ class User(Base):
     )
     manner_temp: Mapped[Decimal] = mapped_column(Numeric(4, 1), nullable=False, default=Decimal("36.5"))
     passcode_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    session_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_advertiser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="ACTIVE", server_default="ACTIVE")
     suspended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -275,6 +276,9 @@ class UserQuest(Base):
     period_key: Mapped[str | None] = mapped_column(String(20), nullable=True)
     accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reward_grant_status: Mapped[str] = mapped_column(String(10), nullable=False, default="PENDING")
+    reward_idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
+    reward_last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class RideSession(Base):
@@ -344,6 +348,10 @@ class FeedPost(Base):
     image_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[image_content_id], lazy="selectin")
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    ward_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("wards.id", ondelete="SET NULL"), nullable=True
+    )
+    ward: Mapped["Ward | None"] = relationship("Ward", foreign_keys=[ward_id], lazy="selectin")
     district_id: Mapped[int | None] = mapped_column(
         SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
     )
@@ -840,6 +848,17 @@ class UserBadge(Base):
     acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class InternalRewardGrant(Base):
+    __tablename__ = "internal_reward_grants"
+
+    idempotency_key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    operation: Mapped[str] = mapped_column(String(30), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -1122,7 +1141,7 @@ class FloodReport(Base):
     photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    confidence_score: Mapped[int] = mapped_column(Integer, default=1)
+    confidence_score: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -1136,6 +1155,8 @@ class FloodConfirmation(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     confirmation_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    lat: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    lng: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
     confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

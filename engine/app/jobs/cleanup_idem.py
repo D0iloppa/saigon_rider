@@ -18,7 +18,10 @@ async def run() -> None:
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            delete(IdempotencyKey).where(IdempotencyKey.expires_at < now)
+            delete(IdempotencyKey).where(
+                IdempotencyKey.expires_at < now,
+                IdempotencyKey.resource_type.not_in(("CREDIT_RP", "GACHA_PULL", "SHOP_PURCHASE")),
+            )
         )
         await db.commit()
 

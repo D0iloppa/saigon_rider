@@ -4,6 +4,7 @@ import math
 import os
 import re
 from base64 import urlsafe_b64encode
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 IMGPROXY_BASE_URL = os.getenv("IMGPROXY_BASE_URL", "http://localhost:18090/img")
@@ -12,12 +13,29 @@ IMGPROXY_SALT = os.getenv("IMGPROXY_SALT", "")
 BFF_PUBLIC_URL = os.getenv("BFF_PUBLIC_URL", "http://localhost:8082")
 
 # 일자 경계 계산용 타임존 (DAILY 퀘스트 period_key, ride streak, 월별 통계 등)
-# .env 의 APP_TIMEZONE 값을 따른다. 미설정 또는 잘못된 값이면 Asia/Seoul 로 폴백.
-APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Seoul")
+# .env 의 APP_TIMEZONE 값을 따른다. 미설정 또는 잘못된 값이면 ICT 로 폴백.
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Ho_Chi_Minh")
 try:
     APP_TZ = ZoneInfo(APP_TIMEZONE)
 except ZoneInfoNotFoundError:
-    APP_TZ = ZoneInfo("Asia/Seoul")
+    APP_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+QUEST_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def quest_card_expires_at(period: str, ends_at: datetime | None, *, now: datetime | None = None) -> datetime | None:
+    """카드가 더는 활성 상태가 아닌 최초 시각을 ICT 기준으로 계산한다."""
+    now_ict = (now or datetime.now(QUEST_TZ)).astimezone(QUEST_TZ)
+    boundary: datetime | None = None
+    if period == "DAILY":
+        boundary = datetime.combine(now_ict.date() + timedelta(days=1), time.min, tzinfo=QUEST_TZ)
+    elif period == "WEEKLY":
+        boundary = datetime.combine(now_ict.date() + timedelta(days=7 - now_ict.weekday()), time.min, tzinfo=QUEST_TZ)
+    if ends_at is None:
+        return boundary
+    normalized_end = ends_at if ends_at.tzinfo else ends_at.replace(tzinfo=QUEST_TZ)
+    return min(boundary, normalized_end) if boundary else normalized_end
+
 
 MOCK_IMG_ENDPOINT = f"{BFF_PUBLIC_URL}/contents/mock-img"
 
@@ -246,6 +264,10 @@ async def find_nearest_ward_id(db, lat: float, lng: float, city: str = "HCMC") -
     from sqlalchemy import select
 
     from .models import Ward
+    from .services.service_area import in_service_area
+
+    if city.upper() == "HCMC" and not in_service_area(lat, lng):
+        return None
 
     wards = (
         await db.execute(

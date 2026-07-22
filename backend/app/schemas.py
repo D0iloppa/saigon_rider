@@ -725,6 +725,12 @@ class FeedCreateRequest(BaseModel):
     longitude: Decimal | None = None
     district_id: int | None = None
 
+    @model_validator(mode="after")
+    def validate_location_pair(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
+
 
 class FeedUpdateRequest(BaseModel):
     user_id: UUID
@@ -734,6 +740,12 @@ class FeedUpdateRequest(BaseModel):
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     update_location: bool = False  # True 시 lat/lng 갱신(None 이면 위치 해제)
+
+    @model_validator(mode="after")
+    def validate_location_pair(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
 
 
 class FeedDeleteRequest(BaseModel):
@@ -966,10 +978,15 @@ class DmConversationOut(BaseModel):
 
 
 class DmConversationCreateRequest(BaseModel):
-    user_id: UUID
     other_user_id: UUID
     context_type: str | None = None
     context_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_context_pair(self):
+        if (self.context_type is None) != (self.context_id is None):
+            raise ValueError("context_type and context_id must be provided together")
+        return self
 
 
 class AppointmentOut(BaseModel):
@@ -1053,15 +1070,10 @@ class DmMessageOut(BaseModel):
 
 
 class DmMessageCreateRequest(BaseModel):
-    sender_id: UUID
     content: str | None = None
     image_content_id: UUID | None = None
     message_type: str = "text"
     meta: dict | None = None
-
-
-class DmMarkReadRequest(BaseModel):
-    user_id: UUID
 
 
 # ── __DEV: 프로젝트 컨텍스트 관리 ────────────────────────────────

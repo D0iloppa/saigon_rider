@@ -5,7 +5,8 @@ import { floodApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
-import { resolveInfoCoords, type Coords } from '@/lib/infoCoords';
+import type { Coords } from '@/lib/infoCoords';
+import { native } from '@/lib/native';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import styles from './InfoFloodReport.module.css';
 
@@ -31,7 +32,13 @@ export default function InfoFloodReport() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    resolveInfoCoords(search).then(setCoords);
+    native.ensureLocationPermission()
+      .then(() => native.getLocation())
+      .then((position) => setCoords({
+        lat: position.lat,
+        lng: position.lng,
+      }))
+      .catch(() => setCoords(null));
   }, [search]);
 
   const locationDistrict = coords ? findNearestDistrict(coords.lat, coords.lng) : null;

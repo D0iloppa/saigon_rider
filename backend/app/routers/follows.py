@@ -56,6 +56,8 @@ async def follow_user(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     if body.user_id == target_user_id:
         raise HTTPException(status_code=400, detail="Cannot follow yourself")
 
@@ -79,6 +81,8 @@ async def unfollow_user(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     existing = await db.get(UserFollow, {"follower_id": body.user_id, "following_id": target_user_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Not following")

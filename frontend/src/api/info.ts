@@ -25,7 +25,12 @@ export interface WeatherData {
   location: { lat: number; lng: number; district: string };
   current: WeatherCurrent;
   forecast: { next_24h: ForecastHour[] };
-  recommendation_code: string; // CLEAR | RAIN_MED | RAIN_HIGH — i18n 으로 번역
+  recommendation_code: string; // CLEAR | RAIN_MED | RAIN_HIGH | UNCERTAIN
+  source: 'OPENWEATHER';
+  observed_at: string | null;
+  fetched_at: string;
+  stale: boolean;
+  error: string | null;
 }
 
 export interface RainRadarData {
@@ -170,6 +175,11 @@ const MOCK_WEATHER: WeatherData = {
     ],
   },
   recommendation_code: 'CLEAR',
+  source: 'OPENWEATHER',
+  observed_at: new Date().toISOString(),
+  fetched_at: new Date().toISOString(),
+  stale: false,
+  error: null,
 };
 
 const MOCK_FLOODS: FloodReport[] = [
@@ -309,11 +319,11 @@ export const floodApi = {
       body: JSON.stringify(data),
     }, 'bff', { rethrow: true });
   },
-  async confirm(report_id: number, confirmation_type: string): Promise<{ confirmed: boolean; gp_earned: number }> {
+  async confirm(report_id: number, confirmation_type: string, coords: { lat: number; lng: number }): Promise<{ confirmed: boolean; gp_earned: number }> {
     if (USE_MOCK) return api.delay({ confirmed: true, gp_earned: 5 }, 300);
     return api.realFetch<{ confirmed: boolean; gp_earned: number }>(
       `/info/flood/confirm/${report_id}`,
-      { method: 'POST', body: JSON.stringify({ confirmation_type }) },
+      { method: 'POST', body: JSON.stringify({ confirmation_type, ...coords }) },
     );
   },
   async getHotspots(district_code?: string): Promise<{ hotspots: FloodHotspot[] }> {
@@ -331,7 +341,7 @@ export const floodApi = {
             trust_level:
               (f.confidence_score ?? 0) >= 3
                 ? ('VERIFIED' as const)
-                : (f.confidence_score ?? 0) >= 1
+                : (f.confidence_score ?? 0) >= 2
                   ? ('CONFIRMED' as const)
                   : ('PENDING' as const),
             minutes_ago: Math.max(
@@ -565,6 +575,7 @@ export interface RouteStep {
 export interface RouteData {
   /** GOOGLE_MAPS_API_KEY 미설정/호출 실패 시 false → 프론트는 "준비 중" 폴백. */
   configured: boolean;
+  route_mode: 'two_wheeler';
   distance_m?: number | null;
   duration_s?: number | null;
   distance_text?: string | null;
@@ -578,12 +589,15 @@ export const routeApi = {
   async getRoute(
     origin: { lat: number; lng: number },
     dest: { lat: number; lng: number },
+    locale: string,
   ): Promise<RouteData | null> {
+    const language = locale.split('-')[0];
     const params = new URLSearchParams({
       origin_lat: String(origin.lat),
       origin_lng: String(origin.lng),
       dest_lat: String(dest.lat),
       dest_lng: String(dest.lng),
+      lang: ['ko', 'en', 'vi'].includes(language) ? language : 'vi',
     });
     return api.realFetch<RouteData>(`/info/route?${params}`, {}, 'bff', { silent: true });
   },

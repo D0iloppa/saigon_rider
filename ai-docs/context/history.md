@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-07-22
+
+- **퀘스트 완료 RP 지급 실패 자동 재시도 완료** — 지급 순서를 Engine RP 성공→BFF EXP·Gold/완료 commit으로 정리하고, 실패 상태·결정적 멱등키를 보존해 BFF 1분 배치가 행 잠금 아래 재처리한다. BFF 관련 테스트 9건·Engine 멱등키 보존 테스트 1건 통과, BFF 배포와 readiness 확인. Engine의 금전성 멱등키 영구 보존 변경은 기존 미완성 `sre059` 마이그레이션을 재실행하지 않도록 코드·테스트만 완료하고 런타임 배포는 보류했다. SoT: [`task/260722/260722_map_integration_reliability_task.md`](../task/260722/260722_map_integration_reliability_task.md).
+
+- **지도 연동 서비스 신뢰성 수정 완료 (MAP-1~12·ENG-1·SYS-1)** — 날씨 mock 제거·single-flight, Routes API `TWO_WHEELER`+rate limit/cache, Engine RP·가챠·상점 멱등성, 리뷰 매트뷰·침수 만료 배치 이관, 주유소 cache 국소 무효화·거리 후계산·GP await, POI 결정적 정렬, 정비 리뷰 NULL-safe 중복/보상 가드, 공통 WGS84 좌표 검증을 완료했다. MAP-12는 제품 결정에 따라 2025년 7월 이전 HCMC 22개 구·현 계약을 유지하고 geoBoundaries/OCHA·Government of Viet Nam 계보의 고정 ADM2 원본으로 경계를 교체했다. 22/22 유효·중첩 0·대표 역매핑 5/5, 외곽 3개 tiny polygon 교정. SYS-1은 credential CORS를 명시적 origin 화이트리스트로 전환하고 readiness에 DB·스키마·Redis·Engine 검사를 연결했다. SoT: [`task/260722/260722_map_integration_reliability_task.md`](../task/260722/260722_map_integration_reliability_task.md), 출처: [`map-boundary-source.md`](map-boundary-source.md). 최신 168개 행정체계 전환은 별도 제품 마이그레이션이다.
+
 ## 2026-06-04
 
 - **개발서버 → 운영서버 1차 배포 + 배포 SOP 수립 (SGR-220 DONE)** — 운영 `https://letantonsheriff.com`(임시 도메인, 기존 lsh 대체) 가동. SoT: `task/active/260604_deploy_prod_task.md`(runbook, 배포 기준 지침). **결정**: 별도 운영 호스트(Rocky 9.6, `ssh saigon-prod`)·git pull+compose build·**nginx 2계층(ADR-001, 호스트 nginx→`127.0.0.1:18090`)**·`/app/SaigonRider` 격리. **수행**: 프로비저닝(Docker 설치·wellconn docker그룹·read-only deploy key clone) → P2 `docker-compose.prod.yml`(포트 비노출·소스마운트 제거·mcp_dev 제외, `!override/!reset`) → P3 운영 `.env`(시크릿 회전, 키셋 일치) → P4 호스트 nginx(`lsh_api.conf`에서 root+www 분리, `saigon.conf` 추가, 기존 cert 2-SAN 축소+자동갱신 `saigon-cert-renew.sh`+cron) → P6 빌드·기동(8컨테이너, 포트격리 검증) → P5 데이터(dev 전체 dump→drop&recreate&restore, 테스트유저 정리: item140/quest243/district41, users0). 이미지·아바타 서빙 200 검증. **버그 교정**: `BFF_PUBLIC_URL`에 `/api/bff` 누락(아바타 폴백 SPA 루프백)→교정. **네이티브**(별 repo): AppConfig baseURL dev/prod 빌드 분기(iOS `#if DEBUG`/Android `BuildConfig.DEBUG`), serviceKey 단일 유지 위해 운영 `ENGINE_SERVICE_KEY`를 앱 값으로 정렬(SRE 200/401 검증). grand-opening 공식 피드(Saigon-Rider) 이관·content_id 배선·카운터 재계산. **도메인 마이그레이션 규칙**(host 참조 7지점 + 절차) 문서화. md+Notion+Plane(P1~P6+main DONE) 동기화. **후속**: SGR-227(init 스키마 베이스라인 결함 — fresh DB 빌드 불가, dump-restore 우회), FCM firebase json 마운트, official/grand-opening.jpg 1건.

@@ -4,12 +4,14 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_service_key
 from ..engine_client import engine_client
-from ..models import Badge, Quest, User, UserBadge, UserQuest
+from ..models import Badge, InternalRewardGrant, Quest, User, UserBadge, UserQuest
 from ..utils import apply_quest_reward_multiplier, gain_exp
 
 # 퀘스트 RP 상한(표시=실지급). 일일 총량은 데일리에 한해 engine DAILY_RP_CAP(60)로 별도 제한.
@@ -22,21 +24,33 @@ log = logging.getLogger(__name__)
 class GrantExpRequest(BaseModel):
     user_uuid: str
     amount: int
+    idempotency_key: str
 
 
 class GrantGoldRequest(BaseModel):
     user_uuid: str
     amount: int
+    idempotency_key: str
 
 
 class GrantBadgeRequest(BaseModel):
     user_uuid: str
     badge_id: str
+    idempotency_key: str
 
 
 class GrantResponse(BaseModel):
     ok: bool
     detail: str | None = None
+
+
+async def _claim_reward_grant(db: AsyncSession, *, idempotency_key: str, operation: str, user_id: uuid.UUID) -> bool:
+    result = await db.execute(
+        pg_insert(InternalRewardGrant)
+        .values(idempotency_key=idempotency_key, operation=operation, user_id=user_id)
+        .on_conflict_do_nothing(index_elements=["idempotency_key"])
+    )
+    return result.rowcount == 1
 
 
 @router.post("/grant-exp", response_model=GrantResponse)
@@ -45,6 +59,8 @@ async def grant_exp(body: GrantExpRequest, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if not await _claim_reward_grant(db, idempotency_key=body.idempotency_key, operation="EXP", user_id=uid):
+        return GrantResponse(ok=True, detail="already_granted")
 
     gained = await gain_exp(db, user, body.amount)
     await db.commit()
@@ -65,6 +81,8 @@ async def grant_gold(body: GrantGoldRequest, db: AsyncSession = Depends(get_db))
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if not await _claim_reward_grant(db, idempotency_key=body.idempotency_key, operation="GOLD", user_id=uid):
+        return GrantResponse(ok=True, detail="already_granted")
 
     user.gold += body.amount
     await db.commit()
@@ -95,8 +113,12 @@ async def grant_badge(body: GrantBadgeRequest, db: AsyncSession = Depends(get_db
     if not badge:
         raise HTTPException(status_code=404, detail="Badge not found")
 
+    if not await _claim_reward_grant(db, idempotency_key=body.idempotency_key, operation="BADGE", user_id=uid):
+        return GrantResponse(ok=True, detail="already_granted")
+
     existing = await db.get(UserBadge, (uid, badge_uid))
     if existing:
+        await db.commit()
         return GrantResponse(ok=True, detail="already_owned")
 
     db.add(UserBadge(user_id=uid, badge_id=badge_uid))
@@ -107,9 +129,44 @@ async def grant_badge(body: GrantBadgeRequest, db: AsyncSession = Depends(get_db
 
 class QuestCardCompletedRequest(BaseModel):
     user_quest_id: str
-    external_quest_id: str | None = None
-    card_id: int | None = None
-    card_type: str | None = None
+    external_quest_id: str
+    card_id: int
+    card_type: str
+
+
+async def grant_quest_completion_reward(
+    db: AsyncSession,
+    uq: UserQuest,
+    quest: Quest,
+    user: User,
+) -> tuple[int, int, int, bool]:
+    reward_exp, reward_gold = await apply_quest_reward_multiplier(db, user, quest.reward_exp, quest.reward_gold)
+    rp_grant = min(QUEST_RP_CAP, round(quest.reward_exp * 0.3))
+    rp_capped = quest.period not in ("WEEKLY", "EVENT")
+    grant_key = uq.reward_idempotency_key or f"quest-reward-{uq.id}"
+    uq.reward_idempotency_key = grant_key
+    if rp_grant > 0:
+        try:
+            await engine_client.credit_rp(
+                str(user.id),
+                amount=rp_grant,
+                idempotency_key=f"{grant_key}:rp",
+                apply_daily_cap=rp_capped,
+            )
+        except Exception as exc:
+            uq.reward_grant_status = "FAILED"
+            uq.reward_last_error = str(exc)[:500]
+            await db.commit()
+            raise
+
+    uq.status = "COMPLETED"
+    uq.completed_at = datetime.now(UTC)
+    uq.reward_grant_status = "SUCCEEDED"
+    uq.reward_last_error = None
+    user.gold += reward_gold
+    await gain_exp(db, user, reward_exp)
+    await db.commit()
+    return reward_exp, reward_gold, rp_grant, rp_capped
 
 
 @router.post("/quest-card-completed", response_model=GrantResponse)
@@ -124,43 +181,34 @@ async def quest_card_completed(
     except ValueError:
         raise HTTPException(status_code=400, detail="invalid user_quest_id") from None
 
-    uq = await db.get(UserQuest, uq_uid)
+    uq = (await db.execute(select(UserQuest).where(UserQuest.id == uq_uid).with_for_update())).scalar_one_or_none()
     if uq is None:
         raise HTTPException(status_code=404, detail="user_quest not found")
 
-    if uq.status == "COMPLETED":
+    if uq.reward_grant_status == "SUCCEEDED":
         return GrantResponse(ok=True, detail="already_completed")
+
+    # Engine card 수행 중에도 BFF UserQuest는 ACCEPTED를 유지한다. 완료 전 상태는
+    # 이것 하나뿐이며 FAILED/ABANDONED/EXPIRED 등은 늦게 도착한 callback도 거절한다.
+    if uq.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail=f"user_quest is not rewardable ({uq.status})")
 
     quest = await db.get(Quest, uq.quest_id)
     user = await db.get(User, uq.user_id)
     if quest is None or user is None:
         raise HTTPException(status_code=404, detail="quest/user not found")
+    if body.external_quest_id != str(quest.id) or body.card_type != quest.card_type:
+        raise HTTPException(status_code=409, detail="quest card context mismatch")
 
-    # 실지급 = base * (1 + 아이템% + 스킬%). 공용 헬퍼로 ride/quests 와 동일 적용.
-    reward_exp, reward_gold = await apply_quest_reward_multiplier(db, user, quest.reward_exp, quest.reward_gold)
-    uq.status = "COMPLETED"
-    uq.completed_at = datetime.now(UTC)
-    user.gold += reward_gold
-    await gain_exp(db, user, reward_exp)
-    await db.commit()
-
-    # RP(gc) 적립 — 표시값(reward_exp*0.3)을 실제 지급, 퀘스트당 200 상한.
-    # 주간/이벤트만 일일캡(60) 면제, 그 외(데일리·미상)는 fail-closed 로 캡 적용.
-    # 멱등: 위 status 가드로 1회만 진입 → 실패해도 재시도 안 되므로 침묵 금지(로그 경고).
-    rp_grant = min(QUEST_RP_CAP, round(quest.reward_exp * 0.3))
-    rp_capped = quest.period not in ("WEEKLY", "EVENT")
-    rp_ok = False
-    if rp_grant > 0:
-        try:
-            await engine_client.credit_rp(str(user.id), amount=rp_grant, apply_daily_cap=rp_capped)
-            rp_ok = True
-        except Exception:
-            log.warning(
-                "quest-card-completed RP 적립 실패(재시도 안 됨): user_quest=%s rp=%d",
-                body.user_quest_id,
-                rp_grant,
-                exc_info=True,
-            )
+    try:
+        reward_exp, reward_gold, rp_grant, rp_capped = await grant_quest_completion_reward(db, uq, quest, user)
+    except Exception as exc:
+        log.warning(
+            "quest-card-completed RP 적립 실패(재시도 예정): user_quest=%s",
+            body.user_quest_id,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=503, detail="reward grant temporarily failed") from exc
 
     log.info(
         "internal quest-card-completed: user_quest=%s quest=%s card=%s +exp=%d +gold=%d +rp=%d(ok=%s,capped=%s)",
@@ -169,8 +217,8 @@ async def quest_card_completed(
         body.card_id,
         reward_exp,
         reward_gold,
-        rp_grant if rp_ok else 0,
-        rp_ok,
+        rp_grant,
+        True,
         rp_capped,
     )
     return GrantResponse(ok=True)

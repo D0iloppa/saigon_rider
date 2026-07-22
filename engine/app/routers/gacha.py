@@ -13,6 +13,7 @@ from app.schemas import (
     GachaPullResult,
 )
 from app.services import gacha as gacha_svc
+from app.services.operation_idempotency import IdempotencyConflictError
 
 router = APIRouter(prefix="/v1/gacha", tags=["gacha"])
 
@@ -73,10 +74,13 @@ async def pull_gacha(
         return await gacha_svc.pull(
             db,
             user_uuid=data.user_uuid,
+            idempotency_key=data.idempotency_key,
             gacha_code=data.gacha_code,
             is_10_pull=data.is_10_pull,
             skill_discount_pct=data.skill_discount_pct,
         )
+    except IdempotencyConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     except Exception as e:
         msg = str(e)
         if "insufficient" in msg.lower():

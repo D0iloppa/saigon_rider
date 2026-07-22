@@ -90,10 +90,28 @@ async def pull(
     db: AsyncSession,
     *,
     user_uuid: str,
+    idempotency_key: str,
     gacha_code: str,
     is_10_pull: bool = False,
     skill_discount_pct: int = 0,
 ) -> GachaPullResult:
+    from app.services.operation_idempotency import claim_or_replay, store_response
+
+    request_payload = {
+        "gacha_code": gacha_code,
+        "is_10_pull": is_10_pull,
+        "skill_discount_pct": skill_discount_pct,
+    }
+    replay = await claim_or_replay(
+        db,
+        idempotency_key=idempotency_key,
+        operation="GACHA_PULL",
+        user_uuid=user_uuid,
+        payload=request_payload,
+    )
+    if replay is not None:
+        return GachaPullResult.model_validate(replay)
+
     user = await get_or_create_user(db, user_uuid)
     await get_or_create_balance(db, user.user_id)
     await db.flush()
@@ -104,8 +122,6 @@ async def pull(
          "disc": skill_discount_pct},
     )
     raw = row.scalar_one()
-    await db.commit()
-
     results = []
     for r in raw["results"]:
         results.append(GachaPullResultItem(
@@ -119,7 +135,7 @@ async def pull(
             refund_amount=r.get("refund_amount"),
         ))
 
-    return GachaPullResult(
+    response = GachaPullResult(
         gacha_code=raw["gacha_code"],
         is_10_pull=raw["is_10_pull"],
         batch_id=raw["batch_id"],
@@ -129,3 +145,6 @@ async def pull(
         pity_count_after=raw["pity_count_after"],
         total_pulls_after=raw["total_pulls_after"],
     )
+    await store_response(db, idempotency_key, response.model_dump(mode="json"))
+    await db.commit()
+    return response

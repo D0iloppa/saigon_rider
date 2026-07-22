@@ -13,6 +13,7 @@
 - [프론트엔드 구조 및 패턴](context/frontend.md) — 네이티브 브릿지 API, iOS/Android 플랫폼 분기 CSS 아키텍처 (`--status-bar-height`, `data-platform`), StatusBar 여백 규칙, 공통 UI 컴포넌트 목록
 - [네이티브 키보드 연계 UX 규약](context/keyboard-ux.md) — KeyboardBridge → native.onKeyboardChange → useKeyboard 인프라, 스크롤 페이지형/오버레이 바텀시트형 정답 패턴, 안티패턴, 신규 화면 체크리스트
 - [프론트엔드 페이지-메뉴-컴포넌트 맵](context/frontend-page-map.md) — 한글 메뉴명(탭바/게임허브) → 라우트 → 페이지/컴포넌트 파일 매핑, codebase-memory MCP 심화 조회 연결점
+- [Legacy HCMC 행정경계 출처](context/map-boundary-source.md) — 2025년 7월 이전 22개 구·현 경계의 고정 원본·라이선스·SHA-256·재생성 절차
 - [ERD & DB 스키마](schema/erd.md) — 테이블 19종, Mermaid ERD, PostGIS, 마이그레이션 목록
 - [인증 구조](schema/auth.md) — FastAPI 인증, 쿠키 세션, passcode 발급
 

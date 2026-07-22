@@ -5,9 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..models import District, RiderType, SafetyGrade, Ward
 from ..schemas import DistrictOut, RiderTypeOut, SafetyGradeOut, WardOut
+from ..services.service_area import geometry_contract, in_service_area
 from ..utils import haversine_m
 
 router = APIRouter(prefix="/master", tags=["마스터 데이터"])
+
+
+@router.get("/service-area", summary="서비스 Ward geometry 계약")
+async def get_service_area():
+    return geometry_contract()
 
 
 @router.get("/wards", response_model=list[WardOut], summary="Ward 목록 (2025 행정 통폐합)")
@@ -28,6 +34,8 @@ async def resolve_ward(
     city: str = Query("HCMC"),
     db: AsyncSession = Depends(get_db),
 ):
+    if city.upper() == "HCMC" and not in_service_area(lat, lng):
+        return None
     result = await db.execute(
         select(Ward).where(
             Ward.is_active == True,

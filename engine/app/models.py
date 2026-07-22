@@ -351,6 +351,9 @@ class IdempotencyKey(Base):
     idempotency_key = Column(String(80), primary_key=True)
     resource_type = Column(String(40), nullable=False)
     resource_id = Column(BigInteger, nullable=True)
+    external_user_uuid = Column(String(36), nullable=True)
+    request_hash = Column(String(64), nullable=True)
+    response_json = Column(JSONB, nullable=True)
     created_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
     expires_at = Column(_TS, nullable=False)
 
@@ -865,11 +868,24 @@ class UserPolicyLog(Base):
     user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
     policy_id = Column(BigInteger, ForeignKey("reward_policy.id"), nullable=False)
     trigger_snapshot = Column(JSONB, nullable=True)
+    status = Column(String(10), nullable=False, default="PENDING", server_default="PENDING")
+    idempotency_key = Column(String(160), nullable=False, unique=True)
+    last_error = Column(Text, nullable=True)
     rewarded_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
 
     __table_args__ = (
         Index("idx_policy_log_user_policy", "user_id", "policy_id", rewarded_at.desc()),
     )
+
+
+class PolicyActionGrant(Base):
+    __tablename__ = "policy_action_grant"
+
+    idempotency_key = Column(String(200), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id"), nullable=False)
+    policy_id = Column(BigInteger, ForeignKey("reward_policy.id"), nullable=False)
+    action_id = Column(BigInteger, ForeignKey("reward_policy_action.id"), nullable=False)
+    granted_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
 
 
 class SreSeedConfig(Base):
@@ -912,5 +928,7 @@ class SreQuestCard(Base):
 
     __table_args__ = (
         Index("idx_quest_card_user_active", "user_id", "status",
+              postgresql_where="status = 'ACTIVE'"),
+        Index("uq_quest_card_user_quest_active", "user_quest_id", unique=True,
               postgresql_where="status = 'ACTIVE'"),
     )

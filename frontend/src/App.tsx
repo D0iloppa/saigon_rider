@@ -10,6 +10,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, clearSession } from '@/lib/session';
+import { bootstrapSession, leaveBootstrapForLogin } from '@/lib/sessionBootstrap';
 import { apiSessionVerify } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
 import { setSessionExpiredHandler, SessionExpiredError, setAccountRestrictedHandler, AccountRestrictedError } from '@/api/client';
@@ -172,6 +173,8 @@ export default function App() {
   const logout = useUserStore((s) => s.logout);
   const refreshUnread = useDmStore((s) => s.refreshUnread);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState(false);
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const dmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
@@ -290,28 +293,26 @@ export default function App() {
   useEffect(() => {
     if (user?.language) changeLang(user.language);
 
-    const session = loadSession();
-    if (!session) {
-      setBootstrapped(true);
-      return;
-    }
-
-    apiSessionVerify(session.userId, session.sessionToken)
-      .then((result) => {
-        loginFromBackend(result.user);
-        // 정지 해제(lazy-lift) 후 정상 로그인 성공 — 이전 제재 안내 플래그 정리
+    let active = true;
+    setBootstrapError(false);
+    bootstrapSession({
+      session: loadSession(),
+      verify: async (userId, sessionToken) => (await apiSessionVerify(userId, sessionToken)).user,
+      login: (verifiedUser) => {
+        loginFromBackend(verifiedUser);
         sessionStorage.removeItem('account_restricted');
-      })
-      .catch((err) => {
-        // 정지/밴 계정 — client.ts 핸들러가 이미 /suspended 리다이렉트 처리. 세션은 유지.
-        if (err instanceof AccountRestrictedError) return;
-        clearSession();
-        logout();
-      })
-      .finally(() => {
-        setBootstrapped(true);
-      });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      },
+      clear: clearSession,
+      logout,
+      isExpired: (error) => error instanceof SessionExpiredError,
+      isRestricted: (error) => error instanceof AccountRestrictedError,
+    }).then((result) => {
+      if (!active || result === 'restricted') return;
+      if (result === 'retryable-error') setBootstrapError(true);
+      else setBootstrapped(true);
+    });
+    return () => { active = false; };
+  }, [bootstrapAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 부팅 완료 후 최소 1200ms 보장하고 splash fade-out
   useEffect(() => {
@@ -331,7 +332,16 @@ export default function App() {
       <Toaster position="top-center" gap={6} visibleToasts={3} />
       <Dialog />
       <ConfirmDialog />
-      <AppShell splashVisible={splashVisible} splashFade={splashFade} gifReady={gifReady}>
+      <AppShell
+        splashVisible={splashVisible}
+        splashFade={splashFade}
+        gifReady={gifReady}
+        bootstrapError={bootstrapError}
+        onBootstrapRetry={() => setBootstrapAttempt((attempt) => attempt + 1)}
+        onBootstrapLogin={() => {
+          leaveBootstrapForLogin(clearSession, logout, () => window.location.replace('/auth/oauth'));
+        }}
+      >
         {bootstrapped && <BackgroundRoutes>
           {/* default */}
           <Route path="/" element={<Navigate to="/splash" replace />} />

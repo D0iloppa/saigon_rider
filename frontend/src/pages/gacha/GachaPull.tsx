@@ -80,6 +80,7 @@ export default function GachaPull() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const is10 = searchParams.get('is10') === 'true';
+  const intentKey = searchParams.get('intent');
 
   const [result, setResult] = useState<GachaPullResult | null>(null);
   const [pityAfter, setPityAfter] = useState<GachaPity | null>(null);
@@ -102,7 +103,10 @@ export default function GachaPull() {
   };
 
   const runPull = useCallback(() => {
-    if (!gachaCode) return;
+    if (!gachaCode || !intentKey) {
+      setErrorMsg(t('common.errorUnexpected'));
+      return;
+    }
     clearTimers();
     skipRef.current = false;
     setResult(null);
@@ -114,7 +118,7 @@ export default function GachaPull() {
     const startedAt = Date.now();
     addTimer(() => setErrorMsg(t('common.errorUnexpected')), 15000);
 
-    pullGacha(gachaCode, is10)
+    pullGacha(gachaCode, is10, intentKey)
       .then((r) => {
         clearTimers();
         setResult(r);
@@ -153,15 +157,15 @@ export default function GachaPull() {
           setErrorMsg(msg || t('common.errorUnexpected'));
         }
       });
-  }, [gachaCode, is10, t]);
+  }, [gachaCode, is10, intentKey, t]);
 
   useEffect(() => {
-    const key = `${gachaCode}-${is10}`;
+    const key = `${gachaCode}-${is10}-${intentKey}`;
     if (pulledKey.current === key) return;
     pulledKey.current = key;
     runPull();
     return () => { clearTimers(); };
-  }, [runPull, gachaCode, is10]);
+  }, [runPull, gachaCode, is10, intentKey]);
 
   // 연출 생략 — 진행 중인 모든 타이머를 끄고 바로 결과로
   const handleSkip = () => {
@@ -178,6 +182,12 @@ export default function GachaPull() {
           <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
             {errorMsg}
           </p>
+          <button
+            onClick={runPull}
+            style={{ marginTop: 12, color: 'var(--brand-500)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
+          >
+            {t('common.retry', '다시 시도')}
+          </button>
           <button
             onClick={() => navigate(-1)}
             style={{ marginTop: 12, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}

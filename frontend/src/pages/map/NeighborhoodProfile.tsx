@@ -35,7 +35,8 @@ export default function NeighborhoodProfile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
-  const savedCoords = useLocationStore((s) => s.coords);
+  const storedLocation = useLocationStore((s) => s.location);
+  const savedCoords = storedLocation && storedLocation.accountId === user?.id ? storedLocation.coords : null;
   const nickname = user?.nickname || t('map.neighborhoodProfile.defaultNickname');
 
   const [reviewData, setReviewData] = useState<MyRepairReviewsResult | null>(null);

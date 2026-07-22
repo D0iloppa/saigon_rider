@@ -18,6 +18,12 @@ class EngineClient:
             timeout=10.0,
         )
 
+    async def check_readiness(self) -> None:
+        response = await self._client.get("/v1/ready", timeout=2.0)
+        response.raise_for_status()
+        if response.json().get("status") != "ready":
+            raise RuntimeError("Engine is not ready")
+
     async def post_event(
         self,
         *,
@@ -83,11 +89,17 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def credit_rp(self, user_uuid: str, *, amount: int, apply_daily_cap: bool = True) -> dict:
+    async def credit_rp(
+        self, user_uuid: str, *, amount: int, idempotency_key: str, apply_daily_cap: bool = True
+    ) -> dict:
         """RP(gc_balance) 직접 적립. apply_daily_cap=False 면 일일캡(60) 면제(주간/이벤트 퀘)."""
         resp = await self._client.post(
             f"/v1/users/{user_uuid}/credit-rp",
-            json={"amount": amount, "apply_daily_cap": apply_daily_cap},
+            json={
+                "amount": amount,
+                "apply_daily_cap": apply_daily_cap,
+                "idempotency_key": idempotency_key,
+            },
         )
         resp.raise_for_status()
         return resp.json()
@@ -168,6 +180,7 @@ class EngineClient:
         self,
         *,
         user_uuid: str,
+        idempotency_key: str,
         gacha_code: str,
         is_10_pull: bool = False,
         skill_discount_pct: int = 0,
@@ -176,6 +189,7 @@ class EngineClient:
             "/v1/gacha/pull",
             json={
                 "user_uuid": user_uuid,
+                "idempotency_key": idempotency_key,
                 "gacha_code": gacha_code,
                 "is_10_pull": is_10_pull,
                 "skill_discount_pct": skill_discount_pct,
@@ -246,6 +260,7 @@ class EngineClient:
         self,
         *,
         user_uuid: str,
+        idempotency_key: str,
         item_code: str,
         currency: str,
         skill_discount_pct: int = 0,
@@ -254,6 +269,7 @@ class EngineClient:
             "/v1/shop/purchase",
             json={
                 "user_uuid": user_uuid,
+                "idempotency_key": idempotency_key,
                 "item_code": item_code,
                 "currency": currency,
                 "skill_discount_pct": skill_discount_pct,
@@ -498,6 +514,15 @@ class EngineClient:
         resp = await self._client.get(
             "/v1/device-map/lookup",
             params={"external_user_uuid": external_user_uuid},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def delete_device_map(self, device_uuid: str, external_user_uuid: str) -> dict:
+        resp = await self._client.request(
+            "DELETE",
+            "/v1/device-map",
+            json={"device_uuid": device_uuid, "external_user_uuid": external_user_uuid},
         )
         resp.raise_for_status()
         return resp.json()

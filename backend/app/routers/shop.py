@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +56,7 @@ _CURRENCY_TO_ENGINE = {"GOLD": "GP", "XP": "GC", "GP": "GP", "GC": "GC"}
 @router.post("/purchase")
 async def purchase_item(
     payload: ShopPurchaseRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=80),
     uid: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -65,6 +66,7 @@ async def purchase_item(
     try:
         return await engine_client.purchase_shop_item(
             user_uuid=str(uid),
+            idempotency_key=idempotency_key,
             item_code=payload.item_code,
             currency=engine_currency,
             skill_discount_pct=skill_disc,

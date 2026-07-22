@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { fetchShopItems, purchaseShopItem, slotLabel } from '@/api/shop';
@@ -27,8 +27,10 @@ export default function ItemDetail() {
   const [item, setItem] = useState<ShopItem | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [buying, setBuying] = useState(false);
+  const purchaseIntentRef = useRef<string | null>(null);
 
   useEffect(() => {
+    purchaseIntentRef.current = null;
     if (!itemCode) return;
     fetchShopItems({ limit: 500 }).then((all) => {
       const found = all.find((i) => i.item_code === itemCode);
@@ -42,8 +44,11 @@ export default function ItemDetail() {
     setBuying(true);
     try {
       const currency = item.price_gold ? 'GOLD' : 'XP';
-      await purchaseShopItem(item.item_code, currency);
+      const intentKey = purchaseIntentRef.current ?? crypto.randomUUID();
+      purchaseIntentRef.current = intentKey;
+      await purchaseShopItem(item.item_code, currency, intentKey);
       toast.success(t('itemDetail.purchase_success'));
+      purchaseIntentRef.current = null;
       setItem({ ...item, is_owned: true });
     } catch (e: any) {
       const msg = e?.message ?? String(e);

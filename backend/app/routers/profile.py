@@ -58,6 +58,8 @@ async def upload_avatar(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     parsed_user_id = uuid.UUID(user_id)
+    if parsed_user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     user = await _get_user_or_404(parsed_user_id, db)
 
     if file.content_type not in ALLOWED_MIME_TYPES:
@@ -103,6 +105,8 @@ async def update_nickname(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     user = await _get_user_or_404(body.user_id, db)
 
     nickname = body.nickname.strip()
@@ -135,6 +139,8 @@ async def check_nickname(nickname: str, db: AsyncSession = Depends(get_db)):
 async def save_profile(
     body: ProfileSaveRequest, db: AsyncSession = Depends(get_db), _session_uid: uuid.UUID = Depends(verify_user_session)
 ):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     user = await _get_user_or_404(body.user_id, db)
 
     nickname = body.nickname.strip()

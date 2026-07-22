@@ -89,21 +89,6 @@ export default function InfoGasList() {
     resolveAndLoad(instant);
   }, [search, resolveAndLoad]);
 
-  // 거리 기준 = 실제 단말 GPS (URL/구역 좌표와 독립). 성공 시 내 위치 기준, 실패 시 null → 구역 centroid 폴백.
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        if (alive) setUserGps({ lat: pos.lat, lng: pos.lng });
-      } catch {
-        if (alive) setUserGps(null);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
-
   // 표준유가 로드 (전국 규제가, 마운트 1회).
   useEffect(() => {
     gasApi.getTodayPrices().then(setTodayPrices).catch(() => {});
@@ -168,7 +153,7 @@ export default function InfoGasList() {
             markers={gasMarkers}
             onRegionSelect={handleRegionSelect}
             initialGps={incomingCoords ?? undefined}
-            locateOnMount={!incomingCoords}
+            onLocated={(coords) => { setUserGps(coords); fetchStations(coords); }}
           />
         </div>
         {refPrices && (

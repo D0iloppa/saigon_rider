@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .engine_client import engine_client
@@ -45,6 +46,7 @@ from .routers import (
     users,
     wallet,
 )
+from .services.cors import get_allowed_origins
 
 
 @asynccontextmanager
@@ -54,9 +56,13 @@ async def lifespan(app: FastAPI):
     # 현재 외부 스크래퍼는 스텁 (D9), admin manual upsert 가 1차 운영 경로.
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
 
+    from .jobs.expire_flood_reports import expire_stale_flood_reports
     from .jobs.fetch_fuel_prices import run_fetch_cycle
     from .jobs.predict_flood_risk import run_flood_risk_prediction
+    from .jobs.refresh_repair_stats import refresh_repair_shop_stats
+    from .jobs.retry_quest_rewards import retry_failed_quest_rewards
 
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
     for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
@@ -70,12 +76,34 @@ async def lifespan(app: FastAPI):
             CronTrigger(hour=hour, minute=minute),
             id=f"flood_risk_{hour:02d}{minute:02d}",
         )
+    scheduler.add_job(
+        refresh_repair_shop_stats,
+        IntervalTrigger(minutes=5),
+        id="refresh_repair_shop_stats",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        expire_stale_flood_reports,
+        IntervalTrigger(minutes=5),
+        id="expire_stale_flood_reports",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        retry_failed_quest_rewards,
+        IntervalTrigger(minutes=1),
+        id="retry_failed_quest_rewards",
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.start()
 
     try:
         yield
     finally:
         scheduler.shutdown(wait=False)
+        await info_route.close_route_client()
         await engine_client.close()
 
 
@@ -121,7 +149,7 @@ async def custom_redoc_html():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -168,6 +196,18 @@ app.include_router(info_weather.router, prefix="/api")
 app.mount("/admin-legacy/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")
 
 
-@app.get("/api/health", tags=["system"], summary="헬스체크")
+@app.get("/api/health", tags=["system"], summary="생존 상태")
 async def health():
+    """프로세스 liveness. DB·Redis 준비 상태는 /api/ready에서 확인한다."""
     return {"status": "ok"}
+
+
+@app.get("/api/ready", tags=["system"], summary="준비 상태")
+async def readiness():
+    from .readiness import check_readiness
+
+    try:
+        checks = await check_readiness()
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "not_ready"})
+    return {"status": "ready", "checks": checks}

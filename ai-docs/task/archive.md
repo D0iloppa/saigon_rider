@@ -2,6 +2,10 @@
 
 > 활성 태스크는 [`active/`](active/) 폴더 참조. 트러블슈팅은 [`../trouble/index.md`](../trouble/index.md).
 
+## 260722
+
+- [지도 연동 서비스 신뢰성 수정](260722/260722_map_integration_reliability_task.md) — MAP-1~12·ENG-1·SYS-1 및 퀘스트 RP 실패 자동 재시도 완료: 외부 API 정직한 실패, 이륜차 경로·캐시·멱등성·배치 이관·어뷰징 방어·legacy 22개 행정경계·CORS/readiness
+
 ## 260513
 
 - [Contents 이미지 서빙 구현](260513/260513_contents_task_plan.md) — DB 스키마(contents), 업로드 API, imgproxy URL 서빙 기능 (완료)

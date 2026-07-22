@@ -2,8 +2,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import verify_service_key, verify_user_session
 from ..engine_client import engine_client
 from ..models import FloodConfirmation, FloodReport
+from ..services.coordinates import Latitude, Longitude
 from .map._geo import find_district_by_point
 
 router = APIRouter(prefix="/info/flood", tags=["Info — 침수"])
@@ -19,6 +20,12 @@ _DEPTH_LEVELS = ("ankle", "knee", "thigh", "above")
 _DAILY_REPORT_LIMIT = 5
 _DEDUP_RADIUS_M = 100
 _DEDUP_MINUTES = 30
+_VOTE_RADIUS_M = 500
+_VOTE_WINDOW_HOURS = 2
+_CONFIRM_QUORUM = 2
+_VERIFIED_QUORUM = 3
+_RESOLVE_QUORUM = 2
+_FALSE_QUORUM = 2
 
 
 # ── XP helper ──────────────────────────────────────────────────────────────
@@ -35,29 +42,6 @@ async def _earn_gp_safe(user_id: uuid.UUID, action_code: str, idem_key: str, pay
     )
 
 
-# ── Lazy expiry ─────────────────────────────────────────────────────────────
-
-
-async def _expire_stale(db: AsyncSession) -> None:
-    """만료 기준을 지난 활성 신고를 EXPIRED로 전환. ST_DWithin 없는 순수 SQL."""
-    await db.execute(
-        text("""
-            UPDATE flood_report
-               SET status = 'EXPIRED'
-             WHERE status = 'ACTIVE'
-               AND expires_at < NOW()
-               AND NOT EXISTS (
-                   SELECT 1
-                     FROM flood_confirmation
-                    WHERE report_id = flood_report.report_id
-                      AND confirmation_type = 'still_flooded'
-                      AND confirmed_at > NOW() - INTERVAL '2 hours'
-               )
-        """)
-    )
-    await db.commit()
-
-
 # ── District lookup ─────────────────────────────────────────────────────────
 
 
@@ -65,8 +49,8 @@ async def _expire_stale(db: AsyncSession) -> None:
 
 
 class FloodReportCreate(BaseModel):
-    lat: float = Field(..., ge=10.5, le=11.2)
-    lng: float = Field(..., ge=106.4, le=107.0)
+    lat: Latitude
+    lng: Longitude
     depth_level: Literal["ankle", "knee", "thigh", "above"]
     street_name: str | None = None
     photo_url: str | None = None
@@ -74,6 +58,19 @@ class FloodReportCreate(BaseModel):
 
 class FloodConfirmCreate(BaseModel):
     confirmation_type: Literal["still_flooded", "resolved", "false"]
+    lat: Latitude
+    lng: Longitude
+
+
+def _vote_transition(confirmation_type: str, vote_count: int) -> tuple[str | None, int | None]:
+    """독립 사용자·근거리·시간창 검증을 통과한 표에만 적용하는 상태 규칙."""
+    if confirmation_type == "still_flooded":
+        return None, vote_count
+    if confirmation_type == "resolved" and vote_count >= _RESOLVE_QUORUM:
+        return "RESOLVED", None
+    if confirmation_type == "false" and vote_count >= _FALSE_QUORUM:
+        return "FLAGGED", None
+    return None, None
 
 
 # ── Abuse guards ─────────────────────────────────────────────────────────────
@@ -110,14 +107,12 @@ async def _check_abuse(db: AsyncSession, user_id: uuid.UUID, lat: float, lng: fl
 
 @router.get("/active")
 async def get_active_floods(
-    lat: float,
-    lng: float,
-    radius_km: float = 5.0,
+    lat: Latitude,
+    lng: Longitude,
+    radius_km: float = Query(5.0, gt=0, le=50),
     user_id: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
-    await _expire_stale(db)
-
     result = await db.execute(
         text("""
             SELECT
@@ -212,13 +207,35 @@ async def confirm_flood(
     user_id: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
-    report = await db.get(FloodReport, report_id)
+    report = await db.scalar(select(FloodReport).where(FloodReport.report_id == report_id).with_for_update())
     if not report:
         raise HTTPException(404, "Report not found")
     if report.reporter_user_id == user_id:
         raise HTTPException(400, "Cannot confirm your own report")
     if report.status != "ACTIVE":
         raise HTTPException(400, "Report is no longer active")
+    now = datetime.now(UTC)
+    if report.expires_at <= now:
+        raise HTTPException(409, "Report has expired")
+
+    nearby = await db.scalar(
+        text("""
+            SELECT ST_DWithin(
+                ST_SetSRID(ST_MakePoint(:report_lng, :report_lat), 4326)::geography,
+                ST_SetSRID(ST_MakePoint(:vote_lng, :vote_lat), 4326)::geography,
+                :radius_m
+            )
+        """),
+        {
+            "report_lat": float(report.lat),
+            "report_lng": float(report.lng),
+            "vote_lat": body.lat,
+            "vote_lng": body.lng,
+            "radius_m": _VOTE_RADIUS_M,
+        },
+    )
+    if not nearby:
+        raise HTTPException(400, f"현장에서 {_VOTE_RADIUS_M}m 이내일 때만 확인할 수 있어요")
 
     existing = await db.scalar(
         select(FloodConfirmation).where(
@@ -233,15 +250,31 @@ async def confirm_flood(
         report_id=report_id,
         user_id=user_id,
         confirmation_type=body.confirmation_type,
+        lat=body.lat,
+        lng=body.lng,
     )
     db.add(confirmation)
+    await db.flush()
 
-    now = datetime.now(UTC)
-    if body.confirmation_type == "still_flooded":
-        report.confidence_score = (report.confidence_score or 1) + 1
+    vote_count = (
+        await db.scalar(
+            select(func.count(FloodConfirmation.confirmation_id)).where(
+                FloodConfirmation.report_id == report_id,
+                FloodConfirmation.confirmation_type == body.confirmation_type,
+                FloodConfirmation.confirmed_at >= now - timedelta(hours=_VOTE_WINDOW_HOURS),
+                FloodConfirmation.lat.is_not(None),
+                FloodConfirmation.lng.is_not(None),
+            )
+        )
+        or 0
+    )
+    next_status, confidence_score = _vote_transition(body.confirmation_type, vote_count)
+    if confidence_score is not None:
+        report.confidence_score = confidence_score
         report.expires_at = now + timedelta(hours=2)
-    elif body.confirmation_type == "resolved":
-        report.status = "RESOLVED"
+    if next_status is not None:
+        report.status = next_status
+    if next_status == "RESOLVED":
         report.resolved_at = now
 
     await db.commit()
@@ -252,28 +285,26 @@ async def confirm_flood(
         if await _earn_gp_safe(user_id, "INFO_FLOOD_CONFIRM", idem_key):
             xp_earned = 10
 
-    return {"confirmed": True, "xp_earned": xp_earned}
+    return {"confirmed": True, "xp_earned": xp_earned, "vote_count": vote_count, "status": report.status}
 
 
 def _trust_level(score: int | None) -> str:
     s = score or 0
-    if s >= 3:
+    if s >= _VERIFIED_QUORUM:
         return "VERIFIED"
-    if s >= 1:
+    if s >= _CONFIRM_QUORUM:
         return "CONFIRMED"
     return "PENDING"
 
 
 @router.get("/map-data")
 async def get_map_data(
-    lat: float,
-    lng: float,
-    radius_km: float = 5.0,
+    lat: Latitude,
+    lng: Longitude,
+    radius_km: float = Query(5.0, gt=0, le=50),
     user_id: uuid.UUID = Depends(verify_user_session),
     db: AsyncSession = Depends(get_db),
 ):
-    await _expire_stale(db)
-
     reports_result = await db.execute(
         text("""
             SELECT
@@ -332,9 +363,17 @@ async def get_map_data(
                 avg_depth_level,
                 updated_at
             FROM flood_hotspot_stats
+            WHERE centroid_lat IS NOT NULL
+              AND centroid_lng IS NOT NULL
+              AND ST_DWithin(
+                    ST_SetSRID(ST_MakePoint(centroid_lng, centroid_lat), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                    :radius_m
+                  )
             ORDER BY flood_count_30d DESC
             LIMIT 50
-        """)
+        """),
+        {"lat": lat, "lng": lng, "radius_m": radius_km * 1000},
     )
     hotspots = []
     for row in hotspots_result:

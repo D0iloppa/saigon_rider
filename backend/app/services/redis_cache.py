@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from typing import Any
 
@@ -45,6 +46,37 @@ async def cache_invalidate(pattern: str = "*") -> int:
         keys.append(k)
     if keys:
         return await client.delete(*keys)
+    return 0
+
+
+def _distance_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    radius_km = 6371.0088
+    lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lng = math.radians(lng2 - lng1)
+    a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng / 2) ** 2
+    return radius_km * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+async def invalidate_gas_nearby_for_station(lat: float, lng: float) -> int:
+    """대기시간이 바뀐 주유소를 포함하는 v1 nearby 캐시만 비동기 삭제한다."""
+    client = await get_client()
+    affected: list[str] = []
+    async for full_key in client.scan_iter(match=PREFIX + "nearby:v1:*"):
+        logical_key = full_key.removeprefix(PREFIX)
+        parts = logical_key.split(":")
+        if len(parts) != 6:
+            continue
+        try:
+            center_lat = float(parts[2])
+            center_lng = float(parts[3])
+            radius_km = float(parts[4])
+        except ValueError:
+            continue
+        if _distance_km(lat, lng, center_lat, center_lng) <= radius_km + 0.1:
+            affected.append(full_key)
+    if affected:
+        return await client.unlink(*affected)
     return 0
 
 

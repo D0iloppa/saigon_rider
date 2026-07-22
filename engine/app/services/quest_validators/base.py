@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import ClassVar, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,7 @@ class GpsSignal:
     lat: float
     lng: float
     distance_m: float
+    measured_at: datetime
 
 
 @dataclass

@@ -161,10 +161,12 @@ export async function fetchShopItems(filter?: ShopItemFilter): Promise<ShopItem[
 export async function purchaseShopItem(
   itemCode: string,
   currency: 'GOLD' | 'XP',
+  idempotencyKey: string,
 ): Promise<{ success: boolean; balance_gold?: number; balance_xp?: number }> {
   if (USE_MOCK) return api.delay({ success: true }, 300);
   return api.realFetch('/shop/purchase', {
     method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify({ item_code: itemCode, currency }),
   }, 'bff', { rethrow: true });
 }

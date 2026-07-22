@@ -36,8 +36,20 @@ ALLOWED_MIME_TYPES = {
     "image/png",
     "image/gif",
     "image/webp",
-    "image/svg+xml",
 }
+
+
+def _sniff_mime(data: bytes) -> str | None:
+    """실제 바이트 매직넘버로 이미지 포맷을 판별 (declared content_type 신뢰 금지)."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"GIF8":
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
@@ -85,6 +97,8 @@ async def upload_content(
     data = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB)")
+    if _sniff_mime(data) != file.content_type:
+        raise HTTPException(status_code=400, detail="File content does not match declared content type")
     abs_path.write_bytes(data)
 
     # owner_id 는 클라이언트 값을 신뢰하지 않고 세션 유저로 강제

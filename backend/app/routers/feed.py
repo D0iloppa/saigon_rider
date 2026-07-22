@@ -34,6 +34,7 @@ from ..schemas import (
     LikeToggleResponse,
     Page,
 )
+from ..services.dm_policy import require_unblocked
 from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
@@ -451,6 +452,8 @@ async def post_comment(
         raise HTTPException(status_code=400, detail="content or image_url is required")
 
     post = await _get_post_or_404(post_id, db)
+    if post.user_id != body.user_id:
+        await require_unblocked(db, body.user_id, post.user_id)
 
     comment = PostComment(
         post_id=post_id,

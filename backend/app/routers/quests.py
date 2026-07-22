@@ -216,7 +216,10 @@ async def get_quests(
 async def get_my_accepted(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         await db.execute(
             select(UserQuest, Quest)
@@ -244,7 +247,10 @@ async def get_my_accepted(
 async def get_my_completed(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = (
         await db.execute(
             select(UserQuest, Quest)
@@ -314,7 +320,10 @@ async def get_completed_ids(
     user_id: uuid.UUID,
     period: str = "DAILY",
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    if user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
     period_key = _calc_period_key(period.upper())
     result = await db.execute(
         select(UserQuest.quest_id).where(

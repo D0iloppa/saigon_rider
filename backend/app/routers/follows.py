@@ -9,6 +9,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..models import User, UserFollow
 from ..schemas import FollowCountsOut, FollowRequest, FollowUserOut, Page
+from ..services.dm_policy import require_unblocked
 from ..utils import resolve_avatar_url
 
 router = APIRouter(tags=["팔로우 (Follow)"])
@@ -64,6 +65,8 @@ async def follow_user(
     target = await db.get(User, target_user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    await require_unblocked(db, body.user_id, target_user_id)
 
     existing = await db.get(UserFollow, {"follower_id": body.user_id, "following_id": target_user_id})
     if existing:

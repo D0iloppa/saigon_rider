@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -624,13 +624,13 @@ async def upsert_public_review(
 @router.post("/public/{profile_id}/view-ping", summary="업체 프로필 실시간 열람 핑")
 async def view_ping(
     profile_id: uuid.UUID,
-    x_user_id: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     profile = await db.get(BusinessProfile, profile_id)
     if profile is None or profile.status != "APPROVED":
         raise HTTPException(status_code=404, detail="Business profile not found")
-    count = await _view_ping(profile_id, x_user_id) if x_user_id else 0
+    count = await _view_ping(profile_id, str(session_uid))
     return {"viewer_count": count}
 
 

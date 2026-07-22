@@ -782,7 +782,10 @@ async def oauth_zalo_callback(
     return result_redirect(user_id=str(user.id), session_token=raw_token, is_new=is_new)
 
 
-_DEV_MODE = os.getenv("APP_ENV", "development").lower() not in ("production", "prod")
+# AUTH-10: 이전엔 "production/prod 가 아니면 dev 허용"(fail-open) — APP_ENV 미설정/오타 시
+# 운영에서도 dev-login 이 열릴 수 있었다. 이제 명시적으로 알려진 dev 값일 때만 허용(fail-safe).
+_DEV_ENV_VALUES = {"development", "dev", "local", "test"}
+_DEV_MODE = os.getenv("APP_ENV", "").strip().lower() in _DEV_ENV_VALUES
 
 
 class DevLoginRequest(BaseModel):

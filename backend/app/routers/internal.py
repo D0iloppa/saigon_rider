@@ -55,7 +55,10 @@ async def _claim_reward_grant(db: AsyncSession, *, idempotency_key: str, operati
 
 @router.post("/grant-exp", response_model=GrantResponse)
 async def grant_exp(body: GrantExpRequest, db: AsyncSession = Depends(get_db)):
-    uid = uuid.UUID(body.user_uuid)
+    try:
+        uid = uuid.UUID(body.user_uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid user_uuid") from None
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -77,7 +80,10 @@ async def grant_exp(body: GrantExpRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/grant-gold", response_model=GrantResponse)
 async def grant_gold(body: GrantGoldRequest, db: AsyncSession = Depends(get_db)):
-    uid = uuid.UUID(body.user_uuid)
+    try:
+        uid = uuid.UUID(body.user_uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid user_uuid") from None
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -93,7 +99,10 @@ async def grant_gold(body: GrantGoldRequest, db: AsyncSession = Depends(get_db))
 @router.get("/mileage-skill-pct")
 async def mileage_skill_pct(user_uuid: str, db: AsyncSession = Depends(get_db)):
     """마일리지 보상 증폭 스킬 배율(%) 조회. 단계당 +1% (단계 = skill_mileage_rate // 3, 최대 +3%)."""
-    uid = uuid.UUID(user_uuid)
+    try:
+        uid = uuid.UUID(user_uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid user_uuid") from None
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -102,8 +111,11 @@ async def mileage_skill_pct(user_uuid: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/grant-badge", response_model=GrantResponse)
 async def grant_badge(body: GrantBadgeRequest, db: AsyncSession = Depends(get_db)):
-    uid = uuid.UUID(body.user_uuid)
-    badge_uid = uuid.UUID(body.badge_id)
+    try:
+        uid = uuid.UUID(body.user_uuid)
+        badge_uid = uuid.UUID(body.badge_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid user_uuid or badge_id") from None
 
     user = await db.get(User, uid)
     if not user:

@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -86,15 +86,18 @@ async def invest_skill(
     col = _SKILL_COLUMN.get(skill_key)
     if col is None:
         raise HTTPException(status_code=422, detail="invalid skill_key")
-    user = await _get_user_or_404(user_id, db)
-    if user.skill_pt < 1:
-        raise HTTPException(status_code=409, detail="insufficient skill points")
-    if getattr(user, col) >= 9:
-        raise HTTPException(status_code=409, detail="skill at max level")
-    user.skill_pt -= 1
-    setattr(user, col, getattr(user, col) + 1)
+    col_attr = getattr(User, col)
+    # AUTH-9: read-check-then-write는 동시요청 시 skill_pt 음수화 레이스 → 원자적 조건부 UPDATE로 대체
+    result = await db.execute(
+        update(User)
+        .where(User.id == user_id, User.skill_pt >= 1, col_attr < 9)
+        .values(skill_pt=User.skill_pt - 1, **{col: col_attr + 1})
+    )
+    if result.rowcount == 0:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="insufficient skill points or skill at max level")
     await db.commit()
-    await db.refresh(user)
+    user = await _get_user_or_404(user_id, db)
     return UserOut.model_validate(user)
 
 
@@ -103,7 +106,9 @@ async def invest_skill(
 async def get_user_stats(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    _require_self(user_id, _session_uid)
     await _get_user_or_404(user_id, db)
 
     month_start, month_end = _month_bounds()
@@ -174,7 +179,9 @@ async def get_quest_history(
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    _require_self(user_id, _session_uid)
     await _get_user_or_404(user_id, db)
     offset = (page - 1) * size
 

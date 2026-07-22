@@ -6,6 +6,9 @@
 -- 멱등: 기존 [DEV] 광고 제거 후 재삽입.
 -- ================================================================
 
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 DELETE FROM marketplace_ads WHERE partner_name LIKE '[DEV]%';
 
 -- 지역별 2개씩 (district code 로 매핑)
@@ -30,3 +33,6 @@ INSERT INTO marketplace_ads (partner_name, title, body, image_url, link_url, dis
 VALUES
     ('[DEV] Saigon Rider Shop',  'Đồ bảo hộ chính hãng',   'Giao toàn quốc · giảm 20%',  'https://loremflickr.com/360/200/motorcycle,gear?lock=31', NULL, NULL, 1),
     ('[DEV] Rider Insurance',    'Bảo hiểm xe máy 1 phút',  'Mua online · bồi thường nhanh', 'https://loremflickr.com/360/200/insurance?lock=32', NULL, NULL, 2);
+END IF;
+END
+$dev_seed$;

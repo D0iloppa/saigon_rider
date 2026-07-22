@@ -28,6 +28,9 @@
 -- ================================================================
 
 -- 1) dev 광고주 user 당 business_profile 1개 시드
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 INSERT INTO business_profile (user_id, name, phone, address, status, reviewed_at, created_at, updated_at)
 SELECT
     u.id,
@@ -57,3 +60,6 @@ SET owner_business_profile_id = bp.id
 FROM business_profile bp
 WHERE bp.user_id = a.owner_id
   AND a.owner_business_profile_id IS DISTINCT FROM bp.id;
+END IF;
+END
+$dev_seed$;

@@ -27,6 +27,9 @@ CREATE INDEX IF NOT EXISTS idx_biz_review_profile_created
 
 -- ── dev 시드 (멱등: ON CONFLICT DO NOTHING) ─────────────────────
 
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 INSERT INTO business_review (profile_id, user_id, rating, body, created_at, updated_at)
 SELECT p.id, u.id, 5,
        '체인 교체하러 갔는데 사장님이 꼼꼼하게 봐주셨어요. 작업도 빠르고 가격도 정직합니다.',
@@ -50,3 +53,6 @@ SELECT p.id, u.id, 5,
 FROM business_profile p, users u
 WHERE p.name LIKE '[DEV] Saigon Rider%' AND u.phone = '+84-DEV-BUYER-01'
 ON CONFLICT (profile_id, user_id) DO NOTHING;
+END IF;
+END
+$dev_seed$;

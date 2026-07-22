@@ -28,6 +28,9 @@ CREATE INDEX IF NOT EXISTS idx_biz_news_profile_created
 
 -- ── dev 시드 (멱등: title 기준 존재 시 skip) ─────────────────────
 
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 INSERT INTO business_news (profile_id, title, body, created_at)
 SELECT p.id, '신규 브레이크 패드 입고했어요', '순정 브레이크 패드 재입고 완료, 오늘 방문 시 즉시 장착 가능합니다.', now() - interval '2 hours'
 FROM business_profile p
@@ -59,3 +62,6 @@ WHERE p.name LIKE '[DEV] Saigon Rider%'
   AND NOT EXISTS (
       SELECT 1 FROM business_news n WHERE n.profile_id = p.id AND n.title = '여름 시즌 아이스 음료 신메뉴 출시'
   );
+END IF;
+END
+$dev_seed$;

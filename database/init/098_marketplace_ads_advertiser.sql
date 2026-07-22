@@ -15,6 +15,9 @@ ALTER TABLE marketplace_ads ADD COLUMN IF NOT EXISTS address VARCHAR(200);
 ALTER TABLE marketplace_ads ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES users(id) ON DELETE SET NULL;
 
 -- 3) seed 광고주 계정 (가맹 계정, 일반 가입 아님)
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 INSERT INTO users (id, phone, nickname, is_advertiser, created_at, updated_at)
 VALUES
     ('a1000000-0000-0000-0000-000000000001', '+84-ADV-001', '[DEV] Bình Thạnh Moto Care',  TRUE, NOW(), NOW()),
@@ -54,3 +57,6 @@ UPDATE marketplace_ads SET
     address  = 'Toàn quốc (giao hàng tận nơi)',
     owner_id = 'a1000000-0000-0000-0000-000000000005'::uuid
 WHERE partner_name LIKE '[DEV] Saigon Rider%';
+END IF;
+END
+$dev_seed$;

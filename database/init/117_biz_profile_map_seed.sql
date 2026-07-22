@@ -15,6 +15,9 @@
 -- 멱등성: UPDATE ... WHERE name LIKE — 재실행해도 동일 값으로 덮어씀.
 -- ================================================================
 
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 UPDATE business_profile SET latitude = 10.804100, longitude = 106.710800, category = 'repair'
 WHERE name LIKE '[DEV] Bình Thạnh%';
 
@@ -29,3 +32,6 @@ WHERE name LIKE '[DEV] Quận 7%';
 
 UPDATE business_profile SET latitude = 10.799100, longitude = 106.679700, category = 'cafe'
 WHERE name LIKE '[DEV] Saigon Rider%';
+END IF;
+END
+$dev_seed$;

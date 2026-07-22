@@ -26,6 +26,9 @@ CREATE INDEX IF NOT EXISTS idx_mp_ads_active ON marketplace_ads (is_active, dist
 
 -- ── 개발용 더미 광고 seed (지역별 + 전역) ─────────────────────
 -- 운영 배포 시 DELETE FROM marketplace_ads WHERE partner_name LIKE '[DEV]%';
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 INSERT INTO marketplace_ads (partner_name, title, body, image_url, link_url, district_id, sort_order)
 SELECT v.partner, v.title, v.body, v.img, v.link, d.id, v.so
 FROM (VALUES
@@ -45,3 +48,6 @@ VALUES
     ('[DEV] Saigon Rider Shop', 'Đồ bảo hộ chính hãng toàn quốc', 'Giáp · găng tay · áo mưa — giao tận nơi',
      'https://loremflickr.com/360/200/motorcycle,gear?lock=14', 'https://example.com/sgr-shop', NULL, 1)
 ON CONFLICT DO NOTHING;
+END IF;
+END
+$dev_seed$;

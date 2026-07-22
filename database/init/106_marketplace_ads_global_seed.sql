@@ -6,6 +6,9 @@
 -- 멱등: partner_name+title 중복 시 건너뜀(유니크 제약 없으므로 NOT EXISTS 가드).
 -- ================================================================
 
+DO $dev_seed$
+BEGIN
+IF current_setting('app.seed_profile', true) IN ('development', 'dev', 'local', 'test') THEN
 INSERT INTO marketplace_ads (partner_name, title, body, image_url, link_url, district_id, phone, address, owner_id, sort_order)
 SELECT v.partner, v.title, v.body, v.img, v.link, NULL, v.phone, v.addr, v.owner::uuid, v.so
 FROM (VALUES
@@ -43,3 +46,6 @@ FROM (VALUES
 WHERE NOT EXISTS (
     SELECT 1 FROM marketplace_ads a WHERE a.partner_name = v.partner AND a.title = v.title
 );
+END IF;
+END
+$dev_seed$;

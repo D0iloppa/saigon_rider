@@ -50,6 +50,7 @@ services:
   # ── Database: 포트 절대 미노출 (외부 DB 접근 차단). 데이터 볼륨은 base 유지 ──
   database:
     ports: !reset []
+    command: ["postgres", "-c", "app.seed_profile=production"]
 
   # ── MCP Dev (legacy): 운영 불필요 → backend 프로필에서 떼어내 미기동 ──
   mcp_dev:

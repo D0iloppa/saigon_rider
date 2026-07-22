@@ -45,22 +45,6 @@ class EventResult(BaseModel):
     reject_reason_code: Optional[str] = None
 
 
-class EventRead(BaseModel):
-    event_id: int
-    user_id: int
-    action_code: str
-    occurred_at: datetime
-    payload: Optional[dict[str, Any]] = None
-    idempotency_key: str
-    calculated_xp: float
-    applied_multiplier: float
-    process_status: EventStatusEnum
-    reject_reason_code: Optional[str] = None
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
 # ── 잔액 / 거래 ──────────────────────────────────────────────
 
 

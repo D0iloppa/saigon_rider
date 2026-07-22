@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 
 from app.database import AsyncSession
@@ -38,15 +38,3 @@ async def list_catalog(
     query = query.order_by(RewardCatalog.required_xp.asc()).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
-
-
-@router.get("/{catalog_id}", response_model=CatalogItemRead,
-            dependencies=[Depends(verify_service_key)])
-async def get_catalog_item(
-    catalog_id: int,
-    db: AsyncSession = Depends(get_session),
-) -> RewardCatalog:
-    item = await db.get(RewardCatalog, catalog_id)
-    if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog item not found")
-    return item

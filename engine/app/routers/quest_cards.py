@@ -61,25 +61,6 @@ async def create_quest_card(
 
 
 @router.get(
-    "/users/{user_id}/quest-cards",
-    response_model=list[QuestCardRead],
-    dependencies=[Depends(verify_service_key)],
-)
-async def list_quest_cards(
-    user_id: int,
-    card_status: QuestCardStatusEnum = Query(QuestCardStatusEnum.ACTIVE, alias="status"),
-    db: AsyncSession = Depends(get_session),
-) -> list[SreQuestCard]:
-    result = await db.execute(
-        select(SreQuestCard).where(
-            SreQuestCard.user_id == user_id,
-            SreQuestCard.status == card_status,
-        ).order_by(SreQuestCard.accepted_at.desc())
-    )
-    return list(result.scalars().all())
-
-
-@router.get(
     "/users/{user_id}/quest-cards/completed",
     response_model=list[QuestCardRead],
     dependencies=[Depends(verify_service_key)],

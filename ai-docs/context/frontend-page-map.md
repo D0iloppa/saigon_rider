@@ -156,15 +156,16 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 - **핵심 헬퍼**: `adHref()` — 광고 카드 탭 시 owner 有→`/biz/:id`, 無(레거시 광고)→`/market/ad/:id` 폴백. `AdCard` 사용처(홈/마켓/동네지도) 3곳 전부 적용. `AdDetail.tsx`에 "가게 프로필 보기" 링크 추가.
 - **i18n**: `biz.*` 3벌(ko/en/vi).
-- **admin 3종** (Jinja 템플릿, `/admin/*`):
+- **관리자 콘솔 — 비즈니스 심사 (2026-07-22 신규 SPA 이식)**: `AdminLayout.tsx` 사이드바 그룹 **"비즈니스"** 2항목 → 신규 admin-frontend SPA 화면. 레거시 Jinja(`/admin-legacy/biz-accounts`·`/biz-ads`)는 2차 이식 완료 전까지 병행 유지.
 
-| 라우트 | 템플릿/화면 | 액션 |
+| 라우트(SPA) | 페이지 파일 | 액션 |
 |---|---|---|
-| `/admin/biz-accounts` | 계정 심사 큐(PENDING 상단) | 승인 / 반려(사유 필수) |
-| `/admin/biz-accounts/:id` | 계정 상세 | 정지(SUSPENDED, 게시중 광고 일괄 STOPPED) / 그룹(`group_id`) 지정 |
-| `/admin/biz-ads` | 광고 소재 심사 큐 | 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) |
+| `/biz/accounts` | `admin-frontend/src/pages/biz/BizAccountListPage.tsx` | 계정 심사 큐(PENDING 상단) — 승인 / 반려(사유 필수) |
+| `/biz/accounts/:id` | `admin-frontend/src/pages/biz/BizAccountDetailPage.tsx` | 계정 상세(프로필·광고 이력) — 승인/반려 / 정지(SUSPENDED, 게시중 광고 일괄 STOPPED) / 그룹 인라인 배정 |
+| `/biz/ads` | `admin-frontend/src/pages/biz/BizAdListPage.tsx` | 광고 소재 심사 큐 — 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) |
 
-- **연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.
+  백엔드 `backend/app/routers/admin_api/biz.py`(`GET/POST /admin/api/biz/accounts*·/ads*`), `verify_admin_api`(레거시와 동일 admin 레벨 — root 아님) + 전 mutation `_audit.audit()`. fetch 훅 `admin-frontend/src/api/biz.ts`. **알려진 갭**: 광고 이미지 imgproxy 폴백 미적용(레거시부터의 기존 갭) / 사이드바 큐 카운트 배지 미구현(전 큐 공통).
+- **앱측 연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.
 
 ### 3.8 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)
 

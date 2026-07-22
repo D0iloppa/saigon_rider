@@ -25,6 +25,9 @@ import PoiEditPage from './pages/map/PoiEditPage'
 import PlaceSuggestionListPage from './pages/map/PlaceSuggestionListPage'
 import GasSubmissionListPage from './pages/map/GasSubmissionListPage'
 import RepairSubmissionListPage from './pages/map/RepairSubmissionListPage'
+import BizAccountListPage from './pages/biz/BizAccountListPage'
+import BizAccountDetailPage from './pages/biz/BizAccountDetailPage'
+import BizAdListPage from './pages/biz/BizAdListPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
@@ -121,6 +124,9 @@ export default function App() {
               <Route path="/map/place-suggestions" element={<PlaceSuggestionListPage />} />
               <Route path="/map/gas-submissions" element={<GasSubmissionListPage />} />
               <Route path="/map/repair-submissions" element={<RepairSubmissionListPage />} />
+              <Route path="/biz/accounts" element={<BizAccountListPage />} />
+              <Route path="/biz/accounts/:id" element={<BizAccountDetailPage />} />
+              <Route path="/biz/ads" element={<BizAdListPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

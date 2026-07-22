@@ -8,8 +8,10 @@ import {
   EnvironmentOutlined,
   FileTextOutlined,
   FlagOutlined,
+  NotificationOutlined,
   SafetyCertificateOutlined,
   ShopOutlined,
+  SolutionOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
@@ -43,6 +45,10 @@ const MENU_ITEMS = [
     { key: '/map/gas-submissions', icon: <ThunderboltOutlined />, label: '주유소 제보 심사' },
     { key: '/map/repair-submissions', icon: <ToolOutlined />, label: '정비소 제보 심사' },
   ] },
+  { type: 'group' as const, label: '비즈니스', children: [
+    { key: '/biz/accounts', icon: <SolutionOutlined />, label: '파트너 심사' },
+    { key: '/biz/ads', icon: <NotificationOutlined />, label: '광고 심사' },
+  ] },
 ]
 
 const PAGE_META = [
@@ -58,6 +64,8 @@ const PAGE_META = [
   { path: '/map/place-suggestions', title: '장소 제보 심사', description: '사용자가 제보한 장소를 승인하거나 반려합니다.' },
   { path: '/map/gas-submissions', title: '주유소 제보 심사', description: '사용자가 제보한 주유소를 승인하거나 반려합니다.' },
   { path: '/map/repair-submissions', title: '정비소 제보 심사', description: '사용자가 제보한 정비소를 승인하거나 반려합니다.' },
+  { path: '/biz/accounts', title: '비즈니스 파트너 심사', description: '비즈니스 계정 신청을 심사하고 그룹·정지 등 계정을 관리합니다.' },
+  { path: '/biz/ads', title: '인앱 광고 심사', description: '비즈니스 파트너가 등록한 광고 소재를 심사합니다.' },
   { path: '/', title: '운영 현황', description: '오늘 확인해야 할 운영 지표와 처리 대기 항목입니다.' },
 ]
 

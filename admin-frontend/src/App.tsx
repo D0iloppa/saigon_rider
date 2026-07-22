@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ConfigProvider, Spin } from 'antd'
@@ -25,6 +25,7 @@ import PoiEditPage from './pages/map/PoiEditPage'
 import PlaceSuggestionListPage from './pages/map/PlaceSuggestionListPage'
 import GasSubmissionListPage from './pages/map/GasSubmissionListPage'
 import RepairSubmissionListPage from './pages/map/RepairSubmissionListPage'
+import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,12 +34,30 @@ const queryClient = new QueryClient({
 })
 
 const MeContext = createContext<Me | null>(null)
+type AdminThemeMode = 'light' | 'dark'
+const ThemeModeContext = createContext<{ mode: AdminThemeMode; toggle: () => void } | null>(null)
+
+function readThemeMode(): AdminThemeMode {
+  try {
+    const saved = localStorage.getItem('saigon-admin-theme')
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch {
+    // Storage can be blocked by browser privacy policy; the in-memory theme still works.
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
 
 /** AuthGate 하위에서 현재 로그인 관리자 정보를 읽는다. */
 export function useMe(): Me {
   const me = useContext(MeContext)
   if (!me) throw new Error('useMe must be used within AuthGate')
   return me
+}
+
+export function useAdminTheme() {
+  const value = useContext(ThemeModeContext)
+  if (!value) throw new Error('useAdminTheme must be used within App')
+  return value
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
@@ -56,9 +75,21 @@ function AuthGate({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  const [mode, setMode] = useState<AdminThemeMode>(readThemeMode)
+
+  useEffect(() => {
+    document.documentElement.dataset.adminTheme = mode
+    try {
+      localStorage.setItem('saigon-admin-theme', mode)
+    } catch {
+      // Keep the selected mode for this session when persistence is unavailable.
+    }
+  }, [mode])
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={koKR} theme={{ token: { colorPrimary: '#0f8f8b', colorInfo: '#0f8f8b', colorLink: '#0f766e', colorBgLayout: '#f5f7fa', colorBorder: '#dfe5ec', borderRadius: 10, fontSize: 14 }, components: { Layout: { siderBg: '#111b2d', headerBg: '#ffffff' }, Menu: { darkItemBg: '#111b2d' } } }}>
+    <ThemeModeContext.Provider value={{ mode, toggle: () => setMode((current) => current === 'light' ? 'dark' : 'light') }}>
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider locale={koKR} theme={mode === 'dark' ? adminDarkTheme : adminTheme}>
         <BrowserRouter basename="/admin">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -94,7 +125,8 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </ConfigProvider>
-    </QueryClientProvider>
+        </ConfigProvider>
+      </QueryClientProvider>
+    </ThemeModeContext.Provider>
   )
 }

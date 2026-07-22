@@ -13,10 +13,14 @@ import {
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
+  MoonOutlined,
+  SunOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '../api/auth'
-import { useMe } from '../App'
+import { useAdminTheme, useMe } from '../App'
+import ErrorBoundary from './ErrorBoundary'
 
 const { Sider, Header, Content } = Layout
 
@@ -59,6 +63,7 @@ const PAGE_META = [
 
 export default function AdminLayout() {
   const me = useMe()
+  const { mode, toggle } = useAdminTheme()
   const location = useLocation()
   const navigate = useNavigate()
   const items = me.role === 'root'
@@ -74,16 +79,32 @@ export default function AdminLayout() {
   return (
     <Layout className="admin-shell">
       <Sider width={256} className="admin-sider" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div className="admin-brand"><div className="admin-brand-mark">S</div><div><strong>Saigon Rider</strong><span>Operations Console</span></div></div>
-        <Menu theme="dark" mode="inline" style={{ flex: 1 }} items={items} selectedKeys={[page.path]} onClick={({ key }) => navigate(key)} />
-        <div className="admin-sider-footer">Admin workspace<br />Vietnam operations</div>
+        <div className="admin-brand"><img className="admin-brand-mark" src="/admin/saigon-rider-logo.png" alt="" /><div><strong>Saigon Rider</strong><span>Operations Console</span></div></div>
+        <Menu theme={mode} mode="inline" style={{ flex: 1 }} items={items} selectedKeys={[page.path]} onClick={({ key }) => navigate(key)} />
+        <div className="admin-sider-footer">
+          <Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar>
+          <div><strong>{me.username}</strong><span>{me.role === 'root' ? 'Root administrator' : 'Administrator'}</span></div>
+          <Button type="text" size="small" onClick={handleLogout}>로그아웃</Button>
+        </div>
       </Sider>
       <Layout className="admin-main">
         <Header className="admin-topbar">
-          <div><Breadcrumb items={[{ title: '관리자' }, { title: page.title }]} /><Typography.Title level={3} className="admin-page-title">{page.title}</Typography.Title><div className="admin-page-description">{page.description}</div></div>
-          <div className="admin-account"><Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar><span>{me.username}</span><Tag color={me.role === 'root' ? 'red' : 'cyan'}>{me.role.toUpperCase()}</Tag><Button size="small" onClick={handleLogout}>로그아웃</Button></div>
+          <div className="admin-location"><Breadcrumb items={[{ title: '관리자' }, { title: page.title }]} /><span>{page.title}</span></div>
+          <div className="admin-account">
+            <Button className="admin-landing-link" type="text" icon={<GlobalOutlined />} href="https://www.saigon-rider.com/" target="_blank" rel="noopener noreferrer">랜딩 페이지</Button>
+            <Button className="admin-theme-toggle" type="text" shape="circle" icon={mode === 'dark' ? <SunOutlined /> : <MoonOutlined />} onClick={toggle} aria-label={mode === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'} title={mode === 'dark' ? '라이트 모드' : '다크 모드'} />
+            <Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar><span>{me.username}</span><Tag className={me.role === 'root' ? 'role-root' : 'role-admin'}>{me.role.toUpperCase()}</Tag>
+          </div>
         </Header>
-        <Content className="admin-content"><Outlet /></Content>
+        <Content className="admin-content">
+          <div className="admin-page-header">
+            <Typography.Title level={1}>{page.title}</Typography.Title>
+            <p>{page.description}</p>
+          </div>
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
+        </Content>
       </Layout>
     </Layout>
   )

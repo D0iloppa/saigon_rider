@@ -1,38 +1,39 @@
 import { Tag } from 'antd'
 
-type StatusEntry = { color: string; label: string }
+type Tone = 'success' | 'warning' | 'error' | 'info' | 'neutral'
+type StatusEntry = { tone: Tone; label: string }
 
 const REPORT_STATUS: Record<string, StatusEntry> = {
-  PENDING: { color: 'gold', label: '대기' },
-  REVIEWING: { color: 'blue', label: '검토중' },
-  RESOLVED: { color: 'green', label: '처리완료' },
-  REJECTED: { color: 'default', label: '기각' },
+  PENDING: { tone: 'warning', label: '대기' },
+  REVIEWING: { tone: 'info', label: '검토중' },
+  RESOLVED: { tone: 'success', label: '처리완료' },
+  REJECTED: { tone: 'neutral', label: '기각' },
 }
 
 const USER_STATUS: Record<string, StatusEntry> = {
-  ACTIVE: { color: 'green', label: '정상' },
-  SUSPENDED: { color: 'orange', label: '정지' },
-  BANNED: { color: 'red', label: '영구정지' },
+  ACTIVE: { tone: 'success', label: '정상' },
+  SUSPENDED: { tone: 'warning', label: '정지' },
+  BANNED: { tone: 'error', label: '영구정지' },
 }
 
 const LISTING_STATUS: Record<string, StatusEntry> = {
-  ON_SALE: { color: 'green', label: '판매중' },
-  RESERVED: { color: 'blue', label: '예약중' },
-  SOLD: { color: 'default', label: '판매완료' },
-  HIDDEN: { color: 'orange', label: '숨김' },
-  REMOVED: { color: 'red', label: '삭제됨' },
+  ON_SALE: { tone: 'success', label: '판매중' },
+  RESERVED: { tone: 'info', label: '예약중' },
+  SOLD: { tone: 'neutral', label: '판매완료' },
+  HIDDEN: { tone: 'warning', label: '숨김' },
+  REMOVED: { tone: 'error', label: '삭제됨' },
 }
 
 const SUPPORT_STATUS: Record<string, StatusEntry> = {
-  OPEN: { color: 'gold', label: '접수' },
-  IN_PROGRESS: { color: 'blue', label: '처리중' },
-  RESOLVED: { color: 'green', label: '해결' },
+  OPEN: { tone: 'warning', label: '접수' },
+  IN_PROGRESS: { tone: 'info', label: '처리중' },
+  RESOLVED: { tone: 'success', label: '해결' },
 }
 
 const MAPS = { report: REPORT_STATUS, user: USER_STATUS, listing: LISTING_STATUS, support: SUPPORT_STATUS } as const
 
 /** 신고/유저/매물 상태 → 색상 Tag 공용 매핑. */
 export default function StatusTag({ kind, status }: { kind: keyof typeof MAPS; status: string }) {
-  const entry = MAPS[kind][status] ?? { color: 'default', label: status }
-  return <Tag color={entry.color}>{entry.label}</Tag>
+  const entry = MAPS[kind][status] ?? { tone: 'neutral', label: status }
+  return <Tag className={`admin-status admin-status-${entry.tone}`}>{entry.label}</Tag>
 }

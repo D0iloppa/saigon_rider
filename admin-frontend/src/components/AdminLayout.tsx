@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Avatar, Breadcrumb, Button, Layout, Menu, Tag, Typography } from 'antd'
+import { Avatar, Breadcrumb, Button, Layout, Menu, Tag, Tooltip, Typography } from 'antd'
 import {
   AuditOutlined,
   BellOutlined,
@@ -19,6 +19,8 @@ import {
   MoonOutlined,
   SunOutlined,
   GlobalOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '../api/auth'
@@ -96,6 +98,9 @@ export default function AdminLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.path])
 
+  const anyOpen = openKeys.length > 0
+  const handleToggleAll = () => setOpenKeys(anyOpen ? [] : items.map((group) => group.key))
+
   const handleLogout = async () => {
     await logout().catch(() => undefined)
     window.location.href = '/admin/login'
@@ -104,7 +109,21 @@ export default function AdminLayout() {
   return (
     <Layout className="admin-shell">
       <Sider width={256} className="admin-sider">
-        <div className="admin-brand"><img className="admin-brand-mark" src="/admin/saigon-rider-logo.png" alt="" /><div><strong>Saigon Rider</strong><span>Operations Console</span></div></div>
+        <div className="admin-brand">
+          <img className="admin-brand-mark" src="/admin/saigon-rider-logo.png" alt="" />
+          <div><strong>Saigon Rider</strong><span>Operations Console</span></div>
+          <Tooltip title={anyOpen ? '전체 접기' : '전체 열기'}>
+            <Button
+              className="admin-menu-toggle-all"
+              type="text"
+              shape="circle"
+              size="small"
+              icon={anyOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+              onClick={handleToggleAll}
+              aria-label={anyOpen ? '전체 접기' : '전체 열기'}
+            />
+          </Tooltip>
+        </div>
         <div className="admin-sider-menu">
           <Menu
             theme={mode}

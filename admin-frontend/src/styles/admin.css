@@ -19,6 +19,8 @@ body { margin: 0; min-width: 320px; background: var(--admin-layout-bg); }
 .admin-brand-mark { display: block; width: 38px; height: 38px; border-radius: 10px; object-fit: cover; box-shadow: var(--admin-shadow-1); }
 .admin-brand strong { display: block; font-size: 15px; line-height: 1.2; letter-spacing: -.2px; }
 .admin-brand span { display: block; margin-top: 3px; color: var(--admin-gray-500); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.admin-menu-toggle-all { margin-left: auto; color: var(--admin-gray-500) !important; }
+.admin-menu-toggle-all:hover { color: var(--admin-gray-700) !important; background: var(--admin-gray-100) !important; }
 .admin-sider-menu { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--admin-gray-200) transparent; }
 .admin-sider-menu::-webkit-scrollbar { width: 6px; }
 .admin-sider-menu::-webkit-scrollbar-track { background: transparent; }

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS marketplace_reviews (
     listing_id   UUID REFERENCES marketplace_listings(id) ON DELETE SET NULL,
     reviewer_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     target_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    rating       VARCHAR(8) NOT NULL CHECK (rating IN ('GOOD', 'BAD')),
+    rating       SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     manner_tags  JSONB,
     comment      TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),

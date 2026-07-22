@@ -57,7 +57,7 @@ def decode_token(token: str) -> AdminSession | None:
     except jwt.PyJWTError:
         return None
     username = payload.get("sub") or ""
-    role = payload.get("role") or "root"  # 기존 토큰 (role 없음) 호환 — root 로 간주
+    role = payload.get("role") or "admin"  # role 미포함/불명 토큰은 최소권한(admin)으로 강등 — root 상승 방지
     account_id = payload.get("aid")
     return AdminSession(username=username, role=role, account_id=account_id)
 

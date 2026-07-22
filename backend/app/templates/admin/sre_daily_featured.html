@@ -100,4 +100,10 @@ function reuseItem(code) {
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+document.querySelector('table.table tbody').addEventListener('click', function(e) {
+  const btn = e.target.closest('.reuse-btn');
+  if (!btn) return;
+  reuseItem(btn.dataset.itemCode);
+});
 </script>

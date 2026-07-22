@@ -21,14 +21,14 @@ from .routers import (
     dm,
     feed,
     follows,
-    gacha,
+    gacha,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     info_flood,
     info_gas,
     info_repair,
     info_route,
     info_weather,
     internal,
-    inventory,
+    inventory,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     map,
     market,
     master,
@@ -38,8 +38,8 @@ from .routers import (
     quest_cards,
     quests,
     ride,
-    season,
-    shop,
+    season,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
+    shop,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     support,
     translate,
     user_quests,
@@ -176,10 +176,11 @@ app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")
 app.include_router(app_version.config_router, prefix="/api")
-app.include_router(gacha.router, prefix="/api")
-app.include_router(shop.router, prefix="/api")
-app.include_router(inventory.router, prefix="/api")
-app.include_router(season.router, prefix="/api")
+# [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+# app.include_router(gacha.router, prefix="/api")
+# app.include_router(shop.router, prefix="/api")
+# app.include_router(inventory.router, prefix="/api")
+# app.include_router(season.router, prefix="/api")
 app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
 app.include_router(coupons.router)

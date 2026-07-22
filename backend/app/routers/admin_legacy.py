@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from html import escape as h
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
@@ -529,14 +530,14 @@ def _build_pagination(base: str, page: int, size: int, total: int, **params: str
     total_pages = max(1, (total + size - 1) // size)
     if total_pages <= 1:
         return ""
-    qs_base = "&".join(f"{k}={v}" for k, v in params.items() if v)
+    qs_base = "&".join(f"{quote(str(k))}={quote(str(v))}" for k, v in params.items() if v)
     parts = []
     for p in range(1, total_pages + 1):
         if p == page:
             parts.append(f'<span class="current">{p}</span>')
         else:
             sep = "&" if qs_base else ""
-            parts.append(f'<a href="{base}?page={p}{sep}{qs_base}">{p}</a>')
+            parts.append(f'<a href="{h(f"{base}?page={p}{sep}{qs_base}")}">{p}</a>')
     return "".join(parts)
 
 
@@ -1988,7 +1989,7 @@ async def admin_sre_daily_featured(
             f"<td>{h(r.get('item_name', ''))}</td>"
             f"<td>{r.get('discount_pct', 0)}%</td>"
             f"<td>{r.get('sort_order', 0)}</td>"
-            f"<td><button type='button' onclick=\"reuseItem('{h(r.get('item_code', ''))}')\" "
+            f"<td><button type='button' class='reuse-btn' data-item-code=\"{h(r.get('item_code', ''))}\" "
             f"style='font-size:11px;padding:2px 8px;background:rgba(255,128,85,.2);border:1px solid rgba(255,128,85,.4);border-radius:4px;color:#ff8055;cursor:pointer;'>재등록</button></td>"
             f"</tr>"
             for r in history
@@ -2334,6 +2335,20 @@ async def admin_sre_items_create(
     required_season_code: str = Form(""),
     effect_type: str = Form(""),
 ):
+    if not re.fullmatch(r"[A-Z0-9_]+", item_code.strip()):
+        form_html = _item_form_html(
+            item={"item_code": item_code, "display_name": display_name},
+            error="아이템 코드는 영대문자·숫자·밑줄(_)만 허용됩니다.",
+        )
+        return _render_page(
+            "sre_items_form.html",
+            nav="items",
+            page_title="아이템 등록",
+            session=session,
+            breadcrumb_label="아이템 관리",
+            form_title="새 아이템 등록",
+            form_html=form_html,
+        )
     data = {
         "item_code": item_code.strip(),
         "display_name": display_name.strip(),
@@ -2476,11 +2491,18 @@ def _badge_table_rows(badges: list) -> str:
         name = h(b.name_ko or b.name or "")
         cond = ""
         if b.condition_rule:
+            valid_metrics = {m[0] for m in _BADGE_METRICS}
             parts = []
             for c in b.condition_rule.get("conditions", []):
-                parts.append(f"{c.get('metric', '')} {c.get('op', '>=')} {c.get('value', '')}")
-            op = b.condition_rule.get("operator", "AND")
-            cond = f' <span style="color:rgba(255,255,255,.3)">{op}</span> '.join(parts)
+                metric = c.get("metric", "")
+                op = c.get("op", ">=")
+                value = c.get("value", "")
+                metric = metric if metric in valid_metrics else ""
+                op = op if op in _BADGE_OPS else ">="
+                parts.append(f"{h(metric)} {h(op)} {h(str(value))}")
+            operator = b.condition_rule.get("operator", "AND")
+            operator = operator if operator in ("AND", "OR") else "AND"
+            cond = f' <span style="color:rgba(255,255,255,.3)">{operator}</span> '.join(parts)
         elif b.condition_type:
             cond = f"{b.condition_type} ≥ {b.condition_value or 0}"
         active = '<span class="pill on">ON</span>' if b.is_active else '<span class="pill off">OFF</span>'

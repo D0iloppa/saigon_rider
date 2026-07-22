@@ -224,17 +224,21 @@ async def get_feed(
 
 # F-2
 @router.get("/stories", response_model=list[FeedPostEnrichedOut], summary="스토리 목록")
-async def get_stories(db: AsyncSession = Depends(get_db)):
-    rows = (
-        await db.execute(
-            select(FeedPost, User, RideSession)
-            .outerjoin(User, FeedPost.user_id == User.id)
-            .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
-            .where(FeedPost.is_story == True)
-            .order_by(FeedPost.created_at.desc())
-            .limit(50)
-        )
-    ).all()
+async def get_stories(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
+):
+    query = (
+        select(FeedPost, User, RideSession)
+        .outerjoin(User, FeedPost.user_id == User.id)
+        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+        .where(FeedPost.is_story == True)
+    )
+    if session_uid is not None:
+        blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
+        blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
+        query = query.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
+    rows = (await db.execute(query.order_by(FeedPost.created_at.desc()).limit(50))).all()
     return [await _enrich(post, user, ride, db) for post, user, ride in rows]
 
 
@@ -244,15 +248,19 @@ async def get_feed_post(
     post_id: uuid.UUID,
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 내용을 번역해 표기(미스 시 번역·워밍)"),
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
-    row = (
-        await db.execute(
-            select(FeedPost, User, RideSession)
-            .outerjoin(User, FeedPost.user_id == User.id)
-            .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
-            .where(FeedPost.id == post_id)
-        )
-    ).first()
+    query = (
+        select(FeedPost, User, RideSession)
+        .outerjoin(User, FeedPost.user_id == User.id)
+        .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
+        .where(FeedPost.id == post_id)
+    )
+    if session_uid is not None:
+        blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
+        blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
+        query = query.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
+    row = (await db.execute(query)).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Post not found")
     post, user, ride = row
@@ -403,6 +411,7 @@ async def toggle_like(
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
     post = await _get_post_or_404(post_id, db)
+    await require_unblocked(db, _session_uid, post.user_id)
 
     existing = await db.get(PostLike, {"post_id": post_id, "user_id": body.user_id})
     if existing:
@@ -439,7 +448,9 @@ async def get_comments(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
-    await _get_post_or_404(post_id, db)
+    post = await _get_post_or_404(post_id, db)
+    if session_uid is not None:
+        await require_unblocked(db, session_uid, post.user_id)
     q = select(PostComment, User).outerjoin(User, PostComment.user_id == User.id).where(PostComment.post_id == post_id)
     if session_uid is not None:
         blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
@@ -494,12 +505,15 @@ async def toggle_comment_like(
 ):
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
-    await _get_post_or_404(post_id, db)
+    post = await _get_post_or_404(post_id, db)
+    await require_unblocked(db, _session_uid, post.user_id)
 
-    result = await db.execute(select(PostComment).where(PostComment.id == comment_id))
+    result = await db.execute(select(PostComment).where(PostComment.id == comment_id, PostComment.post_id == post_id))
     comment = result.scalar_one_or_none()
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id != post.user_id:
+        await require_unblocked(db, _session_uid, comment.user_id)
 
     existing = await db.get(PostCommentLike, {"comment_id": comment_id, "user_id": body.user_id})
     if existing:

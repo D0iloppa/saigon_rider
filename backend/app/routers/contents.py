@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import uuid
@@ -60,9 +61,7 @@ def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
     else:
         rel = Path("system")
 
-    abs_dir = CONTENTS_BASE_PATH / rel
-    abs_dir.mkdir(parents=True, exist_ok=True)
-    return abs_dir, str(rel)
+    return CONTENTS_BASE_PATH / rel, str(rel)
 
 
 @router.post(
@@ -94,12 +93,14 @@ async def upload_content(
     abs_path = abs_dir / filename
     file_path = f"{rel_dir}/{filename}"
 
+    await asyncio.to_thread(abs_dir.mkdir, parents=True, exist_ok=True)
+
     data = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB)")
     if _sniff_mime(data) != file.content_type:
         raise HTTPException(status_code=400, detail="File content does not match declared content type")
-    abs_path.write_bytes(data)
+    await asyncio.to_thread(abs_path.write_bytes, data)
 
     # owner_id 는 클라이언트 값을 신뢰하지 않고 세션 유저로 강제
     parsed_owner_id = _session_uid

@@ -167,6 +167,17 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
   백엔드 `backend/app/routers/admin_api/biz.py`(`GET/POST /admin/api/biz/accounts*·/ads*`), `verify_admin_api`(레거시와 동일 admin 레벨 — root 아님) + 전 mutation `_audit.audit()`. fetch 훅 `admin-frontend/src/api/biz.ts`. **알려진 갭**: 광고 이미지 imgproxy 폴백 미적용(레거시부터의 기존 갭) / 사이드바 큐 카운트 배지 미구현(전 큐 공통).
 - **앱측 연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.
 
+#### 관리자 콘솔 — SYSTEM 그룹 (root 전용, 사이드바 하단)
+
+`AdminLayout.tsx` SYSTEM 그룹은 `me.role === 'root'`일 때만 렌더된다 (앱 사용자 메뉴에는 대응 없음, admin 전용).
+
+| 라우트(SPA) | 페이지 파일 | 내용 |
+|---|---|---|
+| `/system/accounts` | `admin-frontend/src/pages/system/AdminAccountListPage.tsx` | **관리자 계정관리 (2026-07-22 신규 SPA 이식)** — `admin_accounts` 서브계정 목록/추가/수정(비번변경)/삭제. root(env `ADMIN_USER`)는 CRUD 제외(생성 시 username 충돌 거부, DB 행 없어 수정/삭제 대상 불가). root 암호 초기화는 화면 아닌 sudo 스크립트(미구현, 백로그) |
+| `/audit-logs` | `admin-frontend/src/pages/audit/AuditLogPage.tsx` | 감사 로그 조회 (`AdminAuditLog`) |
+
+관리자 계정관리 백엔드 `backend/app/routers/admin_api/accounts.py`(`GET/POST /admin/api/accounts`, `PUT/DELETE /accounts/{id}`), 전 엔드포인트 **`verify_root_api`(ROOT 전용)** + 전 mutation `_audit.audit()`(`ADMIN_ACCOUNT_CREATE/UPDATE/DELETE`). bcrypt(`hash_password`, cost12), 응답에 `password_hash` 미노출. fetch 훅 `admin-frontend/src/api/accounts.ts`. 레거시 Jinja(`/admin-legacy/admins`) 병행 유지. 독립 auth 리뷰 PASS(레거시와 root 게이트·root제외 패리티 확인).
+
 ### 3.8 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)
 
 | 메뉴 | 라우트 | 진입점 | 비고 |

@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS business_profile (
     address           VARCHAR(200),                      -- 주소 텍스트
     latitude          NUMERIC(9, 6),
     longitude         NUMERIC(9, 6),
+    geom              GEOGRAPHY(POINT, 4326)
+                        GENERATED ALWAYS AS (
+                            ST_SetSRID(ST_MakePoint(longitude::double precision, latitude::double precision), 4326)::geography
+                        ) STORED,
     phone             VARCHAR(30),                        -- 연락처
     photo_content_id  UUID REFERENCES contents(id) ON DELETE SET NULL,  -- 대표사진
     status            TEXT NOT NULL DEFAULT 'PENDING'
@@ -38,6 +42,7 @@ CREATE TABLE IF NOT EXISTS business_profile (
 
 CREATE INDEX IF NOT EXISTS idx_biz_profile_user   ON business_profile (user_id);
 CREATE INDEX IF NOT EXISTS idx_biz_profile_status ON business_profile (status);
+CREATE INDEX IF NOT EXISTS idx_biz_profile_geom   ON business_profile USING GIST(geom);
 
 -- ── 광고 owner FK + 건별 심사 상태 (D5, D3) ──────────────────────
 ALTER TABLE marketplace_ads

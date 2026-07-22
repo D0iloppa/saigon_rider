@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS poi (
     address           VARCHAR(200),
     latitude          NUMERIC(9, 6) NOT NULL,
     longitude         NUMERIC(9, 6) NOT NULL,
+    geom              GEOGRAPHY(POINT, 4326)
+                        GENERATED ALWAYS AS (
+                            ST_SetSRID(ST_MakePoint(longitude::double precision, latitude::double precision), 4326)::geography
+                        ) STORED,
     photo_content_id  UUID REFERENCES contents(id) ON DELETE SET NULL,
     source            VARCHAR(60),
     external_ref      VARCHAR(200),
@@ -43,6 +47,7 @@ CREATE TABLE IF NOT EXISTS poi (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_poi_source_external_ref
     ON poi (source, external_ref) WHERE external_ref IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_poi_geom ON poi USING GIST(geom);
 
 -- ── 시드 — 호치민 1군 실좌표 랜드마크/행정 5건 (지도 시각 확인용) ──
 -- external_ref 는 seed 재실행 idempotency 용 키 (partial unique index 대상).

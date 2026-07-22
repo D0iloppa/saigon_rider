@@ -96,7 +96,8 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - ENGINE_BASE_URL=http://engine:8090
-      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
+      # 기본값 금지 — 비어있으면 BFF↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
       - CONTENTS_BASE_PATH=/data
       - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL}
       - IMGPROXY_KEY=${IMGPROXY_KEY:-}
@@ -106,7 +107,8 @@ services:
       - APP_TIMEZONE=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
       - TZ=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
       - ADMIN_USER=${ADMIN_USER:-admin}
-      - ADMIN_PASS_HASH=${ADMIN_PASS_HASH}
+      # 기본값 금지 — 비어있으면 root 관리자 비밀번호 검증이 무력화되는 사고 방지 (fail-fast)
+      - ADMIN_PASS_HASH=${ADMIN_PASS_HASH:?ADMIN_PASS_HASH missing in .env}
       # 기본값 금지 — 공개 문자열로 admin JWT가 서명되면 위조 가능 (fail-fast)
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET missing in .env}
       - WIKI_BASE_PATH=${WIKI_BASE_PATH:-/wiki/}
@@ -184,8 +186,9 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - REDIS_URL=redis://redis:6379/0
-      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
-      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
+      # 기본값 금지 — 비어있으면 BFF↔Engine / worker↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
+      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET:?ENGINE_ADMIN_JWT_SECRET missing in .env}
       - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
       - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON:-/app/firebase-credentials.json}
       - FCM_PUSH_HISTORY_TTL_DAYS=${FCM_PUSH_HISTORY_TTL_DAYS:-7}
@@ -228,8 +231,9 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - REDIS_URL=redis://redis:6379/0
-      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
-      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET}
+      # 기본값 금지 — 비어있으면 BFF↔Engine / worker↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
+      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET:?ENGINE_ADMIN_JWT_SECRET missing in .env}
       - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
       - SRE_LOG_LEVEL=INFO
     # 프로세스 생존은 Docker가 판단하고 healthcheck는 DB·Redis·migration readiness만 판정한다.
@@ -267,7 +271,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       - REDIS_URL=redis://redis:6379/0
       - ENGINE_BASE_URL=http://engine:8090
-      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY}
+      # 기본값 금지 — 비어있으면 BFF↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
       - TZ=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
     # 워커 루프가 매 iteration 마다 갱신하는 heartbeat(TTL 30s)로 liveness 판정 (engine worker 와 동일 패턴)
     healthcheck:

@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS marketplace_listings (
     district_id   SMALLINT REFERENCES districts(id) ON DELETE SET NULL,
     latitude      NUMERIC(9, 6),
     longitude     NUMERIC(9, 6),
+    geom          GEOGRAPHY(POINT, 4326)
+                    GENERATED ALWAYS AS (
+                        ST_SetSRID(ST_MakePoint(longitude::double precision, latitude::double precision), 4326)::geography
+                    ) STORED,
     like_count    INTEGER NOT NULL DEFAULT 0,
     view_count    INTEGER NOT NULL DEFAULT 0,
     bumped_at     TIMESTAMPTZ NOT NULL DEFAULT now(),   -- 끌올 신선도 (정렬 기준)
@@ -51,6 +55,7 @@ CREATE TABLE IF NOT EXISTS marketplace_listings (
 CREATE INDEX IF NOT EXISTS idx_mp_listings_status_bumped ON marketplace_listings (status, bumped_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mp_listings_seller        ON marketplace_listings (seller_id);
 CREATE INDEX IF NOT EXISTS idx_mp_listings_category      ON marketplace_listings (category_id);
+CREATE INDEX IF NOT EXISTS idx_mp_listings_geom          ON marketplace_listings USING GIST(geom);
 
 -- ── 매물 이미지 (contents 중개, feed_post_images 동일 패턴) ──────
 CREATE TABLE IF NOT EXISTS marketplace_listing_images (

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,9 +121,15 @@ async def upsert_device_map(
         user_id=sre_user.user_id,
         fcm_token=body.fcm_token,
         logged_in_at=now,
-    ).on_conflict_do_update(
+    )
+    stmt = stmt.on_conflict_do_update(
         constraint="uq_device_user_map_user_id",
-        set_={"device_uuid": body.device_uuid, "fcm_token": body.fcm_token, "logged_in_at": now},
+        set_={
+            "device_uuid": body.device_uuid,
+            # 빈 값/None 은 기존 저장된 토큰을 덮어쓰지 않는다 (일시적 FCM 조회 실패 대응).
+            "fcm_token": func.coalesce(func.nullif(stmt.excluded.fcm_token, ""), DeviceUserMap.fcm_token),
+            "logged_in_at": now,
+        },
     )
     await db.execute(stmt)
     await db.commit()

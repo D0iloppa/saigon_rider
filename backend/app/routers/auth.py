@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import secrets
-import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
@@ -40,6 +39,12 @@ from ..services.oauth import (
     verify_facebook_token,
     verify_google_token,
 )
+from ..services.oauth_flow import (
+    consume_oauth_exchange,
+    consume_oauth_state,
+    issue_oauth_exchange,
+    issue_oauth_state,
+)
 from ..utils import generate_random_nickname
 
 log = logging.getLogger(__name__)
@@ -61,6 +66,10 @@ def _verify(passcode: str, hashed: str) -> bool:
 class DeviceMapRequest(BaseModel):
     device_uuid: str
     fcm_token: str | None = None
+
+
+class OAuthExchangeRequest(BaseModel):
+    code: str
 
 
 @router.post("/device-map", summary="단말-유저 매핑 등록", response_description="매핑 결과")
@@ -384,34 +393,72 @@ async def verify_otp(
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_CALLBACK_PATH = "/auth/oauth/google/callback"  # BFF_PUBLIC_URL 뒤에 붙는 경로
 _APP_DEEP_LINK = "com.saigonrider.user://oauth/callback"
-_STATE_TTL = 600  # 10분
-
-# CSRF state 임시 저장소 (단일 프로세스 — BFF 재시작 시 진행 중인 인증은 실패)
-# value: (expires_at, extra) — extra는 PKCE code_verifier 등 provider별 부가 데이터
-_oauth_states: dict[str, tuple[float, str | None]] = {}
 
 
-def _make_state(extra: str | None = None) -> str:
-    token = secrets.token_urlsafe(32)
-    _oauth_states[token] = (time.monotonic() + _STATE_TTL, extra)
-    # 만료된 state 정리
-    expired = [k for k, (exp, _) in _oauth_states.items() if time.monotonic() > exp]
-    for k in expired:
-        del _oauth_states[k]
-    return token
+async def _make_state(extra: str | None = None) -> str:
+    try:
+        return await issue_oauth_state(extra)
+    except Exception as e:
+        log.exception("OAuth state storage unavailable")
+        raise HTTPException(status_code=503, detail="OAuth temporarily unavailable") from e
 
 
-def _consume_state(state: str) -> tuple[bool, str | None]:
-    entry = _oauth_states.pop(state, None)
-    if entry is None:
+async def _consume_state(state: str) -> tuple[bool, str | None]:
+    try:
+        return await consume_oauth_state(state)
+    except Exception:
+        log.exception("OAuth state storage unavailable")
         return False, None
-    exp, extra = entry
-    return time.monotonic() <= exp, extra
 
 
 def _bff_base_url() -> str:
     """BFF 공개 URL — 환경변수로 오버라이드 가능."""
     return os.getenv("BFF_PUBLIC_URL", "https://saigon.doil.me")
+
+
+def _oauth_error_redirect(base: str, error_code: str) -> RedirectResponse:
+    return RedirectResponse(url=f"{base}?{urlencode({'error': error_code})}", status_code=302)
+
+
+async def _redirect_with_exchange(base: str, user_id: uuid.UUID, is_new: bool) -> RedirectResponse:
+    try:
+        code = await issue_oauth_exchange(str(user_id), is_new)
+    except Exception:
+        log.exception("OAuth exchange storage unavailable")
+        return _oauth_error_redirect(base, "temporarily_unavailable")
+    return RedirectResponse(url=f"{base}?code={code}", status_code=302)
+
+
+@router.post("/oauth/exchange", response_model=OAuthLoginResponse, summary="OAuth 단회용 코드 교환")
+async def oauth_exchange(body: OAuthExchangeRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        payload = await consume_oauth_exchange(body.code)
+    except Exception as e:
+        log.exception("OAuth exchange storage unavailable")
+        raise HTTPException(status_code=503, detail="OAuth temporarily unavailable") from e
+    if payload is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth code")
+
+    try:
+        user_id = uuid.UUID(payload.user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth code") from e
+    user = (await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User account deleted")
+
+    now = datetime.now(UTC)
+    enforce_account_active(user, now)
+    raw_token = uuid.uuid4().hex
+    user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = now + SESSION_TTL
+    await db.commit()
+
+    return OAuthLoginResponse(
+        user=UserOut.model_validate(user),
+        session_token=raw_token,
+        is_new=payload.is_new,
+    )
 
 
 @router.get("/oauth/google/start", summary="Google OAuth 시작 (네이티브 redirect flow)")
@@ -422,7 +469,7 @@ async def oauth_google_start(db: AsyncSession = Depends(get_db)):
     if not client_id or client_id == "CHANGE_ME":
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
 
-    state = _make_state()
+    state = await _make_state()
     redirect_uri = _bff_base_url() + _GOOGLE_CALLBACK_PATH
     params = {
         "client_id": client_id,
@@ -444,17 +491,17 @@ async def oauth_google_callback(
 ):
     """
     Google 인증 결과를 처리하고 앱 딥링크로 리다이렉트한다.
-    성공: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1
+    성공: com.saigonrider.user://oauth/callback?code=... (2분 TTL, 단회용)
     실패: com.saigonrider.user://oauth/callback?error=...
     """
 
     def deep_link_error(msg: str) -> RedirectResponse:
-        return RedirectResponse(url=f"{_APP_DEEP_LINK}?error={msg}", status_code=302)
+        return _oauth_error_redirect(_APP_DEEP_LINK, msg)
 
     if error or not code:
         return deep_link_error(error or "auth_cancelled")
 
-    valid, _ = _consume_state(state) if state else (False, None)
+    valid, _ = await _consume_state(state) if state else (False, None)
     if not state or not valid:
         return deep_link_error("invalid_state")
 
@@ -503,17 +550,11 @@ async def oauth_google_callback(
         if user is None:
             return deep_link_error("account_deleted")
 
-    raw_token = str(uuid.uuid4()).replace("-", "")
-    user.passcode_hash = _hash(raw_token)
-    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     await db.commit()
 
-    return RedirectResponse(
-        url=f"{_APP_DEEP_LINK}?userId={user.id}&sessionToken={raw_token}&isNew={'1' if is_new else '0'}",
-        status_code=302,
-    )
+    return await _redirect_with_exchange(_APP_DEEP_LINK, user.id, is_new)
 
 
 _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
@@ -528,7 +569,7 @@ async def oauth_apple_start(db: AsyncSession = Depends(get_db)):
     if not client_id or client_id == "CHANGE_ME":
         raise HTTPException(status_code=500, detail="Apple OAuth not configured")
 
-    state = _make_state()
+    state = await _make_state()
     redirect_uri = _bff_base_url() + _APPLE_CALLBACK_PATH
     params = {
         "client_id": client_id,
@@ -550,17 +591,17 @@ async def oauth_apple_callback(
 ):
     """
     Apple이 form POST로 전달하는 인증 결과를 처리하고 앱 딥링크로 리다이렉트한다.
-    성공: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1
+    성공: com.saigonrider.user://oauth/callback?code=... (2분 TTL, 단회용)
     실패: com.saigonrider.user://oauth/callback?error=...
     """
 
     def deep_link_error(msg: str) -> RedirectResponse:
-        return RedirectResponse(url=f"{_APP_DEEP_LINK}?error={msg}", status_code=302)
+        return _oauth_error_redirect(_APP_DEEP_LINK, msg)
 
     if error or not code:
         return deep_link_error(error or "auth_cancelled")
 
-    valid, _ = _consume_state(state) if state else (False, None)
+    valid, _ = await _consume_state(state) if state else (False, None)
     if not state or not valid:
         return deep_link_error("invalid_state")
 
@@ -611,17 +652,11 @@ async def oauth_apple_callback(
         if user is None:
             return deep_link_error("account_deleted")
 
-    raw_token = str(uuid.uuid4()).replace("-", "")
-    user.passcode_hash = _hash(raw_token)
-    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     await db.commit()
 
-    return RedirectResponse(
-        url=f"{_APP_DEEP_LINK}?userId={user.id}&sessionToken={raw_token}&isNew={'1' if is_new else '0'}",
-        status_code=302,
-    )
+    return await _redirect_with_exchange(_APP_DEEP_LINK, user.id, is_new)
 
 
 _ZALO_AUTH_URL = "https://oauth.zaloapp.com/v4/permission"
@@ -631,17 +666,12 @@ _WEB_STATE_MARKER = ".w"  # web 플로우 state 문자열 접미사 — token_ur
 
 
 def _is_web_zalo_state(state: str | None) -> bool:
-    """state 문자열 자체만으로 web 플랫폼 여부를 판별 — 공유 _oauth_states dict 조회 없음.
-
-    _oauth_states는 다른 유저의 OAuth 시작 호출 시마다 lazy cleanup되는 프로세스 전역 dict라,
-    dict 조회에 의존하면 콜백이 지연되는 사이 엔트리가 정리돼 platform 판별이 native로
-    오폴백될 수 있었다. state 값 자체에 마커를 실어 이 의존을 제거한다.
-    """
+    """Redis state 소비 전에 결과를 web/native 중 어디로 보낼지 판별한다."""
     return bool(state) and state.endswith(_WEB_STATE_MARKER)
 
 
 def _strip_web_marker(state: str) -> str:
-    """_oauth_states 조회용 원래 state 키로 복원 (마커 제거)."""
+    """Redis 조회용 원래 state 키로 복원한다."""
     return state[: -len(_WEB_STATE_MARKER)] if state.endswith(_WEB_STATE_MARKER) else state
 
 
@@ -672,7 +702,7 @@ async def oauth_zalo_start(
 
     platform = "web" if platform == "web" else "native"
     verifier, challenge = _make_pkce()
-    state = _make_state(extra=verifier)
+    state = await _make_state(extra=verifier)
     if platform == "web":
         state += _WEB_STATE_MARKER  # Zalo가 state를 그대로 에코 — 콜백에서 dict 조회 없이 판별
     redirect_uri = _bff_base_url() + _ZALO_CALLBACK_PATH
@@ -694,8 +724,8 @@ async def oauth_zalo_callback(
 ):
     """
     Zalo 인증 결과를 처리하고 platform(native/web)에 맞는 목적지로 리다이렉트한다.
-    native: com.saigonrider.user://oauth/callback?userId=...&sessionToken=...&isNew=1 (또는 ?error=...)
-    web:    /auth/oauth-result?userId=...&sessionToken=...&isNew=1 (또는 ?error=...)
+    native: com.saigonrider.user://oauth/callback?code=... (또는 ?error=...)
+    web:    /auth/oauth-result?code=... (또는 ?error=...)
     """
     # platform은 state 문자열 자체의 마커로 결정 — dict 조회가 아니므로 만료/레이스 영향 없음.
     platform = "web" if _is_web_zalo_state(state) else "native"
@@ -703,23 +733,15 @@ async def oauth_zalo_callback(
     def result_redirect(
         *,
         error_code: str | None = None,
-        user_id: str | None = None,
-        session_token: str | None = None,
-        is_new: bool = False,
     ) -> RedirectResponse:
         base = _WEB_OAUTH_RESULT_PATH if platform == "web" else _APP_DEEP_LINK
-        if error_code:
-            return RedirectResponse(url=f"{base}?error={error_code}", status_code=302)
-        return RedirectResponse(
-            url=f"{base}?userId={user_id}&sessionToken={session_token}&isNew={'1' if is_new else '0'}",
-            status_code=302,
-        )
+        return _oauth_error_redirect(base, error_code or "invalid_response")
 
     if error or not code:
         return result_redirect(error_code=error or "auth_cancelled")
 
     lookup_state = _strip_web_marker(state) if state else state
-    valid, verifier = _consume_state(lookup_state) if lookup_state else (False, None)
+    valid, verifier = await _consume_state(lookup_state) if lookup_state else (False, None)
     if not state or not valid or not verifier:
         return result_redirect(error_code="invalid_state")
 
@@ -772,14 +794,12 @@ async def oauth_zalo_callback(
         if user is None:
             return result_redirect(error_code="account_deleted")
 
-    raw_token = str(uuid.uuid4()).replace("-", "")
-    user.passcode_hash = _hash(raw_token)
-    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     await db.commit()
 
-    return result_redirect(user_id=str(user.id), session_token=raw_token, is_new=is_new)
+    base = _WEB_OAUTH_RESULT_PATH if platform == "web" else _APP_DEEP_LINK
+    return await _redirect_with_exchange(base, user.id, is_new)
 
 
 # AUTH-10: 이전엔 "production/prod 가 아니면 dev 허용"(fail-open) — APP_ENV 미설정/오타 시

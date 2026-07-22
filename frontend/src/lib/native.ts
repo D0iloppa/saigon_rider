@@ -448,11 +448,11 @@ class NativeInterface {
   /**
    * 3사(Google/Apple/Zalo) 로그인 — BFF 서버사이드 redirect flow.
    * 커스텀 WebAuth 플러그인(ASWebAuthenticationSession)으로 인증 URL을 열고 커스텀 스킴 콜백을 직접 받는다.
-   * 반환된 {userId, sessionToken}은 BFF가 이미 발급한 세션이므로 apiOAuthLogin 불필요.
+   * 반환된 단회용 code는 BFF /auth/oauth/exchange에서 세션으로 교환한다.
    */
   async signInWith(
     provider: 'google' | 'apple' | 'facebook' | 'zalo',
-  ): Promise<{ userId: string; sessionToken: string; isNew: boolean }> {
+  ): Promise<{ code: string }> {
     if (provider !== 'google' && provider !== 'apple' && provider !== 'zalo') {
       throw new Error(`[NativeInterface] signInWith: ${provider} not yet supported`);
     }
@@ -466,11 +466,9 @@ class NativeInterface {
     const url = new URL(callbackUrl);
     const err = url.searchParams.get('error');
     if (err) throw new Error(err);
-    return {
-      userId: url.searchParams.get('userId') ?? '',
-      sessionToken: url.searchParams.get('sessionToken') ?? '',
-      isNew: url.searchParams.get('isNew') === '1',
-    };
+    const code = url.searchParams.get('code');
+    if (!code) throw new Error('invalid_oauth_response');
+    return { code };
   }
 
   // ── Stubs (no native counterpart yet — install Capacitor plugin to enable) ─

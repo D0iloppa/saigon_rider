@@ -5,7 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
 import { native } from '@/lib/native';
-import { apiOAuthLogin, apiDevLogin, apiGetMeById } from '@/api/auth';
+import { apiOAuthExchange, apiOAuthLogin, apiDevLogin } from '@/api/auth';
 import { fetchAppConfig } from '@/api/appVersion';
 import styles from './AuthForm.module.css';
 
@@ -63,6 +63,13 @@ export default function OAuthLogin() {
       setError(msg);
       setLoading(null);
     }
+  };
+
+  const finishRedirectOAuth = async (code: string) => {
+    const result = await apiOAuthExchange(code);
+    saveSession({ userId: result.user.id, sessionToken: result.session_token });
+    loginFromBackend(result.user);
+    navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
   };
 
   // 팝업 차단 폴백(OAuthResult가 opener 없이 /auth/oauth?error=... 로 되돌아온 경우) 에러 표시
@@ -124,17 +131,13 @@ export default function OAuthLogin() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 네이티브 모드: @capacitor/browser redirect flow
-  // BFF가 세션까지 발급하므로 apiOAuthLogin 불필요 — userId/sessionToken 직접 저장
+  // 네이티브 모드: redirect URL에는 단회용 code만 받고 BFF에서 세션으로 교환한다.
   const handleNativeGoogle = async () => {
     setError(null);
     setLoading('google');
     try {
-      const { userId, sessionToken, isNew } = await native.signInWith('google');
-      saveSession({ userId, sessionToken });
-      const result = await apiGetMeById(userId);
-      loginFromBackend(result.user);
-      navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+      const { code } = await native.signInWith('google');
+      await finishRedirectOAuth(code);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -146,11 +149,8 @@ export default function OAuthLogin() {
     setError(null);
     setLoading('zalo');
     try {
-      const { userId, sessionToken, isNew } = await native.signInWith('zalo');
-      saveSession({ userId, sessionToken });
-      const result = await apiGetMeById(userId);
-      loginFromBackend(result.user);
-      navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+      const { code } = await native.signInWith('zalo');
+      await finishRedirectOAuth(code);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -162,11 +162,8 @@ export default function OAuthLogin() {
     setError(null);
     setLoading('apple');
     try {
-      const { userId, sessionToken, isNew } = await native.signInWith('apple');
-      saveSession({ userId, sessionToken });
-      const result = await apiGetMeById(userId);
-      loginFromBackend(result.user);
-      navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+      const { code } = await native.signInWith('apple');
+      await finishRedirectOAuth(code);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -196,17 +193,15 @@ export default function OAuthLogin() {
         zaloPopupCheckRef.current = null;
       }
 
-      const { error: resultError, userId, sessionToken, isNew } = event.data;
+      const { error: resultError, code } = event.data;
       if (resultError) {
         setError(resultError);
         setLoading(null);
         return;
       }
       try {
-        saveSession({ userId, sessionToken });
-        const result = await apiGetMeById(userId);
-        loginFromBackend(result.user);
-        navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+        if (!code) throw new Error('invalid_oauth_response');
+        await finishRedirectOAuth(code);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         setError(msg);

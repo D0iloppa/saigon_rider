@@ -44,6 +44,13 @@ export async function apiOAuthLogin(provider: string, token: string, tokenType: 
   });
 }
 
+export async function apiOAuthExchange(code: string): Promise<OAuthLoginResult> {
+  return api.realFetch<OAuthLoginResult>('/auth/oauth/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
 export async function apiSessionVerify(userId: string, sessionToken: string): Promise<LoginResult> {
   return api.realFetch<LoginResult>('/auth/session/verify', {
     method: 'POST',

@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
-import { apiGetMeById } from '@/api/auth';
+import { apiOAuthExchange } from '@/api/auth';
 
 /**
  * 웹 OAuth(Zalo) 팝업 플로우의 결과 수신 라우트.
@@ -14,17 +14,16 @@ import { apiGetMeById } from '@/api/auth';
 export default function OAuthResult() {
   const navigate = useNavigate();
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
+  const exchangeStartedRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
-    const userId = params.get('userId');
-    const sessionToken = params.get('sessionToken');
-    const isNew = params.get('isNew') === '1';
+    const code = params.get('code');
 
     if (window.opener) {
       window.opener.postMessage(
-        { type: 'oauth-result', provider: 'zalo', error, userId, sessionToken, isNew },
+        { type: 'oauth-result', provider: 'zalo', error, code },
         window.location.origin,
       );
       window.close();
@@ -32,17 +31,19 @@ export default function OAuthResult() {
     }
 
     // 팝업 차단 폴백 — opener 없이 직접 도착
-    if (error || !userId || !sessionToken) {
+    if (error || !code) {
       navigate(`/auth/oauth?error=${encodeURIComponent(error || 'invalid_response')}`, { replace: true });
       return;
     }
+    if (exchangeStartedRef.current) return;
+    exchangeStartedRef.current = true;
 
     (async () => {
       try {
-        saveSession({ userId, sessionToken });
-        const result = await apiGetMeById(userId);
+        const result = await apiOAuthExchange(code);
+        saveSession({ userId: result.user.id, sessionToken: result.session_token });
         loginFromBackend(result.user);
-        navigate(isNew ? '/auth/profile-setup' : '/home', { replace: true });
+        navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         navigate(`/auth/oauth?error=${encodeURIComponent(msg)}`, { replace: true });

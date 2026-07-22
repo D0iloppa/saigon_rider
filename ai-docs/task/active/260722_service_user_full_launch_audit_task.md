@@ -26,12 +26,12 @@
 
 ### 코드상 비차단 후속
 
+- **ADM-6 (2026-07-23 해결)**: 관리자 로그인 브루트포스 throttle 도입. `backend/app/services/admin_login_throttle.py` — Redis 기반 escalating lockout(1분→5분→15분→1시간)을 **username** 과 **client IP** 두 축에 독립 적용(legacy `/admin-legacy/login` + JSON `/admin/api/auth/login` 양쪽 배선). client IP 는 nginx `$proxy_add_x_forwarded_for` 의 **마지막 홉**(위조 불가)에서 취한다. Redis 장애 시 fail-open(관리자 lockout 방지, 자격증명은 여전히 요구). 검증: `test_admin_login_throttle.py`(임계 lockout·429 Retry-After·fail-open·IP 파싱).
+- **DB-6 (2026-07-23 해결)**: `tools/check_migration_prefixes.py` — `database/init/*.sql` 의 기존 중복 prefix(002/042/092/093/138)를 baseline 로 grandfather 하고 **새 중복 도입만** 차단. pre-commit `migration-prefix-lint` 훅 배선. 검증: `test_migration_prefix_lint.py` 4/4.
 - **FD-6**: producer의 도메인 커밋과 Redis publish를 묶는 durable outbox가 없다. 또한 현재 알림 worker는 중복 푸시 방지를 우선해 at-most-once로 동작하므로, notification 행 커밋 직후 provider 호출 전에 프로세스가 종료되면 인앱 행만 남고 푸시는 유실될 수 있다. provider 멱등 키를 포함한 delivery outbox가 후속으로 필요하다.
 - **BIZ-9**: 번역 provider 실패 시 일부 소비 화면이 원문 fallback을 번역 성공처럼 보일 수 있어 공통 실패 표시가 필요하다.
-- **DB-6**: 기존 중복 migration prefix를 허용하는 baseline과 새 중복만 막는 CI/pre-commit 배선이 필요하다.
-- **ADM-6**: 관리자 로그인 실패 횟수 제한·백오프가 아직 없다.
 
-이 항목들은 이번 재감사에서 P0/High 피해 경로와 분리한 중위험 후속이며, 해결 전까지 상태 문구를 전체 `COMPLETE`로 올리지 않는다.
+이 항목들(FD-6·BIZ-9)은 이번 재감사에서 P0/High 피해 경로와 분리한 중위험 후속이며, 해결 전까지 상태 문구를 전체 `COMPLETE`로 올리지 않는다.
 
 ### 출시 전 외부 게이트
 

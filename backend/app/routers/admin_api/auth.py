@@ -16,6 +16,12 @@ from ...admin_auth import (
     verify_admin_api,
 )
 from ...database import get_db
+from ...services.admin_login_throttle import (
+    assert_not_locked,
+    clear_failures,
+    client_ip,
+    register_failure,
+)
 from ._audit import audit
 
 router = APIRouter(prefix="/auth")
@@ -33,9 +39,13 @@ async def admin_api_login(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    ip = client_ip(request)
+    await assert_not_locked(body.username, ip)
     sess = await authenticate(db, body.username, body.password)
     if sess is None:
+        await register_failure(body.username, ip)
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    await clear_failures(body.username, ip)
 
     await audit(db, sess, request, "LOGIN")
     await db.commit()

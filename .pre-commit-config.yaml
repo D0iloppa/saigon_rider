@@ -16,6 +16,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^(database/init/.*\.sql|docker-compose(\.prod)?\.yml|tools/check_production_seed_safety\.py)$
+      - id: migration-prefix-lint
+        name: migration prefix lint
+        entry: python tools/check_migration_prefixes.py
+        language: system
+        pass_filenames: false
+        files: ^(database/init/.*\.sql|tools/check_migration_prefixes\.py)$
       - id: eslint
         name: eslint
         entry: bash -c 'cd frontend && npx eslint "${@/#frontend\//}"' --

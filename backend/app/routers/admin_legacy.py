@@ -70,6 +70,12 @@ from ..models import (
 from ..quest_card_map import quest_card_file_path, resolve_quest_card_code
 from ..schemas import POIBulkRequest, POIBulkResult
 from ..services import noti_events
+from ..services.admin_login_throttle import (
+    assert_not_locked,
+    clear_failures,
+    client_ip,
+    register_failure,
+)
 from ..services.fuel_price_service import FUEL_BRANDS, FUEL_TYPES, upsert_fuel_price
 from ..utils import (
     APP_TZ,
@@ -190,14 +196,19 @@ async def admin_login_page():
 # Admin-2
 @router.post("/login", include_in_schema=False)
 async def admin_login_post(
+    request: Request,
     username: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
     # root (.env 정적 계정) 우선 → admin_accounts 폴백 (admin_auth 공용)
+    ip = client_ip(request)
+    await assert_not_locked(username, ip)
     sess = await authenticate(db, username, password)
     if sess is None:
+        await register_failure(username, ip)
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    await clear_failures(username, ip)
 
     token = _issue_token(username=sess.username, role=sess.role, account_id=sess.account_id)
     resp = RedirectResponse(url="/admin-legacy/dashboard", status_code=302)

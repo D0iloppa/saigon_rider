@@ -114,6 +114,17 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **핵심 컴포넌트**: `TopBar`, `StoryAvatar`, `AppImage`, `ImageCarousel`, `LevelBadge`, `Chip`, `ProfileCard`, `ImageViewer`
 - **DM 진입점**: FeedList 상단 메시지 아이콘 → `/dm`(`pages/dm/DmList.tsx`) → `/dm/:conversationId`(`DmDetail.tsx`). **탭바에는 없음** — "채팅"은 `tabbar.chat` i18n 키만 존재하고 실제 탭바 5개엔 포함 안 됨(TabBar.tsx 주석: "채팅은 nav 제외").
 
+#### 관리자 콘솔 — 커뮤니티 (피드 관리) (`admin-frontend/src/pages/community/`, 2026-07-22 신규 SPA 이식)
+
+`AdminLayout.tsx` 사이드바 신규 그룹 **"커뮤니티"**(root 아님, admin 레벨) → "피드 관리".
+
+| 라우트(SPA) | 페이지 파일 | 액션 |
+|---|---|---|
+| `/community/feed` | `admin-frontend/src/pages/community/FeedListPage.tsx` | 피드 글 목록(썸네일·작성자·본문미리보기·카운트·STORY 태그, `created_at desc` 페이지네이션) |
+| `/community/feed/:id` | `admin-frontend/src/pages/community/FeedDetailPage.tsx` | 상세(이미지 갤러리·본문·작성자·좌표·카운트) + 삭제 |
+
+백엔드 `backend/app/routers/admin_api/feed.py`(`GET /admin/api/community/feed[/:id]`, `DELETE /community/feed/{id}`), `verify_admin_api`(레거시 `/admin-legacy/feed`와 동일 admin 레벨) + 삭제 시 `_audit.audit()`(`FEED_DELETE`). 삭제는 DB `ON DELETE CASCADE`로 좋아요/댓글/이미지 동반 삭제. 이미지는 앱 라우터의 `_resolve_image_urls`(contents 중개+imgproxy) 재사용. 좌표 Decimal→문자열은 프론트 `Number()` 강제. fetch 훅 `admin-frontend/src/api/feed.ts`. **범위**: 조회+삭제 모더레이션만 — 관리자 작성/편집(authoring)은 미이식(별개 항목 "공식계정 피드 관리"). **알려진 갭**: 신고센터는 아직 피드 미포함(`Report.target_type`에 FEED 추가는 별도 백로그).
+
 ### 3.5 프로필 (`/profile`)
 
 - **페이지**: `pages/profile/ProfileMain.tsx` — 3레이어 + 드래거블 시트 구조 (상세: [`frontend.md`](frontend.md) §4)

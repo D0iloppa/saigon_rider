@@ -79,17 +79,18 @@ async def get_pity(
     }
 
 
-@router.get("/eligibility/{gacha_code}")
-async def check_gacha_eligibility(
-    gacha_code: str,
-    uid: uuid.UUID = Depends(verify_user_session),
-) -> dict:
-    try:
-        return await engine_client.check_gacha_eligibility(str(uid), gacha_code)
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=e.response.status_code, detail=e.response.json().get("detail", str(e))
-        ) from None
+# [보류 — 게이미피케이션 재개 시 활성화]
+# @router.get("/eligibility/{gacha_code}")
+# async def check_gacha_eligibility(
+#     gacha_code: str,
+#     uid: uuid.UUID = Depends(verify_user_session),
+# ) -> dict:
+#     try:
+#         return await engine_client.check_gacha_eligibility(str(uid), gacha_code)
+#     except httpx.HTTPStatusError as e:
+#         raise HTTPException(
+#             status_code=e.response.status_code, detail=e.response.json().get("detail", str(e))
+#         ) from None
 
 
 @router.post("/pull")

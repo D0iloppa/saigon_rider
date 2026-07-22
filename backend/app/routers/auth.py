@@ -21,7 +21,6 @@ from ..deps import enforce_account_active, verify_user_session
 from ..engine_client import engine_client
 from ..models import AppConfig, User, UserOAuthIdentity, UserOtp
 from ..schemas import (
-    LoginRequest,
     LoginResponse,
     OAuthLoginRequest,
     OAuthLoginResponse,
@@ -29,8 +28,6 @@ from ..schemas import (
     OtpRequestOut,
     OtpVerifyIn,
     OtpVerifyOut,
-    RegisterRequest,
-    RegisterResponse,
     SessionVerifyRequest,
     UserOut,
 )
@@ -59,74 +56,6 @@ def _hash(passcode: str) -> str:
 
 def _verify(passcode: str, hashed: str) -> bool:
     return pwd_ctx.verify(passcode, hashed)
-
-
-@router.post(
-    "/register",
-    response_model=RegisterResponse,
-    summary="회원가입",
-    response_description="발급된 passcode와 유저 정보",
-)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """
-    전화번호로 신규 가입.
-    - passcode는 UUID 기반 32자 문자열로 발급되며 PBKDF2 해시로 저장됨
-    """
-    phone = body.phone.strip()
-    result = await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))
-    user = result.scalar_one_or_none()
-
-    if user is None:
-        raw_passcode = str(uuid.uuid4()).replace("-", "")
-        hashed = _hash(raw_passcode)
-        # 가입 시점에 랜덤 닉네임을 기본 부여 → ProfileSetup 미완료(앱 종료)여도 공백 닉네임 방지.
-        # 사용자는 이후 ProfileSetup 에서 커스텀 지정하거나 건너뛰기(랜덤 유지)한다.
-        nick = await generate_random_nickname(db)
-        user = User(phone=phone, passcode_hash=hashed, nickname=nick)
-        user.session_expires_at = datetime.now(UTC) + SESSION_TTL
-        db.add(user)
-        await db.commit()
-        is_new = True
-    else:
-        raise HTTPException(status_code=409, detail="Phone number already registered")
-
-    # avatar_content 관계 selectin 로드를 위해 재조회 (UserOut 직렬화 시 필요)
-    user = (await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))).scalar_one()
-
-    return RegisterResponse(
-        passcode=raw_passcode,
-        is_new=is_new,
-        user=UserOut.model_validate(user),
-    )
-
-
-@router.post("/login", response_model=LoginResponse, summary="로그인", response_description="유저 정보")
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """전화번호 + passcode 검증 후 유저 정보 반환."""
-    result = await db.execute(select(User).where(User.phone == body.phone.strip(), User.deleted_at.is_(None)))
-    user = result.scalar_one_or_none()
-
-    if user is None or user.passcode_hash is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-
-    if not _verify(body.passcode, user.passcode_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
-
-    enforce_account_active(user, datetime.now(UTC))
-    user.session_expires_at = datetime.now(UTC) + SESSION_TTL
-    await db.commit()
-
-    # 구버전에서 닉네임 없이 생성된 기존 유저 보정(self-heal) — 공백 닉네임 방지.
-    if not (user.nickname and user.nickname.strip()):
-        nick = await generate_random_nickname(db)
-        if nick:
-            user.nickname = nick
-            await db.commit()
-            user = (
-                await db.execute(select(User).where(User.phone == body.phone.strip(), User.deleted_at.is_(None)))
-            ).scalar_one()
-
-    return LoginResponse(user=UserOut.model_validate(user))
 
 
 class DeviceMapRequest(BaseModel):

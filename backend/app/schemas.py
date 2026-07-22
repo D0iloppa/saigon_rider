@@ -1,14 +1,14 @@
 import re
 import uuid
-from datetime import date, datetime, time
+from datetime import datetime, time
 from decimal import Decimal
 from typing import Generic, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
-from .utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
+from .utils import build_imgproxy_url, resolve_avatar_url, resolve_feed_image_url
 
 T = TypeVar("T")
 
@@ -329,15 +329,6 @@ class TranslateAllResponse(BaseModel):
 # ── Auth / User ──────────────────────────────────────────────────
 
 
-class RegisterRequest(BaseModel):
-    phone: str
-
-
-class LoginRequest(BaseModel):
-    phone: str
-    passcode: str
-
-
 class OAuthLoginRequest(BaseModel):
     provider: str  # 'google' | 'facebook' | 'apple'
     token: str
@@ -397,12 +388,6 @@ class UserOut(BaseModel):
         }
 
 
-class RegisterResponse(BaseModel):
-    passcode: str
-    is_new: bool
-    user: UserOut
-
-
 class LoginResponse(BaseModel):
     user: UserOut
 
@@ -439,11 +424,6 @@ class OtpVerifyOut(BaseModel):
 # ── Profile ──────────────────────────────────────────────────────
 
 
-class NicknameUpdateRequest(BaseModel):
-    user_id: UUID
-    nickname: str
-
-
 class ProfileSaveRequest(BaseModel):
     user_id: UUID
     nickname: str
@@ -462,13 +442,6 @@ class AvatarUpdateResponse(BaseModel):
 
 class RandomNicknameResponse(BaseModel):
     nickname: str
-
-
-class XpBalanceResponse(BaseModel):
-    user_id: str
-    current_balance: int
-    total_earned: int | None = None
-    total_spent: int | None = None
 
 
 # ── Contents ─────────────────────────────────────────────────────
@@ -532,13 +505,6 @@ class QuestOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class QuestPinOut(BaseModel):
-    id: int
-    quest_id: UUID
-    lat: float
-    lng: float
-
-
 class UserQuestOut(BaseModel):
     id: UUID
     user_id: UUID
@@ -558,102 +524,6 @@ class QuestAcceptRequest(BaseModel):
 class QuestAcceptResponse(BaseModel):
     session_id: UUID
     user_quest_id: UUID
-
-
-class QuestCompleteRequest(BaseModel):
-    user_id: UUID
-
-
-class QuestCompleteResponse(BaseModel):
-    quest_id: UUID
-    user_quest_id: UUID
-    status: str
-    reward_exp: int
-    reward_gold: int
-    reward_item: str | None
-
-
-class BookmarkToggleRequest(BaseModel):
-    user_id: UUID
-
-
-class BookmarkToggleResponse(BaseModel):
-    bookmarked: bool
-
-
-class QuestParticipantOut(BaseModel):
-    user_id: UUID
-    nickname: str | None
-    avatar_url: str | None
-
-    @field_validator("avatar_url", mode="before")
-    @classmethod
-    def fill_default_avatar(cls, v):
-        return v if v is not None else default_avatar_url()
-
-
-# ── Ride ─────────────────────────────────────────────────────────
-
-
-class RideSubmitRequest(BaseModel):
-    user_id: UUID
-    user_quest_id: UUID
-    quest_id: UUID
-    distance_km: Decimal
-    duration_sec: int
-    avg_speed_kmh: Decimal | None = None
-    safety_grade: str | None = None
-    is_success: bool
-    fail_reason: str | None = None
-
-
-class RideResultOut(BaseModel):
-    session_id: UUID
-    is_success: bool
-    distance_km: Decimal
-    duration_sec: int
-    safety_grade: str | None
-    reward_exp: int
-    reward_gold: int
-    reward_item: str | None
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class RideSessionOut(BaseModel):
-    id: UUID
-    quest_id: UUID
-    distance_km: Decimal
-    duration_sec: int
-    avg_speed_kmh: Decimal | None
-    safety_grade: str | None
-    reward_exp: int
-    reward_gold: int
-    is_success: bool
-    fail_reason: str | None
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class RideStreakOut(BaseModel):
-    user_id: UUID
-    current_streak: int
-    longest_streak: int
-    last_ride_date: date | None
-
-    model_config = {"from_attributes": True}
-
-
-class SafetyGradeRequest(BaseModel):
-    avg_speed_kmh: float
-    braking_count: int = 0
-    duration_sec: int = 0
-
-
-class SafetyGradeResponse(BaseModel):
-    grade: str
 
 
 # ── Feed ─────────────────────────────────────────────────────────
@@ -880,11 +750,6 @@ class BadgeOut(BaseModel):
         return d
 
 
-class UserBadgeOut(BaseModel):
-    badge: BadgeOut
-    acquired_at: datetime
-
-
 class BadgeWithEarnedOut(BaseModel):
     badge: BadgeOut
     earned: bool
@@ -1073,95 +938,6 @@ class DmMessageCreateRequest(BaseModel):
     content: str | None = None
     image_content_id: UUID | None = None
     message_type: str = "text"
-    meta: dict | None = None
-
-
-# ── __DEV: 프로젝트 컨텍스트 관리 ────────────────────────────────
-
-
-class DevContextOut(BaseModel):
-    id: int
-    key: str
-    value: str | None = None
-    status: str = "⏸"
-    meta: dict | None = None
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class DevContextUpsertRequest(BaseModel):
-    key: str
-    value: str | None = None
-    status: str | None = None
-    meta: dict | None = None
-
-
-class DevFeatureOut(BaseModel):
-    id: int
-    category: str
-    name: str
-    description: str | None = None
-    status: str
-    sort_order: int
-    meta: dict | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class DevFeatureCreateRequest(BaseModel):
-    category: str
-    name: str
-    description: str | None = None
-    status: str = "PLANNED"
-    sort_order: int = 0
-    meta: dict | None = None
-
-
-class DevFeatureUpdateRequest(BaseModel):
-    category: str | None = None
-    name: str | None = None
-    description: str | None = None
-    status: str | None = None
-    sort_order: int | None = None
-    meta: dict | None = None
-
-
-class DevTodoOut(BaseModel):
-    id: int
-    title: str
-    description: str | None = None
-    priority: str
-    status: str
-    feature_id: int | None = None
-    feature: DevFeatureOut | None = None
-    due_date: date | None = None
-    meta: dict | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class DevTodoCreateRequest(BaseModel):
-    title: str
-    description: str | None = None
-    priority: str = "MEDIUM"
-    status: str = "TODO"
-    feature_id: int | None = None
-    due_date: date | None = None
-    meta: dict | None = None
-
-
-class DevTodoUpdateRequest(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    priority: str | None = None
-    status: str | None = None
-    feature_id: int | None = None
-    due_date: date | None = None
     meta: dict | None = None
 
 

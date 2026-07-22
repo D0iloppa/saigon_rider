@@ -23,7 +23,6 @@ from ..services.fuel_price_service import (
     upsert_fuel_price,
 )
 from ..services.redis_cache import (
-    CacheKeys,
     cache_get,
     cache_set,
     invalidate_gas_nearby_for_station,
@@ -265,66 +264,6 @@ async def report_new_station(
 async def get_today_prices(db: AsyncSession = Depends(get_db)):
     """오늘의 브랜드 x 연료별 참고가 매트릭스. 인증 불요 (공개 정보)."""
     return await get_today_reference_prices(db)
-
-
-@router.get("/stations/nearby-v2")
-async def get_nearby_v2(
-    lat: Latitude,
-    lng: Longitude,
-    radius_km: float = 3.0,
-    user_id: uuid.UUID = Depends(verify_user_session),
-    db: AsyncSession = Depends(get_db),
-):
-    """근처 주유소 + 브랜드별 참고가 (v2 응답 형식)."""
-    cache_key = CacheKeys.STATIONS_NEARBY.format(lat=round(lat, 3), lng=round(lng, 3), radius=radius_km)
-    cached = await cache_get(cache_key)
-    if cached:
-        return {**cached, "stations": _with_request_distances(cached["stations"], lat, lng)}
-
-    result = await db.execute(
-        text("""
-        SELECT gs.station_id, gs.name, gs.brand, gs.brand_normalized,
-               CAST(gs.lat AS FLOAT) AS lat, CAST(gs.lng AS FLOAT) AS lng,
-               gs.is_24h, gs.district_code, gs.street_name, gs.opening_hours,
-               ST_Distance(
-                   gs.geom,
-                   ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-               ) / 1000.0 AS distance_km
-        FROM gas_station gs
-        WHERE gs.status = 'ACTIVE'
-          AND ST_DWithin(
-                gs.geom,
-                ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
-                :radius_m
-              )
-        ORDER BY distance_km
-        LIMIT 50
-    """),
-        {"lat": lat, "lng": lng, "radius_m": radius_km * 1000},
-    )
-
-    stations = [dict(r._mapping) for r in result]
-
-    today_prices = await get_today_reference_prices(db)
-
-    for s in stations:
-        brand_norm = s.get("brand_normalized") or "UNKNOWN"
-        brand_key = brand_norm if brand_norm != "UNKNOWN" else "MARKET_AVG"
-        brand_prices = today_prices.get(brand_key) or today_prices.get("MARKET_AVG") or {}
-        s["reference_price"] = {
-            "RON95_III": (brand_prices.get("RON95_III") or {}).get("price"),
-            "E5_RON92_II": (brand_prices.get("E5_RON92_II") or {}).get("price"),
-            "updated_at": today_prices.get("updated_at"),
-            "source": f"{brand_key} 공식" if brand_key != "MARKET_AVG" else "시장 평균",
-        }
-
-    response = {
-        "stations": _without_distances(stations),
-        "global_updated_at": today_prices.get("updated_at"),
-    }
-
-    await cache_set(cache_key, response, ttl=600)
-    return {**response, "stations": _with_request_distances(response["stations"], lat, lng)}
 
 
 @router.post("/admin/refresh", dependencies=[Depends(verify_service_key)])

@@ -82,11 +82,12 @@ async def get_items(
     }
 
 
-@router.get("/equipment")
-async def get_equipment(
-    uid: uuid.UUID = Depends(verify_user_session),
-) -> list[dict]:
-    return await engine_client.get_equipment(str(uid))
+# [보류 — 게이미피케이션 재개 시 활성화]
+# @router.get("/equipment")
+# async def get_equipment(
+#     uid: uuid.UUID = Depends(verify_user_session),
+# ) -> list[dict]:
+#     return await engine_client.get_equipment(str(uid))
 
 
 @router.put("/equip")
@@ -102,11 +103,12 @@ async def equip_item(
         ) from None
 
 
-@router.get("/collection-progress")
-async def get_collection_progress(
-    uid: uuid.UUID = Depends(verify_user_session),
-) -> list[dict]:
-    return await engine_client.get_collection_progress(str(uid))
+# [보류 — 게이미피케이션 재개 시 활성화]
+# @router.get("/collection-progress")
+# async def get_collection_progress(
+#     uid: uuid.UUID = Depends(verify_user_session),
+# ) -> list[dict]:
+#     return await engine_client.get_collection_progress(str(uid))
 
 
 @router.delete("/equip/{slot}", status_code=204)

@@ -11,14 +11,12 @@ from sqlalchemy.orm import selectinload
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import Badge, MarketplaceReview, Quest, Report, RideSession, User, UserBadge, UserFollow, UserQuest
+from ..models import MarketplaceReview, Quest, Report, RideSession, User, UserBadge, UserFollow, UserQuest
 from ..schemas import (
-    BadgeOut,
     FollowUserOut,
     Page,
     QuestHistoryOut,
     ReportCreateRequest,
-    UserBadgeOut,
     UserOut,
     UserProfileOut,
     UserStatsOut,
@@ -168,25 +166,6 @@ async def get_user_stats(
         review_count=total_reviews,
         avg_rating=avg_rating,
     )
-
-
-# U-3
-@router.get("/me/badges", response_model=list[UserBadgeOut], summary="내 배지 목록 조회")
-async def get_my_badges(
-    user_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_user_or_404(user_id, db)
-
-    result = await db.execute(
-        select(UserBadge, Badge)
-        .join(Badge, UserBadge.badge_id == Badge.id)
-        .where(UserBadge.user_id == user_id)
-        .order_by(UserBadge.acquired_at.desc())
-    )
-    rows = result.all()
-
-    return [UserBadgeOut(badge=BadgeOut.model_validate(badge), acquired_at=ub.acquired_at) for ub, badge in rows]
 
 
 @router.get("/me/quest-history", response_model=Page[QuestHistoryOut], summary="퀘스트 완료 이력")

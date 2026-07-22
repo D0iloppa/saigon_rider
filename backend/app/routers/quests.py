@@ -2,30 +2,23 @@ import json
 import logging
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from passlib.context import CryptContext
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import Bookmark, Quest, User, UserQuest
+from ..models import Quest, User, UserQuest
 from ..schemas import (
-    BookmarkToggleRequest,
-    BookmarkToggleResponse,
     Page,
     QuestAcceptRequest,
     QuestAcceptResponse,
-    QuestCompleteRequest,
-    QuestCompleteResponse,
     QuestOut,
-    QuestParticipantOut,
-    QuestPinOut,
 )
 from ..utils import (
     MOCK_IMG_ENDPOINT,
@@ -33,16 +26,11 @@ from ..utils import (
     QUEST_MAIN_IMGPROXY_OPTIONS,
     QUEST_THUMB_IMGPROXY_OPTIONS,
     QUEST_TZ,
-    apply_quest_reward_multiplier,
     build_imgproxy_url,
-    gain_exp,
     quest_card_expires_at,
-    resolve_avatar_url,
 )
 
 log = logging.getLogger(__name__)
-
-_pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 _CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
 
@@ -55,16 +43,6 @@ def _quest_img_url(file_path: str, options: str) -> str:
         return f"{url}?v={int((_CONTENTS_BASE_PATH / file_path).stat().st_mtime)}"
     except OSError:
         return url
-
-
-async def _verify_passcode(
-    user_id: uuid.UUID,
-    x_passcode: str,
-    db: AsyncSession,
-) -> None:
-    user = await db.get(User, user_id)
-    if not user or not user.passcode_hash or not _pwd_ctx.verify(x_passcode, user.passcode_hash):
-        raise HTTPException(status_code=401, detail="인증 실패")
 
 
 def _calc_period_key(period: str) -> str:
@@ -330,26 +308,6 @@ async def get_ride_trail(
     return {"points": points}
 
 
-@router.get("/district-counts", summary="구역별 활성 퀘스트 수")
-async def get_district_quest_counts(db: AsyncSession = Depends(get_db)):
-    rows = (
-        await db.execute(
-            select(Quest.district_id, func.count())
-            .where(Quest.is_active == True, Quest.district_id.is_not(None))
-            .group_by(Quest.district_id)
-        )
-    ).all()
-    from ..models import District
-
-    district_ids = [r[0] for r in rows]
-    if district_ids:
-        districts = (await db.execute(select(District).where(District.id.in_(district_ids)))).scalars().all()
-        code_map = {d.id: d.code for d in districts}
-    else:
-        code_map = {}
-    return {code_map.get(did, ""): cnt for did, cnt in rows if did in code_map}
-
-
 # Q-1b
 @router.get("/completed-ids", response_model=list[str], summary="현재 주기 완료된 퀘스트 ID 목록")
 async def get_completed_ids(
@@ -366,67 +324,6 @@ async def get_completed_ids(
         )
     )
     return [str(r) for r in result.scalars().all()]
-
-
-# Q-2
-@router.get("/pins", response_model=list[QuestPinOut], summary="월드맵 핀 좌표 목록")
-async def get_quest_pins(db: AsyncSession = Depends(get_db)):
-    rows = (
-        await db.execute(
-            text("""
-                SELECT qp.id, qp.quest_id,
-                       ST_Y(qp.location::geometry) AS lat,
-                       ST_X(qp.location::geometry) AS lng
-                FROM quest_pins qp
-                JOIN quests q ON qp.quest_id = q.id
-                WHERE q.is_active = TRUE
-            """)
-        )
-    ).all()
-    return [QuestPinOut(id=r.id, quest_id=r.quest_id, lat=r.lat, lng=r.lng) for r in rows]
-
-
-# Q-3
-@router.get("/recommended", response_model=list[QuestOut], summary="추천 퀘스트 (유저 맞춤, 최대 N개)")
-async def get_recommended_quests(
-    user_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-):
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # 수령가능 횟수만큼만 제공 (= 공통 max - 오늘 사용량). 0 이하면 더 제공할 퀘스트 없음.
-    period_key = _calc_period_key("DAILY")
-    max_slots = await _daily_claimable_max(db, user)
-    used = await _daily_slot_used(db, user_id, period_key)
-    remaining = max(max_slots - used, 0)
-    if remaining <= 0:
-        return []
-
-    # 오늘 이미 수령/완료/만료된 DAILY 퀘스트는 풀에서 제외
-    claimed_today_sub = (
-        select(UserQuest.quest_id).where(
-            UserQuest.user_id == user_id,
-            UserQuest.period_key == period_key,
-            UserQuest.status.in_(["ACCEPTED", "COMPLETED", "EXPIRED"]),
-        )
-    ).correlate(None)
-
-    # 수행가능한 DAILY 퀘스트 중 랜덤으로 remaining 개 선정
-    result = await db.execute(
-        select(Quest)
-        .where(
-            Quest.is_active == True,
-            Quest.period == "DAILY",
-            Quest.required_level <= user.level,
-            Quest.id.not_in(claimed_today_sub),
-        )
-        .order_by(func.random())
-        .limit(remaining)
-    )
-    quests = result.scalars().all()
-    return [_to_out(q) for q in quests]
 
 
 # Q-4
@@ -490,115 +387,3 @@ async def accept_quest(
     await db.refresh(user_quest)
 
     return QuestAcceptResponse(session_id=user_quest.id, user_quest_id=user_quest.id)
-
-
-# Q-5b [DBG] 퀘스트 강제 완료 처리 (디버그용)
-@router.post("/{quest_id}/complete", response_model=QuestCompleteResponse, summary="[DBG] 퀘스트 완료 처리")
-async def complete_quest(
-    quest_id: uuid.UUID,
-    body: QuestCompleteRequest,
-    x_passcode: str = Header(..., alias="X-Passcode"),
-    db: AsyncSession = Depends(get_db),
-    _session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    if body.user_id != _session_uid:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    await _verify_passcode(body.user_id, x_passcode, db)
-    quest = await _get_quest_or_404(quest_id, db)
-    period_key = _calc_period_key(quest.period)
-
-    result = await db.execute(
-        select(UserQuest).where(
-            UserQuest.user_id == body.user_id,
-            UserQuest.quest_id == quest.id,
-            UserQuest.period_key == period_key,
-        )
-    )
-    uq = result.scalar_one_or_none()
-
-    already_completed = uq and uq.status == "COMPLETED"
-
-    if uq:
-        uq.status = "COMPLETED"
-        uq.completed_at = datetime.now(UTC)
-    else:
-        uq = UserQuest(
-            user_id=body.user_id,
-            quest_id=quest.id,
-            status="COMPLETED",
-            period_key=period_key,
-            completed_at=datetime.now(UTC),
-        )
-        db.add(uq)
-
-    # 이미 완료된 경우 보상 중복 지급 방지
-    reward_exp = 0
-    reward_gold = 0
-    if not already_completed:
-        user = await db.get(User, body.user_id)
-        if user:
-            # 실지급 = base * (1 + 아이템% + 스킬%). 공용 헬퍼로 ride/internal 과 동일 적용.
-            reward_exp, reward_gold = await apply_quest_reward_multiplier(db, user, quest.reward_exp, quest.reward_gold)
-            user.gold += reward_gold
-            await gain_exp(db, user, reward_exp)
-
-    await db.commit()
-    await db.refresh(uq)
-    return QuestCompleteResponse(
-        quest_id=quest.id,
-        user_quest_id=uq.id,
-        status=uq.status,
-        reward_exp=reward_exp,
-        reward_gold=reward_gold,
-        reward_item=quest.reward_item if not already_completed else None,
-    )
-
-
-# Q-6
-@router.post("/{quest_id}/bookmark", response_model=BookmarkToggleResponse, summary="북마크 토글")
-async def toggle_bookmark(
-    quest_id: uuid.UUID,
-    body: BookmarkToggleRequest,
-    db: AsyncSession = Depends(get_db),
-    _session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    if body.user_id != _session_uid:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    await _get_quest_or_404(quest_id, db)
-
-    existing = await db.get(Bookmark, {"user_id": body.user_id, "quest_id": quest_id})
-    if existing:
-        await db.delete(existing)
-        await db.commit()
-        return BookmarkToggleResponse(bookmarked=False)
-
-    bookmark = Bookmark(user_id=body.user_id, quest_id=quest_id)
-    db.add(bookmark)
-    await db.commit()
-    return BookmarkToggleResponse(bookmarked=True)
-
-
-# Q-7
-@router.get("/{quest_id}/participants", response_model=list[QuestParticipantOut], summary="퀘스트 참여자 목록")
-async def get_quest_participants(quest_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    await _get_quest_or_404(quest_id, db)
-
-    result = await db.execute(
-        select(User)
-        .join(UserQuest, UserQuest.user_id == User.id)
-        .where(
-            UserQuest.quest_id == quest_id,
-            UserQuest.status.in_(["ACCEPTED", "ACTIVE"]),
-        )
-        .order_by(UserQuest.accepted_at.desc())
-        .limit(50)
-    )
-    users = result.scalars().all()
-    return [
-        QuestParticipantOut(
-            user_id=u.id,
-            nickname=u.nickname,
-            avatar_url=resolve_avatar_url(u),
-        )
-        for u in users
-    ]

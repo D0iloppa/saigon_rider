@@ -171,25 +171,6 @@ async def serve_profile_mock_image(
 
 
 @router.get(
-    "/{content_id}/img",
-    summary="이미지 서빙 (content_id → imgproxy redirect)",
-    response_description="imgproxy URL로 302 리다이렉트",
-)
-async def serve_content_image(
-    content_id: uuid.UUID,
-    w: int = Query(default=800, ge=1, le=4096),
-    h: int = Query(default=450, ge=1, le=4096),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(Content).where(Content.id == content_id))
-    content = result.scalar_one_or_none()
-    if content is None:
-        raise HTTPException(status_code=404, detail="Content not found")
-    url = build_imgproxy_url(content.file_path, options=f"rs:fill:{w}:{h}:1")
-    return RedirectResponse(url=url, status_code=302)
-
-
-@router.get(
     "/{content_id}",
     response_model=ContentOut,
     summary="컨텐츠 조회",

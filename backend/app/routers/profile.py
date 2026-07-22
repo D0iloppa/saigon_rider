@@ -1,30 +1,24 @@
-import logging
 import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..engine_client import engine_client
 from ..models import Content, RiderType, User
 from ..schemas import (
     AvatarUpdateResponse,
     NicknameCheckResponse,
-    NicknameUpdateRequest,
     ProfileSaveRequest,
     RandomNicknameResponse,
     UserOut,
-    XpBalanceResponse,
 )
 from ..utils import generate_random_nickname
 
-log = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["프로필 (Profile)"])
 
 CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
@@ -99,33 +93,6 @@ async def upload_avatar(
     )
 
 
-@router.put("/nickname", response_model=UserOut, summary="닉네임 변경", response_description="업데이트된 유저 정보")
-async def update_nickname(
-    body: NicknameUpdateRequest,
-    db: AsyncSession = Depends(get_db),
-    _session_uid: uuid.UUID = Depends(verify_user_session),
-):
-    if body.user_id != _session_uid:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    user = await _get_user_or_404(body.user_id, db)
-
-    nickname = body.nickname.strip()
-    if not nickname:
-        raise HTTPException(status_code=400, detail="Nickname cannot be empty")
-    if len(nickname) > 30:
-        raise HTTPException(status_code=400, detail="Nickname too long (max 30)")
-
-    result = await db.execute(select(User).where(User.nickname == nickname, User.id != body.user_id))
-    if result.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=409, detail="Nickname already taken")
-
-    user.nickname = nickname
-    await db.commit()
-
-    user = await _get_user_or_404(body.user_id, db)
-    return UserOut.model_validate(user)
-
-
 # A-1
 @router.get("/check-nickname", response_model=NicknameCheckResponse, summary="닉네임 중복 확인")
 async def check_nickname(nickname: str, db: AsyncSession = Depends(get_db)):
@@ -177,18 +144,3 @@ async def random_nickname(db: AsyncSession = Depends(get_db)):
     if nick is None:
         raise HTTPException(status_code=503, detail="Nickname word pool is empty")
     return RandomNicknameResponse(nickname=nick)
-
-
-@router.get("/{user_id}/xp-balance", response_model=XpBalanceResponse, summary="XP 잔액 조회")
-async def get_xp_balance(user_id: uuid.UUID):
-    try:
-        data = await engine_client.get_balance(str(user_id))
-        return XpBalanceResponse(**data)
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="User not found in SRE engine") from exc
-        log.warning("Engine balance request failed: %s", exc)
-        raise HTTPException(status_code=503, detail="SRE engine unavailable") from exc
-    except httpx.RequestError as exc:
-        log.warning("Engine connection error: %s", exc)
-        raise HTTPException(status_code=503, detail="SRE engine unavailable") from exc

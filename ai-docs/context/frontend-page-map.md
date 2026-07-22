@@ -26,13 +26,15 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 `components/layout/FloatingActionButton.tsx` → `components/game/GameHubSheet.tsx`(`HUBS` 배열)에서 정의.
 
+> **⚠️ 2026-07-22 게이미피케이션 잠정보류 (중고거래 피벗)** — 인벤토리·상점·가챠·시즌 타일이 GameHubSheet에서 게이트OFF(주석). 라우트도 `App.tsx`에서, 라우터도 `main.py`에서 주석 처리. `CurrencyHUD`의 `/shop` 이동도 비활성. **재개 시 주석 해제로 복구.** 현재 게임허브엔 **개러지·정보만** 노출.
+
 | 한글 메뉴 | 라우트 | 페이지 파일 | 비고 |
 |---|---|---|---|
-| 개러지 | `/garage` | `pages/garage/Garage.tsx` | |
-| 인벤토리 | `/inventory` | `pages/inventory/Inventory.tsx` | |
-| 상점 | `/shop` | `pages/shop/ShopCatalog.tsx` | |
-| 가챠 | `/gacha` | `pages/gacha/GachaMain.tsx` | |
-| 시즌패스 | `/season` | `pages/season/SeasonPass.tsx` | **comingSoon: true** — 진입 시 안내 다이얼로그만 뜨고 실제 이동 안 함 |
+| 개러지 | `/garage` | `pages/garage/Garage.tsx` | 유지 — 단 `/inventory`·`/gacha` API 의존이라 게이트 상태선 데이터 에러/빈값 가능(마일리지 무관이라 유지 결정) |
+| 인벤토리 | `/inventory` | `pages/inventory/Inventory.tsx` | **게이트OFF (2026-07-22)** |
+| 상점 | `/shop` | `pages/shop/ShopCatalog.tsx` | **게이트OFF (2026-07-22)** |
+| 가챠 | `/gacha` | `pages/gacha/GachaMain.tsx` | **게이트OFF (2026-07-22)** |
+| 시즌패스 | `/season` | `pages/season/SeasonPass.tsx` | **게이트OFF (2026-07-22)** (기존 comingSoon) |
 | 정보 | `/info` | `pages/info/InfoHub.tsx` | |
 
 ## 3. 메뉴별 상세
@@ -140,6 +142,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
   - 새 글 → `/feed/new`
 
 ### 3.6 게임 허브 하위 메뉴 상세
+
+> **(2026-07-22)** 인벤토리·상점(+item/coupons)·가챠·시즌은 게이트OFF(게이미피케이션 잠정보류) — §2 상단 주석 참조. 개러지·정보만 활성.
 
 | 메뉴 | 페이지 | 핵심 컴포넌트 |
 |---|---|---|

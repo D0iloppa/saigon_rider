@@ -29,17 +29,23 @@ async def get_app_config(db: AsyncSession = Depends(get_db)) -> dict:
 
 @router.get("/current", response_model=AppVersionCurrentOut)
 async def get_current_version(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(AppVersion).where(AppVersion.is_active == True).order_by(AppVersion.id))
+    # BIZ-11: platform 당 활성 행이 (마이그레이션 전 데이터 등으로) 중복될 수 있어
+    # released_at DESC 로 최신을 먼저 두고, platform 당 첫 매치(최신)만 채택한다.
+    result = await db.execute(
+        select(AppVersion)
+        .where(AppVersion.is_active == True)
+        .order_by(AppVersion.released_at.desc().nullslast(), AppVersion.id.desc())
+    )
     rows = result.scalars().all()
 
     out = AppVersionCurrentOut()
     for v in rows:
         child = AppVersionChild.model_validate(v)
-        if v.platform == "primary":
+        if v.platform == "primary" and out.primary is None:
             out.primary = child
-        elif v.platform == "ios":
+        elif v.platform == "ios" and out.ios is None:
             out.ios = child
-        elif v.platform == "android":
+        elif v.platform == "android" and out.android is None:
             out.android = child
     return out
 

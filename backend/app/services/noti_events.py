@@ -17,13 +17,19 @@ _MAXLEN = 100_000
 
 
 async def publish(event_type: str, payload: dict) -> None:
-    try:
-        client = await get_client()
-        await client.xadd(
-            STREAM_KEY,
-            {"type": event_type, "payload": json.dumps(payload, default=str)},
-            maxlen=_MAXLEN,
-            approximate=True,
-        )
-    except Exception as e:
-        log.warning("noti event publish failed type=%s: %s", event_type, e)
+    # FD-6: Redis 순단 등 일시 장애 대비 1회 재시도 후에도 실패하면 로그만 남기고 삼킨다(호출 흐름 차단 금지).
+    # 완전한 유실 방지(durable outbox — DB 적재 후 재발행)는 더 큰 설계 변경이 필요해 별도 과제로 분리.
+    for attempt in range(2):
+        try:
+            client = await get_client()
+            await client.xadd(
+                STREAM_KEY,
+                {"type": event_type, "payload": json.dumps(payload, default=str)},
+                maxlen=_MAXLEN,
+                approximate=True,
+            )
+            return
+        except Exception as e:
+            if attempt == 0:
+                continue
+            log.error("noti event publish failed after retry type=%s: %s", event_type, e)

@@ -184,6 +184,7 @@ class MarketplaceListingDetail(BaseModel):
     bumped_at: datetime
     liked: bool = False
     other_listings: list[MarketplaceListingCard] = []
+    translation_failed: bool = False
 
 
 class MarketplaceListingCreateRequest(BaseModel):
@@ -238,6 +239,7 @@ class MarketplaceAdOut(BaseModel):
     established_year: int | None = None
     business_hours: str | None = None
     is_open: bool | None = None
+    translation_failed: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -581,6 +583,7 @@ class FeedPostEnrichedOut(BaseModel):
     reward_exp: int | None = None
     latitude: Decimal | None = None
     longitude: Decimal | None = None
+    translation_failed: bool = False
 
 
 class FeedCreateRequest(BaseModel):
@@ -1002,6 +1005,10 @@ class AppVersionUpdateRequest(BaseModel):
 
 class SupportTicketCreate(BaseModel):
     title: str
+    body: str
+
+
+class SupportReplyCreateRequest(BaseModel):
     body: str
 
 

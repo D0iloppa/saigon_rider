@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import UTC, datetime
 
 import httpx
@@ -9,6 +10,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..models import Translation
 from ..schemas import TranslateAllRequest, TranslateAllResponse, TranslateRequest, TranslateResponse
+from ..services.redis_cache import get_client
 from ..services.translate import (
     SUPPORTED_LANGS,
     provider_translate,
@@ -22,14 +24,38 @@ log = logging.getLogger(__name__)
 
 _LANG_ATTR = {"ko": "text_ko", "en": "text_en", "vi": "text_vi"}
 
+# BIZ-3: 외부 번역 API 비용 남용 방지 — 과도한 원문 길이 차단 + 유저당 요청 빈도 제한.
+_MAX_TEXT_LEN = 5000
+_RATE_LIMIT = 30
+_RATE_WINDOW_SEC = 60
+
+
+async def _enforce_rate_limit(user_id: uuid.UUID) -> None:
+    """유저당 슬라이딩 카운터 (info_route._enforce_rate_limit 미러) — Redis 순단 시 열어둠(가용성 우선)."""
+    try:
+        client = await get_client()
+        key = f"saigon:translate:rate:{user_id}"
+        count = await client.incr(key)
+        if count == 1:
+            await client.expire(key, _RATE_WINDOW_SEC)
+        if count > _RATE_LIMIT:
+            raise HTTPException(status_code=429, detail="Translation request limit exceeded")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.warning("Translate rate limit unavailable; allowing request: %s", exc)
+
 
 @router.post("/all", response_model=TranslateAllResponse, summary="원문 → 3개 언어 번들({kr,en,vi})")
 async def translate_bundle(
     body: TranslateAllRequest,
     db: AsyncSession = Depends(get_db),
-    _session_uid=Depends(verify_user_session),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """원문 1개 입력 → 언어감지 후 나머지 2개만 번역 → {kr,en,vi} 반환."""
+    if len(body.text) > _MAX_TEXT_LEN:
+        raise HTTPException(status_code=400, detail=f"text exceeds max length ({_MAX_TEXT_LEN})")
+    await _enforce_rate_limit(session_uid)
     try:
         result = await translate_all(body.text, db)
     except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
@@ -42,11 +68,14 @@ async def translate_bundle(
 async def translate(
     body: TranslateRequest,
     db: AsyncSession = Depends(get_db),
-    _session_uid=Depends(verify_user_session),
+    session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     target = body.target_lang
     if target not in SUPPORTED_LANGS:
         raise HTTPException(status_code=400, detail="unsupported target_lang")
+    if len(body.text) > _MAX_TEXT_LEN:
+        raise HTTPException(status_code=400, detail=f"text exceeds max length ({_MAX_TEXT_LEN})")
+    await _enforce_rate_limit(session_uid)
 
     text = body.text.strip()
     if not text:

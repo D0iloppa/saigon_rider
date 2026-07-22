@@ -43,6 +43,7 @@ _notification_type_enum = ENUM(
     "KEYWORD",
     "BIZ",
     "MODERATION",
+    "SUPPORT",
     name="notification_type",
     create_type=False,
 )
@@ -1417,7 +1418,7 @@ class LevelupRewardPolicy(Base):
 
 
 class Report(Base):
-    """통합 신고 (LISTING/USER/DM). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
+    """통합 신고 (LISTING/USER/DM/POST/COMMENT). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
 
     __tablename__ = "reports"
 
@@ -1434,6 +1435,12 @@ class Report(Base):
     )
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=True
+    )
+    post_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("feed_posts.id", ondelete="CASCADE"), nullable=True
+    )
+    comment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("post_comments.id", ondelete="CASCADE"), nullable=True
     )
     reason: Mapped[str] = mapped_column(String(30), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

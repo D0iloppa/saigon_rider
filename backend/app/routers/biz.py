@@ -13,6 +13,7 @@ from ..models import (
     BusinessNews,
     BusinessProfile,
     BusinessReview,
+    Content,
     MarketplaceAd,
     User,
     UserFavoriteBusiness,
@@ -79,6 +80,12 @@ def _out(p: BusinessProfile) -> BusinessProfileOut:
     )
 
 
+async def _require_content(db: AsyncSession, content_id: uuid.UUID | None) -> None:
+    """content_id 존재 검증 (BIZ-4) — 없는 UUID로 FK 위반 500 대신 400 반환. 소유권은 미검사(존재만)."""
+    if content_id is not None and await db.get(Content, content_id) is None:
+        raise HTTPException(status_code=400, detail="Invalid content_id")
+
+
 async def _get_own_profile(db: AsyncSession, profile_id: uuid.UUID, user_id: uuid.UUID) -> BusinessProfile:
     profile = await db.get(BusinessProfile, profile_id)
     if profile is None or profile.user_id != user_id:
@@ -102,12 +109,20 @@ async def apply(
     if active_count >= MAX_PROFILES_PER_USER:
         raise HTTPException(status_code=409, detail="Business profile limit reached (max 3)")
 
+    name = body.name.strip()
+    address = body.address.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not address:
+        raise HTTPException(status_code=400, detail="Address is required")
+    await _require_content(db, body.photo_content_id)
+
     now = datetime.now(UTC)
     profile = BusinessProfile(
         user_id=session_uid,
-        name=body.name.strip(),
+        name=name,
         category=body.category,
-        address=body.address,
+        address=address,
         latitude=body.latitude,
         longitude=body.longitude,
         phone=body.phone,
@@ -162,9 +177,17 @@ async def update_profile(
     if profile.status == "PENDING":
         raise HTTPException(status_code=409, detail="Profile under review — cannot edit")
 
-    profile.name = body.name.strip()
+    name = body.name.strip()
+    address = body.address.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not address:
+        raise HTTPException(status_code=400, detail="Address is required")
+    await _require_content(db, body.photo_content_id)
+
+    profile.name = name
     profile.category = body.category
-    profile.address = body.address
+    profile.address = address
     profile.latitude = body.latitude
     profile.longitude = body.longitude
     profile.phone = body.phone
@@ -233,6 +256,7 @@ async def create_ad(
         raise HTTPException(status_code=400, detail="Title is required")
     if body.starts_at and body.ends_at and body.ends_at <= body.starts_at:
         raise HTTPException(status_code=400, detail="ends_at must be after starts_at")
+    await _require_content(db, body.image_content_id)
 
     ad = MarketplaceAd(
         partner_name=profile.name[:80],
@@ -590,7 +614,9 @@ async def upsert_public_review(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    await _get_approved_profile(db, profile_id)
+    profile = await _get_approved_profile(db, profile_id)
+    if profile.user_id == session_uid:
+        raise HTTPException(status_code=403, detail="Cannot review your own business profile")
     body_text = body.body.strip()
     if not body_text:
         raise HTTPException(status_code=400, detail="Body is required")

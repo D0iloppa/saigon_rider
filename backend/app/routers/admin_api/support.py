@@ -17,6 +17,7 @@ from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import SupportReply, SupportTicket
 from ...schemas import Page
+from ...services import noti_events
 from ._audit import audit
 
 router = APIRouter(prefix="/support")
@@ -171,6 +172,11 @@ async def create_reply(
 
     await audit(db, session, request, "SUPPORT_REPLY", "support_ticket", str(ticket_id), {"body": reply_body})
     await db.commit()
+    # FD-12: 유저에게 인앱/푸시 알림 (noti_worker 의 support.replied 핸들러가 소비)
+    await noti_events.publish(
+        "support.replied",
+        {"user_id": str(ticket.user_id), "ticket_id": str(ticket_id), "reply_preview": reply_body[:200]},
+    )
     return await get_ticket(ticket_id, session, db)
 
 

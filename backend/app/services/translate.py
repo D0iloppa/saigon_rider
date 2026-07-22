@@ -219,22 +219,24 @@ async def lookup_lang_batch(texts: list[str], lang: str, db: AsyncSession) -> li
     return result
 
 
-async def translate_to(text: str, lang: str, db: AsyncSession) -> str:
+async def translate_to(text: str, lang: str, db: AsyncSession) -> tuple[str, bool]:
     """원문 → 해당 lang 번역 (필요 시 API 호출 + 워밍). 상세 단건 조회용.
 
-    provider 오류(키 만료 등) 시 원문 폴백 — 번역 실패가 상세 조회 자체를 죽이지 않도록.
+    반환: (translated_text, failed). provider 오류(키 만료 등) 시 원문 폴백하되
+    failed=True 로 신호를 반환 — 호출자가 "번역 불가" 표시를 할 수 있도록(BIZ-9,
+    번역 실패가 상세 조회 자체를 죽이지는 않는다).
     """
     clean = text.strip() if text else ""
     if not clean or lang not in SUPPORTED_LANGS:
-        return text
+        return text, False
     if lang == detect_lang(clean):
-        return text
+        return text, False
     try:
         bundle = await translate_all(clean, db)
     except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
         log.warning("translate_to failed, falling back to original text: %s", exc)
-        return text
-    return bundle.get(_BUNDLE_KEY[lang]) or text
+        return text, True
+    return bundle.get(_BUNDLE_KEY[lang]) or text, False
 
 
 async def warm_translations(texts: list[str]) -> None:

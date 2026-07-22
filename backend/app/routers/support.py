@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from ..database import get_db
 from ..deps import verify_user_session
 from ..models import SupportReply, SupportTicket
-from ..schemas import SupportTicketCreate, SupportTicketDetail, SupportTicketOut
+from ..schemas import SupportReplyCreateRequest, SupportTicketCreate, SupportTicketDetail, SupportTicketOut
 
 router = APIRouter(prefix="/support", tags=["고객센터 (Support)"])
 
@@ -73,6 +73,37 @@ async def get_ticket(
         ticket.updated_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(ticket)
+
+    out = _to_out(ticket, reply_count=len(ticket.replies))
+    return SupportTicketDetail(
+        **out.model_dump(),
+        replies=[r for r in ticket.replies],
+    )
+
+
+# FD-2 사용자 답글 (본인 문의만)
+@router.post("/tickets/{ticket_id}/replies", response_model=SupportTicketDetail, summary="문의 답글 작성 (본인)")
+async def create_reply(
+    ticket_id: uuid.UUID,
+    body: SupportReplyCreateRequest,
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(SupportTicket).options(selectinload(SupportTicket.replies)).where(SupportTicket.id == ticket_id)
+    )
+    ticket = result.scalar_one_or_none()
+    if ticket is None or ticket.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    reply_body = body.body.strip()
+    if not reply_body:
+        raise HTTPException(status_code=400, detail="content is required")
+
+    db.add(SupportReply(ticket_id=ticket_id, author_type="user", body=reply_body))
+    ticket.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(ticket)
 
     out = _to_out(ticket, reply_count=len(ticket.replies))
     return SupportTicketDetail(

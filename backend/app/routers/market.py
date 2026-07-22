@@ -198,9 +198,11 @@ async def get_ad(
     if not lang:
         return _public_ad_out(ad)
     out = _public_ad_out(ad)
-    out.title = await translate_to(ad.title, lang, db)
+    out.title, title_failed = await translate_to(ad.title, lang, db)
+    body_failed = False
     if ad.body:
-        out.body = await translate_to(ad.body, lang, db)
+        out.body, body_failed = await translate_to(ad.body, lang, db)
+    out.translation_failed = title_failed or body_failed
     await db.commit()  # translate_to 워밍 결과 영속화
     return out
 
@@ -471,10 +473,13 @@ async def get_listing(
 
     title_out = listing.title
     desc_out = listing.description
+    translation_failed = False
     if lang:
-        title_out = await translate_to(listing.title, lang, db)
+        title_out, title_failed = await translate_to(listing.title, lang, db)
+        desc_failed = False
         if listing.description:
-            desc_out = await translate_to(listing.description, lang, db)
+            desc_out, desc_failed = await translate_to(listing.description, lang, db)
+        translation_failed = title_failed or desc_failed
 
     detail = MarketplaceListingDetail(
         id=listing.id,
@@ -494,6 +499,7 @@ async def get_listing(
         bumped_at=listing.bumped_at,
         liked=liked,
         other_listings=[_card(o) for o in others],
+        translation_failed=translation_failed,
     )
     await db.commit()
     return detail

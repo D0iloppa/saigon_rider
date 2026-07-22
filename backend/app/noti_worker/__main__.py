@@ -23,7 +23,7 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.engine_client import engine_client
-from app.models import MarketplaceKeywordAlert, Notification, NotificationSettings
+from app.models import MarketplaceKeywordAlert, Notification, NotificationSettings, UserBlock
 from app.services.noti_events import STREAM_KEY
 from app.services.redis_cache import get_client
 
@@ -129,7 +129,21 @@ async def _handle_listing_created(payload: dict) -> None:
 
     pushes: list[tuple[str, str]] = []
     async with AsyncSessionLocal() as db:
-        alerts = (await db.execute(select(MarketplaceKeywordAlert))).scalars().all()
+        # FD-9: 판매자와 상호 차단 관계인 유저는 키워드 매칭에서 제외 (market.py 의 block-subquery 패턴 미러)
+        blocked_by_seller = select(UserBlock.blocked_id).where(UserBlock.blocker_id == seller_id)
+        blocking_seller = select(UserBlock.blocker_id).where(UserBlock.blocked_id == seller_id)
+        alerts = (
+            (
+                await db.execute(
+                    select(MarketplaceKeywordAlert).where(
+                        MarketplaceKeywordAlert.user_id.notin_(blocked_by_seller),
+                        MarketplaceKeywordAlert.user_id.notin_(blocking_seller),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         seen: set[uuid.UUID] = set()
         for alert in alerts:
             if alert.user_id == seller_id or alert.user_id in seen:
@@ -219,11 +233,32 @@ async def _handle_biz_ad_reviewed(payload: dict) -> None:
     await _try_push(str(user_id), title, body, link)
 
 
+async def _handle_support_replied(payload: dict) -> None:
+    """고객센터 답변 통지(FD-2/12) — biz.profile_reviewed 와 동일하게 트랜잭셔널 알림으로 취급해
+    푸시 게이트 없이 발송한다. 딥링크는 문의 상세(support&id=<ticket_id>)."""
+    user_id = uuid.UUID(payload["user_id"])
+    ticket_id = payload["ticket_id"]
+    preview = payload.get("reply_preview") or ""
+    link = f"support&id={ticket_id}"
+    title = "고객센터 답변 도착"
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            Notification(
+                user_id=user_id, type="SUPPORT", title=title, body=preview, link=link, created_at=datetime.now(UTC)
+            )
+        )
+        await db.commit()
+
+    await _try_push(str(user_id), title, preview, link)
+
+
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
     "market.listing_created": _handle_listing_created,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
     "biz.ad_reviewed": _handle_biz_ad_reviewed,
+    "support.replied": _handle_support_replied,
 }
 
 
@@ -243,16 +278,18 @@ async def _ensure_consumer_group() -> None:
 
 
 async def _process_batch(batch: list[tuple[str, dict]], deliveries: dict[str, int] | None = None) -> None:
-    """메시지 단위 격리 처리 — 한 메시지의 실패가 배치 전체 xack 을 막지 않는다.
+    """메시지 단위 격리 처리 — 한 메시지의 실패가 다른 메시지의 ack 을 막지 않는다.
 
-    성공(또는 DLQ 격리)한 메시지만 ack. 실패 메시지는 PEL에 남아 _claim_pending
-    재클레임으로 재시도되고, MAX_DELIVERIES 도달 시 DLQ 스트림으로 이동한다.
+    성공(또는 DLQ 격리)한 메시지만 ack — 처리 직후 즉시 xack 한다(배치 끝까지 미루지 않음).
+    배치 끝에서 한 번에 ack 하면 크래시가 배치 중간에 나는 경우 이미 부수효과(DB insert·push)가
+    끝난 앞쪽 메시지들까지 PEL 에 남아 재전달→중복 처리되므로(FD-5), per-message ack 으로 그 창을 줄인다.
+    실패 메시지는 PEL에 남아 _claim_pending 재클레임으로 재시도되고, MAX_DELIVERIES 도달 시 DLQ 스트림으로 이동한다.
     """
     if not batch:
         return
 
     r = await get_client()
-    ack_ids: list[str] = []
+    acked = 0
     deferred = 0
     for msg_id, fields in batch:
         msg_type = fields.get("type", "")
@@ -262,7 +299,8 @@ async def _process_batch(batch: list[tuple[str, dict]], deliveries: dict[str, in
                 await handler(json.loads(fields.get("payload") or "{}"))
             else:
                 log.warning("No handler for type=%s id=%s", msg_type, msg_id)
-            ack_ids.append(msg_id)
+            await r.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
+            acked += 1
         except Exception:
             n = (deliveries or {}).get(msg_id, 1)
             if n < MAX_DELIVERIES:
@@ -289,17 +327,16 @@ async def _process_batch(batch: list[tuple[str, dict]], deliveries: dict[str, in
                     maxlen=10_000,
                     approximate=True,  # 장기 장애 시 무한 증식 방지
                 )
-                ack_ids.append(msg_id)  # 본 스트림 PEL 에서 제거
+                await r.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)  # 본 스트림 PEL 에서 제거
+                acked += 1
             except Exception:
                 deferred += 1
                 log.exception("DLQ xadd failed id=%s — deferred, batch continues", msg_id)
 
-    if ack_ids:
-        await r.xack(STREAM_KEY, CONSUMER_GROUP, *ack_ids)
     if deferred:
-        log.info("Processed %d messages (%d deferred for retry)", len(ack_ids), deferred)
+        log.info("Processed %d messages (%d deferred for retry)", acked, deferred)
     else:
-        log.info("Processed %d messages", len(ack_ids))
+        log.info("Processed %d messages", acked)
 
 
 async def _claim_pending() -> tuple[list[tuple[str, dict]], dict[str, int]]:

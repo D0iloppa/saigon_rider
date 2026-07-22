@@ -9,7 +9,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..deps import verify_user_session
+from ..deps import optional_user_session, verify_user_session
 from ..engine_client import engine_client
 from ..models import (
     FeedPost,
@@ -17,8 +17,10 @@ from ..models import (
     PostComment,
     PostCommentLike,
     PostLike,
+    Report,
     RideSession,
     User,
+    UserBlock,
     UserFollow,
     Ward,
 )
@@ -33,6 +35,7 @@ from ..schemas import (
     LikeToggleRequest,
     LikeToggleResponse,
     Page,
+    ReportCreateRequest,
 )
 from ..services.dm_policy import require_unblocked
 from ..services.service_area import in_service_area
@@ -141,6 +144,7 @@ async def get_feed(
     max_lng: Decimal | None = Query(None),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 내용을 캐시된 번역으로 표기"),
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
     offset = (page - 1) * size
 
@@ -180,6 +184,12 @@ async def get_feed(
         )
         base_q = base_q.where(bbox_filter)
         count_q = count_q.where(bbox_filter)
+
+    if session_uid is not None:
+        blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
+        blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
+        base_q = base_q.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
+        count_q = count_q.where(FeedPost.user_id.notin_(blocked_users), FeedPost.user_id.notin_(blocking_users))
 
     if filter == "friends" and user_id:
         following_ids = select(UserFollow.following_id).where(UserFollow.follower_id == user_id)
@@ -248,7 +258,7 @@ async def get_feed_post(
     post, user, ride = row
     enriched = await _enrich(post, user, ride, db)
     if lang and enriched.content:
-        enriched.content = await translate_to(enriched.content, lang, db)
+        enriched.content, enriched.translation_failed = await translate_to(enriched.content, lang, db)
     return enriched
 
 
@@ -424,16 +434,18 @@ def _enrich_comment(comment: PostComment, user: User | None) -> CommentOut:
 
 # F-5
 @router.get("/{post_id}/comments", response_model=list[CommentOut], summary="댓글 목록")
-async def get_comments(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_comments(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
+):
     await _get_post_or_404(post_id, db)
-    rows = (
-        await db.execute(
-            select(PostComment, User)
-            .outerjoin(User, PostComment.user_id == User.id)
-            .where(PostComment.post_id == post_id)
-            .order_by(PostComment.created_at.asc())
-        )
-    ).all()
+    q = select(PostComment, User).outerjoin(User, PostComment.user_id == User.id).where(PostComment.post_id == post_id)
+    if session_uid is not None:
+        blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
+        blocking_users = select(UserBlock.blocker_id).where(UserBlock.blocked_id == session_uid)
+        q = q.where(PostComment.user_id.notin_(blocked_users), PostComment.user_id.notin_(blocking_users))
+    rows = (await db.execute(q.order_by(PostComment.created_at.asc()))).all()
     return [_enrich_comment(comment, user) for comment, user in rows]
 
 
@@ -500,3 +512,99 @@ async def toggle_comment_like(
     comment.like_count += 1
     await db.commit()
     return LikeToggleResponse(liked=True, like_count=comment.like_count)
+
+
+_POST_REPORT_REASONS = {"SPAM", "ABUSE", "INAPPROPRIATE", "OTHER"}
+
+
+# FD-4 게시물 신고 (market.py report_listing 과 동일 패턴 — reports 통합 테이블)
+@router.post("/{post_id}/report", status_code=201, summary="게시물 신고")
+async def report_post(
+    post_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.reason not in _POST_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+
+    post = await _get_post_or_404(post_id, db)
+    if post.user_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report your own post")
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_post_once: post_id x reporter_id WHERE POST)와 동일 조건
+    dup = (
+        await db.execute(
+            select(Report.id).where(
+                Report.target_type == "POST",
+                Report.post_id == post_id,
+                Report.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        Report(
+            target_type="POST",
+            reporter_id=session_uid,
+            reported_user_id=post.user_id,
+            post_id=post_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}
+
+
+_COMMENT_REPORT_REASONS = {"SPAM", "ABUSE", "INAPPROPRIATE", "OTHER"}
+
+
+# FD-4 댓글 신고 (동일 패턴)
+@router.post("/{post_id}/comments/{comment_id}/report", status_code=201, summary="댓글 신고")
+async def report_comment(
+    post_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.reason not in _COMMENT_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+
+    await _get_post_or_404(post_id, db)
+    comment = (
+        await db.execute(select(PostComment).where(PostComment.id == comment_id, PostComment.post_id == post_id))
+    ).scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report your own comment")
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_comment_once: comment_id x reporter_id WHERE COMMENT)와 동일 조건
+    dup = (
+        await db.execute(
+            select(Report.id).where(
+                Report.target_type == "COMMENT",
+                Report.comment_id == comment_id,
+                Report.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        Report(
+            target_type="COMMENT",
+            reporter_id=session_uid,
+            reported_user_id=comment.user_id,
+            comment_id=comment_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}

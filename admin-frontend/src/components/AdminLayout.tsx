@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Avatar, Breadcrumb, Button, Layout, Menu, Tag, Typography } from 'antd'
 import {
   AuditOutlined,
@@ -27,29 +28,34 @@ import ErrorBoundary from './ErrorBoundary'
 const { Sider, Header, Content } = Layout
 
 const MENU_ITEMS = [
-  { type: 'group' as const, label: 'OVERVIEW', children: [{ key: '/', icon: <DashboardOutlined />, label: '대시보드' }] },
-  { type: 'group' as const, label: 'TRUST & SAFETY', children: [
+  { key: 'group-overview', label: 'OVERVIEW', children: [{ key: '/', icon: <DashboardOutlined />, label: '대시보드' }] },
+  { key: 'group-trust', label: 'TRUST & SAFETY', children: [
     { key: '/reports', icon: <FlagOutlined />, label: '신고센터' },
     { key: '/users', icon: <TeamOutlined />, label: '유저 관리' },
     { key: '/listings', icon: <ShopOutlined />, label: '매물 관리' },
   ] },
-  { type: 'group' as const, label: 'CUSTOMER CARE', children: [{ key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' }] },
-  { type: 'group' as const, label: 'CONTENT & POLICY', children: [
+  { key: 'group-care', label: 'CUSTOMER CARE', children: [{ key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' }] },
+  { key: 'group-content', label: 'CONTENT & POLICY', children: [
     { key: '/cms/notices', icon: <BellOutlined />, label: '공지 관리' },
     { key: '/cms/faqs', icon: <FileTextOutlined />, label: 'FAQ 관리' },
     { key: '/settings/banned-keywords', icon: <SafetyCertificateOutlined />, label: '금칙어' },
   ] },
-  { type: 'group' as const, label: '동네지도', children: [
+  { key: 'group-map', label: '동네지도', children: [
     { key: '/map/poi', icon: <EnvironmentOutlined />, label: 'POI 관리' },
     { key: '/map/place-suggestions', icon: <CompassOutlined />, label: '장소 제보 심사' },
     { key: '/map/gas-submissions', icon: <ThunderboltOutlined />, label: '주유소 제보 심사' },
     { key: '/map/repair-submissions', icon: <ToolOutlined />, label: '정비소 제보 심사' },
   ] },
-  { type: 'group' as const, label: '비즈니스', children: [
+  { key: 'group-biz', label: '비즈니스', children: [
     { key: '/biz/accounts', icon: <SolutionOutlined />, label: '파트너 심사' },
     { key: '/biz/ads', icon: <NotificationOutlined />, label: '광고 심사' },
   ] },
 ]
+
+/** Finds the group (submenu) key whose children contain the given leaf key, for accordion default-open. */
+function findGroupKey(groups: { key: string; children: { key: string }[] }[], targetKey: string) {
+  return groups.find((group) => group.children.some((child) => child.key === targetKey))?.key
+}
 
 const PAGE_META = [
   { path: '/cms/notices', title: '공지 관리', description: '앱에 노출되는 공지 사항을 작성하고 게시합니다.' },
@@ -75,9 +81,20 @@ export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const items = me.role === 'root'
-    ? [...MENU_ITEMS, { type: 'group' as const, label: 'SYSTEM', children: [{ key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' }] }]
+    ? [...MENU_ITEMS, { key: 'group-system', label: 'SYSTEM', children: [{ key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' }] }]
     : MENU_ITEMS
   const page = PAGE_META.find((item) => location.pathname.startsWith(item.path)) ?? PAGE_META[PAGE_META.length - 1]
+
+  const [openKeys, setOpenKeys] = useState<string[]>(() => {
+    const activeGroup = findGroupKey(items, page.path)
+    return activeGroup ? [activeGroup] : []
+  })
+
+  useEffect(() => {
+    const activeGroup = findGroupKey(items, page.path)
+    if (activeGroup) setOpenKeys((prev) => (prev.includes(activeGroup) ? prev : [...prev, activeGroup]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page.path])
 
   const handleLogout = async () => {
     await logout().catch(() => undefined)
@@ -86,9 +103,20 @@ export default function AdminLayout() {
 
   return (
     <Layout className="admin-shell">
-      <Sider width={256} className="admin-sider" style={{ display: 'flex', flexDirection: 'column' }}>
+      <Sider width={256} className="admin-sider">
         <div className="admin-brand"><img className="admin-brand-mark" src="/admin/saigon-rider-logo.png" alt="" /><div><strong>Saigon Rider</strong><span>Operations Console</span></div></div>
-        <Menu theme={mode} mode="inline" style={{ flex: 1 }} items={items} selectedKeys={[page.path]} onClick={({ key }) => navigate(key)} />
+        <div className="admin-sider-menu">
+          <Menu
+            theme={mode}
+            mode="inline"
+            inlineIndent={16}
+            items={items}
+            selectedKeys={[page.path]}
+            openKeys={openKeys}
+            onOpenChange={setOpenKeys}
+            onClick={({ key }) => navigate(key)}
+          />
+        </div>
         <div className="admin-sider-footer">
           <Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar>
           <div><strong>{me.username}</strong><span>{me.role === 'root' ? 'Root administrator' : 'Administrator'}</span></div>

@@ -182,6 +182,30 @@ class XpTransaction(Base):
     )
 
 
+class GcTransaction(Base):
+    """RP(gc_balance) 원장 — gc 적립/차감 감사·검증용 (ENG-10). XpTransaction 를 미러.
+    gc_balance 는 잔액 컬럼만 변동해 왔어(원장 부재) → 감사/재계산 불가였다. credit_gc 가 매 적립마다 1행 기록."""
+    __tablename__ = "gc_transaction"
+
+    gc_transaction_id = Column(BigInteger, Identity(always=True), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("sre_user.user_id", name="fk_gctx_user"), nullable=False)
+    tx_type = Column(
+        Enum(TxTypeEnum, name="tx_type_enum", create_type=False),
+        nullable=False,
+    )
+    amount = Column(BigInteger, nullable=False)
+    balance_after = Column(BigInteger, nullable=False)
+    source_type = Column(String(40), nullable=False)
+    source_id = Column(BigInteger, nullable=True)
+    related_event_id = Column(BigInteger, ForeignKey("action_event.event_id", name="fk_gctx_event"), nullable=True)
+    occurred_at = Column(_TS, nullable=False, server_default="CURRENT_TIMESTAMP")
+    memo = Column(String(200), nullable=True)
+
+    __table_args__ = (
+        Index("idx_gctx_user_occurred", "user_id", "occurred_at"),
+    )
+
+
 class XpExpirationSchedule(Base):
     __tablename__ = "xp_expiration_schedule"
 

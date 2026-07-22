@@ -166,7 +166,7 @@ async def test_daily_cap_exceeded_zero_rp(mock_db: AsyncMock):
         daily_cap=250,
     )
 
-    assert result.rejected is False
+    assert result.rejected is True  # ENG-9: 캡 전량 초과는 REJECTED (0원 지급을 PROCESSED로 오인 금지)
     assert result.penalty_multiplier == 0.0
     assert result.reject_reason_code == "DAILY_CAP_EXCEEDED"
 

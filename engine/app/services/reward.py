@@ -86,6 +86,19 @@ async def redeem(
     db.add(redemption)
     await db.flush()
 
+    # ENG-10: RP(gc) 차감 원장 기록 — 쿠폰 교환 감사/검증. lock_balance 는 위에서 이미 보유.
+    from app.enums import TxTypeEnum
+    await xp_ledger.record_gc_tx(
+        db,
+        user_id=user.user_id,
+        amount=catalog.required_xp,
+        balance_after=balance.gc_balance,
+        source_type="REDEMPTION",
+        source_id=redemption.redemption_id,
+        memo=f"쿠폰 교환: catalog#{catalog_id}",
+        tx_type=TxTypeEnum.REDEEM,
+    )
+
     from app.services import audit
     await audit.record(
         db,

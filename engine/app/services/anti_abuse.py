@@ -83,8 +83,11 @@ async def evaluate(
                     penalty = min(penalty, multiplier)
 
     # ── CAP 룰 ────────────────────────────────────────────────
+    # ENG-9: 일일 캡을 이미 다 채운 경우는 REJECTED 로 반환한다(기존: penalty 0 + PROCESSED →
+    #        BFF가 성공으로 오독). 경계 근처 부분 적립 클램프(min(raw, cap-so_far))는
+    #        xp_ledger.credit(daily_cap=...) 가 잔액 잠금 하에서 수행한다(ENG-1/ENG-5).
     if daily_rp_so_far >= daily_cap:
-        return AbuseResult(rejected=False, reject_reason_code="DAILY_CAP_EXCEEDED", penalty_multiplier=0.0)
+        return AbuseResult(rejected=True, reject_reason_code="DAILY_CAP_EXCEEDED", penalty_multiplier=0.0)
 
     return AbuseResult(rejected=False, reject_reason_code=reject_reason, penalty_multiplier=penalty)
 

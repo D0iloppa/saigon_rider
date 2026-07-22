@@ -45,7 +45,8 @@ async def credit_rp(
             return replay
         user = await get_or_create_user(db, user_uuid)
         await xp_ledger.credit_gc(
-            db, user_id=user.user_id, amount=body.amount, apply_daily_cap=body.apply_daily_cap
+            db, user_id=user.user_id, amount=body.amount, apply_daily_cap=body.apply_daily_cap,
+            source_type="BFF_CREDIT",
         )
         balance = await db.get(XpBalance, user.user_id)
         response = {"ok": True, "gc_balance": int(balance.gc_balance) if balance else 0}

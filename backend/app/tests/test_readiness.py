@@ -12,7 +12,7 @@ class ReadinessTest(unittest.IsolatedAsyncioTestCase):
         db = AsyncMock()
         session_factory.return_value.__aenter__.return_value = db
         result = MagicMock()
-        result.one.return_value = (True, True, False, False)
+        result.one.return_value = (True, True, True, True, False, False)
         db.execute.return_value = result
 
         with self.assertRaises(RuntimeError):
@@ -27,7 +27,7 @@ class ReadinessTest(unittest.IsolatedAsyncioTestCase):
         db = AsyncMock()
         session_factory.return_value.__aenter__.return_value = db
         result = MagicMock()
-        result.one.return_value = (True, True, True, True)
+        result.one.return_value = (True, True, True, True, True, True)
         db.execute.return_value = result
         redis = AsyncMock()
         redis.ping.return_value = True
@@ -45,7 +45,7 @@ class ReadinessTest(unittest.IsolatedAsyncioTestCase):
         db = AsyncMock()
         session_factory.return_value.__aenter__.return_value = db
         result = MagicMock()
-        result.one.return_value = (True, True, True, True)
+        result.one.return_value = (True, True, True, True, True, True)
         db.execute.return_value = result
         redis = AsyncMock()
         redis.ping.return_value = True

@@ -9,12 +9,14 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     SmallInteger,
     String,
     Text,
     Time,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ENUM, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -864,11 +866,21 @@ class InternalRewardGrant(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index(
+            "uq_notifications_source_event_user",
+            "source_event_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("source_event_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    source_event_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     type: Mapped[str] = mapped_column(_notification_type_enum, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)

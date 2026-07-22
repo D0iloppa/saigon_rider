@@ -74,6 +74,27 @@ services:
 
   # ── BFF (FastAPI, 기존 backend → 역할 재정의) ───────────────
   # docker compose --profile backend up
+  bff_migrate:
+    image: postgis/postgis:15-3.3
+    container_name: saigon_bff_migrate
+    profiles: [backend]
+    entrypoint: ["psql"]
+    command: ["-v", "ON_ERROR_STOP=1", "-f", "/migrations/145_notifications_event_idempotency.sql"]
+    volumes:
+      - ./database/init/145_notifications_event_idempotency.sql:/migrations/145_notifications_event_idempotency.sql:ro
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - PGHOST=database
+      - PGPORT=5432
+      - PGDATABASE=${DB_NAME}
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+    restart: "no"
+
   bff:
     build:
       context: ./backend
@@ -91,6 +112,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      bff_migrate:
+        condition: service_completed_successfully
       engine:
         condition: service_healthy
     environment:
@@ -263,6 +286,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      bff_migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       engine:
@@ -319,6 +344,7 @@ services:
     image: postgis/postgis:15-3.3
     container_name: saigon_db
     profiles: [backend]
+    command: ["postgres", "-c", "app.seed_profile=${APP_ENV:-production}"]
     ports:
       - "${DB_PORT}:5432"
     volumes:
@@ -331,7 +357,7 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -20,10 +20,12 @@ from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
 from app.engine_client import engine_client
 from app.models import MarketplaceKeywordAlert, Notification, NotificationSettings, UserBlock
+from app.readiness import check_readiness
 from app.services.noti_events import STREAM_KEY
 from app.services.redis_cache import get_client
 
@@ -96,7 +98,45 @@ async def _try_push(user_id: str, title: str, body: str, link: str) -> None:
 # ── 타입별 핸들러 ───────────────────────────────────────────
 
 
-async def _handle_dm_message(payload: dict) -> None:
+async def _insert_notification(
+    db,
+    *,
+    source_event_id: str,
+    user_id: uuid.UUID,
+    notification_type: str,
+    title: str,
+    body: str | None,
+    link: str | None,
+) -> bool:
+    """Insert once per Redis event and recipient; return whether this delivery created the row.
+
+    Redis redelivery is intentionally push-suppressing for FD-5: a replay that finds this row must not
+    enter the push path again. A crash after this row commits but before the provider call can therefore
+    leave only the in-app notification. Closing that delivery gap, and provider-level exactly-once delivery,
+    requires the separate FD-6 outbox/provider-idempotency work.
+    """
+    stmt = (
+        pg_insert(Notification)
+        .values(
+            source_event_id=source_event_id,
+            user_id=user_id,
+            type=notification_type,
+            title=title,
+            body=body,
+            link=link,
+            created_at=datetime.now(UTC),
+        )
+        .on_conflict_do_nothing(
+            index_elements=[Notification.source_event_id, Notification.user_id],
+            index_where=Notification.source_event_id.is_not(None),
+        )
+        .returning(Notification.id)
+    )
+    inserted_id = await db.scalar(stmt)
+    return inserted_id is not None
+
+
+async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
     recipient_id = uuid.UUID(payload["recipient_id"])
     conv_id = payload["conversation_id"]
     title = payload.get("sender_nickname") or "새 메시지"
@@ -104,21 +144,27 @@ async def _handle_dm_message(payload: dict) -> None:
     link = f"dm&id={conv_id}"
 
     async with AsyncSessionLocal() as db:
-        db.add(
-            Notification(
-                user_id=recipient_id, type="SOCIAL", title=title, body=body, link=link, created_at=datetime.now(UTC)
-            )
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
         )
-        push_ok = await _push_enabled(db, recipient_id, "social")
+        push_ok = inserted and await _push_enabled(db, recipient_id, "social")
         await db.commit()
 
-    if push_ok:
+    if not inserted:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+    elif push_ok:
         await _try_push(str(recipient_id), title, body, link)
     else:
         log.info("push skipped (social=off) user=%s conv=%s", recipient_id, conv_id)
 
 
-async def _handle_listing_created(payload: dict) -> None:
+async def _handle_listing_created(payload: dict, *, source_event_id: str) -> None:
     """매물 제목 키워드 매칭 (market._notify_keyword_matches 이관) — 대소문자 무시, 등록자 본인 제외."""
     listing_title = payload.get("title") or ""
     title_lower = listing_title.lower()
@@ -152,17 +198,18 @@ async def _handle_listing_created(payload: dict) -> None:
                 continue
             seen.add(alert.user_id)
             noti_title = f"🔔 {alert.keyword}"
-            db.add(
-                Notification(
-                    user_id=alert.user_id,
-                    type="KEYWORD",
-                    title=noti_title,
-                    body=listing_title,
-                    link=link,
-                    created_at=datetime.now(UTC),
-                )
+            inserted = await _insert_notification(
+                db,
+                source_event_id=source_event_id,
+                user_id=alert.user_id,
+                notification_type="KEYWORD",
+                title=noti_title,
+                body=listing_title,
+                link=link,
             )
-            if await _push_enabled(db, alert.user_id, "keyword_alert"):
+            if not inserted:
+                log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, alert.user_id)
+            elif await _push_enabled(db, alert.user_id, "keyword_alert"):
                 pushes.append((str(alert.user_id), noti_title))
             else:
                 log.info("push skipped (keyword_alert=off) user=%s listing=%s", alert.user_id, payload["listing_id"])
@@ -179,7 +226,7 @@ _BIZ_RESULT_COPY = {
 }
 
 
-async def _handle_biz_profile_reviewed(payload: dict) -> None:
+async def _handle_biz_profile_reviewed(payload: dict, *, source_event_id: str) -> None:
     """비즈니스 프로필 심사 결과 통지(SGR-312 BP-3).
 
     계정 상태 변경(승인/반려/정지)은 트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다 —
@@ -197,12 +244,21 @@ async def _handle_biz_profile_reviewed(payload: dict) -> None:
     body = body_tpl.format(name=name, reason=reason)
 
     async with AsyncSessionLocal() as db:
-        db.add(
-            Notification(user_id=user_id, type="BIZ", title=title, body=body, link=link, created_at=datetime.now(UTC))
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=user_id,
+            notification_type="BIZ",
+            title=title,
+            body=body,
+            link=link,
         )
         await db.commit()
 
-    await _try_push(str(user_id), title, body, link)
+    if inserted:
+        await _try_push(str(user_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
 
 
 _BIZ_AD_RESULT_COPY = {
@@ -211,7 +267,7 @@ _BIZ_AD_RESULT_COPY = {
 }
 
 
-async def _handle_biz_ad_reviewed(payload: dict) -> None:
+async def _handle_biz_ad_reviewed(payload: dict, *, source_event_id: str) -> None:
     """광고 소재 심사 결과 통지(SGR-312 BP-4) — biz.profile_reviewed 와 동일하게
     트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다. 딥링크는 광고 상세(/biz/ads/<id>)."""
     user_id = uuid.UUID(payload["user_id"])
@@ -225,15 +281,24 @@ async def _handle_biz_ad_reviewed(payload: dict) -> None:
     body = body_tpl.format(title=ad_title, reason=reason)
 
     async with AsyncSessionLocal() as db:
-        db.add(
-            Notification(user_id=user_id, type="BIZ", title=title, body=body, link=link, created_at=datetime.now(UTC))
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=user_id,
+            notification_type="BIZ",
+            title=title,
+            body=body,
+            link=link,
         )
         await db.commit()
 
-    await _try_push(str(user_id), title, body, link)
+    if inserted:
+        await _try_push(str(user_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
 
 
-async def _handle_support_replied(payload: dict) -> None:
+async def _handle_support_replied(payload: dict, *, source_event_id: str) -> None:
     """고객센터 답변 통지(FD-2/12) — biz.profile_reviewed 와 동일하게 트랜잭셔널 알림으로 취급해
     푸시 게이트 없이 발송한다. 딥링크는 문의 상세(support&id=<ticket_id>)."""
     user_id = uuid.UUID(payload["user_id"])
@@ -243,14 +308,21 @@ async def _handle_support_replied(payload: dict) -> None:
     title = "고객센터 답변 도착"
 
     async with AsyncSessionLocal() as db:
-        db.add(
-            Notification(
-                user_id=user_id, type="SUPPORT", title=title, body=preview, link=link, created_at=datetime.now(UTC)
-            )
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=user_id,
+            notification_type="SUPPORT",
+            title=title,
+            body=preview,
+            link=link,
         )
         await db.commit()
 
-    await _try_push(str(user_id), title, preview, link)
+    if inserted:
+        await _try_push(str(user_id), title, preview, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
 
 
 HANDLERS = {
@@ -296,7 +368,7 @@ async def _process_batch(batch: list[tuple[str, dict]], deliveries: dict[str, in
         handler = HANDLERS.get(msg_type)
         try:
             if handler:
-                await handler(json.loads(fields.get("payload") or "{}"))
+                await handler(json.loads(fields.get("payload") or "{}"), source_event_id=msg_id)
             else:
                 log.warning("No handler for type=%s id=%s", msg_type, msg_id)
             await r.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
@@ -368,6 +440,7 @@ async def _claim_pending() -> tuple[list[tuple[str, dict]], dict[str, int]]:
 
 
 async def run() -> None:
+    await check_readiness()
     await _ensure_consumer_group()
     r = await get_client()
 
@@ -416,4 +489,5 @@ def main():
     asyncio.run(run())
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -93,10 +93,6 @@ import FriendAdd from '@/pages/profile/FriendAdd';
 // import ShopCatalog from '@/pages/shop/ShopCatalog';
 // import ItemDetail from '@/pages/shop/ItemDetail';
 // import CouponShop from '@/pages/shop/CouponShop';
-import MyCoupons from '@/pages/shop/MyCoupons';
-
-// Garage
-import Garage from '@/pages/garage/Garage';
 
 // Inventory
 // [게이미피케이션 잠정보류 — 재개 시 주석 해제]
@@ -412,10 +408,6 @@ export default function App() {
           {/* <Route path="/shop" element={<PrivateRoute><ShopCatalog /></PrivateRoute>} /> */}
           {/* <Route path="/shop/item/:itemCode" element={<PrivateRoute><ItemDetail /></PrivateRoute>} /> */}
           {/* <Route path="/shop/coupons" element={<PrivateRoute><CouponShop /></PrivateRoute>} /> */}
-          <Route path="/coupons/mine" element={<PrivateRoute><MyCoupons /></PrivateRoute>} />
-
-          {/* Protected: Garage */}
-          <Route path="/garage" element={<PrivateRoute><Garage /></PrivateRoute>} />
 
           {/* Protected: Inventory */}
           {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}

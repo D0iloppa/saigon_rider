@@ -14,7 +14,6 @@ interface GameHubSheetProps {
 }
 
 const HUBS = [
-  { path: '/garage',    emoji: '1f3cd', label: 'gameHub.garage' },
   // [게이미피케이션 잠정보류 — 재개 시 주석 해제]
   // { path: '/inventory', emoji: '1f4e6', label: 'gameHub.inventory' },
   // { path: '/shop',      emoji: '1f6d2', label: 'gameHub.shop' },

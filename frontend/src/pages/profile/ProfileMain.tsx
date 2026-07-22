@@ -23,14 +23,11 @@ import { fetchWallet } from '@/api/wallet';
 import { fetchFollowCounts } from '@/api/follows';
 import { fetchMyFeed, deleteFeedPost } from '@/api/feed';
 import type { FeedPage } from '@/api/feed';
-import { fetchInventory } from '@/api/inventory';
-import type { InventoryItem } from '@/api/inventory';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { ImageViewer } from '@/pages/feed/FeedList';
 import { toast } from '@/components/ui/Toast';
 import { emojiUrl } from '@/lib/emoji';
-import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import styles from './ProfileMain.module.css';
 
 interface MileageTier {
@@ -65,13 +62,6 @@ function getNextTier(km: number): MileageTier | null {
   }
   return null;
 }
-
-const RARITY_STYLE: Record<string, string> = {
-  R: 'garageItemRare',
-  E: 'garageItemEpic',
-  L: 'garageItemLegend',
-  M: 'garageItemMythic',
-};
 
 export default function ProfileMain() {
   // ── hooks (must be before any early return) ──────────────
@@ -112,7 +102,6 @@ export default function ProfileMain() {
   const [activeBadge, setActiveBadge] = useState<BadgeWithEarned | null>(null);
 
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [equippedItems, setEquippedItems] = useState<InventoryItem[]>([]);
   const [totalMileage, setTotalMileage] = useState(0);
   const [questHistory, setQuestHistory] = useState<QuestHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -230,9 +219,6 @@ export default function ProfileMain() {
       setTotalMileage(Number(s.lifetime_km));
     }).catch(() => {});
     fetchAllBadges(user.id).then(setBadges).catch(() => {});
-    fetchInventory(user.id).then((inv) => {
-      setEquippedItems(inv.items.filter((i) => i.is_equipped));
-    }).catch(() => {});
   }, [user?.id]);
 
   const loadHistory = useCallback(async (page: number, reset = false) => {
@@ -511,42 +497,6 @@ export default function ProfileMain() {
           })()}
         </div>
 
-        {/* Garage Banner */}
-        <div className={styles.garageBanner} onClick={() => navigate('/garage')}>
-          <div className={equippedItems.length > 0 ? styles.garageIconWrap : styles.garageIconWrapEmpty}>
-            <img src={emojiUrl('1f3cd')} width={28} height={28} alt="" onError={(e) => { e.currentTarget.textContent = '🏍'; }} />
-          </div>
-          <div className={styles.garageInfo}>
-            {equippedItems.length > 0 ? (
-              <>
-                <div className={styles.garageTitle}>
-                  {t('profile.myRide')}
-                  <span className={styles.garageBadge}>{t('profile.equipped', { count: equippedItems.length })}</span>
-                </div>
-                <div className={styles.garageEquipped}>
-                  {equippedItems.slice(0, 5).map((item) => (
-                    <div
-                      key={item.user_item_id}
-                      className={styles[RARITY_STYLE[item.rarity] as keyof typeof styles] as string || styles.garageItemThumb}
-                    >
-                      <ItemSvgRenderer itemCode={item.item_code} slot={item.item_slot} size={18} rarity={item.rarity} />
-                    </div>
-                  ))}
-                  {equippedItems.length < 5 && Array.from({ length: 5 - equippedItems.length }).map((_, i) => (
-                    <div key={`empty-${i}`} className={styles.garageItemEmpty}>+</div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className={styles.garageTitle}>{t('profile.myRide')}</div>
-                <div className={styles.garageEmptyHint}>{t('profile.garageEmpty')}</div>
-              </>
-            )}
-          </div>
-          <div className={styles.garageArrow}>›</div>
-        </div>
-
         {/* Odometer Card */}
         {(() => {
           const tier = getTier(totalMileage);
@@ -673,23 +623,6 @@ export default function ProfileMain() {
           <span style={{ fontSize: 24 }}>🛵</span>
           <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
             {t('profile.tabMyListings')}
-          </span>
-          <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
-        </button>
-
-        {/* SGR-213: 내 쿠폰함 진입 (주행 거리 아래) */}
-        <button
-          type="button"
-          onClick={() => navigate('/coupons/mine')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-            margin: '12px 0', padding: '14px 16px', borderRadius: 16,
-            border: '1px solid var(--line)', background: 'white', cursor: 'pointer',
-          }}
-        >
-          <span style={{ fontSize: 24 }}>🎁</span>
-          <span style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-            {t('coupon.my_box')}
           </span>
           <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
         </button>

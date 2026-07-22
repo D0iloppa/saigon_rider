@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Heart, MapPinned, Pencil, Star, Store, Ticket } from 'lucide-react';
+import { ArrowLeft, Heart, MapPinned, Pencil, Star, Store } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { AppImage } from '@/components/ui/AppImage';
@@ -60,7 +60,6 @@ export default function NeighborhoodProfile() {
   }, [searchParams, setSearchParams]);
 
   const shortcuts = [
-    { label: t('map.neighborhoodProfile.shortcuts.coupons'), Icon: Ticket, onClick: () => navigate('/coupons/mine') },
     { label: t('map.neighborhoodProfile.shortcuts.wishlist'), Icon: Heart, onClick: () => navigate('/map/favorites') },
     {
       label: t('map.neighborhoodProfile.shortcuts.favorites'),

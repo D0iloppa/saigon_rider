@@ -16,7 +16,6 @@ from .routers import (
     badges,
     biz,
     contents,
-    coupons,
     dev_context,
     dm,
     feed,
@@ -183,7 +182,6 @@ app.include_router(app_version.config_router, prefix="/api")
 # app.include_router(season.router, prefix="/api")
 app.include_router(dev_context.admin_router)
 app.include_router(wallet.router)
-app.include_router(coupons.router)
 app.include_router(admin_legacy.router)
 app.include_router(admin_api.router)
 app.include_router(support.router, prefix="/api")

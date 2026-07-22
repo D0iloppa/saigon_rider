@@ -28,6 +28,7 @@ import RepairSubmissionListPage from './pages/map/RepairSubmissionListPage'
 import BizAccountListPage from './pages/biz/BizAccountListPage'
 import BizAccountDetailPage from './pages/biz/BizAccountDetailPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
+import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
@@ -127,6 +128,7 @@ export default function App() {
               <Route path="/biz/accounts" element={<BizAccountListPage />} />
               <Route path="/biz/accounts/:id" element={<BizAccountDetailPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />
+              <Route path="/system/accounts" element={<AdminAccountListPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

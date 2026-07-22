@@ -16,6 +16,7 @@ import {
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
+  UserSwitchOutlined,
   MoonOutlined,
   SunOutlined,
   GlobalOutlined,
@@ -63,6 +64,7 @@ const PAGE_META = [
   { path: '/cms/notices', title: '공지 관리', description: '앱에 노출되는 공지 사항을 작성하고 게시합니다.' },
   { path: '/cms/faqs', title: 'FAQ 관리', description: '사용자 도움말 문답을 관리합니다.' },
   { path: '/settings/banned-keywords', title: '금칙어 관리', description: '대화 안전 정책에 적용되는 금칙어를 관리합니다.' },
+  { path: '/system/accounts', title: '관리자 계정', description: '관리자 계정을 추가, 수정, 삭제합니다.' },
   { path: '/audit-logs', title: '감사 로그', description: '관리자 조치와 접근 이력을 확인합니다.' },
   { path: '/reports', title: '신고센터', description: '신고 접수부터 조치까지의 검토 흐름을 관리합니다.' },
   { path: '/users', title: '유저 관리', description: '유저 상태, 제재 이력 및 신뢰 정보를 확인합니다.' },
@@ -83,7 +85,10 @@ export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const items = me.role === 'root'
-    ? [...MENU_ITEMS, { key: 'group-system', label: 'SYSTEM', children: [{ key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' }] }]
+    ? [...MENU_ITEMS, { key: 'group-system', label: 'SYSTEM', children: [
+        { key: '/system/accounts', icon: <UserSwitchOutlined />, label: '관리자 계정' },
+        { key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' },
+      ] }]
     : MENU_ITEMS
   const page = PAGE_META.find((item) => location.pathname.startsWith(item.path)) ?? PAGE_META[PAGE_META.length - 1]
 

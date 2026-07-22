@@ -30,6 +30,9 @@ const ACTION_LABELS: Record<string, string> = {
   FAQ_UNPUBLISH: 'FAQ 게시중단',
   BANNED_KEYWORD_ADD: '금칙어 추가',
   BANNED_KEYWORD_DELETE: '금칙어 삭제',
+  ADMIN_ACCOUNT_CREATE: '관리자 계정 생성',
+  ADMIN_ACCOUNT_UPDATE: '관리자 계정 수정',
+  ADMIN_ACCOUNT_DELETE: '관리자 계정 삭제',
 }
 
 const ACTION_OPTIONS = [{ value: '', label: '전체' }, ...Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }))]

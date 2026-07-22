@@ -1,5 +1,4 @@
 const DEFAULT_COORDS: Coords = { lat: 10.776, lng: 106.700 };
-const DEFAULT_LABEL = 'District 1';
 
 export type Coords = { lat: number; lng: number };
 export type CoordsSource = 'gps' | 'default';
@@ -11,10 +10,6 @@ export function parseCoordsFromQuery(search: string): Coords | null {
   const lng = parseFloat(params.get('lng') ?? '');
   if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
   return null;
-}
-
-export function getDefaultLabel(): string {
-  return DEFAULT_LABEL;
 }
 
 export function resolveInfoCoordsSync(

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import QuestCard from '@/components/quest/QuestCard';
-import { fetchQuest, fetchCompletedQuestIds, completeQuest, acceptQuest, fetchMyAccepted, startRide as apiStartRide, dropAccepted } from '@/api/quests';
+import { fetchQuest, fetchCompletedQuestIds, acceptQuest, fetchMyAccepted, startRide as apiStartRide, dropAccepted } from '@/api/quests';
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
 import { expToNextLevel } from '@/lib/rewards';
@@ -22,9 +22,6 @@ export default function QuestDetail() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
-  const passcode = useUserStore((s) => s.passcode);
-  const addExp = useUserStore((s) => s.addExp);
-  const addGold = useUserStore((s) => s.addGold);
   const startRide = useRideStore((s) => s.startRide);
 
   const [quest, setQuest] = useState<Quest | null>(null);
@@ -32,8 +29,6 @@ export default function QuestDetail() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [acceptedUserQuestId, setAcceptedUserQuestId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [dbgDialog, setDbgDialog] = useState(false);
-  const [dbgLoading, setDbgLoading] = useState(false);
   const [startConfirm, setStartConfirm] = useState(false);
 
   useEffect(() => {
@@ -120,26 +115,6 @@ export default function QuestDetail() {
       toast.error(err?.message ?? t('quest.dropFailed', { defaultValue: '수령 포기 실패' }));
     } finally {
       setActionLoading(false);
-    }
-  };
-
-  const handleDbgComplete = async () => {
-    if (!user || !quest || !passcode) {
-      toast.error(t('quest.dbg_no_session'));
-      return;
-    }
-    setDbgLoading(true);
-    try {
-      const result = await completeQuest(quest.id, user.id, passcode);
-      if (result.rewardExp > 0) addExp(result.rewardExp, 0);
-      if (result.rewardGold > 0) addGold(result.rewardGold);
-      setIsCompleted(true);
-      toast.success(`[DBG] Done — EXP +${result.rewardExp}, Gold +${result.rewardGold}`);
-    } catch (err: any) {
-      toast.error(`[DBG] Failed: ${err.message ?? 'Unknown error'}`);
-    } finally {
-      setDbgLoading(false);
-      setDbgDialog(false);
     }
   };
 
@@ -253,34 +228,6 @@ export default function QuestDetail() {
         )}
         </div>
       </div>
-
-      {/* [DBG] 완료 버튼 */}
-      {/* {!isCompleted && (
-        <button className={styles.dbgBtn} onClick={() => setDbgDialog(true)}>
-          [DBG]
-        </button>
-      )} */}
-
-      {/* [DBG] AlertDialog */}
-      {dbgDialog && (
-        <div className={styles.dialogBackdrop} onClick={() => setDbgDialog(false)}>
-          <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.dialogIcon}>🛠</div>
-            <h3 className={styles.dialogTitle}>{t('quest.dbg_title')}</h3>
-            <p className={styles.dialogBody}>
-              {t('quest.dbg_body')}
-            </p>
-            <div className={styles.dialogActions}>
-              <Button variant="ghost" onClick={() => setDbgDialog(false)} disabled={dbgLoading}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleDbgComplete} disabled={dbgLoading}>
-                {dbgLoading ? t('quest.dbg_processing') : t('quest.dbg_confirm')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* SGR-206: 수령 후 바로 시작 확인 */}
       {startConfirm && (

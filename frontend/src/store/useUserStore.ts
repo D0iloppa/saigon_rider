@@ -11,11 +11,10 @@ import { useLocationStore } from '@/store/useLocationStore';
 
 interface UserState {
   user: User | null;
-  passcode: string | null;
   isAuthenticated: boolean;
 
   // actions
-  loginFromBackend: (dto: UserDto, passcode?: string) => void;
+  loginFromBackend: (dto: UserDto) => void;
   refreshUser: () => Promise<void>;
   setProfile: (nickname: string, riderStyle: RiderStyle) => void;
   updateNickname: (nickname: string) => void;
@@ -60,17 +59,15 @@ export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
       user: null,
-      passcode: null,
       isAuthenticated: false,
 
-      loginFromBackend: (dto, passcode) => {
+      loginFromBackend: (dto) => {
         if (get().user?.id !== dto.id) {
           useLocationStore.getState().clearLocation();
         }
         set({
           user: dtoToUser(dto),
           isAuthenticated: true,
-          ...(passcode !== undefined ? { passcode } : {}),
         });
 
         native.getDeviceUUID()
@@ -138,7 +135,7 @@ export const useUserStore = create<UserState>()(
         }
         clearSession();
         useLocationStore.getState().clearLocation();
-        set({ user: null, passcode: null, isAuthenticated: false });
+        set({ user: null, isAuthenticated: false });
       },
 
       addExp: (levelExp, xpPoints) => {
@@ -182,9 +179,6 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: 'saigon-rider-user',
-      // passcode(살아있는 credential)는 localStorage에 영속화하지 않는다 — 세션 메모리 전용.
-      // 앱 재시작 후에는 null이 되며, 유일한 소비처인 [DBG] 퀘스트 강제완료만 재로그인을 요구한다.
-      partialize: (s) => Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'passcode')),
     }
   )
 );

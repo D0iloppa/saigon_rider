@@ -25,13 +25,6 @@ export async function apiUploadAvatar(userId: string, file: File): Promise<Avata
   return api.realFetchForm<AvatarUpdateResult>('/profile/avatar', form);
 }
 
-export async function apiUpdateNickname(userId: string, nickname: string): Promise<UserDto> {
-  return api.realFetch<UserDto>('/profile/nickname', {
-    method: 'PUT',
-    body: JSON.stringify({ user_id: userId, nickname }),
-  });
-}
-
 export async function apiSaveProfileSetup(
   userId: string,
   nickname: string,

@@ -161,24 +161,7 @@
   margin-top: 2px;
 }
 
-/* [DBG] button */
-.dbgBtn {
-  position: fixed;
-  bottom: calc(72px + var(--bottom-safe));
-  right: 16px;
-  padding: 5px 9px;
-  background: rgba(0,0,0,.45);
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 8px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(255,255,255,.5);
-  z-index: 50;
-  letter-spacing: 0.04em;
-}
-
-/* DBG AlertDialog */
+/* AlertDialog */
 .dialogBackdrop {
   position: fixed;
   inset: 0;

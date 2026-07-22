@@ -14,6 +14,7 @@ export interface RarityCardProps {
   className?: string;
 }
 
+// [보류 — 게이미피케이션 재개 시 활성화]
 export function RarityCard({
   rarity, children, surface = 'light', className,
 }: RarityCardProps) {

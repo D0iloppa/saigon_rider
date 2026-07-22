@@ -193,44 +193,11 @@ export function findNearestDistrict(lat: number, lng: number): District | null {
   return nearest;
 }
 
-/**
- * 좌표가 HCMC 권역 안인지(가장 가까운 구역 centroid 와의 거리 ≤ maxKm) 판정.
- * 내 위치가 HCMC 밖이면 거리 기준을 선택 구역 centroid 로 바꾸기 위한 판정용.
- */
-export function isWithinHcmc(lat: number, lng: number, maxKm = 25): boolean {
-  const n = findNearestDistrict(lat, lng);
-  if (!n) return false;
-  const dy = (n.gps.lat - lat) * 110.57;
-  const dx = (n.gps.lng - lng) * 111.32 * Math.cos((lat * Math.PI) / 180);
-  return Math.hypot(dx, dy) <= maxKm;
-}
-
-/** 두 좌표 간 거리(km). isWithinHcmc/isWithinDistrictRadius 와 동일 근사(110.57/111.32). */
+/** 두 좌표 간 거리(km). 110.57/111.32 근사. */
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const dy = (lat2 - lat1) * 110.57;
   const dx = (lng2 - lng1) * 111.32 * Math.cos((lat1 * Math.PI) / 180);
   return Math.hypot(dx, dy);
-}
-
-/** 구역 리스트/뱃지/메인 카운트 공통 반경(km). 중심부 ward 과분할(Voronoi) 보정용. */
-export const DISTRICT_RADIUS_KM = 2;
-
-/**
- * 좌표가 특정 구역(code) centroid 반경 radiusKm 이내인지.
- * 주유/정비 리스트·지도 뱃지·메인 미니카운트가 동일 기준을 쓰도록 공유. code 불명이면 true(필터 안 함).
- */
-export function isWithinDistrictRadius(
-  lat: number,
-  lng: number,
-  code: string | null,
-  radiusKm = DISTRICT_RADIUS_KM,
-): boolean {
-  if (!code) return true;
-  const d = getDistrictByCode(code);
-  if (!d) return true;
-  const dy = (d.gps.lat - lat) * 110.57;
-  const dx = (d.gps.lng - lng) * 111.32 * Math.cos((lat * Math.PI) / 180);
-  return Math.hypot(dx, dy) <= radiusKm;
 }
 
 /**

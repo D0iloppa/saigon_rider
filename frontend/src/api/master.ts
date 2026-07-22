@@ -63,12 +63,6 @@ const MOCK_RIDER_TYPES: RiderType[] = [
   { id: 3, code: 'NIGHT_RIDER', name_ko: '나이트 라이더', name_vi: 'Người đua đêm',  name_en: 'Night Rider', icon: '🌙' },
 ];
 
-const MOCK_SAFETY_GRADES: SafetyGrade[] = [
-  { id: 1, code: 'A', name_ko: '안전', name_vi: 'An toàn',    name_en: 'Safe' },
-  { id: 2, code: 'B', name_ko: '보통', name_vi: 'Trung bình', name_en: 'Average' },
-  { id: 3, code: 'C', name_ko: '위험', name_vi: 'Nguy hiểm',  name_en: 'Risky' },
-];
-
 export async function fetchDistricts(): Promise<District[]> {
   if (USE_MOCK) return api.delay(MOCK_DISTRICTS, 0);
   return api.realFetch<District[]>('/master/districts');
@@ -106,7 +100,3 @@ export async function fetchRiderTypes(): Promise<RiderType[]> {
   return api.realFetch<RiderType[]>('/master/rider-types');
 }
 
-export async function fetchSafetyGrades(): Promise<SafetyGrade[]> {
-  if (USE_MOCK) return api.delay(MOCK_SAFETY_GRADES, 0);
-  return api.realFetch<SafetyGrade[]>('/master/safety-grades');
-}

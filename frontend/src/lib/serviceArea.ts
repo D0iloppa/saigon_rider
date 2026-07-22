@@ -1,7 +1,5 @@
 import depth1 from '@/components/maps/v2/saigon-depth1.json';
 
-export const SERVICE_AREA_GEOMETRY_VERSION = 'service-area.v1';
-
 type Point = readonly [number, number];
 
 function wardRing(points: string): Point[] {

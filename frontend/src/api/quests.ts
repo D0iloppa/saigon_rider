@@ -215,46 +215,11 @@ export async function fetchRideTrail(deviceUuid: string, sinceTs?: number): Prom
   }
 }
 
-export interface CompleteQuestResult {
-  rewardExp: number;
-  rewardGold: number;
-  rewardItem: string | null;
-}
-
-export async function completeQuest(questId: string, userId: string, passcode: string): Promise<CompleteQuestResult> {
-  if (USE_MOCK) return { rewardExp: 0, rewardGold: 0, rewardItem: null };
-  const raw = await api.realFetch<any>(`/quests/${questId}/complete`, {
-    method: 'POST',
-    body: JSON.stringify({ user_id: userId }),
-    headers: { 'X-Passcode': passcode },
-  });
-  return {
-    rewardExp: raw.reward_exp ?? 0,
-    rewardGold: raw.reward_gold ?? 0,
-    rewardItem: raw.reward_item ?? null,
-  };
-}
-
 export async function fetchCompletedQuestIds(userId: string, type: 'daily' | 'weekly' | 'event'): Promise<Set<string>> {
   if (USE_MOCK) return new Set();
   const params = new URLSearchParams({ user_id: userId, period: type.toUpperCase() });
   const ids = await api.realFetch<string[]>(`/quests/completed-ids?${params}`);
   return new Set(ids);
-}
-
-export async function fetchDistrictQuestCounts(): Promise<Record<string, number>> {
-  if (USE_MOCK) {
-    return api.delay({ QUAN_1: 3, QUAN_3: 1, GO_VAP: 2, THU_DUC: 5, BINH_THANH: 2, QUAN_7: 1 }, 100);
-  }
-  return api.realFetch<Record<string, number>>('/quests/district-counts');
-}
-
-export async function fetchRecommendedQuests(userId: string): Promise<Quest[]> {
-  if (USE_MOCK) {
-    return api.delay(MOCK_QUESTS.slice(0, 3), 200);
-  }
-  const raw = await api.realFetch<any[]>(`/quests/recommended?user_id=${userId}`);
-  return raw.map(transformQuest).slice(0, 3);
 }
 
 export interface RidePolicy {

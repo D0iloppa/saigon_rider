@@ -149,6 +149,7 @@ export interface GachaPullLogEntry {
   pulled_at: string;
 }
 
+// [보류 — 게이미피케이션 재개 시 활성화]
 export async function fetchGachaPullLog(
   limit = 50,
   offset = 0,

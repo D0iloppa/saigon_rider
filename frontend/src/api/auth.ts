@@ -17,28 +17,8 @@ export interface UserDto {
   created_at: string;
 }
 
-export interface RegisterResult {
-  passcode: string;
-  is_new: boolean;
-  user: UserDto;
-}
-
 export interface LoginResult {
   user: UserDto;
-}
-
-export async function apiRegister(phone: string): Promise<RegisterResult> {
-  return api.realFetch<RegisterResult>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ phone }),
-  });
-}
-
-export async function apiLogin(phone: string, passcode: string): Promise<LoginResult> {
-  return api.realFetch<LoginResult>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ phone, passcode }),
-  });
 }
 
 export async function apiGetMe(phone: string): Promise<LoginResult> {

@@ -32,6 +32,7 @@ const labelStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
+// [보류 — 게이미피케이션 재개 시 활성화]
 export function GachaCardBack({ width = 140, label = '?', className }: GachaCardBackProps) {
   return (
     <div className={className} style={cardStyle(width)}>

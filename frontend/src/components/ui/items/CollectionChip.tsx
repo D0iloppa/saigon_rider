@@ -15,6 +15,7 @@ export interface CollectionChipProps {
   size?: 'sm' | 'md';
 }
 
+// [보류 — 게이미피케이션 재개 시 활성화]
 export function CollectionChip({ collection, size = 'md' }: CollectionChipProps) {
   return (
     <span

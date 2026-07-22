@@ -28,7 +28,6 @@ import PhoneVerify from '@/pages/auth/PhoneVerify';
 import Suspended from '@/pages/auth/Suspended';
 
 // Home
-import WorldMap from '@/pages/home/WorldMap'; // 백업 (미사용)
 import WorldMapV2 from '@/pages/home/WorldMapV2';
 
 // 동네지도 (RideNav 지도 재사용)

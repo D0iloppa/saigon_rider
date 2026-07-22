@@ -58,6 +58,7 @@ export async function fetchSeasonPass(): Promise<SeasonPass> {
   return api.realFetch<SeasonPass>('/season/pass');
 }
 
+// [보류 — 게이미피케이션 재개 시 활성화]
 export async function fetchCurrentSeason(): Promise<Season> {
   if (USE_MOCK) return api.delay(MOCK_SEASON.season, 150);
   return api.realFetch<Season>('/season/current');

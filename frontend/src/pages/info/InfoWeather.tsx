@@ -12,6 +12,11 @@ import { type SelectedRegion } from '@/components/maps/v2/region';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import styles from './InfoWeather.module.css';
 
+type WeatherLocationSource = 'default' | 'query' | 'map' | 'gps';
+type WeatherLocation = { lat: number; lng: number; source: WeatherLocationSource };
+
+const DEFAULT_WEATHER_LOCATION: WeatherLocation = { lat: 10.776, lng: 106.700, source: 'default' };
+
 const RAIN_COLOR = (pct: number) => {
   if (pct >= 80) return '#B91C1C';
   if (pct >= 60) return '#EF3B3B';
@@ -23,19 +28,22 @@ const RAIN_COLOR = (pct: number) => {
 // 메인에서 넘어온 좌표(?lat&lng)가 있으면 그 지역 기준, 없으면 표시용 기본 도시.
 // 지도에서 구역을 선택하면 setCoords 로 그 지역 기준 재조회.
 function useGeolocation(search: string) {
-  const [coords, setCoords] = useState<{ lat: number; lng: number }>(() => parseCoordsFromQuery(search) ?? { lat: 10.776, lng: 106.700 });
+  const [location, setLocation] = useState<WeatherLocation>(() => {
+    const query = parseCoordsFromQuery(search);
+    return query ? { ...query, source: 'query' } : DEFAULT_WEATHER_LOCATION;
+  });
   useEffect(() => {
     const q = parseCoordsFromQuery(search);
-    if (q) setCoords(q);
+    setLocation(q ? { ...q, source: 'query' } : DEFAULT_WEATHER_LOCATION);
   }, [search]);
-  return [coords, setCoords] as const;
+  return [location, setLocation] as const;
 }
 
 export default function InfoWeather() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { search } = useLocation();
-  const [coords, setCoords] = useGeolocation(search);
+  const [location, setLocation] = useGeolocation(search);
   const [regionName, setRegionName] = useState('');
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,36 +56,49 @@ export default function InfoWeather() {
   const isIosNative = native.platform === 'ios';
 
   useEffect(() => {
-    if (!coords) return;
-    weatherApi.get(coords.lat, coords.lng)
+    let cancelled = false;
+    setData(null);
+    setUnavailable(false);
+    weatherApi.get(location.lat, location.lng)
       .then((weather) => {
+        if (cancelled) return;
+        if (!weather) throw new Error('weather_unavailable');
         setData(weather);
         setUnavailable(false);
       })
       .catch(() => {
+        if (cancelled) return;
         setData(null);
         setUnavailable(true);
       })
-      .finally(() => setLoading(false));
-  }, [coords]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [location.lat, location.lng]);
 
   const handleNotify = useCallback(async () => {
-    if (!coords || !notifyLabel.trim()) return;
-    await weatherApi.notifyRain(notifyLabel.trim(), coords.lat, coords.lng);
+    if (!notifyLabel.trim()) return;
+    await weatherApi.notifyRain(notifyLabel.trim(), location.lat, location.lng);
     setNotifyDone(true);
-  }, [coords, notifyLabel]);
+  }, [location, notifyLabel]);
 
   const cur = data?.current;
   const forecast = data?.forecast?.next_24h ?? [];
   const basis = data?.observed_at ?? data?.fetched_at;
   const timeStr = basis ? new Date(basis).toLocaleString() : '—';
+  const locationBasis = regionName || data?.location?.district || 'Bến Thành';
 
   return (
     <div className={styles.page}>
       <TopBar title={t('info.weather.title')} onBack={() => navigate(-1)} rightContent={<InfoSwitcher current="weather" />} />
 
       <div className={styles.locBar}>
-        📍 {regionName ? t('info.distFromFallback', { area: regionName }) : t('info.distFromGps')}
+        📍 {location.source === 'gps'
+          ? t('info.distFromGps')
+          : t('info.distFromFallback', { area: locationBasis })}
       </div>
 
       {loading ? (
@@ -95,14 +116,18 @@ export default function InfoWeather() {
           )}
           {/* Location map — 침수 지도와 동일 레이아웃(풀블리드) */}
           <div className={styles.mapArea}>
-            {coords && (
-              <SaigonMapV5
-                height="100%"
-                onRegionSelect={(r: SelectedRegion) => { setCoords({ lat: r.lat, lng: r.lng }); setRegionName(r.name); }}
-                initialGps={coords ?? undefined}
-                onLocated={setCoords}
-              />
-            )}
+            <SaigonMapV5
+              height="100%"
+              onRegionSelect={(r: SelectedRegion) => {
+                setLocation({ lat: r.lat, lng: r.lng, source: 'map' });
+                setRegionName(r.name);
+              }}
+              initialGps={location.source === 'query' ? location : undefined}
+              onLocated={(coords) => {
+                setLocation({ ...coords, source: 'gps' });
+                setRegionName('');
+              }}
+            />
           </div>
 
           {/* 현재 날씨 */}

@@ -10,8 +10,10 @@ import { findNearestDistrict } from '@/components/maps/district-data';
 import { StarIcon } from '@/components/ui/StarIcon';
 import styles from './InfoHub.module.css';
 
+const INFO_FALLBACK_COORDS = { lat: 10.776, lng: 106.700 };
+
 function useGeolocation() {
-  return { lat: 10.776, lng: 106.700 };
+  return INFO_FALLBACK_COORDS;
 }
 
 export default function InfoHub() {
@@ -21,6 +23,7 @@ export default function InfoHub() {
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [floods, setFloods] = useState<FloodReport[]>([]);
+  const [floodUnavailable, setFloodUnavailable] = useState(false);
   const [gas, setGas] = useState<GasStation | null>(null);
   const [repair, setRepair] = useState<RepairShop | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +33,13 @@ export default function InfoHub() {
     const { lat, lng } = coords;
     Promise.allSettled([
       weatherApi.get(lat, lng).then(setWeather),
-      floodApi.getActive(lat, lng, 5).then((r) => r && setFloods(r.floods)),
+      floodApi.getActive(lat, lng, 5)
+        .then((r) => {
+          if (!r) throw new Error('flood_unavailable');
+          setFloods(r.floods);
+          setFloodUnavailable(false);
+        })
+        .catch(() => { setFloods([]); setFloodUnavailable(true); }),
       gasApi.getNearby(lat, lng, 5).then((r) => r && setGas(r.stations[0] ?? null)),
       repairApi.getNearby(lat, lng, 5).then((r) => r && setRepair(r.shops[0] ?? null)),
     ]).finally(() => setLoading(false));
@@ -124,12 +133,16 @@ export default function InfoHub() {
                 <span className={styles.cardIcon}>🌊</span>
                 <span className={`${styles.cardTitle} ${activeFloods.length > 0 ? styles.dangerText : ''}`}>
                   {t('info.flood.title')}{' '}
-                  {activeFloods.length > 0
+                  {floodUnavailable
+                    ? `— ${t('info.flood.unavailableShort')}`
+                    : activeFloods.length > 0
                     ? `— ${t('info.hub.floodActiveCount', { count: activeFloods.length })}`
                     : t('info.hub.floodNoIssue')}
                 </span>
               </div>
-              {activeFloods.length > 0 ? (
+              {floodUnavailable ? (
+                <div className={styles.cardLine}>{t('info.flood.unavailable')}</div>
+              ) : activeFloods.length > 0 ? (
                 <>
                   {activeFloods.slice(0, 2).map((f) => (
                     <div key={f.report_id} className={styles.cardLine}>

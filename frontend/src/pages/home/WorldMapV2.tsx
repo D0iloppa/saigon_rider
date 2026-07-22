@@ -176,6 +176,7 @@ export default function WorldMapV2() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [floods, setFloods] = useState<FloodReport[]>([]);
+  const [floodStatus, setFloodStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [gasCount, setGasCount] = useState(0);
   const [repairCount, setRepairCount] = useState(0);
 
@@ -216,12 +217,22 @@ export default function WorldMapV2() {
     const { lat, lng } = coords;
     const refLat = resolvedWard?.center_lat ?? lat;
     const refLng = resolvedWard?.center_lng ?? lng;
+    setFloodStatus('loading');
     fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
     Promise.allSettled([
       fetchListings({ lat, lng, sort: 'distance', size: 8 }).then((p) => setNearbyProducts(p.items)),
       fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 8 }).then((p) => setRecentProducts(p.items)),
-      weatherApi.get(refLat, refLng).then((value) => { setWeather(value); setWeatherUnavailable(false); }).catch(() => { setWeather(null); setWeatherUnavailable(true); }),
-      floodApi.getActive(refLat, refLng, 3).then((r) => r && setFloods(r.floods)).catch(() => {}),
+      weatherApi.get(refLat, refLng).then((value) => {
+        setWeather(value);
+        setWeatherUnavailable(!value);
+      }).catch(() => { setWeather(null); setWeatherUnavailable(true); }),
+      floodApi.getActive(refLat, refLng, 3)
+        .then((r) => {
+          if (!r) throw new Error('flood_unavailable');
+          setFloods(r.floods);
+          setFloodStatus('ready');
+        })
+        .catch(() => { setFloods([]); setFloodStatus('unavailable'); }),
       gasApi.getNearby(refLat, refLng, 3).then((r) => r && setGasCount(r.stations.length)).catch(() => {}),
       repairApi.getNearby(refLat, refLng, 3).then((r) => r && setRepairCount(r.shops.length)).catch(() => {}),
       fetchFeed({ filter: 'hot', size: 4 }).then((res) => setCommunityPosts(res.items)).catch(() => {}),
@@ -448,12 +459,12 @@ export default function WorldMapV2() {
           </button>
           <div className={styles.infoDivider} />
           <button
-            className={`${styles.infoItem} ${activeFloods.length > 0 ? styles.infoItemDanger : ''}`}
+            className={`${styles.infoItem} ${floodStatus === 'ready' && activeFloods.length > 0 ? styles.infoItemDanger : ''}`}
             onClick={() => navigate(`/info/flood${infoNavQuery}`)}
           >
             <div className={`${styles.infoBubble} ${styles.infoBubbleFlood}`}><IcoFlood /></div>
-            <div className={styles.infoVal}>{activeFloods.length > 0 ? t('info.hub.miniCount', { count: activeFloods.length }) : t('home.v2.floodNone')}</div>
-            <div className={styles.infoSub}>{activeFloods.length > 0 ? t('home.v2.floodWarning') : t('home.v2.floodSafe')}</div>
+            <div className={styles.infoVal}>{floodStatus !== 'ready' ? '—' : activeFloods.length > 0 ? t('info.hub.miniCount', { count: activeFloods.length }) : t('home.v2.floodNone')}</div>
+            <div className={styles.infoSub}>{floodStatus === 'loading' ? t('common.loading') : floodStatus === 'unavailable' ? t('info.flood.unavailableShort') : activeFloods.length > 0 ? t('home.v2.floodWarning') : t('home.v2.floodSafe')}</div>
             <div className={styles.infoLabel}>{t('info.flood.title')}</div>
           </button>
           <div className={styles.infoDivider} />

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { floodApi } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
-import type { Coords } from '@/lib/infoCoords';
+import { parseCoordsFromQuery, type Coords } from '@/lib/infoCoords';
 import { native } from '@/lib/native';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import styles from './InfoFloodReport.module.css';
@@ -25,21 +25,12 @@ export default function InfoFloodReport() {
   const navigate = useNavigate();
   const { search } = useLocation();
 
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const [coords, setCoords] = useState<Coords | null>(() => parseCoordsFromQuery(search));
+  const [locating, setLocating] = useState(false);
   const [depth, setDepth] = useState<DepthLevel | null>(null);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    native.ensureLocationPermission()
-      .then(() => native.getLocation())
-      .then((position) => setCoords({
-        lat: position.lat,
-        lng: position.lng,
-      }))
-      .catch(() => setCoords(null));
-  }, [search]);
 
   const locationDistrict = coords ? findNearestDistrict(coords.lat, coords.lng) : null;
 
@@ -50,6 +41,20 @@ export default function InfoFloodReport() {
 
   const depthLabel = (d: DepthLevel) =>
     t(`info.flood.depth${d.charAt(0).toUpperCase()}${d.slice(1)}`, d);
+
+  async function handleLocate() {
+    if (locating) return;
+    setLocating(true);
+    try {
+      await native.ensureLocationPermission();
+      const position = await native.getLocation();
+      setCoords({ lat: position.lat, lng: position.lng });
+    } catch {
+      toast.error(t('info.flood.locationError'));
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!depth || submitting || !coords) return;
@@ -95,14 +100,25 @@ export default function InfoFloodReport() {
               <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
               <circle cx="12" cy="10" r="3"/>
             </svg>
-            <span className={styles.locationLabel}>📍 {t('info.flood.locationDetected')}</span>
+            <span className={styles.locationLabel}>
+              📍 {coords ? t('info.flood.locationSelected') : t('info.flood.locationRequired')}
+            </span>
           </div>
           <div className={styles.locationName}>
             {locationDistrict
               ? `${locationDistrict.oldDistrict} · ${locationDistrict.nameVi}`
-              : t('info.flood.locationDetecting')}
+              : coords
+              ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`
+              : t('info.flood.locationRequiredDesc')}
           </div>
-          <div className={styles.locationEdit}>{t('info.flood.locationEditHint')}</div>
+          <button
+            type="button"
+            className={styles.locationEdit}
+            onClick={handleLocate}
+            disabled={locating}
+          >
+            {locating ? t('info.flood.locationLocating') : t('info.flood.useCurrentLocation')}
+          </button>
         </div>
 
         {/* Depth selection */}

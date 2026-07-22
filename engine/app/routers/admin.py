@@ -475,25 +475,29 @@ async def admin_daily_featured_refresh(
 
 @router.get("/ops/daily-net", dependencies=[_svc])
 async def admin_ops_daily_net(db: AsyncSession = Depends(get_session)) -> list[dict]:
-    """일일 GP/GC 발행/소모 — 인플레 모니터링 (최근 7일)."""
+    """일일 XP 발행/소모 — 인플레 모니터링 (최근 7일).
+
+    엔진 DB 의 유일한 화폐 원장은 xp_transaction(XP, current_balance) 이다.
+    Gold 는 BFF 소유, RP(gc_balance)는 별도 트랜잭션 원장이 없으므로 여기선 XP 만 집계한다.
+    발행(earned)=EARN/REFUND/ADJUST_PLUS, 소모(spent)=REDEEM/EXPIRE/ADJUST_MINUS.
+    """
     sql = sa_text("""
         SELECT
           DATE(occurred_at) AS day,
-          currency,
-          SUM(amount) FILTER (WHERE tx_type = 'EARN')  AS earned,
-          SUM(amount) FILTER (WHERE tx_type = 'SPEND') AS spent,
-          SUM(amount) FILTER (WHERE tx_type = 'EARN')
-            - SUM(amount) FILTER (WHERE tx_type = 'SPEND') AS net
+          SUM(amount) FILTER (WHERE tx_type IN ('EARN','REFUND','ADJUST_PLUS'))   AS earned,
+          SUM(amount) FILTER (WHERE tx_type IN ('REDEEM','EXPIRE','ADJUST_MINUS')) AS spent,
+          SUM(amount) FILTER (WHERE tx_type IN ('EARN','REFUND','ADJUST_PLUS'))
+            - SUM(amount) FILTER (WHERE tx_type IN ('REDEEM','EXPIRE','ADJUST_MINUS')) AS net
         FROM xp_transaction
         WHERE occurred_at >= NOW() - INTERVAL '7 days'
-        GROUP BY day, currency
-        ORDER BY day DESC, currency
+        GROUP BY day
+        ORDER BY day DESC
     """)
     result = await db.execute(sql)
     return [
         {
             "day": str(row.day),
-            "currency": row.currency,
+            "currency": "XP",
             "earned": int(row.earned or 0),
             "spent": int(row.spent or 0),
             "net": int(row.net or 0),

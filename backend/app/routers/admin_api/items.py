@@ -42,6 +42,8 @@ async def create_item(
     db: AsyncSession = Depends(get_db),
 ):
     data = await request.json()
+    if not data.get("collection_code"):
+        raise HTTPException(status_code=400, detail="collection_code는 필수입니다")
     try:
         result = await engine_client.admin_create_item(data)
     except Exception as e:

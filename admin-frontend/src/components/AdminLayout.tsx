@@ -90,7 +90,7 @@ export default function AdminLayout() {
   const { mode, toggle } = useAdminTheme()
   const location = useLocation()
   const navigate = useNavigate()
-  const items = me.role === 'root'
+  const items = me.role === 'root' || me.role === 'admin'
     ? [...MENU_ITEMS, { key: 'group-system', label: 'SYSTEM', children: [
         { key: '/system/accounts', icon: <UserSwitchOutlined />, label: '관리자 계정' },
         { key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' },
@@ -149,7 +149,7 @@ export default function AdminLayout() {
         </div>
         <div className="admin-sider-footer">
           <Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar>
-          <div><strong>{me.username}</strong><span>{me.role === 'root' ? 'Root administrator' : 'Administrator'}</span></div>
+          <div><strong>{me.username}</strong><span>{me.role === 'root' ? 'Root administrator' : me.role === 'admin' ? 'Administrator' : 'Manager'}</span></div>
           <Button type="text" size="small" onClick={handleLogout}>로그아웃</Button>
         </div>
       </Sider>
@@ -159,7 +159,7 @@ export default function AdminLayout() {
           <div className="admin-account">
             <Button className="admin-landing-link" type="text" icon={<GlobalOutlined />} href="https://www.saigon-rider.com/" target="_blank" rel="noopener noreferrer">랜딩 페이지</Button>
             <Button className="admin-theme-toggle" type="text" shape="circle" icon={mode === 'dark' ? <SunOutlined /> : <MoonOutlined />} onClick={toggle} aria-label={mode === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'} title={mode === 'dark' ? '라이트 모드' : '다크 모드'} />
-            <Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar><span>{me.username}</span><Tag className={me.role === 'root' ? 'role-root' : 'role-admin'}>{me.role.toUpperCase()}</Tag>
+            <Avatar>{me.username.slice(0, 1).toUpperCase()}</Avatar><span>{me.username}</span><Tag className={me.role === 'root' ? 'role-root' : me.role === 'admin' ? 'role-admin' : 'role-manager'}>{me.role.toUpperCase()}</Tag>
           </div>
         </Header>
         <Content className="admin-content">

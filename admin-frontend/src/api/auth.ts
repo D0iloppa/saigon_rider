@@ -2,7 +2,7 @@ import { api } from './client'
 
 export interface Me {
   username: string
-  role: 'root' | 'admin'
+  role: 'root' | 'admin' | 'manager'
 }
 
 export function login(username: string, password: string): Promise<Me> {

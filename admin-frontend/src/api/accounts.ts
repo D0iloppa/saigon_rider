@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 
+export type AdminRole = 'admin' | 'manager'
+
 export interface AdminAccountRow {
   id: string
   username: string
+  role: AdminRole
   note: string | null
   created_at: string
   updated_at: string
@@ -12,10 +15,12 @@ export interface AdminAccountRow {
 export interface AdminAccountCreateBody {
   username: string
   password: string
+  role: AdminRole
   note?: string
 }
 
 export interface AdminAccountUpdateBody {
+  role?: AdminRole
   note?: string
   password?: string
 }

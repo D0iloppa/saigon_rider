@@ -1,14 +1,15 @@
-"""admin JSON API — 관리자 계정 관리 (admin_accounts 테이블, root 전용).
+"""admin JSON API — 관리자 계정 관리 (admin_accounts 테이블, root/admin 전용).
 
 legacy 콘솔(admin_legacy.py `/admins/*`)의 CRUD 를 JSON 으로 포팅했다. root(.env `ADMIN_USER`) 는
 DB 행이 아니라 목록에 나타나지 않으며, 신규 계정의 아이디로 root 와 동일한 값은 거부한다
 (`_validate_username`, legacy 의 root_collision 규칙과 동일). 수정/삭제 대상은 항상 DB 조회로
-얻으므로 root 는 애초에 대상이 될 수 없다.
+얻으므로 root 는 애초에 대상이 될 수 없다. DB 행의 role 은 'admin'(root 동등) | 'manager' 만 허용.
 """
 
 import re
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -30,6 +31,7 @@ class AdminAccountRow(BaseModel):
 
     id: uuid.UUID
     username: str
+    role: str
     note: str | None
     created_at: datetime
     updated_at: datetime
@@ -38,10 +40,12 @@ class AdminAccountRow(BaseModel):
 class AdminAccountCreate(BaseModel):
     username: str
     password: str
+    role: Literal["admin", "manager"] = "manager"
     note: str | None = Field(None, max_length=200)
 
 
 class AdminAccountUpdate(BaseModel):
+    role: Literal["admin", "manager"] | None = None
     note: str | None = Field(None, max_length=200)
     password: str | None = None
 
@@ -88,11 +92,20 @@ async def create_account(
     account = AdminAccount(
         username=username,
         password_hash=hash_password(body.password),
+        role=body.role,
         note=(body.note or "").strip() or None,
     )
     db.add(account)
     await db.flush()
-    await audit(db, session, request, "ADMIN_ACCOUNT_CREATE", "admin_account", str(account.id), {"username": username})
+    await audit(
+        db,
+        session,
+        request,
+        "ADMIN_ACCOUNT_CREATE",
+        "admin_account",
+        str(account.id),
+        {"username": username, "role": body.role},
+    )
     await db.commit()
     await db.refresh(account)
     return AdminAccountRow.model_validate(account)
@@ -109,6 +122,8 @@ async def update_account(
     account = await _get_account_or_404(db, account_id)
 
     account.note = (body.note or "").strip() or None
+    if body.role is not None:
+        account.role = body.role
     password_changed = False
     if body.password:
         if len(body.password) < 6:
@@ -123,7 +138,7 @@ async def update_account(
         "ADMIN_ACCOUNT_UPDATE",
         "admin_account",
         str(account_id),
-        {"password_changed": password_changed},
+        {"password_changed": password_changed, "role": account.role},
     )
     await db.commit()
     await db.refresh(account)

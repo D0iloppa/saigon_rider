@@ -23,6 +23,14 @@
     </div>
 
     <div class="field">
+      <label class="field-label">권한</label>
+      <select name="role" style="width:100%;">
+        <option value="manager" {{role_manager_selected}}>MANAGER — 계정관리·감사로그 제외 전체</option>
+        <option value="admin" {{role_admin_selected}}>ADMIN — root 동등 (계정관리·감사로그 포함)</option>
+      </select>
+    </div>
+
+    <div class="field">
       <label class="field-label">메모 (선택)</label>
       <input type="text" name="note" value="{{note}}" maxlength="200" style="width:100%;" placeholder="예: 운영팀 김OO" />
     </div>

@@ -67,6 +67,13 @@ export function useAdminTheme() {
   return value
 }
 
+/** root/admin 전용 라우트 가드 (defense-in-depth — 백엔드도 403). manager 는 대시보드로 리다이렉트. */
+function PrivilegedRoute({ children }: { children: ReactNode }) {
+  const me = useMe()
+  if (me.role !== 'root' && me.role !== 'admin') return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 function AuthGate({ children }: { children: ReactNode }) {
   const { data: me, isLoading } = useQuery({ queryKey: ['me'], queryFn: fetchMe })
 
@@ -123,7 +130,7 @@ export default function App() {
               <Route path="/cms/notices/:id" element={<NoticeEditPage />} />
               <Route path="/cms/faqs" element={<FaqListPage />} />
               <Route path="/settings/banned-keywords" element={<BannedKeywordPage />} />
-              <Route path="/audit-logs" element={<AuditLogPage />} />
+              <Route path="/audit-logs" element={<PrivilegedRoute><AuditLogPage /></PrivilegedRoute>} />
               <Route path="/map/poi" element={<PoiListPage />} />
               <Route path="/map/poi/new" element={<PoiEditPage />} />
               <Route path="/map/poi/:id" element={<PoiEditPage />} />
@@ -134,7 +141,7 @@ export default function App() {
               <Route path="/biz/accounts" element={<BizAccountListPage />} />
               <Route path="/biz/accounts/:id" element={<BizAccountDetailPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />
-              <Route path="/system/accounts" element={<AdminAccountListPage />} />
+              <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

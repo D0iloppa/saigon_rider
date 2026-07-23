@@ -32,12 +32,18 @@ class AdminSession:
 
     def __init__(self, username: str, role: str, account_id: str | None = None):
         self.username = username
-        self.role = role  # "root" | "admin"
+        # 3단계: "root"(.env 정적) | "admin"(root 동등, DB 행) | "manager"(기존 admin 권한, DB 행)
+        self.role = role
         self.account_id = account_id
 
     @property
     def is_root(self) -> bool:
         return self.role == "root"
+
+    @property
+    def is_privileged(self) -> bool:
+        """계정관리·감사로그 등 상위 권한 (root 또는 admin). manager 는 제외."""
+        return self.role in ("root", "admin")
 
 
 def issue_token(*, username: str, role: str, account_id: str | None = None) -> str:
@@ -57,7 +63,9 @@ def decode_token(token: str) -> AdminSession | None:
     except jwt.PyJWTError:
         return None
     username = payload.get("sub") or ""
-    role = payload.get("role") or "admin"  # role 미포함/불명 토큰은 최소권한(admin)으로 강등 — root 상승 방지
+    role = payload.get("role")
+    if role not in ("root", "admin", "manager"):
+        role = "manager"  # 미포함/불명 role 은 최소권한(manager)으로 강등 — root/admin 상승 방지(fail-closed)
     account_id = payload.get("aid")
     return AdminSession(username=username, role=role, account_id=account_id)
 
@@ -81,7 +89,7 @@ async def authenticate(db: AsyncSession, username: str, password: str) -> AdminS
         return AdminSession(username=username, role="root")
     account = (await db.execute(select(AdminAccount).where(AdminAccount.username == username))).scalar_one_or_none()
     if account and verify_password(password, account.password_hash):
-        return AdminSession(username=username, role="admin", account_id=str(account.id))
+        return AdminSession(username=username, role=account.role, account_id=str(account.id))
     return None
 
 
@@ -97,8 +105,9 @@ async def verify_admin_page(admin_session: str | None = Cookie(default=None)) ->
 
 
 async def verify_root_page(session: AdminSession = Depends(verify_admin_page)) -> AdminSession:
-    if not session.is_root:
-        raise HTTPException(status_code=403, detail="Root admin only")
+    # 상위 권한 게이트: root 또는 admin 허용, manager 차단 (계정관리·감사로그 등).
+    if not session.is_privileged:
+        raise HTTPException(status_code=403, detail="Privileged admin only")
     return session
 
 
@@ -111,6 +120,7 @@ async def verify_admin_api(admin_session: str | None = Cookie(default=None)) -> 
 
 
 async def verify_root_api(session: AdminSession = Depends(verify_admin_api)) -> AdminSession:
-    if not session.is_root:
+    # 상위 권한 게이트: root 또는 admin 허용, manager 차단 (계정관리·감사로그 등).
+    if not session.is_privileged:
         raise HTTPException(status_code=403, detail="forbidden")
     return session

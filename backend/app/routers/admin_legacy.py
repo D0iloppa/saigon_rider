@@ -156,17 +156,17 @@ def _render_page(
     for k, v in ctx.items():
         body = body.replace(f"{{{{{k}}}}}", str(v))
 
-    is_root = bool(session and session.role == "root")
+    is_privileged = bool(session and session.role in ("root", "admin"))
     layout = (_TEMPLATE_DIR / "_layout.html").read_text(encoding="utf-8")
     layout = layout.replace("{{page_title}}", page_title)
     layout = layout.replace("{{body}}", body)
     layout = layout.replace("{{wiki_url}}", h(WIKI_BASE_PATH))
     layout = layout.replace("{{admin_username}}", h(session.username if session else ""))
-    layout = layout.replace("{{admin_role}}", "ROOT" if is_root else "ADMIN")
+    layout = layout.replace("{{admin_role}}", session.role.upper() if session else "")
     layout = layout.replace(
         "{{admins_menu}}",
         '<a href="/admin-legacy/admins" class="{{nav_admins}}"><span class="icon">◆</span> 관리자 계정</a>'
-        if is_root
+        if is_privileged
         else "",
     )
     for key in _NAV_KEYS:
@@ -1276,7 +1276,7 @@ async def admin_settings(
         page_title="설정",
         session=session,
         username=h(session.username),
-        role_label=("ROOT (정적)" if session.is_root else "ADMIN (DB)"),
+        role_label=("ROOT (정적)" if session.is_root else f"{session.role.upper()} (DB)"),
         admin_user_id=h(str(ADMIN_USER_ID)),
         nickname=h(user.nickname or ""),
         avatar_url=h(_admin_avatar_url(user)),
@@ -1354,6 +1354,7 @@ async def admin_admins_list(
         rows_html.append(
             "<tr>"
             f'<td style="font-family:monospace;color:#fff;">{h(a.username)}</td>'
+            f"<td>{h(a.role.upper())}</td>"
             f"<td>{h(a.note or '—')}</td>"
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{a.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
             f'<td style="font-size:12px;color:rgba(255,255,255,.5);">{a.updated_at.strftime("%Y-%m-%d %H:%M")}</td>'
@@ -1366,7 +1367,7 @@ async def admin_admins_list(
             "</tr>"
         )
     if not rows_html:
-        rows_html.append('<tr><td colspan="5" class="empty">등록된 관리자가 없습니다. (root 만 있음)</td></tr>')
+        rows_html.append('<tr><td colspan="6" class="empty">등록된 관리자가 없습니다. (root 만 있음)</td></tr>')
 
     flash_html = ""
     if flash in _ADMIN_FLASHES:
@@ -1408,6 +1409,8 @@ async def admin_admin_new(
         submit_label="등록",
         username="",
         username_readonly="",
+        role_manager_selected="selected",
+        role_admin_selected="",
         note="",
         password_required_label="*",
         password_required="required",
@@ -1421,6 +1424,7 @@ async def admin_admin_create(
     db: AsyncSession = Depends(get_db),
     username: str = Form(...),
     password: str = Form(...),
+    role: str = Form("manager"),
     note: str = Form(""),
 ):
     username = username.strip()
@@ -1429,6 +1433,8 @@ async def admin_admin_create(
         return RedirectResponse(url=f"/admin-legacy/admins?flash={err}", status_code=302)
     if len(password) < 6:
         return RedirectResponse(url="/admin-legacy/admins?flash=weak_password", status_code=302)
+    if role not in ("admin", "manager"):
+        role = "manager"
 
     exists = (await db.execute(select(AdminAccount).where(AdminAccount.username == username))).scalar_one_or_none()
     if exists is not None:
@@ -1438,6 +1444,7 @@ async def admin_admin_create(
         AdminAccount(
             username=username,
             password_hash=_hash_password(password),
+            role=role,
             note=(note.strip() or None),
         )
     )
@@ -1465,6 +1472,8 @@ async def admin_admin_edit(
         submit_label="저장",
         username=h(account.username),
         username_readonly="readonly",
+        role_manager_selected="selected" if account.role != "admin" else "",
+        role_admin_selected="selected" if account.role == "admin" else "",
         note=h(account.note or ""),
         password_required_label="(변경 시에만 입력)",
         password_required="",
@@ -1479,6 +1488,7 @@ async def admin_admin_update(
     db: AsyncSession = Depends(get_db),
     username: str = Form(...),
     password: str = Form(""),
+    role: str = Form("manager"),
     note: str = Form(""),
 ):
     account = await db.get(AdminAccount, account_id)
@@ -1487,6 +1497,8 @@ async def admin_admin_update(
 
     # username 은 form readonly 이지만 클라이언트 위변조 방지
     account.note = note.strip() or None
+    if role in ("admin", "manager"):
+        account.role = role
     if password:
         if len(password) < 6:
             return RedirectResponse(url="/admin-legacy/admins?flash=weak_password", status_code=302)

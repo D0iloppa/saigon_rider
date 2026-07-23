@@ -60,7 +60,7 @@ export default function AuditLogPage() {
       render: (v: string, row: AdminAuditLogRow) => (
         <Space>
           {v}
-          <Tag color={row.admin_role === 'root' ? 'red' : 'blue'}>{row.admin_role.toUpperCase()}</Tag>
+          <Tag color={row.admin_role === 'root' ? 'red' : row.admin_role === 'admin' ? 'blue' : 'default'}>{row.admin_role.toUpperCase()}</Tag>
         </Space>
       ),
     },

@@ -1,4 +1,4 @@
-"""admin JSON API — 감사 로그 열람 (읽기 전용, root 전용).
+"""admin JSON API — 감사 로그 열람 (읽기 전용, root/admin 전용 — manager 차단).
 
 admin_audit_log 는 전 액션에서 `_audit.py` 를 통해 기록 중 — 여기서는 조회만 제공한다.
 읽기 전용이므로 이 조회 자체는 감사 기록을 남기지 않는다.

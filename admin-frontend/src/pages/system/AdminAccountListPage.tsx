@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Input, Modal, Table, Typography, message } from 'antd'
+import { Button, Input, Modal, Select, Table, Tag, Typography, message } from 'antd'
 import dayjs from 'dayjs'
 import {
   useAdminAccounts,
@@ -7,6 +7,7 @@ import {
   useDeleteAdminAccount,
   useUpdateAdminAccount,
   type AdminAccountRow,
+  type AdminRole,
 } from '../../api/accounts'
 
 export default function AdminAccountListPage() {
@@ -16,6 +17,7 @@ export default function AdminAccountListPage() {
 
   const columns = [
     { title: '아이디', dataIndex: 'username', key: 'username', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
+    { title: '권한', dataIndex: 'role', key: 'role', width: 120, render: (v: AdminRole) => <Tag color={v === 'admin' ? 'blue' : 'default'}>{v.toUpperCase()}</Tag> },
     { title: '메모', dataIndex: 'note', key: 'note', render: (v: string | null) => v ?? '-' },
     { title: '등록일', dataIndex: 'created_at', key: 'created_at', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
     { title: '수정일', dataIndex: 'updated_at', key: 'updated_at', render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm') },
@@ -62,6 +64,7 @@ export default function AdminAccountListPage() {
 function AdminAccountModal({ target, onClose }: { target: AdminAccountRow | 'new'; onClose: () => void }) {
   const isNew = target === 'new'
   const [username, setUsername] = useState(isNew ? '' : target.username)
+  const [role, setRole] = useState<AdminRole>(isNew ? 'manager' : target.role)
   const [note, setNote] = useState(isNew ? '' : target.note ?? '')
   const [password, setPassword] = useState('')
   const createAccount = useCreateAdminAccount()
@@ -69,6 +72,7 @@ function AdminAccountModal({ target, onClose }: { target: AdminAccountRow | 'new
 
   useEffect(() => {
     setUsername(isNew ? '' : target.username)
+    setRole(isNew ? 'manager' : target.role)
     setNote(isNew ? '' : target.note ?? '')
     setPassword('')
   }, [target, isNew])
@@ -92,9 +96,9 @@ function AdminAccountModal({ target, onClose }: { target: AdminAccountRow | 'new
     }
     const onError = (err: unknown) => message.error(err instanceof Error ? err.message : '저장에 실패했습니다.')
     if (isNew) {
-      createAccount.mutate({ username: username.trim(), password, note: note.trim() || undefined }, { onSuccess, onError })
+      createAccount.mutate({ username: username.trim(), password, role, note: note.trim() || undefined }, { onSuccess, onError })
     } else {
-      updateAccount.mutate({ id: target.id, body: { note: note.trim() || undefined, password: password || undefined } }, { onSuccess, onError })
+      updateAccount.mutate({ id: target.id, body: { role, note: note.trim() || undefined, password: password || undefined } }, { onSuccess, onError })
     }
   }
 
@@ -111,6 +115,14 @@ function AdminAccountModal({ target, onClose }: { target: AdminAccountRow | 'new
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Input placeholder="아이디 (영문/숫자/._- 3~50자)" value={username} disabled={!isNew} onChange={(e) => setUsername(e.target.value)} />
+        <Select
+          value={role}
+          onChange={setRole}
+          options={[
+            { value: 'manager', label: 'MANAGER — 계정관리·감사로그 제외 전체' },
+            { value: 'admin', label: 'ADMIN — root 동등 (계정관리·감사로그 포함)' },
+          ]}
+        />
         <Input placeholder="메모 (선택)" value={note} onChange={(e) => setNote(e.target.value)} />
         <Input.Password
           placeholder={isNew ? '비밀번호 (6자 이상)' : '비밀번호 변경 시에만 입력 (6자 이상)'}

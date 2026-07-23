@@ -12,17 +12,18 @@ import type { WeatherData, FloodReport } from '@/api/info';
 import { fetchListings, fetchAds, fetchTrades, localizedName as marketLocalizedName, type ListingCard, type MarketAd } from '@/api/market';
 import { fetchFeed } from '@/api/feed';
 import type { FeedPost } from '@/api/types';
-import { shuffle } from '@/lib/shuffle';
+import { AD_EVERY } from '@/lib/adPlacement';
 import { formatPriceVnd, relativeTime } from '@/pages/market/marketFormat';
 import { formatNumber } from '@/lib/format';
 import { native } from '@/lib/native';
+import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { apiRegisterDeviceMap } from '@/api/device';
 import { fetchWards, resolveWardByCoords, type Ward } from '@/api/master';
 import { AppImage } from '@/components/ui/AppImage';
 import styles from './WorldMapV2.module.css';
 
 // Bến Thành (Quận 1) — 앱 기본 동네
-const FALLBACK = { lat: 10.7716, lng: 106.6980, name: 'Bến Thành' };
+const FALLBACK = { ...BEN_THANH_FALLBACK, name: 'Bến Thành' };
 
 // ── SVG 아이콘 (이모지 대체) ─────────────────────────────────
 const IcoSearch = () => (
@@ -218,7 +219,7 @@ export default function WorldMapV2() {
     const refLat = resolvedWard?.center_lat ?? lat;
     const refLng = resolvedWard?.center_lng ?? lng;
     setFloodStatus('loading');
-    fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
+    fetchAds(null).then(setAds).catch(() => setAds([]));
     Promise.allSettled([
       fetchListings({ lat, lng, sort: 'distance', size: 8 }).then((p) => setNearbyProducts(p.items)),
       fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 8 }).then((p) => setRecentProducts(p.items)),
@@ -394,11 +395,12 @@ export default function WorldMapV2() {
                 </div>
               )
             : recentProducts.map((p, i) => {
-              const ad = ads.length > 0 && i % 4 === 3 ? ads[(i / 4 | 0) % ads.length] : null;
+              const ord = Math.floor(i / AD_EVERY);
+              const ad = ads.length > 0 && i % AD_EVERY === AD_EVERY - 1 ? ads[ord % ads.length] : null;
               return (
                 <Fragment key={p.id}>
                   {ad && (
-                    <button className={styles.productCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
+                    <button key={`${ad.id}-${ord}`} className={styles.productCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
                       <div className={styles.productThumb}>
                         <AppImage src={ad.imageUrl ?? undefined} alt={ad.title} className={styles.productThumbImg} />
                         <span className={styles.adBadge}>AD</span>

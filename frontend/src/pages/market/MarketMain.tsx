@@ -13,8 +13,8 @@ import SaigonMapV2 from '@/components/maps/SaigonMapV2';
 import type { SelectedRegion } from '@/components/maps/v2/region';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { native } from '@/lib/native';
-import { shuffle, randAdBatch } from '@/lib/shuffle';
+import { resolveUsableLocation } from '@/lib/serviceLocation';
+import { adAtIndex, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
@@ -33,8 +33,6 @@ import {
 import ListingCard from './ListingCard';
 import AdCard from './AdCard';
 import styles from './MarketMain.module.css';
-
-const AD_EVERY = 5; // 매물 N개마다 광고 1개 삽입
 
 const STORAGE_KEY = 'mkt_filter_v2';
 interface SavedState {
@@ -84,11 +82,12 @@ export default function MarketMain() {
   const [draftDistrict, setDraftDistrict] = useState<District | null>(null);
   const [draftCoords, setDraftCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [draftRegionLabel, setDraftRegionLabel] = useState<string | null>(null);
-  const [adLimit, setAdLimit] = useState(randAdBatch); // 광고 3~4개로 시작, 스크롤 시 증가
-  // 제휴 광고(지역 타게팅) — 동네/언어 확정 후 로드. 셔플해 랜덤 노출. 피드 중간 삽입용.
+  const [adLimit, setAdLimit] = useState(AD_LIMIT_INITIAL); // 스크롤 시 결정적 증가
+  // 제휴 광고(지역 타게팅) — 동네/언어 확정 후 로드. 서버가 이미 가중 로테이션한 시퀀스이므로
+  // 순서 그대로 사용(재정렬 금지). 피드 중간 삽입용.
   useEffect(() => {
-    fetchAds(district?.id ?? null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
-    setAdLimit(randAdBatch());
+    fetchAds(district?.id ?? null).then(setAds).catch(() => setAds([]));
+    setAdLimit(AD_LIMIT_INITIAL);
   }, [district?.id, i18n.language]);
 
   // 마켓 기본 진입은 항상 전체 지역.
@@ -127,13 +126,12 @@ export default function MarketMain() {
 
   const handlePickGPS = async () => {
     try {
-      await native.ensureLocationPermission();
-      const pos = await native.getLocation();
-      const pickedCoords = { lat: pos.lat, lng: pos.lng };
-      // HCMC 밖 GPS 좌표면 1군(벤탄) 폴백
-      const d = resolveDistrict(pos.lat, pos.lng, allDistricts)
-        ?? resolveDistrict(10.7748, 106.6879, allDistricts);
-      setCoords(pickedCoords);
+      const location = await resolveUsableLocation();
+      const d = resolveDistrict(location.coords.lat, location.coords.lng, allDistricts);
+      if (location.source === 'fallback') {
+        toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
+      }
+      setCoords(location.coords);
       setDistrict(d ?? null);
       setLocationMode('gps');
       setRegionLabel(null);
@@ -317,7 +315,7 @@ export default function MarketMain() {
         ref={containerRef as React.RefObject<HTMLDivElement>}
         onScroll={(e) => {
           const el = e.currentTarget;
-          if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) setAdLimit((p) => p + randAdBatch());
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) setAdLimit(nextAdLimit);
         }}
       >
         <div className={styles.listContent} style={contentStyle}>
@@ -339,13 +337,11 @@ export default function MarketMain() {
           ) : (
             <>
               {listings.map((l, i) => {
-                const ord = i / AD_EVERY; // 광고 순번(정수일 때만 삽입)
-                const showAd = ads.length > 0 && i % AD_EVERY === 0 && ord < adLimit;
-                const ad = showAd ? ads[ord % ads.length] : null;
+                const slot = adAtIndex(i, ads, adLimit);
                 return (
                   <Fragment key={l.id}>
                     <ListingCard listing={l} onClick={() => { saveScroll(); navigate(`/market/${l.id}`); }} />
-                    {ad && <AdCard ad={ad} onClick={() => { saveScroll(); navigate(adHref(ad)); }} />}
+                    {slot && <AdCard key={`${slot.ad.id}-${slot.ord}`} ad={slot.ad} onClick={() => { saveScroll(); navigate(adHref(slot.ad)); }} />}
                   </Fragment>
                 );
               })}

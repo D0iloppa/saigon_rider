@@ -7,8 +7,9 @@ import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/compone
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
 import { AppImage } from '@/components/ui/AppImage';
 import { SearchBox } from '@/components/ui/SearchBox';
-import { shuffle, randAdBatch } from '@/lib/shuffle';
+import { adAtIndex, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useLocationStore } from '@/store/useLocationStore';
+import type { ResolvedLocation } from '@/lib/serviceLocation';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchListings, fetchAds, adHref, type ListingCard as Listing, type MarketAd } from '@/api/market';
 import { fetchBizMapItems, fetchBizCategories, fetchBizFavorites, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
@@ -34,7 +35,6 @@ import styles from './NeighborhoodMap.module.css';
 
 type Tab = 'listings' | 'feed' | 'biz';
 type BrowseMode = 'viewport' | 'region';
-const AD_EVERY = 4;
 const LISTING_COLOR = '#ff6f3c';
 const FEED_COLOR = '#3b82f6';
 // 업체 핀 색 (마커 위계 역전, 2026-07-21) — 업체가 지도 주 콘텐츠이므로 카테고리 색
@@ -298,7 +298,7 @@ export default function NeighborhoodMap() {
   const suppressedPanelBboxRef = useRef<LatLngBbox | null>(null);
   const viewerCount = useBizViewerCount(focusedBiz?.id ?? null);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
-  const [adLimit, setAdLimit] = useState(randAdBatch);
+  const [adLimit, setAdLimit] = useState(AD_LIMIT_INITIAL);
   const [reloadSeq, setReloadSeq] = useState(0);
   const [sheetVisibleHeight, setSheetVisibleHeight] = useState(0);
   const [sheetSnap, setSheetSnap] = useState<'full' | 'mid' | 'collapsed'>('collapsed');
@@ -586,7 +586,7 @@ export default function NeighborhoodMap() {
   );
 
   useEffect(() => {
-    fetchAds(null).then((a) => setAds(shuffle(a))).catch(() => setAds([]));
+    fetchAds(null).then(setAds).catch(() => setAds([]));
   }, []);
 
   // 업체 카테고리 (DB화, W3-FE) — 마운트 시 1회 fetch. 실패 시 빈 배열(칩 행에 '전체'와
@@ -616,7 +616,7 @@ export default function NeighborhoodMap() {
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  useEffect(() => { setAdLimit(randAdBatch()); }, [tab, mode, selectedRegion?.name]);
+  useEffect(() => { setAdLimit(AD_LIMIT_INITIAL); }, [tab, mode, selectedRegion?.name]);
 
   // 매물·피드 조회 — 지도 핀과 바텀시트 리스트가 같은 데이터를 공유한다 (visible* 파생,
   // 핀 개수 = 헤더 건수 정합. ward 별도 리스트 조회는 불일치 문제로 제거, 2026-07-14).
@@ -896,14 +896,14 @@ export default function NeighborhoodMap() {
     // 아니다(UX 원칙: 시트는 사용자 의도로만 이동). 선택 결과는 접힘 헤더 칩/건수로 보인다.
   }, [setSharedLocation, user]);
 
-  const handleLocated = useCallback((coords: { lat: number; lng: number }) => {
+  const handleLocated = useCallback((coords: { lat: number; lng: number }, location?: ResolvedLocation) => {
     if (!user) return;
     const ward = findWardAt(coords.lat, coords.lng);
     setSharedLocation({
       coords,
       wardId: null,
       wardName: ward?.region.name ?? null,
-      source: 'gps',
+      source: location?.source === 'fallback' ? 'fallback' : 'gps',
       measuredAt: Date.now(),
       accountId: user.id,
     });
@@ -1442,17 +1442,14 @@ export default function NeighborhoodMap() {
   );
 
   const adAt = (i: number) => {
-    if (ads.length === 0 || i % AD_EVERY !== 0) return null;
-    const ord = Math.floor(i / AD_EVERY);
-    if (ord >= adLimit) return null;
-    const ad = ads[ord % ads.length];
-    return <AdCard ad={ad} onClick={() => navigate(adHref(ad))} />;
+    const slot = adAtIndex(i, ads, adLimit);
+    return slot && <AdCard key={`${slot.ad.id}-${slot.ord}`} ad={slot.ad} onClick={() => navigate(adHref(slot.ad))} />;
   };
 
   const handleListScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
-      setAdLimit((prev) => prev + randAdBatch());
+      setAdLimit(nextAdLimit);
     }
   };
 
@@ -1758,6 +1755,7 @@ export default function NeighborhoodMap() {
         onRawViewportChange={handleRawBboxChange}
         onDepthChange={setShowDistrictBadges}
         onLocated={handleLocated}
+        outsideAreaFallback
         emitBboxRef={emitBboxRef}
         outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
         locateRef={locateRef}

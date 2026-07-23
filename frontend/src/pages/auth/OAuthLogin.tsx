@@ -312,15 +312,6 @@ export default function OAuthLogin() {
           {t('oauthLogin.legalSuffix')}
         </p>
 
-        {isDev && (
-          <button
-            className={styles.devLoginBtn}
-            onClick={handleDevLogin}
-            disabled={loading !== null}
-          >
-            {loading === 'dev' ? t('oauthLogin.loading') : t('oauthLogin.devBtn')}
-          </button>
-        )}
       </div>
     </div>
   );

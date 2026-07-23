@@ -16,12 +16,12 @@ import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { Chip } from '@/components/ui/Chip';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { useUserStore } from '@/store/useUserStore';
-import { useLocationStore } from '@/store/useLocationStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { loadSession } from '@/lib/session';
 import { toast } from '@/components/ui/Toast';
+import { resolveUsableLocation } from '@/lib/serviceLocation';
 import { ProfileCard } from '@/components/ProfileCard';
 import styles from './FeedList.module.css';
 
@@ -196,20 +196,29 @@ export default function FeedList() {
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   // neighborhood 필터용 현재 위치 (state — 도착 시 재fetch 트리거)
   const [neighborhoodLoc, setNeighborhoodLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [neighborhoodRequest, setNeighborhoodRequest] = useState(0);
 
   useEffect(() => { fetchStories().then(setStories); }, []);
 
-  // 동네 필터는 사용자가 앞서 명시적으로 선택한 위치만 사용한다.
+  // [내 동네]를 누를 때마다 현재 위치를 측정하고 서비스 밖이면 벤탄 좌표로 필터한다.
   useEffect(() => {
     if (filter !== 'neighborhood') return;
-    const saved = useLocationStore.getState().location;
-    if (saved && saved.accountId === user?.id) {
-      setNeighborhoodLoc(saved.coords);
-      return;
-    }
-    toast.error(t('feedCreate.locationError'));
-    setFilter('all');
-  }, [filter, t, user?.id]);
+    let cancelled = false;
+    resolveUsableLocation()
+      .then((location) => {
+        if (cancelled) return;
+        if (location.source === 'fallback') {
+          toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
+        }
+        setNeighborhoodLoc(location.coords);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        toast.error(t('feedCreate.locationError'));
+        setFilter('all');
+      });
+    return () => { cancelled = true; };
+  }, [filter, neighborhoodRequest, t]);
 
   const fetchPage = useCallback(async (page: number) => {
     if (filter === 'neighborhood') {
@@ -302,7 +311,13 @@ export default function FeedList() {
             <Chip
               key={f.key}
               variant={filter === f.key ? 'dark' : 'surface'}
-              onClick={() => setFilter(f.key)}
+              onClick={() => {
+                if (f.key === 'neighborhood') {
+                  setNeighborhoodLoc(null);
+                  setNeighborhoodRequest((request) => request + 1);
+                }
+                setFilter(f.key);
+              }}
               style={{ cursor: 'pointer' }}
             >
               {f.label}

@@ -166,6 +166,10 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
   );
 }
 
+// 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.
+// 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
+const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth'];
+
 export default function App() {
   const user = useUserStore((s) => s.user);
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
@@ -183,6 +187,10 @@ export default function App() {
   // 세션 만료 전역 핸들러 등록
   useEffect(() => {
     setSessionExpiredHandler(() => {
+      // 세션이 없는 게 정상인 화면(스플래시·OAuth 로그인/콜백)에서는 만료 폴백을 돌리지 않는다.
+      // 여기서 튕기면 OAuth 왕복(특히 Zalo) 승인 대기가 중단된다. 예외 경로는 SESSION_EXEMPT_PREFIXES 배열에만 추가.
+      const p = window.location.pathname;
+      if (SESSION_EXEMPT_PREFIXES.some((prefix) => p.startsWith(prefix))) return;
       logout();
       sessionStorage.setItem('session_expired', '1');
       window.location.replace('/splash');
@@ -328,7 +336,12 @@ export default function App() {
       <NotificationBridge />
       <SpriteProvider />
       <QuestCardSprites />
-      <Toaster position="top-center" gap={6} visibleToasts={3} />
+      <Toaster
+        position="top-center"
+        gap={6}
+        visibleToasts={3}
+        offset={{ bottom: 'calc(var(--tabbar-height, 72px) + var(--bottom-safe, 0px) + 12px)' }}
+      />
       <Dialog />
       <ConfirmDialog />
       <AppShell

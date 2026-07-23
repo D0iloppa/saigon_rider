@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LocationSource = 'manual' | 'gps';
+export type LocationSource = 'manual' | 'gps' | 'fallback';
 
 export interface LocationSnapshot {
   coords: { lat: number; lng: number };

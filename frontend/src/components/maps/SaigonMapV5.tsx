@@ -1,8 +1,8 @@
 import { LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
-import { native } from '@/lib/native';
-import { inServiceArea } from '@/lib/serviceArea';
+import { resolveUsableLocation, type ResolvedLocation } from '@/lib/serviceLocation';
+import { toast } from '@/components/ui/Toast';
 import depth1 from './v2/saigon-depth1.json';
 import { regionContains, type MapMarkerV2, type SelectedRegion } from './v2/region';
 import { computeVisibleLabels, type DeclutterMarker } from './v2/labelDeclutter';
@@ -56,8 +56,6 @@ const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) �
 const L2_VBW = BASE_W * 0.35;  // 3500: 블록/도로 표시 (~5km) — ward(동) 단위 뱃지
 const L3_VBW = BASE_W * 0.07;  // 700:  건물 표시  (~1km)
 const MIN_VBW = BASE_W * 0.01; // 100:  최대 줌인
-
-const TOAST_MS = 2400;
 
 // 업체 teardrop 핀 — 로컬 24유닛 좌표계: 머리 원 중심 (12,9)·반지름 9, 꼬리 꼭짓점 (12,24).
 // 접선점 (4.8,14.4)/(19.2,14.4) 는 꼭짓점→원(거리 15, R 9)의 정확한 접선 계산값.
@@ -263,10 +261,12 @@ export interface SaigonMapV5Props {
   forceMarkers?: boolean;
   polyActive?: boolean;
   onLocate?: () => void;
-  /** GPS 측정 성공 시 좌표 통지 — 부모가 위치 스토어에 기억(재진입 복원용) */
-  onLocated?: (pos: { lat: number; lng: number }) => void;
+  /** 현재 위치 해석 성공 시 좌표 통지. 두 번째 인자는 출처가 필요한 호출부용 메타데이터. */
+  onLocated?: (coords: { lat: number; lng: number }, location?: ResolvedLocation) => void;
   /** 서비스 지역(HCMC) 밖 GPS 안내 문구 — 미지정 시 한국어 기본값 */
   outsideAreaMessage?: string;
+  /** 서비스 지역 밖일 때 벤탄 좌표로 이동할지 여부. 기본은 기존 동작(안내 후 중단). */
+  outsideAreaFallback?: boolean;
   selectRegionOnLocate?: boolean;
   /** 부모가 동일 기능의 위치 CTA를 제공할 때 지도 내부 버튼을 숨긴다. */
   showLocateControl?: boolean;
@@ -313,6 +313,7 @@ function SaigonMapV5({
   onLocate,
   onLocated,
   outsideAreaMessage,
+  outsideAreaFallback = false,
   selectRegionOnLocate = true,
   showLocateControl = true,
   selectionOnly = false,
@@ -334,12 +335,10 @@ function SaigonMapV5({
 
   const [meLatLng, setMeLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [selWard, setSelWard] = useState<number | null>(null);
-  const [toast, setToast] = useState('');
   // slug → {d2?, d3?} 캐시
   const [wardData, setWardData] = useState<Record<string, { d2?: Depth2Data; d3?: Depth3Data }>>({});
   const cacheRef = useRef<Record<string, { d2?: Depth2Data; d3?: Depth3Data }>>({});
   const loadingRef = useRef<Set<string>>(new Set());
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const prevLOD = useRef({ l2: false, l3: false });
   const didAutoLocate = useRef(false);
   // 라벨 디클러터 히스테리시스 — 직전 프레임의 표시 라벨 집합(깜빡임 방지용)
@@ -358,14 +357,6 @@ function SaigonMapV5({
     moved: boolean;
     downTarget: EventTarget | null;
   }>({ pts: new Map(), lastP: null, lastD: 0, moved: false, downTarget: null });
-
-  useEffect(() => () => clearTimeout(toastTimer.current), []);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), TOAST_MS);
-  }, []);
 
   // anchorOverlay 화면 배치 — 말풍선 하단-중앙이 핀 위를 향하도록 놓고, 좌우는 컨테이너 안으로
   // 클램프하되 꼬리(--tail-x)는 핀의 실제 x를 계속 가리킨다. 핀이 화면 밖이면 숨김.
@@ -663,32 +654,32 @@ function SaigonMapV5({
       const slug = depth1.wards[idx].slug as string | undefined;
       if (slug) void loadWardData(slug, false);
     } else if (!opts?.silent) {
-      showToast(t('map.locateNotFound', { defaultValue: '위치를 찾을 수 없어요' }));
+      toast.neutral(t('map.locateNotFound', { defaultValue: '위치를 찾을 수 없어요' }));
     }
-  }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, showToast, t]);
+  }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, t]);
   focusLatLngRef.current = focusLatLng;
 
   // ── GPS 위치 ───────────────────────────────────────────────
   const runLocate = useCallback(async () => {
     onLocate?.();
     try {
-      await native.ensureLocationPermission();
-      const pos = await native.getLocation();
-      // 서비스 지역(HCMC bbox + 0.05° 마진) 밖 — 가장자리 clamp 딥줌·무의미한 조회·
-      // 가짜 위치점을 만들지 않고 안내만 한다 (시나리오 3.3, V2/V3 outsideArea 가드 복원)
-      if (!inServiceArea(pos.lat, pos.lng)) {
-        showToast(outsideAreaMessage ?? '서비스 지역 밖이에요');
+      const location = await resolveUsableLocation();
+      if (location.source === 'fallback') {
+        toast.neutral(outsideAreaMessage ?? '서비스 지역 밖이에요');
         setMeLatLng(null);
-        return;
+        if (!outsideAreaFallback) return;
       }
-      focusLatLng({ lat: pos.lat, lng: pos.lng }, { selectRegion: selectRegionOnLocate });
-      onLocated?.({ lat: pos.lat, lng: pos.lng });
+      focusLatLng(location.coords, {
+        selectRegion: selectRegionOnLocate,
+        noMeDot: location.source === 'fallback',
+      });
+      onLocated?.(location.coords, location);
     } catch {
       // 측정 실패 시 임의 지역(기본 좌표) 딥줌·가짜 위치점 폴백을 하지 않는다 —
       // 뷰포트 유지 + 안내만 (시나리오 3.4)
-      showToast(t('map.locateFailed', { defaultValue: '위치를 가져올 수 없어요' }));
+      toast.neutral(t('map.locateFailed', { defaultValue: '위치를 가져올 수 없어요' }));
     }
-  }, [focusLatLng, onLocate, onLocated, outsideAreaMessage, selectRegionOnLocate, showToast, t]);
+  }, [focusLatLng, onLocate, onLocated, outsideAreaFallback, outsideAreaMessage, selectRegionOnLocate, t]);
 
   // ◎ 버튼: 동 선택 중엔 그 동 중심으로, 아니면 GPS를 다시 측정해 진짜 "현재 위치"로 이동
   const recenterCurrentContext = useCallback(() => {
@@ -1417,16 +1408,6 @@ function SaigonMapV5({
             </div>
           )}
         </>
-      )}
-
-      {/* topInsetPx(검색창 등 상단 오버레이) 아래로 배치 — 겹침 방지 (줌 컨트롤과 동일 공식) */}
-      {toast && (
-        <div
-          className={styles.toast}
-          style={topInsetPx ? { top: `calc(var(--status-bar-height, 0px) + 12px + ${topInsetPx}px)` } : undefined}
-        >
-          {toast}
-        </div>
       )}
 
       {/* 변수 사용 억제 — vbSnap은 re-render 트리거 전용 */}

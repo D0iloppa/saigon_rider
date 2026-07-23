@@ -180,16 +180,19 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/biz/:id` | `pages/biz/BizPublic.tsx` | 공개 비즈프로필(무인증, APPROVED만 200) — 일반 유저가 보는 면. **소식 섹션**(2026-07-12 `b5c008b`, `GET /biz/public/:id/news` 10건 페이지네이션+더보기, 로드 시 `markBizNewsRead`로 지도 핀 unread 뱃지 정합) + **후기 섹션**(2026-07-12, `business_review` init/123 — `GET/POST /biz/public/:id/reviews` wrapper `{reviews,total,avg_rating,has_more}`, UNIQUE(profile_id,user_id) upsert, 작성 시트 `BizReviewSheet.tsx`는 동네지도 + 메뉴와 공용) |
 
 - **핵심 헬퍼**: `adHref()` — 광고 카드 탭 시 owner 有→`/biz/:id`, 無(레거시 광고)→`/market/ad/:id` 폴백. `AdCard` 사용처(홈/마켓/동네지도) 3곳 전부 적용. `AdDetail.tsx`에 "가게 프로필 보기" 링크 추가.
+- **광고 삽입 위치 통일 (2026-07-23)**: 위 3화면(MarketMain·NeighborhoodMap·WorldMapV2)의 광고 삽입 간격이 공용 `frontend/src/lib/adPlacement.ts`(`AD_EVERY=6`)로 통일됨 — 서버(`GET /market/ads`)가 tier+ad_fee 가중으로 결정한 순서를 화면별 위치 기준으로 순환 배치만 하고, 재가중·재정렬·shuffle은 하지 않는다(구: 화면마다 다른 cadence(5/4)+클라이언트 shuffle이 노출 랜덤의 실체였음 → 제거). 노출 결정 SoT·불변식은 [`service-rules.md`](service-rules.md) "광고 노출" 참조.
 - **i18n**: `biz.*` 3벌(ko/en/vi).
 - **관리자 콘솔 — 비즈니스 심사 (2026-07-22 신규 SPA 이식)**: `AdminLayout.tsx` 사이드바 그룹 **"비즈니스"** 2항목 → 신규 admin-frontend SPA 화면. 레거시 Jinja(`/admin-legacy/biz-accounts`·`/biz-ads`)는 2차 이식 완료 전까지 병행 유지.
 
 | 라우트(SPA) | 페이지 파일 | 액션 |
 |---|---|---|
 | `/biz/accounts` | `admin-frontend/src/pages/biz/BizAccountListPage.tsx` | 계정 심사 큐(PENDING 상단) — 승인 / 반려(사유 필수) |
-| `/biz/accounts/:id` | `admin-frontend/src/pages/biz/BizAccountDetailPage.tsx` | 계정 상세(프로필·광고 이력) — 승인/반려 / 정지(SUSPENDED, 게시중 광고 일괄 STOPPED) / 그룹 인라인 배정 |
-| `/biz/ads` | `admin-frontend/src/pages/biz/BizAdListPage.tsx` | 광고 소재 심사 큐 — 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) |
+| `/biz/accounts/:id` | `admin-frontend/src/pages/biz/BizAccountDetailPage.tsx` | 계정 상세(프로필·광고 이력) — 승인/반려 / 정지(SUSPENDED, 게시중 광고 일괄 STOPPED) / 그룹 인라인 배정. 광고 이력 행 클릭 → `/biz/ads/:id`, "론칭중 광고 전체보기" → `/biz/accounts/:id/ads` (2026-07-23) |
+| `/biz/accounts/:id/ads` | `admin-frontend/src/pages/biz/BizAccountAdsPage.tsx` | 파트너 전용 광고 리스트(론칭중/전체 토글, 기본 론칭중) — 행 클릭 → `/biz/ads/:id` (2026-07-23 신설) |
+| `/biz/ads` | `admin-frontend/src/pages/biz/BizAdListPage.tsx` | 광고 소재 심사 큐 — 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) / **노출설정(등급·과금액, 2026-07-23)**. 제목 클릭 → `/biz/ads/:id`, 파트너 컬럼 → `/biz/accounts/:profile_id` (2026-07-23) |
+| `/biz/ads/:id` | `admin-frontend/src/pages/biz/BizAdDetailPage.tsx` | 광고 소재 상세(read-only) — 제목·본문·이미지·기간·파트너(링크)·상태·노출등급·과금액 (2026-07-23 신설) |
 
-  백엔드 `backend/app/routers/admin_api/biz.py`(`GET/POST /admin/api/biz/accounts*·/ads*`), `verify_admin_api`(레거시와 동일 admin 레벨 — root 아님) + 전 mutation `_audit.audit()`. fetch 훅 `admin-frontend/src/api/biz.ts`. **알려진 갭**: 광고 이미지 imgproxy 폴백 미적용(레거시부터의 기존 갭) / 사이드바 큐 카운트 배지 미구현(전 큐 공통).
+  백엔드 `backend/app/routers/admin_api/biz.py`(`GET/POST /admin/api/biz/accounts*·/ads*`; 광고 단건 `GET .../ads/{id}`, 목록 `GET .../ads` 는 `profile_id`·`launching`(론칭중=APPROVED+is_active+게시기간, market.py get_ads와 동일 정의) 필터 지원 — 2026-07-23), `verify_admin_api`(레거시와 동일 admin 레벨 — root 아님) + 전 mutation `_audit.audit()`. fetch 훅 `admin-frontend/src/api/biz.ts`. **알려진 갭**: 광고 이미지 imgproxy 폴백 미적용(레거시부터의 기존 갭) / 사이드바 큐 카운트 배지 미구현(전 큐 공통).
 - **앱측 연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.
 
 #### 관리자 콘솔 — SYSTEM 그룹 (ROOT∨ADMIN 접근, 사이드바 하단)

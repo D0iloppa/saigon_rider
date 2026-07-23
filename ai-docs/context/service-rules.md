@@ -34,3 +34,14 @@
 2. 예외: **특정 아이템을 지목한 액션**(지도 핀 탭 = 이 매물 보기)은 시트를 올리되, 지도 컨텍스트(선택 핀)가 함께 보이도록 **mid까지만** 올린다. full 확장은 사용자 드래그로만.
 
 (제정 2026-07-07 — "지역만 선택해도 시트가 자동으로 올라오는" UX 지적 반영)
+
+---
+
+## 광고 노출
+
+1. **노출 순서 결정 SoT = 백엔드.** `backend/app/services/ad_exposure.py`(`build_exposure_sequence`)가 `MarketplaceAd`의 `exposure_tier`(GOLD/SILVER/BRONZE, 기본 BRONZE)와 `ad_fee`(과금액, VND)를 근거로 tier별 base weight + 동급 내 ad_fee 가중을 계산해 **결정적 가중 로테이션 시퀀스**(nginx smooth weighted round-robin 방식)를 만든다. `GET /market/ads`는 이 시퀀스를 그대로 반환한다(`MAX_SEQUENCE_LENGTH=120` 캡).
+2. **불변식**: 상위 tier의 per-ad 노출 횟수는 하위 tier보다 항상 크거나 같다(밴드 비겹침). 동일 tier 내에서는 `ad_fee`가 클수록 더 많이 노출된다.
+3. **프론트는 서버 순서를 소비만 한다.** `frontend/src/lib/adPlacement.ts`(공용, `AD_EVERY=6`)는 서버가 반환한 순서를 화면별 위치 기준으로 순환 배치할 뿐, **재가중·재정렬·shuffle을 하지 않는다.** MarketMain·NeighborhoodMap·WorldMapV2 3개 화면이 이 모듈을 공유한다. (구: 화면마다 다른 cadence(5/4)+클라이언트 shuffle로 노출이 랜덤이었음 → 폐기)
+4. **tier/ad_fee는 어드민 전용 쓰기 경로.** 광고주 자율 등록 경로에는 노출 설정 필드가 없다 — 관리자 콘솔(`POST /admin/api/biz/ads/{id}/exposure`)에서만 설정한다. 두 값 모두 공개 응답(`MarketplaceAdOut`)에는 노출하지 않는다(내부 과금정보).
+
+(제정 2026-07-23 — 균등 라운드로빈 + 클라이언트 shuffle → 광고료 비례 결정적 가중 노출 전환)

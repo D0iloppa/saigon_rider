@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import FeedPost, FeedPostImage, User
+from ...models import FeedPost, FeedPostImage, PostComment, User
 from ...schemas import Page
 from ...utils import default_avatar_url, resolve_avatar_url
 from ..feed import _resolve_image_urls
@@ -70,6 +70,17 @@ class FeedWriteRequest(BaseModel):
     content: str | None = None
     is_story: bool = False
     image_content_ids: list[uuid.UUID] = []
+
+
+class AdminCommentRow(BaseModel):
+    id: uuid.UUID
+    post_id: uuid.UUID
+    author: FeedAuthorBrief
+    parent_id: uuid.UUID | None
+    content: str | None
+    image_url: str | None
+    like_count: int
+    created_at: datetime
 
 
 def _author_brief(user: User | None, user_id: uuid.UUID) -> FeedAuthorBrief:
@@ -150,6 +161,36 @@ async def get_feed_post(
 ):
     post = await _get_post_or_404(db, post_id)
     return await _feed_detail(db, post)
+
+
+@router.get("/feed/{post_id}/comments", response_model=list[AdminCommentRow])
+async def list_feed_comments(
+    post_id: uuid.UUID,
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_post_or_404(db, post_id)
+    rows = (
+        await db.execute(
+            select(PostComment, User)
+            .outerjoin(User, PostComment.user_id == User.id)
+            .where(PostComment.post_id == post_id)
+            .order_by(PostComment.created_at.asc())
+        )
+    ).all()
+    return [
+        AdminCommentRow(
+            id=comment.id,
+            post_id=comment.post_id,
+            author=_author_brief(user, comment.user_id),
+            parent_id=comment.parent_id,
+            content=comment.content,
+            image_url=comment.image_url,
+            like_count=comment.like_count,
+            created_at=comment.created_at,
+        )
+        for comment, user in rows
+    ]
 
 
 @router.post("/feed", response_model=AdminFeedDetail, status_code=201)

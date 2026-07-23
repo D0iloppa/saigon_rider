@@ -35,6 +35,17 @@ export interface AdminFeedDetail {
   updated_at: string
 }
 
+export interface AdminCommentRow {
+  id: string
+  post_id: string
+  author: FeedAuthorBrief
+  parent_id: string | null
+  content: string | null
+  image_url: string | null
+  like_count: number
+  created_at: string
+}
+
 export interface FeedListParams {
   page?: number
   size?: number
@@ -58,6 +69,14 @@ export function useFeedPost(id: string) {
   return useQuery({
     queryKey: ['feed', id],
     queryFn: () => api<AdminFeedDetail>(`/admin/api/community/feed/${id}`),
+    enabled: !!id,
+  })
+}
+
+export function useFeedComments(id: string) {
+  return useQuery({
+    queryKey: ['feed', id, 'comments'],
+    queryFn: () => api<AdminCommentRow[]>(`/admin/api/community/feed/${id}/comments`),
     enabled: !!id,
   })
 }

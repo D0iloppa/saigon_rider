@@ -1,12 +1,13 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Avatar, Button, Card, Descriptions, Image, Popconfirm, Skeleton, Space, Tag, message } from 'antd'
+import { Alert, Avatar, Button, Card, Descriptions, Image, List, Popconfirm, Skeleton, Space, Tag, message } from 'antd'
 import dayjs from 'dayjs'
-import { useDeleteFeedPost, useFeedPost } from '../../api/feed'
+import { useDeleteFeedPost, useFeedComments, useFeedPost } from '../../api/feed'
 
 export default function FeedDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { data: post, isLoading, isError, error } = useFeedPost(id)
+  const { data: comments, isLoading: commentsLoading } = useFeedComments(id)
   const deletePost = useDeleteFeedPost()
 
   if (isError) {
@@ -88,6 +89,35 @@ export default function FeedDetailPage() {
         <Descriptions.Item label="등록일">{dayjs(post.created_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
         <Descriptions.Item label="수정일">{dayjs(post.updated_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
       </Descriptions>
+
+      <Card type="inner" title={`댓글 (${comments?.length ?? 0})`} style={{ marginTop: 16 }} loading={commentsLoading}>
+        <List
+          dataSource={comments ?? []}
+          locale={{ emptyText: '댓글이 없습니다.' }}
+          renderItem={(comment) => (
+            <List.Item style={{ paddingLeft: comment.parent_id ? 32 : 0 }}>
+              <List.Item.Meta
+                avatar={<Avatar src={comment.author.avatar_url} size={24} />}
+                title={
+                  <Space>
+                    {comment.author.nickname ?? '-'}
+                    <span style={{ fontWeight: 'normal', color: 'rgba(0,0,0,0.45)' }}>
+                      {dayjs(comment.created_at).format('YYYY-MM-DD HH:mm')}
+                    </span>
+                    <span style={{ fontWeight: 'normal', color: 'rgba(0,0,0,0.45)' }}>좋아요 {comment.like_count}</span>
+                  </Space>
+                }
+                description={
+                  <Space direction="vertical" size={4}>
+                    {comment.content && <span style={{ whiteSpace: 'pre-line' }}>{comment.content}</span>}
+                    {comment.image_url && <Image src={comment.image_url} width={80} height={80} style={{ objectFit: 'cover' }} />}
+                  </Space>
+                }
+              />
+            </List.Item>
+          )}
+        />
+      </Card>
     </Card>
   )
 }

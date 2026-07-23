@@ -226,6 +226,12 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/sre/stream` | `admin-frontend/src/pages/sre/StreamPage.tsx` | **메시지 스트림 + GPS 이동경로 (2026-07-23 이식, 커밋 `ecd0710`)** — 읽기전용: 스트림 info 카드(적재수/consumer group/pending)·필터 메시지 테이블(type/uuid, device→user phone 해석)·GPS 트레이스 모달. 백엔드 `admin_api/stream.py` 3 GET **전부 `verify_root_api`**(GPS=위치 PII→root/admin) → `engine_client.admin_stream_info/messages/resolve_device_uuids`. Redis 스트림에서 읽음(RideSession 아님). **단순화**: GPS는 구글맵 폴리라인 대신 포인트 테이블(admin SPA에 맵 라이브러리 부재 — 구글맵 복원 시 AppConfig 키 노출 엔드포인트+Maps JS 필요) |
 | `/sre/push` | `admin-frontend/src/pages/sre/PushPage.tsx` | **FCM 푸시 (2026-07-23 이식, 커밋 `03b07f3`)** — 유저검색·발송이력·푸시발송(broadcast/individual). 백엔드 `admin_api/push.py` 3라우트 **전부 `verify_root_api`**(대량발송 민감→root/admin, 레거시 admin에서 상향) → `engine_client.push_user_list/push_history/send_push`. 발송 시 `PUSH_SEND` 감사(레거시엔 없던 개선). opus 리뷰 보안 PASS. **미이식**: `/push/log/{id}`·`/push/badges` 상세모달. **⚠️ LOW(대표)**: Engine `admin.py:917` mode 부재시 broadcast 기본(fail-open, 기존) |
 
+#### 관리자 콘솔 — 설정 그룹 (항상 노출, 서브별 게이트)
+
+| 라우트(SPA) | 페이지 파일 | 내용 |
+|---|---|---|
+| `/system/settings` | `admin-frontend/src/pages/system/SettingsPage.tsx` | **설정 (2026-07-23 이식, 커밋 `e35636c`)** — antd 탭 4서브: **프로필**(관리자 본인 nickname≤30+dup / avatar=content_id UUID, `verify_admin_api`)·**닉네임 단어사전**(nickname_words adj/noun CRUD, `verify_admin_api`)·**앱 버전 관리**(app_versions 트리플렛+force/active, `verify_root_api`)·**서비스 설정**(app_config `dm.unread_poll_interval` 10~300s, `verify_root_api`). 버전·서비스설정 탭은 프론트에서 root∥admin에만 렌더(MANAGER 차단). 백엔드 `admin_api/settings.py`, 감사 `SETTINGS_*`. BFF-로컬(Engine 무관). ⚠️ 앱사용자 `/settings`와 별개(admin SPA `/system/settings`) |
+
 > **⚠️ page-map admin 문서화 갭**: 관리자 콘솔 중 유저관리·감사로그·대시보드 IA·비즈 광고·CMS(공지/FAQ/배지)·SRE(보상정책~)는 page-map에 산발적으로만 기록됨. 통합 admin-console 섹션 + ADR 신설이 후속 과제(현재 프로젝트 ADR 미생성).
 
 ### 3.8 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)

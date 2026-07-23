@@ -40,6 +40,7 @@ import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import SettingsPage from './pages/system/SettingsPage'
 import RewardPolicyPage from './pages/sre/RewardPolicyPage'
 import ItemListPage from './pages/sre/ItemListPage'
+import QuestListPage from './pages/sre/QuestListPage'
 import OpsDashboardPage from './pages/sre/OpsDashboardPage'
 import PushPage from './pages/sre/PushPage'
 import StreamPage from './pages/sre/StreamPage'
@@ -162,6 +163,7 @@ export default function App() {
               <Route path="/system/settings" element={<SettingsPage />} />
               <Route path="/sre/reward-policies" element={<PrivilegedRoute><RewardPolicyPage /></PrivilegedRoute>} />
               <Route path="/sre/items" element={<PrivilegedRoute><ItemListPage /></PrivilegedRoute>} />
+              <Route path="/sre/quests" element={<PrivilegedRoute><QuestListPage /></PrivilegedRoute>} />
               <Route path="/sre/ops" element={<PrivilegedRoute><OpsDashboardPage /></PrivilegedRoute>} />
               <Route path="/sre/push" element={<PrivilegedRoute><PushPage /></PrivilegedRoute>} />
               <Route path="/sre/stream" element={<PrivilegedRoute><StreamPage /></PrivilegedRoute>} />

@@ -83,6 +83,7 @@ const PAGE_META = [
   { path: '/settings/banned-keywords', title: '금칙어 관리', description: '대화 안전 정책에 적용되는 금칙어를 관리합니다.' },
   { path: '/sre/reward-policies', title: '보상 정책', description: '조건 충족 시 XP/EXP/Gold/배지를 지급하는 보상 정책을 관리합니다.' },
   { path: '/sre/items', title: '아이템 관리', description: '커스터마이징 아이템 정의(슬롯·등급·가격·노출)를 관리합니다.' },
+  { path: '/sre/quests', title: '퀘스트 관리', description: '퀘스트 조건·보상·이미지 슬롯을 등록하고 관리합니다.' },
   { path: '/sre/ops', title: 'SRE 운영 대시보드', description: '인플레 모니터링·가챠 ROI·채널 비율·천장 분포를 확인합니다.' },
   { path: '/sre/push', title: 'FCM 푸시 관리', description: '푸시 알림을 전체 또는 개별 유저에게 발송하고 발송 이력을 확인합니다.' },
   { path: '/sre/stream', title: '메시지 스트림', description: 'Redis Stream 상태와 최근 메시지를 확인하고 GPS 이동경로를 조회합니다.' },
@@ -122,6 +123,7 @@ export default function AdminLayout() {
     ? [...baseItems, { key: 'group-sre', label: 'SRE', children: [
         { key: '/sre/reward-policies', icon: <GiftOutlined />, label: '보상 정책' },
         { key: '/sre/items', icon: <SkinOutlined />, label: '아이템 관리' },
+        { key: '/sre/quests', icon: <TrophyOutlined />, label: '퀘스트 관리' },
         { key: '/sre/ops', icon: <DashboardOutlined />, label: 'SRE 운영 대시보드' },
         { key: '/sre/push', icon: <SendOutlined />, label: 'FCM 푸시 관리' },
         { key: '/sre/stream', icon: <RadarChartOutlined />, label: '메시지 스트림' },

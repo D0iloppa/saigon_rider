@@ -233,6 +233,12 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 |---|---|---|
 | `/system/settings` | `admin-frontend/src/pages/system/SettingsPage.tsx` | **설정 (2026-07-23 이식, 커밋 `e35636c`)** — antd 탭 4서브: **프로필**(관리자 본인 nickname≤30+dup / avatar=content_id UUID, `verify_admin_api`)·**닉네임 단어사전**(nickname_words adj/noun CRUD, `verify_admin_api`)·**앱 버전 관리**(app_versions 트리플렛+force/active, `verify_root_api`)·**서비스 설정**(app_config `dm.unread_poll_interval` 10~300s, `verify_root_api`). 버전·서비스설정 탭은 프론트에서 root∥admin에만 렌더(MANAGER 차단). 백엔드 `admin_api/settings.py`, 감사 `SETTINGS_*`. BFF-로컬(Engine 무관). ⚠️ 앱사용자 `/settings`와 별개(admin SPA `/system/settings`) |
 
+#### 관리자 콘솔 — 개발(DEV) 그룹 (전 관리자 노출, 내부 도구)
+
+| 라우트(SPA) | 페이지 파일 | 내용 |
+|---|---|---|
+| `/system/dev-context` | `admin-frontend/src/pages/system/DevContextPage.tsx` | **DEV Context (2026-07-23 이식, 커밋 `7a9ba41`)** — 3섹션: Context KV(upsert/status-cycle/delete)·Features(add/cycle/delete)·Todos(add/cycle/delete). 백엔드 `admin_api/dev_context.py`(`verify_admin_api` — 내부 도구, manager 노출) + **Plane API 프록시**(Plane-try/DB-fallback). Features/Todos 로직은 레거시 `routers/dev_context.py`에서 공유헬퍼(`do_feature_*`/`do_todo_*`)로 추출해 legacy·신규 공용(레거시 회귀검증 통과). 감사 `DEV_CONTEXT_*`/`DEV_TODO_*`. **미이식**: status/category 필터·통계박스(백엔드는 쿼리파라미터 수용, 후속 가능) |
+
 > **⚠️ page-map admin 문서화 갭**: 관리자 콘솔 중 유저관리·감사로그·대시보드 IA·비즈 광고·CMS(공지/FAQ/배지)·SRE(보상정책~)는 page-map에 산발적으로만 기록됨. 통합 admin-console 섹션 + ADR 신설이 후속 과제(현재 프로젝트 ADR 미생성).
 
 ### 3.8 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)

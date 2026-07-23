@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...admin_auth import AdminSession, verify_admin_api
+from ...admin_auth import AdminSession, verify_root_api
 from ...database import get_db
 from ...engine_client import engine_client
 from ._audit import audit
@@ -40,7 +40,7 @@ class RidePolicySaveRequest(BaseModel):
 
 
 @router.get("", response_model=RidePolicyResponse, summary="라이딩 표시 정책 조회")
-async def get_ride_policy_api(_session: AdminSession = Depends(verify_admin_api)):
+async def get_ride_policy_api(_session: AdminSession = Depends(verify_root_api)):
     try:
         policy = await engine_client.get_ride_policy()
     except Exception as e:
@@ -66,7 +66,7 @@ async def get_ride_policy_api(_session: AdminSession = Depends(verify_admin_api)
 async def save_ride_policy_api(
     body: RidePolicySaveRequest,
     request: Request,
-    session: AdminSession = Depends(verify_admin_api),
+    session: AdminSession = Depends(verify_root_api),
     db: AsyncSession = Depends(get_db),
 ):
     seen_codes: set[str] = set()

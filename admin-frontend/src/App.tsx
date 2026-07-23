@@ -139,7 +139,7 @@ export default function App() {
               <Route path="/map/gas-submissions" element={<GasSubmissionListPage />} />
               <Route path="/map/repair-submissions" element={<RepairSubmissionListPage />} />
               <Route path="/map/fuel-prices" element={<FuelPricePage />} />
-              <Route path="/map/ride-policy" element={<RidePolicyPage />} />
+              <Route path="/map/ride-policy" element={<PrivilegedRoute><RidePolicyPage /></PrivilegedRoute>} />
               <Route path="/biz/accounts" element={<BizAccountListPage />} />
               <Route path="/biz/accounts/:id" element={<BizAccountDetailPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />

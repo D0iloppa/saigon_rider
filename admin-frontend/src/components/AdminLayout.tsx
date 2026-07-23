@@ -93,12 +93,20 @@ export default function AdminLayout() {
   const { mode, toggle } = useAdminTheme()
   const location = useLocation()
   const navigate = useNavigate()
-  const items = me.role === 'root' || me.role === 'admin'
-    ? [...MENU_ITEMS, { key: 'group-system', label: 'SYSTEM', children: [
+  const isPrivileged = me.role === 'root' || me.role === 'admin'
+  const baseItems = isPrivileged
+    ? MENU_ITEMS
+    : MENU_ITEMS.map((group) =>
+        group.key === 'group-map'
+          ? { ...group, children: group.children.filter((child) => child.key !== '/map/ride-policy') }
+          : group,
+      )
+  const items = isPrivileged
+    ? [...baseItems, { key: 'group-system', label: 'SYSTEM', children: [
         { key: '/system/accounts', icon: <UserSwitchOutlined />, label: '관리자 계정' },
         { key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' },
       ] }]
-    : MENU_ITEMS
+    : baseItems
   const page = PAGE_META.find((item) => location.pathname.startsWith(item.path)) ?? PAGE_META[PAGE_META.length - 1]
 
   const [openKeys, setOpenKeys] = useState<string[]>(() => {

@@ -3080,7 +3080,7 @@ def _render_band_rows(bands: list[dict]) -> str:
 @router.get("/config/ride", include_in_schema=False)
 async def admin_ride_config_page(
     flash: str = "",
-    session: AdminSession = Depends(verify_admin_session),
+    session: AdminSession = Depends(verify_root_session),
 ):
     try:
         policy = await engine_client.get_ride_policy()
@@ -3117,7 +3117,7 @@ async def admin_ride_config_page(
 @router.post("/config/ride", include_in_schema=False)
 async def admin_ride_config_save(
     request: Request,
-    session: AdminSession = Depends(verify_admin_session),
+    session: AdminSession = Depends(verify_root_session),
 ):
     form = await request.form()
 

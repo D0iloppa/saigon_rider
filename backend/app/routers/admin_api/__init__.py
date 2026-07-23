@@ -16,6 +16,7 @@ from . import (
     dashboard,
     feed,
     fuel,
+    items,
     listings,
     map,
     reports,
@@ -42,3 +43,4 @@ router.include_router(fuel.router)
 router.include_router(ride_policy.router)
 router.include_router(reward_policy.router)
 router.include_router(badges.router)
+router.include_router(items.router)

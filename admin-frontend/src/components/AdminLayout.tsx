@@ -16,6 +16,7 @@ import {
   PictureOutlined,
   SafetyCertificateOutlined,
   ShopOutlined,
+  SkinOutlined,
   SolutionOutlined,
   TeamOutlined,
   ThunderboltOutlined,
@@ -75,6 +76,7 @@ const PAGE_META = [
   { path: '/cms/badges', title: '배지 관리', description: '유저에게 부여되는 배지와 습득 조건을 관리합니다.' },
   { path: '/settings/banned-keywords', title: '금칙어 관리', description: '대화 안전 정책에 적용되는 금칙어를 관리합니다.' },
   { path: '/sre/reward-policies', title: '보상 정책', description: '조건 충족 시 XP/EXP/Gold/배지를 지급하는 보상 정책을 관리합니다.' },
+  { path: '/sre/items', title: '아이템 관리', description: '커스터마이징 아이템 정의(슬롯·등급·가격·노출)를 관리합니다.' },
   { path: '/system/accounts', title: '관리자 계정', description: '관리자 계정을 추가, 수정, 삭제합니다.' },
   { path: '/audit-logs', title: '감사 로그', description: '관리자 조치와 접근 이력을 확인합니다.' },
   { path: '/reports', title: '신고센터', description: '신고 접수부터 조치까지의 검토 흐름을 관리합니다.' },
@@ -109,6 +111,7 @@ export default function AdminLayout() {
   const items = isPrivileged
     ? [...baseItems, { key: 'group-sre', label: 'SRE', children: [
         { key: '/sre/reward-policies', icon: <GiftOutlined />, label: '보상 정책' },
+        { key: '/sre/items', icon: <SkinOutlined />, label: '아이템 관리' },
       ] }, { key: 'group-system', label: 'SYSTEM', children: [
         { key: '/system/accounts', icon: <UserSwitchOutlined />, label: '관리자 계정' },
         { key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' },

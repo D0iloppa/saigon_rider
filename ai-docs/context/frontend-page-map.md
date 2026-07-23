@@ -105,7 +105,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 #### 관리자 콘솔 — 동네지도 관리 (`admin-frontend/src/pages/map/`, 2026-07-20)
 
-`AdminLayout.tsx` 사이드바 그룹 "동네지도" 5항목 → 신규 SPA 화면 6개(POI는 목록+편집 분리):
+`AdminLayout.tsx` 사이드바 그룹 "동네지도" 6항목 → 신규 SPA 화면 7개(POI는 목록+편집 분리):
 
 | 라우트(`admin-frontend`, `/admin/` 아래) | 화면 파일 | 백엔드 API |
 |---|---|---|
@@ -114,6 +114,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/map/gas-submissions` | `GasSubmissionListPage.tsx` | 동일 파일 — 승인 시 `GasStation` row 실제 생성 |
 | `/map/repair-submissions` | `RepairSubmissionListPage.tsx` | 동일 파일 — 승인 시 `RepairShop` row 실제 생성 |
 | `/map/fuel-prices` | `FuelPricePage.tsx` (2026-07-23 이식, 커밋 `1c5aaed`) | `GET /admin/api/fuel/{meta,prices,pipeline-health}` + `POST /prices`(`admin_api/fuel.py`, `services/fuel_price_service.py` 재사용) — 유가 수동 입력/수정(brand·fuel_type 튜플, 10k~60k VND 검증)+파이프라인 헬스(>14일 red/>10일 orange). **수집 온디맨드 트리거 `POST /admin/api/fuel/refresh`(2026-07-23, `430d0bb`) — 자동 수집기(`jobs/fetch_fuel_prices.py:run_fetch_cycle`, Playwright Petrolimex)를 BackgroundTasks로 큐잉, asyncio.Lock 동시실행 가드(진행중 409), "지금 수집 실행" 버튼+pipeline-health 폴링**. 감사로그 `FUEL_PRICE_UPSERT`/`FUEL_FETCH_TRIGGER`. fetch 훅은 공용 map.ts 아닌 별도 `api/fuel.ts` |
+| `/map/ride-policy` | `RidePolicyPage.tsx` (2026-07-23 이식, 커밋 `3db3139`) | 라이딩 정책 편집 — `GET/PUT /admin/api/ride-policy`(`admin_api/ride_policy.py`). 필드 `proximity_m`(>0)·`daily_quest_base_slots`(1~10)·`bands[]{code,threshold_m}`(중복금지·desc정렬). **Engine seed 프록시**(기존 `engine_client.get_ride_policy`/`get_seed`/`update_seed` 재사용 — `CHECKPOINT_PROXIMITY_M`/`CHECKPOINT_DISTANCE_BANDS`/`DAILY_QUEST_BASE_SLOTS`, **Engine 코드 무수정**). 보상영향 config. 감사로그 `RIDE_POLICY_SAVE`. fetch 훅 별도 `api/ridePolicy.ts`. ⚠️ **미결 결정**: 현재 `verify_admin_api`라 MANAGER도 편집 가능(레거시 패리티) — 보상 config를 ADMIN 이상으로 조일지 제품 결정 대기 |
 
 위 5개 map 화면(poi·place-suggestions·gas-submissions·repair-submissions)의 공용 fetch 함수는 `admin-frontend/src/api/map.ts`(유가는 별도 `api/fuel.ts`). 전부 `verify_admin_api`(JWT 쿠키) + 감사로그(`_audit.audit()`). 레거시 Jinja(`/admin-legacy/poi`·`/place-suggestions`·`/gas-submissions`·`/repair-submissions`·`/fuel`)는 2차 이식 완료 전까지 병행 유지. 백엔드는 `backend/app/routers/map/`(앱 조회, poi.py/districts.py/place_suggestions.py)와 `backend/app/routers/admin_api/map/`(관리자 CRUD, poi.py/submissions.py) 두 패키지로 응집됐다(둘 다 기존 `admin_api/__init__.py` 서브패키지 관례 미러) — 앱이 호출하는 조회 URL 자체는 이번 재배선으로 바뀌지 않았다.
 

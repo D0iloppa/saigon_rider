@@ -10,6 +10,7 @@ from . import (
     accounts,
     audit_logs,
     auth,
+    badges,
     biz,
     cms,
     dashboard,
@@ -38,3 +39,4 @@ router.include_router(accounts.router)
 router.include_router(feed.router)
 router.include_router(fuel.router)
 router.include_router(ride_policy.router)
+router.include_router(badges.router)

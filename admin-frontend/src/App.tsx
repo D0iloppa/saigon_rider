@@ -21,6 +21,7 @@ import NoticeListPage from './pages/cms/NoticeListPage'
 import NoticeEditPage from './pages/cms/NoticeEditPage'
 import FaqListPage from './pages/cms/FaqListPage'
 import BannedKeywordPage from './pages/cms/BannedKeywordPage'
+import BadgeListPage from './pages/cms/BadgeListPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
 import PoiListPage from './pages/map/PoiListPage'
 import PoiEditPage from './pages/map/PoiEditPage'
@@ -132,6 +133,7 @@ export default function App() {
               <Route path="/cms/notices/new" element={<NoticeEditPage />} />
               <Route path="/cms/notices/:id" element={<NoticeEditPage />} />
               <Route path="/cms/faqs" element={<FaqListPage />} />
+              <Route path="/cms/badges" element={<BadgeListPage />} />
               <Route path="/settings/banned-keywords" element={<BannedKeywordPage />} />
               <Route path="/audit-logs" element={<PrivilegedRoute><AuditLogPage /></PrivilegedRoute>} />
               <Route path="/map/poi" element={<PoiListPage />} />

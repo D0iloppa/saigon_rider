@@ -19,6 +19,7 @@ import {
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
+  TrophyOutlined,
   UserSwitchOutlined,
   MoonOutlined,
   SunOutlined,
@@ -45,6 +46,7 @@ const MENU_ITEMS = [
   { key: 'group-content', label: 'CONTENT & POLICY', children: [
     { key: '/cms/notices', icon: <BellOutlined />, label: '공지 관리' },
     { key: '/cms/faqs', icon: <FileTextOutlined />, label: 'FAQ 관리' },
+    { key: '/cms/badges', icon: <TrophyOutlined />, label: '배지 관리' },
     { key: '/settings/banned-keywords', icon: <SafetyCertificateOutlined />, label: '금칙어' },
   ] },
   { key: 'group-map', label: '동네지도', children: [
@@ -69,6 +71,7 @@ function findGroupKey(groups: { key: string; children: { key: string }[] }[], ta
 const PAGE_META = [
   { path: '/cms/notices', title: '공지 관리', description: '앱에 노출되는 공지 사항을 작성하고 게시합니다.' },
   { path: '/cms/faqs', title: 'FAQ 관리', description: '사용자 도움말 문답을 관리합니다.' },
+  { path: '/cms/badges', title: '배지 관리', description: '유저에게 부여되는 배지와 습득 조건을 관리합니다.' },
   { path: '/settings/banned-keywords', title: '금칙어 관리', description: '대화 안전 정책에 적용되는 금칙어를 관리합니다.' },
   { path: '/system/accounts', title: '관리자 계정', description: '관리자 계정을 추가, 수정, 삭제합니다.' },
   { path: '/audit-logs', title: '감사 로그', description: '관리자 조치와 접근 이력을 확인합니다.' },

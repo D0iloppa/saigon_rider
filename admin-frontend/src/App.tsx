@@ -37,6 +37,7 @@ import BizAccountAdsPage from './pages/biz/BizAccountAdsPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
 import BizAdDetailPage from './pages/biz/BizAdDetailPage'
 import AdminAccountListPage from './pages/system/AdminAccountListPage'
+import SettingsPage from './pages/system/SettingsPage'
 import RewardPolicyPage from './pages/sre/RewardPolicyPage'
 import ItemListPage from './pages/sre/ItemListPage'
 import OpsDashboardPage from './pages/sre/OpsDashboardPage'
@@ -158,6 +159,7 @@ export default function App() {
               <Route path="/biz/ads" element={<BizAdListPage />} />
               <Route path="/biz/ads/:id" element={<BizAdDetailPage />} />
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
+              <Route path="/system/settings" element={<SettingsPage />} />
               <Route path="/sre/reward-policies" element={<PrivilegedRoute><RewardPolicyPage /></PrivilegedRoute>} />
               <Route path="/sre/items" element={<PrivilegedRoute><ItemListPage /></PrivilegedRoute>} />
               <Route path="/sre/ops" element={<PrivilegedRoute><OpsDashboardPage /></PrivilegedRoute>} />

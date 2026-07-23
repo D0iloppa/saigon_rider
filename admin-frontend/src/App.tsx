@@ -36,6 +36,7 @@ import BizAccountAdsPage from './pages/biz/BizAccountAdsPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
 import BizAdDetailPage from './pages/biz/BizAdDetailPage'
 import AdminAccountListPage from './pages/system/AdminAccountListPage'
+import RewardPolicyPage from './pages/sre/RewardPolicyPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
@@ -150,6 +151,7 @@ export default function App() {
               <Route path="/biz/ads" element={<BizAdListPage />} />
               <Route path="/biz/ads/:id" element={<BizAdDetailPage />} />
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
+              <Route path="/sre/reward-policies" element={<PrivilegedRoute><RewardPolicyPage /></PrivilegedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

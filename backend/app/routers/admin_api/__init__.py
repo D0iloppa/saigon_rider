@@ -19,6 +19,7 @@ from . import (
     listings,
     map,
     reports,
+    reward_policy,
     ride_policy,
     support,
     users,
@@ -39,4 +40,5 @@ router.include_router(accounts.router)
 router.include_router(feed.router)
 router.include_router(fuel.router)
 router.include_router(ride_policy.router)
+router.include_router(reward_policy.router)
 router.include_router(badges.router)

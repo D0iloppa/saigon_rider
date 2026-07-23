@@ -31,6 +31,7 @@ def utcnow():
 _content_owner_type_enum = ENUM("system", "user", "mock", "profile_mock", name="content_owner_type", create_type=False)
 _quest_period_enum = ENUM("DAILY", "WEEKLY", "EVENT", name="quest_period", create_type=False)
 _quest_badge_enum = ENUM("HOT", "NEW", "LIMITED", name="quest_badge_type", create_type=False)
+_quest_card_type_enum = ENUM("DISTANCE", "CHECKPOINT", name="quest_card_type", create_type=False)
 _safety_grade_enum = ENUM("A", "B", "C", name="safety_grade", create_type=False)
 # EXPIRED: 엔진 expire 잡이 실제로 기록하는 값 — 모델에 빠져 있으면 해당 행 조회 시 LookupError 500
 _quest_status_enum = ENUM(
@@ -233,7 +234,7 @@ class Quest(Base):
     badge: Mapped[str | None] = mapped_column(_quest_badge_enum, nullable=True)
     required_level: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     target_distance_km: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
-    card_type: Mapped[str] = mapped_column(String(20), nullable=False, default="DISTANCE")
+    card_type: Mapped[str] = mapped_column(_quest_card_type_enum, nullable=False, default="DISTANCE")
     target_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     target_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     # 비-GPS 검증타입(COUNT_EVENT 등) 목표 파라미터. start-ride 가 그대로 엔진 카드 criteria 로 전달.

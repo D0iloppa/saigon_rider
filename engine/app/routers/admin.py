@@ -702,7 +702,11 @@ def _policy_to_dict(p: RewardPolicy, actions: list[RewardPolicyAction] | None = 
         d["actions"] = [
             {
                 "id": a.id,
-                "action_type": a.action_type.value if a.action_type else None,
+                "action_type": (
+                    (a.action_type.value if hasattr(a.action_type, "value") else a.action_type)
+                    if a.action_type
+                    else None
+                ),
                 "value": a.value,
                 "ref_id": a.ref_id,
                 "sort_order": a.sort_order,

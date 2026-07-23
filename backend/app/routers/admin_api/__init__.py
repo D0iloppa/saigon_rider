@@ -24,6 +24,7 @@ from . import (
     reports,
     reward_policy,
     ride_policy,
+    stream,
     support,
     users,
 )
@@ -48,3 +49,4 @@ router.include_router(badges.router)
 router.include_router(items.router)
 router.include_router(ops.router)
 router.include_router(push.router)
+router.include_router(stream.router)

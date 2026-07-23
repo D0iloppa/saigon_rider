@@ -45,6 +45,9 @@ import QuestListPage from './pages/sre/QuestListPage'
 import OpsDashboardPage from './pages/sre/OpsDashboardPage'
 import PushPage from './pages/sre/PushPage'
 import StreamPage from './pages/sre/StreamPage'
+import GachaListPage from './pages/sre/GachaListPage'
+import ShopListPage from './pages/sre/ShopListPage'
+import DailyFeaturedPage from './pages/sre/DailyFeaturedPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
@@ -169,6 +172,9 @@ export default function App() {
               <Route path="/sre/ops" element={<PrivilegedRoute><OpsDashboardPage /></PrivilegedRoute>} />
               <Route path="/sre/push" element={<PrivilegedRoute><PushPage /></PrivilegedRoute>} />
               <Route path="/sre/stream" element={<PrivilegedRoute><StreamPage /></PrivilegedRoute>} />
+              <Route path="/sre/gacha" element={<PrivilegedRoute><GachaListPage /></PrivilegedRoute>} />
+              <Route path="/sre/shop" element={<PrivilegedRoute><ShopListPage /></PrivilegedRoute>} />
+              <Route path="/sre/daily-featured" element={<PrivilegedRoute><DailyFeaturedPage /></PrivilegedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

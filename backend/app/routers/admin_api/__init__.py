@@ -17,6 +17,7 @@ from . import (
     dev_context,
     feed,
     fuel,
+    gacha,
     items,
     listings,
     map,
@@ -27,6 +28,7 @@ from . import (
     reward_policy,
     ride_policy,
     settings,
+    shop,
     stream,
     support,
     users,
@@ -52,6 +54,8 @@ router.include_router(reward_policy.router)
 router.include_router(badges.router)
 router.include_router(items.router)
 router.include_router(quests.router)
+router.include_router(gacha.router)
+router.include_router(shop.router)
 router.include_router(ops.router)
 router.include_router(push.router)
 router.include_router(settings.router)

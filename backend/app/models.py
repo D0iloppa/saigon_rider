@@ -755,6 +755,9 @@ class MarketplaceAd(Base):
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    # 가중 노출(148): tier=등급별 base weight, ad_fee=동급 내 가중 tiebreak(VND). 내부 산정용 — 공개 API 미노출.
+    exposure_tier: Mapped[str] = mapped_column(String(20), nullable=False, default="BRONZE")
+    ad_fee: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

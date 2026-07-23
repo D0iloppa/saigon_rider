@@ -1,7 +1,7 @@
 import { theme, type ThemeConfig } from 'antd'
 
 export const adminColors = {
-  chart: ['#4f7df0', '#2bbd8e', '#e0637f', '#d9a13b', '#16a29d'],
+  chart: ['#4f7df0', '#2bbd8e', '#e0637f', '#d9a13b', '#16a29d', '#b29bee', '#868c00'],
   chartGrid: '#eceff3',
   error: '#dc2626',
   warning: '#d97706',

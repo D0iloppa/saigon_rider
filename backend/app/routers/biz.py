@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -36,6 +36,7 @@ from ..schemas import (
     MarketplaceAdOut,
     Page,
 )
+from ..services.ad_gating import launching_ad_conditions
 from ..services.redis_cache import get_client
 from ..utils import build_imgproxy_url
 
@@ -463,13 +464,7 @@ async def get_public_profile(
         (
             await db.execute(
                 select(MarketplaceAd)
-                .where(
-                    MarketplaceAd.owner_business_profile_id == profile_id,
-                    MarketplaceAd.is_active == True,
-                    MarketplaceAd.review_status == "APPROVED",
-                )
-                .where(or_(MarketplaceAd.starts_at.is_(None), MarketplaceAd.starts_at <= now))
-                .where(or_(MarketplaceAd.ends_at.is_(None), MarketplaceAd.ends_at >= now))
+                .where(MarketplaceAd.owner_business_profile_id == profile_id, *launching_ad_conditions(now))
                 .order_by(MarketplaceAd.sort_order)
             )
         )

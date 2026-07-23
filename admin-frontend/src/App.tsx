@@ -31,7 +31,9 @@ import FuelPricePage from './pages/map/FuelPricePage'
 import RidePolicyPage from './pages/map/RidePolicyPage'
 import BizAccountListPage from './pages/biz/BizAccountListPage'
 import BizAccountDetailPage from './pages/biz/BizAccountDetailPage'
+import BizAccountAdsPage from './pages/biz/BizAccountAdsPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
+import BizAdDetailPage from './pages/biz/BizAdDetailPage'
 import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
@@ -142,7 +144,9 @@ export default function App() {
               <Route path="/map/ride-policy" element={<PrivilegedRoute><RidePolicyPage /></PrivilegedRoute>} />
               <Route path="/biz/accounts" element={<BizAccountListPage />} />
               <Route path="/biz/accounts/:id" element={<BizAccountDetailPage />} />
+              <Route path="/biz/accounts/:id/ads" element={<BizAccountAdsPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />
+              <Route path="/biz/ads/:id" element={<BizAdDetailPage />} />
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

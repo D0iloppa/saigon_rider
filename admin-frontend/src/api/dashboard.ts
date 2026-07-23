@@ -25,6 +25,19 @@ export interface DashboardSummary {
   users_suspended: number
   users_banned: number
   reports_by_reason: ReasonCount[]
+  biz_partners_pending: number
+  biz_ads_pending: number
+  biz_partners_approved: number
+  biz_partners_new_today: number
+  biz_partners_new_7d: number
+  biz_partners_suspended: number
+  biz_ads_launching: number
+  biz_ads_today: number
+  biz_ads_7d: number
+  biz_ads_tier_gold: number
+  biz_ads_tier_silver: number
+  biz_ads_tier_bronze: number
+  biz_ads_fee_sum: number
 }
 
 export interface DailyPoint {
@@ -34,6 +47,8 @@ export interface DailyPoint {
   trades_completed: number
   reports_created: number
   tickets_created: number
+  new_partners: number
+  new_ads: number
 }
 
 export function useDashboardSummary() {

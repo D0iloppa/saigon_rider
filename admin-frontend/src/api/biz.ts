@@ -107,12 +107,34 @@ export interface BizAdRow {
   profile_status: string | null
   review_status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'STOPPED'
   reject_reason: string | null
+  exposure_tier: 'GOLD' | 'SILVER' | 'BRONZE'
+  ad_fee: number
 }
 
 export function useBizAds(status?: string) {
   return useQuery({
     queryKey: ['biz', 'ads', status],
     queryFn: () => api<BizAdRow[]>(`/admin/api/biz/ads${buildQuery({ status })}`),
+  })
+}
+
+export function useBizAd(id: string) {
+  return useQuery({
+    queryKey: ['biz', 'ads', 'detail', id],
+    queryFn: () => api<BizAdRow>(`/admin/api/biz/ads/${id}`),
+    enabled: !!id,
+  })
+}
+
+/** 특정 파트너 소유 광고 목록. launching=true 면 현재 론칭중(승인+활성+게시기간 내)인 것만. */
+export function useBizAdsByPartner(profileId: string, launching?: boolean) {
+  return useQuery({
+    queryKey: ['biz', 'ads', 'partner', profileId, launching],
+    queryFn: () =>
+      api<BizAdRow[]>(
+        `/admin/api/biz/ads${buildQuery({ profile_id: profileId, launching: launching ? 'true' : undefined })}`
+      ),
+    enabled: !!profileId,
   })
 }
 
@@ -129,6 +151,15 @@ export function useRejectBizAd() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api(`/admin/api/biz/ads/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['biz', 'ads'] }),
+  })
+}
+
+export function useUpdateBizAdExposure() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, exposure_tier, ad_fee }: { id: string; exposure_tier: string; ad_fee: number }) =>
+      api(`/admin/api/biz/ads/${id}/exposure`, { method: 'POST', body: JSON.stringify({ exposure_tier, ad_fee }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['biz', 'ads'] }),
   })
 }

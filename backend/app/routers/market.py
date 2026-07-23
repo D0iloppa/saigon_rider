@@ -57,6 +57,8 @@ from ..schemas import (
     TradeHistoryItem,
 )
 from ..services import noti_events
+from ..services.ad_exposure import build_exposure_sequence
+from ..services.ad_gating import launching_ad_conditions
 from ..services.dm_policy import require_participant, require_unblocked
 from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
@@ -158,13 +160,15 @@ async def get_ads(
 ):
     now = datetime.now(UTC)
     # BP-4 노출 게이트: 심사 통과(APPROVED) 광고만 노출 (PENDING/REJECTED/STOPPED 제외)
-    q = select(MarketplaceAd).where(MarketplaceAd.is_active == True, MarketplaceAd.review_status == "APPROVED")
+    q = select(MarketplaceAd).where(*launching_ad_conditions(now))
     if district_id is not None:
         q = q.where(or_(MarketplaceAd.district_id == district_id, MarketplaceAd.district_id.is_(None)))
-    q = q.where(or_(MarketplaceAd.starts_at.is_(None), MarketplaceAd.starts_at <= now))
-    q = q.where(or_(MarketplaceAd.ends_at.is_(None), MarketplaceAd.ends_at >= now))
     q = q.order_by(MarketplaceAd.sort_order)
     ads = (await db.execute(q)).scalars().all()
+    # 148: 균등 순환 대신 tier+ad_fee 가중 로테이션 시퀀스로 변환(반복 허용).
+    # sort_order 정렬 입력은 동일 weight 광고의 결정적 tiebreak 로 보존된다.
+    # 프론트는 이 리스트를 위치기반으로만 순환(재가중 안 함).
+    ads = build_exposure_sequence(list(ads))
     if not lang:
         return [_public_ad_out(a) for a in ads]
     # 조회 언어로 제목·본문 표기(캐시 히트만, 없으면 원문). 배치 — API 호출 안 함.

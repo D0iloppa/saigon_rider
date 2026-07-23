@@ -4,7 +4,7 @@
 거래 성사 시각은 marketplace_appointments.updated_at 근사(전용 완료시각 컬럼 없음).
 """
 
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
@@ -14,7 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import MarketplaceAppointment, MarketplaceListing, Report, SupportReply, SupportTicket, User
+from ...models import (
+    BusinessProfile,
+    MarketplaceAd,
+    MarketplaceAppointment,
+    MarketplaceListing,
+    Report,
+    SupportReply,
+    SupportTicket,
+    User,
+)
+from ...services.ad_gating import launching_ad_conditions
 
 router = APIRouter(prefix="/dashboard")
 
@@ -47,6 +57,19 @@ class DashboardSummary(BaseModel):
     users_suspended: int
     users_banned: int
     reports_by_reason: list[ReasonCount]
+    biz_partners_pending: int
+    biz_ads_pending: int
+    biz_partners_approved: int
+    biz_partners_new_today: int
+    biz_partners_new_7d: int
+    biz_partners_suspended: int
+    biz_ads_launching: int
+    biz_ads_today: int
+    biz_ads_7d: int
+    biz_ads_tier_gold: int
+    biz_ads_tier_silver: int
+    biz_ads_tier_bronze: int
+    biz_ads_fee_sum: int
 
 
 class DailyPoint(BaseModel):
@@ -56,6 +79,8 @@ class DailyPoint(BaseModel):
     trades_completed: int
     reports_created: int
     tickets_created: int
+    new_partners: int
+    new_ads: int
 
 
 @router.get("/summary", response_model=DashboardSummary)
@@ -143,6 +168,37 @@ async def get_summary(
         )
     ).all()
 
+    biz_partner_row = (
+        await db.execute(
+            select(
+                func.count().filter(BusinessProfile.status == "PENDING"),
+                func.count().filter(BusinessProfile.status == "APPROVED"),
+                func.count().filter(BusinessProfile.status == "SUSPENDED"),
+                func.count().filter(BusinessProfile.created_at >= today_start),
+                func.count().filter(BusinessProfile.created_at >= week_start),
+            ).select_from(BusinessProfile)
+        )
+    ).one()
+
+    # '론칭중' 판정 — market.py get_ads 의 공개 노출 게이트와 동일 정의(시각 비교이므로 VN 일자경계가 아닌 UTC aware now 사용)
+    ad_now = datetime.now(UTC)
+    launching = launching_ad_conditions(ad_now)
+
+    biz_ad_row = (
+        await db.execute(
+            select(
+                func.count().filter(MarketplaceAd.review_status == "PENDING"),
+                func.count().filter(*launching),
+                func.count().filter(MarketplaceAd.created_at >= today_start),
+                func.count().filter(MarketplaceAd.created_at >= week_start),
+                func.count().filter(*launching, MarketplaceAd.exposure_tier == "GOLD"),
+                func.count().filter(*launching, MarketplaceAd.exposure_tier == "SILVER"),
+                func.count().filter(*launching, MarketplaceAd.exposure_tier == "BRONZE"),
+                func.coalesce(func.sum(MarketplaceAd.ad_fee).filter(*launching), 0),
+            ).select_from(MarketplaceAd)
+        )
+    ).one()
+
     return DashboardSummary(
         dau=user_row[0],
         new_users_today=user_row[1],
@@ -162,6 +218,19 @@ async def get_summary(
         tickets_open=ticket_row[1],
         first_reply_sla_hours=float(sla_seconds) / 3600 if sla_seconds is not None else None,
         reports_by_reason=[ReasonCount(reason=reason, count=count) for reason, count in reason_rows],
+        biz_partners_pending=biz_partner_row[0],
+        biz_partners_approved=biz_partner_row[1],
+        biz_partners_suspended=biz_partner_row[2],
+        biz_partners_new_today=biz_partner_row[3],
+        biz_partners_new_7d=biz_partner_row[4],
+        biz_ads_pending=biz_ad_row[0],
+        biz_ads_launching=biz_ad_row[1],
+        biz_ads_today=biz_ad_row[2],
+        biz_ads_7d=biz_ad_row[3],
+        biz_ads_tier_gold=biz_ad_row[4],
+        biz_ads_tier_silver=biz_ad_row[5],
+        biz_ads_tier_bronze=biz_ad_row[6],
+        biz_ads_fee_sum=biz_ad_row[7],
     )
 
 
@@ -185,6 +254,8 @@ async def get_daily(
     trades = await count_by_day(MarketplaceAppointment.updated_at, MarketplaceAppointment.status == "COMPLETED")
     reports = await count_by_day(Report.created_at)
     tickets = await count_by_day(SupportTicket.created_at)
+    new_partners = await count_by_day(BusinessProfile.created_at)
+    new_ads = await count_by_day(MarketplaceAd.created_at)
 
     return [
         DailyPoint(
@@ -194,6 +265,8 @@ async def get_daily(
             trades_completed=trades.get(d, 0),
             reports_created=reports.get(d, 0),
             tickets_created=tickets.get(d, 0),
+            new_partners=new_partners.get(d, 0),
+            new_ads=new_ads.get(d, 0),
         )
         for d in (start_date + timedelta(days=i) for i in range(days))
     ]

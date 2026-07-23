@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import BusinessGroup, BusinessProfile, MarketplaceAd, User
 from ...services import noti_events
+from ...services.ad_gating import launching_ad_conditions
 from ...utils import build_imgproxy_url
 from ._audit import audit
 
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/biz")
 
 _ACCOUNT_STATUSES = {"PENDING", "APPROVED", "REJECTED", "SUSPENDED"}
 _AD_STATUSES = {"PENDING", "APPROVED", "REJECTED", "STOPPED"}
+_EXPOSURE_TIERS = {"GOLD", "SILVER", "BRONZE"}
 
 
 class BizGroupBrief(BaseModel):
@@ -85,6 +87,13 @@ class BizAdRow(BaseModel):
     profile_status: str | None
     review_status: str
     reject_reason: str | None
+    exposure_tier: str
+    ad_fee: int
+
+
+class BizAdExposureUpdateRequest(BaseModel):
+    exposure_tier: str
+    ad_fee: int = Field(ge=0)
 
 
 def _validate_status(status: str | None, valid: set[str]) -> None:
@@ -99,9 +108,15 @@ def _photo_url(bp: BusinessProfile) -> str | None:
 
 
 def _ad_image_url(ad: MarketplaceAd) -> str | None:
-    """contents 중개 이미지 우선, 레거시 image_url(외부 http) 폴백 — admin_legacy._ad_image_url 미러."""
+    """contents 중개 이미지 우선, 레거시 image_url 폴백 — schemas.MarketplaceAdOut.resolve_image_and_status 미러.
+
+    레거시 image_url 은 비-http 스토리지 키(예: official/ads/xxx.jpg)인 경우가 있어 그대로 반환하면
+    어드민에서 깨진다 — http 로 시작하지 않으면 imgproxy 로 변환한다.
+    """
     if ad.image_content and ad.image_content.file_path:
         return build_imgproxy_url(ad.image_content.file_path)
+    if ad.image_url and not ad.image_url.startswith("http"):
+        return build_imgproxy_url(ad.image_url)
     return ad.image_url
 
 
@@ -118,6 +133,26 @@ def _account_row(bp: BusinessProfile, nickname: str | None) -> BizAccountRow:
         applicant_nickname=nickname,
         status=bp.status,
         reject_reason=bp.reject_reason,
+    )
+
+
+def _ad_row(ad: MarketplaceAd, bp: BusinessProfile | None) -> BizAdRow:
+    return BizAdRow(
+        id=ad.id,
+        created_at=ad.created_at,
+        title=ad.title,
+        body=ad.body,
+        image_url=_ad_image_url(ad),
+        starts_at=ad.starts_at,
+        ends_at=ad.ends_at,
+        partner_name=bp.name if bp else ad.partner_name,
+        profile_id=bp.id if bp else None,
+        profile_name=bp.name if bp else None,
+        profile_status=bp.status if bp else None,
+        review_status=ad.review_status,
+        reject_reason=ad.reject_reason,
+        exposure_tier=ad.exposure_tier,
+        ad_fee=ad.ad_fee,
     )
 
 
@@ -335,6 +370,8 @@ async def assign_biz_account_group(
 @router.get("/ads", response_model=list[BizAdRow], summary="광고 소재 심사 목록 (PENDING 상단)")
 async def list_biz_ads(
     status: str | None = Query(None),
+    profile_id: uuid.UUID | None = Query(None, description="특정 파트너(business_profile) 소유 광고만"),
+    launching: bool | None = Query(None, description="true 면 현재 론칭중(승인+활성+게시기간 내) 광고만"),
     _session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
@@ -344,26 +381,15 @@ async def list_biz_ads(
     )
     if status:
         stmt = stmt.where(MarketplaceAd.review_status == status)
+    if profile_id is not None:
+        stmt = stmt.where(MarketplaceAd.owner_business_profile_id == profile_id)
+    if launching:
+        # market.py get_ads 의 공개 노출 게이트(APPROVED+is_active+게시기간)와 동일 정의.
+        now = datetime.now(UTC)
+        stmt = stmt.where(*launching_ad_conditions(now))
     stmt = stmt.order_by(case((MarketplaceAd.review_status == "PENDING", 0), else_=1), MarketplaceAd.created_at.desc())
     rows = (await db.execute(stmt)).all()
-    return [
-        BizAdRow(
-            id=ad.id,
-            created_at=ad.created_at,
-            title=ad.title,
-            body=ad.body,
-            image_url=_ad_image_url(ad),
-            starts_at=ad.starts_at,
-            ends_at=ad.ends_at,
-            partner_name=bp.name if bp else ad.partner_name,
-            profile_id=bp.id if bp else None,
-            profile_name=bp.name if bp else None,
-            profile_status=bp.status if bp else None,
-            review_status=ad.review_status,
-            reject_reason=ad.reject_reason,
-        )
-        for ad, bp in rows
-    ]
+    return [_ad_row(ad, bp) for ad, bp in rows]
 
 
 async def _get_ad_or_404(db: AsyncSession, ad_id: uuid.UUID) -> MarketplaceAd:
@@ -371,6 +397,17 @@ async def _get_ad_or_404(db: AsyncSession, ad_id: uuid.UUID) -> MarketplaceAd:
     if ad is None:
         raise HTTPException(status_code=404, detail="Ad not found")
     return ad
+
+
+@router.get("/ads/{ad_id}", response_model=BizAdRow, summary="광고 소재 상세")
+async def get_biz_ad(
+    ad_id: uuid.UUID,
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    ad = await _get_ad_or_404(db, ad_id)
+    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    return _ad_row(ad, bp)
 
 
 @router.post("/ads/{ad_id}/approve", summary="광고 소재 승인 (즉시 게시)")
@@ -437,3 +474,30 @@ async def reject_biz_ad(
             },
         )
     return {"id": ad.id, "review_status": ad.review_status, "reject_reason": ad.reject_reason}
+
+
+@router.post("/ads/{ad_id}/exposure", summary="광고 노출 등급/과금액 설정 (148 가중 노출 산정용, admin 전용)")
+async def update_biz_ad_exposure(
+    ad_id: uuid.UUID,
+    body: BizAdExposureUpdateRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    _validate_status(body.exposure_tier, _EXPOSURE_TIERS)
+    ad = await _get_ad_or_404(db, ad_id)
+
+    ad.exposure_tier = body.exposure_tier
+    ad.ad_fee = body.ad_fee
+
+    await audit(
+        db,
+        session,
+        request,
+        "BIZ_AD_EXPOSURE_UPDATE",
+        "marketplace_ad",
+        str(ad_id),
+        {"exposure_tier": ad.exposure_tier, "ad_fee": ad.ad_fee},
+    )
+    await db.commit()
+    return {"id": ad.id, "exposure_tier": ad.exposure_tier, "ad_fee": ad.ad_fee}

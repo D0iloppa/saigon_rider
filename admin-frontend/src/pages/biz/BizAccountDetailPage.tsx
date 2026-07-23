@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Image, Input, Modal, Select, Skeleton, Space, Table, Tag, Typography, message } from 'antd'
 import dayjs from 'dayjs'
 import {
@@ -20,6 +20,7 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
 
 export default function BizAccountDetailPage() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const { data: bp, isLoading, isError, error } = useBizAccount(id)
   const approveMutation = useApproveBizAccount()
   const rejectMutation = useRejectBizAccount()
@@ -180,7 +181,10 @@ export default function BizAccountDetailPage() {
         </Space>
       </Card>
 
-      <Card title="광고 이력">
+      <Card
+        title="광고 이력"
+        extra={<a onClick={() => navigate(`/biz/accounts/${bp.id}/ads`)}>론칭중 광고 전체보기</a>}
+      >
         <Table<BizAccountAdBrief>
           size="small"
           rowKey="id"
@@ -188,6 +192,7 @@ export default function BizAccountDetailPage() {
           dataSource={bp.ads}
           locale={{ emptyText: '등록된 광고가 없습니다.' }}
           columns={adColumns}
+          onRow={(r) => ({ onClick: () => navigate(`/biz/ads/${r.id}`), style: { cursor: 'pointer' } })}
         />
       </Card>
 

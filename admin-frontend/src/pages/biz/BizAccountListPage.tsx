@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Avatar, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
 import { useApproveBizAccount, useBizAccounts, useRejectBizAccount, type BizAccountRow } from '../../api/biz'
@@ -21,7 +21,16 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
 
 export default function BizAccountListPage() {
   const navigate = useNavigate()
-  const [status, setStatus] = useState('PENDING')
+  const [searchParams] = useSearchParams()
+
+  // 대시보드 "파트너 심사대기" 카드는 ?status=PENDING 으로 이동한다. 미지원 값이면 PENDING 기본 선택으로 해석한다.
+  const initialStatus = useMemo(() => {
+    const raw = searchParams.get('status')
+    if (!raw) return 'PENDING'
+    return STATUS_OPTIONS.some((o) => o.value === raw) ? raw : 'PENDING'
+  }, [searchParams])
+
+  const [status, setStatus] = useState(initialStatus)
   const [rejectTarget, setRejectTarget] = useState<BizAccountRow | null>(null)
   const [reason, setReason] = useState('')
 

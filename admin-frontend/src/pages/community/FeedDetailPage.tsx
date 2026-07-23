@@ -45,24 +45,27 @@ export default function FeedDetailPage() {
         </Space>
       }
       extra={
-        <Popconfirm
-          title="이 피드를 삭제하시겠습니까?"
-          okText="삭제"
-          cancelText="취소"
-          onConfirm={() =>
-            deletePost.mutate(id, {
-              onSuccess: () => {
-                message.success('피드가 삭제되었습니다.')
-                navigate('/community/feed')
-              },
-              onError: (err) => message.error(err instanceof Error ? err.message : '삭제에 실패했습니다.'),
-            })
-          }
-        >
-          <Button danger loading={deletePost.isPending}>
-            삭제
-          </Button>
-        </Popconfirm>
+        <Space>
+          <Button onClick={() => navigate(`/community/feed/${id}/edit`)}>수정</Button>
+          <Popconfirm
+            title="이 피드를 삭제하시겠습니까?"
+            okText="삭제"
+            cancelText="취소"
+            onConfirm={() =>
+              deletePost.mutate(id, {
+                onSuccess: () => {
+                  message.success('피드가 삭제되었습니다.')
+                  navigate('/community/feed')
+                },
+                onError: (err) => message.error(err instanceof Error ? err.message : '삭제에 실패했습니다.'),
+              })
+            }
+          >
+            <Button danger loading={deletePost.isPending}>
+              삭제
+            </Button>
+          </Popconfirm>
+        </Space>
       }
     >
       {post.image_urls.length > 0 && (

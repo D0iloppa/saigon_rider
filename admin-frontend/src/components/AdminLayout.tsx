@@ -84,7 +84,7 @@ const PAGE_META = [
   { path: '/users', title: '유저 관리', description: '유저 상태, 제재 이력 및 신뢰 정보를 확인합니다.' },
   { path: '/listings', title: '매물 관리', description: '등록 매물을 검토하고 필요한 운영 조치를 적용합니다.' },
   { path: '/support', title: '고객센터', description: '사용자 문의와 답변 상태를 관리합니다.' },
-  { path: '/community/feed', title: '피드 관리', description: '사용자 피드 게시물을 조회하고 필요 시 삭제합니다.' },
+  { path: '/community/feed', title: '피드 관리', description: '공식계정 피드를 작성하고, 사용자 피드 게시물을 조회·삭제합니다.' },
   { path: '/map/poi', title: 'POI 관리', description: '동네지도에 노출되는 POI를 등록하고 관리합니다.' },
   { path: '/map/place-suggestions', title: '장소 제보 심사', description: '사용자가 제보한 장소를 승인하거나 반려합니다.' },
   { path: '/map/gas-submissions', title: '주유소 제보 심사', description: '사용자가 제보한 주유소를 승인하거나 반려합니다.' },

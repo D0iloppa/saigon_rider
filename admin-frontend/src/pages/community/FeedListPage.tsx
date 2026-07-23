@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Avatar, Space, Table, Tag } from 'antd'
+import { Avatar, Button, Space, Table, Tag } from 'antd'
 import dayjs from 'dayjs'
 import { useFeedList, type AdminFeedRow } from '../../api/feed'
 
@@ -62,14 +62,21 @@ export default function FeedListPage() {
   ]
 
   return (
-    <Table<AdminFeedRow>
-      rowKey="id"
-      loading={isLoading}
-      columns={columns}
-      dataSource={data?.items ?? []}
-      locale={{ emptyText: '등록된 피드가 없습니다' }}
-      onRow={(record) => ({ onClick: () => navigate(`/community/feed/${record.id}`), style: { cursor: 'pointer' } })}
-      pagination={{ current: page, pageSize: size, total: data?.total ?? 0, onChange: setPage, showSizeChanger: false }}
-    />
+    <>
+      <Space style={{ marginBottom: 16 }}>
+        <Button type="primary" onClick={() => navigate('/community/feed/new')}>
+          새 피드 작성
+        </Button>
+      </Space>
+      <Table<AdminFeedRow>
+        rowKey="id"
+        loading={isLoading}
+        columns={columns}
+        dataSource={data?.items ?? []}
+        locale={{ emptyText: '등록된 피드가 없습니다' }}
+        onRow={(record) => ({ onClick: () => navigate(`/community/feed/${record.id}`), style: { cursor: 'pointer' } })}
+        pagination={{ current: page, pageSize: size, total: data?.total ?? 0, onChange: setPage, showSizeChanger: false }}
+      />
+    </>
   )
 }

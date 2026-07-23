@@ -24,6 +24,7 @@ export interface AdminFeedDetail {
   author: FeedAuthorBrief
   content: string | null
   image_urls: string[]
+  image_content_ids: string[]
   latitude: number | string | null
   longitude: number | string | null
   district_name: string | null
@@ -39,6 +40,12 @@ export interface FeedListParams {
   size?: number
 }
 
+export interface FeedWriteBody {
+  content?: string | null
+  is_story: boolean
+  image_content_ids: string[]
+}
+
 export function useFeedList(params: FeedListParams) {
   return useQuery({
     queryKey: ['feed', params],
@@ -52,6 +59,24 @@ export function useFeedPost(id: string) {
     queryKey: ['feed', id],
     queryFn: () => api<AdminFeedDetail>(`/admin/api/community/feed/${id}`),
     enabled: !!id,
+  })
+}
+
+export function useCreateFeedPost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: FeedWriteBody) =>
+      api<AdminFeedDetail>('/admin/api/community/feed', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['feed'] }),
+  })
+}
+
+export function useUpdateFeedPost(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: FeedWriteBody) =>
+      api<AdminFeedDetail>(`/admin/api/community/feed/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 

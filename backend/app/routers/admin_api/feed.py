@@ -1,13 +1,16 @@
-"""admin JSON API — 커뮤니티 피드 모더레이션 (조회 + 삭제).
+"""admin JSON API — 커뮤니티 피드 모더레이션 + 공식계정 작성.
 
 `admin_legacy.py`의 `admin_feed_list`/`admin_feed_delete`(780-1053행)를 JSON 응답으로
-이관한 것 — 읽기·삭제만 옮기고, 관리자 피드 작성/수정(new/edit/update)은 포함하지
-않는다. 공식계정 피드 관리는 별도 기능(작성 UI)으로 이관 예정. 구 `/admin-legacy/*`
-라우트는 손대지 않고 병행 유지한다.
+이관했고, 같은 파일의 작성/수정 로직(`admin_feed_create`/`admin_feed_update`,
+937-1051행)도 1:1로 이관했다 — 공통 계정(ADMIN_USER_ID)으로 게시하는 것은 동일하며,
+멀티파트 업로드 대신 다른 admin JSON API(POI/배지)와 동일하게 이미 업로드된
+`contents.id`(UUID)를 입력받는 방식으로 포팅했다. 구 `/admin-legacy/*` 라우트는
+손대지 않고 병행 유지한다.
 """
 
+import os
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -17,13 +20,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import FeedPost, User
+from ...models import FeedPost, FeedPostImage, User
 from ...schemas import Page
 from ...utils import default_avatar_url, resolve_avatar_url
 from ..feed import _resolve_image_urls
 from ._audit import audit
 
 router = APIRouter(prefix="/community")
+
+# admin_legacy.py 와 동일한 공통계정 (공식 피드 게시자)
+ADMIN_USER_ID = uuid.UUID(os.getenv("ADMIN_USER_ID", "00000000-0000-0000-0000-000000000001"))
 
 
 class FeedAuthorBrief(BaseModel):
@@ -49,6 +55,7 @@ class AdminFeedDetail(BaseModel):
     author: FeedAuthorBrief
     content: str | None
     image_urls: list[str]
+    image_content_ids: list[uuid.UUID]
     latitude: Decimal | None
     longitude: Decimal | None
     district_name: str | None
@@ -57,6 +64,12 @@ class AdminFeedDetail(BaseModel):
     is_story: bool
     created_at: datetime
     updated_at: datetime
+
+
+class FeedWriteRequest(BaseModel):
+    content: str | None = None
+    is_story: bool = False
+    image_content_ids: list[uuid.UUID] = []
 
 
 def _author_brief(user: User | None, user_id: uuid.UUID) -> FeedAuthorBrief:
@@ -110,19 +123,14 @@ async def list_feed(
     return Page(items=items, total=total, page=page, size=size)
 
 
-@router.get("/feed/{post_id}", response_model=AdminFeedDetail)
-async def get_feed_post(
-    post_id: uuid.UUID,
-    _session: AdminSession = Depends(verify_admin_api),
-    db: AsyncSession = Depends(get_db),
-):
-    post = await _get_post_or_404(db, post_id)
+async def _feed_detail(db: AsyncSession, post: FeedPost) -> AdminFeedDetail:
     user = await db.get(User, post.user_id)
     return AdminFeedDetail(
         id=post.id,
         author=_author_brief(user, post.user_id),
         content=post.content,
         image_urls=_resolve_image_urls(post),
+        image_content_ids=[img.content_id for img in post.images or []],
         latitude=post.latitude,
         longitude=post.longitude,
         district_name=post.district.name_ko if post.district else None,
@@ -132,6 +140,80 @@ async def get_feed_post(
         created_at=post.created_at,
         updated_at=post.updated_at,
     )
+
+
+@router.get("/feed/{post_id}", response_model=AdminFeedDetail)
+async def get_feed_post(
+    post_id: uuid.UUID,
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    post = await _get_post_or_404(db, post_id)
+    return await _feed_detail(db, post)
+
+
+@router.post("/feed", response_model=AdminFeedDetail, status_code=201)
+async def create_feed_post(
+    body: FeedWriteRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    text_body = (body.content or "").strip() or None
+    if not text_body and not body.image_content_ids:
+        raise HTTPException(status_code=400, detail="content or image is required")
+
+    now = datetime.now(UTC)
+    post = FeedPost(
+        user_id=ADMIN_USER_ID,
+        content=text_body,
+        image_content_id=body.image_content_ids[0] if body.image_content_ids else None,
+        is_story=body.is_story,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(post)
+    await db.flush()
+
+    for idx, cid in enumerate(body.image_content_ids):
+        db.add(FeedPostImage(post_id=post.id, content_id=cid, sort_order=idx))
+
+    await audit(db, session, request, "FEED_CREATE", "feed_post", str(post.id), {"is_story": post.is_story})
+    await db.commit()
+
+    # commit 이후 컬렉션 관계(images)는 expire 되어 db.get() 만으로는 재조회되지 않음 — 명시 refresh 필요.
+    await db.refresh(post, attribute_names=["images"])
+    return await _feed_detail(db, post)
+
+
+@router.put("/feed/{post_id}", response_model=AdminFeedDetail)
+async def update_feed_post(
+    post_id: uuid.UUID,
+    body: FeedWriteRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    post = await _get_post_or_404(db, post_id)
+
+    text_body = (body.content or "").strip() or None
+    if not text_body and not body.image_content_ids:
+        raise HTTPException(status_code=400, detail="content or image is required")
+
+    await db.execute(FeedPostImage.__table__.delete().where(FeedPostImage.post_id == post_id))
+    for idx, cid in enumerate(body.image_content_ids):
+        db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
+
+    post.content = text_body
+    post.image_content_id = body.image_content_ids[0] if body.image_content_ids else None
+    post.is_story = body.is_story
+    post.updated_at = datetime.now(UTC)
+
+    await audit(db, session, request, "FEED_UPDATE", "feed_post", str(post_id), {"is_story": post.is_story})
+    await db.commit()
+
+    await db.refresh(post, attribute_names=["images"])
+    return await _feed_detail(db, post)
 
 
 @router.delete("/feed/{post_id}", status_code=204)

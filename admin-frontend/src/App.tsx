@@ -28,6 +28,7 @@ import PlaceSuggestionListPage from './pages/map/PlaceSuggestionListPage'
 import GasSubmissionListPage from './pages/map/GasSubmissionListPage'
 import RepairSubmissionListPage from './pages/map/RepairSubmissionListPage'
 import FuelPricePage from './pages/map/FuelPricePage'
+import RidePolicyPage from './pages/map/RidePolicyPage'
 import BizAccountListPage from './pages/biz/BizAccountListPage'
 import BizAccountDetailPage from './pages/biz/BizAccountDetailPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
@@ -138,6 +139,7 @@ export default function App() {
               <Route path="/map/gas-submissions" element={<GasSubmissionListPage />} />
               <Route path="/map/repair-submissions" element={<RepairSubmissionListPage />} />
               <Route path="/map/fuel-prices" element={<FuelPricePage />} />
+              <Route path="/map/ride-policy" element={<RidePolicyPage />} />
               <Route path="/biz/accounts" element={<BizAccountListPage />} />
               <Route path="/biz/accounts/:id" element={<BizAccountDetailPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />

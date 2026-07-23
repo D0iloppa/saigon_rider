@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar, Breadcrumb, Button, Layout, Menu, Tag, Tooltip, Typography } from 'antd'
 import {
+  AimOutlined,
   AuditOutlined,
   BellOutlined,
   CompassOutlined,
@@ -52,6 +53,7 @@ const MENU_ITEMS = [
     { key: '/map/gas-submissions', icon: <ThunderboltOutlined />, label: '주유소 제보 심사' },
     { key: '/map/repair-submissions', icon: <ToolOutlined />, label: '정비소 제보 심사' },
     { key: '/map/fuel-prices', icon: <DollarOutlined />, label: '유가 관리' },
+    { key: '/map/ride-policy', icon: <AimOutlined />, label: '라이딩 정책' },
   ] },
   { key: 'group-biz', label: '비즈니스', children: [
     { key: '/biz/accounts', icon: <SolutionOutlined />, label: '파트너 심사' },
@@ -80,6 +82,7 @@ const PAGE_META = [
   { path: '/map/gas-submissions', title: '주유소 제보 심사', description: '사용자가 제보한 주유소를 승인하거나 반려합니다.' },
   { path: '/map/repair-submissions', title: '정비소 제보 심사', description: '사용자가 제보한 정비소를 승인하거나 반려합니다.' },
   { path: '/map/fuel-prices', title: '유가 관리', description: '브랜드별 참고 유가를 등록하고 수집 파이프라인 상태를 확인합니다.' },
+  { path: '/map/ride-policy', title: '라이딩 정책', description: '체크포인트 근접 거리, 거리 밴드, 일일 퀘스트 기본 슬롯을 설정합니다.' },
   { path: '/biz/accounts', title: '비즈니스 파트너 심사', description: '비즈니스 계정 신청을 심사하고 그룹·정지 등 계정을 관리합니다.' },
   { path: '/biz/ads', title: '인앱 광고 심사', description: '비즈니스 파트너가 등록한 광고 소재를 심사합니다.' },
   { path: '/', title: '운영 현황', description: '오늘 확인해야 할 운영 지표와 처리 대기 항목입니다.' },

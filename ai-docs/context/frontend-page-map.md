@@ -208,6 +208,14 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 관리자 계정관리 백엔드 `backend/app/routers/admin_api/accounts.py`(`GET/POST /admin/api/accounts`, `PUT/DELETE /accounts/{id}`), 전 엔드포인트 **`verify_root_api`(이제 ROOT∨ADMIN, MANAGER 차단)** + 전 mutation `_audit.audit()`(`ADMIN_ACCOUNT_CREATE/UPDATE/DELETE`, detail에 role 포함). role은 `Literal['admin','manager']` 서버측 제약. bcrypt(`hash_password`, cost12), 응답에 `password_hash` 미노출. fetch 훅 `admin-frontend/src/api/accounts.ts`. 레거시 Jinja(`/admin-legacy/admins`, `verify_root_session`도 동일하게 root∨admin) 병행 유지. 독립 auth 리뷰 PASS(2→3단계, 11개 call site 전환·권한상승 경로 없음·fail-closed 확인).
 
+#### 관리자 콘솔 — CONTENT & POLICY 그룹
+
+| 라우트(SPA) | 페이지 파일 | 내용 |
+|---|---|---|
+| `/cms/badges` | `admin-frontend/src/pages/cms/BadgeListPage.tsx` | **배지 관리 (2026-07-23 이식, 커밋 `1dcc928`)** — `Badge` CRUD, i18n 3벌(name/desc ko·en·vi) + condition_rule(`{operator, conditions:[{metric,op,value}]}`, metric/op **allow-list 서버검증** `<script>`→422) + `icon_content_id`(현재 UUID 텍스트 입력 — admin SPA에 파일 업로드 위젯 부재, POI와 동일 수준. 표시는 `build_imgproxy_url(path, "rs:fill:96:96:1")`로 썸네일 렌더). 백엔드 `admin_api/badges.py`(`verify_admin_api` — 배지는 보상/머니 config 아님), 감사 `BADGE_CREATE/UPDATE/DELETE`. fetch 훅 `api/badges.ts`. 레거시 `/admin-legacy/badges` 병행 유지 |
+
+> **⚠️ page-map admin 문서화 갭**: 관리자 콘솔 중 유저관리·감사로그·대시보드 IA·비즈 광고·CMS(공지/FAQ/배지)는 page-map에 산발적으로만 기록됨. 통합 admin-console 섹션 + ADR 신설이 후속 과제(현재 프로젝트 ADR 미생성).
+
 ### 3.8 탭바/FAB 어디에도 없는 메뉴 (진입점 주의)
 
 | 메뉴 | 라우트 | 진입점 | 비고 |

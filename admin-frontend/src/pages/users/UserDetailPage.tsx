@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Input, Modal, Popconfirm, Skeleton, Space, Table, Tag, Typography, message } from 'antd'
 import dayjs from 'dayjs'
-import { useLiftSanction, useResetPhoneVerification, useUser } from '../../api/users'
+import { useLiftSanction, useResetPhoneVerification, useUser, useUserDevice } from '../../api/users'
 import SanctionModal from '../../components/SanctionModal'
 import StatusTag from '../../components/StatusTag'
 
@@ -10,6 +10,7 @@ export default function UserDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { data: user, isLoading, isError, error } = useUser(id)
+  const { data: device, isLoading: isDeviceLoading } = useUserDevice(id)
   const liftMutation = useLiftSanction()
   const resetPhoneMutation = useResetPhoneVerification()
 
@@ -100,6 +101,20 @@ export default function UserDetailPage() {
             <Button loading={resetPhoneMutation.isPending}>폰인증 초기화</Button>
           </Popconfirm>
         </Space>
+      </Card>
+
+      <Card title="디바이스 연동 정보">
+        {isDeviceLoading ? (
+          <Skeleton active paragraph={{ rows: 2 }} />
+        ) : (
+          <Descriptions column={1} bordered size="small">
+            <Descriptions.Item label="Device UUID">{device?.device_uuid ?? 'unlinked'}</Descriptions.Item>
+            <Descriptions.Item label="FCM Token">{device?.fcm_token ?? 'unlinked'}</Descriptions.Item>
+            <Descriptions.Item label="마지막 연동">
+              {device?.logged_in_at ? dayjs(device.logged_in_at).format('YYYY-MM-DD HH:mm') : 'unlinked'}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
       </Card>
 
       <Card title="제재 이력">

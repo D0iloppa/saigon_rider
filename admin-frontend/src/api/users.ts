@@ -64,6 +64,20 @@ export function useUser(id: string) {
   })
 }
 
+export interface UserDevice {
+  device_uuid: string | null
+  fcm_token: string | null
+  logged_in_at: string | null
+}
+
+export function useUserDevice(id: string) {
+  return useQuery({
+    queryKey: ['users', id, 'device'],
+    queryFn: () => api<UserDevice>(`/admin/api/users/${id}/device`),
+    enabled: !!id,
+  })
+}
+
 export interface SanctionCreateBody {
   type: 'WARN' | 'SUSPEND' | 'BAN'
   reason: string

@@ -4,6 +4,7 @@
 단일 트랜잭션으로 커밋한다. FCM 푸시는 발송하지 않는다(인앱만).
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -14,11 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
+from ...engine_client import engine_client
 from ...models import MarketplaceListing, Notification, Report, User, UserOAuthIdentity, UserSanction
 from ...schemas import Page
 from ._audit import audit
 
 router = APIRouter(prefix="/users")
+_log = logging.getLogger(__name__)
 
 _USER_STATUSES = {"ACTIVE", "SUSPENDED", "BANNED"}
 _SANCTION_TYPES = {"WARN", "SUSPEND", "BAN"}
@@ -197,6 +200,25 @@ async def get_user(
 ):
     user = await _get_user_or_404(db, user_id)
     return await _user_detail(db, user)
+
+
+@router.get("/{user_id}/device")
+async def get_user_device(
+    user_id: uuid.UUID,
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_user_or_404(db, user_id)
+    try:
+        info = await engine_client.lookup_device_map(str(user_id))
+    except Exception:
+        _log.exception("device-map lookup failed for user %s", user_id)
+        info = {}
+    return {
+        "device_uuid": info.get("device_uuid") or None,
+        "fcm_token": info.get("fcm_token") or None,
+        "logged_in_at": info.get("logged_in_at") or None,
+    }
 
 
 @router.post("/{user_id}/sanctions")

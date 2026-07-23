@@ -39,6 +39,11 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ## 3. 메뉴별 상세
 
+### 공통 위치 해석 정책 (2026-07-23)
+
+- **Promise 파이프라인 SoT**: `lib/serviceLocation.ts`의 `requestDeviceLocation()` → `resolveServiceLocation()` → `resolveUsableLocation()` 체인. `native.ensureLocationPermission().then(native.getLocation)`으로 기기 좌표를 얻고, 서비스 영역 안이면 `{ coords, source: 'device' }`, 밖이면 `mapDefaults.ts`의 `BEN_THANH_FALLBACK`(`10.7716, 106.6980`)과 `{ source: 'fallback', reason: 'outside_service_area' }`를 **정상 resolve**한다. 권한·GPS·예상하지 못한 획득 실패는 이 체인에서 catch하지 않고 **reject**하며, Toast는 도메인 헬퍼가 아니라 각 화면에서 처리한다.
+- **적용 CTA**: 동네지도 `[내 위치]`, 커뮤니티 `[내 동네]`, 마켓 `[내 현재 위치]`가 같은 해석 결과를 소비한다. 서비스 밖 안내 문구는 "서비스 지역 밖이에요 · 호치민 중심을 보여드려요"이고, 세 화면 모두 실제 범위 밖 좌표가 아니라 벤탄 fallback 좌표를 후속 동작에 사용한다.
+
 ### 3.1 홈 (`/home`)
 
 - **페이지**: `pages/home/WorldMapV2.tsx` (구버전 `WorldMapV2` 이전의 `WorldMap.tsx`는 미사용 백업 — import 주석에 명시됨)
@@ -55,6 +60,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **없음 이미지 플레이스홀더 (2026-07-17)**: 상품 등록 이미지 부재 시 로케일별 브랜드 플레이스홀더(`noItemImage()` — `assets/market/no_item_kr|vi|en.png`) 표시, 리스트 카드·상세 갤러리·다른 매물 카드에 적용.
 - **핵심 컴포넌트**: `SaigonMapV2`, `ListingCard`(`pages/market/ListingCard.tsx`), `AdCard`(`pages/market/AdCard.tsx`), `StatusBar`, `BottomSheet`, `Chip`, `ScrollSentinel`
 - **연결 API**: `api/market.ts` (`fetchListings`, `fetchAds` 등)
+- **`[내 현재 위치]` 필터 (2026-07-23)**: 위치 시트의 GPS 적용은 공통 `resolveUsableLocation()`을 호출한다. 기기 좌표면 해당 좌표로, 서비스 밖이면 벤탄 fallback 좌표로 `coords`와 구 필터를 함께 설정한다(기존처럼 구만 fallback하고 범위 밖 좌표를 남기지 않음). fallback은 안내 Toast 후 정상 필터링하고, Promise reject는 기존 `market.locationError` UX를 유지한다.
 
 ### 3.3 동네지도 (`/map`)
 
@@ -64,6 +70,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **지도-리스트 분리 (2026-07-12)**: 바텀시트 리스트는 더 이상 핀과 같은 뷰포트 bbox를 쓰지 않고, **지도 중심이 속한 ward(동)** 기준으로 조회한다(`SaigonMapV5`가 신규 export하는 `findWardAt(lat,lng)` — `saigon-depth1.json` 폴리곤+`regionContains`). ward가 바뀔 때만 리스트를 재조회하므로 같은 ward 안에서 지도를 팬해도 리스트는 그대로다. 핀은 기존처럼 뷰포트 bbox 소스를 유지 — 화면 안에서 핀과 리스트가 서로 다른 데이터 소스를 가리키는 구조. 지도 dot 탭 시 리스트 항목을 활성화·스크롤하던 동기화는 주석 처리로 제거됨.
 - **지역선택(region 모드) 진입점 비활성화 (2026-07-12)**: `SaigonMapV5`의 `onRegionSelect` prop 배선과 리스트의 "구역 선택" 안내 가이드가 주석 처리됨(로직·핸들러 자체는 코드에 보존 — 부활 대비). ward 자동 추적 리스트가 사실상 그 역할을 대체한다.
 - **좌측 플로팅 버튼 3종 (2026-07-12, `7eff692`; 위치 로직 2026-07-12 2차 배치)**: 내 위치(GPS 측정) / ♥ **찜 업체만 보기 토글**(`favOnly` — ON 시 biz 탭 자동 전환, `fetchBizFavorites` 교집합, 칩 필터와 AND, 비로그인 토스트) / + **글쓰기 팝오버**(장소 제안=`/map/profile?openPlaceForm=1` 원샷 쿼리로 기존 시트 재사용, 후기쓰기=업체 후기 — 2026-07-12 신규 도메인 배선). **위치**: 기본은 시트 상단에서 14px 띄운 위치(`sheetVisibleHeight + 14`, 드래그 연동), 포스트 패널(팝업 카드)이 열리면 카드 높이 기준(`postPanelHeight + 14`)으로 전환해 카드를 따라가고, 시트가 `full`로 풀업되면 숨김.
+- **`[내 위치]` 서비스 밖 fallback (2026-07-23)**: `NeighborhoodMap`만 `SaigonMapV5.outsideAreaFallback`을 opt-in한다. 공통 파이프라인 결과가 fallback이면 벤탄 중심으로 Layer3 확대/recenter하고 가짜 내 위치 점은 찍지 않으며, `onLocated(coords, metadata)`로 전달해 `useLocationStore`에 `source: 'fallback'`으로 저장한다. 기기 위치는 기존 점 표시·확대와 `source: 'gps'` 저장을 유지한다. 공유 `SaigonMapV5`를 쓰는 날씨/침수/주유/정비 화면은 opt-in하지 않아 서비스 밖 안내 후 중단하는 기존 동작을 유지한다.
 - **지도보기 필 재배치 (2026-07-12 2차 배치)**: 시트 안 `floatingTopCenter` 슬롯 사용을 그만두고, `NeighborhoodMap.tsx`가 시트 바깥 형제 엘리먼트로 직접 렌더하는 하단 중앙 floating 버튼으로 전환(노출 조건 `sheetSnap==='full' && !isSearching && !postPanelOpen`, 탭바 바로 위). 필이 시트 밖으로 빠지며 확보된 여백만큼 시트 `maxHeight`를 65vh→72vh로 확장, 리스트 컨테이너에 하단 패딩(`listPillPad`) 추가.
 - **바텀시트 리스트 상단 ward 지역 제목 (2026-07-12 2차 배치)**: `t('map.wardTitle.{listings|feed|biz}', { area })` — `area`는 지도 중심이 속한 `centerWard.region.name`(ward 폴리곤의 베트남어 원문 지명), 탭별로 다른 문구(ko: `{{area}} 이웃들이 등록한 상품이에요` / `...의 소식이에요` / `...지역의 가게들을 만나보세요`, en/vi 3벌). 헤더의 'N건' 카운트와 별개로 리스트 최상단에 병존하며, 검색 중이거나 `centerWard`가 없으면(region 모드·커버리지 밖) 숨김.
 - **업체 상세 뒤로가기 상태 복원 — 오버레이 전환으로 비활성 (2026-07-12)**: sessionStorage `sgr.map.bizReturn` 저장/복원 로직(`saveBizReturnSnapshot`/`pendingUiRestoreRef`/`readBizReturnSnapshot` 등)은 전부 주석 처리로 비활성화됨 — 상세 진입이 아래 "상세 3종 전체화면 오버레이" 방식으로 바뀌어 지도가 언마운트되지 않으므로 스냅샷 복원 자체가 불필요해졌다. 과거 세션이 남긴 키를 지우는 `sessionStorage.removeItem(BIZ_RETURN_KEY)` 정리 이펙트만 유지. 회귀 하네스 `tools/qm/regr-biz-return.mjs`는 오버레이 검증(아래 참조)으로 재작성됨.
@@ -98,7 +105,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 #### 관리자 콘솔 — 동네지도 관리 (`admin-frontend/src/pages/map/`, 2026-07-20)
 
-`AdminLayout.tsx` 사이드바 그룹 "동네지도" 4항목 → 신규 SPA 화면 5개(POI는 목록+편집 분리):
+`AdminLayout.tsx` 사이드바 그룹 "동네지도" 5항목 → 신규 SPA 화면 6개(POI는 목록+편집 분리):
 
 | 라우트(`admin-frontend`, `/admin/` 아래) | 화면 파일 | 백엔드 API |
 |---|---|---|
@@ -106,8 +113,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/map/place-suggestions` | `PlaceSuggestionListPage.tsx` | `/admin/api/map/place-suggestions*`(`admin_api/map/submissions.py`) — 승인은 상태 전환만(Poi 자동 승격 아님, 기존 `PlaceSubmission` 설계 그대로) |
 | `/map/gas-submissions` | `GasSubmissionListPage.tsx` | 동일 파일 — 승인 시 `GasStation` row 실제 생성 |
 | `/map/repair-submissions` | `RepairSubmissionListPage.tsx` | 동일 파일 — 승인 시 `RepairShop` row 실제 생성 |
+| `/map/fuel-prices` | `FuelPricePage.tsx` (2026-07-23 이식, 커밋 `1c5aaed`) | `GET /admin/api/fuel/{meta,prices,pipeline-health}` + `POST /prices`(`admin_api/fuel.py`, `services/fuel_price_service.py` 재사용) — 유가 수동 입력/수정(brand·fuel_type 튜플, 10k~60k VND 검증)+파이프라인 헬스(>14일 red/>10일 orange). 감사로그 `FUEL_PRICE_UPSERT`. fetch 훅은 공용 map.ts 아닌 별도 `api/fuel.ts` |
 
-5화면 공용 fetch 함수는 `admin-frontend/src/api/map.ts`. 전부 `verify_admin_api`(JWT 쿠키) + 감사로그(`_audit.audit()`). 레거시 Jinja(`/admin-legacy/poi`·`/place-suggestions`·`/gas-submissions`·`/repair-submissions`)는 2차 이식 완료 전까지 병행 유지. 백엔드는 `backend/app/routers/map/`(앱 조회, poi.py/districts.py/place_suggestions.py)와 `backend/app/routers/admin_api/map/`(관리자 CRUD, poi.py/submissions.py) 두 패키지로 응집됐다(둘 다 기존 `admin_api/__init__.py` 서브패키지 관례 미러) — 앱이 호출하는 조회 URL 자체는 이번 재배선으로 바뀌지 않았다.
+위 5개 map 화면(poi·place-suggestions·gas-submissions·repair-submissions)의 공용 fetch 함수는 `admin-frontend/src/api/map.ts`(유가는 별도 `api/fuel.ts`). 전부 `verify_admin_api`(JWT 쿠키) + 감사로그(`_audit.audit()`). 레거시 Jinja(`/admin-legacy/poi`·`/place-suggestions`·`/gas-submissions`·`/repair-submissions`·`/fuel`)는 2차 이식 완료 전까지 병행 유지. 백엔드는 `backend/app/routers/map/`(앱 조회, poi.py/districts.py/place_suggestions.py)와 `backend/app/routers/admin_api/map/`(관리자 CRUD, poi.py/submissions.py) 두 패키지로 응집됐다(둘 다 기존 `admin_api/__init__.py` 서브패키지 관례 미러) — 앱이 호출하는 조회 URL 자체는 이번 재배선으로 바뀌지 않았다.
 
 ### 3.4 커뮤니티 / 피드 (`/feed`)
 
@@ -115,6 +123,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **하위 라우트**: `/feed/new`(`FeedCreate.tsx`), `/feed/edit/:postId`(`FeedEdit.tsx`), `/feed/post/:postId`(`FeedDetail.tsx` — 피드 상세+댓글 인라인, 탭바 숨김. 홈 인기글 카드·동네지도 포스트 패널(피드 카드, 오버레이로 진입)에서 진입. **레이아웃 2026-07-12 전체 재작성**: `MarketDetail` 구조 미러 — 공용 `TopBar` 대신 `StatusBar`+커스텀 뒤로가기 헤더, hero 이미지 캐러셀, sellerRow를 미러한 작성자 행, 하단 액션바(🔥응원 토글+💬댓글 수+댓글 입력+전송, 기존 별도 입력바 대체). 헤더 타이틀 i18n 기본값 '게시글'→'피드')
 - **핵심 컴포넌트**: `TopBar`, `StoryAvatar`, `AppImage`, `ImageCarousel`, `LevelBadge`, `Chip`, `ProfileCard`, `ImageViewer`
 - **DM 진입점**: FeedList 상단 메시지 아이콘 → `/dm`(`pages/dm/DmList.tsx`) → `/dm/:conversationId`(`DmDetail.tsx`). **탭바에는 없음** — "채팅"은 `tabbar.chat` i18n 키만 존재하고 실제 탭바 5개엔 포함 안 됨(TabBar.tsx 주석: "채팅은 nav 제외").
+- **`[내 동네]` 필터 (2026-07-23)**: 버튼을 누를 때마다 저장 좌표를 재사용하지 않고 공통 `resolveUsableLocation()` 체인을 새로 실행한다(이미 선택된 칩을 다시 눌러도 요청 세대값을 갱신해 재측정, 이전 비동기 결과는 cleanup으로 무효화). 위치 대기 중 stale 좌표를 비우고, 기기 또는 벤탄 fallback `coords`로 피드를 필터한다. fallback은 안내 Toast 후 정상 필터링하고, Promise reject는 기존 위치 오류 Toast를 표시한 뒤 `전체` 필터로 복귀한다.
 
 #### 관리자 콘솔 — 커뮤니티 (피드 관리) (`admin-frontend/src/pages/community/`, 2026-07-22 신규 SPA 이식)
 

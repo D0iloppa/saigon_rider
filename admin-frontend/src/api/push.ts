@@ -32,10 +32,10 @@ export interface SendPushResult {
   [key: string]: unknown
 }
 
-export function usePushUsers() {
+export function usePushUsers(q = '') {
   return useQuery({
-    queryKey: ['push', 'users'],
-    queryFn: () => api<PushUser[]>('/admin/api/push/users'),
+    queryKey: ['push', 'users', q],
+    queryFn: () => api<PushUser[]>(`/admin/api/push/users${buildQuery({ q })}`),
   })
 }
 

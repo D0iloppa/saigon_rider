@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button, Input, Modal, Radio, Select, Table, message } from 'antd'
 import { usePushHistory, usePushUsers, useSendPush, type PushHistoryRow } from '../../api/push'
 
@@ -22,10 +22,17 @@ export default function PushPage() {
   const [userIds, setUserIds] = useState<number[]>([])
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [userQuery, setUserQuery] = useState('')
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
 
-  const { data: users, isLoading: usersLoading } = usePushUsers()
+  const { data: users, isLoading: usersLoading } = usePushUsers(userQuery)
   const { data: history, isLoading: historyLoading } = usePushHistory()
   const sendPush = useSendPush()
+
+  const handleUserSearch = (value: string) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => setUserQuery(value), 300)
+  }
 
   const userOptions = (users ?? []).map((u) => ({
     value: u.user_id,
@@ -94,7 +101,9 @@ export default function PushPage() {
               value={userIds}
               onChange={setUserIds}
               options={userOptions}
-              optionFilterProp="label"
+              showSearch
+              filterOption={false}
+              onSearch={handleUserSearch}
             />
           </div>
         )}

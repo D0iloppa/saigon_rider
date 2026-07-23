@@ -64,6 +64,16 @@ export function useUpsertFuelPrice() {
   })
 }
 
+export function useTriggerFuelFetch() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api<{ started: boolean }>('/admin/api/fuel/refresh', { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuel-pipeline-health'] })
+    },
+  })
+}
+
 export function useFuelPipelineHealth() {
   return useQuery({
     queryKey: ['fuel-pipeline-health'],

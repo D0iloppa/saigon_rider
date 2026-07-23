@@ -20,9 +20,26 @@ from ..services.fuel_price_service import upsert_fuel_price
 
 log = logging.getLogger(__name__)
 
+# 동시실행 가드: 스케줄러(cron 4개 slot)와 관리자 수동 트리거가 겹쳐도
+# Chromium 인스턴스가 중복 실행되지 않도록 한다. 이미 실행 중이면 skip(coalesce).
+_fetch_lock = asyncio.Lock()
+
+
+def is_fetch_running() -> bool:
+    return _fetch_lock.locked()
+
 
 async def run_fetch_cycle() -> dict:
     """1회 fetch cycle: Petrolimex 헤드리스 렌더 → 유종별 ACTIVE upsert → fetch_log 기록."""
+    if _fetch_lock.locked():
+        log.info("Fuel price fetch cycle skipped — another run already in progress")
+        return {"status": "SKIPPED", "error": "already running"}
+
+    async with _fetch_lock:
+        return await _run_fetch_cycle_locked()
+
+
+async def _run_fetch_cycle_locked() -> dict:
     start = datetime.now(UTC)
     log.info("=== Fuel price fetch cycle started %s ===", start.isoformat())
 

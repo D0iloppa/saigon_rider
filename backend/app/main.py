@@ -66,7 +66,11 @@ async def lifespan(app: FastAPI):
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
     for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
         scheduler.add_job(
-            run_fetch_cycle, CronTrigger(hour=hour, minute=minute), id=f"fuel_fetch_{hour:02d}{minute:02d}"
+            run_fetch_cycle,
+            CronTrigger(hour=hour, minute=minute),
+            id=f"fuel_fetch_{hour:02d}{minute:02d}",
+            max_instances=1,
+            coalesce=True,
         )
     # 침수 예측 ②: 아침(출근 전) + 오후(퇴근 전) 강수예보 반영.
     for hour, minute in [(5, 30), (15, 0)]:

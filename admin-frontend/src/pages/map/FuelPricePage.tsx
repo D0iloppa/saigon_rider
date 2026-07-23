@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Alert, Button, Card, DatePicker, InputNumber, Select, Space, Table, Tag, Typography, message } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import dayjs, { type Dayjs } from 'dayjs'
+import { ApiError } from '../../api/client'
 import {
   useFuelMeta,
   useFuelPipelineHealth,
   useFuelPrices,
+  useTriggerFuelFetch,
   useUpsertFuelPrice,
   type FuelFetchLogRow,
   type FuelPriceRow,
@@ -39,6 +42,34 @@ export default function FuelPricePage() {
   const { data: prices, isLoading: pricesLoading, isError: pricesError } = useFuelPrices()
   const { data: health, isLoading: healthLoading } = useFuelPipelineHealth()
   const upsertMutation = useUpsertFuelPrice()
+  const refreshMutation = useTriggerFuelFetch()
+  const qc = useQueryClient()
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const handleTriggerRefresh = () => {
+    refreshMutation.mutate(undefined, {
+      onSuccess: () => {
+        message.success('수집을 시작했습니다 — 완료까지 최대 1분')
+        if (pollTimer.current) clearInterval(pollTimer.current)
+        let ticks = 0
+        pollTimer.current = setInterval(() => {
+          ticks += 1
+          qc.invalidateQueries({ queryKey: ['fuel-pipeline-health'] })
+          if (ticks >= 10 && pollTimer.current) {
+            clearInterval(pollTimer.current)
+            pollTimer.current = null
+          }
+        }, 4000)
+      },
+      onError: (err) => {
+        if (err instanceof ApiError && err.status === 409) {
+          message.warning('이미 수집이 진행 중입니다')
+        } else {
+          message.error(err instanceof Error ? err.message : '수집 시작에 실패했습니다.')
+        }
+      },
+    })
+  }
 
   const [brand, setBrand] = useState<string | undefined>()
   const [fuelType, setFuelType] = useState<string | undefined>()
@@ -133,6 +164,9 @@ export default function FuelPricePage() {
               <Tag color="green">최근 정상</Tag>
             )}
           </span>
+          <Button loading={refreshMutation.isPending} onClick={handleTriggerRefresh}>
+            지금 수집 실행
+          </Button>
         </Space>
         <Table
           size="small"

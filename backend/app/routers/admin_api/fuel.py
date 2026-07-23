@@ -8,13 +8,14 @@ ACTIVE 참고가 목록 조회, 수집 파이프라인 상태(노후도·fetch_l
 
 from datetime import UTC, date, datetime, time
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
+from ...jobs.fetch_fuel_prices import is_fetch_running, run_fetch_cycle
 from ...models import FuelPriceFetchLog, FuelPriceSnapshot
 from ...services.fuel_price_service import FUEL_BRANDS, FUEL_TYPES, upsert_fuel_price
 from ._audit import audit
@@ -123,6 +124,27 @@ async def upsert_fuel_price_api(
         effective_date=effective.date(),
         source="manual:admin",
     )
+
+
+@router.post("/refresh", status_code=202, summary="유가 수집 온디맨드 트리거")
+async def trigger_fuel_refresh(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """자동 수집 사이클(run_fetch_cycle)을 즉시 백그라운드로 1회 실행.
+
+    이미 실행 중(스케줄러 or 다른 관리자 트리거)이면 409 — 동시실행 가드.
+    """
+    if is_fetch_running():
+        raise HTTPException(status_code=409, detail="이미 수집이 진행 중입니다")
+
+    await audit(db, session, request, "FUEL_FETCH_TRIGGER")
+    await db.commit()
+
+    background_tasks.add_task(run_fetch_cycle)
+    return {"started": True}
 
 
 @router.get("/pipeline-health", response_model=FuelPipelineHealth, summary="수집 파이프라인 상태")

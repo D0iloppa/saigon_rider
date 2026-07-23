@@ -40,6 +40,7 @@ import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import RewardPolicyPage from './pages/sre/RewardPolicyPage'
 import ItemListPage from './pages/sre/ItemListPage'
 import OpsDashboardPage from './pages/sre/OpsDashboardPage'
+import PushPage from './pages/sre/PushPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
@@ -159,6 +160,7 @@ export default function App() {
               <Route path="/sre/reward-policies" element={<PrivilegedRoute><RewardPolicyPage /></PrivilegedRoute>} />
               <Route path="/sre/items" element={<PrivilegedRoute><ItemListPage /></PrivilegedRoute>} />
               <Route path="/sre/ops" element={<PrivilegedRoute><OpsDashboardPage /></PrivilegedRoute>} />
+              <Route path="/sre/push" element={<PrivilegedRoute><PushPage /></PrivilegedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

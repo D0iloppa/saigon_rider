@@ -14,6 +14,7 @@ from . import (
     biz,
     cms,
     dashboard,
+    dev_context,
     feed,
     fuel,
     items,
@@ -44,6 +45,7 @@ router.include_router(map.router)
 router.include_router(biz.router)
 router.include_router(accounts.router)
 router.include_router(feed.router)
+router.include_router(dev_context.router)
 router.include_router(fuel.router)
 router.include_router(ride_policy.router)
 router.include_router(reward_policy.router)

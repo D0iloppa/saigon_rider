@@ -5,6 +5,7 @@ import {
   AuditOutlined,
   BellOutlined,
   CompassOutlined,
+  CodeOutlined,
   CustomerServiceOutlined,
   DashboardOutlined,
   DollarOutlined,
@@ -69,6 +70,9 @@ const MENU_ITEMS = [
   { key: 'group-settings', label: '설정', children: [
     { key: '/system/settings', icon: <SettingOutlined />, label: '설정' },
   ] },
+  { key: 'group-dev', label: '개발', children: [
+    { key: '/system/dev-context', icon: <CodeOutlined />, label: 'DEV Context' },
+  ] },
 ]
 
 /** Finds the group (submenu) key whose children contain the given leaf key, for accordion default-open. */
@@ -103,6 +107,7 @@ const PAGE_META = [
   { path: '/biz/accounts', title: '비즈니스 파트너 심사', description: '비즈니스 계정 신청을 심사하고 그룹·정지 등 계정을 관리합니다.' },
   { path: '/biz/ads', title: '인앱 광고 심사', description: '비즈니스 파트너가 등록한 광고 소재를 심사합니다.' },
   { path: '/system/settings', title: '설정', description: '관리자 프로필, 닉네임 단어사전, 앱 버전, 서비스 설정을 관리합니다.' },
+  { path: '/system/dev-context', title: 'DEV Context', description: '개발 컨텍스트 KV, 기능·TODO 진행 상황을 관리합니다 (Plane 연동).' },
   { path: '/', title: '운영 현황', description: '오늘 확인해야 할 운영 지표와 처리 대기 항목입니다.' },
 ]
 

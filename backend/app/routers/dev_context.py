@@ -314,42 +314,32 @@ async def admin_dev_context_delete(
     return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
-@admin_router.post("/dev/features", include_in_schema=False)
-async def admin_dev_feature_create(
-    session: AdminSession = Depends(verify_admin_session),
-    db: AsyncSession = Depends(get_db),
-    category: str = Form(...),
-    name: str = Form(...),
-    status: str = Form("PLANNED"),
-):
+_FEATURE_STATUS_CYCLE = ["PLANNED", "IN_PROGRESS", "DONE", "DEFERRED"]
+_TODO_STATUS_CYCLE = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED"]
+
+
+async def do_feature_create(db: AsyncSession, category: str, name: str, status: str) -> None:
+    """Plane 우선 생성, 실패 시 DB 폴백. admin_api/dev_context.py 도 재사용."""
     if status not in _VALID_FEATURE_STATUS:
         status = "PLANNED"
     try:
         await plane.create_issue(name.strip(), state=status, label=category.strip())
-        return RedirectResponse(url="/admin-legacy/dev", status_code=302)
+        return
     except Exception:
         logger.warning("Plane API failed for admin_dev_feature_create, falling back to DB", exc_info=True)
 
     db.add(DevFeature(category=category.strip(), name=name.strip(), status=status))
     await db.commit()
-    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
-_FEATURE_STATUS_CYCLE = ["PLANNED", "IN_PROGRESS", "DONE", "DEFERRED"]
-
-
-@admin_router.post("/dev/features/{feature_id}/cycle", include_in_schema=False)
-async def admin_dev_feature_cycle(
-    feature_id: int,
-    session: AdminSession = Depends(verify_admin_session),
-    db: AsyncSession = Depends(get_db),
-):
+async def do_feature_cycle(db: AsyncSession, feature_id: int) -> None:
+    """Plane 우선 상태 순환, 실패 시 DB 폴백. admin_api/dev_context.py 도 재사용."""
     try:
         issue = await plane.get_issue_by_sequence_id(feature_id)
         if issue:
             current = plane._state_to_status(issue["state"])
             await plane.cycle_feature_status(issue["id"], current)
-            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
+            return
     except Exception:
         logger.warning("Plane API failed for admin_dev_feature_cycle, falling back to DB", exc_info=True)
 
@@ -359,6 +349,93 @@ async def admin_dev_feature_cycle(
         row.status = _FEATURE_STATUS_CYCLE[(idx + 1) % len(_FEATURE_STATUS_CYCLE)]
         row.updated_at = datetime.now(UTC)
         await db.commit()
+
+
+async def do_feature_delete(db: AsyncSession, feature_id: int) -> None:
+    """Plane 우선 삭제, 실패 시 DB 폴백. admin_api/dev_context.py 도 재사용."""
+    try:
+        issue = await plane.get_issue_by_sequence_id(feature_id)
+        if issue:
+            await plane.delete_issue(issue["id"])
+            return
+    except Exception:
+        logger.warning("Plane API failed for admin_dev_feature_delete, falling back to DB", exc_info=True)
+
+    row = await db.get(DevFeature, feature_id)
+    if row:
+        await db.delete(row)
+        await db.commit()
+
+
+async def do_todo_create(db: AsyncSession, title: str, priority: str, feature_id: str) -> None:
+    """Plane 우선 생성, 실패 시 DB 폴백. admin_api/dev_context.py 도 재사용."""
+    if priority not in _VALID_TODO_PRIORITY:
+        priority = "MEDIUM"
+    try:
+        await plane.create_issue(title.strip(), priority=priority)
+        return
+    except Exception:
+        logger.warning("Plane API failed for admin_dev_todo_create, falling back to DB", exc_info=True)
+
+    fid = int(feature_id) if feature_id else None
+    db.add(DevTodo(title=title.strip(), priority=priority, feature_id=fid))
+    await db.commit()
+
+
+async def do_todo_cycle(db: AsyncSession, todo_id: int) -> None:
+    """Plane 우선 상태 순환, 실패 시 DB 폴백. admin_api/dev_context.py 도 재사용."""
+    try:
+        issue = await plane.get_issue_by_sequence_id(todo_id)
+        if issue:
+            current = plane._state_to_status(issue["state"])
+            await plane.cycle_todo_status(issue["id"], current)
+            return
+    except Exception:
+        logger.warning("Plane API failed for admin_dev_todo_cycle, falling back to DB", exc_info=True)
+
+    row = await db.get(DevTodo, todo_id)
+    if row:
+        idx = _TODO_STATUS_CYCLE.index(row.status) if row.status in _TODO_STATUS_CYCLE else 0
+        row.status = _TODO_STATUS_CYCLE[(idx + 1) % len(_TODO_STATUS_CYCLE)]
+        row.updated_at = datetime.now(UTC)
+        await db.commit()
+
+
+async def do_todo_delete(db: AsyncSession, todo_id: int) -> None:
+    """Plane 우선 삭제, 실패 시 DB 폴백. admin_api/dev_context.py 도 재사용."""
+    try:
+        issue = await plane.get_issue_by_sequence_id(todo_id)
+        if issue:
+            await plane.delete_issue(issue["id"])
+            return
+    except Exception:
+        logger.warning("Plane API failed for admin_dev_todo_delete, falling back to DB", exc_info=True)
+
+    row = await db.get(DevTodo, todo_id)
+    if row:
+        await db.delete(row)
+        await db.commit()
+
+
+@admin_router.post("/dev/features", include_in_schema=False)
+async def admin_dev_feature_create(
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+    category: str = Form(...),
+    name: str = Form(...),
+    status: str = Form("PLANNED"),
+):
+    await do_feature_create(db, category, name, status)
+    return RedirectResponse(url="/admin-legacy/dev", status_code=302)
+
+
+@admin_router.post("/dev/features/{feature_id}/cycle", include_in_schema=False)
+async def admin_dev_feature_cycle(
+    feature_id: int,
+    session: AdminSession = Depends(verify_admin_session),
+    db: AsyncSession = Depends(get_db),
+):
+    await do_feature_cycle(db, feature_id)
     return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
@@ -368,18 +445,7 @@ async def admin_dev_feature_delete(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        issue = await plane.get_issue_by_sequence_id(feature_id)
-        if issue:
-            await plane.delete_issue(issue["id"])
-            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
-    except Exception:
-        logger.warning("Plane API failed for admin_dev_feature_delete, falling back to DB", exc_info=True)
-
-    row = await db.get(DevFeature, feature_id)
-    if row:
-        await db.delete(row)
-        await db.commit()
+    await do_feature_delete(db, feature_id)
     return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
@@ -391,21 +457,8 @@ async def admin_dev_todo_create(
     priority: str = Form("MEDIUM"),
     feature_id: str = Form(""),
 ):
-    if priority not in _VALID_TODO_PRIORITY:
-        priority = "MEDIUM"
-    try:
-        await plane.create_issue(title.strip(), priority=priority)
-        return RedirectResponse(url="/admin-legacy/dev", status_code=302)
-    except Exception:
-        logger.warning("Plane API failed for admin_dev_todo_create, falling back to DB", exc_info=True)
-
-    fid = int(feature_id) if feature_id else None
-    db.add(DevTodo(title=title.strip(), priority=priority, feature_id=fid))
-    await db.commit()
+    await do_todo_create(db, title, priority, feature_id)
     return RedirectResponse(url="/admin-legacy/dev", status_code=302)
-
-
-_TODO_STATUS_CYCLE = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED"]
 
 
 @admin_router.post("/dev/todos/{todo_id}/cycle", include_in_schema=False)
@@ -414,21 +467,7 @@ async def admin_dev_todo_cycle(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        issue = await plane.get_issue_by_sequence_id(todo_id)
-        if issue:
-            current = plane._state_to_status(issue["state"])
-            await plane.cycle_todo_status(issue["id"], current)
-            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
-    except Exception:
-        logger.warning("Plane API failed for admin_dev_todo_cycle, falling back to DB", exc_info=True)
-
-    row = await db.get(DevTodo, todo_id)
-    if row:
-        idx = _TODO_STATUS_CYCLE.index(row.status) if row.status in _TODO_STATUS_CYCLE else 0
-        row.status = _TODO_STATUS_CYCLE[(idx + 1) % len(_TODO_STATUS_CYCLE)]
-        row.updated_at = datetime.now(UTC)
-        await db.commit()
+    await do_todo_cycle(db, todo_id)
     return RedirectResponse(url="/admin-legacy/dev", status_code=302)
 
 
@@ -438,16 +477,5 @@ async def admin_dev_todo_delete(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        issue = await plane.get_issue_by_sequence_id(todo_id)
-        if issue:
-            await plane.delete_issue(issue["id"])
-            return RedirectResponse(url="/admin-legacy/dev", status_code=302)
-    except Exception:
-        logger.warning("Plane API failed for admin_dev_todo_delete, falling back to DB", exc_info=True)
-
-    row = await db.get(DevTodo, todo_id)
-    if row:
-        await db.delete(row)
-        await db.commit()
+    await do_todo_delete(db, todo_id)
     return RedirectResponse(url="/admin-legacy/dev", status_code=302)

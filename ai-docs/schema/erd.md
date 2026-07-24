@@ -2,7 +2,7 @@
 
 > **파일 위치**: `database/init/001_init_schema.sql` ~ `032_badge_condition_rule.sql`  
 > **DBMS**: PostgreSQL 15 + PostGIS 3.3 (Docker: `postgis/postgis:15-3.3`)  
-> **마지막 갱신**: 2026-05-19 (032_badge_condition_rule 추가)
+> **마지막 갱신**: 2026-07-24 (149_ads_tiers 추가)
 
 ---
 
@@ -58,6 +58,13 @@
 | `__DEV_todos` | 할일 단위 (TODO→IN_PROGRESS→DONE/BLOCKED) | 025, 026 |
 | `nickname_words` | 기본 닉네임 생성용 단어풀 (adjective/noun) | 028 |
 | `app_versions` | 앱 버전 트리 (primary→ios/android, force_update) | 029 |
+
+### 광고 정책 (149)
+
+| 테이블 | 설명 | 추가 파일 |
+|---|---|---|
+| `ad_tiers` | 관리자 정의 광고 티어(월 가격·live 노출 가중치·활성·표시순서) | 149 |
+| `marketplace_ads` | NOT NULL `tier_id` FK, 신청 당시 `monthly_price_snapshot_vnd`, 확장용 `ad_fee=1` (`exposure_tier` 제거) | 148, 149 |
 
 ### Engine 전용 테이블 (Alembic 001~017)
 

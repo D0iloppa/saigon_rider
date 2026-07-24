@@ -36,6 +36,7 @@ import BizAccountDetailPage from './pages/biz/BizAccountDetailPage'
 import BizAccountAdsPage from './pages/biz/BizAccountAdsPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
 import BizAdDetailPage from './pages/biz/BizAdDetailPage'
+import BizAdTierPage from './pages/biz/BizAdTierPage'
 import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import SettingsPage from './pages/system/SettingsPage'
 import DevContextPage from './pages/system/DevContextPage'
@@ -163,6 +164,7 @@ export default function App() {
               <Route path="/biz/accounts/:id/ads" element={<BizAccountAdsPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />
               <Route path="/biz/ads/:id" element={<BizAdDetailPage />} />
+              <Route path="/biz/ad-tiers" element={<BizAdTierPage />} />
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
               <Route path="/system/settings" element={<SettingsPage />} />
               <Route path="/system/dev-context" element={<DevContextPage />} />

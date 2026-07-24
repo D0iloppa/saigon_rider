@@ -11,12 +11,6 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
   STOPPED: { color: 'red', label: '중단됨' },
 }
 
-const TIER_TAG: Record<string, string> = {
-  GOLD: 'gold',
-  SILVER: 'blue',
-  BRONZE: 'volcano',
-}
-
 function adPeriod(r: BizAdRow): string {
   if (!r.starts_at && !r.ends_at) return '상시'
   const fmt = (v: string | null) => (v ? dayjs(v).format('YY-MM-DD') : '—')
@@ -57,15 +51,15 @@ export default function BizAccountAdsPage() {
       render: (v: string) => <Tag color={STATUS_TAG[v]?.color ?? 'default'}>{STATUS_TAG[v]?.label ?? v}</Tag>,
     },
     {
-      title: '노출 등급',
-      dataIndex: 'exposure_tier',
-      key: 'exposure_tier',
-      render: (v: string) => <Tag color={TIER_TAG[v] ?? 'default'}>{v}</Tag>,
+      title: '광고 티어',
+      dataIndex: 'tier_name',
+      key: 'tier_name',
+      render: (v: string | null) => <Tag color="blue">{v ?? '-'}</Tag>,
     },
     {
-      title: '과금액 (VND)',
-      dataIndex: 'ad_fee',
-      key: 'ad_fee',
+      title: '신청 월 가격 (VND)',
+      dataIndex: 'monthly_price_snapshot_vnd',
+      key: 'monthly_price_snapshot_vnd',
       align: 'right' as const,
       render: (v: number) => v.toLocaleString('en-US'),
     },

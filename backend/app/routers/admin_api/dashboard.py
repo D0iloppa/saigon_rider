@@ -4,7 +4,7 @@
 거래 성사 시각은 marketplace_appointments.updated_at 근사(전용 완료시각 컬럼 없음).
 """
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
@@ -16,7 +16,6 @@ from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import (
     BusinessProfile,
-    MarketplaceAd,
     MarketplaceAppointment,
     MarketplaceListing,
     Report,
@@ -24,7 +23,7 @@ from ...models import (
     SupportTicket,
     User,
 )
-from ...services.ad_gating import launching_ad_conditions
+from ...modules.ads import AdsApplication
 
 router = APIRouter(prefix="/dashboard")
 
@@ -35,6 +34,12 @@ _OPEN_REPORT_STATUSES = ("PENDING", "REVIEWING")
 
 class ReasonCount(BaseModel):
     reason: str
+    count: int
+
+
+class AdTierCount(BaseModel):
+    id: str
+    name: str
     count: int
 
 
@@ -66,10 +71,8 @@ class DashboardSummary(BaseModel):
     biz_ads_launching: int
     biz_ads_today: int
     biz_ads_7d: int
-    biz_ads_tier_gold: int
-    biz_ads_tier_silver: int
-    biz_ads_tier_bronze: int
-    biz_ads_fee_sum: int
+    biz_ads_tier_counts: list[AdTierCount]
+    biz_ads_monthly_price_sum: int
 
 
 class DailyPoint(BaseModel):
@@ -180,24 +183,7 @@ async def get_summary(
         )
     ).one()
 
-    # '론칭중' 판정 — market.py get_ads 의 공개 노출 게이트와 동일 정의(시각 비교이므로 VN 일자경계가 아닌 UTC aware now 사용)
-    ad_now = datetime.now(UTC)
-    launching = launching_ad_conditions(ad_now)
-
-    biz_ad_row = (
-        await db.execute(
-            select(
-                func.count().filter(MarketplaceAd.review_status == "PENDING"),
-                func.count().filter(*launching),
-                func.count().filter(MarketplaceAd.created_at >= today_start),
-                func.count().filter(MarketplaceAd.created_at >= week_start),
-                func.count().filter(*launching, MarketplaceAd.exposure_tier == "GOLD"),
-                func.count().filter(*launching, MarketplaceAd.exposure_tier == "SILVER"),
-                func.count().filter(*launching, MarketplaceAd.exposure_tier == "BRONZE"),
-                func.coalesce(func.sum(MarketplaceAd.ad_fee).filter(*launching), 0),
-            ).select_from(MarketplaceAd)
-        )
-    ).one()
+    biz_ad_row, tier_rows = await AdsApplication(db).dashboard_stats(today_start, week_start)
 
     return DashboardSummary(
         dau=user_row[0],
@@ -227,10 +213,10 @@ async def get_summary(
         biz_ads_launching=biz_ad_row[1],
         biz_ads_today=biz_ad_row[2],
         biz_ads_7d=biz_ad_row[3],
-        biz_ads_tier_gold=biz_ad_row[4],
-        biz_ads_tier_silver=biz_ad_row[5],
-        biz_ads_tier_bronze=biz_ad_row[6],
-        biz_ads_fee_sum=biz_ad_row[7],
+        biz_ads_tier_counts=[
+            AdTierCount(id=str(tier_id), name=name, count=count) for tier_id, name, count in tier_rows
+        ],
+        biz_ads_monthly_price_sum=biz_ad_row[4],
     )
 
 
@@ -255,7 +241,7 @@ async def get_daily(
     reports = await count_by_day(Report.created_at)
     tickets = await count_by_day(SupportTicket.created_at)
     new_partners = await count_by_day(BusinessProfile.created_at)
-    new_ads = await count_by_day(MarketplaceAd.created_at)
+    new_ads = await AdsApplication(db).created_counts_by_day(start_at, _VN_TZ_NAME)
 
     return [
         DailyPoint(

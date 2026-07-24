@@ -34,10 +34,8 @@ export interface DashboardSummary {
   biz_ads_launching: number
   biz_ads_today: number
   biz_ads_7d: number
-  biz_ads_tier_gold: number
-  biz_ads_tier_silver: number
-  biz_ads_tier_bronze: number
-  biz_ads_fee_sum: number
+  biz_ads_tier_counts: { id: string; name: string; count: number }[]
+  biz_ads_monthly_price_sum: number
 }
 
 export interface DailyPoint {

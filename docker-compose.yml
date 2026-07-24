@@ -86,9 +86,15 @@ services:
       - "/migrations/145_notifications_event_idempotency.sql"
       - "-f"
       - "/migrations/146_notification_outbox.sql"
+      - "-f"
+      - "/migrations/148_marketplace_ads_exposure.sql"
+      - "-f"
+      - "/migrations/149_ads_tiers.sql"
     volumes:
       - ./database/init/145_notifications_event_idempotency.sql:/migrations/145_notifications_event_idempotency.sql:ro
       - ./database/init/146_notification_outbox.sql:/migrations/146_notification_outbox.sql:ro
+      - ./database/init/148_marketplace_ads_exposure.sql:/migrations/148_marketplace_ads_exposure.sql:ro
+      - ./database/init/149_ads_tiers.sql:/migrations/149_ads_tiers.sql:ro
     networks:
       - dev-net
     depends_on:

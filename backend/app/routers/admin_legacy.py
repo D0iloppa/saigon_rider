@@ -53,7 +53,6 @@ from ..models import (
     FeedPostImage,
     GasStation,
     GasStationSubmission,
-    MarketplaceAd,
     NicknameWord,
     PlaceSubmission,
     Poi,
@@ -67,6 +66,8 @@ from ..models import (
     User,
     UserBadge,
 )
+from ..modules.ads import AdsApplication
+from ..modules.ads.application import AdRead, AdsError
 from ..quest_card_map import quest_card_file_path, resolve_quest_card_code
 from ..schemas import POIBulkRequest, POIBulkResult
 from ..services import noti_events
@@ -3872,17 +3873,7 @@ async def admin_biz_account_detail(
         raise HTTPException(status_code=404, detail="Profile not found")
     bp, nickname = row
 
-    ads = (
-        (
-            await db.execute(
-                select(MarketplaceAd)
-                .where(MarketplaceAd.owner_business_profile_id == profile_id)
-                .order_by(MarketplaceAd.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
-    )
+    ads = await AdsApplication(db).own_ads(profile_id)
     ads_rows = "".join(
         f"<tr><td>{h(ad.title)}</td><td>{h(ad.review_status)}</td><td>{ad.created_at.strftime('%Y-%m-%d')}</td></tr>"
         for ad in ads
@@ -3955,20 +3946,7 @@ async def admin_biz_account_suspend(
     bp.status = "SUSPENDED"
     bp.reviewed_at = datetime.now(UTC)
 
-    live_ads = (
-        (
-            await db.execute(
-                select(MarketplaceAd).where(
-                    MarketplaceAd.owner_business_profile_id == profile_id,
-                    MarketplaceAd.review_status == "APPROVED",
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for ad in live_ads:
-        ad.review_status = "STOPPED"
+    await AdsApplication(db).stop_profile_ads(profile_id)
 
     await db.commit()
 
@@ -4021,14 +3999,14 @@ _BIZ_AD_FLASHES = {
 }
 
 
-def _ad_image_url(ad: MarketplaceAd) -> str:
+def _ad_image_url(ad: AdRead) -> str:
     """contents 중개 이미지 우선, 레거시 image_url(외부 http) 폴백."""
-    if ad.image_content_id and ad.image_content:
-        return _content_url(ad.image_content)
+    if ad.image_file_path:
+        return build_imgproxy_url(ad.image_file_path)
     return ad.image_url or ""
 
 
-def _ad_period(ad: MarketplaceAd) -> str:
+def _ad_period(ad: AdRead) -> str:
     if not ad.starts_at and not ad.ends_at:
         return "상시"
     fmt = "%y-%m-%d"
@@ -4041,15 +4019,7 @@ async def admin_biz_ads(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (
-        await db.execute(
-            select(MarketplaceAd, BusinessProfile)
-            .outerjoin(BusinessProfile, BusinessProfile.id == MarketplaceAd.owner_business_profile_id)
-            .order_by(MarketplaceAd.created_at.desc())
-        )
-    ).all()
-    # PENDING 을 상단으로 (biz_accounts 패턴 — stable sort 로 최신순 유지)
-    rows = sorted(rows, key=lambda r: r[0].review_status != "PENDING")
+    rows = await AdsApplication(db).list_admin_ads(None, None, None)
 
     if rows:
         body_rows = ""
@@ -4118,18 +4088,14 @@ async def admin_biz_ad_approve(
     session: AdminSession = Depends(verify_admin_session),
     db: AsyncSession = Depends(get_db),
 ):
-    ad = await db.get(MarketplaceAd, ad_id)
-    if not ad:
-        return RedirectResponse("/admin-legacy/biz-ads?flash=notfound", status_code=303)
-    if ad.review_status != "PENDING":
+    try:
+        ad, bp = await AdsApplication(db).approve(ad_id)
+    except AdsError as exc:
+        if exc.status_code == 404:
+            return RedirectResponse("/admin-legacy/biz-ads?flash=notfound", status_code=303)
+        if exc.detail == "owner profile is not active":
+            return RedirectResponse("/admin-legacy/biz-ads?flash=profile_not_active", status_code=303)
         return RedirectResponse("/admin-legacy/biz-ads?flash=done", status_code=303)
-
-    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
-    # 정지(SUSPENDED) 등 비활성 프로필의 광고 승인 차단 — resume_ad 가드의 승인 경로 우회 방지
-    if bp and bp.status != "APPROVED":
-        return RedirectResponse("/admin-legacy/biz-ads?flash=profile_not_active", status_code=303)
-
-    ad.review_status = "APPROVED"
     await db.commit()
 
     if bp:
@@ -4151,15 +4117,11 @@ async def admin_biz_ad_reject(
     if not reason:
         raise HTTPException(status_code=400, detail="반려 사유는 필수입니다.")
 
-    ad = await db.get(MarketplaceAd, ad_id)
-    if not ad:
-        return RedirectResponse("/admin-legacy/biz-ads?flash=notfound", status_code=303)
-    if ad.review_status != "PENDING":
-        return RedirectResponse("/admin-legacy/biz-ads?flash=done", status_code=303)
-
-    ad.review_status = "REJECTED"
-    ad.reject_reason = reason
-    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    try:
+        ad, bp = await AdsApplication(db).reject(ad_id, reason)
+    except AdsError as exc:
+        flash = "notfound" if exc.status_code == 404 else "done"
+        return RedirectResponse(f"/admin-legacy/biz-ads?flash={flash}", status_code=303)
     await db.commit()
 
     if bp:

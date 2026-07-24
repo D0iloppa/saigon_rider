@@ -142,6 +142,21 @@ backend/app/
 
 **`engine_client.py` 역할**: BFF가 Engine을 호출하는 단일 진입점. `httpx.AsyncClient`를 래핑하며 `X-Service-Key` 헤더를 자동 주입한다.
 
+#### 광고 bounded context
+
+광고는 BFF 프로세스 안의 modular-monolith 모듈(`backend/app/modules/ads/`)로 소유한다.
+앱·마켓·신규/legacy 관리자 라우터는 인증과 HTTP 변환만 담당하며 광고 조회·상태 변경·노출 정책은
+`AdsApplication`을 통해 실행한다. 현재 저장소 adapter는 BFF PostgreSQL을 사용한다.
+
+관리자가 `ad_tiers`의 이름·월 가격·노출 가중치·신규판매 활성 여부·표시 순서를 정의한다. 신규
+비즈니스 광고는 활성 티어 UUID를 반드시 선택하고 신청 당시 월 가격을
+`monthly_price_snapshot_vnd`에 보존한다. 티어 비활성화는 신규 신청만 차단하며 기존 게시 광고는
+계속 노출된다. 공개 노출은 조회 시 현재 티어의 `exposure_weight`를 join하므로 가중치 변경이 게시
+중 광고에도 즉시 적용된다. IAP 영수증·갱신·환불·entitlement는 이 모듈의 후속 결제 경계로 분리한다.
+
+향후 광고 서비스를 MSA로 추출할 때 라우터 계약은 유지하고 `AdsApplication` 호출을 광고 서비스 HTTP
+client adapter로 교체한다. 라우터에서 광고 테이블을 직접 조회하는 방식은 허용하지 않는다.
+
 ```python
 # backend/app/engine_client.py
 import httpx

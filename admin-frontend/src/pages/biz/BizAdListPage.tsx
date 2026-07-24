@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, Avatar, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
+import { Alert, Avatar, Button, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
-import { useApproveBizAd, useBizAds, useRejectBizAd, useUpdateBizAdExposure, type BizAdRow } from '../../api/biz'
+import { useApproveBizAd, useBizAds, useRejectBizAd, type BizAdRow } from '../../api/biz'
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: '대기' },
@@ -17,18 +17,6 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
   APPROVED: { color: 'green', label: '승인됨' },
   REJECTED: { color: 'default', label: '반려됨' },
   STOPPED: { color: 'red', label: '중단됨' },
-}
-
-const TIER_OPTIONS = [
-  { value: 'GOLD', label: 'GOLD' },
-  { value: 'SILVER', label: 'SILVER' },
-  { value: 'BRONZE', label: 'BRONZE' },
-]
-
-const TIER_TAG: Record<string, string> = {
-  GOLD: 'gold',
-  SILVER: 'blue',
-  BRONZE: 'volcano',
 }
 
 const PROFILE_STATUS_TAG: Record<string, { color: string; label: string }> = {
@@ -58,42 +46,13 @@ export default function BizAdListPage() {
   const [status, setStatus] = useState(initialStatus)
   const [rejectTarget, setRejectTarget] = useState<BizAdRow | null>(null)
   const [reason, setReason] = useState('')
-  const [exposureTarget, setExposureTarget] = useState<BizAdRow | null>(null)
-  const [tier, setTier] = useState<string>('BRONZE')
-  const [fee, setFee] = useState<number | null>(0)
-
   const { data, isLoading, isError, error } = useBizAds(status || undefined)
   const approveMutation = useApproveBizAd()
   const rejectMutation = useRejectBizAd()
-  const exposureMutation = useUpdateBizAdExposure()
 
   const closeRejectModal = () => {
     setRejectTarget(null)
     setReason('')
-  }
-
-  const openExposureModal = (r: BizAdRow) => {
-    setExposureTarget(r)
-    setTier(r.exposure_tier)
-    setFee(r.ad_fee)
-  }
-
-  const closeExposureModal = () => {
-    setExposureTarget(null)
-  }
-
-  const submitExposure = () => {
-    if (!exposureTarget) return
-    exposureMutation.mutate(
-      { id: exposureTarget.id, exposure_tier: tier, ad_fee: fee ?? 0 },
-      {
-        onSuccess: () => {
-          message.success('노출 설정이 저장되었습니다.')
-          closeExposureModal()
-        },
-        onError: (err) => message.error(err instanceof Error ? err.message : '처리에 실패했습니다.'),
-      }
-    )
   }
 
   const submitReject = () => {
@@ -159,15 +118,15 @@ export default function BizAdListPage() {
       render: (v: string) => <Tag color={STATUS_TAG[v]?.color ?? 'default'}>{STATUS_TAG[v]?.label ?? v}</Tag>,
     },
     {
-      title: '노출 등급',
-      dataIndex: 'exposure_tier',
-      key: 'exposure_tier',
-      render: (v: string) => <Tag color={TIER_TAG[v] ?? 'default'}>{v}</Tag>,
+      title: '광고 티어',
+      dataIndex: 'tier_name',
+      key: 'tier_name',
+      render: (v: string | null) => <Tag color="blue">{v ?? '-'}</Tag>,
     },
     {
-      title: '과금액 (VND)',
-      dataIndex: 'ad_fee',
-      key: 'ad_fee',
+      title: '신청 월 가격 (VND)',
+      dataIndex: 'monthly_price_snapshot_vnd',
+      key: 'monthly_price_snapshot_vnd',
       align: 'right' as const,
       render: (v: number) => v.toLocaleString('en-US'),
     },
@@ -203,7 +162,6 @@ export default function BizAdListPage() {
           ) : (
             <span style={{ color: '#94a3b8' }}>{r.reject_reason ?? '-'}</span>
           )}
-          <a onClick={() => openExposureModal(r)}>노출설정</a>
         </Space>
       ),
     },
@@ -213,6 +171,7 @@ export default function BizAdListPage() {
     <>
       <Space style={{ marginBottom: 16 }}>
         <Select style={{ width: 160 }} value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+        <Button onClick={() => navigate('/biz/ad-tiers')}>광고 티어 정책</Button>
       </Space>
       <Table<BizAdRow>
         rowKey="id"
@@ -232,28 +191,6 @@ export default function BizAdListPage() {
         cancelText="취소"
       >
         <Input.TextArea rows={3} placeholder="반려 사유 (필수)" value={reason} onChange={(e) => setReason(e.target.value)} />
-      </Modal>
-      <Modal
-        title="노출 등급 / 과금액 설정"
-        open={exposureTarget !== null}
-        onOk={submitExposure}
-        onCancel={closeExposureModal}
-        confirmLoading={exposureMutation.isPending}
-        okText="저장"
-        cancelText="취소"
-      >
-        <p style={{ color: '#94a3b8', marginTop: 0 }}>등급이 높고 과금액이 클수록 더 자주 노출됩니다.</p>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Select style={{ width: '100%' }} value={tier} options={TIER_OPTIONS} onChange={setTier} />
-          <InputNumber
-            style={{ width: '100%' }}
-            min={0}
-            step={10000}
-            value={fee}
-            onChange={setFee}
-            placeholder="과금액 (VND)"
-          />
-        </Space>
       </Modal>
     </>
   )

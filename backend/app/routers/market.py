@@ -12,7 +12,6 @@ from ..deps import optional_user_session, verify_user_session
 from ..models import (
     DmConversation,
     DmMessage,
-    MarketplaceAd,
     MarketplaceAppointment,
     MarketplaceCategory,
     MarketplaceKeywordAlert,
@@ -26,6 +25,8 @@ from ..models import (
     UserBlock,
     UserFollow,
 )
+from ..modules.ads import AdsApplication
+from ..modules.ads.application import AdRead, AdsError
 from ..schemas import (
     AppointmentOut,
     AppointmentProposeRequest,
@@ -58,7 +59,6 @@ from ..schemas import (
 )
 from ..services import noti_events
 from ..services.ad_exposure import build_exposure_sequence
-from ..services.ad_gating import launching_ad_conditions
 from ..services.dm_policy import require_participant, require_unblocked
 from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_all, translate_to, warm_translations
@@ -143,12 +143,26 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
     return rows
 
 
-def _public_ad_out(ad: MarketplaceAd) -> MarketplaceAdOut:
+def _public_ad_out(ad: AdRead) -> MarketplaceAdOut:
     """BP-4: contents 중개 이미지(image_content_id) 우선 — 레거시 image_url 은 validator 폴백."""
-    out = MarketplaceAdOut.model_validate(ad)
-    if ad.image_content:
-        out.image_url = build_imgproxy_url(ad.image_content.file_path, options="rs:fill:360:200:1")
-    return out
+    return MarketplaceAdOut(
+        id=ad.id,
+        partner_name=ad.partner_name,
+        title=ad.title,
+        body=ad.body,
+        image_url=ad.image_file_path or ad.image_url,
+        link_url=ad.link_url,
+        phone=ad.phone,
+        address=ad.address,
+        owner_id=ad.owner_id,
+        owner_business_profile_id=ad.owner_business_profile_id,
+        district_id=ad.district_id,
+        category=ad.category,
+        rating=float(ad.rating) if ad.rating is not None else None,
+        service_count=ad.service_count,
+        established_year=ad.established_year,
+        business_hours=ad.business_hours,
+    )
 
 
 # M-8 제휴광고 (활성·지역 타게팅: 해당 구 + 전역). 피드 중간 삽입용.
@@ -158,17 +172,8 @@ async def get_ads(
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·본문을 캐시된 번역으로 표기"),
     db: AsyncSession = Depends(get_db),
 ):
-    now = datetime.now(UTC)
-    # BP-4 노출 게이트: 심사 통과(APPROVED) 광고만 노출 (PENDING/REJECTED/STOPPED 제외)
-    q = select(MarketplaceAd).where(*launching_ad_conditions(now))
-    if district_id is not None:
-        q = q.where(or_(MarketplaceAd.district_id == district_id, MarketplaceAd.district_id.is_(None)))
-    q = q.order_by(MarketplaceAd.sort_order)
-    ads = (await db.execute(q)).scalars().all()
-    # 148: 균등 순환 대신 tier+ad_fee 가중 로테이션 시퀀스로 변환(반복 허용).
-    # sort_order 정렬 입력은 동일 weight 광고의 결정적 tiebreak 로 보존된다.
-    # 프론트는 이 리스트를 위치기반으로만 순환(재가중 안 함).
-    ads = build_exposure_sequence(list(ads))
+    weighted = build_exposure_sequence(await AdsApplication(db).public_ads(district_id))
+    ads = [item.ad for item in weighted]
     if not lang:
         return [_public_ad_out(a) for a in ads]
     # 조회 언어로 제목·본문 표기(캐시 히트만, 없으면 원문). 배치 — API 호출 안 함.
@@ -188,17 +193,10 @@ async def get_ad(
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·본문 번역"),
     db: AsyncSession = Depends(get_db),
 ):
-    ad = (
-        await db.execute(
-            select(MarketplaceAd).where(
-                MarketplaceAd.id == ad_id,
-                MarketplaceAd.is_active == True,
-                MarketplaceAd.review_status == "APPROVED",  # BP-4 노출 게이트
-            )
-        )
-    ).scalar_one_or_none()
-    if ad is None:
-        raise HTTPException(status_code=404, detail="Ad not found")
+    try:
+        ad = await AdsApplication(db).public_ad(ad_id)
+    except AdsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     if not lang:
         return _public_ad_out(ad)
     out = _public_ad_out(ad)

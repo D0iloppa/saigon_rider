@@ -9,15 +9,16 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import BusinessGroup, BusinessProfile, MarketplaceAd, User
+from ...models import BusinessGroup, BusinessProfile, User
+from ...modules.ads import AdsApplication
+from ...modules.ads.application import AdRead, AdsError, OwnerRead
 from ...services import noti_events
-from ...services.ad_gating import launching_ad_conditions
 from ...utils import build_imgproxy_url
 from ._audit import audit
 
@@ -25,7 +26,6 @@ router = APIRouter(prefix="/biz")
 
 _ACCOUNT_STATUSES = {"PENDING", "APPROVED", "REJECTED", "SUSPENDED"}
 _AD_STATUSES = {"PENDING", "APPROVED", "REJECTED", "STOPPED"}
-_EXPOSURE_TIERS = {"GOLD", "SILVER", "BRONZE"}
 
 
 class BizGroupBrief(BaseModel):
@@ -87,13 +87,36 @@ class BizAdRow(BaseModel):
     profile_status: str | None
     review_status: str
     reject_reason: str | None
-    exposure_tier: str
     ad_fee: int
+    tier_id: uuid.UUID
+    tier_name: str
+    monthly_price_snapshot_vnd: int
 
 
 class BizAdExposureUpdateRequest(BaseModel):
-    exposure_tier: str
-    ad_fee: int = Field(ge=0)
+    tier_id: uuid.UUID
+
+
+class AdTierBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    monthly_price_vnd: int = Field(ge=0)
+    exposure_weight: int = Field(gt=0)
+    is_active: bool = True
+    display_order: int = Field(default=0, ge=-32768, le=32767)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("name is required")
+        return value
+
+
+class AdTierRow(AdTierBody):
+    id: uuid.UUID
+
+    model_config = {"from_attributes": True}
 
 
 def _validate_status(status: str | None, valid: set[str]) -> None:
@@ -107,14 +130,14 @@ def _photo_url(bp: BusinessProfile) -> str | None:
     return None
 
 
-def _ad_image_url(ad: MarketplaceAd) -> str | None:
+def _ad_image_url(ad: AdRead) -> str | None:
     """contents 중개 이미지 우선, 레거시 image_url 폴백 — schemas.MarketplaceAdOut.resolve_image_and_status 미러.
 
     레거시 image_url 은 비-http 스토리지 키(예: official/ads/xxx.jpg)인 경우가 있어 그대로 반환하면
     어드민에서 깨진다 — http 로 시작하지 않으면 imgproxy 로 변환한다.
     """
-    if ad.image_content and ad.image_content.file_path:
-        return build_imgproxy_url(ad.image_content.file_path)
+    if ad.image_file_path:
+        return build_imgproxy_url(ad.image_file_path)
     if ad.image_url and not ad.image_url.startswith("http"):
         return build_imgproxy_url(ad.image_url)
     return ad.image_url
@@ -136,7 +159,7 @@ def _account_row(bp: BusinessProfile, nickname: str | None) -> BizAccountRow:
     )
 
 
-def _ad_row(ad: MarketplaceAd, bp: BusinessProfile | None) -> BizAdRow:
+def _ad_row(ad: AdRead, bp: OwnerRead | None) -> BizAdRow:
     return BizAdRow(
         id=ad.id,
         created_at=ad.created_at,
@@ -151,9 +174,53 @@ def _ad_row(ad: MarketplaceAd, bp: BusinessProfile | None) -> BizAdRow:
         profile_status=bp.status if bp else None,
         review_status=ad.review_status,
         reject_reason=ad.reject_reason,
-        exposure_tier=ad.exposure_tier,
         ad_fee=ad.ad_fee,
+        tier_id=ad.tier_id,
+        tier_name=ad.tier_name,
+        monthly_price_snapshot_vnd=ad.monthly_price_snapshot_vnd,
     )
+
+
+def _ads_error(exc: AdsError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+
+@router.get("/ad-tiers", response_model=list[AdTierRow], summary="광고 티어 정책 목록")
+async def list_ad_tiers(
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    return await AdsApplication(db).list_tiers()
+
+
+@router.post("/ad-tiers", response_model=AdTierRow, status_code=201, summary="광고 티어 생성")
+async def create_ad_tier(
+    body: AdTierBody,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    tier = await AdsApplication(db).create_tier(**body.model_dump())
+    await audit(db, session, request, "BIZ_AD_TIER_CREATE", "ad_tier", str(tier.id), body.model_dump())
+    await db.commit()
+    return tier
+
+
+@router.put("/ad-tiers/{tier_id}", response_model=AdTierRow, summary="광고 티어 수정/비활성화")
+async def update_ad_tier(
+    tier_id: uuid.UUID,
+    body: AdTierBody,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        tier = await AdsApplication(db).update_tier(tier_id, **body.model_dump())
+        await audit(db, session, request, "BIZ_AD_TIER_UPDATE", "ad_tier", str(tier_id), body.model_dump())
+        await db.commit()
+        return tier
+    except AdsError as exc:
+        raise _ads_error(exc) from exc
 
 
 async def _get_account_or_404(db: AsyncSession, profile_id: uuid.UUID) -> BusinessProfile:
@@ -199,17 +266,7 @@ async def get_biz_account(
         raise HTTPException(status_code=404, detail="Business profile not found")
     bp, nickname = row
 
-    ads = (
-        (
-            await db.execute(
-                select(MarketplaceAd)
-                .where(MarketplaceAd.owner_business_profile_id == profile_id)
-                .order_by(MarketplaceAd.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
-    )
+    ads = await AdsApplication(db).own_ads(profile_id)
     groups = (await db.execute(select(BusinessGroup).order_by(BusinessGroup.name))).scalars().all()
     group_name = next((g.name for g in groups if g.id == bp.group_id), None) if bp.group_id else None
 
@@ -303,23 +360,10 @@ async def suspend_biz_account(
     bp.status = "SUSPENDED"
     bp.reviewed_at = datetime.now(UTC)
 
-    live_ads = (
-        (
-            await db.execute(
-                select(MarketplaceAd).where(
-                    MarketplaceAd.owner_business_profile_id == profile_id,
-                    MarketplaceAd.review_status == "APPROVED",
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for ad in live_ads:
-        ad.review_status = "STOPPED"
+    stopped_ads = await AdsApplication(db).stop_profile_ads(profile_id)
 
     await audit(
-        db, session, request, "BIZ_ACCOUNT_SUSPEND", "business_profile", str(profile_id), {"stopped_ads": len(live_ads)}
+        db, session, request, "BIZ_ACCOUNT_SUSPEND", "business_profile", str(profile_id), {"stopped_ads": stopped_ads}
     )
     await db.commit()
 
@@ -376,27 +420,8 @@ async def list_biz_ads(
     db: AsyncSession = Depends(get_db),
 ):
     _validate_status(status, _AD_STATUSES)
-    stmt = select(MarketplaceAd, BusinessProfile).outerjoin(
-        BusinessProfile, BusinessProfile.id == MarketplaceAd.owner_business_profile_id
-    )
-    if status:
-        stmt = stmt.where(MarketplaceAd.review_status == status)
-    if profile_id is not None:
-        stmt = stmt.where(MarketplaceAd.owner_business_profile_id == profile_id)
-    if launching:
-        # market.py get_ads 의 공개 노출 게이트(APPROVED+is_active+게시기간)와 동일 정의.
-        now = datetime.now(UTC)
-        stmt = stmt.where(*launching_ad_conditions(now))
-    stmt = stmt.order_by(case((MarketplaceAd.review_status == "PENDING", 0), else_=1), MarketplaceAd.created_at.desc())
-    rows = (await db.execute(stmt)).all()
+    rows = await AdsApplication(db).list_admin_ads(status, profile_id, launching)
     return [_ad_row(ad, bp) for ad, bp in rows]
-
-
-async def _get_ad_or_404(db: AsyncSession, ad_id: uuid.UUID) -> MarketplaceAd:
-    ad = await db.get(MarketplaceAd, ad_id)
-    if ad is None:
-        raise HTTPException(status_code=404, detail="Ad not found")
-    return ad
 
 
 @router.get("/ads/{ad_id}", response_model=BizAdRow, summary="광고 소재 상세")
@@ -405,8 +430,10 @@ async def get_biz_ad(
     _session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
-    ad = await _get_ad_or_404(db, ad_id)
-    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    try:
+        ad, bp = await AdsApplication(db).get_ad_with_owner(ad_id)
+    except AdsError as exc:
+        raise _ads_error(exc) from exc
     return _ad_row(ad, bp)
 
 
@@ -417,16 +444,10 @@ async def approve_biz_ad(
     session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
-    ad = await _get_ad_or_404(db, ad_id)
-    if ad.review_status != "PENDING":
-        raise HTTPException(status_code=409, detail="already processed")
-
-    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
-    # 정지(SUSPENDED) 등 비활성 프로필의 광고 승인 차단 — resume_ad 가드의 승인 경로 우회 방지
-    if bp and bp.status != "APPROVED":
-        raise HTTPException(status_code=409, detail="owner profile is not active")
-
-    ad.review_status = "APPROVED"
+    try:
+        ad, bp = await AdsApplication(db).approve(ad_id)
+    except AdsError as exc:
+        raise _ads_error(exc) from exc
 
     await audit(db, session, request, "BIZ_AD_APPROVE", "marketplace_ad", str(ad_id))
     await db.commit()
@@ -451,13 +472,10 @@ async def reject_biz_ad(
     if not reason:
         raise HTTPException(status_code=400, detail="reason is required")
 
-    ad = await _get_ad_or_404(db, ad_id)
-    if ad.review_status != "PENDING":
-        raise HTTPException(status_code=409, detail="already processed")
-
-    ad.review_status = "REJECTED"
-    ad.reject_reason = reason
-    bp = await db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+    try:
+        ad, bp = await AdsApplication(db).reject(ad_id, reason)
+    except AdsError as exc:
+        raise _ads_error(exc) from exc
 
     await audit(db, session, request, "BIZ_AD_REJECT", "marketplace_ad", str(ad_id), {"reason": reason})
     await db.commit()
@@ -484,11 +502,10 @@ async def update_biz_ad_exposure(
     session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
-    _validate_status(body.exposure_tier, _EXPOSURE_TIERS)
-    ad = await _get_ad_or_404(db, ad_id)
-
-    ad.exposure_tier = body.exposure_tier
-    ad.ad_fee = body.ad_fee
+    try:
+        ad = await AdsApplication(db).set_tier(ad_id, body.tier_id)
+    except AdsError as exc:
+        raise _ads_error(exc) from exc
 
     await audit(
         db,
@@ -497,7 +514,7 @@ async def update_biz_ad_exposure(
         "BIZ_AD_EXPOSURE_UPDATE",
         "marketplace_ad",
         str(ad_id),
-        {"exposure_tier": ad.exposure_tier, "ad_fee": ad.ad_fee},
+        {"tier_id": str(ad.tier_id), "ad_fee": ad.ad_fee},
     )
     await db.commit()
-    return {"id": ad.id, "exposure_tier": ad.exposure_tier, "ad_fee": ad.ad_fee}
+    return {"id": ad.id, "tier_id": ad.tier_id, "ad_fee": ad.ad_fee}

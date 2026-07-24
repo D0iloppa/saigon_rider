@@ -107,7 +107,9 @@ export interface BizAdRow {
   profile_status: string | null
   review_status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'STOPPED'
   reject_reason: string | null
-  exposure_tier: 'GOLD' | 'SILVER' | 'BRONZE'
+  tier_id: string
+  tier_name: string
+  monthly_price_snapshot_vnd: number
   ad_fee: number
 }
 
@@ -155,11 +157,43 @@ export function useRejectBizAd() {
   })
 }
 
-export function useUpdateBizAdExposure() {
+// ── 광고 티어 정책 ─────────────────────────────────────────────────
+
+export interface BizAdTier {
+  id: string
+  name: string
+  monthly_price_vnd: number
+  exposure_weight: number
+  is_active: boolean
+  display_order: number
+}
+
+export type BizAdTierInput = Omit<BizAdTier, 'id'>
+
+export function useBizAdTiers() {
+  return useQuery({
+    queryKey: ['biz', 'ad-tiers'],
+    queryFn: () => api<BizAdTier[]>('/admin/api/biz/ad-tiers'),
+  })
+}
+
+export function useCreateBizAdTier() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, exposure_tier, ad_fee }: { id: string; exposure_tier: string; ad_fee: number }) =>
-      api(`/admin/api/biz/ads/${id}/exposure`, { method: 'POST', body: JSON.stringify({ exposure_tier, ad_fee }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['biz', 'ads'] }),
+    mutationFn: (input: BizAdTierInput) =>
+      api<BizAdTier>('/admin/api/biz/ad-tiers', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['biz', 'ad-tiers'] }),
+  })
+}
+
+export function useUpdateBizAdTier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: BizAdTier) =>
+      api<BizAdTier>(`/admin/api/biz/ad-tiers/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['biz', 'ad-tiers'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'ads'] })
+    },
   })
 }

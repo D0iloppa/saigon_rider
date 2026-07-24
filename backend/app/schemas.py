@@ -1099,6 +1099,7 @@ class BusinessProfileOut(BaseModel):
 
 class BusinessAdCreateRequest(BaseModel):
     profile_id: uuid.UUID
+    tier_id: uuid.UUID
     title: str
     body: str | None = None
     image_content_id: uuid.UUID
@@ -1109,6 +1110,9 @@ class BusinessAdCreateRequest(BaseModel):
 class BusinessAdOut(BaseModel):
     id: uuid.UUID
     profile_id: uuid.UUID | None = None
+    tier_id: uuid.UUID
+    tier_name: str
+    monthly_price_snapshot_vnd: int = 0
     title: str
     body: str | None = None
     image_url: str | None = None
@@ -1117,6 +1121,17 @@ class BusinessAdOut(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     created_at: datetime
+
+
+class AdTierOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    monthly_price_vnd: int
+    exposure_weight: int
+    is_active: bool
+    display_order: int
+
+    model_config = {"from_attributes": True}
 
 
 # ── 공개 비즈니스 프로필 (SGR-312 BP-6) ───────────────────────────

@@ -224,9 +224,11 @@ export default function DashboardPage() {
               <Metric label="론칭중" value={s.biz_ads_launching} unit="건" />
               <Metric label="신규 등록 (오늘)" value={s.biz_ads_today} unit="건" />
               <Metric label="신규 등록 (7일)" value={s.biz_ads_7d} unit="건" />
-              <Metric label="과금액 (론칭중)" value={s.biz_ads_fee_sum} unit="VND" />
+              <Metric label="월 구독액 snapshot (론칭중)" value={s.biz_ads_monthly_price_sum} unit="VND" />
             </dl>
-            <p>GOLD {s.biz_ads_tier_gold.toLocaleString()} · SILVER {s.biz_ads_tier_silver.toLocaleString()} · BRONZE {s.biz_ads_tier_bronze.toLocaleString()}</p>
+            <p>
+              {s.biz_ads_tier_counts.map((tier) => `${tier.name} ${tier.count.toLocaleString()}`).join(' · ') || '티어 없음'}
+            </p>
           </article>
         </div>
       </section>

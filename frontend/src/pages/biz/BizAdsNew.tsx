@@ -8,7 +8,7 @@ import { api, extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
-import { createBusinessAd, fetchBusinessProfiles } from '@/api/biz';
+import { createBusinessAd, fetchAdTiers, fetchBusinessProfiles, type AdTier } from '@/api/biz';
 import styles from './BizAdsNew.module.css';
 
 interface LocationState {
@@ -23,6 +23,9 @@ export default function BizAdsNew() {
   const stateProfileId = (location.state as LocationState | null)?.profileId;
 
   const [profileId, setProfileId] = useState<string | null>(stateProfileId ?? null);
+  const [tiers, setTiers] = useState<AdTier[]>([]);
+  const [tierId, setTierId] = useState<string | null>(null);
+  const [tiersLoading, setTiersLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -55,9 +58,37 @@ export default function BizAdsNew() {
     };
   }, [stateProfileId, navigate]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchAdTiers()
+      .then((list) => {
+        if (cancelled) return;
+        setTiers(list);
+        if (list.length === 1) setTierId(list[0].id);
+      })
+      .catch((err: any) => {
+        if (!cancelled) {
+          toast.error(extractDetail(err, t('biz.adTierLoadError', { defaultValue: '광고 등급을 불러오지 못했습니다' })));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setTiersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
   const periodInvalid = !!startDate && !!endDate && endDate < startDate;
   const canSubmit =
-    !submitting && !uploadingImage && !!profileId && !!imageContentId && title.trim().length > 0 && !periodInvalid;
+    !submitting &&
+    !uploadingImage &&
+    !tiersLoading &&
+    !!profileId &&
+    !!tierId &&
+    !!imageContentId &&
+    title.trim().length > 0 &&
+    !periodInvalid;
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,11 +112,12 @@ export default function BizAdsNew() {
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit || !profileId || !imageContentId) return;
+    if (!canSubmit || !profileId || !tierId || !imageContentId) return;
     setSubmitting(true);
     try {
       const ad = await createBusinessAd({
         profileId,
+        tierId,
         title: title.trim(),
         body: body.trim() || null,
         imageContentId,
@@ -141,6 +173,40 @@ export default function BizAdsNew() {
           onChange={(e) => setBody(e.target.value)}
           maxLength={160}
         />
+
+        <p className={styles.label}>{t('biz.adTierLabel', { defaultValue: '광고 등급' })}</p>
+        {tiersLoading ? (
+          <p className={styles.tierMessage}>{t('common.loading', { defaultValue: '불러오는 중...' })}</p>
+        ) : tiers.length > 0 ? (
+          <div className={styles.tierList}>
+            {tiers.map((tier) => (
+              <label
+                key={tier.id}
+                className={`${styles.tierCard} ${tierId === tier.id ? styles.tierCardSelected : ''}`}
+              >
+                <input
+                  className={styles.tierRadio}
+                  type="radio"
+                  name="ad-tier"
+                  value={tier.id}
+                  checked={tierId === tier.id}
+                  onChange={() => setTierId(tier.id)}
+                />
+                <span>
+                  <strong>{tier.name}</strong>
+                  <small>
+                    {tier.monthlyPriceVnd.toLocaleString('vi-VN')} ₫ /{' '}
+                    {t('biz.month', { defaultValue: '월' })}
+                  </small>
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.tierMessage}>
+            {t('biz.adTierEmpty', { defaultValue: '현재 신청 가능한 광고 등급이 없습니다.' })}
+          </p>
+        )}
 
         {/* Period */}
         <p className={styles.label}>{t('biz.adPeriodLabel', { defaultValue: '게시 기간 (선택)' })}</p>

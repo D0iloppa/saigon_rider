@@ -17,12 +17,6 @@ const PROFILE_STATUS_TAG: Record<string, { color: string; label: string }> = {
   SUSPENDED: { color: 'red', label: '정지됨' },
 }
 
-const TIER_TAG: Record<string, string> = {
-  GOLD: 'gold',
-  SILVER: 'blue',
-  BRONZE: 'volcano',
-}
-
 function adPeriod(startsAt: string | null, endsAt: string | null): string {
   if (!startsAt && !endsAt) return '상시'
   const fmt = (v: string | null) => (v ? dayjs(v).format('YYYY-MM-DD') : '—')
@@ -85,10 +79,12 @@ export default function BizAdDetailPage() {
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="반려 사유">{ad.reject_reason ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label="노출 등급">
-              <Tag color={TIER_TAG[ad.exposure_tier] ?? 'default'}>{ad.exposure_tier}</Tag>
+            <Descriptions.Item label="광고 티어">
+              <Tag color="blue">{ad.tier_name ?? '-'}</Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="과금액 (VND)">{ad.ad_fee.toLocaleString('en-US')}</Descriptions.Item>
+            <Descriptions.Item label="신청 월 가격 (VND)">
+              {ad.monthly_price_snapshot_vnd.toLocaleString('en-US')}
+            </Descriptions.Item>
             <Descriptions.Item label="등록일" span={2}>{dayjs(ad.created_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
           </Descriptions>
         </Space>

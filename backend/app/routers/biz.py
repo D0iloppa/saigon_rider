@@ -14,11 +14,13 @@ from ..models import (
     BusinessProfile,
     BusinessReview,
     Content,
-    MarketplaceAd,
     User,
     UserFavoriteBusiness,
 )
+from ..modules.ads import AdsApplication
+from ..modules.ads.application import AdRead, AdsError
 from ..schemas import (
+    AdTierOut,
     BusinessAdCreateRequest,
     BusinessAdOut,
     BusinessCategoryOut,
@@ -36,7 +38,6 @@ from ..schemas import (
     MarketplaceAdOut,
     Page,
 )
-from ..services.ad_gating import launching_ad_conditions
 from ..services.redis_cache import get_client
 from ..utils import build_imgproxy_url
 
@@ -209,10 +210,10 @@ async def update_profile(
 # ── 파트너 광고 (SGR-312 BP-4 — D3 [등록→심사→게시]) ─────────────
 
 
-def _ad_out(ad: MarketplaceAd) -> BusinessAdOut:
+def _ad_out(ad: AdRead) -> BusinessAdOut:
     # contents 중개 이미지 우선, 레거시 image_url 은 read-only 폴백 (BP-5 이관 광고)
-    if ad.image_content:
-        image_url = build_imgproxy_url(ad.image_content.file_path, options="rs:fill:360:200:1")
+    if ad.image_file_path:
+        image_url = build_imgproxy_url(ad.image_file_path, options="rs:fill:360:200:1")
     elif ad.image_url and not ad.image_url.startswith("http"):
         image_url = build_imgproxy_url(ad.image_url, options="rs:fill:360:200:1")
     else:
@@ -220,6 +221,9 @@ def _ad_out(ad: MarketplaceAd) -> BusinessAdOut:
     return BusinessAdOut(
         id=ad.id,
         profile_id=ad.owner_business_profile_id,
+        tier_id=ad.tier_id,
+        tier_name=ad.tier_name,
+        monthly_price_snapshot_vnd=ad.monthly_price_snapshot_vnd,
         title=ad.title,
         body=ad.body,
         image_url=image_url,
@@ -231,17 +235,9 @@ def _ad_out(ad: MarketplaceAd) -> BusinessAdOut:
     )
 
 
-async def _get_own_ad(db: AsyncSession, ad_id: uuid.UUID, user_id: uuid.UUID) -> tuple[MarketplaceAd, BusinessProfile]:
-    row = (
-        await db.execute(
-            select(MarketplaceAd, BusinessProfile)
-            .join(BusinessProfile, BusinessProfile.id == MarketplaceAd.owner_business_profile_id)
-            .where(MarketplaceAd.id == ad_id, BusinessProfile.user_id == user_id)
-        )
-    ).first()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Ad not found")
-    return row[0], row[1]
+@router.get("/ad-tiers", response_model=list[AdTierOut], summary="신청 가능한 광고 티어")
+async def list_ad_tiers(db: AsyncSession = Depends(get_db)):
+    return await AdsApplication(db).list_active_tiers()
 
 
 @router.post("/ads", response_model=BusinessAdOut, status_code=201, summary="파트너 광고 등록 (심사 후 게시)")
@@ -259,23 +255,19 @@ async def create_ad(
         raise HTTPException(status_code=400, detail="ends_at must be after starts_at")
     await _require_content(db, body.image_content_id)
 
-    ad = MarketplaceAd(
-        partner_name=profile.name[:80],
-        title=body.title.strip(),
-        body=body.body,
-        image_content_id=body.image_content_id,
-        phone=profile.phone,
-        address=profile.address,
-        owner_id=session_uid,
-        owner_business_profile_id=profile.id,
-        review_status="PENDING",
-        starts_at=body.starts_at,
-        ends_at=body.ends_at,
-        created_at=datetime.now(UTC),
-    )
-    db.add(ad)
-    await db.commit()
-    await db.refresh(ad)
+    try:
+        ad = await AdsApplication(db).create_ad(
+            profile=profile,
+            user_id=session_uid,
+            tier_id=body.tier_id,
+            title=body.title.strip(),
+            body=body.body,
+            image_content_id=body.image_content_id,
+            starts_at=body.starts_at,
+            ends_at=body.ends_at,
+        )
+    except AdsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return _ad_out(ad)
 
 
@@ -286,17 +278,7 @@ async def list_ads(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     await _get_own_profile(db, profile_id, session_uid)
-    ads = (
-        (
-            await db.execute(
-                select(MarketplaceAd)
-                .where(MarketplaceAd.owner_business_profile_id == profile_id)
-                .order_by(MarketplaceAd.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
-    )
+    ads = await AdsApplication(db).own_ads(profile_id)
     return [_ad_out(a) for a in ads]
 
 
@@ -306,7 +288,10 @@ async def get_ad(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    ad, _ = await _get_own_ad(db, ad_id, session_uid)
+    try:
+        ad, _ = await AdsApplication(db).own_ad(ad_id, session_uid)
+    except AdsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return _ad_out(ad)
 
 
@@ -316,12 +301,10 @@ async def stop_ad(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    ad, _ = await _get_own_ad(db, ad_id, session_uid)
-    if ad.review_status != "APPROVED":
-        raise HTTPException(status_code=409, detail="Only published (APPROVED) ads can be stopped")
-    ad.review_status = "STOPPED"
-    await db.commit()
-    await db.refresh(ad)
+    try:
+        ad = await AdsApplication(db).stop(ad_id, session_uid)
+    except AdsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return _ad_out(ad)
 
 
@@ -331,28 +314,36 @@ async def resume_ad(
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
-    ad, profile = await _get_own_ad(db, ad_id, session_uid)
-    if ad.review_status != "STOPPED":
-        raise HTTPException(status_code=409, detail="Only stopped ads can be resumed")
-    # admin 계정 정지 우회 방지 — SUSPENDED 프로필은 재개 불가
-    if profile.status != "APPROVED":
-        raise HTTPException(status_code=409, detail="Business profile is not active")
-    # 소재 불변이므로 재심사 없이 즉시 복귀 (STOPPED→APPROVED)
-    ad.review_status = "APPROVED"
-    await db.commit()
-    await db.refresh(ad)
+    try:
+        ad = await AdsApplication(db).resume(ad_id, session_uid)
+    except AdsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return _ad_out(ad)
 
 
 # ── 공개 비즈니스 프로필 (SGR-312 BP-6 — AD 카드 탭 노출면) ─────────
 
 
-def _public_ad_out(ad: MarketplaceAd) -> MarketplaceAdOut:
+def _public_ad_out(ad: AdRead) -> MarketplaceAdOut:
     """market.py GET /ads 의 이미지 해상 로직 미러 (BP-4 contents 중개 우선)."""
-    out = MarketplaceAdOut.model_validate(ad)
-    if ad.image_content:
-        out.image_url = build_imgproxy_url(ad.image_content.file_path, options="rs:fill:360:200:1")
-    return out
+    return MarketplaceAdOut(
+        id=ad.id,
+        partner_name=ad.partner_name,
+        title=ad.title,
+        body=ad.body,
+        image_url=ad.image_file_path or ad.image_url,
+        link_url=ad.link_url,
+        phone=ad.phone,
+        address=ad.address,
+        owner_id=ad.owner_id,
+        owner_business_profile_id=ad.owner_business_profile_id,
+        district_id=ad.district_id,
+        category=ad.category,
+        rating=float(ad.rating) if ad.rating is not None else None,
+        service_count=ad.service_count,
+        established_year=ad.established_year,
+        business_hours=ad.business_hours,
+    )
 
 
 async def _latest_news_map(db: AsyncSession, profile_ids: list[uuid.UUID]) -> dict[uuid.UUID, BusinessNewsBrief]:
@@ -458,19 +449,8 @@ async def get_public_profile(
     if profile is None or profile.status != "APPROVED":
         raise HTTPException(status_code=404, detail="Business profile not found")
 
-    now = datetime.now(UTC)
     # 게시중 광고 노출 조건 — market.py GET /ads 미러 (APPROVED + is_active + 기간 유효)
-    ads = (
-        (
-            await db.execute(
-                select(MarketplaceAd)
-                .where(MarketplaceAd.owner_business_profile_id == profile_id, *launching_ad_conditions(now))
-                .order_by(MarketplaceAd.sort_order)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    ads = await AdsApplication(db).profile_public_ads(profile_id)
     photo_url = build_imgproxy_url(profile.photo_content.file_path) if profile.photo_content else None
     return BusinessPublicProfileOut(
         id=profile.id,

@@ -105,9 +105,20 @@ export async function updateBusinessProfile(id: string, p: BusinessProfileInput)
 
 export type BusinessAdStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'STOPPED';
 
+export interface AdTier {
+  id: string;
+  name: string;
+  monthlyPriceVnd: number;
+  exposureWeight: number;
+  displayOrder: number;
+}
+
 export interface BusinessAd {
   id: string;
   profileId: string | null;
+  tierId: string;
+  tierName: string;
+  monthlyPriceSnapshotVnd: number;
   title: string;
   body: string | null;
   imageUrl: string | null;
@@ -120,6 +131,7 @@ export interface BusinessAd {
 
 export interface BusinessAdInput {
   profileId: string;
+  tierId: string;
   title: string;
   body?: string | null;
   imageContentId: string;
@@ -130,6 +142,9 @@ export interface BusinessAdInput {
 interface BusinessAdApi {
   id: string;
   profile_id: string | null;
+  tier_id: string;
+  tier_name: string;
+  monthly_price_snapshot_vnd: number;
   title: string;
   body: string | null;
   image_url: string | null;
@@ -144,6 +159,9 @@ function fromAdApi(a: BusinessAdApi): BusinessAd {
   return {
     id: a.id,
     profileId: a.profile_id,
+    tierId: a.tier_id,
+    tierName: a.tier_name,
+    monthlyPriceSnapshotVnd: a.monthly_price_snapshot_vnd,
     title: a.title,
     body: a.body,
     imageUrl: a.image_url,
@@ -155,11 +173,31 @@ function fromAdApi(a: BusinessAdApi): BusinessAd {
   };
 }
 
+interface AdTierApi {
+  id: string;
+  name: string;
+  monthly_price_vnd: number;
+  exposure_weight: number;
+  display_order: number;
+}
+
+export async function fetchAdTiers(): Promise<AdTier[]> {
+  const res = await api.realFetch<AdTierApi[]>('/biz/ad-tiers', undefined, 'bff', { rethrow: true });
+  return res.map((tier) => ({
+    id: tier.id,
+    name: tier.name,
+    monthlyPriceVnd: tier.monthly_price_vnd,
+    exposureWeight: tier.exposure_weight,
+    displayOrder: tier.display_order,
+  }));
+}
+
 export async function createBusinessAd(input: BusinessAdInput): Promise<BusinessAd> {
   const res = await api.realFetch<BusinessAdApi>('/biz/ads', {
     method: 'POST',
     body: JSON.stringify({
       profile_id: input.profileId,
+      tier_id: input.tierId,
       title: input.title,
       body: input.body ?? null,
       image_content_id: input.imageContentId,

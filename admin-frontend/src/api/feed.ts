@@ -41,7 +41,7 @@ export interface AdminCommentRow {
   author: FeedAuthorBrief
   parent_id: string | null
   content: string | null
-  image_url: string | null
+  has_image: boolean
   like_count: number
   created_at: string
 }

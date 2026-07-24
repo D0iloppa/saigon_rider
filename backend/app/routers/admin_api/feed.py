@@ -78,7 +78,7 @@ class AdminCommentRow(BaseModel):
     author: FeedAuthorBrief
     parent_id: uuid.UUID | None
     content: str | None
-    image_url: str | None
+    has_image: bool
     like_count: int
     created_at: datetime
 
@@ -185,7 +185,7 @@ async def list_feed_comments(
             author=_author_brief(user, comment.user_id),
             parent_id=comment.parent_id,
             content=comment.content,
-            image_url=comment.image_url,
+            has_image=bool(comment.image_url),
             like_count=comment.like_count,
             created_at=comment.created_at,
         )

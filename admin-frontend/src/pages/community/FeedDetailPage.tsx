@@ -7,7 +7,13 @@ export default function FeedDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { data: post, isLoading, isError, error } = useFeedPost(id)
-  const { data: comments, isLoading: commentsLoading } = useFeedComments(id)
+  const {
+    data: comments,
+    isLoading: commentsLoading,
+    isError: commentsError,
+    error: commentsQueryError,
+    refetch: refetchComments,
+  } = useFeedComments(id)
   const deletePost = useDeleteFeedPost()
 
   if (isError) {
@@ -91,32 +97,42 @@ export default function FeedDetailPage() {
       </Descriptions>
 
       <Card type="inner" title={`댓글 (${comments?.length ?? 0})`} style={{ marginTop: 16 }} loading={commentsLoading}>
-        <List
-          dataSource={comments ?? []}
-          locale={{ emptyText: '댓글이 없습니다.' }}
-          renderItem={(comment) => (
-            <List.Item style={{ paddingLeft: comment.parent_id ? 32 : 0 }}>
-              <List.Item.Meta
-                avatar={<Avatar src={comment.author.avatar_url} size={24} />}
-                title={
-                  <Space>
-                    {comment.author.nickname ?? '-'}
-                    <span style={{ fontWeight: 'normal', color: 'rgba(0,0,0,0.45)' }}>
-                      {dayjs(comment.created_at).format('YYYY-MM-DD HH:mm')}
-                    </span>
-                    <span style={{ fontWeight: 'normal', color: 'rgba(0,0,0,0.45)' }}>좋아요 {comment.like_count}</span>
-                  </Space>
-                }
-                description={
-                  <Space direction="vertical" size={4}>
-                    {comment.content && <span style={{ whiteSpace: 'pre-line' }}>{comment.content}</span>}
-                    {comment.image_url && <Image src={comment.image_url} width={80} height={80} style={{ objectFit: 'cover' }} />}
-                  </Space>
-                }
-              />
-            </List.Item>
-          )}
-        />
+        {commentsError ? (
+          <Alert
+            type="error"
+            showIcon
+            message="댓글을 불러오지 못했습니다."
+            description={commentsQueryError instanceof Error ? commentsQueryError.message : undefined}
+            action={<Button onClick={() => void refetchComments()}>다시 시도</Button>}
+          />
+        ) : (
+          <List
+            dataSource={comments ?? []}
+            locale={{ emptyText: '댓글이 없습니다.' }}
+            renderItem={(comment) => (
+              <List.Item style={{ paddingLeft: comment.parent_id ? 32 : 0 }}>
+                <List.Item.Meta
+                  avatar={<Avatar src={comment.author.avatar_url} size={24} />}
+                  title={
+                    <Space>
+                      {comment.author.nickname ?? '-'}
+                      <span style={{ fontWeight: 'normal', color: 'rgba(0,0,0,0.45)' }}>
+                        {dayjs(comment.created_at).format('YYYY-MM-DD HH:mm')}
+                      </span>
+                      <span style={{ fontWeight: 'normal', color: 'rgba(0,0,0,0.45)' }}>좋아요 {comment.like_count}</span>
+                    </Space>
+                  }
+                  description={
+                    <Space direction="vertical" size={4}>
+                      {comment.content && <span style={{ whiteSpace: 'pre-line' }}>{comment.content}</span>}
+                      {comment.has_image && <span style={{ color: 'rgba(0,0,0,0.45)' }}>이미지 첨부됨 (미리보기 제한)</span>}
+                    </Space>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )}
       </Card>
     </Card>
   )

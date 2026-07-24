@@ -153,6 +153,8 @@ backend/app/
 `monthly_price_snapshot_vnd`에 보존한다. 티어 비활성화는 신규 신청만 차단하며 기존 게시 광고는
 계속 노출된다. 공개 노출은 조회 시 현재 티어의 `exposure_weight`를 join하므로 가중치 변경이 게시
 중 광고에도 즉시 적용된다. IAP 영수증·갱신·환불·entitlement는 이 모듈의 후속 결제 경계로 분리한다.
+기본 seed는 `프리미엄`(가중치 3)과 `일반`(가중치 1) 두 개이며 가격은 관리자가 설정하기 전까지 0 VND다.
+기존 GOLD는 프리미엄으로, SILVER·BRONZE와 미분류 광고는 일반으로 이행한다.
 
 향후 광고 서비스를 MSA로 추출할 때 라우터 계약은 유지하고 `AdsApplication` 호출을 광고 서비스 HTTP
 client adapter로 교체한다. 라우터에서 광고 테이블을 직접 조회하는 방식은 허용하지 않는다.

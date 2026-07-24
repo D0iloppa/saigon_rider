@@ -40,15 +40,7 @@ import BizAdTierPage from './pages/biz/BizAdTierPage'
 import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import SettingsPage from './pages/system/SettingsPage'
 import DevContextPage from './pages/system/DevContextPage'
-import RewardPolicyPage from './pages/sre/RewardPolicyPage'
-import ItemListPage from './pages/sre/ItemListPage'
-import QuestListPage from './pages/sre/QuestListPage'
-import OpsDashboardPage from './pages/sre/OpsDashboardPage'
-import PushPage from './pages/sre/PushPage'
-import StreamPage from './pages/sre/StreamPage'
-import GachaListPage from './pages/sre/GachaListPage'
-import ShopListPage from './pages/sre/ShopListPage'
-import DailyFeaturedPage from './pages/sre/DailyFeaturedPage'
+import EngineSettingsPage from './pages/system/EngineSettingsPage'
 import { adminDarkTheme, adminTheme } from './theme/tokens'
 
 const queryClient = new QueryClient({
@@ -168,15 +160,16 @@ export default function App() {
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
               <Route path="/system/settings" element={<SettingsPage />} />
               <Route path="/system/dev-context" element={<DevContextPage />} />
-              <Route path="/sre/reward-policies" element={<PrivilegedRoute><RewardPolicyPage /></PrivilegedRoute>} />
-              <Route path="/sre/items" element={<PrivilegedRoute><ItemListPage /></PrivilegedRoute>} />
-              <Route path="/sre/quests" element={<PrivilegedRoute><QuestListPage /></PrivilegedRoute>} />
-              <Route path="/sre/ops" element={<PrivilegedRoute><OpsDashboardPage /></PrivilegedRoute>} />
-              <Route path="/sre/push" element={<PrivilegedRoute><PushPage /></PrivilegedRoute>} />
-              <Route path="/sre/stream" element={<PrivilegedRoute><StreamPage /></PrivilegedRoute>} />
-              <Route path="/sre/gacha" element={<PrivilegedRoute><GachaListPage /></PrivilegedRoute>} />
-              <Route path="/sre/shop" element={<PrivilegedRoute><ShopListPage /></PrivilegedRoute>} />
-              <Route path="/sre/daily-featured" element={<PrivilegedRoute><DailyFeaturedPage /></PrivilegedRoute>} />
+              <Route path="/system/engine-settings" element={<PrivilegedRoute><EngineSettingsPage /></PrivilegedRoute>} />
+              <Route path="/sre/reward-policies" element={<Navigate to="/system/engine-settings?tab=reward-policies" replace />} />
+              <Route path="/sre/items" element={<Navigate to="/system/engine-settings?tab=items" replace />} />
+              <Route path="/sre/quests" element={<Navigate to="/system/engine-settings?tab=quests" replace />} />
+              <Route path="/sre/ops" element={<Navigate to="/system/engine-settings?tab=ops" replace />} />
+              <Route path="/sre/push" element={<Navigate to="/system/engine-settings?tab=push" replace />} />
+              <Route path="/sre/stream" element={<Navigate to="/system/engine-settings?tab=stream" replace />} />
+              <Route path="/sre/gacha" element={<Navigate to="/system/engine-settings?tab=gacha" replace />} />
+              <Route path="/sre/shop" element={<Navigate to="/system/engine-settings?tab=shop" replace />} />
+              <Route path="/sre/daily-featured" element={<Navigate to="/system/engine-settings?tab=daily-featured" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

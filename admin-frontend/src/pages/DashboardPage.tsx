@@ -179,9 +179,9 @@ export default function DashboardPage() {
           </div>
         </header>
         <div className="dashboard-flow-grid">
-          <StatCard title="DAU (오늘 접속)" value={s.dau} suffix="명" />
-          <StatCard title="신규 가입" value={s.new_users_today} suffix="명" detail={`최근 7일 누계 ${s.new_users_7d.toLocaleString()}`} />
-          <StatCard title="매물 등록" value={s.listings_today} suffix="건" detail={`최근 7일 누계 ${s.listings_7d.toLocaleString()}`} />
+          <StatCard title="DAU (오늘 접속)" value={s.dau} suffix="명" onClick={() => navigate('/users')} />
+          <StatCard title="신규 가입" value={s.new_users_today} suffix="명" detail={`최근 7일 누계 ${s.new_users_7d.toLocaleString()}`} onClick={() => navigate('/users')} />
+          <StatCard title="매물 등록" value={s.listings_today} suffix="건" detail={`최근 7일 누계 ${s.listings_7d.toLocaleString()}`} onClick={() => navigate('/listings')} />
           <StatCard title="거래 성사" value={s.trades_today} suffix="건" detail={`최근 7일 누계 ${s.trades_7d.toLocaleString()}`} />
         </div>
       </section>
@@ -201,6 +201,11 @@ export default function DashboardPage() {
               <Metric label="영구밴" value={s.users_banned} unit="명" />
               <Metric label="첫 응답 SLA (7일)" value={s.first_reply_sla_hours === null ? '—' : s.first_reply_sla_hours.toFixed(1)} unit={s.first_reply_sla_hours === null ? undefined : '시간'} />
             </dl>
+            <p>
+              <Button type="link" onClick={() => navigate('/users')}>유저 목록</Button>
+              <Button type="link" onClick={() => navigate('/reports')}>신고 목록</Button>
+              <Button type="link" onClick={() => navigate('/support')}>문의 목록</Button>
+            </p>
           </article>
           <article className="dashboard-status-panel">
             <h3>마켓</h3>
@@ -208,6 +213,7 @@ export default function DashboardPage() {
               <Metric label="판매중 매물" value={s.listings_on_sale} unit="건" />
               <Metric label="숨김" value={s.listings_hidden} unit="건" />
             </dl>
+            <p><Button type="link" onClick={() => navigate('/listings')}>매물 목록</Button></p>
           </article>
           <article className="dashboard-status-panel">
             <h3>파트너</h3>
@@ -217,6 +223,7 @@ export default function DashboardPage() {
               <Metric label="신규 신청 (오늘)" value={s.biz_partners_new_today} unit="건" />
               <Metric label="신규 신청 (7일)" value={s.biz_partners_new_7d} unit="건" />
             </dl>
+            <p><Button type="link" onClick={() => navigate('/biz/accounts')}>파트너 목록</Button></p>
           </article>
           <article className="dashboard-status-panel dashboard-status-ads">
             <h3>광고</h3>
@@ -228,6 +235,10 @@ export default function DashboardPage() {
             </dl>
             <p>
               {s.biz_ads_tier_counts.map((tier) => `${tier.name} ${tier.count.toLocaleString()}`).join(' · ') || '티어 없음'}
+            </p>
+            <p>
+              <Button type="link" onClick={() => navigate('/biz/ads')}>광고 목록</Button>
+              <Button type="link" onClick={() => navigate('/biz/ad-tiers')}>광고 티어 정책</Button>
             </p>
           </article>
         </div>

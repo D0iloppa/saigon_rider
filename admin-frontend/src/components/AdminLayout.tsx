@@ -4,7 +4,6 @@ import {
   AimOutlined,
   AuditOutlined,
   BellOutlined,
-  CalendarOutlined,
   CompassOutlined,
   CodeOutlined,
   CustomerServiceOutlined,
@@ -13,18 +12,12 @@ import {
   EnvironmentOutlined,
   FileTextOutlined,
   FlagOutlined,
-  GiftOutlined,
   NotificationOutlined,
   PictureOutlined,
-  RadarChartOutlined,
   SafetyCertificateOutlined,
-  SendOutlined,
   SettingOutlined,
   ShopOutlined,
-  ShoppingOutlined,
-  SkinOutlined,
   SolutionOutlined,
-  StarOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   ToolOutlined,
@@ -71,12 +64,6 @@ const MENU_ITEMS = [
     { key: '/biz/ads', icon: <NotificationOutlined />, label: '광고 심사' },
     { key: '/biz/ad-tiers', icon: <DollarOutlined />, label: '광고 티어 정책' },
   ] },
-  { key: 'group-settings', label: '설정', children: [
-    { key: '/system/settings', icon: <SettingOutlined />, label: '설정' },
-  ] },
-  { key: 'group-dev', label: '개발', children: [
-    { key: '/system/dev-context', icon: <CodeOutlined />, label: 'DEV Context' },
-  ] },
 ]
 
 /** Finds the group (submenu) key whose children contain the given leaf key, for accordion default-open. */
@@ -89,15 +76,7 @@ const PAGE_META = [
   { path: '/cms/faqs', title: 'FAQ 관리', description: '사용자 도움말 문답을 관리합니다.' },
   { path: '/cms/badges', title: '배지 관리', description: '유저에게 부여되는 배지와 습득 조건을 관리합니다.' },
   { path: '/settings/banned-keywords', title: '금칙어 관리', description: '대화 안전 정책에 적용되는 금칙어를 관리합니다.' },
-  { path: '/sre/reward-policies', title: '보상 정책', description: '조건 충족 시 XP/EXP/Gold/배지를 지급하는 보상 정책을 관리합니다.' },
-  { path: '/sre/items', title: '아이템 관리', description: '커스터마이징 아이템 정의(슬롯·등급·가격·노출)를 관리합니다.' },
-  { path: '/sre/quests', title: '퀘스트 관리', description: '퀘스트 조건·보상·이미지 슬롯을 등록하고 관리합니다.' },
-  { path: '/sre/ops', title: 'SRE 운영 대시보드', description: '인플레 모니터링·가챠 ROI·채널 비율·천장 분포를 확인합니다.' },
-  { path: '/sre/push', title: 'FCM 푸시 관리', description: '푸시 알림을 전체 또는 개별 유저에게 발송하고 발송 이력을 확인합니다.' },
-  { path: '/sre/stream', title: '메시지 스트림', description: 'Redis Stream 상태와 최근 메시지를 확인하고 GPS 이동경로를 조회합니다.' },
-  { path: '/sre/gacha', title: '가챠 관리', description: '가챠 정의(비용·천장·드랍 테이블·노출)를 관리합니다.' },
-  { path: '/sre/shop', title: '상점 관리', description: '상점 아이템 가격·노출·시즌 잠금을 관리합니다.' },
-  { path: '/sre/daily-featured', title: '일일 추천 관리', description: '일일 추천 상점 이력을 확인하고 새로 갱신합니다.' },
+  { path: '/system/engine-settings', title: 'ENGINE 설정', description: 'Engine 운영 현황과 보상·아이템·퀘스트·상점 정책을 탭에서 관리합니다.' },
   { path: '/system/accounts', title: '관리자 계정', description: '관리자 계정을 추가, 수정, 삭제합니다.' },
   { path: '/audit-logs', title: '감사 로그', description: '관리자 조치와 접근 이력을 확인합니다.' },
   { path: '/reports', title: '신고센터', description: '신고 접수부터 조치까지의 검토 흐름을 관리합니다.' },
@@ -132,22 +111,16 @@ export default function AdminLayout() {
           ? { ...group, children: group.children.filter((child) => child.key !== '/map/ride-policy') }
           : group,
       )
-  const items = isPrivileged
-    ? [...baseItems, { key: 'group-sre', label: 'SRE', children: [
-        { key: '/sre/reward-policies', icon: <GiftOutlined />, label: '보상 정책' },
-        { key: '/sre/items', icon: <SkinOutlined />, label: '아이템 관리' },
-        { key: '/sre/quests', icon: <TrophyOutlined />, label: '퀘스트 관리' },
-        { key: '/sre/ops', icon: <DashboardOutlined />, label: 'SRE 운영 대시보드' },
-        { key: '/sre/push', icon: <SendOutlined />, label: 'FCM 푸시 관리' },
-        { key: '/sre/stream', icon: <RadarChartOutlined />, label: '메시지 스트림' },
-        { key: '/sre/gacha', icon: <StarOutlined />, label: '가챠 관리' },
-        { key: '/sre/shop', icon: <ShoppingOutlined />, label: '상점 관리' },
-        { key: '/sre/daily-featured', icon: <CalendarOutlined />, label: '일일 추천 관리' },
-      ] }, { key: 'group-system', label: 'SYSTEM', children: [
-        { key: '/system/accounts', icon: <UserSwitchOutlined />, label: '관리자 계정' },
-        { key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' },
-      ] }]
-    : baseItems
+  const systemChildren = [
+    ...(isPrivileged ? [{ key: '/system/engine-settings', icon: <ToolOutlined />, label: 'ENGINE 설정' }] : []),
+    { key: '/system/settings', icon: <SettingOutlined />, label: '설정' },
+    { key: '/system/dev-context', icon: <CodeOutlined />, label: 'DEV Context' },
+    ...(isPrivileged ? [
+      { key: '/system/accounts', icon: <UserSwitchOutlined />, label: '관리자 계정' },
+      { key: '/audit-logs', icon: <AuditOutlined />, label: '감사 로그' },
+    ] : []),
+  ]
+  const items = [...baseItems, { key: 'group-system', label: 'SYSTEM', children: systemChildren }]
   const page = PAGE_META.find((item) => location.pathname.startsWith(item.path)) ?? PAGE_META[PAGE_META.length - 1]
 
   const [openKeys, setOpenKeys] = useState<string[]>(() => {

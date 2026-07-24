@@ -12,14 +12,46 @@ CREATE TABLE IF NOT EXISTS ad_tiers (
 
 INSERT INTO ad_tiers (id, name, monthly_price_vnd, exposure_weight, display_order)
 VALUES
-  ('00000000-0000-4000-8000-000000000001', 'Gold', 0, 3, 10),
-  ('00000000-0000-4000-8000-000000000002', 'Silver', 0, 2, 20),
-  ('00000000-0000-4000-8000-000000000003', 'Bronze', 0, 1, 30)
+  ('00000000-0000-4000-8000-000000000001', '프리미엄', 0, 3, 10),
+  ('00000000-0000-4000-8000-000000000002', '일반', 0, 1, 20)
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE marketplace_ads ADD COLUMN IF NOT EXISTS tier_id UUID;
 ALTER TABLE marketplace_ads ADD COLUMN IF NOT EXISTS monthly_price_snapshot_vnd INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE marketplace_ads ADD COLUMN IF NOT EXISTS ad_fee INTEGER NOT NULL DEFAULT 1;
+
+-- 구 3-tier seed의 Bronze UUID가 남아 있을 때만 기본 seed를 한 번 변환한다.
+-- Bronze 제거 이후의 재실행은 관리자가 편집한 UUID 1/2 값을 보존한다.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM ad_tiers
+    WHERE id = '00000000-0000-4000-8000-000000000003'::uuid
+  ) THEN
+    UPDATE ad_tiers
+    SET name = '프리미엄',
+        monthly_price_vnd = 0,
+        exposure_weight = 3,
+        display_order = 10,
+        updated_at = NOW()
+    WHERE id = '00000000-0000-4000-8000-000000000001'::uuid;
+
+    UPDATE ad_tiers
+    SET name = '일반',
+        monthly_price_vnd = 0,
+        exposure_weight = 1,
+        display_order = 20,
+        updated_at = NOW()
+    WHERE id = '00000000-0000-4000-8000-000000000002'::uuid;
+
+    UPDATE marketplace_ads
+    SET tier_id = '00000000-0000-4000-8000-000000000002'::uuid
+    WHERE tier_id = '00000000-0000-4000-8000-000000000003'::uuid;
+
+    DELETE FROM ad_tiers
+    WHERE id = '00000000-0000-4000-8000-000000000003'::uuid;
+  END IF;
+END $$;
 
 DO $$
 BEGIN
@@ -33,14 +65,13 @@ BEGIN
       UPDATE marketplace_ads
       SET tier_id = CASE exposure_tier
         WHEN 'GOLD' THEN '00000000-0000-4000-8000-000000000001'::uuid
-        WHEN 'SILVER' THEN '00000000-0000-4000-8000-000000000002'::uuid
-        ELSE '00000000-0000-4000-8000-000000000003'::uuid
+        ELSE '00000000-0000-4000-8000-000000000002'::uuid
       END
       WHERE tier_id IS NULL
     $sql$;
   ELSE
     UPDATE marketplace_ads
-    SET tier_id = '00000000-0000-4000-8000-000000000003'::uuid
+    SET tier_id = '00000000-0000-4000-8000-000000000002'::uuid
     WHERE tier_id IS NULL;
   END IF;
 END $$;

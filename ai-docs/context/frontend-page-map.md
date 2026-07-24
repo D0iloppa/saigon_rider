@@ -191,18 +191,24 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/biz/accounts/:id/ads` | `admin-frontend/src/pages/biz/BizAccountAdsPage.tsx` | 파트너 전용 광고 리스트(론칭중/전체 토글, 기본 론칭중) — 행 클릭 → `/biz/ads/:id` (2026-07-23 신설) |
 | `/biz/ads` | `admin-frontend/src/pages/biz/BizAdListPage.tsx` | 광고 소재 심사 큐 — 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) / **노출설정(등급·과금액, 2026-07-23)**. 제목 클릭 → `/biz/ads/:id`, 파트너 컬럼 → `/biz/accounts/:profile_id` (2026-07-23) |
 | `/biz/ads/:id` | `admin-frontend/src/pages/biz/BizAdDetailPage.tsx` | 광고 소재 상세(read-only) — 제목·본문·이미지·기간·파트너(링크)·상태·노출등급·과금액 (2026-07-23 신설) |
+| `/biz/ad-tiers` | `admin-frontend/src/pages/biz/BizAdTierPage.tsx` | 광고 티어 이름·월 가격·노출 가중치·활성 여부·표시 순서 관리 |
 
   백엔드 `backend/app/routers/admin_api/biz.py`(`GET/POST /admin/api/biz/accounts*·/ads*`; 광고 단건 `GET .../ads/{id}`, 목록 `GET .../ads` 는 `profile_id`·`launching`(론칭중=APPROVED+is_active+게시기간, market.py get_ads와 동일 정의) 필터 지원 — 2026-07-23), `verify_admin_api`(레거시와 동일 admin 레벨 — root 아님) + 전 mutation `_audit.audit()`. fetch 훅 `admin-frontend/src/api/biz.ts`. **알려진 갭**: 광고 이미지 imgproxy 폴백 미적용(레거시부터의 기존 갭) / 사이드바 큐 카운트 배지 미구현(전 큐 공통).
 - **앱측 연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.
 
-#### 관리자 콘솔 — SYSTEM 그룹 (ROOT∨ADMIN 접근, 사이드바 하단)
+#### 관리자 콘솔 — SYSTEM 그룹 (사이드바 하단)
 
 > **관리자 권한 3단계 (2026-07-23, 커밋 `0f11b3e`, mig `147`, 독립 auth 리뷰 PASS)**: 기존 2단계(root/admin)를 **ROOT / ADMIN / MANAGER**로 재편. **ROOT**=env `ADMIN_USER` break-glass(DB 행 아님, 평소 미사용). **ADMIN**=root 동등 권한(계정관리·감사로그 포함), `admin_accounts.role='admin'`. **MANAGER**=기존 'admin' 역할 그대로(권한 변화 0 — 계정관리·감사로그만 제외한 전 기능), `role='manager'`. 마이그레이션 `147`이 `admin_accounts.role` 컬럼(CHECK `admin|manager`, default `manager`) 추가 + **기존 계정 전부 `manager` 강등**. 인증 코어 `admin_auth.py`: `is_privileged`(role∈root,admin) 신설, 에스컬레이티드 게이트 `verify_root_api/page`가 `is_root`→`is_privileged`로 완화(MANAGER 차단), `decode_token` fail-closed(불명 role→`manager`, 최소권한). `verify_admin_api`(인증된 전체)는 불변 — MANAGER도 통과.
 
-`AdminLayout.tsx` SYSTEM 그룹은 `me.role === 'root' || me.role === 'admin'`일 때 렌더된다 (MANAGER 차단). `App.tsx` `PrivilegedRoute`가 `/system/accounts`·`/audit-logs`를 클라 방어(MANAGER 진입 시 리다이렉트, 백엔드 403이 authoritative).
+`AdminLayout.tsx` SYSTEM 그룹은 모든 역할에 표시한다. 설정·DEV Context는 모든 관리자 역할에,
+ENGINE 설정·관리자 계정·감사 로그는 ROOT∨ADMIN에만 표시한다. `App.tsx`의 `PrivilegedRoute`가
+권한 전용 라우트를 클라이언트에서도 방어하며 백엔드 403이 authoritative하다.
 
 | 라우트(SPA) | 페이지 파일 | 내용 |
 |---|---|---|
+| `/system/engine-settings?tab=…` | `admin-frontend/src/pages/system/EngineSettingsPage.tsx` | 기존 SRE 9개 화면을 운영 현황·보상 정책·아이템·퀘스트·가챠·상점·일일 추천·푸시·스트림 탭으로 통합. 기존 `/sre/*`는 대응 탭으로 replace redirect |
+| `/system/settings` | `admin-frontend/src/pages/system/SettingsPage.tsx` | 관리자 프로필·닉네임 단어사전·앱 버전·서비스 설정 |
+| `/system/dev-context` | `admin-frontend/src/pages/system/DevContextPage.tsx` | 개발 컨텍스트·기능·TODO 진행 상황 |
 | `/system/accounts` | `admin-frontend/src/pages/system/AdminAccountListPage.tsx` | **관리자 계정관리 (2026-07-22 이식, 2026-07-23 role 선택 추가)** — `admin_accounts` 서브계정 목록/추가/수정(비번변경)/삭제 + **role 셀렉터(ADMIN/MANAGER, 'root' 서버측 422 거부)**. 평면형이라 ADMIN도 다른 ADMIN 계정 관리 가능. root(env `ADMIN_USER`)는 CRUD 제외(생성 시 username 충돌 거부, DB 행 없어 수정/삭제 대상 불가). root 암호 초기화는 화면 아닌 sudo 스크립트(미구현, 백로그) |
 | `/audit-logs` | `admin-frontend/src/pages/audit/AuditLogPage.tsx` | 감사 로그 조회 (`AdminAuditLog`) |
 

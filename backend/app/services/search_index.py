@@ -26,7 +26,7 @@ _ENTITY_MODELS = {
 # 엔티티 타입 → 검색 대상 원문 필드 추출
 _TEXT_FIELDS = {
     "listing": lambda row: [row.title, row.description],
-    "biz": lambda row: [row.name],
+    "biz": lambda row: [row.name, row.address, row.intro],
     "news": lambda row: [row.title, row.body],
     "feed": lambda row: [row.content],
     "ad": lambda row: [row.title, row.body],

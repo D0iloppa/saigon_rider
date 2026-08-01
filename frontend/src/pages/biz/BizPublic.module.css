@@ -27,6 +27,14 @@
 .profileMeta span { display: inline-flex; align-items: center; gap: 3px; }
 .profileMeta span:first-child { color: var(--brand-500, #FF5A1F); font-weight: 700; }
 
+.introText {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+
 /* ── 단골(팔로우) — 찜(하트)과 별개, 당근형 상호 근처 노출 (SGR-326) ── */
 .followRow {
   display: flex;

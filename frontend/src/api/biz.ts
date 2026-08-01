@@ -14,6 +14,7 @@ export interface BusinessProfile {
   latitude: number | null;
   longitude: number | null;
   phone: string | null;
+  intro: string | null;
   photoContentId: string | null;
   photoUrl: string | null;
   status: BusinessProfileStatus;
@@ -35,6 +36,7 @@ export interface BusinessProfileInput {
   latitude: number;
   longitude: number;
   phone: string;
+  intro?: string | null;
   photoContentId?: string | null;
 }
 
@@ -46,6 +48,7 @@ interface BusinessProfileApi {
   latitude: string | number | null;
   longitude: string | number | null;
   phone: string | null;
+  intro: string | null;
   photo_content_id: string | null;
   photo_url: string | null;
   status: BusinessProfileStatus;
@@ -69,6 +72,7 @@ function fromApi(p: BusinessProfileApi): BusinessProfile {
     latitude: p.latitude != null ? Number(p.latitude) : null,
     longitude: p.longitude != null ? Number(p.longitude) : null,
     phone: p.phone,
+    intro: p.intro,
     photoContentId: p.photo_content_id,
     photoUrl: p.photo_url,
     status: p.status,
@@ -92,6 +96,7 @@ function toBody(p: BusinessProfileInput) {
     latitude: p.latitude,
     longitude: p.longitude,
     phone: p.phone,
+    intro: p.intro ?? null,
     photo_content_id: p.photoContentId ?? null,
   };
 }
@@ -470,6 +475,7 @@ export interface BusinessPublicProfile {
   latitude: number | null;
   longitude: number | null;
   phone: string | null;
+  intro: string | null;
   photoUrl: string | null;
   ads: MarketAd[];
   /** 단골(팔로우, init/152) — 찜(favorite)과 별개 개념 */
@@ -486,6 +492,7 @@ interface BusinessPublicProfileApi {
   latitude: string | number | null;
   longitude: string | number | null;
   phone: string | null;
+  intro: string | null;
   photo_url: string | null;
   ads: any[];
   follower_count: number;
@@ -503,6 +510,7 @@ export async function fetchBusinessPublicProfile(id: string): Promise<BusinessPu
     latitude: res.latitude != null ? Number(res.latitude) : null,
     longitude: res.longitude != null ? Number(res.longitude) : null,
     phone: res.phone,
+    intro: res.intro,
     photoUrl: res.photo_url,
     ads: (res.ads ?? []).map(transformAd),
     followerCount: res.follower_count ?? 0,

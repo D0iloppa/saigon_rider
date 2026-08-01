@@ -103,6 +103,7 @@ def _out(p: BusinessProfile) -> BusinessProfileOut:
         phone=p.phone,
         photo_content_id=p.photo_content_id,
         photo_url=photo_url,
+        intro=p.intro,
         status=p.status,
         reject_reason=p.reject_reason,
         verification_status=p.verification_status,
@@ -165,12 +166,14 @@ async def apply(
         raise HTTPException(status_code=400, detail="Address is required")
     await _require_content(db, body.photo_content_id)
 
+    intro = body.intro.strip() if body.intro else None
     now = datetime.now(UTC)
     profile = BusinessProfile(
         user_id=session_uid,
         name=name,
         category=body.category,
         address=address,
+        intro=intro,
         latitude=body.latitude,
         longitude=body.longitude,
         phone=body.phone,
@@ -179,14 +182,16 @@ async def apply(
         created_at=now,
         updated_at=now,
         # 원문만으로 즉시 검색 가능(번역 대기 없음) — search.reindex 소비 후 번역이 얹혀 재계산된다.
-        search_blob=immediate_blob([name]),
+        search_blob=immediate_blob([name, address, intro]),
     )
     db.add(profile)
     await db.flush()
-    noti_events.enqueue(db, "search.reindex", {"entity_type": "biz", "entity_id": str(profile.id), "texts": [name]})
+    noti_events.enqueue(
+        db, "search.reindex", {"entity_type": "biz", "entity_id": str(profile.id), "texts": [name, address, intro]}
+    )
     await db.commit()
     await db.refresh(profile)
-    background.add_task(warm_translations, [name])
+    background.add_task(warm_translations, [name, address, intro or ""])
     return _out(profile)
 
 
@@ -239,15 +244,17 @@ async def update_profile(
         raise HTTPException(status_code=400, detail="Address is required")
     await _require_content(db, body.photo_content_id)
 
+    intro = body.intro.strip() if body.intro else None
     profile.name = name
     profile.category = body.category
     profile.address = address
+    profile.intro = intro
     profile.latitude = body.latitude
     profile.longitude = body.longitude
     profile.phone = body.phone
     profile.photo_content_id = body.photo_content_id
     profile.updated_at = datetime.now(UTC)
-    profile.search_blob = immediate_blob([name])
+    profile.search_blob = immediate_blob([name, address, intro])
 
     # REJECTED 재신청 → 재심사 큐로 (APPROVED 는 정보 수정만, 상태 유지)
     if profile.status == "REJECTED":
@@ -255,10 +262,12 @@ async def update_profile(
         profile.reject_reason = None
         profile.reviewed_at = None
 
-    noti_events.enqueue(db, "search.reindex", {"entity_type": "biz", "entity_id": str(profile.id), "texts": [name]})
+    noti_events.enqueue(
+        db, "search.reindex", {"entity_type": "biz", "entity_id": str(profile.id), "texts": [name, address, intro]}
+    )
     await db.commit()
     await db.refresh(profile)
-    background.add_task(warm_translations, [name])
+    background.add_task(warm_translations, [name, address, intro or ""])
     return _out(profile)
 
 
@@ -1057,6 +1066,7 @@ async def get_public_profile(
         longitude=profile.longitude,
         phone=profile.phone,
         photo_url=photo_url,
+        intro=profile.intro,
         ads=[_public_ad_out(a) for a in ads],
         follower_count=follower_count,
         is_following=is_following,
@@ -1195,6 +1205,7 @@ async def get_public_prices(
 @router.post("/prices", response_model=BusinessPriceItemOut, status_code=201, summary="업체 가격표 항목 등록 (오너)")
 async def create_price(
     body: BusinessPriceCreateRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
@@ -1213,6 +1224,7 @@ async def create_price(
     )
     db.add(price)
     await db.commit()
+    background.add_task(warm_translations, [name])
     return BusinessPriceItemOut(
         id=price.id,
         name=price.name,

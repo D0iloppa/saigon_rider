@@ -1737,6 +1737,8 @@
     "locationPlaceholder": "Select a location",
     "phone": "Contact number",
     "phonePlaceholder": "Enter a reachable phone number",
+    "introLabel": "Intro (optional)",
+    "introPlaceholder": "Tell us about your business",
     "photoOptional": "Cover / signboard photo (recommended)",
     "uploadError": "Failed to upload photo",
     "uploading": "Uploading…",

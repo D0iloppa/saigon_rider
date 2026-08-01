@@ -67,6 +67,7 @@ export default function BizManage() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [intro, setIntro] = useState('');
   const [saving, setSaving] = useState(false);
   // 프로필별 광고 목록 — profileId 를 함께 들고 스위처 전환 시 이전 프로필 목록 표시를 방지
   const [ads, setAds] = useState<{ profileId: string; list: BusinessAd[] } | null>(null);
@@ -166,6 +167,7 @@ export default function BizManage() {
   const startEdit = () => {
     setName(active.name);
     setPhone(active.phone ?? '');
+    setIntro(active.intro ?? '');
     setEditing(true);
   };
 
@@ -180,6 +182,7 @@ export default function BizManage() {
         latitude: active.latitude ?? 0,
         longitude: active.longitude ?? 0,
         phone: phone.trim(),
+        intro: intro.trim() || null,
         photoContentId: active.photoContentId, // 기존 사진 유지 (이 폼은 사진을 다루지 않음)
       });
       setProfiles((prev) => (prev ? prev.map((p, i) => (i === activeIdx ? updated : p)) : prev));
@@ -209,6 +212,7 @@ export default function BizManage() {
         latitude: active.latitude ?? 0,
         longitude: active.longitude ?? 0,
         phone: active.phone ?? '',
+        intro: active.intro,
         photoContentId: uploaded.id,
       });
       setProfiles((prev) => (prev ? prev.map((p, i) => (i === activeIdx ? updated : p)) : prev));
@@ -306,6 +310,14 @@ export default function BizManage() {
             <div className={styles.editForm}>
               <input className={styles.input} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
               <input className={styles.input} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" maxLength={30} />
+              <textarea
+                className={styles.textarea}
+                placeholder={t('biz.introPlaceholder', { defaultValue: '업체를 소개해주세요' })}
+                value={intro}
+                onChange={(e) => setIntro(e.target.value)}
+                rows={4}
+                maxLength={500}
+              />
               <div className={styles.editActions}>
                 <Button size="sm" fullWidth={false} onClick={saveEdit} disabled={saving}>
                   {saving ? t('biz.saving', { defaultValue: '저장 중' }) : t('common.confirm', { defaultValue: '확인' })}

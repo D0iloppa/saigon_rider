@@ -81,6 +81,8 @@ Docker Compose, 단일 Nginx(:18090) 진입.
   - 🔴 **인덱스는 반드시 표현식 인덱스여야 한다**: `gin ((coalesce(search_blob,'')) gin_trgm_ops)`. 쿼리가 `COALESCE(search_blob,'')` 로 감싸는 이유는 blob 이 비어도 행이 검색에서 사라지지 않게 하는 fail-open 방어인데, 플레인 컬럼 인덱스로 만들면 이 `COALESCE` 와 매칭되지 않아 **Seq Scan 으로 폴백**한다(설계서 초안이 이 함정을 놓쳤고 구현에서 교정했다)
   - 쿼리는 `ILIKE` 가 아니라 **`LIKE`** — blob 이 이미 소문자 정규화돼 있다. 검색어도 같은 `norm()` 을 통과시켜야 한다
   - **쓰기 경로 6곳**(매물 등록·수정, 피드 작성, 업체 신청·수정, 가게소식)에 배선돼 있다. 새 컨텐츠 타입을 추가하면 여기도 배선해야 검색된다
+  - blob 구성 필드(2026-08-01): listing `[title, description]` · **biz `[name, address, intro]`** · news `[title, body]` · feed `[content]` · ad `[title, body]`
+  - 번역 배선 범위(대표 결정 2026-08-01, **업체 정보까지만**): 피드 본문 · 매물 title/description · 광고 title/body · 업체 name/address/intro · 가게소식 title/body · 가격표 name. **리뷰·댓글·공지·FAQ 는 호출량 때문에 의도적으로 제외**
   - 소급 백필: `backend/scripts/backfill_search_blob.py --entity all [--translate] --rps 5`
   - 설계·실측 근거: [`260801_multilingual_search_design.md`](../260801_multilingual_search_design.md)
 

@@ -40,6 +40,7 @@ export default function BizApply() {
   const [name, setName] = useState(reapplyProfile?.name ?? '');
   const [category, setCategory] = useState(reapplyProfile?.category ?? '');
   const [phone, setPhone] = useState(reapplyProfile?.phone ?? '');
+  const [intro, setIntro] = useState(reapplyProfile?.intro ?? '');
   const [address, setAddress] = useState(reapplyProfile?.address ?? '');
   // 상세 주소 (선택) — 제출 시 지역명 뒤에 이어붙인다. 재신청 프리필 address 는 이미 합쳐진 문자열이라 그대로 둔다.
   const [addressDetail, setAddressDetail] = useState('');
@@ -99,6 +100,7 @@ export default function BizApply() {
         latitude: coords.lat,
         longitude: coords.lng,
         phone: phone.trim(),
+        intro: intro.trim() || null,
         photoContentId,
       };
       if (reapplyProfile) {
@@ -195,6 +197,17 @@ export default function BizApply() {
           onChange={(e) => setPhone(e.target.value)}
           inputMode="tel"
           maxLength={30}
+        />
+
+        {/* Intro (optional) */}
+        <p className={styles.label}>{t('biz.introLabel', { defaultValue: '소개 (선택)' })}</p>
+        <textarea
+          className={styles.textarea}
+          placeholder={t('biz.introPlaceholder', { defaultValue: '업체를 소개해주세요' })}
+          value={intro}
+          onChange={(e) => setIntro(e.target.value)}
+          rows={4}
+          maxLength={500}
         />
       </div>
 

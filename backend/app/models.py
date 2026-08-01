@@ -584,6 +584,7 @@ class BusinessProfile(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     category: Mapped[str | None] = mapped_column(String(60), nullable=True)
     address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    intro: Mapped[str | None] = mapped_column(Text, nullable=True)
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)

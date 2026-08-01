@@ -1737,6 +1737,8 @@
     "locationPlaceholder": "Chọn vị trí",
     "phone": "Số điện thoại",
     "phonePlaceholder": "Nhập số điện thoại liên hệ",
+    "introLabel": "Giới thiệu (không bắt buộc)",
+    "introPlaceholder": "Giới thiệu về cửa hàng của bạn",
     "photoOptional": "Ảnh đại diện / biển hiệu (khuyến khích)",
     "uploadError": "Tải ảnh thất bại",
     "uploading": "Đang tải lên…",

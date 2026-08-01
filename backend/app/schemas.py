@@ -1087,6 +1087,7 @@ class BusinessProfileApplyRequest(BaseModel):
     longitude: Decimal
     phone: str
     photo_content_id: uuid.UUID | None = None
+    intro: str | None = Field(default=None, max_length=500)
 
 
 class BusinessProfileUpdateRequest(BaseModel):
@@ -1097,6 +1098,7 @@ class BusinessProfileUpdateRequest(BaseModel):
     longitude: Decimal
     phone: str
     photo_content_id: uuid.UUID | None = None
+    intro: str | None = Field(default=None, max_length=500)
 
 
 class BusinessProfileOut(BaseModel):
@@ -1109,6 +1111,7 @@ class BusinessProfileOut(BaseModel):
     phone: str | None = None
     photo_content_id: uuid.UUID | None = None
     photo_url: str | None = None
+    intro: str | None = None
     status: str
     reject_reason: str | None = None
     # 검증축 (init/151) — 계정 승인축 status 와 별개. 원문 경로가 아닌 content_id UUID 만 노출.
@@ -1282,6 +1285,7 @@ class BusinessPublicProfileOut(BaseModel):
     longitude: Decimal | None = None
     phone: str | None = None
     photo_url: str | None = None
+    intro: str | None = None
     ads: list[MarketplaceAdOut]
     # 단골(팔로우, init/152) — 찜(favorite)과 별개 개념
     follower_count: int = 0

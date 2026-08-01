@@ -78,6 +78,24 @@
   border-color: var(--brand-500);
 }
 
+.textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  resize: none;
+  font-family: inherit;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
 .select {
   display: flex;
   align-items: center;

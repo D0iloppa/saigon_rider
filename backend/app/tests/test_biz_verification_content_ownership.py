@@ -31,6 +31,7 @@ def _profile(owner_id: uuid.UUID, verification_status: str = "unverified"):
         name="Shop",
         category=None,
         address=None,
+        intro=None,
         latitude=None,
         longitude=None,
         phone=None,

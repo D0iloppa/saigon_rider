@@ -1737,6 +1737,8 @@
     "locationPlaceholder": "위치를 선택하세요",
     "phone": "연락처",
     "phonePlaceholder": "연락 가능한 번호를 입력하세요",
+    "introLabel": "소개 (선택)",
+    "introPlaceholder": "업체를 소개해주세요",
     "photoOptional": "대표·간판 사진 (권장)",
     "uploadError": "사진 업로드 실패",
     "uploading": "업로드 중…",

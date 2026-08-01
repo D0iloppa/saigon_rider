@@ -40,7 +40,7 @@ class BusinessPriceOwnershipTests(unittest.IsolatedAsyncioTestCase):
 
         body = BusinessPriceCreateRequest(profile_id=profile.id, name="엔진오일 교체", price_vnd=150000)
         with self.assertRaises(HTTPException) as ctx:
-            await biz.create_price(body, db=db, session_uid=other_user_id)
+            await biz.create_price(body, background=MagicMock(), db=db, session_uid=other_user_id)
         self.assertEqual(ctx.exception.status_code, 404)
         db.execute.assert_not_called()  # 오너십 검증이 쿼리보다 먼저
 
@@ -73,7 +73,7 @@ class BusinessPriceOwnershipTests(unittest.IsolatedAsyncioTestCase):
         db.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", uuid.uuid4()))
 
         body = BusinessPriceCreateRequest(profile_id=profile.id, name="엔진오일 교체", price_vnd=150000)
-        result = await biz.create_price(body, db=db, session_uid=owner_id)
+        result = await biz.create_price(body, background=MagicMock(), db=db, session_uid=owner_id)
         self.assertEqual(result.name, "엔진오일 교체")
         self.assertEqual(result.price_vnd, 150000)
         self.assertEqual(result.sort_order, 0)

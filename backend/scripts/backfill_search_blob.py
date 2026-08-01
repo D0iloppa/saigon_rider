@@ -40,7 +40,7 @@ from app.services.translate import warm_translations
 # entity 키 → (모델, 검색 대상 원문 필드 추출) — search_index._TEXT_FIELDS 와 동일 매핑.
 _ENTITY_MODELS = {
     "listing": (MarketplaceListing, lambda r: [r.title, r.description]),
-    "biz": (BusinessProfile, lambda r: [r.name]),
+    "biz": (BusinessProfile, lambda r: [r.name, r.address, r.intro]),
     "news": (BusinessNews, lambda r: [r.title, r.body]),
     "feed": (FeedPost, lambda r: [r.content]),
     "ad": (MarketplaceAd, lambda r: [r.title, r.body]),

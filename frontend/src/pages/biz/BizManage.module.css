@@ -161,6 +161,19 @@
   color: var(--text);
 }
 
+.textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  resize: none;
+  font-family: inherit;
+}
+
 .editActions {
   display: flex;
   gap: 8px;

@@ -27,6 +27,7 @@ class BizPublicProfileOwnerTests(unittest.IsolatedAsyncioTestCase):
             name="Pho Shop",
             category="food",
             address=None,
+            intro=None,
             latitude=None,
             longitude=None,
             phone=None,

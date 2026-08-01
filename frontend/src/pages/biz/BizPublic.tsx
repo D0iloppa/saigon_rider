@@ -301,6 +301,7 @@ export default function BizPublic() {
             {profile.category && <span>{(() => { const cat = categories.find((c) => c.code === profile.category); return cat ? bizCategoryLabel(cat, i18n.language) : profile.category; })()}</span>}
             {profile.address && <span>{profile.address}</span>}
           </div>
+          {profile.intro && <p className={styles.introText}>{profile.intro}</p>}
           <div className={styles.followRow}>
             <span className={styles.followCount}>
               {t('biz.followerCount', { count: profile.followerCount, defaultValue: '단골 {{count}}' })}

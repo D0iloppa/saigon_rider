@@ -1,0 +1,202 @@
+{
+  "RIDING_DAILY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 1849098,
+    "elapsed_sec": 7.13,
+    "prompt_token_count": 82,
+    "candidates_token_count": 1290,
+    "total_token_count": 1372
+  },
+  "RIDING_WEEKLY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2720081,
+    "elapsed_sec": 14.82,
+    "prompt_token_count": 335,
+    "candidates_token_count": 1290,
+    "total_token_count": 1625
+  },
+  "RIDING_MONTHLY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 1438018,
+    "elapsed_sec": 15.41,
+    "prompt_token_count": 339,
+    "candidates_token_count": 1316,
+    "total_token_count": 1655
+  },
+  "COMMUNITY_DAILY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2588145,
+    "elapsed_sec": 14.41,
+    "prompt_token_count": 340,
+    "candidates_token_count": 1334,
+    "total_token_count": 1674
+  },
+  "COMMUNITY_WEEKLY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2585386,
+    "elapsed_sec": 14.59,
+    "prompt_token_count": 336,
+    "candidates_token_count": 1290,
+    "total_token_count": 1626
+  },
+  "MAINT_DAILY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2479088,
+    "elapsed_sec": 12.29,
+    "prompt_token_count": 341,
+    "candidates_token_count": 1290,
+    "total_token_count": 1631
+  },
+  "MAINT_WEEKLY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2237429,
+    "elapsed_sec": 14.21,
+    "prompt_token_count": 336,
+    "candidates_token_count": 1290,
+    "total_token_count": 1626
+  },
+  "MARKET_DAILY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2560226,
+    "elapsed_sec": 11.59,
+    "prompt_token_count": 334,
+    "candidates_token_count": 1304,
+    "total_token_count": 1638
+  },
+  "MARKET_WEEKLY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2688996,
+    "elapsed_sec": 16.78,
+    "prompt_token_count": 332,
+    "candidates_token_count": 1290,
+    "total_token_count": 1622
+  },
+  "MIXED_DAILY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2633227,
+    "elapsed_sec": 13.94,
+    "prompt_token_count": 348,
+    "candidates_token_count": 1290,
+    "total_token_count": 1638
+  },
+  "DELIVERY_DAILY": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2561156,
+    "elapsed_sec": 18.76,
+    "prompt_token_count": 343,
+    "candidates_token_count": 1308,
+    "total_token_count": 1651
+  },
+  "ONBOARDING": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2683802,
+    "elapsed_sec": 12.44,
+    "prompt_token_count": 341,
+    "candidates_token_count": 1306,
+    "total_token_count": 1647
+  },
+  "TET_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2709083,
+    "elapsed_sec": 10.89,
+    "prompt_token_count": 349,
+    "candidates_token_count": 1303,
+    "total_token_count": 1652
+  },
+  "HUNG_KINGS_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2542892,
+    "elapsed_sec": 10.92,
+    "prompt_token_count": 341,
+    "candidates_token_count": 1290,
+    "total_token_count": 1631
+  },
+  "REUNIFICATION_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2602351,
+    "elapsed_sec": 12.45,
+    "prompt_token_count": 347,
+    "candidates_token_count": 1290,
+    "total_token_count": 1637
+  },
+  "GHOST_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2551248,
+    "elapsed_sec": 13.04,
+    "prompt_token_count": 343,
+    "candidates_token_count": 1290,
+    "total_token_count": 1633
+  },
+  "MID_AUTUMN_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2708102,
+    "elapsed_sec": 11.79,
+    "prompt_token_count": 341,
+    "candidates_token_count": 1290,
+    "total_token_count": 1631
+  },
+  "RAIN_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2601979,
+    "elapsed_sec": 11.36,
+    "prompt_token_count": 346,
+    "candidates_token_count": 1316,
+    "total_token_count": 1662
+  },
+  "NEW_YEAR_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2490233,
+    "elapsed_sec": 11.39,
+    "prompt_token_count": 348,
+    "candidates_token_count": 1304,
+    "total_token_count": 1652
+  },
+  "SAIGON_BDAY_SEASON": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2625854,
+    "elapsed_sec": 14.2,
+    "prompt_token_count": 342,
+    "candidates_token_count": 1290,
+    "total_token_count": 1632
+  },
+  "THE_LEGEND_M": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2647285,
+    "elapsed_sec": 62.01,
+    "prompt_token_count": 354,
+    "candidates_token_count": 1290,
+    "total_token_count": 1644
+  },
+  "SAIGON_GHOST_M": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2281010,
+    "elapsed_sec": 12.0,
+    "prompt_token_count": 340,
+    "candidates_token_count": 1318,
+    "total_token_count": 1658
+  },
+  "IRON_PHOENIX_M": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2735644,
+    "elapsed_sec": 12.72,
+    "prompt_token_count": 348,
+    "candidates_token_count": 1290,
+    "total_token_count": 1638
+  },
+  "STORM_KING_M": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2732269,
+    "elapsed_sec": 13.09,
+    "prompt_token_count": 340,
+    "candidates_token_count": 1318,
+    "total_token_count": 1658
+  },
+  "SAIGON_ANCESTOR_M": {
+    "model": "gemini-2.5-flash-image",
+    "bytes": 2676133,
+    "elapsed_sec": 10.59,
+    "prompt_token_count": 348,
+    "candidates_token_count": 1290,
+    "total_token_count": 1638
+  }
+}

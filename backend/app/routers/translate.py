@@ -1,0 +1,121 @@
+import logging
+import uuid
+from datetime import UTC, datetime
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..database import get_db
+from ..deps import verify_user_session
+from ..models import Translation
+from ..schemas import TranslateAllRequest, TranslateAllResponse, TranslateRequest, TranslateResponse
+from ..services.redis_cache import get_client
+from ..services.translate import (
+    SUPPORTED_LANGS,
+    provider_translate,
+    resolve_config,
+    source_hash,
+    translate_all,
+)
+
+router = APIRouter(prefix="/translate", tags=["번역 (Translation)"])
+log = logging.getLogger(__name__)
+
+_LANG_ATTR = {"ko": "text_ko", "en": "text_en", "vi": "text_vi"}
+
+# BIZ-3: 외부 번역 API 비용 남용 방지 — 과도한 원문 길이 차단 + 유저당 요청 빈도 제한.
+_MAX_TEXT_LEN = 5000
+_RATE_LIMIT = 30
+_RATE_WINDOW_SEC = 60
+
+
+async def _enforce_rate_limit(user_id: uuid.UUID) -> None:
+    """유저당 fixed-window 카운터. Redis 장애 시 외부 유료 호출을 fail-closed 한다."""
+    try:
+        client = await get_client()
+        key = f"saigon:translate:rate:{user_id}"
+        pipe = client.pipeline(transaction=True)
+        pipe.incr(key)
+        pipe.expire(key, _RATE_WINDOW_SEC, nx=True)
+        count, _ = await pipe.execute()
+        if count > _RATE_LIMIT:
+            raise HTTPException(status_code=429, detail="Translation request limit exceeded")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error("Translate rate limit unavailable; blocking provider request: %s", exc)
+        raise HTTPException(status_code=503, detail="Translation temporarily unavailable") from exc
+
+
+@router.post("/all", response_model=TranslateAllResponse, summary="원문 → 3개 언어 번들({kr,en,vi})")
+async def translate_bundle(
+    body: TranslateAllRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """원문 1개 입력 → 언어감지 후 나머지 2개만 번역 → {kr,en,vi} 반환."""
+    if len(body.text) > _MAX_TEXT_LEN:
+        raise HTTPException(status_code=400, detail=f"text exceeds max length ({_MAX_TEXT_LEN})")
+    await _enforce_rate_limit(session_uid)
+    try:
+        result = await translate_all(body.text, db)
+    except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
+        log.warning("translate_all failed: %s", exc)
+        raise HTTPException(status_code=502, detail="translation provider error") from exc
+    return TranslateAllResponse(**result)
+
+
+@router.post("", response_model=TranslateResponse, summary="실시간 번역(원문 해시 캐시)")
+async def translate(
+    body: TranslateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    target = body.target_lang
+    if target not in SUPPORTED_LANGS:
+        raise HTTPException(status_code=400, detail="unsupported target_lang")
+    if len(body.text) > _MAX_TEXT_LEN:
+        raise HTTPException(status_code=400, detail=f"text exceeds max length ({_MAX_TEXT_LEN})")
+    await _enforce_rate_limit(session_uid)
+
+    text = body.text.strip()
+    if not text:
+        return TranslateResponse(translated=body.text, target_lang=target, source_lang=body.source_lang, cached=True)
+    # 원문 언어 == 대상 언어면 번역 불필요(비용 0)
+    if body.source_lang and body.source_lang == target:
+        return TranslateResponse(translated=text, target_lang=target, source_lang=body.source_lang, cached=True)
+
+    h = source_hash(text)
+    attr = _LANG_ATTR[target]
+
+    # 캐시 히트 → API 호출 없이 반환
+    row = await db.get(Translation, h)
+    if row is not None and getattr(row, attr):
+        return TranslateResponse(
+            translated=getattr(row, attr), target_lang=target, source_lang=row.source_lang, cached=True
+        )
+
+    # 키 해석(env 우선 → DB app_config 폴백). 키 없으면 stub.
+    api_key, provider = await resolve_config(db)
+
+    # 캐시 미스 → provider 호출(키 없으면 stub=원문) 후 적재
+    try:
+        translated, detected = await provider_translate(text, target, body.source_lang, api_key, provider)
+    except (httpx.HTTPError, httpx.RequestError, KeyError, IndexError, ValueError) as exc:
+        log.warning("translate provider failed: %s", exc)
+        raise HTTPException(status_code=502, detail="translation provider error") from exc
+
+    # stub(키 미발급) 결과는 캐시 저장 안 함 — 키 발급 후 원문=번역 오염 방지
+    if not api_key:
+        return TranslateResponse(translated=translated, target_lang=target, source_lang=body.source_lang, cached=False)
+
+    if row is None:
+        row = Translation(source_hash=h, source_lang=body.source_lang or detected, source_text=text)
+        db.add(row)
+    setattr(row, attr, translated)
+    if not row.source_lang:
+        row.source_lang = body.source_lang or detected
+    row.updated_at = datetime.now(UTC)
+    await db.commit()
+    return TranslateResponse(translated=translated, target_lang=target, source_lang=row.source_lang, cached=False)

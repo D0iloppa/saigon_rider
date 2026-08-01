@@ -1,0 +1,339 @@
+/* 정비소 상세 전용 스타일 — 공통 문법은 styles/system.module.css 참조 */
+
+/* ── Transparent TopBar (히어로 위 오버레이) ── */
+.transparentBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--status-bar-height) + 12px) 16px 12px;
+}
+
+.transparentBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .35);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+.transparentBtn:active { background: rgba(0, 0, 0, .5); }
+
+/* ── Hero Area — 사진 준비 전 플레이스홀더 ── */
+.heroArea {
+  height: 200px;
+  background: linear-gradient(160deg, var(--ink-700), var(--ink-600));
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.heroInner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, .35);
+}
+
+/* ── Info Block ── */
+.infoBlock {
+  padding: 14px 16px;
+  background: var(--surface);
+}
+
+.shopName {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.shopAddr {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ratingVal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ratingVal b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ratingCount {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.infoIcon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.infoText {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* ── Action Grid ── */
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 2px;
+}
+
+.actionBtn {
+  border: none;
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+.actionBtn:active { opacity: .75; }
+.actionBtn:disabled { opacity: .45; }
+
+.actionBtnBrand   { background: var(--brand-500); color: #fff; }
+.actionBtnTint    { background: var(--brand-50); color: var(--brand-700); }
+.actionBtnNeutral { background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2); }
+
+/* ── Dividers ── */
+.dividerThick {
+  height: 8px;
+  background: var(--bg);
+}
+
+/* ── Price Section ── */
+.priceSection {
+  padding: 14px 16px;
+  background: var(--surface);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.sectionIcon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.reviewSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.viewAllLink {
+  border: none;
+  background: none;
+  color: var(--brand-600);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.priceRow:last-child { border-bottom: none; }
+
+.priceLabel {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.priceVal {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Reviews ── */
+.reviewSection {
+  padding: 14px 16px 8px;
+  background: var(--surface);
+}
+
+.reviewCard {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.reviewCard:last-child { border-bottom: none; }
+
+.reviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.reviewLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reviewerName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.reviewRating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.reviewRating b {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.reviewDate {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.reviewBadges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.reviewBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.reviewPrice {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.reviewComment {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.reviewUpvote {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+}
+
+.upvoteCount {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ── Review CTA (리워드 힌트 — 골드 톤) ── */
+.reviewCta {
+  margin: 12px 16px 20px;
+  background: var(--surface);
+  border: 1px dashed rgba(245, 158, 11, .45);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+.reviewCta:active { background: var(--surface-2); }
+
+.reviewCtaTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #B45309; /* 골드 텍스트 — system badgeGold 와 동일값 */
+}
+
+.reviewCtaSub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.reviewCtaBtn {
+  background: var(--brand-500);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ── Loading ── */
+.skeletonHero {
+  height: 200px;
+  background: linear-gradient(90deg, var(--ink-700) 25%, var(--ink-600) 50%, var(--ink-700) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skelCard {
+  margin-top: 12px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

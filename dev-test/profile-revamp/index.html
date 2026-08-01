@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Profile Revamp — Saigon Rider</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root {
+  --brand-50:#FFF1E8;--brand-100:#FFDDC4;--brand-300:#FF9966;
+  --brand-500:#FF5A1F;--brand-600:#ED4310;--brand-700:#B82C08;
+  --bg:#F7F5F0;--surface:#FFFFFF;--surface-2:#FAF7F2;--line:#E8E3DA;
+  --text:#0B0D14;--text-2:#4A4F62;--text-3:#8A8E9E;
+  --ink-900:#0B0D14;
+  --gold:#FFB800;--gc:#60A5FA;--neon-cyan:#00E5CC;--neon-lime:#B6FF1C;
+  --success:#22C55E;--error:#FF4D6D;
+  --grad-sunset:radial-gradient(at 20% 20%,#FFD96B 0%,transparent 50%),radial-gradient(at 80% 30%,#FF5A1F 0%,transparent 55%),radial-gradient(at 60% 90%,#7C3AED 0%,transparent 60%),linear-gradient(160deg,#FF7438,#B82C08);
+  --shadow-card:0 1px 2px rgba(11,13,20,.04),0 4px 12px rgba(11,13,20,.06);
+  --shadow-pop:0 8px 24px rgba(255,90,31,.20),0 24px 60px rgba(255,90,31,.18);
+  --app-max-width:480px;
+  --font-ui:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Space Grotesk',monospace;
+  --tabbar-height:72px;
+  --status-bar-height:44px;
+
+  /* mileage tier colors */
+  --tier-starter:#8A8E9E;
+  --tier-bronze:#CD7F32;
+  --tier-silver:#A0AEC0;
+  --tier-gold:#FFB800;
+  --tier-platinum:#00E5CC;
+  --tier-legend:#FF5A1F;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font-ui);font-size:15px;color:var(--text);background:#1A1010;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ── Shell ── */
+.shell{display:flex;justify-content:center;height:100vh;height:100dvh}
+.app{width:100%;max-width:var(--app-max-width);position:relative;height:100%;overflow:hidden}
+
+/* ── Background ── */
+.bg-fixed{position:absolute;inset:0;background:var(--grad-sunset);z-index:0}
+.bg-fixed .noise{position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");mix-blend-mode:overlay;opacity:.3;pointer-events:none}
+
+/* ── Fixed Header ── */
+.fixed-header{position:absolute;top:0;left:0;right:0;z-index:10;padding:0 20px 16px;color:white;text-align:center}
+.status-bar{height:var(--status-bar-height)}
+.settings-btn{position:absolute;top:52px;right:16px;width:40px;height:40px;border-radius:14px;background:rgba(255,255,255,.18);backdrop-filter:blur(12px);color:white;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2}
+
+.avatar-wrap{position:relative;width:104px;height:104px;margin:8px auto 12px}
+.avatar{width:100%;height:100%;border-radius:50%;border:4px solid white;box-shadow:var(--shadow-pop);object-fit:cover;background:#333}
+.level-badge{position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);background:var(--ink-900);color:var(--gold);font-family:var(--font-mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:2px solid var(--gold);white-space:nowrap}
+
+.nick{font-size:20px;font-weight:700;margin-top:4px}
+.style-chip{display:inline-block;margin:8px auto 20px;padding:5px 14px;background:rgba(255,255,255,.18);backdrop-filter:blur(12px);border-radius:999px;font-size:12px;font-weight:600}
+
+.level-row{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em}
+.level-text{color:var(--gold)}
+.level-text-right{opacity:.85}
+.level-bar{height:6px;background:rgba(255,255,255,.25);border-radius:999px;margin-top:6px;overflow:hidden}
+.level-bar-fill{height:100%;background:white;border-radius:999px;width:72%}
+
+/* ── Social Section ── */
+.social-section{position:absolute;left:0;right:0;z-index:10;padding:0 20px 16px;color:white;text-align:center}
+.social-row{display:flex;align-items:center;justify-content:center}
+.social-cell{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 16px;color:white}
+.social-num{font-size:18px;font-weight:700}
+.social-label{font-size:12px;opacity:.8}
+.social-divider{width:1px;height:28px;background:rgba(255,255,255,.3)}
+.profile-actions{display:flex;gap:6px;margin-top:12px;width:100%}
+.share-btn{flex:1;padding:7px 0;border-radius:8px;background:rgba(255,255,255,.22);backdrop-filter:blur(8px);color:white;font-size:13px;font-weight:600}
+.add-friend-btn{width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.22);backdrop-filter:blur(8px);color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ── Sheet ── */
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-radius:32px 32px 0 0;padding:0 20px calc(var(--tabbar-height) + 24px);overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 -12px 40px rgba(0,0,0,.08);will-change:top;transition:top .3s cubic-bezier(.2,.8,.2,1)}
+.sheet-grabber{width:40px;height:4px;background:var(--line);border-radius:999px;margin:10px auto 16px}
+
+/* ── Currency Bento ── */
+.currency-bento{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.currency-cell{background:var(--surface);border-radius:18px;padding:14px 8px;text-align:center;border-top:3px solid;box-shadow:var(--shadow-card)}
+.currency-icon{font-size:28px;display:block;margin:0 auto}
+.currency-num{font-family:var(--font-mono);font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.currency-label{font-size:11px;color:var(--text-3);margin-top:2px}
+
+/* ── NEW: Garage Banner ── */
+.garage-banner{display:flex;align-items:center;gap:14px;background:var(--surface);border-radius:20px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow-card);cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden}
+.garage-banner:active{transform:scale(.98)}
+.garage-banner:hover{box-shadow:var(--shadow-card),0 0 0 2px var(--brand-300)}
+
+.garage-icon-wrap{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#FF7438,#B82C08);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;box-shadow:0 4px 12px rgba(255,90,31,.25)}
+
+.garage-info{flex:1;min-width:0}
+.garage-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
+.garage-title .badge{font-family:var(--font-mono);font-size:10px;font-weight:700;background:var(--brand-50);color:var(--brand-500);padding:2px 7px;border-radius:6px}
+.garage-equipped{display:flex;gap:4px;margin-top:6px}
+.garage-item-thumb{width:32px;height:32px;border-radius:8px;background:var(--surface-2);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:16px}
+.garage-item-thumb.rare{border-color:#60A5FA;box-shadow:0 2px 6px rgba(59,130,246,.2)}
+.garage-item-thumb.epic{border-color:#A78BFA;box-shadow:0 2px 6px rgba(139,92,246,.2)}
+.garage-item-thumb.legend{border-color:#FF9966;box-shadow:0 2px 6px rgba(255,116,56,.2)}
+.garage-item-thumb.empty{opacity:.35;border-style:dashed}
+
+.garage-arrow{font-size:18px;color:var(--text-3);flex-shrink:0;margin-left:4px}
+
+/* ── NEW: Odometer Card ── */
+.odometer-card{background:var(--surface);border-radius:24px;padding:18px 18px 16px;margin-bottom:12px;box-shadow:var(--shadow-card);position:relative;overflow:hidden}
+
+.odometer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.odometer-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
+.odometer-tier-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;letter-spacing:.02em}
+
+.odometer-big{text-align:center;margin-bottom:14px}
+.odometer-num{font-family:var(--font-mono);font-size:42px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.odometer-unit{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--text-3);margin-left:4px}
+.odometer-subtitle{font-size:11px;color:var(--text-3);margin-top:4px}
+
+.odometer-progress{margin-bottom:12px}
+.odometer-bar-wrap{height:10px;background:var(--line);border-radius:999px;overflow:hidden;position:relative}
+.odometer-bar-fill{height:100%;border-radius:999px;transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative}
+.odometer-bar-fill::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:inherit;border:2.5px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.odometer-bar-labels{display:flex;justify-content:space-between;margin-top:6px}
+.odometer-bar-label{font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--text-3)}
+.odometer-bar-label.current{color:var(--text)}
+.odometer-bar-label.next{color:var(--brand-500)}
+
+/* tier milestones */
+.tier-milestones{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tier-milestones::-webkit-scrollbar{display:none}
+.tier-milestone{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--surface-2);border-radius:10px;font-size:11px;font-weight:600;color:var(--text-2);border:1px solid var(--line);transition:all .2s}
+.tier-milestone.achieved{background:var(--brand-50);border-color:var(--brand-300);color:var(--brand-700)}
+.tier-milestone.current-tier{border-color:var(--brand-500);box-shadow:0 0 0 1px var(--brand-500)}
+.tier-milestone .tier-icon{font-size:14px}
+.tier-milestone .tier-name{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.03em}
+.tier-milestone .tier-km{font-family:var(--font-mono);font-size:9px;color:var(--text-3)}
+
+/* ── Stats Card (This Month) ── */
+.stats-card{background:var(--surface);border-radius:24px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-card)}
+.card-title{font-size:14px;font-weight:700;margin-bottom:12px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;text-align:center}
+.stat-big{font-family:var(--font-mono);font-size:22px;font-weight:700;letter-spacing:-.02em}
+.stat-small{font-size:11px;color:var(--text-3);margin-top:2px}
+.chart{width:100%;height:60px}
+
+/* ── Tab Row ── */
+.tab-row{display:flex;background:var(--surface);border-radius:14px;padding:4px;margin-bottom:12px;box-shadow:var(--shadow-card)}
+.tab-btn{flex:1;height:40px;border-radius:10px;font-size:14px;font-weight:600;color:var(--text-2)}
+.tab-btn.active{background:var(--ink-900);color:white}
+
+/* ── Tab Content placeholder ── */
+.tab-content{text-align:center;padding:40px 20px;color:var(--text-3)}
+.tab-content .empty-icon{font-size:48px;margin-bottom:12px}
+.tab-content p{font-size:13px;margin-top:4px}
+
+/* ── Tabbar ── */
+.tabbar{position:absolute;bottom:0;left:0;right:0;height:var(--tabbar-height);background:var(--surface);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;padding-bottom:12px;z-index:30}
+.tabbar-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--text-3);font-weight:600}
+.tabbar-item.active{color:var(--brand-500)}
+.tabbar-icon{font-size:20px}
+.tabbar-center{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#FF7438,#B82C08);display:flex;align-items:center;justify-content:center;font-size:28px;margin-top:-20px;box-shadow:0 4px 16px rgba(255,90,31,.35)}
+
+/* ── Design note overlay ── */
+.design-note{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:999;background:rgba(11,13,20,.85);backdrop-filter:blur(8px);color:#F0EDE8;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 14px;border-radius:8px;letter-spacing:.5px;pointer-events:none;white-space:nowrap}
+.design-note .new{color:var(--neon-lime);font-weight:700}
+
+/* ── Toggle controls ── */
+.controls{position:fixed;bottom:16px;right:16px;z-index:999;display:flex;flex-direction:column;gap:6px}
+.ctrl-btn{padding:8px 12px;background:rgba(11,13,20,.85);backdrop-filter:blur(8px);color:#F0EDE8;font-family:var(--font-mono);font-size:11px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.1);transition:all .15s;white-space:nowrap}
+.ctrl-btn:hover{border-color:var(--brand-500);color:var(--brand-300)}
+.ctrl-btn.active{border-color:var(--neon-lime);color:var(--neon-lime)}
+
+/* animation */
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.animate-in{animation:countUp .4s ease-out both}
+.delay-1{animation-delay:.1s}
+.delay-2{animation-delay:.2s}
+.delay-3{animation-delay:.3s}
+</style>
+</head>
+<body>
+<div class="design-note"><span class="new">NEW</span> Profile Revamp — Garage Banner + Odometer</div>
+
+<div class="shell">
+  <div class="app">
+    <!-- Background -->
+    <div class="bg-fixed"><div class="noise"></div></div>
+
+    <!-- Fixed Header -->
+    <div class="fixed-header" id="fixedHeader">
+      <div class="status-bar"></div>
+      <button class="settings-btn">⚙</button>
+
+      <div class="avatar-wrap">
+        <div class="avatar" style="background:linear-gradient(135deg,#2A1810,#0B0D14)"></div>
+        <div class="level-badge">LV.5</div>
+      </div>
+
+      <div class="nick">잇츠미~</div>
+      <div class="style-chip">🏢 Commuter</div>
+
+      <div class="level-row">
+        <span class="level-text">LV.5</span>
+        <span class="level-text-right">0 EXP TO LV.6</span>
+      </div>
+      <div class="level-bar"><div class="level-bar-fill"></div></div>
+    </div>
+
+    <!-- Social Section -->
+    <div class="social-section" id="socialSection">
+      <div class="social-row">
+        <button class="social-cell">
+          <span class="social-num">2</span>
+          <span class="social-label">Followers</span>
+        </button>
+        <div class="social-divider"></div>
+        <button class="social-cell">
+          <span class="social-num">0</span>
+          <span class="social-label">Following</span>
+        </button>
+      </div>
+      <div class="profile-actions">
+        <button class="share-btn">Share Profile</button>
+        <button class="add-friend-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="19" y1="8" x2="19" y2="14"/>
+            <line x1="16" y1="11" x2="22" y2="11"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sheet -->
+    <div class="sheet" id="sheet">
+      <div class="sheet-grabber"></div>
+
+      <!-- Currency Bento (existing) -->
+      <div class="currency-bento animate-in">
+        <div class="currency-cell" style="border-color:var(--gc)">
+          <span class="currency-icon">💎</span>
+          <div class="currency-num">0</div>
+          <div class="currency-label">XP</div>
+        </div>
+        <div class="currency-cell" style="border-color:var(--gold)">
+          <span class="currency-icon">🪙</span>
+          <div class="currency-num">30</div>
+          <div class="currency-label">Gold</div>
+        </div>
+        <div class="currency-cell" style="border-color:var(--brand-500)">
+          <span class="currency-icon">⚡</span>
+          <div class="currency-num">0</div>
+          <div class="currency-label">Skill Pt</div>
+        </div>
+      </div>
+
+      <!-- NEW: Garage Banner -->
+      <div class="garage-banner animate-in delay-1" id="garageBanner" onclick="alert('→ /garage')">
+        <div class="garage-icon-wrap">🏍</div>
+        <div class="garage-info">
+          <div class="garage-title">
+            My Ride
+            <span class="badge">3 equipped</span>
+          </div>
+          <div class="garage-equipped">
+            <div class="garage-item-thumb epic">🪖</div>
+            <div class="garage-item-thumb rare">🧥</div>
+            <div class="garage-item-thumb legend">🧤</div>
+            <div class="garage-item-thumb empty">+</div>
+            <div class="garage-item-thumb empty">+</div>
+          </div>
+        </div>
+        <div class="garage-arrow">›</div>
+      </div>
+
+      <!-- NEW: Odometer Card -->
+      <div class="odometer-card animate-in delay-2" id="odometerCard">
+        <div class="odometer-header">
+          <div class="odometer-title">🛣 Odometer</div>
+          <div class="odometer-tier-badge" id="tierBadge" style="background:rgba(205,127,50,.12);color:#CD7F32">
+            🥉 Bronze
+          </div>
+        </div>
+
+        <div class="odometer-big">
+          <span class="odometer-num" id="odometerNum">0</span><span class="odometer-unit">km</span>
+          <div class="odometer-subtitle">total distance ridden</div>
+        </div>
+
+        <div class="odometer-progress">
+          <div class="odometer-bar-wrap">
+            <div class="odometer-bar-fill" id="odometerBar" style="width:0%;background:linear-gradient(90deg,#CD7F32,#E8A84C)"></div>
+          </div>
+          <div class="odometer-bar-labels">
+            <span class="odometer-bar-label current" id="barLabelCurrent">🥉 Bronze 100km</span>
+            <span class="odometer-bar-label next" id="barLabelNext">🥈 Silver 500km →</span>
+          </div>
+        </div>
+
+        <div class="tier-milestones" id="tierMilestones">
+          <!-- JS fills -->
+        </div>
+      </div>
+
+      <!-- Stats Card (This Month — existing) -->
+      <div class="stats-card animate-in delay-3">
+        <h3 class="card-title">This Month</h3>
+        <div class="stats-row">
+          <div>
+            <div class="stat-big" id="monthKm">0</div>
+            <div class="stat-small">km</div>
+          </div>
+          <div>
+            <div class="stat-big">68</div>
+            <div class="stat-small">Quests</div>
+          </div>
+          <div>
+            <div class="stat-big">—</div>
+            <div class="stat-small">Safety</div>
+          </div>
+        </div>
+        <svg viewBox="0 0 280 60" class="chart">
+          <defs>
+            <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--neon-cyan)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--neon-cyan)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M 0 40 Q 35 30 70 32 T 140 28 T 210 24 T 280 18 L 280 60 L 0 60 Z" fill="url(#chartGrad)"/>
+          <path d="M 0 40 Q 35 30 70 32 T 140 28 T 210 24 T 280 18" stroke="var(--neon-cyan)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="280" cy="18" r="4" fill="var(--neon-cyan)"/>
+          <circle cx="280" cy="18" r="8" fill="var(--neon-cyan)" opacity="0.3"/>
+        </svg>
+      </div>
+
+      <!-- Tab Row (existing) -->
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab(this)">피드</button>
+        <button class="tab-btn" onclick="switchTab(this)">기록</button>
+        <button class="tab-btn" onclick="switchTab(this)">배지</button>
+        <button class="tab-btn" onclick="switchTab(this)">장비</button>
+      </div>
+
+      <div class="tab-content">
+        <div class="empty-icon">📸</div>
+        <p>아직 피드가 없어요</p>
+        <p style="font-size:12px;margin-top:4px;opacity:.7">라이딩 후 첫 피드를 올려보세요</p>
+      </div>
+    </div>
+
+    <!-- Tabbar -->
+    <div class="tabbar">
+      <div class="tabbar-item"><span class="tabbar-icon">🏠</span>Home</div>
+      <div class="tabbar-item"><span class="tabbar-icon">📋</span>Quests</div>
+      <div class="tabbar-center">🏍</div>
+      <div class="tabbar-item"><span class="tabbar-icon">📷</span>Feed</div>
+      <div class="tabbar-item active"><span class="tabbar-icon">✅</span>Profile</div>
+    </div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="ctrl-btn" onclick="setMileage(0)">0 km (Starter)</button>
+  <button class="ctrl-btn" onclick="setMileage(142)">142 km (Bronze)</button>
+  <button class="ctrl-btn active" onclick="setMileage(823)">823 km (Silver)</button>
+  <button class="ctrl-btn" onclick="setMileage(3200)">3,200 km (Gold)</button>
+  <button class="ctrl-btn" onclick="setMileage(7500)">7,500 km (Platinum)</button>
+  <button class="ctrl-btn" onclick="setMileage(15000)">15,000 km (Legend)</button>
+  <button class="ctrl-btn" onclick="toggleGarageEmpty()">Toggle Garage Empty</button>
+</div>
+
+<script>
+const TIERS = [
+  { name: 'Starter',  icon: '🏁', km: 0,     color: '#8A8E9E', bg: 'rgba(138,142,158,.1)' },
+  { name: 'Bronze',   icon: '🥉', km: 100,   color: '#CD7F32', bg: 'rgba(205,127,50,.12)' },
+  { name: 'Silver',   icon: '🥈', km: 500,   color: '#718096', bg: 'rgba(160,174,192,.12)' },
+  { name: 'Gold',     icon: '🥇', km: 2000,  color: '#D69E2E', bg: 'rgba(255,184,0,.12)' },
+  { name: 'Platinum', icon: '💎', km: 5000,  color: '#00B5A0', bg: 'rgba(0,229,204,.12)' },
+  { name: 'Legend',   icon: '🏆', km: 10000, color: '#FF5A1F', bg: 'rgba(255,90,31,.12)' },
+];
+
+const GRADIENTS = {
+  Starter:  'linear-gradient(90deg,#8A8E9E,#A0AEC0)',
+  Bronze:   'linear-gradient(90deg,#CD7F32,#E8A84C)',
+  Silver:   'linear-gradient(90deg,#718096,#A0AEC0)',
+  Gold:     'linear-gradient(90deg,#D69E2E,#FFB800)',
+  Platinum: 'linear-gradient(90deg,#00B5A0,#00E5CC)',
+  Legend:   'linear-gradient(90deg,#FF5A1F,#FF9966)',
+};
+
+function getCurrentTier(km) {
+  let tier = TIERS[0];
+  for (const t of TIERS) {
+    if (km >= t.km) tier = t;
+  }
+  return tier;
+}
+
+function getNextTier(km) {
+  for (const t of TIERS) {
+    if (km < t.km) return t;
+  }
+  return null;
+}
+
+function renderMilestones(km) {
+  const el = document.getElementById('tierMilestones');
+  el.innerHTML = TIERS.map(t => {
+    const achieved = km >= t.km;
+    const current = getCurrentTier(km).name === t.name;
+    let cls = 'tier-milestone';
+    if (achieved) cls += ' achieved';
+    if (current) cls += ' current-tier';
+    return `<div class="${cls}">
+      <span class="tier-icon">${t.icon}</span>
+      <span class="tier-name">${t.name}</span>
+      <span class="tier-km">${t.km.toLocaleString()}km</span>
+    </div>`;
+  }).join('');
+}
+
+function animateNumber(el, target, duration) {
+  const start = parseInt(el.textContent.replace(/,/g, '')) || 0;
+  const diff = target - start;
+  const startTime = performance.now();
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(start + diff * eased).toLocaleString();
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function setMileage(km) {
+  const tier = getCurrentTier(km);
+  const next = getNextTier(km);
+
+  // animate number
+  animateNumber(document.getElementById('odometerNum'), km, 600);
+  animateNumber(document.getElementById('monthKm'), Math.round(km * 0.12), 600);
+
+  // tier badge
+  const badge = document.getElementById('tierBadge');
+  badge.style.background = tier.bg;
+  badge.style.color = tier.color;
+  badge.innerHTML = `${tier.icon} ${tier.name}`;
+
+  // progress bar
+  const bar = document.getElementById('odometerBar');
+  bar.style.background = GRADIENTS[tier.name];
+  if (next) {
+    const progress = ((km - tier.km) / (next.km - tier.km)) * 100;
+    bar.style.width = Math.max(5, Math.min(95, progress)) + '%';
+  } else {
+    bar.style.width = '100%';
+  }
+
+  // bar labels
+  const labelCurrent = document.getElementById('barLabelCurrent');
+  const labelNext = document.getElementById('barLabelNext');
+  labelCurrent.textContent = `${tier.icon} ${tier.name} ${tier.km.toLocaleString()}km`;
+  if (next) {
+    labelNext.textContent = `${next.icon} ${next.name} ${next.km.toLocaleString()}km →`;
+    labelNext.style.display = '';
+  } else {
+    labelNext.textContent = '🏆 MAX';
+    labelNext.style.color = tier.color;
+  }
+
+  // milestones
+  renderMilestones(km);
+
+  // active control button
+  document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+  event?.target?.classList?.add('active');
+}
+
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+let garageEmpty = false;
+function toggleGarageEmpty() {
+  garageEmpty = !garageEmpty;
+  const banner = document.getElementById('garageBanner');
+  if (garageEmpty) {
+    banner.innerHTML = `
+      <div class="garage-icon-wrap" style="background:linear-gradient(135deg,#8A8E9E,#6B6478)">🏍</div>
+      <div class="garage-info">
+        <div class="garage-title">My Ride</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:4px">Customize your ride in the garage →</div>
+      </div>
+      <div class="garage-arrow">›</div>
+    `;
+  } else {
+    banner.innerHTML = `
+      <div class="garage-icon-wrap">🏍</div>
+      <div class="garage-info">
+        <div class="garage-title">My Ride <span class="badge">3 equipped</span></div>
+        <div class="garage-equipped">
+          <div class="garage-item-thumb epic">🪖</div>
+          <div class="garage-item-thumb rare">🧥</div>
+          <div class="garage-item-thumb legend">🧤</div>
+          <div class="garage-item-thumb empty">+</div>
+          <div class="garage-item-thumb empty">+</div>
+        </div>
+      </div>
+      <div class="garage-arrow">›</div>
+    `;
+  }
+}
+
+// ── Layout positioning (mimics the real drag sheet) ──
+function layoutPositions() {
+  const header = document.getElementById('fixedHeader');
+  const social = document.getElementById('socialSection');
+  const sheet = document.getElementById('sheet');
+
+  const hH = header.offsetHeight;
+  social.style.top = hH + 'px';
+
+  const sH = social.offsetHeight;
+  sheet.style.top = (hH + sH + 16) + 'px';
+}
+
+window.addEventListener('load', () => {
+  layoutPositions();
+  window.addEventListener('resize', layoutPositions);
+  setMileage(823);
+});
+</script>
+</body>
+</html>

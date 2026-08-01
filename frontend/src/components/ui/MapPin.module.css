@@ -1,0 +1,13 @@
+.mapPin {
+  position: absolute;
+  background: var(--brand-500);
+  color: white;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(255,90,31,.4), 0 0 16px rgba(255,90,31,.3);
+  white-space: nowrap;
+  z-index: 5;
+}

@@ -1,0 +1,540 @@
+import { BrowserRouter, Routes, Route, Navigate, useLocation, type Location } from 'react-router-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Toaster } from 'sonner';
+import { SpriteProvider } from '@/lib/items/SpriteProvider';
+import { QuestCardSprites } from '@/components/quest/QuestCardSprites';
+import { AppShell } from '@/components/layout/AppShell';
+import { Dialog } from '@/components/ui/Dialog';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useUserStore } from '@/store/useUserStore';
+import { useDmStore } from '@/store/useDmStore';
+import { changeLang } from '@/lib/i18n';
+import { loadSession, saveSession, clearSession } from '@/lib/session';
+import { bootstrapSession, leaveBootstrapForLogin } from '@/lib/sessionBootstrap';
+import { apiSessionVerify, apiDevLoginAs } from '@/api/auth';
+import { emojiUrl } from '@/lib/emoji';
+import { setSessionExpiredHandler, SessionExpiredError, setAccountRestrictedHandler, AccountRestrictedError } from '@/api/client';
+import { native } from '@/lib/native';
+import { fetchAppConfig, fetchCurrentVersion, shouldForceUpdate, pickPlatformVersion } from '@/api/appVersion';
+import PrivateRoute from '@/components/auth/PrivateRoute';
+import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
+
+// Auth
+import Splash from '@/pages/auth/Splash';
+import OAuthLogin from '@/pages/auth/OAuthLogin';
+import OAuthResult from '@/pages/auth/OAuthResult';
+import ProfileSetup from '@/pages/auth/ProfileSetup';
+import PhoneVerify from '@/pages/auth/PhoneVerify';
+import Suspended from '@/pages/auth/Suspended';
+
+// Home
+import WorldMapV2 from '@/pages/home/WorldMapV2';
+
+// 동네지도 (RideNav 지도 재사용)
+import NeighborhoodMap from '@/pages/map/NeighborhoodMap';
+import MapSearch from '@/pages/map/MapSearch';
+import NeighborhoodProfile from '@/pages/map/NeighborhoodProfile';
+import MapFavorites from '@/pages/map/MapFavorites';
+import MapFollows from '@/pages/map/MapFollows';
+import NeighborhoodCategories from '@/pages/map/NeighborhoodCategories';
+
+// Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
+import MarketMain from '@/pages/market/MarketMain';
+import MarketCreate from '@/pages/market/MarketCreate';
+import MarketEdit from '@/pages/market/MarketEdit';
+import MarketDetail from '@/pages/market/MarketDetail';
+import MarketWishlist from '@/pages/market/MarketWishlist';
+import MarketSearch from '@/pages/market/MarketSearch';
+import AdDetail from '@/pages/market/AdDetail';
+
+// Biz (비즈니스 파트너, SGR-312 BP-2)
+import BizIntro from '@/pages/biz/BizIntro';
+import BizApply from '@/pages/biz/BizApply';
+import BizStatus from '@/pages/biz/BizStatus';
+import BizManage from '@/pages/biz/BizManage';
+import BizVerification from '@/pages/biz/BizVerification';
+import BizAdsNew from '@/pages/biz/BizAdsNew';
+import BizAdDetail from '@/pages/biz/BizAdDetail';
+import BizPublic from '@/pages/biz/BizPublic';
+import BizNewsCreate from '@/pages/biz/BizNewsCreate';
+import BizNewsDetail from '@/pages/biz/BizNewsDetail';
+import BizPriceManage from '@/pages/biz/BizPriceManage';
+
+// Quest
+import QuestList from '@/pages/quest/QuestList';
+import QuestDetail from '@/pages/quest/QuestDetail';
+import QuestCheckPage from '@/pages/quest/QuestCheckPage';
+
+// Ride
+import RideResultSuccess from '@/pages/ride/RideResultSuccess';
+import RideResultFail from '@/pages/ride/RideResultFail';
+
+// Feed
+import FeedList from '@/pages/feed/FeedList';
+import FeedCreate from '@/pages/feed/FeedCreate';
+import FeedEdit from '@/pages/feed/FeedEdit';
+import FeedDetail from '@/pages/feed/FeedDetail';
+
+// DM
+import DmList from '@/pages/dm/DmList';
+import DmDetail from '@/pages/dm/DmDetail';
+
+// 알림함
+import NotificationInbox from '@/pages/notifications/NotificationInbox';
+
+// Profile
+import ProfileMain from '@/pages/profile/ProfileMain';
+import TradeHistory from '@/pages/profile/TradeHistory';
+import FollowerList from '@/pages/profile/FollowerList';
+import FollowingList from '@/pages/profile/FollowingList';
+import FriendList from '@/pages/profile/FriendList';
+import FriendAdd from '@/pages/profile/FriendAdd';
+
+// Gacha
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import GachaMain from '@/pages/gacha/GachaMain';
+// import GachaPull from '@/pages/gacha/GachaPull';
+
+// Shop
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import ShopCatalog from '@/pages/shop/ShopCatalog';
+// import ItemDetail from '@/pages/shop/ItemDetail';
+// import CouponShop from '@/pages/shop/CouponShop';
+
+// Inventory
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import Inventory from '@/pages/inventory/Inventory';
+// import EquipPreview from '@/pages/inventory/EquipPreview';
+
+// Season
+// [게이미피케이션 잠정보류 — 재개 시 주석 해제]
+// import SeasonPass from '@/pages/season/SeasonPass';
+
+// Settings
+import Settings from '@/pages/settings/Settings';
+import NotiSettings from '@/pages/settings/NotiSettings';
+import LangSettings from '@/pages/settings/LangSettings';
+import AccountSettings from '@/pages/settings/AccountSettings';
+import BlockedUsers from '@/pages/settings/BlockedUsers';
+import ProfileEdit from '@/pages/settings/ProfileEdit';
+import CustomerSupport from '@/pages/settings/CustomerSupport';
+import SupportDetail from '@/pages/settings/SupportDetail';
+import PrivacyPolicy from '@/pages/settings/PrivacyPolicy';
+import TermsOfService from '@/pages/settings/TermsOfService';
+
+// Notices / FAQ
+import NoticeList from '@/pages/notices/NoticeList';
+import NoticeDetail from '@/pages/notices/NoticeDetail';
+import FaqList from '@/pages/faq/FaqList';
+
+// Guide
+import SafeTradeGuide from '@/pages/guide/SafeTradeGuide';
+
+// Info
+import InfoHub from '@/pages/info/InfoHub';
+import InfoWeather from '@/pages/info/InfoWeather';
+import InfoFloodMap from '@/pages/info/InfoFloodMap';
+import InfoFloodReport from '@/pages/info/InfoFloodReport';
+import InfoGasList from '@/pages/info/InfoGasList';
+import InfoRepairList from '@/pages/info/InfoRepairList';
+import InfoRepairDetail from '@/pages/info/InfoRepairDetail';
+import InfoRepairWrite from '@/pages/info/InfoRepairWrite';
+import InfoRepairReviews from '@/pages/info/InfoRepairReviews';
+import RideNav from '@/pages/ride/RideNav';
+
+// Deep link
+import LinkRouter from '@/pages/link/LinkRouter';
+import NotificationBridge from '@/pages/link/NotificationBridge';
+
+import styles from './App.module.css';
+
+/**
+ * 라우트-모달 (2026-07-12): 동네지도에서 상세 진입 시 navigate state 로 backgroundLocation
+ * 을 실어 보내면, 배경 라우트(지도)를 그대로 유지한 채 상세 3종(업체/매물/피드)을 전체화면
+ * 오버레이 레이어로 얹는다. URL 은 실제 상세 경로 — 딥링크/공유/하드웨어 뒤로가기 모두 정상.
+ * backgroundLocation 없는 진입(마켓 리스트·커뮤니티·딥링크 등)은 기존 페이지 이동 그대로.
+ */
+function BackgroundRoutes({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+  return (
+    <>
+      <Routes location={backgroundLocation ?? location}>{children}</Routes>
+      {backgroundLocation && (
+        <div className={styles.detailOverlay}>
+          <Routes>
+            <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
+            <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
+            <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
+          </Routes>
+        </div>
+      )}
+    </>
+  );
+}
+
+// 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.
+// 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
+const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth'];
+
+export default function App() {
+  const { t } = useTranslation();
+  const user = useUserStore((s) => s.user);
+  const loginFromBackend = useUserStore((s) => s.loginFromBackend);
+  const logout = useUserStore((s) => s.logout);
+  const refreshUnread = useDmStore((s) => s.refreshUnread);
+  const [bootstrapped, setBootstrapped] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState(false);
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
+  const dmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+  const [gifReady, setGifReady] = useState(false);
+  const bootStartTime = useRef(Date.now());
+  // F-19: 강제 업데이트 — 판정 불가/미강제 시 항상 false(차단 안 함). shouldForceUpdate 참조.
+  const [forceUpdateBlocked, setForceUpdateBlocked] = useState(false);
+
+  // 세션 만료 전역 핸들러 등록
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      // 세션이 없는 게 정상인 화면(스플래시·OAuth 로그인/콜백)에서는 만료 폴백을 돌리지 않는다.
+      // 여기서 튕기면 OAuth 왕복(특히 Zalo) 승인 대기가 중단된다. 예외 경로는 SESSION_EXEMPT_PREFIXES 배열에만 추가.
+      const p = window.location.pathname;
+      if (SESSION_EXEMPT_PREFIXES.some((prefix) => p.startsWith(prefix))) return;
+      logout();
+      sessionStorage.setItem('session_expired', '1');
+      window.location.replace('/splash');
+    });
+  }, [logout]);
+
+  // 정지/밴 계정 전역 핸들러 등록 — 세션은 유지(정지 해제 후 재로그인 불필요), 이미 /suspended 면
+  // 재기동 시 재확인 호출이 다시 403을 내도 리로드를 반복하지 않도록 가드.
+  useEffect(() => {
+    setAccountRestrictedHandler((code, until) => {
+      sessionStorage.setItem('account_restricted', JSON.stringify({ code, until }));
+      if (window.location.pathname !== '/suspended') window.location.replace('/suspended');
+    });
+  }, []);
+
+  // unhandled promise rejection에서 SessionExpiredError/AccountRestrictedError 무시 (이미 리다이렉트 처리됨)
+  useEffect(() => {
+    function onUnhandled(e: PromiseRejectionEvent) {
+      if (e.reason instanceof SessionExpiredError || e.reason instanceof AccountRestrictedError) e.preventDefault();
+    }
+    window.addEventListener('unhandledrejection', onUnhandled);
+    return () => window.removeEventListener('unhandledrejection', onUnhandled);
+  }, []);
+
+  // 네이티브 컨테이너 배경을 현재 테마 배경(--bg)에 맞춘다 — iOS 에서 키보드로 웹뷰가
+  // 리사이즈될 때 노출되는 영역이 검게 보이는 것 방지 (초기 1회 보장; 테마 토글은 useThemeStore).
+  useEffect(() => {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    if (bg) native.setBackgroundColor(bg);
+    // iOS 키보드 accessory bar(^ v Done)는 앱 전역에서 사용하지 않는다. iOS 외 no-op.
+    native.setAccessoryBarVisible(false);
+  }, []);
+
+  // iOS 순수 오버레이 키보드는 시스템의 scroll-to-focused-input 팬을 네이티브에서 억제하므로,
+  // "포커스된 입력이 키보드에 가리면 보이게 스크롤"은 전역으로 프론트가 대신한다.
+  // 이미 자체 보정(스페이서/시트 리프트)이 있는 화면은 겹침이 없어 no-op.
+  useEffect(() => {
+    if (native.platform !== 'ios') return;
+    let kbHeight = 0;
+    let kbVisible = false;
+    const timers: number[] = [];
+    const clearTimers = () => { while (timers.length) window.clearTimeout(timers.pop()); };
+
+    const revealFocused = () => {
+      const el = document.activeElement;
+      if (!(el instanceof HTMLElement)) return;
+      if (!el.matches('input, textarea, select, [contenteditable="true"]')) return;
+      const limit = window.innerHeight - kbHeight - 16;
+      const delta = el.getBoundingClientRect().bottom - limit;
+      if (delta <= 0) return;
+      // 가장 가까운 스크롤 가능한 조상만 스크롤 (body 스크롤은 이 앱에 없음)
+      let p: HTMLElement | null = el.parentElement;
+      while (p) {
+        const oy = getComputedStyle(p).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) break;
+        p = p.parentElement;
+      }
+      p?.scrollBy({ top: delta, behavior: 'smooth' });
+    };
+
+    // 키보드 높이 보정 padding 이 React 렌더로 반영된 뒤에 스크롤해야 공간이 있다 —
+    // 렌더 직후(80ms)와 키보드 애니메이션 종료 후(320ms) 두 번 시도(둘 다 멱등).
+    const schedule = () => {
+      clearTimers();
+      timers.push(window.setTimeout(revealFocused, 80), window.setTimeout(revealFocused, 320));
+    };
+
+    const off = native.onKeyboardChange(({ visible, height }) => {
+      kbVisible = visible;
+      kbHeight = height;
+      if (visible) schedule(); else clearTimers();
+    });
+    // 키보드가 떠 있는 채로 다른 입력으로 포커스 이동 시엔 키보드 이벤트가 다시 오지 않는다.
+    const onFocusIn = () => { if (kbVisible) schedule(); };
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      clearTimers();
+      off();
+      document.removeEventListener('focusin', onFocusIn);
+    };
+  }, []);
+
+  // 인증된 경우 DM 미읽음 폴링 시작
+  useEffect(() => {
+    if (!user) {
+      if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
+      return;
+    }
+    refreshUnread();
+    fetchAppConfig().then((cfg) => {
+      if (dmIntervalRef.current) clearInterval(dmIntervalRef.current);
+      dmIntervalRef.current = setInterval(refreshUnread, cfg.dmPollInterval * 1000);
+    });
+    return () => {
+      if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
+    };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // GIF 백그라운드 프리로드
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setGifReady(true);
+    img.src = emojiUrl('1f3cd');
+  }, []);
+
+  // 앱 기동 시: 쿠키 세션 → 자동 로그인 시도
+  useEffect(() => {
+    if (user?.language) changeLang(user.language);
+
+    let active = true;
+    setBootstrapError(false);
+
+    // 개발 서버 전용 OAuth 우회 로그인 — ?dev_login=<uuid> 가 붙어 있으면 그 계정으로
+    // 즉시 세션을 발급받는다. DEV_HOST 가 아닌 도메인에서는 백엔드가 항상 403을 내려
+    // 이 분기는 그대로 실패하고 아래 일반 부트스트랩으로 자연히 이어지지 않으므로,
+    // 실패 시에도 에러 화면 대신 일반 로그인 흐름(스플래시)으로 넘어가게 한다.
+    const devLoginId = new URLSearchParams(window.location.search).get('dev_login');
+    if (devLoginId) {
+      window.history.replaceState(null, '', window.location.pathname);
+      apiDevLoginAs(devLoginId)
+        .then((result) => {
+          if (!active) return;
+          saveSession({ userId: result.user.id, sessionToken: result.session_token });
+          loginFromBackend(result.user);
+          sessionStorage.removeItem('account_restricted');
+          setBootstrapped(true);
+        })
+        .catch(() => {
+          if (active) setBootstrapped(true);
+        });
+      return () => { active = false; };
+    }
+
+    bootstrapSession({
+      session: loadSession(),
+      verify: async (userId, sessionToken) => (await apiSessionVerify(userId, sessionToken)).user,
+      login: (verifiedUser) => {
+        loginFromBackend(verifiedUser);
+        sessionStorage.removeItem('account_restricted');
+      },
+      clear: clearSession,
+      logout,
+      isExpired: (error) => error instanceof SessionExpiredError,
+      isRestricted: (error) => error instanceof AccountRestrictedError,
+    }).then((result) => {
+      if (!active || result === 'restricted') return;
+      if (result === 'retryable-error') setBootstrapError(true);
+      else setBootstrapped(true);
+    });
+    return () => { active = false; };
+  }, [bootstrapAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 부팅 완료 후 최소 1200ms 보장하고 splash fade-out
+  useEffect(() => {
+    if (!bootstrapped) return;
+    const elapsed = Date.now() - bootStartTime.current;
+    const delay = Math.max(0, 1200 - elapsed);
+    const t1 = setTimeout(() => setSplashFade(true), delay);
+    const t2 = setTimeout(() => setSplashVisible(false), delay + 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [bootstrapped]);
+
+  // F-19: 강제 업데이트 판정 — 부팅 완료 후 1회, 서버 현재 버전과 설치본 버전을 비교.
+  // 판정 불가(웹/설치본 버전 미확인/서버 조회 실패)면 shouldForceUpdate 가 항상 false 를 반환 — fail-open.
+  useEffect(() => {
+    if (!bootstrapped) return;
+    let active = true;
+    (async () => {
+      try {
+        const [{ appVersion }, current] = await Promise.all([native.getDeviceInfo(), fetchCurrentVersion()]);
+        const platformInfo = pickPlatformVersion(current);
+        if (active) setForceUpdateBlocked(shouldForceUpdate(appVersion, platformInfo));
+      } catch {
+        // 조회 실패 — 차단하지 않음
+      }
+    })();
+    return () => { active = false; };
+  }, [bootstrapped]);
+
+  if (bootstrapped && forceUpdateBlocked) {
+    return (
+      <div className={styles.forceUpdateBlock} role="alert">
+        <span className={styles.forceUpdateEmoji} aria-hidden="true">🔄</span>
+        <h1 className={styles.forceUpdateTitle}>{t('forceUpdate.title', { defaultValue: '업데이트가 필요해요' })}</h1>
+        <p className={styles.forceUpdateBody}>
+          {t('forceUpdate.body', { defaultValue: '새 버전이 있어요. 앱스토어에서 최신 버전으로 업데이트한 뒤 다시 실행해주세요.' })}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <BrowserRouter>
+      <NotificationBridge />
+      <SpriteProvider />
+      <QuestCardSprites />
+      <Toaster
+        position="top-center"
+        gap={6}
+        visibleToasts={3}
+        offset={{ bottom: 'calc(var(--tabbar-height, 72px) + var(--bottom-safe, 0px) + 12px)' }}
+      />
+      <Dialog />
+      <ConfirmDialog />
+      <AppShell
+        splashVisible={splashVisible}
+        splashFade={splashFade}
+        gifReady={gifReady}
+        bootstrapError={bootstrapError}
+        onBootstrapRetry={() => setBootstrapAttempt((attempt) => attempt + 1)}
+        onBootstrapLogin={() => {
+          leaveBootstrapForLogin(clearSession, logout, () => window.location.replace('/auth/oauth'));
+        }}
+      >
+        {bootstrapped && <BackgroundRoutes>
+          {/* default */}
+          <Route path="/" element={<Navigate to="/splash" replace />} />
+
+          {/* Auth flow (public) */}
+          <Route path="/splash" element={<Splash />} />
+          <Route path="/auth/oauth" element={<OAuthLogin />} />
+          <Route path="/auth/oauth-result" element={<OAuthResult />} />
+          <Route path="/auth/profile-setup" element={<ProfileSetup />} />
+          <Route path="/auth/phone-verify" element={<PhoneVerify />} />
+          {/* 정지/밴 안내 — PrivateRoute 로 감싸지 않는다: 밴 유저는 최초 로그인부터 isAuthenticated 가 없을 수 있음 */}
+          <Route path="/suspended" element={<Suspended />} />
+
+          {/* Deep link entry (auth-aware inside) */}
+          <Route path="/link" element={<LinkRouter />} />
+
+          {/* Protected: Main */}
+          <Route path="/home" element={<PrivateRoute><WorldMapV2 /></PrivateRoute>} />
+          <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
+          <Route path="/map/search" element={<PrivateRoute><MapSearch /></PrivateRoute>} />
+          <Route path="/map/profile" element={<PrivateRoute><NeighborhoodProfile /></PrivateRoute>} />
+          <Route path="/map/favorites" element={<PrivateRoute><MapFavorites /></PrivateRoute>} />
+          <Route path="/map/follows" element={<PrivateRoute><MapFollows /></PrivateRoute>} />
+          <Route path="/map/categories" element={<PrivateRoute><NeighborhoodCategories /></PrivateRoute>} />
+          <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
+          <Route path="/market/search" element={<PrivateRoute><MarketSearch /></PrivateRoute>} />
+          <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
+          <Route path="/market/new" element={<VerifiedSellerRoute><MarketCreate /></VerifiedSellerRoute>} />
+          <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
+          <Route path="/market/:id/edit" element={<PrivateRoute><MarketEdit /></PrivateRoute>} />
+          <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
+          <Route path="/biz/intro" element={<PrivateRoute><BizIntro /></PrivateRoute>} />
+          <Route path="/biz/apply" element={<PrivateRoute><BizApply /></PrivateRoute>} />
+          <Route path="/biz/status" element={<PrivateRoute><BizStatus /></PrivateRoute>} />
+          <Route path="/biz/manage" element={<PrivateRoute><BizManage /></PrivateRoute>} />
+          <Route path="/biz/verification" element={<PrivateRoute><BizVerification /></PrivateRoute>} />
+          <Route path="/biz/ads/new" element={<PrivateRoute><BizAdsNew /></PrivateRoute>} />
+          <Route path="/biz/ads/:id" element={<PrivateRoute><BizAdDetail /></PrivateRoute>} />
+          <Route path="/biz/news/new" element={<PrivateRoute><BizNewsCreate /></PrivateRoute>} />
+          <Route path="/biz/news/:id" element={<PrivateRoute><BizNewsDetail /></PrivateRoute>} />
+          <Route path="/biz/prices" element={<PrivateRoute><BizPriceManage /></PrivateRoute>} />
+          <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
+          {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}
+          <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
+          <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />
+          <Route path="/quest-check/:userQuestId" element={<PrivateRoute><QuestCheckPage /></PrivateRoute>} />
+          <Route path="/feed" element={<PrivateRoute><FeedList /></PrivateRoute>} />
+          <Route path="/feed/new" element={<PrivateRoute><FeedCreate /></PrivateRoute>} />
+          <Route path="/feed/edit/:postId" element={<PrivateRoute><FeedEdit /></PrivateRoute>} />
+          <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
+          <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
+          <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
+          <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
+          <Route path="/trades" element={<PrivateRoute><TradeHistory /></PrivateRoute>} />
+          <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />
+          <Route path="/following/:userId" element={<PrivateRoute><FollowingList /></PrivateRoute>} />
+          <Route path="/friends/:userId" element={<PrivateRoute><FriendList /></PrivateRoute>} />
+          <Route path="/friends/add" element={<PrivateRoute><FriendAdd /></PrivateRoute>} />
+
+          {/* Protected: Ride flow */}
+          <Route path="/ride/result/success" element={<PrivateRoute><RideResultSuccess /></PrivateRoute>} />
+          <Route path="/ride/result/fail" element={<PrivateRoute><RideResultFail /></PrivateRoute>} />
+
+          {/* Protected: Gacha */}
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/gacha" element={<PrivateRoute><GachaMain /></PrivateRoute>} /> */}
+          {/* <Route path="/gacha/pull/:gachaCode" element={<PrivateRoute><GachaPull /></PrivateRoute>} /> */}
+
+          {/* Protected: Shop */}
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/shop" element={<PrivateRoute><ShopCatalog /></PrivateRoute>} /> */}
+          {/* <Route path="/shop/item/:itemCode" element={<PrivateRoute><ItemDetail /></PrivateRoute>} /> */}
+          {/* <Route path="/shop/coupons" element={<PrivateRoute><CouponShop /></PrivateRoute>} /> */}
+
+          {/* Protected: Inventory */}
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/inventory" element={<PrivateRoute><Inventory /></PrivateRoute>} /> */}
+          {/* <Route path="/inventory/equip-preview" element={<PrivateRoute><EquipPreview /></PrivateRoute>} /> */}
+
+          {/* Protected: Season */}
+          {/* [게이미피케이션 잠정보류 — 재개 시 주석 해제] */}
+          {/* <Route path="/season" element={<PrivateRoute><SeasonPass /></PrivateRoute>} /> */}
+
+          {/* Protected: Info */}
+          <Route path="/info" element={<PrivateRoute><InfoHub /></PrivateRoute>} />
+          <Route path="/info/weather" element={<PrivateRoute><InfoWeather /></PrivateRoute>} />
+          <Route path="/info/flood" element={<PrivateRoute><InfoFloodMap /></PrivateRoute>} />
+          <Route path="/info/flood/report" element={<PrivateRoute><InfoFloodReport /></PrivateRoute>} />
+          <Route path="/info/gas" element={<PrivateRoute><InfoGasList /></PrivateRoute>} />
+          <Route path="/info/repair" element={<PrivateRoute><InfoRepairList /></PrivateRoute>} />
+          <Route path="/info/repair/:shopId" element={<PrivateRoute><InfoRepairDetail /></PrivateRoute>} />
+          <Route path="/info/repair/:shopId/write" element={<PrivateRoute><InfoRepairWrite /></PrivateRoute>} />
+          <Route path="/info/repair/:shopId/reviews" element={<PrivateRoute><InfoRepairReviews /></PrivateRoute>} />
+          <Route path="/ride-nav" element={<PrivateRoute><RideNav /></PrivateRoute>} />
+
+          {/* Guide */}
+          <Route path="/guide/safe-trade" element={<PrivateRoute><SafeTradeGuide /></PrivateRoute>} />
+
+          {/* Protected: Settings */}
+          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+          <Route path="/settings/notifications" element={<PrivateRoute><NotiSettings /></PrivateRoute>} />
+          <Route path="/settings/language" element={<PrivateRoute><LangSettings /></PrivateRoute>} />
+          <Route path="/settings/account" element={<PrivateRoute><AccountSettings /></PrivateRoute>} />
+          <Route path="/settings/blocked" element={<PrivateRoute><BlockedUsers /></PrivateRoute>} />
+          <Route path="/settings/profile" element={<PrivateRoute><ProfileEdit /></PrivateRoute>} />
+          <Route path="/settings/support" element={<PrivateRoute><CustomerSupport /></PrivateRoute>} />
+          <Route path="/settings/support/:id" element={<PrivateRoute><SupportDetail /></PrivateRoute>} />
+          {/* F-9: 로그인 전(OAuthLogin)에서도 열람 가능해야 해서 공개 라우트로 둔다 — 내용은 정적 텍스트뿐 */}
+          <Route path="/settings/privacy" element={<PrivacyPolicy />} />
+          <Route path="/settings/terms" element={<TermsOfService />} />
+          <Route path="/notices" element={<PrivateRoute><NoticeList /></PrivateRoute>} />
+          <Route path="/notices/:id" element={<PrivateRoute><NoticeDetail /></PrivateRoute>} />
+          <Route path="/faq" element={<PrivateRoute><FaqList /></PrivateRoute>} />
+
+          {/* 404 */}
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </BackgroundRoutes>}
+      </AppShell>
+    </BrowserRouter>
+  );
+}

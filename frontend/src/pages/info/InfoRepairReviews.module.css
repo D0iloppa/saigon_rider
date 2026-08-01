@@ -1,0 +1,28 @@
+/* 정비소 리뷰 전체 목록 전용 스타일 — 공통 문법은 styles/system.module.css 참조 */
+
+.scrollPad {
+  /* 하단 탭바 + 세이프에어리어 만큼 여백 → 내용이 네비에 가리지 않게 */
+  padding-bottom: calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px));
+}
+
+.topGap { margin-top: 12px; }
+
+/* ReviewCard(패딩 14px 0)가 카드 안에 놓이므로 좌우 패딩만 카드가 진다 */
+.listCard { padding: 0 16px; }
+
+.loadMore {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.loadMore:active { background: var(--surface-2); }
+.loadMore:disabled { opacity: .5; cursor: default; }

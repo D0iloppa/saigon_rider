@@ -1,0 +1,223 @@
+/* 피드 상세 — 상품 상세(MarketDetail.module.css)와 레이아웃 통일 미러 (2026-07-12) */
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Top bar (back + title) ── */
+.topbar {
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.topbarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--text);
+}
+
+.backBtn {
+  border-radius: 12px;
+}
+
+.backBtn:active {
+  background: var(--surface-2);
+}
+
+.topTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.topSpacer {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+/* ── Scroll content ── */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hero {
+  position: relative; /* imgStats/imgReward 오버레이 앵커 */
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-2);
+}
+
+.body {
+  padding: 18px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Author (MarketDetail sellerBlock 미러) */
+.authorBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.authorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.authorAvatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.authorInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.authorName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.authorSub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Caption (MarketDetail description 미러) */
+.description {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.translationNote {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.hashtagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* Comments (MarketDetail otherSection 구획 미러) */
+.commentsSection {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.commentsTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.noComments {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* ── Bottom action bar (MarketDetail actionBar 미러) — 🔥응원·💬 + 댓글 입력 ── */
+.actionBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px calc(12px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.cheerBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding: 4px;
+}
+
+.cheerBtnActive {
+  color: var(--brand-500);
+}
+
+.cheerBtn:active {
+  opacity: .7;
+}
+
+.countChip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.commentInput {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 16px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+/* Skeletons (MarketDetail 미러) */
+.heroSkeleton {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.lineSkeleton {
+  height: 18px;
+  border-radius: 8px;
+  margin-top: 12px;
+}

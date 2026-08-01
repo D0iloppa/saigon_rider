@@ -1,0 +1,87 @@
+# =============================================================
+# Environment & Secrets
+.env
+*.local
+id_ed25519*
+id_rsa*
+*.pem
+*.p8
+_secrets/
+firebase-credentials.json
+
+# Docker volumes / generated data
+database/data/
+# pg_dump 백업 산출물 (tools/backup_db.sh, F-16)
+backups/
+# Frontend (React + Vite + Node)
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+# Admin Frontend (React + Vite)
+admin-frontend/dist/
+admin-frontend/.vite/
+frontend/*.local
+frontend/.env
+frontend/.env.local
+frontend/.eslintcache
+# Backend (Spring Boot / Maven)
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/*.class
+# Gradle (if switched later)
+backend/.gradle/
+backend/build/
+backend/out/
+# IDE & OS
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+# Logs
+*.log
+logs/
+# Capacitor (mobile build outputs)
+frontend/android/
+frontend/ios/
+frontend/.capacitor/
+# Contents - 유저 업로드 파일 (폴더 구조만 유지)
+contents/user-contents/*
+!contents/user-contents/.gitkeep
+# AI Agent Context (Local Only)
+#GUIDELINE.md
+#docs/
+TASK_CONTEXT.md
+# SSH keys / secrets
+# Temp workspace (작업용 임시 파일 — 절대 추적하지 않음)
+_tmp/
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+# Node / Vite caches (루트 node_modules 포함)
+node_modules/
+.vite/
+# 배너 수동 백업 더미(로컬 보존, 추적 제외 — 109MB 중복본)
+contents/system/quest-banners/bak/
+
+# 매물 이미지 backfill 크롤본(dev 전용 — CC-BY 등 라이선스 이미지, 운영은 별도 절차)
+contents/system/marketplace-crawl/
+
+# claude hooks 산출물
+.claude/.needs-reindex
+.claude/reindex.log
+
+# 로컬/운영 툴 스크래치 (Orca 등)
+.orca/
+
+# 로컬 보존 자료 (추적 제외)
+# 회사 기밀문서(사업자등록증·회사소개서 등) — 원격 노출 금지
+docs/tt/
+# prod-sync 랜딩 구버전 로컬 백업
+landing_bak/
+# 로컬 편집 중 임시 메모
+untitled-2.md

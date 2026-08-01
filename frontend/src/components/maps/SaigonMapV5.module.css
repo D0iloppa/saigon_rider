@@ -1,0 +1,217 @@
+/* Saigon Map v5 — 단일 통합 좌표계 연속줌 지도 */
+.stage {
+  position: relative;
+  overflow: hidden;
+  background: #cfe3ea;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* 팔레트 명도 위계 4단 (⑤-A): 수면 < 지면(ward) < 블록 < 건물 < 도로(흰 fill) — 저채도 웜톤 */
+/* 배경 (수면) */
+.sea { fill: #cfe3ea; }
+
+/* HCMC 전역 윤곽 — 침수지도 등 선택적 배경 레이어(기본 미노출). 기존 ward 폴리곤보다
+   뒤에 깔리는 저대비 실루엣이라 시선을 뺏지 않도록 surface-2/line 토큰만 쓴다. */
+.cityOutline { fill: var(--surface-2); stroke: var(--line); stroke-width: 3; vector-effect: non-scaling-stroke; }
+
+/* Layer 1 — 동 경계 */
+.river { fill: #aad8e9; stroke: none; }
+.rline { fill: none; stroke: #8cc5d9; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.ward {
+  fill: #e7e1d0;
+  /* 저줌(vb.w 700~3500) 지역경계 — 진한 갈색 #a8916a 는 "굵고 어두운 도로처럼" 보여 반려됨.
+     같은 웜톤 계열의 부드러운 tan 으로 되돌린다: 원래 #d3cbb8 보다는 한 단계 존재감을 주되
+     #a8916a 처럼 튀지 않는 중간값. 이제 블록(.blk)이 은은한 hairline 으로 세부 구획을,
+     ward 는 상위 지역 구조선을 담당해 위계가 생긴다 — 시작값, 실기 확인 후 미세조정 대상. */
+  stroke: #cdc2a8;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+/* 오버뷰(블록 미표시) 전용 — 4단 명도 위계 도입 전 원래 흰색. 블록이 뜨는 순간부터는
+   .ward 가 블록 사이 틈의 街路 베드 역할을 겸하므로 위 베이지 톤을 그대로 쓴다. */
+.wardOverview {
+  fill: #fbfaf7;
+  stroke: #d7ddd5;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+.wardSel {
+  fill: #ffeadc;
+  stroke: var(--brand-500);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+/* polyActive 모드 — 선택 동 boundary만 */
+.wardBoundary {
+  fill: #e7e1d0;
+  stroke: var(--brand-500);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+/* polyActive 모드 — 비선택 동 (아주 은은하게) */
+.wardDim {
+  fill: rgba(200, 210, 200, 0.12);
+  stroke: rgba(160, 175, 165, 0.22);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+
+/* 비선택 동 레이블 — 은은하게 */
+.wlab {
+  fill: rgba(60, 80, 90, 0.50);
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-family: system-ui, -apple-system, sans-serif;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 5;
+  paint-order: stroke fill;
+}
+/* 선택된 동 레이블 — 오렌지 강조 */
+.wlabSel {
+  fill: #e84c00;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-family: system-ui, -apple-system, sans-serif;
+  stroke: rgba(255, 255, 255, 0.90);
+  stroke-width: 6;
+  paint-order: stroke fill;
+}
+
+/* Layer 2 — 블록 (지면보다 한 단계 밝게 — 블록 사이 틈이 어두운 街路 베드로 읽힌다) */
+/* 블록 경계는 간선도로 polygonize 산물이라 그냥 stroke 를 켜면 "조각난 도로"로 보이고(반려),
+   stroke 를 빼면 인접 블록끼리 구분이 안 돼 "공백"으로 보였다(반려). 딜레마 해법:
+   - fill 을 지면(.ward)보다 밝게 유지 → 면 명도차로 블록/비블록 구획 (Mapbox landuse 방식).
+   - 그 위에 fill 과 저대비인 아주 옅은 warm hairline 으로 블록 간 세부 구획을 은은하게.
+   핵심은 vector-effect:non-scaling-stroke — 줌과 무관하게 항상 ~0.5px 진짜 hairline 으로
+   고정돼, 저줌에서 폭이 커져 "도로"로 읽히는 일이 없다(도로는 폭·대비가 있고, 이건 얇은
+   구분선). 색·굵기·투명도는 레퍼런스 기반 시작값 — 실기 확인 후 미세조정 대상. */
+.blk {
+  fill: #efeadd;
+  stroke: #e2dac6;
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+/* Layer 3 — 건물·도로·수로 */
+.bldg {
+  fill: #f6f2e6;
+  stroke: #d9d1bc; /* 채움보다 한 단계 어두운 hairline — 종이 오리기 평면감 제거 */
+  stroke-width: 0.45;
+  stroke-linejoin: round;
+}
+/* 건물 음영 duplicate (딥줌 전용 2-pass — tsx 의 bldgShadow 게이트) */
+.bldgShadow {
+  fill: #ddd4bd;
+  stroke: none;
+}
+.road {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.water { fill: #a9d9ef; stroke: #7cbedb; stroke-width: 1; }
+.wline { fill: none; stroke: #85c3e6; stroke-width: 4; stroke-linecap: round; }
+
+/* 내 위치 */
+.meRing { fill: rgba(30, 136, 229, 0.16); }
+.meDot  { fill: #1e88e5; stroke: #fff; }
+
+/* 컨트롤 버튼 */
+.zoomControls {
+  position: absolute;
+  right: 12px;
+  top: calc(var(--status-bar-height, 0px) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+.locateCtrl {
+  position: absolute;
+  right: 12px;
+  bottom: 28px;
+  z-index: 6;
+}
+.ctrlBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctrlBtn:active { background: #f0f0f0; }
+
+/* 자산(도로·건물) 로드 실패 안내 — 지도 상단, 검색바 등 다른 오버레이와 안 겹치도록 status-bar 기준 */
+.assetIssueBanner {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: calc(var(--status-bar-height, 0px) + 12px);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.assetIssueBanner span { flex: 1; }
+.assetIssueRetryBtn {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--brand-500, #f8602a);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+
+/* 앵커 오버레이 — 지도 좌표(lat/lng)에 고정되는 HTML 노드.
+   위치는 updateAnchorOverlay 가 transform 으로 직접 갱신 (초기엔 숨김 — 첫 배치 전 플래시 방지) */
+.anchorOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  visibility: hidden;
+  will-change: transform;
+}
+
+/* OSM 저작권 */
+.attrib {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  font-size: 9px;
+  color: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 5;
+}

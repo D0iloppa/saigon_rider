@@ -1,0 +1,163 @@
+.page {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* ── Hero section ── */
+.hero {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 52%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.heroGradC { background: radial-gradient(ellipse at 50% 60%, rgba(156,163,175,.28) 0%, transparent 70%), #FFF1E8; }
+.heroGradR { background: radial-gradient(ellipse at 50% 60%, rgba(59,130,246,.30) 0%, transparent 70%), #FFF1E8; }
+.heroGradE { background: radial-gradient(ellipse at 50% 60%, rgba(139,92,246,.32) 0%, transparent 70%), #FFF1E8; }
+.heroGradL { background: radial-gradient(ellipse at 50% 60%, rgba(255,184,0,.40) 0%, transparent 70%), #FFF1E8; }
+.heroGradM { background: radial-gradient(ellipse at 50% 60%, rgba(255,45,156,.32) 0%, transparent 70%), #FFF1E8; }
+
+.heroRays {
+  position: absolute;
+  inset: 0;
+  opacity: .35;
+  background: conic-gradient(
+    from 90deg at 50% 50%,
+    transparent 0deg,
+    rgba(11,13,20,.05) 10deg,
+    transparent 20deg,
+    transparent 40deg,
+    rgba(11,13,20,.05) 50deg,
+    transparent 60deg
+  );
+  animation: heroSpin 20s linear infinite;
+}
+@keyframes heroSpin {
+  to { transform: rotate(360deg); }
+}
+
+.heroItem {
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 12px 28px rgba(11,13,20,.18));
+}
+
+/* ── Back button ── */
+.backBtn {
+  position: absolute;
+  top: var(--status-bar-height, 44px);
+  left: 16px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(11,13,20,.06);
+}
+
+/* ── Detail sheet ── */
+.sheet {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-radius: 28px 28px 0 0;
+  border-top: 1px solid var(--line);
+  padding: 20px 18px 36px;
+  z-index: 10;
+  box-shadow: 0 -8px 28px rgba(11,13,20,.06);
+}
+
+.rarityChipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.itemName {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.itemSlot {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 16px;
+}
+
+/* ── Price row ── */
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.priceStack {
+  display: flex;
+  flex-direction: column;
+}
+.priceOriginal {
+  font-size: 11px;
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.priceMain {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+.priceCurrencyTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+/* ── CTA buttons ── */
+.ctaRow {
+  display: flex;
+  gap: 8px;
+}
+.btnBuy {
+  flex: 1;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--brand-500);
+  color: white;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(255,90,31,.32);
+}
+.btnBuyDisabled {
+  background: var(--surface-2);
+  color: var(--text-3);
+  box-shadow: none;
+  cursor: default;
+}
+.btnWishlist {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}

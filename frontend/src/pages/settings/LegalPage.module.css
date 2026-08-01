@@ -1,0 +1,36 @@
+.body {
+  padding: 16px 16px calc(40px + var(--bottom-safe));
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-1);
+}
+
+.card h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 20px 0 8px;
+}
+
+.card h2:first-child {
+  margin-top: 0;
+}
+
+.card p {
+  margin: 0 0 12px;
+}
+
+.card ul {
+  padding-left: 20px;
+  margin: 0 0 12px;
+}
+
+.card li {
+  margin-bottom: 4px;
+}

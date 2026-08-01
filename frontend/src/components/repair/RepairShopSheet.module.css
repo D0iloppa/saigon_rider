@@ -1,0 +1,162 @@
+/* 정비소 상세 바텀시트 — 시트 골격은 components/ui/BottomSheet, 표면 문법은 system.module.css */
+
+.body {
+  /* 하단 탭바 + 세이프에어리어 만큼 여백 → 내용이 네비에 가리지 않게 */
+  padding-bottom: calc(12px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px));
+}
+
+/* ── 상단부: 타이틀행 + 닫기 (design-system §4 바텀시트) ── */
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+  margin: 0;
+}
+
+.closeBtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.closeBtn:active { background: var(--line); }
+
+/* ── 평점 (목록 행과 동일 문법) ── */
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--text-2);
+}
+.rating b {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.ratingCount {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-left: 2px;
+}
+
+/* ── 메타 (주소·영업시간) ── */
+.metaList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.metaIcon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ── 리뷰 키워드 칩 (InfoRepairList 와 동일 톤) ── */
+.chips {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chipPos { background: rgba(22, 163, 74, .10);  color: #15803D; }
+.chipNeg { background: rgba(239, 59, 59, .09);  color: #B91C1C; }
+
+/* ── 전화 (보조 액션 — 뉴트럴) ── */
+.phoneBtn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.phoneBtn:active { background: var(--line); }
+
+/* ── 최근 리뷰 미리보기 ── */
+.reviewPreview {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.reviewPreviewHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: none;
+  background: none;
+  padding: 0 0 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.viewAll {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-600);
+}
+
+/* ── 리뷰 작성 (시트의 주 액션 1개 — brand) ── */
+.writeBtn {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 14px;
+  border: none;
+  background: var(--brand-500);
+  color: #fff;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.writeBtn:active { background: var(--brand-600); }

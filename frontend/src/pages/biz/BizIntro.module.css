@@ -1,0 +1,193 @@
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 20px 28px;
+}
+
+.hero {
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  overflow: hidden;
+  align-items: center;
+  border-radius: 20px;
+  background: linear-gradient(120deg, #ffe8d7, #ffd6b8);
+  padding: 26px 22px;
+}
+
+.heroCopy { position: relative; z-index: 1; max-width: 62%; }
+.heroEyebrow { color: #c56a2e; font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.hero h1 { margin-top: 8px; color: #2f2114; font-size: 24px; font-weight: 900; letter-spacing: -.8px; line-height: 1.28; word-break: keep-all; }
+.hero p { margin-top: 11px; color: #9a6a44; font-size: 13.5px; font-weight: 550; line-height: 1.5; word-break: keep-all; }
+.heroIllustration { position: absolute; right: 16px; bottom: 24px; color: #ef8d43; }
+.heroPin { position: absolute; top: -14px; right: -8px; display: grid; width: 38px; height: 38px; place-items: center; border: 4px solid #ffe2cd; border-radius: 50%; background: #f8602a; color: #fff; }
+.heroMegaphone { position: absolute; right: 48px; bottom: -6px; color: #d97732; transform: rotate(-14deg); }
+
+.benefitList {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.benefitItem {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 72px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #ededf0;
+  background: var(--surface);
+}
+
+.benefitIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 14px;
+  background: #fff0e7;
+  color: var(--brand-500);
+}
+
+.benefitText {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sectionTitle {
+  margin-top: 32px;
+  margin-bottom: 14px;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -.5px;
+  color: var(--text);
+}
+
+.stepList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0;
+}
+
+.stepItem {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0 18px;
+}
+
+.stepItem:not(:last-child)::after { position: absolute; top: 42px; bottom: -10px; left: 15px; width: 2px; background: #fed7c2; content: ''; }
+
+.stepNum {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 6px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.stepText strong { font-size: 15px; font-weight: 800; }
+.stepText span { color: var(--text-3); font-size: 12.5px; }
+
+.reviewNotice {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff6f0;
+  font-size: 12.5px;
+  color: #9a6a44;
+  line-height: 1.5;
+}
+
+.faqList {
+  overflow: hidden;
+  border: 1px solid #ededf0;
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.faqItem {
+  border-bottom: 1px solid #ededf0;
+}
+.faqItem:last-child { border-bottom: 0; }
+
+.faqQuestion {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17px 16px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+}
+
+.faqChev {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.faqChevOpen {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transform: rotate(180deg);
+}
+
+.faqAnswer {
+  padding: 0 16px 16px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.contactHint {
+  margin: 20px 4px 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.contactEmail {
+  color: var(--brand-500);
+  font-weight: 600;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 12px 20px calc(16px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.footer :global(button) { height: 56px; border-radius: 18px; font-size: 17px; font-weight: 800; box-shadow: 0 12px 24px rgba(248, 96, 42, .22); }

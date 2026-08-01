@@ -1,0 +1,376 @@
+# ERD — Saigon Rider DB 스키마
+
+> **파일 위치**: `database/init/001_init_schema.sql` ~ `032_badge_condition_rule.sql`  
+> **DBMS**: PostgreSQL 15 + PostGIS 3.3 (Docker: `postgis/postgis:15-3.3`)  
+> **마지막 갱신**: 2026-07-24 (149_ads_tiers 추가)
+
+---
+
+## 테이블 목록
+
+### 기본 테이블 (001~005)
+
+| 테이블 | 설명 | 추가 파일 | 관련 기능 |
+|---|---|---|---|
+| `users` | 라이더 계정 및 재화(EXP/XP/Gold/SkillPt) + `avatar_content_id` FK | 001, 003 | F-03, F-10 |
+| `user_otp` | 휴대폰 OTP 인증 이력 | 001 | F-02 |
+| `contents` | 업로드 파일 메타데이터 (imgproxy 연동, owner_type: user/system/mock/profile_mock) | 002, 013, 018 | F-09-8, F-10-9, F-12 |
+| `quests` | 퀘스트 마스터 (일/주간/이벤트) + `thumbnail_content_id` FK | 001, 007 | F-05, F-06 |
+| `quest_pins` | 퀘스트 지도 핀 위치 (PostGIS POINT) | 001 | F-04-6 |
+| `user_quests` | 유저별 퀘스트 수행 이력 및 상태 + `period_key` 중복 방지 | 001, 006 | F-06-5 |
+| `ride_sessions` | 라이딩 결과 (거리/시간/보상/안전등급) | 001 | F-07, F-08 |
+| `ride_gps_points` | GPS 트랙 좌표 이력 (PostGIS POINT) | 001 | F-07-1 |
+| `ride_streaks` | 연속 라이딩 스트릭 | 001 | F-07-8 |
+| `bookmarks` | 퀘스트 북마크 | 001 | F-06-2 |
+| `feed_posts` | 소셜 피드 포스트 (스토리 포함) + `image_content_id` FK + 위치(lat/lng/district_id) | 001, 017, 020 | F-09 |
+| `feed_post_images` | 피드 다중 이미지 (post_id + content_id + sort_order) | 024 | F-09 |
+| `post_likes` | 피드 게시물 좋아요 | 001 | F-09-4 |
+| `post_comments` | 댓글 & 대댓글 (자기 참조, like_count 포함) | 001+004 | F-09-6, F-09-7 |
+| `post_comment_likes` | 댓글 좋아요 | 004 | F-09-6c |
+| `badges` | 배지 마스터 + `condition_rule` JSONB + 다국어(ko/vi/en) + `icon_content_id` + `is_active` | 001, 032 | F-10-8 |
+| `user_badges` | 유저 배지 획득 이력 | 001 | F-10-8 |
+| `notifications` | 알림 메시지 | 001 | F-04-4 |
+| `notification_settings` | 알림 수신 설정 (5종) | 001 | F-11-5 |
+| `app_config` | 앱 설정 Key-Value 스토어 (group_name + key) | 005, 030, 031 | 시스템 설정 |
+
+### 마스터 데이터 (008~016)
+
+| 테이블 | 설명 | 추가 파일 |
+|---|---|---|
+| `districts` | HCM 17개 구역 + `image_content_id` FK | 008, 011 |
+| `rider_types` | 라이더 타입 (출퇴근러, 카페헌터 등) | 010 |
+| `safety_grades` | 안전등급 (A/B/C) | 010 |
+
+### 소셜 기능 (020~024)
+
+| 테이블 | 설명 | 추가 파일 | 관련 기능 |
+|---|---|---|---|
+| `user_follows` | 팔로우 관계 (follower_id + following_id PK) | 021 | 프로필 |
+| `dm_conversations` | DM 대화방 (user_a/user_b, last_message_at) | 022 | DM |
+| `dm_messages` | DM 메시지 (conversation_id, sender_id, read_at) | 023 | DM |
+
+### 시스템/관리 (025~032)
+
+| 테이블 | 설명 | 추가 파일 |
+|---|---|---|
+| `__DEV_context` | 개발 진행 상태 KV 저장소 + status 이모지 | 025, 026, 027 |
+| `__DEV_features` | 기능 단위 진행 상태 (PLANNED→IN_PROGRESS→DONE/DEFERRED) | 025, 026 |
+| `__DEV_todos` | 할일 단위 (TODO→IN_PROGRESS→DONE/BLOCKED) | 025, 026 |
+| `nickname_words` | 기본 닉네임 생성용 단어풀 (adjective/noun) | 028 |
+| `app_versions` | 앱 버전 트리 (primary→ios/android, force_update) | 029 |
+
+### 광고 정책 (149)
+
+| 테이블 | 설명 | 추가 파일 |
+|---|---|---|
+| `ad_tiers` | 관리자 정의 광고 티어(월 가격·live 노출 가중치·활성·표시순서) | 149 |
+| `marketplace_ads` | NOT NULL `tier_id` FK, 신청 당시 `monthly_price_snapshot_vnd`, 확장용 `ad_fee=1` (`exposure_tier` 제거) | 148, 149 |
+
+### Engine 전용 테이블 (Alembic 001~017)
+
+Engine(SRE)은 별도 Alembic 마이그레이션으로 관리. 상세는 [wiki Engine 문서](../engine/sre-erd-mermaid.postgres.md).
+
+| 도메인 | 주요 테이블 | Alembic |
+|---|---|---|
+| 사용자 | `sre_user` | 002 |
+| 이벤트 | `action_definition`, `action_event` | 003 |
+| 미션 | `mission_definition`, `user_mission_progress` | 004 |
+| 포인트 | `rp_balance`, `rp_transaction`, `rp_expiration_schedule` | 005 |
+| 다양성/등급 | `behavior_category_log`, `user_diversity_score`, `tier_definition`, `user_tier` | 006 |
+| 보상 | `reward_partner`, `reward_catalog`, `reward_redemption` | 007 |
+| 어뷰징 | `abuse_rule`, `abuse_event`, `idempotency_key` | 008 |
+| 감사 | `audit_log` | 008 |
+| 메시지 | `sre_message` | 010 |
+| 게이미피케이션 v2 | 아이템·장착·컬렉션·가챠·상점·시즌 관련 테이블 | 011~017 |
+
+---
+
+## ERD (Mermaid)
+
+```mermaid
+erDiagram
+
+    users {
+        UUID id PK
+        VARCHAR phone UK
+        VARCHAR nickname UK
+        rider_type rider_type
+        SMALLINT level
+        INTEGER exp
+        INTEGER xp
+        INTEGER gold
+        INTEGER skill_pt
+        TEXT avatar_url
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    user_otp {
+        BIGSERIAL id PK
+        VARCHAR phone
+        VARCHAR otp_code
+        TIMESTAMPTZ expires_at
+        TIMESTAMPTZ verified_at
+        TIMESTAMPTZ created_at
+    }
+
+    quests {
+        UUID id PK
+        VARCHAR title
+        TEXT description
+        TEXT hero_image_url
+        VARCHAR district
+        quest_period period
+        quest_badge_type badge
+        SMALLINT required_level
+        NUMERIC target_distance_km
+        safety_grade min_safety_grade
+        INTEGER reward_exp
+        INTEGER reward_gold
+        VARCHAR reward_item
+        BOOLEAN is_active
+        TIMESTAMPTZ starts_at
+        TIMESTAMPTZ ends_at
+    }
+
+    quest_pins {
+        BIGSERIAL id PK
+        UUID quest_id FK
+        GEOMETRY location
+        TIMESTAMPTZ created_at
+    }
+
+    user_quests {
+        UUID id PK
+        UUID user_id FK
+        UUID quest_id FK
+        quest_status status
+        BOOLEAN is_first_clear
+        TIMESTAMPTZ accepted_at
+        TIMESTAMPTZ completed_at
+    }
+
+    ride_sessions {
+        UUID id PK
+        UUID user_quest_id FK
+        UUID user_id FK
+        UUID quest_id FK
+        NUMERIC distance_km
+        INTEGER duration_sec
+        NUMERIC avg_speed_kmh
+        safety_grade safety_grade
+        INTEGER reward_exp
+        INTEGER reward_gold
+        VARCHAR reward_item
+        BOOLEAN is_success
+        TEXT fail_reason
+        TIMESTAMPTZ created_at
+    }
+
+    ride_gps_points {
+        BIGSERIAL id PK
+        UUID ride_session_id FK
+        GEOMETRY location
+        NUMERIC accuracy_m
+        TIMESTAMPTZ recorded_at
+    }
+
+    ride_streaks {
+        UUID user_id PK FK
+        INTEGER current_streak
+        INTEGER longest_streak
+        DATE last_ride_date
+        TIMESTAMPTZ updated_at
+    }
+
+    bookmarks {
+        UUID user_id PK FK
+        UUID quest_id PK FK
+        TIMESTAMPTZ created_at
+    }
+
+    feed_posts {
+        UUID id PK
+        UUID user_id FK
+        UUID ride_session_id FK
+        TEXT content
+        TEXT image_url
+        INTEGER like_count
+        INTEGER comment_count
+        BOOLEAN is_story
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    post_likes {
+        UUID post_id PK FK
+        UUID user_id PK FK
+        TIMESTAMPTZ created_at
+    }
+
+    post_comments {
+        UUID id PK
+        UUID post_id FK
+        UUID user_id FK
+        UUID parent_id FK
+        TEXT content
+        TEXT image_url
+        INTEGER like_count
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    post_comment_likes {
+        UUID comment_id PK FK
+        UUID user_id PK FK
+        TIMESTAMPTZ created_at
+    }
+
+    badges {
+        UUID id PK
+        VARCHAR name
+        TEXT description
+        TEXT icon_url
+        badge_condition_type condition_type
+        INTEGER condition_value
+        TIMESTAMPTZ created_at
+    }
+
+    user_badges {
+        UUID user_id PK FK
+        UUID badge_id PK FK
+        TIMESTAMPTZ acquired_at
+    }
+
+    notifications {
+        BIGSERIAL id PK
+        UUID user_id FK
+        notification_type type
+        VARCHAR title
+        TEXT body
+        BOOLEAN is_read
+        TIMESTAMPTZ created_at
+    }
+
+    notification_settings {
+        UUID user_id PK FK
+        BOOLEAN quest_recommend
+        BOOLEAN quest_expire
+        BOOLEAN event
+        BOOLEAN ride_result
+        BOOLEAN social
+        TIMESTAMPTZ updated_at
+    }
+
+    app_config {
+        VARCHAR group_name PK
+        VARCHAR key PK
+        TEXT value
+        TEXT description
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    users ||--o{ user_quests : "수행"
+    users ||--o{ ride_sessions : "주행"
+    users ||--o{ bookmarks : "북마크"
+    users ||--o{ feed_posts : "게시"
+    users ||--o{ post_likes : "좋아요"
+    users ||--o{ post_comments : "댓글"
+    users ||--o{ user_badges : "획득"
+    users ||--o{ notifications : "수신"
+    users ||--o| notification_settings : "설정"
+    users ||--o| ride_streaks : "스트릭"
+
+    quests ||--o{ quest_pins : "핀"
+    quests ||--o{ user_quests : "수행됨"
+    quests ||--o{ ride_sessions : "포함"
+    quests ||--o{ bookmarks : "저장됨"
+
+    user_quests ||--|| ride_sessions : "결과"
+
+    ride_sessions ||--o{ ride_gps_points : "GPS 트랙"
+    ride_sessions ||--o| feed_posts : "공유됨"
+
+    feed_posts ||--o{ post_likes : "좋아요"
+    feed_posts ||--o{ post_comments : "댓글"
+
+    post_comments ||--o{ post_comments : "대댓글"
+    post_comments ||--o{ post_comment_likes : "좋아요"
+    users ||--o{ post_comment_likes : "댓글좋아요"
+
+    badges ||--o{ user_badges : "획득됨"
+```
+
+---
+
+## ENUM 타입 정의
+
+| ENUM | 값 | 설명 |
+|---|---|---|
+| `rider_type` | COMMUTER, CAFE_HUNTER, NIGHT_RIDER | 라이더 유형 |
+| `quest_period` | DAILY, WEEKLY, EVENT | 퀘스트 기간 분류 |
+| `quest_badge_type` | HOT, NEW, LIMITED | 퀘스트 뱃지 |
+| `safety_grade` | A, B, C | 안전 등급 |
+| `quest_status` | ACCEPTED, ACTIVE, COMPLETED, FAILED, ABANDONED | 퀘스트 진행 상태 |
+| `notification_type` | QUEST_RECOMMEND, QUEST_EXPIRE, EVENT, RIDE_RESULT, SOCIAL | 알림 종류 |
+| `badge_condition_type` | QUEST_CLEAR_COUNT, DISTANCE_TOTAL_KM, STREAK_DAYS, SAFETY_GRADE_A_COUNT | 배지 획득 조건 |
+
+---
+
+## PostGIS 컬럼
+
+| 테이블 | 컬럼 | 타입 | 용도 |
+|---|---|---|---|
+| `quest_pins` | `location` | `GEOMETRY(POINT, 4326)` | 퀘스트 지도 핀 좌표 |
+| `ride_gps_points` | `location` | `GEOMETRY(POINT, 4326)` | GPS 주행 트랙 |
+
+두 컬럼 모두 `GiST` 인덱스 적용 (`idx_quest_pins_location`, `idx_ride_gps_location`)
+
+---
+
+## 마이그레이션 파일 목록
+
+| 파일 | 내용 |
+|---|---|
+| `001_init_schema.sql` | 기본 스키마 전체 (users, quests, feed, badges, notifications 등) |
+| `002_add_passcode.sql` | users.passcode_hash 컬럼 추가 |
+| `002_contents_schema.sql` | contents 테이블 (파일 업로드 메타) |
+| `003_profile_avatar.sql` | users.avatar_content_id 컬럼 추가 |
+| `004_comment_likes.sql` | post_comments.like_count + post_comment_likes 테이블 |
+| `005_app_config.sql` | app_config 테이블 (API 키·앱 설정 KV 스토어) |
+
+> init 스크립트는 컨테이너 **최초 기동 시에만** 자동 실행됩니다.  
+> 이미 볼륨이 존재하는 경우 각 파일의 DDL을 `docker exec saigon_db psql ...` 로 직접 적용해야 합니다.
+
+---
+
+## Docker 연동 방식
+
+`database/init/` 디렉터리는 Docker Compose의 `database` 서비스에 마운트됩니다.
+
+```yaml
+volumes:
+  - ./database/init:/docker-entrypoint-initdb.d:ro
+```
+
+`postgis/postgis` 이미지는 컨테이너 최초 기동 시 `/docker-entrypoint-initdb.d/` 내 `.sql` 파일을 **파일명 사전순**으로 자동 실행합니다.  
+`001_init_schema.sql` 네이밍은 이 순서를 보장하기 위한 prefix입니다.
+
+> **주의**: 볼륨(`./database/data`)이 이미 존재하면 init 스크립트는 재실행되지 않습니다.  
+> 스키마를 재적용하려면 `docker compose down -v` 후 재기동하세요.
+
+---
+
+## 기동 명령어
+
+```bash
+# backend profile로 DB 포함 전체 기동
+docker compose --profile backend up --build -d
+
+# DB 로그 확인
+docker compose logs -f database
+
+# psql 접속 (호스트에서)
+psql -h localhost -p 5435 -U saigon -d saigon_rider
+```

@@ -1,0 +1,210 @@
+/* ── 가게 리치 카드 (당근형) — 리스트·지도 바텀시트 공용.
+ * 상호·업종 → 별점·단골·거리 → 사진 레일 → 소식 → 리뷰 프리뷰.
+ * (NeighborhoodMapList.module.css 에서 추출 — 원본은 그 파일의 .bizList 리스트에서 사용) */
+
+.bizCard {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 7px;
+  padding: 15px 0 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  transition: background .12s ease;
+}
+
+.bizCard:active {
+  background: var(--surface-2);
+}
+
+/* 바텀시트 컨텍스트용 컴팩트 여백 — 정보 구성은 동일, 위아래 패딩만 축소 */
+.bizCardCompact {
+  padding: 11px 0 12px;
+  gap: 5px;
+}
+
+.bizHead {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.bizName {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 구역(ward) chip — 전체 지역 리스트에서 업체별 위치를 구분하기 위한 표시 */
+.bizWard {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bizCat {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.bizCat svg { flex: 0 0 auto; }
+
+/* 별점·후기수 · 단골 · 거리 — 한 줄 메타, 항목 사이 가운뎃점 */
+.bizMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.bizMeta > *:not(:first-child)::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--text-3);
+}
+
+.bizRating,
+.bizCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* 찜(하트)·단골(사람) 카운트 — 아이콘 의미 고정: ★=평점, ♥=찜, 사람=단골 */
+.bizCount svg { flex: 0 0 auto; color: var(--text-3); }
+
+.bizRating strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bizRating small {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 소식 첨부·대표 사진 가로 레일 — 엣지까지 흘려서 스크롤 여지를 암시 */
+.bizRail {
+  display: flex;
+  gap: 6px;
+  margin: 2px -18px 1px;
+  padding: 0 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bizRail::-webkit-scrollbar { display: none; }
+
+/* 바텀시트(compact) 맥락 한정 — 좌측 블리드만 상쇄한다.
+ * 시트에서는 카드 좌측에 선택 강조 바(NeighborhoodMap.module.css .bizCardWrap.selected::before)가
+ * 놓이는데, 레일이 좌측으로 18px 흘러나오면 사진이 바 구역을 통과해 어색하다. 좌측은 카드
+ * 콘텐츠 라인에서 딱 잘리고(바와 사진 사이 여백 유지), 우측 블리드는 그대로 둬서 "더 있음"
+ * 스크롤 여지 암시를 보존한다. 레일 자신의 overflow-x: auto 는 불변 — 스크롤 기능 유지.
+ * 리스트 화면(.bizCardCompact 없음)은 좌우 풀블리드 그대로. */
+.bizCardCompact .bizRail {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.bizRailPhoto {
+  width: 116px;
+  height: 116px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(11, 13, 20, .04);
+}
+
+/* 최신 리뷰 텍스트 프리뷰 — 이웃의 목소리 한두 줄.
+ * 소식 pill(.bizNews)과 동일한 시각 문법(surface-2 / r8 / 12px)을 따르고, 아이콘·라벨("후기 N.N")로
+ * 구분한다. 별(★)은 평점 전용이라 이 줄에는 쓰지 않는다 — "★ 5 좋아요"가 좋아요 5개로 오독됐다. */
+.bizReviews {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bizReviewLine {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* 소식 pill 은 브랜드 오렌지 확성기 — 후기 pill 은 같은 형태에 중립 톤 아이콘으로 구분 */
+.bizReviewLine svg {
+  flex: 0 0 auto;
+  color: var(--text-3);
+}
+
+.bizReviewLine strong {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bizReviewLine > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bizNews {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bizNews svg {
+  flex: 0 0 auto;
+  color: var(--brand-600);
+}
+
+.bizNews span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 360px) {
+  .bizRail { margin-left: -14px; margin-right: -14px; padding-left: 14px; padding-right: 14px; }
+}

@@ -1,0 +1,369 @@
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text);
+  margin-left: 4px;
+}
+
+.iconBtn:active {
+  background: var(--line);
+}
+
+/* DM 미읽음 표시 */
+.unreadDot {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 1.5px solid var(--surface);
+}
+
+/* 페이지 컨테이너: viewport를 꽉 채우는 flex column */
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 실제 스크롤 영역: TopBar 아래 나머지 공간 */
+.scrollBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.body { padding: 16px 0 20px; }
+
+.storyRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 20px 16px;
+}
+
+.storyRow::-webkit-scrollbar { display: none; }
+
+.story {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.storyRing {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(135deg, var(--brand-500), var(--xp));
+}
+
+.storyRing img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  object-fit: cover;
+}
+
+.storyAvatar {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px dashed var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.storyMe { color: var(--brand-500); }
+
+.filterRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 20px 16px;
+}
+
+.filterRow::-webkit-scrollbar { display: none; }
+
+.filterChip {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+}
+
+.filterActive {
+  background: var(--ink-900);
+  color: white;
+  box-shadow: var(--shadow-pop);
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 20px;
+}
+
+/* ── 소식(피드) 그리드 (map/NeighborhoodMapList.module.css:192-283 dormant 이관) ── */
+.feedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.feedCard {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+  transition: transform .12s ease;
+}
+
+.feedCard:active {
+  transform: scale(.98);
+}
+
+/* 사진을 높이가 정해진 박스에 가둔다 — 본문(feedBody)이 항상 자리를 차지하도록 */
+.feedThumb {
+  width: 100%;
+  aspect-ratio: 1.15;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.feedPhoto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feedPlaceholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.feedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px 12px;
+}
+
+.feedAuthor {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+}
+
+/* 아바타 탭 히트영역 — 시각 크기(22px)는 유지하고 padding+음수 margin으로 탭 영역만 확장 */
+.avatarBtn {
+  grid-row: span 2;
+  display: inline-flex;
+  padding: 6px;
+  margin: -6px;
+  border-radius: 50%;
+}
+
+.avatar {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+}
+
+.feedAuthor strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedAuthor small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.feedCaption {
+  display: -webkit-box;
+  min-height: 36px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.feedMeta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.feedMeta > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* 응원 토글 — feedMeta 항목과 같은 톤, 눌린 상태만 브랜드색 */
+.cheerBtn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  border-radius: 8px;
+  color: inherit;
+}
+
+.cheerBtnActive {
+  color: var(--brand-600);
+}
+
+/* Image lightbox — src/components/ui/ImageViewer.module.css 로 승격 (2026-07-27) */
+
+.imgStats, .imgReward {
+  position: absolute;
+  padding: 6px 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  /* blur 제거 — 저사양 §6. 대신 배경 불투명도 상향 */
+}
+
+.imgStats {
+  top: 12px; right: 12px;
+  background: rgba(11,13,20,.72);
+  color: white;
+  border: 1px solid rgba(255,255,255,.1);
+}
+
+.imgReward {
+  bottom: 12px; left: 12px;
+  background: var(--exp); /* EXP 보상 = --exp 토큰 (기존 XP 퍼플 오용 수정, §3) */
+  color: white;
+}
+
+.hashtag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-500);
+  background: var(--brand-50);
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+/* 빈 상태 — 공용 sys.card + StateBlock 래퍼 (상단 여백만 담당) */
+.stateCard {
+  margin-top: 24px;
+}
+
+/* Comment sheet (FeedDetail 인라인 댓글에서 계속 사용) */
+.comment {
+  display: flex;
+  gap: 10px;
+}
+
+.commentReply {
+  padding-left: 32px;
+}
+
+.commentAvatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.commentBody { flex: 1; min-width: 0; }
+
+.commentNick {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.commentNick span {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.commentText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.commentLike {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 4px 8px;
+  align-self: flex-start;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.commentLikeActive {
+  color: var(--brand-500); /* --brand 는 없는 토큰이었음 */
+}
+
+.sendBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-3);
+  transition: all .15s ease;
+}
+
+.sendBtnActive {
+  background: var(--brand-500);
+  color: white;
+}

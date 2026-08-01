@@ -1,0 +1,489 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  word-break: break-word;
+}
+
+.mine {
+  align-self: flex-end;
+  background: var(--brand-500);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.theirs {
+  align-self: flex-start;
+  background: var(--surface);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.text {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.msgImg {
+  max-width: 100%;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+/* 이미지 첨부 메시지 (버블 배경/패딩 없이 이미지만 — 스티커와 동일 패턴) */
+.imageMsg {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+}
+
+.imageMine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.imageTheirs {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.meta {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* 읽음 표시 — 보조 정보이므로 은은하게(네온은 라이딩 HUD 전용, design-system §3) */
+.read {
+  margin-left: 3px;
+  color: var(--text-3);
+  vertical-align: -1px;
+}
+
+/* 이모티콘(이미지) 패널 (MessageComposer 슬롯 콘텐츠) */
+.stickerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 12px;
+}
+
+.stickerBtn {
+  aspect-ratio: 1;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.stickerBtn:active {
+  background: var(--surface);
+}
+
+.stickerThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 스티커 메시지 (버블 배경 없이 이미지만) */
+.stickerMsg {
+  display: flex;
+  flex-direction: column;
+  max-width: 140px;
+}
+
+.stickerMine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.stickerTheirs {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.stickerImg {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+/* ── 매물 컨텍스트 카드 (SGR-287 거래 채팅) ── */
+.contextCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.contextThumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.contextInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contextTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contextPrice {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── 약속/가격제안 시스템 카드 (공용 골격) ── */
+.apptCard {
+  align-self: center;
+  width: 84%;
+  max-width: 340px;
+  margin: 6px auto;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+/* 종결 상태는 카드 전체를 은은하게 — 상태 구분은 헤더 상태필이 담당 */
+.appt_CANCELLED,
+.appt_DECLINED { opacity: .6; }
+
+.apptHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.apptTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.apptStatusPill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 111, 60, .14);
+  color: var(--brand-500);
+}
+.apptStatusPill[data-status="ACCEPTED"] { background: #e7f6ec; color: #16a34a; }
+.apptStatusPill[data-status="COMPLETED"] { background: var(--line); color: var(--text-2); }
+.apptStatusPill[data-status="CANCELLED"] { background: var(--line); color: var(--text-3); }
+.apptStatusPill[data-status="DECLINED"] { background: #fdecec; color: #dc2626; }
+
+/* 가격제안 본문 — 금액 + 판매가 보조행 */
+.offerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.offerAmount {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+.offerCompare {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 라벨 행 (날짜/시간/장소) — 라벨 열은 로케일별 최장 라벨에 맞춰 자동 정렬 */
+.apptInfo {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 12px;
+}
+.apptRow {
+  display: contents;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.apptRowLabel {
+  white-space: nowrap;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.apptRowVal {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 700;
+  word-break: break-word;
+}
+
+/* 하단 CTA 행 — 카드 내부 풀폭 버튼 나란히 */
+.apptActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.apptBtnPrimary,
+.apptBtnGhost {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* vi 장문 라벨("Hoàn tất giao dịch")이 3버튼 행에서 클리핑되지 않게 줄바꿈 허용 */
+  white-space: normal;
+  line-height: 1.25;
+}
+.apptBtnPrimary { background: var(--brand-500); color: #fff; }
+.apptBtnGhost { background: transparent; color: var(--text-2); border: 1px solid var(--line); }
+.apptBtnPrimary:active,
+.apptBtnGhost:active { opacity: .85; }
+.apptBtnPrimary:disabled,
+.apptBtnGhost:disabled { opacity: .5; }
+
+.apptTime {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: -2px;
+}
+
+/* ── 약속잡기 시트 ── */
+.apptSheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.apptSheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.apptLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+
+.apptInput {
+  width: 100%;
+  min-width: 0; /* flex 내 datetime-local 이 내재 min-width 로 넘치는 것 방지 */
+  max-width: 100%;
+  /* iOS WKWebView datetime-local 이 native chrome 의 내재 폭으로 width:100% 를 무시 → 박스 모델 강제 */
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+}
+
+.apptInput:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
+.translated {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.translateBtn {
+  margin-top: 4px;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand-500);
+  opacity: 0.85;
+}
+
+.apptPlaceBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+}
+
+.apptPlacePin {
+  flex-shrink: 0;
+  color: var(--brand-500);
+}
+
+.apptSubmit {
+  margin-top: 22px;
+}
+
+/* ── 거래 후기 (REF-05) ── */
+.reviewBanner {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--brand-50, rgba(255,90,31,.08));
+  color: var(--brand-500);
+  font-size: 14px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+
+.reviewBanner:active { opacity: .7; }
+
+.myReviewBanner {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+}
+
+.ratingRow {
+  display: flex;
+  gap: 10px;
+}
+
+.ratingBtn {
+  flex: 1;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.ratingGood {
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: #fff;
+}
+
+.ratingBad {
+  background: var(--text-3);
+  border-color: var(--text-3);
+  color: #fff;
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagChip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.tagChipActive {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
+.headerMoreBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  transition: background .15s ease;
+}
+
+.headerMoreBtn:active {
+  background: var(--surface-2);
+}
+
+.reportSheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.reportSheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.reportItem {
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.reportItem:active {
+  background: var(--surface-2);
+}

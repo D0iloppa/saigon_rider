@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- interactive-widget=resizes-visual (F-03-KBD): 소프트 키보드가 레이아웃 뷰포트(100dvh)를
+         줄이지 않고 오버레이 → 키보드 표시 시 컴포넌트 압축 방지. Blink(Android WebView)는 초기
+         파싱 때만 읽으므로 정적 선언 필수(런타임 변경은 무시됨). iOS WebKit 은 이 속성을 미구현 →
+         무시(무영향), 게다가 resizes-visual 은 iOS 기본 동작과 동일. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual" />
+    <meta name="theme-color" content="#FF5A1F" />
+    <title>Saigon Rider</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <!-- 🏍 (U+1F3CD) 가 담긴 Noto Color Emoji shard — splash 이모지 선행 로딩 -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous" href="/fonts/noto-color-emoji/noto-color-emoji.5.woff2" />
+    <!-- Splash + TabBar FAB 에서 쓰는 오토바이 GIF 선행 로딩 -->
+    <link rel="preload" as="image" href="/emoji/1f3cd.gif" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      플랫폼 감지 — React 렌더링 전에 실행되어야 CSS 깜박임이 없음.
+      iOS  : data-platform="ios"     → WebView가 전체화면(상태바 포함) 사용
+      Android: data-platform="android" → WebView가 상태바 아래 영역만 사용
+      web  : data-platform="web"     → 브라우저/데스크탑 dev 환경
+      네이티브에서 window.setPlatform('ios'|'android') 호출로 덮어쓸 수 있음.
+    -->
+    <script>
+      (function () {
+        var ua = navigator.userAgent;
+        var p = /iPhone|iPad|iPod/i.test(ua) ? 'ios'
+              : /Android/i.test(ua)          ? 'android'
+              : 'web';
+        document.documentElement.setAttribute('data-platform', p);
+        window.setPlatform = function (platform) {
+          document.documentElement.setAttribute('data-platform', platform);
+        };
+      })();
+    </script>
+
+    <!--
+      테마 선반영 — React 렌더링 전에 data-theme 를 세팅해 다크모드 깜박임(FOUC) 방지.
+      저장 형식은 zustand persist(키 'saigon-rider-theme')의 {state:{theme}} 래핑.
+      값이 없으면 'light'(기본). 런타임 토글은 useThemeStore 가 갱신한다.
+    -->
+    <script>
+      (function () {
+        var theme = 'light';
+        try {
+          var raw = localStorage.getItem('saigon-rider-theme');
+          if (raw && JSON.parse(raw).state.theme === 'dark') theme = 'dark';
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

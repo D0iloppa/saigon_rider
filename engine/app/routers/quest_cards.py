@@ -1,0 +1,147 @@
+"""퀘스트 카드 — 생성·조회·취소·슬롯 확인."""
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.deps import get_session, verify_service_key
+from app.enums import QuestCardStatusEnum
+from app.models import SreQuestCard, SreUser
+from app.schemas import DailySlotInfo, QuestCardCreate, QuestCardRead
+from app.services import quest_tracker
+from app.services.xp_ledger import get_or_create_user
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/v1", tags=["quest-cards"])
+
+
+@router.post(
+    "/quest-cards",
+    response_model=QuestCardRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_service_key)],
+)
+async def create_quest_card(
+    body: QuestCardCreate,
+    db: AsyncSession = Depends(get_session),
+) -> SreQuestCard:
+    sre_user = await get_or_create_user(db, body.user_uuid)
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:user_quest_id))"),
+        {"user_quest_id": body.user_quest_id},
+    )
+
+    existing = (await db.execute(
+        select(SreQuestCard).where(
+            SreQuestCard.user_quest_id == body.user_quest_id,
+            SreQuestCard.status == QuestCardStatusEnum.ACTIVE,
+        )
+    )).scalar_one_or_none()
+    if existing is not None:
+        if existing.user_id != sre_user.user_id:
+            raise HTTPException(status_code=409, detail="user_quest belongs to another user")
+        return existing
+
+    card = SreQuestCard(
+        user_id=sre_user.user_id,
+        external_quest_id=body.external_quest_id,
+        user_quest_id=body.user_quest_id,
+        card_type=body.card_type,
+        criteria=body.criteria,
+        expires_at=body.expires_at,
+    )
+    db.add(card)
+    await db.commit()
+    await db.refresh(card)
+    return card
+
+
+@router.get(
+    "/users/{user_id}/quest-cards/completed",
+    response_model=list[QuestCardRead],
+    dependencies=[Depends(verify_service_key)],
+)
+async def get_completed_cards(
+    user_id: int,
+    db: AsyncSession = Depends(get_session),
+) -> list[SreQuestCard]:
+    result = await db.execute(
+        select(SreQuestCard).where(
+            SreQuestCard.user_id == user_id,
+            SreQuestCard.status == QuestCardStatusEnum.COMPLETED,
+        ).order_by(SreQuestCard.completed_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get(
+    "/quest-cards/by-user-quest",
+    response_model=QuestCardRead,
+    dependencies=[Depends(verify_service_key)],
+)
+async def get_card_by_user_quest(
+    user_quest_id: str = Query(...),
+    db: AsyncSession = Depends(get_session),
+) -> SreQuestCard:
+    result = await db.execute(
+        select(SreQuestCard)
+        .where(SreQuestCard.user_quest_id == user_quest_id)
+        .order_by(SreQuestCard.accepted_at.desc())
+        .limit(1)
+    )
+    card = result.scalar_one_or_none()
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return card
+
+
+@router.post(
+    "/quest-cards/{card_id}/cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(verify_service_key)],
+)
+async def cancel_quest_card(
+    card_id: int,
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    card = await db.get(SreQuestCard, card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    if card.status != QuestCardStatusEnum.ACTIVE:
+        raise HTTPException(status_code=409, detail="Only ACTIVE cards can be cancelled")
+    card.status = QuestCardStatusEnum.CANCELLED
+    await db.commit()
+
+
+@router.get(
+    "/users/{user_id}/daily-quest-slots",
+    response_model=DailySlotInfo,
+    dependencies=[Depends(verify_service_key)],
+)
+async def get_daily_slots(
+    user_id: int,
+    db: AsyncSession = Depends(get_session),
+) -> DailySlotInfo:
+    return await quest_tracker.calc_daily_slots(db, user_id)
+
+
+@router.get(
+    "/quest-cards/daily-slots",
+    response_model=DailySlotInfo,
+    dependencies=[Depends(verify_service_key)],
+)
+async def get_daily_slots_by_uuid(
+    user_uuid: str = Query(...),
+    db: AsyncSession = Depends(get_session),
+) -> DailySlotInfo:
+    result = await db.execute(
+        select(SreUser).where(SreUser.external_user_uuid == user_uuid)
+    )
+    sre_user = result.scalar_one_or_none()
+    if sre_user is None:
+        raise HTTPException(status_code=404, detail="SRE user not found")
+    return await quest_tracker.calc_daily_slots(db, sre_user.user_id)

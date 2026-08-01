@@ -1,0 +1,48 @@
+/* 정비소 화면 전용 스타일 — 공통 문법은 styles/system.module.css 참조 */
+
+/* ── 평점 ── */
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+}
+
+.rating b {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ratingCount {
+  color: var(--text-3);
+}
+
+/* ── 리뷰 키워드 칩 ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipPos { background: rgba(22, 163, 74, .10);  color: #15803D; }
+.chipNeg { background: rgba(239, 59, 59, .09);  color: #B91C1C; }
+
+/* ── 리뷰 리워드 힌트 (버튼 아님) ── */
+.rewardHint {
+  cursor: default;
+  color: var(--text-2);
+}
+.rewardHint:active { background: var(--surface); }

@@ -1,0 +1,272 @@
+.page {
+  position: relative; /* writeFab 앵커 */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.header {
+  flex-shrink: 0;
+  padding: 0 16px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  margin-left: -8px;
+}
+
+.searchBox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text-3);
+  color: var(--surface);
+}
+
+.filterRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.filterRow::-webkit-scrollbar {
+  display: none;
+}
+
+.filterChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.filterChipActive {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
+.results {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* 플랫 리스트 (ListingCard 업리프트 260706) */
+}
+
+/* 로딩 스켈레톤 — ListingCard 골격 미러 */
+.skelCard {
+  display: flex;
+  gap: 14px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.skelThumb {
+  width: 104px;
+  height: 104px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.skelBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 4px;
+}
+
+/* 힌트/빈 상태 — 공용 StateBlock 래퍼 (세로 중앙 정렬만 담당) */
+.stateWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* isMine 진입 시 헤더 타이틀 */
+.mineTitle {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  padding-left: 4px;
+}
+
+/* 내 매물 → 등록 FAB (MarketMain.writeFab 문법 미러) */
+.writeFab {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: var(--shadow-pop);
+}
+
+.writeFab:active {
+  opacity: .85;
+}
+
+/* BottomSheet 공용 */
+.filterSheet {
+  padding: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheetTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 0 4px;
+}
+
+/* 가격 프리셋 칩 */
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.presetChip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--surface);
+}
+
+.presetChipActive {
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: #fff;
+}
+
+/* 가격 직접 입력 */
+.priceInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.priceInput {
+  flex: 1;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+}
+
+.priceInput:focus {
+  border-color: var(--brand-500);
+}
+
+.priceSep {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 16px;
+}
+
+/* 정렬 옵션 */
+.sortOption {
+  width: 100%;
+  padding: 14px 4px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.sortOption:last-child {
+  border-bottom: none;
+}
+
+.sortOptionActive {
+  color: var(--brand-500);
+  font-weight: 700;
+}
+
+/* 초기화 */
+.clearBtn {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+}

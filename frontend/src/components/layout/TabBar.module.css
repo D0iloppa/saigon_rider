@@ -1,0 +1,97 @@
+.tabbar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  /* 상단 12px · 하단 12px + bottom-safe (web은 0, Android도 0이면 최소 12px) */
+  padding: 12px 4px calc(12px + var(--bottom-safe));
+  flex-shrink: 0;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.04);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 0;
+  color: var(--text-3);
+  transition: color .15s ease;
+  position: relative;
+  text-decoration: none;
+}
+
+.tab:active {
+  transform: scale(0.95);
+}
+
+.iconWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* 확인할 알림(안 읽은 DM 등) 빨간 dot */
+.navDot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5333f;
+  border: 1.5px solid var(--surface);
+}
+
+.gifIcon {
+  display: block;
+}
+
+.svgFallback {
+  display: none;
+}
+
+.label {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.active {
+  color: var(--brand-500);
+}
+
+.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 4px;
+  background: var(--brand-500);
+  border-radius: 0 0 4px 4px;
+}
+
+/* ─── iOS ───────────────────────────────────────────────────────
+   아이콘 영역 56px 고정 + 홈 인디케이터(--bottom-safe ≈34px) 추가
+   padding-top 8px → 인디케이터 ::before 가 border에 8px 아래 위치하지 않도록
+   align-self: stretch 로 tab 이 tabbar 상단까지 늘어남 → ::before top:0 = border 밀착
+─────────────────────────────────────────────────────────────── */
+[data-platform="ios"] .tabbar {
+  padding: 0 4px var(--bottom-safe);
+  height: calc(56px + var(--bottom-safe));
+}
+
+[data-platform="ios"] .tab {
+  align-self: stretch;
+  justify-content: center;
+  padding-top: 10px;   /* 상단 10px 여백 → 인디케이터 밀착 유지하면서 아이콘 내려옴 */
+}

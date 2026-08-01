@@ -1,0 +1,39 @@
+/* 지역 선택 — 네이티브 select 를 칩(sys.chipBtn) 위에 투명 오버레이 (InfoWeather 셀렉트 패턴 공용화).
+   룩은 system.module.css 칩 문법이 담당하고, 여기선 오버레이·말줄임 보정만 한다. */
+.selectWrap {
+  position: relative;
+  /* sys.chipBtn 의 flex-shrink:0 오버라이드 — 긴 동네명일 때 trailing 칩을 밀어내지 않게 줄어든다 */
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 60%;
+}
+
+.selectNative {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.selectFace {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.selectChevron { flex-shrink: 0; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}

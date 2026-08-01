@@ -1,0 +1,91 @@
+.sheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.starWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+
+.starRow {
+  display: flex;
+  gap: 4px;
+}
+
+.starBtn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.starBtn:active {
+  transform: scale(0.9);
+}
+
+.starLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: -0.2px;
+  min-height: 20px;
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagChip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.tagChipActive {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
+.submit {
+  margin-top: 22px;
+}

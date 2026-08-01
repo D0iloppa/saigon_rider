@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Equip Preview — Saigon Rider</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root {
+  --brand-50:#FFF1E8;--brand-100:#FFDDC4;--brand-300:#FF9966;
+  --brand-500:#FF5A1F;--brand-600:#ED4310;--brand-700:#B82C08;
+  --bg:#F7F5F0;--surface:#FFFFFF;--surface-2:#FAF7F2;--line:#E8E3DA;
+  --text:#0B0D14;--text-2:#4A4F62;--text-3:#8A8E9E;
+  --r-c-fill:#9CA3AF;--r-r-fill:#3B82F6;--r-e-fill:#8B5CF6;--r-l-fill:#FF7438;
+  --r-c-bg:#F3F4F6;--r-r-bg:#DBEAFE;--r-e-bg:#EDE9FE;--r-l-bg:#FFE4D2;
+  --r-c-border:#D1D5DB;--r-r-border:#60A5FA;--r-e-border:#A78BFA;--r-l-border:#FF9966;
+  --r-r-glow:rgba(59,130,246,.3);--r-e-glow:rgba(139,92,246,.35);--r-l-glow:rgba(255,116,56,.4);--r-m-glow:rgba(255,45,156,.4);
+  --r-r-grad:linear-gradient(135deg,#60A5FA,#1D4ED8);
+  --r-e-grad:linear-gradient(135deg,#A78BFA,#6D28D9);
+  --r-l-grad:linear-gradient(135deg,#FFB800,#FF5A1F,#B82C08);
+  --r-m-grad:linear-gradient(135deg,#FF2D9C 0%,#FF7438 25%,#FFB800 50%,#00F0FF 75%,#B6FF1C 100%);
+  --grad-sunset:radial-gradient(at 20% 20%,#FFD96B 0%,transparent 50%),radial-gradient(at 80% 30%,#FF5A1F 0%,transparent 55%),radial-gradient(at 60% 90%,#7C3AED 0%,transparent 60%),linear-gradient(160deg,#FF7438,#B82C08);
+  --shadow-card:0 1px 2px rgba(11,13,20,.04),0 4px 12px rgba(11,13,20,.06);
+  --shadow-pop:0 8px 24px rgba(255,90,31,.20),0 24px 60px rgba(255,90,31,.18);
+  --app-max-width:480px;
+  --font-ui:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Space Grotesk',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font-ui);font-size:15px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+.shell{display:flex;justify-content:center;height:100vh;height:100dvh;background:linear-gradient(135deg,#2A2010 0%,#0B0D14 100%)}
+.app{width:100%;max-width:var(--app-max-width);background:var(--bg);display:flex;flex-direction:column;height:100%;overflow:hidden}
+
+/* ── Header ── */
+.header{height:48px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-bottom:1px solid var(--line);flex-shrink:0}
+.header-title{font-size:15px;font-weight:700}
+
+/* ── Category Tabs ── */
+.cat-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--line);flex-shrink:0}
+.cat-tab{flex:1;padding:10px 0;text-align:center;font-size:13px;font-weight:600;color:var(--text-3);position:relative;transition:color .2s}
+.cat-tab.active{color:var(--brand-500)}
+.cat-tab.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:2.5px;background:var(--brand-500);border-radius:2px 2px 0 0}
+
+/* ── Equip Stage (center preview + side slots) ── */
+.stage{flex:1;display:flex;min-height:0;position:relative;background:var(--surface-2);overflow:hidden}
+
+/* side slot columns */
+.side{width:76px;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px 6px;flex-shrink:0;z-index:2}
+.side-r{align-items:flex-end}
+.side-l{align-items:flex-start}
+
+/* slot card */
+.slot-card{width:64px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:transform .15s}
+.slot-card:active{transform:scale(.95)}
+.slot-thumb{width:60px;height:60px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--surface);border:1.5px solid var(--line);box-shadow:var(--shadow-card);position:relative;transition:border-color .2s,box-shadow .2s}
+.slot-card.active .slot-thumb{border-color:var(--brand-500);box-shadow:0 0 0 2px var(--brand-500),var(--shadow-card)}
+.slot-card.empty .slot-thumb{opacity:.4;border-style:dashed;background:var(--surface-2)}
+.slot-card.equipped[data-r="R"] .slot-thumb{border-color:var(--r-r-border);box-shadow:0 4px 12px var(--r-r-glow)}
+.slot-card.equipped[data-r="E"] .slot-thumb{border-color:var(--r-e-border);box-shadow:0 4px 12px var(--r-e-glow)}
+.slot-card.equipped[data-r="L"] .slot-thumb{border-color:var(--r-l-border);box-shadow:0 4px 12px var(--r-l-glow)}
+.slot-card.equipped[data-r="M"] .slot-thumb{border:2px solid transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,var(--r-m-grad) border-box;box-shadow:0 4px 16px var(--r-m-glow)}
+.slot-rarity{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;border-radius:8px;font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#fff;border:1.5px solid var(--surface);font-family:var(--font-mono);padding:0 3px}
+.slot-meta{display:flex;flex-direction:column;align-items:center;gap:0}
+.slot-label{font-size:8px;font-weight:700;color:var(--text-3);font-family:var(--font-mono);letter-spacing:.3px;text-transform:uppercase}
+.slot-stat{font-size:8px;font-weight:600;color:var(--brand-500);font-family:var(--font-mono)}
+
+/* center silhouette */
+.center{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-width:0}
+.sil-img{max-width:100%;max-height:100%;object-fit:contain;opacity:.25;pointer-events:none;position:relative;z-index:0;padding:12px}
+
+/* ── Stats Bar ── */
+.stats-bar{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-shrink:0;flex-wrap:wrap}
+.stat-chip{display:inline-flex;align-items:center;gap:3px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text-2);padding:5px 10px;background:var(--surface-2);border-radius:20px;border:1px solid var(--line);white-space:nowrap}
+.stat-emoji{font-size:13px}
+.stat-val{color:var(--brand-500);font-weight:700}
+.stat-name{font-size:10px;color:var(--text-3);max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Item Grid (scrollable) ── */
+.grid-section{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--surface)}
+.grid-toolbar{display:flex;align-items:center;padding:8px 12px 4px;gap:8px;flex-shrink:0}
+.grid-title{font-size:12px;font-weight:700;color:var(--text);flex:1}
+.sort-pills{display:flex;gap:4px}
+.sort-pill{font-size:10px;font-weight:600;font-family:var(--font-mono);padding:4px 8px;border-radius:6px;color:var(--text-3);background:var(--surface-2);border:1px solid var(--line);transition:all .15s;letter-spacing:.02em}
+.sort-pill.active{color:var(--brand-500);background:var(--brand-50);border-color:var(--brand-300)}
+.grid-scroll{flex:1;overflow-y:auto;padding:0 12px 8px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.grid-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:12px;cursor:pointer;border:1.5px solid var(--line);background:var(--surface-2);transition:border-color .15s,background .15s}
+.grid-item.active{border-color:var(--brand-500);background:var(--brand-50)}
+.grid-item[data-r="R"]{border-color:var(--r-r-border);background:var(--r-r-bg)}
+.grid-item[data-r="E"]{border-color:var(--r-e-border);background:var(--r-e-bg)}
+.grid-item[data-r="L"]{border-color:var(--r-l-border);background:var(--r-l-bg)}
+.grid-item[data-r="M"]{border:2px solid transparent;background:linear-gradient(#fff,#fff) padding-box,var(--r-m-grad) border-box}
+.grid-emoji{font-size:24px;line-height:1}
+.grid-name{font-size:8px;font-weight:600;color:var(--text-2);text-align:center;line-height:1.2;max-height:2.2em;overflow:hidden}
+.grid-rarity{font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--text-3)}
+
+/* rarity chip inline */
+.rarity-chip{display:inline-flex;font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.04em;padding:2px 5px;border-radius:4px;color:#fff}
+.rarity-chip[data-r="C"]{background:var(--r-c-fill);color:#374151}
+.rarity-chip[data-r="R"]{background:var(--r-r-grad)}
+.rarity-chip[data-r="E"]{background:var(--r-e-grad)}
+.rarity-chip[data-r="L"]{background:var(--r-l-grad)}
+.rarity-chip[data-r="M"]{background:var(--r-m-grad);background-size:200% 200%;animation:mythic 3s linear infinite}
+@keyframes mythic{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* ── TabBar ── */
+.tabbar{display:flex;align-items:center;justify-content:space-around;background:var(--surface);border-top:1px solid var(--line);padding:12px 4px;flex-shrink:0;box-shadow:0 -10px 30px rgba(0,0,0,.04)}
+.tabbar-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px 0;color:var(--text-3);text-decoration:none;position:relative}
+.tabbar-tab.active{color:var(--brand-500)}
+.tabbar-tab.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:4px;background:var(--brand-500);border-radius:0 0 4px 4px}
+.tabbar-icon{width:24px;height:24px}
+.tabbar-label{font-size:10px;font-weight:600}
+.tabbar-fab{flex-shrink:0;width:64px;height:64px;border-radius:20px;background:var(--grad-sunset);display:flex;align-items:center;justify-content:center;margin-top:-16px;box-shadow:var(--shadow-pop);font-size:28px}
+
+/* ── Anim ── */
+@keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.stage[data-anim] .slot-card{animation:slideIn .25s ease both}
+.stage[data-anim] .slot-card:nth-child(2){animation-delay:.04s}
+.stage[data-anim] .slot-card:nth-child(3){animation-delay:.08s}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="app">
+  <div class="header"><span class="header-title">장착 미리보기</span></div>
+  <div class="cat-tabs" id="catTabs">
+    <button class="cat-tab active" data-tab="rider">🧑 라이더</button>
+    <button class="cat-tab" data-tab="bike">🏍️ 바이크</button>
+    <button class="cat-tab" data-tab="effect">✨ 이펙트</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="side side-l" id="sideL"></div>
+    <div class="center" id="center"></div>
+    <div class="side side-r" id="sideR"></div>
+  </div>
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div class="grid-section">
+    <div class="grid-toolbar">
+      <span class="grid-title" id="gridTitle">장비</span>
+      <div class="sort-pills" id="sortPills">
+        <button class="sort-pill active" data-sort="rarity">희귀도</button>
+        <button class="sort-pill" data-sort="slot">부위별</button>
+        <button class="sort-pill" data-sort="name">이름순</button>
+      </div>
+    </div>
+    <div class="grid-scroll">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <a class="tabbar-tab" href="/home">
+      <svg class="tabbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg>
+      <span class="tabbar-label">월드</span>
+    </a>
+    <a class="tabbar-tab" href="/quests">
+      <svg class="tabbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span class="tabbar-label">퀘스트</span>
+    </a>
+    <button class="tabbar-fab">🏍️</button>
+    <a class="tabbar-tab" href="/feed">
+      <svg class="tabbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span class="tabbar-label">피드</span>
+    </a>
+    <a class="tabbar-tab" href="/profile">
+      <svg class="tabbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+      <span class="tabbar-label">프로필</span>
+    </a>
+  </nav>
+</div>
+</div>
+
+<script>
+const SILHOUETTES = {
+  rider: `<img class="sil-img" src="img/rider.png" alt="rider silhouette">`,
+  bike:  `<img class="sil-img" src="img/bike.png" alt="bike silhouette">`,
+  effect:`<img class="sil-img" src="img/effect.png" alt="effect silhouette">`,
+};
+
+const TABS = {
+  rider: {
+    label: '라이더 장비',
+    left: [
+      {key:'HELMET', emoji:'🪖',label:'HELMET',item:{name:'Neon Saigon 헬멧',rarity:'R',stat:'+2 속도'}},
+      {key:'JACKET', emoji:'🧥',label:'JACKET',item:{name:'Street Classic 재킷',rarity:'C',stat:'+1 방어'}},
+      {key:'GLOVES', emoji:'🧤',label:'GLOVES',item:null},
+    ],
+    right: [
+      {key:'EYEWEAR',emoji:'🕶️',label:'EYEWEAR',item:null},
+      {key:'BOOTS',  emoji:'👢',label:'BOOTS',item:{name:'Saigon Ghost 부츠',rarity:'E',stat:'+3 행운'}},
+    ],
+    extra: [
+      {emoji:'🪖',name:'Mekong 헬멧',rarity:'C'},
+      {emoji:'🪖',name:'Tet 헬멧',rarity:'E'},
+      {emoji:'🧥',name:'Ghost 재킷',rarity:'L'},
+      {emoji:'🧥',name:'Neon 재킷',rarity:'E'},
+      {emoji:'🧤',name:'Street 장갑',rarity:'C'},
+      {emoji:'🧤',name:'Delivery 장갑',rarity:'R'},
+      {emoji:'👢',name:'Neon 부츠',rarity:'R'},
+      {emoji:'👢',name:'Legend 부츠',rarity:'M'},
+      {emoji:'🕶️',name:'Ghost 아이웨어',rarity:'E'},
+      {emoji:'🕶️',name:'Legend 아이웨어',rarity:'L'},
+    ]
+  },
+  bike: {
+    label: '바이크 커스텀',
+    left: [
+      {key:'HEADLIGHT',emoji:'💡',label:'LIGHT',item:null},
+      {key:'MIRROR',   emoji:'🔧',label:'MIRROR',item:{name:'Neon 미러',rarity:'R',stat:'+1 시야'}},
+      {key:'WHEEL',    emoji:'⚙️',label:'WHEEL',item:{name:'Legend 휠',rarity:'L',stat:'+4 가속'}},
+    ],
+    right: [
+      {key:'DECAL',     emoji:'🐉',label:'DECAL',item:null},
+      {key:'BODY_PAINT',emoji:'🎨',label:'PAINT',item:{name:'Delivery 페인트',rarity:'E',stat:'+2 존재감'}},
+      {key:'EXHAUST',   emoji:'🔥',label:'EXHAUST',item:{name:'Ghost 배기',rarity:'E',stat:'+3 사운드'}},
+    ],
+    extra: [
+      {emoji:'💡',name:'Neon 라이트',rarity:'R'},
+      {emoji:'💡',name:'Ghost 라이트',rarity:'E'},
+      {emoji:'🔧',name:'Street 미러',rarity:'C'},
+      {emoji:'🎨',name:'Legend 페인트',rarity:'M'},
+      {emoji:'🎨',name:'Tet 페인트',rarity:'R'},
+      {emoji:'🐉',name:'Saigon 데칼',rarity:'E'},
+      {emoji:'🐉',name:'Street 데칼',rarity:'C'},
+      {emoji:'🔥',name:'Neon 배기',rarity:'R'},
+      {emoji:'⚙️',name:'Street 휠',rarity:'C'},
+      {emoji:'⚙️',name:'Neon 휠',rarity:'E'},
+    ]
+  },
+  effect: {
+    label: '이펙트',
+    left: [
+      {key:'TITLE_BANNER',emoji:'🏴',label:'TITLE',item:{name:'Legend 타이틀',rarity:'L',stat:'칭호 표시'}},
+      {key:'HORN',        emoji:'🔔',label:'HORN',item:null},
+      {key:'TRAIL',       emoji:'✨',label:'TRAIL',item:{name:'Neon 트레일',rarity:'E',stat:'주행 잔상'}},
+    ],
+    right: [
+      {key:'NAMEPLATE',emoji:'🏷️',label:'NAME',item:{name:'Legend 네임플레이트',rarity:'M',stat:'이름 장식'}},
+      {key:'BACKDROP', emoji:'🌄',label:'BACKDROP',item:{name:'Ghost 백드롭',rarity:'M',stat:'프로필 배경'}},
+    ],
+    extra: [
+      {emoji:'🏴',name:'Neon 타이틀',rarity:'R'},
+      {emoji:'🏴',name:'Ghost 타이틀',rarity:'E'},
+      {emoji:'🔔',name:'Street 혼',rarity:'C'},
+      {emoji:'🔔',name:'Tet 혼',rarity:'R'},
+      {emoji:'✨',name:'Ghost 트레일',rarity:'L'},
+      {emoji:'✨',name:'Delivery 트레일',rarity:'R'},
+      {emoji:'🏷️',name:'Neon 네임플레이트',rarity:'E'},
+      {emoji:'🌄',name:'Street 백드롭',rarity:'C'},
+      {emoji:'🌄',name:'Tet 백드롭',rarity:'R'},
+      {emoji:'🌄',name:'Legend 백드롭',rarity:'L'},
+    ]
+  }
+};
+
+const RARITY_BG={C:'var(--r-c-fill)',R:'var(--r-r-fill)',E:'var(--r-e-fill)',L:'var(--r-l-fill)',M:'#FF2D9C'};
+const RARITY_ORDER={M:0,L:1,E:2,R:3,C:4};
+let currentTab='rider', activeSlot=null, currentSort='rarity';
+
+function slotCardHTML(slot) {
+  const has = !!slot.item;
+  const isAct = activeSlot === slot.key;
+  const r = has ? slot.item.rarity : '';
+  const cls = ['slot-card'];
+  if (isAct) cls.push('active');
+  if (has) cls.push('equipped'); else cls.push('empty');
+
+  let badge='';
+  if (has) badge=`<span class="slot-rarity" style="background:${RARITY_BG[r]}">${r}</span>`;
+
+  return `<div class="${cls.join(' ')}" data-slot="${slot.key}" data-r="${r}">
+    <div class="slot-thumb">${slot.emoji}${badge}</div>
+    <div class="slot-meta">
+      <span class="slot-label">${slot.label}</span>
+      ${has?`<span class="slot-stat">${slot.item.stat}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function sortItems(items, mode) {
+  const arr = [...items];
+  switch(mode) {
+    case 'rarity':
+      return arr.sort((a,b)=>(RARITY_ORDER[a.rarity]??9)-(RARITY_ORDER[b.rarity]??9));
+    case 'slot':
+      return arr.sort((a,b)=>a.emoji.localeCompare(b.emoji)||(RARITY_ORDER[a.rarity]??9)-(RARITY_ORDER[b.rarity]??9));
+    case 'name':
+      return arr.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    default:
+      return arr;
+  }
+}
+
+function render() {
+  const tab = TABS[currentTab];
+  const stage = document.getElementById('stage');
+  const sideL = document.getElementById('sideL');
+  const sideR = document.getElementById('sideR');
+  const center = document.getElementById('center');
+  const statsBar = document.getElementById('statsBar');
+  const gridTitle = document.getElementById('gridTitle');
+  const grid = document.getElementById('grid');
+
+  sideL.innerHTML = tab.left.map(slotCardHTML).join('');
+  sideR.innerHTML = tab.right.map(slotCardHTML).join('');
+  center.innerHTML = SILHOUETTES[currentTab];
+
+  /* stats bar — pill style */
+  const allSlots = [...tab.left,...tab.right];
+  const equipped = allSlots.filter(s=>s.item);
+  const shown = equipped.slice(0,3);
+  const more = equipped.length - 3;
+  let statsHtml = shown.map(s=>`<div class="stat-chip"><span class="stat-emoji">${s.emoji}</span><span class="stat-val">${s.item.stat}</span></div>`).join('');
+  if (more > 0) statsHtml += `<div class="stat-chip" style="color:var(--text-3)">+${more}</div>`;
+  statsBar.innerHTML = equipped.length ? statsHtml : '<span style="font-size:12px;color:var(--text-3)">장착된 아이템 없음</span>';
+
+  /* grid */
+  gridTitle.textContent = tab.label;
+  const sorted = sortItems(tab.extra, currentSort);
+  grid.innerHTML = sorted.map(it=>{
+    return `<div class="grid-item" data-r="${it.rarity}">
+      <span class="grid-emoji">${it.emoji}</span>
+      <span class="grid-name">${it.name}</span>
+      <span class="rarity-chip" data-r="${it.rarity}">${it.rarity}</span>
+    </div>`;
+  }).join('');
+
+  /* sort pills active state */
+  document.querySelectorAll('.sort-pill').forEach(p=>{
+    p.classList.toggle('active', p.dataset.sort===currentSort);
+  });
+
+  stage.setAttribute('data-anim','');
+  setTimeout(()=>stage.removeAttribute('data-anim'),300);
+}
+
+document.addEventListener('click', e => {
+  const card = e.target.closest('.slot-card[data-slot]');
+  if (card) {
+    activeSlot = activeSlot===card.dataset.slot ? null : card.dataset.slot;
+    render();
+    return;
+  }
+  const sortBtn = e.target.closest('.sort-pill');
+  if (sortBtn) {
+    currentSort = sortBtn.dataset.sort;
+    render();
+    return;
+  }
+  const tab = e.target.closest('.cat-tab');
+  if (tab) {
+    document.querySelectorAll('.cat-tab').forEach(b=>b.classList.remove('active'));
+    tab.classList.add('active');
+    currentTab = tab.dataset.tab;
+    activeSlot = null;
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>

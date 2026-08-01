@@ -1,0 +1,560 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.statIcon {
+  color: var(--brand-500);
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.statSkeleton {
+  height: 78px;
+  border-radius: 14px;
+}
+
+.listSkeleton {
+  height: 120px;
+  margin-top: 24px;
+  border-radius: 14px;
+}
+
+.sectionTitle {
+  margin-top: 28px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reviewCard {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.reviewHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.reviewNick {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.reviewStars {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.starOn {
+  color: #f5a623;
+}
+
+.starOff {
+  color: var(--line);
+}
+
+.reviewTime {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.reviewBody {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+.moreBtn {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* ── 광고 성과 (ai-docs/spec/ad-performance-metrics.md §7) ── */
+
+.sectionTitleFlush {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.adPerfTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.adPerfBadge {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.adPerfNumRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.adPerfNumSkeleton {
+  height: 78px;
+  border-radius: 14px;
+}
+
+.adPerfNotice {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.adPerfRatioRow {
+  display: flex;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.adPerfBreakdownRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* ── 기간 필터 (한 줄, 아래 광고 성과 전체를 스코프) ── */
+
+.rangeRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.rangeBtn {
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.rangeBtnOn {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+
+.adPerfBody {
+  display: flex;
+  flex-direction: column;
+  transition: opacity 160ms ease;
+}
+
+.refetching {
+  opacity: 0.45;
+}
+
+/* ── KPI 카드 + 증감 ── */
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.kpiCard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 10px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.kpiLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.kpiFoot {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.deltaUp,
+.deltaDown {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* 방향은 화살표 + 부호가 말한다. 상태색은 화살표(마크)만 입고 — 11.5px 글자에
+ * status 색을 입히면 라이트 표면에서 3.3:1 로 본문 대비(4.5:1)를 못 넘긴다. */
+.deltaUp,
+.deltaDown {
+  color: var(--text-2);
+}
+
+.deltaUp svg {
+  color: var(--success);
+}
+
+.deltaDown svg {
+  color: var(--danger);
+}
+
+/* ── 일별 추이 (스몰 멀티플) ── */
+
+.trendCard {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.trendHead {
+  margin-bottom: 12px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.readout {
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.panel {
+  margin-bottom: 12px;
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* 시리즈 식별용 라인 키 — 정체성은 색 마크가, 글자는 텍스트 토큰이 담당한다 */
+.panelKey {
+  flex: none;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.panelLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.panelMax {
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.xAxis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.chartHint {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.chartSkeleton {
+  height: 220px;
+  margin-top: 14px;
+  border-radius: 14px;
+}
+
+.tableToggle {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.tableWrap {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.dailyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dailyTable th,
+.dailyTable td {
+  padding: 6px 2px;
+  text-align: right;
+  color: var(--text-2);
+}
+
+.dailyTable thead th {
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.dailyTable th:first-child,
+.dailyTable tbody th {
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.dailyTable tbody tr + tr th,
+.dailyTable tbody tr + tr td {
+  border-top: 1px solid var(--line);
+}
+
+/* ── 광고비 대비 효용 ── */
+
+.valueCard {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.valueHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.valueHeadLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.valueSpend {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.valueGotHead {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.valueList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 8px;
+  list-style: none;
+}
+
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.valueRowLabel {
+  color: var(--text-2);
+}
+
+.valueRowCount {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.valueRowCost {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+/* ── 광고별 성과 ── */
+
+.byAdTitle {
+  margin: 20px 0 8px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.adList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adRow {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.adRowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.adBadge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.adMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.adMetrics b {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+/* 문의 상대 비교 바 — 모든 광고가 같은 색(문의 지표색). 값이 아니라 정체성이 색을 정한다 */
+.adBarTrack {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.adBarFill {
+  height: 100%;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-700);
+}
+
+.adFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Saigon Rider — Item Catalog v5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0B0D14;--surface:#12141E;--surface2:#181A28;--border:#1E2235;--border2:#252840;
+  --text:#F0F2FF;--text2:#8A8E9E;--brand:#FF5A1F;
+  --C:#9CA3AF;--R:#3B82F6;--E:#A855F7;--L:#EAB308;--M:#EC4899;
+  --neon:#00F0FF;--lime:#B6FF1C;--gold:#FFB800;
+  --font:'Space Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:20px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.header-title{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.header-title span{color:var(--brand)}
+.header-badge{display:inline-flex;align-items:center;background:rgba(255,90,31,.12);border:1px solid rgba(255,90,31,.3);color:var(--brand);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;font-family:var(--mono)}
+.header-sub{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text2);text-align:right;line-height:1.7}
+
+/* TAB NAV */
+.tab-nav{display:flex;gap:4px;padding:14px 28px 0;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.tab-nav::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--text2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;letter-spacing:.5px}
+.tab:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.tab.active{background:var(--bg);border-color:var(--border);color:var(--text)}
+.tab-count{font-size:10px;font-family:var(--mono);background:rgba(255,255,255,.08);border-radius:10px;padding:1px 6px}
+.tab.active .tab-count{background:rgba(255,90,31,.2);color:var(--brand)}
+
+/* CONTROLS */
+.controls{padding:14px 28px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);background:var(--surface2)}
+.filter-label{font-family:var(--mono);font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;margin-right:4px}
+.filter-group{display:flex;gap:4px;flex-wrap:wrap}
+.pill{padding:4px 12px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.pill:hover{border-color:var(--text2);color:var(--text)}
+.pill.active{border-color:rgba(255,90,31,.5);background:rgba(255,90,31,.12);color:var(--brand)}
+.pill[data-g="C"].active{border-color:var(--C);background:rgba(156,163,175,.12);color:var(--C)}
+.pill[data-g="R"].active{border-color:var(--R);background:rgba(59,130,246,.12);color:#93C5FD}
+.pill[data-g="E"].active{border-color:var(--E);background:rgba(168,85,247,.12);color:#D8B4FE}
+.pill[data-g="L"].active{border-color:var(--L);background:rgba(234,179,8,.12);color:#FDE047}
+.pill[data-g="M"].active{border-color:var(--M);background:rgba(236,72,153,.12);color:#F9A8D4}
+.divider{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+/* CONTENT */
+#content{padding:24px 28px 40px;min-height:300px}
+.slot-section{margin-bottom:32px}
+.slot-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:11px;color:var(--text2)}
+.slot-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.slot-title{color:var(--text);font-weight:700;font-size:13px;margin-right:4px}
+.slot-sub{margin-left:auto;font-size:10px}
+
+/* CARDS */
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.item-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s;position:relative}
+.item-card:hover{transform:translateY(-2px);border-color:var(--border2)}
+.item-card[data-g="C"]{border-top:2px solid var(--C)}
+.item-card[data-g="R"]{border-top:2px solid var(--R)}
+.item-card[data-g="E"]{border-top:2px solid var(--E)}
+.item-card[data-g="L"]{border-top:2px solid var(--L);box-shadow:0 0 14px rgba(234,179,8,.06)}
+.item-card[data-g="M"]{border-top:2px solid var(--M);border-color:rgba(236,72,153,.3);box-shadow:0 0 18px rgba(236,72,153,.1)}
+.item-card.hidden{display:none}
+.item-thumb{width:100%;aspect-ratio:1;background:linear-gradient(180deg,#0d0f1a,#080910);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.item-thumb.wide{aspect-ratio:3/1}
+.item-thumb svg{width:90%;height:90%}
+.item-info{padding:8px 10px 10px}
+.item-name{font-size:11px;font-weight:700;line-height:1.3;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.rarity-badge{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px}
+.rarity-badge.C{background:rgba(156,163,175,.15);color:var(--C);border:1px solid var(--C)}
+.rarity-badge.R{background:rgba(59,130,246,.15);color:#93C5FD;border:1px solid var(--R)}
+.rarity-badge.E{background:rgba(168,85,247,.15);color:#D8B4FE;border:1px solid var(--E)}
+.rarity-badge.L{background:rgba(234,179,8,.15);color:#FDE047;border:1px solid var(--L)}
+.rarity-badge.M{background:rgba(236,72,153,.15);color:#F9A8D4;border:1px solid var(--M)}
+.new-badge{font-family:var(--mono);font-size:8px;font-weight:800;padding:2px 5px;border-radius:6px;background:var(--brand);color:#fff}
+.item-id{font-family:var(--mono);font-size:8px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* LOADING / EMPTY */
+.state-msg{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--text2);font-family:var(--mono);font-size:12px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* FOOTER */
+.footer{background:var(--surface);border-top:1px solid var(--border);padding:16px 28px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+.stat-block{text-align:center;font-family:var(--mono)}
+.stat-val{font-size:20px;font-weight:800;line-height:1}
+.stat-key{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+.footer-copy{margin-left:auto;font-size:10px;color:var(--text2);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div id="svg-sprites" style="display:none"></div>
+
+<div class="header">
+  <div>
+    <div class="header-title">Saigon Rider <span>· Item Catalog</span></div>
+  </div>
+  <span class="header-badge">251 ITEMS</span>
+  <span class="header-badge" style="background:rgba(0,240,255,.08);border-color:rgba(0,240,255,.3);color:var(--neon)">8 CATEGORIES</span>
+  <span class="header-badge" style="background:rgba(182,255,28,.08);border-color:rgba(182,255,28,.3);color:var(--lime)">v5</span>
+  <div class="header-sub">BIKE×25 · GEAR×38 · PARTS×56<br>CUSTOM×33 · EFFECTS×33 · PROFILE×33 · SOCIAL×33</div>
+</div>
+
+<div class="tab-nav" id="tab-nav">
+  <button class="tab active" data-tab="BIKE" onclick="switchTab('BIKE',this)">🏍️ BIKES <span class="tab-count">25</span></button>
+  <button class="tab" data-tab="GEAR" onclick="switchTab('GEAR',this)">🧤 GEAR <span class="tab-count">38</span></button>
+  <button class="tab" data-tab="PARTS" onclick="switchTab('PARTS',this)">🔧 PARTS <span class="tab-count">33</span></button>
+  <button class="tab" data-tab="PARTS2" onclick="switchTab('PARTS2',this)">💡 PARTS2 <span class="tab-count">23</span></button>
+  <button class="tab" data-tab="CUSTOM" onclick="switchTab('CUSTOM',this)">🪑 CUSTOM <span class="tab-count">33</span></button>
+  <button class="tab" data-tab="EFFECTS" onclick="switchTab('EFFECTS',this)">✨ EFFECTS <span class="tab-count">33</span></button>
+  <button class="tab" data-tab="PROFILE" onclick="switchTab('PROFILE',this)">🖼️ PROFILE <span class="tab-count">33</span></button>
+  <button class="tab" data-tab="SOCIAL" onclick="switchTab('SOCIAL',this)">🐾 SOCIAL <span class="tab-count">33</span></button>
+</div>
+
+<div class="controls">
+  <span class="filter-label">Grade</span>
+  <div class="filter-group" id="grade-filters">
+    <button class="pill active" data-g="ALL" onclick="setGrade('ALL',this)">ALL</button>
+    <button class="pill" data-g="C" onclick="setGrade('C',this)">C</button>
+    <button class="pill" data-g="R" onclick="setGrade('R',this)">R</button>
+    <button class="pill" data-g="E" onclick="setGrade('E',this)">E</button>
+    <button class="pill" data-g="L" onclick="setGrade('L',this)">L</button>
+    <button class="pill" data-g="M" onclick="setGrade('M',this)">M</button>
+  </div>
+  <div class="divider"></div>
+  <span class="filter-label">Slot</span>
+  <div class="filter-group" id="slot-filters"></div>
+</div>
+
+<div id="content"><div class="state-msg"><div class="spinner"></div><div>Loading sprites…</div></div></div>
+
+<div class="footer">
+  <div class="stat-block"><div class="stat-val" id="stat-showing" style="color:var(--brand)">—</div><div class="stat-key">Showing</div></div>
+  <div class="stat-block"><div class="stat-val" style="color:var(--M)">23</div><div class="stat-key">Mythic</div></div>
+  <div class="stat-block"><div class="stat-val" style="color:var(--L)">22</div><div class="stat-key">Legendary</div></div>
+  <div class="stat-block"><div class="stat-val" style="color:var(--E)">38</div><div class="stat-key">Epic</div></div>
+  <div class="stat-block"><div class="stat-val" style="color:var(--R)">59</div><div class="stat-key">Rare</div></div>
+  <div class="stat-block"><div class="stat-val" style="color:var(--C)">109</div><div class="stat-key">Common</div></div>
+  <div class="footer-copy">Saigon Rider · Item Catalog v5 · © 2026 Skywork.ai</div>
+</div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const CATALOG = {
+BIKE: {
+  svg: 'saigon-rider-bikes-v5.svg',
+  slots: ['Scooter','Automatic','Sport','Premium','Classic'],
+  slotKey: 'type',
+  items: [
+    {id:'MOTORCYCLE_BODY_STREET_CLASSIC_C_01',  name:'Daily Commuter',           type:'Scooter',   collection:'STREET_CLASSIC',       g:'C'},
+    {id:'MOTORCYCLE_BODY_DELIVERY_HUSTLE_R_01', name:'GrabBike Yellow',          type:'Scooter',   collection:'DELIVERY_HUSTLE',       g:'R'},
+    {id:'MOTORCYCLE_BODY_MEKONG_DELTA_E_01',    name:'Mekong Bamboo',            type:'Scooter',   collection:'MEKONG_DELTA',          g:'E'},
+    {id:'MOTORCYCLE_BODY_TET_FESTIVAL_L_01',    name:'Lunar New Year Special',   type:'Scooter',   collection:'TET_FESTIVAL',          g:'L'},
+    {id:'MOTORCYCLE_BODY_LEGEND_OF_SAIGON_M_01',name:'Sài Gòn Golden Wave',      type:'Scooter',   collection:'LEGEND_OF_SAIGON',      g:'M'},
+    {id:'MOTORCYCLE_BODY_STREET_CLASSIC_C_02',  name:'Urban Air',                type:'Automatic', collection:'STREET_CLASSIC',        g:'C'},
+    {id:'MOTORCYCLE_BODY_NEON_SAIGON_R_01',     name:'Neon Lead',                type:'Automatic', collection:'NEON_SAIGON',           g:'R'},
+    {id:'MOTORCYCLE_BODY_DELIVERY_HUSTLE_E_01', name:'Express Hustle',           type:'Automatic', collection:'DELIVERY_HUSTLE',       g:'E'},
+    {id:'MOTORCYCLE_BODY_SAIGON_GHOST_L_01',    name:'Midnight Air Blade',       type:'Automatic', collection:'SAIGON_GHOST',          g:'L'},
+    {id:'MOTORCYCLE_BODY_LEGEND_OF_SAIGON_M_02',name:'Imperial NVX',             type:'Automatic', collection:'LEGEND_OF_SAIGON',      g:'M'},
+    {id:'MOTORCYCLE_BODY_STREET_CLASSIC_C_03',  name:'Daily Sport',              type:'Sport',     collection:'STREET_CLASSIC',        g:'C'},
+    {id:'MOTORCYCLE_BODY_NEON_SAIGON_R_02',     name:'Cyber Exciter',            type:'Sport',     collection:'NEON_SAIGON',           g:'R'},
+    {id:'MOTORCYCLE_BODY_SAIGON_GHOST_E_01',    name:'Phantom Winner',           type:'Sport',     collection:'SAIGON_GHOST',          g:'E'},
+    {id:'MOTORCYCLE_BODY_TET_FESTIVAL_L_02',    name:'Dragon Year Racer',        type:'Sport',     collection:'TET_FESTIVAL',          g:'L'},
+    {id:'MOTORCYCLE_BODY_LEGEND_OF_SAIGON_M_03',name:'Sài Gòn Crown Racer',      type:'Sport',     collection:'LEGEND_OF_SAIGON',      g:'M'},
+    {id:'MOTORCYCLE_BODY_STREET_CLASSIC_C_04',  name:'Quận 1 Cruiser',           type:'Premium',   collection:'STREET_CLASSIC',        g:'C'},
+    {id:'MOTORCYCLE_BODY_LEGEND_OF_SAIGON_R_01',name:'Golden Vespa Hint',        type:'Premium',   collection:'LEGEND_OF_SAIGON',      g:'R'},
+    {id:'MOTORCYCLE_BODY_NEON_SAIGON_E_01',     name:'Bùi Viện Neon SH',         type:'Premium',   collection:'NEON_SAIGON',           g:'E'},
+    {id:'MOTORCYCLE_BODY_SAIGON_GHOST_L_02',    name:'Ghost SH 350',             type:'Premium',   collection:'SAIGON_GHOST',          g:'L'},
+    {id:'MOTORCYCLE_BODY_LEGEND_OF_SAIGON_M_04',name:'Imperial SH Crown',        type:'Premium',   collection:'LEGEND_OF_SAIGON',      g:'M'},
+    {id:'MOTORCYCLE_BODY_STREET_CLASSIC_C_05',  name:'Heritage Cub',             type:'Classic',   collection:'STREET_CLASSIC',        g:'C'},
+    {id:'MOTORCYCLE_BODY_MEKONG_DELTA_R_01',    name:'Delta Wood Cub',           type:'Classic',   collection:'MEKONG_DELTA',          g:'R'},
+    {id:'MOTORCYCLE_BODY_STREET_CLASSIC_E_01',  name:'Café Racer 70s',           type:'Classic',   collection:'STREET_CLASSIC',        g:'E'},
+    {id:'MOTORCYCLE_BODY_TET_FESTIVAL_L_03',    name:'Vintage Tết Cub',          type:'Classic',   collection:'TET_FESTIVAL',          g:'L'},
+    {id:'MOTORCYCLE_BODY_LEGEND_OF_SAIGON_M_05',name:'Saigon 1975 Legendary Cub',type:'Classic',   collection:'LEGEND_OF_SAIGON',      g:'M'},
+  ]
+},
+GEAR: {
+  svg: 'saigon-rider-gear-v5.svg',
+  slots: ['GLOVES','BOOTS','EYEWEAR','NAMEPLATE'],
+  slotKey: 'slot',
+  items: [
+    {id:'GLOVES_STREET_CLASSIC_C_01',     name:'Street Worker',       slot:'GLOVES',    collection:'STREET_CLASSIC',    g:'C'},
+    {id:'GLOVES_DELIVERY_HUSTLE_C_02',    name:'Delivery Leather',    slot:'GLOVES',    collection:'DELIVERY_HUSTLE',   g:'C'},
+    {id:'GLOVES_MEKONG_DELTA_C_03',       name:'River Scout',         slot:'GLOVES',    collection:'MEKONG_DELTA',      g:'C'},
+    {id:'GLOVES_SAIGON_GHOST_C_04',       name:'Military Camo',       slot:'GLOVES',    collection:'SAIGON_GHOST',      g:'C'},
+    {id:'GLOVES_NEON_SAIGON_R_01',        name:'Neon Racer',          slot:'GLOVES',    collection:'NEON_SAIGON',       g:'R'},
+    {id:'GLOVES_TET_FESTIVAL_R_02',       name:'Dragon Gold',         slot:'GLOVES',    collection:'TET_FESTIVAL',      g:'R'},
+    {id:'GLOVES_LEGEND_OF_SAIGON_R_03',   name:'Legend Tactical',     slot:'GLOVES',    collection:'LEGEND_OF_SAIGON',  g:'R'},
+    {id:'GLOVES_SAIGON_GHOST_E_01',       name:'Phantom Gloves',      slot:'GLOVES',    collection:'SAIGON_GHOST',      g:'E'},
+    {id:'GLOVES_TET_FESTIVAL_E_02',       name:'Gold Carbon',         slot:'GLOVES',    collection:'TET_FESTIVAL',      g:'E'},
+    {id:'BOOTS_STREET_CLASSIC_C_01',      name:'Street Black',        slot:'BOOTS',     collection:'STREET_CLASSIC',    g:'C'},
+    {id:'BOOTS_DELIVERY_HUSTLE_C_02',     name:'Work Brown',          slot:'BOOTS',     collection:'DELIVERY_HUSTLE',   g:'C'},
+    {id:'BOOTS_MEKONG_DELTA_C_03',        name:'Waterproof Blue',     slot:'BOOTS',     collection:'MEKONG_DELTA',      g:'C'},
+    {id:'BOOTS_NEON_SAIGON_C_04',         name:'Urban Canvas',        slot:'BOOTS',     collection:'NEON_SAIGON',       g:'C'},
+    {id:'BOOTS_TET_FESTIVAL_R_01',        name:'Navy Race',           slot:'BOOTS',     collection:'TET_FESTIVAL',      g:'R'},
+    {id:'BOOTS_LEGEND_OF_SAIGON_R_02',    name:'Red Combat',          slot:'BOOTS',     collection:'LEGEND_OF_SAIGON',  g:'R'},
+    {id:'BOOTS_MEKONG_DELTA_R_03',        name:'Green Army',          slot:'BOOTS',     collection:'MEKONG_DELTA',      g:'R'},
+    {id:'BOOTS_NEON_SAIGON_E_01',         name:'Cyber Purple',        slot:'BOOTS',     collection:'NEON_SAIGON',       g:'E'},
+    {id:'BOOTS_SAIGON_GHOST_E_02',        name:'Gold Luxury',         slot:'BOOTS',     collection:'SAIGON_GHOST',      g:'E'},
+    {id:'EYEWEAR_STREET_CLASSIC_C_01',    name:'Classic Goggles',     slot:'EYEWEAR',   collection:'STREET_CLASSIC',    g:'C'},
+    {id:'EYEWEAR_DELIVERY_HUSTLE_C_02',   name:'Shield Visor',        slot:'EYEWEAR',   collection:'DELIVERY_HUSTLE',   g:'C'},
+    {id:'EYEWEAR_MEKONG_DELTA_C_03',      name:'River Scout',         slot:'EYEWEAR',   collection:'MEKONG_DELTA',      g:'C'},
+    {id:'EYEWEAR_SAIGON_GHOST_C_04',      name:'Ghost Shades',        slot:'EYEWEAR',   collection:'SAIGON_GHOST',      g:'C'},
+    {id:'EYEWEAR_NEON_SAIGON_R_01',       name:'Blue Mirror',         slot:'EYEWEAR',   collection:'NEON_SAIGON',       g:'R'},
+    {id:'EYEWEAR_TET_FESTIVAL_R_02',      name:'Dragon Red Visor',    slot:'EYEWEAR',   collection:'TET_FESTIVAL',      g:'R'},
+    {id:'EYEWEAR_LEGEND_OF_SAIGON_R_03',  name:'Night Vision',        slot:'EYEWEAR',   collection:'LEGEND_OF_SAIGON',  g:'R'},
+    {id:'EYEWEAR_NEON_SAIGON_E_01',       name:'Cyber Holographic',   slot:'EYEWEAR',   collection:'NEON_SAIGON',       g:'E'},
+    {id:'EYEWEAR_MEKONG_DELTA_E_02',      name:'Teal Dive',           slot:'EYEWEAR',   collection:'MEKONG_DELTA',      g:'E'},
+    {id:'EYEWEAR_TET_FESTIVAL_L_01',      name:'Gold Dragon Visor',   slot:'EYEWEAR',   collection:'TET_FESTIVAL',      g:'L'},
+    {id:'NAMEPLATE_STREET_CLASSIC_C_01',  name:'Aluminum Tag',        slot:'NAMEPLATE', collection:'STREET_CLASSIC',    g:'C'},
+    {id:'NAMEPLATE_DELIVERY_HUSTLE_C_02', name:'Delivery Badge',      slot:'NAMEPLATE', collection:'DELIVERY_HUSTLE',   g:'C'},
+    {id:'NAMEPLATE_MEKONG_DELTA_C_03',    name:'Wood Frame',          slot:'NAMEPLATE', collection:'MEKONG_DELTA',      g:'C'},
+    {id:'NAMEPLATE_SAIGON_GHOST_C_04',    name:'Ghost Green',         slot:'NAMEPLATE', collection:'SAIGON_GHOST',      g:'C'},
+    {id:'NAMEPLATE_NEON_SAIGON_R_01',     name:'Neon Blue',           slot:'NAMEPLATE', collection:'NEON_SAIGON',       g:'R'},
+    {id:'NAMEPLATE_TET_FESTIVAL_R_02',    name:'Tết Red Gold',        slot:'NAMEPLATE', collection:'TET_FESTIVAL',      g:'R'},
+    {id:'NAMEPLATE_LEGEND_OF_SAIGON_R_03',name:'Purple Diamond',      slot:'NAMEPLATE', collection:'LEGEND_OF_SAIGON',  g:'R'},
+    {id:'NAMEPLATE_NEON_SAIGON_E_01',     name:'Holographic',         slot:'NAMEPLATE', collection:'NEON_SAIGON',       g:'E'},
+    {id:'NAMEPLATE_TET_FESTIVAL_E_02',    name:'Teal Elite',          slot:'NAMEPLATE', collection:'TET_FESTIVAL',      g:'E'},
+    {id:'NAMEPLATE_LEGEND_OF_SAIGON_L_02',name:'Golden Crown',        slot:'NAMEPLATE', collection:'LEGEND_OF_SAIGON',  g:'L'},
+  ]
+},
+PARTS: {
+  svg: 'saigon-rider-parts-v5.svg',
+  slots: ['HANDLEBAR','TAIL_LIGHT','ENGINE_COVER'],
+  slotKey: 'slot',
+  items: [
+    {id:'HANDLEBAR_STREET_CLASSIC_C_01',    name:'Street Classic Handlebar Mk1', slot:'HANDLEBAR',    collection:'STREET_CLASSIC',   g:'C'},
+    {id:'HANDLEBAR_STREET_CLASSIC_C_02',    name:'Street Classic Handlebar Mk2', slot:'HANDLEBAR',    collection:'STREET_CLASSIC',   g:'C'},
+    {id:'HANDLEBAR_DELIVERY_HUSTLE_C_01',   name:'Delivery Hustle Handlebar',    slot:'HANDLEBAR',    collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'HANDLEBAR_MEKONG_DELTA_C_01',      name:'Mekong Delta Handlebar',       slot:'HANDLEBAR',    collection:'MEKONG_DELTA',     g:'C'},
+    {id:'HANDLEBAR_NEON_SAIGON_R_01',       name:'Neon Saigon Handlebar',        slot:'HANDLEBAR',    collection:'NEON_SAIGON',      g:'R'},
+    {id:'HANDLEBAR_MEKONG_DELTA_R_01',      name:'Mekong Delta Handlebar R',     slot:'HANDLEBAR',    collection:'MEKONG_DELTA',     g:'R'},
+    {id:'HANDLEBAR_TET_FESTIVAL_R_01',      name:'Tết Festival Handlebar',       slot:'HANDLEBAR',    collection:'TET_FESTIVAL',     g:'R'},
+    {id:'HANDLEBAR_NEON_SAIGON_E_01',       name:'Neon Saigon Handlebar E',      slot:'HANDLEBAR',    collection:'NEON_SAIGON',      g:'E'},
+    {id:'HANDLEBAR_SAIGON_GHOST_E_01',      name:'Saigon Ghost Handlebar',       slot:'HANDLEBAR',    collection:'SAIGON_GHOST',     g:'E'},
+    {id:'HANDLEBAR_TET_FESTIVAL_L_01',      name:'Tết Festival Handlebar L',     slot:'HANDLEBAR',    collection:'TET_FESTIVAL',     g:'L'},
+    {id:'HANDLEBAR_LEGEND_OF_SAIGON_M_01',  name:'Legend of Saigon Handlebar',   slot:'HANDLEBAR',    collection:'LEGEND_OF_SAIGON', g:'M'},
+    {id:'TAIL_LIGHT_STREET_CLASSIC_C_01',   name:'Street Classic Tail Light Mk1',slot:'TAIL_LIGHT',   collection:'STREET_CLASSIC',   g:'C'},
+    {id:'TAIL_LIGHT_STREET_CLASSIC_C_02',   name:'Street Classic Tail Light Mk2',slot:'TAIL_LIGHT',   collection:'STREET_CLASSIC',   g:'C'},
+    {id:'TAIL_LIGHT_DELIVERY_HUSTLE_C_01',  name:'Delivery Hustle Tail Light',   slot:'TAIL_LIGHT',   collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'TAIL_LIGHT_MEKONG_DELTA_C_01',     name:'Mekong Delta Tail Light',      slot:'TAIL_LIGHT',   collection:'MEKONG_DELTA',     g:'C'},
+    {id:'TAIL_LIGHT_NEON_SAIGON_R_01',      name:'Neon Saigon Tail Light',       slot:'TAIL_LIGHT',   collection:'NEON_SAIGON',      g:'R'},
+    {id:'TAIL_LIGHT_TET_FESTIVAL_R_01',     name:'Tết Festival Tail Light',      slot:'TAIL_LIGHT',   collection:'TET_FESTIVAL',     g:'R'},
+    {id:'TAIL_LIGHT_SAIGON_GHOST_R_01',     name:'Saigon Ghost Tail Light R',    slot:'TAIL_LIGHT',   collection:'SAIGON_GHOST',     g:'R'},
+    {id:'TAIL_LIGHT_NEON_SAIGON_E_01',      name:'Neon Saigon Tail Light E',     slot:'TAIL_LIGHT',   collection:'NEON_SAIGON',      g:'E'},
+    {id:'TAIL_LIGHT_SAIGON_GHOST_E_01',     name:'Saigon Ghost Tail Light E',    slot:'TAIL_LIGHT',   collection:'SAIGON_GHOST',     g:'E'},
+    {id:'TAIL_LIGHT_TET_FESTIVAL_L_01',     name:'Tết Festival Tail Light L',    slot:'TAIL_LIGHT',   collection:'TET_FESTIVAL',     g:'L'},
+    {id:'TAIL_LIGHT_LEGEND_OF_SAIGON_M_01', name:'Legend of Saigon Tail Light',  slot:'TAIL_LIGHT',   collection:'LEGEND_OF_SAIGON', g:'M'},
+    {id:'ENGINE_COVER_STREET_CLASSIC_C_01', name:'Street Classic Engine Mk1',    slot:'ENGINE_COVER', collection:'STREET_CLASSIC',   g:'C'},
+    {id:'ENGINE_COVER_STREET_CLASSIC_C_02', name:'Street Classic Engine Mk2',    slot:'ENGINE_COVER', collection:'STREET_CLASSIC',   g:'C'},
+    {id:'ENGINE_COVER_DELIVERY_HUSTLE_C_01',name:'Delivery Hustle Engine',       slot:'ENGINE_COVER', collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'ENGINE_COVER_MEKONG_DELTA_C_01',   name:'Mekong Delta Engine',          slot:'ENGINE_COVER', collection:'MEKONG_DELTA',     g:'C'},
+    {id:'ENGINE_COVER_NEON_SAIGON_R_01',    name:'Neon Saigon Engine',           slot:'ENGINE_COVER', collection:'NEON_SAIGON',      g:'R'},
+    {id:'ENGINE_COVER_SAIGON_GHOST_R_01',   name:'Saigon Ghost Engine R',        slot:'ENGINE_COVER', collection:'SAIGON_GHOST',     g:'R'},
+    {id:'ENGINE_COVER_TET_FESTIVAL_R_01',   name:'Tết Festival Engine',          slot:'ENGINE_COVER', collection:'TET_FESTIVAL',     g:'R'},
+    {id:'ENGINE_COVER_NEON_SAIGON_E_01',    name:'Neon Saigon Engine E',         slot:'ENGINE_COVER', collection:'NEON_SAIGON',      g:'E'},
+    {id:'ENGINE_COVER_SAIGON_GHOST_E_01',   name:'Saigon Ghost Engine E',        slot:'ENGINE_COVER', collection:'SAIGON_GHOST',     g:'E'},
+    {id:'ENGINE_COVER_TET_FESTIVAL_L_01',   name:'Tết Festival Engine L',        slot:'ENGINE_COVER', collection:'TET_FESTIVAL',     g:'L'},
+    {id:'ENGINE_COVER_LEGEND_OF_SAIGON_M_01',name:'Legend of Saigon Engine',     slot:'ENGINE_COVER', collection:'LEGEND_OF_SAIGON', g:'M'},
+  ]
+},
+PARTS2: {
+  svg: 'saigon-rider-parts2-v5.svg',
+  slots: ['HEADLIGHT','MIRROR','NUMBER'],
+  slotKey: 'slot',
+  items: [
+    {id:'HEADLIGHT_STREET_CLASSIC_C_01',  name:'Classic Chrome',      slot:'HEADLIGHT', collection:'STREET_CLASSIC',   g:'C'},
+    {id:'HEADLIGHT_DELIVERY_HUSTLE_C_02', name:'Delivery Rect',       slot:'HEADLIGHT', collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'HEADLIGHT_MEKONG_DELTA_C_03',    name:'Oval Warm',           slot:'HEADLIGHT', collection:'MEKONG_DELTA',     g:'C'},
+    {id:'HEADLIGHT_SAIGON_GHOST_C_04',    name:'Twin-Pod Amber',      slot:'HEADLIGHT', collection:'SAIGON_GHOST',     g:'C'},
+    {id:'HEADLIGHT_NEON_SAIGON_R_01',     name:'Neon DRL Strip',      slot:'HEADLIGHT', collection:'NEON_SAIGON',      g:'R'},
+    {id:'HEADLIGHT_TET_FESTIVAL_R_02',    name:'Dragon Eye',          slot:'HEADLIGHT', collection:'TET_FESTIVAL',     g:'R'},
+    {id:'HEADLIGHT_LEGEND_OF_SAIGON_R_03',name:'Green Matrix',        slot:'HEADLIGHT', collection:'LEGEND_OF_SAIGON', g:'R'},
+    {id:'HEADLIGHT_NEON_SAIGON_E_01',     name:'Cyber Slit',          slot:'HEADLIGHT', collection:'NEON_SAIGON',      g:'E'},
+    {id:'HEADLIGHT_MEKONG_DELTA_E_02',    name:'Bio-Organic Teal',    slot:'HEADLIGHT', collection:'MEKONG_DELTA',     g:'E'},
+    {id:'HEADLIGHT_LEGEND_OF_SAIGON_L_01',name:'Golden Crown',        slot:'HEADLIGHT', collection:'LEGEND_OF_SAIGON', g:'L'},
+    {id:'MIRROR_STREET_CLASSIC_C_01',     name:'Round Chrome',        slot:'MIRROR',    collection:'STREET_CLASSIC',   g:'C'},
+    {id:'MIRROR_DELIVERY_HUSTLE_C_02',    name:'Wide Angle',          slot:'MIRROR',    collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'MIRROR_MEKONG_DELTA_C_03',       name:'Teardrop Navy',       slot:'MIRROR',    collection:'MEKONG_DELTA',     g:'C'},
+    {id:'MIRROR_NEON_SAIGON_R_01',        name:'LED Blue',            slot:'MIRROR',    collection:'NEON_SAIGON',      g:'R'},
+    {id:'MIRROR_TET_FESTIVAL_R_02',       name:'Dragon Shield',       slot:'MIRROR',    collection:'TET_FESTIVAL',     g:'R'},
+    {id:'MIRROR_LEGEND_OF_SAIGON_E_01',   name:'Cyber Hex',           slot:'MIRROR',    collection:'LEGEND_OF_SAIGON', g:'E'},
+    {id:'NUMBER_STREET_CLASSIC_C_01',     name:'Standard White',      slot:'NUMBER',    collection:'STREET_CLASSIC',   g:'C'},
+    {id:'NUMBER_DELIVERY_HUSTLE_C_02',    name:'Delivery Yellow',     slot:'NUMBER',    collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'NUMBER_MEKONG_DELTA_C_03',       name:'Blue Light',          slot:'NUMBER',    collection:'MEKONG_DELTA',     g:'C'},
+    {id:'NUMBER_NEON_SAIGON_R_01',        name:'Neon Dark Blue',      slot:'NUMBER',    collection:'NEON_SAIGON',      g:'R'},
+    {id:'NUMBER_TET_FESTIVAL_R_02',       name:'Lucky Red',           slot:'NUMBER',    collection:'TET_FESTIVAL',     g:'R'},
+    {id:'NUMBER_LEGEND_OF_SAIGON_E_01',   name:'Elite Purple',        slot:'NUMBER',    collection:'LEGEND_OF_SAIGON', g:'E'},
+    {id:'NUMBER_TET_FESTIVAL_L_01',       name:'Golden Crown',        slot:'NUMBER',    collection:'TET_FESTIVAL',     g:'L'},
+  ]
+},
+CUSTOM: {
+  svg: 'saigon-rider-custom-v5.svg',
+  slots: ['SEAT','STICKER','RANK_CARD'],
+  slotKey: 'slot',
+  items: [
+    {id:'SEAT_STREET_CLASSIC_C_01',     name:'Worn Leather Saddle',   slot:'SEAT',      collection:'Street Classic',    g:'C'},
+    {id:'SEAT_STREET_CLASSIC_C_02',     name:'Stock Vinyl Seat',   slot:'SEAT',      collection:'Street Classic',    g:'C'},
+    {id:'SEAT_DELIVERY_HUSTLE_C_01',    name:'Cargo Comfort Seat',  slot:'SEAT',      collection:'Delivery Hustle',   g:'C'},
+    {id:'SEAT_MEKONG_DELTA_C_01',       name:'Woven Bamboo Seat',     slot:'SEAT',      collection:'Mekong Delta',      g:'C'},
+    {id:'SEAT_NEON_SAIGON_R_01',        name:'Neon Stitch Saddle',      slot:'SEAT',      collection:'Neon Saigon',       g:'R'},
+    {id:'SEAT_TET_FESTIVAL_R_01',       name:'Lunar Red Cushion',     slot:'SEAT',      collection:'Tết Festival',      g:'R'},
+    {id:'SEAT_MEKONG_DELTA_R_01',       name:'River Reed Saddle',     slot:'SEAT',      collection:'Mekong Delta',      g:'R'},
+    {id:'SEAT_SAIGON_GHOST_E_01',       name:'Phantom Black Seat',     slot:'SEAT',      collection:'Saigon Ghost',      g:'E'},
+    {id:'SEAT_DELIVERY_HUSTLE_E_01',    name:'Courier Pro Saddle',  slot:'SEAT',      collection:'Delivery Hustle',   g:'E'},
+    {id:'SEAT_TET_FESTIVAL_L_01',       name:'Golden Dragon Throne',     slot:'SEAT',      collection:'Tết Festival',      g:'L'},
+    {id:'SEAT_LEGEND_OF_SAIGON_M_01',   name:'Saigon Sovereign Seat', slot:'SEAT',      collection:'Legend of Saigon',  g:'M'},
+    {id:'STICKER_STREET_CLASSIC_C_01',  name:'Retro Decal Pack',slot:'STICKER',   collection:'Street Classic',    g:'C'},
+    {id:'STICKER_STREET_CLASSIC_C_02',  name:'Faded Street Sticker',slot:'STICKER',   collection:'Street Classic',    g:'C'},
+    {id:'STICKER_DELIVERY_HUSTLE_C_01', name:'Hustle Stripe Decal',slot:'STICKER',  collection:'Delivery Hustle',   g:'C'},
+    {id:'STICKER_MEKONG_DELTA_C_01',    name:'Bamboo Leaf Decal',  slot:'STICKER',   collection:'Mekong Delta',      g:'C'},
+    {id:'STICKER_NEON_SAIGON_R_01',     name:'Neon Glow Sticker',   slot:'STICKER',   collection:'Neon Saigon',       g:'R'},
+    {id:'STICKER_TET_FESTIVAL_R_01',    name:'Lucky Blossom Decal',  slot:'STICKER',   collection:'Tết Festival',      g:'R'},
+    {id:'STICKER_SAIGON_GHOST_R_01',    name:'Ghost Mark Decal',  slot:'STICKER',   collection:'Saigon Ghost',      g:'R'},
+    {id:'STICKER_NEON_SAIGON_E_01',     name:'Electric Circuit Sticker',   slot:'STICKER',   collection:'Neon Saigon',       g:'E'},
+    {id:'STICKER_MEKONG_DELTA_E_01',    name:'Delta Wave Decal',  slot:'STICKER',   collection:'Mekong Delta',      g:'E'},
+    {id:'STICKER_TET_FESTIVAL_L_01',    name:'Golden Lantern Sticker',  slot:'STICKER',   collection:'Tết Festival',      g:'L'},
+    {id:'STICKER_LEGEND_OF_SAIGON_M_01',name:'Legend Crest Decal',slot:'STICKER', collection:'Legend of Saigon',  g:'M'},
+    {id:'RANK_CARD_STREET_CLASSIC_C_01',name:'Rookie Plate',slot:'RANK_CARD',collection:'Street Classic',   g:'C'},
+    {id:'RANK_CARD_STREET_CLASSIC_C_02',name:'Street Tag Card',slot:'RANK_CARD',collection:'Street Classic',   g:'C'},
+    {id:'RANK_CARD_DELIVERY_HUSTLE_C_01',name:'Courier Badge Card',slot:'RANK_CARD',collection:'Delivery Hustle',g:'C'},
+    {id:'RANK_CARD_MEKONG_DELTA_C_01',  name:'Delta Pass Card',slot:'RANK_CARD', collection:'Mekong Delta',      g:'C'},
+    {id:'RANK_CARD_NEON_SAIGON_R_01',   name:'Neon Rank Plate', slot:'RANK_CARD', collection:'Neon Saigon',       g:'R'},
+    {id:'RANK_CARD_TET_FESTIVAL_R_01',  name:'Lunar Honor Card',slot:'RANK_CARD', collection:'Tết Festival',      g:'R'},
+    {id:'RANK_CARD_SAIGON_GHOST_R_01',  name:'Shadow Rank Card',slot:'RANK_CARD', collection:'Saigon Ghost',      g:'R'},
+    {id:'RANK_CARD_NEON_SAIGON_E_01',   name:'Electric Elite Card', slot:'RANK_CARD', collection:'Neon Saigon',       g:'E'},
+    {id:'RANK_CARD_SAIGON_GHOST_E_01',  name:'Phantom Elite Card',slot:'RANK_CARD', collection:'Saigon Ghost',      g:'E'},
+    {id:'RANK_CARD_TET_FESTIVAL_L_01',  name:'Golden Dragon Card',slot:'RANK_CARD', collection:'Tết Festival',      g:'L'},
+    {id:'RANK_CARD_LEGEND_OF_SAIGON_M_01',name:'Saigon Legend Card',slot:'RANK_CARD',collection:'Legend of Saigon',g:'M'},
+  ]
+},
+EFFECTS: {
+  svg: 'saigon-rider-effects-v5.svg',
+  slots: ['TRAIL','HORN','START_ANIM'],
+  slotKey: 'slot',
+  items: [
+    {id:'TRAIL_STREET_CLASSIC_C_01',      name:'Dust Trail',    slot:'TRAIL',      collection:'Street Classic',   g:'C'},
+    {id:'TRAIL_STREET_CLASSIC_C_02',      name:'Exhaust Wisp',    slot:'TRAIL',      collection:'Street Classic',   g:'C'},
+    {id:'TRAIL_DELIVERY_HUSTLE_C_01',     name:'Hustle Streak',   slot:'TRAIL',      collection:'Delivery Hustle',  g:'C'},
+    {id:'TRAIL_MEKONG_DELTA_C_01',        name:'River Mist Trail',      slot:'TRAIL',      collection:'Mekong Delta',     g:'C'},
+    {id:'TRAIL_NEON_SAIGON_R_01',         name:'Neon Streak',       slot:'TRAIL',      collection:'Neon Saigon',      g:'R'},
+    {id:'TRAIL_TET_FESTIVAL_R_01',        name:'Lucky Spark Trail',      slot:'TRAIL',      collection:'Tết Festival',     g:'R'},
+    {id:'TRAIL_MEKONG_DELTA_R_01',        name:'Delta Breeze Trail',      slot:'TRAIL',      collection:'Mekong Delta',     g:'R'},
+    {id:'TRAIL_SAIGON_GHOST_E_01',        name:'Phantom Smoke',      slot:'TRAIL',      collection:'Saigon Ghost',     g:'E'},
+    {id:'TRAIL_NEON_SAIGON_E_01',         name:'Electric Pulse Trail',       slot:'TRAIL',      collection:'Neon Saigon',      g:'E'},
+    {id:'TRAIL_TET_FESTIVAL_L_01',        name:'Golden Ember Trail',      slot:'TRAIL',      collection:'Tết Festival',     g:'L'},
+    {id:'TRAIL_LEGEND_OF_SAIGON_M_01',    name:'Dragon Flame Trail',  slot:'TRAIL',      collection:'Legend of Saigon', g:'M'},
+    {id:'HORN_STREET_CLASSIC_C_01',       name:'Stock Beep',     slot:'HORN',       collection:'Street Classic',   g:'C'},
+    {id:'HORN_STREET_CLASSIC_C_02',       name:'Classic Honk',     slot:'HORN',       collection:'Street Classic',   g:'C'},
+    {id:'HORN_DELIVERY_HUSTLE_C_01',      name:'Delivery Buzzer',    slot:'HORN',       collection:'Delivery Hustle',  g:'C'},
+    {id:'HORN_MEKONG_DELTA_C_01',         name:'River Bell Horn',       slot:'HORN',       collection:'Mekong Delta',     g:'C'},
+    {id:'HORN_NEON_SAIGON_R_01',          name:'Neon Synth Horn',        slot:'HORN',       collection:'Neon Saigon',      g:'R'},
+    {id:'HORN_TET_FESTIVAL_R_01',         name:'Festival Gong',       slot:'HORN',       collection:'Tết Festival',     g:'R'},
+    {id:'HORN_SAIGON_GHOST_R_01',         name:'Haunting Wail',       slot:'HORN',       collection:'Saigon Ghost',     g:'R'},
+    {id:'HORN_NEON_SAIGON_E_01',          name:'Electro Blast Horn',        slot:'HORN',       collection:'Neon Saigon',      g:'E'},
+    {id:'HORN_SAIGON_GHOST_E_01',         name:'Phantom Siren',       slot:'HORN',       collection:'Saigon Ghost',     g:'E'},
+    {id:'HORN_TET_FESTIVAL_L_01',         name:'Golden Dragon Roar',       slot:'HORN',       collection:'Tết Festival',     g:'L'},
+    {id:'HORN_LEGEND_OF_SAIGON_M_01',     name:'Legend Fanfare',   slot:'HORN',       collection:'Legend of Saigon', g:'M'},
+    {id:'START_ANIM_STREET_CLASSIC_C_01', name:'Simple Rev',slot:'START_ANIM',collection:'Street Classic',   g:'C'},
+    {id:'START_ANIM_STREET_CLASSIC_C_02', name:'Kickstart Puff',slot:'START_ANIM',collection:'Street Classic',   g:'C'},
+    {id:'START_ANIM_DELIVERY_HUSTLE_C_01',name:'Hustle Launch',slot:'START_ANIM',collection:'Delivery Hustle', g:'C'},
+    {id:'START_ANIM_MEKONG_DELTA_C_01',   name:'River Ripple Start', slot:'START_ANIM', collection:'Mekong Delta',     g:'C'},
+    {id:'START_ANIM_NEON_SAIGON_R_01',    name:'Neon Ignition',  slot:'START_ANIM', collection:'Neon Saigon',      g:'R'},
+    {id:'START_ANIM_MEKONG_DELTA_R_01',   name:'Delta Bloom Start', slot:'START_ANIM', collection:'Mekong Delta',     g:'R'},
+    {id:'START_ANIM_TET_FESTIVAL_R_01',   name:'Firecracker Start', slot:'START_ANIM', collection:'Tết Festival',     g:'R'},
+    {id:'START_ANIM_NEON_SAIGON_E_01',    name:'Electric Surge Start',  slot:'START_ANIM', collection:'Neon Saigon',      g:'E'},
+    {id:'START_ANIM_SAIGON_GHOST_E_01',   name:'Phantom Materialize', slot:'START_ANIM', collection:'Saigon Ghost',     g:'E'},
+    {id:'START_ANIM_TET_FESTIVAL_L_01',   name:'Golden Burst', slot:'START_ANIM', collection:'Tết Festival',     g:'L'},
+    {id:'START_ANIM_LEGEND_OF_SAIGON_M_01',name:'Dragon Awakening',slot:'START_ANIM',collection:'Legend of Saigon',g:'M'},
+  ]
+},
+PROFILE: {
+  svg: 'saigon-rider-profile-v5.svg',
+  slots: ['FRAME','BACKDROP','TITLE'],
+  slotKey: 'slot',
+  items: [
+    {id:'FRAME_STREET_CLASSIC_C_01',      name:'Plain Border',    slot:'FRAME',    collection:'Street Classic',   g:'C'},
+    {id:'FRAME_STREET_CLASSIC_C_02',      name:'Matte Frame',    slot:'FRAME',    collection:'Street Classic',   g:'C'},
+    {id:'FRAME_DELIVERY_HUSTLE_C_01',     name:'Cargo Tape Frame',   slot:'FRAME',    collection:'Delivery Hustle',  g:'C'},
+    {id:'FRAME_MEKONG_DELTA_C_01',        name:'Bamboo Frame',      slot:'FRAME',    collection:'Mekong Delta',     g:'C'},
+    {id:'FRAME_NEON_SAIGON_R_01',         name:'Neon Glow Frame',       slot:'FRAME',    collection:'Neon Saigon',      g:'R'},
+    {id:'FRAME_TET_FESTIVAL_R_01',        name:'Lucky Red Frame',      slot:'FRAME',    collection:'Tết Festival',     g:'R'},
+    {id:'FRAME_MEKONG_DELTA_R_01',        name:'River Jade Frame',      slot:'FRAME',    collection:'Mekong Delta',     g:'R'},
+    {id:'FRAME_SAIGON_GHOST_E_01',        name:'Phantom Veil Frame',      slot:'FRAME',    collection:'Saigon Ghost',     g:'E'},
+    {id:'FRAME_DELIVERY_HUSTLE_E_01',     name:'Courier Elite Frame',   slot:'FRAME',    collection:'Delivery Hustle',  g:'E'},
+    {id:'FRAME_TET_FESTIVAL_L_01',        name:'Golden Lantern Frame',      slot:'FRAME',    collection:'Tết Festival',     g:'L'},
+    {id:'FRAME_LEGEND_OF_SAIGON_M_01',    name:'Dragon Crown Frame',  slot:'FRAME',    collection:'Legend of Saigon', g:'M'},
+    {id:'BACKDROP_STREET_CLASSIC_C_01',   name:'Alley Wall', slot:'BACKDROP', collection:'Street Classic',   g:'C'},
+    {id:'BACKDROP_STREET_CLASSIC_C_02',   name:'Concrete Backdrop', slot:'BACKDROP', collection:'Street Classic',   g:'C'},
+    {id:'BACKDROP_DELIVERY_HUSTLE_C_01',  name:'Warehouse Dock',slot:'BACKDROP', collection:'Delivery Hustle',  g:'C'},
+    {id:'BACKDROP_MEKONG_DELTA_C_01',     name:'Rice Paddy View',   slot:'BACKDROP', collection:'Mekong Delta',     g:'C'},
+    {id:'BACKDROP_NEON_SAIGON_R_01',      name:'Neon District',    slot:'BACKDROP', collection:'Neon Saigon',      g:'R'},
+    {id:'BACKDROP_TET_FESTIVAL_R_01',     name:'Lantern Street',   slot:'BACKDROP', collection:'Tết Festival',     g:'R'},
+    {id:'BACKDROP_MEKONG_DELTA_R_01',     name:'Floating Market',   slot:'BACKDROP', collection:'Mekong Delta',     g:'R'},
+    {id:'BACKDROP_SAIGON_GHOST_E_01',     name:'Midnight Rooftop',   slot:'BACKDROP', collection:'Saigon Ghost',     g:'E'},
+    {id:'BACKDROP_NEON_SAIGON_E_01',      name:'Electric Skyline',    slot:'BACKDROP', collection:'Neon Saigon',      g:'E'},
+    {id:'BACKDROP_TET_FESTIVAL_L_01',     name:'Golden Temple',   slot:'BACKDROP', collection:'Tết Festival',     g:'L'},
+    {id:'BACKDROP_LEGEND_OF_SAIGON_M_01', name:'Saigon Throne Hall',slot:'BACKDROP',collection:'Legend of Saigon', g:'M'},
+    {id:'TITLE_STREET_ROOKIE_C_01',       name:'Street Rookie',     slot:'TITLE',    collection:'Street Classic',   g:'C'},
+    {id:'TITLE_HUSTLE_KING_C_01',         name:'Hustle King',       slot:'TITLE',    collection:'Delivery Hustle',  g:'C'},
+    {id:'TITLE_DELTA_RIDER_C_01',         name:'Delta Rider',       slot:'TITLE',    collection:'Mekong Delta',     g:'C'},
+    {id:'TITLE_CITY_WANDERER_C_01',       name:'City Wanderer',     slot:'TITLE',    collection:'Street Classic',   g:'C'},
+    {id:'TITLE_NEON_RACER_R_01',          name:'Neon Racer',        slot:'TITLE',    collection:'Neon Saigon',      g:'R'},
+    {id:'TITLE_TET_CHAMPION_R_01',        name:'Tết Champion',      slot:'TITLE',    collection:'Tết Festival',     g:'R'},
+    {id:'TITLE_GHOST_RIDER_R_01',         name:'Ghost Rider',       slot:'TITLE',    collection:'Saigon Ghost',     g:'R'},
+    {id:'TITLE_PHANTOM_ACE_E_01',         name:'Phantom Ace',       slot:'TITLE',    collection:'Saigon Ghost',     g:'E'},
+    {id:'TITLE_NEON_SOVEREIGN_E_01',      name:'Neon Sovereign',    slot:'TITLE',    collection:'Neon Saigon',      g:'E'},
+    {id:'TITLE_GOLDEN_DRAGON_L_01',       name:'Golden Dragon',     slot:'TITLE',    collection:'Tết Festival',     g:'L'},
+    {id:'TITLE_LEGEND_OF_SAIGON_M_01',    name:'Legend of Saigon',  slot:'TITLE',    collection:'Legend of Saigon', g:'M'},
+  ]
+},
+SOCIAL: {
+  svg: 'saigon-rider-social-v5.svg',
+  slots: ['EMOTE','BANNER','PET'],
+  slotKey: 'slot',
+  items: [
+    {id:'EMOTE_STREET_CLASSIC_C_01',     name:'THUMBS UP',       slot:'EMOTE',  collection:'STREET_CLASSIC',   g:'C'},
+    {id:'EMOTE_STREET_CLASSIC_C_02',     name:'WAVE',            slot:'EMOTE',  collection:'STREET_CLASSIC',   g:'C'},
+    {id:'EMOTE_DELIVERY_HUSTLE_C_01',    name:'HUSTLE',          slot:'EMOTE',  collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'EMOTE_MEKONG_DELTA_C_01',       name:'COOL',            slot:'EMOTE',  collection:'MEKONG_DELTA',     g:'C'},
+    {id:'EMOTE_NEON_SAIGON_R_01',        name:'NEON LOL',        slot:'EMOTE',  collection:'NEON_SAIGON',      g:'R'},
+    {id:'EMOTE_TET_FESTIVAL_R_01',       name:'TẾT PARTY',       slot:'EMOTE',  collection:'TET_FESTIVAL',     g:'R'},
+    {id:'EMOTE_MEKONG_DELTA_R_01',       name:'MEKONG CHILL',    slot:'EMOTE',  collection:'MEKONG_DELTA',     g:'R'},
+    {id:'EMOTE_NEON_SAIGON_E_01',        name:'GHOST NEON',      slot:'EMOTE',  collection:'NEON_SAIGON',      g:'E'},
+    {id:'EMOTE_GHOST_SAIGON_E_01',       name:'RAGE MODE',       slot:'EMOTE',  collection:'GHOST_SAIGON',     g:'E'},
+    {id:'EMOTE_LEGEND_OF_SAIGON_L_01',   name:'LEGEND',          slot:'EMOTE',  collection:'LEGEND_OF_SAIGON', g:'L'},
+    {id:'EMOTE_LEGEND_OF_SAIGON_M_01',   name:'MIND BLOWN',      slot:'EMOTE',  collection:'LEGEND_OF_SAIGON', g:'M'},
+    {id:'BANNER_STREET_CLASSIC_C_01',    name:'STREET CLASSIC',  slot:'BANNER', collection:'STREET_CLASSIC',   g:'C'},
+    {id:'BANNER_STREET_CLASSIC_C_02',    name:'RETRO STRIPE',    slot:'BANNER', collection:'STREET_CLASSIC',   g:'C'},
+    {id:'BANNER_DELIVERY_HUSTLE_C_01',   name:'HUSTLE ORANGE',   slot:'BANNER', collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'BANNER_MEKONG_DELTA_C_01',      name:'MEKONG GREEN',    slot:'BANNER', collection:'MEKONG_DELTA',     g:'C'},
+    {id:'BANNER_NEON_SAIGON_R_01',       name:'NEON GLOW',       slot:'BANNER', collection:'NEON_SAIGON',      g:'R'},
+    {id:'BANNER_TET_FESTIVAL_R_01',      name:'TẾT RED GOLD',    slot:'BANNER', collection:'TET_FESTIVAL',     g:'R'},
+    {id:'BANNER_GHOST_SAIGON_R_01',      name:'GHOST PURPLE',    slot:'BANNER', collection:'GHOST_SAIGON',     g:'R'},
+    {id:'BANNER_CIRCUIT_RIDER_E_01',     name:'CIRCUIT BOARD',   slot:'BANNER', collection:'CIRCUIT_RIDER',    g:'E'},
+    {id:'BANNER_NEON_SAIGON_E_01',       name:'AURORA SAIGON',   slot:'BANNER', collection:'NEON_SAIGON',      g:'E'},
+    {id:'BANNER_LEGEND_OF_SAIGON_L_01',  name:'LEGEND GOLD',     slot:'BANNER', collection:'LEGEND_OF_SAIGON', g:'L'},
+    {id:'BANNER_LEGEND_OF_SAIGON_M_01',  name:'INFINITE RIDER',  slot:'BANNER', collection:'LEGEND_OF_SAIGON', g:'M'},
+    {id:'PET_STREET_CLASSIC_C_01',       name:'SPARROW',         slot:'PET',    collection:'STREET_CLASSIC',   g:'C'},
+    {id:'PET_STREET_CLASSIC_C_02',       name:'GECKO',           slot:'PET',    collection:'STREET_CLASSIC',   g:'C'},
+    {id:'PET_DELIVERY_HUSTLE_C_01',      name:'DELIVERY CAT',    slot:'PET',    collection:'DELIVERY_HUSTLE',  g:'C'},
+    {id:'PET_MEKONG_DELTA_C_01',         name:'RUBBER DUCK',     slot:'PET',    collection:'MEKONG_DELTA',     g:'C'},
+    {id:'PET_NEON_SAIGON_R_01',          name:'NEON CAT',        slot:'PET',    collection:'NEON_SAIGON',      g:'R'},
+    {id:'PET_GHOST_SAIGON_R_01',         name:'GHOST BAT',       slot:'PET',    collection:'GHOST_SAIGON',     g:'R'},
+    {id:'PET_TET_FESTIVAL_R_01',         name:'LUCKY FISH',      slot:'PET',    collection:'TET_FESTIVAL',     g:'R'},
+    {id:'PET_CIRCUIT_RIDER_E_01',        name:'CYBER DOG',       slot:'PET',    collection:'CIRCUIT_RIDER',    g:'E'},
+    {id:'PET_NEON_SAIGON_E_01',          name:'NEON PHOENIX',    slot:'PET',    collection:'NEON_SAIGON',      g:'E'},
+    {id:'PET_LEGEND_OF_SAIGON_L_01',     name:'DRAGON CUB',      slot:'PET',    collection:'LEGEND_OF_SAIGON', g:'L'},
+    {id:'PET_LEGEND_OF_SAIGON_M_01',     name:'COSMIC CAT',      slot:'PET',    collection:'LEGEND_OF_SAIGON', g:'M'},
+  ]
+},
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let activeTab = 'BIKE';
+let activeGrade = 'ALL';
+let activeSlot = 'ALL';
+const loadedSprites = new Set();
+
+// ─── SVG LOADING ─────────────────────────────────────────────────────────────
+async function ensureSprite(tab) {
+  if (loadedSprites.has(tab)) return;
+  const url = CATALOG[tab].svg;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    const svg = await r.text();
+    document.getElementById('svg-sprites').insertAdjacentHTML('beforeend', svg);
+    loadedSprites.add(tab);
+  } catch(e) {
+    console.warn('SVG load failed:', url, e);
+  }
+}
+
+// ─── SLOT FILTER BAR ─────────────────────────────────────────────────────────
+function buildSlotFilters(tab) {
+  const slots = CATALOG[tab].slots;
+  const el = document.getElementById('slot-filters');
+  el.innerHTML =
+    `<button class="pill ${activeSlot==='ALL'?'active':''}" data-s="ALL" onclick="setSlot('ALL',this)">ALL</button>` +
+    slots.map(s =>
+      `<button class="pill ${activeSlot===s?'active':''}" data-s="${s}" onclick="setSlot('${s}',this)">${s}</button>`
+    ).join('');
+}
+
+// ─── CARD BUILDER ────────────────────────────────────────────────────────────
+const SLOT_COLORS = {
+  Scooter:'#FF5A1F',Automatic:'#3B82F6',Sport:'#A855F7',Premium:'#EAB308',Classic:'#9CA3AF',
+  GLOVES:'#FF5A1F',BOOTS:'#3B82F6',EYEWEAR:'#A855F7',NAMEPLATE:'#EAB308',
+  HANDLEBAR:'#FF5A1F',TAIL_LIGHT:'#EC4899',ENGINE_COVER:'#00F0FF',
+  HEADLIGHT:'#FFB800',MIRROR:'#3B82F6',NUMBER:'#B6FF1C',
+  SEAT:'#FF5A1F',STICKER:'#3B82F6',RANK_CARD:'#A855F7',
+  TRAIL:'#00F0FF',HORN:'#FFB800',START_ANIM:'#EC4899',
+  FRAME:'#FF5A1F',BACKDROP:'#3B82F6',TITLE:'#A855F7',
+  EMOTE:'#FF5A1F',BANNER:'#00F0FF',PET:'#B6FF1C',
+};
+
+function buildCard(item, tab) {
+  const isTitle = item.slot === 'TITLE';
+  const vb = isTitle ? '0 0 200 60' : '0 0 200 200';
+  const thumbClass = isTitle ? 'item-thumb wide' : 'item-thumb';
+  const slotKey = CATALOG[tab].slotKey;
+  const slotVal = item[slotKey];
+  const dot = SLOT_COLORS[slotVal] || '#8A8E9E';
+  return `<div class="item-card" data-g="${item.g}" data-s="${slotVal}">
+    <div class="${thumbClass}">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"><use href="#item-${item.id}"/></svg>
+    </div>
+    <div class="item-info">
+      <div class="item-name" title="${item.name}">${item.name}</div>
+      <div class="item-meta">
+        <span class="rarity-badge ${item.g}">${item.g}</span>
+        <span class="new-badge">NEW</span>
+      </div>
+      <div class="item-id">${item.id}</div>
+    </div>
+  </div>`;
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  const cat = CATALOG[activeTab];
+  const slotKey = cat.slotKey;
+  let items = cat.items;
+  if (activeGrade !== 'ALL') items = items.filter(i => i.g === activeGrade);
+  if (activeSlot !== 'ALL') items = items.filter(i => i[slotKey] === activeSlot);
+
+  document.getElementById('stat-showing').textContent = items.length;
+
+  const slotsToShow = activeSlot === 'ALL' ? cat.slots : [activeSlot];
+  let html = '';
+  for (const s of slotsToShow) {
+    const slotItems = items.filter(i => i[slotKey] === s);
+    if (!slotItems.length) continue;
+    const dot = SLOT_COLORS[s] || '#8A8E9E';
+    html += `<div class="slot-section">
+      <div class="slot-header">
+        <div class="slot-dot" style="background:${dot}"></div>
+        <span class="slot-title">${s}</span>
+        <span class="slot-sub">${slotItems.length} items</span>
+      </div>
+      <div class="items-grid">${slotItems.map(i => buildCard(i, activeTab)).join('')}</div>
+    </div>`;
+  }
+
+  if (!html) {
+    html = `<div class="state-msg"><div>No items match the current filter.</div></div>`;
+  }
+  document.getElementById('content').innerHTML = html;
+}
+
+// ─── TAB SWITCH ──────────────────────────────────────────────────────────────
+async function switchTab(tab, btn) {
+  activeTab = tab;
+  activeSlot = 'ALL';
+
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.getElementById('slot-filters').querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  buildSlotFilters(tab);
+
+  document.getElementById('content').innerHTML = `<div class="state-msg"><div class="spinner"></div><div>Loading sprites…</div></div>`;
+  await ensureSprite(tab);
+  render();
+}
+
+// ─── FILTER HANDLERS ─────────────────────────────────────────────────────────
+function setGrade(g, btn) {
+  activeGrade = g;
+  document.querySelectorAll('#grade-filters .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function setSlot(s, btn) {
+  activeSlot = s;
+  document.querySelectorAll('#slot-filters .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+(async () => {
+  buildSlotFilters('BIKE');
+  await ensureSprite('BIKE');
+  render();
+})();
+</script>
+</body>
+</html>

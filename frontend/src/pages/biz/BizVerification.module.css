@@ -1,0 +1,169 @@
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 32px;
+}
+
+.loading {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+/* ── 검증 상태 카드 ── */
+.statusCard {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.statusHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.statusName {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badgePending {
+  background: rgba(107, 114, 128, .12);
+  color: var(--text-2);
+}
+
+.badgeSubmitted {
+  background: rgba(245, 158, 11, .12);
+  color: #b45309;
+}
+
+.badgeVerified {
+  background: rgba(59, 130, 246, .12);
+  color: #3b82f6; /* verified 전용 파랑 (design-system §3) */
+}
+
+.badgeRejected {
+  background: rgba(239, 68, 68, .12);
+  color: #b91c1c;
+}
+
+.statusDesc {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.rejectReason {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--danger, #e5484d);
+}
+
+/* ── 폼 (BizApply 문법) ── */
+.label {
+  margin-top: 22px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
+.photoBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 150px;
+  border-radius: 14px;
+  border: 1px dashed var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.photoPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoPlaceholder,
+.photoSubmitted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.photoSubmitted {
+  color: var(--success, #16a34a);
+}
+
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .4);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 12px 20px calc(12px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}

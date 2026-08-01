@@ -1,0 +1,283 @@
+/* 리뷰 작성 전용 스타일 — 공통 문법은 styles/system.module.css 참조 */
+
+.saveBtn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-600);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.saveBtn:disabled { color: var(--text-3); cursor: default; }
+
+/* sys.scroll 위에 폼 여백만 추가 */
+.scroll { padding: 16px; }
+
+/* ── Star Card ── */
+.starCard {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(11, 13, 20, .04);
+}
+
+.starCardLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+
+.starRow {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.star {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: 1;
+}
+
+/* 별점 골드 — 공용 StarIcon(#F59E0B)과 동일값 */
+.starFilled { color: #F59E0B; }
+.starEmpty  { color: var(--line); }
+
+.starGuide {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── Fields ── */
+.fieldGroup {
+  margin-bottom: 12px;
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.fieldIcon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238A8E9E' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+.select:focus { outline: none; border-color: var(--brand-300); }
+
+.selectActive {
+  border-color: var(--brand-200);
+  background-color: var(--brand-50);
+  color: var(--brand-700);
+}
+
+.priceInputWrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0 14px;
+}
+.priceInputWrap:focus-within { border-color: var(--brand-300); }
+
+.priceInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: transparent;
+}
+
+.priceCurrency {
+  font-size: 13px;
+  color: var(--text-3);
+  padding-left: 4px;
+}
+
+.textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  resize: none;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.textarea:focus { outline: none; border-color: var(--brand-300); }
+
+/* ── Photo ── */
+.photoBox {
+  width: 100%;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  background: none;
+  cursor: pointer;
+}
+.photoBox:active { background: var(--surface-2); }
+.photoBoxActive {
+  border-color: var(--success);
+  background: rgba(22, 163, 74, .08);
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* ── Anonymous ── */
+.anonRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.anonRow:active { background: var(--surface-2); }
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--line);
+  background: var(--bg);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-600);
+}
+.checkboxChecked {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+}
+
+.anonLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.anonSub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+/* ── Divider ── */
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin-bottom: 14px;
+}
+
+/* ── RP 예상 박스 (리워드 골드 톤 — system badgeGold 계열) ── */
+.gpBox {
+  background: rgba(245, 158, 11, .07);
+  border: 1px solid rgba(245, 158, 11, .25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 4px;
+}
+
+.gpTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #B45309; /* 골드 텍스트 — system badgeGold 와 동일값 */
+  margin-bottom: 8px;
+}
+
+.gpRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.gpAmount { font-weight: 700; color: #B45309; }
+.gpDim    { font-weight: 600; color: var(--text-3); }
+
+.gpTotal {
+  border-top: 1px solid rgba(245, 158, 11, .25);
+  margin-top: 8px;
+  padding-top: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #B45309;
+}
+
+/* ── CTA ── */
+.ctaWrap {
+  padding: 12px 16px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.cta {
+  width: 100%;
+  background: var(--brand-500);
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cta:active { background: var(--brand-600); }
+.cta:disabled { opacity: 0.5; cursor: default; }
+.ctaDone { background: var(--success); }

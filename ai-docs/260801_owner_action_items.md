@@ -1,0 +1,198 @@
+# 대표님 조치 목록 — 2026-08-01 아침
+
+> 작성: 2026-07-31 새벽 (권도일 세션) · **이 문서에 있는 것만 대표님이 하시면 됩니다.**
+> 나머지는 전부 처리했습니다 — [`260731_remediation_final_report.md`](./260731_remediation_final_report.md) 참조
+> 원장(검증 상세 전문): [`260731_remediation_ledger.md`](./260731_remediation_ledger.md)
+>
+> **분류 기준**: 개발자 권한으로 할 수 없는 것만 담았습니다 — 외부 콘솔 자격, 운영서버 접근, 법무 판단, 제품 결정, 실기기.
+
+---
+
+## 🔴 A. 지금 바로 (10분, 오늘 안에)
+
+### A-1. GitHub 레포를 private 으로 전환
+
+현재 **PUBLIC** 입니다 (`gh repo view` 실측). fork 는 **0건**.
+
+```bash
+gh repo edit D0iloppa/saigon_rider --visibility private --accept-visibility-change-consequences
+```
+
+- 전환 전 fork 0건 재확인(공개→private 전환 시 기존 공개 fork 는 삭제되지 않고 별도 공개 네트워크로 분리됨 — 지금은 0이라 무해)
+- 전환 후 확인: 협업자 접근, CI 토큰 권한, `native/ios`·`native/android` 서브모듈 접근(이미 별도 private 레포면 무영향)
+- ⚠️ **이것만으로 A-2 가 닫히지 않습니다.** 이미 공개된 기간의 clone 은 회수 불가하고, clone 은 GitHub 에 기록이 남지 않습니다.
+
+### A-2. Zalo app secret 폐기·재발급 ← **가장 중요**
+
+**유출 확정 근거**: `database/init/104_oauth_zalo_config.sql` 의 **주석 줄**에 실제 `zalo_app_id`(19자리 숫자)·`zalo_app_secret`(20자리 영숫자)이 그대로 커밋돼 있었습니다. 값 길이가 dev DB 의 실제 값과 정확히 일치합니다. 커밋 `cc11743` 부터 존재.
+
+> 제가 오늘 밤 처리한 것: **현재 트리의 주석에서 실값을 제거**했습니다(`<RUNTIME_ONLY>` 로 치환, 커밋 `3acf397`). 단 **Git 이력에는 그대로 남아 있습니다** — 이력 제거는 협업자 clone 을 깨뜨려 비용이 크므로, 재발급하면 이력의 옛 값은 무해해집니다.
+
+**순서**:
+
+1. **Zalo 개발자 콘솔** → 해당 앱 → App Secret **재발급(regenerate)**
+   - 재발급 시점부터 구 secret 은 무효 → **그 사이 Zalo 로그인이 끊깁니다.** 실사용자가 없으니 지금이 최적기
+2. 새 secret 을 **dev DB 에 주입** (파일에 쓰지 말고 DB 에 직접):
+   ```bash
+   docker exec -it saigon_db psql -U wellconn -d saigon_rider
+   ```
+   ```sql
+   UPDATE app_config SET value='<새 secret>', updated_at=now()
+    WHERE group_name='oauth' AND key='zalo_app_secret';
+   -- app_id 는 secret 이 아니지만 콘솔에서 바뀌었다면 함께
+   -- UPDATE app_config SET value='<새 app_id>', updated_at=now()
+   --  WHERE group_name='oauth' AND key='zalo_app_id';
+   ```
+   확인(값은 출력하지 않고 길이만):
+   ```bash
+   docker exec saigon_db psql -U wellconn -d saigon_rider -t \
+     -c "select key, length(value), updated_at from app_config where group_name='oauth' and key like 'zalo%'"
+   ```
+3. **BFF 재시작 없이 즉시 반영됩니다** — `_load_oauth_config()`(`backend/app/routers/auth.py:126`)가 요청마다 DB 를 읽습니다. 재시작 불필요
+4. **Zalo 로그인 실제 검증** — 앱/웹에서 Zalo 로그인 1회. `-501` 이 안 나오면 성공
+   - 실패 시 의심 지점: 베트남 IP 프록시(`ZALO_API_PROXY`, VPS `103.186.65.169`). 프록시 생존 확인:
+     ```bash
+     curl -x "$ZALO_API_PROXY" -s https://ipinfo.io/json   # country: VN 이어야 함
+     ```
+
+**⚠️ 절대 하지 말 것**: 새 secret 을 `database/init/*.sql`·`.env.example`·문서·커밋 메시지에 적지 마십시오. **DB `app_config` 에만** 존재해야 합니다.
+
+**전체 시크릿 스캔 결과 (제가 오늘 밤 실행)** — 재발급 대상은 Zalo **1건뿐**입니다:
+
+| 항목 | 결과 |
+|---|---|
+| `.env` 가 이력에 커밋된 적 | **없음** (`git log --all -- .env` 무매치) |
+| 자격증명 파일(`.p8`/`.pem`/firebase json) 추적 | **없음** — `engine/firebase-credentials.json` 은 `.gitignore:10` 으로 제외 확인 |
+| Google `client_secret_web` | 커밋 파일은 **placeholder** — 유출 아님 |
+| Apple `private_key` | 커밋 파일은 **placeholder** — 유출 아님 |
+| Apple team_id/key_id/services_id | 주석에 실값 있었음 → **제거함**. 단 이들은 **식별자이지 자격증명이 아님** (재발급 불필요) |
+| 소스 전체 시크릿 패턴 스캔 | 3건 매치 전부 무해(테스트 픽스처 문자열 · README 예시 JSON · HTML `autoComplete="new-password"`) |
+
+---
+
+## 🔴 A-3. Google Translate 403 복구 — **번역이 3주째 완전 정지**
+
+**증상**: 모든 번역 호출이 `403 User Rate Limit Exceeded`. `translations` 테이블 **마지막 적재 2026-07-08**, 이후 신규 번역 **0건**. 매물 title 203건 중 79건만 번역돼 있습니다(61% 미번역). "번역이 잘 안 되는 것 같다"는 체감의 정체입니다.
+
+**실측한 에러 payload** (감독이 실제 API 호출로 확인):
+```json
+{"error":{"code":403,"message":"User Rate Limit Exceeded",
+  "errors":[{"domain":"usageLimits","reason":"userRateLimitExceeded"}]}}
+```
+
+**해석**: `domain: usageLimits` 는 **쿼터가 0에 가깝게 잠긴 상태**입니다. 순간 과다호출이 아닙니다(3주째, 재시도 3회 모두 동일). API 자체가 비활성이면 `accessNotConfigured` 가 떴을 텐데 그건 아니므로 **API 는 켜져 있고 한도만 막힌 상태**입니다.
+
+**확인 순서** (Google Cloud Console — 개발자 권한으로는 볼 수 없습니다):
+1. **Billing → 프로젝트에 결제 계정이 연결돼 있는지** ← 가장 유력. Translation API 는 월 50만 자 무료 후 billing 필수이고, 결제가 없으면 쿼터가 0으로 떨어지며 정확히 이 에러가 납니다. **7/8 중단 시점이 무료 한도 소진과 맞을 가능성이 큽니다**
+2. **APIs & Services → Cloud Translation API** → Enabled 확인 + **사용량 그래프에서 7/8 전후** 무슨 일이 있었는지
+3. **IAM & Admin → Quotas → Cloud Translation** → 한도값이 0인지
+4. **Credentials → 해당 API 키** → Application restrictions(서버에서 쓰는데 HTTP referrer 제한이 걸려 있으면 차단)
+
+**비용**: 복구 시 추정 ~$40/월. 다만 **현재 구조는 검색할 때마다 번역 API 를 때리므로, 아래 검색 개편이 적용되면 오히려 지금보다 저렴해집니다**(검색당 과금 → 등록당 과금). 기존 데이터 소급 번역 백필은 ~24K자 ≈ **$0.5** 입니다.
+
+**대안**: `app_config` 의 `provider` 값으로 번역 제공자를 바꿀 수 있습니다. Google 복구가 번거로우면 다른 provider 교체도 선택지입니다.
+
+**지금 상태**: 이게 막혀 있어도 **검색 개선 작업은 진행 중**입니다 — 원문 기준 검색·인덱스는 API 없이도 동작하게 만들고 있습니다. 다만 **"자전거"로 베트남어 매물을 찾는 교차언어 검색은 이 403 이 풀려야 완성**됩니다.
+
+---
+
+## 🟠 B. 아침에 확인만 (5분)
+
+### B-1. 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무
+
+미설정이면 `APP_ENV=production` 에서 `RuntimeError` → 502 로 **가입·판매가 전면 차단**됩니다(`backend/app/services/sms_client.py:41-43`). dev bypass 로도 우회되지 않습니다(운영 3중 게이트).
+→ **값이 있는지만** 알려주시면 됩니다. 없으면 출시 전 발급이 필요합니다.
+
+### B-2. `app.saigon-rider.com` 공개 도메인을 닫을지
+
+지금 **공개 응답 중**입니다(감사가 그 도메인에서 readiness 404·임의 Origin 반사 CORS·OpenAPI/metrics 노출을 관측). 실사용자는 없지만, 방치된 구버전 빌드가 인터넷에 떠 있는 상태입니다. verdict §1.1 은 그 DB 를 **dev 덤프 복원본**으로 추정합니다.
+
+선택지: ① 출시 전까지 내려두기 ② 인증 게이트(BasicAuth 등) ③ 그대로 두기
+→ **①/② 를 권합니다.** 지금 배포하는 것보다 싸고 안전합니다.
+
+### B-3. push 여부
+
+**8커밋이 이 개발서버에만 있습니다** (원격 브랜치 없음 — 날아가면 전부 손실).
+CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄이라 영역별로 쪼개 봐야 합니다.
+→ **"push 해" 라고만 하시면** 제가 code-review 부터 순서대로 처리합니다. A-1(private 전환) 이후에 하는 게 안전합니다.
+
+---
+
+## 🟡 C. 판단이 필요한 것 (개발이 정할 수 없음)
+
+### C-1. 약관·개인정보 문안 (법무) — **게이트 4 를 막고 있음**
+
+30일 파기 배치를 만들었지만 `users` 행·거래·리뷰·DM·신고·CS 는 **보존**합니다(타인 권리·법정 보존 의무). 그런데 공표 문구가 **"30일 내 영구삭제"** 라서 **실제보다 과합니다** → 소비자 기만 소지.
+→ 문구를 실제 보존 범위에 맞게 조정할지 결정 필요. **코드로는 닫히지 않습니다.**
+
+### C-2. 탈퇴 시 삭제 보류 4종
+
+파기 배치에서 판단이 갈려 **의도적으로 손대지 않은** 항목입니다. 지울지 남길지:
+
+| 테이블 | 보류 이유 |
+|---|---|
+| `feed_posts` / `post_comments` | 본인 콘텐츠지만 타인 댓글·좋아요가 얽혀 있어 삭제 시 타인 참여 흔적도 사라짐 |
+| `user_sanctions` | 제재 이력 — 상습 위반자 추적용 운영 감사기록일 수 있음 |
+| `support_tickets` | CS 이력 — 컴플라이언스 보존 필요 여부 불명 |
+| `internal_reward_grants` | 내부 보상 지급 원장 — 회계 대사 대상일 수 있음 |
+
+### C-3. 침수 예측 잔여 (F-11)
+
+**한 번도 성공한 적 없는** 구역은 "정상적 저위험"과 "확인 불가"가 구별되지 않습니다(보존할 이전 snapshot 이 없어서).
+선택지: ① 마지막 성공 실행 시각을 영속화(schema 변경) ② 감사 문서의 대안대로 **예측 위험도 노출 비활성화**
+
+### C-4. 앱스토어 업데이트 URL
+
+강제 업데이트 차단 화면에 "스토어로 이동" 버튼을 못 넣었습니다(코드베이스에 URL 이 없어 안내 문구만).
+→ 링크만 주시면 버튼 추가는 사소한 후속입니다.
+
+### C-5. 제품·경영 결정 6건 (B-9)
+
+서비스 경계 14.4×14.5km 유지 vs HCMC 전역 / 행정구역 삼중체계 통일 기준 / 업체 시딩 방식(어드민 생성 vs 영업 유치) / RP sink 개설 vs 재화·라이딩 감추기 / 광고 노출 시점·결제(PG vs 수동 정산) / 약관 문안(C-1)
+
+### C-6. ADR 의 "대표 결정" 항목 확정 (읽고 확인만)
+
+밤 동안 **ADR 초판을 작성**했습니다 → [`ai-docs/context/adr.md`](./context/adr.md) (파일이 SoT — MCP 저장은 자동 재색인에 날아가는 것을 실측 확인해 파일로 옮겼습니다). N-5 사고의 근본 원인이 **대표님 결정이 서술형 문서 본문에만 묻혀 있고 ADR 이 비어 있던 것**이라, 다음 세션이 같은 실수를 반복하지 않게 결정 사항을 한곳에 모았습니다.
+
+`### 대표 결정 — 건드리면 회귀` 섹션에 5건을 적었습니다 — **제가 기록으로부터 추출한 것이니 사실이 맞는지만 봐주십시오**:
+1. 동네지도 리스트 지역선택은 **화면 로컬 유지**(2026-07-27, 정보화면 침습 방지)
+2. 지도 탭 **지역선택 비활성**(2026-07-25, GPS 근처로 대체 — `handleRegionSelect` 는 죽은 코드)
+3. **광고 노출 OFF 유지**(`ADS_ENABLED=false`)
+4. **게이미피케이션 진입점 차단 유지**(가챠·상점·인벤토리·시즌·쿠폰·차고)
+5. **OTP dev 우회 운영 3중 게이트**
+
+조회: `ai-docs/context/adr.md` 의 `### 대표 결정 — 건드리면 회귀` 절. 틀린 게 있으면 알려주시면 정정합니다.
+
+### C-7. 알고만 계셔야 하는 것 (조치 불필요)
+
+- **기존 계정 전원이 다음 로그인 시 동의 화면을 1회 거칩니다.** 소급 기록은 하지 않았습니다(증빙 없는 동의 위조 방지). 배포 후 CS 문의 증가 가능
+- **N-5** — 감사가 결함으로 적은 게 대표님이 2026-07-27 에 내리신 "현행 유지" 결정이었습니다. 제가 뒤집었다가 되돌렸고 현재 결정 상태입니다
+- **F-19 강제업데이트**는 `@capacitor/app` 이 native 서브모듈에 cap sync 되지 않아 **실기기에서 발동하지 않습니다**(웹 로직·안전망은 완성)
+
+---
+
+## ⚫ D. 출시 전 체크리스트 (지금 급하지 않음 — 운영 미공개 확인됨)
+
+대표님 지적대로 운영서버가 아직 실서비스가 아니므로 **긴급도를 내렸습니다.**
+
+- **운영 배포**(B-4) — 이번 8커밋을 정확한 commit/image digest 로 배포, readiness 200·strict CORS·보안헤더·운영 endpoint 비공개를 **외부에서** 재검증. 운영이 2026-06-04 스냅샷이라 migration 순서 검증(B-8) 선행 필요
+- **실기기 E2E**(B-1) — 서명 빌드로 GPS 권한·백그라운드 이동·FCM 등록/회전/딥링크·OAuth 3종 복귀·오프라인. 여기서 F-19 cap sync 도 함께
+- **백업·복구**(B-5) — `tools/backup_db.sh` 는 작성·dev 실행 확인 완료. 남은 것은 스케줄링·오프사이트 암호화 저장·restore drill·RPO/RTO 측정·경보·온콜
+- **Engine 키 회전 + identity 분리**(B-3) — allowlist 로 특권 경로는 막았지만 `sreMessage` 는 여전히 전역 키 단일 비교라, 앱에서 키가 추출되면 GPS/이벤트 주입이 가능합니다. 회전 + 사용자·기기·만료 결속 단기 토큰으로 재설계 후 신규 앱 배포
+- **운영 DB migration 상태 확인**(B-8) — dev 는 검증 완료(`schema_migrations` 26건)
+- **Zalo 앱 활성화**(2026-08-01 발견) — Zalo 개발자 콘솔의 앱 상태가 **`Chưa kích hoạt`(Not activated)** 이다(대표님 스크린샷에서 확인). 이 상태로는 실사용자 Zalo 로그인이 동작하지 않을 가능성이 높다(현재 dev 에서 되는 것은 테스터 계정 범위로 추정). 출시 전 활성화 필요. 활성화 시 도메인 검증(`Xác thực domain`)·앱 심사가 선행될 수 있으니 **리드타임을 미리 확인**할 것
+
+---
+
+## 요약 — 아침에 이것만
+
+1. **A-1** `gh repo edit … --visibility private` (2분)
+2. **A-2** Zalo 콘솔에서 secret 재발급 → dev DB `UPDATE` → Zalo 로그인 1회 확인 (10분)
+3. **A-3** Google Cloud 콘솔에서 **Translate API 403 원인 확인**(billing 연결 여부 우선) — 번역이 3주째 정지 상태
+4. **B-1** 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무 알려주기
+5. **B-2** 공개 도메인 닫을지 결정
+6. **B-3** push 할지 지시
+7. **C-1~C-5** 판단 회신 (법무·제품 — 시간 걸리니 병행 착수 권장)
+8. **C-6** ADR 의 "대표 결정" 5건이 사실과 맞는지 확인 (읽기만, 2분)
+
+**출시 판정은 여전히 NO-GO** 입니다. 다만 코드가 원인인 차단 사유는 전부 해소됐고, 남은 것은 위 목록뿐입니다.

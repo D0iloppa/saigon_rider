@@ -1,0 +1,241 @@
+﻿mission_code,type,category,title,condition,reward_rp,difficulty,window,is_active
+O-RD-01,Onboarding,Riding,첫 라이딩 시작,1km 라이딩,100,Easy,신규 14일,True
+O-RD-02,Onboarding,Riding,5km의 시작,누적 5km,200,Easy,신규 14일,True
+O-RD-03,Onboarding,Riding,첫 퀘스트 클리어,추천 퀘스트 1개,300,Medium,신규 14일,True
+O-RD-04,Onboarding,Riding,14일 30km,14일간 누적 30km,800,Medium,신규 14일,True
+O-MT-01,Onboarding,Maint,차량 등록하기,바이크 정보 입력,150,Easy,신규 14일,True
+O-MT-02,Onboarding,Maint,첫 주유 인증,주유 영수증 1건,100,Easy,신규 14일,True
+O-MT-03,Onboarding,Maint,첫 점검,일일 점검 1회,100,Easy,신규 14일,True
+O-MK-01,Onboarding,Market,마켓 둘러보기,부품 5개 조회,50,Easy,신규 14일,True
+O-MK-02,Onboarding,Market,첫 채팅,판매자 문의 1건,100,Easy,신규 14일,True
+O-CM-01,Onboarding,Community,첫 피드 게시,게시물 1건,150,Easy,신규 14일,True
+O-CM-02,Onboarding,Community,첫 좋아요,좋아요 3개,50,Easy,신규 14일,True
+O-CM-03,Onboarding,Community,친구 1명 초대,초대 가입 1명,250,Medium,신규 14일,True
+O-DL-01,Onboarding,Delivery,직업 선택 (선택),드라이버 인증 시도,100,Easy,신규 14일,True
+O-MX-01,Onboarding,Mixed,프로필 100% 완성,사진/닉네임/지역,100,Easy,신규 14일,True
+O-MX-02,Onboarding,Mixed,14일 환영 클리어,신규 미션 8개+,1500,Hard,신규 14일,True
+D-RD-01,Daily,Riding,짧은 한 바퀴,누적 3km,30,Easy,-,True
+D-RD-02,Daily,Riding,출퇴근 라이더,누적 8km,60,Easy,-,True
+D-RD-03,Daily,Riding,도시 탐험가,District 2곳,80,Medium,-,True
+D-RD-04,Daily,Riding,새벽 라이더,05-07시,100,Medium,-,True
+D-RD-05,Daily,Riding,야간 라이더,19-22시,80,Easy,-,True
+D-RD-06,Daily,Riding,비 오는 날 라이더,강수 5km+,150,Hard,-,True
+D-RD-07,Daily,Riding,사이공 다리 건너기,Saigon Bridge,120,Medium,-,True
+D-RD-08,Daily,Riding,1번 도로 챔피언,NH1A 5km,100,Medium,-,True
+D-RD-09,Daily,Riding,강변 산책,강변 도로 3km,70,Easy,-,True
+D-RD-10,Daily,Riding,정속 라이더,평속 25-40 5km,90,Medium,-,True
+D-RD-11,Daily,Riding,오늘의 1km,오늘 1km,20,Easy,-,True
+D-RD-12,Daily,Riding,두 번 라이딩,하루 2회 분리,80,Medium,-,True
+D-RD-13,Daily,Riding,District 1 마스터,District 1 통과,80,Easy,-,True
+D-RD-14,Daily,Riding,District 7 탐험,District 7 통과,90,Medium,-,True
+D-RD-15,Daily,Riding,Thu Duc 횡단,Thu Duc City 진입,130,Medium,-,True
+D-RD-16,Daily,Riding,Phu My Hung 라이딩,PMH 진입,100,Easy,-,True
+D-RD-17,Daily,Riding,점심시간 라이딩,11-13시 5km,70,Easy,-,True
+D-RD-18,Daily,Riding,쇼트 어택,15분 안에 5km,100,Medium,-,True
+D-RD-19,Daily,Riding,롱 슬로우,30분+ 라이딩,80,Easy,-,True
+D-RD-20,Daily,Riding,통근 왕복,출/퇴근 분리,120,Medium,-,True
+D-RD-21,Daily,Riding,카페 투어,카페 2곳 정차,100,Easy,-,True
+D-RD-22,Daily,Riding,시장 라이딩,재래시장 1곳,80,Easy,-,True
+D-RD-23,Daily,Riding,야시장 코스,야시장 1곳,100,Medium,-,True
+D-RD-24,Daily,Riding,새 골목 발견,미통과 도로 1km,110,Medium,-,True
+D-MT-01,Daily,Maint,오늘의 주유,영수증 1건,50,Easy,-,True
+D-MT-02,Daily,Maint,타이어 점검,체크리스트,80,Easy,-,True
+D-MT-03,Daily,Maint,거울/등화 점검,등화 체크리스트,60,Easy,-,True
+D-MT-04,Daily,Maint,출발 전 점검,5종 점검,120,Medium,-,True
+D-MT-05,Daily,Maint,세차 인증,세차 사진,80,Easy,-,True
+D-MT-06,Daily,Maint,주행거리 기록,오도미터 사진,50,Easy,-,True
+D-MT-07,Daily,Maint,체인 점검,체인 사진,70,Easy,-,True
+D-MT-08,Daily,Maint,브레이크 점검,브레이크 체크,80,Medium,-,True
+D-MT-09,Daily,Maint,헬멧 사진 인증,헬멧 착용 사진,50,Easy,-,True
+D-MT-10,Daily,Maint,워셔액 보충,보충 사진,60,Easy,-,True
+D-MT-11,Daily,Maint,엔진오일 게이지,게이지 사진,80,Easy,-,True
+D-MT-12,Daily,Maint,풀 점검 데이,8종 모두,200,Hard,-,True
+D-MK-01,Daily,Market,마켓 윈도쇼핑,부품 10개 조회,30,Easy,-,True
+D-MK-02,Daily,Market,관심 부품 찜,즐겨찾기 3건,40,Easy,-,True
+D-MK-03,Daily,Market,가격 비교,같은 부품 3건,50,Medium,-,True
+D-MK-04,Daily,Market,첫 채팅 시도,문의 1건,60,Medium,-,True
+D-MK-05,Daily,Market,부품 1건 등록,등록 1건,100,Medium,-,True
+D-MK-06,Daily,Market,사진 잘 찍기,등록 사진 4장+,80,Easy,-,True
+D-MK-07,Daily,Market,시세 살펴보기,카테고리 3개,40,Easy,-,True
+D-MK-08,Daily,Market,거래 응답왕,채팅 5건,90,Medium,-,True
+D-CM-01,Daily,Community,오늘 한 줄 후기,코멘트 1건,50,Easy,-,True
+D-CM-02,Daily,Community,응원하기,좋아요 5개,30,Easy,-,True
+D-CM-03,Daily,Community,댓글로 인사,댓글 3개,50,Easy,-,True
+D-CM-04,Daily,Community,사진 한 컷,라이딩 사진 1장,80,Medium,-,True
+D-CM-05,Daily,Community,Zalo 공유,외부 공유 1건,30,Easy,-,True
+D-CM-06,Daily,Community,셀카 라이더,헬멧 셀카,70,Easy,-,True
+D-CM-07,Daily,Community,TikTok 1건,TikTok 1건,60,Medium,-,True
+D-CM-08,Daily,Community,풍경 사진,풍경 2장,80,Easy,-,True
+D-CM-09,Daily,Community,친구 응원,친구 게시물 댓글 3,50,Easy,-,True
+D-CM-10,Daily,Community,매너 라이더,베스트 댓글 1건,60,Easy,-,True
+D-DL-01,Daily,Delivery,오늘의 첫 배차,영수증 1건,30,Easy,드라이버,True
+D-DL-02,Daily,Delivery,10건 달성,영수증 10건,150,Medium,드라이버,True
+D-DL-03,Daily,Delivery,30건 달성,영수증 30건,400,Hard,드라이버,True
+D-DL-04,Daily,Delivery,50건 달성,영수증 50건,700,Hard,드라이버,True
+D-DL-05,Daily,Delivery,야간 10건,19시 후 10건,200,Medium,드라이버,True
+D-DL-06,Daily,Delivery,우중 5건,강수 중 5건,250,Hard,드라이버,True
+W-RD-01,Weekly,Riding,주 50km,누적 50km,400,Easy,-,True
+W-RD-02,Weekly,Riding,주 100km,누적 100km,900,Medium,-,True
+W-RD-03,Weekly,Riding,주 5일 라이딩,5일+,600,Medium,-,True
+W-RD-04,Weekly,Riding,매일 라이딩,7일 연속,1200,Hard,-,True
+W-RD-05,Weekly,Riding,새벽 3회,05-07시 3회,500,Medium,-,True
+W-RD-06,Weekly,Riding,다구역 정복,5개 District,700,Medium,-,True
+W-RD-07,Weekly,Riding,퀘스트 5개,퀘스트 5개,600,Medium,-,True
+W-RD-08,Weekly,Riding,그룹 라이딩 1회,3인+ 1회,500,Medium,-,True
+W-RD-09,Weekly,Riding,새 코스 개척,신규 경로 3개,400,Medium,-,True
+W-RD-10,Weekly,Riding,안전 라이더,과속 0+50km,800,Hard,-,True
+W-RD-11,Weekly,Riding,강 건너기 마스터,Saigon Bridge 3회,350,Easy,-,True
+W-RD-12,Weekly,Riding,야간 100km,19시 후 100km,800,Hard,-,True
+W-RD-13,Weekly,Riding,주 200km,누적 200km,2000,Hard,-,True
+W-RD-14,Weekly,Riding,District 8곳,8개 District,1200,Hard,-,True
+W-RD-15,Weekly,Riding,주 10시간,누적 10시간,700,Medium,-,True
+W-RD-16,Weekly,Riding,통근 풀패스,평일 5일 통근,900,Medium,-,True
+W-RD-17,Weekly,Riding,주말 장거리,토/일 30km+,800,Medium,-,True
+W-RD-18,Weekly,Riding,야간 5일,19시 후 5일,700,Medium,-,True
+W-RD-19,Weekly,Riding,새벽 5일,05-07시 5일,800,Hard,-,True
+W-RD-20,Weekly,Riding,그룹 3회,그룹 3회,1200,Hard,-,True
+W-RD-21,Weekly,Riding,카페 투어 5곳,카페 5곳,500,Medium,-,True
+W-RD-22,Weekly,Riding,정속 마스터,정속 누적 30km,600,Medium,-,True
+W-RD-23,Weekly,Riding,다리 4개 정복,다리 4개,700,Medium,-,True
+W-RD-24,Weekly,Riding,District 도장깨기,동일 District 3회,600,Medium,-,True
+W-MT-01,Weekly,Maint,주유 5회,영수증 5건,300,Easy,-,True
+W-MT-02,Weekly,Maint,점검 챔피언,일일 점검 5일,400,Medium,-,True
+W-MT-03,Weekly,Maint,정비소 방문,정비 영수증 1건,300,Medium,-,True
+W-MT-04,Weekly,Maint,연비 측정,주유 2건+거리,250,Medium,-,True
+W-MT-05,Weekly,Maint,부품 교체 인증,교체+영수증,500,Hard,-,True
+W-MT-06,Weekly,Maint,타이어 압력 체크,압력 사진,200,Easy,-,True
+W-MT-07,Weekly,Maint,주간 세차 2회,세차 2건,200,Easy,-,True
+W-MT-08,Weekly,Maint,풀 점검 7일,매일 점검 7일,700,Hard,-,True
+W-MT-09,Weekly,Maint,주유 영수증 7건,주유 7건,500,Medium,-,True
+W-MT-10,Weekly,Maint,정비소 비교,2곳 영수증,400,Medium,-,True
+W-MT-11,Weekly,Maint,주간 세차 3회,세차 3건,300,Medium,-,True
+W-MT-12,Weekly,Maint,체인 청소 인증,체인 청소 사진,250,Easy,-,True
+W-MT-13,Weekly,Maint,워셔액 풀,워셔액+사진,200,Easy,-,True
+W-MT-14,Weekly,Maint,정비 일지 5건,일지 5개,350,Medium,-,True
+W-MK-01,Weekly,Market,첫 거래 도전,등록 1건,150,Easy,-,True
+W-MK-02,Weekly,Market,5건 등록,등록 5건,400,Medium,-,True
+W-MK-03,Weekly,Market,거래 성공,거래 1건,800,Hard,-,True
+W-MK-04,Weekly,Market,리뷰 작성,리뷰 1건,200,Easy,-,True
+W-MK-05,Weekly,Market,부품 가격 가이드,5건 비교,150,Medium,-,True
+W-MK-06,Weekly,Market,채팅 응대왕,5건 응답,200,Medium,-,True
+W-MK-07,Weekly,Market,등록 10건,등록 10건,800,Hard,-,True
+W-MK-08,Weekly,Market,거래 2건,거래 2건,1500,Hard,-,True
+W-MK-09,Weekly,Market,우수 판매자,별점 4.5+ 거래 1,400,Medium,-,True
+W-MK-10,Weekly,Market,빠른 응답,평균 1시간 이내,300,Medium,-,True
+W-MK-11,Weekly,Market,친절 거래,리뷰 5건 4.5+,500,Hard,-,True
+W-MK-12,Weekly,Market,카테고리 마스터,다른 카테고리 3건,350,Medium,-,True
+W-CM-01,Weekly,Community,피드 3회 게시,3건,300,Easy,-,True
+W-CM-02,Weekly,Community,사진 7장,7장,400,Medium,-,True
+W-CM-03,Weekly,Community,친구 초대 1명,가입 1명,500,Medium,-,True
+W-CM-04,Weekly,Community,댓글 30개,댓글 30,300,Medium,-,True
+W-CM-05,Weekly,Community,좋아요 50개,50회,200,Easy,-,True
+W-CM-06,Weekly,Community,TikTok 공유,1건,250,Medium,-,True
+W-CM-07,Weekly,Community,인기 게시물,좋아요 50+ 게시물,600,Hard,-,True
+W-CM-08,Weekly,Community,사진 15장,15장,700,Medium,-,True
+W-CM-09,Weekly,Community,친구 초대 3명,가입 3명,1500,Hard,-,True
+W-CM-10,Weekly,Community,댓글 100개,100건,800,Hard,-,True
+W-CM-11,Weekly,Community,TikTok 5건,5건,1000,Hard,-,True
+W-CM-12,Weekly,Community,Zalo 공유 7건,7건,600,Medium,-,True
+W-DL-01,Weekly,Delivery,주 100건,100건,1000,Medium,드라이버,True
+W-DL-02,Weekly,Delivery,5일 활동,5일+,800,Medium,드라이버,True
+W-DL-03,Weekly,Delivery,야간 50건,19시 후 50건,600,Medium,드라이버,True
+W-DL-04,Weekly,Delivery,주 200km,배달 200km,1200,Hard,드라이버,True
+W-DL-05,Weekly,Delivery,주 200건,200건,2500,Hard,드라이버,True
+W-DL-06,Weekly,Delivery,주 7일 활동,7일 연속,1500,Hard,드라이버,True
+W-DL-07,Weekly,Delivery,우중 30건,강수 중 30건,1000,Hard,드라이버,True
+W-DL-08,Weekly,Delivery,새벽 30건,05-08시 30건,800,Medium,드라이버,True
+M-RD-01,Monthly,Riding,월 300km,누적 300km,3000,Medium,-,True
+M-RD-02,Monthly,Riding,월 500km,누적 500km,5500,Hard,-,True
+M-RD-03,Monthly,Riding,월 1000km 레전드,1000km,12000,Hard,-,True
+M-RD-04,Monthly,Riding,20일 라이딩,20일+,4000,Medium,-,True
+M-RD-05,Monthly,Riding,호치민 모든 District,전 District,6000,Hard,-,True
+M-RD-06,Monthly,Riding,월간 퀘스트 마스터,퀘스트 25개,5000,Hard,-,True
+M-RD-07,Monthly,Riding,25일 라이딩,25일+,6000,Hard,-,True
+M-RD-08,Monthly,Riding,월 1500km 레전드,1500km,18000,Hard,-,True
+M-RD-09,Monthly,Riding,새벽 라이더 월간,새벽 10일,4500,Hard,-,True
+M-RD-10,Monthly,Riding,야간 라이더 월간,19시 후 200km,5000,Hard,-,True
+M-RD-11,Monthly,Riding,그룹 라이딩 5회,그룹 5회,3500,Medium,-,True
+M-RD-12,Monthly,Riding,안전 라이더 월간,과속 0+500km,7000,Hard,-,True
+M-MT-01,Monthly,Maint,정비 인증 마스터,합 20건,2500,Medium,-,True
+M-MT-02,Monthly,Maint,차량 풀 점검,정비소+점검 8,3000,Medium,-,True
+M-MT-03,Monthly,Maint,연비 트래커,매주 4회,2000,Medium,-,True
+M-MT-04,Monthly,Maint,풀 점검 25일,25일 점검,4000,Hard,-,True
+M-MT-05,Monthly,Maint,정비소 2곳 비교,영수증 2곳,2500,Medium,-,True
+M-MT-06,Monthly,Maint,부품 교체 2건,부품 교체 2,4500,Hard,-,True
+M-MK-01,Monthly,Market,거래 챔피언,거래 3건,4000,Hard,-,True
+M-MK-02,Monthly,Market,부품 큐레이터,등록 15+별점 4.0,3500,Hard,-,True
+M-MK-03,Monthly,Market,거래 5건 챔피언,거래 5건,7500,Hard,-,True
+M-MK-04,Monthly,Market,등록 30건 마스터,등록 30건,5000,Hard,-,True
+M-CM-01,Monthly,Community,피드 스타,15건+좋아요 100,4000,Medium,-,True
+M-CM-02,Monthly,Community,추천 마스터,친구 5명,6000,Hard,-,True
+M-CM-03,Monthly,Community,컨텐츠 메이커,사진 30+TikTok 3,3500,Medium,-,True
+M-CM-04,Monthly,Community,인플루언서,좋아요 합 500+,5500,Hard,-,True
+M-CM-05,Monthly,Community,친구 10명,가입 10명,13000,Hard,-,True
+M-CM-06,Monthly,Community,컨텐츠 50건,게시물 50건,6000,Hard,-,True
+M-DL-01,Monthly,Delivery,월 500건,500건,8000,Hard,드라이버,True
+M-DL-02,Monthly,Delivery,월 1000건 프로,1000건,18000,Hard,드라이버,True
+M-DL-03,Monthly,Delivery,월 2000건 레전드,2000건,40000,Hard,드라이버,True
+M-DL-04,Monthly,Delivery,30일 활동,30일+,12000,Hard,드라이버,True
+M-MX-01,Monthly,Mixed,다양성 마스터,5개 카테고리,5000,Medium,-,True
+M-MX-02,Monthly,Mixed,월간 완벽주의자,월 미션 5개+,6000,Medium,-,True
+M-MX-03,Monthly,Mixed,균형의 라이더,5카테고리 각 100 RP,7500,Hard,-,True
+M-MX-04,Monthly,Mixed,풀 다양성 마스터,5카테고리+미션 8,10000,Hard,-,True
+S-TET-01,Seasonal,Riding,Tết 귀성 라이딩,50km 장거리,2500,Hard,Tet,True
+S-TET-02,Seasonal,Riding,새해 첫 라이딩,연휴 첫날,1500,Easy,Tet,True
+S-TET-03,Seasonal,Riding,빨간 봉투 챌린지,5일+ 라이딩,3000,Medium,Tet,True
+S-TET-04,Seasonal,Community,Lantern Night Ride,야간+조명 사진,1800,Medium,Tet,True
+S-TET-05,Seasonal,Riding,봄꽃 라이딩,공원 3곳,1200,Easy,Tet,True
+S-TET-06,Seasonal,Mixed,새해 다짐,5개 카테고리,3500,Medium,Tet,True
+S-TET-07,Seasonal,Community,Lì Xì 친구 초대,Tết 1명 가입,2000,Medium,Tet,True
+S-TET-08,Seasonal,Mixed,Tết 풀 컴플리션,Tết 미션 4개+,5000,Hard,Tet,True
+S-SPRING-01,Seasonal,Riding,3월 200km,3월 200km,2200,Medium,Spring,True
+S-SPRING-02,Seasonal,Riding,봄 카페 투어,카페 7곳,1800,Medium,Spring,True
+S-SPRING-03,Seasonal,Riding,새벽 봄 라이딩,새벽 5일,1500,Medium,Spring,True
+S-SPRING-04,Seasonal,Community,여성의 날 응원,3/8 라이딩+사진,1200,Easy,Spring,True
+S-SPRING-05,Seasonal,Community,봄 풍경 사진,풍경 10장,1500,Medium,Spring,True
+S-SPRING-06,Seasonal,Community,봄 친구 초대,2명 가입,2500,Medium,Spring,True
+S-RAIN-01,Seasonal,Riding,첫 비 라이딩,강수 5km,1500,Medium,Rain,True
+S-RAIN-02,Seasonal,Riding,우비 챔피언,강수일 3회,2500,Hard,Rain,True
+S-RAIN-03,Seasonal,Community,빗물 사진,비 사진 3장,800,Easy,Rain,True
+S-RAIN-04,Seasonal,Maint,미끄럼 방지 점검,타이어+주유,1500,Medium,Rain,True
+S-RAIN-05,Seasonal,Riding,야간 우중 라이딩,야간+강수 5km,2000,Hard,Rain,True
+S-RAIN-06,Seasonal,Riding,노동절 라이딩,5/1 라이딩,1000,Easy,Rain,True
+S-SUM-01,Seasonal,Riding,폭우 라이딩,폭우 라이딩,3000,Hard,Summer,True
+S-SUM-02,Seasonal,Riding,여름 야간 100km,19시 후 100km,3500,Hard,Summer,True
+S-SUM-03,Seasonal,Maint,풀가동 정비,영수증 2건,2500,Medium,Summer,True
+S-SUM-04,Seasonal,Market,여름 마켓 챌린지,거래 5건,5000,Hard,Summer,True
+S-SUM-05,Seasonal,Riding,친구와 우중,그룹+강수,3000,Hard,Summer,True
+S-SUM-06,Seasonal,Riding,7월 1000km,7월 1000km,12000,Hard,Summer,True
+S-SUM-07,Seasonal,Riding,폭염 새벽 라이더,새벽 7일,3500,Hard,Summer,True
+S-INDEP-01,Seasonal,Riding,9/2 독립기념일,9/2 라이딩,2000,Easy,Indep,True
+S-INDEP-02,Seasonal,Community,빨강 노랑 사진,국기색 사진 3장,1200,Easy,Indep,True
+S-INDEP-03,Seasonal,Riding,9/2 그룹 라이딩,그룹 1회,2500,Medium,Indep,True
+S-INDEP-04,Seasonal,Riding,도시 랜드마크,랜드마크 3곳,2000,Medium,Indep,True
+S-INDEP-05,Seasonal,Riding,야간 퍼레이드,9/2 야간 라이딩,1800,Medium,Indep,True
+S-INDEP-06,Seasonal,Mixed,독립기념 풀패스,시즌 미션 3개+,3500,Hard,Indep,True
+S-MID-01,Seasonal,Riding,Mid-Autumn 라이딩,연휴 라이딩,2000,Easy,Mid,True
+S-MID-02,Seasonal,Community,등불 사진,등불 5장,1500,Easy,Mid,True
+S-MID-03,Seasonal,Riding,가족과 라이딩,그룹 2회,2000,Medium,Mid,True
+S-MID-04,Seasonal,Riding,건기 첫 라이딩,10월 첫주 3회,1800,Medium,Mid,True
+S-MID-05,Seasonal,Mixed,풀 다양성 챌린지,5카테고리+10미션,5500,Hard,Mid,True
+S-MID-06,Seasonal,Mixed,6개월 충성 라이더,180일+50회,10000,Hard,Mid,True
+S-DRY-01,Seasonal,Riding,건기 시작,11월 첫주 5일,2000,Medium,Dry,True
+S-DRY-02,Seasonal,Riding,11월 500km,11월 500km,6000,Hard,Dry,True
+S-DRY-03,Seasonal,Riding,새벽 골든아워,05-07시 7일,2500,Hard,Dry,True
+S-DRY-04,Seasonal,Community,베트남 여성의 날,10/20 라이딩+사진,1500,Easy,Dry,True
+S-DRY-05,Seasonal,Community,건기 풍경 사진,풍경 15장,2000,Medium,Dry,True
+S-DRY-06,Seasonal,Riding,카페 투어 10곳,카페 10곳,3000,Medium,Dry,True
+S-XMAS-01,Seasonal,Riding,크리스마스 라이딩,12/24-25 라이딩,2500,Easy,Xmas,True
+S-XMAS-02,Seasonal,Community,일루미네이션 사진,조명 사진 5장,1800,Easy,Xmas,True
+S-XMAS-03,Seasonal,Riding,송년 라이딩,12/31 라이딩,2000,Easy,Xmas,True
+S-XMAS-04,Seasonal,Mixed,연말 풀패스,12월 미션 8개+,6000,Hard,Xmas,True
+S-XMAS-05,Seasonal,Riding,새해 카운트다운,12/31 23시 라이딩,3000,Medium,Xmas,True
+A-MX-01,Anniversary,Mixed,1주년 축하 라이딩,주년 당일 라이딩,5000,Easy,출시 12개월,True
+A-MX-02,Anniversary,Mixed,12개월 충성,가입 365일,10000,Medium,출시 12개월,True
+A-MX-03,Anniversary,Riding,연간 5000km,12개월 5000km,25000,Hard,출시 12개월,True
+A-MX-04,Anniversary,Riding,연간 10000km,12개월 10000km,60000,Hard,출시 12개월,True
+A-MX-05,Anniversary,Community,1주년 친구 초대,4주간 3명 가입,8000,Hard,출시 12개월,True
+A-MX-06,Anniversary,Mixed,풀 카테고리 마스터,12개월 5카테고리,15000,Hard,출시 12개월,True
+A-MX-07,Anniversary,Mixed,모든 시즌 정복,8시즌 미션 1+,20000,Hard,출시 12개월,True
+A-MX-08,Anniversary,Riding,1주년 그룹 라이딩,4주 내 그룹 3회,6000,Medium,출시 12개월,True
+A-MX-09,Anniversary,Mixed,1주년 풀 컴플리션,A 미션 5개+,30000,Hard,출시 12개월,True

@@ -1,0 +1,23 @@
+/* 단일 시리즈 영역 차트 — 스몰 멀티플 패널 1개분.
+ * 축 라벨/범례/툴팁은 호출부(HTML)가 담당하고, SVG 는 마크만 그린다.
+ */
+
+.plot {
+  position: relative;
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  outline: none;
+  /* 터치 크로스헤어 드래그 중 페이지 스크롤과 충돌하지 않게 */
+  touch-action: pan-y;
+}
+
+.plot:focus-visible {
+  box-shadow: 0 0 0 2px var(--brand-300);
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}

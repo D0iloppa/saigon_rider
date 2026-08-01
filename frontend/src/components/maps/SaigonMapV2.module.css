@@ -1,0 +1,119 @@
+/* Saigon Map v2 — OSM 실측 행정경계 기반 3-depth 드릴다운 지도 (InfoMap 인터랙션) */
+.stage {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #eef7f5;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  transform: scale(1.06);
+}
+.layer.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.svg { display: block; width: 100%; height: 100%; touch-action: none; }
+.svg.grab { cursor: grab; }
+.svg.grabbing { cursor: grabbing; }
+
+/* 우상단: 줌 +/− */
+.zoomControls {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 6;
+}
+/* 우하단: 내 위치 ◎ */
+.controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 6;
+}
+.ctrlBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: #444;
+}
+.ctrlBtn:disabled { opacity: 0.4; cursor: default; }
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8c99a0;
+  font-size: 12px;
+}
+
+/* 내 위치 마커 */
+.meRing { fill: rgba(30, 136, 229, 0.18); }
+.meDot { fill: #1e88e5; stroke: #fff; }
+
+/* 데이터 마커 (주유/침수/정비) */
+.marker { cursor: pointer; }
+.badge { fill: #3b82f6; stroke: #fff; }
+.badgeText { fill: #fff; font-weight: 700; text-anchor: middle; pointer-events: none; }
+
+/* 토스트 (수동 locate 가 범위 밖일 때만) */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: rgba(40, 44, 52, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 20px;
+  z-index: 7;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: srv2toast 0.2s ease;
+}
+@keyframes srv2toast { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* depth1 동 + 사이공강 */
+.river { fill: #6ed8d0; opacity: 0.7; stroke: none; }
+.rline { fill: none; stroke: #6ed8d0; opacity: 0.6; stroke-linecap: round; stroke-linejoin: round; }
+.ward { fill: #fff; stroke: #d1d5db; stroke-width: 1.2; stroke-linejoin: round; cursor: pointer; transition: fill 0.15s; }
+.ward:hover { fill: #f3f4f6; }
+.wardSel { fill: #ffbb8a; stroke: #ff5a1f; stroke-width: 2; cursor: pointer; }
+.wlab { fill: #5b6770; font-weight: 600; text-anchor: middle; pointer-events: none; }
+.wlabSel { fill: #9a3412; font-weight: 800; text-anchor: middle; pointer-events: none; }
+
+/* depth2 블록 */
+.border { fill: none; stroke: #8c99a0; stroke-width: 3.5; stroke-linejoin: round; pointer-events: none; }
+.blk { fill: #fff; stroke: #d7dedb; stroke-width: 1.4; stroke-linejoin: round; cursor: pointer; transition: fill 0.15s; }
+.blk:hover { fill: #ffe0c9; }
+.blkSel { fill: #ffbb8a; stroke: #ff5a1f; stroke-width: 1.8; stroke-linejoin: round; cursor: pointer; }
+
+/* depth3 상세 */
+.land { fill: #f7faf9; }
+.bldg { fill: #e7e0d2; stroke: #d9cfbc; stroke-width: 0.4; stroke-linejoin: round; }
+.road { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.water { fill: #bee7f5; stroke: #7cc7e0; stroke-width: 1; }
+.wline { fill: none; stroke: #9ad4ec; stroke-width: 5; stroke-linecap: round; }
+.blockedge { fill: none; stroke: #ff5a1f; stroke-width: 2.5; stroke-linejoin: round; pointer-events: none; }

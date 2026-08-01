@@ -1,0 +1,53 @@
+/* 주유소 화면 전용 스타일 — 공통 문법은 styles/system.module.css 참조 */
+
+/* ── 오늘의 참고가 카드 ── */
+.priceCard {
+  padding: 14px 14px 12px;
+}
+
+.priceRows {
+  display: flex;
+  gap: 8px;
+}
+
+.priceItem {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+/* 오토바이 주력 유종(RON 95) 강조 */
+.priceItemMain {
+  background: var(--brand-50);
+  border-color: var(--brand-200);
+}
+.priceItemMain .priceVal { color: var(--brand-700); }
+
+.priceFuel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.priceVal {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.priceDisc {
+  margin-top: 10px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+}

@@ -1,0 +1,24 @@
+.root { height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); color: var(--text); }
+.scrollArea { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(var(--status-bar-height) + 12px) 20px 40px; }
+.header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; margin-bottom: 20px; }
+.header h1 { margin: 0; font-size: 20px; letter-spacing: -.5px; }
+.back { position: absolute; left: -8px; display: grid; width: 44px; height: 44px; place-items: center; color: var(--text); }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.tab { flex: 1; padding: 12px 0; color: var(--text-3); font-size: 15px; font-weight: 700; border-bottom: 2px solid transparent; }
+.tabActive { color: var(--text); border-bottom-color: var(--brand-500); }
+
+.listArea { display: flex; flex-direction: column; gap: 12px; }
+.skeleton { height: 92px; border-radius: 16px; }
+.empty { margin: 70px 0 0; color: var(--text-3); text-align: center; font-size: 15px; }
+
+.bizList { display: flex; flex-direction: column; gap: 10px; }
+.bizCard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--surface-2); text-align: left; cursor: pointer; }
+.bizThumb { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; background: var(--bg-2); flex-shrink: 0; }
+.bizBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bizName { font-size: 15px; font-weight: 800; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bizMeta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); overflow: hidden; }
+.bizCat { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: var(--success, #16a34a); flex-shrink: 0; }
+.bizAddress { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bizNews { margin: 2px 0 0; color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.heartBtn { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; color: var(--brand-500); }

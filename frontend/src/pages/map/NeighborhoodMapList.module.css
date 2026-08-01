@@ -1,0 +1,610 @@
+/* ── 동네지도 목록 화면 — "우리 동네 가게·소식" ──
+ * 마켓(/market)과 정체성 분리: 가게가 기본 탭, 업종·소식 중심 카드가 주인공.
+ * 저사양 Android·4G 전제 — blur/다중 그림자 없이 토큰·헤어라인·타이포 위계로 구성. */
+
+.root {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── 헤더: 타이틀 1행 + 업종 칩 (마켓 헤더와 동일 톤 — 투명 배경·구분선 없음) ── */
+.header {
+  flex: 0 0 auto;
+  padding: calc(var(--status-bar-height) + 10px) 18px 4px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-600);
+}
+
+.titleRow h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 1px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+}
+
+/* 지역 선택 버튼 — 헤더 좌측(eyebrow+타이틀)을 감싸 지역 선택 시트를 연다 */
+.locationBtn {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.locationBtn:active {
+  opacity: .7;
+}
+
+.caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-3);
+  padding-top: 3px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 마켓 .wishlistBtn 규격 — 40×40 / radius 12px / 눌림은 배경 틴트 */
+.headerActions button {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--text-2);
+}
+
+.headerActions button:active {
+  background: var(--surface-2);
+}
+
+/* 언더라인 탭 — 검색창·칩과 형태가 겹치지 않도록 박스 없이 텍스트+인디케이터만 */
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.tabs button {
+  position: relative;
+  min-height: 44px;
+  padding: 0 11px;
+  color: var(--text-3);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tabs button:first-child {
+  margin-left: -11px; /* 탭 텍스트를 타이틀 좌측 라인에 정렬 */
+}
+
+.tabs .tabActive {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.tabs .tabActive::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--brand-500);
+}
+
+.tabs button:first-child.tabActive::after {
+  left: 0;
+}
+
+/* 업종 칩 레일 — 좌우 여백 밖까지 흘려서 엣지-투-엣지 스크롤.
+ * 칩 자체는 마켓 필터칩 규격(6px 12px / r999 / 13px·600 / active = var(--text)). */
+.categoryRail {
+  display: flex;
+  gap: 8px;
+  margin: 0 -18px;
+  padding: 12px 18px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.categoryRail::-webkit-scrollbar { display: none; }
+
+.categoryRail button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.categoryRail button:active {
+  background: var(--surface-2);
+}
+
+.categoryRail .categoryActive {
+  border-color: var(--text);
+  background: var(--text);
+  color: #fff;
+}
+
+/* ── 콘텐츠 ── */
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 18px 92px; /* 하단은 지도 필 만큼 여유 */
+  -webkit-overflow-scrolling: touch;
+}
+
+.resultHead {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 4px 0 2px;
+}
+
+.resultHead strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultHead span {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── 가게 카드 (주인공) — 당근형 리치 카드: 상호·업종 → 별점·단골·거리 → 사진 레일 → 소식 → 리뷰 프리뷰.
+ * 매물(썸네일 좌측 행)과 확연히 다른 풀폭 세로 구성 — 카드 자체가 가게의 살아있는 정보를 요약한다.
+ * 카드 마크업/스타일은 BizRichCard.tsx + BizRichCard.module.css 로 추출됨(리스트·지도 바텀시트 공용). */
+.bizList {
+  display: flex;
+  flex-direction: column;
+}
+
+.bizLimitNote {
+  margin: 16px 4px 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── 소식(피드) 그리드 ── */
+.feedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.feedCard {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+  transition: transform .12s ease;
+}
+
+.feedCard:active {
+  transform: scale(.98);
+}
+
+.feedPhoto,
+.feedPlaceholder {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1.15;
+  place-items: center;
+  object-fit: cover;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.feedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px 12px;
+}
+
+.feedAuthor {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+}
+
+.avatar {
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+}
+
+.feedAuthor strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedAuthor small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.feedCaption {
+  display: -webkit-box;
+  min-height: 36px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.feedMeta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.feedMeta > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ── 매물 행 (후순위 탭) — 제목 → 가격(굵게) → 동네·시간, 0 카운트 숨김 ── */
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.listingRow {
+  display: flex;
+  width: 100%;
+  gap: 14px;
+  padding: 14px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  transition: background .12s ease;
+}
+
+.listingRow:active {
+  background: var(--surface-2);
+}
+
+.listingThumb {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(11, 13, 20, .04);
+}
+
+.listingThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.listingStatus {
+  position: absolute;
+  left: 5px;
+  bottom: 5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.listingBody {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  padding: 1px 0;
+}
+
+.listingTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.listingPrice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+
+.dropBadge {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.listingMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.listingMeta {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listingCounts {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.listingCounts > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ── 로딩 스켈레톤 — 탭별 실제 카드 골격을 그대로 ── */
+.skeletons {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 가게 카드 골격 미러 — 상호 줄 + 메타 줄 + 사진 레일 */
+.skeletonBiz {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 15px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.skeletonBizName {
+  width: 46%;
+  height: 16px;
+  border-radius: 8px;
+}
+
+.skeletonBizMeta {
+  width: 64%;
+  height: 12px;
+  border-radius: 7px;
+}
+
+.skeletonBizRail {
+  width: 100%;
+  height: 104px;
+  border-radius: 12px;
+}
+
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.skeletonTile {
+  aspect-ratio: .8;
+  border-radius: 16px;
+}
+
+.skeletonBizName,
+.skeletonBizMeta,
+.skeletonBizRail,
+.skeletonTile {
+  background: linear-gradient(100deg, var(--surface-2) 20%, var(--surface) 45%, var(--surface-2) 70%);
+  background-size: 220% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position-x: -220%; }
+}
+
+/* ── 빈 상태 / 오류 상태 ── */
+.state {
+  display: flex;
+  min-height: 300px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 30px;
+  text-align: center;
+}
+
+.stateIcon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.state strong {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.state p {
+  max-width: 260px;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.state button {
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.state button:active {
+  transform: scale(.97);
+}
+
+.loadMore {
+  display: block;
+  min-width: 140px;
+  min-height: 44px;
+  margin: 16px auto 0;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.loadMore:active {
+  background: var(--surface-2);
+}
+
+.loadMore:disabled { opacity: .55; }
+
+/* ── 플로팅: 지도 진입 필(중앙) + 판매 FAB(우하단, 전 탭 공통) ── */
+.mapPill {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 19px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 750;
+  box-shadow: 0 6px 18px rgba(11, 13, 20, .30);
+  transform: translateX(-50%);
+}
+
+.mapPill:active {
+  transform: translateX(-50%) scale(.96);
+}
+
+.sellFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(255, 90, 31, .42);
+}
+
+.sellFab:active {
+  transform: scale(.94);
+}
+
+.mapLoading {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+@media (max-width: 360px) {
+  .header { padding-left: 14px; padding-right: 14px; }
+  .content { padding-left: 14px; padding-right: 14px; }
+  .categoryRail { margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+}

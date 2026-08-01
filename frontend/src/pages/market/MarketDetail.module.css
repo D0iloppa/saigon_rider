@@ -1,0 +1,477 @@
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Top bar (back) ── */
+.topbar {
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.topbarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--text);
+}
+
+.moreSheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.moreItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.moreItem:active {
+  background: var(--surface-2);
+}
+
+.moreDanger {
+  color: var(--danger);
+}
+
+.backBtn {
+  border-radius: 12px;
+}
+
+.backBtn:active {
+  background: var(--surface-2);
+}
+
+/* ── Scroll content ── */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hero {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-2);
+}
+
+.body {
+  padding: 18px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Seller */
+.sellerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sellerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sellerAvatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.sellerInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sellerName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sellerSub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.trustBadges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.trustChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.regularBtn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--brand-500);
+  background: transparent;
+  color: var(--brand-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.regularBtnActive {
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.statusBadge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statusSold {
+  background: var(--text-3);
+}
+
+/* Title + meta */
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  margin-top: 16px;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 6px;
+}
+
+/* Price */
+.priceRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* 배지·pill 로 좁아질 때 가격 대신 pill 이 줄바꿈되도록 */
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.price {
+  font-size: 22px;
+  font-weight: 700; /* Space Grotesk 로드 최대 굵기 (design-system §1) */
+  color: var(--text);
+  white-space: nowrap; /* "3.220.000 đ" 의 đ 가 단독 줄바꿈되는 것 방지 */
+}
+
+.dropBadge {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.origPrice {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.negotiable {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* Description */
+.description {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.translationNote {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.translateBtn {
+  margin-top: 8px;
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-500);
+}
+
+.translateBtn:disabled {
+  opacity: .6;
+}
+
+/* Seller's other listings */
+.otherSection {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.otherTitle {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.otherRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -20px;
+  padding: 0 20px 4px;
+}
+
+.otherRow::-webkit-scrollbar { display: none; }
+
+.otherCard {
+  flex-shrink: 0;
+  width: 116px;
+  text-align: left;
+}
+
+.otherThumb {
+  display: block;
+  width: 116px;
+  height: 116px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.otherThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.otherCardTitle {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.otherCardPrice {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Bottom action bar ── */
+.actionBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px calc(12px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.likes {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.likeBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding: 4px;
+}
+
+.likeBtnActive {
+  color: var(--brand-500);
+}
+
+.likeBtn:active {
+  opacity: .7;
+}
+
+.offerBtn {
+  flex: 1;
+}
+
+.chatBtn {
+  flex: 1;
+}
+
+/* Seller controls (가격 수정 + 상태 전환) */
+.sellerControls {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding-bottom: var(--bottom-safe);
+}
+
+.priceEditBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand-500);
+  border-bottom: 1px solid var(--line);
+}
+
+.priceEditBtn:active { opacity: .7; }
+.priceEditBtn:disabled { color: var(--text-3); }
+
+/* Seller status control bar */
+.statusBar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--surface);
+}
+
+/* 가격 수정 시트 */
+.priceSheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.priceSheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.priceField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pricePrefix {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.priceInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.priceInput:focus { outline: none; }
+
+.priceHint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.priceSubmit {
+  margin-top: 20px;
+}
+
+.statusOpt {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+  transition: all .15s ease;
+}
+
+.statusOptActive {
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: #fff;
+}
+
+/* Skeletons */
+.heroSkeleton {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.lineSkeleton {
+  height: 18px;
+  border-radius: 8px;
+  margin-top: 12px;
+}

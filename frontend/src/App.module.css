@@ -1,0 +1,41 @@
+/* 동네지도 → 상세 3종(업체/매물/피드) 전체화면 오버레이 (2026-07-12 라우트-모달) —
+   배경(지도)은 언마운트 없이 그대로 유지되고, 이 레이어가 위를 불투명하게 덮는다.
+   z-index: 지도 내부 오버레이(searchPanel 15 등)보다 위, AppShell splash(999)보다 아래. */
+.detailOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* F-19: 강제 업데이트 차단 화면 — splash(999) 보다 위, 앱 전체를 덮는다 */
+.forceUpdateBlock {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.forceUpdateEmoji {
+  font-size: 48px;
+}
+
+.forceUpdateTitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.forceUpdateBody {
+  font-size: 14px;
+  color: var(--text-2);
+  max-width: 280px;
+}

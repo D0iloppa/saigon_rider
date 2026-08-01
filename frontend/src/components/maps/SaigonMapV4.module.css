@@ -1,0 +1,92 @@
+/* Saigon Map v4 — 동네지도 전용. GPS ward 자동진입 + 전체 depth3 오버레이 + 블록 선택 */
+.stage {
+  position: relative;
+  overflow: hidden;
+  background: #eef7f5;
+}
+
+.svg { display: block; width: 100%; height: 100%; touch-action: none; }
+.svg.grab { cursor: grab; }
+
+/* 줌 버튼 (우상단) */
+.zoomControls {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 6;
+}
+/* 내 위치 버튼 (우하단) */
+.controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+}
+.ctrlBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: #444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctrlBtn:disabled { opacity: 0.4; cursor: default; }
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8c99a0;
+  font-size: 12px;
+  background: rgba(238, 247, 245, 0.7);
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: rgba(40, 44, 52, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 20px;
+  z-index: 7;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: srv4toast 0.2s ease;
+}
+@keyframes srv4toast {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 내 위치 마커 */
+.meRing { fill: rgba(30, 136, 229, 0.18); }
+.meDot { fill: #1e88e5; stroke: #fff; }
+
+/* 마커 핀 */
+.marker { cursor: pointer; }
+
+/* depth3 — 건물/도로/수로 */
+.land { fill: #f7faf9; }
+.bldg { fill: #e7e0d2; stroke: #d9cfbc; stroke-width: 0.4; stroke-linejoin: round; }
+.road { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.water { fill: #bee7f5; stroke: #7cc7e0; stroke-width: 1; }
+.wline { fill: none; stroke: #9ad4ec; stroke-width: 5; stroke-linecap: round; }
+
+/* ward 외곽선 */
+.wardBorder { fill: none; stroke: #8c99a0; stroke-width: 3; stroke-linejoin: round; }

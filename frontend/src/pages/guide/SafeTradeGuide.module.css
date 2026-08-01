@@ -1,0 +1,352 @@
+/* ── Root ── */
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  overflow: hidden;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, 'Helvetica Neue', sans-serif;
+  color: #1c1c1e;
+}
+
+/* ── 헤더 ── */
+.header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: calc(var(--status-bar-height) + 14px) 20px 14px;
+  border-bottom: 1px solid #f0f0f2;
+  position: relative;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  z-index: 1;
+}
+
+.headerTitle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  pointer-events: none;
+}
+
+/* ── 스크롤 영역 ── */
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── 섹션 타이틀 ── */
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  padding: 0 20px 14px;
+  color: #1c1c1e;
+}
+
+/* ── 히어로 ── */
+.heroWrap {
+  padding: 18px 20px 26px;
+}
+
+.hero {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(110deg, #ffe7d3, #ffd9bd);
+  padding: 28px 22px;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+}
+
+.heroLeft {
+  max-width: 58%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.heroTitle {
+  font-size: 22px;
+  font-weight: 900;
+  color: #2f2114;
+  letter-spacing: -0.8px;
+  line-height: 1.32;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
+.heroSub {
+  font-size: 14px;
+  font-weight: 500;
+  color: #9a6a44;
+  letter-spacing: -0.3px;
+  line-height: 1.5;
+}
+
+.heroIllo {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ── 4원칙 한 화면 균등 배치 ── */
+.principlesRow {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 28px;
+}
+
+.principleCard {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #ededf0;
+  border-radius: 14px;
+  padding: 12px 6px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.principleNum {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f8602a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.principleIcon {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.principleCardTitle {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin-top: 7px;
+  color: #1c1c1e;
+  word-break: keep-all;
+  line-height: 1.3;
+}
+
+.principleCardDesc {
+  font-size: 9.5px;
+  color: #8e8e93;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 5px;
+  word-break: keep-all;
+}
+
+/* ── 사기 유형 아코디언 ── */
+.fraudList {
+  margin: 0 20px 30px;
+  border: 1px solid #ededf0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.fraudItem {
+  /* border-top set inline */
+}
+
+.fraudHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 16px;
+  cursor: pointer;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.fraudTile {
+  position: relative;
+  flex-shrink: 0;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fraudWarning {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 21px;
+  height: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fraudText {
+  flex: 1;
+  min-width: 0;
+}
+
+.fraudTitle {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: #1c1c1e;
+}
+
+.fraudDesc {
+  font-size: 13px;
+  color: #5a5a5f;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.fraudTips {
+  padding: 0 16px 18px 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.fraudTip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.fraudTip span {
+  font-size: 13px;
+  color: #3c3c43;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* ── 안전거래 기능 ── */
+.features {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px 26px;
+}
+
+.featCard {
+  flex: 1;
+  border: 1px solid #ededf0;
+  border-radius: 15px;
+  padding: 16px 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.featIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+
+.featTitle {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  margin-bottom: 6px;
+  color: #1c1c1e;
+}
+
+.featDesc {
+  font-size: 11px;
+  color: #8e8e93;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* ── 도움말 ── */
+.helpWrap {
+  padding: 0 20px;
+}
+
+.helpCard {
+  background: #fbf1e8;
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.helpText {
+  flex: 1;
+  min-width: 0;
+}
+
+.helpTitle {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: #1c1c1e;
+}
+
+.helpDesc {
+  font-size: 12.5px;
+  color: #7a6a5c;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.helpBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #e7ddd2;
+  border-radius: 11px;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2f2114;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+/* ── 하단 여백 ── */
+.bottomPad {
+  height: 32px;
+}

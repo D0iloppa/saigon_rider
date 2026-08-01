@@ -1,0 +1,391 @@
+.root {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Header ── */
+/* status bar 흡수 방식을 동네지도(NeighborhoodMapList) 헤더와 통일 —
+ * calc(var(--status-bar-height) + 10px) 상단 여백으로 아이콘 행 높이를 맞춘다. */
+.header {
+  padding: calc(var(--status-bar-height) + 10px) 20px 0;
+  flex-shrink: 0;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-3);
+  padding-top: 3px;
+}
+
+.tagline {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.wishlistBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--text-2);
+}
+
+.wishlistBtn:active {
+  background: var(--surface-2);
+}
+
+/* Sort + hide-sold controls */
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0 12px;
+}
+
+.sortSelect {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Sort bottom sheet */
+.sortSheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.sortSheetTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 4px 6px 10px;
+}
+
+.sortOption {
+  padding: 14px 6px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.sortOptionActive {
+  color: var(--brand-500);
+  font-weight: 700;
+}
+
+/* 글쓰기 FAB — 네비 바로 위 고정 overlay (스크롤·아이템 수 무관) */
+.writeFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: var(--shadow-pop); /* 화면 주 액션 1곳 (design-system §6) */
+}
+
+.writeFab:active {
+  opacity: .85;
+}
+
+/* ── List area ── */
+.listArea {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+.listContent {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* 플랫 리스트 — 행 간격은 ListingCard 패딩+헤어라인이 만든다 (업리프트 260706) */
+  min-height: 100%;
+}
+
+/* 로딩 스켈레톤 — ListingCard 골격 미러 (썸네일 104px + 텍스트 바) */
+.skelCard {
+  display: flex;
+  gap: 14px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.skelThumb {
+  width: 104px;
+  height: 104px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.skelBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 4px;
+}
+
+/* Empty state — 공용 StateBlock 래퍼 (세로 중앙 정렬만 담당) */
+.emptyWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ── 키워드 알림 시트 ── */
+.alertSheet {
+  padding: 8px 20px 24px;
+}
+
+.alertTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.alertDesc {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.alertInputRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.alertInput {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 11px 14px;
+  font-size: 15px;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.alertInput:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
+.alertChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.alertChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 7px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.alertChipX {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-3);
+  color: var(--surface);
+}
+
+.alertEmpty {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* 지역명 버튼 (헤더 좌측) */
+.locationBtn {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.locationBtn:active { opacity: 0.7; }
+
+/* 지역 선택 시트 */
+.locSheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.locHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 2px 2px;
+}
+
+.locEyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.locCurrent {
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--brand-600);
+}
+
+.locDesc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.locCard {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.locCardActive {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+}
+
+.locCardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.locCardActive .locCardIcon {
+  background: var(--surface);
+  color: var(--brand-600);
+}
+
+.locCardBody {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.locCardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.locCardText {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.locCardCheck {
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.locMapPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.locMapCaption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.locMapInner {
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.locActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  z-index: 1;
+}

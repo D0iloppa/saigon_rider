@@ -1,0 +1,505 @@
+networks:
+  dev-net:
+    driver: bridge
+    name: ${NETWORK_BRIDGE}
+
+volumes:
+  saigon_db_data:
+  saigon_redis_data:
+
+services:
+
+  # ── Nginx (Reverse Proxy) ─────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: saigon_nginx
+    ports:
+      - "${NGINX_PORT}:80"
+      - "${BIZ_LANDING_PORT}:81"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/docker-entrypoint.d:/docker-entrypoint.d:ro
+      - ./nginx/pages:/etc/nginx/pages:ro
+      - ./dev-test:/srv/dev-test:ro
+      - ./landing:/etc/nginx/landing:ro
+    networks:
+      - dev-net
+    depends_on:
+      - frontend
+      - imgproxy
+    environment:
+      - WIKI_AUTH_USER=${WIKI_AUTH_USER:-admin}
+      # 기본값 금지 — .env 누락 시 공개 비밀번호로 조용히 기동되는 사고 방지 (fail-fast)
+      - WIKI_AUTH_PASS=${WIKI_AUTH_PASS:?WIKI_AUTH_PASS missing in .env}
+    restart: unless-stopped
+
+  # ── Frontend (React + Vite → nginx 정적 서빙) ────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: saigon_frontend
+    ports:
+      - "${FRONTEND_PORT}:80"
+    networks:
+      - dev-net
+    restart: unless-stopped
+
+  # ── Admin Frontend (React SPA → nginx 정적 서빙) ──────────
+  # 포트 미노출 — 진입 nginx 경유(/admin/)로만 접근 (내부 네트워크 전용)
+  admin_frontend:
+    build:
+      context: ./admin-frontend
+      dockerfile: Dockerfile
+    container_name: saigon_admin_frontend
+    networks:
+      - dev-net
+    restart: unless-stopped
+
+  # ── Imgproxy (Image Processing) ───────────────────────────
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    container_name: saigon_imgproxy
+    volumes:
+      - ./contents:/data:ro
+    networks:
+      - dev-net
+    environment:
+      - IMGPROXY_LOCAL_FILESYSTEM_ROOT=/data
+      - IMGPROXY_KEY=${IMGPROXY_KEY:-}
+      - IMGPROXY_SALT=${IMGPROXY_SALT:-}
+      - IMGPROXY_MAX_SRC_RESOLUTION=50
+      - IMGPROXY_ALLOWED_SOURCES=local://
+    restart: unless-stopped
+
+  # ── BFF (FastAPI, 기존 backend → 역할 재정의) ───────────────
+  # docker compose --profile backend up
+  bff_migrate:
+    image: postgis/postgis:15-3.3
+    container_name: saigon_bff_migrate
+    profiles: [backend]
+    entrypoint: ["psql"]
+    command:
+      - "-v"
+      - "ON_ERROR_STOP=1"
+      - "-f"
+      - "/migrations/160_schema_migrations.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (160) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/139_marketplace_reviews_rating_int.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (139) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/140_marketplace_trade_integrity.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (140) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/141_app_versions_active_unique.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (141) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/142_notifications_support_type.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (142) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/143_marketplace_biz_poi_geom.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (143) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/144_reports_feed.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (144) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/145_notifications_event_idempotency.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (145) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/146_notification_outbox.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (146) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/147_admin_accounts_role.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (147) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/148_marketplace_ads_exposure.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (148) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/149_ads_tiers.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (149) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/150_ad_tier_prices.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (150) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/151_biz_verification.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (151) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/152_business_follow.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (152) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/153_ad_events.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (153) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/154_ad_daily_stats.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (154) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/155_ad_tier_features.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (155) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/156_business_price.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (156) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/157_flood_hotspot_seed_expand.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (157) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/158_flood_risk_daily_stale_flag.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (158) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/159_wards_seed.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (159) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/161_contents_is_private_flag.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (161) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/162_marketplace_listing_withdrawn_status.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (162) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/163_user_consent_capture.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (163) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/164_search_blob.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (164) ON CONFLICT DO NOTHING;"
+    volumes:
+      - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
+      - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
+      - ./database/init/140_marketplace_trade_integrity.sql:/migrations/140_marketplace_trade_integrity.sql:ro
+      - ./database/init/141_app_versions_active_unique.sql:/migrations/141_app_versions_active_unique.sql:ro
+      - ./database/init/142_notifications_support_type.sql:/migrations/142_notifications_support_type.sql:ro
+      - ./database/init/143_marketplace_biz_poi_geom.sql:/migrations/143_marketplace_biz_poi_geom.sql:ro
+      - ./database/init/144_reports_feed.sql:/migrations/144_reports_feed.sql:ro
+      - ./database/init/145_notifications_event_idempotency.sql:/migrations/145_notifications_event_idempotency.sql:ro
+      - ./database/init/146_notification_outbox.sql:/migrations/146_notification_outbox.sql:ro
+      - ./database/init/147_admin_accounts_role.sql:/migrations/147_admin_accounts_role.sql:ro
+      - ./database/init/148_marketplace_ads_exposure.sql:/migrations/148_marketplace_ads_exposure.sql:ro
+      - ./database/init/149_ads_tiers.sql:/migrations/149_ads_tiers.sql:ro
+      - ./database/init/150_ad_tier_prices.sql:/migrations/150_ad_tier_prices.sql:ro
+      - ./database/init/151_biz_verification.sql:/migrations/151_biz_verification.sql:ro
+      - ./database/init/152_business_follow.sql:/migrations/152_business_follow.sql:ro
+      - ./database/init/153_ad_events.sql:/migrations/153_ad_events.sql:ro
+      - ./database/init/154_ad_daily_stats.sql:/migrations/154_ad_daily_stats.sql:ro
+      - ./database/init/155_ad_tier_features.sql:/migrations/155_ad_tier_features.sql:ro
+      - ./database/init/156_business_price.sql:/migrations/156_business_price.sql:ro
+      - ./database/init/157_flood_hotspot_seed_expand.sql:/migrations/157_flood_hotspot_seed_expand.sql:ro
+      - ./database/init/158_flood_risk_daily_stale_flag.sql:/migrations/158_flood_risk_daily_stale_flag.sql:ro
+      - ./database/init/159_wards_seed.sql:/migrations/159_wards_seed.sql:ro
+      - ./database/init/161_contents_is_private_flag.sql:/migrations/161_contents_is_private_flag.sql:ro
+      - ./database/init/162_marketplace_listing_withdrawn_status.sql:/migrations/162_marketplace_listing_withdrawn_status.sql:ro
+      - ./database/init/163_user_consent_capture.sql:/migrations/163_user_consent_capture.sql:ro
+      - ./database/init/164_search_blob.sql:/migrations/164_search_blob.sql:ro
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - PGHOST=database
+      - PGPORT=5432
+      - PGDATABASE=${DB_NAME}
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+    restart: "no"
+
+  bff:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saigon_bff
+    profiles: [backend]
+    ports:
+      - "${BACKEND_PORT}:8080"
+    volumes:
+      - ./backend:/app
+      - ./contents:/data
+      - ./frontend/src/components/maps/v2/saigon-depth1.json:/service-area/saigon-depth1.json:ro
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      bff_migrate:
+        condition: service_completed_successfully
+      engine:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - ENGINE_BASE_URL=http://engine:8090
+      # 기본값 금지 — 비어있으면 BFF↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
+      - CONTENTS_BASE_PATH=/data
+      - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL}
+      - IMGPROXY_KEY=${IMGPROXY_KEY:-}
+      - IMGPROXY_SALT=${IMGPROXY_SALT:-}
+      - BFF_PUBLIC_URL=${BFF_PUBLIC_URL}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - APP_TIMEZONE=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
+      - TZ=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      # 기본값 금지 — 비어있으면 root 관리자 비밀번호 검증이 무력화되는 사고 방지 (fail-fast)
+      - ADMIN_PASS_HASH=${ADMIN_PASS_HASH:?ADMIN_PASS_HASH missing in .env}
+      # 기본값 금지 — 공개 문자열로 admin JWT가 서명되면 위조 가능 (fail-fast)
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET missing in .env}
+      - WIKI_BASE_PATH=${WIKI_BASE_PATH:-/wiki/}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+      - RAINVIEWER_API_KEY=${RAINVIEWER_API_KEY:-}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
+      - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}
+      - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      # Zalo OAuth 인증 호출을 베트남 IP 프록시로 경유 (-501 우회). 미설정 시 직접 호출. CLAUDE.md '## Zalo 인증 프록시 VPS' 참조.
+      - ZALO_API_PROXY=${ZALO_API_PROXY:-}
+      # F-17/F-18: 신고 접수·미처리 예외 운영자 알림 웹훅. 미설정 시 로그만(무동작).
+      - OPS_ALERT_WEBHOOK_URL=${OPS_ALERT_WEBHOOK_URL:-}
+      # dev/prod 분기 (SMS 스텁·dev-login 노출 제어). prod 는 docker-compose.prod.yml 이 production 으로 고정.
+      - APP_ENV=${APP_ENV:-development}
+      # 개발 전용 OTP 검증 우회 — APP_ENV 이중게이트. docker-compose.prod.yml 에는 절대 추가하지 말 것.
+      - OTP_DEV_BYPASS=${OTP_DEV_BYPASS:-}
+      # 개발 전용 — /auth/dev-login-as(지정 계정 OAuth 우회 로그인) 허용 Host. APP_ENV 이중게이트.
+      - DEV_HOST=${DEV_HOST:-}
+      - OSM_OVERPASS_ENDPOINT=${OSM_OVERPASS_ENDPOINT:-https://overpass-api.de/api/interpreter}
+      - WEATHER_CACHE_TTL_CURRENT=${WEATHER_CACHE_TTL_CURRENT:-600}
+      - WEATHER_CACHE_TTL_FORECAST_1H=${WEATHER_CACHE_TTL_FORECAST_1H:-1800}
+      - WEATHER_CACHE_TTL_FORECAST_24H=${WEATHER_CACHE_TTL_FORECAST_24H:-3600}
+      - PLANE_API_KEY=${PLANE_API_KEY:-}
+      - PLANE_URL=${PLANE_URL:-https://plane.doil.me}
+      - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
+      - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/ready').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── MCP Dev Server (legacy — Plane으로 대체) ─────────────
+  # docker compose --profile legacy up
+  mcp_dev:
+    build:
+      context: ./mcp_dev
+      dockerfile: Dockerfile
+    container_name: saigon_mcp_dev
+    profiles: [backend]
+    ports:
+      - "${MCP_DEV_PORT:-8095}:8095"
+    volumes:
+      - ./mcp_dev:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - PLANE_API_KEY=${PLANE_API_KEY:-}
+      - PLANE_URL=${PLANE_URL:-https://plane.doil.me}
+      - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
+      - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
+    restart: unless-stopped
+
+  # ── Engine (SRE, 신규) ────────────────────────────────────
+  # docker compose --profile backend up
+  engine:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    container_name: saigon_engine
+    profiles: [backend]
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8090 --reload"]
+    ports:
+      - "${ENGINE_PORT:-8090}:8090"
+    volumes:
+      - ./engine:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
+      # 기본값 금지 — 비어있으면 BFF↔Engine / worker↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
+      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET:?ENGINE_ADMIN_JWT_SECRET missing in .env}
+      - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
+      - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON:-/app/firebase-credentials.json}
+      - FCM_PUSH_HISTORY_TTL_DAYS=${FCM_PUSH_HISTORY_TTL_DAYS:-7}
+      - SRE_TIMEZONE=Asia/Ho_Chi_Minh
+      - SRE_RP_EXPIRY_MONTHS=3
+      - SRE_DAILY_CAP_STANDARD=250
+      - SRE_DAILY_CAP_DRIVER=2000
+      - SRE_NEW_ACCOUNT_PENALTY_DAYS=3
+      - SRE_NEW_ACCOUNT_MULTIPLIER=0.5
+      - SRE_IDEMPOTENCY_TTL_DAYS=7
+      - SRE_LOG_LEVEL=INFO
+      # F-18: 미처리 예외 운영자 알림 웹훅. 미설정 시 로그만(무동작).
+      - OPS_ALERT_WEBHOOK_URL=${OPS_ALERT_WEBHOOK_URL:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/v1/ready').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Worker (Redis Streams Consumer) ──────────────────────
+  # docker compose --profile backend up
+  worker:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    container_name: saigon_worker
+    profiles: [backend]
+    command: ["python", "-m", "app.workers"]
+    volumes:
+      - ./engine:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      engine:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
+      # 기본값 금지 — 비어있으면 BFF↔Engine / worker↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
+      - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET:?ENGINE_ADMIN_JWT_SECRET missing in .env}
+      - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
+      - SRE_LOG_LEVEL=INFO
+    # 프로세스 생존은 Docker가 판단하고 healthcheck는 DB·Redis·migration readiness만 판정한다.
+    # 루프 heartbeat는 운영 관측용이며 readiness와 섞지 않는다.
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.readiness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Noti Worker (알림 이벤트 소비 — noti:events) ──────────
+  # docker compose --profile backend up
+  # backend(bff) 이미지 재사용 + command 오버라이드. 자동 reload 없음 — 코드 수정 시 재시작 필수.
+  noti_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saigon_noti_worker
+    profiles: [backend]
+    command: ["python", "-m", "app.noti_worker"]
+    volumes:
+      - ./backend:/app
+    networks:
+      - dev-net
+    depends_on:
+      database:
+        condition: service_healthy
+      bff_migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      engine:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379/0
+      - ENGINE_BASE_URL=http://engine:8090
+      # 기본값 금지 — 비어있으면 BFF↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
+      - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}
+      - TZ=${APP_TIMEZONE:-Asia/Ho_Chi_Minh}
+      # F-17: 신고 접수 운영자 알림 웹훅. 미설정 시 로그만(무동작).
+      - OPS_ALERT_WEBHOOK_URL=${OPS_ALERT_WEBHOOK_URL:-}
+    # 워커 루프가 매 iteration 마다 갱신하는 heartbeat(TTL 30s)로 liveness 판정 (engine worker 와 동일 패턴)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,redis; sys.exit(0 if (redis.Redis.from_url(os.environ['REDIS_URL']).ttl('noti:worker:heartbeat') or 0) > 0 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Wiki (Docusaurus — 개발자 문서 포털) ──────────────────────
+  # docker compose --profile wiki up --build -d
+  wiki:
+    build:
+      context: ./wiki
+      dockerfile: Dockerfile
+    container_name: saigon_wiki
+    profiles: [wiki]
+    networks:
+      - dev-net
+    restart: unless-stopped
+
+  # ── Redis (Message Queue — Streams) ──────────────────────
+  # docker compose --profile backend up
+  redis:
+    image: redis:7-alpine
+    container_name: saigon_redis
+    profiles: [backend]
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - saigon_redis_data:/data
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Database (PostgreSQL + PostGIS) ───────────────────────
+  # docker compose --profile backend up
+  database:
+    image: postgis/postgis:15-3.3
+    container_name: saigon_db
+    profiles: [backend]
+    command: ["postgres", "-c", "app.seed_profile=${APP_ENV:-production}"]
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - saigon_db_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dev-net
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

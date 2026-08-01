@@ -1,0 +1,429 @@
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 32px;
+}
+
+.photoBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 180px;
+  border-radius: 14px;
+  border: 1px dashed var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.photoPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .4);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.label {
+  margin-top: 22px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
+/* ── 스텝 인디케이터 (소재 → 플랜 → 게시) ── */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px 2px;
+}
+
+.step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-bottom: 2px solid var(--line);
+}
+
+.stepNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stepLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.stepActive {
+  border-bottom-color: var(--brand-500);
+}
+
+.stepActive .stepNum {
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.stepActive .stepLabel {
+  color: var(--text);
+}
+
+.stepDone .stepNum {
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.stepDone .stepLabel {
+  color: var(--text-2);
+}
+
+/* ── 플랜 피커 — 티어 데이터 주도, 개수 확장 대응 세로 스택 ── */
+.planHeading {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.planSubtitle {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+  word-break: break-word;
+}
+
+.planList {
+  display: grid;
+  gap: 10px;
+}
+
+.planBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.planBadgeRecommend,
+.planBadgeSelected {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.planBadgeRecommend {
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.planBadgeSelected {
+  background: var(--brand-500);
+  color: white;
+}
+
+.planMetric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.planMetricLabel {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planMetricValue {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand-600);
+}
+
+.planNote {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+  word-break: break-word;
+}
+
+.planCard {
+  position: relative;
+  display: block;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.planCard:active {
+  background: var(--surface-2);
+}
+
+.planCardSelected {
+  border-color: var(--brand-500);
+  box-shadow: inset 0 0 0 1px var(--brand-500);
+}
+
+.planRadio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.planHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planName {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planPrice {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.planPrice small {
+  margin-left: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.planFeatures {
+  margin: 10px 0 0;
+  padding: 10px 0 0 28px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.planFeatures li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+.planFeatures li svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--brand-500);
+}
+
+.tierMessage {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* ── 게시 스텝 — 상시 게시 토글 ── */
+.pubRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.pubText {
+  flex: 1;
+  min-width: 0;
+}
+
+.pubTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pubDesc {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+/* ── 검증 게이트 안내 (차단 아님) ── */
+.verifyNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--brand-50);
+}
+
+.verifyNoticeIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--brand-600);
+}
+
+.verifyNoticeBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.verifyNoticeBody p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.verifyNoticeCta {
+  margin-top: 8px;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.verifyNoticeCta:active {
+  background: var(--brand-600);
+}
+
+.periodHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.periodError {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger, #e5484d);
+}
+
+.notice {
+  margin-top: 24px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px calc(12px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.footer > button {
+  flex: 1;
+}
+
+.footer > .footerBack {
+  flex: 0 0 auto;
+  min-width: 88px;
+}

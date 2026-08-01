@@ -1,0 +1,18 @@
+/* NeighborhoodProfile 장소 제안 시트 패턴 미러 */
+.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 70; }
+.sheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px 18px calc(20px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px)); display: flex; flex-direction: column; gap: 8px; max-height: 80vh; overflow-y: auto; transition: padding-bottom 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+.title { font-size: 16px; font-weight: 700; color: var(--text); }
+.bizName { font-size: 13px; font-weight: 600; color: var(--text-3); }
+
+/* 별점 — 큰 터치 타겟(48px), 선택 시 오렌지 채움 (당근 관례) */
+.starsRow { display: flex; justify-content: center; gap: 4px; margin: 8px 0 4px; }
+.starBtn { width: 48px; height: 48px; display: grid; place-items: center; background: none; border: none; padding: 0; color: var(--line); cursor: pointer; }
+.starActive { color: var(--brand-500, #FF5A1F); }
+
+.bodyField { border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 12px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); resize: none; }
+.bodyField::placeholder { color: var(--text-3); }
+
+.actions { display: flex; gap: 8px; margin-top: 10px; }
+.cancelBtn { flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; }
+.submitBtn { flex: 2; border: none; background: var(--brand-500, #FF5A1F); color: #fff; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; }
+.submitBtn:disabled { opacity: 0.5; }

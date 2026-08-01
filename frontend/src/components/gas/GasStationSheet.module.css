@@ -1,0 +1,133 @@
+/* 주유소 상세 바텀시트 — 시트 골격은 components/ui/BottomSheet, 표면 문법은 system.module.css */
+
+.body {
+  /* 하단 탭바 + 세이프에어리어 만큼 여백 → 내용이 네비에 가리지 않게 */
+  padding-bottom: calc(12px + var(--tabbar-height, 72px) + var(--bottom-safe, 0px));
+}
+
+/* ── 상단부: 타이틀행 + 닫기 (design-system §4 바텀시트) ── */
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.titleCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* 정유 브랜드 배지 — 색은 gas-tokens(브랜드 콘텐츠 컬러) */
+.brandBadge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: 'Space Grotesk', 'Pretendard', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+  margin: 0;
+}
+
+.closeBtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.closeBtn:active { background: var(--line); }
+
+.badge24h {
+  margin-top: 10px;
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+
+/* ── 메타 (영업시간·주소) ── */
+.metaList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.metaIcon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ── 참고가 (정부 공시 — InfoGasList priceCard 와 동일 문법) ── */
+.priceCard {
+  margin-top: 12px;
+  padding: 4px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.priceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.priceItem:last-child { border-bottom: none; }
+
+.priceFuel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.priceVal {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── 전화 (시트의 주 액션 1개 — brand 틴트) ── */
+.callBtn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 14px;
+  border: 1px solid var(--brand-200);
+  border-radius: 14px;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.callBtn:active { background: var(--brand-100); }

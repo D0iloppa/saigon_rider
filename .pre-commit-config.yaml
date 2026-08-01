@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.13
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: production-seed-safety
+        name: production seed safety
+        entry: python tools/check_production_seed_safety.py
+        language: system
+        pass_filenames: false
+        files: ^(database/init/.*\.sql|docker-compose(\.prod)?\.yml|tools/check_production_seed_safety\.py)$
+      - id: migration-prefix-lint
+        name: migration prefix lint
+        entry: python tools/check_migration_prefixes.py
+        language: system
+        pass_filenames: false
+        files: ^(database/init/.*\.sql|tools/check_migration_prefixes\.py)$
+      # 2026-07-31 사고 재발 방지: 104_oauth_zalo_config.sql 의 *주석 줄* 에 Zalo
+      # app secret 실값이 커밋돼 있었다(INSERT 는 CHANGE_ME 였다). 시크릿 SoT 는
+      # DB app_config 이며 파일에는 자리표시자만 둔다 — ADR `시크릿 위치` 참조.
+      - id: committed-secrets
+        name: committed secrets guard
+        entry: python tools/check_committed_secrets.py
+        language: system
+        files: ^(database/init/.*\.sql|\.env\.example|tools/check_committed_secrets\.py)$
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd frontend && npx eslint "${@/#frontend\//}"' --
+        language: system
+        files: ^frontend/src/.*\.[tj]sx?$
+        types: [file]

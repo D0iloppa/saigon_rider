@@ -1,0 +1,335 @@
+.body {
+  padding: 8px 24px calc(24px + var(--bottom-safe));
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100% - 56px - var(--status-bar-height));
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
+.sub {
+  font-size: 14px;
+  color: var(--text-2);
+  margin-bottom: 36px;
+}
+
+.input {
+  display: flex;
+  align-items: center;
+  height: 80px;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+  padding: 0 20px;
+  gap: 14px;
+  border: 2px solid transparent;
+  position: relative;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.inputShine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.5), transparent 30%);
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.input:focus-within {
+  border-color: var(--brand-500);
+  box-shadow: var(--shadow-card), 0 0 0 4px rgba(255,90,31,.12);
+}
+
+.inputError {
+  border-color: var(--danger) !important;
+  box-shadow: var(--shadow-card), 0 0 0 4px rgba(239,59,59,.12) !important;
+}
+
+.flagGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 14px;
+  border-right: 1.5px solid var(--line);
+  flex-shrink: 0;
+  background: none;
+  border-left: none;
+  border-top: none;
+  border-bottom: none;
+  cursor: pointer;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.flagEmoji {
+  width: 28px !important;
+  height: 21px !important;
+  flex-shrink: 0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.flagImg {
+  width: 32px;
+  height: 32px;
+}
+
+.code {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.input input {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-3);
+}
+
+.input input:not(:placeholder-shown) {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.input input::placeholder {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.bottomMesh {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: var(--grad-mesh-1);
+  opacity: 0.15;
+  border-radius: 0 0 44px 44px;
+  pointer-events: none;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.errorIcon { flex-shrink: 0; }
+
+.spacer { flex: 1; min-height: 24px; }
+
+.legal {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.legal a {
+  color: var(--brand-500);
+  font-weight: 600;
+}
+
+/* OTP */
+.otpRow {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 24px 0 16px;
+}
+
+.otpCell {
+  width: 48px;
+  height: 64px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  border: 2px solid transparent;
+  transition: border-color .15s;
+}
+
+.otpCellActive { border-color: var(--brand-500); box-shadow: var(--shadow-card), 0 0 0 4px rgba(255,90,31,.12); }
+.otpCellError { border-color: var(--danger); box-shadow: var(--shadow-card), 0 0 0 4px rgba(239,59,59,.12); animation: shake .3s; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.timer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+
+.resend {
+  color: var(--brand-500);
+  font-weight: 600;
+}
+
+/* ── OAuthLogin ─────────────────────────────────────────── */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 24px calc(40px + var(--bottom-safe));
+}
+
+.titleBlock {
+  margin-top: 40px;
+  margin-bottom: 48px;
+}
+
+.titleLine1, .titleLine2 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.oauthButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.oauthBtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 60px;
+  border-radius: 18px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 24px;
+  transition: opacity 0.15s;
+}
+
+.oauthBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.oauthBtnGoogle {
+  background: #fff;
+  color: #3c4043;
+  box-shadow: 0 1px 6px rgba(0,0,0,.15);
+}
+
+.oauthBtnApple {
+  background: #000;
+  color: #fff;
+}
+
+.oauthBtnZalo {
+  background: #0068ff;
+  color: #fff;
+}
+
+.oauthBtnFacebook {
+  background: #1877f2;
+  color: #fff;
+}
+
+.gisButtonWrap {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* GIS renderButton이 삽입된 뒤에는 placeholder 숨김 */
+.gisButtonWrap > div + .oauthBtnPlaceholder {
+  display: none;
+}
+
+.oauthBtnPlaceholder {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.oauthBtnIcon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.errorText {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--danger);
+  text-align: center;
+}
+
+.legalText {
+  margin-top: auto;
+  padding-top: 32px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.legalLink {
+  color: var(--brand-500);
+  font-weight: 600;
+}
+
+.devLoginBtn {
+  margin-top: 16px;
+  background: none;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text-3);
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.15s;
+}
+
+.devLoginBtn:disabled {
+  opacity: 0.5;
+}

@@ -1,0 +1,53 @@
+{
+  "worktree": {
+    "bgIsolation": "none"
+  },
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--browser-url",
+        "http://localhost:9222"
+      ]
+    },
+    "doil-services": {
+      "command": "node",
+      "args": [
+        "/mnt/c/DEV/docker/doil-sb/mcp/index.js"
+      ],
+      "env": {
+        "PLANE_URL": "https://plane.doil.me",
+        "PLANE_API_KEY": "plane_api_a928325fd0bf4c95bedc5b6faf657b9f",
+        "MATTERMOST_URL": "https://doil.me/mm",
+        "MATTERMOST_TOKEN": ""
+      }
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "touch \"${CLAUDE_PROJECT_DIR:-.}/.claude/.needs-reindex\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR:-/mnt/c/DEV/saigon_rider}/.claude/hooks/reindex-on-stop.sh\"",
+            "timeout": 30,
+            "statusMessage": "codebase-memory 재색인 트리거 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

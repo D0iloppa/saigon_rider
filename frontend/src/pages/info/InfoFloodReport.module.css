@@ -1,0 +1,213 @@
+/* 침수 제보 전용 스타일 — 공통 문법은 styles/system.module.css 참조 */
+
+.saveBtn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-600);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.saveBtn:disabled { color: var(--text-3); cursor: default; }
+
+/* sys.scroll 위에 폼 여백만 추가 */
+.scroll { padding: 16px; }
+
+/* ── Location Card ── */
+.locationCard {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: 14px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(11, 13, 20, .04);
+  margin-bottom: 14px;
+}
+
+.locationRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.locationPin {
+  color: var(--brand-500);
+  flex-shrink: 0;
+}
+
+.locationLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.locationName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.locateBtn:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+/* ── Depth (침수지도 제보 시트와 동일 문법 — flood-tokens 색) ── */
+.depthTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.depthGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.depthBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.depthBtn:active { background: var(--surface-2); }
+
+.depthBtnSel {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.depthDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.depthLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Photo ── */
+.photoTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.photoBox {
+  width: 100%;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.photoBox:active { background: var(--surface-2); }
+
+.photoBoxActive {
+  border-color: var(--success);
+  background: rgba(22, 163, 74, .08);
+  color: var(--success);
+}
+
+.photoLabel {
+  font-size: 13px;
+  color: inherit;
+}
+
+/* ── Divider ── */
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin-bottom: 14px;
+}
+
+/* ── XP 예상 박스 (리워드 골드 톤 — system badgeGold 계열) ── */
+.gpBox {
+  background: rgba(245, 158, 11, .07);
+  border: 1px solid rgba(245, 158, 11, .25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.gpTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #B45309; /* 골드 텍스트 — system badgeGold 와 동일값 */
+  margin-bottom: 8px;
+}
+
+.gpRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.gpAmount { font-weight: 700; color: #B45309; }
+.gpDim    { font-weight: 600; color: var(--text-3); }
+
+.gpTotal {
+  border-top: 1px solid rgba(245, 158, 11, .25);
+  margin-top: 8px;
+  padding-top: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #B45309;
+}
+
+/* ── CTA ── */
+.ctaWrap {
+  padding: 12px 16px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.cta {
+  width: 100%;
+  background: var(--brand-500);
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cta:active { background: var(--brand-600); }
+.cta:disabled { opacity: 0.5; cursor: default; }
+.ctaDone { background: var(--success); }

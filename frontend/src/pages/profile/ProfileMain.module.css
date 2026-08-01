@@ -1,0 +1,1360 @@
+/* ── 전체 레이아웃 ── */
+.root {
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 단일 그라데이션 배경 (전체 화면 고정) */
+.bgFixed {
+  position: fixed;
+  inset: 0;
+  background: var(--grad-sunset);
+  z-index: 0;
+}
+
+.noise {
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay; opacity: .3; pointer-events: none;
+}
+
+/* Section 1: 고정 헤더 (아바타 ~ 레벨바) */
+.fixedHeader {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1;
+  padding: 0 20px 16px;
+  color: white;
+  text-align: center;
+  pointer-events: none;
+}
+
+.fixedHeader > *,
+.fixedHeader button {
+  pointer-events: auto;
+}
+
+.settingsBtn {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 16px); right: 16px;
+  width: 40px; height: 40px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.22);
+  color: white;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.settingsBtn:active { background: rgba(255,255,255,.34); }
+
+/* Section 2: 소셜 + 액션 (fixed, Section 1 바로 아래) */
+.socialSection {
+  position: fixed;
+  left: 0; right: 0;
+  z-index: 1;
+  padding: 0 20px 16px;
+  color: white;
+  text-align: center;
+  /* top은 JS에서 Section 1 높이를 계산하여 설정 */
+}
+
+.profileActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.shareProfileBtn {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 8px;
+  background: rgba(255,255,255,.22);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.shareProfileBtn:active { background: rgba(255,255,255,.34); }
+
+.addFriendIconBtn {
+  position: relative;
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.22);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.addFriendIconBtn:active { background: rgba(255,255,255,.34); }
+
+/* 거래 이력 섹션 */
+.tradeSection {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.tradeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.tradeSectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.tradeMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.tradeEmpty {
+  padding: 14px 4px 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.tradeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.tradeRow:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.tradeThumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.tradeThumb img { width: 100%; height: 100%; object-fit: cover; }
+.tradeInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tradeTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.tradeRoleBadge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 111, 60, .14);
+  color: var(--brand-500);
+}
+.tradeRoleBadge[data-role="bought"] { background: #e7eeff; color: #3b6fe5; }
+.tradeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tradeMeta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.tradeReviewBtn {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tradeReviewBtn:active { opacity: .85; }
+.tradeReviewed {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* 안 읽은 DM 수 배지 (채팅 진입 아이콘) — 컴팩트 */
+.chatBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  border: 1.5px solid var(--surface);
+  box-sizing: content-box;
+}
+
+/* SGR-330 휴대폰 인증 신뢰 카드 */
+.verifyCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1.5px solid var(--brand-500);
+  background: var(--brand-50);
+  cursor: pointer;
+  text-align: left;
+}
+.verifyCard:active { background: var(--brand-100); }
+
+.verifyCardDone {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: default;
+}
+.verifyCardDone:active { background: var(--surface); }
+
+.verifyIcon {
+  display: grid;
+  place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--brand-600);
+  flex-shrink: 0;
+}
+
+/* verified(검증) 표시 전용 블루 — design-system §3 */
+.verifyIconDone { background: rgba(59, 130, 246, .10); color: #3B82F6; }
+
+.verifyText { flex: 1; min-width: 0; }
+
+.verifyTitle {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.verifySub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.verifyChevron { color: var(--brand-500); flex-shrink: 0; }
+
+/* 진입 행 (내 매물 · 비즈니스 파트너) */
+.entryRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 13px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+.entryRow:active { background: var(--surface-2); }
+.entryRowSpaced { margin: 12px 0; }
+
+.entryIcon {
+  display: grid;
+  place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.entryLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.entryChevron { color: var(--text-3); flex-shrink: 0; }
+
+.avatarWrap {
+  position: relative;
+  width: 104px; height: 104px;
+  margin: 16px auto 12px;
+}
+
+.avatar {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 4px solid white;
+  box-shadow: var(--shadow-pop);
+  object-fit: cover;
+  transition: opacity .2s;
+}
+
+.avatarLoading { opacity: 0.5; }
+
+.cameraBtn {
+  position: absolute;
+  bottom: 2px; right: 2px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  border: 2px solid white;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.avatarErrorMsg {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: -6px;
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.nickRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+}
+
+.editNickBtn {
+  font-size: 14px;
+  opacity: 0.7;
+  padding: 2px 4px;
+  position: relative;
+}
+
+.nickInput {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--brand-200);
+  background: var(--bg);
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+  margin: 12px 0 4px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.nickInput:focus { border-color: var(--brand-500); }
+
+.nickErrorMsg {
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.levelBadge {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  border: 3px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.nick {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.styleChip {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 5px 12px;
+  background: rgba(255,255,255,.18);
+  backdrop-filter: blur(12px);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+}
+
+.levelRow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  position: relative;
+}
+
+.levelText { color: var(--gold); }
+.levelTextRight { opacity: 0.85; }
+
+.levelBar {
+  height: 6px;
+  background: rgba(255,255,255,.25);
+  border-radius: 999px;
+  margin-top: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.levelBarFill {
+  height: 100%;
+  background: white;
+  border-radius: 999px;
+}
+
+.socialRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.socialCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.socialCell:active { opacity: 0.7; }
+
+.socialNum {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.socialLabel {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.socialDivider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.3);
+}
+
+/* Section 3: 드래그 가능 Sheet */
+.sheet {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 32px 32px 0 0;
+  overflow: hidden;
+  box-shadow: 0 -12px 40px rgba(0,0,0,.08);
+  will-change: top;
+}
+
+/* 핸들 영역: 스크롤 흐름 밖 상단 고정 */
+.sheetHandle {
+  flex-shrink: 0;
+  padding: 10px 0 16px;
+}
+
+.sheetGrabber {
+  width: 40px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 999px;
+  margin: 0 auto;
+}
+
+/* 내부 스크롤 컨테이너: 콘텐츠만 스크롤 */
+.sheetBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 20px calc(var(--tabbar-height, 72px) + 24px);
+}
+
+/* Currency */
+.currencyBento {
+  display: none !important; /* SGR-287: 재화 영역 임시 숨김(코드 보존) */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.currencyCell {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 14px 8px;
+  text-align: center;
+  border-top: 3px solid;
+  box-shadow: var(--shadow-card);
+}
+
+.currencyNum {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+}
+
+.currencyLabel {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* Garage Banner */
+.garageBanner {
+  display: none !important; /* SGR-287: My Ride 임시 숨김(코드 보존) */
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.garageBanner:active { transform: scale(.98); }
+
+.garageIconWrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #FF7438, #B82C08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255, 90, 31, .25);
+}
+
+.garageIconWrapEmpty {
+  composes: garageIconWrap;
+  background: linear-gradient(135deg, #8A8E9E, #6B6478);
+}
+
+.garageInfo { flex: 1; min-width: 0; }
+
+.garageTitle {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.garageBadge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--brand-50);
+  color: var(--brand-500);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.garageEquipped {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.garageItemThumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.garageItemRare { composes: garageItemThumb; border-color: #60A5FA; box-shadow: 0 2px 6px rgba(59, 130, 246, .2); }
+.garageItemEpic { composes: garageItemThumb; border-color: #A78BFA; box-shadow: 0 2px 6px rgba(139, 92, 246, .2); }
+.garageItemLegend { composes: garageItemThumb; border-color: #FF9966; box-shadow: 0 2px 6px rgba(255, 116, 56, .2); }
+.garageItemMythic { composes: garageItemThumb; border-color: #FF5A1F; box-shadow: 0 2px 6px rgba(255, 90, 31, .3); }
+
+.garageItemEmpty {
+  composes: garageItemThumb;
+  opacity: .35;
+  border-style: dashed;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.garageEmptyHint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.garageArrow {
+  font-size: 18px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+/* Odometer Card */
+.odometerCard {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 18px 18px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.odometerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.odometerTitle {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.odometerTierBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: .02em;
+}
+
+.odometerBig {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.odometerNum {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1;
+}
+
+.odometerFrac {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+.odometerUnit {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+.odometerSubtitle {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.odometerProgress { margin-bottom: 12px; }
+
+.odometerBarWrap {
+  height: 10px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.odometerBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .6s cubic-bezier(.2, .8, .2, 1);
+  position: relative;
+}
+
+.odometerBarFill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: inherit;
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+
+.odometerBarLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.odometerBarLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.odometerBarLabelCurrent { composes: odometerBarLabel; color: var(--text); }
+.odometerBarLabelNext { composes: odometerBarLabel; color: var(--brand-500); }
+
+.tierMilestones {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tierMilestones::-webkit-scrollbar { display: none; }
+
+.tierMilestone {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  transition: all .2s;
+}
+
+.tierMilestoneAchieved {
+  composes: tierMilestone;
+  background: var(--brand-50);
+  border-color: var(--brand-300);
+  color: var(--brand-700);
+}
+
+.tierMilestoneCurrent {
+  composes: tierMilestone;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 1px var(--brand-500);
+}
+
+.tierMilestoneAchievedCurrent {
+  composes: tierMilestone;
+  background: var(--brand-50);
+  border-color: var(--brand-500);
+  color: var(--brand-700);
+  box-shadow: 0 0 0 1px var(--brand-500);
+}
+
+.tierIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tierName {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.tierKm {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  color: var(--text-3);
+}
+
+/* Stats */
+.statsCard {
+  display: none; /* SGR-287: This Month 통계 임시 숨김(코드 보존) */
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.statBig {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.statSmall {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.chart {
+  width: 100%;
+  height: 60px;
+}
+
+/* Tabs */
+.feedSectionLabel {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 4px 0 12px;
+}
+
+.tabRow {
+  display: none !important; /* SGR-287: 피드/이력/뱃지 탭 제거(코드 보존, 피드만 노출) */
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.tab {
+  flex: 1;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.tabActive {
+  background: var(--ink-900);
+  color: white;
+}
+
+/* History */
+.list { display: flex; flex-direction: column; gap: 8px; }
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.historyThumb {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.historyText { flex: 1; min-width: 0; }
+.historyTitle { font-size: 14px; font-weight: 600; }
+.historyDate { font-size: 11px; color: var(--text-3); }
+
+.gradeChip {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gradeA {
+  background: var(--neon-lime);
+  color: var(--ink-900);
+}
+
+.gradeB {
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+
+/* Badges */
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding-bottom: 32px;
+}
+
+.badgeCell {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 16px 8px;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: background .12s;
+}
+
+.badgeCell:active { background: var(--surface-2); }
+
+.badgeLocked {
+  opacity: 0.35;
+  filter: grayscale(0.7);
+}
+
+.badgeIcon {
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.badgeFallbackIcon { color: var(--gold); }
+
+.badgeName {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: 6px;
+}
+
+
+/* Feeds tab */
+.feedsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.newPostBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-500);
+}
+.newPostBtn:active { background: var(--surface-2); }
+
+.feedCard {
+  position: relative;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.feedCardImg {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  border-radius: 16px 16px 0 0;
+}
+
+.feedCardBody {
+  padding: 12px;
+}
+
+.feedCardCaption {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.feedCardTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.feedCardTag {
+  font-size: 12px;
+  color: var(--brand-500);
+}
+
+.feedCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.feedCardMeta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.feedCardMenu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.feedCardDropdown {
+  position: absolute;
+  top: 44px;
+  right: 8px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  z-index: 10;
+  min-width: 100px;
+}
+
+.feedCardDropdown button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  text-align: left;
+  color: var(--text-1);
+}
+
+.feedCardDropdown button:last-child {
+  color: var(--danger);
+}
+
+.feedCardDropdown button:active {
+  background: var(--line);
+}
+
+.loadMoreBtn {
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: center;
+}
+
+/* Modal */
+.modalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11,13,20,.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadein .2s ease;
+}
+
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  width: 100%;
+  max-width: 320px;
+  background: var(--surface);
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: var(--shadow-pop);
+}
+
+.modalHero {
+  background: var(--grad-sunset);
+  padding: 36px 0 24px;
+  text-align: center;
+  position: relative;
+}
+
+.modalBadgeIcon {
+  font-size: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.2));
+}
+
+.modalBody {
+  padding: 20px 24px 24px;
+  text-align: center;
+}
+
+.modalKey {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--brand-500);
+  margin-bottom: 6px;
+}
+
+.modalDesc {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.modalCondition {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+
+.modalCondition span {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--success);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modalDate {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 16px;
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+}
+
+/* QR Share Sheet */
+.qrSheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0 12px;
+}
+
+.qrTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.qrCanvas {
+  background: white;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.qrInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qrNickname {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.qrGuide {
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* ── 내 매물 탭 ── */
+.myListingRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: var(--shadow-card);
+  width: 100%;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.myListingThumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.myListingInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.myListingTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.myListingPrice {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.myListingStatus {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.myListingStatus[data-status="SOLD"] {
+  color: var(--text-3);
+}
+
+.myListingStatus[data-status="RESERVED"] {
+  color: #f59e0b;
+}
+.tradeSubTabRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tradeSubTab {
+  padding: 5px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tradeSubTabActive {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+  color: #fff;
+}

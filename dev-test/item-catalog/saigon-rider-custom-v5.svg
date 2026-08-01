@@ -1,0 +1,676 @@
+<svg style="display:none" id="saigon-rider-custom-v5" xmlns="http://www.w3.org/2000/svg">
+<!--
+  Saigon Rider — Batch 7: CUSTOM Slot
+  SEAT      : 11 NEW (C×4 R×3 E×2 L×1 M×1)
+  STICKER   : 11 NEW (C×4 R×3 E×2 L×1 M×1)
+  RANK_CARD : 11 NEW (C×4 R×3 E×2 L×1 M×1)
+  Total NEW : 33  |  v5 reuse: 0  |  grand total: 33
+-->
+<defs>
+  <!-- SEAT gradients -->
+  <linearGradient id="b7-seat-plain-blk" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"  stop-color="#374151"/><stop offset="100%" stop-color="#1F2937"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-brown" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"  stop-color="#92400E"/><stop offset="60%"  stop-color="#78350F"/><stop offset="100%" stop-color="#451A03"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-orange" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"  stop-color="#FACC15"/><stop offset="50%"  stop-color="#F97316"/><stop offset="100%" stop-color="#1F2937"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-mekong" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"  stop-color="#4ADE80"/><stop offset="50%"  stop-color="#166534"/><stop offset="100%" stop-color="#052E16"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-neon" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#0F0824"/><stop offset="40%"  stop-color="#7C3AED"/><stop offset="100%" stop-color="#00F0FF"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-tet" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#7F1D1D"/><stop offset="60%"  stop-color="#DC2626"/><stop offset="100%" stop-color="#FBBF24"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-ghost" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#1E1B2E"/><stop offset="50%"  stop-color="#2E1065"/><stop offset="100%" stop-color="#4C1D95"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-delivery-e" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"  stop-color="#FACC15"/><stop offset="40%"  stop-color="#F97316"/><stop offset="100%" stop-color="#431407"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-legendary" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#FFD96B"/><stop offset="40%"  stop-color="#FFB800"/><stop offset="100%" stop-color="#B91C1C"/>
+  </linearGradient>
+  <linearGradient id="b7-seat-mythic" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#FF2D9C"/><stop offset="25%"  stop-color="#FF7438"/>
+    <stop offset="50%"  stop-color="#FFB800"/><stop offset="75%"  stop-color="#00F0FF"/><stop offset="100%" stop-color="#B6FF1C"/>
+    <animate attributeName="x1" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+  </linearGradient>
+  <!-- STICKER gradients -->
+  <linearGradient id="b7-stk-chrome" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"  stop-color="#E5E7EB"/><stop offset="50%"  stop-color="#9CA3AF"/><stop offset="100%" stop-color="#6B7280"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-retro" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"  stop-color="#FDE68A"/><stop offset="50%"  stop-color="#F97316"/><stop offset="100%" stop-color="#DC2626"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-neon" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#FF2D9C"/><stop offset="50%"  stop-color="#7C3AED"/><stop offset="100%" stop-color="#00F0FF"/>
+    <animate attributeName="x1" values="0;1;0" dur="2.5s" repeatCount="indefinite"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-ghost-r" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#1E1B2E"/><stop offset="50%"  stop-color="#4C1D95"/><stop offset="100%" stop-color="#8B5CF6"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-circuit" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#0F0824"/><stop offset="40%"  stop-color="#00F0FF"/><stop offset="100%" stop-color="#7C3AED"/>
+    <animate attributeName="x1" values="0;0.5;0" dur="2s" repeatCount="indefinite"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-mekong-e" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#022C22"/><stop offset="50%"  stop-color="#064E3B"/><stop offset="100%" stop-color="#083344"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-legendary" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#FFD96B"/><stop offset="40%"  stop-color="#FFB800"/><stop offset="100%" stop-color="#DC2626"/>
+  </linearGradient>
+  <linearGradient id="b7-stk-mythic" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#FF2D9C"/><stop offset="25%"  stop-color="#FF7438"/>
+    <stop offset="50%"  stop-color="#FFB800"/><stop offset="75%"  stop-color="#00F0FF"/><stop offset="100%" stop-color="#B6FF1C"/>
+    <animate attributeName="x1" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+  </linearGradient>
+  <!-- RANK_CARD gradients -->
+  <linearGradient id="b7-rc-iron" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#374151"/><stop offset="100%" stop-color="#1F2937"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-bronze" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#92400E"/><stop offset="60%"  stop-color="#78350F"/><stop offset="100%" stop-color="#FDE68A"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-delivery" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"  stop-color="#1F2937"/><stop offset="50%"  stop-color="#78350F"/><stop offset="100%" stop-color="#F97316"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-mekong" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#052E16"/><stop offset="50%"  stop-color="#166534"/><stop offset="100%" stop-color="#0C4A6E"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-neon" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#0F0824"/><stop offset="40%"  stop-color="#FF2D9C"/>
+    <stop offset="70%"  stop-color="#7C3AED"/><stop offset="100%" stop-color="#00F0FF"/>
+    <animate attributeName="x1" values="0;1;0" dur="2.5s" repeatCount="indefinite"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-tet" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#7F1D1D"/><stop offset="50%"  stop-color="#DC2626"/><stop offset="100%" stop-color="#FBBF24"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-ghost-r" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#1E1B2E"/><stop offset="50%"  stop-color="#2E1065"/><stop offset="100%" stop-color="#6D28D9"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-ghost-e" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#0D0721"/><stop offset="40%"  stop-color="#4C1D95"/><stop offset="100%" stop-color="#8B5CF6"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-legendary" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#7F1D1D"/><stop offset="30%"  stop-color="#FFD96B"/>
+    <stop offset="60%"  stop-color="#FFB800"/><stop offset="100%" stop-color="#B91C1C"/>
+  </linearGradient>
+  <linearGradient id="b7-rc-mythic" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%"  stop-color="#FF2D9C"/><stop offset="25%"  stop-color="#FF7438"/>
+    <stop offset="50%"  stop-color="#FFB800"/><stop offset="75%"  stop-color="#00F0FF"/><stop offset="100%" stop-color="#B6FF1C"/>
+    <animate attributeName="x1" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+  </linearGradient>
+  <!-- radial glows -->
+  <radialGradient id="b7-rg-mythic" cx="50%" cy="40%" r="55%">
+    <stop offset="0%"   stop-color="#FF2D9C" stop-opacity="0.35"/>
+    <stop offset="50%"  stop-color="#7C3AED" stop-opacity="0.15"/>
+    <stop offset="100%" stop-color="#00F0FF" stop-opacity="0"/>
+    <animate attributeName="cx" values="30%;70%;30%" dur="4s" repeatCount="indefinite"/>
+  </radialGradient>
+  <radialGradient id="b7-rg-ghost" cx="50%" cy="50%" r="55%">
+    <stop offset="0%"   stop-color="#8B5CF6" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="#4C1D95" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="b7-rg-neon" cx="50%" cy="40%" r="55%">
+    <stop offset="0%"   stop-color="#00F0FF" stop-opacity="0.25"/>
+    <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+  </radialGradient>
+  <!-- Patterns -->
+  <pattern id="b7-diamond-quilt" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+    <path d="M10 0 L20 10 L10 20 L0 10Z" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  </pattern>
+  <pattern id="b7-stitching" x="0" y="0" width="12" height="8" patternUnits="userSpaceOnUse">
+    <line x1="0" y1="4" x2="6" y2="4"  stroke="rgba(255,255,255,0.15)" stroke-width="1.2" stroke-dasharray="4,2"/>
+    <line x1="6" y1="4" x2="12" y2="4" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" stroke-dasharray="4,2"/>
+  </pattern>
+  <pattern id="b7-carbon" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+    <rect x="0" y="0" width="5" height="5" fill="rgba(0,0,0,0.4)"/>
+    <rect x="5" y="5" width="5" height="5" fill="rgba(0,0,0,0.4)"/>
+    <rect x="0" y="0" width="10" height="10" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+  </pattern>
+  <pattern id="b7-lotus-bg" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M20 5 Q25 15 20 20 Q15 15 20 5Z" fill="rgba(74,222,128,0.07)"/>
+    <path d="M5 20 Q15 25 20 20 Q15 15 5 20Z" fill="rgba(45,212,191,0.07)"/>
+    <path d="M35 20 Q25 25 20 20 Q25 15 35 20Z" fill="rgba(74,222,128,0.07)"/>
+    <path d="M20 35 Q25 25 20 20 Q15 25 20 35Z" fill="rgba(45,212,191,0.07)"/>
+  </pattern>
+  <pattern id="b7-circuit-bg" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+    <line x1="0"  y1="15" x2="30" y2="15" stroke="rgba(0,240,255,0.08)" stroke-width="1"/>
+    <line x1="15" y1="0"  x2="15" y2="30" stroke="rgba(124,58,237,0.08)" stroke-width="1"/>
+    <circle cx="15" cy="15" r="2" fill="none" stroke="rgba(0,240,255,0.1)" stroke-width="0.8"/>
+  </pattern>
+  <!-- Filters -->
+  <filter id="b7-glow-sm"     x="-25%" y="-25%" width="150%" height="150%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="b7-glow-mythic" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="6" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="b7-emboss" x="-5%" y="-5%" width="110%" height="110%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+    <feOffset dx="1" dy="1" result="offset"/>
+    <feComposite in="SourceGraphic" in2="offset" operator="over"/>
+  </filter>
+</defs>
+
+<!-- ══ SEAT C ×4 ══ -->
+<symbol id="item-SEAT_STREET_CLASSIC_C_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-plain-blk)" stroke="#374151" stroke-width="2"/>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="url(#b7-diamond-quilt)"/>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="8,5"/>
+  <line x1="100" y1="72" x2="100" y2="138" stroke="rgba(255,255,255,0.07)" stroke-width="1.5"/>
+  <circle cx="50"  cy="108" r="4" fill="#1F2937" stroke="#4B5563" stroke-width="1"/><circle cx="50"  cy="108" r="1.5" fill="#374151"/>
+  <circle cx="150" cy="108" r="4" fill="#1F2937" stroke="#4B5563" stroke-width="1"/><circle cx="150" cy="108" r="1.5" fill="#374151"/>
+</symbol>
+
+<symbol id="item-SEAT_STREET_CLASSIC_C_02" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-brown)" stroke="#78350F" stroke-width="2"/>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="url(#b7-stitching)"/>
+  <ellipse cx="100" cy="105" rx="24" ry="30" fill="rgba(146,64,14,0.4)" stroke="rgba(120,53,15,0.5)" stroke-width="1"/>
+  <ellipse cx="100" cy="105" rx="55" ry="28" fill="none" stroke="rgba(253,230,138,0.3)" stroke-width="1" stroke-dasharray="5,4"/>
+  <text x="100" y="109" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle" fill="rgba(253,230,138,0.5)" letter-spacing="1">SR</text>
+  <circle cx="50"  cy="108" r="4" fill="#451A03" stroke="#92400E" stroke-width="1"/><circle cx="50"  cy="108" r="1.5" fill="#78350F"/>
+  <circle cx="150" cy="108" r="4" fill="#451A03" stroke="#92400E" stroke-width="1"/><circle cx="150" cy="108" r="1.5" fill="#78350F"/>
+</symbol>
+
+<symbol id="item-SEAT_DELIVERY_HUSTLE_C_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-orange)" stroke="#1F2937" stroke-width="2"/>
+  <clipPath id="b7-sdc1"><ellipse cx="100" cy="105" rx="72" ry="36"/></clipPath>
+  <g clip-path="url(#b7-sdc1)">
+    <rect x="28" y="93"  width="144" height="10" fill="#1F2937" opacity="0.45"/>
+    <rect x="28" y="103" width="144" height="10" fill="#FACC15" opacity="0.2"/>
+    <rect x="28" y="113" width="144" height="10" fill="#1F2937" opacity="0.45"/>
+  </g>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="none" stroke="rgba(250,204,21,0.4)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="100" y="109" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="rgba(255,255,255,0.6)" letter-spacing="1.5">DELIVERY</text>
+  <circle cx="50"  cy="108" r="4" fill="#1F2937" stroke="#FACC15" stroke-width="1"/>
+  <circle cx="150" cy="108" r="4" fill="#1F2937" stroke="#FACC15" stroke-width="1"/>
+</symbol>
+
+<symbol id="item-SEAT_MEKONG_DELTA_C_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-mekong)" stroke="#166534" stroke-width="2"/>
+  <clipPath id="b7-smc1"><ellipse cx="100" cy="105" rx="72" ry="36"/></clipPath>
+  <g clip-path="url(#b7-smc1)">
+    <rect x="28" y="69" width="144" height="72" fill="url(#b7-lotus-bg)"/>
+    <line x1="28" y1="81"  x2="172" y2="81"  stroke="rgba(74,222,128,0.15)" stroke-width="1.5"/>
+    <line x1="28" y1="101" x2="172" y2="101" stroke="rgba(74,222,128,0.15)" stroke-width="1.5"/>
+    <line x1="28" y1="121" x2="172" y2="121" stroke="rgba(74,222,128,0.15)" stroke-width="1.5"/>
+    <line x1="80"  y1="69" x2="80"  y2="141" stroke="rgba(74,222,128,0.12)" stroke-width="1.5"/>
+    <line x1="120" y1="69" x2="120" y2="141" stroke="rgba(74,222,128,0.12)" stroke-width="1.5"/>
+  </g>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="none" stroke="rgba(74,222,128,0.3)" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <circle cx="100" cy="105" r="10" fill="rgba(5,46,22,0.7)" stroke="#4ADE80" stroke-width="1"/>
+  <ellipse cx="100" cy="102" rx="4" ry="6" fill="rgba(74,222,128,0.5)"  transform="rotate(-20,100,102)"/>
+  <ellipse cx="100" cy="102" rx="4" ry="6" fill="rgba(45,212,191,0.5)"  transform="rotate(20,100,102)"/>
+</symbol>
+
+<!-- ══ SEAT R ×3 ══ -->
+<symbol id="item-SEAT_NEON_SAIGON_R_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-neon)" stroke="#00F0FF" stroke-width="2" filter="url(#b7-glow-sm)"/>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="url(#b7-circuit-bg)"/>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="none" stroke="#FF2D9C" stroke-width="1.5" stroke-dasharray="12,6" filter="url(#b7-glow-sm)"/>
+  <circle cx="100" cy="70"  r="2.5" fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite"/></circle>
+  <circle cx="170" cy="105" r="2.5" fill="#FF2D9C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.7s" repeatCount="indefinite"/></circle>
+  <circle cx="30"  cy="105" r="2.5" fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.2;1;0.2" dur="1.9s" repeatCount="indefinite"/></circle>
+  <text x="100" y="109" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="#00F0FF" filter="url(#b7-glow-sm)" letter-spacing="1">SR</text>
+</symbol>
+
+<symbol id="item-SEAT_TET_FESTIVAL_R_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-tet)" stroke="#FBBF24" stroke-width="2"/>
+  <clipPath id="b7-str1"><ellipse cx="100" cy="105" rx="72" ry="36"/></clipPath>
+  <g clip-path="url(#b7-str1)">
+    <path d="M55 105 L100 75 L145 105 L100 135Z" fill="none" stroke="rgba(251,191,36,0.2)" stroke-width="1"/>
+    <ellipse cx="100" cy="105" rx="10" ry="15" fill="rgba(251,191,36,0.12)" transform="rotate(0,100,105)"/>
+    <ellipse cx="100" cy="105" rx="10" ry="15" fill="rgba(251,191,36,0.1)"  transform="rotate(90,100,105)"/>
+  </g>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="none" stroke="rgba(251,191,36,0.6)" stroke-width="1.5"/>
+  <circle cx="100" cy="105" r="12" fill="rgba(127,29,29,0.7)" stroke="#FBBF24" stroke-width="1.5"/>
+  <text x="100" y="109" font-family="serif" font-size="10" font-weight="bold" text-anchor="middle" fill="#FBBF24">囍</text>
+</symbol>
+
+<symbol id="item-SEAT_MEKONG_DELTA_R_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="#166534" stroke="#4ADE80" stroke-width="1.5"/>
+  <clipPath id="b7-smr1"><ellipse cx="100" cy="105" rx="72" ry="36"/></clipPath>
+  <g clip-path="url(#b7-smr1)">
+    <line x1="28" y1="89"  x2="172" y2="89"  stroke="rgba(74,222,128,0.2)" stroke-width="1.5"/>
+    <line x1="28" y1="105" x2="172" y2="105" stroke="rgba(74,222,128,0.2)" stroke-width="1.5"/>
+    <line x1="28" y1="121" x2="172" y2="121" stroke="rgba(74,222,128,0.2)" stroke-width="1.5"/>
+    <line x1="100" y1="70" x2="100" y2="140" stroke="rgba(45,212,191,0.15)" stroke-width="1.5"/>
+  </g>
+  <rect x="68" y="99" width="64" height="12" rx="3" fill="rgba(5,46,22,0.7)" stroke="#4ADE80" stroke-width="0.8"/>
+  <text x="100" y="109" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="#4ADE80" letter-spacing="1.5">EXPEDITION</text>
+  <circle cx="50"  cy="108" r="4" fill="#052E16" stroke="#4ADE80" stroke-width="1"/>
+  <circle cx="150" cy="108" r="4" fill="#052E16" stroke="#4ADE80" stroke-width="1"/>
+</symbol>
+
+<!-- ══ SEAT E ×2 ══ -->
+<symbol id="item-SEAT_SAIGON_GHOST_E_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-ghost)" stroke="#8B5CF6" stroke-width="2" filter="url(#b7-glow-sm)"/>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-rg-ghost)" opacity="0.5"/>
+  <ellipse cx="88"  cy="100" rx="5" ry="4"   fill="rgba(196,181,253,0.2)"/>
+  <ellipse cx="112" cy="100" rx="5" ry="4"   fill="rgba(196,181,253,0.2)"/>
+  <circle  cx="88"  cy="100" r="2.5" fill="rgba(139,92,246,0.5)" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/></circle>
+  <circle  cx="112" cy="100" r="2.5" fill="rgba(139,92,246,0.5)" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.3;1" dur="1.7s" repeatCount="indefinite"/></circle>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="none" stroke="#8B5CF6" stroke-width="1" stroke-dasharray="8,5" opacity="0.4">
+    <animate attributeName="stroke-dashoffset" values="0;-13" dur="1.5s" repeatCount="indefinite"/>
+  </ellipse>
+</symbol>
+
+<symbol id="item-SEAT_DELIVERY_HUSTLE_E_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-delivery-e)" stroke="#F97316" stroke-width="2"/>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="url(#b7-carbon)"/>
+  <ellipse cx="100" cy="105" rx="56" ry="26" fill="none" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="none" stroke="#F97316" stroke-width="1.5" filter="url(#b7-glow-sm)" opacity="0.5"/>
+  <rect x="82" y="100" width="36" height="10" rx="3" fill="rgba(67,20,7,0.8)" stroke="#F97316" stroke-width="0.8"/>
+  <text x="100" y="108" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="#FACC15" letter-spacing="2">FAST</text>
+</symbol>
+
+<!-- ══ SEAT L ×1 ══ -->
+<symbol id="item-SEAT_TET_FESTIVAL_L_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-legendary)" stroke="#FFB800" stroke-width="2.5" filter="url(#b7-glow-sm)"/>
+  <clipPath id="b7-stl1"><ellipse cx="100" cy="105" rx="72" ry="36"/></clipPath>
+  <g clip-path="url(#b7-stl1)">
+    <path d="M40 105 Q55 85 75 90 Q90 80 100 90 Q110 80 125 90 Q145 85 160 105 Q145 125 125 120 Q110 130 100 120 Q90 130 75 120 Q55 125 40 105Z"
+          fill="none" stroke="rgba(255,184,0,0.35)" stroke-width="1.5"/>
+    <path d="M60 105 Q70 95 80 100 Q70 112 60 105Z" fill="rgba(255,184,0,0.1)"/>
+    <path d="M120 90 Q130 98 140 105 Q130 112 120 90Z" fill="rgba(255,184,0,0.12)"/>
+  </g>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="none" stroke="#FFD96B" stroke-width="2" filter="url(#b7-glow-sm)"/>
+  <circle cx="100" cy="105" r="14" fill="rgba(127,29,29,0.7)" stroke="#FFB800" stroke-width="1.5"/>
+  <circle cx="100" cy="105" r="7"  fill="#FFD700" filter="url(#b7-glow-sm)">
+    <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="50"  cy="108" r="4.5" fill="#7F1D1D" stroke="#FFB800" stroke-width="1.5"/>
+  <circle cx="150" cy="108" r="4.5" fill="#7F1D1D" stroke="#FFB800" stroke-width="1.5"/>
+  <circle cx="50"  cy="108" r="2"   fill="#FFD700" filter="url(#b7-glow-sm)"/>
+  <circle cx="150" cy="108" r="2"   fill="#FFD700" filter="url(#b7-glow-sm)"/>
+</symbol>
+
+<!-- ══ SEAT M ×1 ══ -->
+<symbol id="item-SEAT_LEGEND_OF_SAIGON_M_01" viewBox="0 0 200 200">
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-seat-mythic)" stroke="url(#b7-seat-mythic)" stroke-width="3" filter="url(#b7-glow-mythic)"/>
+  <ellipse cx="100" cy="105" rx="72" ry="36" fill="url(#b7-rg-mythic)" opacity="0.6"/>
+  <ellipse cx="100" cy="105" rx="68" ry="32" fill="url(#b7-diamond-quilt)"/>
+  <ellipse cx="100" cy="105" rx="70" ry="34" fill="none" stroke="rgba(255,45,156,0.5)" stroke-width="1.5" stroke-dasharray="12,6">
+    <animateTransform attributeName="transform" type="rotate" from="0 100 105" to="360 100 105" dur="6s" repeatCount="indefinite"/>
+  </ellipse>
+  <circle cx="100" cy="71"  r="3.5" fill="#FF2D9C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.1;1" dur="1.3s" repeatCount="indefinite"/></circle>
+  <circle cx="170" cy="105" r="3"   fill="#FFB800" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.2;1;0.2" dur="1.6s" repeatCount="indefinite"/></circle>
+  <circle cx="100" cy="139" r="3.5" fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite"/></circle>
+  <circle cx="30"  cy="105" r="3"   fill="#B6FF1C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/></circle>
+  <path d="M88 108 L88 101 L94 105 L100 97 L106 105 L112 101 L112 108Z" fill="url(#b7-seat-mythic)" filter="url(#b7-glow-mythic)"/>
+  <rect x="86" y="108" width="28" height="3" rx="1" fill="url(#b7-seat-mythic)"/>
+</symbol>
+
+<!-- ══ STICKER C ×4 ══ -->
+<symbol id="item-STICKER_STREET_CLASSIC_C_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#F3F4F6" stroke="#D1D5DB" stroke-width="1.5"/>
+  <polygon points="100,60 106,82 130,82 111,96 118,118 100,104 82,118 89,96 70,82 94,82" fill="url(#b7-stk-chrome)" stroke="#6B7280" stroke-width="1.5"/>
+  <text x="100" y="98" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle" fill="#1F2937">SR</text>
+  <circle cx="55" cy="128" r="14" fill="#1F2937" stroke="#4B5563" stroke-width="1.5"/>
+  <text x="55" y="132" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="white">MOTO</text>
+  <rect x="122" y="117" width="38" height="18" rx="5" fill="#1F2937" stroke="#4B5563" stroke-width="1"/>
+  <text x="141" y="130" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="white">STREET</text>
+</symbol>
+
+<symbol id="item-STICKER_STREET_CLASSIC_C_02" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#FEF9EE" stroke="#D1D5DB" stroke-width="1.5"/>
+  <rect x="44" y="60" width="72" height="50" rx="6" fill="white" stroke="#DC2626" stroke-width="2.5"/>
+  <text x="80" y="97" font-family="monospace" font-size="32" font-weight="900" text-anchor="middle" fill="#DC2626">#7</text>
+  <rect x="44" y="104" width="18" height="6" rx="1" fill="#1F2937"/>
+  <rect x="62" y="104" width="18" height="6" rx="1" fill="white"/>
+  <rect x="80" y="104" width="18" height="6" rx="1" fill="#1F2937"/>
+  <rect x="98" y="104" width="18" height="6" rx="1" fill="white"/>
+  <circle cx="148" cy="80" r="22" fill="#DC2626" stroke="white" stroke-width="2.5"/>
+  <text x="148" y="76" font-family="monospace" font-size="8" font-weight="bold" text-anchor="middle" fill="white">SAIGON</text>
+  <text x="148" y="88" font-family="monospace" font-size="8" font-weight="bold" text-anchor="middle" fill="white">RIDER</text>
+  <ellipse cx="148" cy="127" rx="28" ry="14" fill="white" stroke="#1F2937" stroke-width="2"/>
+  <text x="148" y="131" font-family="monospace" font-size="8" font-weight="bold" text-anchor="middle" fill="#1F2937">CLASSIC</text>
+</symbol>
+
+<symbol id="item-STICKER_DELIVERY_HUSTLE_C_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#FEF9EE" stroke="#F97316" stroke-width="1.5"/>
+  <polygon points="110,58 85,95 102,95 90,142 125,100 105,100" fill="url(#b7-stk-retro)" stroke="#1F2937" stroke-width="1.5"/>
+  <ellipse cx="55" cy="80" rx="18" ry="12" fill="#F97316" stroke="#FACC15" stroke-width="1.5"/>
+  <text x="55" y="84" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="white">FAST</text>
+  <circle cx="55" cy="128" r="12" fill="#FACC15" stroke="#F97316" stroke-width="1.5"/>
+  <text x="55" y="132" font-family="monospace" font-size="8" text-anchor="middle" fill="#1F2937">★</text>
+</symbol>
+
+<symbol id="item-STICKER_MEKONG_DELTA_C_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#F0FDF4" stroke="#4ADE80" stroke-width="1.5"/>
+  <ellipse cx="78" cy="95" rx="12" ry="18" fill="rgba(74,222,128,0.7)"  transform="rotate(-30,78,95)"/>
+  <ellipse cx="78" cy="95" rx="12" ry="18" fill="rgba(45,212,191,0.6)"  transform="rotate(0,78,95)"/>
+  <ellipse cx="78" cy="95" rx="12" ry="18" fill="rgba(74,222,128,0.65)" transform="rotate(30,78,95)"/>
+  <circle cx="78" cy="88" r="7" fill="#A7F3D0" stroke="#166534" stroke-width="1"/>
+  <circle cx="78" cy="88" r="3.5" fill="#4ADE80"/>
+  <path d="M130 80 Q150 75 155 85 Q150 95 130 90 L140 85Z" fill="rgba(45,212,191,0.7)" stroke="#166534" stroke-width="1"/>
+  <rect x="44" y="120" width="60" height="18" rx="5" fill="#166534"/>
+  <text x="74" y="133" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="#4ADE80" letter-spacing="1">MEKONG</text>
+</symbol>
+
+<!-- ══ STICKER R ×3 ══ -->
+<symbol id="item-STICKER_NEON_SAIGON_R_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#0F0824" stroke="#00F0FF" stroke-width="1.5"/>
+  <rect x="44" y="60" width="72" height="52" rx="5" fill="rgba(124,58,237,0.2)" stroke="url(#b7-stk-neon)" stroke-width="1.5"/>
+  <rect x="44" y="60" width="72" height="52" rx="5" fill="url(#b7-circuit-bg)"/>
+  <text x="80" y="92"  font-family="monospace" font-size="22" font-weight="900" text-anchor="middle" fill="url(#b7-stk-neon)" filter="url(#b7-glow-sm)">SR</text>
+  <text x="80" y="105" font-family="monospace" font-size="7"  text-anchor="middle" fill="#00F0FF" letter-spacing="2">NEON SAIGON</text>
+  <polygon points="140,60 128,85 138,85 126,112 158,82 145,82" fill="#FF2D9C" filter="url(#b7-glow-sm)"/>
+  <circle cx="50"  cy="130" r="5" fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.1;1" dur="1.2s" repeatCount="indefinite"/></circle>
+  <circle cx="62"  cy="127" r="3" fill="#FF2D9C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/></circle>
+</symbol>
+
+<symbol id="item-STICKER_TET_FESTIVAL_R_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#FEF3C7" stroke="#DC2626" stroke-width="1.5"/>
+  <ellipse cx="72" cy="85" rx="18" ry="25" fill="#DC2626" stroke="#FBBF24" stroke-width="1.5"/>
+  <ellipse cx="72" cy="78" rx="7"  ry="4"  fill="#FBBF24"/>
+  <ellipse cx="72" cy="93" rx="7"  ry="4"  fill="#FBBF24"/>
+  <line x1="72" y1="110" x2="68"  y2="120" stroke="#DC2626" stroke-width="1.2"/>
+  <line x1="72" y1="110" x2="76"  y2="120" stroke="#DC2626" stroke-width="1.2"/>
+  <circle cx="68" cy="121" r="2.5" fill="#FBBF24"/><circle cx="76" cy="121" r="2.5" fill="#FBBF24"/>
+  <circle cx="138" cy="78" r="20" fill="#DC2626" stroke="#FBBF24" stroke-width="2"/>
+  <text x="138" y="84" font-family="serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#FBBF24">福</text>
+  <rect x="105" y="112" width="6" height="18" rx="2" fill="#DC2626"/>
+  <rect x="115" y="108" width="6" height="18" rx="2" fill="#DC2626"/>
+  <rect x="125" y="112" width="6" height="18" rx="2" fill="#DC2626"/>
+  <line x1="108" y1="112" x2="118" y2="108" stroke="#FBBF24" stroke-width="1"/>
+  <line x1="118" y1="108" x2="128" y2="112" stroke="#FBBF24" stroke-width="1"/>
+</symbol>
+
+<symbol id="item-STICKER_SAIGON_GHOST_R_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="#1E1B2E" stroke="#8B5CF6" stroke-width="1.5"/>
+  <path d="M100 58 Q120 58 125 78 L125 112 Q118 108 112 112 Q106 116 100 112 Q94 116 88 112 Q82 108 75 112 L75 78 Q80 58 100 58Z"
+        fill="url(#b7-stk-ghost-r)" stroke="#C4B5FD" stroke-width="1.5" filter="url(#b7-glow-sm)"/>
+  <circle cx="91"  cy="80" r="5" fill="rgba(196,181,253,0.7)"/><circle cx="91"  cy="80" r="2.5" fill="#1E1B2E"/>
+  <circle cx="109" cy="80" r="5" fill="rgba(196,181,253,0.7)"/><circle cx="109" cy="80" r="2.5" fill="#1E1B2E"/>
+  <ellipse cx="52" cy="90" rx="14" ry="10" fill="#2E1065" stroke="#8B5CF6" stroke-width="1.2"/>
+  <ellipse cx="52" cy="90" rx="7"  ry="7"  fill="white"/>
+  <circle  cx="52" cy="90" r="4.5" fill="#8B5CF6" filter="url(#b7-glow-sm)"/>
+  <circle  cx="52" cy="90" r="2"   fill="#1E1B2E"/>
+  <rect x="44" y="118" width="30" height="14" rx="4" fill="#4C1D95" stroke="#C4B5FD" stroke-width="0.8"/>
+  <text x="59" y="128" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="#C4B5FD">BOO!</text>
+</symbol>
+
+<!-- ══ STICKER E ×2 ══ -->
+<symbol id="item-STICKER_NEON_SAIGON_E_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="url(#b7-stk-circuit)" stroke="url(#b7-stk-neon)" stroke-width="2" filter="url(#b7-glow-sm)"/>
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="url(#b7-rg-neon)" opacity="0.4"/>
+  <text x="100" y="95"  font-family="monospace" font-size="22" font-weight="900" text-anchor="middle" fill="url(#b7-stk-neon)" filter="url(#b7-glow-mythic)">SAIGON</text>
+  <text x="100" y="114" font-family="monospace" font-size="16" font-weight="700" text-anchor="middle" fill="#FF2D9C" filter="url(#b7-glow-sm)">RIDER</text>
+  <polygon points="44,64 54,64 49,72" fill="#00F0FF" opacity="0.7" filter="url(#b7-glow-sm)"/>
+  <polygon points="156,64 146,64 151,72" fill="#FF2D9C" opacity="0.7" filter="url(#b7-glow-sm)"/>
+  <polygon points="44,136 54,136 49,128" fill="#FFB800" opacity="0.7" filter="url(#b7-glow-sm)"/>
+  <polygon points="156,136 146,136 151,128" fill="#B6FF1C" opacity="0.7" filter="url(#b7-glow-sm)"/>
+</symbol>
+
+<symbol id="item-STICKER_MEKONG_DELTA_E_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="url(#b7-stk-mekong-e)" stroke="#4ADE80" stroke-width="2"/>
+  <path d="M44 130 Q60 110 80 120 Q100 130 120 110 Q140 90 156 100" fill="none" stroke="rgba(45,212,191,0.6)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M44 130 Q60 110 80 120 Q100 130 120 110 Q140 90 156 100" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-dasharray="6,4"/>
+  <ellipse cx="160" cy="98" rx="10" ry="7" fill="rgba(45,212,191,0.7)" stroke="#4ADE80" stroke-width="1.2"/>
+  <circle  cx="164" cy="95" r="2" fill="#052E16"/>
+  <ellipse cx="60" cy="78" rx="8"  ry="12" fill="rgba(74,222,128,0.5)"  transform="rotate(-20,60,78)"/>
+  <ellipse cx="60" cy="78" rx="8"  ry="12" fill="rgba(45,212,191,0.45)" transform="rotate(20,60,78)"/>
+  <circle cx="60" cy="72" r="4.5" fill="#A7F3D0"/>
+  <rect x="72" y="132" width="56" height="12" rx="3" fill="rgba(5,46,22,0.7)" stroke="#4ADE80" stroke-width="0.8"/>
+  <text x="100" y="141" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="#4ADE80" letter-spacing="1">MEKONG DELTA</text>
+</symbol>
+
+<!-- ══ STICKER L ×1 ══ -->
+<symbol id="item-STICKER_TET_FESTIVAL_L_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="url(#b7-stk-legendary)" stroke="#FFB800" stroke-width="2.5" filter="url(#b7-glow-sm)"/>
+  <path d="M44 120 Q60 100 80 108 Q100 115 115 95 Q130 75 150 85 Q160 90 158 80" fill="none" stroke="#FFD96B" stroke-width="3" stroke-linecap="round" filter="url(#b7-glow-sm)"/>
+  <ellipse cx="158" cy="78" rx="14" ry="10" fill="#7F1D1D" stroke="#FFB800" stroke-width="1.5"/>
+  <circle  cx="163" cy="76" r="2" fill="#FBBF24"/>
+  <path d="M60 116 Q70 107 80 112 Q70 120 60 116Z" fill="rgba(255,184,0,0.25)"/>
+  <path d="M80 110 Q90 102 100 107 Q90 116 80 110Z" fill="rgba(255,184,0,0.25)"/>
+  <rect x="50" y="132" width="100" height="12" rx="4" fill="rgba(127,29,29,0.7)" stroke="#FFB800" stroke-width="1"/>
+  <text x="100" y="141" font-family="monospace" font-size="7" font-weight="bold" text-anchor="middle" fill="#FFD96B" letter-spacing="2">✦ LEGENDARY ✦</text>
+</symbol>
+
+<!-- ══ STICKER M ×1 ══ -->
+<symbol id="item-STICKER_LEGEND_OF_SAIGON_M_01" viewBox="0 0 200 200">
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="url(#b7-stk-mythic)" stroke="url(#b7-stk-mythic)" stroke-width="3" filter="url(#b7-glow-mythic)"/>
+  <rect x="30" y="50" width="140" height="100" rx="8" fill="url(#b7-rg-mythic)" opacity="0.5"/>
+  <text x="100" y="82"  font-family="monospace" font-size="8" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.7)" letter-spacing="2">LEGEND OF</text>
+  <text x="100" y="104" font-family="monospace" font-size="22" font-weight="900" text-anchor="middle" fill="url(#b7-stk-mythic)" filter="url(#b7-glow-mythic)">SAIGON</text>
+  <text x="100" y="120" font-family="monospace" font-size="10" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.6)" letter-spacing="3">RIDER</text>
+  <circle cx="44"  cy="64"  r="3.5" fill="#FF2D9C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.1;1" dur="1.4s" repeatCount="indefinite"/></circle>
+  <circle cx="156" cy="64"  r="3"   fill="#FFB800" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.2;1;0.2" dur="1.7s" repeatCount="indefinite"/></circle>
+  <circle cx="44"  cy="136" r="3"   fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/></circle>
+  <circle cx="156" cy="136" r="3.5" fill="#B6FF1C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/></circle>
+  <path d="M88 138 L88 133 L93 136 L100 130 L107 136 L112 133 L112 138Z" fill="url(#b7-stk-mythic)" filter="url(#b7-glow-sm)"/>
+</symbol>
+
+<!-- ══ RANK_CARD C ×4 ══ -->
+<symbol id="item-RANK_CARD_STREET_CLASSIC_C_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-iron)" stroke="#4B5563" stroke-width="2"/>
+  <rect x="22" y="45" width="156" height="40" rx="10" fill="rgba(255,255,255,0.04)"/>
+  <rect x="32" y="55" width="50" height="20" rx="5" fill="#1F2937" stroke="#6B7280" stroke-width="1"/>
+  <text x="57" y="69" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="#9CA3AF" letter-spacing="1">IRON</text>
+  <path d="M130 55 L150 55 L150 63 L143 63 L143 75 L137 75 L137 63 L130 63Z" fill="#4B5563"/>
+  <rect x="133" y="75" width="14" height="5" rx="2" fill="#4B5563"/>
+  <rect x="32" y="82" width="136" height="8" rx="3" fill="rgba(55,65,81,0.5)"/>
+  <rect x="32" y="98"  width="100" height="5" rx="2" fill="#374151"/><rect x="32" y="98"  width="55" height="5" rx="2" fill="#6B7280"/>
+  <rect x="32" y="108" width="100" height="5" rx="2" fill="#374151"/><rect x="32" y="108" width="40" height="5" rx="2" fill="#6B7280"/>
+  <rect x="32" y="118" width="100" height="5" rx="2" fill="#374151"/><rect x="32" y="118" width="70" height="5" rx="2" fill="#6B7280"/>
+  <text x="138" y="103" font-family="monospace" font-size="7" fill="#6B7280">SPD</text>
+  <text x="138" y="113" font-family="monospace" font-size="7" fill="#6B7280">STR</text>
+  <text x="138" y="123" font-family="monospace" font-size="7" fill="#6B7280">REP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#4B5563">#0001</text>
+</symbol>
+
+<symbol id="item-RANK_CARD_STREET_CLASSIC_C_02" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-bronze)" stroke="#92400E" stroke-width="2"/>
+  <rect x="22" y="45" width="156" height="40" rx="10" fill="rgba(255,255,255,0.05)"/>
+  <rect x="32" y="55" width="60" height="20" rx="5" fill="#78350F" stroke="#FDE68A" stroke-width="1"/>
+  <text x="62" y="69" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="#FDE68A" letter-spacing="1">BRONZE</text>
+  <path d="M142 55 Q148 55 148 62 Q148 70 140 72 L140 76 L146 76 L146 79 L134 79 L134 76 L140 76 L140 72 Q132 70 132 62 Q132 55 138 55Z" fill="#CA8A04" stroke="#FDE68A" stroke-width="0.8"/>
+  <rect x="32" y="82" width="136" height="8" rx="3" fill="rgba(120,53,15,0.4)"/>
+  <rect x="32" y="98"  width="100" height="5" rx="2" fill="#78350F"/><rect x="32" y="98"  width="65" height="5" rx="2" fill="#CA8A04"/>
+  <rect x="32" y="108" width="100" height="5" rx="2" fill="#78350F"/><rect x="32" y="108" width="50" height="5" rx="2" fill="#CA8A04"/>
+  <rect x="32" y="118" width="100" height="5" rx="2" fill="#78350F"/><rect x="32" y="118" width="80" height="5" rx="2" fill="#CA8A04"/>
+  <text x="138" y="103" font-family="monospace" font-size="7" fill="#92400E">SPD</text>
+  <text x="138" y="113" font-family="monospace" font-size="7" fill="#92400E">STR</text>
+  <text x="138" y="123" font-family="monospace" font-size="7" fill="#92400E">REP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#78350F">#0099</text>
+</symbol>
+
+<symbol id="item-RANK_CARD_DELIVERY_HUSTLE_C_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-delivery)" stroke="#F97316" stroke-width="2"/>
+  <rect x="22" y="45" width="156" height="28" rx="10" fill="#1F2937"/>
+  <rect x="22" y="59" width="156" height="14" rx="0" fill="#1F2937"/>
+  <text x="100" y="65" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="#F97316" letter-spacing="2">DELIVERY RANK</text>
+  <rect x="32" y="80" width="136" height="10" rx="4" fill="rgba(31,41,55,0.6)"/>
+  <text x="42"  y="103" font-size="12" fill="#FACC15">★</text><text x="58"  y="103" font-size="12" fill="#FACC15">★</text>
+  <text x="74"  y="103" font-size="12" fill="#FACC15">★</text><text x="90"  y="103" font-size="12" fill="#F97316">★</text>
+  <text x="106" y="103" font-size="12" fill="#374151">★</text>
+  <rect x="32" y="108" width="136" height="5" rx="2" fill="#1F2937"/><rect x="32" y="108" width="90" height="5" rx="2" fill="#F97316"/>
+  <rect x="32" y="118" width="136" height="5" rx="2" fill="#1F2937"/><rect x="32" y="118" width="60" height="5" rx="2" fill="#FACC15"/>
+  <text x="138" y="113" font-family="monospace" font-size="7" fill="#F97316">SPEED</text>
+  <text x="138" y="123" font-family="monospace" font-size="7" fill="#FACC15">XP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#374151">#D042</text>
+</symbol>
+
+<symbol id="item-RANK_CARD_MEKONG_DELTA_C_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-mekong)" stroke="#4ADE80" stroke-width="1.5"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-lotus-bg)"/>
+  <rect x="32" y="55" width="70" height="20" rx="5" fill="rgba(5,46,22,0.7)" stroke="#4ADE80" stroke-width="1"/>
+  <text x="67" y="69" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="#4ADE80" letter-spacing="1">EXPLORER</text>
+  <ellipse cx="150" cy="66" rx="6" ry="9" fill="rgba(74,222,128,0.5)"  transform="rotate(-20,150,66)"/>
+  <ellipse cx="150" cy="66" rx="6" ry="9" fill="rgba(45,212,191,0.45)" transform="rotate(20,150,66)"/>
+  <circle  cx="150" cy="62" r="4" fill="#A7F3D0"/>
+  <rect x="32" y="82" width="136" height="8" rx="3" fill="rgba(5,46,22,0.5)"/>
+  <rect x="32" y="98"  width="100" height="5" rx="2" fill="rgba(5,46,22,0.5)"/><rect x="32" y="98"  width="72" height="5" rx="2" fill="#4ADE80"/>
+  <rect x="32" y="108" width="100" height="5" rx="2" fill="rgba(5,46,22,0.5)"/><rect x="32" y="108" width="56" height="5" rx="2" fill="#2DD4BF"/>
+  <rect x="32" y="118" width="100" height="5" rx="2" fill="rgba(5,46,22,0.5)"/><rect x="32" y="118" width="88" height="5" rx="2" fill="#4ADE80"/>
+  <text x="138" y="103" font-family="monospace" font-size="7" fill="#4ADE80">SPD</text>
+  <text x="138" y="113" font-family="monospace" font-size="7" fill="#2DD4BF">NAV</text>
+  <text x="138" y="123" font-family="monospace" font-size="7" fill="#4ADE80">REP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#166534">#M011</text>
+</symbol>
+
+<!-- ══ RANK_CARD R ×3 ══ -->
+<symbol id="item-RANK_CARD_NEON_SAIGON_R_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-neon)" stroke="#00F0FF" stroke-width="2" filter="url(#b7-glow-sm)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-circuit-bg)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rg-neon)" opacity="0.35"/>
+  <rect x="32" y="55" width="78" height="20" rx="5" fill="rgba(0,240,255,0.12)" stroke="#00F0FF" stroke-width="1"/>
+  <text x="71" y="69" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="#00F0FF" letter-spacing="1" filter="url(#b7-glow-sm)">CYBER RANK</text>
+  <polygon points="155,56 163,70 147,70" fill="#FF2D9C" filter="url(#b7-glow-sm)"/>
+  <rect x="22" y="100" width="156" height="1.5" fill="rgba(0,240,255,0.3)">
+    <animate attributeName="y" values="55;145;55" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite"/>
+  </rect>
+  <rect x="32" y="82" width="136" height="8" rx="3" fill="rgba(15,8,36,0.6)"/>
+  <rect x="32" y="98"  width="100" height="5" rx="2" fill="rgba(15,8,36,0.5)"/><rect x="32" y="98"  width="80" height="5" rx="2" fill="#FF2D9C" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="108" width="100" height="5" rx="2" fill="rgba(15,8,36,0.5)"/><rect x="32" y="108" width="65" height="5" rx="2" fill="#7C3AED" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="118" width="100" height="5" rx="2" fill="rgba(15,8,36,0.5)"/><rect x="32" y="118" width="90" height="5" rx="2" fill="#00F0FF" filter="url(#b7-glow-sm)"/>
+  <text x="138" y="103" font-family="monospace" font-size="7" fill="#FF2D9C">SPD</text>
+  <text x="138" y="113" font-family="monospace" font-size="7" fill="#7C3AED">SYN</text>
+  <text x="138" y="123" font-family="monospace" font-size="7" fill="#00F0FF">REP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#00F0FF" filter="url(#b7-glow-sm)">#N077</text>
+</symbol>
+
+<symbol id="item-RANK_CARD_TET_FESTIVAL_R_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-tet)" stroke="#FBBF24" stroke-width="2"/>
+  <rect x="22" y="45" width="156" height="30" rx="10" fill="rgba(127,29,29,0.5)"/>
+  <rect x="22" y="61" width="156" height="14" fill="rgba(127,29,29,0.5)"/>
+  <text x="100" y="65" font-family="serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#FBBF24" letter-spacing="2">✦ TẾT RANK ✦</text>
+  <ellipse cx="40" cy="95" rx="10" ry="14" fill="rgba(220,38,38,0.6)" stroke="#FBBF24" stroke-width="1"/>
+  <line x1="40" y1="109" x2="37" y2="117" stroke="#DC2626" stroke-width="1"/>
+  <line x1="40" y1="109" x2="43" y2="117" stroke="#DC2626" stroke-width="1"/>
+  <rect x="56" y="79" width="112" height="8" rx="3" fill="rgba(127,29,29,0.5)"/>
+  <rect x="56" y="94"  width="92" height="5" rx="2" fill="rgba(127,29,29,0.5)"/><rect x="56" y="94"  width="65" height="5" rx="2" fill="#FBBF24"/>
+  <rect x="56" y="104" width="92" height="5" rx="2" fill="rgba(127,29,29,0.5)"/><rect x="56" y="104" width="78" height="5" rx="2" fill="#F97316"/>
+  <rect x="56" y="114" width="92" height="5" rx="2" fill="rgba(127,29,29,0.5)"/><rect x="56" y="114" width="50" height="5" rx="2" fill="#FBBF24"/>
+  <text x="153" y="99"  font-family="monospace" font-size="7" fill="#FBBF24">SPD</text>
+  <text x="153" y="109" font-family="monospace" font-size="7" fill="#F97316">LCK</text>
+  <text x="153" y="119" font-family="monospace" font-size="7" fill="#FBBF24">REP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#78350F">#T025</text>
+</symbol>
+
+<symbol id="item-RANK_CARD_SAIGON_GHOST_R_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-ghost-r)" stroke="#8B5CF6" stroke-width="1.5" filter="url(#b7-glow-sm)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rg-ghost)" opacity="0.4"/>
+  <rect x="32" y="55" width="80" height="20" rx="5" fill="rgba(76,29,149,0.4)" stroke="#8B5CF6" stroke-width="1"/>
+  <text x="72" y="69" font-family="monospace" font-size="9" font-weight="bold" text-anchor="middle" fill="#C4B5FD" letter-spacing="1">GHOST RIDER</text>
+  <path d="M148 56 Q156 56 158 64 L158 76 Q155 74 152 76 Q149 78 146 76 Q143 74 140 76 L140 64 Q142 56 148 56Z" fill="rgba(139,92,246,0.4)" stroke="#C4B5FD" stroke-width="1"/>
+  <circle cx="145" cy="64" r="2.5" fill="#C4B5FD"/><circle cx="151" cy="64" r="2.5" fill="#C4B5FD"/>
+  <rect x="32" y="82" width="136" height="8" rx="3" fill="rgba(30,27,46,0.5)"/>
+  <rect x="32" y="98"  width="100" height="5" rx="2" fill="rgba(30,27,46,0.5)"/><rect x="32" y="98"  width="60" height="5" rx="2" fill="#8B5CF6" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="108" width="100" height="5" rx="2" fill="rgba(30,27,46,0.5)"/><rect x="32" y="108" width="75" height="5" rx="2" fill="#6D28D9" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="118" width="100" height="5" rx="2" fill="rgba(30,27,46,0.5)"/><rect x="32" y="118" width="45" height="5" rx="2" fill="#C4B5FD" filter="url(#b7-glow-sm)"/>
+  <text x="138" y="103" font-family="monospace" font-size="7" fill="#8B5CF6">SPD</text>
+  <text x="138" y="113" font-family="monospace" font-size="7" fill="#6D28D9">STL</text>
+  <text x="138" y="123" font-family="monospace" font-size="7" fill="#C4B5FD">REP</text>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#4C1D95" filter="url(#b7-glow-sm)">#G013</text>
+</symbol>
+
+<!-- ══ RANK_CARD E ×2 ══ -->
+<symbol id="item-RANK_CARD_NEON_SAIGON_E_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-neon)" stroke="url(#b7-stk-neon)" stroke-width="2.5" filter="url(#b7-glow-sm)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-circuit-bg)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rg-neon)" opacity="0.45"/>
+  <rect x="32" y="55" width="60" height="22" rx="6" fill="url(#b7-stk-neon)" filter="url(#b7-glow-sm)"/>
+  <text x="62" y="70" font-family="monospace" font-size="10" font-weight="900" text-anchor="middle" fill="white" letter-spacing="1">EPIC</text>
+  <rect x="108" y="53" width="62" height="48" rx="6" fill="rgba(15,8,36,0.6)" stroke="#00F0FF" stroke-width="1"/>
+  <rect x="112" y="70" width="54" height="8" rx="2" fill="rgba(0,240,255,0.15)" stroke="#00F0FF" stroke-width="0.5"/>
+  <rect x="32" y="84" width="70" height="8" rx="3" fill="rgba(15,8,36,0.6)"/>
+  <rect x="32" y="100" width="70" height="5" rx="2" fill="rgba(15,8,36,0.5)"/><rect x="32" y="100" width="60" height="5" rx="2" fill="#FF2D9C" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="110" width="70" height="5" rx="2" fill="rgba(15,8,36,0.5)"/><rect x="32" y="110" width="55" height="5" rx="2" fill="#7C3AED" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="120" width="70" height="5" rx="2" fill="rgba(15,8,36,0.5)"/><rect x="32" y="120" width="65" height="5" rx="2" fill="#00F0FF" filter="url(#b7-glow-sm)"/>
+  <rect x="108" y="108" width="62" height="32" rx="4" fill="rgba(15,8,36,0.4)" stroke="rgba(0,240,255,0.2)" stroke-width="0.8"/>
+  <line x1="114" y1="116" x2="164" y2="116" stroke="#FF2D9C" stroke-width="1" opacity="0.5"/>
+  <line x1="114" y1="122" x2="150" y2="122" stroke="#00F0FF" stroke-width="1" opacity="0.5"/>
+  <line x1="114" y1="128" x2="164" y2="128" stroke="#7C3AED" stroke-width="1" opacity="0.5"/>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#00F0FF" filter="url(#b7-glow-sm)">#E099</text>
+</symbol>
+
+<symbol id="item-RANK_CARD_SAIGON_GHOST_E_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-ghost-e)" stroke="#8B5CF6" stroke-width="2.5" filter="url(#b7-glow-sm)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rg-ghost)" opacity="0.5"/>
+  <rect x="32" y="55" width="88" height="22" rx="6" fill="rgba(76,29,149,0.6)" stroke="#8B5CF6" stroke-width="1.5" filter="url(#b7-glow-sm)"/>
+  <text x="76" y="70" font-family="monospace" font-size="10" font-weight="900" text-anchor="middle" fill="#C4B5FD" letter-spacing="1">EPIC GHOST</text>
+  <rect x="120" y="53" width="50" height="48" rx="6" fill="rgba(13,7,33,0.7)" stroke="#8B5CF6" stroke-width="1"/>
+  <ellipse cx="140" cy="68" rx="4.5" ry="4" fill="rgba(139,92,246,0.5)"/>
+  <ellipse cx="150" cy="68" rx="4.5" ry="4" fill="rgba(139,92,246,0.5)"/>
+  <path d="M140 78 Q145 82 150 78" fill="none" stroke="rgba(196,181,253,0.5)" stroke-width="1.5"/>
+  <path d="M133 58 L135 65 L140 62 L145 58 L150 62 L155 65 L157 58" fill="none" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect x="32" y="84" width="80" height="8" rx="3" fill="rgba(13,7,33,0.5)"/>
+  <rect x="32" y="100" width="80" height="5" rx="2" fill="rgba(13,7,33,0.5)"/><rect x="32" y="100" width="55" height="5" rx="2" fill="#8B5CF6" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="110" width="80" height="5" rx="2" fill="rgba(13,7,33,0.5)"/><rect x="32" y="110" width="65" height="5" rx="2" fill="#4C1D95" filter="url(#b7-glow-sm)"/>
+  <rect x="32" y="120" width="80" height="5" rx="2" fill="rgba(13,7,33,0.5)"/><rect x="32" y="120" width="40" height="5" rx="2" fill="#C4B5FD" filter="url(#b7-glow-sm)"/>
+  <ellipse cx="148" cy="128" rx="14" ry="8" fill="rgba(139,92,246,0.15)" filter="url(#b7-glow-sm)"/>
+  <circle cx="148" cy="125" r="3" fill="#8B5CF6" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.7;0.1;0.7" dur="1.5s" repeatCount="indefinite"/></circle>
+  <text x="166" y="147" font-family="monospace" font-size="8" text-anchor="end" fill="#6D28D9">#G099</text>
+</symbol>
+
+<!-- ══ RANK_CARD L ×1 ══ -->
+<symbol id="item-RANK_CARD_TET_FESTIVAL_L_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-legendary)" stroke="#FFB800" stroke-width="2.5" filter="url(#b7-glow-sm)"/>
+  <rect x="22" y="45" width="156" height="32" rx="10" fill="rgba(127,29,29,0.6)"/>
+  <rect x="22" y="63" width="156" height="14" fill="rgba(127,29,29,0.6)"/>
+  <text x="100" y="67" font-family="serif" font-size="11" font-weight="bold" text-anchor="middle" fill="#FFD96B" letter-spacing="2">✦ LEGENDARY ✦</text>
+  <rect x="32" y="84" width="52" height="65" rx="6" fill="rgba(127,29,29,0.5)" stroke="#FFB800" stroke-width="1.5"/>
+  <ellipse cx="58" cy="105" rx="16" ry="20" fill="rgba(220,38,38,0.3)"/>
+  <circle cx="52" cy="102" r="3.5" fill="rgba(251,191,36,0.6)"/><circle cx="52" cy="102" r="1.5" fill="#7F1D1D"/>
+  <circle cx="64" cy="102" r="3.5" fill="rgba(251,191,36,0.6)"/><circle cx="64" cy="102" r="1.5" fill="#7F1D1D"/>
+  <circle cx="58" cy="94" r="5" fill="#FFD700" filter="url(#b7-glow-sm)">
+    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.8s" repeatCount="indefinite"/>
+  </circle>
+  <rect x="96" y="84" width="80" height="6" rx="2" fill="rgba(127,29,29,0.4)"/>
+  <rect x="96" y="105" width="80" height="5" rx="2" fill="rgba(127,29,29,0.4)"/><rect x="96" y="105" width="70" height="5" rx="2" fill="#FFB800"/>
+  <rect x="96" y="115" width="80" height="5" rx="2" fill="rgba(127,29,29,0.4)"/><rect x="96" y="115" width="60" height="5" rx="2" fill="#DC2626"/>
+  <rect x="96" y="125" width="80" height="5" rx="2" fill="rgba(127,29,29,0.4)"/><rect x="96" y="125" width="75" height="5" rx="2" fill="#FFD96B"/>
+  <text x="180" y="110" font-family="monospace" font-size="7" text-anchor="end" fill="#FFB800">SPD</text>
+  <text x="180" y="120" font-family="monospace" font-size="7" text-anchor="end" fill="#DC2626">LCK</text>
+  <text x="180" y="130" font-family="monospace" font-size="7" text-anchor="end" fill="#FFD96B">REP</text>
+  <rect x="22" y="140" width="156" height="15" rx="10" fill="rgba(127,29,29,0.6)"/>
+  <rect x="22" y="140" width="156" height="7"  fill="rgba(127,29,29,0.6)"/>
+  <text x="100" y="151" font-family="monospace" font-size="7" text-anchor="middle" fill="rgba(255,215,107,0.7)" letter-spacing="3">TẾT FESTIVAL · #L001</text>
+</symbol>
+
+<!-- ══ RANK_CARD M ×1 ══ -->
+<symbol id="item-RANK_CARD_LEGEND_OF_SAIGON_M_01" viewBox="0 0 200 200">
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rc-mythic)" stroke="url(#b7-rc-mythic)" stroke-width="3" filter="url(#b7-glow-mythic)"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="url(#b7-rg-mythic)" opacity="0.5"/>
+  <rect x="22" y="45" width="156" height="110" rx="10" fill="none" stroke="rgba(255,45,156,0.4)" stroke-width="1.5" stroke-dasharray="14,6">
+    <animate attributeName="stroke-dashoffset" values="0;-20" dur="1.5s" repeatCount="indefinite"/>
+  </rect>
+  <rect x="22" y="45" width="156" height="30" rx="10" fill="rgba(0,0,0,0.4)"/>
+  <rect x="22" y="61" width="156" height="14" fill="rgba(0,0,0,0.4)"/>
+  <text x="100" y="66" font-family="monospace" font-size="9" font-weight="900" text-anchor="middle" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-sm)" letter-spacing="2">⚡ MYTHIC LEGEND ⚡</text>
+  <rect x="30" y="82" width="56" height="65" rx="6" fill="rgba(0,0,0,0.4)" stroke="url(#b7-rc-mythic)" stroke-width="1.5"/>
+  <path d="M38 112 L38 102 L46 108 L58 96 L70 108 L78 102 L78 112Z" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-mythic)"/>
+  <rect x="36" y="112" width="44" height="5" rx="2" fill="url(#b7-rc-mythic)"/>
+  <circle cx="46" cy="106" r="2.5" fill="#FF2D9C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.2;1" dur="1.3s" repeatCount="indefinite"/></circle>
+  <circle cx="58" cy="99"  r="3"   fill="#FFB800" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.6s" repeatCount="indefinite"/></circle>
+  <circle cx="70" cy="106" r="2.5" fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.6;0.1;0.6" dur="1.8s" repeatCount="indefinite"/></circle>
+  <rect x="96" y="94" width="82" height="6" rx="2" fill="rgba(0,0,0,0.35)"/>
+  <rect x="96" y="105" width="82" height="4" rx="1" fill="rgba(0,0,0,0.3)"/><rect x="96" y="105" width="80" height="4" rx="1" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-sm)"/>
+  <rect x="96" y="113" width="82" height="4" rx="1" fill="rgba(0,0,0,0.3)"/><rect x="96" y="113" width="74" height="4" rx="1" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-sm)"/>
+  <rect x="96" y="121" width="82" height="4" rx="1" fill="rgba(0,0,0,0.3)"/><rect x="96" y="121" width="78" height="4" rx="1" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-sm)"/>
+  <rect x="96" y="129" width="82" height="4" rx="1" fill="rgba(0,0,0,0.3)"/><rect x="96" y="129" width="82" height="4" rx="1" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-sm)"/>
+  <text x="182" y="109" font-family="monospace" font-size="7" text-anchor="end" fill="url(#b7-rc-mythic)">SPD</text>
+  <text x="182" y="117" font-family="monospace" font-size="7" text-anchor="end" fill="url(#b7-rc-mythic)">STR</text>
+  <text x="182" y="125" font-family="monospace" font-size="7" text-anchor="end" fill="url(#b7-rc-mythic)">LCK</text>
+  <text x="182" y="133" font-family="monospace" font-size="7" text-anchor="end" fill="url(#b7-rc-mythic)">REP</text>
+  <rect x="22" y="140" width="156" height="15" rx="10" fill="rgba(0,0,0,0.4)"/>
+  <rect x="22" y="140" width="156" height="7"  fill="rgba(0,0,0,0.4)"/>
+  <text x="100" y="151" font-family="monospace" font-size="7" text-anchor="middle" fill="url(#b7-rc-mythic)" filter="url(#b7-glow-sm)" letter-spacing="2">LEGEND OF SAIGON · #M001</text>
+  <circle cx="30"  cy="53"  r="3" fill="#FF2D9C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.1;1" dur="1.4s" repeatCount="indefinite"/></circle>
+  <circle cx="170" cy="53"  r="3" fill="#00F0FF" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.2;1;0.2" dur="1.7s" repeatCount="indefinite"/></circle>
+  <circle cx="30"  cy="147" r="3" fill="#FFB800" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/></circle>
+  <circle cx="170" cy="147" r="3" fill="#B6FF1C" filter="url(#b7-glow-sm)"><animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/></circle>
+</symbol>
+
+</svg>

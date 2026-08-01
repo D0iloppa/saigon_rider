@@ -1,0 +1,206 @@
+.root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink-900);
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  background: var(--grad-sunset);
+  z-index: 0;
+}
+
+.noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  opacity: .35;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Full-bleed video hero */
+.photoHero {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: var(--ink-800);
+}
+
+.photoHero img,
+.photoHero video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.2) contrast(1.05);
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg,
+    rgba(8,9,15,.6) 0%,
+    rgba(8,9,15,.15) 20%,
+    rgba(8,9,15,.25) 55%,
+    rgba(8,9,15,.9) 100%);
+}
+
+/* Language selector */
+.langPickerWrap {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 16px);
+  right: 20px;
+  z-index: 25;
+}
+
+.langChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, .22);
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.langChip:active {
+  background: rgba(255, 255, 255, .28);
+}
+
+.langFlag {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+}
+
+.langLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.05em;
+  color: white;
+}
+
+.langDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: rgba(20, 20, 30, .92);
+  border: 1px solid rgba(255, 255, 255, .15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  overflow: hidden;
+  min-width: 120px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
+}
+
+.langOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Space Grotesk', sans-serif;
+  color: rgba(255, 255, 255, .7);
+  transition: background .12s;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  cursor: pointer;
+}
+
+.langOption:last-child {
+  border-bottom: none;
+}
+
+.langOption:hover,
+.langOption:active {
+  background: rgba(255, 255, 255, .1);
+}
+
+.langOptionActive {
+  color: white;
+  background: rgba(255, 153, 102, .15);
+}
+
+/* Central wordmark — positioned at 310px from top */
+.wordmark {
+  position: absolute;
+  top: 310px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  text-align: center;
+  padding: 0 32px;
+}
+
+.wordmarkTag {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: rgba(255, 220, 180, 0.9);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.wordmarkTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: .9;
+  color: white;
+  text-shadow: 0 4px 32px rgba(0,0,0,.5);
+}
+
+/* Bottom sheet — glass surface over the video, floating at 80% width */
+.sheet {
+  position: absolute;
+  bottom: calc(var(--bottom-safe) + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80% !important;
+  z-index: 20;
+  border-radius: 28px !important;
+}
+
+.sheetInner {
+  width: 100%;
+  padding: 22px 19px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loginBtn {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(8, 9, 15, .82);
+  padding: 4px;
+  cursor: pointer;
+}
+
+.legal {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.legal a {
+  color: var(--brand-500);
+  font-weight: 600;
+}

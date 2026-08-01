@@ -1,0 +1,4 @@
+.statusBar {
+  height: var(--status-bar-height);
+  flex-shrink: 0;
+}

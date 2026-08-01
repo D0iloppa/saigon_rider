@@ -1,0 +1,62 @@
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 28px calc(40px + var(--bottom-safe));
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin-bottom: 20px;
+}
+
+/* 밴 = 위험, 일시정지 = 주의 — status 토큰의 실제 의미 사용 (design-system §3) */
+.iconBanned {
+  background: rgba(239, 59, 59, .08);
+  color: var(--danger);
+}
+
+.iconSuspended {
+  background: rgba(245, 158, 11, .12);
+  color: var(--warn);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.desc {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.contactHint {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.logoutBtn {
+  margin-top: 32px;
+  max-width: 220px;
+}

@@ -1,0 +1,253 @@
+.page {
+  position: absolute;
+  inset: 0;
+  background: #08090F;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header / hero gradient ── */
+.header {
+  flex-shrink: 0;
+  background: linear-gradient(180deg,
+    rgba(255,90,31,.28) 0%,
+    rgba(255,184,0,.18) 50%,
+    transparent 100%
+  );
+  padding: var(--status-bar-height, 44px) 16px 16px;
+}
+.headerTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.backBtn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.8);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.seasonName {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  flex: 1;
+}
+.countdown {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  color: rgba(255,255,255,.55);
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+/* ── Level card ── */
+.levelCard {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+.levelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.levelLabel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+.levelSub {
+  font-size: 11px;
+  color: rgba(255,255,255,.45);
+}
+.xpBar {
+  height: 6px;
+  background: rgba(255,255,255,.08);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.xpFill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--brand-300, #FF8A4C), var(--brand-500, #FF5A1F));
+  transition: width .4s ease;
+}
+.xpMeta {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  font-variant-numeric: tabular-nums;
+}
+.tierBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: rgba(255,184,0,.9);
+  background: rgba(255,184,0,.1);
+  border: 1px solid rgba(255,184,0,.2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-top: 8px;
+}
+
+/* ── Reward track ── */
+.trackWrap {
+  flex: 1;
+  overflow: hidden;
+  padding-top: 14px;
+}
+.trackLabel {
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  letter-spacing: .1em;
+  padding: 0 16px;
+  margin-bottom: 10px;
+}
+.track {
+  display: flex;
+  gap: 10px;
+  padding: 0 16px;
+  overflow-x: auto;
+  height: 100%;
+  scrollbar-width: none;
+  align-items: flex-start;
+  padding-bottom: 16px;
+}
+.track::-webkit-scrollbar { display: none; }
+
+/* Single reward node */
+.node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 72px;
+}
+.nodeLevel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.5);
+}
+.nodeLevelCurrent {
+  color: var(--brand-500, #FF5A1F);
+}
+
+/* Reward card */
+.rewardCard {
+  width: 64px;
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  position: relative;
+}
+.rewardCardFree { /* free track, already styled above */ }
+.rewardCardPremium {
+  background: rgba(255,184,0,.06);
+  border-color: rgba(255,184,0,.18);
+}
+.rewardCardClaimed {
+  opacity: .45;
+}
+.rewardCardClaimedBadge {
+  position: absolute;
+  top: 3px; right: 3px;
+  font-size: 8px;
+  color: rgba(255,255,255,.5);
+}
+.rewardIcon {
+  font-size: 22px;
+  line-height: 1;
+}
+.rewardCardLabel {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255,255,255,.7);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Track type row labels */
+.trackRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trackRowLabel {
+  width: 64px;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: rgba(255,255,255,.35);
+  margin-bottom: 2px;
+}
+.trackRowLabelPremium {
+  color: rgba(255,184,0,.5);
+}
+
+/* ── Premium upsell ── */
+.upsell {
+  flex-shrink: 0;
+  margin: 0 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255,184,0,.18) 0%, rgba(255,90,31,.14) 100%);
+  border: 1px solid rgba(255,184,0,.25);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.upsellText {
+  flex: 1;
+}
+.upsellTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,184,0,.95);
+  margin-bottom: 2px;
+}
+.upsellSub {
+  font-size: 11px;
+  color: rgba(255,255,255,.5);
+}
+.upsellBtn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: rgba(255,184,0,.9);
+  color: #1A1206;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}

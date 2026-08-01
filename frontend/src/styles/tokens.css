@@ -1,0 +1,259 @@
+@import './items.css';
+
+/* Saigon Rider Design Tokens */
+:root {
+  /* Brand — Saigon Heat */
+  --brand-50:  #FFF1E8;
+  --brand-100: #FFDDC4;
+  --brand-200: #FFBB8A;
+  --brand-300: #FF9966;
+  --brand-500: #FF5A1F;
+  --brand-600: #ED4310;
+  --brand-700: #B82C08;
+  --brand-900: #4A1203;
+
+  /* Night Ride — 게임 다크 */
+  --ink-900: #08090F;
+  --ink-800: #11131C;
+  --ink-700: #1A1D2A;
+  --ink-600: #262A3D;
+  --ink-500: #3D4256;
+
+  /* Neon (라이딩 HUD) */
+  --neon-cyan:  #00F0FF;
+  --neon-lime:  #B6FF1C;
+  --neon-pink:  #FF2D9C;
+  --neon-amber: #FFB800;
+
+  /* Game Currency — 재화/보상 색상 토큰
+   * --exp  : EXP  (레벨 경험치) ⭐ green
+   * --xp   : XP   (소모 포인트) ✨ purple
+   * --gold : GP   (일반 재화)   🪙 gold
+   * --gc   : GC   (프리미엄)    💎 cyan
+   */
+  --exp:   #22C55E;
+  --xp:    #8B5CF6;
+  --gold:  #FFB800;
+  --gc:    #00C8FF;
+
+  /* Surfaces */
+  --bg:        #F7F5F0;
+  --surface:   #FFFFFF;
+  --surface-2: #FAF7F2;
+  --line:      #E8E3DA;
+  --text:      #0B0D14;
+  --text-2:    #4A4F62;
+  --text-3:    #8A8E9E;
+
+  /* Status */
+  --success: #16A34A;
+  --warn:    #F59E0B;
+  --danger:  #EF3B3B;
+
+  /* Elevation */
+  --shadow-card:
+    0 1px 2px rgba(11,13,20,.04),
+    0 4px 12px rgba(11,13,20,.06),
+    0 16px 40px rgba(11,13,20,.06);
+  --shadow-pop:
+    0 8px 24px rgba(255,90,31,.20),
+    0 24px 60px rgba(255,90,31,.18);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,.6);
+
+  /* Gradients */
+  --grad-sunset:
+    radial-gradient(at 20% 20%, #FFD96B 0%, transparent 50%),
+    radial-gradient(at 80% 30%, #FF5A1F 0%, transparent 55%),
+    radial-gradient(at 60% 90%, #7C3AED 0%, transparent 60%),
+    linear-gradient(160deg, #FF7438, #B82C08);
+  --grad-night:
+    radial-gradient(at 30% 20%, #1A1D2A 0%, transparent 50%),
+    radial-gradient(at 70% 80%, #FF2D9C 0%, transparent 30%),
+    linear-gradient(160deg, #11131C, #08090F);
+  --grad-mesh-1:
+    radial-gradient(at 0% 0%, #FF9966 0%, transparent 50%),
+    radial-gradient(at 100% 100%, #7C3AED 0%, transparent 50%),
+    #FFF1E8;
+
+  /* Radii */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --app-max-width: 480px;
+  --tabbar-height: 72px;   /* 상단 8px + 아이콘 50px + 하단 14px. iOS는 별도 override */
+  --header-safe: env(safe-area-inset-top, 0px);
+  --bottom-safe: env(safe-area-inset-bottom, 0px);
+
+  /*
+   * --status-bar-height : 플랫폼별 상단 여백
+   *
+   * iOS     → env(safe-area-inset-top) — 전체화면 WebView 기준
+   * Android → max(env(safe-area-inset-top), 24px) — edge-to-edge 대응, 최소 24px
+   * web     → 24px (기본값, 별도 override 없음)
+   */
+  --status-bar-height: 24px;
+}
+
+/* iOS : 전체화면 WebView → safe-area-inset-top 사용 */
+[data-platform="ios"] {
+  --status-bar-height: env(safe-area-inset-top, 44px);
+}
+
+/* Android : edge-to-edge 대응 — safe-area가 있으면 사용, 없거나 0이면 최소 24px */
+[data-platform="android"] {
+  --status-bar-height: max(env(safe-area-inset-top, 0px), 24px);
+}
+
+/* =====================================================================
+ * DARK MODE — Night Ride 팔레트
+ * 라이트(:root)는 기본값이며 절대 건드리지 않는다. 여기서 surface 계열
+ * 토큰값만 재정의한다. 브랜드/네온/재화/status 액센트는 양 테마 공통.
+ * 초기 페인트는 index.html 인라인 스크립트가 data-theme 를 선반영(FOUC 방지),
+ * 런타임 토글은 useThemeStore 가 documentElement 에 data-theme 를 세팅.
+ * ===================================================================== */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg:        #08090F;   /* ← #F7F5F0 */
+  --surface:   #11131C;   /* ← #FFFFFF */
+  --surface-2: #1A1D2A;   /* ← #FAF7F2 */
+  --line:      #262A3D;   /* ← #E8E3DA */
+  --text:      #F4F2EC;   /* ← #0B0D14 */
+  --text-2:    #A8AEC2;   /* ← #4A4F62 */
+  --text-3:    #7A8094;   /* ← #8A8E9E */
+
+  /* Elevation — 다크 배경에선 그림자 대신 깊은 흑색 + 미세 보더감 */
+  --shadow-card:
+    0 1px 2px rgba(0,0,0,.40),
+    0 4px 12px rgba(0,0,0,.45),
+    0 16px 40px rgba(0,0,0,.55);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,.05);
+
+  /* Rarity 카드 배경 — 라이트 surface 전제였던 값들을 다크 surface 로 */
+  --r-c-bg:     #1E2230;
+  --r-r-bg:     #14223D;
+  --r-e-bg:     #221A3A;
+  --r-l-bg:     #2E1B12;
+}
+
+/* shimmer 스켈레톤 중간색(globals.css 의 #F0ECE5 하드코딩) 다크 대응 */
+[data-theme="dark"] .shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    #242838 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* ===== RPG ECONOMY — Light Surface Rarity System ===== */
+/* .rarity-card: 라이트 배경(상점/인벤토리) 위 아이템 카드 */
+:root {
+  --r-c-fill:   #9CA3AF;
+  --r-c-bg:     #F3F4F6;
+  --r-c-border: #D1D5DB;
+  --r-c-glow:   rgba(156,163,175,0);
+  --r-c-grad:   linear-gradient(135deg, #E5E7EB, #9CA3AF);
+  --r-r-fill:   #3B82F6;
+  --r-r-bg:     #DBEAFE;
+  --r-r-border: #60A5FA;
+  --r-r-glow:   rgba(59,130,246,.45);
+  --r-r-grad:   linear-gradient(135deg, #60A5FA, #1D4ED8);
+  --r-e-fill:   #8B5CF6;
+  --r-e-bg:     #EDE9FE;
+  --r-e-border: #A78BFA;
+  --r-e-glow:   rgba(139,92,246,.55);
+  --r-e-grad:   linear-gradient(135deg, #A78BFA, #6D28D9);
+  --r-l-fill:   #FF7438;
+  --r-l-bg:     #FFE4D2;
+  --r-l-border: #FF9966;
+  --r-l-glow:   rgba(255,116,56,.70);
+  --r-l-grad:   linear-gradient(135deg, #FFB800, #FF5A1F, #B82C08);
+  --r-m-glow:   rgba(255,45,156,.80);
+  --r-m-grad:   linear-gradient(135deg, #FF2D9C 0%, #FF7438 25%, #FFB800 50%, #00F0FF 75%, #B6FF1C 100%);
+}
+
+.rarity-card {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.rarity-card[data-r="C"] {
+  background: var(--r-c-bg);
+  border: 1.5px solid var(--r-c-border);
+}
+.rarity-card[data-r="R"] {
+  background: var(--r-r-bg);
+  border: 1.5px solid var(--r-r-border);
+  box-shadow: 0 8px 24px var(--r-r-glow);
+}
+.rarity-card[data-r="E"] {
+  background: var(--r-e-bg);
+  border: 2px solid var(--r-e-border);
+  box-shadow: 0 12px 32px var(--r-e-glow);
+}
+.rarity-card[data-r="L"] {
+  background: linear-gradient(135deg, var(--r-l-bg), #FFF);
+  box-shadow: 0 0 0 2px var(--r-l-fill), 0 16px 48px var(--r-l-glow);
+}
+.rarity-card[data-r="M"] {
+  background: linear-gradient(white, white) padding-box, var(--r-m-grad) border-box;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.3) inset, 0 20px 60px var(--r-m-glow);
+}
+
+/* .rarity-chip: 등급 배지 */
+.rarity-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: white;
+}
+.rarity-chip[data-r="C"] { background: var(--r-c-fill); color: #374151; }
+.rarity-chip[data-r="R"] { background: var(--r-r-grad); }
+.rarity-chip[data-r="E"] { background: var(--r-e-grad); }
+.rarity-chip[data-r="L"] { background: var(--r-l-grad); }
+.rarity-chip[data-r="M"] {
+  background: var(--r-m-grad);
+  background-size: 200% 200%;
+  animation: rarity-mythic-shimmer 3s linear infinite;
+}
+
+/* .pity-bar: 천장 진행 바 */
+.pity-bar {
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.pity-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-300), var(--brand-500));
+}
+.pity-bar-fill[data-near="true"] {
+  animation: rarity-pity-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes rarity-mythic-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+@keyframes rarity-pity-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,31,.6); }
+  50%       { box-shadow: 0 0 12px 4px rgba(255,90,31,.4); }
+}
+@keyframes gacha-card-flip {
+  0%, 100% { transform: rotateY(0deg) scale(1); }
+  50%       { transform: rotateY(180deg) scale(1.05); }
+}

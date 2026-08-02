@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -5,13 +6,25 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
-from ..models import MarketplaceReview, Quest, Report, RideSession, User, UserBadge, UserFollow, UserQuest
+from ..models import (
+    MarketplaceReview,
+    Quest,
+    Report,
+    RideSession,
+    User,
+    UserBadge,
+    UserFollow,
+    UserOAuthIdentity,
+    UserQuest,
+    WithdrawnMemberArchive,
+)
 from ..schemas import (
     FollowUserOut,
     Page,
@@ -21,7 +34,11 @@ from ..schemas import (
     UserProfileOut,
     UserStatsOut,
 )
+from ..services.ops_alerts import send_ops_alert
+from ..services.withdrawn_archive import WITHDRAWN_ARCHIVE_RETENTION, hash_identifier
 from ..utils import APP_TZ, mask_phone, resolve_avatar_url
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["유저 (Users)"])
 
@@ -236,12 +253,61 @@ async def delete_account(
     _require_self(user_id, _session_uid)
     user = await _get_user_or_404(user_id, db)
     now = datetime.now(UTC)
+
+    # 식별자 해시 아카이브 (170, 대표 결정 2026-08-02) — 아래 익명화로 phone 원본이,
+    # 30일 파기 배치로 user_oauth_identities 가 사라지기 전에, 재가입·제재회피 추적용으로
+    # HMAC-SHA256 해시만 1년 보관한다. user.phone 은 OTP 인증 시 _normalize_vn_phone 이
+    # E.164(+84…) 정규형으로 저장한 값이므로 그대로 해시한다 (admin withdrawn-check 조회도
+    # 같은 정규화를 거쳐 형식이 일치).
+    identities = (
+        (await db.execute(select(UserOAuthIdentity).where(UserOAuthIdentity.user_id == user.id))).scalars().all()
+    )
+    candidates: list[tuple[str, str | None, str | None]] = [("phone", None, user.phone)]
+    candidates += [("oauth", i.provider, i.provider_user_id) for i in identities]
+    archive_rows: list[dict] = []
+    pepper_missing = False
+    for kind, provider, value in candidates:
+        if not value:
+            continue  # OAuth 가입자는 phone 미보유 가능
+        if kind == "phone" and value.startswith("del_"):
+            # 복구(restore) 후 재탈퇴 — 복구는 전화번호를 되살리지 않으므로 phone 이 아직
+            # 익명화값(del_*)이다. 이걸 해시하면 영원히 매칭되지 않는 쓰레기 행만 남는다.
+            continue
+        value_hash = hash_identifier(value)
+        if value_hash is None:
+            pepper_missing = True
+            break
+        archive_rows.append(
+            {
+                "user_id": user.id,
+                "kind": kind,
+                "provider": provider,
+                "value_hash": value_hash,
+                "deleted_at": now,
+                "purge_after": now + WITHDRAWN_ARCHIVE_RETENTION,
+            }
+        )
+    if pepper_missing:
+        # fail-open: 아카이브는 부가 추적 장치일 뿐 — 그 실패(운영 설정 누락)가 이용자의
+        # 탈퇴권(개인정보 파기 요구) 행사를 막으면 안 된다. 탈퇴는 정상 진행하고 경보만 남긴다.
+        log.error("WITHDRAWN_HASH_PEPPER unset — withdrawn identifier archive skipped (user=%s)", user.id)
+        await send_ops_alert(
+            f"[withdrawn-archive] WITHDRAWN_HASH_PEPPER 미설정 — 탈퇴 식별자 아카이브 누락 (user={user.id})",
+            key="withdrawn_archive_pepper_unset",
+        )
+    elif archive_rows:
+        # 탈퇴→복구→재탈퇴 반복 시 UNIQUE(user_id,kind,provider,value_hash) 충돌 → DO NOTHING
+        await db.execute(pg_insert(WithdrawnMemberArchive).values(archive_rows).on_conflict_do_nothing())
+
     user.deleted_at = now
-    ts_hex = f"{int(now.timestamp()):x}"
-    user.phone = f"del_{ts_hex}"
+    # 익명화 값은 uuid4 기반 — 초 단위 timestamp 는 같은 초에 두 명이 탈퇴하면
+    # UNIQUE(users.phone / users.nickname) 위반으로 500 이 났다.
+    # "del_" 접두는 purge 배치(_is_purge_eligible)의 익명화 흔적 판정에 쓰이므로 유지.
+    # "del_" + hex 16자 = 20자 — phone String(20) / nickname String(30) 한도 내.
+    user.phone = f"del_{uuid.uuid4().hex[:16]}"
     user.phone_verified_at = None
     if user.nickname:
-        user.nickname = f"del_{ts_hex}"
+        user.nickname = f"del_{uuid.uuid4().hex[:16]}"
     user.passcode_hash = None
     await db.commit()
     return Response(status_code=204)

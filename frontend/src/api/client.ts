@@ -28,6 +28,20 @@ export class SessionExpiredError extends Error {
 
 export type AccountRestrictionCode = 'account_suspended' | 'account_banned';
 
+/** 탈퇴(soft-delete) 계정 로그인 — 409 account_deleted. 전역 토스트 대신 복구 안내 화면에서 처리한다. */
+export class AccountDeletedError extends Error {
+  deletedAt: string | null;
+  restorableUntil: string | null;
+  restoreToken: string | null;
+  constructor(detail: { deleted_at?: string; restorable_until?: string; restore_token?: string }) {
+    super('Account deleted');
+    this.name = 'AccountDeletedError';
+    this.deletedAt = detail.deleted_at ?? null;
+    this.restorableUntil = detail.restorable_until ?? null;
+    this.restoreToken = detail.restore_token ?? null;
+  }
+}
+
 export class AccountRestrictedError extends Error {
   code: AccountRestrictionCode;
   until: string | null;
@@ -185,6 +199,10 @@ async function realFetch<T>(
       continue;
     }
     const err = await res.json().catch(() => ({}));
+    // 탈퇴 계정 로그인(409 account_deleted) — 토스트로 새지 않고 복구 안내 화면으로 라우팅
+    if (res.status === 409 && err?.detail?.code === 'account_deleted') {
+      throw new AccountDeletedError(err.detail);
+    }
     const message = extractErrorMessage(err, res.status, `${method} ${url}`);
     if (_opts.silent) {
       console.warn(`[silent] ${message}`);

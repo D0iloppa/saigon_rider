@@ -52,7 +52,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - `database/init/NNN_*.sql` 번호순. 신규 볼륨은 `docker-entrypoint-initdb.d` 가 전건 실행
 - **기존 볼륨은 `docker-compose.yml` 의 `bff_migrate` 에 등록된 것만 적용된다** — `command`(`-f`) + `volumes` **양쪽에 등록 필수**. 등록 누락이 반복 결함이었다(F-20)
 - 적용 이력 원장 `schema_migrations`(`160_*.sql`) — `bff_migrate` 가 각 `-f` 뒤에 `-c "INSERT ... VALUES (NNN) ON CONFLICT DO NOTHING"` 을 인터리브. `ON_ERROR_STOP=1` 로 "성공한 파일만 기록"이 자동 보장. fresh-init 은 `-c` 없이 실행되므로 원장이 비는데, 빈 볼륨은 정의상 최신이라 **의도된 범위 한정**
-- 현재 최대 번호 **169**. `bff_migrate` 등록 범위 139~169
+- 현재 최대 번호 **170**. `bff_migrate` 등록 범위 139~170
 - 🔴 **fresh-init ≠ 라이브 스키마 사고**(2026-08-02): `database/init/` 전건 실행으로 재현한 스키마가 라이브 dev DB 와 어긋나 있었다(`users.deleted_at` 생성 SQL 부재·`badges.policy_id`(`033_*.sql`) 라이브 미적용·`flood_confirmation.lat/lng` NOT NULL 라이브 미반영). `169_schema_parity_backfill.sql` 로 역보강 + `backend/app/tests/test_schema_parity.py` 로 핵심 컬럼 존재를 정적 고정. **fresh-init 이 ERROR 0건인 것과 스키마가 실제와 일치하는 것은 다른 문제**임을 명심 — 게이트 통과를 스키마 파리티의 증거로 삼지 말 것
 
 ## PATTERNS
@@ -102,7 +102,7 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **E2E**: `frontend/e2e/*.spec.ts` + `playwright.config.ts`(baseURL `http://localhost:18090`). **구동 중인 dev 스택을 대상으로** 돈다. 세션은 `dev-login` 후 `sr_session` 쿠키를 `addCookies` 로 심어 앱의 실제 부트스트랩 경로를 태운다. `data-testid` 는 쓰지 않는다(프로덕션 코드 무침습 — 플레이스홀더·role·텍스트 셀렉터로 커버). 각 spec 의 `afterEach` 가 `DELETE FROM users` 한 줄로 CASCADE 정리
   - 🔴 **E2E 는 "배포본이 소스와 다르다"를 잡는 유일한 층이다.** 도입 첫 실행에서 구동 중이던 `saigon_frontend` 컨테이너가 소스보다 오래된 빌드라 **동의 게이트가 dev 에서 아예 동작하지 않던 것**을 발견했다. 프론트 변경 후에는 `docker compose --env-file .env up --build -d frontend` 를 잊지 말 것
   - 브라우저에서는 `native.platform === 'web'` 이라 강제 업데이트 판정 경로가 **원천적으로 실행되지 않는다** — E2E 로 검증 불가(실기기 필요, B-1)
-기준선(2026-08-02): backend **317** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` **15**.
+기준선(2026-08-02): backend **353** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` **15**. ruff check/format 통과. **fresh DB(`database/init` 전건) ↔ dev 라이브 schema diff: fresh-only 0건, live-only는 전부 Engine/Alembic 소유(고아 0건)**, `withdrawn_member_archive` 양측 8컬럼 일치.
 - **CI e2e job**: `.github/workflows/ci.yml` 에 `e2e` job 추가(**`pull_request` 에서만** 동작 — push 시엔 안 돈다). Playwright 스펙은 `frontend/e2e/*.spec.ts`(위 baseURL/세션 방식과 동일).
 
 ## TRADEOFFS
@@ -115,6 +115,14 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 4. **게이미피케이션(가챠·상점·인벤토리·시즌·쿠폰·차고) 진입점 차단 유지** — BFF 라우터 미등록(404) + Engine `verify_service_key` + 프론트 라우트 제거의 3중 구조
 5. **OTP dev 우회는 운영 3중 게이트** — `docker-compose.prod.yml` 빈값 강제 + `_DEV_MODE` fail-safe 화이트리스트. 운영에서 플래그를 켜도 뚫리지 않는다
 6. **검색 관련**(`frontend-page-map.md` :77·:86·:109·:111): `/map/search` 는 신규 API 없이 `fetchBizMapItems` 재사용 · 검색결과에 거리 미표기(GPS 프롬프트 회피) · 검색어 보존 + 무결과 전용 상태 · 업체소식 "더보기" 없음 · **`WITHDRAWN` 매물은 검색·피드·상세에서 완전 비노출**(이 필터를 건드리지 말 것)
+7. **탈퇴회원 식별자는 해시로만 1년 보관**(2026-08-02) — 부정이용(재가입·제재회피) 방지 추적 목적. 전화번호·OAuth 식별자의 **원본은 보관하지 않는다.** `withdrawn_member_archive`(`170_withdrawn_member_archive.sql`).
+
+### 탈퇴 계정 복구(restore) — 회귀 금지 보안 불변식 (2026-08-02)
+`pages/auth/AccountRestore.tsx`(`/auth/restore`). 탈퇴 후 30일 유예기간 내 같은 OAuth 계정 재로그인 시, OAuth 인증은 **정상적으로 끝까지** 수행하고(본인 확인 전제) 세션 대신 409 `{code:"account_deleted", restore_token, ...}`을 반환한다. 사용자가 명시적으로 [복구하기]를 눌러야 `POST /auth/account/restore` 호출(자동 복구 없음, 대표 요구).
+1. 🔴 **`restore_token`을 리다이렉트 URL에 실으면 안 된다.** OAuth 콜백 3경로(google/apple/zalo)는 soft-delete 여부와 무관하게 성공 경로와 **완전히 동일하게** `_redirect_with_exchange()`로 1회용 교환코드만 URL에 싣는다. 토큰은 **`POST /auth/oauth/exchange`의 409 응답 본문**에서만 발급된다. 회귀 방지 테스트가 `Location` 헤더에 토큰·user id가 없고 콜백 단계에서 `passcode_hash`가 발급되지 않음을 고정한다.
+2. 🔴 **복구 허용 판정은 `_issue_restore_grant` 한 곳에만 존재한다.** 콜백에 판정을 두지 않는다 — 두 곳이 되면 한쪽만 고쳐 구멍이 난다.
+- 토큰은 새 저장소 없이 기존 `passcode_hash` + `session_expires_at`(TTL 10분)을 재사용한다. `deps.py`의 세션 검증이 `deleted_at is not None`을 거부하므로 이 토큰은 일반 세션으로 통하지 않는다(테스트로 증명).
+- BANNED 계정은 복구 대상에서 배제하되 밴 사실을 노출하지 않고 기존 404를 유지(정보 노출 최소).
 
 ### 재작업 금지 — 적대적 반증에서도 깨지지 않은 영역
 - **거래 무결성**: `market.py` `_load_appointment` 의 `FOR UPDATE` 잠금 + `140_*.sql` 의 부분 유니크 `uq_mp_appointment_active_per_listing WHERE status='ACCEPTED'`. 매물 철회(`WITHDRAWN`)는 **ACCEPTED 약속이 있으면 차단(409)** 하고 약속 테이블에 쓰지 않는 방식으로 이 무결성을 우회한다 — 이 조건을 없애면 무결성이 깨진다
@@ -142,6 +150,14 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
   - 부수 효과(의도된 것): 관리자 모더레이션 삭제(`admin_api/feed.py`)·작성자 자진 삭제(`feed.py`)에서도 신고가 보존된다. **이전에는 이 두 경로에서도 신고가 조용히 사라지고 있었다**
   - `POST`/`COMMENT` 용 CHECK 제약은 삭제 후 NULL 을 허용해야 해서 제거했다. `LISTING`/`DM` 은 CASCADE 유지(파기 대상이 아니라 실질 영향 없음)
 - 공표 문구(`legal.privacyHtml` ko/en/vi)는 이 실제 동작에 맞춰 개정됐다. **법무 검토 전 초안** 표시가 붙어 있고, 근거 조문·보존기간은 비어 있다
+- **탈퇴 시 익명화 값 UNIQUE 충돌 버그 수정(2026-08-02)**: `users.py delete_account`가 `phone`·`nickname`을 `del_<초단위 timestamp hex>`로 덮어썼는데, `users.phone`·`users.nickname`이 **UNIQUE**라 같은 초에 두 명이 탈퇴하면 500이 났다. `del_<uuid4 hex 16자>`로 변경(20자 — `phone String(20)`/`nickname String(30)` 한도 내). `del_` 접두는 파기 배치 `_is_purge_eligible`의 익명화 흔적 판정에 쓰이므로 유지.
+- **탈퇴회원 식별자 해시 아카이브(2026-08-02, 대표 결정)**: 부정이용(재가입·제재회피) 방지 추적 목적으로, 탈퇴 시 전화번호·OAuth 식별자를 **해시로만 1년 보관**한다(원본·개인 데이터 미보관). 마이그레이션 `170_withdrawn_member_archive.sql`, 테이블 `withdrawn_member_archive`(`bff_migrate`의 `command`/`volumes` 양쪽 등록).
+  - 🔴 **HMAC-SHA256 + pepper(env `WITHDRAWN_HASH_PEPPER`) 필수.** 평문 SHA256 금지 — 전화번호는 키스페이스가 작아 전수 대입으로 즉시 역산된다. **pepper가 바뀌면 기존 해시가 전부 무효**가 된다.
+  - pepper 미설정 시 **fail-open**: 아카이브만 건너뛰고 탈퇴는 정상 진행 + `log.error` + ops alert. 근거 — 아카이브는 부가 추적 장치일 뿐이고, 그 실패가 이용자의 탈퇴권 행사를 막으면 안 된다.
+  - **캡처 시점은 탈퇴 시**(`delete_account`) — 전화번호는 탈퇴 즉시 파기, OAuth 신원 행은 30일 뒤 파기라 그때는 이미 늦다. **이미 익명화된 값(`del_*`)은 해시하지 않는다** — 복구 후 재인증 없이 재탈퇴하면 phone이 아직 `del_*`인데 그걸 남기면 영원히 매칭되지 않는 행만 쌓인다. **복구 성공 시 해당 user의 아카이브 행을 같은 트랜잭션에서 삭제**한다 — 복구한 회원이 영구히 "탈퇴 이력 있음"으로 남으면 안 된다.
+  - 1년 경과분 파기는 `purge_deleted_accounts.py`의 **별도 단계**(기존 30일 개인데이터 파기와 미혼합, 반환 dict에 `archive_purged_count` 별도 키).
+  - 운영 조회: `GET /admin/api/users/withdrawn-check` — 해시만 저장돼 운영자가 직접 SQL로 못 찾으므로 서버가 해시해 매칭한다. 전화번호는 `_normalize_vn_phone`으로 E.164 정규화 후 해시(저장 형식과 일치). pepper 미설정 시 503.
+  - **개인정보처리방침 §4 개정 필요** — 현재 공표 문안은 "식별 정보 즉시 비식별화 / 30일 내 파기 / 보존분은 식별정보 제거 형태"이고 **탈퇴회원 보관기간 명시가 없다.** ko/en/vi 3개 로케일에 `[법무 검토 전 초안]` 표기로 문장을 추가했으며 **법무 검토(C-1) 대상**이다.
 
 ### fail-closed 가 필요한 곳
 - **안전정보(침수) — 상태가 3개다**: ① 정상 ② `is_stale`(예보 갱신 실패, 이전 snapshot) ③ **`never_confirmed`(그 구역 예측이 한 번도 성공한 적 없음)**. ②③ 은 초록 "안전"과 분리 렌더한다(`flood_prediction_status(district_code, last_success_at)`, `166_*.sql`).

@@ -24,6 +24,7 @@ import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
 import Splash from '@/pages/auth/Splash';
 import OAuthLogin from '@/pages/auth/OAuthLogin';
 import OAuthResult from '@/pages/auth/OAuthResult';
+import AccountRestore from '@/pages/auth/AccountRestore';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
 import PhoneVerify from '@/pages/auth/PhoneVerify';
 import Suspended from '@/pages/auth/Suspended';
@@ -176,7 +177,7 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
 
 // 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.
 // 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
-const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth'];
+const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore'];
 
 export default function App() {
   const { t } = useTranslation();
@@ -424,6 +425,8 @@ export default function App() {
           <Route path="/splash" element={<Splash />} />
           <Route path="/auth/oauth" element={<OAuthLogin />} />
           <Route path="/auth/oauth-result" element={<OAuthResult />} />
+          {/* 탈퇴 계정 복구 안내 — 로그인 409(account_deleted) 에서 라우팅 (세션 없음이 정상) */}
+          <Route path="/auth/restore" element={<AccountRestore />} />
           <Route path="/auth/profile-setup" element={<ProfileSetup />} />
           <Route path="/auth/phone-verify" element={<PhoneVerify />} />
           {/* 정지/밴 안내 — PrivateRoute 로 감싸지 않는다: 밴 유저는 최초 로그인부터 isAuthenticated 가 없을 수 있음 */}

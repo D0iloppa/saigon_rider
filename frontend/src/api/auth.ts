@@ -54,6 +54,15 @@ export async function apiOAuthExchange(code: string): Promise<OAuthLoginResult> 
   });
 }
 
+/** 탈퇴 계정 복구 — 로그인 409(account_deleted)로 받은 restoreToken 을 소비한다.
+ *  401 은 토큰 만료/재사용이지 세션 만료가 아님 — keepSessionOn401 로 강제 로그아웃 방지. */
+export async function apiRestoreAccount(restoreToken: string): Promise<OAuthLoginResult> {
+  return api.realFetch<OAuthLoginResult>('/auth/account/restore', {
+    method: 'POST',
+    body: JSON.stringify({ restore_token: restoreToken }),
+  }, 'bff', { rethrow: true, keepSessionOn401: true });
+}
+
 export async function apiSessionVerify(userId: string, sessionToken: string): Promise<LoginResult> {
   return api.realFetch<LoginResult>('/auth/session/verify', {
     method: 'POST',

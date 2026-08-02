@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    UniqueConstraint,
     event,
     text,
 )
@@ -195,6 +196,32 @@ class UserOAuthIdentity(Base):
     raw_profile: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WithdrawnMemberArchive(Base):
+    """탈퇴회원 식별자 해시 아카이브 (170) — 부정이용(재가입·제재회피) 방지 추적용.
+
+    원본 식별자는 저장하지 않는다 — value_hash 는 HMAC-SHA256(pepper=env WITHDRAWN_HASH_PEPPER).
+    1년(purge_after) 경과분은 purge_deleted_accounts.py 가 파기하고, 계정 복구 시에는
+    restore_account(routers/auth.py)가 해당 유저 행을 삭제한다.
+    UNIQUE (user_id, kind, provider, value_hash) NULLS NOT DISTINCT — 탈퇴→복구→재탈퇴 중복 방지.
+    """
+
+    __tablename__ = "withdrawn_member_archive"
+    __table_args__ = (
+        UniqueConstraint("user_id", "kind", "provider", "value_hash", postgresql_nulls_not_distinct=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)  # 'phone' | 'oauth'
+    provider: Mapped[str | None] = mapped_column(Text, nullable=True)  # kind='oauth' 일 때만
+    value_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    purge_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Content(Base):

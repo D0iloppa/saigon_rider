@@ -16,8 +16,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...engine_client import engine_client
-from ...models import MarketplaceListing, Notification, Report, User, UserOAuthIdentity, UserSanction
+from ...models import (
+    MarketplaceListing,
+    Notification,
+    Report,
+    User,
+    UserOAuthIdentity,
+    UserSanction,
+    WithdrawnMemberArchive,
+)
 from ...schemas import Page
+from ...services.withdrawn_archive import hash_identifier
+from ..auth import _normalize_vn_phone
 from ._audit import audit
 
 router = APIRouter(prefix="/users")
@@ -190,6 +200,56 @@ async def list_users(
 
     items = [_row(u, report_counts.get(u.id, 0), listing_counts.get(u.id, 0)) for u in users]
     return Page(items=items, total=total, page=page, size=size)
+
+
+@router.get("/withdrawn-check")
+async def withdrawn_check(
+    request: Request,
+    phone: str | None = Query(None),
+    provider: str | None = Query(None),
+    provider_user_id: str | None = Query(None),
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """탈퇴회원 식별자 해시 아카이브(170) 조회 — 재가입·제재회피 추적용.
+
+    아카이브에는 HMAC 해시만 있어 운영자가 SQL 로 직접 대조할 수 없다(pepper 필요).
+    서버가 입력을 같은 방식으로 해시해 매칭 여부를 돌려준다. 원본·해시값은 응답에
+    싣지 않되 user_id 는 포함한다 — 매칭 여부만으로는 추적(익명화된 계정의 제재
+    이력·신고 내역 확인)이 불가능하고, user_id 가 가리키는 users 행은 이미 익명화돼
+    있어 그 자체로 개인 식별정보가 아니다.
+    """
+    if phone is not None:
+        if provider or provider_user_id:
+            raise HTTPException(status_code=400, detail="pass either phone or provider+provider_user_id")
+        normalized = _normalize_vn_phone(phone)  # 아카이브는 저장 정규형(E.164 +84…)으로 해시돼 있다
+        if normalized is None:
+            raise HTTPException(status_code=400, detail="invalid Vietnamese mobile number")
+        kind, prov, value = "phone", None, normalized
+    elif provider and provider_user_id:
+        kind, prov, value = "oauth", provider.lower(), provider_user_id
+    else:
+        raise HTTPException(status_code=400, detail="pass either phone or provider+provider_user_id")
+
+    value_hash = hash_identifier(value)
+    if value_hash is None:
+        raise HTTPException(status_code=503, detail="WITHDRAWN_HASH_PEPPER not configured")
+
+    stmt = select(WithdrawnMemberArchive).where(
+        WithdrawnMemberArchive.kind == kind, WithdrawnMemberArchive.value_hash == value_hash
+    )
+    if prov is not None:
+        stmt = stmt.where(WithdrawnMemberArchive.provider == prov)
+    rows = (await db.execute(stmt.order_by(WithdrawnMemberArchive.deleted_at.desc()))).scalars().all()
+
+    # 감사로그에는 조회 종류만 남기고 조회한 식별자 원본(전화번호 등)은 남기지 않는다.
+    await audit(db, session, request, "USER_WITHDRAWN_CHECK", detail={"kind": kind, "provider": prov})
+    await db.commit()
+
+    return {
+        "matched": bool(rows),
+        "matches": [{"user_id": r.user_id, "deleted_at": r.deleted_at} for r in rows],
+    }
 
 
 @router.get("/{user_id}")

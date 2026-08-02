@@ -206,6 +206,10 @@ services:
       - "/migrations/169_schema_parity_backfill.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (169) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/170_withdrawn_member_archive.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (170) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -238,6 +242,7 @@ services:
       - ./database/init/167_reports_content_detach.sql:/migrations/167_reports_content_detach.sql:ro
       - ./database/init/168_business_profile_owner_nullable.sql:/migrations/168_business_profile_owner_nullable.sql:ro
       - ./database/init/169_schema_parity_backfill.sql:/migrations/169_schema_parity_backfill.sql:ro
+      - ./database/init/170_withdrawn_member_archive.sql:/migrations/170_withdrawn_member_archive.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -301,6 +306,8 @@ services:
       - ZALO_API_PROXY=${ZALO_API_PROXY:-}
       # F-17/F-18: 신고 접수·미처리 예외 운영자 알림 웹훅. 미설정 시 로그만(무동작).
       - OPS_ALERT_WEBHOOK_URL=${OPS_ALERT_WEBHOOK_URL:-}
+      # 탈퇴 식별자 해시 아카이브(170) HMAC pepper. 미설정 시 아카이브만 건너뜀(fail-open, 경보).
+      - WITHDRAWN_HASH_PEPPER=${WITHDRAWN_HASH_PEPPER:-}
       # dev/prod 분기 (SMS 스텁·dev-login 노출 제어). prod 는 docker-compose.prod.yml 이 production 으로 고정.
       - APP_ENV=${APP_ENV:-development}
       # 개발 전용 OTP 검증 우회 — APP_ENV 이중게이트. docker-compose.prod.yml 에는 절대 추가하지 말 것.

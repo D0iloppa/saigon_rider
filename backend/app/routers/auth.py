@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, sta
 from fastapi.responses import RedirectResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +18,8 @@ from .. import sms_client
 from ..database import get_db
 from ..deps import enforce_account_active, verify_user_session
 from ..engine_client import engine_client
-from ..models import AppConfig, User, UserOAuthIdentity, UserOtp
+from ..jobs.purge_deleted_accounts import RETENTION_DAYS
+from ..models import AppConfig, User, UserOAuthIdentity, UserOtp, WithdrawnMemberArchive
 from ..schemas import (
     LoginResponse,
     OAuthLoginRequest,
@@ -53,6 +54,8 @@ router = APIRouter(prefix="/auth", tags=["인증 (Auth)"])
 
 pwd_ctx = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 SESSION_TTL = timedelta(days=180)
+# 탈퇴 계정 복구(restore) 토큰 TTL — OAuth 본인확인 성공 직후에만 발급되는 1회성 토큰.
+RESTORE_TOKEN_TTL = timedelta(minutes=10)
 
 
 def _hash(passcode: str) -> str:
@@ -129,6 +132,99 @@ async def _load_oauth_config(db: AsyncSession) -> dict[str, str]:
     return {r.key: r.value for r in rows}
 
 
+# ── 탈퇴 계정 복구 (restore) ─────────────────────────────────────
+# OAuth 본인확인이 성공했는데 연결된 user 가 soft-delete(deleted_at)인 경우에만 복구 자격이
+# 생긴다(무조건 복구 금지 — 대표 요구 §1). 실제 복구는 사용자가 안내 화면에서 명시적으로
+# 확인한 뒤 POST /auth/account/restore 를 호출했을 때만 수행한다(대표 요구 §2).
+
+
+async def _issue_restore_grant(db: AsyncSession, user_id: uuid.UUID) -> dict[str, str] | None:
+    """soft-delete 유저의 복구 토큰(restore grant) 발급 — 유예기간(RETENTION_DAYS) 내이고
+    BANNED 가 아닐 때만. BANNED 는 탈퇴→복구로 제재를 세탁하지 못하게 복구 대상에서
+    제외한다. None 이면 호출부는 기존 동작(404 "User account deleted")을 유지한다.
+
+    토큰은 세션 토큰과 동급이므로 **HTTPS POST 응답 본문(409)으로만** 내려간다 —
+    리다이렉트 URL 쿼리에 싣지 않는다(access log·브라우저 히스토리 노출). 콜백 redirect
+    경로는 성공 경로와 완전히 동일하게 1회용 교환코드만 URL 에 노출하고
+    (_redirect_with_exchange), 복구 여부 판단·토큰 발급은 POST /auth/oauth/exchange
+    (및 JSON 로그인 /auth/oauth/login)의 409 응답에서만 한다.
+
+    토큰은 새 저장소 없이 기존 세션 장치(passcode_hash + session_expires_at)를 재사용한다.
+    deleted_at 이 남아 있는 한 deps.verify_user_session(deps.py)과 /auth/session/verify 가
+    무조건 거부하므로, 이 해시는 일반 세션으로는 절대 통하지 않는다 — 오직
+    POST /auth/account/restore 만 소비할 수 있다. 토큰 앞 32자는 user id hex 로,
+    restore 엔드포인트가 대상 행을 찾는 용도일 뿐 검증은 항상 전체 토큰 해시 비교로 한다.
+    """
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None or user.deleted_at is None:
+        return None
+    now = datetime.now(UTC)
+    if user.status == "BANNED" or user.deleted_at + timedelta(days=RETENTION_DAYS) <= now:
+        return None
+    raw_token = user.id.hex + uuid.uuid4().hex
+    user.passcode_hash = _hash(raw_token)
+    user.session_expires_at = now + RESTORE_TOKEN_TTL
+    await db.commit()
+    return {
+        "deleted_at": user.deleted_at.isoformat(),
+        "restorable_until": (user.deleted_at + timedelta(days=RETENTION_DAYS)).isoformat(),
+        "restore_token": raw_token,
+    }
+
+
+class AccountRestoreRequest(BaseModel):
+    restore_token: str
+
+
+@router.post("/account/restore", response_model=OAuthLoginResponse, summary="탈퇴 계정 복구")
+async def restore_account(body: AccountRestoreRequest, db: AsyncSession = Depends(get_db)):
+    """로그인 409(account_deleted) 응답의 restore_token 을 소비해 계정을 복구한다.
+
+    - 401 restore_token_invalid: 형식·해시 불일치, 이미 사용된 토큰
+    - 401 restore_token_expired: 토큰 TTL(10분) 경과 — 로그인부터 다시
+    - 409 account_banned / account_not_deleted / restore_window_expired
+    성공 시 deleted_at 해제 + 새 닉네임 발급 + 정상 세션 발급(OAuthLoginResponse).
+    """
+    token = body.restore_token
+    try:
+        uid = uuid.UUID(hex=token[:32])
+    except ValueError:
+        raise HTTPException(status_code=401, detail={"code": "restore_token_invalid"}) from None
+
+    # 동시 요청 경합 방지 — market.py WITHDRAWN 전환과 같은 근거로 행 잠금.
+    # 같은 토큰의 두 번째 요청은 첫 요청이 passcode_hash 를 새 세션으로 교체한 뒤라 401.
+    user = (await db.execute(select(User).where(User.id == uid).with_for_update())).scalar_one_or_none()
+    now = datetime.now(UTC)
+    if user is None or not user.passcode_hash or not _verify(token, user.passcode_hash):
+        raise HTTPException(status_code=401, detail={"code": "restore_token_invalid"})
+    if user.session_expires_at is None or user.session_expires_at <= now:
+        raise HTTPException(status_code=401, detail={"code": "restore_token_expired"})
+    # BANNED 차단이 복구보다 먼저 — grant 발급 시에도 배제하지만 이중 방어.
+    if user.status == "BANNED":
+        raise HTTPException(status_code=409, detail={"code": "account_banned"})
+    if user.deleted_at is None:
+        raise HTTPException(status_code=409, detail={"code": "account_not_deleted"})
+    if user.deleted_at + timedelta(days=RETENTION_DAYS) <= now:
+        raise HTTPException(status_code=409, detail={"code": "restore_window_expired"})
+
+    user.deleted_at = None
+    # 기존 닉네임은 탈퇴 시 이미 파기(del_*) — 새로 발급. 전화번호는 파기된 채 유지(재인증 필요).
+    user.nickname = await generate_random_nickname(db)
+    raw_token = uuid.uuid4().hex
+    user.passcode_hash = _hash(raw_token)  # restore 토큰은 여기서 소멸 (1회성)
+    user.session_expires_at = now + SESSION_TTL
+    # 탈퇴 식별자 해시 아카이브(170) 제거 — 복구한 회원이 "탈퇴 이력 있음"으로 영구히
+    # 남으면 안 된다. deleted_at 해제와 같은 트랜잭션으로 커밋한다.
+    await db.execute(delete(WithdrawnMemberArchive).where(WithdrawnMemberArchive.user_id == user.id))
+    await db.commit()
+
+    return OAuthLoginResponse(
+        user=UserOut.model_validate(user),
+        session_token=raw_token,
+        is_new=False,
+    )
+
+
 @router.post("/oauth/login", response_model=OAuthLoginResponse, summary="OAuth 로그인 / 가입")
 async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db)):
     """
@@ -197,6 +293,10 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
             await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
         ).scalar_one_or_none()
         if user is None:
+            # soft-delete 계정 — 유예기간 내면 409 + 복구 grant, 지났으면 기존 404 유지.
+            grant = await _issue_restore_grant(db, identity_row.user_id)
+            if grant is not None:
+                raise HTTPException(status_code=409, detail={"code": "account_deleted", **grant})
             raise HTTPException(status_code=404, detail="User account deleted")
         if user.status == "BANNED":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"code": "account_banned"})
@@ -477,6 +577,11 @@ async def oauth_exchange(body: OAuthExchangeRequest, db: AsyncSession = Depends(
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth code") from e
     user = (await db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None)))).scalar_one_or_none()
     if user is None:
+        # soft-delete 계정 — 유예기간 내면 409 + 복구 토큰, 아니면 404.
+        # 토큰은 이 POST 응답 본문으로만 내려간다 (URL 노출 금지).
+        grant = await _issue_restore_grant(db, user_id)
+        if grant is not None:
+            raise HTTPException(status_code=409, detail={"code": "account_deleted", **grant})
         raise HTTPException(status_code=404, detail="User account deleted")
 
     now = datetime.now(UTC)
@@ -580,7 +685,9 @@ async def oauth_google_callback(
             await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
         ).scalar_one_or_none()
         if user is None:
-            return deep_link_error("account_deleted")
+            # soft-delete — 성공 경로와 완전히 동일하게 1회용 교환코드만 URL 에 싣는다.
+            # 복구 가능(409 + 토큰) / 파기 대상(404) 판단은 POST /auth/oauth/exchange 한 곳에서.
+            return await _redirect_with_exchange(_APP_DEEP_LINK, identity_row.user_id, is_new)
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
@@ -682,7 +789,9 @@ async def oauth_apple_callback(
             await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
         ).scalar_one_or_none()
         if user is None:
-            return deep_link_error("account_deleted")
+            # soft-delete — 성공 경로와 완전히 동일하게 1회용 교환코드만 URL 에 싣는다.
+            # 복구 가능(409 + 토큰) / 파기 대상(404) 판단은 POST /auth/oauth/exchange 한 곳에서.
+            return await _redirect_with_exchange(_APP_DEEP_LINK, identity_row.user_id, is_new)
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
@@ -824,7 +933,10 @@ async def oauth_zalo_callback(
             await db.execute(select(User).where(User.id == identity_row.user_id, User.deleted_at.is_(None)))
         ).scalar_one_or_none()
         if user is None:
-            return result_redirect(error_code="account_deleted")
+            # soft-delete — 성공 경로와 완전히 동일하게 1회용 교환코드만 URL 에 싣는다.
+            # 복구 가능(409 + 토큰) / 파기 대상(404) 판단은 POST /auth/oauth/exchange 한 곳에서.
+            base = _WEB_OAUTH_RESULT_PATH if platform == "web" else _APP_DEEP_LINK
+            return await _redirect_with_exchange(base, identity_row.user_id, is_new)
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)

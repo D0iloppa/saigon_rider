@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
 import { native } from '@/lib/native';
+import { AccountDeletedError } from '@/api/client';
 import { apiOAuthExchange, apiOAuthLogin, apiDevLogin } from '@/api/auth';
 import { fetchAppConfig } from '@/api/appVersion';
 import styles from './AuthForm.module.css';
@@ -50,6 +51,17 @@ export default function OAuthLogin() {
   const zaloMessageListenerRef = useRef<((event: MessageEvent) => void) | null>(null);
   const zaloPopupCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // 탈퇴(soft-delete) 계정 — 로그인/교환(409 account_deleted)에서 복구 안내 화면으로.
+  // 복구 토큰은 POST 응답 본문으로만 오며 URL/딥링크 파라미터에는 절대 싣지 않는다.
+  const restoreInfoFromError = (e: unknown) =>
+    e instanceof AccountDeletedError
+      ? { deletedAt: e.deletedAt, restorableUntil: e.restorableUntil, restoreToken: e.restoreToken }
+      : null;
+
+  const goRestore = (info: { deletedAt: string | null; restorableUntil: string | null; restoreToken: string | null }) => {
+    navigate('/auth/restore', { state: info });
+  };
+
   const handleOAuthResult = async (provider: string, token: string, tokenType: string) => {
     setLoading(provider);
     setError(null);
@@ -59,6 +71,8 @@ export default function OAuthLogin() {
       loginFromBackend(result.user);
       navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
     } catch (e: unknown) {
+      const restore = restoreInfoFromError(e);
+      if (restore) return goRestore(restore);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setLoading(null);
@@ -139,6 +153,8 @@ export default function OAuthLogin() {
       const { code } = await native.signInWith('google');
       await finishRedirectOAuth(code);
     } catch (e: unknown) {
+      const restore = restoreInfoFromError(e);
+      if (restore) return goRestore(restore);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setLoading(null);
@@ -152,6 +168,8 @@ export default function OAuthLogin() {
       const { code } = await native.signInWith('zalo');
       await finishRedirectOAuth(code);
     } catch (e: unknown) {
+      const restore = restoreInfoFromError(e);
+      if (restore) return goRestore(restore);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setLoading(null);
@@ -165,6 +183,8 @@ export default function OAuthLogin() {
       const { code } = await native.signInWith('apple');
       await finishRedirectOAuth(code);
     } catch (e: unknown) {
+      const restore = restoreInfoFromError(e);
+      if (restore) return goRestore(restore);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setLoading(null);
@@ -203,6 +223,8 @@ export default function OAuthLogin() {
         if (!code) throw new Error('invalid_oauth_response');
         await finishRedirectOAuth(code);
       } catch (e: unknown) {
+        const restore = restoreInfoFromError(e);
+        if (restore) return goRestore(restore);
         const msg = e instanceof Error ? e.message : String(e);
         setError(msg);
         setLoading(null);

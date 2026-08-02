@@ -70,7 +70,11 @@
     "expired": "Đã hết hạn",
     "viewPhoto": "Xem ảnh",
     "retry": "Thử lại",
-    "clear": "Xóa"
+    "clear": "Xóa",
+    "apply": "Áp dụng",
+    "remove": "Xoá",
+    "notRegisteredYet": "Chưa có {{label}}",
+    "seeMore": "Xem chi tiết"
   },
   "tabbar": {
     "home": "Trang chủ",
@@ -227,7 +231,31 @@
     "withdrawing": "Đang hủy",
     "withdrawDone": "Đã hủy tin đăng",
     "withdrawError": "Hủy tin thất bại",
-    "withdrawBlockedByAppointment": "Không thể hủy khi có lịch hẹn đang diễn ra. Hãy hủy lịch hẹn trước."
+    "withdrawBlockedByAppointment": "Không thể hủy khi có lịch hẹn đang diễn ra. Hãy hủy lịch hẹn trước.",
+    "adAddress": "Địa chỉ",
+    "adBusinessHours": "Giờ mở cửa",
+    "adClosed": "Đã đóng cửa",
+    "adOpen": "Đang mở cửa",
+    "adOperationYears": "Hoạt động",
+    "adPhone": "Gọi để liên hệ",
+    "adRating": "Đánh giá",
+    "adServiceCount": "Lượt phục vụ",
+    "adYearUnit": "năm",
+    "unblock": "Bỏ chặn",
+    "unblockDone": "Đã bỏ chặn",
+    "adBadge": "Quảng cáo",
+    "pricePreset1": "Dưới 50.000 ₫",
+    "pricePreset2": "50.000 – 200.000 ₫",
+    "pricePreset3": "200.000 – 500.000 ₫",
+    "pricePreset4": "500.000 – 2.000.000 ₫",
+    "pricePreset5": "Trên 2.000.000 ₫",
+    "priceMinPlaceholder": "₫ Tối thiểu",
+    "priceMaxPlaceholder": "₫ Tối đa",
+    "reviewStar1": "Không hài lòng",
+    "reviewStar2": "Chưa tốt lắm",
+    "reviewStar3": "Bình thường",
+    "reviewStar4": "Hài lòng",
+    "reviewStar5": "Tuyệt vời!"
   },
   "forceUpdate": {
     "title": "Cần cập nhật ứng dụng",
@@ -452,7 +480,15 @@
     "acceptedSubActive": "Đang nhận",
     "completedEmptyTitle": "Chưa có nhiệm vụ nào hoàn thành",
     "completedEmptySub": "Nhiệm vụ đã hoàn thành sẽ xuất hiện ở đây",
-    "completedAt": "Hoàn thành {{date}}"
+    "completedAt": "Hoàn thành {{date}}",
+    "acceptBtn": "Nhận nhiệm vụ",
+    "acceptFailed": "Nhận nhiệm vụ thất bại",
+    "dropBtn": "Bỏ nhiệm vụ",
+    "dropFailed": "Bỏ nhiệm vụ thất bại",
+    "dropToast": "Đã bỏ nhiệm vụ",
+    "startConfirmTitle": "Bắt đầu nhiệm vụ này ngay bây giờ?",
+    "startRideBtn": "Bắt đầu",
+    "startRideFailed": "Không thể bắt đầu nhiệm vụ"
   },
   "ride": {
     "distance": "Khoảng cách",
@@ -632,7 +668,9 @@
     "noBlocked": "Chưa chặn người dùng nào",
     "deleteAccount": "Xóa tài khoản",
     "deleteConfirm": "Bạn có chắc muốn xóa tài khoản?\nToàn bộ lịch sử đi xe, huy hiệu và gold sẽ bị xóa vĩnh viễn.",
-    "deleteWarning": "Toàn bộ lịch sử đi xe, huy hiệu, gold và XP sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác."
+    "deleteWarning": "Toàn bộ lịch sử đi xe, huy hiệu, gold và XP sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.",
+    "notiLoadError": "Không tải được cài đặt thông báo",
+    "notiSaveError": "Không lưu được cài đặt thông báo"
   },
   "feedCreate": {
     "title": "Bài viết mới",
@@ -647,7 +685,9 @@
     "posting": "Đang đăng...",
     "postError": "Đăng bài thất bại",
     "locating": "Đang định vị…",
-    "locationOff": "Tắt vị trí"
+    "locationOff": "Tắt vị trí",
+    "pickLocation": "Vị trí đăng",
+    "pickLocationDesc": "Chạm vào bản đồ để đặt ghim vị trí"
   },
   "noti": {
     "title": "Thông báo",
@@ -728,7 +768,9 @@
     "reportReason_SEXUAL": "Nội dung khiêu dâm",
     "reportReason_SPAM": "Spam · quảng cáo",
     "reportReason_OTHER": "Khác",
-    "bannedKeyword": "Tin nhắn chứa từ ngữ bị cấm"
+    "bannedKeyword": "Tin nhắn chứa từ ngữ bị cấm",
+    "apptPlaceTap": "Chạm vào bản đồ để đặt ghim",
+    "more": "Xem thêm"
   },
   "follow": {
     "followers": "Người theo dõi",
@@ -1326,7 +1368,8 @@
       "service_GENERAL_CHECK": "Kiểm tra tổng quát",
       "service_WASH": "Rửa xe",
       "viewList": "Danh sách",
-      "viewMap": "Bản đồ"
+      "viewMap": "Bản đồ",
+      "googleReview": "Đánh giá Google"
     }
   },
   "items": {
@@ -1472,7 +1515,7 @@
     "WHEEL_LEGEND_OF_SAIGON_M_01": "Phoenix Wheel"
   },
   "legal": {
-    "privacyHtml": "<h2>Chính sách Bảo mật</h2><p><strong>Ngày hiệu lực:</strong> 1 tháng 6, 2026</p><p>Saigon Rider (\"Ứng dụng\") được vận hành bởi Công ty WellConn Co., Ltd. (\"chúng tôi\"). Chúng tôi tôn trọng quyền riêng tư của bạn và cam kết bảo vệ dữ liệu cá nhân mà bạn chia sẻ.</p><h2>1. Dữ liệu chúng tôi thu thập</h2><ul><li><strong>Thông tin tài khoản:</strong> số điện thoại, biệt danh, phong cách rider</li><li><strong>Dữ liệu vị trí:</strong> tọa độ GPS trong khi đi xe (chỉ khi sử dụng ứng dụng)</li><li><strong>Dữ liệu sử dụng:</strong> tiến trình nhiệm vụ, lịch sử đi xe, mua hàng trong ứng dụng</li><li><strong>Thông tin thiết bị:</strong> UUID thiết bị, phiên bản OS, FCM token</li></ul><h2>2. Cách chúng tôi sử dụng dữ liệu</h2><ul><li>Cung cấp và cải thiện theo dõi chuyến đi, nhiệm vụ và phần thưởng</li><li>Gửi thông báo đẩy mà bạn đã đồng ý nhận</li><li>Phân tích mẫu sử dụng tổng hợp (không lập hồ sơ cá nhân)</li></ul><h2>3. Chia sẻ dữ liệu</h2><p>Chúng tôi không bán dữ liệu cá nhân của bạn. Chúng tôi có thể chia sẻ dữ liệu hạn chế với:</p><ul><li>Nhà cung cấp hạ tầng đám mây (hosting)</li><li>Dịch vụ thông báo đẩy (Firebase)</li></ul><h2>4. Lưu trữ dữ liệu</h2><p>[Bản dự thảo, chưa qua rà soát pháp lý] Chúng tôi lưu giữ dữ liệu khi tài khoản còn hoạt động. Khi xóa tài khoản, thông tin nhận dạng như số điện thoại và biệt danh được ẩn danh ngay lập tức; dữ liệu cá nhân (lịch sử đi xe, nhiệm vụ, mục yêu thích, v.v.) cùng các bài đăng và bình luận trên feed do bạn tạo sẽ bị xóa vĩnh viễn trong vòng 30 ngày. Tuy nhiên, thông tin cần được lưu trữ theo quy định pháp luật hoặc hợp đồng — như giao dịch (tin đăng, lịch hẹn, đề xuất giá), đánh giá, lịch sử báo cáo/xử phạt và yêu cầu hỗ trợ — sẽ được lưu giữ dưới dạng đã loại bỏ thông tin định danh cá nhân (ẩn danh).</p><h2>5. Quyền của bạn</h2><ul><li>Truy cập và tải xuống dữ liệu (Cài đặt → Tài khoản)</li><li>Xóa tài khoản và tất cả dữ liệu liên quan</li><li>Rút lại đồng ý về vị trí hoặc thông báo bất cứ lúc nào</li></ul><h2>6. Liên hệ</h2><p>Để hỏi về bảo mật, hãy sử dụng Hỗ trợ trong ứng dụng hoặc gửi email đến support@sgr.com.</p>",
+    "privacyHtml": "<h2>Chính sách Bảo mật</h2><p><strong>Ngày hiệu lực:</strong> 1 tháng 6, 2026</p><p>Saigon Rider (\"Ứng dụng\") được vận hành bởi Công ty WellConn Co., Ltd. (\"chúng tôi\"). Chúng tôi tôn trọng quyền riêng tư của bạn và cam kết bảo vệ dữ liệu cá nhân mà bạn chia sẻ.</p><h2>1. Dữ liệu chúng tôi thu thập</h2><ul><li><strong>Thông tin tài khoản:</strong> số điện thoại, biệt danh, phong cách rider</li><li><strong>Dữ liệu vị trí:</strong> tọa độ GPS trong khi đi xe (chỉ khi sử dụng ứng dụng)</li><li><strong>Dữ liệu sử dụng:</strong> tiến trình nhiệm vụ, lịch sử đi xe, mua hàng trong ứng dụng</li><li><strong>Thông tin thiết bị:</strong> UUID thiết bị, phiên bản OS, FCM token</li></ul><h2>2. Cách chúng tôi sử dụng dữ liệu</h2><ul><li>Cung cấp và cải thiện theo dõi chuyến đi, nhiệm vụ và phần thưởng</li><li>Gửi thông báo đẩy mà bạn đã đồng ý nhận</li><li>Phân tích mẫu sử dụng tổng hợp (không lập hồ sơ cá nhân)</li></ul><h2>3. Chia sẻ dữ liệu</h2><p>Chúng tôi không bán dữ liệu cá nhân của bạn. Chúng tôi có thể chia sẻ dữ liệu hạn chế với:</p><ul><li>Nhà cung cấp hạ tầng đám mây (hosting)</li><li>Dịch vụ thông báo đẩy (Firebase)</li></ul><h2>4. Lưu trữ dữ liệu</h2><p>[Bản dự thảo, chưa qua rà soát pháp lý] Chúng tôi lưu giữ dữ liệu khi tài khoản còn hoạt động. Khi xóa tài khoản, thông tin nhận dạng như số điện thoại và biệt danh được ẩn danh ngay lập tức; dữ liệu cá nhân (lịch sử đi xe, nhiệm vụ, mục yêu thích, v.v.) cùng các bài đăng và bình luận trên feed do bạn tạo sẽ bị xóa vĩnh viễn trong vòng 30 ngày. Tuy nhiên, thông tin cần được lưu trữ theo quy định pháp luật hoặc hợp đồng — như giao dịch (tin đăng, lịch hẹn, đề xuất giá), đánh giá, lịch sử báo cáo/xử phạt và yêu cầu hỗ trợ — sẽ được lưu giữ dưới dạng đã loại bỏ thông tin định danh cá nhân (ẩn danh). Ngoài ra, để ngăn chặn việc đăng ký lại nhằm lạm dụng (như né tránh hạn chế tài khoản), chúng tôi lưu giữ số điện thoại và định danh tài khoản mạng xã hội dưới dạng băm không thể khôi phục trong một năm sau khi xóa tài khoản. Số điện thoại và định danh tài khoản gốc không được lưu giữ, và các giá trị băm sẽ bị hủy khi hết thời hạn một năm.</p><h2>5. Quyền của bạn</h2><ul><li>Truy cập và tải xuống dữ liệu (Cài đặt → Tài khoản)</li><li>Xóa tài khoản và tất cả dữ liệu liên quan</li><li>Rút lại đồng ý về vị trí hoặc thông báo bất cứ lúc nào</li></ul><h2>6. Liên hệ</h2><p>Để hỏi về bảo mật, hãy sử dụng Hỗ trợ trong ứng dụng hoặc gửi email đến support@sgr.com.</p>",
     "termsHtml": "<h2>Điều khoản Dịch vụ</h2><p><strong>Ngày hiệu lực:</strong> 1 tháng 6, 2026</p><p>Khi sử dụng Saigon Rider (\"Ứng dụng\"), bạn đồng ý với các Điều khoản Dịch vụ này.</p><h2>1. Điều kiện sử dụng</h2><p>Bạn phải từ 14 tuổi trở lên để sử dụng Ứng dụng. Khi đăng ký, bạn xác nhận đáp ứng yêu cầu tuổi này.</p><h2>2. Tài khoản</h2><ul><li>Mỗi số điện thoại một tài khoản</li><li>Bạn chịu trách nhiệm bảo mật thông tin đăng nhập</li><li>Chúng tôi có thể đình chỉ tài khoản vi phạm điều khoản</li></ul><h2>3. Tiền ảo & Vật phẩm</h2><ul><li>Gold, XP, huy hiệu và vật phẩm là ảo, không có giá trị tiền tệ thực</li><li>Vật phẩm ảo không thể chuyển nhượng, bán hoặc đổi thành tiền mặt</li><li>Chúng tôi có quyền thay đổi giá trị và khả dụng của vật phẩm</li></ul><h2>4. Quy tắc sử dụng</h2><p>Bạn đồng ý không:</p><ul><li>Sử dụng giả mạo GPS hoặc thao túng vị trí</li><li>Khai thác lỗi hoặc sử dụng công cụ tự động</li><li>Đăng nội dung xúc phạm hoặc bất hợp pháp trong bài viết hoặc tin nhắn</li></ul><h2>5. An toàn khi đi xe</h2><p>Ứng dụng là công cụ game hóa — luôn tuân thủ luật giao thông. Chúng tôi không chịu trách nhiệm về tai nạn trong khi đi xe.</p><h2>6. Chấm dứt</h2><p>Bạn có thể xóa tài khoản bất cứ lúc nào. Chúng tôi có thể chấm dứt tài khoản vi phạm mà không cần thông báo trước.</p><h2>7. Giới hạn trách nhiệm</h2><p>Ứng dụng được cung cấp \"nguyên trạng\". Chúng tôi không chịu trách nhiệm về gián đoạn dịch vụ, mất dữ liệu hoặc thiệt hại phát sinh từ việc sử dụng.</p><h2>8. Thay đổi</h2><p>Chúng tôi có thể cập nhật các điều khoản. Tiếp tục sử dụng sau thay đổi đồng nghĩa với chấp nhận.</p><h2>9. Liên hệ</h2><p>Có thắc mắc về điều khoản? Sử dụng Hỗ trợ trong ứng dụng hoặc gửi email đến support@sgr.com.</p>"
   },
   "map": {
@@ -1950,7 +1993,17 @@
     "newsDeleting": "Đang xóa",
     "followerCount": "{{count}} khách quen",
     "followCta": "Kết thân",
-    "followCtaActive": "Hủy kết thân"
+    "followCtaActive": "Hủy kết thân",
+    "detailTabs": {
+      "home": "Trang chủ",
+      "news": "Tin tức",
+      "reviews": "Đánh giá",
+      "price": "Bảng giá",
+      "photos": "Hình ảnh"
+    },
+    "reviewCount": "{{count}} đánh giá",
+    "publicNoPhoto": "Chưa có ảnh đại diện",
+    "detailTabsLabel": "Thông tin cửa hàng"
   },
   "suspended": {
     "suspendedTitle": "Tài khoản tạm thời bị hạn chế",
@@ -1959,5 +2012,21 @@
     "bannedTitle": "Tài khoản đã bị hạn chế vĩnh viễn",
     "bannedDesc": "Tài khoản của bạn đã bị hạn chế vĩnh viễn do vi phạm điều khoản sử dụng",
     "contactHint": "Nếu có thắc mắc, vui lòng liên hệ bộ phận hỗ trợ"
+  },
+  "accountRestore": {
+    "title": "Tài khoản đang chờ xóa",
+    "desc": "Tài khoản này đang trong quá trình xóa. Khôi phục ngay để tiếp tục sử dụng như trước.",
+    "pointRestored": "Khôi phục sẽ đưa toàn bộ dữ liệu trở lại — giao dịch, đánh giá, bài viết, huy hiệu...",
+    "pointNotRestored": "Biệt danh sẽ được cấp mới và số điện thoại cần xác minh lại (đã bị xóa khi hủy tài khoản)",
+    "pointDeadline": "Bạn có thể khôi phục đến {{date}}",
+    "pointPurge": "Nếu không khôi phục, dữ liệu sẽ bị xóa vĩnh viễn sau ngày đó và bạn sẽ phải đăng ký tài khoản mới",
+    "restoreBtn": "Khôi phục tài khoản",
+    "restoring": "Đang khôi phục...",
+    "cancelBtn": "Hủy",
+    "errorTokenExpired": "Đã hết thời gian khôi phục. Vui lòng đăng nhập lại.",
+    "errorGeneric": "Khôi phục thất bại. Vui lòng thử lại sau."
+  },
+  "mapV2": {
+    "locateFailed": "Không lấy được vị trí"
   }
 }

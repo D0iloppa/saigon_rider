@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
+import { AccountDeletedError } from '@/api/client';
 import { apiOAuthExchange } from '@/api/auth';
 
 /**
@@ -45,6 +46,14 @@ export default function OAuthResult() {
         loginFromBackend(result.user);
         navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
       } catch (e: unknown) {
+        // 탈퇴 계정 — 교환 409 의 복구 정보는 URL 로 나르지 않고 라우터 state 로 전달
+        if (e instanceof AccountDeletedError) {
+          navigate('/auth/restore', {
+            replace: true,
+            state: { deletedAt: e.deletedAt, restorableUntil: e.restorableUntil, restoreToken: e.restoreToken },
+          });
+          return;
+        }
         const msg = e instanceof Error ? e.message : String(e);
         navigate(`/auth/oauth?error=${encodeURIComponent(msg)}`, { replace: true });
       }

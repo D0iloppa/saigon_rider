@@ -82,6 +82,7 @@ async def purge_deleted_accounts(dry_run: bool = False, limit: int = 500) -> dic
     now = datetime.now(UTC)
     purged_user_ids: list[str] = []
     skipped = 0
+    archive_purged = 0
 
     try:
         async with AsyncSessionLocal() as db:
@@ -110,12 +111,30 @@ async def purge_deleted_accounts(dry_run: bool = False, limit: int = 500) -> dic
                 await db.commit()
                 purged_user_ids.append(str(user_id))
 
+            # ── 별도 단계: 탈퇴 식별자 해시 아카이브(withdrawn_member_archive, 170) 1년 경과분 파기.
+            # 위 30일 개인데이터 파기와 기간(1년)·대상(해시 행)·단위(유저가 아니라 행의
+            # purge_after)가 전부 달라 섞지 않는다. 자격 판정은 행에 박힌 purge_after 하나로 끝.
+            if dry_run:
+                archive_purged = (
+                    await db.execute(
+                        text("SELECT count(*) FROM withdrawn_member_archive WHERE purge_after < :now"),
+                        {"now": now},
+                    )
+                ).scalar_one()
+            else:
+                result = await db.execute(
+                    text("DELETE FROM withdrawn_member_archive WHERE purge_after < :now"), {"now": now}
+                )
+                await db.commit()
+                archive_purged = result.rowcount
+
         return {
             "status": "ok",
             "dry_run": dry_run,
             "purged_count": len(purged_user_ids),
             "skipped_not_eligible": skipped,
             "purged_user_ids": purged_user_ids,
+            "archive_purged_count": archive_purged,
         }
     except Exception:
         log.exception("Account purge batch failed")

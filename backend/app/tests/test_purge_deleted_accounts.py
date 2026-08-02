@@ -76,8 +76,13 @@ class PurgeBatchExecutionTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["skipped_not_eligible"], 1)
         self.assertEqual(result["purged_user_ids"], [str(eligible_id)])
 
-        delete_calls = [c for c in session.execute.await_args_list if "DELETE FROM" in str(c.args[0])]
+        delete_calls = [
+            c
+            for c in session.execute.await_args_list
+            if "DELETE FROM" in str(c.args[0]) and "withdrawn_member_archive" not in str(c.args[0])
+        ]
         # 소유 데이터 테이블 개수만큼 DELETE 가 실행되고, 전부 eligible id 로만 스코프됨.
+        # (별도 단계인 식별자 해시 아카이브 파기는 test_withdrawn_archive.py 에서 검증)
         self.assertEqual(len(delete_calls), len(job._OWN_DATA_TABLES))
         for call in delete_calls:
             self.assertEqual(call.args[1]["uid"], eligible_id)
@@ -86,7 +91,8 @@ class PurgeBatchExecutionTest(unittest.IsolatedAsyncioTestCase):
         for protected in ("marketplace_listings", "marketplace_reviews", "reports", "dm_messages", "business_profile"):
             self.assertNotIn(protected, deleted_tables)
 
-        session.commit.assert_awaited_once()
+        # 유저 단위 파기 1회 + 아카이브 단계 1회
+        self.assertEqual(session.commit.await_count, 2)
 
     async def test_dry_run_executes_no_deletes(self):
         now = datetime.now(UTC)

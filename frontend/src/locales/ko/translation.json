@@ -70,7 +70,11 @@
     "expired": "만료",
     "viewPhoto": "사진 자세히 보기",
     "retry": "다시 시도",
-    "clear": "지우기"
+    "clear": "지우기",
+    "apply": "적용",
+    "remove": "삭제",
+    "notRegisteredYet": "{{label}}이(가) 아직 등록되지 않았습니다",
+    "seeMore": "자세히 보기"
   },
   "tabbar": {
     "home": "홈",
@@ -227,7 +231,31 @@
     "withdrawing": "철회 중",
     "withdrawDone": "매물을 철회했어요",
     "withdrawError": "철회에 실패했어요",
-    "withdrawBlockedByAppointment": "진행 중인 약속이 있어 철회할 수 없어요. 약속을 먼저 취소해주세요."
+    "withdrawBlockedByAppointment": "진행 중인 약속이 있어 철회할 수 없어요. 약속을 먼저 취소해주세요.",
+    "adAddress": "위치",
+    "adBusinessHours": "영업시간",
+    "adClosed": "영업 종료",
+    "adOpen": "영업 중",
+    "adOperationYears": "운영",
+    "adPhone": "전화 문의",
+    "adRating": "평점",
+    "adServiceCount": "서비스 완료",
+    "adYearUnit": "년",
+    "unblock": "차단 해제",
+    "unblockDone": "차단을 해제했어요",
+    "adBadge": "광고",
+    "pricePreset1": "5만 이하",
+    "pricePreset2": "5~20만",
+    "pricePreset3": "20~50만",
+    "pricePreset4": "50만~200만",
+    "pricePreset5": "200만 이상",
+    "priceMinPlaceholder": "₫ 최소",
+    "priceMaxPlaceholder": "₫ 최대",
+    "reviewStar1": "별로예요",
+    "reviewStar2": "아쉬워요",
+    "reviewStar3": "보통이에요",
+    "reviewStar4": "좋아요",
+    "reviewStar5": "최고예요!"
   },
   "forceUpdate": {
     "title": "업데이트가 필요해요",
@@ -452,7 +480,15 @@
     "acceptedSubActive": "수령 중",
     "completedEmptyTitle": "완료한 퀘스트가 없어요",
     "completedEmptySub": "퀘스트를 완료하면 여기에 모여요",
-    "completedAt": "{{date}} 완료"
+    "completedAt": "{{date}} 완료",
+    "acceptBtn": "수령하기",
+    "acceptFailed": "퀘스트 수령 실패",
+    "dropBtn": "수령 포기",
+    "dropFailed": "수령 포기 실패",
+    "dropToast": "수령 취소됨",
+    "startConfirmTitle": "해당 퀘스트를 바로 시작하겠습니까?",
+    "startRideBtn": "수행 시작",
+    "startRideFailed": "수행 시작 실패"
   },
   "ride": {
     "distance": "거리",
@@ -632,7 +668,9 @@
     "noBlocked": "차단한 사용자가 없어요",
     "deleteAccount": "계정 탈퇴",
     "deleteConfirm": "정말 탈퇴하시겠어요?\n모든 라이딩 기록, 배지, 골드가 영구 삭제됩니다.",
-    "deleteWarning": "모든 라이딩 기록, 배지, 골드, XP가 영구 삭제됩니다. 이 작업은 되돌릴 수 없어요."
+    "deleteWarning": "모든 라이딩 기록, 배지, 골드, XP가 영구 삭제됩니다. 이 작업은 되돌릴 수 없어요.",
+    "notiLoadError": "알림 설정을 불러오지 못했습니다",
+    "notiSaveError": "알림 설정을 저장하지 못했습니다"
   },
   "feedCreate": {
     "title": "새 글 작성",
@@ -647,7 +685,9 @@
     "posting": "게시 중...",
     "postError": "게시에 실패했어요",
     "locating": "위치 확인 중…",
-    "locationOff": "위치 끔"
+    "locationOff": "위치 끔",
+    "pickLocation": "게시 위치",
+    "pickLocationDesc": "지도를 탭해 위치에 마커를 찍으세요"
   },
   "noti": {
     "title": "알림",
@@ -728,7 +768,9 @@
     "reportReason_SEXUAL": "성적 불쾌감",
     "reportReason_SPAM": "스팸·광고",
     "reportReason_OTHER": "기타",
-    "bannedKeyword": "금지된 표현이 포함되어 있습니다"
+    "bannedKeyword": "금지된 표현이 포함되어 있습니다",
+    "apptPlaceTap": "지도를 탭해 마커를 찍으세요",
+    "more": "더보기"
   },
   "follow": {
     "followers": "팔로워",
@@ -1326,7 +1368,8 @@
       "service_GENERAL_CHECK": "종합 점검",
       "service_WASH": "세차",
       "viewList": "리스트",
-      "viewMap": "지도"
+      "viewMap": "지도",
+      "googleReview": "Google 리뷰"
     }
   },
   "items": {
@@ -1472,7 +1515,7 @@
     "WHEEL_LEGEND_OF_SAIGON_M_01": "Phoenix Wheel"
   },
   "legal": {
-    "privacyHtml": "<h2>개인정보처리방침</h2><p><strong>시행일:</strong> 2026년 6월 1일</p><p>사이공 라이더(\"앱\")는 주식회사 웰콘(\"회사\")이 운영합니다. 회사는 이용자의 개인정보를 소중히 보호합니다.</p><h2>1. 수집하는 개인정보</h2><ul><li><strong>계정 정보:</strong> 전화번호, 닉네임, 라이더 스타일</li><li><strong>위치 정보:</strong> 라이딩 중 GPS 좌표 (앱 사용 중에만)</li><li><strong>이용 정보:</strong> 퀘스트 진행, 라이딩 기록, 인앱 구매</li><li><strong>기기 정보:</strong> 기기 UUID, OS 버전, FCM 토큰</li></ul><h2>2. 개인정보 이용 목적</h2><ul><li>라이딩 추적, 퀘스트, 보상 제공 및 개선</li><li>수신 동의한 푸시 알림 발송</li><li>집계된 이용 패턴 분석 (개인 프로파일링 없음)</li></ul><h2>3. 개인정보 제공</h2><p>회사는 개인정보를 판매하지 않습니다. 다음의 경우 제한적으로 공유할 수 있습니다:</p><ul><li>클라우드 인프라 제공업체 (호스팅)</li><li>푸시 알림 서비스 (Firebase)</li></ul><h2>4. 개인정보 보유 기간</h2><p>[법무 검토 전 초안] 계정이 활성 상태인 동안 보유합니다. 계정 탈퇴 시 전화번호·닉네임 등 식별 정보는 즉시 비식별화되며, 라이딩 기록·퀘스트·즐겨찾기 등 이용자 개인 데이터와 작성한 피드 게시물·댓글은 탈퇴 후 30일 이내에 파기됩니다. 다만 거래(매물·약속·가격제안), 리뷰, 신고·제재 이력, 고객센터 문의 내역 등 법령·계약상 보존이 필요한 정보는 개인 식별정보를 제거(익명화)한 형태로 계속 보관됩니다.</p><h2>5. 이용자의 권리</h2><ul><li>내 데이터 접근 및 다운로드 (설정 → 계정)</li><li>계정 및 모든 관련 데이터 삭제</li><li>위치 또는 알림에 대한 동의를 언제든 철회</li></ul><h2>6. 문의</h2><p>개인정보 관련 문의는 앱 내 고객센터 또는 support@sgr.com로 연락해 주세요.</p>",
+    "privacyHtml": "<h2>개인정보처리방침</h2><p><strong>시행일:</strong> 2026년 6월 1일</p><p>사이공 라이더(\"앱\")는 주식회사 웰콘(\"회사\")이 운영합니다. 회사는 이용자의 개인정보를 소중히 보호합니다.</p><h2>1. 수집하는 개인정보</h2><ul><li><strong>계정 정보:</strong> 전화번호, 닉네임, 라이더 스타일</li><li><strong>위치 정보:</strong> 라이딩 중 GPS 좌표 (앱 사용 중에만)</li><li><strong>이용 정보:</strong> 퀘스트 진행, 라이딩 기록, 인앱 구매</li><li><strong>기기 정보:</strong> 기기 UUID, OS 버전, FCM 토큰</li></ul><h2>2. 개인정보 이용 목적</h2><ul><li>라이딩 추적, 퀘스트, 보상 제공 및 개선</li><li>수신 동의한 푸시 알림 발송</li><li>집계된 이용 패턴 분석 (개인 프로파일링 없음)</li></ul><h2>3. 개인정보 제공</h2><p>회사는 개인정보를 판매하지 않습니다. 다음의 경우 제한적으로 공유할 수 있습니다:</p><ul><li>클라우드 인프라 제공업체 (호스팅)</li><li>푸시 알림 서비스 (Firebase)</li></ul><h2>4. 개인정보 보유 기간</h2><p>[법무 검토 전 초안] 계정이 활성 상태인 동안 보유합니다. 계정 탈퇴 시 전화번호·닉네임 등 식별 정보는 즉시 비식별화되며, 라이딩 기록·퀘스트·즐겨찾기 등 이용자 개인 데이터와 작성한 피드 게시물·댓글은 탈퇴 후 30일 이내에 파기됩니다. 다만 거래(매물·약속·가격제안), 리뷰, 신고·제재 이력, 고객센터 문의 내역 등 법령·계약상 보존이 필요한 정보는 개인 식별정보를 제거(익명화)한 형태로 계속 보관됩니다. 또한 재가입을 통한 부정이용(이용 제한 회피 등)을 방지하기 위해 전화번호와 소셜 계정 식별자를 복원 불가능한 해시 형태로 탈퇴 후 1년간 보관합니다. 원본 전화번호·계정 정보는 보관하지 않으며, 1년이 지나면 해당 해시도 파기됩니다.</p><h2>5. 이용자의 권리</h2><ul><li>내 데이터 접근 및 다운로드 (설정 → 계정)</li><li>계정 및 모든 관련 데이터 삭제</li><li>위치 또는 알림에 대한 동의를 언제든 철회</li></ul><h2>6. 문의</h2><p>개인정보 관련 문의는 앱 내 고객센터 또는 support@sgr.com로 연락해 주세요.</p>",
     "termsHtml": "<h2>이용약관</h2><p><strong>시행일:</strong> 2026년 6월 1일</p><p>사이공 라이더(\"앱\")를 이용함으로써 본 이용약관에 동의하게 됩니다.</p><h2>1. 이용 자격</h2><p>만 14세 이상이어야 앱을 이용할 수 있습니다. 회원가입 시 이 연령 요건을 충족함을 확인합니다.</p><h2>2. 계정</h2><ul><li>전화번호당 하나의 계정</li><li>로그인 정보를 안전하게 관리할 책임은 이용자에게 있습니다</li><li>약관을 위반하는 계정은 이용이 제한될 수 있습니다</li></ul><h2>3. 가상 화폐 및 아이템</h2><ul><li>골드, XP, 배지, 아이템은 가상이며 실제 화폐 가치가 없습니다</li><li>가상 아이템은 양도, 판매 또는 현금 교환이 불가합니다</li><li>아이템 가치 및 제공 내용은 변경될 수 있습니다</li></ul><h2>4. 이용 규칙</h2><p>다음 행위는 금지됩니다:</p><ul><li>GPS 스푸핑 등 위치 조작</li><li>버그 악용 또는 자동화 도구 사용</li><li>피드나 메시지에 부적절하거나 불법적인 콘텐츠 게시</li></ul><h2>5. 라이딩 안전</h2><p>앱은 게이미피케이션 도구입니다. 항상 교통법규를 준수하세요. 라이딩 중 발생한 사고에 대해 회사는 책임을 지지 않습니다.</p><h2>6. 탈퇴</h2><p>언제든 계정을 삭제할 수 있습니다. 약관 위반 시 사전 통보 없이 계정이 해지될 수 있습니다.</p><h2>7. 책임 제한</h2><p>앱은 \"있는 그대로\" 제공됩니다. 서비스 중단, 데이터 손실 또는 앱 이용으로 인한 손해에 대해 회사는 책임을 지지 않습니다.</p><h2>8. 약관 변경</h2><p>약관은 변경될 수 있습니다. 변경 후 계속 이용하면 동의한 것으로 간주됩니다.</p><h2>9. 문의</h2><p>약관에 대한 문의는 앱 내 고객센터 또는 support@sgr.com로 연락해 주세요.</p>"
   },
   "map": {
@@ -1950,7 +1993,17 @@
     "newsDeleting": "삭제 중",
     "followerCount": "단골 {{count}}",
     "followCta": "단골 맺기",
-    "followCtaActive": "단골 해제"
+    "followCtaActive": "단골 해제",
+    "detailTabs": {
+      "home": "홈",
+      "news": "소식",
+      "reviews": "후기",
+      "price": "가격",
+      "photos": "사진"
+    },
+    "reviewCount": "후기 {{count}}",
+    "publicNoPhoto": "대표 사진이 아직 등록되지 않았습니다",
+    "detailTabsLabel": "업체 정보"
   },
   "suspended": {
     "suspendedTitle": "이용이 일시 제한되었습니다",
@@ -1959,5 +2012,21 @@
     "bannedTitle": "이용이 영구 제한되었습니다",
     "bannedDesc": "이용 약관 위반으로 계정 이용이 영구적으로 제한되었습니다",
     "contactHint": "이의가 있으시면 고객센터로 문의해주세요"
+  },
+  "accountRestore": {
+    "title": "탈퇴 처리 중인 계정이에요",
+    "desc": "이 계정은 탈퇴 처리 중이에요. 지금 복구하면 기존 계정 그대로 다시 이용할 수 있어요.",
+    "pointRestored": "복구하면 거래·리뷰·게시글·배지 등 기존 데이터가 그대로 돌아와요",
+    "pointNotRestored": "닉네임은 새로 발급되고, 전화번호는 다시 인증해야 해요 (탈퇴 시 파기됨)",
+    "pointDeadline": "{{date}}까지 복구할 수 있어요",
+    "pointPurge": "복구하지 않으면 기한 이후 데이터가 영구 파기되고, 그때는 새 계정으로 가입하게 돼요",
+    "restoreBtn": "복구하기",
+    "restoring": "복구 중...",
+    "cancelBtn": "취소",
+    "errorTokenExpired": "복구 유효시간이 지났어요. 다시 로그인해 주세요.",
+    "errorGeneric": "복구에 실패했어요. 잠시 후 다시 시도해 주세요."
+  },
+  "mapV2": {
+    "locateFailed": "위치를 가져올 수 없어요"
   }
 }

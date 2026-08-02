@@ -66,6 +66,8 @@ export interface FloodHotspot {
   last_flood_at?: string | null;
   updated_at?: string | null;
   ward_slug?: string | null;
+  /** 이 구역이 예측 잡에서 한 번도 성공한 적 없음(보존할 snapshot 자체가 없음) — F-11 잔여 갭. */
+  never_confirmed?: boolean;
 }
 
 export type FloodTrustLevel = 'PENDING' | 'CONFIRMED' | 'VERIFIED';

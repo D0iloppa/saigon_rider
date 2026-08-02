@@ -381,26 +381,28 @@ async def get_map_data(
     hotspots_result = await db.execute(
         text("""
             SELECT
-                hotspot_id,
-                district_code,
-                street_name,
-                centroid_lat,
-                centroid_lng,
-                flood_count_30d,
-                last_flood_at,
-                avg_depth_level,
-                updated_at
-            FROM flood_hotspot_stats
-            WHERE centroid_lat IS NOT NULL
-              AND centroid_lng IS NOT NULL
-              AND centroid_lat BETWEEN :bbox_s AND :bbox_n
-              AND centroid_lng BETWEEN :bbox_w AND :bbox_e
+                h.hotspot_id,
+                h.district_code,
+                h.street_name,
+                h.centroid_lat,
+                h.centroid_lng,
+                h.flood_count_30d,
+                h.last_flood_at,
+                h.avg_depth_level,
+                h.updated_at,
+                (s.district_code IS NULL) AS never_confirmed
+            FROM flood_hotspot_stats h
+            LEFT JOIN flood_prediction_status s ON s.district_code = h.district_code
+            WHERE h.centroid_lat IS NOT NULL
+              AND h.centroid_lng IS NOT NULL
+              AND h.centroid_lat BETWEEN :bbox_s AND :bbox_n
+              AND h.centroid_lng BETWEEN :bbox_w AND :bbox_e
               AND ST_DWithin(
-                    ST_SetSRID(ST_MakePoint(centroid_lng, centroid_lat), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(h.centroid_lng, h.centroid_lat), 4326)::geography,
                     ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
                     :radius_m
                   )
-            ORDER BY flood_count_30d DESC
+            ORDER BY h.flood_count_30d DESC
             LIMIT 1000
         """),
         {"lat": lat, "lng": lng, "radius_m": radius_km * 1000, **bbox_params},

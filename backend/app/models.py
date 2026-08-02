@@ -1591,10 +1591,10 @@ class Report(Base):
         UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=True
     )
     post_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("feed_posts.id", ondelete="CASCADE"), nullable=True
+        UUID(as_uuid=True), ForeignKey("feed_posts.id", ondelete="SET NULL"), nullable=True
     )
     comment_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("post_comments.id", ondelete="CASCADE"), nullable=True
+        UUID(as_uuid=True), ForeignKey("post_comments.id", ondelete="SET NULL"), nullable=True
     )
     reason: Mapped[str] = mapped_column(String(30), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

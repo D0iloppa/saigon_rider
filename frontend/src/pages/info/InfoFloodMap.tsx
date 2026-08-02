@@ -230,6 +230,14 @@ export default function InfoFloodMap() {
     [risks, floodFilter],
   );
 
+  // 한 번도 예측이 성공한 적 없는 구역(보존할 이전 snapshot 자체가 없음) 존재 여부 — F-11
+  // 잔여 갭. `never_confirmed` 는 additive 필드라 구필드만 내려주는 캐시·구버전 응답에는
+  // 없을 수 있다 — 그 경우 `undefined` 는 falsy 라 기존 동작(안전/무필터 렌더)이 유지된다.
+  const hasUnconfirmedRisk = useMemo(
+    () => (floodFilter === null || floodFilter === 'risk') && hotspots.some((h) => h.never_confirmed === true),
+    [hotspots, floodFilter],
+  );
+
   const daysAgo = (iso?: string | null) => {
     if (!iso) return null;
     return Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
@@ -457,7 +465,7 @@ export default function InfoFloodMap() {
               onAction={fetchAll}
             />
           </div>
-        ) : filteredFloodEntries.length === 0 && hasStaleRisk ? (
+        ) : filteredFloodEntries.length === 0 && (hasStaleRisk || hasUnconfirmedRisk) ? (
           // 예보 데이터는 있으나 전부 provider 장애로 갱신 실패한 stale 상태 — 초록 "안전"과
           // 절대 혼동되면 안 되므로 중립 tone 으로 분리 렌더.
           <div className={sys.card}>

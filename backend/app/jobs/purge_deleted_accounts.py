@@ -5,12 +5,16 @@ frontend/src/locales/*/translation.json legal.privacyHtml)와 실제 동작을
 맞추기 위한 배치. `delete_account`(routers/users.py)가 탈퇴 즉시 phone/nickname
 을 익명화하지만, RideSession·UserQuest·UserBadge 등은 FK로 무기한 잔존했다.
 
-**삭제 대상은 "이 유저 개인 소유이고 타인의 권리가 걸리지 않은" 테이블로 한정한다.**
+**삭제 대상은 "이 유저 개인 소유"인 테이블로 한정한다.** 대표 결정(2026-08-01)에 따라
+feed_posts/post_comments(피드글·댓글)도 삭제 대상에 포함됐다 — 단 두 테이블 모두 자식에
+ON DELETE CASCADE 가 걸려 있어 타인이 남긴 좋아요·대댓글·해당 글/댓글에 대한 신고(reports)
+행까지 함께 사라진다(상대방 권리 침해 소지를 대표가 인지하고 승인).
 거래(marketplace_listings/appointments/price_offers)·리뷰(marketplace_reviews/
-business_review)·신고(reports)·제재(user_sanctions)·CS(support_tickets)·
-DM(dm_conversations/dm_messages)·업체 프로필(business_profile)·크라우드소싱
-제보(flood_report 등)는 상대방 권리·법적 보존 의무·타 이용자가 참조하는 공공성
-데이터라 이 잡이 건드리지 않는다 (users 행 자체도 삭제하지 않음 — anonymize 유지).
+business_review)·신고(reports, 위 CASCADE 케이스 제외)·제재(user_sanctions)·
+CS(support_tickets)·DM(dm_conversations/dm_messages)·업체 프로필(business_profile)·
+크라우드소싱 제보(flood_report 등)·내부 보상 원장(internal_reward_grants)은 상대방 권리·
+법적 보존 의무·타 이용자가 참조하는 공공성 데이터라 이 잡이 건드리지 않는다
+(users 행 자체도 삭제하지 않음 — anonymize 유지).
 표는 ai-docs/260731_remediation_ledger.md F-10 최종보고 참조.
 """
 
@@ -43,6 +47,12 @@ _OWN_DATA_TABLES: list[tuple[str, str]] = [
     ("notifications", "user_id"),
     ("notification_settings", "user_id"),
     ("user_favorite_location", "user_id"),
+    # 피드글·댓글 — 대표 결정 ②(2026-08-01): 본인 소유 커뮤니티 콘텐츠도 삭제 대상에 포함.
+    # 단, feed_posts/post_comments 모두 자식 테이블에 ON DELETE CASCADE 가 걸려 있어
+    # 이 유저의 글/댓글이 지워지면 타인이 남긴 좋아요·대댓글·해당 글/댓글에 대한 신고(reports)까지
+    # 함께 사라진다 — 상세는 ai-docs/260731_remediation_ledger.md F-10 참조.
+    ("feed_posts", "user_id"),
+    ("post_comments", "user_id"),
     # 팔로우 관계는 양방향 모두 삭제 — 법적 증거가 아니라 단순 관계 데이터.
     ("user_follows", "follower_id"),
     ("user_follows", "following_id"),

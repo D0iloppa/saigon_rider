@@ -190,6 +190,14 @@ services:
       - "/migrations/165_business_profile_intro.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (165) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/166_flood_prediction_status.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (166) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/167_reports_content_detach.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (167) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -218,6 +226,8 @@ services:
       - ./database/init/163_user_consent_capture.sql:/migrations/163_user_consent_capture.sql:ro
       - ./database/init/164_search_blob.sql:/migrations/164_search_blob.sql:ro
       - ./database/init/165_business_profile_intro.sql:/migrations/165_business_profile_intro.sql:ro
+      - ./database/init/166_flood_prediction_status.sql:/migrations/166_flood_prediction_status.sql:ro
+      - ./database/init/167_reports_content_detach.sql:/migrations/167_reports_content_detach.sql:ro
     networks:
       - dev-net
     depends_on:

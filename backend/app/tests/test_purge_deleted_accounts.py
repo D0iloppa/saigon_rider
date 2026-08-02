@@ -110,3 +110,42 @@ class PurgeBatchExecutionTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["purged_count"], 0)
         self.assertEqual(result["status"], "ok")
+
+    def test_feed_posts_and_post_comments_are_purge_targets(self):
+        # 대표 결정 ②(2026-08-01): 피드글·댓글도 본인 소유 데이터로 삭제 대상에 포함.
+        self.assertIn(("feed_posts", "user_id"), job._OWN_DATA_TABLES)
+        self.assertIn(("post_comments", "user_id"), job._OWN_DATA_TABLES)
+
+    async def test_feed_posts_and_comments_deleted_scoped_to_eligible_user(self):
+        now = datetime.now(UTC)
+        eligible_id = uuid.uuid4()
+        rows = [(eligible_id, now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows)
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["purged_count"], 1)
+        delete_calls = [c for c in session.execute.await_args_list if "DELETE FROM" in str(c.args[0])]
+        deleted_tables = {str(c.args[0]).split("DELETE FROM ")[1].split(" WHERE")[0] for c in delete_calls}
+        self.assertIn("feed_posts", deleted_tables)
+        self.assertIn("post_comments", deleted_tables)
+        for c in delete_calls:
+            table = str(c.args[0]).split("DELETE FROM ")[1].split(" WHERE")[0]
+            if table in ("feed_posts", "post_comments"):
+                self.assertEqual(c.args[1]["uid"], eligible_id)
+
+    async def test_reserved_tables_stay_untouched_by_own_data_purge(self):
+        # 대표 결정 ②: user_sanctions/support_tickets/internal_reward_grants 는 계속 보존.
+        now = datetime.now(UTC)
+        eligible_id = uuid.uuid4()
+        rows = [(eligible_id, now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows)
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            await job.purge_deleted_accounts(dry_run=False)
+
+        delete_calls = [c for c in session.execute.await_args_list if "DELETE FROM" in str(c.args[0])]
+        deleted_tables = {str(c.args[0]).split("DELETE FROM ")[1].split(" WHERE")[0] for c in delete_calls}
+        for protected in ("user_sanctions", "support_tickets", "internal_reward_grants"):
+            self.assertNotIn(protected, deleted_tables)

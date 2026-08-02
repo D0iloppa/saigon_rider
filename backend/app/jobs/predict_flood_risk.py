@@ -91,6 +91,17 @@ async def run_flood_risk_prediction() -> dict:
                 ),
                 {"dcs": succeeded_districts},
             )
+            # 마지막 성공 실행 시각 영속화 — 한 번도 성공한 적 없는 구역(보존할 snapshot
+            # 자체가 없는 경우)을 "정상 저위험"과 구분해 내려주기 위한 F-11 잔여 갭 해소.
+            for dc in succeeded_districts:
+                await db.execute(
+                    text(
+                        "INSERT INTO flood_prediction_status (district_code, last_success_at) "
+                        "VALUES (:dc, :now) "
+                        "ON CONFLICT (district_code) DO UPDATE SET last_success_at = :now"
+                    ),
+                    {"dc": dc, "now": now},
+                )
         if failed_districts:
             # 마지막 성공 snapshot 을 보존하되 is_stale=TRUE 로 표시 — 소비 API 가
             # "데이터 없음"과 "제공자 장애로 알 수 없음"을 구분해 내려줄 수 있게 한다.

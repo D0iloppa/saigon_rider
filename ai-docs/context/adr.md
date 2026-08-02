@@ -52,7 +52,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - `database/init/NNN_*.sql` 번호순. 신규 볼륨은 `docker-entrypoint-initdb.d` 가 전건 실행
 - **기존 볼륨은 `docker-compose.yml` 의 `bff_migrate` 에 등록된 것만 적용된다** — `command`(`-f`) + `volumes` **양쪽에 등록 필수**. 등록 누락이 반복 결함이었다(F-20)
 - 적용 이력 원장 `schema_migrations`(`160_*.sql`) — `bff_migrate` 가 각 `-f` 뒤에 `-c "INSERT ... VALUES (NNN) ON CONFLICT DO NOTHING"` 을 인터리브. `ON_ERROR_STOP=1` 로 "성공한 파일만 기록"이 자동 보장. fresh-init 은 `-c` 없이 실행되므로 원장이 비는데, 빈 볼륨은 정의상 최신이라 **의도된 범위 한정**
-- 현재 최대 번호 **164**. `bff_migrate` 등록 범위 139~164
+- 현재 최대 번호 **167**. `bff_migrate` 등록 범위 139~167
 
 ## PATTERNS
 
@@ -95,7 +95,7 @@ docker run --rm --env-file .env -e PYTHONPATH=/repo/backend \
 engine 은 `-r requirements-dev.txt`. 프론트는 `./node_modules/.bin/{tsc,eslint}` + `node --test $(find src -name "*.test.mjs")`.
 DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 브라우저 E2E 가 없으므로 프론트 계약은 **`.mjs` 정적 계약 테스트**로 고정한다.
-기준선(2026-08-01): backend **289** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` 18.
+기준선(2026-08-02): backend **312** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` 26.
 
 ## TRADEOFFS
 
@@ -119,8 +119,20 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **동의 미기록 게이트**(F-9): `PrivateRoute` 의 `user?.consentAgreedAt === null` 는 **엄격 비교**여야 한다. `!user?.consentAgreedAt` 로 바꾸면 `undefined`(판정 불가)까지 걸려 전 사용자가 동의 화면에 갇힌다. `privateRouteConsentGate.contract.test.mjs` 가 이 회귀를 감시한다
 - **검색**: 번역이 없는 행이 검색 결과에서 사라지면 안 된다(원문은 항상 매칭 대상이어야 함)
 
+### 개인정보 파기 (2026-08-02 대표 결정으로 확정)
+- 탈퇴 30일 경과 시 **삭제**: 라이딩·퀘스트·배지 + 순수 개인데이터 15종 + **피드글·댓글**(대표 결정)
+- **보존**: `users` 행(익명화 유지) · 거래(매물/약속/가격제안) · 리뷰 · **제재 이력** · **CS 문의** · **보상 지급 원장** · DM · 업체프로필 · 크라우드소싱 제보
+- 🔴 **신고(`reports`)는 detach 로 보존한다.** `reports.post_id`/`comment_id` FK 를 **`ON DELETE SET NULL`**(`167_*.sql`)로 바꿔, 글·댓글이 지워져도 신고 사유·대상유저·처리결과가 남는다. **이걸 CASCADE 로 되돌리거나 "고아 FK"라며 정리하면 상습 위반자 추적 근거가 사라진다** — 제재 이력을 보존하기로 한 결정과 짝이다
+  - 부수 효과(의도된 것): 관리자 모더레이션 삭제(`admin_api/feed.py`)·작성자 자진 삭제(`feed.py`)에서도 신고가 보존된다. **이전에는 이 두 경로에서도 신고가 조용히 사라지고 있었다**
+  - `POST`/`COMMENT` 용 CHECK 제약은 삭제 후 NULL 을 허용해야 해서 제거했다. `LISTING`/`DM` 은 CASCADE 유지(파기 대상이 아니라 실질 영향 없음)
+- 공표 문구(`legal.privacyHtml` ko/en/vi)는 이 실제 동작에 맞춰 개정됐다. **법무 검토 전 초안** 표시가 붙어 있고, 근거 조문·보존기간은 비어 있다
+
 ### fail-closed 가 필요한 곳
-- **안전정보(침수)**: 제공자 실패를 `0.0`(안전)으로 변환 금지. 실패 구역은 삭제하지 않고 `is_stale=TRUE` + `expires_at` 갱신으로 마지막 성공 snapshot 을 보존한다(갱신을 빼면 24h 후 fail-open 이 부활한다). UI 는 stale 을 초록 "안전"과 분리 렌더. **잡은 `pop < _THRESHOLD` 구역에 행을 만들지 않으므로 빈 결과는 맑은 날의 정상 결과다** — 빈 결과를 unavailable 로 렌더하면 오작동한다
+- **안전정보(침수) — 상태가 3개다**: ① 정상 ② `is_stale`(예보 갱신 실패, 이전 snapshot) ③ **`never_confirmed`(그 구역 예측이 한 번도 성공한 적 없음)**. ②③ 은 초록 "안전"과 분리 렌더한다(`flood_prediction_status(district_code, last_success_at)`, `166_*.sql`).
+  - 🔴 **판정 기준은 "행이 있느냐"가 아니라 "그 구역 예측이 성공한 적 있느냐"다.** 잡이 `pop < _THRESHOLD` 구역에 행을 만들지 않으므로 **빈 결과는 맑은 날의 정상·다수 결과**다. 빈 결과를 장애로 렌더하면 맑은 날마다 오작동한다(2026-08-01 에 감독이 이 방향을 지시했다가 워커 지적으로 철회한 이력이 있다)
+  - `166_*.sql` 이 **기존 성공 이력이 확인되는 구역을 시드**한다. 이 시드를 빼면 배포 직후 **전 구역이 "확인 불가"** 로 뜬다
+  - UI 판정은 `=== true` 엄격 비교 + `hasStaleRisk` 와 **동일한 필터 스코프 가드**(필터가 '신고'/'핫스팟'일 때 오판정 방지)
+- **안전정보(침수) 기본 원칙**: 제공자 실패를 `0.0`(안전)으로 변환 금지. 실패 구역은 삭제하지 않고 `is_stale=TRUE` + `expires_at` 갱신으로 마지막 성공 snapshot 을 보존한다(갱신을 빼면 24h 후 fail-open 이 부활한다). UI 는 stale 을 초록 "안전"과 분리 렌더. **잡은 `pop < _THRESHOLD` 구역에 행을 만들지 않으므로 빈 결과는 맑은 날의 정상 결과다** — 빈 결과를 unavailable 로 렌더하면 오작동한다
 - **GPS 궤적 소유자 검사**: `engine_client.lookup_device_map` 조회 실패 시 403
 
 ## PHILOSOPHY

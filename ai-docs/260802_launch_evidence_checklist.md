@@ -20,47 +20,16 @@
 
 ---
 
-## 게이트 2 — Secret 대응
+## 게이트 2 — Secret 대응 — ✅ 종결 (2026-08-02 대표 결정)
 
-### 판정 방침 변경 (2026-08-02)
-초판은 감사 문서를 그대로 옮겨 **"Zalo secret 재발급"을 필수**로 뒀으나, 실제 위험도를 재평가해 **"노출 차단 + 위험 수용"** 으로 바꾼다.
+**체크리스트에서 제외한다.** 대표 결정이며 아래가 근거다.
 
-근거:
-- **Zalo 가 셀프 재발급을 제공하지 않는다**(콘솔 2개 화면·공식 문서 확인). 강행하면 앱 재생성이고 그건 검증된 도메인·콜백 설정을 전부 잃는다 — 비용이 위험보다 크다
-- **실사용자 0명**, 운영 미공개
-- **콜백 URL 이 `app.saigon-rider.com` + dev 도메인으로 정리**돼 공격자가 authorization code 를 받을 경로가 없다 → 사용자 계정 탈취 시나리오가 성립하지 않는다. secret 단독으로 가능한 것은 앱 사칭 API 호출 수준
-- `Kiểm tra secret key khi gọi api get access token` 토글 ON
+- **`main` 은 깨끗하다** — orphan 이력으로 재시작했고, 추적파일 2,151개 전수 검색에서 secret 2종 매치 **0건**(2026-08-02 실측). pre-commit `committed-secrets` 훅이 재유입도 막는다
+- **Zalo 재발급은 불가·불필요** — Zalo 가 셀프 재발급을 제공하지 않고(콘솔 2화면·공식 문서 확인), 실사용자 0명 + 콜백 URL 정리로 계정 탈취 경로가 없다. secret 단독으로는 앱 사칭 수준. 앱 재생성은 검증된 도메인·콜백 설정을 잃어 비용이 위험보다 크다
+- **`main_deprecated`(백업 브랜치)는 지금 점검 대상이 아니다** — 의도적으로 남긴 임시 백업이며 대표가 나중에 삭제한다
+- **레포 private 전환도 지금 할 문제가 아니다** — 대표 판단으로 나중에 한다
 
-따라서 **아래 2-1(노출 차단)만 완료되면 게이트 2 를 닫는다.** 재발급은 차단 항목이 아니라 **배경 후속**으로 내린다.
-
-### 2-1. 노출 차단 ← **이것만 하면 게이트 2 닫힘**
-
-새 `main` 은 secret 이 없는 orphan 이력이지만(검증 완료), **구 이력이 원격 `main_deprecated` 에 남아 있고 레포가 PUBLIC 이라 지금도 GitHub 에서 읽을 수 있다.**
-
-```bash
-git push origin --delete main_deprecated
-gh repo edit D0iloppa/saigon_rider --visibility private --accept-visibility-change-consequences
-```
-
-- [ ] `main_deprecated` 삭제 — 로컬 전체 백업이 `~/saigon_rider_backup/saigon_rider_full_20260801_1147.bundle`(446MB, `git bundle verify` 통과)에 있으므로 복원 가능
-- [ ] 레포 private 전환
-- [ ] **증적**:
-  ```bash
-  gh repo view --json visibility,forkCount
-  git ls-remote --heads origin
-  ```
-  → `visibility: PRIVATE`, 브랜치 목록에 `main` 만
-
-> 참고: GitHub 은 참조가 끊긴 객체를 즉시 GC 하지 않아 커밋 SHA 를 아는 사람은 한동안 접근할 수 있다. 다만 private 전환 시 그 접근 자체가 막힌다.
-
-### 2-2. Zalo secret 재발급 — **배경 후속(게이트 차단 아님)**
-- [ ] Zalo 커뮤니티/지원에 rotation 요청 접수 → 티켓 번호 또는 스크린샷
-- [ ] 회신 오면 dev DB 반영 후 검증(값 노출 없이):
-  ```bash
-  docker exec saigon_db psql -U wellconn -d saigon_rider -t \
-    -c "select key, length(value), updated_at from app_config where group_name='oauth' and key like 'zalo%'"
-  ```
-- [ ] Zalo 로그인 1회 성공(`-501` 미발생)
+> 감사 문서는 "Zalo secret 폐기·재발급"을 게이트 2 로 요구했으나, 그 전제(자체 재발급이 가능하고 실사용자가 있다)가 이 프로젝트에 성립하지 않는다. **점검 대상은 `main` 에 시크릿이 없는지 하나뿐**이고 그것은 충족됐다.
 
 ## 게이트 4 — 개인정보·검증문서 계약
 
@@ -258,7 +227,7 @@ allowlist 로 특권 경로는 막았지만, `sreMessage` 는 여전히 전역 �
 | 게이트 | 상태 | 증적 접수 |
 |---|---|---|
 | 1 Engine 신뢰경계 | 부분(코드 완료) | 미접수 |
-| 2 Secret | 부분 — **노출 차단(브랜치 삭제+private) 2분이면 닫힘.** 재발급은 배경 후속으로 내림 | 미접수 |
+| 2 Secret | **종결** — `main` 시크릿 0건 실측. 백업 브랜치·private 전환은 대표 판단으로 나중 | — |
 | 3 안전정보 | **PASS** | — |
 | 4 개인정보 계약 | 부분(구현 완료) | 미접수 |
 | 5 DB upgrade | 부분(dev 완료) | 미접수 |

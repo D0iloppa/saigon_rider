@@ -3,6 +3,7 @@
 > 작성: 2026-07-31 새벽 (권도일 세션) · **이 문서에 있는 것만 대표님이 하시면 됩니다.**
 > 나머지는 전부 처리했습니다 — [`260731_remediation_final_report.md`](./260731_remediation_final_report.md) 참조
 > 원장(검증 상세 전문): [`260731_remediation_ledger.md`](./260731_remediation_ledger.md)
+> **증적 체크리스트**: [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md) — 이 문서가 "무엇을 해야 하는지"라면, 그 문서는 **하고 나서 무엇을 남겨야 게이트가 닫히는지**다(명령어까지 포함)
 >
 > **분류 기준**: 개발자 권한으로 할 수 없는 것만 담았습니다 — 외부 콘솔 자격, 운영서버 접근, 법무 판단, 제품 결정, 실기기.
 

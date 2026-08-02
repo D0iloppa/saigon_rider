@@ -199,17 +199,25 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env 
 - **백업·복구**(B-5) — `tools/backup_db.sh` 는 작성·dev 실행 확인 완료. 남은 것은 스케줄링·오프사이트 암호화 저장·restore drill·RPO/RTO 측정·경보·온콜
 - **Engine 키 회전 + identity 분리**(B-3) — allowlist 로 특권 경로는 막았지만 `sreMessage` 는 여전히 전역 키 단일 비교라, 앱에서 키가 추출되면 GPS/이벤트 주입이 가능합니다. 회전 + 사용자·기기·만료 결속 단기 토큰으로 재설계 후 신규 앱 배포
 - **운영 DB migration 상태 확인**(B-8) — ✅ 2026-08-02 배포 시 해소. 운영 DB 재생성 후 `database/init` 전건 적용 + `bff_migrate` 로 dev 라이브와 컬럼 파리티 확인(위 운영 배포 항목 참조)
-- **Zalo 앱 활성화**(2026-08-01 발견) — Zalo 개발자 콘솔의 앱 상태가 **`Chưa kích hoạt`(Not activated)** 이다(대표님 스크린샷에서 확인). 이 상태로는 실사용자 Zalo 로그인이 동작하지 않을 가능성이 높다(현재 dev 에서 되는 것은 테스터 계정 범위로 추정). 출시 전 활성화 필요. 활성화 시 도메인 검증(`Xác thực domain`)·앱 심사가 선행될 수 있으니 **리드타임을 미리 확인**할 것
+- **Zalo 운영 로그인** — ✅ **2026-08-02 동작 확인(대표 실기)**. 세 가지가 함께 맞아야 했다: ① `app_config` 에 Zalo 시크릿 주입(재생성 전 운영 DB 에도 `CHANGE_ME` 였다 — 즉 운영 Zalo 로그인은 원래부터 불가) ② `.env` `ZALO_API_PROXY` 값 입력(없으면 한국 IP 직접 호출 → `error -501`) ③ **`BFF_PUBLIC_URL` 정정** — 운영이 옛 도메인 `letantonsheriff.com` 을 콜백으로 보내 Zalo 가 `-14003 Invalid redirect uri` 로 거부했다. `https://app.saigon-rider.com/api/bff` 로 교체 후 콘솔에 콜백 등록.
+- **OAuth 콜백 도메인 SoT** — `BFF_PUBLIC_URL` 하나가 **Zalo·Google·Apple 콜백 전부**를 만든다(`auth.py:546 _bff_base_url()`). 이 값을 바꾸면 세 콘솔을 함께 갱신해야 한다. 운영 콜백 주소:
+  `https://app.saigon-rider.com/api/bff/auth/oauth/{zalo|google|apple}/callback`
+- **Google 운영 로그인** — 🔴 **미동작**. 콘솔 확인 결과 운영 도메인이 리디렉션 URI 에 **없었다**(등록된 것은 dev `saigon.doil.me` 와 오타가 있는 `www.saigon-rider.com/api/bff/auth/google/callback` — `oauth/` 누락, 게다가 `www` 는 랜딩 정적 서빙이라 API 가 없다). 즉 **운영 Google 로그인은 원래부터 안 되고 있었다**(2026-08-02 도메인 변경 때문이 아니다).
+  → 추가할 것: 리디렉션 URI `https://app.saigon-rider.com/api/bff/auth/oauth/google/callback`, JavaScript 원본 `https://app.saigon-rider.com`. 반영에 5분~수 시간.
+  ⚠️ 콘솔에 클라이언트 시크릿이 2개인데 `****awhl` 은 **사용 중지**, `****BFn` 만 활성이다. 운영 DB 값은 DB 재생성 전 덤프에서 복원한 것이라 **둘 중 어느 것인지 확인 불가** — URI 등록 후에도 실패하면 활성 시크릿을 알려주면 주입한다.
+- **Apple 운영 로그인** — 시크릿이 아직 `CHANGE_ME` 라 미구성. 구성 시 Services ID 의 Return URL 에 위 apple 콜백 주소 등록 필요.
 
 ---
 
 ## 요약 — 대표님이 하실 것 (2026-08-02 갱신 — 남은 것만)
 
 1. **A-3** Google Cloud 콘솔 **IAM & Admin → Quotas → Cloud Translation API** 에서 한도값이 0인지 확인 — 키·API 활성화는 이미 확인됐고 원인은 quota 하나로 좁혀짐. 정상인데도 실패하면 24시간 후 재확인
-2. **B-5** 운영 `.env` — 키는 전부 만들어 뒀습니다. **값 입력은 2개**(`ZALO_API_PROXY`·`GOOGLE_MAPS_API_KEY`). 특히 `ZALO_API_PROXY` 가 비어 있으면 **운영에서 Zalo 로그인이 실패**합니다
-3. **B-2** 공개 도메인(`app.saigon-rider.com`) 닫을지 결정 — 운영 배포가 완료돼 지금은 최신 코드가 loopback 으로만 떠 있음. 외부 재검증(B-4 잔여) 도 이 결정과 함께 처리
+2. **Google 콘솔** — 리디렉션 URI `https://app.saigon-rider.com/api/bff/auth/oauth/google/callback` 와 JavaScript 원본 `https://app.saigon-rider.com` 추가. **지금 운영 Google 로그인은 동작하지 않습니다**(원래부터). Zalo 는 2026-08-02 동작 확인 완료
+3. ~~공개 도메인 닫을지 결정~~ — ✅ **출시 전까지 열어두기로 결정(2026-08-02)**. 외부 재검증도 완료해 게이트 6 잔여 종결
 4. **C-1 / C-1-b** 법무 문안 승인 — §4 뿐 아니라 **§5 "권리" 절도 함께**
-5. **C-8** 어드민 업체 등록 후속 2건(소유자 연결 수단·검증 강제 여부) + **실제 업체 데이터 입력**(지금 7건 전부 dev 시드)
-6. **증적 수집** → [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md)
+5. **C-8** 어드민 업체 등록 후속 2건(소유자 연결 수단·검증 강제 여부). ~~실제 업체 데이터 입력~~ — **런칭 후 확보(2026-08-02 대표 결정)**, 수단(어드민 등록·CSV 임포트)은 준비 완료
+6. **S3 버킷·자격증명** — `.env` 6개 키만 채우면 코드 변경 없이 오프사이트 백업이 동작합니다. `BACKUP_ENCRYPTION_KEY` 는 `.env` 와 **별도 보관**(분실 시 영구 복구 불가)
+7. **`support@saigon-rider.com` 메일함 존재 여부** — 방침·약관에 공표된 개인정보 문의처입니다. 없으면 반송됩니다
+8. **증적 수집** → [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md)
 
-**출시 판정은 NO-GO** 입니다. 코드가 원인인 차단은 전부 해소됐고, 운영 배포도 완료됐습니다. 남은 것은 실기기 검증·백업 drill·외부 도메인 재검증·법무·업체 데이터 입력입니다.
+**출시 판정은 NO-GO** 입니다. 코드·인프라로 닫을 수 있는 것은 전부 닫혔습니다. 남은 차단은 **실기기 검증(B-1)·Engine 키 회전(B-3)·법무 문안(B-6)** 세 가지이며, 앞의 둘은 **스토어 등록과 앱 배포 경로가 선행**돼야 합니다.

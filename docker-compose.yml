@@ -202,6 +202,10 @@ services:
       - "/migrations/168_business_profile_owner_nullable.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (168) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/169_schema_parity_backfill.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (169) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -233,6 +237,7 @@ services:
       - ./database/init/166_flood_prediction_status.sql:/migrations/166_flood_prediction_status.sql:ro
       - ./database/init/167_reports_content_detach.sql:/migrations/167_reports_content_detach.sql:ro
       - ./database/init/168_business_profile_owner_nullable.sql:/migrations/168_business_profile_owner_nullable.sql:ro
+      - ./database/init/169_schema_parity_backfill.sql:/migrations/169_schema_parity_backfill.sql:ro
     networks:
       - dev-net
     depends_on:

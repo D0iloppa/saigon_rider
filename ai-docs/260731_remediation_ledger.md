@@ -290,6 +290,7 @@ docker compose --env-file .env up --build -d <service>
 - [x] `tsc --noEmit` — **0 error** 유지(전 단계 매 커밋 전 확인).
 - [x] `.mjs` 계약 — 4종 → **8파일 / 18 subtest 전건 PASS**. 신규 4종: `neighborhoodMapBizCap`(N-2 천장 회귀 감시) · `worldMapV2FailureState`(F-13) · `saigonMapV5AssetFailure`(F-14) · `privateRouteConsentGate`(F-9 게이트 + 넓은 falsy 회귀 감시).
 - [x] migration **fresh 볼륨 적용 E2E** — 격리 컨테이너 `saigon_db_freshtest`(별도 볼륨)로 `database/init/` **165개 SQL 전건 부트스트랩, ERROR 0건** + `users.rider_type_id` 확인(F-15/SGR-227). **기존 볼륨** — dev DB 에 `bff_migrate` 실전 실행, 139~163 전건 적용 + 2차 재실행 `INSERT 0 0`(완전 멱등), `schema_migrations` **26건**. 운영 백업 복제본 검증은 **B-8**.
+  🔴 **근거 정정(2026-08-02)**: 위 "ERROR 0건"만으로 스키마 파리티를 주장한 것은 불충분했다 — 실제로 fresh 재현 스키마가 라이브와 어긋나 있었다(`users.deleted_at` 라이브 전용, `badges.policy_id` fresh 전용, `flood_confirmation.lat/lng` NOT NULL 여부 불일치). `169_schema_parity_backfill.sql` 로 역보강 + `backend/app/tests/test_schema_parity.py` 로 회귀 고정, 격리 프로브로 라이브와 재대조해 **fresh-only 0건**(live-only 47테이블은 전부 Engine/Alembic 소유) 확인. 앞으로 fresh-init 검증 기준은 **"라이브와 schema diff 0건"**이다.
 - [–] ESLint warnings **247건** — 게이트 기준은 "0 error"이며 warning 0 은 요구되지 않는다(현재 **0 errors**). 감축 목표 설정은 대표 결정 대기.
 
 ## 5단계 · 대표 결정 대기 (개발 착수 불가)
@@ -303,6 +304,22 @@ docker compose --env-file .env up --build -d <service>
 
 ---
 
+## 6단계 · 2026-08-02 라운드
+
+- [x] **스키마 파리티** `database/init/` fresh-init 과 라이브 dev DB(`saigon_db`) 사이 드리프트 해소 — `users.deleted_at`(라이브 전용, 코드 10곳 사용, 새 배포 시 로그인 붕괴 상태였음) · `badges.policy_id`(fresh 전용, 라이브가 pre-139 `033` 파일 누락) · `flood_confirmation.lat/lng` NOT NULL 불일치. `database/init/169_schema_parity_backfill.sql`(멱등) 추가 + `bff_migrate` command/volumes 양쪽 등록 + 라이브 적용(`schema_migrations` version 169).
+  검증: 격리 프로브 컨테이너로 fresh 재현 후 라이브와 `information_schema.columns` 양방향 diff → **fresh-only 0건**, live-only 47테이블은 전부 Engine/Alembic 소유(+`alembic_version`). 회귀 방지 `backend/app/tests/test_schema_parity.py`(DB 불필요, 정적 스캔).
+  📌 **교훈**: 기존 "fresh-init 전건 부트스트랩 ERROR 0건"을 검증 근거로 삼았던 것은 불충분했다 — SQL 이 에러 없이 끝나는 것과 결과 스키마가 라이브와 같은 것은 별개. 위 최종 게이트 판정 표의 게이트 5, 4단계 checklist 의 "migration fresh 볼륨 적용 E2E" 항목 근거를 이 라운드에서 "schema diff 0건"으로 교체(게이트 자체는 재개방이 아니라 근거 교체).
+- [x] **서비스 경계 안내** 위치가 서비스 지역 밖일 때 `market.outOfService`/`market.outOfServiceDetail`(ko/en/vi) 안내 — `LocationPickerSheet.tsx`·`MarkerLocationPicker.tsx`. 가드 `!!picked && !inServiceArea(...)`. 계약 테스트 `frontend/src/pages/market/outOfServiceGuidance.contract.test.mjs`.
+- [x] **스플래시 로그인 버튼 제거** `Splash.tsx` 의 [시작하기]/[로그인]이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 [로그인] 제거. 고아 CSS(`.loginBtn`)·i18n 키(`splash.loginBtn`) 함께 제거.
+- [x] **어드민 업체 등록/사진/CSV 임포트** `POST /admin/api/biz/accounts`(즉시 APPROVED, `user_id=None`) · `GET /admin/api/biz/categories` · `POST /admin/api/biz/upload`(앱 전용 `/contents/upload` 프록시) 신설. `business_profile.user_id` nullable(168) 전환에 따라 어드민 조회 조인 3곳 **outer join 필수**(INNER JOIN 복귀 시 소유자 없는 업체가 목록에서 사라짐). `backend/scripts/import_business_csv.py`(기본 dry-run, `--commit` 필수) 로 대량 등록.
+- [x] **CI e2e job** `.github/workflows/ci.yml` 에 `e2e` job 추가(`pull_request` 에서만 동작). `frontend/e2e/*.spec.ts`.
+
+### 6단계 종료 상태 (2026-08-02)
+
+**닫힌 것**: 스키마 파리티(근거 교체 포함) · 서비스 경계 안내 · 스플래시 로그인 버튼 제거 · 어드민 업체 등록/사진/CSV 임포트 · CI e2e job — 5건 전부 `[x]`.
+
+---
+
 ## 최종 게이트 판정 — 감사 문서의 9개 출시 게이트 대조
 
 출처: [`260731_prelaunch_go_no_go_audit.md` §5](./260731_prelaunch_go_no_go_audit.md). 감사 시점 판정은 9개 전부 **FAIL** 이었다.
@@ -313,7 +330,7 @@ docker compose --env-file .env up --build -d <service>
 | 2 | Secret 대응 | FAIL | **FAIL** | 코드 범위 조치 없음 — Zalo secret 폐기·재발급·Git 이력 감사는 전부 **B-2**(대표 소관) |
 | 3 | 안전정보 | FAIL | **PASS(조건부)** | 침수 fail-open 해소 — 실패를 0.0 으로 삼키지 않고 snapshot 보존 + `expires_at` 갱신으로 24h 재발까지 차단, UI 분리. **잔여**: 한 번도 성공한 적 없는 구역의 "저위험"과 "확인 불가" 미구분(대표 판단) |
 | 4 | 개인정보·검증문서 계약 | FAIL | **부분** | 로그인 전 약관 열람·명시 동의·버전/시각 기록·미동의 세션 게이트 완료. 사업자 문서 소유권 검사 + `contents.is_private` ACL 완료. 30일 파기 배치 완료. **남은 것**: 공표 문구("영구삭제")가 실제 보존 범위보다 과함 → 문안 조정 **B-6**, 삭제 보류 4종 대표 판단 |
-| 5 | DB upgrade | FAIL | **PASS(dev 기준)** | 139~144·147 공백 해소(147 은 "멱등성 미확인"이 사실과 달랐음), `schema_migrations` 원장 도입(23→26건), readiness 9종 확장, fresh-init 165 SQL 격리 부트스트랩 ERROR 0건. **운영 백업 복제본 검증은 B-8** |
+| 5 | DB upgrade | FAIL | **PASS(dev 기준)** | 139~144·147 공백 해소(147 은 "멱등성 미확인"이 사실과 달랐음), `schema_migrations` 원장 도입(23→26건), readiness 9종 확장. **검증 근거 교체(2026-08-02)**: fresh-init 165 SQL 격리 부트스트랩 "ERROR 0건"은 SQL 이 에러 없이 끝난다는 것과 결과 스키마가 라이브와 같다는 것은 별개라 **불충분했다** — 실제로 `users.deleted_at`(라이브에만 존재, fresh 부재) 등 스키마 드리프트가 있었다(아래 신규 항목 참조). 게이트는 정당하게 닫힌 상태이나 근거는 **"라이브와 schema diff 0건"**(fresh-only 0건, live-only 는 전부 Engine/Alembic 소유)으로 교체. **운영 백업 복제본 검증은 B-8** |
 | 6 | 정확한 배포 | FAIL | **FAIL** | 코드 범위 밖 — 운영 drift 해소·readiness 200·strict CORS·보안헤더·운영 endpoint 비공개 재검증은 **B-4** |
 | 7 | Native·외부 연동 | FAIL | **FAIL** | 서명 빌드·실기기 GPS/FCM/OAuth/딥링크 검증 불가 = **B-1**. F-19 강제업데이트도 `@capacitor/app` 미 cap-sync 로 실기기 미작동 |
 | 8 | 자동 회귀 | FAIL | **PASS(CI 미구성 단서)** | X-1·X-2 해소로 확정 — backend **270 passed / 0 failed / 0 collection error**(관용 플래그 없이), engine **66 passed**, `tsc` **0 error**, `eslint` **0 errors**(247 warnings — 게이트 기준은 error 0), `.mjs` **18/18**. 테스트 199→270건. **단서**: 감사 게이트 원문은 "**CI 에서** 통과"를 요구하는데 이 레포에 CI 파이프라인이 없어 **로컬(개발서버 docker 하네스) 실행 증적**이다. 브라우저 E2E·시각 회귀는 여전히 부재 |

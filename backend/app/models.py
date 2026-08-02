@@ -1314,8 +1314,8 @@ class FloodConfirmation(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     confirmation_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    lat: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
-    lng: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    lat: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
     confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

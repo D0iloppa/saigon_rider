@@ -132,12 +132,6 @@ export default function Splash() {
       >
         <div className={styles.sheetInner}>
           <Button onClick={() => navigate('/auth/oauth')}>{t('splash.startBtn')}</Button>
-          <button
-            className={styles.loginBtn}
-            onClick={() => navigate('/auth/oauth')}
-          >
-            {t('splash.loginBtn')}
-          </button>
         </div>
       </GlassSurface>
     </div>

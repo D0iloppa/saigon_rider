@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, Avatar, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
+import { Alert, Avatar, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Upload, message } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import type { UploadProps } from 'antd'
 import dayjs from 'dayjs'
 import {
   useApproveBizAccount,
@@ -8,6 +10,7 @@ import {
   useBizCategories,
   useCreateBizAccount,
   useRejectBizAccount,
+  useUploadBizPhoto,
   type BizAccountCreateInput,
   type BizAccountRow,
 } from '../../api/biz'
@@ -69,10 +72,34 @@ export default function BizAccountListPage() {
   const approveMutation = useApproveBizAccount()
   const rejectMutation = useRejectBizAccount()
   const createMutation = useCreateBizAccount()
+  const uploadPhotoMutation = useUploadBizPhoto()
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null)
 
   const closeCreateModal = () => {
     setCreateOpen(false)
+    setPhotoPreviewUrl(null)
     createForm.resetFields()
+  }
+
+  const uploadProps: UploadProps = {
+    listType: 'picture-card',
+    maxCount: 1,
+    showUploadList: false,
+    accept: 'image/jpeg,image/png,image/gif,image/webp',
+    customRequest: (options) => {
+      const file = options.file as File
+      uploadPhotoMutation.mutate(file, {
+        onSuccess: (res) => {
+          createForm.setFieldValue('photo_content_id', res.id)
+          setPhotoPreviewUrl(res.imgproxy_url)
+          options.onSuccess?.(res)
+        },
+        onError: (err) => {
+          message.error(err instanceof Error ? err.message : '사진 업로드에 실패했습니다.')
+          options.onError?.(err as Error)
+        },
+      })
+    },
   }
 
   const submitCreate = async () => {
@@ -225,6 +252,21 @@ export default function BizAccountListPage() {
           message="영업으로 확보한 업체를 심사 없이 즉시 승인 상태로 등록합니다. 소유자(앱 계정)는 아직 연결되지 않습니다."
         />
         <Form form={createForm} layout="vertical">
+          <Form.Item label="대표사진 (선택)">
+            <Upload {...uploadProps}>
+              {photoPreviewUrl ? (
+                <img src={photoPreviewUrl} alt="대표사진" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>업로드</div>
+                </div>
+              )}
+            </Upload>
+          </Form.Item>
+          <Form.Item name="photo_content_id" hidden>
+            <Input />
+          </Form.Item>
           <Form.Item name="name" label="상호명" rules={[{ required: true, message: '상호명을 입력하세요.' }]}>
             <Input maxLength={120} />
           </Form.Item>

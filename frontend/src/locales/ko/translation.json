@@ -177,6 +177,8 @@
     "pickLocation": "거래 희망 장소",
     "pickLocationDesc": "지도에서 동네를 선택하세요. 공개 화면에는 동네 중심만 표시됩니다",
     "pickLocationNone": "동네를 선택하세요",
+    "outOfService": "서비스 미제공 지역입니다",
+    "outOfServiceDetail": "지금은 호치민 중심부(1군·3군 등 37개 동)에서만 이용할 수 있어요. 서비스 지역은 순차 확대될 예정이에요.",
     "pickAreaOnMap": "지도에서 동네를 선택하세요",
     "tradeLocation": "거래 희망 장소",
     "allAreas": "전체 지역",
@@ -236,8 +238,7 @@
     "bootstrapErrorBody": "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
     "bootstrapLogin": "로그인 화면으로 이동",
     "subtitle": "Where every ride becomes a quest",
-    "startBtn": "시작하기",
-    "loginBtn": "로그인"
+    "startBtn": "시작하기"
   },
   "phoneInput": {
     "titleLine1": "휴대폰 번호로",
@@ -1483,7 +1484,7 @@
     "locateMe": "내 위치로 시작",
     "centerMap": "지도 중앙으로",
     "centerSelectedArea": "선택한 지역 중앙으로",
-    "outsideArea": "서비스 지역 밖이에요 · 호치민 중심을 보여드려요",
+    "outsideArea": "서비스 지역(호치민 중심 37개 동) 밖이에요 · 중심가를 기준으로 보여드려요",
     "selectArea": "지도가 현재 위치를 찾는 중입니다. 직접 동네를 탭해도 됩니다.",
     "scopeWard": "선택한 동",
     "scopeViewport": "지도 범위",

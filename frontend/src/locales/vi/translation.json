@@ -177,6 +177,8 @@
     "pickLocation": "Khu vực giao dịch",
     "pickLocationDesc": "Chọn khu vực. Chỉ tâm phường được hiển thị công khai",
     "pickLocationNone": "Chọn khu vực",
+    "outOfService": "Ngoài khu vực dịch vụ",
+    "outOfServiceDetail": "Hiện tại dịch vụ chỉ khả dụng ở trung tâm TP.HCM (37 phường, gồm Quận 1, Quận 3...). Khu vực dịch vụ sẽ được mở rộng dần.",
     "pickAreaOnMap": "Chọn khu vực trên bản đồ",
     "tradeLocation": "Khu vực giao dịch",
     "allAreas": "Toàn bộ khu vực",
@@ -236,8 +238,7 @@
     "bootstrapErrorBody": "Kiểm tra kết nối mạng rồi thử lại.",
     "bootstrapLogin": "Đi đến đăng nhập",
     "subtitle": "Nơi mỗi chuyến đi là một nhiệm vụ",
-    "startBtn": "Bắt đầu",
-    "loginBtn": "Đăng nhập"
+    "startBtn": "Bắt đầu"
   },
   "phoneInput": {
     "titleLine1": "Đăng nhập bằng",
@@ -1483,7 +1484,7 @@
     "locateMe": "Bắt đầu từ vị trí của tôi",
     "centerMap": "Căn giữa bản đồ",
     "centerSelectedArea": "Căn giữa khu đã chọn",
-    "outsideArea": "Ngoài khu vực dịch vụ · hiển thị trung tâm TP.HCM",
+    "outsideArea": "Ngoài khu vực dịch vụ (trung tâm TP.HCM, 37 phường) · hiển thị khu trung tâm",
     "selectArea": "Đang tìm vị trí hiện tại của bạn. Bạn cũng có thể chạm vào khu phố để bắt đầu.",
     "scopeWard": "Phường đã chọn",
     "scopeViewport": "Vùng bản đồ",

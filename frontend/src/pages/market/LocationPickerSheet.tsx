@@ -53,6 +53,7 @@ export default function LocationPickerSheet({ open, onClose, value, onConfirm }:
   };
 
   const handleRegion = (r: SelectedRegion) => apply(r.lat, r.lng);
+  // picked 가 없는 동안(위치 미확정)은 outOfArea 가 항상 false — 첫 화면에서 경고를 띄우지 않는다.
   const outOfArea = !!picked && !inServiceArea(picked.lat, picked.lng);
 
   const confirm = () => {
@@ -65,7 +66,11 @@ export default function LocationPickerSheet({ open, onClose, value, onConfirm }:
     <BottomSheet open={open} onClose={onClose} height="full">
       <div className={styles.sheet}>
         <h2 className={styles.title}>{t('market.pickLocation', { defaultValue: '거래 희망 장소' })}</h2>
-        <p className={styles.desc}>{t('market.pickLocationDesc', { defaultValue: '지도를 확대해 정확한 위치를 탭하세요' })}</p>
+        <p className={styles.desc}>
+          {outOfArea
+            ? t('market.outOfServiceDetail', { defaultValue: '지금은 호치민 중심부(1군·3군 등 37개 동)에서만 이용할 수 있어요. 서비스 지역은 순차 확대될 예정이에요.' })
+            : t('market.pickLocationDesc', { defaultValue: '지도를 확대해 정확한 위치를 탭하세요' })}
+        </p>
         <div className={styles.mapWrap}>
           <SaigonMapV2
             height={380}

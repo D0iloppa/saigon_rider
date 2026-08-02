@@ -177,6 +177,8 @@
     "pickLocation": "Trade location",
     "pickLocationDesc": "Pick a neighborhood. Only its center is shown publicly",
     "pickLocationNone": "Select a neighborhood",
+    "outOfService": "Outside our service area",
+    "outOfServiceDetail": "The service currently covers only central Ho Chi Minh City (37 wards, including District 1 and 3). We plan to expand the coverage step by step.",
     "pickAreaOnMap": "Select a neighborhood on the map",
     "tradeLocation": "Trade location",
     "allAreas": "All areas",
@@ -236,8 +238,7 @@
     "bootstrapErrorBody": "Check your network connection and try again.",
     "bootstrapLogin": "Go to login",
     "subtitle": "Where every ride becomes a quest",
-    "startBtn": "Get Started",
-    "loginBtn": "Log In"
+    "startBtn": "Get Started"
   },
   "phoneInput": {
     "titleLine1": "Log in with",
@@ -1483,7 +1484,7 @@
     "locateMe": "Start from my location",
     "centerMap": "Center map",
     "centerSelectedArea": "Center selected area",
-    "outsideArea": "Outside the service area · showing central Ho Chi Minh City",
+    "outsideArea": "Outside the service area (central HCMC, 37 wards) · showing the city center instead",
     "selectArea": "We are finding your current location. You can also tap a neighborhood to start.",
     "scopeWard": "Selected ward",
     "scopeViewport": "Map area",

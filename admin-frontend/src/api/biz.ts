@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, buildQuery } from './client'
+import { api, apiUpload, buildQuery } from './client'
 
 // ── 비즈니스 계정 심사 ─────────────────────────────────────────────
 
@@ -84,6 +84,12 @@ export function useBizCategories() {
   return useQuery({
     queryKey: ['biz', 'categories'],
     queryFn: () => api<BizCategory[]>('/admin/api/biz/categories'),
+  })
+}
+
+export function useUploadBizPhoto() {
+  return useMutation({
+    mutationFn: (file: File) => apiUpload<{ id: string; imgproxy_url: string }>('/admin/api/biz/upload', file),
   })
 }
 

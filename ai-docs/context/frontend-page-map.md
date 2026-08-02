@@ -98,6 +98,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **핵심 컴포넌트**: `SaigonMapV2`, `ListingCard`(`pages/market/ListingCard.tsx`), `AdCard`(`pages/market/AdCard.tsx`), `StatusBar`, `BottomSheet`, `Chip`, `ScrollSentinel`
 - **연결 API**: `api/market.ts` (`fetchListings`, `fetchAds` 등)
 - **`[내 현재 위치]` 필터 (2026-07-23)**: 위치 시트의 GPS 적용은 공통 `resolveUsableLocation()`을 호출한다. 기기 좌표면 해당 좌표로, 서비스 밖이면 벤탄 fallback 좌표로 `coords`와 구 필터를 함께 설정한다(기존처럼 구만 fallback하고 범위 밖 좌표를 남기지 않음). fallback은 안내 Toast 후 정상 필터링하고, Promise reject는 기존 `market.locationError` UX를 유지한다.
+- **서비스 경계 안내(2026-08-02)**: `LocationPickerSheet.tsx`·`MarkerLocationPicker.tsx`(지도 피커로 좌표를 직접 찍는 시트)가 서비스 지역 밖 좌표를 고르면 `market.outOfService`/`market.outOfServiceDetail`(ko/en/vi) 안내를 노출한다. 가드는 `const outOfArea = !!picked && !inServiceArea(...)` — `!!picked &&` 를 빼면 위치가 아직 확정되지 않은 첫 화면에서도 경고가 뜬다(회귀 주의). 계약 테스트 `frontend/src/pages/market/outOfServiceGuidance.contract.test.mjs`.
 - **헤더 status bar 흡수 방식 통일 (2026-07-27)**: 대표 지적 — 마켓과 동네지도의 헤더 아이콘 행([검색·알림·찜] / [검색·찜·프로필]) 높이가 달라 보였다(기준은 동네지도). **원인은 아이콘 버튼 규격이 아니었다** — 양쪽 모두 이미 40×40 / radius 12px 로 동일했다. 실제 원인은 **status bar 흡수 방식 차이**: 마켓은 `<StatusBar variant="dark"/>` 스페이서 div 를 헤더 위에 별도로 두고 `.header { padding: 0 20px 0 }` 였던 반면, 동네지도는 헤더가 직접 `padding-top: calc(var(--status-bar-height) + 10px)` 로 흡수했다. 마켓의 스페이서 div 를 제거하고 `.header { padding: calc(var(--status-bar-height) + 10px) 20px 0 }` 로 동네지도와 동일한 top-padding 공식으로 통일했다. **좌우 20px 은 의도적으로 유지**(동네지도는 18px)했다 — 마켓의 20px 은 같은 파일의 `listContent`(`padding:16px 20px`)와 짝이라 헤더만 18px 로 맞추면 헤더-리스트 가장자리가 어긋나는 새 회귀가 생긴다. **이 2px 차이는 버그가 아니다** — 통일 대상은 top-padding 공식이지 좌우 여백 절대값이 아니다. 아이콘 버튼 규격·아이콘 구성 자체는 화면마다 의미가 달라 미변경.
 
 ### 3.3 동네지도 (`/map`)
@@ -137,6 +138,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **연결 스토어/API**: `useLocationStore`, `useUserStore` / `api/market.ts`(`fetchListings`, `fetchAds`), `api/feed.ts`(`fetchFeed`), `api/poi.ts`(`fetchPoiMapItems` → BFF `GET /api/poi/public/map`), `api/biz.ts`(`fetchBizMapItems` → BFF `GET /biz/public/map` bbox·category·q, APPROVED+좌표 보유만, `latest_news`) / 위치 권한은 `native.ts`(`ensureLocationPermission`, `getLocation`) 경유
 - **(2026-07-20 정정) `fetchDistrictCounts` 관련 stale 서술 제거**: 이 문서가 과거 `api/map.ts`(`fetchDistrictCounts`)를 동네지도 연결 API로 언급했으나, 해당 함수는 애초에 프론트에 존재한 적이 없었다(파일 자체 없음, 사용처 0건). 대응 백엔드 `GET /district-counts`(구 `routers/map.py`)도 프론트 소비처가 전무해 폐기됨 — 신규 `routers/map/districts.py`에 도메인 파일 자리만 유지되고 엔드포인트 자체는 삭제. `api/map.ts`는 현재 존재하며 장소제보 함수만 담는다(아래 §3.3 프로필 항목 참조). ※ `GET /quests/district-counts`(퀘스트 도메인, `api/quests.ts fetchDistrictQuestCounts`)는 이름만 비슷한 별개 API — 영향 없음.
 - **리스트에 지역 선택 신설 (2026-07-27)**: 이전엔 헤더의 "우리 동네 / 호치민시"가 static(선택 불가)이었고 조회는 `HCMC_BBOX` 하드코딩 고정이었다. `NeighborhoodMap.tsx`에 화면 로컬 상태 `regionMode: 'all'|'region'` + `selectedRegion`(+ 시트 편집용 draft)을 신설, 조회 bbox 가 `regionMode==='region' && selectedRegion ? regionBbox(selectedRegion) : HCMC_BBOX`로 분기한다. 마켓이 쓰던 `BottomSheet`/`Button`/`RadioCircle`/`SaigonMapV2`(지도 피커)를 그대로 재사용하고 시트 CSS도 `MarketMain.module.css`에서 직접 import(선례: `MarkerLocationPicker.tsx`가 `LocationPickerSheet.module.css` import) — **공용 컴포넌트로 추출하지 않았다**. i18n 신규 키 0개(기존 `market.allAreas`/`selectArea`/`locationScope`/`pickAreaOnMap`/`applyLocation` 등 재사용). bbox 계산은 `NeighborhoodMapCanvas.tsx`의 기존 `regionBbox()`와 동일 알고리즘을 로컬 함수로 복제(Canvas 가 export 하지 않아 import 불가). 마켓의 3모드 중 GPS 모드는 제외(all/region 만) — 목록 화면은 이미 거리 표기용 GPS(`requestDeviceLocation`)를 별도로 쓰고 있어 과설계 판단. **⚠️ 알려진 갭 (대표 결정: 현행 유지)**: 리스트의 지역 선택은 로컬 상태이고, `NeighborhoodMapCanvas.tsx`는 지역을 `useLocationStore`에서만 읽는다(`:204` 주석 "단일 SoT — 지역 선택은 useLocationStore(동네지도가 기준)", Canvas 는 `selectRegion`/`selectAll` writer 다). 따라서 **리스트에서 지역을 고른 뒤 "지도보기"를 누르면 지도는 그 지역으로 열리지 않는다**(스토어에 기존 선택이 없으면 전체 뷰). 통합안 3가지를 검토했고 대표가 현행 유지를 택했다 — 이유: 리스트가 스토어에 쓰면 주유소·정비소·날씨·홈의 동네까지 함께 바뀌기 때문(정보 화면 침습, 침수지도 사고와 동일 경로). 해소하려면 Canvas 에 `initialRegion?: SelectedRegion` prop 을 추가하는 방식이 있으나 보류됐다. **이 불일치는 인지된 트레이드오프**다.
+- **서비스 경계 안내(2026-08-02)**: 이 시트가 재사용하는 `MarkerLocationPicker.tsx`(지도에서 좌표 직접 선택)가 서비스 지역 밖 좌표를 고르면 `market.outOfService`/`market.outOfServiceDetail`(ko/en/vi) 안내를 노출한다. 가드는 `!!picked &&` 필수(위치 미확정 상태에서 경고가 뜨면 안 됨) — 상세는 §3.2 참조.
 
 #### 포스트 패널 — `pages/map/PostPanel.tsx` (W2, 2026-07-11; 2026-07-12 매물/피드로 일반화)
 
@@ -287,7 +289,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
   - 🔴 **`business_profile.user_id` 가 nullable 이 됐다**(`168_*.sql`). **어드민 목록·상세 쿼리는 outer join 유지 필수** — INNER JOIN 으로 되돌리면 소유자 없는 업체가 목록에서 사라진다. `suspend` 알림도 `user_id is not None` 가드 필요.
   - 좌표는 **위경도 직접 입력**(자가신청도 지오코딩이 아니라 지도 선택으로 좌표를 받는다 — 텍스트 주소→좌표 자동변환은 원래 없다). admin-frontend 에 지도 위젯 의존성이 없어 숫자 입력 2칸 + 안내문.
   - 검색 blob·번역 워밍을 자가신청과 동일하게 배선했다 — 빠뜨리면 만들어도 지도·검색에 안 뜬다.
-  - 알려진 갭: 사진 업로드 수단 없음(어드민에 contents 업로드 위젯 패턴 부재), 소유자 연결 수단 없음.
+  - **사진 업로드 (2026-08-02, 위 갭 해소)**: `POST /admin/api/biz/upload` 신설(어드민은 `/admin/api/*` 밖의 앱 전용 `POST /contents/upload` 를 호출할 수 없어 프록시). `routers/contents.py` 의 매직넘버 검증(`_sniff_mime`)을 그대로 재사용, `owner_type='system'`·`is_private=False`. 프론트는 기존 antd `Upload`(picture-card, `customRequest`)를 `BizAccountListPage.tsx` 생성 모달에 추가 — 사진은 선택 사항.
+  - **CSV 일괄 등록 (2026-08-02)**: `backend/scripts/import_business_csv.py` — `--dry-run` 기본, `--commit` 으로만 실제 반영. `create_biz_account()` 와 동일한 부수효과 재현(status=APPROVED·user_id=NULL·`immediate_blob` 즉시 적재·검색 재색인·번역 워밍). 검증 실패·중복은 해당 행만 건너뛰고 사유 출력. 샘플 `backend/scripts/business_import_sample.csv`.
+  - 알려진 갭: 소유자 연결 수단 없음.
 - **관리자 콘솔 — 비즈니스 심사 (2026-07-22 신규 SPA 이식)**: `AdminLayout.tsx` 사이드바 그룹 **"비즈니스"** 2항목 → 신규 admin-frontend SPA 화면. 레거시 Jinja(`/admin-legacy/biz-accounts`·`/biz-ads`)는 2차 이식 완료 전까지 병행 유지.
 
 | 라우트(SPA) | 페이지 파일 | 액션 |
@@ -370,6 +374,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 정지 안내 | `/suspended` | 직접 진입 없음 — `api/client.ts` 전역 핸들러가 401/403 `detail.code`(`account_suspended`/`account_banned`)를 세션만료보다 우선 감지해 리다이렉트(세션 유지 — 해제 후 재로그인 불필요). AppShell 탭바 숨김 | `pages/auth/Suspended.tsx` (2026-07-18, `7e12794`) |
 | 유저 신고 시트 | (라우트 없음 — 오버레이) | 공개 프로필 카드(`components/ProfileCard.tsx`) 헤더 신고 진입점 — 피드/팔로워·팔로잉/동네지도 공용 | 사유 선택 시트 자체 구현(공용 BottomSheet z-index 50 < ProfileCard 시트 201이라 상위 오버레이로 별도 구현), `api/profile.ts reportUser` (2026-07-18, `7e12794`) |
 | DM 신고 메뉴 | (라우트 없음 — 시트) | `/dm/:conversationId`(`DmDetail.tsx`) 헤더 더보기(케밥) | 사유 시트 → `api/dm.ts reportConversation`. 같은 화면에 DM 금칙어 차단 전용 토스트(`banned_keyword` 코드 분기)도 추가됨 (2026-07-18, `7e12794`) |
+| 스플래시 | `/splash` | 앱 최초 진입(`/` → replace) | `Splash.tsx` — 언어 선택 칩 + [시작하기] 버튼. **[로그인] 버튼 제거(2026-08-02)** — [시작하기]와 [로그인]이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거 |
 
 ---
 

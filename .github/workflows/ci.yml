@@ -80,21 +80,44 @@ jobs:
       - working-directory: frontend
         run: node --test $(find src -name "*.test.mjs")
 
-  # E2E (Playwright): 브라우저 E2E 는 별도 워커가 frontend/e2e/** 에 세팅 중이라
-  # 이 워크플로에는 아직 잡을 넣지 않는다. 준비되면 아래 형태로 추가:
-  #
-  # e2e:
-  #   name: playwright e2e
-  #   runs-on: ubuntu-latest
-  #   needs: [frontend-checks]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "20"
-  #         cache: npm
-  #         cache-dependency-path: frontend/package-lock.json
-  #     - working-directory: frontend
-  #       run: npm ci && npx playwright install --with-deps
-  #     - working-directory: frontend
-  #       run: npx playwright test
+  # E2E (Playwright): PR 에서만 돈다 — 스택 빌드(bff 의 playwright chromium 설치 포함)가
+  # 무거워 매 push(main 머지)까지 다시 돌리면 Actions 분 낭비가 크다. main 머지는 이미 PR 에서
+  # 통과한 커밋이라 재검증 가치가 낮다.
+  e2e:
+    name: playwright e2e (전체 스택)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: [frontend-checks]
+    steps:
+      - uses: actions/checkout@v4
+      # 실제 시크릿 아님 — .env.example 의 placeholder 값 그대로 사용(레포에 .env 가 없어 CI 전용 발급).
+      # OTP_DEV_BYPASS: market-edit/market-search 스펙이 판매자 휴대폰 인증을 dev-only 우회 경로로
+      # 통과해야 한다(backend/app/routers/auth.py `_otp_bypass_enabled`).
+      # DB_USER=wellconn: frontend/e2e/helpers.ts 의 cleanupUser() 가 `psql -U wellconn` 을 하드코딩한다
+      # (.env.example 기본값은 saigon 이라 그대로 두면 role 불일치로 매 테스트 afterEach 가 깨진다).
+      - name: CI 전용 .env 생성
+        run: |
+          cp .env.example .env
+          echo "OTP_DEV_BYPASS=true" >> .env
+          sed -i 's/^DB_USER=.*/DB_USER=wellconn/' .env
+      # bff 대상 기동만으로 database/bff_migrate/engine 이 depends_on 체인으로 함께 뜨고,
+      # nginx 대상 기동으로 frontend/imgproxy 가 함께 뜬다 — admin_frontend/worker/noti_worker/
+      # mcp_dev/wiki 는 이 둘의 의존 그래프에 없어 E2E 3종(동의 게이트·매물 수정·마켓 검색)에 불필요.
+      - name: 스택 기동
+        run: docker compose --profile backend --env-file .env up -d --build bff nginx
+      - name: 헬스체크 대기 (nginx 경유 bff /api/bff/ready)
+        run: timeout 180 bash -c 'until curl -sf http://localhost:18090/api/bff/ready > /dev/null; do sleep 3; done'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        run: npx playwright test
+      - name: 스택 정리
+        if: always()
+        run: docker compose --profile backend --env-file .env down -v

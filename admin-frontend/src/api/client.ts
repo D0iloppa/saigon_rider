@@ -61,3 +61,32 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
+
+/** multipart 업로드 전용 — `api()`와 달리 Content-Type 을 지정하지 않는다(FormData 가 boundary 를
+ * 포함한 헤더를 스스로 세팅해야 하므로). 인증·401·에러 처리는 `api()`와 동일하게 맞춘다. */
+export async function apiUpload<T>(path: string, file: File): Promise<T> {
+  const form = new FormData()
+  form.append('file', file)
+
+  const res = await fetch(path, { method: 'POST', credentials: 'same-origin', body: form })
+
+  if (res.status === 401) {
+    if (!window.location.pathname.startsWith(LOGIN_PATH)) {
+      window.location.href = LOGIN_PATH
+    }
+    throw new ApiError(401, '로그인이 필요합니다.')
+  }
+
+  if (!res.ok) {
+    let detail = `업로드 실패 (${res.status})`
+    try {
+      const body = await res.json()
+      if (typeof body?.detail === 'string') detail = body.detail
+    } catch {
+      // JSON 아님 — 기본 메시지 유지
+    }
+    throw new ApiError(res.status, detail)
+  }
+
+  return (await res.json()) as T
+}

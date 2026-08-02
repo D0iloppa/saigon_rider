@@ -5,11 +5,13 @@ JSON 응답으로 이관한 것 — PENDING-first 큐 정렬·승인/반려·정
 옮겼다. 구 `/admin-legacy/*` 라우트는 손대지 않고 병행 유지한다. (SGR-312 §10-1)
 """
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,11 +21,12 @@ from ...database import get_db
 from ...models import BusinessCategory, BusinessGroup, BusinessProfile, Content, User
 from ...modules.ads import AdsApplication
 from ...modules.ads.application import AdRead, AdsError, OwnerRead
-from ...schemas import BusinessCategoryOut
+from ...schemas import BusinessCategoryOut, ContentOut
 from ...services import noti_events
 from ...services.search_index import immediate_blob
 from ...services.translate import warm_translations
 from ...utils import build_imgproxy_url
+from ..contents import ALLOWED_MIME_TYPES, CONTENTS_BASE_PATH, MAX_UPLOAD_BYTES, _sniff_mime
 from ._audit import audit
 
 router = APIRouter(prefix="/biz")
@@ -339,6 +342,67 @@ async def create_biz_account(
     await db.refresh(bp)
     background.add_task(warm_translations, [name, address, intro or ""])
     return _account_row(bp, None)
+
+
+@router.post(
+    "/upload",
+    response_model=ContentOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="업체 대표사진 업로드 (admin, owner_type=system)",
+)
+async def upload_biz_photo(
+    file: UploadFile = File(...),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """어드민은 `/admin/api/*` 밖(예: 앱 전용 `POST /contents/upload`, `verify_user_session` 필요)을
+    호출할 수 없어 별도 경로가 필요하다. `routers/contents.py` 의 매직넘버 검증(`_sniff_mime`)을
+    그대로 재사용하고, owner_type 만 관리자 업로드에 맞게 'system'으로 둔다(`admin_legacy.py`
+    `_save_uploaded_image` 와 동일한 관례)."""
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=415, detail=f"Unsupported media type: {file.content_type}")
+
+    ext = Path(file.filename or "file").suffix.lower() or ".bin"
+    content_id = uuid.uuid4()
+    filename = f"{content_id}{ext}"
+    abs_dir = CONTENTS_BASE_PATH / "system"
+    abs_path = abs_dir / filename
+    file_path = f"system/{filename}"
+
+    await asyncio.to_thread(abs_dir.mkdir, parents=True, exist_ok=True)
+
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB)")
+    if _sniff_mime(data) != file.content_type:
+        raise HTTPException(status_code=400, detail="File content does not match declared content type")
+    await asyncio.to_thread(abs_path.write_bytes, data)
+
+    content = Content(
+        id=content_id,
+        owner_type="system",
+        owner_id=None,
+        file_path=file_path,
+        mime_type=file.content_type,
+        original_filename=file.filename,
+        file_size=len(data),
+        is_private=False,
+    )
+    db.add(content)
+    await db.commit()
+    await db.refresh(content)
+
+    return ContentOut(
+        id=content.id,
+        owner_type=content.owner_type,
+        owner_id=content.owner_id,
+        file_path=content.file_path,
+        mime_type=content.mime_type,
+        original_filename=content.original_filename,
+        file_size=content.file_size,
+        imgproxy_url=build_imgproxy_url(content.file_path),
+        created_at=content.created_at,
+    )
 
 
 @router.get(

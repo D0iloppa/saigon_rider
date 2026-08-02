@@ -52,7 +52,8 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - `database/init/NNN_*.sql` 번호순. 신규 볼륨은 `docker-entrypoint-initdb.d` 가 전건 실행
 - **기존 볼륨은 `docker-compose.yml` 의 `bff_migrate` 에 등록된 것만 적용된다** — `command`(`-f`) + `volumes` **양쪽에 등록 필수**. 등록 누락이 반복 결함이었다(F-20)
 - 적용 이력 원장 `schema_migrations`(`160_*.sql`) — `bff_migrate` 가 각 `-f` 뒤에 `-c "INSERT ... VALUES (NNN) ON CONFLICT DO NOTHING"` 을 인터리브. `ON_ERROR_STOP=1` 로 "성공한 파일만 기록"이 자동 보장. fresh-init 은 `-c` 없이 실행되므로 원장이 비는데, 빈 볼륨은 정의상 최신이라 **의도된 범위 한정**
-- 현재 최대 번호 **168**. `bff_migrate` 등록 범위 139~168
+- 현재 최대 번호 **169**. `bff_migrate` 등록 범위 139~169
+- 🔴 **fresh-init ≠ 라이브 스키마 사고**(2026-08-02): `database/init/` 전건 실행으로 재현한 스키마가 라이브 dev DB 와 어긋나 있었다(`users.deleted_at` 생성 SQL 부재·`badges.policy_id`(`033_*.sql`) 라이브 미적용·`flood_confirmation.lat/lng` NOT NULL 라이브 미반영). `169_schema_parity_backfill.sql` 로 역보강 + `backend/app/tests/test_schema_parity.py` 로 핵심 컬럼 존재를 정적 고정. **fresh-init 이 ERROR 0건인 것과 스키마가 실제와 일치하는 것은 다른 문제**임을 명심 — 게이트 통과를 스키마 파리티의 증거로 삼지 말 것
 
 ## PATTERNS
 
@@ -60,6 +61,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 상세는 [`frontend-page-map.md`](./frontend-page-map.md). **화면 동작을 바꾸기 전에 그 문서의 해당 절을 반드시 읽어라** — 대표 결정이 본문 서술로만 기록돼 있어 grep 으로 놓치기 쉽다(§TRADEOFFS 의 N-5 사고 참조).
 
 주요 라우트: `/home`(WorldMapV2) · `/market`(+`/search`·`/new`·`/wishlist`·`/:id`·**`/:id/edit`**·`/ad/:id`) · `/map`(NeighborhoodMap+Canvas, `/map/search`) · `/info/*`(날씨·유가·주유소·정비소·침수) · `/feed`·`/dm` · `/biz/*`(intro·apply·status·manage·news·prices) · `/settings/*`(privacy·terms 는 **공개 라우트**) · `/auth/*`(oauth-login·oauth-result·profile-setup — profile-setup 은 **PrivateRoute 밖**이어야 함)
+- **스플래시(2026-08-02)**: `/splash`(`Splash.tsx`)의 [시작하기]와 [로그인] 버튼이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 [로그인]을 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거.
 
 ### 실패 표현 규약 (장애를 콘텐츠 부재로 위장하지 않는다)
 - 데이터 없음과 **조회 실패**를 반드시 구분한다. 기존 `unavailable` 패턴(`WorldMapV2`·`InfoFloodMap`)과 `StateBlock(tone="error")` + 재시도를 미러링
@@ -70,6 +72,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - 광고 노출 판정은 `backend/app/services/ad_gating.py` 의 `launching_ad_conditions()` 를 **재사용**한다(목록·통계·상세 공통). 게이트 로직 복제 금지
 - 민감 content(사업자등록증·간판)는 `contents.is_private` 플래그로 판정한다(업로드 시점 지정). `BusinessProfile` 역참조 방식으로 되돌리지 말 것 — 업로드~제출 전 구간과 반려 후에 공개되는 구멍이 있다
 - 공개 `/api/sre/*` 는 **allowlist** 다(`nginx/conf.d/default.conf`) — `POST /api/sre/sreMessage`(모바일 GPS ingest) 하나만 통과, 나머지 404. 프론트에는 `Service='sre'` 호출부가 없다
+- **서비스 경계 안내(2026-08-02)**: 위치가 서비스 지역 밖일 때 안내 문구는 `market.outOfService`/`market.outOfServiceDetail`(ko/en/vi) — `LocationPickerSheet.tsx`·`MarkerLocationPicker.tsx` 가 노출한다. 가드는 `const outOfArea = !!picked && !inServiceArea(...)` — **`!!picked &&` 가 필수**다(위치 미확정인 첫 화면에서 경고가 뜨면 안 됨). 공용 문구 `map.outsideArea` 는 7곳이 공유하는 SoT. 계약 테스트 `frontend/src/pages/market/outOfServiceGuidance.contract.test.mjs`.
 
 ### 다국어 텍스트·검색 (2026-08-01 조사)
 - **번역 SoT 는 `translations` 테이블**(`source_hash` PK / `source_text` / `text_ko` / `text_en` / `text_vi`). Redis → DB → provider 3계층(`services/translate.py`)
@@ -99,7 +102,8 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **E2E**: `frontend/e2e/*.spec.ts` + `playwright.config.ts`(baseURL `http://localhost:18090`). **구동 중인 dev 스택을 대상으로** 돈다. 세션은 `dev-login` 후 `sr_session` 쿠키를 `addCookies` 로 심어 앱의 실제 부트스트랩 경로를 태운다. `data-testid` 는 쓰지 않는다(프로덕션 코드 무침습 — 플레이스홀더·role·텍스트 셀렉터로 커버). 각 spec 의 `afterEach` 가 `DELETE FROM users` 한 줄로 CASCADE 정리
   - 🔴 **E2E 는 "배포본이 소스와 다르다"를 잡는 유일한 층이다.** 도입 첫 실행에서 구동 중이던 `saigon_frontend` 컨테이너가 소스보다 오래된 빌드라 **동의 게이트가 dev 에서 아예 동작하지 않던 것**을 발견했다. 프론트 변경 후에는 `docker compose --env-file .env up --build -d frontend` 를 잊지 말 것
   - 브라우저에서는 `native.platform === 'web'` 이라 강제 업데이트 판정 경로가 **원천적으로 실행되지 않는다** — E2E 로 검증 불가(실기기 필요, B-1)
-기준선(2026-08-02): backend **317** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` 26.
+기준선(2026-08-02): backend **317** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` **15**.
+- **CI e2e job**: `.github/workflows/ci.yml` 에 `e2e` job 추가(**`pull_request` 에서만** 동작 — push 시엔 안 돈다). Playwright 스펙은 `frontend/e2e/*.spec.ts`(위 baseURL/세션 방식과 동일).
 
 ## TRADEOFFS
 
@@ -127,7 +131,9 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - 어드민에 **업체 직접 등록**(`POST /admin/api/biz/accounts`)을 신설했다. 이전엔 유저 자가신청이 유일한 유입이라 동네지도가 빈 채로 시작하는 문제(S-2)가 있었다
 - 관리자 생성 업체는 **`APPROVED` 즉시 생성**한다 — 관리자가 이미 승인권자라 `PENDING` 후 자기승인은 의미가 없다. 심사 이력 대신 `BIZ_ACCOUNT_CREATE` 감사 로그가 남는다
 - 🔴 **`business_profile.user_id` 가 nullable 이다**(`168_*.sql`) — 관리자 등록 시점엔 사업자의 앱 계정이 없을 수 있다. **어드민 조회 쿼리는 반드시 outer join 이어야 한다**(`isouter=True`). INNER JOIN 으로 되돌리면 소유자 없는 업체가 목록에서 통째로 사라진다. `suspend` 알림도 `user_id is not None` 가드가 필요하다
-- 미구현(대표 판단 대기): 소유자 연결 수단 · 관리자 폼의 사진 업로드 · 관리자 생성 업체의 검증서류 강제 여부
+- 미구현(대표 판단 대기): 소유자 연결 수단 · 관리자 생성 업체의 검증서류 강제 여부
+- **CSV 일괄 등록**(2026-08-02): `backend/scripts/import_business_csv.py` — 영업으로 확보한 업체를 대량으로 넣는 경로. `--dry-run` 기본(파괴적 기본값 금지), `--commit` 으로만 실제 반영. `create_biz_account()` 와 동일한 부수효과(status=APPROVED·user_id=NULL·reviewed_at·`immediate_blob` 즉시 적재·`search.reindex` outbox·`warm_translations`)를 재현한다. 검증 실패(필수필드·미등록 category·호치민 범위 밖 위경도 10.4~11.1/106.4~107.0)·중복(name+address)은 해당 행만 건너뛰고 사유를 출력(전체 중단 안 함). **서비스지역(37개 동, `service_area.py`) 밖 좌표는 경고만 하고 등록은 막지 않는다**(대표가 나중에 경계를 넓힐 수 있음, `districts.py` 주석과 동일 원칙)
+- **관리자 폼 사진 업로드**(2026-08-02, 위 미구현 항목 해소): 어드민은 `/admin/api/*` 밖(앱 전용 `POST /contents/upload`, `verify_user_session` 요구)을 호출할 수 없어 `POST /admin/api/biz/upload` 프록시를 신설했다. `routers/contents.py` 의 매직넘버 검증(`_sniff_mime`)을 그대로 재사용, `owner_type='system'`·`is_private=False`(`admin_legacy.py` `_save_uploaded_image` 관례와 동일). 프론트는 새 디자인시스템 없이 기존 antd 패턴 그대로 `Upload`(picture-card, `customRequest`)를 `BizAccountListPage.tsx` 생성 모달에 추가 — 사진은 선택 사항
 
 ### 개인정보 파기 (2026-08-02 대표 결정으로 확정)
 - 탈퇴 30일 경과 시 **삭제**: 라이딩·퀘스트·배지 + 순수 개인데이터 15종 + **피드글·댓글**(대표 결정)

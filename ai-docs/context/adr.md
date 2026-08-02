@@ -95,6 +95,14 @@ Docker Compose, 단일 Nginx(:18090) 진입.
   - 번역 배선 범위(대표 결정 2026-08-01, **업체 정보까지만**): 피드 본문 · 매물 title/description · 광고 title/body · 업체 name/address/intro · 가게소식 title/body · 가격표 name. **리뷰·댓글·공지·FAQ 는 호출량 때문에 의도적으로 제외**
   - 소급 백필: `backend/scripts/backfill_search_blob.py --entity all [--translate] --rps 5`
   - 설계·실측 근거: [`260801_multilingual_search_design.md`](../260801_multilingual_search_design.md)
+- ✅ **2026-08-02 교차언어 검색 완성** — 백필 1패스(원문 258건)+2패스(번역) 실행, 번역 캐시 144→239. 실측: `"자전거"` 로 베트남어 `Xe đạp thể thao Giant` 가, 무성조 `"xe may"` 로 `Phụ tùng xe máy chính hãng` 가 검색된다. `search_blob` 채움률 207/207
+
+#### 번역 API 403 진단 — 원인은 결제였다 (2026-08-02 해소)
+- 3주간 모든 번역이 `403 userRateLimitExceeded` 였다. 원인은 **Google Cloud 결제 계정이 전부 "종료됨"** 이었던 것 — 결제가 끊기면 프로젝트 quota 가 0으로 떨어지고 이 에러가 난다. 키 폐기도, API 비활성도 아니었다.
+- 🔎 **판별법(다음에 같은 증상이면 이것부터)**: `GET /language/translate/v2/languages` 는 **200** 인데 `POST /language/translate/v2` 만 403 이면 → **키·API 활성화 문제가 아니라 과금/quota 문제**다. 무료 엔드포인트는 살아 있고 과금 엔드포인트만 죽기 때문이다. `accessNotConfigured` 면 API 비활성, `API_KEY_SERVICE_BLOCKED` 면 키 제한 — 셋을 구분하라.
+- 결제 계정을 다시 열 수 없으면 **새 계정 생성 후 프로젝트를 재연결**해야 한다(계정만 살려도 프로젝트 연결이 끊겨 있으면 그대로 실패). 재연결 후 전파 지연 없이 즉시 복구됐다.
+- 같은 계정에 프로젝트 4종(`saigon-rider-af3c9`·`gen-lang-client-0854283450`·`dev-doil`·`doil-dev`)이 묶여 있다. Translate 키 소속 프로젝트가 불확실하면 전부 옮기는 게 빠르다.
+- 🔴 **이 장애는 3주간 발견되지 않았다.** 번역 실패가 조용히 삼켜져 "검색이 좀 안 되네" 로만 체감됐기 때문이다. 외부 API 의존 경로는 실패를 관측 가능하게 만들어야 한다.
 
 ### 검증 하네스 (호스트 python 3.8 로는 불가)
 ```

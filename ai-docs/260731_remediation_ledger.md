@@ -326,6 +326,25 @@ docker compose --env-file .env up --build -d <service>
 
 ---
 
+## 7단계 · 2026-08-02 후반 라운드
+
+- [x] **번역 API 403 복구 — 3주 만에 해소** — 원인은 Google Cloud **결제 계정 6개 전부 "종료됨"** 상태였다(키·API 활성화 문제 아님 — `/languages` 는 200 인데 `/translate` 만 실패한 것이 단서). 대표가 새 결제 계정을 만들어 프로젝트 4종(`saigon-rider-af3c9`·`gen-lang-client-0854283450`·`dev-doil`·`doil-dev`)을 재연결. 실측: `"Bike for sale"` → `"자전거 판매합니다"`, `"Xe máy cũ giá rẻ"` → `"저렴한 중고 오토바이"` — 전파 지연 없이 즉시 복구.
+- [x] **교차언어 검색 완성** (대표의 원 요구사항) — `backend/scripts/backfill_search_blob.py` 1패스(`--entity all`, 원문만): listing 207·biz 7·news 4·feed 8·ad 32 = **258건, 실패 0**. 2패스(`--translate --rps 5`): 같은 258건, **실패 0**, 번역 캐시 **144 → 239건**(7/8 이후 멈춰 있던 것이 재개). 이 스크립트는 원래 "P0(403) 복구 후에만 `--translate` 실행"이라 자체 경고를 달고 있었고, 그 조건이 오늘 충족돼 실행했다.
+  실측: `"자전거"` 검색 → 베트남어 매물 `Xe đạp thể thao Giant` + 영어 `gate-test bike` 매칭. 무성조 `"xe may"` → `Phụ tùng xe máy chính hãng` 매칭. `search_blob` 채움률 **207/207**.
+- [~] **소셜 로그인 운영 상태** — **Zalo**: ✅ 대표 실기로 동작 확인. 세 조건이 함께 필요했다 — `app_config` 시크릿 주입(재생성 전에도 `CHANGE_ME` 였다 = 원래부터 불가) · `.env` `ZALO_API_PROXY` · **`BFF_PUBLIC_URL` 정정**(옛 도메인 `letantonsheriff.com` 을 콜백으로 보내 `-14003 Invalid redirect uri` 가 나던 것). **Google**: 콘솔에 운영 리디렉션 URI 등록 완료. 토큰 엔드포인트 판별(`invalid_grant` = 자격증명 통과, `invalid_client` 아님)로 client_id 일치와 **활성 시크릿** 사용을 확인 — **실기 로그인만 미확인**. **Apple**: `app_config` 값이 `CHANGE_ME` — 미구성.
+- [x] **게이트 6 종결** — 외부 검증 9영역 중 유일한 FAIL 이던 **OpenAPI 무인증 공개**를 차단하고 운영 배포 후 외부에서 재실측: `/api/bff/openapi.json`·`/docs`·`/redoc` 전부 **404**, 공개 경로(`/ready`·`/map/city-outline`)는 **200** 유지. 공개 도메인 자체(`app.saigon-rider.com`)는 **출시 전까지 열어두기로 대표 결정** → 게이트 6 잔여 종결.
+- [x] **운영 현행화** — `origin/main` 과 동기화, migration **171** 까지 적용, `schema_migrations` **33건**. **운영 ↔ dev 스키마 1268컬럼 양방향 diff 0.** 운영 전용 `WITHDRAWN_HASH_PEPPER` 생성·주입(dev 와 다른 값), 백업 env 6종 빈 값 추가 → `.env`/`.env.example` 키셋 양방향 일치. 법무 문안(초안 표식 제거)까지 운영 배포 완료 — 운영 번들에서 표식 **0건** 확인.
+- [x] **법무 문안 초안 표식 제거** — 화면에 노출되던 `[법무 검토 전 초안]` 5곳과 `[법무 확인 필요: …]` 1곳을 ko/en/vi 전부 제거(대표 승인). **표식 제거는 법무 검토 완료를 뜻하지 않는다** — 외부 자문은 미수령이며 P-3(보존 근거 법령·조문·기간)은 일반 서술로만 남아 있다. [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md) 게이트 4-1 의 근본 요구(법무 승인 최종 문안)는 여전히 미충족.
+- [~] **native 서브모듈 커밋 갱신** — `saigon-rider-android` `7043661→d6a1174`, `saigon-rider-ios` `14acdcb→4712e58` 커밋·push, 부모 포인터 갱신. **컴파일·실기기 검증은 여전히 불가(B-1)**.
+
+### 7단계 종료 상태 (2026-08-02 후반)
+
+**닫힌 것**: 번역 API 403 복구 · 교차언어 검색 완성 · 게이트 6 · 운영 현행화(migration/스키마 파리티/키셋/법무 표식) · 법무 문안 초안 표식 제거(표식만) — 전부 `[x]`.
+**부분 완료**: 소셜 로그인(Zalo 실측 확인, Google 실기 미확인, Apple 미구성) · native 서브모듈(커밋·push 완료, 실기기 검증은 여전히 B-1).
+**최종 검증**: backend pytest **366 passed** · ruff clean · `tsc --noEmit` **0 error** · `eslint src/` **0 error** · `.mjs` 계약 **17파일 전건 통과** · fresh↔live schema diff **0** · 운영↔dev schema diff **0**.
+
+---
+
 ## 최종 게이트 판정 — 감사 문서의 9개 출시 게이트 대조
 
 출처: [`260731_prelaunch_go_no_go_audit.md` §5](./260731_prelaunch_go_no_go_audit.md). 감사 시점 판정은 9개 전부 **FAIL** 이었다.
@@ -337,12 +356,12 @@ docker compose --env-file .env up --build -d <service>
 | 3 | 안전정보 | FAIL | **PASS(조건부)** | 침수 fail-open 해소 — 실패를 0.0 으로 삼키지 않고 snapshot 보존 + `expires_at` 갱신으로 24h 재발까지 차단, UI 분리. **잔여**: 한 번도 성공한 적 없는 구역의 "저위험"과 "확인 불가" 미구분(대표 판단) |
 | 4 | 개인정보·검증문서 계약 | FAIL | **부분** | 로그인 전 약관 열람·명시 동의·버전/시각 기록·미동의 세션 게이트 완료. 사업자 문서 소유권 검사 + `contents.is_private` ACL 완료. 30일 파기 배치 완료. **남은 것**: 공표 문구("영구삭제")가 실제 보존 범위보다 과함 → 문안 조정 **B-6**, 삭제 보류 4종 대표 판단 |
 | 5 | DB upgrade | FAIL | **PASS(dev 기준)** | 139~144·147 공백 해소(147 은 "멱등성 미확인"이 사실과 달랐음), `schema_migrations` 원장 도입(23→26건), readiness 9종 확장. **검증 근거 교체(2026-08-02)**: fresh-init 165 SQL 격리 부트스트랩 "ERROR 0건"은 SQL 이 에러 없이 끝난다는 것과 결과 스키마가 라이브와 같다는 것은 별개라 **불충분했다** — 실제로 `users.deleted_at`(라이브에만 존재, fresh 부재) 등 스키마 드리프트가 있었다(아래 신규 항목 참조). 게이트는 정당하게 닫힌 상태이나 근거는 **"라이브와 schema diff 0건"**(fresh-only 0건, live-only 는 전부 Engine/Alembic 소유)으로 교체. **운영 백업 복제본 검증은 B-8** |
-| 6 | 정확한 배포 | FAIL | **부분** | **2026-08-02 해소**: 운영 drift 해소(구 이력 → 새 `origin/main`) + DB 재생성·dev 라이브와 컬럼 파리티 확인 + readiness 200(내부 curl) + bff 로그 ERROR 0건 + 컨테이너 9종 healthy. **잔여**: 운영이 loopback 바인딩이라 **외부(app.saigon-rider.com)에서의** strict CORS·보안헤더·OpenAPI/metrics 비공개 재검증 미완 — B-2(공개 도메인 처리) 결정과 함께 처리 |
+| 6 | 정확한 배포 | FAIL | **PASS** | **2026-08-02 해소** + **2026-08-02 후반 종결**: 운영 drift 해소(구 이력 → 새 `origin/main`) + DB 재생성·dev 라이브와 컬럼 파리티 확인 + readiness 200(내부 curl) + bff 로그 ERROR 0건 + 컨테이너 9종 healthy. 이어 외부 검증 9영역 중 유일한 FAIL(OpenAPI 무인증 공개)을 차단 후 **외부에서 재실측** — `/api/bff/openapi.json`·`/docs`·`/redoc` **404**, 공개 경로(`/ready`·`/map/city-outline`) **200**. 공개 도메인 자체(`app.saigon-rider.com`)는 **출시 전까지 열어두기로 대표 결정** — 게이트 요구 범위는 종결 |
 | 7 | Native·외부 연동 | FAIL | **FAIL** | 서명 빌드·실기기 GPS/FCM/OAuth/딥링크 검증 불가 = **B-1**. F-19 강제업데이트도 `@capacitor/app` 미 cap-sync 로 실기기 미작동 |
 | 8 | 자동 회귀 | FAIL | **PASS(CI 미구성 단서)** | X-1·X-2 해소로 확정 — backend **270 passed / 0 failed / 0 collection error**(관용 플래그 없이), engine **66 passed**, `tsc` **0 error**, `eslint` **0 errors**(247 warnings — 게이트 기준은 error 0), `.mjs` **18/18**. 테스트 199→270건. **단서**: 감사 게이트 원문은 "**CI 에서** 통과"를 요구하는데 이 레포에 CI 파이프라인이 없어 **로컬(개발서버 docker 하네스) 실행 증적**이다. 브라우저 E2E·시각 회귀는 여전히 부재 |
 | 9 | 운영 복구 | FAIL | **부분** | `tools/backup_db.sh` 작성 + dev 실행 확인. **실행 스케줄·오프사이트 암호화 저장·restore drill·RPO/RTO·경보·온콜은 B-5** |
 
-**요약(2026-08-02 갱신)**: 9개 게이트 중 **PASS 3 · 부분 4 · FAIL 2** 다. 2026-08-02 운영 배포 완료로 게이트 6 이 FAIL → 부분으로 이동(외부 도메인 재검증만 잔여). FAIL 2건(게이트 2 Secret · 7 Native)은 **코드 작업으로는 절대 닫히지 않는다** — 각각 B-2 / B-1 이며 대표·운영 소관이다.
+**요약(2026-08-02 후반 갱신)**: 9개 게이트 중 **PASS 4 · 부분 3 · FAIL 2** 다. 게이트 6 은 외부 재검증(OpenAPI 비공개 확인) 완료로 부분 → **PASS 종결**. 게이트 3(안전정보)·5(DB upgrade)·8(자동 회귀)은 그대로 **PASS** 유지. 남은 **부분** 3건: 게이트 1(Engine 긴급 차단 — 키 회전·앱 재배포 미완, B-3) · 게이트 4(개인정보·검증문서 — 초안 표식은 제거됐으나 법무 승인 최종 문안·보존기간 조문은 미확정) · 게이트 9(운영 복구 — 백업 스크립트만 존재, restore drill·RPO/RTO 미실측, B-5). FAIL 2건(게이트 2 Secret · 7 Native)은 **코드 작업으로는 절대 닫히지 않는다** — 각각 B-2 / B-1 이며 대표·운영 소관이다.
 
 **따라서 출시 판정은 여전히 NO-GO 다.** 감사 문서의 재판정 완료 정의(§8: P0 미해결 0건 + 9개 게이트 전부 PASS + 실기기·배포·복원 로그 확보)를 만족하지 못한다. 이번 리메디에이션이 바꾼 것은 "**코드가 원인인 차단 사유가 남아 있다**"에서 "**남은 차단 사유가 전부 운영·법무·실기기 영역이다**"로 성질이 이동한 것이다.
 

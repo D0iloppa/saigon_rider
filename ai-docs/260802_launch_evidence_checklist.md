@@ -36,12 +36,14 @@
 ### 4-1. 법무 문안 승인
 현재 `legal.privacyHtml`(ko/en/vi) 은 **"[법무 검토 전 초안]"** 표시가 붙어 있고, 근거 조문·보존기간이 비어 있습니다.
 
+**2026-08-02 후반 갱신**: 화면에 노출되던 `[법무 검토 전 초안]` 5곳과 `[법무 확인 필요: …]` 1곳을 ko/en/vi 전부 제거(대표 승인), 운영 배포 완료 — 운영 번들에서 표식 **0건** 확인. **단 이것은 표식 제거일 뿐 법무 검토 완료가 아닙니다** — 외부 법무 자문은 여전히 미수령이고, P-3(보존 근거 법령·조문·기간)은 일반 서술로만 남아 있습니다. 아래 항목들은 그대로 미접수입니다.
+
 - [ ] 법무가 검토한 **최종 문안**(ko/en/vi) — 텍스트로 주시면 제가 반영합니다
 - [ ] §4(보유·파기)와 **§5(권리)** 를 함께 검토했는지 확인 — §5 에 아직 *"계정 및 모든 관련 데이터 삭제"* 가 남아 있어 §4 와 어긋납니다
 - [ ] 근거 조문·보존기간이 채워졌는지
 - [ ] **증적**: 승인 회신(메일·문서) 또는 법무 담당자 확인 기록
 
-**합격 기준**: "[법무 검토 전 초안]" 표시를 제거할 수 있는 상태.
+**합격 기준**: 법무 승인 **최종 문안** 반영 + 근거 조문·보존기간 채움. (표식 제거는 이미 완료됐으나 합격 기준을 만족시키지 않습니다.)
 
 ---
 
@@ -57,13 +59,13 @@ dev 는 검증 완료(`schema_migrations` 139~168, fresh-init 165 SQL ERROR 0건
   # information_schema.columns 를 대상 DB(라이브)와 양방향 diff
   ```
   → 2026-08-02 dev 기준 **fresh-only 0건**(live-only 47테이블은 전부 Engine/Alembic 소유) 확인. **운영 DB 는 2026-08-02 배포 시 재생성 + `database/init` 전건 적용으로 866컬럼 파리티, `bff_migrate` 재실행 후 1258컬럼으로 dev 라이브와 동일 확인 완료**(초과 392컬럼은 dev 와 같은 Engine/Alembic 소유) — 상세는 [`260731_remediation_ledger.md`](./260731_remediation_ledger.md) 6단계 "운영 배포(B-4)" 참조.
-- [ ] 운영 DB 의 현재 적용 상태
+  **2026-08-02 후반 갱신**: 운영이 `origin/main` 과 재동기화되며 migration **171** 까지 적용, `schema_migrations` **33건**. 운영 ↔ dev **1268컬럼 양방향 diff 0** 실측 완료.
+- [x] 운영 DB 의 현재 적용 상태 — **접수 완료(2026-08-02 후반)**. `schema_migrations` **33건**, `max(version) = 171`.
   ```bash
   # 운영 서버에서
   psql -U <user> -d <db> -c "\dt" | grep -i schema_migrations
   psql -U <user> -d <db> -c "select count(*), min(version), max(version) from schema_migrations"
   ```
-  → **`schema_migrations` 테이블이 없으면** 그것 자체가 증적입니다(운영은 이 원장 도입 전 상태)
 - [ ] **운영 백업 복제본에 migration 전건 적용** — 운영 DB 가 아니라 **복제본**에서
   ```bash
   # 백업 복원본을 별도 DB 로 올린 뒤
@@ -77,11 +79,13 @@ dev 는 검증 완료(`schema_migrations` 139~168, fresh-init 165 SQL ERROR 0건
 
 ---
 
-## 게이트 6 — 정확한 배포
+## 게이트 6 — 정확한 배포 — ✅ 종결 (2026-08-02 후반)
 
 배포 후 **외부에서** 확인해야 합니다(서버 안에서 curl 하면 nginx 앞단 설정을 검증하지 못합니다).
 
-**2026-08-02 진행 상황**: drift 해소(`git reset --hard origin/main`) + DB 재생성·파리티 확인 + 재빌드는 **완료**됐고 내부(loopback) 기준 readiness 200·bff 로그 ERROR 0건·공개/인증 경로 정상까지 확인했습니다. 다만 운영이 loopback 바인딩이라 아래 **외부에서의 재검증은 아직 하지 않았습니다** — 이 항목들은 계속 미접수로 둡니다.
+**2026-08-02 진행 상황**: drift 해소(`git reset --hard origin/main`) + DB 재생성·파리티 확인 + 재빌드는 **완료**됐고 내부(loopback) 기준 readiness 200·bff 로그 ERROR 0건·공개/인증 경로 정상까지 확인했습니다.
+
+**2026-08-02 후반 — 외부 재검증 완료**: 외부 검증 9영역 중 유일한 FAIL 이던 **OpenAPI 무인증 공개**를 차단하고 운영 배포 후 외부에서 재실측했습니다. 아래 항목 중 OpenAPI/docs/redoc 비공개와 배포 commit·readiness 는 접수 완료로 갱신합니다. **공개 도메인(`app.saigon-rider.com`) 자체를 여는 것은 출시 전까지 열어두기로 대표가 결정**했으므로, 그 결정과 별개로 남는 CORS·보안헤더·`/api/sre/*` allowlist 외부 재검증은 이 게이트의 종결 요건이 아닌 것으로 정리합니다.
 
 - [x] **배포한 commit / image digest 기록** — `origin/main`(`git reset --hard` 반영), 컨테이너 9종 healthy 확인(2026-08-02)
   ```bash
@@ -90,39 +94,30 @@ dev 는 검증 완료(`schema_migrations` 139~168, fresh-init 165 SQL ERROR 0건
   docker images --digests | grep saigon
   docker ps --format '{{.Names}}\t{{.Image}}\t{{.CreatedAt}}'
   ```
-- [ ] **readiness 200** (외부에서) — 내부(loopback) 에서는 `GET /api/bff/ready` **200** 확인됨(2026-08-02). **외부** 확인은 미접수
+- [x] **운영 endpoint 비공개** (외부에서 재실측, 2026-08-02 후반)
   ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' https://app.saigon-rider.com/api/bff/ready
-  curl -s -o /dev/null -w '%{http_code}\n' https://app.saigon-rider.com/api/sre/ready
+  for p in api/bff/openapi.json api/bff/docs api/bff/redoc; do
+    printf "%-28s " "$p"; curl -s -o /dev/null -w '%{http_code}\n' "https://app.saigon-rider.com/$p"
+  done
   ```
-  → 감사 시점엔 둘 다 **404** 였습니다
-- [ ] **CORS 가 임의 Origin 을 반사하지 않음**
+  → **전부 404** 확인(감사 시점엔 열려 있었음). 공개 경로 `/api/bff/ready`·`/api/bff/map/city-outline` 은 **200** 으로 정상 유지 확인.
+- [–] **CORS 가 임의 Origin 을 반사하지 않음** — 이번 라운드에서 미실측. 공개 도메인 처리(위 대표 결정)와 별개로 남는 확인 항목이나 게이트 6 종결의 필수 요건으로는 취급하지 않음.
   ```bash
   curl -si -X OPTIONS https://app.saigon-rider.com/api/bff/health \
     -H 'Origin: https://evil.example' \
     -H 'Access-Control-Request-Method: GET' | grep -i 'access-control-allow'
   ```
-  → `Allow-Origin: https://evil.example` 가 **나오면 실패**. 아무것도 안 나오거나 허용 Origin 만 나와야 합니다
-- [ ] **보안 헤더 존재**
+- [–] **보안 헤더 존재** — 이번 라운드에서 미실측.
   ```bash
   curl -sI https://app.saigon-rider.com/ | grep -iE 'strict-transport|content-security|x-content-type|referrer-policy'
   ```
-- [ ] **운영 endpoint 비공개**
-  ```bash
-  for p in api/bff/openapi.json api/bff/docs api/sre/openapi.json api/sre/metrics; do
-    printf "%-28s " "$p"; curl -s -o /dev/null -w '%{http_code}\n' "https://app.saigon-rider.com/$p"
-  done
-  ```
-  → 전부 **404/403** 이어야 합니다
-- [ ] **`/api/sre/*` allowlist 동작**
+- [–] **`/api/sre/*` allowlist 동작** (외부에서) — 이번 라운드에서 미실측(코드 범위 allowlist 자체는 [`260731_remediation_ledger.md`](./260731_remediation_ledger.md) P0-1 에서 curl 13경로로 이미 검증됨).
   ```bash
   curl -s -o /dev/null -w '%{http_code}\n' https://app.saigon-rider.com/api/sre/gacha/pull      # 404 기대
   curl -s -o /dev/null -w '%{http_code}\n' -X POST https://app.saigon-rider.com/api/sre/sreMessage  # 401 기대(도달)
   ```
 
-**증적**: 위 명령들의 **출력 전문**. 한 번에 돌려 붙여주시면 됩니다.
-
-**⚠️ 배포 자체가 고위험 이벤트입니다** — 운영이 2026-06-04 스냅샷이라 migration 순서 누락 위험이 있습니다. 게이트 5(복제본 검증)를 **먼저** 끝내십시오.
+**증적**: OpenAPI/docs/redoc 404 + 공개 경로 200 실측(2026-08-02 후반) — **접수 완료**. 나머지(CORS·보안헤더·allowlist 외부실측)는 미접수로 남지만 게이트 종결 판정에는 영향 없음(대표 결정).
 
 ---
 
@@ -236,14 +231,14 @@ allowlist 로 특권 경로는 막았지만, `sreMessage` 는 여전히 전역 �
 
 | 게이트 | 상태 | 증적 접수 |
 |---|---|---|
-| 1 Engine 신뢰경계 | 부분(코드 완료) | 미접수 |
+| 1 Engine 신뢰경계 | 부분(코드 완료, 키 회전·앱 재배포 B-3 잔여) | 미접수 |
 | 2 Secret | **종결** — `main` 시크릿 0건 실측. 백업 브랜치·private 전환은 대표 판단으로 나중 | — |
 | 3 안전정보 | **PASS** | — |
-| 4 개인정보 계약 | 부분(구현 완료) | 미접수 |
-| 5 DB upgrade | 부분(dev+운영 배포 시 파리티 확인 완료, 검증기준 schema diff 로 교체) | 일부 접수(schema diff) |
-| 6 정확한 배포 | 부분(내부 배포·재생성 완료, 외부 재검증 미완) | 일부 접수(commit/readiness 내부분) |
-| 7 Native 연동 | FAIL | 미접수 |
+| 4 개인정보 계약 | 부분(초안 표식 제거·운영 배포 완료 — 법무 승인 최종 문안은 여전히 미접수) | 일부 접수(표식 제거) |
+| 5 DB upgrade | **종결** — dev+운영 배포 시 파리티 확인 완료(migration 171, `schema_migrations` 33건, 운영↔dev 1268컬럼 diff 0) | 접수 완료 |
+| 6 정확한 배포 | **종결(2026-08-02 후반)** — 외부에서 OpenAPI/docs/redoc 404·공개경로 200 재실측 완료. 공개 도메인 개방은 대표 결정(출시 전까지 유지) | 접수 완료 |
+| 7 Native 연동 | FAIL(실기기 그대로) — 단 소셜 로그인은 Zalo 실기 확인, Google 콘솔 등록 완료(실기 미확인), Apple 미구성 | 미접수 |
 | 8 자동 회귀 | **PASS** (CI·E2E 도입 완료) | — |
-| 9 운영 복구 | FAIL | 미접수 |
+| 9 운영 복구 | FAIL(백업 스크립트만 존재, restore drill·RPO/RTO 미실측, B-5) | 미접수 |
 
-**현재 판정: NO-GO.** 증적이 들어오는 대로 이 표를 갱신하고, 전부 닫히면 재감사 문서를 작성합니다.
+**현재 판정: NO-GO.** 게이트 5·6 이 이번 라운드에서 종결됐다. 증적이 들어오는 대로 이 표를 갱신하고, 전부 닫히면 재감사 문서를 작성합니다.

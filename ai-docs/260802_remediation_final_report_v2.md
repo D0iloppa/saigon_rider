@@ -109,14 +109,14 @@ v1 은 `SMS_PROVIDER_API_KEY` 하나만 지목했다. 실제로 대조해보니 
 | 1 | Engine 긴급 차단 | FAIL | 부분 | **부분** | 키 회전·identity 분리·앱 재배포 (B-3) |
 | 2 | Secret 대응 | FAIL | FAIL | **대표 결정으로 종결** | §5 참조 — 감사 기준(재발급)은 미충족이나 대표가 차단 항목에서 제외 |
 | 3 | 안전정보 | FAIL | PASS(조건부) | **PASS** | `flood_prediction_status` 신설로 v1 잔여("확인 불가" 미구분) 해소 |
-| 4 | 개인정보·검증문서 | FAIL | 부분 | **부분** | 방침 문안 확정(법무) — §4 보존범위 + §5 권리절 + **해시 아카이브 1년 명시** |
-| 5 | DB upgrade | FAIL | PASS(dev) | **PASS(dev)** | 근거를 schema diff 0 으로 **교체**(§2.1). 운영도 파리티 0 확인 |
-| 6 | 정확한 배포 | FAIL | FAIL | **부분** | 외부 도메인 재검증 (공개 도메인 처리 결정과 묶임) |
-| 7 | Native·외부 연동 | FAIL | FAIL | **FAIL** | 서명 빌드·실기기 (B-1). F-19 `@capacitor/app` cap sync 포함 |
+| 4 | 개인정보·검증문서 | FAIL | 부분 | **부분** | (2026-08-02 후반) 화면 초안 표식 제거·운영 배포 완료 — 단 **법무 승인 최종 문안·보존 근거 조문은 여전히 미확정**, §4 보존범위 + §5 권리절 + **해시 아카이브 1년 명시** |
+| 5 | DB upgrade | FAIL | PASS(dev) | **PASS** | 근거를 schema diff 0 으로 **교체**(§2.1). (2026-08-02 후반) 운영도 migration 171 적용·`schema_migrations` 33건·운영↔dev 1268컬럼 diff 0 확인 |
+| 6 | 정확한 배포 | FAIL | FAIL | **PASS** | (2026-08-02 후반 종결) 외부 검증 9영역 중 유일한 FAIL 이던 OpenAPI 무인증 공개를 차단 후 외부 재실측 — `/openapi.json`·`/docs`·`/redoc` 404, 공개 경로 200. 공개 도메인 개방 자체는 대표 결정(출시 전까지 유지) |
+| 7 | Native·외부 연동 | FAIL | FAIL | **FAIL** | 서명 빌드·실기기 (B-1). F-19 `@capacitor/app` cap sync 포함. (2026-08-02 후반) 소셜 로그인은 Zalo 실기 확인·Google 콘솔 등록 완료(실기 미확인)·Apple 미구성 — 실기기 전체 검증은 그대로 미해소 |
 | 8 | 자동 회귀 | FAIL | PASS(CI 미구성) | **PASS** | CI·E2E 도입으로 단서 해소. 시각 회귀는 여전히 부재 |
 | 9 | 운영 복구 | FAIL | 부분 | **부분** | 스케줄·오프사이트·restore drill·RPO/RTO (B-5) |
 
-**PASS 4 · 부분 4 · FAIL 1**(게이트 2 를 대표 결정 종결로 별도 분류 시). 코드로 닫을 수 있는 게이트는 전부 닫혔다.
+**PASS 4 · 부분 3 · FAIL 1**(게이트 2 를 대표 결정 종결로 별도 분류 시). 코드로 닫을 수 있는 게이트는 전부 닫혔다. (2026-08-02 후반 갱신: 게이트 6 이 FAIL → PASS 로 종결.)
 
 ---
 
@@ -127,30 +127,30 @@ v1 은 `SMS_PROVIDER_API_KEY` 하나만 지목했다. 실제로 대조해보니 
 | **B-1** | 실기기 E2E | 🔴 **그대로** — 개발서버에 SDK·실기기·서명키 없음 |
 | **B-2** | Zalo secret 폐기·재발급 + 이력 스캔 | ✅ **종결(대표 결정)** — Zalo 가 셀프 재발급을 제공하지 않고, 실사용자 0명 + 콜백 URL 정리로 탈취 경로가 없어 차단 항목에서 제외. **이력에서는 제거 완료**(orphan main, 추적파일 실값 0건 확인). 재유입은 pre-commit `committed-secrets` 훅이 차단 |
 | **B-3** | Engine 키 회전 + identity 분리 | 🔴 **그대로** |
-| **B-4** | 운영 배포 + 외부 재검증 | 🟡 **배포 완료**, 외부 재검증만 잔여 (§2.2) |
+| **B-4** | 운영 배포 + 외부 재검증 | ✅ **종결(2026-08-02 후반)** — 외부에서 OpenAPI/docs/redoc 404·공개경로 200 재실측 완료. 공개 도메인 개방 자체는 대표 결정으로 출시 전까지 유지 |
 | **B-5** | 백업 restore drill | 🔴 **그대로** — 스크립트만 존재 |
-| **B-6** | 약관·개인정보 문안 | 🔴 **그대로 + 확대** — 해시 아카이브 1년 명시가 추가로 필요 |
+| **B-6** | 약관·개인정보 문안 | 🟡 **초안 표식 제거 + 운영 배포 완료(2026-08-02 후반)**, 단 법무 승인 최종 문안·해시 아카이브 1년 명시는 **그대로 미확정** |
 | **B-7** | 운영 `.env` 실값 | ✅ **종결 + 확대 후 해소** — `SMS_PROVIDER_API_KEY` 값 있음 확인. 추가 발견된 9개 키도 생성·입력 완료 (§2.4) |
 | **B-8** | 운영 DB migration 상태 | ✅ **종결** — 운영 DB 재생성 후 dev 와 파리티 0 |
 | **B-9** | 제품·경영 결정 6건 | 🟡 **일부 진전** — 업체 시딩(S-2)은 어드민 등록·CSV 임포트로 **수단은 마련**됨. 실제 데이터 입력과 나머지 5건은 미결 |
 
-**9건 중 4건 종결(B-2·B-7·B-8, B-4 부분), 5건 잔여.**
+**9건 중 5건 종결(B-2·B-4·B-7·B-8, B-6 은 표식 제거만 부분 진전), 4건 잔여.** (2026-08-02 후반 갱신: B-4 종결로 이동.)
 
 ---
 
 ## 6. 현재 검증 수치 (전부 2026-08-02 재실측)
 
-| 검증 | v1 | 현재 |
-|---|---|---|
-| backend pytest | 270 passed | **353 passed / 0 failed** |
-| engine pytest | 66 passed | **66 passed / 0 failed** |
-| ruff check / format | (미기재) | **통과** |
-| `tsc --noEmit` | 0 error | **0 error** |
-| `eslint src/` | 0 errors / 247 warnings | **0 errors / 247 warnings** |
-| `.mjs` 계약 | 8파일 / 18 subtest | **15파일 / 29 subtest** |
-| fresh ↔ live schema diff | (기준 없음) | **fresh-only 0 · 고아 0** |
-| 운영 readiness | 미검증 | **200** (db·redis·schema·engine 전부 ready) |
-| 운영 ↔ dev 스키마 | 미검증 | **1258컬럼 완전 일치** |
+| 검증 | v1 | 현재(2026-08-02 오전) | **현재(2026-08-02 후반, 최종)** |
+|---|---|---|---|
+| backend pytest | 270 passed | 353 passed / 0 failed | **366 passed** |
+| engine pytest | 66 passed | 66 passed / 0 failed | 66 passed / 0 failed |
+| ruff check / format | (미기재) | 통과 | **clean** |
+| `tsc --noEmit` | 0 error | 0 error | **0 error** |
+| `eslint src/` | 0 errors / 247 warnings | 0 errors / 247 warnings | **0 error** |
+| `.mjs` 계약 | 8파일 / 18 subtest | 15파일 / 29 subtest | **17파일 전건 통과** |
+| fresh ↔ live schema diff | (기준 없음) | fresh-only 0 · 고아 0 | **0** |
+| 운영 readiness | 미검증 | 200 (db·redis·schema·engine 전부 ready) | 200 |
+| 운영 ↔ dev 스키마 | 미검증 | 1258컬럼 완전 일치 | **1268컬럼 양방향 diff 0**(migration 171, `schema_migrations` 33건) |
 
 ---
 
@@ -177,3 +177,49 @@ v1 은 `SMS_PROVIDER_API_KEY` 하나만 지목했다. 실제로 대조해보니 
 - **감독 실수도 기록했다**: fresh 프로브를 init 완료 전에 읽어 590컬럼으로 오판했다가 `PostgreSQL init process complete` 대기 후 재확인 · 덤프 조회 시 awk 컬럼을 잘못 잡아 **Google Maps 키 실값을 대화에 노출**(회수 필요)
 - **확인할 수 없는 것**: 실기기 동작 · 외부 도메인에서의 운영 응답 · 앱스토어 심사 · 정식 법률 자문 · 시각 회귀
 - **커밋 범위 주의**: 로케일 3파일에 대표의 진행 중인 i18n 키가 섞여 있어 분리가 불가능해 함께 커밋됐다. 그 키를 쓰는 컴포넌트 5개는 미커밋으로 그대로 뒀다(문자열만 먼저 들어간 상태라 동작 무영향)
+
+---
+
+## 9. 2026-08-02 후반 추가 진행
+
+이 절은 위 §1~§8 (2026-08-02 오전 기준) 이후 같은 날 후반에 추가로 진행된 것을 반영한다. **기존 서술은 지우지 않았다** — 위 표들에도 "(2026-08-02 후반)" 표시로 갱신분을 병기했다.
+
+### 9.1 번역 API 403 복구 — 3주 만에 해소
+
+원인이 확정됐다. Google Cloud **결제 계정 6개가 전부 "종료됨"** 상태였다 — 프로젝트 quota 가 0이 되고 `403 userRateLimitExceeded` 가 났다. 키·API 활성화 문제가 아니었다(`/languages` 는 200 인데 `/translate` 만 실패한 것이 단서였다). 대표가 새 결제 계정을 만들어 프로젝트 4종(`saigon-rider-af3c9`·`gen-lang-client-0854283450`·`dev-doil`·`doil-dev`)을 재연결했다. 실측: `"Bike for sale"` → `"자전거 판매합니다"`, `"Xe máy cũ giá rẻ"` → `"저렴한 중고 오토바이"` — 전파 지연 없이 즉시 복구됐다.
+
+### 9.2 교차언어 검색 완성 — 대표의 원 요구사항
+
+`backend/scripts/backfill_search_blob.py` 1패스(`--entity all`, 원문만) → listing 207·biz 7·news 4·feed 8·ad 32 = **258건, 실패 0**. 2패스(`--translate --rps 5`) → 같은 258건, **실패 0**. 번역 캐시 **144 → 239건**(7/8 이후 멈춰 있던 것이 재개). 이 스크립트는 원래 "P0(403) 복구 후에만 `--translate` 실행"이라는 자체 경고를 달고 있었고, 그 조건이 §9.1 로 오늘 충족돼 실행했다.
+
+실측: `"자전거"` 검색에 베트남어 매물 `Xe đạp thể thao Giant` 와 영어 `gate-test bike` 가 함께 잡힌다. 무성조 `"xe may"` 로 `Phụ tùng xe máy chính hãng` 가 잡힌다. `search_blob` 채움률 **207/207**.
+
+### 9.3 소셜 로그인 운영 상태
+
+- **Zalo**: ✅ 동작 확인(대표 실기). 세 조건이 함께 필요했다 — `app_config` 시크릿 주입(재생성 전에도 `CHANGE_ME` 였다 = 원래부터 불가) · `.env` `ZALO_API_PROXY` · **`BFF_PUBLIC_URL` 정정**(옛 도메인 `letantonsheriff.com` 을 콜백으로 보내 `-14003 Invalid redirect uri` 가 나던 것).
+- **Google**: 콘솔에 운영 리디렉션 URI 등록 완료. 토큰 엔드포인트 판별(`invalid_grant` = 자격증명 통과, `invalid_client` 아님)로 client_id 일치와 **활성 시크릿** 사용을 확인했다. 실기 로그인만 미확인.
+- **Apple**: `app_config` 값이 `CHANGE_ME` — 미구성.
+
+### 9.4 게이트 6 종결
+
+외부 검증 9영역 중 유일한 FAIL 이던 **OpenAPI 무인증 공개**를 차단하고 운영 배포 후 외부에서 재실측했다: `/api/bff/openapi.json`·`/docs`·`/redoc` 전부 **404**, 공개 경로(`/ready`·`/map/city-outline`)는 **200** 유지. 공개 도메인 자체는 **출시 전까지 열어두기로 대표 결정** — 게이트 6 잔여 종결(§4 표 갱신 참조).
+
+### 9.5 운영 현행화
+
+운영이 `origin/main` 과 동기화됐다. Migration **171** 까지 적용, `schema_migrations` **33건**. **운영 ↔ dev 스키마 1268컬럼 양방향 diff 0.** 운영 전용 `WITHDRAWN_HASH_PEPPER` 생성·주입(dev 와 다른 값), 백업 env 6종 빈 값 추가 → `.env`/`.env.example` 키셋 양방향 일치. 법무 문안(초안 표식 제거)까지 운영 배포 완료 — 운영 번들에서 표식 **0건** 확인.
+
+### 9.6 법무 문안 초안 표식 제거
+
+화면에 노출되던 `[법무 검토 전 초안]` 5곳과 `[법무 확인 필요: …]` 1곳을 ko/en/vi 전부 제거(대표 승인). **표식 제거는 법무 검토 완료를 뜻하지 않는다** — 외부 자문은 미수령이며 P-3(보존 근거 법령·조문·기간)은 일반 서술로만 남아 있다.
+
+### 9.7 native 서브모듈
+
+`saigon-rider-android` `7043661→d6a1174`, `saigon-rider-ios` `14acdcb→4712e58` 커밋·push. 부모 포인터 갱신. **컴파일·실기기 검증은 여전히 불가(B-1).**
+
+### 9.8 검증 수치 (최종)
+
+backend pytest **366 passed** · ruff clean · `tsc --noEmit` **0** · `eslint src/` **0 error** · `.mjs` **17파일 전건 통과** · fresh↔live schema diff **0** · 운영↔dev schema diff **0**. §6 표에 병기했다.
+
+### 9.9 결론 갱신
+
+§1·§4 의 게이트 요약은 **PASS 4 · 부분 3 · FAIL 1**(게이트 2 종결 별도 분류 시) 로 갱신됐다 — 게이트 6 이 오늘 후반에 부분/FAIL 에서 PASS 로 종결됐다. **출시 판정은 여전히 NO-GO** 다. 남은 차단은 게이트 1(B-3 키 회전)·4(법무 승인 최종 문안)·7(B-1 실기기)·9(B-5 restore drill) 이며 전부 대표·법무·운영 소관으로, 코드 작업으로는 닫히지 않는다.

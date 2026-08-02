@@ -48,6 +48,13 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - 🔒 **강제 장치**: pre-commit `committed-secrets` 훅(`tools/check_committed_secrets.py`)이 `database/init/*.sql` 의 app_config 계열 `value='...'`(**주석 포함**)과 `.env.example` 의 시크릿성 키에 실값이 들어가면 **커밋을 차단**한다. 범용 엔트로피 스캐너가 아니라 위 사고 패턴만 좁게 겨냥한 것이다(오탐이 늘면 아무도 안 보므로). 차단당했다면 훅을 끄지 말고 **실값을 DB `app_config` 로 옮겨라** — 훅이 그 psql 명령을 안내한다
 - 시크릿 전체 스캔 결과(2026-07-31): 유출은 **Zalo app secret 1건뿐**. `.env` 는 이력에 커밋된 적 없고, Apple private key·Google client secret 은 커밋 파일이 placeholder 였다. Apple team_id/key_id/services_id 는 주석에 실값이 있었으나 **식별자이지 자격증명이 아니라** 재발급 불필요
 
+### OAuth 콜백 도메인 — `BFF_PUBLIC_URL` 단일 지점 (2026-08-02)
+- `backend/app/routers/auth.py:546 _bff_base_url()` = `os.getenv("BFF_PUBLIC_URL", "https://saigon.doil.me")`. **이 값 하나가 Zalo·Google·Apple 콜백 URL 을 전부 만든다.** 기본값이 dev 도메인이라 **미설정 환경은 조용히 dev 주소를 보낸다**(에러가 아니라 오배송이므로 눈에 안 띈다).
+- 운영 콜백: `https://app.saigon-rider.com/api/bff/auth/oauth/{zalo|google|apple}/callback`
+- ⚠️ **이 값을 바꾸면 세 콘솔(Zalo·Google Cloud·Apple Services ID)의 리디렉션 URI 를 함께 갱신해야 한다.** 한쪽만 바꾸면 그 provider 로그인이 즉시 깨진다. 콘솔은 URI 를 여러 개 등록할 수 있으니 **옛 것을 지우기 전에 새 것을 먼저 추가**해 무중단으로 넘겨라.
+- 2026-08-02 사고: 운영이 옛 도메인 `letantonsheriff.com` 을 보내 Zalo 가 `-14003 Invalid redirect uri` 로 거부했다. 두 도메인이 같은 서버를 가리키고 둘 다 200 을 주고 있어서 오래 드러나지 않았다. **"응답이 200"과 "OAuth 콜백으로 등록된 주소"는 다른 문제다.**
+- Zalo 는 추가로 콘솔의 **도메인 인증(`Xác thực domain`)** 과 앱 활성화가 필요하다.
+
 ### migration
 - `database/init/NNN_*.sql` 번호순. 신규 볼륨은 `docker-entrypoint-initdb.d` 가 전건 실행
 - **기존 볼륨은 `docker-compose.yml` 의 `bff_migrate` 에 등록된 것만 적용된다** — `command`(`-f`) + `volumes` **양쪽에 등록 필수**. 등록 누락이 반복 결함이었다(F-20)

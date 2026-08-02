@@ -268,6 +268,7 @@ services:
       - ./backend:/app
       - ./contents:/data
       - ./frontend/src/components/maps/v2/saigon-depth1.json:/service-area/saigon-depth1.json:ro
+      - ./backups:/app/backups
     networks:
       - dev-net
     depends_on:
@@ -279,6 +280,13 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      # 게이트9 B-5 정기백업 잡(app/jobs/backup_db.py) 이 pg_dump 로 직접 접속 (bff_migrate 와 동일 관례)
+      - PGHOST=database
+      - PGPORT=5432
+      - PGDATABASE=${DB_NAME}
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-14}
       - ENGINE_BASE_URL=http://engine:8090
       # 기본값 금지 — 비어있으면 BFF↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}

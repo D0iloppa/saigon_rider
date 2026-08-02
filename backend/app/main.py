@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI):
     from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 
+    from .jobs.backup_db import run_backup
     from .jobs.expire_flood_reports import expire_stale_flood_reports
     from .jobs.fetch_fuel_prices import run_fetch_cycle
     from .jobs.predict_flood_risk import run_flood_risk_prediction
@@ -113,6 +115,15 @@ async def lifespan(app: FastAPI):
         max_instances=1,
         coalesce=True,
     )
+    # DB 일 백업 (게이트9 B-5) — purge_deleted_accounts(03:10) 보다 앞선 새벽 시간대.
+    # 오프사이트 반출·암호화는 별도(대표 결정 대기) — ai-docs/260802_backup_restore_drill.md.
+    scheduler.add_job(
+        run_backup,
+        CronTrigger(hour=2, minute=30),
+        id="backup_db",
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.start()
 
     try:
@@ -128,6 +139,18 @@ async def lifespan(app: FastAPI):
 # 브라우저가 spec 을 정상 fetch 함.
 _EXTERNAL_OPENAPI_URL = "/api/bff/openapi.json"
 
+# 2026-08-02 외부 검증에서 운영 `app.saigon-rider.com` 의 `/api/bff/openapi.json`·`/docs`·
+# `/redoc` 이 무인증 200 으로 전체 API 표면(엔드포인트·파라미터·모델)을 공개하고 있었다.
+# FastAPI 기본 docs 는 이미 껐지만(docs_url/redoc_url=None) 아래 커스텀 라우트와
+# openapi_url 이 무조건 등록돼 있어 소용이 없었다.
+#
+# 판정은 fail-safe 화이트리스트다 — APP_ENV 가 미설정이거나 오타면 **닫힌다**.
+# ("production 이 아니면 dev" 라는 fail-open 판정은 APP_ENV 오타 하나로 운영에서 열린다.)
+# 같은 기준이 routers/auth.py 의 `_DEV_ENV_VALUES`(AUTH-10)에도 있다 — 판정 통합은
+# 별건(그 파일은 현재 다른 변경이 진행 중이라 이번 범위에서 손대지 않았다).
+_DEV_ENV_VALUES = {"development", "dev", "local", "test"}
+_DOCS_ENABLED = os.getenv("APP_ENV", "").strip().lower() in _DEV_ENV_VALUES
+
 app = FastAPI(
     title="Saigon Rider API",
     version="1.0.0",
@@ -142,25 +165,26 @@ app = FastAPI(
     ),
     docs_url=None,
     redoc_url=None,
-    openapi_url="/api/openapi.json",
+    openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
     lifespan=lifespan,
 )
 
 
-@app.get("/api/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
-    return get_swagger_ui_html(
-        openapi_url=_EXTERNAL_OPENAPI_URL,
-        title=f"{app.title} — Swagger UI",
-    )
+if _DOCS_ENABLED:
 
+    @app.get("/api/docs", include_in_schema=False)
+    async def custom_swagger_ui_html():
+        return get_swagger_ui_html(
+            openapi_url=_EXTERNAL_OPENAPI_URL,
+            title=f"{app.title} — Swagger UI",
+        )
 
-@app.get("/api/redoc", include_in_schema=False)
-async def custom_redoc_html():
-    return get_redoc_html(
-        openapi_url=_EXTERNAL_OPENAPI_URL,
-        title=f"{app.title} — ReDoc",
-    )
+    @app.get("/api/redoc", include_in_schema=False)
+    async def custom_redoc_html():
+        return get_redoc_html(
+            openapi_url=_EXTERNAL_OPENAPI_URL,
+            title=f"{app.title} — ReDoc",
+        )
 
 
 app.add_middleware(

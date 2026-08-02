@@ -10,6 +10,12 @@ export interface DevicePlugin {
 
   /** Android only: FirebaseMessaging.getInstance().getToken() */
   getFcmToken(): Promise<{ token: string }>;
+
+  /**
+   * 설치본 앱 버전 (F-19 강제 업데이트 판정용).
+   * Android: PackageInfo.versionName. iOS: CFBundleShortVersionString.
+   */
+  getAppVersion(): Promise<{ version: string }>;
 }
 
 export const Device = registerPlugin<DevicePlugin>('Device');

@@ -101,8 +101,9 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **CI**: `.github/workflows/ci.yml` — `guard-scripts`(seed safety·migration prefix·**committed-secrets**) / `backend-tests` / `engine-tests` / `frontend-checks`. **`.env` 없이 더미 env 2개(`ADMIN_JWT_SECRET`·`ADMIN_PASS_HASH`)만으로 동작**한다(`admin_auth.py` 가 import 단계에서 `RuntimeError` 를 던지는 유일한 키가 `ADMIN_JWT_SECRET`). engine 은 `conftest.py` 가 env 를 자체 주입해 추가 키 불필요
 - **E2E**: `frontend/e2e/*.spec.ts` + `playwright.config.ts`(baseURL `http://localhost:18090`). **구동 중인 dev 스택을 대상으로** 돈다. 세션은 `dev-login` 후 `sr_session` 쿠키를 `addCookies` 로 심어 앱의 실제 부트스트랩 경로를 태운다. `data-testid` 는 쓰지 않는다(프로덕션 코드 무침습 — 플레이스홀더·role·텍스트 셀렉터로 커버). 각 spec 의 `afterEach` 가 `DELETE FROM users` 한 줄로 CASCADE 정리
   - 🔴 **E2E 는 "배포본이 소스와 다르다"를 잡는 유일한 층이다.** 도입 첫 실행에서 구동 중이던 `saigon_frontend` 컨테이너가 소스보다 오래된 빌드라 **동의 게이트가 dev 에서 아예 동작하지 않던 것**을 발견했다. 프론트 변경 후에는 `docker compose --env-file .env up --build -d frontend` 를 잊지 말 것
+  - 📌 **교훈(2026-08-02, 같은 사고 두 번째)**: 탈퇴 계정 로그인 시 토스트에 409 `restore_token` 이 원문 노출된 실기기 사고를 조사한 결과, 근본 원인은 코드가 아니라 **배포**였다 — 실행 중이던 `saigon_frontend` 번들이 409 인터셉트 커밋보다 **먼저 빌드된 구버전**이었다(배포 번들에 `account_deleted` 0건 실측). **이 저장소에서 "코드가 맞는데 동작이 다르면 배포 번들부터 의심하라."** 프론트 동작 검증은 반드시 **재빌드 후** 할 것
   - 브라우저에서는 `native.platform === 'web'` 이라 강제 업데이트 판정 경로가 **원천적으로 실행되지 않는다** — E2E 로 검증 불가(실기기 필요, B-1)
-기준선(2026-08-02): backend **353** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` **15**. ruff check/format 통과. **fresh DB(`database/init` 전건) ↔ dev 라이브 schema diff: fresh-only 0건, live-only는 전부 Engine/Alembic 소유(고아 0건)**, `withdrawn_member_archive` 양측 8컬럼 일치.
+기준선(2026-08-02): backend **357** · engine 66 · tsc 0 error · eslint 0 errors/**249** warnings · `.mjs` **17**(전건 통과). ruff check/format 통과. **fresh DB(`database/init` 전건) ↔ dev 라이브 schema diff: fresh-only 0건, live-only는 전부 Engine/Alembic 소유(고아 0건)**, `withdrawn_member_archive` 양측 8컬럼 일치.
 - **CI e2e job**: `.github/workflows/ci.yml` 에 `e2e` job 추가(**`pull_request` 에서만** 동작 — push 시엔 안 돈다). Playwright 스펙은 `frontend/e2e/*.spec.ts`(위 baseURL/세션 방식과 동일).
 
 ## TRADEOFFS
@@ -131,7 +132,7 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **지도 성능 설계**: depth3 는 뷰포트 내 동만 로드, 목록우선 진입은 `lightweight`. 자산 5.56MB/74파일이 한꺼번에 내려가지 않는다. **로딩 전략·시그니처를 바꾸지 말 것**(실패 알림 추가는 무해)
 
 ### fail-open 이 필요한 곳 (엄격히 지킬 것)
-- **강제 업데이트**(F-19): 판정 불가 4케이스(서버 조회 실패·플랫폼 레코드 없음·설치본 `unknown`·버전 파싱 실패) 모두 **차단하지 않는다**. 넓히면 전 사용자가 앱에 못 들어온다. ⚠️ 현재 `@capacitor/app` 미 cap-sync 로 실기기에서 `appVersion='unknown'` → **실기기에서는 발동하지 않는다**
+- **강제 업데이트**(F-19): 판정 불가 4케이스(서버 조회 실패·플랫폼 레코드 없음·설치본 `unknown`·버전 파싱 실패) 모두 **차단하지 않는다**. 넓히면 전 사용자가 앱에 못 들어온다. 🔴 **판정 자체은 유지, 버전 취득 경로는 교체됨(2026-08-02)**: `@capacitor/app` 은 `package.json`·`native.ts` 에 있었으나 **양 네이티브 브리지에 모두 없었다**(Android `MainActivity.java` 미등록, iOS `Podfile` 엔 `@capacitor/app`·`@capacitor/browser` **[제거됨]** 주석 — `@capacitor/browser` 의 `SFSafariViewController` 가 커스텀 스킴 OAuth 콜백을 못 받아 둘 다 제거하고 커스텀 `WebAuthPlugin` 을 씀). 그 결과 `App.getInfo()` 가 throw → catch 삼킴 → `appVersion='unknown'` → fail-open 으로 **F-19 가 실기기에서 영영 발동하지 않았다.** 조치: 이미 등록돼 동작 중인 커스텀 `Device` 플러그인에 `getAppVersion()` 추가(Android `DevicePlugin.java`, iOS `DevicePlugin.swift`), `native.ts` 가 그걸 쓰도록 교체, 유령 의존성 `@capacitor/app` 은 `package.json` 에서 제거. fail-open 불변식은 무변경(`appVersionForceUpdateFailOpen.contract.test.mjs` 6건). ⚠️ **잔여**: 네이티브 코드가 미컴파일(Android SDK·Xcode 없음)이라 실기기 발동 확인 못 함. `npx cap sync` 는 Capacitor CLI 8 이 Node ≥22 를 요구해 이 환경(Node 20)에선 실행 불가(이 vendoring 구조에선 어차피 대부분 무의미). **`native/android`·`native/ios` 서브모듈이 dirty 상태로 커밋되지 않았다.**
 - **동의 미기록 게이트**(F-9): `PrivateRoute` 의 `user?.consentAgreedAt === null` 는 **엄격 비교**여야 한다. `!user?.consentAgreedAt` 로 바꾸면 `undefined`(판정 불가)까지 걸려 전 사용자가 동의 화면에 갇힌다. `privateRouteConsentGate.contract.test.mjs` 가 이 회귀를 감시한다
 - **검색**: 번역이 없는 행이 검색 결과에서 사라지면 안 된다(원문은 항상 매칭 대상이어야 함)
 
@@ -159,7 +160,14 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
   - 운영 조회: `GET /admin/api/users/withdrawn-check` — 해시만 저장돼 운영자가 직접 SQL로 못 찾으므로 서버가 해시해 매칭한다. 전화번호는 `_normalize_vn_phone`으로 E.164 정규화 후 해시(저장 형식과 일치). pepper 미설정 시 503.
   - **개인정보처리방침 §4 개정 필요** — 현재 공표 문안은 "식별 정보 즉시 비식별화 / 30일 내 파기 / 보존분은 식별정보 제거 형태"이고 **탈퇴회원 보관기간 명시가 없다.** ko/en/vi 3개 로케일에 `[법무 검토 전 초안]` 표기로 문장을 추가했으며 **법무 검토(C-1) 대상**이다.
 
+### 백업·복원 (게이트 9 / B-5, 2026-08-02)
+- 격리 임시 컨테이너(`saigon_db_restore_drill`, 신규 볼륨)에 실제 복원 리허설 수행, **`saigon_db` 무접촉**(덤프는 `docker exec` stdout 읽기, 쓰기는 임시 컨테이너에만). 검증 기준은 "ERROR 0건"에서 멈추지 않고 **schema diff 0(1266컬럼) + 행수 diff 0(139테이블)** 양방향 대조까지 — 과거 `users.deleted_at` 드리프트 사고 재발 방지 기준
+- 실측(dev 780K 덤프): 덤프 0.99초 · 복원 4.07초. **RPO = 최대 24시간**(백업 주기 일 1회, 02:30 ICT — 트래픽 낮은 새벽, `purge_deleted_accounts` 03:10 보다 앞). **RTO ≈ 10초**(dev 규모, 다운로드 불요·로컬 컨테이너 대 로컬 컨테이너). ⚠️ **dev 규모 실측이라 운영 규모(더 큰 행수·인덱스·큰 오브젝트, 오프사이트일 경우 네트워크 전송)로 외삽 금지**
+- 신규: `tools/restore_db.sh`(기본 dry-run, `--commit` 필요, `saigon_db`·`*prod*` 컨테이너명 **거부** 가드), `backend/app/jobs/backup_db.py`(기존 APScheduler 에 등록 — 새 cron 인프라 도입 안 함), `backend/Dockerfile` 에 `postgresql-client`, `docker-compose.yml` 의 `bff` 에 PG 환경변수 + `./backups` 볼륨(`.gitignore` 대상이라 덤프 미커밋)
+- **대표 결정 대기**: 오프사이트 저장 위치, 백업 주기, 운영 규모 리허설
+
 ### fail-closed 가 필요한 곳
+- **OpenAPI 무인증 공개 차단**(게이트 6, 2026-08-02): `docs_url`/`redoc_url=None` 은 이미 설정돼 있었지만 **커스텀 라우트(`/api/docs`·`/api/redoc`)와 `openapi_url` 이 무조건 등록**돼 있어 무력화된 채 운영 `app.saigon-rider.com` 이 무인증 200 으로 전체 API 표면을 공개하고 있었다. 조치: `backend/app/main.py` 에 `_DOCS_ENABLED` 게이트 — **fail-safe 화이트리스트**(`APP_ENV` 가 `{development, dev, local, test}` 에 없으면, 즉 미설정·오타 포함 **닫힌다**). ⚠️ **이 저장소엔 `APP_ENV` 판정이 여러 벌 있고 의미가 다르다**: `sms_client.py:24`·`routers/app_version.py:27` 은 **fail-open**("production 아니면 dev" — 오타 하나로 운영에서 열린다), `routers/auth.py`(AUTH-10)와 `main.py` 는 **fail-safe 화이트리스트**다. **보안 게이트는 반드시 후자를 쓸 것.** 판정 통합은 미완(별건). 회귀 테스트 `backend/app/tests/test_openapi_exposure.py` 4건(수정 전 3건 — 운영·미설정·오타 — 실패 실증).
 - **안전정보(침수) — 상태가 3개다**: ① 정상 ② `is_stale`(예보 갱신 실패, 이전 snapshot) ③ **`never_confirmed`(그 구역 예측이 한 번도 성공한 적 없음)**. ②③ 은 초록 "안전"과 분리 렌더한다(`flood_prediction_status(district_code, last_success_at)`, `166_*.sql`).
   - 🔴 **판정 기준은 "행이 있느냐"가 아니라 "그 구역 예측이 성공한 적 있느냐"다.** 잡이 `pop < _THRESHOLD` 구역에 행을 만들지 않으므로 **빈 결과는 맑은 날의 정상·다수 결과**다. 빈 결과를 장애로 렌더하면 맑은 날마다 오작동한다(2026-08-01 에 감독이 이 방향을 지시했다가 워커 지적으로 철회한 이력이 있다)
   - `166_*.sql` 이 **기존 성공 이력이 확인되는 구역을 시드**한다. 이 시드를 빼면 배포 직후 **전 구역이 "확인 불가"** 로 뜬다

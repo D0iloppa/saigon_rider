@@ -91,11 +91,22 @@ async function delay<T>(value: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
+// 보안: restore_token(소비 즉시 세션 발급)·session_token 류는 어떤 에러 응답에서도 사용자
+// 표시 문자열(토스트/인라인 에러)에 싣지 않는다 — 화면·스크린샷 노출이 곧 계정 탈취다.
+const SENSITIVE_DETAIL_KEYS = ['restore_token', 'session_token'];
+
+function sanitizeDetail(detail: any): any {
+  if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) return detail;
+  const safe = { ...detail };
+  for (const key of SENSITIVE_DETAIL_KEYS) delete safe[key];
+  return safe;
+}
+
 function extractErrorMessage(err: any, status: number, call: string): string {
   const detail = err?.detail;
   let msg: string;
   if (typeof detail === 'string') msg = detail;
-  else if (detail) msg = JSON.stringify(detail);
+  else if (detail) msg = JSON.stringify(sanitizeDetail(detail));
   else msg = call;
   return `HTTP ${status} | ${msg}`;
 }

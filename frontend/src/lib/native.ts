@@ -10,7 +10,6 @@
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { App } from '@capacitor/app';
 
 import { Device } from './plugins/Device';
 import { WebAuth } from './plugins/WebAuth';
@@ -479,15 +478,16 @@ class NativeInterface {
   }
 
   async getDeviceInfo(): Promise<DeviceInfo> {
-    // F-19: 강제 업데이트 판정에 필요한 설치본 버전. @capacitor/app 은 의존성엔 있으나
-    // native 프로젝트에 아직 등록되지 않았을 수 있어(별도 네이티브 빌드 작업) fail-open —
+    // F-19: 강제 업데이트 판정에 필요한 설치본 버전. 커스텀 Device 플러그인의
+    // getAppVersion() 경유(양 플랫폼에 이미 등록된 플러그인 — @capacitor/app 은
+    // native 프로젝트에 등록되지 않아 사용하지 않는다). fail-open —
     // 실패 시 'unknown' 유지, 호출부는 'unknown'일 때 절대 차단하지 않는다.
     let appVersion = 'unknown';
     if (this.isNative) {
       try {
-        appVersion = (await App.getInfo()).version;
+        appVersion = (await Device.getAppVersion()).version;
       } catch {
-        // 미등록/미구현 — 'unknown' 유지
+        // 미구현/조회 실패 — 'unknown' 유지
       }
     }
     return {

@@ -253,6 +253,8 @@ export default function OAuthLogin() {
       loginFromBackend(result.user);
       navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
     } catch (e: unknown) {
+      const restore = restoreInfoFromError(e);
+      if (restore) return goRestore(restore);
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setLoading(null);

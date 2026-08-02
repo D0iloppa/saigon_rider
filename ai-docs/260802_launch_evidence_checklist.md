@@ -49,6 +49,14 @@
 
 dev 는 검증 완료(`schema_migrations` 139~168, fresh-init 165 SQL ERROR 0건). 남은 건 **운영 데이터 기준** 검증입니다.
 
+**⚠️ 검증 기준 변경(2026-08-02)**: "fresh-init ERROR 0건"만으로는 충분하지 않습니다 — SQL 이 에러 없이 끝나는 것과 결과 스키마가 라이브와 같은 것은 별개입니다(`users.deleted_at` 처럼 fresh-init SQL 에 없는 컬럼이 라이브에만 있어 신규 배포 시 로그인이 깨지는 사고가 실제로 있었습니다). **검증 기준을 "라이브와 schema diff 0건"으로 교체**합니다.
+
+- [x] **schema diff 증적** — 격리 프로브 컨테이너로 fresh DB 를 만들어 `information_schema.columns` 를 라이브와 양방향 diff
+  ```bash
+  # 격리 프로브 컨테이너(별도 볼륨)로 fresh DB 부트스트랩 후
+  # information_schema.columns 를 대상 DB(라이브)와 양방향 diff
+  ```
+  → 2026-08-02 dev 기준 **fresh-only 0건**(live-only 47테이블은 전부 Engine/Alembic 소유) 확인. **운영 DB 는 2026-08-02 배포 시 재생성 + `database/init` 전건 적용으로 866컬럼 파리티, `bff_migrate` 재실행 후 1258컬럼으로 dev 라이브와 동일 확인 완료**(초과 392컬럼은 dev 와 같은 Engine/Alembic 소유) — 상세는 [`260731_remediation_ledger.md`](./260731_remediation_ledger.md) 6단계 "운영 배포(B-4)" 참조.
 - [ ] 운영 DB 의 현재 적용 상태
   ```bash
   # 운영 서버에서
@@ -73,14 +81,16 @@ dev 는 검증 완료(`schema_migrations` 139~168, fresh-init 165 SQL ERROR 0건
 
 배포 후 **외부에서** 확인해야 합니다(서버 안에서 curl 하면 nginx 앞단 설정을 검증하지 못합니다).
 
-- [ ] **배포한 commit / image digest 기록**
+**2026-08-02 진행 상황**: drift 해소(`git reset --hard origin/main`) + DB 재생성·파리티 확인 + 재빌드는 **완료**됐고 내부(loopback) 기준 readiness 200·bff 로그 ERROR 0건·공개/인증 경로 정상까지 확인했습니다. 다만 운영이 loopback 바인딩이라 아래 **외부에서의 재검증은 아직 하지 않았습니다** — 이 항목들은 계속 미접수로 둡니다.
+
+- [x] **배포한 commit / image digest 기록** — `origin/main`(`git reset --hard` 반영), 컨테이너 9종 healthy 확인(2026-08-02)
   ```bash
   # 운영 서버에서
   git -C <repo> rev-parse HEAD
   docker images --digests | grep saigon
   docker ps --format '{{.Names}}\t{{.Image}}\t{{.CreatedAt}}'
   ```
-- [ ] **readiness 200** (외부에서)
+- [ ] **readiness 200** (외부에서) — 내부(loopback) 에서는 `GET /api/bff/ready` **200** 확인됨(2026-08-02). **외부** 확인은 미접수
   ```bash
   curl -s -o /dev/null -w '%{http_code}\n' https://app.saigon-rider.com/api/bff/ready
   curl -s -o /dev/null -w '%{http_code}\n' https://app.saigon-rider.com/api/sre/ready
@@ -230,8 +240,8 @@ allowlist 로 특권 경로는 막았지만, `sreMessage` 는 여전히 전역 �
 | 2 Secret | **종결** — `main` 시크릿 0건 실측. 백업 브랜치·private 전환은 대표 판단으로 나중 | — |
 | 3 안전정보 | **PASS** | — |
 | 4 개인정보 계약 | 부분(구현 완료) | 미접수 |
-| 5 DB upgrade | 부분(dev 완료) | 미접수 |
-| 6 정확한 배포 | FAIL | 미접수 |
+| 5 DB upgrade | 부분(dev+운영 배포 시 파리티 확인 완료, 검증기준 schema diff 로 교체) | 일부 접수(schema diff) |
+| 6 정확한 배포 | 부분(내부 배포·재생성 완료, 외부 재검증 미완) | 일부 접수(commit/readiness 내부분) |
 | 7 Native 연동 | FAIL | 미접수 |
 | 8 자동 회귀 | **PASS** (CI·E2E 도입 완료) | — |
 | 9 운영 복구 | FAIL | 미접수 |

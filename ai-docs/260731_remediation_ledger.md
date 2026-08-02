@@ -85,6 +85,7 @@ docker compose --env-file .env up --build -d <service>
 | **B-3** | `ENGINE_SERVICE_KEY` 회전 + 모바일/BFF identity 분리 후 **신규 앱 빌드 배포** — [P0-1](./260731_prelaunch_go_no_go_audit.md) | 키 회전은 운영 자격, 앱 재배포는 스토어 절차 동반 | 대표 |
 | **B-4** | 운영서버 실배포 drift 해소 + readiness 200·strict CORS·보안헤더·운영 endpoint 비공개 **외부 재검증** — [P0-3](./260731_prelaunch_go_no_go_audit.md) | 운영 리눅스 접근 + 배포 승인 필요. 운영은 2026-06-04 스냅샷([S-6](./260731_launch_readiness_verdict.md))이라 배포 자체가 고위험 이벤트 | 대표 |
 | | ↳ **2026-07-31 심각도 하향(대표 지적)**: 운영서버는 **아직 실서비스가 아니며** 1차 출시 가능 수준 도달 후 공개된다 → "구버전이 실사용자를 노출"은 과한 프레이밍. **긴급 사고가 아니라 출시 전 체크리스트**로 이동. 단 `app.saigon-rider.com` 이 **지금도 공개 응답**하므로(방치된 구버전 빌드) 출시 전까지 **내리거나 인증 게이트를 거는 것**이 배포보다 싸고 안전 | |
+| | ↳ **2026-08-02 drift 해소 + DB 재생성·파리티 완료**(6단계 라운드 참조). **외부 재검증만 잔여** — 운영이 loopback 바인딩이라 아직 대표 소관 | |
 | **B-5** | 외부 암호화 백업·restore drill·RPO/RTO 측정·경보·온콜 — [P0-6](./260731_prelaunch_go_no_go_audit.md), [F-16](./260731_launch_readiness_verdict.md) | 운영서버·스토리지·모니터링 인프라 결정 필요 (스크립트 작성은 개발 가능, 실행·측정은 운영) | 대표 |
 | **B-6** | 약관·개인정보처리방침 **문안 확정** — [P0-5](./260731_prelaunch_go_no_go_audit.md), [F-9/F-10](./260731_launch_readiness_verdict.md) | 법무 검토 필요. 구현(동의 캡처·purge)은 문안 확정 전에도 선행 가능 | 대표/법무 |
 | **B-7** | 운영 `.env` 실값 확인 — 특히 `SMS_PROVIDER_API_KEY` 미설정 시 가입·판매 **전면 차단**([S-7](./260731_launch_readiness_verdict.md)) | 운영서버 실측 | 대표 |
@@ -313,10 +314,15 @@ docker compose --env-file .env up --build -d <service>
 - [x] **스플래시 로그인 버튼 제거** `Splash.tsx` 의 [시작하기]/[로그인]이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 [로그인] 제거. 고아 CSS(`.loginBtn`)·i18n 키(`splash.loginBtn`) 함께 제거.
 - [x] **어드민 업체 등록/사진/CSV 임포트** `POST /admin/api/biz/accounts`(즉시 APPROVED, `user_id=None`) · `GET /admin/api/biz/categories` · `POST /admin/api/biz/upload`(앱 전용 `/contents/upload` 프록시) 신설. `business_profile.user_id` nullable(168) 전환에 따라 어드민 조회 조인 3곳 **outer join 필수**(INNER JOIN 복귀 시 소유자 없는 업체가 목록에서 사라짐). `backend/scripts/import_business_csv.py`(기본 dry-run, `--commit` 필수) 로 대량 등록.
 - [x] **CI e2e job** `.github/workflows/ci.yml` 에 `e2e` job 추가(`pull_request` 에서만 동작). `frontend/e2e/*.spec.ts`.
+- [~] **운영 배포(B-4)** 운영서버(`ssh saigon-prod`, 218.234.18.148, `/app/SaigonRider`) drift 해소 + DB 재생성·파리티 확인. 구 이력 `main@1012afd`(orphan 재작성 전, 새 `origin/main` 과 공통 조상 없음)라 pull 불가 → 백업(`/home/wellconn/saigon_prod_backup_260802/`: git bundle 445MB·미커밋 패치·미추적 자산 tgz 4.2MB·DB 덤프 `saigon_rider_260802.sql.gz` 326KB) 후 `git reset --hard origin/main`. 운영에만 있던 미커밋 랜딩 개편 3파일(`landing/apps/client/src/pages/home/{Index.tsx,content.ts,home-launch.css}` — 히어로 영상·파비콘·스토어 배지 제거)은 운영 버전으로 복원(새 main 보다 최신이었음). 미추적 자산(`public/videos/`, 히어로 포스터)도 보존. `deploy/saigon-rider.conf` 는 이미 새 main 과 동일.
+  운영 DB 재생성(대표 승인): 재생성 전 운영 DB 는 business_*·POI·신고·광고통계 등 **263컬럼이 통째로 없었고**(테이블 112개), 실데이터는 flood_risk_daily 30행·fuel_price_fetch_log 7행·fuel_price_snapshot 5행 = **42행뿐**(사용자·매물 0). DROP/CREATE 후 `database/init/*.sql` 전건 적용 → **ERROR 0건**.
+  검증: 재생성 직후 866컬럼으로 `database/init` 기준과 **양방향 diff 0**. `bff_migrate` 재실행 후 **1258컬럼으로 dev 라이브와 동일**(초과 392컬럼은 dev 와 같은 Engine/Alembic 소유). `schema_migrations` 장부가 비어 있어(fresh init 은 파일만 적용, 장부는 bff_migrate 가 기록) 139~169 **31건을 실상태에 맞게 백필**. 재빌드(`docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env --profile backend up --build -d`) 후 컨테이너 9종 healthy, `GET /api/bff/ready` **200** `{"status":"ready","checks":{"database":"ready","redis":"ready","schema":"ready","engine":"ready"}}`, bff 로그 Traceback/ERROR **0건**, 공개 경로 `/api/bff/map/city-outline` 200, 인증 경로 `/api/bff/info/flood/active` 419(인증 요구=정상), `/admin/` 200.
+  ⚠️ **`[~]`(완료+검증 아님) 인 이유**: 운영은 loopback 바인딩이라 **외부(app.saigon-rider.com)에서의 재검증**(strict CORS·보안헤더·OpenAPI/metrics 비공개 — 게이트 6 항목)은 하지 않았다. B-2(공개 도메인 처리) 결정과 묶여 있음 — 증적 항목은 [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md) 게이트 6 참조.
 
 ### 6단계 종료 상태 (2026-08-02)
 
 **닫힌 것**: 스키마 파리티(근거 교체 포함) · 서비스 경계 안내 · 스플래시 로그인 버튼 제거 · 어드민 업체 등록/사진/CSV 임포트 · CI e2e job — 5건 전부 `[x]`.
+**부분 완료**: 운영 배포(B-4) — 운영 DB drift 해소·재생성·파리티 확인·컨테이너 healthy 는 완료, **외부 도메인 재검증(strict CORS·보안헤더·비공개 endpoint)은 미완**.
 
 ---
 
@@ -331,12 +337,12 @@ docker compose --env-file .env up --build -d <service>
 | 3 | 안전정보 | FAIL | **PASS(조건부)** | 침수 fail-open 해소 — 실패를 0.0 으로 삼키지 않고 snapshot 보존 + `expires_at` 갱신으로 24h 재발까지 차단, UI 분리. **잔여**: 한 번도 성공한 적 없는 구역의 "저위험"과 "확인 불가" 미구분(대표 판단) |
 | 4 | 개인정보·검증문서 계약 | FAIL | **부분** | 로그인 전 약관 열람·명시 동의·버전/시각 기록·미동의 세션 게이트 완료. 사업자 문서 소유권 검사 + `contents.is_private` ACL 완료. 30일 파기 배치 완료. **남은 것**: 공표 문구("영구삭제")가 실제 보존 범위보다 과함 → 문안 조정 **B-6**, 삭제 보류 4종 대표 판단 |
 | 5 | DB upgrade | FAIL | **PASS(dev 기준)** | 139~144·147 공백 해소(147 은 "멱등성 미확인"이 사실과 달랐음), `schema_migrations` 원장 도입(23→26건), readiness 9종 확장. **검증 근거 교체(2026-08-02)**: fresh-init 165 SQL 격리 부트스트랩 "ERROR 0건"은 SQL 이 에러 없이 끝난다는 것과 결과 스키마가 라이브와 같다는 것은 별개라 **불충분했다** — 실제로 `users.deleted_at`(라이브에만 존재, fresh 부재) 등 스키마 드리프트가 있었다(아래 신규 항목 참조). 게이트는 정당하게 닫힌 상태이나 근거는 **"라이브와 schema diff 0건"**(fresh-only 0건, live-only 는 전부 Engine/Alembic 소유)으로 교체. **운영 백업 복제본 검증은 B-8** |
-| 6 | 정확한 배포 | FAIL | **FAIL** | 코드 범위 밖 — 운영 drift 해소·readiness 200·strict CORS·보안헤더·운영 endpoint 비공개 재검증은 **B-4** |
+| 6 | 정확한 배포 | FAIL | **부분** | **2026-08-02 해소**: 운영 drift 해소(구 이력 → 새 `origin/main`) + DB 재생성·dev 라이브와 컬럼 파리티 확인 + readiness 200(내부 curl) + bff 로그 ERROR 0건 + 컨테이너 9종 healthy. **잔여**: 운영이 loopback 바인딩이라 **외부(app.saigon-rider.com)에서의** strict CORS·보안헤더·OpenAPI/metrics 비공개 재검증 미완 — B-2(공개 도메인 처리) 결정과 함께 처리 |
 | 7 | Native·외부 연동 | FAIL | **FAIL** | 서명 빌드·실기기 GPS/FCM/OAuth/딥링크 검증 불가 = **B-1**. F-19 강제업데이트도 `@capacitor/app` 미 cap-sync 로 실기기 미작동 |
 | 8 | 자동 회귀 | FAIL | **PASS(CI 미구성 단서)** | X-1·X-2 해소로 확정 — backend **270 passed / 0 failed / 0 collection error**(관용 플래그 없이), engine **66 passed**, `tsc` **0 error**, `eslint` **0 errors**(247 warnings — 게이트 기준은 error 0), `.mjs` **18/18**. 테스트 199→270건. **단서**: 감사 게이트 원문은 "**CI 에서** 통과"를 요구하는데 이 레포에 CI 파이프라인이 없어 **로컬(개발서버 docker 하네스) 실행 증적**이다. 브라우저 E2E·시각 회귀는 여전히 부재 |
 | 9 | 운영 복구 | FAIL | **부분** | `tools/backup_db.sh` 작성 + dev 실행 확인. **실행 스케줄·오프사이트 암호화 저장·restore drill·RPO/RTO·경보·온콜은 B-5** |
 
-**요약**: 9개 게이트 중 코드로 닫을 수 있는 범위는 전부 처리했고, **PASS 3 · 부분 3 · FAIL 3** 이다. FAIL 3건(게이트 2 Secret · 6 배포 · 7 Native)은 **코드 작업으로는 절대 닫히지 않는다** — 각각 B-2 / B-4 / B-1 이며 대표·운영 소관이다.
+**요약(2026-08-02 갱신)**: 9개 게이트 중 **PASS 3 · 부분 4 · FAIL 2** 다. 2026-08-02 운영 배포 완료로 게이트 6 이 FAIL → 부분으로 이동(외부 도메인 재검증만 잔여). FAIL 2건(게이트 2 Secret · 7 Native)은 **코드 작업으로는 절대 닫히지 않는다** — 각각 B-2 / B-1 이며 대표·운영 소관이다.
 
 **따라서 출시 판정은 여전히 NO-GO 다.** 감사 문서의 재판정 완료 정의(§8: P0 미해결 0건 + 9개 게이트 전부 PASS + 실기기·배포·복원 로그 확보)를 만족하지 못한다. 이번 리메디에이션이 바꾼 것은 "**코드가 원인인 차단 사유가 남아 있다**"에서 "**남은 차단 사유가 전부 운영·법무·실기기 영역이다**"로 성질이 이동한 것이다.
 

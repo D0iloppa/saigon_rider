@@ -1,5 +1,7 @@
 # 대표님 조치 목록 — 2026-08-01 아침
 
+> **2026-08-02 갱신**: 운영 배포 완료, `main_deprecated` 삭제 완료, push 완료, A-3 진단 정정, C-4 사실 정정, C-8 #2 해소를 반영했다.
+
 > 작성: 2026-07-31 새벽 (권도일 세션) · **이 문서에 있는 것만 대표님이 하시면 됩니다.**
 > 나머지는 전부 처리했습니다 — [`260731_remediation_final_report.md`](./260731_remediation_final_report.md) 참조
 > 원장(검증 상세 전문): [`260731_remediation_ledger.md`](./260731_remediation_ledger.md)
@@ -12,7 +14,7 @@
 ## ✅ A-1 / A-2 — 종결, 지금 할 일 아님 (2026-08-02 대표 결정)
 
 - **레포 private 전환** — 대표 판단으로 **나중에** 한다. 지금 처리할 사안이 아니다
-- **`main_deprecated` 백업 브랜치** — 의도적으로 남긴 임시 백업. 대표가 나중에 삭제한다
+- **`main_deprecated` 백업 브랜치** — ✅ **2026-08-02 삭제 완료**(대표 지시, 로컬·원격 모두 삭제)
 - **Zalo secret 재발급** — Zalo 가 셀프 재발급을 제공하지 않고(콘솔 2화면·공식 문서 확인), 실사용자 0명 + 콜백 URL 정리로 계정 탈취 경로가 없어 **차단 항목에서 제외**. 앱 재생성은 검증된 도메인·콜백을 잃어 비용이 위험보다 크다
 - **점검 대상은 `main` 에 시크릿이 없는지 하나뿐** → 2026-08-02 실측: 추적파일 **2,151개 전수 검색 0건**. pre-commit `committed-secrets` 훅이 재유입 차단
 
@@ -32,11 +34,14 @@
 
 **해석**: `domain: usageLimits` 는 **쿼터가 0에 가깝게 잠긴 상태**입니다. 순간 과다호출이 아닙니다(3주째, 재시도 3회 모두 동일). API 자체가 비활성이면 `accessNotConfigured` 가 떴을 텐데 그건 아니므로 **API 는 켜져 있고 한도만 막힌 상태**입니다.
 
-**확인 순서** (Google Cloud Console — 개발자 권한으로는 볼 수 없습니다):
-1. **Billing → 프로젝트에 결제 계정이 연결돼 있는지** ← 가장 유력. Translation API 는 월 50만 자 무료 후 billing 필수이고, 결제가 없으면 쿼터가 0으로 떨어지며 정확히 이 에러가 납니다. **7/8 중단 시점이 무료 한도 소진과 맞을 가능성이 큽니다**
-2. **APIs & Services → Cloud Translation API** → Enabled 확인 + **사용량 그래프에서 7/8 전후** 무슨 일이 있었는지
-3. **IAM & Admin → Quotas → Cloud Translation** → 한도값이 0인지
-4. **Credentials → 해당 API 키** → Application restrictions(서버에서 쓰는데 HTTP referrer 제한이 걸려 있으면 차단)
+**🔎 2026-08-02 진단 정정** — 대표가 결제 문제를 해결했는데도 **36분간 12회 재시도 전부 동일 실패**해 범위를 좁혔습니다. 실측 결과:
+- `GET /language/translate/v2/languages?key=…` → **200 정상**(언어 목록 반환)
+- `POST /language/translate/v2` → 여전히 `403 userRateLimitExceeded`
+
+→ **키는 유효하고 Cloud Translation API 도 활성화돼 있습니다.** API 키 제한(`API_KEY_SERVICE_BLOCKED`)도 아닙니다. 아래 기존 확인순서 1·2·4번(billing 연결·API enabled·키 restriction)은 이번 실측으로 **배제됐습니다**. 남은 원인은 **프로젝트 할당량(quota) 하나**로 좁혀졌습니다.
+
+**확인할 곳(좁혀진 것)**:
+1. **IAM & Admin → Quotas → Cloud Translation API** → 한도값이 0인지 확인. (결제 활성화 직후 할당량 반영이 지연되는 경우가 있으니, 값이 정상인데도 실패하면 **24시간 경과 후 재확인**)
 
 **비용**: 복구 시 추정 ~$40/월. 다만 **현재 구조는 검색할 때마다 번역 API 를 때리므로, 아래 검색 개편이 적용되면 오히려 지금보다 저렴해집니다**(검색당 과금 → 등록당 과금). 기존 데이터 소급 번역 백필은 ~24K자 ≈ **$0.5** 입니다.
 
@@ -48,10 +53,43 @@
 
 ## 🟠 B. 아침에 확인만 (5분)
 
-### B-1. 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무
+### B-1. 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무 — ✅ 2026-08-02 확인 완료
 
-미설정이면 `APP_ENV=production` 에서 `RuntimeError` → 502 로 **가입·판매가 전면 차단**됩니다(`backend/app/services/sms_client.py:41-43`). dev bypass 로도 우회되지 않습니다(운영 3중 게이트).
-→ **값이 있는지만** 알려주시면 됩니다. 없으면 출시 전 발급이 필요합니다.
+**값 있음.** 값을 출력하지 않고 유무만 확인했습니다(`awk` 로 길이 판정). **종결.**
+
+### B-5. 운영 `.env` 누락 키 4건 채우기 (2026-08-02 신설) — **대표님 손이 필요**
+<!-- B-4 는 D 절의 "운영 배포" 항목 번호로 이미 쓰이고 있어 B-5 로 부여했다 -->
+
+
+운영 배포 중 운영 `.env` 와 `.env.example` 의 **키 이름만** 대조한 결과, 운영에 9개 키가 없었습니다. 코드로 영향도를 확인한 결과는 아래와 같습니다.
+
+| 키 | 운영 영향 | 근거 |
+|---|---|---|
+| `ZALO_API_PROXY` | 🔴 **Zalo 로그인 실패** — 프록시 없이 한국 IP 에서 직접 호출 → Zalo 가 `error -501` 로 차단 | `backend/app/services/oauth.py:214` |
+| `GOOGLE_MAPS_API_KEY` | 🟠 지도 연계 기능이 "준비 중" 폴백 | `backend/app/routers/info_route.py:37` |
+| `CORS_ALLOWED_ORIGINS` | 🟡 미설정 시 localhost 기본값 폴백 → `app.saigon-rider.com` 이 허용 목록에 없음. **와일드카드는 아니라 보안 구멍은 아님** | `backend/app/services/cors.py:14` |
+| `OPS_ALERT_WEBHOOK_URL` | 🟡 운영 알림 무음(설계상 로그만) | `backend/app/services/ops_alerts.py` |
+| `TRANSLATE_API_KEY` · `TRANSLATE_PROVIDER` | ⚪ 무해 — 시크릿 SoT 가 DB `app_config` 라 `.env` 불필요 | ADR `시크릿 위치` |
+| `OTP_DEV_BYPASS` | ⚪ 없는 게 안전(운영 게이트) | — |
+| `BIZ_LANDING_PORT` · `DEV_HOST` | ⚪ 경미 | — |
+
+운영 `.env` 쓰기는 자동 승인 정책상 제가 수행할 수 없어 넣지 못했습니다. 아래를 붙여넣으시면 됩니다 — `<...>` 두 곳만 dev `.env` 값으로 채우시면 됩니다.
+
+```bash
+ssh saigon-prod
+cd /app/SaigonRider && cp .env .env.bak_260802
+cat >> .env <<'EOF'
+
+# 2026-08-02 — .env.example 에는 있으나 운영에 누락돼 있던 키
+CORS_ALLOWED_ORIGINS=https://app.saigon-rider.com,capacitor://localhost,http://localhost
+BIZ_LANDING_PORT=18092
+GOOGLE_MAPS_API_KEY=<dev .env 의 값>
+ZALO_API_PROXY=<dev .env 의 값>
+EOF
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env --profile backend up -d bff
+```
+
+> 보안 규약(CLAUDE.md)상 `.env` 와 `.env.example` 은 항상 같은 키셋이어야 하는데, 그 규약이 **운영 `.env` 에는 적용된 적이 없었습니다.** 이번이 첫 대조입니다.
 
 ### B-2. `app.saigon-rider.com` 공개 도메인을 닫을지
 
@@ -60,11 +98,9 @@
 선택지: ① 출시 전까지 내려두기 ② 인증 게이트(BasicAuth 등) ③ 그대로 두기
 → **①/② 를 권합니다.** 지금 배포하는 것보다 싸고 안전합니다.
 
-### B-3. push 여부
+### B-3. push 여부 — ✅ 2026-08-02 완료
 
-**8커밋이 이 개발서버에만 있습니다** (원격 브랜치 없음 — 날아가면 전부 손실).
-CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄이라 영역별로 쪼개 봐야 합니다.
-→ **"push 해" 라고만 하시면** 제가 code-review 부터 순서대로 처리합니다. A-1(private 전환) 이후에 하는 게 안전합니다.
+`origin/main` 에 `76f4931` push 완료. **종결.**
 
 ---
 
@@ -113,10 +149,10 @@ CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄�
 
 </details>
 
-### C-4. 앱스토어 업데이트 URL
+### C-4. 앱스토어 업데이트 URL — 2026-08-02 사실 정정 + 대표 결정
 
-강제 업데이트 차단 화면에 "스토어로 이동" 버튼을 못 넣었습니다(코드베이스에 URL 이 없어 안내 문구만).
-→ 링크만 주시면 버튼 추가는 사소한 후속입니다.
+**정정**: 기존 서술("스토어로 이동 버튼을 못 넣었다")은 부정확했습니다. 실제 `frontend/src/App.tsx:384-394` 의 강제 업데이트 화면에는 **버튼 자체가 없고 안내 문구만** 있습니다. 즉 URL 이 없어서 무언가 깨지는 곳은 없습니다.
+**대표 결정**: 아직 스토어 등록 전이라 **보류**. 등록 후 버튼 추가는 후속.
 
 ### C-5. 제품·경영 결정 6건 (B-9)
 
@@ -145,9 +181,9 @@ CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄�
 
 ### C-8. 어드민 업체 등록 관련 후속 3건 (2026-08-02 신설)
 
-업체 직접 등록 기능을 만들었습니다(S-2 해소). 다만 판단이 필요한 게 셋 남았습니다:
+업체 직접 등록 기능을 만들었습니다(S-2 해소). 판단이 필요한 게 둘 남았습니다(2번은 2026-08-02 해소):
 1. **소유자 연결 수단** — 나중에 실제 사업자가 앱 계정을 만들었을 때 이 프로필을 어떻게 연결할지(신청·승인 플로우 vs 관리자 수동 배정). 지금은 `user_id`가 NULL인 채로 둡니다
-2. **관리자 폼의 사진 업로드** — 어드민에 contents 업로드 위젯 패턴이 없어 뺐습니다. 업체 대표사진 없이 생성됩니다
+2. **관리자 폼의 사진 업로드** — ✅ 2026-08-02 해소. `POST /admin/api/biz/upload`(owner_type=system, `_sniff_mime` 매직넘버 검증 재사용)와 `admin-frontend` `apiUpload()` 로 구현 완료. "사진 없이 생성됩니다" 서술은 정정합니다. 실제 업체 대량 입력은 `backend/scripts/import_business_csv.py`(기본 dry-run, `--commit` 필수)
 3. **관리자 생성 업체도 사업자등록증 검증을 강제할지** — 현재 `verification_status=pending` 별도 축으로 두고 강제하지 않습니다
 
 ⚠️ **기능은 만들었지만 실제 업체 데이터는 아직 없습니다.** 지금 승인 업체 7건이 전부 dev 시드라, 동네지도를 출시 범위에 넣으려면 **영업으로 확보한 업체를 실제로 입력**해야 합니다.
@@ -156,22 +192,23 @@ CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄�
 
 대표님 지적대로 운영서버가 아직 실서비스가 아니므로 **긴급도를 내렸습니다.**
 
-- **운영 배포**(B-4) — 이번 8커밋을 정확한 commit/image digest 로 배포, readiness 200·strict CORS·보안헤더·운영 endpoint 비공개를 **외부에서** 재검증. 운영이 2026-06-04 스냅샷이라 migration 순서 검증(B-8) 선행 필요
+- **운영 배포**(B-4) — ✅ **2026-08-02 배포 완료.** `ssh saigon-prod`(218.234.18.148, `/app/SaigonRider`)에서 구 이력 `main@1012afd`(orphan 재작성 전, 새 `origin/main` 과 공통 조상 없음)를 백업(`/home/wellconn/saigon_prod_backup_260802/`: git bundle 445MB·미커밋 패치·미추적 자산 tgz 4.2MB·DB 덤프 326KB) 후 `git reset --hard origin/main`, 운영에만 있던 미커밋 랜딩 개편 3파일(히어로 영상·파비콘·스토어 배지 제거)은 운영 버전으로 복원해 보존. 대표 승인 하에 운영 DB 를 DROP/CREATE 재생성(재생성 전 업체·POI·신고·광고통계 등 263컬럼이 통째로 없었고 실데이터 42행뿐 — 사용자·매물 0) → `database/init/*.sql` 전건 적용 ERROR 0건 → `bff_migrate` 재실행 → **866→1258컬럼으로 dev 라이브와 파리티 확인**(초과 392컬럼은 dev 와 동일하게 Engine/Alembic 소유), `schema_migrations` 31건 백필. 재빌드 후 컨테이너 9종 healthy, `GET /api/bff/ready` **200** `{"status":"ready",...}`, bff 로그 ERROR **0건**, 공개 경로 200·인증 경로 419(정상)·`/admin/` 200 확인.
+  ⚠️ **남은 것**: 운영은 loopback 바인딩이라 **외부(app.saigon-rider.com)에서의 재검증**(strict CORS·보안헤더·OpenAPI/metrics 비공개)은 아직 하지 않았습니다. B-2(공개 도메인 처리) 결정과 묶여 있습니다.
 - **실기기 E2E**(B-1) — 서명 빌드로 GPS 권한·백그라운드 이동·FCM 등록/회전/딥링크·OAuth 3종 복귀·오프라인. 여기서 F-19 cap sync 도 함께
 - **백업·복구**(B-5) — `tools/backup_db.sh` 는 작성·dev 실행 확인 완료. 남은 것은 스케줄링·오프사이트 암호화 저장·restore drill·RPO/RTO 측정·경보·온콜
 - **Engine 키 회전 + identity 분리**(B-3) — allowlist 로 특권 경로는 막았지만 `sreMessage` 는 여전히 전역 키 단일 비교라, 앱에서 키가 추출되면 GPS/이벤트 주입이 가능합니다. 회전 + 사용자·기기·만료 결속 단기 토큰으로 재설계 후 신규 앱 배포
-- **운영 DB migration 상태 확인**(B-8) — dev 는 검증 완료(`schema_migrations` 26건)
+- **운영 DB migration 상태 확인**(B-8) — ✅ 2026-08-02 배포 시 해소. 운영 DB 재생성 후 `database/init` 전건 적용 + `bff_migrate` 로 dev 라이브와 컬럼 파리티 확인(위 운영 배포 항목 참조)
 - **Zalo 앱 활성화**(2026-08-01 발견) — Zalo 개발자 콘솔의 앱 상태가 **`Chưa kích hoạt`(Not activated)** 이다(대표님 스크린샷에서 확인). 이 상태로는 실사용자 Zalo 로그인이 동작하지 않을 가능성이 높다(현재 dev 에서 되는 것은 테스터 계정 범위로 추정). 출시 전 활성화 필요. 활성화 시 도메인 검증(`Xác thực domain`)·앱 심사가 선행될 수 있으니 **리드타임을 미리 확인**할 것
 
 ---
 
-## 요약 — 대표님이 하실 것
+## 요약 — 대표님이 하실 것 (2026-08-02 갱신 — 남은 것만)
 
-1. **A-3** Google Cloud 콘솔에서 Translate API 403 원인 확인(billing 연결 여부 우선) — 번역 3주째 정지
-2. **B-1** 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무 (미설정이면 가입·판매 전면 차단)
-3. **B-2** 공개 도메인(`app.saigon-rider.com`) 닫을지 결정
+1. **A-3** Google Cloud 콘솔 **IAM & Admin → Quotas → Cloud Translation API** 에서 한도값이 0인지 확인 — 키·API 활성화는 이미 확인됐고 원인은 quota 하나로 좁혀짐. 정상인데도 실패하면 24시간 후 재확인
+2. **B-5** 운영 `.env` 누락 키 4건 채우기 — 특히 `ZALO_API_PROXY` 가 없어 **운영에서 Zalo 로그인이 실패**합니다. 붙여넣을 명령은 B-5 절에 그대로 있습니다
+3. **B-2** 공개 도메인(`app.saigon-rider.com`) 닫을지 결정 — 운영 배포가 완료돼 지금은 최신 코드가 loopback 으로만 떠 있음. 외부 재검증(B-4 잔여) 도 이 결정과 함께 처리
 4. **C-1 / C-1-b** 법무 문안 승인 — §4 뿐 아니라 **§5 "권리" 절도 함께**
-5. **C-8** 어드민 업체 등록 후속 3건 + **실제 업체 데이터 입력**(지금 7건 전부 dev 시드)
+5. **C-8** 어드민 업체 등록 후속 2건(소유자 연결 수단·검증 강제 여부) + **실제 업체 데이터 입력**(지금 7건 전부 dev 시드)
 6. **증적 수집** → [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md)
 
-**출시 판정은 NO-GO** 입니다. 코드가 원인인 차단은 전부 해소됐고, 남은 것은 실기기·운영 배포·백업 drill·법무입니다.
+**출시 판정은 NO-GO** 입니다. 코드가 원인인 차단은 전부 해소됐고, 운영 배포도 완료됐습니다. 남은 것은 실기기 검증·백업 drill·외부 도메인 재검증·법무·업체 데이터 입력입니다.

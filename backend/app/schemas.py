@@ -446,11 +446,13 @@ class ProfileSaveRequest(BaseModel):
 
 
 class ConsentSaveRequest(BaseModel):
-    """F-9: 약관/개인정보처리방침 동의 캡처."""
+    """F-9: 약관/개인정보처리방침 동의 캡처. age_confirmed(만 14세 이상, 약관 §1)는 별개 체크박스 —
+    필수 필드라 미포함(구 클라이언트)은 422, false 는 서버가 400 으로 거부해 가입이 진행되지 않는다."""
 
     user_id: UUID
     terms_version: str
     privacy_version: str
+    age_confirmed: bool
 
 
 class NicknameCheckResponse(BaseModel):

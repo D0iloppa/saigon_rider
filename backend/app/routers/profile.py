@@ -146,11 +146,18 @@ async def save_consent(
 ):
     if body.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
+    # 연령(만 14세 이상, 약관 §1) 미확인이면 동의 기록 자체를 거부 — 프론트 가드만으로는 부족.
+    if not body.age_confirmed:
+        raise HTTPException(status_code=400, detail="Age confirmation (14+) is required")
     user = await _get_user_or_404(body.user_id, db)
 
-    user.consent_agreed_at = datetime.now(UTC)
+    now = datetime.now(UTC)
+    user.consent_agreed_at = now
     user.consent_terms_version = body.terms_version
     user.consent_privacy_version = body.privacy_version
+    # 연령 확인도 시각·버전 증빙 — 연령 요건 문구가 이용약관 §1 이므로 버전은 terms_version.
+    user.consent_age_confirmed_at = now
+    user.consent_age_version = body.terms_version
     await db.commit()
     await db.refresh(user, ["rider_type"])
     return UserOut.model_validate(user)

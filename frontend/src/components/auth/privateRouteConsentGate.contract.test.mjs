@@ -66,3 +66,44 @@ test('ProfileSetup updates the local store immediately after consent is recorded
     'ProfileSetup no longer syncs the store after apiSaveConsent — re-entry would bounce right back',
   );
 });
+
+// 연령(만 14세 이상) 확인 — 약관/개인정보 동의와 "별개" 체크박스여야 하고(묶으면 개별 동의로
+// 인정받기 어렵다), 미체크면 시작/건너뛰기 모두 진행되지 않아야 한다.
+test('ProfileSetup has a separate age-confirmation checkbox that gates both submit and skip', () => {
+  const source = read('../../pages/auth/ProfileSetup.tsx');
+
+  // 별도 상태(ageConfirmed)로 관리되는 독립 체크박스 — agreed 하나로 뭉뚱그리면 안 된다.
+  assert.match(
+    source,
+    /useState.*\bsetAgeConfirmed\b|\bsetAgeConfirmed\b.*useState|const \[ageConfirmed, setAgeConfirmed\]/,
+    'age confirmation must be a separate state (ageConfirmed), not merged into the terms/privacy checkbox',
+  );
+  assert.match(
+    source,
+    /checked=\{ageConfirmed\}/,
+    'age confirmation checkbox missing — must render its own <input type="checkbox"> bound to ageConfirmed',
+  );
+  // 미체크 시 시작 버튼과 건너뛰기 모두 차단.
+  assert.match(
+    source,
+    /disabled=\{[^}]*!ageConfirmed[^}]*\}/,
+    'submit/skip must be disabled while ageConfirmed is false',
+  );
+  assert.match(
+    source,
+    /if \(!user\?\.id \|\| skipping \|\| !agreed \|\| !ageConfirmed\) return;/,
+    'handleSkip must bail out when ageConfirmed is false',
+  );
+});
+
+// 서버 계약: apiSaveConsent 가 age_confirmed 를 함께 보내야 서버가 동의를 기록한다
+// (서버는 age_confirmed 필수 — 프론트 가드만으로는 부족하므로 요청 본문에 반드시 포함).
+test('apiSaveConsent sends age_confirmed in the request body', () => {
+  const source = read('../../api/profile.ts');
+
+  assert.match(
+    source,
+    /age_confirmed:\s*ageConfirmed/,
+    'apiSaveConsent must include age_confirmed — the server rejects consent without it',
+  );
+});

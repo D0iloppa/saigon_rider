@@ -32,7 +32,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 ## ARCHITECTURE
 
 ### 절대 규약 (어기면 회귀)
-- **BFF 는 Engine DB 테이블 직접 접근 금지** — 오직 `backend/app/engine_client.py` HTTP API 만
+- **BFF 는 Engine DB 테이블 직접 접근 금지** — 오직 `backend/app/engine_client.py` HTTP API 만. 사례(2026-08-02): 탈퇴 파기 배치가 Engine `device_user_map`(FCM 토큰 포함)을 지울 때도 새 Engine 엔드포인트를 만들지 않고 **이미 있던** `DELETE /v1/device-map`(소유자 일치 시만 삭제)을 `engine_client` 로 호출해 해소했다 — 경계를 넘지 않고도 기존 API 재사용으로 충분한 경우가 많다
 - **Engine 코드는 naive `datetime.now()` 금지** — timezone-aware 강제
 - 모든 이미지는 `contents` 테이블 중개. 엔티티는 `*_content_id UUID` FK 만, 출력 시 `build_imgproxy_url()`. 레거시 `*_url` 은 read-only 폴백
 - 프론트 동적 이미지는 `<AppImage>` 래핑(`<img>` 직접 금지). 상단 여백은 `var(--status-bar-height)`(고정 px 금지)
@@ -52,7 +52,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - `database/init/NNN_*.sql` 번호순. 신규 볼륨은 `docker-entrypoint-initdb.d` 가 전건 실행
 - **기존 볼륨은 `docker-compose.yml` 의 `bff_migrate` 에 등록된 것만 적용된다** — `command`(`-f`) + `volumes` **양쪽에 등록 필수**. 등록 누락이 반복 결함이었다(F-20)
 - 적용 이력 원장 `schema_migrations`(`160_*.sql`) — `bff_migrate` 가 각 `-f` 뒤에 `-c "INSERT ... VALUES (NNN) ON CONFLICT DO NOTHING"` 을 인터리브. `ON_ERROR_STOP=1` 로 "성공한 파일만 기록"이 자동 보장. fresh-init 은 `-c` 없이 실행되므로 원장이 비는데, 빈 볼륨은 정의상 최신이라 **의도된 범위 한정**
-- 현재 최대 번호 **170**. `bff_migrate` 등록 범위 139~170
+- 현재 최대 번호 **171**. `bff_migrate` 등록 범위 139~171
 - 🔴 **fresh-init ≠ 라이브 스키마 사고**(2026-08-02): `database/init/` 전건 실행으로 재현한 스키마가 라이브 dev DB 와 어긋나 있었다(`users.deleted_at` 생성 SQL 부재·`badges.policy_id`(`033_*.sql`) 라이브 미적용·`flood_confirmation.lat/lng` NOT NULL 라이브 미반영). `169_schema_parity_backfill.sql` 로 역보강 + `backend/app/tests/test_schema_parity.py` 로 핵심 컬럼 존재를 정적 고정. **fresh-init 이 ERROR 0건인 것과 스키마가 실제와 일치하는 것은 다른 문제**임을 명심 — 게이트 통과를 스키마 파리티의 증거로 삼지 말 것
 
 ## PATTERNS
@@ -103,7 +103,7 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
   - 🔴 **E2E 는 "배포본이 소스와 다르다"를 잡는 유일한 층이다.** 도입 첫 실행에서 구동 중이던 `saigon_frontend` 컨테이너가 소스보다 오래된 빌드라 **동의 게이트가 dev 에서 아예 동작하지 않던 것**을 발견했다. 프론트 변경 후에는 `docker compose --env-file .env up --build -d frontend` 를 잊지 말 것
   - 📌 **교훈(2026-08-02, 같은 사고 두 번째)**: 탈퇴 계정 로그인 시 토스트에 409 `restore_token` 이 원문 노출된 실기기 사고를 조사한 결과, 근본 원인은 코드가 아니라 **배포**였다 — 실행 중이던 `saigon_frontend` 번들이 409 인터셉트 커밋보다 **먼저 빌드된 구버전**이었다(배포 번들에 `account_deleted` 0건 실측). **이 저장소에서 "코드가 맞는데 동작이 다르면 배포 번들부터 의심하라."** 프론트 동작 검증은 반드시 **재빌드 후** 할 것
   - 브라우저에서는 `native.platform === 'web'` 이라 강제 업데이트 판정 경로가 **원천적으로 실행되지 않는다** — E2E 로 검증 불가(실기기 필요, B-1)
-기준선(2026-08-02): backend **357** · engine 66 · tsc 0 error · eslint 0 errors/**249** warnings · `.mjs` **17**(전건 통과). ruff check/format 통과. **fresh DB(`database/init` 전건) ↔ dev 라이브 schema diff: fresh-only 0건, live-only는 전부 Engine/Alembic 소유(고아 0건)**, `withdrawn_member_archive` 양측 8컬럼 일치.
+기준선(2026-08-02): backend **366** · engine 66 · tsc 0 error · eslint 0 errors/**249** warnings · `.mjs` **17**(전건 통과). ruff check/format 통과. **fresh DB(`database/init` 전건) ↔ dev 라이브 schema diff: fresh-only 0건, live-only는 전부 Engine/Alembic 소유(고아 0건)**, `withdrawn_member_archive` 양측 8컬럼 일치.
 - **CI e2e job**: `.github/workflows/ci.yml` 에 `e2e` job 추가(**`pull_request` 에서만** 동작 — push 시엔 안 돈다). Playwright 스펙은 `frontend/e2e/*.spec.ts`(위 baseURL/세션 방식과 동일).
 
 ## TRADEOFFS
@@ -133,7 +133,8 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 
 ### fail-open 이 필요한 곳 (엄격히 지킬 것)
 - **강제 업데이트**(F-19): 판정 불가 4케이스(서버 조회 실패·플랫폼 레코드 없음·설치본 `unknown`·버전 파싱 실패) 모두 **차단하지 않는다**. 넓히면 전 사용자가 앱에 못 들어온다. 🔴 **판정 자체은 유지, 버전 취득 경로는 교체됨(2026-08-02)**: `@capacitor/app` 은 `package.json`·`native.ts` 에 있었으나 **양 네이티브 브리지에 모두 없었다**(Android `MainActivity.java` 미등록, iOS `Podfile` 엔 `@capacitor/app`·`@capacitor/browser` **[제거됨]** 주석 — `@capacitor/browser` 의 `SFSafariViewController` 가 커스텀 스킴 OAuth 콜백을 못 받아 둘 다 제거하고 커스텀 `WebAuthPlugin` 을 씀). 그 결과 `App.getInfo()` 가 throw → catch 삼킴 → `appVersion='unknown'` → fail-open 으로 **F-19 가 실기기에서 영영 발동하지 않았다.** 조치: 이미 등록돼 동작 중인 커스텀 `Device` 플러그인에 `getAppVersion()` 추가(Android `DevicePlugin.java`, iOS `DevicePlugin.swift`), `native.ts` 가 그걸 쓰도록 교체, 유령 의존성 `@capacitor/app` 은 `package.json` 에서 제거. fail-open 불변식은 무변경(`appVersionForceUpdateFailOpen.contract.test.mjs` 6건). ⚠️ **잔여**: 네이티브 코드가 미컴파일(Android SDK·Xcode 없음)이라 실기기 발동 확인 못 함. `npx cap sync` 는 Capacitor CLI 8 이 Node ≥22 를 요구해 이 환경(Node 20)에선 실행 불가(이 vendoring 구조에선 어차피 대부분 무의미). **`native/android`·`native/ios` 서브모듈이 dirty 상태로 커밋되지 않았다.**
-- **동의 미기록 게이트**(F-9): `PrivateRoute` 의 `user?.consentAgreedAt === null` 는 **엄격 비교**여야 한다. `!user?.consentAgreedAt` 로 바꾸면 `undefined`(판정 불가)까지 걸려 전 사용자가 동의 화면에 갇힌다. `privateRouteConsentGate.contract.test.mjs` 가 이 회귀를 감시한다
+- **동의 미기록 게이트**(F-9): `PrivateRoute` 의 `user?.consentAgreedAt === null` 는 **엄격 비교**여야 한다. `!user?.consentAgreedAt` 로 바꾸면 `undefined`(판정 불가)까지 걸려 전 사용자가 동의 화면에 갇힌다. `privateRouteConsentGate.contract.test.mjs` 가 이 회귀를 감시한다. 연령 확인 체크박스(위 개인정보 파기 절 참조)를 `ProfileSetup` 에 얹으면서도 **`PrivateRoute` 자체는 무변경** — 이 엄격 `=== null` 불변식을 그대로 유지했다(재확인, 2026-08-02)
+- **오프사이트 백업 미설정**(2026-08-02): `backup_offsite.py` 는 env 미설정 시 완전 무동작(fail-open) — 로컬 백업은 정상 성공하고 업로드만 건너뛴다. 업로드 실패도 경보만 하고 백업 잡을 실패시키지 않는다(`ZALO_API_PROXY`·`WITHDRAWN_HASH_PEPPER` 와 같은 관례). 아래 백업·복원 절 참조
 - **검색**: 번역이 없는 행이 검색 결과에서 사라지면 안 된다(원문은 항상 매칭 대상이어야 함)
 
 ### 업체 데이터 유입 (2026-08-02 대표 결정)
@@ -159,12 +160,27 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
   - 1년 경과분 파기는 `purge_deleted_accounts.py`의 **별도 단계**(기존 30일 개인데이터 파기와 미혼합, 반환 dict에 `archive_purged_count` 별도 키).
   - 운영 조회: `GET /admin/api/users/withdrawn-check` — 해시만 저장돼 운영자가 직접 SQL로 못 찾으므로 서버가 해시해 매칭한다. 전화번호는 `_normalize_vn_phone`으로 E.164 정규화 후 해시(저장 형식과 일치). pepper 미설정 시 503.
   - **개인정보처리방침 §4 개정 필요** — 현재 공표 문안은 "식별 정보 즉시 비식별화 / 30일 내 파기 / 보존분은 식별정보 제거 형태"이고 **탈퇴회원 보관기간 명시가 없다.** ko/en/vi 3개 로케일에 `[법무 검토 전 초안]` 표기로 문장을 추가했으며 **법무 검토(C-1) 대상**이다.
+- **파기 범위 확대 — 방침 문안과 코드 일치(2026-08-02)**: 공표 방침 §4 는 파기를 약속하는데 실제 배치(`backend/app/jobs/purge_deleted_accounts.py`)에 빠져 있던 두 가지를 채웠다.
+  - **FCM 토큰은 BFF DB 에 없다.** Engine DB `device_user_map.fcm_token` 에만 있어 "FCM 토큰"과 "Engine 기기 매핑"은 같은 행 하나다. 이미 있던 `DELETE /v1/device-map`(소유자 일치 시만 삭제)을 `engine_client` 로 호출해 해소했다(위 BFF↔Engine 경계 규약대로 새 Engine 엔드포인트는 만들지 않았다). 실패 시 로그만 남기고 계속 진행 — 그 유저는 `users` 행이 남아 다음 실행에서 다시 후보가 되므로 재시도로 자가 치유된다.
+  - **`contents` 이미지 파기 범위는 "본인 업로드 전부"가 아니라 방침 §4 문언과 정확히 일치**시켰다: 프로필 사진(`users.avatar_content_id`)과 피드 게시물 사진(`feed_posts.image_content_id`, `feed_post_images`)**만**. 매물·DM·업체 서류/사진·리뷰 사진은 방침이 **보존을 공표**한 엔티티에 귀속돼 지우지 않는다 — 전부 지우면 오히려 새 불일치가 생긴다. 가드는 `owner_type='user' AND owner_id=:uid` 이중.
+  - 🔴 **순서 주의(회귀 금지)**: content_id 수집 SELECT 를 **`feed_posts` DELETE 보다 먼저** 실행해야 한다 — `feed_post_images` 가 CASCADE 로 먼저 사라지면 참조를 잃는다. 파일 unlink 는 커밋 후 best-effort(`missing_ok=True`) — 실패해도 `contents` 행 파기를 우선한다.
+- **연령 확인(2026-08-02, 대표 결정: 가입 시 체크박스)**: 약관 §1 "만 14세 이상"에 실제 절차가 없던 것을 F-9 동의 캡처(`ProfileSetup` + `POST /profile/consent` + `PrivateRoute` 게이트)에 항목 하나를 얹어 해소했다. 새 화면을 만들지 않았다.
+  - 약관·개인정보 동의와 **별개 체크박스**(`ageConfirmed`) — 묶으면 개별 동의로 인정받기 어렵다.
+  - 서버측 강제: `ConsentSaveRequest.age_confirmed` 필수 bool(미포함 422), `false` 면 **400** 으로 거부하고 어떤 동의 필드도 기록·commit 전에 중단한다. 프론트 가드만으로는 부족하다는 판단.
+  - 기록: `consent_age_confirmed_at`(시각) + `consent_age_version`(연령 문구가 약관 §1 이므로 `terms_version` 기준). 마이그레이션 `database/init/171_age_consent_capture.sql`.
+  - 🔴 **소급 backfill 없음** — 증빙 없는 동의 위조 금지(F-9 과 같은 근거). 171 은 nullable ADD COLUMN 만이고 UPDATE 가 없다. 기존 계정은 다음 로그인 시 이 화면을 거쳐 자연히 수집된다.
 
 ### 백업·복원 (게이트 9 / B-5, 2026-08-02)
 - 격리 임시 컨테이너(`saigon_db_restore_drill`, 신규 볼륨)에 실제 복원 리허설 수행, **`saigon_db` 무접촉**(덤프는 `docker exec` stdout 읽기, 쓰기는 임시 컨테이너에만). 검증 기준은 "ERROR 0건"에서 멈추지 않고 **schema diff 0(1266컬럼) + 행수 diff 0(139테이블)** 양방향 대조까지 — 과거 `users.deleted_at` 드리프트 사고 재발 방지 기준
 - 실측(dev 780K 덤프): 덤프 0.99초 · 복원 4.07초. **RPO = 최대 24시간**(백업 주기 일 1회, 02:30 ICT — 트래픽 낮은 새벽, `purge_deleted_accounts` 03:10 보다 앞). **RTO ≈ 10초**(dev 규모, 다운로드 불요·로컬 컨테이너 대 로컬 컨테이너). ⚠️ **dev 규모 실측이라 운영 규모(더 큰 행수·인덱스·큰 오브젝트, 오프사이트일 경우 네트워크 전송)로 외삽 금지**
 - 신규: `tools/restore_db.sh`(기본 dry-run, `--commit` 필요, `saigon_db`·`*prod*` 컨테이너명 **거부** 가드), `backend/app/jobs/backup_db.py`(기존 APScheduler 에 등록 — 새 cron 인프라 도입 안 함), `backend/Dockerfile` 에 `postgresql-client`, `docker-compose.yml` 의 `bff` 에 PG 환경변수 + `./backups` 볼륨(`.gitignore` 대상이라 덤프 미커밋)
 - **대표 결정 대기**: 오프사이트 저장 위치, 백업 주기, 운영 규모 리허설
+- **오프사이트 암호화 백업(2026-08-02, 게이트 9 잔여 해소)**: `backend/app/services/backup_offsite.py` — `openssl enc -aes-256-cbc -pbkdf2` 로 **로컬 암호화 후** S3 호환 업로드(boto3). 벤더 중립이라 AWS S3·R2·MinIO 어디든 코드 변경 없이 붙는다.
+  - 키는 `-pass env:` 로 전달 — 커맨드라인·`ps aux` 에 노출되지 않는다.
+  - 미설정 시 완전 무동작(fail-open) — 위 "fail-open 이 필요한 곳" 절 참조. 업로드 실패는 경보만 하고 백업 잡을 실패시키지 않는다
+  - env 6종(`BACKUP_ENCRYPTION_KEY`·`BACKUP_S3_*`)을 `.env`/`.env.example` 양쪽에 **빈 값**으로 추가(키셋 동일 규약)
+  - 🔴 **`BACKUP_ENCRYPTION_KEY` 분실 = 오프사이트 백업 영구 복구 불가.** `.env` 와 별도 보관 필요
+  - 검증: MinIO 임시 컨테이너로 암호화→업로드→다운로드→복호화 후 **SHA-256 바이트 동일** 실증(컨테이너 제거 확인). 원격 삭제 코드는 위험해서 넣지 않았다 — 원격 보존은 버킷 lifecycle
 
 ### fail-closed 가 필요한 곳
 - **OpenAPI 무인증 공개 차단**(게이트 6, 2026-08-02): `docs_url`/`redoc_url=None` 은 이미 설정돼 있었지만 **커스텀 라우트(`/api/docs`·`/api/redoc`)와 `openapi_url` 이 무조건 등록**돼 있어 무력화된 채 운영 `app.saigon-rider.com` 이 무인증 200 으로 전체 API 표면을 공개하고 있었다. 조치: `backend/app/main.py` 에 `_DOCS_ENABLED` 게이트 — **fail-safe 화이트리스트**(`APP_ENV` 가 `{development, dev, local, test}` 에 없으면, 즉 미설정·오타 포함 **닫힌다**). ⚠️ **이 저장소엔 `APP_ENV` 판정이 여러 벌 있고 의미가 다르다**: `sms_client.py:24`·`routers/app_version.py:27` 은 **fail-open**("production 아니면 dev" — 오타 하나로 운영에서 열린다), `routers/auth.py`(AUTH-10)와 `main.py` 는 **fail-safe 화이트리스트**다. **보안 게이트는 반드시 후자를 쓸 것.** 판정 통합은 미완(별건). 회귀 테스트 `backend/app/tests/test_openapi_exposure.py` 4건(수정 전 3건 — 운영·미설정·오타 — 실패 실증).

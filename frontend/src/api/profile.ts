@@ -38,14 +38,21 @@ export async function apiSaveProfileSetup(
 
 // F-9: 가입 시 약관/개인정보처리방침 동의 캡처 — ProfileSetup(신규가입 온보딩)에서만 호출.
 // 응답의 consent_agreed_at 을 store 에 반영해야 재진입 게이트(PrivateRoute)가 바로 통과된다.
+// age_confirmed(만 14세 이상, 약관 §1)는 별개 체크박스 — 서버가 없거나 false 면 동의 기록을 거부한다.
 export async function apiSaveConsent(
   userId: string,
   termsVersion: string,
   privacyVersion: string,
+  ageConfirmed: boolean,
 ): Promise<UserDto> {
   return api.realFetch<UserDto>('/profile/consent', {
     method: 'POST',
-    body: JSON.stringify({ user_id: userId, terms_version: termsVersion, privacy_version: privacyVersion }),
+    body: JSON.stringify({
+      user_id: userId,
+      terms_version: termsVersion,
+      privacy_version: privacyVersion,
+      age_confirmed: ageConfirmed,
+    }),
   });
 }
 

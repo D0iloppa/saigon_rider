@@ -163,6 +163,9 @@ class User(Base):
     consent_agreed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consent_terms_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     consent_privacy_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # 연령(만 14세 이상) 확인 — 약관/개인정보와 별개 체크박스로 받는다 (171). 버전은 약관 §1 기준(terms_version).
+    consent_age_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consent_age_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class UserOtp(Base):

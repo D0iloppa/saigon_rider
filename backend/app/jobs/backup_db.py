@@ -10,8 +10,9 @@ APScheduler(main.py lifespan)에 얹는다 — 별도 cron 인프라를 새로 �
 ./backups 에 마운트 — tools/backup_db.sh 산출물과 동일 디렉터리, 자동/수동 백업이 뒤섞여도
 파일명에 타임스탬프가 있어 충돌하지 않는다).
 
-오프사이트 반출·암호화는 이 잡의 범위 밖이다 (ai-docs/260802_backup_restore_drill.md 참조 —
-저장 위치는 대표 결정 대기).
+로컬 백업 완료 뒤 services/backup_offsite.upload_offsite() 로 오프사이트(S3 호환) 암호화
+업로드를 시도한다 — 미설정 시 건너뜀(fail-open), 실패해도 이 잡 자체는 실패시키지 않는다
+(ai-docs/260802_backup_restore_drill.md §5 참조).
 """
 
 import asyncio
@@ -27,6 +28,7 @@ RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "14"))
 
 
 async def run_backup() -> bool:
+    from ..services.backup_offsite import upload_offsite
     from ..services.ops_alerts import send_ops_alert
 
     pg_host = os.getenv("PGHOST")
@@ -59,6 +61,10 @@ async def run_backup() -> bool:
         return False
 
     log.info("backup_db: 백업 완료 %s (%d bytes)", out_file, out_file.stat().st_size)
+
+    # 오프사이트 암호화 업로드 — 미설정 시 건너뜀, 실패해도 로컬 백업 성공은 그대로 유지
+    if not await upload_offsite(out_file):
+        await send_ops_alert("DB 백업 오프사이트 업로드 실패", key="backup_db_offsite_failure")
 
     # 보존정책: RETENTION_DAYS 초과 덤프 삭제 (tools/backup_db.sh 와 동일 정책)
     cutoff = datetime.now().timestamp() - RETENTION_DAYS * 86400

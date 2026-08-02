@@ -52,6 +52,8 @@ export default function ProfileSetup() {
   const [nickStatus, setNickStatus] = useState<NicknameCheckStatus>('idle');
   // F-9: 약관/개인정보처리방침 동의 없이는 가입(온보딩)이 진행되지 않는다.
   const [agreed, setAgreed] = useState(false);
+  // 연령(만 14세 이상, 약관 §1) 확인 — 약관/개인정보 동의와 별개 체크박스 (묶으면 개별 동의로 인정받기 어렵다).
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 하단 CTA 버튼이 키보드에 가려진다 —
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
@@ -81,10 +83,10 @@ export default function ProfileSetup() {
     nickname.length >= 2 && nickname.length <= 20 && style && nickStatus !== 'taken' && nickStatus !== 'checking';
 
   const handleSkip = async () => {
-    if (!user?.id || skipping || !agreed) return;
+    if (!user?.id || skipping || !agreed || !ageConfirmed) return;
     setSkipping(true);
     try {
-      const consented = await apiSaveConsent(user.id, CONSENT_DOCUMENT_VERSION, CONSENT_DOCUMENT_VERSION);
+      const consented = await apiSaveConsent(user.id, CONSENT_DOCUMENT_VERSION, CONSENT_DOCUMENT_VERSION, ageConfirmed);
       // PrivateRoute 가 서버 값(consentAgreedAt)으로 게이트하므로, 로컬 store 도 즉시 반영해야
       // navigate('/home') 후 바로 되돌아오는 왕복(bounce)이 나지 않는다.
       if (consented.consent_agreed_at) markConsentAgreed(consented.consent_agreed_at);
@@ -117,6 +119,10 @@ export default function ProfileSetup() {
       toast.error(t('profileSetup.errorConsentRequired'));
       return;
     }
+    if (!ageConfirmed) {
+      toast.error(t('profileSetup.errorAgeRequired'));
+      return;
+    }
 
     if (!user?.id) {
       toast.error(t('common.errorUnexpected'));
@@ -125,7 +131,7 @@ export default function ProfileSetup() {
 
     setSaving(true);
     try {
-      const consented = await apiSaveConsent(user.id, CONSENT_DOCUMENT_VERSION, CONSENT_DOCUMENT_VERSION);
+      const consented = await apiSaveConsent(user.id, CONSENT_DOCUMENT_VERSION, CONSENT_DOCUMENT_VERSION, ageConfirmed);
       if (consented.consent_agreed_at) markConsentAgreed(consented.consent_agreed_at);
       await apiSaveProfileSetup(user.id, nickname, style);
       setProfile(nickname, style);
@@ -147,7 +153,7 @@ export default function ProfileSetup() {
           <span className={`${styles.dot} ${styles.dotActive}`} />
           <span className={styles.dot} />
         </div>
-        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping || !agreed}>
+        <button className={styles.skipBtn} onClick={handleSkip} disabled={skipping || !agreed || !ageConfirmed}>
           {t('profileSetup.skip')}
         </button>
       </div>
@@ -217,11 +223,21 @@ export default function ProfileSetup() {
             {t('profileSetup.consentSuffix')}
           </span>
         </label>
+
+        {/* 연령(만 14세 이상) 확인 — 약관/개인정보 동의와 별개 체크박스 (개별 동의 요건) */}
+        <label className={styles.consentRow}>
+          <input
+            type="checkbox"
+            checked={ageConfirmed}
+            onChange={(e) => setAgeConfirmed(e.target.checked)}
+          />
+          <span>{t('profileSetup.consentAgeLabel')}</span>
+        </label>
       </div>
 
       {/* Bottom CTA — gradient fade */}
       <div className={styles.bottomCta}>
-        <Button onClick={handleSubmit} disabled={!isValid || saving || !agreed}>
+        <Button onClick={handleSubmit} disabled={!isValid || saving || !agreed || !ageConfirmed}>
           {t('profileSetup.startBtn')}
         </Button>
       </div>

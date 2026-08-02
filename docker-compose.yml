@@ -210,6 +210,10 @@ services:
       - "/migrations/170_withdrawn_member_archive.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (170) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/171_age_consent_capture.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (171) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -243,6 +247,7 @@ services:
       - ./database/init/168_business_profile_owner_nullable.sql:/migrations/168_business_profile_owner_nullable.sql:ro
       - ./database/init/169_schema_parity_backfill.sql:/migrations/169_schema_parity_backfill.sql:ro
       - ./database/init/170_withdrawn_member_archive.sql:/migrations/170_withdrawn_member_archive.sql:ro
+      - ./database/init/171_age_consent_capture.sql:/migrations/171_age_consent_capture.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -287,6 +292,13 @@ services:
       - PGUSER=${DB_USER}
       - PGPASSWORD=${DB_PASSWORD}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-14}
+      # 오프사이트 암호화 백업 (게이트9 B-5) — 미설정 시 로컬 백업만 수행하고 업로드는 건너뜀 (fail-open)
+      - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY:-}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_ENDPOINT_URL=${BACKUP_S3_ENDPOINT_URL:-}
+      - BACKUP_S3_REGION=${BACKUP_S3_REGION:-}
+      - BACKUP_S3_ACCESS_KEY_ID=${BACKUP_S3_ACCESS_KEY_ID:-}
+      - BACKUP_S3_SECRET_ACCESS_KEY=${BACKUP_S3_SECRET_ACCESS_KEY:-}
       - ENGINE_BASE_URL=http://engine:8090
       # 기본값 금지 — 비어있으면 BFF↔Engine 서비스 인증이 무력화(bypass)되는 사고 방지 (fail-fast)
       - ENGINE_SERVICE_KEY=${ENGINE_SERVICE_KEY:?ENGINE_SERVICE_KEY missing in .env}

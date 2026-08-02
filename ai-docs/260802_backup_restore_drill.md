@@ -104,9 +104,11 @@
 - 신규 선택적 env: `BACKUP_RETENTION_DAYS`(기본 14) — `.env` 미설정 시 기본값 사용이라
   `.env.example` 키셋 동기화 규칙 위반 아님(다른 `*_:-` 패턴과 동일).
 
-## 5. 오프사이트·암호화 — 대표 결정 필요 (미실행)
+## 5. 오프사이트·암호화 — 구현 완료 (2026-08-02 추가)
 
-**여기서 실제 버킷/자격증명을 만들지 않았다.** 선택지와 각각 필요한 작업만 정리한다.
+**대표 결정**: 저장 위치는 **S3 호환**(AWS S3 / Cloudflare R2 / MinIO 등 무엇이든 같은 코드로
+붙는다 — `boto3` 의 `endpoint_url` 오버라이드만 다름). 아래는 그 이전에 정리했던 선택지
+비교(참고용, 이미 S3 호환으로 결정됐으므로 GCS·외부디스크 행은 미실행 상태로 남는다).
 
 | 선택지 | 필요 작업 | 비용(추정) | 비고 |
 |---|---|---|---|
@@ -122,13 +124,102 @@
   추가해 꽂는 구조로 이미 분리해뒀다 — 코드는 이 정도까지만 준비하고 실제 자격증명/버킷은
   대표 결정 후 별도 작업으로 만든다.
 
+### 5-1. 구현 — 암호화 도구 선택 근거
+
+**`openssl enc -aes-256-cbc -pbkdf2`** 를 선택했다 (`age`, `gpg` 대비):
+
+- `age` 는 이 환경(dev 컨테이너 base image, `python:3.12-slim`)에 **설치돼 있지 않다**
+  (`which age` → not found). 새로 apt 패키지를 추가하는 것보다 이미 있는 도구를 쓰는 게
+  더 단순하다.
+- `gpg` 는 있지만(`/usr/bin/gpg`), `openssl` 은 `python:3.12-slim` 베이스 이미지에 **기본
+  포함**돼 있어(Debian 기반 이미지의 표준 구성요소) 추가 설치가 전혀 필요 없다. 이 저장소는
+  이미 여러 곳에서 `openssl rand -hex 32` 관례(`.env.example` 의 `IMGPROXY_KEY`,
+  `ENGINE_SERVICE_KEY` 등 주석)를 쓰고 있어 도구 일관성도 맞는다.
+- 대칭키 1개로 전 백업을 암호화하는 요구사항(요구사항 4 — "키 분실 = 백업 전손")에는
+  `openssl enc` 의 패스프레이즈 기반 대칭암호가 정확히 맞는 모델이다. `-pbkdf2` 로 키
+  유도를 강제해(기본 EVP_BytesToKey 대신) 사전공격에 더 강하게 했고, `-salt` 로 매 백업마다
+  다른 ciphertext 가 나오게 했다(같은 평문·같은 키라도 salt 가 랜덤).
+- 패스프레이즈는 커맨드라인 인자(`-pass pass:...`)로 넘기지 않고 **`-pass env:BACKUP_ENCRYPTION_KEY`**
+  로 넘긴다 — 커맨드라인 인자는 `ps aux` 로 다른 프로세스에서 노출될 수 있어 회피했다.
+
+구현: `backend/app/services/backup_offsite.py`
+- `_encrypt()`: 로컬 gzip 덤프 → `<파일명>.enc` (openssl 서브프로세스, 실패 시 None 반환).
+- `_s3_put()`: `boto3.client("s3", endpoint_url=...)` 로 업로드 — `endpoint_url` 이 비어있으면
+  AWS 기본 엔드포인트, 채워지면 R2/MinIO 등 어떤 S3 호환 서비스로도 동일 코드로 붙는다.
+  업로드 성공/실패 여부와 무관하게 로컬 `.enc` 임시파일은 `finally` 로 항상 삭제(디스크에
+  평문 옆에 암호문이 계속 쌓이는 것 방지 — 원본 gzip 덤프는 기존 보존정책대로 유지).
+- `upload_offsite()`: `BACKUP_S3_BUCKET`/`BACKUP_ENCRYPTION_KEY` 둘 중 하나라도 비어있으면
+  로그만 남기고 `True`(무동작 성공) 반환 — 요구사항 2 의 fail-open. 암호화·업로드 어느
+  단계든 실패하면 `False` 반환하고, 호출부(`run_backup()`)는 이때만 `send_ops_alert` 를
+  보내되 **백업 잡 자체는 계속 `True`(성공)를 반환** — 로컬 백업은 오프사이트 업로드와
+  무관하게 이미 끝나 있기 때문이다.
+- 신규 의존성: `boto3>=1.34` (`backend/requirements.txt`) — S3 호환 API 서명(SigV4)을
+  직접 구현하는 대신 표준 SDK 사용(과설계·재발명 방지).
+
+### 5-2. 검증 — 라운드트립 실증 (2026-08-02, dev 격리 환경)
+
+실제 클라우드 자격증명 없이 검증하기 위해 **로컬 MinIO 컨테이너**(`minioverify`, `saigon-net`
+네트워크, S3 API 호환)를 임시로 띄워 실증했다. 검증 후 **컨테이너·볼륨 완전 제거 확인**
+(`docker ps -a` 에 잔존 없음).
+
+| 단계 | 결과 |
+|---|---|
+| 1. env 미설정 상태에서 `upload_offsite()` 호출 | `True` 반환, "BACKUP_S3_BUCKET/BACKUP_ENCRYPTION_KEY 미설정 — 오프사이트 업로드 건너뜀" 로그만, 업로드 시도 없음 (요구사항 2 확인) |
+| 2. env 설정(`BACKUP_S3_BUCKET=backup-verify`, `BACKUP_ENCRYPTION_KEY=test-passphrase-...`, `BACKUP_S3_ENDPOINT_URL=http://minioverify:9000` 등) 후 동일 호출 | `True` 반환, 암호화 → MinIO 업로드 성공 |
+| 3. MinIO 에서 업로드된 `testdump.sql.gz.enc` 를 다시 다운로드 | 성공, 객체 1개 확인 |
+| 4. 다운로드한 `.enc` 를 `openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_ENCRYPTION_KEY` 로 복호화 | 성공 |
+| 5. 복호화 결과 SHA-256 vs 원본 평문 SHA-256 | **완전 일치**(`a158f750aacf46e8f3667dd2931cd6e7ab51ddd76ad3e027a313bf273356c646`) — 암호화→업로드→다운로드→복호화 라운드트립 전 과정에서 바이트 손상 없음 확인 |
+
+이것이 이 과업에서 가장 중요한 검증 기준(요구사항 6)이며 실제로 통과했다.
+
+### 5-3. 복호화 절차 (문서화, 필수)
+
+오프사이트 백업을 실제로 되찾을 때:
+
+```bash
+# 1) 버킷에서 암호화된 객체를 내려받는다 (예: aws-cli 또는 boto3, 버킷·자격증명은 대표 보관)
+aws s3 cp s3://<BACKUP_S3_BUCKET>/backup_<ts>.sql.gz.enc ./backup_<ts>.sql.gz.enc \
+  --endpoint-url "$BACKUP_S3_ENDPOINT_URL"   # AWS 기본 엔드포인트면 --endpoint-url 생략
+
+# 2) BACKUP_ENCRYPTION_KEY 로 복호화 (커맨드라인에 키를 직접 쓰지 않는다 — env 로 전달)
+export BACKUP_ENCRYPTION_KEY='<보관해둔 패스프레이즈>'
+openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_ENCRYPTION_KEY \
+  -in backup_<ts>.sql.gz.enc -out backup_<ts>.sql.gz
+
+# 3) 이후는 기존 로컬 백업과 동일 — tools/restore_db.sh 참조 (격리된 임시 컨테이너에 복원)
+```
+
+**이 절차가 실행 불가능해지는 유일한 경우는 `BACKUP_ENCRYPTION_KEY` 분실이다** — 대칭키
+1개로 전체 오프사이트 백업을 암호화하므로, 키를 잃으면 그 키로 만든 모든 오프사이트 백업이
+영구 복구 불가능해진다. `.env.example`/`.env` 의 주석과 `backup_offsite.py` 모듈 docstring
+양쪽에 이 경고를 남겼다.
+
+### 5-4. 보존 정책 — 로컬 vs 원격
+
+- **로컬**: 기존 `BACKUP_RETENTION_DAYS`(기본 14일) 그대로 — 변경 없음.
+- **원격(오프사이트)**: 코드로 원격 객체를 삭제하는 로직은 **추가하지 않았다** — 버킷을
+  잘못 지정하거나 로직에 버그가 있으면 오프사이트 백업 전체가 조용히 삭제될 수 있는
+  위험이 삭제 코드 자체보다 크다고 판단했다(과업 지시 "원격 객체를 지우는 코드는 위험하니
+  신중하라"). 대신 **버킷 lifecycle 정책**(S3/R2/MinIO 모두 지원하는 기능, 예: "N일 지난
+  객체 자동 만료")으로 원격 보존을 관리하는 것을 권장한다 — 애플리케이션 코드가 아니라
+  스토리지 자체의 선언적 정책이라 버그로 인한 오삭제 위험이 없고, 버킷 생성 시 대표/운영이
+  한 번 설정해두면 끝난다.
+
 ## 6. 대표 결정이 필요한 것
 
-1. **오프사이트 저장 위치** — S3 / GCS / 외부 디스크(VPS 등) 중 무엇으로 할지, 신규 계정
-   개설 여부와 비용 승인.
-2. **백업 주기(RPO) 승인** — 현재 일 1회(RPO 24h)로 구현. 더 짧게 필요하면(예: 6시간)
+1. **오프사이트 저장 위치는 S3 호환으로 결정 완료** — 남은 것은 **실제 버킷 생성 +
+   자격증명 발급**(AWS S3 / Cloudflare R2 / MinIO self-host 중 택1) 뿐이다. 발급 후
+   `.env` 의 `BACKUP_S3_BUCKET`/`BACKUP_S3_ENDPOINT_URL`/`BACKUP_S3_REGION`/
+   `BACKUP_S3_ACCESS_KEY_ID`/`BACKUP_S3_SECRET_ACCESS_KEY`/`BACKUP_ENCRYPTION_KEY` 6개
+   키만 채우면 다음 새벽 백업부터 즉시 오프사이트 업로드가 시작된다(코드 변경 불필요).
+2. **`BACKUP_ENCRYPTION_KEY` 보관** — `openssl rand -base64 32` 등으로 생성한 뒤 **`.env`
+   와는 별도로**(비밀번호 관리자·대표 개인 보관 등) 이중 보관 필수. 이 키를 잃으면
+   그 키로 만든 모든 오프사이트 백업이 영구 복구 불가하다(§5-3).
+3. **원격 버킷 lifecycle(보존기간) 설정** — 버킷 생성 시 대표/운영이 스토리지 콘솔에서
+   설정(§5-4). 코드 변경 불필요.
+4. **백업 주기(RPO) 승인** — 현재 일 1회(RPO 24h)로 구현. 더 짧게 필요하면(예: 6시간)
    `CronTrigger` 인자만 바꾸면 되는 단순 변경이라 승인만 나면 즉시 반영 가능.
-3. **운영 규모 실 복구 훈련** — 이 문서의 RTO 실측은 dev 소규모 데이터 기준이다. 운영
+5. **운영 규모 실 복구 훈련** — 이 문서의 RTO 실측은 dev 소규모 데이터 기준이다. 운영
    반영 전(또는 반영 직후 트래픽 낮은 시간) 운영 규모 데이터로 최소 1회 실제 restore drill을
    별도로 수행해 RTO 를 재산정할 필요가 있다 — 이번 과업 범위(dev-only)를 벗어나 대표 승인
    후 별도 일정으로 진행.
@@ -136,10 +227,16 @@
 ## 7. 변경/추가 파일
 
 - `tools/restore_db.sh` (신규) — 복원 스크립트, dry-run 기본 + 운영 DB 가드.
-- `backend/app/jobs/backup_db.py` (신규) — 정기백업 잡 (pg_dump, 보존정책, ops_alert 경보).
+- `backend/app/jobs/backup_db.py` (신규, 이후 오프사이트 업로드 호출 추가) — 정기백업 잡
+  (pg_dump, 보존정책, ops_alert 경보, `upload_offsite()` 호출).
+- `backend/app/services/backup_offsite.py` (신규, 2026-08-02) — 오프사이트 암호화 업로드
+  (openssl 암호화 + boto3 S3 호환 업로드, fail-open).
 - `backend/app/main.py` — APScheduler 에 `backup_db` 잡 등록 (02:30 ICT).
 - `backend/Dockerfile` — `postgresql-client` 추가.
-- `docker-compose.yml` — `bff` 서비스에 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD/BACKUP_RETENTION_DAYS` env + `./backups:/app/backups` 볼륨.
-- `ai-docs/260802_backup_restore_drill.md` (이 문서, 신규).
+- `backend/requirements.txt` — `boto3>=1.34` 추가 (2026-08-02).
+- `docker-compose.yml` — `bff` 서비스에 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD/BACKUP_RETENTION_DAYS`
+  env + `./backups:/app/backups` 볼륨, (2026-08-02) 오프사이트 6개 env 추가.
+- `.env` / `.env.example` (2026-08-02) — 오프사이트 백업 6개 키 추가(둘 다 빈 값, 키셋 동기화).
+- `ai-docs/260802_backup_restore_drill.md` (이 문서, §5 이하 2026-08-02 갱신).
 
 커밋은 하지 않았다(작업 지시에 따름) — 작업 트리에만 존재.

@@ -51,11 +51,27 @@ class PurgeEligibilityTest(unittest.TestCase):
 class PurgeBatchExecutionTest(unittest.IsolatedAsyncioTestCase):
     """실제 배치 실행이 위 안전장치를 지키며 소유 데이터 테이블만 지우는지 검증."""
 
-    def _make_session(self, rows):
-        result = MagicMock()
-        result.all.return_value = rows
+    def setUp(self):
+        # Engine device-map(FCM 토큰 포함) 파기는 HTTP 경유 — 테스트에서 네트워크 차단.
+        self.engine = MagicMock(
+            lookup_device_map=AsyncMock(return_value={}),
+            delete_device_map=AsyncMock(return_value={"removed": True}),
+        )
+        patcher = patch.object(job, "engine_client", self.engine)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _make_session(self, rows, content_rows=()):
+        def _route(stmt, params=None):
+            result = MagicMock()
+            if "FROM contents" in str(stmt):
+                result.all.return_value = list(content_rows)
+            else:
+                result.all.return_value = rows
+            return result
+
         session = MagicMock()
-        session.execute = AsyncMock(return_value=result)
+        session.execute = AsyncMock(side_effect=_route)
         session.commit = AsyncMock()
         return session
 
@@ -155,3 +171,178 @@ class PurgeBatchExecutionTest(unittest.IsolatedAsyncioTestCase):
         deleted_tables = {str(c.args[0]).split("DELETE FROM ")[1].split(" WHERE")[0] for c in delete_calls}
         for protected in ("user_sanctions", "support_tickets", "internal_reward_grants"):
             self.assertNotIn(protected, deleted_tables)
+
+
+class PurgeEngineDeviceMapTest(unittest.IsolatedAsyncioTestCase):
+    """탈퇴 파기 시 Engine device_user_map(기기 매핑 + FCM 푸시 토큰) 도 함께 해제되는지 검증.
+
+    FCM 토큰은 BFF DB 어디에도 없고 Engine `device_user_map.fcm_token` 에만 있다 —
+    이 행을 지우지 않으면 탈퇴자에게 푸시가 계속 갈 수 있다 (방침 §1·§4 불일치).
+    """
+
+    def setUp(self):
+        self.engine = MagicMock(
+            lookup_device_map=AsyncMock(return_value={"device_uuid": "dev-1", "fcm_token": "tok"}),
+            delete_device_map=AsyncMock(return_value={"removed": True}),
+        )
+        patcher = patch.object(job, "engine_client", self.engine)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _make_session(self, rows):
+        def _route(stmt, params=None):
+            result = MagicMock()
+            result.all.return_value = [] if "FROM contents" in str(stmt) else rows
+            return result
+
+        session = MagicMock()
+        session.execute = AsyncMock(side_effect=_route)
+        session.commit = AsyncMock()
+        return session
+
+    async def test_engine_device_map_purged_for_eligible_user(self):
+        now = datetime.now(UTC)
+        eligible_id = uuid.uuid4()
+        rows = [(eligible_id, now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows)
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["purged_count"], 1)
+        self.engine.lookup_device_map.assert_awaited_once_with(str(eligible_id))
+        self.engine.delete_device_map.assert_awaited_once_with("dev-1", str(eligible_id))
+        self.assertEqual(result["device_maps_purged"], 1)
+
+    async def test_no_device_map_row_skips_delete_call(self):
+        self.engine.lookup_device_map = AsyncMock(return_value={})
+        now = datetime.now(UTC)
+        rows = [(uuid.uuid4(), now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows)
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["purged_count"], 1)
+        self.engine.delete_device_map.assert_not_awaited()
+
+    async def test_engine_failure_does_not_abort_batch(self):
+        # 파기 대상 유저는 다음 실행에서도 후보로 남으므로(users 행 유지) 재시도로 자가 치유된다.
+        self.engine.lookup_device_map = AsyncMock(side_effect=RuntimeError("engine down"))
+        now = datetime.now(UTC)
+        rows = [(uuid.uuid4(), now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows)
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["purged_count"], 1)
+        self.assertEqual(result["device_maps_purged"], 0)
+
+    async def test_dry_run_skips_engine_calls(self):
+        now = datetime.now(UTC)
+        rows = [(uuid.uuid4(), now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows)
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            await job.purge_deleted_accounts(dry_run=True)
+
+        self.engine.lookup_device_map.assert_not_awaited()
+        self.engine.delete_device_map.assert_not_awaited()
+
+
+class PurgeOwnContentsTest(unittest.IsolatedAsyncioTestCase):
+    """탈퇴 파기 시 본인 소유 이미지(contents 행 + 디스크 파일)도 함께 파기되는지 검증.
+
+    방침 §4 파기 대상(프로필 사진·피드 게시물 사진)에 한정 — 매물·DM·업체 프로필 등
+    보존 대상 엔티티에 붙은 이미지는 방침이 "계속 보관"을 공표하므로 건드리지 않는다.
+    """
+
+    def setUp(self):
+        self.engine = MagicMock(
+            lookup_device_map=AsyncMock(return_value={}),
+            delete_device_map=AsyncMock(return_value={"removed": True}),
+        )
+        patcher = patch.object(job, "engine_client", self.engine)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _make_session(self, rows, content_rows=()):
+        def _route(stmt, params=None):
+            result = MagicMock()
+            if "FROM contents" in str(stmt):
+                result.all.return_value = list(content_rows)
+            else:
+                result.all.return_value = rows
+            return result
+
+        session = MagicMock()
+        session.execute = AsyncMock(side_effect=_route)
+        session.commit = AsyncMock()
+        return session
+
+    async def test_contents_rows_deleted_and_files_unlinked(self):
+        now = datetime.now(UTC)
+        eligible_id = uuid.uuid4()
+        cid1, cid2 = uuid.uuid4(), uuid.uuid4()
+        content_rows = [
+            (cid1, "user-contents/2026/07/a.jpg"),
+            (cid2, "user-contents/2026/07/b.png"),
+        ]
+        rows = [(eligible_id, now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows, content_rows)
+
+        with (
+            patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(job, "_unlink_content_file", new=AsyncMock(return_value=True)) as unlink,
+        ):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["purged_count"], 1)
+        self.assertEqual(result["contents_purged"], 2)
+
+        calls_sql = [str(c.args[0]) for c in session.execute.await_args_list]
+        # 소유자 판정: owner_type='user' AND owner_id=본인 으로 스코프된 SELECT.
+        select_idx = next(i for i, s in enumerate(calls_sql) if "FROM contents" in s and "SELECT" in s.upper())
+        self.assertIn("owner_type = 'user'", calls_sql[select_idx])
+        self.assertIn("owner_id = :uid", calls_sql[select_idx])
+        # 수집은 feed_posts DELETE 보다 먼저여야 한다 — CASCADE 로 feed_post_images 가
+        # 사라지기 전에 content_id 를 확보해야 하므로.
+        feed_delete_idx = next(i for i, s in enumerate(calls_sql) if "DELETE FROM feed_posts" in s)
+        self.assertLess(select_idx, feed_delete_idx)
+
+        content_deletes = [c for c in session.execute.await_args_list if "DELETE FROM contents" in str(c.args[0])]
+        self.assertEqual(len(content_deletes), 1)
+        self.assertEqual(content_deletes[0].args[1]["content_ids"], [cid1, cid2])
+
+        unlinked_paths = [c.args[0] for c in unlink.await_args_list]
+        self.assertEqual(unlinked_paths, ["user-contents/2026/07/a.jpg", "user-contents/2026/07/b.png"])
+
+    async def test_no_own_contents_issues_no_content_delete(self):
+        now = datetime.now(UTC)
+        rows = [(uuid.uuid4(), now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows, content_rows=())
+
+        with patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["contents_purged"], 0)
+        content_deletes = [c for c in session.execute.await_args_list if "DELETE FROM contents" in str(c.args[0])]
+        self.assertEqual(len(content_deletes), 0)
+
+    async def test_file_unlink_failure_does_not_abort_batch(self):
+        now = datetime.now(UTC)
+        eligible_id = uuid.uuid4()
+        content_rows = [(uuid.uuid4(), "user-contents/2026/07/a.jpg")]
+        rows = [(eligible_id, now - timedelta(days=31), "del_eligible")]
+        session = self._make_session(rows, content_rows)
+
+        with (
+            patch.object(job, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(job, "_unlink_content_file", new=AsyncMock(return_value=False)),
+        ):
+            result = await job.purge_deleted_accounts(dry_run=False)
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["purged_count"], 1)

@@ -9,69 +9,14 @@
 
 ---
 
-## 🔴 A. 지금 바로 (10분, 오늘 안에)
+## ✅ A-1 / A-2 — 종결, 지금 할 일 아님 (2026-08-02 대표 결정)
 
-### A-1. GitHub 레포를 private 으로 전환
+- **레포 private 전환** — 대표 판단으로 **나중에** 한다. 지금 처리할 사안이 아니다
+- **`main_deprecated` 백업 브랜치** — 의도적으로 남긴 임시 백업. 대표가 나중에 삭제한다
+- **Zalo secret 재발급** — Zalo 가 셀프 재발급을 제공하지 않고(콘솔 2화면·공식 문서 확인), 실사용자 0명 + 콜백 URL 정리로 계정 탈취 경로가 없어 **차단 항목에서 제외**. 앱 재생성은 검증된 도메인·콜백을 잃어 비용이 위험보다 크다
+- **점검 대상은 `main` 에 시크릿이 없는지 하나뿐** → 2026-08-02 실측: 추적파일 **2,151개 전수 검색 0건**. pre-commit `committed-secrets` 훅이 재유입 차단
 
-현재 **PUBLIC** 입니다 (`gh repo view` 실측). fork 는 **0건**.
-
-```bash
-gh repo edit D0iloppa/saigon_rider --visibility private --accept-visibility-change-consequences
-```
-
-- 전환 전 fork 0건 재확인(공개→private 전환 시 기존 공개 fork 는 삭제되지 않고 별도 공개 네트워크로 분리됨 — 지금은 0이라 무해)
-- 전환 후 확인: 협업자 접근, CI 토큰 권한, `native/ios`·`native/android` 서브모듈 접근(이미 별도 private 레포면 무영향)
-- ⚠️ **이것만으로 A-2 가 닫히지 않습니다.** 이미 공개된 기간의 clone 은 회수 불가하고, clone 은 GitHub 에 기록이 남지 않습니다.
-
-### A-2. Zalo app secret — **재발급은 배경 후속으로 내림 (2026-08-02 재평가)**
-
-> Zalo 가 셀프 재발급을 제공하지 않고(콘솔·문서 확인), 실사용자 0명 + 콜백 URL 정리로 계정 탈취 경로가 없어 **재발급을 출시 차단 항목에서 내렸습니다.** 대신 **A-1(레포 private) + `main_deprecated` 삭제**로 노출만 끊으면 됩니다. 상세는 [증적 체크리스트 게이트 2](./260802_launch_evidence_checklist.md).
-
-<details><summary>원래 서술 (기록용)</summary>
-
-**유출 확정 근거**: `database/init/104_oauth_zalo_config.sql` 의 **주석 줄**에 실제 `zalo_app_id`(19자리 숫자)·`zalo_app_secret`(20자리 영숫자)이 그대로 커밋돼 있었습니다. 값 길이가 dev DB 의 실제 값과 정확히 일치합니다. 커밋 `cc11743` 부터 존재.
-
-> 제가 오늘 밤 처리한 것: **현재 트리의 주석에서 실값을 제거**했습니다(`<RUNTIME_ONLY>` 로 치환, 커밋 `3acf397`). 단 **Git 이력에는 그대로 남아 있습니다** — 이력 제거는 협업자 clone 을 깨뜨려 비용이 크므로, 재발급하면 이력의 옛 값은 무해해집니다.
-
-**순서**:
-
-1. **Zalo 개발자 콘솔** → 해당 앱 → App Secret **재발급(regenerate)**
-   - 재발급 시점부터 구 secret 은 무효 → **그 사이 Zalo 로그인이 끊깁니다.** 실사용자가 없으니 지금이 최적기
-2. 새 secret 을 **dev DB 에 주입** (파일에 쓰지 말고 DB 에 직접):
-   ```bash
-   docker exec -it saigon_db psql -U wellconn -d saigon_rider
-   ```
-   ```sql
-   UPDATE app_config SET value='<새 secret>', updated_at=now()
-    WHERE group_name='oauth' AND key='zalo_app_secret';
-   -- app_id 는 secret 이 아니지만 콘솔에서 바뀌었다면 함께
-   -- UPDATE app_config SET value='<새 app_id>', updated_at=now()
-   --  WHERE group_name='oauth' AND key='zalo_app_id';
-   ```
-   확인(값은 출력하지 않고 길이만):
-   ```bash
-   docker exec saigon_db psql -U wellconn -d saigon_rider -t \
-     -c "select key, length(value), updated_at from app_config where group_name='oauth' and key like 'zalo%'"
-   ```
-3. **BFF 재시작 없이 즉시 반영됩니다** — `_load_oauth_config()`(`backend/app/routers/auth.py:126`)가 요청마다 DB 를 읽습니다. 재시작 불필요
-4. **Zalo 로그인 실제 검증** — 앱/웹에서 Zalo 로그인 1회. `-501` 이 안 나오면 성공
-   - 실패 시 의심 지점: 베트남 IP 프록시(`ZALO_API_PROXY`, VPS `103.186.65.169`). 프록시 생존 확인:
-     ```bash
-     curl -x "$ZALO_API_PROXY" -s https://ipinfo.io/json   # country: VN 이어야 함
-     ```
-
-**⚠️ 절대 하지 말 것**: 새 secret 을 `database/init/*.sql`·`.env.example`·문서·커밋 메시지에 적지 마십시오. **DB `app_config` 에만** 존재해야 합니다.
-
-**전체 시크릿 스캔 결과 (제가 오늘 밤 실행)** — 재발급 대상은 Zalo **1건뿐**입니다:
-
-| 항목 | 결과 |
-|---|---|
-| `.env` 가 이력에 커밋된 적 | **없음** (`git log --all -- .env` 무매치) |
-| 자격증명 파일(`.p8`/`.pem`/firebase json) 추적 | **없음** — `engine/firebase-credentials.json` 은 `.gitignore:10` 으로 제외 확인 |
-| Google `client_secret_web` | 커밋 파일은 **placeholder** — 유출 아님 |
-| Apple `private_key` | 커밋 파일은 **placeholder** — 유출 아님 |
-| Apple team_id/key_id/services_id | 주석에 실값 있었음 → **제거함**. 단 이들은 **식별자이지 자격증명이 아님** (재발급 불필요) |
-| 소스 전체 시크릿 패턴 스캔 | 3건 매치 전부 무해(테스트 픽스처 문자열 · README 예시 JSON · HTML `autoComplete="new-password"`) |
+> 경위: orphan `main` + 백업 브랜치 유지 + private 나중은 2026-08-01 에 대표와 함께 정한 방침인데, 증적 체크리스트 초판에서 감사 문서를 그대로 옮기며 다시 차단 항목으로 올렸다 — 일관성 오류를 정정했다.
 
 ---
 
@@ -220,17 +165,13 @@ CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄�
 
 ---
 
-## 요약 — 아침에 이것만
+## 요약 — 대표님이 하실 것
 
-1. **A-1** `gh repo edit … --visibility private` (2분)
-2. **A-2** Zalo 콘솔에서 secret 재발급 → dev DB `UPDATE` → Zalo 로그인 1회 확인 (10분)
-3. **A-3** Google Cloud 콘솔에서 **Translate API 403 원인 확인**(billing 연결 여부 우선) — 번역이 3주째 정지 상태
-4. **B-1** 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무 알려주기
-5. **B-2** 공개 도메인 닫을지 결정
-6. **B-3** push 할지 지시
-7. **C-1~C-5** 판단 회신 (법무·제품 — 시간 걸리니 병행 착수 권장)
-8. **C-6** ADR 의 "대표 결정" 5건이 사실과 맞는지 확인 (읽기만, 2분)
+1. **A-3** Google Cloud 콘솔에서 Translate API 403 원인 확인(billing 연결 여부 우선) — 번역 3주째 정지
+2. **B-1** 운영 `.env` 의 `SMS_PROVIDER_API_KEY` 값 유무 (미설정이면 가입·판매 전면 차단)
+3. **B-2** 공개 도메인(`app.saigon-rider.com`) 닫을지 결정
+4. **C-1 / C-1-b** 법무 문안 승인 — §4 뿐 아니라 **§5 "권리" 절도 함께**
+5. **C-8** 어드민 업체 등록 후속 3건 + **실제 업체 데이터 입력**(지금 7건 전부 dev 시드)
+6. **증적 수집** → [`260802_launch_evidence_checklist.md`](./260802_launch_evidence_checklist.md)
 
-**출시 판정은 여전히 NO-GO** 입니다. 다만 코드가 원인인 차단 사유는 전부 해소됐고, 남은 것은 위 목록뿐입니다.</details>
-
-
+**출시 판정은 NO-GO** 입니다. 코드가 원인인 차단은 전부 해소됐고, 남은 것은 실기기·운영 배포·백업 drill·법무입니다.

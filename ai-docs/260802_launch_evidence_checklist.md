@@ -22,34 +22,45 @@
 
 ## 게이트 2 — Secret 대응
 
-### 2-1. Zalo app secret 재발급
-Zalo 콘솔에 셀프 재발급이 없어 **지원 요청**이 필요합니다([`260801_owner_action_items.md`](./260801_owner_action_items.md) A-2).
+### 판정 방침 변경 (2026-08-02)
+초판은 감사 문서를 그대로 옮겨 **"Zalo secret 재발급"을 필수**로 뒀으나, 실제 위험도를 재평가해 **"노출 차단 + 위험 수용"** 으로 바꾼다.
 
-- [ ] Zalo 커뮤니티·지원 요청 접수 → **접수 스크린샷 또는 티켓 번호**
-- [ ] 재발급 완료 후 dev DB 반영
+근거:
+- **Zalo 가 셀프 재발급을 제공하지 않는다**(콘솔 2개 화면·공식 문서 확인). 강행하면 앱 재생성이고 그건 검증된 도메인·콜백 설정을 전부 잃는다 — 비용이 위험보다 크다
+- **실사용자 0명**, 운영 미공개
+- **콜백 URL 이 `app.saigon-rider.com` + dev 도메인으로 정리**돼 공격자가 authorization code 를 받을 경로가 없다 → 사용자 계정 탈취 시나리오가 성립하지 않는다. secret 단독으로 가능한 것은 앱 사칭 API 호출 수준
+- `Kiểm tra secret key khi gọi api get access token` 토글 ON
+
+따라서 **아래 2-1(노출 차단)만 완료되면 게이트 2 를 닫는다.** 재발급은 차단 항목이 아니라 **배경 후속**으로 내린다.
+
+### 2-1. 노출 차단 ← **이것만 하면 게이트 2 닫힘**
+
+새 `main` 은 secret 이 없는 orphan 이력이지만(검증 완료), **구 이력이 원격 `main_deprecated` 에 남아 있고 레포가 PUBLIC 이라 지금도 GitHub 에서 읽을 수 있다.**
+
+```bash
+git push origin --delete main_deprecated
+gh repo edit D0iloppa/saigon_rider --visibility private --accept-visibility-change-consequences
+```
+
+- [ ] `main_deprecated` 삭제 — 로컬 전체 백업이 `~/saigon_rider_backup/saigon_rider_full_20260801_1147.bundle`(446MB, `git bundle verify` 통과)에 있으므로 복원 가능
+- [ ] 레포 private 전환
+- [ ] **증적**:
   ```bash
-  docker exec -it saigon_db psql -U wellconn -d saigon_rider
+  gh repo view --json visibility,forkCount
+  git ls-remote --heads origin
   ```
-  ```sql
-  UPDATE app_config SET value='<새 secret>', updated_at=now()
-   WHERE group_name='oauth' AND key='zalo_app_secret';
-  ```
-- [ ] **증적(값 노출 없음)**:
+  → `visibility: PRIVATE`, 브랜치 목록에 `main` 만
+
+> 참고: GitHub 은 참조가 끊긴 객체를 즉시 GC 하지 않아 커밋 SHA 를 아는 사람은 한동안 접근할 수 있다. 다만 private 전환 시 그 접근 자체가 막힌다.
+
+### 2-2. Zalo secret 재발급 — **배경 후속(게이트 차단 아님)**
+- [ ] Zalo 커뮤니티/지원에 rotation 요청 접수 → 티켓 번호 또는 스크린샷
+- [ ] 회신 오면 dev DB 반영 후 검증(값 노출 없이):
   ```bash
   docker exec saigon_db psql -U wellconn -d saigon_rider -t \
     -c "select key, length(value), updated_at from app_config where group_name='oauth' and key like 'zalo%'"
   ```
-  → `updated_at` 이 재발급 시각으로 갱신됐으면 합격
-- [ ] **Zalo 로그인 실제 성공** — 앱/웹에서 1회. `-501` 미발생 확인. 스크린샷
-
-**합격 기준**: 위 3개. 구 secret 이 무효화됐다는 것이 핵심입니다.
-
-### 2-2. 레포 비공개 전환
-- [ ] `gh repo edit D0iloppa/saigon_rider --visibility private --accept-visibility-change-consequences`
-- [ ] **증적**: `gh repo view --json visibility,forkCount` 출력
-- [ ] `main_deprecated` 삭제 시 — `git push origin --delete main_deprecated` 후 `git ls-remote --heads origin` 출력
-
----
+- [ ] Zalo 로그인 1회 성공(`-501` 미발생)
 
 ## 게이트 4 — 개인정보·검증문서 계약
 
@@ -247,7 +258,7 @@ allowlist 로 특권 경로는 막았지만, `sreMessage` 는 여전히 전역 �
 | 게이트 | 상태 | 증적 접수 |
 |---|---|---|
 | 1 Engine 신뢰경계 | 부분(코드 완료) | 미접수 |
-| 2 Secret | 부분(이력 제거 완료) | 미접수 |
+| 2 Secret | 부분 — **노출 차단(브랜치 삭제+private) 2분이면 닫힘.** 재발급은 배경 후속으로 내림 | 미접수 |
 | 3 안전정보 | **PASS** | — |
 | 4 개인정보 계약 | 부분(구현 완료) | 미접수 |
 | 5 DB upgrade | 부분(dev 완료) | 미접수 |

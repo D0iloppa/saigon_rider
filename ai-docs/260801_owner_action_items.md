@@ -23,7 +23,11 @@ gh repo edit D0iloppa/saigon_rider --visibility private --accept-visibility-chan
 - 전환 후 확인: 협업자 접근, CI 토큰 권한, `native/ios`·`native/android` 서브모듈 접근(이미 별도 private 레포면 무영향)
 - ⚠️ **이것만으로 A-2 가 닫히지 않습니다.** 이미 공개된 기간의 clone 은 회수 불가하고, clone 은 GitHub 에 기록이 남지 않습니다.
 
-### A-2. Zalo app secret 폐기·재발급 ← **가장 중요**
+### A-2. Zalo app secret — **재발급은 배경 후속으로 내림 (2026-08-02 재평가)**
+
+> Zalo 가 셀프 재발급을 제공하지 않고(콘솔·문서 확인), 실사용자 0명 + 콜백 URL 정리로 계정 탈취 경로가 없어 **재발급을 출시 차단 항목에서 내렸습니다.** 대신 **A-1(레포 private) + `main_deprecated` 삭제**로 노출만 끊으면 됩니다. 상세는 [증적 체크리스트 게이트 2](./260802_launch_evidence_checklist.md).
+
+<details><summary>원래 서술 (기록용)</summary>
 
 **유출 확정 근거**: `database/init/104_oauth_zalo_config.sql` 의 **주석 줄**에 실제 `zalo_app_id`(19자리 숫자)·`zalo_app_secret`(20자리 영숫자)이 그대로 커밋돼 있었습니다. 값 길이가 dev DB 의 실제 값과 정확히 일치합니다. 커밋 `cc11743` 부터 존재.
 
@@ -227,4 +231,6 @@ CLAUDE.md 규약상 push 전 `/code-review` 가 필요하고 diff 가 4,436줄�
 7. **C-1~C-5** 판단 회신 (법무·제품 — 시간 걸리니 병행 착수 권장)
 8. **C-6** ADR 의 "대표 결정" 5건이 사실과 맞는지 확인 (읽기만, 2분)
 
-**출시 판정은 여전히 NO-GO** 입니다. 다만 코드가 원인인 차단 사유는 전부 해소됐고, 남은 것은 위 목록뿐입니다.
+**출시 판정은 여전히 NO-GO** 입니다. 다만 코드가 원인인 차단 사유는 전부 해소됐고, 남은 것은 위 목록뿐입니다.</details>
+
+

@@ -52,7 +52,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - `database/init/NNN_*.sql` 번호순. 신규 볼륨은 `docker-entrypoint-initdb.d` 가 전건 실행
 - **기존 볼륨은 `docker-compose.yml` 의 `bff_migrate` 에 등록된 것만 적용된다** — `command`(`-f`) + `volumes` **양쪽에 등록 필수**. 등록 누락이 반복 결함이었다(F-20)
 - 적용 이력 원장 `schema_migrations`(`160_*.sql`) — `bff_migrate` 가 각 `-f` 뒤에 `-c "INSERT ... VALUES (NNN) ON CONFLICT DO NOTHING"` 을 인터리브. `ON_ERROR_STOP=1` 로 "성공한 파일만 기록"이 자동 보장. fresh-init 은 `-c` 없이 실행되므로 원장이 비는데, 빈 볼륨은 정의상 최신이라 **의도된 범위 한정**
-- 현재 최대 번호 **167**. `bff_migrate` 등록 범위 139~167
+- 현재 최대 번호 **168**. `bff_migrate` 등록 범위 139~168
 
 ## PATTERNS
 
@@ -94,8 +94,12 @@ docker run --rm --env-file .env -e PYTHONPATH=/repo/backend \
 ```
 engine 은 `-r requirements-dev.txt`. 프론트는 `./node_modules/.bin/{tsc,eslint}` + `node --test $(find src -name "*.test.mjs")`.
 DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
-브라우저 E2E 가 없으므로 프론트 계약은 **`.mjs` 정적 계약 테스트**로 고정한다.
-기준선(2026-08-02): backend **312** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` 26.
+프론트 계약은 **`.mjs` 정적 계약 테스트**(회귀 감시)와 **Playwright E2E**(실화면 검증) 두 층으로 고정한다 — 정적 테스트는 지우지 말 것, 둘의 역할이 다르다.
+- **CI**: `.github/workflows/ci.yml` — `guard-scripts`(seed safety·migration prefix·**committed-secrets**) / `backend-tests` / `engine-tests` / `frontend-checks`. **`.env` 없이 더미 env 2개(`ADMIN_JWT_SECRET`·`ADMIN_PASS_HASH`)만으로 동작**한다(`admin_auth.py` 가 import 단계에서 `RuntimeError` 를 던지는 유일한 키가 `ADMIN_JWT_SECRET`). engine 은 `conftest.py` 가 env 를 자체 주입해 추가 키 불필요
+- **E2E**: `frontend/e2e/*.spec.ts` + `playwright.config.ts`(baseURL `http://localhost:18090`). **구동 중인 dev 스택을 대상으로** 돈다. 세션은 `dev-login` 후 `sr_session` 쿠키를 `addCookies` 로 심어 앱의 실제 부트스트랩 경로를 태운다. `data-testid` 는 쓰지 않는다(프로덕션 코드 무침습 — 플레이스홀더·role·텍스트 셀렉터로 커버). 각 spec 의 `afterEach` 가 `DELETE FROM users` 한 줄로 CASCADE 정리
+  - 🔴 **E2E 는 "배포본이 소스와 다르다"를 잡는 유일한 층이다.** 도입 첫 실행에서 구동 중이던 `saigon_frontend` 컨테이너가 소스보다 오래된 빌드라 **동의 게이트가 dev 에서 아예 동작하지 않던 것**을 발견했다. 프론트 변경 후에는 `docker compose --env-file .env up --build -d frontend` 를 잊지 말 것
+  - 브라우저에서는 `native.platform === 'web'` 이라 강제 업데이트 판정 경로가 **원천적으로 실행되지 않는다** — E2E 로 검증 불가(실기기 필요, B-1)
+기준선(2026-08-02): backend **317** · engine 66 · tsc 0 error · eslint 0 errors/247 warnings · `.mjs` 26.
 
 ## TRADEOFFS
 
@@ -118,6 +122,12 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **강제 업데이트**(F-19): 판정 불가 4케이스(서버 조회 실패·플랫폼 레코드 없음·설치본 `unknown`·버전 파싱 실패) 모두 **차단하지 않는다**. 넓히면 전 사용자가 앱에 못 들어온다. ⚠️ 현재 `@capacitor/app` 미 cap-sync 로 실기기에서 `appVersion='unknown'` → **실기기에서는 발동하지 않는다**
 - **동의 미기록 게이트**(F-9): `PrivateRoute` 의 `user?.consentAgreedAt === null` 는 **엄격 비교**여야 한다. `!user?.consentAgreedAt` 로 바꾸면 `undefined`(판정 불가)까지 걸려 전 사용자가 동의 화면에 갇힌다. `privateRouteConsentGate.contract.test.mjs` 가 이 회귀를 감시한다
 - **검색**: 번역이 없는 행이 검색 결과에서 사라지면 안 된다(원문은 항상 매칭 대상이어야 함)
+
+### 업체 데이터 유입 (2026-08-02 대표 결정)
+- 어드민에 **업체 직접 등록**(`POST /admin/api/biz/accounts`)을 신설했다. 이전엔 유저 자가신청이 유일한 유입이라 동네지도가 빈 채로 시작하는 문제(S-2)가 있었다
+- 관리자 생성 업체는 **`APPROVED` 즉시 생성**한다 — 관리자가 이미 승인권자라 `PENDING` 후 자기승인은 의미가 없다. 심사 이력 대신 `BIZ_ACCOUNT_CREATE` 감사 로그가 남는다
+- 🔴 **`business_profile.user_id` 가 nullable 이다**(`168_*.sql`) — 관리자 등록 시점엔 사업자의 앱 계정이 없을 수 있다. **어드민 조회 쿼리는 반드시 outer join 이어야 한다**(`isouter=True`). INNER JOIN 으로 되돌리면 소유자 없는 업체가 목록에서 통째로 사라진다. `suspend` 알림도 `user_id is not None` 가드가 필요하다
+- 미구현(대표 판단 대기): 소유자 연결 수단 · 관리자 폼의 사진 업로드 · 관리자 생성 업체의 검증서류 강제 여부
 
 ### 개인정보 파기 (2026-08-02 대표 결정으로 확정)
 - 탈퇴 30일 경과 시 **삭제**: 라이딩·퀘스트·배지 + 순수 개인데이터 15종 + **피드글·댓글**(대표 결정)

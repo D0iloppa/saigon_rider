@@ -11,7 +11,7 @@ export interface BizAccountRow {
   address: string | null
   phone: string | null
   photo_url: string | null
-  applicant_id: string
+  applicant_id: string | null
   applicant_nickname: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
   reject_reason: string | null
@@ -58,6 +58,41 @@ export function useBizAccount(id: string) {
     queryKey: ['biz', 'accounts', id],
     queryFn: () => api<BizAccountDetail>(`/admin/api/biz/accounts/${id}`),
     enabled: !!id,
+  })
+}
+
+export interface BizCategory {
+  code: string
+  group_code: string
+  group_label_ko: string
+  label_ko: string
+  sort_order: number
+}
+
+export interface BizAccountCreateInput {
+  name: string
+  category?: string | null
+  address: string
+  latitude: number
+  longitude: number
+  phone: string
+  photo_content_id?: string | null
+  intro?: string | null
+}
+
+export function useBizCategories() {
+  return useQuery({
+    queryKey: ['biz', 'categories'],
+    queryFn: () => api<BizCategory[]>('/admin/api/biz/categories'),
+  })
+}
+
+export function useCreateBizAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: BizAccountCreateInput) =>
+      api<BizAccountRow>('/admin/api/biz/accounts', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['biz', 'accounts'] }),
   })
 }
 

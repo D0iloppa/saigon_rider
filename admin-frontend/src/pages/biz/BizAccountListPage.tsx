@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, Avatar, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
+import { Alert, Avatar, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
-import { useApproveBizAccount, useBizAccounts, useRejectBizAccount, type BizAccountRow } from '../../api/biz'
+import {
+  useApproveBizAccount,
+  useBizAccounts,
+  useBizCategories,
+  useCreateBizAccount,
+  useRejectBizAccount,
+  type BizAccountCreateInput,
+  type BizAccountRow,
+} from '../../api/biz'
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: '대기' },
@@ -49,14 +57,34 @@ export default function BizAccountListPage() {
   const [verificationFilter, setVerificationFilter] = useState('')
   const [rejectTarget, setRejectTarget] = useState<BizAccountRow | null>(null)
   const [reason, setReason] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm] = Form.useForm<BizAccountCreateInput>()
 
   const { data, isLoading, isError, error } = useBizAccounts(status || undefined)
   const filteredData = useMemo(
     () => (verificationFilter ? (data ?? []).filter((r) => r.verification_status === verificationFilter) : data),
     [data, verificationFilter]
   )
+  const { data: categories } = useBizCategories()
   const approveMutation = useApproveBizAccount()
   const rejectMutation = useRejectBizAccount()
+  const createMutation = useCreateBizAccount()
+
+  const closeCreateModal = () => {
+    setCreateOpen(false)
+    createForm.resetFields()
+  }
+
+  const submitCreate = async () => {
+    const input = await createForm.validateFields()
+    createMutation.mutate(input, {
+      onSuccess: () => {
+        message.success('업체가 등록되었습니다 (즉시 승인됨).')
+        closeCreateModal()
+      },
+      onError: (err) => message.error(err instanceof Error ? err.message : '등록에 실패했습니다.'),
+    })
+  }
 
   const closeRejectModal = () => {
     setRejectTarget(null)
@@ -159,6 +187,7 @@ export default function BizAccountListPage() {
       <Space style={{ marginBottom: 16 }}>
         <Select style={{ width: 160 }} value={status} options={STATUS_OPTIONS} onChange={setStatus} />
         <Select style={{ width: 160 }} value={verificationFilter} options={VERIFICATION_OPTIONS} onChange={setVerificationFilter} />
+        <Button type="primary" onClick={() => setCreateOpen(true)}>업체 직접 등록</Button>
       </Space>
       <Table<BizAccountRow>
         rowKey="id"
@@ -178,6 +207,65 @@ export default function BizAccountListPage() {
         cancelText="취소"
       >
         <Input.TextArea rows={3} placeholder="반려 사유 (필수)" value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Modal>
+      <Modal
+        title="업체 직접 등록"
+        open={createOpen}
+        onOk={submitCreate}
+        onCancel={closeCreateModal}
+        confirmLoading={createMutation.isPending}
+        okText="등록"
+        cancelText="취소"
+        destroyOnClose
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="영업으로 확보한 업체를 심사 없이 즉시 승인 상태로 등록합니다. 소유자(앱 계정)는 아직 연결되지 않습니다."
+        />
+        <Form form={createForm} layout="vertical">
+          <Form.Item name="name" label="상호명" rules={[{ required: true, message: '상호명을 입력하세요.' }]}>
+            <Input maxLength={120} />
+          </Form.Item>
+          <Form.Item name="category" label="업종">
+            <Select
+              allowClear
+              placeholder="업종 선택"
+              options={(categories ?? []).map((c) => ({ value: c.code, label: c.label_ko }))}
+            />
+          </Form.Item>
+          <Form.Item name="address" label="주소" rules={[{ required: true, message: '주소를 입력하세요.' }]}>
+            <Input maxLength={200} />
+          </Form.Item>
+          <Space.Compact style={{ width: '100%' }}>
+            <Form.Item
+              name="latitude"
+              label="위도"
+              style={{ flex: 1 }}
+              rules={[{ required: true, message: '위도를 입력하세요.' }]}
+            >
+              <InputNumber style={{ width: '100%' }} placeholder="예: 10.776889" />
+            </Form.Item>
+            <Form.Item
+              name="longitude"
+              label="경도"
+              style={{ flex: 1 }}
+              rules={[{ required: true, message: '경도를 입력하세요.' }]}
+            >
+              <InputNumber style={{ width: '100%' }} placeholder="예: 106.700897" />
+            </Form.Item>
+          </Space.Compact>
+          <div style={{ marginTop: -12, marginBottom: 16, color: '#94a3b8', fontSize: 12 }}>
+            구글맵에서 위치 우클릭 → 좌표 복사로 얻을 수 있습니다.
+          </div>
+          <Form.Item name="phone" label="연락처" rules={[{ required: true, message: '연락처를 입력하세요.' }]}>
+            <Input maxLength={30} />
+          </Form.Item>
+          <Form.Item name="intro" label="소개 (선택, 최대 500자)">
+            <Input.TextArea rows={3} maxLength={500} showCount />
+          </Form.Item>
+        </Form>
       </Modal>
     </>
   )

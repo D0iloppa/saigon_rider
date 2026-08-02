@@ -575,8 +575,10 @@ class BusinessProfile(Base):
     __tablename__ = "business_profile"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    # NULL = 관리자가 직접 등록해 소유자가 아직 연결되지 않은 프로필 (init/168 — 대표 결정, 소유자
+    # 연결 기능은 후속 미구현). 자가신청(apply)은 항상 값을 채운다.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     group_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("business_group.id", ondelete="SET NULL"), nullable=True

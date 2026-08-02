@@ -7,18 +7,22 @@ JSON 응답으로 이관한 것 — PENDING-first 큐 정렬·승인/반려·정
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import BusinessGroup, BusinessProfile, User
+from ...models import BusinessCategory, BusinessGroup, BusinessProfile, Content, User
 from ...modules.ads import AdsApplication
 from ...modules.ads.application import AdRead, AdsError, OwnerRead
+from ...schemas import BusinessCategoryOut
 from ...services import noti_events
+from ...services.search_index import immediate_blob
+from ...services.translate import warm_translations
 from ...utils import build_imgproxy_url
 from ._audit import audit
 
@@ -48,7 +52,7 @@ class BizAccountRow(BaseModel):
     address: str | None
     phone: str | None
     photo_url: str | None
-    applicant_id: uuid.UUID
+    applicant_id: uuid.UUID | None
     applicant_nickname: str | None
     status: str
     reject_reason: str | None
@@ -69,6 +73,19 @@ class BizAccountDetail(BizAccountRow):
     verification_reject_reason: str | None
     ads: list[BizAccountAdBrief]
     groups: list[BizGroupBrief]
+
+
+class BizAccountCreateRequest(BaseModel):
+    """관리자 직접 등록 — routers/biz.py `BusinessProfileApplyRequest` 와 필드 집합 동일(소유자만 없음)."""
+
+    name: str
+    category: str | None = None
+    address: str
+    latitude: Decimal
+    longitude: Decimal
+    phone: str
+    photo_content_id: uuid.UUID | None = None
+    intro: str | None = Field(default=None, max_length=500)
 
 
 class BizRejectRequest(BaseModel):
@@ -243,6 +260,12 @@ async def _get_account_or_404(db: AsyncSession, profile_id: uuid.UUID) -> Busine
     return bp
 
 
+async def _require_content(db: AsyncSession, content_id: uuid.UUID | None) -> None:
+    """content_id 존재 검증 — routers/biz.py 동명 헬퍼 미러(소유권은 미검사, 존재만)."""
+    if content_id is not None and await db.get(Content, content_id) is None:
+        raise HTTPException(status_code=400, detail="Invalid content_id")
+
+
 # ── 계정 심사 (§10-1 /admin/biz-accounts) ────────────────────────
 
 
@@ -253,13 +276,92 @@ async def list_biz_accounts(
     db: AsyncSession = Depends(get_db),
 ):
     _validate_status(status, _ACCOUNT_STATUSES)
-    stmt = select(BusinessProfile, User.nickname).join(User, User.id == BusinessProfile.user_id)
+    # isouter=True 필수 — 관리자 직접 등록 프로필은 user_id 가 NULL(소유자 미연결)이라
+    # INNER JOIN 이면 목록에서 통째로 사라진다 (init/168).
+    stmt = select(BusinessProfile, User.nickname).join(User, User.id == BusinessProfile.user_id, isouter=True)
     if status:
         stmt = stmt.where(BusinessProfile.status == status)
     # PENDING 을 상단으로, 그 안에서는 최신순 (admin_legacy stable-sort 이관)
     stmt = stmt.order_by(case((BusinessProfile.status == "PENDING", 0), else_=1), BusinessProfile.created_at.desc())
     rows = (await db.execute(stmt)).all()
     return [_account_row(bp, nickname) for bp, nickname in rows]
+
+
+@router.post(
+    "/accounts", response_model=BizAccountRow, status_code=201, summary="비즈니스 계정 직접 등록 (admin, 즉시 승인)"
+)
+async def create_biz_account(
+    body: BizAccountCreateRequest,
+    background: BackgroundTasks,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """영업으로 확보한 업체를 심사 대기 없이 즉시 등록 — 관리자가 곧 승인권자라 PENDING 큐를
+    거치는 것은 자기승인 루프에 불과하다(대표 결정). 소유자(user_id)는 아직 없다(init/168) —
+    나중에 실제 사업자가 앱 계정을 만들면 연결하는 기능은 후속(미구현, 대표 판단 필요)."""
+    name = body.name.strip()
+    address = body.address.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not address:
+        raise HTTPException(status_code=400, detail="Address is required")
+    await _require_content(db, body.photo_content_id)
+
+    intro = body.intro.strip() if body.intro else None
+    now = datetime.now(UTC)
+    bp = BusinessProfile(
+        user_id=None,
+        name=name,
+        category=body.category,
+        address=address,
+        intro=intro,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        phone=body.phone,
+        photo_content_id=body.photo_content_id,
+        status="APPROVED",
+        reviewed_at=now,
+        created_at=now,
+        updated_at=now,
+        # 원문만으로 즉시 검색 가능(번역 대기 없음) — routers/biz.py apply() 미러
+        search_blob=immediate_blob([name, address, intro]),
+    )
+    db.add(bp)
+    await db.flush()
+    noti_events.enqueue(
+        db, "search.reindex", {"entity_type": "biz", "entity_id": str(bp.id), "texts": [name, address, intro]}
+    )
+    await audit(
+        db, session, request, "BIZ_ACCOUNT_CREATE", "business_profile", str(bp.id), {"name": name, "status": "APPROVED"}
+    )
+    await db.commit()
+    await db.refresh(bp)
+    background.add_task(warm_translations, [name, address, intro or ""])
+    return _account_row(bp, None)
+
+
+@router.get(
+    "/categories",
+    response_model=list[BusinessCategoryOut],
+    summary="업체 카테고리 목록 (routers/biz.py 공개 목록 미러)",
+)
+async def list_biz_categories(
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        (
+            await db.execute(
+                select(BusinessCategory)
+                .where(BusinessCategory.is_active == True)
+                .order_by(BusinessCategory.group_sort_order, BusinessCategory.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return rows
 
 
 @router.get("/accounts/{profile_id}", response_model=BizAccountDetail, summary="비즈니스 계정 상세")
@@ -271,7 +373,7 @@ async def get_biz_account(
     row = (
         await db.execute(
             select(BusinessProfile, User.nickname)
-            .join(User, User.id == BusinessProfile.user_id)
+            .join(User, User.id == BusinessProfile.user_id, isouter=True)
             .where(BusinessProfile.id == profile_id)
         )
     ).first()
@@ -393,10 +495,11 @@ async def suspend_biz_account(
     )
     await db.commit()
 
-    await noti_events.publish(
-        "biz.profile_reviewed",
-        {"user_id": str(bp.user_id), "profile_id": str(bp.id), "profile_name": bp.name, "result": "SUSPENDED"},
-    )
+    if bp.user_id is not None:  # 관리자 직접 등록 프로필은 소유자가 없어 알릴 대상이 없다 (init/168)
+        await noti_events.publish(
+            "biz.profile_reviewed",
+            {"user_id": str(bp.user_id), "profile_id": str(bp.id), "profile_name": bp.name, "result": "SUSPENDED"},
+        )
     return {"id": bp.id, "status": bp.status}
 
 

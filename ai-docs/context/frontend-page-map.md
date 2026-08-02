@@ -282,6 +282,12 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **⛔ 하지 않기로 결정한 것 (2026-08-01, 대표)**: **통합검색**(마켓/동네지도 검색 분리 결정을 덮으므로 기각) · **피드 검색 엔드포인트 신설** · **전역 가게소식 검색 화면**. 누락이 아니라 결정이다 — 나중에 "빠졌다"고 만들지 말 것.
 - **i18n**: `biz.*` 3벌(ko/en/vi).
 - **⚠️ migration 적용 관례 — 위 `/biz/manage` 행의 "`147`만 미등록·수동 적용 대상" 서술은 2026-07-31 자로 해소됐다 (출시감사 F-20/P0-4)**: `139`~`144`·`147` 의 멱등성을 전건 검증해 `bff_migrate` 에 번호순 등록했다 — **`147` 은 `ADD COLUMN IF NOT EXISTS` + `pg_constraint` 존재체크로 실제로 멱등이었고, "멱등성 미확인 보류"의 근거가 사실과 달랐다.** `159`(wards seed)·`161`(`contents.is_private`)·`162`(`WITHDRAWN` status)도 등록됐다. 추가로 **적용 이력 원장 `schema_migrations`**(`database/init/160_schema_migrations.sql`)을 도입 — psql 이 `-f`/`-c` 를 명령줄 순서대로 처리하는 특성을 이용해 각 파일 뒤에 버전 INSERT 를 인터리브하고, `ON_ERROR_STOP=1` 이 실패 이후 INSERT 를 막아 "성공한 파일만 기록"이 자동 보장된다(별도 러너·Alembic 미도입, 기존 SQL 15개 무수정). fresh-init 은 `docker-entrypoint-initdb.d` 가 `-c` 없이 실행하므로 원장이 채워지지 않는데, 빈 볼륨은 001~N 을 통째로 실행해 정의상 최신이라 **의도된 범위 한정**이다. **수동 적용 대상은 이제 없다.** 상세 경위는 [`ai-docs/260731_remediation_ledger.md`](../260731_remediation_ledger.md).
+- **관리자 콘솔 — 업체 직접 등록 (2026-08-02 신규, 대표 결정 S-2)**: 이전엔 어드민에 `approve`/`reject`/`suspend`/`verify` 만 있고 **업체 생성 POST 가 없어** 유저 자가신청이 유일한 유입이었다(동네지도가 빈 채로 시작). `BizAccountListPage.tsx` 에 "업체 직접 등록" 버튼 + 생성 모달(`BizAdTierPage.tsx` 의 Modal+Form 패턴 재사용), API `POST /admin/api/biz/accounts` + `GET /admin/api/biz/categories`(공개 카테고리 API 의 admin 인증판 — admin-frontend 는 `/admin/api/*` 밖을 호출할 수 없다).
+  - 관리자 생성 업체는 **`APPROVED` 즉시 생성**(관리자가 승인권자라 자기승인 루프가 무의미). 심사 이력 대신 `BIZ_ACCOUNT_CREATE` 감사 로그.
+  - 🔴 **`business_profile.user_id` 가 nullable 이 됐다**(`168_*.sql`). **어드민 목록·상세 쿼리는 outer join 유지 필수** — INNER JOIN 으로 되돌리면 소유자 없는 업체가 목록에서 사라진다. `suspend` 알림도 `user_id is not None` 가드 필요.
+  - 좌표는 **위경도 직접 입력**(자가신청도 지오코딩이 아니라 지도 선택으로 좌표를 받는다 — 텍스트 주소→좌표 자동변환은 원래 없다). admin-frontend 에 지도 위젯 의존성이 없어 숫자 입력 2칸 + 안내문.
+  - 검색 blob·번역 워밍을 자가신청과 동일하게 배선했다 — 빠뜨리면 만들어도 지도·검색에 안 뜬다.
+  - 알려진 갭: 사진 업로드 수단 없음(어드민에 contents 업로드 위젯 패턴 부재), 소유자 연결 수단 없음.
 - **관리자 콘솔 — 비즈니스 심사 (2026-07-22 신규 SPA 이식)**: `AdminLayout.tsx` 사이드바 그룹 **"비즈니스"** 2항목 → 신규 admin-frontend SPA 화면. 레거시 Jinja(`/admin-legacy/biz-accounts`·`/biz-ads`)는 2차 이식 완료 전까지 병행 유지.
 
 | 라우트(SPA) | 페이지 파일 | 액션 |

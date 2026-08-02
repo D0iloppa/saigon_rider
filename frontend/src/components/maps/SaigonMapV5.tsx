@@ -714,7 +714,7 @@ function SaigonMapV5({
     try {
       const location = await resolveUsableLocation();
       if (location.source === 'fallback') {
-        toast.neutral(outsideAreaMessage ?? '서비스 지역 밖이에요');
+        toast.neutral(outsideAreaMessage ?? t('market.outOfService', { defaultValue: '서비스 지역 밖이에요' }));
         setMeLatLng(null);
         if (!outsideAreaFallback) return;
       }

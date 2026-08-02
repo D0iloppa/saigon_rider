@@ -237,7 +237,7 @@ export default function MarketSearch() {
                 className={`${styles.presetChip} ${priceMin === p.min && priceMax === p.max ? styles.presetChipActive : ''}`}
                 onClick={() => { setPriceMin(p.min); setPriceMax(p.max); setFilterOpen(false); }}
               >
-                {p.label}
+                {t(p.labelKey, { defaultValue: p.label })}
               </button>
             ))}
           </div>
@@ -245,7 +245,7 @@ export default function MarketSearch() {
             <input
               className={styles.priceInput}
               type="number"
-              placeholder="₫ 최소"
+              placeholder={t('market.priceMinPlaceholder', { defaultValue: '₫ 최소' })}
               value={priceMin ?? ''}
               onChange={(e) => setPriceMin(e.target.value ? Number(e.target.value) : null)}
             />
@@ -253,7 +253,7 @@ export default function MarketSearch() {
             <input
               className={styles.priceInput}
               type="number"
-              placeholder="₫ 최대"
+              placeholder={t('market.priceMaxPlaceholder', { defaultValue: '₫ 최대' })}
               value={priceMax ?? ''}
               onChange={(e) => setPriceMax(e.target.value ? Number(e.target.value) : null)}
             />

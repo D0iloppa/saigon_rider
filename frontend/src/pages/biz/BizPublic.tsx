@@ -297,7 +297,7 @@ export default function BizPublic() {
         <section ref={introRef} className={styles.intro}>
           <h1 className={styles.name}>{profile.name}</h1>
           <div className={styles.profileMeta}>
-            {reviewAvg != null && <span><Star size={15} fill="currentColor" strokeWidth={0} /> {reviewAvg.toFixed(1)} · 후기 {reviewTotal}</span>}
+            {reviewAvg != null && <span><Star size={15} fill="currentColor" strokeWidth={0} /> {reviewAvg.toFixed(1)} · {t('biz.reviewCount', { count: reviewTotal })}</span>}
             {profile.category && <span>{(() => { const cat = categories.find((c) => c.code === profile.category); return cat ? bizCategoryLabel(cat, i18n.language) : profile.category; })()}</span>}
             {profile.address && <span>{profile.address}</span>}
           </div>
@@ -320,11 +320,11 @@ export default function BizPublic() {
               <AppImage src={profile.photoUrl} alt={profile.name} className={styles.heroImg} />
             </div>
           ) : (
-            <div className={styles.heroEmpty}>대표 사진이 아직 등록되지 않았습니다</div>
+            <div className={styles.heroEmpty}>{t('biz.publicNoPhoto')}</div>
           )}
         </section>
 
-        <nav ref={tabsRef} className={styles.tabs} aria-label="업체 정보">
+        <nav ref={tabsRef} className={styles.tabs} aria-label={t('biz.detailTabsLabel')}>
           {DETAIL_TABS.map((tab) => (
             <button key={tab} type="button" className={activeTab === tab ? styles.tabActive : styles.tab} onClick={() => handleTabChange(tab)}>
               {t(`biz.detailTabs.${tab}`, { defaultValue: { home: '홈', news: '소식', reviews: '후기', price: '가격', photos: '사진' }[tab] })}
@@ -353,7 +353,7 @@ export default function BizPublic() {
               </div>
             )}
               </div>
-            ) : <EmptyArea label="업체 정보" />}
+            ) : <EmptyArea label={t('biz.detailTabsLabel')} />}
 
             {profile.latitude != null && profile.longitude != null && (
               <div className={styles.mapCard}>
@@ -370,7 +370,7 @@ export default function BizPublic() {
               </div>
             )}
 
-            <HomePreview title="소식" onMore={() => handleTabChange('news')}>
+            <HomePreview title={t('biz.publicNewsTitle')} onMore={() => handleTabChange('news')}>
               {news[0] ? (
                 <article className={styles.previewNews}>
                   <strong>{news[0].title}</strong>
@@ -385,19 +385,19 @@ export default function BizPublic() {
                     />
                   )}
                 </article>
-              ) : <EmptyArea label="소식" />}
+              ) : <EmptyArea label={t('biz.publicNewsTitle')} />}
             </HomePreview>
 
-            <HomePreview title="후기" onMore={() => handleTabChange('reviews')}>
+            <HomePreview title={t('biz.detailTabs.reviews')} onMore={() => handleTabChange('reviews')}>
               {reviews[0] ? (
                 <article className={styles.previewReview}>
                   <span><Star size={14} fill="currentColor" strokeWidth={0} /> {reviews[0].rating} · {reviews[0].reviewerNickname ?? '—'}</span>
                   <p>{reviews[0].body}</p>
                 </article>
-              ) : <EmptyArea label="후기" />}
+              ) : <EmptyArea label={t('biz.detailTabs.reviews')} />}
             </HomePreview>
 
-            <HomePreview title="가격" onMore={() => handleTabChange('price')}>
+            <HomePreview title={t('biz.detailTabs.price')} onMore={() => handleTabChange('price')}>
               {prices.length > 0 ? (
                 <div className={styles.previewPrices}>
                   {prices.slice(0, 3).map((p) => (
@@ -407,10 +407,10 @@ export default function BizPublic() {
                     </div>
                   ))}
                 </div>
-              ) : <EmptyArea label="가격표" />}
+              ) : <EmptyArea label={t('biz.priceSectionTitle')} />}
             </HomePreview>
 
-            <HomePreview title="사진" onMore={() => handleTabChange('photos')}>
+            <HomePreview title={t('biz.detailTabs.photos')} onMore={() => handleTabChange('photos')}>
               {photoUrls.length > 0 ? (
                 <div className={styles.previewPhotos}>
                   {photoUrls.slice(0, 3).map((url, i) => (
@@ -424,17 +424,17 @@ export default function BizPublic() {
                     />
                   ))}
                 </div>
-              ) : <EmptyArea label="사진" />}
+              ) : <EmptyArea label={t('biz.detailTabs.photos')} />}
             </HomePreview>
 
-            <h3 className={styles.sectionTitle}>게시중인 광고</h3>
+            <h3 className={styles.sectionTitle}>{t('biz.publicAdsTitle')}</h3>
             {/* 광고 노출 시기상조 — 대표 지시(2026-07-27)로 준비중 안내만 노출.
                 ADS_ENABLED(adPlacement.ts)를 켜면 아래 캐러셀 렌더가 복원된다 — 로직은 유지, 삭제 금지. */}
             {!ADS_ENABLED ? (
               <div className={styles.adsEmpty}>
                 <p>{t('biz.adsComingSoonDesc', { defaultValue: '광고 기능은 준비중이며 조만간 오픈됩니다' })}</p>
               </div>
-            ) : profile.ads.length === 0 ? <EmptyArea label="게시중인 광고" /> : (
+            ) : profile.ads.length === 0 ? <EmptyArea label={t('biz.publicAdsTitle')} /> : (
               <div className={`${styles.adCarousel} ${profile.ads.length === 1 ? styles.adCarouselSingle : ''}`}>
                 {profile.ads.map((ad) => (
                   <button key={ad.id} className={styles.bizAdCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
@@ -443,12 +443,12 @@ export default function BizPublic() {
                     </div>
                     <div className={styles.bizAdBody}>
                       <div className={styles.bizAdLabelRow}>
-                        <span className={styles.bizAdLabel}>광고</span>
+                        <span className={styles.bizAdLabel}>{t('market.adBadge')}</span>
                         <span className={styles.bizAdPartner}>{ad.partnerName}</span>
                       </div>
                       <strong className={styles.bizAdTitle}>{ad.title}</strong>
                       {ad.body && <span className={styles.bizAdCopy}>{ad.body}</span>}
-                      <span className={styles.bizAdCta}>자세히 보기</span>
+                      <span className={styles.bizAdCta}>{t('common.seeMore')}</span>
                     </div>
                   </button>
                 ))}
@@ -521,7 +521,7 @@ export default function BizPublic() {
           {reviewTotal > 0 && reviewAvg != null && (
             <span className={styles.reviewAvg}>
               <Star size={14} strokeWidth={0} fill="currentColor" />
-              {reviewAvg.toFixed(1)} · 후기 {reviewTotal}
+              {reviewAvg.toFixed(1)} · {t('biz.reviewCount', { count: reviewTotal })}
             </span>
           )}
           {profile?.isOwner ? (
@@ -574,7 +574,7 @@ export default function BizPublic() {
 
           {activeTab === 'price' && <>
             {prices.length === 0 ? (
-              <EmptyArea label="가격표" />
+              <EmptyArea label={t('biz.priceSectionTitle')} />
             ) : (
               <div className={styles.priceList}>
                 {prices.map((p) => (
@@ -589,7 +589,7 @@ export default function BizPublic() {
 
           {activeTab === 'photos' && <>
             {(() => {
-              return photoUrls.length === 0 ? <EmptyArea label="사진" /> : (
+              return photoUrls.length === 0 ? <EmptyArea label={t('biz.detailTabs.photos')} /> : (
                 <div className={styles.photoGrid}>
                   {photoUrls.map((url, i) => (
                     <AppImage
@@ -634,15 +634,17 @@ export default function BizPublic() {
 }
 
 function EmptyArea({ label }: { label: string }) {
-  return <div className={styles.adsEmpty}><p>{label}이(가) 아직 등록되지 않았습니다</p></div>;
+  const { t } = useTranslation();
+  return <div className={styles.adsEmpty}><p>{t('common.notRegisteredYet', { label })}</p></div>;
 }
 
 function HomePreview({ title, onMore, children }: { title: string; onMore: () => void; children: ReactNode }) {
+  const { t } = useTranslation();
   return (
     <section className={styles.homePreview}>
       <div className={styles.previewHead}>
         <h3>{title}</h3>
-        <button type="button" onClick={onMore}>자세히 보기</button>
+        <button type="button" onClick={onMore}>{t('common.seeMore')}</button>
       </div>
       {children}
     </section>

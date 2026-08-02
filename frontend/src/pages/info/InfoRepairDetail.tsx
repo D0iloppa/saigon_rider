@@ -32,7 +32,7 @@ export function ReviewCard({ review }: { review: RepairReview }) {
           <span className={styles.reviewerName}>{name}</span>
           {review.source === 'GOOGLE' && (
             <span
-              title="Google 리뷰"
+              title={t('info.repair.googleReview', { defaultValue: 'Google 리뷰' })}
               aria-label="Google review"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}
             >

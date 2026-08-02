@@ -10,12 +10,12 @@ import styles from './ReviewSheet.module.css';
 
 const MANNER_TAGS = ['PUNCTUAL', 'KIND', 'FAST_REPLY', 'GOOD_ITEM'] as const;
 
-const STAR_LABELS: Record<number, string> = {
-  1: '별로예요',
-  2: '아쉬워요',
-  3: '보통이에요',
-  4: '좋아요',
-  5: '최고예요!',
+const STAR_LABELS: Record<number, { key: string; fallback: string }> = {
+  1: { key: 'market.reviewStar1', fallback: '별로예요' },
+  2: { key: 'market.reviewStar2', fallback: '아쉬워요' },
+  3: { key: 'market.reviewStar3', fallback: '보통이에요' },
+  4: { key: 'market.reviewStar4', fallback: '좋아요' },
+  5: { key: 'market.reviewStar5', fallback: '최고예요!' },
 };
 
 interface Props {
@@ -92,7 +92,7 @@ export default function ReviewSheet({ open, onClose, targetId, listingId, onSubm
             ))}
           </div>
           {displayScore && (
-            <p className={styles.starLabel}>{STAR_LABELS[displayScore]}</p>
+            <p className={styles.starLabel}>{t(STAR_LABELS[displayScore].key, { defaultValue: STAR_LABELS[displayScore].fallback })}</p>
           )}
         </div>
 

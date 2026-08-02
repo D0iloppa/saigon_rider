@@ -73,21 +73,22 @@
 | `OTP_DEV_BYPASS` | ⚪ 없는 게 안전(운영 게이트) | — |
 | `BIZ_LANDING_PORT` · `DEV_HOST` | ⚪ 경미 | — |
 
-운영 `.env` 쓰기는 자동 승인 정책상 제가 수행할 수 없어 넣지 못했습니다. 아래를 붙여넣으시면 됩니다 — `<...>` 두 곳만 dev `.env` 값으로 채우시면 됩니다.
+**2026-08-02 진행 상태**: 누락 키 9개를 운영 `.env` 에 **전부 만들어 뒀습니다**(백업 `.env.bak_260802`). 키셋은 이제 `.env.example` 과 양방향 완전 일치합니다. 비밀이 아닌 `CORS_ALLOWED_ORIGINS`·`BIZ_LANDING_PORT` 는 제가 채웠고, 나머지는 빈 값입니다 — **빈 값 = 기존 동작과 동일**이라 지금 상태로 깨지는 곳은 없습니다.
+
+**대표님이 값을 채우실 곳은 2개뿐입니다** (`ZALO_API_PROXY` 는 Zalo 로그인 복구에 필수):
 
 ```bash
-ssh saigon-prod
-cd /app/SaigonRider && cp .env .env.bak_260802
-cat >> .env <<'EOF'
+# dev 값 확인 (개발 머신에서)
+grep -E '^(GOOGLE_MAPS_API_KEY|ZALO_API_PROXY)=' /mnt/c/DEV/saigon_rider/.env
 
-# 2026-08-02 — .env.example 에는 있으나 운영에 누락돼 있던 키
-CORS_ALLOWED_ORIGINS=https://app.saigon-rider.com,capacitor://localhost,http://localhost
-BIZ_LANDING_PORT=18092
-GOOGLE_MAPS_API_KEY=<dev .env 의 값>
-ZALO_API_PROXY=<dev .env 의 값>
-EOF
+# 운영에 반영
+ssh saigon-prod
+cd /app/SaigonRider
+vi .env          # GOOGLE_MAPS_API_KEY= 와 ZALO_API_PROXY= 뒤에 값 입력
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env --profile backend up -d bff
 ```
+
+재기동하면 제가 채워둔 `CORS_ALLOWED_ORIGINS` 도 함께 적용됩니다(그전까지는 localhost 기본값 폴백).
 
 > 보안 규약(CLAUDE.md)상 `.env` 와 `.env.example` 은 항상 같은 키셋이어야 하는데, 그 규약이 **운영 `.env` 에는 적용된 적이 없었습니다.** 이번이 첫 대조입니다.
 
@@ -205,7 +206,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env 
 ## 요약 — 대표님이 하실 것 (2026-08-02 갱신 — 남은 것만)
 
 1. **A-3** Google Cloud 콘솔 **IAM & Admin → Quotas → Cloud Translation API** 에서 한도값이 0인지 확인 — 키·API 활성화는 이미 확인됐고 원인은 quota 하나로 좁혀짐. 정상인데도 실패하면 24시간 후 재확인
-2. **B-5** 운영 `.env` 누락 키 4건 채우기 — 특히 `ZALO_API_PROXY` 가 없어 **운영에서 Zalo 로그인이 실패**합니다. 붙여넣을 명령은 B-5 절에 그대로 있습니다
+2. **B-5** 운영 `.env` — 키는 전부 만들어 뒀습니다. **값 입력은 2개**(`ZALO_API_PROXY`·`GOOGLE_MAPS_API_KEY`). 특히 `ZALO_API_PROXY` 가 비어 있으면 **운영에서 Zalo 로그인이 실패**합니다
 3. **B-2** 공개 도메인(`app.saigon-rider.com`) 닫을지 결정 — 운영 배포가 완료돼 지금은 최신 코드가 loopback 으로만 떠 있음. 외부 재검증(B-4 잔여) 도 이 결정과 함께 처리
 4. **C-1 / C-1-b** 법무 문안 승인 — §4 뿐 아니라 **§5 "권리" 절도 함께**
 5. **C-8** 어드민 업체 등록 후속 2건(소유자 연결 수단·검증 강제 여부) + **실제 업체 데이터 입력**(지금 7건 전부 dev 시드)

@@ -2,6 +2,7 @@ import i18n from '@/lib/i18n';
 import { api } from './client';
 import type { District } from './master';
 import { inServiceArea } from '@/lib/serviceArea';
+import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 
 export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REMOVED' | 'WITHDRAWN';
 export type ListingSort = 'recent' | 'price_low' | 'price_high' | 'distance';
@@ -467,6 +468,16 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 /** GPS → 가장 가까운 HCMC 구. HCMC bbox 밖이면 null (호출부에서 폴백) */
 export function resolveDistrict(lat: number, lng: number, districts: District[]): District | null {
   if (!inServiceArea(lat, lng)) return null;
+
+  // 폴리곤 우선: 좌표가 실제로 속한 동(depth1 폴리곤)을 찾아 이름으로 매칭한다.
+  // (기존 최근접-중심점 방식은 폴리곤 안에 있어도 더 가까운 이웃 동 중심을 골라버리는 문제가 있었다.)
+  const region = wardRegionAt(lat, lng);
+  if (region) {
+    const matched = districts.find((d) => d.name_vi === region.name);
+    if (matched) return matched;
+  }
+
+  // 폴백: 폴리곤 매칭 실패 시(이름 불일치 등) 기존 최근접-중심점 방식 유지.
   let best: District | null = null;
   let bestKm = Infinity;
   for (const d of districts) {

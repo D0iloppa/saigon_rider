@@ -18,7 +18,7 @@ import {
   type BusinessProfile,
   type BizCategory,
 } from '@/api/biz';
-import LocationPickerSheet from '@/pages/market/LocationPickerSheet';
+import BizLocationPicker from '@/pages/biz/BizLocationPicker';
 import styles from './BizApply.module.css';
 
 interface LocationState {
@@ -90,7 +90,7 @@ export default function BizApply() {
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit || !coords) return;
+    if (submitting || !canSubmit || !coords) return;
     setSubmitting(true);
     try {
       const input = {
@@ -217,7 +217,7 @@ export default function BizApply() {
         </Button>
       </div>
 
-      <LocationPickerSheet
+      <BizLocationPicker
         open={locOpen}
         onClose={() => setLocOpen(false)}
         value={coords}

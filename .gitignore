@@ -88,3 +88,10 @@ docs/tt/
 landing_bak/
 # 로컬 편집 중 임시 메모
 untitled-2.md
+
+# tsc -b (tsconfig.node.json, composite) 가 vite.config.ts 로부터 생성하는 산출물.
+# Vite 는 설정파일 탐색에서 .js 를 .ts 보다 먼저 로드하므로, 스테일한 .js 가 커밋돼 있으면
+# `vite build` 직접 실행 시 .ts 의 변경(예: manualChunks)이 조용히 무시된다. 추적 금지.
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/*.tsbuildinfo

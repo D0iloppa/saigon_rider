@@ -1,0 +1,14 @@
+/* P2-1: flag-icons(7.5.0) 전체 스프라이트(~200개국, CSS 28KB) 대신 실제 쓰는 국기 3개만
+   추출했다 — Splash/LangSettings(fi-vn·fi-us·fi-kr), PhoneVerify(fi-vn). 원본:
+   node_modules/flag-icons/css/flag-icons.min.css. 국기가 추가되면 같은 파일에서
+   .fi-xx{...}.fi-xx.fis{...} 규칙을 그대로 복사해 추가할 것. */
+.fib,.fi{background-size:contain;background-position:50%;background-repeat:no-repeat}
+.fi{position:relative;display:inline-block;width:1.333333em;line-height:1em}
+.fi:before{content:" "}
+.fi.fis{width:1em}
+.fi-vn{background-image:url(../../node_modules/flag-icons/flags/4x3/vn.svg)}
+.fi-vn.fis{background-image:url(../../node_modules/flag-icons/flags/1x1/vn.svg)}
+.fi-us{background-image:url(../../node_modules/flag-icons/flags/4x3/us.svg)}
+.fi-us.fis{background-image:url(../../node_modules/flag-icons/flags/1x1/us.svg)}
+.fi-kr{background-image:url(../../node_modules/flag-icons/flags/4x3/kr.svg)}
+.fi-kr.fis{background-image:url(../../node_modules/flag-icons/flags/1x1/kr.svg)}

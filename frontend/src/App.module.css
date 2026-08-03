@@ -9,6 +9,17 @@
   overflow: hidden;
 }
 
+/* P2-1: lazy 라우트 청크 로딩 중 fallback — 뷰포트를 채워 레이아웃 점프 없이 잠깐 보인다 */
+.routeLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
 /* F-19: 강제 업데이트 차단 화면 — splash(999) 보다 위, 앱 전체를 덮는다 */
 .forceUpdateBlock {
   position: fixed;

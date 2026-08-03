@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, type Location } from 'react-router-dom';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
-import { QuestCardSprites } from '@/components/quest/QuestCardSprites';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -28,68 +27,68 @@ import ProfileSetup from '@/pages/auth/ProfileSetup';
 import PhoneVerify from '@/pages/auth/PhoneVerify';
 import Suspended from '@/pages/auth/Suspended';
 
-// Home
+// Home — 로그인 후 첫 화면(부트스트랩 직후 진입)이라 eager 유지
 import WorldMapV2 from '@/pages/home/WorldMapV2';
 
-// 동네지도 (RideNav 지도 재사용)
-import NeighborhoodMap from '@/pages/map/NeighborhoodMap';
-import MapSearch from '@/pages/map/MapSearch';
-import NeighborhoodProfile from '@/pages/map/NeighborhoodProfile';
-import MapFavorites from '@/pages/map/MapFavorites';
-import MapFollows from '@/pages/map/MapFollows';
-import NeighborhoodCategories from '@/pages/map/NeighborhoodCategories';
+// 동네지도 (RideNav 지도 재사용) — P2-1 우선순위 1: lazy (maplibre-gl 포함, 첫 화면 아님)
+const NeighborhoodMap = lazy(() => import('@/pages/map/NeighborhoodMap'));
+const MapSearch = lazy(() => import('@/pages/map/MapSearch'));
+const NeighborhoodProfile = lazy(() => import('@/pages/map/NeighborhoodProfile'));
+const MapFavorites = lazy(() => import('@/pages/map/MapFavorites'));
+const MapFollows = lazy(() => import('@/pages/map/MapFollows'));
+const NeighborhoodCategories = lazy(() => import('@/pages/map/NeighborhoodCategories'));
 
 // Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
-import MarketMain from '@/pages/market/MarketMain';
-import MarketCreate from '@/pages/market/MarketCreate';
-import MarketEdit from '@/pages/market/MarketEdit';
-import MarketDetail from '@/pages/market/MarketDetail';
-import MarketWishlist from '@/pages/market/MarketWishlist';
-import MarketSearch from '@/pages/market/MarketSearch';
-import AdDetail from '@/pages/market/AdDetail';
+const MarketMain = lazy(() => import('@/pages/market/MarketMain'));
+const MarketCreate = lazy(() => import('@/pages/market/MarketCreate'));
+const MarketEdit = lazy(() => import('@/pages/market/MarketEdit'));
+const MarketDetail = lazy(() => import('@/pages/market/MarketDetail'));
+const MarketWishlist = lazy(() => import('@/pages/market/MarketWishlist'));
+const MarketSearch = lazy(() => import('@/pages/market/MarketSearch'));
+const AdDetail = lazy(() => import('@/pages/market/AdDetail'));
 
-// Biz (비즈니스 파트너, SGR-312 BP-2)
-import BizIntro from '@/pages/biz/BizIntro';
-import BizApply from '@/pages/biz/BizApply';
-import BizStatus from '@/pages/biz/BizStatus';
-import BizManage from '@/pages/biz/BizManage';
-import BizVerification from '@/pages/biz/BizVerification';
-import BizAdsNew from '@/pages/biz/BizAdsNew';
-import BizAdDetail from '@/pages/biz/BizAdDetail';
-import BizPublic from '@/pages/biz/BizPublic';
-import BizNewsCreate from '@/pages/biz/BizNewsCreate';
-import BizNewsDetail from '@/pages/biz/BizNewsDetail';
-import BizPriceManage from '@/pages/biz/BizPriceManage';
+// Biz (비즈니스 파트너, SGR-312 BP-2) — P2-1 우선순위 3: lazy (업체 관리)
+const BizIntro = lazy(() => import('@/pages/biz/BizIntro'));
+const BizApply = lazy(() => import('@/pages/biz/BizApply'));
+const BizStatus = lazy(() => import('@/pages/biz/BizStatus'));
+const BizManage = lazy(() => import('@/pages/biz/BizManage'));
+const BizVerification = lazy(() => import('@/pages/biz/BizVerification'));
+const BizAdsNew = lazy(() => import('@/pages/biz/BizAdsNew'));
+const BizAdDetail = lazy(() => import('@/pages/biz/BizAdDetail'));
+const BizPublic = lazy(() => import('@/pages/biz/BizPublic'));
+const BizNewsCreate = lazy(() => import('@/pages/biz/BizNewsCreate'));
+const BizNewsDetail = lazy(() => import('@/pages/biz/BizNewsDetail'));
+const BizPriceManage = lazy(() => import('@/pages/biz/BizPriceManage'));
 
 // Quest
-import QuestList from '@/pages/quest/QuestList';
-import QuestDetail from '@/pages/quest/QuestDetail';
-import QuestCheckPage from '@/pages/quest/QuestCheckPage';
+const QuestList = lazy(() => import('@/pages/quest/QuestList'));
+const QuestDetail = lazy(() => import('@/pages/quest/QuestDetail'));
+const QuestCheckPage = lazy(() => import('@/pages/quest/QuestCheckPage'));
 
 // Ride
-import RideResultSuccess from '@/pages/ride/RideResultSuccess';
-import RideResultFail from '@/pages/ride/RideResultFail';
+const RideResultSuccess = lazy(() => import('@/pages/ride/RideResultSuccess'));
+const RideResultFail = lazy(() => import('@/pages/ride/RideResultFail'));
 
 // Feed
-import FeedList from '@/pages/feed/FeedList';
-import FeedCreate from '@/pages/feed/FeedCreate';
-import FeedEdit from '@/pages/feed/FeedEdit';
-import FeedDetail from '@/pages/feed/FeedDetail';
+const FeedList = lazy(() => import('@/pages/feed/FeedList'));
+const FeedCreate = lazy(() => import('@/pages/feed/FeedCreate'));
+const FeedEdit = lazy(() => import('@/pages/feed/FeedEdit'));
+const FeedDetail = lazy(() => import('@/pages/feed/FeedDetail'));
 
 // DM
-import DmList from '@/pages/dm/DmList';
-import DmDetail from '@/pages/dm/DmDetail';
+const DmList = lazy(() => import('@/pages/dm/DmList'));
+const DmDetail = lazy(() => import('@/pages/dm/DmDetail'));
 
 // 알림함
-import NotificationInbox from '@/pages/notifications/NotificationInbox';
+const NotificationInbox = lazy(() => import('@/pages/notifications/NotificationInbox'));
 
 // Profile
-import ProfileMain from '@/pages/profile/ProfileMain';
-import TradeHistory from '@/pages/profile/TradeHistory';
-import FollowerList from '@/pages/profile/FollowerList';
-import FollowingList from '@/pages/profile/FollowingList';
-import FriendList from '@/pages/profile/FriendList';
-import FriendAdd from '@/pages/profile/FriendAdd';
+const ProfileMain = lazy(() => import('@/pages/profile/ProfileMain'));
+const TradeHistory = lazy(() => import('@/pages/profile/TradeHistory'));
+const FollowerList = lazy(() => import('@/pages/profile/FollowerList'));
+const FollowingList = lazy(() => import('@/pages/profile/FollowingList'));
+const FriendList = lazy(() => import('@/pages/profile/FriendList'));
+const FriendAdd = lazy(() => import('@/pages/profile/FriendAdd'));
 
 // Gacha
 // [게이미피케이션 잠정보류 — 재개 시 주석 해제]
@@ -112,43 +111,45 @@ import FriendAdd from '@/pages/profile/FriendAdd';
 // import SeasonPass from '@/pages/season/SeasonPass';
 
 // Settings
-import Settings from '@/pages/settings/Settings';
-import NotiSettings from '@/pages/settings/NotiSettings';
-import LangSettings from '@/pages/settings/LangSettings';
-import AccountSettings from '@/pages/settings/AccountSettings';
-import BlockedUsers from '@/pages/settings/BlockedUsers';
-import ProfileEdit from '@/pages/settings/ProfileEdit';
-import CustomerSupport from '@/pages/settings/CustomerSupport';
-import SupportDetail from '@/pages/settings/SupportDetail';
-import PrivacyPolicy from '@/pages/settings/PrivacyPolicy';
-import TermsOfService from '@/pages/settings/TermsOfService';
+const Settings = lazy(() => import('@/pages/settings/Settings'));
+const NotiSettings = lazy(() => import('@/pages/settings/NotiSettings'));
+const LangSettings = lazy(() => import('@/pages/settings/LangSettings'));
+const AccountSettings = lazy(() => import('@/pages/settings/AccountSettings'));
+const BlockedUsers = lazy(() => import('@/pages/settings/BlockedUsers'));
+const ProfileEdit = lazy(() => import('@/pages/settings/ProfileEdit'));
+const CustomerSupport = lazy(() => import('@/pages/settings/CustomerSupport'));
+const SupportDetail = lazy(() => import('@/pages/settings/SupportDetail'));
+const PrivacyPolicy = lazy(() => import('@/pages/settings/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('@/pages/settings/TermsOfService'));
 
 // Notices / FAQ
-import NoticeList from '@/pages/notices/NoticeList';
-import NoticeDetail from '@/pages/notices/NoticeDetail';
-import FaqList from '@/pages/faq/FaqList';
+const NoticeList = lazy(() => import('@/pages/notices/NoticeList'));
+const NoticeDetail = lazy(() => import('@/pages/notices/NoticeDetail'));
+const FaqList = lazy(() => import('@/pages/faq/FaqList'));
 
 // Guide
-import SafeTradeGuide from '@/pages/guide/SafeTradeGuide';
+const SafeTradeGuide = lazy(() => import('@/pages/guide/SafeTradeGuide'));
 
 // Info
-import InfoHub from '@/pages/info/InfoHub';
-import InfoWeather from '@/pages/info/InfoWeather';
-import InfoFloodMap from '@/pages/info/InfoFloodMap';
-import InfoFloodReport from '@/pages/info/InfoFloodReport';
-import InfoGasList from '@/pages/info/InfoGasList';
-import InfoRepairList from '@/pages/info/InfoRepairList';
-import InfoRepairDetail from '@/pages/info/InfoRepairDetail';
-import InfoRepairWrite from '@/pages/info/InfoRepairWrite';
-import InfoRepairReviews from '@/pages/info/InfoRepairReviews';
-import RideNav from '@/pages/ride/RideNav';
+const InfoHub = lazy(() => import('@/pages/info/InfoHub'));
+const InfoWeather = lazy(() => import('@/pages/info/InfoWeather'));
+const InfoFloodMap = lazy(() => import('@/pages/info/InfoFloodMap'));
+const InfoFloodReport = lazy(() => import('@/pages/info/InfoFloodReport'));
+const InfoGasList = lazy(() => import('@/pages/info/InfoGasList'));
+const InfoRepairList = lazy(() => import('@/pages/info/InfoRepairList'));
+const InfoRepairDetail = lazy(() => import('@/pages/info/InfoRepairDetail'));
+const InfoRepairWrite = lazy(() => import('@/pages/info/InfoRepairWrite'));
+const InfoRepairReviews = lazy(() => import('@/pages/info/InfoRepairReviews'));
+// RideNav 도 지도(SaigonMapV5/maplibre-gl) 를 그린다 — 우선순위 1(지도) 대상
+const RideNav = lazy(() => import('@/pages/ride/RideNav'));
 
-// Deep link
-import LinkRouter from '@/pages/link/LinkRouter';
+// Deep link — LinkRouter 는 첫 화면 목록(/splash·/auth/*·/home)에 없어 lazy.
+// NotificationBridge 는 항상 마운트되는 전역 브리지라 eager 유지.
+const LinkRouter = lazy(() => import('@/pages/link/LinkRouter'));
 import NotificationBridge from '@/pages/link/NotificationBridge';
 
 // Error
-import NotFound from '@/pages/error/NotFound';
+const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
 import styles from './App.module.css';
 
@@ -158,11 +159,19 @@ import styles from './App.module.css';
  * 오버레이 레이어로 얹는다. URL 은 실제 상세 경로 — 딥링크/공유/하드웨어 뒤로가기 모두 정상.
  * backgroundLocation 없는 진입(마켓 리스트·커뮤니티·딥링크 등)은 기존 페이지 이동 그대로.
  */
+// P2-1: 라우트 lazy 전환 후 청크 로딩 대기 중 보여줄 최소 fallback. 화면 전환마다
+// 깜빡이지 않도록 BackgroundRoutes 전체를 감싸는 Suspense 하나만 둔다 — 이미 로드된
+// 청크로의 이동은 재서스펜드되지 않으므로, 최초로 그 라우트에 진입할 때만 잠깐 보인다.
+function RouteFallback() {
+  const { t } = useTranslation();
+  return <div className={styles.routeLoading}>{t('common.loading')}</div>;
+}
+
 function BackgroundRoutes({ children }: { children: ReactNode }) {
   const location = useLocation();
   const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
   return (
-    <>
+    <Suspense fallback={<RouteFallback />}>
       <Routes location={backgroundLocation ?? location}>{children}</Routes>
       {backgroundLocation && (
         <div className={styles.detailOverlay}>
@@ -173,20 +182,30 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
           </Routes>
         </div>
       )}
-    </>
+    </Suspense>
   );
 }
 
 // 퀘스트 카드가 참조하는 인라인 스프라이트 — 전역 마운트하면 모든 화면의 DOM 최상단에
 // 게임 아이템 텍스트 수백 자가 주입돼 스크린리더 낭독·번들이 오염된다(P1-1). QuestCard 를
 // 실제로 렌더하는 /quests 하위 화면에서만 마운트한다.
+// P2-1: 인라인 SVG 3개(rider/season/mythic-sprite, 총 146KB raw)가 메인 번들에 항상
+// 포함돼 있었다 — lazy 로 분리해 /quests 진입 전에는 아예 받지 않는다. 화면에 보이지
+// 않는 절대위치 0x0 요소라 fallback 은 null(깜빡임 없음).
 // [게이미피케이션 잠정보류] SpriteProvider(@/lib/items/SpriteProvider, saigon-rider-items.svg)는
 // 가챠/상점/인벤토리(App.tsx 하단 주석 처리된 라우트)에서만 쓰이고 지금은 마운트하는 화면이
 // 없어 완전히 제거했다 — 재개 시 해당 라우트 활성화와 함께 그 화면에서만 복원할 것.
+const QuestCardSprites = lazy(() =>
+  import('@/components/quest/QuestCardSprites').then((m) => ({ default: m.QuestCardSprites }))
+);
 function QuestSprites() {
   const { pathname } = useLocation();
   if (!pathname.startsWith('/quests')) return null;
-  return <QuestCardSprites />;
+  return (
+    <Suspense fallback={null}>
+      <QuestCardSprites />
+    </Suspense>
+  );
 }
 
 // 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.

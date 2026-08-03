@@ -191,7 +191,7 @@ export default function NeighborhoodMapCanvas({
   const globalSelectedRegion = useSelectedRegion(user?.id);
   // initialRegion 은 마운트 시점 1회 시드값만 — 전역 스토어에는 쓰지 않는다(prop 미전달 시
   // localRegionSeed 는 null 이라 selectedRegion === globalSelectedRegion, 기존 동작과 동일).
-  const [localRegionSeed] = useState<SelectedRegion | null>(initialRegion);
+  const [localRegionSeed, setLocalRegionSeed] = useState<SelectedRegion | null>(initialRegion);
   const selectedRegion = localRegionSeed ?? globalSelectedRegion;
   const storedCoords = selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : null;
 
@@ -910,6 +910,10 @@ export default function NeighborhoodMapCanvas({
   // useCallback 필수: SaigonMapV5의 onLocate prop으로 전달됨 (handleRegionSelect와 동일한 이유)
   const resetToViewport = useCallback(() => {
     if (user) selectAll(user.id);
+    // localRegionSeed(리스트뷰에서 넘어온 initialRegion 1회 시드값)가 남아있으면 selectAll 로
+    // 전역 스토어를 비워도 selectedRegion(=localRegionSeed ?? globalSelectedRegion)이 여전히
+    // 시드값을 가리켜 ✕ 가 no-op 처럼 보였다 — 여기서 함께 지워야 실제로 'all' 로 돌아간다.
+    setLocalRegionSeed(null);
     setSelectedId(null);
     setSelectedBiz(null);
     setPostPanelOpen(false);
@@ -1140,8 +1144,12 @@ export default function NeighborhoodMapCanvas({
         initialGps={storedCoords ?? undefined}
         // 진입 시 GPS 1회 자동 센터링 복원 (대표 지시 2026-07-25) — 이 화면 한정으로
         // service-rules 원칙 1·2 예외. 마운트당 1회만 실행(SaigonMapV5 didAutoLocate 가드) +
-        // selectRegionOnLocate=false 라 지역선택엔 영향 없음. 거부/실패 시 도시 기본 폴백(runLocate 내부).
-        locateOnMount
+        // selectRegionOnLocate=false 라 지역선택엔 영향 없음(전역 스토어는). 거부/실패 시 도시
+        // 기본 폴백(runLocate 내부). mode==='region'(초기 시드/전역 스토어로 이미 선택 동이 있음)
+        // 이면 끈다 — 켜두면 initialGps 로 selWard 를 선택 동에 맞춰놓은 직후 GPS locate 가
+        // 비동기로 완료되며 실제 현재 위치(다른 동일 수 있음)로 selWard·카메라를 덮어써
+        // 칩(선택 동)과 렌더된 경계 폴리곤이 어긋나는 버그가 있었다(2026-08-03 발견).
+        locateOnMount={mode === 'viewport'}
         initialViewport={savedViewport ?? undefined}
         markers={markers}
         anchorOverlay={postPanelOpen ? undefined : bizNewsOverlay}

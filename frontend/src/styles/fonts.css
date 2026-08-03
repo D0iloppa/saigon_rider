@@ -1,0 +1,163 @@
+/* 자체 호스팅 웹폰트 — P2-2 (ai-docs/260803_prelaunch_ux_audit.md §4)
+ * 이전: jsdelivr(Pretendard) + Google Fonts(Space Grotesk, Instrument Serif) CDN 로드.
+ * 문제: 오프라인 폴백 없음 / 제3자(jsdelivr·Google)로 사용자 IP 전송 / 첫 렌더가 외부 호스트에 의존.
+ * 조치: 세 폰트 모두 /fonts 에 자체 호스팅. 각 파일의 출처·라이선스(OFL-1.1)는 해당 폴더의 LICENSE.txt 참조.
+ * 서브셋: 라틴 + 베트남어(Latin Extended Additional, ế·ộ·ữ 등 성조 결합 문자 포함). font-display: swap 필수(FOIT 방지).
+ */
+
+/* ── Pretendard (본문 전역) ──
+ * 출처: https://github.com/orioncactus/pretendard (OFL-1.1)
+ * 코드상 실사용 굵기 400/500/600/700/800/900 만 포함 (100/200/300 Thin~Light 는 미사용 확인 후 제외).
+ * 서브셋: 라틴 + 베트남어 결합문자 전체만 포함, 한글은 의도적으로 제외(코디네이터 지시, 2026-08-03).
+ *   - 타겟 시장은 호치민/베트남어가 기본 언어, 한국어는 LangSettings 의 부차 옵션일 뿐.
+ *   - 네이티브(Capacitor) 앱이라 Android(Noto Sans CJK)/iOS(Apple SD Gothic Neo) 가 한글을 이미 완전히 커버.
+ *   - CSS font-family 폴백은 글리프 단위 — 이 폰트에 한글이 없으면 한글 문자만 다음 폴백 폰트로
+ *     렌더되고 나머지(라틴+베트남어)는 Pretendard 로 정상 렌더된다(두부 아님). 전제조건: 이 폰트를
+ *     쓰는 모든 곳이 제네릭 폴백까지 포함한 font-family 리스트를 갖고 있어야 함 — 전수 확인 완료
+ *     (globals.css:25 전역 정의 + 8개 컴포넌트 개별 선언 전부 'Pretendard' 단독이 아니라
+ *     sans-serif/Apple SD Gothic Neo 등 폴백까지 포함, 끊어진 곳 없음).
+ *   - 한글 포함판(3.9MB, 6웨이트)이 다시 필요하면 이 서브셋 스크립트의 unicode 범위에
+ *     U+AC00-D7A3(완성형)·U+1100-11FF(자모)·U+3130-318F(호환자모) 를 추가해 재생성하면 된다
+ *     (git 이력에 남기지 않고 언제든 되돌릴 수 있음).
+ * 검증: fontTools cmap 검사로 베트남어 성조 결합 문자(ạ,ả,ã,ầ,ấ,ộ,ữ 등 67자) 전수 포함, 한글 글리프 0개 확인.
+ */
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/pretendard/Pretendard-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/pretendard/Pretendard-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/pretendard/Pretendard-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/pretendard/Pretendard-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/pretendard/Pretendard-ExtraBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/pretendard/Pretendard-Black.woff2') format('woff2');
+}
+
+/* ── Space Grotesk (숫자·라벨: .num, .micro 등) ──
+ * 출처: https://github.com/floriankarsten/space-grotesk (OFL-1.1)
+ * 굵기 400/500/600/700 — 기존 CDN 요청(wght@400;500;600;700)과 동일, 코드 실사용 범위와도 일치.
+ * 라틴/베트남어 2개 unicode-range 샤드로 분리(Google Fonts 원본과 동일 방식) — 브라우저가 실제
+ * 렌더링되는 문자에 맞는 샤드만 받아 각 굵기당 ~29KB(라틴+베트남어 합계)로 최소화.
+ */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-400-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-500-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-600-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-700-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/space-grotesk/SpaceGrotesk-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Instrument Serif (.serif — 이탤릭 인용구 전용, italic 스타일만 사용) ──
+ * 출처: https://github.com/Instrument/instrument-serif (OFL-1.1)
+ * 코드상 italic 스타일만 쓰여 ital@1 만 자체호스팅(ital@0 제외 — 파일 수 절반으로).
+ * 주의(미해결·기존 CDN 도 동일): 이 폰트 자체가 베트남어 성조 결합 문자(1EA0–1EF9 프리컴포즈드)를
+ * 지원하지 않는다 — Google Fonts 원본에도 'vietnamese' 서브셋이 없다(업스트림 미지원, 자체호스팅으로
+ * 인한 축소 아님). splash.subtitle/quest.emptyQuote/ride.*Epigraph 의 베트남어 원문에 성조 문자가
+ * 포함되어 있어, 그 글자만 font-family 폴백 체인의 다음 폰트(시스템 serif)로 자동 대체된다(글자 단위
+ * 폴백 — 완전한 두부 현상은 아니나 한 문장 안에서 서체가 섞여 보일 수 있음). 이 폰트 자체의 한계이므로
+ * 이번 작업 범위 밖 — 별도 보고.
+ */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('/fonts/instrument-serif/InstrumentSerif-Italic-latinext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('/fonts/instrument-serif/InstrumentSerif-Italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

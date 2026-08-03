@@ -1,9 +1,12 @@
 import type { TFunction } from 'i18next';
 import type { ListingStatus } from '@/api/market';
+import { formatNumber } from '@/lib/format';
 
-/** 가격 표기 — 0 = 나눔, 그 외 `1.234.567 đ` (베트남 관례: 마침표 천단위 + đ 후치. Chotot 실측 표기) */
+/** 가격 표기 — 0 = 나눔, 그 외 `1.234.567 đ` (베트남 관례: 마침표 천단위 + đ 후치. Chotot 실측 표기)
+ *  10억(1 tỷ) 이상은 좁은 카드에서 줄바꿈되는 오정보를 막기 위해 로케일별 축약 표기(`formatNumber` compact)로 폴백. */
 export function formatPriceVnd(vnd: number, t: TFunction): string {
   if (vnd === 0) return t('market.free', { defaultValue: '나눔' });
+  if (vnd >= 1_000_000_000) return `${formatNumber(vnd, { compact: true })} đ`;
   return `${vnd.toLocaleString('vi-VN')} đ`;
 }
 

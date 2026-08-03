@@ -22,13 +22,13 @@ export default function NoticeList() {
           <p className={styles.empty}>{t('notices.empty')}</p>
         ) : (
           notices.map((n) => (
-            <div key={n.id} className={styles.card} onClick={() => navigate(`/notices/${n.id}`)}>
+            <button key={n.id} type="button" className={styles.card} onClick={() => navigate(`/notices/${n.id}`)}>
               <div className={styles.cardTitle}>{n.title}</div>
               <div className={styles.cardMeta}>
                 {n.is_pinned && <span className={styles.pinnedBadge}>{t('notices.pinned')}</span>}
                 {n.published_at && <span>{new Date(n.published_at).toLocaleDateString()}</span>}
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>

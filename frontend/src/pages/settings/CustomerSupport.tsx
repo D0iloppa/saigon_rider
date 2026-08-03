@@ -70,8 +70,13 @@ export default function CustomerSupport() {
             </div>
           ) : (
             tickets.map((tk) => (
-              <div key={tk.id} className={styles.card} onClick={() => navigate(`/settings/support/${tk.id}`)}>
-                {tk.has_unread_reply && <div className={styles.unreadDot} />}
+              <button key={tk.id} type="button" className={styles.card} onClick={() => navigate(`/settings/support/${tk.id}`)}>
+                {tk.has_unread_reply && (
+                  <>
+                    <div className={styles.unreadDot} />
+                    <span className={styles.srOnly}>{t('support.unreadReply', { defaultValue: '읽지 않은 답변 있음' })}</span>
+                  </>
+                )}
                 <div className={styles.cardTitle}>{tk.title}</div>
                 <div className={styles.cardMeta}>
                   <span className={`${styles.badge} ${STATUS_CLASS[tk.status] ?? ''}`}>
@@ -80,7 +85,7 @@ export default function CustomerSupport() {
                   <span>{new Date(tk.created_at).toLocaleDateString()}</span>
                   {tk.reply_count > 0 && <span>{t('support.reply_count', { count: tk.reply_count })}</span>}
                 </div>
-              </div>
+              </button>
             ))
           )}
         </div>

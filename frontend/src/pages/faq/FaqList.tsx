@@ -41,7 +41,12 @@ export default function FaqList() {
                 const open = openId === f.id;
                 return (
                   <div key={f.id} className={styles.item}>
-                    <div className={styles.question} onClick={() => setOpenId(open ? null : f.id)}>
+                    <button
+                      type="button"
+                      className={styles.question}
+                      aria-expanded={open}
+                      onClick={() => setOpenId(open ? null : f.id)}
+                    >
                       <span>{f.question}</span>
                       <svg
                         className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}
@@ -52,7 +57,7 @@ export default function FaqList() {
                       >
                         <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                    </div>
+                    </button>
                     {open && <div className={styles.answer}>{f.answer}</div>}
                   </div>
                 );

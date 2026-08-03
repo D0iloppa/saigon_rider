@@ -299,7 +299,9 @@ export default function MarketMain() {
             <ChevronDown size={16} strokeWidth={2.2} />
           </button>
           <Chip
+            as="button"
             variant={hideSold ? 'dark' : 'surface'}
+            aria-pressed={hideSold}
             onClick={() => setHideSold((v) => !v)}
             style={{ cursor: 'pointer' }}
           >

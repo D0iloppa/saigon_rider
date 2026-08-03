@@ -23,6 +23,15 @@ docker compose up -d frontend
 
 로컬에서 `node_modules`를 직접 건드리거나 `npm install` 하면 안 됨 — Docker 이미지 내부에서 관리됨.
 
+### 0.1 코드 분할 청크 로드 실패 방어 (2026-08-03)
+
+라우트는 대부분 코드 분할되어 있다. **`lazy()` 를 직접 쓰지 말고 `@/lib/lazyWithRetry` 의 `lazyWithRetry()` 를 쓴다** (`App.tsx` 의 모든 라우트가 이미 이것을 쓴다).
+
+- **왜**: 배포로 번들 해시가 바뀌면, 이미 옛 `index.html` 을 들고 있는 세션은 더 이상 존재하지 않는 옛 청크(`MarketMain-<hash>.js`)를 요청해 404 로 실패한다. 컨테이너 재생성 순간의 502 도 같은 결과다. `React.lazy` 는 이때 예외를 던지는데, 잡지 않으면 **React 트리 전체가 언마운트되어 완전한 검은 화면**이 된다(실기기에서 재현됨).
+- **동작**: 실패 시 최대 2회까지 자동으로 `window.location.reload()` 해 새 `index.html`·새 해시를 받아온다. 상한을 넘기면 예외를 그대로 던져 루트 `ErrorBoundary`(`@/components/ErrorBoundary`, `main.tsx` 에서 `<App/>` 을 감쌈)가 안내 UI + 다시 시도 버튼을 렌더한다.
+- **재시도 카운터는 `sessionStorage`** 라 새로고침으로 지워지지 않는다. 그래서 **탈출구 두 개**가 있다 — ① 청크가 한 번이라도 정상 로드되면 카운터를 비운다(장애 종료로 간주) ② `ErrorBoundary` 의 '다시 시도' 버튼이 `clearChunkRetryState()` 를 호출한 뒤 새로고침한다. 이 두 경로가 없으면 자동 재시도를 소진한 사용자가 **앱을 완전히 종료할 때까지** 에러 화면에 갇힌다.
+- **ErrorBoundary 는 앱 루트 1곳에만** 둔다. 화면마다 넣지 않는다. `AppShell` 밖이라 배경을 스스로 깔아야 하고, 상단은 `padding-top: var(--status-bar-height)` 로 status bar 영역까지 덮는다(`top` 오프셋으로 하면 상단에 검은 띠가 남는다).
+
 ---
 
 ## 1. 네이티브 기능 추상화 (Capacitor 기반)

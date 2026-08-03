@@ -140,7 +140,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   docker compose --env-file .env up --build -d admin_frontend   # Dockerfile 2-stage 가 npm build 수행 (호스트 npm 불필요)
   ```
   - admin API(백엔드) 변경이 같이 있으면 `bff` 도 함께: `... up --build -d bff admin_frontend`
-  - `/admin/` 은 nginx 가 변수+resolver 프록시라 **nginx 재시작 불필요**. 단 `bff`/`frontend` 재빌드 후 502 가 나면 리터럴 proxy_pass 의 구 IP 캐시 탓 — `docker restart saigon_nginx`.
+  - `/admin/`·`/`(frontend)·`bff`·`engine` 모두 nginx 가 **변수+resolver 프록시**라 재빌드 후 **nginx 재시작 불필요**. (`frontend` 는 2026-08-03 커밋 `ab8941f` 에서 리터럴 → 변수로 전환 — 그 전에는 재빌드마다 구 IP 캐시로 502 가 났다.) **아직 리터럴로 남은 것은 `imgproxy` 하나** — 이것만 재빌드 후 502 가 나면 `docker restart saigon_nginx`.
 - **접속**: dev `http://<호스트>:18090/admin/`, 운영 `https://app.saigon-rider.com/admin/`. 로그인은 root(.env `ADMIN_USER`) 또는 `admin_accounts` 계정 (JWT 쿠키 `admin_session`, 구 어드민과 SSO).
 - **구 어드민(레거시)**: `/admin-legacy/` 로 병행 서빙 (서버렌더, bff 소유). 2차 이식 완료 전까지 유지.
 - **라우팅** (`nginx/conf.d/default.conf`): `/admin/api/` → bff:8080 (JSON API), `/admin-legacy/` → bff:8080, `/admin/` → admin_frontend:80 (SPA), `= /admin` → 301.

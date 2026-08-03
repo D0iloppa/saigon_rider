@@ -419,10 +419,13 @@ export default function MarketMain() {
               // 켜면 마운트 후 비동기 GPS 완료가 selWard/카메라를 다른 동으로 덮어써
               // 선택 경계와 어긋난다(동네지도 회귀 aa2f214 재발 방지, 2026-08-03 발견 사유와 동일).
               locateOnMount={locationMode === 'all'}
-              // 지역 선택이 없으면(전체 지역) 선택 동 폴리곤 강조를 끈다 — SaigonMapV5 의
-              // polyActive 기본값이 true 라, 안 넘기면 '전체 지역'인데도 locate 가 잡은
-              // 현재 위치 동 경계가 주황으로 그려진다(동네지도는 mode==='region' 으로 이미 가드).
-              polyActive={locationMode === 'region'}
+              // 선택 동 폴리곤 강조(주황 경계 + 비선택 동 도로 소거)를 항상 끈다.
+              // SaigonMapV5 의 polyActive 기본값이 true 라 명시하지 않으면 켜진다.
+              // 동네지도는 initialViewport 복원 경로가 selWard 를 세팅하지 않아 실질적으로
+              // 경계가 나오지 않는데, 마켓만 경계가 뜨는 불일치를 '경계 없음' 쪽으로
+              // 통일하기로 결정(2026-08-03 사용자 결정). 동네지도 쪽 selWard 미세팅은
+              // 별건으로 남긴다.
+              polyActive={false}
               markers={mapMarkers}
               onBboxChange={handleMapBboxChange}
               outsideAreaFallback

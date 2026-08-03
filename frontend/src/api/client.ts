@@ -108,6 +108,14 @@ function sanitizeDetail(detail: any): any {
 
 function extractErrorMessage(err: any, status: number, call: string): string {
   const detail = err?.detail;
+  // 422(FastAPI 검증 오류)는 detail 이 배열이고 그 안에 요청 본문(input)이 그대로 되비친다.
+  // 위 sanitizeDetail 은 배열을 통과시키므로 여기서 막지 않으면 내부 필드명과 user_id 가
+  // 사용자 토스트에 찍힌다(실제 발생: 회원가입 화면에 age_confirmed·user_id 노출).
+  // 검증 오류는 사용자가 고칠 수 있는 정보가 아니다 — 진단은 콘솔로만 남긴다.
+  if (status === 422) {
+    console.warn('[api] validation error', call, detail);
+    return `HTTP 422 | ${call}`;
+  }
   let msg: string;
   if (typeof detail === 'string') msg = detail;
   else if (detail) msg = JSON.stringify(sanitizeDetail(detail));

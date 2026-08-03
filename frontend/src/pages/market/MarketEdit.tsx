@@ -140,7 +140,7 @@ export default function MarketEdit() {
       <TopBar
         title={t('market.editListing', { defaultValue: '매물 수정' })}
         rightContent={
-          <Button onClick={handleSubmit} disabled={!canSave} style={{ minWidth: 64 }}>
+          <Button onClick={handleSubmit} disabled={!canSave} loading={saving} style={{ minWidth: 64 }}>
             {saving ? t('market.saving', { defaultValue: '저장 중' }) : t('common.save', { defaultValue: '저장' })}
           </Button>
         }

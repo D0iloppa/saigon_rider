@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { fetchFeedPost, updateFeedPost } from '@/api/feed';
 import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { native } from '@/lib/native';
@@ -36,6 +37,7 @@ export default function FeedEdit() {
   const navigate = useNavigate();
   const { postId } = useParams<{ postId: string }>();
   const user = useUserStore((s) => s.user);
+  const openConfirm = useConfirmStore((s) => s.open);
 
   const [content, setContent] = useState('');
   const [imageSlots, setImageSlots] = useState<ImageSlot[]>([]);
@@ -43,6 +45,8 @@ export default function FeedEdit() {
   const [loaded, setLoaded] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const kb = useKeyboard();
+  const [originalContent, setOriginalContent] = useState('');
+  const draftKey = postId ? `feedEdit:draft:${postId}` : null;
   // iOS 네이티브는 키보드가 순수 오버레이라 textarea 아래 여백이 키보드에 가려진다 —
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
   const isIosNative = native.platform === 'ios';
@@ -54,7 +58,15 @@ export default function FeedEdit() {
         post.caption ?? '',
         ...post.hashtags.map((t) => `#${t}`),
       ].filter(Boolean).join(' ');
-      setContent(fullText);
+      setOriginalContent(fullText);
+
+      // 텍스트 초안을 세션 단위로 보존 (P1-7) — 이전 세션에서 이탈 시 남긴 초안이 있으면 복원한다.
+      let restored = fullText;
+      try {
+        const draft = draftKey ? sessionStorage.getItem(draftKey) : null;
+        if (draft != null) restored = draft;
+      } catch { /* ignore */ }
+      setContent(restored);
 
       if (post.photoUrls.length > 0) {
         setImageSlots(post.photoUrls.map((url, i) => ({
@@ -68,7 +80,38 @@ export default function FeedEdit() {
       }
       setLoaded(true);
     });
-  }, [postId]);
+  }, [postId, draftKey]);
+
+  useEffect(() => {
+    if (!loaded || !draftKey) return;
+    try {
+      if (content !== originalContent) sessionStorage.setItem(draftKey, content);
+      else sessionStorage.removeItem(draftKey);
+    } catch { /* ignore */ }
+  }, [content, loaded, draftKey, originalContent]);
+
+  const isDirty = loaded && (
+    content !== originalContent ||
+    imageSlots.some((s) => s.type === 'new')
+  );
+
+  const handleBackAttempt = () => {
+    if (!isDirty) {
+      navigate(-1);
+      return;
+    }
+    openConfirm(
+      t('feedEdit.leaveConfirmMsg', { defaultValue: '수정 중인 내용이 있습니다. 저장하지 않고 나가시겠어요?' }),
+      () => {
+        try { if (draftKey) sessionStorage.removeItem(draftKey); } catch { /* ignore */ }
+        navigate(-1);
+      },
+      {
+        confirmLabel: t('feedEdit.leaveConfirmDiscard', { defaultValue: '나가기' }),
+        cancelLabel: t('feedEdit.leaveConfirmKeep', { defaultValue: '계속 수정' }),
+      },
+    );
+  };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -136,6 +179,7 @@ export default function FeedEdit() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!user || !postId) return;
     setSaving(true);
     try {
@@ -152,6 +196,7 @@ export default function FeedEdit() {
         updateLocation: true,
       });
       toast.success(t('feedEdit.saveSuccess'));
+      try { if (draftKey) sessionStorage.removeItem(draftKey); } catch { /* ignore */ }
       navigate('/profile', { replace: true });
     } catch (err: any) {
       toast.error(err.message ?? t('feedEdit.saveError'));
@@ -167,10 +212,12 @@ export default function FeedEdit() {
     <div className={styles.page}>
       <TopBar
         title={t('feedEdit.title')}
+        onBack={handleBackAttempt}
         rightContent={
           <Button
             onClick={handleSave}
             disabled={!canSave}
+            loading={saving}
             style={{ minWidth: 64 }}
           >
             {saving ? t('feedEdit.saving') : t('feedEdit.saveBtn')}

@@ -115,7 +115,7 @@ export default function BizNewsCreate() {
       <TopBar
         title={t('biz.newsCreateTitle', { defaultValue: '소식 작성' })}
         rightContent={
-          <Button onClick={handleSubmit} disabled={!canSubmit} style={{ minWidth: 64 }}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting} style={{ minWidth: 64 }}>
             {submitting ? t('biz.newsSubmitting', { defaultValue: '등록 중' }) : t('biz.newsSubmit', { defaultValue: '등록' })}
           </Button>
         }

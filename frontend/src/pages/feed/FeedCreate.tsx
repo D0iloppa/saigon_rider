@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Camera, MapPin, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { resolveDistrict, localizedName } from '@/api/market';
 import { fetchDistricts, type District } from '@/api/master';
 import { toast } from '@/components/ui/Toast';
@@ -17,6 +18,7 @@ import type { PickedLocation } from '@/pages/market/LocationPickerSheet';
 import styles from './FeedCreate.module.css';
 
 const MAX_IMAGES = 10;
+const DRAFT_KEY = 'feedCreate:draft';
 
 interface ImageItem {
   file: File;
@@ -29,8 +31,11 @@ export default function FeedCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
+  const openConfirm = useConfirmStore((s) => s.open);
 
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState(() => {
+    try { return sessionStorage.getItem(DRAFT_KEY) ?? ''; } catch { return ''; }
+  });
   const [images, setImages] = useState<ImageItem[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [district, setDistrict] = useState<District | null>(null);
@@ -41,6 +46,34 @@ export default function FeedCreate() {
   // iOS 네이티브는 키보드가 순수 오버레이라 textarea 아래 여백이 키보드에 가려진다 —
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
   const isIosNative = native.platform === 'ios';
+
+  // 텍스트 초안을 세션 단위로 보존 (P1-7) — 성공 저장/명시적 버리기 선택 시에만 지운다.
+  useEffect(() => {
+    try {
+      if (content) sessionStorage.setItem(DRAFT_KEY, content);
+      else sessionStorage.removeItem(DRAFT_KEY);
+    } catch { /* ignore */ }
+  }, [content]);
+
+  const isDirty = content.trim().length > 0 || images.length > 0;
+
+  const handleBackAttempt = () => {
+    if (!isDirty) {
+      navigate(-1);
+      return;
+    }
+    openConfirm(
+      t('feedCreate.leaveConfirmMsg', { defaultValue: '작성 중인 내용이 있습니다. 저장하지 않고 나가시겠어요?' }),
+      () => {
+        try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+        navigate(-1);
+      },
+      {
+        confirmLabel: t('feedCreate.leaveConfirmDiscard', { defaultValue: '나가기' }),
+        cancelLabel: t('feedCreate.leaveConfirmKeep', { defaultValue: '계속 작성' }),
+      },
+    );
+  };
 
   const handleLocationConfirm = (loc: PickedLocation) => {
     setCoords({ lat: loc.lat, lng: loc.lng });
@@ -95,6 +128,7 @@ export default function FeedCreate() {
   };
 
   const handlePost = async () => {
+    if (posting) return;
     const contentIds = images.filter((i) => i.contentId).map((i) => i.contentId!);
     if (!user || (!content.trim() && contentIds.length === 0)) return;
     setPosting(true);
@@ -107,6 +141,7 @@ export default function FeedCreate() {
         longitude: locOn ? coords?.lng : undefined,
         districtId: locOn ? district?.id : undefined,
       });
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       navigate('/feed', { replace: true });
     } catch (err: any) {
       toast.error(err.message ?? t('feedCreate.postError'));
@@ -123,10 +158,12 @@ export default function FeedCreate() {
     <div className={styles.page}>
       <TopBar
         title={t('feedCreate.title')}
+        onBack={handleBackAttempt}
         rightContent={
           <Button
             onClick={handlePost}
             disabled={!canPost}
+            loading={posting}
             style={{ minWidth: 64 }}
           >
             {posting ? t('feedCreate.posting') : t('feedCreate.postBtn')}

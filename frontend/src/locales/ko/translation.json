@@ -43,6 +43,7 @@
   },
   "common": {
     "welcome": "환영합니다",
+    "withdrawnUser": "탈퇴한 사용자",
     "translationUnavailable": "번역 일시 불가 · 원문을 표시합니다",
     "skip": "건너뛰기",
     "loading": "로딩 중...",
@@ -416,7 +417,10 @@
       "withinKm": "3km 이내",
       "bizNews": "업체 소식",
       "sectionUnavailable": "정보를 불러오지 못했어요",
-      "sectionUnavailableDesc": "잠시 후 다시 시도해 주세요"
+      "sectionUnavailableDesc": "잠시 후 다시 시도해 주세요",
+      "defaultRegion": "기본 지역: {{name}} · 지역 설정",
+      "locationCta": "지역 설정",
+      "totalMileage": "누적 이동거리"
     }
   },
   "questCard": {
@@ -542,6 +546,7 @@
     "postNotFound": "게시글을 찾을 수 없어요",
     "noComments": "첫 댓글을 남겨보세요",
     "filterHot": "핫",
+    "filterGroupLabel": "피드 필터",
     "emptyTitle": "첫 인증을 기다리고 있어요",
     "emptySub": "라이딩을 완료하고 사이공의 한 컷을 남겨보세요",
     "safetyLabel": "안전 {{grade}}",
@@ -568,6 +573,8 @@
     "noTrades": "아직 거래 내역이 없어요",
     "noTradesSub": "마켓에서 마음에 드는 매물을 찾아 첫 거래를 시작해보세요",
     "noTradesCta": "마켓 둘러보기",
+    "tradesLoadError": "거래 이력을 불러오지 못했어요",
+    "historyLoadError": "퀘스트 기록을 불러오지 못했어요",
     "tabFeeds": "피드",
     "tabHistory": "기록",
     "tabBadges": "배지",
@@ -689,7 +696,10 @@
     "locating": "위치 확인 중…",
     "locationOff": "위치 끔",
     "pickLocation": "게시 위치",
-    "pickLocationDesc": "지도를 탭해 위치에 마커를 찍으세요"
+    "pickLocationDesc": "지도를 탭해 위치에 마커를 찍으세요",
+    "leaveConfirmMsg": "작성 중인 내용이 있습니다. 저장하지 않고 나가시겠어요?",
+    "leaveConfirmDiscard": "나가기",
+    "leaveConfirmKeep": "계속 작성"
   },
   "noti": {
     "title": "알림",
@@ -703,6 +713,8 @@
     "title": "메시지",
     "detailTitle": "대화",
     "empty": "아직 대화가 없어요",
+    "emptyThread": "아직 메시지가 없어요. 대화를 시작해보세요!",
+    "messagesLoadError": "메시지를 불러오지 못했어요",
     "inputPlaceholder": "메시지 입력...",
     "sendBtn": "전송",
     "button": "DM",
@@ -809,7 +821,10 @@
     "saveBtn": "저장",
     "saving": "저장 중...",
     "saveError": "수정에 실패했어요",
-    "saveSuccess": "수정되었어요"
+    "saveSuccess": "수정되었어요",
+    "leaveConfirmMsg": "수정 중인 내용이 있습니다. 저장하지 않고 나가시겠어요?",
+    "leaveConfirmDiscard": "나가기",
+    "leaveConfirmKeep": "계속 수정"
   },
   "profileEdit": {
     "title": "프로필 수정",
@@ -998,7 +1013,8 @@
     "status_open": "접수",
     "status_in_progress": "처리중",
     "status_resolved": "해결",
-    "reply_count": "답변 {{count}}건"
+    "reply_count": "답변 {{count}}건",
+    "unreadReply": "읽지 않은 답변 있음"
   },
   "notices": {
     "title": "공지사항",
@@ -1599,6 +1615,11 @@
       "emptyHint": "잠시 후 다시 확인하거나 호치민의 다른 지역을 살펴보세요.",
       "emptySearchHint": "다른 검색어로 다시 시도해보세요.",
       "bizLimit": "한 번에 100곳까지 보여드려요. 더 많은 가게는 지도에서 확인하세요.",
+      "nearMe": "내 주변순",
+      "nearMeRationale": "가까운 순으로 보여드리려면 위치 접근 권한이 필요해요.",
+      "nearMeDenied": "위치 권한이 거부됐어요 — 지역을 직접 선택할 수 있어요.",
+      "nearMeTimeout": "위치를 확인하지 못했어요(시간 초과). 다시 시도하거나 지역을 선택해 주세요.",
+      "nearMeUnavailable": "위치를 가져오지 못했어요. 위치 서비스를 확인하거나 지역을 직접 선택해 주세요.",
       "noCaption": "사진으로 전한 동네 소식",
       "loadingMap": "지도를 준비하고 있어요...",
       "backToList": "목록으로 돌아가기",
@@ -1781,6 +1802,8 @@
     "categoryPlaceholder": "업종 선택",
     "location": "위치",
     "locationPlaceholder": "위치를 선택하세요",
+    "pickLocation": "가게 위치 선택",
+    "pickLocationDesc": "지도를 탭해 정확한 가게 위치에 핀을 찍으세요",
     "phone": "연락처",
     "phonePlaceholder": "연락 가능한 번호를 입력하세요",
     "introLabel": "소개 (선택)",

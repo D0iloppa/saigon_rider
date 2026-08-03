@@ -43,6 +43,7 @@
   },
   "common": {
     "welcome": "Chào mừng",
+    "withdrawnUser": "Người dùng đã rời đi",
     "translationUnavailable": "Không thể dịch · hiển thị bản gốc",
     "skip": "Bỏ qua",
     "loading": "Đang tải...",
@@ -416,7 +417,10 @@
       "withinKm": "Trong 3km",
       "bizNews": "Tin tức cửa hàng",
       "sectionUnavailable": "Không thể tải nội dung",
-      "sectionUnavailableDesc": "Vui lòng thử lại sau"
+      "sectionUnavailableDesc": "Vui lòng thử lại sau",
+      "defaultRegion": "Khu vực mặc định: {{name}} · Chọn khu vực",
+      "locationCta": "Chọn khu vực",
+      "totalMileage": "Tổng quãng đường di chuyển"
     }
   },
   "questCard": {
@@ -542,6 +546,7 @@
     "postNotFound": "Không tìm thấy bài viết",
     "noComments": "Hãy là người bình luận đầu tiên",
     "filterHot": "Hot",
+    "filterGroupLabel": "Bộ lọc bảng tin",
     "emptyTitle": "Đang chờ check-in đầu tiên",
     "emptySub": "Hoàn thành chuyến đi và lưu lại khoảnh khắc ở Sài Gòn",
     "safetyLabel": "An toàn {{grade}}",
@@ -568,6 +573,8 @@
     "noTrades": "Chưa có giao dịch nào",
     "noTradesSub": "Tìm món bạn thích trong chợ và bắt đầu giao dịch đầu tiên",
     "noTradesCta": "Xem chợ",
+    "tradesLoadError": "Không tải được lịch sử giao dịch",
+    "historyLoadError": "Không tải được lịch sử nhiệm vụ",
     "tabFeeds": "Bài viết",
     "tabHistory": "Lịch sử",
     "tabBadges": "Huy hiệu",
@@ -689,7 +696,10 @@
     "locating": "Đang định vị…",
     "locationOff": "Tắt vị trí",
     "pickLocation": "Vị trí đăng",
-    "pickLocationDesc": "Chạm vào bản đồ để đặt ghim vị trí"
+    "pickLocationDesc": "Chạm vào bản đồ để đặt ghim vị trí",
+    "leaveConfirmMsg": "Bạn có nội dung chưa lưu. Rời đi mà không đăng?",
+    "leaveConfirmDiscard": "Rời đi",
+    "leaveConfirmKeep": "Tiếp tục soạn"
   },
   "noti": {
     "title": "Thông báo",
@@ -703,6 +713,8 @@
     "title": "Tin nhắn",
     "detailTitle": "Trò chuyện",
     "empty": "Chưa có cuộc trò chuyện nào",
+    "emptyThread": "Chưa có tin nhắn nào. Hãy bắt đầu trò chuyện!",
+    "messagesLoadError": "Không tải được tin nhắn",
     "inputPlaceholder": "Nhập tin nhắn...",
     "sendBtn": "Gửi",
     "button": "DM",
@@ -809,7 +821,10 @@
     "saveBtn": "Lưu",
     "saving": "Đang lưu...",
     "saveError": "Lưu thất bại",
-    "saveSuccess": "Đã cập nhật bài viết"
+    "saveSuccess": "Đã cập nhật bài viết",
+    "leaveConfirmMsg": "Bạn có thay đổi chưa lưu. Rời đi mà không lưu?",
+    "leaveConfirmDiscard": "Rời đi",
+    "leaveConfirmKeep": "Tiếp tục sửa"
   },
   "profileEdit": {
     "title": "Chỉnh sửa hồ sơ",
@@ -998,7 +1013,8 @@
     "status_open": "Đã nhận",
     "status_in_progress": "Đang xử lý",
     "status_resolved": "Đã giải quyết",
-    "reply_count": "{{count}} phản hồi"
+    "reply_count": "{{count}} phản hồi",
+    "unreadReply": "Có phản hồi chưa đọc"
   },
   "notices": {
     "title": "Thông báo",
@@ -1599,6 +1615,11 @@
       "emptyHint": "Hãy thử lại sau hoặc khám phá khu vực khác tại TP.HCM.",
       "emptySearchHint": "Hãy thử từ khóa khác nhé.",
       "bizLimit": "Hiển thị tối đa 100 cửa hàng mỗi lần. Mở bản đồ để xem thêm.",
+      "nearMe": "Gần tôi",
+      "nearMeRationale": "Cần quyền truy cập vị trí để sắp xếp theo khoảng cách gần bạn.",
+      "nearMeDenied": "Vị trí bị từ chối — bạn vẫn có thể chọn khu vực thủ công.",
+      "nearMeTimeout": "Không thể xác định vị trí (hết thời gian chờ). Hãy thử lại hoặc chọn khu vực.",
+      "nearMeUnavailable": "Không lấy được vị trí. Hãy kiểm tra dịch vụ vị trí hoặc chọn khu vực thủ công.",
       "noCaption": "Một khoảnh khắc trong khu phố",
       "loadingMap": "Đang chuẩn bị bản đồ...",
       "backToList": "Quay lại danh sách",
@@ -1781,6 +1802,8 @@
     "categoryPlaceholder": "Chọn ngành hàng",
     "location": "Vị trí",
     "locationPlaceholder": "Chọn vị trí",
+    "pickLocation": "Chọn vị trí cửa hàng",
+    "pickLocationDesc": "Chạm vào bản đồ để ghim đúng vị trí cửa hàng",
     "phone": "Số điện thoại",
     "phonePlaceholder": "Nhập số điện thoại liên hệ",
     "introLabel": "Giới thiệu (không bắt buộc)",

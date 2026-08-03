@@ -227,4 +227,6 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 - **감사·문서를 주장으로 취급하고 재검증한다**: 2026-07-31 리메디에이션에서 감사 문서의 **사실오류 5건**(Docker/pytest/submodule 전제, `147` 멱등성, N-5 대표결정)과 **범위 과소 3건**(report 엔드포인트 1→5, `useInfiniteScroll` 소비자 1→4, 100건 천장 1→3곳)을 발견했다
 - **수정 전 FAIL 실증**: 각 결함마다 수정 전 테스트가 실제로 실패하는지 확인한 뒤 통과시킨다
 - **워커 실행 중 `git stash`/`reset --hard`/`checkout --` 금지**: 동시 작업 파일을 통째로 날린다(2026-07-31 3회 발생). 커밋은 모든 워커 종료 후에만
+  - 🔴 **`git commit` 과 `pre-commit` 자체가 이 금지에 걸린다**(2026-08-03 재발). pre-commit 은 훅 실행 전 **미스테이징 파일을 stash 했다가 복원**한다 — 워커가 파일을 쓰는 중에 커밋하거나 워커가 직접 `pre-commit` 을 돌리면 그 창에 편집이 끼어든다. 게다가 그 찰나에 `git status` 를 보면 **"수정 0건"** 으로 나와 전량 유실로 오판하게 된다(이번엔 실제 손실 없었다). **워커 프롬프트에 "git add/commit 금지"뿐 아니라 "`pre-commit` 실행 금지"도 명시할 것.**
+  - `ruff format` 훅이 신규 파이썬 파일을 1회 재정렬해 커밋이 실패하는 것은 정상 동작이다 — re-add 후 재커밋하면 된다
 - **문서 = SoT**: `ai-docs/INDEX.md` → `context/current.md` → `agent-guidelines.md` 순으로 세션을 시작한다. 전체 파일 풀텍스트 검색 금지, 코드 그래프 조회(`codebase-memory` MCP) 우선. 코드 수정 후 같은 세션에서 재인덱싱한다

@@ -188,6 +188,11 @@ import { AppImage } from '@/components/ui/AppImage';
 - 서버에서 받아오는 모든 이미지 (아바타, 게시물, 썸네일, DM 이미지 등)
 - `PhotoCard`, `StoryAvatar` 등 재사용 컴포넌트도 내부적으로 `AppImage` 사용
 
+**lazy loading 은 `AppImage` 한 곳에서 처리한다 (2026-08-03, UX 감사 P2-8)**
+- 기본값이 `loading="lazy"` + `decoding="async"` 다. **화면마다 `loading="lazy"` 를 붙이지 마라** — 이 규칙이 있는 이유 자체가 이미지 처리를 한 곳으로 모으는 것이다. 소비자가 `loading`/`decoding` 을 명시하면 그 값을 존중한다.
+- **above-the-fold 히어로 이미지는 `priority` 를 줘라.** lazy 를 걸면 LCP 가 나빠진다. 현재 부여된 곳: `ImageCarousel`(단일 이미지·첫 슬라이드만), `AdDetail`·`BizPublic` 의 `.heroImg`. 새 상세 화면의 대표 이미지를 만들면 여기도 판단할 것.
+- ⚠️ **`grep 'loading="lazy"'` 로는 적용 여부를 검증할 수 없다** — 리터럴이 아니라 계산식(`loading={loading ?? (priority ? 'eager' : 'lazy')}`)이라 0건으로 나온다. 검증하려면 브라우저 DevTools 로 실제 속성을 봐야 한다.
+
 **제외 사항**
 - 로컬 blob URL 미리보기 (이미 메모리에 있음)
 - 작은 emoji 아이콘 (onError fallback 필요)

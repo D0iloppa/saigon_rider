@@ -31,7 +31,18 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 > **📝 IA 개편 구상 (2026-07-26) — 미구현**: 위 표는 **현재 코드 상태**다. 구상 단계에서 `마켓(첫 화면) · 가게(지도) · 소식(피드) · 프로필` 4탭 안이 제시됐다 — 홈(`/home` 월드맵)은 라이딩 게임앱 잔재로 제거하고 안의 실사용 가치(유가·날씨·침수·주유소·정비소)는 마켓 상단 유틸리티 스트립으로 재배치. 근거: `/map`의 `가게/소식/매물` 3탭 중 `매물`=탭바 `마켓`, `소식`=탭바 `커뮤니티`와 동일 콘텐츠라 하단 탭 5개 중 3개가 지도 안에 중복. 상세 [`../spec/service-concept-260726.md`](../spec/service-concept-260726.md) §6.2. **착수는 미결. 구현 시 이 표와 §3.1·§3.3·§3.4를 함께 갱신할 것.**
 
+> **🔧 내비게이션·상태 보존 (2026-08-03, UX 감사 Gate B)**
+> - **404 화면이 생겼다** — `App.tsx` 의 와일드카드가 `<Navigate to="/home">` 에서 `pages/error/NotFound.tsx` 로 바뀌었다. 이전엔 오타 URL·삭제된 매물 링크가 **설명 없이 홈으로 흡수**돼 링크가 죽은 건지 자기가 틀린 건지 알 수 없었다. `StateBlock` 재사용(`TradeHistory` 패턴). **탭바는 숨기지 않는다** — 404 경로는 임의 문자열이라 prefix 로 열거할 수 없고 `TAB_PATH_PREFIXES` 가 어차피 매칭되지 않아 "어느 탭도 활성화되지 않는 상태"가 코드 추가 없이 달성된다. `LinkRouter.resolveAction()` 은 `default: return '/home'` 이라 와일드카드에 닿지 않으므로 `returnTo` 에 영향 없다.
+> - **공용 `TopBar` 상단 버튼은 "앱 계층의 Up" 이다** — 무조건 `navigate(-1)` 이던 것을 바꿨다(딥링크·새 탭 진입에서 앱 밖·빈 history 로 이탈했다). `useLocation().key === 'default'`(RRv6 가 세션 첫 history 항목에 붙이는 마커)로 "앱 history 없음"을 판별해 그때만 `getSectionRoot(pathname)` 으로 이동한다(`/map*`→`/map` · `/market*`→`/market` · `/feed*`→`/feed` · `/biz*`→`/biz/intro` · `/dm*`→`/dm` · `/quests*`→`/quests` · 프로필 파생→`/profile` · 그 외 `/home`). 🔴 **`onBack` 오버라이드 계약을 깨지 마라** — 피드 작성/수정 이탈 보호(P1-7)가 이 prop 을 가로채므로 핸들러 맨 앞에서 `onBack` 을 먼저 반환해야 한다. 시스템 Back 일치는 실기기 검증 대상.
+> - **탭별 상태는 URL query 로 보존한다** — 동네지도 카테고리·지역(`?cat=`, `?rlat=&rlng=`), 피드 필터(`?filter=`). 전부 `setSearchParams(next, { replace: true })` 라 history 항목이 늘지 않는다(늘면 `openMap` push / 지도 `navigate(-1)` 경로가 깨진다 — §3.3 의 알려진 함정). 지역은 새 저장소 없이 기존 `wardRegionAt()` 로 폴리곤까지 재구성한다. **스크롤 위치만 `sessionStorage`**(`feed_scroll_v1`, `MarketMain` 기존 패턴 미러).
+>   - 🔴 **URL 복원이 GPS 자동요청을 되살리면 안 된다**(P1-3 회귀). `FeedList` 는 마운트 시 저장된 `filter=neighborhood` 를 `all` 로 **강등**시켜 복원이 위치요청 effect 를 자동 발화시키지 못하게 한다. 사용자가 직접 고르면 정상 동작.
+> - **하단 FAB 여백에 탭바 토큰을 더하지 마라** — 홈 `.bottomPad`·마켓 `.listContent` 에 86px(FAB 52 + offset 18 + 여유 16)를 예약했다. `--tabbar-height`/`--bottom-safe` 를 더하면 **이중 계산**이다: `AppShell.module.css` 의 `.frame` 이 flex column 이고 `TabBar` 가 in-flow 형제라 탭바 실제 높이(safe-area inset 포함)가 이미 `.viewport` 박스에서 빠져 있고, FAB 은 페이지 `.root` 기준 `absolute` 라 `bottom:18px` 가 이미 탭바 윗변 기준이다.
+> - **hit area 는 시각 크기를 바꾸지 않고 넓힌다** — 투명 `::after` 확장(프로필 친구/DM 34px) 또는 `padding` + `background-clip: content-box`(피드 사진 삭제 24px — 보이는 원의 위치·크기가 그대로 유지된다). **미해결 2건**: 지도 프로필 아바타(`.mapProfileButton` 36px)는 자기 자신에 `overflow:hidden` 이라 `::after` 가 잘리고 보이는 아바타라 확대가 곧 디자인 변경이다. 키워드 알림 삭제(`.alertChipX` 18px)는 44px 로 넓히면 **인접 칩의 터치 영역과 겹친다**. 둘 다 시각 확인이 필요한 디자인 판단으로 남겼다.
+
 ## 2. 게임 허브 FAB (TabBar FAB → `GameHubSheet`) — 6메뉴
+
+> **⛔ 마운트 제거됨 (2026-08-03, UX 감사 P2-5)**: `AppShell` 에서 `<FloatingActionButton />` 렌더를 제거했다(부활 지점 주석). 이전엔 `FloatingActionButton.module.css:2-3` 의 `display:none !important` 가 바로 다음 줄 `display:flex` 를 이겨 **보이지 않는 채로 계속 마운트**돼 골드·XP HUD 가 `fetchWallet()` 을 호출하고 있었다. 컴포넌트(`FloatingActionButton.tsx`·`GameHubSheet.tsx`) 자체는 남겨뒀다.
+> ⚠️ **부수 사실 — `/info`(InfoHub) 집계 화면에 살아있는 UI 진입점이 없다.** 유일한 진입이 이 FAB 시트 항목이었는데 그마저 CSS 로 이미 눌리지 않았다(즉 **제거 이전부터 도달 불가**). 하위 기능(날씨·침수·주유소·정비소)은 홈의 "동네 정보" 카드로 각각 직접 갈 수 있어 실사용 손실은 없다. 아래 표는 그 시점의 구성 기록이다. 별건.
 
 `components/layout/FloatingActionButton.tsx` → `components/game/GameHubSheet.tsx`(`HUBS` 배열)에서 정의.
 

@@ -84,6 +84,12 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - **`pickMode` 화면은 `polyActive={false}` 여야 한다.** `polyActive=true` 는 L3 를 `selWard` 1개로 제한하는데 `pickMode` 는 ward 탭 판정 앞에서 early-return 하므로 `selWard` 가 영영 갱신되지 않아 초기 ward 밖에 L3 가 안 그려진다. 기록된 "2.4배·7.5초" 비용은 **도시 전역 조망 기준이라 줌인된 피커에는 전이되지 않는다**(뷰포트 630유닛 < ward 평균 1522유닛). `onViewportChange` 가 `polyActive` 와 무관하게 depth3 를 이미 fetch 하므로 네트워크 추가비용 0.
 - **서비스 지역은 37개 ward**(`saigon-depth1.json`, 중심부 약 14×14km)다. `resolveDistrict` 내부 `inServiceArea` 가드 때문에 **Thủ Đức·Bình Tân·Gò Vấp 업체는 등록 자체가 불가능**하다. 대표 결정(2026-08-03): 이번엔 유지하고 안내 문구만 노출. 폴리곤 확장은 별건.
 
+### CSS 토큰 — 명명 규칙은 하나다 (2026-08-03, UX 감사 Gate B)
+- 실제 토큰은 `styles/tokens.css` 의 `--text`/`--text-2`/`--text-3` · `--line` · `--surface`/`--surface-2` · `--brand-50~900` 이다. **다른 명명 규칙(`--text-primary`·`--border`·`--divider`·`--bg-2`·`--primary`·`--text-1`)으로 쓴 코드가 섞여 들어와 38곳이 미정의 상태로 빈 값 렌더되고 있었다.** 색·배경·테두리가 통째로 사라져도 아무도 몰랐다 — 이 저장소에 **스크린샷 회귀 자동화가 없기 때문**이다.
+- 🔒 **강제 장치**: pre-commit `css-tokens` 훅(`tools/check_css_tokens.py`)이 폴백 없는 `var(--x)` 중 정의에 없는 것을 **커밋 차단**한다. 폴백이 있는 `var(--x, ...)` 는 의도된 선택적 참조로 보고 통과시킨다. JS 가 `style` 로 주입하는 토큰(`--status-bar-height`·`--keyboard-height`·`--peek`·`--filter-id`)은 화이트리스트.
+- **별칭 토큰을 `tokens.css` 에 추가해 해결하지 마라** — 명명 규칙이 두 벌로 굳는다. 기존 토큰으로 치환한다. 역할별 선례를 먼저 찾아라(예: 이미지 플레이스홀더 썸네일 배경은 `--surface-2` 가 이미 3파일에서 관례다).
+- 감사 문서는 이걸 13곳(`--text-1`)으로만 봤다. **검사기를 만들자 25곳이 더 나왔다** — 정적으로 잡을 수 있는 결함은 사람이 세지 말고 스크립트로 세라.
+
 ### 실패 표현 규약 (장애를 콘텐츠 부재로 위장하지 않는다)
 - 데이터 없음과 **조회 실패**를 반드시 구분한다. 기존 `unavailable` 패턴(`WorldMapV2`·`InfoFloodMap`)과 `StateBlock(tone="error")` + 재시도를 미러링
 - `useInfiniteScroll` 은 `error` 를 노출한다. 소비자(MarketMain·MarketSearch·FeedList·QuestList)는 `items.length === 0 && error` 일 때만 오류를 렌더(과차단 금지)

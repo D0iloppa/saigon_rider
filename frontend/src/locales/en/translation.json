@@ -295,6 +295,7 @@
     "zaloBtn": "Continue with Zalo",
     "facebookBtn": "Continue with Facebook",
     "loading": "Signing in...",
+    "googleLoadError": "Couldn't load Google sign-in",
     "legalPrefix": "By continuing, you agree to our ",
     "terms": "Terms of Service",
     "legalMid": " and ",
@@ -637,6 +638,7 @@
     "locationAllowed": "Allowed",
     "locationDenied": "Denied",
     "locationPrompt": "Not set",
+    "locationUnavailable": "Unable to check",
     "locationSettingsGuide": "You can change location permission in your device Settings > App permissions.",
     "editProfile": "Edit Profile",
     "accountManagement": "Account Management",
@@ -822,6 +824,7 @@
     "saving": "Saving...",
     "saveError": "Failed to save",
     "saveSuccess": "Post updated",
+    "loadError": "Couldn't load this post",
     "leaveConfirmMsg": "You have unsaved changes. Leave without saving?",
     "leaveConfirmDiscard": "Leave",
     "leaveConfirmKeep": "Keep editing"
@@ -1677,14 +1680,17 @@
       "tabListings": "Listings",
       "tabBiz": "Businesses",
       "emptyListings": "No saved listings yet",
-      "emptyBiz": "No saved businesses yet"
+      "emptyBiz": "No saved businesses yet",
+      "loadErrorListings": "Couldn't load your saved listings",
+      "loadErrorBiz": "Couldn't load your saved businesses"
     },
     "follows": {
       "title": "Regulars",
       "newsLabel": "News",
       "noNews": "No news yet",
       "emptyTitle": "You haven't followed any businesses yet",
-      "emptyDesc": "Follow a business from its profile to get its latest news here"
+      "emptyDesc": "Follow a business from its profile to get its latest news here",
+      "loadError": "Couldn't load your followed businesses"
     }
   },
   "effects": {
@@ -2037,6 +2043,12 @@
     "bannedTitle": "Your account has been permanently restricted",
     "bannedDesc": "Your account has been permanently restricted for violating the terms of service",
     "contactHint": "If you have any questions, please contact customer support"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "desc": "This link doesn't exist or has been removed.",
+    "goHome": "Go home",
+    "goBack": "Go back"
   },
   "accountRestore": {
     "title": "This account is pending deletion",

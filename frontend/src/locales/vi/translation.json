@@ -295,6 +295,7 @@
     "zaloBtn": "Tiếp tục với Zalo",
     "facebookBtn": "Tiếp tục với Facebook",
     "loading": "Đang đăng nhập...",
+    "googleLoadError": "Không thể tải đăng nhập Google",
     "legalPrefix": "Bằng cách tiếp tục, bạn đồng ý với ",
     "terms": "Điều khoản dịch vụ",
     "legalMid": " và ",
@@ -637,6 +638,7 @@
     "locationAllowed": "Đã cho phép",
     "locationDenied": "Bị từ chối",
     "locationPrompt": "Chưa thiết lập",
+    "locationUnavailable": "Không thể kiểm tra",
     "locationSettingsGuide": "Bạn có thể thay đổi quyền vị trí trong Cài đặt thiết bị > Quyền ứng dụng.",
     "editProfile": "Chỉnh sửa hồ sơ",
     "accountManagement": "Quản lý tài khoản",
@@ -822,6 +824,7 @@
     "saving": "Đang lưu...",
     "saveError": "Lưu thất bại",
     "saveSuccess": "Đã cập nhật bài viết",
+    "loadError": "Không thể tải bài viết này",
     "leaveConfirmMsg": "Bạn có thay đổi chưa lưu. Rời đi mà không lưu?",
     "leaveConfirmDiscard": "Rời đi",
     "leaveConfirmKeep": "Tiếp tục sửa"
@@ -1677,14 +1680,17 @@
       "tabListings": "Tin đăng",
       "tabBiz": "Cửa hàng",
       "emptyListings": "Chưa có tin đăng đã lưu",
-      "emptyBiz": "Chưa có cửa hàng đã lưu"
+      "emptyBiz": "Chưa có cửa hàng đã lưu",
+      "loadErrorListings": "Không thể tải danh sách tin đã lưu",
+      "loadErrorBiz": "Không thể tải danh sách cửa hàng đã lưu"
     },
     "follows": {
       "title": "Cửa hàng thân thiết",
       "newsLabel": "Tin mới",
       "noNews": "Chưa có tin mới",
       "emptyTitle": "Bạn chưa theo dõi cửa hàng nào",
-      "emptyDesc": "Theo dõi một cửa hàng từ trang hồ sơ để nhận tin mới nhất tại đây"
+      "emptyDesc": "Theo dõi một cửa hàng từ trang hồ sơ để nhận tin mới nhất tại đây",
+      "loadError": "Không thể tải danh sách cửa hàng thân thiết"
     }
   },
   "effects": {
@@ -2037,6 +2043,12 @@
     "bannedTitle": "Tài khoản đã bị hạn chế vĩnh viễn",
     "bannedDesc": "Tài khoản của bạn đã bị hạn chế vĩnh viễn do vi phạm điều khoản sử dụng",
     "contactHint": "Nếu có thắc mắc, vui lòng liên hệ bộ phận hỗ trợ"
+  },
+  "notFound": {
+    "title": "Không tìm thấy trang",
+    "desc": "Đường dẫn không tồn tại hoặc đã bị xóa.",
+    "goHome": "Về trang chủ",
+    "goBack": "Quay lại"
   },
   "accountRestore": {
     "title": "Tài khoản đang chờ xóa",

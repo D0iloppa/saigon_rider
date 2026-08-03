@@ -132,6 +132,12 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
   - 🔴 **E2E 는 "배포본이 소스와 다르다"를 잡는 유일한 층이다.** 도입 첫 실행에서 구동 중이던 `saigon_frontend` 컨테이너가 소스보다 오래된 빌드라 **동의 게이트가 dev 에서 아예 동작하지 않던 것**을 발견했다. 프론트 변경 후에는 `docker compose --env-file .env up --build -d frontend` 를 잊지 말 것
   - 📌 **교훈(2026-08-02, 같은 사고 두 번째)**: 탈퇴 계정 로그인 시 토스트에 409 `restore_token` 이 원문 노출된 실기기 사고를 조사한 결과, 근본 원인은 코드가 아니라 **배포**였다 — 실행 중이던 `saigon_frontend` 번들이 409 인터셉트 커밋보다 **먼저 빌드된 구버전**이었다(배포 번들에 `account_deleted` 0건 실측). **이 저장소에서 "코드가 맞는데 동작이 다르면 배포 번들부터 의심하라."** 프론트 동작 검증은 반드시 **재빌드 후** 할 것
   - 브라우저에서는 `native.platform === 'web'` 이라 강제 업데이트 판정 경로가 **원천적으로 실행되지 않는다** — E2E 로 검증 불가(실기기 필요, B-1)
+  - 📌 **교훈(2026-08-03, 세 번째 — 이번엔 "빌드가 낡은 것"이 아니라 "소스에 파일이 없는 것")**: 운영 스플래시에서만 히어로 영상이 안 나왔다. 원인은 `frontend/public/assets/videos/saigon-hero.mp4` 가 **git 미추적**이었던 것 — `Splash.tsx` 의 참조 코드는 운영에도 배포돼 있었고(운영 번들에서 문자열 실측) **파일만 없었다.** `.gitignore` 대상도 아니고 그냥 `add` 가 안 된 상태였다.
+    - **dev 는 로컬 작업 트리에서 빌드하므로 미추적 파일도 번들에 들어간다. 운영은 git 에서 받아 빌드하므로 없다.** 그래서 "dev 는 되는데 운영만 안 된다" 가 된다 — 환경 차이로 오해하기 쉽다.
+    - 증상이 404 가 아니라 **SPA 폴백**이라 더 헷갈린다: 파일이 없으면 nginx 가 `index.html` 을 내주고 라우터가 `/splash` 로 보낸다. "동영상 URL 인데 스플래시로 리다이렉트" 가 이 신호다. 정상이면 Range 요청에 **206 + `video/mp4`** 가 온다.
+    - 🔎 **점검법**: 프론트 코드가 참조하는 `/assets/*` 경로를 뽑아 `frontend/public` 실파일과 `git ls-files` 를 대조하라. 2026-08-03 전수 점검에서 미추적은 이 1건뿐이었다.
+    - ⚠️ **가드 없음**: `tools/check_landing_public_assets.py` 는 *내용*(dev 문자열 노출)만 보는 훅이라 이 사고를 못 잡는다. "참조되는데 추적 안 됨"을 막는 훅은 **아직 없다** — 재발하면 그때 추가를 검토할 것.
+    - 이 영상이 저장소 최초의 추적 동영상(4.3MB)이다. 교체가 잦아지면 이력 누적이 부담되니 용량 축소·별도 저장을 먼저 검토할 것.
 기준선(2026-08-02): backend **366** · engine 66 · tsc 0 error · eslint 0 errors/**249** warnings · `.mjs` **17**(전건 통과). ruff check/format 통과. **fresh DB(`database/init` 전건) ↔ dev 라이브 schema diff: fresh-only 0건, live-only는 전부 Engine/Alembic 소유(고아 0건)**, `withdrawn_member_archive` 양측 8컬럼 일치.
 - **CI e2e job**: `.github/workflows/ci.yml` 에 `e2e` job 추가(**`pull_request` 에서만** 동작 — push 시엔 안 돈다). Playwright 스펙은 `frontend/e2e/*.spec.ts`(위 baseURL/세션 방식과 동일).
 

@@ -206,8 +206,18 @@ export default function MarketMain() {
       setRegionLabel(null);
       setExplicitLocal(true);
       setLocMapOpen(false);
-    } catch {
-      toast.error(t('market.locationError', { defaultValue: '위치를 가져올 수 없어요' }));
+    } catch (err) {
+      const code = (err as { code?: number } | null)?.code;
+      if (code === 1) {
+        // PERMISSION_DENIED
+        toast.warning(t('map.listFirst.nearMeDenied'));
+      } else if (code === 3) {
+        // TIMEOUT
+        toast.warning(t('map.listFirst.nearMeTimeout'));
+      } else {
+        // POSITION_UNAVAILABLE 등 — 위치 서비스 꺼짐 포함
+        toast.warning(t('map.listFirst.nearMeUnavailable'));
+      }
     }
   };
 

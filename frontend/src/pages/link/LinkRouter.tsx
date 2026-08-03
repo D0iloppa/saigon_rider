@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserStore } from '@/store/useUserStore';
+import { saveReturnTo } from '@/lib/returnTo';
 
 /**
  * Deep-link entry point: /link?action=<action>[&id=<id>]
@@ -29,15 +30,17 @@ export default function LinkRouter() {
   const isAuthenticated = useUserStore((s) => s.isAuthenticated);
 
   useEffect(() => {
+    const action = params.get('action') ?? '';
+    const id = params.get('id');
+    const destination = resolveAction(action, id);
+
     if (!isAuthenticated) {
+      // 로그인 후 이 딥링크가 가리키던 화면으로 돌아갈 수 있도록 목적지를 보관한다. (P0-2)
+      saveReturnTo(destination);
       navigate('/splash', { replace: true });
       return;
     }
 
-    const action = params.get('action') ?? '';
-    const id = params.get('id');
-
-    const destination = resolveAction(action, id);
     navigate(destination, { replace: true });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

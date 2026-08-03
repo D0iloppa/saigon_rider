@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
+import { consumeReturnTo } from '@/lib/returnTo';
 import { apiSaveProfileSetup, apiSaveConsent, checkNicknameAvailable, fetchRandomNickname } from '@/api/profile';
 import type { RiderStyle } from '@/api/types';
 import styles from './ProfileSetup.module.css';
@@ -98,9 +99,9 @@ export default function ProfileSetup() {
         ? (saved.rider_type.code?.toLowerCase() ?? 'commuter')
         : typeof saved.rider_type === 'string' ? saved.rider_type.toLowerCase() : 'commuter') as RiderStyle;
       setProfile(saved.nickname ?? keepNick, rtCode);
-      navigate('/home');
+      navigate(consumeReturnTo() ?? '/home');
     } catch {
-      navigate('/home');
+      navigate(consumeReturnTo() ?? '/home');
     } finally {
       setSkipping(false);
     }
@@ -135,7 +136,7 @@ export default function ProfileSetup() {
       if (consented.consent_agreed_at) markConsentAgreed(consented.consent_agreed_at);
       await apiSaveProfileSetup(user.id, nickname, style);
       setProfile(nickname, style);
-      navigate('/home');
+      navigate(consumeReturnTo() ?? '/home');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.errorUnexpected'));
     } finally {

@@ -8,6 +8,7 @@ import { native } from '@/lib/native';
 import { AccountDeletedError } from '@/api/client';
 import { apiOAuthExchange, apiOAuthLogin, apiDevLogin } from '@/api/auth';
 import { fetchAppConfig } from '@/api/appVersion';
+import { consumeReturnTo } from '@/lib/returnTo';
 import styles from './AuthForm.module.css';
 
 declare global {
@@ -41,13 +42,14 @@ declare global {
 
 export default function OAuthLogin() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
   const [isDev, setIsDev] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const zaloMessageListenerRef = useRef<((event: MessageEvent) => void) | null>(null);
   const zaloPopupCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -69,7 +71,7 @@ export default function OAuthLogin() {
       const result = await apiOAuthLogin(provider, token, tokenType);
       saveSession({ userId: result.user.id, sessionToken: result.session_token });
       loginFromBackend(result.user);
-      navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
+      navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
     } catch (e: unknown) {
       const restore = restoreInfoFromError(e);
       if (restore) return goRestore(restore);
@@ -83,7 +85,7 @@ export default function OAuthLogin() {
     const result = await apiOAuthExchange(code);
     saveSession({ userId: result.user.id, sessionToken: result.session_token });
     loginFromBackend(result.user);
-    navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
+    navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
   };
 
   // 팝업 차단 폴백(OAuthResult가 opener 없이 /auth/oauth?error=... 로 되돌아온 경우) 에러 표시
@@ -104,46 +106,60 @@ export default function OAuthLogin() {
     };
   }, []);
 
-  // 앱 설정 로드: dev 여부(런타임 APP_ENV 기준) + 웹 모드 GIS 스크립트 로드/Google 버튼 렌더링
+  // 앱 설정 로드: dev 여부(런타임 APP_ENV 기준) + 웹 모드 여부 판별
   useEffect(() => {
     fetchAppConfig().then((cfg) => {
       setIsDev(cfg.isDev);
-
-      if (native.isNative) return;
-      if (!cfg.googleClientId) return;
-
-      const initGis = () => {
-        if (!window.google?.accounts?.id) return;
-        window.google.accounts.id.initialize({
-          client_id: cfg.googleClientId,
-          callback: (res) => handleOAuthResult('google', res.credential, 'id_token'),
-          cancel_on_tap_outside: false,
-        });
-        if (googleButtonRef.current) {
-          window.google.accounts.id.renderButton(googleButtonRef.current, {
-            type: 'standard',
-            theme: 'outline',
-            size: 'large',
-            text: 'continue_with',
-            shape: 'rectangular',
-            width: googleButtonRef.current.offsetWidth || 320,
-          });
-        }
-        setGisReady(true);
-      };
-
-      if (window.google?.accounts?.id) {
-        initGis();
-      } else {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = initGis;
-        document.head.appendChild(script);
-      }
+      if (!native.isNative && cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 웹 모드 GIS 스크립트 로드/Google 버튼 렌더링 — 언어가 바뀌면 hl 파라미터를 바꿔 스크립트를 다시 로드해야
+  // 버튼 텍스트("Google 계정으로 계속하기" 등)가 갱신된다(P1-10). GIS 는 script 로드 시 hl 을 고정하므로
+  // 언어 변경마다 이전 스크립트/전역객체를 지우고 다시 로드한다.
+  useEffect(() => {
+    if (native.isNative || !googleClientId) return;
+    let cancelled = false;
+
+    const renderGoogleButton = () => {
+      if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (res) => handleOAuthResult('google', res.credential, 'id_token'),
+        cancel_on_tap_outside: false,
+      });
+      // 레이아웃 확정 전에 offsetWidth 를 읽으면 0/미확정 값이 잡혀 Google 버튼이 Zalo 버튼보다
+      // 좁게 렌더되는 문제가 있었다(P1-10) — 다음 프레임에서 실측 폭으로 렌더한다.
+      requestAnimationFrame(() => {
+        if (cancelled || !googleButtonRef.current) return;
+        window.google!.accounts.id.renderButton(googleButtonRef.current, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          width: googleButtonRef.current.offsetWidth || 320,
+        });
+        setGisReady(true);
+      });
+    };
+
+    setGisReady(false);
+    document.querySelectorAll('script[data-gis-script]').forEach((s) => s.remove());
+    delete window.google;
+
+    const script = document.createElement('script');
+    script.src = `https://accounts.google.com/gsi/client?hl=${i18n.language}`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.gisScript = 'true';
+    script.onload = renderGoogleButton;
+    document.head.appendChild(script);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, i18n.language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 네이티브 모드: redirect URL에는 단회용 code만 받고 BFF에서 세션으로 교환한다.
   const handleNativeGoogle = async () => {
@@ -251,7 +267,7 @@ export default function OAuthLogin() {
       const result = await apiDevLogin();
       saveSession({ userId: result.user.id, sessionToken: result.session_token });
       loginFromBackend(result.user);
-      navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
+      navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
     } catch (e: unknown) {
       const restore = restoreInfoFromError(e);
       if (restore) return goRestore(restore);

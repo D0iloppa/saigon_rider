@@ -425,7 +425,7 @@
       "bizNews": "업체 소식",
       "sectionUnavailable": "정보를 불러오지 못했어요",
       "sectionUnavailableDesc": "잠시 후 다시 시도해 주세요",
-      "defaultRegion": "기본 지역: {{name}} · 지역 설정",
+      "defaultRegion": "기본 지역: {{name}}",
       "locationCta": "지역 설정",
       "totalMileage": "누적 이동거리"
     }

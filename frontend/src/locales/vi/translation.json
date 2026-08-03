@@ -425,7 +425,7 @@
       "bizNews": "Tin tức cửa hàng",
       "sectionUnavailable": "Không thể tải nội dung",
       "sectionUnavailableDesc": "Vui lòng thử lại sau",
-      "defaultRegion": "Khu vực mặc định: {{name}} · Chọn khu vực",
+      "defaultRegion": "Khu vực mặc định: {{name}}",
       "locationCta": "Chọn khu vực",
       "totalMileage": "Tổng quãng đường di chuyển"
     }

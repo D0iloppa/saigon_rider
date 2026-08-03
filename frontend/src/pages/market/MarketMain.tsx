@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Bell, ChevronDown, Globe, Heart, LocateFixed, Map as MapIcon, MapPinned, PackageOpen, Plus, Search, X } from 'lucide-react';
+import { AlertCircle, Bell, ChevronDown, Globe, Heart, List, LocateFixed, Map as MapIcon, MapPinned, PackageOpen, Plus, Search, X } from 'lucide-react';
 import { Chip } from '@/components/ui/Chip';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -12,12 +12,15 @@ import { PullIndicator } from '@/components/ui/PullIndicator';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { toast } from '@/components/ui/Toast';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
-import type { SelectedRegion } from '@/components/maps/v2/region';
+import type { SelectedRegion, MapMarkerV2 } from '@/components/maps/v2/region';
+
+const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { resolveUsableLocation } from '@/lib/serviceLocation';
 import { adAtIndex, ADS_ENABLED, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useUserStore } from '@/store/useUserStore';
+import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
   addKeywordAlert,
@@ -44,6 +47,10 @@ interface SavedState {
   district: District | null;
   coords: { lat: number; lng: number } | null;
   regionLabel: string | null;
+  /** 마켓 자체 위치 시트/URL 쿼리에서 명시적으로 고른 지역인지 — true면 전역 스토어 동기화보다 우선. */
+  explicitLocal: boolean;
+  /** 리스트/지도 뷰 토글 — 상세 갔다 돌아와도 유지 (SGR 마켓 지도, 대표 지시). */
+  viewMode: 'list' | 'map';
   scrollTop: number;
 }
 function readSaved(): SavedState | null {
@@ -65,6 +72,8 @@ export default function MarketMain() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
+  // 전역 위치 스토어(useLocationStore) — 동네지도/정보 화면과 공유되는 지역 선택 SoT.
+  const { region: globalRegion } = useServiceLocation();
 
   const [savedState] = useState<SavedState | null>(readSaved);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -76,6 +85,10 @@ export default function MarketMain() {
   const [district, setDistrict] = useState<District | null>(savedState?.district ?? null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(savedState?.coords ?? null);
   const [locationMode, setLocationMode] = useState<'all' | 'gps' | 'region'>(savedState?.locationMode ?? 'all');
+  const [explicitLocal, setExplicitLocal] = useState<boolean>(savedState?.explicitLocal ?? false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>(savedState?.viewMode ?? 'list');
+  const [mapListings, setMapListings] = useState<Listing[]>([]);
+  const [mapError, setMapError] = useState(false);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [allDistricts, setAllDistricts] = useState<District[]>([]);
   const [locMapOpen, setLocMapOpen] = useState(false);
@@ -92,7 +105,6 @@ export default function MarketMain() {
     setAdLimit(AD_LIMIT_INITIAL);
   }, [district?.id, i18n.language]);
 
-  // 마켓 기본 진입은 항상 전체 지역.
   // GPS 자동 실행 없음 — 사용자가 시트에서 명시적으로 선택한 경우에만 위치 반영.
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +115,21 @@ export default function MarketMain() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // 지역 소스 우선순위: URL 쿼리(?lat&lng, 홈 진입) > 마켓 세션 선택(explicitLocal) >
+  // 전역 위치 스토어(useLocationStore, 동네지도와 공유) > 전체.
+  // explicitLocal 이 아직 없을 때만(마켓에서 직접 고른 적 없을 때만) 전역 스토어 기준을 반영한다.
+  useEffect(() => {
+    if (explicitLocal) return;
+    if (searchParams.get('lat') != null) return; // 아래 쿼리 처리 이펙트가 우선 소비
+    if (allDistricts.length === 0) return;
+    if (!globalRegion) return; // 전역도 '전체'면 로컬 기본값(all) 유지
+    const d = resolveDistrict(globalRegion.lat, globalRegion.lng, allDistricts);
+    setCoords({ lat: globalRegion.lat, lng: globalRegion.lng });
+    setDistrict(d ?? null);
+    setLocationMode('region');
+    setRegionLabel(d ? null : globalRegion.name);
+  }, [explicitLocal, searchParams, allDistricts, globalRegion]);
 
   // 홈 "내 주변 인기 상품 → 더보기"에서 ?lat=&lng= 로 진입 시: 신규 GPS 재측정 없이
   // 홈이 이미 보유한 좌표로 gps 모드에 즉시 반영 (savedState 복원보다 우선).
@@ -121,6 +148,7 @@ export default function MarketMain() {
       setLocationMode('gps');
       setRegionLabel(null);
       setSort('distance');
+      setExplicitLocal(true); // URL 쿼리로 받은 위치도 이후 전역 스토어 동기화보다 우선
     }
     // 소비 즉시 쿼리 제거 — 잔존 시 리로드/리마운트마다 수동 지역 선택을 덮어씀 (회귀 xreg-C1)
     setSearchParams({}, { replace: true });
@@ -137,6 +165,7 @@ export default function MarketMain() {
       setDistrict(d ?? null);
       setLocationMode('gps');
       setRegionLabel(null);
+      setExplicitLocal(true);
       setLocMapOpen(false);
     } catch {
       toast.error(t('market.locationError', { defaultValue: '위치를 가져올 수 없어요' }));
@@ -158,6 +187,7 @@ export default function MarketMain() {
       setCoords(null);
       setRegionLabel(null);
       setLocationMode('all');
+      setExplicitLocal(true);
       setLocMapOpen(false);
       return;
     }
@@ -169,6 +199,7 @@ export default function MarketMain() {
     setCoords(draftCoords);
     setRegionLabel(draftRegionLabel);
     setLocationMode('region');
+    setExplicitLocal(true);
     setLocMapOpen(false);
   };
 
@@ -211,24 +242,60 @@ export default function MarketMain() {
     useCallback(async () => reset(), [reset]),
   );
 
+  // 지도 뷰 마커 조회 — 현재 필터(거래완료 숨기기·지역) + 뷰포트 bbox. 뷰포트 이동마다 무제한
+  // 호출되지 않도록 400ms 디바운스(onBboxChange, SaigonMapV5→MarketMain). 정렬은 지도에서
+  // 의미가 약해(bbox 기준 조회) 여전히 넘기되 UI 컨트롤만 숨김(요구사항 6).
+  const mapReqSeqRef = useRef(0);
+  const fetchMapBbox = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
+    const seq = ++mapReqSeqRef.current;
+    fetchListings({
+      sort, hideSold,
+      minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
+      districtId: district?.id ?? null,
+      viewerId: userId, page: 1, size: 50,
+    }).then((res) => {
+      if (seq !== mapReqSeqRef.current) return;
+      setMapListings(res.items);
+      setMapError(false);
+    }).catch(() => {
+      if (seq !== mapReqSeqRef.current) return;
+      setMapError(true);
+    });
+  }, [sort, hideSold, district?.id, userId]);
+
+  const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const handleMapBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
+    clearTimeout(bboxTimerRef.current);
+    bboxTimerRef.current = setTimeout(() => fetchMapBbox(bbox), 400);
+  }, [fetchMapBbox]);
+  useEffect(() => () => clearTimeout(bboxTimerRef.current), []);
+
+  // 좌표 없는 매물 안내(요구사항 7) — 별도 조회 없이 이미 로드된 리스트 피드(동일 필터,
+  // bbox 미적용)에서 좌표 누락분을 근사치로 센다. 리스트가 무한스크롤로 일부만 로드된
+  // 상태일 수 있어 정확한 전체 합계는 아니지만, 추가 API 호출 없이 "최소 안내" 요건을 충족.
+  const noCoordsCount = useMemo(
+    () => listings.filter((l) => l.lat == null || l.lng == null).length,
+    [listings],
+  );
+
   // 필터 상태 변경 시 sessionStorage에 저장 (scrollTop은 0으로 리셋 — 새 필터는 처음부터)
   useEffect(() => {
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sort, hideSold, locationMode, district, coords, regionLabel, scrollTop: 0,
+        sort, hideSold, locationMode, district, coords, regionLabel, explicitLocal, viewMode, scrollTop: 0,
       }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, locationMode, district, coords, regionLabel]);
+  }, [sort, hideSold, locationMode, district, coords, regionLabel, explicitLocal, viewMode]);
 
   // 상세 이동 전 현재 스크롤 위치 저장
   const saveScroll = useCallback(() => {
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sort, hideSold, locationMode, district, coords, regionLabel,
+        sort, hideSold, locationMode, district, coords, regionLabel, explicitLocal, viewMode,
         scrollTop: containerRef.current?.scrollTop ?? 0,
       }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, locationMode, district, coords, regionLabel, containerRef]);
+  }, [sort, hideSold, locationMode, district, coords, regionLabel, explicitLocal, viewMode, containerRef]);
 
   // 초기 로딩 완료 후 저장된 스크롤 위치 복원
   const scrollRestoredRef = useRef(false);
@@ -239,6 +306,21 @@ export default function MarketMain() {
       containerRef.current?.scrollTo({ top: savedTop, behavior: 'instant' });
     }
   }, [isLoading, savedState?.scrollTop, containerRef]);
+
+  // 지도 마커 — 탭 시 리스트 아이템과 동일한 상세 진입 동작(saveScroll + 동일 경로).
+  const mapMarkers = useMemo<MapMarkerV2[]>(
+    () => mapListings
+      .filter((l) => l.lat != null && l.lng != null)
+      .map((l) => ({
+        id: l.id,
+        lat: l.lat as number,
+        lng: l.lng as number,
+        kind: 'listing',
+        label: l.title,
+        onClick: () => { saveScroll(); navigate(`/market/${l.id}`); },
+      })),
+    [mapListings, saveScroll, navigate],
+  );
 
   const openAlerts = () => {
     setAlertOpen(true);
@@ -292,25 +374,66 @@ export default function MarketMain() {
           </div>
         </div>
 
-        {/* Sort (bottom sheet) + hide-sold toggle */}
+        {/* Sort (bottom sheet) + hide-sold toggle + list/map view toggle */}
         <div className={styles.controlRow}>
-          <button className={styles.sortSelect} onClick={() => setSortOpen(true)}>
-            {t(`market.sort_${sort}`)}
-            <ChevronDown size={16} strokeWidth={2.2} />
-          </button>
-          <Chip
-            as="button"
-            variant={hideSold ? 'dark' : 'surface'}
-            aria-pressed={hideSold}
-            onClick={() => setHideSold((v) => !v)}
-            style={{ cursor: 'pointer' }}
-          >
-            {t('market.hideSold', { defaultValue: '거래완료 숨기기' })}
-          </Chip>
+          {/* 정렬은 지도 모드에서 의미가 약함(bbox 기준 조회) — 리스트 모드에서만 노출 */}
+          {viewMode === 'list' && (
+            <button className={styles.sortSelect} onClick={() => setSortOpen(true)}>
+              {t(`market.sort_${sort}`)}
+              <ChevronDown size={16} strokeWidth={2.2} />
+            </button>
+          )}
+          <div className={styles.controlRowRight}>
+            <Chip
+              as="button"
+              variant={hideSold ? 'dark' : 'surface'}
+              aria-pressed={hideSold}
+              onClick={() => setHideSold((v) => !v)}
+              style={{ cursor: 'pointer' }}
+            >
+              {t('market.hideSold', { defaultValue: '거래완료 숨기기' })}
+            </Chip>
+            <Chip
+              as="button"
+              variant={viewMode === 'map' ? 'dark' : 'surface'}
+              aria-pressed={viewMode === 'map'}
+              onClick={() => setViewMode((v) => (v === 'map' ? 'list' : 'map'))}
+              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              {viewMode === 'map'
+                ? <><List size={14} strokeWidth={2.2} />{t('market.viewList', { defaultValue: '목록' })}</>
+                : <><MapIcon size={14} strokeWidth={2.2} />{t('market.viewMap', { defaultValue: '지도' })}</>}
+            </Chip>
+          </div>
         </div>
       </div>
 
-      {/* Listing feed */}
+      {viewMode === 'map' ? (
+        <div className={styles.mapArea}>
+          <Suspense fallback={<div className={styles.mapLoading}>{t('common.loading', { defaultValue: '로딩 중...' })}</div>}>
+            <SaigonMapV5
+              height="100%"
+              initialGps={coords ?? undefined}
+              // 선택된 지역이 있으면(locationMode !== 'all') GPS 자동 locate 를 켜지 않는다 —
+              // 켜면 마운트 후 비동기 GPS 완료가 selWard/카메라를 다른 동으로 덮어써
+              // 선택 경계와 어긋난다(동네지도 회귀 aa2f214 재발 방지, 2026-08-03 발견 사유와 동일).
+              locateOnMount={locationMode === 'all'}
+              markers={mapMarkers}
+              onBboxChange={handleMapBboxChange}
+              outsideAreaFallback
+              outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
+            />
+          </Suspense>
+          {mapError && (
+            <div className={styles.mapNotice}>{t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })}</div>
+          )}
+          {!mapError && noCoordsCount > 0 && (
+            <div className={styles.mapNotice}>
+              {t('market.mapNoCoords', { count: noCoordsCount, defaultValue: '지도에 표시할 수 없는 매물 {{count}}건' })}
+            </div>
+          )}
+        </div>
+      ) : (
       <div
         className={styles.listArea}
         ref={containerRef as React.RefObject<HTMLDivElement>}
@@ -372,6 +495,7 @@ export default function MarketMain() {
           )}
         </div>
       </div>
+      )}
 
       {/* 글쓰기 FAB */}
       <button className={styles.writeFab} type="button" onClick={() => navigate('/market/new')} aria-label={t('market.create', { defaultValue: '매물 등록' })}>

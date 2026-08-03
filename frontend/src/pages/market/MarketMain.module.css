@@ -63,13 +63,20 @@
   background: var(--surface-2);
 }
 
-/* Sort + hide-sold controls */
+/* Sort + hide-sold + view toggle controls */
 .controlRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 6px 0 12px;
+}
+
+/* hide-sold + list/map 토글 그룹 — sortSelect 가 지도 모드에서 숨겨져도 항상 우측 정렬 */
+.controlRowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .sortSelect {
@@ -134,6 +141,38 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   position: relative;
+}
+
+/* ── Map view (SGR 마켓 지도 토글) ── */
+.mapArea {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.mapLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* 지도 오류/좌표 누락 안내 — 하단 고정 배너, 여러 개면 세로로 쌓임 */
+.mapNotice {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text-2);
+  text-align: center;
+  box-shadow: var(--shadow-1, 0 2px 8px rgba(0,0,0,0.08));
 }
 
 .listContent {

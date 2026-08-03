@@ -143,6 +143,10 @@
   white-space: nowrap;
 }
 
+.profileLoc svg {
+  vertical-align: -1px;
+}
+
 /* 우측 컬럼: RP 필+벨 / 위치|누적거리 (P4 헤더 압축) */
 .headerRight {
   flex-shrink: 0;

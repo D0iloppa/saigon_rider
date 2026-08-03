@@ -4,6 +4,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
 import { AccountDeletedError } from '@/api/client';
 import { apiOAuthExchange } from '@/api/auth';
+import { consumeReturnTo } from '@/lib/returnTo';
 
 /**
  * 웹 OAuth(Zalo) 팝업 플로우의 결과 수신 라우트.
@@ -44,7 +45,7 @@ export default function OAuthResult() {
         const result = await apiOAuthExchange(code);
         saveSession({ userId: result.user.id, sessionToken: result.session_token });
         loginFromBackend(result.user);
-        navigate(result.is_new ? '/auth/profile-setup' : '/home', { replace: true });
+        navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
       } catch (e: unknown) {
         // 탈퇴 계정 — 교환 409 의 복구 정보는 URL 로 나르지 않고 라우터 state 로 전달
         if (e instanceof AccountDeletedError) {

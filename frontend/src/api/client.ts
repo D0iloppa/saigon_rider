@@ -72,8 +72,12 @@ export function setAccountRestrictedHandler(handler: (code: AccountRestrictionCo
 }
 
 function handleSessionError(): never {
+  // 애초에 세션이 없던 419/401(예: 비로그인 상태에서 도는 DM 폴링)은 "세션 만료"가 아니다 —
+  // 로그아웃·강제 이동·오류 토스트 없이 조용히 실패시킨다. 실제로 세션을 갖고 있다가
+  // 만료된 경우에만 기존 만료 처리(로그아웃 + 스플래시 이동 + 토스트)를 수행한다.
+  const hadSession = !!loadSession()?.userId;
   clearSession();
-  _handleSessionExpired?.();
+  if (hadSession) _handleSessionExpired?.();
   throw new SessionExpiredError();
 }
 
@@ -104,6 +108,14 @@ function sanitizeDetail(detail: any): any {
 
 function extractErrorMessage(err: any, status: number, call: string): string {
   const detail = err?.detail;
+  // 422(FastAPI 검증 오류)는 detail 이 배열이고 그 안에 요청 본문(input)이 그대로 되비친다.
+  // 위 sanitizeDetail 은 배열을 통과시키므로 여기서 막지 않으면 내부 필드명과 user_id 가
+  // 사용자 토스트에 찍힌다(실제 발생: 회원가입 화면에 age_confirmed·user_id 노출).
+  // 검증 오류는 사용자가 고칠 수 있는 정보가 아니다 — 진단은 콘솔로만 남긴다.
+  if (status === 422) {
+    console.warn('[api] validation error', call, detail);
+    return `HTTP 422 | ${call}`;
+  }
   let msg: string;
   if (typeof detail === 'string') msg = detail;
   else if (detail) msg = JSON.stringify(sanitizeDetail(detail));

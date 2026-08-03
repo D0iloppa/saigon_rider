@@ -111,7 +111,12 @@ export default function FeedList() {
             <button className={styles.iconBtn} onClick={() => navigate('/profile')} aria-label={t('tabbar.profile')}>
               <UserRound size={23} strokeWidth={2} />
             </button>
-            <button className={styles.iconBtn} onClick={() => navigate('/dm')} aria-label={t('dm.title')} style={{ position: 'relative' }}>
+            <button
+              className={styles.iconBtn}
+              onClick={() => navigate('/dm')}
+              aria-label={totalUnread > 0 ? `${t('dm.title')} (${totalUnread})` : t('dm.title')}
+              style={{ position: 'relative' }}
+            >
               <Send size={22} strokeWidth={2} />
               {totalUnread > 0 && <span className={styles.unreadDot} />}
             </button>
@@ -136,11 +141,14 @@ export default function FeedList() {
         </div>
 
         {/* Filters */}
-        <div className={styles.filterRow}>
+        <div className={styles.filterRow} role="radiogroup" aria-label={t('feed.filterGroupLabel', { defaultValue: '피드 필터' })}>
           {FILTERS.map((f) => (
             <Chip
               key={f.key}
+              as="button"
               variant={filter === f.key ? 'dark' : 'surface'}
+              role="radio"
+              aria-checked={filter === f.key}
               onClick={() => {
                 if (f.key === 'neighborhood') {
                   setNeighborhoodLoc(null);

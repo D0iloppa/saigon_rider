@@ -1,33 +1,40 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import GlassSurface from '@/components/ui/GlassSurface';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { changeLang } from '@/lib/i18n';
 import type { Language } from '@/api/types';
-import { emojiUrl } from '@/lib/emoji';
+import { consumeReturnTo, saveReturnTo } from '@/lib/returnTo';
 import styles from './Splash.module.css';
 
+// 국기는 flag-icons 스프라이트(fi) 사용 — 이모지 국기는 단말별 렌더 편차가 큼 (PhoneVerify/LangSettings 와 동일 관례)
 const LANGS: { code: Language; flagCode: string; label: string }[] = [
-  { code: 'vi', flagCode: '1f1fb-1f1f3', label: 'VI' },
-  { code: 'en', flagCode: '1f1fa-1f1f8', label: 'EN' },
-  { code: 'ko', flagCode: '1f1f0-1f1f7', label: 'KO' },
+  { code: 'vi', flagCode: 'vn', label: 'VI' },
+  { code: 'en', flagCode: 'us', label: 'EN' },
+  { code: 'ko', flagCode: 'kr', label: 'KO' },
 ];
 
 export default function Splash() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
   const isAuthenticated = useUserStore((s) => s.isAuthenticated);
   const [pickerOpen, setPickerOpen] = useState(false);
   const chipRef = useRef<HTMLDivElement>(null);
 
+  // PrivateRoute 가 넘긴 원래 목적지(state.from)를 세션에 보관 — OAuth 이탈 후에도 살아남는다. (P0-2)
+  useEffect(() => {
+    const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+    if (from?.pathname) saveReturnTo(from.pathname + (from.search ?? ''));
+  }, [location.state]);
+
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/home', { replace: true });
+      navigate(consumeReturnTo() ?? '/home', { replace: true });
       return;
     }
     if (sessionStorage.getItem('session_expired')) {
@@ -82,12 +89,7 @@ export default function Splash() {
           onClick={() => setPickerOpen((v) => !v)}
           aria-label="Select language"
         >
-          <img
-            className={styles.langFlag}
-            src={emojiUrl(current.flagCode)}
-            alt={current.label}
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
+          <span className={`fi fi-${current.flagCode} ${styles.langFlag}`} />
           <span className={styles.langLabel}>{current.label} <ChevronDown size={12} /></span>
         </button>
 
@@ -99,12 +101,7 @@ export default function Splash() {
                 className={`${styles.langOption} ${l.code === current.code ? styles.langOptionActive : ''}`}
                 onClick={() => handleSelect(l.code)}
               >
-                <img
-                  className={styles.langFlag}
-                  src={emojiUrl(l.flagCode)}
-                  alt={l.label}
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
+                <span className={`fi fi-${l.flagCode} ${styles.langFlag}`} />
                 <span>{l.label}</span>
               </button>
             ))}
@@ -118,22 +115,12 @@ export default function Splash() {
         <div className={styles.wordmarkTitle}>SAIGON<br />RIDER</div>
       </div>
 
-      {/* Bottom sheet */}
-      <GlassSurface
-        className={styles.sheet}
-        width="100%"
-        height="auto"
-        borderRadius={32}
-        backgroundOpacity={0.55}
-        blur={12}
-        brightness={75}
-        opacity={0.9}
-        saturation={0.6}
-      >
+      {/* Bottom sheet — 다크 스플래시 배경 전용 유리 표면 (공용 glass-surface 는 라이트 테마용이라 회색으로 보임) */}
+      <div className={styles.sheet}>
         <div className={styles.sheetInner}>
           <Button onClick={() => navigate('/auth/oauth')}>{t('splash.startBtn')}</Button>
         </div>
-      </GlassSurface>
+      </div>
     </div>
   );
 }

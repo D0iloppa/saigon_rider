@@ -642,6 +642,10 @@ async def update_status(
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Not the seller")
+    # P1-2: 이미 거래 완료(SOLD)된 매물은 어떤 상태로도 되돌릴 수 없다 — 종결 상태 보장.
+    # (SOLD 로의 전이는 위에서 이미 막았고, 여기는 SOLD *에서* 나가는 전이를 막는다.)
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail={"code": "already_sold"})
     # 관리자 모더레이션(HIDDEN/REMOVED) 또는 이미 철회(WITHDRAWN)된 매물은 판매자가 상태를 되돌릴 수 없다
     if listing.status in ("HIDDEN", "REMOVED", "WITHDRAWN"):
         raise HTTPException(status_code=400, detail={"code": "moderated"})

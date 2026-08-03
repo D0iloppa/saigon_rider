@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Globe,
   Heart,
+  LocateFixed,
   Map as MapIcon,
   MapPinned,
   RotateCw,
@@ -26,6 +27,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { RadioCircle } from '@/components/ui/RadioCircle';
+import { toast } from '@/components/ui/Toast';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { haversineM } from '@/lib/polyline';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
@@ -71,8 +73,10 @@ export default function NeighborhoodMap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  // 진입 시 GPS 1회 — 가게 카드 거리 표기 기준점. 거부/실패 시 거리만 생략.
+  // GPS 는 "내 주변순" 토글을 사용자가 직접 눌렀을 때만 요청한다(P1-3 — 진입 시 자동 요청 금지,
+  // service-rules.md:11-12). 꺼져 있으면 가게 카드 거리 표기만 생략된다.
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearMeLoading, setNearMeLoading] = useState(false);
   // 지역 선택 — 화면 로컬 상태(마켓의 locationMode/regionLabel 레퍼런스). 'all' = 호치민 전역.
   const [regionMode, setRegionMode] = useState<'all' | 'region'>('all');
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
@@ -85,17 +89,32 @@ export default function NeighborhoodMap() {
     fetchBizCategories().then(setBizCategories).catch(() => setBizCategories([]));
   }, [bizCategories.length]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const toggleNearMe = useCallback(() => {
+    if (userPos) {
+      // 이미 켜져 있으면 끄기만 한다 — 재요청 없음.
+      setUserPos(null);
+      return;
+    }
+    setNearMeLoading(true);
+    // 요청 전에 목적을 먼저 알린다(P1-3 — 맥락 없는 권한 프롬프트 금지).
+    toast.neutral(t('map.listFirst.nearMeRationale'));
     requestDeviceLocation()
-      .then((pos) => {
-        if (!cancelled) setUserPos({ lat: pos.lat, lng: pos.lng });
+      .then((pos) => setUserPos({ lat: pos.lat, lng: pos.lng }))
+      .catch((err: unknown) => {
+        const code = (err as { code?: number } | null)?.code;
+        if (code === 1) {
+          // PERMISSION_DENIED
+          toast.warning(t('map.listFirst.nearMeDenied'));
+        } else if (code === 3) {
+          // TIMEOUT
+          toast.warning(t('map.listFirst.nearMeTimeout'));
+        } else {
+          // POSITION_UNAVAILABLE 등 — 위치 서비스 꺼짐 포함
+          toast.warning(t('map.listFirst.nearMeUnavailable'));
+        }
       })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      .finally(() => setNearMeLoading(false));
+  }, [userPos, t]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -168,6 +187,7 @@ export default function NeighborhoodMap() {
       <Suspense fallback={<div className={styles.mapLoading}>{t('map.listFirst.loadingMap')}</div>}>
         <NeighborhoodMapCanvas
           initialBizCategory={bizCategory}
+          initialRegion={regionMode === 'region' ? selectedRegion : null}
           lightweight
           onExitMap={() => navigate(-1)}
         />
@@ -231,6 +251,16 @@ export default function NeighborhoodMap() {
         <div className={styles.resultHead}>
           <strong>{t('map.listFirst.section.biz')}</strong>
           {!loading && !error && <span>{t('map.count', { count: total })}</span>}
+          <button
+            type="button"
+            className={`${styles.nearMeToggle} ${userPos ? styles.nearMeActive : ''}`}
+            onClick={toggleNearMe}
+            disabled={nearMeLoading}
+            aria-pressed={!!userPos}
+          >
+            <LocateFixed size={13} strokeWidth={2.4} />
+            {t('map.listFirst.nearMe')}
+          </button>
         </div>
 
         {loading && itemCount === 0 ? (

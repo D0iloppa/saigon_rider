@@ -2,7 +2,9 @@
  * Noto Emoji 로컬 경로 매핑
  *
  * public/emoji/ 에 다운로드된 파일을 사용.
- * 국기처럼 CDN에 없는 경우에만 외부 URL fallback.
+ * 로컬에 없는 코드는 CDN 폴백.
+ * 국기(flag)는 Noto 애니메이션 이모지 자체에 없어 CDN 에도 없다(404) — 이 함수로 렌더하지 말고
+ * `flag-icons`(`fi fi-xx`) 를 쓴다 (Splash/LangSettings/PhoneVerify 관례).
  */
 
 const BASE = '/emoji';
@@ -22,6 +24,6 @@ export function emojiUrl(code: string): string {
 
   if (LOCAL_GIF.has(code)) return `${BASE}/${code}.gif`;
   if (LOCAL_PNG.has(code)) return `${BASE}/${code}.png`;
-  // 국기 등 CDN에만 있는 코드
+  // 로컬에 없는 나머지 코드는 CDN 폴백 (국기 코드는 넘기지 말 것 — 위 주석 참고)
   return `${CDN}/${code}/512.gif`;
 }

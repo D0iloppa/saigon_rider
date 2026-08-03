@@ -36,3 +36,8 @@ repos:
         language: system
         files: ^frontend/src/.*\.[tj]sx?$
         types: [file]
+      - id: landing-public-assets
+        name: landing public assets guard
+        entry: python tools/check_landing_public_assets.py
+        language: system
+        files: ^landing/apps/client/(public|src)/.*$

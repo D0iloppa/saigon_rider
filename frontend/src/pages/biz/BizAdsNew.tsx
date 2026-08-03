@@ -400,7 +400,7 @@ export default function BizAdsNew() {
             {t('biz.adStepNext', { defaultValue: '다음' })}
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
             {submitting ? t('biz.submitting', { defaultValue: '제출 중' }) : t('biz.submit', { defaultValue: '제출' })}
           </Button>
         )}

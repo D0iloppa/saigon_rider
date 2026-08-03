@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
+import { formatCurrencyVnd } from '@/lib/format';
 import { TopBar } from '@/components/layout/TopBar';
 import InfoMap from '@/components/maps/InfoMap';
 import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
@@ -239,7 +240,7 @@ export default function InfoHub() {
                   <div className={styles.cardMain}>
                     <span className={styles.cardName}>{gas.name ?? gas.brand ?? '—'}</span>
                     {gas.price_vnd != null && (
-                      <span className={`${styles.cardValueSm} num`}>{gas.price_vnd.toLocaleString()}₫/L</span>
+                      <span className={`${styles.cardValueSm} num`}>{formatCurrencyVnd(gas.price_vnd)}/L</span>
                     )}
                   </div>
                   <div className={styles.cardMeta}>
@@ -285,7 +286,7 @@ export default function InfoHub() {
                     {repair.avg_price != null && (
                       <>
                         {t('info.hub.repairOilAvg')}{' '}
-                        <span className="num">{repair.avg_price.toLocaleString()}₫</span>
+                        <span className="num">{formatCurrencyVnd(repair.avg_price)}</span>
                         {' · '}
                       </>
                     )}

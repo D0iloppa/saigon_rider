@@ -21,3 +21,11 @@
 .chipHot { background: #FF2D9C; color: white; font-size: 10px; padding: 2px 7px; }
 .chipNew { background: var(--neon-lime); color: var(--ink-900); font-size: 10px; padding: 2px 7px; }
 .chipLimited { background: var(--xp); color: white; font-size: 10px; padding: 2px 7px; }
+
+/* div→button 교체 시 시각 회귀 방지: 전역 button 리셋(globals.css)이 border/background/margin/
+   padding/font/color/cursor 는 이미 처리 — 남는 iOS Safari 기본 버튼 크롬(appearance)만 제거 */
+.chipButton {
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: inherit;
+}

@@ -6,7 +6,7 @@ import {
   Settings, Building2, Coffee, Moon, BadgeCheck, Smartphone, ChevronRight,
   Route, Flag, Medal, Gem, Trophy, Bike, Store, Plus, Camera, Flame,
   MessageCircle, MoreVertical, ClipboardList, Check, Circle, Award,
-  UserPlus, type LucideIcon,
+  UserPlus, AlertCircle, type LucideIcon,
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
@@ -88,12 +88,17 @@ export default function ProfileMain() {
   }, [refreshDmUnread]);
 
   const [trades, setTrades] = useState<TradeHistory[]>([]);
+  const [tradesError, setTradesError] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<{ targetId: string; listingId: string } | null>(null);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    fetchTrades(user.id).then(setTrades).catch(() => setTrades([]));
+  // P1-16: 조회 실패를 "거래 0건"으로 위장하지 않고 구분해 재시도를 제공
+  const loadTrades = useCallback(() => {
+    const uid = user?.id;
+    if (!uid) return;
+    fetchTrades(uid).then((tr) => { setTrades(tr); setTradesError(false); }).catch(() => setTradesError(true));
   }, [user?.id]);
+
+  useEffect(() => { loadTrades(); }, [loadTrades]);
 
   useEffect(() => {
     if (!user?.phone) return;
@@ -114,6 +119,7 @@ export default function ProfileMain() {
   const [totalMileage, setTotalMileage] = useState(0);
   const [questHistory, setQuestHistory] = useState<QuestHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(true);
   const [badges, setBadges] = useState<BadgeWithEarned[]>([]);
@@ -230,14 +236,19 @@ export default function ProfileMain() {
     fetchAllBadges(user.id).then(setBadges).catch(() => {});
   }, [user?.id]);
 
+  // P1-16: 조회 실패를 "완료한 퀘스트 없음"으로 위장하지 않고 구분해 재시도를 제공
   const loadHistory = useCallback(async (page: number, reset = false) => {
-    if (!user?.id) return;
+    const uid = user?.id;
+    if (!uid) return;
     setHistoryLoading(true);
     try {
-      const res = await fetchQuestHistory(user.id, page);
+      const res = await fetchQuestHistory(uid, page);
       setQuestHistory((prev) => reset ? res.items : [...prev, ...res.items]);
       setHistoryHasMore(res.items.length >= res.size);
       setHistoryPage(page);
+      setHistoryError(false);
+    } catch {
+      setHistoryError(true);
     } finally {
       setHistoryLoading(false);
     }
@@ -473,7 +484,15 @@ export default function ProfileMain() {
               {t('profile.tradeSold', { defaultValue: '판매' })}
             </button>
           </div>
-          {(() => {
+          {tradesError ? (
+            <StateBlock
+              icon={AlertCircle}
+              tone="error"
+              title={t('profile.tradesLoadError', { defaultValue: '거래 이력을 불러오지 못했어요' })}
+              actionLabel={t('common.retry')}
+              onAction={loadTrades}
+            />
+          ) : (() => {
             const filtered = trades.filter((tr) => tr.role === (tradeTab === 'bought' ? 'bought' : 'sold'));
             return filtered.length === 0 ? (
               <p className={styles.tradeEmpty}>
@@ -709,6 +728,16 @@ export default function ProfileMain() {
               <div className={styles.feedCard}>
                 <SkeletonRows count={3} />
               </div>
+            ) : historyError && questHistory.length === 0 ? (
+              <div className={styles.feedCard}>
+                <StateBlock
+                  icon={AlertCircle}
+                  tone="error"
+                  title={t('profile.historyLoadError', { defaultValue: '퀘스트 기록을 불러오지 못했어요' })}
+                  actionLabel={t('common.retry')}
+                  onAction={() => loadHistory(1, true)}
+                />
+              </div>
             ) : questHistory.length === 0 ? (
               <div className={styles.feedCard}>
                 <StateBlock icon={ClipboardList} title={t('profile.emptyHistory')} desc={t('profile.emptyHistorySub')} />
@@ -860,7 +889,7 @@ export default function ProfileMain() {
         onClose={() => setReviewTarget(null)}
         targetId={reviewTarget?.targetId ?? ''}
         listingId={reviewTarget?.listingId}
-        onSubmitted={() => { if (user?.id) fetchTrades(user.id).then(setTrades).catch(() => {}); }}
+        onSubmitted={loadTrades}
       />
     </div>
   );

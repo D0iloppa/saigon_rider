@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bike } from 'lucide-react';
+import { AlertCircle, Bike } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import TradeRow from '@/components/market/TradeRow';
 import ReviewSheet from '@/components/market/ReviewSheet';
@@ -20,11 +20,16 @@ export default function TradeHistory() {
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<{ targetId: string; listingId: string } | null>(null);
 
+  // P1-16: 조회 실패를 "거래 0건"으로 위장하지 않고 구분해 재시도를 제공
   const load = () => {
     if (!user?.id) return;
-    fetchTrades(user.id).then(setTrades).catch(() => setTrades([])).finally(() => setLoading(false));
+    fetchTrades(user.id)
+      .then((tr) => { setTrades(tr); setError(false); })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
   };
   useEffect(load, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -35,6 +40,16 @@ export default function TradeHistory() {
         {loading ? (
           <div className={sys.card} style={{ margin: 0 }}>
             <SkeletonRows count={3} />
+          </div>
+        ) : error ? (
+          <div className={sys.card} style={{ margin: 0 }}>
+            <StateBlock
+              icon={AlertCircle}
+              tone="error"
+              title={t('profile.tradesLoadError', { defaultValue: '거래 이력을 불러오지 못했어요' })}
+              actionLabel={t('common.retry')}
+              onAction={load}
+            />
           </div>
         ) : trades.length === 0 ? (
           <div className={sys.card} style={{ margin: 0 }}>

@@ -111,7 +111,7 @@ export default function BizPriceManage() {
             onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ''))}
             inputMode="numeric"
           />
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
             {submitting
               ? t('biz.priceSubmitting', { defaultValue: '등록 중' })
               : t('biz.priceSubmit', { defaultValue: '가격표 추가' })}

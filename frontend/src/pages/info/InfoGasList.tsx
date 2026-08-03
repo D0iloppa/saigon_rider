@@ -8,6 +8,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
+import { formatCurrencyVnd } from '@/lib/format';
 import { swrRead, swrWrite } from '@/lib/swrCache';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import { regionContains, type MapMarkerV2 } from '@/components/maps/v2/region';
@@ -236,7 +237,7 @@ export default function InfoGasList() {
                 {refPrices.rows.map((r, i) => (
                   <div key={r.label} className={`${styles.priceItem} ${i === 0 ? styles.priceItemMain : ''}`}>
                     <span className={styles.priceFuel}>{r.label}</span>
-                    <span className={`${styles.priceVal} num`}>{r.price!.toLocaleString()}₫</span>
+                    <span className={`${styles.priceVal} num`}>{formatCurrencyVnd(r.price!)}</span>
                   </div>
                 ))}
               </div>

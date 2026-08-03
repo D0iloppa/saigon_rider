@@ -194,6 +194,31 @@
   font-weight: 600;
 }
 
+.nearMeToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nearMeToggle:disabled {
+  opacity: 0.6;
+}
+
+.nearMeActive {
+  border-color: var(--text);
+  background: var(--text);
+  color: #fff;
+}
+
 /* ── 가게 카드 (주인공) — 당근형 리치 카드: 상호·업종 → 별점·단골·거리 → 사진 레일 → 소식 → 리뷰 프리뷰.
  * 매물(썸네일 좌측 행)과 확연히 다른 풀폭 세로 구성 — 카드 자체가 가게의 살아있는 정보를 요약한다.
  * 카드 마크업/스타일은 BizRichCard.tsx + BizRichCard.module.css 로 추출됨(리스트·지도 바텀시트 공용). */

@@ -43,6 +43,7 @@
   },
   "common": {
     "welcome": "Welcome",
+    "withdrawnUser": "Withdrawn user",
     "translationUnavailable": "Translation unavailable · showing original",
     "skip": "Skip",
     "loading": "Loading...",
@@ -416,7 +417,10 @@
       "withinKm": "Within 3km",
       "bizNews": "Business news",
       "sectionUnavailable": "Couldn't load this",
-      "sectionUnavailableDesc": "Please try again in a moment"
+      "sectionUnavailableDesc": "Please try again in a moment",
+      "defaultRegion": "Default area: {{name}} · Set area",
+      "locationCta": "Set area",
+      "totalMileage": "Total distance traveled"
     }
   },
   "questCard": {
@@ -542,6 +546,7 @@
     "postNotFound": "Post not found",
     "noComments": "Be the first to comment",
     "filterHot": "Hot",
+    "filterGroupLabel": "Feed filters",
     "emptyTitle": "Waiting for the first check-in",
     "emptySub": "Complete a ride and capture a moment in Saigon",
     "safetyLabel": "Safety {{grade}}",
@@ -568,6 +573,8 @@
     "noTrades": "No trades yet",
     "noTradesSub": "Find something you like in the market and start your first deal",
     "noTradesCta": "Browse market",
+    "tradesLoadError": "Couldn't load your trade history",
+    "historyLoadError": "Couldn't load your quest history",
     "tabFeeds": "Feeds",
     "tabHistory": "History",
     "tabBadges": "Badges",
@@ -689,7 +696,10 @@
     "locating": "Locating…",
     "locationOff": "Location off",
     "pickLocation": "Post location",
-    "pickLocationDesc": "Tap the map to pin the location"
+    "pickLocationDesc": "Tap the map to pin the location",
+    "leaveConfirmMsg": "You have unsaved changes. Leave without posting?",
+    "leaveConfirmDiscard": "Leave",
+    "leaveConfirmKeep": "Keep writing"
   },
   "noti": {
     "title": "Notifications",
@@ -703,6 +713,8 @@
     "title": "Messages",
     "detailTitle": "Chat",
     "empty": "No conversations yet",
+    "emptyThread": "No messages yet. Start the conversation!",
+    "messagesLoadError": "Couldn't load messages",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",
     "button": "DM",
@@ -809,7 +821,10 @@
     "saveBtn": "Save",
     "saving": "Saving...",
     "saveError": "Failed to save",
-    "saveSuccess": "Post updated"
+    "saveSuccess": "Post updated",
+    "leaveConfirmMsg": "You have unsaved changes. Leave without saving?",
+    "leaveConfirmDiscard": "Leave",
+    "leaveConfirmKeep": "Keep editing"
   },
   "profileEdit": {
     "title": "Edit Profile",
@@ -998,7 +1013,8 @@
     "status_open": "Open",
     "status_in_progress": "In Progress",
     "status_resolved": "Resolved",
-    "reply_count": "{{count}} replies"
+    "reply_count": "{{count}} replies",
+    "unreadReply": "Unread reply"
   },
   "notices": {
     "title": "Notices",
@@ -1599,6 +1615,11 @@
       "emptyHint": "Try again later or explore another area in Ho Chi Minh City.",
       "emptySearchHint": "Try a different keyword.",
       "bizLimit": "Showing up to 100 places at a time. Open the map to see more.",
+      "nearMe": "Near me",
+      "nearMeRationale": "We need location access to sort places by distance from you.",
+      "nearMeDenied": "Location permission denied — you can still pick an area manually.",
+      "nearMeTimeout": "Couldn't get your location (timed out). Try again or pick an area.",
+      "nearMeUnavailable": "Couldn't get your location. Check location services or pick an area manually.",
       "noCaption": "A moment from the neighborhood",
       "loadingMap": "Preparing the map...",
       "backToList": "Back to list",
@@ -1781,6 +1802,8 @@
     "categoryPlaceholder": "Select category",
     "location": "Location",
     "locationPlaceholder": "Select a location",
+    "pickLocation": "Pick shop location",
+    "pickLocationDesc": "Tap the map to pin your shop's exact location",
     "phone": "Contact number",
     "phonePlaceholder": "Enter a reachable phone number",
     "introLabel": "Intro (optional)",

@@ -360,6 +360,7 @@ export default function MarketDetail() {
 
           {/* Bottom action bar */}
           {isSeller ? (
+            detail.status === 'SOLD' ? null : (
             <div className={styles.sellerControls}>
               {detail.status === 'ON_SALE' && (
                 <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>
@@ -383,18 +384,14 @@ export default function MarketDetail() {
                 <Tag size={16} strokeWidth={2.2} />
                 {t('market.editPrice', { defaultValue: '가격 수정' })}
               </button>
-              {detail.status !== 'SOLD' && (
-                <>
-                  <button className={styles.priceEditBtn} type="button" onClick={() => navigate(`/market/${detail.id}/edit`)}>
-                    <Pencil size={16} strokeWidth={2.2} />
-                    {t('market.editListing', { defaultValue: '매물 수정' })}
-                  </button>
-                  <button className={styles.priceEditBtn} type="button" onClick={() => setWithdrawOpen(true)}>
-                    <Trash2 size={16} strokeWidth={2.2} />
-                    {t('market.withdraw', { defaultValue: '매물 철회' })}
-                  </button>
-                </>
-              )}
+              <button className={styles.priceEditBtn} type="button" onClick={() => navigate(`/market/${detail.id}/edit`)}>
+                <Pencil size={16} strokeWidth={2.2} />
+                {t('market.editListing', { defaultValue: '매물 수정' })}
+              </button>
+              <button className={styles.priceEditBtn} type="button" onClick={() => setWithdrawOpen(true)}>
+                <Trash2 size={16} strokeWidth={2.2} />
+                {t('market.withdraw', { defaultValue: '매물 철회' })}
+              </button>
               <div className={styles.statusBar}>
                 {STATUSES.map((s) => (
                   <button
@@ -407,6 +404,7 @@ export default function MarketDetail() {
                 ))}
               </div>
             </div>
+            )
           ) : (
             <div className={styles.actionBar}>
               <button

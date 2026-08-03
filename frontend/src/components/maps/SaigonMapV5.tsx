@@ -280,6 +280,10 @@ export interface SaigonMapV5Props {
   /** 부모가 동일 기능의 위치 CTA를 제공할 때 지도 내부 버튼을 숨긴다. */
   showLocateControl?: boolean;
   selectionOnly?: boolean;
+  /** true면 지도 탭이 ward 선택 대신 탭 좌표를 onPointPick으로 emit한다 (SaigonMapV2 pickMode와 동일 계약). 기본 false — 기존 소비자 동작 불변. */
+  pickMode?: boolean;
+  /** pickMode 탭 시 호출되는 정밀 좌표 콜백. */
+  onPointPick?: (pos: { lat: number; lng: number }) => void;
   /** 온디맨드 보조 지도용. 동 경계·수로·블록만 유지하고 무거운 depth3 파일은 로드하지 않는다. */
   lightweight?: boolean;
   /** 콘텐츠 핀 조회를 허용할 줌 단계. 기본은 상세 지도와 같은 depth3. */
@@ -335,6 +339,8 @@ function SaigonMapV5({
   selectRegionOnLocate = true,
   showLocateControl = true,
   selectionOnly = false,
+  pickMode = false,
+  onPointPick,
   lightweight = false,
   markerDepth = 'l3',
   bottomInsetPx = 0,
@@ -931,6 +937,11 @@ function SaigonMapV5({
     const vb = vbRef.current;
     const mx = vb.x + ((tapX - r.left) / r.width) * vb.w;
     const my = vb.y + ((tapY - r.top) / r.height) * vb.h;
+
+    if (pickMode) {
+      onPointPick?.({ lat: uy2lat(my), lng: ux2lng(mx) });
+      return;
+    }
 
     // 통합 좌표 → depth1 SVG 좌표
     const d1x = (mx - lx(D1_BBOX.W)) / (lx(D1_BBOX.E) - lx(D1_BBOX.W)) * depth1.VW;

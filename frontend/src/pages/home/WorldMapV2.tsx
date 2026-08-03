@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { Flame, Megaphone, Newspaper, Package, PackageSearch, Plus } from 'lucide-react';
+import { Flame, Megaphone, Newspaper, Package, PackageSearch, Plus, Route } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
@@ -348,12 +348,21 @@ export default function WorldMapV2() {
                 )}
               </button>
             </div>
-            <div className={styles.profileLoc}>
+            <button
+              type="button"
+              className={styles.profileLoc}
+              onClick={() => navigate('/map')}
+              aria-label={t('home.v2.locationCta')}
+            >
               <IcoPin />
-              <span className={styles.locName}>{storedWardName ?? (coords.name || FALLBACK.name)}</span>
+              <span className={styles.locName}>
+                {storedWardName ?? t('home.v2.defaultRegion', { name: coords.name || FALLBACK.name })}
+              </span>
               <span className={styles.statSep}>|</span>
-              <span>{totalKm.toFixed(2)} km</span>
-            </div>
+              <span title={t('home.v2.totalMileage')}>
+                <Route size={11} strokeWidth={2} aria-hidden="true" /> {totalKm.toFixed(2)} km
+              </span>
+            </button>
           </div>
         </div>
 

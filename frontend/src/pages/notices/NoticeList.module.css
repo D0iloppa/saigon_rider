@@ -6,6 +6,9 @@
 }
 
 .card {
+  display: block;
+  width: 100%;
+  text-align: left;
   background: var(--surface, #fff);
   border: 1px solid var(--line, #e8e3da);
   border-radius: 12px;

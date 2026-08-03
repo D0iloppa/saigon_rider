@@ -137,6 +137,10 @@ interface Props {
   initialQuery?: string;
   initialBizCategory?: string | null;
   lightweight?: boolean;
+  // P1-5: 목록(NeighborhoodMap)에서 고른 로컬 selectedRegion 을 지도 진입 시 1회 시드한다.
+  // 전역 useSelectedRegion(useLocationStore)보다 우선하는 "로컬 초기값"일 뿐 — 전역 스토어에는
+  // 쓰지 않는다(다른 화면 위치 오염 방지, 과거 사고 패턴). 미전달 시 기존 동작과 동일.
+  initialRegion?: SelectedRegion | null;
 }
 
 // 로딩 표시 디바운스 — active 가 showDelay(ms) 이상 지속될 때만 켜고, 한 번 켜지면 minVisible(ms)
@@ -166,6 +170,7 @@ export default function NeighborhoodMapCanvas({
   initialQuery = '',
   initialBizCategory = null,
   lightweight = false,
+  initialRegion = null,
 }: Props) {
   const { t, i18n } = useTranslation();
   // ── L3 상세지도(건물 depth3 + POI 참조 레이어) 부활 게이트 ──────────────────
@@ -183,7 +188,11 @@ export default function NeighborhoodMapCanvas({
   // 단일 SoT — 지역 선택은 useLocationStore(동네지도가 기준). 'region'(선택 동) ↔ 'all'(전체).
   const selectRegion = useLocationStore((s) => s.selectRegion);
   const selectAll = useLocationStore((s) => s.selectAll);
-  const selectedRegion = useSelectedRegion(user?.id);
+  const globalSelectedRegion = useSelectedRegion(user?.id);
+  // initialRegion 은 마운트 시점 1회 시드값만 — 전역 스토어에는 쓰지 않는다(prop 미전달 시
+  // localRegionSeed 는 null 이라 selectedRegion === globalSelectedRegion, 기존 동작과 동일).
+  const [localRegionSeed] = useState<SelectedRegion | null>(initialRegion);
+  const selectedRegion = localRegionSeed ?? globalSelectedRegion;
   const storedCoords = selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : null;
 
   // BizPublic 뒤로가기(POP) 복귀에서만 스냅샷을 읽는다 — 탭바 신규 진입(PUSH/REPLACE)은

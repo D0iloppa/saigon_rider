@@ -18,12 +18,25 @@
 }
 
 .card {
+  display: block;
+  width: 100%;
+  text-align: left;
   background: var(--surface, #fff);
   border: 1px solid var(--line, #e8e3da);
   border-radius: 12px;
   padding: 16px;
   cursor: pointer;
   position: relative;
+}
+
+/* 화면엔 안 보이고 스크린리더에만 읽히는 텍스트 — unreadDot 은 색만으론 전달되지 않음 */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .cardTitle {

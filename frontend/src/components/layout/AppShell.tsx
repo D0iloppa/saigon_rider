@@ -1,17 +1,15 @@
 import { useLocation } from 'react-router-dom';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { TabBar } from './TabBar';
 import { FloatingActionButton } from './FloatingActionButton';
-import { useDmStore } from '@/store/useDmStore';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './AppShell.module.css';
 
-const DM_POLL_MS = 20_000;
-
 interface Props {
   children: ReactNode;
+  isAuthenticated: boolean;
   splashVisible: boolean;
   splashFade: boolean;
   gifReady: boolean;
@@ -34,24 +32,19 @@ const HIDE_TABBAR_PATHS = [
   '/map/categories',
   '/quest-check/',
   '/feed/post/', // 게시글 상세 — 하단 댓글 입력바가 탭바 자리 사용
+  '/feed/new', // 글쓰기 — 탭 오터치로 초안 소실 방지 (P1-7)
+  '/feed/edit/', // 글수정 — 위와 동일 사유 (P1-7)
   '/biz/', // 업체 상세 — 업체 전용 문의 CTA가 탭바 자리 사용
 ];
 
 export function AppShell({
-  children, splashVisible, splashFade, gifReady,
+  children, isAuthenticated, splashVisible, splashFade, gifReady,
   bootstrapError, onBootstrapRetry, onBootstrapLogin,
 }: Props) {
   const { pathname } = useLocation();
   const { t } = useTranslation();
-  const hideTabBar = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
-  const refreshDmUnread = useDmStore((s) => s.refreshUnread);
-
-  // 전역 DM 안 읽음 폴링 — 새 메시지 수신 시 배지 갱신(읽으면 markRead+refresh로 자동 0)
-  useEffect(() => {
-    refreshDmUnread();
-    const id = setInterval(refreshDmUnread, DM_POLL_MS);
-    return () => clearInterval(id);
-  }, [refreshDmUnread]);
+  // 미인증 상태에서는 탭바를 숨긴다 — 눌러도 보호된 화면이라 튕겨나가기만 한다 (P1-9)
+  const hideTabBar = !isAuthenticated || HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
 
   return (
     <div className={styles.shell}>

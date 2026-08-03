@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, Banknote, Camera, Clock, MapPin, Phone, ThumbsU
 import { repairApi } from '@/api/info';
 import type { RepairDetail, RepairReview } from '@/api/info';
 import { native } from '@/lib/native';
+import { formatCurrencyVnd, displayNickname } from '@/lib/format';
 import { TopBar } from '@/components/layout/TopBar';
 import { StarIcon } from '@/components/ui/StarIcon';
 import StateBlock from '@/components/ui/StateBlock';
@@ -23,7 +24,7 @@ export function ReviewCard({ review }: { review: RepairReview }) {
 
   const name = review.is_anonymous
     ? t('info.repair.anonymous')
-    : (review.reviewer_nickname ?? t('info.repair.anonymous'));
+    : displayNickname(review.reviewer_nickname, t) || t('info.repair.anonymous');
 
   return (
     <div className={styles.reviewCard}>
@@ -64,7 +65,7 @@ export function ReviewCard({ review }: { review: RepairReview }) {
         )}
         {review.price_vnd !== null && (
           <span className={`${styles.reviewPrice} num`}>
-            {review.price_vnd.toLocaleString()} ₫
+            {formatCurrencyVnd(review.price_vnd)}
           </span>
         )}
       </div>
@@ -227,7 +228,7 @@ export default function InfoRepairDetail() {
                 <span className={styles.priceLabel}>
                   {t(`info.repair.service_${code}`, code)}
                 </span>
-                <span className={`${styles.priceVal} num`}>{price.toLocaleString()} ₫</span>
+                <span className={`${styles.priceVal} num`}>{formatCurrencyVnd(price)}</span>
               </div>
             ))}
           </div>

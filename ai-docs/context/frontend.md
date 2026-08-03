@@ -242,10 +242,10 @@ import { AppImage } from '@/components/ui/AppImage';
 | `ConfirmDialog` | 확인/취소 선택 모달 (Zustand store 기반 전역 호출) |
 | `Dialog` | 명령형 다이얼로그 시스템 (`dialogTypes.ts`와 함께 사용) |
 | `BottomSheet` | 하단 슬라이드 패널 |
-| `Button` | 기본 버튼 (variant: primary / secondary / glass / danger) |
+| `Button` | 기본 버튼 (variant: primary / secondary / glass / danger). **`loading?: boolean` (2026-08-03)** — true 면 자동으로 `disabled` + `aria-busy` + 스피너. 제출 중 중복 클릭을 화면마다 다시 구현하지 않기 위한 것(UX 감사 P1-15). 미전달 시 기존 동작과 동일 |
 | `ProgressBar` | track + fill 그라디언트 바 |
 | `Toggle` | on/off 슬라이드 토글 |
-| `Chip` | 인라인 태그 (glass / brand / surface 등 variant) |
+| `Chip` | 인라인 태그 (glass / brand / surface 등 variant). **`as?: 'div' \| 'button'` (2026-08-03)** — 기본 `div`(라벨 용도, 기존 사용처 무변경). **클릭 컨트롤로 쓸 땐 반드시 `as="button"`** + `aria-pressed`(토글) 또는 `role="radio"`+`aria-checked`(단일선택). 이전엔 항상 `div` 라 마켓 필터·피드 필터를 키보드·스크린리더로 조작할 수 없었다(UX 감사 P1-14). 선택 표시는 `chipSurface`(밝은 배경+1px 테두리) ↔ `chipDark`(진한 채움+테두리 제거)라 **색 외 단서가 이미 있어** WCAG 1.4.1 충족 |
 | `MapPin` | 지도 위 절대위치 핀 |
 | `StoryAvatar` | 그라디언트 테두리 원형 아바타 |
 | `LevelBadge` | "LV.N" 인라인 뱃지 |

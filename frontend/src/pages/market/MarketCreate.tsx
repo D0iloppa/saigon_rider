@@ -135,7 +135,7 @@ export default function MarketCreate() {
       <TopBar
         title={t('market.create', { defaultValue: '매물 등록' })}
         rightContent={
-          <Button onClick={handleSubmit} disabled={!canPost} style={{ minWidth: 64 }}>
+          <Button onClick={handleSubmit} disabled={!canPost} loading={posting} style={{ minWidth: 64 }}>
             {posting ? t('market.posting', { defaultValue: '등록 중' }) : t('market.submit', { defaultValue: '완료' })}
           </Button>
         }

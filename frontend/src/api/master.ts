@@ -1,6 +1,7 @@
 import i18n from '@/lib/i18n';
 import { USE_MOCK, api } from './client';
 import { inServiceArea } from '@/lib/serviceArea';
+import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 
 export interface District {
   id: number;
@@ -82,9 +83,19 @@ function _haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): n
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-/** GPS 좌표 → 가장 가까운 지원 Ward. 서비스 geometry 밖이면 null. */
+/** GPS 좌표 → 지원 Ward. 서비스 geometry 밖이면 null. */
 export function resolveWardByCoords(lat: number, lng: number, wards: Ward[]): Ward | null {
   if (!inServiceArea(lat, lng)) return null;
+
+  // 폴리곤 우선: 좌표가 실제로 속한 동(depth1 폴리곤)을 찾아 이름으로 매칭한다.
+  // (기존 최근접-중심점 방식은 폴리곤 안에 있어도 더 가까운 이웃 동 중심을 골라버리는 문제가 있었다.)
+  const region = wardRegionAt(lat, lng);
+  if (region) {
+    const matched = wards.find((w) => w.name_vi === region.name);
+    if (matched) return matched;
+  }
+
+  // 폴백: 폴리곤 매칭 실패 시(이름 불일치 등) 기존 최근접-중심점 방식 유지.
   let best: Ward | null = null;
   let bestKm = Infinity;
   for (const w of wards) {

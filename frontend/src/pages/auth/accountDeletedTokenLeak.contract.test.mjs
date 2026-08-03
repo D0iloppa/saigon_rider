@@ -62,11 +62,20 @@ test('sensitive-key stripping applies to any future error shape, not just accoun
   assert.ok(msg.includes('some_future_error'));
 });
 
-test('non-object details (string / 422 array) keep their existing formatting', () => {
+test('string detail keeps its formatting; 422 array never reaches the user string', () => {
   const extractErrorMessage = evalExtractErrorMessage();
   assert.equal(extractErrorMessage({ detail: 'plain message' }, 429, 'call'), 'HTTP 429 | plain message');
-  const arr = [{ loc: ['body', 'phone'], msg: 'field required' }];
-  assert.equal(extractErrorMessage({ detail: arr }, 422, 'call'), `HTTP 422 | ${JSON.stringify(arr)}`);
+
+  // 422(FastAPI 검증 오류) detail 은 배열이고 그 안에 요청 본문(input)이 그대로 되비친다.
+  // sanitizeDetail 은 배열을 통과시키므로 status 분기에서 막지 않으면 내부 필드명과
+  // user_id 가 사용자 토스트에 찍힌다 — 실제로 가입 화면에 노출된 사고가 있었다.
+  // (이 테스트는 원래 "배열은 기존 포맷 유지"를 고정하고 있었는데, 그 성질 자체가
+  //  결함이어서 2026-08-03 에 기대값을 뒤집었다.)
+  const arr = [{ loc: ['body', 'user_id'], msg: 'field required', input: { user_id: 'UUID-LEAK' } }];
+  const msg = extractErrorMessage({ detail: arr }, 422, 'POST /api/bff/profile/consent');
+  assert.ok(!msg.includes('UUID-LEAK'), `422 input leaked into user string: ${msg}`);
+  assert.ok(!msg.includes('user_id'), `422 field name leaked into user string: ${msg}`);
+  assert.ok(!msg.includes('loc'), `422 detail structure leaked into user string: ${msg}`);
 });
 
 // ── (2) client.ts: 409 account_deleted 는 토스트/문자열화 전에 AccountDeletedError 로 던진다 ──

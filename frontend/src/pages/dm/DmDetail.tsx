@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CalendarPlus, Check, HandCoins, MapPin, Smile, ImagePlus, MoreVertical } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
+import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -57,6 +58,9 @@ export default function DmDetail() {
   const [conv, setConv] = useState<DmConversation | null>(locationState?.conv ?? null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  // 초기 메시지 로드 상태 — 실패를 "대화 없음"과 구분하기 위해 별도 관리 (P1-6)
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [apptOpen, setApptOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [apptWhen, setApptWhen] = useState('');
@@ -73,13 +77,24 @@ export default function DmDetail() {
   const composerRef = useRef<MessageComposerHandle>(null);
   const otherName = conv?.otherUserNickname ?? locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
 
+  // 초기 메시지 로드 — 실패 시 loadError 로 구분해 재시도를 제공 (P1-6: 500/timeout 이 빈 대화로 보이던 버그)
+  const loadMessages = useCallback(() => {
+    if (!conversationId) return;
+    setLoading(true);
+    setLoadError(false);
+    fetchMessages(conversationId)
+      .then((res) => {
+        setMessages(res.items);
+        markRead(conversationId).then(() => refreshUnread());
+      })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
+  }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!conversationId) return;
     fetchConversation(conversationId).then(setConv).catch(() => {});
-    fetchMessages(conversationId).then((res) => {
-      setMessages(res.items);
-      markRead(conversationId).then(() => refreshUnread());
-    });
+    loadMessages();
     return () => { refreshUnread(); };
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -159,6 +174,8 @@ export default function DmDetail() {
       const msg = await sendMessage(conversationId, text);
       setMessages((prev) => [...prev, msg]);
     } catch (err) {
+      // 전송 실패 시 입력을 비운 채로 두지 않고 원문을 복원 — 재입력 없이 한 번의 조작으로 재전송 가능 (P1-6)
+      setInput(text);
       const msg = err instanceof Error ? err.message : '';
       toast.error(
         msg.includes('banned_keyword')
@@ -402,7 +419,21 @@ export default function DmDetail() {
           pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
         }}
       >
-        {messages.map((m) => {
+        {loading ? (
+          <p className={styles.loadingText}>{t('common.loading')}</p>
+        ) : loadError ? (
+          <div role="alert" aria-live="assertive">
+            <StateBlock
+              icon={AlertCircle}
+              tone="error"
+              title={t('dm.messagesLoadError', { defaultValue: 'Không tải được tin nhắn' })}
+              actionLabel={t('common.retry')}
+              onAction={loadMessages}
+            />
+          </div>
+        ) : messages.length === 0 ? (
+          <StateBlock icon={MailOpen} title={t('dm.emptyThread', { defaultValue: 'Chưa có tin nhắn nào. Hãy bắt đầu trò chuyện!' })} />
+        ) : messages.map((m) => {
           const isMine = m.senderId === myId;
           if (m.messageType === 'appointment') {
             const appt = m.appointment;
@@ -635,7 +666,8 @@ export default function DmDetail() {
         onChange={setInput}
         onSend={handleSend}
         placeholder={t('dm.inputPlaceholder')}
-        sending={sending}
+        // 초기 로드가 끝나기 전(loading/loadError)에는 전송을 잠근다 — 대화 상태를 모르는 채로 보낼 수 없게 (P1-6)
+        sending={sending || loading || loadError}
         sendAriaLabel={t('dm.sendBtn')}
         menuAriaLabel={t('dm.more', { defaultValue: '더보기' })}
         menuItems={[

@@ -188,6 +188,12 @@ import { AppImage } from '@/components/ui/AppImage';
 - 서버에서 받아오는 모든 이미지 (아바타, 게시물, 썸네일, DM 이미지 등)
 - `PhotoCard`, `StoryAvatar` 등 재사용 컴포넌트도 내부적으로 `AppImage` 사용
 
+**폰트는 자체 호스팅이다 (2026-08-03, UX 감사 P2-2)** — 외부 CDN 요청 0.
+- `public/fonts/` + `styles/fonts.css`(`@font-face`, `font-display: swap`). Pretendard(본문 304KB) · Space Grotesk(`.num`/`.micro` 136KB) · Instrument Serif(`.serif` italic 48KB).
+- 🔴 **한글 글리프는 번들에 없다.** 시스템 폰트(Android Noto Sans CJK / iOS Apple SD Gothic Neo)가 커버하고 CSS 폴백이 글리프 단위로 해석한다. **따라서 `font-family` 에 generic family 를 반드시 붙여라** — `font-family: 'Pretendard'` 단독 선언은 한국어 UI 를 깨뜨린다. 현재 12개 선언 모두 폴백을 갖고 있다.
+- ⚠️ `Instrument Serif` 는 베트남어 글리프가 없다(CDN 시절부터의 결손). 베트남어 문구에 `.serif` 를 새로 쓰면 서체가 섞인다.
+- 국기는 `styles/flags.css`(vn/us/kr). `flag-icons` 전체 import 는 제거됐다.
+
 **lazy loading 은 `AppImage` 한 곳에서 처리한다 (2026-08-03, UX 감사 P2-8)**
 - 기본값이 `loading="lazy"` + `decoding="async"` 다. **화면마다 `loading="lazy"` 를 붙이지 마라** — 이 규칙이 있는 이유 자체가 이미지 처리를 한 곳으로 모으는 것이다. 소비자가 `loading`/`decoding` 을 명시하면 그 값을 존중한다.
 - **above-the-fold 히어로 이미지는 `priority` 를 줘라.** lazy 를 걸면 LCP 가 나빠진다. 현재 부여된 곳: `ImageCarousel`(단일 이미지·첫 슬라이드만), `AdDetail`·`BizPublic` 의 `.heroImg`. 새 상세 화면의 대표 이미지를 만들면 여기도 판단할 것.

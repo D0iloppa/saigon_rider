@@ -82,7 +82,18 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - `SaigonMapV5`: **POI 있음** / 연속 줌(L1~L3) / 2026-08-03 에 `pickMode`·`onPointPick` 추가(기본 off). `NeighborhoodMapCanvas`·info 3화면·`BizLocationPicker`.
 - **L3+POI 가 함께 보이려면 3조건이 동시에** 맞아야 한다 — `lightweight={false}` · 마운트 즉시 `L3_VBW`(≈1.1km) 안쪽으로 줌인(`initialGps`) · 호출부가 `fetchPoiMapItems`→`buildPoiLayer`→`markers` 합류. POI 는 지도 컴포넌트가 그리지 않는다.
 - **`pickMode` 화면은 `polyActive={false}` 여야 한다.** `polyActive=true` 는 L3 를 `selWard` 1개로 제한하는데 `pickMode` 는 ward 탭 판정 앞에서 early-return 하므로 `selWard` 가 영영 갱신되지 않아 초기 ward 밖에 L3 가 안 그려진다. 기록된 "2.4배·7.5초" 비용은 **도시 전역 조망 기준이라 줌인된 피커에는 전이되지 않는다**(뷰포트 630유닛 < ward 평균 1522유닛). `onViewportChange` 가 `polyActive` 와 무관하게 depth3 를 이미 fetch 하므로 네트워크 추가비용 0.
+- **"L3+POI 표시 프로파일" 은 세 화면이 공유한다** — `BizLocationPicker`(등록 피커) · `BizPublic`(업체 상세 홈 탭) · 동네지도. 조합은 `lightweight={false}` + `polyActive={false}` + `initialGps` + POI 배선이다. **`lightweight` 하나가 L3 를 원천 차단**하므로(그래서 업체 상세가 L2 까지만 보였다) 새 화면에서 L3 가 안 보이면 여기부터 보라. POI fetch/취소/build 는 `components/maps/usePoiMarkers.ts` 공용 훅이다 — 복제하지 말고 이걸 써라.
 - **서비스 지역은 37개 ward**(`saigon-depth1.json`, 중심부 약 14×14km)다. `resolveDistrict` 내부 `inServiceArea` 가드 때문에 **Thủ Đức·Bình Tân·Gò Vấp 업체는 등록 자체가 불가능**하다. 대표 결정(2026-08-03): 이번엔 유지하고 안내 문구만 노출. 폴리곤 확장은 별건.
+
+### 번들·정적 자산 (2026-08-03, UX 감사 Gate B)
+- **라우트는 `React.lazy` 로 분할한다.** 초기 로드 gzip 911KB → 247KB(-73%). **eager 로 남기는 것은 스플래시·인증·홈·`Suspended`** 뿐이다 — 부트스트랩 리다이렉트 대상이라 lazy 로 만들면 첫 진입에 왕복이 추가된다. `Suspense` 는 `BackgroundRoutes` 전체에 **하나만** 둔다(라우트마다 감싸면 이동할 때마다 깜빡인다).
+- `manualChunks` 는 `vendor-react`·`vendor-map` **둘만**. 무분별한 분할은 요청 수만 늘리고 캐시 효율을 떨어뜨린다.
+- 🔴 **빌드 산출물을 git 에 추적하지 마라 — 소스를 가린다.** `vite.config.js`·`vite.config.d.ts`(tsc -b, composite 산출물)가 추적돼 있었는데 **Vite 는 설정파일 탐색에서 `.js` 를 `.ts` 보다 먼저 로드**한다. 스테일한 `.js` 때문에 `vite build` 직접 실행 시 `manualChunks` 가 통째로 무시됐다(운영 Docker 는 `npm run build`=`tsc -b && vite build` 라 매번 재생성돼 무사했다). `.gitignore` 로 정리했다 — `*.tsbuildinfo` 도 같은 부류다.
+- **폰트는 자체 호스팅한다**(외부 CDN 0). 근거 3가지: Capacitor 네이티브인데 오프라인 폴백이 없었고, 사용자 IP 가 제3자로 나가며(PDPD 국외이전 고지), 외부 호스트가 느리면 첫 렌더가 늦는다.
+  - 🔴 **한글 글리프는 자체 호스팅하지 않는다.** "한국어 UI 를 지원한다" 와 "한글을 번들에 넣는다" 는 다른 명제다 — Android(Noto Sans CJK)·iOS(Apple SD Gothic Neo)가 시스템 폰트로 완전히 커버하고, **CSS 폰트 폴백은 글리프 단위**라 한글만 시스템 폰트로 떨어지고 라틴·베트남어는 Pretendard 로 렌더된다(두부 아님). 한글 포함 시 3.9MB, 제외 시 **304KB**. 타겟이 호치민·기본 언어가 베트남어인데 부차 언어를 위해 3.9MB 를 이력에 넣는 건 비례하지 않는다. **`'Pretendard'` 를 폴백 없이 단독 선언하면 이 전제가 깨진다** — 새 `font-family` 선언에 항상 generic family 를 붙여라.
+  - ⚠️ `Instrument Serif` 는 **베트남어 글리프가 없다**(Google Fonts 가 vietnamese 서브셋을 만든 적이 없다). CDN 시절부터의 결손이라 자체호스팅이 만든 문제가 아니다. 사용처 3곳(`splash.subtitle`·`quest.emptyQuote`·`ride.*Epigraph`)이 전부 베트남어 성조를 포함해 **한 문장 안에서 서체가 섞인다.** 제품·디자인 결정 대기.
+  - `flag-icons` 는 전체(200개국) import 금지 — `styles/flags.css` 에 실제 쓰는 `vn`/`us`/`kr` 만 둔다. 4KB 미만이라 data-uri 로 인라인돼 추가 요청이 없다.
+- **압축**: 컨테이너 nginx conf 에는 gzip 설정이 없지만 **운영은 호스트 nginx 가 이미 gzip 을 적용**한다(응답 헤더 실측). brotli 는 스톡 `nginx:alpine` 에 모듈이 없어 이미지 교체가 필요하다 — 미적용.
 
 ### CSS 토큰 — 명명 규칙은 하나다 (2026-08-03, UX 감사 Gate B)
 - 실제 토큰은 `styles/tokens.css` 의 `--text`/`--text-2`/`--text-3` · `--line` · `--surface`/`--surface-2` · `--brand-50~900` 이다. **다른 명명 규칙(`--text-primary`·`--border`·`--divider`·`--bg-2`·`--primary`·`--text-1`)으로 쓴 코드가 섞여 들어와 38곳이 미정의 상태로 빈 값 렌더되고 있었다.** 색·배경·테두리가 통째로 사라져도 아무도 몰랐다 — 이 저장소에 **스크린샷 회귀 자동화가 없기 때문**이다.

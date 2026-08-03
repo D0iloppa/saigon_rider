@@ -31,6 +31,13 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 > **📝 IA 개편 구상 (2026-07-26) — 미구현**: 위 표는 **현재 코드 상태**다. 구상 단계에서 `마켓(첫 화면) · 가게(지도) · 소식(피드) · 프로필` 4탭 안이 제시됐다 — 홈(`/home` 월드맵)은 라이딩 게임앱 잔재로 제거하고 안의 실사용 가치(유가·날씨·침수·주유소·정비소)는 마켓 상단 유틸리티 스트립으로 재배치. 근거: `/map`의 `가게/소식/매물` 3탭 중 `매물`=탭바 `마켓`, `소식`=탭바 `커뮤니티`와 동일 콘텐츠라 하단 탭 5개 중 3개가 지도 안에 중복. 상세 [`../spec/service-concept-260726.md`](../spec/service-concept-260726.md) §6.2. **착수는 미결. 구현 시 이 표와 §3.1·§3.3·§3.4를 함께 갱신할 것.**
 
+> **⚡ 라우트 로딩 구조 (2026-08-03, UX 감사 Gate B / P2-1)**
+> 40여 라우트가 **`React.lazy`** 다. **eager 로 남은 것은 `Splash`·`OAuthLogin`/`OAuthResult`·`AccountRestore`·`ProfileSetup`·`PhoneVerify`·`Suspended`·`WorldMapV2`(홈)** — 부트스트랩 리다이렉트 대상이라 lazy 로 만들면 첫 진입에 왕복이 추가된다. **새 라우트를 추가하면 기본은 lazy** 이고, eager 로 둘 거면 위 목록에 해당하는 이유를 대라.
+> `Suspense` 는 `BackgroundRoutes` 전체를 감싸는 **하나뿐**이다(라우트마다 감싸면 이동할 때마다 깜빡인다). fallback 은 `common.loading` + `App.module.css` 의 `.routeLoading`.
+> 초기 로드 gzip **911KB → 247KB**. `manualChunks` 는 `vendor-react`·`vendor-map` 둘만.
+> 🔴 **`vite.config.js`/`.d.ts`/`*.tsbuildinfo` 는 빌드 산출물이라 git 추적 금지**(`.gitignore` 등록됨) — Vite 가 `.js` 를 `.ts` 보다 먼저 로드해서, 스테일한 `.js` 가 있으면 `vite build` 직접 실행 시 설정 변경이 조용히 무시된다.
+> **국기는 `styles/flags.css`(vn/us/kr 3개)** 다 — `flag-icons` 전체 import 는 제거됐다. 새 국가를 쓰려면 원본에서 해당 규칙만 추가하라.
+
 > **🔧 내비게이션·상태 보존 (2026-08-03, UX 감사 Gate B)**
 > - **404 화면이 생겼다** — `App.tsx` 의 와일드카드가 `<Navigate to="/home">` 에서 `pages/error/NotFound.tsx` 로 바뀌었다. 이전엔 오타 URL·삭제된 매물 링크가 **설명 없이 홈으로 흡수**돼 링크가 죽은 건지 자기가 틀린 건지 알 수 없었다. `StateBlock` 재사용(`TradeHistory` 패턴). **탭바는 숨기지 않는다** — 404 경로는 임의 문자열이라 prefix 로 열거할 수 없고 `TAB_PATH_PREFIXES` 가 어차피 매칭되지 않아 "어느 탭도 활성화되지 않는 상태"가 코드 추가 없이 달성된다. `LinkRouter.resolveAction()` 은 `default: return '/home'` 이라 와일드카드에 닿지 않으므로 `returnTo` 에 영향 없다.
 > - **공용 `TopBar` 상단 버튼은 "앱 계층의 Up" 이다** — 무조건 `navigate(-1)` 이던 것을 바꿨다(딥링크·새 탭 진입에서 앱 밖·빈 history 로 이탈했다). `useLocation().key === 'default'`(RRv6 가 세션 첫 history 항목에 붙이는 마커)로 "앱 history 없음"을 판별해 그때만 `getSectionRoot(pathname)` 으로 이동한다(`/map*`→`/map` · `/market*`→`/market` · `/feed*`→`/feed` · `/biz*`→`/biz/intro` · `/dm*`→`/dm` · `/quests*`→`/quests` · 프로필 파생→`/profile` · 그 외 `/home`). 🔴 **`onBack` 오버라이드 계약을 깨지 마라** — 피드 작성/수정 이탈 보호(P1-7)가 이 prop 을 가로채므로 핸들러 맨 앞에서 `onBack` 을 먼저 반환해야 한다. 시스템 Back 일치는 실기기 검증 대상.
@@ -115,6 +122,9 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **연결 API**: `api/market.ts` (`fetchListings`, `fetchAds` 등)
 - **`[내 현재 위치]` 필터 (2026-07-23)**: 위치 시트의 GPS 적용은 공통 `resolveUsableLocation()`을 호출한다. 기기 좌표면 해당 좌표로, 서비스 밖이면 벤탄 fallback 좌표로 `coords`와 구 필터를 함께 설정한다(기존처럼 구만 fallback하고 범위 밖 좌표를 남기지 않음). fallback은 안내 Toast 후 정상 필터링하고, Promise reject는 기존 `market.locationError` UX를 유지한다.
 - **서비스 경계 안내(2026-08-02)**: `LocationPickerSheet.tsx`·`MarkerLocationPicker.tsx`(지도 피커로 좌표를 직접 찍는 시트)가 서비스 지역 밖 좌표를 고르면 `market.outOfService`/`market.outOfServiceDetail`(ko/en/vi) 안내를 노출한다. 가드는 `const outOfArea = !!picked && !inServiceArea(...)` — `!!picked &&` 를 빼면 위치가 아직 확정되지 않은 첫 화면에서도 경고가 뜬다(회귀 주의). 계약 테스트 `frontend/src/pages/market/outOfServiceGuidance.contract.test.mjs`.
+- **업체 상세(`BizPublic`) 홈 탭 지도도 같은 프로파일로 정렬 (2026-08-03, 대표 지시)**: 이 화면은 **이미 `SaigonMapV5` 를 쓰고 있었는데 `lightweight` 가 켜져 있어 L2 까지만 보였다** — `showL3 = L3_ENABLED && !lightweight && vb.w < L3_VBW` 이므로 이 prop 하나가 L3 를 원천 차단한다. 화면에 크게 보이던 주황색 ward 경계는 `polyActive` 기본값(true)의 하이라이트였다(대표가 말한 "구역선택"). `onRegionSelect` 는 원래 넘기지 않고 있었다 — 제거할 것이 없었다.
+  최종 조합: `lightweight={false}` · `polyActive={false}` · `onBboxChange` + POI 배선 · `markerDepth` 제거(`SaigonMapV5.tsx:345` 기본값이 `'l3'` 라 중복) · `pickMode` 미사용(읽기 전용). `.mapCard` 는 200px 로 피커(380px)보다 작아 아래 `polyActive={false}` 비용 논거의 부분집합이다.
+  **POI fetch/취소/build 는 `components/maps/usePoiMarkers.ts` 공용 훅**으로 뽑아 피커와 공유한다 — 복제하지 마라.
 - **업체등록 위치 피커 교체 — `BizLocationPicker.tsx` (2026-08-03 신설, 대표 지시)**: 업체등록(`BizApply.tsx`)은 원래 마켓의 `LocationPickerSheet`(**`SaigonMapV2`** 기반)를 재사용했는데, 그 지도에는 **POI 레이어가 없고**(`kind==='poi'` 분기 자체가 없다) depth1→2→3 단계 교체식 줌이라 "동네지도처럼 L3 + POI 를 보면서 정확히 찍는다"가 불가능했다. 신규 `pages/biz/BizLocationPicker.tsx` 가 **동네지도와 같은 `SaigonMapV5`** 를 쓴다.
   - **⚠️ 지도 엔진이 2벌 공존한다** — `SaigonMapV2`(pickMode 있음 / POI 없음 / depth 교체식): `LocationPickerSheet`·`NeighborhoodMap` 지역선택 시트. `SaigonMapV5`(POI 있음 / 연속 줌 L1~L3): `NeighborhoodMapCanvas`·info 3화면·이 피커. **비슷한 이름에 속지 말 것.**
   - **`SaigonMapV5` 에 `pickMode?: boolean` / `onPointPick?: (pos) => void` 신설** (`SaigonMapV2` 의 기존 API 를 이름까지 미러링). `onPointerUp` 에서 ward 폴리곤 판정 **이전에** early-return 하며 `uy2lat/ux2lng` 로 변환한 좌표를 emit. 둘 다 기본 off 라 기존 소비자 4곳(`NeighborhoodMapCanvas`·`InfoFloodMap`·`InfoGasList`·`InfoRepairList`)은 분기에 닿지 않는다.

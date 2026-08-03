@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, type Location } fr
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
-import { SpriteProvider } from '@/lib/items/SpriteProvider';
 import { QuestCardSprites } from '@/components/quest/QuestCardSprites';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
@@ -175,9 +174,21 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
   );
 }
 
+// 퀘스트 카드가 참조하는 인라인 스프라이트 — 전역 마운트하면 모든 화면의 DOM 최상단에
+// 게임 아이템 텍스트 수백 자가 주입돼 스크린리더 낭독·번들이 오염된다(P1-1). QuestCard 를
+// 실제로 렌더하는 /quests 하위 화면에서만 마운트한다.
+// [게이미피케이션 잠정보류] SpriteProvider(@/lib/items/SpriteProvider, saigon-rider-items.svg)는
+// 가챠/상점/인벤토리(App.tsx 하단 주석 처리된 라우트)에서만 쓰이고 지금은 마운트하는 화면이
+// 없어 완전히 제거했다 — 재개 시 해당 라우트 활성화와 함께 그 화면에서만 복원할 것.
+function QuestSprites() {
+  const { pathname } = useLocation();
+  if (!pathname.startsWith('/quests')) return null;
+  return <QuestCardSprites />;
+}
+
 // 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.
 // 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
-const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore'];
+const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/settings/terms', '/settings/privacy'];
 
 export default function App() {
   const { t } = useTranslation();
@@ -397,8 +408,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <NotificationBridge />
-      <SpriteProvider />
-      <QuestCardSprites />
+      <QuestSprites />
       <Toaster
         position="top-center"
         gap={6}
@@ -408,6 +418,7 @@ export default function App() {
       <Dialog />
       <ConfirmDialog />
       <AppShell
+        isAuthenticated={!!user}
         splashVisible={splashVisible}
         splashFade={splashFade}
         gifReady={gifReady}

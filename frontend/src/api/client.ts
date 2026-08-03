@@ -72,8 +72,12 @@ export function setAccountRestrictedHandler(handler: (code: AccountRestrictionCo
 }
 
 function handleSessionError(): never {
+  // 애초에 세션이 없던 419/401(예: 비로그인 상태에서 도는 DM 폴링)은 "세션 만료"가 아니다 —
+  // 로그아웃·강제 이동·오류 토스트 없이 조용히 실패시킨다. 실제로 세션을 갖고 있다가
+  // 만료된 경우에만 기존 만료 처리(로그아웃 + 스플래시 이동 + 토스트)를 수행한다.
+  const hadSession = !!loadSession()?.userId;
   clearSession();
-  _handleSessionExpired?.();
+  if (hadSession) _handleSessionExpired?.();
   throw new SessionExpiredError();
 }
 

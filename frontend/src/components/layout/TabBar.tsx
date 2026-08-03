@@ -1,9 +1,29 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Store, Map, Users, User } from 'lucide-react';
 import { useDmStore } from '@/store/useDmStore';
 // import { emojiUrl } from '@/lib/emoji'; // gif 버전 전환 시 필요
 import styles from './TabBar.module.css';
+
+// 탭 루트가 아닌 하위 화면도 소속 탭을 활성 표시하기 위한 경로 매핑 (P1-8).
+// 여기 없는 경로는 계속 매핑 대상이 아니며, 탭바 자체를 숨겨야 하면 AppShell 의
+// HIDE_TABBAR_PATHS 에 추가한다(이 매핑과는 다른 관심사).
+const TAB_PATH_PREFIXES: Record<string, string[]> = {
+  '/home': ['/home', '/info', '/guide/safe-trade', '/quests'],
+  '/market': ['/market', '/biz'],
+  '/map': ['/map'],
+  '/feed': ['/feed'],
+  '/profile': [
+    '/profile', '/settings', '/notices', '/faq', '/notifications', '/dm',
+    '/trades', '/followers', '/following', '/friends',
+  ],
+};
+
+function matchesTab(pathname: string, tabPath: string): boolean {
+  return TAB_PATH_PREFIXES[tabPath].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 /*
 // GIF 버전 — 향후 피드백 이후 교체 시 GifTabIcon 컴포넌트 복원
@@ -45,6 +65,7 @@ function GifTabIcon({
 
 export function TabBar() {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
   const dmUnread = useDmStore((s) => s.totalUnread);
 
   // 5탭: 홈·마켓·동네지도·커뮤니티·프로필 (채팅은 nav 제외)
@@ -63,9 +84,7 @@ export function TabBar() {
         <NavLink
           key={tab.path}
           to={tab.path}
-          className={({ isActive }) =>
-            `${styles.tab} ${isActive ? styles.active : ''}`
-          }
+          className={`${styles.tab} ${matchesTab(pathname, tab.path) ? styles.active : ''}`}
         >
           <span className={styles.iconWrap}>
             <tab.Icon size={24} strokeWidth={1.8} />

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Bell, Newspaper } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Bell, Newspaper } from 'lucide-react';
 import { AppImage } from '@/components/ui/AppImage';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import StateBlock from '@/components/ui/StateBlock';
@@ -24,12 +24,17 @@ export default function MapFollows() {
 
   const [follows, setFollows] = useState<BizFollow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [categories, setCategories] = useState<BizCategory[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // P2-13: 조회 실패를 "단골 0곳"으로 위장하지 않는다 — 실패 시 기존 목록(stale)은 유지하고 error 만 세운다
   useEffect(() => {
     setLoading(true);
-    fetchBizFollows().then(setFollows).catch(() => setFollows([])).finally(() => setLoading(false));
+    fetchBizFollows()
+      .then((data) => { setFollows(data); setError(false); })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
   }, [reloadKey]);
 
@@ -73,6 +78,16 @@ export default function MapFollows() {
       {loading ? (
         <div className={styles.listArea}>
           {[1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}
+        </div>
+      ) : follows.length === 0 && error ? (
+        <div className={styles.listArea}>
+          <StateBlock
+            icon={AlertCircle}
+            tone="error"
+            title={t('map.follows.loadError')}
+            actionLabel={t('common.retry')}
+            onAction={() => setReloadKey((v) => v + 1)}
+          />
         </div>
       ) : follows.length === 0 ? (
         <div className={styles.listArea}>

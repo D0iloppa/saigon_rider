@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Heart } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Heart } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { AppImage } from '@/components/ui/AppImage';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
+import StateBlock from '@/components/ui/StateBlock';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { fetchWishlist, type ListingCard } from '@/api/market';
@@ -31,21 +32,30 @@ export default function MapFavorites() {
   const [listings, setListings] = useState<ListingCard[]>([]);
   // 비로그인(userId 없음)이면 로딩 없이 곧장 빈 상태 — effect 내 동기 setState 회피
   const [listingsLoading, setListingsLoading] = useState(!!userId);
+  const [listingsError, setListingsError] = useState(false);
 
   const [bizFavorites, setBizFavorites] = useState<BizFavorite[]>([]);
   const [bizLoading, setBizLoading] = useState(true);
+  const [bizError, setBizError] = useState(false);
   const [categories, setCategories] = useState<BizCategory[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // P2-13: 조회 실패를 "찜한 게 없음"으로 위장하지 않는다 — 실패 시 기존 목록(stale)은 유지하고 error 만 세운다
   useEffect(() => {
     if (!userId) return;
     setListingsLoading(true);
-    fetchWishlist(userId).then(setListings).catch(() => setListings([])).finally(() => setListingsLoading(false));
+    fetchWishlist(userId)
+      .then((data) => { setListings(data); setListingsError(false); })
+      .catch(() => setListingsError(true))
+      .finally(() => setListingsLoading(false));
   }, [userId, reloadKey]);
 
   useEffect(() => {
     setBizLoading(true);
-    fetchBizFavorites().then(setBizFavorites).catch(() => setBizFavorites([])).finally(() => setBizLoading(false));
+    fetchBizFavorites()
+      .then((data) => { setBizFavorites(data); setBizError(false); })
+      .catch(() => setBizError(true))
+      .finally(() => setBizLoading(false));
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
   }, [reloadKey]);
 
@@ -94,6 +104,16 @@ export default function MapFavorites() {
           <div className={styles.listArea}>
             {[1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}
           </div>
+        ) : listings.length === 0 && listingsError ? (
+          <div className={styles.listArea}>
+            <StateBlock
+              icon={AlertCircle}
+              tone="error"
+              title={t('map.favorites.loadErrorListings')}
+              actionLabel={t('common.retry')}
+              onAction={() => setReloadKey((v) => v + 1)}
+            />
+          </div>
         ) : listings.length === 0 ? (
           <p className={styles.empty}>{t('map.favorites.emptyListings')}</p>
         ) : (
@@ -106,6 +126,16 @@ export default function MapFavorites() {
       ) : bizLoading ? (
         <div className={styles.listArea}>
           {[1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)}
+        </div>
+      ) : bizFavorites.length === 0 && bizError ? (
+        <div className={styles.listArea}>
+          <StateBlock
+            icon={AlertCircle}
+            tone="error"
+            title={t('map.favorites.loadErrorBiz')}
+            actionLabel={t('common.retry')}
+            onAction={() => setReloadKey((v) => v + 1)}
+          />
         </div>
       ) : bizFavorites.length === 0 ? (
         <p className={styles.empty}>{t('map.favorites.emptyBiz')}</p>

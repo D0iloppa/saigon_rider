@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, MapPin, X } from 'lucide-react';
+import { AlertCircle, Camera, MapPin, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
+import StateBlock from '@/components/ui/StateBlock';
 import { fetchFeedPost, updateFeedPost } from '@/api/feed';
 import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
@@ -43,6 +44,7 @@ export default function FeedEdit() {
   const [imageSlots, setImageSlots] = useState<ImageSlot[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const kb = useKeyboard();
   const [originalContent, setOriginalContent] = useState('');
@@ -51,8 +53,10 @@ export default function FeedEdit() {
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
   const isIosNative = native.platform === 'ios';
 
-  useEffect(() => {
+  // P2-13: 조회 실패가 "로딩만 영원히 도는" 무응답이 되지 않도록 error+재시도를 제공한다.
+  const loadPost = () => {
     if (!postId) return;
+    setLoadError(false);
     fetchFeedPost(postId).then((post) => {
       const fullText = [
         post.caption ?? '',
@@ -79,8 +83,10 @@ export default function FeedEdit() {
         setLocation({ lat: post.latitude, lng: post.longitude });
       }
       setLoaded(true);
-    });
-  }, [postId, draftKey]);
+    }).catch(() => setLoadError(true));
+  };
+
+  useEffect(loadPost, [postId, draftKey]);
 
   useEffect(() => {
     if (!loaded || !draftKey) return;
@@ -207,6 +213,21 @@ export default function FeedEdit() {
 
   const allUploaded = imageSlots.every((s) => s.type === 'existing' || !s.uploading);
   const canSave = !saving && loaded && allUploaded;
+
+  if (loadError) {
+    return (
+      <div className={styles.page}>
+        <TopBar title={t('feedEdit.title')} onBack={handleBackAttempt} />
+        <StateBlock
+          icon={AlertCircle}
+          tone="error"
+          title={t('feedEdit.loadError')}
+          actionLabel={t('common.retry')}
+          onAction={loadPost}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>

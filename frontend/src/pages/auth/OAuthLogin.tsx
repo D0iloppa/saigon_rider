@@ -48,8 +48,12 @@ export default function OAuthLogin() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
+  const [gisError, setGisError] = useState(false);
+  const [gisRetryKey, setGisRetryKey] = useState(0);
   const [isDev, setIsDev] = useState(false);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [configRetryKey, setConfigRetryKey] = useState(0);
   const zaloMessageListenerRef = useRef<((event: MessageEvent) => void) | null>(null);
   const zaloPopupCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -107,12 +111,20 @@ export default function OAuthLogin() {
   }, []);
 
   // 앱 설정 로드: dev 여부(런타임 APP_ENV 기준) + 웹 모드 여부 판별
+  // P2-14: 조회 실패 시에도 configLoaded 는 세워서 "로딩 중" placeholder 가 무한히 남지 않게 한다.
   useEffect(() => {
-    fetchAppConfig().then((cfg) => {
-      setIsDev(cfg.isDev);
-      if (!native.isNative && cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
-    });
-  }, []);
+    setConfigLoaded(false);
+    fetchAppConfig()
+      .then((cfg) => {
+        setIsDev(cfg.isDev);
+        if (!native.isNative && cfg.googleClientId) setGoogleClientId(cfg.googleClientId);
+      })
+      .catch(() => { /* googleClientId 는 null 로 남고 아래 configLoaded 로 에러 표기 */ })
+      .finally(() => setConfigLoaded(true));
+  }, [configRetryKey]);
+
+  // 웹 모드에서 설정 로드는 끝났는데 Google client id 가 없는 경우 — Google 로그인 자체가 불가능한 상태.
+  const googleUnavailable = configLoaded && !native.isNative && !googleClientId;
 
   // 웹 모드 GIS 스크립트 로드/Google 버튼 렌더링 — 언어가 바뀌면 hl 파라미터를 바꿔 스크립트를 다시 로드해야
   // 버튼 텍스트("Google 계정으로 계속하기" 등)가 갱신된다(P1-10). GIS 는 script 로드 시 hl 을 고정하므로
@@ -122,7 +134,12 @@ export default function OAuthLogin() {
     let cancelled = false;
 
     const renderGoogleButton = () => {
-      if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) return;
+      if (cancelled) return;
+      if (!window.google?.accounts?.id || !googleButtonRef.current) {
+        // onload 는 발생했지만(예: 광고차단기가 빈 스크립트로 응답) GIS 객체가 없는 경우도 실패로 취급
+        setGisError(true);
+        return;
+      }
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: (res) => handleOAuthResult('google', res.credential, 'id_token'),
@@ -145,6 +162,7 @@ export default function OAuthLogin() {
     };
 
     setGisReady(false);
+    setGisError(false);
     document.querySelectorAll('script[data-gis-script]').forEach((s) => s.remove());
     delete window.google;
 
@@ -154,12 +172,13 @@ export default function OAuthLogin() {
     script.defer = true;
     script.dataset.gisScript = 'true';
     script.onload = renderGoogleButton;
+    script.onerror = () => { if (!cancelled) setGisError(true); };
     document.head.appendChild(script);
 
     return () => {
       cancelled = true;
     };
-  }, [googleClientId, i18n.language]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [googleClientId, i18n.language, gisRetryKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 네이티브 모드: redirect URL에는 단회용 code만 받고 BFF에서 세션으로 교환한다.
   const handleNativeGoogle = async () => {
@@ -260,6 +279,14 @@ export default function OAuthLogin() {
     }, 500);
   };
 
+  const retryGoogleSetup = () => {
+    if (googleUnavailable) {
+      setConfigRetryKey((v) => v + 1);
+    } else {
+      setGisRetryKey((v) => v + 1);
+    }
+  };
+
   const handleDevLogin = async () => {
     setError(null);
     setLoading('dev');
@@ -331,13 +358,29 @@ export default function OAuthLogin() {
                 <span className={styles.oauthBtnIcon}>Z</span>
                 {loading === 'zalo' ? t('oauthLogin.loading') : t('oauthLogin.zaloBtn')}
               </button>
-              {!gisReady && (
-                <div className={`${styles.oauthBtn} ${styles.oauthBtnGoogle} ${styles.oauthBtnPlaceholder}`}>
+              {!gisReady && (gisError || googleUnavailable ? (
+                <button
+                  type="button"
+                  className={`${styles.oauthBtn} ${styles.oauthBtnGoogle}`}
+                  onClick={retryGoogleSetup}
+                  aria-label={`${t('oauthLogin.googleLoadError')} — ${t('common.retry')}`}
+                >
+                  <span className={styles.oauthBtnIcon}>G</span>
+                  {t('oauthLogin.googleLoadError')} · {t('common.retry')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`${styles.oauthBtn} ${styles.oauthBtnGoogle} ${styles.oauthBtnPlaceholder}`}
+                  disabled
+                  aria-busy="true"
+                  aria-label={t('oauthLogin.googleBtn')}
+                >
                   <span className={styles.oauthBtnIcon}>G</span>
                   {t('oauthLogin.googleBtn')}
-                </div>
-              )}
-              <div className={styles.gisButtonWrap} ref={googleButtonRef} />
+                </button>
+              ))}
+              <div className={styles.gisButtonWrap} ref={googleButtonRef} style={gisReady ? undefined : { display: 'none' }} />
             </>
           )}
         </div>

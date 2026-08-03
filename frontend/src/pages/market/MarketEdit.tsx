@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChevronRight, X } from 'lucide-react';
+import { AlertCircle, Camera, ChevronRight, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
+import StateBlock from '@/components/ui/StateBlock';
 import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
@@ -39,14 +40,19 @@ export default function MarketEdit() {
   const [catSheetOpen, setCatSheetOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
 
-  useEffect(() => {
+  // P2-13: 조회 실패를 토스트로만 흘려보내면 토스트가 사라진 뒤 "빈 매물 수정 폼"처럼 보인다 —
+  // error 상태를 세워 폼 대신 재시도 화면을 보여준다.
+  const loadListing = () => {
     if (!id) return;
+    setLoading(true);
+    setLoadError(false);
     fetchListing(id, userId)
       .then((detail) => {
         if (userId && detail.seller.id !== userId) {
@@ -65,9 +71,11 @@ export default function MarketEdit() {
           })),
         );
       })
-      .catch(() => toast.error(t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [id, userId, navigate, t]);
+  };
+
+  useEffect(loadListing, [id, userId, navigate]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -131,6 +139,21 @@ export default function MarketEdit() {
     return (
       <div className={styles.page}>
         <TopBar title={t('market.editListing', { defaultValue: '매물 수정' })} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className={styles.page}>
+        <TopBar title={t('market.editListing', { defaultValue: '매물 수정' })} />
+        <StateBlock
+          icon={AlertCircle}
+          tone="error"
+          title={t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })}
+          actionLabel={t('common.retry')}
+          onAction={loadListing}
+        />
       </div>
     );
   }

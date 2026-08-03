@@ -332,39 +332,41 @@ export default function WorldMapV2() {
             </div>
           </div>
 
-          {/* 우측 컬럼: RP 필 + 벨 / 아래 줄 위치|누적거리 (P4 헤더 압축) */}
-          <div className={styles.headerRight}>
-            <div className={styles.headerRightTop}>
-              <button className={styles.xpBtn} onClick={() => navigate('/profile')}>
-                <IcoDiamond />
-                <span className={styles.xpVal}>{formatNumber(xp)}</span>
-                <IcoChevron color="#aeaeb2" size={14} />
-              </button>
+          {/* 우측: RP 필 + 벨. 위치|누적거리는 아래 전체 폭 행으로 분리했다 — 같은 줄에
+              두면 거리 값이 길어질수록(0.00 → 5157.91 km) 닉네임 칸을 잠식해
+              이름이 잘리고 헤더 높이가 데이터에 따라 흔들렸다. */}
+          <div className={styles.headerRightTop}>
+            <button className={styles.xpBtn} onClick={() => navigate('/profile')}>
+              <IcoDiamond />
+              <span className={styles.xpVal}>{formatNumber(xp)}</span>
+              <IcoChevron color="#aeaeb2" size={14} />
+            </button>
 
-              <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
-                <IcoBell />
-                {notiUnread > 0 && (
-                  <span className={styles.bellBadge}>{notiUnread > 99 ? '99+' : notiUnread}</span>
-                )}
-              </button>
-            </div>
-            <button
-              type="button"
-              className={styles.profileLoc}
-              onClick={() => navigate('/map')}
-              aria-label={t('home.v2.locationCta')}
-            >
-              <IcoPin />
-              <span className={styles.locName}>
-                {storedWardName ?? t('home.v2.defaultRegion', { name: coords.name || FALLBACK.name })}
-              </span>
-              <span className={styles.statSep}>|</span>
-              <span title={t('home.v2.totalMileage')}>
-                <Route size={11} strokeWidth={2} aria-hidden="true" /> {totalKm.toFixed(2)} km
-              </span>
+            <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
+              <IcoBell />
+              {notiUnread > 0 && (
+                <span className={styles.bellBadge}>{notiUnread > 99 ? '99+' : notiUnread}</span>
+              )}
             </button>
           </div>
         </div>
+
+        {/* 위치|누적거리 — 전체 폭 독립 행 (프로필 행과 가로 공간을 경쟁하지 않는다) */}
+        <button
+          type="button"
+          className={styles.profileLoc}
+          onClick={() => navigate('/map')}
+          aria-label={t('home.v2.locationCta')}
+        >
+          <IcoPin />
+          <span className={styles.locName}>
+            {storedWardName ?? t('home.v2.defaultRegion', { name: coords.name || FALLBACK.name })}
+          </span>
+          <span className={styles.statSep}>|</span>
+          <span title={t('home.v2.totalMileage')}>
+            <Route size={11} strokeWidth={2} aria-hidden="true" /> {totalKm.toFixed(2)} km
+          </span>
+        </button>
 
         <div className={styles.searchWrap}>
           <div className={styles.searchBar}>

@@ -33,7 +33,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 20px 14px;
+  padding: 0 20px;
 }
 
 .avatarBtn {
@@ -91,7 +91,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
 }
 
 .profileName {
@@ -142,7 +142,12 @@
   color: #c7c7cc;
 }
 
+/* 전체 폭 독립 행 — 프로필 행 아래. 거리 값이 길어져도 닉네임을 잠식하지 않는다. */
 .profileLoc {
+  width: 100%;
+  padding: 4px 20px 12px;
+  background: none;
+  border: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -163,7 +168,8 @@
 
 .locName {
   min-width: 0;
-  max-width: 110px;
+  /* 전체 폭 행으로 내려와 여유가 생겼다 — 110px 이던 상한을 넓혀 동 이름이 웬만하면 다 보이게 */
+  max-width: 60%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -173,16 +179,9 @@
   vertical-align: -1px;
 }
 
-/* 우측 컬럼: RP 필+벨 / 위치|누적거리 (P4 헤더 압축) */
-.headerRight {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
-}
-
+/* 우측 액션: RP 필 + 벨. 위치|누적거리는 .profileLoc 전체 폭 행으로 분리됨 */
 .headerRightTop {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;

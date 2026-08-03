@@ -332,6 +332,17 @@ ROOKIE / NEON HUNTER / SAIGON LEGEND / RANK BRONZE ★ / RANK MYTHIC ★★★�
 
 **합격 기준**: 공개 랜딩 4개 캡처에서 `[DEV]`·`del_*`·중복/불일치 사진 0건. 캡처의 제목·가격·상태·사진·CTA 가 서로 의미상 일치.
 
+**후속 조치 (2026-08-03, fix/260803-ux-gate-a)**
+
+- 탈퇴 사용자 표시(②): 공용 유틸 `frontend/src/lib/format.ts` 에 `isWithdrawnNickname`/`displayNickname` 추가, `pages/info/InfoRepairDetail.tsx` 의 리뷰 작성자 닉네임 표시에 적용(로케일 키 `common.withdrawnUser`: vi "Người dùng đã rời đi" / ko "탈퇴한 사용자" / en "Withdrawn user"). **아직 안 고친 경로** — 담당 파일 밖이라 보고만 함: `backend/app/routers/dm.py:160,189,265,426`, `feed.py:108,442`, `market.py:440,833,1544`, `follows.py:21`, `biz.py:1257,1289,1297,1320,1367`, `users.py:363,410,445`, `info_repair.py:254,312`(익명 아닌 경우 raw nickname 통과) 가 전부 `del_*` 원본값을 그대로 직렬화한다 — 프론트 쪽도 `feed/FeedList.tsx:138`, `feed/FeedDetail.tsx:144`, `market/MarketDetail.tsx:268,347,348`, `dm/DmDetail.tsx:78`, `dm/DmList.tsx:72`, `profile/FriendAdd.tsx:158`, `FollowerList.tsx:80`, `FriendList.tsx:61`, `FollowingList.tsx:97`, `components/ProfileCard.tsx:515` 가 마스킹 없이 렌더한다. **권고**: `deleted_at is not None` 을 이미 들고 있는 백엔드 직렬화 레이어(각 라우터가 `User` row 를 이미 조회함)에 공용 `display_nickname(user)` 헬퍼를 두고 위 지점들에 일괄 적용 — 프론트 개별 컴포넌트에 `startsWith('del_')` 를 흩뿌리는 것보다 단일 지점이고, 와이어에 원본 `del_*` 값이 애초에 나가지 않는다.
+- CI 검사(④): `tools/check_landing_public_assets.py` 신설, `.pre-commit-config.yaml` 에 `landing-public-assets` 훅으로 등록(`landing/apps/client/{public,src}/**`). `[DEV]`·`del_<hex16>`·UUID 리터럴을 텍스트 파일에서, 이미지 등 바이너리는 임베디드 ASCII 메타데이터만 얕게 검사. 현재 실행 결과: **위반 0건**(현재 소스에 리터럴 노출 없음 — 스크린샷 자체는 픽셀 내용이라 코드로 판별 불가, 아래 재캡처 체크리스트로 보완).
+- 재캡처 시 확인 체크리스트(③ 전 단계): 재캡처 세션은 아래를 확인 후 게시한다.
+  1. 업체/상품명에 `[DEV]`·`test`·`QA`·`더미` 등 내부 표식이 없는가.
+  2. 마켓 목록 캡처의 각 카드 사진이 실제로 서로 다른 상품이고 제목과 사진이 일치하는가.
+  3. 상세 캡처의 사진이 제목 상품과 일치하고, 판매 상태 UI(판매중/예약중/판매완료)가 실제 유효한 상태를 보여주는가(P1-2 조작 여지가 있는 상태가 찍히지 않았는가).
+  4. 커뮤니티/리뷰 캡처의 작성자 닉네임이 정상 계정이고 `del_*` 형태가 아닌가.
+  5. 위 4개 이미지를 `tools/check_landing_public_assets.py` 로 재검사(0건 확인 후 배포).
+
 ### P1-15. 제출 버튼이 전송 중에도 계속 눌린다 — 중복 제출 (신규, 클릭 피드백)
 
 **근거** — 매물 등록이 대표 사례다.

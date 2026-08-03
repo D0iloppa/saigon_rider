@@ -14,9 +14,9 @@
 
 .bizList { display: flex; flex-direction: column; gap: 10px; }
 .bizCard { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--surface-2); text-align: left; cursor: pointer; }
-.bizThumb { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; background: var(--bg-2); flex-shrink: 0; }
+.bizThumb { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; background: var(--surface-2); flex-shrink: 0; }
 .bizBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.bizName { font-size: 15px; font-weight: 800; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bizName { font-size: 15px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bizMeta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); overflow: hidden; }
 .bizCat { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: var(--success, #16a34a); flex-shrink: 0; }
 .bizAddress { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

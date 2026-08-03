@@ -41,3 +41,12 @@ repos:
         entry: python tools/check_landing_public_assets.py
         language: system
         files: ^landing/apps/client/(public|src)/.*$
+      # 미정의 CSS 토큰(var(--x)) 차단 — 스크린샷 회귀가 없어 색 증발을 사람 눈으로만
+      # 잡던 문제의 값싼 대체재. pass_filenames=false 로 항상 전체를 훑는다
+      # (토큰 정의는 tokens.css 에 있고 사용은 다른 파일이라 변경 파일만 봐선 못 잡는다).
+      - id: css-tokens
+        name: css token guard
+        entry: python tools/check_css_tokens.py
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/.*\.css$

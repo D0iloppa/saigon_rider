@@ -51,7 +51,7 @@
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: 0 2px 10px rgba(10, 18, 28, 0.12);
-  color: var(--text-1);
+  color: var(--text);
   pointer-events: auto;
 }
 
@@ -122,7 +122,7 @@
   height: 44px;
   border-radius: 50%;
   object-fit: cover;
-  background: var(--bg-2);
+  background: var(--surface-2);
   flex-shrink: 0;
 }
 
@@ -136,7 +136,7 @@
 .bizName {
   font-size: 17px;
   font-weight: 800;
-  color: var(--text-1);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -177,7 +177,7 @@
   gap: 3px;
 }
 
-.rating strong { color: var(--text-1); font-weight: 700; }
+.rating strong { color: var(--text); font-weight: 700; }
 .rating small { color: var(--text-3); font-size: 12px; font-weight: 600; }
 .count svg { color: var(--text-3); }
 
@@ -212,7 +212,7 @@
   height: 120px;
   border-radius: 10px;
   object-fit: cover;
-  background: var(--bg-2);
+  background: var(--surface-2);
 }
 
 .thumbMore {
@@ -245,7 +245,7 @@
 }
 
 .reviewLine svg { flex: 0 0 auto; color: var(--text-3); }
-.reviewLine strong { flex: 0 0 auto; color: var(--text-1); font-weight: 700; }
+.reviewLine strong { flex: 0 0 auto; color: var(--text); font-weight: 700; }
 .reviewLine > span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -275,7 +275,7 @@
   height: 150px;
   border-radius: 12px;
   object-fit: cover;
-  background: var(--bg-2);
+  background: var(--surface-2);
 }
 
 /* 상태 태그(예약중/판매완료) — ListingCard.module.css .statusTag 시각 언어 미러 */
@@ -305,7 +305,7 @@
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: var(--text-1);
+  color: var(--text);
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -350,7 +350,7 @@
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--text-1);
+  color: var(--text);
 }
 
 /* ♥ 찜 · 💬 채팅 카운트 — 둘 다 0이어도 표시(찜 카운트와 일관성) */
@@ -377,7 +377,7 @@
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  background: var(--bg-2);
+  background: var(--surface-2);
   flex-shrink: 0;
 }
 
@@ -410,7 +410,7 @@
   height: 104px;
   border-radius: 10px;
   object-fit: cover;
-  background: var(--bg-2);
+  background: var(--surface-2);
 }
 
 .feedFooter {

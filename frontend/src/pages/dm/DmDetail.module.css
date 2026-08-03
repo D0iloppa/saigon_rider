@@ -40,7 +40,7 @@
 .theirs {
   align-self: flex-start;
   background: var(--surface);
-  color: var(--text-primary);
+  color: var(--text);
   border-bottom-left-radius: 4px;
 }
 

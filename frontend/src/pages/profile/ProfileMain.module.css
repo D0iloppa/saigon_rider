@@ -90,6 +90,13 @@
   justify-content: center;
   flex-shrink: 0;
 }
+/* P2-15 hit area — 시각 크기 34px 는 유지하고 터치 영역만 44px 로 넓힌다.
+   투명 ::after 확장이라 레이아웃·배경에 영향이 없다(5px × 2 + 34 = 44). */
+.addFriendIconBtn::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
 .addFriendIconBtn:active { background: rgba(255,255,255,.34); }
 
 /* 거래 이력 섹션 */
@@ -1120,7 +1127,7 @@
   padding: 10px 16px;
   font-size: 14px;
   text-align: left;
-  color: var(--text-1);
+  color: var(--text);
 }
 
 .feedCardDropdown button:last-child {
@@ -1326,7 +1333,7 @@
 .myListingStatus {
   font-size: 12px;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--brand-500);
 }
 
 .myListingStatus[data-status="SOLD"] {

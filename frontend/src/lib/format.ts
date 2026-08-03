@@ -74,6 +74,27 @@ export function formatNumber(n: number, options?: { compact?: boolean }): string
   return new Intl.NumberFormat(locale).format(n);
 }
 
+// 탈퇴 사용자 익명화 닉네임 패턴 (backend/app/routers/users.py: `del_` + hex 16자).
+// 공개 화면에 이 원본값이 그대로 노출되면 안 된다 — P1-13.
+const WITHDRAWN_NICKNAME = /^del_[0-9a-f]{16}$/;
+
+/** 닉네임이 탈퇴 익명화 값인지 판정 */
+export function isWithdrawnNickname(nickname: string | null | undefined): boolean {
+  return !!nickname && WITHDRAWN_NICKNAME.test(nickname);
+}
+
+/** 표시용 닉네임 — 탈퇴 익명화 값(`del_*`)이면 현지화된 "탈퇴한 사용자"로 치환 */
+export function displayNickname(nickname: string | null | undefined, t: (key: string) => string): string {
+  if (isWithdrawnNickname(nickname)) return t('common.withdrawnUser');
+  return nickname ?? '';
+}
+
+/** 통화(VND): 60000 → "60.000 đ" (베트남 관례 — 마침표 천단위 + đ 후치.
+ *  마켓 표기(pages/market/marketFormat.ts formatPriceVnd)와 통일 — P1-4) */
+export function formatCurrencyVnd(vnd: number): string {
+  return `${vnd.toLocaleString('vi-VN')} đ`;
+}
+
 /** 숫자를 정수부 / 소수부(구분자 포함)로 분리. 소수부를 작은 폰트로 렌더해
  *  "10.473"(10.473km)이 "10,473"(천단위)로 오독되는 것을 방지하기 위함. */
 export function splitNumberParts(n: number): { int: string; frac: string | null } {

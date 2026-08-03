@@ -37,11 +37,18 @@ import {
 } from '@/api/market';
 import { PostPanel, type PanelItem } from '@/pages/map/PostPanel';
 import { haversineM } from '@/lib/polyline';
+import { AppImage } from '@/components/ui/AppImage';
 import ListingCard from './ListingCard';
 import AdCard from './AdCard';
+import { formatPriceVnd } from './marketFormat';
 import styles from './MarketMain.module.css';
 
 const STORAGE_KEY = 'mkt_filter_v2';
+// 매물 자동 말풍선 (동네지도 NeighborhoodMapCanvas 이식, 값 동일) — bboxFilter 위도 스팬이
+// AUTO_BUBBLE_MAX_LAT_SPAN 이하일 때만 동작(과도한 줌아웃에서 비활성), 뷰포트 중앙에서 정규화
+// 거리 AUTO_BUBBLE_CENTER_RADIUS 이내인 매물을 선택.
+const AUTO_BUBBLE_MAX_LAT_SPAN = 0.03;
+const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 interface SavedState {
   sort: ListingSort;
   hideSold: boolean;
@@ -103,6 +110,13 @@ export default function MarketMain() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [postPanelHeight, setPostPanelHeight] = useState(0);
   const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
+  // 매물 자동 말풍선 (동네지도 이식) — 근접 자동선택된 매물. 캐러셀(postPanelOpen)과 배타.
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  // [X]로 닫은 매물이 패널 오픈 recenter 로 커밋된 bbox 때문에 즉시 재점화되는 것을 막는 억제 ref
+  // (다음 bbox 커밋까지 유지). deps 에 넣지 않고 ref 로 읽어 이펙트 재실행을 유발하지 않는다.
+  const suppressAutoBubbleListingIdRef = useRef<string | null>(null);
+  // 정착된(디바운스 완료) bbox — 자동 말풍선의 줌 스팬 판정·중앙 거리 계산용
+  const [bboxFilter, setBboxFilter] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [allWards, setAllWards] = useState<Ward[]>([]);
   const [allDistricts, setAllDistricts] = useState<District[]>([]);
@@ -290,7 +304,11 @@ export default function MarketMain() {
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const handleMapBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
     clearTimeout(bboxTimerRef.current);
-    bboxTimerRef.current = setTimeout(() => fetchMapBbox(bbox), 400);
+    bboxTimerRef.current = setTimeout(() => {
+      setBboxFilter(bbox);
+      suppressAutoBubbleListingIdRef.current = null; // 새 조작 = 억제 해제
+      fetchMapBbox(bbox);
+    }, 400);
   }, [fetchMapBbox]);
   useEffect(() => () => clearTimeout(bboxTimerRef.current), []);
 
@@ -337,6 +355,7 @@ export default function MarketMain() {
     setCarouselItems([l, ...others].map((x): PanelItem => ({ kind: 'listing', listing: x })));
     setCarouselIndex(0);
     setPostPanelOpen(true);
+    setSelectedListing(null); // 자동 말풍선 상태와 분리 — 패널과 말풍선 이중 노출 방지
     focusPointRef.current?.({ lat: l.lat as number, lng: l.lng as number });
   }, [mapListings]);
 
@@ -349,10 +368,59 @@ export default function MarketMain() {
   }, [carouselItems]);
 
   const closePostPanel = useCallback(() => {
+    // 닫은 시점의 포커싱 아이템 = 지도 중앙 아이템 — 자동 말풍선이 즉시 재점화하지 않게 억제.
+    suppressAutoBubbleListingIdRef.current = focusedListingId;
     setPostPanelOpen(false);
     setCarouselItems([]);
     setCarouselIndex(0);
-  }, []);
+  }, [focusedListingId]);
+
+  // 매물 자동 말풍선 (동네지도 이식) — 정착된 bboxFilter 의 위도 스팬이 임계 이하일 때만 동작,
+  // 뷰포트 중앙에 가장 가까운 매물을 정규화 거리로 골라 반경 이내면 선택(카메라 이동 없음).
+  const selectedListingRef = useRef(selectedListing);
+  useEffect(() => { selectedListingRef.current = selectedListing; }, [selectedListing]);
+  useEffect(() => {
+    if (postPanelOpen || !bboxFilter) return;
+    const latSpan = bboxFilter.N - bboxFilter.S;
+    if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) return;
+    const lngSpan = bboxFilter.E - bboxFilter.W;
+    const cLat = (bboxFilter.N + bboxFilter.S) / 2;
+    const cLng = (bboxFilter.E + bboxFilter.W) / 2;
+    let best: Listing | null = null;
+    let bestD = Infinity;
+    for (const l of mapListings) {
+      if (l.lat == null || l.lng == null) continue;
+      const d = Math.hypot((l.lat - cLat) / latSpan, (l.lng - cLng) / lngSpan);
+      if (d < bestD) { bestD = d; best = l; }
+    }
+    if (best && bestD <= AUTO_BUBBLE_CENTER_RADIUS) {
+      if (best.id === suppressAutoBubbleListingIdRef.current) return; // [X]로 닫은 매물 — 다음 조작까지 억제
+      if (selectedListingRef.current?.id !== best.id) setSelectedListing(best);
+    } else if (selectedListingRef.current) {
+      setSelectedListing(null);
+    }
+  }, [bboxFilter, mapListings, postPanelOpen]);
+
+  // 매물 말풍선 — 썸네일 <AppImage> + 제목 + 가격(formatPriceVnd). 탭하면 캐러셀 오픈.
+  const listingOverlay = useMemo(() => {
+    if (!selectedListing || selectedListing.lat == null || selectedListing.lng == null) return undefined;
+    const l = selectedListing;
+    return {
+      lat: selectedListing.lat,
+      lng: selectedListing.lng,
+      node: (
+        <button key={l.id} type="button" className={`${styles.bizNewsBubble} ${styles.richBubble}`} onClick={() => openListingPanel(l)}>
+          {l.thumbnailUrl && (
+            <AppImage src={l.thumbnailUrl} alt="" className={styles.richThumb} />
+          )}
+          <span className={styles.richText}>
+            <strong>{l.title}</strong>
+            <span className={styles.bizNewsCopy}>{formatPriceVnd(l.priceVnd, t)}</span>
+          </span>
+        </button>
+      ),
+    };
+  }, [selectedListing, openListingPanel, t]);
 
   const mapMarkers = useMemo<MapMarkerV2[]>(
     () => mapListings
@@ -466,6 +534,7 @@ export default function MarketMain() {
               // 별건으로 남긴다.
               polyActive={false}
               markers={mapMarkers}
+              anchorOverlay={postPanelOpen ? undefined : listingOverlay}
               onBboxChange={handleMapBboxChange}
               focusPointRef={focusPointRef}
               bottomInsetPx={postPanelOpen ? postPanelHeight : 0}

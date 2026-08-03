@@ -472,3 +472,79 @@
   background: var(--surface);
   z-index: 1;
 }
+
+/* 매물 자동 말풍선 — 동네지도(NeighborhoodMapCanvas) .bizNewsBubble/.richBubble 계열 값 그대로 복제 */
+.bizNewsBubble {
+  position: relative;
+  display: flex;
+  width: min(300px, calc(100vw - 48px));
+  flex-direction: column;
+  gap: 4px;
+  padding: 15px 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  text-align: left;
+  transform-origin: 50% 100%;
+  animation: bizNewsPop 0.18s ease-out;
+}
+
+.bizNewsBubble::after {
+  position: absolute;
+  left: var(--tail-x, 50%);
+  bottom: -8px;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  background: var(--surface);
+  content: '';
+  transform: rotate(45deg);
+}
+
+@keyframes bizNewsPop {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+.bizNewsBubble strong { position: relative; z-index: 1; font-size: 15px; }
+
+.bizNewsCopy {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.richBubble {
+  width: auto;
+  max-width: min(300px, calc(100vw - 48px));
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 10px;
+}
+
+.richThumb {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.richText {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}

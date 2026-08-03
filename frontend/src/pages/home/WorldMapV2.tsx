@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
+import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { fetchWallet } from '@/api/wallet';
 import { fetchNotifications } from '@/api/notifications';
 import { fetchUserStats } from '@/api/profile';
@@ -170,6 +171,13 @@ export default function WorldMapV2() {
   const [coords, setCoords] = useState<{ lat: number; lng: number; name: string }>(FALLBACK);
   const [resolvedWard, setResolvedWard] = useState<Ward | null>(null);
   const [locationReady, setLocationReady] = useState(false);
+  /**
+   * 헤더 위치 행에 표시할 GPS 기반 현재 동 이름 (사용자 지시 2026-08-03).
+   * service-rules 원칙 1·2(진입 시 GPS 자동 측정 금지, GPS 는 경로안내·제보에만)의
+   * 홈 헤더 한정 예외다 — 규칙 문서도 함께 갱신했다.
+   * 권한 거부·측정 실패·HCMC 폴리곤 밖이면 null 로 두어 기존 기본 지역 표기로 폴백한다.
+   */
+  const [gpsWardName, setGpsWardName] = useState<string | null>(null);
 
   const [nearbyProducts, setNearbyProducts] = useState<ListingCard[]>([]);
   const [nearbyStatus, setNearbyStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
@@ -221,6 +229,21 @@ export default function WorldMapV2() {
       setResolvedWard(ward);
       setCoords({ ...selected, name: ward?.name_vi ?? ward?.name_en ?? FALLBACK.name });
     }).catch(() => setCoords(FALLBACK)).finally(() => setLocationReady(true));
+
+    // 헤더 위치 행 전용 GPS 1회 측정 (사용자 지시 2026-08-03). 실패·거부·HCMC 밖은
+    // 조용히 무시하고 기본 지역 표기를 유지한다 — 홈 진입을 막지 않는다.
+    // 주의: 표시 전용이다. 목록 조회 기준 좌표(coords/resolvedWard)는 건드리지 않는다.
+    (async () => {
+      try {
+        await native.ensureLocationPermission();
+        const pos = await native.getLocation();
+        // wardRegionAt 의 폴리곤은 HCMC 중심부 37개 동만 커버한다 — 그 밖이면 null.
+        const region = wardRegionAt(pos.lat, pos.lng);
+        if (region) setGpsWardName(region.name);
+      } catch {
+        /* 권한 거부·타임아웃 등 — 기본 지역으로 폴백 */
+      }
+    })();
   }, [refreshUser]);
 
   const loadHomeData = useCallback(() => {
@@ -360,7 +383,9 @@ export default function WorldMapV2() {
         >
           <IcoPin />
           <span className={styles.locName}>
-            {storedWardName ?? t('home.v2.defaultRegion', { name: coords.name || FALLBACK.name })}
+            {gpsWardName
+              ? t('home.v2.currentRegion', { name: gpsWardName })
+              : storedWardName ?? t('home.v2.defaultRegion', { name: coords.name || FALLBACK.name })}
           </span>
           <span className={styles.statSep}>|</span>
           <span title={t('home.v2.totalMileage')}>

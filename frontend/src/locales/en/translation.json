@@ -425,6 +425,7 @@
       "bizNews": "Business news",
       "sectionUnavailable": "Couldn't load this",
       "sectionUnavailableDesc": "Please try again in a moment",
+      "currentRegion": "Current location: {{name}}",
       "defaultRegion": "Default area: {{name}}",
       "locationCta": "Set area",
       "totalMileage": "Total distance traveled"

@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { withTranslation, type WithTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { clearChunkRetryState } from '@/lib/lazyWithRetry';
 import styles from './ErrorBoundary.module.css';
 
 interface Props extends WithTranslation {
@@ -35,7 +36,17 @@ class ErrorBoundaryImpl extends Component<Props, State> {
         <span className={styles.emoji} aria-hidden="true">⚠️</span>
         <h1 className={styles.title}>{t('appError.title')}</h1>
         <p className={styles.body}>{t('appError.body')}</p>
-        <Button size="md" onClick={() => window.location.reload()}>{t('common.retry')}</Button>
+        {/* 사용자가 직접 누른 재시도는 항상 '진짜' 재시도여야 한다 — 카운터를 비워
+            자동 복구 경로를 되살린다. 앱을 껐다 켜지 않고도 여기서 빠져나올 수 있다. */}
+        <Button
+          size="md"
+          onClick={() => {
+            clearChunkRetryState();
+            window.location.reload();
+          }}
+        >
+          {t('common.retry')}
+        </Button>
       </div>
     );
   }

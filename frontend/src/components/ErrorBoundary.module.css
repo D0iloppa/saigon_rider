@@ -1,8 +1,9 @@
 .block {
   position: fixed;
   inset: 0;
-  top: var(--status-bar-height);
   z-index: 2000;
+  /* status bar 영역까지 배경을 덮는다 — AppShell 밖이라 상단이 비면 검은 띠가 남는다 */
+  padding-top: var(--status-bar-height);
   display: flex;
   flex-direction: column;
   align-items: center;

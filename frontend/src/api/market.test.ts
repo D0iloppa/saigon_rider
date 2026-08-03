@@ -65,4 +65,26 @@ describe('resolveDistrict', () => {
     const d = resolveDistrict(10.766, 106.696, DISTRICTS);
     expect(d?.name_vi).toBe('Nguyễn Thái Bình');
   });
+
+  // 실기기 회귀: districts.code='SAIGON' 행의 name_vi 가 성조 없는 'Saigon' 으로 시딩돼
+  // saigon-depth1.json 폴리곤 이름('Sài Gòn')과 불일치, 폴리곤 매칭이 실패해 실제로는
+  // "Sài Gòn" 동인데 최근접-중심점 폴백으로 "Bến Thành" 이 잡히는 버그가 있었다(DB 시딩 결함,
+  // 172_districts_saigon_name_vi_fix.sql 로 교정). name_vi 를 'Sài Gòn' 으로 교정한 뒤에도
+  // 매칭이 성립하는지 증명한다. 좌표(10.77293, 106.70030)는 master.test.ts 의
+  // "Sài Gòn vs Bến Thành" 회귀와 동일 — Sài Gòn 폴리곤 내부이면서 Bến Thành 중심(10.772,106.696)
+  // 이 Sài Gòn 중심(10.7665,106.7000)보다 더 가깝다.
+  it('폴리곤상 Sài Gòn 내부 좌표는, 중심점이 더 가까운 Bến Thành 이 아니라 Sài Gòn 을 반환해야 한다', () => {
+    const SAIGON_DISTRICT: District = {
+      id: 50,
+      code: 'SAIGON',
+      name_ko: null as unknown as string,
+      name_vi: 'Sài Gòn',
+      name_en: 'Sai Gon',
+      image_url: null,
+      center_lat: 10.7665,
+      center_lng: 106.7,
+    };
+    const d = resolveDistrict(10.77293, 106.7003, [...DISTRICTS, SAIGON_DISTRICT]);
+    expect(d?.name_vi).toBe('Sài Gòn');
+  });
 });

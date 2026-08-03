@@ -10,6 +10,7 @@ import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK, BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
+import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
 import sys from '@/styles/system.module.css';
 import {
   fetchBusinessPublicProfile,
@@ -79,6 +80,8 @@ export default function BizPublic() {
   const introRef = useRef<HTMLElement | null>(null);
   const tabsRef = useRef<HTMLElement | null>(null);
   const pendingTabScrollRef = useRef(false);
+  const [mapBbox, setMapBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
+  const poiMarkers = usePoiMarkers(mapBbox, i18n.language);
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
@@ -247,10 +250,10 @@ export default function BizPublic() {
     ? [...new Set([profile.photoUrl, ...news.flatMap((item) => item.photos)].filter((url): url is string => !!url))]
     : [], [profile, news]);
 
-  // 위치 지도 카드 — 이 업체 하나만 표시(다른 업체 핀 없음). 동네지도 리치카드와 동일한 색/글리프 규칙.
+  // 위치 지도 카드 — 이 업체 핀 + 주변 POI 참조 레이어. 동네지도 리치카드와 동일한 색/글리프 규칙.
   const bizMapMarkers = useMemo<MapMarkerV2[]>(() => {
-    if (!profile || profile.latitude == null || profile.longitude == null) return [];
-    return [{
+    if (!profile || profile.latitude == null || profile.longitude == null) return poiMarkers;
+    return [...poiMarkers, {
       id: profile.id,
       lat: profile.latitude,
       lng: profile.longitude,
@@ -259,7 +262,7 @@ export default function BizPublic() {
       icon: profile.category ? BIZ_CAT_ICON_PATH[profile.category] : undefined,
       r: 1.6,
     }];
-  }, [profile]);
+  }, [profile, poiMarkers]);
 
   if (loading || !profile) {
     return (
@@ -361,9 +364,16 @@ export default function BizPublic() {
                   <SaigonMapV5
                     height="100%"
                     markers={bizMapMarkers}
-                    lightweight
-                    markerDepth="l3"
+                    lightweight={false}
+                    // polyActive=false: 구역선택(ward 하이라이트) 기능 제거 지시 — 이 화면은
+                    // 단일 업체 위치를 보여주는 읽기 전용 카드라 ward 폴리곤이 필요 없다.
+                    // BizLocationPicker.tsx와 동일 근거: initialGps로 L3 임계값(~1.1km) 안쪽에서
+                    // 시작해 뷰포트에 1~2개 ward만 걸치므로, 전 지역 조망에서 발생하는
+                    // 2.4배/7.5초 비용과는 스케일이 다르다. depth3 fetch는 polyActive와 무관하게
+                    // 이미 일어나므로 false는 렌더 필터만 푸는 것 — 추가 네트워크 비용 없음.
+                    polyActive={false}
                     initialGps={{ lat: profile.latitude, lng: profile.longitude }}
+                    onBboxChange={setMapBbox}
                     showLocateControl={false}
                   />
                 </Suspense>

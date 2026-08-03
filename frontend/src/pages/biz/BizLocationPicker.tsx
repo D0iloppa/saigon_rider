@@ -4,8 +4,7 @@ import { MapPin } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import SaigonMapV5 from '@/components/maps/SaigonMapV5';
-import { buildPoiLayer } from '@/components/maps/poiLayer';
-import { fetchPoiMapItems } from '@/api/poi';
+import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import { resolveDistrict } from '@/api/market';
@@ -33,7 +32,7 @@ export default function BizLocationPicker({ open, onClose, value, onConfirm }: P
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(value ?? null);
   const [district, setDistrict] = useState<District | null>(null);
   const [bbox, setBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
-  const [poiMarkers, setPoiMarkers] = useState<MapMarkerV2[]>([]);
+  const poiMarkers = usePoiMarkers(bbox, i18n.language);
 
   useEffect(() => {
     fetchDistricts().then(setDistricts).catch(() => setDistricts([]));
@@ -47,17 +46,6 @@ export default function BizLocationPicker({ open, onClose, value, onConfirm }: P
     setDistrict(resolveDistrict(start.lat, start.lng, districts));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, districts, value]);
-
-  // 뷰포트 bbox 변화마다 POI 참조 레이어 재조회 (동네지도 NeighborhoodMapCanvas와 동일 트리거 패턴)
-  useEffect(() => {
-    if (!bbox) { setPoiMarkers([]); return; }
-    let cancelled = false;
-    const controller = new AbortController();
-    fetchPoiMapItems({ minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E, signal: controller.signal })
-      .then((items) => { if (!cancelled) setPoiMarkers(buildPoiLayer(items, i18n.language)); })
-      .catch(() => { if (!cancelled) setPoiMarkers([]); });
-    return () => { cancelled = true; controller.abort(); };
-  }, [bbox, i18n.language]);
 
   const apply = (lat: number, lng: number) => {
     setPicked({ lat, lng });

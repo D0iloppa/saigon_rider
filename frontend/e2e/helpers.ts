@@ -66,7 +66,7 @@ export async function verifyPhoneBypass(request: APIRequestContext, session: Dev
 export async function saveConsentViaApi(request: APIRequestContext, session: DevSession): Promise<void> {
   const res = await request.post(`${BASE_URL}/api/bff/profile/consent`, {
     headers: sessionHeaders(session),
-    data: { user_id: session.userId, terms_version: '2026-06-01', privacy_version: '2026-06-01' },
+    data: { user_id: session.userId, terms_version: '2026-06-01', privacy_version: '2026-06-01', age_confirmed: true },
   });
   if (!res.ok()) throw new Error(`profile/consent failed: ${res.status()} ${await res.text()}`);
 }

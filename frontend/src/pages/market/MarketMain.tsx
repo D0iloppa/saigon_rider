@@ -35,6 +35,8 @@ import {
   type ListingSort,
   type MarketAd,
 } from '@/api/market';
+import { PostPanel, type PanelItem } from '@/pages/map/PostPanel';
+import { haversineM } from '@/lib/polyline';
 import ListingCard from './ListingCard';
 import AdCard from './AdCard';
 import styles from './MarketMain.module.css';
@@ -95,6 +97,12 @@ export default function MarketMain() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>(savedState?.viewMode ?? 'list');
   const [mapListings, setMapListings] = useState<Listing[]>([]);
   const [mapError, setMapError] = useState(false);
+  // 지도 마커 탭 → 하단 캐러셀(PostPanel, 동네지도 포스트 패널과 동일 컴포넌트/동작 재사용).
+  const [postPanelOpen, setPostPanelOpen] = useState(false);
+  const [carouselItems, setCarouselItems] = useState<PanelItem[]>([]);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [postPanelHeight, setPostPanelHeight] = useState(0);
+  const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [allWards, setAllWards] = useState<Ward[]>([]);
   const [allDistricts, setAllDistricts] = useState<District[]>([]);
@@ -315,7 +323,37 @@ export default function MarketMain() {
     }
   }, [isLoading, savedState?.scrollTop, containerRef]);
 
-  // 지도 마커 — 탭 시 리스트 아이템과 동일한 상세 진입 동작(saveScroll + 동일 경로).
+  // 지도 마커 탭 → 하단 캐러셀(PostPanel) 오픈 — 동네지도 openPostPanel 미러(SGR-325/W2).
+  // 캐러셀 카드 탭이 실제 상세 진입(saveScroll + 동일 경로)을 수행한다.
+  const focusedListing = postPanelOpen ? carouselItems[carouselIndex] : null;
+  const focusedListingId = focusedListing?.kind === 'listing' ? focusedListing.listing.id : null;
+
+  const openListingPanel = useCallback((l: Listing) => {
+    const others = mapListings
+      .filter((x) => x.id !== l.id && x.lat != null && x.lng != null)
+      .sort((a, b) =>
+        haversineM(l.lat as number, l.lng as number, a.lat as number, a.lng as number) -
+        haversineM(l.lat as number, l.lng as number, b.lat as number, b.lng as number));
+    setCarouselItems([l, ...others].map((x): PanelItem => ({ kind: 'listing', listing: x })));
+    setCarouselIndex(0);
+    setPostPanelOpen(true);
+    focusPointRef.current?.({ lat: l.lat as number, lng: l.lng as number });
+  }, [mapListings]);
+
+  // 캐러셀 스냅 → 그 매물 핀으로 지도 recenter(줌 유지) + 마커 하이라이트 (동네지도 handleCarouselIndex 미러)
+  const handleCarouselIndex = useCallback((i: number) => {
+    setCarouselIndex(i);
+    const it = carouselItems[i];
+    if (it?.kind !== 'listing') return;
+    focusPointRef.current?.({ lat: it.listing.lat as number, lng: it.listing.lng as number });
+  }, [carouselItems]);
+
+  const closePostPanel = useCallback(() => {
+    setPostPanelOpen(false);
+    setCarouselItems([]);
+    setCarouselIndex(0);
+  }, []);
+
   const mapMarkers = useMemo<MapMarkerV2[]>(
     () => mapListings
       .filter((l) => l.lat != null && l.lng != null)
@@ -325,9 +363,10 @@ export default function MarketMain() {
         lng: l.lng as number,
         kind: 'listing',
         label: l.title,
-        onClick: () => { saveScroll(); navigate(`/market/${l.id}`); },
+        selected: focusedListingId === l.id,
+        onClick: () => openListingPanel(l),
       })),
-    [mapListings, saveScroll, navigate],
+    [mapListings, focusedListingId, openListingPanel],
   );
 
   const openAlerts = () => {
@@ -428,12 +467,31 @@ export default function MarketMain() {
               polyActive={false}
               markers={mapMarkers}
               onBboxChange={handleMapBboxChange}
+              focusPointRef={focusPointRef}
+              bottomInsetPx={postPanelOpen ? postPanelHeight : 0}
               outsideAreaFallback
               outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
+              // 현재 위치로(◎) 버튼 제거 (service-rules GPS 원칙 2, 2026-07-25 개정) — 동네지도와
+              // 동일하게 SaigonMapV5 내장 버튼을 끈다(컴포넌트 자체는 다른 화면에서 계속 사용).
+              showLocateControl={false}
             />
           </Suspense>
           {mapError && (
             <div className={styles.mapNotice}>{t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })}</div>
+          )}
+          {postPanelOpen && carouselItems.length > 0 && (
+            <PostPanel
+              items={carouselItems}
+              index={carouselIndex}
+              onIndexChange={handleCarouselIndex}
+              onCardTap={(it) => {
+                if (it.kind !== 'listing') return;
+                saveScroll();
+                navigate(`/market/${it.listing.id}`);
+              }}
+              onClose={closePostPanel}
+              onHeightChange={setPostPanelHeight}
+            />
           )}
         </div>
       ) : (

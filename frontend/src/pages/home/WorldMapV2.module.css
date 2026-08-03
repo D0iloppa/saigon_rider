@@ -100,6 +100,12 @@
   color: #1c1c1e;
   letter-spacing: -0.4px;
   line-height: 1.15;
+  /* 닉네임은 절대 줄바꿈하지 않는다 — 한글은 음절 단위 개행이 허용돼 데이터가 붙어
+     우측 컬럼(누적거리)이 넓어지는 순간 '애플테스/트' 로 쪼개지고, 그만큼 헤더가
+     높아져 아래 콘텐츠 전체가 밀렸다. 길면 말줄임으로 흡수한다. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profileVerified {
@@ -122,6 +128,8 @@
   font-weight: 600;
   color: #3c3c43;
   letter-spacing: -0.2px;
+  /* 로딩(— / 0건) → 바인딩(2.0 / 3건) 시 숫자 폭이 달라 미세하게 흔들리는 것 방지 */
+  font-variant-numeric: tabular-nums;
 }
 
 .profileStat span {
@@ -144,6 +152,8 @@
   color: #8e8e93;
   letter-spacing: -0.2px;
   min-width: 0;
+  /* 0.00 km → 243.05 km 로 자릿수가 늘어도 글리프 폭이 고정되게 */
+  font-variant-numeric: tabular-nums;
 }
 
 .profileLoc span:not(.locName) {

@@ -70,6 +70,20 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 주요 라우트: `/home`(WorldMapV2) · `/market`(+`/search`·`/new`·`/wishlist`·`/:id`·**`/:id/edit`**·`/ad/:id`) · `/map`(NeighborhoodMap+Canvas, `/map/search`) · `/info/*`(날씨·유가·주유소·정비소·침수) · `/feed`·`/dm` · `/biz/*`(intro·apply·status·manage·news·prices) · `/settings/*`(privacy·terms 는 **공개 라우트**) · `/auth/*`(oauth-login·oauth-result·profile-setup — profile-setup 은 **PrivateRoute 밖**이어야 함)
 - **스플래시(2026-08-02)**: `/splash`(`Splash.tsx`)의 [시작하기]와 [로그인] 버튼이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 [로그인]을 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거.
 
+### 진입·인증 경로 (2026-08-03, UX 감사 Gate A)
+- **딥링크 목적지는 `lib/returnTo.ts` 로 보존한다.** `PrivateRoute` → `Splash` → OAuth → `ProfileSetup` 전 구간, 성공 후 **1회만 소비**. OAuth 가 페이지를 벗어나므로 `sessionStorage`. 로그인 성공 지점에 `/home` 을 **하드코딩하지 말 것** — 이전에 4지점이 하드코딩이라 공유·푸시·업체 홍보 링크 유입이 전부 홈으로 흘렀다. `isSafeReturnPath` 는 앱 내부 경로만 허용하고 외부 URL·`//`·`javascript:`·제어문자와 `/splash`·`/auth`·`/link`(루프 방지)를 거부한다.
+- **`AppShell` 폴링은 로그인 상태에 종속된다.** 비로그인 화면에서 DM 을 폴링하면 419 → 세션만료 처리 → **약관·방침(공개 라우트)에서 20초마다 강제 이탈**한다. 실제로 발생했다. 폴링을 다시 무조건 실행으로 되돌리지 말 것.
+- **419 는 "세션 없음"과 "세션 만료"를 구분한다**(`api/client.ts` `handleSessionError`). 애초에 세션이 없던 419 는 조용히 무시 — 한 번도 로그인한 적 없는 사용자에게 "세션이 만료되었습니다" 는 거짓말이다.
+- **탭바 활성은 경로→탭 매핑(`TabBar.tsx` `TAB_PATH_PREFIXES`)이 SoT.** 서브 라우트를 추가하면 여기 매핑도 추가한다 — 빠지면 그 화면에서 탭 5개가 전부 회색이 된다(30여 화면이 그 상태였다). 미인증 시 탭바·FAB 는 숨긴다.
+- **422 detail 은 사용자 문자열에 싣지 않는다.** `sanitizeDetail` 은 **배열을 통과**시키는데 FastAPI 422 detail 은 항상 배열이고 요청 본문(`input`)이 되비쳐 있어, 가입 화면에 `user_id` UUID 가 노출됐다. 오류 detail 을 표시 문자열로 만드는 새 경로를 추가할 때 배열 형태를 반드시 점검할 것.
+
+### 지도 — 엔진이 2벌이다 (혼동 주의)
+- `SaigonMapV2`: `pickMode`/`onPointPick` 있음 / **POI 없음** / depth1→2→3 교체식. `LocationPickerSheet`(마켓)·`NeighborhoodMap` 지역선택 시트.
+- `SaigonMapV5`: **POI 있음** / 연속 줌(L1~L3) / 2026-08-03 에 `pickMode`·`onPointPick` 추가(기본 off). `NeighborhoodMapCanvas`·info 3화면·`BizLocationPicker`.
+- **L3+POI 가 함께 보이려면 3조건이 동시에** 맞아야 한다 — `lightweight={false}` · 마운트 즉시 `L3_VBW`(≈1.1km) 안쪽으로 줌인(`initialGps`) · 호출부가 `fetchPoiMapItems`→`buildPoiLayer`→`markers` 합류. POI 는 지도 컴포넌트가 그리지 않는다.
+- **`pickMode` 화면은 `polyActive={false}` 여야 한다.** `polyActive=true` 는 L3 를 `selWard` 1개로 제한하는데 `pickMode` 는 ward 탭 판정 앞에서 early-return 하므로 `selWard` 가 영영 갱신되지 않아 초기 ward 밖에 L3 가 안 그려진다. 기록된 "2.4배·7.5초" 비용은 **도시 전역 조망 기준이라 줌인된 피커에는 전이되지 않는다**(뷰포트 630유닛 < ward 평균 1522유닛). `onViewportChange` 가 `polyActive` 와 무관하게 depth3 를 이미 fetch 하므로 네트워크 추가비용 0.
+- **서비스 지역은 37개 ward**(`saigon-depth1.json`, 중심부 약 14×14km)다. `resolveDistrict` 내부 `inServiceArea` 가드 때문에 **Thủ Đức·Bình Tân·Gò Vấp 업체는 등록 자체가 불가능**하다. 대표 결정(2026-08-03): 이번엔 유지하고 안내 문구만 노출. 폴리곤 확장은 별건.
+
 ### 실패 표현 규약 (장애를 콘텐츠 부재로 위장하지 않는다)
 - 데이터 없음과 **조회 실패**를 반드시 구분한다. 기존 `unavailable` 패턴(`WorldMapV2`·`InfoFloodMap`)과 `StateBlock(tone="error")` + 재시도를 미러링
 - `useInfiniteScroll` 은 `error` 를 노출한다. 소비자(MarketMain·MarketSearch·FeedList·QuestList)는 `items.length === 0 && error` 일 때만 오류를 렌더(과차단 금지)

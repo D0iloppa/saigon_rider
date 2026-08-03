@@ -791,8 +791,12 @@
 }
 
 /* ─── 하단 여백 ─────────────────────────────────── */
+/* FAB(52px 지름 + bottom 18px offset = 70px 풋프린트) 아래 마지막 카드가 가려지지
+ * 않도록 여유 16px 을 더해 86px 예약(P2-10). FAB 는 .root 바닥(=탭바 상단)을
+ * 기준으로 절대배치되므로 탭바 실높이(--tabbar-height/--bottom-safe)는
+ * 이미 AppShell 플렉스 레이아웃이 흡수한다 — 여기서 다시 더하면 이중 예약. */
 .bottomPad {
-  height: 16px;
+  height: 86px;
 }
 
 /* 매물 등록 FAB — MarketMain .writeFab 과 동일 스펙 */

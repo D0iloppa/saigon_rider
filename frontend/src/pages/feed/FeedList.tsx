@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Newspaper, Plus, Send, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -24,6 +24,10 @@ import { ProfileCard } from '@/components/ProfileCard';
 import styles from './FeedList.module.css';
 
 type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
+const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'friends', 'hot'];
+// 탭 전환으로 언마운트돼도 스크롤 위치가 살아있게(P2-11) — URL 에 넣기 부적절한 값이라
+// sessionStorage 를 쓴다(MarketMain 의 scrollTop 저장 패턴과 동일 결).
+const FEED_SCROLL_KEY = 'feed_scroll_v1';
 
 // ImageViewer 는 src/components/ui/ImageViewer.tsx 로 승격됨 (2026-07-27).
 // 기존 import 경로(`from './FeedList'`)를 쓰는 코드와의 하위호환을 위해 re-export 유지.
@@ -35,7 +39,14 @@ export default function FeedList() {
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const totalUnread = useDmStore((s) => s.totalUnread);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 필터를 URL 쿼리로 보존한다(P2-11). 단 'neighborhood' 복원은 제외 — 이 필터는 GPS
+  // 요청을 트리거하는 effect(아래)에 걸려 있어서, 저장된 값을 그대로 복원하면 화면
+  // 진입만으로 위치 재요청이 발생한다(service-rules.md — 진입 시 자동 GPS 금지와 동치).
+  const [filter, setFilter] = useState<FilterKey>(() => {
+    const q = searchParams.get('filter');
+    return q && FILTER_KEYS.includes(q as FilterKey) && q !== 'neighborhood' ? (q as FilterKey) : 'all';
+  });
   const [stories, setStories] = useState<StoryItem[]>([]);
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   // neighborhood 필터용 현재 위치 (state — 도착 시 재fetch 트리거)
@@ -80,6 +91,33 @@ export default function FeedList() {
     useInfiniteScroll<FeedPost>(fetchPage, 20, [filter, user?.id, neighborhoodLoc]);
 
   const { containerRef: scrollBodyRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(reset);
+
+  // 필터 변경을 URL 쿼리로 되쓴다(P2-11) — replace 만 사용해 히스토리 엔트리를 늘리지 않는다.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (filter === 'all') next.delete('filter'); else next.set('filter', filter);
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+  }, [filter, searchParams, setSearchParams]);
+
+  // 스크롤 위치 저장 — 스크롤 중 계속 갱신(가벼운 값 저장이라 쓰로틀 없이도 무해).
+  useEffect(() => {
+    const el = scrollBodyRef.current;
+    if (!el) return;
+    const onScroll = () => sessionStorage.setItem(FEED_SCROLL_KEY, String(el.scrollTop));
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [scrollBodyRef]);
+
+  // 스크롤 위치 복원 — 마운트 후 첫 로드가 끝났을 때 1회만. 이후 필터 변경으로 목록이
+  // 새로고침돼도 다시 복원하지 않는다(새 필터는 처음부터 보여야 한다 — MarketMain 과 동일 원칙).
+  const restoredScrollRef = useRef(false);
+  useEffect(() => {
+    if (restoredScrollRef.current || isLoading || posts.length === 0) return;
+    restoredScrollRef.current = true;
+    const el = scrollBodyRef.current;
+    const saved = Number(sessionStorage.getItem(FEED_SCROLL_KEY));
+    if (el && Number.isFinite(saved) && saved > 0) el.scrollTop = saved;
+  }, [isLoading, posts.length, scrollBodyRef]);
 
   const FILTERS: { key: FilterKey; label: string; Icon: LucideIcon }[] = [
     { key: 'all',          label: t('feed.filterAll'),          Icon: Globe },

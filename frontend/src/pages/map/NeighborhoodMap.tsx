@@ -23,6 +23,7 @@ import {
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
 import type { SelectedRegion } from '@/components/maps/v2/region';
+import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { PullIndicator } from '@/components/ui/PullIndicator';
@@ -66,7 +67,10 @@ export default function NeighborhoodMap() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const mapOpen = searchParams.get('view') === 'map';
-  const [bizCategory, setBizCategory] = useState<string | null>(null);
+  // 지역·카테고리는 URL 쿼리(cat/rlat/rlng)로 보존한다(P2-11) — 탭 전환으로 이 컴포넌트가
+  // 언마운트돼도 복귀 시 그대로 복원된다. wardRegionAt 로 좌표에서 동(ward) polygon 을
+  // 재구성한다(대표 결정 — useLocationStore 전역화는 금지, 화면 로컬/URL 로만 다룬다).
+  const [bizCategory, setBizCategory] = useState<string | null>(() => searchParams.get('cat'));
   const [bizCategories, setBizCategories] = useState<BizCategory[]>([]);
   const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,12 +78,18 @@ export default function NeighborhoodMap() {
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   // GPS 는 "내 주변순" 토글을 사용자가 직접 눌렀을 때만 요청한다(P1-3 — 진입 시 자동 요청 금지,
-  // service-rules.md:11-12). 꺼져 있으면 가게 카드 거리 표기만 생략된다.
+  // service-rules.md:11-12). 꺼져 있으면 가게 카드 거리 표기만 생략된다. URL 에는 싣지 않는다 —
+  // 복귀 시 저장된 좌표로 자동 재요청/재계산되면 "진입만으로 GPS 요청" 회귀와 동치가 된다.
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [nearMeLoading, setNearMeLoading] = useState(false);
   // 지역 선택 — 화면 로컬 상태(마켓의 locationMode/regionLabel 레퍼런스). 'all' = 호치민 전역.
-  const [regionMode, setRegionMode] = useState<'all' | 'region'>('all');
-  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(() => {
+    const rlat = Number(searchParams.get('rlat'));
+    const rlng = Number(searchParams.get('rlng'));
+    if (!Number.isFinite(rlat) || !Number.isFinite(rlng)) return null;
+    return wardRegionAt(rlat, rlng);
+  });
+  const [regionMode, setRegionMode] = useState<'all' | 'region'>(() => (selectedRegion ? 'region' : 'all'));
   const [locSheetOpen, setLocSheetOpen] = useState(false);
   const [draftMode, setDraftMode] = useState<'all' | 'region'>('all');
   const [draftRegion, setDraftRegion] = useState<SelectedRegion | null>(null);
@@ -145,6 +155,25 @@ export default function NeighborhoodMap() {
 
     return () => controller.abort();
   }, [bizCategory, reloadKey, i18n.language, regionMode, selectedRegion, userPos]);
+
+  // 지역·카테고리를 URL 쿼리로 되쓴다(P2-11) — replace 만 사용해 히스토리 엔트리를 늘리지
+  // 않는다. "지도보기" 진입(openMap)은 별도로 push 를 쓰고, 지도 쪽 뒤로가기(onExitMap)는
+  // navigate(-1) 로 그 push 엔트리 하나만 소비하므로 여기서 replace 로 view 이외의 쿼리를
+  // 갱신해도 그 back 동작(과거 navigate(-1) 회귀 이력 있음)에는 영향이 없다.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (bizCategory) next.set('cat', bizCategory); else next.delete('cat');
+    if (regionMode === 'region' && selectedRegion) {
+      next.set('rlat', String(selectedRegion.lat));
+      next.set('rlng', String(selectedRegion.lng));
+    } else {
+      next.delete('rlat');
+      next.delete('rlng');
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [bizCategory, regionMode, selectedRegion, searchParams, setSearchParams]);
 
   const openLocationSheet = () => {
     setDraftMode(regionMode);

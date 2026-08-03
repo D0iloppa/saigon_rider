@@ -137,7 +137,10 @@
 }
 
 .listContent {
-  padding: 16px 20px;
+  /* 하단 86px: FAB(52px 지름 + bottom 18px offset = 70px 풋프린트) + 여유 16px —
+   * 마지막 매물 카드가 FAB 에 가려지는 것 방지(P2-10). FAB 는 .root 바닥(=탭바
+   * 상단) 기준 절대배치라 탭바 실높이는 AppShell 플렉스가 이미 흡수한다. */
+  padding: 16px 20px calc(16px + 70px);
   display: flex;
   flex-direction: column;
   gap: 0; /* 플랫 리스트 — 행 간격은 ListingCard 패딩+헤어라인이 만든다 (업리프트 260706) */

@@ -146,7 +146,7 @@ export default function Settings() {
               locPerm === 'granted' ? t('settings.locationAllowed') :
               locPerm === 'denied' ? t('settings.locationDenied') :
               locPerm === 'prompt' ? t('settings.locationPrompt') :
-              '…'
+              t('settings.locationUnavailable')
             }
             arrow
             onClick={handleLocationTap}

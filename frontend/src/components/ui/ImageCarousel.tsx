@@ -24,7 +24,8 @@ export function ImageCarousel({ urls, onImageClick }: Props) {
   if (count === 1) {
     return (
       <button className={styles.single} onClick={() => onImageClick?.(0)} aria-label={t('common.viewPhoto')}>
-        <AppImage src={urls[0]} alt="" className={styles.img} />
+        {/* P2-8: 상세 화면의 대표 이미지는 above-the-fold 라 lazy 를 걸면 LCP 가 나빠진다 */}
+        <AppImage src={urls[0]} alt="" className={styles.img} priority />
       </button>
     );
   }
@@ -92,7 +93,8 @@ export function ImageCarousel({ urls, onImageClick }: Props) {
       >
         {urls.map((url, i) => (
           <button key={i} className={styles.slide} onClick={() => handleClick(i)} aria-label={t('common.viewPhoto')}>
-            <AppImage src={url} alt="" className={styles.img} />
+            {/* P2-8: 첫 슬라이드만 즉시 로드, 나머지는 기본 lazy */}
+            <AppImage src={url} alt="" className={styles.img} priority={i === 0} />
           </button>
         ))}
       </div>

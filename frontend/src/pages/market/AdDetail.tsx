@@ -74,7 +74,7 @@ export default function AdDetail() {
             {/* Hero */}
             {ad.imageUrl ? (
               <div className={styles.heroWrap}>
-                <AppImage src={ad.imageUrl} alt={ad.title} className={styles.heroImg} />
+                <AppImage src={ad.imageUrl} alt={ad.title} className={styles.heroImg} priority />
                 <div className={styles.heroGradient} />
                 <div className={styles.heroBadge}>
                   <span className={styles.heroBadgeDot} />

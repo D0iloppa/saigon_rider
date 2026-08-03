@@ -95,12 +95,21 @@
   border-radius: 3px;
 }
 
+/* P2-15 hit area — 보이는 원은 24px·(4,4) 그대로 두고 터치 영역만 44px 로 넓힌다.
+   top/right 를 -6px 로 당기고 padding 10px + background-clip:content-box 를 쓰면
+   배경이 content box(24px)에만 그려져 시각 결과가 변하지 않는다(border-radius 는
+   content box 에서 12px = 24px 의 50% 로 파생되므로 원 모양도 유지된다).
+   썸네일 컨테이너가 overflow:hidden 이라 바깥으로 나간 6px 는 잘리지만
+   안쪽 38px 는 그대로 눌린다 — 24px 보다 확실히 낫다. */
 .removeImg {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
+  top: -6px;
+  right: -6px;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 10px;
+  background-clip: content-box;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.6);
   color: white;

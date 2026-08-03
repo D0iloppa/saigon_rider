@@ -8,6 +8,8 @@ const BASE_DELAY_MS = 1000;
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src?: string | string[];
   variant?: 'rect' | 'circle';
+  /** above-the-fold 히어로 이미지용 lazy 옵트아웃. 기본은 lazy(디코딩 async). */
+  priority?: boolean;
 }
 
 function toChain(src: string | string[] | undefined): string[] {
@@ -16,7 +18,7 @@ function toChain(src: string | string[] | undefined): string[] {
 }
 
 // src 변경 시 key로 강제 리마운트 → 내부 상태 자동 초기화
-export function AppImage({ src, variant = 'rect', className = '', ...rest }: Props) {
+export function AppImage({ src, variant = 'rect', className = '', priority = false, ...rest }: Props) {
   const srcKey = Array.isArray(src) ? src.join('|') : (src ?? '');
   return (
     <AppImageInner
@@ -24,6 +26,7 @@ export function AppImage({ src, variant = 'rect', className = '', ...rest }: Pro
       chain={toChain(src)}
       variant={variant}
       className={className}
+      priority={priority}
       {...rest}
     />
   );
@@ -32,9 +35,10 @@ export function AppImage({ src, variant = 'rect', className = '', ...rest }: Pro
 interface InnerProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   chain: string[];
   variant: 'rect' | 'circle';
+  priority: boolean;
 }
 
-function AppImageInner({ chain, variant, className, onLoad, onError, ...imgProps }: InnerProps) {
+function AppImageInner({ chain, variant, className, priority, onLoad, onError, loading, decoding, ...imgProps }: InnerProps) {
   const [loaded, setLoaded] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string>(chain[0] ?? ERROR_IMG);
   const chainIndex = useRef(0);
@@ -88,6 +92,8 @@ function AppImageInner({ chain, variant, className, onLoad, onError, ...imgProps
         {...imgProps}
         src={currentUrl}
         className={`${styles.img} ${loaded ? styles.visible : ''}`}
+        loading={loading ?? (priority ? 'eager' : 'lazy')}
+        decoding={decoding ?? 'async'}
         onLoad={handleLoad}
         onError={handleError}
       />

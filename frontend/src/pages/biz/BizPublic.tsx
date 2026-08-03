@@ -317,7 +317,7 @@ export default function BizPublic() {
           </div>
           {profile.photoUrl ? (
             <div className={styles.heroWrap}>
-              <AppImage src={profile.photoUrl} alt={profile.name} className={styles.heroImg} />
+              <AppImage src={profile.photoUrl} alt={profile.name} className={styles.heroImg} priority />
             </div>
           ) : (
             <div className={styles.heroEmpty}>{t('biz.publicNoPhoto')}</div>

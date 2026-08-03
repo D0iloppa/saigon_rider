@@ -43,9 +43,9 @@ export interface SafetyGrade {
   name_en: string;
 }
 
-export function localizedName(item: District | RiderType | SafetyGrade): string {
+export function localizedName(item: District | Ward | RiderType | SafetyGrade): string {
   const lang = i18n.language as 'ko' | 'vi' | 'en';
-  return item[`name_${lang}`] || item.name_en || item.name_ko;
+  return item[`name_${lang}`] || item.name_en || item.name_ko || '';
 }
 
 const MOCK_DISTRICTS: District[] = [

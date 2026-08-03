@@ -264,6 +264,10 @@
     "title": "Cần cập nhật ứng dụng",
     "body": "Đã có phiên bản mới. Vui lòng cập nhật từ cửa hàng ứng dụng rồi mở lại ứng dụng."
   },
+  "appError": {
+    "title": "Đã xảy ra lỗi",
+    "body": "Không thể tải màn hình này. Vui lòng thử lại."
+  },
   "splash": {
     "bootstrapErrorTitle": "Không thể kết nối với máy chủ",
     "bootstrapErrorBody": "Kiểm tra kết nối mạng rồi thử lại.",

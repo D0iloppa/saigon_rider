@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, type Location } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
@@ -17,6 +17,7 @@ import { native } from '@/lib/native';
 import { fetchAppConfig, fetchCurrentVersion, shouldForceUpdate, pickPlatformVersion } from '@/api/appVersion';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
@@ -31,64 +32,64 @@ import Suspended from '@/pages/auth/Suspended';
 import WorldMapV2 from '@/pages/home/WorldMapV2';
 
 // 동네지도 (RideNav 지도 재사용) — P2-1 우선순위 1: lazy (maplibre-gl 포함, 첫 화면 아님)
-const NeighborhoodMap = lazy(() => import('@/pages/map/NeighborhoodMap'));
-const MapSearch = lazy(() => import('@/pages/map/MapSearch'));
-const NeighborhoodProfile = lazy(() => import('@/pages/map/NeighborhoodProfile'));
-const MapFavorites = lazy(() => import('@/pages/map/MapFavorites'));
-const MapFollows = lazy(() => import('@/pages/map/MapFollows'));
-const NeighborhoodCategories = lazy(() => import('@/pages/map/NeighborhoodCategories'));
+const NeighborhoodMap = lazyWithRetry(() => import('@/pages/map/NeighborhoodMap'));
+const MapSearch = lazyWithRetry(() => import('@/pages/map/MapSearch'));
+const NeighborhoodProfile = lazyWithRetry(() => import('@/pages/map/NeighborhoodProfile'));
+const MapFavorites = lazyWithRetry(() => import('@/pages/map/MapFavorites'));
+const MapFollows = lazyWithRetry(() => import('@/pages/map/MapFollows'));
+const NeighborhoodCategories = lazyWithRetry(() => import('@/pages/map/NeighborhoodCategories'));
 
 // Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
-const MarketMain = lazy(() => import('@/pages/market/MarketMain'));
-const MarketCreate = lazy(() => import('@/pages/market/MarketCreate'));
-const MarketEdit = lazy(() => import('@/pages/market/MarketEdit'));
-const MarketDetail = lazy(() => import('@/pages/market/MarketDetail'));
-const MarketWishlist = lazy(() => import('@/pages/market/MarketWishlist'));
-const MarketSearch = lazy(() => import('@/pages/market/MarketSearch'));
-const AdDetail = lazy(() => import('@/pages/market/AdDetail'));
+const MarketMain = lazyWithRetry(() => import('@/pages/market/MarketMain'));
+const MarketCreate = lazyWithRetry(() => import('@/pages/market/MarketCreate'));
+const MarketEdit = lazyWithRetry(() => import('@/pages/market/MarketEdit'));
+const MarketDetail = lazyWithRetry(() => import('@/pages/market/MarketDetail'));
+const MarketWishlist = lazyWithRetry(() => import('@/pages/market/MarketWishlist'));
+const MarketSearch = lazyWithRetry(() => import('@/pages/market/MarketSearch'));
+const AdDetail = lazyWithRetry(() => import('@/pages/market/AdDetail'));
 
 // Biz (비즈니스 파트너, SGR-312 BP-2) — P2-1 우선순위 3: lazy (업체 관리)
-const BizIntro = lazy(() => import('@/pages/biz/BizIntro'));
-const BizApply = lazy(() => import('@/pages/biz/BizApply'));
-const BizStatus = lazy(() => import('@/pages/biz/BizStatus'));
-const BizManage = lazy(() => import('@/pages/biz/BizManage'));
-const BizVerification = lazy(() => import('@/pages/biz/BizVerification'));
-const BizAdsNew = lazy(() => import('@/pages/biz/BizAdsNew'));
-const BizAdDetail = lazy(() => import('@/pages/biz/BizAdDetail'));
-const BizPublic = lazy(() => import('@/pages/biz/BizPublic'));
-const BizNewsCreate = lazy(() => import('@/pages/biz/BizNewsCreate'));
-const BizNewsDetail = lazy(() => import('@/pages/biz/BizNewsDetail'));
-const BizPriceManage = lazy(() => import('@/pages/biz/BizPriceManage'));
+const BizIntro = lazyWithRetry(() => import('@/pages/biz/BizIntro'));
+const BizApply = lazyWithRetry(() => import('@/pages/biz/BizApply'));
+const BizStatus = lazyWithRetry(() => import('@/pages/biz/BizStatus'));
+const BizManage = lazyWithRetry(() => import('@/pages/biz/BizManage'));
+const BizVerification = lazyWithRetry(() => import('@/pages/biz/BizVerification'));
+const BizAdsNew = lazyWithRetry(() => import('@/pages/biz/BizAdsNew'));
+const BizAdDetail = lazyWithRetry(() => import('@/pages/biz/BizAdDetail'));
+const BizPublic = lazyWithRetry(() => import('@/pages/biz/BizPublic'));
+const BizNewsCreate = lazyWithRetry(() => import('@/pages/biz/BizNewsCreate'));
+const BizNewsDetail = lazyWithRetry(() => import('@/pages/biz/BizNewsDetail'));
+const BizPriceManage = lazyWithRetry(() => import('@/pages/biz/BizPriceManage'));
 
 // Quest
-const QuestList = lazy(() => import('@/pages/quest/QuestList'));
-const QuestDetail = lazy(() => import('@/pages/quest/QuestDetail'));
-const QuestCheckPage = lazy(() => import('@/pages/quest/QuestCheckPage'));
+const QuestList = lazyWithRetry(() => import('@/pages/quest/QuestList'));
+const QuestDetail = lazyWithRetry(() => import('@/pages/quest/QuestDetail'));
+const QuestCheckPage = lazyWithRetry(() => import('@/pages/quest/QuestCheckPage'));
 
 // Ride
-const RideResultSuccess = lazy(() => import('@/pages/ride/RideResultSuccess'));
-const RideResultFail = lazy(() => import('@/pages/ride/RideResultFail'));
+const RideResultSuccess = lazyWithRetry(() => import('@/pages/ride/RideResultSuccess'));
+const RideResultFail = lazyWithRetry(() => import('@/pages/ride/RideResultFail'));
 
 // Feed
-const FeedList = lazy(() => import('@/pages/feed/FeedList'));
-const FeedCreate = lazy(() => import('@/pages/feed/FeedCreate'));
-const FeedEdit = lazy(() => import('@/pages/feed/FeedEdit'));
-const FeedDetail = lazy(() => import('@/pages/feed/FeedDetail'));
+const FeedList = lazyWithRetry(() => import('@/pages/feed/FeedList'));
+const FeedCreate = lazyWithRetry(() => import('@/pages/feed/FeedCreate'));
+const FeedEdit = lazyWithRetry(() => import('@/pages/feed/FeedEdit'));
+const FeedDetail = lazyWithRetry(() => import('@/pages/feed/FeedDetail'));
 
 // DM
-const DmList = lazy(() => import('@/pages/dm/DmList'));
-const DmDetail = lazy(() => import('@/pages/dm/DmDetail'));
+const DmList = lazyWithRetry(() => import('@/pages/dm/DmList'));
+const DmDetail = lazyWithRetry(() => import('@/pages/dm/DmDetail'));
 
 // 알림함
-const NotificationInbox = lazy(() => import('@/pages/notifications/NotificationInbox'));
+const NotificationInbox = lazyWithRetry(() => import('@/pages/notifications/NotificationInbox'));
 
 // Profile
-const ProfileMain = lazy(() => import('@/pages/profile/ProfileMain'));
-const TradeHistory = lazy(() => import('@/pages/profile/TradeHistory'));
-const FollowerList = lazy(() => import('@/pages/profile/FollowerList'));
-const FollowingList = lazy(() => import('@/pages/profile/FollowingList'));
-const FriendList = lazy(() => import('@/pages/profile/FriendList'));
-const FriendAdd = lazy(() => import('@/pages/profile/FriendAdd'));
+const ProfileMain = lazyWithRetry(() => import('@/pages/profile/ProfileMain'));
+const TradeHistory = lazyWithRetry(() => import('@/pages/profile/TradeHistory'));
+const FollowerList = lazyWithRetry(() => import('@/pages/profile/FollowerList'));
+const FollowingList = lazyWithRetry(() => import('@/pages/profile/FollowingList'));
+const FriendList = lazyWithRetry(() => import('@/pages/profile/FriendList'));
+const FriendAdd = lazyWithRetry(() => import('@/pages/profile/FriendAdd'));
 
 // Gacha
 // [게이미피케이션 잠정보류 — 재개 시 주석 해제]
@@ -111,45 +112,45 @@ const FriendAdd = lazy(() => import('@/pages/profile/FriendAdd'));
 // import SeasonPass from '@/pages/season/SeasonPass';
 
 // Settings
-const Settings = lazy(() => import('@/pages/settings/Settings'));
-const NotiSettings = lazy(() => import('@/pages/settings/NotiSettings'));
-const LangSettings = lazy(() => import('@/pages/settings/LangSettings'));
-const AccountSettings = lazy(() => import('@/pages/settings/AccountSettings'));
-const BlockedUsers = lazy(() => import('@/pages/settings/BlockedUsers'));
-const ProfileEdit = lazy(() => import('@/pages/settings/ProfileEdit'));
-const CustomerSupport = lazy(() => import('@/pages/settings/CustomerSupport'));
-const SupportDetail = lazy(() => import('@/pages/settings/SupportDetail'));
-const PrivacyPolicy = lazy(() => import('@/pages/settings/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('@/pages/settings/TermsOfService'));
+const Settings = lazyWithRetry(() => import('@/pages/settings/Settings'));
+const NotiSettings = lazyWithRetry(() => import('@/pages/settings/NotiSettings'));
+const LangSettings = lazyWithRetry(() => import('@/pages/settings/LangSettings'));
+const AccountSettings = lazyWithRetry(() => import('@/pages/settings/AccountSettings'));
+const BlockedUsers = lazyWithRetry(() => import('@/pages/settings/BlockedUsers'));
+const ProfileEdit = lazyWithRetry(() => import('@/pages/settings/ProfileEdit'));
+const CustomerSupport = lazyWithRetry(() => import('@/pages/settings/CustomerSupport'));
+const SupportDetail = lazyWithRetry(() => import('@/pages/settings/SupportDetail'));
+const PrivacyPolicy = lazyWithRetry(() => import('@/pages/settings/PrivacyPolicy'));
+const TermsOfService = lazyWithRetry(() => import('@/pages/settings/TermsOfService'));
 
 // Notices / FAQ
-const NoticeList = lazy(() => import('@/pages/notices/NoticeList'));
-const NoticeDetail = lazy(() => import('@/pages/notices/NoticeDetail'));
-const FaqList = lazy(() => import('@/pages/faq/FaqList'));
+const NoticeList = lazyWithRetry(() => import('@/pages/notices/NoticeList'));
+const NoticeDetail = lazyWithRetry(() => import('@/pages/notices/NoticeDetail'));
+const FaqList = lazyWithRetry(() => import('@/pages/faq/FaqList'));
 
 // Guide
-const SafeTradeGuide = lazy(() => import('@/pages/guide/SafeTradeGuide'));
+const SafeTradeGuide = lazyWithRetry(() => import('@/pages/guide/SafeTradeGuide'));
 
 // Info
-const InfoHub = lazy(() => import('@/pages/info/InfoHub'));
-const InfoWeather = lazy(() => import('@/pages/info/InfoWeather'));
-const InfoFloodMap = lazy(() => import('@/pages/info/InfoFloodMap'));
-const InfoFloodReport = lazy(() => import('@/pages/info/InfoFloodReport'));
-const InfoGasList = lazy(() => import('@/pages/info/InfoGasList'));
-const InfoRepairList = lazy(() => import('@/pages/info/InfoRepairList'));
-const InfoRepairDetail = lazy(() => import('@/pages/info/InfoRepairDetail'));
-const InfoRepairWrite = lazy(() => import('@/pages/info/InfoRepairWrite'));
-const InfoRepairReviews = lazy(() => import('@/pages/info/InfoRepairReviews'));
+const InfoHub = lazyWithRetry(() => import('@/pages/info/InfoHub'));
+const InfoWeather = lazyWithRetry(() => import('@/pages/info/InfoWeather'));
+const InfoFloodMap = lazyWithRetry(() => import('@/pages/info/InfoFloodMap'));
+const InfoFloodReport = lazyWithRetry(() => import('@/pages/info/InfoFloodReport'));
+const InfoGasList = lazyWithRetry(() => import('@/pages/info/InfoGasList'));
+const InfoRepairList = lazyWithRetry(() => import('@/pages/info/InfoRepairList'));
+const InfoRepairDetail = lazyWithRetry(() => import('@/pages/info/InfoRepairDetail'));
+const InfoRepairWrite = lazyWithRetry(() => import('@/pages/info/InfoRepairWrite'));
+const InfoRepairReviews = lazyWithRetry(() => import('@/pages/info/InfoRepairReviews'));
 // RideNav 도 지도(SaigonMapV5/maplibre-gl) 를 그린다 — 우선순위 1(지도) 대상
-const RideNav = lazy(() => import('@/pages/ride/RideNav'));
+const RideNav = lazyWithRetry(() => import('@/pages/ride/RideNav'));
 
 // Deep link — LinkRouter 는 첫 화면 목록(/splash·/auth/*·/home)에 없어 lazy.
 // NotificationBridge 는 항상 마운트되는 전역 브리지라 eager 유지.
-const LinkRouter = lazy(() => import('@/pages/link/LinkRouter'));
+const LinkRouter = lazyWithRetry(() => import('@/pages/link/LinkRouter'));
 import NotificationBridge from '@/pages/link/NotificationBridge';
 
 // Error
-const NotFound = lazy(() => import('@/pages/error/NotFound'));
+const NotFound = lazyWithRetry(() => import('@/pages/error/NotFound'));
 
 import styles from './App.module.css';
 
@@ -195,7 +196,7 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
 // [게이미피케이션 잠정보류] SpriteProvider(@/lib/items/SpriteProvider, saigon-rider-items.svg)는
 // 가챠/상점/인벤토리(App.tsx 하단 주석 처리된 라우트)에서만 쓰이고 지금은 마운트하는 화면이
 // 없어 완전히 제거했다 — 재개 시 해당 라우트 활성화와 함께 그 화면에서만 복원할 것.
-const QuestCardSprites = lazy(() =>
+const QuestCardSprites = lazyWithRetry(() =>
   import('@/components/quest/QuestCardSprites').then((m) => ({ default: m.QuestCardSprites }))
 );
 function QuestSprites() {

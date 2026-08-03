@@ -264,6 +264,10 @@
     "title": "Update required",
     "body": "A new version is available. Please update from the app store and relaunch the app."
   },
+  "appError": {
+    "title": "Something went wrong",
+    "body": "This screen couldn't load. Please try again."
+  },
   "splash": {
     "bootstrapErrorTitle": "Unable to connect to the server",
     "bootstrapErrorBody": "Check your network connection and try again.",

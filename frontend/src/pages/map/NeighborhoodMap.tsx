@@ -22,7 +22,7 @@ import {
 } from '@/api/biz';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
-import type { SelectedRegion } from '@/components/maps/v2/region';
+import { regionContains, type SelectedRegion } from '@/components/maps/v2/region';
 import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -143,8 +143,15 @@ export default function NeighborhoodMap() {
       signal: controller.signal,
       maxItems: BIZ_MAX_ITEMS,
     }).then((items) => {
-      setBizItems(items);
-      setTotal(items.length);
+      // bbox 는 selectedRegion 폴리곤의 외접 사각형(regionBbox)이라 실제 동 경계보다 넓다 —
+      // 이웃 동 업체가 섞여 "동네 가게"에 다른 동 업체가 나오는 걸 막기 위해 폴리곤 정확
+      // 매칭으로 한 번 더 좁힌다(regionContains 는 wardRegionAt 이미 쓰는 동일 함수).
+      const filtered =
+        regionMode === 'region' && selectedRegion
+          ? items.filter((biz) => regionContains(selectedRegion, biz.lat, biz.lng))
+          : items;
+      setBizItems(filtered);
+      setTotal(filtered.length);
     })
       .catch((err) => {
         if (!(err instanceof DOMException && err.name === 'AbortError')) setError(true);

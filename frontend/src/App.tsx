@@ -147,6 +147,9 @@ import RideNav from '@/pages/ride/RideNav';
 import LinkRouter from '@/pages/link/LinkRouter';
 import NotificationBridge from '@/pages/link/NotificationBridge';
 
+// Error
+import NotFound from '@/pages/error/NotFound';
+
 import styles from './App.module.css';
 
 /**
@@ -413,7 +416,7 @@ export default function App() {
         position="top-center"
         gap={6}
         visibleToasts={3}
-        offset={{ bottom: 'calc(var(--tabbar-height, 72px) + var(--bottom-safe, 0px) + 12px)' }}
+        offset={{ top: 'calc(var(--status-bar-height) + 12px)' }}
       />
       <Dialog />
       <ConfirmDialog />
@@ -545,8 +548,8 @@ export default function App() {
           <Route path="/notices/:id" element={<PrivateRoute><NoticeDetail /></PrivateRoute>} />
           <Route path="/faq" element={<PrivateRoute><FaqList /></PrivateRoute>} />
 
-          {/* 404 */}
-          <Route path="*" element={<Navigate to="/home" replace />} />
+          {/* 404 — 오타 URL·삭제된 링크를 설명 없이 홈으로 흡수하지 않는다 (P2-7) */}
+          <Route path="*" element={<NotFound />} />
         </BackgroundRoutes>}
       </AppShell>
     </BrowserRouter>

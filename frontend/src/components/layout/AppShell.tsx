@@ -3,7 +3,11 @@ import { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { TabBar } from './TabBar';
-import { FloatingActionButton } from './FloatingActionButton';
+// [게이미피케이션 잠정보류] 게임 허브 FAB — CSS(display:none)로 숨겨져 있으면서도 계속
+// 마운트되던 것을 제거(P2-5). 시트의 유일 항목(/info)은 홈 화면 "동네 정보" 카드에서 이미
+// 직접 접근 가능해 UI 상 진입점 손실이 없다(InfoHub 자체 허브 화면은 원래도 이 FAB 외에
+// 진입 경로가 없었음 — 별건으로 보고). 재개 시 아래 주석 해제 + import 복원.
+// import { FloatingActionButton } from './FloatingActionButton';
 import { emojiUrl } from '@/lib/emoji';
 import styles from './AppShell.module.css';
 
@@ -50,7 +54,7 @@ export function AppShell({
     <div className={styles.shell}>
       <div id="app-frame" className={styles.frame}>
         <div className={styles.viewport}>{children}</div>
-        {!hideTabBar && <FloatingActionButton />}
+        {/* {!hideTabBar && <FloatingActionButton />} — 제거 사유는 위 import 주석 참조 (P2-5) */}
         {!hideTabBar && <TabBar />}
         {splashVisible && (
           <div className={`${styles.splash} ${splashFade ? styles.splashFade : ''}`}>

@@ -1,0 +1,43 @@
+/* 지역 필터 pill — NeighborhoodMap.module.css 의 .areaPill 계열을 그대로 이동(값 무수정).
+   동네지도가 정본이므로 여기 값을 바꾸면 동네지도·마켓 두 화면이 함께 바뀐다. */
+.areaPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 48px);
+  min-height: 42px;
+  padding: 6px 12px 6px 7px;
+  border: 1px solid rgba(255, 90, 31, .18);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -.15px;
+}
+
+.areaPillIcon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.areaPill > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.areaPillClose {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  margin-right: -5px;
+  color: var(--brand-500);
+}

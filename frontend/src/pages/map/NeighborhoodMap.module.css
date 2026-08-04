@@ -367,38 +367,8 @@
   white-space: nowrap;
 }
 
-.areaPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  max-width: calc(100vw - 48px);
-  min-height: 42px;
-  padding: 6px 12px 6px 7px;
-  border: 1px solid rgba(255, 90, 31, .18);
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  box-shadow: var(--shadow-card);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 750;
-  letter-spacing: -.15px;
-}
-
-.areaPillIcon {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--brand-500);
-  color: #fff;
-}
-
-.areaPill > span:nth-child(2) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* .areaPill/.areaPillIcon/.areaPillClose 는 마켓 지도와 공유하기 위해
+   components/maps/AreaPill.module.css 로 이동 (값 무수정, 대표 지적 2026-08-04). */
 
 .areaPillAction {
   padding-left: 7px;
@@ -406,15 +376,6 @@
   color: var(--brand-600);
   font-size: 12px;
   white-space: nowrap;
-}
-
-.areaPillClose {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  margin-right: -5px;
-  color: var(--brand-500);
 }
 
 /* 업체 카테고리 칩 (SGR-324) — 검색바(44px+10px) 바로 아래 가로 스크롤 한 줄 */

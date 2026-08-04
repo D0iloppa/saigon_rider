@@ -15,6 +15,7 @@ import { isNewsUnread, markBizNewsRead } from '@/lib/bizNewsRead';
 import { toast } from '@/components/ui/Toast';
 import { BIZ_CAT_ICON_PATH, BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
+import { AreaPill } from '@/components/maps/AreaPill';
 import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
 import { buildPoiLayer } from '@/components/maps/poiLayer';
 import { PostPanel, type PanelItem } from '@/pages/map/PostPanel';
@@ -477,6 +478,8 @@ export default function NeighborhoodMapCanvas({
   // 아니라 이동이 멎은 시점의 중심이 필요한 소비자용. viewportBbox(크롭)와 동일한 커밋
   // 타이밍(즉시/500ms 디바운스)으로 커밋하되 소스만 raw.
   const [viewportRawBbox, setViewportRawBbox] = useState<LatLngBbox | null>(null);
+  // 자동 말풍선 전용 커밋 bbox — mode 게이트 없이 항상 갱신된다(위 handleBboxChange 주석 참조).
+  const [autoBubbleBbox, setAutoBubbleBbox] = useState<LatLngBbox | null>(null);
 
   const handleBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
     if (bboxImmediateRef.current) {
@@ -487,6 +490,7 @@ export default function NeighborhoodMapCanvas({
       try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(latestRawBboxRef.current ?? bbox)); } catch { /* quota 등 저장 실패 무시 */ }
       suppressAutoBubbleIdRef.current = null;
       suppressPanelRebuildRef.current = false;
+      setAutoBubbleBbox(bbox);
       setViewportBbox(bbox);
       setViewportRawBbox(latestRawBboxRef.current);
       return;
@@ -496,6 +500,11 @@ export default function NeighborhoodMapCanvas({
       // 뷰포트 기억: 이동/줌이 멎은 시점의 뷰포트를 저장 → 재진입 시 복원 (raw bbox — 위와 동일 이유)
       try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(latestRawBboxRef.current ?? bbox)); } catch { /* quota 등 저장 실패 무시 */ }
       suppressAutoBubbleIdRef.current = null; // 새 조작 = 억제 해제
+      // 자동 말풍선용 bbox 는 mode 와 무관하게 항상 커밋한다 — region 모드에서 bboxFilter 가
+      // null 이라(설계: fetch/카운트를 폴리곤 기준으로 하기 위함) 자동 말풍선 이펙트가 조기
+      // return 되어 "지역 선택 시 말풍선이 아예 안 뜨는" 버그가 있었다(대표 지적 2026-08-03).
+      // fetch/카운트/리스트 경로(bboxFilter)는 건드리지 않는다 — 말풍선 중앙 판정 전용.
+      setAutoBubbleBbox(bbox);
       if (modeRef.current !== 'region') {
         suppressPanelRebuildRef.current = false;
         setViewportBbox(bbox);
@@ -555,6 +564,11 @@ export default function NeighborhoodMapCanvas({
 
   // 업체 핀 레이어 (SGR-323, G-1) — 매물·피드와 동일한 줌 게이트를 지키며(결정사항 2),
   // region 모드에서는 폴리곤 외접 bbox로 조회한다.
+  // 게이트를 viewport 모드에만 거는 이유: viewport 모드 게이트는 "줌아웃 광역 bbox 로 서버를
+  // 계속 때리는 것" 방지가 목적인데, region 모드 조회는 선택 폴리곤 외접 bbox 고정이라 그
+  // 문제가 없고, 이 결과가 하단 시트 리스트(visibleBiz)까지 먹이므로 줌아웃했다고 비우면
+  // 시트 리스트가 함께 사라진다. 줌아웃 시 핀/말풍선 정리는 SaigonMapV5 내부 LOD 와
+  // showDistrictBadges 정리 이펙트가 담당한다(2026-08-04).
   useEffect(() => {
     if (isSearching) return;
     if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
@@ -658,6 +672,8 @@ export default function NeighborhoodMapCanvas({
     // POI 상시 참조 레이어 (Phase A-2) — 매물/피드/업체 탭 배타 구조와 무관하게 항상 표시.
     // L3 상세지도 부활 게이트(childLightweight, 상단 L3_ENABLED 파생)로 켜고 끈다.
     // 마커 빌드는 buildPoiLayer(renderPoiLayer 역할)로 분리. ※ r/색은 시작값, 실기 조정 대상.
+    // POI 는 지역선택 모드에서도 외부까지 그대로 노출한다 — 외부지역은 감쇠(de-emphasis)이지
+    // 제거가 아니다. 컬링했더니 선택 동이 맥락 없이 떠 보여 반려됐다(2026-08-04).
     const poiMarkers: MapMarkerV2[] = childLightweight ? [] : buildPoiLayer(poiItems, i18n.language);
     // z-order: POI(배경 지표)를 배열 앞에 깔아 업체/콘텐츠 마커가 항상 위에 그려지게 한다.
     if (isSearching) {
@@ -714,8 +730,9 @@ export default function NeighborhoodMapCanvas({
   };
 
   // 업체 핀 "직접 터치" (W2) — 시트 스냅 대신 포스트 패널을 연다. 캐러셀 후보 = 같은
-  // 소스(검색 중이면 검색 결과, 아니면 뷰포트 업체) 중 최신 소식 보유 업체를 탭한 업체
-  // 기준 가까운 순으로. 탭한 업체 자신은 소식이 없어도 항상 선두(폴백 카피 카드).
+  // 소스(검색 중이면 검색 결과, 아니면 뷰포트 업체) 전량. 소식 유무는 포함 조건이 아니라
+  // 정렬 우선순위다(대표 결정 2026-08-04) — 과거 `&& b.latestNews` 포함 필터는 소식 없는
+  // 업체를 전부 탈락시켜 캐러셀이 상시 1~2장으로 무력화됐다. 탭한 업체는 항상 선두.
   // 포스트 패널에서 포커싱된 업체의 최신 소식을 읽음 처리 (W4) — readVersion 이 markers 재계산을 트리거.
   const markBizAsRead = (biz: BizMapItem) => {
     if (biz.latestNews) {
@@ -727,7 +744,10 @@ export default function NeighborhoodMapCanvas({
   const openPostPanel = (biz: BizMapItem) => {
     const source = isSearching ? bizSearchResults : visibleBiz;
     const d2 = (b: BizMapItem) => (b.lat - biz.lat) ** 2 + (b.lng - biz.lng) ** 2;
-    const others = source.filter((b) => b.id !== biz.id && b.latestNews).sort((a, b) => d2(a) - d2(b));
+    // 정렬: 소식 있는 업체(거리순) → 소식 없는 업체(거리순). 필터가 아닌 정렬로만 차등한다.
+    const others = source
+      .filter((b) => b.id !== biz.id)
+      .sort((a, b) => (Number(!!b.latestNews) - Number(!!a.latestNews)) || (d2(a) - d2(b)));
     setCarouselItems([biz, ...others].map((b): PanelItem => ({ kind: 'biz', biz: b })));
     setCarouselIndex(0);
     setPostPanelOpen(true);
@@ -791,12 +811,20 @@ export default function NeighborhoodMapCanvas({
   useEffect(() => {
     // postPanelOpen 가드: 캐러셀 recenter 가 커밋한 bbox 로 이 이펙트가 재점화해
     // 패널과 말풍선이 같은 업체에 이중 노출되는 것을 차단 (분석 리스크 #2)
-    if (isSearching || !bboxFilter || postPanelOpen) return;
-    const latSpan = bboxFilter.N - bboxFilter.S;
-    if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) return;
-    const lngSpan = bboxFilter.E - bboxFilter.W;
-    const cLat = (bboxFilter.N + bboxFilter.S) / 2;
-    const cLng = (bboxFilter.E + bboxFilter.W) / 2;
+    if (isSearching || !autoBubbleBbox || postPanelOpen) return;
+    const latSpan = autoBubbleBbox.N - autoBubbleBbox.S;
+    if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) {
+      // 임계 초과 줌아웃 — 기존 선택을 스스로 해제하고 비활성. 조기 return 만 하면 핀 없는
+      // 지도에 말풍선만 고아로 남아, 게이트 정리 이펙트(showDistrictBadges)에 의존하게 된다.
+      if (selectedBizRef.current) {
+        setSelectedBiz(null);
+        setSelectedId(null);
+      }
+      return;
+    }
+    const lngSpan = autoBubbleBbox.E - autoBubbleBbox.W;
+    const cLat = (autoBubbleBbox.N + autoBubbleBbox.S) / 2;
+    const cLng = (autoBubbleBbox.E + autoBubbleBbox.W) / 2;
     let best: BizMapItem | null = null;
     let bestD = Infinity;
     for (const b of visibleBiz) {
@@ -815,7 +843,7 @@ export default function NeighborhoodMapCanvas({
       setSelectedBiz(null);
       setSelectedId(null);
     }
-  }, [bboxFilter, visibleBiz, isSearching, postPanelOpen]);
+  }, [autoBubbleBbox, visibleBiz, isSearching, postPanelOpen]);
 
   // 뒤로가기 복원 2단계 (선택 UI) — 업체 fetch 가 실제 완료된 뒤 1회만 소비한다. 대상이
   // 결과에 없으면(뷰포트 밖·삭제) 조용히 스킵. 반드시 자동 말풍선 이펙트 "뒤"에 선언:
@@ -847,9 +875,9 @@ export default function NeighborhoodMapCanvas({
   useEffect(() => {
     const focused = focusedItemRef.current;
     if (showDistrictBadges && focused && focused.kind !== 'biz') closePostPanel();
-    // 업체 말풍선(selectedBiz)도 핀과 함께 정리 — 자동 말풍선 이펙트는 게이트 밖 스팬에서
-    // 조기 return(AUTO_BUBBLE_MAX_LAT_SPAN 초과)이라 스스로 해제하지 못해, 핀 없는 지도에
-    // 말풍선만 고아로 남는다. 다시 게이트 안으로 줌인하면 기존 조건대로 자연 재점화.
+    // 업체 말풍선(selectedBiz)도 핀과 함께 정리 — 자동 말풍선 이펙트가 스팬 초과 시 스스로
+    // 해제하지만(2026-08-04), 게이트(L2/L3 진입)와 스팬 임계(AUTO_BUBBLE_MAX_LAT_SPAN)가
+    // 서로 다른 기준이라 안전망으로 여기서도 함께 정리한다. 줌인하면 자연 재점화.
     if (showDistrictBadges && selectedBizRef.current) {
       setSelectedBiz(null);
       setSelectedId(null);
@@ -1168,6 +1196,9 @@ export default function NeighborhoodMapCanvas({
         searchFitRef={searchFitRef}
         forceMarkers={isSearching}
         polyActive={mode === 'region'}
+        // 선택 동 좌표를 직접 넘겨 selWard 를 맞춘다 — initialViewport 복원 경로에서는
+        // focusLatLng 가 호출되지 않아 selWard 가 null 로 남아 경계가 안 그려졌다(대표 지적).
+        activeRegionAt={mode === 'region' ? storedCoords : null}
         onLocate={mode === 'region' ? resetToViewport : undefined}
         selectRegionOnLocate={false}
         focusPointRef={focusPointRef}
@@ -1280,8 +1311,11 @@ export default function NeighborhoodMapCanvas({
 
       {/* 줌 게이트 힌트 필 — mapTools 와 세트로 시트를 따라가는 지도 우측 floating.
           숨김 규칙(검색·full 스냅·포스트패널)은 mapTools 와 동일 + 게이트 미통과일 때만 노출.
-          탭 = 현재 뷰포트 중심으로 순수 확대(zoomInRef). */}
-      {!isSearching && mode === 'viewport' && showDistrictBadges && (
+          탭 = 현재 뷰포트 중심으로 순수 확대(zoomInRef).
+          region 모드에도 노출(2026-08-04) — 지역 선택 + 줌아웃이면 핀/말풍선이 정리돼 빈
+          지도가 되므로 마켓 지도와 동일하게 확대 안내가 필요하다. 확대 타겟은 viewportCenter
+          가 region 모드에서 null(mode 게이트)이라 autoBubbleBbox(모드 무관 커밋) 중심 폴백. */}
+      {!isSearching && showDistrictBadges && (
         <button
           type="button"
           ref={setZoomPillRef}
@@ -1293,7 +1327,12 @@ export default function NeighborhoodMapCanvas({
                 ? { display: 'none' }
                 : { bottom: 'calc(var(--sheet-visible-h, 0px) + 14px)' }
           }
-          onClick={() => (viewportCenter ? zoomInRef.current?.(viewportCenter) : locateRef.current?.())}
+          onClick={() => {
+            const target = viewportCenter
+              ?? (autoBubbleBbox ? { lat: (autoBubbleBbox.N + autoBubbleBbox.S) / 2, lng: (autoBubbleBbox.E + autoBubbleBbox.W) / 2 } : null);
+            if (target) zoomInRef.current?.(target);
+            else locateRef.current?.();
+          }}
         >
           <ZoomIn size={14} strokeWidth={2.2} aria-hidden="true" /> {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
         </button>
@@ -1364,18 +1403,9 @@ export default function NeighborhoodMapCanvas({
         embedded
         initialSnap="collapsed"
         floatingTopLeft={!isSearching && selectedRegion ? (
-          <button
-            type="button"
-            className={styles.areaPill}
-            onClick={clearRegionFilter}
-            aria-label={t('map.clearRegion')}
-          >
-            <span className={styles.areaPillIcon}>
-              <MapPin size={13} fill="currentColor" />
-            </span>
-            <span>{selectedRegion.name}</span>
-            <span className={styles.areaPillClose}><X size={15} strokeWidth={2.4} /></span>
-          </button>
+          // 지역 필터 pill — 마켓 지도와 공유하는 AreaPill 로 추출(대표 지적 2026-08-04).
+          // 마크업·스타일 값은 종전 인라인 버전 그대로라 픽셀 변화 없음.
+          <AreaPill name={selectedRegion.name} onClear={clearRegionFilter} />
         ) : undefined}
         // 지도보기 필을 시트 바깥 하단 floating 버튼으로 이동(아래 참조) — 위쪽에 확보된
         // 여백만큼 maxHeight 를 65vh → 72vh 로 확장했으나, 72vh는 px 기반 상단 고정 영역

@@ -121,7 +121,9 @@ export function PostPanel({ items, index, viewerCount, catLabel, onIndexChange, 
     if (it.kind === 'biz') {
       const b = it.biz;
       const news = b.latestNews;
-      const photo = news?.photos[0];
+      // 소식 없는 업체 카드 폴백(대표 승인 2026-08-04) — 소식 사진이 없으면 대표 사진으로
+      // 채운다. 필터→정렬 전환으로 소식 없는 카드 노출이 늘어 빈 카드 방지가 필요해졌다.
+      const photo = news?.photos[0] ?? b.photoUrl;
       return (
         <>
           {/* cardBody(button) 안에 button 중첩은 불가 — 형제로 두고 cardHead 우측에 absolute 배치 */}
@@ -168,12 +170,17 @@ export function PostPanel({ items, index, viewerCount, catLabel, onIndexChange, 
               <p className={styles.copy}>
                 {news
                   ? news.title
-                  : <>{b.category && catLabel ? t('map.bizNews.categoryCopy', { category: catLabel(b.category) }) : ''}{b.address ?? t('map.bizNews.fallbackCopy')}</>}
+                  // 폴백 우선순위: 카테고리+주소(말풍선 bizNewsOverlay 와 동일 패턴) →
+                  // 둘 다 없으면 "아직 등록된 소식이 없어요" 한 줄 (대표 승인안, 기존 키 재사용)
+                  : (b.category || b.address)
+                    ? <>{b.category && catLabel ? t('map.bizNews.categoryCopy', { category: catLabel(b.category) }) : ''}{b.address ?? t('map.bizNews.fallbackCopy')}</>
+                    : t('biz.publicNewsEmpty')}
               </p>
               {photo && (
                 <div className={styles.thumbWrap}>
                   <AppImage src={photo} alt="" className={styles.thumb} />
-                  {news!.photos.length > 1 && <span className={styles.thumbMore}>+{news!.photos.length - 1}</span>}
+                  {/* +N 배지는 실소식 사진에만 — 대표 사진 폴백은 1장 고정 */}
+                  {news && news.photos.length > 1 && <span className={styles.thumbMore}>+{news.photos.length - 1}</span>}
                 </div>
               )}
             </div>

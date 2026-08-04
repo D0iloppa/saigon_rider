@@ -31,7 +31,7 @@ import { RadioCircle } from '@/components/ui/RadioCircle';
 import { toast } from '@/components/ui/Toast';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { haversineM } from '@/lib/polyline';
-import { requestDeviceLocation } from '@/lib/serviceLocation';
+import { requestDeviceLocation, resolveUsableLocation } from '@/lib/serviceLocation';
 // 지역 선택 시트 마크업/스타일은 마켓(MarketMain)의 것을 재사용 — 화면 로컬 상태로만 다룬다.
 // 대표 결정(2026-07-27, ai-docs/context/frontend-page-map.md:128): 리스트뷰를
 // useLocationStore(홈/정보 화면 공유 전역 SoT)에 opt-in 시키는 통합안을 검토했으나 보류·현행
@@ -89,9 +89,15 @@ export default function NeighborhoodMap() {
     if (!Number.isFinite(rlat) || !Number.isFinite(rlng)) return null;
     return wardRegionAt(rlat, rlng);
   });
-  const [regionMode, setRegionMode] = useState<'all' | 'region'>(() => (selectedRegion ? 'region' : 'all'));
+  // 마켓(MarketMain.locationMode)과 동일한 3옵션 — 'all' | 'gps' | 'region' (대표 지시 2026-08-03:
+  // 동네지도에만 '내 현재 위치'가 없어 마켓과 통일성이 없다). 'gps' 는 GPS 좌표가 속한 동을
+  // 찾아 그 동으로 좁히는 것 — 마켓과 같은 행정동 매칭이라 이후 필터 경로는 'region' 과 동일하다.
+  const [regionMode, setRegionMode] = useState<'all' | 'gps' | 'region'>(() => (selectedRegion ? 'region' : 'all'));
+  // 한 동으로 범위가 좁혀진 상태 — 'gps'/'region' 둘 다 selectedRegion 을 보유하므로 필터·bbox·
+  // 라벨 경로가 동일하다('all' 만 호치민 전역).
+  const regionScoped = regionMode !== 'all';
   const [locSheetOpen, setLocSheetOpen] = useState(false);
-  const [draftMode, setDraftMode] = useState<'all' | 'region'>('all');
+  const [draftMode, setDraftMode] = useState<'all' | 'gps' | 'region'>('all');
   const [draftRegion, setDraftRegion] = useState<SelectedRegion | null>(null);
 
   useEffect(() => {
@@ -131,7 +137,7 @@ export default function NeighborhoodMap() {
     setLoading(true);
     setError(false);
 
-    const bbox = regionMode === 'region' && selectedRegion ? regionBbox(selectedRegion) : HCMC_BBOX;
+    const bbox = regionScoped && selectedRegion ? regionBbox(selectedRegion) : HCMC_BBOX;
 
     fetchBizMapItems({
       ...bbox,
@@ -147,7 +153,7 @@ export default function NeighborhoodMap() {
       // 이웃 동 업체가 섞여 "동네 가게"에 다른 동 업체가 나오는 걸 막기 위해 폴리곤 정확
       // 매칭으로 한 번 더 좁힌다(regionContains 는 wardRegionAt 이미 쓰는 동일 함수).
       const filtered =
-        regionMode === 'region' && selectedRegion
+        regionScoped && selectedRegion
           ? items.filter((biz) => regionContains(selectedRegion, biz.lat, biz.lng))
           : items;
       setBizItems(filtered);
@@ -170,7 +176,7 @@ export default function NeighborhoodMap() {
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     if (bizCategory) next.set('cat', bizCategory); else next.delete('cat');
-    if (regionMode === 'region' && selectedRegion) {
+    if (regionScoped && selectedRegion) {
       next.set('rlat', String(selectedRegion.lat));
       next.set('rlng', String(selectedRegion.lng));
     } else {
@@ -188,10 +194,42 @@ export default function NeighborhoodMap() {
     setLocSheetOpen(true);
   };
 
+  // '내 현재 위치' — 마켓(handlePickGPS)과 동일 경로: resolveUsableLocation 으로 좌표를 얻어
+  // 그 좌표가 속한 동을 찾아 필터 범위로 삼는다(행정동 매칭). 이후 필터 로직은 'region' 과 동일.
+  const applyGpsLocation = async () => {
+    try {
+      const loc = await resolveUsableLocation();
+      if (loc.source === 'fallback') {
+        toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
+      }
+      const region = wardRegionAt(loc.coords.lat, loc.coords.lng);
+      if (!region) {
+        toast.warning(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
+        return;
+      }
+      setUserPos(loc.coords);
+      setRegionMode('gps');
+      setSelectedRegion(region);
+      setLocSheetOpen(false);
+    } catch (err: unknown) {
+      const code = (err as { code?: number } | null)?.code;
+      if (code === 1) {
+        toast.warning(t('map.listFirst.nearMeDenied'));
+      } else if (code === 3) {
+        toast.warning(t('map.listFirst.nearMeTimeout'));
+      } else {
+        toast.warning(t('map.listFirst.nearMeUnavailable'));
+      }
+    }
+  };
+
   const applyLocation = () => {
     if (draftMode === 'all') {
       setRegionMode('all');
       setSelectedRegion(null);
+    } else if (draftMode === 'gps') {
+      void applyGpsLocation();
+      return;
     } else if (draftRegion) {
       setRegionMode('region');
       setSelectedRegion(draftRegion);
@@ -223,7 +261,7 @@ export default function NeighborhoodMap() {
       <Suspense fallback={<div className={styles.mapLoading}>{t('map.listFirst.loadingMap')}</div>}>
         <NeighborhoodMapCanvas
           initialBizCategory={bizCategory}
-          initialRegion={regionMode === 'region' ? selectedRegion : null}
+          initialRegion={regionScoped ? selectedRegion : null}
           lightweight
           onExitMap={() => navigate(-1)}
         />
@@ -240,7 +278,7 @@ export default function NeighborhoodMap() {
           <button type="button" className={styles.locationBtn} onClick={openLocationSheet}>
             <span className={styles.eyebrow}>{t('map.listFirst.myArea')}</span>
             <h1>
-              {regionMode === 'region' && selectedRegion ? selectedRegion.name : t('market.allAreas')}
+              {regionScoped && selectedRegion ? selectedRegion.name : t('market.allAreas')}
               <span className={styles.caret}><ChevronDown size={20} strokeWidth={2.4} /></span>
             </h1>
           </button>
@@ -361,10 +399,10 @@ export default function NeighborhoodMap() {
           <div className={marketStyles.locHeader}>
             <span className={marketStyles.locEyebrow}>{t('market.locationScope')}</span>
             <strong className={marketStyles.locCurrent}>
-              {regionMode === 'region' && selectedRegion ? selectedRegion.name : t('market.allAreas')}
+              {regionScoped && selectedRegion ? selectedRegion.name : t('market.allAreas')}
             </strong>
             <p className={marketStyles.locDesc}>
-              {regionMode === 'region' ? t('market.locationMetaRegion') : t('market.locationMetaAll')}
+              {regionMode === 'all' ? t('market.locationMetaAll') : regionMode === 'gps' ? t('market.locationMetaGps') : t('market.locationMetaRegion')}
             </p>
           </div>
 
@@ -378,6 +416,19 @@ export default function NeighborhoodMap() {
               <span className={marketStyles.locCardText}>{t('market.locationMetaAll')}</span>
             </span>
             <span className={marketStyles.locCardCheck}><RadioCircle checked={draftMode === 'all'} /></span>
+          </button>
+
+          {/* '내 현재 위치' — 마켓 시트와 동일한 두 번째 옵션 (아이콘·문구·순서 일치) */}
+          <button
+            className={`${marketStyles.locCard} ${draftMode === 'gps' ? marketStyles.locCardActive : ''}`}
+            onClick={() => setDraftMode('gps')}
+          >
+            <span className={marketStyles.locCardIcon}><LocateFixed size={20} strokeWidth={2} /></span>
+            <span className={marketStyles.locCardBody}>
+              <strong className={marketStyles.locCardTitle}>{t('market.currentLocation')}</strong>
+              <span className={marketStyles.locCardText}>{t('market.locationMetaGps')}</span>
+            </span>
+            <span className={marketStyles.locCardCheck}><RadioCircle checked={draftMode === 'gps'} /></span>
           </button>
 
           <button

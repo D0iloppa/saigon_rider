@@ -56,6 +56,25 @@ def locate_ward_slug(lat: float, lng: float) -> str | None:
     return None
 
 
+def locate_ward_name(lat: float, lng: float) -> str | None:
+    """좌표를 포함하는 동의 표시명(depth1 `n`). wards.name_vi 와 매칭하는 용도.
+
+    프론트(wardRegionAt / resolveWardByCoords, 2ddcbd5 이후)와 같은 폴리곤 판정을 서버에서도
+    쓸 수 있게 슬러그 대신 이름을 돌려주는 변형이다 — 슬러그는 wards 테이블에 없다.
+    """
+    data = _geometry()
+    bbox = data["bbox"]
+    point = (
+        (float(lng) - bbox["W"]) / (bbox["E"] - bbox["W"]) * data["VW"],
+        (bbox["N"] - float(lat)) / (bbox["N"] - bbox["S"]) * data["VH"],
+    )
+    for ward in data["wards"]:
+        ring = [tuple(map(float, value.split(","))) for value in ward["p"].split()]
+        if _ring_covers(ring, point):
+            return ward.get("n")
+    return None
+
+
 def in_service_area(lat: float, lng: float) -> bool:
     return locate_ward_slug(lat, lng) is not None
 

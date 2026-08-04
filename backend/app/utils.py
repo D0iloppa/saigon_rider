@@ -264,11 +264,33 @@ async def find_nearest_ward_id(db, lat: float, lng: float, city: str = "HCMC") -
     from sqlalchemy import select
 
     from .models import Ward
-    from .services.service_area import in_service_area
+    from .services.service_area import in_service_area, locate_ward_name
 
     if city.upper() == "HCMC" and not in_service_area(lat, lng):
         return None
 
+    lat_f0, lng_f0 = float(lat), float(lng)
+
+    # 폴리곤 우선 — 프론트(resolveWardByCoords / wardRegionAt)가 2ddcbd5 에서 폴리곤 우선으로
+    # 바뀐 뒤에도 이 쓰기 경로만 최근접-중심점으로 남아 있어, 같은 좌표를 서버는 Bến Thành,
+    # 프론트는 Sài Gòn 으로 판정하는 불일치가 있었다. 그 결과 매물이 ward_id=42(Bến Thành)로
+    # 저장되는데 마켓 지도/리스트는 ward_id=43(Sài Gòn)으로 필터해 "내 동네에 올린 매물이
+    # 안 보이는" 사고가 났다(2026-08-03 회귀검증에서 발견). 판정 기준을 프론트와 통일한다.
+    name = locate_ward_name(lat_f0, lng_f0) if city.upper() == "HCMC" else None
+    if name:
+        matched = (
+            await db.execute(
+                select(Ward.id).where(
+                    Ward.is_active == True,
+                    Ward.city_code == city.upper(),
+                    Ward.name_vi == name,
+                )
+            )
+        ).scalar_one_or_none()
+        if matched is not None:
+            return matched
+
+    # 폴백: 폴리곤 매칭 실패(이름 불일치, 커버리지 밖) 시 기존 최근접-중심점 방식 유지.
     wards = (
         await db.execute(
             select(Ward.id, Ward.center_lat, Ward.center_lng).where(

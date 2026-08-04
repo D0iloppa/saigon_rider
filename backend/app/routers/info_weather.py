@@ -26,6 +26,12 @@ router = APIRouter(prefix="/info/weather", tags=["Info — 날씨"])
 
 _OPENWEATHER_BASE = "https://api.openweathermap.org/data/2.5"
 _RAINVIEWER_META_URL = "https://api.rainviewer.com/public/weather-maps.json"
+# 시간단위 강수확률 보조 소스 (키 불요). OpenWeather 2.5 /forecast 는 3시간 스텝이라 그 첫
+# 버킷 pop 을 "1시간 내 확률"로 쓰면 최대 3시간 뒤 값이 표시된다 — 호치민 우기의 국지 소나기
+# 에서 이 오차가 "비 오는데 0%"로 드러났다(2026-08-03 대표 지적: 20:15 실제 강수 중 앱 0%,
+# 같은 시각 OpenWeather 12h 전 구간 0% / open-meteo 향후 1h 37%).
+# OpenWeather 3시간 pop 은 폴백으로 유지한다 — 보조 소스 실패가 화면 실패로 번지지 않게.
+_OPENMETEO_URL = "https://api.open-meteo.com/v1/forecast"
 
 _TTL_CURRENT = int(os.getenv("WEATHER_CACHE_TTL_CURRENT", "600"))
 _TTL_FORECAST_1H = int(os.getenv("WEATHER_CACHE_TTL_FORECAST_1H", "1800"))
@@ -75,10 +81,16 @@ def _condition_emoji(condition: str) -> str:
 
 
 def _recommendation_code(rain_prob_1h: int) -> str:
-    """라이딩 추천 코드. 문구는 프론트가 i18n 으로 번역(rain_prob_1h 는 current 에 동봉)."""
-    if rain_prob_1h >= 80:
+    """라이딩 추천 코드. 문구는 프론트가 i18n 으로 번역(rain_prob_1h 는 current 에 동봉).
+
+    임계값(80/50 → 70/30)은 강수확률 소스가 OpenWeather 3시간 버킷에서 open-meteo 시간단위로
+    바뀐 것에 맞춘 재조정이다. 3시간 창의 50% 와 1시간 창의 50% 는 전혀 다른 사건이고,
+    호치민 우기의 국지 소나기는 1시간 30% 만으로도 라이더에게 실질 위험이다 — 실제로
+    26% 구간이 "강수 없음"으로 표시되던 것이 2026-08-03 사고의 잔여 표면이었다.
+    """
+    if rain_prob_1h >= 70:
         return "RAIN_HIGH"
-    if rain_prob_1h >= 50:
+    if rain_prob_1h >= 30:
         return "RAIN_MED"
     return "CLEAR"
 
@@ -120,6 +132,32 @@ async def _fetch_openweather_forecast(lat: float, lng: float, api_key: str) -> d
         log.warning("OpenWeather forecast API returned %s", r.status_code)
         raise HTTPException(status_code=502, detail="Weather forecast unavailable")
     return r.json()
+
+
+async def _fetch_openmeteo_rain_prob_1h(lat: float, lng: float) -> int | None:
+    """향후 1시간 강수확률(%). 보조 소스이므로 실패 시 예외를 올리지 않고 None 을 돌려준다."""
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                _OPENMETEO_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lng,
+                    "hourly": "precipitation_probability",
+                    "forecast_hours": 2,
+                    "timezone": "UTC",
+                },
+            )
+        if r.status_code != 200:
+            log.warning("open-meteo returned %s", r.status_code)
+            return None
+        probs = r.json().get("hourly", {}).get("precipitation_probability") or []
+    except (httpx.RequestError, ValueError) as exc:
+        log.warning("open-meteo request failed: %s", exc)
+        return None
+    # 첫 두 시간 중 최대값 — 정시 경계 직전에 다음 시간 확률이 더 실효적이라 보수적으로 택한다.
+    values = [int(p) for p in probs[:2] if p is not None]
+    return max(values) if values else None
 
 
 async def _get_cached(db: AsyncSession, district_code: str, weather_type: str) -> dict | None:
@@ -369,7 +407,29 @@ async def get_weather(
         if forecast_data is None:
             raise
 
-    rain_prob_1h = forecast_data["hourly"][0]["rain_prob"] if forecast_data["hourly"] else 0
+    # 강수확률 — 1순위: open-meteo 시간단위(진짜 1시간). 실패 시 OpenWeather 3시간 버킷으로 폴백하고,
+    # 창(window) 길이를 함께 내려 프론트가 "1시간/3시간"을 정직하게 라벨링하게 한다.
+    async def produce_rain_prob() -> dict:
+        prob = await _fetch_openmeteo_rain_prob_1h(lat, lng)
+        if prob is None:
+            raise HTTPException(status_code=502, detail="Rain probability unavailable")
+        return {"rain_prob": prob, "window_h": 1}
+
+    try:
+        rain_prob_data = await _cached_or_singleflight(
+            db,
+            district=cache_key,
+            lat=lat,
+            lng=lng,
+            weather_type="rain_prob_1h",
+            ttl=_TTL_FORECAST_1H,
+            producer=produce_rain_prob,
+        )
+        rain_prob_1h = int(rain_prob_data["rain_prob"])
+        rain_prob_window_h = 1
+    except HTTPException:
+        rain_prob_1h = forecast_data["hourly"][0]["rain_prob"] if forecast_data["hourly"] else 0
+        rain_prob_window_h = 3
 
     # XP — 일일 1회
     today = datetime.now(UTC).strftime("%Y%m%d")
@@ -382,7 +442,7 @@ async def get_weather(
     forecast_public = {k: v for k, v in forecast_data.items() if not k.startswith("_")}
     return WeatherOut(
         location={"lat": lat, "lng": lng, "district": district},
-        current={**current_public, "rain_prob_1h": rain_prob_1h},
+        current={**current_public, "rain_prob_1h": rain_prob_1h, "rain_prob_window_h": rain_prob_window_h},
         forecast={"next_24h": forecast_public["hourly"]},
         recommendation_code="UNCERTAIN" if stale else _recommendation_code(rain_prob_1h),
         source="OPENWEATHER",
@@ -405,10 +465,20 @@ async def get_rain_radar(lat: Latitude, lng: Longitude, zoom: int = 11):
             raise HTTPException(status_code=502, detail="RainViewer data unavailable")
         latest = past[-1]
         ts = latest["time"]
+        # 타일 경로는 메타의 해시 path(`/v2/radar/5dd0a0746884`)여야 한다 — 과거엔 여기에
+        # timestamp 를 넣어 모든 타일이 "Zoom Level Not Supported" 플레이스홀더로 돌아왔고,
+        # 그래서 이 엔드포인트는 소비처 없이 사장돼 있었다(2026-08-03 발견).
+        host = meta.get("host") or "https://tilecache.rainviewer.com"
+        path = latest.get("path")
+        if not path:
+            raise HTTPException(status_code=502, detail="RainViewer data unavailable")
         return {
-            "tile_url": f"https://tilecache.rainviewer.com/v2/radar/{ts}/256/{{z}}/{{x}}/{{y}}/2/1_1.png",
+            "tile_url": f"{host}{path}/256/{{z}}/{{x}}/{{y}}/2/1_1.png",
             "last_updated": ts,
             "coverage": meta.get("radar", {}).get("coverage"),
+            # 무키(free) 티어는 z<=7 만 실제 타일을 준다(그 위는 플레이스홀더). API 키가 있으면
+            # 더 확대할 수 있어 값을 분기한다 — 프론트는 이 값으로 모자이크 줌을 정한다.
+            "max_zoom": 10 if os.getenv("RAINVIEWER_API_KEY") else 7,
         }
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail=f"RainViewer fetch failed: {exc}") from exc

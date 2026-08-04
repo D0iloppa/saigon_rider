@@ -26,6 +26,7 @@ import InfoSwitcher from '@/components/info/InfoSwitcher';
 import LocationContextBar from '@/components/info/LocationContextBar';
 import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
+import RainRadarCard from './RainRadarCard';
 import styles from './InfoWeather.module.css';
 
 /** OpenWeather condition 코드 → 아이콘/번역/색. 미등록 코드는 API 원문(condition_desc) 폴백. */
@@ -106,6 +107,9 @@ export default function InfoWeather() {
   const condLabel = condMeta ? t(`info.weather.${condMeta.labelKey}`) : (cur?.condition_desc ?? '');
   const HeroIcon = condMeta?.Icon ?? Cloud;
   const rideCode = data?.recommendation_code ?? '';
+  // 강수확률의 실제 창 길이 — 백엔드가 open-meteo 시간단위를 못 쓰면 3(OpenWeather 3시간 버킷).
+  // 과거엔 3시간 버킷 값을 문구에서 "1시간 내"로 단정해 오차가 그대로 사용자에게 갔다.
+  const rainWindowH = cur?.rain_prob_window_h ?? 3;
   const RideIcon = RIDE_META[rideCode]?.Icon ?? HelpCircle;
 
   const hourMeta = (h: ForecastHour) => CONDITION_META[h.condition] ?? { Icon: Cloud, labelKey: '', color: '#8A8E9E' };
@@ -177,10 +181,12 @@ export default function InfoWeather() {
                 <b className="num">{cur?.wind_kmh ?? '--'}km/h</b>
               </div>
             </div>
-            {cur && cur.rain_prob_1h >= 50 && (
+            {/* 임계 30% — 백엔드 _recommendation_code 의 RAIN_MED 경계와 일치시킨다
+                (강수확률 소스가 3시간 버킷 → 1시간 단위로 바뀐 데 따른 재조정) */}
+            {cur && cur.rain_prob_1h >= 30 && (
               <div className={styles.rainAlert}>
                 <CloudRain size={15} />
-                <span>{t('info.weather.rainAlert1h', { prob: cur.rain_prob_1h })}</span>
+                <span>{t('info.weather.rainAlert1h', { prob: cur.rain_prob_1h, window: rainWindowH })}</span>
               </div>
             )}
           </section>
@@ -194,7 +200,7 @@ export default function InfoWeather() {
               <div className={styles.rideBody}>
                 <div className={styles.rideLabel}>{t('info.weather.recommendation')}</div>
                 <div className={styles.rideText}>
-                  {t(`info.weather.rec_${data.recommendation_code}`, { prob: cur?.rain_prob_1h ?? 0 })}
+                  {t(`info.weather.rec_${data.recommendation_code}`, { prob: cur?.rain_prob_1h ?? 0, window: rainWindowH })}
                 </div>
               </div>
             </div>
@@ -223,6 +229,14 @@ export default function InfoWeather() {
               );
             })}
           </div>
+
+          {/* 강수 레이더 — 격자 예보가 놓치는 국지 소나기의 교차검증 수단(2026-08-03 사고 대응) */}
+          <div className={sys.sectionHead}>
+            <span className={sys.sectionLabel}>{t('info.weather.radarTitle')}</span>
+          </div>
+          <section className={sys.card}>
+            <RainRadarCard lat={coords.lat} lng={coords.lng} />
+          </section>
 
           {/* 비 알림 구독 */}
           <div className={sys.sectionHead}>

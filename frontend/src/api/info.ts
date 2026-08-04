@@ -11,6 +11,12 @@ export interface WeatherCurrent {
   humidity: number;
   wind_kmh: number;
   rain_prob_1h: number;
+  /**
+   * rain_prob_1h 이 실제로 몇 시간 창의 확률인지 — 1: open-meteo 시간단위(정상),
+   * 3: OpenWeather 3시간 버킷 폴백. 문구를 이 값에 맞춰 라벨링해야 한다(과거엔 3시간 값을
+   * "1시간 내"로 표시했다). 구버전 응답 호환을 위해 optional.
+   */
+  rain_prob_window_h?: 1 | 3;
 }
 
 export interface ForecastHour {
@@ -36,6 +42,8 @@ export interface WeatherData {
 export interface RainRadarData {
   tile_url: string;
   last_updated: number;
+  /** 실제 타일이 존재하는 최대 줌. 무키 RainViewer 는 7 (그 위는 "Zoom Level Not Supported" 이미지). */
+  max_zoom?: number;
 }
 
 export interface FloodReport {

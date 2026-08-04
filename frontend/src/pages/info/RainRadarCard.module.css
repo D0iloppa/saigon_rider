@@ -1,0 +1,101 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 260px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #eef2f5;
+  border: 1px solid var(--line-1, #e6e3dc);
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 동 경계 — 위치 기준선. 레이더 셀을 가리지 않게 채움 없이 얇게. */
+.wards polygon {
+  fill: #f7f6f2;
+  stroke: #c9d2d8;
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+}
+
+.me circle {
+  fill: var(--brand-500, #ff5a1f);
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.meRing {
+  fill: none;
+  stroke: var(--brand-500, #ff5a1f);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+.meLabel {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 18px);
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-600, #e84c00);
+  background: rgba(255, 255, 255, 0.88);
+  padding: 1px 6px;
+  border-radius: 6px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.skel {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #eceff2 25%, #f4f6f8 37%, #eceff2 63%);
+  background-size: 400% 100%;
+  animation: radarShimmer 1.4s ease infinite;
+}
+
+@keyframes radarShimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.meta > span:first-child {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2, #6b7280);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-3, #9aa0a6);
+  line-height: 1.4;
+}
+
+.failed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-3, #9aa0a6);
+  background: var(--surface-2, #f6f5f1);
+  border-radius: 12px;
+}

@@ -6,6 +6,8 @@
  * SVG viewBox: 0 0 400 280
  */
 
+import { wardRegionAt } from './v2/wardRegions';
+
 export type DistrictZone = 'center' | 'inner' | 'outer';
 export type DistrictSpecial = 'new_district'; // Saigon (점선 오렌지 보더, 신설)
 
@@ -131,7 +133,7 @@ export const HCMC_DISTRICTS: District[] = [
     polygon: '185,130 200,125 200,135 205,155 192,158 182,148',
     label: { x: 193, y: 143, fontSize: 6 },
     gps: { lat: 10.7720, lng: 106.6960 } },
-  { code: 'SAIGON', nameVi: 'Saigon', nameKo: '사이공', oldDistrict: 'Q.1', zone: 'center', special: 'new_district',
+  { code: 'SAIGON', nameVi: 'Sài Gòn', nameKo: '사이공', oldDistrict: 'Q.1', zone: 'center', special: 'new_district',
     polygon: '200,118 220,115 225,128 215,128 200,128',
     label: { x: 212, y: 124, fontSize: 5.5 },
     gps: { lat: 10.7665, lng: 106.7000 } },
@@ -179,6 +181,16 @@ export function districtLabelByCode(code: string): string {
 /** GPS 좌표로 가장 가까운 district (단순 유클리드) */
 export function findNearestDistrict(lat: number, lng: number): District | null {
   if (!HCMC_DISTRICTS.length) return null;
+
+  // 폴리곤 우선: 좌표가 실제로 속한 동(depth1 폴리곤)을 찾아 이름으로 매칭한다.
+  // (기존 최근접-중심점 방식은 폴리곤 안에 있어도 더 가까운 이웃 동 중심을 골라버리는 문제가 있었다.)
+  const region = wardRegionAt(lat, lng);
+  if (region) {
+    const matched = HCMC_DISTRICTS.find((d) => d.nameVi === region.name);
+    if (matched) return matched;
+  }
+
+  // 폴백: 폴리곤 매칭 실패 시(이름 불일치, depth1 커버리지 밖 등) 기존 최근접-중심점 방식 유지.
   let nearest = HCMC_DISTRICTS[0];
   let minDist = Infinity;
   for (const d of HCMC_DISTRICTS) {

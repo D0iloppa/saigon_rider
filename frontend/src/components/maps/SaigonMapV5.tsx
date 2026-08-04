@@ -393,6 +393,11 @@ function SaigonMapV5({
   const lastAssetSeqRef = useRef(0);
   const prevLOD = useRef({ l2: false, l3: false });
   const didAutoLocate = useRef(false);
+  // 마운트 시점의 locateOnMount 값 — 이후 prop 이 false→true 로 뒤집혀도 자동 locate 를 하지 않는다.
+  // 호출부가 이 prop 을 반응형 조건(mode==='viewport' / locationMode==='all')에 묶어 두어, 지역
+  // 필터 ✕ 해제로 조건이 참이 되는 순간 GPS 재측정 + 카메라 딥줌이 발화하던 버그(대표 지적
+  // 2026-08-04: "필터만 풀려야 하는데 위치도 다시 잡고 다시 렌더링") — prop 이름대로 마운트 1회로 고정.
+  const locateOnMountAtMount = useRef(locateOnMount);
   // 라벨 디클러터 히스테리시스 — 직전 프레임의 표시 라벨 집합(깜빡임 방지용)
   const prevVisibleRef = useRef<ReadonlySet<string | number>>(new Set());
   // 마운트 rAF(빈 deps)가 최신 focusLatLng 를 부르기 위한 latest-ref (onViewportChangeRef 와 동일 패턴)
@@ -800,11 +805,11 @@ function SaigonMapV5({
     // initialGps 마운트 포커스는 레이아웃 rAF(위 초기화 이펙트)로 이관됨 — 여기는 자동 locate 만.
     // didAutoLocate 가드: runLocate는 부모 prop에 의존해 재생성될 수 있어 이 이펙트가 여러 번
     // 재실행될 수 있음 — 가드 없이는 그때마다 GPS를 다시 측정(마운트당 1회만 허용).
-    if (locateOnMount && !didAutoLocate.current) {
+    if (locateOnMountAtMount.current && !didAutoLocate.current) {
       didAutoLocate.current = true;
       void runLocate();
     }
-  }, [locateOnMount, runLocate]);
+  }, [runLocate]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();

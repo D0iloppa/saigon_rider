@@ -2,6 +2,12 @@ networks:
   dev-net:
     driver: bridge
     name: ${NETWORK_BRIDGE}
+  # 상위 hop 게이트웨이(doil-gw)와의 직결 브리지. 멤버는 doil-gw / saigon_nginx 둘뿐이다.
+  # doil-gw 가 예전처럼 host.docker.internal:18090 헤어핀으로 붙으면 Docker Desktop
+  # 포워더가 부하 시 RST 를 뱉어 상시 ~8% 502 가 났다. 양쪽 compose 모두 external 로
+  # 선언해 어느 스택도 소유하지 않는다. 최초 생성: docker network create saigon-edge
+  saigon-edge:
+    external: true
 
 volumes:
   saigon_db_data:
@@ -24,6 +30,7 @@ services:
       - ./landing:/etc/nginx/landing:ro
     networks:
       - dev-net
+      - saigon-edge
     depends_on:
       - frontend
       - imgproxy
@@ -267,6 +274,13 @@ services:
       dockerfile: Dockerfile
     container_name: saigon_bff
     profiles: [backend]
+    # uvicorn --reload 를 .env(UVICORN_RELOAD)로 끌 수 있게 한다. 기본값 1 = 기존 동작(핫리로드) 유지.
+    # 끄는 이유: WSL2 의 /mnt/c(drvfs) 마운트가 간헐적으로 os error 5(Input/output error)를 내면
+    # watchfiles 워처가 그 예외로 죽고 uvicorn 부모까지 종료돼 BFF 가 크래시 루프에 빠진다
+    # (2026-08-03 실제 발생 — 코드는 정상인데 컨테이너만 계속 Exited(1)). 이때 UVICORN_RELOAD= 로
+    # 비우면 워처 없이 안정 구동된다. 코드 변경 반영은 docker restart saigon_bff 로 한다.
+    # $$ 는 compose 보간을 피해 컨테이너 셸이 확장하게 하는 이스케이프다.
+    command: sh -c "exec uvicorn app.main:app --host 0.0.0.0 --port 8080 $${UVICORN_RELOAD:+--reload}"
     ports:
       - "${BACKEND_PORT}:8080"
     volumes:
@@ -318,6 +332,8 @@ services:
       - WIKI_BASE_PATH=${WIKI_BASE_PATH:-/wiki/}
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
       - RAINVIEWER_API_KEY=${RAINVIEWER_API_KEY:-}
+      # 빈 값이면 --reload 없이 구동 (위 command 주석 참조). 기본 1 = 핫리로드 켜짐.
+      - UVICORN_RELOAD=${UVICORN_RELOAD-1}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
       - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}

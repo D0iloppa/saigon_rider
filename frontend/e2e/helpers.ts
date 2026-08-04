@@ -101,10 +101,12 @@ export async function createListing(
   session: DevSession,
   title: string,
   imageContentIds: string[] = [],
+  /** 지도 자동 말풍선처럼 좌표가 필수인 검증에서 매물 위치를 고정한다. */
+  coords?: { latitude: number; longitude: number },
 ): Promise<CreatedListing> {
   const res = await request.post(`${BASE_URL}/api/bff/market/listings`, {
     headers: sessionHeaders(session),
-    data: { seller_id: session.userId, title, price_vnd: 100000, image_content_ids: imageContentIds },
+    data: { seller_id: session.userId, title, price_vnd: 100000, image_content_ids: imageContentIds, ...(coords ?? {}) },
   });
   if (!res.ok()) throw new Error(`create listing failed: ${res.status()} ${await res.text()}`);
   const body = await res.json();

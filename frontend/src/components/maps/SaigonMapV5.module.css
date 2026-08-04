@@ -51,14 +51,22 @@
   cursor: pointer;
 }
 /* polyActive 모드 — 선택 동 boundary만 */
+/* 선택 동 "면"만 담당한다 — 경계선은 그리지 않는다.
+   ⚠️ 여기에 stroke 를 되살리지 말 것 (2026-08-04): 이 폴리곤은 Layer 1(도로 L2/L3 아래)에
+   그려지고 stroke-width 가 depth1 단위라 vector-effect 없이 줌에 비례해 커진다. 딥줌에서
+   화면폭 수십 px 짜리 굵은 주황 띠가 되고, 그 위로 도로가 얹혀 "구분선 위로 도로가 노출"
+   되는 것처럼 보였다. 경계선은 L3 뒤의 전용 오버레이(화면 고정폭 stroke) 하나만 그린다. */
 .wardBoundary {
   fill: #e7e1d0;
-  stroke: var(--brand-500);
-  stroke-width: 4;
-  stroke-linejoin: round;
+  stroke: none;
   cursor: pointer;
 }
-/* polyActive 모드 — 비선택 동 (아주 은은하게) */
+/* polyActive 모드 — 비선택 동 (아주 은은하게).
+   ⚠️ 이 값을 "더 가리는" 방향으로 올리지 말 것 (2026-08-04 시도했다 반려됨).
+   외부지역은 **제거(removal)가 아니라 감쇠(de-emphasis)** 다: 얕은 알파 덕에 stage 배경
+   (.sea #cfe3ea)이 비쳐 외부가 푸른톤으로 눌리고, 그 위로 도로·수로·이웃 동 이름·POI 가
+   은은하게 남아 "선택 동이 도시 안 어디인지" 맥락을 준다. 불투명하게 덮으면 선택 동이
+   허공에 뜬 섬처럼 보인다(대표 반려). 외부 상세도로(L2/L3)는 이미 렌더 단계에서 컬링된다. */
 .wardDim {
   fill: rgba(200, 210, 200, 0.12);
   stroke: rgba(160, 175, 165, 0.22);

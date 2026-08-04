@@ -269,6 +269,13 @@ export interface SaigonMapV5Props {
   zoomInRef?: React.MutableRefObject<((pos: { lat: number; lng: number }) => void) | null>;
   forceMarkers?: boolean;
   polyActive?: boolean;
+  /**
+   * 선택 동을 좌표로 직접 지정한다 — polyActive 강조(주황 테두리 + 외부지역 마스크)의 대상.
+   * initialViewport 복원 경로(마운트 rAF)는 focusLatLng 를 건너뛰므로 selWard 가 null 로 남아
+   * "지역을 골랐는데 경계가 안 그려지는" 상태가 됐다(동네지도 회귀, 2026-08-03 대표 지적).
+   * 카메라를 움직이지 않고 selWard 만 좌표로 맞춘다 — 뷰포트 복원과 경계 강조를 양립시킨다.
+   */
+  activeRegionAt?: { lat: number; lng: number } | null;
   onLocate?: () => void;
   /** 현재 위치 해석 성공 시 좌표 통지. 두 번째 인자는 출처가 필요한 호출부용 메타데이터. */
   onLocated?: (coords: { lat: number; lng: number }, location?: ResolvedLocation) => void;
@@ -332,6 +339,7 @@ function SaigonMapV5({
   zoomInRef,
   forceMarkers = false,
   polyActive = true,
+  activeRegionAt = null,
   onLocate,
   onLocated,
   outsideAreaMessage,
@@ -601,17 +609,6 @@ function SaigonMapV5({
     }
   }, []);
 
-  // polyActive/selWard를 ref로 미러링 — onViewportChange가 이 둘을 deps로 물면
-  // 콜백 체인 전체(centerOnUnified/focusLatLng/runLocate/fitToPoints)가 ward 선택마다
-  // 재생성되어 이펙트가 연쇄 재실행된다(호출 시점의 최신 값만 필요하므로 ref로 충분).
-  // useEffect 미러: 렌더 중 ref 쓰기는 React Compiler가 최적화를 포기하는 패턴.
-  const polyActiveRef = useRef(polyActive);
-  const selWardRef = useRef(selWard);
-  useEffect(() => {
-    polyActiveRef.current = polyActive;
-    selWardRef.current = selWard;
-  }, [polyActive, selWard]);
-
   // ── 뷰포트 변경 후 호출: LOD 체크 + 데이터 프리로드 ────────
   const onViewportChange = useCallback((suppressBbox?: boolean) => {
     const vb = vbRef.current;
@@ -646,7 +643,13 @@ function SaigonMapV5({
     }
 
     const markerDepthReady = markerDepth === 'l2' ? l2 : l3;
-    onDepthChange?.(!markerDepthReady && !(polyActiveRef.current && selWardRef.current !== null));
+    // 순수 줌 깊이 신호만 emit — 여기에 `&& !(polyActive && selWard !== null)` 억제를 다시
+    // 넣지 말 것(회귀 이력 2026-08-04). 그 조건의 목적(지역 선택 중 구 집계 배지 감추기)은
+    // 아래 배지 렌더 조건 `!(polyActive && selWard !== null)` 이 이미 독립적으로 처리한다.
+    // 소비자(NeighborhoodMapCanvas/MarketMain)는 이 신호를 "줌아웃 시 핀·말풍선·패널 정리"
+    // 게이트로 쓰므로, 지역 선택 상태에서 항상 false 를 emit 하면 정리 게이트가 영구 개방돼
+    // 줌아웃해도 말풍선만 허공에 남는 결함이 됐다(대표 지적).
+    onDepthChange?.(!markerDepthReady);
 
     if (!l2) return;
     depth1.wards.forEach((w, i) => {
@@ -713,6 +716,22 @@ function SaigonMapV5({
     }
   }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, t]);
   focusLatLngRef.current = focusLatLng;
+
+  // 선택 동 좌표 → selWard 동기화 (카메라 이동 없음). initialViewport 복원 경로가 focusLatLng 를
+  // 건너뛰어 selWard 가 null 로 남던 문제를 메운다 — 경계 강조와 뷰포트 기억을 양립시킨다.
+  // deps 는 원시값(lat/lng)으로 — 호출부가 매 렌더 새 객체를 넘겨도 이펙트가 재실행되지 않는다.
+  const activeLat = activeRegionAt?.lat ?? null;
+  const activeLng = activeRegionAt?.lng ?? null;
+  useEffect(() => {
+    if (activeLat == null || activeLng == null) return;
+    const d1x = (activeLng - D1_BBOX.W) / (D1_BBOX.E - D1_BBOX.W) * depth1.VW;
+    const d1y = (D1_BBOX.N - activeLat) / (D1_BBOX.N - D1_BBOX.S) * depth1.VH;
+    const idx = depth1.wards.findIndex((w) => !!w.slug && pointInPoly(d1x, d1y, w.p));
+    if (idx < 0) return;
+    setSelWard(idx);
+    const slug = depth1.wards[idx].slug as string | undefined;
+    if (slug) void loadWardData(slug, false);
+  }, [activeLat, activeLng, loadWardData]);
 
   // ── GPS 위치 ───────────────────────────────────────────────
   const runLocate = useCallback(async () => {
@@ -1173,6 +1192,9 @@ function SaigonMapV5({
           ))}
           {depth1.wards.map((w, i) => {
             if (polyActive && selWard !== null) {
+              // 외부 동도 여기서 함께 그린다 — .wardDim 은 "가리는 마스크"가 아니라 감쇠
+              // 레이어다(얕은 알파로 stage 배경이 비쳐 푸른톤이 되고 지형이 은은히 남는다).
+              // 별도 오버레이로 덮으려던 시도는 선택 동이 섬처럼 보여 반려됐다(2026-08-04).
               return (
                 <polygon key={i} points={w.p as string}
                   className={i === selWard ? styles.wardBoundary : styles.wardDim}

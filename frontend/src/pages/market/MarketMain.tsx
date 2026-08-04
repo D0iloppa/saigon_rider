@@ -1,7 +1,7 @@
 import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Bell, ChevronDown, ChevronLeft, Globe, Heart, LocateFixed, Map as MapIcon, MapPinned, PackageOpen, Plus, Search, X } from 'lucide-react';
+import { AlertCircle, Bell, ChevronDown, ChevronLeft, Globe, Heart, LocateFixed, Map as MapIcon, MapPinned, PackageOpen, Plus, Search, X, ZoomIn } from 'lucide-react';
 import { Chip } from '@/components/ui/Chip';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { PullIndicator } from '@/components/ui/PullIndicator';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { toast } from '@/components/ui/Toast';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
+import { AreaPill } from '@/components/maps/AreaPill';
 import type { SelectedRegion, MapMarkerV2 } from '@/components/maps/v2/region';
 
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
@@ -110,6 +111,16 @@ export default function MarketMain() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [postPanelHeight, setPostPanelHeight] = useState(0);
   const focusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
+  // L2 줌 게이트 (동네지도 showDistrictBadges 미러, 대표 지적 2026-08-04) — true 면 상세
+  // 레이어가 꺼지는 줌아웃 상태. 이때 매물 핀·말풍선·패널을 비우고 bbox fetch 를 막는다.
+  // 직전엔 onDepthChange 를 안 받아 줌아웃해도 매물 핀/말풍선만 고아로 남았다.
+  // onDepthChange 는 순수 줌 깊이 신호다(2026-08-04) — region 선택 중에도 줌아웃하면
+  // true 가 와서 게이트가 닫힌다(locationMode 분기 불필요).
+  const [showDistrictBadges, setShowDistrictBadges] = useState(true);
+  const showDistrictBadgesRef = useRef(showDistrictBadges);
+  showDistrictBadgesRef.current = showDistrictBadges;
+  // 줌 게이트 힌트 필 탭 = 현재 뷰포트 중심 순수 확대 (동네지도 zoomHintPill 과 동일 동선)
+  const zoomInRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
   // 매물 자동 말풍선 (동네지도 이식) — 근접 자동선택된 매물. 캐러셀(postPanelOpen)과 배타.
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   // [X]로 닫은 매물이 패널 오픈 recenter 로 커밋된 bbox 때문에 즉시 재점화되는 것을 막는 억제 ref
@@ -252,6 +263,17 @@ export default function MarketMain() {
     setLocMapOpen(false);
   };
 
+  // 지역 필터 chip ✕ — 시트의 '전체 지역' 적용(handleApplyLocation 의 draftLocationMode==='all'
+  // 분기)과 동일한 해제 흐름. explicitLocal=true 로 전역 스토어 동기화보다 우선시키고,
+  // sessionStorage 저장은 기존 필터 저장 이펙트가 그대로 처리한다.
+  const clearRegionFilter = useCallback(() => {
+    setWard(null);
+    setCoords(null);
+    setRegionLabel(null);
+    setLocationMode('all');
+    setExplicitLocal(true);
+  }, []);
+
   const openLocationSheet = () => {
     setDraftLocationMode(locationMode);
     setDraftWard(ward);
@@ -295,6 +317,15 @@ export default function MarketMain() {
   // 의미가 약해(bbox 기준 조회) 여전히 넘기되 UI 컨트롤만 숨김(요구사항 6).
   const mapReqSeqRef = useRef(0);
   const fetchMapBbox = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
+    // 줌 게이트 밖 — 동네지도 biz fetch 게이트와 동일하게 조회를 막고 핀을 비운다
+    // (게이트 밖 광역 bbox 로 서버를 계속 때리는 것 방지). ref 로 읽어 디바운스 시점의
+    // 최신 게이트 상태를 반영한다.
+    if (showDistrictBadgesRef.current) {
+      mapReqSeqRef.current += 1; // 게이트 직전 발사된 in-flight 응답이 빈 핀을 덮어쓰지 않게 무효화
+      setMapListings([]);
+      setMapError(false);
+      return;
+    }
     const seq = ++mapReqSeqRef.current;
     fetchListings({
       sort, hideSold,
@@ -385,6 +416,15 @@ export default function MarketMain() {
     setCarouselIndex(0);
   }, [focusedListingId]);
 
+  // 줌 게이트 이탈 — 핀이 소멸하는 줌아웃에서 말풍선·캐러셀도 정리(동네지도 동일 이펙트 미러).
+  // 자동 말풍선은 아래 이펙트가 스팬 초과 시 스스로 해제하지만(2026-08-04), 캐러셀 정리와
+  // 게이트-스팬 임계 불일치 대비 안전망으로 여기서도 함께 정리한다.
+  useEffect(() => {
+    if (!showDistrictBadges) return;
+    setSelectedListing(null);
+    if (postPanelOpen) closePostPanel();
+  }, [showDistrictBadges]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 매물 자동 말풍선 (동네지도 이식) — 정착된 bboxFilter 의 위도 스팬이 임계 이하일 때만 동작,
   // 뷰포트 중앙에 가장 가까운 매물을 정규화 거리로 골라 반경 이내면 선택(카메라 이동 없음).
   const selectedListingRef = useRef(selectedListing);
@@ -392,7 +432,12 @@ export default function MarketMain() {
   useEffect(() => {
     if (postPanelOpen || !bboxFilter) return;
     const latSpan = bboxFilter.N - bboxFilter.S;
-    if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) return;
+    if (latSpan > AUTO_BUBBLE_MAX_LAT_SPAN) {
+      // 임계 초과 줌아웃 — 기존 선택을 스스로 해제하고 비활성. 조기 return 만 하면 핀 없는
+      // 지도에 말풍선만 고아로 남아, 게이트 정리 이펙트(showDistrictBadges)에 의존하게 된다.
+      if (selectedListingRef.current) setSelectedListing(null);
+      return;
+    }
     const lngSpan = bboxFilter.E - bboxFilter.W;
     const cLat = (bboxFilter.N + bboxFilter.S) / 2;
     const cLng = (bboxFilter.E + bboxFilter.W) / 2;
@@ -536,16 +581,27 @@ export default function MarketMain() {
               // 켜면 마운트 후 비동기 GPS 완료가 selWard/카메라를 다른 동으로 덮어써
               // 선택 경계와 어긋난다(동네지도 회귀 aa2f214 재발 방지, 2026-08-03 발견 사유와 동일).
               locateOnMount={locationMode === 'all'}
-              // 선택 동 폴리곤 강조(주황 경계 + 비선택 동 도로 소거)를 항상 끈다.
-              // SaigonMapV5 의 polyActive 기본값이 true 라 명시하지 않으면 켜진다.
-              // 동네지도는 initialViewport 복원 경로가 selWard 를 세팅하지 않아 실질적으로
-              // 경계가 나오지 않는데, 마켓만 경계가 뜨는 불일치를 '경계 없음' 쪽으로
-              // 통일하기로 결정(2026-08-03 사용자 결정). 동네지도 쪽 selWard 미세팅은
-              // 별건으로 남긴다.
-              polyActive={false}
+              // 선택 동 폴리곤 강조(주황 경계 + 외부지역 마스크) — 특정 동으로 범위가
+              // 좁혀진 때만 켠다(대표 지시 2026-08-03: "다른 지역은 노출시키지 않으니
+              // 그 지역만 테두리를 쳐주는 게 맞다"). '전체 지역'은 여러 동을 함께 보여주므로
+              // 특정 테두리가 의미 없어 끈다. gps 모드도 결과적으로 한 동으로 필터되므로
+              // region 과 동일 취급한다.
+              // 직전엔 false 하드코딩이었다 — 동네지도가 selWard 미세팅으로 경계를 못 그리던
+              // 것에 맞춰 '경계 없음'으로 하향 통일했었으나, 동네지도 쪽 근본원인
+              // (SaigonMapV5 activeRegionAt 신설)을 고쳐 '경계 있음'으로 상향 통일했다.
+              polyActive={locationMode !== 'all'}
+              activeRegionAt={locationMode !== 'all' ? coords : null}
               markers={mapMarkers}
               anchorOverlay={postPanelOpen ? undefined : listingOverlay}
               onBboxChange={handleMapBboxChange}
+              // L2 줌 게이트 (동네지도와 통일, 대표 지적 2026-08-04) — 게이트 밖에서는
+              // 핀/말풍선/패널 정리 + fetch 차단 + 확대 안내 필 노출.
+              onDepthChange={setShowDistrictBadges}
+              // 게이트 임계도 동네지도와 정합 — 동네지도는 markerDepth='l2'(L2 진입 시 핀 허용)라,
+              // 기본값 'l3' 를 그대로 두면 L2~L3 구간에서 동네지도는 핀을 보여주는데 마켓만
+              // 게이트가 닫혀 화면이 비는 불일치가 생긴다.
+              markerDepth="l2"
+              zoomInRef={zoomInRef}
               focusPointRef={focusPointRef}
               bottomInsetPx={postPanelOpen ? postPanelHeight : 0}
               outsideAreaFallback
@@ -555,6 +611,32 @@ export default function MarketMain() {
               showLocateControl={false}
             />
           </Suspense>
+          {/* 지역 필터 chip — 동네지도와 같은 AreaPill 공용 컴포넌트(대표 지적 2026-08-04).
+              동네지도는 시트 floatingTopLeft 슬롯(시트가 포스트 패널 오픈 시 display:none 이라
+              chip 도 함께 숨음)에 띄우므로, 시트가 없는 마켓도 postPanelOpen 이면 숨겨 동작을
+              맞춘다. 라벨은 헤더와 동일 규칙(ward 명 → regionLabel → '내 현재 위치' 폴백). */}
+          {locationMode !== 'all' && !postPanelOpen && (
+            <div className={styles.areaPillWrap}>
+              <AreaPill
+                name={currentRegionName ?? t('market.currentLocation')}
+                onClear={clearRegionFilter}
+              />
+            </div>
+          )}
+          {/* 줌 게이트 힌트 필 — 동네지도 zoomHintPill 과 같은 문구/동작(탭 = 뷰포트 중심 확대).
+              게이트 밖에서 핀이 비는 이유를 사용자에게 알린다. */}
+          {showDistrictBadges && (
+            <button
+              type="button"
+              className={styles.zoomHintPill}
+              onClick={() => {
+                if (!bboxFilter) return;
+                zoomInRef.current?.({ lat: (bboxFilter.N + bboxFilter.S) / 2, lng: (bboxFilter.E + bboxFilter.W) / 2 });
+              }}
+            >
+              <ZoomIn size={14} strokeWidth={2.2} aria-hidden="true" /> {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
+            </button>
+          )}
           {mapError && (
             <div className={styles.mapNotice}>{t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })}</div>
           )}

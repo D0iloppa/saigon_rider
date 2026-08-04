@@ -192,6 +192,40 @@
   box-shadow: var(--shadow-card);
 }
 
+/* 지역 필터 chip(AreaPill 공용 컴포넌트) 배치 래퍼 — 동네지도는 시트 floatingTopLeft
+   슬롯(left 20px, 시트 상단에서 12px 위)에 띄우지만 마켓 지도엔 시트가 없어
+   지도 좌하단에 같은 오프셋으로 고정한다. pill 자체 시각은 AreaPill.module.css 공유. */
+.areaPillWrap {
+  position: absolute;
+  left: 20px;
+  bottom: 12px;
+  z-index: 4;
+}
+
+/* 줌 게이트 힌트 필 — 동네지도(NeighborhoodMap.module.css) .zoomHintPill 값 그대로 복제
+   (bizNewsBubble 복제와 동일 방침). 동네지도는 bottom 을 시트 높이에 인라인 연동하지만
+   마켓엔 시트가 없어 고정 bottom 90px(동네지도 폴백값과 동일)로 둔다 — 18px 로 내리면
+   우하단 글쓰기 FAB(right 18 / bottom 18 / 52px)와 겹쳐 문구가 가려진다(실촬영 확인). */
+.zoomHintPill {
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: 90px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--brand-600);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+}
+.zoomHintPill:active { opacity: .8; }
+
 /* 지도보기 플로팅 필 — 동네지도(NeighborhoodMapList) .mapPill 과 동일 모양·위치·문구 */
 .mapPill {
   position: absolute;

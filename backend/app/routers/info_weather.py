@@ -3,7 +3,7 @@ import logging
 import os
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -32,6 +32,10 @@ _RAINVIEWER_META_URL = "https://api.rainviewer.com/public/weather-maps.json"
 # 같은 시각 OpenWeather 12h 전 구간 0% / open-meteo 향후 1h 37%).
 # OpenWeather 3시간 pop 은 폴백으로 유지한다 — 보조 소스 실패가 화면 실패로 번지지 않게.
 _OPENMETEO_URL = "https://api.open-meteo.com/v1/forecast"
+
+# 베트남 현지시각(ICT, UTC+7). 예보 시각 라벨은 이 기준으로 내려보낸다 — OpenWeather 의
+# dt_txt 는 UTC 벽시계라 그대로 넘기면 화면에 UTC 시각이 찍힌다(대표 지적 2026-08-06).
+ICT = timezone(timedelta(hours=7))
 
 _TTL_CURRENT = int(os.getenv("WEATHER_CACHE_TTL_CURRENT", "600"))
 _TTL_FORECAST_1H = int(os.getenv("WEATHER_CACHE_TTL_FORECAST_1H", "1800"))
@@ -379,7 +383,8 @@ async def get_weather(
             pop = int((item.get("pop", 0)) * 100)
             hourly.append(
                 {
-                    "time": item["dt_txt"][11:16],
+                    # dt(unix) → ICT "HH:MM". dt_txt[11:16] 는 UTC 문자열이라 쓰지 않는다.
+                    "time": datetime.fromtimestamp(item["dt"], ICT).strftime("%H:%M"),
                     "temp_c": round(item["main"]["temp"], 1),
                     "condition": item["weather"][0]["main"],
                     "emoji": _condition_emoji(item["weather"][0]["main"]),

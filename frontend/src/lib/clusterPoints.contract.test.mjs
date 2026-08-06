@@ -28,7 +28,7 @@ test('클러스터 좌표는 구성원 무게중심이다 — 행정구역 중�
 
 test('모든 지점이 정확히 한 버킷에 들어간다 — 합계가 목록 건수와 일치해야 한다', () => {
   // 조기 return(continue/skip)이 있으면 그 지점이 어느 클러스터에도 안 잡혀 합계가 깨진다.
-  const loop = source.match(/for \(const p of points\) \{[\s\S]*?\n  \}/);
+  const loop = source.match(/for \(const p of points\) \{[\s\S]*?\n {2}\}/);
   assert.ok(loop, '지점 순회 루프가 있어야 한다');
   assert.doesNotMatch(
     loop[0],

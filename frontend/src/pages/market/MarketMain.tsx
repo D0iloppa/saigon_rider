@@ -204,20 +204,27 @@ export default function MarketMain() {
 
   // 'gps' 면 반경 필터, 'all' 이면 전역 조회. 행정구역(wardId)으로 거르지 않는다 —
   // 구 경계에 걸친 매물이 통째로 빠지던 원인이었다(설계도 D4).
+  // 'gps' 인데 좌표가 아직 없으면(최초 측위 진행 중) 조회를 미룬다 — 그대로 부르면
+  // lat/lng 가 없어 radius_km 도 빠지고, "내 현재 위치" 헤더 아래 **도시 전역 목록**이
+  // 잠깐 떴다가 교체된다(2026-08-06 리뷰 지적).
+  const listReady = !(locationMode === 'gps' && !coords);
+
   const fetchPage = useCallback(
     (page: number) =>
-      fetchListings({
-        sort, hideSold,
-        lat: coords?.lat, lng: coords?.lng,
-        radiusKm: locationMode === 'gps' ? NEARBY_RADIUS_KM : null,
-        categoryId,
-        viewerId: userId, page, size: 20,
-      }),
-    [sort, hideSold, coords, locationMode, categoryId, userId],
+      listReady
+        ? fetchListings({
+            sort, hideSold,
+            lat: coords?.lat, lng: coords?.lng,
+            radiusKm: locationMode === 'gps' ? NEARBY_RADIUS_KM : null,
+            categoryId,
+            viewerId: userId, page, size: 20,
+          })
+        : Promise.resolve({ items: [], total: 0, page, size: 20 }),
+    [listReady, sort, hideSold, coords, locationMode, categoryId, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, locationMode, categoryId, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, hideSold, coords, locationMode, categoryId, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),

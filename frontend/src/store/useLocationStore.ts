@@ -52,6 +52,15 @@ interface LocationState {
   coordsSource: CoordsSource | null;
   /** persist 됨 — 'declined' 면 프리프롬프트를 다시 띄우지 않는다. */
   permissionIntent: PermissionIntent;
+  /**
+   * persist 됨 — 사용자가 시트에서 '전체 지역'을 **명시적으로 고른** 상태.
+   *
+   * 이게 없으면 ensureLocation() 이 화면 진입마다(6개 화면) 다시 측위해 mode 를 'gps' 로
+   * 되돌린다 — 권한을 한 번이라도 허용한 사용자는 '전체 지역'을 골라도 다음 화면에서
+   * 원복됐다. permissionIntent('declined')로 겸하려던 것을 분리했다: 그건 "권한을 거부함"
+   * 이지 "전체 지역을 원함"이 아니다.
+   */
+  pinnedAll: boolean;
   resolving: boolean;
 
   /**
@@ -96,8 +105,12 @@ function distanceM(a: Coords, b: Coords): number {
   const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-/** 폴백 토스트 세션당 1회 — 화면 5개가 각자 띄우면 폭탄이 된다. */
-let fallbackToastShown = false;
+/**
+ * 이미 띄운 폴백 안내(메시지 키 기준). 화면 5개가 각자 띄우면 폭탄이라 1회로 묶되,
+ * **사유별로** 구분한다 — 하나의 불리언으로 묶으면 "권역 밖" 안내가 플래그를 소진한 뒤
+ * 나중에 권한 거부로 전체 지역이 돼도 아무 설명이 없다(2026-08-06 리뷰 지적).
+ */
+const shownFallbackKeys = new Set<string>();
 
 /**
  * 시스템 권한창을 띄우기 **전에** 목적을 먼저 알리는 자체 프리프롬프트.
@@ -140,8 +153,8 @@ function preflightPermission(): Promise<boolean> {
 
 /** 측위 실패 사유별 안내. 실패는 항상 'all' 폴백으로 귀결된다(대표 지시). */
 function notifyFallback(messageKey: string, defaultValue: string) {
-  if (fallbackToastShown) return;
-  fallbackToastShown = true;
+  if (shownFallbackKeys.has(messageKey)) return;
+  shownFallbackKeys.add(messageKey);
   toast.neutral(i18n.t(messageKey, { defaultValue }));
 }
 
@@ -153,6 +166,7 @@ export const useLocationStore = create<LocationState>()(
       wardName: null,
       coordsSource: null,
       permissionIntent: 'undecided',
+      pinnedAll: false,
       resolving: false,
 
       ensureLocation: () => {
@@ -160,7 +174,10 @@ export const useLocationStore = create<LocationState>()(
         // 이미 이번 세션에 측위가 끝났으면 재측위하지 않는다.
         if (state.mode === 'gps' && state.coords) return Promise.resolve();
         // 사용자가 명시적으로 '전체 지역'을 고른 상태면 측위 자체를 시도하지 않는다.
-        if (state.mode === 'all' && state.permissionIntent === 'declined') return Promise.resolve();
+        // (권한 거부로 'all' 이 된 경우도 재시도하지 않는다 — 매 화면 권한창이 뜬다.)
+        if (state.mode === 'all' && (state.pinnedAll || state.permissionIntent === 'declined')) {
+          return Promise.resolve();
+        }
         if (inflight) return inflight;
 
         set({ resolving: true });
@@ -232,12 +249,16 @@ export const useLocationStore = create<LocationState>()(
 
       setMode: (mode) => {
         if (mode === 'all') {
-          set({ mode: 'all', coords: null, wardName: null, coordsSource: null });
+          // pinnedAll: 이 선택이 다음 화면 진입의 자동 측위로 뒤집히지 않게 고정한다.
+          set({ mode: 'all', coords: null, wardName: null, coordsSource: null, pinnedAll: true });
+          if (watchStop) watchStop(); // 'all' 에서는 추종할 이유가 없다
           return Promise.resolve();
         }
         // 'gps' 재선택은 사용자의 명시적 의사 — 이전에 거부했더라도 다시 시도한다.
-        set({ mode: 'gps', permissionIntent: 'undecided' });
-        fallbackToastShown = false;
+        // wardName 도 비운다 — 남겨두면 측위 완료 전까지 이전 라벨(예: 'all' 때 홈이 채운
+        // Bến Thành)이 "내 현재 위치"인 양 보인다.
+        set({ mode: 'gps', permissionIntent: 'undecided', pinnedAll: false, wardName: null, coordsSource: null });
+        shownFallbackKeys.clear();
         return get().ensureLocation();
       },
 
@@ -269,8 +290,8 @@ export const useLocationStore = create<LocationState>()(
       clearLocation: () => {
         if (watchStop) watchStop();
         inflight = null;
-        fallbackToastShown = false;
-        set({ mode: 'gps', coords: null, wardName: null, coordsSource: null, permissionIntent: 'undecided' });
+        shownFallbackKeys.clear();
+        set({ mode: 'gps', coords: null, wardName: null, coordsSource: null, permissionIntent: 'undecided', pinnedAll: false });
       },
     }),
     {
@@ -281,10 +302,12 @@ export const useLocationStore = create<LocationState>()(
       migrate: () => ({
         mode: 'gps' as LocationMode,
         permissionIntent: 'undecided' as PermissionIntent,
+        pinnedAll: false,
       }),
       partialize: (state) => ({
         mode: state.mode,
         permissionIntent: state.permissionIntent,
+        pinnedAll: state.pinnedAll,
       }),
     },
   ),

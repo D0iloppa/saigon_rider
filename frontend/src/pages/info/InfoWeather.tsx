@@ -28,6 +28,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
 import RainRadarCard from './RainRadarCard';
 import styles from './InfoWeather.module.css';
+import { formatVnTime } from '@/lib/vnTime';
 
 /** OpenWeather condition 코드 → 아이콘/번역/색. 미등록 코드는 API 원문(condition_desc) 폴백. */
 const CONDITION_META: Record<string, { Icon: LucideIcon; labelKey: string; color: string }> = {
@@ -99,8 +100,8 @@ export default function InfoWeather() {
 
   const cur = data?.current;
   const forecast = data?.forecast?.next_24h ?? [];
-  const shortTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
+  // 항상 베트남 현지시각(ICT) — 기기 타임존을 쓰면 해외에서 볼 때 2시간 어긋난다.
+  const shortTime = (iso: string) => formatVnTime(iso, i18n.language);
   const basis = data?.observed_at ?? data?.fetched_at;
   const timeStr = basis ? shortTime(basis) : '—';
   const condMeta = cur?.condition ? CONDITION_META[cur.condition] : undefined;

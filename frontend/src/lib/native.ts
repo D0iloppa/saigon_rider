@@ -552,7 +552,8 @@ class NativeInterface {
  *     테스트하려는 환경에서 코드가 사라진다.
  *  2. 명시적 opt-in 키 — 키가 없으면(기본) 실측을 그대로 쓴다.
  *
- * 하네스 자체(`dev-test/gps/`)는 docker-compose.prod.yml 에 마운트되지 않아 운영에 배포되지 않는다.
+ * 하네스 자체(`dev-test/gps/`)는 docker-compose.prod.yml 이 nginx `volumes: !override` 로
+ * 개발 마운트를 빼므로 운영에 서빙되지 않는다(2026-08-06 리뷰에서 누락이 발견돼 보강).
  */
 const DEV_GPS_KEY = '__dev_gps';
 const DEV_GPS_HOSTS = ['localhost', '127.0.0.1', 'saigon.doil.me'];

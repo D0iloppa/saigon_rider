@@ -219,8 +219,10 @@ async def get_listings(
     hide_sold: bool = Query(False, description="거래완료(SOLD) 매물 제외"),
     price_min: int | None = Query(None, description="최저 가격 (VND)"),
     price_max: int | None = Query(None, description="최고 가격 (VND)"),
-    lat: float | None = Query(None, description="내 위치 위도 (거리 계산·거리순)"),
-    lng: float | None = Query(None, description="내 위치 경도"),
+    # ge/le 필수 — 없으면 pydantic 이 nan/inf 를 통과시키고, 아래 ST_MakePoint 에 그대로
+    # 인라인돼 Postgres 가 `nan` 을 컬럼 참조로 파싱하며 500 을 낸다(422 여야 한다).
+    lat: float | None = Query(None, ge=-90, le=90, description="내 위치 위도 (거리 계산·거리순)"),
+    lng: float | None = Query(None, ge=-180, le=180, description="내 위치 경도"),
     radius_km: float | None = Query(
         None, gt=0, le=50, description="lat/lng 기준 반경(km) 필터 — 'gps' 표시범위용. lat/lng 없으면 무시"
     ),

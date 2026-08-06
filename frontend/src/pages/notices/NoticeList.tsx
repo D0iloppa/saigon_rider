@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { fetchNotices, type NoticeItem } from '@/api/notices';
 import styles from './NoticeList.module.css';
+import { formatVnDate } from '@/lib/vnTime';
 
 export default function NoticeList() {
   const { t, i18n } = useTranslation();
@@ -26,7 +27,7 @@ export default function NoticeList() {
               <div className={styles.cardTitle}>{n.title}</div>
               <div className={styles.cardMeta}>
                 {n.is_pinned && <span className={styles.pinnedBadge}>{t('notices.pinned')}</span>}
-                {n.published_at && <span>{new Date(n.published_at).toLocaleDateString()}</span>}
+                {n.published_at && <span>{formatVnDate(n.published_at)}</span>}
               </div>
             </button>
           ))

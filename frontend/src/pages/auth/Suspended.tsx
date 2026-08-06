@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useUserStore } from '@/store/useUserStore';
 import type { AccountRestrictionCode } from '@/api/client';
 import styles from './Suspended.module.css';
+import { formatVnDateTime } from '@/lib/vnTime';
 
 interface RestrictionInfo {
   code: AccountRestrictionCode;
@@ -32,7 +33,7 @@ export default function Suspended() {
 
   const isBanned = info?.code === 'account_banned';
   const untilLabel = info?.until
-    ? new Date(info.until).toLocaleString(i18n.language, { dateStyle: 'long', timeStyle: 'short' })
+    ? formatVnDateTime(info.until, i18n.language, { dateStyle: 'long', timeStyle: 'short' })
     : null;
 
   const handleLogout = () => {

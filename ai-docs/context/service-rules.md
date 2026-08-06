@@ -23,7 +23,10 @@
    - **30m 거리 게이트 필수**(`WATCH_MIN_MOVE_M`). GPS 는 정지 상태에서도 수 m 씩 튀는데 그대로 스토어에 반영하면 `coords` 를 deps 로 쓰는 목록·지도 조회가 초당 몇 번씩 재발화한다. 반경이 3km 라 30m 이하 흔들림은 결과를 바꾸지 않는다.
    - 서비스 권역 밖으로 이동한 tick 은 **무시**한다(마지막 유효 위치 유지).
 8. **여전히 유효한 GPS 경로**: 경로안내(`RideNav`), 제보(주유/정비/침수 신고의 `native.getLocation()`).
-9. **dev 좌표 오버라이드**(`/dev/gps` 하네스 전용). `native.getLocation()`/`watchLocation()` 이 `localStorage.__dev_gps` 를 우선 반환한다. **2중 게이트** — 호스트 허용목록(localhost/127.0.0.1/saigon.doil.me) + 명시적 opt-in 키. 빌드타임 플래그(`import.meta.env.DEV`)를 쓰지 않는다: `frontend/Dockerfile` 이 `npm run build`(프로덕션 모드)라 **dev 스택에서도 `DEV` 가 false** 이기 때문.
+9. **'전체 지역' 선택은 고정된다**(`pinnedAll`, 2026-08-06 리뷰 반영). `ensureLocation()` 은 6개 화면이 마운트마다 부르므로, 이 플래그가 없으면 권한을 허용한 사용자는 '전체 지역'을 골라도 다음 화면 진입에서 `'gps'` 로 원복된다. `permissionIntent('declined')` 로 겸하지 말 것 — 그건 "권한을 거부함"이지 "전체 지역을 원함"이 아니다.
+10. **이동 추종은 좌표가 확정된 뒤에만 시작한다.** `native.watchLocation` 은 곧바로 OS 권한창을 띄우므로, 마운트 즉시 걸면 프리프롬프트(원칙 6)를 앞질러 그 장치가 무력화되고 로그인 전 화면에서도 권한창이 뜬다. `App.tsx` 는 `mode==='gps' && coords` 를 만족할 때만 건다.
+11. **폴백 안내는 사유별로 1회**다. 하나의 불리언으로 묶으면 "권역 밖" 안내가 플래그를 소진한 뒤 나중에 권한 거부로 전체 지역이 돼도 아무 설명이 없다.
+12. **dev 좌표 오버라이드**(`/dev/gps` 하네스 전용). `native.getLocation()`/`watchLocation()` 이 `localStorage.__dev_gps` 를 우선 반환한다. **2중 게이트** — 호스트 허용목록(localhost/127.0.0.1/saigon.doil.me) + 명시적 opt-in 키. 빌드타임 플래그(`import.meta.env.DEV`)를 쓰지 않는다: `frontend/Dockerfile` 이 `npm run build`(프로덕션 모드)라 **dev 스택에서도 `DEV` 가 false** 이기 때문.
 
 ### 폴백 정책 — "측위 실패"와 "권역 밖"은 다른 사건이다
 
@@ -80,6 +83,14 @@
 - **정보 화면의 지도 칩은 "지도 보기/지도 접기"** 다(`info.mapChipOpen`/`mapChipClose`). 지도와 목록이 한 화면에 공존하므로 "지도/목록" 배타 전환 라벨은 동작과 어긋난다(대표 지적 2026-08-06).
 - **'확대해서 주변 보기' 힌트 필**은 하단 가운데에 둔다(우하단은 ◎·FAB 와 겹친다). 노출 조건은 **L3 미도달**(`onDepthChange` 의 2번째 인자 `belowL3`)이며, 데이터 게이트(`markerDepth`)와 분리한다 — 마켓은 L2 에서 이미 핀이 보이지만 힌트는 L3 까지 유도해야 한다. 탭하면 내 위치가 아니라 **현재 지도 중앙**을 확대한다.
 - **L2 줌 게이트는 유지한다** — 멀리서 볼 때 확대를 유도하는 장치라 존치(대표 확인 2026-08-06). 게이트 미만에서는 지도·시트 모두 비우고 확대 안내 필을 노출한다.
+
+---
+
+## 시각 표기 (제정 2026-08-06)
+
+- **절대시각은 항상 베트남 현지시각(ICT, `Asia/Ho_Chi_Minh`)으로 표기한다.** 공용 포맷터는 `frontend/src/lib/vnTime.ts`(`formatVnTime`/`formatVnDate`/`formatVnDateTime`). `toLocaleTimeString`/`toLocaleDateString` 을 `timeZone` 없이 직접 부르지 말 것 — **기기 타임존**이 쓰여 해외(예: 한국 +9)에서 보면 2시간 어긋난다.
+- **백엔드도 표시용 시각 문자열은 ICT 로 내려보낸다.** OpenWeather 의 `dt_txt` 는 UTC 벽시계라 그대로 넘기면 화면에 UTC 가 찍힌다 — `dt`(unix)를 ICT 로 변환해 포맷한다(`info_weather.py` `ICT` 상수).
+- 근거: 대표 지적 2026-08-06 — 날씨 화면에 "오후 03:50 기준"(KST)과 예보 "15:00"(UTC)이 함께 떠 한 화면에 두 기준이 섞였고 정작 ICT 는 없었다.
 
 ---
 

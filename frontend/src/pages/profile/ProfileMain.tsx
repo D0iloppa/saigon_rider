@@ -37,6 +37,7 @@ import { emojiUrl } from '@/lib/emoji';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import styles from './ProfileMain.module.css';
+import { formatVnDate } from '@/lib/vnTime';
 
 interface MileageTier {
   key: string;
@@ -750,7 +751,7 @@ export default function ProfileMain() {
                     <div className={styles.historyText}>
                       <div className={styles.historyTitle}>{h.quest_title || t('profile.unknownQuest')}</div>
                       <div className={styles.historyDate}>
-                        {h.completed_at ? new Date(h.completed_at).toLocaleDateString() : ''}
+                        {h.completed_at ? formatVnDate(h.completed_at) : ''}
                         {h.distance_km != null && ` · ${Number(h.distance_km).toFixed(1)}km`}
                       </div>
                     </div>
@@ -843,7 +844,7 @@ export default function ProfileMain() {
                 )}
                 {activeBadge.acquired_at && (
                   <p className={styles.modalDate}>
-                    {t('profile.earnedAt', { date: new Date(activeBadge.acquired_at).toLocaleDateString() })}
+                    {t('profile.earnedAt', { date: formatVnDate(activeBadge.acquired_at) })}
                   </p>
                 )}
                 <div className={styles.modalActions}>

@@ -4,6 +4,7 @@ import { CloudOff } from 'lucide-react';
 import { weatherApi, type RainRadarData } from '@/api/info';
 import depth1 from '@/components/maps/v2/saigon-depth1.json';
 import styles from './RainRadarCard.module.css';
+import { formatVnTime } from '@/lib/vnTime';
 
 /**
  * 강수 레이더 카드 (RainViewer).
@@ -112,12 +113,8 @@ export default function RainRadarCard({ lat, lng }: Props) {
     [geo],
   );
 
-  const observedAt = radar
-    ? new Date(radar.last_updated * 1000).toLocaleTimeString(i18n.language, {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null;
+  // 항상 베트남 현지시각(ICT) — 기기 타임존을 쓰면 해외에서 볼 때 어긋난다.
+  const observedAt = radar ? formatVnTime(radar.last_updated * 1000, i18n.language) : null;
 
   if (failed) {
     return (

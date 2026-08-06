@@ -353,7 +353,15 @@ export default function App() {
   // 'gps' 모드가 아닐 땐 스토어가 no-op 을 돌려주고, 모드가 바뀌면 다시 건다.
   const startWatching = useLocationStore((s) => s.startWatching);
   const locationMode = useLocationStore((s) => s.mode);
-  useEffect(() => startWatching(), [startWatching, locationMode]);
+  const locationCoords = useLocationStore((s) => s.coords);
+  // ⚠️ **좌표가 확정된 뒤에만** 건다. watchLocation 은 곧바로 OS 권한창을 띄우므로, 마운트
+  // 즉시 걸면 useLocationStore 의 프리프롬프트(목적 안내)를 앞질러 버린다 — 그 다이얼로그가
+  // 존재하는 이유(맥락 없는 권한창 = 반사적 거부) 자체가 무너진다. 로그인 전 인증 화면에서
+  // 권한창이 뜨던 문제도 같은 원인이다. coords 는 ensureLocation 이 성공해야 채워진다.
+  useEffect(() => {
+    if (locationMode !== 'gps' || !locationCoords) return;
+    return startWatching();
+  }, [startWatching, locationMode, locationCoords]);
 
   // 앱 기동 시: 쿠키 세션 → 자동 로그인 시도
   useEffect(() => {

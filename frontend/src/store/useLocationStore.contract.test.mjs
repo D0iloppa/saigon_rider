@@ -113,13 +113,29 @@ test('권역밖과 측위실패가 같은 화면이 되면 안 된다 (V8b)', ()
   );
 });
 
-test('폴백 토스트는 세션당 1회 — 화면 5개가 각자 띄우면 안 된다', () => {
-  assert.match(source, /let fallbackToastShown = false/, '세션 플래그가 있어야 한다');
+test('폴백 토스트는 사유별 1회 — 화면 5개가 각자 띄우면 안 되지만, 사유가 다르면 알려야 한다', () => {
+  // 단일 불리언으로 묶으면 "권역 밖" 안내가 플래그를 소진한 뒤 나중에 권한 거부로 전체
+  // 지역이 돼도 아무 설명이 없다(2026-08-06 코드리뷰 지적).
+  assert.match(source, /const shownFallbackKeys = new Set<string>\(\)/, '사유별 집합이어야 한다');
+  assert.doesNotMatch(code, /fallbackToastShown/, '단일 불리언 플래그는 폐기됐다');
   assert.match(
     source,
-    /function notifyFallback[\s\S]*?if \(fallbackToastShown\) return;[\s\S]*?fallbackToastShown = true;/,
-    'notifyFallback 은 첫 호출에서만 토스트를 띄워야 한다',
+    /function notifyFallback[\s\S]*?if \(shownFallbackKeys\.has\(messageKey\)\) return;[\s\S]*?shownFallbackKeys\.add\(messageKey\);/,
+    'notifyFallback 은 같은 사유에 대해서만 1회로 묶어야 한다',
   );
+});
+
+test("'전체 지역' 선택은 다음 화면 진입에 뒤집히지 않는다", () => {
+  // ensureLocation 은 6개 화면이 마운트마다 부른다 — pinnedAll 이 없으면 권한을 허용한
+  // 사용자는 '전체 지역'을 골라도 다음 화면에서 'gps' 로 원복됐다(2026-08-06 리뷰 지적).
+  assert.match(source, /pinnedAll: boolean;/, "'전체 지역' 고정 플래그가 있어야 한다");
+  assert.match(
+    code,
+    /if \(state\.mode === 'all' && \(state\.pinnedAll \|\| state\.permissionIntent === 'declined'\)\)/,
+    'ensureLocation 은 고정된 전체 지역에서 재측위하지 않아야 한다',
+  );
+  assert.match(code, /pinnedAll: true/, "setMode('all') 이 고정해야 한다");
+  assert.match(source, /partialize:[\s\S]*?pinnedAll: state\.pinnedAll/, '고정 상태는 persist 돼야 한다');
 });
 
 test('권한거부(1)·타임아웃(3)·측정불가를 구분해 안내한다', () => {

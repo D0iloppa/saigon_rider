@@ -8,6 +8,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { extractDetail } from '@/api/client';
 import { fetchBusinessAd, stopBusinessAd, resumeBusinessAd, type BusinessAd, type BusinessAdStatus } from '@/api/biz';
 import styles from './BizAdDetail.module.css';
+import { formatVnDate } from '@/lib/vnTime';
 
 const CHIP_CLASS: Record<BusinessAdStatus, string> = {
   PENDING: 'chipPending',
@@ -44,7 +45,7 @@ export default function BizAdDetail() {
     : s === 'REJECTED' ? t('biz.adStatusRejected', { defaultValue: '반려' })
     : t('biz.adStatusStopped', { defaultValue: '게시 중단' });
 
-  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(i18n.language);
+  const fmtDate = (iso: string) => formatVnDate(iso, i18n.language);
   const period = (a: BusinessAd) =>
     !a.startsAt && !a.endsAt
       ? t('biz.adPeriodAlways', { defaultValue: '상시 게시' })

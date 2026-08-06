@@ -9,6 +9,7 @@ import { fetchTickets, createTicket, type SupportTicket } from '@/api/support';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './CustomerSupport.module.css';
+import { formatVnDate } from '@/lib/vnTime';
 
 type View = 'list' | 'new';
 
@@ -82,7 +83,7 @@ export default function CustomerSupport() {
                   <span className={`${styles.badge} ${STATUS_CLASS[tk.status] ?? ''}`}>
                     {statusLabel(tk.status)}
                   </span>
-                  <span>{new Date(tk.created_at).toLocaleDateString()}</span>
+                  <span>{formatVnDate(tk.created_at)}</span>
                   {tk.reply_count > 0 && <span>{t('support.reply_count', { count: tk.reply_count })}</span>}
                 </div>
               </button>

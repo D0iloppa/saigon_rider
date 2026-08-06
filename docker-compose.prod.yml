@@ -23,6 +23,14 @@ services:
   nginx:
     ports: !override
       - "127.0.0.1:${NGINX_PORT}:80"
+    # 개발 전용 마운트(./dev-test) 제거 — /dev-test/, /dev/gps 하네스가 운영에 서빙되지
+    # 않게 한다. volumes 는 상속되므로 반드시 !override 로 다시 나열해야 한다
+    # (2026-08-06 코드리뷰 지적: 하네스가 app.saigon-rider.com 에 노출되고 있었다).
+    volumes: !override
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/docker-entrypoint.d:/docker-entrypoint.d:ro
+      - ./nginx/pages:/etc/nginx/pages:ro
+      - ./landing:/etc/nginx/landing:ro
 
   # ── frontend: 호스트 포트 미노출 (컨테이너 nginx 경유만) ──
   frontend:

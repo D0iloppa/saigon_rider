@@ -8,6 +8,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { saveSession } from '@/lib/session';
 import { apiRestoreAccount } from '@/api/auth';
 import styles from './AccountRestore.module.css';
+import { formatVnDate } from '@/lib/vnTime';
 
 interface RestoreState {
   deletedAt: string | null;
@@ -33,7 +34,7 @@ export default function AccountRestore() {
   const restoreToken = state.restoreToken;
 
   const untilLabel = state.restorableUntil
-    ? new Date(state.restorableUntil).toLocaleDateString(i18n.language, { dateStyle: 'long' })
+    ? formatVnDate(state.restorableUntil, i18n.language, { dateStyle: 'long' })
     : null;
 
   const handleRestore = async () => {

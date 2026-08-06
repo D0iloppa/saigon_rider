@@ -31,6 +31,7 @@
 | P-9 | §1 "인앱 구매" — 실화폐 결제로 오독 여지 | 이용자 결제는 가상 재화(골드)뿐 — 실화폐 결제 부재 (Engine shop: `engine_client.py purchase_shop_item`; 유일한 입금성 거래는 사업자 광고 월구독 계좌입금 admin 토글 `database/init/151_biz_verification.sql` `subscription_status`) | "가상 재화 구매·사용 내역"으로 수정 | 사업자 광고비(계좌입금) 결제정보 처리 서술 필요 여부 |
 | P-10 | §3 제공처 — **SMS 발송 업체 누락** | OTP 문자 발송 시 전화번호가 SpeedSMS.vn(베트남 SMS 업체)로 전달 (`backend/app/sms_client.py:1-13, 32-36`) | "SMS 발송 서비스 (전화번호 인증 문자 발송 시 전화번호 전달)" 추가 | **수탁사 실명 공개 여부**(SpeedSMS.vn, Firebase, 호스팅사, GreenCloudVPS(Zalo 로그인 프록시 VPS — `CLAUDE.md` "Zalo 인증 프록시" 절, `backend/app/services/oauth.py` `ZALO_API_PROXY`))와 국외 이전 고지 필요 여부 |
 | P-11 | §2 이용 목적 — 부정이용 방지 목적 누락 (P-4 해시 아카이브의 근거 목적) | 해시 아카이브·재가입 대조 조회 (`backend/app/routers/admin_api/users.py` withdrawn-check) | "탈퇴 후 재가입을 통한 이용 제한 회피 등 부정이용 방지" 목적 추가 | — |
+| P-12 | (없음 — 설계 단계, 미구현) | 근접 광고 기능(설계서 `260806_proximity_ad_design.md`)이 사용자 위치 좌표를 `proximity_hit.hit_lat/hit_lng` 로 서버에 영속 저장하는 것을 전제한다. 저장 목적은 ①가맹점 과금 근거 ②포인트 부정적립(GPS 스푸핑) 분쟁 대응. 즉 감사 목적이라 단기 삭제가 어렵다. | "근접 광고 목적의 위치 저장" 항목 신설 — 개인정보처리방침에 수집 항목(`proximity_hit.hit_lat/hit_lng`), 이용 목적("가맹점 과금 근거 및 포인트 부정적립 방지"), 보관기간 문구 추가. 구현 착수 전 법무 검토 필요. | ①위치 이력의 **보관 기간** 상한 ②개인정보처리방침에 필요한 **수집 항목·목적·보관기간 문구** ③위치정보사업 신고 의무 해당 여부(한국 위치정보법 / 베트남 현지법 각각) ④"앱 실행 중 위치 지속 수집"에 대한 **별도 동의** 필요 여부 · **시급도**: 이 기능은 8월 오픈 범위 밖(설계서 §7)이므로 **오픈 블로커 아님**. 다만 구현 착수 전에는 회신이 필요 |
 
 ## 2. 불일치 대조표 (이용약관)
 

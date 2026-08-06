@@ -113,3 +113,60 @@ test.describe('동네지도 — 나침반 모드 회전', () => {
     await expect(rotatedG).toHaveAttribute('transform', /rotate\(-180 /, { timeout: 20_000 });
   });
 });
+
+test.describe('/dev/gps 방위(heading) 다이얼 — 수동 회전 테스트 UI', () => {
+  let session: DevSession;
+  test.afterEach(() => { if (session) cleanupUser(session.userId); });
+
+  test('다이얼을 드래그하면 heading+speed 가 주입되고 지도가 회전하며, 정지 상태에서는 회전이 멈춘다', async ({ page, request }) => {
+    session = await devLogin(request, uniqueTag('dial'));
+    await saveConsentViaApi(request, session);
+    await injectSession(page, session);
+
+    await page.goto('/dev/gps/');
+    await page.check('#live');
+    await page.locator('#routes button', { hasText: '동네지도' }).click();
+
+    const app = page.frameLocator('#app');
+    await app.locator('button[class*="mapPill"]').click({ timeout: 20_000 });
+
+    const compassBtn = app.locator('button[class*="ctrlBtn"]:has(svg.lucide-navigation)');
+    await expect(compassBtn).toBeVisible({ timeout: 20_000 });
+    await compassBtn.click();
+
+    const rotatedG = app.locator('svg g[transform^="rotate("]').first();
+    await expect(rotatedG).toHaveAttribute('transform', /rotate\(-?0 /, { timeout: 20_000 });
+
+    const dial = page.locator('#dial');
+    await dial.scrollIntoViewIfNeeded();
+    const box = await dial.boundingBox();
+    if (!box) throw new Error('dial 을 찾지 못했습니다');
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const r = box.width / 2 - 10;
+
+    // 90°(다이얼 중심에서 정동쪽) 클릭 — heading=90 주입, speed 는 기본값(5m/s)이 자동으로 동반된다.
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    await page.mouse.up();
+
+    await expect(page.locator('#headingValue')).toHaveText('90°');
+    await expect
+      .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('__dev_gps') || '{}').speed))
+      .toBe(5);
+    await expect(rotatedG).toHaveAttribute('transform', /rotate\(-90 /, { timeout: 20_000 });
+
+    // 정지 상태 체크(speed=0) 후 180°로 드래그해도, speed<1.5 라 마지막 유효 방위(90°)가 유지돼야 한다.
+    await page.check('#stopped');
+    await page.mouse.move(cx, cy + r);
+    await page.mouse.down();
+    await page.mouse.up();
+
+    await expect(page.locator('#headingValue')).toHaveText('180°');
+    await expect
+      .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('__dev_gps') || '{}').speed))
+      .toBe(0);
+    await page.waitForTimeout(500);
+    await expect(rotatedG).toHaveAttribute('transform', /rotate\(-90 /);
+  });
+});

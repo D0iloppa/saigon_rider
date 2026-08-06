@@ -44,6 +44,12 @@
   .live b { color:var(--ink); }
   #map { height:300px; border-radius:8px; border:1px solid var(--bd); }
   .leaflet-container { font:inherit; }
+  .dialWrap { display:flex; align-items:center; gap:18px; }
+  .dial { position:relative; width:120px; height:120px; flex:0 0 auto; border-radius:50%; border:1px solid var(--bd); background:var(--surface); touch-action:none; cursor:grab; }
+  .dialNeedle { position:absolute; left:50%; top:8%; width:3px; height:42%; background:var(--brand); border-radius:2px; transform-origin:50% 92%; transform:translateX(-50%) rotate(0deg); pointer-events:none; }
+  .dialCenter { position:absolute; left:50%; top:50%; width:8px; height:8px; margin:-4px; border-radius:50%; background:var(--ink); pointer-events:none; }
+  .dialInfo { flex:1; }
+  .headingValue { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; margin-bottom:8px; }
   #mapFail { display:none; padding:10px; border:1px dashed var(--bd); border-radius:8px; color:var(--mut); font-size:12px; }
   @media (max-width: 900px) { body { flex-direction:column; } #stage { flex:none; } #app { height:60vh; } }
 </style>
@@ -69,6 +75,21 @@
         <span id="status"></span>
       </div>
       <label class="live"><input type="checkbox" id="live" checked> <b>실시간 모드</b> — 새로고침 없이 좌표만 갱신(이동 재현). 지도 클릭·드래그가 즉시 반영됩니다.</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>방위 (heading) — 나침반 회전 테스트</legend>
+      <div class="dialWrap">
+        <div id="dial" class="dial">
+          <div id="dialNeedle" class="dialNeedle"></div>
+          <div class="dialCenter"></div>
+        </div>
+        <div class="dialInfo">
+          <div id="headingValue" class="headingValue">0°</div>
+          <label class="live"><input type="checkbox" id="stopped"> <b>정지 상태(speed 0)</b> — 회전이 멈추는지 확인</label>
+        </div>
+      </div>
+      <p class="note" style="margin:10px 0 0">다이얼을 드래그해 방위(0~359°)를 바꿉니다. 나침반 회전에는 <code>speed ≥ 1.5m/s</code> 가 필요해 드래그 시 자동으로 <code>5m/s</code> 를 함께 주입합니다 — "정지 상태"를 체크하면 <code>speed=0</code> 으로 주입되어 회전이 멈추는지(마지막 방위 유지) 확인할 수 있습니다.</p>
     </fieldset>
 
     <fieldset>
@@ -241,6 +262,65 @@
   var syncMap = function () {};
   initMap();
 
+  // ── 방위(heading) 다이얼 — 나침반 회전 수동 테스트 ────────────────────────
+  // native.ts 의 readDevGpsOverride() 가 이미 heading/speed 를 통과시키므로(88bd487), 좌표와
+  // 함께 heading/speed 를 __dev_gps 에 써 넣기만 하면 된다. 나침반은 speed < 1.5m/s 면 마지막
+  // 방위를 유지하므로(SaigonMapV5.tsx COMPASS_MIN_SPEED_MPS), 드래그 중에는 임계 이상의 기본
+  // 속도(5m/s)를 함께 주입한다 — "정지 상태" 체크박스로 speed=0 을 주입해 회전이 멈추는지도
+  // 확인할 수 있다.
+  var HEADING_SPEED_DEFAULT = 5; // m/s (~18km/h), COMPASS_MIN_SPEED_MPS(1.5) 이상
+  var dial = $('dial');
+  var needle = $('dialNeedle');
+  var headingDeg = 0;
+  var dialDragging = false;
+
+  function setHeadingVisual(deg) {
+    headingDeg = ((deg % 360) + 360) % 360;
+    needle.style.transform = 'translateX(-50%) rotate(' + headingDeg + 'deg)';
+    $('headingValue').textContent = Math.round(headingDeg) + '°';
+  }
+
+  function writeHeading() {
+    var la = Number($('lat').value), ln = Number($('lng').value);
+    if (!isFinite(la) || !isFinite(ln)) return;
+    var speed = $('stopped').checked ? 0 : HEADING_SPEED_DEFAULT;
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ lat: la, lng: ln, heading: Math.round(headingDeg), speed: speed }));
+    } catch (e) { say('저장 실패: ' + e.message); }
+  }
+
+  function angleFromDialEvent(e) {
+    var rect = dial.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    var dx = e.clientX - cx, dy = e.clientY - cy;
+    return (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+  }
+
+  dial.addEventListener('pointerdown', function (e) {
+    dialDragging = true;
+    dial.setPointerCapture(e.pointerId);
+    setHeadingVisual(angleFromDialEvent(e));
+    writeHeading();
+    say('방위 ' + Math.round(headingDeg) + '° 주입 · speed ' + ($('stopped').checked ? 0 : HEADING_SPEED_DEFAULT) + 'm/s');
+  });
+  dial.addEventListener('pointermove', function (e) {
+    if (!dialDragging) return;
+    setHeadingVisual(angleFromDialEvent(e));
+    writeHeading();
+  });
+  dial.addEventListener('pointerup', function (e) {
+    dialDragging = false;
+    try { dial.releasePointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+  });
+  dial.addEventListener('pointercancel', function () { dialDragging = false; });
+
+  $('stopped').onchange = function () {
+    writeHeading();
+    say($('stopped').checked
+      ? '정지 상태 주입(speed 0) — 회전이 멈추는지 확인하세요'
+      : '주행 상태 재개(speed ' + HEADING_SPEED_DEFAULT + 'm/s)');
+  };
+
   // 진입 상태 결정.
   // - 이미 걸려 있는 오버라이드가 있으면 그 값을 되살린다.
   // - 없으면 Bến Thành 을 **자동 적용**한다 — 디버깅 전용 페이지라 매번 [적용]을 누르게
@@ -250,6 +330,8 @@
     if (saved && isFinite(saved.lat) && isFinite(saved.lng)) {
       $('lat').value = saved.lat; $('lng').value = saved.lng;
       syncMap(saved.lat, saved.lng);
+      if (saved.heading != null && isFinite(saved.heading)) setHeadingVisual(Number(saved.heading));
+      if (saved.speed === 0) $('stopped').checked = true;
       say('기존 오버라이드 적용 중');
     } else {
       var d = PRESETS[0]; // Bến Thành (중심가)

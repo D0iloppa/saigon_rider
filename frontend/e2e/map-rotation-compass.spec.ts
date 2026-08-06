@@ -170,3 +170,65 @@ test.describe('/dev/gps 방위(heading) 다이얼 — 수동 회전 테스트 UI
     await expect(rotatedG).toHaveAttribute('transform', /rotate\(-90 /);
   });
 });
+
+test.describe('/dev/gps 다이얼-좌표 상호작용 — 방위/좌표 보존', () => {
+  let session: DevSession;
+  test.afterEach(() => { if (session) cleanupUser(session.userId); });
+
+  test('다이얼로 방위를 맞춘 뒤 좌표를 적용해도(마커 이동과 동일 경로) 방위가 유지된다', async ({ page, request }) => {
+    session = await devLogin(request, uniqueTag('dialpreserve'));
+    await saveConsentViaApi(request, session);
+    await injectSession(page, session);
+
+    await page.goto('/dev/gps/');
+    await page.check('#live');
+    await page.locator('#routes button', { hasText: '동네지도' }).click();
+
+    const app = page.frameLocator('#app');
+    await app.locator('button[class*="mapPill"]').click({ timeout: 20_000 });
+    const compassBtn = app.locator('button[class*="ctrlBtn"]:has(svg.lucide-navigation)');
+    await expect(compassBtn).toBeVisible({ timeout: 20_000 });
+    await compassBtn.click();
+
+    const rotatedG = app.locator('svg g[transform^="rotate("]').first();
+    await expect(rotatedG).toHaveAttribute('transform', /rotate\(-?0 /, { timeout: 20_000 });
+
+    const dial = page.locator('#dial');
+    await dial.scrollIntoViewIfNeeded();
+    const box = await dial.boundingBox();
+    if (!box) throw new Error('dial 을 찾지 못했습니다');
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const r = box.width / 2 - 10;
+
+    // 90°로 방위를 맞춘다.
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(rotatedG).toHaveAttribute('transform', /rotate\(-90 /, { timeout: 20_000 });
+
+    // 좌표만 다른 서비스 지역 안 좌표로 적용(apply 버튼, live 모드라 리로드 없음) —
+    // 방위(heading/speed)는 지워지지 않고 그대로 유지돼야 한다.
+    await page.fill('#lat', '10.79126');
+    await page.fill('#lng', '106.69396');
+    await page.click('#apply');
+
+    await expect
+      .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('__dev_gps') || '{}')))
+      .toMatchObject({ lat: 10.79126, lng: 106.69396, heading: 90, speed: 5 });
+    await expect(rotatedG).toHaveAttribute('transform', /rotate\(-90 /, { timeout: 20_000 });
+  });
+
+  test('heading/speed 를 한 번도 설정하지 않았으면 좌표 적용은 {lat,lng} 만 기록한다(null 폴백 유지)', async ({ page }) => {
+    await page.goto('/dev/gps/');
+    await page.check('#live');
+    await page.fill('#lat', '10.79126');
+    await page.fill('#lng', '106.69396');
+    await page.click('#apply');
+
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('__dev_gps') || '{}'));
+    expect(stored).toEqual({ lat: 10.79126, lng: 106.69396 });
+    expect(stored.heading).toBeUndefined();
+    expect(stored.speed).toBeUndefined();
+  });
+});

@@ -117,6 +117,13 @@
   var $ = function (id) { return document.getElementById(id); };
   var frame = $('app');
 
+  // heading/speed 는 좌표와 별개 축이다 — 좌표만 바꾸는 경로(apply/마커 드래그)와 방위만
+  // 바꾸는 경로(다이얼)가 서로의 값을 지우면 안 되므로, 두 값을 한 곳(state)에 모아두고
+  // write() 하나만 실제 __dev_gps 를 갱신한다. 아직 한 번도 설정하지 않았으면 null 로 두어
+  // JSON 에 키 자체가 안 실리게 한다 — readDevGpsOverride 의 null 폴백(88bd487)이 그대로
+  // 동작해야 하기 때문이다.
+  var state = { heading: null, speed: null };
+
   // 서비스 지역(37개 동) 안 3곳 + 경계 밖 2곳 — 폴백 경로까지 눌러볼 수 있게 섞었다.
   var PRESETS = [
     ['Bến Thành (중심가)', 10.7716, 106.6980],
@@ -139,11 +146,16 @@
     frame.setAttribute('src', base + '?_t=' + Date.now());
   }
 
-  /** 좌표를 저장한다. localStorage 쓰기는 같은 출처의 iframe 에 storage 이벤트로 전달되므로,
-   *  앱의 watchLocation 이 이를 구독해 새로고침 없이 위치를 갱신한다(실시간 모드). */
+  /** 좌표(+있으면 state 의 heading/speed)를 저장한다. localStorage 쓰기는 같은 출처의 iframe 에
+   *  storage 이벤트로 전달되므로, 앱의 watchLocation 이 이를 구독해 새로고침 없이 위치를
+   *  갱신한다(실시간 모드). 좌표만 바꾸는 모든 호출(apply/마커 드래그/프리셋)이 이 함수 하나를
+   *  거치므로, 다이얼로 맞춰둔 방위가 좌표 변경으로 지워지지 않는다. */
   function write(la, ln) {
+    var payload = { lat: la, lng: ln };
+    if (state.heading != null) payload.heading = state.heading;
+    if (state.speed != null) payload.speed = state.speed;
     try {
-      localStorage.setItem(KEY, JSON.stringify({ lat: la, lng: ln }));
+      localStorage.setItem(KEY, JSON.stringify(payload));
       return true;
     } catch (e) { say('저장 실패: ' + e.message); return false; }
   }
@@ -283,10 +295,11 @@
   function writeHeading() {
     var la = Number($('lat').value), ln = Number($('lng').value);
     if (!isFinite(la) || !isFinite(ln)) return;
-    var speed = $('stopped').checked ? 0 : HEADING_SPEED_DEFAULT;
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ lat: la, lng: ln, heading: Math.round(headingDeg), speed: speed }));
-    } catch (e) { say('저장 실패: ' + e.message); }
+    // state 에 반영한 뒤 공용 write() 를 그대로 쓴다 — 좌표 쪽 write() 와 저장 경로를 하나로
+    // 모아야 서로의 값(좌표 ↔ 방위)을 지우지 않는다.
+    state.heading = Math.round(headingDeg);
+    state.speed = $('stopped').checked ? 0 : HEADING_SPEED_DEFAULT;
+    write(la, ln);
   }
 
   function angleFromDialEvent(e) {
@@ -330,8 +343,14 @@
     if (saved && isFinite(saved.lat) && isFinite(saved.lng)) {
       $('lat').value = saved.lat; $('lng').value = saved.lng;
       syncMap(saved.lat, saved.lng);
-      if (saved.heading != null && isFinite(saved.heading)) setHeadingVisual(Number(saved.heading));
-      if (saved.speed === 0) $('stopped').checked = true;
+      if (saved.heading != null && isFinite(saved.heading)) {
+        state.heading = Math.round(Number(saved.heading));
+        setHeadingVisual(state.heading);
+      }
+      if (saved.speed != null && isFinite(saved.speed)) {
+        state.speed = Number(saved.speed);
+        if (state.speed === 0) $('stopped').checked = true;
+      }
       say('기존 오버라이드 적용 중');
     } else {
       var d = PRESETS[0]; // Bến Thành (중심가)

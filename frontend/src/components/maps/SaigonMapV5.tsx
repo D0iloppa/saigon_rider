@@ -1178,7 +1178,11 @@ function SaigonMapV5({
     const d1x = (mx - lx(D1_BBOX.W)) / (lx(D1_BBOX.E) - lx(D1_BBOX.W)) * depth1.VW;
     const d1y = (my - ly(D1_BBOX.N)) / (ly(D1_BBOX.S) - ly(D1_BBOX.N)) * depth1.VH;
 
-    const idx = depth1.wards.findIndex((_, i) => wardInView(i, vb) && pointInPoly(d1x, d1y, depth1.wards[i].p));
+    // 탭 후보 목록도 회전 bbox(cullVb) 로 걸러야 한다 — 축정렬 vb 로 걸러내면 나침반 모드에서
+    // 회전된 화면 모서리에 들어온 ward 가 후보에서 누락돼 탭이 안 먹는다(감독 지적, D-C 동일 패턴).
+    // bearing===0 이면 rotatedBBoxOfRect 가 vb 를 그대로 반환하므로 기존 8곳 소비처는 불변.
+    const tapCullVb = rotatedBBoxOfRect(vb, camCx, camCy, bearing);
+    const idx = depth1.wards.findIndex((_, i) => wardInView(i, tapCullVb) && pointInPoly(d1x, d1y, depth1.wards[i].p));
     if (idx >= 0 && onRegionSelect) {
       // 지역 선택 재활성 (2026-07-25) — onRegionSelect 를 넘긴 소비자(동네지도·침수)에서만
       // 오버뷰 ward 폴리곤 탭이 그 동을 선택한다. onRegionSelect 미전달 소비자(피커로만 선택하는

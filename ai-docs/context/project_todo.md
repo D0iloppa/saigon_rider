@@ -166,3 +166,24 @@ Hẻm 76/50 Phan Tây Hồ → road: "Hẻm 76/50 Phan Tây Hồ"   house_number
 ### ⏸ passcode 평문 쿠키 → HttpOnly + JWT 전환
 - 현재 `frontend/src/lib/session.ts` 가 passcode 를 평문 쿠키에 저장.
 - 정식 출시 전 HttpOnly 쿠키 + 서버 발급 JWT 로 교체 필요. (README 인증 구조 섹션의 보안 참고 참조)
+
+---
+
+## 🧪 DEV 임시물
+
+### ⬜ [DEV] 동탄역 테스트 핀 제거 (2026-08-07 추가)
+
+**목적**: 베트남 현지에서 실기기 GPS 카메라 연출(course-up 회전·flyTo·추종)을 검증할 수 없어, 한국(경기 화성 동탄역) 실좌표를 주유소 목록에 임시로 심어 실기기에서 「경로」 진입 → 나침반 회전/추종을 확인하기 위한 검증용 코드다. **실기기 검증이 끝나면 즉시 제거해야 한다.**
+
+**제거 절차**
+1. `grep -rn DEV_DONGTAN_PIN` (레포 루트) — 프론트/백엔드 전 지점이 한 번에 잡힌다.
+2. 잡힌 지점을 전부 삭제:
+   - `frontend/src/pages/info/InfoGasList.tsx` — `DEV_DONGTAN_PIN` 상수, `isDev` state/effect, `fetchStations` 의 append 분기, 경로 버튼의 `devFlag`.
+   - `frontend/src/pages/ride/RideNav.tsx` — `isDev`/`devRaw`/`devBypass`, `fetchRoute` 의 `bypassAreaGate`·`travelMode` 전달부.
+   - `frontend/src/api/info.ts` — `routeApi.getRoute` 의 `travelMode` 파라미터(선언부 + `params.set('travel_mode', ...)`).
+   - `backend/app/routers/info_route.py` — `_DEV_MODE` import, `travel_mode` 쿼리 파라미터, `_cache_key`/`_fetch_directions` 의 `mode` 인자(원복 시 `TWO_WHEELER` 하드코딩으로 되돌릴지 여부는 재검토 — 캐시 키에 mode 를 유지하는 것 자체는 무해하니 그대로 둬도 됨).
+   - `backend/app/tests/test_info_route.py` — 추가된 `test_drive_mode_*`, `test_cache_key_includes_travel_mode` 테스트.
+3. **백엔드 파라미터(`travel_mode`)도 함께 제거해야 한다** — 프론트만 지우면 죽은 쿼리 파라미터가 백엔드에 남는다.
+4. 제거 후 재빌드: `docker compose --env-file .env up --build -d bff frontend`.
+
+**참고**: 이중 게이트(프론트 `is_dev` AND URL `devRaw` 플래그, 백엔드 `_DEV_MODE` AND `travel_mode=DRIVE`) 구조라 운영 서버에서는 애초에 활성화되지 않는다 — 제거가 늦어져도 사용자 영향은 없지만, 죽은 코드이므로 검증 완료 후 정리할 것.

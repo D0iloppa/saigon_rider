@@ -19,6 +19,9 @@ import QuestProgressChip from '@/components/ride/QuestProgressChip';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
 import { routeApi, type RouteData } from '@/api/info';
 import { fetchQuest, abandonRide as apiAbandonRide, fetchRideTrail, type TrailPoint } from '@/api/quests';
+// DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 dev 판정 — BizManage.tsx 패턴 복제.
+// 실기기 검증 완료 후 제거 대상 (2026-08-07).
+import { fetchAppConfig } from '@/api/appVersion';
 import { useRideStore } from '@/store/useRideStore';
 import { useUserStore } from '@/store/useUserStore';
 import { calculateRewards } from '@/lib/rewards';
@@ -134,6 +137,21 @@ export default function RideNav() {
   const lat = params.get('lat');
   const lng = params.get('lng');
   const hasDest = !!lat && !!lng;
+  // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 — 이 화면도 is_dev 를 읽어야 이중 게이트가 성립한다
+  // (BizManage.tsx 패턴 복제, fail-closed). URL 의 devRaw 플래그는 단독으로는 아무 효과가 없다 —
+  // 아래 isDev && devRaw AND 조건에서만 소비된다. 실기기 검증 완료 후 전부 제거할 것 (2026-08-07).
+  const devRaw = params.get('devRaw') === '1';
+  const [isDev, setIsDev] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAppConfig()
+      .then((cfg) => { if (!cancelled) setIsDev(cfg.isDev); })
+      .catch(() => { /* fail-closed: isDev 는 false 유지 */ });
+    return () => { cancelled = true; };
+  }, []);
+  // DEV_DONGTAN_PIN: 이중 게이트 판정 하나로 통일 — 서비스지역 폴백 스킵과 DRIVE 모드 요청 모두
+  // 이 값을 쓴다. 운영(is_dev=false)에서는 devRaw 를 URL 에 붙여도 항상 false. 제거 대상 (2026-08-07).
+  const devBypass = isDev && devRaw;
 
   // nav: 목적지. quest-checkpoint: 서버 목표 좌표. quest-distance: 목적지 없음.
   const dest = useMemo<Coords | null>(() => {
@@ -341,12 +359,18 @@ export default function RideNav() {
     }
     // 출발지가 서비스 지역(호치민 도심) 밖이면 실제 GPS 대신 도심 기본 좌표로 경로를 계산한다
     // (다른 화면과 동일한 폴백 관례). 현재위치 표시(dotPos)는 건드리지 않는다 — origin 은 경로 계산용.
-    const outOfArea = !inServiceArea(from.lat, from.lng);
+    // DEV_DONGTAN_PIN: is_dev AND devRaw(devBypass) 일 때만 이 폴백을 건너뛴다 — 플래그 단독으로는
+    // 절대 뚫리지 않는다(_otp_bypass_enabled() 이중 게이트 관례). 운영 서버(is_dev=false)에서는
+    // devRaw 를 URL 에 붙여도 무시되고 항상 서비스 지역 판정이 적용된다. 실기기 검증 완료 후 이 분기를
+    // 제거할 것 (2026-08-07).
+    const outOfArea = !devBypass && !inServiceArea(from.lat, from.lng);
     const routeOrigin = outOfArea ? BEN_THANH_FALLBACK : from;
     setOrigin(routeOrigin);
     if (outOfArea) toast.neutral(t('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요'));
     const locale = i18n.resolvedLanguage ?? i18n.language;
-    const data = await routeApi.getRoute(routeOrigin, dest, locale).catch(() => null);
+    // DEV_DONGTAN_PIN: 한국 좌표는 TWO_WHEELER 미지원 가능성이 높아 dev 핀 경로일 때만 DRIVE 를
+    // 요청한다 — 백엔드가 dev 아니면 무시하고 TWO_WHEELER 로 간다(fail-closed). 제거 대상 (2026-08-07).
+    const data = await routeApi.getRoute(routeOrigin, dest, locale, devBypass ? 'DRIVE' : undefined).catch(() => null);
     if (!data?.configured) {
       setDialogOpen(true);
       setLoading(false);

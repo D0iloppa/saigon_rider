@@ -95,3 +95,38 @@ class RoutesApiTest(unittest.IsolatedAsyncioTestCase):
             await info_route._enforce_rate_limit(uuid.uuid4())
 
         self.assertEqual(raised.exception.status_code, 429)
+
+    # DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 DRIVE 모드 보험 계약 테스트.
+    # 실기기 검증 완료 후 이 테스트도 함께 제거할 것 (2026-08-07).
+    async def test_drive_mode_ignored_outside_dev(self):
+        with (
+            patch.object(info_route, "_DEV_MODE", False),
+            patch.object(info_route, "_get_api_key", return_value="api-key"),
+            patch.object(info_route, "_get_cached_route", new=AsyncMock(return_value=None)),
+            patch.object(info_route, "_set_cached_route", new=AsyncMock()),
+            patch.object(info_route, "_enforce_rate_limit", new=AsyncMock()),
+            patch.object(info_route, "_fetch_directions", new=AsyncMock(return_value=ROUTES_RESPONSE)) as fetch,
+        ):
+            user_id = uuid.uuid4()
+            await info_route.get_route(10.7761, 106.7001, 10.78, 106.71, user_id, "vi", "DRIVE")
+
+        self.assertEqual(fetch.await_args.args[-1], "TWO_WHEELER")
+
+    async def test_drive_mode_allowed_in_dev(self):
+        with (
+            patch.object(info_route, "_DEV_MODE", True),
+            patch.object(info_route, "_get_api_key", return_value="api-key"),
+            patch.object(info_route, "_get_cached_route", new=AsyncMock(return_value=None)),
+            patch.object(info_route, "_set_cached_route", new=AsyncMock()),
+            patch.object(info_route, "_enforce_rate_limit", new=AsyncMock()),
+            patch.object(info_route, "_fetch_directions", new=AsyncMock(return_value=ROUTES_RESPONSE)) as fetch,
+        ):
+            user_id = uuid.uuid4()
+            await info_route.get_route(10.7761, 106.7001, 10.78, 106.71, user_id, "vi", "DRIVE")
+
+        self.assertEqual(fetch.await_args.args[-1], "DRIVE")
+
+    def test_cache_key_includes_travel_mode(self):
+        key_two_wheeler = info_route._cache_key(10.7761, 106.7001, 10.78, 106.71, "vi", "TWO_WHEELER")
+        key_drive = info_route._cache_key(10.7761, 106.7001, 10.78, 106.71, "vi", "DRIVE")
+        self.assertNotEqual(key_two_wheeler, key_drive)

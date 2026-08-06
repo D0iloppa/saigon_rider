@@ -606,6 +606,10 @@ export const routeApi = {
     origin: { lat: number; lng: number },
     dest: { lat: number; lng: number },
     locale: string,
+    // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 DRIVE 모드 보험 파라미터 — 백엔드가 dev
+    // 서버가 아니면 무시하고 항상 TWO_WHEELER 로 간다(fail-closed). 실기기 검증 완료 후 제거 대상
+    // (2026-08-07).
+    travelMode?: 'DRIVE',
   ): Promise<RouteData | null> {
     const language = locale.split('-')[0];
     const params = new URLSearchParams({
@@ -615,6 +619,7 @@ export const routeApi = {
       dest_lng: String(dest.lng),
       lang: ['ko', 'en', 'vi'].includes(language) ? language : 'vi',
     });
+    if (travelMode) params.set('travel_mode', travelMode);
     return api.realFetch<RouteData>(`/info/route?${params}`, {}, 'bff', { silent: true });
   },
 };

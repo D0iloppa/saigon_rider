@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { AlertCircle, ChevronUp, Clock, Fuel, Map as MapIcon, Navigation, Phone, Plus, ZoomIn } from 'lucide-react';
 import { gasApi } from '@/api/info';
 import type { GasStation, TodayPrices } from '@/api/info';
+// DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 dev 판정 — BizManage.tsx 패턴 복제.
+// 실기기 검증 완료 후 제거 대상 (2026-08-07).
+import { fetchAppConfig } from '@/api/appVersion';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
@@ -28,6 +31,27 @@ import styles from './InfoGasList.module.css';
 
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
 
+// DEV_DONGTAN_PIN: 한국(경기 화성 동탄역) 실기기 카메라연출(course-up 회전·flyTo·추종) 검증용 임시 핀.
+// 베트남 현지 실기기 테스트가 불가해 한국 실좌표로 대체 검증한다. dev 서버에서만 목록에 append 되며,
+// station_id 는 음수라 실 DB 와 충돌하지 않는다. 실기기 검증 완료 후 이 상수와 관련 분기를 전부 제거할 것
+// (2026-08-07, grep -rn DEV_DONGTAN_PIN 로 전체 위치 확인).
+const DEV_DONGTAN_PIN: GasStation = {
+  station_id: -999001,
+  brand: null,
+  name: '[DEV] 동탄역',
+  phone: null,
+  district_code: null,
+  street_name: null,
+  distance_km: 0,
+  opening_hours: null,
+  lat: 37.19930,
+  lng: 127.09704,
+  price_vnd: null,
+  wait_minutes: null,
+  wait_confidence: null,
+  wait_reported_at: null,
+};
+
 export default function InfoGasList() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -43,6 +67,17 @@ export default function InfoGasList() {
   const [todayPrices, setTodayPrices] = useState<TodayPrices | null>(null);
   const [selectedStation, setSelectedStation] = useState<number | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
+
+  // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 — dev 서버에서만 테스트 핀 노출(fail-closed).
+  // 실기기 검증 완료 후 이 state/effect 를 제거할 것 (2026-08-07).
+  const [isDev, setIsDev] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAppConfig()
+      .then((cfg) => { if (!cancelled) setIsDev(cfg.isDev); })
+      .catch(() => { /* fail-closed: isDev 는 false 유지 */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
@@ -115,10 +150,18 @@ export default function InfoGasList() {
       setLoading(true);
     }
     gasApi.getNearby(lat, lng, fetchRadiusKm)
-      .then((r) => { if (!r) return; setStations(r.stations); swrWrite(nearbyKey, r.stations); setError(false); })
+      .then((r) => {
+        if (!r) return;
+        // 캐시에는 실제 응답만 기록 — DEV 핀은 캐시 기록 뒤에 append 해 새로고침 시 중복되지 않게 한다.
+        swrWrite(nearbyKey, r.stations);
+        setError(false);
+        // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 테스트 핀 — dev 서버에서만 append.
+        // 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
+        setStations(isDev ? [...r.stations, DEV_DONGTAN_PIN] : r.stations);
+      })
       .catch(() => { if (!cached) setError(true); })
       .finally(() => setLoading(false));
-  }, [fetchRadiusKm]);
+  }, [fetchRadiusKm, isDev]);
 
   // 조회 기준 좌표(전체=도시 중심, 선택지역=동 centroid)가 바뀌면 재조회.
   useEffect(() => {
@@ -336,7 +379,10 @@ export default function InfoGasList() {
                     className={`${sys.actionChip} ${sys.actionPrimary}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/ride-nav?name=${encodeURIComponent(s.name ?? s.brand ?? '')}&lat=${s.lat}&lng=${s.lng}&dist=${s.distance_km.toFixed(1)}`);
+                      // DEV_DONGTAN_PIN: 이 핀일 때만 devRaw 플래그를 붙인다 — RideNav 가 is_dev AND
+                      // 플래그 이중 게이트로 소비(다른 주유소는 기존 URL 그대로). 제거 대상 (2026-08-07).
+                      const devFlag = s.station_id === DEV_DONGTAN_PIN.station_id ? '&devRaw=1' : '';
+                      navigate(`/ride-nav?name=${encodeURIComponent(s.name ?? s.brand ?? '')}&lat=${s.lat}&lng=${s.lng}&dist=${s.distance_km.toFixed(1)}${devFlag}`);
                     }}
                   >
                     <Navigation size={13} strokeWidth={2.2} />

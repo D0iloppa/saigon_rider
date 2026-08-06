@@ -43,9 +43,7 @@ export function DisplayScopeSheet({ open, onClose }: Props) {
   // "내 현재 위치"로 보이면 사용자가 결과를 오해한다(coordsSource 'fallback').
   const currentTitle = mode === 'all'
     ? t('location.allTitle')
-    : coordsSource === 'fallback'
-      ? t('location.fallbackTitle')
-      : wardName ?? t('location.gpsTitle');
+    : wardName ?? t('location.gpsTitle');
   const currentMeta = mode === 'all'
     ? t('location.allDesc')
     : coordsSource === 'fallback'

@@ -185,7 +185,10 @@ export const useLocationStore = create<LocationState>()(
                 mode: 'gps',
                 coords: { ...BEN_THANH_FALLBACK },
                 coordsSource: 'fallback',
-                wardName: null,
+                // 폴백 좌표도 실재하는 동(Bến Thành)이므로 그 동 이름을 그대로 쓴다 —
+                // "호치민 중심가" 같은 총칭보다 사용자가 위치를 가늠하기 쉽다(대표 지적
+                // 2026-08-06). "서비스 지역 밖" 이라는 사실은 아래 토스트가 알린다.
+                wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
                 permissionIntent: 'granted',
               });
               notifyFallback(

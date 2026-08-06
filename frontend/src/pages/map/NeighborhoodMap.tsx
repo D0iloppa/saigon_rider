@@ -73,17 +73,14 @@ export default function NeighborhoodMap() {
   const regionMode = useLocationStore((s) => s.mode);
   const coords = useLocationStore((s) => s.coords);
   const wardName = useLocationStore((s) => s.wardName);
-  const coordsSource = useLocationStore((s) => s.coordsSource);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
   const [locSheetOpen, setLocSheetOpen] = useState(false);
   // 진입 시 측위 — 스토어가 세션당 1회로 묶는다.
   useEffect(() => { void ensureLocation(); }, [ensureLocation]);
-  // 헤더 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다(설계도 §4.3).
+  // 헤더 라벨. 폴백(권역 밖)이어도 그 좌표의 동 이름을 쓴다.
   const scopeLabel = regionMode === 'all'
     ? t('location.allTitle')
-    : coordsSource === 'fallback'
-      ? t('location.fallbackTitle')
-      : wardName ?? t('location.gpsTitle');
+    : wardName ?? t('location.gpsTitle');
 
   useEffect(() => {
     if (bizCategories.length > 0) return;

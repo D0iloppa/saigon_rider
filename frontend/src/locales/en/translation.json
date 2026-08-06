@@ -258,7 +258,8 @@
     "reviewStar2": "Fair",
     "reviewStar3": "Okay",
     "reviewStar4": "Good",
-    "reviewStar5": "Excellent!"
+    "reviewStar5": "Excellent!",
+    "categoryAll": "All"
   },
   "forceUpdate": {
     "title": "Update required",

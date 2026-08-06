@@ -258,7 +258,8 @@
     "reviewStar2": "Chưa tốt lắm",
     "reviewStar3": "Bình thường",
     "reviewStar4": "Hài lòng",
-    "reviewStar5": "Tuyệt vời!"
+    "reviewStar5": "Tuyệt vời!",
+    "categoryAll": "Tất cả"
   },
   "forceUpdate": {
     "title": "Cần cập nhật ứng dụng",

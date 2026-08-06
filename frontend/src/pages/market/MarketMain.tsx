@@ -21,15 +21,18 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { adAtIndex, ADS_ENABLED, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
-import { fetchDistricts, type District } from '@/api/master';
+import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
   addKeywordAlert,
   adHref,
+  buildCategoryTree,
   fetchAds,
+  fetchCategories,
   fetchKeywordAlerts,
   fetchListings,
   removeKeywordAlert,
   resolveDistrict,
+  type CategoryNode,
   type KeywordAlert,
   type ListingCard as Listing,
   type ListingSort,
@@ -56,8 +59,6 @@ const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 interface SavedState {
   sort: ListingSort;
   hideSold: boolean;
-  /** 리스트/지도 뷰 토글 — 상세 갔다 돌아와도 유지 (SGR 마켓 지도, 대표 지시). */
-  viewMode: 'list' | 'map';
   scrollTop: number;
 }
 /** 콜드 스타트(새 웹뷰 세션) 표식 — scrollTop·viewMode 를 세션 범위로 유지하는 데 쓴다. */
@@ -73,7 +74,7 @@ function readSaved(): SavedState | null {
     // 지도 뷰 + 이전 스크롤 위치로 점프하는 새 부작용이 된다 — 새 세션에서는 기본값으로 시작한다.
     const coldStart = !sessionStorage.getItem(SESSION_MARK_KEY);
     sessionStorage.setItem(SESSION_MARK_KEY, '1');
-    if (coldStart) return { ...(parsed as SavedState), viewMode: 'list', scrollTop: 0 };
+    if (coldStart) return { ...(parsed as SavedState), scrollTop: 0 };
     return parsed as SavedState;
   } catch { return null; }
 }
@@ -106,7 +107,15 @@ export default function MarketMain() {
   const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
   const [sortOpen, setSortOpen] = useState(false);
   const [hideSold, setHideSold] = useState(savedState?.hideSold ?? false);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>(savedState?.viewMode ?? 'list');
+  // 뷰 모드는 **URL 쿼리**로 둔다(동네지도 `?view=map` 과 동일). 탭으로 새로 들어오면 쿼리가
+  // 없어 항상 리스트로 시작하고(대표 지시 2026-08-06), 상세로 갔다가 back 하면 쿼리가 남아
+  // 지도 상태가 그대로 복원된다 — 종전 localStorage 방식은 탭 재진입에도 지도로 열렸다.
+  const viewMode: 'list' | 'map' = searchParams.get('view') === 'map' ? 'map' : 'list';
+  const setViewMode = useCallback((mode: 'list' | 'map') => {
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'map') next.set('view', 'map'); else next.delete('view');
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
   const [mapListings, setMapListings] = useState<Listing[]>([]);
   const [mapError, setMapError] = useState(false);
   // 지도 마커 탭 → 하단 캐러셀(PostPanel, 동네지도 포스트 패널과 동일 컴포넌트/동작 재사용).
@@ -137,6 +146,10 @@ export default function MarketMain() {
   const [bboxFilter, setBboxFilter] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
   const [ads, setAds] = useState<MarketAd[]>([]);
   const [allDistricts, setAllDistricts] = useState<District[]>([]);
+  // 지도 상단 카테고리 칩 — **대분류(depth 0)만**. 목록은 DB(fetchCategories)에서 오며
+  // 하드코딩하지 않는다(대표 지시 2026-08-06). '전체'(null)가 기본값이다.
+  const [topCategories, setTopCategories] = useState<CategoryNode[]>([]);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [locMapOpen, setLocMapOpen] = useState(false);
   const [adLimit, setAdLimit] = useState(AD_LIMIT_INITIAL); // 스크롤 시 결정적 증가
   // 제휴 광고(지역 타게팅) 대상 district — /market/ads 는 아직 district_id 만 지원(백엔드 미변경
@@ -161,6 +174,15 @@ export default function MarketMain() {
     return () => { cancelled = true; };
   }, []);
 
+  // 카테고리 트리 — 칩에는 대분류만 쓴다(자식은 검색 화면의 카테고리 시트가 다룬다).
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategories()
+      .then((flat) => { if (!cancelled) setTopCategories(buildCategoryTree(flat)); })
+      .catch(() => { if (!cancelled) setTopCategories([]); });
+    return () => { cancelled = true; };
+  }, []);
+
   // 진입 시 측위 — 표시 범위 기본값이 GPS 다(대표 지시 2026-08-06 "기본을 다 gps로").
   // 실측은 스토어가 세션당 1회로 묶으므로, 화면 이동마다 권한창이 다시 뜨지 않는다.
   useEffect(() => { void ensureLocation(); }, [ensureLocation]);
@@ -174,8 +196,8 @@ export default function MarketMain() {
   }, [searchParams, setSearchParams]);
 
   // 표시 중인 지역 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다 —
-  // "내 현재 위치"로 보이면 사용자가 결과를 오해한다(설계도 §4.3 coordsSource).
-  const currentRegionName = coordsSource === 'fallback' ? null : wardName;
+  // 폴백(권역 밖)이어도 그 좌표의 동 이름을 쓴다 — 총칭보다 위치를 가늠하기 쉽다.
+  const currentRegionName = wardName;
   const currentLocationTitle = locationMode === 'all'
     ? t('location.allTitle')
     : currentRegionName ?? (coordsSource === 'fallback' ? t('location.fallbackTitle') : t('location.gpsTitle'));
@@ -188,13 +210,14 @@ export default function MarketMain() {
         sort, hideSold,
         lat: coords?.lat, lng: coords?.lng,
         radiusKm: locationMode === 'gps' ? NEARBY_RADIUS_KM : null,
+        categoryId,
         viewerId: userId, page, size: 20,
       }),
-    [sort, hideSold, coords, locationMode, userId],
+    [sort, hideSold, coords, locationMode, categoryId, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, locationMode, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, locationMode, categoryId, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -220,6 +243,7 @@ export default function MarketMain() {
     fetchListings({
       sort, hideSold,
       minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
+      categoryId,
       viewerId: userId, page: 1, size: 50,
     }).then((res) => {
       if (seq !== mapReqSeqRef.current) return;
@@ -229,7 +253,30 @@ export default function MarketMain() {
       if (seq !== mapReqSeqRef.current) return;
       setMapError(true);
     });
-  }, [sort, hideSold, userId]);
+  }, [sort, hideSold, categoryId, userId]);
+
+  // 필터(카테고리·정렬·거래완료 숨김)가 바뀌면 마지막 bbox 로 지도를 다시 조회한다.
+  // 종전엔 지도 조회가 **bbox 변경 때만** 돌아서, 칩을 눌러도 핀이 그대로였다
+  // (목록만 바뀌어 지도·목록이 어긋났다 — 대표 지적 2026-08-06 카테고리 칩 도입 중 발견).
+  // ⚠️ 알려진 한계 — **콜드 스타트 딥링크** `/market?view=map`(브라우저 새로고침·외부 링크)로
+  // 들어오면 지도가 도시 전체 조망으로 시작해 줌 게이트가 닫히고 매물이 뜨지 않는다.
+  // initialGps 도 locateOnMount 도 마운트 시점 경로라 이 순서에서는 포커스가 걸리지 않는다.
+  // 앱 내 경로는 모두 정상이다 — 리스트에서 [지도보기](좌표 확정 후 마운트), 지도→상세→뒤로가기
+  // (마커 유지 실측 확인). 보정용 이펙트를 시도했으나 효과가 없어(줌 힌트가 그대로 남음)
+  // 코드를 남기지 않고 한계로 기록한다. 재시도 시 SaigonMapV5 의 마운트 포커스 경로부터 볼 것.
+
+
+  // 필터 값 자체가 바뀐 경우에만 재조회한다 — bbox 변경/마운트로는 돌지 않아야 한다
+  // (마운트에 돌면 onBboxChange 조회와 중복되고, 줌 게이트가 닫힌 순간이면 핀을 지운다).
+  const filterSigRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sig = `${categoryId}|${sort}|${hideSold}`;
+    const prev = filterSigRef.current;
+    filterSigRef.current = sig;
+    if (prev === null || prev === sig) return; // 최초 등록이거나 변화 없음
+    if (viewMode !== 'map' || !bboxFilter) return;
+    fetchMapBbox(bboxFilter);
+  }, [categoryId, sort, hideSold, viewMode, bboxFilter, fetchMapBbox]);
 
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const handleMapBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
@@ -246,18 +293,18 @@ export default function MarketMain() {
   // 표시 범위는 여기 저장하지 않는다 — useLocationStore 가 자체 persist 한다.
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sort, hideSold, viewMode, scrollTop: 0 }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sort, hideSold, scrollTop: 0 }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, viewMode]);
+  }, [sort, hideSold]);
 
   // 상세 이동 전 현재 스크롤 위치 저장
   const saveScroll = useCallback(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sort, hideSold, viewMode, scrollTop: containerRef.current?.scrollTop ?? 0,
+        sort, hideSold, scrollTop: containerRef.current?.scrollTop ?? 0,
       }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, viewMode, containerRef]);
+  }, [sort, hideSold, containerRef]);
 
   // 초기 로딩 완료 후 저장된 스크롤 위치 복원
   const scrollRestoredRef = useRef(false);
@@ -424,11 +471,12 @@ export default function MarketMain() {
       <div className={styles.header}>
         <div className={styles.headerRow}>
           <button className={styles.locationBtn} onClick={() => setLocMapOpen(true)}>
+            {/* eyebrow → 제목 순서 — 동네지도와 동일한 헤더 구성(대표 지시 2026-08-06). */}
+            <span className={styles.tagline}>{t('market.tagline', { defaultValue: '내 근처 라이더 장터' })}</span>
             <h1 className={styles.title}>
               {currentLocationTitle}
               <span className={styles.caret}><ChevronDown size={20} strokeWidth={2.4} /></span>
             </h1>
-            <p className={styles.tagline}>{t('market.tagline', { defaultValue: '내 근처 라이더 장터' })}</p>
           </button>
           <div className={styles.headerActions}>
             <button className={styles.wishlistBtn} onClick={() => navigate('/market/search')} aria-label={t('market.search', { defaultValue: '검색' })}>
@@ -441,6 +489,24 @@ export default function MarketMain() {
               <Heart size={24} strokeWidth={2} />
             </button>
           </div>
+        </div>
+
+        {/* 카테고리 칩 — 지도 뷰의 오버레이 칩과 같은 소스(대분류·DB). 동네지도 헤더의
+            칩 행과 같은 위계로 리스트 뷰에도 둔다(대표 지시 2026-08-06). */}
+        <div className={styles.listChipsRow}>
+          {[null, ...topCategories].map((c) => {
+            const id = c?.id ?? null;
+            return (
+              <button
+                key={id ?? 'all'}
+                type="button"
+                className={`${styles.listChip} ${categoryId === id ? styles.listChipActive : ''}`}
+                onClick={() => setCategoryId(id)}
+              >
+                {c ? localizedName(c) : t('market.categoryAll', { defaultValue: '전체' })}
+              </button>
+            );
+          })}
         </div>
 
         {/* Sort (bottom sheet) + hide-sold toggle — 지도 진입은 하단 플로팅 지도보기 버튼(동네지도와 통일) */}
@@ -498,6 +564,24 @@ export default function MarketMain() {
                 : <span>{(user?.nickname || 'U').charAt(0).toUpperCase()}</span>}
             </button>
           </div>
+
+          {/* 카테고리 칩 — 동네지도 chipsOverlay 와 같은 위치·모양. 대분류만, '전체' 기본. */}
+          <div className={styles.mapChipsOverlay}>
+            {[null, ...topCategories].map((c) => {
+              const id = c?.id ?? null;
+              return (
+                <button
+                  key={id ?? 'all'}
+                  type="button"
+                  className={`${styles.mapCatChip} ${categoryId === id ? styles.mapCatChipActive : ''}`}
+                  onClick={() => setCategoryId(id)}
+                >
+                  {c ? localizedName(c) : t('market.categoryAll', { defaultValue: '전체' })}
+                </button>
+              );
+            })}
+          </div>
+
           <Suspense fallback={<div className={styles.mapLoading}>{t('common.loading', { defaultValue: '로딩 중...' })}</div>}>
             <SaigonMapV5
               height="100%"

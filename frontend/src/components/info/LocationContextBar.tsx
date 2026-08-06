@@ -32,19 +32,16 @@ export default function LocationContextBar({ trailing, readOnly = false }: Props
   const { t } = useTranslation();
   const mode = useLocationStore((s) => s.mode);
   const wardName = useLocationStore((s) => s.wardName);
-  const coordsSource = useLocationStore((s) => s.coordsSource);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // 진입 시 측위 — 스토어가 세션당 1회로 묶는다(정보 4화면이 각자 불러도 실측은 한 번).
   useEffect(() => { void ensureLocation(); }, [ensureLocation]);
 
-  // 권역 밖이라 중심가로 대체된 상태에서는 동네명을 쓰지 않는다(설계도 §4.3 coordsSource).
+  // 폴백(권역 밖)이어도 그 좌표의 동 이름을 쓴다 — 총칭보다 위치를 가늠하기 쉽다.
   const label = mode === 'all'
     ? t('location.allTitle')
-    : coordsSource === 'fallback'
-      ? t('location.fallbackTitle')
-      : wardName ?? t('location.gpsTitle');
+    : wardName ?? t('location.gpsTitle');
 
   return (
     <div className={sys.contextBar}>

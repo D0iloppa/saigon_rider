@@ -258,7 +258,8 @@
     "reviewStar2": "아쉬워요",
     "reviewStar3": "보통이에요",
     "reviewStar4": "좋아요",
-    "reviewStar5": "최고예요!"
+    "reviewStar5": "최고예요!",
+    "categoryAll": "전체"
   },
   "forceUpdate": {
     "title": "업데이트가 필요해요",

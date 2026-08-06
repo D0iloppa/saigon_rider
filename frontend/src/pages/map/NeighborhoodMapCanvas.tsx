@@ -3,19 +3,18 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Heart, MapPin, MessageSquareQuote, Plus, RotateCw, SlidersHorizontal, Store, Users, X, ZoomIn } from 'lucide-react';
 import SaigonMapV5, { findWardAt, L3_ENABLED } from '@/components/maps/SaigonMapV5';
-import { regionContains, type SelectedRegion, type MapMarkerV2 } from '@/components/maps/v2/region';
+import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
 import { AppImage } from '@/components/ui/AppImage';
 import { SearchBox } from '@/components/ui/SearchBox';
 import { StarIcon } from '@/components/ui/StarIcon';
-import { useLocationStore, useSelectedRegion } from '@/store/useLocationStore';
+import { useLocationStore } from '@/store/useLocationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchBizMapItems, fetchBizCategories, fetchBizFavorites, bizCategoryLabel, type BizMapItem, type BizCategory } from '@/api/biz';
 import { isNewsUnread, markBizNewsRead } from '@/lib/bizNewsRead';
 import { toast } from '@/components/ui/Toast';
 import { BIZ_CAT_ICON_PATH, BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK } from '@/components/maps/bizCategoryIcons';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
-import { AreaPill } from '@/components/maps/AreaPill';
 import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
 import { buildPoiLayer } from '@/components/maps/poiLayer';
 import { PostPanel, type PanelItem } from '@/pages/map/PostPanel';
@@ -28,7 +27,6 @@ import { requestDeviceLocation } from '@/lib/serviceLocation';
 import BizRichCard from './BizRichCard';
 import styles from './NeighborhoodMap.module.css';
 
-type BrowseMode = 'viewport' | 'region';
 const HCMC_BBOX = { minLat: 10.40, maxLat: 11.10, minLng: 106.40, maxLng: 107.00 };
 // 업체 핀 색 (마커 위계 역전, 2026-07-21) — 업체가 지도 주 콘텐츠이므로 카테고리 색
 // 원형 마커 + 흰 글리프로 부상시킨다 (Google place marker / 당근 카테고리 핀 관례).
@@ -66,17 +64,6 @@ function isAbortError(error: unknown): boolean {
 }
 
 type LatLngBbox = { N: number; S: number; E: number; W: number };
-
-// region(동 선택) 모드에서 업체 bbox 조회용 — 폴리곤 외접 bbox (내부 여부는 regionContains로 재필터)
-function regionBbox(r: SelectedRegion): LatLngBbox {
-  if (r.poly.length < 3) {
-    const d = 0.01;
-    return { N: r.lat + d, S: r.lat - d, E: r.lng + d, W: r.lng - d };
-  }
-  const lats = r.poly.map((p) => p.lat);
-  const lngs = r.poly.map((p) => p.lng);
-  return { N: Math.max(...lats), S: Math.min(...lats), E: Math.max(...lngs), W: Math.min(...lngs) };
-}
 
 function loadSavedViewport(): LatLngBbox | null {
   try {
@@ -138,10 +125,6 @@ interface Props {
   initialQuery?: string;
   initialBizCategory?: string | null;
   lightweight?: boolean;
-  // P1-5: 목록(NeighborhoodMap)에서 고른 로컬 selectedRegion 을 지도 진입 시 1회 시드한다.
-  // 전역 useSelectedRegion(useLocationStore)보다 우선하는 "로컬 초기값"일 뿐 — 전역 스토어에는
-  // 쓰지 않는다(다른 화면 위치 오염 방지, 과거 사고 패턴). 미전달 시 기존 동작과 동일.
-  initialRegion?: SelectedRegion | null;
 }
 
 // 로딩 표시 디바운스 — active 가 showDelay(ms) 이상 지속될 때만 켜고, 한 번 켜지면 minVisible(ms)
@@ -171,7 +154,6 @@ export default function NeighborhoodMapCanvas({
   initialQuery = '',
   initialBizCategory = null,
   lightweight = false,
-  initialRegion = null,
 }: Props) {
   const { t, i18n } = useTranslation();
   // ── L3 상세지도(건물 depth3 + POI 참조 레이어) 부활 게이트 ──────────────────
@@ -186,22 +168,18 @@ export default function NeighborhoodMapCanvas({
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useUserStore((s) => s.user);
-  // 단일 SoT — 지역 선택은 useLocationStore(동네지도가 기준). 'region'(선택 동) ↔ 'all'(전체).
-  const selectRegion = useLocationStore((s) => s.selectRegion);
-  const selectAll = useLocationStore((s) => s.selectAll);
-  const globalSelectedRegion = useSelectedRegion(user?.id);
-  // initialRegion 은 마운트 시점 1회 시드값만 — 전역 스토어에는 쓰지 않는다(prop 미전달 시
-  // localRegionSeed 는 null 이라 selectedRegion === globalSelectedRegion, 기존 동작과 동일).
-  const [localRegionSeed, setLocalRegionSeed] = useState<SelectedRegion | null>(initialRegion);
-  const selectedRegion = localRegionSeed ?? globalSelectedRegion;
-  const storedCoords = selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : null;
+  // 표시 범위 단일 SoT — 'gps'(내 위치 반경) ↔ 'all'(전체). 종전의 "지도에서 동을 골라 필터"
+  // (selectedRegion/selectRegion/selectAll)는 폐기됐다 — 대표 지시 2026-08-06 "2개로만해 /
+  // 지도 다나오게". 설계도: ai-docs/260806_gps_scope_unification_design.md
+  const coords = useLocationStore((s) => s.coords);
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  // 진입 시 측위 — 스토어가 세션당 1회로 묶는다.
+  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
 
   // BizPublic 뒤로가기(POP) 복귀에서만 스냅샷을 읽는다 — 탭바 신규 진입(PUSH/REPLACE)은
   // 기본 상태로 시작. 마운트 이펙트에서 진입 종류와 무관하게 즉시 삭제해 재적용을 차단한다.
   // 오버레이 전환 (2026-07-12): 지도 언마운트가 없어져 스냅샷 복원 불필요 — 비활성
   // const [returnSnapshot] = useState(() => (navigationType === 'POP' ? readBizReturnSnapshot() : null));
-  // mode 는 스토어의 선택 지역에서 파생 — 선택 동이 있으면 'region', 없으면 'viewport'(전체 탐색).
-  const mode: BrowseMode = selectedRegion ? 'region' : 'viewport';
   const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
   // POI 상시 참조 레이어 (Phase A-2) — 탭 배타 마커(biz/feed)와 독립.
   // 이름 라벨 상시 노출·탭 동작 없음이라 selection 상태가 필요 없다.
@@ -455,9 +433,6 @@ export default function NeighborhoodMapCanvas({
 
   // region 모드에서는 bbox emit을 소비하지 않는다 — 시트 높이 변화·팬 등으로 들어온 bbox가
   // handleRegionSelect가 비워둔 viewportBbox를 몰래 되살려, 이후 뷰포트 모드 전환 시
-  // 가이드(빈 상태) 대신 필터 결과가 바로 뜨는 문제가 있었음. ref로 최신 mode를 읽는다.
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
   // 줌 게이트 판정을 fetch 이펙트에서 ref로 읽는다 — state를 deps에 넣으면 게이트를
   // 넘는 순간(배지 플래그가 먼저 뒤집히고 bbox 커밋은 500ms 뒤) 낡은 광역 bbox로
   // 즉시 한 번 fetch가 나가는 낭비가 생김. bbox 커밋 시점에만 최신 게이트를 확인한다.
@@ -505,20 +480,18 @@ export default function NeighborhoodMapCanvas({
       // return 되어 "지역 선택 시 말풍선이 아예 안 뜨는" 버그가 있었다(대표 지적 2026-08-03).
       // fetch/카운트/리스트 경로(bboxFilter)는 건드리지 않는다 — 말풍선 중앙 판정 전용.
       setAutoBubbleBbox(bbox);
-      if (modeRef.current !== 'region') {
-        suppressPanelRebuildRef.current = false;
-        setViewportBbox(bbox);
-        setViewportRawBbox(latestRawBboxRef.current);
-      }
+      suppressPanelRebuildRef.current = false;
+      setViewportBbox(bbox);
+      setViewportRawBbox(latestRawBboxRef.current);
     }, 500);
   }, []);
 
   // polyActive=true(내 위치 필터 ON)에는 선택 ward polygon 필터를 사용하고,
   // OFF 상태에서는 현재 지도 viewport 기준으로 주변 동네까지 함께 노출한다.
-  const bboxFilter = useMemo(() => (mode === 'viewport' ? viewportBbox : null), [mode, viewportBbox]);
+  const bboxFilter = viewportBbox;
   // raw bbox 쪽 viewport 모드 게이트 — bboxFilter(크롭, fetch/카운트/리스트/마커 전용)와 동일한
   // mode 조건이지만 소스는 viewportRawBbox(raw, 중심 계산 전용).
-  const rawBboxFilter = useMemo(() => (mode === 'viewport' ? viewportRawBbox : null), [mode, viewportRawBbox]);
+  const rawBboxFilter = viewportRawBbox;
 
   // 커밋된 뷰포트의 중심 — ward 판별·핀 fetch 이펙트·줌인 타겟이 공용한다. raw bbox 기준
   // (bboxFilter는 크롭돼 있어 (N+S)/2가 실제 컨테이너 중심과 어긋난다 — 회귀 수정).
@@ -571,12 +544,12 @@ export default function NeighborhoodMapCanvas({
   // showDistrictBadges 정리 이펙트가 담당한다(2026-08-04).
   useEffect(() => {
     if (isSearching) return;
-    if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
+    if (showDistrictBadgesRef.current) {
       setBizItems([]);
       setBizError(false);
       return;
     }
-    const bbox = bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
+    const bbox = bboxFilter;
     if (!bbox) { setBizItems([]); setBizError(false); return; }
     let cancelled = false;
     const controller = new AbortController();
@@ -597,7 +570,7 @@ export default function NeighborhoodMapCanvas({
       })
       .finally(() => { if (!cancelled) setBizLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [bboxFilter, reloadSeq, selectedRegion, isSearching, bizCategory]);
+  }, [bboxFilter, reloadSeq, isSearching, bizCategory]);
 
   // POI 상시 참조 레이어 (Phase A-2) — biz 핀 조회 이펙트 미러, 항상 조회한다.
   useEffect(() => {
@@ -607,12 +580,12 @@ export default function NeighborhoodMapCanvas({
       return;
     }
     if (isSearching) return;
-    if (modeRef.current === 'viewport' && showDistrictBadgesRef.current) {
+    if (showDistrictBadgesRef.current) {
       setPoiItems([]);
       setPoiError(false);
       return;
     }
-    const bbox = bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
+    const bbox = bboxFilter;
     if (!bbox) { setPoiItems([]); setPoiError(false); return; }
     let cancelled = false;
     const controller = new AbortController();
@@ -626,7 +599,7 @@ export default function NeighborhoodMapCanvas({
         }
       });
     return () => { cancelled = true; controller.abort(); };
-  }, [bboxFilter, reloadSeq, selectedRegion, isSearching, childLightweight]);
+  }, [bboxFilter, reloadSeq, isSearching, childLightweight]);
 
   const visibleBiz = useMemo(() => {
     const base = bboxFilter
@@ -634,12 +607,10 @@ export default function NeighborhoodMapCanvas({
           b.lat >= bboxFilter.S && b.lat <= bboxFilter.N &&
           b.lng >= bboxFilter.W && b.lng <= bboxFilter.E,
         )
-      : selectedRegion
-        ? bizItems.filter((b) => regionContains(selectedRegion, b.lat, b.lng))
-        : bizItems;
+      : bizItems;
     // ♥ 찜 필터 — 카테고리 칩(서버 조회 시점 필터)과 AND 교집합
     return favOnly ? base.filter((b) => favIds.has(b.id)) : base;
-  }, [bboxFilter, bizItems, selectedRegion, favOnly, favIds]);
+  }, [bboxFilter, bizItems, favOnly, favIds]);
 
   // depth2/3 마커 (선택 영역 기준) — 검색 중엔 위치 필터 무시하고 검색 결과만 표시.
   // 핀 레이어 배열 구조 (SGR-323): feed/biz 모두 탭 배타 — biz 핀도 biz 탭에서만 노출.
@@ -702,19 +673,8 @@ export default function NeighborhoodMapCanvas({
     return [...poiMarkers, ...withCarouselMarkers(bizMarkers)];
   }, [isSearching, bizSearchResults, visibleBiz, focusedBiz, readVersion, postPanelOpen, carouselItems, poiItems, i18n.language, childLightweight]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 지도 탭 지역선택 비활성 (대표 지시 2026-07-25) — 지역 기준은 GPS 근처로 대체.
-  // onRegionSelect wiring 제거로 아래 핸들러는 더 이상 호출되지 않는다 — 로직은 부활 대비 보존.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleRegionSelect = useCallback((region: SelectedRegion) => {
-    setViewportBbox(null);
-    clearTimeout(bboxTimerRef.current);
-    setSelectedId(null);
-    setSelectedBiz(null);
-    setPostPanelOpen(false);
-    if (user) selectRegion(region, user.id);
-    // 시트 자동 올림 없음 — 지역 선택은 "지도 탐색 중" 신호지 리스트를 보겠다는 의도가
-    // 아니다(UX 원칙: 시트는 사용자 의도로만 이동). 선택 결과는 접힘 헤더 칩/건수로 보인다.
-  }, [selectRegion, user]);
+  // 지도 탭 지역선택은 폐기됐다 (대표 지시 2026-08-06 "2개로만해") — 종전 보존용
+  // handleRegionSelect 는 스토어의 selectRegion 과 함께 제거했다.
 
   // scrollIntoView는 리스트 내부만이 아니라 모든 스크롤 가능 조상(AppShell 콘텐츠
   // 컨테이너 포함)을 함께 스크롤해 검색 오버레이를 화면 밖으로 밀어내므로,
@@ -916,15 +876,12 @@ export default function NeighborhoodMapCanvas({
     }
     let candidates = visibleBiz;
     if (candidates.length === 0) {
-      const gateBlocked = mode === 'viewport' && showDistrictBadges;
-      const bbox = gateBlocked ? null : bboxFilter ?? (selectedRegion ? regionBbox(selectedRegion) : null);
+      const gateBlocked = showDistrictBadges;
+      const bbox = gateBlocked ? null : bboxFilter;
       if (bbox) {
-        const fetched = await fetchBizMapItems({
+        candidates = await fetchBizMapItems({
           minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
         }).catch(() => [] as BizMapItem[]);
-        candidates = selectedRegion
-          ? fetched.filter((b) => regionContains(selectedRegion, b.lat, b.lng))
-          : fetched;
       }
     }
     if (candidates.length === 0) {
@@ -935,39 +892,13 @@ export default function NeighborhoodMapCanvas({
   };
 
   const retryLoad = () => setReloadSeq((n) => n + 1);
-  // useCallback 필수: SaigonMapV5의 onLocate prop으로 전달됨 (handleRegionSelect와 동일한 이유)
-  const resetToViewport = useCallback(() => {
-    if (user) selectAll(user.id);
-    // localRegionSeed(리스트뷰에서 넘어온 initialRegion 1회 시드값)가 남아있으면 selectAll 로
-    // 전역 스토어를 비워도 selectedRegion(=localRegionSeed ?? globalSelectedRegion)이 여전히
-    // 시드값을 가리켜 ✕ 가 no-op 처럼 보였다 — 여기서 함께 지워야 실제로 'all' 로 돌아간다.
-    setLocalRegionSeed(null);
-    setSelectedId(null);
-    setSelectedBiz(null);
-    setPostPanelOpen(false);
-    // 아이템(bizItems)은 비우지 않는다 — 드래그 재검색과 동일하게 "기존 표시
-    // 유지, fetch 완료 시 교체". 아래 즉시 커밋되는 bboxFilter가 visible*에서 뷰포트 밖
-    // 잔재를 걸러내므로 헤더 건수·핀이 항상 같은 집합을 가리킨다 (시나리오 4.3 재발 없음).
-    setViewportBbox(null);
-    clearTimeout(bboxTimerRef.current);
-    // 현재 뷰포트 bbox를 디바운스 없이 즉시 커밋(emit은 동기 호출) — 500ms 공백 동안
-    // 0건 카운트·가이드 화면이 플래시하던 문제 방지. 게이트 미만 줌이면 SaigonMapV5의
-    // polyActive 해제 이펙트가 depth를 재발행해 가이드로 정합.
-    bboxImmediateRef.current = true;
-    emitBboxRef.current?.();
-    bboxImmediateRef.current = false;
-    // 시트 자동 이동 없음 — 해제 역시 지도 컨텍스트 복귀 액션 (UX 원칙 동일)
-  }, [user, selectAll]);
-  const clearRegionFilter = () => {
-    resetToViewport();
-  };
 
   // 바텀시트 리스트 소스 — 지도 핀(markers)과 동일한 visible*(뷰포트 bbox / 선택 동 클리핑).
   // 헤더 "지역명 · N건"의 N = 핀 개수. (ward 별도 소스는 핀-리스트 불일치로 제거, 2026-07-14)
   const listBiz = visibleBiz; // ♥ 찜 필터는 visibleBiz 에서 이미 적용됨
   const listBizLoading = bizLoading;
   // 헤더 로딩 표시는 디바운스 통과분만 사용 — 페이지네이션 토글로 인한 blink 방지(표시 전용).
-  const showHeadLoading = useDelayedFlag(listBizLoading && !!(bboxFilter || selectedRegion));
+  const showHeadLoading = useDelayedFlag(listBizLoading && !!bboxFilter);
 
   const visibleCount = listBiz.length;
 
@@ -1169,24 +1100,17 @@ export default function NeighborhoodMapCanvas({
       <SaigonMapV5
         className={styles.map}
         height="100%"
-        initialGps={storedCoords ?? undefined}
-        // 진입 시 GPS 1회 자동 센터링 복원 (대표 지시 2026-07-25) — 이 화면 한정으로
-        // service-rules 원칙 1·2 예외. 마운트당 1회만 실행(SaigonMapV5 didAutoLocate 가드) +
-        // selectRegionOnLocate=false 라 지역선택엔 영향 없음(전역 스토어는). 거부/실패 시 도시
-        // 기본 폴백(runLocate 내부). mode==='region'(초기 시드/전역 스토어로 이미 선택 동이 있음)
-        // 이면 끈다 — 켜두면 initialGps 로 selWard 를 선택 동에 맞춰놓은 직후 GPS locate 가
-        // 비동기로 완료되며 실제 현재 위치(다른 동일 수 있음)로 selWard·카메라를 덮어써
-        // 칩(선택 동)과 렌더된 경계 폴리곤이 어긋나는 버그가 있었다(2026-08-03 발견).
-        locateOnMount={mode === 'viewport'}
-        // region 모드(자동 locate off)에서도 내 위치 점은 유지 — 마켓지도와 동일 규칙.
-        meDotOnMount={mode === 'region'}
+        initialGps={coords ?? undefined}
+        // 카메라를 내 위치 중심으로 잡는다 (대표 지시 2026-08-06 "gps기본 / 지도 다나오게").
+        // 지역 선택이 사라져 카메라와 선택 경계가 어긋날 여지 자체가 없어졌다.
+        locateOnMount
+        meDotOnMount
         initialViewport={savedViewport ?? undefined}
         markers={markers}
         anchorOverlay={postPanelOpen ? undefined : bizNewsOverlay}
         // 배지(집계) 미사용 — 지도와 시트는 동일 데이터 소스(bbox 조회 결과)만 표시.
         // 게이트 줌 진입 전에는 지도·시트 모두 비우고 가이드로 안내 (기획 260707)
-        // 지도 탭 지역선택 비활성 (대표 지시 2026-07-25) — wiring 제거, 기준은 GPS 근처
-        // onRegionSelect={handleRegionSelect}
+        // onRegionSelect 미배선 — 지역 선택 폐기 (대표 지시 2026-08-06)
         onMapTap={() => setSelectedBiz(null)}
         onBboxChange={handleBboxChange}
         onRawViewportChange={handleRawBboxChange}
@@ -1197,11 +1121,9 @@ export default function NeighborhoodMapCanvas({
         locateRef={locateRef}
         searchFitRef={searchFitRef}
         forceMarkers={isSearching}
-        polyActive={mode === 'region'}
-        // 선택 동 좌표를 직접 넘겨 selWard 를 맞춘다 — initialViewport 복원 경로에서는
-        // focusLatLng 가 호출되지 않아 selWard 가 null 로 남아 경계가 안 그려졌다(대표 지적).
-        activeRegionAt={mode === 'region' ? storedCoords : null}
-        onLocate={mode === 'region' ? resetToViewport : undefined}
+        // 폴리곤 강조(주황 경계 + 외부지역 마스크) 제거 — 대표 지시 2026-08-06 "지도 다나오게".
+        polyActive={false}
+        activeRegionAt={null}
         selectRegionOnLocate={false}
         focusPointRef={focusPointRef}
         zoomInRef={zoomInRef}
@@ -1404,11 +1326,8 @@ export default function NeighborhoodMapCanvas({
         header={sheetHeader}
         embedded
         initialSnap="collapsed"
-        floatingTopLeft={!isSearching && selectedRegion ? (
-          // 지역 필터 pill — 마켓 지도와 공유하는 AreaPill 로 추출(대표 지적 2026-08-04).
-          // 마크업·스타일 값은 종전 인라인 버전 그대로라 픽셀 변화 없음.
-          <AreaPill name={selectedRegion.name} onClear={clearRegionFilter} />
-        ) : undefined}
+        // 지역 필터 pill(AreaPill) 제거 — 대표 지시 2026-08-06. 지역 선택 자체가 없어져
+        // 해제할 필터가 없다.
         // 지도보기 필을 시트 바깥 하단 floating 버튼으로 이동(아래 참조) — 위쪽에 확보된
         // 여백만큼 maxHeight 를 65vh → 72vh 로 확장했으나, 72vh는 px 기반 상단 고정 영역
         // (status-bar + 검색바 + 카테고리 칩 행)과 기기에 따라 겹쳤다(SGR-full-snap-overlap).

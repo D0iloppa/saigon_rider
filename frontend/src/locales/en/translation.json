@@ -1702,7 +1702,10 @@
       "emptyTitle": "You haven't followed any businesses yet",
       "emptyDesc": "Follow a business from its profile to get its latest news here",
       "loadError": "Couldn't load your followed businesses"
-    }
+    },
+    "permissionRationale": "We need your location to show listings, gas stations and weather near you.",
+    "permissionAllow": "Allow location",
+    "permissionLater": "Later"
   },
   "effects": {
     "none": "No equip effects",

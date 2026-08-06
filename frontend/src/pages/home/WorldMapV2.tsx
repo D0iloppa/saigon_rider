@@ -1,10 +1,9 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Flame, Megaphone, Newspaper, Package, PackageSearch, Plus, Route } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
-import { useLocationStore } from '@/store/useLocationStore';
-import { wardRegionAt } from '@/components/maps/v2/wardRegions';
+import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import { fetchWallet } from '@/api/wallet';
 import { fetchNotifications } from '@/api/notifications';
 import { fetchUserStats } from '@/api/profile';
@@ -158,8 +157,12 @@ const IcoGear = () => (
 export default function WorldMapV2() {
   const user = useUserStore((s) => s.user);
   const refreshUser = useUserStore((s) => s.refreshUser);
-  const storedLocation = useLocationStore((s) => s.location);
-  const storedWardName = storedLocation && storedLocation.accountId === user?.id ? storedLocation.wardName : null;
+  // 표시 범위 단일 SoT (2026-08-06 통일) — 헤더 표기와 목록 조회가 같은 좌표를 본다.
+  const scopeMode = useLocationStore((s) => s.mode);
+  const scopeCoords = useLocationStore((s) => s.coords);
+  const coordsSource = useLocationStore((s) => s.coordsSource);
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  const setWardName = useLocationStore((s) => s.setWardName);
   const navigate = useNavigate();
   const { t } = useTranslation();
   const didInit = useRef(false);
@@ -168,16 +171,16 @@ export default function WorldMapV2() {
   const [totalKm, setTotalKm] = useState(0);
   const [tradeCount, setTradeCount] = useState(0);
   const [reviewScore, setReviewScore] = useState<number | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number; name: string }>(FALLBACK);
+  // 조회 기준 좌표 — 'gps' 면 내 좌표, '전체'면 도시 기본 중심(FALLBACK).
+  // 종전에는 헤더는 GPS, 목록은 저장 위치/FALLBACK 이라 "현재 위치는 Thạnh Mỹ Tây 인데
+  // 근처 상품은 전부 Bến Thành" 이 나왔다(대표 캡처 2026-08-06). 이제 한 좌표만 쓴다.
+  const coords = useMemo(
+    () => (scopeMode === 'gps' && scopeCoords ? scopeCoords : FALLBACK),
+    [scopeMode, scopeCoords],
+  );
   const [resolvedWard, setResolvedWard] = useState<Ward | null>(null);
   const [locationReady, setLocationReady] = useState(false);
-  /**
-   * 헤더 위치 행에 표시할 GPS 기반 현재 동 이름 (사용자 지시 2026-08-03).
-   * service-rules 원칙 1·2(진입 시 GPS 자동 측정 금지, GPS 는 경로안내·제보에만)의
-   * 홈 헤더 한정 예외다 — 규칙 문서도 함께 갱신했다.
-   * 권한 거부·측정 실패·HCMC 폴리곤 밖이면 null 로 두어 기존 기본 지역 표기로 폴백한다.
-   */
-  const [gpsWardName, setGpsWardName] = useState<string | null>(null);
+  const wardLabel = resolvedWard?.name_vi ?? resolvedWard?.name_en ?? null;
 
   const [nearbyProducts, setNearbyProducts] = useState<ListingCard[]>([]);
   const [nearbyStatus, setNearbyStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
@@ -222,29 +225,24 @@ export default function WorldMapV2() {
         apiRegisterDeviceMap(uuid, fcm || undefined).catch(() => {});
       }).catch(() => {});
     }
-    fetchWards().then((wardList) => {
-      const saved = useLocationStore.getState().location;
-      const selected = saved && saved.accountId === uid ? saved.coords : FALLBACK;
-      const ward = resolveWardByCoords(selected.lat, selected.lng, wardList);
-      setResolvedWard(ward);
-      setCoords({ ...selected, name: ward?.name_vi ?? ward?.name_en ?? FALLBACK.name });
-    }).catch(() => setCoords(FALLBACK)).finally(() => setLocationReady(true));
+    // 진입 시 측위 — 표시 범위 기본값이 GPS 다(대표 지시 2026-08-06). 스토어가 세션당
+    // 1회로 묶고, 실패/권역밖 폴백과 안내 토스트도 스토어가 처리한다.
+    void ensureLocation();
+  }, [refreshUser, ensureLocation]);
 
-    // 헤더 위치 행 전용 GPS 1회 측정 (사용자 지시 2026-08-03). 실패·거부·HCMC 밖은
-    // 조용히 무시하고 기본 지역 표기를 유지한다 — 홈 진입을 막지 않는다.
-    // 주의: 표시 전용이다. 목록 조회 기준 좌표(coords/resolvedWard)는 건드리지 않는다.
-    (async () => {
-      try {
-        await native.ensureLocationPermission();
-        const pos = await native.getLocation();
-        // wardRegionAt 의 폴리곤은 HCMC 중심부 37개 동만 커버한다 — 그 밖이면 null.
-        const region = wardRegionAt(pos.lat, pos.lng);
-        if (region) setGpsWardName(region.name);
-      } catch {
-        /* 권한 거부·타임아웃 등 — 기본 지역으로 폴백 */
-      }
-    })();
-  }, [refreshUser]);
+  // 기준 좌표가 정해지면 동 이름을 해석해 스토어에 올린다 — 헤더 표기와 다른 화면들이
+  // 같은 라벨을 쓴다. 라벨 전용이며 필터 판정에는 쓰지 않는다.
+  useEffect(() => {
+    let cancelled = false;
+    fetchWards().then((wardList) => {
+      if (cancelled) return;
+      const ward = resolveWardByCoords(coords.lat, coords.lng, wardList);
+      setResolvedWard(ward);
+      setWardName(ward?.name_vi ?? ward?.name_en ?? null);
+    }).catch(() => { /* 라벨 없이 진행 — 조회 좌표에는 영향 없다 */ })
+      .finally(() => { if (!cancelled) setLocationReady(true); });
+    return () => { cancelled = true; };
+  }, [coords, setWardName]);
 
   const loadHomeData = useCallback(() => {
     const { lat, lng } = coords;
@@ -259,7 +257,12 @@ export default function WorldMapV2() {
     setRepairStatus('loading');
     fetchAds(null).then(setAds).catch(() => setAds([]));
     return Promise.allSettled([
-      fetchListings({ lat, lng, sort: 'distance', size: 8 })
+      // "내 주변 인기 상품" — 'gps' 범위면 반경 안에서만 고른다(대표 지시 2026-08-06).
+      // '전체'면 반경 없이 거리순 — 기준점이 도시 중심이라 반경으로 자르면 의미가 없다.
+      fetchListings({
+        lat, lng, sort: 'distance', size: 8,
+        radiusKm: scopeMode === 'gps' ? NEARBY_RADIUS_KM : null,
+      })
         .then((p) => { setNearbyProducts(p.items); setNearbyStatus('ready'); })
         .catch(() => { setNearbyProducts([]); setNearbyStatus('unavailable'); }),
       fetchListings({ lat, lng, sort: 'recent', hideSold: true, size: 8 })
@@ -297,7 +300,7 @@ export default function WorldMapV2() {
         .then((res) => { setCommunityPosts(res.items); setCommunityStatus('ready'); })
         .catch(() => { setCommunityPosts([]); setCommunityStatus('unavailable'); }),
     ]).finally(() => setDataLoading(false));
-  }, [coords, resolvedWard]);
+  }, [coords, resolvedWard, scopeMode]);
 
   useEffect(() => {
     if (!locationReady) return;
@@ -383,9 +386,11 @@ export default function WorldMapV2() {
         >
           <IcoPin />
           <span className={styles.locName}>
-            {gpsWardName
-              ? t('home.v2.currentRegion', { name: gpsWardName })
-              : storedWardName ?? t('home.v2.defaultRegion', { name: coords.name || FALLBACK.name })}
+            {/* 헤더 표기와 아래 목록이 같은 좌표를 쓴다 — 권역 밖 폴백 중이면 "현재 위치"라고
+                쓰지 않고 기본 지역 표기로 내린다(설계도 §4.3 coordsSource). */}
+            {scopeMode === 'gps' && coordsSource === 'device' && wardLabel
+              ? t('home.v2.currentRegion', { name: wardLabel })
+              : t('home.v2.defaultRegion', { name: wardLabel ?? FALLBACK.name })}
           </span>
           <span className={styles.statSep}>|</span>
           <span title={t('home.v2.totalMileage')}>

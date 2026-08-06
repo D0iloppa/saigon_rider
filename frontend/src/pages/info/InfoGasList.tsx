@@ -11,7 +11,7 @@ import { native } from '@/lib/native';
 import { formatCurrencyVnd } from '@/lib/format';
 import { swrRead, swrWrite } from '@/lib/swrCache';
 import { findNearestDistrict } from '@/components/maps/district-data';
-import { regionContains, type MapMarkerV2 } from '@/components/maps/v2/region';
+import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { L3_ENABLED, type DistrictBadge } from '@/components/maps/SaigonMapV5';
 import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
 import { buildPoiLayer } from '@/components/maps/poiLayer';
@@ -34,8 +34,8 @@ export default function InfoGasList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const mapOpen = searchParams.get('view') === 'map';
-  // 단일 SoT — 선택 지역/조회 기준 좌표는 useLocationStore(동네지도와 공유).
-  const { region, origin } = useServiceLocation();
+  // 단일 SoT — 표시 범위/조회 기준 좌표는 useLocationStore(앱 전역, 2026-08-06 통일).
+  const { origin, radiusKm } = useServiceLocation();
 
   const [stations, setStations] = useState<GasStation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +48,12 @@ export default function InfoGasList() {
   // 신규 주유소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
 
-  // 반경 내 주유소 거리순 정렬 (GPS 있으면 내 위치 기준, 없으면 fetched origin 기준).
-  // 선택 지역이 있으면 그 동 경계 내부만 (지도 집계배지와 동일 집합), 없으면 전체.
+  // 반경 내 주유소 거리순 정렬. 'gps' 표시범위면 radiusKm 로 자르고, '전체'면 자르지 않는다.
+  // 종전엔 선택 동 폴리곤(regionContains)으로 걸러 구 경계에 걸친 곳이 빠졌다(2026-08-06 폐기).
   const listStations = useMemo<GasStation[]>(() => {
-    const inRegion = region ? stations.filter((s) => regionContains(region, s.lat, s.lng)) : stations;
-    return [...inRegion].sort((a, b) => a.distance_km - b.distance_km);
-  }, [stations, region]);
+    const inRange = radiusKm != null ? stations.filter((s) => s.distance_km <= radiusKm) : stations;
+    return [...inRange].sort((a, b) => a.distance_km - b.distance_km);
+  }, [stations, radiusKm]);
 
   // POI 상시 참조 레이어(랜드마크·공공시설) — FETCH_RADIUS_KM 반경 bbox 로 조회 (주유소 목록과 동일 기준).
   const [poiItems, setPoiItems] = useState<PoiMapItem[]>([]);

@@ -1,0 +1,105 @@
+/* 표시범위 시트 — MarketMain.module.css 의 .loc* 계열에서 그대로 옮겨 왔다(값 동일).
+   마켓·정보 화면이 같은 시트를 쓰므로 공용 위치로 승격. */
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 2px 2px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.current {
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--brand-600);
+}
+
+.desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.cardActive {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+}
+
+.cardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.cardActive .cardIcon {
+  background: var(--surface);
+  color: var(--brand-600);
+}
+
+.cardBody {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cardText {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.cardCheck {
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  z-index: 1;
+}

@@ -3,10 +3,8 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
-  Globe,
   Heart,
   LocateFixed,
-  Map as MapIcon,
   MapPinned,
   RotateCw,
   Search,
@@ -21,24 +19,13 @@ import {
   type BizMapItem,
 } from '@/api/biz';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
-import SaigonMapV2 from '@/components/maps/SaigonMapV2';
-import { regionContains, type SelectedRegion } from '@/components/maps/v2/region';
-import { wardRegionAt } from '@/components/maps/v2/wardRegions';
-import { BottomSheet } from '@/components/ui/BottomSheet';
-import { Button } from '@/components/ui/Button';
+import { DisplayScopeSheet } from '@/components/location/DisplayScopeSheet';
 import { PullIndicator } from '@/components/ui/PullIndicator';
-import { RadioCircle } from '@/components/ui/RadioCircle';
 import { toast } from '@/components/ui/Toast';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { haversineM } from '@/lib/polyline';
-import { requestDeviceLocation, resolveUsableLocation } from '@/lib/serviceLocation';
-// 지역 선택 시트 마크업/스타일은 마켓(MarketMain)의 것을 재사용 — 화면 로컬 상태로만 다룬다.
-// 대표 결정(2026-07-27, ai-docs/context/frontend-page-map.md:128): 리스트뷰를
-// useLocationStore(홈/정보 화면 공유 전역 SoT)에 opt-in 시키는 통합안을 검토했으나 보류·현행
-// 유지로 확정됐다 — 리스트에서 지역을 고른 것만으로 정보 화면(날씨/주유소/정비소)·홈의
-// 동네까지 함께 바뀌는 침습을 피하기 위함(침수지도 사고와 동일 경로). "지도보기" 전환 시
-// 지역이 안 넘어가는 불일치는 인지된 트레이드오프로 남겨둔다.
-import marketStyles from '@/pages/market/MarketMain.module.css';
+import { requestDeviceLocation } from '@/lib/serviceLocation';
+import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import BizRichCard from './BizRichCard';
 import styles from './NeighborhoodMapList.module.css';
 
@@ -50,15 +37,15 @@ const HCMC_BBOX = { minLat: 10.40, maxLat: 11.10, minLng: 106.40, maxLng: 107.00
 // LIMIT 50→1000 상향과 같은 결: 절단선이 아니라 폭주 방지용 안전판으로 상향).
 const BIZ_MAX_ITEMS = 1000;
 
-/** 선택 동(SelectedRegion)의 폴리곤 외접 bbox — NeighborhoodMapCanvas.regionBbox 와 동일 알고리즘. */
-function regionBbox(region: SelectedRegion) {
-  if (region.poly.length < 3) {
-    const d = 0.01;
-    return { minLat: region.lat - d, maxLat: region.lat + d, minLng: region.lng - d, maxLng: region.lng + d };
-  }
-  const lats = region.poly.map((p) => p.lat);
-  const lngs = region.poly.map((p) => p.lng);
-  return { minLat: Math.min(...lats), maxLat: Math.max(...lats), minLng: Math.min(...lngs), maxLng: Math.max(...lngs) };
+/** 내 좌표 반경(km)의 외접 bbox — 'gps' 표시범위의 조회 범위. 행정동 폴리곤 대신 반경을 쓴다
+ *  (대표 지시 2026-08-06, 설계도 D4: 구 경계에 걸친 곳이 누락되지 않게). */
+function radiusBbox(center: { lat: number; lng: number }, km: number) {
+  const dLat = km / 111;
+  const dLng = km / (111 * Math.cos((center.lat * Math.PI) / 180));
+  return {
+    minLat: center.lat - dLat, maxLat: center.lat + dLat,
+    minLng: center.lng - dLng, maxLng: center.lng + dLng,
+  };
 }
 
 export default function NeighborhoodMap() {
@@ -67,9 +54,8 @@ export default function NeighborhoodMap() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const mapOpen = searchParams.get('view') === 'map';
-  // 지역·카테고리는 URL 쿼리(cat/rlat/rlng)로 보존한다(P2-11) — 탭 전환으로 이 컴포넌트가
-  // 언마운트돼도 복귀 시 그대로 복원된다. wardRegionAt 로 좌표에서 동(ward) polygon 을
-  // 재구성한다(대표 결정 — useLocationStore 전역화는 금지, 화면 로컬/URL 로만 다룬다).
+  // 카테고리는 URL 쿼리(cat)로 보존한다(P2-11) — 탭 전환으로 언마운트돼도 복귀 시 복원.
+  // 표시 범위는 URL 이 아니라 useLocationStore 가 들고 있다(2026-08-06 전역 단일화).
   const [bizCategory, setBizCategory] = useState<string | null>(() => searchParams.get('cat'));
   const [bizCategories, setBizCategories] = useState<BizCategory[]>([]);
   const [bizItems, setBizItems] = useState<BizMapItem[]>([]);
@@ -82,23 +68,20 @@ export default function NeighborhoodMap() {
   // 복귀 시 저장된 좌표로 자동 재요청/재계산되면 "진입만으로 GPS 요청" 회귀와 동치가 된다.
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [nearMeLoading, setNearMeLoading] = useState(false);
-  // 지역 선택 — 화면 로컬 상태(마켓의 locationMode/regionLabel 레퍼런스). 'all' = 호치민 전역.
-  const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(() => {
-    const rlat = Number(searchParams.get('rlat'));
-    const rlng = Number(searchParams.get('rlng'));
-    if (!Number.isFinite(rlat) || !Number.isFinite(rlng)) return null;
-    return wardRegionAt(rlat, rlng);
-  });
-  // 마켓(MarketMain.locationMode)과 동일한 3옵션 — 'all' | 'gps' | 'region' (대표 지시 2026-08-03:
-  // 동네지도에만 '내 현재 위치'가 없어 마켓과 통일성이 없다). 'gps' 는 GPS 좌표가 속한 동을
-  // 찾아 그 동으로 좁히는 것 — 마켓과 같은 행정동 매칭이라 이후 필터 경로는 'region' 과 동일하다.
-  const [regionMode, setRegionMode] = useState<'all' | 'gps' | 'region'>(() => (selectedRegion ? 'region' : 'all'));
-  // 한 동으로 범위가 좁혀진 상태 — 'gps'/'region' 둘 다 selectedRegion 을 보유하므로 필터·bbox·
-  // 라벨 경로가 동일하다('all' 만 호치민 전역).
-  const regionScoped = regionMode !== 'all';
+  // 표시 범위는 앱 전역 단일 SoT — 'gps'(내 위치 반경) ↔ 'all'(전체). 종전의 화면 로컬
+  // 지역 선택('region')과 URL 쿼리(rlat/rlng) 보존은 폐기됐다(대표 지시 2026-08-06).
+  const regionMode = useLocationStore((s) => s.mode);
+  const coords = useLocationStore((s) => s.coords);
+  const wardName = useLocationStore((s) => s.wardName);
+  const coordsSource = useLocationStore((s) => s.coordsSource);
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
   const [locSheetOpen, setLocSheetOpen] = useState(false);
-  const [draftMode, setDraftMode] = useState<'all' | 'gps' | 'region'>('all');
-  const [draftRegion, setDraftRegion] = useState<SelectedRegion | null>(null);
+  // 진입 시 측위 — 스토어가 세션당 1회로 묶는다.
+  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
+  // 헤더 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다(설계도 §4.3).
+  const scopeLabel = regionMode === 'all'
+    ? t('market.allAreas')
+    : (coordsSource === 'fallback' ? null : wardName) ?? t('market.currentLocation');
 
   useEffect(() => {
     if (bizCategories.length > 0) return;
@@ -137,7 +120,8 @@ export default function NeighborhoodMap() {
     setLoading(true);
     setError(false);
 
-    const bbox = regionScoped && selectedRegion ? regionBbox(selectedRegion) : HCMC_BBOX;
+    // 'gps' 면 내 좌표 반경, 'all' 이면 호치민 전역. 행정동 폴리곤으로 좁히지 않는다.
+    const bbox = regionMode === 'gps' && coords ? radiusBbox(coords, NEARBY_RADIUS_KM) : HCMC_BBOX;
 
     fetchBizMapItems({
       ...bbox,
@@ -149,13 +133,10 @@ export default function NeighborhoodMap() {
       signal: controller.signal,
       maxItems: BIZ_MAX_ITEMS,
     }).then((items) => {
-      // bbox 는 selectedRegion 폴리곤의 외접 사각형(regionBbox)이라 실제 동 경계보다 넓다 —
-      // 이웃 동 업체가 섞여 "동네 가게"에 다른 동 업체가 나오는 걸 막기 위해 폴리곤 정확
-      // 매칭으로 한 번 더 좁힌다(regionContains 는 wardRegionAt 이미 쓰는 동일 함수).
-      const filtered =
-        regionScoped && selectedRegion
-          ? items.filter((biz) => regionContains(selectedRegion, biz.lat, biz.lng))
-          : items;
+      // bbox 는 반경의 외접 사각형이라 모서리가 반경보다 멀다 — 실제 거리로 한 번 더 좁힌다.
+      const filtered = regionMode === 'gps' && coords
+        ? items.filter((biz) => haversineM(coords.lat, coords.lng, biz.lat, biz.lng) <= NEARBY_RADIUS_KM * 1000)
+        : items;
       setBizItems(filtered);
       setTotal(filtered.length);
     })
@@ -167,7 +148,7 @@ export default function NeighborhoodMap() {
       });
 
     return () => controller.abort();
-  }, [bizCategory, reloadKey, i18n.language, regionMode, selectedRegion, userPos]);
+  }, [bizCategory, reloadKey, i18n.language, regionMode, coords, userPos]);
 
   // 지역·카테고리를 URL 쿼리로 되쓴다(P2-11) — replace 만 사용해 히스토리 엔트리를 늘리지
   // 않는다. "지도보기" 진입(openMap)은 별도로 push 를 쓰고, 지도 쪽 뒤로가기(onExitMap)는
@@ -176,66 +157,11 @@ export default function NeighborhoodMap() {
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     if (bizCategory) next.set('cat', bizCategory); else next.delete('cat');
-    if (regionScoped && selectedRegion) {
-      next.set('rlat', String(selectedRegion.lat));
-      next.set('rlng', String(selectedRegion.lng));
-    } else {
-      next.delete('rlat');
-      next.delete('rlng');
-    }
+    // 지역 쿼리(rlat/rlng) 보존 폐기 — 표시 범위는 스토어가 들고 있어 URL 로 나를 필요가 없다.
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [bizCategory, regionMode, selectedRegion, searchParams, setSearchParams]);
-
-  const openLocationSheet = () => {
-    setDraftMode(regionMode);
-    setDraftRegion(selectedRegion);
-    setLocSheetOpen(true);
-  };
-
-  // '내 현재 위치' — 마켓(handlePickGPS)과 동일 경로: resolveUsableLocation 으로 좌표를 얻어
-  // 그 좌표가 속한 동을 찾아 필터 범위로 삼는다(행정동 매칭). 이후 필터 로직은 'region' 과 동일.
-  const applyGpsLocation = async () => {
-    try {
-      const loc = await resolveUsableLocation();
-      if (loc.source === 'fallback') {
-        toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
-      }
-      const region = wardRegionAt(loc.coords.lat, loc.coords.lng);
-      if (!region) {
-        toast.warning(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
-        return;
-      }
-      setUserPos(loc.coords);
-      setRegionMode('gps');
-      setSelectedRegion(region);
-      setLocSheetOpen(false);
-    } catch (err: unknown) {
-      const code = (err as { code?: number } | null)?.code;
-      if (code === 1) {
-        toast.warning(t('map.listFirst.nearMeDenied'));
-      } else if (code === 3) {
-        toast.warning(t('map.listFirst.nearMeTimeout'));
-      } else {
-        toast.warning(t('map.listFirst.nearMeUnavailable'));
-      }
-    }
-  };
-
-  const applyLocation = () => {
-    if (draftMode === 'all') {
-      setRegionMode('all');
-      setSelectedRegion(null);
-    } else if (draftMode === 'gps') {
-      void applyGpsLocation();
-      return;
-    } else if (draftRegion) {
-      setRegionMode('region');
-      setSelectedRegion(draftRegion);
-    }
-    setLocSheetOpen(false);
-  };
+  }, [bizCategory, searchParams, setSearchParams]);
 
   const selectBizCategory = (category: string | null) => {
     if (category === bizCategory) return;
@@ -261,7 +187,6 @@ export default function NeighborhoodMap() {
       <Suspense fallback={<div className={styles.mapLoading}>{t('map.listFirst.loadingMap')}</div>}>
         <NeighborhoodMapCanvas
           initialBizCategory={bizCategory}
-          initialRegion={regionScoped ? selectedRegion : null}
           lightweight
           onExitMap={() => navigate(-1)}
         />
@@ -275,10 +200,10 @@ export default function NeighborhoodMap() {
     <div className={styles.root}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
-          <button type="button" className={styles.locationBtn} onClick={openLocationSheet}>
+          <button type="button" className={styles.locationBtn} onClick={() => setLocSheetOpen(true)}>
             <span className={styles.eyebrow}>{t('map.listFirst.myArea')}</span>
             <h1>
-              {regionScoped && selectedRegion ? selectedRegion.name : t('market.allAreas')}
+              {scopeLabel}
               <span className={styles.caret}><ChevronDown size={20} strokeWidth={2.4} /></span>
             </h1>
           </button>
@@ -393,84 +318,9 @@ export default function NeighborhoodMap() {
         {t('map.viewMap')}
       </button>
 
-      {/* 지역 선택 시트 — 마켓(MarketMain)의 지역 선택 UI 레퍼런스, 스타일은 그대로 재사용 */}
-      <BottomSheet open={locSheetOpen} onClose={() => setLocSheetOpen(false)}>
-        <div className={marketStyles.locSheet}>
-          <div className={marketStyles.locHeader}>
-            <span className={marketStyles.locEyebrow}>{t('market.locationScope')}</span>
-            <strong className={marketStyles.locCurrent}>
-              {regionScoped && selectedRegion ? selectedRegion.name : t('market.allAreas')}
-            </strong>
-            <p className={marketStyles.locDesc}>
-              {regionMode === 'all' ? t('market.locationMetaAll') : regionMode === 'gps' ? t('market.locationMetaGps') : t('market.locationMetaRegion')}
-            </p>
-          </div>
-
-          <button
-            className={`${marketStyles.locCard} ${draftMode === 'all' ? marketStyles.locCardActive : ''}`}
-            onClick={() => setDraftMode('all')}
-          >
-            <span className={marketStyles.locCardIcon}><Globe size={20} strokeWidth={2} /></span>
-            <span className={marketStyles.locCardBody}>
-              <strong className={marketStyles.locCardTitle}>{t('market.allAreas')}</strong>
-              <span className={marketStyles.locCardText}>{t('market.locationMetaAll')}</span>
-            </span>
-            <span className={marketStyles.locCardCheck}><RadioCircle checked={draftMode === 'all'} /></span>
-          </button>
-
-          {/* '내 현재 위치' — 마켓 시트와 동일한 두 번째 옵션 (아이콘·문구·순서 일치) */}
-          <button
-            className={`${marketStyles.locCard} ${draftMode === 'gps' ? marketStyles.locCardActive : ''}`}
-            onClick={() => setDraftMode('gps')}
-          >
-            <span className={marketStyles.locCardIcon}><LocateFixed size={20} strokeWidth={2} /></span>
-            <span className={marketStyles.locCardBody}>
-              <strong className={marketStyles.locCardTitle}>{t('market.currentLocation')}</strong>
-              <span className={marketStyles.locCardText}>{t('market.locationMetaGps')}</span>
-            </span>
-            <span className={marketStyles.locCardCheck}><RadioCircle checked={draftMode === 'gps'} /></span>
-          </button>
-
-          <button
-            className={`${marketStyles.locCard} ${draftMode === 'region' ? marketStyles.locCardActive : ''}`}
-            onClick={() => setDraftMode('region')}
-          >
-            <span className={marketStyles.locCardIcon}><MapIcon size={20} strokeWidth={2} /></span>
-            <span className={marketStyles.locCardBody}>
-              <strong className={marketStyles.locCardTitle}>{t('market.selectArea')}</strong>
-              <span className={marketStyles.locCardText}>
-                {draftRegion?.name ?? t('market.locationMetaPick')}
-              </span>
-            </span>
-            <span className={marketStyles.locCardCheck}><RadioCircle checked={draftMode === 'region'} /></span>
-          </button>
-
-          {draftMode === 'region' && (
-            <div className={marketStyles.locMapPanel}>
-              <div className={marketStyles.locMapCaption}>
-                <MapPinned size={16} />
-                <span>{draftRegion?.name ?? t('market.pickAreaOnMap')}</span>
-              </div>
-              <div className={marketStyles.locMapInner}>
-                <SaigonMapV2
-                  height={280}
-                  initialGps={draftRegion ? { lat: draftRegion.lat, lng: draftRegion.lng } : (selectedRegion ? { lat: selectedRegion.lat, lng: selectedRegion.lng } : undefined)}
-                  onRegionSelect={setDraftRegion}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className={marketStyles.locActions}>
-            <Button variant="ghost" size="md" fullWidth={false} onClick={() => setLocSheetOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button size="md" fullWidth={false} onClick={applyLocation} disabled={draftMode === 'region' && !draftRegion}>
-              {t('market.applyLocation')}
-            </Button>
-          </div>
-        </div>
-      </BottomSheet>
+      {/* 표시범위 시트 — 앱 공용 2옵션 (대표 지시 2026-08-06 "2개로만해"). 종전 인라인
+          3옵션 시트(마켓 스타일 재사용 + 지도 패널)를 DisplayScopeSheet 로 대체했다. */}
+      <DisplayScopeSheet open={locSheetOpen} onClose={() => setLocSheetOpen(false)} />
     </div>
   );
 }

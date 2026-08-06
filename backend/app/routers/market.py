@@ -221,6 +221,9 @@ async def get_listings(
     price_max: int | None = Query(None, description="최고 가격 (VND)"),
     lat: float | None = Query(None, description="내 위치 위도 (거리 계산·거리순)"),
     lng: float | None = Query(None, description="내 위치 경도"),
+    radius_km: float | None = Query(
+        None, gt=0, le=50, description="lat/lng 기준 반경(km) 필터 — 'gps' 표시범위용. lat/lng 없으면 무시"
+    ),
     min_lat: float | None = Query(None, description="지도 뷰포트 최소 위도 (bbox 필터)"),
     max_lat: float | None = Query(None, description="지도 뷰포트 최대 위도"),
     min_lng: float | None = Query(None, description="지도 뷰포트 최소 경도"),
@@ -249,6 +252,20 @@ async def get_listings(
     else:
         q = select(MarketplaceListing)
     count_q = select(func.count()).select_from(MarketplaceListing)
+
+    # 'gps' 표시범위 — 내 좌표 반경 필터 (대표 지시 2026-08-06 "기본을 다 gps로").
+    # 행정구역(ward_id)이 아니라 반경으로 거르므로 구 경계에 걸친 매물도 빠지지 않는다.
+    # q/count_q 양쪽에 걸어야 한다 — 한쪽만 걸면 페이지네이션 총계가 어긋난다.
+    if has_loc and radius_km is not None:
+        # float 인라인(주입 위험 없음) — 위 dist 계산과 동일한 방식.
+        within = text(
+            "ST_DWithin("
+            "ST_SetSRID(ST_MakePoint(marketplace_listings.longitude, marketplace_listings.latitude), 4326)::geography,"
+            f"ST_SetSRID(ST_MakePoint({float(lng)}, {float(lat)}), 4326)::geography,"
+            f"{float(radius_km) * 1000})"
+        )
+        q = q.where(within)
+        count_q = count_q.where(within)
 
     if category and category.lower() != "all":
         q = q.join(MarketplaceCategory, MarketplaceListing.category_id == MarketplaceCategory.id).where(

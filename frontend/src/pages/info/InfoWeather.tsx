@@ -21,7 +21,7 @@ import type { WeatherData, ForecastHour } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
-import { useServiceLocation, HCMC_DEFAULT_CENTER } from '@/hooks/useServiceLocation';
+import { useServiceLocation } from '@/hooks/useServiceLocation';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import LocationContextBar from '@/components/info/LocationContextBar';
 import StateBlock from '@/components/ui/StateBlock';
@@ -52,9 +52,9 @@ const RIDE_META: Record<string, { Icon: LucideIcon }> = {
 export default function InfoWeather() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  // 단일 SoT — 선택 지역은 useLocationStore(동네지도와 공유). 없으면 도시 기본 중심.
-  const { region } = useServiceLocation();
-  const coords = region ? { lat: region.lat, lng: region.lng } : HCMC_DEFAULT_CENTER;
+  // 단일 SoT — 표시 범위/기준 좌표는 useLocationStore(앱 전역, 2026-08-06 통일).
+  // 대표 지적 "강수 지역이 뭔기준이냐" — 이제 GPS 좌표가 기준이고, '전체'면 도시 기본 중심.
+  const { origin: coords } = useServiceLocation();
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);

@@ -1702,7 +1702,10 @@
       "emptyTitle": "단골로 등록한 업체가 없어요",
       "emptyDesc": "업체 프로필에서 단골을 맺으면 새 소식을 여기서 받아볼 수 있어요",
       "loadError": "단골 업체를 불러오지 못했어요"
-    }
+    },
+    "permissionRationale": "내 주변의 매물·주유소·날씨를 보여드리려면 위치 정보가 필요해요.",
+    "permissionAllow": "위치 허용",
+    "permissionLater": "나중에"
   },
   "effects": {
     "none": "착용 효과 없음",

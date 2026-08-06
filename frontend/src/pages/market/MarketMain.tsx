@@ -1,29 +1,26 @@
 import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Bell, ChevronDown, ChevronLeft, Globe, Heart, LocateFixed, Map as MapIcon, MapPinned, PackageOpen, Plus, Search, X, ZoomIn } from 'lucide-react';
+import { AlertCircle, Bell, ChevronDown, ChevronLeft, Heart, MapPinned, PackageOpen, Plus, Search, X, ZoomIn } from 'lucide-react';
 import { Chip } from '@/components/ui/Chip';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import StateBlock from '@/components/ui/StateBlock';
-import { RadioCircle } from '@/components/ui/RadioCircle';
 import sys from '@/styles/system.module.css';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { toast } from '@/components/ui/Toast';
-import SaigonMapV2 from '@/components/maps/SaigonMapV2';
-import { AreaPill } from '@/components/maps/AreaPill';
+import { DisplayScopeSheet } from '@/components/location/DisplayScopeSheet';
 import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
-import type { SelectedRegion, MapMarkerV2 } from '@/components/maps/v2/region';
+import type { MapMarkerV2 } from '@/components/maps/v2/region';
 
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { resolveUsableLocation } from '@/lib/serviceLocation';
 import { adAtIndex, ADS_ENABLED, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useUserStore } from '@/store/useUserStore';
-import { useServiceLocation } from '@/hooks/useServiceLocation';
-import { fetchDistricts, fetchWards, localizedName, resolveWardByCoords, type District, type Ward } from '@/api/master';
+import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
+import { fetchDistricts, type District } from '@/api/master';
 import {
   addKeywordAlert,
   adHref,
@@ -45,12 +42,11 @@ import AdCard from './AdCard';
 import { formatPriceVnd } from './marketFormat';
 import styles from './MarketMain.module.css';
 
-const STORAGE_KEY = 'mkt_filter_v2';
-// 저장소는 localStorage — 표시 범위(locationMode) 선택이 앱 재시작 후에도 유지돼야 한다
-// (대표 지적 2026-08-05: "설정을 바꿔서 다시 들어가면 초기화됨"). 종전 sessionStorage 는 웹뷰
-// 세션과 함께 사라져 앱을 껐다 켜면 '전체 지역'으로 되돌아갔다 — 동네지도·정보 화면은
-// useLocationStore(zustand persist=localStorage)라 유지되는데 마켓만 초기화되는 비대칭이었다.
-// (마켓 독자 상태 유지는 그대로 — 전역 스토어 통합은 2026-07-27 대표 결정으로 보류 상태.)
+// v3: 위치 관련 필드(locationMode/ward/coords/regionLabel/explicitLocal)를 뺐다 — 표시 범위는
+// 이제 useLocationStore(앱 전역 단일 SoT)가 들고 있다(대표 지시 2026-08-06 "모든화면에서 gps기본",
+// 설계도 ai-docs/260806_gps_scope_unification_design.md). 여기 남는 건 마켓 고유 필터뿐이다.
+// 키를 v2→v3 로 올려 구버전 값(locationMode:'region' 등)이 되살아나지 않게 한다.
+const STORAGE_KEY = 'mkt_filter_v3';
 // 매물 자동 말풍선 (동네지도 NeighborhoodMapCanvas 이식, 값 동일) — bboxFilter 위도 스팬이
 // AUTO_BUBBLE_MAX_LAT_SPAN 이하일 때만 동작(과도한 줌아웃에서 비활성), 뷰포트 중앙에서 정규화
 // 거리 AUTO_BUBBLE_CENTER_RADIUS 이내인 매물을 선택.
@@ -59,12 +55,6 @@ const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 interface SavedState {
   sort: ListingSort;
   hideSold: boolean;
-  locationMode: 'all' | 'gps' | 'region';
-  ward: Ward | null;
-  coords: { lat: number; lng: number } | null;
-  regionLabel: string | null;
-  /** 마켓 자체 위치 시트/URL 쿼리에서 명시적으로 고른 지역인지 — true면 전역 스토어 동기화보다 우선. */
-  explicitLocal: boolean;
   /** 리스트/지도 뷰 토글 — 상세 갔다 돌아와도 유지 (SGR 마켓 지도, 대표 지시). */
   viewMode: 'list' | 'map';
   scrollTop: number;
@@ -72,16 +62,12 @@ interface SavedState {
 /** 콜드 스타트(새 웹뷰 세션) 표식 — scrollTop·viewMode 를 세션 범위로 유지하는 데 쓴다. */
 const SESSION_MARK_KEY = 'mkt_session_mark';
 
-/** district→ward 전환(2026-08) 이전 구버전 세션값(shape: {district, ...})이 남아있을 수 있다 —
- * 필수 필드(ward 키 자체, id 타입) 검증해 구스키마면 폐기하고 기본값으로 폴백한다. */
 function readSaved(): SavedState | null {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
     if (!s) return null;
-    const parsed = JSON.parse(s) as Partial<SavedState> & { district?: unknown };
-    if (parsed.district !== undefined) return null; // 구스키마(district 필드) — 폐기
-    if (parsed.ward != null && typeof (parsed.ward as Ward).id !== 'number') return null;
-    // 저장소를 localStorage 로 올린 대상은 **필터·표시 범위**뿐이다. scrollTop·viewMode 는 원래
+    const parsed = JSON.parse(s) as Partial<SavedState>;
+    // 저장소를 localStorage 로 올린 대상은 **마켓 필터**뿐이다. scrollTop·viewMode 는 원래
     // "상세 갔다 돌아와도 유지"용(세션 범위)이라, 콜드 스타트에서 복원하면 앱을 켜자마자
     // 지도 뷰 + 이전 스크롤 위치로 점프하는 새 부작용이 된다 — 새 세션에서는 기본값으로 시작한다.
     const coldStart = !sessionStorage.getItem(SESSION_MARK_KEY);
@@ -103,8 +89,13 @@ export default function MarketMain() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
-  // 전역 위치 스토어(useLocationStore) — 동네지도/정보 화면과 공유되는 지역 선택 SoT.
-  const { region: globalRegion } = useServiceLocation();
+  // 표시 범위는 앱 전역 단일 SoT — 마켓 독자 상태를 두지 않는다(대표 지시 2026-08-06
+  // "모든화면에서 gps기본"). 마켓만 다른 지역을 보여주던 비대칭이 여기서 사라진다.
+  const locationMode = useLocationStore((s) => s.mode);
+  const coords = useLocationStore((s) => s.coords);
+  const wardName = useLocationStore((s) => s.wardName);
+  const coordsSource = useLocationStore((s) => s.coordsSource);
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
 
   const [savedState] = useState<SavedState | null>(readSaved);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -113,10 +104,6 @@ export default function MarketMain() {
   const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
   const [sortOpen, setSortOpen] = useState(false);
   const [hideSold, setHideSold] = useState(savedState?.hideSold ?? false);
-  const [ward, setWard] = useState<Ward | null>(savedState?.ward ?? null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(savedState?.coords ?? null);
-  const [locationMode, setLocationMode] = useState<'all' | 'gps' | 'region'>(savedState?.locationMode ?? 'all');
-  const [explicitLocal, setExplicitLocal] = useState<boolean>(savedState?.explicitLocal ?? false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>(savedState?.viewMode ?? 'list');
   const [mapListings, setMapListings] = useState<Listing[]>([]);
   const [mapError, setMapError] = useState(false);
@@ -144,14 +131,8 @@ export default function MarketMain() {
   // 정착된(디바운스 완료) bbox — 자동 말풍선의 줌 스팬 판정·중앙 거리 계산용
   const [bboxFilter, setBboxFilter] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
   const [ads, setAds] = useState<MarketAd[]>([]);
-  const [allWards, setAllWards] = useState<Ward[]>([]);
   const [allDistricts, setAllDistricts] = useState<District[]>([]);
   const [locMapOpen, setLocMapOpen] = useState(false);
-  const [regionLabel, setRegionLabel] = useState<string | null>(savedState?.regionLabel ?? null);
-  const [draftLocationMode, setDraftLocationMode] = useState<'all' | 'gps' | 'region'>('all');
-  const [draftWard, setDraftWard] = useState<Ward | null>(null);
-  const [draftCoords, setDraftCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [draftRegionLabel, setDraftRegionLabel] = useState<string | null>(null);
   const [adLimit, setAdLimit] = useState(AD_LIMIT_INITIAL); // 스크롤 시 결정적 증가
   // 제휴 광고(지역 타게팅) 대상 district — /market/ads 는 아직 district_id 만 지원(백엔드 미변경
   // 범위). ward.district 는 현재 데이터에 채워져 있지 않아(마스터 데이터 미완성) 좌표로 별도 해석.
@@ -166,162 +147,49 @@ export default function MarketMain() {
     setAdLimit(AD_LIMIT_INITIAL);
   }, [adDistrictId, i18n.language]);
 
-  // GPS 자동 실행 없음 — 사용자가 시트에서 명시적으로 선택한 경우에만 위치 반영.
+  // 제휴 광고 타게팅용 구 목록 — 위치 판정에는 쓰지 않는다(판정은 스토어 좌표 + 반경).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [wards, districts] = await Promise.all([
-        fetchWards().catch(() => [] as Ward[]),
-        fetchDistricts().catch(() => [] as District[]),
-      ]);
-      if (cancelled) return;
-      setAllWards(wards);
-      setAllDistricts(districts);
-    })();
+    fetchDistricts()
+      .then((districts) => { if (!cancelled) setAllDistricts(districts); })
+      .catch(() => { if (!cancelled) setAllDistricts([]); });
     return () => { cancelled = true; };
   }, []);
 
-  // 지역 소스 우선순위: URL 쿼리(?lat&lng, 홈 진입) > 마켓 세션 선택(explicitLocal) >
-  // 전역 위치 스토어(useLocationStore, 동네지도와 공유) > 전체.
-  // explicitLocal 이 아직 없을 때만(마켓에서 직접 고른 적 없을 때만) 전역 스토어 기준을 반영한다.
-  useEffect(() => {
-    if (explicitLocal) return;
-    if (searchParams.get('lat') != null) return; // 아래 쿼리 처리 이펙트가 우선 소비
-    if (allWards.length === 0) return;
-    if (!globalRegion) return; // 전역도 '전체'면 로컬 기본값(all) 유지
-    const w = resolveWardByCoords(globalRegion.lat, globalRegion.lng, allWards);
-    setCoords({ lat: globalRegion.lat, lng: globalRegion.lng });
-    setWard(w ?? null);
-    setLocationMode('region');
-    setRegionLabel(w ? null : globalRegion.name);
-  }, [explicitLocal, searchParams, allWards, globalRegion]);
+  // 진입 시 측위 — 표시 범위 기본값이 GPS 다(대표 지시 2026-08-06 "기본을 다 gps로").
+  // 실측은 스토어가 세션당 1회로 묶으므로, 화면 이동마다 권한창이 다시 뜨지 않는다.
+  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
 
-  // 홈 "내 주변 인기 상품 → 더보기"에서 ?lat=&lng= 로 진입 시: 신규 GPS 재측정 없이
-  // 홈이 이미 보유한 좌표로 gps 모드에 즉시 반영 (savedState 복원보다 우선).
+  // 홈 "내 주변 인기 상품 → 더보기"에서 넘어오면 거리순으로 맞춰준다. 좌표는 스토어가 이미
+  // 들고 있으므로 URL 로 실어 나르지 않는다 — 쿼리 잔존이 선택을 덮어쓰던 회귀(xreg-C1)도 함께 사라진다.
   useEffect(() => {
-    const latStr = searchParams.get('lat');
-    const lngStr = searchParams.get('lng');
-    if (latStr == null || lngStr == null) return;
-    if (allWards.length === 0) return; // 동 해석 가능해진 뒤 1회 소비
-    const lat = Number(latStr);
-    const lng = Number(lngStr);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      const w = resolveWardByCoords(lat, lng, allWards)
-        ?? resolveWardByCoords(10.7748, 106.6879, allWards);
-      setCoords({ lat, lng });
-      setWard(w ?? null);
-      setLocationMode('gps');
-      setRegionLabel(null);
-      setSort('distance');
-      setExplicitLocal(true); // URL 쿼리로 받은 위치도 이후 전역 스토어 동기화보다 우선
-    }
-    // 소비 즉시 쿼리 제거 — 잔존 시 리로드/리마운트마다 수동 지역 선택을 덮어씀 (회귀 xreg-C1)
+    if (searchParams.get('near') == null) return;
+    setSort('distance');
     setSearchParams({}, { replace: true });
-  }, [searchParams, allWards, setSearchParams]);
+  }, [searchParams, setSearchParams]);
 
-  const handlePickGPS = async () => {
-    try {
-      const location = await resolveUsableLocation();
-      const w = resolveWardByCoords(location.coords.lat, location.coords.lng, allWards);
-      if (location.source === 'fallback') {
-        toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
-      }
-      setCoords(location.coords);
-      setWard(w ?? null);
-      setLocationMode('gps');
-      setRegionLabel(null);
-      setExplicitLocal(true);
-      setLocMapOpen(false);
-    } catch (err) {
-      const code = (err as { code?: number } | null)?.code;
-      if (code === 1) {
-        // PERMISSION_DENIED
-        toast.warning(t('map.listFirst.nearMeDenied'));
-      } else if (code === 3) {
-        // TIMEOUT
-        toast.warning(t('map.listFirst.nearMeTimeout'));
-      } else {
-        // POSITION_UNAVAILABLE 등 — 위치 서비스 꺼짐 포함
-        toast.warning(t('map.listFirst.nearMeUnavailable'));
-      }
-    }
-  };
-
-  const handleDraftRegion = (region: SelectedRegion) => {
-    const nextCoords = { lat: region.lat, lng: region.lng };
-    const matched = resolveWardByCoords(nextCoords.lat, nextCoords.lng, allWards);
-    setDraftLocationMode('region');
-    setDraftWard(matched ?? null);
-    setDraftRegionLabel(matched ? null : region.name);
-    setDraftCoords(nextCoords);
-  };
-
-  const handleApplyLocation = async () => {
-    if (draftLocationMode === 'all') {
-      setWard(null);
-      setCoords(null);
-      setRegionLabel(null);
-      setLocationMode('all');
-      setExplicitLocal(true);
-      setLocMapOpen(false);
-      return;
-    }
-    if (draftLocationMode === 'gps') {
-      await handlePickGPS();
-      return;
-    }
-    setWard(draftWard);
-    setCoords(draftCoords);
-    setRegionLabel(draftRegionLabel);
-    setLocationMode('region');
-    setExplicitLocal(true);
-    setLocMapOpen(false);
-  };
-
-  // 지역 필터 chip ✕ — 시트의 '전체 지역' 적용(handleApplyLocation 의 draftLocationMode==='all'
-  // 분기)과 동일한 해제 흐름. explicitLocal=true 로 전역 스토어 동기화보다 우선시키고,
-  // 저장(localStorage)은 기존 필터 저장 이펙트가 그대로 처리한다.
-  const clearRegionFilter = useCallback(() => {
-    setWard(null);
-    setCoords(null);
-    setRegionLabel(null);
-    setLocationMode('all');
-    setExplicitLocal(true);
-  }, []);
-
-  const openLocationSheet = () => {
-    setDraftLocationMode(locationMode);
-    setDraftWard(ward);
-    setDraftCoords(coords);
-    setDraftRegionLabel(regionLabel);
-    setLocMapOpen(true);
-  };
-
-  const currentRegionName = ward ? localizedName(ward) : regionLabel;
+  // 표시 중인 지역 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다 —
+  // "내 현재 위치"로 보이면 사용자가 결과를 오해한다(설계도 §4.3 coordsSource).
+  const currentRegionName = coordsSource === 'fallback' ? null : wardName;
   const currentLocationTitle = locationMode === 'all'
     ? t('market.allAreas')
     : currentRegionName ?? t('market.currentLocation');
-  const currentLocationMeta = locationMode === 'all'
-    ? t('market.locationMetaAll')
-    : locationMode === 'gps'
-      ? t('market.locationMetaGps')
-      : t('market.locationMetaRegion');
-  const draftRegionName = draftWard ? localizedName(draftWard) : draftRegionLabel;
-  const canApplyLocation = draftLocationMode === 'all' || draftLocationMode === 'gps' || !!draftCoords;
 
+  // 'gps' 면 반경 필터, 'all' 이면 전역 조회. 행정구역(wardId)으로 거르지 않는다 —
+  // 구 경계에 걸친 매물이 통째로 빠지던 원인이었다(설계도 D4).
   const fetchPage = useCallback(
     (page: number) =>
       fetchListings({
         sort, hideSold,
         lat: coords?.lat, lng: coords?.lng,
-        wardId: ward?.id ?? null,
+        radiusKm: locationMode === 'gps' ? NEARBY_RADIUS_KM : null,
         viewerId: userId, page, size: 20,
       }),
-    [sort, hideSold, coords, ward?.id, userId],
+    [sort, hideSold, coords, locationMode, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, ward?.id, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [sort, hideSold, coords, locationMode, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -342,10 +210,11 @@ export default function MarketMain() {
       return;
     }
     const seq = ++mapReqSeqRef.current;
+    // 지도는 뷰포트(bbox) 기준으로만 조회한다 — 화면에 보이는 영역이 곧 범위라 반경/행정구역
+    // 필터를 겹쳐 걸면 보이는 곳에 핀이 안 뜨는 불일치가 생긴다.
     fetchListings({
       sort, hideSold,
       minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
-      wardId: ward?.id ?? null,
       viewerId: userId, page: 1, size: 50,
     }).then((res) => {
       if (seq !== mapReqSeqRef.current) return;
@@ -355,7 +224,7 @@ export default function MarketMain() {
       if (seq !== mapReqSeqRef.current) return;
       setMapError(true);
     });
-  }, [sort, hideSold, ward?.id, userId]);
+  }, [sort, hideSold, userId]);
 
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const handleMapBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
@@ -369,23 +238,21 @@ export default function MarketMain() {
   useEffect(() => () => clearTimeout(bboxTimerRef.current), []);
 
   // 필터 상태 변경 시 localStorage에 저장 (scrollTop은 0으로 리셋 — 새 필터는 처음부터)
+  // 표시 범위는 여기 저장하지 않는다 — useLocationStore 가 자체 persist 한다.
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sort, hideSold, locationMode, ward, coords, regionLabel, explicitLocal, viewMode, scrollTop: 0,
-      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sort, hideSold, viewMode, scrollTop: 0 }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, locationMode, ward, coords, regionLabel, explicitLocal, viewMode]);
+  }, [sort, hideSold, viewMode]);
 
   // 상세 이동 전 현재 스크롤 위치 저장
   const saveScroll = useCallback(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sort, hideSold, locationMode, ward, coords, regionLabel, explicitLocal, viewMode,
-        scrollTop: containerRef.current?.scrollTop ?? 0,
+        sort, hideSold, viewMode, scrollTop: containerRef.current?.scrollTop ?? 0,
       }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, locationMode, ward, coords, regionLabel, explicitLocal, viewMode, containerRef]);
+  }, [sort, hideSold, viewMode, containerRef]);
 
   // 초기 로딩 완료 후 저장된 스크롤 위치 복원
   const scrollRestoredRef = useRef(false);
@@ -548,7 +415,7 @@ export default function MarketMain() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerRow}>
-          <button className={styles.locationBtn} onClick={openLocationSheet}>
+          <button className={styles.locationBtn} onClick={() => setLocMapOpen(true)}>
             <h1 className={styles.title}>
               {currentLocationTitle}
               <span className={styles.caret}><ChevronDown size={20} strokeWidth={2.4} /></span>
@@ -601,24 +468,14 @@ export default function MarketMain() {
             <SaigonMapV5
               height="100%"
               initialGps={coords ?? undefined}
-              // 선택된 지역이 있으면(locationMode !== 'all') GPS 자동 locate 를 켜지 않는다 —
-              // 켜면 마운트 후 비동기 GPS 완료가 selWard/카메라를 다른 동으로 덮어써
-              // 선택 경계와 어긋난다(동네지도 회귀 aa2f214 재발 방지, 2026-08-03 발견 사유와 동일).
-              locateOnMount={locationMode === 'all'}
-              // 자동 locate 를 끈 모드(region/gps)에서도 내 위치 파란 점은 찍는다 — dot 전용
-              // 조용한 측위라 카메라·선택 경계에 영향이 없다 (대표 지적 2026-08-04:
-              // "동네지도엔 내 위치가 찍히는데 마켓지도엔 안 찍힌다").
-              meDotOnMount={locationMode !== 'all'}
-              // 선택 동 폴리곤 강조(주황 경계 + 외부지역 마스크) — 특정 동으로 범위가
-              // 좁혀진 때만 켠다(대표 지시 2026-08-03: "다른 지역은 노출시키지 않으니
-              // 그 지역만 테두리를 쳐주는 게 맞다"). '전체 지역'은 여러 동을 함께 보여주므로
-              // 특정 테두리가 의미 없어 끈다. gps 모드도 결과적으로 한 동으로 필터되므로
-              // region 과 동일 취급한다.
-              // 직전엔 false 하드코딩이었다 — 동네지도가 selWard 미세팅으로 경계를 못 그리던
-              // 것에 맞춰 '경계 없음'으로 하향 통일했었으나, 동네지도 쪽 근본원인
-              // (SaigonMapV5 activeRegionAt 신설)을 고쳐 '경계 있음'으로 상향 통일했다.
-              polyActive={locationMode !== 'all'}
-              activeRegionAt={locationMode !== 'all' ? coords : null}
+              // 카메라를 내 위치 중심으로 잡는다 (대표 지시 2026-08-06 "지도 다나오게").
+              // 지역 선택이 사라져 카메라와 선택 경계가 어긋날 여지 자체가 없어졌다.
+              locateOnMount
+              meDotOnMount
+              // 폴리곤 강조(주황 경계 + 외부지역 마스크) 제거 — 대표 지시 2026-08-06.
+              // 특정 동으로 화면을 가두지 않고 지도를 그대로 보여준다.
+              polyActive={false}
+              activeRegionAt={null}
               markers={mapMarkers}
               anchorOverlay={postPanelOpen ? undefined : listingOverlay}
               onBboxChange={handleMapBboxChange}
@@ -639,18 +496,8 @@ export default function MarketMain() {
               showLocateControl={false}
             />
           </Suspense>
-          {/* 지역 필터 chip — 동네지도와 같은 AreaPill 공용 컴포넌트(대표 지적 2026-08-04).
-              동네지도는 시트 floatingTopLeft 슬롯(시트가 포스트 패널 오픈 시 display:none 이라
-              chip 도 함께 숨음)에 띄우므로, 시트가 없는 마켓도 postPanelOpen 이면 숨겨 동작을
-              맞춘다. 라벨은 헤더와 동일 규칙(ward 명 → regionLabel → '내 현재 위치' 폴백). */}
-          {locationMode !== 'all' && !postPanelOpen && (
-            <div className={styles.areaPillWrap}>
-              <AreaPill
-                name={currentRegionName ?? t('market.currentLocation')}
-                onClear={clearRegionFilter}
-              />
-            </div>
-          )}
+          {/* 지역 필터 chip(AreaPill) 제거 — 대표 지시 2026-08-06. 지역 선택 자체가 없어져
+              해제할 필터가 없다. */}
           {/* 줌 게이트 힌트 필 — 동네지도 zoomHintPill 과 같은 문구/동작(탭 = 뷰포트 중심 확대).
               게이트 밖에서 핀이 비는 이유를 사용자에게 알린다. */}
           {showDistrictBadges && (
@@ -779,79 +626,9 @@ export default function MarketMain() {
         </div>
       </BottomSheet>
 
-      {/* 지역 선택 시트 */}
-      <BottomSheet open={locMapOpen} onClose={() => setLocMapOpen(false)}>
-        <div className={styles.locSheet}>
-          <div className={styles.locHeader}>
-            <span className={styles.locEyebrow}>{t('market.locationScope')}</span>
-            <strong className={styles.locCurrent}>{currentLocationTitle}</strong>
-            <p className={styles.locDesc}>{currentLocationMeta}</p>
-          </div>
-
-          <button
-            className={`${styles.locCard} ${draftLocationMode === 'all' ? styles.locCardActive : ''}`}
-            onClick={() => setDraftLocationMode('all')}
-          >
-            <span className={styles.locCardIcon}><Globe size={20} strokeWidth={2} /></span>
-            <span className={styles.locCardBody}>
-              <strong className={styles.locCardTitle}>{t('market.allAreas')}</strong>
-              <span className={styles.locCardText}>{t('market.locationMetaAll')}</span>
-            </span>
-            <span className={styles.locCardCheck}><RadioCircle checked={draftLocationMode === 'all'} /></span>
-          </button>
-
-          <button
-            className={`${styles.locCard} ${draftLocationMode === 'gps' ? styles.locCardActive : ''}`}
-            onClick={() => setDraftLocationMode('gps')}
-          >
-            <span className={styles.locCardIcon}><LocateFixed size={20} strokeWidth={2} /></span>
-            <span className={styles.locCardBody}>
-              <strong className={styles.locCardTitle}>{t('market.currentLocation')}</strong>
-              <span className={styles.locCardText}>{t('market.locationMetaGps')}</span>
-            </span>
-            <span className={styles.locCardCheck}><RadioCircle checked={draftLocationMode === 'gps'} /></span>
-          </button>
-
-          <button
-            className={`${styles.locCard} ${draftLocationMode === 'region' ? styles.locCardActive : ''}`}
-            onClick={() => setDraftLocationMode('region')}
-          >
-            <span className={styles.locCardIcon}><MapIcon size={20} strokeWidth={2} /></span>
-            <span className={styles.locCardBody}>
-              <strong className={styles.locCardTitle}>{t('market.selectArea')}</strong>
-              <span className={styles.locCardText}>
-                {draftRegionName ?? t('market.locationMetaPick')}
-              </span>
-            </span>
-            <span className={styles.locCardCheck}><RadioCircle checked={draftLocationMode === 'region'} /></span>
-          </button>
-
-          {draftLocationMode === 'region' && (
-            <div className={styles.locMapPanel}>
-              <div className={styles.locMapCaption}>
-                <MapPinned size={16} />
-                <span>{draftRegionName ?? t('market.pickAreaOnMap')}</span>
-              </div>
-              <div className={styles.locMapInner}>
-              <SaigonMapV2
-                height={280}
-                initialGps={draftCoords ?? coords ?? undefined}
-                onRegionSelect={handleDraftRegion}
-              />
-            </div>
-            </div>
-          )}
-
-          <div className={styles.locActions}>
-            <Button variant="ghost" size="md" fullWidth={false} onClick={() => setLocMapOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button size="md" fullWidth={false} onClick={() => void handleApplyLocation()} disabled={!canApplyLocation}>
-              {t('market.applyLocation')}
-            </Button>
-          </div>
-        </div>
-      </BottomSheet>
+      {/* 표시범위 시트 — 앱 공용 2옵션(대표 지시 2026-08-06 "2개로만해"). 종전 인라인 3옵션
+          시트(전체/현재위치/지역선택 + 지도 패널)를 DisplayScopeSheet 로 대체했다. */}
+      <DisplayScopeSheet open={locMapOpen} onClose={() => setLocMapOpen(false)} />
 
       {/* 키워드 알림 관리 시트 */}
       <BottomSheet open={alertOpen} onClose={() => setAlertOpen(false)}>

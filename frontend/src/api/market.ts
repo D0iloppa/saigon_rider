@@ -160,6 +160,8 @@ export interface ListingQuery {
   priceMax?: number | null;
   lat?: number | null;
   lng?: number | null;
+  /** lat/lng 기준 반경(km) — 'gps' 표시범위. 'all' 이면 넘기지 않는다. */
+  radiusKm?: number | null;
   minLat?: number | null;
   maxLat?: number | null;
   minLng?: number | null;
@@ -261,6 +263,8 @@ export async function fetchListings(q: ListingQuery = {}, signal?: AbortSignal):
   if (q.lat != null && q.lng != null) {
     params.set('lat', String(q.lat));
     params.set('lng', String(q.lng));
+    // 반경은 lat/lng 이 있을 때만 의미가 있다 (BFF 도 has_loc 일 때만 적용).
+    if (q.radiusKm != null) params.set('radius_km', String(q.radiusKm));
   }
   if (q.minLat != null && q.maxLat != null && q.minLng != null && q.maxLng != null) {
     params.set('min_lat', String(q.minLat));

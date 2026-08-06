@@ -1702,7 +1702,10 @@
       "emptyTitle": "Bạn chưa theo dõi cửa hàng nào",
       "emptyDesc": "Theo dõi một cửa hàng từ trang hồ sơ để nhận tin mới nhất tại đây",
       "loadError": "Không thể tải danh sách cửa hàng thân thiết"
-    }
+    },
+    "permissionRationale": "Cần vị trí của bạn để hiển thị tin đăng, trạm xăng và thời tiết gần bạn.",
+    "permissionAllow": "Cho phép vị trí",
+    "permissionLater": "Để sau"
   },
   "effects": {
     "none": "Không có hiệu ứng",

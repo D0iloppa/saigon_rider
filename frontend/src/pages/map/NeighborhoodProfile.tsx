@@ -35,8 +35,8 @@ export default function NeighborhoodProfile() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
-  const storedLocation = useLocationStore((s) => s.location);
-  const savedCoords = storedLocation && storedLocation.accountId === user?.id ? storedLocation.coords : null;
+  // 표시 범위 단일 SoT (2026-08-06 통일) — 'gps' 좌표. 없으면 마지막 지도 뷰포트 중심 폴백.
+  const scopeCoords = useLocationStore((s) => s.coords);
   const nickname = user?.nickname || t('map.neighborhoodProfile.defaultNickname');
 
   const [reviewData, setReviewData] = useState<MyRepairReviewsResult | null>(null);
@@ -72,8 +72,8 @@ export default function NeighborhoodProfile() {
   const avgRatingText = summary?.avgRating != null ? summary.avgRating.toFixed(1) : '–';
   const reviews = reviewData?.reviews ?? [];
 
-  // 선택 지역(useLocationStore 파생 스냅샷) 우선, 없으면 마지막 지도 뷰포트 중심 — 동네명 표시용
-  const coords = savedCoords ?? fallbackCoords();
+  // 동네명 표시용 — 조회/필터에는 쓰지 않는다.
+  const coords = scopeCoords ?? fallbackCoords();
   const wardName = coords ? findWardAt(coords.lat, coords.lng)?.region.name ?? null : null;
 
   const goWriteReview = () => navigate('/info/repair');

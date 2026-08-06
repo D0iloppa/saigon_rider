@@ -101,22 +101,23 @@ test('SaigonMapV5 gates the rotation <g> behind enableFollowCompass — off path
   );
 });
 
-test('SaigonMapV5 has a rotateVec gesture-inverse helper with a bearing===0 identity early return (step 6)', () => {
+test('SaigonMapV5 has a rotatePoint position helper with a bearing===0 identity early return (step 6)', () => {
   const source = read('SaigonMapV5.tsx');
 
-  assert.match(
-    source,
-    /function rotateVec\(dx: number, dy: number, deg: number\): \{ x: number; y: number \} \{\s*if \(deg === 0\) return \{ x: dx, y: dy \};/,
-    'rotateVec must early-return the identity vector when deg===0 (killswitch: gesture math unchanged when bearing is 0)',
-  );
-
-  // rotatePoint(라벨·마커 위치 회전, D-B)도 동일하게 bearing===0 항등 반환을 가져야 한다.
-  // (제스처 역회전 4곳의 실제 호출부 계약은 saigonMapV5RotationLayers.contract.test.mjs 가 §7
-  // step 6 커밋에서 별도로 고정한다 — 이 테스트는 두 헬퍼 함수 자체의 킬스위치 계약만 다룬다.)
+  // rotatePoint(라벨·마커 위치 회전 + 탭 히트테스트 좌표 변환, D-B)는 bearing===0 항등 반환을 가져야 한다.
   assert.match(
     source,
     /function rotatePoint\(x: number, y: number, cx: number, cy: number, deg: number\): \{ x: number; y: number \} \{\s*if \(deg === 0\) return \{ x, y \};/,
     'rotatePoint must early-return the identity point when deg===0 (killswitch: label/marker positions unchanged when bearing is 0)',
+  );
+
+  // rotateVec(구 §7 step 6, 08cd1e3)은 실측(2026-08-06) 결과 휠/핀치중심/팬 3곳 모두 불필요한
+  // 보정이었음이 확인돼 제거됐다 — 팬 델타는 이미 userSpace 벡터라 vb.x/vb.y 에 그대로 더할 수
+  // 있고, 회전은 userSpace *안*(지형 <g>)에서만 일어나 viewBox 자체는 돌지 않는다. 재도입 금지.
+  assert.doesNotMatch(
+    source,
+    /function rotateVec\(/,
+    'rotateVec must stay removed — pan/wheel/pinch use raw userSpace deltas directly (2026-08-06 gesture fix), only tap needs +bearing (map-space hit-test)',
   );
 });
 

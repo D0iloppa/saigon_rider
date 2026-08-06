@@ -49,23 +49,33 @@ test('SaigonMapV5 updateAnchorOverlay rotates the anchor position (getCamCenter 
   assert.match(block, /rotatePoint\(lx\(pos\.lng\), ly\(pos\.lat\), camCx, camCy, -bearing\)/, 'updateAnchorOverlay must rotate the anchor point around the camera center before projecting to screen px');
 });
 
-// §2.5/§7 step 6: 제스처 역회전은 4곳(휠·핀치중심·팬·탭) 전부에 적용돼야 한다.
-test('SaigonMapV5 applies gesture-inverse rotation at all 4 call sites (wheel, pinch-center, pan, tap)', () => {
+// §2.5/§7 step 6 개정(2026-08-06 실측 수정) — 4곳 중 실제로 +bearing 역회전이 필요한 곳은
+// **탭 1곳뿐**이다. 휠/핀치중심/팬은 모두 applyZoom·vb 갱신에 그대로 쓰이는 userSpace(viewBox)
+// 좌표라 회전이 필요 없다(viewBox 자체는 절대 돌지 않고, 회전은 그 안의 지형 <g> 만 돈다).
+// 08cd1e3 이 4곳에 일률로 넣은 rotatePoint/rotateVec 보정은 휠·핀치중심·팬 3곳에서 틀렸다 —
+// 실측(bearing=90 에서 수평 드래그가 vb.y 만 바꾸는 결함, 2026-08-06)으로 확인 후 제거했다.
+// 탭만 예외인 이유: pointInPoly 히트테스트가 ward 폴리곤(map/unified 좌표계)과 비교하므로,
+// 화면에 보이는 userSpace 지점을 map 좌표로 되돌리는 +bearing 변환이 반드시 필요하다.
+test('SaigonMapV5 gesture math: only tap inverts rotation, wheel/pinch/pan use raw userSpace deltas', () => {
   const source = read('SaigonMapV5.tsx');
 
-  // 휠
+  // 휠 — rawCx/rawCy 를 그대로 applyZoom에 전달(회전 보정 없음)
   const wheelStart = source.indexOf("const onWheel = (e: WheelEvent) => {");
   const wheelEnd = source.indexOf('el.addEventListener', wheelStart);
-  assert.match(source.slice(wheelStart, wheelEnd), /rotatePoint\(rawCx, rawCy, camCx, camCy, bearing\)/, 'wheel handler must invert rotation via rotatePoint(+bearing)');
+  const wheelBlock = source.slice(wheelStart, wheelEnd);
+  assert.match(wheelBlock, /applyZoom\(e\.deltaY > 0 \? 1\.12 : 0\.89, rawCx, rawCy\);/, 'wheel handler must zoom toward raw userSpace point (no rotation correction)');
+  assert.doesNotMatch(wheelBlock, /rotatePoint\(rawCx, rawCy/, 'wheel handler must not rotate the raw zoom center');
 
-  // 핀치 중심
-  assert.match(source, /rotatePoint\(rawCx, rawCy, camCx, camCy, bearing\);\s*applyZoom\(g\.lastD \/ dist, cx, cy\);/, 'pinch-center handler must invert rotation via rotatePoint(+bearing) before applyZoom');
+  // 핀치 중심 — 동일하게 raw 그대로
+  assert.match(source, /applyZoom\(g\.lastD \/ dist, rawCx, rawCy\);/, 'pinch-center handler must zoom toward raw userSpace point (no rotation correction)');
+  assert.doesNotMatch(source, /rotatePoint\(rawCx, rawCy, camCx, camCy, bearing\)/, 'pinch-center handler must not rotate the raw zoom center');
 
-  // 팬
-  assert.match(source, /const \{ x: dx, y: dy \} = rotateVec\(dxRaw, dyRaw, bearing\);\s*vbRef\.current = clampVB\(\{ \.\.\.vb, x: vb\.x - dx, y: vb\.y - dy \}\);/, 'pan handler must invert the screen delta via rotateVec(+bearing) before applying it to vb');
+  // 팬 — dxRaw/dyRaw 를 그대로 vb 에 적용(rotateVec 제거)
+  assert.match(source, /vbRef\.current = clampVB\(\{ \.\.\.vb, x: vb\.x - dxRaw, y: vb\.y - dyRaw \}\);/, 'pan handler must apply the raw userSpace delta directly to vb (no rotation correction)');
+  assert.doesNotMatch(source, /rotateVec\(dxRaw, dyRaw, bearing\)/, 'pan handler must not rotate the raw screen delta');
 
-  // 탭
-  assert.match(source, /const \{ x: mx, y: my \} = rotatePoint\(rawMx, rawMy, camCx, camCy, bearing\);/, 'tap handler must invert rotation via rotatePoint(+bearing) before ward/pick lookups');
+  // 탭 — map 좌표계 히트테스트를 위해 +bearing 역회전이 여전히 필요하다.
+  assert.match(source, /const \{ x: mx, y: my \} = rotatePoint\(rawMx, rawMy, camCx, camCy, bearing\);/, 'tap handler must invert rotation via rotatePoint(+bearing) before ward/pick lookups (map-space hit-test)');
 });
 
 // D-H 8.3: off 경로(enableFollowCompass=false, 8개 기존 소비처)는 여전히 회전 <g> 가 트리에

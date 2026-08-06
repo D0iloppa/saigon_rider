@@ -67,13 +67,6 @@ function rotatePoint(x: number, y: number, cx: number, cy: number, deg: number):
   const dx = x - cx, dy = y - cy;
   return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c };
 }
-// 제스처 역회전 — 화면 좌표계 델타(팬 dx/dy)를 지형(map) 좌표계로 되돌린다(설계서 §2.5). 벡터라
-// 회전 중심이 필요 없다. bearing===0 이면 항등 반환(D-H 킬스위치).
-function rotateVec(dx: number, dy: number, deg: number): { x: number; y: number } {
-  if (deg === 0) return { x: dx, y: dy };
-  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
-  return { x: dx * c - dy * s, y: dx * s + dy * c };
-}
 // 컬링 사각형 회전 bbox 확장 (D-C, §4·§7 step 7) — <g rotate(-bearing, cx, cy)> 안에서는 축정렬
 // viewBox 사각형이 화면을 채우려면 지도 좌표계에서 그 사각형을 +bearing 만큼 cx/cy 기준으로 돌린
 // 회전 사각형이 보여야 한다. 정확한 회전 폴리곤 대신 안전한(넉넉한) AABB를 반환 — 45°에서 면적 2배.
@@ -1089,16 +1082,17 @@ function SaigonMapV5({
       const r = el.getBoundingClientRect(), vb = vbRef.current;
       const rawCx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
       const rawCy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
-      // 화면→viewBox 직선 매핑(raw)은 회전 전 좌표다. 지형은 화면에서 -bearing 만큼 돌아
-      // 보이므로, 줌 중심이 포인터 아래 지형과 계속 일치하려면 +bearing 만큼 되돌려야 한다(§2.5).
-      const { x: camCx, y: camCy } = getCamCenter();
-      const { x: cx, y: cy } = rotatePoint(rawCx, rawCy, camCx, camCy, bearing);
-      applyZoom(e.deltaY > 0 ? 1.12 : 0.89, cx, cy);
+      // 화면→viewBox 직선 매핑(raw)은 이미 userSpace 좌표다 — applyZoom 이 유지하는 줌 중심도
+      // userSpace(vb.x/vb.y) 기준이라 rawCx/rawCy 를 그대로 쓴다. 회전은 userSpace *안*의 지형만
+      // 돌리므로(<g> 내부), userSpace 자체의 점은 bearing 과 무관하게 그대로 화면 커서 아래
+      // 지형을 가리킨다 — 여기 +bearing 보정(구 08cd1e3)은 불필요했고, 켜진 상태로 두면 줌이
+      // 커서에서 벗어난 지점을 중심으로 벌어지는 결함이 된다(실측 확인 2026-08-06).
+      applyZoom(e.deltaY > 0 ? 1.12 : 0.89, rawCx, rawCy);
       onViewportChange();
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [applyZoom, onViewportChange, selectionOnly, getCamCenter, bearing]);
+  }, [applyZoom, onViewportChange, selectionOnly]);
 
   // ── 포인터: 팬 + 핀치줌 ───────────────────────────────────
   const onPointerDown = (e: PE<SVGSVGElement>) => {
@@ -1134,10 +1128,9 @@ function SaigonMapV5({
       if (g.lastD) {
         const rawCx = vb.x + (((a.x + b.x) / 2 - r.left) / r.width) * vb.w;
         const rawCy = vb.y + (((a.y + b.y) / 2 - r.top) / r.height) * vb.h;
-        // 핀치 중심도 휠과 동일한 이유로 +bearing 되돌림(§2.5).
-        const { x: camCx, y: camCy } = getCamCenter();
-        const { x: cx, y: cy } = rotatePoint(rawCx, rawCy, camCx, camCy, bearing);
-        applyZoom(g.lastD / dist, cx, cy);
+        // 핀치 중심도 휠과 동일 이유(위 wheel 핸들러 주석)로 userSpace 좌표(rawCx/rawCy)를 그대로
+        // 쓴다 — +bearing 보정(구 08cd1e3)은 불필요했다.
+        applyZoom(g.lastD / dist, rawCx, rawCy);
       }
       g.lastD = dist;
       g.moved = true;
@@ -1151,10 +1144,13 @@ function SaigonMapV5({
         // 팬 제스처 — 추종만 끈다(나침반은 유지, 위 wheel 핸들러와 동일 근거).
         if (isFollowingRef.current) setIsFollowing(false);
       }
-      // 팬 델타는 화면 좌표계 벡터다 — 지형이 -bearing 만큼 돌아 보이므로, 지도 좌표계로
-      // 되돌리려면 +bearing 만큼 회전한다(벡터라 중심 없이 rotateVec 로 충분, §2.5).
-      const { x: dx, y: dy } = rotateVec(dxRaw, dyRaw, bearing);
-      vbRef.current = clampVB({ ...vb, x: vb.x - dx, y: vb.y - dy });
+      // 팬 델타는 이미 뷰포트(userSpace) 좌표계 벡터다 — vb.x/vb.y 도 같은 userSpace 이고, 회전은
+      // 그 userSpace *안*(내부 <g>)에서만 지형을 돌리므로 viewBox 자체는 절대 돌지 않는다. 따라서
+      // 화면→userSpace 델타(dxRaw,dyRaw)를 그대로 써야 한다 — 여기에 rotateVec 를 추가로 걸면
+      // (구 08cd1e3) 수평 드래그가 bearing 값에 따라 수직 이동으로 새는 결함이 된다(실측 확인,
+      // 2026-08-06: bearing=90 에서 (+100,0) 드래그가 vb.y 만 바꿈). 08cd1e3 이 4곳에 일률로 넣은
+      // +bearing 보정 중 이 자리는 틀렸다 — 제거한다.
+      vbRef.current = clampVB({ ...vb, x: vb.x - dxRaw, y: vb.y - dyRaw });
       setVBAttr();
       g.lastP = { x: e.clientX, y: e.clientY };
     }

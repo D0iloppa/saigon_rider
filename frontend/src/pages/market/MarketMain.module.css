@@ -74,10 +74,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  /* 동네지도 .resultHead(margin: 4px 0 2px)와 같은 세로 여백. 종전 6px/12px 은 아래쪽이
-     10px 더 커서 칩 레일 다음 행의 높이가 두 화면에서 어긋났다(대표 지적 2026-08-06).
-     아래 12px 은 리스트 카드가 자체 여백을 갖고 있어 중복이기도 했다. */
-  margin: 4px 0 2px;
+  /* 동네지도의 칩→행 간격(실측 18px)에 맞춘다. 동네지도는 칩이 header, 행이 main 에
+     있어 header 하단 여백 + main 상단 여백 + resultHead margin-top 이 합쳐져 18px 가
+     되는데, 마켓은 둘 다 header 안이라 margin-top 4px 뿐이라 4px 였다.
+     같은 값을 만들려면 컨테이너 구조가 아니라 결과 간격을 맞춰야 한다(대표 지적 2026-08-06).
+     아래 2px 도 동네지도 .resultHead 와 동일. */
+  margin: 18px 0 2px;
+  /* 행 자체 높이도 맞춘다 — 마켓 '거리순'은 텍스트 버튼이라 24px, 동네지도 '내 주변순'은
+     칩(padding 5px 10px)이라 26px 였다. */
+  min-height: 26px;
 }
 
 /* hide-sold + list/map 토글 그룹 — sortSelect 가 지도 모드에서 숨겨져도 항상 우측 정렬 */

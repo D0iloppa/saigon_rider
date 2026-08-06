@@ -10,6 +10,10 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // D-H(260806_svg_map_v6_rotation_design.md §7 step 3, §8): SaigonMapV5 에 회전 prop 을 추가하되
 // prop 미전달 시 기존 동작과 완전히 동일해야 한다(기본 off 킬스위치). 이 계약은 실제 회전 렌더
 // (§7 step 5~)가 아니라, 그 회전이 들어갈 자리와 그것이 꺼져 있음을 보장하는 계약만 고정한다.
+//
+// 개정(2026-08-06, 사용자 결정 1): 추종을 나침반에서 분리해 직교 2축(isFollowing/compassOn)으로
+// 바꿨다 — 구 3-state 'free'|'follow'|'compass' 순환은 폐기됐다. onFollowModeChange 는 어느
+// 소비처도 전달하지 않는 관측 전용 prop 이라(grep 확인) 시그니처를 새 모델에 맞게 바꿨다.
 test('SaigonMapV5 declares enableFollowCompass prop with false default', () => {
   const source = read('SaigonMapV5.tsx');
 
@@ -20,8 +24,8 @@ test('SaigonMapV5 declares enableFollowCompass prop with false default', () => {
   );
   assert.match(
     source,
-    /onFollowModeChange\?: \(mode: 'free' \| 'follow' \| 'compass'\) => void;/,
-    'onFollowModeChange observer prop declaration missing from SaigonMapV5Props',
+    /onFollowModeChange\?: \(state: \{ following: boolean; compassOn: boolean \}\) => void;/,
+    'onFollowModeChange observer prop declaration missing from SaigonMapV5Props (orthogonal state shape)',
   );
 
   // 구조분해 기본값이 반드시 false 여야 한다 — prop 을 안 준 8개 소비처는 이 기본값으로 동작한다.
@@ -32,43 +36,54 @@ test('SaigonMapV5 declares enableFollowCompass prop with false default', () => {
   );
 });
 
-test('SaigonMapV5 keeps a 3-state mode slot that cannot leave "free" without the flag (§7 step 8)', () => {
+test('SaigonMapV5 keeps orthogonal follow/compass state slots that cannot leave false without the flag', () => {
   const source = read('SaigonMapV5.tsx');
 
-  // 모드 상태가 존재하고 초기값이 'free' 다.
+  // 추종/나침반 상태가 직교 2축(각자 boolean)이고 초기값이 둘 다 false 다.
   assert.match(
     source,
-    /const \[followMode, setFollowMode\] = useState<'free' \| 'follow' \| 'compass'>\('free'\);/,
-    'followMode 3-state slot missing or not initialized to \'free\'',
+    /const \[isFollowing, setIsFollowing\] = useState\(false\);/,
+    'isFollowing state slot missing or not initialized to false',
+  );
+  assert.match(
+    source,
+    /const \[compassOn, setCompassOn\] = useState\(false\);/,
+    'compassOn state slot missing or not initialized to false',
   );
 
-  // step 8 부터는 순환 트리거(◎ 버튼)가 실제로 setFollowMode 를 호출해야 한다 — 더 이상 0곳이면
-  // 안 된다(이전 계약은 step 3~7 구간의 "아직 안 걸림"을 고정한 것이었다).
-  const setterCalls = source.match(/setFollowMode\(/g) ?? [];
+  // ◎ 버튼(recenterCurrentContext)이 실제로 setIsFollowing 을 호출해야 한다.
+  const setterCalls = source.match(/setIsFollowing\(/g) ?? [];
   assert.ok(
     setterCalls.length > 0,
-    'setFollowMode must now be called (◎ button 3-state cycle + gesture free-exit, §7 step 8) — 0 calls means step 8 wiring is missing',
+    'setIsFollowing must be called (◎ button 2-state toggle + gesture free-exit) — 0 calls means the wiring is missing',
   );
+  // 나침반 토글 버튼(toggleCompass)이 setCompassOn 을 호출해야 한다.
+  assert.match(source, /const toggleCompass = useCallback\(\(\) => \{\s*setCompassOn\(\(v\) => !v\);/, 'toggleCompass must flip compassOn independently of isFollowing');
 
-  // 킬스위치의 실제 의미는 "0 calls" 가 아니라 "enableFollowCompass 없이는 free 를 벗어나지
-  // 않는다" 다 — recenterCurrentContext 가 !enableFollowCompass 를 가장 먼저 확인하고 그 경로엔
-  // setFollowMode 호출이 없어야 한다(기존 1회성 recenter 동작 그대로).
+  // 킬스위치의 실제 의미는 "0 calls" 가 아니라 "enableFollowCompass 없이는 isFollowing 이 false 를
+  // 벗어나지 않는다" 다 — recenterCurrentContext 가 !enableFollowCompass 를 가장 먼저 확인하고 그
+  // 경로엔 setIsFollowing 호출이 없어야 한다(기존 1회성 recenter 동작 그대로).
   const recenterStart = source.indexOf('const recenterCurrentContext = useCallback(() => {');
-  const recenterEnd = source.indexOf('}, [enableFollowCompass, followMode, runLocate]);', recenterStart);
+  const recenterEnd = source.indexOf('}, [enableFollowCompass, isFollowing, runLocate]);', recenterStart);
   assert.ok(recenterStart >= 0 && recenterEnd > recenterStart, 'recenterCurrentContext callback not found');
   const recenterBlock = source.slice(recenterStart, recenterEnd);
   const offBranchStart = recenterBlock.indexOf('if (!enableFollowCompass) {');
   const offBranchEnd = recenterBlock.indexOf('return;', offBranchStart);
   assert.ok(offBranchStart >= 0 && offBranchEnd > offBranchStart, 'recenterCurrentContext must early-branch on !enableFollowCompass');
   const offBranch = recenterBlock.slice(offBranchStart, offBranchEnd);
-  assert.doesNotMatch(offBranch, /setFollowMode\(/, 'the !enableFollowCompass branch must not call setFollowMode — off path stays a 1-shot recenter (killswitch)');
+  assert.doesNotMatch(offBranch, /setIsFollowing\(/, 'the !enableFollowCompass branch must not call setIsFollowing — off path stays a 1-shot recenter (killswitch)');
   assert.match(offBranch, /void runLocate\(\);/, 'the !enableFollowCompass branch must still call runLocate (unchanged 1-shot recenter behavior)');
+
+  // toggleCompass 는 enableFollowCompass=false 면 렌더되지 않는 버튼에서만 호출되므로(아래 JSX
+  // 조건부 렌더), 소스 레벨에 별도 가드가 없어도 되지만 — 나침반 버튼 JSX 자체가
+  // enableFollowCompass 로 게이트돼 있어야 한다.
+  assert.match(source, /\{enableFollowCompass && \(\s*<button\s*type="button"\s*className=\{compassOn/, 'compass toggle button must be conditionally rendered on enableFollowCompass');
 
   // onFollowModeChange 통지 이펙트는 enableFollowCompass 가 false 면 그 자체가 실행되지 않는다
   // (얼리 리턴) — off 경로에서 부모에게 아무 통지도 나가지 않아야 "완전히 동일" 주장이 성립한다.
   assert.match(
     source,
-    /useEffect\(\(\) => \{\s*if \(!enableFollowCompass\) return;\s*onFollowModeChange\?\.\(followMode\);\s*\}, \[enableFollowCompass, followMode, onFollowModeChange\]\);/,
+    /useEffect\(\(\) => \{\s*if \(!enableFollowCompass\) return;\s*onFollowModeChange\?\.\(\{ following: isFollowing, compassOn \}\);\s*\}, \[enableFollowCompass, isFollowing, compassOn, onFollowModeChange\]\);/,
     'onFollowModeChange notification effect must early-return when enableFollowCompass is false',
   );
 });

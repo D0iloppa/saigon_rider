@@ -34,22 +34,29 @@ test('SaigonMapV5 expands the L2 ward culling rect for rotation via a rotated-AA
   );
 });
 
-test('SaigonMapV5 gesture handlers (wheel/pinch/pan) exit follow/compass mode back to free', () => {
+// 사용자 결정(§ 팬/줌 제스처 이탈): 제스처는 추종(isFollowing)만 끄고 나침반(compassOn)은
+// 그대로 둔다 — 회전은 각도이고 팬/줌은 중심·범위라 서로 충돌하지 않으며, 사용자가 명시적으로
+// 켠 나침반 토글을 제스처가 몰래 꺼버리면 동작이 예측 불가해진다(구 3-state 순환에서는 이 구분이
+// 불가능했다 — follow/compass 가 하나의 축이었기 때문).
+test('SaigonMapV5 gesture handlers (wheel/pinch/pan) exit isFollowing only, leaving compassOn untouched', () => {
   const source = read('SaigonMapV5.tsx');
 
   const wheelStart = source.indexOf('const onWheel = (e: WheelEvent) => {');
   const wheelEnd = source.indexOf('el.addEventListener', wheelStart);
+  const wheelBlock = source.slice(wheelStart, wheelEnd);
   assert.match(
-    source.slice(wheelStart, wheelEnd),
-    /if \(followModeRef\.current !== 'free'\) setFollowMode\('free'\);/,
-    'wheel (zoom) gesture must exit to free mode',
+    wheelBlock,
+    /if \(isFollowingRef\.current\) setIsFollowing\(false\);/,
+    'wheel (zoom) gesture must turn off isFollowing',
   );
+  assert.doesNotMatch(wheelBlock, /setCompassOn\(/, 'wheel gesture must not touch compassOn');
 
   const pointerMoveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');
   const pointerMoveEnd = source.indexOf('const onPointerUp', pointerMoveStart);
   const pointerMoveBlock = source.slice(pointerMoveStart, pointerMoveEnd);
-  const exits = pointerMoveBlock.match(/if \(followModeRef\.current !== 'free'\) setFollowMode\('free'\);/g) ?? [];
-  assert.equal(exits.length, 2, 'pan and pinch branches inside onPointerMove must each exit to free mode (found ' + exits.length + ')');
+  const exits = pointerMoveBlock.match(/if \(isFollowingRef\.current\) setIsFollowing\(false\);/g) ?? [];
+  assert.equal(exits.length, 2, 'pan and pinch branches inside onPointerMove must each turn off isFollowing (found ' + exits.length + ')');
+  assert.doesNotMatch(pointerMoveBlock, /setCompassOn\(/, 'pan/pinch gestures must not touch compassOn');
 });
 
 test('SaigonMapV5 heading policy uses the reference implementation constants and a last-valid-bearing hold (D-I §9.3)', () => {
@@ -82,7 +89,7 @@ test('SaigonMapV5 follow/compass camera recentring goes through centerOnUnified,
   assert.doesNotMatch(block, /focusLatLng\(/, 'the per-tick follow path must not call focusLatLng');
 });
 
-test('ko/en/vi translation.json declare the same key set (map.followModeOn / map.compassModeOn present in all three)', () => {
+test('ko/en/vi translation.json declare the same key set (map.followModeOn / map.compassModeOn / map.compassModeOff present in all three)', () => {
   const locales = ['ko', 'en', 'vi'];
   const collectKeys = (obj, prefix = '') => {
     const keys = [];
@@ -100,6 +107,7 @@ test('ko/en/vi translation.json declare the same key set (map.followModeOn / map
 
   assert.ok(keySets[0].keys.has('map.followModeOn'), 'ko is missing map.followModeOn');
   assert.ok(keySets[0].keys.has('map.compassModeOn'), 'ko is missing map.compassModeOn');
+  assert.ok(keySets[0].keys.has('map.compassModeOff'), 'ko is missing map.compassModeOff');
 
   const [base, ...rest] = keySets;
   for (const other of rest) {

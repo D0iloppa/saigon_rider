@@ -153,6 +153,9 @@
   right: 12px;
   bottom: 28px;
   z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .ctrlBtn {
   width: 32px;
@@ -170,8 +173,9 @@
   justify-content: center;
 }
 .ctrlBtn:active { background: #f0f0f0; }
-/* 3-state 추종/나침반(D-D) 활성 표시 — 기존 브랜드 강조색(선택 마커·배지 등과 동일 #ff5a1f) 재사용,
-   새 디자인 언어를 만들지 않는다. enableFollowCompass=false 소비처는 이 클래스가 절대 붙지 않는다. */
+/* 추종/나침반 직교 2축(2026-08-06 개정) 활성 표시 — 기존 브랜드 강조색(선택 마커·배지 등과 동일
+   #ff5a1f) 재사용, 새 디자인 언어를 만들지 않는다. ◎(추종)·나침반 두 버튼이 각자 독립적으로 이
+   클래스를 토글한다. enableFollowCompass=false 소비처는 이 클래스가 절대 붙지 않는다. */
 .ctrlBtnActive {
   background: #ff5a1f;
   border-color: #ff5a1f;

@@ -1,19 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  AlertCircle,
-  Camera,
-  Check,
-  Clock3,
-  CloudRain,
-  Droplets,
-  History,
-  Megaphone,
-  ShieldCheck,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertCircle, Camera, Check, Clock3, CloudRain, Droplets, History, Megaphone, ShieldCheck, type LucideIcon, Users, ZoomIn } from 'lucide-react';
 import { floodApi } from '@/api/info';
 import type { FloodMapData, FloodReportWithTrust, FloodHotspot, FloodRisk, FloodTrustLevel } from '@/api/info';
 import { TopBar } from '@/components/layout/TopBar';
@@ -23,6 +11,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
+import { useLocationStore } from '@/store/useLocationStore';
 import { L3_ENABLED, type DistrictBadge } from '@/components/maps/SaigonMapV5';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
@@ -95,7 +84,14 @@ export default function InfoFloodMap() {
   const navigate = useNavigate();
   // origin(조회 기준 좌표)만 읽는다 — 침수지도는 전역 위치 store 에 쓰지 않는다(다른 화면 침습 방지).
   const { origin } = useServiceLocation();
+  // 진입 시 측위 — 침수지도는 LocationContextBar 가 없어(뷰포트 기준 필터) 스스로 불러야
+  // 한다. 스토어가 세션당 1회로 묶으므로 다른 화면을 거쳐 왔으면 재측위하지 않는다.
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
 
+  // 줌 힌트 — L3(건물/골목) 미도달 상태에서 노출. 탭하면 현재 지도 중앙을 L3 로 확대한다.
+  const [showZoomHint, setShowZoomHint] = useState(true);
+  const zoomInRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
   const [reports, setReports] = useState<FloodReportWithTrust[]>([]);
   const [hotspots, setHotspots] = useState<FloodHotspot[]>([]);
   const [risks, setRisks] = useState<FloodRisk[]>([]);
@@ -421,7 +417,10 @@ export default function InfoFloodMap() {
               // L3 줌인 — region 미선택 시 기존 D1 전체조망 폴백이면 L3 임계값(vb.w<L3_VBW)에
               // 못 미쳐 진입 직후 상세지도·POI 가 안 보였다(대표 지시 미달 지점).
               initialGps={origin}
-              showLocateControl={false}
+              // 우측 하단 '내 위치'(◎) 버튼 + 진입 즉시 내 위치 점 — 주유소·정비소와 동일하게
+              // 노출한다(대표 지적 2026-08-06). meDot 은 카메라를 건드리지 않는 표시 전용이다.
+              showLocateControl
+              meDotOnMount
               // ward 자동선택 부작용 방지 (동네지도와 동일)
               selectRegionOnLocate={false}
               // 뷰포트 모드 — 지역선택 폴리곤 강조를 끈다. `initialGps` 포커스는
@@ -430,7 +429,28 @@ export default function InfoFloodMap() {
               // 테두리가 남는다. 강조 렌더 조건이 `polyActive && selWard !== null` 이라
               // 여기서 polyActive 를 끊는다. 동네지도는 `polyActive={mode === 'region'}`.
               polyActive={false}
+              zoomInRef={zoomInRef}
+              // 힌트는 L3 미도달일 때 — 데이터 게이트(markerDepth='l2')와 분리된 신호다.
+              onDepthChange={(_gate, belowL3) => setShowZoomHint(belowL3)}
             />
+            {showZoomHint && (
+              <button
+                type="button"
+                className={sys.mapZoomHint}
+                onClick={() => {
+                  // 내 위치가 아니라 **현재 지도 중앙** 기준으로 확대한다.
+                  // 이미 있는 뷰포트 state 를 재사용한다(중복 ref 를 만들지 않는다).
+                  if (viewportBbox) {
+                    zoomInRef.current?.({
+                      lat: (viewportBbox.N + viewportBbox.S) / 2,
+                      lng: (viewportBbox.E + viewportBbox.W) / 2,
+                    });
+                  }
+                }}
+              >
+                <ZoomIn size={14} strokeWidth={2.2} aria-hidden="true" /> {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
+              </button>
+            )}
           </Suspense>
         </div>
 

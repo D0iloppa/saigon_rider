@@ -6,6 +6,7 @@ import { Chip } from '@/components/ui/Chip';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import StateBlock from '@/components/ui/StateBlock';
+import { SearchBox } from '@/components/ui/SearchBox';
 import sys from '@/styles/system.module.css';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
@@ -88,7 +89,8 @@ export default function MarketMain() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
-  const userId = useUserStore((s) => s.user?.id);
+  const user = useUserStore((s) => s.user);
+  const userId = user?.id;
   // 표시 범위는 앱 전역 단일 SoT — 마켓 독자 상태를 두지 않는다(대표 지시 2026-08-06
   // "모든화면에서 gps기본"). 마켓만 다른 지역을 보여주던 비대칭이 여기서 사라진다.
   const locationMode = useLocationStore((s) => s.mode);
@@ -415,7 +417,10 @@ export default function MarketMain() {
 
   return (
     <div className={styles.root}>
-      {/* Header */}
+      {/* Header — 지도 뷰에서는 렌더하지 않는다. 지도 상단은 동네지도와 동일하게
+          [◀ + 검색바 + 아바타] 오버레이만 띄운다(대표 지시 2026-08-06 "동네지도 기준으로 통일").
+          알림·찜·거래완료 숨기기·지역명(표시범위 시트)은 리스트 뷰 전용으로 남는다. */}
+      {viewMode === 'list' && (
       <div className={styles.header}>
         <div className={styles.headerRow}>
           <button className={styles.locationBtn} onClick={() => setLocMapOpen(true)}>
@@ -460,13 +465,39 @@ export default function MarketMain() {
           </div>
         </div>
       </div>
+      )}
 
       {viewMode === 'map' ? (
         <div className={styles.mapArea}>
-          {/* 지도→리스트 복귀 — 동네지도(NeighborhoodMapCanvas)의 상단 뒤로가기 버튼과 동일한 동선 */}
-          <button type="button" className={styles.mapBackBtn} onClick={() => setViewMode('list')} aria-label={t('market.viewList', { defaultValue: '목록' })}>
-            <ChevronLeft size={22} strokeWidth={2.4} />
-          </button>
+          {/* 상단 오버레이 — 동네지도(NeighborhoodMapCanvas)의 searchOverlay 와 같은 구성·위치.
+              ◀ 는 리스트 복귀, 검색바는 마켓 검색으로, 아바타는 프로필로 보낸다. */}
+          <div className={styles.mapSearchOverlay}>
+            <button
+              type="button"
+              className={styles.mapSearchBack}
+              onClick={() => setViewMode('list')}
+              aria-label={t('market.viewList', { defaultValue: '목록' })}
+            >
+              <ChevronLeft size={22} strokeWidth={2.4} />
+            </button>
+            <SearchBox
+              value=""
+              onChange={() => {}}
+              placeholder={t('market.searchPlaceholder', { defaultValue: '상품명, 키워드, 카테고리 검색' })}
+              readOnly
+              onClick={() => navigate('/market/search')}
+            />
+            <button
+              type="button"
+              className={styles.mapProfileButton}
+              onClick={() => navigate('/profile')}
+              aria-label={t('tabbar.profile', { defaultValue: '프로필' })}
+            >
+              {user?.avatarUrl
+                ? <AppImage src={user.avatarUrl} alt="" className={styles.mapProfileAvatar} variant="circle" />
+                : <span>{(user?.nickname || 'U').charAt(0).toUpperCase()}</span>}
+            </button>
+          </div>
           <Suspense fallback={<div className={styles.mapLoading}>{t('common.loading', { defaultValue: '로딩 중...' })}</div>}>
             <SaigonMapV5
               height="100%"
@@ -607,10 +638,13 @@ export default function MarketMain() {
         </button>
       )}
 
-      {/* 글쓰기 FAB */}
-      <button className={styles.writeFab} type="button" onClick={() => navigate('/market/new')} aria-label={t('market.create', { defaultValue: '매물 등록' })}>
-        <Plus size={26} strokeWidth={2.4} />
-      </button>
+      {/* 글쓰기 FAB — 카드 캐러셀(PostPanel)이 열려 있으면 숨긴다. 캐러셀 우하단의 가격·찜
+          영역을 FAB 이 가린다(대표 지적 2026-08-06). 캐러셀을 닫으면 다시 나온다. */}
+      {!postPanelOpen && (
+        <button className={styles.writeFab} type="button" onClick={() => navigate('/market/new')} aria-label={t('market.create', { defaultValue: '매물 등록' })}>
+          <Plus size={26} strokeWidth={2.4} />
+        </button>
+      )}
 
       {/* 정렬 시트 */}
       <BottomSheet open={sortOpen} onClose={() => setSortOpen(false)}>

@@ -582,3 +582,57 @@
   flex-direction: column;
   gap: 2px;
 }
+
+/* ── 지도 뷰 상단 오버레이 — 동네지도(NeighborhoodMap.module.css)와 동일 값 복제 ──────
+   대표 지시 2026-08-06: "지도 상단을 동네지도 기준으로 통일". 마켓 지도 뷰에서는 흰 헤더를
+   걷어내고 지도 위에 [◀ 뒤로 + 검색바 + 아바타] 만 띄운다. 알림·찜·거래완료 숨기기·지역명
+   탭은 리스트 뷰에만 남는다. */
+.mapSearchOverlay {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 10px);
+  left: 16px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mapSearchOverlay > div {
+  flex: 1;
+  min-width: 0;
+  margin-right: 50px;
+}
+
+.mapSearchBack {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+
+.mapProfileButton {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(11, 13, 20, .12);
+}
+
+.mapProfileAvatar { width: 100%; height: 100%; object-fit: cover; }

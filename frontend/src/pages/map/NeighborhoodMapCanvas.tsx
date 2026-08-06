@@ -36,6 +36,16 @@ const bizCatColor = (category: string | null | undefined) =>
 // 자동 말풍선 (2026-07-11) — 뷰포트 세로 스팬이 이 값 이하일 때만 중앙 근접 업체를 터치 없이
 // 활성화한다. 세로 폰(≈2.16:1)에서 lat 스팬은 lng 스팬의 2배+ 로 복원되므로 0.03(가로 ≈1.5km,
 // 동 단위 줌인)으로 잡는다. 반경은 뷰포트 스팬 대비 정규화 거리(0.5=화면 가장자리).
+/**
+ * 바텀시트(업체 리스트) 노출 스위치 — 대표 지시 2026-08-06 "지도만 보이게".
+ *
+ * **코드를 지우지 않고 플래그로 끈다** — 나중에 되살릴 수 있어야 한다는 요구다.
+ * true 로 바꾸면 종전 동작(드래그 시트 + 리스트)이 그대로 복원된다.
+ * 끄면 시트가 렌더되지 않으므로 시트 높이에 연동되던 것들(지도 도구·줌힌트 bottom,
+ * --sheet-visible-h)은 자연히 0 기준으로 내려간다.
+ */
+const SHOW_BIZ_SHEET = false;
+
 const AUTO_BUBBLE_MAX_LAT_SPAN = 0.03;
 const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 // 업체 탭 카테고리 칩 줄 높이 — 지도 확대/축소 버튼을 그 아래로 밀어내는 데 사용
@@ -1324,6 +1334,7 @@ export default function NeighborhoodMapCanvas({
 
       {/* 포스트 패널이 시트를 "대체" — unmount 하면 snap/스크롤 상태가 날아가므로 display 숨김 (W2 분석 판정). */}
       <div style={{ display: postPanelOpen ? 'none' : undefined }}>
+      {SHOW_BIZ_SHEET && (
       <DraggableSheet
         ref={sheetRef}
         header={sheetHeader}
@@ -1352,6 +1363,7 @@ export default function NeighborhoodMapCanvas({
           {renderBody()}
         </div>
       </DraggableSheet>
+      )}
       </div>
 
       {/* 지도보기 필 — 시트 full 스냅일 때 탭바 바로 위 하단 중앙 floating (당근 레퍼런스) */}

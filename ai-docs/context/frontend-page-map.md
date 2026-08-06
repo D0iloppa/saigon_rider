@@ -40,6 +40,17 @@
 > - 줌아웃 그루핑은 **뷰포트 격자 클러스터링**(`lib/clusterPoints.ts`). 구(district) 단위 집계 배지는 폐기 — 합계가 목록 건수와 안 맞고 위치가 실제 지점과 어긋났다. 배지 탭 = 그 지점으로 L3 확대.
 > - 조회 기준·반경은 `useServiceLocation()`(`origin`/`fetchRadiusKm`) 하나뿐이다. **홈 카드도 같은 훅을 쓴다** — 종전엔 홈만 동 centroid 를 써서 건수가 어긋났다.
 > - `showLocateControl` + `meDotOnMount` 를 켠다(진입 즉시 내 위치 점 + 우하단 ◎ 버튼).
+> - **침수지도(`InfoFloodMap`)도 동일**하게 ◎ 버튼·내 위치 점·줌 힌트를 켠다(2026-08-06). 단 조회 반경은 `FETCH_RADIUS_KM=30`(도시 전역) 그대로다 — 침수는 전역 위험 파악이 목적이라 3km 로 줄이면 경고를 놓친다. `LocationContextBar` 가 없어(뷰포트 기준 필터) 화면이 직접 `ensureLocation()` 을 부른다.
+
+> **지도 화면 상단 통일 (2026-08-06, 대표 지시 "동네지도 기준으로 통일")**
+>
+> | | 동네지도(`NeighborhoodMapCanvas`) | 마켓 지도(`MarketMain` viewMode='map') |
+> |---|---|---|
+> | 상단 | `searchOverlay` — ◀ + 검색바 + 아바타 (지도 위 오버레이) | **동일** — `mapSearchOverlay`(CSS 값 복제) |
+> | 흰 헤더 | 없음 | **지도 뷰에서는 렌더 안 함**(`viewMode === 'list'` 일 때만) |
+> | 바텀시트 | **숨김** — `SHOW_BIZ_SHEET = false` 플래그. 코드는 남겨 뒀고 `true` 로 되살린다 | 없음(PostPanel 캐러셀만) |
+>
+> ⚠️ 마켓 지도에서는 **표시범위 시트 진입점이 없다**(지역명 탭이 헤더에 있었음). 리스트 뷰로 돌아가서 바꾼다 — 동네지도와 같은 제약이다.
 | 마켓 (= 동네마켓) | `/market` | `pages/market/MarketMain.tsx` | `tabbar.market` |
 | 동네지도 | `/map` | `pages/map/NeighborhoodMap.tsx`(목록 우선) → `NeighborhoodMapCanvas.tsx`(온디맨드 지도) | `tabbar.map` |
 | 커뮤니티 (= 피드) | `/feed` | `pages/feed/FeedList.tsx` | `tabbar.community` |

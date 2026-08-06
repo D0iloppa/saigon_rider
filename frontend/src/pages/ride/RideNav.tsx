@@ -25,6 +25,22 @@ import styles from './RideNav.module.css';
 
 type Coords = { lat: number; lng: number };
 
+/** 현재 위치 획득 실패 사유 — 사용자 안내 문구·행동 지침을 사유별로 분기하기 위함 (좌표 자체는 다루지 않음). */
+type LocationErrorReason = 'permission' | 'timeout' | 'unavailable';
+
+/**
+ * resolveOrigin()/getCurrentPosition 실패를 사유별로 분류한다.
+ * - GeolocationPositionError.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+ * - resolveOrigin 자체 throw: 'location_permission_denied' (커스텀 Gps 플러그인 권한 거부)
+ */
+function classifyLocationError(e: unknown): LocationErrorReason {
+  if (e instanceof Error && e.message === 'location_permission_denied') return 'permission';
+  const code = (e as { code?: number } | null)?.code;
+  if (code === 1) return 'permission';
+  if (code === 3) return 'timeout';
+  return 'unavailable';
+}
+
 // 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
 const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
 const OFF_ROUTE_SECONDS = 5; // 이탈 지속 시간(이 이상 지속해야 이탈 확정)
@@ -133,7 +149,7 @@ export default function RideNav() {
   const [arrivalTime, setArrivalTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [routeRequested, setRouteRequested] = useState(false);
-  const [locationError, setLocationError] = useState(false);
+  const [locationError, setLocationError] = useState<LocationErrorReason | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [guidanceStarted, setGuidanceStarted] = useState(isQuest); // quest 는 진입 즉시 추적
 
@@ -305,13 +321,16 @@ export default function RideNav() {
   const fetchRoute = async () => {
     if (type !== 'nav' || !dest) return;
     setRouteRequested(true);
-    setLocationError(false);
+    setLocationError(null);
     setLoading(true);
     let from: Coords;
     try {
       from = await resolveOrigin();
-    } catch {
-      setLocationError(true);
+    } catch (e) {
+      const reason = classifyLocationError(e);
+      // 좌표는 남기지 않는다(개인정보) — 실기기 원격 디버깅용 사유 분류만 로그.
+      console.warn('[rideNav] resolveOrigin failed:', reason);
+      setLocationError(reason);
       setLoading(false);
       return;
     }
@@ -633,8 +652,12 @@ export default function RideNav() {
             <div className={styles.fallbackIcon}><Compass size={40} strokeWidth={1.6} aria-hidden="true" /></div>
             <div className={styles.fallbackTitle}>{name || t('rideNav.destination', '목적지')}</div>
             <div className={styles.fallbackDesc}>
-              {locationError
-                ? t('rideNav.locationError', '현재 위치를 확인할 수 없습니다. 위치 권한을 확인해 주세요.')
+              {locationError === 'permission'
+                ? t('rideNav.locationErrorPermission', '위치 권한이 꺼져 있어요. 설정에서 위치 권한을 허용해 주세요.')
+                : locationError === 'timeout'
+                ? t('rideNav.locationErrorTimeout', '위치 신호를 받지 못했어요. 실외에서 다시 시도해 주세요.')
+                : locationError === 'unavailable'
+                ? t('rideNav.locationErrorUnavailable', '지금은 위치를 확인할 수 없어요. 잠시 후 다시 시도해 주세요.')
                 : t('rideNav.summaryPending', '길찾기를 시작하면 현재 위치를 측정합니다.')}
             </div>
             {type === 'nav' && (!routeRequested || locationError) && (

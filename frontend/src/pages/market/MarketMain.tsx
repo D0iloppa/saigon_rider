@@ -621,6 +621,9 @@ export default function MarketMain() {
               // 우측 하단 '내 위치' 버튼 — 2026-08-06 복원. 이걸 끄던 근거(service-rules GPS
               // 원칙 2 "지도 탐색에 GPS 미사용")가 대표 지시로 폐기됐다.
               showLocateControl
+              // 카메라 추종 + 나침반 회전 활성화 (D-H). 기본 상태는 여전히 'free'(표시 전용) —
+              // ◎ 버튼을 사용자가 눌러야 추종/나침반으로 전환된다(D-D, 상시 follow 금지).
+              enableFollowCompass
             />
           </Suspense>
           {/* 지역 필터 chip(AreaPill) 제거 — 대표 지시 2026-08-06. 지역 선택 자체가 없어져

@@ -1145,6 +1145,9 @@ export default function NeighborhoodMapCanvas({
         queryBottomInsetPx={collapsedSheetHeight}
         // 우측 하단 '내 위치' 버튼 — 2026-08-06 복원 (구 service-rules GPS 원칙 2 폐기).
         showLocateControl
+        // 카메라 추종 + 나침반 회전 활성화 (D-H). 기본 상태는 여전히 'free'(표시 전용) —
+        // ◎ 버튼을 사용자가 눌러야 추종/나침반으로 전환된다(D-D, 상시 follow 금지).
+        enableFollowCompass
         // L3 상세지도 부활: childLightweight=false 로 SaigonMapV5 가 depth3 를 로드/렌더한다.
         // markerDepth 는 원래 lightweight 를 그대로 따라 콘텐츠 핀 준비 임계값(오버홀 개선분)을 보존한다.
         lightweight={childLightweight}

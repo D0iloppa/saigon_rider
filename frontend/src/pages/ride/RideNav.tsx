@@ -137,21 +137,13 @@ export default function RideNav() {
   const lat = params.get('lat');
   const lng = params.get('lng');
   const hasDest = !!lat && !!lng;
-  // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 — 이 화면도 is_dev 를 읽어야 이중 게이트가 성립한다
-  // (BizManage.tsx 패턴 복제, fail-closed). URL 의 devRaw 플래그는 단독으로는 아무 효과가 없다 —
-  // 아래 isDev && devRaw AND 조건에서만 소비된다. 실기기 검증 완료 후 전부 제거할 것 (2026-08-07).
+  // DEV_DONGTAN_PIN: URL 의 devRaw 플래그는 단독으로는 아무 효과가 없다 — is_dev 확정 후에만
+  // 이중 게이트가 성립한다(fetchRoute 안에서 devRaw 일 때만 fetchAppConfig 를 await, 이하 devBypass
+  // 참조). devRaw 가 없는 절대다수 경로는 네트워크 호출 자체가 없어 진입 타이밍이 그대로다.
+  // (과거엔 is_dev 를 mount effect 로 비동기 확정했는데, fetchRoute 자동 호출이 그 응답보다 먼저
+  // 실행돼 devBypass 가 항상 false 로 평가되는 경합이 있었다 — 그 경합의 원인이자 수정.)
+  // 실기기 검증 완료 후 전부 제거할 것 (2026-08-07).
   const devRaw = params.get('devRaw') === '1';
-  const [isDev, setIsDev] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    fetchAppConfig()
-      .then((cfg) => { if (!cancelled) setIsDev(cfg.isDev); })
-      .catch(() => { /* fail-closed: isDev 는 false 유지 */ });
-    return () => { cancelled = true; };
-  }, []);
-  // DEV_DONGTAN_PIN: 이중 게이트 판정 하나로 통일 — 서비스지역 폴백 스킵과 DRIVE 모드 요청 모두
-  // 이 값을 쓴다. 운영(is_dev=false)에서는 devRaw 를 URL 에 붙여도 항상 false. 제거 대상 (2026-08-07).
-  const devBypass = isDev && devRaw;
 
   // nav: 목적지. quest-checkpoint: 서버 목표 좌표. quest-distance: 목적지 없음.
   const dest = useMemo<Coords | null>(() => {
@@ -357,12 +349,15 @@ export default function RideNav() {
       setLoading(false);
       return;
     }
+    // DEV_DONGTAN_PIN: is_dev 는 devRaw 가 붙었을 때만 확정한다(is_dev AND devRaw 이중 게이트) —
+    // devRaw 가 없는 절대다수 경로는 이 await 자체가 없어 기존 타이밍 그대로다. fail-closed(조회
+    // 실패 시 false). 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
+    const devBypass = devRaw && (await fetchAppConfig().then((cfg) => cfg.isDev).catch(() => false));
     // 출발지가 서비스 지역(호치민 도심) 밖이면 실제 GPS 대신 도심 기본 좌표로 경로를 계산한다
     // (다른 화면과 동일한 폴백 관례). 현재위치 표시(dotPos)는 건드리지 않는다 — origin 은 경로 계산용.
-    // DEV_DONGTAN_PIN: is_dev AND devRaw(devBypass) 일 때만 이 폴백을 건너뛴다 — 플래그 단독으로는
-    // 절대 뚫리지 않는다(_otp_bypass_enabled() 이중 게이트 관례). 운영 서버(is_dev=false)에서는
-    // devRaw 를 URL 에 붙여도 무시되고 항상 서비스 지역 판정이 적용된다. 실기기 검증 완료 후 이 분기를
-    // 제거할 것 (2026-08-07).
+    // DEV_DONGTAN_PIN: devBypass 일 때만 이 폴백을 건너뛴다 — 플래그 단독으로는 절대 뚫리지 않는다
+    // (이중 게이트 관례). 운영 서버(is_dev=false)에서는 devRaw 를 URL 에 붙여도 무시되고 항상
+    // 서비스 지역 판정이 적용된다. 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
     const outOfArea = !devBypass && !inServiceArea(from.lat, from.lng);
     const routeOrigin = outOfArea ? BEN_THANH_FALLBACK : from;
     setOrigin(routeOrigin);

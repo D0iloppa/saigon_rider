@@ -8,6 +8,7 @@ import {
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
+import { requestDeviceLocation } from '@/lib/serviceLocation';
 import { inServiceArea } from '@/lib/serviceArea';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { decodePolyline, bearing, haversineM, distanceToPolylineM, snapToPolyline } from '@/lib/polyline';
@@ -31,7 +32,9 @@ type LocationErrorReason = 'permission' | 'timeout' | 'unavailable';
 /**
  * resolveOrigin()/getCurrentPosition 실패를 사유별로 분류한다.
  * - GeolocationPositionError.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
- * - resolveOrigin 자체 throw: 'location_permission_denied' (커스텀 Gps 플러그인 권한 거부)
+ * - 'location_permission_denied' 메시지 분기는 과거 커스텀 Gps 권한 게이트가 던지던 값의
+ *   호환 안전망(현재 resolveOrigin 은 이 메시지를 던지지 않음 — 동네지도와 동일하게
+ *   requestDeviceLocation() 을 그대로 호출해 실패는 getCurrentPosition 의 code 로만 온다).
  */
 function classifyLocationError(e: unknown): LocationErrorReason {
   if (e instanceof Error && e.message === 'location_permission_denied') return 'permission';
@@ -52,14 +55,16 @@ const COURSE_MIN_SPEED_MS = 1.5; // course-up GPS heading 폴백 최소 속도(�
 // 소진 후에는 재탐색 대신 Google 지도 딥링크로 유도한다.
 const MAX_REROUTES = 2;
 
-/** 사용자가 길찾기를 시작한 뒤에만 권한을 요청하고 현재 위치를 측정한다. */
+/**
+ * 사용자가 길찾기를 시작한 뒤에만 권한을 요청하고 현재 위치를 측정한다.
+ * 동네지도(SaigonMapV5.runLocate → resolveUsableLocation)와 동일한 경로 — 커스텀 Gps
+ * 플러그인으로 권한 게이트를 따로 두지 않고, requestDeviceLocation()(ensureLocationPermission
+ * → getLocation) 을 그대로 호출한다. 실제 거부 시에는 getLocation() 내부에서 결국
+ * navigator.geolocation 으로 폴백해 code===1(PERMISSION_DENIED) 로 reject 되고,
+ * classifyLocationError 가 그 code 로 'permission' 을 분류한다.
+ */
 async function resolveOrigin(): Promise<Coords> {
-  if (native.isNative) {
-    const current = await native.checkLocationPermission();
-    const granted = current === 'granted' ? current : await native.requestLocationPermission();
-    if (granted !== 'granted') throw new Error('location_permission_denied');
-  }
-  return native.getLocation();
+  return requestDeviceLocation();
 }
 
 /** 기동(턴) 아이콘 — lucide 표준 (구 이모지 → OS 무관 렌더). */

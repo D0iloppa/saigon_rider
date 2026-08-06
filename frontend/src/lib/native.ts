@@ -133,8 +133,10 @@ class NativeInterface {
         heading: pos.coords.heading,
       };
     } catch (e) {
-      // iOS 빌드는 @capacitor/geolocation 을 vendoring 하지 않음(Podfile: GpsPlugin 이 직접 CoreLocation).
-      // WKWebView/브라우저의 navigator.geolocation 으로 폴백.
+      // Android·iOS 빌드 모두 @capacitor/geolocation 을 vendoring 하지 않음(GpsPlugin 이
+      // Android 는 LocationForegroundService, iOS 는 CoreLocation 을 직접 사용 — settings.gradle/
+      // Podfile 양쪽에 문서화된 결정). 그래서 native 에서도 이 catch 로 떨어져 WebView/브라우저의
+      // navigator.geolocation 으로 폴백한다.
       // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
       if (typeof navigator !== 'undefined' && navigator.geolocation) {
         return await new Promise<GeoPosition>((resolve, reject) => {

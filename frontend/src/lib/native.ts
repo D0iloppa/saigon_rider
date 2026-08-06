@@ -564,11 +564,13 @@ function readDevGpsOverride(): GeoPosition | null {
     if (!DEV_GPS_HOSTS.includes(window.location.hostname)) return null;
     const raw = window.localStorage.getItem(DEV_GPS_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown };
+    const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown; heading?: unknown; speed?: unknown };
     const lat = Number(parsed.lat);
     const lng = Number(parsed.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng, accuracy: 5, speed: null, heading: null };
+    const heading = parsed.heading != null && Number.isFinite(Number(parsed.heading)) ? Number(parsed.heading) : null;
+    const speed = parsed.speed != null && Number.isFinite(Number(parsed.speed)) ? Number(parsed.speed) : null;
+    return { lat, lng, accuracy: 5, speed, heading };
   } catch {
     return null;
   }

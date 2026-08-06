@@ -58,21 +58,23 @@ export function haversineM(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 /**
- * 점(lat,lng)에서 폴리라인(pts=[lat,lng][])까지 최소 수직거리(m). 경로 이탈 판정용.
+ * 점(lat,lng)을 폴리라인에 스냅 — 최소 수직거리(m)와 그 최근접 세그먼트 인덱스.
  * 좁은 영역 → 쿼리 위도 기준 등거리 평면 투영 후 점-선분 거리. API 호출 없이 로컬 계산.
+ * 이탈 판정(거리)과 course-up 카메라 회전(세그먼트 방위)이 같은 루프를 공유한다.
  */
-export function distanceToPolylineM(
+export function snapToPolyline(
   lat: number,
   lng: number,
   pts: Array<[number, number]>,
-): number {
-  if (pts.length === 0) return Infinity;
-  if (pts.length === 1) return haversineM(lat, lng, pts[0][0], pts[0][1]);
+): { distM: number; index: number } {
+  if (pts.length === 0) return { distM: Infinity, index: -1 };
+  if (pts.length === 1) return { distM: haversineM(lat, lng, pts[0][0], pts[0][1]), index: 0 };
   const mPerLat = 111320;
   const mPerLng = 111320 * Math.cos((lat * Math.PI) / 180);
   const px = lng * mPerLng;
   const py = lat * mPerLat;
   let min = Infinity;
+  let idx = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const ax = pts[i][1] * mPerLng;
     const ay = pts[i][0] * mPerLat;
@@ -84,7 +86,16 @@ export function distanceToPolylineM(
     let t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
     t = Math.max(0, Math.min(1, t));
     const d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-    if (d < min) min = d;
+    if (d < min) { min = d; idx = i; }
   }
-  return min;
+  return { distM: min, index: idx };
+}
+
+/** 점에서 폴리라인까지 최소 수직거리(m). 경로 이탈 판정용. */
+export function distanceToPolylineM(
+  lat: number,
+  lng: number,
+  pts: Array<[number, number]>,
+): number {
+  return snapToPolyline(lat, lng, pts).distM;
 }

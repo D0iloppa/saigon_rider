@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
-import { decodePolyline, bearing, haversineM, distanceToPolylineM } from '@/lib/polyline';
+import { decodePolyline, bearing, haversineM, distanceToPolylineM, snapToPolyline } from '@/lib/polyline';
 import MapCanvas, { type MapCanvasHandle } from '@/components/ride/MapCanvas';
 import MapControls from '@/components/ride/MapControls';
 import Speedometer from '@/components/ride/Speedometer';
@@ -30,6 +30,11 @@ const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
 const OFF_ROUTE_SECONDS = 5; // 이탈 지속 시간(이 이상 지속해야 이탈 확정)
 const GPS_ACCURACY_LIMIT_M = 35; // GPS 신뢰 임계값(초과 시 판정 스킵)
 const COMPASS_RADIUS_M = 500; // 라스트마일 나침반 모드 전환 반경
+const ARRIVAL_RADIUS_M = 40; // 목적지 도착 판정 반경(nav) — 이 안에 들면 안내 종료
+const COURSE_MIN_SPEED_MS = 1.5; // course-up GPS heading 폴백 최소 속도(≈5.4km/h) — 저속 heading 은 무의미
+// 경로 API(Google Routes)는 호출당 과금이므로 이탈 재탐색은 안내 1회당 이 횟수까지만 허용하고,
+// 소진 후에는 재탐색 대신 Google 지도 딥링크로 유도한다.
+const MAX_REROUTES = 2;
 
 /** 사용자가 길찾기를 시작한 뒤에만 권한을 요청하고 현재 위치를 측정한다. */
 async function resolveOrigin(): Promise<Coords> {
@@ -140,8 +145,10 @@ export default function RideNav() {
   // nav 경로 이탈 감지(로컬) — 이탈 확정 배너 / 라스트마일 나침반 모드. quest 미적용.
   const offRouteStartRef = useRef<number | null>(null);
   const [offRoute, setOffRoute] = useState(false);
-  const [offRouteCount, setOffRouteCount] = useState(0); // 이탈 확정 누적 — 3회면 구글맵 자동 전환
+  const rerouteLeftRef = useRef(MAX_REROUTES); // 남은 인앱 재탐색 횟수 (0 이면 Google 유도)
   const [compass, setCompass] = useState<{ bearing: number; distM: number } | null>(null);
+  const [arrived, setArrived] = useState(false); // nav 목적지 도착 — 안내 종료 상태
+  const arrivedRef = useRef(false);
 
   // quest 이동경로(서버 스트림 GPS) — 거리 퀘스트 궤적 표시.
   const [trail, setTrail] = useState<TrailPoint[]>([]);
@@ -205,6 +212,43 @@ export default function RideNav() {
     [route],
   );
 
+  /** 경로 적용 — 폴리라인/스텝 표시 + 도착 예정시각 갱신. 최초 탐색·이탈 재탐색 공통. */
+  const applyRoute = (data: RouteData) => {
+    setRoute(data);
+    if (data.duration_s) {
+      const d = new Date(Date.now() + data.duration_s * 1000);
+      setArrivalTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+    }
+  };
+
+  /** 목적지 도착(nav) — 안내를 종료한다: GPS watch·이탈 판정 정지, 카메라 개요 복귀, 도착 배너. */
+  const arriveAtDest = () => {
+    if (arrivedRef.current) return;
+    arrivedRef.current = true;
+    setArrived(true);
+    setGuidanceStarted(false); // watch effect cleanup → GPS 정지(배터리)
+    setOffRoute(false);
+    setCompass(null);
+    offRouteStartRef.current = null;
+    mapRef.current?.overview();
+    sheetRef.current?.snapToMid();
+  };
+
+  /** 이탈 확정 시 현재 위치 기준 인앱 재탐색. 실패하면 Google 유도 배너로 넘긴다. */
+  const rerouteFrom = async (pos: Coords) => {
+    if (!dest) return;
+    const locale = i18n.resolvedLanguage ?? i18n.language;
+    const data = await routeApi.getRoute(pos, dest, locale).catch(() => null);
+    if (!data?.configured) {
+      setOffRoute(true);
+      return;
+    }
+    setOrigin(pos);
+    applyRoute(data);
+    setOffRoute(false);
+    toast.neutral(t('rideNav.rerouted', '경로를 다시 찾았어요'));
+  };
+
   // 실시간 GPS watch — 안내 시작(nav) 또는 퀘스트 추적 중일 때. 마커·속도계 표시 + nav 이탈 감지.
   useEffect(() => {
     if (!guidanceStarted) return;
@@ -219,6 +263,11 @@ export default function RideNav() {
       if (pos.accuracy != null && pos.accuracy > GPS_ACCURACY_LIMIT_M) return; // GPS 튐 방어
       if (dest) {
         const toDest = haversineM(pos.lat, pos.lng, dest.lat, dest.lng);
+        // 도착 판정이 나침반 모드보다 우선 — 반경 안에 들면 안내 종료.
+        if (toDest <= ARRIVAL_RADIUS_M) {
+          arriveAtDest();
+          return;
+        }
         if (toDest <= COMPASS_RADIUS_M) {
           // 라스트마일: 목적지 반경 진입 → 나침반 모드(방향+직선거리), 이탈 평가 중단.
           setCompass({ bearing: bearing(pos.lat, pos.lng, dest.lat, dest.lng), distM: Math.round(toDest) });
@@ -239,15 +288,21 @@ export default function RideNav() {
       const now = Date.now();
       if (offRouteStartRef.current == null) { offRouteStartRef.current = now; return; }
       if ((now - offRouteStartRef.current) / 1000 >= OFF_ROUTE_SECONDS) {
-        setOffRoute(true);
         offRouteStartRef.current = null; // 리셋 → 계속 이탈 시 다음 확정까지 다시 5초(재이탈마다 카운트)
-        setOffRouteCount((c) => c + 1);
+        if (rerouteLeftRef.current > 0) {
+          rerouteLeftRef.current -= 1;
+          void rerouteFrom({ lat: pos.lat, lng: pos.lng }); // 상한 내에서는 인앱 재탐색
+        } else {
+          setOffRoute(true); // 상한 소진 → 유료 재탐색 대신 Google 지도 유도
+        }
       }
     });
     return stop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guidanceStarted, type, dest, activePts]);
 
-  const startGuidance = async () => {
+  /** 경로 탐색만 수행 — 개요 표시까지. 카메라 연출·GPS 추적은 시작 버튼(startGuidance)이 담당. */
+  const fetchRoute = async () => {
     if (type !== 'nav' || !dest) return;
     setRouteRequested(true);
     setLocationError(false);
@@ -273,22 +328,24 @@ export default function RideNav() {
       setLoading(false);
       return;
     }
-    setRoute(data);
-    if (data.duration_s) {
-      const d = new Date(Date.now() + data.duration_s * 1000);
-      setArrivalTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-    }
-    setGuidanceStarted(true);
+    applyRoute(data);
     setLoading(false);
+  };
+
+  /** 경로 안내 시작 — 진행방향 회전+줌 연출과 GPS 추적(속도계·이탈 감지)은 여기서만 켠다. */
+  const startGuidance = () => {
+    if (type !== 'nav' || !route?.configured) return;
+    rerouteLeftRef.current = MAX_REROUTES; // 안내 1회당 재탐색 상한 리셋
+    setGuidanceStarted(true);
     mapRef.current?.startGuidance();
     sheetRef.current?.collapse(); // 핀(중앙)이 시트에 가리지 않도록 시트 내림
   };
 
-  // nav: 진입 시 자동으로 경로 탐색을 시작한다. showMap 은 routeRequested 와 무관하게 dest 만
-  // 있으면 true 라 버튼 없이 지도부터 뜨는데, 시작 버튼은 route 확보 후에만 노출되어 탭할 방법이
-  // 없었다(먹통 원인) — 진입 즉시 1회 호출해 원래 동작(자동 안내 시작)을 복원한다.
+  // nav: 진입 시 경로만 자동 탐색해 개요를 보여준다. 안내(카메라·GPS)는 사용자가 시작 버튼을
+  // 탭할 때 시작 — 이전에는 탐색과 안내가 한 함수라 진입 즉시 guidanceStarted 가 켜지면서
+  // 시작 버튼이 렌더될 프레임이 없었고, 카메라 연출도 경로 갱신 fitBounds 에 덮여 사라졌다.
   useEffect(() => {
-    if (type === 'nav' && dest && !routeRequested) startGuidance();
+    if (type === 'nav' && dest && !routeRequested) fetchRoute();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, dest]);
 
@@ -327,9 +384,29 @@ export default function RideNav() {
   const recenter = () => { if (dotPos) mapRef.current?.recenter(dotPos); };
   const resetNorth = () => mapRef.current?.resetNorth();
 
-  // 이동 시 지도를 현재 좌표로 따라감 (카메라만 이동, 경로 재검색 없음).
+  /**
+   * course-up(진행방향 위쪽) 회전에 쓸 '직진 방향'. nav 안내 중에만 값이 있다.
+   * 1순위 = 경로에 스냅한 최근접 세그먼트의 방위 — 경로는 고정값이라 GPS heading 처럼 떨지 않고,
+   *          신호대기·정지 중에도 유효하다. (이탈 판정과 같은 스냅 계산을 공유 — 추가 비용 없음)
+   * 2순위 = 이탈 상태에서만 GPS heading. 저속에서는 heading 이 쓰레기값이라 회전하지 않는다.
+   */
+  const courseBearing = (pos: Coords): number | null => {
+    if (type !== 'nav' || !guidanceStarted) return null;
+    if (activePts.length >= 2) {
+      const snap = snapToPolyline(pos.lat, pos.lng, activePts);
+      if (snap.distM <= OFF_ROUTE_DISTANCE_M && snap.index + 1 < activePts.length) {
+        const [aLat, aLng] = activePts[snap.index];
+        const [bLat, bLng] = activePts[snap.index + 1];
+        return bearing(aLat, aLng, bLat, bLng);
+      }
+    }
+    if (current?.heading != null && (speedMs ?? 0) >= COURSE_MIN_SPEED_MS) return current.heading;
+    return null;
+  };
+
+  // 이동 시 지도를 현재 좌표로 따라감 (카메라만 이동, 경로 재검색 없음) + 안내 중 course-up 회전.
   useEffect(() => {
-    if (dotPos) mapRef.current?.follow(dotPos);
+    if (dotPos) mapRef.current?.follow(dotPos, courseBearing(dotPos));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dotPos?.lat, dotPos?.lng]);
 
@@ -340,14 +417,6 @@ export default function RideNav() {
     native.openUrl(`https://www.google.com/maps/dir/?api=1${o}&destination=${dest.lat},${dest.lng}&travelmode=two_wheeler`);
     setOffRoute(false);
   };
-
-  // 경로 이탈 3회 누적(nav) → 배너 없이 구글맵으로 자동 전환.
-  useEffect(() => {
-    if (type === 'nav' && offRouteCount >= 3) {
-      openGoogleReroute();
-      setOffRouteCount(0);
-    }
-  }, [offRouteCount, type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={styles.page}>
@@ -383,8 +452,21 @@ export default function RideNav() {
             </div>
           )}
 
+          {/* 목적지 도착 (nav) — 안내 종료 배너. 확인 시 이전 화면으로. */}
+          {type === 'nav' && arrived && (
+            <div className={styles.rerouteBanner}>
+              <span className={styles.rerouteText}>
+                {t('rideNav.arrivedTitle', '목적지에 도착했어요')}
+              </span>
+              <button className={styles.rerouteBtn} onClick={() => navigate(-1)}>
+                <Flag size={15} strokeWidth={2.4} aria-hidden="true" />
+                {t('rideNav.arrivedDone', '안내 종료')}
+              </button>
+            </div>
+          )}
+
           {/* 경로 안내 시작 — 플로팅 버튼 (nav, 시작 전). 누르면 spin + 강한 zoom. */}
-          {type === 'nav' && !guidanceStarted && !loading && route?.configured && (
+          {type === 'nav' && !arrived && !guidanceStarted && !loading && route?.configured && (
             <button className={styles.startFab} onClick={startGuidance}>
               <Play size={15} fill="currentColor" strokeWidth={0} aria-hidden="true" /> {t('rideNav.startGuidance', '경로 안내 시작')}
             </button>
@@ -556,7 +638,7 @@ export default function RideNav() {
                 : t('rideNav.summaryPending', '길찾기를 시작하면 현재 위치를 측정합니다.')}
             </div>
             {type === 'nav' && (!routeRequested || locationError) && (
-              <button className={styles.startFab} onClick={startGuidance}>
+              <button className={styles.startFab} onClick={fetchRoute}>
                 <Play size={15} fill="currentColor" strokeWidth={0} aria-hidden="true" /> {t('rideNav.startGuidance', '경로 안내 시작')}
               </button>
             )}

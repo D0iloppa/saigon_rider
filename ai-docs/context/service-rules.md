@@ -86,6 +86,20 @@
 
 ---
 
+## 경로 안내 (nav) — 제정 2026-08-06
+
+`RideNav.tsx`(`/ride-nav?type=nav`) 전용. 지도는 `components/ride/MapCanvas.tsx`(maplibre + OpenFreeMap) 이며 동네지도(`SaigonMapV5`, 자체 SVG)·위치선택(`maps/OsmMap.tsx`)과 별개 컴포넌트다.
+
+- **탐색과 안내는 분리한다.** 진입 시엔 `fetchRoute()` 로 경로만 받아 개요를 보여주고, 카메라 연출·GPS watch·이탈 판정은 사용자가 **[경로 안내 시작]** 을 탭할 때(`startGuidance()`)만 켠다. 두 개를 한 함수로 합치면 `guidanceStarted` 가 `route` 와 같은 배치로 켜져 **시작 버튼이 렌더될 프레임이 사라진다**(2026-08-06 회귀).
+- **경로 재탐색은 안내 1회당 `MAX_REROUTES = 2` 회까지.** 경로 API 는 Google Routes `computeRoutes` — **호출당 과금**이다(BFF `info_route.py`: 60초 Redis 캐시 + 사용자당 10회/분). 상한을 소진하면 유료 재탐색 대신 `Google 지도로 재안내` 배너로 유도한다. **탭 없이 외부 앱을 자동으로 열지 않는다**(구 3회 누적 자동전환 폐기).
+- **이탈 판정**: 경로에서 50m 초과가 5초 이상 지속(`OFF_ROUTE_DISTANCE_M`/`OFF_ROUTE_SECONDS`). GPS 정확도 35m 초과 틱은 판정 스킵, 목적지 500m 이내는 나침반 모드로 판정 중단.
+- **도착 = 종료 이벤트가 있어야 한다.** 목적지 `ARRIVAL_RADIUS_M = 40` 이내 진입 시 GPS watch 정지(배터리)·이탈 판정 해제·카메라 개요 복귀 + 도착 배너. **도착 판정은 나침반 모드보다 먼저 평가**한다(나침반 분기의 early return 에 막히면 도착이 영영 안 잡힌다).
+- **회전은 course-up 자동 회전이다.** 방위 1순위는 **경로 스냅 세그먼트 방위**(`snapToPolyline`) — 경로는 고정값이라 GPS heading 처럼 떨지 않고 정지·신호대기에도 유효하다. GPS heading(`native.ts` 의 course-over-ground)은 **이탈 상태 + 1.5m/s 이상**에서만 폴백으로 쓴다. 진짜 나침반(DeviceOrientation)은 도입하지 않았다.
+- **카메라 명령은 서로 취소된다** — MapLibre 카메라 애니메이션은 배타적이다. ① 경로 갱신 effect 의 개요 `fitBounds` 는 안내 중 건너뛴다(`guidingRef`), ② 시작 `flyTo` 가 끝날 때까지 `follow` 를 막는다(`introRef`, 리스너 등록은 `flyTo` **뒤**), ③ `follow` 는 center 와 bearing 을 **한 번의 `easeTo`** 로 준다. 셋 중 하나만 빠져도 회전·줌 연출이 조용히 사라진다.
+- **[북쪽 맞춤] = course-up 해제, [내 위치] = 복귀**(`courseUpRef`). 해제 상태를 기억하지 않으면 다음 GPS 틱이 즉시 되돌려 북쪽 맞춤 버튼이 먹통이 된다. 별도 회전 토글 버튼은 두지 않는다.
+
+---
+
 ## 시각 표기 (제정 2026-08-06)
 
 - **절대시각은 항상 베트남 현지시각(ICT, `Asia/Ho_Chi_Minh`)으로 표기한다.** 공용 포맷터는 `frontend/src/lib/vnTime.ts`(`formatVnTime`/`formatVnDate`/`formatVnDateTime`). `toLocaleTimeString`/`toLocaleDateString` 을 `timeZone` 없이 직접 부르지 말 것 — **기기 타임존**이 쓰여 해외(예: 한국 +9)에서 보면 2시간 어긋난다.

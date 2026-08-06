@@ -27,6 +27,7 @@
 - [프로젝트 TODO 리스트](context/project_todo.md) — 프론트/백엔드/엔진 등 다영역 협업이 필요한 후속 구현 항목 (예: 퀘스트 [DBG] 버튼 → 정식 완료 트리거)
 - [사용처(Sink) 경제 설계 — 스킬포인트 & 쿠폰 BM](spec/sink-economy-design.md) — 다마키 체험 디자인 관점. SGR-209 스킬 트리 + RP 쿠폰/기프티콘 교환 BM (재화↔sink 1:1, phase 분해)
 - [광고 성과 지표 설계 / 구현 발주서](spec/ad-performance-metrics.md) — 노출(viewability)·클릭·CTA 전환·광고비 대비 효과(CPM/CPC/CPA) 정의, 이벤트 수집 지점(봇·자기노출·중복 필터), `ad_events`/`ad_daily_stats` 데이터 모델, 일별 롤업 전략, BFF vs Engine 책임 분리(엔진 out-of-scope 근거), 광고주 대시보드 요소+빈 상태 7종, **미구현 체크리스트(DB 4/BFF 12/프론트 13/엔진 0/정책 5)**
+- **[근접 광고 + 방문 포인트 설계 260806](260806_proximity_ad_design.md)** — ⚠️ **승인 대기(D-1 백그라운드 위치 / D-6 오픈범위 미결)**. 대표 지시 260806 18:47~18:50 로 최초 공유된 사업모델(이동 중 위치추적 → 유료 가맹점 반경 진입 전 광고·푸시 → 방문 → 포인트 적립 / 가맹점 tier 과금) 정식화. **모듈 경계 판정: 신규는 `modules/proximity/`(근접판정·쿨다운·방문자격·위조방어) 하나뿐 — 광고는 기존 `AdsApplication` + `ad_events.surface='proximity'` 재사용(머니경로 이중화 금지), 알림은 `notification_outbox`/`noti_worker`, 포인트는 Engine `action_definition.rp_grant`**. 판정 위치 하이브리드(알림=클라 1차 / 적립=서버 확정, GPS 스푸핑 환금 방어). 신규 테이블 `proximity_hit`·`proximity_policy`(킬스위치 `is_enabled=FALSE` 시작). **제약: `@capacitor/geolocation` 은 포그라운드 전용 → 백그라운드 추적 불가**(도입 시 iOS `UIBackgroundModes` 심사 소명·Play 별도 승인). **GPS 정책 3회 반전 이력 기록 — 본 모델은 260806 08:48 "전 화면 GPS 기본" 과만 정합**. 8월 오픈 범위 제외 근거, 선행조건=가맹점 수
 
 ## 🔬 리서치
 

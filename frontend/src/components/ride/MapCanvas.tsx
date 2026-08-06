@@ -13,11 +13,18 @@ export interface MapCanvasHandle {
   startGuidance: () => void;
   /** 현재 위치로 부드럽게 이동(줌 16 고정). 수동 '내 위치' 버튼용. */
   recenter: (pos: { lat: number; lng: number }) => void;
-  /** 현재 위치로 카메라만 따라감(줌 유지). 이동 추적용. */
-  follow: (pos: { lat: number; lng: number }) => void;
-  /** 북향으로 회전 리셋. */
+  /**
+   * 현재 위치로 카메라만 따라감(줌 유지). 이동 추적용.
+   * courseBearing(도)을 주면 그 방위가 위쪽이 되도록 함께 회전한다(course-up).
+   * 사용자가 '북쪽 맞춤'을 누른 뒤에는 '내 위치'를 다시 누를 때까지 회전을 멈춘다.
+   */
+  follow: (pos: { lat: number; lng: number }, courseBearing?: number | null) => void;
+  /** 북향으로 회전 리셋(course-up 해제). */
   resetNorth: () => void;
 }
+
+/** course-up 데드존 — 이 미만의 방위차는 무시(세그먼트 경계에서 지도가 떠는 것 방지). */
+const COURSE_DEADZONE_DEG = 8;
 
 interface MapCanvasProps {
   origin: { lat: number; lng: number } | null;
@@ -52,6 +59,12 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const curMarkerRef = useRef<maplibregl.Marker | null>(null);
   const trailFitDoneRef = useRef(false);
+  // 안내 중 여부 — true 면 경로 갱신(이탈 재탐색 등)이 카메라를 개요로 되돌리지 않는다.
+  const guidingRef = useRef(false);
+  // 시작 연출(flyTo) 진행 중 — 이 구간엔 follow 가 카메라를 건드리지 않는다.
+  const introRef = useRef(false);
+  // course-up(진행방향 위쪽) 적용 여부 — '북쪽 맞춤'으로 끄고 '내 위치'로 다시 켠다.
+  const courseUpRef = useRef(false);
 
   const routePts = (): [number, number][] =>
     polyline ? decodePolyline(polyline).map(([la, ln]) => [ln, la]) : [];
@@ -86,6 +99,8 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     overview() {
       const map = mapRef.current;
       if (!map) return;
+      guidingRef.current = false;
+      courseUpRef.current = false; // 개요는 항상 북향
       const fit = fitPoints();
       map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
       if (fit.length >= 2) {
@@ -101,19 +116,37 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       const pts = routePts();
       const start: [number, number] | undefined = origin ? [origin.lng, origin.lat] : pts[0];
       if (!start) return;
+      guidingRef.current = true;
+      courseUpRef.current = true;
       // 진행 방위 = 시작점→다음 경로점(없으면 목적지)
       const next = pts.length >= 2 ? pts[1] : dest ? [dest.lng, dest.lat] : null;
       const brg = next ? bearing(start[1], start[0], next[1], next[0]) : 0;
       // 진행방향 회전(spin) + 강한 줌. 3D 틸트 없음(pitch 0).
+      // 연출이 끝날 때까지 follow(easeTo) 를 막는다 — 안내 시작과 함께 GPS watch 가 켜지면서
+      // 첫 좌표가 수백 ms 안에 들어오고, 그 easeTo 가 flyTo 를 취소해 연출이 사라졌다.
+      introRef.current = true;
       map.flyTo({ center: start, zoom: 18.5, pitch: 0, bearing: brg, duration: 2200, essential: true });
+      // 등록은 flyTo 이후 — flyTo 는 진행 중 애니메이션을 먼저 중단시키고 그 moveend 를 흘리므로,
+      // 먼저 등록하면 직전 fitBounds 의 중단 이벤트로 즉시 해제돼 버린다.
+      map.once('moveend', () => { introRef.current = false; });
     },
     recenter(pos) {
+      courseUpRef.current = true; // '내 위치' 탭 = 추적 복귀(북쪽 맞춤으로 끈 회전도 되살린다)
       mapRef.current?.easeTo({ center: [pos.lng, pos.lat], zoom: 16, duration: 700 });
     },
-    follow(pos) {
-      mapRef.current?.easeTo({ center: [pos.lng, pos.lat], duration: 500 });
+    follow(pos, courseBearing) {
+      const map = mapRef.current;
+      if (!map || introRef.current) return;
+      // center 와 bearing 을 한 번의 easeTo 로 — 나눠 호출하면 뒤 호출이 앞 애니메이션을 취소한다.
+      const opts: Parameters<typeof map.easeTo>[0] = { center: [pos.lng, pos.lat], duration: 500 };
+      if (courseBearing != null && courseUpRef.current) {
+        const diff = Math.abs((((courseBearing - map.getBearing()) % 360 + 540) % 360) - 180);
+        if (diff >= COURSE_DEADZONE_DEG) opts.bearing = courseBearing;
+      }
+      map.easeTo(opts);
     },
     resetNorth() {
+      courseUpRef.current = false; // 사용자가 북향을 원함 — 다음 GPS 틱이 되돌리지 않게 회전 정지
       mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 500 });
     },
   }));
@@ -180,7 +213,9 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
           paint: { 'line-color': '#FF5A1F', 'line-width': 5 },
         });
       }
-      // 초기 개요
+      // 초기 개요 — 안내 시작 후에는 생략한다. (이 effect 는 startGuidance() 의 flyTo 보다 뒤에
+      // 커밋되므로, 가드가 없으면 회전+줌 연출이 매번 개요 fitBounds 로 덮여 사라진다.)
+      if (guidingRef.current) return;
       const fit = fitPoints();
       if (fit.length >= 2) {
         const b = fit.reduce((acc, c) => acc.extend(c), new maplibregl.LngLatBounds(fit[0], fit[0]));

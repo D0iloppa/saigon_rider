@@ -735,11 +735,7 @@ function SaigonMapV5({
       if (slug) void loadWardData(slug, false);
       const region = buildWardRegion(idx);
       if (region) onRegionSelect?.(region);
-    } else if (idx >= 0) {
-      setSelWard(idx);
-      const slug = depth1.wards[idx].slug as string | undefined;
-      if (slug) void loadWardData(slug, false);
-    } else if (!opts?.silent) {
+    } else if (idx < 0 && !opts?.silent) {
       toast.neutral(t('map.locateNotFound', { defaultValue: '위치를 찾을 수 없어요' }));
     }
   }, [clampVB, getBottomInsetUnits, loadWardData, onRegionSelect, onViewportChange, setVBAttr, t]);

@@ -11,8 +11,11 @@
     <title>Saigon Rider</title>
     <!-- 🏍 (U+1F3CD) 가 담긴 Noto Color Emoji shard — splash 이모지 선행 로딩 -->
     <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous" href="/fonts/noto-color-emoji/noto-color-emoji.5.woff2" />
-    <!-- Splash + TabBar FAB 에서 쓰는 오토바이 GIF 선행 로딩 -->
-    <link rel="preload" as="image" href="/emoji/1f3cd.gif" />
+    <!-- 오토바이 애니메이션(/emoji/1f3cd.webp)은 preload 하지 않는다 — 베트남 회선에서
+         엔트리 JS/CSS 와 대역폭을 다퉈 첫 페인트를 늦췄다(무압축 862KB GIF 시절 기준).
+         대신 App.tsx 의 `new Image()` 백그라운드 프리로드(→ gifReady)가 받아오고, 그 전까지는
+         AppShell 이 Noto Color Emoji 텍스트 글리프(🏍, 위 폰트 shard)를 placeholder 로 띄운다.
+         애니메이션을 첫 프레임부터 보여줘야 하면 이 줄을 되살리면 된다. -->
   </head>
   <body>
     <div id="root"></div>

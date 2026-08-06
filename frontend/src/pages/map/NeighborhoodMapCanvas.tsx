@@ -1178,6 +1178,8 @@ export default function NeighborhoodMapCanvas({
         // 비동기로 완료되며 실제 현재 위치(다른 동일 수 있음)로 selWard·카메라를 덮어써
         // 칩(선택 동)과 렌더된 경계 폴리곤이 어긋나는 버그가 있었다(2026-08-03 발견).
         locateOnMount={mode === 'viewport'}
+        // region 모드(자동 locate off)에서도 내 위치 점은 유지 — 마켓지도와 동일 규칙.
+        meDotOnMount={mode === 'region'}
         initialViewport={savedViewport ?? undefined}
         markers={markers}
         anchorOverlay={postPanelOpen ? undefined : bizNewsOverlay}

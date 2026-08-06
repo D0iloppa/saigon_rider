@@ -2,6 +2,8 @@ import { LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
 import { resolveUsableLocation, type ResolvedLocation } from '@/lib/serviceLocation';
+import { native } from '@/lib/native';
+import { inServiceArea } from '@/lib/serviceArea';
 import { toast } from '@/components/ui/Toast';
 import { fetchCityOutline, type CityOutline } from '@/api/poi';
 import depth1 from './v2/saigon-depth1.json';
@@ -237,6 +239,13 @@ export interface SaigonMapV5Props {
   height?: number | string;
   className?: string;
   locateOnMount?: boolean;
+  /**
+   * 마운트 시 GPS 를 1회 조용히 읽어 '내 위치' 파란 점만 찍는다 — 카메라 이동·지역 선택·토스트
+   * 부작용이 전혀 없다(locateOnMount 와의 차이). 지역이 선택돼 있어 자동 locate 를 끈 화면
+   * (마켓지도 region/gps 모드)에서도 내 위치는 보여주기 위한 것. 실패·서비스 지역 밖이면 무동작.
+   * locateOnMount 가 켜져 있으면 중복 측위를 피하려 이쪽은 건너뛴다.
+   */
+  meDotOnMount?: boolean;
   initialGps?: { lat: number; lng: number };
   /** 마운트 시 이 lat/lng bbox로 뷰포트를 복원 (재진입 뷰포트 기억 — GPS 없음). 마운트 이후 변경은 무시 */
   initialViewport?: { N: number; S: number; E: number; W: number };
@@ -321,6 +330,7 @@ function SaigonMapV5({
   height = 400,
   className,
   locateOnMount,
+  meDotOnMount,
   initialGps,
   initialViewport,
   markers,
@@ -398,6 +408,9 @@ function SaigonMapV5({
   // 필터 ✕ 해제로 조건이 참이 되는 순간 GPS 재측정 + 카메라 딥줌이 발화하던 버그(대표 지적
   // 2026-08-04: "필터만 풀려야 하는데 위치도 다시 잡고 다시 렌더링") — prop 이름대로 마운트 1회로 고정.
   const locateOnMountAtMount = useRef(locateOnMount);
+  // meDotOnMount 도 같은 이유로 마운트 1회 — 지역 필터 ✕ 해제로 조건이 뒤집힐 때 재측위 금지.
+  const meDotOnMountAtMount = useRef(meDotOnMount && !locateOnMount);
+  const didMeDotLocate = useRef(false);
   // 라벨 디클러터 히스테리시스 — 직전 프레임의 표시 라벨 집합(깜빡임 방지용)
   const prevVisibleRef = useRef<ReadonlySet<string | number>>(new Set());
   // 마운트 rAF(빈 deps)가 최신 focusLatLng 를 부르기 위한 latest-ref (onViewportChangeRef 와 동일 패턴)
@@ -810,6 +823,31 @@ function SaigonMapV5({
       void runLocate();
     }
   }, [runLocate]);
+
+  useEffect(() => {
+    // 내 위치 점만 찍는 조용한 측위 — 카메라/지역선택을 건드리지 않아 선택 동 경계와 어긋날
+    // 여지가 없다. 서비스 지역 밖(fallback)이면 그 좌표는 내 위치가 아니므로 점을 찍지 않는다.
+    if (!meDotOnMountAtMount.current || didMeDotLocate.current) return;
+    didMeDotLocate.current = true;
+    void resolveUsableLocation()
+      .then((location) => {
+        if (location.source === 'device') setMeLatLng(location.coords);
+      })
+      .catch(() => undefined); // 장식용 점 — 실패 시 조용히 포기(안내는 위치 기능 호출부 책임)
+  }, []);
+
+  // 내 위치 점의 실시간 추종 (대표 지적 2026-08-05: "gps 로 표시는 하는데 실시간 반영을 안 한다").
+  // 점이 한 번 찍힌 뒤(=실측 성공)에만 watch 를 걸어, 점을 안 쓰는 화면(위치 피커 등)에서는
+  // GPS 를 켜지 않는다. **카메라는 따라가지 않는다** — 표시 전용 (service-rules 원칙 5).
+  // 언마운트/점 소멸 시 watch 해제. 서비스 지역 밖 좌표는 갱신을 건너뛴다(마지막 유효 위치 유지).
+  const meDotActive = meLatLng !== null;
+  useEffect(() => {
+    if (!meDotActive) return;
+    return native.watchLocation((pos) => {
+      if (!inServiceArea(pos.lat, pos.lng)) return;
+      setMeLatLng({ lat: pos.lat, lng: pos.lng });
+    });
+  }, [meDotActive]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();

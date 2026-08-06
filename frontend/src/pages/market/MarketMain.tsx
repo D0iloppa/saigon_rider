@@ -13,6 +13,7 @@ import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { toast } from '@/components/ui/Toast';
 import SaigonMapV2 from '@/components/maps/SaigonMapV2';
 import { AreaPill } from '@/components/maps/AreaPill';
+import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
 import type { SelectedRegion, MapMarkerV2 } from '@/components/maps/v2/region';
 
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
@@ -45,6 +46,11 @@ import { formatPriceVnd } from './marketFormat';
 import styles from './MarketMain.module.css';
 
 const STORAGE_KEY = 'mkt_filter_v2';
+// 저장소는 localStorage — 표시 범위(locationMode) 선택이 앱 재시작 후에도 유지돼야 한다
+// (대표 지적 2026-08-05: "설정을 바꿔서 다시 들어가면 초기화됨"). 종전 sessionStorage 는 웹뷰
+// 세션과 함께 사라져 앱을 껐다 켜면 '전체 지역'으로 되돌아갔다 — 동네지도·정보 화면은
+// useLocationStore(zustand persist=localStorage)라 유지되는데 마켓만 초기화되는 비대칭이었다.
+// (마켓 독자 상태 유지는 그대로 — 전역 스토어 통합은 2026-07-27 대표 결정으로 보류 상태.)
 // 매물 자동 말풍선 (동네지도 NeighborhoodMapCanvas 이식, 값 동일) — bboxFilter 위도 스팬이
 // AUTO_BUBBLE_MAX_LAT_SPAN 이하일 때만 동작(과도한 줌아웃에서 비활성), 뷰포트 중앙에서 정규화
 // 거리 AUTO_BUBBLE_CENTER_RADIUS 이내인 매물을 선택.
@@ -63,15 +69,24 @@ interface SavedState {
   viewMode: 'list' | 'map';
   scrollTop: number;
 }
+/** 콜드 스타트(새 웹뷰 세션) 표식 — scrollTop·viewMode 를 세션 범위로 유지하는 데 쓴다. */
+const SESSION_MARK_KEY = 'mkt_session_mark';
+
 /** district→ward 전환(2026-08) 이전 구버전 세션값(shape: {district, ...})이 남아있을 수 있다 —
  * 필수 필드(ward 키 자체, id 타입) 검증해 구스키마면 폐기하고 기본값으로 폴백한다. */
 function readSaved(): SavedState | null {
   try {
-    const s = sessionStorage.getItem(STORAGE_KEY);
+    const s = localStorage.getItem(STORAGE_KEY);
     if (!s) return null;
     const parsed = JSON.parse(s) as Partial<SavedState> & { district?: unknown };
     if (parsed.district !== undefined) return null; // 구스키마(district 필드) — 폐기
     if (parsed.ward != null && typeof (parsed.ward as Ward).id !== 'number') return null;
+    // 저장소를 localStorage 로 올린 대상은 **필터·표시 범위**뿐이다. scrollTop·viewMode 는 원래
+    // "상세 갔다 돌아와도 유지"용(세션 범위)이라, 콜드 스타트에서 복원하면 앱을 켜자마자
+    // 지도 뷰 + 이전 스크롤 위치로 점프하는 새 부작용이 된다 — 새 세션에서는 기본값으로 시작한다.
+    const coldStart = !sessionStorage.getItem(SESSION_MARK_KEY);
+    sessionStorage.setItem(SESSION_MARK_KEY, '1');
+    if (coldStart) return { ...(parsed as SavedState), viewMode: 'list', scrollTop: 0 };
     return parsed as SavedState;
   } catch { return null; }
 }
@@ -265,7 +280,7 @@ export default function MarketMain() {
 
   // 지역 필터 chip ✕ — 시트의 '전체 지역' 적용(handleApplyLocation 의 draftLocationMode==='all'
   // 분기)과 동일한 해제 흐름. explicitLocal=true 로 전역 스토어 동기화보다 우선시키고,
-  // sessionStorage 저장은 기존 필터 저장 이펙트가 그대로 처리한다.
+  // 저장(localStorage)은 기존 필터 저장 이펙트가 그대로 처리한다.
   const clearRegionFilter = useCallback(() => {
     setWard(null);
     setCoords(null);
@@ -353,10 +368,10 @@ export default function MarketMain() {
   }, [fetchMapBbox]);
   useEffect(() => () => clearTimeout(bboxTimerRef.current), []);
 
-  // 필터 상태 변경 시 sessionStorage에 저장 (scrollTop은 0으로 리셋 — 새 필터는 처음부터)
+  // 필터 상태 변경 시 localStorage에 저장 (scrollTop은 0으로 리셋 — 새 필터는 처음부터)
   useEffect(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
         sort, hideSold, locationMode, ward, coords, regionLabel, explicitLocal, viewMode, scrollTop: 0,
       }));
     } catch { /* ignore */ }
@@ -365,7 +380,7 @@ export default function MarketMain() {
   // 상세 이동 전 현재 스크롤 위치 저장
   const saveScroll = useCallback(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
         sort, hideSold, locationMode, ward, coords, regionLabel, explicitLocal, viewMode,
         scrollTop: containerRef.current?.scrollTop ?? 0,
       }));
@@ -477,19 +492,28 @@ export default function MarketMain() {
     };
   }, [selectedListing, openListingPanel, t]);
 
+  // POI 상시 참조 레이어 — 동네지도와 동일한 조회/레이어 규칙(usePoiMarkers 공용 훅, 대표 지적
+  // 2026-08-05: "마켓지도에도 동네지도처럼 POI 를 보여달라"). 줌 게이트 밖에서는 매물 핀과 마찬가지로
+  // 비운다(넓은 bbox 대량 조회 방지 + 게이트 안내 화면을 POI 로 어지럽히지 않기).
+  const poiMarkers = usePoiMarkers(showDistrictBadges ? null : bboxFilter, i18n.language);
+
   const mapMarkers = useMemo<MapMarkerV2[]>(
-    () => mapListings
-      .filter((l) => l.lat != null && l.lng != null)
-      .map((l) => ({
-        id: l.id,
-        lat: l.lat as number,
-        lng: l.lng as number,
-        kind: 'listing',
-        label: l.title,
-        selected: focusedListingId === l.id,
-        onClick: () => openListingPanel(l),
-      })),
-    [mapListings, focusedListingId, openListingPanel],
+    () => [
+      // POI 먼저 = 매물 핀이 그 위에 그려진다(동네지도 marker 배열 순서와 동일)
+      ...poiMarkers,
+      ...mapListings
+        .filter((l) => l.lat != null && l.lng != null)
+        .map((l): MapMarkerV2 => ({
+          id: l.id,
+          lat: l.lat as number,
+          lng: l.lng as number,
+          kind: 'listing',
+          label: l.title,
+          selected: focusedListingId === l.id,
+          onClick: () => openListingPanel(l),
+        })),
+    ],
+    [poiMarkers, mapListings, focusedListingId, openListingPanel],
   );
 
   const openAlerts = () => {
@@ -581,6 +605,10 @@ export default function MarketMain() {
               // 켜면 마운트 후 비동기 GPS 완료가 selWard/카메라를 다른 동으로 덮어써
               // 선택 경계와 어긋난다(동네지도 회귀 aa2f214 재발 방지, 2026-08-03 발견 사유와 동일).
               locateOnMount={locationMode === 'all'}
+              // 자동 locate 를 끈 모드(region/gps)에서도 내 위치 파란 점은 찍는다 — dot 전용
+              // 조용한 측위라 카메라·선택 경계에 영향이 없다 (대표 지적 2026-08-04:
+              // "동네지도엔 내 위치가 찍히는데 마켓지도엔 안 찍힌다").
+              meDotOnMount={locationMode !== 'all'}
               // 선택 동 폴리곤 강조(주황 경계 + 외부지역 마스크) — 특정 동으로 범위가
               // 좁혀진 때만 켠다(대표 지시 2026-08-03: "다른 지역은 노출시키지 않으니
               // 그 지역만 테두리를 쳐주는 게 맞다"). '전체 지역'은 여러 동을 함께 보여주므로

@@ -388,6 +388,17 @@ location /engine/ {
 }
 ```
 
+> **⚠️ CSP `worker-src 'self' blob:` 는 지도(maplibre-gl)의 생존 조건이다 (2026-08-05, 대표 지적으로 발견)**
+> `nginx/conf.d/default.conf` 의 `Content-Security-Policy` 에서 이 디렉티브를 빼면 `worker-src` 가
+> `script-src` 로 폴백하고 거기엔 `blob:` 이 없어, maplibre-gl 이 타일 파싱용 blob 워커를 만들지 못해
+> **경로안내(RideNav) 지도가 타일·경로선 하나 없는 빈 화면**이 된다. 증상이 헷갈리는 이유: ETA·거리는
+> BFF JSON 이라 정상 표시돼 "지도만 일부 안 되는" 것처럼 보인다. 판별은 콘솔의
+> `Creating a worker from 'blob:...' violates ... 'worker-src' was not explicitly set` 한 줄.
+> blob: 에는 우리 번들 코드만 담기므로 외부 스크립트 유입 경로가 아니다.
+> **운영 반영 시 함정**: nginx 설정 볼륨이 read-only 마운트라 `docker cp` 가 거부된다 —
+> `docker compose --env-file .env up -d nginx` 로 컨테이너를 재생성해야 반영된다.
+> (같은 CSP 문자열이 `nginx/conf.d/business-landing.conf` 에도 있으나 랜딩은 maplibre 미사용 — 무변경.)
+
 ---
 
 ## 6. 환경변수 추가 (.env / .env.example)

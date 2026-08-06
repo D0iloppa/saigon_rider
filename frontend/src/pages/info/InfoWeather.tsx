@@ -7,13 +7,11 @@ import {
   CheckCircle2,
   Cloud,
   CloudDrizzle,
-  CloudFog,
   CloudLightning,
   CloudOff,
   CloudRain,
   HelpCircle,
   Info,
-  Sun,
   type LucideIcon,
 } from 'lucide-react';
 import { weatherApi } from '@/api/info';
@@ -29,19 +27,8 @@ import sys from '@/styles/system.module.css';
 import RainRadarCard from './RainRadarCard';
 import styles from './InfoWeather.module.css';
 import { formatVnTime } from '@/lib/vnTime';
+import { weatherConditionMeta } from '@/lib/weatherCondition';
 
-/** OpenWeather condition 코드 → 아이콘/번역/색. 미등록 코드는 API 원문(condition_desc) 폴백. */
-const CONDITION_META: Record<string, { Icon: LucideIcon; labelKey: string; color: string }> = {
-  Clear: { Icon: Sun, labelKey: 'cond_Clear', color: '#F59E0B' },
-  Clouds: { Icon: Cloud, labelKey: 'cond_Clouds', color: '#8A8E9E' },
-  Rain: { Icon: CloudRain, labelKey: 'cond_Rain', color: '#3B82F6' },
-  Drizzle: { Icon: CloudDrizzle, labelKey: 'cond_Drizzle', color: '#60A5FA' },
-  Thunderstorm: { Icon: CloudLightning, labelKey: 'cond_Thunderstorm', color: '#8B5CF6' },
-  Mist: { Icon: CloudFog, labelKey: 'cond_Mist', color: '#8A8E9E' },
-  Fog: { Icon: CloudFog, labelKey: 'cond_Mist', color: '#8A8E9E' },
-  Haze: { Icon: CloudFog, labelKey: 'cond_Mist', color: '#8A8E9E' },
-  Smoke: { Icon: CloudFog, labelKey: 'cond_Mist', color: '#8A8E9E' },
-};
 
 const RIDE_META: Record<string, { Icon: LucideIcon }> = {
   CLEAR: { Icon: Bike },
@@ -104,7 +91,7 @@ export default function InfoWeather() {
   const shortTime = (iso: string) => formatVnTime(iso, i18n.language);
   const basis = data?.observed_at ?? data?.fetched_at;
   const timeStr = basis ? shortTime(basis) : '—';
-  const condMeta = cur?.condition ? CONDITION_META[cur.condition] : undefined;
+  const condMeta = weatherConditionMeta(cur?.condition);
   const condLabel = condMeta ? t(`info.weather.${condMeta.labelKey}`) : (cur?.condition_desc ?? '');
   const HeroIcon = condMeta?.Icon ?? Cloud;
   const rideCode = data?.recommendation_code ?? '';
@@ -113,7 +100,7 @@ export default function InfoWeather() {
   const rainWindowH = cur?.rain_prob_window_h ?? 3;
   const RideIcon = RIDE_META[rideCode]?.Icon ?? HelpCircle;
 
-  const hourMeta = (h: ForecastHour) => CONDITION_META[h.condition] ?? { Icon: Cloud, labelKey: '', color: '#8A8E9E' };
+  const hourMeta = (h: ForecastHour) => weatherConditionMeta(h.condition) ?? { Icon: Cloud, labelKey: '', color: '#8A8E9E' };
 
   return (
     <div className={sys.page}>

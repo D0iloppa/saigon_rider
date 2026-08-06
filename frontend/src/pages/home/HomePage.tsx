@@ -25,6 +25,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import styles from './HomePage.module.css';
+import { weatherConditionIcon } from '@/lib/weatherCondition';
 
 // Bến Thành (Quận 1) — 앱 기본 동네
 const FALLBACK = { ...BEN_THANH_FALLBACK, name: 'Bến Thành' };
@@ -104,21 +105,6 @@ const IcoDiamond = () => (
   </svg>
 );
 // 정보 섹션 SVG 아이콘 (이모지 대체 — 플랫폼별 렌더링 차이 방지)
-const IcoSun = () => (
-  <svg width="24" height="24" viewBox="0 0 46 46" fill="none">
-    <circle cx="23" cy="23" r="10" fill="#f59e0b"/>
-    <g stroke="#f59e0b" strokeWidth="4" strokeLinecap="round">
-      <line x1="23" y1="3" x2="23" y2="9"/>
-      <line x1="23" y1="37" x2="23" y2="43"/>
-      <line x1="3" y1="23" x2="9" y2="23"/>
-      <line x1="37" y1="23" x2="43" y2="23"/>
-      <line x1="7.5" y1="7.5" x2="11.9" y2="11.9"/>
-      <line x1="34.1" y1="34.1" x2="38.5" y2="38.5"/>
-      <line x1="38.5" y1="7.5" x2="34.1" y2="11.9"/>
-      <line x1="11.9" y1="34.1" x2="7.5" y2="38.5"/>
-    </g>
-  </svg>
-);
 const IcoFlood = () => (
   <svg width="24" height="24" viewBox="0 0 46 46" fill="none">
     <path d="M37 22a8.5 8.5 0 00-7.2-8.4A11.5 11.5 0 008.5 19.5a.5.5 0 01-.5.5A6.5 6.5 0 009.5 34.5h25A6.5 6.5 0 0037 22z" fill="#3b82f6"/>
@@ -596,7 +582,14 @@ export default function HomePage() {
         {/* ── ④ 동네 정보 ── */}
         <div className={styles.infoCard}>
           <button className={styles.infoItem} onClick={() => navigate('/info/weather')}>
-            <div className={`${styles.infoBubble} ${styles.infoBubbleWeather}`}><IcoSun /></div>
+            {/* 조건별 아이콘 — 종전엔 IcoSun 하드코딩이라 "비 예보"인데 해가 떴다
+                (대표 지적 2026-08-06). 매핑은 lib/weatherCondition.ts 단일 소스. */}
+            <div className={`${styles.infoBubble} ${styles.infoBubbleWeather}`}>
+              {(() => {
+                const { Icon, color } = weatherConditionIcon(cur?.condition);
+                return <Icon size={24} strokeWidth={2} style={{ color }} />;
+              })()}
+            </div>
             <div className={styles.infoVal}>{cur ? `${cur.temp_c}°C` : '--'}</div>
             <div className={styles.infoSub}>{weatherUnavailable ? t('info.weather.unavailableShort') : weather?.stale ? t('info.weather.staleShort') : cur ? (cur.rain_prob_1h > 0 ? t('home.v2.rainForecast') : t('home.v2.clear')) : '—'}</div>
             <div className={styles.infoLabel}>{t('info.weather.title')}</div>

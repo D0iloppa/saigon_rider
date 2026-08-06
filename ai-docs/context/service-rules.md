@@ -27,6 +27,7 @@
 10. **이동 추종은 좌표가 확정된 뒤에만 시작한다.** `native.watchLocation` 은 곧바로 OS 권한창을 띄우므로, 마운트 즉시 걸면 프리프롬프트(원칙 6)를 앞질러 그 장치가 무력화되고 로그인 전 화면에서도 권한창이 뜬다. `App.tsx` 는 `mode==='gps' && coords` 를 만족할 때만 건다.
 11. **폴백 안내는 사유별로 1회**다. 하나의 불리언으로 묶으면 "권역 밖" 안내가 플래그를 소진한 뒤 나중에 권한 거부로 전체 지역이 돼도 아무 설명이 없다.
 12. **dev 좌표 오버라이드**(`/dev/gps` 하네스 전용). `native.getLocation()`/`watchLocation()` 이 `localStorage.__dev_gps` 를 우선 반환한다. **2중 게이트** — 호스트 허용목록(localhost/127.0.0.1/saigon.doil.me) + 명시적 opt-in 키. 빌드타임 플래그(`import.meta.env.DEV`)를 쓰지 않는다: `frontend/Dockerfile` 이 `npm run build`(프로덕션 모드)라 **dev 스택에서도 `DEV` 가 false** 이기 때문.
+13. **위치 획득은 권한 확인 결과로 차단하지 않는다** (2026-08-06 실기기 결함 수정). `requestDeviceLocation()`(`native.ensureLocationPermission()` 후 `native.getLocation()`)은 권한을 **요청하되 결과로 진행을 막지 않는다** — 항상 `getLocation()` 까지 간다. 권한을 보는 커스텀 `Gps` 플러그인(`native/ios/Podfile`, `native/android/capacitor.settings.gradle`)과 실제 측위 경로(`@capacitor/geolocation` 배제 → WebView `navigator.geolocation` 폴백)가 **다르므로**, 커스텀 플러그인의 답과 실제 측위 가능 여부가 어긋날 수 있다. **실제 사고(abb2ded)**: `RideNav`만 이 게이트를 둘러서 동네지도는 정상이었는데 경로찾기만 실기기에서 실패 — dev 오버라이드가 `checkLocationPermission()` 을 무조건 `'granted'` 로 갈아끼워 하네스에선 재현되지 않았다. **실제 권한 거부는 측위 실패(`code===1`)로 드러난다** — `classifyLocationError` 가 `permission` 분류로 안내 문구를 띄우므로(fdb5f69) 게이트 제거 후에도 권한 안내는 유지된다. 계약 테스트 `frontend/src/pages/ride/resolveOriginParity.contract.test.mjs` 이 회귀를 방지한다.
 
 ### 폴백 정책 — "측위 실패"와 "권역 밖"은 다른 사건이다
 

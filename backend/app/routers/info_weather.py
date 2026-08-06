@@ -164,6 +164,77 @@ async def _fetch_openmeteo_rain_prob_1h(lat: float, lng: float) -> int | None:
     return max(values) if values else None
 
 
+# WMO weather code(open-meteo) → OpenWeather condition 문자열. 프론트가 이미 OpenWeather
+# 코드 체계로 아이콘·번역을 매핑하고 있어(lib/weatherCondition.ts) 그 어휘로 정규화한다.
+# https://open-meteo.com/en/docs — 0 맑음 / 1-3 구름 / 45,48 안개 / 51-57 이슬비 /
+# 61-67,80-82 비 / 71-77,85,86 눈 / 95-99 뇌우
+def _wmo_to_condition(code: int) -> str:
+    if code == 0:
+        return "Clear"
+    if code in (1, 2, 3):
+        return "Clouds"
+    if code in (45, 48):
+        return "Fog"
+    if 51 <= code <= 57:
+        return "Drizzle"
+    if 95 <= code <= 99:
+        return "Thunderstorm"
+    if 71 <= code <= 77 or code in (85, 86):
+        return "Snow"
+    if 61 <= code <= 67 or 80 <= code <= 82:
+        return "Rain"
+    return "Clouds"
+
+
+async def _fetch_openmeteo_forecast_24h(lat: float, lng: float) -> list[dict] | None:
+    """24시간 예보(시간단위). 실패 시 None — 호출부가 OpenWeather 3시간 예보로 폴백한다.
+
+    open-meteo 로 옮긴 이유(대표 결정 2026-08-06): OpenWeather /forecast 는 3시간 버킷이라
+    호치민 우기의 국지 소나기를 놓친다. 이미 "1시간 내 강수확률"을 open-meteo 로 받고 있는데
+    24시간 예보만 다른 공급자면 **같은 화면에서 숫자가 어긋나 사용자가 모순으로 읽는다**.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                _OPENMETEO_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lng,
+                    "hourly": "temperature_2m,precipitation_probability,weather_code",
+                    "forecast_hours": 24,
+                    "timezone": "Asia/Ho_Chi_Minh",  # 시각 라벨을 현지시각으로 받는다
+                },
+            )
+        if r.status_code != 200:
+            log.warning("open-meteo 24h returned %s", r.status_code)
+            return None
+        hourly = r.json().get("hourly") or {}
+        times = hourly.get("time") or []
+        temps = hourly.get("temperature_2m") or []
+        pops = hourly.get("precipitation_probability") or []
+        codes = hourly.get("weather_code") or []
+    except (httpx.RequestError, ValueError) as exc:
+        log.warning("open-meteo 24h request failed: %s", exc)
+        return None
+
+    out: list[dict] = []
+    # 3시간 간격으로 솎아 8칸 — 기존 화면(가로 스크롤 카드 8개)과 같은 밀도를 유지한다.
+    for i in range(0, min(len(times), 24), 3):
+        if i >= len(temps) or i >= len(pops) or i >= len(codes):
+            break
+        condition = _wmo_to_condition(int(codes[i]))
+        out.append(
+            {
+                "time": str(times[i])[11:16],  # timezone=Asia/Ho_Chi_Minh 라 이미 현지시각
+                "temp_c": round(float(temps[i]), 1),
+                "condition": condition,
+                "emoji": _condition_emoji(condition),
+                "rain_prob": int(pops[i]) if pops[i] is not None else 0,
+            }
+        )
+    return out or None
+
+
 async def _get_cached(db: AsyncSession, district_code: str, weather_type: str) -> dict | None:
     now = datetime.now(UTC)
     row = (
@@ -377,6 +448,12 @@ async def get_weather(
             raise
 
     async def produce_forecast() -> dict:
+        # 1순위 open-meteo(시간단위) — 강수확률 공급자를 화면 전체에서 통일한다.
+        om = await _fetch_openmeteo_forecast_24h(lat, lng)
+        if om:
+            return {"hourly": om, "_observed_at": datetime.now(UTC).isoformat()}
+
+        # 폴백: OpenWeather 3시간 버킷. 보조 소스 실패가 화면 실패로 번지지 않게 유지한다.
         raw_fc = await _fetch_openweather_forecast(lat, lng, api_key)
         hourly = []
         for item in raw_fc.get("list", [])[:8]:

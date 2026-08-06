@@ -142,16 +142,19 @@
   color: var(--text);
 }
 
+/* 예보 영역의 독립 배너 — 종전엔 현재 날씨 카드 하단에 붙어 있어(border-top) 관측처럼
+   보였다. 예보 섹션으로 옮기면서 카드에서 떼어낸 모양으로 바꾼다(대표 지시 2026-08-06). */
 .rainAlert {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 10px 16px;
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
   background: rgba(59, 130, 246, .08);
   color: #2563EB;
   font-size: 13px;
   font-weight: 700;
-  border-top: 1px solid var(--line);
 }
 
 /* ── 라이딩 판단 카드 ── */

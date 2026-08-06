@@ -171,14 +171,6 @@ export default function InfoWeather() {
                 <b className="num">{cur?.wind_kmh ?? '--'}km/h</b>
               </div>
             </div>
-            {/* 임계 30% — 백엔드 _recommendation_code 의 RAIN_MED 경계와 일치시킨다
-                (강수확률 소스가 3시간 버킷 → 1시간 단위로 바뀐 데 따른 재조정) */}
-            {cur && cur.rain_prob_1h >= 30 && (
-              <div className={styles.rainAlert}>
-                <CloudRain size={15} />
-                <span>{t('info.weather.rainAlert1h', { prob: cur.rain_prob_1h, window: rainWindowH })}</span>
-              </div>
-            )}
           </section>
 
           {/* 라이딩 판단 — "지금 나가도 되나"의 답 */}
@@ -196,10 +188,20 @@ export default function InfoWeather() {
             </div>
           )}
 
-          {/* 24h 예보 — 가로 스트립 */}
+          {/* 24h 예보 — 가로 스트립.
+              "1시간 내 비 예상"은 **관측이 아니라 예보**라 여기(예보 영역)에 둔다. 종전에는
+              현재 날씨 카드 안에 있어 "지금 비인데 왜 85%?"처럼 관측과 예보가 모순으로
+              읽혔다(대표 지적 2026-08-06). */}
           <div className={sys.sectionHead}>
             <span className={sys.sectionLabel}>{t('info.weather.forecastTitle')}</span>
           </div>
+          {/* 임계 30% — 백엔드 _recommendation_code 의 RAIN_MED 경계와 일치시킨다. */}
+          {cur && cur.rain_prob_1h >= 30 && (
+            <div className={styles.rainAlert}>
+              <CloudRain size={15} />
+              <span>{t('info.weather.rainAlert1h', { prob: cur.rain_prob_1h, window: rainWindowH })}</span>
+            </div>
+          )}
           <div className={styles.hourStrip}>
             {forecast.map((h: ForecastHour, i: number) => {
               const meta = hourMeta(h);

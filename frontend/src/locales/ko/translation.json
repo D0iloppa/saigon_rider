@@ -1562,6 +1562,8 @@
     "locate": "내 위치로",
     "locateMe": "내 위치로 시작",
     "centerMap": "지도 중앙으로",
+    "followModeOn": "내 위치 추종 중 — 탭하면 나침반 모드",
+    "compassModeOn": "나침반 모드 — 탭하면 해제",
     "centerSelectedArea": "선택한 지역 중앙으로",
     "outsideArea": "서비스 지역 밖이라 중심가 기준으로 보여드려요",
     "selectArea": "지도가 현재 위치를 찾는 중입니다. 직접 동네를 탭해도 됩니다.",

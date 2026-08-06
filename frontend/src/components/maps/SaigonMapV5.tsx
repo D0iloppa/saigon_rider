@@ -1,4 +1,4 @@
-import { LocateFixed } from 'lucide-react';
+import { LocateFixed, Navigation } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
 import { resolveUsableLocation, type ResolvedLocation } from '@/lib/serviceLocation';
@@ -91,6 +91,11 @@ function rotatedBBoxOfRect(vb: VB, cx: number, cy: number, deg: number): VB {
   }
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
+// heading(나침반) 정책 상수 (D-I §9.3) — 참조 구현(ride/MapCanvas.tsx COURSE_DEADZONE_DEG=8,
+// follow() 의 speed<1.5 게이트)과 동일 값을 그대로 쓴다. 두 화면이 같은 워처·같은 필드에서
+// 오는 같은 신호를 다른 임계로 처리할 근거가 없다.
+const COMPASS_DEADZONE_DEG = 8;
+const COMPASS_MIN_SPEED_MPS = 1.5;
 
 // LOD 임계값 — viewBox 너비 기준
 const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
@@ -438,18 +443,26 @@ function SaigonMapV5({
 
   const [meLatLng, setMeLatLng] = useState<{ lat: number; lng: number } | null>(null);
   // 3-state 카메라 모드(자유/추종/추종+나침반, D-D) — enableFollowCompass=false 면 이 상태를
-  // 바꾸는 경로가 아직 없으므로 'free' 를 벗어날 수 없다(킬스위치). 순환 트리거(◎ 버튼)·회전
-  // 렌더·워처 heading 소비는 후속 단계(§7 step 5~8)에서 이 플래그로 게이트되어 추가된다.
+  // 바꾸는 경로가 없으므로 'free' 를 벗어날 수 없다(킬스위치, §7 step 8 recenterCurrentContext
+  // 참조). 순환 트리거는 ◎ 버튼(recenterCurrentContext)이, heading 소비는 아래 meDot 워처가 맡는다.
   const [followMode, setFollowMode] = useState<'free' | 'follow' | 'compass'>('free');
+  // followMode 미러 — meDot 워처 콜백(effect, deps 에 followMode 를 넣지 않음)이 재구독 없이
+  // 최신 모드를 읽기 위함. 제스처 핸들러(휠·팬·핀치)의 "자유 이탈" 판정도 이 ref 로 stale 값을 피한다.
+  const followModeRef = useRef(followMode);
+  followModeRef.current = followMode;
   // 회전 중심(카메라 중심) 참조용 미러 — 나침반 모드에서 회전 중심은 사용자 위치이지 viewBox
   // 중심이 아니다(D-B 주의사항). 렌더마다 최신값으로 갱신해, effect 의존성 배열에 넣지 않고도
   // 제스처 핸들러(휠 등)가 stale 값을 읽지 않게 한다.
   const meLatLngRef = useRef(meLatLng);
   meLatLngRef.current = meLatLng;
-  // 나침반 회전각(도) — heading 소스 연결은 §7 step 8 소관이라 이 단계는 0 으로 고정한다. 아래
-  // 렌더부의 회전 <g> 조건부 렌더는 이 값이 아니라 enableFollowCompass 로만 게이트된다(D-H) —
-  // 즉 플래그가 꺼지면 이 값과 무관하게 회전 <g> 자체가 트리에 없다.
-  const bearing = 0;
+  // 나침반 방위(GPS course-over-ground, D-I) — meDot 워처가 정책(§9.3: heading/speed null 또는
+  // speed<1.5m/s 면 갱신하지 않음 = 마지막 유효 방위 유지, 데드존 8°) 통과 시에만 갱신한다.
+  const [compassBearing, setCompassBearing] = useState(0);
+  const compassBearingRef = useRef(compassBearing);
+  compassBearingRef.current = compassBearing;
+  // 렌더에 쓰는 실제 회전각 — compass 모드가 아니면 항상 0(북 고정). enableFollowCompass=false
+  // 면 followMode 가 'free' 를 벗어날 수 없으므로 이 값도 항상 0 이다(D-H 킬스위치 불변).
+  const bearing = followMode === 'compass' ? compassBearing : 0;
   // 회전 중심 계산 — ref 만 읽으므로 빈 deps 로 항상 안정적인 참조를 유지해, 이 함수를 쓰는
   // 이펙트(휠 리스너 등)가 매 렌더 재구독되지 않게 한다.
   const getCamCenter = useCallback((): { x: number; y: number } => {
@@ -889,12 +902,25 @@ function SaigonMapV5({
     }
   }, [focusLatLng, onLocate, onLocated, outsideAreaFallback, outsideAreaMessage, selectRegionOnLocate, t]);
 
-  // ◎ 버튼: 항상 GPS 를 다시 측정해 "내 위치"로 센터링 + 줌인한다(focusLatLng 가 L3_VBW*0.9,
-  // 즉 건물/골목이 보이는 최소 줌까지 맞춘다). 종전엔 "동 선택 중이면 그 동 중심으로" 분기가
-  // 있었으나, 지역 선택이 폐기돼(2026-08-06) 갈 곳이 하나뿐이다.
+  // ◎ 버튼: enableFollowCompass=false 면 기존 그대로 — 항상 GPS 를 다시 측정해 "내 위치"로
+  // 센터링 + 줌인(focusLatLng 가 L3_VBW*0.9 로 맞춤)하는 1회성 동작이다(킬스위치, D-H 8.3).
+  // enableFollowCompass=true 면 3-state 순환(자유→추종→추종+나침반→자유, D-D §5)으로 바뀐다 —
+  // 자유에서 추종으로 진입할 때만 runLocate 로 실측·센터링하고, 추종→나침반 전환은 이미 추종
+  // 중인 좌표에 회전만 얹으므로 재측위하지 않는다.
   const recenterCurrentContext = useCallback(() => {
-    void runLocate();
-  }, [runLocate]);
+    if (!enableFollowCompass) {
+      void runLocate();
+      return;
+    }
+    if (followMode === 'free') {
+      void runLocate();
+      setFollowMode('follow');
+    } else if (followMode === 'follow') {
+      setFollowMode('compass');
+    } else {
+      setFollowMode('free');
+    }
+  }, [enableFollowCompass, followMode, runLocate]);
 
   // 검색 결과 등 임의의 좌표 집합이 모두 보이도록 뷰포트를 맞춤(ward 자동 줌과 동일한 방식)
   const fitToPoints = useCallback((points: { lat: number; lng: number }[]) => {
@@ -956,8 +982,20 @@ function SaigonMapV5({
     return native.watchLocation((pos) => {
       if (!inServiceArea(pos.lat, pos.lng)) return;
       setMeLatLng({ lat: pos.lat, lng: pos.lng });
+      // 3-state 추종/나침반(D-D·D-E·D-I) — enableFollowCompass=false 면 followMode 가 'free' 를
+      // 벗어날 수 없으므로 아래는 절대 실행되지 않는다(킬스위치, D-H 8.3). 새 워처를 만들지
+      // 않고 이 콜백에서 heading/speed 를 함께 읽는다 — native.watchLocation 호출은 여전히 1곳.
+      if (followModeRef.current === 'free') return;
+      // 추종: 카메라만 사용자 위치로 따라간다(focusLatLng 를 쓰지 않는다 — D-F, ward 선택·줌
+      // 부작용 없이 중심만 갱신).
+      centerOnUnified(lx(pos.lng), ly(pos.lat));
+      if (followModeRef.current !== 'compass') return;
+      // 나침반(D-I §9.3): heading/speed 없음 또는 저속이면 갱신하지 않는다(마지막 유효 방위 유지).
+      if (pos.heading == null || pos.speed == null || pos.speed < COMPASS_MIN_SPEED_MPS) return;
+      const diff = Math.abs((((pos.heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
+      if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(pos.heading);
     });
-  }, [meDotActive]);
+  }, [meDotActive, centerOnUnified]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();
@@ -1019,6 +1057,8 @@ function SaigonMapV5({
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      // 줌 제스처는 즉시 자유 모드로 이탈시킨다(D-D §5) — 탐색(팬/줌)과 추종은 공존하지 않는다.
+      if (followModeRef.current !== 'free') setFollowMode('free');
       const r = el.getBoundingClientRect(), vb = vbRef.current;
       const rawCx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
       const rawCy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
@@ -1060,6 +1100,8 @@ function SaigonMapV5({
     const vb = vbRef.current;
     const r = e.currentTarget.getBoundingClientRect();
     if (g.pts.size === 2) {
+      // 핀치줌 제스처 — 자유 모드로 이탈(D-D §5).
+      if (followModeRef.current !== 'free') setFollowMode('free');
       const [a, b] = [...g.pts.values()];
       const dist = Math.hypot(b.x - a.x, b.y - a.y);
       if (g.lastD) {
@@ -1077,7 +1119,11 @@ function SaigonMapV5({
     if (g.lastP) {
       const dxRaw = ((e.clientX - g.lastP.x) / r.width) * vb.w;
       const dyRaw = ((e.clientY - g.lastP.y) / r.height) * vb.h;
-      if (Math.abs(e.clientX - g.lastP.x) + Math.abs(e.clientY - g.lastP.y) > 3) g.moved = true;
+      if (Math.abs(e.clientX - g.lastP.x) + Math.abs(e.clientY - g.lastP.y) > 3) {
+        g.moved = true;
+        // 팬 제스처 — 자유 모드로 이탈(D-D §5).
+        if (followModeRef.current !== 'free') setFollowMode('free');
+      }
       // 팬 델타는 화면 좌표계 벡터다 — 지형이 -bearing 만큼 돌아 보이므로, 지도 좌표계로
       // 되돌리려면 +bearing 만큼 회전한다(벡터라 중심 없이 rotateVec 로 충분, §2.5).
       const { x: dx, y: dy } = rotateVec(dxRaw, dyRaw, bearing);
@@ -1715,19 +1761,31 @@ function SaigonMapV5({
           {/* 줌 +/- 도구는 핀치·휠 제스처와 중복되어 현재 주석 처리 상태다. */}
           {/* bottomInsetPx: 드래거블 시트의 현재 노출 높이 — 시트 위에 항상 붙어 다니도록.
               미전달 시(정보 페이지들) CSS 기본값(bottom: 28px)을 그대로 쓴다 */}
-          {showLocateControl && (
-            <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
-              <button
-                type="button"
-                className={styles.ctrlBtn}
-                onClick={recenterCurrentContext}
-                aria-label={t('map.centerMap')}
-                title={t('map.centerMap')}
-              >
-                <LocateFixed size={16} strokeWidth={2.2} />
-              </button>
-            </div>
-          )}
+          {showLocateControl && (() => {
+            // 3-state 시각 구분(D-D §5) — enableFollowCompass=false 면 followMode 가 'free' 를
+            // 벗어날 수 없어 아래는 항상 기존과 동일한 className/label/아이콘으로 귀결된다(킬스위치).
+            const followUiActive = enableFollowCompass && followMode !== 'free';
+            const label = !enableFollowCompass || followMode === 'free'
+              ? t('map.centerMap')
+              : followMode === 'follow'
+                ? t('map.followModeOn')
+                : t('map.compassModeOn');
+            return (
+              <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
+                <button
+                  type="button"
+                  className={followUiActive ? `${styles.ctrlBtn} ${styles.ctrlBtnActive}` : styles.ctrlBtn}
+                  onClick={recenterCurrentContext}
+                  aria-label={label}
+                  title={label}
+                >
+                  {followMode === 'compass'
+                    ? <Navigation size={16} strokeWidth={2.2} />
+                    : <LocateFixed size={16} strokeWidth={2.2} />}
+                </button>
+              </div>
+            );
+          })()}
         </>
       )}
 

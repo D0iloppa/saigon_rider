@@ -32,7 +32,7 @@ test('SaigonMapV5 declares enableFollowCompass prop with false default', () => {
   );
 });
 
-test('SaigonMapV5 keeps a 3-state mode slot that cannot leave "free" without the flag', () => {
+test('SaigonMapV5 keeps a 3-state mode slot that cannot leave "free" without the flag (§7 step 8)', () => {
   const source = read('SaigonMapV5.tsx');
 
   // 모드 상태가 존재하고 초기값이 'free' 다.
@@ -42,15 +42,27 @@ test('SaigonMapV5 keeps a 3-state mode slot that cannot leave "free" without the
     'followMode 3-state slot missing or not initialized to \'free\'',
   );
 
-  // 이 단계에서 setFollowMode 를 호출하는 곳이 없어야 한다 — 순환 트리거는 후속 단계(§7 step 8)
-  // 소관이다. 호출부가 생기면 이 계약이 깨져, 다음 워커가 enableFollowCompass 게이트 없이
-  // 모드를 바꾸는 코드를 추가하지 않았는지 스스로 점검하게 만든다.
+  // step 8 부터는 순환 트리거(◎ 버튼)가 실제로 setFollowMode 를 호출해야 한다 — 더 이상 0곳이면
+  // 안 된다(이전 계약은 step 3~7 구간의 "아직 안 걸림"을 고정한 것이었다).
   const setterCalls = source.match(/setFollowMode\(/g) ?? [];
-  assert.equal(
-    setterCalls.length,
-    0,
-    'setFollowMode is called somewhere — step 3 must not wire mode transitions yet (that is step 8 scope)',
+  assert.ok(
+    setterCalls.length > 0,
+    'setFollowMode must now be called (◎ button 3-state cycle + gesture free-exit, §7 step 8) — 0 calls means step 8 wiring is missing',
   );
+
+  // 킬스위치의 실제 의미는 "0 calls" 가 아니라 "enableFollowCompass 없이는 free 를 벗어나지
+  // 않는다" 다 — recenterCurrentContext 가 !enableFollowCompass 를 가장 먼저 확인하고 그 경로엔
+  // setFollowMode 호출이 없어야 한다(기존 1회성 recenter 동작 그대로).
+  const recenterStart = source.indexOf('const recenterCurrentContext = useCallback(() => {');
+  const recenterEnd = source.indexOf('}, [enableFollowCompass, followMode, runLocate]);', recenterStart);
+  assert.ok(recenterStart >= 0 && recenterEnd > recenterStart, 'recenterCurrentContext callback not found');
+  const recenterBlock = source.slice(recenterStart, recenterEnd);
+  const offBranchStart = recenterBlock.indexOf('if (!enableFollowCompass) {');
+  const offBranchEnd = recenterBlock.indexOf('return;', offBranchStart);
+  assert.ok(offBranchStart >= 0 && offBranchEnd > offBranchStart, 'recenterCurrentContext must early-branch on !enableFollowCompass');
+  const offBranch = recenterBlock.slice(offBranchStart, offBranchEnd);
+  assert.doesNotMatch(offBranch, /setFollowMode\(/, 'the !enableFollowCompass branch must not call setFollowMode — off path stays a 1-shot recenter (killswitch)');
+  assert.match(offBranch, /void runLocate\(\);/, 'the !enableFollowCompass branch must still call runLocate (unchanged 1-shot recenter behavior)');
 
   // onFollowModeChange 통지 이펙트는 enableFollowCompass 가 false 면 그 자체가 실행되지 않는다
   // (얼리 리턴) — off 경로에서 부모에게 아무 통지도 나가지 않아야 "완전히 동일" 주장이 성립한다.

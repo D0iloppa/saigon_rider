@@ -1562,6 +1562,8 @@
     "locate": "My location",
     "locateMe": "Start from my location",
     "centerMap": "Center map",
+    "followModeOn": "Following your location — tap for compass mode",
+    "compassModeOn": "Compass mode — tap to turn off",
     "centerSelectedArea": "Center selected area",
     "outsideArea": "Outside our service area — showing the city center",
     "selectArea": "We are finding your current location. You can also tap a neighborhood to start.",

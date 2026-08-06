@@ -26,14 +26,35 @@ def invalidate_device_cache(device_uuid: str) -> None:
     return None
 
 
+# 앱이 닫혀 있던 공백은 이동 구간으로 계상할 수 없다(포그라운드 전용 워처).
+# 이 값을 넘는 공백 뒤 첫 샘플은 "구간 미상" 으로 보고 거리를 버린다.
+MAX_GAP_S = 300                    # 5분
+
+# 단일 이벤트 거리 절대 상한 — MAX_GAP_S × 150km/h.
+# previous_at 이 없는 첫 이벤트에도 적용해 상한 없는 경로를 없앤다.
+MAX_EVENT_DISTANCE_M = 12_500
+
+
 def _apply_event_time_policy(distance_m: float, previous_at: datetime | None, measured_at: datetime) -> tuple[bool, float]:
-    """역순은 진행도 미반영, 정상 순서는 측정시각 간 속도 범위로 거리 판정."""
+    """역순은 진행도 미반영. 정상 순서는 속도 범위 + 공백 길이 + 절대 상한으로 거리 판정."""
     ordered = previous_at is None or measured_at > previous_at
     accepted_distance = distance_m if ordered and distance_m > 0 else 0.0
+
+    # 절대 상한 — previous_at 유무와 무관하게 적용(첫 이벤트 구멍 차단).
+    if accepted_distance > MAX_EVENT_DISTANCE_M:
+        accepted_distance = 0.0
+
     if accepted_distance > 0 and previous_at is not None:
-        speed_ms = accepted_distance / (measured_at - previous_at).total_seconds()
-        if speed_ms < 3 * 1000 / 3600 or speed_ms > 150 * 1000 / 3600:
+        gap_s = (measured_at - previous_at).total_seconds()
+        # 공백이 길면 그 구간의 이동 경로를 알 수 없다 — 거리 미계상.
+        # (이 검사가 없으면 통과 가능 거리가 공백에 정비례해 게이트가 무력해진다.)
+        if gap_s > MAX_GAP_S:
             accepted_distance = 0.0
+        else:
+            speed_ms = accepted_distance / gap_s
+            if speed_ms < 3 * 1000 / 3600 or speed_ms > 150 * 1000 / 3600:
+                accepted_distance = 0.0
+
     return ordered, accepted_distance
 
 

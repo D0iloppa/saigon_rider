@@ -123,3 +123,73 @@ class GpsPipelineTest(unittest.IsolatedAsyncioTestCase):
         ordered, distance = mileage._apply_event_time_policy(2000, previous, previous + timedelta(seconds=10))
         self.assertTrue(ordered)
         self.assertEqual(distance, 0)
+
+    def test_gap_over_5min_is_dropped_even_at_valid_speed(self):
+        # T-1: 결함 재현 — 공백(8h) 뒤 대형 점프가 "50km/h 정상 주행"으로 통과해서는 안 된다.
+        now = datetime.now(timezone.utc)
+        previous = now - timedelta(hours=8)
+        ordered, distance = mileage._apply_event_time_policy(1_075_000, previous, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 0.0)
+
+    def test_normal_drive_within_gap_is_accepted(self):
+        # T-2
+        now = datetime.now(timezone.utc)
+        previous = now - timedelta(seconds=60)
+        ordered, distance = mileage._apply_event_time_policy(500, previous, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 500)
+
+    def test_gap_boundary_over_max_is_dropped(self):
+        # T-3
+        now = datetime.now(timezone.utc)
+        previous = now - timedelta(seconds=301)
+        ordered, distance = mileage._apply_event_time_policy(1_000, previous, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 0.0)
+
+    def test_gap_boundary_just_under_max_is_accepted(self):
+        # T-4
+        now = datetime.now(timezone.utc)
+        previous = now - timedelta(seconds=299)
+        ordered, distance = mileage._apply_event_time_policy(1_000, previous, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 1_000)
+
+    def test_absolute_event_distance_cap_is_enforced(self):
+        # T-5
+        now = datetime.now(timezone.utc)
+        previous = now - timedelta(seconds=290)
+        ordered, distance = mileage._apply_event_time_policy(50_000, previous, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 0.0)
+
+    def test_first_event_without_previous_is_capped(self):
+        # T-6: 결함 재현 — previous_at 이 없는 첫 이벤트에도 절대 상한이 적용돼야 한다.
+        now = datetime.now(timezone.utc)
+        ordered, distance = mileage._apply_event_time_policy(1_075_000, None, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 0.0)
+
+    def test_first_event_within_cap_is_accepted(self):
+        # T-7
+        now = datetime.now(timezone.utc)
+        ordered, distance = mileage._apply_event_time_policy(500, None, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 500)
+
+    def test_reverse_event_still_rejected(self):
+        # T-8: 기존 동작 보존
+        now = datetime.now(timezone.utc)
+        previous = now + timedelta(seconds=60)
+        ordered, distance = mileage._apply_event_time_policy(500, previous, now)
+        self.assertFalse(ordered)
+        self.assertEqual(distance, 0.0)
+
+    def test_speed_cap_still_rejected(self):
+        # T-9: 기존 동작 보존
+        now = datetime.now(timezone.utc)
+        previous = now - timedelta(seconds=10)
+        ordered, distance = mileage._apply_event_time_policy(5_000, previous, now)
+        self.assertTrue(ordered)
+        self.assertEqual(distance, 0.0)

@@ -94,6 +94,12 @@
 - **`preserveAspectRatio="none"` 이라 `vb.h = vb.w × 컨테이너비율` 불변식이 깨지면 회전이 전단(shear)으로 보인다.** 나침반 진입·컨테이너 리사이즈(`ResizeObserver`) 시 이 비율을 재계산해 유지한다.
 - **이 두 화면(동네지도·마켓지도) 외 6곳에는 회전·추종을 켜지 않는다** — 위치 피커(`BizLocationPicker`·`LocationPickerSheet`)·정보 지도(`InfoFloodMap`·`InfoGasList`·`InfoRepairList`)·`BizPublic`. 탐색 목적이 아니거나 특정 위치 선택이 목적인 화면에서는 추종/회전이 방해가 된다.
 
+### 마일리지 거리 계상 (제정 2026-08-06, Engine `mileage.py::_apply_event_time_policy`)
+
+- **GPS 거리 계상은 공백 5분 초과 구간을 버린다** — 포그라운드 전용 워처이므로 공백 구간의 이동 경로를 알 수 없고, 속도 게이트만으로는 공백 길이에 비례해 뚫린다.
+- **단일 이벤트 거리에는 절대 상한이 있다**(`MAX_EVENT_DISTANCE_M`, `previous_at` 유무와 무관하게 적용) — 첫 이벤트는 속도 검사 대상이 아니므로 상한이 없으면 그 경로가 무제한으로 남는다.
+- `total_distance_m` 은 표시용 숫자가 아니라 마일리지 정책의 반복 달성 조건이다 — RP 적립→쿠폰·기프티콘 환금으로 이어지는 머니 경로이므로 거리 게이트 결함은 표시 버그가 아니라 지급 결함으로 취급한다.
+
 ---
 
 ## 경로 안내 (nav) — 제정 2026-08-06

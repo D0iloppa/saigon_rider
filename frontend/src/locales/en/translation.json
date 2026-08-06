@@ -1560,7 +1560,7 @@
     "locateMe": "Start from my location",
     "centerMap": "Center map",
     "centerSelectedArea": "Center selected area",
-    "outsideArea": "Outside the service area (central HCMC, 37 wards) · showing the city center instead",
+    "outsideArea": "Outside our service area — showing the city center",
     "selectArea": "We are finding your current location. You can also tap a neighborhood to start.",
     "scopeWard": "Selected ward",
     "scopeViewport": "Map area",

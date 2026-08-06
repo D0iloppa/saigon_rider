@@ -48,9 +48,20 @@ test('outOfServiceDetail / outOfService / outsideArea are localized in ko/en/vi 
       typeof json.market?.outOfService === 'string' && json.market.outOfService.length > 0,
       `${lang}: market.outOfService must be a real localized string`,
     );
+    // 경계(37개 동) 설명은 **시트 문구(outOfServiceDetail)** 가 맡는다 — 위에서 이미 검증했다.
+    // 토스트(outsideArea)는 짧아야 한다: 길면 어절 중간에서 줄바꿈된다(대표 지적 2026-08-06).
+    // 종전 계약은 토스트에도 "37" 을 요구해 문구가 두 줄로 깨졌다.
     assert.ok(
-      typeof json.map?.outsideArea === 'string' && /37/.test(json.map.outsideArea),
-      `${lang}: map.outsideArea should mention the 37-ward boundary so users know where the service area ends`,
+      typeof json.map?.outsideArea === 'string' && json.map.outsideArea.length > 0,
+      `${lang}: map.outsideArea must be a real localized string`,
+    );
+    assert.ok(
+      json.map.outsideArea.length <= 60 && !/37/.test(json.map.outsideArea),
+      `${lang}: map.outsideArea must stay a short one-liner (no ward-count jargon) — got ${json.map.outsideArea.length} chars`,
+    );
+    assert.ok(
+      /37/.test(json.market.outOfServiceDetail),
+      `${lang}: the 37-ward boundary explanation belongs in market.outOfServiceDetail`,
     );
   }
 });

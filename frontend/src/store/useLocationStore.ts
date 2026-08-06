@@ -208,10 +208,9 @@ export const useLocationStore = create<LocationState>()(
                 wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
                 permissionIntent: 'granted',
               });
-              notifyFallback(
-                'map.outsideArea',
-                '서비스 지역(호치민 중심 37개 동) 밖이에요 · 중심가를 기준으로 보여드려요',
-              );
+              // 토스트는 한 문장으로 짧게 — 길면 어절 중간에서 줄바꿈된다(대표 지적 2026-08-06).
+              // "37개 동" 같은 내부 용어는 뺀다.
+              notifyFallback('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요');
               return;
             }
             set({

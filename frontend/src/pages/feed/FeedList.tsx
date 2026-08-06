@@ -63,7 +63,7 @@ export default function FeedList() {
       .then((location) => {
         if (cancelled) return;
         if (location.source === 'fallback') {
-          toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' }));
+          toast.neutral(t('map.outsideArea', { defaultValue: '서비스 지역 밖이라 중심가 기준으로 보여드려요' }));
         }
         setNeighborhoodLoc(location.coords);
       })

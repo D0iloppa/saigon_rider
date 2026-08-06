@@ -617,7 +617,7 @@ export default function MarketMain() {
               // SaigonMapV5 는 bottomInsetPx+16 을 bottom 으로 쓴다 → 70+16=86px (FAB 상단 위).
               bottomInsetPx={postPanelOpen ? postPanelHeight : 70}
               outsideAreaFallback
-              outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
+              outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이라 중심가 기준으로 보여드려요' })}
               // 우측 하단 '내 위치' 버튼 — 2026-08-06 복원. 이걸 끄던 근거(service-rules GPS
               // 원칙 2 "지도 탐색에 GPS 미사용")가 대표 지시로 폐기됐다.
               showLocateControl

@@ -498,7 +498,7 @@ export default function SaigonMapV2({
     }
     const inside = pos.lat >= D1_BBOX.S && pos.lat <= D1_BBOX.N && pos.lng >= D1_BBOX.W && pos.lng <= D1_BBOX.E;
     if (!inside) {
-      resetAndToast(t('map.outsideArea', '현재 위치가 서비스 지역(호치민 도심) 밖이에요'));
+      resetAndToast(t('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요'));
       return;
     }
     await locateTo(pos);

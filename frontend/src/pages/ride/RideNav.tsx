@@ -265,7 +265,7 @@ export default function RideNav() {
     const outOfArea = !inServiceArea(from.lat, from.lng);
     const routeOrigin = outOfArea ? BEN_THANH_FALLBACK : from;
     setOrigin(routeOrigin);
-    if (outOfArea) toast.neutral(t('map.outsideArea', '서비스 지역 밖이에요 · 호치민 중심을 보여드려요'));
+    if (outOfArea) toast.neutral(t('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요'));
     const locale = i18n.resolvedLanguage ?? i18n.language;
     const data = await routeApi.getRoute(routeOrigin, dest, locale).catch(() => null);
     if (!data?.configured) {

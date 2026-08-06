@@ -1129,7 +1129,7 @@ export default function NeighborhoodMapCanvas({
         onDepthChange={(gate, belowL3) => { setShowDistrictBadges(gate); setShowZoomHint(belowL3); }}
         outsideAreaFallback
         emitBboxRef={emitBboxRef}
-        outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
+        outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이라 중심가 기준으로 보여드려요' })}
         locateRef={locateRef}
         searchFitRef={searchFitRef}
         forceMarkers={isSearching}

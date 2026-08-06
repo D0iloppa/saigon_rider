@@ -84,6 +84,16 @@
 - **'확대해서 주변 보기' 힌트 필**은 하단 가운데에 둔다(우하단은 ◎·FAB 와 겹친다). 노출 조건은 **L3 미도달**(`onDepthChange` 의 2번째 인자 `belowL3`)이며, 데이터 게이트(`markerDepth`)와 분리한다 — 마켓은 L2 에서 이미 핀이 보이지만 힌트는 L3 까지 유도해야 한다. 탭하면 내 위치가 아니라 **현재 지도 중앙**을 확대한다.
 - **L2 줌 게이트는 유지한다** — 멀리서 볼 때 확대를 유도하는 장치라 존치(대표 확인 2026-08-06). 게이트 미만에서는 지도·시트 모두 비우고 확대 안내 필을 노출한다.
 
+### 회전(나침반) — `enableFollowCompass` (제정 2026-08-06, [`260806_svg_map_v6_rotation_design.md`](../260806_svg_map_v6_rotation_design.md))
+
+- **`SaigonMapV5` 는 `enableFollowCompass` prop 이 있어야만 카메라 추종·나침반 회전이 켜진다.** 미전달 8개 소비처(위치 피커·정보 지도 등)는 기존 동작과 완전히 동일하다(킬스위치). 배선된 곳은 **동네지도(`NeighborhoodMapCanvas`)·마켓지도(`MarketMain`)뿐**이다.
+- **기본은 여전히 미추종(표시 전용, `followMode:'free'`)이다.** 사용자가 ◎ 버튼을 눌러야 [자유→추종→추종+나침반] 3-state 로 전환되며, **팬·핀치 제스처는 즉시 자유 모드로 되돌린다.** 상시 follow 금지(§경로 안내 "탐색과 안내는 분리한다"와 동일 원칙).
+- **나침반 모드에서는 L3(건물)를 렌더하지 않는다(L2 고정).** 회전 시 화면을 덮으려면 뷰포트가 오버스캔(√2, 45°에서 면적 2배)돼야 하는데, L3 피처가 그만큼 늘면 저사양 기기에서 프레임이 무너진다.
+- **heading 소스는 GPS course-over-ground 단일**이다(자력계 DeviceOrientation 미도입). 데드존 8°, `speed < 1.5 m/s` 이거나 `heading`/`speed` 가 `null` 이면 회전하지 않고 **마지막 유효 방위를 유지**한다.
+- **회전 계층은 SVG 내부 `<g transform="rotate(...)">` 하나뿐이다.** 루트 `<svg>` 에 CSS `transform` 을 걸지 말 것 — `getBoundingClientRect()` 가 부풀어(각도에 따라 최대 √2배) 팬·탭·휠 제스처가 조용히 틀어진다.
+- **`preserveAspectRatio="none"` 이라 `vb.h = vb.w × 컨테이너비율` 불변식이 깨지면 회전이 전단(shear)으로 보인다.** 나침반 진입·컨테이너 리사이즈(`ResizeObserver`) 시 이 비율을 재계산해 유지한다.
+- **이 두 화면(동네지도·마켓지도) 외 6곳에는 회전·추종을 켜지 않는다** — 위치 피커(`BizLocationPicker`·`LocationPickerSheet`)·정보 지도(`InfoFloodMap`·`InfoGasList`·`InfoRepairList`)·`BizPublic`. 탐색 목적이 아니거나 특정 위치 선택이 목적인 화면에서는 추종/회전이 방해가 된다.
+
 ---
 
 ## 경로 안내 (nav) — 제정 2026-08-06

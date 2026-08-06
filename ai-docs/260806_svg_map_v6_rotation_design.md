@@ -2,7 +2,7 @@
 
 > 작성: 2026-08-06 · **개정 2026-08-06 (2차)** · 대상: `frontend/src/components/maps/SaigonMapV5.tsx`(1,595줄)
 > 배경: 대표 지시 2026-08-06 18:47 "마켓 동네지도로 적용해"(카메라 추적 + 나침반)
-> 상태: **결정서 — 구현 착수 가능(미착수).** 롤백 기준점 `e9c072f`.
+> 상태: **완료 — §7 step 1~10 전부 구현·커밋됨(2026-08-06).** 롤백 기준점 `e9c072f`. 알려진 갭 2건은 §10 참조.
 > 관련: [`context/service-rules.md`](context/service-rules.md) · [`260806_proximity_ad_design.md`](260806_proximity_ad_design.md)
 >
 > **파일명 주의**: 파일명에 `v6` 가 남아 있으나 **신규 컴포넌트 V6 는 만들지 않는다**(D-H). 파일명은
@@ -259,20 +259,24 @@ if (idx >= 0 && opts?.selectRegion !== false) {
 ```
 1. ✅ 완료 — V5 현행 커밋 (회전 없음, 동작 보존)
       롤백 기준점 = e9c072f (작업트리 정리 완료). 회전 참조 구현 = d89041d (RideNav course-up)
-2. focusLatLng selectRegion:false 결함 수정 + 계약 테스트          ← 회전과 독립, 선행 (D-F)
-3. enableFollowCompass prop + 킬스위치 계약 테스트 (회전 코드 0줄)  ← 검증: 두 소비 화면 DOM diff 0 (§8)
-4. vb 비율 불변식 재확인 — 나침반 진입·리사이즈 시 vb.h = vb.w×ar   ← 검증: 컨테이너 비율을 바꿔도 전단 없음 (§2.3)
-5. 지형 회전 <g> + 좌표 회전 헬퍼 (라벨·마커 6곳 + anchorOverlay)   ← 검증: 임의 각도에서 글자 수평·말풍선이 핀에 붙음 (D-G/D-B, §3.3)
-6. rotateVec + 제스처 역회전 (:916 휠 / :955 핀치 / :965 팬 / :1000 탭) ← 검증: bearing=45° 에서 손가락-지도 일치 (§2.5)
-7. 컬링 사각형 회전 bbox 확장 + L3 게이트                          ← 검증: 저사양 기기 프레임 측정 (D-C)
-8. 3-state 토글 UI + 기존 meDot 워처에서 heading/speed 소비         ← 검증: 팬 시 자유 이탈, 정지 시 회전 정지 (D-D/D-E/D-I)
-9. readDevGpsOverride() heading/speed 통과 + /dev/gps 회전 e2e      ← 회전을 자동검증 가능한 유일한 경로 (§9.4)
-10. service-rules.md §지도 렌더 갱신 + SaigonMapV5:845 주석 참조 정정 ← 문서 동기화 (§5 주석 참조)
+2. ✅ 완료 (639b48b) — focusLatLng selectRegion:false 결함 수정 + 계약 테스트 (D-F)
+3. ✅ 완료 (dd53b7d) — enableFollowCompass prop + 킬스위치 계약 테스트 (회전 코드 0줄, §8)
+4. ✅ 완료 (66ada52) — vb 비율 불변식 재확인 — 나침반 진입·리사이즈 시 vb.h = vb.w×ar (§2.3)
+5. ✅ 완료 (ae16020) — 지형 회전 <g> + 좌표 회전 헬퍼 (라벨·마커 6곳 + anchorOverlay, D-G/D-B, §3.3)
+6. ✅ 완료 (08cd1e3) — rotateVec + 제스처 역회전 (휠/핀치중심/팬/탭 4곳, §2.5)
+7. ✅ 완료 (916509d) — 컬링 사각형 회전 bbox 확장 + L3 게이트 (D-C)
+8. ✅ 완료 (fc99654) — 3-state 토글 UI + 기존 meDot 워처에서 heading/speed 소비 (D-D/D-E/D-I)
+9. ✅ 완료 (88bd487) — readDevGpsOverride() heading/speed 통과 (§9.4) — /dev/gps 회전 e2e 는 스택 미구동으로 실행 확인 못함(작업 보고 참조)
+10. ✅ 완료 (본 커밋) — service-rules.md §지도 렌더 갱신 + SaigonMapV5:977 주석 참조 정정("원칙 5" → "§지도 렌더")
 ```
 
 **3번 검증 기준이 핵심이다** — prop 미전달 상태에서 현행과 **DOM 이 동일**해야 한다. 여기서 어긋나면 회전 이전에 이미 회귀가 들어간 것이다.
 
 **5번과 6번의 순서가 원안과 바뀌었다** — 먼저 회전을 눈에 보이게 만든 뒤(5) 제스처를 맞춘다(6). 반대로 하면 역회전이 맞는지 확인할 화면이 없다.
+
+**감독 추가 작업 2건 (§7 에 없던 갭, 완료)**:
+- 탭 히트테스트(`depth1.wards.findIndex(... wardInView(i, vb) ...)`)가 회전 미적용 축정렬 `vb` 를 써서, 나침반 모드에서 회전된 화면 모서리를 탭하면 엉뚱한 동으로 잡히거나 못 잡히던 실제 결함 — `rotatedBBoxOfRect` 를 재사용해 수정 (`748e1b6`).
+- `enableFollowCompass` 를 실제로 배선한 소비처가 0곳이라 기능이 앱에서 관찰되지 않던 문제 — 동네지도(`NeighborhoodMapCanvas`)·마켓지도(`MarketMain`) 2곳에만 배선, 나머지 6곳(위치 피커·정보 지도)은 미배선 유지 (`36c0b04`).
 
 ---
 
@@ -371,7 +375,10 @@ heading == null  ||  speed == null  ||  speed < 1.5 m/s   →  회전하지 않�
 ## 10. 미결 / 후속
 
 > **개정(2차)**: heading 소스 항목은 **D-I(§9)로 해소**돼 이 목록에서 내렸다.
+> **개정(3차, step 1~10 완료 후)**: 알려진 갭 2건을 아래에 명시한다.
 
+- **알려진 갭 1 — 쿼리 bbox 가 미회전이다.** `onBboxChange`/`onRawViewportChange` 가 emit 하는 "가시-안전 사각형"은 회전 전 축정렬 `vb` 기준이다(렌더 컬링·탭 히트테스트는 `rotatedBBoxOfRect` 로 고쳤지만, 이 두 콜백은 의도적으로 남겨뒀다 — step 7 워커). 나침반 모드에서 회전된 화면 모서리에 들어온 콘텐츠(업체·매물 등)가 백엔드 조회에서 누락될 수 있다. 백엔드 콘텐츠 쿼리와 뷰포트 복원/크로스헤어 소비자에 영향이 있어 **별건 판단이 필요하다** — 이번 범위에서 고치지 않는다.
+- **알려진 갭 2 — iOS/Android orientation 혼재.** iOS 는 landscape 를 허용하고 Android 는 portrait 고정이라, 컨테이너 비율 변화에 대응하기 위해 `ResizeObserver`(§2.3, step 4)를 추가했다. **iOS 도 portrait 고정하면 `ResizeObserver` 자체가 불필요해진다** — 앱 전역 제품 결정으로 남긴다.
 - **maplibre 전환 대안**: 회전·컬링·라벨 배치를 엔진이 처리하는 경로. `maplibre-gl` 은 이미 의존성에 있고 `MapCanvas` 에 동작 선례가 있다. 12,518줄 자작 지도의 대체 범위 산정이 필요하므로 **이번 결정에서 제외한다(재논의 금지).** 회전 도입 이후 회전 관련 결함이 반복되면 그때 재검토 대상으로 남긴다.
 - `260806_proximity_ad_design.md` §1 의 "(`follow` + 나침반 회전)" 서술은 `MapCanvas`(maplibre) 기준이었다. 마켓·동네지도에는 D-D(3-state) 로 성립한다는 단서 필요 — **문서 커밋 담당이 반영.**
 - **`ResizeObserver` 부재**(§2.3) 는 회전과 무관하게 존재하는 기존 한계다. 회전을 켤 때 §7 step 4 가 이를 부분적으로 메우지만, 컨테이너 비율 변화 일반에 대한 대응은 별건으로 남는다.

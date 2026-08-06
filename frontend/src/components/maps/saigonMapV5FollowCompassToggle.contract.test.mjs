@@ -11,26 +11,37 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // D-I heading 정책). step 3~7 계약(saigonMapV5RotationKillswitch, saigonMapV5RotationLayers)이
 // 고정한 것과 겹치지 않는, step 8 에서 새로 성립하는 계약만 다룬다.
 
-test('SaigonMapV5 gates L3 rendering on bearing===0 (D-C, compass mode disables L3)', () => {
+// D-C 폐기(2026-08-06, 사용자 지시) — "나침반 모드에서 L3 비활성"은 뒤집혔다. L3 는 이제
+// bearing 과 무관하게 vbW 임계만으로 게이트되고, 오버스캔 방어는 컬링(rotatedBBoxOfRect)이 맡는다.
+test('SaigonMapV5 no longer gates L3 on bearing (D-C reversed — L3 renders during compass rotation)', () => {
   const source = read('SaigonMapV5.tsx');
   assert.match(
     source,
-    /const showL3 = L3_ENABLED && !lightweight && vb\.w < L3_VBW && bearing === 0;/,
-    'showL3 must AND bearing===0 into the existing LOD threshold — compass rotation (bearing!==0) must disable L3',
+    /const showL3 = L3_ENABLED && !lightweight && vb\.w < L3_VBW;/,
+    'showL3 must be gated only by the existing LOD threshold — bearing===0 must not be ANDed in anymore (D-C reversed)',
+  );
+  assert.doesNotMatch(
+    source,
+    /const showL3 = .*bearing/,
+    'showL3 must not reference bearing at all (D-C reversed, 2026-08-06)',
   );
 });
 
-test('SaigonMapV5 expands the L2 ward culling rect for rotation via a rotated-AABB helper that is identity at bearing===0', () => {
+test('SaigonMapV5 expands the L2/L3 ward culling rect for rotation via a rotated-AABB helper that is identity at bearing===0', () => {
   const source = read('SaigonMapV5.tsx');
   assert.match(
     source,
     /function rotatedBBoxOfRect\(vb: VB, cx: number, cy: number, deg: number\): VB \{\s*if \(deg === 0\) return vb;/,
     'rotatedBBoxOfRect must early-return the original vb unchanged when deg===0 (killswitch: culling result unchanged for the 8 existing consumers)',
   );
-  assert.match(
-    source,
-    /wardInView\(i, cullVb\)/,
-    'Layer 2 ward render loop must cull against the rotation-expanded rect (cullVb), not the raw axis-aligned vb',
+  // 3곳: onViewportChange 프리로드 루프 + Layer 2 렌더 + Layer 3(renderL3Layer) 렌더 — 각각 자기
+  // 스코프의 cullVb(동일 헬퍼, 다른 지역변수)를 쓴다. L3 는 이제 회전 중에도 렌더되므로(D-C
+  // 반전) 그 ward 게이트도 축정렬 vb 가 아니라 cullVb 를 써야 회전한 화면 모서리에서 안 빠진다.
+  const cullConsumers = source.match(/wardInView\(i, cullVb\)/g) ?? [];
+  assert.equal(
+    cullConsumers.length,
+    3,
+    'preload loop + Layer 2 + Layer 3 (renderL3Layer) ward gates must all cull against the rotation-expanded rect (cullVb), not the raw axis-aligned vb — L3 is no longer gated off during rotation (D-C reversed), so its ward gate must also be rotation-safe',
   );
 });
 

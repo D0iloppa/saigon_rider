@@ -754,11 +754,21 @@ function SaigonMapV5({
       // "가시-안전 사각형" 기준 — LOD(l2/l3, 위 vb.w 기준)·렌더 뷰포트(viewBox)·제스처와는
       // 무관하게 이 emit 값에만 적용한다.
       const { top: topCropUnits, bottom: bottomCropUnits } = getQueryCropUnits(vb.h);
+      const croppedVb: VB = { x: vb.x, y: vb.y + topCropUnits, w: vb.w, h: vb.h - topCropUnits - bottomCropUnits };
+      // 알려진 갭 1 해소(설계서 §10) — 나침반 회전 중엔 화면의 회전된 모서리에 콘텐츠(POI 등)가
+      // 들어와도 이 조회 bbox 가 회전 전 축정렬이면 그 콘텐츠가 백엔드 조회에서 누락된다. 컬링·탭
+      // 히트테스트와 동일하게 rotatedBBoxOfRect 로 확장한다 — bearing===0 이면 croppedVb 를 그대로
+      // 반환해 기존 8곳 소비처(회전 미사용)의 조회 bbox 는 바이트 단위로 동일하다. onRawViewportChange
+      // (뷰포트 복원·크로스헤어, "raw 중심 = 실제 컨테이너 중심" 불변식)는 이 확장 대상이 아니다 —
+      // camCenter(카메라/사용자 위치) 기준으로 넓히면 그 중심이 컨테이너 중심에서 벗어나 불변식이
+      // 깨지므로, 조회(query) bbox 하나만 넓히고 raw 는 위에서 그대로 emit 한다.
+      const { x: camCx, y: camCy } = getCamCenter();
+      const queryVb = rotatedBBoxOfRect(croppedVb, camCx, camCy, bearing);
       onBboxChange?.({
-        N: uy2lat(vb.y + topCropUnits),
-        S: uy2lat(vb.y + vb.h - bottomCropUnits),
-        W: ux2lng(vb.x),
-        E: ux2lng(vb.x + vb.w),
+        N: uy2lat(queryVb.y),
+        S: uy2lat(queryVb.y + queryVb.h),
+        W: ux2lng(queryVb.x),
+        E: ux2lng(queryVb.x + queryVb.w),
       });
     }
 
@@ -1222,10 +1232,11 @@ function SaigonMapV5({
   // ── LOD 상태 (render 시점 기준) ────────────────────────────
   const vb = vbRef.current;
   const showL2 = vb.w < L2_VBW;
-  // 나침반 회전 중(bearing!==0)엔 L3(건물)를 렌더하지 않는다(D-C, §4·§7 step 7) — 오버스캔으로
-  // 피처가 최대 2배 늘어나는 구간을 저사양 기기에서 감당하지 못한다. bearing===0(킬스위치·자유·
-  // 추종 모드)이면 기존과 동일하게 L3_VBW 임계만으로 게이트된다.
-  const showL3 = L3_ENABLED && !lightweight && vb.w < L3_VBW && bearing === 0;
+  // 나침반 회전 중에도 L3(건물)를 렌더한다 — 구 D-C 결정(회전 시 L3 비활성)은 사용자 지시로
+  // 2026-08-06 폐기됐다. 오버스캔(회전 시 가시영역 최대 √2배 → 피처 약 2배)에 대한 방어는
+  // 컬링(rotatedBBoxOfRect, cullVb 아래)이 맡는다 — 저사양 기기에서 문제가 되면 L3 를 끄는
+  // 대신 오버스캔 여유(FEATURE_CULL_MARGIN 등)를 줄이는 쪽을 먼저 검토한다.
+  const showL3 = L3_ENABLED && !lightweight && vb.w < L3_VBW;
   // 도로폭 배율·건물 음영 게이트 — 마커 r 과 동일하게 render 시점 vb 기준 (제스처 종료 시 재계산).
   // 음영 duplicate 는 건물 노드를 2배로 만들므로 딥줌 절반(vbW<350)부터만 적용해 노드를 아낀다.
   const roadK = roadWidthK(vb.w);
@@ -1336,19 +1347,22 @@ function SaigonMapV5({
   // 하에서만 호출된다. 상세지도를 끄려면 상단 L3_ENABLED 를 false 로.
   // (ward 별 nested SVG — 피처 단위 뷰포트 컬링 적용. 마커/핀 렌더와는 무관.)
   const renderL3Layer = () => depth1.wards.map((w, i) => {
-    if (!w.slug || !wardInView(i, vb)) return null;
+    // cullVb(회전 bbox, D-C) 로 게이트 — 회전 중엔 축정렬 vb 로 걸러내면 회전한 화면 모서리의
+    // ward 가 누락된다(L2 와 동일 패턴, 2026-08-06 L3 회전 중 표시 활성화로 이 게이트도 맞춤).
+    if (!w.slug || !wardInView(i, cullVb)) return null;
     if (polyActive && selWard !== null && i !== selWard) return null;
     const d = wardData[w.slug as string];
     if (!d?.d3) return null;
     const d3 = d.d3;
     const r = bboxToRect(d3.bbox);
     // 피처 단위 뷰포트 컬링 — ward 전체가 아니라 현재 뷰포트(+마진)와 교차하는
-    // 건물/도로만 렌더한다(§FEATURE_CULL_MARGIN). 통합 좌표(vb) → ward-local(VW/VH)
-    // 변환 후 사전계산된 bbox(entry.d3.bldgBox/roadBox, 로드 시 1회)와 비교.
-    const lvx1 = (vb.x - r.x) / r.w * d3.VW;
-    const lvy1 = (vb.y - r.y) / r.h * d3.VH;
-    const lvx2 = (vb.x + vb.w - r.x) / r.w * d3.VW;
-    const lvy2 = (vb.y + vb.h - r.y) / r.h * d3.VH;
+    // 건물/도로만 렌더한다(§FEATURE_CULL_MARGIN). 통합 좌표(cullVb, 회전 bbox) → ward-local
+    // (VW/VH) 변환 후 사전계산된 bbox(entry.d3.bldgBox/roadBox, 로드 시 1회)와 비교. cullVb 를
+    // 써야 회전한 화면 모서리에 걸친 건물/도로가 빈 공간으로 컬링되지 않는다.
+    const lvx1 = (cullVb.x - r.x) / r.w * d3.VW;
+    const lvy1 = (cullVb.y - r.y) / r.h * d3.VH;
+    const lvx2 = (cullVb.x + cullVb.w - r.x) / r.w * d3.VW;
+    const lvy2 = (cullVb.y + cullVb.h - r.y) / r.h * d3.VH;
     const mgx = (lvx2 - lvx1) * FEATURE_CULL_MARGIN;
     const mgy = (lvy2 - lvy1) * FEATURE_CULL_MARGIN;
     const cx1 = lvx1 - mgx, cy1 = lvy1 - mgy, cx2 = lvx2 + mgx, cy2 = lvy2 + mgy;

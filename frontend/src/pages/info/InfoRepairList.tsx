@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, BadgeCheck, Gift, List, Map as MapIcon, Navigation, Plus, Wrench, ZoomIn } from 'lucide-react';
+import { AlertCircle, BadgeCheck, ChevronUp, Gift, Map as MapIcon, Navigation, Plus, Wrench, ZoomIn } from 'lucide-react';
 import { repairApi } from '@/api/info';
 import type { RepairShop } from '@/api/info';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -10,13 +10,13 @@ import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
 import { swrRead, swrWrite } from '@/lib/swrCache';
-import { findNearestDistrict } from '@/components/maps/district-data';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { L3_ENABLED, type DistrictBadge } from '@/components/maps/SaigonMapV5';
 import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
 import { buildPoiLayer } from '@/components/maps/poiLayer';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import LocationContextBar from '@/components/info/LocationContextBar';
+import { clusterByViewport } from '@/lib/clusterPoints';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
 import StateBlock from '@/components/ui/StateBlock';
 import { PullIndicator } from '@/components/ui/PullIndicator';
@@ -47,7 +47,8 @@ export default function InfoRepairList() {
   // 줌 힌트 — L3(건물/골목) 미도달 상태에서 노출. 탭하면 현재 지도 중앙을 L3 로 확대한다.
   const [showZoomHint, setShowZoomHint] = useState(true);
   const zoomInRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
-  const viewportRef = useRef<{ N: number; S: number; E: number; W: number } | null>(null);
+  // 클러스터 격자 기준이자 줌힌트의 확대 중심 — 렌더에 반영돼야 하므로 state 다.
+  const [viewport, setViewport] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
 
   // 반경 내 정비소 거리순 정렬. 'gps' 표시범위면 radiusKm 로 자르고, '전체'면 자르지 않는다.
   // 종전엔 선택 동 폴리곤(regionContains)으로 걸러 구 경계에 걸친 곳이 빠졌다(2026-08-06 폐기).
@@ -89,17 +90,13 @@ export default function InfoRepairList() {
   );
 
   // 도시 전경(줌아웃)에서 개별 핀이 숨는 구간용 구별 집계 배지.
-  const districtBadges = useMemo<DistrictBadge[]>(() => {
-    const byCode = new Map<string, DistrictBadge>();
-    listShops.forEach((s) => {
-      const d = findNearestDistrict(s.lat, s.lng);
-      if (!d) return;
-      const cur = byCode.get(d.code);
-      if (cur) cur.count += 1;
-      else byCode.set(d.code, { lat: d.gps.lat, lng: d.gps.lng, count: 1 });
-    });
-    return [...byCode.values()];
-  }, [listShops]);
+  // 줌아웃 시 묶어 보여줄 클러스터 — 구(district) 단위 집계에서 **뷰포트 격자 클러스터**로
+  // 교체했다(대표 지적 2026-08-06: 배지 위치가 실제 지점과 어긋나고 합계도 안 맞았다).
+  // 위치는 구성원 무게중심이고, 대상은 목록과 같은 집합이라 합계가 일치한다.
+  const clusters = useMemo<DistrictBadge[]>(
+    () => clusterByViewport(listShops, viewport),
+    [listShops, viewport],
+  );
 
   const fetchShops = useCallback((origin: { lat: number; lng: number }) => {
     const { lat, lng } = origin;
@@ -179,7 +176,8 @@ export default function InfoRepairList() {
       <LocationContextBar
         trailing={
           <button type="button" className={`${sys.chipBtn} ${mapOpen ? sys.chipBtnActive : ''}`} onClick={toggleMap}>
-            {mapOpen ? <List size={15} /> : <MapIcon size={15} />}
+            {/* 지도/목록 배타 전환이 아니라 지도 펼침·접힘이다 — 아이콘도 그에 맞춘다. */}
+            {mapOpen ? <ChevronUp size={15} /> : <MapIcon size={15} />}
             {mapOpen ? t('info.mapChipClose') : t('info.mapChipOpen')}
           </button>
         }
@@ -194,7 +192,9 @@ export default function InfoRepairList() {
               <SaigonMapV5
                 height="100%"
                 markers={repairMarkers}
-                districtBadges={districtBadges}
+                districtBadges={clusters}
+                // 클러스터 탭 = 그 지점으로 L3 확대 (개별 dot 이 보이는 깊이까지).
+                onBadgeClick={(b) => zoomInRef.current?.({ lat: b.lat, lng: b.lng })}
                 // L3 상세지도 부활 게이트: NeighborhoodMapCanvas 와 동일하게 SaigonMapV5.tsx 상단
                 // L3_ENABLED(현재 true) 를 미러링 — depth3 건물/도로 로드.
                 lightweight={!L3_ENABLED}
@@ -205,13 +205,16 @@ export default function InfoRepairList() {
                 initialGps={origin}
                 // 우측 하단 '내 위치'(◎) 버튼 — 마켓·동네지도와 동일하게 노출 (2026-08-06).
                 showLocateControl
+                // 진입 즉시 내 위치 파란 점을 찍는다 — 종전엔 ◎ 를 눌러야만 나타났다
+                // (대표 지적 2026-08-06). 카메라는 건드리지 않는 dot 전용 측위다.
+                meDotOnMount
                 // ward 자동선택 부작용 방지 (동네지도와 동일)
                 selectRegionOnLocate={false}
                 // 뷰포트 모드 — 지역선택 폴리곤 강조 끔. selectRegionOnLocate 만으로는
                 // focusLatLng 의 else-if 분기가 setSelWard 를 호출해 오렌지 테두리가 남는다.
                 polyActive={false}
                 zoomInRef={zoomInRef}
-                onBboxChange={(b) => { viewportRef.current = b; }}
+                onBboxChange={setViewport}
                 // 힌트는 L3 미도달일 때 — 데이터 게이트(markerDepth='l2')와 분리된 신호다.
                 onDepthChange={(_gate, belowL3) => setShowZoomHint(belowL3)}
               />
@@ -221,8 +224,9 @@ export default function InfoRepairList() {
                   className={sys.mapZoomHint}
                   onClick={() => {
                     // 내 위치가 아니라 **현재 지도 중앙** 기준으로 확대한다.
-                    const b = viewportRef.current;
-                    if (b) zoomInRef.current?.({ lat: (b.N + b.S) / 2, lng: (b.E + b.W) / 2 });
+                    if (viewport) {
+                      zoomInRef.current?.({ lat: (viewport.N + viewport.S) / 2, lng: (viewport.E + viewport.W) / 2 });
+                    }
                   }}
                 >
                   <ZoomIn size={14} strokeWidth={2.2} aria-hidden="true" /> {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}

@@ -46,7 +46,11 @@
 - `store/useLocationStore.ts` — `mode: 'gps' | 'all'`, `coords`, `wardName`(**라벨 전용**), `coordsSource`, `permissionIntent`, `ensureLocation()`, `setMode()`.
 - **`region` / `selectRegion` / `selectAll` / `useSelectedRegion` / `location` 스냅샷은 제거됐다.** persist 는 `version: 4` 로 올려 구버전 값(`mode:'region'`)이 되살아나지 않게 한다.
 - **`wardName` 을 필터 판정에 쓰지 말 것** — 판정은 좌표 반경이다. 동 폴리곤은 중심부 37개만 커버해 그 밖에서는 라벨이 `null` 이 되는데, 이걸 판정에 쓰면 결과가 통째로 빈다.
-- 정보 화면 공통 소비는 `hooks/useServiceLocation.ts`(→ `{ origin, radiusKm, label }`), 표시범위 시트는 `components/location/DisplayScopeSheet.tsx`(앱 공용 2옵션).
+- 정보 화면 공통 소비는 `hooks/useServiceLocation.ts`(→ `{ origin, fetchRadiusKm, label }`), 표시범위 시트는 `components/location/DisplayScopeSheet.tsx`(앱 공용 2옵션).
+- **조회 반경은 `fetchRadiusKm` 하나로만 정한다.** `'gps'`=`NEARBY_RADIUS_KM`(3km), `'all'`=`ALL_AREA_RADIUS_KM`(12km, 37개 동 전역). 화면에 반경 상수를 따로 두지 말 것 — 종전 `FETCH_RADIUS_KM=3` 하드코딩 때문에 두 모드가 같은 결과를 냈다(2026-08-06).
+  - fetch 콜백 deps 에 `fetchRadiusKm` 을 반드시 넣는다(빠지면 클로저에 고정돼 모드 변경이 무시된다).
+  - **SWR 캐시 키에 반경을 포함**한다(빠지면 '전체'가 3km 캐시를 읽는다).
+- **홈 카드와 상세 화면은 같은 기준으로 조회한다.** 홈(`HomePage`)의 날씨·침수·주유소·정비소 카드도 `useServiceLocation()` 을 쓴다 — 종전엔 홈만 동 centroid(`resolvedWard.center_*`)를 써서 건수가 어긋났다(대표 지적 2026-08-06: 홈 42/136 vs 상세 39/141). 반경 라벨(`home.v2.withinKm`)도 `fetchRadiusKm` 을 받아 표기한다.
 
 ### 화면별 적용
 
@@ -66,7 +70,15 @@
 - **`polyActive={false}` 로 통일한다** — 이건 *선택 동 강조*(주황 테두리 + 나머지 동 `.wardDim` 감쇠 + 선택 동 외 L2/L3 레이어 숨김) 스위치다. 지역 선택이 사라져 강조할 대상이 없고, 켜두면 지도가 잘려 보인다(대표 지시 "지도 다나오게").
 - **카메라는 GPS 중심**(`locateOnMount`), 내 위치 파란 점은 항상(`meDotOnMount`).
 - **우측 하단 '내 위치'(◎) 버튼을 켠다**(`showLocateControl`, 2026-08-06 복원). 이걸 끄던 근거가 폐기된 원칙 2 였다. 탭하면 재측위 후 **센터링 + L3 줌인**(`focusLatLng` 가 `L3_VBW*0.9` 로 맞춘다). 화면에 FAB 가 있으면 `bottomInsetPx` 로 겹치지 않게 띄운다(마켓 = 70).
-- **매물·피드 마커는 전용 teardrop 핀**(`BIZ_PIN_PATH` + 도메인 글리프)으로 그린다 — 선택 여부 무관. 종전엔 비선택이 기본 dot(`#3b82f6`)이라 **내 위치 파란 점과 구분이 안 됐다**(대표 지적 2026-08-06).
+- **마커 dot 기본색은 브랜드 주황(`#ff6f3c`)** 이다. 종전 기본값 `#3b82f6` 은 "내 위치" 파란 점과 같은 색이라 `color` 를 지정하지 않는 모든 도메인 핀(매물·주유소·정비소)이 내 위치와 구분되지 않았다(대표 지적 2026-08-06).
+- **매물·피드는 비선택 = 원형 dot / 선택 = teardrop 핀**(`BIZ_PIN_PATH` + 도메인 글리프)이다. 이 형태 차이가 "선택됨"의 신호이므로 비선택까지 핀으로 올리지 말 것.
+- **정보 화면 지도(주유소·정비소)도 `showLocateControl` + `meDotOnMount` 를 켠다** — 진입 즉시 내 위치 점이 찍혀야 한다(종전엔 ◎ 를 눌러야만 나왔다).
+- **줌아웃 그루핑은 뷰포트 격자 클러스터링**이다(`lib/clusterPoints.ts`, 2026-08-06). 클러스터 좌표는 **구성원 무게중심**이고 대상은 목록과 같은 집합이라 **합계가 목록 건수와 일치**한다. 배지를 탭하면 그 지점으로 L3 확대(`onBadgeClick`).
+  - 종전 구(district) 단위 집계 배지는 폐기 — 배지가 구 중심점에 찍혀 실제 지점과 어긋나고, 합계가 안 맞고(8+5+5=18 vs 목록 39), 기준 단위가 구(22개 레거시)라 지도의 동(37개)과 격자가 달랐다.
+  - 격자 원점은 **절대좌표**여야 한다. 뷰포트 기준으로 나누면 팬 할 때마다 칸 경계가 움직여 클러스터가 깜빡이며 재편성된다.
+  - 현재 적용 범위는 **주유소·정비소**뿐이다. 매물·업체 핀으로 넓히려면 별도 검증이 필요하다.
+- **정보 화면의 지도 칩은 "지도 보기/지도 접기"** 다(`info.mapChipOpen`/`mapChipClose`). 지도와 목록이 한 화면에 공존하므로 "지도/목록" 배타 전환 라벨은 동작과 어긋난다(대표 지적 2026-08-06).
+- **'확대해서 주변 보기' 힌트 필**은 하단 가운데에 둔다(우하단은 ◎·FAB 와 겹친다). 노출 조건은 **L3 미도달**(`onDepthChange` 의 2번째 인자 `belowL3`)이며, 데이터 게이트(`markerDepth`)와 분리한다 — 마켓은 L2 에서 이미 핀이 보이지만 힌트는 L3 까지 유도해야 한다. 탭하면 내 위치가 아니라 **현재 지도 중앙**을 확대한다.
 - **L2 줌 게이트는 유지한다** — 멀리서 볼 때 확대를 유도하는 장치라 존치(대표 확인 2026-08-06). 게이트 미만에서는 지도·시트 모두 비우고 확대 안내 필을 노출한다.
 
 ---

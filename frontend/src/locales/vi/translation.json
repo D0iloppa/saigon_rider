@@ -421,7 +421,7 @@
       "floodNone": "Không có",
       "floodSafe": "An toàn",
       "floodWarning": "Cảnh báo",
-      "withinKm": "Trong 3km",
+      "withinKm": "Trong {{km}}km",
       "bizNews": "Tin tức cửa hàng",
       "sectionUnavailable": "Không thể tải nội dung",
       "sectionUnavailableDesc": "Vui lòng thử lại sau",
@@ -1112,8 +1112,8 @@
     "distFromGps": "Từ vị trí của tôi",
     "distFromFallback": "Gần {{area}}",
     "defaultArea": "Bến Thành",
-    "mapChipOpen": "Bản đồ",
-    "mapChipClose": "Danh sách",
+    "mapChipOpen": "Xem bản đồ",
+    "mapChipClose": "Thu bản đồ",
     "mapLoading": "Đang chuẩn bị bản đồ...",
     "hub": {
       "title": "Thông tin",
@@ -1705,7 +1705,8 @@
     },
     "permissionRationale": "Cần vị trí của bạn để hiển thị tin đăng, trạm xăng và thời tiết gần bạn.",
     "permissionAllow": "Cho phép vị trí",
-    "permissionLater": "Để sau"
+    "permissionLater": "Để sau",
+    "loadingMap": "Đang tải bản đồ…"
   },
   "effects": {
     "none": "Không có hiệu ứng",

@@ -253,6 +253,8 @@ export interface SaigonMapV5Props {
   /** 지도 좌표(lat/lng)에 고정되는 HTML 오버레이(핀 말풍선 등) — svg 형제로 렌더되어 팬/줌을 따라간다 */
   anchorOverlay?: { lat: number; lng: number; node: ReactNode };
   districtBadges?: DistrictBadge[];
+  /** 배지(집계/클러스터) 탭 핸들러. 주면 배지가 탭 가능해진다 — 미전달 시 기존대로 장식이다. */
+  onBadgeClick?: (badge: DistrictBadge) => void;
   /** 도시 전체 조망(vb.w >= L1_VBW)에서만 노출되는 더 굵은 단위(구) 뱃지 — 없으면 districtBadges로 대체 */
   cityBadges?: DistrictBadge[];
   onRegionSelect?: (region: SelectedRegion) => void;
@@ -343,6 +345,7 @@ function SaigonMapV5({
   markers,
   anchorOverlay,
   districtBadges,
+  onBadgeClick,
   cityBadges,
   onRegionSelect,
   onMapTap,
@@ -1347,7 +1350,12 @@ function SaigonMapV5({
               const fs = r * 0.80;
               const label = b.count >= 1000 ? `${Math.floor(b.count / 1000)}k` : String(b.count);
               return (
-                <g key={i} pointerEvents="none">
+                <g
+                  key={i}
+                  pointerEvents={onBadgeClick ? 'all' : 'none'}
+                  style={onBadgeClick ? { cursor: 'pointer' } : undefined}
+                  onClick={onBadgeClick ? () => onBadgeClick(b) : undefined}
+                >
                   <circle cx={bx} cy={by} r={r} fill="#ff5a1f" opacity={0.92} />
                   <text x={bx} y={by} fontSize={fs} fontWeight="700" fill="#fff"
                     textAnchor="middle" dominantBaseline="middle"

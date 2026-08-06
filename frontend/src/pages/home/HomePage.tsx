@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
+import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { fetchWallet } from '@/api/wallet';
 import { fetchNotifications } from '@/api/notifications';
 import { fetchUserStats } from '@/api/profile';
@@ -163,6 +164,8 @@ export default function HomePage() {
   const coordsSource = useLocationStore((s) => s.coordsSource);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
   const setWardName = useLocationStore((s) => s.setWardName);
+  // 정보 4종 조회 기준 — 주유소·정비소·날씨 상세 화면과 동일한 공용 훅을 쓴다.
+  const { origin: infoOrigin, fetchRadiusKm: infoRadiusKm } = useServiceLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const didInit = useRef(false);
@@ -246,8 +249,12 @@ export default function HomePage() {
 
   const loadHomeData = useCallback(() => {
     const { lat, lng } = coords;
-    const refLat = resolvedWard?.center_lat ?? lat;
-    const refLng = resolvedWard?.center_lng ?? lng;
+    // 정보 4종(날씨·침수·주유소·정비소)은 **상세 화면과 같은 기준**으로 조회해야 한다.
+    // 종전엔 동 centroid(resolvedWard.center_*)를 썼는데, 상세 화면은 실제 GPS 좌표를 쓰므로
+    // 홈 카드 건수와 상세 목록 건수가 어긋났다(대표 지적 2026-08-06: 홈 42/136 vs 상세 39/141).
+    // 기준 좌표·반경 모두 useServiceLocation 하나로 통일한다.
+    const refLat = infoOrigin.lat;
+    const refLng = infoOrigin.lng;
     setFloodStatus('loading');
     setNearbyStatus('loading');
     setRecentStatus('loading');
@@ -275,21 +282,21 @@ export default function HomePage() {
         setWeather(value);
         setWeatherUnavailable(!value);
       }).catch(() => { setWeather(null); setWeatherUnavailable(true); }),
-      floodApi.getActive(refLat, refLng, 3)
+      floodApi.getActive(refLat, refLng, infoRadiusKm)
         .then((r) => {
           if (!r) throw new Error('flood_unavailable');
           setFloods(r.floods);
           setFloodStatus('ready');
         })
         .catch(() => { setFloods([]); setFloodStatus('unavailable'); }),
-      gasApi.getNearby(refLat, refLng, 3)
+      gasApi.getNearby(refLat, refLng, infoRadiusKm)
         .then((r) => {
           if (!r) throw new Error('gas_unavailable');
           setGasCount(r.stations.length);
           setGasStatus('ready');
         })
         .catch(() => { setGasCount(0); setGasStatus('unavailable'); }),
-      repairApi.getNearby(refLat, refLng, 3)
+      repairApi.getNearby(refLat, refLng, infoRadiusKm)
         .then((r) => {
           if (!r) throw new Error('repair_unavailable');
           setRepairCount(r.shops.length);
@@ -300,7 +307,7 @@ export default function HomePage() {
         .then((res) => { setCommunityPosts(res.items); setCommunityStatus('ready'); })
         .catch(() => { setCommunityPosts([]); setCommunityStatus('unavailable'); }),
     ]).finally(() => setDataLoading(false));
-  }, [coords, resolvedWard, scopeMode]);
+  }, [coords, infoOrigin, infoRadiusKm, scopeMode]);
 
   useEffect(() => {
     if (!locationReady) return;
@@ -320,9 +327,9 @@ export default function HomePage() {
 
   const activeFloods = floods.filter((f) => f.status === 'ACTIVE');
   const cur = weather?.current;
-  const refLat = resolvedWard?.center_lat ?? coords.lat;
-  const refLng = resolvedWard?.center_lng ?? coords.lng;
-  const infoNavQuery = `?lat=${refLat}&lng=${refLng}`;
+  // 좌표를 URL 로 실어 나르지 않는다 — 표시 범위는 useLocationStore 가 들고 있고,
+  // 대상 화면 중 lat/lng 쿼리를 소비하는 곳이 더는 없다(2026-08-06 전역 단일화).
+  // 마켓만 'near' 플래그로 거리순 정렬을 요청받는다.
 
   return (
     <div className={styles.root}>
@@ -425,7 +432,7 @@ export default function HomePage() {
             <Flame size={20} strokeWidth={2} color="#5a5a5f" aria-hidden="true" />
             <span className={styles.sectionTitle}>{t('home.v2.nearbyPopular')}</span>
           </div>
-          <button className={styles.moreBtn} onClick={() => navigate(`/market${infoNavQuery}`)}>
+          <button className={styles.moreBtn} onClick={() => navigate('/market?near=1')}>
             {t('home.seeMore')}<IcoChevron />
           </button>
         </div>
@@ -588,7 +595,7 @@ export default function HomePage() {
 
         {/* ── ④ 동네 정보 ── */}
         <div className={styles.infoCard}>
-          <button className={styles.infoItem} onClick={() => navigate(`/info/weather${infoNavQuery}`)}>
+          <button className={styles.infoItem} onClick={() => navigate('/info/weather')}>
             <div className={`${styles.infoBubble} ${styles.infoBubbleWeather}`}><IcoSun /></div>
             <div className={styles.infoVal}>{cur ? `${cur.temp_c}°C` : '--'}</div>
             <div className={styles.infoSub}>{weatherUnavailable ? t('info.weather.unavailableShort') : weather?.stale ? t('info.weather.staleShort') : cur ? (cur.rain_prob_1h > 0 ? t('home.v2.rainForecast') : t('home.v2.clear')) : '—'}</div>
@@ -597,7 +604,7 @@ export default function HomePage() {
           <div className={styles.infoDivider} />
           <button
             className={`${styles.infoItem} ${floodStatus === 'ready' && activeFloods.length > 0 ? styles.infoItemDanger : ''}`}
-            onClick={() => navigate(`/info/flood${infoNavQuery}`)}
+            onClick={() => navigate('/info/flood')}
           >
             <div className={`${styles.infoBubble} ${styles.infoBubbleFlood}`}><IcoFlood /></div>
             <div className={styles.infoVal}>{floodStatus !== 'ready' ? '—' : activeFloods.length > 0 ? t('info.hub.miniCount', { count: activeFloods.length }) : t('home.v2.floodNone')}</div>
@@ -605,17 +612,17 @@ export default function HomePage() {
             <div className={styles.infoLabel}>{t('info.flood.title')}</div>
           </button>
           <div className={styles.infoDivider} />
-          <button className={styles.infoItem} onClick={() => navigate(`/info/gas${infoNavQuery}&view=map`)}>
+          <button className={styles.infoItem} onClick={() => navigate('/info/gas?view=map')}>
             <div className={`${styles.infoBubble} ${styles.infoBubbleGas}`}><IcoGasStation /></div>
             <div className={styles.infoVal}>{gasStatus === 'ready' && gasCount > 0 ? t('info.hub.miniCount', { count: gasCount }) : '--'}</div>
-            <div className={styles.infoSub}>{gasStatus === 'loading' ? t('common.loading') : gasStatus === 'unavailable' ? t('info.hub.gasUnavailable') : t('home.v2.withinKm')}</div>
+            <div className={styles.infoSub}>{gasStatus === 'loading' ? t('common.loading') : gasStatus === 'unavailable' ? t('info.hub.gasUnavailable') : t('home.v2.withinKm', { km: infoRadiusKm })}</div>
             <div className={styles.infoLabel}>{t('info.gas.title')}</div>
           </button>
           <div className={styles.infoDivider} />
-          <button className={styles.infoItem} onClick={() => navigate(`/info/repair${infoNavQuery}&view=map`)}>
+          <button className={styles.infoItem} onClick={() => navigate('/info/repair?view=map')}>
             <div className={`${styles.infoBubble} ${styles.infoBubbleRepair}`}><IcoGear /></div>
             <div className={styles.infoVal}>{repairStatus === 'ready' && repairCount > 0 ? t('info.hub.miniCount', { count: repairCount }) : '--'}</div>
-            <div className={styles.infoSub}>{repairStatus === 'loading' ? t('common.loading') : repairStatus === 'unavailable' ? t('info.hub.repairUnavailable') : t('home.v2.withinKm')}</div>
+            <div className={styles.infoSub}>{repairStatus === 'loading' ? t('common.loading') : repairStatus === 'unavailable' ? t('info.hub.repairUnavailable') : t('home.v2.withinKm', { km: infoRadiusKm })}</div>
             <div className={styles.infoLabel}>{t('info.repair.title')}</div>
           </button>
         </div>

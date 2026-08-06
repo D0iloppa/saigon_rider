@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
+import { preloadRideMapStyle } from '@/lib/rideMapPreload';
 import { useDmStore } from '@/store/useDmStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, saveSession, clearSession } from '@/lib/session';
@@ -342,6 +343,10 @@ export default function App() {
     img.onload = () => setGifReady(true);
     img.src = emojiUrl('1f3cd');
   }, []);
+
+  // 경로안내 지도(MapLibre) 스타일 프리로드 — '경로' 진입 시 빈 화면 구간을 줄인다.
+  // 한가할 때 1회, 실패해도 무시(표시 전용 최적화).
+  useEffect(() => { preloadRideMapStyle(); }, []);
 
   // 이동 추종 — 앱 전역에서 딱 한 번 워처를 건다(대표 지적 2026-08-06: "페이지이동을 하지
   // 않으면 위치가 반영되지 않는다"). 화면마다 걸면 워처가 중복되므로 여기서만 호출한다.

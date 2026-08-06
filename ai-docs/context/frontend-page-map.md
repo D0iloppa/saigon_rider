@@ -34,6 +34,12 @@
 > | 침수 | 컨텍스트바 없음(뷰포트 기준) | 도시 전역 위험 파악이 목적 |
 >
 > 시트 문구는 `location.*` 네임스페이스를 쓴다 — 종전엔 `market.locationMeta*`를 재사용해 날씨 화면에도 "근처 **매물**을 봅니다"가 떴다(대표 지적 2026-08-06).
+>
+> **주유소·정비소 지도 (2026-08-06 개편)**
+> - 지도 칩은 **"지도 보기 / 지도 접기"**(`info.mapChipOpen`/`mapChipClose`) — 지도와 목록이 한 화면에 공존하므로 "지도/목록" 배타 전환 라벨은 동작과 어긋난다.
+> - 줌아웃 그루핑은 **뷰포트 격자 클러스터링**(`lib/clusterPoints.ts`). 구(district) 단위 집계 배지는 폐기 — 합계가 목록 건수와 안 맞고 위치가 실제 지점과 어긋났다. 배지 탭 = 그 지점으로 L3 확대.
+> - 조회 기준·반경은 `useServiceLocation()`(`origin`/`fetchRadiusKm`) 하나뿐이다. **홈 카드도 같은 훅을 쓴다** — 종전엔 홈만 동 centroid 를 써서 건수가 어긋났다.
+> - `showLocateControl` + `meDotOnMount` 를 켠다(진입 즉시 내 위치 점 + 우하단 ◎ 버튼).
 | 마켓 (= 동네마켓) | `/market` | `pages/market/MarketMain.tsx` | `tabbar.market` |
 | 동네지도 | `/map` | `pages/map/NeighborhoodMap.tsx`(목록 우선) → `NeighborhoodMapCanvas.tsx`(온디맨드 지도) | `tabbar.map` |
 | 커뮤니티 (= 피드) | `/feed` | `pages/feed/FeedList.tsx` | `tabbar.community` |

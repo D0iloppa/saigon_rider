@@ -421,7 +421,7 @@
       "floodNone": "None",
       "floodSafe": "Safe",
       "floodWarning": "Caution",
-      "withinKm": "Within 3km",
+      "withinKm": "Within {{km}}km",
       "bizNews": "Business news",
       "sectionUnavailable": "Couldn't load this",
       "sectionUnavailableDesc": "Please try again in a moment",
@@ -1112,8 +1112,8 @@
     "distFromGps": "From my location",
     "distFromFallback": "Near {{area}}",
     "defaultArea": "Bến Thành",
-    "mapChipOpen": "Map",
-    "mapChipClose": "List",
+    "mapChipOpen": "Show map",
+    "mapChipClose": "Hide map",
     "mapLoading": "Preparing the map...",
     "hub": {
       "title": "Info Hub",
@@ -1705,7 +1705,8 @@
     },
     "permissionRationale": "We need your location to show listings, gas stations and weather near you.",
     "permissionAllow": "Allow location",
-    "permissionLater": "Later"
+    "permissionLater": "Later",
+    "loadingMap": "Loading map…"
   },
   "effects": {
     "none": "No equip effects",

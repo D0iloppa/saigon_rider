@@ -1,6 +1,9 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { useTranslation } from 'react-i18next';
+import { RIDE_MAP_STYLE_URL } from '@/lib/rideMapPreload';
+import styles from './MapCanvas.module.css';
 import { decodePolyline, bearing } from '@/lib/polyline';
 
 export interface MapCanvasHandle {
@@ -28,7 +31,6 @@ interface MapCanvasProps {
   className?: string;
 }
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 const ROUTE_SOURCE = 'route';
 const TRAIL_SOURCE = 'trail';
 
@@ -40,6 +42,10 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
   { origin, dest, polyline, current, trail, className },
   ref,
 ) {
+  const { t } = useTranslation();
+  // 타일이 오기 전 빈 화면을 스피너로 덮는다(대표 지적 2026-08-06) — 느린 회선에서
+  // "지도가 죽은 것처럼" 보이던 구간을 없앤다. 프리로딩은 lib/rideMapPreload.ts.
+  const [mapLoading, setMapLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
@@ -117,17 +123,20 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_URL,
+      style: RIDE_MAP_STYLE_URL,
       center: fallbackCenter(),
       zoom: 13,
       attributionControl: { compact: true },
     });
-    map.on('load', () => { readyRef.current = true; });
+    map.on('load', () => { readyRef.current = true; setMapLoading(false); });
+    // 스타일/타일을 못 받아도 스피너가 영구히 남지 않게 한다 — 실패는 지도 자체가 보여준다.
+    map.on('error', () => setMapLoading(false));
     mapRef.current = map;
     return () => {
       map.remove();
       mapRef.current = null;
       readyRef.current = false;
+      setMapLoading(true);
       markersRef.current = [];
       curMarkerRef.current = null;
     };
@@ -236,7 +245,17 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trail]);
 
-  return <div ref={containerRef} className={className} />;
+  return (
+    <div className={`${styles.wrap} ${className ?? ''}`}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {mapLoading && (
+        <div className={styles.loading}>
+          <span className={styles.spinner} aria-hidden />
+          <span>{t('map.loadingMap', { defaultValue: '지도를 불러오는 중…' })}</span>
+        </div>
+      )}
+    </div>
+  );
 });
 
 export default MapCanvas;

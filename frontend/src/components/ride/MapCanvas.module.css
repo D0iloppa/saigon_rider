@@ -1,0 +1,40 @@
+/* 지도 타일이 오기 전 빈 화면을 덮는 로딩 레이어 — 느린 회선에서 "아무것도 없는 화면"이
+   길게 남던 문제(대표 지적 2026-08-06). 지도 로드 완료(map 'load')시 사라진다. */
+.wrap {
+  position: relative;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid var(--line);
+  border-top-color: var(--brand-500);
+  border-radius: 50%;
+  animation: mapSpin 0.8s linear infinite;
+}
+
+@keyframes mapSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* 저사양/모션 최소화 환경에서는 회전 대신 은은한 점멸로 대체 */
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: mapPulse 1.4s ease-in-out infinite; }
+  @keyframes mapPulse { 50% { opacity: .4; } }
+}

@@ -421,7 +421,7 @@
       "floodNone": "없음",
       "floodSafe": "안전",
       "floodWarning": "주의",
-      "withinKm": "3km 이내",
+      "withinKm": "{{km}}km 이내",
       "bizNews": "업체 소식",
       "sectionUnavailable": "정보를 불러오지 못했어요",
       "sectionUnavailableDesc": "잠시 후 다시 시도해 주세요",
@@ -1112,8 +1112,8 @@
     "distFromGps": "내 위치 기준",
     "distFromFallback": "{{area}} 기준",
     "defaultArea": "벤탄",
-    "mapChipOpen": "지도",
-    "mapChipClose": "목록",
+    "mapChipOpen": "지도 보기",
+    "mapChipClose": "지도 접기",
     "mapLoading": "지도를 준비하고 있어요...",
     "hub": {
       "title": "정보",
@@ -1705,7 +1705,8 @@
     },
     "permissionRationale": "내 주변의 매물·주유소·날씨를 보여드리려면 위치 정보가 필요해요.",
     "permissionAllow": "위치 허용",
-    "permissionLater": "나중에"
+    "permissionLater": "나중에",
+    "loadingMap": "지도를 불러오는 중…"
   },
   "effects": {
     "none": "착용 효과 없음",

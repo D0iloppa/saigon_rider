@@ -61,18 +61,36 @@ test('SaigonMapV5 keeps a 3-state mode slot that cannot leave "free" without the
   );
 });
 
-test('SaigonMapV5 has zero rotation-render code yet (step 3/4 scope only)', () => {
+test('SaigonMapV5 gates the rotation <g> behind enableFollowCompass — off path renders no <g> at all', () => {
   const source = read('SaigonMapV5.tsx');
 
-  // 지형 회전 <g transform="rotate(...)"> 는 §7 step 5 소관 — 이 단계에 존재하면 안 된다.
-  assert.doesNotMatch(
+  // §7 step 5 (D-G): 지형 회전 <g transform="rotate(...)"> 가 이제 존재해야 하지만, 반드시
+  // enableFollowCompass 로 조건부 렌더돼야 한다 — rotate(0) 조차 요소 트리를 바꾸므로(D-H 8.3),
+  // 플래그가 꺼지면 <g> 자체가 트리에 없어야 한다(그 경우 terrain 이 그대로 반환된다).
+  assert.match(
     source,
-    /transform=\{`rotate\(/,
-    'a rotation <g transform="rotate(...)"> already exists — that is step 5 scope, not step 3/4',
+    /\{enableFollowCompass \? \(\s*<g transform=\{`rotate\(\$\{-bearing\} \$\{camCx\} \$\{camCy\}\)`\}>\{terrain\}<\/g>\s*\) : terrain\}/,
+    'rotation <g> must be conditionally rendered on enableFollowCompass, with the off-path falling back to the bare terrain fragment',
+  );
+});
+
+test('SaigonMapV5 has a rotateVec gesture-inverse helper with a bearing===0 identity early return (step 6)', () => {
+  const source = read('SaigonMapV5.tsx');
+
+  assert.match(
+    source,
+    /function rotateVec\(dx: number, dy: number, deg: number\): \{ x: number; y: number \} \{\s*if \(deg === 0\) return \{ x: dx, y: dy \};/,
+    'rotateVec must early-return the identity vector when deg===0 (killswitch: gesture math unchanged when bearing is 0)',
   );
 
-  // rotateVec/제스처 역회전 헬퍼도 §7 step 6 소관 — 아직 없어야 한다.
-  assert.doesNotMatch(source, /rotateVec/, 'rotateVec gesture-inverse helper already exists — that is step 6 scope');
+  // rotatePoint(라벨·마커 위치 회전, D-B)도 동일하게 bearing===0 항등 반환을 가져야 한다.
+  // (제스처 역회전 4곳의 실제 호출부 계약은 saigonMapV5RotationLayers.contract.test.mjs 가 §7
+  // step 6 커밋에서 별도로 고정한다 — 이 테스트는 두 헬퍼 함수 자체의 킬스위치 계약만 다룬다.)
+  assert.match(
+    source,
+    /function rotatePoint\(x: number, y: number, cx: number, cy: number, deg: number\): \{ x: number; y: number \} \{\s*if \(deg === 0\) return \{ x, y \};/,
+    'rotatePoint must early-return the identity point when deg===0 (killswitch: label/marker positions unchanged when bearing is 0)',
+  );
 });
 
 test('SaigonMapV5 still installs native.watchLocation exactly once (D-E, no new watcher)', () => {

@@ -54,6 +54,27 @@ const ly = (lat: number) => (HCMC.N - lat) / (HCMC.N - HCMC.S) * BASE_H;
 const ux2lng = (ux: number) => HCMC.W + (ux / BASE_W) * (HCMC.E - HCMC.W);
 const uy2lat = (uy: number) => HCMC.N - (uy / BASE_H) * (HCMC.N - HCMC.S);
 
+// ── 회전(나침반) 좌표 헬퍼 (ai-docs/260806_svg_map_v6_rotation_design.md D-G/D-B) ──────
+// 지형은 SVG <g transform="rotate(-bearing, camCx, camCy)"> 로 통째로 돌리고(D-G), 라벨·마커는
+// counter-rotate 하지 않고 이 함수로 "위치만" 회전시킨다(D-B) — glyph 는 절대 기울지 않는다.
+// 회전 중심은 카메라 중심(camCx/camCy, 나침반 모드에서는 사용자 위치)이지 viewBox 중심이 아니다
+// — 혼용하면 회전할 때 지도가 미끄러진다(설계서 §3 주의사항). bearing===0 이면 항등 반환한다
+// (D-H 8.3 킬스위치 — enableFollowCompass=false 소비처는 이 함수가 호출돼도 결과가 lx/ly 와 동일).
+function rotatePoint(x: number, y: number, cx: number, cy: number, deg: number): { x: number; y: number } {
+  if (deg === 0) return { x, y };
+  const t = (deg * Math.PI) / 180;
+  const c = Math.cos(t), s = Math.sin(t);
+  const dx = x - cx, dy = y - cy;
+  return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c };
+}
+// 제스처 역회전 — 화면 좌표계 델타(팬 dx/dy)를 지형(map) 좌표계로 되돌린다(설계서 §2.5). 벡터라
+// 회전 중심이 필요 없다. bearing===0 이면 항등 반환(D-H 킬스위치).
+function rotateVec(dx: number, dy: number, deg: number): { x: number; y: number } {
+  if (deg === 0) return { x: dx, y: dy };
+  const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  return { x: dx * c - dy * s, y: dx * s + dy * c };
+}
+
 // LOD 임계값 — viewBox 너비 기준
 const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
 const L2_VBW = BASE_W * 0.35;  // 3500: 블록/도로 표시 (~5km) — ward(동) 단위 뱃지
@@ -403,6 +424,22 @@ function SaigonMapV5({
   // 바꾸는 경로가 아직 없으므로 'free' 를 벗어날 수 없다(킬스위치). 순환 트리거(◎ 버튼)·회전
   // 렌더·워처 heading 소비는 후속 단계(§7 step 5~8)에서 이 플래그로 게이트되어 추가된다.
   const [followMode, setFollowMode] = useState<'free' | 'follow' | 'compass'>('free');
+  // 회전 중심(카메라 중심) 참조용 미러 — 나침반 모드에서 회전 중심은 사용자 위치이지 viewBox
+  // 중심이 아니다(D-B 주의사항). 렌더마다 최신값으로 갱신해, effect 의존성 배열에 넣지 않고도
+  // 제스처 핸들러(휠 등)가 stale 값을 읽지 않게 한다.
+  const meLatLngRef = useRef(meLatLng);
+  meLatLngRef.current = meLatLng;
+  // 나침반 회전각(도) — heading 소스 연결은 §7 step 8 소관이라 이 단계는 0 으로 고정한다. 아래
+  // 렌더부의 회전 <g> 조건부 렌더는 이 값이 아니라 enableFollowCompass 로만 게이트된다(D-H) —
+  // 즉 플래그가 꺼지면 이 값과 무관하게 회전 <g> 자체가 트리에 없다.
+  const bearing = 0;
+  // 회전 중심 계산 — ref 만 읽으므로 빈 deps 로 항상 안정적인 참조를 유지해, 이 함수를 쓰는
+  // 이펙트(휠 리스너 등)가 매 렌더 재구독되지 않게 한다.
+  const getCamCenter = useCallback((): { x: number; y: number } => {
+    const m = meLatLngRef.current;
+    const v = vbRef.current;
+    return m ? { x: lx(m.lng), y: ly(m.lat) } : { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+  }, []);
   // HCMC 전역 윤곽(선택적 배경) — 조회 실패 시 null 유지, 지도는 그대로 동작.
   const [cityOutline, setCityOutline] = useState<CityOutline | null>(null);
   useEffect(() => {
@@ -462,8 +499,12 @@ function SaigonMapV5({
     const vb = vbRef.current;
     const cw = svg.clientWidth || 1;
     const ch = svg.clientHeight || 1;
-    const px = (lx(pos.lng) - vb.x) / vb.w * cw;
-    const py = (ly(pos.lat) - vb.y) / vb.h * ch;
+    // 앵커도 라벨과 동일하게 위치만 회전한다(D-B) — 카메라 중심 기준(getCamCenter), viewBox
+    // 중심이 아니다. bearing===0 이면 rotatePoint 의 항등 반환으로 기존 px/py 와 동일.
+    const { x: camCx, y: camCy } = getCamCenter();
+    const { x: ux, y: uy } = rotatePoint(lx(pos.lng), ly(pos.lat), camCx, camCy, -bearing);
+    const px = (ux - vb.x) / vb.w * cw;
+    const py = (uy - vb.y) / vb.h * ch;
     if (px < 0 || px > cw || py < 0 || py > ch) {
       el.style.visibility = 'hidden';
       return;
@@ -478,7 +519,7 @@ function SaigonMapV5({
     el.style.transform = `translate(${bx}px, ${by}px)`;
     el.style.setProperty('--tail-x', `${Math.min(Math.max(px - bx, 20), bw - 20)}px`);
     el.style.visibility = 'visible';
-  }, []);
+  }, [getCamCenter, bearing]);
 
   const setVBAttr = useCallback(() => {
     const v = vbRef.current;
@@ -1083,6 +1124,12 @@ function SaigonMapV5({
   // depth1 nested SVG 위치 (통합 좌표)
   const d1Rect = bboxToRect(D1_BBOX);
 
+  // 회전 중심(camCx/camCy) — 지형 회전 <g>(D-G)·라벨/마커 위치회전(rotUnified, D-B) 공통 기준.
+  // enableFollowCompass=false 여도 계산 자체는 항상 수행하되(bearing=0 이라 rotUnified 는
+  // 항등), 회전 <g> 렌더는 아래 반환부에서 플래그로만 게이트한다(D-H).
+  const { x: camCx, y: camCy } = getCamCenter();
+  const rotUnified = (lng: number, lat: number) => rotatePoint(lx(lng), ly(lat), camCx, camCy, -bearing);
+
   // ── 라벨 디클러터 ──────────────────────────────────────────
   // 겹치는 라벨을 우선순위(선택>뱃지>POI>일반, 동률 시 가시영역 중앙거리)로 정리한다.
   // 라벨(<text>)만 게이팅 — 아이콘/핀은 항상 유지. 단, 라벨은 다른 마커의 아이콘/핀과
@@ -1098,7 +1145,8 @@ function SaigonMapV5({
     const v = vbRef.current;
     const cands: DeclutterMarker[] = [];
     for (const m of markers) {
-      const mx = lx(m.lng), my = ly(m.lat);
+      // 회전 후 좌표로 겹침 판정해야 정확하다(설계서 §3) — rotUnified 는 bearing===0 이면 항등.
+      const { x: mx, y: my } = rotUnified(m.lng, m.lat);
       if (mx < v.x - 50 || mx > v.x + v.w + 50 || my < v.y - 50 || my > v.y + v.h + 50) continue;
       const sx = ((mx - v.x) / v.w) * cw;
       const sy = ((my - v.y) / v.h) * ch;
@@ -1237,6 +1285,88 @@ function SaigonMapV5({
     );
   });
 
+  // 지형(배경·동 경계·블록·건물·선택 동 테두리) — 나침반 모드에서 회전 <g>(D-G) 안에 들어가는
+  // 부분만 모아 둔다(설계서 §3.3 "안" 목록). 라벨·마커·내 위치는 별도로 위치만 회전(D-B)하므로
+  // 여기 포함하지 않는다.
+  const terrain = (
+    <>
+      {/* 배경 (수면) */}
+      <rect x={-BASE_W} y={-BASE_H} width={BASE_W * 3} height={BASE_H * 3} className={styles.sea} />
+
+      {/* HCMC 전역 윤곽(선택적) — Layer 1 도심 폴리곤보다 뒤에 깔리는 저대비 배경 실루엣 */}
+      {cityOutline && cityOutline.rings.map((ring, i) => (
+        <polygon
+          key={`outline-${i}`}
+          points={ring.map(([lat, lng]) => `${lx(lng)},${ly(lat)}`).join(' ')}
+          className={styles.cityOutline}
+        />
+      ))}
+
+      {/* Layer 1: 동 경계 (depth1, 항상 — 가장 먼저 렌더해서 배경 역할) */}
+      <svg x={d1Rect.x} y={d1Rect.y} width={d1Rect.w} height={d1Rect.h}
+        viewBox={`0 0 ${depth1.VW} ${depth1.VH}`} preserveAspectRatio="none" overflow="visible">
+        {(depth1.water as string[]).map((p, i) => (
+          <polygon key={i} points={p} className={styles.river} />
+        ))}
+        {(depth1.wline as { p: string; w: number }[]).map((wl, i) => (
+          <polyline key={i} points={wl.p} className={styles.rline} />
+        ))}
+        {depth1.wards.map((w, i) => {
+          if (polyActive && selWard !== null) {
+            // 외부 동도 여기서 함께 그린다 — .wardDim 은 "가리는 마스크"가 아니라 감쇠
+            // 레이어다(얕은 알파로 stage 배경이 비쳐 푸른톤이 되고 지형이 은은히 남는다).
+            // 별도 오버레이로 덮으려던 시도는 선택 동이 섬처럼 보여 반려됐다(2026-08-04).
+            return (
+              <polygon key={i} points={w.p as string}
+                className={i === selWard ? styles.wardBoundary : styles.wardDim}
+              />
+            );
+          }
+          return (
+            <polygon key={i} points={w.p as string}
+              className={showL2 ? styles.ward : styles.wardOverview}
+            />
+          );
+        })}
+      </svg>
+
+      {/* Layer 2: 블록 (ward별 nested SVG) */}
+      {showL2 && depth1.wards.map((w, i) => {
+        if (!w.slug || !wardInView(i, vb)) return null;
+        if (polyActive && selWard !== null && i !== selWard) return null;
+        const d = wardData[w.slug as string];
+        if (!d?.d2) return null;
+        const r = bboxToRect(d.d2.bbox);
+        return (
+          <svg key={`l2-${i}`} x={r.x} y={r.y} width={r.w} height={r.h}
+            viewBox={`0 0 ${d.d2.VW} ${d.d2.VH}`} preserveAspectRatio="none" overflow="visible">
+            {d.d2.blocks.map((b, bi) => (
+              <polygon key={bi} points={b.p} className={styles.blk} />
+            ))}
+          </svg>
+        );
+      })}
+
+      {/* Layer 3: 건물 (ward별 nested SVG) — renderL3Layer() 로 분리, 상단 L3_ENABLED 플래그로 게이트 */}
+      {showL3 && renderL3Layer()}
+
+      {/* 선택된 동 테두리 overlay — 지역선택 모드에서만 노출 */}
+      {polyActive && selWard !== null && (
+        <svg x={d1Rect.x} y={d1Rect.y} width={d1Rect.w} height={d1Rect.h}
+          viewBox={`0 0 ${depth1.VW} ${depth1.VH}`} preserveAspectRatio="none"
+          overflow="visible" pointerEvents="none">
+          <polygon
+            points={depth1.wards[selWard].p as string}
+            fill="none"
+            stroke="#ff5a1f"
+            strokeWidth={vb.w * 0.0006}
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </>
+  );
+
   // ── 렌더 ──────────────────────────────────────────────────
   return (
     <div ref={containerRef} className={`${styles.stage} ${className ?? ''}`} style={{ height }}>
@@ -1260,80 +1390,11 @@ function SaigonMapV5({
           </radialGradient>
         </defs>
 
-        {/* 배경 (수면) */}
-        <rect x={-BASE_W} y={-BASE_H} width={BASE_W * 3} height={BASE_H * 3} className={styles.sea} />
-
-        {/* HCMC 전역 윤곽(선택적) — Layer 1 도심 폴리곤보다 뒤에 깔리는 저대비 배경 실루엣 */}
-        {cityOutline && cityOutline.rings.map((ring, i) => (
-          <polygon
-            key={`outline-${i}`}
-            points={ring.map(([lat, lng]) => `${lx(lng)},${ly(lat)}`).join(' ')}
-            className={styles.cityOutline}
-          />
-        ))}
-
-        {/* Layer 1: 동 경계 (depth1, 항상 — 가장 먼저 렌더해서 배경 역할) */}
-        <svg x={d1Rect.x} y={d1Rect.y} width={d1Rect.w} height={d1Rect.h}
-          viewBox={`0 0 ${depth1.VW} ${depth1.VH}`} preserveAspectRatio="none" overflow="visible">
-          {(depth1.water as string[]).map((p, i) => (
-            <polygon key={i} points={p} className={styles.river} />
-          ))}
-          {(depth1.wline as { p: string; w: number }[]).map((wl, i) => (
-            <polyline key={i} points={wl.p} className={styles.rline} />
-          ))}
-          {depth1.wards.map((w, i) => {
-            if (polyActive && selWard !== null) {
-              // 외부 동도 여기서 함께 그린다 — .wardDim 은 "가리는 마스크"가 아니라 감쇠
-              // 레이어다(얕은 알파로 stage 배경이 비쳐 푸른톤이 되고 지형이 은은히 남는다).
-              // 별도 오버레이로 덮으려던 시도는 선택 동이 섬처럼 보여 반려됐다(2026-08-04).
-              return (
-                <polygon key={i} points={w.p as string}
-                  className={i === selWard ? styles.wardBoundary : styles.wardDim}
-                />
-              );
-            }
-            return (
-              <polygon key={i} points={w.p as string}
-                className={showL2 ? styles.ward : styles.wardOverview}
-              />
-            );
-          })}
-        </svg>
-
-        {/* Layer 2: 블록 (ward별 nested SVG) */}
-        {showL2 && depth1.wards.map((w, i) => {
-          if (!w.slug || !wardInView(i, vb)) return null;
-          if (polyActive && selWard !== null && i !== selWard) return null;
-          const d = wardData[w.slug as string];
-          if (!d?.d2) return null;
-          const r = bboxToRect(d.d2.bbox);
-          return (
-            <svg key={`l2-${i}`} x={r.x} y={r.y} width={r.w} height={r.h}
-              viewBox={`0 0 ${d.d2.VW} ${d.d2.VH}`} preserveAspectRatio="none" overflow="visible">
-              {d.d2.blocks.map((b, bi) => (
-                <polygon key={bi} points={b.p} className={styles.blk} />
-              ))}
-            </svg>
-          );
-        })}
-
-        {/* Layer 3: 건물 (ward별 nested SVG) — renderL3Layer() 로 분리, 상단 L3_ENABLED 플래그로 게이트 */}
-        {showL3 && renderL3Layer()}
-
-        {/* 선택된 동 테두리 overlay — 지역선택 모드에서만 노출 */}
-        {polyActive && selWard !== null && (
-          <svg x={d1Rect.x} y={d1Rect.y} width={d1Rect.w} height={d1Rect.h}
-            viewBox={`0 0 ${depth1.VW} ${depth1.VH}`} preserveAspectRatio="none"
-            overflow="visible" pointerEvents="none">
-            <polygon
-              points={depth1.wards[selWard].p as string}
-              fill="none"
-              stroke="#ff5a1f"
-              strokeWidth={vb.w * 0.0006}
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
+        {/* 지형 — 나침반 모드에서만 회전 <g> 로 감싼다(D-G). enableFollowCompass=false 면 <g>
+            자체가 트리에 없다 — rotate(0) 조차 요소 트리를 바꾸므로 금지(D-H 8.3 킬스위치). */}
+        {enableFollowCompass ? (
+          <g transform={`rotate(${-bearing} ${camCx} ${camCy})`}>{terrain}</g>
+        ) : terrain}
 
         {/* 동 레이블 — depth3 레벨에서는 숨김 (건물 레벨에선 dot/맥락으로 충분) */}
         {vb.w >= L3_VBW && depth1.wards.map((w, i) => {
@@ -1345,9 +1406,10 @@ function SaigonMapV5({
           if (!gps || !(w.n)) return null;
           // clamp: city≈6px, ward≈9px, deep≈20px
           const fs = Math.min(180, Math.max(22, vb.w * 0.023));
+          const { x: wx, y: wy } = rotUnified(gps.lng, gps.lat);
           return (
             <text key={i}
-              x={lx(gps.lng)} y={ly(gps.lat)}
+              x={wx} y={wy}
               fontSize={fs} fontWeight={600}
               fill="rgba(50,70,80,0.80)"
               stroke="rgba(255,255,255,0.85)" strokeWidth={fs * 0.28}
@@ -1367,9 +1429,10 @@ function SaigonMapV5({
           if (!gps || !(w.n)) return null;
           // clamp: city≈9px, ward≈13px, deep≈34px
           const fs = Math.min(250, Math.max(35, vb.w * 0.034));
+          const { x: wx, y: wy } = rotUnified(gps.lng, gps.lat);
           return (
             <text
-              x={lx(gps.lng)} y={ly(gps.lat)}
+              x={wx} y={wy}
               fontSize={fs} fontWeight={800}
               fill="#e84c00"
               stroke="rgba(255,255,255,0.90)" strokeWidth={fs * 0.30}
@@ -1386,7 +1449,7 @@ function SaigonMapV5({
         {/* polyActive+selWard 상태(동 선택 중)에는 배지 숨김 — 선택 동 외부 배지 노출 방지 */}
         {!forceMarkers && vb.w >= L2_VBW && !(polyActive && selWard !== null)
           ? (vb.w >= L1_VBW ? cityBadges ?? districtBadges : districtBadges)?.map((b, i) => {
-              const bx = lx(b.lng), by = ly(b.lat);
+              const { x: bx, y: by } = rotUnified(b.lng, b.lat);
               if (bx < vb.x - 200 || bx > vb.x + vb.w + 200) return null;
               if (by < vb.y - 200 || by > vb.y + vb.h + 200) return null;
               if (b.count === 0) return null;
@@ -1410,7 +1473,7 @@ function SaigonMapV5({
               );
             })
           : (forceMarkers || vb.w < L2_VBW) && markers?.map((m) => {
-              const mx = lx(m.lng), my = ly(m.lat);
+              const { x: mx, y: my } = rotUnified(m.lng, m.lat);
               if (mx < vb.x - 50 || mx > vb.x + vb.w + 50) return null;
               if (my < vb.y - 50 || my > vb.y + vb.h + 50) return null;
               const r = vb.w * 0.015 * (m.r ?? 1);
@@ -1567,7 +1630,7 @@ function SaigonMapV5({
 
         {/* 내 위치 */}
         {meLatLng && (() => {
-          const mx = lx(meLatLng.lng), my = ly(meLatLng.lat);
+          const { x: mx, y: my } = rotUnified(meLatLng.lng, meLatLng.lat);
           const r = vb.w * 0.012;
           return (
             <g pointerEvents="none">

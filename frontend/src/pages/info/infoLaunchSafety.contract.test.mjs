@@ -69,7 +69,11 @@ test('useServiceLocation derives from the location store, not a manually picked 
     /mode === 'gps' && coords \? coords : HCMC_DEFAULT_CENTER/,
     "'gps' 면 내 좌표, '전체'면 도시 기본 중심",
   );
-  assert.match(source, /radiusKm: mode === 'gps' \? NEARBY_RADIUS_KM : null/, "'전체'는 반경 제한 없음");
+  assert.match(
+    source,
+    /fetchRadiusKm: mode === 'gps' \? NEARBY_RADIUS_KM : ALL_AREA_RADIUS_KM/,
+    "'전체 지역'은 서비스 전역 반경(12km) — 3km 로 두면 '내 현재 위치'와 결과가 같아진다",
+  );
 });
 
 test('stale weather responses cannot overwrite the latest selected location', () => {

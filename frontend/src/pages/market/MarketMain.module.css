@@ -203,14 +203,14 @@
 }
 
 /* 줌 게이트 힌트 필 — 동네지도(NeighborhoodMap.module.css) .zoomHintPill 값 그대로 복제
-   (bizNewsBubble 복제와 동일 방침). 동네지도는 bottom 을 시트 높이에 인라인 연동하지만
-   마켓엔 시트가 없어 고정 bottom 90px(동네지도 폴백값과 동일)로 둔다 — 18px 로 내리면
-   우하단 글쓰기 FAB(right 18 / bottom 18 / 52px)와 겹쳐 문구가 가려진다(실촬영 확인). */
+   (bizNewsBubble 복제와 동일 방침). 동네지도는 bottom 을 시트 높이에 인라인 연동한다. */
 .zoomHintPill {
+  /* 하단 가운데 — 우하단은 '내 위치'(◎)·글쓰기 FAB 와 겹친다(대표 지적 2026-08-06). */
   position: absolute;
   z-index: 3;
-  right: 16px;
-  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 24px;
   display: inline-flex;
   align-items: center;
   gap: 5px;

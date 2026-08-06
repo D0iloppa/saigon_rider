@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, BadgeCheck, Gift, List, Map as MapIcon, Navigation, Plus, Wrench } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Gift, List, Map as MapIcon, Navigation, Plus, Wrench, ZoomIn } from 'lucide-react';
 import { repairApi } from '@/api/info';
 import type { RepairShop } from '@/api/info';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -26,7 +26,6 @@ import RepairShopSheet from '@/components/repair/RepairShopSheet';
 import sys from '@/styles/system.module.css';
 import styles from './InfoRepairList.module.css';
 
-const FETCH_RADIUS_KM = 3; // 홈 카드와 동일 반경 — 일관된 기준
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
 
 export default function InfoRepairList() {
@@ -35,7 +34,7 @@ export default function InfoRepairList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const mapOpen = searchParams.get('view') === 'map';
   // 단일 SoT — 표시 범위/조회 기준 좌표는 useLocationStore(앱 전역, 2026-08-06 통일).
-  const { origin, radiusKm } = useServiceLocation();
+  const { origin, fetchRadiusKm } = useServiceLocation();
 
   const [shops, setShops] = useState<RepairShop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,19 +44,23 @@ export default function InfoRepairList() {
 
   // 신규 정비소 제보 (현재 GPS 기준 → 대기큐 적재).
   const [showReport, setShowReport] = useState(false);
+  // 줌 힌트 — L3(건물/골목) 미도달 상태에서 노출. 탭하면 현재 지도 중앙을 L3 로 확대한다.
+  const [showZoomHint, setShowZoomHint] = useState(true);
+  const zoomInRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
+  const viewportRef = useRef<{ N: number; S: number; E: number; W: number } | null>(null);
 
   // 반경 내 정비소 거리순 정렬. 'gps' 표시범위면 radiusKm 로 자르고, '전체'면 자르지 않는다.
   // 종전엔 선택 동 폴리곤(regionContains)으로 걸러 구 경계에 걸친 곳이 빠졌다(2026-08-06 폐기).
   const listShops = useMemo<RepairShop[]>(() => {
-    const inRange = radiusKm != null ? shops.filter((s) => s.distance_km <= radiusKm) : shops;
+    const inRange = shops.filter((s) => s.distance_km <= fetchRadiusKm);
     return [...inRange].sort((a, b) => a.distance_km - b.distance_km);
-  }, [shops, radiusKm]);
+  }, [shops, fetchRadiusKm]);
 
-  // POI 상시 참조 레이어(랜드마크·공공시설) — FETCH_RADIUS_KM 반경 bbox 로 조회 (정비소 목록과 동일 기준).
+  // POI 상시 참조 레이어(랜드마크·공공시설) — fetchRadiusKm 반경 bbox 로 조회 (정비소 목록과 동일 기준).
   const [poiItems, setPoiItems] = useState<PoiMapItem[]>([]);
   useEffect(() => {
-    const latDelta = FETCH_RADIUS_KM / 111;
-    const lngDelta = FETCH_RADIUS_KM / (111 * Math.cos(origin.lat * Math.PI / 180));
+    const latDelta = fetchRadiusKm / 111;
+    const lngDelta = fetchRadiusKm / (111 * Math.cos(origin.lat * Math.PI / 180));
     const controller = new AbortController();
     fetchPoiMapItems({
       minLat: origin.lat - latDelta, maxLat: origin.lat + latDelta,
@@ -101,7 +104,9 @@ export default function InfoRepairList() {
   const fetchShops = useCallback((origin: { lat: number; lng: number }) => {
     const { lat, lng } = origin;
     coordsRef.current = origin;
-    const cacheKey = `repair:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}`;
+    // 반경을 키에 포함해야 한다 — 없으면 '전체 지역'(12km)이 '내 현재 위치'(3km)
+    // 캐시를 읽어 두 모드 결과가 같아진다(대표 지적 2026-08-06).
+    const cacheKey = `repair:nearby:${lat.toFixed(3)}:${lng.toFixed(3)}:r${fetchRadiusKm}`;
     const cached = swrRead<RepairShop[]>(cacheKey);
     if (cached) {
       setShops(cached);
@@ -110,11 +115,11 @@ export default function InfoRepairList() {
     } else {
       setLoading(true);
     }
-    repairApi.getNearby(lat, lng, FETCH_RADIUS_KM)
+    repairApi.getNearby(lat, lng, fetchRadiusKm)
       .then((r) => { if (!r) return; setShops(r.shops); swrWrite(cacheKey, r.shops); setError(false); })
       .catch(() => { if (!cached) setError(true); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [fetchRadiusKm]);
 
   // 조회 기준 좌표(전체=도시 중심, 선택지역=동 centroid)가 바뀌면 재조회.
   useEffect(() => {
@@ -198,13 +203,31 @@ export default function InfoRepairList() {
                 // L3 줌인 — region 미선택 시 기존 D1 전체조망 폴백이면 L3 임계값(vb.w<L3_VBW)에
                 // 못 미쳐 진입 직후 상세지도·POI 가 안 보였다(대표 지시 미달 지점).
                 initialGps={origin}
-                showLocateControl={false}
+                // 우측 하단 '내 위치'(◎) 버튼 — 마켓·동네지도와 동일하게 노출 (2026-08-06).
+                showLocateControl
                 // ward 자동선택 부작용 방지 (동네지도와 동일)
                 selectRegionOnLocate={false}
                 // 뷰포트 모드 — 지역선택 폴리곤 강조 끔. selectRegionOnLocate 만으로는
                 // focusLatLng 의 else-if 분기가 setSelWard 를 호출해 오렌지 테두리가 남는다.
                 polyActive={false}
+                zoomInRef={zoomInRef}
+                onBboxChange={(b) => { viewportRef.current = b; }}
+                // 힌트는 L3 미도달일 때 — 데이터 게이트(markerDepth='l2')와 분리된 신호다.
+                onDepthChange={(_gate, belowL3) => setShowZoomHint(belowL3)}
               />
+              {showZoomHint && (
+                <button
+                  type="button"
+                  className={sys.mapZoomHint}
+                  onClick={() => {
+                    // 내 위치가 아니라 **현재 지도 중앙** 기준으로 확대한다.
+                    const b = viewportRef.current;
+                    if (b) zoomInRef.current?.({ lat: (b.N + b.S) / 2, lng: (b.E + b.W) / 2 });
+                  }}
+                >
+                  <ZoomIn size={14} strokeWidth={2.2} aria-hidden="true" /> {t('map.zoomGateShort', { defaultValue: '확대해서 주변 보기' })}
+                </button>
+              )}
             </Suspense>
           </div>
         )}

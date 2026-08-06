@@ -347,6 +347,29 @@
   flex-shrink: 0;
 }
 
+/* 줌 힌트 필 — 정보 화면(주유소·정비소) 지도 공용. 마켓·동네지도의 .zoomHintPill 과
+   같은 모양·문구이며, 하단 가운데에 둔다(우하단은 '내 위치'(◎) 버튼과 겹친다). */
+.mapZoomHint {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--brand-600);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+}
+.mapZoomHint:active { opacity: .8; }
+
 .mapClosePill {
   position: absolute;
   z-index: 3;

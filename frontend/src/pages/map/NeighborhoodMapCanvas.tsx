@@ -265,6 +265,8 @@ export default function NeighborhoodMapCanvas({
   const searchFitRef = useRef<((points: { lat: number; lng: number }[]) => void) | null>(null);
   const [viewportBbox, setViewportBbox] = useState<{ N: number; S: number; E: number; W: number } | null>(null);
   const [showDistrictBadges, setShowDistrictBadges] = useState(true);
+  // 힌트 필은 데이터 게이트와 분리된 신호(L3 미도달)를 쓴다 — 대표 지적 2026-08-06.
+  const [showZoomHint, setShowZoomHint] = useState(true);
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
   // 지역선택 해제(resetToViewport) 동기 emit 창에서만 true — handleBboxChange가 디바운스·
   // mode 가드 없이 현재 뷰포트 bbox를 즉시 커밋하게 한다 (500ms 공백 동안 0건 깜빡임 방지)
@@ -1114,7 +1116,7 @@ export default function NeighborhoodMapCanvas({
         onMapTap={() => setSelectedBiz(null)}
         onBboxChange={handleBboxChange}
         onRawViewportChange={handleRawBboxChange}
-        onDepthChange={setShowDistrictBadges}
+        onDepthChange={(gate, belowL3) => { setShowDistrictBadges(gate); setShowZoomHint(belowL3); }}
         outsideAreaFallback
         emitBboxRef={emitBboxRef}
         outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
@@ -1240,7 +1242,7 @@ export default function NeighborhoodMapCanvas({
           region 모드에도 노출(2026-08-04) — 지역 선택 + 줌아웃이면 핀/말풍선이 정리돼 빈
           지도가 되므로 마켓 지도와 동일하게 확대 안내가 필요하다. 확대 타겟은 viewportCenter
           가 region 모드에서 null(mode 게이트)이라 autoBubbleBbox(모드 무관 커밋) 중심 폴백. */}
-      {!isSearching && showDistrictBadges && (
+      {!isSearching && showZoomHint && (
         <button
           type="button"
           ref={setZoomPillRef}

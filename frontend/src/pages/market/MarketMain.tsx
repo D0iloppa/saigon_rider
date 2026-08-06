@@ -119,6 +119,9 @@ export default function MarketMain() {
   // onDepthChange 는 순수 줌 깊이 신호다(2026-08-04) — region 선택 중에도 줌아웃하면
   // true 가 와서 게이트가 닫힌다(locationMode 분기 불필요).
   const [showDistrictBadges, setShowDistrictBadges] = useState(true);
+  // 힌트 필은 데이터 게이트와 분리된 신호를 쓴다 — L2 에서 핀은 이미 보이지만 힌트는 L3 까지
+  // 유도해야 하므로 L2 구간에서도 떠야 한다(대표 지적 2026-08-06).
+  const [showZoomHint, setShowZoomHint] = useState(true);
   const showDistrictBadgesRef = useRef(showDistrictBadges);
   showDistrictBadgesRef.current = showDistrictBadges;
   // 줌 게이트 힌트 필 탭 = 현재 뷰포트 중심 순수 확대 (동네지도 zoomHintPill 과 동일 동선)
@@ -481,7 +484,7 @@ export default function MarketMain() {
               onBboxChange={handleMapBboxChange}
               // L2 줌 게이트 (동네지도와 통일, 대표 지적 2026-08-04) — 게이트 밖에서는
               // 핀/말풍선/패널 정리 + fetch 차단 + 확대 안내 필 노출.
-              onDepthChange={setShowDistrictBadges}
+              onDepthChange={(gate, belowL3) => { setShowDistrictBadges(gate); setShowZoomHint(belowL3); }}
               // 게이트 임계도 동네지도와 정합 — 동네지도는 markerDepth='l2'(L2 진입 시 핀 허용)라,
               // 기본값 'l3' 를 그대로 두면 L2~L3 구간에서 동네지도는 핀을 보여주는데 마켓만
               // 게이트가 닫혀 화면이 비는 불일치가 생긴다.
@@ -502,7 +505,7 @@ export default function MarketMain() {
               해제할 필터가 없다. */}
           {/* 줌 게이트 힌트 필 — 동네지도 zoomHintPill 과 같은 문구/동작(탭 = 뷰포트 중심 확대).
               게이트 밖에서 핀이 비는 이유를 사용자에게 알린다. */}
-          {showDistrictBadges && (
+          {showZoomHint && (
             <button
               type="button"
               className={styles.zoomHintPill}

@@ -582,10 +582,12 @@
 /* 줌 게이트 힌트 필 — 지도 우측 floating (mapTools 와 세트로 시트를 따라감, 탭 = 순수 확대).
    bottom 은 mapTools 와 동일하게 인라인 style 로 항상 지정 — 여기 값은 미측정 순간의 안전 폴백 */
 .zoomHintPill {
+  /* 하단 가운데 — 우하단은 '내 위치'(◎)·글쓰기 FAB 와 겹친다(대표 지적 2026-08-06). */
   position: absolute;
   z-index: 3;
-  right: 16px;
-  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 24px;
   display: inline-flex;
   align-items: center;
   gap: 5px;

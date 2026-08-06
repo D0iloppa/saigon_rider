@@ -267,7 +267,14 @@ export interface SaigonMapV5Props {
    * 중심이 필요한 소비처는 이 raw bbox의 중심을 써야 한다.
    */
   onRawViewportChange?: (bbox: { N: number; S: number; E: number; W: number }) => void;
-  onDepthChange?: (showDistrictBadges: boolean) => void;
+  /**
+   * 줌 깊이 신호.
+   * @param showDistrictBadges markerDepth 임계 미달(= 핀·데이터 게이트를 닫아야 하는 상태)
+   * @param belowL3 아직 L3(건물/골목) 스테이지에 못 들어옴 — '확대해서 주변 보기' 힌트 노출 조건.
+   *   게이트(1번)와 분리한 이유: 마켓은 markerDepth='l2' 라 L2 에서 이미 핀이 보이지만,
+   *   힌트는 L3 까지 유도해야 하므로 L2 구간에서도 떠야 한다(대표 지적 2026-08-06).
+   */
+  onDepthChange?: (showDistrictBadges: boolean, belowL3: boolean) => void;
   locateRef?: React.MutableRefObject<(() => void) | null>;
   /** 현재 뷰포트 기준 bbox 재발행 트리거 — region 해제 등 파이프라인 재동기화용 */
   emitBboxRef?: React.MutableRefObject<(() => void) | null>;
@@ -667,7 +674,7 @@ function SaigonMapV5({
     // 소비자(NeighborhoodMapCanvas/MarketMain)는 이 신호를 "줌아웃 시 핀·말풍선·패널 정리"
     // 게이트로 쓰므로, 지역 선택 상태에서 항상 false 를 emit 하면 정리 게이트가 영구 개방돼
     // 줌아웃해도 말풍선만 허공에 남는 결함이 됐다(대표 지적).
-    onDepthChange?.(!markerDepthReady);
+    onDepthChange?.(!markerDepthReady, !l3);
 
     if (!l2) return;
     depth1.wards.forEach((w, i) => {
@@ -1052,9 +1059,9 @@ function SaigonMapV5({
       // 라벨 오프셋/폰트(units)와 아이콘 지오메트리(units)를 그대로 px 로 환산한다.
       const rpx = 0.015 * (m.r ?? 1) * cw;
 
-      // 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 라벨 후보 제외.
+      // 선택된 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 라벨 후보 제외.
       // 아이콘(teardrop)은 여전히 그려지므로 장애물 시드에는 포함한다.
-      const noLabel = !m.label || m.kind === 'listing' || m.kind === 'feed';
+      const noLabel = !m.label || (m.selected && (m.kind === 'listing' || m.kind === 'feed'));
       let fontSize = 0;
       let labelTop = 0;
       let poiTier = 0;
@@ -1089,11 +1096,10 @@ function SaigonMapV5({
         // 뮤트 칩 — half=r*1.05 + 테두리(strokeWidth half*0.14 의 절반 돌출) ≈ 1.12r (halo 제거됨).
         const half = 1.12 * rpx;
         iconLeft = sx - half; iconRight = sx + half; iconTop = sy - half; iconBottom = sy + half;
-      } else if (m.kind === 'listing' || m.kind === 'feed') {
-        // 매물/피드 teardrop — biz 와 동일 지오메트리(BIZ_PIN_PATH 공용). 선택 시에만 1.5배.
-        const k = m.selected ? 1.5 : 1;
-        iconLeft = sx - 1.25 * k * rpx; iconRight = sx + 1.25 * k * rpx;
-        iconTop = sy - 3.333 * k * rpx; iconBottom = sy;
+      } else if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
+        // 매물/피드 선택 승격 teardrop — biz 선택과 동일 지오메트리(BIZ_PIN_PATH 공용).
+        iconLeft = sx - 1.875 * rpx; iconRight = sx + 1.875 * rpx;
+        iconTop = sy - 5.0 * rpx; iconBottom = sy;
       } else {
         // 원형 dot — halo 1.4r, 선택 시 강조링 1.75r(+stroke 여유 1.86r) 이 더 크다.
         const dr = (m.selected ? 1.86 : 1.4) * rpx;
@@ -1442,17 +1448,15 @@ function SaigonMapV5({
                   </g>
                 );
               }
-              // 매물·피드는 biz 와 동일한 teardrop shape(BIZ_PIN_PATH)로 그린다. 채움은 레이어색,
-              // 홀 안 글리프만 도메인별(매물=가격표 / 피드=말풍선).
-              //
-              // 종전에는 **선택됐을 때만** 이 핀이었고 비선택은 아래 기본 dot 로 떨어졌다. 그 dot 의
-              // 기본색이 #3b82f6 이라 **내 위치 파란 점과 구분이 안 됐다**(대표 지적 2026-08-06).
-              // 이제 선택 여부와 무관하게 전용 핀을 쓰고, 선택 시에만 1.5배로 키운다.
-              if (m.kind === 'listing' || m.kind === 'feed') {
+              // 매물·피드 **선택 승격** — biz 와 동일한 teardrop shape(BIZ_PIN_PATH), 채움은
+              // 레이어색, 홀 안 글리프만 도메인별(매물=가격표 / 피드=말풍선).
+              // 비선택은 아래 dot 로 폴백한다 — "선택 전 dot / 선택 시 pin" 이 의도된 구분이다
+              // (대표 지시 2026-08-06). dot 의 색 문제는 아래 기본색으로 따로 해결했다.
+              if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
                 const s = (r * 1.25) / 9;
                 const color = m.color ?? (m.kind === 'feed' ? '#3b82f6' : '#ff6f3c');
                 const glyph = m.kind === 'feed' ? FEED_GLYPH_PATH : LISTING_GLYPH_PATH;
-                const scale = m.selected ? 1.5 : 1;
+                const scale = 1.5;
                 return (
                   <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                     <ellipse cx={mx} cy={my + r * 0.2} rx={r * 1.1} ry={r * 0.4}
@@ -1475,7 +1479,10 @@ function SaigonMapV5({
                     <circle cx={mx} cy={my} r={r * 1.75} fill="none" stroke="#ff5a1f" strokeWidth={r * 0.22} opacity={0.9} />
                   )}
                   <circle cx={mx} cy={my} r={r * 1.4} fill="rgba(255,255,255,0.65)" />
-                  <circle cx={mx} cy={my} r={r} fill={m.color ?? '#3b82f6'} stroke="#fff" strokeWidth={r * 0.28} />
+                  {/* dot 기본색은 브랜드 주황이다. 종전 기본값 #3b82f6 은 "내 위치" 파란 점과
+                      같은 색이라 매물·주유소·정비소 핀이 내 위치와 구분되지 않았다
+                      (대표 지적 2026-08-06). 도메인별 색이 필요하면 호출부가 m.color 로 준다. */}
+                  <circle cx={mx} cy={my} r={r} fill={m.color ?? '#ff6f3c'} stroke="#fff" strokeWidth={r * 0.28} />
                   {m.icon && (
                     // 업종 글리프 — 24×24 path 를 원 내접 정사각(변 1.24r, 대각 반지름 0.88r)으로 스케일
                     <path

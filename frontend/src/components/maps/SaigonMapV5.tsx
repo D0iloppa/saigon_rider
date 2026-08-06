@@ -712,6 +712,32 @@ function SaigonMapV5({
     onFollowModeChange?.(followMode);
   }, [enableFollowCompass, followMode, onFollowModeChange]);
 
+  // 컨테이너 비율 변화(화면 회전 등) 시 vb 비율 불변식(vb.h = vb.w × ar) 재계산 — §2.3/D-A.
+  // 카메라 함수(applyZoom/focusLatLng/fitToPoints/zoomInRef)는 호출 시점의 ar을 반영해 항상
+  // 최신이지만, 카메라 함수 호출 없이 컨테이너만 리사이즈되면(iOS 는 세로 고정이 아니라 회전을
+  // 허용한다 — native/ios/SaigonRider.xcodeproj/project.pbxproj 의
+  // INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone/_iPad 확인, Android 만 portrait 고정)
+  // vb 가 낡은 비율로 남아 preserveAspectRatio="none" 합성이 비균등해진다. 중심을 유지한 채 h만 보정한다.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const svg = svgRef.current;
+      const cw = svg?.clientWidth, ch = svg?.clientHeight;
+      if (!cw || !ch) return;
+      const ar = ch / cw;
+      const v = vbRef.current;
+      const expectedH = v.w * ar;
+      if (Math.abs(expectedH - v.h) < 0.5) return;
+      vbRef.current = clampVB({ ...v, y: v.y - (expectedH - v.h) / 2, h: expectedH });
+      setVBAttr();
+      onViewportChange();
+      setVbSnap((n) => n + 1);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [clampVB, onViewportChange, setVBAttr]);
+
   const centerOnUnified = useCallback((cx: number, cy: number) => {
     const vb = vbRef.current;
     const insetUnits = getBottomInsetUnits(vb.h);

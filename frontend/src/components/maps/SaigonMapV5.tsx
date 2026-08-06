@@ -999,14 +999,18 @@ function SaigonMapV5({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = el.getBoundingClientRect(), vb = vbRef.current;
-      const cx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
-      const cy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
+      const rawCx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
+      const rawCy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
+      // 화면→viewBox 직선 매핑(raw)은 회전 전 좌표다. 지형은 화면에서 -bearing 만큼 돌아
+      // 보이므로, 줌 중심이 포인터 아래 지형과 계속 일치하려면 +bearing 만큼 되돌려야 한다(§2.5).
+      const { x: camCx, y: camCy } = getCamCenter();
+      const { x: cx, y: cy } = rotatePoint(rawCx, rawCy, camCx, camCy, bearing);
       applyZoom(e.deltaY > 0 ? 1.12 : 0.89, cx, cy);
       onViewportChange();
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [applyZoom, onViewportChange, selectionOnly]);
+  }, [applyZoom, onViewportChange, selectionOnly, getCamCenter, bearing]);
 
   // ── 포인터: 팬 + 핀치줌 ───────────────────────────────────
   const onPointerDown = (e: PE<SVGSVGElement>) => {
@@ -1038,8 +1042,11 @@ function SaigonMapV5({
       const [a, b] = [...g.pts.values()];
       const dist = Math.hypot(b.x - a.x, b.y - a.y);
       if (g.lastD) {
-        const cx = vb.x + (((a.x + b.x) / 2 - r.left) / r.width) * vb.w;
-        const cy = vb.y + (((a.y + b.y) / 2 - r.top) / r.height) * vb.h;
+        const rawCx = vb.x + (((a.x + b.x) / 2 - r.left) / r.width) * vb.w;
+        const rawCy = vb.y + (((a.y + b.y) / 2 - r.top) / r.height) * vb.h;
+        // 핀치 중심도 휠과 동일한 이유로 +bearing 되돌림(§2.5).
+        const { x: camCx, y: camCy } = getCamCenter();
+        const { x: cx, y: cy } = rotatePoint(rawCx, rawCy, camCx, camCy, bearing);
         applyZoom(g.lastD / dist, cx, cy);
       }
       g.lastD = dist;
@@ -1047,9 +1054,12 @@ function SaigonMapV5({
       return;
     }
     if (g.lastP) {
-      const dx = ((e.clientX - g.lastP.x) / r.width) * vb.w;
-      const dy = ((e.clientY - g.lastP.y) / r.height) * vb.h;
+      const dxRaw = ((e.clientX - g.lastP.x) / r.width) * vb.w;
+      const dyRaw = ((e.clientY - g.lastP.y) / r.height) * vb.h;
       if (Math.abs(e.clientX - g.lastP.x) + Math.abs(e.clientY - g.lastP.y) > 3) g.moved = true;
+      // 팬 델타는 화면 좌표계 벡터다 — 지형이 -bearing 만큼 돌아 보이므로, 지도 좌표계로
+      // 되돌리려면 +bearing 만큼 회전한다(벡터라 중심 없이 rotateVec 로 충분, §2.5).
+      const { x: dx, y: dy } = rotateVec(dxRaw, dyRaw, bearing);
       vbRef.current = clampVB({ ...vb, x: vb.x - dx, y: vb.y - dy });
       setVBAttr();
       g.lastP = { x: e.clientX, y: e.clientY };
@@ -1086,8 +1096,11 @@ function SaigonMapV5({
     if (!r || !svgEl) return;
 
     const vb = vbRef.current;
-    const mx = vb.x + ((tapX - r.left) / r.width) * vb.w;
-    const my = vb.y + ((tapY - r.top) / r.height) * vb.h;
+    const rawMx = vb.x + ((tapX - r.left) / r.width) * vb.w;
+    const rawMy = vb.y + ((tapY - r.top) / r.height) * vb.h;
+    // 탭 좌표도 휠·핀치와 동일 이유로 +bearing 되돌림(§2.5).
+    const { x: camCx, y: camCy } = getCamCenter();
+    const { x: mx, y: my } = rotatePoint(rawMx, rawMy, camCx, camCy, bearing);
 
     if (pickMode) {
       onPointPick?.({ lat: uy2lat(my), lng: ux2lng(mx) });

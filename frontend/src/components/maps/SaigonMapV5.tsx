@@ -333,6 +333,14 @@ export interface SaigonMapV5Props {
    * 판정과 무관. 기본 꺼짐(기존 소비 화면 무영향). 조회 실패 시 조용히 생략(지도는 그대로 동작).
    */
   showCityOutline?: boolean;
+  /**
+   * 카메라 추종 + 나침반 회전을 켠다 (설계: ai-docs/260806_svg_map_v6_rotation_design.md D-H).
+   * **기본 false — 미지정 시 기존 동작과 완전히 동일하다(킬스위치).** 회전 렌더·3-state 순환 UI·
+   * 워처 heading 소비는 후속 단계(§7 step 5~8)에서 이 플래그로 게이트되어 추가된다.
+   */
+  enableFollowCompass?: boolean;
+  /** 3-state 모드 변화 통지(옵션, 관측 전용). 부모 UI 동기화·e2e 관측용 — 미전달 시 무동작. */
+  onFollowModeChange?: (mode: 'free' | 'follow' | 'compass') => void;
 }
 
 function SaigonMapV5({
@@ -376,6 +384,8 @@ function SaigonMapV5({
   queryTopInsetPx = topInsetPx,
   queryBottomInsetPx = 0,
   showCityOutline = false,
+  enableFollowCompass = false,
+  onFollowModeChange,
 }: SaigonMapV5Props) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -389,6 +399,10 @@ function SaigonMapV5({
   const [vbSnap, setVbSnap] = useState(0); // LOD 변경·데이터 로드 시 re-render 트리거
 
   const [meLatLng, setMeLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  // 3-state 카메라 모드(자유/추종/추종+나침반, D-D) — enableFollowCompass=false 면 이 상태를
+  // 바꾸는 경로가 아직 없으므로 'free' 를 벗어날 수 없다(킬스위치). 순환 트리거(◎ 버튼)·회전
+  // 렌더·워처 heading 소비는 후속 단계(§7 step 5~8)에서 이 플래그로 게이트되어 추가된다.
+  const [followMode, setFollowMode] = useState<'free' | 'follow' | 'compass'>('free');
   // HCMC 전역 윤곽(선택적 배경) — 조회 실패 시 null 유지, 지도는 그대로 동작.
   const [cityOutline, setCityOutline] = useState<CityOutline | null>(null);
   useEffect(() => {
@@ -689,6 +703,14 @@ function SaigonMapV5({
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
+
+  // followMode 관측 통지 — enableFollowCompass=false 면 이 이펙트 자체가 나가지 않는다(off 경로
+  // 완전 동일성 보장, D-H 8.3). true 라도 이 단계에선 followMode 가 'free' 밖으로 나가지 않으므로
+  // 실질 통지는 아직 없다 — 자리만 마련(§7 step 5~8이 순환 트리거를 추가하면 여기서 발화한다).
+  useEffect(() => {
+    if (!enableFollowCompass) return;
+    onFollowModeChange?.(followMode);
+  }, [enableFollowCompass, followMode, onFollowModeChange]);
 
   const centerOnUnified = useCallback((cx: number, cy: number) => {
     const vb = vbRef.current;

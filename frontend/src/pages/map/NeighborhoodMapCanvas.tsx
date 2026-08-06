@@ -1252,18 +1252,17 @@ export default function NeighborhoodMapCanvas({
           region 모드에도 노출(2026-08-04) — 지역 선택 + 줌아웃이면 핀/말풍선이 정리돼 빈
           지도가 되므로 마켓 지도와 동일하게 확대 안내가 필요하다. 확대 타겟은 viewportCenter
           가 region 모드에서 null(mode 게이트)이라 autoBubbleBbox(모드 무관 커밋) 중심 폴백. */}
-      {!isSearching && showZoomHint && (
+      {/* 캐러셀(PostPanel)이 열려 있으면 숨긴다 — 패널 위 'n명이 보는중'·✕ 행(aboveRow)과
+          같은 자리(하단 가운데)라 겹친다(대표 지적 2026-08-06). 카드를 보는 중엔 탐색용
+          확대 유도가 필요하지도 않다. */}
+      {!isSearching && showZoomHint && !postPanelOpen && (
         <button
           type="button"
           ref={setZoomPillRef}
           className={styles.zoomHintPill}
-          style={
-            postPanelOpen && postPanelHeight > 0
-              ? { bottom: postPanelHeight + 14 }
-              : sheetSnap === 'full'
-                ? { display: 'none' }
-                : { bottom: 'calc(var(--sheet-visible-h, 0px) + 14px)' }
-          }
+          /* 위치는 CSS(하단 가운데) 고정 — 종전 인라인 계산은 캐러셀·시트 높이에 연동한
+             것인데, 캐러셀 열림 시엔 아예 숨기고(위 조건) 시트는 SHOW_BIZ_SHEET=false 로
+             렌더되지 않아 둘 다 불필요해졌다. */
           onClick={() => {
             const target = viewportCenter
               ?? (autoBubbleBbox ? { lat: (autoBubbleBbox.N + autoBubbleBbox.S) / 2, lng: (autoBubbleBbox.E + autoBubbleBbox.W) / 2 } : null);

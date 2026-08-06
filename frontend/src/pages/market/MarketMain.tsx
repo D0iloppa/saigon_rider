@@ -620,7 +620,8 @@ export default function MarketMain() {
               해제할 필터가 없다. */}
           {/* 줌 게이트 힌트 필 — 동네지도 zoomHintPill 과 같은 문구/동작(탭 = 뷰포트 중심 확대).
               게이트 밖에서 핀이 비는 이유를 사용자에게 알린다. */}
-          {showZoomHint && (
+          {/* 캐러셀이 열려 있으면 숨긴다 — 패널 위 'n명이 보는중'·✕ 행과 같은 자리다. */}
+          {showZoomHint && !postPanelOpen && (
             <button
               type="button"
               className={styles.zoomHintPill}

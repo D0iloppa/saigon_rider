@@ -74,6 +74,23 @@ function rotateVec(dx: number, dy: number, deg: number): { x: number; y: number 
   const t = (deg * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
   return { x: dx * c - dy * s, y: dx * s + dy * c };
 }
+// 컬링 사각형 회전 bbox 확장 (D-C, §4·§7 step 7) — <g rotate(-bearing, cx, cy)> 안에서는 축정렬
+// viewBox 사각형이 화면을 채우려면 지도 좌표계에서 그 사각형을 +bearing 만큼 cx/cy 기준으로 돌린
+// 회전 사각형이 보여야 한다. 정확한 회전 폴리곤 대신 안전한(넉넉한) AABB를 반환 — 45°에서 면적 2배.
+// deg===0 이면 원본 vb 를 그대로 반환한다(킬스위치 — bearing=0 인 8개 기존 소비처는 컬링 결과 불변).
+function rotatedBBoxOfRect(vb: VB, cx: number, cy: number, deg: number): VB {
+  if (deg === 0) return vb;
+  const corners: [number, number][] = [
+    [vb.x, vb.y], [vb.x + vb.w, vb.y], [vb.x, vb.y + vb.h], [vb.x + vb.w, vb.y + vb.h],
+  ];
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const [x, y] of corners) {
+    const p = rotatePoint(x, y, cx, cy, deg);
+    if (p.x < x1) x1 = p.x; if (p.x > x2) x2 = p.x;
+    if (p.y < y1) y1 = p.y; if (p.y > y2) y2 = p.y;
+  }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
 
 // LOD 임계값 — viewBox 너비 기준
 const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
@@ -735,11 +752,15 @@ function SaigonMapV5({
     onDepthChange?.(!markerDepthReady, !l3);
 
     if (!l2) return;
+    // 나침반 회전 중엔 프리로드 판정도 회전 bbox(cullVb)로 — 안 하면 회전한 화면 모서리에
+    // 들어온 ward 의 depth2 가 아직 안 실려 렌더 시점(showL2 블록)에 빈 구간이 보인다(D-C).
+    const { x: camCx, y: camCy } = getCamCenter();
+    const cullVb = rotatedBBoxOfRect(vb, camCx, camCy, bearing);
     depth1.wards.forEach((w, i) => {
-      if (!w.slug || !wardInView(i, vb)) return;
+      if (!w.slug || !wardInView(i, cullVb)) return;
       void loadWardData(w.slug as string, l3 && !lightweight);
     });
-  }, [lightweight, loadWardData, markerDepth, onBboxChange, onRawViewportChange, onDepthChange, getQueryCropUnits]);
+  }, [lightweight, loadWardData, markerDepth, onBboxChange, onRawViewportChange, onDepthChange, getQueryCropUnits, getCamCenter, bearing]);
 
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
@@ -1128,7 +1149,10 @@ function SaigonMapV5({
   // ── LOD 상태 (render 시점 기준) ────────────────────────────
   const vb = vbRef.current;
   const showL2 = vb.w < L2_VBW;
-  const showL3 = L3_ENABLED && !lightweight && vb.w < L3_VBW;
+  // 나침반 회전 중(bearing!==0)엔 L3(건물)를 렌더하지 않는다(D-C, §4·§7 step 7) — 오버스캔으로
+  // 피처가 최대 2배 늘어나는 구간을 저사양 기기에서 감당하지 못한다. bearing===0(킬스위치·자유·
+  // 추종 모드)이면 기존과 동일하게 L3_VBW 임계만으로 게이트된다.
+  const showL3 = L3_ENABLED && !lightweight && vb.w < L3_VBW && bearing === 0;
   // 도로폭 배율·건물 음영 게이트 — 마커 r 과 동일하게 render 시점 vb 기준 (제스처 종료 시 재계산).
   // 음영 duplicate 는 건물 노드를 2배로 만들므로 딥줌 절반(vbW<350)부터만 적용해 노드를 아낀다.
   const roadK = roadWidthK(vb.w);
@@ -1142,6 +1166,9 @@ function SaigonMapV5({
   // 항등), 회전 <g> 렌더는 아래 반환부에서 플래그로만 게이트한다(D-H).
   const { x: camCx, y: camCy } = getCamCenter();
   const rotUnified = (lng: number, lat: number) => rotatePoint(lx(lng), ly(lat), camCx, camCy, -bearing);
+  // 컬링 사각형 회전 bbox 확장(D-C, §7 step 7) — L2 ward 렌더 컬링(wardInView)은 축정렬 vb 를
+  // 그대로 쓰면 회전한 모서리의 ward 를 누락한다. bearing===0(킬스위치 경로 포함)이면 vb 그대로.
+  const cullVb = rotatedBBoxOfRect(vb, camCx, camCy, bearing);
 
   // ── 라벨 디클러터 ──────────────────────────────────────────
   // 겹치는 라벨을 우선순위(선택>뱃지>POI>일반, 동률 시 가시영역 중앙거리)로 정리한다.
@@ -1345,7 +1372,7 @@ function SaigonMapV5({
 
       {/* Layer 2: 블록 (ward별 nested SVG) */}
       {showL2 && depth1.wards.map((w, i) => {
-        if (!w.slug || !wardInView(i, vb)) return null;
+        if (!w.slug || !wardInView(i, cullVb)) return null;
         if (polyActive && selWard !== null && i !== selWard) return null;
         const d = wardData[w.slug as string];
         if (!d?.d2) return null;

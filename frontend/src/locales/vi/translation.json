@@ -2079,5 +2079,14 @@
   },
   "mapV2": {
     "locateFailed": "Không lấy được vị trí"
+  },
+  "location": {
+    "scope": "Phạm vi hiển thị",
+    "gpsTitle": "Vị trí hiện tại của tôi",
+    "gpsDesc": "Xem theo thứ tự gần vị trí hiện tại của bạn",
+    "allTitle": "Toàn bộ khu vực",
+    "allDesc": "Xem toàn bộ TP.HCM",
+    "fallbackTitle": "Trung tâm TP.HCM",
+    "fallbackDesc": "Bạn đang ở ngoài khu vực dịch vụ · hiển thị theo trung tâm TP.HCM"
   }
 }

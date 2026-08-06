@@ -2079,5 +2079,14 @@
   },
   "mapV2": {
     "locateFailed": "위치를 가져올 수 없어요"
+  },
+  "location": {
+    "scope": "표시 범위",
+    "gpsTitle": "내 현재 위치",
+    "gpsDesc": "현재 위치에서 가까운 순으로 봅니다",
+    "allTitle": "전체 지역",
+    "allDesc": "호치민 전역을 봅니다",
+    "fallbackTitle": "호치민 중심가",
+    "fallbackDesc": "서비스 지역 밖이라 호치민 중심가를 기준으로 봅니다"
   }
 }

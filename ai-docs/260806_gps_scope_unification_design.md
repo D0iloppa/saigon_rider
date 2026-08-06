@@ -55,7 +55,7 @@
 | D1 | 위치 모드는 **`'gps' | 'all'` 2개**. `'region'` 및 지역 수동 선택 경로 **완전 제거** | 대표 "2개로만해" + 사용자 확정 |
 | D2 | **기본값 `'gps'`**. 진입 시 측위 → 서비스권역 내면 `'gps'` | 대표 "기본을 다 gps로" |
 | D3 | 측위 실패/거부/타임아웃/권역밖 → **`'all'` 폴백 + 1회 토스트** | 대표 "안잡히면 전체지역" + 사용자 확정 |
-| D4 | `'gps'` 모드의 "근처" = **내 좌표 반경 5km** (행정구역 무관), 거리순 정렬 | 사용자 확정 — 구경계 걸친 매물 누락 방지 |
+| D4 | `'gps'` 모드의 "근처" = **내 좌표 반경 3km** (행정구역 무관), 거리순 정렬 | 사용자 확정 — 구경계 걸친 매물 누락 방지 |
 | D5 | **지역 선택 강조/마스킹 제거**(`polyActive=false`), 초기 카메라를 **GPS 중심**으로 | 대표 "지도 다나오게" + 사용자 확정 |
 | D6 | **좌하단 지역칩(`AreaPill`) 제거** | 사용자 확정 |
 | D7 | **L2 줌 게이트는 유지** (`zoomGateShort` 필 포함) | 사용자 확정 — "멀리서 볼 때 확대를 유도하는 버튼이므로 맞다" |
@@ -192,7 +192,7 @@ interface LocationState {
 ### 6.2 동네지도 `pages/map/NeighborhoodMap.tsx` / `NeighborhoodMapCanvas.tsx`
 
 - `regionMode: 'all'|'gps'|'region'` → `'all'|'gps'`, `regionScoped`/`selectedRegion` 분기 제거 (L85-98).
-- 초기 bbox (L140): `regionBbox(selectedRegion)` → **GPS 좌표 중심 5km bbox**, `'all'`이면 `HCMC_BBOX`.
+- 초기 bbox (L140): `regionBbox(selectedRegion)` → **GPS 좌표 중심 3km bbox**, `'all'`이면 `HCMC_BBOX`.
 - `initialRegion` prop (L264) 제거.
 - 헤더 라벨 (L281,402): `selectedRegion.name` → `wardName ?? t('market.currentLocation')`.
 - **동 폴리곤 탭 → 지역 선택 동작 제거** (`SaigonMapV5 onRegionSelect`). 탭은 이제 아무 필터도 걸지 않는다.
@@ -247,7 +247,7 @@ export function useServiceLocation() {
 | `useSelectedRegion` | 동상 | 삭제 (사용처 전부 제거됨) |
 | `AreaPill` 렌더 | 마켓·동네지도 | 렌더 삭제. **컴포넌트 파일은 존치**(다른 사용처 확인 후 판단) |
 | `BEN_THANH_FALLBACK`의 필터 기준 용도 | `lib/serviceLocation.ts:29` | 카메라 기본값으로만 격하 |
-| `mkt_filter_v2` 의 위치 5필드 | `MarketMain.tsx` | 삭제. **구버전 값 마이그레이션 필요** — 없으면 `locationMode:'region'`이 남아 첫 진입이 깨진다 |
+| `mkt_filter_v2` 의 위치 5필드 | `MarketMain.tsx` | 삭제 + 키를 **`mkt_filter_v3`** 로 올려 구버전 값 격리(마이그레이션 코드 불필요) |
 | `service-rules.md` GPS 원칙 1·2, 예외 4 | `ai-docs/context/service-rules.md` | **개정** (§2) |
 
 ---
@@ -258,19 +258,31 @@ export function useServiceLocation() {
 
 | # | 시나리오 | 통과 조건 |
 |---|---|---|
-| V1 | GPS 허용, `Thạnh Mỹ Tây` 좌표 주입 → 홈 진입 | 헤더 `Thạnh Mỹ Tây` **&** 근처 상품 배지가 반경 5km 내 동들. `Bến Thành` 고정 노출 없음 |
+| V1 | GPS 허용, `Thạnh Mỹ Tây` 좌표 주입 → 홈 진입 | 헤더 `Thạnh Mỹ Tây` **&** 근처 상품 배지가 반경 3km 내 동들. `Bến Thành` 고정 노출 없음 |
 | V2 | 동일 상태로 홈→마켓→동네지도→주유소→날씨 순회 | 5화면 모두 같은 기준 좌표. 화면마다 다른 지역명이 뜨지 않음 |
 | V3 | GPS 거부 상태로 앱 재시작 | 5화면 모두 `Toàn bộ khu vực`. 토스트 **정확히 1회** |
 | V4 | GPS 성공 후 앱 재시작 | 모드 `gps` 유지, 좌표는 **재측위**된 값 (localStorage 잔존 좌표 사용 안 함) |
 | V5 | 표시범위 시트 열기 | 옵션 **2개만**. 지역 선택 진입점 없음 |
-| V6 | 마켓 지도 진입 | 좌하단 지역칩 없음. 주황 폴리곤 경계·외부 마스크 없음. **줌 게이트 필은 존재** |
-| V7 | 구경계에 걸친 매물 (내 위치 4.8km, 다른 ward) | 목록에 **포함**됨 (D4 반경 기준 확인) |
+| V6 | 마켓 지도 진입 | 좌하단 지역칩 없음. 주황 **선택 강조** 경계·외부 마스크 없음. **동 경계선·라벨은 존재**. **줌 게이트 필도 존재** |
+| V7 | 구경계에 걸친 매물 (내 위치 2.8km, 다른 ward) | 목록에 **포함**됨 (D4 반경 기준 확인) |
 | V8 | 서비스권역 밖 좌표 주입 (37개 동 폴리곤 밖, 예: Bình Dương) | `map.outsideArea` 토스트 + **모드는 `gps` 유지, 기준 좌표는 Bến Thành**, 반경 3km 목록이 채워짐. `coordsSource==='fallback'`이라 라벨에 "내 현재 위치"를 쓰지 않음 |
 | V8b | 측위 실패(권한 거부)와 V8을 구분 | V8은 `gps`+중심가, 거부는 `all`. 두 경우가 같은 화면이 되면 안 됨 |
 | V9 | 구버전 `mkt_filter_v2` (`locationMode:'region'`) 잔존 상태로 진입 | 크래시·빈 화면 없이 `gps`로 정상 진입 |
 | V10 | `radius_km` 붙은 목록 API 페이지네이션 | 2페이지 이후에도 총계·항목 정합 (count_q 동시 적용 확인) |
 
-기존 e2e 회귀 스위트(`frontend/e2e/market-poi.spec.ts`, `me-dot*.spec.ts`, `location-picker-poi.spec.ts`)는 **지역 선택 전제로 쓰여 있어 대부분 깨진다** → 위 V1~V10으로 재작성.
+### 구현 후 실제 처리 (2026-08-06)
+
+| 검증 축 | 어디서 고정했나 | 결과 |
+|---|---|---|
+| V4·V8·V8b·폴백 정책·프리프롬프트 | `src/store/useLocationStore.contract.test.mjs` (16 subtest) | ✅ 통과 |
+| V10 (+반경 미터 변환, ward 무관성) | `backend/app/tests/test_market_listings_radius.py` (6 test) | ✅ 통과 |
+| 정보 4화면이 스토어를 따르는지 | `src/pages/info/infoLaunchSafety.contract.test.mjs` (구 "날씨는 GPS 미사용" 계약 교체) | ✅ 통과 |
+| V5·V6 (2옵션·칩 없음·강조 없음·경계선 유지·줌게이트 유지) | `e2e/map-consistency.spec.ts` P1/P3/P4/P6/P7 재작성 | e2e |
+| V9 | `mkt_filter_v3` 키 분리로 구조적 해소(구버전 값을 읽지 않음) | 코드로 보장 |
+
+**폐기한 e2e**: `e2e/region-clear-keeps-viewport.spec.ts` — 지역칩 ✕ 회귀 감시 전용인데 그 기능이 사라져 전제가 없다.
+
+**미검증으로 남은 것**: V1·V2·V3·V7 은 시드 데이터(반경 내 매물 분포)와 다중 화면 순회가 필요해 자동화하지 않았다 — 실기기/스테이징 수동 확인 대상.
 
 ---
 
@@ -307,7 +319,7 @@ export function useServiceLocation() {
 | C | 반경 크기 | ✅ **3km** — `NEARBY_RADIUS_KM = 3` 상수로 분리 |
 | D | "특정 동만 보기" 완전 제거 (동 폴리곤 탭 필터 포함) | ✅ **제거 확정** |
 
-> **C 확정에 따른 정정**: 본 문서에서 "반경 5km"로 쓰인 모든 곳(D4, §6.1/6.2/6.3, V7)은 **3km**로 읽는다. V7 시나리오의 예시 거리도 4.8km → 2.8km.
+> **C 확정에 따른 정정**: 본 문서에서 "반경 3km"로 쓰인 모든 곳(D4, §6.1/6.2/6.3, V7)은 **3km**로 읽는다. V7 시나리오의 예시 거리도 4.8km → 2.8km.
 
 ---
 

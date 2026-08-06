@@ -7,12 +7,16 @@ import { devLogin, injectSession, uniqueTag, saveConsentViaApi, cleanupUser, typ
  *
  * 마켓 필터는 sessionStorage 에만 저장돼 웹뷰 세션이 끝나면(앱 재시작) '전체 지역'으로
  * 되돌아갔다. 동네지도·정보 화면은 useLocationStore(persist=localStorage)라 유지되는
- * 비대칭이었다. 저장소를 localStorage 로 올려 앱 재시작 후에도 선택이 남는지 확인한다.
+ * 비대칭이었다.
+ *
+ * 2026-08-06 개정: 표시 범위는 마켓 독자 저장소가 아니라 useLocationStore 가 들고 있다
+ * (앱 전역 단일 SoT). **모드는 persist 되지만 좌표는 안 된다** — 재시작 시 모드는 'gps' 로
+ * 남고 좌표만 재측위된다. 이 테스트는 그 "모드 유지"를 고정한다.
  *
  * **콜드 스타트 모사**: 새 BrowserContext = 새 sessionStorage(앱 재실행), localStorage 는
  * 그 사이 옮겨 심는다 — 실제 웹뷰 재시작과 같은 조건.
  */
-const L = { allAreas: 'Toàn bộ khu vực', currentLocation: 'Dùng vị trí hiện tại của tôi', apply: 'Áp dụng' };
+const L = { allAreas: 'Toàn bộ khu vực', currentLocation: 'Vị trí hiện tại của tôi', apply: 'Áp dụng' };
 
 test.describe('마켓 표시 범위 영속성', () => {
   test.use({

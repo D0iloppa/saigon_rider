@@ -42,11 +42,15 @@ export function DisplayScopeSheet({ open, onClose }: Props) {
   // 헤더의 현재 상태 표기. 권역 밖이라 중심가로 대체된 상태에서는 동네명을 쓰지 않는다 —
   // "내 현재 위치"로 보이면 사용자가 결과를 오해한다(coordsSource 'fallback').
   const currentTitle = mode === 'all'
-    ? t('market.allAreas')
+    ? t('location.allTitle')
     : coordsSource === 'fallback'
-      ? t('market.outOfService', { defaultValue: '서비스 미제공 지역입니다' })
-      : wardName ?? t('market.currentLocation');
-  const currentMeta = mode === 'all' ? t('market.locationMetaAll') : t('market.locationMetaGps');
+      ? t('location.fallbackTitle')
+      : wardName ?? t('location.gpsTitle');
+  const currentMeta = mode === 'all'
+    ? t('location.allDesc')
+    : coordsSource === 'fallback'
+      ? t('location.fallbackDesc')
+      : t('location.gpsDesc');
 
   const apply = () => {
     void setMode(draft);
@@ -57,7 +61,7 @@ export function DisplayScopeSheet({ open, onClose }: Props) {
     <BottomSheet open={open} onClose={onClose}>
       <div className={styles.sheet}>
         <div className={styles.header}>
-          <span className={styles.eyebrow}>{t('market.locationScope')}</span>
+          <span className={styles.eyebrow}>{t('location.scope')}</span>
           <strong className={styles.current}>{currentTitle}</strong>
           <p className={styles.desc}>{currentMeta}</p>
         </div>
@@ -68,8 +72,8 @@ export function DisplayScopeSheet({ open, onClose }: Props) {
         >
           <span className={styles.cardIcon}><LocateFixed size={20} strokeWidth={2} /></span>
           <span className={styles.cardBody}>
-            <strong className={styles.cardTitle}>{t('market.currentLocation')}</strong>
-            <span className={styles.cardText}>{t('market.locationMetaGps')}</span>
+            <strong className={styles.cardTitle}>{t('location.gpsTitle')}</strong>
+            <span className={styles.cardText}>{t('location.gpsDesc')}</span>
           </span>
           <span className={styles.cardCheck}><RadioCircle checked={draft === 'gps'} /></span>
         </button>
@@ -80,8 +84,8 @@ export function DisplayScopeSheet({ open, onClose }: Props) {
         >
           <span className={styles.cardIcon}><Globe size={20} strokeWidth={2} /></span>
           <span className={styles.cardBody}>
-            <strong className={styles.cardTitle}>{t('market.allAreas')}</strong>
-            <span className={styles.cardText}>{t('market.locationMetaAll')}</span>
+            <strong className={styles.cardTitle}>{t('location.allTitle')}</strong>
+            <span className={styles.cardText}>{t('location.allDesc')}</span>
           </span>
           <span className={styles.cardCheck}><RadioCircle checked={draft === 'all'} /></span>
         </button>

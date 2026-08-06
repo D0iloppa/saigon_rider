@@ -172,8 +172,8 @@ export default function MarketMain() {
   // "내 현재 위치"로 보이면 사용자가 결과를 오해한다(설계도 §4.3 coordsSource).
   const currentRegionName = coordsSource === 'fallback' ? null : wardName;
   const currentLocationTitle = locationMode === 'all'
-    ? t('market.allAreas')
-    : currentRegionName ?? t('market.currentLocation');
+    ? t('location.allTitle')
+    : currentRegionName ?? (coordsSource === 'fallback' ? t('location.fallbackTitle') : t('location.gpsTitle'));
 
   // 'gps' 면 반경 필터, 'all' 이면 전역 조회. 행정구역(wardId)으로 거르지 않는다 —
   // 구 경계에 걸친 매물이 통째로 빠지던 원인이었다(설계도 D4).
@@ -488,12 +488,14 @@ export default function MarketMain() {
               markerDepth="l2"
               zoomInRef={zoomInRef}
               focusPointRef={focusPointRef}
-              bottomInsetPx={postPanelOpen ? postPanelHeight : 0}
+              // 내 위치(◎) 버튼이 글쓰기 FAB(52px + bottom 18px) 뒤에 가리지 않도록 띄운다.
+              // SaigonMapV5 는 bottomInsetPx+16 을 bottom 으로 쓴다 → 70+16=86px (FAB 상단 위).
+              bottomInsetPx={postPanelOpen ? postPanelHeight : 70}
               outsideAreaFallback
               outsideAreaMessage={t('map.outsideArea', { defaultValue: '서비스 지역 밖이에요 · 호치민 중심을 보여드려요' })}
-              // 현재 위치로(◎) 버튼 제거 (service-rules GPS 원칙 2, 2026-07-25 개정) — 동네지도와
-              // 동일하게 SaigonMapV5 내장 버튼을 끈다(컴포넌트 자체는 다른 화면에서 계속 사용).
-              showLocateControl={false}
+              // 우측 하단 '내 위치' 버튼 — 2026-08-06 복원. 이걸 끄던 근거(service-rules GPS
+              // 원칙 2 "지도 탐색에 GPS 미사용")가 대표 지시로 폐기됐다.
+              showLocateControl
             />
           </Suspense>
           {/* 지역 필터 chip(AreaPill) 제거 — 대표 지시 2026-08-06. 지역 선택 자체가 없어져

@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUserStore } from '@/store/useUserStore';
+import { useLocationStore } from '@/store/useLocationStore';
 import { useDmStore } from '@/store/useDmStore';
 import { changeLang } from '@/lib/i18n';
 import { loadSession, saveSession, clearSession } from '@/lib/session';
@@ -341,6 +342,13 @@ export default function App() {
     img.onload = () => setGifReady(true);
     img.src = emojiUrl('1f3cd');
   }, []);
+
+  // 이동 추종 — 앱 전역에서 딱 한 번 워처를 건다(대표 지적 2026-08-06: "페이지이동을 하지
+  // 않으면 위치가 반영되지 않는다"). 화면마다 걸면 워처가 중복되므로 여기서만 호출한다.
+  // 'gps' 모드가 아닐 땐 스토어가 no-op 을 돌려주고, 모드가 바뀌면 다시 건다.
+  const startWatching = useLocationStore((s) => s.startWatching);
+  const locationMode = useLocationStore((s) => s.mode);
+  useEffect(() => startWatching(), [startWatching, locationMode]);
 
   // 앱 기동 시: 쿠키 세션 → 자동 로그인 시도
   useEffect(() => {

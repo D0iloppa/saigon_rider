@@ -12,7 +12,7 @@ import {
  * 브라우저 GPS 오버라이드 회귀 검증 — 2ddcbd5(resolveWardByCoords 폴리곤 우선화) 이후,
  * 실제로 브라우저에서 위치를 바꾸면 그 동으로 잘 뜨는지를 확인한다.
  *
- * 마켓은 GPS 를 자동 반영하지 않는다(설계) — 헤더 지역명을 탭해 '표시 범위' 시트에서
+ * (2026-08-06 개정 전 서술) 마켓은 GPS 를 자동 반영하지 않았다 — 헤더 지역명을 탭해 '표시 범위' 시트에서
  * '내 현재 위치'를 고르고 '적용'을 눌러야 GPS 를 읽는다. 이 플로우를 그대로 재현한다.
  *
  * 좌표 (10.77293, 106.70030)는 Sài Gòn 폴리곤 내부이지만 Bến Thành 중심이 더 가깝다
@@ -21,7 +21,7 @@ import {
 async function openGpsSheetAndApply(page: import('@playwright/test').Page) {
   // 초기 상태(locationMode='all') 헤더 문구 — 탭하면 '표시 범위' 시트가 열린다.
   await page.getByText('Toàn bộ khu vực', { exact: true }).click();
-  await page.getByText('Dùng vị trí hiện tại của tôi', { exact: true }).click();
+  await page.getByText('Vị trí hiện tại của tôi', { exact: true }).click();
   await page.getByRole('button', { name: 'Áp dụng' }).click();
 }
 
@@ -103,10 +103,9 @@ test.describe('화면 간 일관성 — 마켓과 홈 헤더가 같은 GPS 좌�
     await openGpsSheetAndApply(page);
     await expect(page.locator('h1')).toContainText('Sài Gòn', { timeout: 10_000 });
 
-    // 홈 헤더 위치 행 — WorldMapV2 가 진입 시 1회 GPS 를 측정해(사용자 지시 2026-08-03)
-    // wardRegionAt(마켓과 동일한 폴리곤 우선 알고리즘)으로 동 이름을 라벨링한다.
-    // (동네지도는 GPS 를 "내 주변순" 토글에서만 정렬 기준으로 쓸 뿐, 동 이름 라벨을
-    // 구조적으로 표시하지 않으므로 대상에서 제외 — 아래 보고 참조.)
+    // 홈 헤더 위치 행 — HomePage 가 표시 범위 스토어의 GPS 좌표로 동 이름을 라벨링한다.
+    // 2026-08-06 개정: 이 라벨은 더 이상 "표시 전용"이 아니다 — 아래 근처 상품 목록도
+    // 같은 좌표를 기준으로 조회한다(헤더와 목록이 어긋나던 회귀의 수정점).
     await page.goto('/home');
     const homeLoc = page.getByRole('button', { name: 'Chọn khu vực' });
     await expect(homeLoc).toContainText('Vị trí hiện tại: Sài Gòn', { timeout: 10_000 });

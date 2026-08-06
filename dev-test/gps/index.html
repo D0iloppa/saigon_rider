@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS 하네스 — Saigon Rider</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bd:#d8d8dc; --mut:#6b6b70; --brand:#f8602a;
+    --surface:#fff; --ink:#1c1c1e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bd:#3a3a3e; --mut:#9a9aa0; --surface:#1f1f23; --ink:#f2f2f4; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; height:100vh; display:flex; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  #stage { flex:0 0 420px; background:#111; display:flex; align-items:center; justify-content:center; padding:16px; }
+  #app { width:390px; height:844px; max-height:calc(100vh - 32px); border:0; border-radius:22px; background:#fff; box-shadow:0 8px 40px rgba(0,0,0,.5); }
+  #panel { flex:1; padding:24px 28px; overflow:auto; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:var(--mut); margin:0 0 20px; font-size:13px; }
+  fieldset { border:1px solid var(--bd); border-radius:10px; padding:14px 16px; margin:0 0 16px; }
+  legend { font-weight:700; font-size:12px; color:var(--mut); padding:0 6px; }
+  label { display:block; font-size:12px; color:var(--mut); margin-bottom:4px; }
+  input { width:100%; padding:8px 10px; border:1px solid var(--bd); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-variant-numeric:tabular-nums; }
+  .row { display:flex; gap:10px; margin-bottom:12px; }
+  .row > div { flex:1; }
+  /* 다크모드에서 배경만 흰색이고 글자색을 안 정하면 흰 글씨가 흰 배경에 묻힌다 — 둘 다 명시한다. */
+  button { padding:9px 14px; border:1px solid var(--bd); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--brand); color:var(--brand); }
+  button.primary { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:700; }
+  button.primary:hover { opacity:.9; color:#fff; }
+  .presets { display:flex; flex-wrap:wrap; gap:6px; }
+  .presets button { font-size:12px; padding:6px 10px; }
+  .actions { display:flex; gap:8px; align-items:center; }
+  #status { margin-left:auto; font-size:12px; color:var(--mut); }
+  code { background:rgba(127,127,127,.14); padding:1px 5px; border-radius:4px; font-size:12px; }
+  .note { font-size:12px; color:var(--mut); line-height:1.6; }
+  .note b { color:inherit; }
+  .live { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12px; color:var(--mut); }
+  .live input { width:auto; }
+  .live b { color:var(--ink); }
+  #map { height:300px; border-radius:8px; border:1px solid var(--bd); }
+  .leaflet-container { font:inherit; }
+  #mapFail { display:none; padding:10px; border:1px dashed var(--bd); border-radius:8px; color:var(--mut); font-size:12px; }
+  @media (max-width: 900px) { body { flex-direction:column; } #stage { flex:none; } #app { height:60vh; } }
+</style>
+</head>
+<body>
+  <div id="stage"><iframe id="app" src="/" title="Saigon Rider"></iframe></div>
+
+  <div id="panel">
+    <h1>GPS 하네스</h1>
+    <p class="sub">좌표를 바꿔 앱이 "내 위치"를 어떻게 해석하는지 확인합니다. 적용하면 앱이 새로 로드됩니다.</p>
+
+    <fieldset>
+      <legend>좌표</legend>
+      <div class="row">
+        <div><label for="lat">위도 (lat)</label><input id="lat" inputmode="decimal" value="10.7716"></div>
+        <div><label for="lng">경도 (lng)</label><input id="lng" inputmode="decimal" value="106.6980"></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="apply">적용 + 새로고침</button>
+        <button id="clear">해제(실측으로)</button>
+        <span id="status"></span>
+      </div>
+      <label class="live"><input type="checkbox" id="live"> <b>실시간 모드</b> — 새로고침 없이 좌표만 갱신(이동 재현). 지도 클릭·드래그가 즉시 반영됩니다.</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>지도에서 찍기</legend>
+      <div id="map"></div>
+      <p class="note" id="mapNote" style="margin:8px 0 0">지도를 클릭하면 그 좌표가 위에 채워집니다. 더블클릭하면 바로 적용됩니다.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>프리셋</legend>
+      <div class="presets" id="presets"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>화면 바로가기</legend>
+      <div class="presets" id="routes"></div>
+    </fieldset>
+
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  var KEY = '__dev_gps';
+  var $ = function (id) { return document.getElementById(id); };
+  var frame = $('app');
+
+  // 서비스 지역(37개 동) 안 3곳 + 경계 밖 2곳 — 폴백 경로까지 눌러볼 수 있게 섞었다.
+  var PRESETS = [
+    ['Bến Thành (중심가)', 10.7716, 106.6980],
+    ['Thạnh Mỹ Tây', 10.8006, 106.7295],
+    ['Tân Định', 10.79126, 106.69396],
+    ['Chợ Lớn', 10.7530, 106.6540],
+    ['Thủ Đức (지역 밖)', 10.8700, 106.8000],
+    ['Bình Dương (지역 밖)', 11.0000, 106.6500]
+  ];
+  var ROUTES = [['홈', '/home'], ['마켓', '/market'], ['동네지도', '/map'], ['날씨', '/info/weather'], ['주유소', '/info/gas'], ['정비소', '/info/repair']];
+
+  function say(msg) {
+    $('status').textContent = msg;
+    setTimeout(function () { $('status').textContent = ''; }, 2500);
+  }
+
+  function reloadApp(path) {
+    // 같은 URL 재대입은 브라우저가 무시할 수 있어 캐시버스터를 붙인다.
+    var base = path || (frame.getAttribute('src') || '/').split('?')[0];
+    frame.setAttribute('src', base + '?_t=' + Date.now());
+  }
+
+  /** 좌표를 저장한다. localStorage 쓰기는 같은 출처의 iframe 에 storage 이벤트로 전달되므로,
+   *  앱의 watchLocation 이 이를 구독해 새로고침 없이 위치를 갱신한다(실시간 모드). */
+  function write(la, ln) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ lat: la, lng: ln }));
+      return true;
+    } catch (e) { say('저장 실패: ' + e.message); return false; }
+  }
+
+  function apply(lat, lng, liveOnly) {
+    var la = Number(lat), ln = Number(lng);
+    if (!isFinite(la) || !isFinite(ln)) { say('좌표가 올바르지 않습니다'); return; }
+    if (!write(la, ln)) return;
+    $('lat').value = la; $('lng').value = ln;
+    syncMap(la, ln);
+    var live = liveOnly !== undefined ? liveOnly : $('live').checked;
+    if (live) {
+      // 새로고침하지 않는다 — 앱의 내 위치 점이 그 자리에서 움직이는지 본다.
+      say('실시간 갱신 · ' + la.toFixed(5) + ', ' + ln.toFixed(5));
+    } else {
+      reloadApp();
+      say('적용됨 · ' + la.toFixed(5) + ', ' + ln.toFixed(5));
+    }
+  }
+
+  $('apply').onclick = function () { apply($('lat').value, $('lng').value); };
+  function syncApplyLabel() {
+    // 실시간 모드에서는 새로고침하지 않으므로 버튼 문구도 그에 맞춘다.
+    $('apply').textContent = $('live').checked ? '적용(실시간)' : '적용 + 새로고침';
+  }
+  $('live').onchange = function () {
+    syncApplyLabel();
+    say($('live').checked
+      ? '실시간 모드 — 앱의 내 위치가 따라 움직입니다'
+      : '실시간 모드 해제');
+  };
+  syncApplyLabel();
+  $('clear').onclick = function () {
+    localStorage.removeItem(KEY);
+    reloadApp();
+    say('해제됨 — 실제 측위를 사용합니다');
+  };
+
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button');
+    b.textContent = p[0];
+    b.onclick = function () { apply(p[1], p[2]); };
+    $('presets').appendChild(b);
+  });
+
+  ROUTES.forEach(function (r) {
+    var b = document.createElement('button');
+    b.textContent = r[0];
+    b.onclick = function () { reloadApp(r[1]); };
+    $('routes').appendChild(b);
+  });
+
+  // ── 지도 피커 (Leaflet + OSM) ──────────────────────────────────────────────
+  // 구글맵 대신 OSM 을 쓴다 — API 키·결제 설정이 필요 없고 dev 하네스엔 그걸로 충분하다.
+  // CDN 이 막힌 환경(오프라인 등)에서는 지도만 숨기고 나머지 기능은 그대로 쓴다.
+  var marker = null;
+  function initMap() {
+    if (typeof L === 'undefined') {
+      var el = document.getElementById('map');
+      el.style.display = 'none';
+      var fail = document.createElement('div');
+      fail.id = 'mapFail'; fail.style.display = 'block';
+      fail.textContent = '지도를 불러오지 못했습니다(CDN 차단?). 좌표 직접 입력·프리셋은 그대로 쓸 수 있습니다.';
+      el.parentNode.insertBefore(fail, el.nextSibling);
+      return;
+    }
+    var start = [Number($('lat').value) || 10.7716, Number($('lng').value) || 106.6980];
+    var map = L.map('map').setView(start, 13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // 서비스 지역(호치민 중심 37개 동)의 대략 경계 — 어디까지가 '지역 안'인지 눈으로 보게 한다.
+    // 정확한 판정은 앱의 폴리곤(saigon-depth1.json)이 하며 이건 참고용 사각형이다.
+    L.rectangle([[10.71418, 106.62929], [10.84398, 106.76188]], {
+      color: '#f8602a', weight: 1, fillOpacity: 0.04, dashArray: '4 4'
+    }).addTo(map).bindTooltip('서비스 지역(대략)');
+
+    marker = L.marker(start, { draggable: true }).addTo(map);
+    marker.on('drag', function () {
+      // 실시간 모드에서는 드래그하는 동안 계속 밀어 넣어 "이동"을 그대로 재현한다.
+      var p = marker.getLatLng();
+      $('lat').value = p.lat.toFixed(6); $('lng').value = p.lng.toFixed(6);
+      if ($('live').checked) write(p.lat, p.lng);
+    });
+    marker.on('dragend', function () {
+      var p = marker.getLatLng();
+      if (!$('live').checked) say('좌표 선택됨 — [적용]을 누르세요');
+    });
+
+    map.on('click', function (e) {
+      marker.setLatLng(e.latlng);
+      $('lat').value = e.latlng.lat.toFixed(6);
+      $('lng').value = e.latlng.lng.toFixed(6);
+      if ($('live').checked) {
+        write(e.latlng.lat, e.latlng.lng);
+        say('실시간 갱신 · ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5));
+      } else {
+        say('좌표 선택됨 — [적용]을 누르세요');
+      }
+    });
+    map.on('dblclick', function (e) {
+      map.doubleClickZoom.disable();
+      marker.setLatLng(e.latlng);
+      apply(e.latlng.lat.toFixed(6), e.latlng.lng.toFixed(6));
+      setTimeout(function () { map.doubleClickZoom.enable(); }, 300);
+    });
+
+    // apply()/프리셋으로 좌표가 바뀌면 지도도 따라간다.
+    syncMap = function (la, ln) {
+      marker.setLatLng([la, ln]);
+      map.setView([la, ln], Math.max(map.getZoom(), 13));
+    };
+  }
+  var syncMap = function () {};
+  initMap();
+
+  // 이미 걸려 있는 오버라이드를 입력창에 되살린다.
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && isFinite(saved.lat) && isFinite(saved.lng)) {
+      $('lat').value = saved.lat; $('lng').value = saved.lng;
+      say('기존 오버라이드 적용 중');
+    }
+  } catch (e) { /* 무시 */ }
+})();
+</script>
+</body>
+</html>

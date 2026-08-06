@@ -118,8 +118,10 @@ export default function InfoWeather() {
     <div className={sys.page}>
       <TopBar title={t('info.weather.title')} onBack={() => navigate(-1)} rightContent={<InfoSwitcher current="weather" />} />
 
-      {/* 컨텍스트바: 전체↔선택지역 피커 (공통 컴포넌트, useLocationStore 단일 소스) */}
-      <LocationContextBar />
+      {/* 컨텍스트바: 날씨는 표시 범위를 고를 수 없다 — "전체 지역의 날씨"라는 건 없고 결국
+          도시 중심 한 점을 보여줄 뿐이라 선택지가 오해를 만든다(대표 지적 2026-08-06).
+          현재 기준 위치를 라벨로만 보여준다. */}
+      <LocationContextBar readOnly />
 
       {loading ? (
         <div className={sys.scroll}>

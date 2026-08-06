@@ -80,8 +80,10 @@ export default function NeighborhoodMap() {
   useEffect(() => { void ensureLocation(); }, [ensureLocation]);
   // 헤더 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다(설계도 §4.3).
   const scopeLabel = regionMode === 'all'
-    ? t('market.allAreas')
-    : (coordsSource === 'fallback' ? null : wardName) ?? t('market.currentLocation');
+    ? t('location.allTitle')
+    : coordsSource === 'fallback'
+      ? t('location.fallbackTitle')
+      : wardName ?? t('location.gpsTitle');
 
   useEffect(() => {
     if (bizCategories.length > 0) return;

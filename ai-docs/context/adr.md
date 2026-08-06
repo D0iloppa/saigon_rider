@@ -78,7 +78,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - **422 detail 은 사용자 문자열에 싣지 않는다.** `sanitizeDetail` 은 **배열을 통과**시키는데 FastAPI 422 detail 은 항상 배열이고 요청 본문(`input`)이 되비쳐 있어, 가입 화면에 `user_id` UUID 가 노출됐다. 오류 detail 을 표시 문자열로 만드는 새 경로를 추가할 때 배열 형태를 반드시 점검할 것.
 
 ### 지도 — 엔진이 2벌이다 (혼동 주의)
-- `SaigonMapV2`: `pickMode`/`onPointPick` 있음 / **POI 없음** / depth1→2→3 교체식. `LocationPickerSheet`(마켓)·`NeighborhoodMap` 지역선택 시트.
+- `SaigonMapV2`: `pickMode`/`onPointPick` 있음 / **POI 없음** / depth1→2→3 교체식. 종전엔 지역선택 시트에도 쓰였으나 그 시트는 2026-08-06 폐기 — 현재 사용처는 좌표 피커 계열뿐.
 - `SaigonMapV5`: **POI 있음** / 연속 줌(L1~L3) / 2026-08-03 에 `pickMode`·`onPointPick` 추가(기본 off). `NeighborhoodMapCanvas`·info 3화면·`BizLocationPicker`.
 - **L3+POI 가 함께 보이려면 3조건이 동시에** 맞아야 한다 — `lightweight={false}` · 마운트 즉시 `L3_VBW`(≈1.1km) 안쪽으로 줌인(`initialGps`) · 호출부가 `fetchPoiMapItems`→`buildPoiLayer`→`markers` 합류. POI 는 지도 컴포넌트가 그리지 않는다.
 - **`pickMode` 화면은 `polyActive={false}` 여야 한다.** `polyActive=true` 는 L3 를 `selWard` 1개로 제한하는데 `pickMode` 는 ward 탭 판정 앞에서 early-return 하므로 `selWard` 가 영영 갱신되지 않아 초기 ward 밖에 L3 가 안 그려진다. 기록된 "2.4배·7.5초" 비용은 **도시 전역 조망 기준이라 줌인된 피커에는 전이되지 않는다**(뷰포트 630유닛 < ward 평균 1522유닛). `onViewportChange` 가 `polyActive` 와 무관하게 depth3 를 이미 fetch 하므로 네트워크 추가비용 0.
@@ -161,9 +161,11 @@ DB: `docker exec saigon_db psql -U wellconn -d saigon_rider`.
 ## TRADEOFFS
 
 ### 대표 결정 — 건드리면 회귀 (반박하지 말고 따를 것)
-1. **동네지도 리스트의 지역 선택은 화면 로컬 상태로 유지한다**(2026-07-27, `frontend-page-map.md:128`). `useLocationStore` 전역에 쓰지 않는다 — 리스트가 스토어에 쓰면 주유소·정비소·날씨·홈의 동네까지 함께 바뀌는 정보화면 침습이 생긴다(침수지도 사고와 동일 경로). "지도보기 전환 시 지역이 안 넘어가는 불일치"는 **인지된 트레이드오프**다.
-   ⚠️ **2026-07-31 사고**: 출시감사가 이것을 결함(N-5)으로 지목했고, 그 지적을 믿고 전역 수렴으로 바꿨다가 되돌렸다. **감사 문서의 지적도 대표 결정과 충돌할 수 있다** — 무조건 신뢰하지 말고 page-map 을 대조하라.
-2. **지도 탭의 지역선택 비활성**(2026-07-25) — `NeighborhoodMapCanvas.tsx` 의 `handleRegionSelect` 는 배선이 끊긴 죽은 코드다. GPS 근처로 대체됐다. 되살리지 말 것
+1. **위치 컨텍스트는 GPS 기준 앱 전역 단일 SoT 다** (2026-08-06 대표 지시 — *"기본을 다 gps로 / 안잡히면 전체지역으로 / 2개로만해 / 모든화면에서 / 지도 다나오게"*). 표시 범위는 `'gps'`(내 좌표 반경 3km) ↔ `'all'` **2개뿐**이고, **지역 선택 기능 자체가 폐기**됐다. 규칙 전문은 [`service-rules.md` GPS 절](service-rules.md), 설계도는 [`260806_gps_scope_unification_design.md`](../260806_gps_scope_unification_design.md).
+   - 화면별 독자 위치 상태를 만들지 말 것. 측위는 `useLocationStore.ensureLocation()` 하나로(세션당 1회) — 화면이 `native.getLocation()` 을 직접 부르면 화면 수만큼 권한창이 뜬다.
+   - ⚠️ **이 항목은 종전 결정 2건을 대체한다**: ① "동네지도 리스트의 지역 선택은 화면 로컬 상태로 유지"(2026-07-27) ② "전체↔선택지역 2모드, 지도 탐색에 GPS 미사용"(2026-07-25). 두 결정이 만든 SoT 3벌 분기가 바로 2026-08-06 대표 캡처의 원인이었다(GPS 는 `Thạnh Mỹ Tây` 인데 화면은 `Bến Thành`).
+   - ⚠️ **2026-07-31 사고 교훈은 유효**: 감사 문서의 지적도 대표 결정과 충돌할 수 있다 — 무조건 신뢰하지 말고 대조하라. (단 이번 건은 감사가 아니라 대표 지시다.)
+2. **지도 탭의 지역선택은 폐기됐다**(2026-07-25 비활성 → 2026-08-06 제거). `NeighborhoodMapCanvas.tsx` 의 `handleRegionSelect` 는 스토어 API(`selectRegion`)와 함께 삭제됐다. 되살리지 말 것
 3. **광고 노출은 OFF 유지**(`ADS_ENABLED=false`) — 노출 지면·결제 미구현 상태에서 파는 쪽만 열려 있다. 수집 파이프라인도 미구현
 4. **게이미피케이션(가챠·상점·인벤토리·시즌·쿠폰·차고) 진입점 차단 유지** — BFF 라우터 미등록(404) + Engine `verify_service_key` + 프론트 라우트 제거의 3중 구조
 5. **OTP dev 우회는 운영 3중 게이트** — `docker-compose.prod.yml` 빈값 강제 + `_DEV_MODE` fail-safe 화이트리스트. 운영에서 플래그를 켜도 뚫리지 않는다

@@ -5,13 +5,14 @@ import { devLogin, injectSession, uniqueTag, saveConsentViaApi, cleanupUser, typ
  * 내 위치 파란 점(SaigonMapV5 meDot) 회귀 — 대표 지적 2026-08-04:
  * "동네지도엔 내 위치가 찍히는데 마켓지도엔 안 찍힌다".
  *
- * 원인은 점이 runLocate(=locateOnMount) 의 부수효과로만 세팅된 것 — 마켓은 지역이 선택되면
+ * 원인은 점이 runLocate(=locateOnMount) 의 부수효과로만 세팅된 것 — 마켓은 지역이 선택되면 (구)
  * (실사용의 기본 경로) 카메라 덮어쓰기 회귀를 막으려 locateOnMount 를 끄므로 점도 함께 사라졌다.
- * 이제 dot 전용 조용한 측위(meDotOnMount)로 분리돼, 지역선택 여부와 무관하게 점이 찍힌다.
+ * 이제 dot 전용 조용한 측위(meDotOnMount)로 분리돼 항상 점이 찍힌다.
+ * (2026-08-06 개정: 지역 선택이 폐기돼 표시 범위는 GPS 가 기본 — 시트 조작 없이 바로 확인한다.)
  */
 const L = {
   allAreas: 'Toàn bộ khu vực',
-  currentLocation: 'Dùng vị trí hiện tại của tôi',
+  currentLocation: 'Vị trí hiện tại của tôi',
   apply: 'Áp dụng',
   viewMap: 'Xem bản đồ',
 };
@@ -28,7 +29,7 @@ test.describe('내 위치 점 — 마켓지도/동네지도 공통', () => {
     if (session) cleanupUser(session.userId);
   });
 
-  test('마켓지도: 지역이 선택된(gps 모드) 상태에서도 내 위치 점이 찍힌다', async ({ page, request }) => {
+  test('마켓지도: 내 위치 점이 찍힌다', async ({ page, request }) => {
     session = await devLogin(request, uniqueTag('me1'));
     await saveConsentViaApi(request, session);
     await injectSession(page, session);
@@ -43,7 +44,7 @@ test.describe('내 위치 점 — 마켓지도/동네지도 공통', () => {
     await expect(page.locator('[class*="meDot"]')).toHaveCount(1, { timeout: 20_000 });
   });
 
-  test('동네지도: 지역선택(region 모드)에서도 내 위치 점이 찍힌다', async ({ page, request }) => {
+  test('동네지도: 내 위치 점이 찍힌다', async ({ page, request }) => {
     session = await devLogin(request, uniqueTag('me2'));
     await saveConsentViaApi(request, session);
     await injectSession(page, session);

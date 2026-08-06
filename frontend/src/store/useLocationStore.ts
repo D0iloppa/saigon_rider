@@ -4,6 +4,7 @@ import i18n from '@/lib/i18n';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
+import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { useConfirmStore } from '@/store/useConfirmStore';
 
@@ -60,6 +61,11 @@ interface LocationState {
   ensureLocation: () => Promise<void>;
   /** 표시범위 시트의 2옵션이 호출. 'gps' 선택 시 측위를 재시도한다. */
   setMode: (mode: LocationMode) => Promise<void>;
+  /**
+   * 이동 추종 시작 — 앱 전역에서 **한 번만** 호출한다(App.tsx). 반환값은 해제 함수.
+   * 화면마다 호출하면 워처가 중복된다.
+   */
+  startWatching: () => () => void;
   setPermissionIntent: (intent: PermissionIntent) => void;
   setWardName: (name: string | null) => void;
   /** 로그아웃 시 — 모드/좌표/권한의사 전부 초기화. */
@@ -68,6 +74,28 @@ interface LocationState {
 
 /** 세션당 1회 규칙을 지키기 위한 in-flight 공유 Promise. */
 let inflight: Promise<void> | null = null;
+/** 이동 추종 워처 해제 함수 — 앱 전역 1개만 돈다. */
+let watchStop: (() => void) | null = null;
+
+/**
+ * 이동으로 인정할 최소 이동 거리(m).
+ *
+ * GPS 는 정지 상태에서도 수 m 씩 튄다. 그대로 스토어에 반영하면 coords 를 deps 로 쓰는
+ * 목록·지도 조회가 계속 재발화한다. 반경이 3km 인 만큼 30m 이하 흔들림은 결과를 바꾸지
+ * 않으므로 무시한다(오토바이 주행 속도에서는 1초 안에 넘는 값이라 추종성은 유지된다).
+ */
+const WATCH_MIN_MOVE_M = 30;
+
+/** 두 좌표 사이 거리(m) — haversine. 워처 게이트 판정 전용. */
+function distanceM(a: Coords, b: Coords): number {
+  const R = 6371e3;
+  const p1 = (a.lat * Math.PI) / 180;
+  const p2 = (b.lat * Math.PI) / 180;
+  const dp = p2 - p1;
+  const dl = ((b.lng - a.lng) * Math.PI) / 180;
+  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 /** 폴백 토스트 세션당 1회 — 화면 5개가 각자 띄우면 폭탄이 된다. */
 let fallbackToastShown = false;
 
@@ -170,6 +198,10 @@ export const useLocationStore = create<LocationState>()(
               mode: 'gps',
               coords: { lat: pos.lat, lng: pos.lng },
               coordsSource: 'device',
+              // 라벨은 여기서 한 번에 정한다 — 화면마다 각자 해석하면 홈만 동네명이 뜨고
+              // 마켓·동네지도는 '내 현재 위치' 폴백이 뜨는 비대칭이 생긴다(2026-08-06 발견).
+              // 오프라인 폴리곤이라 API 호출이 없다. 37개 동 밖이면 null(라벨 없음).
+              wardName: wardRegionAt(pos.lat, pos.lng)?.name ?? null,
               permissionIntent: 'granted',
             });
           })
@@ -206,9 +238,33 @@ export const useLocationStore = create<LocationState>()(
         return get().ensureLocation();
       },
 
+      startWatching: () => {
+        // 'gps' 모드일 때만 의미가 있다. 'all' 은 좌표를 안 쓰므로 워처를 돌릴 이유가 없다.
+        if (get().mode !== 'gps') return () => {};
+        if (watchStop) return watchStop; // 이미 돌고 있으면 그대로 재사용(중복 방지)
+
+        const stop = native.watchLocation((pos) => {
+          const prev = get();
+          if (prev.mode !== 'gps') return;
+          if (!inServiceArea(pos.lat, pos.lng)) return; // 권역 밖 이동은 무시(마지막 유효 위치 유지)
+          // **거리 게이트** — GPS 는 가만히 있어도 몇 m 씩 흔들린다. 그대로 반영하면 목록·지도
+          // 조회가 초당 몇 번씩 재발화한다. WATCH_MIN_MOVE_M 이상 움직였을 때만 갱신한다.
+          if (prev.coords && distanceM(prev.coords, pos) < WATCH_MIN_MOVE_M) return;
+          set({
+            coords: { lat: pos.lat, lng: pos.lng },
+            coordsSource: 'device',
+            wardName: wardRegionAt(pos.lat, pos.lng)?.name ?? null,
+          });
+        });
+
+        watchStop = () => { stop(); watchStop = null; };
+        return watchStop;
+      },
+
       setPermissionIntent: (permissionIntent) => set({ permissionIntent }),
       setWardName: (wardName) => set({ wardName }),
       clearLocation: () => {
+        if (watchStop) watchStop();
         inflight = null;
         fallbackToastShown = false;
         set({ mode: 'gps', coords: null, wardName: null, coordsSource: null, permissionIntent: 'undecided' });

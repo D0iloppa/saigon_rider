@@ -11,7 +11,7 @@ test('구분선이 도로보다 위에 렌더된다 (DOM 순서)', async ({ page
   await injectSession(page, session);
   await page.goto('/map');
   await page.getByRole('heading', { level: 1 }).click();
-  await page.getByText('Dùng vị trí hiện tại của tôi', { exact: true }).click();
+  await page.getByText('Vị trí hiện tại của tôi', { exact: true }).click();
   await page.getByRole('button', { name: 'Áp dụng' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Bến Thành', { timeout: 10000 });
   await page.getByRole('button', { name: 'Xem bản đồ' }).click();

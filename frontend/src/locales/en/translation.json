@@ -2079,5 +2079,14 @@
   },
   "mapV2": {
     "locateFailed": "Could not get your location"
+  },
+  "location": {
+    "scope": "Visible area",
+    "gpsTitle": "My current location",
+    "gpsDesc": "Sorted by distance from where you are",
+    "allTitle": "All areas",
+    "allDesc": "See all of Ho Chi Minh City",
+    "fallbackTitle": "Central Ho Chi Minh City",
+    "fallbackDesc": "You're outside the service area · showing central Ho Chi Minh City"
   }
 }

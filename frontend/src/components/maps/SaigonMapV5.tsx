@@ -773,18 +773,12 @@ function SaigonMapV5({
     }
   }, [focusLatLng, onLocate, onLocated, outsideAreaFallback, outsideAreaMessage, selectRegionOnLocate, t]);
 
-  // ◎ 버튼: 동 선택 중엔 그 동 중심으로, 아니면 GPS를 다시 측정해 진짜 "현재 위치"로 이동
+  // ◎ 버튼: 항상 GPS 를 다시 측정해 "내 위치"로 센터링 + 줌인한다(focusLatLng 가 L3_VBW*0.9,
+  // 즉 건물/골목이 보이는 최소 줌까지 맞춘다). 종전엔 "동 선택 중이면 그 동 중심으로" 분기가
+  // 있었으나, 지역 선택이 폐기돼(2026-08-06) 갈 곳이 하나뿐이다.
   const recenterCurrentContext = useCallback(() => {
-    if (polyActive && selWard !== null) {
-      const ward = depth1.wards[selWard];
-      const gps = ward.gps as { lat: number; lng: number } | undefined;
-      if (gps) {
-        centerOnUnified(lx(gps.lng), ly(gps.lat));
-        return;
-      }
-    }
     void runLocate();
-  }, [centerOnUnified, polyActive, runLocate, selWard]);
+  }, [runLocate]);
 
   // 검색 결과 등 임의의 좌표 집합이 모두 보이도록 뷰포트를 맞춤(ward 자동 줌과 동일한 방식)
   const fitToPoints = useCallback((points: { lat: number; lng: number }[]) => {
@@ -1058,9 +1052,9 @@ function SaigonMapV5({
       // 라벨 오프셋/폰트(units)와 아이콘 지오메트리(units)를 그대로 px 로 환산한다.
       const rpx = 0.015 * (m.r ?? 1) * cw;
 
-      // 선택된 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 라벨 후보 제외.
+      // 매물/피드는 teardrop 이라 라벨을 그리지 않는다(렌더 루프와 동일) — 라벨 후보 제외.
       // 아이콘(teardrop)은 여전히 그려지므로 장애물 시드에는 포함한다.
-      const noLabel = !m.label || (m.selected && (m.kind === 'listing' || m.kind === 'feed'));
+      const noLabel = !m.label || m.kind === 'listing' || m.kind === 'feed';
       let fontSize = 0;
       let labelTop = 0;
       let poiTier = 0;
@@ -1095,10 +1089,11 @@ function SaigonMapV5({
         // 뮤트 칩 — half=r*1.05 + 테두리(strokeWidth half*0.14 의 절반 돌출) ≈ 1.12r (halo 제거됨).
         const half = 1.12 * rpx;
         iconLeft = sx - half; iconRight = sx + half; iconTop = sy - half; iconBottom = sy + half;
-      } else if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
-        // 매물/피드 선택 승격 teardrop — biz 선택과 동일 지오메트리(BIZ_PIN_PATH 공용).
-        iconLeft = sx - 1.875 * rpx; iconRight = sx + 1.875 * rpx;
-        iconTop = sy - 5.0 * rpx; iconBottom = sy;
+      } else if (m.kind === 'listing' || m.kind === 'feed') {
+        // 매물/피드 teardrop — biz 와 동일 지오메트리(BIZ_PIN_PATH 공용). 선택 시에만 1.5배.
+        const k = m.selected ? 1.5 : 1;
+        iconLeft = sx - 1.25 * k * rpx; iconRight = sx + 1.25 * k * rpx;
+        iconTop = sy - 3.333 * k * rpx; iconBottom = sy;
       } else {
         // 원형 dot — halo 1.4r, 선택 시 강조링 1.75r(+stroke 여유 1.86r) 이 더 크다.
         const dr = (m.selected ? 1.86 : 1.4) * rpx;
@@ -1447,17 +1442,22 @@ function SaigonMapV5({
                   </g>
                 );
               }
-              // 매물·피드 선택 승격 — biz 와 동일한 teardrop shape(BIZ_PIN_PATH), 채움은 레이어색,
-              // 홀 안 글리프만 도메인별(매물=가격표 / 피드=말풍선). 비선택은 아래 dot 로 폴백.
-              if (m.selected && (m.kind === 'listing' || m.kind === 'feed')) {
+              // 매물·피드는 biz 와 동일한 teardrop shape(BIZ_PIN_PATH)로 그린다. 채움은 레이어색,
+              // 홀 안 글리프만 도메인별(매물=가격표 / 피드=말풍선).
+              //
+              // 종전에는 **선택됐을 때만** 이 핀이었고 비선택은 아래 기본 dot 로 떨어졌다. 그 dot 의
+              // 기본색이 #3b82f6 이라 **내 위치 파란 점과 구분이 안 됐다**(대표 지적 2026-08-06).
+              // 이제 선택 여부와 무관하게 전용 핀을 쓰고, 선택 시에만 1.5배로 키운다.
+              if (m.kind === 'listing' || m.kind === 'feed') {
                 const s = (r * 1.25) / 9;
                 const color = m.color ?? (m.kind === 'feed' ? '#3b82f6' : '#ff6f3c');
                 const glyph = m.kind === 'feed' ? FEED_GLYPH_PATH : LISTING_GLYPH_PATH;
+                const scale = m.selected ? 1.5 : 1;
                 return (
                   <g key={m.id} data-marker={String(m.id)} style={{ cursor: 'pointer' }} onClick={m.onClick} pointerEvents="all">
                     <ellipse cx={mx} cy={my + r * 0.2} rx={r * 1.1} ry={r * 0.4}
                       fill="url(#sgrPinShadow)" pointerEvents="none" />
-                    <g transform={`translate(${mx}, ${my}) scale(1.5) translate(${-mx}, ${-my})`}>
+                    <g transform={`translate(${mx}, ${my}) scale(${scale}) translate(${-mx}, ${-my})`}>
                       <g transform={`translate(${mx - 12 * s}, ${my - 24 * s}) scale(${s})`}>
                         <path d={BIZ_PIN_PATH} fill={color} stroke="#fff" strokeWidth={1.5} />
                         <circle cx={12} cy={9} r={BIZ_PIN_HOLE_R} fill="#fff" pointerEvents="none" />
@@ -1559,8 +1559,8 @@ function SaigonMapV5({
                 type="button"
                 className={styles.ctrlBtn}
                 onClick={recenterCurrentContext}
-                aria-label={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
-                title={polyActive ? t('map.centerSelectedArea') : t('map.centerMap')}
+                aria-label={t('map.centerMap')}
+                title={t('map.centerMap')}
               >
                 <LocateFixed size={16} strokeWidth={2.2} />
               </button>

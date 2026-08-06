@@ -118,6 +118,8 @@ class NativeInterface {
   }
 
   async getLocation(): Promise<GeoPosition> {
+    const override = readDevGpsOverride();
+    if (override) return override;
     try {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
@@ -156,6 +158,20 @@ class NativeInterface {
   }
 
   watchLocation(handler: LocationUpdateHandler): () => void {
+    // dev 좌표 오버라이드가 걸려 있으면 실측 대신 오버라이드를 구독한다 — `/dev/gps` 하네스가
+    // 좌표를 바꿀 때마다 storage 이벤트가 이 문서(iframe)로 날아와 "이동"이 재현된다.
+    // (storage 는 값을 바꾼 문서에는 발화하지 않고 같은 출처의 다른 문서에서만 발화한다.)
+    if (readDevGpsOverride()) {
+      const emit = () => {
+        const pos = readDevGpsOverride();
+        if (pos) handler(pos);
+      };
+      emit();
+      const onStorage = (e: StorageEvent) => { if (e.key === DEV_GPS_KEY) emit(); };
+      window.addEventListener('storage', onStorage);
+      return () => window.removeEventListener('storage', onStorage);
+    }
+
     let watchId: string | undefined;
 
     Geolocation.watchPosition({ enableHighAccuracy: true }, (pos, err) => {
@@ -179,6 +195,16 @@ class NativeInterface {
   }
 
   async checkLocationPermission(): Promise<LocationPermissionState> {
+    // dev 좌표 오버라이드가 걸려 있으면 권한을 물을 이유가 없다 — 프리프롬프트도 건너뛴다.
+    if (readDevGpsOverride()) return 'granted';
+    // 웹(브라우저·개발 서버)에는 커스텀 Gps 플러그인 구현이 없어 호출이 거부된다 —
+    // @capacitor/geolocation 의 웹 구현(navigator.permissions)으로 판정한다. 이 값이
+    // 'prompt' 인지로 위치 프리프롬프트 노출 여부가 갈리므로(useLocationStore), 웹에서
+    // 항상 'prompt' 로 떨어지면 이미 권한을 준 사용자에게도 프리프롬프트가 뜬다.
+    if (!this.isNative) {
+      const { location } = await Geolocation.checkPermissions();
+      return normalizeLocationPermission(location);
+    }
     const { status } = await Gps.checkPermission();
     return normalizeLocationPermission(status);
   }
@@ -508,6 +534,42 @@ class NativeInterface {
 
   onDeepLink(_handler: DeepLinkHandler): () => void {
     return () => {};
+  }
+}
+
+/**
+ * ── dev GPS 좌표 오버라이드 (`/dev/gps` 하네스 전용) ────────────────────────
+ *
+ * 실기기 없이 "내 위치가 X 일 때 화면이 어떻게 나오는지"를 확인하기 위한 개발용 백도어다.
+ * `/dev/gps` 래핑 페이지가 iframe 으로 앱을 띄우고, 같은 출처의 localStorage 에 좌표를 써서
+ * 앱이 그 값을 읽게 한다. (부모가 iframe 의 navigator.geolocation 을 갈아끼우는 방식은
+ * 앱 스크립트가 먼저 도는 타이밍에 실패한다 — 그래서 앱이 읽는 방향으로 뒤집었다.)
+ *
+ * **2중 게이트** — 둘 다 만족해야 동작한다:
+ *  1. 호스트 허용목록 — 운영 도메인(app.saigon-rider.com)에서는 어떤 값이 들어와도 무시된다.
+ *     ⚠️ 빌드타임 플래그(`import.meta.env.DEV`)를 쓰지 않는 이유: frontend/Dockerfile 이
+ *     `npm run build`(프로덕션 모드)로 빌드해 **dev 스택에서도 DEV 가 false** 라, 정작
+ *     테스트하려는 환경에서 코드가 사라진다.
+ *  2. 명시적 opt-in 키 — 키가 없으면(기본) 실측을 그대로 쓴다.
+ *
+ * 하네스 자체(`dev-test/gps/`)는 docker-compose.prod.yml 에 마운트되지 않아 운영에 배포되지 않는다.
+ */
+const DEV_GPS_KEY = '__dev_gps';
+const DEV_GPS_HOSTS = ['localhost', '127.0.0.1', 'saigon.doil.me'];
+
+function readDevGpsOverride(): GeoPosition | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    if (!DEV_GPS_HOSTS.includes(window.location.hostname)) return null;
+    const raw = window.localStorage.getItem(DEV_GPS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown };
+    const lat = Number(parsed.lat);
+    const lng = Number(parsed.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng, accuracy: 5, speed: null, heading: null };
+  } catch {
+    return null;
   }
 }
 

@@ -23,7 +23,7 @@ import { fetchWards, resolveWardByCoords, type Ward } from '@/api/master';
 import { AppImage } from '@/components/ui/AppImage';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullIndicator } from '@/components/ui/PullIndicator';
-import styles from './WorldMapV2.module.css';
+import styles from './HomePage.module.css';
 
 // Bến Thành (Quận 1) — 앱 기본 동네
 const FALLBACK = { ...BEN_THANH_FALLBACK, name: 'Bến Thành' };
@@ -154,7 +154,7 @@ const IcoGear = () => (
 );
 // ────────────────────────────────────────────────────────────
 
-export default function WorldMapV2() {
+export default function HomePage() {
   const user = useUserStore((s) => s.user);
   const refreshUser = useUserStore((s) => s.refreshUser);
   // 표시 범위 단일 SoT (2026-08-06 통일) — 헤더 표기와 목록 조회가 같은 좌표를 본다.

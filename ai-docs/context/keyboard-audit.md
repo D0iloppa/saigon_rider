@@ -26,7 +26,7 @@
 | 13 | InfoFloodMap — 침수 제보 시트 (인라인) | `frontend/src/pages/info/InfoFloodMap.tsx:338` | b | `useKeyboard` + `.reportSheet` 자신에 `paddingBottom`+`maxHeight` 상한 + `transition` | 준수 | - | done | 케이스2 적용 완료 |
 | 14 | InfoRepairWrite (정비 후기 작성) | `frontend/src/pages/info/InfoRepairWrite.tsx` | a | `useKeyboard` + `.scroll`에 `paddingBottom: kb.height` | 준수 | - | done | sticky CTA(`.ctaWrap`)는 스크롤 밖 유지 |
 | 15 | InfoWeather (날씨 알림 등록) | `frontend/src/pages/info/InfoWeather.tsx:86` | a | `useKeyboard` + `.scroll`에 `paddingBottom: kb.height` | 준수 | - | done | BizApply 동일 구조 |
-| 16 | WorldMapV2 (홈 검색바) | `frontend/src/pages/home/WorldMapV2.tsx:319` | c | 처리 없음 | 불필요 | - | skip | `.fixedHeader` 내부, 최상단 |
+| 16 | HomePage (홈 검색바) | `frontend/src/pages/home/HomePage.tsx:319` | c | 처리 없음 | 불필요 | - | skip | `.fixedHeader` 내부, 최상단 |
 | 17 | NeighborhoodMap — 검색바(2곳) | `frontend/src/pages/map/NeighborhoodMap.tsx:1495,1616` | c | 처리 없음 | 불필요 | - | skip | 지도 상단 오버레이 |
 | 18 | ProfileSetup (온보딩 — 닉네임+스타일) | `frontend/src/pages/auth/ProfileSetup.tsx` | a | `useKeyboard` + `.body`에 `paddingBottom: kb.height` | 준수 | - | done | `.bottomCta` 버튼 노출 확보 |
 | 19 | ProfileEdit (닉네임/스타일 수정) | `frontend/src/pages/settings/ProfileEdit.tsx` | a | `useKeyboard` + `.body`에 `paddingBottom: kb.height` | 준수 | - | done | |

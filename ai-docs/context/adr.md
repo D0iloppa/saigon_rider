@@ -67,7 +67,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 ### 화면 → 페이지 매핑
 상세는 [`frontend-page-map.md`](./frontend-page-map.md). **화면 동작을 바꾸기 전에 그 문서의 해당 절을 반드시 읽어라** — 대표 결정이 본문 서술로만 기록돼 있어 grep 으로 놓치기 쉽다(§TRADEOFFS 의 N-5 사고 참조).
 
-주요 라우트: `/home`(WorldMapV2) · `/market`(+`/search`·`/new`·`/wishlist`·`/:id`·**`/:id/edit`**·`/ad/:id`) · `/map`(NeighborhoodMap+Canvas, `/map/search`) · `/info/*`(날씨·유가·주유소·정비소·침수) · `/feed`·`/dm` · `/biz/*`(intro·apply·status·manage·news·prices) · `/settings/*`(privacy·terms 는 **공개 라우트**) · `/auth/*`(oauth-login·oauth-result·profile-setup — profile-setup 은 **PrivateRoute 밖**이어야 함)
+주요 라우트: `/home`(HomePage) · `/market`(+`/search`·`/new`·`/wishlist`·`/:id`·**`/:id/edit`**·`/ad/:id`) · `/map`(NeighborhoodMap+Canvas, `/map/search`) · `/info/*`(날씨·유가·주유소·정비소·침수) · `/feed`·`/dm` · `/biz/*`(intro·apply·status·manage·news·prices) · `/settings/*`(privacy·terms 는 **공개 라우트**) · `/auth/*`(oauth-login·oauth-result·profile-setup — profile-setup 은 **PrivateRoute 밖**이어야 함)
 - **스플래시(2026-08-02)**: `/splash`(`Splash.tsx`)의 [시작하기]와 [로그인] 버튼이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 [로그인]을 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거.
 
 ### 진입·인증 경로 (2026-08-03, UX 감사 Gate A)
@@ -102,7 +102,7 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 - 감사 문서는 이걸 13곳(`--text-1`)으로만 봤다. **검사기를 만들자 25곳이 더 나왔다** — 정적으로 잡을 수 있는 결함은 사람이 세지 말고 스크립트로 세라.
 
 ### 실패 표현 규약 (장애를 콘텐츠 부재로 위장하지 않는다)
-- 데이터 없음과 **조회 실패**를 반드시 구분한다. 기존 `unavailable` 패턴(`WorldMapV2`·`InfoFloodMap`)과 `StateBlock(tone="error")` + 재시도를 미러링
+- 데이터 없음과 **조회 실패**를 반드시 구분한다. 기존 `unavailable` 패턴(`HomePage`·`InfoFloodMap`)과 `StateBlock(tone="error")` + 재시도를 미러링
 - `useInfiniteScroll` 은 `error` 를 노출한다. 소비자(MarketMain·MarketSearch·FeedList·QuestList)는 `items.length === 0 && error` 일 때만 오류를 렌더(과차단 금지)
 - 사용자 노출 문구는 `frontend/src/locales/{ko,en,vi}` **3개 언어 모두**에 키 추가(하드코딩 금지)
 

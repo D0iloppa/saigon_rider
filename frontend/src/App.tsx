@@ -29,7 +29,7 @@ import PhoneVerify from '@/pages/auth/PhoneVerify';
 import Suspended from '@/pages/auth/Suspended';
 
 // Home — 로그인 후 첫 화면(부트스트랩 직후 진입)이라 eager 유지
-import WorldMapV2 from '@/pages/home/WorldMapV2';
+import HomePage from '@/pages/home/HomePage';
 
 // 동네지도 (RideNav 지도 재사용) — P2-1 우선순위 1: lazy (maplibre-gl 포함, 첫 화면 아님)
 const NeighborhoodMap = lazyWithRetry(() => import('@/pages/map/NeighborhoodMap'));
@@ -470,7 +470,7 @@ export default function App() {
           <Route path="/link" element={<LinkRouter />} />
 
           {/* Protected: Main */}
-          <Route path="/home" element={<PrivateRoute><WorldMapV2 /></PrivateRoute>} />
+          <Route path="/home" element={<PrivateRoute><HomePage /></PrivateRoute>} />
           <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
           <Route path="/map/search" element={<PrivateRoute><MapSearch /></PrivateRoute>} />
           <Route path="/map/profile" element={<PrivateRoute><NeighborhoodProfile /></PrivateRoute>} />

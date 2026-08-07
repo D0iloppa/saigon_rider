@@ -216,7 +216,10 @@ async def get_listings(
     category_id: int | None = Query(None, description="카테고리 id (하위 포함 subtree 매칭 — 검색용)"),
     keyword: str | None = Query(None, alias="q", description="제목 키워드 검색"),
     sort: str = Query("recent", description="recent | price_low | price_high | distance"),
-    hide_sold: bool = Query(False, description="거래완료(SOLD) 매물 제외"),
+    hide_sold: bool = Query(
+        False,
+        description="deprecated — SOLD 는 이제 값과 무관하게 항상 제외(내 매물 조회 제외). 하위호환용으로만 받는다.",
+    ),
     price_min: int | None = Query(None, description="최저 가격 (VND)"),
     price_max: int | None = Query(None, description="최고 가격 (VND)"),
     # ge/le 필수 — 없으면 pydantic 이 nan/inf 를 통과시키고, 아래 ST_MakePoint 에 그대로
@@ -320,7 +323,11 @@ async def get_listings(
     q = q.where(MarketplaceListing.status.notin_(("HIDDEN", "REMOVED", "WITHDRAWN")))
     count_q = count_q.where(MarketplaceListing.status.notin_(("HIDDEN", "REMOVED", "WITHDRAWN")))
 
-    if hide_sold:
+    # 대표 지시 2026-08-07: 거래완료(SOLD)는 리스트·지도 어디서도 노출하지 않는다 —
+    # hide_sold 는 프론트 옛 토글의 잔재라 값과 무관하게 항상 걸되, 판매자 본인이 자기
+    # 매물(seller_id == session_uid)을 조회하는 "내 매물" 경로만 예외로 SOLD 를 계속 보여준다.
+    is_own_listings = seller_id is not None and session_uid is not None and seller_id == session_uid
+    if not is_own_listings:
         q = q.where(MarketplaceListing.status != "SOLD")
         count_q = count_q.where(MarketplaceListing.status != "SOLD")
 

@@ -217,7 +217,7 @@ OpenStreetMap 데이터를 사용하는 모든 화면에는 **"© OpenStreetMap 
 
 ## 8. 범위 밖 — 참고만
 
-`scripts/gen_saigon_map_v2.py`(L2/L3 지도 생성기)는 현재 Overpass 공개 API 를 쓰고 있어 향후 로컬 pbf(`routing_data/osm/*.pbf`)로 전환할 여지가 있다 — 대표가 별건으로 관리 중이므로 이번 작업에서는 건드리지 않았다.
+`scripts/gen_saigon_map_v2.py`(L2/L3 지도 생성기) — **W5 작업(2026-08-07)으로 로컬 pbf 전환 완료.** Overpass 공개 API 3곳(`overpass.kumi.systems` 등) 의존을 제거하고 `routing_data/osm/hcmc.osm.pbf`(routing_engine 과 동일 스냅샷)에서 osmium-tool(docker `stefda/osmium-tool`) 로 도로/건물/수역과 동(ward) 경계(`boundary=administrative`, `admin_level=6` — 2025 행정구역 개편 후 신설 Phường/Xã 레벨)를 직접 추출한다. `_tmp/hcmc_wards.json` 사전수집 파일 의존도 제거됨. `ben-thanh` 1개 동으로 재현 검증: blocks 40=40(원본과 완전일치), roads 853→855·bldg 636→633(±0.5% 이내, OSM 스냅샷 시점차로 판단), 좌표범위·VW/VH 거의 동일 — 파이프라인 버그 아님. 37개 동 전체 재생성은 미실행(대표 승인 필요, 신규 6km 반경 내 후보 동 `cach-mang-thang-tam` 1개 추가 발견 — 전체 재생성 시 판단 필요).
 
 ## 9. 미확인·미처리 항목 (정직하게 남김)
 

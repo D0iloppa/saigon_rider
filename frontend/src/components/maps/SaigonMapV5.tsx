@@ -526,6 +526,17 @@ function SaigonMapV5({
   // 소스가 같은 compassBearing 을 동시에 밀면 화면이 튄다). 자력계가 없거나 권한 거부로 한 번도
   // 값이 안 오면 false 로 유지돼 GPS course 폴백이 그대로 동작한다(기존 동작 불변).
   const compassAvailableRef = useRef(false);
+  // ◎ 버튼의 "카메라추종→heading추종" 전이 요청 순번(W14, 2026-08-07) — requestCompassPermission()
+  // 이 settle 되기 전에 사용자가 ◎ 를 다시 눌러 다른 단계로 넘어가면, 늦게 도착하는 이전 요청의
+  // setCompassMode('follow') 가 그 새 단계를 덮어쓸 수 있다(stale write). recenterCurrentContext
+  // 호출마다 토큰을 새로 발급해 프라미스 continuation 에서 "여전히 이 요청이 최신인가"를 검증한다.
+  const compassRequestTokenRef = useRef(0);
+  // 자력계 진단 로그 1회 플래그(W14) — 자력계가 실제로 붙었는지 런타임에 알 수단이 없어(조용히
+  // GPS course 폴백으로 떨어짐) 개발 중 원인 파악용으로만 남긴다. 세션당 각 1회, 프로덕션 소음
+  // 방지를 위해 이벤트마다 찍지 않는다(기존 console.warn 관례를 따름 — 별도 DEV 게이트 없음, native.ts
+  // 참조: 빌드가 항상 production 모드라 import.meta.env.DEV 게이트가 무의미하기 때문).
+  const compassLoggedAvailableRef = useRef(false);
+  const compassLoggedDeniedRef = useRef(false);
   // 렌더에 쓰는 실제 회전각 — bearing 은 이제 세 소스 중 하나를 합류시킨 단일 변수다. 탭
   // 히트테스트·컬링·라벨/마커 위치회전(rotUnified)·회전 <g> 는 전부 이 값 하나만 본다.
   // enableFollowCompass=false 면 compassMode 가 'north' 를 벗어날 수 없으므로 이 값도 항상
@@ -995,6 +1006,9 @@ function SaigonMapV5({
   // 자유 → 카메라추종 → heading추종 → 자유. heading 추종 시작·해제를 이 버튼이 전담하므로,
   // 나침반 버튼(toggleCompass, 아래)은 더 이상 heading 추종을 켜지 않는다.
   const recenterCurrentContext = useCallback(() => {
+    // 매 호출마다 새 토큰 — 아래 pending 프라미스가 늦게 도착했을 때 "이 탭이 여전히 최신
+    // 의도인가"를 판정하는 기준이다(연속 탭 stale-write 방지, W14).
+    const requestToken = ++compassRequestTokenRef.current;
     if (!enableFollowCompass) {
       void runLocate();
       return;
@@ -1006,9 +1020,28 @@ function SaigonMapV5({
     } else if (compassMode !== 'follow') {
       // 카메라추종 → heading추종: 이 탭이 iOS 13+ 자력계 권한 요청의 필수 사용자 제스처다 —
       // DeviceOrientationEvent.requestPermission() 은 제스처 콜백 밖에서 호출하면 브라우저가
-      // 무시한다. 거부/미지원이어도 무해하다(GPS course 폴백, 위 meDot 워처가 이미 담당).
-      void native.requestCompassPermission();
-      setCompassMode('follow');
+      // 무시한다. **호출 자체**(아래 native.requestCompassPermission())는 이 탭 핸들러 안에서
+      // 동기적으로 시작되므로 제스처 요건은 지켜진다 — 프라미스가 비동기로 settle 되는 것은
+      // 문제가 아니고(대기하는 것은 허용), 호출을 setTimeout/effect 등 제스처 밖으로 옮기는
+      // 것만 금지된다(native.ts:280-283 주석과 동일 근거).
+      //
+      // W14 수정: 예전에는 setCompassMode('follow') 를 프라미스를 기다리지 않고 즉시 실행해,
+      // iOS 가 "권한 승인 전에 등록된 DeviceOrientation 리스너"에 이벤트를 영구히 전달하지
+      // 않는 함정에 걸렸다(승인 후에도 그 리스너는 죽은 채로 남는다 — 재등록해야만 살아난다).
+      // 이제 권한 요청이 settle(승인/거부/미지원 무관, fail-open)된 뒤에만 구독을 켠다.
+      void native.requestCompassPermission().then((granted) => {
+        // stale-write 방지: 이 프라미스가 대기하는 동안 사용자가 ◎ 를 다시 눌러 다른 단계로
+        // 넘어갔다면(예: heading추종→자유, 또는 자유→카메라추종을 다시 시작) 토큰이 바뀌어
+        // 있다 — 그 경우 이 늦은 응답으로 최신 단계를 덮어쓰지 않는다.
+        if (compassRequestTokenRef.current !== requestToken) return;
+        if (!granted && !compassLoggedDeniedRef.current) {
+          compassLoggedDeniedRef.current = true;
+          console.info('[compass] permission denied/unsupported — GPS course 폴백으로 진행');
+        }
+        // fail-open: 거부/미지원이어도 'follow' 단계로는 진입한다. 자력계가 안 붙으면 아래
+        // watchCompassHeading 이 no-op 이고, meDot 워처의 GPS course 폴백이 대신 회전을 맡는다.
+        setCompassMode('follow');
+      });
     } else {
       // heading추종 → 자유: 추종과 회전을 함께 끈다(북향 복귀 포함) — 나침반 버튼을 따로 누르지
       // 않아도 자유 단계로 돌아오면 정방향이다.
@@ -1125,6 +1158,10 @@ function SaigonMapV5({
     // 매 follow 진입마다 리셋 — 이전 세션의 가용성 판정이 다음 세션까지 이어지지 않게 한다.
     compassAvailableRef.current = false;
     return native.watchCompassHeading((heading) => {
+      if (!compassAvailableRef.current && !compassLoggedAvailableRef.current) {
+        compassLoggedAvailableRef.current = true;
+        console.info('[compass] 자력계 첫 값 수신 — heading:', heading);
+      }
       compassAvailableRef.current = true;
       const diff = Math.abs((((heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
       if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(heading);

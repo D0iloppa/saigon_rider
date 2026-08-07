@@ -15,6 +15,7 @@
 - [네이티브 키보드 연계 UX 규약](context/keyboard-ux.md) — KeyboardBridge → native.onKeyboardChange → useKeyboard 인프라, 스크롤 페이지형/오버레이 바텀시트형 정답 패턴, 안티패턴, 신규 화면 체크리스트
 - [프론트엔드 페이지-메뉴-컴포넌트 맵](context/frontend-page-map.md) — 한글 메뉴명(탭바/게임허브) → 라우트 → 페이지/컴포넌트 파일 매핑, codebase-memory MCP 심화 조회 연결점
 - [Legacy HCMC 행정경계 출처](context/map-boundary-source.md) — 2025년 7월 이전 22개 구·현 경계의 고정 원본·라이선스·SHA-256·재생성 절차
+- [자체호스팅 라우팅 엔진 도입 — 실증 기록](context/routing-engine.md) — Google Routes API 대체(과금 제거), Valhalla/OSRM 실증 비교, vi/ko 내레이션 갭(결정적 갈림길, 대표 결정 대기), OSM 데이터 실측치, polyline precision·maneuver 매핑표
 - [ERD & DB 스키마](schema/erd.md) — 테이블 19종, Mermaid ERD, PostGIS, 마이그레이션 목록
 - [인증 구조](schema/auth.md) — FastAPI 인증, 쿠키 세션, passcode 발급
 

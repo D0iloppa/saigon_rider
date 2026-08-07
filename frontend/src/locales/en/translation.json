@@ -659,6 +659,8 @@
     "terms": "Terms of Service",
     "appInfo": "App Info",
     "osmAttribution": "© OpenStreetMap contributors",
+    "tileAttribution": "OpenFreeMap",
+    "rendererAttribution": "MapLibre GL",
     "notices": "Notices",
     "faq": "FAQ",
     "support": "Support",

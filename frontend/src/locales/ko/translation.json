@@ -659,6 +659,8 @@
     "terms": "이용약관",
     "appInfo": "앱 정보",
     "osmAttribution": "© OpenStreetMap contributors",
+    "tileAttribution": "OpenFreeMap",
+    "rendererAttribution": "MapLibre GL",
     "notices": "공지사항",
     "faq": "자주 묻는 질문",
     "support": "고객센터",

@@ -659,6 +659,8 @@
     "terms": "Điều khoản dịch vụ",
     "appInfo": "Thông tin ứng dụng",
     "osmAttribution": "© OpenStreetMap contributors",
+    "tileAttribution": "OpenFreeMap",
+    "rendererAttribution": "MapLibre GL",
     "notices": "Thông báo",
     "faq": "Câu hỏi thường gặp",
     "support": "Hỗ trợ",

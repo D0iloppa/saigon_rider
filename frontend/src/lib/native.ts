@@ -174,10 +174,65 @@ class NativeInterface {
       return () => window.removeEventListener('storage', onStorage);
     }
 
-    let watchId: string | undefined;
+    // Android·iOS 빌드 모두 @capacitor/geolocation 을 vendoring 하지 않는다(getLocation() 의
+    // 주석 참조). watchPosition 은 미등록 플러그인 호출 시 reject 하지 않고 watch id 만 돌려준
+    // 채 콜백을 영원히 안 부르는(침묵 실패) 경우가 있어 — 에러로 감지할 수 없으므로 첫 틱이
+    // FALLBACK_TIMEOUT_MS 안에 안 오면 navigator.geolocation 폴백으로 전환한다.
+    const FALLBACK_TIMEOUT_MS = 7_000;
+
+    let stopped = false;
+    let capacitorWatchId: string | undefined;
+    let navigatorWatchId: number | undefined;
+    let gotFirstTick = false;
+    let loggedSource = false;
+
+    const logSource = (source: 'capacitor' | 'navigator') => {
+      if (loggedSource) return;
+      loggedSource = true;
+      console.warn(`[native] watchLocation source: ${source}`);
+    };
+
+    const stopCapacitor = () => {
+      if (capacitorWatchId) {
+        Geolocation.clearWatch({ id: capacitorWatchId }).catch(() => {});
+        capacitorWatchId = undefined;
+      }
+    };
+    const stopNavigator = () => {
+      if (navigatorWatchId != null) {
+        // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+        navigator.geolocation.clearWatch(navigatorWatchId);
+        navigatorWatchId = undefined;
+      }
+    };
+
+    const startNavigatorFallback = () => {
+      if (stopped || navigatorWatchId != null) return;
+      stopCapacitor(); // 워처 이중화 방지 — 폴백 전환 시 기존 구독을 반드시 정리
+      // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+      // eslint-disable-next-line no-restricted-globals
+      navigatorWatchId = navigator.geolocation.watchPosition(
+        (p) => {
+          gotFirstTick = true;
+          logSource('navigator');
+          handler({
+            lat: p.coords.latitude,
+            lng: p.coords.longitude,
+            accuracy: p.coords.accuracy,
+            speed: p.coords.speed,
+            heading: p.coords.heading,
+          });
+        },
+        (err) => console.warn('[NativeInterface] watchLocation error:', err),
+        { enableHighAccuracy: true },
+      );
+    };
 
     Geolocation.watchPosition({ enableHighAccuracy: true }, (pos, err) => {
       if (pos) {
+        gotFirstTick = true;
+        logSource('capacitor');
         handler({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
@@ -188,11 +243,22 @@ class NativeInterface {
       }
       if (err) console.warn('[NativeInterface] watchLocation error:', err);
     }).then((id) => {
-      watchId = id;
+      if (stopped) {
+        Geolocation.clearWatch({ id }).catch(() => {});
+        return;
+      }
+      capacitorWatchId = id;
     });
 
+    const fallbackTimer = window.setTimeout(() => {
+      if (!gotFirstTick) startNavigatorFallback();
+    }, FALLBACK_TIMEOUT_MS);
+
     return () => {
-      if (watchId) Geolocation.clearWatch({ id: watchId });
+      stopped = true;
+      window.clearTimeout(fallbackTimer);
+      stopCapacitor();
+      stopNavigator();
     };
   }
 

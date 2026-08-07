@@ -8,6 +8,7 @@ import {
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
+import { formatVnTime } from '@/lib/vnTime';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
 import { inServiceArea } from '@/lib/serviceArea';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
@@ -288,7 +289,10 @@ export default function RideNav() {
     setRoute(data);
     if (data.duration_s) {
       const d = new Date(Date.now() + data.duration_s * 1000);
-      setArrivalTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+      // 절대시각은 항상 ICT 로 표기 (service-rules 시각 표기 절) — 기기 타임존 무관.
+      // hourCycle:'h23' 로 0-23 범위 고정(hour12:false 만으로는 로케일에 따라 자정이 "24:05"로
+      // 나오는 ICU 이슈가 있어 표기 형식이 로케일별로 갈릴 수 있다 — 그걸 막기 위함).
+      setArrivalTime(formatVnTime(d, i18n.language, { hourCycle: 'h23' }));
     }
   };
 

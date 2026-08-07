@@ -13,11 +13,16 @@
 export const VN_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 /** ISO 문자열/Date/unix(ms) → 현지 시각 "HH:MM". */
-export function formatVnTime(value: string | number | Date, locale?: string): string {
+export function formatVnTime(
+  value: string | number | Date,
+  locale?: string,
+  opts?: Intl.DateTimeFormatOptions,
+): string {
   return new Date(value).toLocaleTimeString(locale, {
     timeZone: VN_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
+    ...opts,
   });
 }
 

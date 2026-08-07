@@ -11,6 +11,8 @@ firebase-credentials.json
 
 # Docker volumes / generated data
 database/data/
+# 자체호스팅 라우팅 엔진 원자재/빌드산출물 (OSM pbf·Valhalla/OSRM 타일) — 311MB+, 매번 재빌드 가능
+routing_data/
 # pg_dump 백업 산출물 (tools/backup_db.sh, F-16)
 backups/
 # Frontend (React + Vite + Node)

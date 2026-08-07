@@ -52,12 +52,19 @@ test('manual two-finger rotation gesture: deadzone before committing, then conti
   assert.match(
     source,
     /const MANUAL_ROTATE_START_DEG = 6;/,
-    'MANUAL_ROTATE_START_DEG history: 6 (original) -> 10 (2026-08-07 AM, "회전모드가 어색해" feedback: pinch-zoom-only gestures were tripping rotation) -> 6 (2026-08-07 PM, this change, "인식이 잘 안 된다" feedback: anti-pinch-misfire duty moved to ROTATE_DOMINANCE_RATIO instead, see its comment)',
+    'MANUAL_ROTATE_START_DEG history: 6 (original) -> 10 (2026-08-07 AM, "회전모드가 어색해" feedback: pinch-zoom-only gestures were tripping rotation) -> 6 (2026-08-07 PM, "인식이 잘 안 된다": anti-pinch-misfire duty moved to ROTATE_DOMINANCE_RATIO) -> 6 (2026-08-07 night, this change, kept — the "slow dial rotation doesn\'t register" defect was in g.distAcc\'s definition, not this angle deadzone, see below)',
   );
   assert.match(
     source,
     /const ROTATE_DOMINANCE_RATIO = 2\.0;/,
-    'ROTATE_DOMINANCE_RATIO strengthened 1.2 -> 2.0 (2026-08-07 PM) to absorb the anti-pinch-misfire duty freed up by lowering MANUAL_ROTATE_START_DEG back to 6 — pure-rotation gestures have distAcc≈0 so raising this ratio costs them nothing, while pure-zoom finger-jitter (up to ~8°) needs a bigger arc-vs-distance margin to avoid false-triggering',
+    'ROTATE_DOMINANCE_RATIO history: 1.2 -> 2.0 (2026-08-07 PM, reasoning: "pure rotation has distAcc≈0 so raising this ratio is free") -> 2.0 (2026-08-07 night, this change, kept) — that reasoning was correct in principle but g.distAcc itself was computed wrong at the time (see the fix below), which is what actually broke slow dial rotation; the ratio itself was never the bug',
+  );
+
+  // 회전 커밋 판정은 순수 함수로 분리돼 있다 — 아래 시나리오 테스트가 이 함수를 실제로 추출/실행한다.
+  assert.match(
+    source,
+    /function shouldCommitRotation\(\s*angleAccDeg: number,\s*distAcc: number,\s*dist: number,\s*startDeg: number,\s*dominanceRatio: number,\s*\): boolean \{/,
+    'rotation-commit judgment must be a standalone pure function (extractable/testable), not inlined only in onPointerMove',
   );
 
   const moveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');
@@ -78,23 +85,29 @@ test('manual two-finger rotation gesture: deadzone before committing, then conti
     'below the deadzone, only g.angleAcc must accumulate — manualBearing/compassMode must not change yet (prevents pinch-zoom jitter from being read as rotation intent)',
   );
 
+  // ★ 이번 수정의 핵심: g.distAcc 는 프레임별 |Δ| 절대값 누적이 아니라, 제스처 시작 거리
+  // (g.startD) 대비 "순" 거리 변화여야 한다. 구버전은 다이얼 회전(거리 거의 불변)에서도 프레임마다의
+  // 잡음이 상쇄 없이 쌓여 프레임 수(=느리게 돌릴수록 증가)에 비례해 부풀었다 — 그래서 느린 회전이
+  // 지배성 판정을 통과하지 못했다. g.startD 기준으로 매 프레임 재계산하면 참값이 프레임 수와
+  // 무관해진다.
+  assert.match(
+    moveBlock,
+    /g\.distAcc = Math\.abs\(dist - g\.startD\);/,
+    'g.distAcc must be the NET distance change since gesture start (Math.abs(dist - g.startD)), recomputed fresh each frame — NOT a per-frame abs-delta accumulator (that was this defect: noise accumulates with frame count for slow dial rotation, where net distance stays ~0)',
+  );
+  assert.doesNotMatch(
+    moveBlock,
+    /g\.distAcc \+= /,
+    'g.distAcc must never be incremented/accumulated across frames — it is recomputed from g.startD each frame (accumulating abs per-frame deltas is exactly the fixed defect)',
+  );
+
   // 데드존을 넘으면 정확히 이 시점에 'manual' 로 전이하고, 그 이후 프레임은 매번 반영한다(추가
-  // 데드존 없음 — 진행 중인 회전에 프레임마다 데드존을 걸면 반응이 끊겨 보인다). 조건은 이제
-  // 각도 데드존 *그리고* 지배성 판정(회전 아크 > 줌 이동량 × ROTATE_DOMINANCE_RATIO) 둘 다다.
+  // 데드존 없음 — 진행 중인 회전에 프레임마다 데드존을 걸면 반응이 끊겨 보인다). 판정은 이제
+  // shouldCommitRotation() 순수 함수(각도 데드존 그리고 지배성 판정)로 위임된다.
   assert.match(
     moveBlock,
-    /if \(Math\.abs\(g\.angleAcc\) >= MANUAL_ROTATE_START_DEG && rotArcPx > g\.distAcc \* ROTATE_DOMINANCE_RATIO\) \{\s*g\.rotating = true;\s*setCompassMode\('manual'\);/,
-    'crossing the cumulative deadzone AND the dominance check must switch compassMode to \'manual\' exactly once per gesture',
-  );
-  assert.match(
-    moveBlock,
-    /const rotArcPx = \(dist \/ 2\) \* Math\.abs\(\(g\.angleAcc \* Math\.PI\) \/ 180\);/,
-    'rotation arc-length (radius × accumulated angle in radians) must be computed for the dominance comparison',
-  );
-  assert.match(
-    moveBlock,
-    /if \(prevD\) g\.distAcc \+= Math\.abs\(dist - prevD\);/,
-    'cumulative zoom distance change (g.distAcc) must accumulate alongside the angle, using the pre-pinch-zoom distance (prevD), before the deadzone/dominance check commits to rotating',
+    /if \(shouldCommitRotation\(g\.angleAcc, g\.distAcc, dist, MANUAL_ROTATE_START_DEG, ROTATE_DOMINANCE_RATIO\)\) \{\s*g\.rotating = true;\s*setCompassMode\('manual'\);/,
+    'crossing the cumulative deadzone AND the dominance check (via shouldCommitRotation) must switch compassMode to \'manual\' exactly once per gesture',
   );
   assert.match(
     moveBlock,
@@ -113,6 +126,68 @@ test('manual two-finger rotation gesture: deadzone before committing, then conti
     source,
     /g\.baseBearing = bearing;/,
     'onPointerDown must capture the current effective bearing as baseBearing when a new two-pointer gesture begins',
+  );
+  assert.match(
+    source,
+    /g\.startD = g\.lastD;/,
+    'onPointerDown must capture the gesture-start two-finger distance (g.startD) — the fixed-reference point g.distAcc now measures net change against',
+  );
+});
+
+// ★ 실제 실행 회귀 테스트 — 상수·정규식만 박아두는 위 계약 테스트보다 강한 방어. shouldCommitRotation
+// 함수의 소스 텍스트를 추출해 TS 타입 어노테이션만 지운 뒤(런타임 동작과 무관한 소거 — tsc/babel 이
+// 빌드 시 하는 것과 동일) new Function 으로 그대로 실행한다. Node 20(이 리포의 CI/로컬 실행 환경)은
+// .ts 를 직접 import 할 수 없어(ts-node/tsx 미설치) 진짜 TS 유닛테스트가 불가능하므로, 커밋된 실제
+// 코드를 이 방식으로 실행하는 것이 이 환경에서 낼 수 있는 가장 강한 회귀 방어다.
+function extractShouldCommitRotation(source) {
+  const sig = 'function shouldCommitRotation(';
+  const start = source.indexOf(sig);
+  assert.ok(start >= 0, 'shouldCommitRotation not found in SaigonMapV5.tsx');
+  let depth = 0;
+  let i = source.indexOf('{', start);
+  for (; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') { depth--; if (depth === 0) break; }
+  }
+  const fnSource = source.slice(start, i + 1);
+  // 타입 소거: 매개변수의 ": number" / 반환형 "): boolean {" 만 제거한다 — 로직 문자열은 그대로.
+  const erased = fnSource
+    .replace(/: number/g, '')
+    .replace(/\): boolean \{/, ') {');
+  // eslint-disable-next-line no-new-func -- 테스트 전용, 커밋된 소스를 실행해 검증한다
+  return new Function(`return (${erased});`)();
+}
+
+test('shouldCommitRotation scenario matrix — dial rotation commits regardless of speed, pure pinch-zoom never commits, anchored one-finger rotation commits', () => {
+  const source = read('SaigonMapV5.tsx');
+  const shouldCommitRotation = extractShouldCommitRotation(source);
+  const START_DEG = 6;
+  const RATIO = 2.0;
+
+  // 시나리오 1: 두 손가락 다이얼 회전(간격을 유지한 채 천천히 90°) — 손가락 사이 거리는 시작
+  // 값(250px) 근처에서 아주 미세한 잡음(±0.5px)만 있을 뿐 순 변화는 거의 없다(distAcc≈0.5).
+  // 6° 지점(데드존)에서 이미 지배성 판정을 통과해야 한다 — 프레임 수(느리게 돌리는지 빠르게
+  // 돌리는지)와 무관하게.
+  assert.equal(
+    shouldCommitRotation(START_DEG, 0.5, 250, START_DEG, RATIO),
+    true,
+    'scenario 1 (slow dial rotation, distAcc~0.5px net): must commit at the angle deadzone regardless of how many frames it took to accumulate — this is exactly the case the old |Δ|-accumulator broke for slow gestures',
+  );
+
+  // 시나리오 2: 순수 핀치줌(간격이 200px→400px 로 크게 변화, 손가락 비대칭으로 인한 잡음각
+  // 6~8°까지). 순 거리 변화(distAcc)가 실제 줌 이동량 그대로 크므로 지배성 판정에 걸려야 한다.
+  assert.equal(
+    shouldCommitRotation(8, 200, 400, START_DEG, RATIO),
+    false,
+    'scenario 2 (pure pinch-zoom, up to 8° finger-asymmetry jitter, dist 200->400): must NOT commit — net distance change (200px) dwarfs the rotation arc, so pinch-only gestures never misfire into rotation',
+  );
+
+  // 시나리오 3: 한 손가락을 축으로 고정한 회전 — 고정 손가락 기준 반지름이 거의 그대로 유지되므로
+  // (distAcc≈0) 계속 걸려야 한다. 이건 기존에도 되던 경로이므로 회귀가 없어야 한다.
+  assert.equal(
+    shouldCommitRotation(45, 1.0, 250, START_DEG, RATIO),
+    true,
+    'scenario 3 (one-finger-anchored rotation, distAcc~1px net): must keep committing (this was the existing workaround users relied on — must not regress)',
   );
 });
 

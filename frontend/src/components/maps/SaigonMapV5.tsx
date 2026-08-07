@@ -91,30 +91,51 @@ const COMPASS_DEADZONE_DEG = 8;
 const COMPASS_MIN_SPEED_MPS = 1.5;
 // 수동 두 손가락 회전 제스처 시작 임계(누적 각도) — 이력: 6°(최초) → 10°(2026-08-07 오전, 대표
 // 지적 "회전모드가 어색해" — 순수 줌 의도 핀치에서도 손가락이 살짝 틀어지면 회전이 걸려버림) →
-// 6°(2026-08-07 오후, 이번 변경, 대표 지적 "강도가 너무 높다, 인식이 잘 안 된다"). 되돌린 게
-// 아니다 — 핀치 오작동 방어의 책임을 이 각도 데드존에서 아래 ROTATE_DOMINANCE_RATIO(지배성 판정)
-// 로 옮겼다. 근거: 순수 회전 제스처(손가락 사이 거리 변화가 거의 없는, distAcc≈0)는 지배성 비율을
-// 얼마로 올려도 판정에 영향이 없다(0 은 어떤 배수를 곱해도 0) — 그래서 지배성 비율을 강화해도
-// "의도적으로 돌리기 시작하면 바로 반응"하는 요구는 그대로 지켜진다. 반대로 순수 줌 핀치의 손끝
-// 비틀림 잡음(실측상 흔히 2~4°, 손이 큰 사용자는 6~8°까지)은 각도 데드존만 낮추면 다시 걸릴 수
-// 있으므로, 그 방어는 지배성 비율 쪽에서 흡수한다(아래 주석). 시작 전까지는 아래(onPointerMove)
-// g.angleAcc 에만 누적하고 실제 manualBearing 에는 반영하지 않는다. 일단 임계를 넘어 회전이
-// 시작된 뒤에는 프레임마다 그대로 반영한다(진행 중 회전에 추가 데드존을 걸면 반응이 끊겨 보인다
-// — 위 heading 데드존 관련 §9.3 주석과 동일 결론).
+// 6°(2026-08-07 오후, 대표 지적 "강도가 너무 높다, 인식이 잘 안 된다" — 핀치 오작동 방어의 책임을
+// 이 각도 데드존에서 아래 ROTATE_DOMINANCE_RATIO 로 옮김) → 6°(2026-08-07 밤, 이번 변경, 유지).
+// 이번 변경은 이 상수가 아니라 g.distAcc 의 *정의*가 결함이었다(아래 ROTATE_DOMINANCE_RATIO 주석
+// 및 onPointerMove 참조) — "느리게 돌리는 다이얼 회전이 안 걸린다"는 결함은 이 데드존 각도와
+// 무관했으므로 그대로 둔다. 시작 전까지는 아래(onPointerMove) g.angleAcc 에만 누적하고 실제
+// manualBearing 에는 반영하지 않는다. 일단 임계를 넘어 회전이 시작된 뒤에는 프레임마다 그대로
+// 반영한다(진행 중 회전에 추가 데드존을 걸면 반응이 끊겨 보인다 — 위 heading 데드존 관련 §9.3
+// 주석과 동일 결론).
 const MANUAL_ROTATE_START_DEG = 6;
 // 각도 데드존만으로는 "줌 의도인데 손가락이 비대칭으로 움직여 각도가 누적되는" 케이스를 못
 // 거른다 — 각도 누적과 별개로 "회전이 줌보다 지배적인 움직임인가"를 판정한다. 손가락 사이
-// 반지름(dist/2) × 누적 각도(라디안) = 회전이 만든 호(arc) 길이(px), 누적 |dist 변화| = 줌이
-// 만든 반경 방향 이동량(px) — 같은 픽셀 단위라 직접 비교 가능하다. 회전 아크가 줌 이동량의
+// 반지름(dist/2) × 누적 각도(라디안) = 회전이 만든 호(arc) 길이(px), g.distAcc(순 거리 변화, px)
+// = 줌이 만든 반경 방향 이동량 — 같은 픽셀 단위라 직접 비교 가능하다. 회전 아크가 줌 이동량의
 // N배를 넘어야만(=회전이 명확히 지배적일 때만) 회전으로 판정한다. 판정 후에는 g.rotating 이
 // 제스처 종료(onPointerDown 의 리셋)까지 고정되므로(매 프레임 재판정 아님) 한 번 회전으로
 // 커밋된 뒤 줌 위주로 손이 바뀌어도 회전이 끊기지 않아 안정적이다.
-// 이력: 1.2(최초) → 2.0(2026-08-07 오후, 이번 변경) — 위 각도 데드존을 10°→6°로 낮추는 대신,
-// 핀치 오작동 방어를 이 배수로 옮겨 강화했다. 순수 회전 의도 제스처는 distAcc≈0 이라 이 배수를
-// 올려도 지연이 생기지 않고(무엇을 곱해도 0), 순수 줌 의도 핀치는 손끝 잡음(최대 6~8°)만으로
-// 만들어지는 호 길이가 실제 줌으로 누적되는 distAcc 를 2배 앞지르기 어려워 오작동이 줄어든다 —
-// 두 요구(응답성↑, 오작동↓)를 각도 데드존/지배성 배수라는 서로 다른 축에 나눠 맡긴 것.
+// 이력: 1.2(최초) → 2.0(2026-08-07 오후, "distAcc≈0 이라 배수를 올려도 순수 회전엔 무해하다") →
+// 2.0(2026-08-07 밤, 이번 변경, 유지) — 그 논증 자체는 성립하지만 전제였던 g.distAcc 계산식이
+// 틀렸었다: 그때까지는 매 프레임 |dist-prevD| 를 그대로 더해가는 "절대값 누적"이라, 다이얼 회전처럼
+// 손가락 간격이 거의 안 변해도(참값 distAcc≈0) 프레임마다의 미세 잡음(±0.3~0.5px)이 상쇄 없이
+// 쌓여 프레임 수(=천천히 돌릴수록 늘어남)에 비례해 부풀었다 — "느리게 돌리면 distAcc 잡음이 더
+// 쌓여 회전이 안 걸린다"는 이번 결함의 원인. 아래 g.distAcc = Math.abs(dist - g.startD) (제스처
+// 시작 거리 대비 순 변화, 프레임 수와 무관)로 고친 뒤에는 이 배수를 올려도/유지해도 순수 회전
+// 판정에 전혀 비용이 없다(참값 distAcc≈0 은 배수를 얼마로 잡아도 0) — 반대로 순수 줌 핀치의
+// 손끝 잡음(최대 6~8°)이 오작동을 일으키려면 그 짧은 구간에서도 순 거리 변화가 충분히 작아야
+// 하는데, 실제 줌 제스처는 이 구간에서도 거리가 단조 변화하므로 순 변화와 절대값 누적이 사실상
+// 같다(=이 수정이 줌 오작동 방어를 약화시키지 않는다) — 그래서 2.0 을 낮출 근거가 없다.
 const ROTATE_DOMINANCE_RATIO = 2.0;
+
+/**
+ * 두 손가락 회전 제스처를 "지금 회전으로 커밋할까" 판정하는 순수 함수. onPointerMove 에서
+ * 분리해 시나리오 단위테스트(saigonMapV5ManualRotation.contract.test.mjs)가 실제 이 함수의
+ * 소스 텍스트를 추출해 타입 소거 후 그대로 실행할 수 있게 한다 — 상수만 정규식으로 박아두는
+ * 계약 테스트보다 강한 회귀 방어(3.1 아래 회전모드가 어색해 보임 문제).
+ */
+function shouldCommitRotation(
+  angleAccDeg: number,
+  distAcc: number,
+  dist: number,
+  startDeg: number,
+  dominanceRatio: number,
+): boolean {
+  const rotArcPx = (dist / 2) * Math.abs((angleAccDeg * Math.PI) / 180);
+  return Math.abs(angleAccDeg) >= startDeg && rotArcPx > distAcc * dominanceRatio;
+}
 
 // LOD 임계값 — viewBox 너비 기준
 const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
@@ -564,6 +585,7 @@ function SaigonMapV5({
     pts: Map<number, { x: number; y: number }>;
     lastP: { x: number; y: number } | null;
     lastD: number;
+    startD: number;
     lastAngleDeg: number | null;
     angleAcc: number;
     distAcc: number;
@@ -571,7 +593,7 @@ function SaigonMapV5({
     baseBearing: number;
     moved: boolean;
     downTarget: EventTarget | null;
-  }>({ pts: new Map(), lastP: null, lastD: 0, lastAngleDeg: null, angleAcc: 0, distAcc: 0, rotating: false, baseBearing: 0, moved: false, downTarget: null });
+  }>({ pts: new Map(), lastP: null, lastD: 0, startD: 0, lastAngleDeg: null, angleAcc: 0, distAcc: 0, rotating: false, baseBearing: 0, moved: false, downTarget: null });
 
   // anchorOverlay 화면 배치 — 말풍선 하단-중앙이 핀 위를 향하도록 놓고, 좌우는 컨테이너 안으로
   // 클램프하되 꼬리(--tail-x)는 핀의 실제 x를 계속 가리킨다. 핀이 화면 밖이면 숨김.
@@ -1208,6 +1230,8 @@ function SaigonMapV5({
       g.lastAngleDeg = Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI);
       g.angleAcc = 0;
       g.distAcc = 0;
+      // 이 페어의 시작 거리 — 아래 onPointerMove 의 distAcc 재정의(순 거리 변화) 기준점.
+      g.startD = g.lastD;
       g.rotating = false;
       g.baseBearing = bearing;
     }
@@ -1235,8 +1259,6 @@ function SaigonMapV5({
         // 쓴다 — +bearing 보정(구 08cd1e3)은 불필요했다.
         applyZoom(g.lastD / dist, rawCx, rawCy);
       }
-      // 회전 지배성 판정용 — g.lastD 를 덮어쓰기 전에 직전 거리를 남겨 둔다(§ROTATE_DOMINANCE_RATIO 주석).
-      const prevD = g.lastD;
       g.lastD = dist;
       // 수동 두 손가락 회전 — 핀치줌과 같은 두 포인터에서 각도 변화만 별도로 누적한다(줌은 거리,
       // 회전은 각도라 서로 배타적일 이유가 없다 — 일반 지도의 핀치+회전 동시 제스처). 킬스위치:
@@ -1251,13 +1273,17 @@ function SaigonMapV5({
             // 회전 시작 전: 데드존 누적만 하고 manualBearing 은 아직 건드리지 않는다(핀치줌
             // 도중 손가락이 미세하게 비틀리는 정도로는 지도가 떨지 않아야 한다).
             g.angleAcc += delta;
-            if (prevD) g.distAcc += Math.abs(dist - prevD);
+            // 제스처 시작 거리(g.startD) 대비 순 변화 — 프레임별 |Δ| 절대값 누적(구버전, 위
+            // ROTATE_DOMINANCE_RATIO 이력 주석의 결함)이 아니다. 다이얼 회전은 손가락 간격이
+            // 거의 그대로라 이 값이 프레임 수(=천천히 돌릴수록 늘어나는 것)와 무관하게 작게
+            // 유지된다 — 이게 이번에 고친 결함의 핵심(잡음 누적 vs 순 각도를 성질이 다른 값으로
+            // 비교하고 있었다).
+            g.distAcc = Math.abs(dist - g.startD);
             // 지배성 판정: 회전이 만든 호 길이(반지름×라디안) 가 줌이 만든 이동량보다 뚜렷이
             // 커야만(§ROTATE_DOMINANCE_RATIO) 각도 데드존과 별개로 회전을 인정한다 — 줌만
             // 하려던 핀치가 손가락 비대칭으로 각도만 누적됐을 뿐 실제 반경 이동(줌)이 지배적인
             // 경우는 데드존을 넘어도 회전으로 커밋하지 않는다.
-            const rotArcPx = (dist / 2) * Math.abs((g.angleAcc * Math.PI) / 180);
-            if (Math.abs(g.angleAcc) >= MANUAL_ROTATE_START_DEG && rotArcPx > g.distAcc * ROTATE_DOMINANCE_RATIO) {
+            if (shouldCommitRotation(g.angleAcc, g.distAcc, dist, MANUAL_ROTATE_START_DEG, ROTATE_DOMINANCE_RATIO)) {
               g.rotating = true;
               setCompassMode('manual');
               // 데드존을 넘는 순간 직전까지 보이던 각(baseBearing, 위 onPointerDown 주석)에 누적분을

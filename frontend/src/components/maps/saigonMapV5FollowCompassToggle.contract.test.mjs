@@ -49,38 +49,53 @@ test('SaigonMapV5 expands the L2/L3 ward culling rect for rotation via a rotated
   );
 });
 
-// 사용자 결정(§ 팬/줌 제스처 이탈): 제스처는 추종(isFollowing)만 끄고 회전축(compassMode)은
-// 그대로 둔다 — 회전은 각도이고 팬/줌은 중심·범위라 서로 충돌하지 않으며, 사용자가 명시적으로
-// 켠 회전을 팬/줌이 몰래 꺼버리면 동작이 예측 불가해진다. 예외: 두 손가락 회전 제스처 자체
-// (핀치 분기 안의 각도 추적, 2026-08-07 신설)는 의도적으로 compassMode 를 'manual' 로 바꾼다
-// (수동 회전이 heading 추종을 해제한다) — 그래서 여기서는 wheel(단일 축 줌)과 pan(단일 포인터)
-// 만 "compassMode 를 손대지 않음"을 검증한다. 핀치의 회전 전이는 별도 계약
+// 2026-08-07 개정(대표 지시 + 네이버지도 SDK 참조, W11) — 이전 계약("제스처는 isFollowing 만
+// 끄고 compassMode 는 절대 안 건드린다")은 헤딩추종(compassMode==='follow') 이탈 경로에서 상태
+// 기계 밖 조합을 만드는 결함이 있었다: 추종만 꺼지고 compassMode 가 'follow'로 남으면 ◎ 버튼은
+// 'free'로 계산되는데 지도는 자력계를 계속 따라 회전했고, 그 상태에서 ◎ 를 다시 누르면 즉시
+// heading 단계로 재진입해 "다음 클릭 시 1단계부터"라는 대표 스펙이 깨졌다(W10 실측). 네이버
+// 지도 SDK 의 LocationTrackingMode 도 Follow·Face 모두 제스처 시 NoFollow 로 직행한다(헤딩도
+// 함께 해제) — 그래서 새 계약은 "compassMode==='follow' 일 때만 'manual' 로 전환하고 이탈
+// 시점 각도(compassBearingRef.current)를 manualBearing 으로 이어받는다"로 바뀐다. 손으로 만든
+// 회전('manual')이나 정방향('north')은 여전히 손대지 않는다 — "제스처는 사용자가 손으로 만든
+// 회전을 몰래 끄지 않는다"는 원 원칙은 follow 가 아닌 두 상태에 대해 유지된다. 두 손가락 회전
+// 제스처 자체(핀치 분기 안의 각도 추적)가 만드는 별도의 'manual' 전이는 별도 계약
 // (saigonMapV5ManualRotation.contract.test.mjs)이 고정한다.
-test('SaigonMapV5 wheel/pan gestures exit isFollowing only and never touch compassMode', () => {
+test('SaigonMapV5 wheel/pan/pinch gestures exit heading-follow via a shared exitFollowByGesture helper (compassMode only changes when it was follow)', () => {
   const source = read('SaigonMapV5.tsx');
+
+  const helperStart = source.indexOf('const exitFollowByGesture = useCallback(() => {');
+  const helperEnd = source.indexOf('}, []);', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'exitFollowByGesture helper not found');
+  const helperBlock = source.slice(helperStart, helperEnd);
+  assert.match(helperBlock, /if \(!isFollowingRef\.current\) return;/, 'helper must no-op when not currently following');
+  assert.match(helperBlock, /setIsFollowing\(false\);/, 'helper must turn off isFollowing');
+  assert.match(
+    helperBlock,
+    /if \(compassModeRef\.current === 'follow'\) \{\s*setManualBearing\(compassBearingRef\.current\);\s*setCompassMode\('manual'\);\s*\}/,
+    'helper must switch compassMode to manual and carry over the current bearing ONLY when compassMode was follow',
+  );
 
   const wheelStart = source.indexOf('const onWheel = (e: WheelEvent) => {');
   const wheelEnd = source.indexOf('el.addEventListener', wheelStart);
   const wheelBlock = source.slice(wheelStart, wheelEnd);
-  assert.match(
-    wheelBlock,
-    /if \(isFollowingRef\.current\) setIsFollowing\(false\);/,
-    'wheel (zoom) gesture must turn off isFollowing',
-  );
-  assert.doesNotMatch(wheelBlock, /setCompassMode\(/, 'wheel gesture must not touch compassMode');
+  assert.match(wheelBlock, /exitFollowByGesture\(\);/, 'wheel (zoom) gesture must call exitFollowByGesture');
+  assert.doesNotMatch(wheelBlock, /setCompassMode\(/, 'wheel gesture must not touch compassMode directly (only via the helper)');
 
   const pointerMoveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');
   const pointerMoveEnd = source.indexOf('const onPointerUp', pointerMoveStart);
   const pointerMoveBlock = source.slice(pointerMoveStart, pointerMoveEnd);
-  const exits = pointerMoveBlock.match(/if \(isFollowingRef\.current\) setIsFollowing\(false\);/g) ?? [];
-  assert.equal(exits.length, 2, 'pan and pinch branches inside onPointerMove must each turn off isFollowing (found ' + exits.length + ')');
+  const exits = pointerMoveBlock.match(/exitFollowByGesture\(\);/g) ?? [];
+  assert.equal(exits.length, 2, 'pan and pinch branches inside onPointerMove must each call exitFollowByGesture (found ' + exits.length + ')');
 
-  // pan(단일 포인터) 분기만 떼어 확인 — 회전은 두 손가락(핀치) 분기에서만 일어나야 한다.
+  // pan(단일 포인터) 분기만 떼어 확인 — 회전 커밋 로직(setCompassMode('manual')/setManualBearing)은
+  // 두 손가락(핀치) 분기에서만 일어나야 한다. exitFollowByGesture 호출 자체는 pan 분기에도 있지만
+  // 그건 헬퍼 안에서만 조건부로 compassMode 를 만지므로 이 assert 대상이 아니다.
   const panBranchStart = pointerMoveBlock.indexOf('if (g.lastP) {');
   assert.ok(panBranchStart >= 0, 'pan branch (if (g.lastP)) not found inside onPointerMove');
   const panBranch = pointerMoveBlock.slice(panBranchStart);
-  assert.doesNotMatch(panBranch, /setCompassMode\(/, 'pan gesture must not touch compassMode');
-  assert.doesNotMatch(panBranch, /setManualBearing\(/, 'pan gesture must not touch manualBearing');
+  assert.doesNotMatch(panBranch, /setCompassMode\(/, 'pan gesture must not call setCompassMode directly (only via the helper)');
+  assert.doesNotMatch(panBranch, /setManualBearing\(/, 'pan gesture must not call setManualBearing directly (only via the helper)');
 });
 
 test('SaigonMapV5 heading policy uses the reference implementation constants and a last-valid-bearing hold (D-I §9.3)', () => {

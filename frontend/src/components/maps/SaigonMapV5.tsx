@@ -1184,6 +1184,24 @@ function SaigonMapV5({
     setVbSnap((n) => n + 1);
   }, [bottomInsetPx, clampVB, setVBAttr]);
 
+  // 제스처(휠/팬/핀치)로 헤딩추종(compassMode==='follow')을 이탈할 때 쓰는 공통 헬퍼(2026-08-07,
+  // 대표 지시 + 네이버지도 SDK 참조: LocationTrackingMode 는 Follow·Face 모두 제스처 시 NoFollow로
+  // 직행 — 헤딩도 함께 끈다). 추종만 끄고 compassMode 를 'follow' 로 남기면 ◎ 상태기계가 'free'로
+  // 계산되는데 지도는 자력계를 계속 따라 회전하는, 3단 모델 밖의 조합이 생긴다(W10 실측). 단, 이미
+  // 돌아가 있던 각도가 갑자기 북향으로 튀면 사용자가 놀라므로 이탈 시점의 화면 각
+  // (compassBearingRef.current)을 manualBearing 으로 이어받아 'manual' 로 전환한다(두 손가락 회전
+  // 제스처가 baseBearing 으로 이어받는 것과 동일 패턴, :1236 부근) — 이후 나침반 버튼이 북향
+  // 복귀를 담당한다. compassMode 가 이미 'manual'(손으로 돌려둔 각)이거나 'north' 면 그대로 두고
+  // isFollowing 만 끈다 — "제스처는 사용자가 손으로 만든 회전을 몰래 끄지 않는다" 원칙은 유지된다.
+  const exitFollowByGesture = useCallback(() => {
+    if (!isFollowingRef.current) return;
+    setIsFollowing(false);
+    if (compassModeRef.current === 'follow') {
+      setManualBearing(compassBearingRef.current);
+      setCompassMode('manual');
+    }
+  }, []);
+
   // ── 비-passive wheel ───────────────────────────────────────
   useEffect(() => {
     if (selectionOnly) return;
@@ -1191,10 +1209,10 @@ function SaigonMapV5({
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      // 줌 제스처는 추종만 끈다(탐색과 추종은 공존하지 않는다) — 나침반은 그대로 둔다. 회전은
-      // 각도이고 팬/줌은 중심·범위라 서로 충돌하지 않고, 사용자가 명시적으로 켠 나침반 토글을
-      // 제스처가 몰래 꺼버리면 동작이 예측 불가해진다.
-      if (isFollowingRef.current) setIsFollowing(false);
+      // 줌 제스처는 추종을 끈다(탐색과 추종은 공존하지 않는다). 손으로 만든 회전('manual')이나
+      // 정방향('north')은 그대로 두지만, 헤딩추종('follow')은 함께 해제한다(위 exitFollowByGesture
+      // 주석 — 센서 추종은 제스처로 이탈 시 같이 끈다, 손 회전은 안 끈다).
+      exitFollowByGesture();
       const r = el.getBoundingClientRect(), vb = vbRef.current;
       const rawCx = vb.x + ((e.clientX - r.left) / r.width) * vb.w;
       const rawCy = vb.y + ((e.clientY - r.top) / r.height) * vb.h;
@@ -1208,7 +1226,7 @@ function SaigonMapV5({
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [applyZoom, onViewportChange, selectionOnly]);
+  }, [applyZoom, exitFollowByGesture, onViewportChange, selectionOnly]);
 
   // ── 포인터: 팬 + 핀치줌 ───────────────────────────────────
   const onPointerDown = (e: PE<SVGSVGElement>) => {
@@ -1248,8 +1266,9 @@ function SaigonMapV5({
     const vb = vbRef.current;
     const r = e.currentTarget.getBoundingClientRect();
     if (g.pts.size === 2) {
-      // 핀치줌 제스처 — 추종만 끈다(나침반은 유지, 위 wheel 핸들러와 동일 근거).
-      if (isFollowingRef.current) setIsFollowing(false);
+      // 핀치줌 제스처 — 추종을 끈다(위 wheel 핸들러와 동일 근거, exitFollowByGesture 가 헤딩추종만
+      // 함께 해제하고 손 회전/정방향은 유지한다).
+      exitFollowByGesture();
       const [a, b] = [...g.pts.values()];
       const dist = Math.hypot(b.x - a.x, b.y - a.y);
       if (g.lastD) {
@@ -1305,8 +1324,8 @@ function SaigonMapV5({
       const dyRaw = ((e.clientY - g.lastP.y) / r.height) * vb.h;
       if (Math.abs(e.clientX - g.lastP.x) + Math.abs(e.clientY - g.lastP.y) > 3) {
         g.moved = true;
-        // 팬 제스처 — 추종만 끈다(나침반은 유지, 위 wheel 핸들러와 동일 근거).
-        if (isFollowingRef.current) setIsFollowing(false);
+        // 팬 제스처 — 추종을 끈다(위 wheel 핸들러와 동일 근거, exitFollowByGesture 참조).
+        exitFollowByGesture();
       }
       // 팬 델타는 이미 뷰포트(userSpace) 좌표계 벡터다 — vb.x/vb.y 도 같은 userSpace 이고, 회전은
       // 그 userSpace *안*(내부 <g>)에서만 지형을 돌리므로 viewBox 자체는 절대 돌지 않는다. 따라서

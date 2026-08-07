@@ -90,13 +90,22 @@ function rotatedBBoxOfRect(vb: VB, cx: number, cy: number, deg: number): VB {
 const COMPASS_DEADZONE_DEG = 8;
 const COMPASS_MIN_SPEED_MPS = 1.5;
 // 수동 두 손가락 회전 제스처 시작 임계(누적 각도) — 핀치줌 도중 손가락이 자연스럽게 미세 비틀리는
-// 정도(실측상 흔히 2~4°)를 걸러내면서도, 사용자가 의도적으로 돌리기 시작하면 바로 반응하도록 6°로
-// 잡았다. 시작 전까지는 아래(onPointerMove) g.angleAcc 에만 누적하고 실제 manualBearing 에는
-// 반영하지 않는다 — 그래야 핀치줌만 하려던 제스처가 지도를 살짝 떨게 만들지 않는다(대표 지시:
-// "작은 각도 흔들림으로 지도가 떠는 것을 막는 데드존"). 일단 임계를 넘어 회전이 시작된 뒤에는
-// 프레임마다 그대로 반영한다(진행 중 회전에 추가 데드존을 걸면 반응이 끊겨 보인다 — 위 heading
-// 데드존 관련 §9.3 주석과 동일 결론).
-const MANUAL_ROTATE_START_DEG = 6;
+// 정도(실측상 흔히 2~4°, 손이 큰 사용자는 6~8°까지)를 걸러내면서도, 사용자가 의도적으로 돌리기
+// 시작하면 바로 반응해야 한다. 6°는 순수 줌 의도 핀치에서도 손가락이 살짝 틀어지면 회전이 걸려버려
+// (대표 지적 2026-08-07: "회전모드가 어색해") 10°로 올렸다 — 실제 회전 의도 제스처는 통상 20°+
+// 로 시작하므로 반응성 손해는 크지 않다. 시작 전까지는 아래(onPointerMove) g.angleAcc 에만
+// 누적하고 실제 manualBearing 에는 반영하지 않는다. 일단 임계를 넘어 회전이 시작된 뒤에는 프레임마다
+// 그대로 반영한다(진행 중 회전에 추가 데드존을 걸면 반응이 끊겨 보인다 — 위 heading 데드존 관련
+// §9.3 주석과 동일 결론).
+const MANUAL_ROTATE_START_DEG = 10;
+// 각도 데드존만으로는 "줌 의도인데 손가락이 비대칭으로 움직여 각도가 누적되는" 케이스를 못
+// 거른다 — 각도 누적과 별개로 "회전이 줌보다 지배적인 움직임인가"를 판정한다. 손가락 사이
+// 반지름(dist/2) × 누적 각도(라디안) = 회전이 만든 호(arc) 길이(px), 누적 |dist 변화| = 줌이
+// 만든 반경 방향 이동량(px) — 같은 픽셀 단위라 직접 비교 가능하다. 회전 아크가 줌 이동량의
+// 1.2배를 넘어야만(=회전이 명확히 지배적일 때만) 회전으로 판정한다. 판정 후에는 g.rotating 이
+// 제스처 종료(onPointerDown 의 리셋)까지 고정되므로(매 프레임 재판정 아님) 한 번 회전으로
+// 커밋된 뒤 줌 위주로 손이 바뀌어도 회전이 끊기지 않아 안정적이다.
+const ROTATE_DOMINANCE_RATIO = 1.2;
 
 // LOD 임계값 — viewBox 너비 기준
 const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
@@ -444,16 +453,17 @@ function SaigonMapV5({
   const [vbSnap, setVbSnap] = useState(0); // LOD 변경·데이터 로드 시 re-render 트리거
 
   const [meLatLng, setMeLatLng] = useState<{ lat: number; lng: number } | null>(null);
-  // 추종(isFollowing)과 회전(compassMode)은 여전히 직교 2축이다(2026-08-06 개정 — 구 3-state
-  // 'free'|'follow'|'compass' 순환 폐기) — enableFollowCompass=false 면 둘 다 벗어날 경로가 없으므로
-  // false/'north' 를 벗어날 수 없다(킬스위치, recenterCurrentContext 참조). ◎ 버튼은 isFollowing 만
-  // 토글하며 회전축과 독립이라 "자유(미추종)+회전" 조합이 성립한다.
-  // 회전축 자체는 3-state 다(2026-08-07 개정 — bearing 이 이제 세 소스 중 하나를 합류한다):
+  // 네이버지도 모델(2026-08-07 개정, 사용자 지시) — ◎ 버튼(recenterCurrentContext)이 자유→카메라
+  // 추종→heading추종→자유 3단을 순환하며, isFollowing(카메라 추종 여부)과 compassMode(회전축)를
+  // 함께 조작한다. 나침반 버튼(toggleCompass)은 더 이상 heading 추종을 켜지 않는다 — bearing!==0
+  // 일 때만 나타나는 "북향 복귀 전용" 버튼이 됐다(아래 JSX). enableFollowCompass=false 면 두 상태
+  // 모두 벗어날 경로가 없으므로 false/'north' 를 벗어날 수 없다(킬스위치, recenterCurrentContext 참조).
+  // 회전축 자체는 3-state 다(bearing 이 세 소스 중 하나를 합류한다):
   //   'north'  — bearing=0 고정(정방향)
   //   'manual' — 수동 두 손가락 회전 제스처가 갱신하는 manualBearing 을 따른다
-  //   'follow' — GPS heading(compassBearing, D-I)을 따른다
-  // 나침반 버튼(toggleCompass)은 'north'⇄'follow' 만 오가고, 수동 제스처는 어느 상태에서든
-  // 'manual' 로 전이시킨다(§상태기계). 버튼을 다시 누르면 'manual'/'follow' 모두 'north' 로 복귀한다.
+  //   'follow' — GPS heading(compassBearing, D-I)을 따른다 — ◎ 3단째에서만 진입한다
+  // 수동 제스처는 어느 상태에서든 'manual' 로 전이시킨다(§상태기계) — heading 추종 중에 수동으로
+  // 돌리면 그 즉시 heading 추종이 풀린다(compassMode 가 'follow' 를 벗어나므로).
   const [isFollowing, setIsFollowing] = useState(false);
   const [compassMode, setCompassMode] = useState<'north' | 'manual' | 'follow'>('north');
   const [manualBearing, setManualBearing] = useState(0);
@@ -541,11 +551,12 @@ function SaigonMapV5({
     lastD: number;
     lastAngleDeg: number | null;
     angleAcc: number;
+    distAcc: number;
     rotating: boolean;
     baseBearing: number;
     moved: boolean;
     downTarget: EventTarget | null;
-  }>({ pts: new Map(), lastP: null, lastD: 0, lastAngleDeg: null, angleAcc: 0, rotating: false, baseBearing: 0, moved: false, downTarget: null });
+  }>({ pts: new Map(), lastP: null, lastD: 0, lastAngleDeg: null, angleAcc: 0, distAcc: 0, rotating: false, baseBearing: 0, moved: false, downTarget: null });
 
   // anchorOverlay 화면 배치 — 말풍선 하단-중앙이 핀 위를 향하도록 놓고, 좌우는 컨테이너 안으로
   // 클램프하되 꼬리(--tail-x)는 핀의 실제 x를 계속 가리킨다. 핀이 화면 밖이면 숨김.
@@ -943,28 +954,35 @@ function SaigonMapV5({
 
   // ◎ 버튼: enableFollowCompass=false 면 기존 그대로 — 항상 GPS 를 다시 측정해 "내 위치"로
   // 센터링 + 줌인(focusLatLng 가 L3_VBW*0.9 로 맞춤)하는 1회성 동작이다(킬스위치, D-H 8.3).
-  // enableFollowCompass=true 면 자유↔추종 2-state 로 바뀐다(사용자 결정 1, 나침반은 별도 버튼이
-  // 독립 토글) — 자유에서 추종으로 진입할 때만 runLocate 로 실측·센터링한다.
+  // enableFollowCompass=true 면 네이버지도 모델(2026-08-07, 대표 지시)의 3단 순환이다 —
+  // 자유 → 카메라추종 → heading추종 → 자유. heading 추종 시작·해제를 이 버튼이 전담하므로,
+  // 나침반 버튼(toggleCompass, 아래)은 더 이상 heading 추종을 켜지 않는다.
   const recenterCurrentContext = useCallback(() => {
     if (!enableFollowCompass) {
       void runLocate();
       return;
     }
     if (!isFollowing) {
+      // 자유 → 카메라추종: 실측 후 추종 시작.
       void runLocate();
       setIsFollowing(true);
+    } else if (compassMode !== 'follow') {
+      // 카메라추종 → heading추종: 위치는 이미 추종 중이므로 회전축만 GPS heading 으로 바꾼다.
+      setCompassMode('follow');
     } else {
+      // heading추종 → 자유: 추종과 회전을 함께 끈다(북향 복귀 포함) — 나침반 버튼을 따로 누르지
+      // 않아도 자유 단계로 돌아오면 정방향이다.
       setIsFollowing(false);
+      setCompassMode('north');
     }
-  }, [enableFollowCompass, isFollowing, runLocate]);
+  }, [enableFollowCompass, isFollowing, compassMode, runLocate]);
 
-  // 나침반 토글 버튼 — 추종(isFollowing)과 완전히 독립적으로 회전축만 오간다("자유+회전" 조합
-  // 성립, 사용자 결정 1). enableFollowCompass=false 면 이 버튼 자체가 렌더되지 않으므로(아래 JSX)
-  // 호출 경로가 없다. 상태기계(2026-08-07): 수동('manual')이거나 추종('follow') 중이면 정방향
-  // ('north')으로 복귀하고, 정방향이면 heading 추종을 시작한다 — 'manual'→'follow' 직접 전이는
-  // 없다(수동 회전 중 버튼을 누르면 항상 북향으로 복귀).
+  // 나침반 버튼 — 이제 "북향 복귀" 전용이다(네이버지도 모델, 2026-08-07 개정). 회전(bearing!==0)
+  // 중일 때만 렌더되므로(아래 JSX) 이 핸들러가 호출됐다는 것 자체가 'manual' 또는 'follow' 중
+  // 하나라는 뜻 — 어느 쪽이든 정방향으로 복귀시키고 heading 추종을 해제한다. ◎ 의 추종(isFollowing)
+  // 상태는 건드리지 않는다(카메라추종 단계로만 내려간다, ◎ 상태기계와 독립).
   const toggleCompass = useCallback(() => {
-    setCompassMode((prev) => (prev === 'north' ? 'follow' : 'north'));
+    setCompassMode('north');
   }, []);
 
   // 검색 결과 등 임의의 좌표 집합이 모두 보이도록 뷰포트를 맞춤(ward 자동 줌과 동일한 방식)
@@ -1152,6 +1170,7 @@ function SaigonMapV5({
       // 추종 중 heading / 이전 수동각)에서 이어지게 해, 모드 전환 시 지도가 순간적으로 튀지 않는다.
       g.lastAngleDeg = Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI);
       g.angleAcc = 0;
+      g.distAcc = 0;
       g.rotating = false;
       g.baseBearing = bearing;
     }
@@ -1179,6 +1198,8 @@ function SaigonMapV5({
         // 쓴다 — +bearing 보정(구 08cd1e3)은 불필요했다.
         applyZoom(g.lastD / dist, rawCx, rawCy);
       }
+      // 회전 지배성 판정용 — g.lastD 를 덮어쓰기 전에 직전 거리를 남겨 둔다(§ROTATE_DOMINANCE_RATIO 주석).
+      const prevD = g.lastD;
       g.lastD = dist;
       // 수동 두 손가락 회전 — 핀치줌과 같은 두 포인터에서 각도 변화만 별도로 누적한다(줌은 거리,
       // 회전은 각도라 서로 배타적일 이유가 없다 — 일반 지도의 핀치+회전 동시 제스처). 킬스위치:
@@ -1193,7 +1214,13 @@ function SaigonMapV5({
             // 회전 시작 전: 데드존 누적만 하고 manualBearing 은 아직 건드리지 않는다(핀치줌
             // 도중 손가락이 미세하게 비틀리는 정도로는 지도가 떨지 않아야 한다).
             g.angleAcc += delta;
-            if (Math.abs(g.angleAcc) >= MANUAL_ROTATE_START_DEG) {
+            if (prevD) g.distAcc += Math.abs(dist - prevD);
+            // 지배성 판정: 회전이 만든 호 길이(반지름×라디안) 가 줌이 만든 이동량보다 뚜렷이
+            // 커야만(§ROTATE_DOMINANCE_RATIO) 각도 데드존과 별개로 회전을 인정한다 — 줌만
+            // 하려던 핀치가 손가락 비대칭으로 각도만 누적됐을 뿐 실제 반경 이동(줌)이 지배적인
+            // 경우는 데드존을 넘어도 회전으로 커밋하지 않는다.
+            const rotArcPx = (dist / 2) * Math.abs((g.angleAcc * Math.PI) / 180);
+            if (Math.abs(g.angleAcc) >= MANUAL_ROTATE_START_DEG && rotArcPx > g.distAcc * ROTATE_DOMINANCE_RATIO) {
               g.rotating = true;
               setCompassMode('manual');
               // 데드존을 넘는 순간 직전까지 보이던 각(baseBearing, 위 onPointerDown 주석)에 누적분을
@@ -1867,23 +1894,21 @@ function SaigonMapV5({
           {/* bottomInsetPx: 드래거블 시트의 현재 노출 높이 — 시트 위에 항상 붙어 다니도록.
               미전달 시(정보 페이지들) CSS 기본값(bottom: 28px)을 그대로 쓴다 */}
           {showLocateControl && (() => {
-            // 추종/나침반 직교 2축 시각 구분(사용자 결정 1) — enableFollowCompass=false 면
-            // isFollowing 이 false 를 벗어날 수 없어 ◎ 는 항상 기존과 동일한 className/label로
-            // 귀결되고, 나침반 버튼은 아예 렌더되지 않는다(킬스위치).
-            const followActive = enableFollowCompass && isFollowing;
-            const followLabel = !enableFollowCompass || !isFollowing ? t('map.centerMap') : t('map.followModeOn');
-            // 3-state 시각 구분(2026-08-07) — 새 디자인 언어를 만들지 않고 기존 .ctrlBtnActive +
-            // Navigation 아이콘 선례 안에서 처리한다: 정방향은 비활성 스타일, 수동/추종은 둘 다
-            // 활성 스타일(북향 이탈 여부)로 묶되, 아이콘 자체를 현재 bearing 만큼 반대로 돌려
-            // "북쪽이 어디인지" 가리키는 나침반 바늘처럼 보이게 한다 — 수동은 사용자가 놓은 각에
-            // 고정, 추종은 GPS heading 을 따라 계속 움직이므로 동작으로도 구분된다. 상태명은
-            // aria-label/title 문구(번역 키 3종)로 명확히 구분한다.
-            const compassActive = compassMode !== 'north';
-            const compassLabel = compassMode === 'manual'
-              ? t('map.compassModeManual')
-              : compassMode === 'follow'
-                ? t('map.compassModeOn')
-                : t('map.compassModeOff');
+            // ◎ 3단 순환 시각 구분(네이버지도 모델, 2026-08-07 개정) — 새 디자인 언어를 만들지
+            // 않고 기존 .ctrlBtnActive + LocateFixed/Navigation 아이콘 선례 안에서 표현한다:
+            // 자유는 기본 스타일 + LocateFixed, 카메라추종은 활성 스타일 + LocateFixed(그대로),
+            // heading추종만 아이콘을 나침반 버튼과 동일한 Navigation(현재 bearing 만큼 회전)으로
+            // 바꿔 "지금 방향을 따라 돈다"는 것을 구분한다. enableFollowCompass=false 면 isFollowing
+            // 이 false 를 벗어날 수 없어 항상 자유 단계로 귀결된다(킬스위치).
+            const followStage: 'free' | 'camera' | 'heading' = !enableFollowCompass || !isFollowing
+              ? 'free'
+              : compassMode === 'follow' ? 'heading' : 'camera';
+            const followActive = followStage !== 'free';
+            const followLabel = followStage === 'free'
+              ? t('map.centerMap')
+              : followStage === 'camera'
+                ? t('map.followModeOn')
+                : t('map.followModeHeading');
             return (
               <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
                 <button
@@ -1893,17 +1918,23 @@ function SaigonMapV5({
                   aria-label={followLabel}
                   title={followLabel}
                 >
-                  <LocateFixed size={16} strokeWidth={2.2} />
+                  {followStage === 'heading'
+                    ? <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
+                    : <LocateFixed size={16} strokeWidth={2.2} />}
                 </button>
-                {enableFollowCompass && (
+                {/* 나침반 버튼 — 네이버지도 모델: 평상시엔 없다가, 회전(수동 또는 heading 추종)으로
+                    bearing!==0 이 되는 순간에만 나타난다. bearing 은 enableFollowCompass=false 면
+                    항상 0 이므로(킬스위치) 이 조건만으로 off 소비처는 자동으로 미노출이다. 누르면
+                    북향 복귀 + heading 추종 해제만 하고 ◎ 의 카메라추종 여부는 건드리지 않는다. */}
+                {bearing !== 0 && (
                   <button
                     type="button"
-                    className={compassActive ? `${styles.ctrlBtn} ${styles.ctrlBtnActive}` : styles.ctrlBtn}
+                    className={`${styles.ctrlBtn} ${styles.ctrlBtnActive}`}
                     onClick={toggleCompass}
-                    aria-label={compassLabel}
-                    title={compassLabel}
+                    aria-label={t('map.compassReset')}
+                    title={t('map.compassReset')}
                   >
-                    <Navigation size={16} strokeWidth={2.2} style={compassActive ? { transform: `rotate(${-bearing}deg)` } : undefined} />
+                    <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
                   </button>
                 )}
               </div>

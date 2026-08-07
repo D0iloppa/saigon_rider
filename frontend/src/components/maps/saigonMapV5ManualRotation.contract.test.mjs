@@ -21,7 +21,9 @@ test('bearing merges exactly three sources (north/manual/follow) into one variab
   );
 });
 
-test('compass button toggles north<->follow only; manual never transitions straight to follow', () => {
+// 2026-08-07 재개정(네이버지도 모델) — heading 추종 시작은 ◎ 버튼(recenterCurrentContext)으로
+// 옮겨졌다. 나침반 버튼(toggleCompass)은 이제 북향 리셋 전용이고 bearing !== 0 일 때만 렌더된다.
+test('compass button resets to north only; heading-follow start moved to the ◎ button', () => {
   const source = read('SaigonMapV5.tsx');
   const start = source.indexOf('const toggleCompass = useCallback(() => {');
   const end = source.indexOf('}, []);', start);
@@ -29,8 +31,18 @@ test('compass button toggles north<->follow only; manual never transitions strai
   const block = source.slice(start, end);
   assert.match(
     block,
-    /setCompassMode\(\(prev\) => \(prev === 'north' \? 'follow' : 'north'\)\);/,
-    'toggleCompass must map north->follow and anything else (manual or follow)->north — this is the "manual/follow -> north, north -> follow" contract from the state machine',
+    /setCompassMode\('north'\);/,
+    'toggleCompass must unconditionally reset compassMode to north — it no longer starts heading-follow (that transition now lives in recenterCurrentContext, the ◎ button)',
+  );
+
+  const recenterStart = source.indexOf('const recenterCurrentContext = useCallback(() => {');
+  const recenterEnd = source.indexOf('}, [enableFollowCompass, isFollowing, compassMode, runLocate]);', recenterStart);
+  assert.ok(recenterStart >= 0 && recenterEnd > recenterStart, 'recenterCurrentContext not found');
+  const recenterBlock = source.slice(recenterStart, recenterEnd);
+  assert.match(
+    recenterBlock,
+    /\} else if \(compassMode !== 'follow'\) \{[\s\S]*?setCompassMode\('follow'\);/,
+    '◎ must be the one to transition compassMode to follow (camera-follow -> heading-follow, the 3rd cycle stage)',
   );
 });
 
@@ -39,8 +51,13 @@ test('manual two-finger rotation gesture: deadzone before committing, then conti
 
   assert.match(
     source,
-    /const MANUAL_ROTATE_START_DEG = 6;/,
-    'MANUAL_ROTATE_START_DEG constant (cumulative-angle deadzone before manual rotation engages) must exist and be documented',
+    /const MANUAL_ROTATE_START_DEG = 10;/,
+    'MANUAL_ROTATE_START_DEG constant (cumulative-angle deadzone before manual rotation engages) must exist and be documented — raised from 6 to 10 (2026-08-07, "회전모드가 어색해" feedback: pinch-zoom-only gestures were tripping rotation)',
+  );
+  assert.match(
+    source,
+    /const ROTATE_DOMINANCE_RATIO = 1\.2;/,
+    'ROTATE_DOMINANCE_RATIO constant must exist — the angle deadzone alone cannot tell a zoom-intent pinch (fingers drift asymmetrically) from a rotate-intent gesture; dominance compares rotation arc-length to zoom distance change',
   );
 
   const moveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');
@@ -62,11 +79,22 @@ test('manual two-finger rotation gesture: deadzone before committing, then conti
   );
 
   // 데드존을 넘으면 정확히 이 시점에 'manual' 로 전이하고, 그 이후 프레임은 매번 반영한다(추가
-  // 데드존 없음 — 진행 중인 회전에 프레임마다 데드존을 걸면 반응이 끊겨 보인다).
+  // 데드존 없음 — 진행 중인 회전에 프레임마다 데드존을 걸면 반응이 끊겨 보인다). 조건은 이제
+  // 각도 데드존 *그리고* 지배성 판정(회전 아크 > 줌 이동량 × ROTATE_DOMINANCE_RATIO) 둘 다다.
   assert.match(
     moveBlock,
-    /if \(Math\.abs\(g\.angleAcc\) >= MANUAL_ROTATE_START_DEG\) \{\s*g\.rotating = true;\s*setCompassMode\('manual'\);/,
-    'crossing the cumulative deadzone must switch compassMode to \'manual\' exactly once per gesture',
+    /if \(Math\.abs\(g\.angleAcc\) >= MANUAL_ROTATE_START_DEG && rotArcPx > g\.distAcc \* ROTATE_DOMINANCE_RATIO\) \{\s*g\.rotating = true;\s*setCompassMode\('manual'\);/,
+    'crossing the cumulative deadzone AND the dominance check must switch compassMode to \'manual\' exactly once per gesture',
+  );
+  assert.match(
+    moveBlock,
+    /const rotArcPx = \(dist \/ 2\) \* Math\.abs\(\(g\.angleAcc \* Math\.PI\) \/ 180\);/,
+    'rotation arc-length (radius × accumulated angle in radians) must be computed for the dominance comparison',
+  );
+  assert.match(
+    moveBlock,
+    /if \(prevD\) g\.distAcc \+= Math\.abs\(dist - prevD\);/,
+    'cumulative zoom distance change (g.distAcc) must accumulate alongside the angle, using the pre-pinch-zoom distance (prevD), before the deadzone/dominance check commits to rotating',
   );
   assert.match(
     moveBlock,

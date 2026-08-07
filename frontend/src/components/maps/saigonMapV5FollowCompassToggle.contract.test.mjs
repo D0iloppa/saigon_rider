@@ -10,6 +10,10 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // ai-docs/260806_svg_map_v6_rotation_design.md §7 step 8 (D-D 3-state 토글 / D-C L3 게이트 /
 // D-I heading 정책). step 3~7 계약(saigonMapV5RotationKillswitch, saigonMapV5RotationLayers)이
 // 고정한 것과 겹치지 않는, step 8 에서 새로 성립하는 계약만 다룬다.
+//
+// 2026-08-07 개정(대표 지시, 네이버지도 참조) — heading 추종을 나침반 버튼에서 ◎ 버튼으로
+// 옮겼다: ◎ 는 자유→카메라추종→heading추종→자유 3단을 순환하고, 나침반 버튼은 bearing!==0
+// 일 때만 나타나는 "북향 복귀 전용" 버튼이 됐다(평상시엔 존재하지 않음).
 
 // D-C 폐기(2026-08-06, 사용자 지시) — "나침반 모드에서 L3 비활성"은 뒤집혔다. L3 는 이제
 // bearing 과 무관하게 vbW 임계만으로 게이트되고, 오버스캔 방어는 컬링(rotatedBBoxOfRect)이 맡는다.
@@ -109,7 +113,7 @@ test('SaigonMapV5 follow/compass camera recentring goes through centerOnUnified,
   assert.doesNotMatch(block, /focusLatLng\(/, 'the per-tick follow path must not call focusLatLng');
 });
 
-test('ko/en/vi translation.json declare the same key set (map.followModeOn / map.compassModeOn / map.compassModeOff / map.compassModeManual present in all three)', () => {
+test('ko/en/vi translation.json declare the same key set (map.followModeOn / map.followModeHeading / map.compassReset present in all three, old compassMode* keys retired)', () => {
   const locales = ['ko', 'en', 'vi'];
   const collectKeys = (obj, prefix = '') => {
     const keys = [];
@@ -126,9 +130,13 @@ test('ko/en/vi translation.json declare the same key set (map.followModeOn / map
   });
 
   assert.ok(keySets[0].keys.has('map.followModeOn'), 'ko is missing map.followModeOn');
-  assert.ok(keySets[0].keys.has('map.compassModeOn'), 'ko is missing map.compassModeOn');
-  assert.ok(keySets[0].keys.has('map.compassModeOff'), 'ko is missing map.compassModeOff');
-  assert.ok(keySets[0].keys.has('map.compassModeManual'), 'ko is missing map.compassModeManual');
+  assert.ok(keySets[0].keys.has('map.followModeHeading'), 'ko is missing map.followModeHeading (◎ 3rd stage label)');
+  assert.ok(keySets[0].keys.has('map.compassReset'), 'ko is missing map.compassReset (north-reset-only compass button label)');
+  for (const { loc, keys } of keySets) {
+    assert.ok(!keys.has('map.compassModeOn'), `${loc} still has retired key map.compassModeOn`);
+    assert.ok(!keys.has('map.compassModeOff'), `${loc} still has retired key map.compassModeOff`);
+    assert.ok(!keys.has('map.compassModeManual'), `${loc} still has retired key map.compassModeManual`);
+  }
 
   const [base, ...rest] = keySets;
   for (const other of rest) {
@@ -137,4 +145,33 @@ test('ko/en/vi translation.json declare the same key set (map.followModeOn / map
     assert.equal(missingInOther.length, 0, `${other.loc} is missing keys present in ${base.loc}: ${missingInOther.slice(0, 10).join(', ')}`);
     assert.equal(missingInBase.length, 0, `${base.loc} is missing keys present in ${other.loc}: ${missingInBase.slice(0, 10).join(', ')}`);
   }
+});
+
+// 네이버지도 모델(2026-08-07, 대표 지시) — 나침반 버튼은 회전 시에만 존재하고, ◎ 는 3단을 순환한다.
+test('compass button JSX renders only when bearing !== 0, and only ever resets to north', () => {
+  const source = read('SaigonMapV5.tsx');
+  assert.match(
+    source,
+    /\{bearing !== 0 && \(\s*<button/,
+    'compass button must be gated on bearing !== 0 — it must not exist in the tree at bearing===0 (no always-present compass icon)',
+  );
+  const start = source.indexOf("const toggleCompass = useCallback(() => {");
+  const end = source.indexOf('}, []);', start);
+  assert.ok(start >= 0 && end > start, 'toggleCompass not found');
+  const block = source.slice(start, end);
+  assert.match(block, /setCompassMode\('north'\);/, 'toggleCompass must unconditionally reset to north');
+  assert.doesNotMatch(block, /setIsFollowing/, 'toggleCompass must not touch isFollowing — it only resets rotation, not the ◎ follow stage');
+});
+
+test('◎ button (recenterCurrentContext) cycles free -> camera-follow -> heading-follow -> free', () => {
+  const source = read('SaigonMapV5.tsx');
+  const start = source.indexOf('const recenterCurrentContext = useCallback(() => {');
+  const end = source.indexOf('}, [enableFollowCompass, isFollowing, compassMode, runLocate]);', start);
+  assert.ok(start >= 0 && end > start, 'recenterCurrentContext not found with the expected 3-stage deps array');
+  const block = source.slice(start, end);
+
+  assert.match(block, /if \(!enableFollowCompass\) \{\s*void runLocate\(\);\s*return;\s*\}/, 'killswitch path must stay a 1-shot runLocate with no state writes');
+  assert.match(block, /if \(!isFollowing\) \{[\s\S]*?void runLocate\(\);[\s\S]*?setIsFollowing\(true\);/, 'free -> camera-follow transition must runLocate then setIsFollowing(true)');
+  assert.match(block, /\} else if \(compassMode !== 'follow'\) \{[\s\S]*?setCompassMode\('follow'\);/, 'camera-follow -> heading-follow transition must only flip compassMode to follow (no re-runLocate, no isFollowing change)');
+  assert.match(block, /\} else \{[\s\S]*?setIsFollowing\(false\);\s*setCompassMode\('north'\);/, 'heading-follow -> free transition must turn off both isFollowing and rotation (north)');
 });

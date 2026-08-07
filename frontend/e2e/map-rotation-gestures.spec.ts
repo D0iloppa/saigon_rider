@@ -14,7 +14,10 @@ import { devLogin, injectSession, uniqueTag, saveConsentViaApi, cleanupUser, typ
 const KEY = '__dev_gps';
 const START = { lat: 10.77293, lng: 106.7003 };
 
-async function enterCompassMode(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext, tag: string) {
+// 2026-08-07 개정(네이버지도 모델) — heading 추종은 이제 ◎ 버튼(항상 표시, .locateCtrl 의
+// 첫 번째 button)을 두 번 눌러 자유→카메라추종→heading추종 순으로 진입한다. 나침반 버튼은
+// bearing!==0 일 때만 나타나는 별도 버튼이라 여기서는 쓰지 않는다.
+async function enterHeadingFollow(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext, tag: string) {
   const session = await devLogin(request, uniqueTag(tag));
   await saveConsentViaApi(request, session);
   await injectSession(page, session);
@@ -30,9 +33,10 @@ async function enterCompassMode(page: import('@playwright/test').Page, request: 
   const app = page.frameLocator('#app');
   await app.locator('button[class*="mapPill"]').click({ timeout: 20_000 });
 
-  const compassBtn = app.locator('button[class*="ctrlBtn"]:has(svg.lucide-navigation)');
-  await expect(compassBtn).toBeVisible({ timeout: 20_000 });
-  await compassBtn.click();
+  const followBtn = app.locator('div[class*="locateCtrl"] button').first();
+  await expect(followBtn).toBeVisible({ timeout: 20_000 });
+  await followBtn.click(); // 자유 → 카메라추종
+  await followBtn.click(); // 카메라추종 → heading추종
   await page.evaluate(
     ([k, lat, lng]) => localStorage.setItem(k, JSON.stringify({ lat, lng, heading: 90, speed: 3 })),
     [KEY, START.lat, START.lng] as const,
@@ -53,7 +57,7 @@ test.describe('회전(bearing=90) 상태에서 실제 제스처 방향', () => {
   test.afterEach(() => { if (session) cleanupUser(session.userId); });
 
   test('실제 마우스 드래그(오른쪽) 시 viewBox 는 수평(x)으로만 이동한다 — 회전축(수직)으로 새지 않는다', async ({ page, request }) => {
-    const r = await enterCompassMode(page, request, 'gestpan');
+    const r = await enterHeadingFollow(page, request, 'gestpan');
     session = r.session;
     const app = r.app;
     const svgEl = app.locator('svg.svg, svg[class*="svg"]').first();
@@ -78,7 +82,7 @@ test.describe('회전(bearing=90) 상태에서 실제 제스처 방향', () => {
   });
 
   test('실제 마우스 휠 줌은 커서 아래 지점을 중심으로 유지한다', async ({ page, request }) => {
-    const r = await enterCompassMode(page, request, 'gestwheel');
+    const r = await enterHeadingFollow(page, request, 'gestwheel');
     session = r.session;
     const app = r.app;
     const svgEl = app.locator('svg.svg, svg[class*="svg"]').first();
@@ -111,7 +115,7 @@ test.describe('회전(bearing=90) 상태에서도 L3(건물)·POI 가 표시된�
   test.afterEach(() => { if (session) cleanupUser(session.userId); });
 
   test('bearing=90 에서도 건물(polygon.bldg) 요소가 렌더된다 — D-C 폐기 확인', async ({ page, request }) => {
-    const r = await enterCompassMode(page, request, 'l3rot');
+    const r = await enterHeadingFollow(page, request, 'l3rot');
     session = r.session;
     const app = r.app;
     await page.waitForTimeout(500);

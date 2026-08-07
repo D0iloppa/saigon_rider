@@ -14,6 +14,11 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // 개정(2026-08-06, 사용자 결정 1): 추종을 나침반에서 분리해 직교 2축(isFollowing/compassOn)으로
 // 바꿨다 — 구 3-state 'free'|'follow'|'compass' 순환은 폐기됐다. onFollowModeChange 는 어느
 // 소비처도 전달하지 않는 관측 전용 prop 이라(grep 확인) 시그니처를 새 모델에 맞게 바꿨다.
+//
+// 재개정(2026-08-07, 네이버지도 모델): ◎ 버튼이 이제 자유→카메라추종→heading추종→자유 3단을
+// 순환하며 isFollowing 과 compassMode 를 함께 조작한다(recenterCurrentContext, 아래 테스트에서
+// deps 배열이 [enableFollowCompass, isFollowing, compassMode, runLocate] 로 늘어난 것 확인).
+// 나침반 버튼(toggleCompass)은 더 이상 heading 추종을 켜지 않는다 — north 로만 리셋한다.
 test('SaigonMapV5 declares enableFollowCompass prop with false default', () => {
   const source = read('SaigonMapV5.tsx');
 
@@ -66,21 +71,21 @@ test('SaigonMapV5 keeps follow (boolean) and rotation (3-state) axes that cannot
   const setterCalls = source.match(/setIsFollowing\(/g) ?? [];
   assert.ok(
     setterCalls.length > 0,
-    'setIsFollowing must be called (◎ button 2-state toggle + gesture free-exit) — 0 calls means the wiring is missing',
+    'setIsFollowing must be called (◎ button 3-state cycle + gesture free-exit) — 0 calls means the wiring is missing',
   );
-  // 나침반 토글 버튼(toggleCompass)이 'north'⇄'follow' 만 오간다 — 'manual'→'follow' 직접 전이는 없다.
+  // 나침반 버튼(toggleCompass)은 이제 north 로만 리셋한다 — heading 추종 시작은 ◎ 의 몫이다.
   assert.match(
     source,
-    /const toggleCompass = useCallback\(\(\) => \{\s*setCompassMode\(\(prev\) => \(prev === 'north' \? 'follow' : 'north'\)\);/,
-    'toggleCompass must flip between north and follow (manual also returns to north, never straight to follow)',
+    /const toggleCompass = useCallback\(\(\) => \{\s*setCompassMode\('north'\);/,
+    'toggleCompass must unconditionally reset compassMode to north (heading-follow start moved to ◎)',
   );
 
   // 킬스위치의 실제 의미는 "0 calls" 가 아니라 "enableFollowCompass 없이는 isFollowing 이 false 를
   // 벗어나지 않는다" 다 — recenterCurrentContext 가 !enableFollowCompass 를 가장 먼저 확인하고 그
   // 경로엔 setIsFollowing 호출이 없어야 한다(기존 1회성 recenter 동작 그대로).
   const recenterStart = source.indexOf('const recenterCurrentContext = useCallback(() => {');
-  const recenterEnd = source.indexOf('}, [enableFollowCompass, isFollowing, runLocate]);', recenterStart);
-  assert.ok(recenterStart >= 0 && recenterEnd > recenterStart, 'recenterCurrentContext callback not found');
+  const recenterEnd = source.indexOf('}, [enableFollowCompass, isFollowing, compassMode, runLocate]);', recenterStart);
+  assert.ok(recenterStart >= 0 && recenterEnd > recenterStart, 'recenterCurrentContext callback not found (with 3-stage deps array)');
   const recenterBlock = source.slice(recenterStart, recenterEnd);
   const offBranchStart = recenterBlock.indexOf('if (!enableFollowCompass) {');
   const offBranchEnd = recenterBlock.indexOf('return;', offBranchStart);
@@ -89,10 +94,10 @@ test('SaigonMapV5 keeps follow (boolean) and rotation (3-state) axes that cannot
   assert.doesNotMatch(offBranch, /setIsFollowing\(/, 'the !enableFollowCompass branch must not call setIsFollowing — off path stays a 1-shot recenter (killswitch)');
   assert.match(offBranch, /void runLocate\(\);/, 'the !enableFollowCompass branch must still call runLocate (unchanged 1-shot recenter behavior)');
 
-  // toggleCompass 는 enableFollowCompass=false 면 렌더되지 않는 버튼에서만 호출되므로(아래 JSX
-  // 조건부 렌더), 소스 레벨에 별도 가드가 없어도 되지만 — 나침반 버튼 JSX 자체가
-  // enableFollowCompass 로 게이트돼 있어야 한다.
-  assert.match(source, /\{enableFollowCompass && \(\s*<button\s*type="button"\s*className=\{compassActive/, 'compass toggle button must be conditionally rendered on enableFollowCompass');
+  // 나침반 버튼 JSX 는 이제 enableFollowCompass 가 아니라 bearing !== 0 으로 게이트된다(네이버지도
+  // 모델 — 평상시엔 없다가 회전 시에만 나타난다). bearing 은 enableFollowCompass=false 면 항상
+  // 0 이므로(다른 계약이 고정) 이 조건 하나로 킬스위치가 성립한다.
+  assert.match(source, /\{bearing !== 0 && \(\s*<button/, 'compass button must be gated on bearing !== 0 (not directly on enableFollowCompass) — it must not exist in the tree while bearing is 0');
 
   // onFollowModeChange 통지 이펙트는 enableFollowCompass 가 false 면 그 자체가 실행되지 않는다
   // (얼리 리턴) — off 경로에서 부모에게 아무 통지도 나가지 않아야 "완전히 동일" 주장이 성립한다.

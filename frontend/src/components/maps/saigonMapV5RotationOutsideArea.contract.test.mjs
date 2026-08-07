@@ -93,14 +93,16 @@ test('getCamCenter falls back to the viewBox center when the last coordinate was
   );
 });
 
-// 사용자 결정 1 — 추종과 나침반이 독립이다: "자유(미추종)+나침반" 조합이 도달 가능해야 한다.
-// 상태가 진짜 직교라면 나침반 토글(setCompassMode)이 isFollowing 을 전혀 참조/변경하지 않아야 한다.
-test('follow and compass are independent axes — toggleCompass never reads or writes isFollowing', () => {
+// 사용자 결정 1 — 추종과 회전(수동)이 독립이다: "자유(미추종)+수동회전" 조합이 도달 가능해야
+// 한다(예: 자유 단계에서 두 손가락으로 돌리면 compassMode='manual', isFollowing 은 그대로 false).
+// 재개정(2026-08-07, 네이버지도 모델): heading 추종은 이제 ◎ 의 몫이라 나침반 버튼(toggleCompass)
+// 은 순수 "북향 리셋"이 됐다 — isFollowing 을 전혀 참조/변경하지 않아야 한다는 계약은 그대로 선다.
+test('compass button (toggleCompass) resets to north only and never reads or writes isFollowing', () => {
   const source = read('SaigonMapV5.tsx');
   const start = source.indexOf('const toggleCompass = useCallback(() => {');
   const end = source.indexOf('}, []);', start);
   assert.ok(start >= 0 && end > start, 'toggleCompass callback not found');
   const block = source.slice(start, end);
-  assert.doesNotMatch(block, /isFollowing/, 'toggleCompass must not touch isFollowing — free+rotation must be reachable independently of follow state');
-  assert.match(block, /setCompassMode\(\(prev\) => \(prev === 'north' \? 'follow' : 'north'\)\);/, 'toggleCompass must toggle between north and follow');
+  assert.doesNotMatch(block, /isFollowing/, 'toggleCompass must not touch isFollowing — free+rotation must be reachable independently of follow state, and pressing compass must not change the ◎ follow stage');
+  assert.match(block, /setCompassMode\('north'\);/, 'toggleCompass must unconditionally reset compassMode to north');
 });

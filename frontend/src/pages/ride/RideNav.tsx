@@ -12,7 +12,7 @@ import { formatVnTime } from '@/lib/vnTime';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
 import { inServiceArea } from '@/lib/serviceArea';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
-import { decodePolyline, bearing, haversineM, distanceToPolylineM, snapToPolyline } from '@/lib/polyline';
+import { decodePolyline, encodePolyline, bearing, haversineM, distanceToPolylineM, snapToPolyline } from '@/lib/polyline';
 import MapCanvas, { type MapCanvasHandle } from '@/components/ride/MapCanvas';
 import MapControls, { type MapControlsHandle } from '@/components/ride/MapControls';
 import Speedometer from '@/components/ride/Speedometer';
@@ -95,6 +95,46 @@ function formatDuration(sec: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
+}
+
+// DEV_DONGTAN_PIN: 한국 실기기 카메라연출(course-up 회전·flyTo·추종·이탈판정) 검증용 —
+// Google Routes 가 한국 내 경로를 지원하지 않아 devBypass 경로에서는 현재 GPS→DEV 핀 좌표를
+// 잇는 직선을 다구간으로 나눠 폴리라인을 합성한다. 2점짜리로 만들면 course-up 세그먼트 방위가
+// 전부 하나가 돼 회전 검증 의미가 없어지므로 세그먼트 수를 넉넉히 둔다. 실기기 검증 완료 후
+// 이 함수와 호출부를 제거할 것 (2026-08-07).
+const DEV_SYNTHETIC_SEGMENTS = 24;
+const DEV_SYNTHETIC_SPEED_MS = 8.33; // ~30km/h — 그럴듯한 ETA 표기용, 실제 주행속도 아님.
+
+function buildDevSyntheticRoute(origin: Coords, dest: Coords): RouteData {
+  const pts: Array<[number, number]> = [];
+  for (let i = 0; i <= DEV_SYNTHETIC_SEGMENTS; i++) {
+    const f = i / DEV_SYNTHETIC_SEGMENTS;
+    pts.push([origin.lat + (dest.lat - origin.lat) * f, origin.lng + (dest.lng - origin.lng) * f]);
+  }
+  const distance_m = Math.round(haversineM(origin.lat, origin.lng, dest.lat, dest.lng));
+  const duration_s = Math.max(1, Math.round(distance_m / DEV_SYNTHETIC_SPEED_MS));
+  // distance_text/duration_text 는 backend/app/routers/info_route.py 의 _format_distance/
+  // _format_duration 과 동일한 규칙으로 계산한다(추측 금지, 그 함수를 그대로 옮김) — 실제
+  // Google 응답과 합성 응답의 문구 포맷이 갈리지 않게 하기 위함.
+  const distance_text = distance_m >= 1000 ? `${(distance_m / 1000).toFixed(1)} km` : `${distance_m} m`;
+  const durationMinutes = Math.max(1, Math.round(duration_s / 60));
+  const durationHours = Math.floor(durationMinutes / 60);
+  const durationRemainderMin = durationMinutes % 60;
+  const duration_text = durationMinutes < 60
+    ? `${durationMinutes} min`
+    : durationRemainderMin
+      ? `${durationHours} h ${durationRemainderMin} min`
+      : `${durationHours} h`;
+  return {
+    configured: true,
+    route_mode: 'two_wheeler',
+    distance_m,
+    duration_s,
+    distance_text,
+    duration_text,
+    polyline: encodePolyline(pts),
+    steps: [{ instruction: '[DEV] 동탄역 합성 경로', distance_text }],
+  };
 }
 
 /** Google 4색 G 로고 (공식 마크). 흰 배경 위에서 정확히 렌더. */
@@ -368,10 +408,13 @@ export default function RideNav() {
     setOrigin(routeOrigin);
     if (outOfArea) toast.neutral(t('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요'));
     const locale = i18n.resolvedLanguage ?? i18n.language;
-    // DEV_DONGTAN_PIN: 자체 호스팅 라우팅 엔진 전환 + 경기도 타일 추가로 한국 좌표도 실제 경로
-    // API 를 탈 수 있게 됐다 — devBypass 여부와 무관하게 항상 routeApi.getRoute() 를 호출한다.
-    // 실기기 검증 완료 후 이 분기 제거 대상 표기를 지울 것 (2026-08-07).
-    const data = await routeApi.getRoute(routeOrigin, dest, locale).catch(() => null);
+    // DEV_DONGTAN_PIN: Google Routes 는 한국 내 이륜차/차량 경로를 지원하지 않는다(지도데이터
+    // 반출 제한) — devBypass 일 때는 Google 을 호출하지 않고 직선 다구간 폴리라인을 합성해
+    // 기존 route state 계약(RouteData)에 그대로 주입한다. 그 외에는 회귀 없이 기존 호출 그대로.
+    // 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
+    const data = devBypass
+      ? buildDevSyntheticRoute(routeOrigin, dest)
+      : await routeApi.getRoute(routeOrigin, dest, locale).catch(() => null);
     if (!data?.configured) {
       setDialogOpen(true);
       setLoading(false);

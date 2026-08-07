@@ -386,3 +386,5 @@ heading == null  ||  speed == null  ||  speed < 1.5 m/s   →  회전하지 않�
 - **`ResizeObserver` 부재**(§2.3) 는 회전과 무관하게 존재하는 기존 한계다. 회전을 켤 때 §7 step 4 가 이를 부분적으로 메우지만, 컨테이너 비율 변화 일반에 대한 대응은 별건으로 남는다.
 - `SaigonMapV3.module.css` / `SaigonMapV4.module.css` 는 `.tsx` 가 없는 삭제 잔해다 — **언급만 하고 이번 범위에서 지우지 않는다.**
 - **범위 밖(다시 열지 말 것)**: 3D 틸트, 다중 회전모드, 이징 커스터마이즈, 회전 계층 재논의(D-G 확정).
+
+**개정(2026-08-07)**: 회전축이 on/off 2-state 에서 **3-state 상태기계(north/manual/follow)**로 확장됨 + **두 손가락 수동 회전 제스처** 추가(핀치줌과 공존, 시작 데드존 6°) — 상세는 `ai-docs/context/service-rules.md` §회전(나침반) 참조.

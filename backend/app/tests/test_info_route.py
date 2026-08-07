@@ -69,6 +69,7 @@ class RoutesApiTest(unittest.IsolatedAsyncioTestCase):
             cache[key] = route
 
         with (
+            patch.dict("os.environ", {"ROUTING_ENGINE_URL": ""}),
             patch.object(info_route, "_get_api_key", return_value="api-key"),
             patch.object(info_route, "_get_cached_route", new=AsyncMock(side_effect=get_cached)),
             patch.object(info_route, "_set_cached_route", new=AsyncMock(side_effect=set_cached)),
@@ -95,3 +96,82 @@ class RoutesApiTest(unittest.IsolatedAsyncioTestCase):
             await info_route._enforce_rate_limit(uuid.uuid4())
 
         self.assertEqual(raised.exception.status_code, 429)
+
+
+ENGINE_TRIP = {
+    "legs": [
+        {
+            "shape": "_p~iF~ps|U",
+            "maneuvers": [
+                {"type": 10, "instruction": "Turn right onto Test St.", "street_names": ["Test St"], "length": 0.1},
+            ],
+        }
+    ],
+    "summary": {"time": 60.0, "length": 1.0},
+    "status": 0,
+}
+
+
+class RoutingEngineFallbackTest(unittest.IsolatedAsyncioTestCase):
+    """`ROUTING_ENGINE_URL` 폴백 체이닝 (env 미설정/엔진 성공/타임아웃/무경로 -> Google)."""
+
+    def setUp(self):
+        self._no_cache = patch.object(info_route, "_get_cached_route", new=AsyncMock(return_value=None))
+        self._no_cache.start()
+        self._noop_set_cache = patch.object(info_route, "_set_cached_route", new=AsyncMock())
+        self._noop_set_cache.start()
+        self._no_rate_limit = patch.object(info_route, "_enforce_rate_limit", new=AsyncMock())
+        self._no_rate_limit.start()
+        self._api_key = patch.object(info_route, "_get_api_key", return_value="api-key")
+        self._api_key.start()
+
+    def tearDown(self):
+        patch.stopall()
+
+    async def test_engine_url_unset_calls_google_only(self):
+        with (
+            patch.dict("os.environ", {"ROUTING_ENGINE_URL": ""}),
+            patch("app.services.routing_engine.fetch_trip", new=AsyncMock()) as engine_fetch,
+            patch.object(info_route, "_fetch_directions", new=AsyncMock(return_value=ROUTES_RESPONSE)) as google_fetch,
+        ):
+            result = await info_route.get_route(10.776, 106.7, 10.78, 106.71, uuid.uuid4())
+
+        engine_fetch.assert_not_called()
+        google_fetch.assert_awaited_once()
+        self.assertTrue(result.configured)
+
+    async def test_engine_success_skips_google(self):
+        with (
+            patch.dict("os.environ", {"ROUTING_ENGINE_URL": "http://routing_engine:8002"}),
+            patch("app.services.routing_engine.fetch_trip", new=AsyncMock(return_value=ENGINE_TRIP)),
+            patch.object(info_route, "_fetch_directions", new=AsyncMock()) as google_fetch,
+        ):
+            result = await info_route.get_route(10.776, 106.7, 10.78, 106.71, uuid.uuid4(), lang="en")
+
+        google_fetch.assert_not_called()
+        self.assertTrue(result.configured)
+        self.assertEqual(result.steps[0].instruction, "Turn right onto Test St.")
+        self.assertEqual(result.steps[0].maneuver, "turn-right")
+
+    async def test_engine_timeout_falls_back_to_google(self):
+        with (
+            patch.dict("os.environ", {"ROUTING_ENGINE_URL": "http://routing_engine:8002"}),
+            patch("app.services.routing_engine.fetch_trip", new=AsyncMock(return_value=None)),
+            patch.object(info_route, "_fetch_directions", new=AsyncMock(return_value=ROUTES_RESPONSE)) as google_fetch,
+        ):
+            result = await info_route.get_route(10.776, 106.7, 10.78, 106.71, uuid.uuid4())
+
+        google_fetch.assert_awaited_once()
+        self.assertTrue(result.configured)
+
+    async def test_engine_no_route_falls_back_to_google(self):
+        no_route_trip = {"legs": [], "status": 0}
+        with (
+            patch.dict("os.environ", {"ROUTING_ENGINE_URL": "http://routing_engine:8002"}),
+            patch("app.services.routing_engine.fetch_trip", new=AsyncMock(return_value=no_route_trip)),
+            patch.object(info_route, "_fetch_directions", new=AsyncMock(return_value=ROUTES_RESPONSE)) as google_fetch,
+        ):
+            result = await info_route.get_route(10.776, 106.7, 10.78, 106.71, uuid.uuid4())
+
+        google_fetch.assert_awaited_once()
+        self.assertTrue(result.configured)

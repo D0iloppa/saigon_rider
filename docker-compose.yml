@@ -350,6 +350,8 @@ services:
       # 빈 값이면 --reload 없이 구동 (위 command 주석 참조). 기본 1 = 핫리로드 켜짐.
       - UVICORN_RELOAD=${UVICORN_RELOAD-1}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      # 자체호스팅 라우팅 엔진(Valhalla). 미설정 시 위 Google Routes API 로 그대로 폴백(W4).
+      - ROUTING_ENGINE_URL=${ROUTING_ENGINE_URL:-}
       - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
       - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}

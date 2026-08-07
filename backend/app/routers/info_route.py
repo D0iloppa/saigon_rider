@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..deps import verify_user_session
+from ..services import routing_engine
 from ..services.coordinates import Latitude, Longitude
 from ..services.redis_cache import get_client
 
@@ -200,7 +201,8 @@ async def get_route(
 ):
     """현재 위치에서 목적지까지 오토바이 경로 미리보기를 반환한다."""
     api_key = _get_api_key()
-    if not api_key:
+    engine_url = os.getenv("ROUTING_ENGINE_URL", "").strip()
+    if not api_key and not engine_url:
         return RouteOut(configured=False)
 
     key = _cache_key(origin_lat, origin_lng, dest_lat, dest_lng, lang)
@@ -209,10 +211,20 @@ async def get_route(
         return cached
 
     await _enforce_rate_limit(user_id)
-    data = await _fetch_directions(origin_lat, origin_lng, dest_lat, dest_lng, api_key, lang)
-    if data is None:
-        return RouteOut(configured=False)
 
-    result = _to_route_out(data)
+    result: RouteOut | None = None
+    if engine_url:
+        trip = await routing_engine.fetch_trip(engine_url, origin_lat, origin_lng, dest_lat, dest_lng)
+        payload = routing_engine.build_route_out_payload(trip, lang) if trip is not None else None
+        result = RouteOut(**payload) if payload is not None else None
+
+    if result is None:
+        if not api_key:
+            return RouteOut(configured=False)
+        data = await _fetch_directions(origin_lat, origin_lng, dest_lat, dest_lng, api_key, lang)
+        if data is None:
+            return RouteOut(configured=False)
+        result = _to_route_out(data)
+
     await _set_cached_route(key, result)
     return result

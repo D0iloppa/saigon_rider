@@ -207,9 +207,38 @@ ROUTING_ENGINE_URL=
 2. **vi/ko/en 문장 조립** — Valhalla는 `maneuvers[].type`(정수) + 경로상의 `street_names`(배열, OSM 원어 도로명)만 준다. BFF 가 이 둘을 조합해 `RouteStep.instruction` 문장을 언어별로 직접 생성해야 한다(OSRM `osrm-text-instructions` 의 `vi.json`/`ko.json` 템플릿 구조 — 방향/모디파이어/도로명 삽입 패턴 — 를 참고 자료로 재사용 가능, §1-A 참조). 동시에 `type` 정수를 `RideNav.tsx:74-83` 이 기대하는 소문자-하이픈 문자열(`turn-left`, `roundabout-enter` 등, §4-B 매핑표)로 변환해 `RouteStep.maneuver` 에 채운다.
 3. **폴백 게이트는 2가지만** — ①**타임아웃 초과** ②**경로 미발견**(Valhalla `/route` 가 에러 응답을 주는 경우) 시에만 `RouteOut(configured=False)` 또는 기존 Google 경로로 폴백한다. **커버리지 폴리곤 체크(좌표가 타일 bbox 안에 있는지 사전 검증)는 대표가 채택하지 않았다** — bbox 밖 좌표는 Valhalla 가 자체적으로 "경로 미발견"으로 응답하므로 그 경우를 그대로 흡수하면 된다(별도 지리 검증 로직 불필요).
 
-**한국 타일 관련 주의**: 경기도 bbox(§2)는 행정경계가 아니라 직사각형이라 서울 전역·인천 일부가 함께 포함돼 있다. 이는 개발 검증(동탄역 등)을 위한 범위이며, **운영에 한국 타일을 포함할지 여부는 대표 판단 대기**(이번 작업은 인프라 실증까지이며 서비스 노출 범위 결정은 별건).
+**한국 타일 관련 주의**: 경기도 bbox(§2)는 행정경계가 아니라 직사각형이라 서울 전역·인천 일부가 함께 포함돼 있다. **운영 포함 확정(2026-08-07 대표 결정)** — 326MiB 는 부담 없는 수준이라는 판단으로, 서울 전역·인천 일부를 포함한 이 경기도 bbox 타일을 그대로 운영에 반영한다(별도 축소 없음). 배포 절차의 실제 구멍은 §6-A 참조.
 
 **운영 방식**: 타일 빌드(§3-B, 24분/326MiB)는 무거우니 개발 머신에서 `deploy/build_routing_tiles.sh` 로 1회 실행하고, 운영 서버에는 `routing_data/valhalla/{tiles,valhalla.json}` 결과물만 옮겨 `routing_engine` 컨테이너로 서빙만 한다. 운영 컨테이너에서 매번 재빌드하지 않는다.
+
+### 6-A. 운영 배포 절차의 구멍 (미구현 — 절차만 명시)
+
+`routing_data/`(326MiB, `.gitignore` 대상)는 **git 으로 운영 서버에 전달되지 않는다.** 지금까지의 작업은 전부 개발 머신 로컬 파일시스템 기준이라, 운영 서버에 배포하려면 다음이 **아직 없다**:
+
+- **타일 전송 경로 미정** — rsync/scp 직접 전송, S3 등 오브젝트 스토리지 경유, 또는 별도 아티팩트 저장소(예: 릴리스에 첨부) 중 어느 것을 쓸지 결정된 바 없다. 326MiB 는 scp 로도 무리 없는 크기이므로 가장 단순한 안은 `rsync -avz routing_data/valhalla/ user@prod:/path/to/saigon_rider/routing_data/valhalla/` 류의 1회성 수동 전송이지만, **이것이 CI/CD 파이프라인에 편입되는지, 사람이 수동으로 하는지조차 결정되지 않았다.**
+- **버전 관리 부재** — 타일을 갱신(OSM 데이터 최신화, bbox 변경)할 때 운영 서버의 기존 타일을 어떻게 교체할지(다운타임 허용 여부, 블루/그린 등) 절차가 없다.
+- **최초 배포 체크리스트 부재** — 운영 서버에 `routing_engine` 컨테이너를 처음 띄우려면 (1) `routing_data/valhalla/{tiles,valhalla.json}` 존재 확인 (2) `docker-compose.yml` 의 `ROUTING_ENGINE_URL` env 매핑(§6-B 참조, 이번 작업에서 추가됨) (3) `.env` 의 `ROUTING_ENGINE_URL=http://routing_engine:8002` 값 설정 (4) `docker compose --profile backend up -d routing_engine bff` — 이 순서를 문서화한 배포 스크립트나 런북이 없다.
+
+**결정 필요(대표)**: 위 전송 방식 중 어느 것을 쓸지, 그리고 이 절차를 어느 문서(배포 런북?)에 정착시킬지.
+
+### 6-B. W4 실측 — env 활성화 + 종단 검증 (2026-08-07)
+
+`ROUTING_ENGINE_URL` 을 `.env` 에서 `http://routing_engine:8002` 로 실제 활성화하고(`.env.example` 은 빈 값 유지), **`docker-compose.yml` 의 `bff` 서비스 `environment:` 블록에 `ROUTING_ENGINE_URL=${ROUTING_ENGINE_URL:-}` 한 줄을 추가**했다(기존 `GOOGLE_MAPS_API_KEY` 항목과 동일 패턴 — W3 가 §5-A 에서 `routing_engine` 서비스는 추가했지만 `bff` 컨테이너로의 env 전달 라인은 빠져 있었다. 이게 없으면 `.env` 값이 컨테이너 안에서 항상 빈 문자열이라 엔진이 영원히 시도되지 않는다 — 실측으로 발견). `docker compose --env-file .env up --build -d bff` 재기동 후 `docker exec saigon_bff env | grep ROUTING_ENGINE_URL` 로 `http://routing_engine:8002` 가 실제로 주입됨을 확인했다.
+
+`info_route.get_route()` 를 컨테이너 안에서 직접 호출(HTTP 세션 인증 계층은 우회, 함수 자체는 실제 라우팅 엔진/Google 에 실 네트워크 호출)해 확인한 결과:
+
+| 시나리오 | 좌표 | 결과 |
+|---|---|---|
+| HCMC, lang=vi | 10.7769,106.7009 → 10.8231,106.6297 | 엔진 200 OK, Google 미호출. `turn-right \| Quẹo phải vào Lê Thánh Tôn/Le Thanh Ton Street` 등 vi 문구 렌더링 확인. polyline 디코드(precision5) 좌표 229개, 첫 점 `(10.77686, 106.70095)` 끝점 `(10.82311, 106.62969)` — HCMC 범위 정확히 일치 |
+| HCMC, lang=ko | 근접 좌표 | 엔진 200 OK. `좌회전 하시고 Nam Kỳ Khởi Nghĩa로 가세요.` 등 ko 문구 렌더링 확인 |
+| HCMC, lang=en | 근접 좌표 | 엔진 200 OK. Valhalla 원문 그대로 패스스루: `Bear left toward An Sương.` 등 |
+| 동탄역, lang=vi | 37.2011,127.0980 → 37.1950,127.1120 | 엔진 200 OK. polyline 좌표 `(37.20129, 127.098)` ~ `(37.19492, 127.11196)` — 경기도 타일 커버리지 정상 확인. `turn-right \| Quẹo phải vào 동탄대로/Dongtan-daero` |
+| 하노이(커버리지 밖), lang=vi | 21.0278,105.8342 → 21.0378,105.8442 | 엔진 **HTTP 400**(`요청 실패` 아닌 명시적 에러 응답, "경로 미발견" 케이스) → **실제 Google 폴백 발동**(`POST https://routes.googleapis.com/... 200 OK` 로그로 확인) — 응답 maneuver 가 Google 고유의 대문자 스네이크(`DEPART`, `TURN_RIGHT`, `NAME_CHANGE`) 형식으로 나와, 엔진 코드가 아니라 실제 Google 경로임을 재확인 |
+| 엔진 연결 실패(잘못된 URL 로 강제) | HCMC 좌표(캐시 미스 좌표로 재시도) | `httpx.RequestError` 캐치 → 로그 `routing engine: 요청 실패(All connection attempts failed) — Google 폴백` → 실제 Google 200 OK 폴백 확인 |
+
+**결론**: 폴백 체이닝(엔진 성공 시 Google 미호출 / 엔진 실패·커버리지 밖 시 Google 실호출)이 실제 컨테이너로 종단 검증됐다. polyline precision 6→5 변환이 실제 응답에서도 좌표 왜곡 없이 정확함을 확인(위 표의 첫/끝 좌표가 요청 좌표와 소수 5자리 이내로 일치).
+
+**GCP 청구액 대조는 하지 않았다**(대표 지시로 불필요 — 과금 실측 대조 생략). 자체 엔진 실패로 Google 에 폴백한 경우는 위 표처럼 `log.warning`/`log.info` 로 남기므로(`backend/app/services/routing_engine.py: fetch_trip()`), 운영 로그를 집계하면 폴백률을 사후에 볼 수 있다(집계 대시보드 자체는 이번 작업 범위 밖).
 
 ## 7. OSM ODbL 표기 의무
 
@@ -226,6 +255,9 @@ OpenStreetMap 데이터를 사용하는 모든 화면에는 **"© OpenStreetMap 
 - U턴(type 12/13), 페리, 환승 등 두 실증 경로에 나타나지 않은 maneuver type 은 §4-B 매핑표에서 미관측으로 남겼다 — Valhalla 공식 문서 기준 enum 명만 부기했고 실제 응답으로 재현하지 않았다.
 - `Local index N exceeds max value of 7` 경고의 실제 발생 좌표와 실증 경로의 정확한 지리적 겹침 여부는 대조하지 않았다(§3-B 참조 — "두 실증 경로에서는 영향 없음"으로 한정).
 - OSRM 의 다중 리전 병합 서빙(§3-B 의 Valhalla 실증과 대응하는 실험)은 실행하지 않았다(옵션 A 결정으로 OSRM 은 폐기됐으므로 더 이상 필요하지 않다고 판단).
-- BFF `_to_route_out` 상당 위치의 실제 코드 변경(§6 의 3가지)은 W4 담당이며 이번 작업에서 손대지 않았다 — `backend/app/routers/info_route.py`, 프론트, `scripts/gen_saigon_map_v2.py` 는 범위 밖으로 그대로 남겨뒀다.
-- 한국 타일을 운영에 포함할지(서울/인천 함께 노출) 여부는 대표 판단 대기(§6 참조) — 이번 작업에서 결정하지 않았다.
+- BFF `_to_route_out` 상당 위치의 실제 코드 변경(§6 의 3가지)은 **W4 가 완료**(2026-08-07, `backend/app/services/routing_engine.py` 신규 모듈 + `backend/app/routers/info_route.py` 최소 폴백 분기). 프론트, `scripts/gen_saigon_map_v2.py` 는 이번에도 손대지 않았다.
+- 한국 타일 운영 포함 여부는 **확정됐다**(§6 참조, 2026-08-07 대표 결정) — 더 이상 미결 아님.
+- 운영 서버로의 타일 전송 절차는 **여전히 미구현**(§6-A) — 방식(rsync/scp/아티팩트) 결정과 런북 작성이 남아있다.
 - `routing_engine` 컨테이너 메모리 사용량은 프로파일링하지 않았다(미확인).
+- W4 실측(§6-B)은 `info_route.get_route()` 를 컨테이너 안에서 함수 직접 호출로 검증한 것이며, 실제 HTTP 세션 인증(`verify_user_session`, `X-User-Id`/`X-Session-Token` 헤더)을 통과한 진짜 앱 클라이언트 경로로 재현하지는 않았다 — 함수 내부 로직·실제 엔진/Google 네트워크 호출은 진짜지만, 라우터 계층의 인증 통과 여부까지는 미검증.
+- rate-limit(유저당 60초 10회) 완화 여부: **코드는 변경하지 않았다**(요청대로 surgical 유지). 판단 근거 — 자체 엔진 호출은 비용이 0이라 이 제한이 과금 방지 목적상 더 이상 필요 없어 보이지만, Google 폴백 경로가 여전히 살아있는 한(엔진 실패/커버리지 밖 시 Google 이 호출됨) 완전 제거는 위험하다. **완화(예: 캐시-only 로 rate-limit 우회) 필요 여부는 대표 판단 대기.**

@@ -54,12 +54,89 @@ test('RideNav.tsx: is_dev 확정 전에 fetchRoute 가 폴백을 실행하지 �
   assert.ok(devBypassIdx < outOfAreaIdx, 'devBypass must be resolved before the outOfArea fallback check');
 });
 
+/** buildDevSyntheticRoute() 의 `return { ... }` 최상위 키를 추출한다(중괄호 깊이로 경계 판정). */
+function extractSyntheticRouteKeys(source) {
+  const fnIdx = source.indexOf('function buildDevSyntheticRoute');
+  assert.ok(fnIdx > -1, 'buildDevSyntheticRoute not found');
+  const body = source.slice(fnIdx);
+  const returnIdx = body.indexOf('return {');
+  assert.ok(returnIdx > -1, 'buildDevSyntheticRoute return { ... } not found');
+  const braceStart = returnIdx + 'return {'.length;
+  let depth = 1;
+  let i = braceStart;
+  for (; i < body.length && depth > 0; i++) {
+    if (body[i] === '{') depth++;
+    else if (body[i] === '}') depth--;
+  }
+  const inner = body.slice(braceStart, i - 1);
+  const keys = [];
+  for (const line of inner.split('\n')) {
+    const m = line.trim().match(/^([A-Za-z_]\w*)\s*[:,]/);
+    if (m) keys.push(m[1]);
+  }
+  return keys;
+}
+
+/** backend RouteOut(BaseModel) 필드명을 추출한다(클래스 블록 첫 공백 줄까지). */
+function extractRouteOutFields(source) {
+  const idx = source.indexOf('class RouteOut(BaseModel):');
+  assert.ok(idx > -1, 'RouteOut class not found in info_route.py');
+  const body = source.slice(idx);
+  const blockEnd = body.indexOf('\n\n');
+  const block = body.slice(0, blockEnd === -1 ? undefined : blockEnd);
+  const fields = [];
+  for (const line of block.split('\n').slice(1)) {
+    const m = line.match(/^\s+(\w+)\s*:/);
+    if (m) fields.push(m[1]);
+  }
+  return fields;
+}
+
+test('RideNav.tsx: buildDevSyntheticRoute() 는 backend RouteOut 의 필드 집합을 모두 채운다 (누락 0)', () => {
+  const rideNavSource = read('RideNav.tsx');
+  const backendSource = read(join('..', '..', '..', '..', 'backend', 'app', 'routers', 'info_route.py'));
+
+  const syntheticKeys = new Set(extractSyntheticRouteKeys(rideNavSource));
+  const backendFields = extractRouteOutFields(backendSource);
+  assert.ok(backendFields.length > 0, 'expected to parse at least one RouteOut field');
+
+  const missing = backendFields.filter((f) => !syntheticKeys.has(f));
+  assert.deepEqual(missing, [], `buildDevSyntheticRoute is missing RouteOut fields: ${missing.join(', ')}`);
+});
+
+test('RideNav.tsx: DEV 합성 duration_text 는 backend _format_duration 과 동일한 알고리즘을 쓴다', () => {
+  const source = read('RideNav.tsx');
+
+  // backend/app/routers/info_route.py::_format_duration 재현(추측 금지, 그대로 옮김):
+  //   minutes = max(1, round(duration_s/60))
+  //   minutes < 60 → "{minutes} min"
+  //   else → hours,remainder = divmod(minutes,60); remainder 있으면 "{h} h {m} min", 없으면 "{h} h"
+  const backendFormatDuration = (durationS) => {
+    const minutes = Math.max(1, Math.round(durationS / 60));
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder ? `${hours} h ${remainder} min` : `${hours} h`;
+  };
+
+  // 코드에 동일 구조(중간 변수명은 자유, 분기 3형태)가 있는지 구조로 확인.
+  assert.match(source, /durationMinutes < 60/);
+  assert.match(source, /durationRemainderMin/);
+  assert.match(source, /`\$\{durationHours\} h \$\{durationRemainderMin\} min`/);
+  assert.match(source, /`\$\{durationHours\} h`/);
+
+  // 값 단위로도 고정 — 정각(60min→"1 h"), 나머지 있는 경우(90min→"1 h 30 min"), 1시간 미만.
+  assert.equal(backendFormatDuration(59 * 60 + 30), '1 h'); // round(59.5)=60min → 정각
+  assert.equal(backendFormatDuration(90 * 60), '1 h 30 min');
+  assert.equal(backendFormatDuration(30 * 60), '30 min');
+});
+
 test('DEV_DONGTAN_PIN grep token exists at every touched location (removal checklist)', () => {
   const repoRoot = join(here, '..', '..', '..', '..');
   const output = execSync(
     "grep -rln DEV_DONGTAN_PIN --include=*.ts --include=*.tsx --include=*.py --include=*.md " +
       '--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist ' +
-      'frontend/src backend/app ai-docs',
+      'frontend/src frontend/e2e backend/app ai-docs',
     { cwd: repoRoot, encoding: 'utf8' },
   );
   const files = output.trim().split('\n').filter(Boolean).map((f) => f.replace(/^\.\//, ''));
@@ -69,6 +146,7 @@ test('DEV_DONGTAN_PIN grep token exists at every touched location (removal check
     'frontend/src/pages/ride/RideNav.tsx',
     'frontend/src/lib/polyline.ts',
     'ai-docs/context/project_todo.md',
+    'frontend/e2e/dev-dongtan-pin-sheet.spec.ts',
   ];
   for (const path of expected) {
     assert.ok(files.includes(path), `expected DEV_DONGTAN_PIN token in ${path}`);

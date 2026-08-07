@@ -112,10 +112,18 @@ function buildDevSyntheticRoute(origin: Coords, dest: Coords): RouteData {
   }
   const distance_m = Math.round(haversineM(origin.lat, origin.lng, dest.lat, dest.lng));
   const duration_s = Math.max(1, Math.round(distance_m / DEV_SYNTHETIC_SPEED_MS));
+  // distance_text/duration_text 는 backend/app/routers/info_route.py 의 _format_distance/
+  // _format_duration 과 동일한 규칙으로 계산한다(추측 금지, 그 함수를 그대로 옮김) — 실제
+  // Google 응답과 합성 응답의 문구 포맷이 갈리지 않게 하기 위함.
   const distance_text = distance_m >= 1000 ? `${(distance_m / 1000).toFixed(1)} km` : `${distance_m} m`;
-  const duration_text = duration_s >= 3600
-    ? `${Math.floor(duration_s / 3600)} h ${Math.round((duration_s % 3600) / 60)} min`
-    : `${Math.max(1, Math.round(duration_s / 60))} min`;
+  const durationMinutes = Math.max(1, Math.round(duration_s / 60));
+  const durationHours = Math.floor(durationMinutes / 60);
+  const durationRemainderMin = durationMinutes % 60;
+  const duration_text = durationMinutes < 60
+    ? `${durationMinutes} min`
+    : durationRemainderMin
+      ? `${durationHours} h ${durationRemainderMin} min`
+      : `${durationHours} h`;
   return {
     configured: true,
     route_mode: 'two_wheeler',

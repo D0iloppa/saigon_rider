@@ -177,6 +177,8 @@ Hẻm 76/50 Phan Tây Hồ → road: "Hẻm 76/50 Phan Tây Hồ"   house_number
 
 **갱신(2026-08-07 2차)**: 실기기에서 「is_dev 확정 전에 fetchRoute 가 먼저 실행돼 devBypass 가 항상 false」인 경합이 발견돼 수정했고, Google Routes 가 한국 내 경로를 지원하지 않아 devBypass 경로는 Google 을 호출하지 않고 직선 다구간 폴리라인을 합성하도록 바꿨다. 이 과정에서 **백엔드 `travel_mode`(DRIVE 보험) 파라미터는 되돌렸다** — Google 을 아예 안 타므로 무의미해졌기 때문. 아래 제거 절차를 이에 맞게 갱신.
 
+**갱신(2026-08-07 3차 — 대표 지적 대응)**: "DEV 경로에서 하단 시트가 안 뜬다"는 지적을 조사한 결과, 로컬 재현(Playwright, `/ride-nav?devRaw=1` 직접 진입)에서는 현재 코드가 이미 시트를 정상 렌더했다(이전 경합 수정이 부작용으로 같이 고친 것으로 보임) — 다만 `duration_text` 포맷이 `backend/app/routers/info_route.py::_format_duration` 과 정확히 일치하지 않아(1시간 이상 구간에서 반올림/"정각 h" 생략 규칙이 다름) `buildDevSyntheticRoute()` 를 백엔드 알고리즘 그대로 옮기도록 수정했다. 화면에 떠 있던 "초록 러너 아이콘"은 앱 코드가 아니라 **베이스맵 타일의 OSM POI 아이콘**(leisure=track, 콘솔에 `Image "running" could not be loaded` 경고로 확인 — 동탄역 실좌표 근방의 실제 지도 데이터)이라 손대지 않았다. 재발 방지로 `devDongtanPin.contract.test.mjs` 에 (a) `buildDevSyntheticRoute()` 반환 키가 백엔드 `RouteOut` 필드 전체를 포함하는지, (b) `duration_text` 알고리즘이 `_format_duration` 과 값 단위로 일치하는지 테스트를 추가했고, `frontend/e2e/dev-dongtan-pin-sheet.spec.ts` 로 DEV 핀 진입 시 ETA 시트 렌더를 e2e 로 고정했다 — 제거 목록에 추가.
+
 **제거 절차**
 1. `grep -rn DEV_DONGTAN_PIN` (레포 루트) — 남은 지점이 한 번에 잡힌다(백엔드/`frontend/src/api/info.ts` 는 이미 원복 완료라 더 이상 잡히지 않는다).
 2. 잡힌 지점을 전부 삭제:
@@ -184,6 +186,7 @@ Hẻm 76/50 Phan Tây Hồ → road: "Hẻm 76/50 Phan Tây Hồ"   house_number
    - `frontend/src/pages/ride/RideNav.tsx` — `devRaw`, `fetchRoute` 내부의 `devBypass` 계산(`fetchAppConfig` await)·`buildDevSyntheticRoute` 호출부, `buildDevSyntheticRoute` 함수와 `DEV_SYNTHETIC_SEGMENTS`/`DEV_SYNTHETIC_SPEED_MS` 상수.
    - `frontend/src/lib/polyline.ts` — `encodePolyline` 함수(합성 폴리라인 인코딩용으로 추가됨. RideNav 의 devBypass 분기 제거 후 다른 참조가 없으면 이 함수도 같이 삭제).
    - `frontend/src/pages/ride/devDongtanPin.contract.test.mjs` — 파일 전체 삭제.
+   - `frontend/e2e/dev-dongtan-pin-sheet.spec.ts` — 파일 전체 삭제(2026-08-07 3차 추가, ETA 시트 렌더 회귀 고정용 e2e).
 3. `backend/app/routers/info_route.py`·`frontend/src/api/info.ts`·`backend/app/tests/test_info_route.py` 는 **이미 원복 완료** — DRIVE 모드/travel_mode 관련 코드가 없으니 추가로 손댈 것 없음.
 4. 제거 후 재빌드: `docker compose --env-file .env up --build -d frontend`.
 

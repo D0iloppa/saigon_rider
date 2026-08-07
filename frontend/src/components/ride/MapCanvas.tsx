@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { RIDE_MAP_STYLE_URL } from '@/lib/rideMapPreload';
 import styles from './MapCanvas.module.css';
 import { decodePolyline, bearing } from '@/lib/polyline';
+import { RIDER_MARKER_PX, RIDER_MARKER_SVG } from './riderMarkerIcon';
 
 export interface MapCanvasHandle {
   /** 전체 경로가 보이도록 맞춤(개요). */
@@ -73,6 +74,10 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
   const readyRef = useRef(false);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const curMarkerRef = useRef<maplibregl.Marker | null>(null);
+  // 마지막으로 알려진 유효 heading(진북 기준 도). 정지 중이거나 GPS 가 heading 을 안 주는 틱에는
+  // 이 값을 유지한다(대표 확정) — 방향을 0 으로 되돌리면 멈출 때마다 오토바이가 북쪽으로 홱 돈다.
+  // null 인 동안(= 아직 한 번도 방향을 모름)에는 오토바이를 아예 띄우지 않는다. 아래 마커 effect 참조.
+  const lastHeadingRef = useRef<number | null>(null);
   const trailFitDoneRef = useRef(false);
   // 안내 중 여부 — true 면 경로 갱신(이탈 재탐색 등)이 카메라를 개요로 되돌리지 않는다.
   const guidingRef = useRef(false);
@@ -258,18 +263,34 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin, dest, polyline]);
 
-  // 실시간 현재 위치 마커 (회전 화살표)
+  // 실시간 현재 위치 마커 — 방향을 알기 전엔 파란 dot, 알고 나면 위에서 본 오토바이(W18).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !current) return;
     const set = () => {
       if (!curMarkerRef.current) {
-        curMarkerRef.current = new maplibregl.Marker({ element: headingEl() }).setLngLat([current.lng, current.lat]).addTo(map);
+        // rotationAlignment:'map' — 마커 회전 기준을 "지도"로 잡는다. 기본값(viewport)이면 지도가
+        // heading 만큼 돌아가는 course-up 에서 아이콘에 heading 을 그대로 적용할 때 회전이 이중
+        // 계산돼 방향이 거짓이 된다. 'map' 이면 MapLibre 가 현재 bearing 을 빼서 그려주므로
+        // (rotateZ(rotation - bearing)) 북향·course-up·수동 회전 어느 상태에서도 진북 기준 heading
+        // 하나만 넘기면 맞는다. 'heading - bearing' 을 직접 계산하는 대안(동네지도 방식)은 회전
+        // 애니메이션 프레임마다 우리가 다시 계산해 넣어야 해서 여기선 택하지 않았다.
+        curMarkerRef.current = new maplibregl.Marker({ element: headingEl(), rotationAlignment: 'map' })
+          .setLngLat([current.lng, current.lat])
+          .addTo(map);
       } else {
         curMarkerRef.current.setLngLat([current.lng, current.lat]);
       }
-      const arrow = curMarkerRef.current.getElement().firstElementChild as HTMLElement | null;
-      if (arrow && typeof current.heading === 'number') arrow.style.transform = `rotate(${current.heading}deg)`;
+      const h =
+        typeof current.heading === 'number' && Number.isFinite(current.heading)
+          ? current.heading
+          : lastHeadingRef.current;
+      // 첫 유효 heading 이 오기 전에는 dot 을 그대로 둔다 — 방향을 모르는데 오토바이를 북쪽으로
+      // 세워두면 그건 "정보 없음"이 아니라 거짓 방향이다. 첫 값이 오는 순간 dot → 오토바이로 바꾼다.
+      if (h == null) return;
+      lastHeadingRef.current = h;
+      curMarkerRef.current.setRotation(h);
+      showRider(curMarkerRef.current.getElement());
     };
     if (readyRef.current) set();
     else map.once('load', set);
@@ -341,22 +362,39 @@ function pinEl(kind: 'dest' | 'origin'): HTMLElement {
   return el;
 }
 
-/** 파란 현재위치 dot + 살아있는 듯 깜빡이는 펄스 링(WAAPI, CSS 파일 불필요). */
+/**
+ * 현재위치 마커 — 펄스 링 + (방향 미상)파란 dot + (숨김)오토바이 실루엣.
+ * 마커 전체를 MapLibre 가 회전시키므로(rotationAlignment:'map') 여기서 transform 을 걸지 않는다.
+ * 링·dot 은 원형이라 회전해도 시각 영향이 없다.
+ */
 function headingEl(): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'width:22px;height:22px;position:relative';
-  // firstElementChild = dot(회전 대상 유지). 방향 없는 trail 위치도 원형이라 시각 영향 없음.
+  wrap.style.cssText = `width:${RIDER_MARKER_PX}px;height:${RIDER_MARKER_PX}px;position:relative`;
   const dot = document.createElement('div');
+  dot.dataset.part = 'dot';
   dot.style.cssText =
-    'position:absolute;inset:0;width:22px;height:22px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:1;transition:transform .3s';
+    'position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:1';
   const ring = document.createElement('div');
   ring.style.cssText =
     'position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#2563EB;z-index:0';
+  const rider = document.createElement('div');
+  rider.dataset.part = 'rider';
+  rider.style.cssText = 'position:absolute;inset:0;display:none;z-index:2';
+  rider.innerHTML = RIDER_MARKER_SVG;
   wrap.appendChild(dot);
   wrap.appendChild(ring);
+  wrap.appendChild(rider);
   ring.animate(
     [{ transform: 'scale(1)', opacity: 0.55 }, { transform: 'scale(2.8)', opacity: 0 }],
     { duration: 1600, iterations: Infinity, easing: 'ease-out' },
   );
   return wrap;
+}
+
+/** 첫 유효 heading 확보 시 dot → 오토바이로 전환(되돌리지 않는다 — 마지막 방향을 유지하므로). */
+function showRider(wrap: HTMLElement): void {
+  const dot = wrap.querySelector<HTMLElement>('[data-part="dot"]');
+  const rider = wrap.querySelector<HTMLElement>('[data-part="rider"]');
+  if (dot) dot.style.display = 'none';
+  if (rider) rider.style.display = 'block';
 }

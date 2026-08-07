@@ -51,13 +51,13 @@ test('manual two-finger rotation gesture: deadzone before committing, then conti
 
   assert.match(
     source,
-    /const MANUAL_ROTATE_START_DEG = 10;/,
-    'MANUAL_ROTATE_START_DEG constant (cumulative-angle deadzone before manual rotation engages) must exist and be documented — raised from 6 to 10 (2026-08-07, "회전모드가 어색해" feedback: pinch-zoom-only gestures were tripping rotation)',
+    /const MANUAL_ROTATE_START_DEG = 6;/,
+    'MANUAL_ROTATE_START_DEG history: 6 (original) -> 10 (2026-08-07 AM, "회전모드가 어색해" feedback: pinch-zoom-only gestures were tripping rotation) -> 6 (2026-08-07 PM, this change, "인식이 잘 안 된다" feedback: anti-pinch-misfire duty moved to ROTATE_DOMINANCE_RATIO instead, see its comment)',
   );
   assert.match(
     source,
-    /const ROTATE_DOMINANCE_RATIO = 1\.2;/,
-    'ROTATE_DOMINANCE_RATIO constant must exist — the angle deadzone alone cannot tell a zoom-intent pinch (fingers drift asymmetrically) from a rotate-intent gesture; dominance compares rotation arc-length to zoom distance change',
+    /const ROTATE_DOMINANCE_RATIO = 2\.0;/,
+    'ROTATE_DOMINANCE_RATIO strengthened 1.2 -> 2.0 (2026-08-07 PM) to absorb the anti-pinch-misfire duty freed up by lowering MANUAL_ROTATE_START_DEG back to 6 — pure-rotation gestures have distAcc≈0 so raising this ratio costs them nothing, while pure-zoom finger-jitter (up to ~8°) needs a bigger arc-vs-distance margin to avoid false-triggering',
   );
 
   const moveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');

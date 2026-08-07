@@ -57,6 +57,8 @@ export type HapticStyle = 'light' | 'medium' | 'heavy';
 export type AppStateHandler = (isActive: boolean) => void;
 export type DeepLinkHandler = (url: string) => void;
 export type LocationUpdateHandler = (pos: GeoPosition) => void;
+/** 진북 기준 나침반 방위(도, 0=북, 시계방향). 자력계 소스 — GPS 와 무관, 정지 상태에서도 나온다. */
+export type CompassHeadingHandler = (heading: number) => void;
 export type IAPResultHandler = (event: { productId: string; result: IAPResult }) => void;
 export type AdCompletedHandler = () => void;
 export type CameraPermissionHandler = (granted: boolean) => void;
@@ -261,6 +263,63 @@ class NativeInterface {
 
   async openAppSettings(): Promise<void> {
     await Gps.openAppSettings();
+  }
+
+  // ── Compass heading (magnetometer, DeviceOrientation) ───────────────────
+  //
+  // GPS course(pos.heading)와 별개의 진짜 나침반 소스다(대표 지시 2026-08-07: "모바일 헤딩 기능은
+  // GPS 좌표와 무관해야 한다" — GPS course는 이동해야만 값이 나오고 정지 시 null이라 정지 상태·
+  // GPS 실패/서비스지역 밖에서 사실상 무용했다). Capacitor 전용 플러그인 없이 표준 웹 API
+  // (DeviceOrientationEvent)만으로 양 플랫폼을 충분히 커버할 수 있어(iOS는 webkitCompassHeading이
+  // 이미 진북 보정된 값을 주고, Android Chrome은 deviceorientationabsolute가 절대 방위를 준다)
+  // 별도 네이티브 플러그인을 새로 만들지 않았다(카파시 #2 — 필요 이상의 인프라 추가 금지).
+  // Capacitor 플러그인이 더 안정적이라 판단되면(예: 실기기에서 웹 API 정확도가 부족하면) 이
+  // 두 메서드의 내부 구현만 교체하면 된다 — 호출부(SaigonMapV5.tsx)는 이 인터페이스만 본다.
+
+  /**
+   * iOS 13+ 는 DeviceOrientationEvent.requestPermission() 로 사용자 동의를 받아야 자력계 이벤트가
+   * 발화한다 — 반드시 사용자 제스처(탭) 콜백 안에서 호출해야 브라우저가 허용한다(비동기 완료를
+   * 기다리는 것은 괜찮지만, 호출 자체가 setTimeout/Promise 콜백 등 제스처 밖에서 일어나면 무시된다).
+   * Android/기타 플랫폼엔 이 API가 없다 — 권한 개념 자체가 없으므로 항상 true.
+   */
+  async requestCompassPermission(): Promise<boolean> {
+    const DOE = (typeof DeviceOrientationEvent !== 'undefined'
+      ? (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> })
+      : undefined);
+    if (!DOE || typeof DOE.requestPermission !== 'function') return true;
+    try {
+      return (await DOE.requestPermission()) === 'granted';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 자력계 기반 나침반 방위를 구독한다. 구독 해제 함수를 반환한다(watchLocation과 동일 패턴).
+   * iOS: webkitCompassHeading(진북 기준, 이미 보정됨) — 있으면 그대로 쓴다.
+   * Android/기타: deviceorientationabsolute(있으면, 절대 방위) → 없으면 deviceorientation(상대값일
+   * 수 있으나 대부분 기기에서 실질적으로 절대값에 가까움) 폴백. alpha 는 화면 회전을 보정하지
+   * 않으므로 screen.orientation.angle 을 더해 "화면이 보여주는 위" 기준으로 정규화한다.
+   * 기기에 자력계/DeviceOrientation 자체가 없으면(구형 기기·데스크톱) no-op 구독을 반환한다 —
+   * 호출부는 이 경우 한 번도 handler 가 불리지 않는 것으로 판정해 GPS course 폴백을 유지한다.
+   */
+  watchCompassHeading(handler: CompassHeadingHandler): () => void {
+    if (typeof window === 'undefined' || typeof DeviceOrientationEvent === 'undefined') return () => {};
+
+    const onEvent = (e: DeviceOrientationEvent) => {
+      const iosHeading = (e as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading;
+      if (typeof iosHeading === 'number' && Number.isFinite(iosHeading)) {
+        handler(iosHeading);
+        return;
+      }
+      if (e.alpha == null) return;
+      const screenAngle = window.screen?.orientation?.angle ?? 0;
+      handler(((360 - e.alpha + screenAngle) % 360 + 360) % 360);
+    };
+
+    const eventName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+    window.addEventListener(eventName, onEvent as EventListener, true);
+    return () => window.removeEventListener(eventName, onEvent as EventListener, true);
   }
 
   /**

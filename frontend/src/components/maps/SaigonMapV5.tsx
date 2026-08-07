@@ -89,23 +89,32 @@ function rotatedBBoxOfRect(vb: VB, cx: number, cy: number, deg: number): VB {
 // 오는 같은 신호를 다른 임계로 처리할 근거가 없다.
 const COMPASS_DEADZONE_DEG = 8;
 const COMPASS_MIN_SPEED_MPS = 1.5;
-// 수동 두 손가락 회전 제스처 시작 임계(누적 각도) — 핀치줌 도중 손가락이 자연스럽게 미세 비틀리는
-// 정도(실측상 흔히 2~4°, 손이 큰 사용자는 6~8°까지)를 걸러내면서도, 사용자가 의도적으로 돌리기
-// 시작하면 바로 반응해야 한다. 6°는 순수 줌 의도 핀치에서도 손가락이 살짝 틀어지면 회전이 걸려버려
-// (대표 지적 2026-08-07: "회전모드가 어색해") 10°로 올렸다 — 실제 회전 의도 제스처는 통상 20°+
-// 로 시작하므로 반응성 손해는 크지 않다. 시작 전까지는 아래(onPointerMove) g.angleAcc 에만
-// 누적하고 실제 manualBearing 에는 반영하지 않는다. 일단 임계를 넘어 회전이 시작된 뒤에는 프레임마다
-// 그대로 반영한다(진행 중 회전에 추가 데드존을 걸면 반응이 끊겨 보인다 — 위 heading 데드존 관련
-// §9.3 주석과 동일 결론).
-const MANUAL_ROTATE_START_DEG = 10;
+// 수동 두 손가락 회전 제스처 시작 임계(누적 각도) — 이력: 6°(최초) → 10°(2026-08-07 오전, 대표
+// 지적 "회전모드가 어색해" — 순수 줌 의도 핀치에서도 손가락이 살짝 틀어지면 회전이 걸려버림) →
+// 6°(2026-08-07 오후, 이번 변경, 대표 지적 "강도가 너무 높다, 인식이 잘 안 된다"). 되돌린 게
+// 아니다 — 핀치 오작동 방어의 책임을 이 각도 데드존에서 아래 ROTATE_DOMINANCE_RATIO(지배성 판정)
+// 로 옮겼다. 근거: 순수 회전 제스처(손가락 사이 거리 변화가 거의 없는, distAcc≈0)는 지배성 비율을
+// 얼마로 올려도 판정에 영향이 없다(0 은 어떤 배수를 곱해도 0) — 그래서 지배성 비율을 강화해도
+// "의도적으로 돌리기 시작하면 바로 반응"하는 요구는 그대로 지켜진다. 반대로 순수 줌 핀치의 손끝
+// 비틀림 잡음(실측상 흔히 2~4°, 손이 큰 사용자는 6~8°까지)은 각도 데드존만 낮추면 다시 걸릴 수
+// 있으므로, 그 방어는 지배성 비율 쪽에서 흡수한다(아래 주석). 시작 전까지는 아래(onPointerMove)
+// g.angleAcc 에만 누적하고 실제 manualBearing 에는 반영하지 않는다. 일단 임계를 넘어 회전이
+// 시작된 뒤에는 프레임마다 그대로 반영한다(진행 중 회전에 추가 데드존을 걸면 반응이 끊겨 보인다
+// — 위 heading 데드존 관련 §9.3 주석과 동일 결론).
+const MANUAL_ROTATE_START_DEG = 6;
 // 각도 데드존만으로는 "줌 의도인데 손가락이 비대칭으로 움직여 각도가 누적되는" 케이스를 못
 // 거른다 — 각도 누적과 별개로 "회전이 줌보다 지배적인 움직임인가"를 판정한다. 손가락 사이
 // 반지름(dist/2) × 누적 각도(라디안) = 회전이 만든 호(arc) 길이(px), 누적 |dist 변화| = 줌이
 // 만든 반경 방향 이동량(px) — 같은 픽셀 단위라 직접 비교 가능하다. 회전 아크가 줌 이동량의
-// 1.2배를 넘어야만(=회전이 명확히 지배적일 때만) 회전으로 판정한다. 판정 후에는 g.rotating 이
+// N배를 넘어야만(=회전이 명확히 지배적일 때만) 회전으로 판정한다. 판정 후에는 g.rotating 이
 // 제스처 종료(onPointerDown 의 리셋)까지 고정되므로(매 프레임 재판정 아님) 한 번 회전으로
 // 커밋된 뒤 줌 위주로 손이 바뀌어도 회전이 끊기지 않아 안정적이다.
-const ROTATE_DOMINANCE_RATIO = 1.2;
+// 이력: 1.2(최초) → 2.0(2026-08-07 오후, 이번 변경) — 위 각도 데드존을 10°→6°로 낮추는 대신,
+// 핀치 오작동 방어를 이 배수로 옮겨 강화했다. 순수 회전 의도 제스처는 distAcc≈0 이라 이 배수를
+// 올려도 지연이 생기지 않고(무엇을 곱해도 0), 순수 줌 의도 핀치는 손끝 잡음(최대 6~8°)만으로
+// 만들어지는 호 길이가 실제 줌으로 누적되는 distAcc 를 2배 앞지르기 어려워 오작동이 줄어든다 —
+// 두 요구(응답성↑, 오작동↓)를 각도 데드존/지배성 배수라는 서로 다른 축에 나눠 맡긴 것.
+const ROTATE_DOMINANCE_RATIO = 2.0;
 
 // LOD 임계값 — viewBox 너비 기준
 const L1_VBW = BASE_W * 0.60;  // 6000: 도시 전체 조망 — district(구) 단위 뱃지 (ward 단위는 겹쳐서 지저분함)
@@ -490,6 +499,12 @@ function SaigonMapV5({
   const [compassBearing, setCompassBearing] = useState(0);
   const compassBearingRef = useRef(compassBearing);
   compassBearingRef.current = compassBearing;
+  // 자력계(magnetometer) 나침반 소스 가용 여부 — 2026-08-07 대표 지시("모바일 헤딩은 GPS 좌표와
+  // 무관해야 한다") 로 도입. native.watchCompassHeading() 이 한 번이라도 값을 내면 true 로 올라가고,
+  // 그 뒤로는 아래 meDot 워처의 GPS course(pos.heading) 갱신을 무시한다(자력계 우선 — 서로 다른
+  // 소스가 같은 compassBearing 을 동시에 밀면 화면이 튄다). 자력계가 없거나 권한 거부로 한 번도
+  // 값이 안 오면 false 로 유지돼 GPS course 폴백이 그대로 동작한다(기존 동작 불변).
+  const compassAvailableRef = useRef(false);
   // 렌더에 쓰는 실제 회전각 — bearing 은 이제 세 소스 중 하나를 합류시킨 단일 변수다. 탭
   // 히트테스트·컬링·라벨/마커 위치회전(rotUnified)·회전 <g> 는 전부 이 값 하나만 본다.
   // enableFollowCompass=false 면 compassMode 가 'north' 를 벗어날 수 없으므로 이 값도 항상
@@ -967,7 +982,10 @@ function SaigonMapV5({
       void runLocate();
       setIsFollowing(true);
     } else if (compassMode !== 'follow') {
-      // 카메라추종 → heading추종: 위치는 이미 추종 중이므로 회전축만 GPS heading 으로 바꾼다.
+      // 카메라추종 → heading추종: 이 탭이 iOS 13+ 자력계 권한 요청의 필수 사용자 제스처다 —
+      // DeviceOrientationEvent.requestPermission() 은 제스처 콜백 밖에서 호출하면 브라우저가
+      // 무시한다. 거부/미지원이어도 무해하다(GPS course 폴백, 위 meDot 워처가 이미 담당).
+      void native.requestCompassPermission();
       setCompassMode('follow');
     } else {
       // heading추종 → 자유: 추종과 회전을 함께 끈다(북향 복귀 포함) — 나침반 버튼을 따로 누르지
@@ -1065,12 +1083,31 @@ function SaigonMapV5({
       // bearing 합류식이 읽지 않으므로 무의미하지만, 갱신 자체를 막아 diff 데드존 기준점이 옛
       // 값으로 낡지 않게 한다).
       if (compassModeRef.current !== 'follow') return;
+      // 자력계가 살아있으면(compassAvailableRef) GPS course 갱신은 무시한다 — 아래 자력계 전용
+      // effect 가 이미 compassBearing 을 갱신하고 있으므로 두 소스가 충돌하지 않게 한다(폴백 순서:
+      // 자력계 우선, GPS course 는 자력계가 한 번도 값을 낸 적 없을 때만 동작).
+      if (compassAvailableRef.current) return;
       // 나침반(D-I §9.3): heading/speed 없음 또는 저속이면 갱신하지 않는다(마지막 유효 방위 유지).
       if (pos.heading == null || pos.speed == null || pos.speed < COMPASS_MIN_SPEED_MPS) return;
       const diff = Math.abs((((pos.heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
       if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(pos.heading);
     });
   }, [meDotActive, centerOnUnified]);
+
+  // 자력계 나침반 — heading추종('follow') 중일 때만 구독한다(불필요한 센서 사용 방지). GPS 와
+  // 무관하므로 서비스 지역 밖에서도, 정지 상태에서도 동작한다(대표 지시 2026-08-07, 한국에서도
+  // 검증 가능해야 함). native.ts(watchCompassHeading)가 유일한 브리지 — DeviceOrientationEvent를
+  // 여기서 직접 구독하지 않는다(§8 네이티브 브리지 규칙).
+  useEffect(() => {
+    if (compassMode !== 'follow') return;
+    // 매 follow 진입마다 리셋 — 이전 세션의 가용성 판정이 다음 세션까지 이어지지 않게 한다.
+    compassAvailableRef.current = false;
+    return native.watchCompassHeading((heading) => {
+      compassAvailableRef.current = true;
+      const diff = Math.abs((((heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
+      if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(heading);
+    });
+  }, [compassMode]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();
@@ -1911,21 +1948,11 @@ function SaigonMapV5({
                 : t('map.followModeHeading');
             return (
               <div className={styles.locateCtrl} style={bottomInsetPx ? { bottom: bottomInsetPx + 16 } : undefined}>
-                <button
-                  type="button"
-                  className={followActive ? `${styles.ctrlBtn} ${styles.ctrlBtnActive}` : styles.ctrlBtn}
-                  onClick={recenterCurrentContext}
-                  aria-label={followLabel}
-                  title={followLabel}
-                >
-                  {followStage === 'heading'
-                    ? <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
-                    : <LocateFixed size={16} strokeWidth={2.2} />}
-                </button>
                 {/* 나침반 버튼 — 네이버지도 모델: 평상시엔 없다가, 회전(수동 또는 heading 추종)으로
                     bearing!==0 이 되는 순간에만 나타난다. bearing 은 enableFollowCompass=false 면
                     항상 0 이므로(킬스위치) 이 조건만으로 off 소비처는 자동으로 미노출이다. 누르면
-                    북향 복귀 + heading 추종 해제만 하고 ◎ 의 카메라추종 여부는 건드리지 않는다. */}
+                    북향 복귀 + heading 추종 해제만 하고 ◎ 의 카메라추종 여부는 건드리지 않는다.
+                    대표 지시(2026-08-07): 세로 배치 순서를 [나침반, 내위치]로 — 나침반이 위. */}
                 {bearing !== 0 && (
                   <button
                     type="button"
@@ -1937,6 +1964,17 @@ function SaigonMapV5({
                     <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
                   </button>
                 )}
+                <button
+                  type="button"
+                  className={followActive ? `${styles.ctrlBtn} ${styles.ctrlBtnActive}` : styles.ctrlBtn}
+                  onClick={recenterCurrentContext}
+                  aria-label={followLabel}
+                  title={followLabel}
+                >
+                  {followStage === 'heading'
+                    ? <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
+                    : <LocateFixed size={16} strokeWidth={2.2} />}
+                </button>
               </div>
             );
           })()}

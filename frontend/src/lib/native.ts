@@ -120,7 +120,7 @@ class NativeInterface {
   async getLocation(): Promise<GeoPosition> {
     const override = readDevGpsOverride();
     if (override) return override;
-    try {
+    if (isGeolocationPluginAvailable()) {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10_000,
@@ -132,31 +132,31 @@ class NativeInterface {
         speed: pos.coords.speed,
         heading: pos.coords.heading,
       };
-    } catch (e) {
-      // Android·iOS 빌드 모두 @capacitor/geolocation 을 vendoring 하지 않음(GpsPlugin 이
-      // Android 는 LocationForegroundService, iOS 는 CoreLocation 을 직접 사용 — settings.gradle/
-      // Podfile 양쪽에 문서화된 결정). 그래서 native 에서도 이 catch 로 떨어져 WebView/브라우저의
-      // navigator.geolocation 으로 폴백한다.
-      // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
-      if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        return await new Promise<GeoPosition>((resolve, reject) => {
-          // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
-          navigator.geolocation.getCurrentPosition(
-            (p) =>
-              resolve({
-                lat: p.coords.latitude,
-                lng: p.coords.longitude,
-                accuracy: p.coords.accuracy,
-                speed: p.coords.speed,
-                heading: p.coords.heading,
-              }),
-            (err) => reject(err),
-            { enableHighAccuracy: true, timeout: 10_000 },
-          );
-        });
-      }
-      throw e;
     }
+    // Android·iOS 빌드 모두 @capacitor/geolocation 을 vendoring 하지 않음(GpsPlugin 이
+    // Android 는 LocationForegroundService, iOS 는 CoreLocation 을 직접 사용 — settings.gradle/
+    // Podfile 양쪽에 문서화된 결정) → isGeolocationPluginAvailable() 이 native 에서 false 를
+    // 반환하므로 Capacitor 를 아예 호출하지 않고 처음부터 WebView/브라우저의
+    // navigator.geolocation 을 쓴다(그게 실질 본 구현이다).
+    // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      throw new Error('geolocation_unavailable');
+    }
+    return await new Promise<GeoPosition>((resolve, reject) => {
+      // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+      navigator.geolocation.getCurrentPosition(
+        (p) =>
+          resolve({
+            lat: p.coords.latitude,
+            lng: p.coords.longitude,
+            accuracy: p.coords.accuracy,
+            speed: p.coords.speed,
+            heading: p.coords.heading,
+          }),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 10_000 },
+      );
+    });
   }
 
   watchLocation(handler: LocationUpdateHandler): () => void {
@@ -174,65 +174,45 @@ class NativeInterface {
       return () => window.removeEventListener('storage', onStorage);
     }
 
-    // Android·iOS 빌드 모두 @capacitor/geolocation 을 vendoring 하지 않는다(getLocation() 의
-    // 주석 참조). watchPosition 은 미등록 플러그인 호출 시 reject 하지 않고 watch id 만 돌려준
-    // 채 콜백을 영원히 안 부르는(침묵 실패) 경우가 있어 — 에러로 감지할 수 없으므로 첫 틱이
-    // FALLBACK_TIMEOUT_MS 안에 안 오면 navigator.geolocation 폴백으로 전환한다.
-    const FALLBACK_TIMEOUT_MS = 7_000;
-
-    let stopped = false;
-    let capacitorWatchId: string | undefined;
-    let navigatorWatchId: number | undefined;
-    let gotFirstTick = false;
     let loggedSource = false;
-
     const logSource = (source: 'capacitor' | 'navigator') => {
       if (loggedSource) return;
       loggedSource = true;
       console.warn(`[native] watchLocation source: ${source}`);
     };
 
-    const stopCapacitor = () => {
-      if (capacitorWatchId) {
-        Geolocation.clearWatch({ id: capacitorWatchId }).catch(() => {});
-        capacitorWatchId = undefined;
-      }
-    };
-    const stopNavigator = () => {
-      if (navigatorWatchId != null) {
-        // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
-        navigator.geolocation.clearWatch(navigatorWatchId);
-        navigatorWatchId = undefined;
-      }
-    };
-
-    const startNavigatorFallback = () => {
-      if (stopped || navigatorWatchId != null) return;
-      stopCapacitor(); // 워처 이중화 방지 — 폴백 전환 시 기존 구독을 반드시 정리
+    // getLocation() 과 동일한 판정 — 플러그인이 등록돼 있지 않으면(현재 native 양 플랫폼)
+    // Capacitor 를 아예 시도하지 않고 navigator.geolocation 으로 바로 구독한다. 등록 여부를
+    // 미리 알기 때문에 "호출 → 응답 없음 → 타임아웃 후 전환" 구조(예전의 침묵 실패 대응)가
+    // 더 이상 필요 없다 — 플러그인 배제가 풀리면 이 판정이 자동으로 Capacitor 를 다시 고른다.
+    if (!isGeolocationPluginAvailable()) {
       // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
-      if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return () => {};
+      logSource('navigator');
       // eslint-disable-next-line no-restricted-globals
-      navigatorWatchId = navigator.geolocation.watchPosition(
-        (p) => {
-          gotFirstTick = true;
-          logSource('navigator');
+      const navigatorWatchId = navigator.geolocation.watchPosition(
+        (p) =>
           handler({
             lat: p.coords.latitude,
             lng: p.coords.longitude,
             accuracy: p.coords.accuracy,
             speed: p.coords.speed,
             heading: p.coords.heading,
-          });
-        },
+          }),
         (err) => console.warn('[NativeInterface] watchLocation error:', err),
         { enableHighAccuracy: true },
       );
-    };
+      return () => {
+        // eslint-disable-next-line no-restricted-globals -- native.ts IS the bridge layer
+        navigator.geolocation.clearWatch(navigatorWatchId);
+      };
+    }
 
+    let stopped = false;
+    let capacitorWatchId: string | undefined;
+    logSource('capacitor');
     Geolocation.watchPosition({ enableHighAccuracy: true }, (pos, err) => {
       if (pos) {
-        gotFirstTick = true;
-        logSource('capacitor');
         handler({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
@@ -250,15 +230,12 @@ class NativeInterface {
       capacitorWatchId = id;
     });
 
-    const fallbackTimer = window.setTimeout(() => {
-      if (!gotFirstTick) startNavigatorFallback();
-    }, FALLBACK_TIMEOUT_MS);
-
     return () => {
       stopped = true;
-      window.clearTimeout(fallbackTimer);
-      stopCapacitor();
-      stopNavigator();
+      if (capacitorWatchId) {
+        Geolocation.clearWatch({ id: capacitorWatchId }).catch(() => {});
+        capacitorWatchId = undefined;
+      }
     };
   }
 
@@ -642,6 +619,20 @@ function readDevGpsOverride(): GeoPosition | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * @capacitor/geolocation 플러그인이 현재 플랫폼에 등록돼 있는지 동기 판정한다.
+ * Android·iOS 는 이 플러그인을 vendoring 하지 않으므로(native/ios/Podfile,
+ * native/android 쪽 settings — GpsPlugin 이 CoreLocation/LocationForegroundService 를
+ * 직접 씀) 항상 false 를 반환해 getLocation()/watchLocation() 이 처음부터
+ * navigator.geolocation 을 쓰게 만든다. 웹에서는 @capacitor/geolocation 이 자체 web
+ * 구현(GeolocationWeb, 내부적으로 navigator.geolocation 을 감쌈)을 등록하므로 true —
+ * 기존 웹 동작(회귀 없음)을 그대로 유지한다. 플러그인 배제가 풀리면(Podfile/gradle 복원)
+ * 이 판정이 자동으로 Capacitor 경로를 다시 고른다.
+ */
+function isGeolocationPluginAvailable(): boolean {
+  return Capacitor.isPluginAvailable('Geolocation');
 }
 
 function normalizeLocationPermission(state: string): LocationPermissionState {

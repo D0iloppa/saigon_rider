@@ -1,6 +1,6 @@
-import { LocateFixed, Navigation } from 'lucide-react';
+import { Locate, LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as PE, type ReactNode } from 'react';
 import { resolveUsableLocation, type ResolvedLocation } from '@/lib/serviceLocation';
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
@@ -119,6 +119,52 @@ const MANUAL_ROTATE_START_DEG = 6;
 // 하는데, 실제 줌 제스처는 이 구간에서도 거리가 단조 변화하므로 순 변화와 절대값 누적이 사실상
 // 같다(=이 수정이 줌 오작동 방어를 약화시키지 않는다) — 그래서 2.0 을 낮출 근거가 없다.
 const ROTATE_DOMINANCE_RATIO = 2.0;
+
+/**
+ * 나침반 로즈 아이콘 (W15, 2026-08-07) — 북향복귀 버튼 전용. lucide 에는 `N` 표기가 있는 나침반이
+ * 없어(`Compass` 는 원 안 대각선 바늘뿐) 직접 그린다. 대표 지적: 이 버튼과 ◎ 의 heading 상태가
+ * 둘 다 `<Navigation rotate(-bearing)>` 이라 주황 버튼 두 개가 같은 모양으로 나란히 떠 버그처럼
+ * 보였다 — 형태를 완전히 갈라 놓는 것이 이 아이콘의 목적이다.
+ *
+ * 작은 통(16~20px)에서 `N` 이 뭉개지지 않게 한 방법(Playwright 로 1×·4× 스크린샷 비교해 4개 변형
+ * 중 선택):
+ *  1) 링을 상단 ±30° 끊어(arc gap) `N` 을 그 위에 얹는다 — 링 안쪽에 넣으면 바늘과 세로 공간을
+ *     다퉈 둘 다 작아지고, 링과 겹치면 회전 시 글자와 링이 뭉쳐 번개(⚡) 처럼 읽힌다.
+ *  2) `N` 을 <text> 가 아니라 **스트로크 path** 로 그린다 — 폰트 힌팅·글꼴 의존 없이 5.4/24 높이,
+ *     굵기 2.0 을 그대로 보장한다(20px 렌더에서 ~4.5px 높이 · ~1.7px 굵기).
+ *  3) 라운드 캡을 쓰지 않는다 — 5.4 단위 높이에 굵기 2.0 이면 라운드 캡이 획 길이의 1/3 을
+ *     먹어 첫 시도(round cap)에서 실제로 지그재그 덩어리로 보였다. 각진 캡이 각을 살린다.
+ *  4) 아이콘만 20px 로 키운다(버튼은 32px 유지) — 스트로크가 기존 16px 아이콘(2.2)보다 얇아
+ *     시각 무게는 맞는다.
+ * 북침은 빨강, 남침은 회색(무채색)으로 대비. 회전은 호출부가 rotate(-bearing) 으로 준다.
+ */
+function CompassRoseIcon({ size = 20, style }: { size?: number; style?: CSSProperties }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} aria-hidden focusable="false">
+      {/* 링 — 중심 (12,13.8) r=8.2, 상단 ±30° 를 비운 호 */}
+      <path d="M16.1 6.7A8.2 8.2 0 1 1 7.9 6.7" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+      {/* N — 링이 끊긴 자리 위에 각진 스트로크로 */}
+      <path d="M9.3 6.3V0.9l5.4 5.4V0.9" stroke="currentColor" strokeWidth={2} />
+      {/* 북침(빨강) / 남침(회색) */}
+      <path d="M12 7.4 14.8 13.8H9.2Z" fill="#e5342b" />
+      <path d="M12 20.8 14.8 13.8H9.2Z" fill="#9ca3af" />
+    </svg>
+  );
+}
+
+/**
+ * heading 추종 상태 아이콘 (W15, 2026-08-07) — 내 위치 점 + 앞을 향한 시야각(cone). 위 나침반
+ * 로즈(링+N+바늘)와 실루엣이 겹치지 않는다: 이쪽은 링도 글자도 없는 "점+부채꼴" 한 덩어리다.
+ * **회전을 붙이지 않는다** — ◎ 3상태는 회전이 아니라 형태로만 구분한다(대표 지시).
+ */
+function HeadingConeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+      <path d="M12 15.5 5.12 5.67A12 12 0 0 1 18.88 5.67Z" fill="currentColor" opacity={0.5} />
+      <circle cx={12} cy={15.5} r={3.4} fill="currentColor" />
+    </svg>
+  );
+}
 
 /**
  * 두 손가락 회전 제스처를 "지금 회전으로 커밋할까" 판정하는 순수 함수. onPointerMove 에서
@@ -520,6 +566,11 @@ function SaigonMapV5({
   const [compassBearing, setCompassBearing] = useState(0);
   const compassBearingRef = useRef(compassBearing);
   compassBearingRef.current = compassBearing;
+  // heading 값을 한 번이라도 받았는가 (W15, 2026-08-07) — 내 위치 점의 heading 삼각형은 이 값이
+  // true 가 될 때까지 렌더하지 않는다. compassBearing 초기값 0 을 그대로 그리면 "실제로 모르는
+  // 방향"을 북쪽이라고 우기는 셈이고, 첫 값이 들어오는 순간 화살표가 툭 튄다. 데드존(8°)에 걸려
+  // setCompassBearing 이 생략되는 첫 값에서도 올라가야 하므로 값 수신 시점에 무조건 세운다.
+  const [headingKnown, setHeadingKnown] = useState(false);
   // 자력계(magnetometer) 나침반 소스 가용 여부 — 2026-08-07 대표 지시("모바일 헤딩은 GPS 좌표와
   // 무관해야 한다") 로 도입. native.watchCompassHeading() 이 한 번이라도 값을 내면 true 로 올라가고,
   // 그 뒤로는 아래 meDot 워처의 GPS course(pos.heading) 갱신을 무시한다(자력계 우선 — 서로 다른
@@ -1145,18 +1196,28 @@ function SaigonMapV5({
       if (compassAvailableRef.current) return;
       // 나침반(D-I §9.3): heading/speed 없음 또는 저속이면 갱신하지 않는다(마지막 유효 방위 유지).
       if (pos.heading == null || pos.speed == null || pos.speed < COMPASS_MIN_SPEED_MPS) return;
+      setHeadingKnown(true);
       const diff = Math.abs((((pos.heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
       if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(pos.heading);
     });
   }, [meDotActive, centerOnUnified]);
 
-  // 자력계 나침반 — heading추종('follow') 중일 때만 구독한다(불필요한 센서 사용 방지). GPS 와
-  // 무관하므로 서비스 지역 밖에서도, 정지 상태에서도 동작한다(대표 지시 2026-08-07, 한국에서도
+  // 자력계 나침반 — **내 위치 점이 보이는 동안 상시 구독**한다(W15, 2026-08-07 대표 결정).
+  // 이전에는 heading추종('follow') 중일 때만 구독했는데, 내 위치 점의 heading 삼각형(아래 meDot
+  // 렌더)이 추종과 무관하게 항상 방향을 가리켜야 해서 게이트를 meDotActive 로 옮겼다. 점을 안 쓰는
+  // 화면(위치 피커 등)에서는 여전히 센서를 켜지 않는다 — 게이트가 사라진 게 아니라 바뀐 것이다.
+  // 킬스위치 불변: enableFollowCompass=false 면 compassMode 가 'north' 를 벗어날 수 없어
+  // bearing 합류식이 compassBearing 을 읽지 않으므로, 여기서 compassBearing 이 갱신돼도 회전은
+  // 일어나지 않는다(삼각형 방향만 바뀐다).
+  // GPS 와 무관하므로 서비스 지역 밖에서도, 정지 상태에서도 동작한다(대표 지시 2026-08-07, 한국에서도
   // 검증 가능해야 함). native.ts(watchCompassHeading)가 유일한 브리지 — DeviceOrientationEvent를
   // 여기서 직접 구독하지 않는다(§8 네이티브 브리지 규칙).
   useEffect(() => {
-    if (compassMode !== 'follow') return;
-    // 매 follow 진입마다 리셋 — 이전 세션의 가용성 판정이 다음 세션까지 이어지지 않게 한다.
+    if (!meDotActive) return;
+    // 구독 시작마다 리셋 — 이 플래그는 "이 구독이 값을 낸 적 있는가"를 뜻한다. 게이트가
+    // compassMode → meDotActive 로 바뀌었으므로 리셋 지점도 함께 옮겼다(follow 진입은 이제
+    // 구독 생성/해제 시점이 아니다). GPS course 폴백(위 meDot 워처의 compassAvailableRef 체크)은
+    // 그대로 "자력계가 아직 한 번도 값을 안 냈을 때만 동작"한다.
     compassAvailableRef.current = false;
     // 조용한 실패 진단(W14, 2026-08-07) — 자력계가 붙었는지 런타임에 알 수단이 없어 조용히 GPS
     // course 폴백으로 떨어지면 원인 파악이 안 된다. 3초 내 값이 안 오면 세션당 1회만 알린다
@@ -1174,6 +1235,7 @@ function SaigonMapV5({
         console.warn('[compass] 자력계 첫 값 수신 — heading:', heading);
       }
       compassAvailableRef.current = true;
+      setHeadingKnown(true);
       const diff = Math.abs((((heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
       if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(heading);
     });
@@ -1181,7 +1243,7 @@ function SaigonMapV5({
       window.clearTimeout(noDataTimer);
       unwatch();
     };
-  }, [compassMode]);
+  }, [meDotActive]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();
@@ -1984,9 +2046,26 @@ function SaigonMapV5({
         {meLatLng && (() => {
           const { x: mx, y: my } = rotUnified(meLatLng.lng, meLatLng.lat);
           const r = vb.w * 0.012;
+          // heading 삼각형 (W15, 2026-08-07 — 네이버지도 레퍼런스): 링 바깥에 붙어 실제 진행
+          // 방향을 항상 가리킨다. 각도 = heading − bearing:
+          //   'north'  bearing=0        → rotate(heading)          — 화면 위가 북이므로 heading 그대로
+          //   'manual' bearing=수동각   → rotate(heading−manual)   — 손으로 돌린 만큼 되돌려 보정
+          //   'follow' bearing=heading  → rotate(0)                — 항상 화면 위(레퍼런스와 동일 거동)
+          // SVG rotate 는 +가 시계방향이고 화면 위가 −y 라, 위를 향한 삼각형을 +θ 돌리면 "위에서
+          // 시계방향 θ" = 방위각 θ 가 된다. 이 <g> 는 지형 회전 <g> 밖(rotUnified 좌표계)이라
+          // 지도 회전이 자동으로 반영되지 않으므로 bearing 을 이렇게 직접 빼 준다.
+          // headingKnown 이 false 면(값 수신 전) 렌더하지 않는다 — 위 상태 선언 주석 참조.
           return (
             <g pointerEvents="none">
               <circle cx={mx} cy={my} r={r * 2} className={styles.meRing} />
+              {headingKnown && (
+                <polygon
+                  className={styles.meHeading}
+                  points={`${mx},${my - r * 3.35} ${mx - r},${my - r * 2.0} ${mx + r},${my - r * 2.0}`}
+                  strokeWidth={r * 0.28}
+                  transform={`rotate(${compassBearing - bearing} ${mx} ${my})`}
+                />
+              )}
               <circle cx={mx} cy={my} r={r} className={styles.meDot} strokeWidth={r * 0.35} />
             </g>
           );
@@ -2028,12 +2107,17 @@ function SaigonMapV5({
           {/* bottomInsetPx: 드래거블 시트의 현재 노출 높이 — 시트 위에 항상 붙어 다니도록.
               미전달 시(정보 페이지들) CSS 기본값(bottom: 28px)을 그대로 쓴다 */}
           {showLocateControl && (() => {
-            // ◎ 3단 순환 시각 구분(네이버지도 모델, 2026-08-07 개정) — 새 디자인 언어를 만들지
-            // 않고 기존 .ctrlBtnActive + LocateFixed/Navigation 아이콘 선례 안에서 표현한다:
-            // 자유는 기본 스타일 + LocateFixed, 카메라추종은 활성 스타일 + LocateFixed(그대로),
-            // heading추종만 아이콘을 나침반 버튼과 동일한 Navigation(현재 bearing 만큼 회전)으로
-            // 바꿔 "지금 방향을 따라 돈다"는 것을 구분한다. enableFollowCompass=false 면 isFollowing
-            // 이 false 를 벗어날 수 없어 항상 자유 단계로 귀결된다(킬스위치).
+            // ◎ 3단 순환 시각 구분 — W15(2026-08-07) 개정: 세 상태를 **형태**로 구분하고 회전은
+            // 붙이지 않는다(대표 지시: "나침반이 따라움직이는게 아니라 아이콘순환").
+            //   자유     : Locate      (중심 비어 있음) + 기본 스타일
+            //   카메라추종: LocateFixed (중심에 점이 채워짐) + 활성 스타일
+            //   heading  : HeadingConeIcon (점+시야각 부채꼴) + 활성 스타일
+            // 앞 두 단계는 활성색(주황)만으로 갈리면 색 단독 정보 전달이 되므로(접근성) lucide 의
+            // Locate/LocateFixed 차이(내부 r=3 원 유무)를 비색상 단서로 함께 쓴다 — "fixed=조준이
+            // 고정됐다"는 의미도 카메라추종과 맞는다. heading 단계는 나침반 로즈(링+N+바늘)와
+            // 실루엣이 전혀 겹치지 않는 아이콘이라 두 버튼이 동시에 떠도 혼동되지 않는다.
+            // enableFollowCompass=false 면 isFollowing 이 false 를 벗어날 수 없어 항상 자유 단계로
+            // 귀결된다(킬스위치).
             const followStage: 'free' | 'camera' | 'heading' = !enableFollowCompass || !isFollowing
               ? 'free'
               : compassMode === 'follow' ? 'heading' : 'camera';
@@ -2050,15 +2134,20 @@ function SaigonMapV5({
                     항상 0 이므로(킬스위치) 이 조건만으로 off 소비처는 자동으로 미노출이다. 누르면
                     북향 복귀 + heading 추종 해제만 하고 ◎ 의 카메라추종 여부는 건드리지 않는다.
                     대표 지시(2026-08-07): 세로 배치 순서를 [나침반, 내위치]로 — 나침반이 위. */}
+                {/* W15(2026-08-07): 활성(주황) 스타일을 뗀다 — ◎ 의 추종 활성과 같은 주황 알약이
+                    나란히 떠서 "버그처럼 보인다"는 대표 지적의 절반이 이 색이었고, 빨간 북침을
+                    주황 배경 위에 얹으면 대비가 죽는다. 대표 지시대로 껍데기는 기존 .ctrlBtn
+                    관례(흰 배경·32px·그림자) 그대로, 아이콘만 나침반 로즈로 바꾼다. 이 버튼의
+                    정보값은 "북쪽이 어디인가"이므로 회전(rotate(-bearing))은 유지한다. */}
                 {bearing !== 0 && (
                   <button
                     type="button"
-                    className={`${styles.ctrlBtn} ${styles.ctrlBtnActive}`}
+                    className={styles.ctrlBtn}
                     onClick={toggleCompass}
                     aria-label={t('map.compassReset')}
                     title={t('map.compassReset')}
                   >
-                    <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
+                    <CompassRoseIcon size={20} style={{ transform: `rotate(${-bearing}deg)` }} />
                   </button>
                 )}
                 <button
@@ -2069,8 +2158,10 @@ function SaigonMapV5({
                   title={followLabel}
                 >
                   {followStage === 'heading'
-                    ? <Navigation size={16} strokeWidth={2.2} style={{ transform: `rotate(${-bearing}deg)` }} />
-                    : <LocateFixed size={16} strokeWidth={2.2} />}
+                    ? <HeadingConeIcon size={20} />
+                    : followStage === 'camera'
+                      ? <LocateFixed size={18} strokeWidth={2.2} />
+                      : <Locate size={18} strokeWidth={2.2} />}
                 </button>
               </div>
             );

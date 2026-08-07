@@ -11,8 +11,13 @@ firebase-credentials.json
 
 # Docker volumes / generated data
 database/data/
-# 자체호스팅 라우팅 엔진 원자재/빌드산출물 (OSM pbf·Valhalla/OSRM 타일) — 311MB+, 매번 재빌드 가능
-routing_data/
+# 자체호스팅 라우팅 엔진 원자재 (OSM pbf) — Geofabrik 에서 재취득 가능하므로 제외
+routing_data/*
+# 단, Valhalla 타일은 추적한다 — 운영 배포 수단이 git pull 이다 (갱신 연 1~2회, 대표 결정 2026-08-07)
+!routing_data/valhalla/
+routing_data/valhalla/*
+!routing_data/valhalla/tiles/
+!routing_data/valhalla/valhalla.json
 # pg_dump 백업 산출물 (tools/backup_db.sh, F-16)
 backups/
 # Frontend (React + Vite + Node)

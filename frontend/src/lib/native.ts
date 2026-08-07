@@ -269,20 +269,43 @@ class NativeInterface {
   //
   // GPS course(pos.heading)와 별개의 진짜 나침반 소스다(대표 지시 2026-08-07: "모바일 헤딩 기능은
   // GPS 좌표와 무관해야 한다" — GPS course는 이동해야만 값이 나오고 정지 시 null이라 정지 상태·
-  // GPS 실패/서비스지역 밖에서 사실상 무용했다). Capacitor 전용 플러그인 없이 표준 웹 API
-  // (DeviceOrientationEvent)만으로 양 플랫폼을 충분히 커버할 수 있어(iOS는 webkitCompassHeading이
-  // 이미 진북 보정된 값을 주고, Android Chrome은 deviceorientationabsolute가 절대 방위를 준다)
-  // 별도 네이티브 플러그인을 새로 만들지 않았다(카파시 #2 — 필요 이상의 인프라 추가 금지).
-  // Capacitor 플러그인이 더 안정적이라 판단되면(예: 실기기에서 웹 API 정확도가 부족하면) 이
-  // 두 메서드의 내부 구현만 교체하면 된다 — 호출부(SaigonMapV5.tsx)는 이 인터페이스만 본다.
+  // GPS 실패/서비스지역 밖에서 사실상 무용했다).
+  //
+  // Android/웹은 표준 웹 API(DeviceOrientationEvent)로 충분하다 — Android Chrome(WebView 포함,
+  // Chromium 기반)의 deviceorientationabsolute 는 신뢰할 수 있게 동작한다(W14 조사, 2026-08-07:
+  // WebView 개발자 문서·Chromium 소스 확인 — Android WebView 는 데스크톱 Chrome 과 동일 구현).
+  //
+  // iOS 는 W14(2026-08-07) 조사로 웹 API 경로가 실기기에서 무너지는 게 확인돼 네이티브로
+  // 대체했다 — 자세한 근거는 아래 requestCompassPermission/watchCompassHeading 주석.
+  // 이 교체는 GpsPlugin(iOS, `LocationTracker.startHeadingUpdates`)만 새로 추가했고, 이 두
+  // 메서드의 **인터페이스(시그니처)는 그대로**라 호출부(SaigonMapV5.tsx)는 무변경이다.
 
   /**
-   * iOS 13+ 는 DeviceOrientationEvent.requestPermission() 로 사용자 동의를 받아야 자력계 이벤트가
-   * 발화한다 — 반드시 사용자 제스처(탭) 콜백 안에서 호출해야 브라우저가 허용한다(비동기 완료를
-   * 기다리는 것은 괜찮지만, 호출 자체가 setTimeout/Promise 콜백 등 제스처 밖에서 일어나면 무시된다).
-   * Android/기타 플랫폼엔 이 API가 없다 — 권한 개념 자체가 없으므로 항상 true.
+   * iOS 는 네이티브 CLLocationManager 헤딩(GpsPlugin.startHeading, W14)을 쓴다 — 위치 권한
+   * 재사용, 별도 동의 없음. 그래서 "권한 팝업"은 원래도 안 뜨는 게 정상이다(대표가 실기기에서
+   * 확인한 "팝업이 안 떴다"는 관찰과 일치 — 이 경로에는 팝업 자체가 없다).
+   *   근거(WebFetch/WebSearch, 2026-08-07): iOS 15+ WKWebView 는 앱이 WKUIDelegate 의
+   *   `requestDeviceOrientationAndMotionPermissionFor` 를 구현해야만 DeviceOrientationEvent 를
+   *   전달한다. 이 저장소가 vendoring 한 Capacitor 프레임워크 소스
+   *   (`native/ios/Vendor/Capacitor/.../WebViewDelegationHandler.swift`) 는 이미 그 콜백을
+   *   `decisionHandler(.grant)` 로 **자동 승인**하도록 구현돼 있다 — 그래서 웹 API 경로에서도
+   *   OS 팝업이 안 뜬 것은 맞지만, WKWebView 자체가 실기기에서 deviceorientation 이벤트를
+   *   안정적으로 전달하지 못하는 별도의 오랜 신뢰성 문제가 있다(Apple 개발자 포럼 다수 보고,
+   *   home-assistant #4257 등) — NSMotionUsageDescription 유무와 무관하다(CoreMotion 권한이
+   *   아니라 WebKit 자체의 이벤트 디스패치 문제). 그래서 대표 승인으로 CLLocationManager
+   *   기반 네이티브 헤딩으로 전환했다(CoreMotion 미사용 — Motion 권한 불필요).
+   * Android/웹: DeviceOrientationEvent.requestPermission() 이 있는 플랫폼(iOS Safari 등)에서만
+   * 실제로 동의를 구한다. 없는 플랫폼(Android/데스크톱)은 권한 개념 자체가 없으므로 항상 true —
+   * "허용됨"과 "권한 불필요"를 같은 true 로 합쳐 반환한다는 뜻이다. 호출부는 이미 fail-open으로
+   * 설계돼 있어(거부/미지원 모두 'follow' 진입 후 GPS course 폴백) 이 구분이 없어도 동작에는
+   * 영향이 없지만, 디버깅 시 오해하지 않도록 남긴다 — 인터페이스를 boolean 에서 3-state 로
+   * 바꾸는 것은 호출부 영향이 커 최소 변경 원칙상 보류했다.
    */
   async requestCompassPermission(): Promise<boolean> {
+    if (this.isNative && this.platform === 'ios') {
+      const { status } = await Gps.requestPermission();
+      return status === 'granted';
+    }
     const DOE = (typeof DeviceOrientationEvent !== 'undefined'
       ? (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> })
       : undefined);
@@ -295,15 +318,33 @@ class NativeInterface {
   }
 
   /**
-   * 자력계 기반 나침반 방위를 구독한다. 구독 해제 함수를 반환한다(watchLocation과 동일 패턴).
-   * iOS: webkitCompassHeading(진북 기준, 이미 보정됨) — 있으면 그대로 쓴다.
-   * Android/기타: deviceorientationabsolute(있으면, 절대 방위) → 없으면 deviceorientation(상대값일
+   * 나침반 방위를 구독한다. 구독 해제 함수를 반환한다(watchLocation과 동일 패턴).
+   * iOS 네이티브: GpsPlugin.startHeading() + 'headingUpdate' 리스너(CLHeading, 이미 진북 보정).
+   * Android/웹: deviceorientationabsolute(있으면, 절대 방위) → 없으면 deviceorientation(상대값일
    * 수 있으나 대부분 기기에서 실질적으로 절대값에 가까움) 폴백. alpha 는 화면 회전을 보정하지
    * 않으므로 screen.orientation.angle 을 더해 "화면이 보여주는 위" 기준으로 정규화한다.
+   * webkitCompassHeading 분기는 남겨둔다 — 네이티브 앱(iOS)은 위에서 먼저 갈라지므로 이 웹
+   * 분기는 실제로는 Android/데스크톱/모바일 Safari(비네이티브 테스트)에만 도달하지만, 모바일
+   * Safari 로 열었을 때는 여전히 webkitCompassHeading 이 더 정확한 값을 준다.
    * 기기에 자력계/DeviceOrientation 자체가 없으면(구형 기기·데스크톱) no-op 구독을 반환한다 —
    * 호출부는 이 경우 한 번도 handler 가 불리지 않는 것으로 판정해 GPS course 폴백을 유지한다.
    */
   watchCompassHeading(handler: CompassHeadingHandler): () => void {
+    if (this.isNative && this.platform === 'ios') {
+      let listenerHandle: PluginListenerHandle | null = null;
+      let stopped = false;
+      void Gps.addListener('headingUpdate', (e) => handler(e.heading)).then((h) => {
+        if (stopped) { void h.remove(); return; }
+        listenerHandle = h;
+      });
+      void Gps.startHeading();
+      return () => {
+        stopped = true;
+        void listenerHandle?.remove();
+        void Gps.stopHeading();
+      };
+    }
+
     if (typeof window === 'undefined' || typeof DeviceOrientationEvent === 'undefined') return () => {};
 
     const onEvent = (e: DeviceOrientationEvent) => {

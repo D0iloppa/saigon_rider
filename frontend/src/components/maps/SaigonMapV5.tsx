@@ -537,6 +537,7 @@ function SaigonMapV5({
   // 참조: 빌드가 항상 production 모드라 import.meta.env.DEV 게이트가 무의미하기 때문).
   const compassLoggedAvailableRef = useRef(false);
   const compassLoggedDeniedRef = useRef(false);
+  const compassLoggedNoDataRef = useRef(false);
   // 렌더에 쓰는 실제 회전각 — bearing 은 이제 세 소스 중 하나를 합류시킨 단일 변수다. 탭
   // 히트테스트·컬링·라벨/마커 위치회전(rotUnified)·회전 <g> 는 전부 이 값 하나만 본다.
   // enableFollowCompass=false 면 compassMode 가 'north' 를 벗어날 수 없으므로 이 값도 항상
@@ -1036,7 +1037,7 @@ function SaigonMapV5({
         if (compassRequestTokenRef.current !== requestToken) return;
         if (!granted && !compassLoggedDeniedRef.current) {
           compassLoggedDeniedRef.current = true;
-          console.info('[compass] permission denied/unsupported — GPS course 폴백으로 진행');
+          console.warn('[compass] permission denied/unsupported — GPS course 폴백으로 진행');
         }
         // fail-open: 거부/미지원이어도 'follow' 단계로는 진입한다. 자력계가 안 붙으면 아래
         // watchCompassHeading 이 no-op 이고, meDot 워처의 GPS course 폴백이 대신 회전을 맡는다.
@@ -1157,15 +1158,29 @@ function SaigonMapV5({
     if (compassMode !== 'follow') return;
     // 매 follow 진입마다 리셋 — 이전 세션의 가용성 판정이 다음 세션까지 이어지지 않게 한다.
     compassAvailableRef.current = false;
-    return native.watchCompassHeading((heading) => {
+    // 조용한 실패 진단(W14, 2026-08-07) — 자력계가 붙었는지 런타임에 알 수단이 없어 조용히 GPS
+    // course 폴백으로 떨어지면 원인 파악이 안 된다. 3초 내 값이 안 오면 세션당 1회만 알린다
+    // (매 follow 진입마다 다시 뜨긴 하지만 이미 한 번 확인됐으면 재확인 의미가 없어 세션 전역
+    // 플래그로 묶었다 — 과설계 방지, 타이머 하나로 충분).
+    const noDataTimer = window.setTimeout(() => {
+      if (!compassAvailableRef.current && !compassLoggedNoDataRef.current) {
+        compassLoggedNoDataRef.current = true;
+        console.warn('[compass] 3초 내 자력계 값 없음 — GPS course 폴백 유지');
+      }
+    }, 3000);
+    const unwatch = native.watchCompassHeading((heading) => {
       if (!compassAvailableRef.current && !compassLoggedAvailableRef.current) {
         compassLoggedAvailableRef.current = true;
-        console.info('[compass] 자력계 첫 값 수신 — heading:', heading);
+        console.warn('[compass] 자력계 첫 값 수신 — heading:', heading);
       }
       compassAvailableRef.current = true;
       const diff = Math.abs((((heading - compassBearingRef.current) % 360 + 540) % 360) - 180);
       if (diff >= COMPASS_DEADZONE_DEG) setCompassBearing(heading);
     });
+    return () => {
+      window.clearTimeout(noDataTimer);
+      unwatch();
+    };
   }, [compassMode]);
 
   useEffect(() => {

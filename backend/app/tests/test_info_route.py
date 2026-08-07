@@ -59,6 +59,9 @@ class RoutesApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(route.polyline, "encoded")
         self.assertEqual(route.steps[0].instruction, "Rẽ phải")
 
+    @unittest.skip(
+        "TEMP(2026-08-07): 자체 엔진 검증 기간 동안 info_route.py 의 Google 폴백을 차단함 — 복구 시 이 skip 도 제거할 것"
+    )
     async def test_repeated_route_uses_cache_and_calls_google_once(self):
         cache: dict[str, info_route.RouteOut] = {}
 
@@ -128,6 +131,9 @@ class RoutingEngineFallbackTest(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         patch.stopall()
 
+    @unittest.skip(
+        "TEMP(2026-08-07): 자체 엔진 검증 기간 동안 info_route.py 의 Google 폴백을 차단함 — 복구 시 이 skip 도 제거할 것"
+    )
     async def test_engine_url_unset_calls_google_only(self):
         with (
             patch.dict("os.environ", {"ROUTING_ENGINE_URL": ""}),
@@ -153,6 +159,9 @@ class RoutingEngineFallbackTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.steps[0].instruction, "Turn right onto Test St.")
         self.assertEqual(result.steps[0].maneuver, "turn-right")
 
+    @unittest.skip(
+        "TEMP(2026-08-07): 자체 엔진 검증 기간 동안 info_route.py 의 Google 폴백을 차단함 — 복구 시 이 skip 도 제거할 것"
+    )
     async def test_engine_timeout_falls_back_to_google(self):
         with (
             patch.dict("os.environ", {"ROUTING_ENGINE_URL": "http://routing_engine:8002"}),
@@ -164,6 +173,9 @@ class RoutingEngineFallbackTest(unittest.IsolatedAsyncioTestCase):
         google_fetch.assert_awaited_once()
         self.assertTrue(result.configured)
 
+    @unittest.skip(
+        "TEMP(2026-08-07): 자체 엔진 검증 기간 동안 info_route.py 의 Google 폴백을 차단함 — 복구 시 이 skip 도 제거할 것"
+    )
     async def test_engine_no_route_falls_back_to_google(self):
         no_route_trip = {"legs": [], "status": 0}
         with (

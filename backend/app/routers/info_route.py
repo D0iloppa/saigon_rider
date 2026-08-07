@@ -219,12 +219,16 @@ async def get_route(
         result = RouteOut(**payload) if payload is not None else None
 
     if result is None:
-        if not api_key:
-            return RouteOut(configured=False)
-        data = await _fetch_directions(origin_lat, origin_lng, dest_lat, dest_lng, api_key, lang)
-        if data is None:
-            return RouteOut(configured=False)
-        result = _to_route_out(data)
+        # ── TEMP(2026-08-07, 대표 지시): 자체 엔진 검증 기간 동안 Google 폴백을 차단한다.
+        # 폴백이 살아 있으면 엔진 실패를 Google 이 조용히 받아버려 검증이 무의미해진다.
+        # **검증 완료 후 아래 3줄 주석을 해제하고 return 을 제거할 것.**
+        return RouteOut(configured=False)
+        # if not api_key:
+        #     return RouteOut(configured=False)
+        # data = await _fetch_directions(origin_lat, origin_lng, dest_lat, dest_lng, api_key, lang)
+        # if data is None:
+        #     return RouteOut(configured=False)
+        # result = _to_route_out(data)
 
     await _set_cached_route(key, result)
     return result

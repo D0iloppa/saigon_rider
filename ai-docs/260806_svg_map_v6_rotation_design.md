@@ -387,4 +387,6 @@ heading == null  ||  speed == null  ||  speed < 1.5 m/s   →  회전하지 않�
 - `SaigonMapV3.module.css` / `SaigonMapV4.module.css` 는 `.tsx` 가 없는 삭제 잔해다 — **언급만 하고 이번 범위에서 지우지 않는다.**
 - **범위 밖(다시 열지 말 것)**: 3D 틸트, 다중 회전모드, 이징 커스터마이즈, 회전 계층 재논의(D-G 확정).
 
-**개정(2026-08-07)**: 회전축이 on/off 2-state 에서 **3-state 상태기계(north/manual/follow)**로 확장됨 + **두 손가락 수동 회전 제스처** 추가(핀치줌과 공존, 시작 데드존 6°) — 상세는 `ai-docs/context/service-rules.md` §회전(나침반) 참조.
+**개정(2026-08-07, 1차)**: 회전축이 on/off 2-state 에서 **3-state 상태기계(north/manual/follow)**로 확장됨 + **두 손가락 수동 회전 제스처** 추가(핀치줌과 공존, 시작 데드존 6°) — 상세는 `ai-docs/context/service-rules.md` §회전(나침반) 참조.
+
+**개정(2026-08-07, 2차, 대표 지시 — 네이버지도 참조)**: heading 추종을 나침반 버튼에서 ◎ 버튼으로 이관 — ◎ 가 자유→카메라추종→heading추종→자유 3단을 순환하고, 나침반 버튼은 `bearing !== 0`일 때만 나타나는 북향 복귀 전용 버튼이 됨. 수동 회전 데드존도 6°→10°로 상향 + 지배성 판정(`ROTATE_DOMINANCE_RATIO`) 추가(핀치줌만 하는 제스처의 오작동 회전 방지) — 상세는 `ai-docs/context/service-rules.md` §회전(나침반) 참조.

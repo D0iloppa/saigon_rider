@@ -36,10 +36,11 @@ test('SaigonMapV5 declares enableFollowCompass prop with false default', () => {
   );
 });
 
-test('SaigonMapV5 keeps orthogonal follow/compass state slots that cannot leave false without the flag', () => {
+test('SaigonMapV5 keeps follow (boolean) and rotation (3-state) axes that cannot leave their off value without the flag', () => {
   const source = read('SaigonMapV5.tsx');
 
-  // 추종/나침반 상태가 직교 2축(각자 boolean)이고 초기값이 둘 다 false 다.
+  // 추종은 여전히 boolean(isFollowing). 회전축은 2026-08-07 개정으로 3-state 다 — bearing 이
+  // north(0)/manual(manualBearing)/follow(compassBearing) 세 소스 중 하나를 합류시킨다(§상태기계).
   assert.match(
     source,
     /const \[isFollowing, setIsFollowing\] = useState\(false\);/,
@@ -47,8 +48,18 @@ test('SaigonMapV5 keeps orthogonal follow/compass state slots that cannot leave 
   );
   assert.match(
     source,
-    /const \[compassOn, setCompassOn\] = useState\(false\);/,
-    'compassOn state slot missing or not initialized to false',
+    /const \[compassMode, setCompassMode\] = useState<'north' \| 'manual' \| 'follow'>\('north'\);/,
+    'compassMode 3-state slot missing or not initialized to \'north\'',
+  );
+  assert.match(
+    source,
+    /const \[manualBearing, setManualBearing\] = useState\(0\);/,
+    'manualBearing state slot missing or not initialized to 0',
+  );
+  assert.match(
+    source,
+    /const bearing = compassMode === 'manual' \? manualBearing : compassMode === 'follow' \? compassBearing : 0;/,
+    'bearing must merge the three sources (north/manual/follow) into the single variable every other consumer (hit-test/culling/label rotation) reads',
   );
 
   // ◎ 버튼(recenterCurrentContext)이 실제로 setIsFollowing 을 호출해야 한다.
@@ -57,8 +68,12 @@ test('SaigonMapV5 keeps orthogonal follow/compass state slots that cannot leave 
     setterCalls.length > 0,
     'setIsFollowing must be called (◎ button 2-state toggle + gesture free-exit) — 0 calls means the wiring is missing',
   );
-  // 나침반 토글 버튼(toggleCompass)이 setCompassOn 을 호출해야 한다.
-  assert.match(source, /const toggleCompass = useCallback\(\(\) => \{\s*setCompassOn\(\(v\) => !v\);/, 'toggleCompass must flip compassOn independently of isFollowing');
+  // 나침반 토글 버튼(toggleCompass)이 'north'⇄'follow' 만 오간다 — 'manual'→'follow' 직접 전이는 없다.
+  assert.match(
+    source,
+    /const toggleCompass = useCallback\(\(\) => \{\s*setCompassMode\(\(prev\) => \(prev === 'north' \? 'follow' : 'north'\)\);/,
+    'toggleCompass must flip between north and follow (manual also returns to north, never straight to follow)',
+  );
 
   // 킬스위치의 실제 의미는 "0 calls" 가 아니라 "enableFollowCompass 없이는 isFollowing 이 false 를
   // 벗어나지 않는다" 다 — recenterCurrentContext 가 !enableFollowCompass 를 가장 먼저 확인하고 그
@@ -77,14 +92,33 @@ test('SaigonMapV5 keeps orthogonal follow/compass state slots that cannot leave 
   // toggleCompass 는 enableFollowCompass=false 면 렌더되지 않는 버튼에서만 호출되므로(아래 JSX
   // 조건부 렌더), 소스 레벨에 별도 가드가 없어도 되지만 — 나침반 버튼 JSX 자체가
   // enableFollowCompass 로 게이트돼 있어야 한다.
-  assert.match(source, /\{enableFollowCompass && \(\s*<button\s*type="button"\s*className=\{compassOn/, 'compass toggle button must be conditionally rendered on enableFollowCompass');
+  assert.match(source, /\{enableFollowCompass && \(\s*<button\s*type="button"\s*className=\{compassActive/, 'compass toggle button must be conditionally rendered on enableFollowCompass');
 
   // onFollowModeChange 통지 이펙트는 enableFollowCompass 가 false 면 그 자체가 실행되지 않는다
   // (얼리 리턴) — off 경로에서 부모에게 아무 통지도 나가지 않아야 "완전히 동일" 주장이 성립한다.
+  // 외부 계약(state shape)은 boolean 그대로 — compassMode!=='north' 로 파생시켜 전달한다.
   assert.match(
     source,
-    /useEffect\(\(\) => \{\s*if \(!enableFollowCompass\) return;\s*onFollowModeChange\?\.\(\{ following: isFollowing, compassOn \}\);\s*\}, \[enableFollowCompass, isFollowing, compassOn, onFollowModeChange\]\);/,
-    'onFollowModeChange notification effect must early-return when enableFollowCompass is false',
+    /useEffect\(\(\) => \{\s*if \(!enableFollowCompass\) return;[\s\S]*?onFollowModeChange\?\.\(\{ following: isFollowing, compassOn: compassMode !== 'north' \}\);\s*\}, \[enableFollowCompass, isFollowing, compassMode, onFollowModeChange\]\);/,
+    'onFollowModeChange notification effect must early-return when enableFollowCompass is false, and derive compassOn from compassMode !== \'north\'',
+  );
+});
+
+// 수동 회전 제스처도 킬스위치 대상이다(대표 지시: "enableFollowCompass=false 면 회전 기능 전체가
+// 없어야 한다 — 수동 회전 제스처도 포함"). onPointerMove 의 2-포인터(핀치) 분기 안에서 회전 각도
+// 계산/모드 전이 블록 전체가 enableFollowCompass 로 게이트돼 있어야, 미배선 8개 소비처에서 두 손가락
+// 제스처가 여전히 순수 핀치줌(거리만)으로만 동작한다.
+test('manual two-finger rotation is gated behind enableFollowCompass — off path never touches compassMode/manualBearing', () => {
+  const source = read('SaigonMapV5.tsx');
+  const moveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');
+  const moveEnd = source.indexOf('const onPointerUp', moveStart);
+  assert.ok(moveStart >= 0 && moveEnd > moveStart, 'onPointerMove not found');
+  const moveBlock = source.slice(moveStart, moveEnd);
+
+  assert.match(
+    moveBlock,
+    /if \(enableFollowCompass\) \{[\s\S]*?setCompassMode\('manual'\)[\s\S]*?\}\s*g\.lastAngleDeg = angleDeg;\s*\}/,
+    'the rotation-angle tracking block (deadzone accumulation + setCompassMode/setManualBearing) must be wrapped in an enableFollowCompass check inside the 2-pointer branch',
   );
 });
 

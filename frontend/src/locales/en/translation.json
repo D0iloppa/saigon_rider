@@ -1570,6 +1570,7 @@
     "followModeOn": "Following your location — tap to stop",
     "compassModeOn": "Compass on — tap to turn off",
     "compassModeOff": "Compass — tap to turn on",
+    "compassModeManual": "Manually rotated — tap to reset north",
     "centerSelectedArea": "Center selected area",
     "outsideArea": "Outside our service area — showing the city center",
     "selectArea": "We are finding your current location. You can also tap a neighborhood to start.",

@@ -45,11 +45,14 @@ test('SaigonMapV5 expands the L2/L3 ward culling rect for rotation via a rotated
   );
 });
 
-// 사용자 결정(§ 팬/줌 제스처 이탈): 제스처는 추종(isFollowing)만 끄고 나침반(compassOn)은
+// 사용자 결정(§ 팬/줌 제스처 이탈): 제스처는 추종(isFollowing)만 끄고 회전축(compassMode)은
 // 그대로 둔다 — 회전은 각도이고 팬/줌은 중심·범위라 서로 충돌하지 않으며, 사용자가 명시적으로
-// 켠 나침반 토글을 제스처가 몰래 꺼버리면 동작이 예측 불가해진다(구 3-state 순환에서는 이 구분이
-// 불가능했다 — follow/compass 가 하나의 축이었기 때문).
-test('SaigonMapV5 gesture handlers (wheel/pinch/pan) exit isFollowing only, leaving compassOn untouched', () => {
+// 켠 회전을 팬/줌이 몰래 꺼버리면 동작이 예측 불가해진다. 예외: 두 손가락 회전 제스처 자체
+// (핀치 분기 안의 각도 추적, 2026-08-07 신설)는 의도적으로 compassMode 를 'manual' 로 바꾼다
+// (수동 회전이 heading 추종을 해제한다) — 그래서 여기서는 wheel(단일 축 줌)과 pan(단일 포인터)
+// 만 "compassMode 를 손대지 않음"을 검증한다. 핀치의 회전 전이는 별도 계약
+// (saigonMapV5ManualRotation.contract.test.mjs)이 고정한다.
+test('SaigonMapV5 wheel/pan gestures exit isFollowing only and never touch compassMode', () => {
   const source = read('SaigonMapV5.tsx');
 
   const wheelStart = source.indexOf('const onWheel = (e: WheelEvent) => {');
@@ -60,14 +63,20 @@ test('SaigonMapV5 gesture handlers (wheel/pinch/pan) exit isFollowing only, leav
     /if \(isFollowingRef\.current\) setIsFollowing\(false\);/,
     'wheel (zoom) gesture must turn off isFollowing',
   );
-  assert.doesNotMatch(wheelBlock, /setCompassOn\(/, 'wheel gesture must not touch compassOn');
+  assert.doesNotMatch(wheelBlock, /setCompassMode\(/, 'wheel gesture must not touch compassMode');
 
   const pointerMoveStart = source.indexOf('const onPointerMove = (e: PE<SVGSVGElement>) => {');
   const pointerMoveEnd = source.indexOf('const onPointerUp', pointerMoveStart);
   const pointerMoveBlock = source.slice(pointerMoveStart, pointerMoveEnd);
   const exits = pointerMoveBlock.match(/if \(isFollowingRef\.current\) setIsFollowing\(false\);/g) ?? [];
   assert.equal(exits.length, 2, 'pan and pinch branches inside onPointerMove must each turn off isFollowing (found ' + exits.length + ')');
-  assert.doesNotMatch(pointerMoveBlock, /setCompassOn\(/, 'pan/pinch gestures must not touch compassOn');
+
+  // pan(단일 포인터) 분기만 떼어 확인 — 회전은 두 손가락(핀치) 분기에서만 일어나야 한다.
+  const panBranchStart = pointerMoveBlock.indexOf('if (g.lastP) {');
+  assert.ok(panBranchStart >= 0, 'pan branch (if (g.lastP)) not found inside onPointerMove');
+  const panBranch = pointerMoveBlock.slice(panBranchStart);
+  assert.doesNotMatch(panBranch, /setCompassMode\(/, 'pan gesture must not touch compassMode');
+  assert.doesNotMatch(panBranch, /setManualBearing\(/, 'pan gesture must not touch manualBearing');
 });
 
 test('SaigonMapV5 heading policy uses the reference implementation constants and a last-valid-bearing hold (D-I §9.3)', () => {
@@ -100,7 +109,7 @@ test('SaigonMapV5 follow/compass camera recentring goes through centerOnUnified,
   assert.doesNotMatch(block, /focusLatLng\(/, 'the per-tick follow path must not call focusLatLng');
 });
 
-test('ko/en/vi translation.json declare the same key set (map.followModeOn / map.compassModeOn / map.compassModeOff present in all three)', () => {
+test('ko/en/vi translation.json declare the same key set (map.followModeOn / map.compassModeOn / map.compassModeOff / map.compassModeManual present in all three)', () => {
   const locales = ['ko', 'en', 'vi'];
   const collectKeys = (obj, prefix = '') => {
     const keys = [];
@@ -119,6 +128,7 @@ test('ko/en/vi translation.json declare the same key set (map.followModeOn / map
   assert.ok(keySets[0].keys.has('map.followModeOn'), 'ko is missing map.followModeOn');
   assert.ok(keySets[0].keys.has('map.compassModeOn'), 'ko is missing map.compassModeOn');
   assert.ok(keySets[0].keys.has('map.compassModeOff'), 'ko is missing map.compassModeOff');
+  assert.ok(keySets[0].keys.has('map.compassModeManual'), 'ko is missing map.compassModeManual');
 
   const [base, ...rest] = keySets;
   for (const other of rest) {

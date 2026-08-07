@@ -23,10 +23,11 @@ test('meDot watcher updates compassBearing outside the service-area gate (headin
   assert.ok(watcherStart >= 0 && watcherEnd > watcherStart, 'meDot watcher callback not found');
   const block = source.slice(watcherStart, watcherEnd);
 
-  // insideArea 판정이 먼저 오고, compassBearing 갱신 로직(compassOnRef 체크부터)은 그 if(insideArea)
-  // 블록 밖(뒤)에 있어야 한다 — 즉 지역 밖이어도 실행된다.
+  // insideArea 판정이 먼저 오고, compassBearing 갱신 로직(compassModeRef 체크부터)은 그 if(insideArea)
+  // 블록 밖(뒤)에 있어야 한다 — 즉 지역 밖이어도 실행된다. 2026-08-07: 게이트가 boolean compassOnRef
+  // 에서 3-state compassModeRef !== 'follow' 로 바뀌었다(같은 위치, 같은 역할).
   const insideAreaIdx = block.indexOf('const insideArea = inServiceArea(pos.lat, pos.lng);');
-  const compassCheckIdx = block.indexOf('if (!compassOnRef.current) return;');
+  const compassCheckIdx = block.indexOf("if (compassModeRef.current !== 'follow') return;");
   assert.ok(insideAreaIdx >= 0, 'insideArea determination not found');
   assert.ok(compassCheckIdx > insideAreaIdx, 'compass gate must come after the insideArea determination');
 
@@ -93,13 +94,13 @@ test('getCamCenter falls back to the viewBox center when the last coordinate was
 });
 
 // 사용자 결정 1 — 추종과 나침반이 독립이다: "자유(미추종)+나침반" 조합이 도달 가능해야 한다.
-// 상태가 진짜 직교라면 나침반 토글(setCompassOn)이 isFollowing 을 전혀 참조/변경하지 않아야 한다.
+// 상태가 진짜 직교라면 나침반 토글(setCompassMode)이 isFollowing 을 전혀 참조/변경하지 않아야 한다.
 test('follow and compass are independent axes — toggleCompass never reads or writes isFollowing', () => {
   const source = read('SaigonMapV5.tsx');
   const start = source.indexOf('const toggleCompass = useCallback(() => {');
   const end = source.indexOf('}, []);', start);
   assert.ok(start >= 0 && end > start, 'toggleCompass callback not found');
   const block = source.slice(start, end);
-  assert.doesNotMatch(block, /isFollowing/, 'toggleCompass must not touch isFollowing — free+compass must be reachable independently of follow state');
-  assert.match(block, /setCompassOn\(\(v\) => !v\);/, 'toggleCompass must flip compassOn');
+  assert.doesNotMatch(block, /isFollowing/, 'toggleCompass must not touch isFollowing — free+rotation must be reachable independently of follow state');
+  assert.match(block, /setCompassMode\(\(prev\) => \(prev === 'north' \? 'follow' : 'north'\)\);/, 'toggleCompass must toggle between north and follow');
 });

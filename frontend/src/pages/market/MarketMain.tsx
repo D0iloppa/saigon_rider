@@ -2,7 +2,6 @@ import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useS
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Bell, ChevronDown, ChevronLeft, Heart, MapPinned, PackageOpen, Plus, Search, X, ZoomIn } from 'lucide-react';
-import { Chip } from '@/components/ui/Chip';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import StateBlock from '@/components/ui/StateBlock';
@@ -58,7 +57,6 @@ const AUTO_BUBBLE_MAX_LAT_SPAN = 0.03;
 const AUTO_BUBBLE_CENTER_RADIUS = 0.25;
 interface SavedState {
   sort: ListingSort;
-  hideSold: boolean;
   scrollTop: number;
 }
 /** 콜드 스타트(새 웹뷰 세션) 표식 — scrollTop·viewMode 를 세션 범위로 유지하는 데 쓴다. */
@@ -84,7 +82,7 @@ const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
 /**
  * 오토바이 라이더 거래 플랫폼 — 동네 피드 (SGR-287)
  * 1열 매물 카드 (REF-02): 실이미지 썸네일 + 제목 + `동네·시간` + 가격(굵게) + ♥.
- * GPS 기반 동네(HCMC 밖이면 폴백) · 정렬 · 거래완료 숨김 · 무한스크롤 · 당겨서 새로고침.
+ * GPS 기반 동네(HCMC 밖이면 폴백) · 정렬 · 무한스크롤 · 당겨서 새로고침.
  */
 export default function MarketMain() {
   const navigate = useNavigate();
@@ -106,7 +104,6 @@ export default function MarketMain() {
   const [newKw, setNewKw] = useState('');
   const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
   const [sortOpen, setSortOpen] = useState(false);
-  const [hideSold, setHideSold] = useState(savedState?.hideSold ?? false);
   // 뷰 모드는 **URL 쿼리**로 둔다(동네지도 `?view=map` 과 동일). 탭으로 새로 들어오면 쿼리가
   // 없어 항상 리스트로 시작하고(대표 지시 2026-08-06), 상세로 갔다가 back 하면 쿼리가 남아
   // 지도 상태가 그대로 복원된다 — 종전 localStorage 방식은 탭 재진입에도 지도로 열렸다.
@@ -213,24 +210,24 @@ export default function MarketMain() {
     (page: number) =>
       listReady
         ? fetchListings({
-            sort, hideSold,
+            sort,
             lat: coords?.lat, lng: coords?.lng,
             radiusKm: locationMode === 'gps' ? NEARBY_RADIUS_KM : null,
             categoryId,
             viewerId: userId, page, size: 20,
           })
         : Promise.resolve({ items: [], total: 0, page, size: 20 }),
-    [listReady, sort, hideSold, coords, locationMode, categoryId, userId],
+    [listReady, sort, coords, locationMode, categoryId, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, hideSold, coords, locationMode, categoryId, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, locationMode, categoryId, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
   );
 
-  // 지도 뷰 마커 조회 — 현재 필터(거래완료 숨기기·지역) + 뷰포트 bbox. 뷰포트 이동마다 무제한
+  // 지도 뷰 마커 조회 — 현재 필터(카테고리·정렬·지역) + 뷰포트 bbox. 뷰포트 이동마다 무제한
   // 호출되지 않도록 400ms 디바운스(onBboxChange, SaigonMapV5→MarketMain). 정렬은 지도에서
   // 의미가 약해(bbox 기준 조회) 여전히 넘기되 UI 컨트롤만 숨김(요구사항 6).
   const mapReqSeqRef = useRef(0);
@@ -248,7 +245,7 @@ export default function MarketMain() {
     // 지도는 뷰포트(bbox) 기준으로만 조회한다 — 화면에 보이는 영역이 곧 범위라 반경/행정구역
     // 필터를 겹쳐 걸면 보이는 곳에 핀이 안 뜨는 불일치가 생긴다.
     fetchListings({
-      sort, hideSold,
+      sort,
       minLat: bbox.S, maxLat: bbox.N, minLng: bbox.W, maxLng: bbox.E,
       categoryId,
       viewerId: userId, page: 1, size: 50,
@@ -260,9 +257,9 @@ export default function MarketMain() {
       if (seq !== mapReqSeqRef.current) return;
       setMapError(true);
     });
-  }, [sort, hideSold, categoryId, userId]);
+  }, [sort, categoryId, userId]);
 
-  // 필터(카테고리·정렬·거래완료 숨김)가 바뀌면 마지막 bbox 로 지도를 다시 조회한다.
+  // 필터(카테고리·정렬)가 바뀌면 마지막 bbox 로 지도를 다시 조회한다.
   // 종전엔 지도 조회가 **bbox 변경 때만** 돌아서, 칩을 눌러도 핀이 그대로였다
   // (목록만 바뀌어 지도·목록이 어긋났다 — 대표 지적 2026-08-06 카테고리 칩 도입 중 발견).
   // ⚠️ 알려진 한계 — **콜드 스타트 딥링크** `/market?view=map`(브라우저 새로고침·외부 링크)로
@@ -277,13 +274,13 @@ export default function MarketMain() {
   // (마운트에 돌면 onBboxChange 조회와 중복되고, 줌 게이트가 닫힌 순간이면 핀을 지운다).
   const filterSigRef = useRef<string | null>(null);
   useEffect(() => {
-    const sig = `${categoryId}|${sort}|${hideSold}`;
+    const sig = `${categoryId}|${sort}`;
     const prev = filterSigRef.current;
     filterSigRef.current = sig;
     if (prev === null || prev === sig) return; // 최초 등록이거나 변화 없음
     if (viewMode !== 'map' || !bboxFilter) return;
     fetchMapBbox(bboxFilter);
-  }, [categoryId, sort, hideSold, viewMode, bboxFilter, fetchMapBbox]);
+  }, [categoryId, sort, viewMode, bboxFilter, fetchMapBbox]);
 
   const bboxTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const handleMapBboxChange = useCallback((bbox: { N: number; S: number; E: number; W: number }) => {
@@ -300,18 +297,18 @@ export default function MarketMain() {
   // 표시 범위는 여기 저장하지 않는다 — useLocationStore 가 자체 persist 한다.
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sort, hideSold, scrollTop: 0 }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sort, scrollTop: 0 }));
     } catch { /* ignore */ }
-  }, [sort, hideSold]);
+  }, [sort]);
 
   // 상세 이동 전 현재 스크롤 위치 저장
   const saveScroll = useCallback(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sort, hideSold, scrollTop: containerRef.current?.scrollTop ?? 0,
+        sort, scrollTop: containerRef.current?.scrollTop ?? 0,
       }));
     } catch { /* ignore */ }
-  }, [sort, hideSold, containerRef]);
+  }, [sort, containerRef]);
 
   // 초기 로딩 완료 후 저장된 스크롤 위치 복원
   const scrollRestoredRef = useRef(false);
@@ -516,7 +513,7 @@ export default function MarketMain() {
           })}
         </div>
 
-        {/* Sort (bottom sheet) + hide-sold toggle — 지도 진입은 하단 플로팅 지도보기 버튼(동네지도와 통일) */}
+        {/* Sort (bottom sheet) — 지도 진입은 하단 플로팅 지도보기 버튼(동네지도와 통일) */}
         <div className={styles.controlRow}>
           {/* 정렬은 지도 모드에서 의미가 약함(bbox 기준 조회) — 리스트 모드에서만 노출 */}
           {viewMode === 'list' && (
@@ -525,17 +522,6 @@ export default function MarketMain() {
               <ChevronDown size={16} strokeWidth={2.2} />
             </button>
           )}
-          <div className={styles.controlRowRight}>
-            <Chip
-              as="button"
-              variant={hideSold ? 'dark' : 'surface'}
-              aria-pressed={hideSold}
-              onClick={() => setHideSold((v) => !v)}
-              style={{ cursor: 'pointer' }}
-            >
-              {t('market.hideSold', { defaultValue: '거래완료 숨기기' })}
-            </Chip>
-          </div>
         </div>
       </div>
       )}

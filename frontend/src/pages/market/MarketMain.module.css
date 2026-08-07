@@ -85,14 +85,6 @@
   min-height: 26px;
 }
 
-/* hide-sold + list/map 토글 그룹 — sortSelect 가 지도 모드에서 숨겨져도 항상 우측 정렬 */
-.controlRowRight {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
 .sortSelect {
   display: flex;
   align-items: center;

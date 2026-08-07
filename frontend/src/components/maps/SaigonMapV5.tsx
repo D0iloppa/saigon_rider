@@ -1165,6 +1165,8 @@ function SaigonMapV5({
   // GPS 를 켜지 않는다. **카메라는 따라가지 않는다** — 표시 전용 (service-rules §지도 렌더).
   // 언마운트/점 소멸 시 watch 해제. 서비스 지역 밖 좌표는 갱신을 건너뛴다(마지막 유효 위치 유지).
   const meDotActive = meLatLng !== null;
+  // W16 (2026-08-07, 회귀 수정) — 자력계 구독 게이트, 사유는 아래 구독 effect 주석 참조.
+  const compassSubscriptionActive = meDotActive || compassMode === 'follow';
   useEffect(() => {
     if (!meDotActive) return;
     return native.watchLocation((pos) => {
@@ -1202,22 +1204,33 @@ function SaigonMapV5({
     });
   }, [meDotActive, centerOnUnified]);
 
-  // 자력계 나침반 — **내 위치 점이 보이는 동안 상시 구독**한다(W15, 2026-08-07 대표 결정).
-  // 이전에는 heading추종('follow') 중일 때만 구독했는데, 내 위치 점의 heading 삼각형(아래 meDot
-  // 렌더)이 추종과 무관하게 항상 방향을 가리켜야 해서 게이트를 meDotActive 로 옮겼다. 점을 안 쓰는
-  // 화면(위치 피커 등)에서는 여전히 센서를 켜지 않는다 — 게이트가 사라진 게 아니라 바뀐 것이다.
+  // 자력계 나침반 — **내 위치 점이 보이거나 heading추종 중이면 구독**한다(W15, 2026-08-07 대표
+  // 결정 → W16, 2026-08-07 회귀 수정으로 OR 확장). W15 는 heading 삼각형(아래 meDot 렌더)이 추종과
+  // 무관하게 항상 방향을 가리켜야 해서 게이트를 meDotActive 로 옮겼는데, 그 김에 원래의
+  // `compassMode==='follow'` 게이트를 완전히 대체해버렸다 — 서비스 권역 밖(meLatLng===null)에서는
+  // meDotActive 가 항상 false 라 heading추종에 들어가도 구독이 전혀 안 걸려 지도가 안 도는 회귀를
+  // 냈다(대표가 한국에서 실기기로 재현). `compassSubscriptionActive = meDotActive ||
+  // compassMode==='follow'` 로 OR 확장해 두 목적(heading 삼각형 표시 / 권역 밖 회전 검증)을 모두
+  // 만족시킨다. 점을 안 쓰고 나침반도 안 쓰는 화면(위치 피커 등)은 둘 다 false 라 여전히 센서를
+  // 켜지 않는다 — 게이트를 없앤 게 아니라 넓힌 것이다.
   // 킬스위치 불변: enableFollowCompass=false 면 compassMode 가 'north' 를 벗어날 수 없어
   // bearing 합류식이 compassBearing 을 읽지 않으므로, 여기서 compassBearing 이 갱신돼도 회전은
-  // 일어나지 않는다(삼각형 방향만 바뀐다).
+  // 일어나지 않는다(삼각형 방향만 바뀐다). 또한 compassMode 가 'follow' 가 될 수 있는 유일한
+  // 경로(◎ 3단 순환)가 이 킬스위치 안에 있으므로, enableFollowCompass=false 인 소비처는 OR 의
+  // 두번째 항이 항상 거짓이라 이 확장으로 새로 구독이 걸리는 일이 없다.
   // GPS 와 무관하므로 서비스 지역 밖에서도, 정지 상태에서도 동작한다(대표 지시 2026-08-07, 한국에서도
   // 검증 가능해야 함). native.ts(watchCompassHeading)가 유일한 브리지 — DeviceOrientationEvent를
   // 여기서 직접 구독하지 않는다(§8 네이티브 브리지 규칙).
   useEffect(() => {
-    if (!meDotActive) return;
-    // 구독 시작마다 리셋 — 이 플래그는 "이 구독이 값을 낸 적 있는가"를 뜻한다. 게이트가
-    // compassMode → meDotActive 로 바뀌었으므로 리셋 지점도 함께 옮겼다(follow 진입은 이제
-    // 구독 생성/해제 시점이 아니다). GPS course 폴백(위 meDot 워처의 compassAvailableRef 체크)은
-    // 그대로 "자력계가 아직 한 번도 값을 안 냈을 때만 동작"한다.
+    if (!compassSubscriptionActive) return;
+    // 구독 시작마다 리셋 — 이 플래그는 "이 구독이 값을 낸 적 있는가"를 뜻한다. 이제 구독이
+    // meDotActive/compassMode 두 조건 중 하나의 전이로도 재생성될 수 있다 — 예컨대 권역 밖에서
+    // heading추종에 들어갔다가(구독 시작) 나침반 버튼으로 north 복귀 후(구독 해제) 다시
+    // heading추종(재구독)하면 그때마다 리셋된다. 이건 매번 새 native.watchCompassHeading 구독이라
+    // "이 구독이 값을 낸 적 있는가"라는 플래그 의미상 올바르다 — 리스너가 실제로 새로 붙으므로 값을
+    // 낸 적 없는 상태로 되돌아가는 게 맞다(GPS course 폴백 판단이 옛 구독의 성공 여부에 오염되지
+    // 않게 한다). 세션 전역 진단 플래그(compassLogged*Ref)는 그대로 재리셋하지 않는다 — 이미 한 번
+    // 확인됐으면 재확인은 의미가 없다.
     compassAvailableRef.current = false;
     // 조용한 실패 진단(W14, 2026-08-07) — 자력계가 붙었는지 런타임에 알 수단이 없어 조용히 GPS
     // course 폴백으로 떨어지면 원인 파악이 안 된다. 3초 내 값이 안 오면 세션당 1회만 알린다
@@ -1243,7 +1256,7 @@ function SaigonMapV5({
       window.clearTimeout(noDataTimer);
       unwatch();
     };
-  }, [meDotActive]);
+  }, [compassSubscriptionActive]);
 
   useEffect(() => {
     if (locateRef) locateRef.current = () => void runLocate();

@@ -89,19 +89,34 @@ test('me-dot renders a heading triangle at (compassBearing - bearing), hidden un
   assert.match(block, /my - r \* 3\.35/, 'triangle apex must sit outside the meRing (r*2)');
 });
 
-test('magnetometer heading is subscribed while the me-dot is visible (not only during heading-follow), and unsubscribed on teardown', () => {
+// W16 (2026-08-07, 회귀 수정): W15 는 게이트를 `compassMode==='follow'` 에서 `meDotActive` 로
+// **완전 대체**했다 — 그 결과 서비스 권역 밖(meLatLng===null, meDotActive 항상 false)에서
+// heading추종에 들어가도 자력계 구독이 전혀 안 걸려 지도가 안 도는 회귀가 났다(대표가 한국
+// 실기기로 재현). 자력계를 도입한 애초 목적이 "GPS·위치와 무관해야 한국에서도 회전 검증 가능"인데
+// meDotActive 게이트는 그 목적과 정면으로 충돌한다. 게이트는 `meDotActive || compassMode==='follow'`
+// 로 OR 확장해야 한다 — meDotActive 하나로 좁히면 이 회귀가 재발한다.
+test('magnetometer heading is subscribed while the me-dot is visible OR heading-follow is active (outside the service area too), and unsubscribed on teardown', () => {
   const source = read('SaigonMapV5.tsx');
   const start = source.indexOf('const unwatch = native.watchCompassHeading(');
   assert.ok(start >= 0, 'native.watchCompassHeading subscription not found');
   const effectStart = source.lastIndexOf('useEffect(() => {', start);
-  const effectEnd = source.indexOf('}, [meDotActive]);', start);
+  const effectEnd = source.indexOf('}, [compassSubscriptionActive]);', start);
   assert.ok(
     effectEnd > start,
-    'the magnetometer effect must depend on [meDotActive] — the me-dot heading triangle must point somewhere regardless of the follow stage (대표 결정 2026-08-07). Killswitch is unaffected: with enableFollowCompass=false, compassMode never leaves north so the bearing formula never reads compassBearing.',
+    'the magnetometer effect must depend on [compassSubscriptionActive] (meDotActive || compassMode==="follow") — meDotActive alone must not gate this: outside the service area meDotActive is always false, so a meDotActive-only gate kills heading-follow rotation there (W16 회귀). Killswitch is unaffected: with enableFollowCompass=false, compassMode never leaves north so compassMode==="follow" is always false and the bearing formula never reads compassBearing.',
   );
   const effect = source.slice(effectStart, effectEnd);
-  assert.match(effect, /if \(!meDotActive\) return;/, 'the effect must still no-op on screens that do not show the me-dot (location picker etc.) — the gate moved, it did not disappear');
+  assert.match(effect, /if \(!compassSubscriptionActive\) return;/, 'the effect must still no-op on screens that do not show the me-dot and are not heading-following (location picker etc.) — the gate widened, it did not disappear');
   assert.match(effect, /compassAvailableRef\.current = false;/, 'compassAvailableRef must be reset per subscription (it means "has this subscription produced a value") so the GPS-course fallback stays correct');
   assert.match(effect, /return \(\) => \{[\s\S]*unwatch\(\);/, 'the subscription must be released on teardown/unmount');
   assert.match(effect, /setHeadingKnown\(true\);/, 'receiving a heading value must flip headingKnown even when the 8° deadzone skips setCompassBearing');
+});
+
+test('compassSubscriptionActive is meDotActive OR compassMode==="follow" (not meDotActive alone)', () => {
+  const source = read('SaigonMapV5.tsx');
+  assert.match(
+    source,
+    /const compassSubscriptionActive = meDotActive \|\| compassMode === 'follow';/,
+    'the gate must be an OR of meDotActive and compassMode==="follow" — narrowing this back to meDotActive alone kills heading-follow rotation outside the service area (W16 회귀, 대표가 한국 실기기로 재현)',
+  );
 });

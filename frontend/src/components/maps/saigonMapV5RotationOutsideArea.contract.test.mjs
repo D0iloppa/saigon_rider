@@ -97,6 +97,31 @@ test('getCamCenter falls back to the viewBox center when the last coordinate was
 // 한다(예: 자유 단계에서 두 손가락으로 돌리면 compassMode='manual', isFollowing 은 그대로 false).
 // 재개정(2026-08-07, 네이버지도 모델): heading 추종은 이제 ◎ 의 몫이라 나침반 버튼(toggleCompass)
 // 은 순수 "북향 리셋"이 됐다 — isFollowing 을 전혀 참조/변경하지 않아야 한다는 계약은 그대로 선다.
+// W16 (2026-08-07, 회귀 수정) — 이 파일의 기존 테스트들은 모두 "meDot 워처(native.watchLocation)"
+// 안의 compassBearing 갱신 로직만 검증했다. 그 로직은 W15 이후로도 그대로 `compassModeRef.current
+// !== 'follow'` 게이트를 썼기 때문에 통과했다. 그런데 실제 회귀는 그 워처가 아니라 **자력계 구독
+// 자체**(별도 useEffect, native.watchCompassHeading)가 `meDotActive` 단독 게이트로 바뀌어 서비스
+// 권역 밖(meLatLng===null → meDotActive 항상 false)에서 구독이 걸리지 않은 것이었다 — 즉 위 워처가
+// "자력계가 이미 compassBearing 을 갱신하고 있으니 GPS course 로 덮어쓰지 않겠다"고 올바르게
+// 양보하는데, 정작 자력계 쪽이 구독조차 안 돼 있어 아무도 compassBearing 을 갱신하지 않는
+// 조합이었다. 이 파일이 meDot 워처만 보고 자력계 구독 effect 를 전혀 다루지 않아 놓쳤다 — 아래
+// 테스트로 그 구독 게이트가 권역 밖에서도(=meDotActive 와 무관하게, compassMode==='follow' 만으로)
+// 걸릴 수 있음을 직접 못박아 보강한다.
+test('magnetometer subscription gate does not require meDotActive when heading-follow is active (outside-area rotation must still work without a me-dot)', () => {
+  const source = read('SaigonMapV5.tsx');
+  assert.match(
+    source,
+    /const compassSubscriptionActive = meDotActive \|\| compassMode === 'follow';/,
+    'the magnetometer subscription gate must be meDotActive OR compassMode==="follow" — a meDotActive-only gate silently drops the subscription outside the service area (meLatLng===null there), which is exactly the scenario this contract file is about',
+  );
+  const start = source.indexOf('const unwatch = native.watchCompassHeading(');
+  const effectStart = source.lastIndexOf('useEffect(() => {', start);
+  const effectEnd = source.indexOf('}, [compassSubscriptionActive]);', start);
+  assert.ok(effectEnd > start, 'magnetometer effect must depend on [compassSubscriptionActive]');
+  const effect = source.slice(effectStart, effectEnd);
+  assert.match(effect, /if \(!compassSubscriptionActive\) return;/, 'magnetometer effect must gate on the OR-combined flag, not meDotActive alone');
+});
+
 test('compass button (toggleCompass) resets to north only and never reads or writes isFollowing', () => {
   const source = read('SaigonMapV5.tsx');
   const start = source.indexOf('const toggleCompass = useCallback(() => {');

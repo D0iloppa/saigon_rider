@@ -2,14 +2,14 @@
 
 > 배경: Google Routes API v2 (`computeRoutes`, TWO_WHEELER) 는 호출당 과금이라 대표가 제거를 지시했다. 대표 결정: 라우팅 알고리즘을 직접 구현하지 않고 Valhalla 또는 OSRM 을 docker compose 5번째 서비스로 자체호스팅한다. 프론트·`backend/app/routers/info_route.py` 는 이번 작업에서 건드리지 않았다(W4 담당).
 >
-> **본 문서 작성 시점 상태: 엔진 최종 선정 미결 — 대표 결정 대기.** 아래 §1 에 결정적 갈림길을 그대로 남긴다.
+> **최종 결정됨 — 옵션 A(Valhalla 유지 + BFF 자체 vi/ko/en 문구 템플릿).** OSRM(옵션 B)·Valhalla 소스 재빌드(옵션 C)는 폐기. 근거: 오토바이 프로파일(§1-B)을 추가 개발 없이 즉시 확보하고 다중 리전 단일 컨테이너 이점(§3-B)을 지키면서, 응답의 `maneuvers[].type`(정수)과 `street_names`(배열)가 이미 분리돼 있어 BFF 쪽에서 vi/ko/en 문장을 조립하는 게 충분히 가능하다는 판단. §6 에 W4 인수인계 항목을 정리했다.
 
 ## 0. 실측 환경
 
 - WSL2, `/mnt/c` (drvfs). 작업 중 여유공간 101G~186G 유지(20GB 임계 미도달, 중단 없이 진행).
 - 기존 4종(정확히는 11개 컨테이너: nginx/frontend/admin_frontend/bff/engine/database/imgproxy/redis/worker/noti_worker/wiki/mcp_dev) 전부 무중단 유지 — 이번 작업에서 정지시킨 적 없음.
 
-## 1. 엔진 선정 — 실증 결과 (결정적 갈림길, 대표 판단 필요)
+## 1. 엔진 선정 — 실증 결과 (결정적 갈림길 → 옵션 A 로 결정됨)
 
 ### 1-A. 다국어 턴바이턴 내레이션 (vi 최우선/en 필수/ko 있으면 좋음)
 
@@ -42,11 +42,11 @@
 | 컨테이너 구성 | 1개(라우팅 엔진 단독) | 최소 2개(osrm-backend + text-instructions 래퍼 서비스) 필요 |
 | 다중 리전 병합 | 실증됨 — 아래 §2 | 미실증(범위 밖) |
 
-**대표 결정이 필요한 지점:** vi 내레이션을 엔진 자체 내장으로 확보하려면(Valhalla) 커스텀 로케일 데이터를 직접 작성해 Valhalla 를 **소스에서 재빌드**해야 하고(공식 배포 이미지엔 없음 — 런타임 파일 주입 방식이 아니라 컴파일 타임 리소스), OSRM 으로 가면 별도 Node 서비스를 새로 세우되 vi/ko 번역 데이터는 이미 있다. 아래 두 옵션 중 하나를 결정해달라(§5 폴백 선택지와 연결):
+**결정됨 — 옵션 A.** 검토했던 3안:
 
-- **옵션 A (Valhalla 유지)**: 오토바이 프로파일은 즉시 확보. vi/ko 내레이션은 당장 없음 → BFF 가 `maneuver type` 코드를 받아 **BFF 자체 vi/ko 문구 템플릿**(OSRM 의 `vi.json`/`ko.json` 구조를 참고해 우리가 직접 작성)으로 렌더링. 엔진은 "경로계산+maneuver 코드"만, "문장 생성"은 BFF 책임으로 이전.
-- **옵션 B (OSRM + 별도 text-instructions 서비스)**: vi/ko 문구 데이터는 기존 라이브러리 재사용 가능. 대신 오토바이 프로파일 커스텀 lua 작성 + 6번째 컨테이너(Node 래퍼) 필요 — 인프라·개발 범위가 늘어남.
-- **옵션 C (Valhalla 소스 재빌드로 vi/ko 로케일 직접 추가)**: 표준 이미지 대신 커스텀 이미지 빌드 파이프라인이 새로 필요(CI 부담 증가). 미검토(범위 밖, 시간상 실측 안 함).
+- **옵션 A (Valhalla 유지) — 채택.** 오토바이 프로파일은 즉시 확보. vi/ko 내레이션은 당장 없음 → BFF 가 `maneuver type` 코드 + `street_names` 배열을 받아 **BFF 자체 vi/ko/en 문구 템플릿**(OSRM 의 `vi.json`/`ko.json` 구조를 참고해 우리가 직접 작성)으로 렌더링. 엔진은 "경로계산+maneuver 코드"만, "문장 생성"은 BFF 책임으로 이전. W4 인수인계 세부는 §6.
+- **옵션 B (OSRM + 별도 text-instructions 서비스) — 폐기.** vi/ko 문구 데이터는 기존 라이브러리 재사용 가능했으나, 오토바이 프로파일 커스텀 lua 작성 + 6번째 컨테이너(Node 래퍼) 가 추가로 필요해 인프라·개발 범위가 늘어난다는 점이 옵션 A 대비 불리하게 판단됨.
+- **옵션 C (Valhalla 소스 재빌드로 vi/ko 로케일 직접 추가) — 폐기.** 표준 이미지 대신 커스텀 이미지 빌드 파이프라인이 새로 필요(CI 부담 증가). 미검토 상태로 폐기(범위 밖, 시간상 실측 안 함).
 
 ## 2. 데이터 수집 — 실측치
 
@@ -109,7 +109,7 @@ maneuvers:
 
 같은 `docker ps` 컨테이너 ID(`saigon_routing_final`)에서 두 응답 모두 200 OK 로 나왔다 — **하나의 병합 타일셋/하나의 컨테이너로 호치민·동탄 두 지역을 동시에 서빙 가능함을 실증**했다.
 
-> **주의**: 위 두 응답 모두 "도로를 따라가는 경로 polyline 과 실제 안내 문구"는 나오지만, **베트남어/한국어 "문장"은 아니다**(§1-A 참조). 원 지시의 검증 목표("실제 베트남어 턴바이턴 문구가 돌아온다")는 Valhalla 단독으로는 **아직 충족되지 않는다** — §1-C 결정에 따라 BFF 자체 템플릿(옵션 A) 또는 OSRM+별도서비스(옵션 B)가 필요하다.
+> **주의**: 위 두 응답 모두 "도로를 따라가는 경로 polyline 과 실제 안내 문구"는 나오지만, **베트남어/한국어 "문장"은 아니다**(§1-A 참조). 원 지시의 검증 목표("실제 베트남어 턴바이턴 문구가 돌아온다")는 Valhalla 단독으로는 **아직 충족되지 않는다** — §1-C 결정(옵션 A)에 따라 BFF 자체 vi/ko/en 템플릿이 필요하다(§6 W4 인수인계).
 
 ### 3-D. costing 프로파일 결정
 
@@ -154,20 +154,78 @@ Valhalla `maneuvers[].type` 는 **정수 코드**다(문자열 아님). 반면 �
 
 **판정: 그대로 통하지 않는다.** 정수 → 소문자-하이픈 문자열 변환이 BFF `_to_route_out` 상당 위치에서 반드시 필요하다(프론트는 수정 금지 대상이므로 변환 책임은 BFF).
 
-## 5. OSM ODbL 표기 의무
+## 5. 인프라 마무리 — compose / env / 빌드 스크립트
+
+### 5-A. docker compose
+
+`docker-compose.yml` 에 `routing_engine` 서비스를 추가했다(기존 서비스 정의는 수정하지 않음, 순수 추가):
+
+```yaml
+routing_engine:
+  image: valhalla/valhalla:run-latest
+  container_name: saigon_routing_engine
+  profiles: [backend]
+  command: ["valhalla_service", "/data/valhalla/valhalla.json", "1"]
+  volumes:
+    - ./routing_data/valhalla:/data/valhalla:ro
+  networks:
+    - dev-net
+  restart: unless-stopped
+```
+
+- **외부 미노출**: `ports:` 없음. `docker exec saigon_bff`에서 `http://routing_engine:8002/status` 로 실제 접근 가능함을 확인 — BFF 내부 호출 전용, nginx 라우팅 대상 아님.
+- `profiles: [backend]` — `bff`/`engine`/`worker`/`mcp_dev` 등 기존 백엔드 인프라 서비스와 동일한 관례. `docker compose --profile backend up -d routing_engine` 으로 기동, 타일(`routing_data/valhalla/`)이 준비돼 있어야 정상 서빙(§5-C 스크립트로 준비).
+- 기동 실증: `docker compose --env-file .env --profile backend up -d routing_engine` → `saigon_routing_engine` 컨테이너 정상 기동, 기존 11개 컨테이너 전부 무중단 유지 확인.
+
+### 5-B. 환경변수
+
+`.env`, `.env.example` 양쪽에 동일하게 추가:
+
+```
+ROUTING_ENGINE_URL=
+```
+
+- 값은 비워둔다(기본값) — **미설정 시 BFF 는 기존 Google Routes API 경로 그대로 동작**(W4 가 구현할 롤백 스위치의 전제). W4 가 실제로 이 값을 사용하도록 BFF 코드를 연결하는 시점에 `http://routing_engine:8002` 형태의 값을 채워 넣으면 된다.
+
+### 5-C. 재현 가능한 빌드 스크립트
+
+`deploy/build_routing_tiles.sh` — 지금까지 손으로 실행한 시퀀스(국가 pbf 다운로드 → bbox 추출 → 병합 빌드)를 그대로 스크립트화했다. `(pbf URL, bbox, 추출본 파일명)` 3튜플 배열을 순회하는 단순 반복문 하나이며 옵션 파서·설정파일 없음(과설계 회피). 멱등성 실증: 이미 만들어진 `routing_data/`에 대해 재실행한 결과 —
+
+```
+[skip] hcmc.osm.pbf 이미 존재 — 다운로드/추출 건너뜀
+[skip] gyeonggi.osm.pbf 이미 존재 — 다운로드/추출 건너뜀
+[skip] .../routing_data/valhalla/tiles 이미 존재 — 빌드 건너뜀 (재빌드하려면 --rebuild)
+```
+
+전부 skip 으로 끝나 재실행이 안전함을 확인했다(`--rebuild` 플래그로 강제 재빌드 가능).
+
+## 6. W4 인수인계 — BFF 가 해야 할 일 3가지
+
+옵션 A 결정에 따라 `backend/app/routers/info_route.py`(수정은 W4) 가 Valhalla 응답을 `RouteOut` 계약으로 변환할 때 반드시 처리해야 할 항목. 전부 §3-C/§4 에서 실측으로 확인한 사실에 근거한다.
+
+1. **polyline precision 6 → 5 변환** — Valhalla `shape` 를 precision 6 으로 디코드한 뒤 `[lat,lng]` 좌표를 precision 5 로 재인코딩해서 `RouteOut.polyline` 에 담는다. 생략하면 지도에 경로가 10배 어긋나 그려진다(§4-A 실측).
+2. **vi/ko/en 문장 조립** — Valhalla는 `maneuvers[].type`(정수) + 경로상의 `street_names`(배열, OSM 원어 도로명)만 준다. BFF 가 이 둘을 조합해 `RouteStep.instruction` 문장을 언어별로 직접 생성해야 한다(OSRM `osrm-text-instructions` 의 `vi.json`/`ko.json` 템플릿 구조 — 방향/모디파이어/도로명 삽입 패턴 — 를 참고 자료로 재사용 가능, §1-A 참조). 동시에 `type` 정수를 `RideNav.tsx:74-83` 이 기대하는 소문자-하이픈 문자열(`turn-left`, `roundabout-enter` 등, §4-B 매핑표)로 변환해 `RouteStep.maneuver` 에 채운다.
+3. **폴백 게이트는 2가지만** — ①**타임아웃 초과** ②**경로 미발견**(Valhalla `/route` 가 에러 응답을 주는 경우) 시에만 `RouteOut(configured=False)` 또는 기존 Google 경로로 폴백한다. **커버리지 폴리곤 체크(좌표가 타일 bbox 안에 있는지 사전 검증)는 대표가 채택하지 않았다** — bbox 밖 좌표는 Valhalla 가 자체적으로 "경로 미발견"으로 응답하므로 그 경우를 그대로 흡수하면 된다(별도 지리 검증 로직 불필요).
+
+**한국 타일 관련 주의**: 경기도 bbox(§2)는 행정경계가 아니라 직사각형이라 서울 전역·인천 일부가 함께 포함돼 있다. 이는 개발 검증(동탄역 등)을 위한 범위이며, **운영에 한국 타일을 포함할지 여부는 대표 판단 대기**(이번 작업은 인프라 실증까지이며 서비스 노출 범위 결정은 별건).
+
+**운영 방식**: 타일 빌드(§3-B, 24분/326MiB)는 무거우니 개발 머신에서 `deploy/build_routing_tiles.sh` 로 1회 실행하고, 운영 서버에는 `routing_data/valhalla/{tiles,valhalla.json}` 결과물만 옮겨 `routing_engine` 컨테이너로 서빙만 한다. 운영 컨테이너에서 매번 재빌드하지 않는다.
+
+## 7. OSM ODbL 표기 의무
 
 OpenStreetMap 데이터를 사용하는 모든 화면에는 **"© OpenStreetMap contributors"** 표기가 필요하다(ODbL 라이선스 조건). Valhalla/OSRM 자체호스팅 라우팅을 앱에 노출하는 시점부터 이 표기가 앱 어딘가(지도/경로 화면 하단 등)에 들어가야 한다. **실제 표기 삽입은 이번 작업 범위 밖 — 별건으로 남긴다.**
 
-## 6. 범위 밖 — 참고만
+## 8. 범위 밖 — 참고만
 
 `scripts/gen_saigon_map_v2.py`(L2/L3 지도 생성기)는 현재 Overpass 공개 API 를 쓰고 있어 향후 로컬 pbf(`routing_data/osm/*.pbf`)로 전환할 여지가 있다 — 대표가 별건으로 관리 중이므로 이번 작업에서는 건드리지 않았다.
 
-## 7. 미확인·미처리 항목 (정직하게 남김)
+## 9. 미확인·미처리 항목 (정직하게 남김)
 
-- **엔진 최종 선정 미결** — §1-C 옵션 A/B/C 중 대표 결정 필요. 이 문서의 §3(compose 서비스 정의)·`.env`/`.env.example` 키 추가는 **결정 이후로 보류**했다(엔진마다 서비스명·응답 스키마가 달라 미리 확정하면 되돌리는 비용이 큼).
 - 전국(베트남/한국) 단위 실제 빌드는 실행하지 않았다(§2 의 외삽 판단으로 대체) — 실측 아님을 재차 명시.
 - Valhalla `motorcycle` 프로파일이 실제 오토바이 통행 제한(일부 도로 오토바이 금지 등)을 얼마나 정확히 반영하는지는 OSM 태그 품질에 의존하며, 이번 작업에서 태그 정확도까지 검증하지 않았다.
 - U턴(type 12/13), 페리, 환승 등 두 실증 경로에 나타나지 않은 maneuver type 은 §4-B 매핑표에서 미관측으로 남겼다 — Valhalla 공식 문서 기준 enum 명만 부기했고 실제 응답으로 재현하지 않았다.
 - `Local index N exceeds max value of 7` 경고의 실제 발생 좌표와 실증 경로의 정확한 지리적 겹침 여부는 대조하지 않았다(§3-B 참조 — "두 실증 경로에서는 영향 없음"으로 한정).
-- OSRM 의 다중 리전 병합 서빙(§3-B 의 Valhalla 실증과 대응하는 실험)은 실행하지 않았다(엔진 미결 상태에서 두 엔진 모두 완전 검증하는 것은 범위/시간상 비효율적이라 판단해 보류).
-- docker compose 서비스 등록·`.env`/`.env.example` 키·재현 가능한 빌드 스크립트(§4 원 지시)는 **엔진 결정 후 즉시 이어서 작업 가능한 상태**로 준비돼 있으나(§2/§3 의 다운로드·추출·빌드 커맨드가 이미 검증된 시퀀스), 아직 스크립트 파일로 작성하지 않았다.
+- OSRM 의 다중 리전 병합 서빙(§3-B 의 Valhalla 실증과 대응하는 실험)은 실행하지 않았다(옵션 A 결정으로 OSRM 은 폐기됐으므로 더 이상 필요하지 않다고 판단).
+- BFF `_to_route_out` 상당 위치의 실제 코드 변경(§6 의 3가지)은 W4 담당이며 이번 작업에서 손대지 않았다 — `backend/app/routers/info_route.py`, 프론트, `scripts/gen_saigon_map_v2.py` 는 범위 밖으로 그대로 남겨뒀다.
+- 한국 타일을 운영에 포함할지(서울/인천 함께 노출) 여부는 대표 판단 대기(§6 참조) — 이번 작업에서 결정하지 않았다.
+- `routing_engine` 컨테이너 메모리 사용량은 프로파일링하지 않았다(미확인).

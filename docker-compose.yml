@@ -79,6 +79,21 @@ services:
       - IMGPROXY_ALLOWED_SOURCES=local://
     restart: unless-stopped
 
+  # ── Routing Engine (Valhalla, 자체호스팅 — Google Routes API 과금 제거) ──
+  # docker compose --profile backend up
+  # BFF 내부 호출 전용 — nginx/외부 미노출(ports 미매핑). 타일은 deploy/build_routing_tiles.sh 로
+  # 개발 머신에서 1회 빌드 후 volume 마운트만(운영 컨테이너는 재빌드하지 않음).
+  routing_engine:
+    image: valhalla/valhalla:run-latest
+    container_name: saigon_routing_engine
+    profiles: [backend]
+    command: ["valhalla_service", "/data/valhalla/valhalla.json", "1"]
+    volumes:
+      - ./routing_data/valhalla:/data/valhalla:ro
+    networks:
+      - dev-net
+    restart: unless-stopped
+
   # ── BFF (FastAPI, 기존 backend → 역할 재정의) ───────────────
   # docker compose --profile backend up
   bff_migrate:

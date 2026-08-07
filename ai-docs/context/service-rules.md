@@ -134,7 +134,7 @@
 - **도착 = 종료 이벤트가 있어야 한다.** 목적지 `ARRIVAL_RADIUS_M = 40` 이내 진입 시 GPS watch 정지(배터리)·이탈 판정 해제·카메라 개요 복귀 + 도착 배너. **도착 판정은 나침반 모드보다 먼저 평가**한다(나침반 분기의 early return 에 막히면 도착이 영영 안 잡힌다).
 - **회전은 course-up 자동 회전이다.** 방위 1순위는 **경로 스냅 세그먼트 방위**(`snapToPolyline`) — 경로는 고정값이라 GPS heading 처럼 떨지 않고 정지·신호대기에도 유효하다. GPS heading(`native.ts` 의 course-over-ground)은 **이탈 상태 + 1.5m/s 이상**에서만 폴백으로 쓴다. 진짜 나침반(DeviceOrientation)은 도입하지 않았다.
 - **카메라 명령은 서로 취소된다** — MapLibre 카메라 애니메이션은 배타적이다. ① 경로 갱신 effect 의 개요 `fitBounds` 는 안내 중 건너뛴다(`guidingRef`), ② 시작 `flyTo` 가 끝날 때까지 `follow` 를 막는다(`introRef`, 리스너 등록은 `flyTo` **뒤**), ③ `follow` 는 center 와 bearing 을 **한 번의 `easeTo`** 로 준다. 셋 중 하나만 빠져도 회전·줌 연출이 조용히 사라진다.
-- **[북쪽 맞춤] = course-up 해제, [내 위치] = 복귀**(`courseUpRef`). 해제 상태를 기억하지 않으면 다음 GPS 틱이 즉시 되돌려 북쪽 맞춤 버튼이 먹통이 된다. 별도 회전 토글 버튼은 두지 않는다.
+- **지도 컨트롤(`MapControls.tsx`)은 동네지도(`SaigonMapV5`)와 같은 ◎ 3상태 순환 "정의"를 쓴다**(W17, 2026-08-08 — 코드 공유가 아니라 정의 통일, 별개 컴포넌트). ◎ 가 **자유 → 카메라추종 → course-up추종 → 자유** 를 순환한다(아이콘: `Locate`/`LocateFixed`/`HeadingConeIcon`, 회전 없이 형태로만 구분 — 아이콘은 동네지도와 `components/maps/compassIcons.tsx` 공용). 회전 소스만 다르다 — 동네지도는 자력계, 길찾기는 위 "회전은 course-up 자동 회전" 그대로(경로 스냅 방위 1순위·GPS heading 2순위). 나침반(북향복귀) 버튼은 동네지도와 동일하게 `bearing !== 0` 일 때만 나타나고, 탭하면 `resetNorth()` + (course-up추종 중이면) 카메라추종으로 다운그레이드한다 — course-up추종에 그대로 두면 다음 GPS 틱이 `courseBearingDeg` 를 다시 넘겨 북향복귀를 되돌리기 때문이다. 팬/줌/회전 제스처(MapLibre `dragstart`/`zoomstart`/`rotatestart`, `originalEvent` 로 프로그램적 이동과 구분)는 카메라추종·course-up추종 모두를 곧바로 'free' 로 내린다(각도는 MapLibre 가 그대로 유지 — 되돌리지 않음). 안내 시작(`startGuidance()`)은 course-up추종으로 자동 진입한다(기존 동작 유지).
 
 ---
 

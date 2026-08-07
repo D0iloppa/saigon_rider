@@ -15,11 +15,12 @@ export interface MapCanvasHandle {
   recenter: (pos: { lat: number; lng: number }) => void;
   /**
    * 현재 위치로 카메라만 따라감(줌 유지). 이동 추적용.
-   * courseBearing(도)을 주면 그 방위가 위쪽이 되도록 함께 회전한다(course-up).
-   * 사용자가 '북쪽 맞춤'을 누른 뒤에는 '내 위치'를 다시 누를 때까지 회전을 멈춘다.
+   * courseBearing(도)을 주면 그 방위가 위쪽이 되도록 함께 회전한다(course-up) — null/undefined 면
+   * 회전은 건드리지 않는다. "언제 course-up 을 적용할지"는 이제 호출부(MapControls, W17)의
+   * 3상태(자유/카메라추종/course-up추종) 판단이다 — 이 메서드는 그 판단을 받아 그대로 실행만 한다.
    */
   follow: (pos: { lat: number; lng: number }, courseBearing?: number | null) => void;
-  /** 북향으로 회전 리셋(course-up 해제). */
+  /** 북향으로 회전 리셋. */
   resetNorth: () => void;
 }
 
@@ -36,6 +37,20 @@ interface MapCanvasProps {
   /** 실제 이동경로(서버 스트림 GPS 누적, 오래된→최신). 거리 퀘스트 궤적 표시용. */
   trail?: { lat: number; lng: number }[] | null;
   className?: string;
+  /**
+   * 회전(bearing) 변화 통지(W17) — MapControls 의 북향복귀 버튼(bearing!==0 일 때만 노출)과 그
+   * 아이콘 회전(rotate(-bearing))이 이 값을 쓴다. rotate 이벤트는 애니메이션 중 프레임마다
+   * 발화해 그대로 리렌더에 흘리면 course-up 추종·수동 회전 도중 상위가 매 프레임 리렌더된다 —
+   * 정수 도(°) 단위로 양자화하고 직전 값과 같으면 호출하지 않는다(북향 버튼 표시/아이콘 회전
+   * 어느 쪽도 1° 미만 정밀도가 필요 없어 시각적으로 손실이 없다).
+   */
+  onBearingChange?: (bearingDeg: number) => void;
+  /**
+   * 사용자 제스처(팬/줌/회전) 시작 통지(W17) — MapControls 가 카메라추종/course-up추종을 'free' 로
+   * 내리는 트리거. MapLibre 의 dragstart/zoomstart/rotatestart 는 easeTo/flyTo 같은 프로그램적
+   * 이동에도 발화하므로, originalEvent(실제 포인터/휠 이벤트)가 있는 경우만 통지한다.
+   */
+  onGestureStart?: () => void;
 }
 
 const ROUTE_SOURCE = 'route';
@@ -46,7 +61,7 @@ const TRAIL_SOURCE = 'trail';
  * 카메라 제어는 ref(MapCanvasHandle)로 노출 — 화면이 시작/재중심/개요를 명령한다.
  */
 const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas(
-  { origin, dest, polyline, current, trail, className },
+  { origin, dest, polyline, current, trail, className, onBearingChange, onGestureStart },
   ref,
 ) {
   const { t } = useTranslation();
@@ -63,8 +78,14 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
   const guidingRef = useRef(false);
   // 시작 연출(flyTo) 진행 중 — 이 구간엔 follow 가 카메라를 건드리지 않는다.
   const introRef = useRef(false);
-  // course-up(진행방향 위쪽) 적용 여부 — '북쪽 맞춤'으로 끄고 '내 위치'로 다시 켠다.
-  const courseUpRef = useRef(false);
+  // onBearingChange/onGestureStart 최신값을 latest-ref 로 — map.on() 구독은 마운트 이펙트(빈 deps)
+  // 안에서 1회만 걸고, 콜백 identity 변경마다 재구독하지 않는다(SaigonMapV5 의 onViewportChangeRef
+  // 와 동일 패턴).
+  const onBearingChangeRef = useRef(onBearingChange);
+  onBearingChangeRef.current = onBearingChange;
+  const onGestureStartRef = useRef(onGestureStart);
+  onGestureStartRef.current = onGestureStart;
+  const lastEmittedBearingRef = useRef(0);
 
   const routePts = (): [number, number][] =>
     polyline ? decodePolyline(polyline).map(([la, ln]) => [ln, la]) : [];
@@ -100,7 +121,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       const map = mapRef.current;
       if (!map) return;
       guidingRef.current = false;
-      courseUpRef.current = false; // 개요는 항상 북향
       const fit = fitPoints();
       map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
       if (fit.length >= 2) {
@@ -117,7 +137,6 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       const start: [number, number] | undefined = origin ? [origin.lng, origin.lat] : pts[0];
       if (!start) return;
       guidingRef.current = true;
-      courseUpRef.current = true;
       // 진행 방위 = 시작점→다음 경로점(없으면 목적지)
       const next = pts.length >= 2 ? pts[1] : dest ? [dest.lng, dest.lat] : null;
       const brg = next ? bearing(start[1], start[0], next[1], next[0]) : 0;
@@ -131,22 +150,22 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
       map.once('moveend', () => { introRef.current = false; });
     },
     recenter(pos) {
-      courseUpRef.current = true; // '내 위치' 탭 = 추적 복귀(북쪽 맞춤으로 끈 회전도 되살린다)
       mapRef.current?.easeTo({ center: [pos.lng, pos.lat], zoom: 16, duration: 700 });
     },
     follow(pos, courseBearing) {
       const map = mapRef.current;
       if (!map || introRef.current) return;
       // center 와 bearing 을 한 번의 easeTo 로 — 나눠 호출하면 뒤 호출이 앞 애니메이션을 취소한다.
+      // courseBearing 을 적용할지(=course-up 3단째인지)는 호출부(MapControls)가 이미 판단해
+      // null/값으로 넘긴다 — 여기서는 값이 있을 때만 데드존을 걸고 그대로 반영한다.
       const opts: Parameters<typeof map.easeTo>[0] = { center: [pos.lng, pos.lat], duration: 500 };
-      if (courseBearing != null && courseUpRef.current) {
+      if (courseBearing != null) {
         const diff = Math.abs((((courseBearing - map.getBearing()) % 360 + 540) % 360) - 180);
         if (diff >= COURSE_DEADZONE_DEG) opts.bearing = courseBearing;
       }
       map.easeTo(opts);
     },
     resetNorth() {
-      courseUpRef.current = false; // 사용자가 북향을 원함 — 다음 GPS 틱이 되돌리지 않게 회전 정지
       mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 500 });
     },
   }));
@@ -164,6 +183,18 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function MapCanvas
     map.on('load', () => { readyRef.current = true; setMapLoading(false); });
     // 스타일/타일을 못 받아도 스피너가 영구히 남지 않게 한다 — 실패는 지도 자체가 보여준다.
     map.on('error', () => setMapLoading(false));
+    // 회전 통지 — 정수 도 단위로 양자화 후 직전 값과 다를 때만 올린다(위 onBearingChange 주석).
+    map.on('rotate', () => {
+      const deg = Math.round(((map.getBearing() % 360) + 360) % 360);
+      if (deg === lastEmittedBearingRef.current) return;
+      lastEmittedBearingRef.current = deg;
+      onBearingChangeRef.current?.(deg);
+    });
+    // 사용자 제스처 통지 — originalEvent 가 있는 경우만(easeTo/flyTo 등 프로그램적 이동은 없음).
+    const onGesture = (e: { originalEvent?: unknown }) => { if (e.originalEvent) onGestureStartRef.current?.(); };
+    map.on('dragstart', onGesture);
+    map.on('zoomstart', onGesture);
+    map.on('rotatestart', onGesture);
     mapRef.current = map;
     return () => {
       map.remove();

@@ -57,8 +57,12 @@ test('north-reset button uses the compass rose icon, keeps rotate(-bearing), and
   );
 });
 
+// W17(2026-08-08): 아이콘 정의 자체는 길찾기(MapControls)도 같은 것을 쓰도록 compassIcons.tsx 로
+// 뺐다 — SaigonMapV5.tsx 에는 이제 `import { CompassRoseIcon, HeadingConeIcon } from './compassIcons'`
+// 만 남는다. 이 테스트는 그 새 위치에서 아이콘 소스를 읽도록 갱신한다(정의를 되돌리려면 여기 사유를
+// 고칠 것 — 아이콘 자체가 아니라 "어디서 읽는가"만 바뀌었다).
 test('CompassRoseIcon draws an N glyph as strokes and a red north needle', () => {
-  const source = read('SaigonMapV5.tsx');
+  const source = read('compassIcons.tsx');
   const start = source.indexOf('function CompassRoseIcon(');
   const end = source.indexOf('\n}', start);
   assert.ok(start >= 0 && end > start, 'CompassRoseIcon not found');

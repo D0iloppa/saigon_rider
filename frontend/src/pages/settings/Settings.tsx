@@ -78,11 +78,12 @@ export default function Settings() {
     if (primary?.releasedAt) {
       lines.push(`Date : ${new Date(primary.releasedAt).toLocaleDateString()}`);
     }
+    lines.push(`Map  : ${t('settings.osmAttribution')}`); // ODbL 저작자 표시 의무
     openDialog({
       title: { mode: 'code', value: 'settings.appInfo' },
       pre: lines.join('\n'),
     });
-  }, [versionData, openDialog]);
+  }, [versionData, openDialog, t]);
 
   if (!user) return null;
 

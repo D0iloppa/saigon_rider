@@ -38,6 +38,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import styles from './ProfileMain.module.css';
 import { formatVnDate } from '@/lib/vnTime';
+import { SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
 
 interface MileageTier {
   key: string;
@@ -516,7 +517,7 @@ export default function ProfileMain() {
         </div>
 
         {/* Odometer Card */}
-        {(() => {
+        {SHOW_LIFETIME_DISTANCE && (() => {
           const tier = getTier(totalMileage);
           const next = getNextTier(totalMileage);
           const tierI18nKey = `profile.tier${tier.key}` as const;

@@ -26,6 +26,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import styles from './HomePage.module.css';
 import { weatherConditionIcon } from '@/lib/weatherCondition';
+import { SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
 
 // Bến Thành (Quận 1) — 앱 기본 동네
 const FALLBACK = { ...BEN_THANH_FALLBACK, name: 'Bến Thành' };
@@ -385,10 +386,14 @@ export default function HomePage() {
               ? t('home.v2.currentRegion', { name: wardLabel })
               : t('home.v2.defaultRegion', { name: wardLabel ?? FALLBACK.name })}
           </span>
-          <span className={styles.statSep}>|</span>
-          <span title={t('home.v2.totalMileage')}>
-            <Route size={11} strokeWidth={2} aria-hidden="true" /> {totalKm.toFixed(2)} km
-          </span>
+          {SHOW_LIFETIME_DISTANCE && (
+            <>
+              <span className={styles.statSep}>|</span>
+              <span title={t('home.v2.totalMileage')}>
+                <Route size={11} strokeWidth={2} aria-hidden="true" /> {totalKm.toFixed(2)} km
+              </span>
+            </>
+          )}
         </button>
 
         <div className={styles.searchWrap}>

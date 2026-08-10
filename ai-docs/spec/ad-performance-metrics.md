@@ -261,8 +261,8 @@ Body: { events: [ { ad_id, type, surface, occurred_at, nonce } ], ... }  # 최�
 | `id` | `BIGSERIAL PK` | 원시 로그이므로 UUID 불필요(공간·인덱스 비용). 기존 도메인 테이블(UUID)과 성질이 다름을 의도적으로 구분 |
 | `ad_id` | `UUID NOT NULL REFERENCES marketplace_ads(id) ON DELETE CASCADE` | |
 | `business_profile_id` | `UUID NULL REFERENCES business_profile(id) ON DELETE SET NULL` | 조회 시 조인 회피용 비정규화(대시보드는 프로필 단위 조회) |
-| `event_type` | `VARCHAR(24) NOT NULL` | `impression` / `click` / `cta_call` / `cta_follow` / `cta_favorite` / `cta_review` / `cta_news_view` / `cta_profile_enter` / `cta_share` — CHECK 제약 |
-| `surface` | `VARCHAR(24) NOT NULL` | `feed` / `feed_top` / `home` / `home_empty` / `ad_detail` / `biz_profile` — §1-C 의 S1~S6 에 1:1 대응 |
+| `event_type` | `VARCHAR(24) NOT NULL` | `impression` / `click` / `cta_call` / `cta_follow` / `cta_favorite` / `cta_review` / `cta_news_view` / `cta_profile_enter` / `cta_share` — CHECK 제약. **근접 광고 확정(2026-08-10) 이후 `proximity_impression` / `proximity_visit` 추가** — [`260806_proximity_ad_design.md`](../260806_proximity_ad_design.md) §5-1 |
+| `surface` | `VARCHAR(24) NOT NULL` | `feed` / `feed_top` / `home` / `home_empty` / `ad_detail` / `biz_profile` — §1-C 의 S1~S6 에 1:1 대응. **`proximity` 추가** — 근접 알림/방문 이벤트 전용, S1~S6 과 별도 노출면(방문 유도가 목적이라 CTR/CVR 정의가 다름). 기존 지표(§2)와 별도 집계, `ad_daily_stats` 는 그대로 재사용 |
 | `user_key` | `UUID NULL` | 인증 사용자면 `users.id`. **FK 는 걸지 않는다**(회원 탈퇴 시 이벤트 유실·CASCADE 폭발 방지 — §10 참조) |
 | `anon_key` | `CHAR(32) NULL` | 익명 dedup 용 해시 (§10 — IP/UA 원문 저장 안 함) |
 | `is_self` | `BOOLEAN NOT NULL DEFAULT FALSE` | 광고주 본인 노출 (집계 제외, 기록 유지) |
@@ -401,6 +401,7 @@ POST /api/bff/market/ads/events  ── 필터(§3-3) ──▶ Redis Stream `ad
 
 - **기간 기본값 = 최근 7일.** 30일은 초기엔 데이터가 없어 빈 구간이 길고, "게시 전체"는 기간이 짧을 때 오해를 만든다.
 - **면(surface)별 분해는 접어둔다** — 광고주에게 "피드/홈/프로필별 노출"은 인지 부담만 준다. 펼침 아코디언 안에만.
+- **`surface='proximity'` (근접 광고, 확정 2026-08-10)**: 근접알림/방문은 위 피드형 지표와 성격이 다르다(도달 목적이 아니라 "가게 앞을 지나갔다") — 접힌 아코디언이 아니라 **별도 카드**("근접알림 N건 · 방문확정 N건")로 노출. 상세 정의는 [`260806_proximity_ad_design.md`](../260806_proximity_ad_design.md) §5-1/§8. tier 게이트(`ad_tiers.proximity_enabled`, D-7 옵션 A)로 인해 프리미엄 광고주만 이 카드를 본다.
 - **관리자 콘솔**(`admin-frontend`)에는 동일 데이터를 **표본 게이트 없이** 전면 노출 + 광고별 랭킹 + `self_impressions` 를 보여준다. 청구·분쟁 대응 창구이므로.
 
 ### 7-3. 빈 상태 (신규 광고주) — **가장 중요한 판단**
@@ -535,7 +536,7 @@ POST /api/bff/market/ads/events  ── 필터(§3-3) ──▶ Redis Stream `ad
 | 보존기간 | 원시 이벤트(개인 연결 가능) **90일**, 롤업(개인 연결 없음) 무기한. 90일은 청구 분쟁 대응 최소 기간 기준 — 법률 검토 대상(**미확인**) |
 | 크로스 앱 추적 없음 | 서드파티 SDK 를 도입하지 않는다. 현재 프론트에 애널리틱스 SDK 가 0개인 상태(§1-D)를 **유지**한다. 계측은 자사 서버로만 |
 | 고지 | 개인정보 처리방침 / 서비스 약관에 "광고 노출·클릭 통계 수집" 항목 추가 필요 (X-5, **P1**). 베트남 개인정보보호법(Decree 13/2023) 적용 여부 **미확인 — 법률 검토 필요** |
-| 광고주 약관 | 성과 수치의 정의(노출=50%/1s 등)와 필터 정책(자기 노출 제외)을 광고 계약 문서에 명시해야 청구 분쟁을 예방한다. **미작성** |
+| 광고주 약관 | 성과 수치의 정의(노출=50%/1s 등)와 필터 정책(자기 노출 제외)을 광고 계약 문서에 명시해야 청구 분쟁을 예방한다. **미작성**. G-2([`260810_proximity_ad_contract_model.md`](../260810_proximity_ad_contract_model.md) — "정액 상품은 발송 건수를 보장하지 않는다" 문구)도 같은 계약 문서에 함께 반영 필요 |
 
 ---
 

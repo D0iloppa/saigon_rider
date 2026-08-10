@@ -875,8 +875,81 @@ class AdTier(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     features_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # 근접 광고 계약형태 옵션A(260810_proximity_ad_contract_model.md) — 프리미엄만 TRUE(174 migration)
+    proximity_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AdEvent(Base):
+    """광고 성과 원시 이벤트 (ai-docs/spec/ad-performance-metrics.md §4-2, init/153).
+
+    수집 엔드포인트가 후속 단계라 지금까지 ORM 모델 없이 테이블만 존재했다. 근접 광고
+    엔드포인트(POST /proximity/enter)가 최초 실 삽입 경로 — surface='proximity'.
+    """
+
+    __tablename__ = "ad_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ad_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_ads.id", ondelete="CASCADE"), nullable=False
+    )
+    business_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="SET NULL"), nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    surface: Mapped[str] = mapped_column(String(24), nullable=False)
+    user_key: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    anon_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_self: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    attributed_ad_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    stat_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+
+class ProximityPolicy(Base):
+    """근접 광고 정책 파라미터 — 단일 row(id=1), 킬스위치 is_enabled(260806_proximity_ad_design.md §5-3)."""
+
+    __tablename__ = "proximity_policy"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
+    notify_radius_m: Mapped[int] = mapped_column(Integer, nullable=False, default=300)
+    visit_radius_m: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    visit_dwell_sec: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
+    cooldown_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
+    daily_notify_cap: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    daily_rp_cap: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    max_speed_kmh: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
+    candidate_radius_m: Mapped[int] = mapped_column(Integer, nullable=False, default=3000)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class ProximityHit(Base):
+    """근접 진입 판정 상태·쿨다운·방문 적립 근거 (260806_proximity_ad_design.md §5-2).
+
+    한 row 는 "알림 반경 진입 1회 episode"를 나타낸다 — notified_at 이 찍힌 뒤, 후속 호출에서
+    같은 row 를 재사용해 dwell(체류) 조건이 차면 visit_confirmed_at/rp_granted 를 채운다.
+    """
+
+    __tablename__ = "proximity_hit"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_key: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    business_profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), nullable=False
+    )
+    ad_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_ads.id", ondelete="SET NULL"), nullable=True
+    )
+    hit_lat: Mapped[float] = mapped_column(Float, nullable=False)
+    hit_lng: Mapped[float] = mapped_column(Float, nullable=False)
+    distance_m: Mapped[int] = mapped_column(Integer, nullable=False)
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    visit_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rp_granted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class AdDailyStat(Base):
@@ -1087,6 +1160,7 @@ class NotificationSettings(Base):
     ride_result: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     social: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     keyword_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    chat: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 

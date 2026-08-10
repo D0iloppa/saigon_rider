@@ -236,6 +236,14 @@ services:
       - "/migrations/171_age_consent_capture.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (171) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/174_proximity_policy.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (174) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/175_ad_tiers_proximity.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (175) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -270,6 +278,8 @@ services:
       - ./database/init/169_schema_parity_backfill.sql:/migrations/169_schema_parity_backfill.sql:ro
       - ./database/init/170_withdrawn_member_archive.sql:/migrations/170_withdrawn_member_archive.sql:ro
       - ./database/init/171_age_consent_capture.sql:/migrations/171_age_consent_capture.sql:ro
+      - ./database/init/174_proximity_policy.sql:/migrations/174_proximity_policy.sql:ro
+      - ./database/init/175_ad_tiers_proximity.sql:/migrations/175_ad_tiers_proximity.sql:ro
     networks:
       - dev-net
     depends_on:

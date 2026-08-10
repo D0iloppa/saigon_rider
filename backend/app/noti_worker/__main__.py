@@ -164,7 +164,7 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
             body=body,
             link=link,
         )
-        push_ok = inserted and await _push_enabled(db, recipient_id, "social")
+        push_ok = inserted and await _push_enabled(db, recipient_id, "chat")
         await db.commit()
 
     if not inserted:
@@ -172,7 +172,7 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
     elif push_ok:
         await _try_push(str(recipient_id), title, body, link)
     else:
-        log.info("push skipped (social=off) user=%s conv=%s", recipient_id, conv_id)
+        log.info("push skipped (chat=off) user=%s conv=%s", recipient_id, conv_id)
 
 
 async def _handle_listing_created(payload: dict, *, source_event_id: str) -> None:
@@ -241,7 +241,7 @@ async def _handle_biz_profile_reviewed(payload: dict, *, source_event_id: str) -
     """비즈니스 프로필 심사 결과 통지(SGR-312 BP-3).
 
     계정 상태 변경(승인/반려/정지)은 트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다 —
-    NotificationSettings 의 기존 필드(quest_recommend/quest_expire/event/ride_result/social/keyword_alert)는
+    NotificationSettings 의 기존 필드(quest_recommend/quest_expire/event/ride_result/social/keyword_alert/chat)는
     전부 다른 목적이라 신규 토글을 만들지 않고 게이트 자체를 생략한다(Simplicity First).
     """
     user_id = uuid.UUID(payload["user_id"])
@@ -309,6 +309,39 @@ async def _handle_biz_ad_reviewed(payload: dict, *, source_event_id: str) -> Non
         log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
 
 
+async def _handle_proximity_hit(payload: dict, *, source_event_id: str) -> None:
+    """근접 광고 진입 알림(260806_proximity_ad_design.md §9-5).
+
+    biz.profile_reviewed 와 달리 계정 상태 변경이 아니라 마케팅성 알림이라, 신규 토글을 만들지
+    않고 기존 NotificationSettings.event(이벤트성 알림) 토글로 게이트한다(카파시 §2 — 요청 이상
+    스키마 확장 금지)."""
+    user_id = uuid.UUID(payload["user_id"])
+    ad_id = payload["ad_id"]
+    title = payload.get("title") or "근처 가게 알림"
+    body = payload.get("body") or payload.get("partner_name") or ""
+    link = f"bizad&id={ad_id}"
+
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=user_id,
+            notification_type="BIZ",
+            title=title,
+            body=body,
+            link=link,
+        )
+        push_ok = inserted and await _push_enabled(db, user_id, "event")
+        await db.commit()
+
+    if not inserted:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
+    elif push_ok:
+        await _try_push(str(user_id), title, body, link)
+    else:
+        log.info("push skipped (event=off) user=%s ad=%s", user_id, ad_id)
+
+
 async def _handle_support_replied(payload: dict, *, source_event_id: str) -> None:
     """고객센터 답변 통지(FD-2/12) — biz.profile_reviewed 와 동일하게 트랜잭셔널 알림으로 취급해
     푸시 게이트 없이 발송한다. 딥링크는 문의 상세(support&id=<ticket_id>)."""
@@ -368,6 +401,7 @@ HANDLERS = {
     "market.listing_created": _handle_listing_created,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
     "biz.ad_reviewed": _handle_biz_ad_reviewed,
+    "proximity.hit": _handle_proximity_hit,
     "support.replied": _handle_support_replied,
     "report.submitted": _handle_report_submitted,
     "search.reindex": _handle_search_reindex,

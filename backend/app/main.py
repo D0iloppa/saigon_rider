@@ -36,6 +36,7 @@ from .routers import (
     notices,
     notifications,
     profile,
+    proximity,
     quest_cards,
     quests,
     ride,
@@ -231,6 +232,7 @@ app.include_router(info_flood.router, prefix="/api")
 app.include_router(info_gas.router, prefix="/api")
 app.include_router(info_repair.router, prefix="/api")
 app.include_router(info_route.router, prefix="/api")
+app.include_router(proximity.router, prefix="/api")
 app.include_router(info_weather.router, prefix="/api")
 
 app.mount("/admin-legacy/static", StaticFiles(directory=Path(__file__).parent / "static"), name="admin-static")

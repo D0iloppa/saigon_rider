@@ -138,9 +138,35 @@ class NotificationWorkerIdempotencyTest(unittest.IsolatedAsyncioTestCase):
             [call.kwargs["source_event_id"] for call in insert_notification.await_args_list],
             ["1721635200000-0", "1721635200000-0"],
         )
-        push_enabled.assert_awaited_once_with(session, recipient_id, "social")
+        push_enabled.assert_awaited_once_with(session, recipient_id, "chat")
         try_push.assert_awaited_once()
         self.assertEqual(redis_client.xack.await_count, 2)
+
+    async def test_dm_push_skipped_when_chat_disabled_but_notification_row_still_inserted(self):
+        """S-9: 수신자가 chat=off 여도 인앱 notifications row 는 기록하고 푸시만 게이트한다."""
+        recipient_id = uuid.uuid4()
+        session = MagicMock(commit=AsyncMock())
+        insert_notification = AsyncMock(return_value=True)
+        push_enabled = AsyncMock(return_value=False)
+        try_push = AsyncMock()
+        payload = {
+            "recipient_id": str(recipient_id),
+            "conversation_id": str(uuid.uuid4()),
+            "sender_nickname": "Rider",
+            "preview": "hello",
+        }
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "_push_enabled", new=push_enabled),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._handle_dm_message(payload, source_event_id="1721635200003-0")
+
+        insert_notification.assert_awaited_once()
+        push_enabled.assert_awaited_once_with(session, recipient_id, "chat")
+        try_push.assert_not_awaited()
 
     async def test_commit_before_push_crash_is_at_most_once_on_redelivery(self):
         """FD-5 suppresses a second push path; FD-6 must close the commit-before-push loss window."""
@@ -181,6 +207,76 @@ class NotificationWorkerIdempotencyTest(unittest.IsolatedAsyncioTestCase):
             noti_worker.CONSUMER_GROUP,
             "1721635200002-0",
         )
+
+    async def test_proximity_hit_redelivery_reuses_stream_id_and_pushes_only_once(self):
+        """근접 광고 진입 알림(260806_proximity_ad_design.md §9-5) — dm.message_sent 와 동일한
+        FD-6 재전달 멱등성을 만족해야 한다(재전달 시 insert 는 2회, push 는 1회)."""
+        user_id = uuid.uuid4()
+        session = MagicMock(commit=AsyncMock())
+        redis_client = MagicMock(xack=AsyncMock())
+        insert_notification = AsyncMock(side_effect=[True, False])
+        push_enabled = AsyncMock(return_value=True)
+        try_push = AsyncMock()
+        ad_id = str(uuid.uuid4())
+        payload = {
+            "user_id": str(user_id),
+            "ad_id": ad_id,
+            "title": "근처 가게 알림",
+            "body": "지금 근처를 지나고 있어요",
+            "partner_name": "Shop",
+        }
+        batch = [
+            (
+                "1721635200004-0",
+                {"type": "proximity.hit", "payload": json.dumps(payload)},
+            )
+        ]
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "get_client", new=AsyncMock(return_value=redis_client)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "_push_enabled", new=push_enabled),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._process_batch(batch)
+            await noti_worker._process_batch(batch)
+
+        self.assertEqual(insert_notification.await_count, 2)
+        self.assertEqual(
+            [call.kwargs["source_event_id"] for call in insert_notification.await_args_list],
+            ["1721635200004-0", "1721635200004-0"],
+        )
+        push_enabled.assert_awaited_once_with(session, user_id, "event")
+        try_push.assert_awaited_once_with(
+            str(user_id), "근처 가게 알림", "지금 근처를 지나고 있어요", f"bizad&id={ad_id}"
+        )
+        self.assertEqual(redis_client.xack.await_count, 2)
+
+    async def test_proximity_hit_push_skipped_when_event_notifications_disabled(self):
+        user_id = uuid.uuid4()
+        session = MagicMock(commit=AsyncMock())
+        insert_notification = AsyncMock(return_value=True)
+        push_enabled = AsyncMock(return_value=False)
+        try_push = AsyncMock()
+        payload = {
+            "user_id": str(user_id),
+            "ad_id": str(uuid.uuid4()),
+            "title": "근처 가게 알림",
+            "body": "지금 근처를 지나고 있어요",
+        }
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "_push_enabled", new=push_enabled),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._handle_proximity_hit(payload, source_event_id="1721635200005-0")
+
+        insert_notification.assert_awaited_once()
+        push_enabled.assert_awaited_once_with(session, user_id, "event")
+        try_push.assert_not_awaited()
 
     async def test_listing_event_can_insert_once_for_each_recipient(self):
         seller_id = uuid.uuid4()

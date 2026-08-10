@@ -10,6 +10,7 @@
 
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { Browser } from '@capacitor/browser';
 
 import { Device } from './plugins/Device';
 import { WebAuth } from './plugins/WebAuth';
@@ -370,6 +371,19 @@ class NativeInterface {
    */
   openUrl(url: string): void {
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  /**
+   * 외부 브라우저(시스템 브라우저)로 URL 을 연다. 인앱 웹뷰로 열리면 안 되는 경로
+   * (예: 웹 계약 결제 — Apple IAP 판정 리스크 회피)에 쓴다. 실패는 조용히 로그만
+   * 남긴다(버튼이 죽지 않도록) — 호출부에서 별도 에러 처리 불필요.
+   */
+  async openExternalUrl(url: string): Promise<void> {
+    try {
+      await Browser.open({ url });
+    } catch (err) {
+      console.warn('[NativeInterface] openExternalUrl failed:', err);
+    }
   }
 
   // ── In-App Purchase (iOS only) ──────────────────────────────────────────

@@ -154,6 +154,9 @@ export async function submitBizVerification(input: BizVerificationInput): Promis
 
 export type BusinessAdStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'STOPPED';
 
+/** 결제/계약 상태 — 웹 계약(IAP 회피) 플로우 노출 판단용. 백엔드 미제공 시 null. */
+export type BizAdSubscriptionStatus = 'pending_payment' | 'active' | 'expired';
+
 export interface AdTier {
   id: string;
   name: string;
@@ -179,6 +182,7 @@ export interface BusinessAd {
   startsAt: string | null;
   endsAt: string | null;
   createdAt: string;
+  subscriptionStatus: BizAdSubscriptionStatus | null;
 }
 
 export interface BusinessAdInput {
@@ -207,6 +211,7 @@ interface BusinessAdApi {
   starts_at: string | null;
   ends_at: string | null;
   created_at: string;
+  subscription_status: BizAdSubscriptionStatus | null;
 }
 
 function fromAdApi(a: BusinessAdApi): BusinessAd {
@@ -225,6 +230,7 @@ function fromAdApi(a: BusinessAdApi): BusinessAd {
     startsAt: a.starts_at,
     endsAt: a.ends_at,
     createdAt: a.created_at,
+    subscriptionStatus: a.subscription_status ?? null,
   };
 }
 
@@ -285,6 +291,11 @@ export async function stopBusinessAd(id: string): Promise<BusinessAd> {
 export async function resumeBusinessAd(id: string): Promise<BusinessAd> {
   const res = await api.realFetch<BusinessAdApi>(`/biz/ads/${id}/resume`, { method: 'POST' }, 'bff', { rethrow: true });
   return fromAdApi(res);
+}
+
+/** 웹 계약(결제) 링크 발급 — Apple IAP 리스크 회피, business.saigon-rider.com 에서 처리 (외부 브라우저로 열 것). */
+export async function fetchContractLink(id: string): Promise<{ url: string }> {
+  return api.realFetch<{ url: string }>(`/biz/ads/${id}/contract-link`, { method: 'POST' }, 'bff', { rethrow: true });
 }
 
 // ── 업체 카테고리 (W3-FE, business_category DB화) ───────────────

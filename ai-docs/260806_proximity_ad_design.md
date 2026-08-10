@@ -1,7 +1,7 @@
 # 근접 광고(Proximity Ad) + 방문 포인트 — 설계서
 
 > 작성: 2026-08-06 · 근거: 대표 지시 2026-08-06 18:47~18:50 (카톡)
-> 상태: **정정(2026-08-10): 8월 오픈 범위 포함으로 확정.** D-1~D-9/D-11 확정, D-10 미정(§8). §9 백엔드 구현(1~6)·프론트 진입감지(7) 착수 대상. 계약형태는 [`260810_proximity_ad_contract_model.md`](260810_proximity_ad_contract_model.md) 옵션 A(tier 내장 속성) 확정.
+> 상태: **정정(2026-08-10): 8월 오픈 범위 포함으로 확정.** D-1~D-7/D-11 확정, D-8/D-9 권장가만(대표 최종확정 대기), D-10 미정(§8). §9 백엔드 구현(1~6)·프론트 진입감지(7) 전부 완료. 계약형태는 [`260810_proximity_ad_contract_model.md`](260810_proximity_ad_contract_model.md) 옵션 A(tier 내장 속성) 확정.
 > ~~구 상태(2026-08-06): 범위 A 착수 확정 — D-1/D-2/D-6 확정, D-3/D-4/D-5 미결. §9 전부 미착수(오픈 범위 밖, §7)~~
 > 관련: [`spec/ad-performance-metrics.md`](spec/ad-performance-metrics.md) · [`context/architecture.md`](context/architecture.md) · [`context/service-rules.md`](context/service-rules.md) · [`260810_proximity_ad_contract_model.md`](260810_proximity_ad_contract_model.md)
 
@@ -288,8 +288,8 @@ CREATE TABLE IF NOT EXISTS proximity_policy (
 | D-5 | 포인트 적립량 | `action_definition.rp_grant` 값 — 미정 | **확정(2026-08-10): 10 RP/방문 (액션코드 `BIZ_PROXIMITY_VISIT`)** |
 | D-6 | 오픈 범위 포함 여부 | **제외.** §7 | ~~확정(2026-08-06): 오픈 범위 제외~~ → **정정 확정(2026-08-10): 오픈 범위 포함** (§7 정정 참고) |
 | D-7 | 계약(과금) 형태 | 옵션 A(tier 내장 속성) — `260810_proximity_ad_contract_model.md` | **확정(2026-08-10): 옵션 A.** `ad_tiers.proximity_enabled` 컬럼 1개, 프리미엄만 TRUE |
-| D-8 | 프리미엄 월 요금 (VND) | 미정 — A는 이 숫자가 확정돼야 출고 가능 | **미정 (2026-08-10).** 스키마만 준비, `monthly_price_vnd` 는 당분간 0 유지 |
-| D-9 | 일반 월 요금 (VND) | 미정 | **미정 (2026-08-10).** D-8 과 동일 취급 |
+| D-8 | 프리미엄 월 요금 (VND) | 미정 — A는 이 숫자가 확정돼야 출고 가능 | **권장(2026-08-10): 900,000~1,500,000 VND (대표값 1,000,000)** — 호치민 시세 리서치, 실측 아닌 간접 앵커 추정. 상세: `research/260810_proximity_ad_contract_research/근접광고_계약형태_가격정책_조사.md` §D-8/D-9. **대표 최종확정 전까지 `monthly_price_vnd`는 0 유지** |
+| D-9 | 일반 월 요금 (VND) | 미정 | **권장(2026-08-10): 200,000~300,000 VND (대표값 250,000)** — D-8과 동일 근거. 대표 확정 전까지 0 유지 |
 | D-10 | 오픈 초기 프리미엄 프로모션 | 무료 N개월 / 할인 / 없음 | **미정 (2026-08-10).** 이번엔 결정하지 않고 미정으로만 기록 |
 | D-11 | 일반 tier 에도 근접알림을 줄 것인가 | 안 줌(추천) | **확정(2026-08-10): 안 줌.** 근접알림은 프리미엄 전용 |
 
@@ -320,3 +320,5 @@ CREATE TABLE IF NOT EXISTS proximity_policy (
 ```
 
 각 단계는 `is_enabled=FALSE` 상태로 병합 가능하다 — 무동작이므로 오픈을 막지 않는다.
+
+**진행현황 (2026-08-10)**: 1~7 전부 구현·커밋 완료(`39a1b70`, `29a4c98`). 1~6 단위테스트 21/21 PASS, 7단계 계약테스트 6/6 PASS. `find_candidates_near()`(§4 "후보 목록 1회 수신" 구현, 좌표만·G-1 게이트 유지) + `GET /proximity/candidates` 는 원설계서 §9-2에 없던 소보완으로 이번에 함께 추가(`260810_proximity_ad_contract_model.md` 갱신 필요 없음, 계약형태 무관). `/code-review`(medium) 반영 완료(토스트 클릭 navigate() 사용, `/enter` 응답 `_public_ad_out()` 재사용). **남은 것은 실기기 종단검증뿐** — `is_enabled=FALSE` 유지 중이라 오픈 영향 없음.

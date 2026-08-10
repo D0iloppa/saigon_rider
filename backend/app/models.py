@@ -863,6 +863,13 @@ class MarketplaceAd(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # 다국어 검색용 정규화 blob (164 migration, search_index.py 가 씀). None = 미색인(폴백 COALESCE 필요).
     search_blob: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 웹 계약 게이트 (176 migration) — Apple 3.1.3(g) 회피: 계약동의/결제안내는 앱 밖 웹에서.
+    # contract_method 는 현재 'checkbox_v1' 만. 실 전자서명 벤더 연동 시 이 값만 바뀌면 됨.
+    contract_token: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), unique=True, nullable=True)
+    contract_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    contract_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    contract_signer_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    contract_signer_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
 
 class AdTier(Base):

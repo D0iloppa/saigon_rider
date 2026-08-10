@@ -1,0 +1,47 @@
+/* Ad contract acceptance page (/apply) — built on the sr-root tokens from home-launch.css. */
+.sa-page { min-height: 100dvh; padding: 64px 0 96px; display: flex; align-items: center; justify-content: center; }
+.sa-shell { width: min(560px, calc(100% - 40px)); margin-inline: auto; }
+.sa-brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 28px; font-size: 13px; font-weight: 900; letter-spacing: .08em; }
+.sa-lang-switch { margin-left: auto; }
+
+.sa-card { padding: 36px; border: 1px solid rgba(255,255,255,.13); border-radius: 28px; background: rgba(255,255,255,.03); box-shadow: 0 24px 70px rgba(0,0,0,.24); }
+.sa-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+
+.sa-state { text-align: center; padding: 36px 8px; }
+.sa-state h2 { margin: 16px 0 0; color: #fff; font-size: 22px; font-weight: 900; letter-spacing: -.02em; word-break: keep-all; }
+.sa-state p { margin: 12px 0 0; color: var(--sr-muted); font-size: 14px; line-height: 1.75; word-break: keep-all; }
+.sa-spinner { width: 32px; height: 32px; margin: 0 auto; border-radius: 50%; border: 3px solid rgba(255,255,255,.14); border-top-color: var(--sr-orange); animation: sa-spin .8s linear infinite; }
+@keyframes sa-spin { to { transform: rotate(360deg); } }
+
+.sa-form h1 { margin: 0; color: #fff; font-size: 26px; font-weight: 930; letter-spacing: -.03em; word-break: keep-all; }
+.sa-summary { margin: 22px 0 0; display: grid; gap: 10px; padding: 18px; border-radius: 18px; background: rgba(255,255,255,.05); }
+.sa-summary__row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; }
+.sa-summary__row span:first-child { color: var(--sr-muted); }
+.sa-summary__row span:last-child { color: #fff; font-weight: 800; text-align: right; }
+.sa-summary__price { color: var(--sr-orange); font-size: 17px; }
+
+.sa-contract { margin: 26px 0 0; }
+.sa-contract h3 { margin: 0 0 10px; color: rgba(255,249,242,.72); font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.sa-contract p { margin: 0; padding: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.18); color: var(--sr-muted); font-size: 13.5px; line-height: 1.75; word-break: keep-all; }
+
+.sa-agree { margin: 22px 0 0; display: flex; align-items: flex-start; gap: 10px; }
+.sa-agree input[type="checkbox"] { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--sr-orange); flex: none; }
+.sa-agree label { color: #fff; font-size: 14px; font-weight: 700; line-height: 1.6; word-break: keep-all; }
+
+.sa-field { margin: 18px 0 0; }
+.sa-field label { display: block; margin-bottom: 8px; color: rgba(255,249,242,.72); font-size: 12px; font-weight: 900; letter-spacing: .06em; }
+.sa-field input { width: 100%; height: 46px; padding: 0 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); color: #fff; font-size: 14px; }
+.sa-field input::placeholder { color: rgba(255,249,242,.4); }
+.sa-field input:focus-visible { outline: 3px solid rgba(255,90,31,.6); outline-offset: 2px; }
+
+.sa-submit { margin-top: 26px; width: 100%; }
+.sa-error { margin-top: 14px; color: #ff9d7a; font-size: 13px; font-weight: 700; }
+
+.sa-success .sa-summary { margin-top: 22px; }
+.sa-success p.sa-bank { margin: 0; padding: 18px; border-radius: 16px; background: rgba(255,255,255,.06); color: #fff; font-size: 14px; font-weight: 700; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+
+@media (max-width: 560px) {
+  .sa-page { padding: 40px 0 64px; }
+  .sa-card { padding: 26px; border-radius: 22px; }
+  .sa-form h1 { font-size: 22px; }
+}

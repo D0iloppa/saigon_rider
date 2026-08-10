@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .engine_client import engine_client
 from .routers import (
+    ad_contract,
     admin_api,
     admin_legacy,
     app_version,
@@ -213,6 +214,7 @@ app.include_router(notifications.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(badges.router, prefix="/api")
 app.include_router(biz.router, prefix="/api")
+app.include_router(ad_contract.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")

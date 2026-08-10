@@ -204,14 +204,28 @@
 
 .adRow {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   width: 100%;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--surface);
+}
+
+.adRowMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
   text-align: left;
+}
+
+.adContractBtn {
+  align-self: flex-start;
 }
 
 .adThumb {
@@ -483,12 +497,4 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
-}
-
-/* 개발 서버 전용 광고 리스트 배지 — is_dev 로만 노출(app-config) */
-.adsDevBadge {
-  margin: -4px 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--brand-600);
 }

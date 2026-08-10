@@ -10,6 +10,7 @@ declare const __ROUTE_MESSAGING_ENABLED__: boolean;
 
 const Index = lazy(() => import("./pages/home/Index"));
 const BusinessHome = lazy(() => import("./pages/business/Index"));
+const ApplyPage = lazy(() => import("./pages/apply/Index"));
 const ProductPage = lazy(() => import("./pages/home/Index").then((module) => ({ default: module.ProductPage })));
 const SecurityPage = lazy(() => import("./pages/home/Index").then((module) => ({ default: module.SecurityPage })));
 const SolutionsPage = lazy(() => import("./pages/home/Index").then((module) => ({ default: module.SolutionsPage })));
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/vi" element={<Navigate to="/" replace />} />
               <Route path="/ko" element={<BusinessHome />} />
               <Route path="/en" element={<BusinessHome />} />
+              <Route path="/apply" element={<ApplyPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           ) : (

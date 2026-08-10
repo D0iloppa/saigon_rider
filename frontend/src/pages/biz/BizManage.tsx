@@ -10,7 +10,6 @@ import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { api, extractDetail } from '@/api/client';
-import { fetchAppConfig } from '@/api/appVersion';
 import {
   fetchBusinessProfiles,
   updateBusinessProfile,
@@ -19,6 +18,7 @@ import {
   bizCategoryLabel,
   fetchBizPublicNews,
   deleteBizNews,
+  fetchContractLink,
   type BusinessProfile,
   type BusinessAd,
   type BusinessAdStatus,
@@ -74,28 +74,12 @@ export default function BizManage() {
   // 프로필별 소식 목록 (SGR-326 — 가게소식 작성)
   const [news, setNews] = useState<{ profileId: string; list: BizNewsItem[] } | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
-  // 광고 섹션 — 운영에서는 준비중 안내만, dev 서버에서만 실제 리스트+등록 CTA 노출
-  const [isDev, setIsDev] = useState(false);
+  // 웹 계약(결제) 링크 발급 로딩 — pending_payment 광고별 버튼 상태
+  const [contractLoadingId, setContractLoadingId] = useState<string | null>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 editForm 의 name/phone input 이 키보드에 가려진다 —
   // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
   const isIosNative = native.platform === 'ios';
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchAppConfig()
-      .then((cfg) => {
-        if (cancelled) return;
-        setIsDev(cfg.isDev);
-      })
-      .catch(() => {
-        // 응답 실패 시 isDev를 false로 유지 (fail-closed: dev 전용 기능이 노출되지 않음)
-        if (cancelled) return;
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +208,19 @@ export default function BizManage() {
   };
 
   const newsList = news && news.profileId === active.id ? news.list : null;
+
+  // 웹 계약(결제) 링크 — pending_payment 광고에 대해 발급 후 외부 브라우저로 연다 (IAP 리스크 회피)
+  const handleContractLink = async (adId: string) => {
+    setContractLoadingId(adId);
+    try {
+      const { url } = await fetchContractLink(adId);
+      await native.openExternalUrl(url);
+    } catch (err: any) {
+      toast.error(extractDetail(err, t('biz.contractLinkError', { defaultValue: '계약 링크를 불러오지 못했습니다' })));
+    } finally {
+      setContractLoadingId(null);
+    }
+  };
 
   const handleDeleteNews = async (newsId: string) => {
     try {
@@ -391,7 +388,7 @@ export default function BizManage() {
             </div>
             <div className={styles.guideItem}>
               <strong>{t('biz.guideAdsTitle', { defaultValue: '광고 안내' })}</strong>
-              <span>{t('biz.adsComingSoonDesc', { defaultValue: '광고 기능은 준비중이며 조만간 오픈됩니다' })}</span>
+              <span>{t('biz.guideAdsDesc', { defaultValue: '광고를 등록하면 심사 후 게시돼요' })}</span>
             </div>
           </div>
         )}
@@ -450,16 +447,8 @@ export default function BizManage() {
           <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
         </button>
 
-        {/* BP-4: 광고 — 운영에서는 준비중 안내만, dev 서버에서는 실제 리스트+등록 CTA 도 함께 노출(검토용) */}
+        {/* BP-4: 광고 — 2026-08-10 개발/운영 공통 오픈 (승인 게이트가 이미 있어 미승인 광고는 노출 안 됨) */}
         <h3 className={styles.sectionTitle}>{t('biz.adsTitle', { defaultValue: '내 광고' })}</h3>
-        <div className={styles.adsEmpty}>
-          <p>{t('biz.adsComingSoonDesc', { defaultValue: '광고 기능은 준비중이며 조만간 오픈됩니다' })}</p>
-        </div>
-        {isDev && (
-        <>
-        <p className={styles.adsDevBadge}>
-          {t('biz.adsDevOnlyBadge', { defaultValue: '현재 개발 중인 광고 기능으로, 개발 서버에만 표출됩니다' })}
-        </p>
         {adList === null ? (
           <p className={styles.loading}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
         ) : adList.length === 0 ? (
@@ -469,19 +458,38 @@ export default function BizManage() {
         ) : (
           <div className={styles.adList}>
             {adList.map((ad) => (
-              <button key={ad.id} className={styles.adRow} onClick={() => navigate(`/biz/ads/${ad.id}`)}>
-                <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.adThumb} />
-                <span className={styles.adRowTitle}>{ad.title}</span>
-                <span className={`${styles.adChip} ${styles[AD_CHIP_CLASS[ad.reviewStatus]]}`}>
-                  {ad.reviewStatus === 'PENDING'
-                    ? t('biz.adStatusPending', { defaultValue: '심사중' })
-                    : ad.reviewStatus === 'APPROVED'
-                      ? t('biz.adStatusApproved', { defaultValue: '게시중' })
-                      : ad.reviewStatus === 'REJECTED'
-                        ? t('biz.adStatusRejected', { defaultValue: '반려' })
-                        : t('biz.adStatusStopped', { defaultValue: '게시 중단' })}
-                </span>
-              </button>
+              <div key={ad.id} className={styles.adRow}>
+                <button
+                  type="button"
+                  className={styles.adRowMain}
+                  onClick={() => navigate(`/biz/ads/${ad.id}`)}
+                >
+                  <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.adThumb} />
+                  <span className={styles.adRowTitle}>{ad.title}</span>
+                  <span className={`${styles.adChip} ${styles[AD_CHIP_CLASS[ad.reviewStatus]]}`}>
+                    {ad.reviewStatus === 'PENDING'
+                      ? t('biz.adStatusPending', { defaultValue: '심사중' })
+                      : ad.reviewStatus === 'APPROVED'
+                        ? t('biz.adStatusApproved', { defaultValue: '게시중' })
+                        : ad.reviewStatus === 'REJECTED'
+                          ? t('biz.adStatusRejected', { defaultValue: '반려' })
+                          : t('biz.adStatusStopped', { defaultValue: '게시 중단' })}
+                  </span>
+                </button>
+                {ad.subscriptionStatus === 'pending_payment' && (
+                  <Button
+                    size="sm"
+                    fullWidth={false}
+                    className={styles.adContractBtn}
+                    onClick={() => handleContractLink(ad.id)}
+                    disabled={contractLoadingId === ad.id}
+                  >
+                    {contractLoadingId === ad.id
+                      ? t('biz.contractLinkLoading', { defaultValue: '연결 중…' })
+                      : t('biz.contractLinkCta', { defaultValue: '웹에서 계약하기' })}
+                  </Button>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -491,8 +499,6 @@ export default function BizManage() {
         >
           {t('biz.adCreateCta', { defaultValue: '광고 등록' })}
         </Button>
-        </>
-        )}
         </>
         )}
       </div>

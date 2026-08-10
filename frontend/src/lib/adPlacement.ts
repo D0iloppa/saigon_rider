@@ -13,9 +13,10 @@ const AD_LIMIT_STEP = 3;
 /** 초기 노출 한도. */
 export const AD_LIMIT_INITIAL = 3;
 
-/** 광고 노출 시기상조 — 대표 지시(2026-07-25)로 피드 광고카드 노출만 숨긴다.
- * 로직/컴포넌트는 폐기하지 않음 — 이 플래그만 켜면 그대로 복원된다. */
-export const ADS_ENABLED = false;
+/** ~~광고 노출 시기상조 — 대표 지시(2026-07-25)로 피드 광고카드 노출만 숨긴다.~~
+ * 재개(2026-08-10, 대표 지시) — 승인(review_status=APPROVED) 게이트가 이미 있어
+ * 개발/운영 공통으로 켠다. 미승인 광고는 노출되지 않으므로 리스크 없음. */
+export const ADS_ENABLED = true;
 
 export interface AdSlot {
   ad: MarketAd;

@@ -106,6 +106,7 @@
     "statusReserved": "예약중",
     "statusSold": "거래완료",
     "statusHidden": "관리자에 의해 숨김",
+    "statusWithdrawn": "내려둠",
     "negotiable": "가격 제안 가능",
     "bikeMinutes": "오토바이 {{count}}분",
     "makeOffer": "가격제안",
@@ -234,12 +235,15 @@
     "saving": "저장 중",
     "withdraw": "매물 철회",
     "withdrawConfirmTitle": "매물을 철회할까요?",
-    "withdrawConfirmBody": "철회하면 되돌릴 수 없고 피드·검색에서 사라져요.",
+    "withdrawConfirmBody": "내려두면 피드·검색에서 사라져요. 내 매물에 남아 있어 언제든 다시 올릴 수 있어요.",
     "withdrawConfirm": "철회하기",
     "withdrawing": "철회 중",
-    "withdrawDone": "매물을 철회했어요",
+    "withdrawDone": "매물을 내렸어요. 언제든 다시 올릴 수 있어요",
     "withdrawError": "철회에 실패했어요",
     "withdrawBlockedByAppointment": "진행 중인 약속이 있어 철회할 수 없어요. 약속을 먼저 취소해주세요.",
+    "relist": "다시 올리기",
+    "relistDone": "다시 판매중으로 올렸어요",
+    "relistError": "다시 올리기에 실패했어요",
     "adAddress": "위치",
     "adBusinessHours": "영업시간",
     "adClosed": "영업 종료",
@@ -264,7 +268,14 @@
     "reviewStar3": "보통이에요",
     "reviewStar4": "좋아요",
     "reviewStar5": "최고예요!",
-    "categoryAll": "전체"
+    "categoryAll": "전체",
+    "emptyTitleFiltered": "이 카테고리엔 매물이 없어요",
+    "emptySubFiltered": "다른 카테고리를 확인해보세요",
+    "emptyResetCategory": "전체 카테고리 보기",
+    "emptyExpandScope": "전체 지역에서 찾아보기",
+    "emptyKeywordAlert": "키워드 알림 받기",
+    "retryUpload": "재시도",
+    "uploadFailedHint": "업로드 실패한 사진이 있어요. 재시도하거나 삭제해주세요"
   },
   "forceUpdate": {
     "title": "업데이트가 필요해요",
@@ -682,6 +693,8 @@
     "notiItemComment": "댓글",
     "notiItemFriendReq": "친구 신청",
     "notiItemSocial": "응원·댓글·친구 신청",
+    "notiSectionChat": "채팅",
+    "notiItemChat": "거래 채팅 알림",
     "notiImportantNote": "중요한 알림(보안·결제)은 끌 수 없어요",
     "langCaption": "변경 사항은 즉시 적용됩니다",
     "langNameKo": "한국어",
@@ -2101,5 +2114,8 @@
     "allDesc": "호치민 전역을 봅니다",
     "fallbackTitle": "호치민 중심가",
     "fallbackDesc": "서비스 지역 밖이라 호치민 중심가를 기준으로 봅니다"
+  },
+  "proximity": {
+    "adLabel": "근처 매장"
   }
 }

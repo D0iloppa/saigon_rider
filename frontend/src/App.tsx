@@ -17,6 +17,7 @@ import { emojiUrl } from '@/lib/emoji';
 import { setSessionExpiredHandler, SessionExpiredError, setAccountRestrictedHandler, AccountRestrictedError } from '@/api/client';
 import { native } from '@/lib/native';
 import { fetchAppConfig, fetchCurrentVersion, shouldForceUpdate, pickPlatformVersion } from '@/api/appVersion';
+import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -336,6 +337,12 @@ export default function App() {
       if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 근접알림 워처 — 앱 전역에서 로그인 후 1회만 마운트한다(260806_proximity_ad_design.md §9-7).
+  // DM 미읽음 폴링(위)과 같은 이유로 여기 둔다: 특정 화면이 아니라 앱을 켜둔 동안 계속 봐야
+  // 하는 관심사다. 킬스위치(proximity_policy.is_enabled)는 서버가 candidates 를 빈 배열로
+  // 내려 자동 무동작 처리하므로 프론트에는 별도 게이트가 없다.
+  useProximityAlerts(!!user);
 
   // GIF 백그라운드 프리로드
   useEffect(() => {

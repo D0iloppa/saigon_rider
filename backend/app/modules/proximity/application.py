@@ -117,6 +117,41 @@ class ProximityApplication:
         ]
         return build_exposure_sequence(weighted)[0]
 
+    # ── 후보 목록 조회 (앱 시작 시 1회, 좌표만 배포 — §4 "가맹점 목록 노출: 비노출") ──
+
+    async def find_candidates_near(
+        self, *, lat: float, lng: float, radius_m: int
+    ) -> list[tuple[uuid.UUID, float, float]]:
+        """반경 내 근접알림 대상 가맹점의 (business_profile_id, lat, lng) 목록만 반환한다.
+
+        find_candidate() 와 동일한 G-1 게이트(subscription_status='active') + tier.proximity_enabled
+        조건을 유지한다 — 미납/일반 tier 광고주가 좌표조차 클라이언트에 배포되지 않게 막는다.
+        상세정보(이름·주소 등)는 절대 포함하지 않는다 — 진입 확정은 서버가 /enter 에서 재검증한다.
+        """
+        rows = (
+            await self.db.execute(
+                select(BusinessProfile.id, BusinessProfile.latitude, BusinessProfile.longitude)
+                .join(MarketplaceAd, MarketplaceAd.owner_business_profile_id == BusinessProfile.id)
+                .join(AdTier, AdTier.id == MarketplaceAd.tier_id)
+                .where(
+                    AdTier.proximity_enabled == True,
+                    MarketplaceAd.subscription_status == "active",  # G-1
+                    *launching_ad_conditions(datetime.now(UTC)),
+                    text(
+                        "ST_DWithin(business_profile.geom, "
+                        "ST_SetSRID(ST_MakePoint(:proximity_lng, :proximity_lat), 4326)::geography, "
+                        ":proximity_radius_m)"
+                    ).bindparams(proximity_lng=lng, proximity_lat=lat, proximity_radius_m=radius_m),
+                )
+                .distinct()
+            )
+        ).all()
+        return [
+            (row.id, float(row.latitude), float(row.longitude))
+            for row in rows
+            if row.latitude is not None and row.longitude is not None
+        ]
+
     # ── 쿨다운 · 일일 상한 ──────────────────────────────────────
 
     async def is_in_cooldown(

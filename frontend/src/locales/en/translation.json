@@ -106,6 +106,7 @@
     "statusReserved": "Reserved",
     "statusSold": "Sold",
     "statusHidden": "Hidden by admin",
+    "statusWithdrawn": "Taken down",
     "negotiable": "Open to offers",
     "bikeMinutes": "{{count}} min by bike",
     "makeOffer": "Make offer",
@@ -234,12 +235,15 @@
     "saving": "Saving",
     "withdraw": "Withdraw listing",
     "withdrawConfirmTitle": "Withdraw this listing?",
-    "withdrawConfirmBody": "This can't be undone and the listing will disappear from feed/search.",
+    "withdrawConfirmBody": "It disappears from feed/search, but stays in My listings so you can put it back up anytime.",
     "withdrawConfirm": "Withdraw",
     "withdrawing": "Withdrawing",
-    "withdrawDone": "Listing withdrawn",
+    "withdrawDone": "Listing taken down. You can put it back up anytime",
     "withdrawError": "Failed to withdraw",
     "withdrawBlockedByAppointment": "Can't withdraw while an appointment is in progress. Cancel it first.",
+    "relist": "Put back up",
+    "relistDone": "Back on sale",
+    "relistError": "Failed to put it back up",
     "adAddress": "Location",
     "adBusinessHours": "Opening hours",
     "adClosed": "Closed",
@@ -264,7 +268,14 @@
     "reviewStar3": "Okay",
     "reviewStar4": "Good",
     "reviewStar5": "Excellent!",
-    "categoryAll": "All"
+    "categoryAll": "All",
+    "emptyTitleFiltered": "No listings in this category",
+    "emptySubFiltered": "Try a different category",
+    "emptyResetCategory": "View all categories",
+    "emptyExpandScope": "Search across all areas",
+    "emptyKeywordAlert": "Get keyword alerts",
+    "retryUpload": "Retry",
+    "uploadFailedHint": "Some photos failed to upload. Please retry or remove them"
   },
   "forceUpdate": {
     "title": "Update required",
@@ -682,6 +693,8 @@
     "notiItemComment": "Comments",
     "notiItemFriendReq": "Friend Request",
     "notiItemSocial": "Cheers, comments & friend requests",
+    "notiSectionChat": "Chat",
+    "notiItemChat": "Trade chat notifications",
     "notiImportantNote": "Important alerts (security & payments) cannot be disabled",
     "langCaption": "Changes apply immediately",
     "langNameKo": "Korean",
@@ -2101,5 +2114,8 @@
     "allDesc": "See all of Ho Chi Minh City",
     "fallbackTitle": "Central Ho Chi Minh City",
     "fallbackDesc": "You're outside the service area · showing central Ho Chi Minh City"
+  },
+  "proximity": {
+    "adLabel": "Nearby store"
   }
 }

@@ -9,7 +9,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,8 @@ from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import AdEvent, BusinessProfile
 from ..modules.proximity.application import ProximityApplication
+from ..routers.market import _public_ad_out
+from ..schemas import MarketplaceAdOut
 from ..services import noti_events
 from ..services.coordinates import Latitude, Longitude
 from ..utils import haversine_m
@@ -42,6 +44,34 @@ class ProximityEnterResponse(BaseModel):
     visit_confirmed: bool
     rp_earned: int
     reason: str | None = None
+    # 알림이 실제로 뜬 경우에만 채운다 — 프론트가 기존 AdCard 로 그대로 렌더링한다.
+    ad: MarketplaceAdOut | None = None
+
+
+class ProximityCandidateOut(BaseModel):
+    """앱 시작 시 1회 배포하는 후보 좌표 — §4 "가맹점 목록 노출: 비노출" 과 정합하도록 좌표만."""
+
+    business_profile_id: uuid.UUID
+    lat: float
+    lng: float
+
+
+@router.get("/candidates", response_model=list[ProximityCandidateOut])
+async def get_candidates(
+    lat: Latitude = Query(...),
+    lng: Longitude = Query(...),
+    user_id: uuid.UUID = Depends(verify_user_session),
+    db: AsyncSession = Depends(get_db),
+) -> list[ProximityCandidateOut]:
+    app = ProximityApplication(db)
+    policy = await app.get_policy()
+    if not policy.is_enabled:
+        return []
+    rows = await app.find_candidates_near(lat=lat, lng=lng, radius_m=policy.candidate_radius_m)
+    return [
+        ProximityCandidateOut(business_profile_id=business_profile_id, lat=row_lat, lng=row_lng)
+        for business_profile_id, row_lat, row_lng in rows
+    ]
 
 
 @router.post("/enter", response_model=ProximityEnterResponse)
@@ -85,6 +115,7 @@ async def enter_proximity(
 
     notified = False
     reason: str | None = None
+    ad_card: MarketplaceAdOut | None = None
     tracking_hit = existing_hit
     if await app.is_in_cooldown(
         user_id=user_id, business_profile_id=body.business_profile_id, cooldown_hours=policy.cooldown_hours, now=now
@@ -125,6 +156,7 @@ async def enter_proximity(
             },
         )
         notified = True
+        ad_card = _public_ad_out(candidate.ad)
 
     visit_now_eligible = tracking_hit is not None and ProximityApplication.visit_eligible(
         hit=tracking_hit,
@@ -156,5 +188,9 @@ async def enter_proximity(
         await db.commit()
 
     return ProximityEnterResponse(
-        notified=notified, visit_confirmed=visit_confirmed, rp_earned=rp_earned, reason=None if notified else reason
+        notified=notified,
+        visit_confirmed=visit_confirmed,
+        rp_earned=rp_earned,
+        reason=None if notified else reason,
+        ad=ad_card,
     )

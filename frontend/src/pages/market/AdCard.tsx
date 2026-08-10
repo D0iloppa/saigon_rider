@@ -3,10 +3,13 @@ import { AppImage } from '@/components/ui/AppImage';
 import type { MarketAd } from '@/api/market';
 import styles from './AdCard.module.css';
 
-/** 피드 중간 삽입 제휴 광고 카드. 이미지 있으면 히어로 레이아웃, 없으면 인라인. */
-export default function AdCard({ ad, onClick }: { ad: MarketAd; onClick: () => void }) {
+/** 피드 중간 삽입 제휴 광고 카드. 이미지 있으면 히어로 레이아웃, 없으면 인라인.
+ * `label` 을 넘기면 좌상단 뱃지 텍스트를 다른 노출면(예: 근접알림)에 맞게 바꿀 수 있다 —
+ * 기본은 피드 광고 라벨("광고")과 동일. */
+export default function AdCard({ ad, onClick, label }: { ad: MarketAd; onClick: () => void; label?: string }) {
   const { t } = useTranslation();
   const hasImage = !!ad.imageUrl;
+  const badgeLabel = label ?? t('market.adLabel', { defaultValue: '광고' });
 
   return (
     <button className={styles.card} type="button" onClick={onClick}>
@@ -23,7 +26,7 @@ export default function AdCard({ ad, onClick }: { ad: MarketAd; onClick: () => v
           </span>
           <div className={styles.bodyInline}>
             <div className={styles.labelRow}>
-              <span className={styles.label}>{t('market.adLabel', { defaultValue: '광고' })}</span>
+              <span className={styles.label}>{badgeLabel}</span>
               <span className={styles.partnerTag}>{ad.partnerName}</span>
             </div>
             <p className={styles.title}>{ad.title}</p>
@@ -33,7 +36,7 @@ export default function AdCard({ ad, onClick }: { ad: MarketAd; onClick: () => v
       ) : (
         <div className={styles.body}>
           <div className={styles.labelRow}>
-            <span className={styles.label}>{t('market.adLabel', { defaultValue: '광고' })}</span>
+            <span className={styles.label}>{badgeLabel}</span>
             <span className={styles.partnerTag}>{ad.partnerName}</span>
           </div>
           <p className={styles.title}>{ad.title}</p>

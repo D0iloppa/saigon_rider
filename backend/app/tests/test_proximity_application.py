@@ -142,6 +142,56 @@ class ProximityCandidateQueryTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
 
 
+class FakeCandidateRows:
+    """(id, latitude, longitude) 튜플 형태 row 를 named-attribute 로도 접근 가능하게 감싼다."""
+
+    def __init__(self, rows):
+        self.rows = rows
+
+    def all(self):
+        return self.rows
+
+
+class CandidateQuerySession:
+    def __init__(self, rows):
+        self.rows = rows
+        self.statement = None
+
+    async def execute(self, statement):
+        self.statement = statement
+        return FakeCandidateRows(self.rows)
+
+
+class _Row:
+    """SQLAlchemy Row 흉내 — .id/.latitude/.longitude 속성 접근을 지원한다."""
+
+    def __init__(self, id_, latitude, longitude):
+        self.id = id_
+        self.latitude = latitude
+        self.longitude = longitude
+
+
+class ProximityCandidatesNearTests(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_coords_only_and_applies_g1_gate(self):
+        business_profile_id = uuid.uuid4()
+        db = CandidateQuerySession([_Row(business_profile_id, 10.77, 106.70)])
+        result = await ProximityApplication(db).find_candidates_near(lat=10.77, lng=106.70, radius_m=3000)
+        self.assertEqual(result, [(business_profile_id, 10.77, 106.70)])
+        whereclause = str(db.statement.whereclause)
+        self.assertIn("ad_tiers.proximity_enabled", whereclause)
+        self.assertIn("marketplace_ads.subscription_status", whereclause)
+
+    async def test_rows_missing_coords_are_dropped(self):
+        db = CandidateQuerySession([_Row(uuid.uuid4(), None, None)])
+        result = await ProximityApplication(db).find_candidates_near(lat=10.77, lng=106.70, radius_m=3000)
+        self.assertEqual(result, [])
+
+    async def test_no_rows_returns_empty_list(self):
+        db = CandidateQuerySession([])
+        result = await ProximityApplication(db).find_candidates_near(lat=10.77, lng=106.70, radius_m=3000)
+        self.assertEqual(result, [])
+
+
 class ProximityCooldownAndCapTests(unittest.IsolatedAsyncioTestCase):
     async def test_in_cooldown_when_recently_notified(self):
         now = datetime.now(UTC)

@@ -106,6 +106,7 @@
     "statusReserved": "Đang giữ chỗ",
     "statusSold": "Đã bán",
     "statusHidden": "Đã bị ẩn bởi quản trị viên",
+    "statusWithdrawn": "Đã gỡ",
     "negotiable": "Có thể trả giá",
     "bikeMinutes": "{{count}} phút xe máy",
     "makeOffer": "Trả giá",
@@ -234,12 +235,15 @@
     "saving": "Đang lưu",
     "withdraw": "Hủy tin đăng",
     "withdrawConfirmTitle": "Hủy tin đăng này?",
-    "withdrawConfirmBody": "Không thể hoàn tác và tin sẽ biến mất khỏi bảng tin/tìm kiếm.",
+    "withdrawConfirmBody": "Tin sẽ biến mất khỏi bảng tin/tìm kiếm nhưng vẫn nằm trong Tin của tôi — bạn có thể đăng lại bất cứ lúc nào.",
     "withdrawConfirm": "Hủy tin",
     "withdrawing": "Đang hủy",
-    "withdrawDone": "Đã hủy tin đăng",
+    "withdrawDone": "Đã gỡ tin. Bạn có thể đăng lại bất cứ lúc nào",
     "withdrawError": "Hủy tin thất bại",
     "withdrawBlockedByAppointment": "Không thể hủy khi có lịch hẹn đang diễn ra. Hãy hủy lịch hẹn trước.",
+    "relist": "Đăng lại",
+    "relistDone": "Đã đăng lại, đang bán",
+    "relistError": "Đăng lại thất bại",
     "adAddress": "Địa chỉ",
     "adBusinessHours": "Giờ mở cửa",
     "adClosed": "Đã đóng cửa",
@@ -264,7 +268,14 @@
     "reviewStar3": "Bình thường",
     "reviewStar4": "Hài lòng",
     "reviewStar5": "Tuyệt vời!",
-    "categoryAll": "Tất cả"
+    "categoryAll": "Tất cả",
+    "emptyTitleFiltered": "Danh mục này chưa có tin nào",
+    "emptySubFiltered": "Hãy thử danh mục khác",
+    "emptyResetCategory": "Xem tất cả danh mục",
+    "emptyExpandScope": "Tìm kiếm trên toàn thành phố",
+    "emptyKeywordAlert": "Đặt thông báo từ khóa",
+    "retryUpload": "Thử lại",
+    "uploadFailedHint": "Có ảnh tải lên thất bại. Vui lòng thử lại hoặc xoá ảnh đó"
   },
   "forceUpdate": {
     "title": "Cần cập nhật ứng dụng",
@@ -682,6 +693,8 @@
     "notiItemComment": "Bình luận",
     "notiItemFriendReq": "Lời mời kết bạn",
     "notiItemSocial": "Cổ vũ, bình luận & lời mời kết bạn",
+    "notiSectionChat": "Trò chuyện",
+    "notiItemChat": "Thông báo trò chuyện giao dịch",
     "notiImportantNote": "Không thể tắt thông báo quan trọng (bảo mật & thanh toán)",
     "langCaption": "Thay đổi áp dụng ngay lập tức",
     "langNameKo": "Tiếng Hàn",
@@ -2101,5 +2114,8 @@
     "allDesc": "Xem toàn bộ TP.HCM",
     "fallbackTitle": "Trung tâm TP.HCM",
     "fallbackDesc": "Bạn đang ở ngoài khu vực dịch vụ · hiển thị theo trung tâm TP.HCM"
+  },
+  "proximity": {
+    "adLabel": "Cửa hàng gần đây"
   }
 }

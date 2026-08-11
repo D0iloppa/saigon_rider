@@ -460,6 +460,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 라우트(SPA) | 페이지 파일 | 내용 |
 |---|---|---|
 | `/cms/badges` | `admin-frontend/src/pages/cms/BadgeListPage.tsx` | **배지 관리 (2026-07-23 이식, 커밋 `1dcc928`)** — `Badge` CRUD, i18n 3벌(name/desc ko·en·vi) + condition_rule(`{operator, conditions:[{metric,op,value}]}`, metric/op **allow-list 서버검증** `<script>`→422) + `icon_content_id`(현재 UUID 텍스트 입력 — admin SPA에 파일 업로드 위젯 부재, POI와 동일 수준. 표시는 `build_imgproxy_url(path, "rs:fill:96:96:1")`로 썸네일 렌더). 백엔드 `admin_api/badges.py`(`verify_admin_api` — 배지는 보상/머니 config 아님), 감사 `BADGE_CREATE/UPDATE/DELETE`. fetch 훅 `api/badges.ts`. 레거시 `/admin-legacy/badges` 병행 유지 |
+| `/listings` | `admin-frontend/src/pages/listings/ListingListPage.tsx` (+ `ListingDetailPage.tsx`) | 매물 검수. 단건 모더레이션(RESTORE/HIDE/REMOVE, `ModerateModal`)에 **일괄 승인/반려 추가(2026-08-11, T-4)** — 체크박스 다중선택 + "선택 승인"/"선택 반려" 버튼(`BulkModerateModal.tsx`) → `POST /admin/api/listings/bulk-moderate`, 단건과 동일 authz+감사로그를 항목별로 남김. **"승인"(RESTORE)은 이미 `ON_SALE`인 매물엔 무의미** — 이 도메인엔 등록 전 승인대기 상태가 없어(즉시 노출) HIDDEN/REMOVED 였던 매물을 되돌릴 때만 의미가 있음, 별도 승인 워크플로 신설 아님. **기계판정 자동플래그**(`ListingFlags.tsx`, 쿼리 시점 계산·컬럼 없음): 사진 2장 미만·가격 0·카테고리 미지정·업체 내 제목+대표사진 중복. "업체당 매물 5건 초과" 플래그는 **의도적으로 미구현** — T-3(§3.7 참조)가 서버에서 6건째를 이미 422 로 막아 도달 불가능한 케이스라 죽은 코드가 됨 |
 
 #### 관리자 콘솔 — SRE 그룹 (ROOT∨ADMIN 전용, 보상/경제 config)
 

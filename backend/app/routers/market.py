@@ -71,6 +71,8 @@ router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
 _BUSINESS_LISTING_CAP = 5  # T-3: 업체당 매물 상한(강제, 예외 없음) — 알바 등록 건당 지급 구조의 어뷰징 방지
+# 더 이상 "현재 노출 중"이 아닌 상태 — 구매자 노출 필터(get_listings)와 T-3 상한 카운트가 공유한다.
+_LISTING_INACTIVE_STATUSES = ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD")
 
 
 _MANNER_BASE = 36.5
@@ -342,7 +344,7 @@ async def get_listings(
     # 대표 지시 2026-08-08: 철회(WITHDRAWN)도 같은 예외 — 철회는 삭제가 아니라 되돌릴 수 있는
     # 상태이므로 내 매물 목록에서 사라지면 안 된다(재판매 진입점이 이 목록이다).
     is_own_listings = seller_id is not None and session_uid is not None and seller_id == session_uid
-    hidden = ("HIDDEN", "REMOVED") if is_own_listings else ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD")
+    hidden = ("HIDDEN", "REMOVED") if is_own_listings else _LISTING_INACTIVE_STATUSES
     q = q.where(MarketplaceListing.status.notin_(hidden))
     count_q = count_q.where(MarketplaceListing.status.notin_(hidden))
 
@@ -605,16 +607,19 @@ async def create_listing(
             or business_profile.status != "APPROVED"
         ):
             raise HTTPException(status_code=403, detail="Business profile not approved")
-        # T-3: 업체당 매물 상한 5건(서버 강제, 예외 없음, 대표 결정 2026-08-11) — SOLD/WITHDRAWN/
-        # HIDDEN/REMOVED(=line 344 의 hidden 튜플과 동일 그룹)는 더 이상 "현재 노출 중"이 아니므로
-        # 상한에서 제외한다. 철회 후 재등록이 막히지 않도록(lifetime cap 아님).
+        # T-3: 업체당 매물 상한 5건(서버 강제, 예외 없음, 대표 결정 2026-08-11) —
+        # _LISTING_INACTIVE_STATUSES 는 더 이상 "현재 노출 중"이 아니므로 상한에서 제외한다.
+        # 철회 후 재등록이 막히지 않도록(lifetime cap 아님). 동시 등록 경합 방지를 위해
+        # business_profile 행을 잠근 뒤(FOR UPDATE) 카운트한다 — 두 요청이 동시에 들어와도
+        # 두 번째는 첫 번째의 커밋(=insert 반영)을 기다린 뒤에야 카운트한다.
+        await db.execute(select(BusinessProfile.id).where(BusinessProfile.id == business_profile.id).with_for_update())
         active_count = (
             await db.execute(
                 select(func.count())
                 .select_from(MarketplaceListing)
                 .where(
                     MarketplaceListing.business_profile_id == business_profile.id,
-                    MarketplaceListing.status.notin_(("SOLD", "WITHDRAWN", "HIDDEN", "REMOVED")),
+                    MarketplaceListing.status.notin_(_LISTING_INACTIVE_STATUSES),
                 )
             )
         ).scalar_one()
@@ -766,6 +771,26 @@ async def update_status(
     # (구매자가 없는 상태에서 RESERVED 로 바로 가는 전이는 의미가 없으므로 막는다.)
     if listing.status == "WITHDRAWN" and body.status != "ON_SALE":
         raise HTTPException(status_code=400, detail={"code": "relist_on_sale_only"})
+    # T-3: 철회(WITHDRAWN) → 재판매(ON_SALE) 복귀도 신규 등록과 동일하게 상한을 적용한다
+    # (그렇지 않으면 상한에 걸린 업체가 매물을 철회 후 재판매로 복귀시켜 상한을 무력화한다).
+    if listing.status == "WITHDRAWN" and body.status == "ON_SALE" and listing.business_profile_id is not None:
+        await db.execute(
+            select(BusinessProfile.id).where(BusinessProfile.id == listing.business_profile_id).with_for_update()
+        )
+        active_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(MarketplaceListing)
+                .where(
+                    MarketplaceListing.business_profile_id == listing.business_profile_id,
+                    MarketplaceListing.status.notin_(_LISTING_INACTIVE_STATUSES),
+                )
+            )
+        ).scalar_one()
+        if active_count >= _BUSINESS_LISTING_CAP:
+            raise HTTPException(
+                status_code=422, detail=f"Business profile listing limit reached (max {_BUSINESS_LISTING_CAP})"
+            )
     if body.status == "WITHDRAWN":
         # MKT-2 와 동일한 근거로 매물 행을 잠근다: 잠금 없는 SELECT 로는 이 철회 요청과
         # accept_appointment(둘 다 _load_appointment 에서 같은 행을 FOR UPDATE 로 잠금)가

@@ -28,6 +28,7 @@ def _listing(seller_id: uuid.UUID, status: str = "ON_SALE"):
     listing.title = "old title"
     listing.description = "old desc"
     listing.category_id = None
+    listing.business_profile_id = None
     return listing
 
 
@@ -343,6 +344,44 @@ class CreateListingBusinessCapTest(unittest.IsolatedAsyncioTestCase):
         sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
         for term in ("SOLD", "WITHDRAWN", "HIDDEN", "REMOVED"):
             self.assertIn(term, sql)
+
+
+class RelistBusinessCapTest(unittest.IsolatedAsyncioTestCase):
+    """T-3 review 발견 — WITHDRAWN→ON_SALE 재판매 경로가 상한 재검증 없이 신규 등록과
+    동일한 결과(활성 슬롯 점유)를 만들면서도 create_listing 의 상한 체크를 우회하고 있었다."""
+
+    async def test_relist_at_cap_rejected_with_422(self):
+        session_uid = uuid.uuid4()
+        bp_id = uuid.uuid4()
+        listing = _listing(seller_id=session_uid, status="WITHDRAWN")
+        listing.business_profile_id = bp_id
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[_exec_result(scalar=listing), MagicMock(), _count_result(5)])
+        with self.assertRaises(HTTPException) as ctx:
+            await market.update_status(
+                listing_id=listing.id,
+                body=MarketplaceListingStatusUpdate(seller_id=session_uid, status="ON_SALE"),
+                db=db,
+                session_uid=session_uid,
+            )
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    async def test_relist_below_cap_still_allowed(self):
+        session_uid = uuid.uuid4()
+        bp_id = uuid.uuid4()
+        listing = _listing(seller_id=session_uid, status="WITHDRAWN")
+        listing.business_profile_id = bp_id
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[_exec_result(scalar=listing), MagicMock(), _count_result(4)])
+        db.commit = AsyncMock()
+        result = await market.update_status(
+            listing_id=listing.id,
+            body=MarketplaceListingStatusUpdate(seller_id=session_uid, status="ON_SALE"),
+            db=db,
+            session_uid=session_uid,
+        )
+        self.assertEqual(result.id, listing.id)
+        self.assertEqual(listing.status, "ON_SALE")
 
 
 if __name__ == "__main__":

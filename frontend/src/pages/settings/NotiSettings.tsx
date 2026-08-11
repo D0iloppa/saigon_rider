@@ -13,12 +13,16 @@ import {
 import styles from './Settings.module.css';
 
 type NotiField = keyof NotificationSettingsFields;
-type VisibleField = 'social' | 'keyword_alert';
+type VisibleField = 'social' | 'chat' | 'keyword_alert';
 
 const SECTIONS: { titleKey: string; items: VisibleField[]; captionKey?: string }[] = [
   {
     titleKey: 'settings.notiSectionSocial',
     items: ['social'],
+  },
+  {
+    titleKey: 'settings.notiSectionChat',
+    items: ['chat'],
   },
   {
     titleKey: 'settings.notiSectionKeyword',
@@ -29,6 +33,7 @@ const SECTIONS: { titleKey: string; items: VisibleField[]; captionKey?: string }
 
 const LABEL_KEYS: Record<VisibleField, string> = {
   social: 'settings.notiItemSocial',
+  chat: 'settings.notiItemChat',
   keyword_alert: 'settings.notiKeywordMaster',
 };
 
@@ -39,6 +44,7 @@ const DEFAULT_STATE: NotificationSettingsFields = {
   ride_result: true,
   social: true,
   keyword_alert: true,
+  chat: true,
 };
 
 export default function NotiSettings() {
@@ -57,6 +63,7 @@ export default function NotiSettings() {
           ride_result: res.ride_result,
           social: res.social,
           keyword_alert: res.keyword_alert,
+          chat: res.chat,
         }),
       )
       .catch(() => toast.error(t('settings.notiLoadError', { defaultValue: '알림 설정을 불러오지 못했습니다' })));

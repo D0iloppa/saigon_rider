@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChevronRight, Lightbulb, MapPin, X } from 'lucide-react';
+import { Camera, ChevronRight, Lightbulb, MapPin, RotateCw, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
@@ -23,6 +23,7 @@ interface ImageItem {
   preview: string;
   contentId: string | null;
   uploading: boolean;
+  failed: boolean;
 }
 
 export default function MarketCreate() {
@@ -56,6 +57,22 @@ export default function MarketCreate() {
     fetchDistricts().then(setDistricts).catch(() => setDistricts([]));
   }, []);
 
+  // 단일 파일 업로드 — 최초 선택과 재시도가 공유한다(재시도 버튼 추가를 위한 최소 추출).
+  const uploadImage = async (idx: number, file: File) => {
+    setImages((prev) => prev.map((img, i) => (i === idx ? { ...img, uploading: true, failed: false } : img)));
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('owner_type', 'user');
+      if (user) form.append('owner_id', user.id);
+      const res = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      setImages((prev) => prev.map((img, i) => (i === idx ? { ...img, contentId: res.id, uploading: false, failed: false } : img)));
+    } catch (err: any) {
+      toast.error(err.message ?? t('market.uploadError', { defaultValue: '이미지 업로드 실패' }));
+      setImages((prev) => prev.map((img, i) => (i === idx ? { ...img, uploading: false, failed: true } : img)));
+    }
+  };
+
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
@@ -67,23 +84,20 @@ export default function MarketCreate() {
       preview: URL.createObjectURL(f),
       contentId: null,
       uploading: true,
+      failed: false,
     }));
     const startIdx = images.length;
     setImages((prev) => [...prev, ...newItems]);
 
     for (let i = 0; i < toAdd.length; i++) {
-      try {
-        const form = new FormData();
-        form.append('file', toAdd[i]);
-        form.append('owner_type', 'user');
-        if (user) form.append('owner_id', user.id);
-        const res = await api.realFetchForm<{ id: string }>('/contents/upload', form);
-        setImages((prev) => prev.map((img, idx) => (idx === startIdx + i ? { ...img, contentId: res.id, uploading: false } : img)));
-      } catch (err: any) {
-        toast.error(err.message ?? t('market.uploadError', { defaultValue: '이미지 업로드 실패' }));
-        setImages((prev) => prev.map((img, idx) => (idx === startIdx + i ? { ...img, uploading: false } : img)));
-      }
+      await uploadImage(startIdx + i, toAdd[i]);
     }
+  };
+
+  const retryImage = (idx: number) => {
+    const img = images[idx];
+    if (!img || img.uploading) return;
+    void uploadImage(idx, img.file);
   };
 
   const removeImage = (idx: number) => {
@@ -96,8 +110,11 @@ export default function MarketCreate() {
 
   const contentIds = images.filter((i) => i.contentId).map((i) => i.contentId!);
   const allUploaded = images.every((i) => !i.uploading);
+  // 실패한 사진이 남아 있으면 제출을 막는다 — 종전엔 contentIds 필터로 조용히 빠져
+  // "다 올린 줄 알았는데 사진이 빠졌다"는 상황이 됐다(S-6). 삭제하거나 재시도해야 진행 가능.
+  const hasFailedImage = images.some((i) => i.failed);
   const canPost =
-    !posting && allUploaded && !!user && title.trim().length > 0 && contentIds.length > 0 && district !== null;
+    !posting && allUploaded && !hasFailedImage && !!user && title.trim().length > 0 && contentIds.length > 0 && district !== null;
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
 
   const handleSubmit = async () => {
@@ -166,12 +183,29 @@ export default function MarketCreate() {
                   <span className={`shimmer ${styles.uploadingBar}`} />
                 </div>
               )}
+              {img.failed && (
+                <div className={styles.uploadFailedOverlay}>
+                  <button
+                    type="button"
+                    className={styles.retryImgBtn}
+                    onClick={() => retryImage(idx)}
+                    aria-label={t('market.retryUpload', { defaultValue: '재시도' })}
+                  >
+                    <RotateCw size={14} strokeWidth={2.4} />
+                  </button>
+                </div>
+              )}
               <button className={styles.removeImg} onClick={() => removeImage(idx)} aria-label={t('market.removeImage', { defaultValue: '삭제' })}>
                 <X size={13} strokeWidth={2.5} />
               </button>
             </div>
           ))}
         </div>
+        {hasFailedImage && (
+          <p className={styles.uploadFailedHint}>
+            {t('market.uploadFailedHint', { defaultValue: '업로드 실패한 사진이 있어요. 재시도하거나 삭제해주세요' })}
+          </p>
+        )}
 
         {/* Title */}
         <input

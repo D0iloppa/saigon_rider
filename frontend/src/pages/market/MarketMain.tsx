@@ -686,11 +686,36 @@ export default function MarketMain() {
                 <AdCard key={ad.id} ad={ad} onClick={() => { saveScroll(); navigate(adHref(ad)); }} />
               ))}
               <div className={styles.emptyWrap}>
-                <StateBlock
-                  icon={PackageOpen}
-                  title={t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}
-                  desc={t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}
-                />
+                {/* S-2: 카테고리 필터로 인한 0건과 그냥 주변에 없는 0건은 원인이 달라
+                    회복 CTA 도 분기한다(대표 지시 없음, 실측 기반 판단) — 필터 0건은
+                    표시범위를 넓혀도 소용없고(카테고리 문제), 필터 미적용 0건은 표시범위
+                    시트/키워드 알림 시트로 회복 경로를 준다. */}
+                {categoryId != null ? (
+                  <StateBlock
+                    icon={PackageOpen}
+                    title={t('market.emptyTitleFiltered', { defaultValue: '이 카테고리엔 매물이 없어요' })}
+                    desc={t('market.emptySubFiltered', { defaultValue: '다른 카테고리를 확인해보세요' })}
+                    actionLabel={t('market.emptyResetCategory', { defaultValue: '전체 카테고리 보기' })}
+                    onAction={() => setCategoryId(null)}
+                  />
+                ) : (
+                  <div className={sys.stateWrap}>
+                    <div className={sys.stateIcon}>
+                      <PackageOpen size={20} strokeWidth={2} />
+                    </div>
+                    <div className={sys.stateTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</div>
+                    <div className={sys.stateDesc}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</div>
+                    {/* 표시범위가 이미 '전체'면 더 넓힐 곳이 없어 무의미한 CTA — 숨긴다. */}
+                    {locationMode !== 'all' && (
+                      <button type="button" className={sys.stateBtn} onClick={() => setLocMapOpen(true)}>
+                        {t('market.emptyExpandScope', { defaultValue: '전체 지역에서 찾아보기' })}
+                      </button>
+                    )}
+                    <button type="button" className={sys.stateBtn} onClick={openAlerts}>
+                      {t('market.emptyKeywordAlert', { defaultValue: '키워드 알림 받기' })}
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           ) : (

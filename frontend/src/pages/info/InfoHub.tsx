@@ -21,6 +21,7 @@ import {
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport, GasStation, RepairShop } from '@/api/info';
 import { formatCurrencyVnd } from '@/lib/format';
+import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { TopBar } from '@/components/layout/TopBar';
 import InfoMap from '@/components/maps/InfoMap';
 import type { MapMarker } from '@/components/maps/SaigonDistrictMap';
@@ -29,8 +30,6 @@ import { getDepth } from '@/components/flood/flood-tokens';
 import { StarIcon } from '@/components/ui/StarIcon';
 import sys from '@/styles/system.module.css';
 import styles from './InfoHub.module.css';
-
-const INFO_FALLBACK_COORDS = { lat: 10.776, lng: 106.700 };
 
 /** OpenWeather condition → 아이콘/번역/색 — InfoWeather 의 매핑과 동일(영어 원문 노출 방지). */
 const CONDITION_META: Record<string, { Icon: LucideIcon; labelKey: string; color: string }> = {
@@ -45,14 +44,11 @@ const CONDITION_META: Record<string, { Icon: LucideIcon; labelKey: string; color
   Smoke: { Icon: CloudFog, labelKey: 'cond_Mist', color: '#8A8E9E' },
 };
 
-function useGeolocation() {
-  return INFO_FALLBACK_COORDS;
-}
-
 export default function InfoHub() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const coords = useGeolocation();
+  // 단일 SoT — 표시 범위/기준 좌표는 useLocationStore(앱 전역, 2026-08-06 통일).
+  const { origin: coords } = useServiceLocation();
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [floods, setFloods] = useState<FloodReport[]>([]);

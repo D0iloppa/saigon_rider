@@ -319,17 +319,16 @@ async def get_listings(
             MarketplaceListing.seller_id.notin_(blocking_users),
         )
 
-    # 공개 정책: 모더레이션·철회된 매물은 query/viewer 값과 무관하게 항상 비노출.
-    q = q.where(MarketplaceListing.status.notin_(("HIDDEN", "REMOVED", "WITHDRAWN")))
-    count_q = count_q.where(MarketplaceListing.status.notin_(("HIDDEN", "REMOVED", "WITHDRAWN")))
-
+    # 공개 정책: 모더레이션(HIDDEN/REMOVED)은 누구에게도 비노출.
     # 대표 지시 2026-08-07: 거래완료(SOLD)는 리스트·지도 어디서도 노출하지 않는다 —
     # hide_sold 는 프론트 옛 토글의 잔재라 값과 무관하게 항상 걸되, 판매자 본인이 자기
     # 매물(seller_id == session_uid)을 조회하는 "내 매물" 경로만 예외로 SOLD 를 계속 보여준다.
+    # 대표 지시 2026-08-08: 철회(WITHDRAWN)도 같은 예외 — 철회는 삭제가 아니라 되돌릴 수 있는
+    # 상태이므로 내 매물 목록에서 사라지면 안 된다(재판매 진입점이 이 목록이다).
     is_own_listings = seller_id is not None and session_uid is not None and seller_id == session_uid
-    if not is_own_listings:
-        q = q.where(MarketplaceListing.status != "SOLD")
-        count_q = count_q.where(MarketplaceListing.status != "SOLD")
+    hidden = ("HIDDEN", "REMOVED") if is_own_listings else ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD")
+    q = q.where(MarketplaceListing.status.notin_(hidden))
+    count_q = count_q.where(MarketplaceListing.status.notin_(hidden))
 
     if price_min is not None:
         q = q.where(MarketplaceListing.price_vnd >= price_min)
@@ -411,7 +410,10 @@ async def get_listing(
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
     ).scalar_one_or_none()
-    if listing is None or listing.status in ("HIDDEN", "REMOVED", "WITHDRAWN"):
+    if listing is None or listing.status in ("HIDDEN", "REMOVED"):
+        raise HTTPException(status_code=404, detail="Listing not found")
+    # 철회 매물은 판매자 본인만 열람 가능 — 상세가 재판매("다시 올리기") 진입점이다.
+    if listing.status == "WITHDRAWN" and listing.seller_id != session_uid:
         raise HTTPException(status_code=404, detail="Listing not found")
 
     if session_uid is not None:
@@ -618,8 +620,9 @@ async def update_listing(
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id != session_uid:
         raise HTTPException(status_code=403, detail="Not the seller")
-    # MKT-7 가격변경과 동일한 근거: 거래 완료·철회·모더레이션된 매물은 본문 수정 불가(이력 정합성)
-    if listing.status in ("SOLD", "WITHDRAWN", "HIDDEN", "REMOVED"):
+    # MKT-7 가격변경과 동일한 근거: 거래 완료·모더레이션된 매물은 본문 수정 불가(이력 정합성).
+    # 철회(WITHDRAWN)는 제외 — "잠시 내렸다가 고쳐서 다시 올리는" 흐름을 위해 수정 허용(대표 지시 2026-08-08).
+    if listing.status in ("SOLD", "HIDDEN", "REMOVED"):
         raise HTTPException(status_code=409, detail={"code": "not_editable"})
 
     listing.title = body.title.strip()
@@ -672,9 +675,13 @@ async def update_status(
     # (SOLD 로의 전이는 위에서 이미 막았고, 여기는 SOLD *에서* 나가는 전이를 막는다.)
     if listing.status == "SOLD":
         raise HTTPException(status_code=409, detail={"code": "already_sold"})
-    # 관리자 모더레이션(HIDDEN/REMOVED) 또는 이미 철회(WITHDRAWN)된 매물은 판매자가 상태를 되돌릴 수 없다
-    if listing.status in ("HIDDEN", "REMOVED", "WITHDRAWN"):
+    # 관리자 모더레이션(HIDDEN/REMOVED)된 매물은 판매자가 상태를 되돌릴 수 없다
+    if listing.status in ("HIDDEN", "REMOVED"):
         raise HTTPException(status_code=400, detail={"code": "moderated"})
+    # 대표 지시 2026-08-08: 철회는 종결이 아니라 되돌릴 수 있는 상태 — 재판매(ON_SALE)로만 복귀시킨다.
+    # (구매자가 없는 상태에서 RESERVED 로 바로 가는 전이는 의미가 없으므로 막는다.)
+    if listing.status == "WITHDRAWN" and body.status != "ON_SALE":
+        raise HTTPException(status_code=400, detail={"code": "relist_on_sale_only"})
     if body.status == "WITHDRAWN":
         # MKT-2 와 동일한 근거로 매물 행을 잠근다: 잠금 없는 SELECT 로는 이 철회 요청과
         # accept_appointment(둘 다 _load_appointment 에서 같은 행을 FOR UPDATE 로 잠금)가

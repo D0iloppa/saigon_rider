@@ -111,5 +111,28 @@ class OwnListingsSeeSoldTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("SOLD", page_sql)
 
 
+class OwnListingsSeeWithdrawnTest(unittest.IsolatedAsyncioTestCase):
+    """대표 지시 2026-08-08 — 철회(WITHDRAWN)는 삭제가 아니라 상태. 내 매물 목록에서 빠지면 안 된다."""
+
+    async def test_seller_viewing_own_listings_keeps_withdrawn(self):
+        uid = uuid.uuid4()
+        db = await _call(seller_id=uid, session_uid=uid)
+        for sql in db.compiled_sql()[:2]:
+            self.assertNotIn("WITHDRAWN", sql)
+
+    async def test_public_list_still_hides_withdrawn(self):
+        db = await _call()
+        for sql in db.compiled_sql()[:2]:
+            self.assertIn("WITHDRAWN", sql)
+
+    async def test_own_listings_still_hide_moderated(self):
+        """모더레이션(HIDDEN/REMOVED)은 판매자 본인에게도 계속 비노출."""
+        uid = uuid.uuid4()
+        db = await _call(seller_id=uid, session_uid=uid)
+        for sql in db.compiled_sql()[:2]:
+            self.assertIn("HIDDEN", sql)
+            self.assertIn("REMOVED", sql)
+
+
 if __name__ == "__main__":
     unittest.main()

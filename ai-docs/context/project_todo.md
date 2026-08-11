@@ -179,12 +179,13 @@ Hẻm 76/50 Phan Tây Hồ → road: "Hẻm 76/50 Phan Tây Hồ"   house_number
 
 **갱신(2026-08-07 3차 — 대표 지적 대응)**: "DEV 경로에서 하단 시트가 안 뜬다"는 지적을 조사한 결과, 로컬 재현(Playwright, `/ride-nav?devRaw=1` 직접 진입)에서는 현재 코드가 이미 시트를 정상 렌더했다(이전 경합 수정이 부작용으로 같이 고친 것으로 보임) — 다만 `duration_text` 포맷이 `backend/app/routers/info_route.py::_format_duration` 과 정확히 일치하지 않아(1시간 이상 구간에서 반올림/"정각 h" 생략 규칙이 다름) `buildDevSyntheticRoute()` 를 백엔드 알고리즘 그대로 옮기도록 수정했다. 화면에 떠 있던 "초록 러너 아이콘"은 앱 코드가 아니라 **베이스맵 타일의 OSM POI 아이콘**(leisure=track, 콘솔에 `Image "running" could not be loaded` 경고로 확인 — 동탄역 실좌표 근방의 실제 지도 데이터)이라 손대지 않았다. 재발 방지로 `devDongtanPin.contract.test.mjs` 에 (a) `buildDevSyntheticRoute()` 반환 키가 백엔드 `RouteOut` 필드 전체를 포함하는지, (b) `duration_text` 알고리즘이 `_format_duration` 과 값 단위로 일치하는지 테스트를 추가했고, `frontend/e2e/dev-dongtan-pin-sheet.spec.ts` 로 DEV 핀 진입 시 ETA 시트 렌더를 e2e 로 고정했다 — 제거 목록에 추가.
 
-**제거 절차**
-1. `grep -rn DEV_DONGTAN_PIN` (레포 루트) — 남은 지점이 한 번에 잡힌다(백엔드/`frontend/src/api/info.ts` 는 이미 원복 완료라 더 이상 잡히지 않는다).
+**갱신(2026-08-07 4차 — 자체 라우팅 엔진 전환으로 합성 폴리라인은 제거됨)**: 다른 세션이 Google Routes 를 자체 호스팅 라우팅 엔진(Valhalla)으로 교체하고 경기도(동탄역 포함) 타일까지 추가해, 검증 목적상 DEV 핀도 합성 대신 **실제 경로탐색 API** 를 타는 것이 맞다고 판단해 전환했다. `buildDevSyntheticRoute()`(RideNav.tsx)와 그 전용 인코더 `encodePolyline()`(polyline.ts, 다른 사용처 없음 확인)를 삭제했고, `devBypass` 는 이제 벤탄(`BEN_THANH_FALLBACK`) 폴백만 건너뛴다 — 한국 좌표가 벤탄으로 치환되면 경로가 무의미해지므로 이 폴백 우회만 남았다. `is_dev` AND `devRaw` 이중 게이트는 그대로 유지. 실제 호출 확인: `curl` 로 BFF `/api/bff/info/route`(동탄역 인근 좌표)를 호출해 `configured:true`, `distance_m:440`, `duration_s:39`, 15점짜리 실제 폴리라인, 한국어 안내 문구(`동탄대로시범길...`)를 받았다.
+
+**제거 절차 (남은 항목)**
+1. `grep -rn DEV_DONGTAN_PIN` (레포 루트) — 남은 지점이 한 번에 잡힌다. `frontend/src/lib/polyline.ts` 는 `encodePolyline()` 삭제로 이미 이 목록에서 빠졌다(백엔드/`frontend/src/api/info.ts` 도 이미 원복 완료).
 2. 잡힌 지점을 전부 삭제:
    - `frontend/src/pages/info/InfoGasList.tsx` — `DEV_DONGTAN_PIN` 상수, `isDev` state/effect, `fetchStations` 의 append 분기, 경로 버튼의 `devFlag`.
-   - `frontend/src/pages/ride/RideNav.tsx` — `devRaw`, `fetchRoute` 내부의 `devBypass` 계산(`fetchAppConfig` await)·`buildDevSyntheticRoute` 호출부, `buildDevSyntheticRoute` 함수와 `DEV_SYNTHETIC_SEGMENTS`/`DEV_SYNTHETIC_SPEED_MS` 상수.
-   - `frontend/src/lib/polyline.ts` — `encodePolyline` 함수(합성 폴리라인 인코딩용으로 추가됨. RideNav 의 devBypass 분기 제거 후 다른 참조가 없으면 이 함수도 같이 삭제).
+   - `frontend/src/pages/ride/RideNav.tsx` — `devRaw`, `fetchRoute` 내부의 `devBypass` 계산(`fetchAppConfig` await)과 벤탄 폴백 우회 분기(`outOfArea`).
    - `frontend/src/pages/ride/devDongtanPin.contract.test.mjs` — 파일 전체 삭제.
    - `frontend/e2e/dev-dongtan-pin-sheet.spec.ts` — 파일 전체 삭제(2026-08-07 3차 추가, ETA 시트 렌더 회귀 고정용 e2e).
 3. `backend/app/routers/info_route.py`·`frontend/src/api/info.ts`·`backend/app/tests/test_info_route.py` 는 **이미 원복 완료** — DRIVE 모드/travel_mode 관련 코드가 없으니 추가로 손댈 것 없음.

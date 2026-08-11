@@ -133,6 +133,7 @@ async def update_notification_settings(
     settings.ride_result = body.ride_result
     settings.social = body.social
     settings.keyword_alert = body.keyword_alert
+    settings.chat = body.chat
     settings.updated_at = datetime.now(UTC)
 
     await db.commit()

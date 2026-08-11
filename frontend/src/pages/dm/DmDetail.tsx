@@ -100,15 +100,26 @@ export default function DmDetail() {
 
   useEffect(() => {
     if (!conversationId) return;
-    const interval = setInterval(async () => {
-      const last = messages[messages.length - 1];
-      const res = await fetchMessages(conversationId, 1, last?.createdAt);
-      if (res.items.length > 0) {
-        setMessages((prev) => [...prev, ...res.items]);
-        markRead(conversationId).then(() => refreshUnread());
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const last = messages[messages.length - 1];
+        const res = await fetchMessages(conversationId, 1, last?.createdAt);
+        if (res.items.length > 0) {
+          setMessages((prev) => [...prev, ...res.items]);
+          markRead(conversationId).then(() => refreshUnread());
+        }
+      } catch {
+        // 순단 무시 — 다음 tick 에 재시도
       }
-    }, 5000);
-    return () => clearInterval(interval);
+    };
+    const interval = setInterval(tick, 5000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [conversationId, messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 바닥 고정 여부 — 사용자가 위로 스크롤해 과거를 보는 중이면 false (자동 스크롤 중단)

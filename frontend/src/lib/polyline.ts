@@ -34,37 +34,6 @@ export function decodePolyline(encoded: string): Array<[number, number]> {
   return points;
 }
 
-/**
- * DEV_DONGTAN_PIN: Google encoded polyline 인코더 (decodePolyline 의 역연산).
- * 한국 실기기 카메라연출 검증용 — devBypass 경로에서 Google Routes 호출 없이 직선 다구간
- * 폴리라인을 합성해 기존 decodePolyline 계약에 맞춰 주입하기 위해 사용한다.
- * 실기기 검증 완료 후 이 함수와 호출부를 제거할 것 (2026-08-07).
- */
-export function encodePolyline(points: Array<[number, number]>): string {
-  let result = '';
-  let prevLat = 0;
-  let prevLng = 0;
-  const encodeValue = (value: number): string => {
-    let v = value < 0 ? ~(value << 1) : value << 1;
-    let out = '';
-    while (v >= 0x20) {
-      out += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
-      v >>= 5;
-    }
-    out += String.fromCharCode(v + 63);
-    return out;
-  };
-  for (const [lat, lng] of points) {
-    const latE5 = Math.round(lat * 1e5);
-    const lngE5 = Math.round(lng * 1e5);
-    result += encodeValue(latE5 - prevLat);
-    result += encodeValue(lngE5 - prevLng);
-    prevLat = latE5;
-    prevLng = lngE5;
-  }
-  return result;
-}
-
 /** 두 좌표 간 진행 방위(도, 0=북, 시계방향). 경로 시작 방향 카메라 회전용. */
 export function bearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;

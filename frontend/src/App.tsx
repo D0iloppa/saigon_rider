@@ -421,7 +421,7 @@ export default function App() {
   useEffect(() => {
     if (!bootstrapped) return;
     const elapsed = Date.now() - bootStartTime.current;
-    const delay = Math.max(0, 1200 - elapsed);
+    const delay = Math.max(0, 500 - elapsed);
     const t1 = setTimeout(() => setSplashFade(true), delay);
     const t2 = setTimeout(() => setSplashVisible(false), delay + 600);
     return () => { clearTimeout(t1); clearTimeout(t2); };

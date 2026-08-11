@@ -146,8 +146,9 @@ export default function MarketDetail() {
     try {
       await withdrawListing(detail.id, myId);
       setWithdrawOpen(false);
-      toast.success(t('market.withdrawDone', { defaultValue: '매물을 철회했어요' }));
-      navigate(-1);
+      // 철회는 삭제가 아니라 상태 — 상세에 머물러 "다시 올리기" 를 바로 누를 수 있게 한다(대표 지시 2026-08-08)
+      setDetail(await fetchListing(detail.id, myId));
+      toast.success(t('market.withdrawDone', { defaultValue: '매물을 내렸어요. 언제든 다시 올릴 수 있어요' }));
     } catch (err: any) {
       if (/"code":\s*"active_appointment"/.test(err?.message ?? '')) {
         toast.error(t('market.withdrawBlockedByAppointment', { defaultValue: '진행 중인 약속이 있어 철회할 수 없어요. 약속을 먼저 취소해주세요.' }));
@@ -156,6 +157,18 @@ export default function MarketDetail() {
       }
     } finally {
       setWithdrawing(false);
+    }
+  };
+
+  // 대표 지시 2026-08-08: 철회 매물 재판매 — 서버는 WITHDRAWN → ON_SALE 전이만 허용한다
+  const handleRelist = async () => {
+    if (!detail || !myId) return;
+    try {
+      await updateListingStatus(detail.id, myId, 'ON_SALE');
+      setDetail(await fetchListing(detail.id, myId));
+      toast.success(t('market.relistDone', { defaultValue: '다시 판매중으로 올렸어요' }));
+    } catch {
+      toast.error(t('market.relistError', { defaultValue: '다시 올리기에 실패했어요' }));
     }
   };
 
@@ -360,7 +373,20 @@ export default function MarketDetail() {
 
           {/* Bottom action bar */}
           {isSeller ? (
-            detail.status === 'SOLD' ? null : (
+            detail.status === 'SOLD' ? null : detail.status === 'WITHDRAWN' ? (
+            // 내려둔(철회) 매물: 다시 올리기 + 고쳐서 올리기 경로만 남긴다 — 끌올·상태전환은 판매중일 때만.
+            <div className={styles.sellerControls}>
+              <button className={styles.priceEditBtn} type="button" onClick={() => navigate(`/market/${detail.id}/edit`)}>
+                <Pencil size={16} strokeWidth={2.2} />
+                {t('market.editListing', { defaultValue: '매물 수정' })}
+              </button>
+              <div className={styles.statusBar}>
+                <button className={`${styles.statusOpt} ${styles.statusOptActive}`} onClick={handleRelist}>
+                  {t('market.relist', { defaultValue: '다시 올리기' })}
+                </button>
+              </div>
+            </div>
+            ) : (
             <div className={styles.sellerControls}>
               {detail.status === 'ON_SALE' && (
                 <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>

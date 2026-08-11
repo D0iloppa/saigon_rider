@@ -54,5 +54,6 @@ export function statusLabelKey(status: ListingStatus): string {
   if (status === 'RESERVED') return 'market.statusReserved';
   if (status === 'SOLD') return 'market.statusSold';
   if (status === 'HIDDEN') return 'market.statusHidden';
+  if (status === 'WITHDRAWN') return 'market.statusWithdrawn';
   return 'market.statusOnSale';
 }

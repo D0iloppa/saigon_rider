@@ -85,6 +85,28 @@ class UpdateListingOwnershipTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail, {"code": "not_editable"})
 
+    async def test_allows_edit_when_withdrawn(self):
+        """대표 지시 2026-08-08: 잠시 내렸다가(WITHDRAWN) 고쳐서 다시 올리는 흐름 — 수정 허용."""
+        session_uid = uuid.uuid4()
+        listing = _listing(seller_id=session_uid, status="WITHDRAWN")
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[_exec_result(scalar=listing), MagicMock()])
+        db.add = lambda obj: None
+        db.commit = AsyncMock()
+
+        result = await market.update_listing(
+            listing_id=listing.id,
+            body=MarketplaceListingUpdateRequest(
+                seller_id=session_uid, title="고친 제목", image_content_ids=[uuid.uuid4()]
+            ),
+            background=MagicMock(),
+            db=db,
+            session_uid=session_uid,
+        )
+        self.assertEqual(result.id, listing.id)
+        self.assertEqual(listing.title, "고친 제목")
+        self.assertEqual(listing.status, "WITHDRAWN")  # 수정이 상태를 바꾸지는 않는다
+
     async def test_owner_edit_replaces_fields_and_images(self):
         session_uid = uuid.uuid4()
         listing = _listing(seller_id=session_uid, status="ON_SALE")
@@ -191,9 +213,42 @@ class WithdrawListingTest(unittest.IsolatedAsyncioTestCase):
         locked_stmt = db.execute.await_args_list[1].args[0]
         self.assertIn("FOR UPDATE", str(locked_stmt))
 
-    async def test_withdrawn_listing_cannot_be_transitioned_again(self):
+    async def test_withdrawn_listing_can_be_relisted(self):
+        """대표 지시 2026-08-08: 철회는 삭제가 아니라 상태 — 판매중으로 되돌려 다시 팔 수 있어야 한다."""
         session_uid = uuid.uuid4()
         listing = _listing(seller_id=session_uid, status="WITHDRAWN")
+        db = AsyncMock()
+        db.execute = AsyncMock(return_value=_exec_result(scalar=listing))
+        db.commit = AsyncMock()
+
+        result = await market.update_status(
+            listing_id=listing.id,
+            body=MarketplaceListingStatusUpdate(seller_id=session_uid, status="ON_SALE"),
+            db=db,
+            session_uid=session_uid,
+        )
+        self.assertEqual(result.id, listing.id)
+        self.assertEqual(listing.status, "ON_SALE")
+        db.commit.assert_awaited()
+
+    async def test_withdrawn_listing_cannot_go_straight_to_reserved(self):
+        session_uid = uuid.uuid4()
+        listing = _listing(seller_id=session_uid, status="WITHDRAWN")
+        db = AsyncMock()
+        db.execute = AsyncMock(return_value=_exec_result(scalar=listing))
+        with self.assertRaises(HTTPException) as ctx:
+            await market.update_status(
+                listing_id=listing.id,
+                body=MarketplaceListingStatusUpdate(seller_id=session_uid, status="RESERVED"),
+                db=db,
+                session_uid=session_uid,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail, {"code": "relist_on_sale_only"})
+
+    async def test_moderated_listing_still_cannot_be_transitioned(self):
+        session_uid = uuid.uuid4()
+        listing = _listing(seller_id=session_uid, status="HIDDEN")
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_exec_result(scalar=listing))
         with self.assertRaises(HTTPException) as ctx:

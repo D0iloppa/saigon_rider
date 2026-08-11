@@ -6,6 +6,8 @@ export interface SellerBrief {
   nickname: string | null
 }
 
+export type AdminListingFlag = 'LOW_PHOTOS' | 'ZERO_PRICE' | 'NO_CATEGORY' | 'DUPLICATE'
+
 export interface AdminListingRow {
   id: string
   title: string
@@ -15,6 +17,7 @@ export interface AdminListingRow {
   report_count: number
   created_at: string
   thumbnail_url: string | null
+  flags: AdminListingFlag[]
 }
 
 export interface ListingReportRow {
@@ -35,6 +38,7 @@ export interface ListingDetail {
   seller: SellerBrief
   moderated_at: string | null
   created_at: string
+  flags: AdminListingFlag[]
   image_urls: string[]
   reports: ListingReportRow[]
 }
@@ -74,6 +78,27 @@ export function useModerateListing() {
   return useMutation({
     mutationFn: ({ listingId, body }: { listingId: string; body: ModerateBody }) =>
       api<{ id: string; status: string; moderated_at: string | null }>(`/admin/api/listings/${listingId}/moderate`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['listings'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
+}
+
+export interface BulkModerateBody {
+  listing_ids: string[]
+  action: 'HIDE' | 'REMOVE' | 'RESTORE'
+  reason: string
+}
+
+export function useBulkModerateListings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: BulkModerateBody) =>
+      api<{ updated: { id: string; status: string }[]; missing_ids: string[] }>('/admin/api/listings/bulk-moderate', {
         method: 'POST',
         body: JSON.stringify(body),
       }),

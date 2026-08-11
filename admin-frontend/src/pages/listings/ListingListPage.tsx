@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, Select, Space, Table } from 'antd'
+import { Button, Input, Select, Space, Table } from 'antd'
 import dayjs from 'dayjs'
 import { useListings, type AdminListingRow } from '../../api/listings'
+import BulkModerateModal from '../../components/BulkModerateModal'
+import ListingFlags from '../../components/ListingFlags'
 import StatusTag from '../../components/StatusTag'
 
 const STATUS_OPTIONS = [
@@ -20,6 +22,8 @@ export default function ListingListPage() {
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
   const size = 20
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkAction, setBulkAction] = useState<'REMOVE' | 'RESTORE' | null>(null)
 
   const { data, isLoading } = useListings({ q: q || undefined, status: status || undefined, page, size })
 
@@ -35,6 +39,11 @@ export default function ListingListPage() {
     { title: '제목', dataIndex: 'title', key: 'title' },
     { title: '가격', dataIndex: 'price_vnd', key: 'price_vnd', render: (v: number) => `${v.toLocaleString()}đ` },
     { title: '상태', dataIndex: 'status', key: 'status', render: (v: string) => <StatusTag kind="listing" status={v} /> },
+    {
+      title: '플래그',
+      key: 'flags',
+      render: (_: unknown, r: AdminListingRow) => <ListingFlags flags={r.flags} />,
+    },
     {
       title: '판매자',
       key: 'seller',
@@ -79,15 +88,36 @@ export default function ListingListPage() {
             setPage(1)
           }}
         />
+        {selectedIds.length > 0 && (
+          <Space>
+            <span>{selectedIds.length}건 선택됨</span>
+            <Button onClick={() => setBulkAction('RESTORE')}>선택 승인</Button>
+            <Button danger onClick={() => setBulkAction('REMOVE')}>
+              선택 반려
+            </Button>
+          </Space>
+        )}
       </Space>
       <Table<AdminListingRow>
         rowKey="id"
         loading={isLoading}
         columns={columns}
         dataSource={data?.items ?? []}
+        rowSelection={{ selectedRowKeys: selectedIds, onChange: (keys) => setSelectedIds(keys as string[]) }}
         onRow={(record) => ({ onClick: () => navigate(`/listings/${record.id}`), style: { cursor: 'pointer' } })}
         pagination={{ current: page, pageSize: size, total: data?.total ?? 0, onChange: setPage, showSizeChanger: false }}
       />
+      {bulkAction && (
+        <BulkModerateModal
+          open
+          listingIds={selectedIds}
+          action={bulkAction}
+          onClose={() => {
+            setBulkAction(null)
+            setSelectedIds([])
+          }}
+        />
+      )}
     </>
   )
 }

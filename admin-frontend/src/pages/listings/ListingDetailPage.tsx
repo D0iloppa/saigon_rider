@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Image, Skeleton, Space, Table } from 'antd'
 import dayjs from 'dayjs'
 import { useListing } from '../../api/listings'
+import ListingFlags from '../../components/ListingFlags'
 import ModerateModal from '../../components/ModerateModal'
 import StatusTag from '../../components/StatusTag'
 
@@ -46,6 +47,11 @@ export default function ListingDetailPage() {
           <Descriptions.Item label="제목" span={2}>
             {listing.title}
           </Descriptions.Item>
+          {listing.flags.length > 0 && (
+            <Descriptions.Item label="플래그" span={2}>
+              <ListingFlags flags={listing.flags} />
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="가격">{listing.price_vnd.toLocaleString()}đ</Descriptions.Item>
           <Descriptions.Item label="상태">
             <StatusTag kind="listing" status={listing.status} />

@@ -85,7 +85,7 @@ export default function DmDetail() {
     fetchMessages(conversationId)
       .then((res) => {
         setMessages(res.items);
-        markRead(conversationId).then(() => refreshUnread());
+        markRead(conversationId).then(() => refreshUnread()).catch(() => {});
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -107,7 +107,7 @@ export default function DmDetail() {
         const res = await fetchMessages(conversationId, 1, last?.createdAt);
         if (res.items.length > 0) {
           setMessages((prev) => [...prev, ...res.items]);
-          markRead(conversationId).then(() => refreshUnread());
+          markRead(conversationId).then(() => refreshUnread()).catch(() => {});
         }
       } catch {
         // 순단 무시 — 다음 tick 에 재시도

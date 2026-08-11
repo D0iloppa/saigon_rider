@@ -24,11 +24,8 @@ const BUSINESS_HREF = "https://business.saigon-rider.com";
 const PRIVACY_HREF = "https://app.saigon-rider.com/app_privacy/";
 const SUPPORT_MAIL = "mailto:partner@saigon-rider.com";
 
-// 스토어 정식 등록 전 비노출 — 등록 완료 후 true로 전환
-const SHOW_STORE_BADGES = false;
-
 const serviceMedia = [
-  { id: "market", images: [{ src: "/screens/market-list.png" }, { src: "/screens/market-detail.png" }] },
+  { id: "market", images: [{ src: "/screens/market-list.png" }, { src: "/screens/market-detail.png", padTop: "#f7f5f0", padBottom: "#fff" }] },
   { id: "map", images: [{ src: "/screens/map-business.png" }, { src: "/screens/map-business-carousel.png" }] },
   { id: "community", images: [{ src: "/screens/community-feed.png" }] },
   { id: "rider-info", images: [], icons: [Droplets, Fuel, Wrench] },
@@ -42,7 +39,7 @@ const safetyIcons = [BadgeCheck, Handshake, Star, Users];
 function SaigonMark() {
   return (
     <span className="sr-mark" aria-hidden="true">
-      <span />
+      <img src="/favicon-32x32.png" alt="" />
     </span>
   );
 }
@@ -68,12 +65,16 @@ function LanguageSwitcher({ current, className }: { current: string; className?:
   );
 }
 
-function ServiceShots({ images }: { images: { src: string; alt: string }[] }) {
+function ServiceShots({ images }: { images: { src: string; alt: string; padTop?: string; padBottom?: string }[] }) {
   if (images.length === 0) return null;
   return (
     <div className={images.length > 1 ? "sr-shot-group" : "sr-shot-single"}>
       {images.map((image) => (
-        <div className="sr-shot" key={image.src}>
+        <div
+          className="sr-shot"
+          key={image.src}
+          style={{ "--shot-pad-top": image.padTop, "--shot-pad-bottom": image.padBottom } as React.CSSProperties}
+        >
           <img src={image.src} alt={image.alt} loading="lazy" />
         </div>
       ))}
@@ -122,8 +123,17 @@ function SaigonRiderHome() {
       <main>
         {/* @section: hero */}
         <section id="top" className="sr-hero">
-          <div className="sr-hero__photo" aria-hidden="true" />
-          <div className="sr-hero__heat" aria-hidden="true" />
+          <video
+            className="sr-hero__video"
+            autoPlay
+            loop
+            muted
+            playsInline
+            poster="/images/saigon-hero-video-poster.jpg"
+            aria-hidden="true"
+          >
+            <source src="/videos/saigon-hero.mp4" type="video/mp4" />
+          </video>
           <div className="sr-hero__inner">
             <div className="sr-hero__copy">
               <span className="sr-kicker">{t.hero.kicker}</span>
@@ -242,12 +252,6 @@ function SaigonRiderHome() {
               <Sparkles size={22} />
               <h2><BreakText text={t.ctaBand.heading} /></h2>
               <a className="sr-button sr-button--final" href={SPLASH_HREF}>{t.ctaBand.cta} <ArrowRight size={18} /></a>
-              {SHOW_STORE_BADGES && (
-                <div className="sr-store-badges">
-                  <img src="/images/badge-appstore.png" alt="Download on the App Store" />
-                  <img src="/images/badge-googleplay.png" alt="Get it on Google Play" />
-                </div>
-              )}
             </div>
             <div className="sr-shot sr-shot--cta">
               <img src="/screens/home.png" alt="Saigon Rider home screen" />

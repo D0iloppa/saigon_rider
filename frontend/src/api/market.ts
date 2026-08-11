@@ -89,6 +89,9 @@ export interface ListingCard {
   distanceM: number | null;
   lat: number | null;
   lng: number | null;
+  /** T-1: 업체 계정 매물이면 채워진다 — 판매자를 업체명으로 표기하는 데 쓴다. */
+  businessProfileId: string | null;
+  businessName: string | null;
 }
 
 export interface ListingDetail {
@@ -143,6 +146,8 @@ export function transformCard(r: any): ListingCard {
     distanceM: r.distance_m ?? null,
     lat: r.lat ?? null,
     lng: r.lng ?? null,
+    businessProfileId: r.business_profile_id ?? null,
+    businessName: r.business_name ?? null,
   };
 }
 

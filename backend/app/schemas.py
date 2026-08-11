@@ -207,7 +207,8 @@ class MarketplaceListingCreateRequest(BaseModel):
     longitude: Decimal | None = None
     image_content_ids: list[UUID] = []
     # T-1: 검증된(verified) 업체 프로필로 등록 시 개인 휴대폰 인증 게이트를 대체한다. 세션 유저가
-    # 소유(user_id)한 verified + APPROVED 프로필이어야 한다 — market.py create_listing 이 검증.
+    # 소유(user_id)한 APPROVED 프로필이어야 한다 — market.py create_listing 이 검증.
+    # (verification_status=verified 는 2026-08-11 대표 결정으로 초기 파일럿 기간엔 미요구)
     business_profile_id: UUID | None = None
 
 

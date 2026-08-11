@@ -70,6 +70,7 @@ router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
+_BUSINESS_LISTING_CAP = 5  # T-3: 업체당 매물 상한(강제, 예외 없음) — 알바 등록 건당 지급 구조의 어뷰징 방지
 
 
 _MANNER_BASE = 36.5
@@ -604,6 +605,23 @@ async def create_listing(
             or business_profile.status != "APPROVED"
         ):
             raise HTTPException(status_code=403, detail="Business profile not approved")
+        # T-3: 업체당 매물 상한 5건(서버 강제, 예외 없음, 대표 결정 2026-08-11) — SOLD/WITHDRAWN/
+        # HIDDEN/REMOVED(=line 344 의 hidden 튜플과 동일 그룹)는 더 이상 "현재 노출 중"이 아니므로
+        # 상한에서 제외한다. 철회 후 재등록이 막히지 않도록(lifetime cap 아님).
+        active_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(MarketplaceListing)
+                .where(
+                    MarketplaceListing.business_profile_id == business_profile.id,
+                    MarketplaceListing.status.notin_(("SOLD", "WITHDRAWN", "HIDDEN", "REMOVED")),
+                )
+            )
+        ).scalar_one()
+        if active_count >= _BUSINESS_LISTING_CAP:
+            raise HTTPException(
+                status_code=422, detail=f"Business profile listing limit reached (max {_BUSINESS_LISTING_CAP})"
+            )
 
     # 판매자 휴대폰 인증 게이트 — OTP 인증(phone_verified_at) 완료 전 매물 등록 불가.
     # 개인 판매자 경로는 그대로(무변화) — 검증된 업체 프로필로 등록할 때만 이 게이트를 건너뛴다.

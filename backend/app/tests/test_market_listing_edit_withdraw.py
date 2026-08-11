@@ -13,7 +13,11 @@ from fastapi import HTTPException
 
 from app.models import MarketplaceListingImage
 from app.routers import market
-from app.schemas import MarketplaceListingStatusUpdate, MarketplaceListingUpdateRequest
+from app.schemas import (
+    MarketplaceListingCreateRequest,
+    MarketplaceListingStatusUpdate,
+    MarketplaceListingUpdateRequest,
+)
 
 
 def _listing(seller_id: uuid.UUID, status: str = "ON_SALE"):
@@ -32,6 +36,20 @@ def _exec_result(scalar=None, first=None):
     res.scalar_one_or_none = MagicMock(return_value=scalar)
     res.first = MagicMock(return_value=first)
     return res
+
+
+def _count_result(n: int):
+    res = MagicMock()
+    res.scalar_one = MagicMock(return_value=n)
+    return res
+
+
+def _business_profile(user_id: uuid.UUID, status: str = "APPROVED"):
+    bp = MagicMock()
+    bp.id = uuid.uuid4()
+    bp.user_id = user_id
+    bp.status = status
+    return bp
 
 
 class UpdateListingOwnershipTest(unittest.IsolatedAsyncioTestCase):
@@ -260,6 +278,71 @@ class WithdrawListingTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertEqual(ctx.exception.detail, {"code": "moderated"})
+
+
+class CreateListingBusinessCapTest(unittest.IsolatedAsyncioTestCase):
+    """T-3: 업체당 매물 상한 5건(서버 강제, 예외 없음). "활성" 정의 — status NOT IN
+    (SOLD, WITHDRAWN, HIDDEN, REMOVED) — 는 line 344 의 공개 비노출 그룹과 동일하게 맞춘 것으로,
+    거래완료/철회/모더레이션된 매물은 상한에서 빠져 lifetime cap 이 되지 않는다."""
+
+    def _request(self, seller_id: uuid.UUID, business_profile_id: uuid.UUID):
+        return MarketplaceListingCreateRequest(
+            seller_id=seller_id, title="중고 오토바이", business_profile_id=business_profile_id
+        )
+
+    async def test_sixth_active_listing_rejected_with_422(self):
+        session_uid = uuid.uuid4()
+        bp = _business_profile(session_uid)
+        db = AsyncMock()
+        db.get = AsyncMock(side_effect=[MagicMock(), bp])  # 1) seller  2) business_profile
+        db.execute = AsyncMock(return_value=_count_result(5))
+        with self.assertRaises(HTTPException) as ctx:
+            await market.create_listing(
+                body=self._request(session_uid, bp.id),
+                background=MagicMock(),
+                db=db,
+                _session_uid=session_uid,
+            )
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    async def test_fifth_active_listing_still_allowed(self):
+        session_uid = uuid.uuid4()
+        bp = _business_profile(session_uid)
+        db = AsyncMock()
+        db.get = AsyncMock(side_effect=[MagicMock(), bp])
+        db.execute = AsyncMock(return_value=_count_result(4))
+        db.add = MagicMock(side_effect=lambda obj: setattr(obj, "id", uuid.uuid4()) if hasattr(obj, "status") else None)
+        db.flush = AsyncMock()
+        db.commit = AsyncMock()
+
+        result = await market.create_listing(
+            body=self._request(session_uid, bp.id),
+            background=MagicMock(),
+            db=db,
+            _session_uid=session_uid,
+        )
+        self.assertIsNotNone(result.id)
+        db.commit.assert_awaited()
+
+    async def test_cap_query_excludes_sold_withdrawn_and_moderated(self):
+        """상한 카운트 쿼리가 SOLD/WITHDRAWN/HIDDEN/REMOVED 를 제외하는지 SQL 형태로 단정
+        (hide_sold 회귀 테스트와 동일한 방식) — 철회 후 재등록이 막히지 않음을 보장."""
+        session_uid = uuid.uuid4()
+        bp = _business_profile(session_uid)
+        db = AsyncMock()
+        db.get = AsyncMock(side_effect=[MagicMock(), bp])
+        db.execute = AsyncMock(return_value=_count_result(5))
+        with self.assertRaises(HTTPException):
+            await market.create_listing(
+                body=self._request(session_uid, bp.id),
+                background=MagicMock(),
+                db=db,
+                _session_uid=session_uid,
+            )
+        stmt = db.execute.await_args.args[0]
+        sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        for term in ("SOLD", "WITHDRAWN", "HIDDEN", "REMOVED"):
+            self.assertIn(term, sql)
 
 
 if __name__ == "__main__":

@@ -55,6 +55,7 @@ async def _call(**kwargs):
         "district_id": None,
         "ward_id": None,
         "seller_id": None,
+        "business_profile_id": None,
         "viewer_id": None,
         "lang": None,
         "page": 1,

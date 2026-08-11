@@ -521,6 +521,8 @@ export default function App() {
           <Route path="/biz/ads/:id" element={<PrivateRoute><BizAdDetail /></PrivateRoute>} />
           <Route path="/biz/news/new" element={<PrivateRoute><BizNewsCreate /></PrivateRoute>} />
           <Route path="/biz/news/:id" element={<PrivateRoute><BizNewsDetail /></PrivateRoute>} />
+          {/* T-1: 업체 프로필 → 매물 등록 — 검증된 업체 프로필 명의라 개인 휴대폰 인증 게이트(VerifiedSellerRoute) 불필요 */}
+          <Route path="/biz/listings/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/biz/prices" element={<PrivateRoute><BizPriceManage /></PrivateRoute>} />
           <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
           {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}

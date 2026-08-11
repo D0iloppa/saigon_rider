@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChevronDown, ChevronRight, Megaphone, Receipt, ShieldCheck, X } from 'lucide-react';
+import { Camera, ChevronDown, ChevronRight, Megaphone, Package, Receipt, ShieldCheck, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -442,6 +442,21 @@ export default function BizManage() {
             <span className={styles.verifyTitle}>{t('biz.priceSectionTitle', { defaultValue: '가격표' })}</span>
             <span className={styles.verifyDesc}>
               {t('biz.priceSectionDesc', { defaultValue: '서비스별 가격을 등록해 이웃 라이더에게 보여주세요' })}
+            </span>
+          </span>
+          <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
+        </button>
+
+        {/* T-1: 매물 등록 — 검증된(verified) 업체 프로필 명의라 개인 휴대폰 인증(SMS OTP) 없이 등록 가능 */}
+        <button
+          className={styles.verifyRow}
+          onClick={() => navigate('/biz/listings/new', { state: { profileId: active.id, profileName: active.name } })}
+        >
+          <Package size={18} strokeWidth={2} aria-hidden className={styles.verifyIcon} />
+          <span className={styles.verifyText}>
+            <span className={styles.verifyTitle}>{t('biz.listingSectionTitle', { defaultValue: '매물 등록' })}</span>
+            <span className={styles.verifyDesc}>
+              {t('biz.listingSectionDesc', { defaultValue: '중고 물품을 등록해 이웃 라이더에게 보여주세요' })}
             </span>
           </span>
           <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />

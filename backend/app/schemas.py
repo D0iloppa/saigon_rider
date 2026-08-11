@@ -157,6 +157,9 @@ class MarketplaceListingCard(BaseModel):
     status: str
     category_code: str | None = None
     thumbnail_url: str | None = None
+    # T-1: 업체 계정 매물 — 있으면 프론트가 판매자를 업체명으로 표기한다.
+    business_profile_id: UUID | None = None
+    business_name: str | None = None
     district: DistrictBrief | None = None
     like_count: int = 0
     chat_count: int = 0  # dm_conversations(context_type='listing') 집계 — 목록 API 만 채움
@@ -187,6 +190,9 @@ class MarketplaceListingDetail(BaseModel):
     liked: bool = False
     other_listings: list[MarketplaceListingCard] = []
     translation_failed: bool = False
+    # T-1: 업체 계정 매물 — 있으면 프론트가 판매자를 업체명으로 표기한다.
+    business_profile_id: UUID | None = None
+    business_name: str | None = None
 
 
 class MarketplaceListingCreateRequest(BaseModel):
@@ -200,6 +206,9 @@ class MarketplaceListingCreateRequest(BaseModel):
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     image_content_ids: list[UUID] = []
+    # T-1: 검증된(verified) 업체 프로필로 등록 시 개인 휴대폰 인증 게이트를 대체한다. 세션 유저가
+    # 소유(user_id)한 verified + APPROVED 프로필이어야 한다 — market.py create_listing 이 검증.
+    business_profile_id: UUID | None = None
 
 
 class MarketplaceListingCreated(BaseModel):

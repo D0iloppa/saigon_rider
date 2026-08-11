@@ -30,6 +30,8 @@ import {
   type BizReview,
   type BizPriceItem,
 } from '@/api/biz';
+import { fetchListings, type ListingCard as MarketListing } from '@/api/market';
+import { formatPriceVnd } from '@/pages/market/marketFormat';
 import BizReviewSheet from './BizReviewSheet';
 import { formatRelativeTime } from '@/lib/format';
 import { markBizNewsRead } from '@/lib/bizNewsRead';
@@ -39,7 +41,9 @@ import styles from './BizPublic.module.css';
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
 const NEWS_PAGE = 10;
 const REVIEW_PAGE = 5;
-const DETAIL_TABS = ['home', 'news', 'reviews', 'price', 'photos'] as const;
+// T-1: 업체 명의 매물(business_profile_id) 을 이 프로필 페이지에 노출 — marketplace_ads 의
+// owner_business_profile_id 노출 패턴(profile.ads) 미러.
+const DETAIL_TABS = ['home', 'listings', 'news', 'reviews', 'price', 'photos'] as const;
 type DetailTab = typeof DETAIL_TABS[number];
 
 /** 3줄 클램프를 넘길 개연성 판단 — 정밀 측정 대신 간단 휴리스틱 (길이·줄수) */
@@ -65,6 +69,7 @@ export default function BizPublic() {
   const [newsLoadingMore, setNewsLoadingMore] = useState(false);
   const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
   const [prices, setPrices] = useState<BizPriceItem[]>([]);
+  const [listings, setListings] = useState<MarketListing[]>([]);
   const user = useUserStore((s) => s.user);
   const [reviews, setReviews] = useState<BizReview[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
@@ -149,6 +154,13 @@ export default function BizPublic() {
   useEffect(() => {
     if (!id) return;
     fetchBizPublicPrices(id).then(setPrices).catch(() => setPrices([]));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetchListings({ businessProfileId: id, size: 50 })
+      .then((page) => setListings(page.items))
+      .catch(() => setListings([]));
   }, [id]);
 
   const loadReviews = (profileId: string) => {
@@ -330,7 +342,7 @@ export default function BizPublic() {
         <nav ref={tabsRef} className={styles.tabs} aria-label={t('biz.detailTabsLabel')}>
           {DETAIL_TABS.map((tab) => (
             <button key={tab} type="button" className={activeTab === tab ? styles.tabActive : styles.tab} onClick={() => handleTabChange(tab)}>
-              {t(`biz.detailTabs.${tab}`, { defaultValue: { home: '홈', news: '소식', reviews: '후기', price: '가격', photos: '사진' }[tab] })}
+              {t(`biz.detailTabs.${tab}`, { defaultValue: { home: '홈', listings: '매물', news: '소식', reviews: '후기', price: '가격', photos: '사진' }[tab] })}
             </button>
           ))}
         </nav>
@@ -407,6 +419,23 @@ export default function BizPublic() {
               ) : <EmptyArea label={t('biz.detailTabs.reviews')} />}
             </HomePreview>
 
+            <HomePreview title={t('biz.detailTabs.listings')} onMore={() => handleTabChange('listings')}>
+              {listings.length > 0 ? (
+                <div className={styles.previewPhotos}>
+                  {listings.slice(0, 3).map((l) => (
+                    <AppImage
+                      key={l.id}
+                      src={l.thumbnailUrl ?? undefined}
+                      alt={l.title}
+                      className={styles.previewPhoto}
+                      onClick={() => navigate(`/market/${l.id}`)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  ))}
+                </div>
+              ) : <EmptyArea label={t('biz.detailTabs.listings')} />}
+            </HomePreview>
+
             <HomePreview title={t('biz.detailTabs.price')} onMore={() => handleTabChange('price')}>
               {prices.length > 0 ? (
                 <div className={styles.previewPrices}>
@@ -465,6 +494,33 @@ export default function BizPublic() {
               </div>
             )}
           </>}
+
+          {activeTab === 'listings' && (
+            listings.length === 0 ? (
+              <div className={styles.adsEmpty}>
+                <p>{t('biz.publicListingsEmpty', { defaultValue: '아직 등록된 매물이 없어요' })}</p>
+              </div>
+            ) : (
+              <div className={styles.previewPhotos}>
+                {listings.map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    className={styles.bizAdCard}
+                    onClick={() => navigate(`/market/${l.id}`)}
+                  >
+                    <div className={styles.bizAdImageWrap}>
+                      <AppImage src={l.thumbnailUrl ?? undefined} alt={l.title} className={styles.bizAdImage} />
+                    </div>
+                    <div className={styles.bizAdBody}>
+                      <strong className={styles.bizAdTitle}>{l.title}</strong>
+                      <span className={styles.bizAdCopy}>{formatPriceVnd(l.priceVnd, t)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
 
           {activeTab === 'news' && <>
         {news.length === 0 ? (

@@ -112,6 +112,9 @@ export interface ListingDetail {
   liked: boolean;
   translationFailed: boolean;
   otherListings: ListingCard[];
+  /** T-1: 업체 계정 매물이면 채워진다 — 판매자를 업체명으로 표기하는 데 쓴다. */
+  businessProfileId: string | null;
+  businessName: string | null;
 }
 
 /** {name_ko/vi/en} 객체의 현재 언어 이름 */
@@ -170,6 +173,8 @@ export interface ListingQuery {
   districtId?: number | null;
   viewerId?: string | null;
   sellerId?: string | null;
+  /** T-1: 업체 공개 프로필의 매물 탭 — 이 업체 명의 매물만 조회 */
+  businessProfileId?: string | null;
   page?: number;
   size?: number;
 }
@@ -188,6 +193,8 @@ export interface CreateListingParams {
   latitude?: number | null;
   longitude?: number | null;
   imageContentIds: string[];
+  /** T-1: 검증된 업체 프로필 명의로 등록 — 세팅 시 서버가 개인 휴대폰 인증 게이트를 대체한다. */
+  businessProfileId?: string | null;
 }
 
 export async function fetchCategories(): Promise<MarketCategory[]> {
@@ -278,6 +285,7 @@ export async function fetchListings(q: ListingQuery = {}, signal?: AbortSignal):
   if (q.districtId != null) params.set('district_id', String(q.districtId));
   if (q.viewerId) params.set('viewer_id', q.viewerId);
   if (q.sellerId) params.set('seller_id', q.sellerId);
+  if (q.businessProfileId) params.set('business_profile_id', q.businessProfileId);
   params.set('lang', i18n.language);
   params.set('page', String(q.page ?? 1));
   params.set('size', String(q.size ?? 20));
@@ -455,6 +463,7 @@ export async function createListing(p: CreateListingParams): Promise<{ id: strin
       latitude: p.latitude ?? null,
       longitude: p.longitude ?? null,
       image_content_ids: p.imageContentIds,
+      business_profile_id: p.businessProfileId ?? null,
     }),
   }, 'bff', { rethrow: true });
 }
@@ -533,6 +542,8 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
     liked: r.liked ?? false,
     translationFailed: r.translation_failed ?? false,
     otherListings: (r.other_listings ?? []).map(transformCard),
+    businessProfileId: r.business_profile_id ?? null,
+    businessName: r.business_name ?? null,
   };
 }
 

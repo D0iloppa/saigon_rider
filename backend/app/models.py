@@ -460,6 +460,11 @@ class MarketplaceListing(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     seller: Mapped["User"] = relationship("User", foreign_keys=[seller_id], lazy="selectin")
+    # T-1(업체 매물 등록 경로) — marketplace_ads.owner_business_profile_id 패턴 미러 (177 migration).
+    # NULL = 개인 판매자 매물. 관계는 두지 않고 app 레이어에서 명시적으로 조회(ads 선례와 동일).
+    business_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="SET NULL"), nullable=True
+    )
     category_id: Mapped[int | None] = mapped_column(
         SmallInteger, ForeignKey("marketplace_categories.id", ondelete="SET NULL"), nullable=True
     )

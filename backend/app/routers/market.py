@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import optional_user_session, verify_user_session
 from ..models import (
+    BusinessProfile,
     DmConversation,
     DmMessage,
     MarketplaceAppointment,
@@ -104,7 +105,12 @@ def _district_brief(district) -> DistrictBrief | None:
     return DistrictBrief(id=district.id, name_ko=district.name_ko, name_vi=district.name_vi, name_en=district.name_en)
 
 
-def _card(listing: MarketplaceListing, distance_m: int | None = None, chat_count: int = 0) -> MarketplaceListingCard:
+def _card(
+    listing: MarketplaceListing,
+    distance_m: int | None = None,
+    chat_count: int = 0,
+    business_name: str | None = None,
+) -> MarketplaceListingCard:
     return MarketplaceListingCard(
         id=listing.id,
         seller_id=listing.seller_id,
@@ -123,6 +129,8 @@ def _card(listing: MarketplaceListing, distance_m: int | None = None, chat_count
         distance_m=distance_m,
         lat=float(listing.latitude) if listing.latitude is not None else None,
         lng=float(listing.longitude) if listing.longitude is not None else None,
+        business_profile_id=listing.business_profile_id,
+        business_name=business_name,
     )
 
 
@@ -236,6 +244,9 @@ async def get_listings(
     district_id: int | None = Query(None, description="구 id — deprecated, ward_id 권장"),
     ward_id: int | None = Query(None, description="ward id (2025 신 행정단위)"),
     seller_id: uuid.UUID | None = Query(None, description="판매자 id — 내 매물 조회용"),
+    business_profile_id: uuid.UUID | None = Query(
+        None, description="업체 프로필 id — 업체 공개 프로필의 매물 탭 조회용 (T-1)"
+    ),
     viewer_id: uuid.UUID | None = Query(None, description="deprecated — 조회자는 세션에서 파생"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목을 캐시된 번역으로 표기"),
     page: int = Query(1, ge=1),
@@ -307,6 +318,10 @@ async def get_listings(
     if seller_id is not None:
         q = q.where(MarketplaceListing.seller_id == seller_id)
         count_q = count_q.where(MarketplaceListing.seller_id == seller_id)
+
+    if business_profile_id is not None:
+        q = q.where(MarketplaceListing.business_profile_id == business_profile_id)
+        count_q = count_q.where(MarketplaceListing.business_profile_id == business_profile_id)
 
     if session_uid is not None:
         blocked_users = select(UserBlock.blocked_id).where(UserBlock.blocker_id == session_uid)
@@ -383,12 +398,36 @@ async def get_listings(
         ).all()
         chat_counts = {cid: cnt for cid, cnt in chat_rows}
 
+    # T-1: 업체 매물 카드에 업체명 표기 — 페이지 항목의 business_profile_id 를 모아 1회 배치 조회(N+1 금지).
+    business_names: dict[uuid.UUID, str] = {}
+    business_profile_ids = {row[0].business_profile_id for row in rows if row[0].business_profile_id is not None}
+    if business_profile_ids:
+        name_rows = (
+            await db.execute(
+                select(BusinessProfile.id, BusinessProfile.name).where(BusinessProfile.id.in_(business_profile_ids))
+            )
+        ).all()
+        business_names = dict(name_rows)
+
     if has_loc:
         items = [
-            _card(row[0], int(row[1]) if row[1] is not None else None, chat_counts.get(row[0].id, 0)) for row in rows
+            _card(
+                row[0],
+                int(row[1]) if row[1] is not None else None,
+                chat_counts.get(row[0].id, 0),
+                business_names.get(row[0].business_profile_id),
+            )
+            for row in rows
         ]
     else:
-        items = [_card(row[0], chat_count=chat_counts.get(row[0].id, 0)) for row in rows]
+        items = [
+            _card(
+                row[0],
+                chat_count=chat_counts.get(row[0].id, 0),
+                business_name=business_names.get(row[0].business_profile_id),
+            )
+            for row in rows
+        ]
 
     # 조회 언어로 제목 표기(캐시 히트만, 없으면 원문). 배치(MGET+IN) — API 호출 안 함.
     if lang:
@@ -494,6 +533,12 @@ async def get_listing(
         .all()
     )
 
+    # T-1: 업체 매물이면 상세에도 업체명 표기
+    business_name = None
+    if listing.business_profile_id is not None:
+        business_profile = await db.get(BusinessProfile, listing.business_profile_id)
+        business_name = business_profile.name if business_profile else None
+
     title_out = listing.title
     desc_out = listing.description
     translation_failed = False
@@ -524,6 +569,8 @@ async def get_listing(
         liked=liked,
         other_listings=[_card(o) for o in others],
         translation_failed=translation_failed,
+        business_profile_id=listing.business_profile_id,
+        business_name=business_name,
     )
     await db.commit()
     return detail
@@ -540,9 +587,27 @@ async def create_listing(
     # 세션 유저 명의로만 등록 가능 — body.seller_id 는 세션과 일치해야 함 (impersonation 차단)
     if body.seller_id != _session_uid:
         raise HTTPException(status_code=403, detail="Forbidden")
-    # 판매자 휴대폰 인증 게이트 — OTP 인증(phone_verified_at) 완료 전 매물 등록 불가
     seller = await db.get(User, _session_uid)
-    if seller is None or seller.phone_verified_at is None:
+    if seller is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # T-1: 업체 프로필 명의 등록 — 사업자 계정 승인(biz.py 가입 심사)이 개인 휴대폰 인증을
+    # 대체한다. 세션 유저가 소유하고 계정 승인(APPROVED) 완료된 프로필만 인정.
+    # 대표 결정(2026-08-11, 알바 파일럿 대응): 초기 도입기에는 서류검증(verification_status=
+    # verified, 통상 24시간)까지는 요구하지 않는다 — 파일럿 이후 강화 여부 재검토 필요.
+    business_profile: BusinessProfile | None = None
+    if body.business_profile_id is not None:
+        business_profile = await db.get(BusinessProfile, body.business_profile_id)
+        if (
+            business_profile is None
+            or business_profile.user_id != _session_uid
+            or business_profile.status != "APPROVED"
+        ):
+            raise HTTPException(status_code=403, detail="Business profile not approved")
+
+    # 판매자 휴대폰 인증 게이트 — OTP 인증(phone_verified_at) 완료 전 매물 등록 불가.
+    # 개인 판매자 경로는 그대로(무변화) — 검증된 업체 프로필로 등록할 때만 이 게이트를 건너뛴다.
+    if business_profile is None and seller.phone_verified_at is None:
         raise HTTPException(status_code=403, detail="Phone verification required to list items")
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
@@ -558,6 +623,7 @@ async def create_listing(
     )
     listing = MarketplaceListing(
         seller_id=body.seller_id,
+        business_profile_id=business_profile.id if business_profile else None,
         category_id=body.category_id,
         title=body.title.strip(),
         description=body.description,

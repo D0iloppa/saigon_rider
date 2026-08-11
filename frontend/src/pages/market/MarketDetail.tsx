@@ -278,7 +278,7 @@ export default function MarketDetail() {
                 <div className={styles.sellerRow}>
                   <AppImage src={detail.seller.avatarUrl ?? undefined} alt="" className={styles.sellerAvatar} variant="circle" />
                   <div className={styles.sellerInfo}>
-                    <span className={styles.sellerName}>{detail.seller.nickname ?? '—'}</span>
+                    <span className={styles.sellerName}>{detail.businessName ?? detail.seller.nickname ?? '—'}</span>
                     <span className={styles.sellerSub}>
                       Lv.{detail.seller.level}
                       {detail.district ? ` · ${localizedName(detail.district)}` : ''}

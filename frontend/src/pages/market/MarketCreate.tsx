@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Camera, ChevronRight, Lightbulb, MapPin, RotateCw, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -26,9 +26,18 @@ interface ImageItem {
   failed: boolean;
 }
 
+// T-1: BizManage(업체 프로필) → "매물 등록" 진입 시 넘어오는 업체 컨텍스트. BizAdsNew.tsx 패턴 미러.
+interface LocationState {
+  profileId?: string;
+  profileName?: string;
+}
+
 export default function MarketCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const businessProfileId = (location.state as LocationState | null)?.profileId ?? null;
+  const businessName = (location.state as LocationState | null)?.profileName ?? null;
   const user = useUserStore((s) => s.user);
 
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -132,11 +141,13 @@ export default function MarketCreate() {
         latitude: tradeCoords?.lat ?? district?.center_lat ?? null,
         longitude: tradeCoords?.lng ?? district?.center_lng ?? null,
         imageContentIds: contentIds,
+        businessProfileId,
       });
       navigate(`/market/${id}`, { replace: true });
     } catch (err: any) {
-      // 안전망: 라우트 가드를 우회해 도달한 경우(캐시된 store 등) 백엔드가 403으로 막으면 인증 화면으로 보낸다
-      if (/^HTTP 403 \|/.test(err?.message ?? '')) {
+      // 안전망: 라우트 가드를 우회해 도달한 경우(캐시된 store 등) 백엔드가 403으로 막으면 인증 화면으로 보낸다.
+      // 업체 명의 등록(businessProfileId 有)은 이 폰인증 안내 화면과 무관 — 리다이렉트하지 않는다.
+      if (!businessProfileId && /^HTTP 403 \|/.test(err?.message ?? '')) {
         navigate('/auth/phone-verify', { state: { from: { pathname: '/market/new' } } });
         return;
       }
@@ -150,7 +161,11 @@ export default function MarketCreate() {
   return (
     <div className={styles.page}>
       <TopBar
-        title={t('market.create', { defaultValue: '매물 등록' })}
+        title={
+          businessName
+            ? t('market.createBusiness', { name: businessName, defaultValue: '매물 등록 · {{name}}' })
+            : t('market.create', { defaultValue: '매물 등록' })
+        }
         rightContent={
           <Button onClick={handleSubmit} disabled={!canPost} loading={posting} style={{ minWidth: 64 }}>
             {posting ? t('market.posting', { defaultValue: '등록 중' }) : t('market.submit', { defaultValue: '완료' })}

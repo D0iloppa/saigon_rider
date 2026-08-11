@@ -212,6 +212,19 @@ function QuestSprites() {
   );
 }
 
+// 근접알림 워처 — 앱 전역에서 로그인 후 1회만 마운트한다(260806_proximity_ad_design.md §9-7).
+// 특정 화면이 아니라 앱을 켜둔 동안 계속 봐야 하는 관심사다. 킬스위치
+// (proximity_policy.is_enabled)는 서버가 candidates 를 빈 배열로 내려 자동 무동작 처리하므로
+// 프론트에는 별도 게이트가 없다.
+// ⚠️ 반드시 <BrowserRouter> **안**에서 마운트한다 — 이 훅은 광고 토스트 클릭 이동에
+// useNavigate 를 쓴다. App() 본문에 두면 <BrowserRouter> 보다 먼저 실행돼 라우터 컨텍스트가
+// 없고, react-router invariant 가 던져 앱 전체가 ErrorBoundary 로 떨어진다(회귀 2026-08-10
+// ~08-11). QuestSprites 와 같은 이유·같은 형태의 얇은 래퍼다.
+function ProximityAlerts({ enabled }: { enabled: boolean }) {
+  useProximityAlerts(enabled);
+  return null;
+}
+
 // 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.
 // 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
 const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/settings/terms', '/settings/privacy'];
@@ -338,12 +351,6 @@ export default function App() {
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 근접알림 워처 — 앱 전역에서 로그인 후 1회만 마운트한다(260806_proximity_ad_design.md §9-7).
-  // DM 미읽음 폴링(위)과 같은 이유로 여기 둔다: 특정 화면이 아니라 앱을 켜둔 동안 계속 봐야
-  // 하는 관심사다. 킬스위치(proximity_policy.is_enabled)는 서버가 candidates 를 빈 배열로
-  // 내려 자동 무동작 처리하므로 프론트에는 별도 게이트가 없다.
-  useProximityAlerts(!!user);
-
   // GIF 백그라운드 프리로드
   useEffect(() => {
     const img = new Image();
@@ -459,6 +466,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <NotificationBridge />
+      <ProximityAlerts enabled={!!user} />
       <QuestSprites />
       <Toaster
         position="top-center"

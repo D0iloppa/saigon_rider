@@ -109,6 +109,120 @@ class ApplyIntroWiringTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("none", profile.search_blob)
 
 
+class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
+    """apply() — CSV 사전등록(user_id=NULL, APPROVED) 프로필을 전화번호로 자동 클레임 (Option A, 260811).
+
+    active_count 체크(1st execute) 뒤 전화번호 매칭 조회(2nd execute)가 새로 추가됐으므로
+    db.execute 는 side_effect 로 두 호출을 순서대로 흘려준다."""
+
+    _VALID_PHONE = "+84 901 234 567"  # _normalize_vn_phone → "+84901234567"
+
+    def _count_result(self, n: int):
+        result = MagicMock()
+        result.scalar_one.return_value = n
+        return result
+
+    def _candidates_result(self, rows: list):
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = rows
+        return result
+
+    def _unclaimed_approved_profile(self, phone: str, user_id=None):
+        return SimpleNamespace(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            name="CSV Shop",
+            category="wash",
+            address="170 Dien Bien Phu",
+            intro=None,
+            latitude=1,
+            longitude=1,
+            phone=phone,
+            photo_content_id=None,
+            photo_content=None,
+            status="APPROVED",
+            reject_reason=None,
+            verification_status="pending",
+            biz_license_content_id=None,
+            signboard_content_id=None,
+            rep_name=None,
+            verified_at=None,
+            verification_reject_reason=None,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+    async def test_phone_match_claims_existing_row_without_creating_new_profile(self):
+        candidate = self._unclaimed_approved_profile(phone="+84901234567")
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([candidate])])
+        added = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+
+        body = BusinessProfileApplyRequest(
+            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+        )
+        session_uid = uuid.uuid4()
+        result = await biz.apply(body, background=MagicMock(), db=db, session_uid=session_uid)
+
+        self.assertEqual(result.id, candidate.id)
+        self.assertEqual(result.status, "APPROVED")
+        self.assertEqual(candidate.user_id, session_uid)
+        self.assertFalse(any(isinstance(o, biz.BusinessProfile) for o in added))
+        db.commit.assert_awaited()
+
+    async def test_no_phone_match_creates_new_pending_profile_as_before(self):
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([])])
+        added = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+
+        async def _fake_refresh(obj):
+            if obj.id is None:
+                obj.id = uuid.uuid4()
+            if getattr(obj, "verification_status", None) is None:
+                obj.verification_status = "pending"
+
+        db.refresh = AsyncMock(side_effect=_fake_refresh)
+
+        body = BusinessProfileApplyRequest(
+            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+        )
+        result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
+
+        self.assertEqual(result.status, "PENDING")
+        profile = next(o for o in added if isinstance(o, biz.BusinessProfile))
+        self.assertEqual(profile.status, "PENDING")
+
+    async def test_already_claimed_row_is_not_reclaimed(self):
+        """전화번호는 일치하지만 candidate.user_id 가 이미 채워진 행 — 방어적 재확인으로 스킵,
+        새 PENDING 프로필 생성으로 폴백한다(두 사용자가 한 프로필에 붙는 것을 방지)."""
+        original_owner = uuid.uuid4()
+        already_claimed = self._unclaimed_approved_profile(phone="+84901234567", user_id=original_owner)
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([already_claimed])])
+        added = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+
+        async def _fake_refresh(obj):
+            if obj.id is None:
+                obj.id = uuid.uuid4()
+            if getattr(obj, "verification_status", None) is None:
+                obj.verification_status = "pending"
+
+        db.refresh = AsyncMock(side_effect=_fake_refresh)
+
+        body = BusinessProfileApplyRequest(
+            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+        )
+        result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
+
+        self.assertEqual(result.status, "PENDING")
+        profile = next(o for o in added if isinstance(o, biz.BusinessProfile))
+        self.assertEqual(profile.status, "PENDING")
+        self.assertEqual(already_claimed.user_id, original_owner)  # 기존 소유자 그대로 — 재클레임 안 됨
+
+
 class UpdateProfileIntroWiringTests(unittest.IsolatedAsyncioTestCase):
     async def test_update_sets_intro_and_recomputes_blob(self):
         owner_id = uuid.uuid4()

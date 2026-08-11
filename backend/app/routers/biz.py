@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -64,8 +65,11 @@ from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.translate import warm_translations
 from ..utils import build_imgproxy_url, haversine_m
+from .auth import _normalize_vn_phone
 
 router = APIRouter(prefix="/biz", tags=["비즈니스 파트너 (Business Partner)"])
+
+log = logging.getLogger(__name__)
 
 # D2: 1계정 N프로필 상한 (당근 벤치마크 — REJECTED 는 카운트에서 제외)
 MAX_PROFILES_PER_USER = 3
@@ -141,6 +145,37 @@ async def _get_own_profile(db: AsyncSession, profile_id: uuid.UUID, user_id: uui
     return profile
 
 
+async def _find_claimable_profile(db: AsyncSession, raw_phone: str) -> BusinessProfile | None:
+    """필드에이전트 CSV 사전등록(user_id=NULL, import_business_csv.py) 프로필을 전화번호로 매칭.
+
+    이름/주소는 오타·표기차 여지가 커 매칭 기준에서 제외(대표 결정, Option A) — 전화번호만.
+    CSV 원본은 구분자(공백 등) 포함 다양한 표기라 SQL 등호로는 못 잡는다 — status/user_id 로
+    좁힌 후보만(2,300건 규모, idx_biz_profile_status/idx_biz_profile_user 사용) 기존 OTP
+    정규화 함수(_normalize_vn_phone, auth.py)로 양쪽을 같은 정규형으로 맞춰 비교한다."""
+    normalized = _normalize_vn_phone(raw_phone)
+    if normalized is None:
+        return None
+    candidates = (
+        (
+            await db.execute(
+                select(BusinessProfile).where(
+                    BusinessProfile.user_id.is_(None),
+                    BusinessProfile.status == "APPROVED",
+                    BusinessProfile.phone.is_not(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for candidate in candidates:
+        if candidate.user_id is not None:  # 방어적 재확인 — 쿼리 필터와 무관하게 이미 연결된 프로필은 재클레임 금지
+            continue
+        if _normalize_vn_phone(candidate.phone) == normalized:
+            return candidate
+    return None
+
+
 @router.post("/apply", response_model=BusinessProfileOut, status_code=201, summary="비즈니스 파트너 신청")
 async def apply(
     body: BusinessProfileApplyRequest,
@@ -165,6 +200,15 @@ async def apply(
     if not address:
         raise HTTPException(status_code=400, detail="Address is required")
     await _require_content(db, body.photo_content_id)
+
+    claimable = await _find_claimable_profile(db, body.phone)
+    if claimable is not None:
+        claimable.user_id = session_uid
+        claimable.updated_at = datetime.now(UTC)
+        log.info("business profile %s auto-claimed by user %s via phone match", claimable.id, session_uid)
+        await db.commit()
+        await db.refresh(claimable)
+        return _out(claimable)
 
     intro = body.intro.strip() if body.intro else None
     now = datetime.now(UTC)

@@ -26,7 +26,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import styles from './HomePage.module.css';
 import { weatherConditionIcon } from '@/lib/weatherCondition';
-import { SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
+import { SHOW_LEGACY_GAME_ECONOMY, SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
 
 // Bến Thành (Quận 1) — 앱 기본 동네
 const FALLBACK = { ...BEN_THANH_FALLBACK, name: 'Bến Thành' };
@@ -199,7 +199,7 @@ export default function HomePage() {
     if (didInit.current) return;
     didInit.current = true;
     refreshUser();
-    fetchWallet().then((w) => setXp(w.xp_balance)).catch(() => {});
+    if (SHOW_LEGACY_GAME_ECONOMY) fetchWallet().then((w) => setXp(w.xp_balance)).catch(() => {});
     const uid = useUserStore.getState().user?.id;
     if (uid) {
       fetchUserStats(uid).then((s) => {
@@ -249,7 +249,7 @@ export default function HomePage() {
     setCommunityStatus('loading');
     setGasStatus('loading');
     setRepairStatus('loading');
-    fetchAds(null).then(setAds).catch(() => setAds([]));
+    if (ADS_ENABLED) fetchAds(null).then(setAds).catch(() => setAds([]));
     return Promise.allSettled([
       // "내 주변 인기 상품" — 'gps' 범위면 반경 안에서만 고른다(대표 지시 2026-08-06).
       // '전체'면 반경 없이 거리순 — 기준점이 도시 중심이라 반경으로 자르면 의미가 없다.
@@ -330,7 +330,7 @@ export default function HomePage() {
                 : <span className={styles.avatarLetter}>{user.nickname.charAt(0).toUpperCase()}</span>
               }
             </div>
-            <div className={styles.levelBadge}>Lv.{user.level}</div>
+            {SHOW_LEGACY_GAME_ECONOMY && <div className={styles.levelBadge}>Lv.{user.level}</div>}
           </button>
 
           <div className={styles.profileInfo}>
@@ -356,11 +356,13 @@ export default function HomePage() {
               두면 거리 값이 길어질수록(0.00 → 5157.91 km) 닉네임 칸을 잠식해
               이름이 잘리고 헤더 높이가 데이터에 따라 흔들렸다. */}
           <div className={styles.headerRightTop}>
-            <button className={styles.xpBtn} onClick={() => navigate('/profile')}>
-              <IcoDiamond />
-              <span className={styles.xpVal}>{formatNumber(xp)}</span>
-              <IcoChevron color="#aeaeb2" size={14} />
-            </button>
+            {SHOW_LEGACY_GAME_ECONOMY && (
+              <button className={styles.xpBtn} onClick={() => navigate('/profile')}>
+                <IcoDiamond />
+                <span className={styles.xpVal}>{formatNumber(xp)}</span>
+                <IcoChevron color="#aeaeb2" size={14} />
+              </button>
+            )}
 
             <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
               <IcoBell />

@@ -11,6 +11,7 @@ import { PullIndicator } from '@/components/ui/PullIndicator';
 import sys from '@/styles/system.module.css';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useUserStore } from '@/store/useUserStore';
 import {
   fetchCategories,
@@ -40,11 +41,13 @@ const PRICE_PRESETS = [
  */
 export default function MarketSearch() {
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const { search } = useLocation();
   const { t } = useTranslation();
   const userId = useUserStore((s) => s.user?.id);
 
-  const isMine = useMemo(() => new URLSearchParams(search).get('mine') === '1', []);
+  const isMineRequested = useMemo(() => new URLSearchParams(search).get('mine') === '1', [search]);
+  const isMine = isMineRequested && !!userId;
   const initialQ = useMemo(() => new URLSearchParams(search).get('q') ?? '', []);
   const [keyword, setKeyword] = useState(initialQ);
   const [debounced, setDebounced] = useState(initialQ);
@@ -60,6 +63,10 @@ export default function MarketSearch() {
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    if (isMineRequested) requireAuth();
+  }, [isMineRequested, requireAuth]);
 
   // 키워드 디바운스(300ms)
   useEffect(() => {
@@ -210,7 +217,7 @@ export default function MarketSearch() {
         <button
           type="button"
           className={styles.writeFab}
-          onClick={() => navigate('/market/new')}
+          onClick={() => { if (requireAuth()) navigate('/market/new'); }}
           aria-label={t('market.createListing')}
         >
           <Plus size={26} strokeWidth={2.4} />

@@ -34,7 +34,7 @@ export default function Splash() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(consumeReturnTo() ?? '/home', { replace: true });
+      navigate(consumeReturnTo() ?? '/market', { replace: true });
       return;
     }
     if (sessionStorage.getItem('session_expired')) {
@@ -118,7 +118,7 @@ export default function Splash() {
       {/* Bottom sheet — 다크 스플래시 배경 전용 유리 표면 (공용 glass-surface 는 라이트 테마용이라 회색으로 보임) */}
       <div className={styles.sheet}>
         <div className={styles.sheetInner}>
-          <Button onClick={() => navigate('/auth/oauth')}>{t('splash.startBtn')}</Button>
+          <Button onClick={() => navigate('/market')}>{t('splash.startBtn')}</Button>
         </div>
       </div>
     </div>

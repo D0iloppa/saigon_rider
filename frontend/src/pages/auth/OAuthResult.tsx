@@ -45,7 +45,7 @@ export default function OAuthResult() {
         const result = await apiOAuthExchange(code);
         saveSession({ userId: result.user.id, sessionToken: result.session_token });
         loginFromBackend(result.user);
-        navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
+        navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/market'), { replace: true });
       } catch (e: unknown) {
         // 탈퇴 계정 — 교환 409 의 복구 정보는 URL 로 나르지 않고 라우터 state 로 전달
         if (e instanceof AccountDeletedError) {

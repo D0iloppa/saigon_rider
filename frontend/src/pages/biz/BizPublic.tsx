@@ -8,6 +8,7 @@ import { ImageViewer } from '@/components/ui/ImageViewer';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK, BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
@@ -60,6 +61,7 @@ export default function BizPublic() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const requireAuth = useRequireAuth();
   const [profile, setProfile] = useState<BusinessPublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BizCategory[]>([]);
@@ -70,7 +72,7 @@ export default function BizPublic() {
   const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
   const [prices, setPrices] = useState<BizPriceItem[]>([]);
   const [listings, setListings] = useState<MarketListing[]>([]);
-  const user = useUserStore((s) => s.user);
+  const userId = useUserStore((s) => s.user?.id);
   const [reviews, setReviews] = useState<BizReview[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
   const [reviewAvg, setReviewAvg] = useState<number | null>(null);
@@ -93,14 +95,15 @@ export default function BizPublic() {
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !userId) return;
     // 단건 찜 여부 조회 API 는 없음 — 목록에서 포함 여부만 확인(과설계 금지)
     fetchBizFavorites()
       .then((favs) => setFavorited(favs.some((f) => f.id === id)))
       .catch(() => {});
-  }, [id]);
+  }, [id, userId]);
 
   const handleToggleFavorite = async () => {
+    if (!requireAuth()) return;
     if (!id) return;
     const next = !favorited;
     setFavorited(next);
@@ -114,6 +117,7 @@ export default function BizPublic() {
 
   // 단골(팔로우) — 찜과 별개 개념 (SGR-326)
   const handleToggleFollow = async () => {
+    if (!requireAuth()) return;
     if (!id || !profile) return;
     const next = !profile.isFollowing;
     setProfile((prev) =>
@@ -194,10 +198,7 @@ export default function BizPublic() {
   };
 
   const handleWriteReview = () => {
-    if (!user) {
-      toast.info(t('biz.review.loginRequired'));
-      return;
-    }
+    if (!requireAuth()) return;
     setReviewSheetOpen(true);
   };
 

@@ -176,6 +176,31 @@ async def _find_claimable_profile(db: AsyncSession, raw_phone: str) -> BusinessP
     return None
 
 
+async def _lock_and_recheck_claimable_profile(
+    db: AsyncSession, candidate: BusinessProfile, verified_phone: str
+) -> BusinessProfile | None:
+    """후보 행을 잠근 뒤 귀속 가능 상태와 인증 계정 전화번호를 다시 확인한다."""
+    normalized = _normalize_vn_phone(verified_phone)
+    if normalized is None:
+        return None
+    locked = (
+        await db.execute(
+            select(BusinessProfile)
+            .where(BusinessProfile.id == candidate.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if (
+        locked is None
+        or locked.user_id is not None
+        or locked.status != "APPROVED"
+        or _normalize_vn_phone(locked.phone or "") != normalized
+    ):
+        return None
+    return locked
+
+
 @router.post("/apply", response_model=BusinessProfileOut, status_code=201, summary="비즈니스 파트너 신청")
 async def apply(
     body: BusinessProfileApplyRequest,
@@ -201,7 +226,12 @@ async def apply(
         raise HTTPException(status_code=400, detail="Address is required")
     await _require_content(db, body.photo_content_id)
 
-    claimable = await _find_claimable_profile(db, body.phone)
+    session_user = await db.get(User, session_uid)
+    claimable = None
+    if session_user is not None and session_user.phone_verified_at is not None and session_user.phone:
+        candidate = await _find_claimable_profile(db, session_user.phone)
+        if candidate is not None:
+            claimable = await _lock_and_recheck_claimable_profile(db, candidate, session_user.phone)
     if claimable is not None:
         claimable.user_id = session_uid
         claimable.updated_at = datetime.now(UTC)

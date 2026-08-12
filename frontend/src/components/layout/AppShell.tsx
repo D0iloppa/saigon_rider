@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { TabBar } from './TabBar';
 // [게이미피케이션 잠정보류] 게임 허브 FAB — CSS(display:none)로 숨겨져 있으면서도 계속
 // 마운트되던 것을 제거(P2-5). 시트의 유일 항목(/info)은 홈 화면 "동네 정보" 카드에서 이미
@@ -47,8 +48,13 @@ export function AppShell({
 }: Props) {
   const { pathname } = useLocation();
   const { t } = useTranslation();
+  const requireAuth = useRequireAuth();
+  const tabBarHiddenByPath = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
   // 미인증 상태에서는 탭바를 숨긴다 — 눌러도 보호된 화면이라 튕겨나가기만 한다 (P1-9)
-  const hideTabBar = !isAuthenticated || HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
+  const hideTabBar = !isAuthenticated || tabBarHiddenByPath;
+  // 공개 열람 화면에서 그렇게 비워진 탭바 자리 — 익명 사용자가 목록만 보다 이탈하지 않도록
+  // 로그인으로 잇는다. 자체 하단 CTA 를 쓰는 화면(HIDE_TABBAR_PATHS)에는 겹치지 않게 두지 않는다.
+  const showGuestBar = !isAuthenticated && !tabBarHiddenByPath;
 
   return (
     <div className={styles.shell}>
@@ -56,6 +62,12 @@ export function AppShell({
         <div className={styles.viewport}>{children}</div>
         {/* {!hideTabBar && <FloatingActionButton />} — 제거 사유는 위 import 주석 참조 (P2-5) */}
         {!hideTabBar && <TabBar />}
+        {showGuestBar && (
+          <div className={styles.guestBar}>
+            <span className={styles.guestBarText}>{t('guest.barText')}</span>
+            <Button size="md" onClick={() => { requireAuth(); }}>{t('guest.barCta')}</Button>
+          </div>
+        )}
         {splashVisible && (
           <div className={`${styles.splash} ${splashFade ? styles.splashFade : ''}`}>
             {gifReady ? (

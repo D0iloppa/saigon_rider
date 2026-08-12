@@ -275,7 +275,11 @@
     "emptyExpandScope": "Tìm kiếm trên toàn thành phố",
     "emptyKeywordAlert": "Đặt thông báo từ khóa",
     "retryUpload": "Thử lại",
-    "uploadFailedHint": "Có ảnh tải lên thất bại. Vui lòng thử lại hoặc xoá ảnh đó"
+    "uploadFailedHint": "Có ảnh tải lên thất bại. Vui lòng thử lại hoặc xoá ảnh đó",
+    "postNeedsPhoto": "Thêm ít nhất một ảnh",
+    "postWaitUploads": "Vui lòng chờ tải ảnh lên hoàn tất",
+    "postNeedsTitle": "Nhập tiêu đề",
+    "postNeedsLocation": "Chọn địa điểm giao dịch"
   },
   "forceUpdate": {
     "title": "Cần cập nhật ứng dụng",
@@ -289,8 +293,12 @@
     "bootstrapErrorTitle": "Không thể kết nối với máy chủ",
     "bootstrapErrorBody": "Kiểm tra kết nối mạng rồi thử lại.",
     "bootstrapLogin": "Đi đến đăng nhập",
-    "subtitle": "Nơi mỗi chuyến đi là một nhiệm vụ",
-    "startBtn": "Bắt đầu"
+    "subtitle": "Giao dịch xe máy Sài Gòn, từ hẹn gặp đến di chuyển",
+    "startBtn": "Khám phá chợ"
+  },
+  "guest": {
+    "barText": "Đăng nhập để nhắn tin và đăng bán",
+    "barCta": "Đăng nhập"
   },
   "phoneInput": {
     "titleLine1": "Đăng nhập bằng",

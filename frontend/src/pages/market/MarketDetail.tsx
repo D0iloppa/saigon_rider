@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { createConversation, proposePriceOffer } from '@/api/dm';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
 import { followUser, unfollowUser } from '@/api/follows';
@@ -46,6 +47,7 @@ export default function MarketDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const requireAuth = useRequireAuth();
   const myId = useUserStore((s) => s.user?.id);
   const [detail, setDetail] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,7 @@ export default function MarketDetail() {
   const isSeller = !!detail && !!myId && detail.seller.id === myId;
 
   const handleToggleLike = async () => {
+    if (!requireAuth()) return;
     if (!detail || !myId) return;
     try {
       const res = await toggleLike(detail.id, myId);
@@ -83,6 +86,7 @@ export default function MarketDetail() {
   };
 
   const handleChat = async () => {
+    if (!requireAuth()) return;
     if (!detail) return;
     try {
       const conv = await createConversation(detail.seller.id, { type: 'listing', id: detail.id });
@@ -94,6 +98,7 @@ export default function MarketDetail() {
 
   // 가격제안: 대화 생성(매물 컨텍스트) → 제안 전송 → 해당 DM 으로 이동
   const handleSendOffer = async (amount: number) => {
+    if (!requireAuth()) return;
     if (!detail || offerSending) return;
     setOfferSending(true);
     try {
@@ -118,6 +123,7 @@ export default function MarketDetail() {
   };
 
   const handleToggleFollow = async () => {
+    if (!requireAuth()) return;
     if (!detail || isSeller) return;
     const wasFollowing = detail.seller.isFollowing;
     try {
@@ -189,6 +195,7 @@ export default function MarketDetail() {
   const canBump = detail?.status === 'ON_SALE' && bumpRemainingMs <= 0;
 
   const handleReport = async (reason: ReportReason) => {
+    if (!requireAuth()) return;
     if (!detail) return;
     try {
       await reportListing(detail.id, reason);
@@ -202,11 +209,12 @@ export default function MarketDetail() {
   // 차단 상태 확인 — 차단/해제 토글 표시용
   useEffect(() => {
     const sid = detail?.seller.id;
-    if (!sid) return;
+    if (!sid || !myId) return;
     fetchBlockedUsers().then((list) => setBlocked(list.some((b) => b.userId === sid))).catch(() => {});
-  }, [detail?.seller.id]);
+  }, [detail?.seller.id, myId]);
 
   const handleToggleBlock = async () => {
+    if (!requireAuth()) return;
     if (!detail) return;
     try {
       if (blocked) {
@@ -234,7 +242,7 @@ export default function MarketDetail() {
             <ArrowLeft size={24} strokeWidth={2} />
           </button>
           {!isSeller && detail && (
-            <button className={styles.backBtn} type="button" onClick={() => setMoreOpen(true)} aria-label={t('market.more', { defaultValue: '더보기' })}>
+            <button className={styles.backBtn} type="button" onClick={() => { if (requireAuth()) setMoreOpen(true); }} aria-label={t('market.more', { defaultValue: '더보기' })}>
               <MoreVertical size={24} strokeWidth={2} />
             </button>
           )}
@@ -443,7 +451,7 @@ export default function MarketDetail() {
               </button>
               {detail.status === 'ON_SALE' && detail.isNegotiable && (
                 <div className={styles.offerBtn}>
-                  <Button variant="secondary" onClick={() => setOfferOpen(true)}>
+                  <Button variant="secondary" onClick={() => { if (requireAuth()) setOfferOpen(true); }}>
                     {t('market.makeOffer', { defaultValue: '가격제안' })}
                   </Button>
                 </div>

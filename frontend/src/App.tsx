@@ -180,8 +180,8 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
       {backgroundLocation && (
         <div className={styles.detailOverlay}>
           <Routes>
-            <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
-            <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
+            <Route path="/biz/:id" element={<BizPublic />} />
+            <Route path="/market/:id" element={<MarketDetail />} />
             <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
           </Routes>
         </div>
@@ -229,6 +229,11 @@ function ProximityAlerts({ enabled }: { enabled: boolean }) {
 // 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
 const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/settings/terms', '/settings/privacy'];
 
+// 비로그인도 볼 수 있는 공개 열람 경로. 세션 만료 시 로그아웃은 하되 화면을 뺏지 않는다 —
+// 익명으로 계속 읽을 수 있는 화면이라 스플래시로 밀어낼 이유가 없다. 같은 prefix 의 보호 화면
+// (/market/new 등)은 logout() 직후 PrivateRoute 가 스스로 스플래시로 보낸다.
+const PUBLIC_BROWSE_PREFIXES = ['/market', '/biz'];
+
 export default function App() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
@@ -255,6 +260,7 @@ export default function App() {
       if (SESSION_EXEMPT_PREFIXES.some((prefix) => p.startsWith(prefix))) return;
       logout();
       sessionStorage.setItem('session_expired', '1');
+      if (PUBLIC_BROWSE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) return;
       window.location.replace('/splash');
     });
   }, [logout]);
@@ -505,6 +511,12 @@ export default function App() {
           {/* Deep link entry (auth-aware inside) */}
           <Route path="/link" element={<LinkRouter />} />
 
+          {/* Public read surfaces */}
+          <Route path="/market" element={<MarketMain />} />
+          <Route path="/market/search" element={<MarketSearch />} />
+          <Route path="/market/:id" element={<MarketDetail />} />
+          <Route path="/biz/:id" element={<BizPublic />} />
+
           {/* Protected: Main */}
           <Route path="/home" element={<PrivateRoute><HomePage /></PrivateRoute>} />
           <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
@@ -513,13 +525,10 @@ export default function App() {
           <Route path="/map/favorites" element={<PrivateRoute><MapFavorites /></PrivateRoute>} />
           <Route path="/map/follows" element={<PrivateRoute><MapFollows /></PrivateRoute>} />
           <Route path="/map/categories" element={<PrivateRoute><NeighborhoodCategories /></PrivateRoute>} />
-          <Route path="/market" element={<PrivateRoute><MarketMain /></PrivateRoute>} />
-          <Route path="/market/search" element={<PrivateRoute><MarketSearch /></PrivateRoute>} />
           <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
           <Route path="/market/new" element={<VerifiedSellerRoute><MarketCreate /></VerifiedSellerRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
           <Route path="/market/:id/edit" element={<PrivateRoute><MarketEdit /></PrivateRoute>} />
-          <Route path="/market/:id" element={<PrivateRoute><MarketDetail /></PrivateRoute>} />
           <Route path="/biz/intro" element={<PrivateRoute><BizIntro /></PrivateRoute>} />
           <Route path="/biz/apply" element={<PrivateRoute><BizApply /></PrivateRoute>} />
           <Route path="/biz/status" element={<PrivateRoute><BizStatus /></PrivateRoute>} />
@@ -532,7 +541,6 @@ export default function App() {
           {/* T-1: 업체 프로필 → 매물 등록 — 검증된 업체 프로필 명의라 개인 휴대폰 인증 게이트(VerifiedSellerRoute) 불필요 */}
           <Route path="/biz/listings/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/biz/prices" element={<PrivateRoute><BizPriceManage /></PrivateRoute>} />
-          <Route path="/biz/:id" element={<PrivateRoute><BizPublic /></PrivateRoute>} />
           {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />

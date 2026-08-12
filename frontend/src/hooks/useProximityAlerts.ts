@@ -10,6 +10,8 @@ import AdCard from '@/pages/market/AdCard';
 
 /** "진입 전" 알림 반경(m) — 260806_proximity_ad_design.md §5-3 D-3 확정값(서버 정책 기본값 미러). */
 const NOTIFY_RADIUS_M = 300;
+/** Launch safety switch: proximity monitoring remains disabled pending privacy review. */
+export const PROXIMITY_ALERTS_ENABLED = false;
 /** 같은 가맹점에 대한 로컬 재전송 최소 간격(ms) — 서버 쿨다운/일일상한과 별개로 GPS 틱마다
  * 스팸 호출하는 것만 막는다(배터리·데이터, §R-4). 방문 인정 체류시간(120s)보다 짧게 잡아
  * 체류 중 재확인 POST 가 몇 차례는 가능하게 한다. */
@@ -46,7 +48,7 @@ export function useProximityAlerts(enabled: boolean) {
   const prevPosRef = useRef<{ lat: number; lng: number; at: string } | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!PROXIMITY_ALERTS_ENABLED || !enabled) return;
     let stopWatch: (() => void) | null = null;
     let cancelled = false;
 

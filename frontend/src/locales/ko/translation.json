@@ -296,6 +296,10 @@
     "subtitle": "호치민 오토바이 거래, 약속부터 이동까지",
     "startBtn": "마켓 둘러보기"
   },
+  "guest": {
+    "barText": "로그인하면 채팅하고 판매할 수 있어요",
+    "barCta": "로그인"
+  },
   "phoneInput": {
     "titleLine1": "휴대폰 번호로",
     "titleLine2": "로그인",

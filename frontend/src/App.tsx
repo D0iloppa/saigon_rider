@@ -229,6 +229,11 @@ function ProximityAlerts({ enabled }: { enabled: boolean }) {
 // 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
 const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/settings/terms', '/settings/privacy'];
 
+// 비로그인도 볼 수 있는 공개 열람 경로. 세션 만료 시 로그아웃은 하되 화면을 뺏지 않는다 —
+// 익명으로 계속 읽을 수 있는 화면이라 스플래시로 밀어낼 이유가 없다. 같은 prefix 의 보호 화면
+// (/market/new 등)은 logout() 직후 PrivateRoute 가 스스로 스플래시로 보낸다.
+const PUBLIC_BROWSE_PREFIXES = ['/market', '/biz'];
+
 export default function App() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
@@ -255,6 +260,7 @@ export default function App() {
       if (SESSION_EXEMPT_PREFIXES.some((prefix) => p.startsWith(prefix))) return;
       logout();
       sessionStorage.setItem('session_expired', '1');
+      if (PUBLIC_BROWSE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) return;
       window.location.replace('/splash');
     });
   }, [logout]);

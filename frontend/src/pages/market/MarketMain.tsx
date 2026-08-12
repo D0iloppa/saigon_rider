@@ -761,7 +761,7 @@ export default function MarketMain() {
       {/* 글쓰기 FAB — 카드 캐러셀(PostPanel)이 열려 있으면 숨긴다. 캐러셀 우하단의 가격·찜
           영역을 FAB 이 가린다(대표 지적 2026-08-06). 캐러셀을 닫으면 다시 나온다. */}
       {!postPanelOpen && (
-        <button className={styles.writeFab} type="button" onClick={() => navigate('/market/new')} aria-label={t('market.create', { defaultValue: '매물 등록' })}>
+        <button className={styles.writeFab} type="button" onClick={() => { if (requireAuth()) navigate('/market/new'); }} aria-label={t('market.create', { defaultValue: '매물 등록' })}>
           <Plus size={26} strokeWidth={2.4} />
         </button>
       )}

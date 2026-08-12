@@ -296,6 +296,10 @@
     "subtitle": "Giao dịch xe máy Sài Gòn, từ hẹn gặp đến di chuyển",
     "startBtn": "Khám phá chợ"
   },
+  "guest": {
+    "barText": "Đăng nhập để nhắn tin và đăng bán",
+    "barCta": "Đăng nhập"
+  },
   "phoneInput": {
     "titleLine1": "Đăng nhập bằng",
     "titleLine2": "Số điện thoại",

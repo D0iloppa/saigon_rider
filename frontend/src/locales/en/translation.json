@@ -296,6 +296,10 @@
     "subtitle": "Saigon motorbike deals, from meetup to ride",
     "startBtn": "Browse marketplace"
   },
+  "guest": {
+    "barText": "Log in to chat and start selling",
+    "barCta": "Log in"
+  },
   "phoneInput": {
     "titleLine1": "Log in with",
     "titleLine2": "Phone Number",

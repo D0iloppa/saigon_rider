@@ -30,6 +30,27 @@
   position: relative;
 }
 
+/* ── Guest bar ── 미인증 공개 열람 화면에서 탭바 자리를 대신한다 (TabBar 와 같은 표면 문법) */
+.guestBar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 12px 16px calc(12px + var(--bottom-safe));
+  flex-shrink: 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, .04);
+}
+
+.guestBarText {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text);
+}
+
 /* ── Home Splash ── */
 .splash {
   position: absolute;

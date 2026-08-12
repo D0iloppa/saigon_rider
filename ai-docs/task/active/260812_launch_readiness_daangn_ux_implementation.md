@@ -490,8 +490,124 @@ review_submitted
 | 3 | C 공개 탐색 | **코드 PASS** | 익명 공유 링크와 로그인 복귀 E2E |
 | 4 | D 첫 약속 통일 | **코드 PASS** | 사용자 5명 첫 가치 테스트 |
 | 5 | E 판매 복구 | **코드 PASS** | draft/OTP/업로드 실기기 E2E |
-| 6 | F 거래 조종석 | **미구현** | 단계 전이·권한·멱등성 테스트 |
+| 6 | F 거래 조종석 | **F-1·F-2 코드 PASS** (§9.10) / F-3 거래 단계 스트립·안전 안내 미구현 | 단계 전이·권한·멱등성 테스트 |
 | 7 | G 계측·RC | **미구현** | 퍼널 대시보드와 운영 증적 완성 |
+
+### 9.10 F 구현 기록 (2026-08-12 후속 착수 — 대표 지시 "구매자 완료 요청권·채팅 탭 승격도 해야 한다")
+
+§9.7 의 F 중 **F-1 채팅 탭 승격(S-5/D-6)** 과 **F-2 구매자 완료 요청권(S-16/D-7)** 을 구현했다.
+F-3(DM 상단 거래 단계 스트립 · 약속 수락 직전 안전 안내)은 이번 범위 밖으로 남았다.
+
+**F-1 채팅 탭 승격 — 대표 결정: 홈 유지 + 채팅 추가 = 6탭**
+
+§9.7 은 "홈 또는 커뮤니티 자리를 DM 으로 교체"(D-6 원안은 홈 제거)였으나, 홈에 유가·날씨·침수·
+주유소·정비소 진입점이 걸려 있어 빼면 그 기능 진입이 사라진다. 유틸리티 스트립 재배치
+([`../spec/service-concept-260726.md`](../spec/service-concept-260726.md) §6.2)는 별건이라, **탭을 교체하지 않고 채팅을 추가**하는 안으로 확정됐다.
+
+- `TabBar.tsx` — `홈·마켓·동네지도·채팅·커뮤니티·프로필` 6탭. `TAB_PATH_PREFIXES` 에 `'/dm': ['/dm']`
+  신설, `/profile` 배열에서 `/dm` 제거(채팅 화면에서 프로필 탭이 활성 표시되던 문제).
+- 미읽음은 프로필 탭의 **빨간 dot → 채팅 탭의 숫자 배지**(99 초과는 `99+`). `.navDot` 은 고아가 되어
+  `.navBadge` 로 교체. 배지 소스는 기존 `useDmStore.totalUnread` 이고 갱신도 기존
+  `App.tsx` 의 `dmPollInterval` 폴링이 그대로 담당한다(신규 폴링 없음).
+- `AppShell.HIDE_TABBAR_PATHS` 는 무변경 — `/dm/`(대화방)은 이미 숨김 대상이고 `/dm`(목록)은
+  탭 루트라 탭바가 필요하다.
+- i18n `tabbar.chat` 은 3벌에 이미 존재해 신규 키 없음. 6탭에서 탭 폭이 좁아져 긴 vi 라벨
+  (`Trò chuyện`)이 2줄로 접히지 않게 `.label { white-space: nowrap }` 추가.
+
+**F-2 구매자 완료 요청권 — status 값을 늘리지 않고 필드로 표현**
+
+§9.7 은 `ACCEPTED → COMPLETION_REQUESTED → COMPLETED` 상태 신설안이었으나, `status` 를 늘리면
+리뷰 자격 판정(`market.py` 의 `completed_appt` 조회)·프론트 `statusLabel` 등 기존 소비처가 전부
+영향을 받는다. **요청은 ACCEPTED 의 하위 상태**로 보고 컬럼 3개로만 표현했다(status 4값 불변).
+
+- `database/init/179_appointment_completion_request.sql` — `marketplace_appointments` 에
+  `completion_requested_by` / `completion_requested_at` / `completion_declined_at` 추가 +
+  어드민 큐용 partial index(`ix_mp_appointment_completion_pending`). compose `bff_migrate` 등록 완료
+  (dev DB 는 수동 적용도 완료).
+- `PATCH /market/appointments/{id}/request-completion` — **구매자 전용**(판매자는 403
+  `seller_completes_directly` — 판매자는 직접 완료하면 되므로 요청 개념이 없다. §9.7 의 "양측 요청
+  가능"보다 D-7 결정에 맞춘 축소). ACCEPTED 만 허용, 중복 요청은 재알림 없이 멱등 반환,
+  거절 후 재요청은 허용(`completion_declined_at` 을 비운다).
+- `PATCH /market/appointments/{id}/decline-completion` — 판매자 전용. 약속은 ACCEPTED 유지,
+  거절 시각만 기록하고 **요청 이력은 지우지 않는다**(운영 이의 큐의 판단 근거).
+- 완료 확정은 여전히 `complete_appointment`(판매자) 한 곳뿐 — **자동 완료 없음**(D-7).
+- 알림: `noti_events.enqueue` 로 도메인 변경과 같은 트랜잭션에 적재(FD-6 outbox),
+  worker 핸들러 `market.completion_requested` / `market.completion_declined` 신설.
+  타입은 DM 컨텍스트라 기존 `SOCIAL` 재사용(enum 신설 없음), 딥링크는 `dm&id=<conv>`.
+  **푸시 게이트 없음** — 판매자 미응답이 곧 S-16 의 원인이라 chat 토글로 끌 수 있어야 할 성질이 아니다.
+- accept/cancel 과 동일하게 **별도 DM 메시지를 만들지 않는다**(propose 만 메시지 생성) — 약속 카드
+  자체가 상태를 표시하고, 판매자 부재 문제는 푸시가 담당한다.
+- 프론트 `DmDetail.tsx` — 구매자에게 `거래 완료 요청`(거절 후엔 `완료 다시 요청`), 판매자에게
+  `요청 거절`, 카드 상태 pill 은 요청 중이면 `완료 요청됨`. 거절 사실은 구매자 화면에 한 줄로
+  남긴다(요청이 사라진 것으로 오인 방지).
+
+**F-2 운영 이의 큐 (대표 결정: 어드민 큐까지 포함)**
+
+- `backend/app/routers/admin_api/trades.py` 신설 — `GET /admin/api/trades/completion-requests`
+  (`state=pending|declined|all`, `min_pending_hours` 로 방치 건만 필터, 경과 시간은 서버 계산),
+  `POST .../{id}/force-complete`(약속 COMPLETED + 매물 SOLD + 합의가 스냅샷은 MKT-7 규칙 재사용),
+  `POST .../{id}/dismiss`(거래는 미완료, 요청만 큐에서 내림 — 구매자 재요청 가능).
+  두 조치 모두 **사유 필수**(양측 알림 본문·감사로그에 그대로 들어간다), 양측 `MODERATION` 알림 +
+  `admin_audit_log`(`trade.completion_force_complete` / `trade.completion_dismiss`)를 단일 트랜잭션 커밋.
+  매물 행은 앱 경로와 동일하게 `FOR UPDATE` 로 잠근다.
+- 어드민 SPA `pages/trades/CompletionRequestListPage.tsx` + `api/trades.ts`,
+  라우트 `/trades/completion-requests`, 사이드바 TRUST 그룹에 `거래 완료 이의` 추가.
+
+**검증**
+
+| 항목 | 결과 |
+|---|---|
+| backend 테스트 | **483 PASS / 4 skip** (신규 `test_market_completion_request` 9 + `test_admin_trade_completion_queue` 10) |
+| ruff (backend 전체) | **0** |
+| frontend 계약 테스트 | **181 PASS** (신규 `chatTabPromotion` 6 + `completionRequest` 5) |
+| `tsc -b` (app / admin) | **0 / 0** |
+| ESLint (변경 파일) | error **0** (경고 20은 기존 fetch-in-effect) |
+| 로케일 3벌 | **1,951 키 패리티, 차이 0** |
+| dev 실측 | init/179 적용 후 컬럼·index 확인, `/admin/api/trades/...` 미인증 401, noti_worker 신규 핸들러 2종 등록 로그 확인, app·admin SPA 재빌드 200 |
+
+**push 전 code-review(high) 지적 6건 반영**
+
+1. **blocker — init/179 가 mount 만 되고 실행되지 않았다.** `bff_migrate` 의 `volumes:` 에만 추가하고
+   `command:` 의 `-f` + `VALUES (179)` 쌍을 빠뜨렸다. 배포 시 컬럼이 생기지 않고, 모델이 이미 그
+   컬럼을 매핑하므로 **신규 기능만이 아니라 약속 카드·제안·수락·완료 등 기존 경로 전부**가
+   `column ... does not exist` 로 죽는다. compose 수정 + 재발 방지로
+   `test_compose_migration_wiring.py` 신설 — mount·실행·스탬프 **집합 동등성**을 검사해 번호를 몰라도
+   같은 함정을 잡는다(현재 41/41/41 일치). 마이그레이션별 개별 검사(167 등)로는 다음 번호에서 반복된다.
+2. **어드민 큐에 해소 경로 없는 행이 남았다.** SOLD 가드가 `_load_pending` 공용이라 강제완료·기각
+   **둘 다** 409 였다. 판매자가 다른 대화로 먼저 판 건은 강제완료는 불가하되 기각은 가능해야 하므로
+   가드를 `force_complete` 로만 옮겼다.
+3. **`request-completion` 에 매물 상태 가드가 없었다.** accept/complete 와 달리 `appt.status` 만 봐서,
+   이미 SOLD 인 매물에도 요청이 나가 완료 불가능한 거래에 판매자 푸시가 발송되고 2번의 잔류 행이
+   만들어졌다. 잠근 행 기준 `listing.status == "SOLD"` 409 추가.
+4. **탈퇴 계정 요청에서 알림이 `"None"` 으로 적재됐다.** FK 가 `ON DELETE SET NULL` 이라
+   `requested_by` 만 NULL 이 되고 `requested_at` 은 남는데, 거절 가드가 `requested_at` 만 봤다.
+   worker 가 `uuid.UUID("None")` 로 죽어 재시도를 모두 소진하고 DLQ 까지 갔다 → 받을 사람이 없으면
+   적재를 건너뛴다(거절 기록은 유지).
+5. **목록의 `total` 과 실제 행 수가 어긋날 수 있었다.** 매물 누락 시 조용히 `continue` 해 페이지네이션이
+   빈 다음 페이지를 계속 제시했다. `listing_id` 는 `ON DELETE CASCADE` 라 누락이 구조적으로
+   불가능하므로 skip 대신 드러낸다.
+6. **어드민 기각이 구매자에게 "판매자가 거절"로 표시됐다.** `completion_declined_at` 을 재사용하는데
+   프론트가 그 필드를 판매자 거절 문구로 렌더했다 — 사실과 다르고 연락할 상대도 잘못 가리킨다.
+   init/179 에 **`completion_declined_by`**(판매자 거절=판매자 id, 운영 기각=NULL)를 추가하고 프론트가
+   행위자로 문구를 분기한다(`dm.apptCompletionDismissedNote` 3벌 신규). 179 는 아직 dev 에만 적용됐고
+   `ADD COLUMN IF NOT EXISTS` 라 별도 180 을 만들지 않고 179 를 확장했다.
+
+미조치로 남긴 지적(리뷰도 finding 으로 올리지 않은 항목): 목록이 행당 `db.get` 3회(페이지 20건 기준
+최대 60 라운드트립) — 내부 어드민 화면이고 page size 상한이 100 이라 배치 조회는 후속. 요청→거절→
+재요청 반복에 rate limit 없음 — 남용 관측 후 대응.
+
+**재검증**: backend **491 PASS/4 skip**(신규 27) · ruff check·format 0 · frontend 계약 **182 PASS** ·
+`tsc -b` 0(앱·어드민) · 179 재적용 후 컬럼 4종 확인 · BFF 재시작 후 라우트 5종 등록·미인증 401 확인.
+
+**잔여**
+
+1. **어드민 인증 경로 curl 실측 미완** — root 비밀번호가 `.env` 에 해시(`ADMIN_PASS_HASH`)로만 있어
+   로그인 토큰을 만들 수 없었다. 401(미인증) 경로만 실측했고 인증 후 목록·조치는 단위 테스트로만 고정.
+   운영/dev 계정으로 브라우저 1회 순회 필요.
+2. **E2E 미검증** — 구매자 요청 → 판매자 푸시 수신 → 확인/거절 → 리뷰 자격까지의 실기기 흐름.
+3. **F-3 미구현** — DM 상단 거래 단계 스트립, 약속 수락 직전 안전 안내.
+4. **DM 5초 폴링**(별건 지적)도 여전히 미착수.
+5. 약속 시간 경과 후 양측 반복 노출(진단서 S-16 개선 2번)은 서버 스케줄 잡이 필요해 범위 밖.
 
 A~E는 서로 맞물리는 출시 안전 묶음으로 한 commit에 통합한다. 전체 완료는 “코드가 존재함”이 아니라 §6 수치 게이트와 production-like RC 증적이 함께 PASS한 상태다.
 

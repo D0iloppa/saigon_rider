@@ -21,6 +21,8 @@ import {
   proposeAppointment,
   acceptAppointment,
   completeAppointment,
+  requestAppointmentCompletion,
+  declineAppointmentCompletion,
   cancelAppointment,
   proposePriceOffer,
   acceptPriceOffer,
@@ -473,6 +475,10 @@ export default function DmDetail() {
             const canAccept = !!appt && status === 'PROPOSED' && !iAmProposer;
             const canComplete = !!appt && status === 'ACCEPTED' && isSeller;
             const canCancel = !!appt && (status === 'PROPOSED' || status === 'ACCEPTED');
+            // S-16: 완료 요청은 ACCEPTED 의 하위 상태 — 거절된 요청은 "요청 없음"으로 되돌려 재요청을 허용한다.
+            const completionPending = !!appt?.completionRequestedAt && !appt.completionDeclinedAt;
+            const canRequestCompletion = !!appt && status === 'ACCEPTED' && !isSeller && !completionPending;
+            const canDeclineCompletion = !!appt && status === 'ACCEPTED' && isSeller && completionPending;
             const cancelLabel = status === 'ACCEPTED'
               ? t('dm.apptCancel', { defaultValue: '약속 취소' })
               : iAmProposer
@@ -484,7 +490,13 @@ export default function DmDetail() {
                   <span className={styles.apptTitle}>
                     <CalendarPlus size={15} /> {t('dm.appointment', { defaultValue: '약속' })}
                   </span>
-                  {status && <span className={styles.apptStatusPill} data-status={status}>{statusLabel[status]}</span>}
+                  {status && (
+                    <span className={styles.apptStatusPill} data-status={status}>
+                      {completionPending
+                        ? t('dm.apptCompletionRequested', { defaultValue: '완료 요청됨' })
+                        : statusLabel[status]}
+                    </span>
+                  )}
                 </div>
                 <div className={styles.apptInfo}>
                   <div className={styles.apptRow}>
@@ -502,7 +514,18 @@ export default function DmDetail() {
                     </div>
                   )}
                 </div>
-                {(canAccept || canComplete || showNav || canCancel) && (
+                {/* S-16: 판매자가 앱을 열지 않아 거래가 정체되지 않도록 구매자에게 요청 도선을 준다.
+                    거절 시엔 그 사실을 구매자 화면에 남겨야 "요청이 사라진" 것으로 오인하지 않는다.
+                    누가 거절했는지로 문구가 갈린다 — 운영 기각(`completionDeclinedBy === null`)을
+                    "판매자가 거절"이라고 하면 사실과 다르고 연락할 상대도 잘못 가리킨다. */}
+                {appt?.completionDeclinedAt && !isSeller && status === 'ACCEPTED' && (
+                  <p className={styles.apptNote}>
+                    {appt.completionDeclinedBy
+                      ? t('dm.apptCompletionDeclinedNote', { defaultValue: '판매자가 완료 요청을 거절했어요. 대화로 확인해 주세요.' })
+                      : t('dm.apptCompletionDismissedNote', { defaultValue: '완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.' })}
+                  </p>
+                )}
+                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion) && (
                   <div className={styles.apptActions}>
                     {canAccept && (
                       <button className={styles.apptBtnPrimary} type="button" disabled={sending}
@@ -514,6 +537,20 @@ export default function DmDetail() {
                       <button className={styles.apptBtnPrimary} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(completeAppointment, appt.id)}>
                         {t('dm.apptComplete', { defaultValue: '거래 완료' })}
+                      </button>
+                    )}
+                    {canRequestCompletion && (
+                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                        onClick={() => handleAppointmentAction(requestAppointmentCompletion, appt.id)}>
+                        {appt.completionDeclinedAt
+                          ? t('dm.apptRequestCompletionAgain', { defaultValue: '완료 다시 요청' })
+                          : t('dm.apptRequestCompletion', { defaultValue: '거래 완료 요청' })}
+                      </button>
+                    )}
+                    {canDeclineCompletion && (
+                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
+                        onClick={() => handleAppointmentAction(declineAppointmentCompletion, appt.id)}>
+                        {t('dm.apptDeclineCompletion', { defaultValue: '요청 거절' })}
                       </button>
                     )}
                     {showNav && (

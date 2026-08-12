@@ -1243,6 +1243,16 @@ class MarketplaceAppointment(Base):
     place_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     place_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="PROPOSED")
+    # S-16: 구매자의 거래 완료 요청. status 는 ACCEPTED 로 유지되고 이 필드로만 요청 여부를 표현한다.
+    completion_requested_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    completion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completion_declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 거절 행위자 — 판매자 거절이면 판매자 id, 운영 이의 큐 기각이면 NULL (init/179 주석 참조).
+    completion_declined_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

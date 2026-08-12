@@ -903,6 +903,12 @@ class AppointmentOut(BaseModel):
     place_lat: float | None = None
     place_lng: float | None = None
     status: str
+    # S-16: 구매자 완료 요청 상태. status 는 ACCEPTED 그대로이고 이 필드로 요청 여부를 판별한다.
+    completion_requested_by: UUID | None = None
+    completion_requested_at: datetime | None = None
+    completion_declined_at: datetime | None = None
+    # 거절 행위자 — 판매자 거절이면 판매자 id, 운영 기각이면 None(프론트가 문구를 분기한다).
+    completion_declined_by: UUID | None = None
 
 
 class AppointmentProposeRequest(BaseModel):

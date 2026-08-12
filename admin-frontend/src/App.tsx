@@ -13,6 +13,7 @@ import UserListPage from './pages/users/UserListPage'
 import UserDetailPage from './pages/users/UserDetailPage'
 import ListingListPage from './pages/listings/ListingListPage'
 import ListingDetailPage from './pages/listings/ListingDetailPage'
+import CompletionRequestListPage from './pages/trades/CompletionRequestListPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
 import FeedListPage from './pages/community/FeedListPage'
@@ -129,6 +130,7 @@ export default function App() {
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/listings" element={<ListingListPage />} />
               <Route path="/listings/:id" element={<ListingDetailPage />} />
+              <Route path="/trades/completion-requests" element={<CompletionRequestListPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
               <Route path="/community/feed" element={<FeedListPage />} />

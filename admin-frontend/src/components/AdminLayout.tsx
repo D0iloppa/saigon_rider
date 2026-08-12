@@ -11,6 +11,7 @@ import {
   EnvironmentOutlined,
   FileTextOutlined,
   FlagOutlined,
+  IssuesCloseOutlined,
   NotificationOutlined,
   PictureOutlined,
   SafetyCertificateOutlined,
@@ -41,6 +42,7 @@ const MENU_ITEMS = [
     { key: '/reports', icon: <FlagOutlined />, label: '신고센터' },
     { key: '/users', icon: <TeamOutlined />, label: '유저 관리' },
     { key: '/listings', icon: <ShopOutlined />, label: '매물 관리' },
+    { key: '/trades/completion-requests', icon: <IssuesCloseOutlined />, label: '거래 완료 이의' },
   ] },
   { key: 'group-care', label: 'CUSTOMER', children: [{ key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' }] },
   { key: 'group-biz', label: 'BUSINESS', children: [
@@ -81,6 +83,7 @@ const PAGE_META = [
   { path: '/reports', title: '신고센터', description: '신고 접수부터 조치까지의 검토 흐름을 관리합니다.' },
   { path: '/users', title: '유저 관리', description: '유저 상태, 제재 이력 및 신뢰 정보를 확인합니다.' },
   { path: '/listings', title: '매물 관리', description: '등록 매물을 검토하고 필요한 운영 조치를 적용합니다.' },
+  { path: '/trades/completion-requests', title: '거래 완료 이의', description: '구매자가 완료를 요청했으나 판매자가 확인하지 않은 거래를 검토합니다.' },
   { path: '/support', title: '고객센터', description: '사용자 문의와 답변 상태를 관리합니다.' },
   { path: '/community/feed', title: '피드 관리', description: '공식계정 피드를 작성하고, 사용자 피드 게시물을 조회·삭제합니다.' },
   { path: '/map/poi', title: 'POI 관리', description: '동네지도에 노출되는 POI를 등록하고 관리합니다.' },

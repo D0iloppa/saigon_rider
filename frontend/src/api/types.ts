@@ -246,6 +246,12 @@ export interface Appointment {
   placeLat: number | null;
   placeLng: number | null;
   status: AppointmentStatus;
+  /** S-16: 구매자 완료 요청. status 는 ACCEPTED 그대로이고 이 필드로 요청 여부를 판별한다. */
+  completionRequestedBy: string | null;
+  completionRequestedAt: string | null;
+  completionDeclinedAt: string | null;
+  /** 거절 행위자 — 판매자 거절이면 판매자 id, 운영 이의 큐 기각이면 null. */
+  completionDeclinedBy: string | null;
 }
 
 export type PriceOfferStatus = 'PROPOSED' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED';

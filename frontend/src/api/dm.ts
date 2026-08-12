@@ -26,6 +26,10 @@ function transformAppointment(raw: any): Appointment {
     placeLat: raw.place_lat ?? null,
     placeLng: raw.place_lng ?? null,
     status: raw.status,
+    completionRequestedBy: raw.completion_requested_by ?? null,
+    completionRequestedAt: raw.completion_requested_at ?? null,
+    completionDeclinedAt: raw.completion_declined_at ?? null,
+    completionDeclinedBy: raw.completion_declined_by ?? null,
   };
 }
 
@@ -207,6 +211,20 @@ export async function acceptAppointment(appointmentId: string): Promise<Appointm
 
 export async function completeAppointment(appointmentId: string): Promise<Appointment> {
   return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/complete`, { method: 'PATCH' }));
+}
+
+/** S-16: 구매자가 거래 완료를 요청한다(완료 확정은 판매자 권한 그대로). */
+export async function requestAppointmentCompletion(appointmentId: string): Promise<Appointment> {
+  return transformAppointment(
+    await api.realFetch<any>(`/market/appointments/${appointmentId}/request-completion`, { method: 'PATCH' }),
+  );
+}
+
+/** S-16: 판매자가 완료 요청을 거절한다(약속은 ACCEPTED 유지). */
+export async function declineAppointmentCompletion(appointmentId: string): Promise<Appointment> {
+  return transformAppointment(
+    await api.realFetch<any>(`/market/appointments/${appointmentId}/decline-completion`, { method: 'PATCH' }),
+  );
 }
 
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {

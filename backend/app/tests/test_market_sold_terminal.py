@@ -99,6 +99,11 @@ class AppointmentCompleteStillWorksTest(unittest.IsolatedAsyncioTestCase):
         appt.place_lat = None
         appt.place_lng = None
         appt.status = "ACCEPTED"
+        # S-16 신규 필드 — MagicMock 자동 속성이 UUID/datetime 검증을 깨므로 명시적으로 비운다.
+        appt.completion_requested_by = None
+        appt.completion_requested_at = None
+        appt.completion_declined_at = None
+        appt.completion_declined_by = None
 
         conv = MagicMock()
         conv.id = appt.conversation_id

@@ -31,6 +31,7 @@ from . import (
     shop,
     stream,
     support,
+    trades,
     users,
 )
 
@@ -60,3 +61,4 @@ router.include_router(ops.router)
 router.include_router(push.router)
 router.include_router(settings.router)
 router.include_router(stream.router)
+router.include_router(trades.router)

@@ -369,6 +369,57 @@ async def _handle_support_replied(payload: dict, *, source_event_id: str) -> Non
         log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
 
 
+_COMPLETION_COPY = {
+    "market.completion_requested": (
+        "거래 완료 요청",
+        "'{title}' 구매자가 거래 완료를 요청했습니다. 확인해 주세요.",
+    ),
+    "market.completion_declined": (
+        "거래 완료 요청 거절",
+        "'{title}' 판매자가 거래 완료 요청을 거절했습니다.",
+    ),
+}
+
+
+async def _handle_completion_request(event_type: str, payload: dict, *, source_event_id: str) -> None:
+    """S-16: 거래 완료 요청·거절 통지. 딥링크는 해당 대화(약속 카드가 그 안에 있다).
+
+    biz.profile_reviewed 와 동일하게 **푸시 게이트 없이** 발송한다 — 거래 진행 자체를 막는
+    알림이라 chat 토글로 끌 수 있어야 할 성질이 아니다(판매자 미응답이 곧 S-16 의 원인).
+    타입은 DM 컨텍스트라 기존 SOCIAL 을 재사용한다(enum 신설 없음).
+    """
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    conv_id = payload["conversation_id"]
+    title, body_tpl = _COMPLETION_COPY[event_type]
+    body = body_tpl.format(title=payload.get("listing_title") or "")
+    link = f"dm&id={conv_id}"
+
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+
+    if inserted:
+        await _try_push(str(recipient_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+
+
+async def _handle_completion_requested(payload: dict, *, source_event_id: str) -> None:
+    await _handle_completion_request("market.completion_requested", payload, source_event_id=source_event_id)
+
+
+async def _handle_completion_declined(payload: dict, *, source_event_id: str) -> None:
+    await _handle_completion_request("market.completion_declined", payload, source_event_id=source_event_id)
+
+
 async def _handle_report_submitted(payload: dict, *, source_event_id: str) -> None:
     """F-17: 신고 접수 운영자 알림. 수신자가 특정 user_id 가 아니라 운영자라 인앱
     Notification 이 아닌 웹훅으로 발행한다(ops_alerts, F-18 과 채널 공유)."""
@@ -399,6 +450,8 @@ async def _handle_search_reindex(payload: dict, *, source_event_id: str) -> None
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
     "market.listing_created": _handle_listing_created,
+    "market.completion_requested": _handle_completion_requested,
+    "market.completion_declined": _handle_completion_declined,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
     "biz.ad_reviewed": _handle_biz_ad_reviewed,
     "proximity.hit": _handle_proximity_hit,

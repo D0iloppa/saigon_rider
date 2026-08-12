@@ -262,6 +262,14 @@
   word-break: break-word;
 }
 
+/* S-16: 완료 요청이 거절됐음을 구매자에게 남기는 한 줄 안내 */
+.apptNote {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
 /* 하단 CTA 행 — 카드 내부 풀폭 버튼 나란히 */
 .apptActions {
   display: flex;

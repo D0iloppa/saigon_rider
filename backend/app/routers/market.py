@@ -1249,6 +1249,10 @@ def _appt_out(a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> 
         place_lat=float(a.place_lat) if a.place_lat is not None else None,
         place_lng=float(a.place_lng) if a.place_lng is not None else None,
         status=a.status,
+        completion_requested_by=a.completion_requested_by,
+        completion_requested_at=a.completion_requested_at,
+        completion_declined_at=a.completion_declined_at,
+        completion_declined_by=a.completion_declined_by,
     )
 
 
@@ -1419,6 +1423,101 @@ async def complete_appointment(
     listing.status = "SOLD"
     listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
     listing.updated_at = now
+    await db.commit()
+    return _appt_out(appt, listing.seller_id)
+
+
+@router.patch(
+    "/appointments/{appointment_id}/request-completion",
+    response_model=AppointmentOut,
+    summary="거래 완료 요청 (구매자)",
+)
+async def request_appointment_completion(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """S-16/D-7: 구매자가 완료를 **요청**한다. 완료 확정 권한은 판매자에게 그대로 있고(자동 완료 없음),
+    판매자가 앱을 다시 열지 않아 거래가 영구 정체되던 문제를 푸시 + 약속 카드 상태로 끊는다.
+
+    accept/cancel 과 동일하게 별도 DM 메시지는 만들지 않는다 — 약속 카드 자체가 상태를 표시한다."""
+    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    if listing.seller_id == session_uid:
+        raise HTTPException(status_code=403, detail={"code": "seller_completes_directly"})
+    if appt.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail=f"Cannot request completion in status {appt.status}")
+    # accept/complete 와 같은 잠근 행 기준 재검사 — 판매자가 다른 대화의 구매자에게 이미 팔았으면
+    # 이 약속은 완료될 수 없다. 가드가 없으면 완료 불가능한 거래에 판매자 푸시가 나가고, 어드민
+    # 이의 큐에도 해소 경로 없는 행이 쌓인다.
+    if listing.status == "SOLD":
+        raise HTTPException(status_code=409, detail="Listing already sold")
+
+    # 멱등: 이미 요청됐고 거절되지 않은 상태면 재알림 없이 그대로 반환.
+    if appt.completion_requested_at is not None and appt.completion_declined_at is None:
+        return _appt_out(appt, listing.seller_id)
+
+    now = datetime.now(UTC)
+    appt.completion_requested_by = session_uid
+    appt.completion_requested_at = now
+    # 거절 후 재요청 허용 — 행위자 기록도 함께 비운다.
+    appt.completion_declined_at = None
+    appt.completion_declined_by = None
+    appt.updated_at = now
+    noti_events.enqueue(
+        db,
+        "market.completion_requested",
+        {
+            "appointment_id": str(appt.id),
+            "conversation_id": str(conv.id),
+            "listing_title": listing.title,
+            "recipient_id": str(listing.seller_id),
+        },
+    )
+    await db.commit()
+    return _appt_out(appt, listing.seller_id)
+
+
+@router.patch(
+    "/appointments/{appointment_id}/decline-completion",
+    response_model=AppointmentOut,
+    summary="거래 완료 요청 거절 (판매자)",
+)
+async def decline_appointment_completion(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """판매자가 완료 요청을 거절한다 → 약속은 ACCEPTED 로 유지되고 거절 시각만 기록된다.
+    거절 이력은 지우지 않는다 — 운영 이의 큐가 '요청했는데 완료되지 않은' 건을 판단하는 근거다."""
+    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    if listing.seller_id != session_uid:
+        raise HTTPException(status_code=403, detail="Only the seller can decline the completion request")
+    if appt.completion_requested_at is None:
+        raise HTTPException(status_code=409, detail={"code": "no_completion_request"})
+    if appt.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail=f"Cannot decline completion in status {appt.status}")
+    # 멱등: 이미 거절된 요청이면 재알림 없이 그대로 반환.
+    if appt.completion_declined_at is not None:
+        return _appt_out(appt, listing.seller_id)
+
+    now = datetime.now(UTC)
+    appt.completion_declined_at = now
+    appt.completion_declined_by = session_uid  # 판매자 거절 — 운영 기각(NULL)과 구분해 문구가 갈린다
+    appt.updated_at = now
+    # 요청자 계정이 탈퇴하면 FK ON DELETE SET NULL 로 requested_by 만 NULL 이 되고 requested_at 은
+    # 남는다. 그 상태에서 알림을 적재하면 worker 가 uuid.UUID("None") 로 죽어 DLQ 까지 간다 —
+    # 받을 사람이 없는 알림이므로 적재 자체를 건너뛴다(거절 기록은 그대로 남긴다).
+    if appt.completion_requested_by is not None:
+        noti_events.enqueue(
+            db,
+            "market.completion_declined",
+            {
+                "appointment_id": str(appt.id),
+                "conversation_id": str(conv.id),
+                "listing_title": listing.title,
+                "recipient_id": str(appt.completion_requested_by),
+            },
+        )
     await db.commit()
     return _appt_out(appt, listing.seller_id)
 

@@ -275,7 +275,11 @@
     "emptyExpandScope": "전체 지역에서 찾아보기",
     "emptyKeywordAlert": "키워드 알림 받기",
     "retryUpload": "재시도",
-    "uploadFailedHint": "업로드 실패한 사진이 있어요. 재시도하거나 삭제해주세요"
+    "uploadFailedHint": "업로드 실패한 사진이 있어요. 재시도하거나 삭제해주세요",
+    "postNeedsPhoto": "사진을 한 장 이상 추가해주세요",
+    "postWaitUploads": "사진 업로드가 끝날 때까지 기다려주세요",
+    "postNeedsTitle": "제목을 입력해주세요",
+    "postNeedsLocation": "거래 희망 장소를 선택해주세요"
   },
   "forceUpdate": {
     "title": "업데이트가 필요해요",
@@ -289,8 +293,8 @@
     "bootstrapErrorTitle": "서버에 연결할 수 없어요",
     "bootstrapErrorBody": "네트워크 연결을 확인한 뒤 다시 시도해주세요.",
     "bootstrapLogin": "로그인 화면으로 이동",
-    "subtitle": "Where every ride becomes a quest",
-    "startBtn": "시작하기"
+    "subtitle": "호치민 오토바이 거래, 약속부터 이동까지",
+    "startBtn": "마켓 둘러보기"
   },
   "phoneInput": {
     "titleLine1": "휴대폰 번호로",

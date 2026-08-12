@@ -41,3 +41,16 @@ test('후보 목록을 받기 전에는 진입판정을 하지 않는다(로딩 
 test('진입 보고는 기존 /proximity/enter 엔드포인트를 재사용한다 — 신규 엔드포인트 없음', () => {
   assert.match(source, /import \{ fetchProximityCandidates, postProximityEnter, /);
 });
+
+const effectStart = source.indexOf('useEffect(() => {');
+const getLocationCall = source.indexOf('native.getLocation()', effectStart);
+const watchLocationCall = source.indexOf('native.watchLocation(', effectStart);
+
+test('launch build disables proximity monitoring before either location API can run', () => {
+  const gate = source.indexOf('if (!PROXIMITY_ALERTS_ENABLED || !enabled) return;', effectStart);
+
+  assert.match(source, /export const PROXIMITY_ALERTS_ENABLED = false;/);
+  assert.ok(gate > effectStart, 'the effect must start with the launch safety gate');
+  assert.ok(gate < getLocationCall, 'getLocation must be unreachable while the switch is false');
+  assert.ok(gate < watchLocationCall, 'watchLocation must be unreachable while the switch is false');
+});

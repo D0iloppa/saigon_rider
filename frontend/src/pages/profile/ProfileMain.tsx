@@ -38,7 +38,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import styles from './ProfileMain.module.css';
 import { formatVnDate } from '@/lib/vnTime';
-import { SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
+import { SHOW_LEGACY_GAME_ECONOMY, SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
 
 interface MileageTier {
   key: string;
@@ -107,10 +107,12 @@ export default function ProfileMain() {
     fetchMe(user.phone).then((dto) => {
       if (dto) loginFromBackend(dto);
     });
-    fetchWallet().then((w) => {
-      setGp(w.gold_balance);
-      setGc(w.xp_balance);
-    }).catch(() => {});
+    if (SHOW_LEGACY_GAME_ECONOMY) {
+      fetchWallet().then((w) => {
+        setGp(w.gold_balance);
+        setGc(w.xp_balance);
+      }).catch(() => {});
+    }
   }, []);
   const { t, i18n } = useTranslation();
 
@@ -335,9 +337,11 @@ export default function ProfileMain() {
             className={styles.avatar}
             variant="circle"
           />
-          <div style={{ position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)' }}>
-            <LevelBadge level={u.level} />
-          </div>
+          {SHOW_LEGACY_GAME_ECONOMY && (
+            <div style={{ position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)' }}>
+              <LevelBadge level={u.level} />
+            </div>
+          )}
         </div>
 
         <div className={styles.nickRow}>
@@ -357,15 +361,19 @@ export default function ProfileMain() {
           <TrustTierChip temp={u.mannerTemp} />
         </div>
 
-        <div className={styles.levelRow}>
-          <span className={styles.levelText}>LV.{u.level}</span>
-          <span className={styles.levelTextRight}>
-            {t('profile.expToNextLevel', { exp: formatNumber(needed), level: u.level + 1 })}
-          </span>
-        </div>
-        <div className={styles.levelBar}>
-          <div className={styles.levelBarFill} style={{ width: `${progress * 100}%` }} />
-        </div>
+        {SHOW_LEGACY_GAME_ECONOMY && (
+          <>
+            <div className={styles.levelRow}>
+              <span className={styles.levelText}>LV.{u.level}</span>
+              <span className={styles.levelTextRight}>
+                {t('profile.expToNextLevel', { exp: formatNumber(needed), level: u.level + 1 })}
+              </span>
+            </div>
+            <div className={styles.levelBar}>
+              <div className={styles.levelBarFill} style={{ width: `${progress * 100}%` }} />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Section 2: 소셜 + 액션 (fixed, Section 1 바로 아래) */}
@@ -437,7 +445,7 @@ export default function ProfileMain() {
           {!u.phoneVerified && <ChevronRight size={18} className={styles.verifyChevron} />}
         </button>
 
-        <div className={styles.currencyBento}>
+        {SHOW_LEGACY_GAME_ECONOMY && <div className={styles.currencyBento}>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gc)' }}>
             <img src={emojiUrl('1f48e')} width={36} height={36} alt="" style={{ display: 'block', margin: '0 auto' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <div className={styles.currencyNum}>{formatNumber(gc)}</div>
@@ -453,7 +461,7 @@ export default function ProfileMain() {
             <div className={styles.currencyNum}>{u.skillPoints}</div>
             <div className={styles.currencyLabel}>{t('profile.skillPt')}</div>
           </div>
-        </div>
+        </div>}
 
         {/* SGR-209 A4: 스킬 트리 — SGR-287 마켓 피벗으로 임시 숨김(코드 보존) */}
         <div style={{ display: 'none' }}>

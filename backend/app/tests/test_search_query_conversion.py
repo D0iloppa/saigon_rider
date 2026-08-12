@@ -26,11 +26,12 @@ class MarketSearchConversionTest(unittest.TestCase):
         self.assertIn("coalesce", src.lower())
         self.assertIn(".like(", src)
 
-    def test_market_withdrawn_filter_untouched(self):
-        """대표 결정 — WITHDRAWN 매물은 검색에서 항상 제외(page-map :86, ADR). 이 where 절을
-        건드리지 않았는지 확인."""
+    def test_market_inactive_filter_uses_shared_status_contract(self):
+        """공개 검색은 숨김·삭제·철회·완료 매물을 공유 상수로 항상 제외한다."""
         src = inspect.getsource(market.get_listings)
-        self.assertIn('MarketplaceListing.status.notin_(("HIDDEN", "REMOVED", "WITHDRAWN"))', src)
+        self.assertEqual(market._LISTING_INACTIVE_STATUSES, ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD"))
+        self.assertIn("MarketplaceListing.status.notin_(hidden)", src)
+        self.assertIn("hidden =", src)
 
 
 class BizSearchConversionTest(unittest.TestCase):

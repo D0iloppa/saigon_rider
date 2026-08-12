@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -59,13 +59,18 @@ test('polyline.ts: encodePolyline() 은 합성 전용이었으므로 제거됐�
 
 test('DEV_DONGTAN_PIN grep token exists at every remaining touched location (removal checklist)', () => {
   const repoRoot = join(here, '..', '..', '..', '..');
-  const output = execSync(
-    "grep -rln DEV_DONGTAN_PIN --include=*.ts --include=*.tsx --include=*.py --include=*.md " +
-      '--exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist ' +
-      'frontend/src frontend/e2e backend/app ai-docs',
+  // 외부 grep 실행파일에 의존하지 않는다. Git은 이 계약을 실행하는 모든 checkout에 있고,
+  // tracked 파일만 검색하므로 node_modules/dist 제외 옵션도 필요 없다.
+  const output = execFileSync(
+    'git',
+    ['grep', '-l', 'DEV_DONGTAN_PIN', '--', 'frontend/src', 'frontend/e2e', 'backend/app', 'ai-docs'],
     { cwd: repoRoot, encoding: 'utf8' },
   );
-  const files = output.trim().split('\n').filter(Boolean).map((f) => f.replace(/^\.\//, ''));
+  const files = output
+    .trim()
+    .split(/\r?\n/)
+    .filter((path) => /\.(?:ts|tsx|py|md)$/.test(path))
+    .map((f) => f.replace(/^\.\//, ''));
 
   // polyline.ts 는 encodePolyline() 제거로 더 이상 토큰을 갖지 않는다 — 제거된 지점이므로
   // checklist 에서 뺀다(남은 지점만 단정).

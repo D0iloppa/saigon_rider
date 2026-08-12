@@ -8,7 +8,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const output = join(mkdtempSync(join(tmpdir(), 'request-policy-')), 'requestPolicy.mjs');
-execFileSync(join(here, '../../node_modules/.bin/esbuild'), [
+// npm의 .bin shim은 Windows에서 확장자 없는 shell script라 execFileSync가 ENOENT를 낸다.
+// esbuild의 Node 진입점을 현재 Node로 실행하면 Windows와 Linux CI가 같은 경로를 쓴다.
+execFileSync(process.execPath, [
+  join(here, '../../node_modules/esbuild/bin/esbuild'),
   join(here, 'requestPolicy.ts'),
   '--format=esm',
   '--platform=node',

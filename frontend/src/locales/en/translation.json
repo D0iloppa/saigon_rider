@@ -275,7 +275,11 @@
     "emptyExpandScope": "Search across all areas",
     "emptyKeywordAlert": "Get keyword alerts",
     "retryUpload": "Retry",
-    "uploadFailedHint": "Some photos failed to upload. Please retry or remove them"
+    "uploadFailedHint": "Some photos failed to upload. Please retry or remove them",
+    "postNeedsPhoto": "Add at least one photo",
+    "postWaitUploads": "Wait for all photos to finish uploading",
+    "postNeedsTitle": "Enter a title",
+    "postNeedsLocation": "Choose a meeting location"
   },
   "forceUpdate": {
     "title": "Update required",
@@ -289,8 +293,8 @@
     "bootstrapErrorTitle": "Unable to connect to the server",
     "bootstrapErrorBody": "Check your network connection and try again.",
     "bootstrapLogin": "Go to login",
-    "subtitle": "Where every ride becomes a quest",
-    "startBtn": "Get Started"
+    "subtitle": "Saigon motorbike deals, from meetup to ride",
+    "startBtn": "Browse marketplace"
   },
   "phoneInput": {
     "titleLine1": "Log in with",

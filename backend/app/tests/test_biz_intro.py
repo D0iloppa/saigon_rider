@@ -54,6 +54,7 @@ class ApplyIntroWiringTests(unittest.IsolatedAsyncioTestCase):
     async def test_intro_flows_into_profile_blob_and_reindex_event(self):
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_count_result(0))
+        db.get = AsyncMock(return_value=None)
         added = []
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
@@ -88,6 +89,7 @@ class ApplyIntroWiringTests(unittest.IsolatedAsyncioTestCase):
         """fail-open: intro 가 없어도 등록 자체는 막히지 않고 blob 은 원문(name/address)만으로 채워진다."""
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_count_result(0))
+        db.get = AsyncMock(return_value=None)
         added = []
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
@@ -110,10 +112,7 @@ class ApplyIntroWiringTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
-    """apply() — CSV 사전등록(user_id=NULL, APPROVED) 프로필을 전화번호로 자동 클레임 (Option A, 260811).
-
-    active_count 체크(1st execute) 뒤 전화번호 매칭 조회(2nd execute)가 새로 추가됐으므로
-    db.execute 는 side_effect 로 두 호출을 순서대로 흘려준다."""
+    """apply() — 인증된 세션 계정 전화번호만 CSV 프로필 자동 귀속 권한으로 사용한다."""
 
     _VALID_PHONE = "+84 901 234 567"  # _normalize_vn_phone → "+84901234567"
 
@@ -126,6 +125,17 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         result = MagicMock()
         result.scalars.return_value.all.return_value = rows
         return result
+
+    def _locked_result(self, row):
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = row
+        return result
+
+    def _user(self, phone: str, *, verified: bool = True):
+        return SimpleNamespace(
+            phone=phone,
+            phone_verified_at=datetime(2026, 8, 12, tzinfo=UTC) if verified else None,
+        )
 
     def _unclaimed_approved_profile(self, phone: str, user_id=None):
         return SimpleNamespace(
@@ -152,15 +162,32 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
             updated_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
-    async def test_phone_match_claims_existing_row_without_creating_new_profile(self):
+    @staticmethod
+    def _set_pending_refresh(db):
+        async def _fake_refresh(obj):
+            if obj.id is None:
+                obj.id = uuid.uuid4()
+            if getattr(obj, "verification_status", None) is None:
+                obj.verification_status = "pending"
+
+        db.refresh = AsyncMock(side_effect=_fake_refresh)
+
+    async def test_verified_account_phone_match_claims_locked_existing_row(self):
         candidate = self._unclaimed_approved_profile(phone="+84901234567")
         db = AsyncMock()
-        db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([candidate])])
+        db.get = AsyncMock(return_value=self._user(self._VALID_PHONE))
+        db.execute = AsyncMock(
+            side_effect=[
+                self._count_result(0),
+                self._candidates_result([candidate]),
+                self._locked_result(candidate),
+            ]
+        )
         added = []
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
         body = BusinessProfileApplyRequest(
-            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone="+84987654321"
         )
         session_uid = uuid.uuid4()
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=session_uid)
@@ -170,9 +197,47 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(candidate.user_id, session_uid)
         self.assertFalse(any(isinstance(o, biz.BusinessProfile) for o in added))
         db.commit.assert_awaited()
+        lock_statement = db.execute.await_args_list[2].args[0]
+        self.assertIn("FOR UPDATE", str(lock_statement))
+
+    async def test_unverified_account_cannot_claim_matching_body_phone(self):
+        candidate = self._unclaimed_approved_profile(phone="+84901234567")
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=self._user(self._VALID_PHONE, verified=False))
+        db.execute = AsyncMock(return_value=self._count_result(0))
+        added = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+        self._set_pending_refresh(db)
+
+        body = BusinessProfileApplyRequest(
+            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+        )
+        result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
+
+        self.assertEqual(result.status, "PENDING")
+        self.assertIsNone(candidate.user_id)
+        self.assertEqual(db.execute.await_count, 1)  # 후보 존재 여부를 조회하지 않아 응답으로 노출하지 않는다.
+
+    async def test_body_phone_matching_candidate_does_not_override_verified_account_phone(self):
+        candidate = self._unclaimed_approved_profile(phone="+84987654321")
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=self._user(self._VALID_PHONE))
+        db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([candidate])])
+        added = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+        self._set_pending_refresh(db)
+
+        body = BusinessProfileApplyRequest(
+            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone="+84987654321"
+        )
+        result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
+
+        self.assertEqual(result.status, "PENDING")
+        self.assertIsNone(candidate.user_id)
 
     async def test_no_phone_match_creates_new_pending_profile_as_before(self):
         db = AsyncMock()
+        db.get = AsyncMock(return_value=self._user(self._VALID_PHONE))
         db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([])])
         added = []
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
@@ -194,13 +259,21 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         profile = next(o for o in added if isinstance(o, biz.BusinessProfile))
         self.assertEqual(profile.status, "PENDING")
 
-    async def test_already_claimed_row_is_not_reclaimed(self):
-        """전화번호는 일치하지만 candidate.user_id 가 이미 채워진 행 — 방어적 재확인으로 스킵,
-        새 PENDING 프로필 생성으로 폴백한다(두 사용자가 한 프로필에 붙는 것을 방지)."""
+    async def test_second_claim_loses_after_locked_row_recheck(self):
+        """후보 조회 뒤 다른 요청이 먼저 귀속해도 잠금 재조회 결과를 기준으로 PENDING 처리한다."""
         original_owner = uuid.uuid4()
-        already_claimed = self._unclaimed_approved_profile(phone="+84901234567", user_id=original_owner)
+        stale_candidate = self._unclaimed_approved_profile(phone="+84901234567")
+        locked_claimed = self._unclaimed_approved_profile(phone="+84901234567", user_id=original_owner)
+        locked_claimed.id = stale_candidate.id
         db = AsyncMock()
-        db.execute = AsyncMock(side_effect=[self._count_result(0), self._candidates_result([already_claimed])])
+        db.get = AsyncMock(return_value=self._user(self._VALID_PHONE))
+        db.execute = AsyncMock(
+            side_effect=[
+                self._count_result(0),
+                self._candidates_result([stale_candidate]),
+                self._locked_result(locked_claimed),
+            ]
+        )
         added = []
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
@@ -220,7 +293,10 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.status, "PENDING")
         profile = next(o for o in added if isinstance(o, biz.BusinessProfile))
         self.assertEqual(profile.status, "PENDING")
-        self.assertEqual(already_claimed.user_id, original_owner)  # 기존 소유자 그대로 — 재클레임 안 됨
+        self.assertIsNone(stale_candidate.user_id)
+        self.assertEqual(locked_claimed.user_id, original_owner)
+        lock_statement = db.execute.await_args_list[2].args[0]
+        self.assertIn("FOR UPDATE", str(lock_statement))
 
 
 class UpdateProfileIntroWiringTests(unittest.IsolatedAsyncioTestCase):

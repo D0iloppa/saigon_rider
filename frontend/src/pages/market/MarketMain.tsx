@@ -17,6 +17,7 @@ import type { MapMarkerV2 } from '@/components/maps/v2/region';
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { adAtIndex, ADS_ENABLED, AD_LIMIT_INITIAL, nextAdLimit } from '@/lib/adPlacement';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
@@ -86,6 +87,7 @@ const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
  */
 export default function MarketMain() {
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const user = useUserStore((s) => s.user);
@@ -96,7 +98,13 @@ export default function MarketMain() {
   const coords = useLocationStore((s) => s.coords);
   const wardName = useLocationStore((s) => s.wardName);
   const coordsSource = useLocationStore((s) => s.coordsSource);
+  const permissionIntent = useLocationStore((s) => s.permissionIntent);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  // 첫 공개 탐색은 도시 전체 결과로 시작한다. 기존에 권한을 허용한 로그인 사용자만
+  // 세션 좌표를 복원하고, 그 외에는 위치 시트에서 '내 현재 위치'를 고른 때 처음 요청한다.
+  const effectiveLocationMode = locationMode === 'gps' && (!userId || permissionIntent !== 'granted') && !coords
+    ? 'all'
+    : locationMode;
 
   const [savedState] = useState<SavedState | null>(readSaved);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -158,6 +166,7 @@ export default function MarketMain() {
   // 제휴 광고 — 동네/언어 확정 후 로드. 서버가 이미 가중 로테이션한 시퀀스이므로 순서 그대로
   // 사용(재정렬 금지). 피드 중간 삽입용.
   useEffect(() => {
+    if (!ADS_ENABLED) return;
     fetchAds(adDistrictId).then(setAds).catch(() => setAds([]));
     setAdLimit(AD_LIMIT_INITIAL);
   }, [adDistrictId, i18n.language]);
@@ -180,9 +189,11 @@ export default function MarketMain() {
     return () => { cancelled = true; };
   }, []);
 
-  // 진입 시 측위 — 표시 범위 기본값이 GPS 다(대표 지시 2026-08-06 "기본을 다 gps로").
-  // 실측은 스토어가 세션당 1회로 묶으므로, 화면 이동마다 권한창이 다시 뜨지 않는다.
-  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
+  // 이미 위치 사용에 동의한 로그인 사용자만 세션 좌표를 복원한다. 신규·익명 사용자는
+  // 목록을 먼저 보고 위치 시트에서 명시적으로 '내 현재 위치'를 고를 수 있다.
+  useEffect(() => {
+    if (userId && permissionIntent === 'granted') void ensureLocation();
+  }, [ensureLocation, permissionIntent, userId]);
 
   // 홈 "내 주변 인기 상품 → 더보기"에서 넘어오면 거리순으로 맞춰준다. 좌표는 스토어가 이미
   // 들고 있으므로 URL 로 실어 나르지 않는다 — 쿼리 잔존이 선택을 덮어쓰던 회귀(xreg-C1)도 함께 사라진다.
@@ -195,7 +206,7 @@ export default function MarketMain() {
   // 표시 중인 지역 라벨. 권역 밖이라 중심가로 대체된 상태면 동네명을 쓰지 않는다 —
   // 폴백(권역 밖)이어도 그 좌표의 동 이름을 쓴다 — 총칭보다 위치를 가늠하기 쉽다.
   const currentRegionName = wardName;
-  const currentLocationTitle = locationMode === 'all'
+  const currentLocationTitle = effectiveLocationMode === 'all'
     ? t('location.allTitle')
     : currentRegionName ?? (coordsSource === 'fallback' ? t('location.fallbackTitle') : t('location.gpsTitle'));
 
@@ -204,7 +215,7 @@ export default function MarketMain() {
   // 'gps' 인데 좌표가 아직 없으면(최초 측위 진행 중) 조회를 미룬다 — 그대로 부르면
   // lat/lng 가 없어 radius_km 도 빠지고, "내 현재 위치" 헤더 아래 **도시 전역 목록**이
   // 잠깐 떴다가 교체된다(2026-08-06 리뷰 지적).
-  const listReady = !(locationMode === 'gps' && !coords);
+  const listReady = !(effectiveLocationMode === 'gps' && !coords);
 
   const fetchPage = useCallback(
     (page: number) =>
@@ -212,16 +223,16 @@ export default function MarketMain() {
         ? fetchListings({
             sort,
             lat: coords?.lat, lng: coords?.lng,
-            radiusKm: locationMode === 'gps' ? NEARBY_RADIUS_KM : null,
+            radiusKm: effectiveLocationMode === 'gps' ? NEARBY_RADIUS_KM : null,
             categoryId,
             viewerId: userId, page, size: 20,
           })
         : Promise.resolve({ items: [], total: 0, page, size: 20 }),
-    [listReady, sort, coords, locationMode, categoryId, userId],
+    [listReady, sort, coords, effectiveLocationMode, categoryId, userId],
   );
 
   const { items: listings, isLoading, isLoadingMore, hasMore, error: listError, sentinelRef, reset } =
-    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, locationMode, categoryId, userId]);
+    useInfiniteScroll<Listing>(fetchPage, 20, [listReady, sort, coords, effectiveLocationMode, categoryId, userId]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(async () => reset(), [reset]),
@@ -440,11 +451,13 @@ export default function MarketMain() {
   );
 
   const openAlerts = () => {
+    if (!requireAuth()) return;
     setAlertOpen(true);
     if (userId) fetchKeywordAlerts(userId).then(setAlerts).catch(() => setAlerts([]));
   };
 
   const handleAddKw = async () => {
+    if (!requireAuth()) return;
     const kw = newKw.trim();
     if (!kw || !userId) return;
     try {
@@ -457,6 +470,7 @@ export default function MarketMain() {
   };
 
   const handleRemoveKw = async (id: string) => {
+    if (!requireAuth()) return;
     if (!userId) return;
     try {
       await removeKeywordAlert(id, userId);
@@ -706,7 +720,7 @@ export default function MarketMain() {
                     <div className={sys.stateTitle}>{t('market.emptyTitle', { defaultValue: '근처에 매물이 없어요' })}</div>
                     <div className={sys.stateDesc}>{t('market.emptySub', { defaultValue: '첫 매물을 등록해보세요' })}</div>
                     {/* 표시범위가 이미 '전체'면 더 넓힐 곳이 없어 무의미한 CTA — 숨긴다. */}
-                    {locationMode !== 'all' && (
+                    {effectiveLocationMode !== 'all' && (
                       <button type="button" className={sys.stateBtn} onClick={() => setLocMapOpen(true)}>
                         {t('market.emptyExpandScope', { defaultValue: '전체 지역에서 찾아보기' })}
                       </button>

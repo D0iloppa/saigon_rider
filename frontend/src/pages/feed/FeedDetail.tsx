@@ -9,7 +9,6 @@ import type { FeedPost, Comment } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { LevelBadge } from '@/components/ui/LevelBadge';
-import { ProfileCard } from '@/components/ProfileCard';
 import { useUserStore } from '@/store/useUserStore';
 import { loadSession } from '@/lib/session';
 import { toast } from '@/components/ui/Toast';
@@ -31,7 +30,6 @@ export default function FeedDetail() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
-  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → 입력바가 flex 하단에
   // 있어도 그 자리를 키보드가 그냥 덮는다. 키보드 높이만큼 padding 을 더해 위로 밀어낸다.
@@ -90,7 +88,7 @@ export default function FeedDetail() {
   const handleAuthorTap = () => {
     if (!post) return;
     if (user && post.userId === user.id) navigate('/profile');
-    else setProfileCardUserId(post.userId);
+    else navigate(`/profile/${post.userId}`);
   };
 
   return (
@@ -229,7 +227,6 @@ export default function FeedDetail() {
 
       {viewerState && <ImageViewer srcs={viewerState.srcs} initialIndex={viewerState.index} onClose={() => setViewerState(null)} />}
 
-      <ProfileCard userId={profileCardUserId} open={!!profileCardUserId} onClose={() => setProfileCardUserId(null)} />
     </div>
   );
 }

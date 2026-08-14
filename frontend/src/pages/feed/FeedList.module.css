@@ -199,6 +199,10 @@
   object-fit: cover;
 }
 
+/* 닉네임 탭 = 프로필 진입(2026-08-13). 시각은 그대로 두고 히트 영역만 넓힌다. */
+.nickBtn { cursor: pointer; }
+.nickBtn:active { opacity: .6; }
+
 .feedAuthor strong {
   overflow: hidden;
   font-size: 12px;

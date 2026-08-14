@@ -88,6 +88,7 @@ const NotificationInbox = lazyWithRetry(() => import('@/pages/notifications/Noti
 
 // Profile
 const ProfileMain = lazyWithRetry(() => import('@/pages/profile/ProfileMain'));
+const UserProfile = lazyWithRetry(() => import('@/pages/profile/UserProfile'));
 const TradeHistory = lazyWithRetry(() => import('@/pages/profile/TradeHistory'));
 const FollowerList = lazyWithRetry(() => import('@/pages/profile/FollowerList'));
 const FollowingList = lazyWithRetry(() => import('@/pages/profile/FollowingList'));
@@ -183,6 +184,7 @@ function BackgroundRoutes({ children }: { children: ReactNode }) {
             <Route path="/biz/:id" element={<BizPublic />} />
             <Route path="/market/:id" element={<MarketDetail />} />
             <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
+            <Route path="/profile/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
           </Routes>
         </div>
       )}
@@ -553,6 +555,9 @@ export default function App() {
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
+          {/* 다른 사용자 프로필 — 종전 ProfileCard 바텀시트를 대체한다(2026-08-13).
+              위 BackgroundRoutes 에도 등록돼 지도·목록에서 진입하면 배경이 보존된다. */}
+          <Route path="/profile/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
           <Route path="/trades" element={<PrivateRoute><TradeHistory /></PrivateRoute>} />
           <Route path="/followers/:userId" element={<PrivateRoute><FollowerList /></PrivateRoute>} />
           <Route path="/following/:userId" element={<PrivateRoute><FollowingList /></PrivateRoute>} />

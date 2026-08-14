@@ -20,7 +20,6 @@ import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { toast } from '@/components/ui/Toast';
 import { resolveUsableLocation } from '@/lib/serviceLocation';
-import { ProfileCard } from '@/components/ProfileCard';
 import styles from './FeedList.module.css';
 
 type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
@@ -48,7 +47,6 @@ export default function FeedList() {
     return q && FILTER_KEYS.includes(q as FilterKey) && q !== 'neighborhood' ? (q as FilterKey) : 'all';
   });
   const [stories, setStories] = useState<StoryItem[]>([]);
-  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   // neighborhood 필터용 현재 위치 (state — 도착 시 재fetch 트리거)
   const [neighborhoodLoc, setNeighborhoodLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [neighborhoodRequest, setNeighborhoodRequest] = useState(0);
@@ -276,13 +274,29 @@ export default function FeedList() {
                             if (user && p.userId === user.id) {
                               navigate('/profile');
                             } else {
-                              setProfileCardUserId(p.userId);
+                              navigate(`/profile/${p.userId}`);
                             }
                           }}
                         >
                           <AppImage src={p.userAvatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
                         </button>
-                        <strong>{p.userNickname ?? '—'}</strong>
+                        {/* 닉네임도 프로필 진입점 — 아바타만 탭 가능한 건 인스타·Threads 관례와
+                            어긋나고 히트 영역이 22px 로 작다(2026-08-13). */}
+                        <strong
+                          role="button"
+                          tabIndex={0}
+                          className={styles.nickBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(user && p.userId === user.id ? '/profile' : `/profile/${p.userId}`);
+                          }}
+                        >{p.userNickname ?? '—'}</strong>
                         <small>{formatRelativeTime(p.createdAt)}</small>
                       </span>
                       <span className={styles.feedCaption}>{p.caption ?? t('feed.noCaption')}</span>
@@ -309,11 +323,6 @@ export default function FeedList() {
       </div>{/* contentStyle wrapper */}
       </div>{/* scrollBody */}
 
-      <ProfileCard
-        userId={profileCardUserId}
-        open={!!profileCardUserId}
-        onClose={() => setProfileCardUserId(null)}
-      />
     </div>
   );
 }

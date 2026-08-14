@@ -1,0 +1,218 @@
+/* 다른 사용자 프로필 페이지 (2026-08-13 신설 — ProfileCard 바텀시트 대체).
+ *
+ * 헤더·통계·액션 행은 종전 ProfileCard 의 구성을 1:1로 옮긴 것이고, 게시물 그리드는
+ * FeedList.module.css 의 .feedGrid/.feedCard 문법을 그대로 미러한다(신규 디자인 없음 —
+ * 대표 결정 D-2: 인스타 3열을 베끼기보다 앱 자체 일관성을 우선). 카드에서 작성자 행은
+ * 뺐다 — 한 사람의 프로필이라 모든 카드에 같은 아바타·닉네임이 반복될 이유가 없다.
+ */
+
+.scroll { padding: 14px 16px 24px; }
+
+.moreBtn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+}
+.moreBtn:active { opacity: .7; }
+
+/* ── 헤더 ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nickRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.nickname {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 팔로워/팔로잉 ── */
+.statsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.statCell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.statNum { font-size: 18px; font-weight: 800; color: var(--text); }
+.statLabel { font-size: 12px; color: var(--text-3); font-weight: 600; }
+.statDivider { width: 1px; height: 30px; background: var(--line); }
+
+/* ── 팔로우 / 메시지 ── */
+.actionRow {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.followBtn { flex: 1; }
+
+.dmBtn {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.dmBtn:active { opacity: .75; }
+.dmBtn:disabled { opacity: .5; }
+
+/* ── 게시물 ── */
+.sectionLabel {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.feedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.feedCard {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+  transition: transform .12s ease;
+}
+.feedCard:active { transform: scale(.98); }
+
+/* 사진을 높이가 정해진 박스에 가둔다 — 본문이 항상 자리를 차지하도록 */
+.feedThumb {
+  width: 100%;
+  aspect-ratio: 1.15;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.feedPhoto { width: 100%; height: 100%; object-fit: cover; }
+
+.feedPlaceholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.feedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px 12px;
+}
+
+.feedTime { font-size: 10.5px; font-weight: 600; color: var(--text-3); }
+
+.feedCaption {
+  display: -webkit-box;
+  min-height: 36px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.feedMeta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.commentCount { display: flex; align-items: center; gap: 3px; }
+
+/* 응원 토글 — feedMeta 항목과 같은 톤, 눌린 상태만 브랜드색 */
+.cheerBtn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  border-radius: 8px;
+  color: inherit;
+}
+.cheerBtnActive { color: var(--brand-600); }
+
+/* ── 신고 사유 시트 ── */
+.reportTitle {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
+}
+
+.reportItem {
+  display: block;
+  width: 100%;
+  padding: 15px 4px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.reportItem:active { opacity: .7; }

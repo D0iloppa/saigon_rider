@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Users } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -10,17 +10,16 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { AppImage } from '@/components/ui/AppImage';
-import { ProfileCard } from '@/components/ProfileCard';
 import type { FollowUser } from '@/api/types';
 import styles from './FollowList.module.css';
 
 export default function FollowerList() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { userId } = useParams<{ userId: string }>();
   const me = useUserStore((s) => s.user);
   const [users, setUsers] = useState<FollowUser[]>([]);
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
-  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -73,7 +72,7 @@ export default function FollowerList() {
               <div key={u.id} className={styles.row}>
                 <button
                   className={styles.userInfo}
-                  onClick={() => setProfileCardUserId(u.id)}
+                  onClick={() => navigate(`/profile/${u.id}`)}
                 >
                   <AppImage src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
                   <span className={styles.name}>
@@ -95,11 +94,6 @@ export default function FollowerList() {
         )}
       </div>
 
-      <ProfileCard
-        userId={profileCardUserId}
-        open={!!profileCardUserId}
-        onClose={() => setProfileCardUserId(null)}
-      />
     </div>
   );
 }

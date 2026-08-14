@@ -10,7 +10,6 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { AppImage } from '@/components/ui/AppImage';
-import { ProfileCard } from '@/components/ProfileCard';
 import type { FollowUser } from '@/api/types';
 import styles from './FollowList.module.css';
 
@@ -22,7 +21,6 @@ export default function FollowingList() {
   const isMyList = me && userId === me.id;
   const [users, setUsers] = useState<FollowUser[]>([]);
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
-  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -90,7 +88,7 @@ export default function FollowingList() {
               <div key={u.id} className={styles.row}>
                 <button
                   className={styles.userInfo}
-                  onClick={() => setProfileCardUserId(u.id)}
+                  onClick={() => navigate(`/profile/${u.id}`)}
                 >
                   <AppImage src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
                   <span className={styles.name}>
@@ -112,11 +110,6 @@ export default function FollowingList() {
         )}
       </div>
 
-      <ProfileCard
-        userId={profileCardUserId}
-        open={!!profileCardUserId}
-        onClose={() => setProfileCardUserId(null)}
-      />
     </div>
   );
 }

@@ -7,7 +7,9 @@ import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
 import { parseCoordsFromQuery, type Coords } from '@/lib/infoCoords';
-import { native } from '@/lib/native';
+import { requireServiceLocation, type LocationGateReason } from '@/lib/serviceLocation';
+import { inServiceArea } from '@/lib/serviceArea';
+import LocationGateBlock from '@/components/location/LocationGateBlock';
 import { findNearestDistrict } from '@/components/maps/district-data';
 import { getDepth } from '@/components/flood/flood-tokens';
 import sys from '@/styles/system.module.css';
@@ -22,7 +24,17 @@ export default function InfoFloodReport() {
   const navigate = useNavigate();
   const { search } = useLocation();
 
-  const [coords, setCoords] = useState<Coords | null>(() => parseCoordsFromQuery(search));
+  // 쿼리로 넘어온 좌표(침수지도 '여기 제보')도 권역 판정을 통과해야 한다 — 제보는 좌표가
+  // DB 에 영속되는 **기록형** 화면이라 권역 밖 좌표가 들어가면 지도에 핀이 찍히고 복구 수단이
+  // 어드민 수동 삭제뿐이다(260813 정책안 §1 기록형 / 결함 #7).
+  const [coords, setCoords] = useState<Coords | null>(() => {
+    const q = parseCoordsFromQuery(search);
+    return q && inServiceArea(q.lat, q.lng) ? q : null;
+  });
+  const [gateReason, setGateReason] = useState<LocationGateReason | null>(() => {
+    const q = parseCoordsFromQuery(search);
+    return q && !inServiceArea(q.lat, q.lng) ? 'outside_area' : null;
+  });
   const [locating, setLocating] = useState(false);
   const [depth, setDepth] = useState<DepthLevel | null>(null);
   const [hasPhoto, setHasPhoto] = useState(false);
@@ -42,19 +54,27 @@ export default function InfoFloodReport() {
   async function handleLocate() {
     if (locating) return;
     setLocating(true);
-    try {
-      await native.ensureLocationPermission();
-      const position = await native.getLocation();
-      setCoords({ lat: position.lat, lng: position.lng });
-    } catch {
-      toast.error(t('info.flood.locationError'));
-    } finally {
-      setLocating(false);
+    const result = await requireServiceLocation();
+    if (result.ok) {
+      setCoords(result.coords);
+      setGateReason(null);
+    } else {
+      setCoords(null);
+      setGateReason(result.reason);
     }
+    setLocating(false);
   }
 
   async function handleSubmit() {
     if (!depth || submitting || !coords) return;
+    // 마지막 방어선 — 어떤 경로로 들어온 좌표든 권역 밖이면 저장하지 않는다.
+    if (!inServiceArea(coords.lat, coords.lng)) {
+      setCoords(null);
+      setGateReason('outside_area');
+      // 조용히 거절하면 "버튼이 아무 일도 안 한다"로 읽힌다(코드리뷰 지적 2026-08-13).
+      toast.neutral(t('locationGate.outside_area.title'));
+      return;
+    }
     setSubmitting(true);
     try {
       await floodApi.report({
@@ -105,15 +125,19 @@ export default function InfoFloodReport() {
               ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`
               : t('info.flood.locationRequiredDesc')}
           </div>
-          <button
-            type="button"
-            className={`${sys.chipBtn} ${styles.locateBtn}`}
-            onClick={handleLocate}
-            disabled={locating}
-          >
-            <LocateFixed size={14} strokeWidth={2.2} />
-            {locating ? t('info.flood.locationLocating') : t('info.flood.useCurrentLocation')}
-          </button>
+          {gateReason ? (
+            <LocationGateBlock reason={gateReason} onRetry={handleLocate} />
+          ) : (
+            <button
+              type="button"
+              className={`${sys.chipBtn} ${styles.locateBtn}`}
+              onClick={handleLocate}
+              disabled={locating}
+            >
+              <LocateFixed size={14} strokeWidth={2.2} />
+              {locating ? t('info.flood.locationLocating') : t('info.flood.useCurrentLocation')}
+            </button>
+          )}
         </div>
 
         {/* Depth selection — 침수지도 제보 시트와 동일 문법 (flood-tokens 색) */}

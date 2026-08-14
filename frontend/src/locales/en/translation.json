@@ -16,9 +16,6 @@
     "etaArrive": "Arrival · {{duration}}",
     "routeLabel": "Route",
     "startGuidance": "Start guidance",
-    "locationErrorPermission": "Location access is off. Turn it on in Settings to get directions.",
-    "locationErrorTimeout": "Couldn't get a GPS signal. Try again outdoors.",
-    "locationErrorUnavailable": "Location isn't available right now. Please try again.",
     "questInProgress": "Quest in progress",
     "questCheckpoint": "To checkpoint",
     "questDistance": "Goal {{target}}km",
@@ -586,7 +583,8 @@
     "commentsCount": "Comments {{count}}",
     "commentPlaceholder": "Leave a comment...",
     "noCaption": "A moment shared",
-    "loadError": "Couldn't load the feed"
+    "loadError": "Couldn't load the feed",
+    "cheerError": "Please try again in a moment"
   },
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",
@@ -859,7 +857,8 @@
     "reportReason_FRAUD": "Suspected fraud",
     "reportReason_INAPPROPRIATE_PROFILE": "Inappropriate profile",
     "reportReason_SPAM": "Spam / advertising",
-    "reportReason_OTHER": "Other"
+    "reportReason_OTHER": "Other",
+    "dmBtn": "Message"
   },
   "feedEdit": {
     "title": "Edit Post",
@@ -2134,5 +2133,43 @@
   },
   "proximity": {
     "adLabel": "Nearby store"
+  },
+  "locationGate": {
+    "retry": "Try again",
+    "openSettings": "Open location settings",
+    "outside_area": {
+      "title": "Outside our service area",
+      "desc": "This works only within Ho Chi Minh City for now. Move into the service area and try again."
+    },
+    "permission": {
+      "title": "Location permission needed",
+      "desc": "This feature works from your current location. Please allow location access in settings."
+    },
+    "timeout": {
+      "title": "Couldn't get your location",
+      "desc": "Move outdoors or try again in a moment."
+    },
+    "unavailable": {
+      "title": "Location unavailable",
+      "desc": "Check whether location services are turned off on your device, then try again."
+    },
+    "inaccurate": {
+      "title": "Location isn't accurate enough",
+      "desc": "Indoor signals drift a lot. Please try again outdoors."
+    },
+    "routeUnavailable": "Route guidance isn't available.",
+    "scope_all": {
+      "title": "Scope is set to \"All areas\"",
+      "desc": "Route guidance needs your current location. Switch the scope to \"My location\" to use it."
+    },
+    "checking": "Checking your location…",
+    "switchToGps": "Use my location"
+  },
+  "userProfile": {
+    "title": "Profile",
+    "loadError": "Couldn't load this profile",
+    "feedSection": "Posts",
+    "feedEmpty": "No posts yet",
+    "feedError": "Couldn't load posts"
   }
 }

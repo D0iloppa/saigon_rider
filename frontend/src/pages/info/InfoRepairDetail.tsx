@@ -9,6 +9,10 @@ import { formatCurrencyVnd, displayNickname } from '@/lib/format';
 import { TopBar } from '@/components/layout/TopBar';
 import { StarIcon } from '@/components/ui/StarIcon';
 import StateBlock from '@/components/ui/StateBlock';
+import { toast } from '@/components/ui/Toast';
+import ServiceGateNotice from '@/components/location/ServiceGateNotice';
+import { useServiceAvailability } from '@/hooks/useServiceAvailability';
+import { useLocationStore } from '@/store/useLocationStore';
 import sys from '@/styles/system.module.css';
 import styles from './InfoRepairDetail.module.css';
 
@@ -86,6 +90,15 @@ export default function InfoRepairDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { shopId } = useParams<{ shopId: string }>();
+  // 경로 버튼 제어용 — 화면 로딩 시 이미 끝난 측위 결과를 읽기만 한다(대표 지시 2026-08-13 11:44).
+  const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
+  // 위치 게이트가 판정할 재료를 만든다 — 이 화면은 LocationContextBar 를 쓰지 않아
+  // 스토어 측위가 발화하지 않는다. 스토어가 세션당 1회로 묶으므로 다른 화면을 거쳐 왔으면
+  // 재측위하지 않는다(코드리뷰 지적 2026-08-13: 딥링크·푸시로 콜드스타트 진입하면
+  // coordsSource/gateReason 이 둘 다 null 이라 버튼이 영구 잠김이었다).
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
+
 
   const [detail, setDetail] = useState<RepairDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,6 +209,9 @@ export default function InfoRepairDetail() {
             </div>
           )}
 
+          {/* 경로 안내 불가 사유 — 화면 안에서 알리고 아래 버튼만 잠근다. */}
+          <ServiceGateNotice />
+
           {/* 3-button grid */}
           <div className={styles.actionGrid}>
             <button
@@ -205,7 +221,12 @@ export default function InfoRepairDetail() {
             >{t('info.repair.callBtn')}</button>
             <button
               className={`${styles.actionBtn} ${styles.actionBtnTint}`}
-              onClick={() => navigate(`/ride-nav?name=${encodeURIComponent(shop.name)}&lat=${shop.lat}&lng=${shop.lng}&dist=${shop.distance_km.toFixed(1)}`)}
+              aria-disabled={!routeAvailable}
+              onClick={() => {
+                // disabled 로 두면 조용히 아무 일도 안 일어나 오류로 보인다(대표 지적 2026-08-13).
+                if (!routeAvailable) { toast.neutral(routeGateReason ? t(`locationGate.${routeGateReason}.title`) : t('locationGate.checking', '위치를 확인하고 있어요')); return; }
+                navigate(`/ride-nav?name=${encodeURIComponent(shop.name)}&lat=${shop.lat}&lng=${shop.lng}&dist=${shop.distance_km.toFixed(1)}`);
+              }}
             >{t('info.repair.routeBtn')}</button>
             <button
               className={`${styles.actionBtn} ${styles.actionBtnNeutral}`}

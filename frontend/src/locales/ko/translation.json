@@ -16,9 +16,6 @@
     "etaArrive": "도착 예정 · {{duration}}",
     "routeLabel": "경로",
     "startGuidance": "경로 안내 시작",
-    "locationErrorPermission": "위치 권한이 꺼져 있어요. 설정에서 위치 권한을 허용해 주세요.",
-    "locationErrorTimeout": "위치 신호를 받지 못했어요. 실외에서 다시 시도해 주세요.",
-    "locationErrorUnavailable": "지금은 위치를 확인할 수 없어요. 잠시 후 다시 시도해 주세요.",
     "questInProgress": "퀘스트 진행 중",
     "questCheckpoint": "체크포인트까지",
     "questDistance": "목표 {{target}}km",
@@ -586,7 +583,8 @@
     "commentsCount": "댓글 {{count}}",
     "commentPlaceholder": "댓글을 남겨보세요...",
     "noCaption": "사진으로 남긴 순간",
-    "loadError": "피드를 불러오지 못했어요"
+    "loadError": "피드를 불러오지 못했어요",
+    "cheerError": "잠시 후 다시 시도해 주세요"
   },
   "profile": {
     "phoneVerifyNeeded": "휴대폰 인증 필요",
@@ -859,7 +857,8 @@
     "reportReason_FRAUD": "사기 의심",
     "reportReason_INAPPROPRIATE_PROFILE": "부적절한 프로필",
     "reportReason_SPAM": "스팸·광고",
-    "reportReason_OTHER": "기타"
+    "reportReason_OTHER": "기타",
+    "dmBtn": "메시지"
   },
   "feedEdit": {
     "title": "글 수정",
@@ -2134,5 +2133,43 @@
   },
   "proximity": {
     "adLabel": "근처 매장"
+  },
+  "locationGate": {
+    "retry": "다시 시도",
+    "openSettings": "위치 설정 열기",
+    "outside_area": {
+      "title": "서비스 지역이 아니에요",
+      "desc": "지금은 호치민 시내에서만 이용할 수 있어요. 서비스 지역으로 이동한 뒤 다시 시도해 주세요."
+    },
+    "permission": {
+      "title": "위치 권한이 필요해요",
+      "desc": "이 기능은 현재 위치를 기준으로 동작해요. 설정에서 위치 권한을 허용해 주세요."
+    },
+    "timeout": {
+      "title": "위치를 잡지 못했어요",
+      "desc": "실외로 나가거나 잠시 후 다시 시도해 주세요."
+    },
+    "unavailable": {
+      "title": "위치를 사용할 수 없어요",
+      "desc": "기기의 위치 서비스가 꺼져 있는지 확인한 뒤 다시 시도해 주세요."
+    },
+    "inaccurate": {
+      "title": "위치가 정확하지 않아요",
+      "desc": "실내에서는 위치 오차가 커요. 실외에서 다시 시도해 주세요."
+    },
+    "routeUnavailable": "경로 안내는 이용할 수 없어요.",
+    "scope_all": {
+      "title": "표시 범위가 '전체 지역'이에요",
+      "desc": "경로 안내는 내 현재 위치가 필요해요. 표시 범위를 '내 현재 위치'로 바꾸면 이용할 수 있어요."
+    },
+    "checking": "위치를 확인하고 있어요",
+    "switchToGps": "내 위치로 전환"
+  },
+  "userProfile": {
+    "title": "프로필",
+    "loadError": "프로필을 불러오지 못했어요",
+    "feedSection": "게시물",
+    "feedEmpty": "아직 작성한 게시물이 없어요",
+    "feedError": "게시물을 불러오지 못했어요"
   }
 }

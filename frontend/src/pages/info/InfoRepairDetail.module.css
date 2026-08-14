@@ -124,7 +124,9 @@
   text-align: center;
 }
 .actionBtn:active { opacity: .75; }
-.actionBtn:disabled { opacity: .45; }
+.actionBtn:disabled,
+/* aria-disabled: 탭을 받아 사유를 토스트로 알리는 잠금(2026-08-13) */
+.actionBtn[aria-disabled='true'] { opacity: .45; }
 
 .actionBtnBrand   { background: var(--brand-500); color: #fff; }
 .actionBtnTint    { background: var(--brand-50); color: var(--brand-700); }

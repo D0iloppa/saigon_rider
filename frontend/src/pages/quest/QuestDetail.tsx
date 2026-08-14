@@ -7,6 +7,9 @@ import QuestCard from '@/components/quest/QuestCard';
 import { fetchQuest, fetchCompletedQuestIds, acceptQuest, fetchMyAccepted, startRide as apiStartRide, dropAccepted } from '@/api/quests';
 import { useUserStore } from '@/store/useUserStore';
 import { useRideStore } from '@/store/useRideStore';
+import { useServiceAvailability } from '@/hooks/useServiceAvailability';
+import { useLocationStore } from '@/store/useLocationStore';
+import ServiceGateNotice from '@/components/location/ServiceGateNotice';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatDistance, formatNumber } from '@/lib/format';
 import { localizedName } from '@/api/master';
@@ -25,6 +28,17 @@ export default function QuestDetail() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const startRide = useRideStore((s) => s.startRide);
+  // 수행 시작 버튼 제어 — GPS 검증형 퀘스트는 권역 안 실측 좌표가 없으면 서버가 진행도를
+  // 인정하지 않는다. 시작시킨 뒤 영원히 0% 로 두지 말고 **버튼 단계에서 막는다**(정책안 D-6,
+  // 대표 지시 2026-08-13 11:44 '버튼을 제어해야지'). 여기서 새로 측위하지 않는다.
+  const gpsAvailable = useServiceAvailability().available;
+  // 위치 게이트가 판정할 재료를 만든다 — 이 화면은 LocationContextBar 를 쓰지 않아
+  // 스토어 측위가 발화하지 않는다. 스토어가 세션당 1회로 묶으므로 다른 화면을 거쳐 왔으면
+  // 재측위하지 않는다(코드리뷰 지적 2026-08-13: 딥링크·푸시로 콜드스타트 진입하면
+  // coordsSource/gateReason 이 둘 다 null 이라 버튼이 영구 잠김이었다).
+  const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  useEffect(() => { void ensureLocation(); }, [ensureLocation]);
+
 
   const [quest, setQuest] = useState<Quest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,8 +101,14 @@ export default function QuestDetail() {
     }
   };
 
+  /** 이 퀘스트가 GPS 실측을 요구하는가 — 그 외 검증타입은 위치와 무관하므로 막지 않는다. */
+  const needsGps = quest.cardType === 'DISTANCE' || quest.cardType === 'CHECKPOINT';
+  const startBlocked = needsGps && !gpsAvailable;
+
   const handleStartRide = async () => {
     if (!acceptedUserQuestId || !user || actionLoading) return;
+    // 서버에 고아 세션을 만들지 않는다 — apiStartRide 전에 막는다.
+    if (startBlocked) return;
     setActionLoading(true);
     try {
       await apiStartRide(acceptedUserQuestId);
@@ -202,13 +222,14 @@ export default function QuestDetail() {
 
         {/* 푸터(고정): 액션 버튼 */}
         <div className={styles.sheetFooter}>
+        {needsGps && <ServiceGateNotice />}
         {isCompleted ? (
           <Button disabled>{t('quest.completedBtn')}</Button>
         ) : isLocked ? (
           <Button disabled>{t('quest.lockedLevel', { level: quest.minLevel })}</Button>
         ) : acceptedUserQuestId ? (
           <>
-            <Button onClick={handleStartRide} disabled={actionLoading}>
+            <Button onClick={handleStartRide} disabled={actionLoading || startBlocked}>
               {t('quest.startRideBtn', { defaultValue: '수행 시작' })}
             </Button>
             <button
@@ -253,7 +274,7 @@ export default function QuestDetail() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={actionLoading}
+                disabled={actionLoading || startBlocked}
                 onClick={() => {
                   setStartConfirm(false);
                   handleStartRide();

@@ -297,7 +297,9 @@
 .apptBtnPrimary:active,
 .apptBtnGhost:active { opacity: .85; }
 .apptBtnPrimary:disabled,
-.apptBtnGhost:disabled { opacity: .5; }
+.apptBtnGhost:disabled,
+/* aria-disabled: 탭을 받아 사유를 토스트로 알리는 잠금(2026-08-13) */
+.apptBtnGhost[aria-disabled='true'] { opacity: .5; }
 
 .apptTime {
   align-self: flex-end;

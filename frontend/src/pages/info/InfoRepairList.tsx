@@ -8,7 +8,7 @@ import { StarIcon } from '@/components/ui/StarIcon';
 import { TopBar } from '@/components/layout/TopBar';
 import { toast } from '@/components/ui/Toast';
 import { extractDetail } from '@/api/client';
-import { native } from '@/lib/native';
+import { requireServiceLocation } from '@/lib/serviceLocation';
 import { swrRead, swrWrite } from '@/lib/swrCache';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { L3_ENABLED, type DistrictBadge } from '@/components/maps/SaigonMapV5';
@@ -16,6 +16,8 @@ import { fetchPoiMapItems, type PoiMapItem } from '@/api/poi';
 import { buildPoiLayer } from '@/components/maps/poiLayer';
 import InfoSwitcher from '@/components/info/InfoSwitcher';
 import LocationContextBar from '@/components/info/LocationContextBar';
+import ServiceGateNotice from '@/components/location/ServiceGateNotice';
+import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import { clusterByViewport } from '@/lib/clusterPoints';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
 import StateBlock from '@/components/ui/StateBlock';
@@ -35,6 +37,22 @@ export default function InfoRepairList() {
   const mapOpen = searchParams.get('view') === 'map';
   // 단일 SoT — 표시 범위/조회 기준 좌표는 useLocationStore(앱 전역, 2026-08-06 통일).
   const { origin, fetchRadiusKm } = useServiceLocation();
+  // 경로 버튼 제어용 — 화면 로딩 시 이미 끝난 측위 결과를 읽기만 한다(대표 지시 2026-08-13 11:44).
+  const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
+
+  /**
+   * 경로 안내 불가 사유를 알린다. 버튼을 `disabled` 로 두면 onClick 이 아예 안 불려
+   * **조용히 아무 일도 안 일어나고**, 상단 안내를 못 본 사용자는 오류로 받아들인다
+   * (대표 지적 2026-08-13). 그래서 aria-disabled 로 잠근 티만 내고 탭은 받아 여기서 설명한다.
+   * 문구·토스트는 이 화면이 제보 차단에 이미 쓰는 것과 동일한 것을 재사용한다(신규 디자인 없음).
+   */
+  const notifyRouteBlocked = () => {
+    // 사유가 없으면 아직 확인 중이라는 뜻이다 — 기기 문제라고 단정하면 거짓 안내가 된다
+    // (코드리뷰 지적 2026-08-13).
+    toast.neutral(routeGateReason
+      ? t(`locationGate.${routeGateReason}.title`)
+      : t('locationGate.checking', '위치를 확인하고 있어요'));
+  };
 
   const [shops, setShops] = useState<RepairShop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,8 +154,17 @@ export default function InfoRepairList() {
   }
 
   async function handleSubmitReport(fields: ReportFields): Promise<boolean> {
+    // 제보는 좌표가 DB 에 영속되는 **기록형** — 권역 밖/부정확 좌표는 저장하지 않는다
+    // (260813 정책안 §1). 폴백 좌표로 대체하면 데이터 위조가 된다.
+    const gate = await requireServiceLocation();
+    if (!gate.ok) {
+      // 서비스 지역/측위 상태 안내는 오류가 아니라 상태다 — 톤은 neutral 로 통일한다
+      // (대표 결정 2026-08-13). 경로 차단 토스트와 같은 톤이어야 한 화면에서 갈리지 않는다.
+      toast.neutral(t(`locationGate.${gate.reason}.title`));
+      return false;
+    }
+    const pos = gate.coords;
     try {
-      const pos = await native.getLocation();
       await repairApi.reportShop({ name: fields.name, lat: pos.lat, lng: pos.lng, phone: fields.phone, note: fields.note });
       toast.success(t('info.repair.reportSuccess'));
       setShowReport(false);
@@ -182,6 +209,9 @@ export default function InfoRepairList() {
           </button>
         }
       />
+
+      {/* 경로 안내 불가 사유를 화면 안에서 한 줄로 — 목록은 그대로 보이고 버튼만 잠긴다. */}
+      <ServiceGateNotice />
 
       <div className={sys.scroll} ref={containerRef as React.RefObject<HTMLDivElement>}>
         <div style={contentStyle}>
@@ -315,8 +345,10 @@ export default function InfoRepairList() {
                   <div className={sys.rowFoot}>
                     <button
                       className={`${sys.actionChip} ${sys.actionPrimary}`}
+                      aria-disabled={!routeAvailable}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!routeAvailable) { notifyRouteBlocked(); return; }
                         navigate(`/ride-nav?name=${encodeURIComponent(shop.name)}&lat=${shop.lat}&lng=${shop.lng}&dist=${shop.distance_km.toFixed(1)}`);
                       }}
                     >

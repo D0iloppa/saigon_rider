@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
 import { native } from '@/lib/native';
+import { requireServiceLocation } from '@/lib/serviceLocation';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -321,17 +322,19 @@ export default function InfoFloodMap() {
       return;
     }
     setLocatingReport(true);
-    try {
-      await native.ensureLocationPermission();
-      const coords = await native.getLocation();
-      coordsRef.current = coords;
-      setReportCoords(coords);
-      setShowReport(true);
-    } catch {
-      toast.error(t('info.flood.locationError'));
-    } finally {
-      setLocatingReport(false);
+    // 제보는 좌표가 침수 DB 에 영속되는 **기록형** — 권역 밖/부정확 좌표로는 시트를 열지 않는다
+    // (260813 정책안 §1). 열어주면 사용자가 입력을 다 채운 뒤 저장 단계에서 막히게 된다.
+    const gate = await requireServiceLocation();
+    setLocatingReport(false);
+    if (!gate.ok) {
+      // 서비스 지역/측위 상태 안내는 오류가 아니라 상태다 — 톤은 neutral 로 통일한다
+      // (대표 결정 2026-08-13). 경로 차단 토스트와 같은 톤이어야 한 화면에서 갈리지 않는다.
+      toast.neutral(t(`locationGate.${gate.reason}.title`));
+      return;
     }
+    coordsRef.current = gate.coords;
+    setReportCoords(gate.coords);
+    setShowReport(true);
   }
 
   const activeCount = todayReports.length;

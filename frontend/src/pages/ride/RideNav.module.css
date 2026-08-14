@@ -158,6 +158,59 @@
 .distLabel { font-size: 11px; color: var(--text-3, #8A8E9E); margin-top: 1px; }
 .questTitle { font-size: 18px; font-weight: 800; color: var(--text, #1A1D2A); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ── 위치 게이트 인라인 상태 (nav) ──
+ * 대표 지시 2026-08-13: 차단을 전체화면으로 갈아치우지 않고 지도+시트 골격 안에서 처리한다.
+ * 헤더는 .etaRow 레이아웃을 그대로 쓰고 숫자(.etaTime) 자리만 상태 제목으로 바꾼다. */
+.gateTitle {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text, #1A1D2A);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.gateBody { padding: 0 16px; }
+
+.gateDesc {
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: var(--surface-2, #FAF7F2);
+  color: var(--text-2, #5B6072);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.gateActions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+
+.gateRetry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--brand-200, #FFD9C7);
+  border-radius: var(--r-pill, 999px);
+  background: var(--brand-50, #FFF3EC);
+  color: var(--brand-700, #C2410C);
+  font-size: 13px;
+  font-weight: 700;
+}
+.gateRetry:active { opacity: .75; }
+.gateRetry:disabled { opacity: .5; }
+
+.gateGhost {
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--text-3, #8A8E9E);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gateGhost:active { opacity: .75; }
+
 /* ── 단계 목록 (nav) ── */
 .steps {
   background: var(--surface-2, #FAF7F2);

@@ -17,7 +17,26 @@ test('flood report only requests native location from the explicit locate action
   assert.doesNotMatch(source, /useEffect/);
   assert.match(source, /parseCoordsFromQuery\(search\)/);
   assert.match(source, /onClick=\{handleLocate\}/);
-  assert.match(locateAction, /ensureLocationPermission\(\)[\s\S]*getLocation\(\)/);
+  // 2026-08-13 정책 개정: 직접 native 호출 대신 공용 게이트를 경유한다(제보는 좌표가 DB 에
+  // 영속되는 기록형 — 권역 밖/부정확 좌표를 저장하면 어드민 수동 삭제만이 복구 수단이다).
+  // 게이트 내부가 ensureLocationPermission→getLocation 이므로 "명시 액션에서만 측위"는 유지된다
+  // (그 위임은 resolveOriginParity.contract.test.mjs 가 고정한다).
+  assert.match(locateAction, /await requireServiceLocation\(\)/);
+  assert.doesNotMatch(source, /native\.getLocation\(/, '화면이 게이트를 우회해 직접 측위하면 안 된다');
+});
+
+test('flood report never persists a coordinate that failed the service-area gate', () => {
+  const source = read('InfoFloodReport.tsx');
+
+  // 쿼리로 넘어온 좌표(침수지도 '여기 제보' 동선)도 판정을 거쳐야 한다 — handleLocate 만
+  // 막으면 이 경로로 권역 밖 좌표가 그대로 상신된다(2026-08-13 발견).
+  assert.match(source, /parseCoordsFromQuery\(search\)[\s\S]*inServiceArea\(q\.lat, q\.lng\)/);
+  // 제출 직전 마지막 방어선 — 어떤 경로로 들어온 좌표든 저장 전에 다시 판정한다.
+  const submit = source.slice(source.indexOf('async function handleSubmit()'));
+  const guardIdx = submit.indexOf('inServiceArea(coords.lat, coords.lng)');
+  const reportIdx = submit.indexOf('floodApi.report(');
+  assert.ok(guardIdx > -1, 'handleSubmit must re-check the service area before persisting');
+  assert.ok(guardIdx < reportIdx, 'the service-area guard must run before floodApi.report()');
 });
 
 test('flood failures have an unavailable state before any safe or empty copy', () => {

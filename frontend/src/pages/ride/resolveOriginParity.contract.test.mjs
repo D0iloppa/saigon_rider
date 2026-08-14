@@ -16,28 +16,40 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // 않도록, resolveOrigin() 이 동네지도와 동일하게 requestDeviceLocation()(serviceLocation.ts)
 // 를 그대로 호출하는 형태로 고정한다.
 
-test('resolveOrigin delegates to requestDeviceLocation (serviceLocation.ts) — same call shape as SaigonMapV5.runLocate', () => {
+// 2026-08-13 정책 개정: resolveOrigin() 지역 래퍼는 제거되고 RideNav 가 공용 게이트
+// requireServiceLocation() 를 직접 부른다. 위 회귀(권한 게이트 이중 설치)는 그 게이트가
+// 내부적으로 requestDeviceLocation() 을 그대로 쓰는 한 재발하지 않으므로, 어서션 대상을
+// "RideNav 가 자체 권한 게이트를 두지 않는다" + "게이트가 requestDeviceLocation 에 위임한다"
+// 두 축으로 옮긴다.
+test('RideNav does not install its own permission gate — it delegates to serviceLocation', () => {
   const source = read('RideNav.tsx');
 
-  // serviceLocation.ts 의 requestDeviceLocation 을 import — 동네지도(resolveUsableLocation)가
-  // 쓰는 것과 동일한 함수.
   assert.match(
     source,
-    /import \{ requestDeviceLocation \} from '@\/lib\/serviceLocation';/,
-    'RideNav.tsx must import requestDeviceLocation from @/lib/serviceLocation',
+    /requireServiceLocation[\s\S]{0,200}from '@\/lib\/serviceLocation';/,
+    'RideNav.tsx must obtain its origin through @/lib/serviceLocation',
   );
+  assert.doesNotMatch(source, /resolveOrigin/, 'the local resolveOrigin wrapper was removed — do not reintroduce it');
+  // 화면이 커스텀 Gps 권한 API 를 직접 만지면 실기기에서 측위 전에 막히는 회귀가 재발한다
+  // (service-rules 원칙 13 / 사고 abb2ded).
+  assert.doesNotMatch(source, /checkLocationPermission/, 'RideNav must not gate on checkLocationPermission itself');
+  assert.doesNotMatch(source, /requestLocationPermission/, 'RideNav must not gate on requestLocationPermission itself');
+  assert.doesNotMatch(source, /location_permission_denied/, 'RideNav must not throw a custom permission error before measuring');
+});
 
-  const fnStart = source.indexOf('async function resolveOrigin(): Promise<Coords> {');
-  assert.ok(fnStart >= 0, 'resolveOrigin function not found in RideNav.tsx');
-  const fnEnd = source.indexOf('\n}', fnStart);
-  const fn = source.slice(fnStart, fnEnd);
+test('requireServiceLocation reads position via requestDeviceLocation (no extra permission gate)', () => {
+  const source = read('../../lib/serviceLocation.ts');
 
-  // 본문은 requestDeviceLocation() 호출 하나뿐 — 커스텀 Gps 권한 게이트(checkLocationPermission/
-  // requestLocationPermission 을 resolveOrigin 안에서 직접 호출하고 미허용 시 throw)가 없어야 한다.
-  assert.match(fn, /return requestDeviceLocation\(\);/);
-  assert.doesNotMatch(fn, /checkLocationPermission/, 'resolveOrigin must not gate on checkLocationPermission itself');
-  assert.doesNotMatch(fn, /requestLocationPermission/, 'resolveOrigin must not gate on requestLocationPermission itself');
-  assert.doesNotMatch(fn, /location_permission_denied/, 'resolveOrigin must not throw a custom permission error before calling getLocation');
+  const fnStart = source.indexOf('export async function requireServiceLocation()');
+  assert.ok(fnStart >= 0, 'requireServiceLocation not found in serviceLocation.ts');
+  const fn = source.slice(fnStart);
+
+  // 동네지도(resolveUsableLocation)와 같은 측위 경로를 쓴다 — 관문을 하나 더 세우지 않는다.
+  assert.match(fn, /await requestDeviceLocation\(\)/);
+  assert.doesNotMatch(fn, /checkLocationPermission/);
+  assert.doesNotMatch(fn, /requestLocationPermission/);
+  // 실패는 오직 측위 실패 code 로만 판정한다.
+  assert.match(fn, /classifyLocationError\(e\)/);
 });
 
 test('serviceLocation.ts requestDeviceLocation still requests native permission before reading location (prompt UX preserved)', () => {

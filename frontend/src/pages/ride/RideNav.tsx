@@ -9,9 +9,10 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { formatVnTime } from '@/lib/vnTime';
-import { requestDeviceLocation } from '@/lib/serviceLocation';
+import {
+  requireServiceLocation, requestDeviceLocation, GPS_ACCURACY_LIMIT_M, type LocationGateReason,
+} from '@/lib/serviceLocation';
 import { inServiceArea } from '@/lib/serviceArea';
-import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { decodePolyline, bearing, haversineM, distanceToPolylineM, snapToPolyline } from '@/lib/polyline';
 import MapCanvas, { type MapCanvasHandle } from '@/components/ride/MapCanvas';
 import MapControls, { type MapControlsHandle } from '@/components/ride/MapControls';
@@ -30,46 +31,15 @@ import styles from './RideNav.module.css';
 
 type Coords = { lat: number; lng: number };
 
-/** 현재 위치 획득 실패 사유 — 사용자 안내 문구·행동 지침을 사유별로 분기하기 위함 (좌표 자체는 다루지 않음). */
-type LocationErrorReason = 'permission' | 'timeout' | 'unavailable';
-
-/**
- * resolveOrigin()/getCurrentPosition 실패를 사유별로 분류한다.
- * - GeolocationPositionError.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
- * - 'location_permission_denied' 메시지 분기는 과거 커스텀 Gps 권한 게이트가 던지던 값의
- *   호환 안전망(현재 resolveOrigin 은 이 메시지를 던지지 않음 — 동네지도와 동일하게
- *   requestDeviceLocation() 을 그대로 호출해 실패는 getCurrentPosition 의 code 로만 온다).
- */
-function classifyLocationError(e: unknown): LocationErrorReason {
-  if (e instanceof Error && e.message === 'location_permission_denied') return 'permission';
-  const code = (e as { code?: number } | null)?.code;
-  if (code === 1) return 'permission';
-  if (code === 3) return 'timeout';
-  return 'unavailable';
-}
-
 // 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
 const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
 const OFF_ROUTE_SECONDS = 5; // 이탈 지속 시간(이 이상 지속해야 이탈 확정)
-const GPS_ACCURACY_LIMIT_M = 35; // GPS 신뢰 임계값(초과 시 판정 스킵)
 const COMPASS_RADIUS_M = 500; // 라스트마일 나침반 모드 전환 반경
 const ARRIVAL_RADIUS_M = 40; // 목적지 도착 판정 반경(nav) — 이 안에 들면 안내 종료
 const COURSE_MIN_SPEED_MS = 1.5; // course-up GPS heading 폴백 최소 속도(≈5.4km/h) — 저속 heading 은 무의미
 // 경로 API(Google Routes)는 호출당 과금이므로 이탈 재탐색은 안내 1회당 이 횟수까지만 허용하고,
 // 소진 후에는 재탐색 대신 Google 지도 딥링크로 유도한다.
 const MAX_REROUTES = 2;
-
-/**
- * 사용자가 길찾기를 시작한 뒤에만 권한을 요청하고 현재 위치를 측정한다.
- * 동네지도(SaigonMapV5.runLocate → resolveUsableLocation)와 동일한 경로 — 커스텀 Gps
- * 플러그인으로 권한 게이트를 따로 두지 않고, requestDeviceLocation()(ensureLocationPermission
- * → getLocation) 을 그대로 호출한다. 실제 거부 시에는 getLocation() 내부에서 결국
- * navigator.geolocation 으로 폴백해 code===1(PERMISSION_DENIED) 로 reject 되고,
- * classifyLocationError 가 그 code 로 'permission' 을 분류한다.
- */
-async function resolveOrigin(): Promise<Coords> {
-  return requestDeviceLocation();
-}
 
 /** 기동(턴) 아이콘 — lucide 표준 (구 이모지 → OS 무관 렌더). */
 function ManeuverIcon({ maneuver, isLast = false }: { maneuver?: string | null; isLast?: boolean }) {
@@ -166,7 +136,7 @@ export default function RideNav() {
   const [arrivalTime, setArrivalTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [routeRequested, setRouteRequested] = useState(false);
-  const [locationError, setLocationError] = useState<LocationErrorReason | null>(null);
+  const [locationError, setLocationError] = useState<LocationGateReason | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [guidanceStarted, setGuidanceStarted] = useState(isQuest); // quest 는 진입 즉시 추적
 
@@ -297,6 +267,12 @@ export default function RideNav() {
       //   (재탐색 API 호출 대신 사용자 탭 기반 Google 지도 딥링크 핸드오프로 전환.)
       if (type !== 'nav') return;
       if (pos.accuracy != null && pos.accuracy > GPS_ACCURACY_LIMIT_M) return; // GPS 튐 방어
+      // 권역 밖 tick 은 판정에서 제외한다 — 안내 자체는 끊지 않는다(정책안 D-4: 시작 시점에
+      // 권역 안이었다면 외곽으로 나가는 것은 정상 주행이고, 주행 중 안내를 끊는 게 더 위험하다).
+      // 게이트가 없던 종전에는 권역 밖 좌표로 폴리라인 거리를 재 수천 km 이탈이 되면서 시작
+      // 5초 뒤 이탈이 확정되고 유료 재탐색을 2회 소진했다(결함 #2).
+      // (useLocationStore.ts:272 가 같은 처리를 한다 — 그 비대칭을 없앤 것이다.)
+      if (!inServiceArea(pos.lat, pos.lng)) return;
       if (dest) {
         const toDest = haversineM(pos.lat, pos.lng, dest.lat, dest.lng);
         // 도착 판정이 나침반 모드보다 우선 — 반경 안에 들면 안내 종료.
@@ -343,30 +319,41 @@ export default function RideNav() {
     setRouteRequested(true);
     setLocationError(null);
     setLoading(true);
-    let from: Coords;
-    try {
-      from = await resolveOrigin();
-    } catch (e) {
-      const reason = classifyLocationError(e);
-      // 좌표는 남기지 않는다(개인정보) — 실기기 원격 디버깅용 사유 분류만 로그.
-      console.warn('[rideNav] resolveOrigin failed:', reason);
-      setLocationError(reason);
-      setLoading(false);
-      return;
-    }
     // DEV_DONGTAN_PIN: is_dev 는 devRaw 가 붙었을 때만 확정한다(is_dev AND devRaw 이중 게이트) —
     // devRaw 가 없는 절대다수 경로는 이 await 자체가 없어 기존 타이밍 그대로다. fail-closed(조회
     // 실패 시 false). 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
     const devBypass = devRaw && (await fetchAppConfig().then((cfg) => cfg.isDev).catch(() => false));
-    // 출발지가 서비스 지역(호치민 도심) 밖이면 실제 GPS 대신 도심 기본 좌표로 경로를 계산한다
-    // (다른 화면과 동일한 폴백 관례). 현재위치 표시(dotPos)는 건드리지 않는다 — origin 은 경로 계산용.
-    // DEV_DONGTAN_PIN: devBypass 일 때만 이 폴백을 건너뛴다 — 플래그 단독으로는 절대 뚫리지 않는다
-    // (이중 게이트 관례). 운영 서버(is_dev=false)에서는 devRaw 를 URL 에 붙여도 무시되고 항상
-    // 서비스 지역 판정이 적용된다. 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
-    const outOfArea = !devBypass && !inServiceArea(from.lat, from.lng);
-    const routeOrigin = outOfArea ? BEN_THANH_FALLBACK : from;
+    // 경로안내는 내 위치가 **입력값**인 실행형 화면이라 폴백이 성립하지 않는다 — 중심가로
+    // 대체하면 "내가 있지 않은 곳에서 출발하는 경로"라는 거짓 결과가 나온다(260813 정책안 D-2).
+    //
+    // 종전에는 origin 만 BEN_THANH_FALLBACK 으로 갈아치우고 dotPos(현재위치 점)는 실측 좌표를
+    // 그대로 썼다. 그 결과 경로는 호치민에 그려진 채 카메라만 매 GPS tick 실제 위치로 끌려가
+    // **지도가 튀었다**(대표 보고 2026-08-13 / 결함 #1). origin 과 dotPos 의 출처는 항상 같아야
+    // 한다(정책안 §3-C 불변식 2) — 그래서 폴백을 제거하고 차단으로 바꿨다.
+    //
+    // DEV_DONGTAN_PIN: devBypass 일 때만 게이트를 건너뛴다 — 플래그 단독으로는 절대 뚫리지
+    // 않는다(이중 게이트 관례). 실기기 검증 완료 후 이 분기를 제거할 것 (2026-08-07).
+    let routeOrigin: Coords;
+    if (devBypass) {
+      try {
+        routeOrigin = await requestDeviceLocation();
+      } catch {
+        setLocationError('unavailable');
+        setLoading(false);
+        return;
+      }
+    } else {
+      const gate = await requireServiceLocation();
+      if (!gate.ok) {
+        // 좌표는 남기지 않는다(개인정보) — 실기기 원격 디버깅용 사유 분류만 로그.
+        console.warn('[rideNav] location gate blocked:', gate.reason);
+        setLocationError(gate.reason);
+        setLoading(false);
+        return;
+      }
+      routeOrigin = gate.coords;
+    }
     setOrigin(routeOrigin);
-    if (outOfArea) toast.neutral(t('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요'));
     const locale = i18n.resolvedLanguage ?? i18n.language;
     // DEV_DONGTAN_PIN: 자체 호스팅 라우팅 엔진 전환 + 경기도 타일 추가로 한국 좌표도 실제 경로
     // API 를 탈 수 있게 됐다 — devBypass 여부와 무관하게 항상 routeApi.getRoute() 를 호출한다.
@@ -417,7 +404,15 @@ export default function RideNav() {
     navigate(-1);
   };
 
-  const keyMissing = type === 'nav' && routeRequested && !loading && !route?.configured;
+  /**
+   * 위치 게이트에 막힌 상태(nav). **화면을 갈아치우지 않는다** — 대표 지시 2026-08-13 11:38
+   * ("화면 안에서 처리해 / 질 떨어지게 만들지 말고"). 지도와 하단 시트는 그대로 두고 목적지
+   * 핀을 계속 보여주며, 못 하는 것(경로 안내)만 시트 안에서 설명한다.
+   */
+  const gateBlocked = type === 'nav' && !!locationError;
+  // keyMissing 은 "경로 API 키 미설정"이라는 별개 사유다 — 게이트 차단을 여기에 섞으면
+  // 지도까지 꺼져 전체화면 안내로 빠진다(그게 위 지시를 받은 원인).
+  const keyMissing = type === 'nav' && routeRequested && !loading && !gateBlocked && !route?.configured;
   const showMap = isQuest || (!!dest && !keyMissing);
 
   // 퀘스트 진행 표시 — 모두 서버(useRideStore 폴링)값.
@@ -550,6 +545,15 @@ export default function RideNav() {
             ref={sheetRef}
             header={
               type === 'nav' ? (
+                gateBlocked ? (
+                  // 게이트 차단 — ETA 자리에 상태를 그대로 얹는다(레이아웃 유지, 숫자만 상태로 교체).
+                  <div className={styles.etaRow}>
+                    <div className={styles.etaMain}>
+                      <div className={styles.gateTitle}>{t(`locationGate.${locationError}.title`)}</div>
+                      <div className={styles.etaSub}>{name || t('rideNav.destination', '목적지')}</div>
+                    </div>
+                  </div>
+                ) : (
                 <div className={styles.etaRow}>
                   <div className={styles.etaMain}>
                     <div className={`${styles.etaTime} num`}>{arrivalTime ?? '—'}</div>
@@ -564,6 +568,7 @@ export default function RideNav() {
                     <div className={styles.distLabel}>{t('rideNav.routeLabel', '경로')}</div>
                   </div>
                 </div>
+                )
               ) : (
                 <div className={styles.etaRow}>
                   <div className={styles.etaMain}>
@@ -587,7 +592,31 @@ export default function RideNav() {
               )
             }
           >
-            {type === 'nav' ? (
+            {type === 'nav' && gateBlocked ? (
+              // 화면 안에서 처리 — 지도·목적지 핀·시트는 그대로 두고, 못 하는 것만 시트에서 설명한다.
+              <div className={styles.gateBody}>
+                <div className={styles.gateDesc}>{t(`locationGate.${locationError}.desc`)}</div>
+                <div className={styles.gateActions}>
+                  <button className={styles.gateRetry} onClick={fetchRoute} disabled={loading}>
+                    <RefreshCw size={15} strokeWidth={2.4} aria-hidden="true" />
+                    {t('locationGate.retry', '다시 시도')}
+                  </button>
+                  {locationError === 'permission' && native.isNative && (
+                    <button className={styles.gateGhost} onClick={() => { void native.openAppSettings(); }}>
+                      {t('locationGate.openSettings', '위치 설정 열기')}
+                    </button>
+                  )}
+                </div>
+                {/* 권역 밖에는 Google 핸드오프를 노출하지 않는다(D-1 권고) — 측위 실패는 우리 쪽
+                    사유라 대안을 준다. */}
+                {locationError !== 'outside_area' && hasDest && (
+                  <button className={styles.handoffBtn} onClick={openGoogleMaps}>
+                    <span className={styles.gIcon}><GoogleGIcon /></span>
+                    {t('rideNav.openGoogleMaps', 'Google 지도로 이동')}
+                  </button>
+                )}
+              </div>
+            ) : type === 'nav' ? (
               <>
                 <div className={styles.twoWheelerWarning}>
                   {t('rideNav.twoWheelerWarning', '오토바이 경로는 베타 기능이며 실제 도로 규제와 다를 수 있습니다.')}
@@ -679,16 +708,12 @@ export default function RideNav() {
           <div className={styles.fallbackInner}>
             <div className={styles.fallbackIcon}><Compass size={40} strokeWidth={1.6} aria-hidden="true" /></div>
             <div className={styles.fallbackTitle}>{name || t('rideNav.destination', '목적지')}</div>
+            {/* 이 전체화면은 **목적지 좌표 자체가 없을 때**만 쓴다(원래 용도). 위치 게이트 차단은
+                화면을 갈아치우지 않고 지도+시트 안에서 처리한다 — gateBlocked 참조. */}
             <div className={styles.fallbackDesc}>
-              {locationError === 'permission'
-                ? t('rideNav.locationErrorPermission', '위치 권한이 꺼져 있어요. 설정에서 위치 권한을 허용해 주세요.')
-                : locationError === 'timeout'
-                ? t('rideNav.locationErrorTimeout', '위치 신호를 받지 못했어요. 실외에서 다시 시도해 주세요.')
-                : locationError === 'unavailable'
-                ? t('rideNav.locationErrorUnavailable', '지금은 위치를 확인할 수 없어요. 잠시 후 다시 시도해 주세요.')
-                : t('rideNav.summaryPending', '길찾기를 시작하면 현재 위치를 측정합니다.')}
+              {t('rideNav.summaryPending', '길찾기를 시작하면 현재 위치를 측정합니다.')}
             </div>
-            {type === 'nav' && (!routeRequested || locationError) && (
+            {type === 'nav' && !routeRequested && (
               <button className={styles.startFab} onClick={fetchRoute}>
                 <Play size={15} fill="currentColor" strokeWidth={0} aria-hidden="true" /> {t('rideNav.startGuidance', '경로 안내 시작')}
               </button>

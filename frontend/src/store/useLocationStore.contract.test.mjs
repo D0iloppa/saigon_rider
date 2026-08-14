@@ -90,9 +90,14 @@ test('권역밖은 중심가 폴백 + 토스트 — 측위 실패와 다른 사�
 test('측위 실패는 all 폴백 — 중심가로 보내지 않는다', () => {
   const failure = code.match(/\.catch\(\(err: unknown\) => \{[\s\S]*?\}\)/);
   assert.ok(failure, 'catch 분기가 있어야 한다');
-  assert.match(
+  // 정확한 객체 리터럴을 고정하지 않는다 — 2026-08-13 에 gateReason/coordsAccuracyM 이 추가되며
+  // 이 어서션이 깨졌다. 보호할 불변식은 "중심가로 보내지 않고 all 로 간다"는 것이다.
+  assert.match(failure[0], /mode: 'all'/, 'all 로 폴백한다');
+  assert.match(failure[0], /coords: null/, '좌표를 만들어내지 않는다');
+  assert.match(failure[0], /coordsSource: null/, '출처도 비운다');
+  assert.doesNotMatch(
     failure[0],
-    /set\(\{ mode: 'all', coords: null, wardName: null, coordsSource: null \}\)/,
+    /BEN_THANH_FALLBACK/,
     '어디 있는지 모르는 상태에서 중심가로 보내면 "왜 여기냐"는 근거가 없다 — all 로 간다',
   );
   assert.doesNotMatch(

@@ -16,9 +16,6 @@
     "etaArrive": "Dự kiến đến · {{duration}}",
     "routeLabel": "Lộ trình",
     "startGuidance": "Bắt đầu chỉ đường",
-    "locationErrorPermission": "Quyền truy cập vị trí đang tắt. Hãy bật trong Cài đặt để chỉ đường.",
-    "locationErrorTimeout": "Không bắt được tín hiệu vị trí. Hãy thử lại ở ngoài trời.",
-    "locationErrorUnavailable": "Hiện chưa lấy được vị trí. Vui lòng thử lại.",
     "questInProgress": "Đang làm nhiệm vụ",
     "questCheckpoint": "Đến điểm mốc",
     "questDistance": "Mục tiêu {{target}}km",
@@ -586,7 +583,8 @@
     "commentsCount": "Bình luận {{count}}",
     "commentPlaceholder": "Để lại bình luận...",
     "noCaption": "Một khoảnh khắc được chia sẻ",
-    "loadError": "Không tải được bảng tin"
+    "loadError": "Không tải được bảng tin",
+    "cheerError": "Vui lòng thử lại sau một lát"
   },
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",
@@ -859,7 +857,8 @@
     "reportReason_FRAUD": "Nghi ngờ lừa đảo",
     "reportReason_INAPPROPRIATE_PROFILE": "Hồ sơ không phù hợp",
     "reportReason_SPAM": "Spam · quảng cáo",
-    "reportReason_OTHER": "Khác"
+    "reportReason_OTHER": "Khác",
+    "dmBtn": "Tin nhắn"
   },
   "feedEdit": {
     "title": "Sửa bài viết",
@@ -2134,5 +2133,43 @@
   },
   "proximity": {
     "adLabel": "Cửa hàng gần đây"
+  },
+  "locationGate": {
+    "retry": "Thử lại",
+    "openSettings": "Mở cài đặt vị trí",
+    "outside_area": {
+      "title": "Ngoài khu vực dịch vụ",
+      "desc": "Hiện tại chỉ dùng được trong TP.HCM. Vui lòng di chuyển vào khu vực dịch vụ rồi thử lại."
+    },
+    "permission": {
+      "title": "Cần quyền vị trí",
+      "desc": "Tính năng này hoạt động dựa trên vị trí hiện tại của bạn. Vui lòng cho phép truy cập vị trí trong cài đặt."
+    },
+    "timeout": {
+      "title": "Không lấy được vị trí",
+      "desc": "Hãy ra ngoài trời hoặc thử lại sau một lát."
+    },
+    "unavailable": {
+      "title": "Không dùng được vị trí",
+      "desc": "Kiểm tra xem dịch vụ vị trí trên thiết bị có đang tắt không, rồi thử lại."
+    },
+    "inaccurate": {
+      "title": "Vị trí chưa đủ chính xác",
+      "desc": "Trong nhà sai số vị trí rất lớn. Vui lòng thử lại khi ở ngoài trời."
+    },
+    "routeUnavailable": "Không thể dùng chỉ đường.",
+    "scope_all": {
+      "title": "Phạm vi đang là \"Toàn khu vực\"",
+      "desc": "Chỉ đường cần vị trí hiện tại của bạn. Hãy chuyển phạm vi sang \"Vị trí của tôi\" để dùng."
+    },
+    "checking": "Đang kiểm tra vị trí…",
+    "switchToGps": "Dùng vị trí của tôi"
+  },
+  "userProfile": {
+    "title": "Trang cá nhân",
+    "loadError": "Không tải được trang cá nhân",
+    "feedSection": "Bài đăng",
+    "feedEmpty": "Chưa có bài đăng nào",
+    "feedError": "Không tải được bài đăng"
   }
 }

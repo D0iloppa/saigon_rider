@@ -18,14 +18,27 @@ const read = (path) => readFileSync(join(here, path), 'utf8');
 // routeApi.getRoute() 를 호출한다. 이 테스트는 그 계약(이중 게이트 유지, 벤탄 폴백만 우회,
 // 합성 경로 없음)이 깨지지 않았는지 지킨다.
 
-test('RideNav.tsx: devRaw 단독으로는(is_dev 미확정) fetchRoute 가 서비스지역 폴백을 건너뛰지 않는다', () => {
+test('RideNav.tsx: devRaw 단독으로는(is_dev 미확정) fetchRoute 가 위치 게이트를 건너뛰지 않는다', () => {
   const source = read('RideNav.tsx');
 
   assert.match(source, /const devRaw = params\.get\('devRaw'\) === '1';/);
   // is_dev 확정을 fetchRoute 내부의 devRaw 게이트 뒤로 옮겨 — 경합(mount effect 로 비동기
   // 확정하다 fetchRoute 자동호출이 그보다 먼저 실행되는 문제)을 없앤다.
   assert.match(source, /const devBypass = devRaw && \(await fetchAppConfig\(\)\.then\(\(cfg\) => cfg\.isDev\)\.catch\(\(\) => false\)\);/);
-  assert.match(source, /const outOfArea = !devBypass && !inServiceArea\(from\.lat, from\.lng\);/);
+  // 2026-08-13 정책 개정(D-2): 권역 밖은 중심가 폴백이 아니라 **차단**이다. devBypass 가
+  // 건너뛰는 대상도 폴백이 아니라 게이트(requireServiceLocation)로 바뀌었다.
+  // 이중 게이트는 그대로 — devBypass 가 아니면 무조건 게이트를 탄다.
+  assert.match(source, /if \(devBypass\) \{/);
+  assert.match(source, /const gate = await requireServiceLocation\(\);/);
+  // 폴백 좌표는 이 화면의 **코드**에서 완전히 사라져야 한다(정책안 §3-C 불변식 1) —
+  // origin 과 dotPos 의 출처가 갈리면 카메라 튐(결함 #1)이 재발한다.
+  // (주석의 회귀 설명은 남겨둔다 — 왜 제거했는지가 다음 세션에 필요한 정보다.)
+  const code = source
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*(?:\/\/|\*|\/\*)/.test(line))
+    .join('\n');
+  assert.doesNotMatch(code, /BEN_THANH_FALLBACK/, 'RideNav must not use the browse-mode fallback coordinate');
+  assert.doesNotMatch(code, /from '@\/lib\/mapDefaults'/, 'RideNav must not import the browse-mode fallback');
 });
 
 test('RideNav.tsx: devBypass 는 벤탄 폴백만 건너뛴다 — 합성 경로 없이 항상 routeApi.getRoute() 를 호출한다', () => {
@@ -41,15 +54,15 @@ test('RideNav.tsx: devBypass 는 벤탄 폴백만 건너뛴다 — 합성 경로
   assert.doesNotMatch(source, /encodePolyline/);
 });
 
-test('RideNav.tsx: is_dev 확정 전에 fetchRoute 가 폴백을 실행하지 않는다 (경합 회귀 방지)', () => {
+test('RideNav.tsx: is_dev 확정 전에 fetchRoute 가 위치 게이트를 실행하지 않는다 (경합 회귀 방지)', () => {
   const source = read('RideNav.tsx');
 
-  // devBypass 를 계산하는 await 가 outOfArea 판정보다 먼저(코드 순서상 앞에) 와야 한다 —
+  // devBypass 를 계산하는 await 가 게이트 호출보다 먼저(코드 순서상 앞에) 와야 한다 —
   // 그래야 fetchRoute 진입 직후 곧바로 판정하던 과거의 경합이 재발하지 않는다.
   const devBypassIdx = source.indexOf('const devBypass = devRaw &&');
-  const outOfAreaIdx = source.indexOf('const outOfArea = !devBypass');
-  assert.ok(devBypassIdx > -1 && outOfAreaIdx > -1, 'expected both devBypass and outOfArea assignments');
-  assert.ok(devBypassIdx < outOfAreaIdx, 'devBypass must be resolved before the outOfArea fallback check');
+  const gateIdx = source.indexOf('const gate = await requireServiceLocation();');
+  assert.ok(devBypassIdx > -1 && gateIdx > -1, 'expected both devBypass and the location gate call');
+  assert.ok(devBypassIdx < gateIdx, 'devBypass must be resolved before the location gate runs');
 });
 
 test('polyline.ts: encodePolyline() 은 합성 전용이었으므로 제거됐다 (다른 사용처 없음)', () => {

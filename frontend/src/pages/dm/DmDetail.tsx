@@ -7,6 +7,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import { api } from '@/api/client';
 import { MOCK_STICKERS, findSticker } from './mockStickers';
 import { type PickedLocation } from '../market/LocationPickerSheet';
@@ -51,6 +52,8 @@ export default function DmDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { conversationId } = useParams<{ conversationId: string }>();
+  // 길안내 버튼 제어용 — 스토어가 이미 끝낸 측위 결과를 읽기만 한다(새로 측정하지 않는다).
+  const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
   const locationState = useLocation().state as { conv?: DmConversation } | null;
   const user = useUserStore((s) => s.user);
   const refreshUnread = useDmStore((s) => s.refreshUnread);
@@ -370,8 +373,16 @@ export default function DmDetail() {
     }
   };
 
-  // 약속 길안내: 항상 RideNav 진입(위치 판정으로 막지 않음). HCMC 밖이면 RideNav가 내부에서 구글맵 전환.
+  // 약속 길안내. **버튼 자체를 제어한다** — 대표 지시 2026-08-13 11:44 ("화면 데이터 로딩될 때
+  // 백으로 측정해서 버튼을 제어해야지"). 종전 주석("항상 진입, HCMC 밖이면 RideNav 가 구글맵
+  // 전환")은 현행과 맞지 않았다: RideNav 는 구글맵으로 자동 전환하지 않는다.
   const handleNavigate = (lat: number, lng: number) => {
+    // disabled 로 두면 조용히 아무 일도 안 일어나 오류로 보인다(대표 지적 2026-08-13) —
+    // aria-disabled 로 잠근 티만 내고 탭은 받아 사유를 알린다. 토스트는 기존 것 재사용.
+    if (!routeAvailable) {
+      toast.neutral(routeGateReason ? t(`locationGate.${routeGateReason}.title`) : t('locationGate.checking', '위치를 확인하고 있어요'));
+      return;
+    }
     navigate(`/ride-nav?type=nav&lat=${lat}&lng=${lng}`);
   };
 
@@ -555,6 +566,7 @@ export default function DmDetail() {
                     )}
                     {showNav && (
                       <button className={styles.apptBtnGhost} type="button"
+                        aria-disabled={!routeAvailable}
                         onClick={() => handleNavigate(lat!, lng!)}>
                         {t('dm.navigate', { defaultValue: '길안내' })}
                       </button>

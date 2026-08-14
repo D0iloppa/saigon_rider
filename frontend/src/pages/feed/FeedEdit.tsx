@@ -12,6 +12,7 @@ import { useConfirmStore } from '@/store/useConfirmStore';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { native } from '@/lib/native';
+import { requireServiceLocation } from '@/lib/serviceLocation';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import styles from './FeedCreate.module.css';
 
@@ -167,13 +168,16 @@ export default function FeedEdit() {
       setLocation(null);
       return;
     }
-    try {
-      await native.ensureLocationPermission();
-      const pos = await native.getLocation();
-      setLocation({ lat: pos.lat, lng: pos.lng });
-    } catch {
-      toast.error(t('feedCreate.locationError'));
+    // 위치 태그는 게시글에 함께 저장되는 **기록형** — 권역 밖/부정확 좌표는 태그하지 않는다
+    // (260813 정책안 §1). 중심가 폴백을 붙이면 사용자가 있지도 않은 곳이 게시글에 남는다.
+    const gate = await requireServiceLocation();
+    if (!gate.ok) {
+      // 서비스 지역/측위 상태 안내는 오류가 아니라 상태다 — 톤은 neutral 로 통일한다
+      // (대표 결정 2026-08-13). 경로 차단 토스트와 같은 톤이어야 한 화면에서 갈리지 않는다.
+      toast.neutral(t(`locationGate.${gate.reason}.title`));
+      return;
     }
+    setLocation(gate.coords);
   };
 
   const removeSlot = (idx: number) => {

@@ -1,0 +1,40 @@
+/* 실행형 기능(경로안내 등) 불가 사유를 화면 안에서 한 줄로 알리는 인라인 배너.
+ * 전체화면 차단으로 화면을 갈아치우지 않는다 — 대표 지시 2026-08-13 11:38. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 16px 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2, #FAF7F2);
+  color: var(--text-2, #5B6072);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-3, #8A8E9E);
+}
+
+.body { min-width: 0; }
+.title { font-weight: 700; color: var(--text, #1A1D2A); }
+.desc { margin-top: 2px; }
+
+.action {
+  flex-shrink: 0;
+  margin-left: auto;
+  align-self: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--brand-200, #FFD9C7);
+  border-radius: var(--r-pill, 999px);
+  background: var(--brand-50, #FFF3EC);
+  color: var(--brand-700, #C2410C);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.action:active { opacity: .75; }

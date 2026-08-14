@@ -30,11 +30,14 @@ test('classifyLocationError maps resolveOrigin/getCurrentPosition failures to 3 
   assert.equal(classifyLocationError(null), 'unavailable');
 });
 
-test('RideNav.tsx implements classifyLocationError with the same mapping and logs the reason (never coordinates)', () => {
-  const source = read('RideNav.tsx');
+// 2026-08-13 정책 개정: 이 분류기는 RideNav 지역 함수에서 serviceLocation.ts 로 승격됐다 —
+// 실행형·기록형 화면(경로안내·퀘스트·제보·피드 위치)이 같은 사유 체계를 공유해야 하고,
+// 화면마다 재구현하면 문구·행동 지침이 다시 갈린다(정책안 §3-B).
+test('serviceLocation.ts implements classifyLocationError with the same mapping', () => {
+  const source = read(join('..', '..', 'lib', 'serviceLocation.ts'));
 
-  const fnStart = source.indexOf('function classifyLocationError(e: unknown): LocationErrorReason {');
-  assert.ok(fnStart >= 0, 'classifyLocationError function not found in RideNav.tsx');
+  const fnStart = source.indexOf('export function classifyLocationError(');
+  assert.ok(fnStart >= 0, 'classifyLocationError must live in serviceLocation.ts (shared by all gated screens)');
   const fnEnd = source.indexOf('\n}', fnStart);
   const fn = source.slice(fnStart, fnEnd);
 
@@ -42,24 +45,41 @@ test('RideNav.tsx implements classifyLocationError with the same mapping and log
   assert.match(fn, /code === 1\) return 'permission'/);
   assert.match(fn, /code === 3\) return 'timeout'/);
 
-  // fetchRoute 의 catch 가 classifyLocationError 를 쓰고, 로그에 좌표(lat/lng)를 남기지 않는다.
-  const catchStart = source.indexOf('} catch (e) {\n      const reason = classifyLocationError(e);');
-  assert.ok(catchStart >= 0, 'fetchRoute catch must classify the error via classifyLocationError');
-  const catchBlock = source.slice(catchStart, catchStart + 300);
-  assert.match(catchBlock, /console\.warn\('\[rideNav\] resolveOrigin failed:', reason\)/);
-  assert.doesNotMatch(catchBlock, /\.lat|\.lng/, 'error log must not include coordinate fields');
+  // 화면들은 자체 재구현 없이 이 함수(또는 이를 쓰는 requireServiceLocation)를 경유해야 한다.
+  const rideNav = read('RideNav.tsx');
+  assert.doesNotMatch(rideNav, /function classifyLocationError/, 'RideNav must not re-implement the classifier');
 });
 
-test('locationErrorPermission/Timeout/Unavailable are localized in ko/en/vi (not placeholder-only), and no orphan generic key remains', () => {
+test('RideNav.tsx logs only the blocked reason, never coordinates', () => {
+  const source = read('RideNav.tsx');
+
+  const logIdx = source.indexOf("console.warn('[rideNav] location gate blocked:', gate.reason)");
+  assert.ok(logIdx >= 0, 'fetchRoute must log the gate reason when blocked');
+  // 로그 주변에 좌표 필드가 섞이지 않는다(개인정보).
+  const block = source.slice(logIdx - 120, logIdx + 200);
+  assert.doesNotMatch(block, /\.lat|\.lng/, 'error log must not include coordinate fields');
+});
+
+test('locationGate reasons are localized in ko/en/vi (not placeholder-only), and superseded rideNav keys are removed', () => {
   for (const lang of ['ko', 'en', 'vi']) {
     const json = JSON.parse(read(`../../locales/${lang}/translation.json`));
-    for (const key of ['locationErrorPermission', 'locationErrorTimeout', 'locationErrorUnavailable']) {
-      assert.ok(
-        typeof json.rideNav?.[key] === 'string' && json.rideNav[key].length > 0,
-        `${lang}: rideNav.${key} must be a real localized string`,
-      );
+    for (const reason of ['outside_area', 'permission', 'timeout', 'unavailable', 'inaccurate']) {
+      for (const field of ['title', 'desc']) {
+        const value = json.locationGate?.[reason]?.[field];
+        assert.ok(
+          typeof value === 'string' && value.length > 0,
+          `${lang}: locationGate.${reason}.${field} must be a real localized string`,
+        );
+      }
     }
-    // 세 사유별 키로 대체되며 옛 generic 키(rideNav.locationError)는 더 이상 쓰이지 않는다 — 고아 방지.
-    assert.equal(json.rideNav?.locationError, undefined, `${lang}: rideNav.locationError should be removed (superseded by reason-specific keys)`);
+    for (const key of ['retry', 'openSettings']) {
+      assert.ok(typeof json.locationGate?.[key] === 'string' && json.locationGate[key].length > 0,
+        `${lang}: locationGate.${key} must be a real localized string`);
+    }
+    // 옛 키들은 게이트 문구로 대체됐다 — 고아 방지(generic 키 locationError 포함).
+    for (const key of ['locationError', 'locationErrorPermission', 'locationErrorTimeout', 'locationErrorUnavailable']) {
+      assert.equal(json.rideNav?.[key], undefined,
+        `${lang}: rideNav.${key} should be removed (superseded by locationGate.*)`);
+    }
   }
 });

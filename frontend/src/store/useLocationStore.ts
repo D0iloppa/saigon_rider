@@ -4,6 +4,7 @@ import i18n from '@/lib/i18n';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
+import type { LocationGateReason } from '@/lib/serviceLocation';
 import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { useConfirmStore } from '@/store/useConfirmStore';
@@ -50,6 +51,24 @@ interface LocationState {
   wardName: string | null;
   /** coords 의 출처. mode==='all' 이면 null. */
   coordsSource: CoordsSource | null;
+  /**
+   * persist 안 됨 — 이번 세션 측위 결과가 **실행형·기록형 기능을 쓸 수 없는 상태**인 사유.
+   * 성공(권역 안 실측)이면 null.
+   *
+   * 대표 지시 2026-08-13 11:44 ("사용자가 버튼을 누른 후 가능한지 측정을 해야 하니? / 화면
+   * 데이터 로딩될 때 백으로 측정해서 **버튼을 제어**해야지"). 측위는 이미 화면 로딩 시
+   * ensureLocation() 이 세션당 1회 하고 있었는데, **사유를 기억하지 않아** 진입점이 버튼을
+   * 제어할 수 없었다. 그래서 사용자가 경로 버튼을 누른 뒤에야 막히는 UX 가 나왔다.
+   * 소비는 `hooks/useServiceAvailability.ts`.
+   */
+  gateReason: LocationGateReason | null;
+  /**
+   * persist 안 됨 — coords 의 측위 정확도(m). 실행형 게이트가 예측 판정에 쓴다.
+   * 이게 없으면 스토어는 정확도를 안 보고 `coordsSource:'device'` 로 두는데
+   * `requireServiceLocation()` 은 정확도로 거절하므로, 버튼은 열려 있고 탭하면 막히는
+   * 불일치가 생긴다(코드리뷰 지적 2026-08-13).
+   */
+  coordsAccuracyM: number | null;
   /** persist 됨 — 'declined' 면 프리프롬프트를 다시 띄우지 않는다. */
   permissionIntent: PermissionIntent;
   /**
@@ -165,6 +184,8 @@ export const useLocationStore = create<LocationState>()(
       coords: null,
       wardName: null,
       coordsSource: null,
+      gateReason: null,
+      coordsAccuracyM: null,
       permissionIntent: 'undecided',
       pinnedAll: false,
       resolving: false,
@@ -176,6 +197,13 @@ export const useLocationStore = create<LocationState>()(
         // 사용자가 명시적으로 '전체 지역'을 고른 상태면 측위 자체를 시도하지 않는다.
         // (권한 거부로 'all' 이 된 경우도 재시도하지 않는다 — 매 화면 권한창이 뜬다.)
         if (state.mode === 'all' && (state.pinnedAll || state.permissionIntent === 'declined')) {
+          // **사유를 반드시 남긴다.** gateReason 은 persist 되지 않으므로, 앱을 다시 켜서 이
+          // 분기로 빠지면 (coordsSource:null, gateReason:null, resolving:false) 상태가 되고
+          // useServiceAvailability 가 영구히 checking 을 반환한다 → 게이트된 버튼이 설명도
+          // 없이 죽는다(코드리뷰 지적 2026-08-13, HIGH). 사유는 원인별로 구분한다.
+          if (!state.gateReason) {
+            set({ gateReason: state.pinnedAll ? 'scope_all' : 'permission' });
+          }
           return Promise.resolve();
         }
         if (inflight) return inflight;
@@ -185,7 +213,7 @@ export const useLocationStore = create<LocationState>()(
           .then((allowed) => {
             if (!allowed) {
               // 프리프롬프트에서 "나중에" — 시스템 권한창을 띄우지 않고 전체 지역으로 간다.
-              set({ mode: 'all', coords: null, wardName: null, coordsSource: null, permissionIntent: 'declined' });
+              set({ mode: 'all', coords: null, wardName: null, coordsSource: null, gateReason: 'permission', coordsAccuracyM: null, permissionIntent: 'declined' });
               return null;
             }
             return native.ensureLocationPermission().then(() => native.getLocation());
@@ -202,6 +230,8 @@ export const useLocationStore = create<LocationState>()(
                 mode: 'gps',
                 coords: { ...BEN_THANH_FALLBACK },
                 coordsSource: 'fallback',
+                gateReason: 'outside_area',
+                coordsAccuracyM: null,
                 // 폴백 좌표도 실재하는 동(Bến Thành)이므로 그 동 이름을 그대로 쓴다 —
                 // "호치민 중심가" 같은 총칭보다 사용자가 위치를 가늠하기 쉽다(대표 지적
                 // 2026-08-06). "서비스 지역 밖" 이라는 사실은 아래 토스트가 알린다.
@@ -217,6 +247,8 @@ export const useLocationStore = create<LocationState>()(
               mode: 'gps',
               coords: { lat: pos.lat, lng: pos.lng },
               coordsSource: 'device',
+              gateReason: null,
+              coordsAccuracyM: pos.accuracy ?? null,
               // 라벨은 여기서 한 번에 정한다 — 화면마다 각자 해석하면 홈만 동네명이 뜨고
               // 마켓·동네지도는 '내 현재 위치' 폴백이 뜨는 비대칭이 생긴다(2026-08-06 발견).
               // 오프라인 폴리곤이라 API 호출이 없다. 37개 동 밖이면 null(라벨 없음).
@@ -228,7 +260,8 @@ export const useLocationStore = create<LocationState>()(
             // 측위 실패 — 어디 있는지 모르므로 전체 지역 외에 줄 수 있는 게 없다.
             // (권역밖과 달리 중심가로 보내면 "왜 여기냐"는 근거가 없다.)
             const code = (err as { code?: number } | null)?.code;
-            set({ mode: 'all', coords: null, wardName: null, coordsSource: null });
+            const reason: LocationGateReason = code === 1 ? 'permission' : code === 3 ? 'timeout' : 'unavailable';
+            set({ mode: 'all', coords: null, wardName: null, coordsSource: null, gateReason: reason, coordsAccuracyM: null });
             if (code === 1) {
               set({ permissionIntent: 'declined' });
               notifyFallback('map.listFirst.nearMeDenied', '위치 권한이 없어 전체 지역을 보여드려요');
@@ -249,14 +282,14 @@ export const useLocationStore = create<LocationState>()(
       setMode: (mode) => {
         if (mode === 'all') {
           // pinnedAll: 이 선택이 다음 화면 진입의 자동 측위로 뒤집히지 않게 고정한다.
-          set({ mode: 'all', coords: null, wardName: null, coordsSource: null, pinnedAll: true });
+          set({ mode: 'all', coords: null, wardName: null, coordsSource: null, gateReason: 'scope_all', coordsAccuracyM: null, pinnedAll: true });
           if (watchStop) watchStop(); // 'all' 에서는 추종할 이유가 없다
           return Promise.resolve();
         }
         // 'gps' 재선택은 사용자의 명시적 의사 — 이전에 거부했더라도 다시 시도한다.
         // wardName 도 비운다 — 남겨두면 측위 완료 전까지 이전 라벨(예: 'all' 때 홈이 채운
         // Bến Thành)이 "내 현재 위치"인 양 보인다.
-        set({ mode: 'gps', permissionIntent: 'undecided', pinnedAll: false, wardName: null, coordsSource: null });
+        set({ mode: 'gps', permissionIntent: 'undecided', pinnedAll: false, wardName: null, coordsSource: null, gateReason: null, coordsAccuracyM: null });
         shownFallbackKeys.clear();
         return get().ensureLocation();
       },
@@ -269,13 +302,22 @@ export const useLocationStore = create<LocationState>()(
         const stop = native.watchLocation((pos) => {
           const prev = get();
           if (prev.mode !== 'gps') return;
-          if (!inServiceArea(pos.lat, pos.lng)) return; // 권역 밖 이동은 무시(마지막 유효 위치 유지)
+          if (!inServiceArea(pos.lat, pos.lng)) {
+            // 좌표는 마지막 유효 위치를 유지하되(탐색형 목록이 비지 않게), **실행형 게이트는
+            // 잠근다** — 그러지 않으면 권역을 벗어나 주행하는 동안 경로 버튼이 열린 채로
+            // 남아 탭하는 순간에야 막힌다(코드리뷰 지적 2026-08-13).
+            if (get().gateReason !== 'outside_area') set({ gateReason: 'outside_area' });
+            return;
+          }
           // **거리 게이트** — GPS 는 가만히 있어도 몇 m 씩 흔들린다. 그대로 반영하면 목록·지도
           // 조회가 초당 몇 번씩 재발화한다. WATCH_MIN_MOVE_M 이상 움직였을 때만 갱신한다.
           if (prev.coords && distanceM(prev.coords, pos) < WATCH_MIN_MOVE_M) return;
           set({
             coords: { lat: pos.lat, lng: pos.lng },
             coordsSource: 'device',
+            coordsAccuracyM: pos.accuracy ?? null,
+            // 권역 안으로 돌아왔으면 잠금을 푼다.
+            gateReason: null,
             wardName: wardRegionAt(pos.lat, pos.lng)?.name ?? null,
           });
         });
@@ -290,7 +332,7 @@ export const useLocationStore = create<LocationState>()(
         if (watchStop) watchStop();
         inflight = null;
         shownFallbackKeys.clear();
-        set({ mode: 'gps', coords: null, wardName: null, coordsSource: null, permissionIntent: 'undecided', pinnedAll: false });
+        set({ mode: 'gps', coords: null, wardName: null, coordsSource: null, gateReason: null, coordsAccuracyM: null, permissionIntent: 'undecided', pinnedAll: false });
       },
     }),
     {

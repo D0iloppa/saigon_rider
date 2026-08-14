@@ -9,6 +9,9 @@ interface Props {
   desc?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** 보조 액션(선택) — 주 액션 아래에 한 줄로. 위치 게이트의 '설정 열기'·'Google 지도' 용. */
+  secondaryLabel?: React.ReactNode;
+  onSecondary?: () => void;
 }
 
 /**
@@ -17,7 +20,9 @@ interface Props {
  * - 오류(tone="error")에는 반드시 actionLabel/onAction 으로 재시도를 제공한다.
  * - 아이콘은 lucide 만 — 이모지 금지.
  */
-export default function StateBlock({ icon: Icon, tone = 'neutral', title, desc, actionLabel, onAction }: Props) {
+export default function StateBlock({
+  icon: Icon, tone = 'neutral', title, desc, actionLabel, onAction, secondaryLabel, onSecondary,
+}: Props) {
   const toneClass = tone === 'safe' ? styles.stateIconSafe : tone === 'error' ? styles.stateIconError : '';
   return (
     <div className={styles.stateWrap}>
@@ -29,6 +34,11 @@ export default function StateBlock({ icon: Icon, tone = 'neutral', title, desc, 
       {actionLabel && onAction && (
         <button type="button" className={styles.stateBtn} onClick={onAction}>
           {actionLabel}
+        </button>
+      )}
+      {secondaryLabel && onSecondary && (
+        <button type="button" className={styles.stateBtnGhost} onClick={onSecondary}>
+          {secondaryLabel}
         </button>
       )}
     </div>

@@ -34,7 +34,15 @@ export default function Splash() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(consumeReturnTo() ?? '/market', { replace: true });
+      // **로그인 사용자 = 홈 / 비로그인 둘러보기 = 마켓** (대표 결정 2026-08-13).
+      // 홈에 유가·날씨·침수·주유소·정비소 진입점이 걸려 있어 로그인 사용자에게는 홈이 맞고,
+      // 마켓 우선은 아직 로그인하지 않은 사람에게 가치를 먼저 보여주는 목적이었다 — 두 목적을
+      // 사용자 상태로 분리했다. 게스트 CTA 는 아래 splash.startBtn(→ /market).
+      //
+      // ⚠️ 로그인 후 목적지는 이 파일 말고도 OAuthLogin·OAuthResult·ProfileSetup 에 있다(총 8곳).
+      // 한 곳만 바꾸면 경로별로 갈린다 — 계약 테스트 `pages/market/marketFirstValue.contract.test.mjs`
+      // 가 4파일 전부를 검사한다.
+      navigate(consumeReturnTo() ?? '/home', { replace: true });
       return;
     }
     if (sessionStorage.getItem('session_expired')) {

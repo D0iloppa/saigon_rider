@@ -4,36 +4,80 @@
 
 ## 1. 기본 작업 워크플로우 (모든 구현 작업에 자동 적용)
 
-별도 지시가 없더라도 구현 작업을 받으면 **항상** 아래 순서를 따른다. 상세 API·도구 사용법은 [§6 __DEV Context](#6-__dev-context-진행-상태-관리) 및 [`workflow/dev-context-management.md`](workflow/dev-context-management.md) 참조.
+별도 지시가 없더라도 구현 작업을 받으면 **항상** 아래 순서를 따른다. 착수·오케스트레이션은 **`/doil-supervise`** 로 수행한다(감독은 이해·라우팅·리뷰·종합만 하고 구현은 서브에이전트에 위임).
 
 ### A. 착수 — 태스크 등록
 
-1. **Feature 등록/확인** — 해당 기능이 `__DEV_features`에 없으면 등록, 있으면 `IN_PROGRESS`로 전환. Plane에 해당 label이 없으면 **label을 먼저 생성**한 뒤 Feature에 연결한다.
+1. **Feature 등록/확인 (Plane)** — 해당 기능이 없으면 등록, 있으면 `IN_PROGRESS`로 전환. Plane에 해당 label이 없으면 **label을 먼저 생성**한 뒤 Feature에 연결한다. 접근 방법은 [§6 Plane 접근 — REST API](#plane-접근--rest-api-직접-호출-mcp-아님) (**MCP 아님 — `curl` 직접 호출**).
 2. **태스크 문서 생성** — `ai-docs/task/active/${YYMMDD}_${title}_task.md`에 상세 문서(목적·Phase·서브태스크 목록·제약사항) 작성. 이 md 파일이 **SoT**.
-3. **Notion 미러 페이지 생성** — md 내용을 Notion `Task > Active` 하위에 페이지로 생성. 생성된 **Notion URL을 기록**한다.
-4. **서브 Todo 등록 (Plane)** — 서브태스크를 Plane에 각각 등록. 서브태스크는 검증 가능한 단위로 나눈다. **각 이슈의 description에 Notion 태스크 문서 링크를 삽입**한다 (상세 내용은 Notion에서 열람).
+3. **서브 Todo 등록 (Plane)** — 서브태스크를 Plane에 각각 등록. 서브태스크는 검증 가능한 단위로 나눈다.
    - 예: `[P1-1] CSS 재작성` → `[P1-2] TSX 재작성` → `[P1-3] i18n 적용` → `[P1-4] 빌드 검증`
-   - Plane 이슈 description: `상세: <Notion URL> | SoT: ai-docs/task/active/…`
-5. **Feature에도 Notion 링크** — Feature 이슈의 description에도 동일한 Notion 링크 + md SoT 경로를 기재한다.
-6. **Context 갱신** — `current_focus`를 🔧 상태로 갱신.
+   - **이슈 description 에는 md SoT 경로를 직접 기재한다** — `SoT: ai-docs/task/active/…`. (종전엔 Notion URL 을 넣었으나 Notion 미러는 폐기됐다 — [§3-B](#3-b-notion-미러--폐기-2026-08-13))
+   - Feature 이슈 description 에도 동일한 md SoT 경로를 기재한다.
+4. **티켓 발행 (`doil-context` MCP)** — 메인 티켓 1개 + 서브 티켓(Phase 단위) N개. `/doil-supervise` 가 라우팅·이어받기에 쓴다. 상세 사용법은 [§1-D](#d-티켓-발행-doil-context).
+5. **Context 갱신** — `current_focus`를 🔧 상태로 갱신.
+6. **`current.md` 활성 태스크 라인 추가** — 근본 원인·P0 항목·미결 결정을 한 항목으로 요약([§2](#2-파일-작성-위치-sot-매핑) SoT 매핑).
 
-> **3개 시스템의 역할 분담**: md 파일 = SoT (상세 내용), Notion = 팀 열람용 미러 (클릭 가능 링크), Plane = 진행 상태 추적 (상태·우선순위). Plane에는 상세 내용을 쓰지 않고 Notion 링크로 대체한다.
+> **역할 분담**
+>
+> | 시스템 | 역할 | 누가 보나 |
+> |---|---|---|
+> | `ai-docs/task/active/*.md` | **SoT** — 상세 내용·검증 기준·제약 | AI 세션·개발자 |
+> | Plane Issues | **진행 상태 추적** — Feature/Todo 상태·우선순위 | 팀·외부(위키·어드민) |
+> | `doil-context` 티켓 | **라우팅 계획 + 세션 간 이어받기** — 모델 배분·가정·의존관계 | `/doil-supervise` |
+> | `current.md` | 맥락적 판단·외부 의존·대기 항목 | 다음 세션 |
+>
+> Plane 과 `doil-context` 는 **겹치지 않는다** — Plane 은 *무엇이 어느 단계인가*(사람이 보는 상태판), `doil-context` 는 *어떻게 실행할 것인가*(감독이 쓰는 실행 계획)다. 어느 쪽에도 상세 내용을 쓰지 않고 md SoT 경로를 가리킨다.
+>
+> **Notion 미러만 폐기됐다**(2026-08-13, [§3-B](#3-b-notion-미러--폐기-2026-08-13)).
 
 ### B. 진행 — 단계별 실행
 
-1. 서브태스크를 순서대로 진행하며, 착수 시 해당 서브 Todo를 `IN_PROGRESS`로 전환.
-2. 서브태스크 완료 시 `DONE`으로 전환.
-3. 작업 중 추가 서브태스크가 발생하면 즉시 등록.
+1. 서브태스크를 순서대로 진행하며, 착수 시 해당 **서브 Todo(Plane)를 `IN_PROGRESS`** 로, **서브 티켓(`doil-context`)의 `context.status`** 도 함께 전환.
+2. 서브태스크 완료 시 양쪽 모두 `DONE` 으로 전환하고, 검증 결과(테스트 PASS·커밋 해시 등)를 티켓 `context` 에 기록.
+3. 작업 중 추가 서브태스크가 발생하면 즉시 등록(Plane Todo + 서브 티켓).
 
 ### C. 완료 — 갱신 + 리빌드
 
-1. 모든 서브 Todo `DONE` 확인.
-2. 메인 Todo → `DONE`.
+1. 모든 서브 Todo·서브 티켓 `DONE` 확인.
+2. 메인 Todo·메인 티켓 → `DONE`.
 3. Feature → `DONE` (해당 Feature의 모든 작업이 완료된 경우).
 4. `current_focus` status를 ✅로 전환.
 5. **리빌드** — 프론트/백엔드 변경분에 따라 컨테이너 재빌드.
 6. **`__DEV Context` + `current.md` 현행화 (필수, 생략 금지)** — 이 두 가지는 독립적인 갱신 대상이다. DB(`__DEV_features`/`__DEV_todos`/`__DEV_context`)는 추적 SoT, `current.md`는 DB에 담기 어려운 맥락(외부 의존·결정사항·대기 항목)을 기록한다. 어느 한쪽만 갱신하고 다른 쪽을 빠뜨리면 다음 세션이 불완전한 상태로 시작된다. DONE 항목은 `current.md`에 남기지 않고 `history.md`로 이관한다.
 7. **명세 반영** — 구현 완료된 기능은 `/README.md`(사용자 시점)와 `ai-docs/spec/overview.md`(명세 시점)에 반영.
+8. **완료 태스크 문서 이관** — `ai-docs/task/active/` → `ai-docs/task/${YYMMDD}/` + `task/archive.md` 색인([§2](#2-파일-작성-위치-sot-매핑)).
+
+### D. 티켓 발행 (`doil-context`)
+
+`/doil-supervise` 가 세션 간 이어받기·워커 라우팅에 쓰는 티켓 저장소다. **모든 `*_put`/`*_get` 호출에 `workspace: /mnt/c/DEV/saigon_rider` 를 넘긴다** (workspace 가 티켓 격리 단위).
+
+| MCP 도구 | 용도 |
+|---|---|
+| `task_context_put` | 메인 티켓(`sub_id` 생략) 또는 서브 티켓(`sub_id` 지정) upsert |
+| `task_context_get` | 티켓 하나 조회 |
+| `task_context_find_recent` | 최근 메인 티켓 목록 — **이어받을 대상을 찾을 때** |
+| `task_context_find_subs` | 특정 메인 티켓의 서브 티켓 전체 |
+| `task_context_export_md` | 티켓을 md 로 내보내기 (핸드오프·보고용) |
+| `task_context_del` / `task_context_vacuum` | 삭제 / 오래된 티켓 정리 |
+
+**slug 규약** — `task_id` 는 `${YYYY-MM-DD}-${kebab-slug}` (예: `2026-08-13-location-gate`), `sub_id` 는 Phase 식별자 (예: `p1-gate`, `p2-report`). 태스크 md 파일명과 대응시켜 추적한다.
+
+**메인 티켓 `context` 에 담을 것** (자유 형식 JSON이지만 아래는 관례):
+
+| 키 | 내용 |
+|---|---|
+| `status` | `READY_TO_START` / `IN_PROGRESS` / `BLOCKED` / `DONE` |
+| `sot` | 태스크 md 경로 — **상세는 티켓에 쓰지 않고 md 를 가리킨다** |
+| `goal` | 검증 가능한 목표 1~2줄 (카파시 #4) |
+| `assumptions` | 명시한 가정 (카파시 #1) |
+| `decisions` / `open_decisions` | 확정된 결정 / 승인 대기 결정 |
+| `routing_plan` | Phase → 모델(Fable/Sonnet/Haiku) + **근거** (CLAUDE.md §5) |
+| `constraints` | 어기면 회귀가 나는 제약 |
+
+**서브 티켓 `context` 에 담을 것**: `status`, `model` + `model_rationale`, `subtasks`(검증 가능한 단위), `verify`(검증 방법), `depends_on`, 필요 시 `caution`(머니 경로·기존 불변식 등).
+
+**세션 이어받기** — 새 스레드에서 진행 중 작업을 이어받을 때는 `task_context_find_recent` 로 대상을 찾고, `sot` 가 가리키는 md 를 읽어 맥락을 복원한다. 티켓에는 상태·라우팅만, 상세는 md 에 있다.
 
 ### 자주 쓰는 빌드 명령
 
@@ -66,24 +110,14 @@ docker compose --env-file .env up --build -d frontend   # 프론트 재배포
 
 `ai-docs/` 는 표준 정책상 로컬 전용 디렉터리지만, 본 프로젝트는 **private repo 운영 중이라 git 추적을 의도적으로 허용**한다. 환경 마이그레이션 시 컨텍스트가 함께 이동하는 이점을 위해 유지하는 예외이므로, "추적되지 말아야 한다"는 지적·정리를 시도하지 않는다.
 
-### 3-B. Notion 동기화
+### 3-B. Notion 미러 — 폐기 (2026-08-13)
 
-`ai-docs/` 의 마크다운 문서는 **Notion 워크스페이스**에도 동일한 계층 구조로 관리된다.
+`ai-docs/` 를 Notion 워크스페이스에 미러링하던 규약은 **폐기됐다**. `ai-docs/*.md`(git)가 유일한 문서 SoT다.
 
-**Notion 루트 페이지**: [🏍️ Saigon Rider](https://www.notion.so/doiloppa/Saigon-Rider-36f3bd6b405d81d2b42ce4ba025da4e3)
-
-| 저장소 | 역할 | SoT 여부 |
-|---|---|---|
-| `ai-docs/*.md` (git) | 코드와 함께 버전 관리, AI 세션 시작 시 직접 로드 | **Primary SoT** |
-| Notion Pages | 팀 열람·검색·코멘트, 비개발자 접근 | 미러 (읽기 편의) |
-
-**규칙**
-
-1. **md 파일이 SoT** — 문서 수정은 항상 `ai-docs/*.md` 파일에서 먼저 한다. Notion은 미러이므로, Notion에서만 수정하고 md에 반영하지 않으면 다음 동기화 시 덮어쓰여질 수 있다.
-2. **신규 문서 작성 시** — md 파일 생성 후 Notion에도 해당 섹션 하위에 페이지를 추가한다. Notion MCP(`notion-create-pages`)로 자동화 가능.
-3. **Notion 계층 구조** — `ai-docs/` 디렉터리 구조를 그대로 따른다. 디렉터리 = Notion 부모 페이지, md 파일 = Notion 하위 페이지.
-4. **HTML 파일은 제외** — `v6_info/` 등의 HTML 화면 스펙은 Notion에 올리지 않는다. 마크다운만 동기화 대상.
-5. **Plane ↔ Notion 연계** — Plane 이슈(Feature/Todo)에는 상세 내용을 직접 쓰지 않는다. 대신 Notion 페이지 URL을 description에 삽입하여 **클릭 한 번으로 상세 문서에 접근**할 수 있게 한다. 이렇게 하면 Plane은 상태 추적, Notion은 내용 열람, md 파일은 SoT로 역할이 분명하게 분리된다.
+- **신규 문서를 Notion 에 만들지 않는다.** 손으로 동기화하는 비용이 팀 열람 편의보다 컸고, 미러가 밀리면 어느 쪽이 최신인지 모르는 상태가 됐다.
+- 대표·비개발자 열람용 산출물이 필요하면 **HTML/PDF 를 그때그때 만들어 전달한다**(`ai-docs/research/` 선례). 상시 동기화 대상을 만들지 않는다.
+- **Plane 이슈 description 에는 md SoT 경로를 직접 기재한다** — 종전엔 Notion URL 을 넣었다([§1-A](#a-착수--태스크-등록) 3번). Plane 은 그대로 쓴다(폐기된 것은 Notion 미러뿐).
+- **요청받았을 때만** Notion MCP(`notion-create-pages` 등)를 쓴다.
 
 ## 4. 보안 / 환경 변수
 
@@ -163,28 +197,60 @@ python3 -m ruff format backend/app/      # 포맷팅
 | Plane Issues (label 필터) | Feature 단위 — `PLANNED → IN_PROGRESS → DONE / DEFERRED` |
 | Plane Issues (priority 뷰) | Todo 단위 — `TODO → IN_PROGRESS → DONE / BLOCKED` |
 | DB `__DEV_features` / `__DEV_todos` | Plane 연동 실패 시 자동 폴백 |
+| `doil-context` 티켓 | 라우팅 계획·세션 간 이어받기 ([§1-D](#d-티켓-발행-doil-context)) — Plane 을 대체하지 않는다 |
 
-### Plane MCP 도구 (`doil-services`)
+### Plane 접근 — REST API 직접 호출 (MCP 아님)
 
-Plane CE 조회·갱신은 **`doil-services` MCP 서버**의 도구를 사용한다. BFF API(`/api/bff/dev/*`)를 경유하지 않고 Plane API를 직접 호출한다.
+**Plane MCP(`doil-services`)는 동작하지 않는다. `plane_*` MCP 도구를 찾지 말고 `curl` 로 REST API 를 직접 호출한다.** 인증 키는 `.env` 에 이미 등록돼 있다.
 
-| MCP 도구 | 용도 |
+| `.env` 키 | 값 / 용도 |
 |---|---|
-| `plane_list_workspaces` | 워크스페이스 목록 |
-| `plane_list_projects` | 프로젝트 목록 (`workspace` 파라미터 생략 시 기본 `doil`) |
-| `plane_list_states` | 프로젝트의 상태(State) 목록 — issue 상태 변경 시 `state` ID 필요 |
-| `plane_list_labels` | 프로젝트의 라벨 목록 |
-| `plane_list_issues` | 이슈 목록 조회 (state 필터 가능) |
-| `plane_create_issue` | 이슈 생성 |
-| `plane_update_issue` | 이슈 상태·우선순위·제목 변경 |
+| `PLANE_API_KEY` | `x-api-key` 헤더에 넣는 인증 키 (**등록 완료** — 값을 커밋·출력하지 않는다, [§4](#4-보안--환경-변수)) |
+| `PLANE_URL` | `https://plane.doil.me` |
+| `PLANE_WORKSPACE` | `doil` |
+| `PLANE_PROJECT_ID` | saigon_rider = `53da5691-c368-4d50-a843-43eb67ec7ab0` |
 
-**공통 파라미터:**
-- `workspace`: 기본값 `doil` (생략 가능)
-- `project`: **필수** — saigon_rider = `53da5691-c368-4d50-a843-43eb67ec7ab0`
+**API base**: `$PLANE_URL/api/v1/workspaces/$PLANE_WORKSPACE/`
 
-**상태 변경 시:** `plane_list_states`로 해당 프로젝트의 state ID를 먼저 조회한 뒤, `plane_update_issue`의 `state` 파라미터에 ID를 전달한다.
+```bash
+set -a; . ./.env; set +a          # 키를 셸에 로드 (에코 금지)
+PLANE_BASE="$PLANE_URL/api/v1/workspaces/$PLANE_WORKSPACE/projects/$PLANE_PROJECT_ID"
 
-**설정 위치:** MCP 서버 코드 `/mnt/c/DEV/docker/doil-sb/mcp/`, 설정 `config.yml`.
+# 이슈 목록
+curl -s -H "x-api-key: $PLANE_API_KEY" "$PLANE_BASE/issues/"
+
+# 이슈 생성 (Todo)
+curl -s -X POST "$PLANE_BASE/issues/" \
+  -H "x-api-key: $PLANE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"[P1] 게이트 신설","description_html":"<p>SoT: ai-docs/task/active/…</p>","priority":"high","state":"<STATE_ID>"}'
+
+# 상태 전환
+curl -s -X PATCH "$PLANE_BASE/issues/<ISSUE_ID>/" \
+  -H "x-api-key: $PLANE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"state":"<STATE_ID>"}'
+```
+
+| 엔드포인트 | 용도 |
+|---|---|
+| `GET/POST /issues/` | 이슈 목록 / 생성 |
+| `PATCH /issues/{id}/` | 상태·우선순위·제목 변경 |
+| `GET /states/` | State 목록 — 상태 전환 시 ID 필요 |
+| `GET /labels/` | 라벨 목록 (= Feature 카테고리) |
+
+**State ID (SGR 프로젝트)** — 매번 조회하지 않아도 되는 고정값:
+
+| 논리 상태 | Plane State | ID |
+|---|---|---|
+| `PLANNED` | Backlog | `449a54e9-ad3e-421f-a3e1-6e46fd5d59e7` |
+| `TODO` | Todo | `824cd235-9fa2-4807-be99-017ee6171b96` |
+| `IN_PROGRESS` | In Progress | `0d15841e-63b3-434f-b088-ba63ee9b1127` |
+| `DONE` | Done | `683135f5-6fb2-4996-8275-8bad611e12fa` |
+
+- **Feature 는 label 로 구분**된다 (auth, feed, home, infra, profile, quest, ride, settings 등). 없는 label 은 먼저 생성한다([§1-A](#a-착수--태스크-등록) 1번).
+- **Priority**: `urgent` / `high` / `medium` / `low` / `none`. Todo 는 `none` 이 아닌 값을 준다(§6 표의 priority 뷰 기준).
+- BFF(`/api/bff/dev/*`)를 경유하지 않고 Plane API 를 직접 호출한다.
+
+> **키가 없거나 API 가 응답하지 않으면** Plane 등록을 건너뛰고 `doil-context` 티켓 + 태스크 md 로만 진행한 뒤, **어느 티켓이 Plane 미등록인지 `current.md` 에 남긴다** — 나중에 소급 등록할 수 있게.
 
 ## 7. 컨텐츠 관리 (이미지 / 파일)
 

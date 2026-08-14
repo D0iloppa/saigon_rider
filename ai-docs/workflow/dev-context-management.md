@@ -1,5 +1,7 @@
 # 워크플로우 — __DEV Context 현행화
 
+> **⚠️ Notion 미러만 폐기됨 (2026-08-13)** — Plane 절차는 그대로 유효하다. 단 이슈 description 에 Notion URL 대신 **md SoT 경로**를 기재한다([`agent-guidelines.md` §3-B](../agent-guidelines.md#3-b-notion-미러--폐기-2026-08-13)). 라우팅·이어받기용 `doil-context` 티켓은 Plane 과 병행한다(같은 문서 §1-D).
+
 > **데이터 소스**: **Plane CE** (https://plane.doil.me) — Features/Todos는 Plane Issues로 관리  
 > **Context KV**: `__DEV_context` 테이블 (DB 유지)  
 > **관리 경로**: Admin Console `/admin/dev` 또는 API `/api/dev/*`  
@@ -67,15 +69,15 @@
 | `/api/dev/features` | GET / POST / PATCH / DELETE | Feature CRUD | Plane (폴백: DB) |
 | `/api/dev/todos` | GET / POST / PATCH / DELETE | Todo CRUD | Plane (폴백: DB) |
 
-### MCP (Claude Code — Plane MCP)
+### Claude Code 에서 Plane 접근 — REST API (MCP 아님)
 
-> Plane MCP 서버 (`.claude/settings.json`에 등록됨). Plane의 issue/state/label API를 직접 호출한다.
+> **Plane MCP 는 동작하지 않는다.** `curl` 로 REST API 를 직접 호출한다 — 인증 키는 `.env` `PLANE_API_KEY`(등록 완료). 호출 예시·State ID·엔드포인트 표는 [`agent-guidelines.md` §6](../agent-guidelines.md#plane-접근--rest-api-직접-호출-mcp-아님) 에 정리돼 있다.
 
-| 도구 | 용도 |
+| 경로 | 용도 |
 |---|---|
-| Plane MCP `list_issues` | Plane 이슈 목록 조회 (스레드 진입 시 첫 호출) |
-| Plane MCP `create_issue` | 이슈 생성 |
-| Plane MCP `update_issue` | 이슈 상태·속성 갱신 |
+| `GET $PLANE_BASE/issues/` | 이슈 목록 조회 (스레드 진입 시 첫 호출) |
+| `POST $PLANE_BASE/issues/` | 이슈 생성 |
+| `PATCH $PLANE_BASE/issues/{id}/` | 이슈 상태·속성 갱신 |
 | BFF API `/api/dev/context` | Context KV 조회·갱신 (DB) |
 
 ---
@@ -179,13 +181,13 @@ curl -X POST /api/dev/todos \
   -d '{"title": "AUTH: 닉네임 중복확인 API 연결", "priority": "HIGH"}'
 ```
 
-**Notion 링크 삽입** — 태스크 문서가 있는 경우, Plane 이슈 description에 Notion URL을 넣어 상세 문서로 연결한다. Plane API로 직접 패치:
+**SoT 경로 삽입** — 태스크 문서가 있는 경우, Plane 이슈 description에 md SoT 경로를 기재한다(2026-08-13 개정 — 종전 Notion URL 대체). Plane API로 직접 패치:
 ```bash
-# Plane 이슈의 description에 Notion 링크 삽입
+# Plane 이슈의 description에 md SoT 경로 삽입
 curl -X PATCH "$PLANE_BASE/issues/$ISSUE_UUID/" \
   -H "x-api-key: $PLANE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"description_html":"<p>상세: <a href=\"NOTION_URL\">Notion 태스크 문서</a> | SoT: ai-docs/task/active/…</p>"}'
+  -d '{"description_html":"<p>SoT: ai-docs/task/active/260813_location_gate_task.md</p>"}'
 ```
 
 ### 우선순위

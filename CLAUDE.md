@@ -99,7 +99,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 알고 싶은 것 | 어디에 |
 |---|---|
 | **재빌드 명령 (프론트/백)** | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1 C — `docker compose --env-file .env up --build -d <service>` (`npm run build` 직접 실행 금지) |
-| 기본 작업 워크플로우 (Feature/Todo 등록) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1 |
+| 기본 작업 워크플로우 (`/doil-supervise` 착수 + `doil-context` 티켓 발행) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §1 (티켓 규약은 §1-D) |
 | 파일 작성 위치 (SoT) | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §2 |
 | `.env` 보안 규약 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §4 |
 | 린터 규칙·명령 | [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §5 |

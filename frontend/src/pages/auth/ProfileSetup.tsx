@@ -99,9 +99,9 @@ export default function ProfileSetup() {
         ? (saved.rider_type.code?.toLowerCase() ?? 'commuter')
         : typeof saved.rider_type === 'string' ? saved.rider_type.toLowerCase() : 'commuter') as RiderStyle;
       setProfile(saved.nickname ?? keepNick, rtCode);
-      navigate(consumeReturnTo() ?? '/market');
+      navigate(consumeReturnTo() ?? '/home');
     } catch {
-      navigate(consumeReturnTo() ?? '/market');
+      navigate(consumeReturnTo() ?? '/home');
     } finally {
       setSkipping(false);
     }
@@ -136,7 +136,7 @@ export default function ProfileSetup() {
       if (consented.consent_agreed_at) markConsentAgreed(consented.consent_agreed_at);
       await apiSaveProfileSetup(user.id, nickname, style);
       setProfile(nickname, style);
-      navigate(consumeReturnTo() ?? '/market');
+      navigate(consumeReturnTo() ?? '/home');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.errorUnexpected'));
     } finally {

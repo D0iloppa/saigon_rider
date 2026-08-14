@@ -75,7 +75,7 @@ export default function OAuthLogin() {
       const result = await apiOAuthLogin(provider, token, tokenType);
       saveSession({ userId: result.user.id, sessionToken: result.session_token });
       loginFromBackend(result.user);
-      navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/market'), { replace: true });
+      navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
     } catch (e: unknown) {
       const restore = restoreInfoFromError(e);
       if (restore) return goRestore(restore);
@@ -89,7 +89,7 @@ export default function OAuthLogin() {
     const result = await apiOAuthExchange(code);
     saveSession({ userId: result.user.id, sessionToken: result.session_token });
     loginFromBackend(result.user);
-    navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/market'), { replace: true });
+    navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
   };
 
   // 팝업 차단 폴백(OAuthResult가 opener 없이 /auth/oauth?error=... 로 되돌아온 경우) 에러 표시
@@ -294,7 +294,7 @@ export default function OAuthLogin() {
       const result = await apiDevLogin();
       saveSession({ userId: result.user.id, sessionToken: result.session_token });
       loginFromBackend(result.user);
-      navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/market'), { replace: true });
+      navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
     } catch (e: unknown) {
       const restore = restoreInfoFromError(e);
       if (restore) return goRestore(restore);

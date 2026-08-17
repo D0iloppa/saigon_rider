@@ -17,6 +17,7 @@ from . import (
     dev_context,
     feed,
     fuel,
+    funnel,
     gacha,
     items,
     listings,
@@ -62,3 +63,4 @@ router.include_router(push.router)
 router.include_router(settings.router)
 router.include_router(stream.router)
 router.include_router(trades.router)
+router.include_router(funnel.router)

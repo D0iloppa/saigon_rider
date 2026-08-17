@@ -72,6 +72,7 @@ async def lifespan(app: FastAPI):
     from .jobs.refresh_repair_stats import refresh_repair_shop_stats
     from .jobs.retry_quest_rewards import retry_failed_quest_rewards
     from .jobs.rollup_ad_stats import rollup_ad_stats
+    from .jobs.rollup_funnel_stats import rollup_funnel_stats
 
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
     for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
@@ -133,6 +134,15 @@ async def lifespan(app: FastAPI):
         rollup_ad_stats,
         CronTrigger(hour=0, minute=20),
         id="rollup_ad_stats",
+        max_instances=1,
+        coalesce=True,
+    )
+    # 퍼널 계측 일별 롤업 (정본 §5 #5, D-18(a)) — 전날(VN) 하루를 funnel_events 에서 재집계해
+    # funnel_daily_stats 에 upsert. rollup_ad_stats(00:20)와 겹치지 않게 5분 뒤.
+    scheduler.add_job(
+        rollup_funnel_stats,
+        CronTrigger(hour=0, minute=25),
+        id="rollup_funnel_stats",
         max_instances=1,
         coalesce=True,
     )

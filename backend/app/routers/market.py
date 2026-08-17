@@ -39,6 +39,7 @@ from ..schemas import (
     BlockedUserOut,
     DistrictBrief,
     DmMessageOut,
+    FunnelEventType,
     MarketplaceAdOut,
     MarketplaceBumpResult,
     MarketplaceCategoryOut,
@@ -65,7 +66,7 @@ from ..schemas import (
     SellerBrief,
     TradeHistoryItem,
 )
-from ..services import noti_events
+from ..services import funnel_events, noti_events
 from ..services.ad_exposure import build_exposure_sequence
 from ..services.banned_keywords import banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
@@ -543,6 +544,8 @@ async def get_listing(
     # Q-8(감사 260817): 소유자 본인 조회는 조회수에 반영하지 않는다.
     if session_uid != listing.seller_id:
         listing.view_count += 1
+        # 정본 §5 #5: 소유자 자기조회는 view_count 와 동일한 이유로 퍼널에서도 제외.
+        await funnel_events.record(db, FunnelEventType.LISTING_VIEW, user_id=session_uid, entity_id=listing.id)
 
     liked = False
     if session_uid is not None:
@@ -757,6 +760,7 @@ async def create_listing(
         "search.reindex",
         {"entity_type": "listing", "entity_id": str(listing_id), "texts": [listing.title, listing.description or ""]},
     )
+    await funnel_events.record(db, FunnelEventType.LISTING_CREATE, user_id=body.seller_id, entity_id=listing_id)
     await db.commit()
     # 번역 세트 워밍(백그라운드) — 조회 시 캐시 히트로 번역본 즉시 로딩
     background.add_task(warm_translations, [listing.title, listing.description or ""])
@@ -1151,6 +1155,7 @@ async def create_review(
     db.add(review)
     await db.flush()
     temp = await _recompute_manner_temp(db, body.target_id)
+    await funnel_events.record(db, FunnelEventType.REVIEW, user_id=body.reviewer_id, entity_id=review.id)
     await db.commit()
     return MarketplaceReviewResult(id=review.id, target_manner_temp=temp)
 
@@ -1523,6 +1528,7 @@ async def propose_appointment(
     )
     db.add(msg)
     conv.last_message_at = now
+    await funnel_events.record(db, FunnelEventType.APPOINTMENT, user_id=session_uid, entity_id=appt.id)
     await db.commit()
 
     return DmMessageOut(
@@ -1628,6 +1634,7 @@ async def complete_appointment(
     listing.status = "SOLD"
     listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
     listing.updated_at = now
+    await funnel_events.record(db, FunnelEventType.TRADE_COMPLETE, user_id=session_uid, entity_id=listing.id)
     await db.commit()
     return _appt_out(appt, listing.seller_id)
 
@@ -1833,6 +1840,7 @@ async def propose_price_offer(
     )
     db.add(msg)
     conv.last_message_at = now
+    await funnel_events.record(db, FunnelEventType.PRICE_OFFER, user_id=session_uid, entity_id=offer.id)
     await db.commit()
 
     return DmMessageOut(

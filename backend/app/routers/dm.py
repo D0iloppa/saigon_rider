@@ -23,10 +23,11 @@ from ..schemas import (
     DmConversationOut,
     DmMessageCreateRequest,
     DmMessageOut,
+    FunnelEventType,
     Page,
     ReportCreateRequest,
 )
-from ..services import noti_events
+from ..services import funnel_events, noti_events
 from ..services.banned_keywords import banned_keywords as _banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
 from ..utils import resolve_avatar_url
@@ -226,6 +227,10 @@ async def create_conversation(
             participant_1=p1, participant_2=p2, context_type=body.context_type, context_id=body.context_id
         )
         db.add(conv)
+        # 정본 §5 #5: "문의" = 매물에 연결된 신규 대화 생성. 기존 대화 재사용(existing)이나
+        # 매물과 무관한 대화는 퍼널 대상이 아니다.
+        if body.context_type == "listing":
+            await funnel_events.record(db, FunnelEventType.INQUIRY, user_id=_session_uid, entity_id=body.context_id)
         try:
             await db.commit()
         except IntegrityError:

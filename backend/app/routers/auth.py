@@ -21,6 +21,7 @@ from ..engine_client import engine_client
 from ..jobs.purge_deleted_accounts import RETENTION_DAYS
 from ..models import AppConfig, User, UserOAuthIdentity, UserOtp, WithdrawnMemberArchive
 from ..schemas import (
+    FunnelEventType,
     LoginResponse,
     OAuthLoginRequest,
     OAuthLoginResponse,
@@ -31,6 +32,7 @@ from ..schemas import (
     SessionVerifyRequest,
     UserOut,
 )
+from ..services import funnel_events
 from ..services.oauth import (
     ZaloProfileFetchError,
     ZaloTokenExchangeError,
@@ -308,6 +310,9 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
+
+    if is_new:
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
 
     await db.commit()
 
@@ -691,6 +696,8 @@ async def oauth_google_callback(
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
+    if is_new:
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
     await db.commit()
 
     return await _redirect_with_exchange(_APP_DEEP_LINK, user.id, is_new)
@@ -795,6 +802,8 @@ async def oauth_apple_callback(
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
+    if is_new:
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
     await db.commit()
 
     return await _redirect_with_exchange(_APP_DEEP_LINK, user.id, is_new)
@@ -940,6 +949,8 @@ async def oauth_zalo_callback(
 
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
+    if is_new:
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
     await db.commit()
 
     base = _WEB_OAUTH_RESULT_PATH if platform == "web" else _APP_DEEP_LINK

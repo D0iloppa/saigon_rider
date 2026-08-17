@@ -7,7 +7,7 @@
 
 import unittest
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.jobs import alert_report_backlog
 from app.routers.admin_api import reports
@@ -46,12 +46,59 @@ class ReportPriorityScoreTest(unittest.TestCase):
 
 
 class ReportListSortParamTest(unittest.IsolatedAsyncioTestCase):
-    async def test_default_sort_is_priority_and_available_as_query_param(self):
+    async def test_sort_param_default_is_none_so_status_can_pick_it(self):
+        """code-review high 지적 #9: sort 미지정 시 status 에 따라 기본 정렬이 갈려야 하므로
+        시그니처 기본값 자체는 None 이어야 한다(명시 지정과 구분 불가능해지는 것을 막는다)."""
         import inspect
 
         sig = inspect.signature(reports.list_reports)
         sort_param = sig.parameters["sort"]
-        self.assertEqual(sort_param.default.default, "priority")
+        self.assertIsNone(sort_param.default.default)
+
+
+class ReportListDefaultSortByStatusTest(unittest.IsolatedAsyncioTestCase):
+    """code-review high 지적 #9: PENDING 계열 조회는 우선순위 정렬, 종결(RESOLVED/REJECTED)
+    조회는 최신순이 기본이어야 한다. sort 를 명시하면 그 값이 항상 우선한다."""
+
+    async def _list_query_order_sql(self, *, status, sort):
+        captured = {}
+        count_result = MagicMock()
+        count_result.scalar_one = MagicMock(return_value=0)
+        list_result = MagicMock()
+        list_result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+
+        async def _fake_execute(query):
+            if "count" not in captured:
+                captured["count"] = query
+                return count_result
+            captured["list_query"] = query
+            return list_result
+
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=_fake_execute)
+        await reports.list_reports(
+            target_type=None,
+            status=status,
+            reported_user_id=None,
+            page=1,
+            size=20,
+            sort=sort,
+            _session=MagicMock(),
+            db=db,
+        )
+        return str(captured["list_query"]).upper()
+
+    async def test_pending_status_defaults_to_priority_sort(self):
+        sql = await self._list_query_order_sql(status="PENDING", sort=None)
+        self.assertNotIn("ORDER BY REPORTS.CREATED_AT DESC", sql)
+
+    async def test_resolved_status_defaults_to_recent_sort(self):
+        sql = await self._list_query_order_sql(status="RESOLVED", sort=None)
+        self.assertIn("ORDER BY REPORTS.CREATED_AT DESC", sql)
+
+    async def test_explicit_priority_sort_overrides_resolved_default(self):
+        sql = await self._list_query_order_sql(status="RESOLVED", sort="priority")
+        self.assertNotIn("ORDER BY REPORTS.CREATED_AT DESC", sql)
 
 
 class ReportBacklogAlertTest(unittest.IsolatedAsyncioTestCase):

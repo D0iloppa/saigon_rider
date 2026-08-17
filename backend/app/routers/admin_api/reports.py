@@ -194,7 +194,7 @@ async def list_reports(
     reported_user_id: uuid.UUID | None = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    sort: str = Query("priority", pattern="^(priority|recent)$"),
+    sort: str | None = Query(None, pattern="^(priority|recent)$"),
     _session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
@@ -215,7 +215,11 @@ async def list_reports(
         count_q = count_q.where(Report.reported_user_id == reported_user_id)
 
     total = (await db.execute(count_q)).scalar_one()
-    if sort == "recent":
+    # 지적 #9: 종결(RESOLVED/REJECTED) 조회는 처리 이력이라 최신순이 자연스럽다 — 우선순위 점수는
+    # 대기시간이 지배해 오래된 건이 위로 오는 역전이 생긴다. 미처리 큐(PENDING/REVIEWING 등)는
+    # 종전대로 우선순위 정렬. sort 를 명시하면 그 값이 항상 우선한다(기본값 선택 규칙만 변경).
+    effective_sort = sort or ("recent" if status in ("RESOLVED", "REJECTED") else "priority")
+    if effective_sort == "recent":
         order_cols = (Report.created_at.desc(), Report.id.desc())
     else:
         order_cols = (_priority_score_column().desc(), Report.id.desc())

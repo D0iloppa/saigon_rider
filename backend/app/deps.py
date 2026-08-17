@@ -106,8 +106,16 @@ async def verify_user_session_allow_suspended(
     support.py 의 고객센터 라우트 전용 예외다 — 그 외 라우트에는 사용하지 말 것.
     """
     user, uid, now = await _resolve_session_user(x_user_id, x_session_token, db)
-    if user.last_seen_at is None or now - user.last_seen_at > _LAST_SEEN_THROTTLE:
+    dirty = False
+    if user.status == "SUSPENDED" and user.suspended_until is not None and user.suspended_until <= now:
+        # enforce_account_active 와 동일한 lazy-lift — allow_suspended 경로도 만료된 정지는 되돌린다.
+        user.status = "ACTIVE"
+        user.suspended_until = None
+        dirty = True
+    if user.status != "BANNED" and (user.last_seen_at is None or now - user.last_seen_at > _LAST_SEEN_THROTTLE):
         user.last_seen_at = now
+        dirty = True
+    if dirty:
         await db.commit()
     return uid
 

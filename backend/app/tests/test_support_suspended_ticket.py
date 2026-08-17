@@ -58,6 +58,34 @@ class VerifyUserSessionAllowSuspendedTest(unittest.IsolatedAsyncioTestCase):
         uid = await deps.verify_user_session_allow_suspended(x_user_id=str(user.id), x_session_token=token, db=db)
         self.assertEqual(uid, user.id)
 
+    async def test_suspension_still_valid_stays_suspended(self):
+        """code-review high 지적 #10 ② — 정지가 유효한 사용자는 계속 통과하되 status 는 SUSPENDED 유지."""
+        user, token = _make_user(status="SUSPENDED", suspended_until=datetime.now(UTC) + timedelta(days=1))
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=user)
+        uid = await deps.verify_user_session_allow_suspended(x_user_id=str(user.id), x_session_token=token, db=db)
+        self.assertEqual(uid, user.id)
+        self.assertEqual(user.status, "SUSPENDED")
+
+    async def test_expired_suspension_is_lazy_lifted_to_active(self):
+        """code-review high 지적 #10 ① — 정지가 만료됐으면 support 경로에서도 ACTIVE 로 되돌린다."""
+        user, token = _make_user(status="SUSPENDED", suspended_until=datetime.now(UTC) - timedelta(hours=1))
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=user)
+        uid = await deps.verify_user_session_allow_suspended(x_user_id=str(user.id), x_session_token=token, db=db)
+        self.assertEqual(uid, user.id)
+        self.assertEqual(user.status, "ACTIVE")
+        self.assertIsNone(user.suspended_until)
+        db.commit.assert_awaited()
+
+    async def test_enforce_account_active_unchanged_for_valid_suspension(self):
+        """code-review high 지적 #10 ③ — enforce_account_active 의 정지 403 동작은 무변화."""
+        user, _token = _make_user(status="SUSPENDED", suspended_until=datetime.now(UTC) + timedelta(days=1))
+        with self.assertRaises(HTTPException) as ctx:
+            deps.enforce_account_active(user, datetime.now(UTC))
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(user.status, "SUSPENDED")
+
     async def test_banned_user_passes(self):
         user, token = _make_user(status="BANNED")
         db = AsyncMock()

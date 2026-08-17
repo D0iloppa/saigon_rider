@@ -994,6 +994,39 @@ class AdDailyStat(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class FunnelEvent(Base):
+    """퍼널 계측 원시 이벤트 (정본 §5 #5, D-18(a) — init/182).
+
+    핵심 이벤트 8종(가입·매물조회·등록·문의·가격제안·약속·완료·후기)을 서버측 요청 처리 지점에서
+    적재한다(ad_events 와 같은 패턴). event_type 카탈로그는 schemas.FunnelEventType 이 SoT —
+    DB CHECK 제약 없음(값 추가가 마이그레이션을 부르지 않도록). entity_id 는 이벤트 종류마다
+    대상이 달라(매물/대화/약속/후기) 단일 FK 를 걸지 않는다.
+    """
+
+    __tablename__ = "funnel_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    stat_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+
+class FunnelDailyStat(Base):
+    """퍼널 이벤트 일별 단계 수 롤업 — 조회 전용(어드민 API 는 이 테이블만 읽는다)."""
+
+    __tablename__ = "funnel_daily_stats"
+
+    stat_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(24), primary_key=True)
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class Translation(Base):
     __tablename__ = "translations"
 

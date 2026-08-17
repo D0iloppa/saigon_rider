@@ -277,6 +277,25 @@ class AdEventsIngestRequest(BaseModel):
     events: list[AdEventIn] = Field(..., min_length=1, max_length=20)
 
 
+# ── 퍼널 계측 (정본 §5 #5, D-18(a) — 260817_commercial_readiness_audit) ──────────────
+
+
+class FunnelEventType(StrEnum):
+    """`funnel_events.event_type` 값 카탈로그 — DB CHECK 없음, 이 Enum 이 SoT(ad_events.surface 의
+    D-19 처리와 동일 이유: 값 추가가 마이그레이션을 부르지 않게). 서버측 요청 처리 지점에서만
+    발화하는 내부 이벤트라 클라이언트 요청 바디로 노출되지 않는다(AdEventType 과 달리 pydantic
+    검증 대상이 아니라 services/funnel_events.py 호출부의 파이썬 값)."""
+
+    SIGNUP = "signup"
+    LISTING_VIEW = "listing_view"
+    LISTING_CREATE = "listing_create"
+    INQUIRY = "inquiry"
+    PRICE_OFFER = "price_offer"
+    APPOINTMENT = "appointment"
+    TRADE_COMPLETE = "trade_complete"
+    REVIEW = "review"
+
+
 class ReportCreateRequest(BaseModel):
     """통합 신고 접수 (유저/DM 신고 공용) — reports 테이블 적재."""
 

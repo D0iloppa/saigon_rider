@@ -48,6 +48,7 @@ const MarketCreate = lazyWithRetry(() => import('@/pages/market/MarketCreate'));
 const MarketEdit = lazyWithRetry(() => import('@/pages/market/MarketEdit'));
 const MarketDetail = lazyWithRetry(() => import('@/pages/market/MarketDetail'));
 const MarketWishlist = lazyWithRetry(() => import('@/pages/market/MarketWishlist'));
+const MarketKeywordAlerts = lazyWithRetry(() => import('@/pages/market/MarketKeywordAlerts'));
 const MarketSearch = lazyWithRetry(() => import('@/pages/market/MarketSearch'));
 const AdDetail = lazyWithRetry(() => import('@/pages/market/AdDetail'));
 
@@ -530,6 +531,7 @@ export default function App() {
           <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
           <Route path="/market/new" element={<VerifiedSellerRoute><MarketCreate /></VerifiedSellerRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
+          <Route path="/market/keyword-alerts" element={<PrivateRoute><MarketKeywordAlerts /></PrivateRoute>} />
           <Route path="/market/:id/edit" element={<PrivateRoute><MarketEdit /></PrivateRoute>} />
           <Route path="/biz/intro" element={<PrivateRoute><BizIntro /></PrivateRoute>} />
           <Route path="/biz/apply" element={<PrivateRoute><BizApply /></PrivateRoute>} />

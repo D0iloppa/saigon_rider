@@ -19,7 +19,7 @@ import uuid
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
@@ -36,6 +36,7 @@ from app.services.noti_events import STREAM_KEY
 from app.services.ops_alerts import send_ops_alert
 from app.services.redis_cache import get_client
 from app.services.search_index import reindex_entity
+from app.services.search_norm import norm
 from app.services.translate import warm_translations
 
 logging.basicConfig(
@@ -176,10 +177,20 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
 
 
 async def _handle_listing_created(payload: dict, *, source_event_id: str) -> None:
-    """매물 제목 키워드 매칭 (market._notify_keyword_matches 이관) — 대소문자 무시, 등록자 본인 제외."""
+    """매물 제목 키워드 매칭 (market._notify_keyword_matches 이관) — 성조 무관 정규화 매칭,
+    등록자 본인 제외. SQL 에서 strpos() 로 매칭까지 끝낸다(기존엔 전체 구독 행을 Python 으로
+    끌어와 substring 비교 — W1 §③-1/§④의 풀스캔 지적). LIKE 대신 strpos() 를 쓰는 이유:
+    keyword 에 %/_ 가 포함되면 LIKE 는 이를 와일드카드로 오해석하지만 strpos() 는 순수
+    substring 이라 이스케이프가 불필요하다(대표 확정 — LIKE 로 되돌리지 말 것).
+
+    F-1 폴백: migration 180 은 keyword_norm 을 NULL 허용으로 추가하지만 백필
+    (`scripts/backfill_keyword_alert_norm.py`)은 수동 실행이라, 적용 직후~백필 전까지
+    기존 구독은 keyword_norm 이 NULL 이다. keyword_norm 이 있으면 정규화 매칭, 없으면
+    원본 keyword 로 대소문자 무관 strpos 매칭(raw fallback)— 백필 전 구독이 조용히
+    죽지 않게 한다."""
     listing_title = payload.get("title") or ""
-    title_lower = listing_title.lower()
-    if not title_lower:
+    title_norm = norm(listing_title)
+    if not title_norm:
         return
     seller_id = uuid.UUID(payload["seller_id"])
     link = f"market&id={payload['listing_id']}"
@@ -195,6 +206,22 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
                     select(MarketplaceKeywordAlert).where(
                         MarketplaceKeywordAlert.user_id.notin_(blocked_by_seller),
                         MarketplaceKeywordAlert.user_id.notin_(blocking_seller),
+                        MarketplaceKeywordAlert.user_id != seller_id,
+                        or_(
+                            and_(
+                                MarketplaceKeywordAlert.keyword_norm.isnot(None),
+                                MarketplaceKeywordAlert.keyword_norm != "",  # strpos(x, '') 는 1(항상 매치) — 빈 정규화 방어
+                                func.strpos(literal(title_norm), MarketplaceKeywordAlert.keyword_norm) > 0,
+                            ),
+                            and_(
+                                MarketplaceKeywordAlert.keyword_norm.is_(None),
+                                MarketplaceKeywordAlert.keyword != "",  # 빈 정규화 방어(raw 쪽도 동일)
+                                func.strpos(
+                                    func.lower(literal(listing_title)), func.lower(MarketplaceKeywordAlert.keyword)
+                                )
+                                > 0,
+                            ),
+                        ),
                     )
                 )
             )
@@ -203,9 +230,7 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
         )
         seen: set[uuid.UUID] = set()
         for alert in alerts:
-            if alert.user_id == seller_id or alert.user_id in seen:
-                continue
-            if alert.keyword.lower() not in title_lower:
+            if alert.user_id in seen:
                 continue
             seen.add(alert.user_id)
             noti_title = f"🔔 {alert.keyword}"

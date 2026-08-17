@@ -268,6 +268,14 @@ services:
       - "/migrations/179_appointment_completion_request.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (179) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/180_marketplace_keyword_alerts_norm.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (180) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/181_keyword_alert_max_count.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (181) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -310,6 +318,8 @@ services:
       - ./database/init/177_marketplace_listing_business_profile.sql:/migrations/177_marketplace_listing_business_profile.sql:ro
       - ./database/init/178_business_category_used_moto.sql:/migrations/178_business_category_used_moto.sql:ro
       - ./database/init/179_appointment_completion_request.sql:/migrations/179_appointment_completion_request.sql:ro
+      - ./database/init/180_marketplace_keyword_alerts_norm.sql:/migrations/180_marketplace_keyword_alerts_norm.sql:ro
+      - ./database/init/181_keyword_alert_max_count.sql:/migrations/181_keyword_alert_max_count.sql:ro
     networks:
       - dev-net
     depends_on:

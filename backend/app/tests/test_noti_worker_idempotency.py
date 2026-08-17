@@ -9,6 +9,7 @@ from sqlalchemy.dialects import postgresql
 
 from app.models import Notification
 from app.noti_worker import __main__ as noti_worker
+from app.services.search_norm import norm
 
 
 class _SessionContext:
@@ -308,3 +309,104 @@ class NotificationWorkerIdempotencyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({call.kwargs["source_event_id"] for call in first_delivery}, {"1721635200001-0"})
         self.assertEqual(try_push.await_count, 2)
         self.assertEqual(session.commit.await_count, 2)
+
+    async def test_listing_match_query_falls_back_to_raw_keyword_when_norm_is_null(self):
+        """F-1(감사 260817_keyword_alert_audit): migration 180 적용 후 백필 전까지
+        keyword_norm 이 NULL 인 기존 구독은 원본 keyword 로 매칭돼야 한다(조용히 죽지 않음)."""
+        seller_id = uuid.uuid4()
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = []
+        session = MagicMock(execute=AsyncMock(return_value=result), commit=AsyncMock())
+        payload = {
+            "seller_id": str(seller_id),
+            "listing_id": str(uuid.uuid4()),
+            "title": "Full-face helmet",
+        }
+
+        with patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            await noti_worker._handle_listing_created(payload, source_event_id="1721635200006-0")
+
+        statement = session.execute.await_args.args[0]
+        compiled = " ".join(str(statement.compile(dialect=postgresql.dialect())).split())
+        self.assertIn("marketplace_keyword_alerts.keyword_norm IS NULL", compiled)
+        self.assertIn("lower(marketplace_keyword_alerts.keyword)", compiled)
+        self.assertIn("marketplace_keyword_alerts.keyword_norm IS NOT NULL", compiled)
+
+    async def test_keyword_alert_off_still_inserts_notification_row(self):
+        """S-9 불변식(keyword_alert 판) — 토글이 off 여도 인앱 notifications row 는 항상
+        기록되고 푸시만 스킵된다. `test_dm_push_skipped_when_chat_disabled_...`(위)의
+        keyword_alert 버전 — 기존엔 listing 이벤트 경로에 이 케이스가 없었다(W1 §⑤)."""
+        seller_id = uuid.uuid4()
+        recipient_id = uuid.uuid4()
+        alerts = [SimpleNamespace(user_id=recipient_id, keyword="helmet")]
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = alerts
+        session = MagicMock(execute=AsyncMock(return_value=result), commit=AsyncMock())
+        insert_notification = AsyncMock(return_value=True)
+        push_enabled = AsyncMock(return_value=False)
+        try_push = AsyncMock()
+        payload = {
+            "seller_id": str(seller_id),
+            "listing_id": str(uuid.uuid4()),
+            "title": "Full-face helmet",
+        }
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "_push_enabled", new=push_enabled),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._handle_listing_created(payload, source_event_id="1721635200002-0")
+
+        insert_notification.assert_awaited_once()
+        push_enabled.assert_awaited_once_with(session, recipient_id, "keyword_alert")
+        try_push.assert_not_awaited()
+
+    async def test_matching_query_uses_strpos_and_excludes_empty_norm(self):
+        """W1 §⑤ 회귀 지점: LIKE 대신 strpos() — keyword 안의 %/_ 가 와일드카드로 오작동하지
+        않아야 한다(대표 확정, 되돌리지 말 것). 빈/NULL keyword_norm 도 제외돼야
+        strpos(x,'')==1(항상 매치) 사고를 막는다."""
+        seller_id = uuid.uuid4()
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = []
+        session = MagicMock(execute=AsyncMock(return_value=result), commit=AsyncMock())
+        payload = {
+            "seller_id": str(seller_id),
+            "listing_id": str(uuid.uuid4()),
+            "title": "50% off helmet_sale",
+        }
+
+        with patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            await noti_worker._handle_listing_created(payload, source_event_id="1721635200004-0")
+
+        statement = session.execute.await_args.args[0]
+        compiled = " ".join(
+            str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})).split()
+        )
+        self.assertIn("strpos(", compiled.lower())
+        self.assertNotIn(" like ", compiled.lower())
+        self.assertIn("keyword_norm != ''", compiled)
+        self.assertIn("keyword_norm IS NOT NULL", compiled)
+
+    async def test_matching_query_title_norm_matches_vietnamese_diacritic_registration(self):
+        """등록 시 keyword_norm 저장(market.norm())과 워커 매칭 시 title_norm 계산이 같은
+        norm() 규약을 쓰므로, 'mu bao hiem' 로 등록한 알림이 'Mũ bảo hiểm' 제목과 매치돼야
+        한다(W1 커버 불변식 ①). SQL 에 실려 나가는 literal 값으로 파이프라인 연결을 고정한다."""
+        seller_id = uuid.uuid4()
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = []
+        session = MagicMock(execute=AsyncMock(return_value=result), commit=AsyncMock())
+        payload = {
+            "seller_id": str(seller_id),
+            "listing_id": str(uuid.uuid4()),
+            "title": "Mũ bảo hiểm size M",
+        }
+
+        with patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)):
+            await noti_worker._handle_listing_created(payload, source_event_id="1721635200006-0")
+
+        statement = session.execute.await_args.args[0]
+        compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+        self.assertIn(norm("mu bao hiem size m"), compiled)
+        self.assertEqual(norm("Mũ bảo hiểm size M"), "mu bao hiem size m")

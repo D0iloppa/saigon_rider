@@ -22,6 +22,7 @@ async def get_app_config(db: AsyncSession = Depends(get_db)) -> dict:
     cfg = {f"{r.group_name}.{r.key}": r.value for r in rows}
     return {
         "dm_poll_interval": int(cfg.get("dm.unread_poll_interval", "30")),
+        "keyword_alert_max_count": int(cfg.get("market.keyword_alert_max_count", "20")),
         "google_client_id": cfg.get("oauth.google_client_id_web", ""),
         # auth.py _DEV_MODE 와 동일 기준 — dev 테스트 로그인 버튼 노출 여부
         "is_dev": os.getenv("APP_ENV", "development").lower() not in ("production", "prod"),

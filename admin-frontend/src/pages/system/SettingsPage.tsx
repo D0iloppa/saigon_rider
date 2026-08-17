@@ -295,9 +295,13 @@ function ServiceConfigTab() {
   const { data, isLoading, isError, error } = useServiceConfig()
   const updateConfig = useUpdateServiceConfig()
   const [dmPollInterval, setDmPollInterval] = useState<number | null>(null)
+  const [keywordAlertMaxCount, setKeywordAlertMaxCount] = useState<number | null>(null)
 
   useEffect(() => {
-    if (data) setDmPollInterval(Number(data.dm_poll_interval))
+    if (data) {
+      setDmPollInterval(Number(data.dm_poll_interval))
+      setKeywordAlertMaxCount(Number(data.keyword_alert_max_count))
+    }
   }, [data])
 
   if (isError) {
@@ -312,8 +316,12 @@ function ServiceConfigTab() {
       message.warning('설정값이 올바르지 않습니다 (10~300).')
       return
     }
+    if (keywordAlertMaxCount === null || keywordAlertMaxCount < 1 || keywordAlertMaxCount > 100) {
+      message.warning('설정값이 올바르지 않습니다 (1~100).')
+      return
+    }
     updateConfig.mutate(
-      { dm_poll_interval: String(dmPollInterval) },
+      { dm_poll_interval: String(dmPollInterval), keyword_alert_max_count: String(keywordAlertMaxCount) },
       {
         onSuccess: () => message.success('서비스 설정이 저장되었습니다.'),
         onError: (err) => message.error(err instanceof Error ? err.message : '저장에 실패했습니다.'),
@@ -328,6 +336,15 @@ function ServiceConfigTab() {
       </Typography.Text>
       <Space>
         <InputNumber style={{ width: 180 }} min={10} max={300} value={dmPollInterval} onChange={setDmPollInterval} />
+        <Button type="primary" loading={updateConfig.isPending} onClick={handleSave}>
+          저장
+        </Button>
+      </Space>
+      <Typography.Text type="secondary" style={{ display: 'block', marginTop: 16, marginBottom: 8 }}>
+        키워드 알림 최대 개수 (사용자당, 1~100)
+      </Typography.Text>
+      <Space>
+        <InputNumber style={{ width: 180 }} min={1} max={100} value={keywordAlertMaxCount} onChange={setKeywordAlertMaxCount} />
         <Button type="primary" loading={updateConfig.isPending} onClick={handleSave}>
           저장
         </Button>

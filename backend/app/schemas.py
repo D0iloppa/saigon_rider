@@ -317,11 +317,16 @@ class MarketplaceKeywordAlertOut(BaseModel):
 
 class MarketplaceKeywordAlertCreateRequest(BaseModel):
     user_id: UUID
-    keyword: str
+    keyword: str = Field(max_length=60)
 
 
 class MarketplaceKeywordAlertDeleteRequest(BaseModel):
     user_id: UUID
+
+
+class MarketplaceKeywordAlertUpdateRequest(BaseModel):
+    user_id: UUID
+    keyword: str = Field(max_length=60)
 
 
 # ── 실시간 번역 ───────────────────────────────────────────────────

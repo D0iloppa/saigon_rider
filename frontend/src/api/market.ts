@@ -570,19 +570,28 @@ export interface KeywordAlert {
 }
 
 export async function fetchKeywordAlerts(userId: string): Promise<KeywordAlert[]> {
-  return api.realFetch<KeywordAlert[]>(`/market/keyword-alerts?user_id=${encodeURIComponent(userId)}`);
+  return api.realFetch<KeywordAlert[]>(`/market/keyword-alerts?user_id=${encodeURIComponent(userId)}`, undefined, 'bff', { rethrow: true });
 }
 
 export async function addKeywordAlert(userId: string, keyword: string): Promise<KeywordAlert> {
+  // rethrow: true — 상한초과/최소길이미달/금칙어 등 서버 검증 실패를 호출부가 구분해 안내할 수 있게
+  // (createListing 등 다른 쓰기 API 와 동일 패턴, api/client.ts 참조)
   return api.realFetch<KeywordAlert>('/market/keyword-alerts', {
     method: 'POST',
     body: JSON.stringify({ user_id: userId, keyword }),
-  });
+  }, 'bff', { rethrow: true });
+}
+
+export async function updateKeywordAlert(id: string, userId: string, keyword: string): Promise<KeywordAlert> {
+  return api.realFetch<KeywordAlert>(`/market/keyword-alerts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ user_id: userId, keyword }),
+  }, 'bff', { rethrow: true });
 }
 
 export async function removeKeywordAlert(id: string, userId: string): Promise<void> {
   await api.realFetch(`/market/keyword-alerts/${id}`, {
     method: 'DELETE',
     body: JSON.stringify({ user_id: userId }),
-  });
+  }, 'bff', { rethrow: true });
 }

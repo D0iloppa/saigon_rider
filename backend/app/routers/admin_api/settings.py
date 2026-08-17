@@ -353,10 +353,12 @@ async def delete_version(
 
 class ServiceConfigRow(BaseModel):
     dm_poll_interval: str
+    keyword_alert_max_count: str
 
 
 class ServiceConfigRequest(BaseModel):
     dm_poll_interval: str
+    keyword_alert_max_count: str
 
 
 @router.get("/service-config", response_model=ServiceConfigRow, summary="서비스 설정 조회")
@@ -367,7 +369,15 @@ async def get_service_config(
     dm_row = (
         await db.execute(select(AppConfig).where(AppConfig.group_name == "dm", AppConfig.key == "unread_poll_interval"))
     ).scalar_one_or_none()
-    return ServiceConfigRow(dm_poll_interval=dm_row.value if dm_row else "30")
+    kw_row = (
+        await db.execute(
+            select(AppConfig).where(AppConfig.group_name == "market", AppConfig.key == "keyword_alert_max_count")
+        )
+    ).scalar_one_or_none()
+    return ServiceConfigRow(
+        dm_poll_interval=dm_row.value if dm_row else "30",
+        keyword_alert_max_count=kw_row.value if kw_row else "20",
+    )
 
 
 @router.put("/service-config", response_model=ServiceConfigRow, summary="서비스 설정 저장")
@@ -380,6 +390,13 @@ async def update_service_config(
     try:
         dm_val = int(body.dm_poll_interval)
         if not 10 <= dm_val <= 300:
+            raise ValueError
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="설정값이 올바르지 않습니다.") from e
+
+    try:
+        kw_val = int(body.keyword_alert_max_count)
+        if not 1 <= kw_val <= 100:
             raise ValueError
     except ValueError as e:
         raise HTTPException(status_code=400, detail="설정값이 올바르지 않습니다.") from e
@@ -399,6 +416,23 @@ async def update_service_config(
             )
         )
 
+    kw_row = (
+        await db.execute(
+            select(AppConfig).where(AppConfig.group_name == "market", AppConfig.key == "keyword_alert_max_count")
+        )
+    ).scalar_one_or_none()
+    if kw_row:
+        kw_row.value = str(kw_val)
+    else:
+        db.add(
+            AppConfig(
+                group_name="market",
+                key="keyword_alert_max_count",
+                value=str(kw_val),
+                description="키워드 알림 최대 개수 (사용자당, 1~100)",
+            )
+        )
+
     await audit(
         db,
         session,
@@ -406,7 +440,7 @@ async def update_service_config(
         "SETTINGS_SERVICE_CONFIG_UPDATE",
         "app_config",
         "dm.unread_poll_interval",
-        {"dm_poll_interval": dm_val},
+        {"dm_poll_interval": dm_val, "keyword_alert_max_count": kw_val},
     )
     await db.commit()
-    return ServiceConfigRow(dm_poll_interval=str(dm_val))
+    return ServiceConfigRow(dm_poll_interval=str(dm_val), keyword_alert_max_count=str(kw_val))

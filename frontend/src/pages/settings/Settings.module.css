@@ -140,6 +140,21 @@
   margin-top: 16px;
 }
 
+/* D-1: 키워드 알림 캡션 → 전용 페이지 링크(탭 가능함을 밑줄로 표시) */
+.captionLink {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--brand-500);
+  text-decoration: underline;
+  margin-top: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 /* Account */
 .danger {
   margin-top: 24px;

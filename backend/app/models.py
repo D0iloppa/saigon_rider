@@ -563,6 +563,9 @@ class MarketplaceKeywordAlert(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     keyword: Mapped[str] = mapped_column(String(60), nullable=False)
+    # search_norm.norm() 규약으로 정규화된 매칭/중복판정 전용 컬럼 (180 마이그레이션).
+    # 백필 전 기존 행은 NULL 일 수 있어 nullable — scripts/backfill_keyword_alert_norm.py 로 채운다.
+    keyword_norm: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

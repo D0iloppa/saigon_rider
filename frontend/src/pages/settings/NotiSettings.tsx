@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Toggle } from '@/components/ui/Toggle';
@@ -49,6 +50,7 @@ const DEFAULT_STATE: NotificationSettingsFields = {
 
 export default function NotiSettings() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const userId = useUserStore((s) => s.user?.id);
   const [state, setState] = useState<NotificationSettingsFields>(DEFAULT_STATE);
 
@@ -103,7 +105,15 @@ export default function NotiSettings() {
                 />
               ))}
             </div>
-            {s.captionKey && <p className={styles.caption}>{t(s.captionKey)}</p>}
+            {/* D-1(2026-08-17): 종전엔 탭 불가한 안내 텍스트였다 — 전용 페이지(D-4)로
+                가는 링크로 격상한다. */}
+            {s.captionKey === 'settings.notiKeywordCaption' ? (
+              <button type="button" className={styles.captionLink} onClick={() => navigate('/market/keyword-alerts')}>
+                {t(s.captionKey)}
+              </button>
+            ) : s.captionKey ? (
+              <p className={styles.caption}>{t(s.captionKey)}</p>
+            ) : null}
           </div>
         ))}
         <p className={styles.caption}>{t('settings.notiImportantNote')}</p>

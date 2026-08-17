@@ -3,13 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, Bell, ChevronDown, ChevronLeft, Heart, MapPinned, PackageOpen, Plus, Search, X, ZoomIn } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { Button } from '@/components/ui/Button';
 import StateBlock from '@/components/ui/StateBlock';
 import { SearchBox } from '@/components/ui/SearchBox';
 import sys from '@/styles/system.module.css';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
-import { toast } from '@/components/ui/Toast';
 import { DisplayScopeSheet } from '@/components/location/DisplayScopeSheet';
 import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
@@ -23,17 +21,13 @@ import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import { fetchDistricts, localizedName, type District } from '@/api/master';
 import {
-  addKeywordAlert,
   adHref,
   buildCategoryTree,
   fetchAds,
   fetchCategories,
-  fetchKeywordAlerts,
   fetchListings,
-  removeKeywordAlert,
   resolveDistrict,
   type CategoryNode,
-  type KeywordAlert,
   type ListingCard as Listing,
   type ListingSort,
   type MarketAd,
@@ -107,9 +101,6 @@ export default function MarketMain() {
     : locationMode;
 
   const [savedState] = useState<SavedState | null>(readSaved);
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [alerts, setAlerts] = useState<KeywordAlert[]>([]);
-  const [newKw, setNewKw] = useState('');
   const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
   const [sortOpen, setSortOpen] = useState(false);
   // 뷰 모드는 **URL 쿼리**로 둔다(동네지도 `?view=map` 과 동일). 탭으로 새로 들어오면 쿼리가
@@ -450,36 +441,6 @@ export default function MarketMain() {
     [poiMarkers, mapListings, focusedListingId, openListingPanel],
   );
 
-  const openAlerts = () => {
-    if (!requireAuth()) return;
-    setAlertOpen(true);
-    if (userId) fetchKeywordAlerts(userId).then(setAlerts).catch(() => setAlerts([]));
-  };
-
-  const handleAddKw = async () => {
-    if (!requireAuth()) return;
-    const kw = newKw.trim();
-    if (!kw || !userId) return;
-    try {
-      const a = await addKeywordAlert(userId, kw);
-      setAlerts((prev) => (prev.some((x) => x.id === a.id) ? prev : [a, ...prev]));
-      setNewKw('');
-    } catch {
-      toast.error(t('market.alertError', { defaultValue: '알림 처리 실패' }));
-    }
-  };
-
-  const handleRemoveKw = async (id: string) => {
-    if (!requireAuth()) return;
-    if (!userId) return;
-    try {
-      await removeKeywordAlert(id, userId);
-      setAlerts((prev) => prev.filter((x) => x.id !== id));
-    } catch {
-      toast.error(t('market.alertError', { defaultValue: '알림 처리 실패' }));
-    }
-  };
-
   return (
     <div className={styles.root}>
       {/* Header — 지도 뷰에서는 렌더하지 않는다. 지도 상단은 동네지도와 동일하게
@@ -500,7 +461,7 @@ export default function MarketMain() {
             <button className={styles.wishlistBtn} onClick={() => navigate('/market/search')} aria-label={t('market.search', { defaultValue: '검색' })}>
               <Search size={23} strokeWidth={2} />
             </button>
-            <button className={styles.wishlistBtn} onClick={openAlerts} aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}>
+            <button className={styles.wishlistBtn} onClick={() => navigate('/market/keyword-alerts')} aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}>
               <Bell size={23} strokeWidth={2} />
             </button>
             <button className={styles.wishlistBtn} onClick={() => navigate('/market/wishlist')} aria-label={t('market.wishlist', { defaultValue: '찜' })}>
@@ -725,7 +686,7 @@ export default function MarketMain() {
                         {t('market.emptyExpandScope', { defaultValue: '전체 지역에서 찾아보기' })}
                       </button>
                     )}
-                    <button type="button" className={sys.stateBtn} onClick={openAlerts}>
+                    <button type="button" className={sys.stateBtn} onClick={() => navigate('/market/keyword-alerts')}>
                       {t('market.emptyKeywordAlert', { defaultValue: '키워드 알림 받기' })}
                     </button>
                   </div>
@@ -788,41 +749,6 @@ export default function MarketMain() {
       {/* 표시범위 시트 — 앱 공용 2옵션(대표 지시 2026-08-06 "2개로만해"). 종전 인라인 3옵션
           시트(전체/현재위치/지역선택 + 지도 패널)를 DisplayScopeSheet 로 대체했다. */}
       <DisplayScopeSheet open={locMapOpen} onClose={() => setLocMapOpen(false)} />
-
-      {/* 키워드 알림 관리 시트 */}
-      <BottomSheet open={alertOpen} onClose={() => setAlertOpen(false)}>
-        <div className={styles.alertSheet}>
-          <h2 className={styles.alertTitle}><Bell size={18} strokeWidth={2.2} /> {t('market.keywordAlerts', { defaultValue: '키워드 알림' })}</h2>
-          <p className={styles.alertDesc}>{t('market.keywordAlertsDesc', { defaultValue: '키워드와 맞는 매물이 올라오면 알려드려요' })}</p>
-          <div className={styles.alertInputRow}>
-            <input
-              className={styles.alertInput}
-              value={newKw}
-              onChange={(e) => setNewKw(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddKw()}
-              placeholder={t('market.keywordPlaceholder', { defaultValue: '예: 헬멧, 타이어' })}
-              maxLength={60}
-            />
-            <Button onClick={handleAddKw} fullWidth={false} disabled={!newKw.trim()}>
-              {t('market.keywordAdd', { defaultValue: '추가' })}
-            </Button>
-          </div>
-          <div className={styles.alertChips}>
-            {alerts.length === 0 ? (
-              <p className={styles.alertEmpty}>{t('market.keywordEmpty', { defaultValue: '등록한 키워드가 없어요' })}</p>
-            ) : (
-              alerts.map((a) => (
-                <span key={a.id} className={styles.alertChip}>
-                  {a.keyword}
-                  <button className={styles.alertChipX} onClick={() => handleRemoveKw(a.id)} aria-label={t('market.keywordRemove', { defaultValue: '삭제' })}>
-                    <X size={14} strokeWidth={2.5} />
-                  </button>
-                </span>
-              ))
-            )}
-          </div>
-        </div>
-      </BottomSheet>
     </div>
   );
 }

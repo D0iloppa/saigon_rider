@@ -114,6 +114,12 @@ function extractErrorMessage(err: any, status: number, call: string): string {
   // 검증 오류는 사용자가 고칠 수 있는 정보가 아니다 — 진단은 콘솔로만 남긴다.
   if (status === 422) {
     console.warn('[api] validation error', call, detail);
+    // 예외: pydantic 검증 오류가 아니라 서버가 수동으로 던진 구조화 오류({code, ...})는
+    // 요청 원문을 되비치지 않으므로 노출해도 안전하다 — 호출부가 code 로 분기해야 한다
+    // (예: market.py add_keyword_alert 의 keyword_too_short/keyword_alert_limit).
+    if (detail && typeof detail === 'object' && !Array.isArray(detail) && typeof detail.code === 'string') {
+      return `HTTP 422 | ${JSON.stringify(sanitizeDetail(detail))}`;
+    }
     return `HTTP 422 | ${call}`;
   }
   let msg: string;

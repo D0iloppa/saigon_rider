@@ -98,7 +98,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 > - **탭별 상태는 URL query 로 보존한다** — 동네지도 카테고리·지역(`?cat=`, `?rlat=&rlng=`), 피드 필터(`?filter=`). 전부 `setSearchParams(next, { replace: true })` 라 history 항목이 늘지 않는다(늘면 `openMap` push / 지도 `navigate(-1)` 경로가 깨진다 — §3.3 의 알려진 함정). 지역은 새 저장소 없이 기존 `wardRegionAt()` 로 폴리곤까지 재구성한다. **스크롤 위치만 `sessionStorage`**(`feed_scroll_v1`, `MarketMain` 기존 패턴 미러).
 >   - 🔴 **URL 복원이 GPS 자동요청을 되살리면 안 된다**(P1-3 회귀). `FeedList` 는 마운트 시 저장된 `filter=neighborhood` 를 `all` 로 **강등**시켜 복원이 위치요청 effect 를 자동 발화시키지 못하게 한다. 사용자가 직접 고르면 정상 동작.
 > - **하단 FAB 여백에 탭바 토큰을 더하지 마라** — 홈 `.bottomPad`·마켓 `.listContent` 에 86px(FAB 52 + offset 18 + 여유 16)를 예약했다. `--tabbar-height`/`--bottom-safe` 를 더하면 **이중 계산**이다: `AppShell.module.css` 의 `.frame` 이 flex column 이고 `TabBar` 가 in-flow 형제라 탭바 실제 높이(safe-area inset 포함)가 이미 `.viewport` 박스에서 빠져 있고, FAB 은 페이지 `.root` 기준 `absolute` 라 `bottom:18px` 가 이미 탭바 윗변 기준이다.
-> - **hit area 는 시각 크기를 바꾸지 않고 넓힌다** — 투명 `::after` 확장(프로필 친구/DM 34px) 또는 `padding` + `background-clip: content-box`(피드 사진 삭제 24px — 보이는 원의 위치·크기가 그대로 유지된다). **미해결 2건**: 지도 프로필 아바타(`.mapProfileButton` 36px)는 자기 자신에 `overflow:hidden` 이라 `::after` 가 잘리고 보이는 아바타라 확대가 곧 디자인 변경이다. 키워드 알림 삭제(`.alertChipX` 18px)는 44px 로 넓히면 **인접 칩의 터치 영역과 겹친다**. 둘 다 시각 확인이 필요한 디자인 판단으로 남겼다.
+> - **hit area 는 시각 크기를 바꾸지 않고 넓힌다** — 투명 `::after` 확장(프로필 친구/DM 34px) 또는 `padding` + `background-clip: content-box`(피드 사진 삭제 24px — 보이는 원의 위치·크기가 그대로 유지된다). **미해결 1건**: 지도 프로필 아바타(`.mapProfileButton` 36px)는 자기 자신에 `overflow:hidden` 이라 `::after` 가 잘리고 보이는 아바타라 확대가 곧 디자인 변경이다. 시각 확인이 필요한 디자인 판단으로 남겼다. (과거 미해결 2건 중 키워드 알림 삭제 `.alertChipX` 18px 는 2026-08-17 시트 폐기로 **해소** — 칩 나열이 사라져 인접 칩 겹침 제약 자체가 없어졌다.)
 
 ## 2. 게임 허브 FAB (TabBar FAB → `GameHubSheet`) — 6메뉴
 
@@ -193,7 +193,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 ### 3.2 마켓 / 동네마켓 (`/market`)
 
 - **페이지**: `pages/market/MarketMain.tsx`
-- **하위 라우트**: `/market/search`(`MarketSearch.tsx`), `/market/ad/:id`(`AdDetail.tsx`), `/market/new`(`MarketCreate.tsx`), `/market/wishlist`(`MarketWishlist.tsx`), `/market/:id`(`MarketDetail.tsx`), **`/market/:id/edit`(`MarketEdit.tsx`, `PrivateRoute`, 2026-07-31 신규)**
+- **하위 라우트**: `/market/search`(`MarketSearch.tsx`), `/market/ad/:id`(`AdDetail.tsx`), `/market/new`(`MarketCreate.tsx`), `/market/wishlist`(`MarketWishlist.tsx`), `/market/:id`(`MarketDetail.tsx`), `/market/:id/edit`(`MarketEdit.tsx`, `PrivateRoute`, 2026-07-31 신규), **`/market/keyword-alerts`(`MarketKeywordAlerts.tsx`, `PrivateRoute`, 2026-08-17 신규)**
 - **판매자 자기서비스 — 매물 수정·철회 (2026-07-31, 출시감사 F-6/F-7/F-8)**: 이전엔 매물 본문 수정 API 가 아예 없어(PATCH 는 `/status`·`/price` 뿐) 오타·잘못된 사진이면 **재작성밖에 없었고 중복 매물이 누적**됐다. 또 판매자 상태 선택지가 `ON_SALE`/`RESERVED` 뿐이라 **판매를 포기해도 영구히 피드에 잔존**했다(유일한 우회로가 CS, 앱 내 경로 없음).
   - **수정**: `PATCH /market/listings/{listing_id}`(제목·설명·카테고리·사진) 신설 + `/market/:id/edit` 화면(`MarketEdit.tsx` — `MarketCreate.tsx` 업로드 패턴·CSS 모듈 재사용, 진입은 `MarketDetail.tsx` "매물 수정" 버튼). 사진은 `image_content_ids` **전체 대체** 방식이라 별도 사진 교체 엔드포인트가 없다(`MarketplaceListingDetail.image_content_ids` additive 추가로 재업로드 없이 기존 사진 유지). `SOLD`/`WITHDRAWN`/`HIDDEN`/`REMOVED` 는 수정 불가(409 `not_editable`).
   - **철회**: 신규 status **`WITHDRAWN`** 을 `_VALID_STATUSES` 에 편입해 **기존 `/status` PATCH 를 재사용**(신규 엔드포인트 없음). `database/init/162_marketplace_listing_withdrawn_status.sql`(CHECK 제약 재정의, `bff_migrate` 등록됨). 피드·검색에서 비노출.

@@ -57,7 +57,22 @@ export default function NotificationInbox() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={t('noti.title')} onBack={() => navigate(-1)} />
+      {/* W2 §① 진입점 지도 3번째 배선(2026-08-17) — KEYWORD 알림을 받고 온 사용자가
+          바로 관리 화면으로 이동할 수 있게. */}
+      <TopBar
+        title={t('noti.title')}
+        onBack={() => navigate(-1)}
+        rightContent={
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={() => navigate('/market/keyword-alerts')}
+            aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}
+          >
+            <Bell size={20} strokeWidth={2} />
+          </button>
+        }
+      />
       <div className={styles.scroll}>
         {loading ? (
           [0, 1, 2, 3].map((i) => <div key={i} className={`shimmer ${styles.skeleton}`} />)

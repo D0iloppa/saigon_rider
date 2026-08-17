@@ -119,6 +119,7 @@ export function useDeleteAppVersion() {
 
 export interface ServiceConfig {
   dm_poll_interval: string
+  keyword_alert_max_count: string
 }
 
 export function useServiceConfig() {

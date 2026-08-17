@@ -1,3 +1,4 @@
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -8,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import optional_user_session, verify_user_session
 from ..models import (
+    AppConfig,
+    BannedKeyword,
     BusinessProfile,
     DmConversation,
     DmMessage,
@@ -38,6 +41,7 @@ from ..schemas import (
     MarketplaceKeywordAlertCreateRequest,
     MarketplaceKeywordAlertDeleteRequest,
     MarketplaceKeywordAlertOut,
+    MarketplaceKeywordAlertUpdateRequest,
     MarketplaceLikeRequest,
     MarketplaceLikeResult,
     MarketplaceListingCard,
@@ -1148,6 +1152,62 @@ async def get_wishlist(
 
 
 # M-9 키워드 알림 구독 (🔔)
+_KEYWORD_ALERT_MIN_LEN = 2  # 정규화 후 길이 — W1 §③-2 (1자는 사실상 전체알림이 됨)
+_KEYWORD_ALERT_MAX_COUNT_DEFAULT = 20  # app_config(market.keyword_alert_max_count) 행이 없을 때 기본값
+_BANNED_KEYWORDS_TTL_SEC = 60.0  # dm.py._banned_keywords() 와 동일 TTL — 사전 수십 건 규모라 재조회 부담 적음
+
+_banned_keywords_cache: tuple[float, list[str]] = (0.0, [])
+
+
+async def _banned_keywords_norm(db: AsyncSession) -> list[str]:
+    """banned_keywords 캐싱 조회 — dm.py:65-77 의 패턴을 그대로 미러링(새 캐시 방식 발명 금지).
+    비교 기준만 dm.py 와 다르다: dm.py 는 채팅 원문에 `.lower()` 만 적용해 비교하지만, 키워드
+    알림은 이미 keyword_norm(성조 제거까지 포함한 정규화)을 등록/매칭 전 구간에서 쓰고 있어
+    금칙어 쪽도 같은 norm() 으로 맞춰야 "성조만 바꿔 금칙어 우회"가 안 막히는 구멍이 생기지
+    않는다(예: 금칙어가 "đĩ" 로 등록돼 있어도 keyword_norm "di" 와 비교되려면 금칙어도
+    정규화돼야 매칭된다)."""
+    global _banned_keywords_cache
+    loaded_at, keywords = _banned_keywords_cache
+    now = time.monotonic()
+    if now - loaded_at < _BANNED_KEYWORDS_TTL_SEC and loaded_at > 0:
+        return keywords
+    rows = (await db.execute(select(BannedKeyword.keyword))).scalars().all()
+    keywords = [norm(k) for k in rows]
+    _banned_keywords_cache = (now, keywords)
+    return keywords
+
+
+async def _keyword_alert_max_count(db: AsyncSession) -> int:
+    """app_config(group_name='market', key='keyword_alert_max_count') 읽기 전용 —
+    admin_api/settings.py 의 dm.unread_poll_interval 조회 패턴 미러(그 파일 자체는 수정 안 함)."""
+    row = (
+        await db.execute(
+            select(AppConfig).where(
+                AppConfig.group_name == "market", AppConfig.key == "keyword_alert_max_count"
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return _KEYWORD_ALERT_MAX_COUNT_DEFAULT
+    try:
+        return int(row.value)
+    except ValueError:
+        return _KEYWORD_ALERT_MAX_COUNT_DEFAULT
+
+
+def _validate_keyword_alert_text(keyword_norm: str) -> None:
+    if len(keyword_norm) < _KEYWORD_ALERT_MIN_LEN:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "keyword_too_short", "min_length": _KEYWORD_ALERT_MIN_LEN},
+        )
+
+
+async def _reject_if_banned(db: AsyncSession, keyword_norm: str) -> None:
+    if any(banned in keyword_norm for banned in await _banned_keywords_norm(db)):
+        raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
+
+
 @router.get("/keyword-alerts", response_model=list[MarketplaceKeywordAlertOut], summary="내 키워드 알림 목록")
 async def get_keyword_alerts(
     user_id: uuid.UUID,
@@ -1182,19 +1242,90 @@ async def add_keyword_alert(
     if body.user_id != session_uid:
         raise HTTPException(status_code=403, detail="user mismatch")
 
+    keyword_norm = norm(keyword)
+    _validate_keyword_alert_text(keyword_norm)
+    await _reject_if_banned(db, keyword_norm)
+
+    # 유저 단위 직렬화 — 이 락 스코프 안에서 중복판정(dedup)과 개수 상한(cap)을 함께 처리한다.
+    # 카운트 체크만 늦게 잠그면 그 사이 동시 요청이 둘 다 통과해 상한을 넘는 soft cap 이 된다
+    # (W1 §7-4). 트랜잭션 스코프 락이라 커밋/롤백 시 자동 해제.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key)::bigint)"), {"key": f"kw_alert:{body.user_id}"})
+
+    # 중복이면 기존 row 를 그대로 반환(idempotent) — 상한 검사보다 먼저 수행한다. 상한에
+    # 이미 도달한 유저가 기존 키워드를 재등록(대소문자/성조만 다르게) 하는 것은 신규 row 를
+    # 만들지 않으므로 상한과 무관해야 하고, 상한 검사를 먼저 하면 이 재등록이 부당하게 막힌다.
     existing = (
         await db.execute(
             select(MarketplaceKeywordAlert).where(
                 MarketplaceKeywordAlert.user_id == body.user_id,
-                func.lower(MarketplaceKeywordAlert.keyword) == keyword.lower(),
+                MarketplaceKeywordAlert.keyword_norm == keyword_norm,
             )
         )
     ).scalar_one_or_none()
     if existing is not None:
         return existing
 
-    alert = MarketplaceKeywordAlert(user_id=body.user_id, keyword=keyword)
+    max_count = await _keyword_alert_max_count(db)
+    count = (
+        await db.execute(
+            select(func.count())
+            .select_from(MarketplaceKeywordAlert)
+            .where(MarketplaceKeywordAlert.user_id == body.user_id)
+        )
+    ).scalar_one()
+    if count >= max_count:
+        raise HTTPException(status_code=422, detail={"code": "keyword_alert_limit", "max_count": max_count})
+
+    alert = MarketplaceKeywordAlert(user_id=body.user_id, keyword=keyword, keyword_norm=keyword_norm)
     db.add(alert)
+    await db.commit()
+    await db.refresh(alert)
+    return alert
+
+
+@router.patch("/keyword-alerts/{alert_id}", response_model=MarketplaceKeywordAlertOut, summary="키워드 알림 수정")
+async def update_keyword_alert(
+    alert_id: uuid.UUID,
+    body: MarketplaceKeywordAlertUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    # 소유권 이중 체크 — DELETE(아래) 와 동일 패턴 미러.
+    alert = await db.get(MarketplaceKeywordAlert, alert_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    if alert.user_id != session_uid or alert.user_id != body.user_id:
+        raise HTTPException(status_code=403, detail="Not the owner")
+
+    keyword = body.keyword.strip()
+    if not keyword:
+        raise HTTPException(status_code=400, detail="keyword is required")
+
+    keyword_norm = norm(keyword)
+    _validate_keyword_alert_text(keyword_norm)
+    await _reject_if_banned(db, keyword_norm)
+
+    # 유저 단위 직렬화 — POST(add_keyword_alert) 와 동일한 락 패턴. 동시 PATCH(또는 PATCHxPOST)
+    # 가 같은 keyword_norm 으로 수렴하면 락 없이는 양쪽 다 existing=None 을 보고 uq_mp_kw_alert
+    # unique 위반으로 500 이 난다(F-2).
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key)::bigint)"), {"key": f"kw_alert:{body.user_id}"})
+
+    # 총 개수가 바뀌지 않으므로 상한 검사는 불필요(§4). 다른 기존 row 와 정규화본이 겹치면
+    # POST 와 동일하게 idempotent 하게 그 기존 row 를 반환한다(새 중복 row 를 만들지 않음).
+    existing = (
+        await db.execute(
+            select(MarketplaceKeywordAlert).where(
+                MarketplaceKeywordAlert.user_id == body.user_id,
+                MarketplaceKeywordAlert.keyword_norm == keyword_norm,
+                MarketplaceKeywordAlert.id != alert_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    alert.keyword = keyword
+    alert.keyword_norm = keyword_norm
     await db.commit()
     await db.refresh(alert)
     return alert

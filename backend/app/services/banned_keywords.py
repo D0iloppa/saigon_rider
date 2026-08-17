@@ -17,6 +17,6 @@ async def banned_keywords(db: AsyncSession) -> list[str]:
     if now - loaded_at < _BANNED_KEYWORDS_TTL_SEC and loaded_at > 0:
         return keywords
     rows = (await db.execute(select(BannedKeyword.keyword))).scalars().all()
-    keywords = [k.lower() for k in rows]
+    keywords = [k.lower() for k in rows if k and k.strip()]
     _banned_keywords_cache = (now, keywords)
     return keywords

@@ -384,6 +384,10 @@ export default function MarketDetail() {
             detail.status === 'SOLD' ? null : detail.status === 'WITHDRAWN' ? (
             // 내려둔(철회) 매물: 다시 올리기 + 고쳐서 올리기 경로만 남긴다 — 끌올·상태전환은 판매중일 때만.
             <div className={styles.sellerControls}>
+              <div className={styles.sellerLikes}>
+                <Heart size={16} strokeWidth={2.2} />
+                {t('market.likeCount', { count: detail.likeCount, defaultValue: `찜 ${detail.likeCount}` })}
+              </div>
               <button className={styles.priceEditBtn} type="button" onClick={() => navigate(`/market/${detail.id}/edit`)}>
                 <Pencil size={16} strokeWidth={2.2} />
                 {t('market.editListing', { defaultValue: '매물 수정' })}
@@ -396,6 +400,10 @@ export default function MarketDetail() {
             </div>
             ) : (
             <div className={styles.sellerControls}>
+              <div className={styles.sellerLikes}>
+                <Heart size={16} strokeWidth={2.2} />
+                {t('market.likeCount', { count: detail.likeCount, defaultValue: `찜 ${detail.likeCount}` })}
+              </div>
               {detail.status === 'ON_SALE' && (
                 <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>
                   <ArrowUp size={16} strokeWidth={2.4} />

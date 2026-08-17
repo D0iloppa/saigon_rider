@@ -389,6 +389,18 @@
 .priceEditBtn:active { opacity: .7; }
 .priceEditBtn:disabled { color: var(--text-3); }
 
+/* 판매자용 찜 수 표시 (버튼 아님, 클릭 불가) */
+.sellerLikes {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--line);
+}
+
 /* Seller status control bar */
 .statusBar {
   flex-shrink: 0;

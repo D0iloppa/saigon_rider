@@ -18,7 +18,7 @@ from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import AdEvent, BusinessProfile
 from ..modules.proximity.application import ProximityApplication
-from ..routers.market import _public_ad_out
+from ..routers.market import _AD_EVENTS_VN_TZ, _public_ad_out
 from ..schemas import MarketplaceAdOut
 from ..services import noti_events
 from ..services.coordinates import Latitude, Longitude
@@ -141,7 +141,9 @@ async def enter_proximity(
                 surface="proximity",
                 user_key=user_id,
                 occurred_at=now,
-                stat_date=now.date(),
+                # code-review high #3: UTC 날짜를 쓰면 post_ad_events(market.py)의 VN 로컬
+                # stat_date 기준과 어긋나 광고주 리포트 날짜가 틀린다 — 동일 기준으로 통일.
+                stat_date=now.astimezone(_AD_EVENTS_VN_TZ).date(),
             )
         )
         noti_events.enqueue(

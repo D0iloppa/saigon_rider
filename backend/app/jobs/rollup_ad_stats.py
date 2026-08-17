@@ -22,7 +22,7 @@ import logging
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import String, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..database import AsyncSessionLocal
@@ -63,7 +63,13 @@ async def _rollup_date(target: date) -> int:
                 func.count()
                 .filter(AdEvent.event_type.in_(_IMPRESSION_TYPES), AdEvent.is_self.is_(True))
                 .label("self_impressions"),
-                func.count(func.distinct(AdEvent.user_key))
+                # code-review high #4: 익명 노출(user_key=None)도 anon_key(HMAC 기반 일일 키,
+                # routers/market.py _ad_anon_key)로 중복제거해 reach 에 반영한다. 로그인 사용자는
+                # user_key, 익명은 anon_key 로 나뉘어 있으므로 COALESCE 로 하나의 식별자 집합으로
+                # 합쳐 distinct 카운트한다. anon_key 는 IP+UA 해시 기반 근사치라 기기 변경·IP
+                # 변경 시 다른 값이 되고 NAT/공유IP 시 과소집계될 수 있다 — reach 는 정확값이
+                # 아니라 근사값이다(pepper 미설정 시 익명 reach 는 여전히 0).
+                func.count(func.distinct(func.coalesce(func.cast(AdEvent.user_key, String), AdEvent.anon_key)))
                 .filter(AdEvent.event_type.in_(_IMPRESSION_TYPES), AdEvent.is_self.is_(False))
                 .label("reach"),
                 func.count().filter(AdEvent.event_type == "click", AdEvent.is_self.is_(False)).label("clicks"),

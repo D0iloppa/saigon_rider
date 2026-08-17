@@ -814,11 +814,6 @@ async def update_listing(
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
 
-    # Q-1(감사 260817): 금칙어 차단 — dm.py 텍스트 메시지와 동일한 방식(부분문자열, 대소문자 무시)
-    listing_text = f"{body.title} {body.description or ''}".lower()
-    if any(kw in listing_text for kw in await banned_keywords(db)):
-        raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
-
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
     ).scalar_one_or_none()
@@ -830,6 +825,13 @@ async def update_listing(
     # 철회(WITHDRAWN)는 제외 — "잠시 내렸다가 고쳐서 다시 올리는" 흐름을 위해 수정 허용(대표 지시 2026-08-08).
     if listing.status in ("SOLD", "HIDDEN", "REMOVED"):
         raise HTTPException(status_code=409, detail={"code": "not_editable"})
+
+    # Q-1(감사 260817): 금칙어 차단 — dm.py 텍스트 메시지와 동일한 방식(부분문자열, 대소문자 무시)
+    # code-review high #8: 소유권/상태 검증 아래로 위치 — 비소유자 PATCH 가 400 banned_keyword 를
+    # 403/404 보다 먼저 받으면 사전 문자열을 바꿔가며 금칙어 사전을 추출하는 oracle 이 된다.
+    listing_text = f"{body.title} {body.description or ''}".lower()
+    if any(kw in listing_text for kw in await banned_keywords(db)):
+        raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
 
     listing.title = body.title.strip()
     listing.description = body.description
@@ -1266,8 +1268,10 @@ async def _banned_keywords_norm(db: AsyncSession) -> list[str]:
     now = time.monotonic()
     if now - loaded_at < _BANNED_KEYWORDS_TTL_SEC and loaded_at > 0:
         return keywords
+    # services/banned_keywords.py 와 동일 결함 방어(commit b5a2a44) — norm() 결과가 빈 문자열이면
+    # `banned in keyword_norm` 이 항상 True 가 되므로 원본이 빈/공백인 행은 제외한다.
     rows = (await db.execute(select(BannedKeyword.keyword))).scalars().all()
-    keywords = [norm(k) for k in rows]
+    keywords = [norm(k) for k in rows if k and k.strip()]
     _banned_keywords_cache = (now, keywords)
     return keywords
 

@@ -62,10 +62,9 @@ function formatVnd(amount: number): string {
  * 지금은 훅이 발화하지 않는다 — #10(노출 재개) 때 실제로 살아난다. */
 function BizAdCard({ ad, onOpen }: { ad: MarketAd; onOpen: (ad: MarketAd) => void }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLButtonElement>(null);
-  useAdImpression(ref, ad.id, 'biz_profile', ad.ownerBusinessProfileId);
+  const adImpressionRef = useAdImpression(ad.id, 'biz_profile');
   return (
-    <button ref={ref} className={styles.bizAdCard} onClick={() => onOpen(ad)}>
+    <button ref={adImpressionRef} className={styles.bizAdCard} onClick={() => onOpen(ad)}>
       <div className={styles.bizAdImageWrap}>
         <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.bizAdImage} />
       </div>
@@ -507,7 +506,7 @@ export default function BizPublic() {
                     key={ad.id}
                     ad={ad}
                     onOpen={(a) => {
-                      trackAdEvent(a.id, 'biz_profile', 'click', a.ownerBusinessProfileId);
+                      trackAdEvent(a.id, 'biz_profile', 'click');
                       navigate(`/market/ad/${a.id}`);
                     }}
                   />

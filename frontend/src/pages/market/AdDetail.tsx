@@ -25,7 +25,7 @@ export default function AdDetail() {
     fetchAd(id)
       .then(async (a) => {
         setAd(a);
-        trackAdImpression(a.id, 'ad_detail', a.ownerBusinessProfileId);
+        trackAdImpression(a.id, 'ad_detail');
         if (a.districtId != null) {
           const ds = await fetchDistricts().catch(() => [] as District[]);
           const d = ds.find((x) => x.id === a.districtId);
@@ -41,13 +41,13 @@ export default function AdDetail() {
 
   const handleCall = () => {
     if (!ad?.phone) return;
-    trackAdEvent(ad.id, 'ad_detail', 'cta_call', ad.ownerBusinessProfileId);
+    trackAdEvent(ad.id, 'ad_detail', 'cta_call');
     native.openUrl(`tel:${ad.phone}`);
   };
 
   const handleShare = () => {
     if (!ad) return;
-    trackAdEvent(ad.id, 'ad_detail', 'cta_share', ad.ownerBusinessProfileId);
+    trackAdEvent(ad.id, 'ad_detail', 'cta_share');
     native.share({ title: ad.title, text: ad.body ?? ad.partnerName, url: window.location.href });
   };
 

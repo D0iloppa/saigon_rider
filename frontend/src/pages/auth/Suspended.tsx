@@ -60,6 +60,9 @@ export default function Suspended() {
               : t('suspended.suspendedDescNoDate')}
         </p>
         <p className={styles.contactHint}>{t('suspended.contactHint')}</p>
+        <Button variant="primary" onClick={() => navigate('/settings/support')} className={styles.supportBtn}>
+          {t('settings.support')}
+        </Button>
         <Button variant="secondary" onClick={handleLogout} className={styles.logoutBtn}>
           {t('settings.logout')}
         </Button>

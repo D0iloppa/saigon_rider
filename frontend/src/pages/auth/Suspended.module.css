@@ -56,7 +56,12 @@
   line-height: 1.5;
 }
 
-.logoutBtn {
+.supportBtn {
   margin-top: 32px;
+  max-width: 220px;
+}
+
+.logoutBtn {
+  margin-top: 12px;
   max-width: 220px;
 }

@@ -64,6 +64,7 @@ async def lifespan(app: FastAPI):
     from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 
+    from .jobs.alert_report_backlog import check_report_backlog
     from .jobs.backup_db import run_backup
     from .jobs.expire_flood_reports import expire_stale_flood_reports
     from .jobs.fetch_fuel_prices import run_fetch_cycle
@@ -108,6 +109,15 @@ async def lifespan(app: FastAPI):
         retry_failed_quest_rewards,
         IntervalTrigger(minutes=1),
         id="retry_failed_quest_rewards",
+        max_instances=1,
+        coalesce=True,
+    )
+    # 신고 큐 적체 경보 (정본 §5 #3, D-11 — 우선순위 상승만, 자동 조치 없음) — SLA 24h 기준이라
+    # 1시간 주기면 충분히 촘촘하다. 실제 발송 빈도는 send_ops_alert 쪽 24h 쿨다운이 제한한다.
+    scheduler.add_job(
+        check_report_backlog,
+        IntervalTrigger(hours=1),
+        id="alert_report_backlog",
         max_instances=1,
         coalesce=True,
     )

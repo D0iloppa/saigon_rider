@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import DmMessage, MarketplaceListing, Report, User, UserSanction
+from ...models import DmMessage, MarketplaceListing, Notification, Report, User, UserSanction
 from ...schemas import Page
 from ...utils import build_imgproxy_url
 from ..dm import _resolve_dm_image
@@ -28,6 +28,11 @@ _TARGET_TYPES = {"LISTING", "USER", "DM"}
 _ALLOWED_TRANSITIONS = {
     "PENDING": {"REVIEWING", "RESOLVED", "REJECTED"},
     "REVIEWING": {"RESOLVED", "REJECTED"},
+}
+# §5 #1: 신고자 처리 결과 통보 — 조치 세부(제재 종류·기간)는 노출하지 않는다(법무 미확인).
+_REPORT_RESULT_NOTI = {
+    "RESOLVED": ("신고가 처리되었습니다", "신고해 주신 내용을 검토했고, 조치했습니다."),
+    "REJECTED": ("신고가 처리되었습니다", "신고해 주신 내용을 검토했지만, 조치가 필요하지 않았습니다."),
 }
 
 
@@ -269,6 +274,20 @@ async def update_report_status(
     report.handled_at = datetime.now(UTC)
     if body.resolution_note is not None:
         report.resolution_note = body.resolution_note
+
+    noti = _REPORT_RESULT_NOTI.get(body.status)
+    if noti is not None:
+        noti_title, noti_body = noti
+        db.add(
+            Notification(
+                user_id=report.reporter_id,
+                type="MODERATION",
+                title=noti_title,
+                body=noti_body,
+                link=None,
+                created_at=report.handled_at,
+            )
+        )
 
     await audit(db, session, request, "REPORT_STATUS", "report", str(report_id), {"from": prev, "to": body.status})
     await db.commit()

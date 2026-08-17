@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..deps import verify_user_session
+from ..deps import verify_user_session, verify_user_session_allow_suspended
 from ..models import SupportReply, SupportTicket
 from ..schemas import SupportReplyCreateRequest, SupportTicketCreate, SupportTicketDetail, SupportTicketOut
 
@@ -17,7 +17,8 @@ router = APIRouter(prefix="/support", tags=["고객센터 (Support)"])
 @router.post("/tickets", response_model=SupportTicketOut, summary="문의 등록")
 async def create_ticket(
     body: SupportTicketCreate,
-    user_id: uuid.UUID = Depends(verify_user_session),
+    # Q-4(감사 260817): 정지/차단된 사용자도 이의제기 티켓은 만들 수 있어야 한다 — 세션 인증은 유지.
+    user_id: uuid.UUID = Depends(verify_user_session_allow_suspended),
     db: AsyncSession = Depends(get_db),
 ):
     ticket = SupportTicket(

@@ -31,7 +31,8 @@ import {
   type BizReview,
   type BizPriceItem,
 } from '@/api/biz';
-import { fetchListings, type ListingCard as MarketListing } from '@/api/market';
+import { fetchListings, type ListingCard as MarketListing, type MarketAd } from '@/api/market';
+import { trackAdEvent, useAdImpression } from '@/hooks/useAdEvents';
 import { formatPriceVnd } from '@/pages/market/marketFormat';
 import BizReviewSheet from './BizReviewSheet';
 import { formatRelativeTime } from '@/lib/format';
@@ -54,6 +55,31 @@ function isLongBody(body: string): boolean {
 
 function formatVnd(amount: number): string {
   return `${Math.round(amount).toLocaleString('vi-VN')} ₫`;
+}
+
+/** 업체 프로필 광고 카드 1건 — 노출 계측(surface='biz_profile', 세션 내 중복 억제)을 카드 단위로 붙인다.
+ * ⚠️ ADS_ENABLED=false 인 동안은 호출부(BizPublic 본문)가 이 컴포넌트를 아예 렌더하지 않으므로
+ * 지금은 훅이 발화하지 않는다 — #10(노출 재개) 때 실제로 살아난다. */
+function BizAdCard({ ad, onOpen }: { ad: MarketAd; onOpen: (ad: MarketAd) => void }) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLButtonElement>(null);
+  useAdImpression(ref, ad.id, 'biz_profile', ad.ownerBusinessProfileId);
+  return (
+    <button ref={ref} className={styles.bizAdCard} onClick={() => onOpen(ad)}>
+      <div className={styles.bizAdImageWrap}>
+        <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.bizAdImage} />
+      </div>
+      <div className={styles.bizAdBody}>
+        <div className={styles.bizAdLabelRow}>
+          <span className={styles.bizAdLabel}>{t('market.adBadge')}</span>
+          <span className={styles.bizAdPartner}>{ad.partnerName}</span>
+        </div>
+        <strong className={styles.bizAdTitle}>{ad.title}</strong>
+        {ad.body && <span className={styles.bizAdCopy}>{ad.body}</span>}
+        <span className={styles.bizAdCta}>{t('common.seeMore')}</span>
+      </div>
+    </button>
+  );
 }
 
 /** 공개 비즈니스 프로필 — AD 카드 탭 진입면(BP-6). 가게 정보 + 게시중 광고 목록. */
@@ -477,20 +503,14 @@ export default function BizPublic() {
             ) : profile.ads.length === 0 ? <EmptyArea label={t('biz.publicAdsTitle')} /> : (
               <div className={`${styles.adCarousel} ${profile.ads.length === 1 ? styles.adCarouselSingle : ''}`}>
                 {profile.ads.map((ad) => (
-                  <button key={ad.id} className={styles.bizAdCard} onClick={() => navigate(`/market/ad/${ad.id}`)}>
-                    <div className={styles.bizAdImageWrap}>
-                      <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.bizAdImage} />
-                    </div>
-                    <div className={styles.bizAdBody}>
-                      <div className={styles.bizAdLabelRow}>
-                        <span className={styles.bizAdLabel}>{t('market.adBadge')}</span>
-                        <span className={styles.bizAdPartner}>{ad.partnerName}</span>
-                      </div>
-                      <strong className={styles.bizAdTitle}>{ad.title}</strong>
-                      {ad.body && <span className={styles.bizAdCopy}>{ad.body}</span>}
-                      <span className={styles.bizAdCta}>{t('common.seeMore')}</span>
-                    </div>
-                  </button>
+                  <BizAdCard
+                    key={ad.id}
+                    ad={ad}
+                    onOpen={(a) => {
+                      trackAdEvent(a.id, 'biz_profile', 'click', a.ownerBusinessProfileId);
+                      navigate(`/market/ad/${a.id}`);
+                    }}
+                  />
                 ))}
               </div>
             )}

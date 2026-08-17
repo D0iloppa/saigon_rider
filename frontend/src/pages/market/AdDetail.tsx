@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast';
 import { fetchAd, localizedName, type MarketAd } from '@/api/market';
 import { fetchDistricts, type District } from '@/api/master';
 import { native } from '@/lib/native';
+import { trackAdEvent, trackAdImpression } from '@/hooks/useAdEvents';
 import styles from './AdDetail.module.css';
 
 export default function AdDetail() {
@@ -24,6 +25,7 @@ export default function AdDetail() {
     fetchAd(id)
       .then(async (a) => {
         setAd(a);
+        trackAdImpression(a.id, 'ad_detail', a.ownerBusinessProfileId);
         if (a.districtId != null) {
           const ds = await fetchDistricts().catch(() => [] as District[]);
           const d = ds.find((x) => x.id === a.districtId);
@@ -39,11 +41,13 @@ export default function AdDetail() {
 
   const handleCall = () => {
     if (!ad?.phone) return;
+    trackAdEvent(ad.id, 'ad_detail', 'cta_call', ad.ownerBusinessProfileId);
     native.openUrl(`tel:${ad.phone}`);
   };
 
   const handleShare = () => {
     if (!ad) return;
+    trackAdEvent(ad.id, 'ad_detail', 'cta_share', ad.ownerBusinessProfileId);
     native.share({ title: ad.title, text: ad.body ?? ad.partnerName, url: window.location.href });
   };
 

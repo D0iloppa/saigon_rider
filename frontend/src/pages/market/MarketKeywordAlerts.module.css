@@ -23,8 +23,14 @@
   margin-top: 14px;
 }
 
+.inputRow > button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .input {
   flex: 1;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);

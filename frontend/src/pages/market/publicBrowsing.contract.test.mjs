@@ -42,11 +42,11 @@ test('guest state changes save the full current route and enter the existing OAu
   }
 
   const main = read('MarketMain.tsx');
-  for (const handler of ['openAlerts', 'handleAddKw', 'handleRemoveKw']) {
-    const start = main.indexOf(`const ${handler}`);
-    assert.notEqual(start, -1, `${handler} is missing`);
-    assert.match(main.slice(start, start + 180), /if \(!requireAuth\(\)\) return;/, `${handler} is not auth-gated`);
-  }
+  // Keyword alert gates moved from handler-level to route-level (PrivateRoute, commit 58bb3b9).
+  // Verify /market/keyword-alerts is protected and in-place handlers were removed.
+  const app = read('../../App.tsx');
+  assert.match(app, /path="\/market\/keyword-alerts" element=\{<PrivateRoute><MarketKeywordAlerts/);
+  assert.doesNotMatch(main, /const (?:openAlerts|handleAddKw|handleRemoveKw|newKw)\s*=/);
 
   const search = read('MarketSearch.tsx');
   assert.match(search, /const isMine = isMineRequested && !!userId/);

@@ -1,9 +1,12 @@
+import hashlib
+import hmac
+import os
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import delete, func, literal_column, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,6 +82,10 @@ from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 
 _AD_EVENTS_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # stat_date 는 VN 로컬 일자(admin_api/dashboard.py:234 선례와 동일)
+# code-review high #12: 상단(미래) 가드와 대칭 — 48시간 넘게 과거인 occurred_at 은 롤업 배치가
+# "어제(VN) 하루"만 재계산하는 창을 벗어나 조용히 유실(또는 훗날 수동 백필 시 예기치 않게 되살아남)되므로
+# 적재 자체를 거부한다. 48h 는 배치 지연·클라 오프라인 큐잉을 감안한 여유치(리뷰 제안값).
+_AD_EVENT_MAX_AGE = timedelta(hours=48)
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
@@ -238,6 +245,7 @@ async def get_ad(
 # proximity 서페이스는 받지 않는다 — proximity.py:137 이 이미 전용 경로로 직접 INSERT 한다.
 @router.post("/ads/events", status_code=204, summary="광고 노출/클릭 이벤트 수집 (배치)")
 async def post_ad_events(
+    request: Request,
     body: AdEventsIngestRequest,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
@@ -265,22 +273,47 @@ async def post_ad_events(
             continue  # 삭제됐거나 존재하지 않는 광고 — 계측 실패로 클라 흐름을 막지 않고 조용히 무시
         # 클라 시각은 신뢰하되 미래 시각만 방어(occurred_at 이 stat_date 롤업 경계를 정하므로) —
         # D-1 범위(봇 필터 등 정교한 검증은 범위 밖)에 맞춘 최소 가드.
+        if e.occurred_at is not None and e.occurred_at < now - _AD_EVENT_MAX_AGE:
+            continue  # code-review high #12: 48h 초과 과거 시각 — 롤업 창을 벗어나 조용히 유실되므로 거부
         occurred_at = e.occurred_at if e.occurred_at is not None and e.occurred_at <= now else now
         owner_uid = owner_user_id_by_profile.get(ad.owner_business_profile_id) if ad.owner_business_profile_id else None
         is_self = session_uid is not None and owner_uid is not None and session_uid == owner_uid
+        stat_date = occurred_at.astimezone(_AD_EVENTS_VN_TZ).date()
         db.add(
             AdEvent(
                 ad_id=ad.id,
-                business_profile_id=e.business_profile_id or ad.owner_business_profile_id,
+                # code-review high #5: 클라이언트가 준 business_profile_id 를 신뢰하지 않는다(귀속 위조
+                # 방지) — 광고 ID 로부터 서버가 소유 업체를 유도한다.
+                business_profile_id=ad.owner_business_profile_id,
                 event_type=e.event_type.value,
                 surface=e.surface.value,
                 user_key=session_uid,
+                # code-review high #4: 로그인 사용자는 user_key, 익명은 anon_key 로 reach 중복제거.
+                anon_key=_ad_anon_key(request, stat_date) if session_uid is None else None,
                 is_self=is_self,
                 occurred_at=occurred_at,
-                stat_date=occurred_at.astimezone(_AD_EVENTS_VN_TZ).date(),
+                stat_date=stat_date,
             )
         )
     await db.commit()
+
+
+def _ad_anon_key(request: Request, stat_date) -> str | None:
+    """code-review high #4: 익명 노출(user_key=None)의 reach 중복제거 키.
+
+    HMAC-SHA256(pepper=env AD_ANON_KEY_PEPPER, msg=IP|UA|stat_date) 앞 32자(anon_key 컬럼이
+    CHAR(32) — database/init/153). withdrawn_archive.hash_identifier() 와 동일 관례: 원문 IP 는
+    저장하지 않고(D-18 PDPL 최소화), 서버 비밀 pepper 를 키로 쓰는 HMAC 이라 역산 불가능하다.
+    stat_date 를 메시지에 섞어 하루 단위로만 유효한 키를 만든다 — 날짜를 넘어 같은 익명 사용자를
+    추적/연결할 수 없다(리치 근사값 산출에 필요한 최소한만).
+    pepper 미설정이면 None(집계 시 user_key 만으로 reach 계산 — 기존 동작과 동일한 fail-open)."""
+    pepper = os.getenv("AD_ANON_KEY_PEPPER", "")
+    if not pepper:
+        return None
+    ip = request.headers.get("X-Real-IP") or (request.client.host if request.client else "")
+    ua = request.headers.get("User-Agent", "")
+    msg = f"{ip}|{ua}|{stat_date.isoformat()}"
+    return hmac.new(pepper.encode(), msg.encode(), hashlib.sha256).hexdigest()[:32]
 
 
 # M-2 동네 피드 (매물 목록 — 카테고리·정렬·거래완료 숨김·거리·페이지네이션)

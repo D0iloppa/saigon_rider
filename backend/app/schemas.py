@@ -267,10 +267,12 @@ class AdEventSurface(StrEnum):
 
 
 class AdEventIn(BaseModel):
+    # code-review high #5: business_profile_id 는 받지 않는다 — 클라이언트가 임의 업체 ID 를
+    # 지정해 CTR/CVR 등 광고주 지표를 다른 업체로 귀속시킬 수 있었다(귀속 위조). 서버가
+    # ad_id 로부터 owner_business_profile_id 를 유도한다(routers/market.py post_ad_events).
     ad_id: UUID
     event_type: AdEventType
     surface: AdEventSurface
-    business_profile_id: UUID | None = None
     occurred_at: AwareDatetime | None = None
 
 

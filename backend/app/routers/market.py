@@ -479,7 +479,9 @@ async def get_listing(
         if blocked is not None:
             raise HTTPException(status_code=404, detail="Listing not found")
 
-    listing.view_count += 1
+    # Q-8(감사 260817): 소유자 본인 조회는 조회수에 반영하지 않는다.
+    if session_uid != listing.seller_id:
+        listing.view_count += 1
 
     liked = False
     if session_uid is not None:

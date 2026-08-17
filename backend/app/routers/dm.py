@@ -1,4 +1,3 @@
-import time
 import uuid
 from datetime import UTC, datetime
 
@@ -10,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..models import (
-    BannedKeyword,
     DmConversation,
     DmMessage,
     MarketplaceAppointment,
@@ -29,6 +27,7 @@ from ..schemas import (
     ReportCreateRequest,
 )
 from ..services import noti_events
+from ..services.banned_keywords import banned_keywords as _banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
 from ..utils import resolve_avatar_url
 from .market import _appointment_unlocked, _appt_out, _offer_out
@@ -58,23 +57,6 @@ def _resolve_dm_image(msg: DmMessage) -> str | None:
 
 def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
     return conv.participant_2 if conv.participant_1 == me else conv.participant_1
-
-
-# 금칙어 모듈 레벨 캐시 (사전 수십 건 규모 — 60초 TTL 재조회로 충분, Redis 불필요)
-_BANNED_KEYWORDS_TTL_SEC = 60.0
-_banned_keywords_cache: tuple[float, list[str]] = (0.0, [])
-
-
-async def _banned_keywords(db: AsyncSession) -> list[str]:
-    global _banned_keywords_cache
-    loaded_at, keywords = _banned_keywords_cache
-    now = time.monotonic()
-    if now - loaded_at < _BANNED_KEYWORDS_TTL_SEC and loaded_at > 0:
-        return keywords
-    rows = (await db.execute(select(BannedKeyword.keyword))).scalars().all()
-    keywords = [k.lower() for k in rows]
-    _banned_keywords_cache = (now, keywords)
-    return keywords
 
 
 @router.get("/conversations", response_model=list[DmConversationOut], summary="대화방 목록")

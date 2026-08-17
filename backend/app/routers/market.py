@@ -59,6 +59,7 @@ from ..schemas import (
 )
 from ..services import noti_events
 from ..services.ad_exposure import build_exposure_sequence
+from ..services.banned_keywords import banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
@@ -643,6 +644,11 @@ async def create_listing(
     if body.latitude is not None and body.longitude is not None and not in_service_area(body.latitude, body.longitude):
         raise HTTPException(status_code=422, detail="Location is outside the service area")
 
+    # Q-1(감사 260817): 금칙어 차단 — dm.py 텍스트 메시지와 동일한 방식(부분문자열, 대소문자 무시)
+    listing_text = f"{body.title} {body.description or ''}".lower()
+    if any(kw in listing_text for kw in await banned_keywords(db)):
+        raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
+
     now = datetime.now(UTC)
     # 동네지도 배지(map.py listings 탭)가 ward_id 기준 집계 — 좌표가 있으면 ward를 배정해야 지도에 노출된다
     ward_id = (
@@ -707,6 +713,11 @@ async def update_listing(
         raise HTTPException(status_code=403, detail="Forbidden")
     if not body.title.strip():
         raise HTTPException(status_code=400, detail="title is required")
+
+    # Q-1(감사 260817): 금칙어 차단 — dm.py 텍스트 메시지와 동일한 방식(부분문자열, 대소문자 무시)
+    listing_text = f"{body.title} {body.description or ''}".lower()
+    if any(kw in listing_text for kw in await banned_keywords(db)):
+        raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
 
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))

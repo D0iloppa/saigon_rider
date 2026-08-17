@@ -235,6 +235,11 @@ async def create_conversation(
             await db.commit()
         except IntegrityError:
             await db.rollback()
+            # rollback() 은 세션의 모든 persistent 객체(other_user 포함, 위에서 이미 로드됨)를
+            # expire 시킨다 — refresh 없이 아래에서 other_user.nickname 에 접근하면 그레코드가
+            # await 밖에서 lazy-load 를 시도해 MissingGreenlet 으로 죽는다(코드리뷰 HIGH #2 관련
+            # 레이스 복구 경로에서 실제로 재현됨).
+            await db.refresh(other_user)
             conv = (
                 await db.execute(
                     select(DmConversation).where(

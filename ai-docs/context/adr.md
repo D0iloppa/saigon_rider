@@ -67,8 +67,9 @@ Docker Compose, 단일 Nginx(:18090) 진입.
 ### 화면 → 페이지 매핑
 상세는 [`frontend-page-map.md`](./frontend-page-map.md). **화면 동작을 바꾸기 전에 그 문서의 해당 절을 반드시 읽어라** — 대표 결정이 본문 서술로만 기록돼 있어 grep 으로 놓치기 쉽다(§TRADEOFFS 의 N-5 사고 참조).
 
-주요 라우트: `/home`(HomePage) · `/market`(+`/search`·`/new`·`/wishlist`·`/:id`·**`/:id/edit`**·`/ad/:id`) · `/map`(NeighborhoodMap+Canvas, `/map/search`) · `/info/*`(날씨·유가·주유소·정비소·침수) · `/feed`·`/dm` · `/biz/*`(intro·apply·status·manage·news·prices) · `/settings/*`(privacy·terms 는 **공개 라우트**) · `/auth/*`(oauth-login·oauth-result·profile-setup — profile-setup 은 **PrivateRoute 밖**이어야 함)
+주요 라우트: `/home`(HomePage) · `/market`(+`/search`·`/new`·`/wishlist`·`/:id`·**`/:id/edit`**·`/ad/:id`·**`/keyword-alerts`**) · `/map`(NeighborhoodMap+Canvas, `/map/search`) · `/info/*`(날씨·유가·주유소·정비소·침수) · `/feed`·`/dm` · `/biz/*`(intro·apply·status·manage·news·prices) · `/settings/*`(privacy·terms 는 **공개 라우트**) · `/auth/*`(oauth-login·oauth-result·profile-setup — profile-setup 은 **PrivateRoute 밖**이어야 함)
 - **스플래시(2026-08-02)**: `/splash`(`Splash.tsx`)의 [시작하기]와 [로그인] 버튼이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 [로그인]을 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거.
+- **키워드 알림(마켓 saved-search)은 시트→페이지 승격**(2026-08-17, 커밋 `58bb3b9`): 신규 라우트 `/market/keyword-alerts`(`MarketKeywordAlerts.tsx`, PrivateRoute)로 목록·추가·수정·삭제를 다룬다. `MarketMain.tsx` 안의 칩 나열 바텀시트(`.alert*` CSS 12클래스)는 **폐기됐다** — 되살리지 말 것, 키워드 10~30개 규모는 시트로 관리가 안 된다. 선례는 `4762726`(ProfileCard 시트→페이지 승격) — "시트=잎(leaf 액션), 페이지=탐색(browse)" 원칙과 일관. 진입점 4곳: `MarketMain.tsx` 헤더 벨 / 매물 0건 CTA, `NotificationInbox.tsx` TopBar, `NotiSettings.tsx` 캡션 링크화.
 
 ### 진입·인증 경로 (2026-08-03, UX 감사 Gate A)
 - **딥링크 목적지는 `lib/returnTo.ts` 로 보존한다.** `PrivateRoute` → `Splash` → OAuth → `ProfileSetup` 전 구간, 성공 후 **1회만 소비**. OAuth 가 페이지를 벗어나므로 `sessionStorage`. 로그인 성공 지점에 `/home` 을 **하드코딩하지 말 것** — 이전에 4지점이 하드코딩이라 공유·푸시·업체 홍보 링크 유입이 전부 홈으로 흘렀다. `isSafeReturnPath` 는 앱 내부 경로만 허용하고 외부 URL·`//`·`javascript:`·제어문자와 `/splash`·`/auth`·`/link`(루프 방지)를 거부한다.
@@ -127,6 +128,13 @@ Docker Compose, 단일 Nginx(:18090) 진입.
   - 소급 백필: `backend/scripts/backfill_search_blob.py --entity all [--translate] --rps 5`
   - 설계·실측 근거: [`260801_multilingual_search_design.md`](../260801_multilingual_search_design.md)
 - ✅ **2026-08-02 교차언어 검색 완성** — 백필 1패스(원문 258건)+2패스(번역) 실행, 번역 캐시 144→239. 실측: `"자전거"` 로 베트남어 `Xe đạp thể thao Giant` 가, 무성조 `"xe may"` 로 `Phụ tùng xe máy chính hãng` 가 검색된다. `search_blob` 채움률 207/207
+
+### 키워드 알림 — 정규화 재사용·매칭 불변식 (2026-08-17, 커밋 `58bb3b9`)
+마켓 saved-search 구독(`/market/keyword-alerts`) 완성. 정규화·매칭 규약 3건은 되돌리면 회귀다.
+- **정규화 함수는 코드베이스에 단 1개** — 위 검색 절의 `search_norm.py` `norm()` 을 그대로 재사용한다(NFD 분해로 성조 제거, `đ/Đ` 는 NFD 로 안 풀려서 명시 치환). **SQL 로 translate/unaccent 재구현 금지** — 정규화가 두 벌로 갈라지면 검색과 알림 매칭 결과가 어긋난다.
+- **매칭은 SQL `strpos()`**(`noti_worker/__main__.py`) — **`LIKE` 금지**: 위 검색 blob 의 `LIKE` 와 달리 여기선 사용자가 입력한 keyword 원문이 패턴 쪽에 들어가므로, `%`/`_` 가 섞이면 의도치 않은 와일드카드로 오작동한다. 빈 문자열 방어 필수 — `strpos(x,'')` 는 1(항상 매치)이라 빈 keyword 가 전체매물에 알림을 쏜다.
+- **`keyword_norm` NULL 폴백**: 마이그레이션(`180_marketplace_keyword_alerts_norm.sql`·`181_keyword_alert_max_count.sql`)은 `bff_migrate` 로 자동 적용되지만 백필(`backend/scripts/backfill_keyword_alert_norm.py`)은 수동이다. 그 사이 `keyword_norm` 이 NULL 인 행은 원본 `keyword` 로 폴백 매칭해 기존 구독이 조용히 죽지 않게 한다. **운영 배포 시 백필 1회 실행 필수**(안 하면 동작은 하나 성조 정규화 이점이 없다) — `bff_migrate` 는 psql 전용 postgis 이미지라 마이그레이션 안에서 백필을 겸할 수 없다. dev 는 15/15 백필 완료.
+- 부수 규약: UNIQUE 는 `(user_id, keyword_norm)` / 상한은 `app_config('market','keyword_alert_max_count')`(기본 20, 어드민 1~100), 프론트는 `GET /api/bff/app-config` 로 조회 / POST·PATCH 는 `pg_advisory_xact_lock(hashtext('kw_alert:{user_id}'))` 로 유저 단위 직렬화하고 **중복판정을 상한검사보다 먼저** 수행(상한 도달 유저의 기존 키워드 재등록이 부당하게 막히지 않게) / 에러 계약 `keyword_too_short`(422)·`banned_keyword`(400)·`keyword_alert_limit`(422), 중복은 에러가 아니라 기존 row 를 idempotent 반환.
 
 #### 번역 API 403 진단 — 원인은 결제였다 (2026-08-02 해소)
 - 3주간 모든 번역이 `403 userRateLimitExceeded` 였다. 원인은 **Google Cloud 결제 계정이 전부 "종료됨"** 이었던 것 — 결제가 끊기면 프로젝트 quota 가 0으로 떨어지고 이 에러가 난다. 키 폐기도, API 비활성도 아니었다.

@@ -29,6 +29,11 @@
 | OpenWeather API 키 | `.env`에 설정 완료, 활성화 대기 | mock fallback 동작 중 |
 | **TRANSLATE_API_KEY (Google Translate) 403** | 키 설정은 있으나 무효/만료 추정 — 매물 상세 번역이 전부 폴백(원문 표시) 중 | 키 재발급→`.env` 교체→bff 재시작. 코드 견고성은 확보됨(`de6cbd0` — 번역 실패 시 원문 폴백 200, 과거엔 500). 키 복구 후 정상 번역 경로 1회 검증 필요 |
 | Google Maps Directions 키 (SGR-269) | 코드 완료·휴면, 키 발급 대기 | `GOOGLE_MAPS_API_KEY` 발급→`.env` 입력→`restart bff`. 가이드: [`google-maps-api-key-setup.md`](../google-maps-api-key-setup.md). 미설정 시 "준비 중" 폴백 |
+| 마켓 키워드 알림 — 운영 DB 마이그레이션 180·181 + 백필 (완료 이력: [`history.md`](history.md) 2026-08-17) | 미실행 | 운영 배포 시 init/180·181 적용 + `backend/scripts/backfill_keyword_alert_norm.py` 1회 실행 |
+| 마켓 키워드 알림 — 어드민 `service-config` GET·PUT(`keyword_alert_max_count`) 실호출 | 미실측 | root 평문 비번 확보 후 curl 실측 |
+| 마켓 키워드 알림 — 실기기 왕복 검증 + 10~30개 스크롤 체감 | 미검증 | 실기기/브라우저 1회 순회(`/market/keyword-alerts` 진입점 4곳) |
+| 마켓 키워드 알림 — 프론트 계약테스트 0건 | 미착수 | 계약 테스트 신설 |
+| 마켓 키워드 알림 — `manage_adr` MCP 미러 | 미갱신 | MCP 재연결 후 store(SoT `adr.md`는 갱신 완료) |
 
 ## 미해결 결함 ([issues.md](../TEST/issues.md))
 

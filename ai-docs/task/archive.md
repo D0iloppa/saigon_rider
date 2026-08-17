@@ -2,6 +2,17 @@
 
 > 활성 태스크는 [`active/`](active/) 폴더 참조. 트러블슈팅은 [`../trouble/index.md`](../trouble/index.md).
 
+## 260817
+
+- [W1 백엔드 감사](260817/W1_backend.md) — 키워드 알림(마켓 saved-search) 백엔드·데이터·발송 파이프라인 전수 감사(읽기전용, 파일:라인 근거)
+- [W2 프론트엔드 감사](260817/W2_frontend.md) — 키워드 알림 구독 프론트엔드 현행 실태 감사(grep 전수+화면 소스 정독)
+- [BE-2 사용자당 상한 구현](260817/BE2_impl.md) — 어드민 설정 가능한 키워드 알림 사용자당 상한(`keyword_alert_max_count`, 기본 20·1~100) 구현
+- [WA 마이그레이션 번호 충돌 해결](260817/WA_migration_fix.md) — init `180→181` 파일명 변경 + docker-compose.yml 배선 수정
+- [WB 백엔드 자동 테스트 추가](260817/WB_backend_tests.md) — W1 감사 후속, 프로덕션 코드 diff 0줄로 테스트 23건 신설
+- [WC 프론트 구현](260817/WC_frontend_impl.md) — 전용 페이지 `/market/keyword-alerts` 신설(바텀시트 폐기)+결함 4건 수정+진입점 3곳 배선
+- [WE 코드리뷰 지적 수정(백엔드)](260817/WE_review_fixes_be.md) — `market.py` 등 리뷰 지적 4건 수정
+- [WF 코드리뷰 지적 수정(프론트)](260817/WF_review_fixes_fe.md) — F-5·F-6·F-7 3건 수정
+
 ## 260722
 
 - [지도 연동 서비스 신뢰성 수정](260722/260722_map_integration_reliability_task.md) — MAP-1~12·ENG-1·SYS-1 및 퀘스트 RP 실패 자동 재시도 완료: 외부 API 정직한 실패, 이륜차 경로·캐시·멱등성·배치 이관·어뷰징 방어·legacy 22개 행정경계·CORS/readiness

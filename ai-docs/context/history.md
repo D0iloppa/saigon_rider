@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-08-17
+
+- **마켓 키워드 알림(saved-search 구독) 완성 (커밋 `58bb3b9`, 38파일 +1909/−178)** — 매칭을 Python 풀스캔에서 SQL `strpos()`로 내렸다(LIKE는 keyword의 `%`/`_`가 오작동해 금지). 베트남어 성조 정규화 `keyword_norm` 컬럼을 도입(정규화 함수는 `services/search_norm.norm()` 단일 구현)하고 UNIQUE 제약을 `(user_id, keyword_norm)`으로 이관, `keyword_norm` NULL 폴백 매칭으로 마이그레이션 자동/백필 수동 괴리를 보정했다. 사용자당 상한(기본 20, 어드민 1~100 설정 가능)+최소길이·금칙어 검증, PATCH 신설, `pg_advisory_xact_lock` 직렬화를 추가했다. 전용 페이지 `/market/keyword-alerts`를 신설해 `MarketMain` 바텀시트를 폐기하고 진입점 4곳을 배선했다. 신규 테스트 23건, 마이그레이션 init/180·181(번호 충돌로 181로 재배치). `/code-review medium` 지적 7건(백엔드 4·프론트 3) 반영. SoT: [`task/260817/`](../task/260817/)(W1/W2 감사, BE2 구현, WA 마이그레이션 수정, WB 테스트, WC 프론트 구현, WE/WF 리뷰 수정). Plane 이슈 `7b41f9ec-4881-4c4d-be55-fb0fc9bf9470`(sequence 348) DONE.
+  - **잔여**: ① 실기기 왕복 미검증 ② 키워드 10~30개 스크롤 체감 미검증 ③ 어드민 `service-config` GET·PUT 실호출 미실측(root 평문 비번 부재) ④ 운영 DB 마이그레이션 180·181 적용 + 백필 스크립트(`backend/scripts/backfill_keyword_alert_norm.py`) 1회 실행 필요 ⑤ 프론트 계약테스트 0건 ⑥ `manage_adr` MCP 미러 미갱신(MCP 연결 단절, SoT `adr.md`는 갱신 완료).
+
 ## 2026-07-22
 
 - **퀘스트 완료 RP 지급 실패 자동 재시도 완료** — 지급 순서를 Engine RP 성공→BFF EXP·Gold/완료 commit으로 정리하고, 실패 상태·결정적 멱등키를 보존해 BFF 1분 배치가 행 잠금 아래 재처리한다. BFF 관련 테스트 9건·Engine 멱등키 보존 테스트 1건 통과, BFF 배포와 readiness 확인. Engine의 금전성 멱등키 영구 보존 변경은 기존 미완성 `sre059` 마이그레이션을 재실행하지 않도록 코드·테스트만 완료하고 런타임 배포는 보류했다. SoT: [`task/260722/260722_map_integration_reliability_task.md`](../task/260722/260722_map_integration_reliability_task.md).

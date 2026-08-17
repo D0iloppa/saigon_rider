@@ -2,6 +2,7 @@ import re
 import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
+from enum import StrEnum
 from typing import Generic, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -226,6 +227,54 @@ class MarketplaceBumpResult(BaseModel):
 class MarketplaceReportCreateRequest(BaseModel):
     reason: str
     note: str | None = None
+
+
+# ── 광고 성과 계측 (정본 §5 #6, D-1/D-19 — 260817_commercial_readiness_audit) ──────────
+
+
+class AdEventType(StrEnum):
+    """`ad_events.event_type` CHECK 제약(init/153+174)과 1:1. proximity 전용 2종
+    (proximity_impression/proximity_visit)은 기존 경로(routers/proximity.py:137)만 쓰므로
+    이 수집 API 의 카탈로그에는 넣지 않는다."""
+
+    IMPRESSION = "impression"
+    CLICK = "click"
+    CTA_CALL = "cta_call"
+    CTA_FOLLOW = "cta_follow"
+    CTA_FAVORITE = "cta_favorite"
+    CTA_REVIEW = "cta_review"
+    CTA_NEWS_VIEW = "cta_news_view"
+    CTA_PROFILE_ENTER = "cta_profile_enter"
+    CTA_SHARE = "cta_share"
+
+
+class AdEventSurface(StrEnum):
+    """D-19(001_DECISIONS.md §3) 확정 카탈로그 중 이 수집 API 가 받는 6종.
+    `proximity` 는 근접광고 전용 기존 INSERT 경로(proximity.py:137)가 이미 쓰고 있어 제외 —
+    새 값을 추가할 땐 여기 멤버 하나만 늘리면 된다(DB CHECK 없음, 코드가 카탈로그의 SoT)."""
+
+    MARKET_FEED = "market_feed"
+    MARKET_TOP = "market_top"
+    HOME_CARD = "home_card"
+    HOME_EMPTY = "home_empty"
+    AD_DETAIL = "ad_detail"
+    BIZ_PROFILE = "biz_profile"
+
+
+class AdEventIn(BaseModel):
+    ad_id: UUID
+    event_type: AdEventType
+    surface: AdEventSurface
+    business_profile_id: UUID | None = None
+    occurred_at: AwareDatetime | None = None
+
+
+class AdEventsIngestRequest(BaseModel):
+    """배치 전송 — 스크롤당 다발하는 노출을 1건씩 POST 하면 요청이 폭주하므로 배열로 받는다.
+    상한 20은 ai-docs/spec/ad-performance-metrics.md §5 의 "5s debounce, 최대 20건" 클라이언트
+    설계와 맞춘 서버측 남용 방어(D-1 — 봇 필터 등은 범위 밖, 개수 상한만)."""
+
+    events: list[AdEventIn] = Field(..., min_length=1, max_length=20)
 
 
 class ReportCreateRequest(BaseModel):

@@ -1,6 +1,7 @@
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import delete, func, literal_column, or_, select, text, update
@@ -9,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import optional_user_session, verify_user_session
 from ..models import (
+    AdEvent,
     AppConfig,
     BannedKeyword,
     BusinessProfile,
     DmConversation,
     DmMessage,
+    MarketplaceAd,
     MarketplaceAppointment,
     MarketplaceCategory,
     MarketplaceKeywordAlert,
@@ -30,6 +33,7 @@ from ..models import (
 from ..modules.ads import AdsApplication
 from ..modules.ads.application import AdRead, AdsError
 from ..schemas import (
+    AdEventsIngestRequest,
     AppointmentOut,
     AppointmentProposeRequest,
     BlockedUserOut,
@@ -72,6 +76,8 @@ from ..services.translate import lookup_lang_batch, translate_to, warm_translati
 from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, mask_phone, resolve_avatar_url
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
+
+_AD_EVENTS_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # stat_date 는 VN 로컬 일자(admin_api/dashboard.py:234 선례와 동일)
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
@@ -223,6 +229,57 @@ async def get_ad(
     out.translation_failed = title_failed or body_failed
     await db.commit()  # translate_to 워밍 결과 영속화
     return out
+
+
+# 광고 성과 계측 수집 (정본 §5 #6, D-1/D-19 — ai-docs/task/active/260817_commercial_readiness_audit).
+# 노출/클릭을 배치로 받는다(스크롤당 다발 노출을 1건씩 POST 하면 폭주). 인증 필수 아님 — 광고 노출은
+# 비로그인 사용자에게도 발생하므로 optional_user_session 으로 익명도 받는다(로그인 시에만 user_key 채움).
+# proximity 서페이스는 받지 않는다 — proximity.py:137 이 이미 전용 경로로 직접 INSERT 한다.
+@router.post("/ads/events", status_code=204, summary="광고 노출/클릭 이벤트 수집 (배치)")
+async def post_ad_events(
+    body: AdEventsIngestRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
+):
+    ad_ids = {e.ad_id for e in body.events}
+    ads_by_id = {
+        a.id: a for a in (await db.execute(select(MarketplaceAd).where(MarketplaceAd.id.in_(ad_ids)))).scalars().all()
+    }
+
+    owner_profile_ids = {a.owner_business_profile_id for a in ads_by_id.values() if a.owner_business_profile_id}
+    owner_user_id_by_profile: dict[uuid.UUID, uuid.UUID | None] = {}
+    if owner_profile_ids:
+        owner_user_id_by_profile = dict(
+            (
+                await db.execute(
+                    select(BusinessProfile.id, BusinessProfile.user_id).where(BusinessProfile.id.in_(owner_profile_ids))
+                )
+            ).all()
+        )
+
+    now = datetime.now(UTC)
+    for e in body.events:
+        ad = ads_by_id.get(e.ad_id)
+        if ad is None:
+            continue  # 삭제됐거나 존재하지 않는 광고 — 계측 실패로 클라 흐름을 막지 않고 조용히 무시
+        # 클라 시각은 신뢰하되 미래 시각만 방어(occurred_at 이 stat_date 롤업 경계를 정하므로) —
+        # D-1 범위(봇 필터 등 정교한 검증은 범위 밖)에 맞춘 최소 가드.
+        occurred_at = e.occurred_at if e.occurred_at is not None and e.occurred_at <= now else now
+        owner_uid = owner_user_id_by_profile.get(ad.owner_business_profile_id) if ad.owner_business_profile_id else None
+        is_self = session_uid is not None and owner_uid is not None and session_uid == owner_uid
+        db.add(
+            AdEvent(
+                ad_id=ad.id,
+                business_profile_id=e.business_profile_id or ad.owner_business_profile_id,
+                event_type=e.event_type.value,
+                surface=e.surface.value,
+                user_key=session_uid,
+                is_self=is_self,
+                occurred_at=occurred_at,
+                stat_date=occurred_at.astimezone(_AD_EVENTS_VN_TZ).date(),
+            )
+        )
+    await db.commit()
 
 
 # M-2 동네 피드 (매물 목록 — 카테고리·정렬·거래완료 숨김·거리·페이지네이션)
@@ -1182,9 +1239,7 @@ async def _keyword_alert_max_count(db: AsyncSession) -> int:
     admin_api/settings.py 의 dm.unread_poll_interval 조회 패턴 미러(그 파일 자체는 수정 안 함)."""
     row = (
         await db.execute(
-            select(AppConfig).where(
-                AppConfig.group_name == "market", AppConfig.key == "keyword_alert_max_count"
-            )
+            select(AppConfig).where(AppConfig.group_name == "market", AppConfig.key == "keyword_alert_max_count")
         )
     ).scalar_one_or_none()
     if row is None:

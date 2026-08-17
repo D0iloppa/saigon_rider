@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..deps import verify_user_session, verify_user_session_allow_suspended
+from ..deps import verify_user_session_allow_suspended
 from ..models import SupportReply, SupportTicket
 from ..schemas import SupportReplyCreateRequest, SupportTicketCreate, SupportTicketDetail, SupportTicketOut
 
@@ -35,7 +35,8 @@ async def create_ticket(
 
 @router.get("/tickets", response_model=list[SupportTicketOut], summary="내 문의 목록")
 async def list_tickets(
-    user_id: uuid.UUID = Depends(verify_user_session),
+    # D-22(감사 260817): 정지 사용자도 자기 티켓은 열람할 수 있어야 이의제기 구제가 완결된다.
+    user_id: uuid.UUID = Depends(verify_user_session_allow_suspended),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -59,7 +60,8 @@ async def list_tickets(
 @router.get("/tickets/{ticket_id}", response_model=SupportTicketDetail, summary="문의 상세")
 async def get_ticket(
     ticket_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(verify_user_session),
+    # D-22(감사 260817): 정지 사용자도 자기 티켓 상세(답변 포함)는 열람할 수 있어야 한다.
+    user_id: uuid.UUID = Depends(verify_user_session_allow_suspended),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -87,7 +89,8 @@ async def get_ticket(
 async def create_reply(
     ticket_id: uuid.UUID,
     body: SupportReplyCreateRequest,
-    user_id: uuid.UUID = Depends(verify_user_session),
+    # D-22(감사 260817): 정지 사용자도 자기 티켓에 소명을 추가할 수 있어야 한다.
+    user_id: uuid.UUID = Depends(verify_user_session_allow_suspended),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

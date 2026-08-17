@@ -100,10 +100,10 @@ async def verify_user_session_allow_suspended(
     x_session_token: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> uuid.UUID:
-    """Q-4(감사 260817): 세션 인증은 그대로 요구하되 제재 상태(enforce_account_active) 는 통과시킨다.
+    """Q-4/D-22(감사 260817): 세션 인증은 그대로 요구하되 제재 상태(enforce_account_active) 는 통과시킨다.
 
-    오신고 등으로 정지/차단된 사용자도 고객센터 티켓은 생성할 수 있어야 한다는 감사 결함(Q-4) 대응.
-    다른 라우트에는 사용하지 말 것 — 티켓 생성 전용 예외다.
+    오신고 등으로 정지/차단된 사용자도 고객센터 티켓은 생성·열람할 수 있어야 한다는 감사 결함(Q-4, D-22) 대응.
+    support.py 의 고객센터 라우트 전용 예외다 — 그 외 라우트에는 사용하지 말 것.
     """
     user, uid, now = await _resolve_session_user(x_user_id, x_session_token, db)
     if user.last_seen_at is None or now - user.last_seen_at > _LAST_SEEN_THROTTLE:

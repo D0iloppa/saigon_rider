@@ -71,6 +71,7 @@ async def lifespan(app: FastAPI):
     from .jobs.purge_deleted_accounts import purge_deleted_accounts
     from .jobs.refresh_repair_stats import refresh_repair_shop_stats
     from .jobs.retry_quest_rewards import retry_failed_quest_rewards
+    from .jobs.rollup_ad_stats import rollup_ad_stats
 
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
     for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
@@ -123,6 +124,15 @@ async def lifespan(app: FastAPI):
         run_backup,
         CronTrigger(hour=2, minute=30),
         id="backup_db",
+        max_instances=1,
+        coalesce=True,
+    )
+    # 광고 성과 일별 롤업 (정본 §5 #6, D-1) — 전날(VN) 하루를 ad_events 에서 재집계해
+    # ad_daily_stats 에 upsert. 00:20 ICT — 자정 직후 지연 도착 이벤트를 약간 흡수.
+    scheduler.add_job(
+        rollup_ad_stats,
+        CronTrigger(hour=0, minute=20),
+        id="rollup_ad_stats",
         max_instances=1,
         coalesce=True,
     )

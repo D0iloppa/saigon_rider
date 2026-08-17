@@ -81,6 +81,11 @@ _VIEW_TTL_SEC = 30
 MIN_SAMPLE_FOR_RATIO = 100
 _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
+# 유료 노출면만 광고 성과(CTR/CVR/CPM/CPC/CPA)에 합산한다 — ad_detail/biz_profile 은 광고비와
+# 무관하게 발생하는 무료 노출(직접 방문)이라 유료 성과에 섞으면 광고주에게 부풀린 숫자를 보여주게
+# 된다(정본 §5 #6 함정 경고, D-19 카탈로그). 새 유료 노출면을 추가할 땐 여기 집합만 늘리면 된다.
+PAID_AD_SURFACES = ("market_feed", "market_top", "home_card", "home_empty", "proximity")
+
 
 async def _view_ping(profile_id: uuid.UUID, user_id: str) -> int:
     client = await get_client()
@@ -580,7 +585,7 @@ async def get_ad_stats_summary(
         func.coalesce(func.sum(AdDailyStat.cta_favorite), 0),
         func.coalesce(func.sum(AdDailyStat.cta_review), 0),
         func.coalesce(func.sum(AdDailyStat.cta_secondary), 0),
-    ).where(AdDailyStat.business_profile_id == profile_id)
+    ).where(AdDailyStat.business_profile_id == profile_id, AdDailyStat.surface.in_(PAID_AD_SURFACES))
     if start_date is not None:
         stmt = stmt.where(AdDailyStat.stat_date >= start_date, AdDailyStat.stat_date <= today)
     impressions, reach, clicks, cta_call, cta_follow, cta_favorite, cta_review, cta_secondary = (
@@ -681,6 +686,7 @@ async def get_ad_stats_series(
             )
             .where(
                 AdDailyStat.ad_id.in_(ad_ids),
+                AdDailyStat.surface.in_(PAID_AD_SURFACES),
                 AdDailyStat.stat_date >= start_date,
                 AdDailyStat.stat_date <= today,
             )
@@ -735,6 +741,7 @@ async def get_ad_stats_series(
             func.coalesce(func.sum(AdDailyStat.cta_secondary), 0),
         ).where(
             AdDailyStat.ad_id.in_(ad_ids),
+            AdDailyStat.surface.in_(PAID_AD_SURFACES),
             AdDailyStat.stat_date >= prev_start,
             AdDailyStat.stat_date <= prev_end,
         )
@@ -758,6 +765,7 @@ async def get_ad_stats_series(
             )
             .where(
                 AdDailyStat.ad_id.in_(ad_ids),
+                AdDailyStat.surface.in_(PAID_AD_SURFACES),
                 AdDailyStat.stat_date >= start_date,
                 AdDailyStat.stat_date <= today,
             )

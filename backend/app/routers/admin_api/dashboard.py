@@ -53,6 +53,15 @@ class DashboardSummary(BaseModel):
     listings_hidden: int
     trades_today: int
     trades_7d: int
+    # Q-7(감사 260817): GMV = SOLD 매물의 agreed_price_vnd 합. 실측(2026-08-17)상 SOLD 21건 중
+    # 1건만 agreed_price_vnd 가 채워져 있어 합계만으로는 오해를 낳는다 — 집계에 반영된 건수(sample)를
+    # 함께 반환해 커버리지를 드러낸다. 성사 시각은 listing.updated_at 근사(trades_today 와 동일 관례).
+    gmv_vnd_today: int
+    gmv_vnd_7d: int
+    gmv_vnd_total: int
+    gmv_sample_today: int
+    gmv_sample_7d: int
+    gmv_sample_total: int
     reports_today: int
     reports_open: int
     reports_resolved_7d: int
@@ -127,6 +136,34 @@ async def get_summary(
         )
     ).one()
 
+    sold = MarketplaceListing.status == "SOLD"
+    gmv_row = (
+        await db.execute(
+            select(
+                func.coalesce(
+                    func.sum(MarketplaceListing.agreed_price_vnd).filter(
+                        sold, MarketplaceListing.updated_at >= today_start
+                    ),
+                    0,
+                ),
+                func.coalesce(
+                    func.sum(MarketplaceListing.agreed_price_vnd).filter(
+                        sold, MarketplaceListing.updated_at >= week_start
+                    ),
+                    0,
+                ),
+                func.coalesce(func.sum(MarketplaceListing.agreed_price_vnd).filter(sold), 0),
+                func.count().filter(
+                    sold, MarketplaceListing.agreed_price_vnd.isnot(None), MarketplaceListing.updated_at >= today_start
+                ),
+                func.count().filter(
+                    sold, MarketplaceListing.agreed_price_vnd.isnot(None), MarketplaceListing.updated_at >= week_start
+                ),
+                func.count().filter(sold, MarketplaceListing.agreed_price_vnd.isnot(None)),
+            ).select_from(MarketplaceListing)
+        )
+    ).one()
+
     report_row = (
         await db.execute(
             select(
@@ -197,6 +234,12 @@ async def get_summary(
         listings_hidden=listing_row[3],
         trades_today=trade_row[0],
         trades_7d=trade_row[1],
+        gmv_vnd_today=gmv_row[0],
+        gmv_vnd_7d=gmv_row[1],
+        gmv_vnd_total=gmv_row[2],
+        gmv_sample_today=gmv_row[3],
+        gmv_sample_7d=gmv_row[4],
+        gmv_sample_total=gmv_row[5],
         reports_today=report_row[0],
         reports_open=report_row[1],
         reports_resolved_7d=report_row[2],

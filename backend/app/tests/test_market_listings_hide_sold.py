@@ -126,10 +126,18 @@ class OwnListingsSeeWithdrawnTest(unittest.IsolatedAsyncioTestCase):
         for sql in db.compiled_sql()[:2]:
             self.assertIn("WITHDRAWN", sql)
 
-    async def test_own_listings_still_hide_moderated(self):
-        """모더레이션(HIDDEN/REMOVED)은 판매자 본인에게도 계속 비노출."""
+    async def test_own_listings_show_moderated(self):
+        """Q-3(감사 260817): 모더레이션(HIDDEN/REMOVED)도 판매자 본인 "내 매물" 목록에는 노출된다
+        — 조치 사실을 확인하고 대응할 수 있어야 한다."""
         uid = uuid.uuid4()
         db = await _call(seller_id=uid, session_uid=uid)
+        for sql in db.compiled_sql()[:2]:
+            self.assertNotIn("HIDDEN", sql)
+            self.assertNotIn("REMOVED", sql)
+
+    async def test_other_users_listings_still_hide_moderated(self):
+        """비소유자 조회(다른 사람 프로필)에서는 HIDDEN/REMOVED 가 여전히 걸린다 — 회귀 금지."""
+        db = await _call(seller_id=uuid.uuid4(), session_uid=uuid.uuid4())
         for sql in db.compiled_sql()[:2]:
             self.assertIn("HIDDEN", sql)
             self.assertIn("REMOVED", sql)

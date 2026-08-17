@@ -343,8 +343,10 @@ async def get_listings(
     # 매물(seller_id == session_uid)을 조회하는 "내 매물" 경로만 예외로 SOLD 를 계속 보여준다.
     # 대표 지시 2026-08-08: 철회(WITHDRAWN)도 같은 예외 — 철회는 삭제가 아니라 되돌릴 수 있는
     # 상태이므로 내 매물 목록에서 사라지면 안 된다(재판매 진입점이 이 목록이다).
+    # Q-3(감사 260817): HIDDEN/REMOVED(모더레이션 조치)도 같은 예외 — 판매자가 조치 사실을
+    # "내 매물" 목록에서 확인하고 대응할 수 있어야 한다(status 필드로 구분 가능).
     is_own_listings = seller_id is not None and session_uid is not None and seller_id == session_uid
-    hidden = ("HIDDEN", "REMOVED") if is_own_listings else _LISTING_INACTIVE_STATUSES
+    hidden = () if is_own_listings else _LISTING_INACTIVE_STATUSES
     q = q.where(MarketplaceListing.status.notin_(hidden))
     count_q = count_q.where(MarketplaceListing.status.notin_(hidden))
 
@@ -452,7 +454,11 @@ async def get_listing(
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
     ).scalar_one_or_none()
-    if listing is None or listing.status in ("HIDDEN", "REMOVED"):
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    # Q-3(감사 260817): HIDDEN/REMOVED(모더레이션 조치)도 소유자 본인은 열람 가능 —
+    # 조치 사유 알림 딥링크·판매자의 자기 매물 확인 경로. 비소유자는 기존과 동일하게 404.
+    if listing.status in ("HIDDEN", "REMOVED") and listing.seller_id != session_uid:
         raise HTTPException(status_code=404, detail="Listing not found")
     # 철회 매물은 판매자 본인만 열람 가능 — 상세가 재판매("다시 올리기") 진입점이다.
     if listing.status == "WITHDRAWN" and listing.seller_id != session_uid:

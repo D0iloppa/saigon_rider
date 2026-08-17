@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
@@ -34,6 +34,40 @@ _REPORT_RESULT_NOTI = {
     "RESOLVED": ("신고가 처리되었습니다", "신고해 주신 내용을 검토했고, 조치했습니다."),
     "REJECTED": ("신고가 처리되었습니다", "신고해 주신 내용을 검토했지만, 조치가 필요하지 않았습니다."),
 }
+
+# §5 #3, D-11: 신고 큐 우선순위 정렬 — 컬럼 추가 대신 "사유 가중치(시간 환산) + 대기시간" 정렬식으로
+# 해소한다(정본 §3-2). LISTING 신고 사유(market.py `_VALID_REPORT_REASONS`)와 DM 신고 사유
+# (dm.ts `REPORT_REASONS`)를 합친 카탈로그 — 사기 계열(FRAUD/SCAM)이 최상위, 스팸/중복이 최하위.
+# 가중치는 "시간(hour) 오프셋"으로 표현해 대기시간과 같은 단위로 더한다 — FRAUD 신규 건(오프셋 240h)이
+# SPAM 3일 대기 건(오프셋 24h + 대기 72h = 96h)보다 항상 위에 오도록 여유 있게 벌렸다(완료 검증 조건).
+# 카탈로그에 없는 값이 들어와도(스키마 드리프트) OTHER 수준(72h)으로 방어.
+_REASON_PRIORITY_HOURS = {
+    "FRAUD": 240.0,
+    "SCAM": 240.0,
+    "SEXUAL": 192.0,
+    "ABUSE": 168.0,
+    "PROHIBITED": 144.0,
+    "OTHER": 72.0,
+    "DUPLICATE": 48.0,
+    "SPAM": 24.0,
+}
+_DEFAULT_REASON_PRIORITY_HOURS = 72.0
+
+
+def _priority_score(reason: str, created_at: datetime, *, now: datetime | None = None) -> float:
+    """순수 함수(정렬식 단위 테스트용) — SQL 쪽(_priority_score_column)과 같은 가중치 테이블을 쓴다."""
+    now = now or datetime.now(UTC)
+    wait_hours = (now - created_at).total_seconds() / 3600.0
+    return _REASON_PRIORITY_HOURS.get(reason, _DEFAULT_REASON_PRIORITY_HOURS) + wait_hours
+
+
+def _priority_score_column():
+    wait_hours = func.extract("epoch", func.now() - Report.created_at) / 3600.0
+    offset = case(
+        *[(Report.reason == reason, hours) for reason, hours in _REASON_PRIORITY_HOURS.items()],
+        else_=_DEFAULT_REASON_PRIORITY_HOURS,
+    )
+    return offset + wait_hours
 
 
 class UserBrief(BaseModel):
@@ -160,6 +194,7 @@ async def list_reports(
     reported_user_id: uuid.UUID | None = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    sort: str = Query("priority", pattern="^(priority|recent)$"),
     _session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
@@ -180,11 +215,11 @@ async def list_reports(
         count_q = count_q.where(Report.reported_user_id == reported_user_id)
 
     total = (await db.execute(count_q)).scalar_one()
-    reports = (
-        (await db.execute(q.order_by(Report.created_at.desc(), Report.id.desc()).offset((page - 1) * size).limit(size)))
-        .scalars()
-        .all()
-    )
+    if sort == "recent":
+        order_cols = (Report.created_at.desc(), Report.id.desc())
+    else:
+        order_cols = (_priority_score_column().desc(), Report.id.desc())
+    reports = (await db.execute(q.order_by(*order_cols).offset((page - 1) * size).limit(size))).scalars().all()
     items = await _build_rows(db, list(reports))
     return Page(items=items, total=total, page=page, size=size)
 

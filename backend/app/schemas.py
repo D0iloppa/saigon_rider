@@ -200,7 +200,9 @@ class MarketplaceListingCreateRequest(BaseModel):
     category_id: int | None = None
     title: str
     description: str | None = None
-    price_vnd: int = Field(0, ge=0)  # MKT-9/DB-2: 음수가 금지 (0 = 나눔)
+    # MKT-9/DB-2: 음수가 금지 (0 = 나눔). Q-2(감사 260817): 상한 1000억 VND(~USD 400만) —
+    # 자릿수 오입력 방어용 가드레일이며 오토바이는 물론 향후 고가 자동차 카테고리도 커버.
+    price_vnd: int = Field(0, ge=0, le=100_000_000_000)
     is_negotiable: bool = False
     district_id: int | None = None
     latitude: Decimal | None = None
@@ -279,7 +281,8 @@ class MarketplaceListingUpdateRequest(BaseModel):
 
 class MarketplaceListingPriceUpdate(BaseModel):
     seller_id: UUID
-    price_vnd: int
+    # Q-2(감사 260817): create 와 동일한 상한 — 같은 price_vnd 필드, 같은 오입력 방어 필요.
+    price_vnd: int = Field(le=100_000_000_000)
 
 
 class MarketplaceReviewCreateRequest(BaseModel):
@@ -932,7 +935,8 @@ class PriceOfferOut(BaseModel):
 
 class PriceOfferProposeRequest(BaseModel):
     conversation_id: UUID
-    amount: int
+    # Q-2(감사 260817): 매물 price_vnd 와 같은 상한 — 가격 제안도 같은 자릿수 오입력 리스크.
+    amount: int = Field(le=100_000_000_000)
 
 
 class BlockedUserOut(BaseModel):

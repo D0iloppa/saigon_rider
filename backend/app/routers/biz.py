@@ -21,6 +21,7 @@ from ..models import (
     BusinessReview,
     Content,
     MarketplaceAd,
+    Report,
     SupportTicket,
     User,
     UserFavoriteBusiness,
@@ -57,9 +58,11 @@ from ..schemas import (
     BusinessReviewCreateRequest,
     BusinessReviewListOut,
     BusinessReviewOut,
+    BusinessReviewReplyRequest,
     BusinessVerificationRequest,
     MarketplaceAdOut,
     Page,
+    ReportCreateRequest,
     SupportTicketOut,
 )
 from ..services import noti_events
@@ -1402,7 +1405,15 @@ async def delete_price(
 
 
 def _review_out(r: BusinessReview, nickname: str | None) -> BusinessReviewOut:
-    return BusinessReviewOut(id=r.id, rating=r.rating, body=r.body, created_at=r.created_at, reviewer_nickname=nickname)
+    return BusinessReviewOut(
+        id=r.id,
+        rating=r.rating,
+        body=r.body,
+        created_at=r.created_at,
+        reviewer_nickname=nickname,
+        owner_reply=r.owner_reply,
+        owner_replied_at=r.owner_replied_at,
+    )
 
 
 async def _get_approved_profile(db: AsyncSession, profile_id: uuid.UUID) -> BusinessProfile:
@@ -1513,6 +1524,135 @@ async def upsert_public_review(
     await db.refresh(review)
     user = await db.get(User, session_uid)
     return _review_out(review, user.nickname if user else None)
+
+
+@router.delete("/public/{profile_id}/reviews/{review_id}", summary="업체 후기 삭제 (본인)")
+async def delete_public_review(
+    profile_id: uuid.UUID,
+    review_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """본인 후기만 삭제. 평균 별점·후기 수는 저장된 카운터가 아니라 조회 시점 SQL 집계
+    (_review_stats_map / get_public_reviews 의 func.avg·func.count)라 행 삭제만으로 자동 반영된다."""
+    review = (
+        await db.execute(
+            select(BusinessReview).where(BusinessReview.id == review_id, BusinessReview.profile_id == profile_id)
+        )
+    ).scalar_one_or_none()
+    if review is None or review.user_id != session_uid:
+        raise HTTPException(status_code=404, detail="Review not found")  # 소유권 미검증 시 403 대신 404 (신고 API 관례)
+    await db.delete(review)
+    await db.commit()
+    return {"deleted": True}
+
+
+@router.put(
+    "/public/{profile_id}/reviews/{review_id}/reply",
+    response_model=BusinessReviewOut,
+    summary="사장님 댓글 작성/수정 (오너)",
+)
+async def upsert_review_reply(
+    profile_id: uuid.UUID,
+    review_id: uuid.UUID,
+    body: BusinessReviewReplyRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _get_own_profile(db, profile_id, session_uid)  # 오너십 검증 (소유 아니면 404 로 통일)
+    row = (
+        await db.execute(
+            select(BusinessReview, User.nickname)
+            .join(User, User.id == BusinessReview.user_id)
+            .where(BusinessReview.id == review_id, BusinessReview.profile_id == profile_id)
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    review, nickname = row
+    reply_text = body.body.strip()
+    if not reply_text:
+        raise HTTPException(status_code=400, detail="Body is required")
+    review.owner_reply = reply_text
+    review.owner_replied_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(review)
+    return _review_out(review, nickname)
+
+
+@router.delete("/public/{profile_id}/reviews/{review_id}/reply", summary="사장님 댓글 삭제 (오너)")
+async def delete_review_reply(
+    profile_id: uuid.UUID,
+    review_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _get_own_profile(db, profile_id, session_uid)  # 오너십 검증 (소유 아니면 404 로 통일)
+    review = (
+        await db.execute(
+            select(BusinessReview).where(BusinessReview.id == review_id, BusinessReview.profile_id == profile_id)
+        )
+    ).scalar_one_or_none()
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    review.owner_reply = None
+    review.owner_replied_at = None
+    await db.commit()
+    return {"deleted": True}
+
+
+_REVIEW_REPORT_REASONS = {"SPAM", "ABUSE", "INAPPROPRIATE", "OTHER"}
+
+
+@router.post("/public/{profile_id}/reviews/{review_id}/report", status_code=201, summary="업체 후기 신고")
+async def report_review(
+    profile_id: uuid.UUID,
+    review_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """④ 신고는 큐에 적재만 한다 — 운영자 판정 전까지 후기는 그대로 노출(M1 탐지≠차단,
+    016 §8-2 P-BAD-REVIEW). 새 인프라 없이 통합 reports 테이블에 REVIEW 로 합류(init/198).
+    답글(owner_reply)은 후기에 종속된 컬럼이라 별도 신고 타입을 두지 않는다 — REVIEW 신고가 문맥상 함께 커버."""
+    if body.reason not in _REVIEW_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+
+    review = (
+        await db.execute(
+            select(BusinessReview).where(BusinessReview.id == review_id, BusinessReview.profile_id == profile_id)
+        )
+    ).scalar_one_or_none()
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if review.user_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report your own review")
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_review_once: review_id x reporter_id WHERE REVIEW)와 동일 조건
+    dup = (
+        await db.execute(
+            select(Report.id).where(
+                Report.target_type == "REVIEW",
+                Report.review_id == review_id,
+                Report.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        Report(
+            target_type="REVIEW",
+            reporter_id=session_uid,
+            reported_user_id=review.user_id,
+            review_id=review_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/public/{profile_id}/view-ping", summary="업체 프로필 실시간 열람 핑")

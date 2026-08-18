@@ -854,6 +854,9 @@ class BusinessReview(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    # 사장님 댓글 (③, 016 §8-2 P-BAD-REVIEW) — 후기당 1개라 컬럼 2개로 충분(새 테이블 불필요, init/198).
+    owner_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner_replied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class BusinessNews(Base):
@@ -1871,6 +1874,10 @@ class Report(Base):
     )
     comment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("post_comments.id", ondelete="SET NULL"), nullable=True
+    )
+    # 업체 후기 신고(④, 016 §8-2 P-BAD-REVIEW) — 새 인프라 대신 REVIEW 를 통합 reports 에 합류(init/198).
+    review_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_review.id", ondelete="CASCADE"), nullable=True
     )
     reason: Mapped[str] = mapped_column(String(30), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

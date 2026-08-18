@@ -2030,7 +2030,40 @@
       "error": "후기 등록에 실패했어요",
       "errorOwner": "본인 업체에는 후기를 남길 수 없어요",
       "loginRequired": "로그인 후 후기를 쓸 수 있어요",
-      "ownerNotice": "본인 업체에는 후기를 남길 수 없어요"
+      "ownerNotice": "본인 업체에는 후기를 남길 수 없어요",
+      "editCta": "후기 수정",
+      "deleteCta": "내 후기 삭제",
+      "deleteConfirm": "내 후기를 삭제할까요? 되돌릴 수 없어요",
+      "deleteSuccess": "후기를 삭제했어요",
+      "deleteError": "삭제에 실패했어요",
+      "reply": {
+        "cta": "답글 달기",
+        "editCta": "답글 수정",
+        "deleteCta": "답글 삭제",
+        "title": "후기에 답글 남기기",
+        "placeholder": "고객에게 전할 답변을 남겨주세요",
+        "submit": "등록",
+        "submitting": "등록 중…",
+        "success": "답글을 등록했어요",
+        "error": "답글 등록에 실패했어요",
+        "deleteConfirm": "답글을 삭제할까요?",
+        "deleteSuccess": "답글을 삭제했어요",
+        "deleteError": "답글 삭제에 실패했어요"
+      },
+      "report": {
+        "cta": "신고",
+        "title": "후기 신고",
+        "notePlaceholder": "자세한 내용을 알려주세요 (선택)",
+        "submit": "신고 접수",
+        "submitting": "접수 중…",
+        "success": "신고가 접수되었어요. 검토 후 조치됩니다",
+        "already": "이미 신고한 후기예요",
+        "error": "신고 접수에 실패했어요",
+        "reason_SPAM": "스팸/광고",
+        "reason_ABUSE": "욕설/비방",
+        "reason_INAPPROPRIATE": "부적절한 내용",
+        "reason_OTHER": "기타"
+      }
     },
     "dashboard": {
       "reviewStat": "후기 {{count}}",
@@ -2158,6 +2191,7 @@
     "followCtaActive": "단골 해제",
     "detailTabs": {
       "home": "홈",
+      "listings": "매물",
       "news": "소식",
       "reviews": "후기",
       "price": "가격",
@@ -2165,7 +2199,8 @@
     },
     "reviewCount": "후기 {{count}}",
     "publicNoPhoto": "대표 사진이 아직 등록되지 않았습니다",
-    "detailTabsLabel": "업체 정보"
+    "detailTabsLabel": "업체 정보",
+    "mapRecenter": "업체 위치로"
   },
   "suspended": {
     "suspendedTitle": "이용이 일시 제한되었습니다",

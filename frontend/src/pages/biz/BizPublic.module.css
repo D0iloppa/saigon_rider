@@ -211,20 +211,6 @@
   color: var(--text);
 }
 
-.photoGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.galleryImage {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 12px;
-  object-fit: cover;
-  background: var(--surface-2);
-}
-
 .homePreview { margin-top: 32px; }
 .previewHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .previewHead h3 { color: var(--text); font-size: 18px; font-weight: 800; }
@@ -590,6 +576,142 @@
   word-break: break-word;
 }
 
+.ownerReplyBlock {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.ownerReplyHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.ownerReplyBadge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--brand-500, #FF5A1F);
+}
+
+.ownerReplyTime {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.ownerReplyBody {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reviewActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.reviewActionBtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.reviewActionBtnDanger {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--danger, #E5484D);
+  cursor: pointer;
+}
+
+/* ── 답글 / 신고 바텀시트 ── */
+.replySheet, .reportSheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 4px 4px;
+}
+
+.replySheetTitle {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.replyTextarea, .reportNoteInput {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.reportReasonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reportReasonBtn, .reportReasonBtnActive {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.reportReasonBtnActive {
+  border-color: var(--brand-500, #FF5A1F);
+  color: var(--brand-500, #FF5A1F);
+  background: var(--surface-2);
+}
+
+.replySheetActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.replySheetSubmit {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--brand-500, #FF5A1F);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.replySheetSubmit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── Sticky CTA (AdDetail 미러) ── */
 .ctaBar {
   position: fixed;
@@ -636,3 +758,27 @@
 }
 
 .headerActions { display: flex; align-items: center; gap: 4px; }
+
+/* 업체 위치 복귀 버튼 (2026-08-18) — 지도 카드 우측 하단 오버레이.
+   .mapCard 가 position:relative 라 별도 래퍼 없이 얹힌다.
+   '내 위치'(◎)와 혼동 금지 — 이건 업체 중심으로 되돌리는 도구다. */
+.mapHomeBtn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+
+.mapHomeBtn:active {
+  background: var(--surface-2);
+}

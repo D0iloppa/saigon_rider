@@ -1659,6 +1659,15 @@ class BusinessReviewOut(BaseModel):
     body: str
     created_at: datetime
     reviewer_nickname: str | None = None
+    # 사장님 댓글 (③, 016 §8-2 P-BAD-REVIEW) — 후기당 1개, init/198.
+    owner_reply: str | None = None
+    owner_replied_at: datetime | None = None
+
+
+class BusinessReviewReplyRequest(BaseModel):
+    """사장님 댓글 작성/수정 — 오너만, 후기당 1개(upsert)."""
+
+    body: str = Field(min_length=1)
 
 
 class BusinessReviewListOut(BaseModel):

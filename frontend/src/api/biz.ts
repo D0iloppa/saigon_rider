@@ -676,6 +676,8 @@ export interface BizReview {
   body: string;
   createdAt: string;
   reviewerNickname: string | null;
+  ownerReply: string | null;
+  ownerRepliedAt: string | null;
 }
 
 export interface BizReviewList {
@@ -691,10 +693,20 @@ interface BizReviewApi {
   body: string;
   created_at: string;
   reviewer_nickname: string | null;
+  owner_reply: string | null;
+  owner_replied_at: string | null;
 }
 
 function fromBizReviewApi(r: BizReviewApi): BizReview {
-  return { id: r.id, rating: r.rating, body: r.body, createdAt: r.created_at, reviewerNickname: r.reviewer_nickname };
+  return {
+    id: r.id,
+    rating: r.rating,
+    body: r.body,
+    createdAt: r.created_at,
+    reviewerNickname: r.reviewer_nickname,
+    ownerReply: r.owner_reply ?? null,
+    ownerRepliedAt: r.owner_replied_at ?? null,
+  };
 }
 
 export async function fetchBizReviews(
@@ -737,6 +749,41 @@ export async function upsertBizReview(
     body: JSON.stringify(input),
   }, 'bff', { rethrow: true });
   return fromBizReviewApi(res);
+}
+
+/** 내 후기 삭제 (되돌릴 수 없음) — 남의 후기는 서버가 404 로 응답 */
+export async function deleteBizReview(profileId: string, reviewId: string): Promise<void> {
+  await api.realFetch(`/biz/public/${profileId}/reviews/${reviewId}`, { method: 'DELETE' }, 'bff', { rethrow: true });
+}
+
+/** 업체 답글 작성/수정 (오너, upsert) — 후기당 1개 */
+export async function upsertBizReviewReply(profileId: string, reviewId: string, body: string): Promise<BizReview> {
+  const res = await api.realFetch<BizReviewApi>(`/biz/public/${profileId}/reviews/${reviewId}/reply`, {
+    method: 'PUT',
+    body: JSON.stringify({ body }),
+  }, 'bff', { rethrow: true });
+  return fromBizReviewApi(res);
+}
+
+/** 업체 답글 삭제 (오너) */
+export async function deleteBizReviewReply(profileId: string, reviewId: string): Promise<void> {
+  await api.realFetch(`/biz/public/${profileId}/reviews/${reviewId}/reply`, { method: 'DELETE' }, 'bff', { rethrow: true });
+}
+
+export type BizReviewReportReason = 'SPAM' | 'ABUSE' | 'INAPPROPRIATE' | 'OTHER';
+
+// rethrow:true — 중복 신고(409 "already reported")는 호출부가 친절한 문구로 처리한다.
+// 안 주면 client.ts 가 전역 토스트로 원문을 먼저 띄우고 호출부가 한 번 더 띄워 토스트가 2개 뜬다.
+export async function reportBizReview(
+  profileId: string,
+  reviewId: string,
+  reason: BizReviewReportReason,
+  note?: string,
+): Promise<void> {
+  await api.realFetch(`/biz/public/${profileId}/reviews/${reviewId}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, note: note ?? null }),
+  }, 'bff', { rethrow: true });
 }
 
 // ── 관심 업체 (P-FE 동네지도 프로필 실배선) ───────────────────────

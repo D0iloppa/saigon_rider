@@ -2030,7 +2030,40 @@
       "error": "Không thể đăng đánh giá",
       "errorOwner": "Bạn không thể đánh giá cửa hàng của chính mình",
       "loginRequired": "Đăng nhập để viết đánh giá",
-      "ownerNotice": "Bạn không thể đánh giá cửa hàng của chính mình"
+      "ownerNotice": "Bạn không thể đánh giá cửa hàng của chính mình",
+      "editCta": "Sửa đánh giá",
+      "deleteCta": "Xóa đánh giá của tôi",
+      "deleteConfirm": "Xóa đánh giá của bạn? Không thể hoàn tác",
+      "deleteSuccess": "Đã xóa đánh giá",
+      "deleteError": "Xóa không thành công",
+      "reply": {
+        "cta": "Trả lời",
+        "editCta": "Sửa trả lời",
+        "deleteCta": "Xóa trả lời",
+        "title": "Trả lời đánh giá",
+        "placeholder": "Viết câu trả lời gửi tới khách hàng",
+        "submit": "Đăng",
+        "submitting": "Đang đăng…",
+        "success": "Đã đăng trả lời",
+        "error": "Đăng trả lời không thành công",
+        "deleteConfirm": "Xóa trả lời này?",
+        "deleteSuccess": "Đã xóa trả lời",
+        "deleteError": "Xóa trả lời không thành công"
+      },
+      "report": {
+        "cta": "Báo cáo",
+        "title": "Báo cáo đánh giá",
+        "notePlaceholder": "Cho chúng tôi biết thêm chi tiết (không bắt buộc)",
+        "submit": "Gửi báo cáo",
+        "submitting": "Đang gửi…",
+        "success": "Đã gửi báo cáo. Sẽ được xử lý sau khi xem xét",
+        "already": "Bạn đã báo cáo đánh giá này rồi",
+        "error": "Gửi báo cáo không thành công",
+        "reason_SPAM": "Spam/quảng cáo",
+        "reason_ABUSE": "Ngôn từ xúc phạm",
+        "reason_INAPPROPRIATE": "Nội dung không phù hợp",
+        "reason_OTHER": "Khác"
+      }
     },
     "dashboard": {
       "reviewStat": "Đánh giá {{count}}",
@@ -2158,6 +2191,7 @@
     "followCtaActive": "Hủy kết thân",
     "detailTabs": {
       "home": "Trang chủ",
+      "listings": "Sản phẩm",
       "news": "Tin tức",
       "reviews": "Đánh giá",
       "price": "Bảng giá",
@@ -2165,7 +2199,8 @@
     },
     "reviewCount": "{{count}} đánh giá",
     "publicNoPhoto": "Chưa có ảnh đại diện",
-    "detailTabsLabel": "Thông tin cửa hàng"
+    "detailTabsLabel": "Thông tin cửa hàng",
+    "mapRecenter": "Về vị trí cửa hàng"
   },
   "suspended": {
     "suspendedTitle": "Tài khoản tạm thời bị hạn chế",

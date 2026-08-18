@@ -1,14 +1,16 @@
 import { lazy, Suspense, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin, Heart, Share2, Star } from 'lucide-react';
+import { Phone, MapPin, Heart, Share2, Star, Home } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageViewer } from '@/components/ui/ImageViewer';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK, BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
@@ -25,11 +27,17 @@ import {
   fetchBizPublicNews,
   fetchBizReviews,
   fetchBizPublicPrices,
+  fetchMyBizReview,
+  deleteBizReview,
+  upsertBizReviewReply,
+  deleteBizReviewReply,
+  reportBizReview,
   type BusinessPublicProfile,
   type BizCategory,
   type BizNewsItem,
   type BizReview,
   type BizPriceItem,
+  type BizReviewReportReason,
 } from '@/api/biz';
 import { fetchListings, type ListingCard as MarketListing, type MarketAd } from '@/api/market';
 import { trackAdEvent, useAdImpression } from '@/hooks/useAdEvents';
@@ -45,8 +53,13 @@ const NEWS_PAGE = 10;
 const REVIEW_PAGE = 5;
 // T-1: 업체 명의 매물(business_profile_id) 을 이 프로필 페이지에 노출 — marketplace_ads 의
 // owner_business_profile_id 노출 패턴(profile.ads) 미러.
-const DETAIL_TABS = ['home', 'listings', 'news', 'reviews', 'price', 'photos'] as const;
+// T-2: 6탭→4탭 재구성(2026-08-18) — 사진은 "업체 소개"의 일부라 별도 탭 축이 아니므로 홈 섹션에 흡수.
+// T-3: 대표 재지시(2026-08-18) — 가격 탭 복원, 5탭(home/news/price/listings/reviews)으로 재조정.
+const DETAIL_TABS = ['home', 'news', 'price', 'listings', 'reviews'] as const;
 type DetailTab = typeof DETAIL_TABS[number];
+
+// 매물 신고 사유(ReportReason)와 값이 다르다 — 후기 신고 전용 계약
+const BIZ_REVIEW_REPORT_REASONS: BizReviewReportReason[] = ['SPAM', 'ABUSE', 'INAPPROPRIATE', 'OTHER'];
 
 /** 3줄 클램프를 넘길 개연성 판단 — 정밀 측정 대신 간단 휴리스틱 (길이·줄수) */
 function isLongBody(body: string): boolean {
@@ -104,7 +117,21 @@ export default function BizPublic() {
   const [reviewHasMore, setReviewHasMore] = useState(false);
   const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
   const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
+  const [myReview, setMyReview] = useState<BizReview | null>(null);
+  const [replyTarget, setReplyTarget] = useState<BizReview | null>(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const [reportTarget, setReportTarget] = useState<BizReview | null>(null);
+  const [reportReason, setReportReason] = useState<BizReviewReportReason | null>(null);
+  const [reportNote, setReportNote] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const openConfirm = useConfirmStore((s) => s.open);
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
+  // 업체 위치 복귀(2026-08-18 대표 지시) — 사용자가 지도를 끌고 나간 뒤 되돌아올 수단.
+  // focusLatLng 가 아니라 focusPointRef 를 쓰는 이유: focusLatLng 는 ward 선택·토스트
+  // 부작용이 따라오는데 이 카드는 polyActive={false} 인 읽기 전용이라 그게 들어오면 안 된다.
+  // 줌도 사용자가 맞춰둔 배율을 유지한다 — "업체 위치로 되돌리기"지 "처음으로 초기화"가 아니다.
+  const mapFocusPointRef = useRef<((pos: { lat: number; lng: number }) => void) | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>('home');
   const [compactHeader, setCompactHeader] = useState(false);
   const [tabsPinned, setTabsPinned] = useState(false);
@@ -208,6 +235,12 @@ export default function BizPublic() {
     loadReviews(id);
   }, [id]);
 
+  // 내 후기 여부 — "후기 쓰기"→"후기 수정" 라벨 전환 + 삭제 진입점 판별용
+  useEffect(() => {
+    if (!id || !userId) { setMyReview(null); return; }
+    fetchMyBizReview(id).then(setMyReview).catch(() => {});
+  }, [id, userId]);
+
   const handleMoreReviews = async () => {
     if (!id || reviewLoadingMore) return;
     setReviewLoadingMore(true);
@@ -225,6 +258,92 @@ export default function BizPublic() {
   const handleWriteReview = () => {
     if (!requireAuth()) return;
     setReviewSheetOpen(true);
+  };
+
+  const handleDeleteReview = () => {
+    if (!id || !myReview) return;
+    openConfirm(
+      { mode: 'text', value: t('biz.review.deleteConfirm', { defaultValue: '내 후기를 삭제할까요? 되돌릴 수 없어요' }) },
+      async () => {
+        try {
+          await deleteBizReview(id, myReview.id);
+          toast.success(t('biz.review.deleteSuccess', { defaultValue: '후기를 삭제했어요' }));
+          setMyReview(null);
+          loadReviews(id);
+        } catch {
+          toast.error(t('biz.review.deleteError', { defaultValue: '삭제에 실패했어요' }));
+        }
+      },
+    );
+  };
+
+  const handleOpenReply = (review: BizReview) => {
+    setReplyBody(review.ownerReply ?? '');
+    setReplyTarget(review);
+  };
+
+  const handleSubmitReply = async () => {
+    if (!id || !replyTarget || !replyBody.trim() || replySubmitting) return;
+    setReplySubmitting(true);
+    try {
+      const updated = await upsertBizReviewReply(id, replyTarget.id, replyBody.trim());
+      setReviews((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      toast.success(t('biz.review.reply.success', { defaultValue: '답글을 등록했어요' }));
+    } catch {
+      toast.error(t('biz.review.reply.error', { defaultValue: '답글 등록에 실패했어요' }));
+    } finally {
+      // 실패해도 시트는 닫는다 (제출 흐름 규약)
+      setReplySubmitting(false);
+      setReplyTarget(null);
+      setReplyBody('');
+    }
+  };
+
+  const handleDeleteReply = (review: BizReview) => {
+    if (!id) return;
+    openConfirm(
+      { mode: 'text', value: t('biz.review.reply.deleteConfirm', { defaultValue: '답글을 삭제할까요?' }) },
+      async () => {
+        try {
+          await deleteBizReviewReply(id, review.id);
+          setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, ownerReply: null, ownerRepliedAt: null } : r)));
+          toast.success(t('biz.review.reply.deleteSuccess', { defaultValue: '답글을 삭제했어요' }));
+        } catch {
+          toast.error(t('biz.review.reply.deleteError', { defaultValue: '답글 삭제에 실패했어요' }));
+        }
+      },
+    );
+  };
+
+  const handleOpenReport = (review: BizReview) => {
+    if (!requireAuth()) return;
+    setReportTarget(review);
+  };
+
+  const handleCloseReport = () => {
+    setReportTarget(null);
+    setReportReason(null);
+    setReportNote('');
+  };
+
+  const handleSubmitReport = async () => {
+    if (!id || !reportTarget || !reportReason || reportSubmitting) return;
+    setReportSubmitting(true);
+    try {
+      await reportBizReview(id, reportTarget.id, reportReason, reportNote.trim() || undefined);
+      // 016 M1: 신고 ≠ 즉시 차단 — 큐에 쌓여 운영자 판정 후에만 조치되므로 "삭제됐다"고 오해하지 않게 문구를 명확히 한다.
+      toast.success(t('biz.review.report.success', { defaultValue: '신고가 접수되었어요. 검토 후 조치됩니다' }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.startsWith('HTTP 409')) {
+        toast.error(t('biz.review.report.already', { defaultValue: '이미 신고한 후기예요' }));
+      } else {
+        toast.error(t('biz.review.report.error', { defaultValue: '신고 접수에 실패했어요' }));
+      }
+    } finally {
+      setReportSubmitting(false);
+      handleCloseReport();
+    }
   };
 
   const handleMoreNews = async () => {
@@ -368,7 +487,7 @@ export default function BizPublic() {
         <nav ref={tabsRef} className={styles.tabs} aria-label={t('biz.detailTabsLabel')}>
           {DETAIL_TABS.map((tab) => (
             <button key={tab} type="button" className={activeTab === tab ? styles.tabActive : styles.tab} onClick={() => handleTabChange(tab)}>
-              {t(`biz.detailTabs.${tab}`, { defaultValue: { home: '홈', listings: '매물', news: '소식', reviews: '후기', price: '가격', photos: '사진' }[tab] })}
+              {t(`biz.detailTabs.${tab}`)}
             </button>
           ))}
         </nav>
@@ -412,9 +531,22 @@ export default function BizPublic() {
                     polyActive={false}
                     initialGps={{ lat: profile.latitude, lng: profile.longitude }}
                     onBboxChange={setMapBbox}
+                    // showLocateControl(◎ '내 위치')은 service-rules GPS 원칙 2 대로 계속 끈다.
+                    // 아래 버튼은 그것과 별개 — '내 위치'가 아니라 '업체 위치로 복귀'다.
                     showLocateControl={false}
+                    focusPointRef={mapFocusPointRef}
                   />
                 </Suspense>
+                <button
+                  type="button"
+                  className={styles.mapHomeBtn}
+                  aria-label={t('biz.mapRecenter')}
+                  onClick={() =>
+                    mapFocusPointRef.current?.({ lat: profile.latitude!, lng: profile.longitude! })
+                  }
+                >
+                  <Home size={18} strokeWidth={2.2} />
+                </button>
               </div>
             )}
 
@@ -436,13 +568,17 @@ export default function BizPublic() {
               ) : <EmptyArea label={t('biz.publicNewsTitle')} />}
             </HomePreview>
 
-            <HomePreview title={t('biz.detailTabs.reviews')} onMore={() => handleTabChange('reviews')}>
-              {reviews[0] ? (
-                <article className={styles.previewReview}>
-                  <span><Star size={14} fill="currentColor" strokeWidth={0} /> {reviews[0].rating} · {reviews[0].reviewerNickname ?? '—'}</span>
-                  <p>{reviews[0].body}</p>
-                </article>
-              ) : <EmptyArea label={t('biz.detailTabs.reviews')} />}
+            <HomePreview title={t('biz.detailTabs.price')} onMore={() => handleTabChange('price')}>
+              {prices.length > 0 ? (
+                <div className={styles.previewPrices}>
+                  {prices.slice(0, 3).map((p) => (
+                    <div key={p.id} className={styles.previewPriceRow}>
+                      <span className={styles.previewPriceName}>{p.name}</span>
+                      <span className={styles.previewPriceValue}>{formatVnd(p.priceVnd)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <EmptyArea label={t('biz.priceSectionTitle')} />}
             </HomePreview>
 
             <HomePreview title={t('biz.detailTabs.listings')} onMore={() => handleTabChange('listings')}>
@@ -462,20 +598,19 @@ export default function BizPublic() {
               ) : <EmptyArea label={t('biz.detailTabs.listings')} />}
             </HomePreview>
 
-            <HomePreview title={t('biz.detailTabs.price')} onMore={() => handleTabChange('price')}>
-              {prices.length > 0 ? (
-                <div className={styles.previewPrices}>
-                  {prices.slice(0, 3).map((p) => (
-                    <div key={p.id} className={styles.previewPriceRow}>
-                      <span className={styles.previewPriceName}>{p.name}</span>
-                      <span className={styles.previewPriceValue}>{formatVnd(p.priceVnd)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : <EmptyArea label={t('biz.priceSectionTitle')} />}
+            <HomePreview title={t('biz.detailTabs.reviews')} onMore={() => handleTabChange('reviews')}>
+              {reviews[0] ? (
+                <article className={styles.previewReview}>
+                  <span><Star size={14} fill="currentColor" strokeWidth={0} /> {reviews[0].rating} · {reviews[0].reviewerNickname ?? '—'}</span>
+                  <p>{reviews[0].body}</p>
+                </article>
+              ) : <EmptyArea label={t('biz.detailTabs.reviews')} />}
             </HomePreview>
 
-            <HomePreview title={t('biz.detailTabs.photos')} onMore={() => handleTabChange('photos')}>
+            <HomePreview
+              title={t('biz.detailTabs.photos')}
+              onMore={photoUrls.length > 0 ? () => setViewerState({ srcs: photoUrls, index: 0 }) : undefined}
+            >
               {photoUrls.length > 0 ? (
                 <div className={styles.previewPhotos}>
                   {photoUrls.slice(0, 3).map((url, i) => (
@@ -602,6 +737,21 @@ export default function BizPublic() {
         )}
           </>}
 
+          {activeTab === 'price' && <>
+            {prices.length === 0 ? (
+              <EmptyArea label={t('biz.priceSectionTitle')} />
+            ) : (
+              <div className={styles.priceList}>
+                {prices.map((p) => (
+                  <div key={p.id} className={styles.priceRow}>
+                    <span className={styles.priceName}>{p.name}</span>
+                    <span className={styles.priceValue}>{formatVnd(p.priceVnd)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>}
+
           {activeTab === 'reviews' && <>
         <div className={styles.reviewSectionHead}>
           {reviewTotal > 0 && reviewAvg != null && (
@@ -614,7 +764,7 @@ export default function BizPublic() {
             <span className={styles.reviewOwnerNotice}>{t('biz.review.ownerNotice')}</span>
           ) : (
             <button type="button" className={styles.reviewWriteBtn} onClick={handleWriteReview}>
-              {t('biz.review.write')}
+              {myReview ? t('biz.review.editCta', { defaultValue: '후기 수정' }) : t('biz.review.write')}
             </button>
           )}
         </div>
@@ -642,6 +792,38 @@ export default function BizPublic() {
                   <span className={styles.reviewTime}>{formatRelativeTime(r.createdAt)}</span>
                 </div>
                 <p className={styles.reviewBody}>{r.body}</p>
+                {r.ownerReply && (
+                  <div className={styles.ownerReplyBlock}>
+                    <div className={styles.ownerReplyHead}>
+                      <span className={styles.ownerReplyBadge}>{profile.name}</span>
+                      {r.ownerRepliedAt && <span className={styles.ownerReplyTime}>{formatRelativeTime(r.ownerRepliedAt)}</span>}
+                    </div>
+                    <p className={styles.ownerReplyBody}>{r.ownerReply}</p>
+                  </div>
+                )}
+                <div className={styles.reviewActions}>
+                  {profile.isOwner && (
+                    <button type="button" className={styles.reviewActionBtn} onClick={() => handleOpenReply(r)}>
+                      {r.ownerReply
+                        ? t('biz.review.reply.editCta', { defaultValue: '답글 수정' })
+                        : t('biz.review.reply.cta', { defaultValue: '답글 달기' })}
+                    </button>
+                  )}
+                  {profile.isOwner && r.ownerReply && (
+                    <button type="button" className={styles.reviewActionBtn} onClick={() => handleDeleteReply(r)}>
+                      {t('biz.review.reply.deleteCta', { defaultValue: '답글 삭제' })}
+                    </button>
+                  )}
+                  {myReview?.id === r.id ? (
+                    <button type="button" className={styles.reviewActionBtnDanger} onClick={handleDeleteReview}>
+                      {t('biz.review.deleteCta', { defaultValue: '내 후기 삭제' })}
+                    </button>
+                  ) : (
+                    <button type="button" className={styles.reviewActionBtn} onClick={() => handleOpenReport(r)}>
+                      {t('biz.review.report.cta', { defaultValue: '신고' })}
+                    </button>
+                  )}
+                </div>
               </article>
             ))}
             {reviewHasMore && (
@@ -658,39 +840,6 @@ export default function BizPublic() {
         )}
           </>}
 
-          {activeTab === 'price' && <>
-            {prices.length === 0 ? (
-              <EmptyArea label={t('biz.priceSectionTitle')} />
-            ) : (
-              <div className={styles.priceList}>
-                {prices.map((p) => (
-                  <div key={p.id} className={styles.priceRow}>
-                    <span className={styles.priceName}>{p.name}</span>
-                    <span className={styles.priceValue}>{formatVnd(p.priceVnd)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>}
-
-          {activeTab === 'photos' && <>
-            {(() => {
-              return photoUrls.length === 0 ? <EmptyArea label={t('biz.detailTabs.photos')} /> : (
-                <div className={styles.photoGrid}>
-                  {photoUrls.map((url, i) => (
-                    <AppImage
-                      key={url}
-                      src={url}
-                      alt=""
-                      className={styles.galleryImage}
-                      onClick={() => setViewerState({ srcs: photoUrls, index: i })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  ))}
-                </div>
-              );
-            })()}
-          </>}
         </div>
       </div>
 
@@ -708,9 +857,74 @@ export default function BizPublic() {
           profileId={id}
           profileName={profile.name}
           onClose={() => setReviewSheetOpen(false)}
-          onSubmitted={() => loadReviews(id)}
+          onSubmitted={(review) => {
+            setMyReview(review);
+            loadReviews(id);
+          }}
         />
       )}
+
+      <BottomSheet open={replyTarget !== null} onClose={() => { setReplyTarget(null); setReplyBody(''); }}>
+        <div className={styles.replySheet}>
+          <h2 className={styles.replySheetTitle}>{t('biz.review.reply.title', { defaultValue: '후기에 답글 남기기' })}</h2>
+          <textarea
+            className={styles.replyTextarea}
+            value={replyBody}
+            maxLength={500}
+            rows={4}
+            placeholder={t('biz.review.reply.placeholder', { defaultValue: '고객에게 전할 답변을 남겨주세요' })}
+            onChange={(e) => setReplyBody(e.target.value)}
+          />
+          <div className={styles.replySheetActions}>
+            <button
+              type="button"
+              className={styles.replySheetSubmit}
+              disabled={!replyBody.trim() || replySubmitting}
+              onClick={handleSubmitReply}
+            >
+              {replySubmitting ? t('biz.review.reply.submitting', { defaultValue: '등록 중…' }) : t('biz.review.reply.submit', { defaultValue: '등록' })}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={reportTarget !== null} onClose={handleCloseReport}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.replySheetTitle}>{t('biz.review.report.title', { defaultValue: '후기 신고' })}</h2>
+          <div className={styles.reportReasonList}>
+            {BIZ_REVIEW_REPORT_REASONS.map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                className={reportReason === reason ? styles.reportReasonBtnActive : styles.reportReasonBtn}
+                onClick={() => setReportReason(reason)}
+              >
+                {t(`biz.review.report.reason_${reason}`)}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className={styles.reportNoteInput}
+            value={reportNote}
+            maxLength={500}
+            rows={3}
+            placeholder={t('biz.review.report.notePlaceholder', { defaultValue: '자세한 내용을 알려주세요 (선택)' })}
+            onChange={(e) => setReportNote(e.target.value)}
+          />
+          <div className={styles.replySheetActions}>
+            <button
+              type="button"
+              className={styles.replySheetSubmit}
+              disabled={!reportReason || reportSubmitting}
+              onClick={handleSubmitReport}
+            >
+              {reportSubmitting
+                ? t('biz.review.report.submitting', { defaultValue: '접수 중…' })
+                : t('biz.review.report.submit', { defaultValue: '신고 접수' })}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
 
       {viewerState && (
         <ImageViewer srcs={viewerState.srcs} initialIndex={viewerState.index} onClose={() => setViewerState(null)} />
@@ -724,13 +938,13 @@ function EmptyArea({ label }: { label: string }) {
   return <div className={styles.adsEmpty}><p>{t('common.notRegisteredYet', { label })}</p></div>;
 }
 
-function HomePreview({ title, onMore, children }: { title: string; onMore: () => void; children: ReactNode }) {
+function HomePreview({ title, onMore, children }: { title: string; onMore?: () => void; children: ReactNode }) {
   const { t } = useTranslation();
   return (
     <section className={styles.homePreview}>
       <div className={styles.previewHead}>
         <h3>{title}</h3>
-        <button type="button" onClick={onMore}>{t('common.seeMore')}</button>
+        {onMore && <button type="button" onClick={onMore}>{t('common.seeMore')}</button>}
       </div>
       {children}
     </section>

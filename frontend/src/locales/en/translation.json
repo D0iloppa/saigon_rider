@@ -2030,7 +2030,40 @@
       "error": "Couldn't post your review",
       "errorOwner": "You can't review your own business",
       "loginRequired": "Log in to write a review",
-      "ownerNotice": "You can't review your own business"
+      "ownerNotice": "You can't review your own business",
+      "editCta": "Edit my review",
+      "deleteCta": "Delete my review",
+      "deleteConfirm": "Delete your review? This can't be undone",
+      "deleteSuccess": "Review deleted",
+      "deleteError": "Couldn't delete your review",
+      "reply": {
+        "cta": "Reply",
+        "editCta": "Edit reply",
+        "deleteCta": "Delete reply",
+        "title": "Reply to review",
+        "placeholder": "Write a reply for this customer",
+        "submit": "Post",
+        "submitting": "Posting…",
+        "success": "Reply posted",
+        "error": "Couldn't post your reply",
+        "deleteConfirm": "Delete this reply?",
+        "deleteSuccess": "Reply deleted",
+        "deleteError": "Couldn't delete the reply"
+      },
+      "report": {
+        "cta": "Report",
+        "title": "Report review",
+        "notePlaceholder": "Share more details (optional)",
+        "submit": "Submit report",
+        "submitting": "Submitting…",
+        "success": "Report submitted. It will be reviewed before any action",
+        "already": "You already reported this review",
+        "error": "Couldn't submit your report",
+        "reason_SPAM": "Spam/ads",
+        "reason_ABUSE": "Abusive language",
+        "reason_INAPPROPRIATE": "Inappropriate content",
+        "reason_OTHER": "Other"
+      }
     },
     "dashboard": {
       "reviewStat": "Reviews {{count}}",
@@ -2158,6 +2191,7 @@
     "followCtaActive": "Unfollow",
     "detailTabs": {
       "home": "Home",
+      "listings": "Listings",
       "news": "News",
       "reviews": "Reviews",
       "price": "Prices",
@@ -2165,7 +2199,8 @@
     },
     "reviewCount": "{{count}} reviews",
     "publicNoPhoto": "No cover photo yet",
-    "detailTabsLabel": "Business info"
+    "detailTabsLabel": "Business info",
+    "mapRecenter": "Back to shop"
   },
   "suspended": {
     "suspendedTitle": "Your account is temporarily restricted",

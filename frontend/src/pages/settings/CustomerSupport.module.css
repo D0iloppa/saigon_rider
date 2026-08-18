@@ -31,18 +31,28 @@
 /* 신고 이력 카드 — 매물 신고는 썸네일 포함, 유저/DM/게시물/댓글 신고는 텍스트만 */
 .reportCard {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
   width: 100%;
-  text-align: left;
   background: var(--surface, #fff);
   border: 1px solid var(--line, #e8e3da);
   border-radius: 12px;
   padding: 12px 16px;
+}
+
+.reportCardMain {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
   cursor: pointer;
 }
 
-.reportCard:disabled {
+.reportCardMain:disabled {
   cursor: default;
 }
 
@@ -57,6 +67,18 @@
 .reportBody {
   flex: 1;
   min-width: 0;
+}
+
+.reportCancelBtn {
+  align-self: flex-end;
+  background: none;
+  border: 1px solid var(--line, #e8e3da);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2, #4a4f62);
+  cursor: pointer;
 }
 
 .newBtn {
@@ -119,6 +141,7 @@
 .badgeInProgress { background: rgba(100,180,255,.2); color: #64b4ff; }
 .badgeResolved { background: rgba(80,220,120,.2); color: #50dc78; }
 .badgeRejected { background: rgba(150,150,150,.2); color: #8a8a8a; }
+.badgeCancelled { background: rgba(150,150,150,.2); color: #8a8a8a; }
 
 .unreadDot {
   width: 8px;

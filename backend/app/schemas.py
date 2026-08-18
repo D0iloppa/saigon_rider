@@ -1333,6 +1333,8 @@ class ReportOut(BaseModel):
     listing_id: uuid.UUID | None = None
     target_title: str | None = None
     target_thumbnail_url: str | None = None
+    # R-3(260817 §12-B) — 원본 status(PENDING/REVIEWING 등)는 노출하지 않고 서버가 계산해 내려준다.
+    can_cancel: bool = False
 
     class Config:
         from_attributes = True

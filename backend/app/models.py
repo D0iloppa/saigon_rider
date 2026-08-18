@@ -1881,6 +1881,8 @@ class Report(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # #26(013/016 §8) — 처리 결과 코드. RESOLVED/REJECTED 전이 시 미입력이면 422(init/185).
     result_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # R-3(017 §12-B) — 신고자 본인의 취소 시각. status='CANCELLED' 전이 시 세팅(196).
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 @event.listens_for(Report, "after_insert")

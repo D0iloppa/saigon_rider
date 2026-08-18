@@ -44,14 +44,22 @@ export interface Report {
   id: string;
   target_type: 'LISTING' | 'USER' | 'DM' | 'POST' | 'COMMENT';
   reason: string;
-  status: 'REVIEWING' | 'RESOLVED' | 'REJECTED';
+  status: 'REVIEWING' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
   created_at: string;
   handled_at: string | null;
   listing_id: string | null;
   target_title: string | null;
   target_thumbnail_url: string | null;
+  // R-3(260817 §12-B) — 서버가 계산해 내려주는 취소 가능 여부. 원본 status(PENDING 등)는 노출 안 함.
+  can_cancel: boolean;
 }
 
 export async function fetchReports(): Promise<Report[]> {
   return api.realFetch<Report[]>('/support/reports');
+}
+
+// R-3(260817 §12-B) — 신고 취소. 소유권 위반은 404, 취소불가(REVIEWING 이상)는 409 로 온다 —
+// 호출부가 사람이 읽을 문구를 직접 띄우므로 rethrow:true 필수(중복 토스트 규약).
+export async function cancelReport(id: string): Promise<Report> {
+  return api.realFetch<Report>(`/support/reports/${id}`, { method: 'DELETE' }, 'bff', { rethrow: true });
 }

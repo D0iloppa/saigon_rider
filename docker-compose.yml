@@ -312,6 +312,10 @@ services:
       - "/migrations/195_deal_result_ping.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (195) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/196_reports_cancelled_status.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (196) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -365,6 +369,7 @@ services:
       - ./database/init/193_listing_fingerprint.sql:/migrations/193_listing_fingerprint.sql:ro
       - ./database/init/194_listing_paper_status.sql:/migrations/194_listing_paper_status.sql:ro
       - ./database/init/195_deal_result_ping.sql:/migrations/195_deal_result_ping.sql:ro
+      - ./database/init/196_reports_cancelled_status.sql:/migrations/196_reports_cancelled_status.sql:ro
     networks:
       - dev-net
     depends_on:

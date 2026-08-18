@@ -20,13 +20,14 @@ from .market import MarketplaceListing, _thumbnail_url
 
 router = APIRouter(prefix="/support", tags=["고객센터 (Support)"])
 
-# R-1(260817 §12-B) — DB status(PENDING/REVIEWING/RESOLVED/REJECTED) → 사용자 노출 3단계.
+# R-1(260817 §12-B) — DB status(PENDING/REVIEWING/RESOLVED/REJECTED/CANCELLED) → 사용자 노출.
 # result_code/resolution_note 는 여기서 전혀 참조하지 않는다(원본 미노출).
 _REPORT_STATUS_DISPLAY = {
     "PENDING": "REVIEWING",
     "REVIEWING": "REVIEWING",
     "RESOLVED": "RESOLVED",
     "REJECTED": "REJECTED",
+    "CANCELLED": "CANCELLED",
 }
 
 
@@ -161,6 +162,48 @@ async def list_reports(
     return [_to_report_out(r, listings, users) for r in reports]
 
 
+@router.delete("/reports/{report_id}", response_model=ReportOut, summary="신고 취소 (PENDING 한정)")
+async def cancel_report(
+    report_id: uuid.UUID,
+    # R-3(260817 §12-B): 정지된 사용자도 자기 신고는 취소할 수 있어야 한다(D-22 동일 원칙).
+    user_id: uuid.UUID = Depends(verify_user_session_allow_suspended),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+    # 소유권 필수 — 남의 신고는 404 (존재 여부도 숨긴다)
+    if report is None or report.reporter_id != user_id:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # 결정①: PENDING 한정. REVIEWING(이미 열어본 건)·RESOLVED·REJECTED·CANCELLED 는 거부.
+    if report.status != "PENDING":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "report_not_cancellable", "message": "이미 검토가 시작된 신고는 취소할 수 없습니다."},
+        )
+
+    # 결정②: 하드 삭제 금지 — 행을 보존하고 상태만 전환한다(R-5 집계·재신고 방지 인덱스가 행 존재에 의존).
+    report.status = "CANCELLED"
+    report.cancelled_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(report)
+
+    listing = None
+    if report.target_type == "LISTING" and report.listing_id:
+        listing = (
+            await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == report.listing_id))
+        ).scalar_one_or_none()
+    target_user = None
+    if report.target_type != "LISTING":
+        target_user = (await db.execute(select(User).where(User.id == report.reported_user_id))).scalar_one_or_none()
+
+    return _to_report_out(
+        report,
+        {listing.id: listing} if listing else {},
+        {target_user.id: target_user} if target_user else {},
+    )
+
+
 def _to_report_out(
     report: Report,
     listings: dict[uuid.UUID, MarketplaceListing],
@@ -188,6 +231,8 @@ def _to_report_out(
         listing_id=report.listing_id,
         target_title=target_title,
         target_thumbnail_url=target_thumbnail_url,
+        # R-3: 원본 status 는 노출하지 않고 서버가 취소 가능 여부만 계산해 내려준다.
+        can_cancel=report.status == "PENDING",
     )
 
 

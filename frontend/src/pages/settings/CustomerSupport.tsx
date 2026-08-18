@@ -7,10 +7,12 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import { AppImage } from '@/components/ui/AppImage';
 import sys from '@/styles/system.module.css';
-import { fetchTickets, createTicket, fetchReports, type SupportTicket, type Report } from '@/api/support';
+import { fetchTickets, createTicket, fetchReports, cancelReport, type SupportTicket, type Report } from '@/api/support';
 import { noItemImage } from '@/pages/market/noItemImage';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { useConfirmStore } from '@/store/useConfirmStore';
+import { toast } from '@/components/ui/Toast';
 import styles from './CustomerSupport.module.css';
 import { formatVnDate } from '@/lib/vnTime';
 
@@ -27,6 +29,7 @@ const REPORT_STATUS_CLASS: Record<string, string> = {
   REVIEWING: styles.badgeOpen,
   RESOLVED: styles.badgeResolved,
   REJECTED: styles.badgeRejected,
+  CANCELLED: styles.badgeCancelled,
 };
 
 export default function CustomerSupport() {
@@ -41,6 +44,7 @@ export default function CustomerSupport() {
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const kb = useKeyboard();
+  const openConfirm = useConfirmStore((s) => s.open);
   // iOS 네이티브는 키보드가 순수 오버레이라 본문 textarea 아래 제출 버튼뿐이면
   // 스크롤로도 못 뺀다 — 키보드 높이만큼 하단 padding 을 더한다.
   const isIosNative = native.platform === 'ios';
@@ -57,6 +61,25 @@ export default function CustomerSupport() {
     if (r.target_type === 'LISTING' && r.listing_id) {
       navigate(`/market/${r.listing_id}`);
     }
+  };
+
+  // R-3(260817 §12-B) — 되돌릴 수 없는 동작(취소 후 재신고 불가)이라 ConfirmDialog 를 거친다.
+  const handleCancelReport = (r: Report) => {
+    openConfirm(
+      t('support.reportCancelConfirmMsg'),
+      () => {
+        cancelReport(r.id)
+          .then((updated) => {
+            setReports((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+            toast.success(t('support.reportCancelSuccess'));
+          })
+          .catch(() => toast.error(t('support.reportCancelError')));
+      },
+      {
+        confirmLabel: t('support.reportCancelConfirmBtn'),
+        cancelLabel: t('support.reportCancelKeepBtn'),
+      },
+    );
   };
 
   const reportStatusLabel = (s: string) => t(`support.reportStatus_${s.toLowerCase()}`, s);
@@ -151,31 +174,41 @@ export default function CustomerSupport() {
             reports.map((r) => {
               const clickable = r.target_type === 'LISTING' && !!r.listing_id;
               return (
-                <button
-                  key={r.id}
-                  type="button"
-                  className={styles.reportCard}
-                  onClick={() => goToReportTarget(r)}
-                  disabled={!clickable}
-                >
-                  {r.target_type === 'LISTING' && (
-                    <AppImage
-                      src={r.target_thumbnail_url ?? noItemImage()}
-                      alt={reportTargetLabel(r)}
-                      className={styles.reportThumb}
-                    />
-                  )}
-                  <div className={styles.reportBody}>
-                    <div className={styles.cardTitle}>{reportTargetLabel(r)}</div>
-                    <div className={styles.cardMeta}>
-                      <span className={`${styles.badge} ${REPORT_STATUS_CLASS[r.status] ?? ''}`}>
-                        {reportStatusLabel(r.status)}
-                      </span>
-                      <span>{reportReasonLabel(r.reason)}</span>
-                      <span>{formatVnDate(r.created_at)}</span>
+                <div key={r.id} className={styles.reportCard}>
+                  <button
+                    type="button"
+                    className={styles.reportCardMain}
+                    onClick={() => goToReportTarget(r)}
+                    disabled={!clickable}
+                  >
+                    {r.target_type === 'LISTING' && (
+                      <AppImage
+                        src={r.target_thumbnail_url ?? noItemImage()}
+                        alt={reportTargetLabel(r)}
+                        className={styles.reportThumb}
+                      />
+                    )}
+                    <div className={styles.reportBody}>
+                      <div className={styles.cardTitle}>{reportTargetLabel(r)}</div>
+                      <div className={styles.cardMeta}>
+                        <span className={`${styles.badge} ${REPORT_STATUS_CLASS[r.status] ?? ''}`}>
+                          {reportStatusLabel(r.status)}
+                        </span>
+                        <span>{reportReasonLabel(r.reason)}</span>
+                        <span>{formatVnDate(r.created_at)}</span>
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  {r.can_cancel && (
+                    <button
+                      type="button"
+                      className={styles.reportCancelBtn}
+                      onClick={() => handleCancelReport(r)}
+                    >
+                      {t('support.reportCancelBtn')}
+                    </button>
+                  )}
+                </div>
               );
             })
           )}

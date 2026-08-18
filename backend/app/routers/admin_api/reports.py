@@ -268,6 +268,7 @@ class ReporterTrustRow(BaseModel):
     total_reports: int
     resolved_count: int
     rejected_count: int
+    cancelled_count: int  # R-3(017 §12-B): 취소 반복자 추적 — 판정이 아니므로 rejection_rate 분모에서 제외
     rejection_rate: float | None  # 표본(REPORTER_TRUST_MIN_SAMPLE) 미달 시 null — 가짜 숫자 금지
     last_reported_at: datetime
 
@@ -287,6 +288,7 @@ async def list_reporter_trust(
     decided = Report.status.in_(("RESOLVED", "REJECTED"))
     resolved_case = case((Report.status == "RESOLVED", 1), else_=0)
     rejected_case = case((Report.status == "REJECTED", 1), else_=0)
+    cancelled_case = case((Report.status == "CANCELLED", 1), else_=0)
     decided_case = case((decided, 1), else_=0)
 
     agg_q = (
@@ -295,6 +297,7 @@ async def list_reporter_trust(
             func.count().label("total_reports"),
             func.sum(resolved_case).label("resolved_count"),
             func.sum(rejected_case).label("rejected_count"),
+            func.sum(cancelled_case).label("cancelled_count"),
             func.sum(decided_case).label("decided_count"),
             func.max(Report.created_at).label("last_reported_at"),
         )
@@ -333,6 +336,7 @@ async def list_reporter_trust(
             total_reports=r.total_reports,
             resolved_count=r.resolved_count,
             rejected_count=r.rejected_count,
+            cancelled_count=r.cancelled_count,
             rejection_rate=(r.rejected_count / r.decided_count)
             if r.decided_count >= REPORTER_TRUST_MIN_SAMPLE
             else None,

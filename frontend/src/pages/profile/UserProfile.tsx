@@ -180,6 +180,7 @@ export default function UserProfile() {
       setReportOpen(false);
       toast.success(t('follow.reportDone'));
     } catch {
+      setReportOpen(false); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(MarketDetail 과 동일)
       toast.error(t('follow.reportError'));
     }
   }

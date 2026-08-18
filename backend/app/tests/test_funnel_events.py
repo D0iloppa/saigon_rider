@@ -221,10 +221,13 @@ def _db_for_listing_view(listing):
     others_result.scalars.return_value.all.return_value = []
     # 016 §4-7 #42: get_listing 이 미응답 거래결과핑 존재 여부를 조회하는 마지막 execute.
     deal_ping_result = MagicMock(first=MagicMock(return_value=None))
+    # R-2(017 §12-B): get_listing 이 매물 조회 **직후** 신고 여부를 조회한다(가드보다 먼저).
+    report_result = MagicMock(first=MagicMock(return_value=None))
     db = AsyncMock()
     db.execute = AsyncMock(
         side_effect=[
             listing_result,
+            report_result,
             blocked_result,
             review_result,
             sold_count_result,

@@ -211,6 +211,7 @@ export default function DmDetail() {
       setReportOpen(false);
       toast.success(t('dm.reportDone', { defaultValue: '신고가 접수되었어요' }));
     } catch {
+      setReportOpen(false); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(MarketDetail 과 동일)
       toast.error(t('dm.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
     }
   };

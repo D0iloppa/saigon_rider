@@ -1,27 +1,6 @@
 import { toast as sonnerToast } from 'sonner';
 import { createElement, useId, useLayoutEffect, type CSSProperties } from 'react';
 
-/* Dialog 와 톤 정렬(surface + 부드러운 그림자)하되, 토스트는 backdrop 이 없어
- * 라이브 UI 위에 바로 떠므로 가장자리 정의용 1px 보더는 유지한다. */
-const BASE: CSSProperties = {
-  background: 'var(--surface)',
-  border: '1px solid var(--line)',
-  color: 'var(--text)',
-  borderRadius: '16px',
-  fontFamily: 'inherit',
-  fontSize: '13.5px',
-  fontWeight: 600,
-  lineHeight: '1.45',
-  padding: '13px 15px',
-  gap: '10px',
-};
-
-/** 좌측 inset 액센트 바 + 동일 색의 미세 글로우. Dialog 식 깊은 그림자 위에 상태색만 얹는다. */
-const accent = (color: string, glow: string): CSSProperties => ({
-  ...BASE,
-  boxShadow: `inset 3px 0 0 ${color}, 0 10px 32px rgba(0,0,0,.18), 0 6px 18px ${glow}`,
-});
-
 export interface NeutralToastOptions {
   /** 앵커 가장자리 — 미지정 시 하단(탭바 위). 검색바 등 상단 UI와 겹칠 때만 'top'. */
   position?: 'top' | 'bottom';
@@ -132,37 +111,37 @@ function NeutralToastContent({ message, opts }: { message: string; opts?: Neutra
   return createElement('span', { id: contentId, style: NEUTRAL_CONTENT_STYLE }, message);
 }
 
-export const toast = {
-  success: (message: string) =>
-    sonnerToast.success(message, { style: accent('var(--success)', 'rgba(22,163,74,.14)') }),
-  error: (message: string) =>
-    sonnerToast.error(message, { style: accent('var(--danger)', 'rgba(239,59,59,.14)') }),
-  info: (message: string) =>
-    sonnerToast.info(message, { style: accent('var(--brand-500)', 'rgba(255,90,31,.16)') }),
-  warning: (message: string) =>
-    sonnerToast.warning(message, { style: accent('var(--warn)', 'rgba(245,158,11,.14)') }),
-  /** 동네지도(SaigonMapV5)·커뮤니티(FeedList) 공용 다크 필 토스트 — 에러가 아닌 안내(예: 서비스 지역 밖)용.
-   * 기본 하단(탭바 위, safe-area 반영) 고정 배치 — position/safeMargin으로 화면별 겹침만 미세조정한다. */
-  neutral: (message: string, opts?: NeutralToastOptions) => {
-    const edge = opts?.position === 'top' ? 'top' : 'bottom';
-    const safeMargin = opts?.safeMargin ?? 0;
-    // sonner 의 <li data-sonner-toast> 는 position:absolute 라 가운데 정렬(x-position=center)일 때
-    // left/right 를 아예 지정하지 않는다(모바일 미디어쿼리에서는 left:0;right:0 이 강제됨). 여기에
-    // width:fit-content/margin/alignSelf 를 직접 걸면 CSS over-constrained 케이스에 빠져 좌우로
-    // 불안정하게 치우친다. 그래서 li 자체는 컨테이너 폭 그대로 채우고(투명), 실제 다크 필은 그 안의
-    // 일반 block 자식(span)에 width:fit-content + margin:auto 로 가운데 정렬한다(비-absolute 레이아웃
-    // 이라 항상 결정적으로 중앙에 옴). 텍스트 색도 이 span 에서 흰색으로 고정한다.
-    return sonnerToast(
-      createElement(NeutralToastContent, { message, opts }),
-      {
-        duration: 2400,
-        position: edge === 'top' ? 'top-center' : 'bottom-center',
-        // 기본 스타일을 걷어내고(li 는 투명 풀와이드 레인) 위 span 만 필로 보인다.
-        unstyled: true,
-        style: {
-          ...(safeMargin ? { [edge]: `${safeMargin}px` } : null),
-        },
+/** 앱 전역 단일 토스트 — 다크 그레이 필. 성공/실패/안내 구분 없이 동일한 형태로 표시한다
+ * (2026-08-18 대표 지시: 토스트 컴포넌트 단일화 기준 = 동네지도/커뮤니티의 그레이 필).
+ * 기본 하단(탭바 위, safe-area 반영) 고정 배치 — position/safeMargin으로 화면별 겹침만 미세조정한다. */
+function showToast(message: string, opts?: NeutralToastOptions) {
+  const edge = opts?.position === 'top' ? 'top' : 'bottom';
+  const safeMargin = opts?.safeMargin ?? 0;
+  // sonner 의 <li data-sonner-toast> 는 position:absolute 라 가운데 정렬(x-position=center)일 때
+  // left/right 를 아예 지정하지 않는다(모바일 미디어쿼리에서는 left:0;right:0 이 강제됨). 여기에
+  // width:fit-content/margin/alignSelf 를 직접 걸면 CSS over-constrained 케이스에 빠져 좌우로
+  // 불안정하게 치우친다. 그래서 li 자체는 컨테이너 폭 그대로 채우고(투명), 실제 다크 필은 그 안의
+  // 일반 block 자식(span)에 width:fit-content + margin:auto 로 가운데 정렬한다(비-absolute 레이아웃
+  // 이라 항상 결정적으로 중앙에 옴). 텍스트 색도 이 span 에서 흰색으로 고정한다.
+  return sonnerToast(
+    createElement(NeutralToastContent, { message, opts }),
+    {
+      duration: 2400,
+      position: edge === 'top' ? 'top-center' : 'bottom-center',
+      // 기본 스타일을 걷어내고(li 는 투명 풀와이드 레인) 위 span 만 필로 보인다.
+      unstyled: true,
+      style: {
+        ...(safeMargin ? { [edge]: `${safeMargin}px` } : null),
       },
-    );
-  },
-};
+    },
+  );
+}
+
+/** 기본 호출(`toast(msg)`)과 success/error/info/warning 별칭 — 표시는 모두 동일한 그레이 필이다. */
+export const toast = Object.assign(showToast, {
+  neutral: showToast,
+  success: showToast,
+  error: showToast,
+  info: showToast,
+  warning: showToast,
+});

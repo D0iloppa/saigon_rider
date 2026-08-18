@@ -257,9 +257,15 @@ export async function cancelPriceOffer(offerId: string): Promise<PriceOffer> {
 export type DmReportReason = 'ABUSE' | 'SCAM' | 'SEXUAL' | 'SPAM' | 'OTHER';
 export const DM_REPORT_REASONS: DmReportReason[] = ['ABUSE', 'SCAM', 'SEXUAL', 'SPAM', 'OTHER'];
 
+// rethrow:true — 중복 신고 409 원문이 전역 토스트로 새는 것 방지(reportListing 과 동일 이유).
 export async function reportConversation(conversationId: string, reason: DmReportReason, note?: string): Promise<void> {
-  await api.realFetch(`/dm/conversations/${conversationId}/report`, {
-    method: 'POST',
-    body: JSON.stringify({ reason, note: note ?? null }),
-  });
+  await api.realFetch(
+    `/dm/conversations/${conversationId}/report`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason, note: note ?? null }),
+    },
+    'bff',
+    { rethrow: true },
+  );
 }

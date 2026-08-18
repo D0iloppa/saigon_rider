@@ -255,9 +255,24 @@ import { AppImage } from '@/components/ui/AppImage';
 - `TopBar` 컴포넌트를 사용하는 레이아웃(예: `FeedList`)은 `TopBar` 내부에 이미 `StatusBar` 처리가 포함되어 있으므로 추가 작업이 필요 없다.
 - `StatusBar` 높이는 50px 고정 (`src/components/layout/StatusBar.module.css`).
 
+> ### 🔴 API 오류 토스트 규약 — `rethrow: true` (2026-08-18)
+>
+> **`client.ts` 의 `realFetch` 는 기본적으로 오류를 *스스로* 토스트한다** — `HTTP {status} | {detail}` 원문을 그대로 띄운다(`extractErrorMessage`). 진단용으로는 유용하지만 **사용자에게 보여줄 문장이 아니다.**
+>
+> 따라서 **호출부가 직접 오류 문구를 띄우는 API 는 반드시 `rethrow: true` 를 넘겨야 한다.** 안 넘기면 전역 토스트가 원문을 먼저 띄우고 호출부 `catch` 가 한 번 더 띄워 **토스트가 2개** 뜬다.
+> ```ts
+> await api.realFetch(url, { method: 'POST', body }, 'bff', { rethrow: true });
+> ```
+> **실제 사고 (2026-08-18 실기기)**: 매물 중복 신고 시 `HTTP 409 | already reported` 원문 토스트 + 호출부의 한국어 토스트가 **동시에** 떴다. 세 신고 API(`reportListing`·`reportConversation`·`reportUser`)가 전부 같은 상태였다. **정적 검증으로는 안 잡힌다** — 호출부 코드만 보면 정상 i18n 메시지가 있어서 멀쩡해 보인다.
+>
+> - 서버가 사람이 읽을 문장을 주는 **429/409 만** 상세를 노출하려면 `extractDetail(err, fallback)`(`client.ts`) 을 써라. 다른 상태코드까지 열면 기술 내용이 샌다.
+> - `rethrow: true` 를 켜면 **전역 토스트가 사라지므로 호출부에 `catch` 토스트가 반드시 있어야 한다** — 없으면 오류가 조용히 묻힌다.
+> - 진단만 필요하고 사용자에겐 안 보여도 되면 `silent: true`(콘솔 경고만).
+> - **BottomSheet 안에서 제출하는 흐름은 실패 시에도 시트를 닫아라.** 열어두면 사용자가 다른 옵션을 눌러 같은 오류를 반복한다(중복 신고 409 는 사유를 바꿔도 결과가 같다).
+
 | 컴포넌트 | 용도 |
 |----------|------|
-| `Toast` (`Toast.ts`) | sonner 래퍼 — `toast.success/error/info/warning(msg)` 비차단 알림 |
+| `Toast` (`Toast.ts`) | sonner 래퍼 — `toast.success/error/info/warning(msg)` 비차단 알림. ⚠️ 오류 토스트는 위 **API 오류 토스트 규약** 을 먼저 읽을 것 |
 | `AlertDialog` | 단순 정보 표시 모달 (제목 + 텍스트/pre + 확인 버튼) |
 | `ConfirmDialog` | 확인/취소 선택 모달 (Zustand store 기반 전역 호출) |
 | `Dialog` | 명령형 다이얼로그 시스템 (`dialogTypes.ts`와 함께 사용) |

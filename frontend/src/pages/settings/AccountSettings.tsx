@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/Toast';
 import { Download, TriangleAlert } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { SettingsRow } from '@/components/ui/SettingsRow';

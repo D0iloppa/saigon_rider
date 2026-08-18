@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import Float, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
@@ -70,6 +70,13 @@ _REASON_SEVERITY = {
     "SPAM": "SEV4",
 }
 _DEFAULT_REASON_SEVERITY = "SEV3"
+
+# R-5(017 §12-B): 신고자별 기각률 — 표본이 적으면 기각률이 우연히 튀므로(신고 2건 중 1건 기각
+# → 50%는 무의미) listing_risk.py의 PRICE_ANOMALY_MIN_CATEGORY_SAMPLE(카테고리 표본 20건 미만이면
+# 신호를 아예 0으로 두는 것, 016 §4-4)과 같은 논리로 최소 표본 미만이면 rejection_rate를 null로
+# 반환한다(가짜 숫자 금지). 분모는 처리 완료(RESOLVED+REJECTED)만 — PENDING/REVIEWING은 아직
+# 판정 전이라 분모에 넣으면 최근 신고가 몰린 사용자의 기각률이 인위적으로 낮아진다.
+REPORTER_TRUST_MIN_SAMPLE = 5
 
 
 def reason_severity(reason: str) -> str:
@@ -252,6 +259,87 @@ async def list_reports(
         order_cols = (_priority_score_column().desc(), Report.id.desc())
     reports = (await db.execute(q.order_by(*order_cols).offset((page - 1) * size).limit(size))).scalars().all()
     items = await _build_rows(db, list(reports))
+    return Page(items=items, total=total, page=page, size=size)
+
+
+class ReporterTrustRow(BaseModel):
+    reporter_id: uuid.UUID
+    reporter_nickname: str | None
+    total_reports: int
+    resolved_count: int
+    rejected_count: int
+    rejection_rate: float | None  # 표본(REPORTER_TRUST_MIN_SAMPLE) 미달 시 null — 가짜 숫자 금지
+    last_reported_at: datetime
+
+
+@router.get("/reporters", response_model=Page[ReporterTrustRow])
+async def list_reporter_trust(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """R-5(017 §12-B): 신고자별 기각률 조회 전용 — 010 #3 검수 큐 정렬 가중치 참고용.
+
+    🔴 M1(탐지≠검사 차단): 이 응답은 조회 전용이며 어떤 쓰기·제재·접수차단에도 쓰이지 않는다.
+    기각률이 높다고 신고 접수를 막지 않는다(016 A2 대칭 — 오탐 1건 = 공급 1건 손실).
+    """
+    decided = Report.status.in_(("RESOLVED", "REJECTED"))
+    resolved_case = case((Report.status == "RESOLVED", 1), else_=0)
+    rejected_case = case((Report.status == "REJECTED", 1), else_=0)
+    decided_case = case((decided, 1), else_=0)
+
+    agg_q = (
+        select(
+            Report.reporter_id,
+            func.count().label("total_reports"),
+            func.sum(resolved_case).label("resolved_count"),
+            func.sum(rejected_case).label("rejected_count"),
+            func.sum(decided_case).label("decided_count"),
+            func.max(Report.created_at).label("last_reported_at"),
+        )
+        .group_by(Report.reporter_id)
+        .subquery()
+    )
+
+    total = (await db.execute(select(func.count()).select_from(agg_q))).scalar_one()
+
+    rows = (
+        await db.execute(
+            select(agg_q)
+            .order_by(
+                # 기각률 내림차순: decided_count=0 이면 나눗셈 회피(0으로 취급) 후 null 로 뒤집는다.
+                case(
+                    (agg_q.c.decided_count > 0, cast(agg_q.c.rejected_count, Float) / agg_q.c.decided_count),
+                    else_=-1,
+                ).desc(),
+                agg_q.c.reporter_id,
+            )
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+    ).all()
+
+    reporter_ids = {r.reporter_id for r in rows}
+    nicknames: dict[uuid.UUID, str | None] = {}
+    if reporter_ids:
+        nickname_rows = (await db.execute(select(User.id, User.nickname).where(User.id.in_(reporter_ids)))).all()
+        nicknames = {uid: nick for uid, nick in nickname_rows}
+
+    items = [
+        ReporterTrustRow(
+            reporter_id=r.reporter_id,
+            reporter_nickname=nicknames.get(r.reporter_id),
+            total_reports=r.total_reports,
+            resolved_count=r.resolved_count,
+            rejected_count=r.rejected_count,
+            rejection_rate=(r.rejected_count / r.decided_count)
+            if r.decided_count >= REPORTER_TRUST_MIN_SAMPLE
+            else None,
+            last_reported_at=r.last_reported_at,
+        )
+        for r in rows
+    ]
     return Page(items=items, total=total, page=page, size=size)
 
 

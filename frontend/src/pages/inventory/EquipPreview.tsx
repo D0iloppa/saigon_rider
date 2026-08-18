@@ -7,7 +7,7 @@ import { ChevronLeft } from 'lucide-react';
 import { ItemSvgRenderer } from '@/components/ui/items/ItemSvgRenderer';
 import { ItemName } from '@/components/ui/items/ItemName';
 import { useUserStore } from '@/store/useUserStore';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/Toast';
 import s from './EquipPreview.module.css';
 
 const SLOTS = [

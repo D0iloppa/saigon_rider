@@ -5,6 +5,60 @@
   gap: 12px;
 }
 
+/* [문의 | 신고] 2탭 (R-1, 260817 §12-B) */
+.tabs {
+  display: flex;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line, #e8e3da);
+  background: var(--surface, #fff);
+}
+
+.tab {
+  flex: 1;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2, #4a4f62);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabActive {
+  color: var(--brand-500);
+  border-bottom-color: var(--brand-500);
+}
+
+/* 신고 이력 카드 — 매물 신고는 썸네일 포함, 유저/DM/게시물/댓글 신고는 텍스트만 */
+.reportCard {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e8e3da);
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.reportCard:disabled {
+  cursor: default;
+}
+
+.reportThumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.reportBody {
+  flex: 1;
+  min-width: 0;
+}
+
 .newBtn {
   width: 100%;
   padding: 14px;
@@ -64,6 +118,7 @@
 .badgeOpen { background: rgba(255,165,0,.2); color: #ffa500; }
 .badgeInProgress { background: rgba(100,180,255,.2); color: #64b4ff; }
 .badgeResolved { background: rgba(80,220,120,.2); color: #50dc78; }
+.badgeRejected { background: rgba(150,150,150,.2); color: #8a8a8a; }
 
 .unreadDot {
   width: 8px;

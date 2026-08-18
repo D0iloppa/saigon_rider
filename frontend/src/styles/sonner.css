@@ -1,4 +1,5 @@
-/* ─── Sonner Toast — icon & text color overrides ─────── */
+/* ─── Sonner Toast — 컨테이너 배치(플랫폼 safe-area) ─────── */
+/* 토스트 본체 스타일은 단일 컴포넌트(components/ui/Toast.ts)의 그레이 필이 전담한다. */
 
 [data-sonner-toaster] {
   --width: 300px;
@@ -25,15 +26,3 @@
 [data-sonner-toaster][data-y-position="top"] {
   top: calc(var(--status-bar-height) + 12px) !important;
 }
-
-[data-sonner-toast] [data-title] {
-  color: #0B0D14 !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-}
-
-/* Icon colors */
-[data-sonner-toast][data-type="success"] [data-icon] { color: #16A34A; }
-[data-sonner-toast][data-type="error"]   [data-icon] { color: #EF3B3B; }
-[data-sonner-toast][data-type="warning"] [data-icon] { color: #F59E0B; }
-[data-sonner-toast][data-type="info"]    [data-icon] { color: #FF5A1F; }

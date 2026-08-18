@@ -205,6 +205,10 @@ class MarketplaceListingDetail(BaseModel):
     # 016 §4-7 #42: 미응답 거래결과핑 존재 여부 — 판매자 본인 조회 시에만 True 가 의미있다
     # (market.py 가 판매자가 아니어도 계산은 하지만 프론트는 본인 매물에서만 배너를 띄운다).
     pending_deal_ping: bool = False
+    # R-2(017 §12-B): 내가 이미 신고한 매물인가 — 신고 버튼을 미리 비활성화해 중복 신고 409 를
+    # UI 단계에서 막는다. 이게 없으면 사용자는 눌러봐야만 알 수 있었다(2026-08-18 대표 지적).
+    # 비로그인은 항상 False.
+    is_reported_by_me: bool = False
 
 
 class MarketplaceListingCreateRequest(BaseModel):
@@ -1313,6 +1317,25 @@ class SupportTicketOut(BaseModel):
 
 class SupportTicketDetail(SupportTicketOut):
     replies: list[SupportReplyOut] = []
+
+
+class ReportOut(BaseModel):
+    """R-1(260817 §12-B) 내 신고 목록. status 는 PENDING/REVIEWING/RESOLVED/REJECTED 를
+    REVIEWING/RESOLVED/REJECTED 3단계로 뭉갠 값 — result_code/resolution_note 원본은 절대
+    내려주지 않는다(상대방 제재 내역 노출은 개인정보이자 보복 위험)."""
+
+    id: uuid.UUID
+    target_type: str
+    reason: str
+    status: str
+    created_at: datetime
+    handled_at: datetime | None = None
+    listing_id: uuid.UUID | None = None
+    target_title: str | None = None
+    target_thumbnail_url: str | None = None
+
+    class Config:
+        from_attributes = True
 
 
 class BizIssueCreateRequest(BaseModel):

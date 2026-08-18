@@ -580,9 +580,24 @@ async def get_listing(
     ).scalar_one_or_none()
     if listing is None:
         raise HTTPException(status_code=404, detail="Listing not found")
+    # R-2(017 §12-B): 내가 이미 신고한 매물인가. 두 곳에서 쓰이므로 가드보다 **먼저** 계산한다
+    # (쿼리 1회로 ①중복신고 UI 차단 ②아래 신고자 열람 허용을 모두 해결).
+    # 조건은 report_listing 의 중복 검사(listing_id + reporter_id)와 반드시 동일해야 한다.
+    is_reported_by_me = False
+    if session_uid is not None:
+        is_reported_by_me = (
+            await db.execute(
+                select(Report.id).where(Report.listing_id == listing.id, Report.reporter_id == session_uid)
+            )
+        ).first() is not None
+
     # Q-3(감사 260817): HIDDEN/REMOVED(모더레이션 조치)도 소유자 본인은 열람 가능 —
     # 조치 사유 알림 딥링크·판매자의 자기 매물 확인 경로. 비소유자는 기존과 동일하게 404.
-    if listing.status in ("HIDDEN", "REMOVED") and listing.seller_id != session_uid:
+    # ⭐ 2026-08-18(대표 지시): **신고자도 열람 가능**하게 확장한다. 신고가 처리돼 매물이 내려가면
+    # 신고자는 자기가 무엇을 신고했는지 다시 볼 수 없었다(404) — 신고 이력(R-1)에서 눌러 들어올
+    # 진입점이 죽는다. 이미 본 컨텐츠라 새로운 노출도 아니다.
+    # 목록(get_listings)에서는 여전히 제외된다 — **"마켓에서는 안 보이되 신고자는 볼 수 있다"** 가 의도.
+    if listing.status in ("HIDDEN", "REMOVED") and listing.seller_id != session_uid and not is_reported_by_me:
         raise HTTPException(status_code=404, detail="Listing not found")
     # 철회/만료(EXPIRED, 016 §4-1 #36) 매물은 판매자 본인만 열람 가능 — 상세가 재판매("다시
     # 올리기"/복구) 진입점이다.
@@ -721,6 +736,7 @@ async def get_listing(
         paper_status=listing.paper_status,
         plate_province=listing.plate_province,
         pending_deal_ping=pending_deal_ping,
+        is_reported_by_me=is_reported_by_me,
     )
     await db.commit()
     return detail

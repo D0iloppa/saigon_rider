@@ -219,6 +219,9 @@ export default function MarketDetail() {
       setReportOpen(false);
       toast.success(t('market.reportDone', { defaultValue: '신고가 접수되었어요' }));
     } catch {
+      // 실패해도 시트를 닫는다 — 열어두면 사용자가 다른 사유를 눌러 같은 오류를 반복한다
+      // (중복 신고 409 는 사유를 바꿔도 결과가 같다).
+      setReportOpen(false);
       toast.error(t('market.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
     }
   };
@@ -615,15 +618,20 @@ export default function MarketDetail() {
           {/* 더보기: 신고/차단 (비판매자) */}
           <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
             <div className={styles.moreSheet}>
+              {/* R-2(017 §12-B): 이미 신고한 매물이면 버튼을 비활성화한다 — 종전엔 눌러야만
+                  409 로 알 수 있었다. 신고는 매물당 1회이므로 사유를 바꿔도 결과가 같다. */}
               <button
                 className={styles.moreItem}
+                disabled={detail.isReportedByMe}
                 onClick={() => {
                   setMoreOpen(false);
                   setReportOpen(true);
                 }}
               >
                 <Flag size={16} strokeWidth={2.2} />
-                {t('market.report', { defaultValue: '신고하기' })}
+                {detail.isReportedByMe
+                  ? t('market.reportedAlready', { defaultValue: '신고함' })
+                  : t('market.report', { defaultValue: '신고하기' })}
               </button>
               <button className={`${styles.moreItem} ${blocked ? '' : styles.moreDanger}`} onClick={handleToggleBlock}>
                 {blocked ? <UserCheck size={16} strokeWidth={2.2} /> : <Ban size={16} strokeWidth={2.2} />}

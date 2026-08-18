@@ -14,7 +14,7 @@ import { useConfirmStore } from '@/store/useConfirmStore';
 import { emojiUrl } from '@/lib/emoji';
 import { EFFECT_META, aggregateEquippedEffects, formatEffectValue } from '@/lib/items/effects';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/Toast';
 import s from './Garage.module.css';
 
 type TabKey = 'rider' | 'bike' | 'effect';

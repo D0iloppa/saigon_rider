@@ -143,9 +143,15 @@ export async function fetchAllBadges(userId?: string): Promise<BadgeWithEarned[]
 export type UserReportReason = 'ABUSE' | 'FRAUD' | 'INAPPROPRIATE_PROFILE' | 'SPAM' | 'OTHER';
 export const USER_REPORT_REASONS: UserReportReason[] = ['ABUSE', 'FRAUD', 'INAPPROPRIATE_PROFILE', 'SPAM', 'OTHER'];
 
+// rethrow:true — 중복 신고 409 원문이 전역 토스트로 새는 것 방지(reportListing 과 동일 이유).
 export async function reportUser(userId: string, reason: UserReportReason, note?: string): Promise<void> {
-  await api.realFetch(`/users/${userId}/report`, {
-    method: 'POST',
-    body: JSON.stringify({ reason, note: note ?? null }),
-  });
+  await api.realFetch(
+    `/users/${userId}/report`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason, note: note ?? null }),
+    },
+    'bff',
+    { rethrow: true },
+  );
 }

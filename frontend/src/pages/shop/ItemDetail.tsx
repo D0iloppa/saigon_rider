@@ -9,7 +9,7 @@ import { ItemName } from '@/components/ui/items/ItemName';
 import { MythicCardOverlay } from '@/components/ui/items/MythicCardOverlay';
 import { ItemSparkle } from '@/components/ui/items/ItemSparkle';
 import { ChevronLeft, Heart } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/Toast';
 import s from './ItemDetail.module.css';
 
 const HERO_GRAD: Record<ItemRarity, string> = {

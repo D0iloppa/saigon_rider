@@ -429,7 +429,15 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
       - 🔴 **결과는 3단계로 뭉갠다** — `_REPORT_STATUS_DISPLAY`(`support.py:25`)가 `PENDING`·`REVIEWING`→**검토 중** / `RESOLVED`→**조치 완료** / `REJECTED`→**위반 아님** 으로 매핑한다. **`result_code`·`resolution_note` 는 응답 스키마(`ReportOut`)에 아예 필드가 없다** — 상대방에게 어떤 제재가 갔는지 드러나면 개인정보이자 보복 위험이다. 필드를 추가하지 마라(테스트가 `hasattr` 로 고정).
       - **정지자도 접근 가능**: `verify_user_session_allow_suspended`(D-22 와 동일 원칙 — 정지가 부당하다고 이의제기하려면 자기가 뭘 신고했는지 볼 수 있어야 한다). **소유권 필터** `Report.reporter_id == user_id` 필수.
       - 신고 탭의 매물 항목은 `/market/{listing_id}` 로 이동 — 위 **신고자 열람 허용**(`get_listing` 가드) 덕에 내려간 매물이어도 404 로 죽지 않는다. 비매물(USER/DM/POST/COMMENT)은 텍스트만·비클릭.
-    - 잔여(신규 테이블 0 — 필드는 이미 다 있고 **조회 경로만 없다**): **R-3** `DELETE /reports/{id}` **PENDING 한정** — ⏸ **대표 판단 대기**. ✅ **R-5 는 구현됨**(`GET /admin/api/reports/reporters` — 신고자별 기각률, 표본 5건 미만은 `null`, 분모에서 `PENDING`/`REVIEWING` 제외). ⚠️ **R-5 가 R-3 보다 먼저인 이유**: 허위·반복 신고자를 식별할 수단 없이 취소를 열면 "신고 → 압박 → 취소" 어뷰징을 탐지할 방법이 없다. 🔴 **R-5 도 M1 준수** — 기각률이 높다고 **신고 접수를 막지 마라**(A2 의 대칭: 상습 허위신고자도 진짜 사기를 볼 수 있다). 검수 큐 정렬 가중치까지만. 상세는 [`017_IMPLEMENTATION_REPORT.md`](../task/active/260817_commercial_readiness_audit/017_IMPLEMENTATION_REPORT.md) §12-B.
+    - ✅ **R-3 신고 취소 구현됨 (2026-08-18 대표 확정)** — `DELETE /support/reports/{report_id}`. 확정 조합은 **PENDING 한정 · 소프트 취소 · 재신고 불가** 세 가지이고, 각각 이유가 있으니 **바꾸기 전에 반드시 읽어라**:
+      - **① `PENDING` 한정** — `REVIEWING`(운영자가 이미 열어본 건)·`RESOLVED`·`REJECTED` 는 `409 {"code":"report_not_cancellable"}`. 검토가 시작됐는데 사라지면 처리 이력이 끊긴다. 남의 신고는 **404**(403 이면 "그 신고가 존재한다"는 정보가 샌다). 정지자도 취소 가능(`verify_user_session_allow_suspended`, D-22 동일).
+      - **② 🔴 하드 삭제 금지 — 행을 보존하고 `status='CANCELLED'` + `cancelled_at` 만 세팅한다.** 행을 지우면 **R-5 기각률 집계가 오염되고 재신고 방지 `UNIQUE(listing_id, reporter_id)` 가 무력화**된다. 어겨도 **에러가 안 나고 집계만 조용히 틀리는** 종류라 `test_support_reports.py` 의 `CancelReportContractTest` 가 `db.delete` 미호출까지 고정한다.
+      - **③ 재신고 불가** — 기존 partial unique index 가 **행이 남아 있으면 자동으로** 막는다. 제약 무변경·별도 코드 없음. "취소 = 최종"이라 *"신고 취소해줄테니 깎아달라"* 협박 카드가 원천 차단된다. (참고: 신고 접수 시 **피신고자에게 알림이 가지 않으므로** 애초에 협박이 성립하려면 신고자가 DM 으로 직접 알려야 하고, 그 DM 자체가 `B-HARASS` 신고 대상이다.)
+      - **`can_cancel` 을 서버가 계산해 내린다** — 백엔드가 `PENDING`·`REVIEWING` 을 **둘 다 "검토 중"으로 뭉개** 내리므로(위 R-1 규약) 프론트는 화면 상태값만으로 취소 가능 여부를 알 수 없다. **원본 `status` 를 노출하지 말고** `can_cancel: bool` 을 쓰라 — 뭉개기 규약을 깨면 안 된다.
+      - UI: 신고 탭 카드에 취소 버튼(`can_cancel` 인 건만) + **`ConfirmDialog`**(되돌릴 수 없는 동작). 중첩 `<button>` 을 피하려고 카드 본문(`reportCardMain`)과 취소 버튼을 형제로 뒀다.
+      - 마이그레이션 `196_reports_cancelled_status.sql` — `reports_status_check` 를 **5값 전체로 재정의**(위 "status 값 추가 함정" 규약대로 **196 이 최종 정의를 소유**, 과거 파일 무변경) + `cancelled_at`.
+      - R-5 응답에 **`cancelled_count`** 추가 — 행을 보존하는 이유가 이것이다(취소 반복자 추적). ⚠️ **`rejection_rate` 분모는 `RESOLVED+REJECTED` 그대로** — 취소는 "판정"이 아니므로 분모에 넣지 마라.
+    - 잔여: ✅ **R-5 는 구현됨**(`GET /admin/api/reports/reporters` — 신고자별 기각률, 표본 5건 미만은 `null`, 분모에서 `PENDING`/`REVIEWING` 제외). ⚠️ **R-5 가 R-3 보다 먼저인 이유**: 허위·반복 신고자를 식별할 수단 없이 취소를 열면 "신고 → 압박 → 취소" 어뷰징을 탐지할 방법이 없다. 🔴 **R-5 도 M1 준수** — 기각률이 높다고 **신고 접수를 막지 마라**(A2 의 대칭: 상습 허위신고자도 진짜 사기를 볼 수 있다). 검수 큐 정렬 가중치까지만. 상세는 [`017_IMPLEMENTATION_REPORT.md`](../task/active/260817_commercial_readiness_audit/017_IMPLEMENTATION_REPORT.md) §12-B.
   - 거래이력 더보기 → `/trades`(`TradeHistory.tsx`)
   - 개러지 배너 → `/garage`
   - 쿠폰함 → `/coupons/mine`(`MyCoupons.tsx`)

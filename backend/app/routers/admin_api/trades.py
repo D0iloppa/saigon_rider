@@ -25,7 +25,9 @@ from ...models import (
     User,
 )
 from ...schemas import Page
+from ...services.listing_state import log_transition
 from ._audit import audit
+from .listings import _admin_uuid
 
 router = APIRouter(prefix="/trades")
 
@@ -185,6 +187,20 @@ async def force_complete(
     now = datetime.now(UTC)
     appt.status = "COMPLETED"
     appt.updated_at = now
+    # 016 §4-1 #36 — 상태를 바꾸는 모든 지점은 listing_state_log 에 전이를 남긴다.
+    # 이 경로(운영자 강제완료)가 빠져 있으면 에러 없이 조용히 두 가지가 틀어진다:
+    #   ① liquidity.py 의 L-2(거래 전환율)·L-4(첫 문의까지 시간)가 이 거래를 누락해 과소산출
+    #   ② title_transfer_reminders.py 가 to_state='SOLD' 를 앵커로 조회하므로
+    #      이 경로로 완료된 거래는 D+7/D+25 명의이전 리마인더가 영구 미발송
+    log_transition(
+        db,
+        listing.id,
+        listing.status,
+        "SOLD",
+        actor_type="admin",
+        actor_id=_admin_uuid(session),
+        reason="admin_force_complete",
+    )
     listing.status = "SOLD"
     listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
     listing.updated_at = now

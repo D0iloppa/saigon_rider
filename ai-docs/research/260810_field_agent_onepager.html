@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>업체 등록 알바 — 한 장 요약</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  :root {
+    --ink:#14181f; --mid:#4a5462; --soft:#7b8694;
+    --line:#d8dde4; --soft-line:#eef1f4; --accent:#1a5f9e;
+    --red:#b3261e; --red-bg:#fdf0ef; --red-line:#d9a3a0;
+    --green:#1a7f45; --green-bg:#eef7f1; --green-line:#a8ccb4;
+    --warn-bg:#fff8e6; --warn-line:#e0b44a; --warn-ink:#8a6412; --ok-bg:#f2f7fb;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:#fff; }
+  body {
+    width:297mm; height:210mm; padding:8mm 9mm 6mm;
+    font-family:"Pretendard","Noto Sans KR","Malgun Gothic",-apple-system,"Segoe UI",sans-serif;
+    color:var(--ink); word-break:keep-all; display:flex; flex-direction:column;
+    font-size:8.4pt; line-height:1.5;
+  }
+
+  .doc-head { border-bottom:2.2px solid var(--ink); padding-bottom:6px; margin-bottom:8px;
+              display:flex; align-items:flex-end; justify-content:space-between; gap:18px; }
+  .doc-kicker { font-size:7pt; letter-spacing:.15em; color:var(--soft); text-transform:uppercase; margin-bottom:3px; }
+  .doc-head h1 { font-size:16pt; margin:0; letter-spacing:-.02em; line-height:1.2; }
+  .doc-meta { font-size:7.4pt; color:var(--mid); text-align:right; white-space:nowrap; line-height:1.55; }
+  .doc-meta b { color:var(--ink); font-weight:600; }
+
+  .lead { background:var(--ok-bg); border-left:3px solid var(--accent); padding:7px 13px; margin-bottom:8px; font-size:8.6pt; }
+  .lead p { margin:0 0 3px; } .lead p:last-child { margin:0; }
+  .lead b { color:var(--accent); }
+
+  .strip { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:9px; }
+  .kpi { border:1px solid var(--line); border-top:2.5px solid var(--accent); border-radius:3px; padding:5px 10px 6px; }
+  .kpi .k { font-size:6.8pt; color:var(--soft); letter-spacing:.04em; }
+  .kpi .v { font-size:12pt; font-weight:700; color:var(--accent); letter-spacing:-.02em; line-height:1.2; }
+  .kpi .v small { font-size:7.4pt; font-weight:600; color:var(--mid); letter-spacing:0; }
+  .kpi .v s { color:var(--soft); font-weight:600; font-size:7.6pt; }
+
+  .cols { flex:1; display:grid; grid-template-columns:1.02fr 1fr 1fr; gap:9px; min-height:0; }
+  .panel { border:1px solid var(--line); border-radius:3px; padding:6px 10px 8px; display:flex; flex-direction:column; }
+  .panel > h2 { margin:0 0 5px; font-size:8pt; letter-spacing:.05em; color:var(--mid);
+                text-transform:uppercase; font-weight:700; padding-bottom:3px; border-bottom:1px solid var(--soft-line); }
+
+  table { width:100%; border-collapse:collapse; font-size:7.4pt; }
+  td,th { padding:2.5px 5px 2.5px 0; vertical-align:top; line-height:1.34; border-bottom:1px solid var(--soft-line); text-align:left; }
+  tr:last-child td { border-bottom:none; }
+  th { font-size:6.7pt; color:var(--soft); font-weight:600; }
+  td.n { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  s { color:var(--soft); }
+  .chg { color:var(--red); font-weight:700; }
+  .ok { color:var(--green); font-weight:700; }
+
+  .keyline { border-left:2.5px solid var(--accent); background:#f7fafd; padding:6px 10px; margin:6px 0; font-size:7.3pt; line-height:1.45; }
+  .keyline p { margin:0 0 3px; } .keyline p:last-child { margin:0; }
+  .flag { border:1px solid var(--red-line); background:var(--red-bg); border-radius:3px;
+          padding:5px 9px; margin-top:auto; font-size:7.2pt; line-height:1.4; }
+  .flag b { color:var(--red); }
+  .goodflag { border:1px solid var(--green-line); background:var(--green-bg); border-radius:3px;
+              padding:5px 9px; font-size:7.2pt; line-height:1.4; margin:6px 0 0; }
+  .goodflag b { color:var(--green); }
+
+  /* 타임라인 */
+  .tl { list-style:none; margin:0; padding:0 0 0 13px; border-left:1.5px solid var(--line); }
+  .tl li { position:relative; margin-bottom:5.5px; font-size:7.4pt; line-height:1.35; }
+  .tl li::before { content:""; position:absolute; left:-17px; top:4px; width:7px; height:7px;
+                   border-radius:50%; background:#fff; border:1.8px solid var(--accent); }
+  .tl li.done::before { background:var(--green); border-color:var(--green); }
+  .tl li.gate::before { background:var(--red); border-color:var(--red); }
+  .tl .d { font-weight:700; color:var(--accent); margin-right:5px; }
+  .tl li.done .d { color:var(--green); }
+  .tl .m { color:var(--mid); }
+
+  .foot { display:grid; grid-template-columns:1.32fr 1fr; gap:9px; margin-top:9px; }
+  .box { border:1px solid var(--line); border-radius:3px; padding:6px 10px 7px; }
+  .box.dec { border-color:#b9d2e6; background:var(--ok-bg); }
+  .box.warn { border-color:var(--warn-line); background:var(--warn-bg); }
+  .box h3 { margin:0 0 3px; font-size:7.2pt; letter-spacing:.05em; text-transform:uppercase; font-weight:700; color:var(--mid); }
+  .box.dec h3 { color:var(--accent); } .box.warn h3 { color:var(--warn-ink); }
+  .box td.r { white-space:nowrap; font-weight:600; width:76px; }
+  .box.dec td.r { color:var(--accent); }
+  .box.warn td.r { color:var(--red); }
+
+  footer { margin-top:5px; padding-top:4px; border-top:1px solid var(--soft-line);
+           font-size:6.7pt; color:var(--soft); display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <div>
+    <div class="doc-kicker">SAIGON RIDER · 런칭 준비</div>
+    <h1>업체 등록 알바 — 한 장 요약</h1>
+  </div>
+  <div class="doc-meta">
+    2026-08-11 · 내부 보고용<br>
+    단가 <b>원안 유지</b> · 일정 <b>rev.4</b> · 배정표 완성<br>
+    전제 D-1 = 옵션 1(선행 개발)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>단가·할당은 원안 그대로다.</b> 일급 300,000동, 1인 하루 가입 8건 + 매물 12건.</p>
+  <p>인력이 <b>작업자 4 + 감독자 1</b>로 늘고 <b>감독자도 현장 작업을 겸한다</b>(가동률 50%). 그만큼 산출물이 늘어
+     업체 <b>288곳</b> + 매물 <b>432건</b>, 예산 <b>19,147,500동</b>(+22.9%)이다.</p>
+  <p>지시하신 <b>일자 × 지역 × 업체 × 등록품목 배정표를 완성했다</b> — 1,184개 방문이 날짜와 담당자까지 확정돼 있다.</p>
+</div>
+
+<div class="strip">
+  <div class="kpi"><div class="k">기간</div><div class="v">8/10 – 8/28 <small>본투입 8영업일</small></div></div>
+  <div class="kpi"><div class="k">인력 (변경)</div><div class="v">작업자 4 + 감독자 1 <small>감독자 현장 작업 겸직</small></div></div>
+  <div class="kpi"><div class="k">산출물 (증가)</div><div class="v">업체 288곳 <small>+ 매물 432건 · <s>256 / 384</s></small></div></div>
+  <div class="kpi"><div class="k">예산 (변경)</div><div class="v">19,147,500동 <small>₩107만 / $731 · +22.9%</small></div></div>
+</div>
+
+<div class="cols">
+
+  <div class="panel">
+    <h2>무엇이 바뀌었나</h2>
+    <table>
+      <thead><tr><th>항목</th><th>rev.1</th><th>개정</th></tr></thead>
+      <tbody>
+        <tr><td>기본 일급</td><td>300,000동</td><td>동일</td></tr>
+        <tr><td>가입 할당</td><td>8건/일</td><td>동일</td></tr>
+        <tr><td>매물 할당</td><td>12건/일</td><td>동일</td></tr>
+        <tr><td>인센티브 기준선</td><td>13건째~</td><td>동일</td></tr>
+        <tr><td><b>인력</b></td><td>4명 (반장 겸임)</td><td class="chg">4 + 감독자 1</td></tr>
+        <tr><td><b>산출물</b></td><td>업체 256 · 매물 384</td><td class="chg">업체 288 · 매물 432</td></tr>
+        <tr><td><b>예산</b></td><td>15,582,500</td><td class="chg">19,147,500</td></tr>
+        <tr><td><b>런칭 존</b></td><td>미정</td><td class="chg">재래 상권 21개 동</td></tr>
+        <tr><td><b>하루 방문 구성</b></td><td>규정 없음</td><td class="chg">매물 24 + 그 외 8</td></tr>
+        <tr><td><b>준비물</b></td><td>11종</td><td class="chg">12종</td></tr>
+</tbody>
+    </table>
+    <div class="flag">
+      <b>1인당 단가·할당은 그대로다.</b> 예산이 느는 건 사람이 4→5명이 되기 때문이고,
+      감독자가 작업을 겸하므로 그 증가분만큼 산출물도 함께 는다.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>타깃 명단 — 확보 완료</h2>
+    <table>
+      <tbody>
+        <tr><td>가입 대상 전체</td><td class="n"><b>2,292곳</b></td><td>13개 카테고리</td></tr>
+        <tr><td><b>매물 가능</b></td><td class="n ok">1,240곳</td><td>용품·헬멧·액세서리 + <b>중고 오토바이 396</b></td></tr>
+        <tr><td>전화번호 확보</td><td class="n">1,101곳</td><td>방문 전 폐업 확인·사전 연락 가능</td></tr>
+      </tbody>
+    </table>
+    <div class="keyline">
+      <p><b>1차 대비 매물 가능 634 → 1,240곳</b>. 중고 오토바이 매장(396곳)을 새로 넣고,
+         자동차 업체 206곳을 오분류에서 걷어냈다.</p>
+      <p>매물 432건에 필요한 후보는 888곳 — 후순위 제외분 1,056곳 대비 <b>여유 19%</b>.
+         명단 유효율 84%까지 목표가 선다(전체 1,240곳 기준이면 여유 40%).</p>
+    </div>
+    <h2 style="margin-top:7px">배정 규칙 — 하루 방문 32곳</h2>
+    <table>
+      <tbody>
+        <tr><td>매물 업종</td><td class="n ok">24곳</td><td>→ 가입 6곳 → 매물 12건</td></tr>
+        <tr><td>그 외 업종</td><td class="n">8곳</td><td>→ 가입 2곳</td></tr>
+        <tr><td><b>감독자</b> (하루 16방문)</td><td class="n ok">12곳</td><td>→ 가입 4곳 → 매물 6건</td></tr>
+      </tbody>
+    </table>
+    <div class="flag">
+      <b>런칭 존은 재래 상권 21개 동으로 확정했다.</b> 1군 도심에는 오토바이 용품점이 거의 없다.
+      <b>Bảy Hiền 93 · Chợ Lớn 97 · Hạnh Thông 81 · Tân Hưng 79 · Bình Tây 53</b> 순이며,
+      구역지도를 이 기준으로 새로 그려야 한다.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>일정</h2>
+    <ul class="tl">
+      <li class="done"><span class="d">8/10–11 완료</span>타깃 명단 <span class="m">— 2,292곳 (매물가능 1,240)</span></li><li class="done"><span class="d">8/11 완료</span><b>배정표 작성</b> <span class="m">— 1,184 방문 · 일자·담당자 확정</span></li>
+      <li><span class="d">8/11</span>대표 결정 4건 <span class="m">— D-1 · D-12 · D-13 · D-17</span></li>
+      
+      
+      <li><span class="d">8/11–13</span>업체 매물등록 권한 개발 <span class="m">— OTP 단계 소멸</span></li>
+      <li><span class="d">8/12–14</span>현장 준비물 12종 · 베트남어 감수</li>
+      <li><span class="d">~8/14</span>인력 5명 계약 · 검수 체계</li>
+      <li><span class="d">8/17</span>파일럿 1일 <span class="m">— 전환율·매물소요·명단 유효율 실측</span></li>
+      <li><span class="d">8/18–27</span><b>본투입 8영업일</b> <span class="m">— 업체 288곳 + 매물 432건</span></li>
+      <li><span class="d">8/28</span>정산 마감</li>
+    </ul>
+    <div class="goodflag">
+      <b>일정은 안 밀렸다.</b> 명단·배정표가 예정(8/12)보다 하루 먼저 끝났다.
+      본투입 8/18 시작, 정산 8/28 그대로.
+    </div>
+  </div>
+
+</div>
+
+<div class="foot">
+  <div class="box dec">
+    <h3>대표 결정 필요</h3>
+    <table>
+      <tbody>
+        <tr><td class="r">D-1</td><td>업체 매물등록 경로 — <b>옵션 1(2~3일 선행 개발) 권고</b>. 본인인증 단계가 사라져 현장이 빨라진다</td></tr>
+        <tr><td class="r">D-12</td><td>가입 대상 업종 — <b>13개 카테고리</b>(주유·정비 제외) 확정 요청</td></tr>
+        <tr><td class="r">D-13</td><td>감독자 <b>가동률 50%가 가정값</b>. 일급 400,000동(기본 300,000 + 감독수당 100,000)</td></tr>
+        <tr><td class="r">D-17</td><td>중고 오토바이가 담길 <b>업종 코드가 앱에 없다</b>. 판매점 카테고리 신설 여부</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="box warn">
+    <h3>리스크</h3>
+    <table>
+      <tbody>
+        <tr><td class="r">감독자 가동률</td><td>작업 절반 / 순회 절반은 가정값 — 순회가 늘면 산출물 288곳·432건이 그만큼 줄어든다</td></tr>
+        <tr><td class="r">런칭 존 이동</td><td>슬롯 반경 중앙값 2.5km. 이동 2.2분/건 가정은 미검증 — 파일럿 1순위 실측 항목</td></tr>
+        <tr><td class="r">명단 유효율</td><td>영구폐업 10곳은 걸렀으나 나머지는 미검증. 전화 확보분(66%)은 사전 확인 가능</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer>
+  <span>Saigon Rider · 업체 등록 알바 한 장 요약 — 근거: 단가 원안 · 일정 rev.4 · 배정표 · 링크리스트</span>
+  <span>2026-08-11 · 내부 보고용</span>
+</footer>
+
+</body>
+</html>

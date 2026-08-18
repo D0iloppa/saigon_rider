@@ -23,8 +23,10 @@ import uuid
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
+
 from ..database import AsyncSessionLocal
-from ..models import FunnelEvent
+from ..models import FunnelEvent, User
 from ..schemas import FunnelEventType
 
 log = logging.getLogger(__name__)
@@ -38,22 +40,49 @@ async def record(
     *,
     user_id: uuid.UUID | None = None,
     entity_id: uuid.UUID | None = None,
+    subject_type: str | None = None,
+    props: dict | None = None,
+    anon_id: uuid.UUID | None = None,
+    surface: str | None = None,
+    session_id: uuid.UUID | None = None,
+    acq_source: str | None = None,
 ) -> None:
     """호출부 세션(`db`)은 더 이상 건드리지 않는다 — 호환을 위해 인자로는 받지만 사용하지
     않는다(호출부 8곳의 시그니처를 유지하기 위함). 별도 세션으로 즉시 커밋한다. 이벤트 insert
     실패는 로그로 흡수하고 예외를 올리지 않는다(호출 흐름 차단 금지) — 단 이 실패는 호출부의
-    세션/트랜잭션과 무관하므로 호출부 자신의 flush 실패를 가리지 않는다."""
+    세션/트랜잭션과 무관하므로 호출부 자신의 flush 실패를 가리지 않는다.
+
+    subject_type/props 는 016 §3-2(#16 상호작용 로그 확장, init/183) 로 추가된 선택 인자다 —
+    기존 8곳 호출부는 지정하지 않아도 그대로 동작한다(하위호환). props 는 PII 를 담지 않는다
+    (init/183 주석 참조 — IP·UA·전화번호·자유 텍스트 원문 금지, 집계용 값만).
+
+    anon_id/surface/session_id/acq_source 는 016 §6-2 #30 으로 추가된 선택 인자다. acq_source 를
+    호출부가 명시하지 않고 user_id 가 있으면 users.acquisition_source 를 자동 조회해 스탬프한다 —
+    §6-2 "이후 모든 이벤트에 acq_source 스탬프" 요구를, market.py 등 기존 8곳 호출부를 전혀
+    건드리지 않고 이 한 곳에서만 만족시키기 위한 설계다(추가 SELECT 1회, 파일럿 규모에서 무시
+    가능한 비용 — 실시간 요구가 없어 지연도 문제되지 않는다)."""
     del db
     now = datetime.now(UTC)
     try:
         async with AsyncSessionLocal() as event_db:
+            resolved_acq_source = acq_source
+            if resolved_acq_source is None and user_id is not None:
+                resolved_acq_source = (
+                    await event_db.execute(select(User.acquisition_source).where(User.id == user_id))
+                ).scalar_one_or_none()
             event_db.add(
                 FunnelEvent(
                     event_type=event_type.value,
                     user_id=user_id,
                     entity_id=entity_id,
+                    subject_type=subject_type,
+                    props=props or {},
                     occurred_at=now,
                     stat_date=now.astimezone(_VN_TZ).date(),
+                    anon_id=anon_id,
+                    surface=surface,
+                    session_id=session_id,
+                    acq_source=resolved_acq_source,
                 )
             )
             await event_db.commit()

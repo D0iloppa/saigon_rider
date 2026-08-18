@@ -31,7 +31,6 @@ import { fetchMyFeed, deleteFeedPost } from '@/api/feed';
 import type { FeedPage } from '@/api/feed';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
-import { ImageViewer } from '@/pages/feed/FeedList';
 import { toast } from '@/components/ui/Toast';
 import { emojiUrl } from '@/lib/emoji';
 import StateBlock from '@/components/ui/StateBlock';
@@ -227,7 +226,6 @@ export default function ProfileMain() {
   const [feedsPage, setFeedsPage] = useState(1);
   const [feedsHasMore, setFeedsHasMore] = useState(true);
   const [menuPostId, setMenuPostId] = useState<string | null>(null);
-  const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
   const openDialog = useDialogStore((s) => s.open);
 
   useEffect(() => {
@@ -678,11 +676,24 @@ export default function ProfileMain() {
             ) : (
               <>
                 {myFeeds.map((p) => (
-                  <div key={p.id} className={styles.feedCard}>
+                  <div
+                    key={p.id}
+                    className={styles.feedCard}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/feed/post/${p.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        navigate(`/feed/post/${p.id}`);
+                      }
+                    }}
+                  >
                     {p.photoUrls.length > 0 && (
                       <ImageCarousel
                         urls={p.photoUrls}
-                        onImageClick={(idx) => setViewerState({ srcs: p.photoUrls, index: idx })}
+                        onImageClick={() => navigate(`/feed/post/${p.id}`)}
                       />
                     )}
                     <div className={styles.feedCardBody}>
@@ -702,12 +713,12 @@ export default function ProfileMain() {
                     </div>
                     <button
                       className={styles.feedCardMenu}
-                      onClick={() => setMenuPostId(menuPostId === p.id ? null : p.id)}
+                      onClick={(e) => { e.stopPropagation(); setMenuPostId(menuPostId === p.id ? null : p.id); }}
                     >
                       <MoreVertical size={18} />
                     </button>
                     {menuPostId === p.id && (
-                      <div className={styles.feedCardDropdown}>
+                      <div className={styles.feedCardDropdown} onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => { setMenuPostId(null); navigate(`/feed/edit/${p.id}`); }}>
                           {t('profile.editPost')}
                         </button>
@@ -812,14 +823,6 @@ export default function ProfileMain() {
         )}
         </div>{/* sheetBody */}
       </div>{/* sheet */}
-
-      {viewerState && (
-        <ImageViewer
-          srcs={viewerState.srcs}
-          initialIndex={viewerState.index}
-          onClose={() => setViewerState(null)}
-        />
-      )}
 
       {/* Badge detail modal */}
       {activeBadge && (() => {

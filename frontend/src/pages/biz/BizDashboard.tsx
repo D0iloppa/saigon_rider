@@ -19,6 +19,7 @@ import {
   fetchBusinessPublicProfile,
   fetchBizAdStatsSummary,
   fetchBizAdStatsSeries,
+  createBizIssue,
   type BizReview,
   type BizAdStatsSummary,
   type BizAdStatsSeries,
@@ -78,7 +79,34 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
 
+  // #27(013/016 §8 L5) — 업체 전용 이슈 채널. "광고가 안 나옵니다" 등 계약 관련 이슈를 영업 담당
+  // 개인 연락 대신 이 창구로 접수한다 — ad_id 만 넘기면 서버가 계약 컨텍스트를 자동 첨부한다.
+  const [issueFormOpen, setIssueFormOpen] = useState(false);
+  const [issueAdId, setIssueAdId] = useState('');
+  const [issueBody, setIssueBody] = useState('');
+  const [issueSubmitting, setIssueSubmitting] = useState(false);
+  const [issueResult, setIssueResult] = useState<'success' | 'error' | null>(null);
+
   const retryAdStats = () => setReloadKey((k) => k + 1);
+
+  const handleSubmitIssue = async () => {
+    if (!issueAdId || !issueBody.trim() || issueSubmitting) return;
+    setIssueSubmitting(true);
+    setIssueResult(null);
+    try {
+      await createBizIssue({
+        adId: issueAdId,
+        title: t('biz.dashboard.issueDefaultTitle', { defaultValue: '광고 노출 이슈' }),
+        body: issueBody.trim(),
+      });
+      setIssueResult('success');
+      setIssueBody('');
+    } catch {
+      setIssueResult('error');
+    } finally {
+      setIssueSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -568,7 +596,75 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
         {adStats?.isEnded && (
           <span className={styles.adPerfBadge}>{t('biz.dashboard.adPerfEndedBadge', { defaultValue: '게시 종료' })}</span>
         )}
+        {/* #27 — 광고주가 신고 버튼 대신 영업 담당 개인 연락으로 새는 것을 막는 창구 */}
+        <button
+          type="button"
+          className={styles.issueToggleBtn}
+          onClick={() => {
+            setIssueFormOpen((v) => !v);
+            setIssueResult(null);
+          }}
+        >
+          <AlertCircle size={13} strokeWidth={2.2} />
+          {t('biz.dashboard.issueButton', { defaultValue: '이슈 신고' })}
+        </button>
       </div>
+
+      {issueFormOpen && (
+        <div className={styles.issueForm}>
+          {(seriesData?.byAd?.length ?? 0) === 0 ? (
+            <p className={styles.issueEmptyNotice}>
+              {t('biz.dashboard.issueNoAds', { defaultValue: '등록된 광고가 없어 이슈를 제출할 수 없습니다.' })}
+            </p>
+          ) : (
+            <>
+              <label className={styles.issueLabel} htmlFor="biz-issue-ad-select">
+                {t('biz.dashboard.issueSelectAdLabel', { defaultValue: '대상 광고' })}
+              </label>
+              <select
+                id="biz-issue-ad-select"
+                className={styles.issueSelect}
+                value={issueAdId}
+                onChange={(e) => setIssueAdId(e.target.value)}
+              >
+                <option value="">{t('biz.dashboard.issueSelectAdPlaceholder', { defaultValue: '광고를 선택하세요' })}</option>
+                {seriesData?.byAd.map((a) => (
+                  <option key={a.adId} value={a.adId}>
+                    {a.title}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                className={styles.issueTextarea}
+                placeholder={t('biz.dashboard.issueBodyPlaceholder', {
+                  defaultValue: '예: 지난주부터 광고가 노출되지 않습니다.',
+                })}
+                value={issueBody}
+                onChange={(e) => setIssueBody(e.target.value)}
+                rows={3}
+              />
+              <button
+                type="button"
+                className={styles.issueSubmitBtn}
+                onClick={handleSubmitIssue}
+                disabled={!issueAdId || !issueBody.trim() || issueSubmitting}
+              >
+                {t('biz.dashboard.issueSubmit', { defaultValue: '제출' })}
+              </button>
+              {issueResult === 'success' && (
+                <p className={styles.issueSuccessNotice}>
+                  {t('biz.dashboard.issueSuccess', { defaultValue: '접수되었습니다. 곧 담당자가 확인합니다.' })}
+                </p>
+              )}
+              {issueResult === 'error' && (
+                <p className={styles.issueErrorNotice}>
+                  {t('biz.dashboard.issueError', { defaultValue: '제출에 실패했습니다. 다시 시도해 주세요.' })}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
       {/* 기간 필터는 한 줄, 아래 광고 성과 전체를 스코프한다 (차트별 필터 금지) */}
       <div className={styles.rangeRow} role="group" aria-label={t('biz.dashboard.adPerfRangeGroup', { defaultValue: '조회 기간' })}>
         {RANGES.map((r) => (

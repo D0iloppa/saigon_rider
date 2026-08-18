@@ -35,8 +35,14 @@ class OAuthFlowStoreTest(unittest.IsolatedAsyncioTestCase):
         state = await oauth_flow.issue_oauth_state("pkce-verifier")
 
         self.assertEqual(self.redis.set_calls[-1][1:], (oauth_flow.STATE_TTL_SECONDS, True))
-        self.assertEqual(await oauth_flow.consume_oauth_state(state), (True, "pkce-verifier"))
-        self.assertEqual(await oauth_flow.consume_oauth_state(state), (False, None))
+        self.assertEqual(await oauth_flow.consume_oauth_state(state), (True, "pkce-verifier", None))
+        self.assertEqual(await oauth_flow.consume_oauth_state(state), (False, None, None))
+
+    async def test_state_carries_acquisition_ref_alongside_extra(self):
+        """016 §6-2 #30 — redirect flow는 start→callback 사이 ref 를 state 편으로 들고 다닌다."""
+        state = await oauth_flow.issue_oauth_state("pkce-verifier", ref="agent:field01")
+
+        self.assertEqual(await oauth_flow.consume_oauth_state(state), (True, "pkce-verifier", "agent:field01"))
 
     async def test_exchange_code_is_ttl_bound_and_single_use(self):
         user_id = str(uuid.uuid4())

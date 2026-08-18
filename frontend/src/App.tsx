@@ -21,6 +21,7 @@ import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { captureAcqRefFromUrl } from '@/lib/acquisition';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
@@ -392,6 +393,10 @@ export default function App() {
 
     let active = true;
     setBootstrapError(false);
+
+    // 유입 귀속(016 §6-2 #30) — ?ref= 를 최초 1회만 캡처(first-touch). dev_login 분기보다
+    // 먼저 둬서, 아래에서 URL 을 정리(replaceState)해도 ref 는 이미 저장된 뒤다.
+    captureAcqRefFromUrl();
 
     // 개발 서버 전용 OAuth 우회 로그인 — ?dev_login=<uuid> 가 붙어 있으면 그 계정으로
     // 즉시 세션을 발급받는다. DEV_HOST 가 아닌 도메인에서는 백엔드가 항상 403을 내려

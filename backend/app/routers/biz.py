@@ -21,6 +21,7 @@ from ..models import (
     BusinessReview,
     Content,
     MarketplaceAd,
+    SupportTicket,
     User,
     UserFavoriteBusiness,
     Ward,
@@ -35,6 +36,7 @@ from ..schemas import (
     AdTierOut,
     BizAdStatsSeriesOut,
     BizAdStatsSummaryOut,
+    BizIssueCreateRequest,
     BusinessAdCreateRequest,
     BusinessAdOut,
     BusinessCategoryOut,
@@ -58,6 +60,7 @@ from ..schemas import (
     BusinessVerificationRequest,
     MarketplaceAdOut,
     Page,
+    SupportTicketOut,
 )
 from ..services import noti_events
 from ..services.redis_cache import get_client
@@ -489,6 +492,69 @@ async def resume_ad(
     except AdsError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return _ad_out(ad)
+
+
+# ── #27 업체 전용 이슈 채널 (013/016 §8 L5, 010 #10 광고 재개보다 먼저 열어야 하는 창구) ──────
+# 광고주는 신고 버튼을 안 누르고 영업 담당 개인 연락으로 새는 구조적 문제(013 §2-3)를 닫는다.
+# 계약(광고) 컨텍스트를 사용자가 직접 입력하지 않고 서버가 own_ad() 소유권 검증 결과에서
+# 자동 첨부한다 — support_tickets.contract_context(JSONB, init/185)에 적재.
+
+
+@router.post(
+    "/issues",
+    response_model=SupportTicketOut,
+    status_code=201,
+    summary="업체 전용 이슈 제출 (#27) — 계약 컨텍스트 자동 첨부",
+)
+async def create_biz_issue(
+    body: BizIssueCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    try:
+        ad, _owner = await AdsApplication(db).own_ad(body.ad_id, session_uid)
+    except AdsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+    if not body.title.strip() or not body.body.strip():
+        raise HTTPException(status_code=400, detail="title/body is required")
+
+    ticket = SupportTicket(
+        user_id=session_uid,
+        title=body.title.strip(),
+        body=body.body.strip(),
+        status="OPEN",
+        category=body.category.value,
+        # #27 완료 검증 조건: SEV2로 접수. taxonomy 기본값(ISSUE_CATEGORY_SEVERITY)과 동일하나
+        # 명시적으로 고정 — 파트너 이슈가 일반 문의 큐 하단으로 묻히지 않게 한다.
+        severity="SEV2",
+        source="BIZ",
+        persona="BIZ",
+        contract_context={
+            "ad_id": str(ad.id),
+            "tier_name": ad.tier_name,
+            "district_id": ad.district_id,
+            "starts_at": ad.starts_at.isoformat() if ad.starts_at else None,
+            "ends_at": ad.ends_at.isoformat() if ad.ends_at else None,
+        },
+    )
+    db.add(ticket)
+    await db.commit()
+    await db.refresh(ticket)
+    return SupportTicketOut(
+        id=ticket.id,
+        title=ticket.title,
+        body=ticket.body,
+        status=ticket.status,
+        has_unread_reply=False,
+        reply_count=0,
+        created_at=ticket.created_at,
+        updated_at=ticket.updated_at,
+        category=ticket.category,
+        severity=ticket.severity,
+        source=ticket.source,
+        persona=ticket.persona,
+    )
 
 
 # ── 광고 성과 대시보드 (ai-docs/spec/ad-performance-metrics.md §7/§8 B-9) ──────

@@ -12,7 +12,7 @@ import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchDistricts, type District } from '@/api/master';
-import { createListing, fetchCategories, localizedName, type MarketCategory } from '@/api/market';
+import { createListing, fetchCategories, localizedName, type MarketCategory, type PaperStatus } from '@/api/market';
 import CategoryPickerSheet from './CategoryPickerSheet';
 import LocationPickerSheet from './LocationPickerSheet';
 import styles from './MarketCreate.module.css';
@@ -116,6 +116,9 @@ export default function MarketCreate() {
   const [price, setPrice] = useState(initialDraft?.price ?? ''); // digits only
   const [negotiable, setNegotiable] = useState(initialDraft?.negotiable ?? false);
   const [description, setDescription] = useState(initialDraft?.description ?? '');
+  // 016 §4-6 #41: 선택 표시(D-28=(a)) — 미기재 허용, 초안 저장/복원 대상 아님(경량 필드).
+  const [paperStatus, setPaperStatus] = useState<PaperStatus | ''>('');
+  const [plateProvince, setPlateProvince] = useState('');
   const [districts, setDistricts] = useState<District[]>([]);
   const [district, setDistrict] = useState<District | null>(null);
   const [tradeCoords, setTradeCoords] = useState<{ lat: number; lng: number } | null>(initialDraft?.tradeCoords ?? null);
@@ -267,6 +270,8 @@ export default function MarketCreate() {
         longitude: tradeCoords?.lng ?? district?.center_lng ?? null,
         imageContentIds: contentIds,
         businessProfileId,
+        paperStatus: paperStatus || null,
+        plateProvince: plateProvince.trim() || null,
       });
       if (draftKey) removeDraft(draftKey);
       navigate(`/market/${id}`, { replace: true });
@@ -402,6 +407,26 @@ export default function MarketCreate() {
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={2000}
+        />
+
+        {/* 016 §4-6 #41: 서류·명의 상태 — 선택 표시(오토바이 매물 해당 시). 미기재 허용. */}
+        <p className={styles.label}>{t('market.paperStatusLabel', { defaultValue: '등록증 명의 상태 (오토바이 매물)' })}</p>
+        <select
+          className={styles.catSelect}
+          value={paperStatus}
+          onChange={(e) => setPaperStatus(e.target.value as PaperStatus | '')}
+        >
+          <option value="">{t('market.paperStatusUnset', { defaultValue: '선택 안 함' })}</option>
+          <option value="MATCH">{t('market.paperStatusMatch', { defaultValue: '등록증 보유 (명의 일치)' })}</option>
+          <option value="MISMATCH">{t('market.paperStatusMismatch', { defaultValue: '등록증 보유 (명의 불일치)' })}</option>
+          <option value="NONE">{t('market.paperStatusNone', { defaultValue: '등록증 미보유' })}</option>
+        </select>
+        <input
+          className={styles.titleInput}
+          placeholder={t('market.plateProvincePlaceholder', { defaultValue: '번호판 등록 지역 (선택)' })}
+          value={plateProvince}
+          onChange={(e) => setPlateProvince(e.target.value)}
+          maxLength={80}
         />
 
         {/* 거래 희망 장소 (지도 picker, default=내 위치 구) */}

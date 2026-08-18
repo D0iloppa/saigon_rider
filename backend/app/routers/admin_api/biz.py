@@ -7,7 +7,7 @@ JSON 응답으로 이관한 것 — PENDING-first 큐 정렬·승인/반려·정
 
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
-from ...models import BusinessCategory, BusinessGroup, BusinessProfile, Content, User
+from ...models import BusinessCategory, BusinessGroup, BusinessProfile, Content, MarketplaceAd, Notification, User
 from ...modules.ads import AdsApplication
 from ...modules.ads.application import AdRead, AdsError, OwnerRead
 from ...schemas import BusinessCategoryOut, ContentOut
@@ -765,6 +765,59 @@ async def update_biz_ad_exposure(
     )
     await db.commit()
     return {"id": ad.id, "tier_id": ad.tier_id, "ad_fee": ad.ad_fee}
+
+
+class AdMakegoodRequest(BaseModel):
+    """#28(013/016 §8-5, D-29=(a)) — 기간 연장 보전만. 현금 환불은 대표 승인 건별 예외로만 다루며
+    이 API 로 자동화하지 않는다(SOP-3 참조)."""
+
+    reason: str
+    extend_days: int = Field(gt=0, le=90)
+
+
+@router.post("/ads/{ad_id}/makegood", summary="광고 노출 보전 — 계약 기간 연장 (#28, 플랫폼 귀책 미노출 전용)")
+async def makegood_ad(
+    ad_id: uuid.UUID,
+    body: AdMakegoodRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    ad = await db.get(MarketplaceAd, ad_id)
+    if ad is None:
+        raise HTTPException(status_code=404, detail="Ad not found")
+    if ad.ends_at is None:
+        raise HTTPException(status_code=400, detail="ad has no ends_at to extend")
+
+    prev_ends_at = ad.ends_at
+    ad.ends_at = prev_ends_at + timedelta(days=body.extend_days)
+
+    await audit(
+        db,
+        session,
+        request,
+        "BIZ_AD_MAKEGOOD",
+        "marketplace_ad",
+        str(ad_id),
+        {
+            "reason": body.reason,
+            "extend_days": body.extend_days,
+            "prev_ends_at": prev_ends_at.isoformat(),
+            "new_ends_at": ad.ends_at.isoformat(),
+            "approved_by": session.username,
+        },
+    )
+    if ad.owner_id is not None:
+        db.add(
+            Notification(
+                user_id=ad.owner_id,
+                type="BIZ",
+                title="광고 게재기간이 연장되었습니다",
+                body=f"{body.reason} — {body.extend_days}일 연장 (신규 종료일: {ad.ends_at.date().isoformat()})",
+            )
+        )
+    await db.commit()
+    return {"id": ad.id, "prev_ends_at": prev_ends_at, "ends_at": ad.ends_at}
 
 
 @router.post("/ads/{ad_id}/activate-subscription", summary="월구독 입금확인 후 게시 활성 (admin 전용)")

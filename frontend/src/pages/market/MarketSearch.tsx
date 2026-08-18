@@ -25,7 +25,8 @@ import CategoryPickerSheet from './CategoryPickerSheet';
 import ListingCard from './ListingCard';
 import styles from './MarketSearch.module.css';
 
-const SORTS: ListingSort[] = ['recent', 'price_low', 'price_high'];
+// 016 §5-2 #19: "추천순" 추가 — 기본 정렬(recent)은 그대로 유지.
+const SORTS: ListingSort[] = ['recent', 'recommended', 'price_low', 'price_high'];
 
 const PRICE_PRESETS = [
   { labelKey: 'market.pricePreset1', label: '5만 이하',    min: null,      max: 50_000 },

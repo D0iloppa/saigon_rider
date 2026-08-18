@@ -69,31 +69,6 @@
   background: var(--surface-2);
 }
 
-/* Sort + hide-sold + view toggle controls */
-.controlRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  /* 동네지도의 칩→행 간격(실측 18px)에 맞춘다. 동네지도는 칩이 header, 행이 main 에
-     있어 header 하단 여백 + main 상단 여백 + resultHead margin-top 이 합쳐져 18px 가
-     되는데, 마켓은 둘 다 header 안이라 margin-top 4px 뿐이라 4px 였다.
-     같은 값을 만들려면 컨테이너 구조가 아니라 결과 간격을 맞춰야 한다(대표 지적 2026-08-06).
-     아래 2px 도 동네지도 .resultHead 와 동일. */
-  margin: 18px 0 2px;
-  /* 행 자체 높이도 맞춘다 — 마켓 '거리순'은 텍스트 버튼이라 24px, 동네지도 '내 주변순'은
-     칩(padding 5px 10px)이라 26px 였다. */
-  min-height: 26px;
-}
-
-.sortSelect {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-}
-
 /* Sort bottom sheet */
 .sortSheet {
   display: flex;
@@ -260,25 +235,25 @@
   /* 하단 86px: FAB(52px 지름 + bottom 18px offset = 70px 풋프린트) + 여유 16px —
    * 마지막 매물 카드가 FAB 에 가려지는 것 방지(P2-10). FAB 는 .root 바닥(=탭바
    * 상단) 기준 절대배치라 탭바 실높이는 AppShell 플렉스가 이미 흡수한다. */
-  padding: 16px 20px calc(16px + 70px);
+  padding: 10px 20px calc(16px + 70px);
   display: flex;
   flex-direction: column;
   gap: 0; /* 플랫 리스트 — 행 간격은 ListingCard 패딩+헤어라인이 만든다 (업리프트 260706) */
   min-height: 100%;
 }
 
-/* 로딩 스켈레톤 — ListingCard 골격 미러 (썸네일 104px + 텍스트 바) */
+/* 로딩 스켈레톤 — ListingCard 골격 미러 (썸네일 128px + 텍스트 바) */
 .skelCard {
   display: flex;
   gap: 14px;
-  padding: 14px 4px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
 .skelThumb {
-  width: 104px;
-  height: 104px;
+  width: 128px;
+  height: 128px;
   border-radius: 10px;
   flex-shrink: 0;
 }
@@ -607,16 +582,77 @@
 /* 리스트 뷰 카테고리 칩 행 — 동네지도(NeighborhoodMapList.module.css .categoryRail) 값을
    그대로 복제한다. 지도 오버레이 칩(.mapCatChip)은 지도 이미지 위 가독성 때문에 그림자·주황
    active 를 쓰지만, 리스트 헤더에서는 그게 떠 보인다(대표 지적 2026-08-06). */
+/* 필터 행 = [정렬 pill(고정)] | [카테고리 칩(가로 스크롤)] 2단.
+   행 자체는 스크롤하지 않는다 — 오른쪽만 화면 끝까지 블리드시켜, 잘려 보이는
+   마지막 칩이 "더 있다"는 신호를 유지한다(가로 레일의 핵심 어포던스). */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: -20px;
+  padding: 12px 0 10px;
+}
+
 .listChipsRow {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   gap: 8px;
-  margin: 0 -20px;
-  padding: 12px 20px 8px;
+  padding-right: 20px;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
+/* 밀린 상태에서만 좌측 12px 페이드 — 칩이 구분선 뒤로 '밀려 들어간' 것으로 읽힌다.
+   상시 적용하면 정지 상태에서 첫 칩('전체')이 흐려진다. 토글은 MarketMain 의
+   handleRailScroll 이 dataset 으로 건다. */
+.listChipsRow[data-scrolled='true'] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px);
+  mask-image: linear-gradient(to right, transparent 0, #000 12px);
+}
+
 .listChipsRow::-webkit-scrollbar { display: none; }
+
+/* 정렬 pill — 카테고리 칩(흰 배경 + 테두리)과 시각적으로 구분돼야 "Gần đây" 가
+   카테고리로 읽히지 않는다. 채움형 + 헤어라인 구분자로 종류가 다름을 표시한다.
+   max-width 는 로케일별 라벨 길이 폭주에 대한 안전망 — 이게 없으면 긴 번역 하나가
+   레일의 절반을 먹는다(라벨 자체를 짧게 유지하는 게 1차 방어). */
+.sortChip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  max-width: 40%;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 기본값(최신순)이 아닐 때 — 사용자가 바꿨거나 `?near` 로 자동 전환된 상태.
+   카테고리 active(검은 채움)와 겹치면 안 되므로 브랜드 틴트를 쓴다. */
+.sortChipActive {
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.sortChipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipDivider {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+}
 
 .listChip {
   display: inline-flex;

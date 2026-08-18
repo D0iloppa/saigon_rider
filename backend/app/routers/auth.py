@@ -265,6 +265,8 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
         log.exception("OAuth token verification failed")
         raise HTTPException(status_code=401, detail="Token verification failed") from e
 
+    ref = body.ref
+
     # find-or-create
     identity_row = (
         await db.execute(
@@ -278,7 +280,10 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
     is_new = False
     if identity_row is None:
         nick = await generate_random_nickname(db)
-        user = User(phone=None, passcode_hash=None, nickname=nick)
+        # first-touch 귀속(016 §6-2 #30) — 신규가입 분기에서만 쓴다. 기존 유저 로그인(else
+        # 분기)은 이 필드를 절대 건드리지 않는 게 불변식의 전부 — 재로그인·재유입으로 값이
+        # 덮어써지지 않는다(소급 불가능한 값이라 여기서 한 번 잘못 쓰면 영구히 잃는다).
+        user = User(phone=None, passcode_hash=None, nickname=nick, acquisition_source=_normalize_acq_source(ref))
         db.add(user)
         await db.flush()  # user.id 확정
         identity_row = UserOAuthIdentity(
@@ -312,7 +317,9 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
         user.nickname = await generate_random_nickname(db)
 
     if is_new:
-        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
+        # acq_source 를 명시적으로 넘긴다 — record() 의 자동조회는 별도 세션에서 users 를
+        # 읽으므로, 아직 커밋 전인 신규가입 행(user.acquisition_source)은 안 보인다.
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id, acq_source=user.acquisition_source)
 
     await db.commit()
 
@@ -532,20 +539,35 @@ _GOOGLE_CALLBACK_PATH = "/auth/oauth/google/callback"  # BFF_PUBLIC_URL 뒤에 �
 _APP_DEEP_LINK = "com.saigonrider.user://oauth/callback"
 
 
-async def _make_state(extra: str | None = None) -> str:
+async def _make_state(extra: str | None = None, ref: str | None = None) -> str:
     try:
-        return await issue_oauth_state(extra)
+        return await issue_oauth_state(extra, ref)
     except Exception as e:
         log.exception("OAuth state storage unavailable")
         raise HTTPException(status_code=503, detail="OAuth temporarily unavailable") from e
 
 
-async def _consume_state(state: str) -> tuple[bool, str | None]:
+async def _consume_state(state: str) -> tuple[bool, str | None, str | None]:
     try:
         return await consume_oauth_state(state)
     except Exception:
         log.exception("OAuth state storage unavailable")
-        return False, None
+        return False, None, None
+
+
+_REF_PATTERN = re.compile(r"^[A-Za-z0-9_:.-]{1,64}$")
+
+
+def _normalize_acq_source(ref: str | None) -> str:
+    """유입 귀속 코드 정규화(016 §6-2 #30). `ref` 는 클라이언트가 URL 쿼리로 넘기는 자유
+    입력이라 화이트리스트 문자·길이 밖은 전부 'organic' 으로 강제한다 — PII/자유 텍스트가
+    users.acquisition_source(init/188)에 섞이는 걸 막는 유일한 방어선."""
+    if not ref:
+        return "organic"
+    ref = ref.strip()
+    if not ref or not _REF_PATTERN.fullmatch(ref):
+        return "organic"
+    return ref
 
 
 def _bff_base_url() -> str:
@@ -604,14 +626,17 @@ async def oauth_exchange(body: OAuthExchangeRequest, db: AsyncSession = Depends(
 
 
 @router.get("/oauth/google/start", summary="Google OAuth 시작 (네이티브 redirect flow)")
-async def oauth_google_start(db: AsyncSession = Depends(get_db)):
-    """CSRF state를 생성하고 Google 인증 페이지로 리다이렉트한다."""
+async def oauth_google_start(ref: str | None = Query(default=None), db: AsyncSession = Depends(get_db)):
+    """CSRF state를 생성하고 Google 인증 페이지로 리다이렉트한다.
+
+    ref = 유입 귀속 코드(016 §6-2 #30) — 여기선 요청 하나가 콜백까지 이어지지 않아
+    state(Redis)에 실어 콜백에서 꺼낸다."""
     cfg = await _load_oauth_config(db)
     client_id = cfg.get("google_client_id_web", "")
     if not client_id or client_id == "CHANGE_ME":
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
 
-    state = await _make_state()
+    state = await _make_state(ref=ref)
     redirect_uri = _bff_base_url() + _GOOGLE_CALLBACK_PATH
     params = {
         "client_id": client_id,
@@ -643,7 +668,7 @@ async def oauth_google_callback(
     if error or not code:
         return deep_link_error(error or "auth_cancelled")
 
-    valid, _ = await _consume_state(state) if state else (False, None)
+    valid, _, ref = await _consume_state(state) if state else (False, None, None)
     if not state or not valid:
         return deep_link_error("invalid_state")
 
@@ -673,7 +698,10 @@ async def oauth_google_callback(
     is_new = False
     if identity_row is None:
         nick = await generate_random_nickname(db)
-        user = User(phone=None, passcode_hash=None, nickname=nick)
+        # first-touch 귀속(016 §6-2 #30) — 신규가입 분기에서만 쓴다. 기존 유저 로그인(else
+        # 분기)은 이 필드를 절대 건드리지 않는 게 불변식의 전부 — 재로그인·재유입으로 값이
+        # 덮어써지지 않는다(소급 불가능한 값이라 여기서 한 번 잘못 쓰면 영구히 잃는다).
+        user = User(phone=None, passcode_hash=None, nickname=nick, acquisition_source=_normalize_acq_source(ref))
         db.add(user)
         await db.flush()
         identity_row = UserOAuthIdentity(
@@ -697,7 +725,9 @@ async def oauth_google_callback(
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     if is_new:
-        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
+        # acq_source 를 명시적으로 넘긴다 — record() 의 자동조회는 별도 세션에서 users 를
+        # 읽으므로, 아직 커밋 전인 신규가입 행(user.acquisition_source)은 안 보인다.
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id, acq_source=user.acquisition_source)
     await db.commit()
 
     return await _redirect_with_exchange(_APP_DEEP_LINK, user.id, is_new)
@@ -708,14 +738,16 @@ _APPLE_CALLBACK_PATH = "/auth/oauth/apple/callback"
 
 
 @router.get("/oauth/apple/start", summary="Apple Sign In 시작 (네이티브 redirect flow)")
-async def oauth_apple_start(db: AsyncSession = Depends(get_db)):
-    """CSRF state를 생성하고 Apple 인증 페이지로 리다이렉트한다."""
+async def oauth_apple_start(ref: str | None = Query(default=None), db: AsyncSession = Depends(get_db)):
+    """CSRF state를 생성하고 Apple 인증 페이지로 리다이렉트한다.
+
+    ref = 유입 귀속 코드(016 §6-2 #30) — state(Redis)에 실어 콜백에서 꺼낸다."""
     cfg = await _load_oauth_config(db)
     client_id = cfg.get("apple_services_id", "")
     if not client_id or client_id == "CHANGE_ME":
         raise HTTPException(status_code=500, detail="Apple OAuth not configured")
 
-    state = await _make_state()
+    state = await _make_state(ref=ref)
     redirect_uri = _bff_base_url() + _APPLE_CALLBACK_PATH
     params = {
         "client_id": client_id,
@@ -747,7 +779,7 @@ async def oauth_apple_callback(
     if error or not code:
         return deep_link_error(error or "auth_cancelled")
 
-    valid, _ = await _consume_state(state) if state else (False, None)
+    valid, _, ref = await _consume_state(state) if state else (False, None, None)
     if not state or not valid:
         return deep_link_error("invalid_state")
 
@@ -779,7 +811,10 @@ async def oauth_apple_callback(
     is_new = False
     if identity_row is None:
         nick = await generate_random_nickname(db)
-        user = User(phone=None, passcode_hash=None, nickname=nick)
+        # first-touch 귀속(016 §6-2 #30) — 신규가입 분기에서만 쓴다. 기존 유저 로그인(else
+        # 분기)은 이 필드를 절대 건드리지 않는 게 불변식의 전부 — 재로그인·재유입으로 값이
+        # 덮어써지지 않는다(소급 불가능한 값이라 여기서 한 번 잘못 쓰면 영구히 잃는다).
+        user = User(phone=None, passcode_hash=None, nickname=nick, acquisition_source=_normalize_acq_source(ref))
         db.add(user)
         await db.flush()
         identity_row = UserOAuthIdentity(
@@ -803,7 +838,9 @@ async def oauth_apple_callback(
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     if is_new:
-        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
+        # acq_source 를 명시적으로 넘긴다 — record() 의 자동조회는 별도 세션에서 users 를
+        # 읽으므로, 아직 커밋 전인 신규가입 행(user.acquisition_source)은 안 보인다.
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id, acq_source=user.acquisition_source)
     await db.commit()
 
     return await _redirect_with_exchange(_APP_DEEP_LINK, user.id, is_new)
@@ -839,12 +876,13 @@ def _make_pkce() -> tuple[str, str]:
 @router.get("/oauth/zalo/start", summary="Zalo 로그인 시작 (PKCE redirect flow)")
 async def oauth_zalo_start(
     platform: str = Query(default="native"),
+    ref: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     """PKCE code_verifier를 생성해 state에 바인딩하고 Zalo 인증 페이지로 리다이렉트한다.
 
     platform=web 이면 콜백이 앱 딥링크 대신 SPA 결과 라우트(/auth/oauth-result)로 리다이렉트한다.
-    """
+    ref = 유입 귀속 코드(016 §6-2 #30) — PKCE verifier와 같은 state에 함께 실어 나른다."""
     cfg = await _load_oauth_config(db)
     app_id = cfg.get("zalo_app_id", "")
     if not app_id or app_id == "CHANGE_ME":
@@ -852,7 +890,7 @@ async def oauth_zalo_start(
 
     platform = "web" if platform == "web" else "native"
     verifier, challenge = _make_pkce()
-    state = await _make_state(extra=verifier)
+    state = await _make_state(extra=verifier, ref=ref)
     if platform == "web":
         state += _WEB_STATE_MARKER  # Zalo가 state를 그대로 에코 — 콜백에서 dict 조회 없이 판별
     redirect_uri = _bff_base_url() + _ZALO_CALLBACK_PATH
@@ -891,7 +929,7 @@ async def oauth_zalo_callback(
         return result_redirect(error_code=error or "auth_cancelled")
 
     lookup_state = _strip_web_marker(state) if state else state
-    valid, verifier = await _consume_state(lookup_state) if lookup_state else (False, None)
+    valid, verifier, ref = await _consume_state(lookup_state) if lookup_state else (False, None, None)
     if not state or not valid or not verifier:
         return result_redirect(error_code="invalid_state")
 
@@ -925,7 +963,10 @@ async def oauth_zalo_callback(
     is_new = False
     if identity_row is None:
         nick = await generate_random_nickname(db)
-        user = User(phone=None, passcode_hash=None, nickname=nick)
+        # first-touch 귀속(016 §6-2 #30) — 신규가입 분기에서만 쓴다. 기존 유저 로그인(else
+        # 분기)은 이 필드를 절대 건드리지 않는 게 불변식의 전부 — 재로그인·재유입으로 값이
+        # 덮어써지지 않는다(소급 불가능한 값이라 여기서 한 번 잘못 쓰면 영구히 잃는다).
+        user = User(phone=None, passcode_hash=None, nickname=nick, acquisition_source=_normalize_acq_source(ref))
         db.add(user)
         await db.flush()
         identity_row = UserOAuthIdentity(
@@ -950,7 +991,9 @@ async def oauth_zalo_callback(
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
     if is_new:
-        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id)
+        # acq_source 를 명시적으로 넘긴다 — record() 의 자동조회는 별도 세션에서 users 를
+        # 읽으므로, 아직 커밋 전인 신규가입 행(user.acquisition_source)은 안 보인다.
+        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id, acq_source=user.acquisition_source)
     await db.commit()
 
     base = _WEB_OAUTH_RESULT_PATH if platform == "web" else _APP_DEEP_LINK

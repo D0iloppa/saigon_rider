@@ -116,14 +116,14 @@
 .skelCard {
   display: flex;
   gap: 14px;
-  padding: 14px 4px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
 .skelThumb {
-  width: 104px;
-  height: 104px;
+  width: 128px;
+  height: 128px;
   border-radius: 10px;
   flex-shrink: 0;
 }

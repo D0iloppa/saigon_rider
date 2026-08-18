@@ -9,6 +9,7 @@ import { AccountDeletedError } from '@/api/client';
 import { apiOAuthExchange, apiOAuthLogin, apiDevLogin } from '@/api/auth';
 import { fetchAppConfig } from '@/api/appVersion';
 import { consumeReturnTo } from '@/lib/returnTo';
+import { getStoredAcqRef } from '@/lib/acquisition';
 import styles from './AuthForm.module.css';
 
 declare global {
@@ -72,7 +73,7 @@ export default function OAuthLogin() {
     setLoading(provider);
     setError(null);
     try {
-      const result = await apiOAuthLogin(provider, token, tokenType);
+      const result = await apiOAuthLogin(provider, token, tokenType, getStoredAcqRef());
       saveSession({ userId: result.user.id, sessionToken: result.session_token });
       loginFromBackend(result.user);
       navigate(result.is_new ? '/auth/profile-setup' : (consumeReturnTo() ?? '/home'), { replace: true });
@@ -230,7 +231,8 @@ export default function OAuthLogin() {
     setError(null);
     setLoading('zalo');
 
-    const startUrl = '/api/bff/auth/oauth/zalo/start?platform=web';
+    const ref = getStoredAcqRef();
+    const startUrl = `/api/bff/auth/oauth/zalo/start?platform=web${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`;
     const popup = window.open(startUrl, 'zalo-oauth', 'width=480,height=640');
     if (!popup) {
       // 팝업 차단 — 전체 페이지 리다이렉트로 폴백 (OAuthResult가 opener 없이 직접 처리)

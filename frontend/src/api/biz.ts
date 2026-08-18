@@ -293,6 +293,32 @@ export async function resumeBusinessAd(id: string): Promise<BusinessAd> {
   return fromAdApi(res);
 }
 
+// #27(013/016 §8 L5) — 업체 전용 이슈 채널. ad_id 만 넘기면 서버가 계약 컨텍스트
+// (계약ID·지면·기간)를 own_ad() 소유권 검증 결과에서 자동 첨부한다(사용자 직접 입력 없음).
+export interface BizIssueTicket {
+  id: string;
+  title: string;
+  status: string;
+  severity: string | null;
+  source: string;
+}
+
+interface BizIssueTicketApi {
+  id: string;
+  title: string;
+  status: string;
+  severity: string | null;
+  source: string;
+}
+
+export async function createBizIssue(input: { adId: string; title: string; body: string }): Promise<BizIssueTicket> {
+  const res = await api.realFetch<BizIssueTicketApi>('/biz/issues', {
+    method: 'POST',
+    body: JSON.stringify({ ad_id: input.adId, title: input.title, body: input.body }),
+  }, 'bff', { rethrow: true });
+  return { id: res.id, title: res.title, status: res.status, severity: res.severity, source: res.source };
+}
+
 /** 웹 계약(결제) 링크 발급 — Apple IAP 리스크 회피, business.saigon-rider.com 에서 처리 (외부 브라우저로 열 것). */
 export async function fetchContractLink(id: string): Promise<{ url: string }> {
   return api.realFetch<{ url: string }>(`/biz/ads/${id}/contract-link`, { method: 'POST' }, 'bff', { rethrow: true });

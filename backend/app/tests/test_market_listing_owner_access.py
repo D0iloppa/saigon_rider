@@ -40,6 +40,8 @@ def _listing(status, seller_id):
         is_negotiable=False,
         title="매물",
         description=None,
+        paper_status=None,
+        plate_province=None,
     )
 
 
@@ -53,9 +55,18 @@ def _db_for_owner_view(listing):
     sold_count_result = MagicMock(scalar_one=MagicMock(return_value=0))
     others_result = MagicMock()
     others_result.scalars.return_value.all.return_value = []
+    # 016 §4-7 #42: get_listing 이 미응답 거래결과핑 존재 여부를 조회하는 마지막 execute.
+    deal_ping_result = MagicMock(first=MagicMock(return_value=None))
     db = AsyncMock()
     db.execute = AsyncMock(
-        side_effect=[listing_result, blocked_result, review_result, sold_count_result, others_result]
+        side_effect=[
+            listing_result,
+            blocked_result,
+            review_result,
+            sold_count_result,
+            others_result,
+            deal_ping_result,
+        ]
     )
     db.get = AsyncMock(return_value=None)  # MarketplaceListingLike 조회 — 찜 안 함
     return db

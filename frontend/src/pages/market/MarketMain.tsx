@@ -1,7 +1,7 @@
 import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Bell, ChevronDown, ChevronLeft, Heart, MapPinned, PackageOpen, Plus, Search, X, ZoomIn } from 'lucide-react';
+import { AlertCircle, Bell, ChevronDown, ChevronLeft, Heart, MapPinned, PackageOpen, Plus, Search, ZoomIn } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import StateBlock from '@/components/ui/StateBlock';
 import { SearchBox } from '@/components/ui/SearchBox';
@@ -72,7 +72,8 @@ function readSaved(): SavedState | null {
   } catch { return null; }
 }
 
-const SORTS: ListingSort[] = ['recent', 'distance', 'price_low', 'price_high'];
+// 016 §5-2 #19: "추천순" 추가 — 기본 정렬(recent)은 그대로 유지, 옵션에만 추가.
+const SORTS: ListingSort[] = ['recent', 'recommended', 'distance', 'price_low', 'price_high'];
 
 /**
  * 오토바이 라이더 거래 플랫폼 — 동네 피드 (SGR-287)
@@ -103,6 +104,14 @@ export default function MarketMain() {
   const [savedState] = useState<SavedState | null>(readSaved);
   const [sort, setSort] = useState<ListingSort>(savedState?.sort ?? 'recent');
   const [sortOpen, setSortOpen] = useState(false);
+  // 칩 레일이 밀린 상태에서만 좌측 마스크 페이드를 켠다 — 정지 상태에서 첫 칩이
+  // 흐려 보이면 안 되고, 밀렸을 때 구분선 뒤 하드클립은 렌더링 버그처럼 보인다.
+  // state 가 아니라 dataset 직접 조작 — 스크롤마다 리렌더하지 않기 위함.
+  const chipsRailRef = useRef<HTMLDivElement>(null);
+  const handleRailScroll = useCallback(() => {
+    const el = chipsRailRef.current;
+    if (el) el.dataset.scrolled = el.scrollLeft > 2 ? 'true' : 'false';
+  }, []);
   // 뷰 모드는 **URL 쿼리**로 둔다(동네지도 `?view=map` 과 동일). 탭으로 새로 들어오면 쿼리가
   // 없어 항상 리스트로 시작하고(대표 지시 2026-08-06), 상세로 갔다가 back 하면 쿼리가 남아
   // 지도 상태가 그대로 복원된다 — 종전 localStorage 방식은 탭 재진입에도 지도로 열렸다.
@@ -472,31 +481,35 @@ export default function MarketMain() {
 
         {/* 카테고리 칩 — 지도 뷰의 오버레이 칩과 같은 소스(대분류·DB). 동네지도 헤더의
             칩 행과 같은 위계로 리스트 뷰에도 둔다(대표 지시 2026-08-06). */}
-        <div className={styles.listChipsRow}>
-          {[null, ...topCategories].map((c) => {
-            const id = c?.id ?? null;
-            return (
-              <button
-                key={id ?? 'all'}
-                type="button"
-                className={`${styles.listChip} ${categoryId === id ? styles.listChipActive : ''}`}
-                onClick={() => setCategoryId(id)}
-              >
-                {c ? localizedName(c) : t('market.categoryAll', { defaultValue: '전체' })}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Sort (bottom sheet) — 지도 진입은 하단 플로팅 지도보기 버튼(동네지도와 통일) */}
-        <div className={styles.controlRow}>
-          {/* 정렬은 지도 모드에서 의미가 약함(bbox 기준 조회) — 리스트 모드에서만 노출 */}
-          {viewMode === 'list' && (
-            <button className={styles.sortSelect} onClick={() => setSortOpen(true)}>
-              {t(`market.sort_${sort}`)}
-              <ChevronDown size={16} strokeWidth={2.2} />
-            </button>
-          )}
+        {/* 정렬(고정) | 카테고리(가로 스크롤) 2단. 정렬을 칩과 같은 스크롤 평면에 두면
+            ① 리스트 전체에 걸리는 프레임인 정렬이 카테고리의 형제로 읽히고
+            ② 레일을 밀어냈을 때 현재 정렬을 볼 곳이 사라진다 — `?near` 진입 시
+            거리순으로 자동 전환(:202)되므로 사용자가 유발하지 않은 상태 변화가
+            보이지 않게 된다. 스크롤 평면 분리 자체가 위계 선언이다(대표 지시 2026-08-17). */}
+        <div className={styles.filterRow}>
+          <button
+            className={`${styles.sortChip} ${sort !== 'recent' ? styles.sortChipActive : ''}`}
+            onClick={() => setSortOpen(true)}
+          >
+            <span className={styles.sortChipLabel}>{t(`market.sort_${sort}`)}</span>
+            <ChevronDown size={14} strokeWidth={2.2} />
+          </button>
+          <span className={styles.chipDivider} aria-hidden="true" />
+          <div ref={chipsRailRef} className={styles.listChipsRow} onScroll={handleRailScroll}>
+            {[null, ...topCategories].map((c) => {
+              const id = c?.id ?? null;
+              return (
+                <button
+                  key={id ?? 'all'}
+                  type="button"
+                  className={`${styles.listChip} ${categoryId === id ? styles.listChipActive : ''}`}
+                  onClick={() => setCategoryId(id)}
+                >
+                  {c ? localizedName(c) : t('market.categoryAll', { defaultValue: '전체' })}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
       )}

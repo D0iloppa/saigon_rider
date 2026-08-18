@@ -54,7 +54,8 @@ class ReportResultNotificationTest(unittest.IsolatedAsyncioTestCase):
 
         await reports.update_report_status(
             report.id,
-            reports.ReportStatusUpdate(status="RESOLVED"),
+            # #26 B4(013/016 §8): RESOLVED 전이는 result_code 필수.
+            reports.ReportStatusUpdate(status="RESOLVED", result_code="WARNING_ISSUED"),
             _request(),
             session=_session(),
             db=db,
@@ -75,7 +76,8 @@ class ReportResultNotificationTest(unittest.IsolatedAsyncioTestCase):
 
         await reports.update_report_status(
             report.id,
-            reports.ReportStatusUpdate(status="REJECTED"),
+            # #26 B4(013/016 §8): REJECTED 전이도 result_code 필수.
+            reports.ReportStatusUpdate(status="REJECTED", result_code="INVALID"),
             _request(),
             session=_session(),
             db=db,

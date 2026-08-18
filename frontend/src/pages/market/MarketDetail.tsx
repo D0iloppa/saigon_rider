@@ -28,6 +28,8 @@ import {
   REPORT_REASONS,
   toggleLike,
   localizedName,
+  submitDealResult,
+  type DealResult,
   type ListingCard,
   type ListingDetail,
   type ListingStatus,
@@ -82,6 +84,21 @@ export default function MarketDetail() {
       setDetail({ ...detail, liked: res.liked, likeCount: res.like_count });
     } catch {
       toast.error(t('market.likeError', { defaultValue: '찜 처리 실패' }));
+    }
+  };
+
+  // 016 §4-7 #42: 거래 결과 확인 핑 응답 — 4지선다 1탭, 응답 즉시 상세를 다시 불러와 배너·상태를 갱신.
+  const [dealPingSubmitting, setDealPingSubmitting] = useState(false);
+  const handleDealPingResponse = async (result: DealResult) => {
+    if (!detail || dealPingSubmitting) return;
+    setDealPingSubmitting(true);
+    try {
+      await submitDealResult(detail.id, result);
+      load();
+    } catch {
+      toast.error(t('market.dealPingError', { defaultValue: '응답을 처리하지 못했습니다' }));
+    } finally {
+      setDealPingSubmitting(false);
     }
   };
 
@@ -331,6 +348,57 @@ export default function MarketDetail() {
                 </div>
               </div>
 
+              {/* 016 §4-6 #41: 등록증 명의 불일치 — 핵심 위험 신호, 제목 위에 눈에 띄게 배치 */}
+              {detail.paperStatus === 'MISMATCH' && (
+                <span className={styles.paperMismatchBadge}>
+                  <AlertCircle size={13} strokeWidth={2.4} />
+                  {t('market.paperMismatchBadge', { defaultValue: '등록증 명의 불일치' })}
+                </span>
+              )}
+
+              {/* 016 §4-7 #42: 거래 결과 확인 핑 — 판매자 본인에게만, 미응답 핑이 있을 때만 노출. */}
+              {isSeller && detail.pendingDealPing && (
+                <div className={styles.dealPingSection}>
+                  <p className={styles.dealPingTitle}>
+                    {t('market.dealPingQuestion', { defaultValue: '이 매물, 거래되셨나요?' })}
+                  </p>
+                  <div className={styles.dealPingButtons}>
+                    <button
+                      type="button"
+                      className={styles.dealPingBtn}
+                      disabled={dealPingSubmitting}
+                      onClick={() => handleDealPingResponse('SOLD')}
+                    >
+                      {t('market.dealPingSold', { defaultValue: '거래됐어요' })}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.dealPingBtn}
+                      disabled={dealPingSubmitting}
+                      onClick={() => handleDealPingResponse('STILL_SELLING')}
+                    >
+                      {t('market.dealPingStillSelling', { defaultValue: '아직 판매중이에요' })}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.dealPingBtn}
+                      disabled={dealPingSubmitting}
+                      onClick={() => handleDealPingResponse('SOLD_ELSEWHERE')}
+                    >
+                      {t('market.dealPingSoldElsewhere', { defaultValue: '다른 곳에서 팔았어요' })}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.dealPingBtn}
+                      disabled={dealPingSubmitting}
+                      onClick={() => handleDealPingResponse('GAVE_UP')}
+                    >
+                      {t('market.dealPingGaveUp', { defaultValue: '판매를 포기했어요' })}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Title + meta */}
               <h1 className={styles.title}>{detail.title}</h1>
               <p className={styles.meta}>
@@ -360,6 +428,26 @@ export default function MarketDetail() {
               )}
               {detail.description && <p className={styles.description}>{detail.description}</p>}
 
+              {/* 016 §4-6 #41, D-35=(a): 명의이전 체크리스트 — 거래완료(SOLD) 매물에 노출.
+                  ⚠ L-6 법무 미확인: 절차·기한을 단정하지 않고 관할 기관 확인 고지를 함께 둔다. */}
+              {detail.status === 'SOLD' && (
+                <div className={styles.titleTransferSection}>
+                  <p className={styles.titleTransferTitle}>
+                    {t('market.titleTransferChecklistTitle', { defaultValue: '명의이전 체크리스트' })}
+                  </p>
+                  <ul className={styles.titleTransferList}>
+                    <li>{t('market.titleTransferStep1', { defaultValue: '공증 매매계약서 작성' })}</li>
+                    <li>{t('market.titleTransferStep2', { defaultValue: '기존 번호판·등록증 반납' })}</li>
+                    <li>{t('market.titleTransferStep3', { defaultValue: '관할 기관에 신규 등록 신청' })}</li>
+                  </ul>
+                  <p className={styles.titleTransferNotice}>
+                    {t('market.titleTransferNotice', {
+                      defaultValue: '일반적으로 알려진 절차이며, 최신 규정·기한·과태료는 관할 기관에 직접 확인하세요.',
+                    })}
+                  </p>
+                </div>
+              )}
+
               {/* Seller's other listings */}
               {detail.otherListings.length > 0 && (
                 <div className={styles.otherSection}>
@@ -381,8 +469,9 @@ export default function MarketDetail() {
 
           {/* Bottom action bar */}
           {isSeller ? (
-            detail.status === 'SOLD' ? null : detail.status === 'WITHDRAWN' ? (
-            // 내려둔(철회) 매물: 다시 올리기 + 고쳐서 올리기 경로만 남긴다 — 끌올·상태전환은 판매중일 때만.
+            detail.status === 'SOLD' ? null : detail.status === 'WITHDRAWN' || detail.status === 'EXPIRED' ? (
+            // 내려둔(철회) 또는 자동만료(016 §4-1 #36) 매물: 다시 올리기 + 고쳐서 올리기 경로만
+            // 남긴다 — 끌올·상태전환은 판매중일 때만. 서버도 두 상태를 동일하게 취급(_RECOVERABLE_STATUSES).
             <div className={styles.sellerControls}>
               <div className={styles.sellerLikes}>
                 <Heart size={16} strokeWidth={2.2} />

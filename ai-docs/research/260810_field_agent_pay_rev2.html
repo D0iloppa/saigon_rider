@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>업체 등록 알바 — 단가 재산정 rev.2</title>
+<style>
+  @page { size: A4; margin: 15mm 14mm 16mm; }
+  :root {
+    --ink:#14181f; --ink-mid:#4a5462; --ink-soft:#7b8694;
+    --line:#d8dde4; --line-soft:#eaeef2; --accent:#1a5f9e;
+    --warn-bg:#fff8e6; --warn-line:#e0b44a; --ok-bg:#f2f7fb;
+    --red:#b3261e; --red-bg:#fdf0ef; --green:#1a7f45; --green-bg:#eef7f1;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0 auto; padding:30px 26px 56px; max-width:880px;
+    font-family:"Pretendard","Noto Sans KR","Malgun Gothic",-apple-system,"Segoe UI",sans-serif;
+    font-size:10.2pt; line-height:1.66; color:var(--ink); background:#fff; word-break:keep-all;
+  }
+  .doc-head { border-bottom:2.5px solid var(--ink); padding-bottom:13px; margin-bottom:22px; }
+  .doc-kicker { font-size:8.5pt; letter-spacing:.14em; color:var(--ink-soft); text-transform:uppercase; margin-bottom:7px; }
+  .doc-head h1 { font-size:20pt; line-height:1.3; margin:0 0 11px; letter-spacing:-.02em; }
+  .doc-head h1 em { font-style:normal; color:var(--red); font-size:12pt; margin-left:8px; }
+  .doc-meta { display:grid; grid-template-columns:max-content 1fr; gap:3px 14px; font-size:9pt; color:var(--ink-mid); }
+  .doc-meta dt { color:var(--ink-soft); }
+  .doc-meta dd { margin:0; } .doc-meta b { color:var(--ink); font-weight:600; }
+
+  .abstract { background:var(--ok-bg); border-left:3px solid var(--accent); padding:12px 16px; margin:0 0 24px; font-size:9.5pt; }
+  .abstract p { margin:0 0 5px; } .abstract p:last-child { margin-bottom:0; }
+  .abstract b { color:var(--accent); }
+
+  h2 { font-size:13pt; margin:30px 0 12px; padding-bottom:6px; border-bottom:1.5px solid var(--line);
+       letter-spacing:-.01em; break-after:avoid; page-break-after:avoid; }
+  h2 .num { display:inline-block; min-width:1.5em; color:var(--accent); font-weight:700; }
+  h2 .tag { float:right; font-size:8pt; font-weight:600; color:var(--red); letter-spacing:0; padding-top:4px; }
+  h2 .tag.keep { color:var(--ink-soft); }
+  h3 { font-size:10.7pt; margin:20px 0 8px; break-after:avoid; }
+  p { margin:0 0 10px; }
+  ul,ol { margin:0 0 12px; padding-left:20px; } li { margin-bottom:4px; }
+  code { font-family:"SFMono-Regular",Consolas,monospace; font-size:.87em; background:#f2f4f7;
+         padding:1.5px 5px; border-radius:3px; color:#2b3440; }
+
+  table { width:100%; border-collapse:collapse; font-size:9.4pt; margin:0 0 15px;
+          break-inside:avoid; page-break-inside:avoid; }
+  th,td { border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  thead th { background:#f4f6f8; font-weight:600; font-size:9pt; color:var(--ink-mid); }
+  td.num, th.num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  tr.total td { background:#f4f6f8; font-weight:700; border-top:1.5px solid var(--ink-mid); }
+  tr.hit td { background:var(--green-bg); font-weight:700; }
+  s { color:var(--ink-soft); }
+  .chg { color:var(--red); font-weight:700; }
+
+  .callout { border:1px solid var(--warn-line); background:var(--warn-bg); border-radius:4px;
+             padding:10px 14px; margin:0 0 15px; font-size:9.4pt; break-inside:avoid; }
+  .callout p { margin:0 0 5px; } .callout p:last-child { margin-bottom:0; }
+  .callout .label { font-weight:700; color:#8a6412; }
+  .callout.danger { border-color:#d9a3a0; background:var(--red-bg); }
+  .callout.danger .label { color:var(--red); }
+  .callout.ok { border-color:#a8ccb4; background:var(--green-bg); }
+  .callout.ok .label { color:var(--green); }
+
+  .keyline { border-left:3px solid var(--accent); background:#f7fafd; padding:10px 15px; margin:0 0 15px; font-size:9.5pt; }
+  .keyline p { margin:0 0 6px; } .keyline p:last-child { margin-bottom:0; }
+  .refs { font-size:8.6pt; color:var(--ink-mid); } .refs ul { padding-left:17px; } .refs li { margin-bottom:3px; }
+  footer { margin-top:34px; padding-top:11px; border-top:1px solid var(--line-soft); font-size:8.5pt;
+           color:var(--ink-soft); display:flex; justify-content:space-between; }
+  @media print { body { padding:0; max-width:none; font-size:9.7pt; } }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <div class="doc-kicker">SAIGON RIDER · 런칭 준비</div>
+  <h1>업체 등록 알바 — 단가 재산정 <em>rev.2 (폐기)</em></h1>
+  <dl class="doc-meta">
+    <dt>작성일</dt><dd><b>2026-08-10</b> · 내부 보고용</dd>
+    <dt>개정 대상</dt><dd>「업체 등록 알바 — 물품등록 포함 단가 재산정」(2026-08-10, rev.1)</dd>
+    <dt>개정 사유</dt><dd>① 타깃 업체 명단 실측 완료 ② 대표 지시 — 사전 배정표 · 작업자 4 + 감독자 1</dd>
+  </dl>
+</div>
+
+<div class="callout danger" style="margin-bottom:20px">
+  <p><span class="label">폐기 — 2026-08-11</span></p>
+  <p>이 문서(rev.2)는 매물 목표를 384 → 224건으로 <b>하향하는 안</b>이었다. 하향 근거는
+     "매물 가능 업종이 634곳뿐"이라는 1차 수집 결과였는데, <b>2차 수집에서 1,240곳을 확보</b>해
+     그 전제가 사라졌다(중고 오토바이 396곳 신규 + 자동차 업체 206곳 오분류 제거).</p>
+  <p><b>단가·할당·목표는 원안(rev.1)이 그대로 유효하다.</b> 실제 변경분은 인력(감독자 1 추가)·예산·
+     런칭 존·하루 방문 구성 네 가지이며, 「한 장 요약」에 정리했다. 아래 본문은 판단 경위 기록용으로만 남긴다.</p>
+</div>
+<div class="abstract">
+  <p><b>기본 일급 300,000동은 그대로다.</b> 바뀌는 것은 하루 매물 할당과 인센티브 기준선, 그리고 인력 구성이다.</p>
+  <p>매물 할당을 <b>12건 → 7건</b>으로 내린다. 목표를 낮춰서가 아니라, 호치민 도심 37개 동을 전수 조사한 결과
+     매물이 나오는 업종(용품·헬멧·액세서리)이 <b>634곳뿐</b>이어서 12건은 후보 자체가 없기 때문이다.</p>
+  <p>산출물은 업체 256곳 + 매물 <b>224건</b>(기존 384건). 예산은 감독자 1명 추가로 <b>18,802,500동</b>(+20.7%).</p>
+</div>
+
+<h2><span class="num">1</span>개정 요약 <span class="tag">전부 대표 확인 대상</span></h2>
+
+<table>
+  <thead><tr><th>항목</th><th>rev.1</th><th>rev.2</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr><td>기본 일급</td><td>300,000동</td><td>300,000동 <s>(동일)</s></td><td>변경 없음</td></tr>
+    <tr><td>하루 가입 할당</td><td>8건</td><td>8건 <s>(동일)</s></td><td>변경 없음</td></tr>
+    <tr><td><b>하루 매물 할당</b></td><td>12건</td><td class="chg">7건</td><td>§2 후보 실측</td></tr>
+    <tr><td><b>매물 인센티브 기준선</b></td><td>13건째부터</td><td class="chg">8건째부터</td><td>할당 연동 (D-15)</td></tr>
+    <tr><td><b>인력</b></td><td>4명 (중 반장 1)</td><td class="chg">작업자 4 + 감독자 1</td><td>대표 지시</td></tr>
+    <tr><td><b>산출물</b></td><td>업체 256곳 · 매물 384건</td><td>업체 256곳 · <span class="chg">매물 224건</span></td><td>§2 · §6</td></tr>
+    <tr><td><b>총 예산</b></td><td>15,582,500동</td><td class="chg">18,802,500동</td><td>§6</td></tr>
+    <tr><td>매물 건당 단가</td><td>7,000동</td><td>7,000동 <s>(동일)</s></td><td>§4 분당 단가 정합 유지</td></tr>
+    <tr><td>업체당 매물 상한</td><td>5건</td><td>5건 <s>(동일)</s></td><td>쓰레기 매물 방지</td></tr>
+    <tr><td>준비물</td><td>11종</td><td class="chg">12종</td><td>일일 배정표 인쇄물 추가</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">2</span>개정 근거 — 타깃 명단 실측 <span class="tag">신규</span></h2>
+
+<p>rev.1 은 매물 12건/일을 <b>후보 업체 수를 세어보지 않은 채</b> 시간 배분만으로 잡았다. 2026-08-10 에
+Google 지도를 카테고리 × 동 단위로 전수 조사해 실제 모집단을 확인했다.</p>
+
+<table>
+  <thead><tr><th>구분</th><th class="num">확보</th><th>내역</th></tr></thead>
+  <tbody>
+    <tr><td>가입 대상 전체</td><td class="num"><b>1,724곳</b></td><td>13개 카테고리 (<code>fuel</code>·<code>repair</code> 제외 — 별도 도메인 보유)</td></tr>
+    <tr><td>그중 <b>매물 가능</b></td><td class="num"><b>634곳</b></td><td><code>parts</code> 282 · <code>gear</code> 208 · <code>accessory</code> 144 (중복·자동차 부품점 제거 후)</td></tr>
+  </tbody>
+</table>
+
+<h3>왜 12건이 불가능한가</h3>
+<p>매물 12건/일을 8영업일 × 4명으로 채우려면 매물이 나오는 업체를 <b>256곳</b> 가입시켜야 하고,
+전환율 25% 가정이면 후보가 <b>1,024곳</b> 필요하다. 실제 모집단은 634곳이다. 구역을 넓혀도 해결되지 않는다 —
+634곳은 이미 <b>서비스 지역 37개 동 전체</b>를 훑은 숫자다.</p>
+
+<h3>7건은 후보 공급과 정합한다</h3>
+<div class="keyline">
+  <p>매물 7건 = 2건짜리 3곳 + 1건짜리 1곳 → 하루 <b>SHOPPING 업체 4곳</b> 가입 필요</p>
+  <p>4곳 × 4명 × 8일 = <b>SHOPPING 가입 128곳</b> → 전환율 25% → 후보 <b>512곳</b> 필요</p>
+  <p>확보 634곳 → <b>여유 122곳(24%)</b>. 폐업·이전 손실을 흡수할 여지가 남는다.</p>
+</div>
+
+<div class="callout danger">
+  <p><span class="label">런칭 존을 다시 잡아야 한다</span></p>
+  <p>동별 밀도를 뽑아보니 1군 도심(Bến Thành·Sài Gòn·Tân Định 등)에는 오토바이 용품점이 거의 없다.
+     매물 업종은 <b>Chợ Lớn · Bay Hiền · Hạnh Thông · Bình Tây · Tân Hưng</b> 같은 재래 상권에 몰려 있다
+     (상위 5개 동 합계 SHOPPING 210곳). 구역지도와 이동 동선을 이 기준으로 새로 그려야 한다.</p>
+</div>
+
+<h2><span class="num">3</span>소요 시간 재산정 <span class="tag">개정</span></h2>
+
+<table>
+  <thead><tr><th>항목</th><th>계산</th><th class="num">rev.1</th><th class="num">rev.2</th></tr></thead>
+  <tbody>
+    <tr><td>가입 성공 8곳</td><td>8 × 15분</td><td class="num">120분</td><td class="num">120분</td></tr>
+    <tr><td>전화 인증 8회</td><td>8 × 3.5분 (옵션1 채택 시 0)</td><td class="num">28분</td><td class="num">28분</td></tr>
+    <tr><td><b>매물 등록</b></td><td>rev.2 = 3곳 2건(3×8.5) + 1곳 1건(5)</td><td class="num">54분</td><td class="num chg">31분</td></tr>
+    <tr><td>거절 24곳</td><td>24 × 4분</td><td class="num">96분</td><td class="num">96분</td></tr>
+    <tr><td>이동 32방문</td><td>32 × 2.2분</td><td class="num">70분</td><td class="num">70분</td></tr>
+    <tr class="total"><td>합계</td><td>—</td><td class="num">368분 (6.1h)</td><td class="num">345분 (5.75h)</td></tr>
+  </tbody>
+</table>
+
+<p>23분이 남는다. 이 여유는 <b>전환율 변동 흡수용 버퍼로 둔다</b> — 방문을 더 넣지 않는다.
+재래 상권은 도심보다 점포 간 거리가 길어 이동 2.2분/건 가정이 깨질 가능성이 있고, 그 초과분을 여기서 받는다.</p>
+
+<div class="callout">
+  <p><span class="label">추정치 경고</span> 전환율 25%와 매물 등록 소요(3~6분)는 rev.1 과 마찬가지로
+     <b>현지 실측이 없는 가정값</b>이다. 여기에 rev.2 는 <b>명단 유효율</b>(수집 데이터의 폐업·이전 비율)이라는
+     미검증 변수가 하나 더 붙는다. 파일럿 1일로 세 가지를 함께 실측해야 한다.</p>
+</div>
+
+<h2><span class="num">4</span>단가 — 할당과 기준선 <span class="tag">개정</span></h2>
+
+<table>
+  <thead><tr><th>구분</th><th class="num">금액</th><th>조건</th></tr></thead>
+  <tbody>
+    <tr><td>기본 할당 달성</td><td class="num">300,000동</td><td>가입 8건 + 매물 <span class="chg">7건</span> <s>(12건)</s></td></tr>
+    <tr><td>가입 초과</td><td class="num">건당 30,000동</td><td>9건째부터</td></tr>
+    <tr><td>매물 초과</td><td class="num">건당 7,000동</td><td><span class="chg">8건째부터</span> <s>(13건째)</s> · 일 25건 상한</td></tr>
+    <tr><td>가입 미달</td><td class="num">건당 25,000동</td><td rowspan="2">합산 후 최저 180,000동 보장</td></tr>
+    <tr><td>매물 미달</td><td class="num">건당 6,000동</td></tr>
+    <tr><td>유류·데이터 수당</td><td class="num">50,000동/일</td><td>전원 별도</td></tr>
+    <tr><td><span class="chg">감독자 일급</span></td><td class="num">400,000동/일</td><td>현장 순회 전담 (필드 작업 없음) — <b>가정값, 확정 필요</b></td></tr>
+  </tbody>
+</table>
+
+<p><b>매물 7,000동은 유지한다.</b> 근거가 총 근무시간이 아니라 분당 단가 정합이기 때문이다 —
+가입 1건(30,000 ÷ 15분)과 매물 1건(7,000 ÷ 3.5분)이 모두 <b>2,000동/분</b>으로, 어느 쪽도 유리하지 않다.
+할당이 줄어도 이 관계는 그대로다.</p>
+
+<h2><span class="num">5</span>지급 시뮬레이션 <span class="tag">개정</span></h2>
+
+<table>
+  <thead><tr><th>실적</th><th class="num">지급액</th><th>산식</th></tr></thead>
+  <tbody>
+    <tr><td>가입 3 + 매물 1</td><td class="num">180,000</td><td>139,000 → <b>최저 보장선 적용</b></td></tr>
+    <tr><td>가입 5 + 매물 3</td><td class="num">201,000</td><td>300,000 − 3×25,000 − 4×6,000</td></tr>
+    <tr><td>가입 7 + 매물 6</td><td class="num">269,000</td><td>300,000 − 25,000 − 6,000</td></tr>
+    <tr class="hit"><td>가입 8 + 매물 7 ← 목표선</td><td class="num">300,000</td><td>기본 할당 달성</td></tr>
+    <tr><td>가입 9 + 매물 9</td><td class="num">344,000</td><td>300,000 + 30,000 + 2×7,000</td></tr>
+    <tr><td>가입 10 + 매물 11</td><td class="num">388,000</td><td>300,000 + 2×30,000 + 4×7,000</td></tr>
+  </tbody>
+</table>
+
+<p>목표 달성 시 실수령은 유류 포함 <b>350,000동/일</b>로 rev.1 과 같다.
+최저 보장 180,000동도 유지한다 — 법정 최저선(호치민 1지역 25,500동/시, 제293/2025/ND-CP)을 넘는다.</p>
+
+<div class="callout danger">
+  <p><span class="label">설계 부작용 — 마지막 1건 압력이 약해졌다</span></p>
+  <p>rev.1 은 목표선 직전(가입 7·매물 11)에서 목표선(가입 8·매물 12)으로 갈 때 <b>71,000동</b>이 점프했다.
+     "마지막 1건을 채우게 만드는" 의도적 설계였다. rev.2 는 매물 미달 폭이 5건에서 1건으로 줄어
+     같은 구간의 점프가 <b>31,000동</b>으로 절반 이하가 된다.</p>
+  <p><b>제안(D-16)</b> — 기본급을 <b>270,000동 + 목표 달성 보너스 30,000동</b>으로 쪼갠다.
+     목표 달성 시 실수령은 300,000동으로 동일하고 <b>예산도 변하지 않지만</b>, 미달 시 보너스가 사라져
+     점프가 <b>61,000동</b>으로 복원된다.</p>
+</div>
+
+<h2><span class="num">6</span>인원 · 기간 · 총액 <span class="tag">개정</span></h2>
+
+<table>
+  <thead><tr><th>예산 항목</th><th>계산</th><th class="num">rev.1</th><th class="num">rev.2</th></tr></thead>
+  <tbody>
+    <tr><td>작업자 일급</td><td>4명 × 8일 × 300,000</td><td class="num">9,600,000</td><td class="num">9,600,000</td></tr>
+    <tr><td><b>감독자 일급</b></td><td>8일 × 400,000 (rev.1 은 반장 수당)</td><td class="num">800,000</td><td class="num chg">3,200,000</td></tr>
+    <tr><td>초과 인센티브 예비</td><td>가입 + 매물</td><td class="num">1,200,000</td><td class="num">1,200,000</td></tr>
+    <tr><td>유류·데이터 수당</td><td>5명 × 8일 × 50,000</td><td class="num">1,600,000</td><td class="num chg">2,000,000</td></tr>
+    <tr><td>파일럿 1일</td><td>1명</td><td class="num">350,000</td><td class="num">350,000</td></tr>
+    <tr><td>반려·재작업 버퍼</td><td>15%</td><td class="num">2,032,500</td><td class="num">2,452,500</td></tr>
+    <tr class="total"><td>합계</td><td>약 ₩105만 / $718</td><td class="num">15,582,500</td><td class="num">18,802,500</td></tr>
+  </tbody>
+</table>
+
+<table>
+  <thead><tr><th>효율 지표</th><th class="num">rev.1</th><th class="num">rev.2</th></tr></thead>
+  <tbody>
+    <tr><td>산출물</td><td class="num">업체 256곳 + 매물 384건</td><td class="num">업체 256곳 + 매물 224건</td></tr>
+    <tr><td>업체당 실비</td><td class="num">60,869동</td><td class="num">73,447동</td></tr>
+    <tr><td>산출물 1건당 (업체+매물 합산 480건)</td><td class="num">24,348동</td><td class="num">39,172동</td></tr>
+  </tbody>
+</table>
+
+<p>단가가 오르는 이유는 <b>감독자 1명이 필드 작업을 하지 않기 때문</b>이다. rev.1 의 반장은 현장 작업을
+겸하며 수당 100,000동을 더 받는 구조였다. 감독자를 순회 전담으로 빼면 인건비는 늘고 산출물은 그대로다.
+그 대가로 얻는 것은 현장 통제와 검수 속도이며, 이것이 그 값을 하는지는 <b>대표 판단 영역</b>이다.</p>
+
+<h2><span class="num">7</span>배정표 설계 규칙 <span class="tag">신규</span></h2>
+
+<p>대표 지시("이날 이지역 이업체 이물건")를 만족시키려면 하루 방문 구성을 업종 비율로 고정해야 한다.</p>
+
+<table>
+  <thead><tr><th>구분</th><th class="num">하루 방문</th><th class="num">가입(25%)</th><th class="num">매물</th></tr></thead>
+  <tbody>
+    <tr><td>SHOPPING (용품·헬멧·액세서리)</td><td class="num">16곳</td><td class="num">4곳</td><td class="num">7건</td></tr>
+    <tr><td>그 외 10개 카테고리</td><td class="num">16곳</td><td class="num">4곳</td><td class="num">0건</td></tr>
+    <tr class="total"><td>합계</td><td class="num">32곳</td><td class="num">8곳</td><td class="num">7건</td></tr>
+  </tbody>
+</table>
+
+<p><b>SHOPPING 방문이 하루 16곳 밑으로 떨어지면 매물 할당은 자동으로 미달한다.</b>
+배정표는 이 비율을 지키도록 짜야 하고, 감독자의 첫 번째 점검 항목이 여기다.</p>
+
+<p>"업체별 등록제품"은 방문 전에 특정할 수 없다 — 가게에 무엇이 있는지 모르기 때문이다.
+대신 <b>업종별 표준 품목 세트</b>를 배정표에 넣고 현장에서 실물로 치환한다.</p>
+
+<table>
+  <thead><tr><th>업종</th><th>표준 품목 세트</th><th class="num">목표 건수</th></tr></thead>
+  <tbody>
+    <tr><td><code>parts</code> 용품</td><td>미러 · 머플러 · 브레이크패드 · 체인 중 2점</td><td class="num">2건</td></tr>
+    <tr><td><code>gear</code> 헬멧·보호구</td><td>헬멧 2종 (풀페이스 / 하프)</td><td class="num">2건</td></tr>
+    <tr><td><code>accessory</code> 튜닝·액세서리</td><td>핸들바 · LED · 데칼 · 시트커버 중 2점</td><td class="num">2건</td></tr>
+    <tr><td>그 외 카테고리</td><td>—</td><td class="num">가입만</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">8</span>준비물 12종 <span class="tag">개정</span></h2>
+
+<p>rev.1 의 11종에 1종을 추가한다.</p>
+<table>
+  <thead><tr><th>#</th><th>준비물</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td>1~7</td><td>안내지 · QR · 구역지도 · 가입 SOP · 정산표 · 반장 Zalo 그룹 · 유류수당</td><td>rev.1 유지 — <b>구역지도는 재래 상권 기준으로 재작성</b></td></tr>
+    <tr><td>8~11</td><td>매물 등록 SOP · 전화 인증 SOP · 촬영 가이드 카드 · 업종별 매물 예시표</td><td>rev.1 유지 — 예시표는 §7 품목 세트로 승격</td></tr>
+    <tr><td class="chg">12</td><td class="chg">일일 배정표 인쇄물</td><td>날짜 · 담당자 · 동 · 업체명 · 주소 · 좌표 · 업종 · 품목 세트 · 예비 여부</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">9</span>리스크 <span class="tag">개정</span></h2>
+
+<table>
+  <thead><tr><th>리스크</th><th>내용</th><th>대응</th></tr></thead>
+  <tbody>
+    <tr><td><b>런칭 존 재선정</b> <span class="chg">신규</span></td><td>매물 업종이 1군 도심이 아니라 재래 상권에 있다. 이동거리·구역지도 전제가 깨진다</td><td>구역지도 재작성 · 이동 2.2분/건 가정을 파일럿에서 실측</td></tr>
+    <tr><td><b>명단 유효율</b> <span class="chg">신규</span></td><td>수집 데이터에 폐업·이전이 섞여 있다. 유효율이 낮으면 4배수 배정도 부족해진다</td><td>파일럿 실측 항목에 추가 · 여유분 122곳(24%)으로 1차 흡수</td></tr>
+    <tr><td>SMS OTP 미수신</td><td>매물 등록의 필수 관문. 도달 실패 시 그 업체 매물 0건</td><td>투입 전 실발송 1건 확인 · 옵션 1 채택 시 소멸</td></tr>
+    <tr><td>쓰레기 매물</td><td>건당 지급의 구조적 부작용</td><td>검수 6기준 + 업체당 5건 상한 + 반복 위반 해지 (rev.1 유지)</td></tr>
+    <tr><td>Zalo 로그인 SPOF</td><td>앱이 아직 미활성 상태 — 해소 전까지 <b>가입 자체가 불가</b></td><td>투입 전 필수 해소 · 미해결 시 Google 로그인 폴백 판단</td></tr>
+    <tr><td>전환율 미달</td><td>20~30% 가정, 실측 없음</td><td>파일럿 1일로 실측 후 할당 재조정 (일급은 유지)</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">10</span>대표 결정 필요</h2>
+
+<table>
+  <thead><tr><th>#</th><th>결정 사항</th><th>권고</th></tr></thead>
+  <tbody>
+    <tr><td>D-1</td><td>업체 매물 등록 경로 — 옵션 1(선행 개발) / 2(현재 코드) / 3(운영 대행)</td><td><b>옵션 1</b> — 2~3일 개발로 OTP 리스크 소멸</td></tr>
+    <tr><td>D-3</td><td>매물 건당 단가</td><td><b>7,000동 유지</b> — 분당 단가 정합</td></tr>
+    <tr><td>D-4</td><td>업체당 매물 상한</td><td><b>5건 유지</b></td></tr>
+    <tr><td>D-5</td><td>SMS 실패 시 대응</td><td><b>가입만 인정하고 이동</b></td></tr>
+    <tr><td class="chg">D-12</td><td>가입 대상 업종 범위</td><td><b>13개 카테고리</b> — <code>fuel</code>·<code>repair</code>만 제외</td></tr>
+    <tr><td class="chg">D-13</td><td>감독자 일급 · 검수 겸임 여부</td><td>400,000동은 <b>가정값</b> — 확정 필요. 검수 겸임 시 예산 절감</td></tr>
+    <tr><td class="chg">D-14</td><td>매물 목표</td><td><b>224건으로 하향</b> — 후보가 634곳뿐이라 384건은 도달 불가</td></tr>
+    <tr><td class="chg">D-15</td><td>할당 · 인센티브 기준선 개정</td><td><b>매물 7건 / 8건째부터 초과</b> — 기준선을 안 내리면 매일 미달 차감이 발생한다</td></tr>
+    <tr><td class="chg">D-16</td><td>목표 달성 압력 복원</td><td><b>기본 270,000 + 달성 보너스 30,000</b> — 예산 무변화로 점프 61,000동 복원</td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <p><span class="label">이미 해소된 것</span> rev.1 §10 체크리스트의 「타깃 업체 명단 확보」는 2026-08-10 완료
+     (1,724곳). 나머지 항목 — 운영 SMS 키 실발송 확인, D-1 결정, Zalo 프록시 헬스체크, 매물 검수자 지정,
+     파일럿 1일 실측 — 은 그대로 남아 있다.</p>
+</div>
+
+<h2><span class="num">11</span>근거 출처</h2>
+<div class="refs">
+  <ul>
+    <li>업종 분류 15종 / 4군 — <code>database/init/119_business_category.sql</code></li>
+    <li>타깃 명단 1,724곳 — <code>ai-docs/research/260810_field_agent_targets.csv</code> (수집기 <code>scripts/gmaps_sweep.mjs</code>, 2026-08-10)</li>
+    <li>행정동 37개 중심좌표 — <code>database/init/159_wards_seed.sql</code></li>
+    <li>매물 등록 서버 게이트 — <code>backend/app/routers/market.py:541-544</code> (<code>phone_verified_at</code> 필수, 403)</li>
+    <li>업체 신청 필수값 — <code>backend/app/routers/biz.py:163-166</code> · 프로필 상한 <code>biz.py:71</code></li>
+    <li>매물 등록 입력 항목 — <code>frontend/src/pages/market/MarketCreate.tsx:99-100</code></li>
+    <li>업체 CSV 일괄 등록 — <code>backend/scripts/import_business_csv.py</code></li>
+    <li>법정 최저임금 — 제293/2025/ND-CP (호치민 1지역 25,500동/시)</li>
+    <li>일정 — <code>ai-docs/research/260810_field_agent_schedule.html</code> (rev.3)</li>
+  </ul>
+</div>
+
+<footer>
+  <span>Saigon Rider · 업체 등록 알바 단가 재산정 rev.2</span>
+  <span>2026-08-10 · 내부 보고용</span>
+</footer>
+
+</body>
+</html>

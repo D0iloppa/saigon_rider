@@ -27,31 +27,29 @@ export default function ListingCard({ listing: l, onClick }: Props) {
             .filter(Boolean)
             .join(' · ')}
         </p>
-        <div className={styles.cardFooter}>
-          <span className={styles.price}>
-            {l.originalPriceVnd != null && l.originalPriceVnd > l.priceVnd && (
-              <span className={styles.dropBadge}>{t('market.priceDrop', { defaultValue: '가격내림' })}</span>
-            )}
-            <span className="num">{formatPriceVnd(l.priceVnd, t)}</span>
-          </span>
-          {/* 0 카운트는 죽은 신호 — 반응이 있을 때만 노출 */}
-          {(l.likeCount > 0 || l.chatCount > 0) && (
-            <span className={styles.likes}>
-              {l.likeCount > 0 && (
-                <span className={styles.likeItem}>
-                  <Heart size={13} strokeWidth={2} />
-                  <span className="num">{l.likeCount}</span>
-                </span>
-              )}
-              {l.chatCount > 0 && (
-                <span className={styles.likeItem}>
-                  <MessageCircle size={13} strokeWidth={2} />
-                  <span className="num">{l.chatCount}</span>
-                </span>
-              )}
-            </span>
+        <span className={styles.price}>
+          {l.originalPriceVnd != null && l.originalPriceVnd > l.priceVnd && (
+            <span className={styles.dropBadge}>{t('market.priceDrop', { defaultValue: '가격내림' })}</span>
           )}
-        </div>
+          <span className="num">{formatPriceVnd(l.priceVnd, t)}</span>
+        </span>
+        {/* 0 카운트는 죽은 신호 — 반응이 있을 때만 노출 */}
+        {(l.likeCount > 0 || l.chatCount > 0) && (
+          <span className={styles.likes}>
+            {l.likeCount > 0 && (
+              <span className={styles.likeItem}>
+                <Heart size={13} strokeWidth={2} />
+                <span className="num">{l.likeCount}</span>
+              </span>
+            )}
+            {l.chatCount > 0 && (
+              <span className={styles.likeItem}>
+                <MessageCircle size={13} strokeWidth={2} />
+                <span className="num">{l.chatCount}</span>
+              </span>
+            )}
+          </span>
+        )}
       </div>
     </button>
   );

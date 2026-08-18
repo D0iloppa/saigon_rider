@@ -19,7 +19,9 @@ from . import (
     fuel,
     funnel,
     gacha,
+    issues,
     items,
+    liquidity,
     listings,
     map,
     ops,
@@ -43,6 +45,7 @@ router.include_router(users.router)
 router.include_router(listings.router)
 router.include_router(dashboard.router)
 router.include_router(support.router)
+router.include_router(issues.router)
 router.include_router(cms.router)
 router.include_router(audit_logs.router)
 router.include_router(map.router)
@@ -64,3 +67,4 @@ router.include_router(settings.router)
 router.include_router(stream.router)
 router.include_router(trades.router)
 router.include_router(funnel.router)
+router.include_router(liquidity.router)

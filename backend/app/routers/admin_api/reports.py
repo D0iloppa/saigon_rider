@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import DmMessage, MarketplaceListing, Notification, Report, User, UserSanction
-from ...schemas import Page
+from ...schemas import IssueResultCode, Page
 from ...utils import build_imgproxy_url
 from ..dm import _resolve_dm_image
 from ._audit import audit
@@ -41,7 +41,9 @@ _REPORT_RESULT_NOTI = {
 # 가중치는 "시간(hour) 오프셋"으로 표현해 대기시간과 같은 단위로 더한다 — FRAUD 신규 건(오프셋 240h)이
 # SPAM 3일 대기 건(오프셋 24h + 대기 72h = 96h)보다 항상 위에 오도록 여유 있게 벌렸다(완료 검증 조건).
 # 카탈로그에 없는 값이 들어와도(스키마 드리프트) OTHER 수준(72h)으로 방어.
+# #29: STOLEN_GOODS(도난 의심 차량·서류 미비) — SEV1, FRAUD보다도 위(큐 최상단).
 _REASON_PRIORITY_HOURS = {
+    "STOLEN_GOODS": 480.0,
     "FRAUD": 240.0,
     "SCAM": 240.0,
     "SEXUAL": 192.0,
@@ -52,6 +54,26 @@ _REASON_PRIORITY_HOURS = {
     "SPAM": 24.0,
 }
 _DEFAULT_REASON_PRIORITY_HOURS = 72.0
+_RESULT_CODES = {c.value for c in IssueResultCode}
+
+# 016 §8-3: "SEV1~4를 #3 가중치에 병합 — 신규 코드 아님". 새 컬럼을 만들지 않고 기존
+# _REASON_PRIORITY_HOURS 순서를 그대로 SEV1~4 라벨로 매핑해 큐 표시·주간 집계에 재사용한다.
+_REASON_SEVERITY = {
+    "STOLEN_GOODS": "SEV1",
+    "FRAUD": "SEV1",
+    "SCAM": "SEV1",
+    "SEXUAL": "SEV2",
+    "ABUSE": "SEV2",
+    "PROHIBITED": "SEV3",
+    "OTHER": "SEV3",
+    "DUPLICATE": "SEV4",
+    "SPAM": "SEV4",
+}
+_DEFAULT_REASON_SEVERITY = "SEV3"
+
+
+def reason_severity(reason: str) -> str:
+    return _REASON_SEVERITY.get(reason, _DEFAULT_REASON_SEVERITY)
 
 
 def _priority_score(reason: str, created_at: datetime, *, now: datetime | None = None) -> float:
@@ -90,6 +112,7 @@ class ReportRow(BaseModel):
     id: uuid.UUID
     target_type: str
     reason: str
+    severity: str
     note: str | None
     status: str
     created_at: datetime
@@ -99,11 +122,13 @@ class ReportRow(BaseModel):
     conversation_id: uuid.UUID | None
     handled_by: str | None
     handled_at: datetime | None
+    result_code: str | None = None
 
 
 class ReportStatusUpdate(BaseModel):
     status: str
     resolution_note: str | None = None
+    result_code: str | None = None
 
 
 class AdminDmMessageRow(BaseModel):
@@ -161,6 +186,7 @@ async def _build_rows(db: AsyncSession, reports: list[Report]) -> list[ReportRow
                 id=r.id,
                 target_type=r.target_type,
                 reason=r.reason,
+                severity=reason_severity(r.reason),
                 note=r.note,
                 status=r.status,
                 created_at=r.created_at,
@@ -175,6 +201,7 @@ async def _build_rows(db: AsyncSession, reports: list[Report]) -> list[ReportRow
                 conversation_id=r.conversation_id,
                 handled_by=r.handled_by,
                 handled_at=r.handled_at,
+                result_code=r.result_code,
             )
         )
     return rows
@@ -307,12 +334,25 @@ async def update_report_status(
     if body.status not in _ALLOWED_TRANSITIONS.get(report.status, set()):
         raise HTTPException(status_code=400, detail="invalid status transition")
 
+    # #26 B4: 결과 코드 없이 종결 불가 — RESOLVED/REJECTED 전이 시 result_code 필수.
+    if body.status in ("RESOLVED", "REJECTED"):
+        result_code = body.result_code if body.result_code is not None else getattr(report, "result_code", None)
+        if result_code is None:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "result_code_required", "message": "종결 전 result_code 입력이 필요합니다."},
+            )
+        if result_code not in _RESULT_CODES:
+            raise HTTPException(status_code=400, detail="invalid result_code")
+
     prev = report.status
     report.status = body.status
     report.handled_by = session.username
     report.handled_at = datetime.now(UTC)
     if body.resolution_note is not None:
         report.resolution_note = body.resolution_note
+    if body.result_code is not None:
+        report.result_code = body.result_code
 
     noti = _REPORT_RESULT_NOTI.get(body.status)
     if noti is not None:

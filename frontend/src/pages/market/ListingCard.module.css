@@ -11,7 +11,9 @@
   border: 0;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
-  padding: 14px 4px;
+  /* 좌우 0 — 4px 가 있으면 썸네일(24pt)과 구분선(20pt)이 4pt 어긋나고 텍스트 컬럼만
+     좁아진다. 당근은 썸네일·구분선이 같은 인셋(실측 16pt)으로 딱 맞는다. */
+  padding: 12px 0;
   transition: background .12s ease;
 }
 
@@ -19,11 +21,14 @@
   background: var(--surface-2);
 }
 
+/* 128px = 화면폭의 32.6% — 당근 스크린샷 픽셀 실측치와 동일(2026-08-17 2차 계측).
+   1차에선 텍스트 컬럼 잠식이 걱정돼 120 에서 멈췄으나, .card 좌우 padding 4px 를
+   없애 8pt 를 회수하면서 컬럼 폭은 오히려 207→211pt 로 늘어 제약이 사라졌다. */
 .thumb {
   position: relative;
   flex-shrink: 0;
-  width: 104px;
-  height: 104px;
+  width: 128px;
+  height: 128px;
   border-radius: 10px;
   overflow: hidden;
   background: var(--surface-2);
@@ -75,13 +80,13 @@
   color: var(--text-3);
 }
 
-.cardFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: auto;
-}
-
+/* 가격은 메타 바로 아래 — 제목·메타·가격이 하나의 세로 덩어리로 붙어야 1축 스캔이
+   된다. 예전엔 price 가 margin-top:auto 인 .cardFooter 안에 있어서, 썸네일이 만든
+   카드 높이와 텍스트 높이의 차(≈65px)가 전부 가격 위 빈칸으로 몰렸다
+   (대표 지적 2026-08-17). 남는 공간은 텍스트 '사이'가 아니라 '아래'에 둔다.
+   ⚠️ margin-top 을 두지 말 것 — 4px 을 줬더니 메타→가격 잉크간격이 14.7pt 가 돼
+   당근 실측 9.7pt 대비 1.5배로 벌어졌다(2026-08-17 2차 계측). cardBody gap 3px 만으로
+   잉크간격 ≈10.7pt 라 레퍼런스에 붙는다. */
 .price {
   font-size: 16px;
   font-weight: 700; /* Space Grotesk 로드 최대 굵기 (design-system §1) */
@@ -101,7 +106,10 @@
   font-weight: 700;
 }
 
+/* 반응 카운트만 카드 바닥 우측에 잔류 — 스캔 동선을 방해하지 않는 위치(당근 관례) */
 .likes {
+  margin-top: auto;
+  align-self: flex-end;
   display: flex;
   align-items: center;
   gap: 10px;

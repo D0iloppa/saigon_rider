@@ -27,9 +27,9 @@ class MarketSearchConversionTest(unittest.TestCase):
         self.assertIn(".like(", src)
 
     def test_market_inactive_filter_uses_shared_status_contract(self):
-        """공개 검색은 숨김·삭제·철회·완료 매물을 공유 상수로 항상 제외한다."""
+        """공개 검색은 숨김·삭제·철회·완료·만료(016 §4-1 #36) 매물을 공유 상수로 항상 제외한다."""
         src = inspect.getsource(market.get_listings)
-        self.assertEqual(market._LISTING_INACTIVE_STATUSES, ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD"))
+        self.assertEqual(market._LISTING_INACTIVE_STATUSES, ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD", "EXPIRED"))
         self.assertIn("MarketplaceListing.status.notin_(hidden)", src)
         self.assertIn("hidden =", src)
 

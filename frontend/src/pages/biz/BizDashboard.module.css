@@ -140,6 +140,80 @@
   font-weight: 700;
 }
 
+/* ── #27 업체 전용 이슈 채널 (013/016 §8 L5) ── */
+
+.issueToggleBtn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.issueForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.issueLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.issueSelect,
+.issueTextarea {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.issueSubmitBtn {
+  align-self: flex-start;
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.issueSubmitBtn:disabled {
+  opacity: 0.5;
+}
+
+.issueEmptyNotice,
+.issueErrorNotice {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.issueSuccessNotice {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--brand-700);
+  font-weight: 700;
+}
+
 .adPerfNumRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

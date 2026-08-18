@@ -17,8 +17,10 @@ from ..models import (
     AppConfig,
     BannedKeyword,
     BusinessProfile,
+    DealResultPingLog,
     DmConversation,
     DmMessage,
+    ListingPriceLog,
     MarketplaceAd,
     MarketplaceAppointment,
     MarketplaceCategory,
@@ -40,6 +42,7 @@ from ..schemas import (
     AppointmentOut,
     AppointmentProposeRequest,
     BlockedUserOut,
+    DealResultResponseRequest,
     DistrictBrief,
     DmMessageOut,
     FunnelEventType,
@@ -73,6 +76,9 @@ from ..services import funnel_events, noti_events
 from ..services.ad_exposure import build_exposure_sequence
 from ..services.banned_keywords import banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
+from ..services.listing_fingerprint import compute_text_simhash
+from ..services.listing_ranking import recommended_score_sql
+from ..services.listing_state import log_transition
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.service_area import in_service_area
@@ -91,7 +97,10 @@ _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
 _BUSINESS_LISTING_CAP = 5  # T-3: 업체당 매물 상한(강제, 예외 없음) — 알바 등록 건당 지급 구조의 어뷰징 방지
 # 더 이상 "현재 노출 중"이 아닌 상태 — 구매자 노출 필터(get_listings)와 T-3 상한 카운트가 공유한다.
-_LISTING_INACTIVE_STATUSES = ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD")
+# EXPIRED(016 §4-1 #36, init/191): WITHDRAWN 과 동일하게 취급 — 삭제가 아니라 복구 가능한 만료.
+_LISTING_INACTIVE_STATUSES = ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD", "EXPIRED")
+# 판매자 본인만 볼 수 있고, 재판매(ON_SALE) 복귀만 허용되는 "되돌릴 수 있는 비활성" 상태.
+_RECOVERABLE_STATUSES = ("WITHDRAWN", "EXPIRED")
 
 
 _MANNER_BASE = 36.5
@@ -322,7 +331,7 @@ async def get_listings(
     category: str | None = Query(None, description="카테고리 code (예: PARTS). 'all'/미지정 시 전체"),
     category_id: int | None = Query(None, description="카테고리 id (하위 포함 subtree 매칭 — 검색용)"),
     keyword: str | None = Query(None, alias="q", description="제목 키워드 검색"),
-    sort: str = Query("recent", description="recent | price_low | price_high | distance"),
+    sort: str = Query("recent", description="recent | price_low | price_high | distance | recommended"),
     hide_sold: bool = Query(
         False,
         description="deprecated — SOLD 는 이제 값과 무관하게 항상 제외(내 매물 조회 제외). 하위호환용으로만 받는다.",
@@ -398,11 +407,13 @@ async def get_listings(
         q = q.where(MarketplaceListing.category_id.in_(subtree))
         count_q = count_q.where(MarketplaceListing.category_id.in_(subtree))
 
+    search_query_norm: str | None = None
     if keyword and keyword.strip():
         # 다국어 검색(260801 설계 P4): search_blob(3언어 정규화 원문+번역 합본)을 LIKE 매칭.
         # 검색 경로에 외부 번역 API 호출 없음 — 번역은 등록/수정 시점에 이미 blob 에 반영돼 있다.
         # COALESCE 필수: blob 이 NULL(미색인)인 행이 검색에서 사라지면 안 된다(fail-open).
         nq = norm(keyword).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        search_query_norm = nq  # 016 §3-3(#21): 계측엔 정규화된 질의어를 쓴다(표기흔들림·PII 최소화)
         kw_cond = func.coalesce(MarketplaceListing.search_blob, "").like(f"%{nq}%", escape="\\")
         q = q.where(kw_cond)
         count_q = count_q.where(kw_cond)
@@ -478,6 +489,10 @@ async def get_listings(
         )
     elif sort == "distance" and has_loc:
         q = q.order_by(text("distance_m ASC NULLS LAST"), MarketplaceListing.id.desc())
+    elif sort == "recommended":
+        # 016 §5-2 #19 — 규칙 기반 랭킹 v1. 계수는 services/listing_ranking.py 한 곳에 모아둔다.
+        score = literal_column(recommended_score_sql())
+        q = q.order_by(score.desc(), MarketplaceListing.id.desc())
     else:
         # id tie-breaker: bumped_at 동률(시드 데이터 다수)에서 offset 페이지네이션이
         # 페이지 간 중복/누락을 만들던 문제 차단 (시나리오 4.1/4.2 — ghost 카드 근인)
@@ -485,6 +500,19 @@ async def get_listings(
 
     total = (await db.execute(count_q)).scalar_one()
     rows = (await db.execute(q.offset(offset).limit(size))).all()
+
+    if search_query_norm is not None and offset == 0:
+        # 016 §3-3(#21): 검색 로그 계측 — 빈 질의(필터만 있는 목록 조회)는 적재하지 않는다.
+        # offset==0(첫 페이지)에서만 적재 — 동일 질의의 스크롤 후속 페이지 요청까지 매번
+        # search 이벤트를 쌓으면 결과 0건 검색(페이지 1개뿐)은 안 부푸는데 결과 있는 검색만
+        # 부풀어, L-3(검색 0건 비율) 분모가 체계적으로 과소 산출된다(016 §6-6 파일럿 판정 지표).
+        await funnel_events.record(
+            db,
+            FunnelEventType.SEARCH,
+            user_id=session_uid,
+            subject_type="search",
+            props={"query": search_query_norm, "result_count": total},
+        )
 
     # 매물별 채팅 건수 — 페이지 항목 id 로 dm_conversations 그룹 집계 1회 (항목별 COUNT N+1 금지)
     chat_counts: dict[uuid.UUID, int] = {}
@@ -556,8 +584,9 @@ async def get_listing(
     # 조치 사유 알림 딥링크·판매자의 자기 매물 확인 경로. 비소유자는 기존과 동일하게 404.
     if listing.status in ("HIDDEN", "REMOVED") and listing.seller_id != session_uid:
         raise HTTPException(status_code=404, detail="Listing not found")
-    # 철회 매물은 판매자 본인만 열람 가능 — 상세가 재판매("다시 올리기") 진입점이다.
-    if listing.status == "WITHDRAWN" and listing.seller_id != session_uid:
+    # 철회/만료(EXPIRED, 016 §4-1 #36) 매물은 판매자 본인만 열람 가능 — 상세가 재판매("다시
+    # 올리기"/복구) 진입점이다.
+    if listing.status in _RECOVERABLE_STATUSES and listing.seller_id != session_uid:
         raise HTTPException(status_code=404, detail="Listing not found")
 
     if session_uid is not None:
@@ -648,6 +677,15 @@ async def get_listing(
         business_profile = await db.get(BusinessProfile, listing.business_profile_id)
         business_name = business_profile.name if business_profile else None
 
+    # 016 §4-7 #42: 미응답 거래결과핑 존재 여부 — 판매자 본인이 이 화면을 다시 열었을 때 배너로 노출.
+    pending_deal_ping = (
+        await db.execute(
+            select(DealResultPingLog.id).where(
+                DealResultPingLog.listing_id == listing.id, DealResultPingLog.responded_at.is_(None)
+            )
+        )
+    ).first() is not None
+
     title_out = listing.title
     desc_out = listing.description
     translation_failed = False
@@ -680,6 +718,9 @@ async def get_listing(
         translation_failed=translation_failed,
         business_profile_id=listing.business_profile_id,
         business_name=business_name,
+        paper_status=listing.paper_status,
+        plate_province=listing.plate_province,
+        pending_deal_ping=pending_deal_ping,
     )
     await db.commit()
     return detail
@@ -773,6 +814,11 @@ async def create_listing(
         updated_at=now,
         # 원문만으로 즉시 검색 가능(번역 대기 없음) — search.reindex 소비 후 번역이 얹혀 재계산된다.
         search_blob=immediate_blob([body.title.strip(), body.description]),
+        # 016 §4-3 #38 — 텍스트 지문(산출만, 판정 없음). norm() 은 search_norm 과 동일 함수 재사용.
+        text_fingerprint=compute_text_simhash(norm(f"{body.title.strip()} {body.description or ''}")),
+        # 016 §4-6 #41 — 선택 표시(D-28=(a)), 미기재 허용.
+        paper_status=body.paper_status,
+        plate_province=body.plate_province,
     )
     db.add(listing)
     await db.flush()
@@ -794,6 +840,7 @@ async def create_listing(
         {"entity_type": "listing", "entity_id": str(listing_id), "texts": [listing.title, listing.description or ""]},
     )
     await funnel_events.record(db, FunnelEventType.LISTING_CREATE, user_id=body.seller_id, entity_id=listing_id)
+    log_transition(db, listing_id, None, "ON_SALE", actor_type="user", actor_id=body.seller_id, reason="create")
     await db.commit()
     # 번역 세트 워밍(백그라운드) — 조회 시 캐시 히트로 번역본 즉시 로딩
     background.add_task(warm_translations, [listing.title, listing.description or ""])
@@ -836,9 +883,12 @@ async def update_listing(
     listing.title = body.title.strip()
     listing.description = body.description
     listing.category_id = body.category_id
+    listing.paper_status = body.paper_status
+    listing.plate_province = body.plate_province
     listing.updated_at = datetime.now(UTC)
     # §2.4 결함 수정: 수정 시 워밍 누락으로 번역이 "사라진 것처럼" 보이던 문제 — 원문 재색인 즉시 반영.
     listing.search_blob = immediate_blob([listing.title, listing.description])
+    listing.text_fingerprint = compute_text_simhash(norm(f"{listing.title} {listing.description or ''}"))
 
     await db.execute(delete(MarketplaceListingImage).where(MarketplaceListingImage.listing_id == listing_id))
     for idx, cid in enumerate(body.image_content_ids):
@@ -888,11 +938,12 @@ async def update_status(
         raise HTTPException(status_code=400, detail={"code": "moderated"})
     # 대표 지시 2026-08-08: 철회는 종결이 아니라 되돌릴 수 있는 상태 — 재판매(ON_SALE)로만 복귀시킨다.
     # (구매자가 없는 상태에서 RESERVED 로 바로 가는 전이는 의미가 없으므로 막는다.)
-    if listing.status == "WITHDRAWN" and body.status != "ON_SALE":
+    # 016 §4-1 #36: 자동만료(EXPIRED)도 같은 성격 — WITHDRAWN 과 동일하게 취급(D-32=(a) 복구 가능).
+    if listing.status in _RECOVERABLE_STATUSES and body.status != "ON_SALE":
         raise HTTPException(status_code=400, detail={"code": "relist_on_sale_only"})
-    # T-3: 철회(WITHDRAWN) → 재판매(ON_SALE) 복귀도 신규 등록과 동일하게 상한을 적용한다
+    # T-3: 철회/만료 → 재판매(ON_SALE) 복귀도 신규 등록과 동일하게 상한을 적용한다
     # (그렇지 않으면 상한에 걸린 업체가 매물을 철회 후 재판매로 복귀시켜 상한을 무력화한다).
-    if listing.status == "WITHDRAWN" and body.status == "ON_SALE" and listing.business_profile_id is not None:
+    if listing.status in _RECOVERABLE_STATUSES and body.status == "ON_SALE" and listing.business_profile_id is not None:
         await db.execute(
             select(BusinessProfile.id).where(BusinessProfile.id == listing.business_profile_id).with_for_update()
         )
@@ -933,8 +984,10 @@ async def update_status(
         if active_appt is not None:
             raise HTTPException(status_code=409, detail={"code": "active_appointment"})
 
+    prev_status = listing.status
     listing.status = body.status
     listing.updated_at = datetime.now(UTC)
+    log_transition(db, listing.id, prev_status, body.status, actor_type="user", actor_id=session_uid, reason="manual")
     await db.commit()
     return MarketplaceListingCreated(id=listing.id)
 
@@ -962,7 +1015,9 @@ async def update_price(
         raise HTTPException(status_code=409, detail="Cannot change price of a sold listing")
 
     new_price = body.price_vnd
-    if new_price < listing.price_vnd:
+    old_price = listing.price_vnd
+    is_markdown = new_price < old_price
+    if is_markdown:
         # 인하: 기준가(인하 전) 보존
         if listing.original_price_vnd is None:
             listing.original_price_vnd = listing.price_vnd
@@ -971,6 +1026,95 @@ async def update_price(
         listing.original_price_vnd = None
     listing.price_vnd = new_price
     listing.updated_at = datetime.now(UTC)
+    if is_markdown:
+        # 인하 알림(찜한 사용자 대상) — 일 상한: 같은 매물에 24h 내 이미 인하 알림을 보냈으면 스킵
+        # (하루 여러 번 가격을 만지는 판매자가 찜한 사람들 알림을 스팸으로 만들지 않게). 새 이력행을
+        # 추가하기 *전에* 조회해야 한다 — autoflush 로 방금 add() 한 행이 자기 자신과 매치돼버린다.
+        recent_drop = (
+            await db.execute(
+                select(ListingPriceLog.id)
+                .where(
+                    ListingPriceLog.listing_id == listing.id,
+                    ListingPriceLog.new_price_vnd < ListingPriceLog.old_price_vnd,
+                    ListingPriceLog.created_at >= datetime.now(UTC) - timedelta(hours=24),
+                )
+                .limit(1)
+            )
+        ).first()
+        if recent_drop is None:
+            noti_events.enqueue(
+                db,
+                "market.price_drop",
+                {
+                    "listing_id": str(listing.id),
+                    "title": listing.title,
+                    "old_price_vnd": old_price,
+                    "new_price_vnd": new_price,
+                },
+            )
+    if new_price != old_price:
+        # 016 §4-2 #37: 인상·인하 모두 이력에 남긴다(미끼가 탐지 원료, #39). 알림 중복판정 조회 이후에 add.
+        db.add(ListingPriceLog(listing_id=listing.id, old_price_vnd=old_price, new_price_vnd=new_price))
+    await db.commit()
+    return MarketplaceListingCreated(id=listing.id)
+
+
+# 016 §4-7 #42: 거래 결과 확인 핑 응답(4지선다 1탭). jobs.deal_result_ping 이 보낸 미응답
+# deal_result_ping_log 행이 있어야만 응답할 수 있다 — "다른 데서 판매" 비율은 이 테이블의
+# result 분포로 집계하므로(§4-7), 핑 없이 임의 자기신고가 섞이면 집계 의미가 흐려진다.
+@router.patch(
+    "/listings/{listing_id}/deal-result", response_model=MarketplaceListingCreated, summary="거래 결과 확인 핑 응답"
+)
+async def respond_deal_result(
+    listing_id: uuid.UUID,
+    body: DealResultResponseRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    ping = (
+        await db.execute(
+            select(DealResultPingLog).where(
+                DealResultPingLog.listing_id == listing_id, DealResultPingLog.responded_at.is_(None)
+            )
+        )
+    ).scalar_one_or_none()
+    if ping is None:
+        raise HTTPException(status_code=404, detail={"code": "no_pending_ping"})
+
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id != session_uid:
+        raise HTTPException(status_code=403, detail="Not the seller")
+
+    now = datetime.now(UTC)
+    ping.responded_at = now
+    ping.result = body.result
+
+    # #42 완료조건: 응답이 상태 전이에 반영돼야 한다. MKT-3(SOLD 는 약속완료 경로 전용)의
+    # 예외로, 여기서는 판매자 본인의 자기신고로 SOLD 전이를 허용한다 — 애초에 이 핑 자체가
+    # "약속 없이 앱 밖에서 거래가 끝나 self-report 가 누락되는" 경우를 보정하기 위한 것이라
+    # 약속 경로를 강제하면 #42의 존재 이유가 없어진다. 이미 ON_SALE 이 아니면(다른 경로로 먼저
+    # 전이됨) 핑 응답 기록만 남기고 상태는 건드리지 않는다.
+    if listing.status == "ON_SALE":
+        prev_status = listing.status
+        if body.result == "SOLD":
+            listing.status = "SOLD"
+            listing.updated_at = now
+            log_transition(
+                db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="deal_ping_sold"
+            )
+        elif body.result in ("SOLD_ELSEWHERE", "GAVE_UP"):
+            listing.status = "WITHDRAWN"
+            listing.updated_at = now
+            reason = "deal_ping_sold_elsewhere" if body.result == "SOLD_ELSEWHERE" else "deal_ping_gave_up"
+            log_transition(
+                db, listing.id, prev_status, "WITHDRAWN", actor_type="user", actor_id=session_uid, reason=reason
+            )
+        # STILL_SELLING: 상태 변경 없음 — 판매 지속 확인만 기록.
+
     await db.commit()
     return MarketplaceListingCreated(id=listing.id)
 
@@ -1004,7 +1148,7 @@ async def bump_listing(
     return MarketplaceBumpResult(id=listing.id, bumped_at=now)
 
 
-_VALID_REPORT_REASONS = {"SPAM", "FRAUD", "PROHIBITED", "DUPLICATE", "OTHER"}
+_VALID_REPORT_REASONS = {"SPAM", "FRAUD", "PROHIBITED", "DUPLICATE", "OTHER", "STOLEN_GOODS"}
 
 
 # M-5d 매물 신고 (모더레이션 적재). 신고자당 매물 1회, 자기 매물 신고 불가.
@@ -1631,6 +1775,9 @@ async def accept_appointment(
     appt.updated_at = now
     listing.status = "RESERVED"
     listing.updated_at = now
+    log_transition(
+        db, listing.id, "ON_SALE", "RESERVED", actor_type="user", actor_id=session_uid, reason="appointment_accepted"
+    )
     await db.commit()
     return _appt_out(appt, listing.seller_id)
 
@@ -1666,11 +1813,15 @@ async def complete_appointment(
     ).scalar_one_or_none()
 
     now = datetime.now(UTC)
+    prev_status = listing.status
     appt.status = "COMPLETED"
     appt.updated_at = now
     listing.status = "SOLD"
     listing.agreed_price_vnd = accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd
     listing.updated_at = now
+    log_transition(
+        db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="appointment_completed"
+    )
     await funnel_events.record(db, FunnelEventType.TRADE_COMPLETE, user_id=session_uid, entity_id=listing.id)
     await db.commit()
     return _appt_out(appt, listing.seller_id)
@@ -1792,6 +1943,15 @@ async def cancel_appointment(
     if was_accepted and listing.status == "RESERVED":
         listing.status = "ON_SALE"
         listing.updated_at = now
+        log_transition(
+            db,
+            listing.id,
+            "RESERVED",
+            "ON_SALE",
+            actor_type="user",
+            actor_id=session_uid,
+            reason="appointment_cancelled",
+        )
     await db.commit()
     return _appt_out(appt, listing.seller_id)
 

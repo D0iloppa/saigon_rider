@@ -31,23 +31,30 @@ async def _issue(prefix: str, payload: dict[str, object], ttl_seconds: int) -> s
     raise RuntimeError("could not allocate unique OAuth token")
 
 
-async def issue_oauth_state(extra: str | None = None) -> str:
-    return await _issue(_STATE_PREFIX, {"extra": extra}, STATE_TTL_SECONDS)
+async def issue_oauth_state(extra: str | None = None, ref: str | None = None) -> str:
+    """ref = 유입 귀속 코드(016 §6-2 #30) — redirect flow는 start→callback 사이 요청이 끊겨
+    쿼리파라미터를 직접 못 들고 다니므로, PKCE verifier(extra)와 같은 방식으로 state에 실어 나른다."""
+    return await _issue(_STATE_PREFIX, {"extra": extra, "ref": ref}, STATE_TTL_SECONDS)
 
 
-async def consume_oauth_state(token: str) -> tuple[bool, str | None]:
+async def consume_oauth_state(token: str) -> tuple[bool, str | None, str | None]:
     client = await get_client()
     raw = await client.getdel(_STATE_PREFIX + token)
     if raw is None:
-        return False, None
+        return False, None, None
     try:
         payload = json.loads(raw)
     except (TypeError, json.JSONDecodeError):
-        return False, None
+        return False, None, None
     if not isinstance(payload, dict):
-        return False, None
+        return False, None, None
     extra = payload.get("extra")
-    return True, extra if isinstance(extra, str) else None
+    ref = payload.get("ref")
+    return (
+        True,
+        extra if isinstance(extra, str) else None,
+        ref if isinstance(ref, str) else None,
+    )
 
 
 async def issue_oauth_exchange(user_id: str, is_new: bool) -> str:

@@ -4,8 +4,10 @@ import type { District } from './master';
 import { inServiceArea } from '@/lib/serviceArea';
 import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 
-export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REMOVED' | 'WITHDRAWN';
-export type ListingSort = 'recent' | 'price_low' | 'price_high' | 'distance';
+export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REMOVED' | 'WITHDRAWN' | 'EXPIRED';
+export type ListingSort = 'recent' | 'price_low' | 'price_high' | 'distance' | 'recommended';
+/** 016 §4-6 #41: 등록증 명의 상태 — 선택 표시(D-28=(a)), null=미기재. MISMATCH=명의 불일치(핵심 위험 신호). */
+export type PaperStatus = 'MATCH' | 'MISMATCH' | 'NONE';
 
 export interface MarketCategory {
   id: number;
@@ -118,7 +120,15 @@ export interface ListingDetail {
   /** T-1: 업체 계정 매물이면 채워진다 — 판매자를 업체명으로 표기하는 데 쓴다. */
   businessProfileId: string | null;
   businessName: string | null;
+  /** 016 §4-6 #41: 서류·명의 상태 — null=미기재. MISMATCH 는 상세에서 위험 배지로 노출. */
+  paperStatus: PaperStatus | null;
+  plateProvince: string | null;
+  /** 016 §4-7 #42: 미응답 거래결과핑 존재 여부 — 판매자 본인 조회 시 배너 노출 트리거. */
+  pendingDealPing: boolean;
 }
+
+/** 016 §4-7 #42: 거래 결과 확인 핑 4지선다 응답. */
+export type DealResult = 'SOLD' | 'STILL_SELLING' | 'SOLD_ELSEWHERE' | 'GAVE_UP';
 
 /** {name_ko/vi/en} 객체의 현재 언어 이름 */
 export function localizedName(obj: { name_ko: string; name_vi: string; name_en: string } | null): string {
@@ -184,8 +194,8 @@ export interface ListingQuery {
   size?: number;
 }
 
-export type ReportReason = 'SPAM' | 'FRAUD' | 'PROHIBITED' | 'DUPLICATE' | 'OTHER';
-export const REPORT_REASONS: ReportReason[] = ['FRAUD', 'PROHIBITED', 'SPAM', 'DUPLICATE', 'OTHER'];
+export type ReportReason = 'SPAM' | 'FRAUD' | 'PROHIBITED' | 'DUPLICATE' | 'OTHER' | 'STOLEN_GOODS';
+export const REPORT_REASONS: ReportReason[] = ['STOLEN_GOODS', 'FRAUD', 'PROHIBITED', 'SPAM', 'DUPLICATE', 'OTHER'];
 
 export interface CreateListingParams {
   sellerId: string;
@@ -200,6 +210,9 @@ export interface CreateListingParams {
   imageContentIds: string[];
   /** T-1: 검증된 업체 프로필 명의로 등록 — 세팅 시 서버가 개인 휴대폰 인증 게이트를 대체한다. */
   businessProfileId?: string | null;
+  /** 016 §4-6 #41: 서류·명의 — 선택 표시, 미기재 허용. */
+  paperStatus?: PaperStatus | null;
+  plateProvince?: string | null;
 }
 
 export async function fetchCategories(): Promise<MarketCategory[]> {
@@ -438,6 +451,9 @@ export interface UpdateListingParams {
   description?: string;
   categoryId?: number | null;
   imageContentIds: string[];
+  /** 016 §4-6 #41: 등록 후에도 추가/정정 가능 — 선택 표시. */
+  paperStatus?: PaperStatus | null;
+  plateProvince?: string | null;
 }
 
 /** F-6/F-8: 매물 본문(제목/설명/카테고리/사진) 수정 — 전체 대체 방식(createListing 과 동일 필드셋) */
@@ -450,6 +466,8 @@ export async function updateListing(id: string, p: UpdateListingParams): Promise
       description: p.description ?? null,
       category_id: p.categoryId ?? null,
       image_content_ids: p.imageContentIds,
+      paper_status: p.paperStatus ?? null,
+      plate_province: p.plateProvince ?? null,
     }),
   }, 'bff', { rethrow: true });
 }
@@ -469,6 +487,8 @@ export async function createListing(p: CreateListingParams): Promise<{ id: strin
       longitude: p.longitude ?? null,
       image_content_ids: p.imageContentIds,
       business_profile_id: p.businessProfileId ?? null,
+      paper_status: p.paperStatus ?? null,
+      plate_province: p.plateProvince ?? null,
     }),
   }, 'bff', { rethrow: true });
 }
@@ -549,7 +569,18 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
     otherListings: (r.other_listings ?? []).map(transformCard),
     businessProfileId: r.business_profile_id ?? null,
     businessName: r.business_name ?? null,
+    paperStatus: r.paper_status ?? null,
+    plateProvince: r.plate_province ?? null,
+    pendingDealPing: r.pending_deal_ping ?? false,
   };
+}
+
+/** 016 §4-7 #42: 거래 결과 확인 핑 응답 제출. */
+export async function submitDealResult(id: string, result: DealResult): Promise<{ id: string }> {
+  return api.realFetch<{ id: string }>(`/market/listings/${id}/deal-result`, {
+    method: 'PATCH',
+    body: JSON.stringify({ result }),
+  });
 }
 
 export async function toggleLike(id: string, userId: string): Promise<{ liked: boolean; like_count: number }> {

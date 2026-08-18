@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { AppImage } from '@/components/ui/AppImage';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchListing, updateListing, fetchCategories, localizedName, type MarketCategory } from '@/api/market';
+import { fetchListing, updateListing, fetchCategories, localizedName, type MarketCategory, type PaperStatus } from '@/api/market';
 import CategoryPickerSheet from './CategoryPickerSheet';
 import styles from './MarketCreate.module.css';
 
@@ -39,6 +39,9 @@ export default function MarketEdit() {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [catSheetOpen, setCatSheetOpen] = useState(false);
   const [description, setDescription] = useState('');
+  // 016 §4-6 #41: 선택 표시(D-28=(a)) — 미기재 허용.
+  const [paperStatus, setPaperStatus] = useState<PaperStatus | ''>('');
+  const [plateProvince, setPlateProvince] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,6 +65,8 @@ export default function MarketEdit() {
         setTitle(detail.title);
         setDescription(detail.description ?? '');
         setCategoryId(detail.category?.id ?? null);
+        setPaperStatus(detail.paperStatus ?? '');
+        setPlateProvince(detail.plateProvince ?? '');
         setImages(
           detail.imageUrls.map((url, idx) => ({
             preview: url,
@@ -126,6 +131,8 @@ export default function MarketEdit() {
         description: description.trim() || undefined,
         categoryId,
         imageContentIds: contentIds,
+        paperStatus: paperStatus || null,
+        plateProvince: plateProvince.trim() || null,
       });
       navigate(`/market/${id}`, { replace: true });
     } catch (err: any) {
@@ -234,6 +241,26 @@ export default function MarketEdit() {
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={2000}
+        />
+
+        {/* 016 §4-6 #41: 서류·명의 상태 — 선택 표시(오토바이 매물 해당 시). 미기재 허용. */}
+        <p className={styles.label}>{t('market.paperStatusLabel', { defaultValue: '등록증 명의 상태 (오토바이 매물)' })}</p>
+        <select
+          className={styles.catSelect}
+          value={paperStatus}
+          onChange={(e) => setPaperStatus(e.target.value as PaperStatus | '')}
+        >
+          <option value="">{t('market.paperStatusUnset', { defaultValue: '선택 안 함' })}</option>
+          <option value="MATCH">{t('market.paperStatusMatch', { defaultValue: '등록증 보유 (명의 일치)' })}</option>
+          <option value="MISMATCH">{t('market.paperStatusMismatch', { defaultValue: '등록증 보유 (명의 불일치)' })}</option>
+          <option value="NONE">{t('market.paperStatusNone', { defaultValue: '등록증 미보유' })}</option>
+        </select>
+        <input
+          className={styles.titleInput}
+          placeholder={t('market.plateProvincePlaceholder', { defaultValue: '번호판 등록 지역 (선택)' })}
+          value={plateProvince}
+          onChange={(e) => setPlateProvince(e.target.value)}
+          maxLength={80}
         />
       </div>
 

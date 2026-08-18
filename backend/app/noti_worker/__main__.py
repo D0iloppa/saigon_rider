@@ -26,6 +26,7 @@ from app.database import AsyncSessionLocal
 from app.engine_client import engine_client
 from app.models import (
     MarketplaceKeywordAlert,
+    MarketplaceListingLike,
     Notification,
     NotificationOutbox,
     NotificationSettings,
@@ -210,7 +211,8 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
                         or_(
                             and_(
                                 MarketplaceKeywordAlert.keyword_norm.isnot(None),
-                                MarketplaceKeywordAlert.keyword_norm != "",  # strpos(x, '') 는 1(항상 매치) — 빈 정규화 방어
+                                MarketplaceKeywordAlert.keyword_norm
+                                != "",  # strpos(x, '') 는 1(항상 매치) — 빈 정규화 방어
                                 func.strpos(literal(title_norm), MarketplaceKeywordAlert.keyword_norm) > 0,
                             ),
                             and_(
@@ -253,6 +255,46 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
 
     for user_id, noti_title in pushes:
         await _try_push(user_id, noti_title, listing_title, link)
+
+
+async def _handle_price_drop(payload: dict, *, source_event_id: str) -> None:
+    """016 §4-2 #37 — 찜한 사용자에게 가격 인하 알림. 발행측(market.py update_price)이 이미
+    24h 일 상한을 적용해 enqueue 했으므로 여기서는 수신자만 조회한다."""
+    listing_id = uuid.UUID(payload["listing_id"])
+    listing_title = payload.get("title") or ""
+    old_price = payload.get("old_price_vnd")
+    new_price = payload.get("new_price_vnd")
+    link = f"market&id={listing_id}"
+    title = f"💸 {listing_title}"
+    body = f"찜한 매물의 가격이 내렸어요: {old_price:,}đ → {new_price:,}đ"
+
+    pushes: list[tuple[str, str]] = []
+    async with AsyncSessionLocal() as db:
+        likers = (
+            (
+                await db.execute(
+                    select(MarketplaceListingLike.user_id).where(MarketplaceListingLike.listing_id == listing_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for user_id in likers:
+            inserted = await _insert_notification(
+                db,
+                source_event_id=source_event_id,
+                user_id=user_id,
+                notification_type="PRICE_DROP",
+                title=title,
+                body=body,
+                link=link,
+            )
+            if inserted and await _push_enabled(db, user_id, "social"):
+                pushes.append((str(user_id), title))
+        await db.commit()
+
+    for user_id, noti_title in pushes:
+        await _try_push(user_id, noti_title, body, link)
 
 
 _BIZ_RESULT_COPY = {
@@ -457,6 +499,76 @@ async def _handle_report_submitted(payload: dict, *, source_event_id: str) -> No
     )
 
 
+_TITLE_TRANSFER_COPY = {
+    "D7": "거래 완료 후 7일이 지났어요. 명의이전 체크리스트를 확인해 보세요.",
+    "D25": "명의이전 기한이 얼마 남지 않았어요. 체크리스트를 확인해 보세요.",
+}
+
+
+async def _handle_title_transfer_reminder(payload: dict, *, source_event_id: str) -> None:
+    """016 §4-6 #41, D-35=(a) — SOLD 매물 명의이전 D+7/D+25 리마인더.
+
+    biz.profile_reviewed 와 동일하게 트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다.
+    payload 는 jobs.title_transfer_reminders 가 수신자 1명씩 개별 enqueue 한다.
+    ⚠ L-6 법무 미확인: 문구에 기한·과태료를 단정하지 않는다 — 체크리스트 화면(프론트)이
+    "관할 기관 확인 요망" 고지를 갖는다.
+    """
+    user_id = uuid.UUID(payload["user_id"])
+    listing_id = payload["listing_id"]
+    reminder_type = payload["reminder_type"]
+    title = "명의이전 체크리스트"
+    body = _TITLE_TRANSFER_COPY.get(reminder_type, _TITLE_TRANSFER_COPY["D7"])
+    link = f"market&id={listing_id}"
+
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=user_id,
+            notification_type="TITLE_TRANSFER",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+
+    if inserted:
+        await _try_push(str(user_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
+
+
+async def _handle_deal_result_ping(payload: dict, *, source_event_id: str) -> None:
+    """016 §4-7 #42 — 문의 후 조용해진 매물 거래 결과 확인 핑.
+
+    title_transfer_reminder 와 동일하게 트랜잭셔널 알림으로 취급해 푸시 게이트 없이 발송한다.
+    응답(4지선다)은 프론트가 매물 상세 화면에서 처리하므로 링크는 매물 상세로만 보낸다.
+    """
+    user_id = uuid.UUID(payload["user_id"])
+    listing_id = payload["listing_id"]
+    listing_title = payload.get("title") or ""
+    title = "거래 결과를 알려주세요"
+    body = f"'{listing_title}' 매물, 거래되셨나요? 잠깐 확인해 주세요."
+    link = f"market&id={listing_id}"
+
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=user_id,
+            notification_type="DEAL_RESULT_PING",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+
+    if inserted:
+        await _try_push(str(user_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, user_id)
+
+
 async def _handle_search_reindex(payload: dict, *, source_event_id: str) -> None:
     """P3: 등록/수정된 엔티티의 번역을 확보(캐시 워밍)하고 search_blob 을 재계산한다.
 
@@ -475,6 +587,7 @@ async def _handle_search_reindex(payload: dict, *, source_event_id: str) -> None
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
     "market.listing_created": _handle_listing_created,
+    "market.price_drop": _handle_price_drop,
     "market.completion_requested": _handle_completion_requested,
     "market.completion_declined": _handle_completion_declined,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
@@ -483,6 +596,8 @@ HANDLERS = {
     "support.replied": _handle_support_replied,
     "report.submitted": _handle_report_submitted,
     "search.reindex": _handle_search_reindex,
+    "market.title_transfer_reminder": _handle_title_transfer_reminder,
+    "market.deal_result_ping": _handle_deal_result_ping,
 }
 
 

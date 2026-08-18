@@ -16,3 +16,4 @@ redis[hiredis]>=5.0
 playwright>=1.49
 google-auth>=2.30.0
 boto3>=1.34
+Pillow>=10.4  # 016 §4-3 #38 — 이미지 perceptual hash(dHash) 자체 계산용(외부 AI 이미지 판별 API 미사용)

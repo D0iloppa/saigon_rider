@@ -15,6 +15,7 @@ from ..database import get_db
 from ..deps import optional_user_session, verify_user_session
 from ..models import Content
 from ..schemas import ContentOut
+from ..services.listing_fingerprint import compute_dhash
 from ..utils import build_imgproxy_url
 
 router = APIRouter(prefix="/contents", tags=["컨텐츠 (Contents)"])
@@ -107,6 +108,10 @@ async def upload_content(
     # owner_id 는 클라이언트 값을 신뢰하지 않고 세션 유저로 강제
     parsed_owner_id = _session_uid
 
+    # 016 §4-3 #38 — 업로드 시점에 지문 산출·저장(판정 로직 없음, D-34=(a)). 디코딩 실패 시
+    # None 이 되지만 업로드 자체를 막지 않는다(부가 기능, to_thread 로 이벤트루프 비차단).
+    phash = await asyncio.to_thread(compute_dhash, data)
+
     content = Content(
         id=content_id,
         owner_type=owner_type,
@@ -116,6 +121,7 @@ async def upload_content(
         original_filename=file.filename,
         file_size=len(data),
         is_private=is_private,
+        phash=phash,
     )
     db.add(content)
     await db.commit()

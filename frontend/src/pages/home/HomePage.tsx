@@ -7,6 +7,7 @@ import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { fetchWallet } from '@/api/wallet';
 import { fetchNotifications } from '@/api/notifications';
+import { fetchNotices, type NoticeItem } from '@/api/notices';
 import { fetchUserStats } from '@/api/profile';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
 import type { WeatherData, FloodReport } from '@/api/info';
@@ -154,7 +155,7 @@ export default function HomePage() {
   // 정보 4종 조회 기준 — 주유소·정비소·날씨 상세 화면과 동일한 공용 훅을 쓴다.
   const { origin: infoOrigin, fetchRadiusKm: infoRadiusKm } = useServiceLocation();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const didInit = useRef(false);
 
   const [xp, setXp] = useState(0);
@@ -194,6 +195,8 @@ export default function HomePage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [notiUnread, setNotiUnread] = useState(0);
+  // #23: 홈 배너 1슬롯 — 고정(pinned) 공지 1건만 노출. 없으면 배너 미표시.
+  const [pinnedNotice, setPinnedNotice] = useState<NoticeItem | null>(null);
 
   useEffect(() => {
     if (didInit.current) return;
@@ -293,8 +296,13 @@ export default function HomePage() {
       fetchFeed({ filter: 'hot', size: 4 })
         .then((res) => { setCommunityPosts(res.items); setCommunityStatus('ready'); })
         .catch(() => { setCommunityPosts([]); setCommunityStatus('unavailable'); }),
+      // #23: /notices 가 이미 is_pinned desc, published_at desc 로 정렬해주므로
+      // 목록의 첫 항목이 pinned 이면 그것만 배너로 쓴다. pinned 이 없으면 배너 미표시.
+      fetchNotices(i18n.language)
+        .then((items) => setPinnedNotice(items[0]?.is_pinned ? items[0] : null))
+        .catch(() => setPinnedNotice(null)),
     ]).finally(() => setDataLoading(false));
-  }, [coords, infoOrigin, infoRadiusKm, scopeMode]);
+  }, [coords, infoOrigin, infoRadiusKm, scopeMode, i18n.language]);
 
   useEffect(() => {
     if (!locationReady) return;
@@ -560,6 +568,24 @@ export default function HomePage() {
             })
           }
         </div>
+
+        {/* ── ③-0 공지 배너 (#23, 고정 공지 1건만) ── */}
+        {pinnedNotice && (
+          <div className={styles.bannerWrap}>
+            <button className={styles.guideBanner} onClick={() => navigate(`/notices/${pinnedNotice.id}`)}>
+              <div className={styles.guideBannerText}>
+                <div className={styles.guideBannerSub}>{t('home.v2.noticeSub')}</div>
+                <div className={styles.guideBannerTitle}>{pinnedNotice.title}</div>
+                <div className={styles.guideBannerCta}>
+                  {t('home.v2.noticeCta')}<IcoChevron color="#e8743a" size={14} />
+                </div>
+              </div>
+              <div className={styles.guideBannerIllo}>
+                <Megaphone size={64} strokeWidth={1.5} color="#f6913f" aria-hidden="true" />
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* ── ③ 안전거래 가이드 배너 ── */}
         <div className={styles.bannerWrap}>

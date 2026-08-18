@@ -49,6 +49,7 @@ _notification_type_enum = ENUM(
     "BIZ",
     "MODERATION",
     "SUPPORT",
+    "TITLE_TRANSFER",
     name="notification_type",
     create_type=False,
 )
@@ -166,6 +167,9 @@ class User(Base):
     # 연령(만 14세 이상) 확인 — 약관/개인정보와 별개 체크박스로 받는다 (171). 버전은 약관 §1 기준(terms_version).
     consent_age_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consent_age_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # 유입 귀속 — 016 §6-2 #30, D-30=(b), init/188. first-touch·불변: 가입(find-or-create
+    # 신규 분기) 시 1회만 쓰고 이후 로그인 경로에서는 절대 갱신하지 않는다(routers/auth.py).
+    acquisition_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class UserOtp(Base):
@@ -239,8 +243,21 @@ class Content(Base):
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # F-06 잔여: 업로드 시점에 지정하는 비공개 플래그 — 사업자등록증·간판 등 검증 문서용.
     is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # 016 §4-3 #38 — 이미지 perceptual hash(dHash, init/193). 산출만, 판정 로직 없음(D-34=(a)).
+    phash: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ContentFingerprintWhitelist(Base):
+    """016 §4-3 #38 오탐 방지 — 제조사 카탈로그 등 반복 등장이 정상인 phash 화이트리스트.
+    운영자가 수기 등록(init/193). 초기값 없음."""
+
+    __tablename__ = "content_fingerprint_whitelist"
+
+    phash: Mapped[str] = mapped_column(String(16), primary_key=True)
+    note: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Quest(Base):
@@ -497,6 +514,12 @@ class MarketplaceListing(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     # 다국어 검색용 정규화 blob (164 migration, search_index.py 가 씀). None = 미색인(폴백 COALESCE 필요).
     search_blob: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 016 §4-3 #38 — 제목+설명 정규화 텍스트의 simhash(init/193). 산출만, 판정 로직 없음(D-34=(a)).
+    text_fingerprint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 016 §4-6 #41 — 서류·명의 상태(init/194). NULL=미기재(선택 표시, D-28=(a) — 강제 입력 아님).
+    # MISMATCH(등록증 명의 불일치)가 핵심 위험 신호 — 매물 상세에 배지로 노출한다.
+    paper_status: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    plate_province: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     images: Mapped[list["MarketplaceListingImage"]] = relationship(
         "MarketplaceListingImage",
@@ -505,6 +528,74 @@ class MarketplaceListing(Base):
         order_by="MarketplaceListingImage.sort_order",
         cascade="all, delete-orphan",
     )
+
+
+class ListingStateLog(Base):
+    """016 §4-1 #36 — 매물 상태 전이 이력 (init/191). 상태가 바뀌는 모든 지점에서
+    services.listing_state.log_transition() 을 통해 적재된다. 조회 전용 — ORM relationship 은
+    두지 않는다(#36 완료조건은 기록·조회 가능이며 매물 상세에 얹는 UI 는 비범위)."""
+
+    __tablename__ = "listing_state_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    from_state: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    to_state: Mapped[str] = mapped_column(String(12), nullable=False)
+    actor_type: Mapped[str] = mapped_column(String(10), nullable=False)  # 'user'|'admin'|'system'
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ListingPriceLog(Base):
+    """016 §4-2 #37 — 매물 가격 변동 이력 (init/192). update_price 가 가격이 바뀔 때마다(인상·
+    인하 모두) 적재한다 — 미끼가(B-BAIT-PRICE: 낮은 가격으로 문의 유입 후 인상) 탐지(#39)는
+    인상 기록이 있어야 성립하므로 인하만 남기면 안 된다. 인하 알림(이 파일 아래)만 인하일 때로
+    한정된다."""
+
+    __tablename__ = "listing_price_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    old_price_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    new_price_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TitleTransferReminderLog(Base):
+    """016 §4-6 #41 — 명의이전 D+7/D+25 리마인더 발송 이력 (init/194). 앵커는 이 테이블이 아니라
+    listing_state_log 의 SOLD 전이 시각(jobs.title_transfer_reminders 가 조회). 이 테이블은 중복
+    발송 방지용(UNIQUE listing_id+reminder_type)."""
+
+    __tablename__ = "title_transfer_reminder_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    reminder_type: Mapped[str] = mapped_column(String(4), nullable=False)  # 'D7' | 'D25'
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DealResultPingLog(Base):
+    """016 §4-7 #42 — 거래 결과 확인 핑 발송·응답 이력 (init/195). jobs.deal_result_ping 이
+    문의를 받고 조용해진 ON_SALE 매물에 매물당 1회만 발송(UNIQUE listing_id)하고, 응답은
+    market.py 의 respond_deal_result 가 이 행에 result·responded_at 을 채운다. result IS NULL
+    = 미응답. "다른 데서 판매" 비율(경쟁 플랫폼 유출률)은 이 테이블에서 직접 집계한다."""
+
+    __tablename__ = "deal_result_ping_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    result: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class MarketplaceListingImage(Base):
@@ -995,12 +1086,13 @@ class AdDailyStat(Base):
 
 
 class FunnelEvent(Base):
-    """퍼널 계측 원시 이벤트 (정본 §5 #5, D-18(a) — init/182).
+    """퍼널 계측 원시 이벤트 (정본 §5 #5, D-18(a) — init/182 + 016 §3-2 #16 상호작용 로그 확장 — init/183).
 
-    핵심 이벤트 8종(가입·매물조회·등록·문의·가격제안·약속·완료·후기)을 서버측 요청 처리 지점에서
-    적재한다(ad_events 와 같은 패턴). event_type 카탈로그는 schemas.FunnelEventType 이 SoT —
-    DB CHECK 제약 없음(값 추가가 마이그레이션을 부르지 않도록). entity_id 는 이벤트 종류마다
-    대상이 달라(매물/대화/약속/후기) 단일 FK 를 걸지 않는다.
+    핵심 이벤트 8종(가입·매물조회·등록·문의·가격제안·약속·완료·후기) + 검색(#21) 등을 서버측 요청
+    처리 지점에서 적재한다(ad_events 와 같은 패턴). event_type 카탈로그는 schemas.FunnelEventType
+    이 SoT — DB CHECK 제약 없음(값 추가가 마이그레이션을 부르지 않도록). entity_id 는 이벤트
+    종류마다 대상이 달라(매물/대화/약속/후기) 단일 FK 를 걸지 않는다. subject_type 과 짝지어
+    (subject_type, entity_id) 로 대상을 특정한다(016 초안의 subject_id 대신 기존 UUID 체계 유지).
     """
 
     __tablename__ = "funnel_events"
@@ -1014,6 +1106,12 @@ class FunnelEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     stat_date: Mapped[date] = mapped_column(Date, nullable=False)
+    anon_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    subject_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    surface: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    acq_source: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    props: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
 class FunnelDailyStat(Base):
@@ -1385,11 +1483,18 @@ class AppConfig(Base):
 
 
 class SupportTicket(Base):
+    """고객센터 문의. 013/016 §8(L5 이슈) #25~#27 로 이슈 인테이크 필드 확장(init/185).
+
+    D-27=(a): 신고(Report)는 별도 테이블로 유지하고, 어드민 API 계층(admin_api/issues.py)에서
+    이 테이블과 UNION 병합한다 — 신규 incident 테이블은 만들지 않는다.
+    """
+
     __tablename__ = "support_tickets"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    # EXTERNAL 채널(외부 수기 등록, #25)은 앱 사용자가 아닐 수 있어 nullable.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1397,6 +1502,13 @@ class SupportTicket(Base):
     has_unread_reply: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    # #25/#26/#27 — 값 카탈로그는 schemas.py 가 SoT (DB CHECK 없음, 기존 reason/event_type 관례 승계).
+    category: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    severity: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="APP")
+    persona: Mapped[str] = mapped_column(String(10), nullable=False, default="USER")
+    result_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    contract_context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id], lazy="joined")
     replies: Mapped[list["SupportReply"]] = relationship(
@@ -1767,6 +1879,8 @@ class Report(Base):
     handled_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
     handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # #26(013/016 §8) — 처리 결과 코드. RESOLVED/REJECTED 전이 시 미입력이면 422(init/185).
+    result_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
 
 @event.listens_for(Report, "after_insert")

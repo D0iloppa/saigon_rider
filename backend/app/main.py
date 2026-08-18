@@ -66,7 +66,9 @@ async def lifespan(app: FastAPI):
 
     from .jobs.alert_report_backlog import check_report_backlog
     from .jobs.backup_db import run_backup
+    from .jobs.deal_result_ping import send_deal_result_pings
     from .jobs.expire_flood_reports import expire_stale_flood_reports
+    from .jobs.expire_stale_listings import expire_stale_listings
     from .jobs.fetch_fuel_prices import run_fetch_cycle
     from .jobs.predict_flood_risk import run_flood_risk_prediction
     from .jobs.purge_deleted_accounts import purge_deleted_accounts
@@ -74,6 +76,7 @@ async def lifespan(app: FastAPI):
     from .jobs.retry_quest_rewards import retry_failed_quest_rewards
     from .jobs.rollup_ad_stats import rollup_ad_stats
     from .jobs.rollup_funnel_stats import rollup_funnel_stats
+    from .jobs.title_transfer_reminders import send_title_transfer_reminders
 
     scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
     for hour, minute in [(4, 0), (15, 30), (22, 30), (23, 30)]:
@@ -109,6 +112,31 @@ async def lifespan(app: FastAPI):
         retry_failed_quest_rewards,
         IntervalTrigger(minutes=1),
         id="retry_failed_quest_rewards",
+        max_instances=1,
+        coalesce=True,
+    )
+    # 매물 30일 무갱신 자동 EXPIRED (016 §4-1 #36, D-32=(a)) — 트래픽 낮은 새벽, backup(02:30)·
+    # purge_deleted_accounts(03:10) 과 겹치지 않는 시간대.
+    scheduler.add_job(
+        expire_stale_listings,
+        CronTrigger(hour=1, minute=0),
+        id="expire_stale_listings",
+        max_instances=1,
+        coalesce=True,
+    )
+    # 명의이전 D+7/D+25 리마인더 (016 §4-6 #41, D-35=(a)) — expire_stale_listings(01:00) 직후.
+    scheduler.add_job(
+        send_title_transfer_reminders,
+        CronTrigger(hour=1, minute=5),
+        id="title_transfer_reminders",
+        max_instances=1,
+        coalesce=True,
+    )
+    # 거래 결과 확인 핑 (016 §4-7 #42) — title_transfer_reminders(01:05) 직후.
+    scheduler.add_job(
+        send_deal_result_pings,
+        CronTrigger(hour=1, minute=10),
+        id="deal_result_ping",
         max_instances=1,
         coalesce=True,
     )

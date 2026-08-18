@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 from enum import StrEnum
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -199,6 +199,12 @@ class MarketplaceListingDetail(BaseModel):
     # T-1: 업체 계정 매물 — 있으면 프론트가 판매자를 업체명으로 표기한다.
     business_profile_id: UUID | None = None
     business_name: str | None = None
+    # 016 §4-6 #41: 서류·명의 상태 — 선택 표시(D-28=(a)), None=미기재. MISMATCH 는 상세 화면 배지로 노출.
+    paper_status: str | None = None
+    plate_province: str | None = None
+    # 016 §4-7 #42: 미응답 거래결과핑 존재 여부 — 판매자 본인 조회 시에만 True 가 의미있다
+    # (market.py 가 판매자가 아니어도 계산은 하지만 프론트는 본인 매물에서만 배너를 띄운다).
+    pending_deal_ping: bool = False
 
 
 class MarketplaceListingCreateRequest(BaseModel):
@@ -218,6 +224,9 @@ class MarketplaceListingCreateRequest(BaseModel):
     # 소유(user_id)한 APPROVED 프로필이어야 한다 — market.py create_listing 이 검증.
     # (verification_status=verified 는 2026-08-11 대표 결정으로 초기 파일럿 기간엔 미요구)
     business_profile_id: UUID | None = None
+    # 016 §4-6 #41: 서류·명의 — 선택 표시(D-28=(a)), 미기재 허용(등록 마찰 최소화).
+    paper_status: Literal["MATCH", "MISMATCH", "NONE"] | None = None
+    plate_province: str | None = None
 
 
 class MarketplaceListingCreated(BaseModel):
@@ -301,6 +310,7 @@ class FunnelEventType(StrEnum):
     APPOINTMENT = "appointment"
     TRADE_COMPLETE = "trade_complete"
     REVIEW = "review"
+    SEARCH = "search"
 
 
 class ReportCreateRequest(BaseModel):
@@ -308,6 +318,130 @@ class ReportCreateRequest(BaseModel):
 
     reason: str
     note: str | None = None
+
+
+# ── 이슈 운영 — L5 (013_ISSUE_OPS_SYSTEM_4PERSONA / 016 §8, init/185) ────────────────
+
+
+class IssueSeverity(StrEnum):
+    """SEV1(최상위)~SEV4. reports 는 기존 `_REASON_PRIORITY_HOURS`(admin_api/reports.py)에서
+    파생하고(신규 컬럼 없음 — 016 §8-3), support_tickets 는 category 로부터 기본값을 파생하거나
+    트리아지 시 직접 지정한다."""
+
+    SEV1 = "SEV1"
+    SEV2 = "SEV2"
+    SEV3 = "SEV3"
+    SEV4 = "SEV4"
+
+
+class IssueSource(StrEnum):
+    """유입 채널 — 013 §1 P1(모든 유입은 하나의 큐로 수렴, 채널은 source 필드일 뿐)."""
+
+    APP = "APP"  # 신고 버튼·일반 문의
+    BIZ = "BIZ"  # #27 업체 전용 채널
+    EXTERNAL = "EXTERNAL"  # #25 외부(규제기관·앱스토어 리뷰 등) 수기 등록
+
+
+class IssuePersona(StrEnum):
+    """013 §2 4관점."""
+
+    USER = "USER"
+    BIZ = "BIZ"
+    OPS = "OPS"
+
+
+class IssueCategory(StrEnum):
+    """013 §2 / 016 §8-2 사고 유형 taxonomy — support_tickets.category 값 카탈로그(SoT).
+    DB CHECK 없음(값 추가가 마이그레이션을 부르지 않도록 — funnel_events.event_type 관례 승계)."""
+
+    # 구매자
+    B_FRAUD_PREPAY = "B-FRAUD-PREPAY"
+    B_FAKE_LISTING = "B-FAKE-LISTING"
+    B_STALE = "B-STALE"
+    B_BAIT_PRICE = "B-BAIT-PRICE"
+    B_STOLEN = "B-STOLEN"
+    B_NOSHOW = "B-NOSHOW"
+    B_HARASS = "B-HARASS"
+    B_PII = "B-PII"
+    B_BUG = "B-BUG"
+    # 판매자
+    S_APPEAL = "S-APPEAL"
+    S_FALSE_REPORT = "S-FALSE-REPORT"
+    S_NOSHOW = "S-NOSHOW"
+    S_LOWBALL = "S-LOWBALL"
+    S_HIJACK = "S-HIJACK"
+    S_PHOTO_THEFT = "S-PHOTO-THEFT"
+    S_BAD_REVIEW = "S-BAD-REVIEW"
+    S_POSTSALE = "S-POSTSALE"
+    # 비즈니스 파트너
+    P_NOSERVE = "P-NOSERVE"
+    P_BILLING = "P-BILLING"
+    P_CREATIVE = "P-CREATIVE"
+    P_IMPERSONATE = "P-IMPERSONATE"
+    P_BAD_REVIEW = "P-BAD-REVIEW"
+    P_REPORT_DOUBT = "P-REPORT-DOUBT"
+    P_CANCEL = "P-CANCEL"
+    # 운영자(플랫폼)
+    O_OUTAGE = "O-OUTAGE"
+    O_BACKLOG = "O-BACKLOG"
+    O_DATA_LEAK = "O-DATA-LEAK"
+    O_MASS_ERROR = "O-MASS-ERROR"
+    O_REGULATOR = "O-REGULATOR"
+    O_ABUSE_SURGE = "O-ABUSE-SURGE"
+    O_STORE_REVIEW = "O-STORE-REVIEW"
+
+
+# 016 §8-2 표의 심각도 그대로 — 새 분류 기준을 만들지 않는다.
+ISSUE_CATEGORY_SEVERITY: dict[str, str] = {
+    IssueCategory.B_FRAUD_PREPAY: IssueSeverity.SEV1,
+    IssueCategory.B_FAKE_LISTING: IssueSeverity.SEV3,
+    IssueCategory.B_STALE: IssueSeverity.SEV4,
+    IssueCategory.B_BAIT_PRICE: IssueSeverity.SEV3,
+    IssueCategory.B_STOLEN: IssueSeverity.SEV1,
+    IssueCategory.B_NOSHOW: IssueSeverity.SEV4,
+    IssueCategory.B_HARASS: IssueSeverity.SEV2,
+    IssueCategory.B_PII: IssueSeverity.SEV1,
+    IssueCategory.B_BUG: IssueSeverity.SEV3,
+    IssueCategory.S_APPEAL: IssueSeverity.SEV2,
+    IssueCategory.S_FALSE_REPORT: IssueSeverity.SEV3,
+    IssueCategory.S_NOSHOW: IssueSeverity.SEV4,
+    IssueCategory.S_LOWBALL: IssueSeverity.SEV4,
+    IssueCategory.S_HIJACK: IssueSeverity.SEV1,
+    IssueCategory.S_PHOTO_THEFT: IssueSeverity.SEV3,
+    IssueCategory.S_BAD_REVIEW: IssueSeverity.SEV4,
+    IssueCategory.S_POSTSALE: IssueSeverity.SEV3,
+    IssueCategory.P_NOSERVE: IssueSeverity.SEV2,
+    IssueCategory.P_BILLING: IssueSeverity.SEV2,
+    IssueCategory.P_CREATIVE: IssueSeverity.SEV3,
+    IssueCategory.P_IMPERSONATE: IssueSeverity.SEV1,
+    IssueCategory.P_BAD_REVIEW: IssueSeverity.SEV3,
+    IssueCategory.P_REPORT_DOUBT: IssueSeverity.SEV3,
+    IssueCategory.P_CANCEL: IssueSeverity.SEV2,
+    IssueCategory.O_OUTAGE: IssueSeverity.SEV1,
+    IssueCategory.O_BACKLOG: IssueSeverity.SEV2,
+    IssueCategory.O_DATA_LEAK: IssueSeverity.SEV1,
+    IssueCategory.O_MASS_ERROR: IssueSeverity.SEV1,
+    IssueCategory.O_REGULATOR: IssueSeverity.SEV1,
+    IssueCategory.O_ABUSE_SURGE: IssueSeverity.SEV2,
+    IssueCategory.O_STORE_REVIEW: IssueSeverity.SEV3,
+}
+
+
+class IssueResultCode(StrEnum):
+    """#26 처리 결과 코드 — RESOLVED/REJECTED 전이 시 미입력이면 422(B4 원칙: 결과 코드 없이 종결 불가).
+    조치 세부(제재 종류·기간)를 신고자에게 노출하지 않는 기존 원칙(§5 #1)과 별개로, 내부 집계·주간
+    리뷰용 코드다."""
+
+    NO_ACTION = "NO_ACTION"
+    WARNING_ISSUED = "WARNING_ISSUED"
+    CONTENT_REMOVED = "CONTENT_REMOVED"
+    ACCOUNT_SUSPENDED = "ACCOUNT_SUSPENDED"
+    ACCOUNT_BANNED = "ACCOUNT_BANNED"
+    MAKEGOOD_GRANTED = "MAKEGOOD_GRANTED"
+    ESCALATED = "ESCALATED"
+    DUPLICATE = "DUPLICATE"
+    INVALID = "INVALID"
+    OTHER = "OTHER"
 
 
 class MarketplaceAdOut(BaseModel):
@@ -346,12 +480,21 @@ class MarketplaceListingStatusUpdate(BaseModel):
     status: str  # ON_SALE | RESERVED | SOLD | WITHDRAWN
 
 
+class DealResultResponseRequest(BaseModel):
+    """016 §4-7 #42 — 거래 결과 확인 핑 응답. 4지선다."""
+
+    result: Literal["SOLD", "STILL_SELLING", "SOLD_ELSEWHERE", "GAVE_UP"]
+
+
 class MarketplaceListingUpdateRequest(BaseModel):
     seller_id: UUID
     title: str
     description: str | None = None
     category_id: int | None = None
     image_content_ids: list[UUID] = []
+    # 016 §4-6 #41: 등록 후에도 추가/정정 가능 — 선택 표시(D-28=(a)).
+    paper_status: Literal["MATCH", "MISMATCH", "NONE"] | None = None
+    plate_province: str | None = None
 
 
 class MarketplaceListingPriceUpdate(BaseModel):
@@ -438,6 +581,9 @@ class OAuthLoginRequest(BaseModel):
     provider: str  # 'google' | 'facebook' | 'apple'
     token: str
     token_type: str = "id_token"  # 'id_token' | 'access_token'
+    # 유입 귀속 코드(016 §6-2 #30) — 신규가입일 때만 쓰인다(first-touch). 정규화는
+    # routers/auth.py:_normalize_acq_source() 가 담당.
+    ref: str | None = None
 
 
 class SessionVerifyRequest(BaseModel):
@@ -1156,6 +1302,10 @@ class SupportTicketOut(BaseModel):
     reply_count: int = 0
     created_at: datetime
     updated_at: datetime
+    category: str | None = None
+    severity: str | None = None
+    source: str = "APP"
+    persona: str = "USER"
 
     class Config:
         from_attributes = True
@@ -1163,6 +1313,16 @@ class SupportTicketOut(BaseModel):
 
 class SupportTicketDetail(SupportTicketOut):
     replies: list[SupportReplyOut] = []
+
+
+class BizIssueCreateRequest(BaseModel):
+    """#27 업체 전용 이슈 채널 — BizDashboard 진입점. ad_id 로 계약 컨텍스트(계약ID·지면·기간)를
+    서버가 자동 첨부한다(사용자가 직접 입력하지 않음)."""
+
+    ad_id: uuid.UUID
+    category: IssueCategory = IssueCategory.P_NOSERVE
+    title: str
+    body: str
 
 
 # ── 비즈니스 파트너 (SGR-312 BP-2) ────────────────────────────────

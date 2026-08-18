@@ -40,10 +40,10 @@ export interface OAuthLoginResult {
   is_new: boolean;
 }
 
-export async function apiOAuthLogin(provider: string, token: string, tokenType: string = 'id_token'): Promise<OAuthLoginResult> {
+export async function apiOAuthLogin(provider: string, token: string, tokenType: string = 'id_token', ref?: string | null): Promise<OAuthLoginResult> {
   return api.realFetch<OAuthLoginResult>('/auth/oauth/login', {
     method: 'POST',
-    body: JSON.stringify({ provider, token, token_type: tokenType }),
+    body: JSON.stringify({ provider, token, token_type: tokenType, ref: ref ?? undefined }),
   });
 }
 

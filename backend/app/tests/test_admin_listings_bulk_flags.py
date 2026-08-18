@@ -137,8 +137,8 @@ class BulkModerateListingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(listing_b.status, "REMOVED")
         self.assertEqual(result["missing_ids"], [str(missing_id)])
         self.assertEqual({row["id"] for row in result["updated"]}, {listing_a.id, listing_b.id})
-        # 매물당 알림 1건 + 감사로그 1건 = 총 4건 add
-        self.assertEqual(len(added), 4)
+        # 매물당 알림 1건 + 감사로그 1건 + 상태전이 로그 1건(016 §4-1 #36) = 총 6건 add
+        self.assertEqual(len(added), 6)
         db.commit.assert_awaited_once()
 
     async def test_rejects_invalid_action(self):

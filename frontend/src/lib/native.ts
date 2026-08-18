@@ -25,6 +25,7 @@ import {
 } from './plugins/ImageViewer';
 import { Fcm, type FcmNotificationEvent } from './plugins/Fcm';
 import { KeyboardBridge } from './plugins/KeyboardBridge';
+import { getStoredAcqRef } from './acquisition';
 
 // ─── 타입 정의 ──────────────────────────────────────────────────────────────
 
@@ -642,7 +643,10 @@ class NativeInterface {
       throw new Error(`[NativeInterface] signInWith: ${provider} not yet supported`);
     }
 
-    const startUrl = `https://saigon.doil.me/api/bff/auth/oauth/${provider}/start`;
+    // 유입 귀속(016 §6-2 #30) — 캡처된 ref 를 redirect flow의 state 에 실어 콜백까지 들고
+    // 간다(routers/auth.py:oauth_*_start). 없으면 서버가 'organic' 으로 처리.
+    const ref = getStoredAcqRef();
+    const startUrl = `https://saigon.doil.me/api/bff/auth/oauth/${provider}/start${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`;
     const { callbackUrl } = await WebAuth.authenticate({
       url: startUrl,
       callbackScheme: 'com.saigonrider.user',

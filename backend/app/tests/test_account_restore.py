@@ -170,7 +170,7 @@ class CallbackRedirectNeverCarriesRestoreTokenTest(unittest.IsolatedAsyncioTestC
     async def _callback(self, deleted_user: User) -> str:
         profile = MagicMock(provider="google", provider_user_id="g-1", email="a@b.c", raw={})
         with (
-            patch.object(auth, "consume_oauth_state", AsyncMock(return_value=(True, None))),
+            patch.object(auth, "consume_oauth_state", AsyncMock(return_value=(True, None, None))),
             patch.object(auth, "exchange_google_code", AsyncMock(return_value=profile)),
             patch.object(auth, "issue_oauth_exchange", AsyncMock(return_value="exch-code-1")) as issue_mock,
         ):

@@ -49,11 +49,13 @@ export function formatResponseRate(rate: number | null, t: TFunction): string {
   return '';
 }
 
-/** 상태 i18n 키 (ON_SALE/RESERVED/SOLD) */
+/** 상태 i18n 키 (ON_SALE/RESERVED/SOLD/EXPIRED) */
 export function statusLabelKey(status: ListingStatus): string {
   if (status === 'RESERVED') return 'market.statusReserved';
   if (status === 'SOLD') return 'market.statusSold';
   if (status === 'HIDDEN') return 'market.statusHidden';
   if (status === 'WITHDRAWN') return 'market.statusWithdrawn';
+  // 016 §4-1 #36: 자동만료(30일 무갱신) — 삭제가 아니라 복구 가능한 상태(D-32=(a)).
+  if (status === 'EXPIRED') return 'market.statusExpired';
   return 'market.statusOnSale';
 }

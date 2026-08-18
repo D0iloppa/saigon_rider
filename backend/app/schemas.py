@@ -1662,10 +1662,20 @@ class BusinessReviewOut(BaseModel):
     # 사장님 댓글 (③, 016 §8-2 P-BAD-REVIEW) — 후기당 1개, init/198.
     owner_reply: str | None = None
     owner_replied_at: datetime | None = None
+    # 운영자 조치(숨김) — 목록(get_public_reviews)에선 항상 None(숨김 후기는 거기서 제외됨).
+    # "내 후기"(get_my_public_review) 에서만 non-null 로 내려가 작성자가 사유를 보고 이의제기할 수 있다.
+    hidden_at: datetime | None = None
+    hidden_reason: str | None = None
 
 
 class BusinessReviewReplyRequest(BaseModel):
     """사장님 댓글 작성/수정 — 오너만, 후기당 1개(upsert)."""
+
+    body: str = Field(min_length=1)
+
+
+class ReviewAppealCreateRequest(BaseModel):
+    """숨김 조치된 후기에 대한 작성자 이의제기 — 010 #2 S-APPEAL 폐루프에 얹는다(새 인프라 없음)."""
 
     body: str = Field(min_length=1)
 

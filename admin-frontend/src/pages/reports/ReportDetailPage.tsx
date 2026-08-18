@@ -7,8 +7,9 @@ import ModerateModal from '../../components/ModerateModal'
 import SanctionModal from '../../components/SanctionModal'
 import StatusTag from '../../components/StatusTag'
 import DmViewer from './DmViewer'
+import ReviewReportPanel from './ReviewReportPanel'
 
-const TARGET_LABEL: Record<string, string> = { LISTING: '매물', USER: '유저', DM: 'DM' }
+const TARGET_LABEL: Record<string, string> = { LISTING: '매물', USER: '유저', DM: 'DM', REVIEW: '후기' }
 
 export default function ReportDetailPage() {
   const { id = '' } = useParams()
@@ -173,6 +174,8 @@ export default function ReportDetailPage() {
           </Space>
         </Card>
       )}
+
+      {report.target_type === 'REVIEW' && <ReviewReportPanel reportId={report.id} reviewId={report.review_id} />}
 
       {report.report_images.length > 0 && (
         <Card title="신고자 첨부 사진">

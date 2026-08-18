@@ -63,6 +63,7 @@ from ..schemas import (
     MarketplaceAdOut,
     Page,
     ReportCreateRequest,
+    ReviewAppealCreateRequest,
     SupportTicketOut,
 )
 from ..services import noti_events
@@ -941,7 +942,7 @@ async def _review_stats_map(db: AsyncSession, profile_ids: list[uuid.UUID]) -> d
     rows = (
         await db.execute(
             select(BusinessReview.profile_id, func.count(), func.avg(BusinessReview.rating))
-            .where(BusinessReview.profile_id.in_(profile_ids))
+            .where(BusinessReview.profile_id.in_(profile_ids), BusinessReview.hidden_at.is_(None))
             .group_by(BusinessReview.profile_id)
         )
     ).all()
@@ -989,7 +990,7 @@ async def _review_previews_map(
     )
     sub = (
         select(BusinessReview.profile_id, BusinessReview.rating, BusinessReview.body, rn)
-        .where(BusinessReview.profile_id.in_(profile_ids))
+        .where(BusinessReview.profile_id.in_(profile_ids), BusinessReview.hidden_at.is_(None))
         .subquery()
     )
     rows = (
@@ -1413,6 +1414,10 @@ def _review_out(r: BusinessReview, nickname: str | None) -> BusinessReviewOut:
         reviewer_nickname=nickname,
         owner_reply=r.owner_reply,
         owner_replied_at=r.owner_replied_at,
+        # getattr 기본값: 기존 계약 테스트(test_business_review_lifecycle.py)의 SimpleNamespace
+        # 스텁이 hidden_at/hidden_reason 을 안 가지고 있어도 깨지지 않게(_admin_uuid 관례 미러).
+        hidden_at=getattr(r, "hidden_at", None),
+        hidden_reason=getattr(r, "hidden_reason", None),
     )
 
 
@@ -1440,14 +1445,14 @@ async def get_public_reviews(
         await db.execute(
             select(func.count(), func.avg(BusinessReview.rating))
             .select_from(BusinessReview)
-            .where(BusinessReview.profile_id == profile_id)
+            .where(BusinessReview.profile_id == profile_id, BusinessReview.hidden_at.is_(None))
         )
     ).one()
     rows = (
         await db.execute(
             select(BusinessReview, User.nickname)
             .join(User, User.id == BusinessReview.user_id)
-            .where(BusinessReview.profile_id == profile_id)
+            .where(BusinessReview.profile_id == profile_id, BusinessReview.hidden_at.is_(None))
             .order_by(BusinessReview.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -1601,6 +1606,58 @@ async def delete_review_reply(
     return {"deleted": True}
 
 
+_BIZ_REPORT_REASONS = {"FALSE_ADVERTISING", "PRICE_MISMATCH", "POOR_SERVICE", "IMPERSONATION", "HEALTH_SAFETY", "OTHER"}
+
+
+@router.post("/public/{profile_id}/report", status_code=201, summary="업체 신고 (소비자→업체)")
+async def report_business(
+    profile_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """소비자 → 업체 신고 창구 (대표 지적 2026-08-18). 실측 권력 비대칭: 업체→후기/소비자 신고는
+    있었지만 소비자→업체 방향만 없었다. 016 §8-2 P-IMPERSONATE(사칭 업체, SEV1)가 유입 경로로
+    "신고·문의"를 적어둔 문서와 실제 버튼 부재가 어긋나 있던 것 + 016 §8-4 Decree 85/2021
+    (전자상거래 소비자 불만 접수 창구 의무, L-3 법무 확인 대기)를 함께 해소한다.
+    새 인프라 없이 통합 reports 테이블에 BIZ 로 합류(init/199). ④ 후기 신고와 동일하게 큐 적재만
+    한다 — 운영자 판정 전까지 업체는 그대로 노출(M1 탐지≠차단, 016 A2 오탐 1건=공급 1건 손실)."""
+    if body.reason not in _BIZ_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+
+    profile = await db.get(BusinessProfile, profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Business profile not found")
+    if profile.user_id is not None and profile.user_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report your own business")
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_biz_once: business_profile_id x reporter_id WHERE BIZ)와 동일 조건
+    dup = (
+        await db.execute(
+            select(Report.id).where(
+                Report.target_type == "BIZ",
+                Report.business_profile_id == profile_id,
+                Report.reporter_id == session_uid,
+            )
+        )
+    ).first()
+    if dup is not None:
+        raise HTTPException(status_code=409, detail="already reported")
+
+    db.add(
+        Report(
+            target_type="BIZ",
+            reporter_id=session_uid,
+            reported_user_id=profile.user_id,
+            business_profile_id=profile_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}
+
+
 _REVIEW_REPORT_REASONS = {"SPAM", "ABUSE", "INAPPROPRIATE", "OTHER"}
 
 
@@ -1653,6 +1710,72 @@ async def report_review(
     )
     await db.commit()
     return {"ok": True}
+
+
+@router.post(
+    "/public/{profile_id}/reviews/{review_id}/appeal",
+    response_model=SupportTicketOut,
+    status_code=201,
+    summary="후기 숨김 조치 이의제기 (작성자 본인만)",
+)
+async def appeal_review_moderation(
+    profile_id: uuid.UUID,
+    review_id: uuid.UUID,
+    body: ReviewAppealCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """대표 지적(260818) ③ — 업체 신고로 조치(숨김)된 후기라도 정당한 후기라면 작성자가 교정을
+    요청할 창구가 있어야 한다. 010 #2 가 만든 부당 제재·삭제 이의(S-APPEAL) 폐루프에 얹는다 —
+    새 인프라를 만들지 않고 통합 이슈 큐(GET /admin/api/issues)로 그대로 흘러간다. 남의 후기
+    이의는 404(소유권 미검증 시 403 대신 404 관례, report_review/delete_public_review 와 동일)."""
+    review = (
+        await db.execute(
+            select(BusinessReview).where(BusinessReview.id == review_id, BusinessReview.profile_id == profile_id)
+        )
+    ).scalar_one_or_none()
+    if review is None or review.user_id != session_uid:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if review.hidden_at is None:
+        raise HTTPException(status_code=400, detail="review is not hidden")
+    appeal_body = body.body.strip()
+    if not appeal_body:
+        raise HTTPException(status_code=400, detail="body is required")
+
+    ticket = SupportTicket(
+        user_id=session_uid,
+        title="후기 숨김 조치 이의제기",
+        body=appeal_body,
+        status="OPEN",
+        category="S-APPEAL",
+        # taxonomy 기본값(ISSUE_CATEGORY_SEVERITY[S_APPEAL])과 동일 — create_biz_issue 관례 미러
+        severity="SEV2",
+        source="APP",
+        persona="USER",
+        contract_context={
+            "review_id": str(review.id),
+            "profile_id": str(profile_id),
+            "hidden_reason": review.hidden_reason,
+            "hidden_at": review.hidden_at.isoformat() if review.hidden_at else None,
+        },
+    )
+    db.add(ticket)
+    await db.commit()
+    await db.refresh(ticket)
+    return SupportTicketOut(
+        id=ticket.id,
+        title=ticket.title,
+        body=ticket.body,
+        status=ticket.status,
+        has_unread_reply=False,
+        reply_count=0,
+        created_at=ticket.created_at,
+        updated_at=ticket.updated_at,
+        category=ticket.category,
+        severity=ticket.severity,
+        source=ticket.source,
+        persona=ticket.persona,
+    )
 
 
 @router.post("/public/{profile_id}/view-ping", summary="업체 프로필 실시간 열람 핑")

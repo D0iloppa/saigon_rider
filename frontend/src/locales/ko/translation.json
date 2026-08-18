@@ -2063,7 +2063,35 @@
         "reason_ABUSE": "욕설/비방",
         "reason_INAPPROPRIATE": "부적절한 내용",
         "reason_OTHER": "기타"
+      },
+      "appeal": {
+        "hiddenNotice": "내 후기가 비공개 처리되었어요",
+        "hiddenReasonLabel": "사유: {{reason}}",
+        "cta": "이의제기",
+        "title": "이의제기",
+        "placeholder": "왜 이 후기가 정당한지 설명해주세요",
+        "submit": "제출",
+        "submitting": "제출 중…",
+        "success": "이의제기가 접수되었어요. 검토 후 결과를 알려드릴게요",
+        "submittedNotice": "이의제기가 접수되었어요. 검토 후 결과를 알려드릴게요",
+        "error": "이의제기 접수에 실패했어요"
       }
+    },
+    "report": {
+      "entry": "업체 신고",
+      "title": "업체 신고",
+      "notePlaceholder": "자세한 내용을 알려주세요 (선택)",
+      "submit": "신고 접수",
+      "submitting": "접수 중…",
+      "success": "신고가 접수되었어요. 검토 후 조치됩니다",
+      "already": "이미 신고한 업체예요",
+      "error": "신고 접수에 실패했어요",
+      "reason_FALSE_ADVERTISING": "허위광고",
+      "reason_PRICE_MISMATCH": "표시가격 상이",
+      "reason_POOR_SERVICE": "서비스 불량",
+      "reason_IMPERSONATION": "사칭업체",
+      "reason_HEALTH_SAFETY": "위생·안전",
+      "reason_OTHER": "기타"
     },
     "dashboard": {
       "reviewStat": "후기 {{count}}",

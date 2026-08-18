@@ -2063,7 +2063,35 @@
         "reason_ABUSE": "Abusive language",
         "reason_INAPPROPRIATE": "Inappropriate content",
         "reason_OTHER": "Other"
+      },
+      "appeal": {
+        "hiddenNotice": "Your review was made private",
+        "hiddenReasonLabel": "Reason: {{reason}}",
+        "cta": "Appeal",
+        "title": "Appeal",
+        "placeholder": "Explain why this review is fair",
+        "submit": "Submit",
+        "submitting": "Submitting…",
+        "success": "Your appeal was submitted. We'll let you know the result after review",
+        "submittedNotice": "Your appeal was submitted. We'll let you know the result after review",
+        "error": "Couldn't submit your appeal"
       }
+    },
+    "report": {
+      "entry": "Report business",
+      "title": "Report this business",
+      "notePlaceholder": "Share more details (optional)",
+      "submit": "Submit report",
+      "submitting": "Submitting…",
+      "success": "Report submitted. It will be reviewed before any action",
+      "already": "You already reported this business",
+      "error": "Couldn't submit your report",
+      "reason_FALSE_ADVERTISING": "False advertising",
+      "reason_PRICE_MISMATCH": "Price mismatch",
+      "reason_POOR_SERVICE": "Poor service",
+      "reason_IMPERSONATION": "Impersonation",
+      "reason_HEALTH_SAFETY": "Health/safety issue",
+      "reason_OTHER": "Other"
     },
     "dashboard": {
       "reviewStat": "Reviews {{count}}",

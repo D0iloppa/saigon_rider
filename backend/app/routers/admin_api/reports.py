@@ -23,7 +23,10 @@ from ._audit import audit
 router = APIRouter(prefix="/reports")
 
 _STATUSES = {"PENDING", "REVIEWING", "RESOLVED", "REJECTED"}
-_TARGET_TYPES = {"LISTING", "USER", "DM"}
+# reports.target_type CHECK(init/199) 7값과 일치시킨다 — 여기가 뒤처지면 운영자가
+# "업체 신고만 보기"/"후기 신고만 보기" 같은 필터를 걸 수 없다(필터 없이는 보이므로
+# 조용히 불편해지는 종류다). 새 target_type 을 추가하면 이 집합도 같이 갱신하라.
+_TARGET_TYPES = {"LISTING", "USER", "DM", "POST", "COMMENT", "REVIEW", "BIZ"}
 # 종결(RESOLVED/REJECTED) 상태는 키 없음 → 어떤 전이도 400
 _ALLOWED_TRANSITIONS = {
     "PENDING": {"REVIEWING", "RESOLVED", "REJECTED"},
@@ -46,10 +49,17 @@ _REASON_PRIORITY_HOURS = {
     "STOLEN_GOODS": 480.0,
     "FRAUD": 240.0,
     "SCAM": 240.0,
+    # IMPERSONATION(사칭업체, 199 소비자→업체 신고) — 016 §8-2 P-IMPERSONATE 가 SEV1 로 지정한
+    # 시나리오라 FRAUD/SCAM 과 동일 가중치.
+    "IMPERSONATION": 240.0,
     "SEXUAL": 192.0,
+    "HEALTH_SAFETY": 192.0,  # 위생·안전(199) — 소비자 안전 직결이라 SEXUAL 과 동일 가중치
     "ABUSE": 168.0,
     "PROHIBITED": 144.0,
+    "FALSE_ADVERTISING": 144.0,  # 허위광고(199) — PROHIBITED 와 동일 가중치
     "OTHER": 72.0,
+    "PRICE_MISMATCH": 96.0,  # 표시가격 상이(199)
+    "POOR_SERVICE": 48.0,  # 서비스 불량(199) — 사실관계 다툼 소지가 커 우선순위 낮게
     "DUPLICATE": 48.0,
     "SPAM": 24.0,
 }
@@ -62,11 +72,16 @@ _REASON_SEVERITY = {
     "STOLEN_GOODS": "SEV1",
     "FRAUD": "SEV1",
     "SCAM": "SEV1",
+    "IMPERSONATION": "SEV1",  # 199 — 016 §8-2 P-IMPERSONATE(사칭 업체) SEV1 그대로 반영
     "SEXUAL": "SEV2",
+    "HEALTH_SAFETY": "SEV2",  # 199 위생·안전
     "ABUSE": "SEV2",
     "PROHIBITED": "SEV3",
+    "FALSE_ADVERTISING": "SEV3",  # 199 허위광고
     "OTHER": "SEV3",
+    "PRICE_MISMATCH": "SEV3",  # 199 표시가격 상이
     "DUPLICATE": "SEV4",
+    "POOR_SERVICE": "SEV4",  # 199 서비스 불량
     "SPAM": "SEV4",
 }
 _DEFAULT_REASON_SEVERITY = "SEV3"
@@ -409,6 +424,13 @@ async def get_report(
         "resolution_note": report.resolution_note,
         "reported_user_summary": reported_user_summary,
         "listing_detail": listing_detail,
+        # 대상 식별자 노출(2026-08-18) — listing 은 위 listing_detail 로 이미 나가지만
+        # REVIEW/BIZ 는 대응 필드가 없어 **어드민이 조치 대상을 특정할 수 없었다**
+        # (후기 신고를 열어도 review_id 를 몰라 운영자가 손으로 입력해야 했다).
+        # 상세 객체까지 만들지 않고 id 만 흘려보낸다 — 후기 원문·신고내역은
+        # GET /admin/api/reviews/{id} 가 이미 함께 준다(중복 조회 방지).
+        "review_id": report.review_id,
+        "business_profile_id": report.business_profile_id,
         # 신고 코멘트 + 사진 첨부(197, 대표 지적 2026-08-18) — note 는 이미 row 에 포함, 사진만 추가.
         "report_images": [
             build_imgproxy_url(img.content.file_path)

@@ -10,9 +10,10 @@ const TARGET_TABS = [
   { key: 'LISTING', label: '매물' },
   { key: 'USER', label: '유저' },
   { key: 'DM', label: 'DM' },
+  { key: 'REVIEW', label: '후기' },
 ]
 
-const TARGET_LABEL: Record<string, string> = { LISTING: '매물', USER: '유저', DM: 'DM' }
+const TARGET_LABEL: Record<string, string> = { LISTING: '매물', USER: '유저', DM: 'DM', REVIEW: '후기' }
 
 const STATUS_OPTIONS = [
   { value: '', label: '전체' },

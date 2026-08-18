@@ -2063,7 +2063,35 @@
         "reason_ABUSE": "Ngôn từ xúc phạm",
         "reason_INAPPROPRIATE": "Nội dung không phù hợp",
         "reason_OTHER": "Khác"
+      },
+      "appeal": {
+        "hiddenNotice": "Đánh giá của bạn đã bị ẩn",
+        "hiddenReasonLabel": "Lý do: {{reason}}",
+        "cta": "Khiếu nại",
+        "title": "Khiếu nại",
+        "placeholder": "Giải thích vì sao đánh giá này là hợp lý",
+        "submit": "Gửi",
+        "submitting": "Đang gửi…",
+        "success": "Đã gửi khiếu nại. Chúng tôi sẽ thông báo kết quả sau khi xem xét",
+        "submittedNotice": "Đã gửi khiếu nại. Chúng tôi sẽ thông báo kết quả sau khi xem xét",
+        "error": "Gửi khiếu nại không thành công"
       }
+    },
+    "report": {
+      "entry": "Báo cáo cửa hàng",
+      "title": "Báo cáo cửa hàng này",
+      "notePlaceholder": "Cho chúng tôi biết thêm chi tiết (không bắt buộc)",
+      "submit": "Gửi báo cáo",
+      "submitting": "Đang gửi…",
+      "success": "Đã gửi báo cáo. Sẽ được xử lý sau khi xem xét",
+      "already": "Bạn đã báo cáo cửa hàng này rồi",
+      "error": "Gửi báo cáo không thành công",
+      "reason_FALSE_ADVERTISING": "Quảng cáo sai sự thật",
+      "reason_PRICE_MISMATCH": "Giá không đúng như hiển thị",
+      "reason_POOR_SERVICE": "Dịch vụ kém",
+      "reason_IMPERSONATION": "Giả mạo cửa hàng",
+      "reason_HEALTH_SAFETY": "Vệ sinh/an toàn",
+      "reason_OTHER": "Khác"
     },
     "dashboard": {
       "reviewStat": "Đánh giá {{count}}",

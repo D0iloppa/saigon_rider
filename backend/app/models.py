@@ -857,6 +857,12 @@ class BusinessReview(Base):
     # 사장님 댓글 (③, 016 §8-2 P-BAD-REVIEW) — 후기당 1개라 컬럼 2개로 충분(새 테이블 불필요, init/198).
     owner_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
     owner_replied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 운영자 조치(숨김/복원, 대표 지적 260818) — marketplace_listing.moderated_at 과 같은 원리로
+    # 컬럼만 추가(새 테이블 불필요). hidden_by 는 Report.handled_by 와 동일하게 admin username 문자열
+    # (root 계정은 .env 정적 계정이라 UUID FK 가 불가능 — listings.py _admin_uuid 사고 회피).
+    hidden_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    hidden_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hidden_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
 
 class BusinessNews(Base):
@@ -1851,7 +1857,7 @@ class LevelupRewardPolicy(Base):
 
 
 class Report(Base):
-    """통합 신고 (LISTING/USER/DM/POST/COMMENT). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
+    """통합 신고 (LISTING/USER/DM/POST/COMMENT/REVIEW/BIZ). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
 
     __tablename__ = "reports"
 
@@ -1860,8 +1866,9 @@ class Report(Base):
     reporter_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    reported_user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    # BIZ 신고(199)는 오너 미연결 업체(init/168, user_id NULL)도 대상이 될 수 있어 NULL 허용.
+    reported_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     listing_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=True
@@ -1878,6 +1885,10 @@ class Report(Base):
     # 업체 후기 신고(④, 016 §8-2 P-BAD-REVIEW) — 새 인프라 대신 REVIEW 를 통합 reports 에 합류(init/198).
     review_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("business_review.id", ondelete="CASCADE"), nullable=True
+    )
+    # 소비자→업체 신고(199, 대표 지적 2026-08-18) — 기존 신고 방향에 빠져 있던 갭. BIZ 로 합류.
+    business_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), nullable=True
     )
     reason: Mapped[str] = mapped_column(String(30), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

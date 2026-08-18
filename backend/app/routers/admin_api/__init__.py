@@ -28,6 +28,7 @@ from . import (
     push,
     quests,
     reports,
+    reviews,
     reward_policy,
     ride_policy,
     settings,
@@ -43,6 +44,7 @@ router.include_router(auth.router)
 router.include_router(reports.router)
 router.include_router(users.router)
 router.include_router(listings.router)
+router.include_router(reviews.router)
 router.include_router(dashboard.router)
 router.include_router(support.router)
 router.include_router(issues.router)

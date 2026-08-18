@@ -678,6 +678,9 @@ export interface BizReview {
   reviewerNickname: string | null;
   ownerReply: string | null;
   ownerRepliedAt: string | null;
+  // 운영자 조치(숨김) 여부 — /reviews/mine 응답에만 실려 온다(공개 목록엔 숨김 후기가 안 나옴).
+  hiddenAt: string | null;
+  hiddenReason: string | null;
 }
 
 export interface BizReviewList {
@@ -695,6 +698,8 @@ interface BizReviewApi {
   reviewer_nickname: string | null;
   owner_reply: string | null;
   owner_replied_at: string | null;
+  hidden_at?: string | null;
+  hidden_reason?: string | null;
 }
 
 function fromBizReviewApi(r: BizReviewApi): BizReview {
@@ -706,6 +711,8 @@ function fromBizReviewApi(r: BizReviewApi): BizReview {
     reviewerNickname: r.reviewer_nickname,
     ownerReply: r.owner_reply ?? null,
     ownerRepliedAt: r.owner_replied_at ?? null,
+    hiddenAt: r.hidden_at ?? null,
+    hiddenReason: r.hidden_reason ?? null,
   };
 }
 
@@ -781,6 +788,34 @@ export async function reportBizReview(
   note?: string,
 ): Promise<void> {
   await api.realFetch(`/biz/public/${profileId}/reviews/${reviewId}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, note: note ?? null }),
+  }, 'bff', { rethrow: true });
+}
+
+// 후기 숨김 조치 이의제기 (작성자 본인만, 대표 지적 2026-08-18) — 운영자가 조치하면서 통보한
+// hidden_reason 을 반박하는 창구. rethrow:true — 400(숨김 아님/본문 공백)·404(본인 아님/후기 없음)를
+// 호출부가 문구로 처리한다.
+export async function appealBizReview(profileId: string, reviewId: string, body: string): Promise<void> {
+  await api.realFetch(`/biz/public/${profileId}/reviews/${reviewId}/appeal`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  }, 'bff', { rethrow: true });
+}
+
+export type BizReportReason =
+  | 'FALSE_ADVERTISING'
+  | 'PRICE_MISMATCH'
+  | 'POOR_SERVICE'
+  | 'IMPERSONATION'
+  | 'HEALTH_SAFETY'
+  | 'OTHER';
+
+// 소비자 → 업체 신고 (대표 지적 2026-08-18) — 업체→후기/소비자 방향은 있었지만 이 방향만 없던 갭.
+// rethrow:true — 중복 신고(409 "already reported")는 호출부가 친절한 문구로 처리한다.
+// 안 주면 client.ts 가 전역 토스트로 원문을 먼저 띄우고 호출부가 한 번 더 띄워 토스트가 2개 뜬다.
+export async function reportBusiness(profileId: string, reason: BizReportReason, note?: string): Promise<void> {
+  await api.realFetch(`/biz/public/${profileId}/report`, {
     method: 'POST',
     body: JSON.stringify({ reason, note: note ?? null }),
   }, 'bff', { rethrow: true });

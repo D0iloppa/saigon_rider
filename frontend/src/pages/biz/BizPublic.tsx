@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin, Heart, Share2, Star, Home } from 'lucide-react';
+import { Phone, MapPin, Heart, Share2, Star, Home, Flag } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageViewer } from '@/components/ui/ImageViewer';
@@ -32,12 +32,15 @@ import {
   upsertBizReviewReply,
   deleteBizReviewReply,
   reportBizReview,
+  appealBizReview,
+  reportBusiness,
   type BusinessPublicProfile,
   type BizCategory,
   type BizNewsItem,
   type BizReview,
   type BizPriceItem,
   type BizReviewReportReason,
+  type BizReportReason,
 } from '@/api/biz';
 import { fetchListings, type ListingCard as MarketListing, type MarketAd } from '@/api/market';
 import { trackAdEvent, useAdImpression } from '@/hooks/useAdEvents';
@@ -60,6 +63,16 @@ type DetailTab = typeof DETAIL_TABS[number];
 
 // 매물 신고 사유(ReportReason)와 값이 다르다 — 후기 신고 전용 계약
 const BIZ_REVIEW_REPORT_REASONS: BizReviewReportReason[] = ['SPAM', 'ABUSE', 'INAPPROPRIATE', 'OTHER'];
+
+// 소비자→업체 신고 사유(대표 지적 2026-08-18) — C2C 신고 사유와 성격이 달라 별도 세트.
+const BIZ_REPORT_REASONS: BizReportReason[] = [
+  'FALSE_ADVERTISING',
+  'PRICE_MISMATCH',
+  'POOR_SERVICE',
+  'IMPERSONATION',
+  'HEALTH_SAFETY',
+  'OTHER',
+];
 
 /** 3줄 클램프를 넘길 개연성 판단 — 정밀 측정 대신 간단 휴리스틱 (길이·줄수) */
 function isLongBody(body: string): boolean {
@@ -125,6 +138,19 @@ export default function BizPublic() {
   const [reportReason, setReportReason] = useState<BizReviewReportReason | null>(null);
   const [reportNote, setReportNote] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
+
+  // 내 후기 숨김 이의제기(대표 지적 2026-08-18) — 서버가 중복 제출 방지 필드를 주지 않아
+  // 접수 여부는 이 세션 로컬 상태로만 관리한다(가짜 영속성 금지, 새로고침하면 다시 제출 가능).
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealBody, setAppealBody] = useState('');
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [appealSubmitted, setAppealSubmitted] = useState(false);
+
+  // 소비자→업체 신고 (대표 지적 2026-08-18) — 위 후기 신고 상태와 별개 축(업체 자체가 대상)
+  const [bizReportOpen, setBizReportOpen] = useState(false);
+  const [bizReportReason, setBizReportReason] = useState<BizReportReason | null>(null);
+  const [bizReportNote, setBizReportNote] = useState('');
+  const [bizReportSubmitting, setBizReportSubmitting] = useState(false);
   const openConfirm = useConfirmStore((s) => s.open);
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
   // 업체 위치 복귀(2026-08-18 대표 지시) — 사용자가 지도를 끌고 나간 뒤 되돌아올 수단.
@@ -238,6 +264,7 @@ export default function BizPublic() {
   // 내 후기 여부 — "후기 쓰기"→"후기 수정" 라벨 전환 + 삭제 진입점 판별용
   useEffect(() => {
     if (!id || !userId) { setMyReview(null); return; }
+    setAppealSubmitted(false);
     fetchMyBizReview(id).then(setMyReview).catch(() => {});
   }, [id, userId]);
 
@@ -346,6 +373,68 @@ export default function BizPublic() {
     }
   };
 
+  const handleOpenAppeal = () => {
+    if (!requireAuth()) return;
+    setAppealOpen(true);
+  };
+
+  const handleCloseAppeal = () => {
+    setAppealOpen(false);
+    setAppealBody('');
+  };
+
+  const handleSubmitAppeal = async () => {
+    if (!id || !myReview || !appealBody.trim() || appealSubmitting) return;
+    setAppealSubmitting(true);
+    try {
+      await appealBizReview(id, myReview.id, appealBody.trim());
+      setAppealSubmitted(true);
+      toast.success(
+        t('biz.review.appeal.success', {
+          defaultValue: '이의제기가 접수되었어요. 검토 후 결과를 알려드릴게요',
+        }),
+      );
+    } catch {
+      toast.error(t('biz.review.appeal.error', { defaultValue: '이의제기 접수에 실패했어요' }));
+    } finally {
+      // 실패해도 시트는 닫는다 (제출 흐름 규약)
+      setAppealSubmitting(false);
+      handleCloseAppeal();
+    }
+  };
+
+  const handleOpenBizReport = () => {
+    if (!requireAuth()) return;
+    setBizReportOpen(true);
+  };
+
+  const handleCloseBizReport = () => {
+    setBizReportOpen(false);
+    setBizReportReason(null);
+    setBizReportNote('');
+  };
+
+  const handleSubmitBizReport = async () => {
+    if (!id || !bizReportReason || bizReportSubmitting) return;
+    setBizReportSubmitting(true);
+    try {
+      await reportBusiness(id, bizReportReason, bizReportNote.trim() || undefined);
+      // 016 M1: 신고 ≠ 즉시 조치 — 큐에 쌓여 운영자 판정 후에만 조치되므로 "즉시 반영"으로
+      // 오해하면 같은 사유로 반복 신고한다. 문구에 "검토 후 조치" 취지를 명시한다.
+      toast.success(t('biz.report.success', { defaultValue: '신고가 접수되었어요. 검토 후 조치됩니다' }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.startsWith('HTTP 409')) {
+        toast.error(t('biz.report.already', { defaultValue: '이미 신고한 업체예요' }));
+      } else {
+        toast.error(t('biz.report.error', { defaultValue: '신고 접수에 실패했어요' }));
+      }
+    } finally {
+      setBizReportSubmitting(false);
+      handleCloseBizReport();
+    }
+  };
+
   const handleMoreNews = async () => {
     if (!id || newsLoadingMore) return;
     setNewsLoadingMore(true);
@@ -450,6 +539,17 @@ export default function BizPublic() {
             <button type="button" className={styles.favoriteBtn} onClick={handleShare} aria-label={t('common.share', { defaultValue: '공유' })}>
               <Share2 size={21} strokeWidth={2} />
             </button>
+            {/* 소비자→업체 신고 진입점(대표 지적 2026-08-18) — 내 업체면 숨긴다 */}
+            {!profile.isOwner && (
+              <button
+                type="button"
+                className={styles.favoriteBtn}
+                onClick={handleOpenBizReport}
+                aria-label={t('biz.report.entry', { defaultValue: '업체 신고' })}
+              >
+                <Flag size={19} strokeWidth={2} />
+              </button>
+            )}
           </div>
         }
       />
@@ -753,6 +853,25 @@ export default function BizPublic() {
           </>}
 
           {activeTab === 'reviews' && <>
+        {myReview?.hiddenAt && (
+          <div className={styles.reviewHiddenNotice}>
+            <p className={styles.reviewHiddenNoticeTitle}>
+              {t('biz.review.appeal.hiddenNotice', { defaultValue: '내 후기가 비공개 처리되었어요' })}
+            </p>
+            <p className={styles.reviewHiddenNoticeReason}>
+              {t('biz.review.appeal.hiddenReasonLabel', { defaultValue: '사유: {{reason}}', reason: myReview.hiddenReason ?? '-' })}
+            </p>
+            {appealSubmitted ? (
+              <p className={styles.reviewHiddenNoticeSubmitted}>
+                {t('biz.review.appeal.submittedNotice', { defaultValue: '이의제기가 접수되었어요. 검토 후 결과를 알려드릴게요' })}
+              </p>
+            ) : (
+              <button type="button" className={styles.reviewActionBtn} onClick={handleOpenAppeal}>
+                {t('biz.review.appeal.cta', { defaultValue: '이의제기' })}
+              </button>
+            )}
+          </div>
+        )}
         <div className={styles.reviewSectionHead}>
           {reviewTotal > 0 && reviewAvg != null && (
             <span className={styles.reviewAvg}>
@@ -921,6 +1040,76 @@ export default function BizPublic() {
               {reportSubmitting
                 ? t('biz.review.report.submitting', { defaultValue: '접수 중…' })
                 : t('biz.review.report.submit', { defaultValue: '신고 접수' })}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={appealOpen} onClose={handleCloseAppeal}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.replySheetTitle}>{t('biz.review.appeal.title', { defaultValue: '이의제기' })}</h2>
+          {myReview?.hiddenReason && (
+            <p className={styles.reviewHiddenNoticeReason}>
+              {t('biz.review.appeal.hiddenReasonLabel', { defaultValue: '사유: {{reason}}', reason: myReview.hiddenReason })}
+            </p>
+          )}
+          <textarea
+            className={styles.replyTextarea}
+            value={appealBody}
+            maxLength={500}
+            rows={4}
+            placeholder={t('biz.review.appeal.placeholder', { defaultValue: '왜 이 후기가 정당한지 설명해주세요' })}
+            onChange={(e) => setAppealBody(e.target.value)}
+          />
+          <div className={styles.replySheetActions}>
+            <button
+              type="button"
+              className={styles.replySheetSubmit}
+              disabled={!appealBody.trim() || appealSubmitting}
+              onClick={handleSubmitAppeal}
+            >
+              {appealSubmitting
+                ? t('biz.review.appeal.submitting', { defaultValue: '제출 중…' })
+                : t('biz.review.appeal.submit', { defaultValue: '제출' })}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* 소비자→업체 신고 (대표 지적 2026-08-18) — 사진 첨부 없이 사유+선택 코멘트까지만(이번 범위). */}
+      <BottomSheet open={bizReportOpen} onClose={handleCloseBizReport}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.replySheetTitle}>{t('biz.report.title', { defaultValue: '업체 신고' })}</h2>
+          <div className={styles.reportReasonList}>
+            {BIZ_REPORT_REASONS.map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                className={bizReportReason === reason ? styles.reportReasonBtnActive : styles.reportReasonBtn}
+                onClick={() => setBizReportReason(reason)}
+              >
+                {t(`biz.report.reason_${reason}`)}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className={styles.reportNoteInput}
+            value={bizReportNote}
+            maxLength={500}
+            rows={3}
+            placeholder={t('biz.report.notePlaceholder', { defaultValue: '자세한 내용을 알려주세요 (선택)' })}
+            onChange={(e) => setBizReportNote(e.target.value)}
+          />
+          <div className={styles.replySheetActions}>
+            <button
+              type="button"
+              className={styles.replySheetSubmit}
+              disabled={!bizReportReason || bizReportSubmitting}
+              onClick={handleSubmitBizReport}
+            >
+              {bizReportSubmitting
+                ? t('biz.report.submitting', { defaultValue: '접수 중…' })
+                : t('biz.report.submit', { defaultValue: '신고 접수' })}
             </button>
           </div>
         </div>

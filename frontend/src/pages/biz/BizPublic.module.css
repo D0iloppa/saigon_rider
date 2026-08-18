@@ -474,6 +474,37 @@
 }
 
 /* ── 후기 섹션 ── */
+.reviewHiddenNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--danger, #E5484D);
+  background: var(--surface-2);
+}
+
+.reviewHiddenNoticeTitle {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--danger, #E5484D);
+}
+
+.reviewHiddenNoticeReason {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reviewHiddenNoticeSubmitted {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
 .reviewSectionHead {
   display: flex;
   align-items: center;

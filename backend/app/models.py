@@ -1884,6 +1884,32 @@ class Report(Base):
     # R-3(017 §12-B) — 신고자 본인의 취소 시각. status='CANCELLED' 전이 시 세팅(196).
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # 신고 코멘트 + 사진 첨부(197, 대표 지적 2026-08-18) — marketplace_listing_images 팬아웃 미러.
+    images: Mapped[list["ReportImage"]] = relationship(
+        "ReportImage",
+        back_populates="report",
+        lazy="selectin",
+        order_by="ReportImage.sort_order",
+        cascade="all, delete-orphan",
+    )
+
+
+class ReportImage(Base):
+    __tablename__ = "report_images"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False
+    )
+    content_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="CASCADE"), nullable=False
+    )
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    report: Mapped["Report"] = relationship("Report", back_populates="images")
+    content: Mapped["Content"] = relationship("Content", lazy="selectin")
+
 
 @event.listens_for(Report, "after_insert")
 def _report_after_insert_alert_ops(mapper, connection, target):

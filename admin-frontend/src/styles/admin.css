@@ -153,3 +153,16 @@ body { margin: 0; min-width: 320px; background: var(--admin-layout-bg); }
 [data-admin-theme="dark"] .admin-status-neutral { color: #a9b5c6 !important; background: #263246 !important; }
 @media (max-width: 900px) { .admin-sider { display: none; }.admin-topbar { height: auto; min-height: 64px; padding: 12px 20px !important; }.admin-location .ant-breadcrumb { display: none; }.admin-location > span { padding: 0; border: 0; }.admin-content { padding: 20px !important; }.admin-account > span, .admin-landing-link > span { display: none; }.dashboard-action-list, .dashboard-insight-grid { grid-template-columns: 1fr; }.dashboard-action-row:nth-child(odd) { border-right: 0; }.dashboard-flow-grid, .dashboard-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.login-page { overflow: auto; padding: 20px; }.login-brandbar { height: 52px; }.login-brandbar > span { display: none; }.login-stage { min-height: calc(100dvh - 72px); grid-template-columns: 1fr; gap: 24px; }.login-hero-copy { padding: 46px 0 0; }.login-hero-copy h1 { font-size: clamp(42px, 12vw, 62px); }.login-hero-copy p { margin: 20px 0 0; }.login-hero-copy > a { display: none; }.login-panel { margin-bottom: 24px; } }
 @media (max-width: 520px) { .dashboard-page { gap: 24px; }.dashboard-toolbar { align-items: flex-start; }.dashboard-toolbar > div { flex-direction: column; align-items: flex-end; gap: 7px; }.dashboard-attention { padding: 16px; }.dashboard-action-row { grid-template-columns: 34px minmax(0, 1fr) auto; padding-inline: 6px; }.dashboard-action-links { grid-column: 2 / -1; }.dashboard-flow-grid, .dashboard-status-grid { grid-template-columns: 1fr; }.dashboard-status-panel dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }.login-hero-copy { padding-top: 34px; }.login-hero-copy h1 { font-size: 42px; }.login-hero-copy p { font-size: 14px; line-height: 1.6; }.login-panel { padding: 24px 20px; border-radius: 18px; } }
+
+/* Analytics (유동성/퍼널/0건 검색어) */
+.analytics-page { display: flex; flex-direction: column; gap: 0; }
+.analytics-filter-row { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.analytics-filter-row label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--admin-gray-600); }
+.analytics-switch-label { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.analytics-hint { margin: 12px 0 0; font-size: 12px; color: var(--admin-gray-500); }
+.liquidity-rate-ok { color: var(--admin-success); font-weight: 600; }
+.liquidity-rate-miss { color: var(--admin-warning); font-weight: 600; }
+.analytics-funnel-totals { display: flex; gap: 24px; flex-wrap: wrap; }
+.analytics-funnel-total-item { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.analytics-funnel-total-item span { font-size: 12px; color: var(--admin-gray-500); }
+.analytics-funnel-total-item strong { font-size: 20px; font-weight: 700; color: var(--admin-gray-900); font-variant-numeric: tabular-nums; }

@@ -409,6 +409,12 @@ async def get_report(
         "resolution_note": report.resolution_note,
         "reported_user_summary": reported_user_summary,
         "listing_detail": listing_detail,
+        # 신고 코멘트 + 사진 첨부(197, 대표 지적 2026-08-18) — note 는 이미 row 에 포함, 사진만 추가.
+        "report_images": [
+            build_imgproxy_url(img.content.file_path)
+            for img in report.images or []
+            if img.content and img.content.file_path
+        ],
     }
 
 

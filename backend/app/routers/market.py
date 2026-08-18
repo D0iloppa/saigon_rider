@@ -31,6 +31,7 @@ from ..models import (
     MarketplacePriceOffer,
     MarketplaceReview,
     Report,
+    ReportImage,
     User,
     UserBlock,
     UserFollow,
@@ -1199,16 +1200,21 @@ async def report_listing(
     if dup is not None:
         raise HTTPException(status_code=409, detail="already reported")
 
-    db.add(
-        Report(
-            target_type="LISTING",
-            reporter_id=session_uid,
-            reported_user_id=listing.seller_id,
-            listing_id=listing_id,
-            reason=body.reason,
-            note=(body.note or None),
-        )
+    report = Report(
+        target_type="LISTING",
+        reporter_id=session_uid,
+        reported_user_id=listing.seller_id,
+        listing_id=listing_id,
+        reason=body.reason,
+        note=(body.note or None),
     )
+    db.add(report)
+    await db.flush()
+    # 코멘트 + 사진 첨부(197, 대표 지적 2026-08-18) — content_id 소유권 검증은 매물 등록
+    # (create_listing/update_listing)과 같은 수준으로 맞춘다: 별도 검증 없이 세션 인증된
+    # 업로더(/contents/upload 가 owner_id 를 세션으로 강제)의 content_id 를 신뢰한다.
+    for idx, cid in enumerate(body.image_content_ids):
+        db.add(ReportImage(report_id=report.id, content_id=cid, sort_order=idx))
     await db.commit()
     return {"ok": True}
 

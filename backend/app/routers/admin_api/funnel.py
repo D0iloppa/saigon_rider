@@ -179,8 +179,14 @@ async def get_segmented_funnel(
             count(*) FILTER (WHERE did_contact) AS contact_exchanged,
             count(*) FILTER (WHERE did_deal) AS deal_completed
         FROM steps
-        WHERE (:acq_source IS NULL OR acq_source = :acq_source)
-          AND (:persona IS NULL OR persona = :persona)
+        -- CAST(... AS text) 필수 — 없으면 asyncpg 가 "바인드파라미터 IS NULL" 비교에서
+        -- 파라미터 타입을 추론하지 못해 AmbiguousParameterError 로 **항상 500** 이 난다
+        -- (값을 넘겨도 동일). 2026-08-18 어드민 퍼널 화면 구축 중 발견 — 이 API 는
+        -- 그때까지 한 번도 실호출된 적이 없어 코드 리뷰만으로는 드러나지 않았다.
+        -- ⚠️ 이 주석에 콜론+단어 형태를 쓰지 마라 — SQLAlchemy text() 는 **주석 안까지**
+        --    파싱해 바인드 파라미터로 인식한다(실제로 그렇게 한 번 깨뜨렸다).
+        WHERE (CAST(:acq_source AS text) IS NULL OR acq_source = CAST(:acq_source AS text))
+          AND (CAST(:persona AS text) IS NULL OR persona = CAST(:persona AS text))
         GROUP BY week_start, acq_source, persona, ward_id
         ORDER BY week_start DESC, acq_source, persona
         """

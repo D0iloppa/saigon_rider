@@ -14,6 +14,7 @@ export interface TicketRow {
   has_unread_reply: boolean
   created_at: string
   last_reply_at: string | null
+  contract_context?: Record<string, unknown> | null
 }
 
 export interface ReplyRow {

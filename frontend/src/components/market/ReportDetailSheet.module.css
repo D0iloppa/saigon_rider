@@ -1,0 +1,106 @@
+.sheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.noteInput {
+  width: 100%;
+  resize: none;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.noteInput::placeholder {
+  color: var(--text-3);
+}
+
+.photoRow {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-top: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.photoRow::-webkit-scrollbar { display: none; }
+
+.addPhoto {
+  flex-shrink: 0;
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  border: 1px dashed var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: center;
+}
+
+.addPhotoText {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.addPhotoCount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.previewItem {
+  position: relative;
+  flex-shrink: 0;
+  width: 76px;
+  height: 76px;
+}
+
+.previewThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+.uploadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  border-radius: 14px;
+}
+
+.removeImg {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text);
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submit {
+  margin-top: 20px;
+}

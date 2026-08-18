@@ -58,6 +58,8 @@ export interface ReportDetail extends ReportRow {
     created_at: string
     image_urls: string[]
   } | null
+  // 신고 코멘트 + 사진 첨부(197, 대표 지적 2026-08-18) — note 는 ReportRow 에 이미 있음
+  report_images: string[]
 }
 
 export interface ReportListParams {

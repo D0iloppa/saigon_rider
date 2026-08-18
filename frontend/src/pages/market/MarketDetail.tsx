@@ -13,6 +13,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { createConversation, proposePriceOffer } from '@/api/dm';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
+import ReportDetailSheet from '@/components/market/ReportDetailSheet';
 import { followUser, unfollowUser } from '@/api/follows';
 import {
   fetchListing,
@@ -57,6 +58,8 @@ export default function MarketDetail() {
   const [newPrice, setNewPrice] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason | null>(null);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [offerSending, setOfferSending] = useState(false);
@@ -211,18 +214,26 @@ export default function MarketDetail() {
     : 0;
   const canBump = detail?.status === 'ON_SALE' && bumpRemainingMs <= 0;
 
-  const handleReport = async (reason: ReportReason) => {
+  // 사유 탭 → 코멘트·사진(둘 다 선택) 입력 단계로 이동 (대표 지적 2026-08-18). 즉시 제출하지 않는다.
+  const handleReasonPick = (reason: ReportReason) => {
     if (!requireAuth()) return;
-    if (!detail) return;
+    setReportOpen(false);
+    setReportReason(reason);
+  };
+
+  const handleReportSubmit = async (note: string, imageContentIds: string[]) => {
+    if (!detail || !reportReason) return;
+    setReportSubmitting(true);
     try {
-      await reportListing(detail.id, reason);
-      setReportOpen(false);
+      await reportListing(detail.id, reportReason, note || undefined, imageContentIds);
       toast.success(t('market.reportDone', { defaultValue: '신고가 접수되었어요' }));
     } catch {
-      // 실패해도 시트를 닫는다 — 열어두면 사용자가 다른 사유를 눌러 같은 오류를 반복한다
-      // (중복 신고 409 는 사유를 바꿔도 결과가 같다).
-      setReportOpen(false);
+      // 실패해도 시트를 닫는다 — 열어두면 사용자가 다시 눌러 같은 오류를 반복한다
+      // (중복 신고 409 는 다시 시도해도 결과가 같다).
       toast.error(t('market.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+    } finally {
+      setReportSubmitting(false);
+      setReportReason(null);
     }
   };
 
@@ -647,12 +658,20 @@ export default function MarketDetail() {
             <div className={styles.moreSheet}>
               <h2 className={styles.priceSheetTitle}>{t('market.reportTitle', { defaultValue: '신고 사유' })}</h2>
               {REPORT_REASONS.map((r) => (
-                <button key={r} className={styles.moreItem} onClick={() => handleReport(r)}>
+                <button key={r} className={styles.moreItem} onClick={() => handleReasonPick(r)}>
                   {t(`market.reportReason_${r}`)}
                 </button>
               ))}
             </div>
           </BottomSheet>
+
+          {/* 신고 코멘트 + 사진(둘 다 선택) — 대표 지적 2026-08-18 */}
+          <ReportDetailSheet
+            open={reportReason !== null}
+            onClose={() => setReportReason(null)}
+            onSubmit={handleReportSubmit}
+            submitting={reportSubmitting}
+          />
         </>
       )}
     </div>

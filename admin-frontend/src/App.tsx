@@ -9,13 +9,20 @@ import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import ReportListPage from './pages/reports/ReportListPage'
 import ReportDetailPage from './pages/reports/ReportDetailPage'
+import IssueQueuePage from './pages/issues/IssueQueuePage'
+import WeeklyIssueSummaryPage from './pages/issues/WeeklyIssueSummaryPage'
+import ReporterTrustPage from './pages/issues/ReporterTrustPage'
 import UserListPage from './pages/users/UserListPage'
 import UserDetailPage from './pages/users/UserDetailPage'
 import ListingListPage from './pages/listings/ListingListPage'
 import ListingDetailPage from './pages/listings/ListingDetailPage'
+import DealerCandidatesPage from './pages/listings/DealerCandidatesPage'
 import CompletionRequestListPage from './pages/trades/CompletionRequestListPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
+import LiquidityPanelPage from './pages/analytics/LiquidityPanelPage'
+import FunnelPage from './pages/analytics/FunnelPage'
+import ZeroResultSearchPage from './pages/analytics/ZeroResultSearchPage'
 import FeedListPage from './pages/community/FeedListPage'
 import FeedDetailPage from './pages/community/FeedDetailPage'
 import FeedEditPage from './pages/community/FeedEditPage'
@@ -126,13 +133,20 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/reports" element={<ReportListPage />} />
               <Route path="/reports/:id" element={<ReportDetailPage />} />
+              <Route path="/issues" element={<IssueQueuePage />} />
+              <Route path="/issues/weekly-summary" element={<WeeklyIssueSummaryPage />} />
+              <Route path="/issues/reporter-trust" element={<ReporterTrustPage />} />
               <Route path="/users" element={<UserListPage />} />
               <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/listings" element={<ListingListPage />} />
+              <Route path="/listings/dealer-candidates" element={<DealerCandidatesPage />} />
               <Route path="/listings/:id" element={<ListingDetailPage />} />
               <Route path="/trades/completion-requests" element={<CompletionRequestListPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
+              <Route path="/analytics/liquidity" element={<LiquidityPanelPage />} />
+              <Route path="/analytics/funnel" element={<FunnelPage />} />
+              <Route path="/analytics/zero-results" element={<ZeroResultSearchPage />} />
               <Route path="/community/feed" element={<FeedListPage />} />
               <Route path="/community/feed/new" element={<FeedEditPage />} />
               <Route path="/community/feed/:id" element={<FeedDetailPage />} />

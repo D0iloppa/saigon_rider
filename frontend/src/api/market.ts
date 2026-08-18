@@ -354,12 +354,17 @@ export async function updateListingPrice(id: string, sellerId: string, priceVnd:
 // rethrow:true — 중복 신고(409 "already reported")는 사용자가 알아야 할 정상 응답이지 장애가 아니다.
 // 이게 없으면 client.ts 가 전역 토스트로 `HTTP 409 | already reported` 원문을 먼저 띄우고
 // 호출부 catch 가 한 번 더 띄워 **토스트가 2개** 뜬다(2026-08-18 실기기에서 확인).
-export async function reportListing(id: string, reason: ReportReason, note?: string): Promise<void> {
+export async function reportListing(
+  id: string,
+  reason: ReportReason,
+  note?: string,
+  imageContentIds?: string[],
+): Promise<void> {
   await api.realFetch(
     `/market/listings/${id}/report`,
     {
       method: 'POST',
-      body: JSON.stringify({ reason, note: note ?? null }),
+      body: JSON.stringify({ reason, note: note ?? null, image_content_ids: imageContentIds ?? [] }),
     },
     'bff',
     { rethrow: true },

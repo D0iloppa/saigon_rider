@@ -429,6 +429,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
       - 🔴 **결과는 3단계로 뭉갠다** — `_REPORT_STATUS_DISPLAY`(`support.py:25`)가 `PENDING`·`REVIEWING`→**검토 중** / `RESOLVED`→**조치 완료** / `REJECTED`→**위반 아님** 으로 매핑한다. **`result_code`·`resolution_note` 는 응답 스키마(`ReportOut`)에 아예 필드가 없다** — 상대방에게 어떤 제재가 갔는지 드러나면 개인정보이자 보복 위험이다. 필드를 추가하지 마라(테스트가 `hasattr` 로 고정).
       - **정지자도 접근 가능**: `verify_user_session_allow_suspended`(D-22 와 동일 원칙 — 정지가 부당하다고 이의제기하려면 자기가 뭘 신고했는지 볼 수 있어야 한다). **소유권 필터** `Report.reporter_id == user_id` 필수.
       - 신고 탭의 매물 항목은 `/market/{listing_id}` 로 이동 — 위 **신고자 열람 허용**(`get_listing` 가드) 덕에 내려간 매물이어도 404 로 죽지 않는다. 비매물(USER/DM/POST/COMMENT)은 텍스트만·비클릭.
+      - ⚠️ **탭 상태는 로컬 state 가 아니라 URL 쿼리(`?tab=report`)에 있다 (2026-08-18 실기기 지적으로 수정)**. 로컬 `useState` 였을 때 **매물 상세로 갔다 뒤로가기 하면 컴포넌트가 재마운트되며 '문의' 탭으로 초기화**됐다. 쿼리에 올리면 브라우저 히스토리가 탭까지 복원한다(마켓 `?view=map` 과 같은 방식). 탭 전환은 `{ replace: true }` — 뒤로가기가 탭 토글을 되짚으면 성가시다. **이 화면에서 밖으로 나가는 동선을 추가할 때 탭 상태를 로컬 state 로 되돌리지 마라.**
     - ✅ **R-3 신고 취소 구현됨 (2026-08-18 대표 확정)** — `DELETE /support/reports/{report_id}`. 확정 조합은 **PENDING 한정 · 소프트 취소 · 재신고 불가** 세 가지이고, 각각 이유가 있으니 **바꾸기 전에 반드시 읽어라**:
       - **① `PENDING` 한정** — `REVIEWING`(운영자가 이미 열어본 건)·`RESOLVED`·`REJECTED` 는 `409 {"code":"report_not_cancellable"}`. 검토가 시작됐는데 사라지면 처리 이력이 끊긴다. 남의 신고는 **404**(403 이면 "그 신고가 존재한다"는 정보가 샌다). 정지자도 취소 가능(`verify_user_session_allow_suspended`, D-22 동일).
       - **② 🔴 하드 삭제 금지 — 행을 보존하고 `status='CANCELLED'` + `cancelled_at` 만 세팅한다.** 행을 지우면 **R-5 기각률 집계가 오염되고 재신고 방지 `UNIQUE(listing_id, reporter_id)` 가 무력화**된다. 어겨도 **에러가 안 나고 집계만 조용히 틀리는** 종류라 `test_support_reports.py` 의 `CancelReportContractTest` 가 `db.delete` 미호출까지 고정한다.
@@ -601,6 +602,45 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | 유저 신고 시트 | (라우트 없음 — 시트) | 다른 사용자 프로필 페이지(`pages/profile/UserProfile.tsx`) 우상단 ⋮ | **공용 `BottomSheet` 로 교체(2026-08-13)** — 종전엔 ProfileCard 시트(z-index 201) 안이라 공용 시트(50)가 가려져 상위 오버레이를 자체 구현해야 했다. 프로필이 페이지가 되면서 그 우회가 불필요해졌다. `api/profile.ts reportUser` (2026-07-18, `7e12794`) |
 | DM 신고 메뉴 | (라우트 없음 — 시트) | `/dm/:conversationId`(`DmDetail.tsx`) 헤더 더보기(케밥) | 사유 시트 → `api/dm.ts reportConversation`. 같은 화면에 DM 금칙어 차단 전용 토스트(`banned_keyword` 코드 분기)도 추가됨 (2026-07-18, `7e12794`) |
 | 스플래시 | `/splash` | 앱 최초 진입(`/` → replace) | `Splash.tsx` — 언어 선택 칩 + [시작하기] 버튼. **[로그인] 버튼 제거(2026-08-02)** — [시작하기]와 [로그인]이 둘 다 `/auth/oauth` 로 가는 완전 중복이라 대표 지시로 제거. 고아가 된 `.loginBtn` CSS(`Splash.module.css`)와 i18n 키 `splash.loginBtn`(ko/en/vi)도 함께 제거 |
+
+---
+
+## 어드민 콘솔 — 016 보강 화면 (2026-08-18 신규 7종)
+
+> `admin-frontend/` (`:18090/admin/`). 그동안 016 보강의 백엔드 API 는 다 있는데 **화면이 없어 운영자가 쓸 수 없는 상태**였다(017 §5 P0). 그 갭을 메운 것이다.
+
+| 메뉴 | 라우트 | 페이지 | API | 근거 |
+|---|---|---|---|---|
+| **ANALYTICS 그룹 (신규)** | | | | |
+| 유동성 지표 | `/analytics/liquidity` | `pages/analytics/LiquidityPanelPage.tsx` | `GET /admin/api/liquidity/panel` | #34 — **파일럿 성패 판정 기준** |
+| 전환 퍼널 | `/analytics/funnel` | `pages/analytics/FunnelPage.tsx` | `GET /admin/api/funnel/segmented` | #32 |
+| 0건 검색어 | `/analytics/zero-results` | `pages/analytics/ZeroResultSearchPage.tsx` | `GET /admin/api/funnel/search/zero-results` | #21 — 공급 영업의 조준경 |
+| **TRUST 그룹 (기존에 추가)** | | | | |
+| 통합 이슈 큐 | `/issues` | `pages/issues/IssueQueuePage.tsx` | `GET /admin/api/issues` | #25 (B3 의 화면화) |
+| 주간 이슈 집계 | `/issues/weekly-summary` | `pages/issues/WeeklyIssueSummaryPage.tsx` | `GET /admin/api/issues/weekly-summary` | #26 [학습] |
+| 신고자 신뢰도 | `/issues/reporter-trust` | `pages/issues/ReporterTrustPage.tsx` | `GET /admin/api/reports/reporters` | R-5 |
+| 업자 후보 | `/listings/dealer-candidates` | `pages/listings/DealerCandidatesPage.tsx` | `GET /admin/api/listings/dealer-candidates` | #40 |
+
+**매물 관리(`/listings`)에 위험도 정렬 추가** — `sort_by=risk` 옵션 + `risk_score` 컬럼(#39). **기본 정렬 `created_desc` 는 불변**이고 운영자가 명시적으로 골라야 적용된다.
+
+### 🔴 이 화면들의 성질 — 바꾸면 사양 위반이다
+
+**`risk_score`(#39)·업자 후보(#40)·신고자 신뢰도(R-5)는 전부 "정렬·참고용"이지 조치 수단이 아니다.** 016 **M1(탐지≠차단)**·**A2(오탐 1건 = 공급 1건 손실)**·**D-33(업자는 라벨링이지 배제가 아니다)** 에 따라 **자동 숨김·차단·제재 UI 를 만들지 마라.** 업자 후보 화면의 유일한 쓰기 액션은 `nudge`(비즈 전환 안내 발송)이고, 신고자 신뢰도 화면은 mutation 훅이 0개다.
+
+### 표시 규약 — **데이터 없음을 0 으로 그리지 마라**
+
+백엔드가 의도적으로 구분해 내려준다(016 §6-7: *"작은 숫자를 정확히 보여주는 것 자체가 신뢰 자산이며, 부풀린 숫자는 첫 광고주에게 들키는 순간 관계가 끝난다"*). 화면도 그 구분을 지켜야 한다:
+- **L-3** `search: []`(검색 이벤트 없음) · **L-4** `null`(문의 없는 그룹) → **"표본 부족"** 태그. `0%`/`0h` 렌더링 금지
+- **R-5** `rejection_rate === null`(처리완료 5건 미만) → **"표본 부족"**. 산술을 태우면 `0%` 가 되어 **결백한 신고자가 최악으로 보인다**
+- **전환 퍼널**: 12단계 중 **미계측 5단계는 아예 그리지 않는다**(0 으로 채우지 마라)
+- **D-31 목표선은 대표 확정 전 제안값** — 유동성 패널 상단 `Alert` 로 상시 고지. 확정치로 오해되면 안 된다
+- `include_demo` 토글 = 시연 계정(매물 188건 단일 계정) 제외/포함. **기본은 제외**
+
+### 알려진 갭
+- `risk_score` 가 **합산 float 만** 반환해 어떤 신호가 기여했는지 알 수 없다 → 툴팁으로 5신호 구성만 안내
+- `nudge` 가 **이전 발송 여부를 반환하지 않는다** → 세션 로컬로만 추적하고 "서버 추적 아님"을 툴팁에 명시(가짜 영속성 금지)
+- `IssueRow` 에 `contract_context` 가 없다 → 행 확장 시 `GET /admin/api/support/tickets/{id}` 를 lazy 호출해 #27 계약 컨텍스트(광고ID·티어·구·기간)를 보여준다
+- ⚠️ **`admin-frontend` 는 ESLint 설정이 아예 없다** — `eslint.config.*`·`lint` 스크립트 부재이고 pre-commit 훅도 `files: ^frontend/src/` 만 검사한다. **타입 검사(`tsc -b`)만 있고 린트 게이트가 없다.**
 
 ---
 

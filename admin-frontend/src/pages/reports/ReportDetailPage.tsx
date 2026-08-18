@@ -174,6 +174,16 @@ export default function ReportDetailPage() {
         </Card>
       )}
 
+      {report.report_images.length > 0 && (
+        <Card title="신고자 첨부 사진">
+          <Space wrap>
+            {report.report_images.map((url) => (
+              <Image key={url} src={url} width={96} height={96} style={{ objectFit: 'cover' }} />
+            ))}
+          </Space>
+        </Card>
+      )}
+
       {report.target_type === 'DM' && report.conversation_id && (
         <Card title="DM 대화 내역">
           <DmViewer reportId={report.id} reportedUserId={report.reported_user.id} />

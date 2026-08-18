@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageCircle, Flag } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -35,7 +35,15 @@ const REPORT_STATUS_CLASS: Record<string, string> = {
 export default function CustomerSupport() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('inquiry');
+  // 탭 상태는 URL 쿼리에 올린다 — 로컬 useState 면 매물 상세로 갔다 뒤로가기 했을 때
+  // 컴포넌트가 재마운트되며 '문의' 탭으로 초기화된다(2026-08-18 실기기 지적).
+  // 쿼리에 있으면 브라우저 히스토리가 탭까지 복원한다(마켓 `?view=map` 선례와 동일 방식).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: Tab = searchParams.get('tab') === 'report' ? 'report' : 'inquiry';
+  const setTab = (next: Tab) => {
+    // replace: 탭 전환은 히스토리에 쌓지 않는다(뒤로가기가 탭 토글을 되짚게 되면 성가시다)
+    setSearchParams(next === 'report' ? { tab: 'report' } : {}, { replace: true });
+  };
   const [view, setView] = useState<View>('list');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [reports, setReports] = useState<Report[]>([]);

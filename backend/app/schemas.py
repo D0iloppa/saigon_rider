@@ -20,6 +20,10 @@ _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 # (진짜 해답은 카테고리 밴드, W2 예정). 이 상수는 그 전 단계로 극단값만 차단하는 오버플로 가드다.
 _MAX_PRICE_VND = 20_000_000_000
 
+# 신고 첨부 사진 상한(대표 지적 2026-08-18) — 매물 등록 MAX_IMAGES(frontend MarketCreate.tsx, 10장)를
+# 참고하되, 증빙 사진은 매물 사진보다 적게 필요해 5장으로 잡는다(무제한 금지).
+_MAX_REPORT_IMAGES = 5
+
 
 def _compute_is_open(business_hours: str) -> bool | None:
     """'HH:MM - HH:MM' 형식 파싱 → 현재 VN 시각 기준 영업 중 여부. '24시간'이면 항상 True."""
@@ -245,6 +249,9 @@ class MarketplaceBumpResult(BaseModel):
 class MarketplaceReportCreateRequest(BaseModel):
     reason: str
     note: str | None = None
+    # 코멘트 + 사진 첨부(B안, 대표 지적 2026-08-18) — 선업로드 방식(/contents/upload 로 먼저
+    # 올린 content_id 를 붙인다), 둘 다 선택.
+    image_content_ids: list[UUID] = Field(default_factory=list, max_length=_MAX_REPORT_IMAGES)
 
 
 # ── 광고 성과 계측 (정본 §5 #6, D-1/D-19 — 260817_commercial_readiness_audit) ──────────

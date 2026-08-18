@@ -18,6 +18,8 @@ export interface AdminListingRow {
   created_at: string
   thumbnail_url: string | null
   flags: AdminListingFlag[]
+  // 016 §4-4 #39 — 검수 큐 정렬 가중치 전용 점수(자동 조치 없음). 0~1.
+  risk_score: number
 }
 
 export interface ListingReportRow {
@@ -47,6 +49,7 @@ export interface ListingListParams {
   q?: string
   status?: string
   seller_id?: string
+  sort_by?: 'created_desc' | 'risk'
   page?: number
   size?: number
 }
@@ -106,5 +109,37 @@ export function useBulkModerateListings() {
       qc.invalidateQueries({ queryKey: ['listings'] })
       qc.invalidateQueries({ queryKey: ['reports'] })
     },
+  })
+}
+
+// 016 §4-5 #40, D-33=(a) — 업자 후보(라벨링 + 비즈 전환 유도 전용). 제재 API 없음.
+export interface DealerCandidateSignals {
+  registration_velocity: boolean
+  same_category_repeat: boolean
+  multi_district: boolean
+}
+
+export interface DealerCandidateRow {
+  seller_id: string
+  seller_nickname: string | null
+  active_listing_count: number
+  signals: DealerCandidateSignals
+  signal_count: number
+  biz_vocab_count: number
+}
+
+export function useDealerCandidates() {
+  return useQuery({
+    queryKey: ['dealer-candidates'],
+    queryFn: () => api<DealerCandidateRow[]>('/admin/api/listings/dealer-candidates'),
+  })
+}
+
+export function useNudgeDealerCandidate() {
+  return useMutation({
+    mutationFn: (sellerId: string) =>
+      api<{ seller_id: string; sent: boolean }>(`/admin/api/listings/dealer-candidates/${sellerId}/nudge`, {
+        method: 'POST',
+      }),
   })
 }

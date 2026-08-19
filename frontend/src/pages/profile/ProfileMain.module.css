@@ -277,6 +277,23 @@
 
 .verifyChevron { color: var(--brand-500); flex-shrink: 0; }
 
+/* W4: 파트너 요약 카드 — 미답변 후기 배지 */
+.loungeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
 /* 진입 행 (내 매물 · 비즈니스 파트너) */
 .entryRow {
   display: flex;

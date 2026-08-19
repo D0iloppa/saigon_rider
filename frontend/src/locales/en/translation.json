@@ -2014,6 +2014,8 @@
     "contractLinkLoading": "Connecting…",
     "contractLinkError": "Failed to load the contract link",
     "menuEntry": "Business Partner",
+    "menuEntryInvite": "Start as a Business Partner",
+    "loungeCardSubtitle": "Manage partner lounge",
     "publicAdsTitle": "Active ads",
     "publicAdsEmpty": "No ads posted yet",
     "publicCallCta": "Call to inquire",

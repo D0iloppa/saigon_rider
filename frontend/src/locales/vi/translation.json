@@ -2014,6 +2014,8 @@
     "contractLinkLoading": "Đang kết nối…",
     "contractLinkError": "Không tải được liên kết hợp đồng",
     "menuEntry": "Đối tác kinh doanh",
+    "menuEntryInvite": "Bắt đầu làm Đối tác kinh doanh",
+    "loungeCardSubtitle": "Quản lý khu vực đối tác",
     "publicAdsTitle": "Quảng cáo đang hiển thị",
     "publicAdsEmpty": "Chưa có quảng cáo nào được đăng",
     "publicCallCta": "Gọi để liên hệ",

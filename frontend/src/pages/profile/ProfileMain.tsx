@@ -29,6 +29,7 @@ import { fetchWallet } from '@/api/wallet';
 import { fetchFollowCounts } from '@/api/follows';
 import { fetchMyFeed, deleteFeedPost } from '@/api/feed';
 import type { FeedPage } from '@/api/feed';
+import { fetchBusinessProfiles, fetchBizOwnerReviews, type BusinessProfile } from '@/api/biz';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { toast } from '@/components/ui/Toast';
@@ -217,6 +218,12 @@ export default function ProfileMain() {
   const [followCounts, setFollowCounts] = useState({ followerCount: 0, followingCount: 0 });
   const [qrSheetOpen, setQrSheetOpen] = useState(false);
 
+  // W4: 프로필 바텀시트 진입 경로 — 파트너(APPROVED 업체 보유) 여부에 따라 위치·문구를 분기
+  // (D-5, ai-docs/task/active/260819_lounge_entry_task.md). 기본값은 비파트너([])로 두어
+  // 대다수(비파트너) 사용자에게는 현행 위치 그대로 즉시 노출되고, 파트너로 판명되면 상단 카드로 전환된다.
+  const [bizApproved, setBizApproved] = useState<BusinessProfile[]>([]);
+  const [bizUnansweredCount, setBizUnansweredCount] = useState<number | null>(null);
+
   // ── 거래 이력 서브탭 ──
   const [tradeTab, setTradeTab] = useState<'bought' | 'sold'>('bought');
 
@@ -280,6 +287,28 @@ export default function ProfileMain() {
       loadMyFeeds(1, true);
     }
   }, [tab, user?.id]);
+
+  // W4: 파트너 판정 — BizManage.tsx 가 쓰는 것과 동일한 fetchBusinessProfiles()를 재사용(신규 판정 API 없음)
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchBusinessProfiles()
+      .then((list) => setBizApproved(list.filter((p) => p.status === 'APPROVED')))
+      .catch(() => setBizApproved([]));
+  }, [user?.id]);
+
+  // W4: 요약 카드 배지 — 다중 업체 보유 시 BizManage 기본 활성 프로필(첫 번째)과 동일 기준
+  const activeBizProfile = bizApproved[0] ?? null;
+  useEffect(() => {
+    if (!activeBizProfile) {
+      setBizUnansweredCount(null);
+      return;
+    }
+    let cancelled = false;
+    fetchBizOwnerReviews(activeBizProfile.id, { limit: 1 })
+      .then((res) => { if (!cancelled) setBizUnansweredCount(res.unansweredCount); })
+      .catch(() => { if (!cancelled) setBizUnansweredCount(null); });
+    return () => { cancelled = true; };
+  }, [activeBizProfile]);
 
   const confirmDeleteFeed = (postId: string) => {
     openDialog({
@@ -442,6 +471,29 @@ export default function ProfileMain() {
           </span>
           {!u.phoneVerified && <ChevronRight size={18} className={styles.verifyChevron} />}
         </button>
+
+        {/* W4: 파트너(APPROVED 업체 보유) 요약 카드 — 휴대폰 인증 바로 아래로 승격 (D-5) */}
+        {activeBizProfile && (
+          <button
+            type="button"
+            onClick={() => navigate('/biz/manage')}
+            className={styles.verifyCard}
+          >
+            <span className={styles.verifyIcon}><Store size={20} /></span>
+            <span className={styles.verifyText}>
+              <span className={styles.verifyTitle}>
+                {activeBizProfile.name}
+                {!!bizUnansweredCount && bizUnansweredCount > 0 && (
+                  <span className={styles.loungeBadge}>
+                    {bizUnansweredCount > 99 ? '99+' : bizUnansweredCount}
+                  </span>
+                )}
+              </span>
+              <span className={styles.verifySub}>{t('biz.loungeCardSubtitle', { defaultValue: '파트너 라운지 관리' })}</span>
+            </span>
+            <ChevronRight size={18} className={styles.verifyChevron} />
+          </button>
+        )}
 
         {SHOW_LEGACY_GAME_ECONOMY && <div className={styles.currencyBento}>
           <div className={styles.currencyCell} style={{ borderColor: 'var(--gc)' }}>
@@ -646,16 +698,19 @@ export default function ProfileMain() {
           <ChevronRight size={18} className={styles.entryChevron} />
         </button>
 
-        {/* SGR-312: 비즈니스 파트너 진입 (상태 분기는 /biz/status 화면이 처리) */}
-        <button
-          type="button"
-          onClick={() => navigate('/biz/status')}
-          className={`${styles.entryRow} ${styles.entryRowSpaced}`}
-        >
-          <span className={styles.entryIcon}><Store size={18} /></span>
-          <span className={styles.entryLabel}>{t('biz.menuEntry', { defaultValue: '비즈니스 파트너' })}</span>
-          <ChevronRight size={18} className={styles.entryChevron} />
-        </button>
+        {/* SGR-312: 비즈니스 파트너 진입 (상태 분기는 /biz/status 화면이 처리) —
+            W4: 파트너(APPROVED 업체 보유)는 위 요약 카드로 승격되므로 여기서는 미가입자에게만 노출 (D-5) */}
+        {!activeBizProfile && (
+          <button
+            type="button"
+            onClick={() => navigate('/biz/status')}
+            className={`${styles.entryRow} ${styles.entryRowSpaced}`}
+          >
+            <span className={styles.entryIcon}><Store size={18} /></span>
+            <span className={styles.entryLabel}>{t('biz.menuEntryInvite', { defaultValue: '비즈니스 파트너 시작하기' })}</span>
+            <ChevronRight size={18} className={styles.entryChevron} />
+          </button>
+        )}
 
         {/* SGR-287: 피드/이력/뱃지 탭 제거 — 피드만 노출(피드 영역 라벨) */}
         <h3 className={styles.feedSectionLabel}>{t('profile.tabFeeds')}</h3>

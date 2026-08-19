@@ -184,18 +184,20 @@ class ReviewReplyOwnerOnlyTest(unittest.IsolatedAsyncioTestCase):
 class ReviewReportContractTest(unittest.IsolatedAsyncioTestCase):
     """① 신고는 Report 를 PENDING 으로 INSERT 만 한다 — 후기 노출 상태를 바꾸는 어떤 쓰기도
     없어야 한다. 이게 깨지면 업체가 나쁜 리뷰를 신고로 지우는 어뷰징이 생긴다(016 M1, 가장 중요).
-    ③ 중복 신고는 409(UNIQUE(review_id, reporter_id) WHERE target_type='REVIEW' 근거)."""
+    ③ 중복 신고는 409 — 공유 헬퍼 _report_guard.guard_duplicate_report(W3, R-3) 가 기존 신고의
+    status 에 따라 report_already_cancelled/report_already_pending 코드를 구분해 응답한다."""
 
     @staticmethod
-    def _db(*, review, dup=None):
+    def _db(*, review, dup_status=None):
         db = AsyncMock()
 
         async def execute(stmt):
-            # 첫 execute: 후기 조회 → scalar_one_or_none. 두번째: 중복 조회 → first.
+            # 첫 execute: 후기 조회 → scalar_one_or_none. 두번째: guard_duplicate_report 의
+            # 기존 신고 status 조회 → scalar_one_or_none.
             if execute.calls == 0:
                 execute.calls += 1
                 return _execute_result(scalar_one_or_none=review)
-            return _execute_result(first=dup)
+            return _execute_result(scalar_one_or_none=dup_status)
 
         execute.calls = 0
         db.execute = AsyncMock(side_effect=execute)
@@ -211,7 +213,7 @@ class ReviewReportContractTest(unittest.IsolatedAsyncioTestCase):
         review = _review(user_id=reviewer_id, profile_id=uuid.uuid4())
         original_body = review.body
         original_owner_reply = review.owner_reply
-        db = self._db(review=review, dup=None)
+        db = self._db(review=review, dup_status=None)
 
         result = await biz.report_review(
             review.profile_id,
@@ -238,7 +240,7 @@ class ReviewReportContractTest(unittest.IsolatedAsyncioTestCase):
         reviewer_id = uuid.uuid4()
         reporter_id = uuid.uuid4()
         review = _review(user_id=reviewer_id, profile_id=uuid.uuid4())
-        db = self._db(review=review, dup=(uuid.uuid4(),))
+        db = self._db(review=review, dup_status="PENDING")
 
         with self.assertRaises(HTTPException) as ctx:
             await biz.report_review(
@@ -250,10 +252,30 @@ class ReviewReportContractTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "report_already_pending")
+        db.add.assert_not_called()
+
+    async def test_duplicate_report_after_cancelled_is_distinct_code(self):
+        reviewer_id = uuid.uuid4()
+        reporter_id = uuid.uuid4()
+        review = _review(user_id=reviewer_id, profile_id=uuid.uuid4())
+        db = self._db(review=review, dup_status="CANCELLED")
+
+        with self.assertRaises(HTTPException) as ctx:
+            await biz.report_review(
+                review.profile_id,
+                review.id,
+                ReportCreateRequest(reason="SPAM"),
+                db=db,
+                session_uid=reporter_id,
+            )
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "report_already_cancelled")
         db.add.assert_not_called()
 
     async def test_missing_review_is_404(self):
-        db = self._db(review=None, dup=None)
+        db = self._db(review=None, dup_status=None)
 
         with self.assertRaises(HTTPException) as ctx:
             await biz.report_review(
@@ -268,7 +290,7 @@ class ReviewReportContractTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_reason_is_400(self):
         review = _review(user_id=uuid.uuid4(), profile_id=uuid.uuid4())
-        db = self._db(review=review, dup=None)
+        db = self._db(review=review, dup_status=None)
 
         with self.assertRaises(HTTPException) as ctx:
             await biz.report_review(
@@ -285,7 +307,7 @@ class ReviewReportContractTest(unittest.IsolatedAsyncioTestCase):
     async def test_reporting_own_review_is_400(self):
         author_id = uuid.uuid4()
         review = _review(user_id=author_id, profile_id=uuid.uuid4())
-        db = self._db(review=review, dup=None)
+        db = self._db(review=review, dup_status=None)
 
         with self.assertRaises(HTTPException) as ctx:
             await biz.report_review(

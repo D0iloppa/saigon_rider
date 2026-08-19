@@ -576,6 +576,8 @@ export interface BizNewsItem {
   body: string | null;
   createdAt: string;
   photos: string[];
+  /** photos 와 같은 순서(sort_order)의 병렬 배열 — 수정 화면이 기존 사진 집합을 재제출할 때 씀 (T4) */
+  photoContentIds: string[];
 }
 
 interface BizNewsItemApi {
@@ -584,6 +586,18 @@ interface BizNewsItemApi {
   body: string | null;
   created_at: string;
   photos: string[];
+  photo_content_ids?: string[];
+}
+
+function fromBizNewsItemApi(n: BizNewsItemApi): BizNewsItem {
+  return {
+    id: n.id,
+    title: n.title,
+    body: n.body,
+    createdAt: n.created_at,
+    photos: n.photos ?? [],
+    photoContentIds: n.photo_content_ids ?? [],
+  };
 }
 
 export async function fetchBizPublicNews(
@@ -595,13 +609,7 @@ export async function fetchBizPublicNews(
     offset: String(params?.offset ?? 0),
   });
   const res = await api.realFetch<BizNewsItemApi[]>(`/biz/public/${profileId}/news?${qs}`);
-  return (res ?? []).map((n) => ({
-    id: n.id,
-    title: n.title,
-    body: n.body,
-    createdAt: n.created_at,
-    photos: n.photos ?? [],
-  }));
+  return (res ?? []).map(fromBizNewsItemApi);
 }
 
 /** 업체 소식 작성 (오너) — photoContentIds 는 /contents/upload 로 선업로드한 UUID */
@@ -620,7 +628,7 @@ export async function createBizNews(input: {
       photo_content_ids: input.photoContentIds ?? [],
     }),
   }, 'bff', { rethrow: true });
-  return { id: res.id, title: res.title, body: res.body, createdAt: res.created_at, photos: res.photos ?? [] };
+  return fromBizNewsItemApi(res);
 }
 
 /** 업체 소식 수정 (오너) — photoContentIds 를 생략하면 기존 사진을 유지한다 */
@@ -636,7 +644,7 @@ export async function updateBizNews(
       photo_content_ids: input.photoContentIds ?? null,
     }),
   }, 'bff', { rethrow: true });
-  return { id: res.id, title: res.title, body: res.body, createdAt: res.created_at, photos: res.photos ?? [] };
+  return fromBizNewsItemApi(res);
 }
 
 /** 업체 소식 삭제 (오너) */
@@ -791,6 +799,82 @@ export async function upsertBizReviewReply(profileId: string, reviewId: string, 
 /** 업체 답글 삭제 (오너) */
 export async function deleteBizReviewReply(profileId: string, reviewId: string): Promise<void> {
   await api.realFetch(`/biz/public/${profileId}/reviews/${reviewId}/reply`, { method: 'DELETE' }, 'bff', { rethrow: true });
+}
+
+// ── 오너 전용 후기 목록 (파트너 라운지, W2 T2/T3) ─────────────────
+// 소비자 공개 목록(fetchBizReviews)과 별도 엔드포인트 — 숨김 후기 포함 + is_reported_by_me/미답변 필터.
+
+export interface BizOwnerReview {
+  id: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+  reviewerNickname: string | null;
+  ownerReply: string | null;
+  ownerRepliedAt: string | null;
+  /** 운영자 조치로 숨겨진 후기 — true 면 body 는 항상 null(원문 블라인드) */
+  hidden: boolean;
+  /** 오너 본인이 이 후기를 신고했는지 — 타인의 신고 여부는 절대 포함되지 않는다 */
+  isReportedByMe: boolean;
+}
+
+export interface BizOwnerReviewList {
+  reviews: BizOwnerReview[];
+  total: number;
+  /** 필터와 무관하게 항상 전체 미답변(owner_reply IS NULL) 건수 — W4 파트너 요약 카드 배지용 */
+  unansweredCount: number;
+  /** 소비자 공개 목록과 동일 기준(숨김 제외) 평균 별점 */
+  avgRating: number | null;
+  hasMore: boolean;
+}
+
+interface BizOwnerReviewApi {
+  id: string;
+  rating: number;
+  body: string | null;
+  created_at: string;
+  reviewer_nickname: string | null;
+  owner_reply: string | null;
+  owner_replied_at: string | null;
+  hidden: boolean;
+  is_reported_by_me: boolean;
+}
+
+/** 파트너 라운지(오너) 후기 목록 — GET /biz/reviews. unansweredOnly=true 면 owner_reply IS NULL 만. */
+export async function fetchBizOwnerReviews(
+  profileId: string,
+  params?: { limit?: number; offset?: number; unansweredOnly?: boolean },
+): Promise<BizOwnerReviewList> {
+  const qs = new URLSearchParams({
+    profile_id: profileId,
+    limit: String(params?.limit ?? 20),
+    offset: String(params?.offset ?? 0),
+    unanswered_only: String(params?.unansweredOnly ?? false),
+  });
+  const res = await api.realFetch<{
+    reviews: BizOwnerReviewApi[];
+    total: number;
+    unanswered_count: number;
+    avg_rating: number | null;
+    has_more: boolean;
+  }>(`/biz/reviews?${qs}`, undefined, 'bff', { rethrow: true });
+  return {
+    reviews: (res.reviews ?? []).map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      body: r.body,
+      createdAt: r.created_at,
+      reviewerNickname: r.reviewer_nickname,
+      ownerReply: r.owner_reply ?? null,
+      ownerRepliedAt: r.owner_replied_at ?? null,
+      hidden: r.hidden,
+      isReportedByMe: r.is_reported_by_me,
+    })),
+    total: res.total,
+    unansweredCount: res.unanswered_count,
+    avgRating: res.avg_rating,
+    hasMore: res.has_more,
+  };
 }
 
 export type BizReviewReportReason = 'SPAM' | 'ABUSE' | 'INAPPROPRIATE' | 'OTHER';

@@ -15,7 +15,8 @@ import styles from './BizNewsCreate.module.css';
 const MAX_IMAGES = 6;
 
 interface NewsImageItem {
-  file: File;
+  /** 새로 선택한 파일만 있음 — 수정 화면에 프리필된 기존 사진은 null(이미 업로드된 content) */
+  file: File | null;
   preview: string;
   contentId: string | null;
   uploading: boolean;
@@ -28,8 +29,8 @@ interface LocationState {
 }
 
 /** 소식 작성/수정 — 홈 탭 인라인 폼에서 분리된 별도 화면 (FeedCreate.tsx UX 레퍼런스).
- * editNews 가 있으면 수정 모드: 사진은 기존 그대로 유지하고(전체 대체 방식 PATCH 라 재편집 UI를
- * 새로 만들지 않음) 제목/본문만 고칠 수 있다. */
+ * editNews 가 있으면 수정 모드: 기존 사진(photos+photoContentIds)을 프리필해 추가/삭제할 수
+ * 있고, 제출 시 편집된 전체 집합을 photo_content_ids 로 재제출한다(PATCH 전체 대체 시맨틱, T4). */
 export default function BizNewsCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -42,7 +43,18 @@ export default function BizNewsCreate() {
 
   const [title, setTitle] = useState(editNews?.title ?? '');
   const [body, setBody] = useState(editNews?.body ?? '');
-  const [images, setImages] = useState<NewsImageItem[]>([]);
+  // 수정 모드는 기존 사진(photos+photoContentIds, 같은 순서의 병렬 배열)을 프리필한다 — PATCH 는
+  // photo_content_ids 전체 대체 시맨틱이라 편집된 전체 집합을 재제출해야 한다(T4).
+  const [images, setImages] = useState<NewsImageItem[]>(() =>
+    editNews
+      ? editNews.photos.map((url, i) => ({
+          file: null,
+          preview: url,
+          contentId: editNews.photoContentIds[i] ?? null,
+          uploading: false,
+        }))
+      : [],
+  );
   const [submitting, setSubmitting] = useState(false);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이라 textarea 아래 여백이 키보드에 가려진다 —
@@ -102,7 +114,11 @@ export default function BizNewsCreate() {
     setSubmitting(true);
     try {
       if (isEditing && editNews) {
-        await updateBizNews(editNews.id, { title: title.trim(), body: body.trim() || null });
+        await updateBizNews(editNews.id, {
+          title: title.trim(),
+          body: body.trim() || null,
+          photoContentIds: images.filter((i) => i.contentId).map((i) => i.contentId!),
+        });
         navigate('/biz/news', { state: { profileId }, replace: true });
       } else {
         await createBizNews({
@@ -156,7 +172,7 @@ export default function BizNewsCreate() {
             rows={8}
           />
 
-          {!isEditing && images.length > 0 && (
+          {images.length > 0 && (
             <div className={styles.previewGrid}>
               {images.map((img, idx) => (
                 <div key={idx} className={styles.previewItem}>
@@ -175,22 +191,20 @@ export default function BizNewsCreate() {
           )}
         </div>
 
-        {!isEditing && (
-          <div className={styles.toolbar}>
-            <label className={styles.toolBtn}>
-              <Camera size={16} strokeWidth={2.2} />
-              {t('biz.newsAddPhoto', { defaultValue: '사진 추가' })} {images.length > 0 && `(${images.length}/${MAX_IMAGES})`}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                style={{ display: 'none' }}
-                onChange={handleImageSelect}
-                disabled={images.length >= MAX_IMAGES}
-              />
-            </label>
-          </div>
-        )}
+        <div className={styles.toolbar}>
+          <label className={styles.toolBtn}>
+            <Camera size={16} strokeWidth={2.2} />
+            {t('biz.newsAddPhoto', { defaultValue: '사진 추가' })} {images.length > 0 && `(${images.length}/${MAX_IMAGES})`}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleImageSelect}
+              disabled={images.length >= MAX_IMAGES}
+            />
+          </label>
+        </div>
       </div>
     </div>
   );

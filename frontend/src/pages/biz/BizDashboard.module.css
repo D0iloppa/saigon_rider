@@ -105,6 +105,46 @@
   color: var(--text-2);
 }
 
+.reviewBodyHidden {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--text-3);
+}
+
+.reportedBadge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--danger, #E5484D);
+}
+
+/* T3: 미답변만 보기 필터 — sectionTitle 오른쪽에 배치 */
+.reviewSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.filterToggle, .filterToggleActive {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.filterToggleActive {
+  border-color: var(--brand-500, #FF5A1F);
+  color: var(--brand-500, #FF5A1F);
+  background: var(--surface-2);
+}
+
 .moreBtn {
   padding: 10px;
   border-radius: 12px;

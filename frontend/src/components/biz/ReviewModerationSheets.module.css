@@ -1,0 +1,73 @@
+/* BizPublic.module.css 의 답글/신고 바텀시트를 그대로 옮긴 것 — 순수 리팩토링(값 변경 없음) */
+
+.replySheet, .reportSheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 4px 4px;
+}
+
+.replySheetTitle {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.replyTextarea, .reportNoteInput {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.reportReasonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reportReasonBtn, .reportReasonBtnActive {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.reportReasonBtnActive {
+  border-color: var(--brand-500, #FF5A1F);
+  color: var(--brand-500, #FF5A1F);
+  background: var(--surface-2);
+}
+
+.replySheetActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.replySheetSubmit {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--brand-500, #FF5A1F);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.replySheetSubmit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

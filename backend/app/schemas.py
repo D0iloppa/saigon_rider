@@ -1606,13 +1606,17 @@ class BusinessNewsBrief(BaseModel):
 
 
 class BusinessNewsItemOut(BaseModel):
-    """업체 소식 목록 항목 (공개 프로필 '소식' 섹션) — photos 는 imgproxy URL."""
+    """업체 소식 목록 항목 (공개 프로필 '소식' 섹션) — photos 는 imgproxy URL.
+
+    photo_content_ids 는 photos 와 같은 순서(sort_order)의 병렬 배열 — 수정 화면이 기존
+    사진 집합을 그대로 재제출(PATCH photo_content_ids)할 수 있게 UUID 를 함께 내려준다(T4)."""
 
     id: uuid.UUID
     title: str
     body: str | None = None
     created_at: datetime
     photos: list[str] = []
+    photo_content_ids: list[uuid.UUID] = []
 
 
 class BusinessNewsFeedItemOut(BaseModel):
@@ -1701,6 +1705,35 @@ class BusinessReviewListOut(BaseModel):
 
     reviews: list[BusinessReviewOut]
     total: int
+    avg_rating: float | None = None
+    has_more: bool
+
+
+class BusinessOwnerReviewOut(BaseModel):
+    """오너 전용 후기 목록 항목(GET /biz/reviews) — 소비자 공개 응답(BusinessReviewOut)과
+    분리(T2 (ii)). hidden=True 인 항목은 body 를 내려주지 않는다(운영자 조치 사실만 통지,
+    원문은 블라인드). hidden_reason 은 신고자 익명성/보복 위험으로 이 응답에 아예 없다."""
+
+    id: uuid.UUID
+    rating: int
+    body: str | None
+    created_at: datetime
+    reviewer_nickname: str | None = None
+    owner_reply: str | None = None
+    owner_replied_at: datetime | None = None
+    hidden: bool = False
+    # 오너 본인이 이 후기를 신고했는지 여부만 — 타인의 신고 여부는 절대 노출하지 않는다.
+    is_reported_by_me: bool = False
+
+
+class BusinessOwnerReviewListOut(BaseModel):
+    """오너 후기 목록 wrapper — unanswered_count 는 owner_reply IS NULL 인 전체 건수
+    (필터와 무관하게 항상 전체 기준, W4 파트너 요약 카드 배지가 그대로 쓴다). avg_rating 은
+    소비자 공개 목록과 동일하게 숨김 제외 기준(get_public_reviews 미러, BizDashboard 지표 카드용)."""
+
+    reviews: list[BusinessOwnerReviewOut]
+    total: int
+    unanswered_count: int
     avg_rating: float | None = None
     has_more: bool
 

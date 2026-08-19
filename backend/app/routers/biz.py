@@ -49,6 +49,8 @@ from ..schemas import (
     BusinessNewsFeedItemOut,
     BusinessNewsItemOut,
     BusinessNewsUpdateRequest,
+    BusinessOwnerReviewListOut,
+    BusinessOwnerReviewOut,
     BusinessPriceCreateRequest,
     BusinessPriceItemOut,
     BusinessProfileApplyRequest,
@@ -73,6 +75,7 @@ from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.translate import warm_translations
 from ..utils import build_imgproxy_url, haversine_m
+from ._report_guard import guard_duplicate_report
 from .auth import _normalize_vn_phone
 
 router = APIRouter(prefix="/biz", tags=["비즈니스 파트너 (Business Partner)"])
@@ -1254,16 +1257,24 @@ async def get_public_news(
         .scalars()
         .all()
     )
-    return [
-        BusinessNewsItemOut(
+
+    def _news_out(n: BusinessNews) -> BusinessNewsItemOut:
+        photos: list[str] = []
+        photo_content_ids: list[uuid.UUID] = []
+        for ph in n.photos:
+            if ph.content and ph.content.file_path:
+                photos.append(build_imgproxy_url(ph.content.file_path))
+                photo_content_ids.append(ph.content_id)
+        return BusinessNewsItemOut(
             id=n.id,
             title=n.title,
             body=n.body,
             created_at=n.created_at,
-            photos=[build_imgproxy_url(ph.content.file_path) for ph in n.photos if ph.content and ph.content.file_path],
+            photos=photos,
+            photo_content_ids=photo_content_ids,
         )
-        for n in rows
-    ]
+
+    return [_news_out(n) for n in rows]
 
 
 @router.post("/news", response_model=BusinessNewsItemOut, status_code=201, summary="업체 소식 등록 (오너)")
@@ -1296,18 +1307,27 @@ async def create_news(
     await db.flush()
 
     photos: list[str] = []
+    photo_content_ids: list[uuid.UUID] = []
     for idx, cid in enumerate(body.photo_content_ids):
         db.add(BusinessNewsPhoto(news_id=news.id, content_id=cid, sort_order=idx))
         content = await db.get(Content, cid)
         if content and content.file_path:
             photos.append(build_imgproxy_url(content.file_path))
+            photo_content_ids.append(cid)
 
     noti_events.enqueue(
         db, "search.reindex", {"entity_type": "news", "entity_id": str(news.id), "texts": [title, body.body or ""]}
     )
     await db.commit()
     background.add_task(warm_translations, [title, body.body or ""])
-    return BusinessNewsItemOut(id=news.id, title=news.title, body=news.body, created_at=news.created_at, photos=photos)
+    return BusinessNewsItemOut(
+        id=news.id,
+        title=news.title,
+        body=news.body,
+        created_at=news.created_at,
+        photos=photos,
+        photo_content_ids=photo_content_ids,
+    )
 
 
 @router.patch("/news/{news_id}", response_model=BusinessNewsItemOut, summary="업체 소식 수정 (오너)")
@@ -1328,19 +1348,24 @@ async def update_news(
     if not title:
         raise HTTPException(status_code=400, detail="Title is required")
 
-    photos: list[str] = [
-        build_imgproxy_url(ph.content.file_path) for ph in news.photos if ph.content and ph.content.file_path
-    ]
+    photos: list[str] = []
+    photo_content_ids: list[uuid.UUID] = []
+    for ph in news.photos:
+        if ph.content and ph.content.file_path:
+            photos.append(build_imgproxy_url(ph.content.file_path))
+            photo_content_ids.append(ph.content_id)
     if body.photo_content_ids is not None:
         for cid in body.photo_content_ids:
             await _require_content(db, cid)
         await db.execute(delete(BusinessNewsPhoto).where(BusinessNewsPhoto.news_id == news.id))
         photos = []
+        photo_content_ids = []
         for idx, cid in enumerate(body.photo_content_ids):
             db.add(BusinessNewsPhoto(news_id=news.id, content_id=cid, sort_order=idx))
             content = await db.get(Content, cid)
             if content and content.file_path:
                 photos.append(build_imgproxy_url(content.file_path))
+                photo_content_ids.append(cid)
 
     news.title = title
     news.body = body.body
@@ -1351,7 +1376,14 @@ async def update_news(
     )
     await db.commit()
     background.add_task(warm_translations, [title, body.body or ""])
-    return BusinessNewsItemOut(id=news.id, title=news.title, body=news.body, created_at=news.created_at, photos=photos)
+    return BusinessNewsItemOut(
+        id=news.id,
+        title=news.title,
+        body=news.body,
+        created_at=news.created_at,
+        photos=photos,
+        photo_content_ids=photo_content_ids,
+    )
 
 
 @router.delete("/news/{news_id}", summary="업체 소식 삭제 (오너)")
@@ -1536,6 +1568,99 @@ async def get_my_public_review(
     return _review_out(row[0], row[1])
 
 
+@router.get("/reviews", response_model=BusinessOwnerReviewListOut, summary="업체 후기 목록 (오너, 파트너 라운지)")
+async def get_owner_reviews(
+    profile_id: uuid.UUID,
+    limit: int = 20,
+    offset: int = 0,
+    unanswered_only: bool = False,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """오너 전용 후기 목록(W2 T2) — 소비자 공개 조회(get_public_reviews)와 별도 엔드포인트로
+    분리한다(권고안 (ii) 채택). 공개 API 에 오너 분기를 넣는 대안 (i) 은 공개 계약(hidden_at
+    필터·오너 전용 필드 비노출)이 오너 분기 조건문 하나로 깨질 수 있어 T&S 리스크가 크다고
+    판단 — 새 라우트 하나가 늘지만 두 계약이 코드로도 완전히 분리돼 있는 쪽이 더 안전하다.
+
+    공개 목록과 달리 hidden_at 필터를 걸지 않아 운영자 조치(숨김) 후기도 그대로 포함하되,
+    본문은 블라인드(hidden=True, body=None)한다 — hidden_reason 은 신고자 익명성·보복 위험 때문에
+    이 응답에 아예 넣지 않는다(대표 미결 보고). unanswered_only 는 owner_reply IS NULL 필터,
+    unanswered_count 는 필터와 무관하게 항상 전체 미답변 건수(W4 파트너 요약 카드 배지 용도)."""
+    await _get_own_profile(db, profile_id, session_uid)
+    limit = max(1, min(limit, 50))
+    offset = max(0, offset)
+
+    filters = [BusinessReview.profile_id == profile_id]
+    if unanswered_only:
+        filters.append(BusinessReview.owner_reply.is_(None))
+
+    total = (await db.execute(select(func.count()).select_from(BusinessReview).where(*filters))).scalar_one()
+    unanswered_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(BusinessReview)
+            .where(BusinessReview.profile_id == profile_id, BusinessReview.owner_reply.is_(None))
+        )
+    ).scalar_one()
+    # 소비자 공개 목록(get_public_reviews)과 동일한 숨김 제외 기준 — BizDashboard 지표 카드용.
+    avg_rating = (
+        await db.execute(
+            select(func.avg(BusinessReview.rating))
+            .select_from(BusinessReview)
+            .where(BusinessReview.profile_id == profile_id, BusinessReview.hidden_at.is_(None))
+        )
+    ).scalar_one()
+    rows = (
+        await db.execute(
+            select(BusinessReview, User.nickname)
+            .join(User, User.id == BusinessReview.user_id)
+            .where(*filters)
+            .order_by(BusinessReview.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+
+    review_ids = [r.id for r, _ in rows]
+    reported_ids: set[uuid.UUID] = set()
+    if review_ids:
+        reported_ids = set(
+            (
+                await db.execute(
+                    select(Report.review_id).where(
+                        Report.target_type == "REVIEW",
+                        Report.review_id.in_(review_ids),
+                        Report.reporter_id == session_uid,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    reviews = [
+        BusinessOwnerReviewOut(
+            id=r.id,
+            rating=r.rating,
+            body=None if r.hidden_at is not None else r.body,
+            created_at=r.created_at,
+            reviewer_nickname=nickname,
+            owner_reply=r.owner_reply,
+            owner_replied_at=r.owner_replied_at,
+            hidden=r.hidden_at is not None,
+            is_reported_by_me=r.id in reported_ids,
+        )
+        for r, nickname in rows
+    ]
+    return BusinessOwnerReviewListOut(
+        reviews=reviews,
+        total=int(total),
+        unanswered_count=int(unanswered_count),
+        avg_rating=round(float(avg_rating), 1) if avg_rating is not None else None,
+        has_more=offset + len(reviews) < int(total),
+    )
+
+
 @router.post("/public/{profile_id}/reviews", response_model=BusinessReviewOut, summary="업체 후기 작성/재작성 (upsert)")
 async def upsert_public_review(
     profile_id: uuid.UUID,
@@ -1676,18 +1801,14 @@ async def report_business(
     if profile.user_id is not None and profile.user_id == session_uid:
         raise HTTPException(status_code=400, detail="cannot report your own business")
 
-    # 중복 판정 — reports 부분 유니크(uq_reports_biz_once: business_profile_id x reporter_id WHERE BIZ)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "BIZ",
-                Report.business_profile_id == profile_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    # 중복 판정 — reports 부분 유니크(uq_reports_biz_once: business_profile_id x reporter_id WHERE BIZ)와 동일 조건.
+    # CANCELLED/PENDING 구분 코드는 _report_guard.guard_duplicate_report 공유 헬퍼(W3, R-3)로 통일.
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "BIZ",
+        Report.business_profile_id == profile_id,
+        Report.reporter_id == session_uid,
+    )
 
     db.add(
         Report(
@@ -1730,18 +1851,14 @@ async def report_review(
     if review.user_id == session_uid:
         raise HTTPException(status_code=400, detail="cannot report your own review")
 
-    # 중복 판정 — reports 부분 유니크(uq_reports_review_once: review_id x reporter_id WHERE REVIEW)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "REVIEW",
-                Report.review_id == review_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    # 중복 판정 — reports 부분 유니크(uq_reports_review_once: review_id x reporter_id WHERE REVIEW)와 동일 조건.
+    # CANCELLED/PENDING 구분 코드는 _report_guard.guard_duplicate_report 공유 헬퍼(W3, R-3)로 통일.
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "REVIEW",
+        Report.review_id == review_id,
+        Report.reporter_id == session_uid,
+    )
 
     db.add(
         Report(

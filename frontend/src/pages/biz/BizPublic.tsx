@@ -11,6 +11,10 @@ import { native } from '@/lib/native';
 import { useUserStore } from '@/store/useUserStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useConfirmStore } from '@/store/useConfirmStore';
+import { useReviewModeration } from '@/hooks/useReviewModeration';
+import { extractErrorCode } from '@/api/client';
+import ReviewActionRow from '@/components/biz/ReviewActionRow';
+import ReviewModerationSheets from '@/components/biz/ReviewModerationSheets';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import { BIZ_CAT_COLOR, BIZ_CAT_COLOR_FALLBACK, BIZ_CAT_ICON_PATH } from '@/components/maps/bizCategoryIcons';
 import { usePoiMarkers } from '@/components/maps/usePoiMarkers';
@@ -29,9 +33,6 @@ import {
   fetchBizPublicPrices,
   fetchMyBizReview,
   deleteBizReview,
-  upsertBizReviewReply,
-  deleteBizReviewReply,
-  reportBizReview,
   appealBizReview,
   reportBusiness,
   type BusinessPublicProfile,
@@ -39,7 +40,6 @@ import {
   type BizNewsItem,
   type BizReview,
   type BizPriceItem,
-  type BizReviewReportReason,
   type BizReportReason,
 } from '@/api/biz';
 import { fetchListings, type ListingCard as MarketListing, type MarketAd } from '@/api/market';
@@ -60,9 +60,6 @@ const REVIEW_PAGE = 5;
 // T-3: 대표 재지시(2026-08-18) — 가격 탭 복원, 5탭(home/news/price/listings/reviews)으로 재조정.
 const DETAIL_TABS = ['home', 'news', 'price', 'listings', 'reviews'] as const;
 type DetailTab = typeof DETAIL_TABS[number];
-
-// 매물 신고 사유(ReportReason)와 값이 다르다 — 후기 신고 전용 계약
-const BIZ_REVIEW_REPORT_REASONS: BizReviewReportReason[] = ['SPAM', 'ABUSE', 'INAPPROPRIATE', 'OTHER'];
 
 // 소비자→업체 신고 사유(대표 지적 2026-08-18) — C2C 신고 사유와 성격이 달라 별도 세트.
 const BIZ_REPORT_REASONS: BizReportReason[] = [
@@ -131,13 +128,8 @@ export default function BizPublic() {
   const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
   const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
   const [myReview, setMyReview] = useState<BizReview | null>(null);
-  const [replyTarget, setReplyTarget] = useState<BizReview | null>(null);
-  const [replyBody, setReplyBody] = useState('');
-  const [replySubmitting, setReplySubmitting] = useState(false);
-  const [reportTarget, setReportTarget] = useState<BizReview | null>(null);
-  const [reportReason, setReportReason] = useState<BizReviewReportReason | null>(null);
-  const [reportNote, setReportNote] = useState('');
-  const [reportSubmitting, setReportSubmitting] = useState(false);
+  // 답글 작성/수정/삭제 + 후기 신고 — BizDashboard(파트너 라운지) 와 공용(useReviewModeration).
+  const reviewMod = useReviewModeration<BizReview>(id, setReviews);
 
   // 내 후기 숨김 이의제기(대표 지적 2026-08-18) — 서버가 중복 제출 방지 필드를 주지 않아
   // 접수 여부는 이 세션 로컬 상태로만 관리한다(가짜 영속성 금지, 새로고침하면 다시 제출 가능).
@@ -304,73 +296,12 @@ export default function BizPublic() {
     );
   };
 
-  const handleOpenReply = (review: BizReview) => {
-    setReplyBody(review.ownerReply ?? '');
-    setReplyTarget(review);
-  };
-
-  const handleSubmitReply = async () => {
-    if (!id || !replyTarget || !replyBody.trim() || replySubmitting) return;
-    setReplySubmitting(true);
-    try {
-      const updated = await upsertBizReviewReply(id, replyTarget.id, replyBody.trim());
-      setReviews((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      toast.success(t('biz.review.reply.success', { defaultValue: '답글을 등록했어요' }));
-    } catch {
-      toast.error(t('biz.review.reply.error', { defaultValue: '답글 등록에 실패했어요' }));
-    } finally {
-      // 실패해도 시트는 닫는다 (제출 흐름 규약)
-      setReplySubmitting(false);
-      setReplyTarget(null);
-      setReplyBody('');
-    }
-  };
-
-  const handleDeleteReply = (review: BizReview) => {
-    if (!id) return;
-    openConfirm(
-      { mode: 'text', value: t('biz.review.reply.deleteConfirm', { defaultValue: '답글을 삭제할까요?' }) },
-      async () => {
-        try {
-          await deleteBizReviewReply(id, review.id);
-          setReviews((prev) => prev.map((r) => (r.id === review.id ? { ...r, ownerReply: null, ownerRepliedAt: null } : r)));
-          toast.success(t('biz.review.reply.deleteSuccess', { defaultValue: '답글을 삭제했어요' }));
-        } catch {
-          toast.error(t('biz.review.reply.deleteError', { defaultValue: '답글 삭제에 실패했어요' }));
-        }
-      },
-    );
-  };
-
+  // 답글 작성/수정/삭제 로직은 reviewMod(useReviewModeration) 로 이동 — 여기선 신고 진입 시
+  // 로그인 게이팅(requireAuth)만 감싼다(원본 handleOpenReport 동작 그대로, 오너는 이미 로그인 상태라
+  // 항상 통과한다).
   const handleOpenReport = (review: BizReview) => {
     if (!requireAuth()) return;
-    setReportTarget(review);
-  };
-
-  const handleCloseReport = () => {
-    setReportTarget(null);
-    setReportReason(null);
-    setReportNote('');
-  };
-
-  const handleSubmitReport = async () => {
-    if (!id || !reportTarget || !reportReason || reportSubmitting) return;
-    setReportSubmitting(true);
-    try {
-      await reportBizReview(id, reportTarget.id, reportReason, reportNote.trim() || undefined);
-      // 016 M1: 신고 ≠ 즉시 차단 — 큐에 쌓여 운영자 판정 후에만 조치되므로 "삭제됐다"고 오해하지 않게 문구를 명확히 한다.
-      toast.success(t('biz.review.report.success', { defaultValue: '신고가 접수되었어요. 검토 후 조치됩니다' }));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.startsWith('HTTP 409')) {
-        toast.error(t('biz.review.report.already', { defaultValue: '이미 신고한 후기예요' }));
-      } else {
-        toast.error(t('biz.review.report.error', { defaultValue: '신고 접수에 실패했어요' }));
-      }
-    } finally {
-      setReportSubmitting(false);
-      handleCloseReport();
-    }
+    reviewMod.handleOpenReport(review);
   };
 
   const handleOpenAppeal = () => {
@@ -423,9 +354,12 @@ export default function BizPublic() {
       // 오해하면 같은 사유로 반복 신고한다. 문구에 "검토 후 조치" 취지를 명시한다.
       toast.success(t('biz.report.success', { defaultValue: '신고가 접수되었어요. 검토 후 조치됩니다' }));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.startsWith('HTTP 409')) {
-        toast.error(t('biz.report.already', { defaultValue: '이미 신고한 업체예요' }));
+      // R-3(260819 W3) — 취소한 신고 재시도와 처리 중인 신고 재시도는 다른 문구로 안내(MarketDetail/UserProfile 미러).
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
       } else {
         toast.error(t('biz.report.error', { defaultValue: '신고 접수에 실패했어요' }));
       }
@@ -911,38 +845,16 @@ export default function BizPublic() {
                   <span className={styles.reviewTime}>{formatRelativeTime(r.createdAt)}</span>
                 </div>
                 <p className={styles.reviewBody}>{r.body}</p>
-                {r.ownerReply && (
-                  <div className={styles.ownerReplyBlock}>
-                    <div className={styles.ownerReplyHead}>
-                      <span className={styles.ownerReplyBadge}>{profile.name}</span>
-                      {r.ownerRepliedAt && <span className={styles.ownerReplyTime}>{formatRelativeTime(r.ownerRepliedAt)}</span>}
-                    </div>
-                    <p className={styles.ownerReplyBody}>{r.ownerReply}</p>
-                  </div>
-                )}
-                <div className={styles.reviewActions}>
-                  {profile.isOwner && (
-                    <button type="button" className={styles.reviewActionBtn} onClick={() => handleOpenReply(r)}>
-                      {r.ownerReply
-                        ? t('biz.review.reply.editCta', { defaultValue: '답글 수정' })
-                        : t('biz.review.reply.cta', { defaultValue: '답글 달기' })}
-                    </button>
-                  )}
-                  {profile.isOwner && r.ownerReply && (
-                    <button type="button" className={styles.reviewActionBtn} onClick={() => handleDeleteReply(r)}>
-                      {t('biz.review.reply.deleteCta', { defaultValue: '답글 삭제' })}
-                    </button>
-                  )}
-                  {myReview?.id === r.id ? (
-                    <button type="button" className={styles.reviewActionBtnDanger} onClick={handleDeleteReview}>
-                      {t('biz.review.deleteCta', { defaultValue: '내 후기 삭제' })}
-                    </button>
-                  ) : (
-                    <button type="button" className={styles.reviewActionBtn} onClick={() => handleOpenReport(r)}>
-                      {t('biz.review.report.cta', { defaultValue: '신고' })}
-                    </button>
-                  )}
-                </div>
+                <ReviewActionRow
+                  review={r}
+                  businessName={profile.name}
+                  isOwner={profile.isOwner}
+                  isMine={myReview?.id === r.id}
+                  onReply={reviewMod.handleOpenReply}
+                  onDeleteReply={reviewMod.handleDeleteReply}
+                  onDeleteMine={handleDeleteReview}
+                  onReport={handleOpenReport}
+                />
               </article>
             ))}
             {reviewHasMore && (
@@ -983,67 +895,7 @@ export default function BizPublic() {
         />
       )}
 
-      <BottomSheet open={replyTarget !== null} onClose={() => { setReplyTarget(null); setReplyBody(''); }}>
-        <div className={styles.replySheet}>
-          <h2 className={styles.replySheetTitle}>{t('biz.review.reply.title', { defaultValue: '후기에 답글 남기기' })}</h2>
-          <textarea
-            className={styles.replyTextarea}
-            value={replyBody}
-            maxLength={500}
-            rows={4}
-            placeholder={t('biz.review.reply.placeholder', { defaultValue: '고객에게 전할 답변을 남겨주세요' })}
-            onChange={(e) => setReplyBody(e.target.value)}
-          />
-          <div className={styles.replySheetActions}>
-            <button
-              type="button"
-              className={styles.replySheetSubmit}
-              disabled={!replyBody.trim() || replySubmitting}
-              onClick={handleSubmitReply}
-            >
-              {replySubmitting ? t('biz.review.reply.submitting', { defaultValue: '등록 중…' }) : t('biz.review.reply.submit', { defaultValue: '등록' })}
-            </button>
-          </div>
-        </div>
-      </BottomSheet>
-
-      <BottomSheet open={reportTarget !== null} onClose={handleCloseReport}>
-        <div className={styles.reportSheet}>
-          <h2 className={styles.replySheetTitle}>{t('biz.review.report.title', { defaultValue: '후기 신고' })}</h2>
-          <div className={styles.reportReasonList}>
-            {BIZ_REVIEW_REPORT_REASONS.map((reason) => (
-              <button
-                key={reason}
-                type="button"
-                className={reportReason === reason ? styles.reportReasonBtnActive : styles.reportReasonBtn}
-                onClick={() => setReportReason(reason)}
-              >
-                {t(`biz.review.report.reason_${reason}`)}
-              </button>
-            ))}
-          </div>
-          <textarea
-            className={styles.reportNoteInput}
-            value={reportNote}
-            maxLength={500}
-            rows={3}
-            placeholder={t('biz.review.report.notePlaceholder', { defaultValue: '자세한 내용을 알려주세요 (선택)' })}
-            onChange={(e) => setReportNote(e.target.value)}
-          />
-          <div className={styles.replySheetActions}>
-            <button
-              type="button"
-              className={styles.replySheetSubmit}
-              disabled={!reportReason || reportSubmitting}
-              onClick={handleSubmitReport}
-            >
-              {reportSubmitting
-                ? t('biz.review.report.submitting', { defaultValue: '접수 중…' })
-                : t('biz.review.report.submit', { defaultValue: '신고 접수' })}
-            </button>
-          </div>
-        </div>
-      </BottomSheet>
+      <ReviewModerationSheets {...reviewMod.sheetProps} />
 
       <BottomSheet open={appealOpen} onClose={handleCloseAppeal}>
         <div className={styles.reportSheet}>

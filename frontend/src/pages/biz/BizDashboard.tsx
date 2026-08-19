@@ -14,13 +14,16 @@ import {
 } from 'lucide-react';
 import StateBlock from '@/components/ui/StateBlock';
 import MiniAreaChart from '@/components/ui/MiniAreaChart';
+import ReviewActionRow from '@/components/biz/ReviewActionRow';
+import ReviewModerationSheets from '@/components/biz/ReviewModerationSheets';
+import { useReviewModeration } from '@/hooks/useReviewModeration';
 import {
-  fetchBizReviews,
+  fetchBizOwnerReviews,
   fetchBusinessPublicProfile,
   fetchBizAdStatsSummary,
   fetchBizAdStatsSeries,
   createBizIssue,
-  type BizReview,
+  type BizOwnerReview,
   type BizAdStatsSummary,
   type BizAdStatsSeries,
   type BizAdStatsSeriesPeriod,
@@ -62,12 +65,17 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [reviews, setReviews] = useState<BizReview[]>([]);
+  const [reviews, setReviews] = useState<BizOwnerReview[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
   const [reviewAvg, setReviewAvg] = useState<number | null>(null);
+  const [unansweredCount, setUnansweredCount] = useState(0);
+  const [unansweredOnly, setUnansweredOnly] = useState(false);
   const [reviewHasMore, setReviewHasMore] = useState(false);
   const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
   const [followerCount, setFollowerCount] = useState<number | null>(null);
+  const [businessName, setBusinessName] = useState('');
+  // 답글 작성/수정/삭제 + 후기 신고 — BizPublic(공개 프로필) 과 공용(useReviewModeration)
+  const reviewMod = useReviewModeration<BizOwnerReview>(profileId, setReviews);
   const [adStats, setAdStats] = useState<BizAdStatsSummary | null>(null);
   const [adStatsLoading, setAdStatsLoading] = useState(true);
   const [adStatsError, setAdStatsError] = useState(false);
@@ -151,7 +159,7 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchBizReviews(profileId, { limit: REVIEW_PAGE, offset: 0 }),
+      fetchBizOwnerReviews(profileId, { limit: REVIEW_PAGE, offset: 0, unansweredOnly }),
       fetchBusinessPublicProfile(profileId),
     ])
       .then(([reviewRes, profile]) => {
@@ -159,8 +167,10 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
         setReviews(reviewRes.reviews);
         setReviewTotal(reviewRes.total);
         setReviewAvg(reviewRes.avgRating);
+        setUnansweredCount(reviewRes.unansweredCount);
         setReviewHasMore(reviewRes.hasMore);
         setFollowerCount(profile.followerCount);
+        setBusinessName(profile.name);
       })
       .catch(() => {
         if (cancelled) return;
@@ -176,16 +186,19 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, unansweredOnly]);
 
   const handleMoreReviews = async () => {
     if (reviewLoadingMore) return;
     setReviewLoadingMore(true);
     try {
-      const res = await fetchBizReviews(profileId, { limit: REVIEW_PAGE, offset: reviews.length });
+      const res = await fetchBizOwnerReviews(profileId, {
+        limit: REVIEW_PAGE, offset: reviews.length, unansweredOnly,
+      });
       setReviews((prev) => [...prev, ...res.reviews]);
       setReviewTotal(res.total);
       setReviewAvg(res.avgRating);
+      setUnansweredCount(res.unansweredCount);
       setReviewHasMore(res.hasMore);
     } finally {
       setReviewLoadingMore(false);
@@ -705,11 +718,24 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
         </div>
       </div>
 
-      <h3 className={styles.sectionTitle}>{t('biz.dashboard.recentReviews', { defaultValue: '최근 후기' })}</h3>
+      <div className={styles.reviewSectionHead}>
+        <h3 className={styles.sectionTitle}>{t('biz.dashboard.recentReviews', { defaultValue: '최근 후기' })}</h3>
+        <button
+          type="button"
+          className={unansweredOnly ? styles.filterToggleActive : styles.filterToggle}
+          onClick={() => setUnansweredOnly((v) => !v)}
+        >
+          {t('biz.dashboard.unansweredOnlyFilter', { count: unansweredCount, defaultValue: '미답변만 ({{count}})' })}
+        </button>
+      </div>
       {reviews.length === 0 ? (
         <StateBlock
           icon={MessageSquare}
-          title={t('biz.dashboard.reviewEmptyTitle', { defaultValue: '아직 후기가 없어요' })}
+          title={
+            unansweredOnly
+              ? t('biz.dashboard.unansweredEmptyTitle', { defaultValue: '미답변 후기가 없어요' })
+              : t('biz.dashboard.reviewEmptyTitle', { defaultValue: '아직 후기가 없어요' })
+          }
           desc={t('biz.dashboard.reviewEmptyDesc', { defaultValue: '고객이 후기를 남기면 여기에 표시돼요' })}
         />
       ) : (
@@ -731,7 +757,28 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
                 </span>
                 <span className={styles.reviewTime}>{formatRelativeTime(r.createdAt)}</span>
               </div>
-              <p className={styles.reviewBody}>{r.body}</p>
+              {r.hidden ? (
+                <p className={styles.reviewBodyHidden}>
+                  {t('biz.dashboard.reviewHiddenNotice', { defaultValue: '운영자 조치로 숨겨진 후기예요' })}
+                </p>
+              ) : (
+                <p className={styles.reviewBody}>{r.body}</p>
+              )}
+              {r.isReportedByMe && (
+                <span className={styles.reportedBadge}>
+                  {t('biz.dashboard.reportedByMeBadge', { defaultValue: '내가 신고함' })}
+                </span>
+              )}
+              <ReviewActionRow
+                review={r}
+                businessName={businessName}
+                isOwner
+                isMine={false}
+                onReply={reviewMod.handleOpenReply}
+                onDeleteReply={reviewMod.handleDeleteReply}
+                onDeleteMine={() => {}}
+                onReport={reviewMod.handleOpenReport}
+              />
             </article>
           ))}
           {reviewHasMore && (
@@ -746,6 +793,8 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
           )}
         </div>
       )}
+
+      <ReviewModerationSheets {...reviewMod.sheetProps} />
     </div>
   );
 }

@@ -67,8 +67,9 @@ export function useReviewModeration<T extends { id: string; ownerReply: string |
     }
   };
 
-  const handleDeleteReply = (review: { id: string }) => {
+  const handleDeleteReply = (review: { id: string; ownerReply: string | null }) => {
     if (!profileId) return;
+    const hadReply = review.ownerReply != null;
     openConfirm(
       { mode: 'text', value: t('biz.review.reply.deleteConfirm', { defaultValue: '답글을 삭제할까요?' }) },
       async () => {
@@ -77,6 +78,7 @@ export function useReviewModeration<T extends { id: string; ownerReply: string |
           setReviews((prev) =>
             prev.map((r) => (r.id === review.id ? { ...r, ownerReply: null, ownerRepliedAt: null } : r)),
           );
+          if (hadReply) onReplyChange?.(review.id, false);
           toast.success(t('biz.review.reply.deleteSuccess', { defaultValue: '답글을 삭제했어요' }));
         } catch {
           toast.error(t('biz.review.reply.deleteError', { defaultValue: '답글 삭제에 실패했어요' }));

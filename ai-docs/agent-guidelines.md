@@ -318,3 +318,26 @@ curl -s -X PATCH "$PLANE_BASE/issues/<ISSUE_ID>/" \
 
 - 도구 목록에 `mcp__codebase-memory__*` 가 없으면, 없는 척 진행하지 말고 **유저에게 `codebase-memory` MCP 서버 설치·등록을 권고**한다.
 - 그 세션에서는 즉시 기존 방식(Explore 서브에이전트, `grep`/`find`)으로 대체해 작업을 이어간다. MCP 설치를 기다리며 작업을 막지 않는다.
+
+## 10. DB 마이그레이션 관례 (`database/init/`)
+
+### 🔴 `bff_migrate` 는 매 배포마다 wiring 된 SQL 을 전부 재실행한다
+
+**전제를 틀리면 배포가 막힌다.** 스탬프 테이블은 `INSERT ... ON CONFLICT DO NOTHING` 이라 "이미 실행됨" 표시는 남지만, **SQL 본문 자체는 매 배포마다 처음부터 다시 실행된다.** 즉 `database/init/*.sql` 은 "한 번만 도는 마이그레이션"이 아니라 "매번 재실행되는 멱등 스크립트"로 짜야 한다.
+
+이 전제를 놓쳐서 실제로 배포를 막은 사고가 있었다(2026-08-19, `63a4733`, W8): `reports_target_type_check` 를 `144`(5값)→`198`(+REVIEW)→`199`(+BIZ) 세 파일이 순서대로 `DROP CONSTRAINT` 후 **무조건 좁게** `ADD CONSTRAINT ... CHECK (...)` 로 재선언하고 있었다. "최종 정의는 가장 나중 마이그레이션이 소유하고 과거 파일은 건드리지 않는다"는 관례 자체는 맞았지만, **재실행 환경에서는 중간 소유자(144)가 재실행되는 순간 이미 쌓인 최신 데이터(REVIEW 신고)를 위반**한다. REVIEW 신고가 0건인 동안은 우연히 통과했을 뿐, 1건이라도 생기자 재배포할 때마다 `bff_migrate` 가 `144` 실행 지점에서 **exit 3 로 죽고 BFF 전면 502** 가 났다. 부작용으로 `144` 의 `ADD` 가 죽으면서 한동안 `reports.target_type` 에 **CHECK 제약이 아예 없는 드리프트 상태**이기도 했다.
+
+### 규약 — 같은 CHECK 제약을 여러 파일이 좁혀나갈 때
+
+같은 제약을 두 파일 이상이 "무조건 `DROP CONSTRAINT IF EXISTS` 후 `ADD CONSTRAINT`" 로 재선언하는 체인이 생기면:
+
+1. **최종 소유자(가장 나중 파일)만 `NOT VALID` 없이** 온전한 `CHECK` 로 재선언해 기존 행을 전부 검증한다.
+2. **그 외 모든 과거 소유자는 `ADD CONSTRAINT ... CHECK (...) NOT VALID`** 로 바꿔 재실행 시 기존 행 검사를 건너뛰게 한다 — 최종 소유자가 뒤에서 실제 검증을 담당하므로 최종 상태(신규 DB 초기화 포함)는 동일하다.
+3. **체인에 새 값을 추가할 때** — 새 파일이 `NOT VALID` 없이 새 최종 소유자가 되고, 그 순간 **직전 소유자였던 파일에 `NOT VALID` 를 붙인다.** (예: `199` 다음에 새 값을 추가하는 마이그레이션이 생기면, 그 파일이 `NOT VALID` 없이 소유권을 넘겨받고 `199` 의 `ADD CONSTRAINT` 에 `NOT VALID` 를 붙여야 한다.)
+4. **예외** — `DO $$ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='...') THEN ADD CONSTRAINT ... END $$;` 로 감싼 "없을 때만 추가" 가드 패턴은 애초에 기존 정의를 덮어쓰지 않으므로 이 규약 대상이 아니다(예: `ad_events_event_type_check`, `marketplace_listings_status_check` — `162` 는 2026-08-18 에 동일한 사고 유형을 먼저 겪고 이 패턴으로 고쳐진 선례).
+
+### 회귀 테스트 — 컨테이너에서 돌지 않는다는 함정
+
+`backend/app/tests/test_migration_check_revalidation.py` 가 위 불변식(최종 소유자 제외 전원 `NOT VALID`)을 이름(제약명) 기준 동등성으로 정적 검증한다. **호스트에서 단독 실행하면 2 tests OK 지만, 컨테이너 안에서 실행하면 `FileNotFoundError: /docker-compose.yml` 로 ERROR** 난다 — 컨테이너에 `/docker-compose.yml`·`/database` 가 마운트돼 있지 않은 기존 부채(`017_IMPLEMENTATION_REPORT.md` "경보기가 꺼져 있다" 항목)가 원인이다. **즉 이 사고를 다시 막으려고 만든 경보기가 같은 이유로 컨테이너 CI 경로에서는 꺼져 있다.** CI/컨테이너 실행 경로를 바꾸기 전까지는 호스트에서 수동 실행해 확인하는 수밖에 없다는 점을 인지하고 있어야 한다.
+
+⚠️ 추가로, `test_market_listing_owner_access.py` 는 **단독 실행하면 7 tests OK** 지만 `test_migration_check_revalidation.py` 와 **같은 프로세스에서 함께 실행하면** `funnel_events_user_id_fkey` FK 위반과 asyncpg 이벤트 루프 충돌로 실패한다(감독 실측, 2026-08-20). 이번 마이그레이션/신고 UX 변경이 만든 문제가 아니라 **기존 테스트 격리 결함**이다 — 두 모듈을 함께 돌리면 결과가 달라질 수 있다는 점을 알고 있어야 하며, 개별 모듈 단위로 실행해 판단한다.

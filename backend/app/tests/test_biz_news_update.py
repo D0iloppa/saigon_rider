@@ -50,7 +50,7 @@ class BusinessNewsUpdateOwnershipTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_update_news_succeeds_for_owner(self):
         owner_id = uuid.uuid4()
-        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id)
+        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id, status="APPROVED")
         news = SimpleNamespace(
             id=uuid.uuid4(),
             profile_id=profile.id,
@@ -78,6 +78,28 @@ class BusinessNewsUpdateOwnershipTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(news.title, "새 제목")
         self.assertEqual(news.body, "새 본문")
         db.commit.assert_awaited()
+
+    async def test_update_news_rejects_non_approved_profile(self):
+        """F1-1: create_news 와 동일한 APPROVED 게이트 — PENDING/SUSPENDED 프로필의 기존 소식도
+        수정할 수 없어야 한다 (409, create_news 와 동일한 코드·detail)."""
+        owner_id = uuid.uuid4()
+        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id, status="PENDING")
+        news = SimpleNamespace(id=uuid.uuid4(), profile_id=profile.id, photos=[])
+
+        db = AsyncMock()
+
+        async def fake_get(model, item_id):
+            if model is biz.BusinessNews:
+                return news
+            return profile
+
+        db.get = AsyncMock(side_effect=fake_get)
+
+        body = BusinessNewsUpdateRequest(title="새 제목")
+        with self.assertRaises(HTTPException) as ctx:
+            await biz.update_news(news.id, body, background=MagicMock(), db=db, session_uid=owner_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        db.commit.assert_not_called()
 
 
 if __name__ == "__main__":

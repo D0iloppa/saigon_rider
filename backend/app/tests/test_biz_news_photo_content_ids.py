@@ -21,6 +21,7 @@ def _photo(content_id, file_path="a.jpg"):
 
 class PublicNewsListPhotoContentIdTest(unittest.IsolatedAsyncioTestCase):
     async def test_photo_content_ids_parallel_to_photos(self):
+        owner_id = uuid.uuid4()
         profile_id = uuid.uuid4()
         cid1, cid2 = uuid.uuid4(), uuid.uuid4()
         news = SimpleNamespace(
@@ -30,7 +31,7 @@ class PublicNewsListPhotoContentIdTest(unittest.IsolatedAsyncioTestCase):
             created_at=datetime.now(UTC),
             photos=[_photo(cid1), _photo(cid2)],
         )
-        profile = SimpleNamespace(id=profile_id, status="APPROVED")
+        profile = SimpleNamespace(id=profile_id, status="APPROVED", user_id=owner_id)
 
         db = AsyncMock()
         db.get = AsyncMock(return_value=profile)
@@ -38,7 +39,8 @@ class PublicNewsListPhotoContentIdTest(unittest.IsolatedAsyncioTestCase):
         result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[news])))
         db.execute = AsyncMock(return_value=result)
 
-        out = await biz.get_public_news(profile_id, limit=10, offset=0, db=db)
+        # F1-3: photo_content_ids 는 오너 조회일 때만 채워진다 — 오너 세션으로 조회.
+        out = await biz.get_public_news(profile_id, limit=10, offset=0, db=db, session_uid=owner_id)
 
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0].photo_content_ids, [cid1, cid2])
@@ -46,6 +48,7 @@ class PublicNewsListPhotoContentIdTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_photo_missing_file_path_excluded_from_both_lists(self):
         """photos 필터(content.file_path 없으면 제외)와 photo_content_ids 가 어긋나지 않아야 한다."""
+        owner_id = uuid.uuid4()
         profile_id = uuid.uuid4()
         cid_ok, cid_broken = uuid.uuid4(), uuid.uuid4()
         news = SimpleNamespace(
@@ -55,7 +58,7 @@ class PublicNewsListPhotoContentIdTest(unittest.IsolatedAsyncioTestCase):
             created_at=datetime.now(UTC),
             photos=[_photo(cid_ok), _photo(cid_broken, file_path=None)],
         )
-        profile = SimpleNamespace(id=profile_id, status="APPROVED")
+        profile = SimpleNamespace(id=profile_id, status="APPROVED", user_id=owner_id)
 
         db = AsyncMock()
         db.get = AsyncMock(return_value=profile)
@@ -63,16 +66,66 @@ class PublicNewsListPhotoContentIdTest(unittest.IsolatedAsyncioTestCase):
         result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[news])))
         db.execute = AsyncMock(return_value=result)
 
-        out = await biz.get_public_news(profile_id, limit=10, offset=0, db=db)
+        out = await biz.get_public_news(profile_id, limit=10, offset=0, db=db, session_uid=owner_id)
 
         self.assertEqual(out[0].photo_content_ids, [cid_ok])
         self.assertEqual(len(out[0].photos), 1)
+
+    async def test_photo_content_ids_hidden_from_anonymous_caller(self):
+        """F1-3: 익명(session_uid=None) 조회 시 raw content UUID 를 노출하지 않는다 — 타 업체 content 도용 방지."""
+        owner_id = uuid.uuid4()
+        profile_id = uuid.uuid4()
+        cid1 = uuid.uuid4()
+        news = SimpleNamespace(
+            id=uuid.uuid4(),
+            title="t",
+            body="b",
+            created_at=datetime.now(UTC),
+            photos=[_photo(cid1)],
+        )
+        profile = SimpleNamespace(id=profile_id, status="APPROVED", user_id=owner_id)
+
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=profile)
+        result = MagicMock()
+        result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[news])))
+        db.execute = AsyncMock(return_value=result)
+
+        out = await biz.get_public_news(profile_id, limit=10, offset=0, db=db, session_uid=None)
+
+        self.assertEqual(out[0].photo_content_ids, [])
+        self.assertEqual(len(out[0].photos), 1)  # photos(imgproxy URL)는 여전히 노출
+
+    async def test_photo_content_ids_hidden_from_non_owner_caller(self):
+        """F1-3: 로그인은 했지만 오너가 아닌 사용자에게도 노출하지 않는다."""
+        owner_id = uuid.uuid4()
+        other_user_id = uuid.uuid4()
+        profile_id = uuid.uuid4()
+        cid1 = uuid.uuid4()
+        news = SimpleNamespace(
+            id=uuid.uuid4(),
+            title="t",
+            body="b",
+            created_at=datetime.now(UTC),
+            photos=[_photo(cid1)],
+        )
+        profile = SimpleNamespace(id=profile_id, status="APPROVED", user_id=owner_id)
+
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=profile)
+        result = MagicMock()
+        result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[news])))
+        db.execute = AsyncMock(return_value=result)
+
+        out = await biz.get_public_news(profile_id, limit=10, offset=0, db=db, session_uid=other_user_id)
+
+        self.assertEqual(out[0].photo_content_ids, [])
 
 
 class UpdateNewsPhotoReplaceTest(unittest.IsolatedAsyncioTestCase):
     async def test_omitting_photo_content_ids_keeps_existing(self):
         owner_id = uuid.uuid4()
-        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id)
+        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id, status="APPROVED")
         cid = uuid.uuid4()
         news = SimpleNamespace(
             id=uuid.uuid4(),
@@ -99,7 +152,7 @@ class UpdateNewsPhotoReplaceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_providing_photo_content_ids_replaces_set(self):
         owner_id = uuid.uuid4()
-        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id)
+        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id, status="APPROVED")
         old_cid = uuid.uuid4()
         new_cid = uuid.uuid4()
         news = SimpleNamespace(
@@ -135,7 +188,7 @@ class UpdateNewsPhotoReplaceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_providing_empty_photo_content_ids_clears_photos(self):
         owner_id = uuid.uuid4()
-        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id)
+        profile = SimpleNamespace(id=uuid.uuid4(), user_id=owner_id, status="APPROVED")
         old_cid = uuid.uuid4()
         news = SimpleNamespace(
             id=uuid.uuid4(),

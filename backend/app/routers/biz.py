@@ -1236,11 +1236,16 @@ async def get_public_news(
     limit: int = 10,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
-    """공개 프로필 '소식' 섹션 — APPROVED 프로필만(그 외 404), created_at DESC 페이지네이션."""
+    """공개 프로필 '소식' 섹션 — APPROVED 프로필만(그 외 404), created_at DESC 페이지네이션.
+
+    F1-3: photo_content_ids 는 오너 재제출(PATCH 전체 대체)용 raw UUID 라 소유자 본인 조회일 때만 채운다
+    (get_public_profile 의 is_owner 패턴 미러) — 익명/타인 조회 시 타 업체 content 도용 수집 방지."""
     profile = await db.get(BusinessProfile, profile_id)
     if profile is None or profile.status != "APPROVED":
         raise HTTPException(status_code=404, detail="Business profile not found")
+    is_owner = session_uid is not None and profile.user_id == session_uid
 
     limit = max(1, min(limit, 30))
     offset = max(0, offset)
@@ -1271,7 +1276,7 @@ async def get_public_news(
             body=n.body,
             created_at=n.created_at,
             photos=photos,
-            photo_content_ids=photo_content_ids,
+            photo_content_ids=photo_content_ids if is_owner else [],
         )
 
     return [_news_out(n) for n in rows]
@@ -1342,7 +1347,9 @@ async def update_news(
     news = await db.get(BusinessNews, news_id)
     if news is None:
         raise HTTPException(status_code=404, detail="News not found")
-    await _get_own_profile(db, news.profile_id, session_uid)  # 오너십 검증 (소유 아니면 404 로 통일)
+    profile = await _get_own_profile(db, news.profile_id, session_uid)  # 오너십 검증 (소유 아니면 404 로 통일)
+    if profile.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="Only approved business profiles can post news")
 
     title = body.title.strip()
     if not title:

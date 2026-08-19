@@ -478,8 +478,11 @@ async def update_report_status(
         report.resolution_note = body.resolution_note
     if body.result_code is not None:
         report.result_code = body.result_code
-    if body.public_resolution_summary is not None:
-        report.public_resolution_summary = body.public_resolution_summary or None
+    if body.public_resolution_summary is not None and body.status in ("RESOLVED", "REJECTED"):
+        # F1-2: 종결 전이(RESOLVED/REJECTED)일 때만 저장 — REVIEWING 등 미확정 전이에 실려 오면
+        # 신고자에게 확정 전 초안이 노출되므로(support.py get 이 그대로 반환) 조용히 무시한다.
+        # 공백-only 도 None 처리(strip) — 안 하면 알림 body 에 "사유:    " 꼬리가 남는다.
+        report.public_resolution_summary = body.public_resolution_summary.strip() or None
 
     noti = _REPORT_RESULT_NOTI.get(body.status)
     if noti is not None:

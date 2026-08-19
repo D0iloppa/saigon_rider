@@ -104,6 +104,41 @@ class PublicResolutionSummaryTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("조치가 필요하지 않았습니다", notis[0].body)
         self.assertNotIn("사유:", notis[0].body)
 
+    async def test_summary_not_saved_on_non_terminal_transition(self):
+        """F1-2: REVIEWING 전이에 실린 요약은 미확정 초안이라 저장하지 않는다(신고자 즉시 노출 방지)."""
+        report, _reporter_id = _fixture(status="PENDING")
+        db, _added = _db(report)
+
+        await reports.update_report_status(
+            report.id,
+            reports.ReportStatusUpdate(status="REVIEWING", public_resolution_summary="검토중 초안 사유"),
+            _request(),
+            session=_session(),
+            db=db,
+        )
+
+        self.assertIsNone(report.public_resolution_summary)
+
+    async def test_whitespace_only_summary_treated_as_none(self):
+        """F1-2: 공백-only 요약은 None 처리 — 알림 body 에 '사유:' 꼬리를 남기지 않는다."""
+        report, _reporter_id = _fixture()
+        db, added = _db(report)
+
+        await reports.update_report_status(
+            report.id,
+            reports.ReportStatusUpdate(
+                status="RESOLVED", result_code="WARNING_ISSUED", public_resolution_summary="   "
+            ),
+            _request(),
+            session=_session(),
+            db=db,
+        )
+
+        self.assertIsNone(report.public_resolution_summary)
+        notis = [o for o in added if isinstance(o, Notification)]
+        self.assertEqual(len(notis), 1)
+        self.assertNotIn("사유:", notis[0].body)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -111,3 +111,12 @@
   border-top: 1px solid var(--line);
   background: var(--surface);
 }
+
+.footerActions {
+  display: flex;
+  gap: 10px;
+}
+
+.footerActions > * {
+  flex: 1;
+}

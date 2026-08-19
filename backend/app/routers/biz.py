@@ -5,7 +5,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -48,6 +48,7 @@ from ..schemas import (
     BusinessNewsCreateRequest,
     BusinessNewsFeedItemOut,
     BusinessNewsItemOut,
+    BusinessNewsUpdateRequest,
     BusinessPriceCreateRequest,
     BusinessPriceItemOut,
     BusinessProfileApplyRequest,
@@ -1300,6 +1301,50 @@ async def create_news(
         content = await db.get(Content, cid)
         if content and content.file_path:
             photos.append(build_imgproxy_url(content.file_path))
+
+    noti_events.enqueue(
+        db, "search.reindex", {"entity_type": "news", "entity_id": str(news.id), "texts": [title, body.body or ""]}
+    )
+    await db.commit()
+    background.add_task(warm_translations, [title, body.body or ""])
+    return BusinessNewsItemOut(id=news.id, title=news.title, body=news.body, created_at=news.created_at, photos=photos)
+
+
+@router.patch("/news/{news_id}", response_model=BusinessNewsItemOut, summary="업체 소식 수정 (오너)")
+async def update_news(
+    news_id: uuid.UUID,
+    body: BusinessNewsUpdateRequest,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """update_listing(market.py) 패턴 미러 — title/body 는 항상 대체, photo_content_ids 는 생략 시 기존 사진 유지."""
+    news = await db.get(BusinessNews, news_id)
+    if news is None:
+        raise HTTPException(status_code=404, detail="News not found")
+    await _get_own_profile(db, news.profile_id, session_uid)  # 오너십 검증 (소유 아니면 404 로 통일)
+
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+
+    photos: list[str] = [
+        build_imgproxy_url(ph.content.file_path) for ph in news.photos if ph.content and ph.content.file_path
+    ]
+    if body.photo_content_ids is not None:
+        for cid in body.photo_content_ids:
+            await _require_content(db, cid)
+        await db.execute(delete(BusinessNewsPhoto).where(BusinessNewsPhoto.news_id == news.id))
+        photos = []
+        for idx, cid in enumerate(body.photo_content_ids):
+            db.add(BusinessNewsPhoto(news_id=news.id, content_id=cid, sort_order=idx))
+            content = await db.get(Content, cid)
+            if content and content.file_path:
+                photos.append(build_imgproxy_url(content.file_path))
+
+    news.title = title
+    news.body = body.body
+    news.search_blob = immediate_blob([title, body.body])
 
     noti_events.enqueue(
         db, "search.reindex", {"entity_type": "news", "entity_id": str(news.id), "texts": [title, body.body or ""]}

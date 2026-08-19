@@ -64,6 +64,7 @@ const BizAdDetail = lazyWithRetry(() => import('@/pages/biz/BizAdDetail'));
 const BizPublic = lazyWithRetry(() => import('@/pages/biz/BizPublic'));
 const BizNewsCreate = lazyWithRetry(() => import('@/pages/biz/BizNewsCreate'));
 const BizNewsDetail = lazyWithRetry(() => import('@/pages/biz/BizNewsDetail'));
+const BizNewsManage = lazyWithRetry(() => import('@/pages/biz/BizNewsManage'));
 const BizPriceManage = lazyWithRetry(() => import('@/pages/biz/BizPriceManage'));
 
 // Quest
@@ -545,6 +546,7 @@ export default function App() {
           <Route path="/biz/verification" element={<PrivateRoute><BizVerification /></PrivateRoute>} />
           <Route path="/biz/ads/new" element={<PrivateRoute><BizAdsNew /></PrivateRoute>} />
           <Route path="/biz/ads/:id" element={<PrivateRoute><BizAdDetail /></PrivateRoute>} />
+          <Route path="/biz/news" element={<PrivateRoute><BizNewsManage /></PrivateRoute>} />
           <Route path="/biz/news/new" element={<PrivateRoute><BizNewsCreate /></PrivateRoute>} />
           <Route path="/biz/news/:id" element={<PrivateRoute><BizNewsDetail /></PrivateRoute>} />
           {/* T-1: 업체 프로필 → 매물 등록 — 검증된 업체 프로필 명의라 개인 휴대폰 인증 게이트(VerifiedSellerRoute) 불필요 */}

@@ -623,6 +623,22 @@ export async function createBizNews(input: {
   return { id: res.id, title: res.title, body: res.body, createdAt: res.created_at, photos: res.photos ?? [] };
 }
 
+/** 업체 소식 수정 (오너) — photoContentIds 를 생략하면 기존 사진을 유지한다 */
+export async function updateBizNews(
+  newsId: string,
+  input: { title: string; body?: string | null; photoContentIds?: string[] },
+): Promise<BizNewsItem> {
+  const res = await api.realFetch<BizNewsItemApi>(`/biz/news/${newsId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      title: input.title,
+      body: input.body ?? null,
+      photo_content_ids: input.photoContentIds ?? null,
+    }),
+  }, 'bff', { rethrow: true });
+  return { id: res.id, title: res.title, body: res.body, createdAt: res.created_at, photos: res.photos ?? [] };
+}
+
 /** 업체 소식 삭제 (오너) */
 export async function deleteBizNews(newsId: string): Promise<void> {
   await api.realFetch(`/biz/news/${newsId}`, { method: 'DELETE' }, 'bff', { rethrow: true });

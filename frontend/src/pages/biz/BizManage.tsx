@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChevronDown, ChevronRight, Megaphone, Package, Receipt, ShieldCheck, X } from 'lucide-react';
+import { Camera, ChevronDown, ChevronRight, Megaphone, Newspaper, Package, Receipt, ShieldCheck } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -17,7 +17,6 @@ import {
   fetchBizCategories,
   bizCategoryLabel,
   fetchBizPublicNews,
-  deleteBizNews,
   fetchContractLink,
   type BusinessProfile,
   type BusinessAd,
@@ -222,15 +221,6 @@ export default function BizManage() {
     }
   };
 
-  const handleDeleteNews = async (newsId: string) => {
-    try {
-      await deleteBizNews(newsId);
-      setNews((prev) => (prev ? { ...prev, list: prev.list.filter((n) => n.id !== newsId) } : prev));
-    } catch (err: any) {
-      toast.error(extractDetail(err, t('biz.newsDeleteError', { defaultValue: '소식 삭제에 실패했습니다' })));
-    }
-  };
-
   return (
     <div className={styles.page}>
       <TopBar title={t('biz.manageTitle', { defaultValue: '파트너 라운지' })} />
@@ -393,44 +383,23 @@ export default function BizManage() {
           </div>
         )}
 
-        {/* SGR-326: 가게소식 — 작성은 별도 화면, 카드 탭 시 상세(고객 미리보기)로 이동 */}
-        <h3 className={styles.sectionTitle}>{t('biz.newsManageTitle', { defaultValue: '내 소식' })}</h3>
-        {newsList === null ? (
-          <p className={styles.loading}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
-        ) : newsList.length === 0 ? (
-          <div className={styles.adsEmpty}>
-            <p>{t('biz.newsManageEmpty', { defaultValue: '아직 작성한 소식이 없어요' })}</p>
-          </div>
-        ) : (
-          <div className={styles.adList}>
-            {newsList.map((n) => (
-              <div
-                key={n.id}
-                className={styles.newsRow}
-                onClick={() => navigate(`/biz/news/${n.id}`, {
-                  state: { news: n, profileId: active.id, profileName: active.name, profilePhotoUrl: active.photoUrl },
-                })}
-              >
-                {n.photos[0] && <AppImage src={n.photos[0]} alt="" className={styles.adThumb} />}
-                <div className={styles.newsRowBody}>
-                  <span className={styles.newsRowTitle}>{n.title}</span>
-                  {n.body && <span className={styles.newsRowText}>{n.body}</span>}
-                </div>
-                <button
-                  type="button"
-                  className={styles.newsRowDelete}
-                  onClick={(e) => { e.stopPropagation(); handleDeleteNews(n.id); }}
-                  aria-label={t('biz.newsDeleteCta', { defaultValue: '소식 삭제' })}
-                >
-                  <X size={14} strokeWidth={2.5} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <Button className={styles.adCreateBtn} onClick={() => navigate('/biz/news/new', { state: { profileId: active.id } })}>
-          {t('biz.newsCreateCta', { defaultValue: '소식 작성' })}
-        </Button>
+        {/* SGR-326: 가게소식 — 전용 관리 화면(BizNewsManage)으로 진입하는 항목. 가격표/매물 등록 항목과
+            동일한 문법(미리보기 없는 진입 행)으로 통일 */}
+        <button
+          className={styles.verifyRow}
+          onClick={() => navigate('/biz/news', {
+            state: { profileId: active.id, profileName: active.name, profilePhotoUrl: active.photoUrl },
+          })}
+        >
+          <Newspaper size={18} strokeWidth={2} aria-hidden className={styles.verifyIcon} />
+          <span className={styles.verifyText}>
+            <span className={styles.verifyTitle}>{t('biz.newsManageTitle', { defaultValue: '내 소식' })}</span>
+            <span className={styles.verifyDesc}>
+              {t('biz.newsSectionDesc', { defaultValue: '이웃 라이더에게 소식을 전해보세요' })}
+            </span>
+          </span>
+          <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
+        </button>
 
         {/* 가격표 등록 — 소식과 성격이 가까운 무료 컨텐츠라 소식 다음·유료 광고 앞에 배치 (별도 화면) */}
         <button

@@ -9,7 +9,7 @@ import { api, extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
-import { createBizNews } from '@/api/biz';
+import { createBizNews, updateBizNews, type BizNewsItem } from '@/api/biz';
 import styles from './BizNewsCreate.module.css';
 
 const MAX_IMAGES = 6;
@@ -23,18 +23,25 @@ interface NewsImageItem {
 
 interface LocationState {
   profileId?: string;
+  /** BizNewsDetail '수정' 진입 시 전달 — 있으면 이 화면은 수정 모드로 동작한다. */
+  editNews?: BizNewsItem;
 }
 
-/** 소식 작성 — 홈 탭 인라인 폼에서 분리된 별도 화면 (FeedCreate.tsx UX 레퍼런스). */
+/** 소식 작성/수정 — 홈 탭 인라인 폼에서 분리된 별도 화면 (FeedCreate.tsx UX 레퍼런스).
+ * editNews 가 있으면 수정 모드: 사진은 기존 그대로 유지하고(전체 대체 방식 PATCH 라 재편집 UI를
+ * 새로 만들지 않음) 제목/본문만 고칠 수 있다. */
 export default function BizNewsCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUserStore((s) => s.user);
-  const profileId = (location.state as LocationState | null)?.profileId ?? null;
+  const state = location.state as LocationState | null;
+  const profileId = state?.profileId ?? null;
+  const editNews = state?.editNews ?? null;
+  const isEditing = editNews != null;
 
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
+  const [title, setTitle] = useState(editNews?.title ?? '');
+  const [body, setBody] = useState(editNews?.body ?? '');
   const [images, setImages] = useState<NewsImageItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const kb = useKeyboard();
@@ -94,15 +101,23 @@ export default function BizNewsCreate() {
     if (!canSubmit || !profileId) return;
     setSubmitting(true);
     try {
-      await createBizNews({
-        profileId,
-        title: title.trim(),
-        body: body.trim() || null,
-        photoContentIds: images.filter((i) => i.contentId).map((i) => i.contentId!),
-      });
-      navigate(-1);
+      if (isEditing && editNews) {
+        await updateBizNews(editNews.id, { title: title.trim(), body: body.trim() || null });
+        navigate('/biz/news', { state: { profileId }, replace: true });
+      } else {
+        await createBizNews({
+          profileId,
+          title: title.trim(),
+          body: body.trim() || null,
+          photoContentIds: images.filter((i) => i.contentId).map((i) => i.contentId!),
+        });
+        navigate(-1);
+      }
     } catch (err: any) {
-      toast.error(extractDetail(err, t('biz.newsCreateError', { defaultValue: '소식 등록에 실패했습니다' })));
+      toast.error(extractDetail(
+        err,
+        t(isEditing ? 'biz.editError' : 'biz.newsCreateError', { defaultValue: isEditing ? '수정에 실패했습니다' : '소식 등록에 실패했습니다' }),
+      ));
     } finally {
       setSubmitting(false);
     }
@@ -113,10 +128,12 @@ export default function BizNewsCreate() {
   return (
     <div className={styles.page}>
       <TopBar
-        title={t('biz.newsCreateTitle', { defaultValue: '소식 작성' })}
+        title={t(isEditing ? 'biz.newsEditTitle' : 'biz.newsCreateTitle', { defaultValue: isEditing ? '소식 수정' : '소식 작성' })}
         rightContent={
           <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting} style={{ minWidth: 64 }}>
-            {submitting ? t('biz.newsSubmitting', { defaultValue: '등록 중' }) : t('biz.newsSubmit', { defaultValue: '등록' })}
+            {submitting
+              ? t(isEditing ? 'biz.saving' : 'biz.newsSubmitting', { defaultValue: isEditing ? '저장 중' : '등록 중' })
+              : t(isEditing ? 'common.save' : 'biz.newsSubmit', { defaultValue: isEditing ? '저장' : '등록' })}
           </Button>
         }
       />
@@ -139,7 +156,7 @@ export default function BizNewsCreate() {
             rows={8}
           />
 
-          {images.length > 0 && (
+          {!isEditing && images.length > 0 && (
             <div className={styles.previewGrid}>
               {images.map((img, idx) => (
                 <div key={idx} className={styles.previewItem}>
@@ -158,20 +175,22 @@ export default function BizNewsCreate() {
           )}
         </div>
 
-        <div className={styles.toolbar}>
-          <label className={styles.toolBtn}>
-            <Camera size={16} strokeWidth={2.2} />
-            {t('biz.newsAddPhoto', { defaultValue: '사진 추가' })} {images.length > 0 && `(${images.length}/${MAX_IMAGES})`}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              style={{ display: 'none' }}
-              onChange={handleImageSelect}
-              disabled={images.length >= MAX_IMAGES}
-            />
-          </label>
-        </div>
+        {!isEditing && (
+          <div className={styles.toolbar}>
+            <label className={styles.toolBtn}>
+              <Camera size={16} strokeWidth={2.2} />
+              {t('biz.newsAddPhoto', { defaultValue: '사진 추가' })} {images.length > 0 && `(${images.length}/${MAX_IMAGES})`}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleImageSelect}
+                disabled={images.length >= MAX_IMAGES}
+              />
+            </label>
+          </div>
+        )}
       </div>
     </div>
   );

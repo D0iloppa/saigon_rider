@@ -13,12 +13,13 @@ import styles from './BizNewsDetail.module.css';
 
 interface LocationState {
   news?: BizNewsItem;
+  profileId?: string;
   profileName?: string;
   profilePhotoUrl?: string | null;
 }
 
-/** 소식 상세 — BizManage 소식 카드 탭 진입면. BizPublic.tsx 의 소식 카드 마크업을 레퍼런스로
- * '고객에게 보이는 형태' 미리보기 + 삭제만 제공한다(수정 API 없음. 댓글/좋아요/조회수 컬럼 없음). */
+/** 소식 상세 — BizNewsManage 카드 탭 진입면. BizPublic.tsx 의 소식 카드 마크업을 레퍼런스로
+ * '고객에게 보이는 형태' 미리보기 + 수정·삭제를 제공한다(댓글/좋아요/조회수 컬럼 없음). */
 export default function BizNewsDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -78,9 +79,19 @@ export default function BizNewsDetail() {
       </div>
 
       <div className={styles.footer}>
-        <Button variant="danger" onClick={handleDelete} disabled={deleting}>
-          {deleting ? t('biz.newsDeleting', { defaultValue: '삭제 중' }) : t('biz.newsDeleteCta', { defaultValue: '소식 삭제' })}
-        </Button>
+        <div className={styles.footerActions}>
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/biz/news/new', {
+              state: { profileId: state?.profileId, editNews: news },
+            })}
+          >
+            {t('biz.newsEditCta', { defaultValue: '수정' })}
+          </Button>
+          <Button variant="danger" onClick={handleDelete} disabled={deleting}>
+            {deleting ? t('biz.newsDeleting', { defaultValue: '삭제 중' }) : t('biz.newsDeleteCta', { defaultValue: '소식 삭제' })}
+          </Button>
+        </div>
       </div>
     </div>
   );

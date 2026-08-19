@@ -1630,6 +1630,15 @@ class BusinessNewsCreateRequest(BaseModel):
     photo_content_ids: list[uuid.UUID] = []
 
 
+class BusinessNewsUpdateRequest(BaseModel):
+    """업체 오너가 소식 수정 — title/body 는 항상 대체. photo_content_ids 는 생략(None) 시 기존 사진 유지,
+    값을 주면 create_news 와 동일하게 전체 대체(update_listing 패턴 미러)."""
+
+    title: str
+    body: str | None = None
+    photo_content_ids: list[uuid.UUID] | None = None
+
+
 class BusinessPriceItemOut(BaseModel):
     """업체 가격표 항목 (오너/공개 공용)."""
 

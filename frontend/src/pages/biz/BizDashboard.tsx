@@ -70,12 +70,19 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
   const [reviewAvg, setReviewAvg] = useState<number | null>(null);
   const [unansweredCount, setUnansweredCount] = useState(0);
   const [unansweredOnly, setUnansweredOnly] = useState(false);
+  const [reviewListLoading, setReviewListLoading] = useState(true);
   const [reviewHasMore, setReviewHasMore] = useState(false);
   const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
   const [followerCount, setFollowerCount] = useState<number | null>(null);
   const [businessName, setBusinessName] = useState('');
   // 답글 작성/수정/삭제 + 후기 신고 — BizPublic(공개 프로필) 과 공용(useReviewModeration)
-  const reviewMod = useReviewModeration<BizOwnerReview>(profileId, setReviews);
+  // F2-6: 답글로 미답변→답변 전환되면 unansweredCount·미답변 필터 목록을 로컬로 동기화
+  const reviewMod = useReviewModeration<BizOwnerReview>(profileId, setReviews, (reviewId, becameAnswered) => {
+    setUnansweredCount((prev) => Math.max(0, prev + (becameAnswered ? -1 : 1)));
+    if (becameAnswered && unansweredOnly) {
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+    }
+  });
   const [adStats, setAdStats] = useState<BizAdStatsSummary | null>(null);
   const [adStatsLoading, setAdStatsLoading] = useState(true);
   const [adStatsError, setAdStatsError] = useState(false);
@@ -155,33 +162,51 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
     };
   }, [profileId, period, reloadKey]);
 
+  // 업체 프로필(팔로워·업체명) — 필터(unansweredOnly) 와 무관, profileId 변경 시에만 재조회
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      fetchBizOwnerReviews(profileId, { limit: REVIEW_PAGE, offset: 0, unansweredOnly }),
-      fetchBusinessPublicProfile(profileId),
-    ])
-      .then(([reviewRes, profile]) => {
+    fetchBusinessPublicProfile(profileId)
+      .then((profile) => {
         if (cancelled) return;
-        setReviews(reviewRes.reviews);
-        setReviewTotal(reviewRes.total);
-        setReviewAvg(reviewRes.avgRating);
-        setUnansweredCount(reviewRes.unansweredCount);
-        setReviewHasMore(reviewRes.hasMore);
         setFollowerCount(profile.followerCount);
         setBusinessName(profile.name);
       })
       .catch(() => {
         if (cancelled) return;
-        setReviews([]);
-        setReviewTotal(0);
-        setReviewAvg(null);
-        setReviewHasMore(false);
         setFollowerCount(0);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId]);
+
+  // 후기 목록 — "미답변만" 토글 시 이 목록만 재조회한다(F2-2). reviewTotal(업체 지표 카드)은
+  // 필터와 무관한 전체 후기 수를 보여야 하므로 필터 걸린 응답의 total 로는 덮어쓰지 않는다(F2-1).
+  useEffect(() => {
+    let cancelled = false;
+    setReviewListLoading(true);
+    fetchBizOwnerReviews(profileId, { limit: REVIEW_PAGE, offset: 0, unansweredOnly })
+      .then((reviewRes) => {
+        if (cancelled) return;
+        setReviews(reviewRes.reviews);
+        if (!unansweredOnly) setReviewTotal(reviewRes.total);
+        setReviewAvg(reviewRes.avgRating);
+        setUnansweredCount(reviewRes.unansweredCount);
+        setReviewHasMore(reviewRes.hasMore);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReviews([]);
+        if (!unansweredOnly) setReviewTotal(0);
+        setReviewAvg(null);
+        setReviewHasMore(false);
+      })
+      .finally(() => {
+        if (!cancelled) setReviewListLoading(false);
       });
     return () => {
       cancelled = true;
@@ -196,7 +221,7 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
         limit: REVIEW_PAGE, offset: reviews.length, unansweredOnly,
       });
       setReviews((prev) => [...prev, ...res.reviews]);
-      setReviewTotal(res.total);
+      if (!unansweredOnly) setReviewTotal(res.total);
       setReviewAvg(res.avgRating);
       setUnansweredCount(res.unansweredCount);
       setReviewHasMore(res.hasMore);
@@ -728,7 +753,9 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
           {t('biz.dashboard.unansweredOnlyFilter', { count: unansweredCount, defaultValue: '미답변만 ({{count}})' })}
         </button>
       </div>
-      {reviews.length === 0 ? (
+      {reviewListLoading ? (
+        <div className={`shimmer ${styles.listSkeleton}`} />
+      ) : reviews.length === 0 ? (
         <StateBlock
           icon={MessageSquare}
           title={

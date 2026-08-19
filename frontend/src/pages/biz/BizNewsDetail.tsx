@@ -82,8 +82,16 @@ export default function BizNewsDetail() {
         <div className={styles.footerActions}>
           <Button
             variant="secondary"
+            // F2-3: replace — 이 상세 엔트리를 편집 화면으로 대체해 히스토리에 옛 news state 를
+            // 가진 엔트리가 남지 않게 한다(뒤로가기 → 재수정 시 방금 한 수정이 되돌아가는 것 방지).
             onClick={() => navigate('/biz/news/new', {
-              state: { profileId: state?.profileId, editNews: news },
+              state: {
+                profileId: state?.profileId,
+                editNews: news,
+                profileName: state?.profileName,
+                profilePhotoUrl: state?.profilePhotoUrl,
+              },
+              replace: true,
             })}
           >
             {t('biz.newsEditCta', { defaultValue: '수정' })}

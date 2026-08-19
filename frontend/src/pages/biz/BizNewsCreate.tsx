@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Camera, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
+import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { api, extractDetail } from '@/api/client';
 import { native } from '@/lib/native';
@@ -20,12 +21,17 @@ interface NewsImageItem {
   preview: string;
   contentId: string | null;
   uploading: boolean;
+  /** true면 preview가 로컬 blob URL(신규 추가, <img> 유지) — false면 서버(imgproxy) URL(<AppImage>로 렌더, F2-7/MarketEdit 미러) */
+  isLocal: boolean;
 }
 
 interface LocationState {
   profileId?: string;
   /** BizNewsDetail '수정' 진입 시 전달 — 있으면 이 화면은 수정 모드로 동작한다. */
   editNews?: BizNewsItem;
+  /** 수정 모드에서 저장 후 BizNewsDetail 로 돌아갈 때 그대로 다시 넘겨준다(F2-3) */
+  profileName?: string;
+  profilePhotoUrl?: string | null;
 }
 
 /** 소식 작성/수정 — 홈 탭 인라인 폼에서 분리된 별도 화면 (FeedCreate.tsx UX 레퍼런스).
@@ -52,6 +58,7 @@ export default function BizNewsCreate() {
           preview: url,
           contentId: editNews.photoContentIds[i] ?? null,
           uploading: false,
+          isLocal: false,
         }))
       : [],
   );
@@ -78,6 +85,7 @@ export default function BizNewsCreate() {
       preview: URL.createObjectURL(f),
       contentId: null,
       uploading: true,
+      isLocal: true,
     }));
     const startIdx = images.length;
     setImages((prev) => [...prev, ...newItems]);
@@ -114,12 +122,19 @@ export default function BizNewsCreate() {
     setSubmitting(true);
     try {
       if (isEditing && editNews) {
-        await updateBizNews(editNews.id, {
+        const updated = await updateBizNews(editNews.id, {
           title: title.trim(),
           body: body.trim() || null,
           photoContentIds: images.filter((i) => i.contentId).map((i) => i.contentId!),
         });
-        navigate('/biz/news', { state: { profileId }, replace: true });
+        // F2-3: '/biz/news'(목록) 로 보내면 히스토리에 남은 BizNewsDetail 엔트리가 수정 전 news
+        // state 를 그대로 들고 있어 뒤로가기 → 옛 내용에서 재수정 시 방금 한 수정이 되돌아간다.
+        // BizNewsDetail 진입(수정 버튼)도 replace 로 바뀌었으므로(BizNewsDetail.tsx) 이 화면을
+        // 갱신된 상세로 replace 하면 스택에 옛 상세 엔트리가 남지 않는다.
+        navigate(`/biz/news/${editNews.id}`, {
+          state: { news: updated, profileId, profileName: state?.profileName, profilePhotoUrl: state?.profilePhotoUrl },
+          replace: true,
+        });
       } else {
         await createBizNews({
           profileId,
@@ -176,7 +191,11 @@ export default function BizNewsCreate() {
             <div className={styles.previewGrid}>
               {images.map((img, idx) => (
                 <div key={idx} className={styles.previewItem}>
-                  <img src={img.preview} alt="" className={styles.previewThumb} />
+                  {img.isLocal ? (
+                    <img src={img.preview} alt="" className={styles.previewThumb} />
+                  ) : (
+                    <AppImage src={img.preview} alt="" className={styles.previewThumb} />
+                  )}
                   {img.uploading && (
                     <div className={styles.uploadingOverlay}>
                       <span className={`shimmer ${styles.uploadingBar}`} />

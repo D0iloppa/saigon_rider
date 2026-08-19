@@ -1134,6 +1134,8 @@
     "reportImagesLabel": "Ảnh đính kèm",
     "reportResultLabel": "Kết quả xử lý",
     "reportResultEmpty": "Chưa có kết quả xử lý.",
+    "reportResultFallbackResolved": "Chúng tôi đã xem xét báo cáo của bạn và đã xử lý.",
+    "reportResultFallbackRejected": "Chúng tôi đã xem xét báo cáo của bạn nhưng không cần xử lý.",
     "reportCancelledNotice": "Báo cáo đã hủy thì không thể báo cáo lại cùng đối tượng này.",
     "reportGoToTargetBtn": "Đi đến đối tượng",
     "reportAlreadyCancelledError": "Bạn đã hủy báo cáo cho đối tượng này nên không thể báo cáo lại.",

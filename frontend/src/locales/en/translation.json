@@ -1134,6 +1134,8 @@
     "reportImagesLabel": "Attached photos",
     "reportResultLabel": "Result",
     "reportResultEmpty": "No result yet.",
+    "reportResultFallbackResolved": "We reviewed your report and took action.",
+    "reportResultFallbackRejected": "We reviewed your report but no action was needed.",
     "reportCancelledNotice": "A cancelled report can't be filed again for the same target.",
     "reportGoToTargetBtn": "Go to target",
     "reportAlreadyCancelledError": "You already cancelled a report for this target, so you can't report it again.",

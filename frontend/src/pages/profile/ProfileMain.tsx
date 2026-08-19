@@ -221,7 +221,8 @@ export default function ProfileMain() {
   // W4: 프로필 바텀시트 진입 경로 — 파트너(APPROVED 업체 보유) 여부에 따라 위치·문구를 분기
   // (D-5, ai-docs/task/active/260819_lounge_entry_task.md). 기본값은 비파트너([])로 두어
   // 대다수(비파트너) 사용자에게는 현행 위치 그대로 즉시 노출되고, 파트너로 판명되면 상단 카드로 전환된다.
-  const [bizApproved, setBizApproved] = useState<BusinessProfile[]>([]);
+  // F2-5: APPROVED 판정뿐 아니라 PENDING/REJECTED 신청 여부도 알아야 진입 문구를 상태별로 갈라줄 수 있다
+  const [bizProfiles, setBizProfiles] = useState<BusinessProfile[]>([]);
   const [bizUnansweredCount, setBizUnansweredCount] = useState<number | null>(null);
 
   // ── 거래 이력 서브탭 ──
@@ -292,12 +293,12 @@ export default function ProfileMain() {
   useEffect(() => {
     if (!user?.id) return;
     fetchBusinessProfiles()
-      .then((list) => setBizApproved(list.filter((p) => p.status === 'APPROVED')))
-      .catch(() => setBizApproved([]));
+      .then((list) => setBizProfiles(list))
+      .catch(() => setBizProfiles([]));
   }, [user?.id]);
 
   // W4: 요약 카드 배지 — 다중 업체 보유 시 BizManage 기본 활성 프로필(첫 번째)과 동일 기준
-  const activeBizProfile = bizApproved[0] ?? null;
+  const activeBizProfile = bizProfiles.find((p) => p.status === 'APPROVED') ?? null;
   useEffect(() => {
     if (!activeBizProfile) {
       setBizUnansweredCount(null);
@@ -707,7 +708,14 @@ export default function ProfileMain() {
             className={`${styles.entryRow} ${styles.entryRowSpaced}`}
           >
             <span className={styles.entryIcon}><Store size={18} /></span>
-            <span className={styles.entryLabel}>{t('biz.menuEntryInvite', { defaultValue: '비즈니스 파트너 시작하기' })}</span>
+            <span className={styles.entryLabel}>
+              {/* F2-5: PENDING/REJECTED 신청자에게 "시작하기"(처음부터 다시)로 안내하지 않도록
+                  신청 이력이 있으면 중립 라벨(biz.menuEntry)로, 미신청자에게만 초대 문구를 보여준다.
+                  실제 상태 분기(REJECTED 재신청 등)는 이동 대상 /biz/status 가 처리한다(D-5). */}
+              {bizProfiles.length > 0
+                ? t('biz.menuEntry', { defaultValue: '비즈니스 파트너' })
+                : t('biz.menuEntryInvite', { defaultValue: '비즈니스 파트너 시작하기' })}
+            </span>
             <ChevronRight size={18} className={styles.entryChevron} />
           </button>
         )}

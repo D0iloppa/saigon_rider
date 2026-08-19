@@ -23,6 +23,8 @@ interface ModerationTarget {
 export function useReviewModeration<T extends { id: string; ownerReply: string | null; ownerRepliedAt: string | null }>(
   profileId: string | undefined,
   setReviews: (updater: (prev: T[]) => T[]) => void,
+  /** F2-6: 답글 작성/삭제로 미답변↔답변 상태가 바뀔 때 호출 — 호출부의 unansweredCount·필터 목록 동기화용 */
+  onReplyChange?: (reviewId: string, becameAnswered: boolean) => void,
 ) {
   const { t } = useTranslation();
   const openConfirm = useConfirmStore((s) => s.open);
@@ -48,11 +50,13 @@ export function useReviewModeration<T extends { id: string; ownerReply: string |
   const handleSubmitReply = async () => {
     if (!profileId || !replyTarget || !replyBody.trim() || replySubmitting) return;
     setReplySubmitting(true);
+    const wasUnanswered = replyTarget.ownerReply == null;
     try {
       const updated = await upsertBizReviewReply(profileId, replyTarget.id, replyBody.trim());
       setReviews((prev) =>
         prev.map((r) => (r.id === updated.id ? { ...r, ownerReply: updated.ownerReply, ownerRepliedAt: updated.ownerRepliedAt } : r)),
       );
+      if (wasUnanswered) onReplyChange?.(updated.id, true);
       toast.success(t('biz.review.reply.success', { defaultValue: '답글을 등록했어요' }));
     } catch {
       toast.error(t('biz.review.reply.error', { defaultValue: '답글 등록에 실패했어요' }));

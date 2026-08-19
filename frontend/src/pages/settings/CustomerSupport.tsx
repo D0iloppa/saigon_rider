@@ -299,7 +299,15 @@ export default function CustomerSupport() {
             <div className={styles.detailSection}>
               <span className={styles.detailLabel}>{t('support.reportResultLabel')}</span>
               <span className={styles.detailValue}>
-                {detailReport.resolution_summary || t('support.reportResultEmpty')}
+                {/* F2-4: 종결(RESOLVED/REJECTED)인데 공개 요약이 비어있으면 알림이 보낸 것과
+                    같은 고정 폴백 문구를 보여준다(admin_api/reports.py _REPORT_RESULT_NOTI 미러) —
+                    안 그러면 "처리 완료" 배지 아래 "아직 결과 없음" 이 뜨는 모순이 생긴다. */}
+                {detailReport.resolution_summary
+                  || (detailReport.status === 'RESOLVED'
+                    ? t('support.reportResultFallbackResolved')
+                    : detailReport.status === 'REJECTED'
+                      ? t('support.reportResultFallbackRejected')
+                      : t('support.reportResultEmpty'))}
               </span>
             </div>
 

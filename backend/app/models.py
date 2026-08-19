@@ -1894,6 +1894,9 @@ class Report(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="PENDING")
     resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # R-2(260819 W3) — resolution_note(내부 메모)와 분리된 신고자 공개용 요약 사유.
+    # 어드민이 종결(RESOLVED/REJECTED) 시 선택 입력, 비어있으면 통보 문구는 고정 문구로 폴백.
+    public_resolution_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     handled_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
     handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

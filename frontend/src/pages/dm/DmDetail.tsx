@@ -8,7 +8,7 @@ import { StarIcon } from '@/components/ui/StarIcon';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useServiceAvailability } from '@/hooks/useServiceAvailability';
-import { api } from '@/api/client';
+import { api, extractErrorCode } from '@/api/client';
 import { MOCK_STICKERS, findSticker } from './mockStickers';
 import { type PickedLocation } from '../market/LocationPickerSheet';
 import AppointmentLocationPicker from './AppointmentLocationPicker';
@@ -210,9 +210,17 @@ export default function DmDetail() {
       await reportConversation(conversationId, reason);
       setReportOpen(false);
       toast.success(t('dm.reportDone', { defaultValue: '신고가 접수되었어요' }));
-    } catch {
+    } catch (err) {
       setReportOpen(false); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(MarketDetail 과 동일)
-      toast.error(t('dm.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      // R-3(260819 W3) — 취소한 신고 재시도와 처리 중인 신고 재시도는 다른 문구로 안내한다.
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
+      } else {
+        toast.error(t('dm.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      }
     }
   };
 

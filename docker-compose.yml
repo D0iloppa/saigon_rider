@@ -336,6 +336,10 @@ services:
       - "/migrations/201_reports_reported_user_guard.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (201) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/202_report_public_resolution_summary.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (202) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -395,6 +399,7 @@ services:
       - ./database/init/199_biz_report.sql:/migrations/199_biz_report.sql:ro
       - ./database/init/200_business_review_moderation.sql:/migrations/200_business_review_moderation.sql:ro
       - ./database/init/201_reports_reported_user_guard.sql:/migrations/201_reports_reported_user_guard.sql:ro
+      - ./database/init/202_report_public_resolution_summary.sql:/migrations/202_report_public_resolution_summary.sql:ro
     networks:
       - dev-net
     depends_on:

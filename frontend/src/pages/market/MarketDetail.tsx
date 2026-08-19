@@ -9,6 +9,7 @@ import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
+import { extractErrorCode } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { createConversation, proposePriceOffer } from '@/api/dm';
@@ -227,10 +228,18 @@ export default function MarketDetail() {
     try {
       await reportListing(detail.id, reportReason, note || undefined, imageContentIds);
       toast.success(t('market.reportDone', { defaultValue: '신고가 접수되었어요' }));
-    } catch {
+    } catch (err) {
       // 실패해도 시트를 닫는다 — 열어두면 사용자가 다시 눌러 같은 오류를 반복한다
       // (중복 신고 409 는 다시 시도해도 결과가 같다).
-      toast.error(t('market.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      // R-3(260819 W3) — 취소한 신고 재시도와 처리 중인 신고 재시도는 다른 문구로 안내한다.
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
+      } else {
+        toast.error(t('market.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      }
     } finally {
       setReportSubmitting(false);
       setReportReason(null);

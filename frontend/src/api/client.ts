@@ -302,4 +302,17 @@ export function extractDetail(err: unknown, fallback: string): string {
   return match ? match[1] : fallback;
 }
 
+/** rethrow:true 호출부용 — 구조화된 {code, message} 409 응답에서 code 만 뽑아낸다
+ *  (재신고 차단 안내, R-3 260819 W3). 파싱 실패 시 null — 호출부가 기존 catch-all 문구로 폴백. */
+export function extractErrorCode(err: unknown): string | null {
+  const match = /^HTTP (?:429|409) \| (.+)$/.exec((err as any)?.message ?? '');
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1]);
+    return typeof parsed?.code === 'string' ? parsed.code : null;
+  } catch {
+    return null;
+  }
+}
+
 export const api = { delay, realFetch, realFetchForm };

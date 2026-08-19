@@ -209,3 +209,64 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* 신고 상세 시트 (R-1, 260819 W3) */
+.detailBody {
+  padding: 20px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.detailSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2, #4a4f62);
+}
+
+.detailValue {
+  font-size: 14px;
+  color: var(--text, #0b0d14);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detailImages {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detailImage {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* R-3(260817 §12-B) 재신고 불가 상시 안내 */
+.detailNotice {
+  font-size: 12px;
+  color: var(--text-2, #4a4f62);
+  background: rgba(150,150,150,.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.detailGoBtn {
+  align-self: flex-start;
+  background: var(--brand-500);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
-import { SessionExpiredError } from '@/api/client';
+import { SessionExpiredError, extractErrorCode } from '@/api/client';
 import { fetchUserProfile, reportUser, USER_REPORT_REASONS, type UserReportReason } from '@/api/profile';
 import { fetchMyFeed, toggleCheer } from '@/api/feed';
 import { followUser, unfollowUser } from '@/api/follows';
@@ -179,9 +179,17 @@ export default function UserProfile() {
       await reportUser(profile.id, reason);
       setReportOpen(false);
       toast.success(t('follow.reportDone'));
-    } catch {
+    } catch (err) {
       setReportOpen(false); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(MarketDetail 과 동일)
-      toast.error(t('follow.reportError'));
+      // R-3(260819 W3) — 취소한 신고 재시도와 처리 중인 신고 재시도는 다른 문구로 안내한다.
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
+      } else {
+        toast.error(t('follow.reportError'));
+      }
     }
   }
 

@@ -111,6 +111,9 @@ class CancelReportContractTest(unittest.IsolatedAsyncioTestCase):
             created_at=datetime.now(UTC),
             handled_at=None,
             cancelled_at=None,
+            note=None,
+            images=[],
+            public_resolution_summary=None,
         )
 
     async def test_pending_report_is_soft_cancelled_not_deleted(self):

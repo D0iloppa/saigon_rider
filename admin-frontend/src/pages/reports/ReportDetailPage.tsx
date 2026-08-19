@@ -19,6 +19,7 @@ export default function ReportDetailPage() {
 
   const [pendingAction, setPendingAction] = useState<'RESOLVED' | 'REJECTED' | null>(null)
   const [note, setNote] = useState('')
+  const [publicSummary, setPublicSummary] = useState('')
   const [sanctionOpen, setSanctionOpen] = useState(false)
   const [moderateOpen, setModerateOpen] = useState(false)
 
@@ -55,6 +56,7 @@ export default function ReportDetailPage() {
   const closeDecisionModal = () => {
     setPendingAction(null)
     setNote('')
+    setPublicSummary('')
   }
 
   const submitDecision = () => {
@@ -64,7 +66,11 @@ export default function ReportDetailPage() {
       return
     }
     updateStatus.mutate(
-      { status: pendingAction, resolution_note: note.trim() },
+      {
+        status: pendingAction,
+        resolution_note: note.trim(),
+        ...(publicSummary.trim() ? { public_resolution_summary: publicSummary.trim() } : {}),
+      },
       {
         onSuccess: () => {
           message.success('처리되었습니다.')
@@ -91,8 +97,13 @@ export default function ReportDetailPage() {
             {report.note ?? '-'}
           </Descriptions.Item>
           {closed && (
-            <Descriptions.Item label="처리 사유" span={2}>
+            <Descriptions.Item label="처리 사유 (내부)" span={2}>
               {report.resolution_note ?? '-'}
+            </Descriptions.Item>
+          )}
+          {closed && (
+            <Descriptions.Item label="신고자 공개 요약" span={2}>
+              {report.public_resolution_summary ?? '(미입력 — 고정 문구로 통보됨)'}
             </Descriptions.Item>
           )}
         </Descriptions>
@@ -202,8 +213,12 @@ export default function ReportDetailPage() {
         okText="확인"
         cancelText="취소"
       >
-        <Typography.Paragraph>처리 사유를 입력하세요.</Typography.Paragraph>
+        <Typography.Paragraph>처리 사유를 입력하세요. (내부 메모, 신고자에게 노출되지 않음)</Typography.Paragraph>
         <Input.TextArea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+        <Typography.Paragraph style={{ marginTop: 16 }}>
+          신고자 공개 요약 사유 (선택 — 비워두면 기본 안내 문구로 통보됩니다)
+        </Typography.Paragraph>
+        <Input.TextArea rows={2} value={publicSummary} onChange={(e) => setPublicSummary(e.target.value)} />
       </Modal>
 
       <SanctionModal open={sanctionOpen} userId={report.reported_user.id} reportId={report.id} onClose={() => setSanctionOpen(false)} />

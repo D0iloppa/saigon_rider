@@ -1125,7 +1125,19 @@
     "reportTargetFallback_USER": "신고한 사용자",
     "reportTargetFallback_DM": "신고한 채팅",
     "reportTargetFallback_POST": "신고한 게시물",
-    "reportTargetFallback_COMMENT": "신고한 댓글"
+    "reportTargetFallback_COMMENT": "신고한 댓글",
+    "reportDetailTitle": "신고 상세",
+    "reportDetailReasonLabel": "신고 사유",
+    "reportDetailCreatedLabel": "접수일시",
+    "reportNoteLabel": "내가 남긴 코멘트",
+    "reportNoteEmpty": "작성한 코멘트가 없습니다.",
+    "reportImagesLabel": "첨부 사진",
+    "reportResultLabel": "처리 결과",
+    "reportResultEmpty": "아직 처리 결과가 없습니다.",
+    "reportCancelledNotice": "취소한 신고는 같은 대상에 다시 신고할 수 없습니다.",
+    "reportGoToTargetBtn": "대상으로 이동",
+    "reportAlreadyCancelledError": "이미 취소한 신고가 있어 이 대상은 다시 신고할 수 없습니다.",
+    "reportAlreadyPendingError": "이미 접수되어 처리 중인 신고가 있습니다."
   },
   "notices": {
     "title": "공지사항",

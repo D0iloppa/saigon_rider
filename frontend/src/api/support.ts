@@ -52,6 +52,11 @@ export interface Report {
   target_thumbnail_url: string | null;
   // R-3(260817 §12-B) — 서버가 계산해 내려주는 취소 가능 여부. 원본 status(PENDING 등)는 노출 안 함.
   can_cancel: boolean;
+  // R-1(260819 W3) — 신고자 본인이 남긴 코멘트/첨부사진(타인 정보 아님, 노출 무해).
+  note: string | null;
+  images: string[];
+  // R-2(260819 W3) — resolution_note(내부 메모) 원본이 아니라 공개용 요약만.
+  resolution_summary: string | null;
 }
 
 export async function fetchReports(): Promise<Report[]> {

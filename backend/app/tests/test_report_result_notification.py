@@ -33,6 +33,7 @@ def _fixture(*, status="PENDING"):
         reporter_id=reporter_id,
         status=status,
         resolution_note=None,
+        public_resolution_summary=None,
         handled_by=None,
         handled_at=None,
     )

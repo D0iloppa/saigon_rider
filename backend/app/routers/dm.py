@@ -31,6 +31,7 @@ from ..services import funnel_events, noti_events
 from ..services.banned_keywords import banned_keywords as _banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
 from ..utils import resolve_avatar_url
+from ._report_guard import guard_duplicate_report
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
 
@@ -488,17 +489,12 @@ async def report_conversation(
         raise HTTPException(status_code=403, detail="Not a participant")
 
     # 중복 판정 — reports 부분 유니크(uq_reports_dm_once: conversation_id x reporter_id WHERE DM)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "DM",
-                Report.conversation_id == conv_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "DM",
+        Report.conversation_id == conv_id,
+        Report.reporter_id == session_uid,
+    )
 
     db.add(
         Report(

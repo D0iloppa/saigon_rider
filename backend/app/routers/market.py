@@ -85,6 +85,7 @@ from ..services.search_norm import norm
 from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, mask_phone, resolve_avatar_url
+from ._report_guard import guard_duplicate_report
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 
@@ -1188,17 +1189,12 @@ async def report_listing(
         raise HTTPException(status_code=400, detail="cannot report your own listing")
 
     # 중복 판정 — reports 부분 유니크(uq_reports_listing_once: listing_id x reporter_id WHERE LISTING)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "LISTING",
-                Report.listing_id == listing_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "LISTING",
+        Report.listing_id == listing_id,
+        Report.reporter_id == session_uid,
+    )
 
     report = Report(
         target_type="LISTING",

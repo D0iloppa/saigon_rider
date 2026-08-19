@@ -1125,7 +1125,19 @@
     "reportTargetFallback_USER": "Người dùng đã báo cáo",
     "reportTargetFallback_DM": "Tin nhắn đã báo cáo",
     "reportTargetFallback_POST": "Bài đăng đã báo cáo",
-    "reportTargetFallback_COMMENT": "Bình luận đã báo cáo"
+    "reportTargetFallback_COMMENT": "Bình luận đã báo cáo",
+    "reportDetailTitle": "Chi tiết báo cáo",
+    "reportDetailReasonLabel": "Lý do báo cáo",
+    "reportDetailCreatedLabel": "Thời gian gửi",
+    "reportNoteLabel": "Nhận xét của tôi",
+    "reportNoteEmpty": "Không có nhận xét nào.",
+    "reportImagesLabel": "Ảnh đính kèm",
+    "reportResultLabel": "Kết quả xử lý",
+    "reportResultEmpty": "Chưa có kết quả xử lý.",
+    "reportCancelledNotice": "Báo cáo đã hủy thì không thể báo cáo lại cùng đối tượng này.",
+    "reportGoToTargetBtn": "Đi đến đối tượng",
+    "reportAlreadyCancelledError": "Bạn đã hủy báo cáo cho đối tượng này nên không thể báo cáo lại.",
+    "reportAlreadyPendingError": "Bạn đã có một báo cáo cho đối tượng này đang được xem xét."
   },
   "notices": {
     "title": "Thông báo",

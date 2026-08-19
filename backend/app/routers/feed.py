@@ -43,6 +43,7 @@ from ..services.search_index import immediate_blob
 from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, resolve_avatar_url, resolve_feed_image_url
+from ._report_guard import guard_duplicate_report
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/feed", tags=["피드 (Feed)"])
@@ -555,17 +556,12 @@ async def report_post(
         raise HTTPException(status_code=400, detail="cannot report your own post")
 
     # 중복 판정 — reports 부분 유니크(uq_reports_post_once: post_id x reporter_id WHERE POST)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "POST",
-                Report.post_id == post_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "POST",
+        Report.post_id == post_id,
+        Report.reporter_id == session_uid,
+    )
 
     db.add(
         Report(
@@ -606,17 +602,12 @@ async def report_comment(
         raise HTTPException(status_code=400, detail="cannot report your own comment")
 
     # 중복 판정 — reports 부분 유니크(uq_reports_comment_once: comment_id x reporter_id WHERE COMMENT)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "COMMENT",
-                Report.comment_id == comment_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "COMMENT",
+        Report.comment_id == comment_id,
+        Report.reporter_id == session_uid,
+    )
 
     db.add(
         Report(

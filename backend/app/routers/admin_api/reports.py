@@ -151,6 +151,9 @@ class ReportStatusUpdate(BaseModel):
     status: str
     resolution_note: str | None = None
     result_code: str | None = None
+    # R-2(260819 W3) — resolution_note(내부 메모)와 분리된 신고자 공개용 요약 사유.
+    # 비어있으면 저장하지 않고 _REPORT_RESULT_NOTI 고정 문구로 폴백(회귀 금지).
+    public_resolution_summary: str | None = None
 
 
 class AdminDmMessageRow(BaseModel):
@@ -422,6 +425,8 @@ async def get_report(
     return {
         **row.model_dump(),
         "resolution_note": report.resolution_note,
+        # R-2(260819 W3) — 어드민이 종결 시 입력할 공개용 요약(재편집 시 프리필용).
+        "public_resolution_summary": report.public_resolution_summary,
         "reported_user_summary": reported_user_summary,
         "listing_detail": listing_detail,
         # 대상 식별자 노출(2026-08-18) — listing 은 위 listing_detail 로 이미 나가지만
@@ -473,10 +478,17 @@ async def update_report_status(
         report.resolution_note = body.resolution_note
     if body.result_code is not None:
         report.result_code = body.result_code
+    if body.public_resolution_summary is not None:
+        report.public_resolution_summary = body.public_resolution_summary or None
 
     noti = _REPORT_RESULT_NOTI.get(body.status)
     if noti is not None:
-        noti_title, noti_body = noti
+        noti_title, noti_base_body = noti
+        # R-2(260819 W3): reviews.py moderate_review 의 "사유: {reason}" 통보 패턴을 미러링.
+        # 공개용 요약이 비어있으면 고정 문구로 폴백(기존 동작 회귀 금지) — resolution_note
+        # 원본은 여기서 전혀 참조하지 않는다.
+        summary = report.public_resolution_summary
+        noti_body = f"{noti_base_body} 사유: {summary}" if summary else noti_base_body
         db.add(
             Notification(
                 user_id=report.reporter_id,

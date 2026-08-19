@@ -6,6 +6,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import { AppImage } from '@/components/ui/AppImage';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import sys from '@/styles/system.module.css';
 import { fetchTickets, createTicket, fetchReports, cancelReport, type SupportTicket, type Report } from '@/api/support';
 import { noItemImage } from '@/pages/market/noItemImage';
@@ -47,6 +48,8 @@ export default function CustomerSupport() {
   const [view, setView] = useState<View>('list');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  // R-1(260819 W3) — 신고 상세(코멘트·첨부사진·처리 결과) 열람용.
+  const [detailReport, setDetailReport] = useState<Report | null>(null);
   const [reportsLoading, setReportsLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -180,14 +183,12 @@ export default function CustomerSupport() {
             </div>
           ) : (
             reports.map((r) => {
-              const clickable = r.target_type === 'LISTING' && !!r.listing_id;
               return (
                 <div key={r.id} className={styles.reportCard}>
                   <button
                     type="button"
                     className={styles.reportCardMain}
-                    onClick={() => goToReportTarget(r)}
-                    disabled={!clickable}
+                    onClick={() => setDetailReport(r)}
                   >
                     {r.target_type === 'LISTING' && (
                       <AppImage
@@ -255,6 +256,72 @@ export default function CustomerSupport() {
           </button>
         </div>
       )}
+
+      {/* R-1(260819 W3) — 신고 상세: 내가 남긴 코멘트·첨부사진·처리 결과 되보기 */}
+      <BottomSheet open={!!detailReport} onClose={() => setDetailReport(null)} height="fit">
+        {detailReport && (
+          <div className={styles.detailBody}>
+            <div className={styles.detailSection}>
+              <span className={`${styles.badge} ${REPORT_STATUS_CLASS[detailReport.status] ?? ''}`}>
+                {reportStatusLabel(detailReport.status)}
+              </span>
+              <div className={styles.cardTitle}>{reportTargetLabel(detailReport)}</div>
+            </div>
+
+            <div className={styles.detailSection}>
+              <span className={styles.detailLabel}>{t('support.reportDetailReasonLabel')}</span>
+              <span className={styles.detailValue}>{reportReasonLabel(detailReport.reason)}</span>
+            </div>
+
+            <div className={styles.detailSection}>
+              <span className={styles.detailLabel}>{t('support.reportDetailCreatedLabel')}</span>
+              <span className={styles.detailValue}>{formatVnDate(detailReport.created_at)}</span>
+            </div>
+
+            <div className={styles.detailSection}>
+              <span className={styles.detailLabel}>{t('support.reportNoteLabel')}</span>
+              <span className={styles.detailValue}>
+                {detailReport.note || t('support.reportNoteEmpty')}
+              </span>
+            </div>
+
+            {detailReport.images.length > 0 && (
+              <div className={styles.detailSection}>
+                <span className={styles.detailLabel}>{t('support.reportImagesLabel')}</span>
+                <div className={styles.detailImages}>
+                  {detailReport.images.map((url) => (
+                    <AppImage key={url} src={url} alt="" className={styles.detailImage} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.detailSection}>
+              <span className={styles.detailLabel}>{t('support.reportResultLabel')}</span>
+              <span className={styles.detailValue}>
+                {detailReport.resolution_summary || t('support.reportResultEmpty')}
+              </span>
+            </div>
+
+            {detailReport.status === 'CANCELLED' && (
+              <p className={styles.detailNotice}>{t('support.reportCancelledNotice')}</p>
+            )}
+
+            {detailReport.target_type === 'LISTING' && detailReport.listing_id && (
+              <button
+                type="button"
+                className={styles.detailGoBtn}
+                onClick={() => {
+                  setDetailReport(null);
+                  goToReportTarget(detailReport);
+                }}
+              >
+                {t('support.reportGoToTargetBtn')}
+              </button>
+            )}
+          </div>
+        )}
+      </BottomSheet>
     </>
   );
 }

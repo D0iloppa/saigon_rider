@@ -1329,7 +1329,9 @@ class SupportTicketDetail(SupportTicketOut):
 class ReportOut(BaseModel):
     """R-1(260817 §12-B) 내 신고 목록. status 는 PENDING/REVIEWING/RESOLVED/REJECTED 를
     REVIEWING/RESOLVED/REJECTED 3단계로 뭉갠 값 — result_code/resolution_note 원본은 절대
-    내려주지 않는다(상대방 제재 내역 노출은 개인정보이자 보복 위험)."""
+    내려주지 않는다(상대방 제재 내역 노출은 개인정보이자 보복 위험).
+    note/images 는 신고자 본인이 작성·첨부한 데이터라 그대로 노출한다(R-1, 260819 W3).
+    resolution_summary 는 resolution_note(내부 메모)와 분리된 공개용 요약 사유(R-2)."""
 
     id: uuid.UUID
     target_type: str
@@ -1342,6 +1344,11 @@ class ReportOut(BaseModel):
     target_thumbnail_url: str | None = None
     # R-3(260817 §12-B) — 원본 status(PENDING/REVIEWING 등)는 노출하지 않고 서버가 계산해 내려준다.
     can_cancel: bool = False
+    # R-1(260819 W3) — 신고자 본인이 남긴 코멘트/첨부사진(타인 정보 아님, 노출 무해).
+    note: str | None = None
+    images: list[str] = []
+    # R-2(260819 W3) — resolution_note 원본이 아니라 어드민이 입력한 공개용 요약만.
+    resolution_summary: str | None = None
 
     class Config:
         from_attributes = True

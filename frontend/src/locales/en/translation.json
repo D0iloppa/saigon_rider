@@ -1125,7 +1125,19 @@
     "reportTargetFallback_USER": "Reported user",
     "reportTargetFallback_DM": "Reported chat",
     "reportTargetFallback_POST": "Reported post",
-    "reportTargetFallback_COMMENT": "Reported comment"
+    "reportTargetFallback_COMMENT": "Reported comment",
+    "reportDetailTitle": "Report details",
+    "reportDetailReasonLabel": "Reason",
+    "reportDetailCreatedLabel": "Submitted",
+    "reportNoteLabel": "My comment",
+    "reportNoteEmpty": "No comment was written.",
+    "reportImagesLabel": "Attached photos",
+    "reportResultLabel": "Result",
+    "reportResultEmpty": "No result yet.",
+    "reportCancelledNotice": "A cancelled report can't be filed again for the same target.",
+    "reportGoToTargetBtn": "Go to target",
+    "reportAlreadyCancelledError": "You already cancelled a report for this target, so you can't report it again.",
+    "reportAlreadyPendingError": "You already have a report for this target that's being reviewed."
   },
   "notices": {
     "title": "Notices",

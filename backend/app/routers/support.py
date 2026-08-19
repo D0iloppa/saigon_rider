@@ -16,6 +16,7 @@ from ..schemas import (
     SupportTicketDetail,
     SupportTicketOut,
 )
+from ..utils import build_imgproxy_url
 from .market import MarketplaceListing, _thumbnail_url
 
 router = APIRouter(prefix="/support", tags=["고객센터 (Support)"])
@@ -233,6 +234,15 @@ def _to_report_out(
         target_thumbnail_url=target_thumbnail_url,
         # R-3: 원본 status 는 노출하지 않고 서버가 취소 가능 여부만 계산해 내려준다.
         can_cancel=report.status == "PENDING",
+        # R-1(260819 W3) — 신고자 본인 소유 데이터라 그대로 노출.
+        note=report.note,
+        images=[
+            build_imgproxy_url(img.content.file_path)
+            for img in report.images or []
+            if img.content and img.content.file_path
+        ],
+        # R-2(260819 W3) — resolution_note 원본이 아니라 공개용 요약만.
+        resolution_summary=report.public_resolution_summary,
     )
 
 

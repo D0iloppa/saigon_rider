@@ -37,6 +37,7 @@ from ..schemas import (
 from ..services.ops_alerts import send_ops_alert
 from ..services.withdrawn_archive import WITHDRAWN_ARCHIVE_RETENTION, hash_identifier
 from ..utils import APP_TZ, mask_phone, resolve_avatar_url
+from ._report_guard import guard_duplicate_report
 
 log = logging.getLogger(__name__)
 
@@ -467,17 +468,12 @@ async def report_user(
     await _get_user_or_404(user_id, db)
 
     # 중복 판정 — reports 부분 유니크(uq_reports_user_once: reported_user_id x reporter_id WHERE USER)와 동일 조건
-    dup = (
-        await db.execute(
-            select(Report.id).where(
-                Report.target_type == "USER",
-                Report.reported_user_id == user_id,
-                Report.reporter_id == session_uid,
-            )
-        )
-    ).first()
-    if dup is not None:
-        raise HTTPException(status_code=409, detail="already reported")
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "USER",
+        Report.reported_user_id == user_id,
+        Report.reporter_id == session_uid,
+    )
 
     db.add(
         Report(

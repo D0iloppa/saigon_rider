@@ -43,6 +43,8 @@ export interface SanctionBrief {
 
 export interface ReportDetail extends ReportRow {
   resolution_note: string | null
+  // R-2(260819 W3) — resolution_note(내부 메모)와 분리된 신고자 공개용 요약 사유. 종결 재편집 시 프리필용.
+  public_resolution_summary: string | null
   // 후기(REVIEW)/업체(BIZ) 신고 자동 연결용 — listing_detail 처럼 상세 객체를 만들지 않고
   // id 만 흘려보낸다(GET /admin/api/reviews/{id} 가 후기 원문+신고내역을 이미 함께 준다,
   // 대표 지적 2026-08-18 핵심 갭 수정).
@@ -93,6 +95,8 @@ export function useReport(id: string) {
 export interface ReportStatusUpdateBody {
   status: 'REVIEWING' | 'RESOLVED' | 'REJECTED'
   resolution_note?: string
+  // R-2(260819 W3) — 비어있으면 저장하지 않고 신고자 통보는 고정 문구로 폴백.
+  public_resolution_summary?: string
 }
 
 export function useUpdateReportStatus(id: string) {

@@ -17,6 +17,10 @@
 -- (POST/COMMENT)를 그대로 보존해야 하므로, 생성 시점 전용이었던 NOT NULL 강제 CHECK
 -- (144_reports_feed.sql) 를 제거한다 — 삭제 후에도 NULL 을 허용해야 하기 때문이다.
 -- 멱등: DROP CONSTRAINT IF EXISTS 후 재생성.
+-- 🔴 W8 사고 재발 방지(2026-08-19): 144 는 매 배포마다 이 두 CHECK 를 다시 ADD 하는데, 그때
+--   이미 detach 로 NULL 이 된 기존 행이 있으면 그 ADD 자체가 즉시 실패한다. 그래서 144 쪽은
+--   NOT VALID 로 ADD 하도록 고쳤다 — 검증 없이 잠깐 존재했다가 여기서 곧바로(같은 실행 내에서)
+--   DROP 되므로 최종 상태(제약 없음)는 변하지 않는다.
 -- ================================================================
 
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_post_id_fkey;

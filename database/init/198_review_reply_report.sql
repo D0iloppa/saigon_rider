@@ -7,6 +7,9 @@
 -- 🔴 162 사고 재발 방지: reports_target_type_check 의 최종 정의는 가장 나중 마이그레이션이
 --   소유한다 — 144 의 CHECK 를 여기서 DROP 후 6값 전체(REVIEW 포함)로 재정의한다.
 --   과거 파일(126/144)은 건드리지 않는다.
+-- 🔴 W8 사고 재발 방지(2026-08-19): 이 파일도 이 제약의 최종 소유자가 아니다(199 가 BIZ 를
+--   더해 소유권을 넘겨받는다) — bff_migrate 재실행 시 199 가 쌓아둔 BIZ 데이터를 여기서 위반
+--   할 수 있으므로 NOT VALID 로 재정의한다. 최종 검증은 199 가 담당한다.
 -- M1(탐지≠차단): 이 마이그레이션은 신고 접수 인프라만 추가한다 — 후기 자동 숨김 트리거/컬럼은
 --   두지 않는다. 판정은 운영자가 기존 reports 처리 플로우로 한다.
 -- 멱등: ADD COLUMN IF NOT EXISTS / DROP CONSTRAINT IF EXISTS + ADD / CREATE UNIQUE INDEX IF NOT EXISTS.
@@ -21,7 +24,7 @@ ALTER TABLE reports ADD COLUMN IF NOT EXISTS review_id UUID REFERENCES business_
 
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_type_check;
 ALTER TABLE reports ADD CONSTRAINT reports_target_type_check
-    CHECK (target_type IN ('LISTING','USER','DM','POST','COMMENT','REVIEW'));
+    CHECK (target_type IN ('LISTING','USER','DM','POST','COMMENT','REVIEW')) NOT VALID;
 
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_review_check;
 ALTER TABLE reports ADD CONSTRAINT reports_review_check CHECK (target_type <> 'REVIEW' OR review_id IS NOT NULL);

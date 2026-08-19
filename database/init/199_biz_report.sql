@@ -12,6 +12,10 @@
 -- 🔴 162 사고 재발 방지: reports_target_type_check 의 최종 정의는 가장 나중 마이그레이션이
 --   소유한다 — 198 의 CHECK 를 여기서 DROP 후 7값 전체(BIZ 포함)로 재정의한다.
 --   과거 파일(126/144/198)은 건드리지 않는다.
+-- 🔴 W8 사고 재발 방지(2026-08-19): 144/198 은 이 제약을 NOT VALID 로만 재정의해 재실행 시
+--   중간 단계 데이터 위반을 피한다 — 실제 전체 검증(모든 기존 행 재검사)은 여기, 최종 소유자인
+--   199 에서만 일어난다(NOT VALID 미부여). 새 target_type 값을 또 추가하는 후속 마이그레이션이
+--   생기면 그 파일이 새 최종 소유자가 되고, 이 ADD 에도 NOT VALID 를 붙여야 한다.
 --
 -- reported_user_id 완화: business_profile.user_id 는 관리자 직접등록 프로필에서 NULL 일 수 있다
 -- (init/168). 기존 reports.reported_user_id 는 NOT NULL 이었으나, 오너 미연결 업체도 신고 대상이

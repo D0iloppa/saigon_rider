@@ -94,9 +94,15 @@ export default function CustomerSupport() {
   };
 
   const reportStatusLabel = (s: string) => t(`support.reportStatus_${s.toLowerCase()}`, s);
-  const reportReasonLabel = (reason: string) => t(`support.reportReason_${reason}`, reason);
+  // W7-2(260820, 실기기 지적) — 매핑 없는 사유가 들어와도 영문 enum 을 그대로 보여주지 않는다.
+  // 매핑은 support.reportReason_* 로 전 target_type 사유 값을 실측해 빠짐없이 채웠고(W7 보고 참조),
+  // 그래도 미지의 값이 오면 "기타"(reportReason_OTHER)로 폴백한다.
+  const reportReasonLabel = (reason: string) => t(`support.reportReason_${reason}`, t('support.reportReason_OTHER'));
   const reportTargetLabel = (r: Report) =>
     r.target_title ?? t(`support.reportTargetFallback_${r.target_type}`, r.target_type);
+  // W7-1(260820, 실기기 지적) — 대상 종류(매물/유저/채팅/게시물/댓글/후기/업체) 칩. 부모 맥락
+  // (예: "○○업체의 후기") 노출은 이번 범위 밖 — 백엔드 응답 확장 필요해 대표 확정으로 제외.
+  const reportTargetTypeLabel = (r: Report) => t(`support.reportTargetType_${r.target_type}`, r.target_type);
 
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) return;
@@ -203,6 +209,9 @@ export default function CustomerSupport() {
                         <span className={`${styles.badge} ${REPORT_STATUS_CLASS[r.status] ?? ''}`}>
                           {reportStatusLabel(r.status)}
                         </span>
+                        <span className={`${styles.badge} ${styles.badgeType}`}>
+                          {reportTargetTypeLabel(r)}
+                        </span>
                         <span>{reportReasonLabel(r.reason)}</span>
                         <span>{formatVnDate(r.created_at)}</span>
                       </div>
@@ -262,9 +271,16 @@ export default function CustomerSupport() {
         {detailReport && (
           <div className={styles.detailBody}>
             <div className={styles.detailSection}>
-              <span className={`${styles.badge} ${REPORT_STATUS_CLASS[detailReport.status] ?? ''}`}>
-                {reportStatusLabel(detailReport.status)}
-              </span>
+              {/* W7-1(260820, 실기기 지적) — 상태 칩이 한 줄을 통째로 차지하던 것을 대상종류
+                  칩과 나란히 배치한다. */}
+              <div className={styles.detailBadgeRow}>
+                <span className={`${styles.badge} ${REPORT_STATUS_CLASS[detailReport.status] ?? ''}`}>
+                  {reportStatusLabel(detailReport.status)}
+                </span>
+                <span className={`${styles.badge} ${styles.badgeType}`}>
+                  {reportTargetTypeLabel(detailReport)}
+                </span>
+              </div>
               <div className={styles.cardTitle}>{reportTargetLabel(detailReport)}</div>
             </div>
 

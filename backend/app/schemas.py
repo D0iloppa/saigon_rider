@@ -213,6 +213,9 @@ class MarketplaceListingDetail(BaseModel):
     # UI 단계에서 막는다. 이게 없으면 사용자는 눌러봐야만 알 수 있었다(2026-08-18 대표 지적).
     # 비로그인은 항상 False.
     is_reported_by_me: bool = False
+    # W7-3(260820) — is_reported_by_me 는 취소된 신고여도 True 라 "신고함" 문구가 거짓말을 했다
+    # (실기기 지적). 신고가 CANCELLED 상태면 True — 프론트가 "신고함"/"신고 취소함" 을 구분한다.
+    report_cancelled_by_me: bool = False
 
 
 class MarketplaceListingCreateRequest(BaseModel):

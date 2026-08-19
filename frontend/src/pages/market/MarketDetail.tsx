@@ -639,19 +639,27 @@ export default function MarketDetail() {
           <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
             <div className={styles.moreSheet}>
               {/* R-2(017 §12-B): 이미 신고한 매물이면 버튼을 비활성화한다 — 종전엔 눌러야만
-                  409 로 알 수 있었다. 신고는 매물당 1회이므로 사유를 바꿔도 결과가 같다. */}
+                  409 로 알 수 있었다. 신고는 매물당 1회이므로 사유를 바꿔도 결과가 같다.
+                  W7-3(260820, 실기기 지적): 취소한 신고는 "신고함"이 아니라 "신고 취소함"으로
+                  표기하고, 탭하면 재신고 불가 사유를 안내한다(비활성화하지 않음 — 눌러야 안내가 뜬다). */}
               <button
                 className={styles.moreItem}
-                disabled={detail.isReportedByMe}
+                disabled={detail.isReportedByMe && !detail.reportCancelledByMe}
                 onClick={() => {
+                  if (detail.reportCancelledByMe) {
+                    toast.error(t('support.reportAlreadyCancelledError'));
+                    return;
+                  }
                   setMoreOpen(false);
                   setReportOpen(true);
                 }}
               >
                 <Flag size={16} strokeWidth={2.2} />
-                {detail.isReportedByMe
-                  ? t('market.reportedAlready', { defaultValue: '신고함' })
-                  : t('market.report', { defaultValue: '신고하기' })}
+                {detail.reportCancelledByMe
+                  ? t('market.reportCancelledByMe', { defaultValue: '신고 취소함' })
+                  : detail.isReportedByMe
+                    ? t('market.reportedAlready', { defaultValue: '신고함' })
+                    : t('market.report', { defaultValue: '신고하기' })}
               </button>
               <button className={`${styles.moreItem} ${blocked ? '' : styles.moreDanger}`} onClick={handleToggleBlock}>
                 {blocked ? <UserCheck size={16} strokeWidth={2.2} /> : <Ban size={16} strokeWidth={2.2} />}

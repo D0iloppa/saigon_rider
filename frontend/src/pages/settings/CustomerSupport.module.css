@@ -142,6 +142,8 @@
 .badgeResolved { background: rgba(80,220,120,.2); color: #50dc78; }
 .badgeRejected { background: rgba(150,150,150,.2); color: #8a8a8a; }
 .badgeCancelled { background: rgba(150,150,150,.2); color: #8a8a8a; }
+/* W7-1(260820) — 신고 대상 종류 칩(매물/유저/후기 등). 상태 칩과 색으로 헷갈리지 않게 중립색. */
+.badgeType { background: var(--surface-2, rgba(0,0,0,.06)); color: var(--text-2, #4a4f62); }
 
 .unreadDot {
   width: 8px;
@@ -221,6 +223,12 @@
 .detailSection {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+/* W7-1(260820) — 상태 칩 + 대상종류 칩을 한 줄에 나란히(전엔 상태 칩이 1row 를 통째로 차지). */
+.detailBadgeRow {
+  display: flex;
   gap: 6px;
 }
 

@@ -42,7 +42,8 @@ export async function createTicket(title: string, body: string): Promise<Support
 // 3단계로 뭉갠 값만 내려준다 — result_code/resolution_note 원본은 응답에 없음.
 export interface Report {
   id: string;
-  target_type: 'LISTING' | 'USER' | 'DM' | 'POST' | 'COMMENT';
+  // W7-1(260820) — REVIEW(업체 후기)/BIZ(업체)도 실측 확인(biz.py report_review/report_business).
+  target_type: 'LISTING' | 'USER' | 'DM' | 'POST' | 'COMMENT' | 'REVIEW' | 'BIZ';
   reason: string;
   status: 'REVIEWING' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
   created_at: string;

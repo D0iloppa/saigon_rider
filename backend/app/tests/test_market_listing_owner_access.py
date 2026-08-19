@@ -135,7 +135,7 @@ class OwnerCanViewModeratedListingTest(unittest.IsolatedAsyncioTestCase):
         # 매물조회 다음(=신고조회) 응답만 "신고 이력 있음"으로 교체
         db.execute.side_effect = [
             MagicMock(scalar_one_or_none=MagicMock(return_value=listing)),
-            MagicMock(first=MagicMock(return_value=(uuid.uuid4(),))),  # 내 신고 존재
+            MagicMock(first=MagicMock(return_value=("PENDING",))),  # 내 신고 존재(살아있음)
             MagicMock(first=MagicMock(return_value=None)),  # 차단 없음
             _empty_scalars(),
             MagicMock(scalar_one=MagicMock(return_value=0)),
@@ -145,6 +145,36 @@ class OwnerCanViewModeratedListingTest(unittest.IsolatedAsyncioTestCase):
         detail = await market.get_listing(listing.id, db=db, session_uid=uuid.uuid4())
         self.assertEqual(detail.status, "HIDDEN")
         self.assertTrue(detail.is_reported_by_me)
+        self.assertFalse(detail.report_cancelled_by_me)
+
+    async def test_reporter_with_cancelled_report_can_still_view_but_flag_differs(self):
+        """W7-3(260820, 실기기 지적) — 취소한 신고도 신고자 열람은 그대로 허용하되(회귀 금지),
+        `report_cancelled_by_me` 는 True 로 내려가야 프론트가 "신고함"과 "신고 취소함"을
+        구분할 수 있다. status 문자열만 다를 뿐 나머지 응답 계약(200, HIDDEN)은 동일해야 한다."""
+        listing = _listing("HIDDEN", uuid.uuid4())
+        db = _db_for_owner_view(listing)
+        db.execute.side_effect = [
+            MagicMock(scalar_one_or_none=MagicMock(return_value=listing)),
+            MagicMock(first=MagicMock(return_value=("CANCELLED",))),  # 취소한 신고
+            MagicMock(first=MagicMock(return_value=None)),  # 차단 없음
+            _empty_scalars(),
+            MagicMock(scalar_one=MagicMock(return_value=0)),
+            _empty_scalars(),
+            MagicMock(first=MagicMock(return_value=None)),
+        ]
+        detail = await market.get_listing(listing.id, db=db, session_uid=uuid.uuid4())
+        self.assertEqual(detail.status, "HIDDEN")
+        self.assertTrue(detail.is_reported_by_me)
+        self.assertTrue(detail.report_cancelled_by_me)
+
+    async def test_non_reporter_report_cancelled_flag_defaults_false(self):
+        """회귀 금지 — 신고 이력이 아예 없는 일반 조회는 두 플래그 모두 False 여야 한다."""
+        seller_id = uuid.uuid4()
+        listing = _listing("ON_SALE", seller_id)
+        db = _db_for_owner_view(listing)
+        detail = await market.get_listing(listing.id, db=db, session_uid=uuid.uuid4())
+        self.assertFalse(detail.is_reported_by_me)
+        self.assertFalse(detail.report_cancelled_by_me)
 
 
 if __name__ == "__main__":

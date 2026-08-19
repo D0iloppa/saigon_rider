@@ -585,13 +585,19 @@ async def get_listing(
     # R-2(017 §12-B): 내가 이미 신고한 매물인가. 두 곳에서 쓰이므로 가드보다 **먼저** 계산한다
     # (쿼리 1회로 ①중복신고 UI 차단 ②아래 신고자 열람 허용을 모두 해결).
     # 조건은 report_listing 의 중복 검사(listing_id + reporter_id)와 반드시 동일해야 한다.
+    # W7-3(260820) — status 도 같이 가져와 "신고함(살아있음)"과 "신고 취소함"을 구분한다.
+    # 신고자 열람 허용(is_reported_by_me) 판정은 CANCELLED 여도 그대로 True — 취소해도
+    # 이미 본 컨텐츠라 열람 자격은 유지한다(아래 HIDDEN/REMOVED 가드는 변경하지 않음).
     is_reported_by_me = False
+    report_cancelled_by_me = False
     if session_uid is not None:
-        is_reported_by_me = (
+        report_row = (
             await db.execute(
-                select(Report.id).where(Report.listing_id == listing.id, Report.reporter_id == session_uid)
+                select(Report.status).where(Report.listing_id == listing.id, Report.reporter_id == session_uid)
             )
-        ).first() is not None
+        ).first()
+        is_reported_by_me = report_row is not None
+        report_cancelled_by_me = report_row is not None and report_row[0] == "CANCELLED"
 
     # Q-3(감사 260817): HIDDEN/REMOVED(모더레이션 조치)도 소유자 본인은 열람 가능 —
     # 조치 사유 알림 딥링크·판매자의 자기 매물 확인 경로. 비소유자는 기존과 동일하게 404.
@@ -739,6 +745,7 @@ async def get_listing(
         plate_province=listing.plate_province,
         pending_deal_ping=pending_deal_ping,
         is_reported_by_me=is_reported_by_me,
+        report_cancelled_by_me=report_cancelled_by_me,
     )
     await db.commit()
     return detail

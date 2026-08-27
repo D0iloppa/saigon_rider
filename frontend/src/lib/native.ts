@@ -213,11 +213,17 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
       // capacitor:// 파일을 fetch 하면 WebKit 이 비보안 스킴(혼합 콘텐츠)으로 차단해
       // "Load failed" 로 죽는다 — 아이폰에서만 음성 전송이 실패하던 원인.
       if (Capacitor.getPlatform() === 'ios') {
-        const { dataBase64 } = await WalkieTalkie.readRecording({ filePath: result.filePath });
-        const bin = atob(dataBase64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-        return new Blob([bytes], { type: result.mimeType });
+        try {
+          const { dataBase64 } = await WalkieTalkie.readRecording({ filePath: result.filePath });
+          const bin = atob(dataBase64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+          return new Blob([bytes], { type: result.mimeType });
+        } catch (err) {
+          // readRecording 이 없는 구 설치본(프론트는 원격 서빙이라 조합될 수 있다) — 어차피
+          // 실패할 fetch 지만, 새 메서드에 하드 의존하지 않도록 기존 경로로 떨어뜨린다.
+          console.warn('[walkieTalkie] readRecording unavailable, falling back to fetch', err);
+        }
       }
       // Android/웹: 로컬 서버가 https 로 서빙하므로 기존 경로가 정상 동작한다.
       return await fetch(Capacitor.convertFileSrc(result.filePath)).then((r) => r.blob());

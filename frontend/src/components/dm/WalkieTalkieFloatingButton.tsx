@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
@@ -71,8 +71,12 @@ export function WalkieTalkieFloatingButton() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   /** 녹음 진입 직전의 캡슐 너비(px) — 녹음중 너비 축소 방지용 바닥값(ResizeObserver 가 갱신). */
   const [lockedWidth, setLockedWidth] = useState(0);
-  /** ResizeObserver 콜백에서 최신 녹음 여부를 읽기 위한 미러 (deps 재구독 없이). */
-  const isRecRef = useRef(false);
+  /**
+   * 지금 캡슐 너비를 "녹음 진입 기준값"으로 기억해도 되는 상태인지 (ResizeObserver 콜백이 읽는 미러).
+   * 녹음중은 물론이고 권한거부 카드(208px)·롱프레스 메뉴(176px)처럼 캡슐이 다른 레이아웃으로
+   * 커져 있을 때 기억하면, 그 값이 녹음중 min-width 로 걸려 캡슐이 두 배로 늘어난다.
+   */
+  const widthCaptureOkRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   // 더블탭 → 캡슐 펼침(peek) 토글. idle/권한거부 상태의 탭에만 적용(녹음중 탭은 정지/전송이라 지연 없이 즉시 반응해야 한다).
   const tapTimerRef = useRef<number | null>(null);
@@ -114,10 +118,12 @@ export function WalkieTalkieFloatingButton() {
     native.walkieTalkie.getCapability().then(setCapability).catch(() => setCapability(null));
   }, []);
 
-  // ResizeObserver 콜백이 최신 녹음 여부를 읽을 수 있게 미러링 (재구독 없이).
-  useEffect(() => {
-    isRecRef.current = phase === 'recording' || phase === 'autoStopped';
-  }, [phase]);
+  // ResizeObserver 콜백이 읽을 미러. useEffect(패시브)로 두면 커밋 후 실행 시점이 브라우저의
+  // RO 콜백 전달보다 늦을 수 있어, 녹음 레이아웃의 RO 콜백이 아직 false 를 보고 좁아진 너비를
+  // 기준값으로 덮어써 버린다(수정이 간헐적으로 무력화). useLayoutEffect 로 순서를 확정한다.
+  useLayoutEffect(() => {
+    widthCaptureOkRef.current = (phase === 'idle' || phase === 'playing') && !menuOpen;
+  }, [phase, menuOpen]);
 
   // 녹음 상태 이벤트 구독 — 경과시간·레벨미터 + 60초 자동중지(D-4) 감지.
   // available 이 아니라 record 로 판단한다 — available 은 항상 true 라(웹에서도 버블은 뜬다)
@@ -305,9 +311,9 @@ export function WalkieTalkieFloatingButton() {
     const ro = new ResizeObserver(() => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
-      // 녹음 진입 시 캡슐이 좁아지지 않도록 직전(비녹음) 너비를 기억해 둔다.
-      // 녹음중에는 갱신하지 않아야 그 값이 바닥값으로 유지된다.
-      if (!isRecRef.current) setLockedWidth((prev) => (prev === w ? prev : w));
+      // 녹음 진입 시 캡슐이 좁아지지 않도록 직전 너비를 기억해 둔다. 녹음중·권한거부 카드·
+      // 메뉴 펼침 상태에서는 갱신하지 않는다(그 너비를 기준값으로 삼으면 안 된다).
+      if (widthCaptureOkRef.current) setLockedWidth((prev) => (prev === w ? prev : w));
       setPos((p) => {
         const prevW = prevWidthRef.current;
         const centeredX = prevW === null ? p.x : p.x - (w - prevW) / 2;

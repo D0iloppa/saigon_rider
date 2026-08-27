@@ -19,9 +19,9 @@ export interface KeyboardBridgePlugin {
   setBackgroundColor(options: { color: string }): Promise<void>;
 
   /**
-   * iOS 키보드 오버레이 이벤트. 네이티브는 웹뷰를 리사이즈하지 않고 키보드를 순수
-   * 오버레이로만 띄우며, 이 이벤트로 높이를 알린다. 이모지 키보드 등으로 높이가
-   * 바뀌면 새 height 로 keyboardWillShow 가 재발행된다.
+   * 네이티브(iOS/Android) 키보드 오버레이 이벤트. 네이티브는 웹뷰를 리사이즈하지 않고
+   * 키보드를 순수 오버레이로만 띄우며, 이 이벤트로 높이를 알린다. 키보드 전환 등으로
+   * 높이가 바뀌면 새 height 로 keyboardWillShow 가 재발행된다.
    */
   addListener(
     eventName: 'keyboardWillShow',

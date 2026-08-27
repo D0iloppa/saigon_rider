@@ -690,17 +690,19 @@ class NativeInterface {
   /**
    * 키보드 표시/높이 변화 구독. 구독 해제 함수를 반환한다.
    *
-   * iOS 네이티브: 키보드는 순수 오버레이(웹뷰 리사이즈 없음)라 innerHeight 계측이
+   * 네이티브(iOS/Android): 키보드는 순수 오버레이(웹뷰 리사이즈 없음)라 innerHeight 계측이
    * 무의미 — KeyboardBridge 의 keyboardWillShow/Hide 이벤트가 유일한 소스.
-   * 웹/Android: 기존 계측 방식 유지 (baseline innerHeight delta + visualViewport
-   * inset 의 max). Android 는 adjustPan + IME 패딩 현행 유지 — 회귀 금지.
+   * (iOS: UIKit 키보드 노티, Android: WindowInsetsCompat IME inset)
+   * 웹: 계측 폴백 (baseline innerHeight delta + visualViewport inset 의 max).
    */
-  /** iOS 키보드 브리지 fan-out — 소비자가 여럿이어도(화면당 시트/컴포저 다수) 브리지 리스너는 1회만 등록 */
+  /** 네이티브 키보드 브리지 fan-out — 소비자가 여럿이어도(화면당 시트/컴포저 다수) 브리지 리스너는 1회만 등록 */
   private kbHandlers = new Set<KeyboardChangeHandler>();
   private kbBridgeStarted = false;
 
   onKeyboardChange(handler: KeyboardChangeHandler): () => void {
-    if (this.platform === 'ios') {
+    // isPluginAvailable 가드: 프론트는 원격 서빙이라 KeyboardBridge 미탑재 구 APK 와
+    // 조합될 수 있다 — 그 경우 아래 계측 폴백으로 보낸다 (브리지 없이는 이벤트가 전혀 없음).
+    if (this.isNative && Capacitor.isPluginAvailable('KeyboardBridge')) {
       // 브리지 리스너는 최초 구독 시 1회 등록하고 앱 수명 동안 유지 — 이후 구독자는
       // 핸들러 집합에만 추가/제거된다 (해제/재등록 경합 없음, Capacitor 핸들 누적 방지).
       this.kbHandlers.add(handler);
@@ -720,7 +722,7 @@ class NativeInterface {
       };
     }
 
-    // 웹/Android 계측 폴백
+    // 웹 / 구빌드(KeyboardBridge 미탑재 APK) 계측 폴백
     let baseline = window.innerHeight;
     const measure = () => {
       baseline = Math.max(baseline, window.innerHeight);

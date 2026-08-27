@@ -23,10 +23,10 @@ from ._audit import audit
 router = APIRouter(prefix="/reports")
 
 _STATUSES = {"PENDING", "REVIEWING", "RESOLVED", "REJECTED"}
-# reports.target_type CHECK(init/199) 7값과 일치시킨다 — 여기가 뒤처지면 운영자가
+# reports.target_type CHECK(init/209) 8값과 일치시킨다 — 여기가 뒤처지면 운영자가
 # "업체 신고만 보기"/"후기 신고만 보기" 같은 필터를 걸 수 없다(필터 없이는 보이므로
 # 조용히 불편해지는 종류다). 새 target_type 을 추가하면 이 집합도 같이 갱신하라.
-_TARGET_TYPES = {"LISTING", "USER", "DM", "POST", "COMMENT", "REVIEW", "BIZ"}
+_TARGET_TYPES = {"LISTING", "USER", "DM", "POST", "COMMENT", "REVIEW", "BIZ", "GROUP_MESSAGE"}
 # 종결(RESOLVED/REJECTED) 상태는 키 없음 → 어떤 전이도 400
 _ALLOWED_TRANSITIONS = {
     "PENDING": {"REVIEWING", "RESOLVED", "REJECTED"},

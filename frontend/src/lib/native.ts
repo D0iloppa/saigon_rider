@@ -25,6 +25,12 @@ import {
 } from './plugins/ImageViewer';
 import { Fcm, type FcmNotificationEvent } from './plugins/Fcm';
 import { KeyboardBridge } from './plugins/KeyboardBridge';
+import {
+  WalkieTalkie,
+  type WalkieTalkieRecordingResult,
+  type WalkieTalkieRecordingStateEvent,
+  type WalkieTalkieStartOptions,
+} from './plugins/walkieTalkie';
 import { getStoredAcqRef } from './acquisition';
 
 // ─── 타입 정의 ──────────────────────────────────────────────────────────────
@@ -75,6 +81,153 @@ export interface KeyboardChangeEvent {
 }
 export type KeyboardChangeHandler = (event: KeyboardChangeEvent) => void;
 
+// ── WalkieTalkie (A-6) ───────────────────────────────────────────────────
+// 설계서(`ai-docs/task/active/260827_walkie_talkie_task.md` §4-2/§4-3) 의
+// WalkieTalkieChannel 추상 인터페이스. raw 플러그인(`./plugins/walkieTalkie.ts`,
+// A-4/A-5)과 시그니처가 다른 부분(checkPermission/requestPermission 반환 형태)은
+// 아래 createWalkieTalkieChannel() 어댑터가 흡수한다.
+
+export type WalkieTalkieCapability = {
+  /** 이 플랫폼에서 워키토키 사용 가능 여부 (웹=false). */
+  available: boolean;
+  /** 인앱 녹음 (Phase A). */
+  record: boolean;
+  /** 웹뷰 내 플로팅 버블 (Phase A). */
+  floatingButton: boolean;
+  /** 앱 미실행/백그라운드 녹음 (Android only — Phase B). */
+  backgroundService: boolean;
+  /** OS 전역 오버레이 버블 (Phase B, 미구현). */
+  overlayBubble: boolean;
+  /** 홈스크린 위젯 (Phase B, 미구현). */
+  homeWidget: boolean;
+  /** iOS Live Activity / 다이나믹아일랜드 (Phase B, 미구현). */
+  liveActivity: boolean;
+  /** 플랫폼별 최대 녹음 길이(초). */
+  maxDurationSec: number;
+};
+
+export type WalkieTalkiePermissionKind = 'mic' | 'overlay' | 'notification';
+
+export interface WalkieTalkieChannel {
+  getCapability(): Promise<WalkieTalkieCapability>;
+
+  checkPermission(): Promise<{ mic: 'granted' | 'denied' | 'prompt'; overlay?: boolean }>;
+  requestPermission(kind: WalkieTalkiePermissionKind): Promise<boolean>;
+  /** 권한이 denied 로 굳어 재요청이 막힌 경우 OS 설정 화면으로 유도 (Phase A 완료기준 2). */
+  openAppSettings(): Promise<void>;
+
+  startRecording(opts?: WalkieTalkieStartOptions): Promise<void>;
+  stopRecording(): Promise<WalkieTalkieRecordingResult>;
+  cancelRecording(): Promise<void>;
+
+  addListener(
+    event: 'recordingState',
+    cb: (s: WalkieTalkieRecordingStateEvent) => void,
+  ): Promise<{ remove: () => void }>;
+
+  // Phase B — capability 가 false 면 호출부에서 노출 자체를 안 함. 아직 네이티브 구현이
+  // 없으므로 여기선 조용히 no-op 처리한다(throw 금지 — capability 로 사전 차단하는 게 원칙).
+  showOverlayBubble(opts: { channelId: string }): Promise<void>;
+  hideOverlayBubble(): Promise<void>;
+  startBackgroundChannel(opts: { channelId: string }): Promise<void>;
+  stopBackgroundChannel(): Promise<void>;
+  updateLiveActivity(opts: { state: 'recording' | 'sending' | 'idle' }): Promise<void>;
+}
+
+function createWalkieTalkieChannel(): WalkieTalkieChannel {
+  return {
+    async getCapability() {
+      if (!Capacitor.isNativePlatform()) {
+        return {
+          available: false,
+          record: false,
+          floatingButton: false,
+          backgroundService: false,
+          overlayBubble: false,
+          homeWidget: false,
+          liveActivity: false,
+          maxDurationSec: 0,
+        };
+      }
+      const isAndroid = Capacitor.getPlatform() === 'android';
+      return {
+        available: true,
+        record: true,
+        floatingButton: true,
+        // Android: A-4/A-5 에서 이미 FGS 로 구현됨. iOS: D-2 확정 — Phase B 전까지 보수적으로 false.
+        backgroundService: isAndroid,
+        overlayBubble: false, // Phase B 미구현
+        homeWidget: false, // Phase B 미구현
+        liveActivity: false, // Phase B 미구현
+        maxDurationSec: 60, // D-4 확정
+      };
+    },
+
+    async checkPermission() {
+      if (!Capacitor.isNativePlatform()) return { mic: 'denied' };
+      const { mic } = await WalkieTalkie.checkPermission();
+      return { mic };
+    },
+
+    async requestPermission(kind) {
+      if (!Capacitor.isNativePlatform()) return false;
+      if (kind !== 'mic') {
+        console.warn(`[walkieTalkie] requestPermission('${kind}') not supported yet (Phase B)`);
+        return false;
+      }
+      const { granted } = await WalkieTalkie.requestPermission({ kind: 'mic' });
+      return granted;
+    },
+
+    async openAppSettings() {
+      if (!Capacitor.isNativePlatform()) return;
+      await WalkieTalkie.openAppSettings();
+    },
+
+    async startRecording(opts) {
+      if (!Capacitor.isNativePlatform()) {
+        console.warn('[walkieTalkie] startRecording not available on web');
+        return;
+      }
+      await WalkieTalkie.startRecording(opts);
+    },
+
+    async stopRecording() {
+      if (!Capacitor.isNativePlatform()) {
+        throw new Error('[walkieTalkie] stopRecording not available on web');
+      }
+      return await WalkieTalkie.stopRecording();
+    },
+
+    async cancelRecording() {
+      if (!Capacitor.isNativePlatform()) return;
+      await WalkieTalkie.cancelRecording();
+    },
+
+    async addListener(event, cb) {
+      if (!Capacitor.isNativePlatform()) return { remove: () => {} };
+      return await WalkieTalkie.addListener(event, cb);
+    },
+
+    // ── Phase B (미구현) — capability=false 로 호출부가 걸러낼 것이므로 조용히 반환만 한다.
+    async showOverlayBubble() {
+      console.warn('[walkieTalkie] showOverlayBubble not implemented (Phase B)');
+    },
+    async hideOverlayBubble() {
+      console.warn('[walkieTalkie] hideOverlayBubble not implemented (Phase B)');
+    },
+    async startBackgroundChannel() {
+      console.warn('[walkieTalkie] startBackgroundChannel not implemented (Phase B)');
+    },
+    async stopBackgroundChannel() {
+      console.warn('[walkieTalkie] stopBackgroundChannel not implemented (Phase B)');
+    },
+    async updateLiveActivity() {
+      console.warn('[walkieTalkie] updateLiveActivity not implemented (Phase B)');
+    },
+  };
+}
+
 // 작은 뷰포트 변화(주소창 등)를 키보드로 오인하지 않기 위한 임계값 (계측 폴백용)
 const KEYBOARD_THRESHOLD = 120;
 
@@ -88,6 +241,9 @@ class NativeInterface {
   get isNative(): boolean {
     return Capacitor.isNativePlatform();
   }
+
+  // ── WalkieTalkie (A-6) ───────────────────────────────────────────────────
+  readonly walkieTalkie: WalkieTalkieChannel = createWalkieTalkieChannel();
 
   // ── Device ──────────────────────────────────────────────────────────────
 

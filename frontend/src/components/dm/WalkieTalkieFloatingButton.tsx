@@ -458,19 +458,17 @@ export function WalkieTalkieFloatingButton() {
       setDragging(true);
       // 길게 누르기 → 컨텍스트메뉴(채널 변경/초대장 다시 보내기). 이후 손을 떼도 탭(녹음 토글)으로 이어지지 않게 클릭을 삼킨다.
       // (peek 자체는 채널 등장·타인 발화 시 자동 트리거로 그대로 유지 — 롱프레스라는 제스처만 재배정한다.)
-      // 메뉴가 이미 열려있으면 다시 걸 필요 없다(이미 열린 메뉴를 롱프레스로 재트리거하지 않는다).
+      // 롱프레스는 메뉴를 토글한다 — 열려있으면 닫고, 닫혀있으면 연다.
       clearLongPress();
-      if (!menuOpen) {
-        longPressTimerRef.current = window.setTimeout(() => {
-          longPressTimerRef.current = null;
-          if (draggingRef.current && !dragMovedRef.current) {
-            dragMovedRef.current = true;
-            setMenuOpen(true);
-          }
-        }, 450);
-      }
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null;
+        if (draggingRef.current && !dragMovedRef.current) {
+          dragMovedRef.current = true;
+          setMenuOpen((v) => !v);
+        }
+      }, 450);
     },
-    [clearLongPress, menuOpen, pos.x, pos.y],
+    [clearLongPress, pos.x, pos.y],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {

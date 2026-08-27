@@ -613,6 +613,57 @@ async def report_conversation(
     return {"ok": True}
 
 
+_GROUP_MESSAGE_REPORT_REASONS = {"ABUSE", "SCAM", "SEXUAL", "SPAM", "OTHER"}
+
+
+# P5-5(260827, Q-3 확정) — 그룹/오픈톡방 신고는 방 전체가 아니라 특정 메시지 단위.
+@router.post("/conversations/{conv_id}/messages/{message_id}/report", status_code=201, summary="그룹 메시지 신고")
+async def report_group_message(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    body: ReportCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.reason not in _GROUP_MESSAGE_REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid reason")
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Use the conversation report endpoint for direct DM")
+    await require_member(db, conv, session_uid)
+
+    msg = (
+        await db.execute(select(DmMessage).where(DmMessage.id == message_id, DmMessage.conversation_id == conv_id))
+    ).scalar_one_or_none()
+    if msg is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.sender_id == session_uid:
+        raise HTTPException(status_code=400, detail="cannot report your own message")
+
+    # 중복 판정 — reports 부분 유니크(uq_reports_group_message_once: group_message_id x reporter_id WHERE GROUP_MESSAGE)와 동일 조건
+    await guard_duplicate_report(
+        db,
+        Report.target_type == "GROUP_MESSAGE",
+        Report.group_message_id == message_id,
+        Report.reporter_id == session_uid,
+    )
+
+    db.add(
+        Report(
+            target_type="GROUP_MESSAGE",
+            reporter_id=session_uid,
+            reported_user_id=msg.sender_id,
+            group_message_id=message_id,
+            reason=body.reason,
+            note=(body.note or None),
+        )
+    )
+    await db.commit()
+    return {"ok": True}
+
+
 def _group_conv_out(conv: DmConversation) -> DmConversationOut:
     """group/open 대화방 응답 조립 — 이 항목들은 other_user_* 를 채우지 않는다."""
     return DmConversationOut(

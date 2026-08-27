@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -16,6 +16,7 @@ from ..models import (
     RideSession,
     User,
     UserBlock,
+    UserFollow,
 )
 from ..schemas import (
     CommunityGroupCreateRequest,
@@ -170,6 +171,58 @@ async def list_groups(
     )
     items = [await _group_out(db, g, session_uid) for g in rows]
     return Page(items=items, total=total, page=page, size=size)
+
+
+@router.get("/recommended", response_model=list[CommunityGroupOut], summary="그룹 추천 (동네+팔로우 기반, P4-1)")
+async def get_recommended_groups(
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """추천 순위: ① 팔로우한 사람이 속한 그룹(멤버 수 가중) ② 내 동네(home_ward_id) 그룹 ③ 인기순.
+    공개(public) + 활성(ACTIVE) 그룹만 후보로 삼는다(Q-10 — 비멤버에게 private 그룹 노출 금지).
+    이미 가입/신청/차단된 그룹, 나와 상호 차단 관계인 소유자의 그룹은 제외한다.
+    """
+    user = await db.get(User, _session_uid)
+
+    already_related = select(CommunityGroupMember.group_id).where(CommunityGroupMember.user_id == _session_uid)
+    blocked_owners = select(UserBlock.blocked_id).where(UserBlock.blocker_id == _session_uid)
+    blocking_owners = select(UserBlock.blocker_id).where(UserBlock.blocked_id == _session_uid)
+
+    followed_member_counts = (
+        select(CommunityGroupMember.group_id, func.count().label("cnt"))
+        .join(UserFollow, UserFollow.following_id == CommunityGroupMember.user_id)
+        .where(UserFollow.follower_id == _session_uid, CommunityGroupMember.status == "ACTIVE")
+        .group_by(CommunityGroupMember.group_id)
+        .subquery()
+    )
+
+    score = func.coalesce(followed_member_counts.c.cnt, 0) * 10 + case(
+        (CommunityGroup.ward_id == (user.home_ward_id if user else None), 5), else_=0
+    )
+
+    rows = (
+        (
+            await db.execute(
+                select(CommunityGroup)
+                .outerjoin(followed_member_counts, followed_member_counts.c.group_id == CommunityGroup.id)
+                .where(
+                    CommunityGroup.status == "ACTIVE",
+                    CommunityGroup.visibility == "public",
+                    CommunityGroup.id.notin_(already_related),
+                    CommunityGroup.owner_id.is_(None)
+                    | (
+                        CommunityGroup.owner_id.notin_(blocked_owners) & CommunityGroup.owner_id.notin_(blocking_owners)
+                    ),
+                )
+                .order_by(score.desc(), CommunityGroup.member_count.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [await _group_out(db, g, _session_uid) for g in rows]
 
 
 @router.get("/{id_or_slug}", response_model=CommunityGroupOut, summary="그룹 상세")

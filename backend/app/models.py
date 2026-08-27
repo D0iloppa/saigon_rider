@@ -170,6 +170,10 @@ class User(Base):
     # 유입 귀속 — 016 §6-2 #30, D-30=(b), init/188. first-touch·불변: 가입(find-or-create
     # 신규 분기) 시 1회만 쓰고 이후 로그인 경로에서는 절대 갱신하지 않는다(routers/auth.py).
     acquisition_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # P4-1: 유저 동네 귀속 (Q-7 — 수동 설정, GPS 자동추정 금지). 그룹 추천(동네 기반)에 쓰인다.
+    home_ward_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("wards.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class UserOtp(Base):
@@ -936,6 +940,10 @@ class BusinessReview(Base):
     hidden_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     hidden_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     hidden_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # 사장님 노출용 사유 코드(O-1, 260827) — hidden_reason(자유텍스트, 신고자 특정 단서 위험)은
+    # 오너에게 절대 내려주지 않고, 이 코드만 i18n 매핑해 노출한다. BizReviewReportReason 과 동일
+    # 코드셋(SPAM/ABUSE/INAPPROPRIATE/OTHER) 재사용 — 새 마이그레이션 이전에 숨겨진 기존 건은 NULL.
+    hidden_reason_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class BusinessNews(Base):
@@ -1389,6 +1397,7 @@ class NotificationSettings(Base):
     social: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     keyword_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     chat: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    group_post: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
@@ -1959,7 +1968,7 @@ class LevelupRewardPolicy(Base):
 
 
 class Report(Base):
-    """통합 신고 (LISTING/USER/DM/POST/COMMENT/REVIEW/BIZ). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
+    """통합 신고 (LISTING/USER/DM/POST/COMMENT/REVIEW/BIZ/GROUP_MESSAGE). 093 marketplace_listing_reports 는 동결 보존, 이 테이블로 일원화."""
 
     __tablename__ = "reports"
 
@@ -1991,6 +2000,11 @@ class Report(Base):
     # 소비자→업체 신고(199, 대표 지적 2026-08-18) — 기존 신고 방향에 빠져 있던 갭. BIZ 로 합류.
     business_profile_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), nullable=True
+    )
+    # 그룹 대화 신고(209, P5-5 — Q-3: 방 전체가 아니라 특정 메시지 단위). 그룹/오픈톡방도
+    # 전용 테이블 없이 dm_messages 를 재사용(203)하므로 그 메시지를 그대로 참조한다.
+    group_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_messages.id", ondelete="CASCADE"), nullable=True
     )
     reason: Mapped[str] = mapped_column(String(30), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

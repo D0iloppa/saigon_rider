@@ -1655,6 +1655,7 @@ async def get_owner_reviews(
             owner_reply=r.owner_reply,
             owner_replied_at=r.owner_replied_at,
             hidden=r.hidden_at is not None,
+            hidden_reason_code=r.hidden_reason_code if r.hidden_at is not None else None,
             is_reported_by_me=r.id in reported_ids,
         )
         for r, nickname in rows

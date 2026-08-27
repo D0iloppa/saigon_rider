@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { Alert, Input, message, Modal, Radio } from 'antd'
-import { useModerateReview, type ReviewModerateBody } from '../api/reviews'
+import { HIDDEN_REASON_CODES, useModerateReview, type HiddenReasonCode, type ReviewModerateBody } from '../api/reviews'
 
 const ACTION_LABELS: Record<ReviewModerateBody['action'], string> = { HIDE: '숨김', RESTORE: '복원' }
+
+// O-1(260827) — 사장님에게는 이 코드만 i18n 매핑해 노출된다(원문 reason 은 admin 전용).
+const REASON_CODE_LABELS: Record<HiddenReasonCode, string> = {
+  SPAM: '스팸/광고',
+  ABUSE: '욕설/비방',
+  INAPPROPRIATE: '부적절한 내용',
+  OTHER: '기타',
+}
 
 /** 현재 상태에서 실제로 의미 있는 조치만 노출한다 (ModerateModal 과 동일 원리). */
 function availableActions(hidden: boolean): ReviewModerateBody['action'][] {
@@ -24,10 +32,12 @@ export default function ReviewModerateModal({ open, reviewId, hidden, reportId, 
   const actions = availableActions(hidden)
   const [action, setAction] = useState<ReviewModerateBody['action']>(actions[0])
   const [reason, setReason] = useState('')
+  const [reasonCode, setReasonCode] = useState<HiddenReasonCode>('OTHER')
   const mutation = useModerateReview(reviewId)
 
   const handleClose = () => {
     setReason('')
+    setReasonCode('OTHER')
     onClose()
   }
 
@@ -37,7 +47,7 @@ export default function ReviewModerateModal({ open, reviewId, hidden, reportId, 
       return
     }
     mutation.mutate(
-      { action, reason: reason.trim(), report_id: reportId },
+      { action, reason: reason.trim(), reason_code: action === 'HIDE' ? reasonCode : undefined, report_id: reportId },
       {
         onSuccess: () => {
           message.success('후기가 처리되었습니다.')
@@ -75,6 +85,20 @@ export default function ReviewModerateModal({ open, reviewId, hidden, reportId, 
           ))}
         </Radio.Group>
       </div>
+      {action === 'HIDE' && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8, color: 'rgba(0,0,0,0.65)' }}>
+            사장님 노출용 사유 코드 — 원문 대신 이 코드만 상대에게 보여집니다.
+          </div>
+          <Radio.Group value={reasonCode} onChange={(e) => setReasonCode(e.target.value)}>
+            {HIDDEN_REASON_CODES.map((code) => (
+              <Radio key={code} value={code}>
+                {REASON_CODE_LABELS[code]}
+              </Radio>
+            ))}
+          </Radio.Group>
+        </div>
+      )}
       <Input.TextArea rows={3} placeholder="사유 (필수, 작성자에게 전달됨)" value={reason} onChange={(e) => setReason(e.target.value)} />
     </Modal>
   )

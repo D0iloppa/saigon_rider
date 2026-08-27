@@ -814,6 +814,8 @@ export interface BizOwnerReview {
   ownerRepliedAt: string | null;
   /** 운영자 조치로 숨겨진 후기 — true 면 body 는 항상 null(원문 블라인드) */
   hidden: boolean;
+  /** 숨김 사유 코드(O-1, 원문 아님) — hidden 이 아니면 항상 null. i18n 매핑해서 표시할 것 */
+  hiddenReasonCode: BizReviewReportReason | null;
   /** 오너 본인이 이 후기를 신고했는지 — 타인의 신고 여부는 절대 포함되지 않는다 */
   isReportedByMe: boolean;
 }
@@ -837,6 +839,7 @@ interface BizOwnerReviewApi {
   owner_reply: string | null;
   owner_replied_at: string | null;
   hidden: boolean;
+  hidden_reason_code: BizReviewReportReason | null;
   is_reported_by_me: boolean;
 }
 
@@ -868,6 +871,7 @@ export async function fetchBizOwnerReviews(
       ownerReply: r.owner_reply ?? null,
       ownerRepliedAt: r.owner_replied_at ?? null,
       hidden: r.hidden,
+      hiddenReasonCode: r.hidden_reason_code ?? null,
       isReportedByMe: r.is_reported_by_me,
     })),
     total: res.total,

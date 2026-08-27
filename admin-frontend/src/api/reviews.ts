@@ -25,6 +25,7 @@ export interface ReviewDetail {
   created_at: string
   hidden_at: string | null
   hidden_reason: string | null
+  hidden_reason_code: string | null
   hidden_by: string | null
   reports: ReviewReportBrief[]
 }
@@ -37,9 +38,15 @@ export function useReview(reviewId: string | undefined) {
   })
 }
 
+// O-1(260827) — 사장님에게는 원문(reason) 대신 이 코드만 i18n 매핑해 보여준다.
+// 신고 사유(frontend/src/api/biz.ts BizReviewReportReason)와 동일 코드셋.
+export const HIDDEN_REASON_CODES = ['SPAM', 'ABUSE', 'INAPPROPRIATE', 'OTHER'] as const
+export type HiddenReasonCode = (typeof HIDDEN_REASON_CODES)[number]
+
 export interface ReviewModerateBody {
   action: 'HIDE' | 'RESTORE'
   reason: string
+  reason_code?: HiddenReasonCode
   report_id?: string
 }
 

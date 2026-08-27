@@ -622,6 +622,8 @@ class UserOut(BaseModel):
     created_at: datetime
     # F-9 우회 차단: 프론트가 이 값으로 서비스 진입을 게이트한다 — null 이면 동의 미기록.
     consent_agreed_at: datetime | None = None
+    # P4-1: 동네 귀속 (Q-7 — 수동 설정). null 이면 미설정.
+    home_ward_id: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -653,6 +655,7 @@ class UserOut(BaseModel):
             "manner_temp": float(data.manner_temp) if data.manner_temp is not None else 36.5,
             "created_at": data.created_at,
             "consent_agreed_at": data.consent_agreed_at,
+            "home_ward_id": data.home_ward_id,
         }
 
 
@@ -696,6 +699,13 @@ class ProfileSaveRequest(BaseModel):
     user_id: UUID
     nickname: str
     rider_type: str | None = None
+
+
+class HomeWardUpdateRequest(BaseModel):
+    """P4-1: 유저 동네 귀속 수동 설정 (Q-7). null 이면 동네 설정 해제."""
+
+    user_id: UUID
+    ward_id: int | None = None
 
 
 class ConsentSaveRequest(BaseModel):
@@ -968,6 +978,7 @@ class NotificationSettingsOut(BaseModel):
     social: bool
     keyword_alert: bool
     chat: bool
+    group_post: bool
     updated_at: datetime
 
     model_config = {"from_attributes": True}
@@ -982,6 +993,7 @@ class NotificationSettingsUpdate(BaseModel):
     social: bool = True
     keyword_alert: bool = True
     chat: bool = True
+    group_post: bool = True
 
 
 # ── Badge ─────────────────────────────────────────────────────────
@@ -1101,6 +1113,8 @@ class UserProfileOut(BaseModel):
     follower_count: int
     following_count: int
     is_following: bool
+    # P4-4: 맞팔(is_following 이고 상대도 나를 팔로우) 여부 — 친구 표기용
+    is_friend: bool = False
     is_phone_verified: bool = False
     phone_masked: str | None = None
 

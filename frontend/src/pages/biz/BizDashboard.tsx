@@ -787,6 +787,8 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
               {r.hidden ? (
                 <p className={styles.reviewBodyHidden}>
                   {t('biz.dashboard.reviewHiddenNotice', { defaultValue: '운영자 조치로 숨겨진 후기예요' })}
+                  {' '}
+                  {t(`biz.dashboard.hiddenReasonCode_${r.hiddenReasonCode ?? 'OTHER'}`)}
                 </p>
               ) : (
                 <p className={styles.reviewBody}>{r.body}</p>

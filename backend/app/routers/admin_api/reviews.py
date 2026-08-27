@@ -23,11 +23,15 @@ from ._audit import audit
 router = APIRouter(prefix="/reviews")
 
 _MODERATE_ACTIONS = {"HIDE", "RESTORE"}
+# O-1(260827) — 사장님 노출용 사유 코드. 신고 사유(BizReviewReportReason, frontend/src/api/biz.ts)와
+# 동일 코드셋 재사용. 원문(reason, 자유텍스트)은 계속 admin 전용으로만 저장·노출한다.
+_HIDDEN_REASON_CODES = {"SPAM", "ABUSE", "INAPPROPRIATE", "OTHER"}
 
 
 class ReviewModerateRequest(BaseModel):
     action: str
     reason: str
+    reason_code: str | None = None
     report_id: uuid.UUID | None = None
 
 
@@ -63,6 +67,7 @@ async def get_review(
         "created_at": review.created_at,
         "hidden_at": review.hidden_at,
         "hidden_reason": review.hidden_reason,
+        "hidden_reason_code": review.hidden_reason_code,
         "hidden_by": review.hidden_by,
         "reports": [
             {
@@ -103,11 +108,13 @@ async def moderate_review(
     if body.action == "HIDE":
         review.hidden_at = now
         review.hidden_reason = reason
+        review.hidden_reason_code = body.reason_code if body.reason_code in _HIDDEN_REASON_CODES else "OTHER"
         review.hidden_by = session.username
         noti_title = "후기 비공개 처리 안내"
     else:  # RESTORE — S-APPEAL 이의제기가 인용된 경우도 이 경로로 처리(별도 경로 없음)
         review.hidden_at = None
         review.hidden_reason = None
+        review.hidden_reason_code = None
         review.hidden_by = None
         noti_title = "후기 공개 복원 안내"
 
@@ -129,7 +136,16 @@ async def moderate_review(
         f"REVIEW_{body.action}",
         "review",
         str(review_id),
-        {"reason": reason, "report_id": str(body.report_id) if body.report_id else None},
+        {
+            "reason": reason,
+            "reason_code": review.hidden_reason_code,
+            "report_id": str(body.report_id) if body.report_id else None,
+        },
     )
     await db.commit()
-    return {"id": review.id, "hidden_at": review.hidden_at, "hidden_reason": review.hidden_reason}
+    return {
+        "id": review.id,
+        "hidden_at": review.hidden_at,
+        "hidden_reason": review.hidden_reason,
+        "hidden_reason_code": review.hidden_reason_code,
+    }

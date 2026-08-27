@@ -168,7 +168,11 @@ async def get_feed(
     offset = (page - 1) * size
 
     if filter == "hot":
-        order = [FeedPost.like_count.desc(), FeedPost.created_at.desc(), FeedPost.id.desc()]
+        # HN 스타일 시간감쇠: score = like_count / (age_hours + 2)^1.5
+        # +2 는 갓 작성된 글의 분모 폭주(0 근접)를 막고, gravity=1.5 는 하루~이틀 내 감쇠가 뚜렷하도록 완만하게 잡은 값.
+        age_hours = func.extract("epoch", func.now() - FeedPost.created_at) / 3600.0
+        hot_score = FeedPost.like_count / func.pow(age_hours + 2, 1.5)
+        order = [hot_score.desc(), FeedPost.created_at.desc(), FeedPost.id.desc()]
     else:
         order = [FeedPost.created_at.desc(), FeedPost.id.desc()]
 

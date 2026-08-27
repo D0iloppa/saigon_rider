@@ -22,7 +22,7 @@
 7. **이동 추종은 앱 전역 1개**(2026-08-06 추가, 대표 지적 "페이지이동을 하지 않으면 위치가 반영되지 않는다"). `useLocationStore.startWatching()` 을 **`App.tsx` 에서만** 호출한다 — 화면마다 걸면 워처가 중복된다. `native.watchLocation`(이벤트 기반) 을 쓰고 폴링하지 않는다.
    - **30m 거리 게이트 필수**(`WATCH_MIN_MOVE_M`). GPS 는 정지 상태에서도 수 m 씩 튀는데 그대로 스토어에 반영하면 `coords` 를 deps 로 쓰는 목록·지도 조회가 초당 몇 번씩 재발화한다. 반경이 3km 라 30m 이하 흔들림은 결과를 바꾸지 않는다.
    - 서비스 권역 밖으로 이동한 tick 은 **무시**한다(마지막 유효 위치 유지).
-8. **여전히 유효한 GPS 경로**: 경로안내(`RideNav`), 제보(주유/정비/침수 신고의 `native.getLocation()`).
+8. **여전히 유효한 GPS 경로**: 경로안내(`RideNav`), 제보(주유/정비/침수 신고의 `native.getLocation()`), 거래 위치공유(기록형, 인라인 차단 — 판정 근거는 [`260813_location_gate_policy.md`](../260813_location_gate_policy.md) §1 분류표 참조. 구현 완료 2026-08-27: `backend/app/routers/market.py` `location-share` 엔드포인트, `frontend/src/components/dm/LocationShareWidget.tsx`).
 9. **'전체 지역' 선택은 고정된다**(`pinnedAll`, 2026-08-06 리뷰 반영). `ensureLocation()` 은 6개 화면이 마운트마다 부르므로, 이 플래그가 없으면 권한을 허용한 사용자는 '전체 지역'을 골라도 다음 화면 진입에서 `'gps'` 로 원복된다. `permissionIntent('declined')` 로 겸하지 말 것 — 그건 "권한을 거부함"이지 "전체 지역을 원함"이 아니다.
 10. **이동 추종은 좌표가 확정된 뒤에만 시작한다.** `native.watchLocation` 은 곧바로 OS 권한창을 띄우므로, 마운트 즉시 걸면 프리프롬프트(원칙 6)를 앞질러 그 장치가 무력화되고 로그인 전 화면에서도 권한창이 뜬다. `App.tsx` 는 `mode==='gps' && coords` 를 만족할 때만 건다.
 11. **폴백 안내는 사유별로 1회**다. 하나의 불리언으로 묶으면 "권역 밖" 안내가 플래그를 소진한 뒤 나중에 권한 거부로 전체 지역이 돼도 아무 설명이 없다.

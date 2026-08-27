@@ -9,6 +9,7 @@ import {
   UserPlus, AlertCircle, type LucideIcon,
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
+import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import { useDmStore } from '@/store/useDmStore';
 import { fetchTrades, type TradeHistory } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
@@ -975,7 +976,7 @@ export default function ProfileMain() {
               level="H"
               includeMargin
               imageSettings={{
-                src: u.avatarUrl || '/saigon-default.jpg',
+                src: u.avatarUrl || DEFAULT_AVATAR_URL,
                 x: undefined,
                 y: undefined,
                 height: 36,

@@ -5,6 +5,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Search, UserSearch } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
+import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import sys from '@/styles/system.module.css';
@@ -152,7 +153,7 @@ export default function FriendAdd() {
               ) : (
                 results.map((u) => (
                   <div key={u.id} className={styles.userRow}>
-                    <AppImage src={u.avatarUrl || '/saigon-default.jpg'} alt="" className={styles.avatar} variant="circle" />
+                    <AppImage src={u.avatarUrl || DEFAULT_AVATAR_URL} alt="" className={styles.avatar} variant="circle" />
                     <div className={styles.userInfo}>
                       <span className={styles.nickname}>
                         {u.nickname} <LevelBadge level={u.level} />
@@ -196,7 +197,7 @@ export default function FriendAdd() {
                     level="H"
                     includeMargin
                     imageSettings={{
-                      src: user.avatarUrl || '/saigon-default.jpg',
+                      src: user.avatarUrl || DEFAULT_AVATAR_URL,
                       x: undefined,
                       y: undefined,
                       height: 40,

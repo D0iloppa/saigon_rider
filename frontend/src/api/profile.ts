@@ -1,4 +1,5 @@
 import { api, USE_MOCK } from './client';
+import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import type { UserDto } from './auth';
 import type { LoginResult } from './auth';
 import type { BadgeWithEarned, PageResponse, QuestHistoryItem, RiderStyle, UserProfile, UserStats } from './types';
@@ -82,7 +83,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     return {
       id: userId,
       nickname: 'MockUser',
-      avatarUrl: '/saigon-default.jpg',
+      avatarUrl: DEFAULT_AVATAR_URL,
       level: 5,
       riderStyle: 'commuter',
       followerCount: 12,

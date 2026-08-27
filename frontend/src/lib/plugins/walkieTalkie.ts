@@ -1,0 +1,59 @@
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+
+/**
+ * `WalkieTalkie` 커스텀 Capacitor 플러그인 (A-4/A-5) — 순수 녹음 기능만 담당한다.
+ * capability 조회·overlay/Live Activity·플로팅 UI·native.ts 통합은 후속 티켓(A-6/A-7) 범위.
+ *
+ * 설계서(`ai-docs/task/active/260827_walkie_talkie_task.md` §4-2) 의 `WalkieTalkieChannel` 상위
+ * 추상 인터페이스와 메서드 이름은 최대한 맞췄지만, 이 레이어는 registerPlugin 원시 래퍼라 반환값이
+ * 네이티브 Capacitor 콜백 관례(객체 반환)를 그대로 따른다 — 예: `requestPermission` 은 상위
+ * 인터페이스처럼 `Promise<boolean>` 이 아니라 `Promise<{ granted: boolean }>`. A-6 이 이 래퍼를
+ * `WalkieTalkieChannel` 로 감싸며 형태를 맞춘다.
+ */
+
+export type WalkieTalkieMicPermissionStatus = 'granted' | 'denied' | 'prompt';
+
+export interface WalkieTalkieRecordingResult {
+  /** 네이티브 로컬 파일 경로. */
+  filePath: string;
+  /** 'audio/m4a' 고정 (A-1 허용 MIME 과 일치). */
+  mimeType: string;
+  durationMs: number;
+  sizeBytes: number;
+}
+
+export interface WalkieTalkieRecordingStateEvent {
+  state: 'idle' | 'recording' | 'stopping';
+  elapsedMs: number;
+  /** 0..1 정규화된 레벨미터 값. */
+  level: number;
+}
+
+export interface WalkieTalkieStartOptions {
+  /** 최대 녹음 길이(초). 미지정 시 60초(D-4 확정) — 60 초과 요청은 네이티브에서 60으로 clamp. */
+  maxDurationSec?: number;
+}
+
+export interface WalkieTalkiePlugin {
+  /** 마이크 권한 상태 조회. */
+  checkPermission(): Promise<{ mic: WalkieTalkieMicPermissionStatus }>;
+  /** 마이크 권한 요청. kind 는 현재 'mic' 만 지원(overlay/notification 은 Phase B). */
+  requestPermission(opts: { kind: 'mic' }): Promise<{ granted: boolean }>;
+  /** OS 앱 설정 화면 열기 (권한이 denied 로 굳어 재요청이 막힌 경우). */
+  openAppSettings(): Promise<void>;
+
+  /** 토글 녹음 시작. Android 는 Foreground Service 로 위임되어 백그라운드에서도 계속된다(D-3). */
+  startRecording(opts?: WalkieTalkieStartOptions): Promise<void>;
+  /** 토글 녹음 종료 — 결과 파일 반환(토글 두 번째 탭에 대응). */
+  stopRecording(): Promise<WalkieTalkieRecordingResult>;
+  /** 녹음 취소(버리기) — 파일 삭제, 결과 없음. */
+  cancelRecording(): Promise<void>;
+
+  /** 경과시간/레벨미터/자동종료 상태 이벤트. 60초 자동중지 시 state:'idle' 로 통지된다. */
+  addListener(
+    eventName: 'recordingState',
+    listenerFunc: (event: WalkieTalkieRecordingStateEvent) => void,
+  ): Promise<PluginListenerHandle>;
+}
+
+export const WalkieTalkie = registerPlugin<WalkieTalkiePlugin>('WalkieTalkie');

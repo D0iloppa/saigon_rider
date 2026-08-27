@@ -5,6 +5,7 @@ import {
   AlertCircle, Building2, Coffee, Flame, MessageCircle, MoreVertical, Moon, Newspaper, Send,
 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
+import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
@@ -253,7 +254,7 @@ export default function UserProfile() {
           <>
             <div className={styles.header}>
               <AppImage
-                src={profile.avatarUrl || '/saigon-default.jpg'}
+                src={profile.avatarUrl || DEFAULT_AVATAR_URL}
                 alt=""
                 className={styles.avatar}
                 variant="circle"

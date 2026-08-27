@@ -4,6 +4,8 @@
 
 .capsule {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 60;
   display: inline-flex;
   align-items: center;
@@ -31,13 +33,15 @@
     padding 260ms ease;
 }
 
-/* 드래그 중 — 살짝 들어올린 피지컬 피드백 */
+/* 드래그 중 — 살짝 들어올린 피지컬 피드백.
+ * transform(위치 translate3d 포함)은 JS 인라인 스타일에서 직접 계산한다(스케일 포함) —
+ * 여기서 transition 목록에 transform 을 넣지 않는 게 핵심이다: 포인터 이동마다 바뀌는
+ * translate 값이 매번 트랜지션을 타면(구 코드) 손가락을 못 따라가고 고무줄처럼 밀린다. */
 .capsule[data-dragging='true'] {
-  transform: scale(1.06);
   box-shadow:
     0 6px 16px rgba(0, 0, 0, 0.34),
     0 22px 56px rgba(0, 0, 0, 0.5);
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: box-shadow 120ms ease;
 }
 
 /* 녹음중 — 캡슐 테두리에 은은한 레코딩 글로우 */

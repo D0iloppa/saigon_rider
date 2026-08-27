@@ -374,7 +374,11 @@ export function WalkieTalkieFloatingButton() {
         data-phase={phase}
         data-dragging={dragging || undefined}
         data-speaking={(!isRec && !!speakingOther) || undefined}
-        style={{ left: pos.x, top: pos.y }}
+        // left/top 대신 transform(translate3d)으로 이동시킨다 — left/top 변경은 매 포인터무브마다
+        // 레이아웃 reflow 를 유발하지만 transform 은 GPU 합성만 일어나 훨씬 부드럽다. 드래그 중
+        // 스케일 피드백(1.06)도 별도 CSS transform 대신 여기서 함께 계산해, 두 transform 이 서로
+        // 덮어쓰는 문제 없이 한 값으로 합성된다.
+        style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0) scale(${dragging ? 1.06 : 1})` }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

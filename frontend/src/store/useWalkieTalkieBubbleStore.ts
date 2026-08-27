@@ -1,13 +1,18 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 /**
  * 워키토키 플로팅 버블(A-7)의 앱 전역 상태.
  *
  * 대표 지시(2026-08-27): 버블이 DM 대화방 화면(DmDetail)에 종속돼 그 화면을 떠나면
  * 사라지던 문제 — 마지막으로 열었던 대화방을 대상으로 앱 전역(App.tsx)에서 유지한다.
- * persist 하지 않는다 — 앱을 재기동하면 어떤 대화방이 "마지막"인지 다시 DmDetail 진입으로
- * 정해지는 게 자연스럽다(껐다 켠 뒤에도 버블이 떠 있으면 사용자가 대화 내용을 잊은 채
- * 뜬금없이 보게 된다).
+ *
+ * 추가 지시(2026-08-27): 앱을 완전히 종료(force-quit)했다가 다시 열어도 버블이 즉시
+ * 다시 뜨도록 `activeConversationId`/`activeConversationMeta`만 persist(localStorage)한다.
+ * `closed`는 persist 대상에서 제외 — 매 재기동마다 닫혀있던 상태까지 기억할 필요는 없다
+ * (재기동 시 버블은 기본적으로 다시 나타나는 게 이번 요구사항의 의도).
+ * `phase`(녹음 진행 상태)는 애초에 이 스토어가 아니라 컴포넌트 로컬 state — 네이티브
+ * 녹음은 앱 프로세스가 죽으면 함께 종료되므로 복원 대상이 아니다.
  */
 /** 버블에 채널정보(A-7 UX)로 표시할 최소 메타 — DmDetail 이 이미 알고 있는 값을 그대로 넘겨준다. */
 export interface WalkieTalkieConversationMeta {
@@ -29,17 +34,28 @@ interface WalkieTalkieBubbleState {
   reopen: (id: string) => void;
 }
 
-export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>((set, get) => ({
-  activeConversationId: null,
-  activeConversationMeta: null,
-  closed: false,
-  setActiveConversation: (id, meta) => {
-    if (get().activeConversationId === id) {
-      if (meta) set({ activeConversationMeta: meta });
-      return;
+export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
+  persist(
+    (set, get) => ({
+      activeConversationId: null,
+      activeConversationMeta: null,
+      closed: false,
+      setActiveConversation: (id, meta) => {
+        if (get().activeConversationId === id) {
+          if (meta) set({ activeConversationMeta: meta });
+          return;
+        }
+        set({ activeConversationId: id, activeConversationMeta: meta ?? null, closed: false });
+      },
+      close: () => set({ closed: true }),
+      reopen: (id) => set({ activeConversationId: id, closed: false }),
+    }),
+    {
+      name: 'saigon-rider-walkie-bubble',
+      partialize: (s) => ({
+        activeConversationId: s.activeConversationId,
+        activeConversationMeta: s.activeConversationMeta,
+      }),
     }
-    set({ activeConversationId: id, activeConversationMeta: meta ?? null, closed: false });
-  },
-  close: () => set({ closed: true }),
-  reopen: (id) => set({ activeConversationId: id, closed: false }),
-}));
+  )
+);

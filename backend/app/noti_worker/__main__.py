@@ -150,31 +150,38 @@ async def _insert_notification(
 
 
 async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
-    recipient_id = uuid.UUID(payload["recipient_id"])
+    # 260827 group/open 확장 (§3.7): recipient_ids(배열) 가 신규 형태. 마이그레이션 기간 호환을
+    # 위해 recipient_id(단수, 레거시)도 계속 받는다 — 아직 배포 안 된 다른 발행측 코드 대비.
+    if "recipient_ids" in payload:
+        recipient_ids = [uuid.UUID(rid) for rid in payload["recipient_ids"]]
+    else:
+        recipient_ids = [uuid.UUID(payload["recipient_id"])]
+
     conv_id = payload["conversation_id"]
     title = payload.get("sender_nickname") or "새 메시지"
     body = payload.get("preview") or ""
     link = f"dm&id={conv_id}"
 
-    async with AsyncSessionLocal() as db:
-        inserted = await _insert_notification(
-            db,
-            source_event_id=source_event_id,
-            user_id=recipient_id,
-            notification_type="SOCIAL",
-            title=title,
-            body=body,
-            link=link,
-        )
-        push_ok = inserted and await _push_enabled(db, recipient_id, "chat")
-        await db.commit()
+    for recipient_id in recipient_ids:
+        async with AsyncSessionLocal() as db:
+            inserted = await _insert_notification(
+                db,
+                source_event_id=source_event_id,
+                user_id=recipient_id,
+                notification_type="SOCIAL",
+                title=title,
+                body=body,
+                link=link,
+            )
+            push_ok = inserted and await _push_enabled(db, recipient_id, "chat")
+            await db.commit()
 
-    if not inserted:
-        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
-    elif push_ok:
-        await _try_push(str(recipient_id), title, body, link)
-    else:
-        log.info("push skipped (chat=off) user=%s conv=%s", recipient_id, conv_id)
+        if not inserted:
+            log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+        elif push_ok:
+            await _try_push(str(recipient_id), title, body, link)
+        else:
+            log.info("push skipped (chat=off) user=%s conv=%s", recipient_id, conv_id)
 
 
 async def _handle_listing_created(payload: dict, *, source_event_id: str) -> None:

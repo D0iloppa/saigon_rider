@@ -1107,9 +1107,9 @@ class UserProfileOut(BaseModel):
 
 class DmConversationOut(BaseModel):
     id: UUID
-    other_user_id: UUID
-    other_user_nickname: str | None
-    other_user_avatar_url: str | None
+    other_user_id: UUID | None = None
+    other_user_nickname: str | None = None
+    other_user_avatar_url: str | None = None
     last_message_preview: str | None
     # price_offer/appointment 미리보기는 프론트가 뷰어 로케일로 조립 (DM-5)
     last_message_type: str | None = None
@@ -1121,6 +1121,12 @@ class DmConversationOut(BaseModel):
     context_listing: MarketplaceListingCard | None = None
     # 약속잡기 게이트 — 판매자는 항상 true, 구매자는 판매자의 거래진행 액션 이후에만 true
     appointment_unlocked: bool = False
+    # 260827 group/open 확장 (§3.5) — direct 는 other_user_* 만 채워지고 아래는 기본값 유지
+    conversation_type: str = "direct"
+    title: str | None = None
+    photo_url: str | None = None
+    member_count: int = 2
+    community_group_id: UUID | None = None
 
 
 class DmConversationCreateRequest(BaseModel):
@@ -1133,6 +1139,21 @@ class DmConversationCreateRequest(BaseModel):
         if (self.context_type is None) != (self.context_id is None):
             raise ValueError("context_type and context_id must be provided together")
         return self
+
+
+class DmGroupConversationCreateRequest(BaseModel):
+    title: str
+    member_ids: list[UUID] = Field(min_length=1)
+    photo_content_id: UUID | None = None
+
+
+class DmMemberInviteRequest(BaseModel):
+    user_ids: list[UUID] = Field(min_length=1)
+
+
+class DmConversationPatchRequest(BaseModel):
+    title: str | None = None
+    photo_content_id: UUID | None = None
 
 
 class AppointmentOut(BaseModel):

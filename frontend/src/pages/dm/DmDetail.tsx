@@ -30,6 +30,7 @@ import {
   declinePriceOffer,
   cancelPriceOffer,
   reportConversation,
+  removeMember,
   DM_REPORT_REASONS,
   type DmReportReason,
 } from '@/api/dm';
@@ -81,6 +82,10 @@ export default function DmDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<MessageComposerHandle>(null);
   const otherName = conv?.otherUserNickname ?? locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
+  // 260827 group/open 확장 (§3.5) — 마켓 약속·가격제안 UI 는 direct 에서만 렌더
+  const isDirect = (conv?.conversationType ?? locationState?.conv?.conversationType ?? 'direct') === 'direct';
+  const roomTitle = conv?.title ?? locationState?.conv?.title ?? t('dm.group', { defaultValue: '그룹톡방' });
+  const roomMemberCount = conv?.memberCount ?? locationState?.conv?.memberCount ?? null;
 
   // 초기 메시지 로드 — 실패 시 loadError 로 구분해 재시도를 제공 (P1-6: 500/timeout 이 빈 대화로 보이던 버그)
   const loadMessages = useCallback(() => {
@@ -399,13 +404,26 @@ export default function DmDetail() {
     setReviewed(true);
   };
 
+  // 그룹/오픈톡방 나가기 — 최소 구현(§3.8): 초대·강퇴 등 세부 관리 UI 는 이 서브태스크 범위 밖.
+  const handleLeaveRoom = async () => {
+    if (!conversationId) return;
+    const uid = session?.userId ?? user?.id;
+    if (!uid) return;
+    try {
+      await removeMember(conversationId, uid);
+      navigate('/dm');
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
+
   const myId = session?.userId ?? user?.id;
   const listing = conv?.contextListing ?? null;
 
   return (
     <div className={styles.page}>
       <TopBar
-        title={otherName}
+        title={isDirect ? otherName : roomTitle}
         rightContent={
           <button
             className={styles.headerMoreBtn}
@@ -418,8 +436,22 @@ export default function DmDetail() {
         }
       />
 
-      {/* 매물 컨텍스트 카드 */}
-      {listing && (
+      {/* 그룹/오픈톡방 최소 정보 UI (§3.8) — 초대·강퇴·mute 같은 세부 관리는 범위 밖(TODO) */}
+      {!isDirect && (
+        <div className={styles.roomInfoBar}>
+          <span className={styles.roomInfoText}>
+            {roomMemberCount != null
+              ? t('dm.memberCount', { count: roomMemberCount, defaultValue: '멤버 {{count}}명' })
+              : ''}
+          </span>
+          <button type="button" className={styles.roomLeaveBtn} onClick={handleLeaveRoom}>
+            {t('dm.leaveRoom', { defaultValue: '나가기' })}
+          </button>
+        </div>
+      )}
+
+      {/* 매물 컨텍스트 카드 — direct 전용 (마켓 문의 대화) */}
+      {isDirect && listing && (
         <button className={styles.contextCard} type="button" onClick={() => navigate(`/market/${listing.id}`)}>
           <AppImage src={listing.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
           <div className={styles.contextInfo}>
@@ -429,8 +461,8 @@ export default function DmDetail() {
         </button>
       )}
 
-      {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) */}
-      {listing?.status === 'SOLD' && (
+      {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) — direct 전용 */}
+      {isDirect && listing?.status === 'SOLD' && (
         myReview ? (
           <div className={styles.myReviewBanner}>
             <StarIcon size={13} /> {myReview.rating}.0 {t('dm.myReview', { defaultValue: '내 후기' })}
@@ -746,8 +778,8 @@ export default function DmDetail() {
             label: t('dm.album', { defaultValue: '앨범' }),
             onPress: () => fileInputRef.current?.click(),
           },
-          // 약속잡기 — 판매자는 항상, 구매자는 판매자의 거래진행 액션 이후에만 (백엔드도 403으로 차단)
-          ...(conv?.appointmentUnlocked
+          // 약속잡기 — direct 전용. 판매자는 항상, 구매자는 판매자의 거래진행 액션 이후에만 (백엔드도 403으로 차단)
+          ...(isDirect && conv?.appointmentUnlocked
             ? [{
                 key: 'appt',
                 icon: <CalendarPlus size={26} strokeWidth={1.8} />,
@@ -755,8 +787,8 @@ export default function DmDetail() {
                 onPress: handleOpenAppt,
               }]
             : []),
-          // 가격제안 — 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
-          ...(listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId
+          // 가격제안 — direct 전용. 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
+          ...(isDirect && listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId
             ? [{
                 key: 'offer',
                 icon: <HandCoins size={26} strokeWidth={1.8} />,
@@ -827,8 +859,8 @@ export default function DmDetail() {
         onConfirm={setApptPlace}
       />
 
-      {/* 가격제안 시트 */}
-      {listing && (
+      {/* 가격제안 시트 — direct 전용 */}
+      {isDirect && listing && (
         <PriceOfferSheet
           open={offerOpen}
           onClose={() => setOfferOpen(false)}
@@ -840,14 +872,16 @@ export default function DmDetail() {
         />
       )}
 
-      {/* 거래 후기 시트 */}
-      <ReviewSheet
-        open={reviewOpen}
-        onClose={() => setReviewOpen(false)}
-        targetId={conv?.otherUserId ?? ''}
-        listingId={conv?.contextId ?? undefined}
-        onSubmitted={handleReviewSubmitted}
-      />
+      {/* 거래 후기 시트 — direct 전용 */}
+      {isDirect && (
+        <ReviewSheet
+          open={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          targetId={conv?.otherUserId ?? ''}
+          listingId={conv?.contextId ?? undefined}
+          onSubmitted={handleReviewSubmitted}
+        />
+      )}
 
       {/* 대화 신고 사유 */}
       <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)}>

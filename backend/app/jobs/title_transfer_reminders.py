@@ -37,7 +37,11 @@ async def _find_buyer_id(db, listing_id: uuid.UUID, seller_id: uuid.UUID) -> uui
         await db.execute(
             select(DmConversation.participant_1, DmConversation.participant_2)
             .join(MarketplaceAppointment, MarketplaceAppointment.conversation_id == DmConversation.id)
-            .where(MarketplaceAppointment.listing_id == listing_id, MarketplaceAppointment.status == "COMPLETED")
+            .where(
+                MarketplaceAppointment.listing_id == listing_id,
+                MarketplaceAppointment.status == "COMPLETED",
+                DmConversation.conversation_type == "direct",
+            )
             .limit(1)
         )
     ).first()

@@ -1,0 +1,89 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Users } from 'lucide-react';
+import { TopBar } from '@/components/layout/TopBar';
+import StateBlock from '@/components/ui/StateBlock';
+import { Button } from '@/components/ui/Button';
+import { AppImage } from '@/components/ui/AppImage';
+import { useUserStore } from '@/store/useUserStore';
+import { fetchFriends } from '@/api/follows';
+import { createGroupConversation } from '@/api/dm';
+import { toast } from '@/components/ui/Toast';
+import type { FollowUser } from '@/api/types';
+import styles from './DmGroupCreate.module.css';
+
+// 새 그룹톡방 생성 — 최소 구현(§3.5): 친구 목록(FriendList와 동일 소스) 재사용, 별도 유저검색 UI 없음.
+export default function DmGroupCreate() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const me = useUserStore((s) => s.user);
+  const [friends, setFriends] = useState<FollowUser[]>([]);
+  const [title, setTitle] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (me) fetchFriends(me.id).then((r) => setFriends(r.items));
+  }, [me]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreate = async () => {
+    if (!title.trim() || selected.size === 0 || submitting) return;
+    setSubmitting(true);
+    try {
+      const conv = await createGroupConversation(title.trim(), Array.from(selected));
+      navigate(`/dm/${conv.id}`, { replace: true, state: { conv } });
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={styles.page}>
+      <TopBar title={t('dm.createGroup', { defaultValue: '그룹 만들기' })} />
+      <div className={styles.body}>
+        <input
+          className={styles.titleInput}
+          type="text"
+          placeholder={t('dm.groupTitlePlaceholder', { defaultValue: '방 이름' })}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+
+        {friends.length === 0 ? (
+          <StateBlock icon={Users} title={t('follow.emptyFriends')} />
+        ) : (
+          <div className={styles.list}>
+            {friends.map((u) => (
+              <label key={u.id} className={styles.row}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(u.id)}
+                  onChange={() => toggle(u.id)}
+                />
+                <AppImage src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
+                <span className={styles.name}>{u.nickname ?? 'Unknown'}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className={styles.submitBar}>
+        <Button onClick={handleCreate} disabled={!title.trim() || selected.size === 0 || submitting}>
+          {t('dm.createGroupSubmit', { defaultValue: '만들기' })}
+        </Button>
+      </div>
+    </div>
+  );
+}

@@ -78,6 +78,23 @@
   margin-top: 2px;
 }
 
+.headerAddBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.memberCount {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
 .badge {
   min-width: 20px;
   height: 20px;

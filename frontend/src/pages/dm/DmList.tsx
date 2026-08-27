@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MailOpen } from 'lucide-react';
+import { MailOpen, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { fetchConversations } from '@/api/dm';
@@ -46,9 +46,27 @@ export default function DmList() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // group/open 은 photo_url(있으면), 없으면 title 만 — 대표 멤버 아바타 스택은 이 서브태스크 범위 밖(§3.5 최소선)
+  const rowAvatar = (c: DmConversation) =>
+    c.conversationType === 'direct' ? (c.otherUserAvatarUrl ?? undefined) : (c.photoUrl ?? undefined);
+  const rowName = (c: DmConversation) =>
+    c.conversationType === 'direct' ? (c.otherUserNickname ?? 'Unknown') : (c.title ?? t('dm.group', { defaultValue: '그룹톡방' }));
+
   return (
     <div className={styles.page}>
-      <TopBar title={t('dm.title')} />
+      <TopBar
+        title={t('dm.title')}
+        rightContent={
+          <button
+            className={styles.headerAddBtn}
+            type="button"
+            onClick={() => navigate('/dm/group/new')}
+            aria-label={t('dm.createGroup', { defaultValue: '그룹 만들기' })}
+          >
+            <UsersRound size={20} strokeWidth={2} />
+          </button>
+        }
+      />
 
       <div className={styles.body}>
         {conversations.length === 0 ? (
@@ -62,14 +80,19 @@ export default function DmList() {
                 onClick={() => navigate(`/dm/${c.id}`, { state: { conv: c } })}
               >
                 <AppImage
-                  src={c.otherUserAvatarUrl ?? undefined}
+                  src={rowAvatar(c)}
                   alt=""
                   className={styles.avatar}
                   variant="circle"
                 />
                 <div className={styles.info}>
                   <div className={styles.nameRow}>
-                    <span className={styles.name}>{c.otherUserNickname ?? 'Unknown'}</span>
+                    <span className={styles.name}>
+                      {rowName(c)}
+                      {c.conversationType !== 'direct' && (
+                        <span className={styles.memberCount}> ({c.memberCount})</span>
+                      )}
+                    </span>
                     <span className={styles.time}>{formatRelativeTime(c.lastMessageAt)}</span>
                   </div>
                   <div className={styles.preview}>

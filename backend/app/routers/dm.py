@@ -10,6 +10,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..models import (
     DmConversation,
+    DmConversationMember,
     DmMessage,
     MarketplaceAppointment,
     MarketplaceListing,
@@ -21,6 +22,9 @@ from ..models import (
 from ..schemas import (
     DmConversationCreateRequest,
     DmConversationOut,
+    DmConversationPatchRequest,
+    DmGroupConversationCreateRequest,
+    DmMemberInviteRequest,
     DmMessageCreateRequest,
     DmMessageOut,
     FunnelEventType,
@@ -29,8 +33,8 @@ from ..schemas import (
 )
 from ..services import funnel_events, noti_events
 from ..services.banned_keywords import banned_keywords as _banned_keywords
-from ..services.dm_policy import require_participant, require_unblocked
-from ..utils import resolve_avatar_url
+from ..services.dm_policy import require_member, require_participant, require_unblocked, require_unblocked_for_join
+from ..utils import build_imgproxy_url, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
@@ -61,6 +65,13 @@ def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
     return conv.participant_2 if conv.participant_1 == me else conv.participant_1
 
 
+def _resolve_conv_photo(conv: DmConversation) -> str | None:
+    content = conv.photo_content
+    if content and content.file_path:
+        return build_imgproxy_url(content.file_path)
+    return None
+
+
 @router.get("/conversations", response_model=list[DmConversationOut], summary="대화방 목록")
 async def get_conversations(
     user_id: uuid.UUID,
@@ -78,6 +89,18 @@ async def get_conversations(
         )
     ).all()
     blocked_ids = {blocked_id if blocker_id == _session_uid else blocker_id for blocker_id, blocked_id in block_rows}
+
+    # 그룹/오픈톡방 §3.3(c): last_read_at 이 unread 계산의 SoT (direct 도 백필로 이 값을 쓴다).
+    member_rows = (
+        await db.execute(
+            select(DmConversationMember.conversation_id, DmConversationMember.last_read_at).where(
+                DmConversationMember.user_id == user_id,
+                DmConversationMember.left_at.is_(None),
+            )
+        )
+    ).all()
+    last_read_map = {conv_id: last_read_at for conv_id, last_read_at in member_rows}
+
     rows = (
         (
             await db.execute(
@@ -86,6 +109,7 @@ async def get_conversations(
                     or_(
                         DmConversation.participant_1 == user_id,
                         DmConversation.participant_2 == user_id,
+                        DmConversation.id.in_(last_read_map.keys()),
                     )
                 )
                 .order_by(DmConversation.last_message_at.desc())
@@ -97,10 +121,11 @@ async def get_conversations(
 
     result = []
     for conv in rows:
-        other_id = _other_user_id(conv, user_id)
-        if other_id in blocked_ids:
+        is_direct = conv.conversation_type == "direct"
+        other_id = _other_user_id(conv, user_id) if is_direct else None
+        if is_direct and other_id in blocked_ids:
             continue
-        other_user = await db.get(User, other_id)
+        other_user = await db.get(User, other_id) if other_id else None
 
         last_msg = (
             await db.execute(
@@ -111,17 +136,22 @@ async def get_conversations(
             )
         ).scalar_one_or_none()
 
+        last_read_at = last_read_map.get(conv.id)
         unread = (
-            await db.execute(
-                select(func.count())
-                .select_from(DmMessage)
-                .where(
-                    DmMessage.conversation_id == conv.id,
-                    DmMessage.sender_id != user_id,
-                    DmMessage.read_at.is_(None),
+            (
+                await db.execute(
+                    select(func.count())
+                    .select_from(DmMessage)
+                    .where(
+                        DmMessage.conversation_id == conv.id,
+                        DmMessage.sender_id != user_id,
+                        DmMessage.created_at > last_read_at,
+                    )
                 )
-            )
-        ).scalar_one()
+            ).scalar_one()
+            if last_read_at is not None
+            else 0
+        )
 
         # price_offer/appointment 은 content(한국어 하드코딩) 대신 도메인 엔티티 기반 메타를 내려
         # 프론트가 뷰어 로케일로 미리보기를 조립한다 (DM-5)
@@ -150,6 +180,11 @@ async def get_conversations(
                 unread_count=unread,
                 context_type=conv.context_type,
                 context_id=conv.context_id,
+                conversation_type=conv.conversation_type,
+                title=conv.title,
+                photo_url=_resolve_conv_photo(conv),
+                member_count=conv.member_count,
+                community_group_id=conv.community_group_id,
             )
         )
     return result
@@ -164,6 +199,21 @@ async def get_conversation(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if conv.conversation_type != "direct":
+        await require_member(db, conv, _session_uid)
+        return DmConversationOut(
+            id=conv.id,
+            last_message_preview=None,
+            last_message_at=conv.last_message_at,
+            unread_count=0,
+            conversation_type=conv.conversation_type,
+            title=conv.title,
+            photo_url=_resolve_conv_photo(conv),
+            member_count=conv.member_count,
+            community_group_id=conv.community_group_id,
+        )
+
     other_id = require_participant(conv, _session_uid)
     await require_unblocked(db, _session_uid, other_id)
     other_user = await db.get(User, other_id)
@@ -279,8 +329,11 @@ async def get_messages(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    require_participant(conv, _session_uid)
-    await require_unblocked(db, conv.participant_1, conv.participant_2)
+    if conv.conversation_type == "direct":
+        require_participant(conv, _session_uid)
+        await require_unblocked(db, conv.participant_1, conv.participant_2)
+    else:
+        await require_member(db, conv, _session_uid)
 
     base = select(DmMessage).where(DmMessage.conversation_id == conv_id)
     if after:
@@ -375,8 +428,11 @@ async def send_message(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    require_participant(conv, _session_uid)
-    await require_unblocked(db, conv.participant_1, conv.participant_2)
+    if conv.conversation_type == "direct":
+        require_participant(conv, _session_uid)
+        await require_unblocked(db, conv.participant_1, conv.participant_2)
+    else:
+        await require_member(db, conv, _session_uid)
 
     # 도메인 엔티티가 뒤따르는 타입은 전용 엔드포인트로만 — meta id 위조로 검증 우회 차단
     if body.message_type in ("appointment", "price_offer"):
@@ -406,20 +462,38 @@ async def send_message(
 
     # 수신자 푸시·인앱 알림은 noti_worker 로 이관. FD-6: 메시지 저장과 같은 트랜잭션에 이벤트를
     # 적재해(relay 가 발행) 커밋~발행 사이 유실을 막는다.
-    recipient_id = _other_user_id(conv, _session_uid)
+    # §3.7: recipient_ids 배열 — direct 는 상대 1명, group/open 은 활성 멤버 중 muted 제외 전원.
+    if conv.conversation_type == "direct":
+        recipient_ids = [_other_user_id(conv, _session_uid)]
+    else:
+        recipient_ids = (
+            (
+                await db.execute(
+                    select(DmConversationMember.user_id).where(
+                        DmConversationMember.conversation_id == conv_id,
+                        DmConversationMember.user_id != _session_uid,
+                        DmConversationMember.left_at.is_(None),
+                        DmConversationMember.muted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
     sender = await db.get(User, _session_uid)
     preview = body.content[:50] if body.content else "사진을 보냈습니다"
-    noti_events.enqueue(
-        db,
-        "dm.message_sent",
-        {
-            "conversation_id": str(conv_id),
-            "sender_id": str(_session_uid),
-            "recipient_id": str(recipient_id),
-            "sender_nickname": sender.nickname if sender and sender.nickname else "",
-            "preview": preview,
-        },
-    )
+    if recipient_ids:
+        noti_events.enqueue(
+            db,
+            "dm.message_sent",
+            {
+                "conversation_id": str(conv_id),
+                "sender_id": str(_session_uid),
+                "recipient_ids": [str(rid) for rid in recipient_ids],
+                "sender_nickname": sender.nickname if sender and sender.nickname else "",
+                "preview": preview,
+            },
+        )
     await db.commit()
 
     msg = (await db.execute(select(DmMessage).where(DmMessage.id == msg.id))).scalar_one()
@@ -446,28 +520,56 @@ async def mark_read(
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    require_participant(conv, _session_uid)
-    await require_unblocked(db, conv.participant_1, conv.participant_2)
 
     now = datetime.now(UTC)
-    unread = (
-        (
-            await db.execute(
-                select(DmMessage).where(
-                    DmMessage.conversation_id == conv_id,
-                    DmMessage.sender_id != _session_uid,
-                    DmMessage.read_at.is_(None),
+
+    if conv.conversation_type == "direct":
+        require_participant(conv, _session_uid)
+        await require_unblocked(db, conv.participant_1, conv.participant_2)
+        unread = (
+            (
+                await db.execute(
+                    select(DmMessage).where(
+                        DmMessage.conversation_id == conv_id,
+                        DmMessage.sender_id != _session_uid,
+                        DmMessage.read_at.is_(None),
+                    )
                 )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
+        for msg in unread:
+            msg.read_at = now
+        marked = len(unread)
+    else:
+        member = await require_member(db, conv, _session_uid)
+        marked = (
+            await db.execute(
+                select(func.count())
+                .select_from(DmMessage)
+                .where(
+                    DmMessage.conversation_id == conv_id,
+                    DmMessage.sender_id != _session_uid,
+                    DmMessage.created_at > member.last_read_at,
+                )
+            )
+        ).scalar_one()
 
-    for msg in unread:
-        msg.read_at = now
+    # §3.3(c) unread SoT — 종류 무관하게 last_read_at 을 갱신한다 (direct 도 통일).
+    member_row = (
+        await db.execute(
+            select(DmConversationMember).where(
+                DmConversationMember.conversation_id == conv_id,
+                DmConversationMember.user_id == _session_uid,
+            )
+        )
+    ).scalar_one_or_none()
+    if member_row is not None:
+        member_row.last_read_at = now
+
     await db.commit()
-    return {"marked": len(unread)}
+    return {"marked": marked}
 
 
 _DM_REPORT_REASONS = {"ABUSE", "SCAM", "SEXUAL", "SPAM", "OTHER"}
@@ -508,3 +610,239 @@ async def report_conversation(
     )
     await db.commit()
     return {"ok": True}
+
+
+def _group_conv_out(conv: DmConversation) -> DmConversationOut:
+    """group/open 대화방 응답 조립 — 이 항목들은 other_user_* 를 채우지 않는다."""
+    return DmConversationOut(
+        id=conv.id,
+        last_message_preview=None,
+        last_message_at=conv.last_message_at,
+        unread_count=0,
+        conversation_type=conv.conversation_type,
+        title=conv.title,
+        photo_url=_resolve_conv_photo(conv),
+        member_count=conv.member_count,
+        community_group_id=conv.community_group_id,
+    )
+
+
+@router.post("/conversations/group", response_model=DmConversationOut, status_code=201, summary="그룹톡방 개설")
+async def create_group_conversation(
+    body: DmGroupConversationCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    member_ids = {uid for uid in body.member_ids if uid != _session_uid}
+    if not member_ids:
+        raise HTTPException(status_code=400, detail="member_ids must include at least one other user")
+
+    users = (await db.execute(select(User).where(User.id.in_(member_ids), User.status == "ACTIVE"))).scalars().all()
+    if len(users) != len(member_ids):
+        raise HTTPException(status_code=404, detail="User not found")
+    for uid in member_ids:
+        await require_unblocked(db, _session_uid, uid)
+
+    now = datetime.now(UTC)
+    conv = DmConversation(
+        conversation_type="group",
+        title=body.title,
+        photo_content_id=body.photo_content_id,
+        created_by=_session_uid,
+        member_count=len(member_ids) + 1,
+        last_message_at=now,
+    )
+    db.add(conv)
+    await db.flush()
+
+    db.add(DmConversationMember(conversation_id=conv.id, user_id=_session_uid, role="owner"))
+    for uid in member_ids:
+        db.add(DmConversationMember(conversation_id=conv.id, user_id=uid, role="member"))
+    await db.commit()
+    await db.refresh(conv)
+    return _group_conv_out(conv)
+
+
+@router.post("/conversations/{conv_id}/members", response_model=DmConversationOut, summary="멤버 초대")
+async def invite_members(
+    conv_id: uuid.UUID,
+    body: DmMemberInviteRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type != "group":
+        raise HTTPException(status_code=400, detail="Only group conversations support invites")
+    await require_member(db, conv, _session_uid)  # group 은 멤버 누구나 초대 가능 (§3.5)
+
+    invite_ids = {uid for uid in body.user_ids if uid != _session_uid}
+    if not invite_ids:
+        raise HTTPException(status_code=400, detail="user_ids must include at least one other user")
+
+    users = (await db.execute(select(User).where(User.id.in_(invite_ids), User.status == "ACTIVE"))).scalars().all()
+    if len(users) != len(invite_ids):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing_rows = (
+        (
+            await db.execute(
+                select(DmConversationMember).where(
+                    DmConversationMember.conversation_id == conv_id,
+                    DmConversationMember.user_id.in_(invite_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    existing_by_uid = {m.user_id: m for m in existing_rows}
+
+    now = datetime.now(UTC)
+    added = 0
+    for uid in invite_ids:
+        await require_unblocked_for_join(db, conv_id, uid)
+        member = existing_by_uid.get(uid)
+        if member is None:
+            db.add(DmConversationMember(conversation_id=conv_id, user_id=uid, role="member"))
+            added += 1
+        elif member.left_at is not None:
+            member.left_at = None
+            member.joined_at = now
+            member.last_read_at = now
+            added += 1
+
+    conv.member_count += added
+    await db.commit()
+    await db.refresh(conv)
+    return _group_conv_out(conv)
+
+
+@router.delete("/conversations/{conv_id}/members/{user_id}", summary="멤버 나가기/강퇴")
+async def remove_member(
+    conv_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations have no members endpoint")
+
+    actor = await require_member(db, conv, _session_uid)
+    if user_id != _session_uid and actor.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only owner/admin can remove other members")
+
+    target = (
+        await db.execute(
+            select(DmConversationMember).where(
+                DmConversationMember.conversation_id == conv_id,
+                DmConversationMember.user_id == user_id,
+                DmConversationMember.left_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    target.left_at = datetime.now(UTC)
+    conv.member_count = max(conv.member_count - 1, 0)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/conversations/{conv_id}/join", response_model=DmConversationOut, summary="오픈톡방 입장")
+async def join_open_conversation(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type != "open":
+        raise HTTPException(status_code=400, detail="Not an open conversation")
+    # TODO(Phase2): community_groups/그룹멤버십 테이블이 생기면 "커뮤니티 그룹의 실제 멤버인지"를
+    # 검증한다(§3.5 join 명세). 지금은 Phase2 미착수라 community_group_id 존재 여부만 체크하는
+    # 축소 구현이다 — 오픈톡방은 open 이면 항상 community_group_id 가 있으므로(CHECK 제약)
+    # 사실상 무해한 게이트지만, Phase2 완료 후 반드시 실제 멤버십 검사로 교체할 것.
+    if conv.community_group_id is None:
+        raise HTTPException(status_code=400, detail="Open conversation missing community group")
+
+    now = datetime.now(UTC)
+    member = (
+        await db.execute(
+            select(DmConversationMember).where(
+                DmConversationMember.conversation_id == conv_id,
+                DmConversationMember.user_id == _session_uid,
+            )
+        )
+    ).scalar_one_or_none()
+    if member is None:
+        # 오픈톡방은 기본 muted 로 가입 (§3.7)
+        db.add(
+            DmConversationMember(
+                conversation_id=conv_id,
+                user_id=_session_uid,
+                role="member",
+                joined_at=now,
+                last_read_at=now,
+                muted_at=now,
+            )
+        )
+        conv.member_count += 1
+    elif member.left_at is not None:
+        member.left_at = None
+        member.joined_at = now
+        member.last_read_at = now
+        member.muted_at = now
+        conv.member_count += 1
+    # else: 이미 활성 멤버 — 멱등하게 no-op
+
+    await db.commit()
+    await db.refresh(conv)
+    return _group_conv_out(conv)
+
+
+@router.patch("/conversations/{conv_id}", response_model=DmConversationOut, summary="방 제목·사진 수정")
+async def update_conversation(
+    conv_id: uuid.UUID,
+    body: DmConversationPatchRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations cannot be edited")
+
+    actor = await require_member(db, conv, _session_uid)
+    if actor.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only owner/admin can edit this conversation")
+
+    if body.title is not None:
+        conv.title = body.title
+    if body.photo_content_id is not None:
+        conv.photo_content_id = body.photo_content_id
+    await db.commit()
+    await db.refresh(conv)
+    return _group_conv_out(conv)
+
+
+@router.post("/conversations/{conv_id}/mute", summary="방별 알림 토글")
+async def toggle_mute(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    member = await require_member(db, conv, _session_uid)
+    member.muted_at = None if member.muted_at is not None else datetime.now(UTC)
+    await db.commit()
+    return {"muted": member.muted_at is not None}

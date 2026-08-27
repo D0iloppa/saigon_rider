@@ -85,6 +85,7 @@ const FeedDetail = lazyWithRetry(() => import('@/pages/feed/FeedDetail'));
 // DM
 const DmList = lazyWithRetry(() => import('@/pages/dm/DmList'));
 const DmDetail = lazyWithRetry(() => import('@/pages/dm/DmDetail'));
+const DmGroupCreate = lazyWithRetry(() => import('@/pages/dm/DmGroupCreate'));
 
 // 알림함
 const NotificationInbox = lazyWithRetry(() => import('@/pages/notifications/NotificationInbox'));
@@ -561,6 +562,7 @@ export default function App() {
           <Route path="/feed/edit/:postId" element={<PrivateRoute><FeedEdit /></PrivateRoute>} />
           <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
+          <Route path="/dm/group/new" element={<PrivateRoute><DmGroupCreate /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />

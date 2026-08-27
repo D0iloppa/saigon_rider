@@ -205,7 +205,8 @@ export interface UserProfile {
 
 export interface DmConversation {
   id: string;
-  otherUserId: string;
+  /** direct 에서만 non-null — group/open 은 null (260827 group/open 확장) */
+  otherUserId: string | null;
   otherUserNickname: string | null;
   otherUserAvatarUrl: string | null;
   lastMessagePreview: string | null;
@@ -219,6 +220,12 @@ export interface DmConversation {
   contextListing: import('./market').ListingCard | null;
   /** 약속잡기 게이트 — 판매자는 항상 true, 구매자는 판매자의 거래진행 액션 이후에만 true */
   appointmentUnlocked: boolean;
+  /** 260827 group/open 확장 (§3.5) */
+  conversationType: 'direct' | 'group' | 'open';
+  title: string | null;
+  photoUrl: string | null;
+  memberCount: number;
+  communityGroupId: string | null;
 }
 
 export interface DmAppointmentMeta {

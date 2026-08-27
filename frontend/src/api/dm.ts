@@ -48,6 +48,11 @@ function transformConversation(raw: any): DmConversation {
     contextId: raw.context_id ?? null,
     contextListing: raw.context_listing ? transformCard(raw.context_listing) : null,
     appointmentUnlocked: raw.appointment_unlocked ?? false,
+    conversationType: raw.conversation_type ?? 'direct',
+    title: raw.title ?? null,
+    photoUrl: raw.photo_url ?? null,
+    memberCount: raw.member_count ?? 2,
+    communityGroupId: raw.community_group_id ?? null,
   };
 }
 
@@ -98,6 +103,11 @@ export async function createConversation(
       contextId: context?.id ?? null,
       contextListing: null,
       appointmentUnlocked: false,
+      conversationType: 'direct',
+      title: null,
+      photoUrl: null,
+      memberCount: 2,
+      communityGroupId: null,
     }, 100);
   }
   requireSession();
@@ -251,6 +261,49 @@ export async function declinePriceOffer(offerId: string): Promise<PriceOffer> {
 
 export async function cancelPriceOffer(offerId: string): Promise<PriceOffer> {
   return transformPriceOffer(await api.realFetch<any>(`/market/price-offers/${offerId}/cancel`, { method: 'PATCH' }));
+}
+
+// ── 그룹/오픈톡방 (260827 group/open 확장, §3.5) ────────────────────
+export async function createGroupConversation(title: string, memberIds: string[]): Promise<DmConversation> {
+  requireSession();
+  const raw = await api.realFetch<any>('/dm/conversations/group', {
+    method: 'POST',
+    body: JSON.stringify({ title, member_ids: memberIds }),
+  });
+  return transformConversation(raw);
+}
+
+export async function inviteMembers(conversationId: string, userIds: string[]): Promise<DmConversation> {
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ user_ids: userIds }),
+  });
+  return transformConversation(raw);
+}
+
+export async function removeMember(conversationId: string, userId: string): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/members/${userId}`, { method: 'DELETE' });
+}
+
+export async function joinOpenConversation(conversationId: string): Promise<DmConversation> {
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/join`, { method: 'POST' });
+  return transformConversation(raw);
+}
+
+export async function updateConversation(
+  conversationId: string,
+  patch: { title?: string; photoContentId?: string },
+): Promise<DmConversation> {
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title: patch.title ?? null, photo_content_id: patch.photoContentId ?? null }),
+  });
+  return transformConversation(raw);
+}
+
+export async function toggleMute(conversationId: string): Promise<boolean> {
+  const res = await api.realFetch<{ muted: boolean }>(`/dm/conversations/${conversationId}/mute`, { method: 'POST' });
+  return res.muted;
 }
 
 // ── T&S: 대화 신고 ────────────────────────────────────────────────

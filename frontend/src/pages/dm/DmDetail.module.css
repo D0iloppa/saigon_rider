@@ -176,6 +176,30 @@
   color: var(--text);
 }
 
+/* ── 그룹/오픈톡방 최소 정보 바 (260827 group/open 확장, §3.8) ── */
+.roomInfoBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.roomInfoText {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.roomLeaveBtn {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
 /* ── 약속/가격제안 시스템 카드 (공용 골격) ── */
 .apptCard {
   align-self: center;

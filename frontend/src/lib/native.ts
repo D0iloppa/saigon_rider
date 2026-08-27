@@ -96,9 +96,9 @@ export type WalkieTalkieCapability = {
   floatingButton: boolean;
   /** 앱 미실행/백그라운드 녹음 (Android only — Phase B). */
   backgroundService: boolean;
-  /** OS 전역 오버레이 버블 (Phase B, 미구현). */
+  /** OS 전역 오버레이 버블 (B-2, Android 구현됨. iOS 는 플랫폼 정책상 영구 false). */
   overlayBubble: boolean;
-  /** 홈스크린 위젯 (Phase B, 미구현). */
+  /** 홈스크린 위젯 (B-2, Android 구현됨). */
   homeWidget: boolean;
   /** iOS Live Activity / 다이나믹아일랜드 (Phase B, 미구현). */
   liveActivity: boolean;
@@ -156,26 +156,28 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
         floatingButton: true,
         // Android: A-4/A-5 에서 이미 FGS 로 구현됨. iOS: D-2 확정 — Phase B 전까지 보수적으로 false.
         backgroundService: isAndroid,
-        overlayBubble: false, // Phase B 미구현
-        homeWidget: false, // Phase B 미구현
-        liveActivity: false, // Phase B 미구현
+        overlayBubble: isAndroid, // B-2: SYSTEM_ALERT_WINDOW 오버레이 버블 구현됨(Android only, iOS 영구 false)
+        homeWidget: isAndroid, // B-2: AppWidget 구현됨(iOS 는 후속 B-3 인터랙티브 위젯 범위)
+        liveActivity: false, // Phase B 미구현 (B-3, iOS)
         maxDurationSec: 60, // D-4 확정
       };
     },
 
     async checkPermission() {
       if (!Capacitor.isNativePlatform()) return { mic: 'denied' };
-      const { mic } = await WalkieTalkie.checkPermission();
-      return { mic };
+      const { mic, overlay } = await WalkieTalkie.checkPermission();
+      return { mic, overlay };
     },
 
     async requestPermission(kind) {
       if (!Capacitor.isNativePlatform()) return false;
-      if (kind !== 'mic') {
+      if (kind === 'notification') {
         console.warn(`[walkieTalkie] requestPermission('${kind}') not supported yet (Phase B)`);
         return false;
       }
-      const { granted } = await WalkieTalkie.requestPermission({ kind: 'mic' });
+      // 'overlay' 는 다이얼로그가 아니라 설정화면 유도라 granted 는 항상 false 로 온다 —
+      // 호출부가 재개 시 getCapability()/checkPermission() 으로 재확인해야 한다(B-2).
+      const { granted } = await WalkieTalkie.requestPermission({ kind });
       return granted;
     },
 
@@ -209,12 +211,18 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
       return await WalkieTalkie.addListener(event, cb);
     },
 
-    // ── Phase B (미구현) — capability=false 로 호출부가 걸러낼 것이므로 조용히 반환만 한다.
-    async showOverlayBubble() {
-      console.warn('[walkieTalkie] showOverlayBubble not implemented (Phase B)');
+    // B-2(Android) — capability.overlayBubble=false(iOS/웹)면 호출부에서 노출 자체를 안 하는 게
+    // 원칙이라 여기선 방어적으로만 no-op 처리한다.
+    async showOverlayBubble(opts) {
+      if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+        console.warn('[walkieTalkie] showOverlayBubble not available on this platform');
+        return;
+      }
+      await WalkieTalkie.showOverlayBubble(opts);
     },
     async hideOverlayBubble() {
-      console.warn('[walkieTalkie] hideOverlayBubble not implemented (Phase B)');
+      if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+      await WalkieTalkie.hideOverlayBubble();
     },
     async startBackgroundChannel() {
       console.warn('[walkieTalkie] startBackgroundChannel not implemented (Phase B)');

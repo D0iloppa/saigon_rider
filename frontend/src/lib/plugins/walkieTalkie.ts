@@ -35,10 +35,11 @@ export interface WalkieTalkieStartOptions {
 }
 
 export interface WalkieTalkiePlugin {
-  /** 마이크 권한 상태 조회. */
-  checkPermission(): Promise<{ mic: WalkieTalkieMicPermissionStatus }>;
-  /** 마이크 권한 요청. kind 는 현재 'mic' 만 지원(overlay/notification 은 Phase B). */
-  requestPermission(opts: { kind: 'mic' }): Promise<{ granted: boolean }>;
+  /** 마이크(+Android 오버레이, B-2) 권한 상태 조회. */
+  checkPermission(): Promise<{ mic: WalkieTalkieMicPermissionStatus; overlay?: boolean }>;
+  /** 권한 요청. 'mic' 은 다이얼로그, 'overlay'(B-2, Android)는 설정화면 유도 — 결과는
+   *  비동기(설정화면에서 돌아온 뒤 checkPermission() 재조회 필요)라 granted 는 항상 false 로 온다. */
+  requestPermission(opts: { kind: 'mic' | 'overlay' }): Promise<{ granted: boolean }>;
   /** OS 앱 설정 화면 열기 (권한이 denied 로 굳어 재요청이 막힌 경우). */
   openAppSettings(): Promise<void>;
 
@@ -54,6 +55,11 @@ export interface WalkieTalkiePlugin {
     eventName: 'recordingState',
     listenerFunc: (event: WalkieTalkieRecordingStateEvent) => void,
   ): Promise<PluginListenerHandle>;
+
+  /** B-2(Android) — SYSTEM_ALERT_WINDOW 오버레이 버블 표시. 탭하면 헤드리스 토글 녹음(B-1)이 뜬다. */
+  showOverlayBubble(opts: { channelId?: string }): Promise<void>;
+  /** B-2(Android) — 오버레이 버블 숨김. */
+  hideOverlayBubble(): Promise<void>;
 }
 
 export const WalkieTalkie = registerPlugin<WalkieTalkiePlugin>('WalkieTalkie');

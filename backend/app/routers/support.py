@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..deps import verify_user_session_allow_suspended
-from ..models import Report, SupportReply, SupportTicket, User
+from ..models import BusinessProfile, BusinessReview, FeedPost, PostComment, Report, SupportReply, SupportTicket, User
 from ..schemas import (
     ReportOut,
     SupportReplyCreateRequest,
@@ -160,7 +160,8 @@ async def list_reports(
         user_rows = await db.execute(select(User).where(User.id.in_(user_ids)))
         users = {u.id: u for u in user_rows.scalars().all()}
 
-    return [_to_report_out(r, listings, users) for r in reports]
+    parent_contexts = await _build_parent_contexts(db, reports)
+    return [_to_report_out(r, listings, users, parent_contexts) for r in reports]
 
 
 @router.delete("/reports/{report_id}", response_model=ReportOut, summary="신고 취소 (PENDING 한정)")
@@ -198,17 +199,65 @@ async def cancel_report(
     if report.target_type != "LISTING":
         target_user = (await db.execute(select(User).where(User.id == report.reported_user_id))).scalar_one_or_none()
 
+    parent_contexts = await _build_parent_contexts(db, [report])
     return _to_report_out(
         report,
         {listing.id: listing} if listing else {},
         {target_user.id: target_user} if target_user else {},
+        parent_contexts,
     )
+
+
+# O-4(260827 §7) — REVIEW/COMMENT 신고의 부모 맥락("○○업체의 후기"/게시물 요약)을 조인해 계산한다.
+# 새 컬럼·마이그레이션 없이 응답 시점 파생값으로만 존재한다. 숨겨지거나 삭제된 부모는 익명화한다(§7 확정).
+async def _build_parent_contexts(db: AsyncSession, reports: list[Report]) -> dict[uuid.UUID, str | None]:
+    contexts: dict[uuid.UUID, str | None] = {}
+
+    review_ids = {r.review_id for r in reports if r.target_type == "REVIEW" and r.review_id}
+    if review_ids:
+        review_rows = await db.execute(
+            select(BusinessReview, BusinessProfile)
+            .join(BusinessProfile, BusinessProfile.id == BusinessReview.profile_id)
+            .where(BusinessReview.id.in_(review_ids))
+        )
+        reviews_by_id = {review.id: (review, profile) for review, profile in review_rows.all()}
+        for r in reports:
+            if r.target_type != "REVIEW" or not r.review_id:
+                continue
+            found = reviews_by_id.get(r.review_id)
+            if found is None:
+                contexts[r.id] = "삭제된 후기"
+                continue
+            review, profile = found
+            contexts[r.id] = "숨김 처리된 후기" if review.hidden_at is not None else f"{profile.name}의 후기"
+
+    comment_ids = {r.comment_id for r in reports if r.target_type == "COMMENT" and r.comment_id}
+    if comment_ids:
+        comment_rows = await db.execute(
+            select(PostComment, FeedPost)
+            .join(FeedPost, FeedPost.id == PostComment.post_id)
+            .where(PostComment.id.in_(comment_ids))
+        )
+        comments_by_id = {comment.id: post for comment, post in comment_rows.all()}
+        for r in reports:
+            if r.target_type != "COMMENT":
+                continue
+            post = comments_by_id.get(r.comment_id) if r.comment_id else None
+            if post is None:
+                # 댓글 자체 삭제(Report.comment_id SET NULL) 또는 게시물 삭제로 조인 유실 — 익명화.
+                contexts[r.id] = "삭제된 게시물"
+                continue
+            summary = (post.content or "").strip()
+            contexts[r.id] = f"'{summary[:30]}{'…' if len(summary) > 30 else ''}' 게시물" if summary else "게시물"
+
+    return contexts
 
 
 def _to_report_out(
     report: Report,
     listings: dict[uuid.UUID, MarketplaceListing],
     users: dict[uuid.UUID, User],
+    parent_contexts: dict[uuid.UUID, str | None],
 ) -> ReportOut:
     target_title: str | None = None
     target_thumbnail_url: str | None = None
@@ -243,6 +292,8 @@ def _to_report_out(
         ],
         # R-2(260819 W3) — resolution_note 원본이 아니라 공개용 요약만.
         resolution_summary=report.public_resolution_summary,
+        # O-4(260827 §7) — REVIEW/COMMENT 외 대상은 부모 개념이 없어 None.
+        parent_context=parent_contexts.get(report.id),
     )
 
 

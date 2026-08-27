@@ -58,6 +58,8 @@ export interface Report {
   images: string[];
   // R-2(260819 W3) — resolution_note(내부 메모) 원본이 아니라 공개용 요약만.
   resolution_summary: string | null;
+  // O-4(260827 §7) — REVIEW/COMMENT 신고의 부모 맥락("○○업체의 후기"/게시물 요약). 그 외 타입은 null.
+  parent_context: string | null;
 }
 
 export async function fetchReports(): Promise<Report[]> {

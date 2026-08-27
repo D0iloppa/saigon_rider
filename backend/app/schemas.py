@@ -1443,6 +1443,9 @@ class ReportOut(BaseModel):
     images: list[str] = []
     # R-2(260819 W3) — resolution_note 원본이 아니라 어드민이 입력한 공개용 요약만.
     resolution_summary: str | None = None
+    # O-4(260827 §7) — 신고 대상의 부모 맥락(예: "○○업체의 후기", 게시물 제목). REVIEW/COMMENT 만 채워진다.
+    # 숨겨지거나 삭제된 부모는 식별정보를 노출하지 않고 익명화한 일반 문구로 대체한다(§7 확정).
+    parent_context: str | None = None
 
     class Config:
         from_attributes = True
@@ -1806,7 +1809,9 @@ class BusinessReviewListOut(BaseModel):
 class BusinessOwnerReviewOut(BaseModel):
     """오너 전용 후기 목록 항목(GET /biz/reviews) — 소비자 공개 응답(BusinessReviewOut)과
     분리(T2 (ii)). hidden=True 인 항목은 body 를 내려주지 않는다(운영자 조치 사실만 통지,
-    원문은 블라인드). hidden_reason 은 신고자 익명성/보복 위험으로 이 응답에 아예 없다."""
+    원문은 블라인드). hidden_reason(자유텍스트 원문)은 신고자 익명성/보복 위험으로 이 응답에
+    아예 없다 — O-1(260827) 확정: 대신 hidden_reason_code 만 내려주고, 프론트가 i18n 매핑해
+    문구로 보여준다(신고 사유와 동일 코드셋, BizReviewReportReason 참조)."""
 
     id: uuid.UUID
     rating: int
@@ -1816,6 +1821,8 @@ class BusinessOwnerReviewOut(BaseModel):
     owner_reply: str | None = None
     owner_replied_at: datetime | None = None
     hidden: bool = False
+    # 숨김 사유 코드(원문 아님) — hidden=False 면 항상 None.
+    hidden_reason_code: str | None = None
     # 오너 본인이 이 후기를 신고했는지 여부만 — 타인의 신고 여부는 절대 노출하지 않는다.
     is_reported_by_me: bool = False
 

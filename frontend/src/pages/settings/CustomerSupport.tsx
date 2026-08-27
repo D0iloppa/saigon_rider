@@ -205,6 +205,9 @@ export default function CustomerSupport() {
                     )}
                     <div className={styles.reportBody}>
                       <div className={styles.cardTitle}>{reportTargetLabel(r)}</div>
+                      {r.parent_context && (
+                        <div className={styles.cardMeta}>{r.parent_context}</div>
+                      )}
                       <div className={styles.cardMeta}>
                         <span className={`${styles.badge} ${REPORT_STATUS_CLASS[r.status] ?? ''}`}>
                           {reportStatusLabel(r.status)}

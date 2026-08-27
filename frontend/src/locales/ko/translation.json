@@ -774,6 +774,7 @@
     "openAppSettings": "설정 열기",
     "startError": "녹음을 시작하지 못했어요",
     "recordUnsupported": "이 버전에서는 음성 녹음을 지원하지 않아요. 앱을 업데이트해주세요",
+    "recordUnsupportedWeb": "음성 녹음은 앱에서만 지원해요",
     "presenceAll": "전원 참석",
     "presencePartial": "일부 미참석",
     "stopError": "녹음을 마치지 못했어요",

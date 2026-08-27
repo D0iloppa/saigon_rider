@@ -112,8 +112,10 @@ export function WalkieTalkieFloatingButton() {
   }, []);
 
   // 녹음 상태 이벤트 구독 — 경과시간·레벨미터 + 60초 자동중지(D-4) 감지.
+  // available 이 아니라 record 로 판단한다 — available 은 항상 true 라(웹에서도 버블은 뜬다)
+  // 녹음 플러그인이 없는 설치본에서 addListener 가 reject 되어 마운트마다 unhandled rejection 이 났다.
   useEffect(() => {
-    if (!capability?.available) return;
+    if (!capability?.record) return;
     let handle: { remove: () => void } | null = null;
     let cancelled = false;
     native.walkieTalkie
@@ -139,12 +141,15 @@ export function WalkieTalkieFloatingButton() {
       .then((h) => {
         if (cancelled) h.remove();
         else handle = h;
+      })
+      .catch(() => {
+        // 플러그인이 없는 설치본 — 구독만 못 할 뿐, 녹음 진입은 startFlow 가 안내한다.
       });
     return () => {
       cancelled = true;
       handle?.remove();
     };
-  }, [capability?.available, notifyRecordingStop]);
+  }, [capability?.record, notifyRecordingStop]);
 
   // 채널정보 UX(A-7) — 참석 인원 + 소프트 녹음중 신호. 대화방이 바뀔 때마다 새로 폴링 시작.
   useEffect(() => {
@@ -352,7 +357,12 @@ export function WalkieTalkieFloatingButton() {
     // 녹음 플러그인이 없는 설치본(웹, 또는 WalkieTalkie 미등록 구버전 앱)에서는 아래 호출들이
     // 전부 reject 된다 — 예전엔 그대로 새어나가 unhandled rejection 으로 아무 반응 없이 끝났다.
     if (!capability?.record) {
-      toast.info(t('walkieTalkie.recordUnsupported', { defaultValue: '이 버전에서는 음성 녹음을 지원하지 않아요. 앱을 업데이트해주세요' }));
+      // 웹에는 업데이트할 앱이 없다 — 같은 문구를 쓰면 안 된다.
+      toast.info(
+        native.isNative
+          ? t('walkieTalkie.recordUnsupported', { defaultValue: '이 버전에서는 음성 녹음을 지원하지 않아요. 앱을 업데이트해주세요' })
+          : t('walkieTalkie.recordUnsupportedWeb', { defaultValue: '음성 녹음은 앱에서만 지원해요' }),
+      );
       return;
     }
     let mic: string;
@@ -584,7 +594,9 @@ export function WalkieTalkieFloatingButton() {
     : channelName;
   // 채널명 좌측 참석 dot — 전원 참석이면 초록, 한 명이라도 빠졌으면(또는 참석정보 로딩 전이면) 회색.
   // 1:1 채널도 같은 규칙이다(상대가 들어와 있어야 초록).
-  const allPresent = !!presence && presence.activeMembers >= presence.totalMembers;
+  // totalMembers > 0 을 요구한다 — 참석정보가 비어 0/0 으로 오면(스키마 드리프트, 전원 퇴장)
+  // ">=" 만으로는 빈 채널이 "전원 참석" 초록으로 빛난다.
+  const allPresent = !!presence && presence.totalMembers > 0 && presence.activeMembers >= presence.totalMembers;
   const speakingOther = presence?.recordingUsers.find((u) => u.id !== user?.id) ?? null;
   const statusText = phase === 'recording' || phase === 'autoStopped'
     ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
@@ -697,6 +709,7 @@ export function WalkieTalkieFloatingButton() {
                 <span className={styles.channelRow}>
                   <span
                     className={styles.presenceDot}
+                    role="img"
                     data-all-present={allPresent || undefined}
                     aria-label={allPresent
                       ? t('walkieTalkie.presenceAll', { defaultValue: '전원 참석' })

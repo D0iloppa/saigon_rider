@@ -195,6 +195,7 @@
   gap: 5px;
   min-width: 0;
   max-width: 168px;
+  padding-left: 3px; /* dot 글로우가 .label 의 overflow:hidden 에 왼쪽 절반이 잘리지 않게 */
 }
 
 /* 참석 dot — 전원 참석이면 초록(발광), 아니면 회색. 판정은 컴포넌트의 allPresent. */

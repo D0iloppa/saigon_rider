@@ -774,6 +774,7 @@
     "openAppSettings": "Open settings",
     "startError": "Couldn't start recording",
     "recordUnsupported": "Voice recording isn't supported in this version. Please update the app",
+    "recordUnsupportedWeb": "Voice recording is only available in the app",
     "presenceAll": "Everyone present",
     "presencePartial": "Someone away",
     "stopError": "Couldn't finish recording",

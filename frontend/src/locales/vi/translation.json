@@ -774,6 +774,7 @@
     "openAppSettings": "Mở cài đặt",
     "startError": "Không thể bắt đầu ghi âm",
     "recordUnsupported": "Phiên bản này chưa hỗ trợ ghi âm. Vui lòng cập nhật ứng dụng",
+    "recordUnsupportedWeb": "Ghi âm chỉ khả dụng trên ứng dụng",
     "presenceAll": "Tất cả đang tham gia",
     "presencePartial": "Có người vắng mặt",
     "stopError": "Không thể kết thúc ghi âm",

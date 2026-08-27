@@ -88,6 +88,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
       followerCount: 12,
       followingCount: 8,
       isFollowing: false,
+      isFriend: false,
       isPhoneVerified: false,
       phoneMasked: null,
     };
@@ -102,6 +103,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     follower_count: number;
     following_count: number;
     is_following: boolean;
+    is_friend: boolean;
     is_phone_verified: boolean;
     phone_masked: string | null;
   }>(url);
@@ -115,6 +117,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     followerCount: res.follower_count,
     followingCount: res.following_count,
     isFollowing: res.is_following,
+    isFriend: res.is_friend ?? false,
     isPhoneVerified: res.is_phone_verified ?? false,
     phoneMasked: res.phone_masked ?? null,
   };

@@ -199,6 +199,7 @@ export interface UserProfile {
   followerCount: number;
   followingCount: number;
   isFollowing: boolean;
+  isFriend: boolean; // 맞팔 여부 (P4-4)
   isPhoneVerified: boolean;
   phoneMasked: string | null;
 }

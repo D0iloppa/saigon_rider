@@ -263,6 +263,8 @@ export default function UserProfile() {
                   <span className={styles.nickname}>{profile.nickname ?? 'Unknown'}</span>
                   <LevelBadge level={profile.level} />
                   <VerifiedBadge verified={profile.isPhoneVerified} phoneMasked={profile.phoneMasked} />
+                  {/* P4-4: 맞팔 = 친구 표기 (신규 UI 컴포넌트 없이 기존 Chip 재사용) */}
+                  {profile.isFriend && <Chip variant="surface">{t('follow.friends')}</Chip>}
                 </div>
                 {riderStyleLabel && (
                   <Chip variant="surface"><RiderStyleIcon size={13} /> {riderStyleLabel}</Chip>

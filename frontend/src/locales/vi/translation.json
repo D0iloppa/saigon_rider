@@ -783,6 +783,8 @@
     "inviteJoined": "Đã tham gia",
     "contextMenuChangeChannel": "Đổi kênh",
     "contextMenuResendInvite": "Gửi lại lời mời",
+    "contextMenuPinToHome": "Ghim vào màn hình chính",
+    "pinToHomeIosUnavailable": "Tính năng này chưa khả dụng trên iOS",
     "changeChannelTitle": "Đổi kênh",
     "entryButtonLabel": "Bộ đàm",
     "recentChannelsTitle": "Chọn cuộc trò chuyện gần đây",

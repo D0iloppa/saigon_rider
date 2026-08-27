@@ -60,6 +60,10 @@ export interface WalkieTalkiePlugin {
   showOverlayBubble(opts: { channelId?: string }): Promise<void>;
   /** B-2(Android) — 오버레이 버블 숨김. */
   hideOverlayBubble(): Promise<void>;
+  /** Android 홈화면 위젯 고정 요청(requestPinAppWidget). 네이티브 구현은 후속 티켓 범위. */
+  pinToHomeScreen(): Promise<void>;
+  /** Android 채널 바로가기 위젯이 읽을 활성 채널을 SharedPreferences 에 동기화한다. */
+  syncActiveChannel(opts: { channelId: string; channelName: string }): Promise<void>;
 }
 
 export const WalkieTalkie = registerPlugin<WalkieTalkiePlugin>('WalkieTalkie');

@@ -13,7 +13,6 @@ import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
 import { playSound } from '@/lib/sound';
-import { BottomSheet } from '@/components/ui/BottomSheet';
 import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
 import styles from './WalkieTalkieFloatingButton.module.css';
 
@@ -23,6 +22,8 @@ const BUBBLE_SIZE = 56;
 const MARGIN = 12;
 // 참석/녹음중 정보는 실시간성이 중요하지 않다 — 기존 DM 5초 폴링보다 낮은 빈도로 서버 부하를 줄인다.
 const PRESENCE_POLL_MS = 18000;
+// 컨텍스트메뉴 "홈화면 고정" — Android 네이티브 위젯 고정(pinToHomeScreen, WalkieTalkieChannelWidgetProvider) 구현 완료.
+const PIN_TO_HOME_MENU_ENABLED = true;
 
 /**
  * 플로팅 토글 녹음 캡슐 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
@@ -318,6 +319,16 @@ export function WalkieTalkieFloatingButton() {
     setChannelSheetOpen(true);
   }, []);
 
+  // 컨텍스트메뉴 "홈화면 고정" — Android 는 네이티브 위젯 고정 요청, 그 외 플랫폼은 미지원 안내.
+  const handlePinToHome = useCallback(() => {
+    setMenuOpen(false);
+    if (native.platform === 'android') {
+      native.walkieTalkie.pinToHomeScreen().catch(() => {});
+      return;
+    }
+    toast.info(t('walkieTalkie.pinToHomeIosUnavailable', { defaultValue: 'iOS에서는 아직 지원하지 않아요' }));
+  }, [t]);
+
   const handleSelectChannel = useCallback(
     (c: DmConversation) => {
       const isGroup = c.conversationType !== 'direct';
@@ -336,6 +347,7 @@ export function WalkieTalkieFloatingButton() {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (menuOpen) return; // 메뉴 펼침 중엔 드래그/롱프레스/탭 판정 없이 메뉴 항목 클릭만 받는다.
       draggingRef.current = true;
       dragMovedRef.current = false;
       dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
@@ -352,7 +364,7 @@ export function WalkieTalkieFloatingButton() {
         }
       }, 450);
     },
-    [clearLongPress, pos.x, pos.y],
+    [clearLongPress, menuOpen, pos.x, pos.y],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -381,6 +393,7 @@ export function WalkieTalkieFloatingButton() {
   }, [clearLongPress]);
 
   const onClick = useCallback(() => {
+    if (menuOpen) return; // 메뉴 항목 클릭이 캡슐로 버블돼도 녹음 토글로 이어지지 않게.
     if (dragMovedRef.current) {
       dragMovedRef.current = false;
       return;
@@ -401,7 +414,7 @@ export function WalkieTalkieFloatingButton() {
       return;
     }
     handleTap();
-  }, [handleTap, phase]);
+  }, [handleTap, menuOpen, phase]);
 
   useEffect(() => {
     return () => {
@@ -427,6 +440,9 @@ export function WalkieTalkieFloatingButton() {
 
   return (
     <>
+      {/* 메뉴 펼침 중 바깥 탭 → 닫기. 배경은 어둡히지 않는다(DI 스타일 — 메뉴가 제자리에서 떠 있을 뿐). */}
+      {menuOpen && <div className={styles.menuBackdrop} onClick={() => setMenuOpen(false)} />}
+
       {/* div(role=button) — 캡슐 안에 닫기/취소 버튼을 포함해야 해서 <button> 중첩(무효 HTML)을 피한다. */}
       <div
         ref={rootRef}
@@ -434,6 +450,7 @@ export function WalkieTalkieFloatingButton() {
         tabIndex={0}
         className={styles.capsule}
         data-phase={phase}
+        data-menu={menuOpen || undefined}
         data-dragging={dragging || undefined}
         data-speaking={(!isRec && !!speakingOther) || undefined}
         // left/top 대신 transform(translate3d)으로 이동시킨다 — left/top 변경은 매 포인터무브마다
@@ -448,7 +465,22 @@ export function WalkieTalkieFloatingButton() {
         onClick={onClick}
         aria-label={t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' })}
       >
-        {phase === 'permissionDenied' ? (
+        {menuOpen ? (
+          /* 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 시트 대신 캡슐 자체가 제자리에서 메뉴 카드로 모핑. */
+          <div className={styles.menu} role="menu">
+            <button type="button" role="menuitem" className={styles.menuOption} onClick={handleOpenChannelSheet}>
+              {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
+            </button>
+            <button type="button" role="menuitem" className={styles.menuOption} onClick={handleResendInvite}>
+              {t('walkieTalkie.contextMenuResendInvite', { defaultValue: '초대장 다시 보내기' })}
+            </button>
+            {PIN_TO_HOME_MENU_ENABLED && (
+              <button type="button" role="menuitem" className={styles.menuOption} onClick={handlePinToHome}>
+                {t('walkieTalkie.contextMenuPinToHome', { defaultValue: '홈화면 고정' })}
+              </button>
+            )}
+          </div>
+        ) : phase === 'permissionDenied' ? (
           /* 권한거부 — 별도 패널 대신 캡슐 자체가 카드로 확장된다. */
           <div className={styles.denied}>
             <p className={styles.deniedText}>
@@ -552,18 +584,6 @@ export function WalkieTalkieFloatingButton() {
         onConsent={handleConsentAgree}
         onClose={() => setConsentOpen(false)}
       />
-
-      {/* 캡슐 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 채널 변경 / 초대장 다시 보내기 */}
-      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)}>
-        <div className={styles.menuSheet}>
-          <button type="button" className={styles.menuItem} onClick={handleOpenChannelSheet}>
-            {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
-          </button>
-          <button type="button" className={styles.menuItem} onClick={handleResendInvite}>
-            {t('walkieTalkie.contextMenuResendInvite', { defaultValue: '초대장 다시 보내기' })}
-          </button>
-        </div>
-      </BottomSheet>
 
       <WalkieChannelPickerSheet
         open={channelSheetOpen}

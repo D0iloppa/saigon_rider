@@ -129,6 +129,10 @@ export interface WalkieTalkieChannel {
   // 없으므로 여기선 조용히 no-op 처리한다(throw 금지 — capability 로 사전 차단하는 게 원칙).
   showOverlayBubble(opts: { channelId: string }): Promise<void>;
   hideOverlayBubble(): Promise<void>;
+  /** Android 홈화면 위젯 고정 요청 — 네이티브 위젯 구현은 후속 티켓 범위(iOS/웹 no-op). */
+  pinToHomeScreen(): Promise<void>;
+  /** Android 채널 바로가기 위젯 갱신용 — 활성 채널이 바뀔 때마다 호출(iOS/웹 no-op). */
+  syncActiveChannel(opts: { channelId: string; channelName: string }): Promise<void>;
   startBackgroundChannel(opts: { channelId: string }): Promise<void>;
   stopBackgroundChannel(): Promise<void>;
   updateLiveActivity(opts: { state: 'recording' | 'sending' | 'idle' }): Promise<void>;
@@ -137,29 +141,21 @@ export interface WalkieTalkieChannel {
 function createWalkieTalkieChannel(): WalkieTalkieChannel {
   return {
     async getCapability() {
-      if (!Capacitor.isNativePlatform()) {
-        return {
-          available: false,
-          record: false,
-          floatingButton: false,
-          backgroundService: false,
-          overlayBubble: false,
-          homeWidget: false,
-          liveActivity: false,
-          maxDurationSec: 0,
-        };
-      }
-      const isAndroid = Capacitor.getPlatform() === 'android';
+      const isNative = Capacitor.isNativePlatform();
+      // 대표 지시(2026-08-27): 기본 기능(버블 열기/채널 선택)은 웹에서도 노출한다.
+      // record 만 네이티브 전용 — `WalkieTalkie` 커스텀 플러그인(./plugins/walkieTalkie.ts)에
+      // web 구현이 없어(순수 registerPlugin 래퍼) 웹에서는 진짜 녹음이 불가능하다.
+      const isAndroid = isNative && Capacitor.getPlatform() === 'android';
       return {
         available: true,
-        record: true,
+        record: isNative,
         floatingButton: true,
         // Android: A-4/A-5 에서 이미 FGS 로 구현됨. iOS: D-2 확정 — Phase B 전까지 보수적으로 false.
         backgroundService: isAndroid,
         overlayBubble: isAndroid, // B-2: SYSTEM_ALERT_WINDOW 오버레이 버블 구현됨(Android only, iOS 영구 false)
         homeWidget: isAndroid, // B-2: AppWidget 구현됨(iOS 는 후속 B-3 인터랙티브 위젯 범위)
         liveActivity: false, // Phase B 미구현 (B-3, iOS)
-        maxDurationSec: 60, // D-4 확정
+        maxDurationSec: isNative ? 60 : 0, // D-4 확정 (웹은 record=false 라 사용되지 않음)
       };
     },
 
@@ -223,6 +219,17 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
     async hideOverlayBubble() {
       if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
       await WalkieTalkie.hideOverlayBubble();
+    },
+    async pinToHomeScreen() {
+      if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+        console.warn('[walkieTalkie] pinToHomeScreen not available on this platform');
+        return;
+      }
+      await WalkieTalkie.pinToHomeScreen();
+    },
+    async syncActiveChannel(opts) {
+      if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+      await WalkieTalkie.syncActiveChannel(opts);
     },
     async startBackgroundChannel() {
       console.warn('[walkieTalkie] startBackgroundChannel not implemented (Phase B)');

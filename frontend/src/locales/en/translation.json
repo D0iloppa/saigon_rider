@@ -783,6 +783,8 @@
     "inviteJoined": "Joined",
     "contextMenuChangeChannel": "Change channel",
     "contextMenuResendInvite": "Resend invite",
+    "contextMenuPinToHome": "Pin to home screen",
+    "pinToHomeIosUnavailable": "This isn't available on iOS yet",
     "changeChannelTitle": "Change channel",
     "entryButtonLabel": "Walkie-talkie",
     "recentChannelsTitle": "Choose a recent conversation",

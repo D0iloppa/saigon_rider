@@ -783,6 +783,8 @@
     "inviteJoined": "참여 중",
     "contextMenuChangeChannel": "채널 변경",
     "contextMenuResendInvite": "초대장 다시 보내기",
+    "contextMenuPinToHome": "홈화면 고정",
+    "pinToHomeIosUnavailable": "iOS에서는 아직 지원하지 않아요",
     "changeChannelTitle": "채널 변경",
     "entryButtonLabel": "워키토키",
     "recentChannelsTitle": "최근 대화 선택",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Radio } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { DmConversation } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
@@ -20,6 +20,7 @@ export function WalkieTalkieEntryButton() {
   const user = useUserStore((s) => s.user);
   const activeConversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
   const ping = useWalkieTalkieBubbleStore((s) => s.ping);
+  const open = useWalkieTalkieBubbleStore((s) => s.open);
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -32,6 +33,7 @@ export function WalkieTalkieEntryButton() {
 
   const handleClick = () => {
     if (activeConversationId) {
+      open();
       ping();
       return;
     }
@@ -51,7 +53,7 @@ export function WalkieTalkieEntryButton() {
         onClick={handleClick}
         aria-label={t('walkieTalkie.entryButtonLabel', { defaultValue: '워키토키' })}
       >
-        <Radio size={20} strokeWidth={2} />
+        <Mic size={20} strokeWidth={2} />
       </button>
 
       <WalkieChannelPickerSheet

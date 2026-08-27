@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { native } from '@/lib/native';
 
 /**
  * 워키토키 플로팅 버블(A-7)의 앱 전역 상태.
@@ -36,6 +37,8 @@ interface WalkieTalkieBubbleState {
    */
   setActiveConversation: (id: string, meta?: WalkieTalkieConversationMeta) => void;
   close: () => void;
+  /** 진입 아이콘 재탭(활성 대화 있음) 시 닫혀 있던 캡슐을 다시 띄운다. 대상 대화는 그대로 유지. */
+  open: () => void;
   /**
    * 어텐션 핑(대표 지시 2026-08-27): 이미 활성 대화가 있는 상태에서 진입 아이콘을 다시 눌렀을 때
    * 캡슐을 끄지 않고 "이미 켜져 있어요"를 알리듯 짧게 흔들리는 비파괴적 피드백만 준다.
@@ -53,8 +56,11 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
       closed: false,
       setActiveConversation: (id, meta) => {
         set({ activeConversationId: id, activeConversationMeta: meta ?? null, closed: false });
+        // 채널 바로가기 위젯(Android) 갱신 — 실패해도 앱 동작에 영향 없음.
+        native.walkieTalkie.syncActiveChannel({ channelId: id, channelName: meta?.name ?? '' }).catch(() => {});
       },
       close: () => set({ closed: true }),
+      open: () => set({ closed: false }),
       attentionPing: 0,
       ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
     }),

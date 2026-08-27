@@ -6,3 +6,4 @@ export * from './Camera';
 export * from './ImageViewer';
 export * from './Fcm';
 export * from './KeyboardBridge';
+export * from './walkieTalkie';

@@ -16,6 +16,9 @@
 --   중간 단계 데이터 위반을 피한다 — 실제 전체 검증(모든 기존 행 재검사)은 여기, 최종 소유자인
 --   199 에서만 일어난다(NOT VALID 미부여). 새 target_type 값을 또 추가하는 후속 마이그레이션이
 --   생기면 그 파일이 새 최종 소유자가 되고, 이 ADD 에도 NOT VALID 를 붙여야 한다.
+-- 🔴 P5-5(2026-08-27, 209_group_message_report.sql): GROUP_MESSAGE 값 추가로 소유권이 209 로
+--   넘어갔다 — §10 규약 3번에 따라 이 ADD 를 NOT VALID 로 낮춘다(재실행 시 209 가 쌓은
+--   GROUP_MESSAGE 신고 행을 이 좁은 7값 정의가 위반하지 않도록). 실제 검증은 이제 209 담당.
 --
 -- reported_user_id 완화: business_profile.user_id 는 관리자 직접등록 프로필에서 NULL 일 수 있다
 -- (init/168). 기존 reports.reported_user_id 는 NOT NULL 이었으나, 오너 미연결 업체도 신고 대상이
@@ -33,7 +36,7 @@ ALTER TABLE reports ADD COLUMN IF NOT EXISTS business_profile_id UUID REFERENCES
 
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_type_check;
 ALTER TABLE reports ADD CONSTRAINT reports_target_type_check
-    CHECK (target_type IN ('LISTING','USER','DM','POST','COMMENT','REVIEW','BIZ'));
+    CHECK (target_type IN ('LISTING','USER','DM','POST','COMMENT','REVIEW','BIZ')) NOT VALID;
 
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_biz_check;
 ALTER TABLE reports ADD CONSTRAINT reports_biz_check CHECK (target_type <> 'BIZ' OR business_profile_id IS NOT NULL);

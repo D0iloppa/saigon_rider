@@ -434,6 +434,13 @@ class FeedPost(Base):
         order_by="FeedPostImage.sort_order",
         cascade="all, delete-orphan",
     )
+    hashtags: Mapped[list["PostHashtag"]] = relationship(
+        "PostHashtag",
+        back_populates="post",
+        lazy="selectin",
+        order_by="PostHashtag.tag",
+        cascade="all, delete-orphan",
+    )
 
 
 class FeedPostImage(Base):
@@ -451,6 +458,21 @@ class FeedPostImage(Base):
 
     post: Mapped["FeedPost"] = relationship("FeedPost", back_populates="images")
     content: Mapped["Content"] = relationship("Content", lazy="selectin")
+
+
+# ── 게시물 해시태그 (205_post_hashtags.sql, Phase3) ───────────────
+
+
+class PostHashtag(Base):
+    __tablename__ = "post_hashtags"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("feed_posts.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag: Mapped[str] = mapped_column(String(50), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    post: Mapped["FeedPost"] = relationship("FeedPost", back_populates="hashtags")
 
 
 # ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ───────────────

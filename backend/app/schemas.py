@@ -861,6 +861,7 @@ class FeedPostEnrichedOut(BaseModel):
     longitude: Decimal | None = None
     translation_failed: bool = False
     group_id: UUID | None = None
+    hashtags: list[str] = []
 
 
 class FeedCreateRequest(BaseModel):

@@ -1,11 +1,12 @@
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -18,6 +19,7 @@ from ..models import (
     FeedPostImage,
     PostComment,
     PostCommentLike,
+    PostHashtag,
     PostLike,
     Report,
     RideSession,
@@ -49,6 +51,15 @@ from ._report_guard import guard_duplicate_report
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/feed", tags=["피드 (Feed)"])
+
+_HASHTAG_PATTERN = re.compile(r"#(\w+)")
+
+
+def _extract_hashtags(content: str | None) -> list[str]:
+    """본문에서 #태그 를 파싱한다. 대소문자 무시(소문자 정규화) + 중복 제거."""
+    if not content:
+        return []
+    return sorted({tag.lower()[:50] for tag in _HASHTAG_PATTERN.findall(content)})
 
 
 async def _get_post_or_404(post_id: uuid.UUID, db: AsyncSession) -> FeedPost:
@@ -126,6 +137,7 @@ async def _enrich(post: FeedPost, user: User | None, ride: RideSession | None, d
         latitude=public_latitude,
         longitude=public_longitude,
         group_id=post.group_id,
+        hashtags=[h.tag for h in (post.hashtags or [])],
     )
 
 
@@ -148,6 +160,7 @@ async def get_feed(
     max_lat: Decimal | None = Query(None),
     min_lng: Decimal | None = Query(None),
     max_lng: Decimal | None = Query(None),
+    tag: str | None = Query(None, description="filter=tag 일 때 해시태그(# 제외)"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 내용을 캐시된 번역으로 표기"),
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
@@ -183,6 +196,13 @@ async def get_feed(
         )
         base_q = base_q.where(public_group_filter)
         count_q = count_q.where(public_group_filter)
+
+    if filter == "tag":
+        if not tag:
+            raise HTTPException(status_code=422, detail="tag is required when filter=tag")
+        tag_post_ids = select(PostHashtag.post_id).where(PostHashtag.tag == tag.lower().lstrip("#")[:50])
+        base_q = base_q.where(FeedPost.id.in_(tag_post_ids))
+        count_q = count_q.where(FeedPost.id.in_(tag_post_ids))
 
     if author_id:
         base_q = base_q.where(FeedPost.user_id == author_id)
@@ -244,6 +264,13 @@ async def get_feed(
             if it.content:
                 it.content = ct
     return FeedPageOut(items=items, total=total, page=page, size=size, has_more=offset + len(items) < total)
+
+
+# P3-2
+@router.get("/hashtags", response_model=list[str], summary="해시태그 목록")
+async def list_hashtags(db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(select(PostHashtag.tag).distinct().order_by(PostHashtag.tag))).scalars().all()
+    return list(rows)
 
 
 # F-2
@@ -362,6 +389,9 @@ async def create_feed_post(
     for idx, cid in enumerate(content_ids):
         db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
 
+    for tag in _extract_hashtags(body.content):
+        db.add(PostHashtag(post_id=post_id, tag=tag))
+
     if group is not None:
         group.post_count += 1
 
@@ -406,6 +436,9 @@ async def update_feed_post(
 
     if body.content is not None:
         post.content = body.content
+        await db.execute(delete(PostHashtag).where(PostHashtag.post_id == post_id))
+        for tag in _extract_hashtags(body.content):
+            db.add(PostHashtag(post_id=post_id, tag=tag))
     if body.image_content_ids is not None:
         await db.execute(select(FeedPostImage).where(FeedPostImage.post_id == post_id))
         for old_img in list(post.images):

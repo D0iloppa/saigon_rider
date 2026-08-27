@@ -133,67 +133,6 @@
   object-fit: contain;
 }
 
-/* 음성메시지 카드 (A-8) — .bubble/.mine/.theirs 골격 재사용 */
-.voiceCard {
-  min-width: 180px;
-}
-
-.voiceRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.voicePlayBtn {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.25);
-  color: inherit;
-}
-
-.theirs .voicePlayBtn {
-  background: var(--bg);
-}
-
-.voiceProgressTrack {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.35);
-  overflow: hidden;
-}
-
-.theirs .voiceProgressTrack {
-  background: var(--line);
-}
-
-.voiceProgressFill {
-  height: 100%;
-  background: currentColor;
-  border-radius: 2px;
-}
-
-.voiceDuration {
-  flex-shrink: 0;
-  font-size: 12px;
-  opacity: 0.85;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 재생완료(D-6)로 파일이 삭제된 음성메시지 — 비활성 표시 */
-.voiceDeleted {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  opacity: 0.6;
-}
-
 /* ── 매물 컨텍스트 카드 (SGR-287 거래 채팅) ── */
 .contextCard {
   display: flex;
@@ -387,6 +326,98 @@
 .apptBtnGhost[aria-disabled='true'] { opacity: .5; }
 
 .apptTime {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: -2px;
+}
+
+/* ── 워키토키 채널 초대 카드 — 시스템/액션 카드 (apptCard 문법 계승, 좌우 정렬은 버블 관례 유지) ── */
+.walkieInviteCard {
+  max-width: 75%;
+  min-width: 210px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.walkieInviteMine {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.walkieInviteTheirs {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.walkieInviteHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.walkieInviteIcon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-50);
+  color: var(--brand-500);
+}
+
+.walkieInviteText {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.walkieInviteJoinBtn {
+  width: 100%;
+  padding: 9px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--brand-500);
+  color: #fff;
+}
+
+.walkieInviteJoinBtn:active { opacity: .85; }
+
+/* 참여 중 = 활성 상태 필 (apptStatusPill 톤) — 라이브 도트로 "열려 있음"만 은은히 표시 */
+.walkieInviteJoined {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--brand-50);
+  color: var(--brand-500);
+}
+
+.walkieInviteJoined::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.walkieInviteTime {
   align-self: flex-end;
   font-size: 11px;
   color: var(--text-3);

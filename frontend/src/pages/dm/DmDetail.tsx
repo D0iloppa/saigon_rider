@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Play, Pause, Mic } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Radio } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -31,7 +31,6 @@ import {
   cancelPriceOffer,
   reportConversation,
   removeMember,
-  markVoicePlayed,
   DM_REPORT_REASONS,
   type DmReportReason,
 } from '@/api/dm';
@@ -54,103 +53,6 @@ import { formatPriceVnd } from '../market/marketFormat';
 import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import styles from './DmDetail.module.css';
 
-// A-8: 음성메시지(message_type='voice') 카드. 표준 HTML5 <audio> 로 재생/진행바만 다룬다(커스텀 오디오 엔진 금지).
-// 재생 상태를 카드별로 독립 관리해야 해서 별도 컴포넌트로 분리했다.
-function mmss(sec: number): string {
-  const s = Math.max(0, Math.round(sec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
-function VoiceMessageCard({
-  msg,
-  isMine,
-  onPlayed,
-  autoPlay,
-}: {
-  msg: DmMessage;
-  isMine: boolean;
-  onPlayed: () => void;
-  autoPlay?: boolean;
-}) {
-  const { t } = useTranslation();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0); // 0..1
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const totalSec = Math.round((msg.meta?.durationMs ?? 0) / 1000);
-
-  // B-4: 음성메시지 알림 탭 딥링크로 진입했을 때 해당 메시지를 자동재생한다.
-  useEffect(() => {
-    if (autoPlay) audioRef.current?.play();
-  }, [autoPlay]);
-
-  // D-6: 재생완료로 파일이 삭제되면 audioUrl 이 null 로 온다 — 더 이상 재생 불가능함을 명시.
-  if (!msg.audioUrl) {
-    return (
-      <div className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs} ${styles.voiceCard}`}>
-        <div className={styles.voiceDeleted}>
-          <Mic size={16} />
-          <span>{t('dm.voicePlayed', { defaultValue: '재생 완료된 음성메시지' })}</span>
-        </div>
-        <div className={styles.meta}>
-          {formatRelativeTime(msg.createdAt)}
-          {isMine && msg.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
-        </div>
-      </div>
-    );
-  }
-
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) audio.pause();
-    else audio.play();
-  };
-
-  return (
-    <div className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs} ${styles.voiceCard}`}>
-      <div className={styles.voiceRow}>
-        <button
-          type="button"
-          className={styles.voicePlayBtn}
-          onClick={togglePlay}
-          aria-label={playing ? t('dm.voicePause', { defaultValue: '일시정지' }) : t('dm.voicePlay', { defaultValue: '재생' })}
-        >
-          {playing ? <Pause size={16} /> : <Play size={16} />}
-        </button>
-        <div className={styles.voiceProgressTrack}>
-          <div className={styles.voiceProgressFill} style={{ width: `${Math.round(progress * 100)}%` }} />
-        </div>
-        <span className={styles.voiceDuration}>{mmss(playing || elapsedSec > 0 ? elapsedSec : totalSec)}</span>
-      </div>
-      <audio
-        ref={audioRef}
-        src={msg.audioUrl}
-        preload="none"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => {
-          const a = e.currentTarget;
-          setElapsedSec(a.currentTime);
-          if (a.duration) setProgress(a.currentTime / a.duration);
-        }}
-        onEnded={() => {
-          setPlaying(false);
-          setProgress(0);
-          setElapsedSec(0);
-          // 내가 보낸 메시지를 내가 재생해도 삭제 트리거가 되면 안 된다 — 상대가 보낸 메시지일 때만 신고.
-          // (서버도 발신자 체크를 하지만 불필요한 호출을 프론트에서도 미리 걸러낸다)
-          if (!isMine) onPlayed();
-        }}
-      />
-      <div className={styles.meta}>
-        {formatRelativeTime(msg.createdAt)}
-        {isMine && msg.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
-      </div>
-    </div>
-  );
-}
-
 export default function DmDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -159,10 +61,10 @@ export default function DmDetail() {
   const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
   const location = useLocation();
   const locationState = location.state as { conv?: DmConversation } | null;
-  // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 해당 메시지를 자동재생한다.
-  const autoPlayMessageId = new URLSearchParams(location.search).get('voice') === '1'
-    ? new URLSearchParams(location.search).get('mid')
-    : null;
+  // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 음성메시지가 더 이상 채팅 버블로
+  // 렌더링되지 않으므로(워키토키 개편, 202608) 여기서 직접 자동재생하지 않는다. 대신 이 대화방을
+  // 워키토키 플로팅 버튼의 대상으로 활성화해, 그 버튼의 폴링이 이 메시지를 큐에 담아 재생하게 한다.
+  const voiceDeepLink = new URLSearchParams(location.search).get('voice') === '1';
   const user = useUserStore((s) => s.user);
   const refreshUnread = useDmStore((s) => s.refreshUnread);
   const session = loadSession();
@@ -222,6 +124,15 @@ export default function DmDetail() {
   // 명시적 액션에서만 일어난다.
   const setActiveWalkieConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
   const walkieActiveConversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
+
+  // B-4: 음성메시지 알림 딥링크(?voice=1) 진입은 위 3가지와 별개인 4번째 명시적 액션이다 — 사용자가
+  // 알림을 탭한 것 자체가 "이 채널을 듣겠다"는 의사표시. 이 대화방을 워키토키 대상으로 활성화해야
+  // 플로팅 버튼의 폴링이 도착한 음성메시지를 큐에 담아 재생한다.
+  useEffect(() => {
+    if (!voiceDeepLink || !conversationId) return;
+    if (walkieActiveConversationId === conversationId) return;
+    setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
+  }, [voiceDeepLink, conversationId, walkieActiveConversationId, setActiveWalkieConversation, isDirect, otherName, roomTitle]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -512,16 +423,6 @@ export default function DmDetail() {
       setSending(false);
     }
   };
-
-  // A-8/D-6: 상대가 보낸 음성메시지 재생완료 신고 — 서버가 파일을 삭제하고 playedAt 을 기록한다.
-  const handleVoicePlayed = useCallback((messageId: string) => {
-    if (!conversationId) return;
-    markVoicePlayed(conversationId, messageId)
-      .then((updated) => {
-        setMessages((prev) => prev.map((m) => (m.id === messageId ? updated : m)));
-      })
-      .catch(() => {});
-  }, [conversationId]);
 
   const handleTranslateMsg = async (msgId: string, content: string) => {
     if (tr[msgId]) {
@@ -856,36 +757,34 @@ export default function DmDetail() {
             );
           }
           if (m.messageType === 'voice') {
-            return (
-              <VoiceMessageCard
-                key={m.id}
-                msg={m}
-                isMine={isMine}
-                onPlayed={() => handleVoicePlayed(m.id)}
-                autoPlay={m.id === autoPlayMessageId}
-              />
-            );
+            // 워키토키 개편(202608, 대표 피드백 "워키토키 같지 않다") — 음성메시지는 더 이상 채팅
+            // 버블로 쌓이지 않는다. 워키토키 플로팅 버튼에서만 수신·재생된다(물리 워키토키처럼).
+            // message_type='voice' 는 현재 워키토키 플로우에서만 생성된다 — 이 필터가 안전한 이유다.
+            // 향후 일반 DM 음성메시지 기능을 추가한다면 이 필터를 반드시 재검토할 것.
+            return null;
           }
           if (m.messageType === 'walkie_invite') {
             const joined = walkieActiveConversationId === conversationId;
             return (
-              <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
-                <div className={styles.text}>
-                  <Mic size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                  {t('walkieTalkie.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 워키토키 채널을 열었어요' })}
+              <div key={m.id} className={`${styles.walkieInviteCard} ${isMine ? styles.walkieInviteMine : styles.walkieInviteTheirs}`}>
+                <div className={styles.walkieInviteHead}>
+                  <span className={styles.walkieInviteIcon}><Radio size={17} /></span>
+                  <span className={styles.walkieInviteText}>
+                    {t('walkieTalkie.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 워키토키 채널을 열었어요' })}
+                  </span>
                 </div>
                 {joined ? (
-                  <span className={styles.text}>{t('walkieTalkie.inviteJoined', { defaultValue: '참여 중' })}</span>
+                  <span className={styles.walkieInviteJoined}>{t('walkieTalkie.inviteJoined', { defaultValue: '참여 중' })}</span>
                 ) : (
                   <button
                     type="button"
-                    className={styles.translateBtn}
+                    className={styles.walkieInviteJoinBtn}
                     onClick={() => { if (conversationId) setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect }); }}
                   >
                     {t('walkieTalkie.inviteJoinBtn', { defaultValue: '참여하기' })}
                   </button>
                 )}
-                <div className={styles.meta}>{formatRelativeTime(m.createdAt)}</div>
+                <div className={styles.walkieInviteTime}>{formatRelativeTime(m.createdAt)}</div>
               </div>
             );
           }

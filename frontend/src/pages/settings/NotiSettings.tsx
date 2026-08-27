@@ -11,6 +11,7 @@ import {
   updateNotificationSettings,
   type NotificationSettingsFields,
 } from '@/api/notifications';
+import { isWalkieTalkieOptedOut, setWalkieTalkieOptOut } from '@/lib/walkieTalkieConsent';
 import styles from './Settings.module.css';
 
 type NotiField = keyof NotificationSettingsFields;
@@ -53,6 +54,15 @@ export default function NotiSettings() {
   const navigate = useNavigate();
   const userId = useUserStore((s) => s.user?.id);
   const [state, setState] = useState<NotificationSettingsFields>(DEFAULT_STATE);
+  // 워키토키(음성메시지) 옵트아웃 — A-9. 녹음 기능(A-4~A-7) 자체가 아직 없어 서버 필드가
+  // 없다. 기능이 붙기 전까지는 로컬(localStorage)에만 저장한다.
+  const [walkieOptOut, setWalkieOptOutState] = useState(() => isWalkieTalkieOptedOut());
+
+  // 토글은 "사용" 여부로 보여준다 — 사용자에게는 옵트아웃보다 자연스러운 프레이밍.
+  const handleWalkieEnabledToggle = (enabled: boolean) => {
+    setWalkieOptOutState(!enabled);
+    setWalkieTalkieOptOut(!enabled);
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -116,6 +126,21 @@ export default function NotiSettings() {
             ) : null}
           </div>
         ))}
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>{t('settings.notiSectionWalkie')}</h3>
+          <div className={styles.sectionCard}>
+            <SettingsRow
+              label={t('settings.walkieTalkieEnabled')}
+              right={
+                <Toggle
+                  checked={!walkieOptOut}
+                  onChange={handleWalkieEnabledToggle}
+                />
+              }
+            />
+          </div>
+          <p className={styles.caption}>{t('settings.walkieTalkieOptOutCaption')}</p>
+        </div>
         <p className={styles.caption}>{t('settings.notiImportantNote')}</p>
       </div>
     </>

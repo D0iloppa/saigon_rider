@@ -758,7 +758,16 @@
     "deleteConfirm": "Bạn có chắc muốn xóa tài khoản?\nToàn bộ lịch sử đi xe, huy hiệu và gold sẽ bị xóa vĩnh viễn.",
     "deleteWarning": "Toàn bộ lịch sử đi xe, huy hiệu, gold và XP sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.",
     "notiLoadError": "Không tải được cài đặt thông báo",
-    "notiSaveError": "Không lưu được cài đặt thông báo"
+    "notiSaveError": "Không lưu được cài đặt thông báo",
+    "notiSectionWalkie": "Bộ đàm",
+    "walkieTalkieEnabled": "Dùng bộ đàm (tin nhắn thoại)",
+    "walkieTalkieOptOutCaption": "Tắt sẽ ẩn tính năng tin nhắn thoại bộ đàm"
+  },
+  "walkieTalkie": {
+    "consentTitle": "Sử dụng tính năng bộ đàm",
+    "consentBody": "Tính năng bộ đàm (tin nhắn thoại) sử dụng micro của bạn. Âm thanh đã ghi sẽ được gửi cho người kia dưới dạng tin nhắn.",
+    "consentRetention": "Tin nhắn thoại đã gửi sẽ tự động bị xóa sau khi người nhận nghe xong.",
+    "consentAgree": "Đồng ý và tiếp tục"
   },
   "feedCreate": {
     "title": "Bài viết mới",

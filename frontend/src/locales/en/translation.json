@@ -758,7 +758,16 @@
     "deleteConfirm": "Are you sure you want to delete your account?\nAll ride history, badges, and gold will be permanently deleted.",
     "deleteWarning": "All ride history, badges, gold, and XP will be permanently deleted. This action cannot be undone.",
     "notiLoadError": "Could not load notification settings",
-    "notiSaveError": "Could not save notification settings"
+    "notiSaveError": "Could not save notification settings",
+    "notiSectionWalkie": "Walkie-talkie",
+    "walkieTalkieEnabled": "Use walkie-talkie (voice messages)",
+    "walkieTalkieOptOutCaption": "Turning this off hides the walkie-talkie voice message feature"
+  },
+  "walkieTalkie": {
+    "consentTitle": "Using the walkie-talkie feature",
+    "consentBody": "Walkie-talkie (voice messages) uses your microphone. The recorded voice is sent to the other person as a message.",
+    "consentRetention": "Sent voice messages are automatically deleted once the recipient finishes playing them.",
+    "consentAgree": "Agree & continue"
   },
   "feedCreate": {
     "title": "New Post",

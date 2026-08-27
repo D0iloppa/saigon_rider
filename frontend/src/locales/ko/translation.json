@@ -758,7 +758,16 @@
     "deleteConfirm": "정말 탈퇴하시겠어요?\n모든 라이딩 기록, 배지, 골드가 영구 삭제됩니다.",
     "deleteWarning": "모든 라이딩 기록, 배지, 골드, XP가 영구 삭제됩니다. 이 작업은 되돌릴 수 없어요.",
     "notiLoadError": "알림 설정을 불러오지 못했습니다",
-    "notiSaveError": "알림 설정을 저장하지 못했습니다"
+    "notiSaveError": "알림 설정을 저장하지 못했습니다",
+    "notiSectionWalkie": "워키토키",
+    "walkieTalkieEnabled": "워키토키(음성메시지) 사용",
+    "walkieTalkieOptOutCaption": "끄면 워키토키 음성메시지 기능이 숨겨집니다"
+  },
+  "walkieTalkie": {
+    "consentTitle": "워키토키 기능 사용 안내",
+    "consentBody": "워키토키(음성메시지) 기능은 마이크를 사용합니다. 녹음된 음성은 메시지로 상대방에게 전송됩니다.",
+    "consentRetention": "전송한 음성메시지는 상대방이 재생을 완료하면 자동으로 삭제됩니다.",
+    "consentAgree": "동의하고 계속하기"
   },
   "feedCreate": {
     "title": "새 글 작성",

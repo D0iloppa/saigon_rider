@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
@@ -64,14 +64,11 @@ export function WalkieTalkieFloatingButton() {
   const [dragging, setDragging] = useState(false);
   // 롱프레스(450ms) 컨텍스트메뉴(대표 지시 2026-08-27) — "채널 변경"/"초대장 다시 보내기".
   const [menuOpen, setMenuOpen] = useState(false);
-  // 메뉴 패널의 버튼 기준 가로 오프셋(px) — 버튼 중심 정렬 후 화면 경계 클램프로 계산.
-  const [menuOffsetX, setMenuOffsetX] = useState(0);
   const [channelSheetOpen, setChannelSheetOpen] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const menuPanelRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
-  // 더블탭 → 캡슐 펼침(peek). idle/권한거부 상태의 탭에만 적용(녹음중 탭은 정지/전송이라 지연 없이 즉시 반응해야 한다).
+  // 더블탭 → 캡슐 펼침(peek) 토글. idle/권한거부 상태의 탭에만 적용(녹음중 탭은 정지/전송이라 지연 없이 즉시 반응해야 한다).
   const tapTimerRef = useRef<number | null>(null);
   const phaseRef = useRef<Phase>('idle');
   const pendingResultRef = useRef<WalkieTalkieRecordingResult | null>(null);
@@ -242,7 +239,8 @@ export function WalkieTalkieFloatingButton() {
     setPhase('idle');
   }, [queue, conversationId]);
 
-  // 다이나믹 아일랜드식 "잠깐 펼침"(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 몇 초 펼쳤다가 자동으로 접는다.
+  // 다이나믹 아일랜드식 펼침(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 자동으로 펼친다.
+  // 자동 접힘은 없다(대표 지시 2026-08-27) — 접는 건 더블탭 토글뿐이다.
   const speakingOtherId = presence?.recordingUsers.find((u) => u.id !== user?.id)?.id ?? null;
   const attentionPing = useWalkieTalkieBubbleStore((s) => s.attentionPing);
   const isPlayingPhase = phase === 'playing';
@@ -250,13 +248,8 @@ export function WalkieTalkieFloatingButton() {
     if (!conversationId) return;
     setPeek(true);
     // isPlayingPhase 도 트리거에 포함 — 재생 시작 시(그리고 종료 시 재수신 대비) 채널명 대신
-    // "재생중" 상태를 잠깐 보여준다.
+    // "재생중" 상태를 보여준다.
   }, [conversationId, speakingOtherId, attentionPing, isPlayingPhase]);
-  useEffect(() => {
-    if (!peek) return;
-    const timer = window.setTimeout(() => setPeek(false), 3200);
-    return () => window.clearTimeout(timer);
-  }, [peek]);
 
   // 캡슐 크기가 모핑될 때(펼침/접힘) 직전 가로 중심을 유지하며 확장되게 하고, 화면 밖으로
   // 밀려날 때만 반대쪽으로 밀어 넣는다.
@@ -283,18 +276,6 @@ export function WalkieTalkieFloatingButton() {
     };
     // 캡슐 DOM 존재 여부가 바뀔 때(대화 진입/닫기/기능 가용) 옵저버를 다시 건다.
   }, [conversationId, closed, capability]);
-
-  // 메뉴 패널 가로 정렬 — 버튼 중심에 맞추되, 화면 밖으로 나가면 안쪽으로 클램프
-  // (캡슐 모핑 시 중앙 유지 로직과 같은 정신 — 단 패널은 캡슐 크기를 안 바꾸므로 별도 계산).
-  useLayoutEffect(() => {
-    if (!menuOpen) return;
-    const btnW = rootRef.current?.offsetWidth ?? BUBBLE_SIZE;
-    const panelW = menuPanelRef.current?.offsetWidth ?? 0;
-    const centered = (btnW - panelW) / 2;
-    const minX = MARGIN - pos.x;
-    const maxX = window.innerWidth - MARGIN - panelW - pos.x;
-    setMenuOffsetX(Math.min(Math.max(centered, minX), maxX));
-  }, [menuOpen, pos.x]);
 
   const resetToIdle = useCallback(() => {
     pendingResultRef.current = null;
@@ -520,13 +501,13 @@ export function WalkieTalkieFloatingButton() {
       dragMovedRef.current = false;
       return;
     }
-    // 더블탭(280ms 이내 재탭) → 펼침(peek). idle/권한거부 상태에서만 판정 —
-    // 녹음중/자동중지 탭(정지·전송)은 지연 없이 즉시 처리해야 하므로 그대로 통과시킨다.
+    // 더블탭(280ms 이내 재탭) → 펼침(peek) 토글(접혔으면 펴고, 펴졌으면 접는다). idle/권한거부
+    // 상태에서만 판정 — 녹음중/자동중지 탭(정지·전송)은 지연 없이 즉시 처리해야 하므로 그대로 통과시킨다.
     if (phase === 'idle' || phase === 'permissionDenied') {
       if (tapTimerRef.current !== null) {
         window.clearTimeout(tapTimerRef.current);
         tapTimerRef.current = null;
-        setPeek(true);
+        setPeek((p) => !p);
         return;
       }
       tapTimerRef.current = window.setTimeout(() => {
@@ -574,6 +555,7 @@ export function WalkieTalkieFloatingButton() {
         tabIndex={0}
         className={styles.capsule}
         data-phase={phase}
+        data-menu-open={menuOpen || undefined}
         data-dragging={dragging || undefined}
         data-speaking={(!isRec && !!speakingOther) || undefined}
         // left/top 대신 transform(translate3d)으로 이동시킨다 — left/top 변경은 매 포인터무브마다
@@ -619,7 +601,7 @@ export function WalkieTalkieFloatingButton() {
             </div>
           </div>
         ) : (
-          <>
+          <div className={styles.topRow}>
             {/* 닫기(idle·펼침시에만) / 취소(녹음중) — 캡슐 안에 포함된 고스트 버튼, 겹치는 별도 원 없음 */}
             {phase === 'idle' && (
               <button
@@ -687,17 +669,17 @@ export function WalkieTalkieFloatingButton() {
             {phase === 'playing' && queue.length > 1 && (
               <span className={styles.count}>{queue.length}</span>
             )}
-          </>
+          </div>
         )}
 
-        {/* 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 버튼(캡슐)은 모핑하지 않고 그대로 두고,
-            바로 아래에 별도 패널이 아래로 피어난다(DI 스타일). 캡슐의 자식이라 드래그 transform 을
-            그대로 타고 함께 움직인다. 항상 마운트 — data-open 토글로 펼침/접힘을 트랜지션한다. */}
+        {/* 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 별도 패널이 아니라 캡슐 자체가 아래로
+            확장된다(DI 스타일: 하나의 연속된 셰이프). 상단 행(topRow)은 그대로 위에 고정되고,
+            메뉴 블록이 in-flow 로 그 아래에 펼쳐져 캡슐의 실제 높이·너비가 커진다 — 그래서
+            기존 ResizeObserver 가 가로 중앙 유지·화면 하단 클램프(위로 밀어올림)를 그대로 처리한다.
+            항상 마운트 — data-open 토글로 펼침/접힘을 트랜지션한다. */}
         <div
-          ref={menuPanelRef}
           className={styles.menuPanel}
           data-open={menuOpen || undefined}
-          style={{ left: menuOffsetX }}
           role="menu"
         >
           <div className={styles.menuInner}>

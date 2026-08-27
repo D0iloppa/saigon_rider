@@ -7,11 +7,10 @@
   left: 0;
   top: 0;
   z-index: 60;
+  /* 세로 스택 — 상단 행(topRow) + (롱프레스 시) in-flow 메뉴 블록. 캡슐 하나가 통째로 자란다(DI). */
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 46px;
-  padding: 0 13px;
+  flex-direction: column;
+  align-items: stretch;
   border-radius: var(--r-pill);
   background: rgba(8, 9, 15, 0.94); /* --ink-900 + 미세 투명 */
   color: #fff;
@@ -66,9 +65,23 @@
   animation: wt-breathe 900ms ease-in-out infinite;
 }
 
+/* 메뉴 펼침 — 캡슐이 세로로 자라므로 pill 반경(높이/2 클램프) 대신 접힘 상태와 동일한 23px 로 고정
+ * (접힘 캡슐 높이 46px 의 절반 — 펼침 순간 모서리가 튀지 않는다). */
+.capsule[data-menu-open] {
+  border-radius: 23px;
+}
+
+/* 상단 행 — 접힘 캡슐의 원래 내용(아이콘·채널정보·파형 등). 메뉴 펼침 중에도 그대로 위에 고정. */
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 13px;
+}
+
 /* 권한거부 — 캡슐이 그대로 카드로 확장 */
 .capsule[data-phase='permissionDenied'] {
-  height: auto;
   padding: 13px 15px;
   border-radius: var(--r-lg);
   cursor: default;
@@ -153,7 +166,7 @@
   white-space: nowrap;
 }
 
-/* 채널정보 — 평소 접힘(max-width 0), peek 때 펼쳐졌다가 자동으로 다시 접힌다 */
+/* 채널정보 — 평소 접힘(max-width 0), peek 때 펼쳐진다(자동 접힘 없음 — 더블탭 토글로만 접는다) */
 .label {
   display: flex;
   flex-direction: column;
@@ -246,60 +259,51 @@
   z-index: 59;
 }
 
-/* 롱프레스 컨텍스트메뉴 (대표 지시 2026-08-27) — 버튼(캡슐)은 그대로 두고, 버튼 바로 아래에
- * 별도 패널이 아래로 피어난다(DI 스타일). height 0→auto 는 grid-template-rows 0fr→1fr 트릭 —
- * 미지원 구형 WebView 에선 높이만 즉시 펼쳐지고 scale·fade 는 그대로 animate 된다(우아한 강등).
- * 가로 위치(left)는 JS 가 버튼 중심 정렬 + 화면 경계 클램프로 계산해 인라인으로 준다. */
+/* 롱프레스 컨텍스트메뉴 (대표 지시 2026-08-27) — 별도 패널이 아니라 캡슐의 in-flow 자식.
+ * 배경·테두리·그림자·반경은 캡슐 것 하나만 쓴다(하나의 연속된 셰이프, 이음새 없음 — DI 스타일).
+ * 펼침/접힘은 기존 grid-template-rows 0fr→1fr 트릭을 세로·가로 양축(columns 0fr→1fr)으로 적용 —
+ * 접힘 시 높이·너비 기여가 0 이라 캡슐이 원래 pill 그대로고, 펼치면 캡슐 실측 크기가 커져
+ * ResizeObserver 가 중앙 유지·화면 경계 클램프를 그대로 처리한다.
+ * 미지원 구형 WebView 에선 크기만 즉시 펼쳐지고 fade 는 그대로 animate 된다(우아한 강등). */
 .menuPanel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
   display: grid;
   grid-template-rows: 0fr;
-  min-width: 176px;
-  border-radius: 22px;
-  background: rgba(8, 9, 15, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.28),
-    0 10px 32px rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  grid-template-columns: 0fr;
   cursor: default;
   opacity: 0;
-  transform: scale(0.68);
-  transform-origin: top center;
   visibility: hidden;
   pointer-events: none;
   transition:
     grid-template-rows 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
-    transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    grid-template-columns 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
     opacity 180ms ease,
     visibility 0s 260ms;
 }
 
 .menuPanel[data-open] {
   grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
   opacity: 1;
-  transform: scale(1);
   visibility: visible;
   pointer-events: auto;
   transition:
     grid-template-rows 300ms cubic-bezier(0.34, 1.4, 0.64, 1),
-    transform 300ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    grid-template-columns 300ms cubic-bezier(0.34, 1.4, 0.64, 1),
     opacity 200ms ease;
 }
 
-/* grid-rows 트릭의 안쪽 래퍼 — min-height 0 이어야 0fr 로 실제 접힌다. */
+/* grid 트릭의 안쪽 래퍼 — min-height/min-width 0 이어야 0fr 로 실제 접힌다. */
 .menuInner {
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 .menuList {
   display: flex;
   flex-direction: column;
-  padding: 6px;
+  min-width: 176px;
+  padding: 0 6px 6px;
 }
 
 .menuOption {

@@ -111,13 +111,19 @@ async def _send_single(
     url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
     capped_badge = min(badge, 999)
 
+    # B-4: 음성메시지는 top-level "notification" 을 생략해 data-only 메시지로 보낸다 — Android 는
+    # notification 블록이 있으면 백그라운드/종료 상태에서 시스템이 자동 표시하고
+    # onMessageReceived 를 건너뛰어(커스텀 "재생" 액션 버튼을 못 그림) 이 분기가 필요하다.
+    # iOS 는 apns.payload.aps.alert 를 별도로 항상 채우므로 이 분기와 무관하게 계속 표시된다.
+    is_voice = bool(data and data.get("type") == "voice_message")
+
+    android: dict[str, Any] = {"priority": "high"}
+    if not is_voice:
+        android["notification"] = {"sound": "default"}
+
     message: dict[str, Any] = {
         "token": fcm_token,
-        "notification": {"title": title, "body": body},
-        "android": {
-            "priority": "high",
-            "notification": {"sound": "default"},
-        },
+        "android": android,
         "apns": {
             "headers": {"apns-priority": "10"},
             "payload": {
@@ -130,6 +136,8 @@ async def _send_single(
         },
         "data": data or {},
     }
+    if not is_voice:
+        message["notification"] = {"title": title, "body": body}
 
     try:
         async with httpx.AsyncClient() as client:

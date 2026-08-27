@@ -75,11 +75,21 @@ async def _push_enabled(db, user_id: uuid.UUID, field: str) -> bool:
     return bool(getattr(row, field)) if row else True
 
 
-async def _try_push(user_id: str, title: str, body: str, link: str) -> None:
-    """재시도 가능한 provider 실패만 제한 재시도하고 별도 DLQ로 격리한다."""
+async def _try_push(user_id: str, title: str, body: str, link: str, extra_data: dict[str, str] | None = None) -> None:
+    """재시도 가능한 provider 실패만 제한 재시도하고 별도 DLQ로 격리한다.
+
+    extra_data: B-4 음성메시지 알림 액션용 — voice_message 타입일 때만 채워진다(기존 텍스트/이미지
+    알림은 navigateTo 만 실리는 기존 포맷 그대로 유지).
+    """
+    # voice_message 는 엔진이 FCM "notification" 블록 없이(data-only) 보내(항상 onMessageReceived 를
+    # 타서 재생 액션 버튼을 그릴 수 있게) title/body 도 data 에 실어줘야 Android 가 복원할 수 있다.
+    data = {"navigateTo": link, **(extra_data or {})}
+    if extra_data:
+        data.setdefault("title", title)
+        data.setdefault("body", body)
     for attempt in range(1, MAX_DELIVERIES + 1):
         try:
-            await engine_client.notify_user_push(user_id, title=title, body=body, data={"navigateTo": link})
+            await engine_client.notify_user_push(user_id, title=title, body=body, data=data)
             log.info("push sent user=%s link=%s", user_id, link)
             return
         except httpx.HTTPStatusError as exc:
@@ -162,6 +172,20 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
     body = payload.get("preview") or ""
     link = f"dm&id={conv_id}"
 
+    # B-4: 음성메시지 알림에 "바로 재생" 액션(Android) + 딥링크 자동재생 파라미터를 얹는다.
+    # 텍스트/이미지 메시지는 message_type/audio_url 이 없으므로 이 분기를 타지 않는다(포맷 불변).
+    extra_data = None
+    message_id = payload.get("message_id")
+    audio_url = payload.get("audio_url")
+    if payload.get("message_type") == "voice" and message_id and audio_url:
+        link = f"{link}&voice=1&mid={message_id}"
+        extra_data = {
+            "type": "voice_message",
+            "audioUrl": audio_url,
+            "messageId": message_id,
+            "conversationId": str(conv_id),
+        }
+
     for recipient_id in recipient_ids:
         async with AsyncSessionLocal() as db:
             inserted = await _insert_notification(
@@ -179,7 +203,7 @@ async def _handle_dm_message(payload: dict, *, source_event_id: str) -> None:
         if not inserted:
             log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
         elif push_ok:
-            await _try_push(str(recipient_id), title, body, link)
+            await _try_push(str(recipient_id), title, body, link, extra_data)
         else:
             log.info("push skipped (chat=off) user=%s conv=%s", recipient_id, conv_id)
 

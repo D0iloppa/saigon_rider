@@ -503,17 +503,19 @@ async def send_message(
     else:
         preview = "사진을 보냈습니다"
     if recipient_ids:
-        noti_events.enqueue(
-            db,
-            "dm.message_sent",
-            {
-                "conversation_id": str(conv_id),
-                "sender_id": str(_session_uid),
-                "recipient_ids": [str(rid) for rid in recipient_ids],
-                "sender_nickname": sender.nickname if sender and sender.nickname else "",
-                "preview": preview,
-            },
-        )
+        noti_payload = {
+            "conversation_id": str(conv_id),
+            "sender_id": str(_session_uid),
+            "recipient_ids": [str(rid) for rid in recipient_ids],
+            "sender_nickname": sender.nickname if sender and sender.nickname else "",
+            "preview": preview,
+        }
+        # B-4: 음성메시지는 수신 알림에 "바로 재생" 액션을 붙이기 위해 재생 URL/메시지 ID 를 동봉한다.
+        if message_type == "voice":
+            noti_payload["message_type"] = "voice"
+            noti_payload["message_id"] = str(msg.id)
+            noti_payload["audio_url"] = f"/api/bff/contents/{body.audio_content_id}/raw"
+        noti_events.enqueue(db, "dm.message_sent", noti_payload)
     await db.commit()
 
     msg = (await db.execute(select(DmMessage).where(DmMessage.id == msg.id))).scalar_one()

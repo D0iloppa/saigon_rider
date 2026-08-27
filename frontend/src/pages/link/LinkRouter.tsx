@@ -11,6 +11,8 @@ import { saveReturnTo } from '@/lib/returnTo';
  *   quests                  → /quests
  *   quest&id=<questId>      → /quests/:questId
  *   dm&id=<conversationId>  → /dm/:conversationId
+ *   dm&id=<conversationId>&voice=1&mid=<messageId> → /dm/:conversationId?voice=1&mid=<messageId>
+ *     (B-4: 음성메시지 알림 탭 — 해당 대화로 이동 후 해당 메시지 자동재생)
  *   biz                     → /biz/intro
  *   biz&id=<profileId>      → /biz/status (PENDING/REJECTED 안내, APPROVED 는 status 화면이 /biz/manage 로 리다이렉트)
  *   bizad&id=<adId>         → /biz/ads/:adId (광고 심사 결과 딥링크, SGR-312 BP-4)
@@ -32,7 +34,13 @@ export default function LinkRouter() {
   useEffect(() => {
     const action = params.get('action') ?? '';
     const id = params.get('id');
-    const destination = resolveAction(action, id);
+    let destination = resolveAction(action, id);
+
+    // B-4: 음성메시지 알림 딥링크 — 대화 화면에 자동재생 파라미터를 그대로 넘긴다.
+    if (action === 'dm' && id && params.get('voice') === '1') {
+      const mid = params.get('mid');
+      if (mid) destination = `${destination}?voice=1&mid=${mid}`;
+    }
 
     if (!isAuthenticated) {
       // 로그인 후 이 딥링크가 가리키던 화면으로 돌아갈 수 있도록 목적지를 보관한다. (P0-2)

@@ -62,10 +62,12 @@ function VoiceMessageCard({
   msg,
   isMine,
   onPlayed,
+  autoPlay,
 }: {
   msg: DmMessage;
   isMine: boolean;
   onPlayed: () => void;
+  autoPlay?: boolean;
 }) {
   const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -73,6 +75,11 @@ function VoiceMessageCard({
   const [progress, setProgress] = useState(0); // 0..1
   const [elapsedSec, setElapsedSec] = useState(0);
   const totalSec = Math.round((msg.meta?.durationMs ?? 0) / 1000);
+
+  // B-4: 음성메시지 알림 탭 딥링크로 진입했을 때 해당 메시지를 자동재생한다.
+  useEffect(() => {
+    if (autoPlay) audioRef.current?.play();
+  }, [autoPlay]);
 
   // D-6: 재생완료로 파일이 삭제되면 audioUrl 이 null 로 온다 — 더 이상 재생 불가능함을 명시.
   if (!msg.audioUrl) {
@@ -147,7 +154,12 @@ export default function DmDetail() {
   const { conversationId } = useParams<{ conversationId: string }>();
   // 길안내 버튼 제어용 — 스토어가 이미 끝낸 측위 결과를 읽기만 한다(새로 측정하지 않는다).
   const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
-  const locationState = useLocation().state as { conv?: DmConversation } | null;
+  const location = useLocation();
+  const locationState = location.state as { conv?: DmConversation } | null;
+  // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 해당 메시지를 자동재생한다.
+  const autoPlayMessageId = new URLSearchParams(location.search).get('voice') === '1'
+    ? new URLSearchParams(location.search).get('mid')
+    : null;
   const user = useUserStore((s) => s.user);
   const refreshUnread = useDmStore((s) => s.refreshUnread);
   const session = loadSession();
@@ -808,7 +820,15 @@ export default function DmDetail() {
             );
           }
           if (m.messageType === 'voice') {
-            return <VoiceMessageCard key={m.id} msg={m} isMine={isMine} onPlayed={() => handleVoicePlayed(m.id)} />;
+            return (
+              <VoiceMessageCard
+                key={m.id}
+                msg={m}
+                isMine={isMine}
+                onPlayed={() => handleVoicePlayed(m.id)}
+                autoPlay={m.id === autoPlayMessageId}
+              />
+            );
           }
           // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)
           if (m.imageUrl && !m.content) {

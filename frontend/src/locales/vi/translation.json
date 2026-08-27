@@ -786,7 +786,10 @@
     "changeChannelTitle": "Đổi kênh",
     "entryButtonLabel": "Bộ đàm",
     "recentChannelsTitle": "Chọn cuộc trò chuyện gần đây",
-    "noConversations": "Không có cuộc trò chuyện nào"
+    "noConversations": "Không có cuộc trò chuyện nào",
+    "recentChannelsLabel": "Kênh đã kết nối gần đây",
+    "searchChannelPlaceholder": "Tìm kênh",
+    "searchNoResults": "Không tìm thấy kết quả"
   },
   "locationShare": {
     "consentTitle": "Sử dụng chia sẻ vị trí thời gian thực",

@@ -786,7 +786,10 @@
     "changeChannelTitle": "채널 변경",
     "entryButtonLabel": "워키토키",
     "recentChannelsTitle": "최근 대화 선택",
-    "noConversations": "대화가 없어요"
+    "noConversations": "대화가 없어요",
+    "recentChannelsLabel": "최근 연결했던 채널",
+    "searchChannelPlaceholder": "채널 검색",
+    "searchNoResults": "검색 결과가 없어요"
   },
   "locationShare": {
     "consentTitle": "실시간 위치공유 사용 안내",

@@ -245,13 +245,6 @@
   flex-direction: column;
 }
 
-.menuSheetTitle {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 16px;
-}
-
 .menuItem {
   padding: 16px 6px;
   text-align: left;

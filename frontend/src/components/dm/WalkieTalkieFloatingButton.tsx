@@ -7,12 +7,13 @@ import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
 import { api } from '@/api/client';
-import { fetchConversationPresence, fetchConversations, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
+import { fetchConversationPresence, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
 import type { DmConversation } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
 import styles from './WalkieTalkieFloatingButton.module.css';
 
 type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading';
@@ -57,7 +58,6 @@ export function WalkieTalkieFloatingButton() {
   // 롱프레스(450ms) 컨텍스트메뉴(대표 지시 2026-08-27) — "채널 변경"/"초대장 다시 보내기".
   const [menuOpen, setMenuOpen] = useState(false);
   const [channelSheetOpen, setChannelSheetOpen] = useState(false);
-  const [conversations, setConversations] = useState<DmConversation[]>([]);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
@@ -312,14 +312,12 @@ export function WalkieTalkieFloatingButton() {
   const handleOpenChannelSheet = useCallback(() => {
     setMenuOpen(false);
     setChannelSheetOpen(true);
-    fetchConversations().then(setConversations).catch(() => setConversations([]));
   }, []);
 
   const handleSelectChannel = useCallback(
     (c: DmConversation) => {
       const isGroup = c.conversationType !== 'direct';
       setActiveConversation(c.id, { name: isGroup ? (c.title ?? '') : (c.otherUserNickname ?? ''), isGroup });
-      setChannelSheetOpen(false);
     },
     [setActiveConversation],
   );
@@ -542,21 +540,12 @@ export function WalkieTalkieFloatingButton() {
         </div>
       </BottomSheet>
 
-      <BottomSheet open={channelSheetOpen} onClose={() => setChannelSheetOpen(false)}>
-        <div className={styles.menuSheet}>
-          <h2 className={styles.menuSheetTitle}>{t('walkieTalkie.changeChannelTitle', { defaultValue: '채널 변경' })}</h2>
-          {conversations.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={styles.menuItem}
-              onClick={() => handleSelectChannel(c)}
-            >
-              {c.conversationType !== 'direct' ? (c.title ?? '') : (c.otherUserNickname ?? '')}
-            </button>
-          ))}
-        </div>
-      </BottomSheet>
+      <WalkieChannelPickerSheet
+        open={channelSheetOpen}
+        onClose={() => setChannelSheetOpen(false)}
+        onSelect={handleSelectChannel}
+        title={t('walkieTalkie.changeChannelTitle', { defaultValue: '채널 변경' })}
+      />
     </>
   );
 }

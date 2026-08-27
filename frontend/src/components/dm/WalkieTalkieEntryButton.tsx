@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Radio } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
-import { fetchConversations } from '@/api/dm';
 import type { DmConversation } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 import { joinWalkieChannel } from '@/lib/walkieTalkieJoin';
-import { BottomSheet } from '@/components/ui/BottomSheet';
+import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
 import styles from './WalkieTalkieEntryButton.module.css';
 
 /**
@@ -24,7 +23,6 @@ export function WalkieTalkieEntryButton() {
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [conversations, setConversations] = useState<DmConversation[]>([]);
 
   useEffect(() => {
     native.walkieTalkie.getCapability().then(setCapability).catch(() => setCapability(null));
@@ -37,14 +35,12 @@ export function WalkieTalkieEntryButton() {
       ping();
       return;
     }
-    fetchConversations().then(setConversations).catch(() => setConversations([]));
     setSheetOpen(true);
   };
 
   const handleSelect = (c: DmConversation) => {
     const isGroup = c.conversationType !== 'direct';
     joinWalkieChannel(c.id, { name: isGroup ? (c.title ?? '') : (c.otherUserNickname ?? ''), isGroup }, user?.nickname);
-    setSheetOpen(false);
   };
 
   return (
@@ -58,22 +54,12 @@ export function WalkieTalkieEntryButton() {
         <Radio size={20} strokeWidth={2} />
       </button>
 
-      <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
-        <div className={styles.sheet}>
-          <h2 className={styles.sheetTitle}>
-            {t('walkieTalkie.recentChannelsTitle', { defaultValue: '최근 대화 선택' })}
-          </h2>
-          {conversations.length === 0 ? (
-            <p className={styles.empty}>{t('walkieTalkie.noConversations', { defaultValue: '대화가 없어요' })}</p>
-          ) : (
-            conversations.map((c) => (
-              <button key={c.id} type="button" className={styles.item} onClick={() => handleSelect(c)}>
-                {c.conversationType !== 'direct' ? (c.title ?? '') : (c.otherUserNickname ?? '')}
-              </button>
-            ))
-          )}
-        </div>
-      </BottomSheet>
+      <WalkieChannelPickerSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onSelect={handleSelect}
+        title={t('walkieTalkie.recentChannelsTitle', { defaultValue: '최근 대화 선택' })}
+      />
     </>
   );
 }

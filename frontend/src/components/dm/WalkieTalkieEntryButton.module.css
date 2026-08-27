@@ -3,35 +3,3 @@
   align-items: center;
   justify-content: center;
 }
-
-.sheet {
-  display: flex;
-  flex-direction: column;
-}
-
-.sheetTitle {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 16px;
-}
-
-.item {
-  padding: 16px 6px;
-  text-align: left;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  border-bottom: 1px solid var(--line);
-}
-
-.item:active {
-  background: var(--surface-2);
-}
-
-.empty {
-  padding: 24px 6px;
-  text-align: center;
-  font-size: 14px;
-  color: var(--text-2);
-}

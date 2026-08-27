@@ -786,7 +786,10 @@
     "changeChannelTitle": "Change channel",
     "entryButtonLabel": "Walkie-talkie",
     "recentChannelsTitle": "Choose a recent conversation",
-    "noConversations": "No conversations yet"
+    "noConversations": "No conversations yet",
+    "recentChannelsLabel": "Recently connected channels",
+    "searchChannelPlaceholder": "Search channels",
+    "searchNoResults": "No results found"
   },
   "locationShare": {
     "consentTitle": "Using real-time location sharing",

@@ -8,7 +8,18 @@ from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..deps import verify_user_session_allow_suspended
-from ..models import BusinessProfile, BusinessReview, FeedPost, PostComment, Report, SupportReply, SupportTicket, User
+from ..models import (
+    BusinessProfile,
+    BusinessReview,
+    DmConversation,
+    DmMessage,
+    FeedPost,
+    PostComment,
+    Report,
+    SupportReply,
+    SupportTicket,
+    User,
+)
 from ..schemas import (
     ReportOut,
     SupportReplyCreateRequest,
@@ -249,6 +260,29 @@ async def _build_parent_contexts(db: AsyncSession, reports: list[Report]) -> dic
                 continue
             summary = (post.content or "").strip()
             contexts[r.id] = f"'{summary[:30]}{'…' if len(summary) > 30 else ''}' 게시물" if summary else "게시물"
+
+    # P5-5(260827 §7 Q-3) — 그룹 메시지 신고는 방 전체가 아니라 특정 메시지 단위. 어드민 처리
+    # 시 "어느 메시지인지" 드러나야 하므로 방 이름 + 발신 메시지 요약으로 부모 맥락을 구성한다.
+    group_message_ids = {r.group_message_id for r in reports if r.target_type == "GROUP_MESSAGE" and r.group_message_id}
+    if group_message_ids:
+        message_rows = await db.execute(
+            select(DmMessage, DmConversation)
+            .join(DmConversation, DmConversation.id == DmMessage.conversation_id)
+            .where(DmMessage.id.in_(group_message_ids))
+        )
+        messages_by_id = {message.id: (message, conv) for message, conv in message_rows.all()}
+        for r in reports:
+            if r.target_type != "GROUP_MESSAGE" or not r.group_message_id:
+                continue
+            found = messages_by_id.get(r.group_message_id)
+            if found is None:
+                contexts[r.id] = "삭제된 메시지"
+                continue
+            message, conv = found
+            room_name = conv.title or ("오픈톡방" if conv.conversation_type == "open" else "그룹톡방")
+            summary = (message.content or "").strip()
+            preview = f"'{summary[:30]}{'…' if len(summary) > 30 else ''}'" if summary else "메시지"
+            contexts[r.id] = f"{room_name}의 {preview}"
 
     return contexts
 

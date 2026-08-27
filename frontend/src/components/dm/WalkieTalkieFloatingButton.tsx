@@ -7,9 +7,9 @@ import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
 import { api } from '@/api/client';
-import { sendMessage } from '@/api/dm';
+import { fetchConversationPresence, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
 import { useUserStore } from '@/store/useUserStore';
-import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
+import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
 import styles from './WalkieTalkieFloatingButton.module.css';
 
@@ -17,6 +17,8 @@ type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'upload
 
 const BUBBLE_SIZE = 56;
 const MARGIN = 12;
+// 참석/녹음중 정보는 실시간성이 중요하지 않다 — 기존 DM 5초 폴링보다 낮은 빈도로 서버 부하를 줄인다.
+const PRESENCE_POLL_MS = 18000;
 
 /**
  * 플로팅 토글 녹음 버블 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
@@ -31,6 +33,7 @@ export function WalkieTalkieFloatingButton() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
+  const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
   const closed = useWalkieTalkieBubbleStore((s) => s.closed);
   const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
 
@@ -38,6 +41,7 @@ export function WalkieTalkieFloatingButton() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
+  const [presence, setPresence] = useState<DmPresence | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [pos, setPos] = useState(() => ({
     x: Math.max(window.innerWidth - BUBBLE_SIZE - MARGIN, 0),
@@ -50,10 +54,27 @@ export function WalkieTalkieFloatingButton() {
   const draggingRef = useRef(false);
   const dragMovedRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+  // 녹음 리스너 이펙트(deps: capability.available 고정)에서 최신 대화 정보를 읽기 위한 ref.
+  const conversationIdRef = useRef<string | null>(null);
+  const conversationMetaRef = useRef<WalkieTalkieConversationMeta | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+  useEffect(() => {
+    conversationMetaRef.current = conversationMeta;
+  }, [conversationMeta]);
+
+  // 그룹 대화에서만 "녹음 중" 소프트 신호를 보낸다(1:1은 상대가 1명이라 의미 없음).
+  const notifyRecordingStop = useCallback(() => {
+    const id = conversationIdRef.current;
+    if (id && conversationMetaRef.current?.isGroup) {
+      notifyRecordingPresence(id, 'stop').catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     native.walkieTalkie.getCapability().then(setCapability).catch(() => setCapability(null));
@@ -73,6 +94,7 @@ export function WalkieTalkieFloatingButton() {
         if (s.state === 'idle' && !manualStopRef.current && phaseRef.current === 'recording') {
           manualStopRef.current = true;
           setPhase('autoStopped');
+          notifyRecordingStop();
           native.walkieTalkie
             .stopRecording()
             .then((result) => {
@@ -91,7 +113,27 @@ export function WalkieTalkieFloatingButton() {
       cancelled = true;
       handle?.remove();
     };
-  }, [capability?.available]);
+  }, [capability?.available, notifyRecordingStop]);
+
+  // 채널정보 UX(A-7) — 참석 인원 + 소프트 녹음중 신호. 대화방이 바뀔 때마다 새로 폴링 시작.
+  useEffect(() => {
+    if (!conversationId) {
+      setPresence(null);
+      return;
+    }
+    let cancelled = false;
+    const tick = () => {
+      fetchConversationPresence(conversationId)
+        .then((p) => { if (!cancelled) setPresence(p); })
+        .catch(() => {});
+    };
+    tick();
+    const timer = window.setInterval(tick, PRESENCE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [conversationId]);
 
   const resetToIdle = useCallback(() => {
     pendingResultRef.current = null;
@@ -122,10 +164,11 @@ export function WalkieTalkieFloatingButton() {
       } catch {
         toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
       } finally {
+        notifyRecordingStop();
         resetToIdle();
       }
     },
-    [conversationId, resetToIdle, t, user],
+    [conversationId, notifyRecordingStop, resetToIdle, t, user],
   );
 
   const startFlow = useCallback(async () => {
@@ -143,10 +186,13 @@ export function WalkieTalkieFloatingButton() {
     try {
       await native.walkieTalkie.startRecording({ maxDurationSec: capability?.maxDurationSec ?? 60 });
       setPhase('recording');
+      if (conversationId && conversationMeta?.isGroup) {
+        notifyRecordingPresence(conversationId, 'start').catch(() => {});
+      }
     } catch {
       toast.error(t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' }));
     }
-  }, [capability, t]);
+  }, [capability, conversationId, conversationMeta, t]);
 
   const handleTap = useCallback(async () => {
     if (phase === 'uploading') return;
@@ -166,6 +212,7 @@ export function WalkieTalkieFloatingButton() {
         await finishAndSend(result);
       } catch {
         toast.error(t('walkieTalkie.stopError', { defaultValue: '녹음을 마치지 못했어요' }));
+        notifyRecordingStop();
         resetToIdle();
       }
       return;
@@ -173,7 +220,7 @@ export function WalkieTalkieFloatingButton() {
     if (phase === 'autoStopped' && pendingResultRef.current) {
       await finishAndSend(pendingResultRef.current);
     }
-  }, [phase, startFlow, finishAndSend, resetToIdle, t]);
+  }, [phase, startFlow, finishAndSend, notifyRecordingStop, resetToIdle, t]);
 
   const handleConsentAgree = useCallback(() => {
     setConsentOpen(false);
@@ -191,9 +238,12 @@ export function WalkieTalkieFloatingButton() {
           /* 이미 종료된 녹음이면 무시 */
         }
       }
+      if (phase === 'recording' || phase === 'autoStopped') {
+        notifyRecordingStop();
+      }
       resetToIdle();
     },
-    [phase, resetToIdle],
+    [phase, notifyRecordingStop, resetToIdle],
   );
 
   const handleClose = useCallback((e: React.MouseEvent) => {
@@ -248,6 +298,16 @@ export function WalkieTalkieFloatingButton() {
   if (isWalkieTalkieOptedOut()) return null;
   if (closed) return null;
 
+  // 채널정보 UX(A-7) — 채널명 + (그룹이면) 참석 인원, 상태(수신대기/발신중), 다른 사람 녹음중 소프트 배지.
+  const channelName = conversationMeta?.name ?? t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' });
+  const channelLabel = conversationMeta?.isGroup && presence
+    ? `${channelName} · ${presence.activeMembers}/${presence.totalMembers}`
+    : channelName;
+  const speakingOther = presence?.recordingUsers.find((u) => u.id !== user?.id) ?? null;
+  const statusText = phase === 'recording' || phase === 'autoStopped'
+    ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
+    : t('walkieTalkie.statusIdle', { defaultValue: '수신대기' });
+
   return (
     <>
       {/* div(role=button) — 내부에 닫기/취소 버튼을 겹쳐야 해서 <button> 중첩(무효 HTML)을 피한다. */}
@@ -264,6 +324,14 @@ export function WalkieTalkieFloatingButton() {
         onClick={onClick}
         aria-label={t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' })}
       >
+        <span className={styles.channelLabel}>
+          <span className={styles.channelName}>{channelLabel}</span>
+          <span className={speakingOther ? styles.speakingBadge : styles.statusText}>
+            {speakingOther
+              ? t('walkieTalkie.someoneSpeaking', { name: speakingOther.nickname ?? '', defaultValue: '{{name}}님이 말하는 중' })
+              : statusText}
+          </span>
+        </span>
         {(phase === 'recording' || phase === 'autoStopped') && (
           <span className={styles.level} style={{ transform: `scale(${1 + level * 0.4})` }} />
         )}

@@ -774,7 +774,10 @@
     "openAppSettings": "설정 열기",
     "startError": "녹음을 시작하지 못했어요",
     "stopError": "녹음을 마치지 못했어요",
-    "sendError": "음성메시지 전송에 실패했어요"
+    "sendError": "음성메시지 전송에 실패했어요",
+    "statusIdle": "수신대기",
+    "statusRecording": "발신중",
+    "someoneSpeaking": "{{name}}님이 말하는 중"
   },
   "locationShare": {
     "consentTitle": "실시간 위치공유 사용 안내",

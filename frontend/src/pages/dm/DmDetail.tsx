@@ -220,8 +220,9 @@ export default function DmDetail() {
   const setActiveWalkieConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
   const reopenWalkieBubble = useWalkieTalkieBubbleStore((s) => s.reopen);
   useEffect(() => {
-    if (conversationId) setActiveWalkieConversation(conversationId);
-  }, [conversationId, setActiveWalkieConversation]);
+    if (!conversationId) return;
+    setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
+  }, [conversationId, isDirect, otherName, roomTitle, setActiveWalkieConversation]);
 
   useEffect(() => {
     if (!conversationId) return;

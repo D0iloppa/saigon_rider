@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, or_, select
@@ -30,11 +30,14 @@ from ..schemas import (
     DmMemberInviteRequest,
     DmMessageCreateRequest,
     DmMessageOut,
+    DmPresenceOut,
+    DmRecordingPresenceRequest,
+    DmRecordingUserOut,
     FunnelEventType,
     Page,
     ReportCreateRequest,
 )
-from ..services import funnel_events, noti_events
+from ..services import funnel_events, noti_events, walkie_recording_presence
 from ..services.banned_keywords import banned_keywords as _banned_keywords
 from ..services.dm_policy import require_member, require_participant, require_unblocked, require_unblocked_for_join
 from ..utils import build_imgproxy_url, resolve_avatar_url
@@ -240,6 +243,94 @@ async def get_conversation(
         context_listing=await _listing_context(db, conv.context_id) if conv.context_type == "listing" else None,
         appointment_unlocked=await _appointment_unlocked(db, conv, _session_uid),
     )
+
+
+async def _require_conv_access(db: AsyncSession, conv: DmConversation, session_uid: uuid.UUID) -> None:
+    """direct/group 공통 접근 검증 — presence/recording-presence 엔드포인트용."""
+    if conv.conversation_type == "direct":
+        other_id = require_participant(conv, session_uid)
+        await require_unblocked(db, session_uid, other_id)
+    else:
+        await require_member(db, conv, session_uid)
+
+
+# 워키토키(A-7) 채널정보 UX — 최근 5분 내 활성(User.last_seen_at) 인원 / 전체 멤버, + 소프트 녹음중 신호.
+_PRESENCE_ACTIVE_WINDOW = timedelta(minutes=5)
+
+
+@router.get("/conversations/{conv_id}/presence", response_model=DmPresenceOut, summary="대화방 참석/녹음 현황")
+async def get_conversation_presence(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await _require_conv_access(db, conv, _session_uid)
+
+    if conv.conversation_type == "direct":
+        member_ids = [uid for uid in (conv.participant_1, conv.participant_2) if uid is not None]
+    else:
+        member_ids = (
+            (
+                await db.execute(
+                    select(DmConversationMember.user_id).where(
+                        DmConversationMember.conversation_id == conv.id,
+                        DmConversationMember.left_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    active_members = 0
+    if member_ids:
+        threshold = datetime.now(UTC) - _PRESENCE_ACTIVE_WINDOW
+        active_members = (
+            await db.execute(
+                select(func.count()).select_from(User).where(User.id.in_(member_ids), User.last_seen_at >= threshold)
+            )
+        ).scalar_one()
+
+    recorder_ids = await walkie_recording_presence.get_active_recorders(str(conv.id))
+    recording_users: list[DmRecordingUserOut] = []
+    if recorder_ids:
+        rows = (
+            (await db.execute(select(User).where(User.id.in_([uuid.UUID(uid) for uid in recorder_ids]))))
+            .scalars()
+            .all()
+        )
+        recording_users = [DmRecordingUserOut(id=u.id, nickname=u.nickname) for u in rows]
+
+    return DmPresenceOut(
+        total_members=len(member_ids),
+        active_members=active_members,
+        recording_users=recording_users,
+    )
+
+
+@router.post(
+    "/conversations/{conv_id}/recording-presence",
+    status_code=204,
+    summary="워키토키 녹음 시작/종료 소프트 신호",
+)
+async def set_recording_presence(
+    conv_id: uuid.UUID,
+    body: DmRecordingPresenceRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await _require_conv_access(db, conv, _session_uid)
+
+    if body.action == "start":
+        await walkie_recording_presence.mark_recording(str(conv.id), str(_session_uid))
+    else:
+        await walkie_recording_presence.clear_recording(str(conv.id), str(_session_uid))
 
 
 @router.post("/conversations", response_model=DmConversationOut, status_code=201, summary="대화방 생성/조회")

@@ -774,7 +774,10 @@
     "openAppSettings": "Open settings",
     "startError": "Couldn't start recording",
     "stopError": "Couldn't finish recording",
-    "sendError": "Failed to send the voice message"
+    "sendError": "Failed to send the voice message",
+    "statusIdle": "Standing by",
+    "statusRecording": "Transmitting",
+    "someoneSpeaking": "{{name}} is speaking"
   },
   "locationShare": {
     "consentTitle": "Using real-time location sharing",

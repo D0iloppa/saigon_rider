@@ -193,6 +193,32 @@ export async function markRead(conversationId: string): Promise<void> {
   });
 }
 
+// ── 워키토키(A-7) 채널정보 UX — 참석 인원 + 소프트 녹음중 신호 ─────────
+export interface DmPresence {
+  totalMembers: number;
+  activeMembers: number;
+  recordingUsers: { id: string; nickname: string | null }[];
+}
+
+function transformPresence(raw: any): DmPresence {
+  return {
+    totalMembers: raw.total_members ?? 0,
+    activeMembers: raw.active_members ?? 0,
+    recordingUsers: (raw.recording_users ?? []).map((u: any) => ({ id: u.id, nickname: u.nickname ?? null })),
+  };
+}
+
+export async function fetchConversationPresence(conversationId: string): Promise<DmPresence> {
+  return transformPresence(await api.realFetch<any>(`/dm/conversations/${conversationId}/presence`));
+}
+
+export async function notifyRecordingPresence(conversationId: string, action: 'start' | 'stop'): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/recording-presence`, {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  });
+}
+
 // 워키토키 음성메시지(A-3/D-6) — 수신자가 재생 완료 시 서버가 파일을 삭제하고 playedAt 을 기록.
 export async function markVoicePlayed(conversationId: string, messageId: string): Promise<DmMessage> {
   const raw = await api.realFetch<any>(

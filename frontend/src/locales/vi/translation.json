@@ -774,7 +774,10 @@
     "openAppSettings": "Mở cài đặt",
     "startError": "Không thể bắt đầu ghi âm",
     "stopError": "Không thể kết thúc ghi âm",
-    "sendError": "Gửi tin nhắn thoại thất bại"
+    "sendError": "Gửi tin nhắn thoại thất bại",
+    "statusIdle": "Đang chờ",
+    "statusRecording": "Đang nói",
+    "someoneSpeaking": "{{name}} đang nói"
   },
   "locationShare": {
     "consentTitle": "Sử dụng chia sẻ vị trí thời gian thực",

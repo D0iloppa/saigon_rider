@@ -1213,6 +1213,23 @@ class DmConversationOut(BaseModel):
     community_group_id: UUID | None = None
 
 
+class DmRecordingUserOut(BaseModel):
+    id: UUID
+    nickname: str | None = None
+
+
+class DmPresenceOut(BaseModel):
+    """워키토키 채널정보(A-7 UX) — 대화방 참석 인원 + 현재 녹음 중인 참가자."""
+
+    total_members: int
+    active_members: int
+    recording_users: list[DmRecordingUserOut] = []
+
+
+class DmRecordingPresenceRequest(BaseModel):
+    action: Literal["start", "stop"] = "start"
+
+
 class DmConversationCreateRequest(BaseModel):
     other_user_id: UUID
     context_type: str | None = None

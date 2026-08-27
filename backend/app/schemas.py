@@ -1257,6 +1257,28 @@ class DmConversationPatchRequest(BaseModel):
     photo_content_id: UUID | None = None
 
 
+class DmMemberRolePatchRequest(BaseModel):
+    """관리자 임명/해임 — 개설자(owner)만 호출할 수 있고, owner 자신은 대상이 될 수 없다."""
+
+    role: Literal["admin", "member"]
+
+
+class DmBanRequest(BaseModel):
+    """블랙리스트 등록. 활성 멤버면 함께 퇴장 처리된다."""
+
+    user_id: UUID
+    reason: str | None = None
+
+
+class DmBanOut(BaseModel):
+    user_id: UUID
+    nickname: str | None = None
+    avatar_url: str | None = None
+    banned_by: UUID
+    reason: str | None = None
+    created_at: datetime
+
+
 class AppointmentOut(BaseModel):
     id: UUID
     listing_id: UUID

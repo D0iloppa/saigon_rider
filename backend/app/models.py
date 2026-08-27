@@ -1458,6 +1458,28 @@ class DmConversationMember(Base):
     left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class DmConversationBan(Base):
+    """그룹 대화방 블랙리스트 (212_dm_conversation_bans.sql).
+
+    강퇴(`DmConversationMember.left_at`)와 구분된다 — 강퇴는 재초대로 복귀 가능하지만,
+    밴은 해제(레코드 삭제) 전까지 초대·입장을 모두 거부한다.
+    """
+
+    __tablename__ = "dm_conversation_bans"
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    banned_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DmMessage(Base):
     __tablename__ = "dm_messages"
 

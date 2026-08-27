@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import DmConversation, DmConversationMember, UserBlock
+from ..models import DmConversation, DmConversationBan, DmConversationMember, UserBlock, UserFollow
 
 
 def require_participant(conv: DmConversation, session_uid: uuid.UUID) -> uuid.UUID:
@@ -42,6 +42,48 @@ async def require_member(db: AsyncSession, conv: DmConversation, session_uid: uu
     if member is None:
         raise HTTPException(status_code=403, detail="Not a member")
     return member
+
+
+def require_manager(member: DmConversationMember) -> None:
+    """방 운영진(개설자 owner / 관리자 admin)만 통과시킨다 — 강퇴·밴·관리자 임명 공통 가드."""
+    if member.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only owner/admin can do this")
+
+
+async def require_not_banned(db: AsyncSession, conv_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """블랙리스트(212_dm_conversation_bans.sql)에 오른 사용자의 입장·재초대를 거부한다.
+
+    강퇴(`DmConversationMember.left_at`)와 구분된다 — 강퇴당한 사람은 운영진이 다시 초대하면
+    복귀할 수 있지만(대표 지시 2026-08-28), 밴은 해제 전까지 초대로도 들어올 수 없다.
+    """
+    banned = (
+        await db.execute(
+            select(DmConversationBan.user_id).where(
+                DmConversationBan.conversation_id == conv_id,
+                DmConversationBan.user_id == user_id,
+            )
+        )
+    ).first()
+    if banned is not None:
+        raise HTTPException(status_code=403, detail="User is banned from this conversation")
+
+
+async def require_invite_eligible(db: AsyncSession, inviter_id: uuid.UUID, target_id: uuid.UUID) -> None:
+    """초대 자격: **초대하는 사람이 대상을 팔로우 중**이어야 한다 (대표 지시 2026-08-28).
+
+    종전엔 서버가 관계를 전혀 검증하지 않아, 클라이언트가 맞팔만 보여주는 것과 무관하게
+    API 로는 아무나 그룹에 넣을 수 있었다. 맞팔(친구)은 팔로잉의 부분집합이라 함께 통과한다.
+    """
+    following = (
+        await db.execute(
+            select(UserFollow.following_id).where(
+                UserFollow.follower_id == inviter_id,
+                UserFollow.following_id == target_id,
+            )
+        )
+    ).first()
+    if following is None:
+        raise HTTPException(status_code=403, detail="You can only invite users you follow")
 
 
 async def require_unblocked_for_join(db: AsyncSession, conv_id: uuid.UUID, joining_uid: uuid.UUID) -> None:

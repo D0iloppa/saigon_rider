@@ -7,13 +7,15 @@ import StateBlock from '@/components/ui/StateBlock';
 import { Button } from '@/components/ui/Button';
 import { AppImage } from '@/components/ui/AppImage';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchFriends } from '@/api/follows';
+import { fetchFollowing } from '@/api/follows';
 import { createGroupConversation } from '@/api/dm';
 import { toast } from '@/components/ui/Toast';
 import type { FollowUser } from '@/api/types';
 import styles from './DmGroupCreate.module.css';
 
-// 새 그룹톡방 생성 — 최소 구현(§3.5): 친구 목록(FriendList와 동일 소스) 재사용, 별도 유저검색 UI 없음.
+// 새 그룹톡방 생성 — 초대 후보는 **내가 팔로우하는 사람 전체**(대표 지시 2026-08-28로 맞팔에서 확대).
+// 맞팔(친구)은 팔로잉의 부분집합이라 함께 나온다. 서버도 같은 기준을 강제한다
+// (backend `require_invite_eligible`) — 종전엔 서버 무검증이라 UI 관례에 불과했다.
 export default function DmGroupCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ export default function DmGroupCreate() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (me) fetchFriends(me.id).then((r) => setFriends(r.items));
+    if (me) fetchFollowing(me.id).then((r) => setFriends(r.items));
   }, [me]);
 
   const toggle = (id: string) => {
@@ -62,7 +64,7 @@ export default function DmGroupCreate() {
         />
 
         {friends.length === 0 ? (
-          <StateBlock icon={Users} title={t('follow.emptyFriends')} />
+          <StateBlock icon={Users} title={t('follow.emptyFollowing')} />
         ) : (
           <div className={styles.list}>
             {friends.map((u) => (

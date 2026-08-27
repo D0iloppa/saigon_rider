@@ -13,6 +13,7 @@ from ..models import (
     CommunityGroupMember,
     Content,
     DmConversation,
+    DmConversationBan,
     DmConversationMember,
     DmMessage,
     MarketplaceAppointment,
@@ -23,11 +24,14 @@ from ..models import (
     UserBlock,
 )
 from ..schemas import (
+    DmBanOut,
+    DmBanRequest,
     DmConversationCreateRequest,
     DmConversationOut,
     DmConversationPatchRequest,
     DmGroupConversationCreateRequest,
     DmMemberInviteRequest,
+    DmMemberRolePatchRequest,
     DmMessageCreateRequest,
     DmMessageOut,
     DmPresenceOut,
@@ -39,7 +43,15 @@ from ..schemas import (
 )
 from ..services import funnel_events, noti_events, walkie_recording_presence
 from ..services.banned_keywords import banned_keywords as _banned_keywords
-from ..services.dm_policy import require_member, require_participant, require_unblocked, require_unblocked_for_join
+from ..services.dm_policy import (
+    require_invite_eligible,
+    require_manager,
+    require_member,
+    require_not_banned,
+    require_participant,
+    require_unblocked,
+    require_unblocked_for_join,
+)
 from ..utils import build_imgproxy_url, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
 from .contents import CONTENTS_BASE_PATH, _content_playback_url
@@ -864,6 +876,8 @@ async def create_group_conversation(
         raise HTTPException(status_code=404, detail="User not found")
     for uid in member_ids:
         await require_unblocked(db, _session_uid, uid)
+        # 초대 자격 — 내가 팔로우하는 사람만 (대표 지시 2026-08-28, 맞팔은 부분집합이라 포함).
+        await require_invite_eligible(db, _session_uid, uid)
 
     now = datetime.now(UTC)
     conv = DmConversation(
@@ -925,6 +939,9 @@ async def invite_members(
     added = 0
     for uid in invite_ids:
         await require_unblocked_for_join(db, conv_id, uid)
+        # 밴은 재초대로도 뚫리지 않는다(강퇴와의 차이). 자격은 초대자의 팔로잉 기준.
+        await require_not_banned(db, conv_id, uid)
+        await require_invite_eligible(db, _session_uid, uid)
         member = existing_by_uid.get(uid)
         if member is None:
             db.add(DmConversationMember(conversation_id=conv_id, user_id=uid, role="member"))
@@ -976,6 +993,177 @@ async def remove_member(
     return {"ok": True}
 
 
+@router.patch(
+    "/conversations/{conv_id}/members/{user_id}/role",
+    summary="관리자 임명/해임",
+)
+async def set_member_role(
+    conv_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: DmMemberRolePatchRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """개설자(owner)만 관리자(admin)를 임명·해임한다.
+
+    운영진 구분(대표 지시 2026-08-28): owner 는 방을 만든 1명으로 고정이고 위임·강등되지 않는다.
+    admin 은 owner 가 임명하며 강퇴·밴 권한을 갖는다(`require_manager`).
+    """
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations have no roles")
+
+    actor = await require_member(db, conv, _session_uid)
+    if actor.role != "owner":
+        raise HTTPException(status_code=403, detail="Only the owner can change roles")
+    if user_id == _session_uid:
+        raise HTTPException(status_code=400, detail="Owner role cannot be changed")
+
+    target = (
+        await db.execute(
+            select(DmConversationMember).where(
+                DmConversationMember.conversation_id == conv_id,
+                DmConversationMember.user_id == user_id,
+                DmConversationMember.left_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if target.role == "owner":
+        raise HTTPException(status_code=400, detail="Owner role cannot be changed")
+
+    target.role = body.role
+    await db.commit()
+    return {"ok": True, "role": target.role}
+
+
+@router.get("/conversations/{conv_id}/bans", response_model=list[DmBanOut], summary="블랙리스트 목록")
+async def list_bans(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    actor = await require_member(db, conv, _session_uid)
+    require_manager(actor)
+
+    rows = (
+        await db.execute(
+            select(DmConversationBan, User)
+            .join(User, User.id == DmConversationBan.user_id)
+            .where(DmConversationBan.conversation_id == conv_id)
+            .order_by(DmConversationBan.created_at.desc())
+        )
+    ).all()
+    return [
+        DmBanOut(
+            user_id=ban.user_id,
+            nickname=user.nickname,
+            avatar_url=resolve_avatar_url(user),
+            banned_by=ban.banned_by,
+            reason=ban.reason,
+            created_at=ban.created_at,
+        )
+        for ban, user in rows
+    ]
+
+
+@router.post("/conversations/{conv_id}/bans", status_code=201, summary="블랙리스트 등록")
+async def ban_member(
+    conv_id: uuid.UUID,
+    body: DmBanRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """운영진(owner/admin)이 블랙리스트에 등록한다. 활성 멤버면 즉시 퇴장까지 함께 처리한다.
+
+    강퇴(`DELETE .../members/{id}`)와의 차이: 강퇴는 재초대로 복귀 가능하지만 밴은 해제 전까지
+    초대·입장 모두 막힌다.
+    """
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations have no bans")
+
+    actor = await require_member(db, conv, _session_uid)
+    require_manager(actor)
+    if body.user_id == _session_uid:
+        raise HTTPException(status_code=400, detail="Cannot ban yourself")
+
+    target = (
+        await db.execute(
+            select(DmConversationMember).where(
+                DmConversationMember.conversation_id == conv_id,
+                DmConversationMember.user_id == body.user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    # 운영진끼리는 서로 밴할 수 없다 — owner 는 누구도 밴하지 못하고, admin 은 admin 을 밴하지 못한다.
+    if target is not None and target.role == "owner":
+        raise HTTPException(status_code=403, detail="Owner cannot be banned")
+    if target is not None and target.role == "admin" and actor.role != "owner":
+        raise HTTPException(status_code=403, detail="Only the owner can ban an admin")
+
+    existing = (
+        await db.execute(
+            select(DmConversationBan).where(
+                DmConversationBan.conversation_id == conv_id,
+                DmConversationBan.user_id == body.user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        db.add(
+            DmConversationBan(
+                conversation_id=conv_id,
+                user_id=body.user_id,
+                banned_by=_session_uid,
+                reason=body.reason,
+            )
+        )
+    # 활성 멤버였다면 함께 퇴장 처리 (밴만 걸고 방에 남아있는 상태가 되지 않도록)
+    if target is not None and target.left_at is None:
+        target.left_at = datetime.now(UTC)
+        conv.member_count = max(conv.member_count - 1, 0)
+
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/conversations/{conv_id}/bans/{user_id}", summary="블랙리스트 해제")
+async def unban_member(
+    conv_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    actor = await require_member(db, conv, _session_uid)
+    require_manager(actor)
+
+    ban = (
+        await db.execute(
+            select(DmConversationBan).where(
+                DmConversationBan.conversation_id == conv_id,
+                DmConversationBan.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if ban is None:
+        raise HTTPException(status_code=404, detail="Ban not found")
+    await db.delete(ban)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.post("/conversations/{conv_id}/join", response_model=DmConversationOut, summary="오픈톡방 입장")
 async def join_open_conversation(
     conv_id: uuid.UUID,
@@ -1003,6 +1191,8 @@ async def join_open_conversation(
     ).scalar_one_or_none()
     if group_member is None:
         raise HTTPException(status_code=403, detail="Not an active member of this group")
+    # 오픈톡방도 방 단위 블랙리스트는 그대로 적용된다 — 커뮤니티 그룹 멤버라도 이 방에서 밴됐으면 못 들어온다.
+    await require_not_banned(db, conv_id, _session_uid)
 
     now = datetime.now(UTC)
     member = (

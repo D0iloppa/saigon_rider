@@ -860,6 +860,7 @@ class FeedPostEnrichedOut(BaseModel):
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     translation_failed: bool = False
+    group_id: UUID | None = None
 
 
 class FeedCreateRequest(BaseModel):
@@ -873,6 +874,7 @@ class FeedCreateRequest(BaseModel):
     latitude: Decimal | None = None
     longitude: Decimal | None = None
     district_id: int | None = None
+    group_id: UUID | None = None  # 260827 그룹 게시판 (204_community_group.sql)
 
     @model_validator(mode="after")
     def validate_location_pair(self):
@@ -1100,6 +1102,73 @@ class UserProfileOut(BaseModel):
     is_following: bool
     is_phone_verified: bool = False
     phone_masked: str | None = None
+
+
+# ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────
+
+
+class CommunityGroupOut(BaseModel):
+    id: UUID
+    slug: str | None = None
+    name: str
+    description: str | None = None
+    cover_url: str | None = None
+    group_type: str
+    ward_id: int | None = None
+    district_id: int | None = None
+    join_policy: str
+    visibility: str
+    owner_id: UUID | None = None
+    member_count: int
+    post_count: int
+    status: str
+    created_at: datetime
+    # 조회 세션 유저 기준 — 그룹 목록/상세 화면이 "가입하기" vs "이미 가입됨"을 바로 렌더할 수 있게.
+    my_membership_status: str | None = None  # None(비가입) | 'PENDING' | 'ACTIVE' | 'BANNED'
+    my_role: str | None = None
+    conversation_id: UUID | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class CommunityGroupCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    description: str | None = None
+    group_type: str = "interest"  # 'interest' | 'neighborhood'
+    ward_id: int | None = None
+    district_id: int | None = None
+    join_policy: str = "open"  # 'open' | 'approval' | 'invite'
+    visibility: str = "public"  # 'public' | 'private'
+    cover_content_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_neighborhood(self):
+        if self.group_type not in ("interest", "neighborhood"):
+            raise ValueError("group_type must be 'interest' or 'neighborhood'")
+        if self.group_type == "neighborhood" and self.ward_id is None and self.district_id is None:
+            raise ValueError("neighborhood group requires ward_id or district_id")
+        if self.join_policy not in ("open", "approval", "invite"):
+            raise ValueError("join_policy must be 'open', 'approval' or 'invite'")
+        if self.visibility not in ("public", "private"):
+            raise ValueError("visibility must be 'public' or 'private'")
+        return self
+
+
+class CommunityGroupPatchRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    description: str | None = None
+    join_policy: str | None = None
+    visibility: str | None = None
+    cover_content_id: UUID | None = None
+
+
+class CommunityGroupMemberOut(BaseModel):
+    user_id: UUID
+    nickname: str | None
+    avatar_url: str | None
+    role: str
+    status: str
+    joined_at: datetime
 
 
 # ── DM ───────────────────────────────────────────────────────────

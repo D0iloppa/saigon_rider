@@ -625,7 +625,8 @@
     "commentPlaceholder": "Leave a comment...",
     "noCaption": "A moment shared",
     "loadError": "Couldn't load the feed",
-    "cheerError": "Please try again in a moment"
+    "cheerError": "Please try again in a moment",
+    "filterGroups": "My groups"
   },
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",
@@ -2348,5 +2349,38 @@
     "feedSection": "Posts",
     "feedEmpty": "No posts yet",
     "feedError": "Couldn't load posts"
+  },
+  "communityGroup": {
+    "exploreTitle": "Explore groups",
+    "createTitle": "Create group",
+    "filterAll": "All",
+    "filterMine": "My groups",
+    "empty": "No groups yet",
+    "joined": "Joined",
+    "namePlaceholder": "Group name",
+    "descPlaceholder": "Group description (optional)",
+    "visibility": "Visibility",
+    "visibilityPublic": "Public",
+    "visibilityPrivate": "Private",
+    "joinPolicy": "Join policy",
+    "joinPolicyOpen": "Join instantly",
+    "joinPolicyApproval": "Requires approval",
+    "createSubmit": "Create",
+    "groupTitle": "Group",
+    "notFound": "Group not found",
+    "memberCount": "{{count}} members",
+    "join": "Join",
+    "pending": "Pending approval",
+    "tabBoard": "Board",
+    "tabChat": "Chat",
+    "tabMembers": "Members",
+    "enterChat": "Enter group chat",
+    "chatRequiresMembership": "Join the group to chat",
+    "boardRequiresMembership": "Join the group to view posts",
+    "membersRequiresMembership": "Join the group to view members",
+    "role_owner": "Owner",
+    "role_manager": "Manager",
+    "role_member": "Member",
+    "removeMember": "Remove member"
   }
 }

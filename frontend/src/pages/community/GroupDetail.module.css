@@ -1,0 +1,86 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 20px;
+}
+
+.header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.headerName {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.headerDesc {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+
+.headerMeta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 6px;
+}
+
+.tabRow {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.tabBtnActive {
+  color: var(--text);
+  border-bottom-color: var(--text);
+}
+
+.chatEntry {
+  margin: 16px;
+}
+
+.membersBody {
+  padding: 0 16px;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.memberName {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.memberRole {
+  font-size: 12px;
+  color: var(--text-3);
+}

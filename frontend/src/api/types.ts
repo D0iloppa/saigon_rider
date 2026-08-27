@@ -228,6 +228,38 @@ export interface DmConversation {
   communityGroupId: string | null;
 }
 
+// ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────
+export interface CommunityGroup {
+  id: string;
+  slug: string | null;
+  name: string;
+  description: string | null;
+  coverUrl: string | null;
+  groupType: string;
+  wardId: number | null;
+  districtId: number | null;
+  joinPolicy: string;
+  visibility: string;
+  ownerId: string | null;
+  memberCount: number;
+  postCount: number;
+  status: string;
+  createdAt: string;
+  /** 조회 세션 유저 기준 — None(비가입) | 'PENDING' | 'ACTIVE' | 'BANNED' */
+  myMembershipStatus: string | null;
+  myRole: string | null;
+  conversationId: string | null;
+}
+
+export interface CommunityGroupMember {
+  userId: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  role: string;
+  status: string;
+  joinedAt: string;
+}
+
 export interface DmAppointmentMeta {
   appointmentId?: string;
   when?: string;

@@ -422,6 +422,10 @@ class FeedPost(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     # 다국어 검색용 정규화 blob (164 migration, search_index.py 가 씀). None = 미색인(폴백 COALESCE 필요).
     search_blob: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 204_community_group.sql — 커뮤니티 그룹 게시판(nullable, 기존 글은 전부 NULL = 전체 공개 피드)
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("community_groups.id", ondelete="CASCADE"), nullable=True
+    )
 
     images: Mapped[list["FeedPostImage"]] = relationship(
         "FeedPostImage",
@@ -447,6 +451,53 @@ class FeedPostImage(Base):
 
     post: Mapped["FeedPost"] = relationship("FeedPost", back_populates="images")
     content: Mapped["Content"] = relationship("Content", lazy="selectin")
+
+
+# ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ───────────────
+
+
+class CommunityGroup(Base):
+    __tablename__ = "community_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str | None] = mapped_column(String(40), nullable=True, unique=True)
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    cover_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[cover_content_id], lazy="selectin")
+    group_type: Mapped[str] = mapped_column(String(20), nullable=False, default="interest")
+    ward_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("wards.id", ondelete="SET NULL"), nullable=True
+    )
+    district_id: Mapped[int | None] = mapped_column(
+        SmallInteger, ForeignKey("districts.id", ondelete="SET NULL"), nullable=True
+    )
+    join_policy: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="public")
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    member_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    post_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="ACTIVE")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class CommunityGroupMember(Base):
+    __tablename__ = "community_group_members"
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("community_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(12), nullable=False, default="member")
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="ACTIVE")
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 # ── 거래 플랫폼 (Marketplace, SGR-287) ───────────────────────────

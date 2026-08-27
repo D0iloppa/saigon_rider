@@ -625,7 +625,8 @@
     "commentPlaceholder": "Để lại bình luận...",
     "noCaption": "Một khoảnh khắc được chia sẻ",
     "loadError": "Không tải được bảng tin",
-    "cheerError": "Vui lòng thử lại sau một lát"
+    "cheerError": "Vui lòng thử lại sau một lát",
+    "filterGroups": "Nhóm của tôi"
   },
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",
@@ -2348,5 +2349,38 @@
     "feedSection": "Bài đăng",
     "feedEmpty": "Chưa có bài đăng nào",
     "feedError": "Không tải được bài đăng"
+  },
+  "communityGroup": {
+    "exploreTitle": "Khám phá nhóm",
+    "createTitle": "Tạo nhóm",
+    "filterAll": "Tất cả",
+    "filterMine": "Nhóm của tôi",
+    "empty": "Chưa có nhóm nào",
+    "joined": "Đã tham gia",
+    "namePlaceholder": "Tên nhóm",
+    "descPlaceholder": "Giới thiệu về nhóm (tuỳ chọn)",
+    "visibility": "Công khai",
+    "visibilityPublic": "Công khai",
+    "visibilityPrivate": "Riêng tư",
+    "joinPolicy": "Chính sách tham gia",
+    "joinPolicyOpen": "Tham gia ngay",
+    "joinPolicyApproval": "Cần phê duyệt",
+    "createSubmit": "Tạo nhóm",
+    "groupTitle": "Nhóm",
+    "notFound": "Không tìm thấy nhóm",
+    "memberCount": "{{count}} thành viên",
+    "join": "Tham gia",
+    "pending": "Đang chờ phê duyệt",
+    "tabBoard": "Bảng tin",
+    "tabChat": "Trò chuyện",
+    "tabMembers": "Thành viên",
+    "enterChat": "Vào trò chuyện nhóm",
+    "chatRequiresMembership": "Tham gia nhóm để trò chuyện",
+    "boardRequiresMembership": "Tham gia nhóm để xem bảng tin",
+    "membersRequiresMembership": "Tham gia nhóm để xem thành viên",
+    "role_owner": "Chủ nhóm",
+    "role_manager": "Quản trị viên",
+    "role_member": "Thành viên",
+    "removeMember": "Xoá khỏi nhóm"
   }
 }

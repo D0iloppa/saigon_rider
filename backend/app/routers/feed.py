@@ -12,6 +12,8 @@ from ..database import get_db
 from ..deps import optional_user_session, verify_user_session
 from ..engine_client import engine_client
 from ..models import (
+    CommunityGroup,
+    CommunityGroupMember,
     FeedPost,
     FeedPostImage,
     PostComment,
@@ -123,6 +125,7 @@ async def _enrich(post: FeedPost, user: User | None, ride: RideSession | None, d
         reward_exp=ride.reward_exp if ride else None,
         latitude=public_latitude,
         longitude=public_longitude,
+        group_id=post.group_id,
     )
 
 
@@ -162,6 +165,24 @@ async def get_feed(
         .outerjoin(RideSession, FeedPost.ride_session_id == RideSession.id)
     )
     count_q = select(func.count()).select_from(FeedPost)
+
+    if filter == "groups":
+        # 내 그룹 글만 — private 그룹이라도 내가 멤버면 노출(공개 배제 조건과 무관).
+        if session_uid is None:
+            raise HTTPException(status_code=401, detail="Login required")
+        my_group_ids = select(CommunityGroupMember.group_id).where(
+            CommunityGroupMember.user_id == session_uid, CommunityGroupMember.status == "ACTIVE"
+        )
+        base_q = base_q.where(FeedPost.group_id.in_(my_group_ids))
+        count_q = count_q.where(FeedPost.group_id.in_(my_group_ids))
+    else:
+        # Q-10: private 그룹 글은 전체피드(all/hot/friends/neighborhood) 어디서도 노출 금지.
+        # 그룹 게시판(GET /community/groups/{id}/posts)에서 멤버십 검사 후에만 보인다.
+        public_group_filter = FeedPost.group_id.is_(None) | FeedPost.group_id.in_(
+            select(CommunityGroup.id).where(CommunityGroup.visibility == "public")
+        )
+        base_q = base_q.where(public_group_filter)
+        count_q = count_q.where(public_group_filter)
 
     if author_id:
         base_q = base_q.where(FeedPost.user_id == author_id)
@@ -290,6 +311,25 @@ async def create_feed_post(
     if body.latitude is not None and body.longitude is not None and not in_service_area(body.latitude, body.longitude):
         raise HTTPException(status_code=422, detail="Location is outside the service area")
 
+    group = None
+    if body.group_id is not None:
+        group = (
+            await db.execute(select(CommunityGroup).where(CommunityGroup.id == body.group_id))
+        ).scalar_one_or_none()
+        if group is None:
+            raise HTTPException(status_code=404, detail="Group not found")
+        member = (
+            await db.execute(
+                select(CommunityGroupMember).where(
+                    CommunityGroupMember.group_id == body.group_id,
+                    CommunityGroupMember.user_id == _session_uid,
+                    CommunityGroupMember.status == "ACTIVE",
+                )
+            )
+        ).scalar_one_or_none()
+        if member is None:
+            raise HTTPException(status_code=403, detail="Not an active member of this group")
+
     now = datetime.now(UTC)
     first_content_id = body.image_content_ids[0] if body.image_content_ids else body.image_content_id
     ward = (
@@ -308,6 +348,7 @@ async def create_feed_post(
         longitude=body.longitude,
         ward_id=ward.id if ward else None,
         district_id=body.district_id,
+        group_id=body.group_id,
         created_at=now,
         updated_at=now,
         # 원문만으로 즉시 검색 가능(번역 대기 없음) — search.reindex 소비 후 번역이 얹혀 재계산된다.
@@ -320,6 +361,9 @@ async def create_feed_post(
     content_ids = body.image_content_ids or ([body.image_content_id] if body.image_content_id else [])
     for idx, cid in enumerate(content_ids):
         db.add(FeedPostImage(post_id=post_id, content_id=cid, sort_order=idx))
+
+    if group is not None:
+        group.post_count += 1
 
     if body.content:
         noti_events.enqueue(
@@ -404,6 +448,13 @@ async def delete_feed_post(
     post = await _get_post_or_404(post_id, db)
     if body.user_id != _session_uid or post.user_id != _session_uid:
         raise HTTPException(status_code=403, detail="Not the post owner")
+
+    if post.group_id is not None:
+        group = (
+            await db.execute(select(CommunityGroup).where(CommunityGroup.id == post.group_id))
+        ).scalar_one_or_none()
+        if group is not None:
+            group.post_count = max(group.post_count - 1, 0)
 
     await db.delete(post)
     await db.commit()

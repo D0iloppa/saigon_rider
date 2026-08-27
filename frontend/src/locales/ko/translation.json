@@ -625,7 +625,8 @@
     "commentPlaceholder": "댓글을 남겨보세요...",
     "noCaption": "사진으로 남긴 순간",
     "loadError": "피드를 불러오지 못했어요",
-    "cheerError": "잠시 후 다시 시도해 주세요"
+    "cheerError": "잠시 후 다시 시도해 주세요",
+    "filterGroups": "내 그룹"
   },
   "profile": {
     "phoneVerifyNeeded": "휴대폰 인증 필요",
@@ -2348,5 +2349,38 @@
     "feedSection": "게시물",
     "feedEmpty": "아직 작성한 게시물이 없어요",
     "feedError": "게시물을 불러오지 못했어요"
+  },
+  "communityGroup": {
+    "exploreTitle": "그룹 탐색",
+    "createTitle": "그룹 만들기",
+    "filterAll": "전체",
+    "filterMine": "내 그룹",
+    "empty": "아직 그룹이 없어요",
+    "joined": "가입됨",
+    "namePlaceholder": "그룹 이름",
+    "descPlaceholder": "그룹 소개 (선택)",
+    "visibility": "공개 여부",
+    "visibilityPublic": "공개",
+    "visibilityPrivate": "비공개",
+    "joinPolicy": "가입 정책",
+    "joinPolicyOpen": "바로 가입",
+    "joinPolicyApproval": "승인 필요",
+    "createSubmit": "만들기",
+    "groupTitle": "그룹",
+    "notFound": "그룹을 찾을 수 없어요",
+    "memberCount": "멤버 {{count}}명",
+    "join": "가입하기",
+    "pending": "승인 대기 중",
+    "tabBoard": "게시판",
+    "tabChat": "채팅",
+    "tabMembers": "멤버",
+    "enterChat": "그룹 채팅 입장",
+    "chatRequiresMembership": "가입 후 채팅을 이용할 수 있어요",
+    "boardRequiresMembership": "가입 후 게시판을 볼 수 있어요",
+    "membersRequiresMembership": "가입 후 멤버 목록을 볼 수 있어요",
+    "role_owner": "방장",
+    "role_manager": "매니저",
+    "role_member": "멤버",
+    "removeMember": "강퇴"
   }
 }

@@ -21,6 +21,8 @@ const SECTION_ROOTS: Array<[string, string]> = [
   ['/feed', '/feed'],
   ['/biz', '/biz/intro'],
   ['/dm', '/dm'],
+  ['/community', '/community/groups'],
+  ['/group', '/community/groups'],
   ['/quests', '/quests'],
   ['/notifications', '/profile'],
   ['/followers', '/profile'],

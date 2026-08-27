@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Camera, MapPin, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -30,6 +30,9 @@ interface ImageItem {
 export default function FeedCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // 그룹 게시판(§4.3) → 글쓰기 진입 시 group_id 프리필. 이 서브태스크에서는 파라미터 전달까지만(P3-3 범위 아님).
+  const groupId = searchParams.get('groupId') ?? undefined;
   const user = useUserStore((s) => s.user);
   const openConfirm = useConfirmStore((s) => s.open);
 
@@ -140,9 +143,11 @@ export default function FeedCreate() {
         latitude: locOn ? coords?.lat : undefined,
         longitude: locOn ? coords?.lng : undefined,
         districtId: locOn ? district?.id : undefined,
+        groupId,
       });
       try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-      navigate('/feed', { replace: true });
+      if (groupId) navigate(-1);
+      else navigate('/feed', { replace: true });
     } catch (err: any) {
       toast.error(err.message ?? t('feedCreate.postError'));
     } finally {

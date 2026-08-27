@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Newspaper, Plus, Send, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Newspaper, Plus, Send, UserRound, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
@@ -22,8 +22,8 @@ import { toast } from '@/components/ui/Toast';
 import { resolveUsableLocation } from '@/lib/serviceLocation';
 import styles from './FeedList.module.css';
 
-type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot';
-const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'friends', 'hot'];
+type FilterKey = 'all' | 'neighborhood' | 'friends' | 'hot' | 'groups';
+const FILTER_KEYS: FilterKey[] = ['all', 'neighborhood', 'friends', 'hot', 'groups'];
 // 탭 전환으로 언마운트돼도 스크롤 위치가 살아있게(P2-11) — URL 에 넣기 부적절한 값이라
 // sessionStorage 를 쓴다(MarketMain 의 scrollTop 저장 패턴과 동일 결).
 const FEED_SCROLL_KEY = 'feed_scroll_v1';
@@ -122,6 +122,7 @@ export default function FeedList() {
     { key: 'neighborhood', label: t('feed.filterNeighborhood'), Icon: MapPin },
     { key: 'friends',      label: t('feed.filterFriends'),      Icon: Users },
     { key: 'hot',          label: t('feed.filterHot'),          Icon: Flame },
+    { key: 'groups',       label: t('feed.filterGroups'),       Icon: UsersRound },
   ];
 
   const handleCheer = async (p: FeedPost, e: React.MouseEvent) => {

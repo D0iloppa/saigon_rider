@@ -14,7 +14,7 @@ function stripHashtags(text: string | null): string | null {
 }
 
 // BFF snake_case 응답 → FeedPost
-function transformPost(raw: any): FeedPost {
+export function transformPost(raw: any): FeedPost {
   const imageUrls: string[] = raw.image_urls ?? [];
   return {
     id: raw.id,
@@ -41,7 +41,7 @@ function transformPost(raw: any): FeedPost {
 }
 
 export interface FetchFeedOptions {
-  filter?: 'all' | 'neighborhood' | 'friends' | 'hot';
+  filter?: 'all' | 'neighborhood' | 'friends' | 'hot' | 'groups';
   userId?: string;
   lat?: number;
   lng?: number;
@@ -106,6 +106,8 @@ export interface CreateFeedPostParams {
   longitude?: number;
   districtId?: number;
   isStory?: boolean;
+  /** 그룹 게시판 글쓰기 진입 시 프리필 (`/group/:slug` 게시판 탭 → 글쓰기) */
+  groupId?: string;
 }
 
 export async function createFeedPost(params: CreateFeedPostParams): Promise<void> {
@@ -120,6 +122,7 @@ export async function createFeedPost(params: CreateFeedPostParams): Promise<void
       longitude: params.longitude ?? null,
       district_id: params.districtId ?? null,
       is_story: params.isStory ?? false,
+      group_id: params.groupId ?? null,
     }),
   });
 }

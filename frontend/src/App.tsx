@@ -87,6 +87,11 @@ const DmList = lazyWithRetry(() => import('@/pages/dm/DmList'));
 const DmDetail = lazyWithRetry(() => import('@/pages/dm/DmDetail'));
 const DmGroupCreate = lazyWithRetry(() => import('@/pages/dm/DmGroupCreate'));
 
+// 커뮤니티 그룹 (260827 Phase2)
+const GroupList = lazyWithRetry(() => import('@/pages/community/GroupList'));
+const GroupCreate = lazyWithRetry(() => import('@/pages/community/GroupCreate'));
+const GroupDetail = lazyWithRetry(() => import('@/pages/community/GroupDetail'));
+
 // 알림함
 const NotificationInbox = lazyWithRetry(() => import('@/pages/notifications/NotificationInbox'));
 
@@ -564,6 +569,9 @@ export default function App() {
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/group/new" element={<PrivateRoute><DmGroupCreate /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
+          <Route path="/community/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
+          <Route path="/community/groups/new" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />
+          <Route path="/group/:slug" element={<PrivateRoute><GroupDetail /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationInbox /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfileMain /></PrivateRoute>} />
           {/* 다른 사용자 프로필 — 종전 ProfileCard 바텀시트를 대체한다(2026-08-13).

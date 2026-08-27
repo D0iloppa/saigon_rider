@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..deps import verify_user_session
 from ..models import (
+    CommunityGroupMember,
     DmConversation,
     DmConversationMember,
     DmMessage,
@@ -765,12 +766,22 @@ async def join_open_conversation(
         raise HTTPException(status_code=404, detail="Conversation not found")
     if conv.conversation_type != "open":
         raise HTTPException(status_code=400, detail="Not an open conversation")
-    # TODO(Phase2): community_groups/그룹멤버십 테이블이 생기면 "커뮤니티 그룹의 실제 멤버인지"를
-    # 검증한다(§3.5 join 명세). 지금은 Phase2 미착수라 community_group_id 존재 여부만 체크하는
-    # 축소 구현이다 — 오픈톡방은 open 이면 항상 community_group_id 가 있으므로(CHECK 제약)
-    # 사실상 무해한 게이트지만, Phase2 완료 후 반드시 실제 멤버십 검사로 교체할 것.
     if conv.community_group_id is None:
         raise HTTPException(status_code=400, detail="Open conversation missing community group")
+    # Phase2(204_community_group.sql) 완료 — 커뮤니티 그룹의 실제 멤버인지 검증(§3.5 join 명세).
+    # 그룹 가입은 POST /community/groups/{id}/join 이 정본 경로이고, 여기서는 그 결과(ACTIVE 멤버십)만
+    # 확인한다 — private/approval 그룹의 오픈톡방을 이 엔드포인트로 우회 입장하는 사고를 막는다.
+    group_member = (
+        await db.execute(
+            select(CommunityGroupMember).where(
+                CommunityGroupMember.group_id == conv.community_group_id,
+                CommunityGroupMember.user_id == _session_uid,
+                CommunityGroupMember.status == "ACTIVE",
+            )
+        )
+    ).scalar_one_or_none()
+    if group_member is None:
+        raise HTTPException(status_code=403, detail="Not an active member of this group")
 
     now = datetime.now(UTC)
     member = (

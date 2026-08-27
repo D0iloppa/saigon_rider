@@ -37,6 +37,7 @@ import { emojiUrl } from '@/lib/emoji';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import styles from './ProfileMain.module.css';
+import sys from '@/styles/system.module.css';
 import { formatVnDate } from '@/lib/vnTime';
 import { SHOW_LEGACY_GAME_ECONOMY, SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
 
@@ -223,6 +224,7 @@ export default function ProfileMain() {
   // 대다수(비파트너) 사용자에게는 현행 위치 그대로 즉시 노출되고, 파트너로 판명되면 상단 카드로 전환된다.
   // F2-5: APPROVED 판정뿐 아니라 PENDING/REJECTED 신청 여부도 알아야 진입 문구를 상태별로 갈라줄 수 있다
   const [bizProfiles, setBizProfiles] = useState<BusinessProfile[]>([]);
+  const [bizLoading, setBizLoading] = useState(true);
   const [bizUnansweredCount, setBizUnansweredCount] = useState<number | null>(null);
 
   // ── 거래 이력 서브탭 ──
@@ -293,8 +295,8 @@ export default function ProfileMain() {
   useEffect(() => {
     if (!user?.id) return;
     fetchBusinessProfiles()
-      .then((list) => setBizProfiles(list))
-      .catch(() => setBizProfiles([]));
+      .then((list) => { setBizProfiles(list); setBizLoading(false); })
+      .catch(() => { setBizProfiles([]); setBizLoading(false); });
   }, [user?.id]);
 
   // W4: 요약 카드 배지 — 다중 업체 보유 시 BizManage 기본 활성 프로필(첫 번째)과 동일 기준
@@ -474,7 +476,16 @@ export default function ProfileMain() {
         </button>
 
         {/* W4: 파트너(APPROVED 업체 보유) 요약 카드 — 휴대폰 인증 바로 아래로 승격 (D-5) */}
-        {activeBizProfile && (
+        {bizLoading && bizProfiles.length === 0 ? (
+          <div className={styles.verifyCard} style={{ cursor: 'default', opacity: 0.6 }}>
+            <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0 }} className={sys.skelBar} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div className={`${sys.skelBar} ${sys.skelBarWide}`} />
+              <div className={`${sys.skelBar} ${sys.skelBarNarrow}`} />
+            </div>
+            <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0 }} className={sys.skelBar} />
+          </div>
+        ) : activeBizProfile && (
           <button
             type="button"
             onClick={() => navigate('/biz/manage')}

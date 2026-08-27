@@ -44,6 +44,7 @@ import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
+import { joinWalkieChannel } from '@/lib/walkieTalkieJoin';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation, DmMessage } from '@/api/types';
@@ -380,16 +381,12 @@ export default function DmDetail() {
   // 워키토키 헤더메뉴 "워키토키" 탭 — 이 대화방으로 참여 + 상대방에게 초대카드 전송(채널 존재를 모를 수 있으므로).
   const handleWalkieJoin = async () => {
     if (!conversationId) return;
-    setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
-    try {
-      const msg = await sendMessage(conversationId, '', {
-        messageType: 'walkie_invite',
-        meta: { invitedByName: user?.nickname ?? '' },
-      });
-      setMessages((prev) => [...prev, msg]);
-    } catch {
-      // 초대카드 전송 실패는 참여 자체를 막지 않는다 — 조용히 무시.
-    }
+    const msg = await joinWalkieChannel(
+      conversationId,
+      { name: isDirect ? otherName : roomTitle, isGroup: !isDirect },
+      user?.nickname,
+    );
+    if (msg) setMessages((prev) => [...prev, msg]);
   };
 
   // 약속잡기 시트 오픈 시 일시 기본값 = 다음 정시(최소 30분 이후). datetime-local은 로컬 타임존 문자열이 필요해 toISOString() 사용 금지.

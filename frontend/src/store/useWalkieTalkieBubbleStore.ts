@@ -36,6 +36,13 @@ interface WalkieTalkieBubbleState {
    */
   setActiveConversation: (id: string, meta?: WalkieTalkieConversationMeta) => void;
   close: () => void;
+  /**
+   * 어텐션 핑(대표 지시 2026-08-27): 이미 활성 대화가 있는 상태에서 진입 아이콘을 다시 눌렀을 때
+   * 캡슐을 끄지 않고 "이미 켜져 있어요"를 알리듯 짧게 흔들리는 비파괴적 피드백만 준다.
+   * 값 자체엔 의미 없음 — 증가할 때마다 캡슐 쪽 이펙트가 반응(peek)한다.
+   */
+  attentionPing: number;
+  ping: () => void;
 }
 
 export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
@@ -48,6 +55,8 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
         set({ activeConversationId: id, activeConversationMeta: meta ?? null, closed: false });
       },
       close: () => set({ closed: true }),
+      attentionPing: 0,
+      ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
     }),
     {
       name: 'saigon-rider-walkie-bubble',

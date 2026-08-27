@@ -148,12 +148,13 @@ export function WalkieTalkieFloatingButton() {
     };
   }, [conversationId]);
 
-  // 다이나믹 아일랜드식 "잠깐 펼침"(peek) — 채널 등장·다른 사람 발화 시 몇 초 펼쳤다가 자동으로 접는다.
+  // 다이나믹 아일랜드식 "잠깐 펼침"(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 몇 초 펼쳤다가 자동으로 접는다.
   const speakingOtherId = presence?.recordingUsers.find((u) => u.id !== user?.id)?.id ?? null;
+  const attentionPing = useWalkieTalkieBubbleStore((s) => s.attentionPing);
   useEffect(() => {
     if (!conversationId) return;
     setPeek(true);
-  }, [conversationId, speakingOtherId]);
+  }, [conversationId, speakingOtherId, attentionPing]);
   useEffect(() => {
     if (!peek) return;
     const timer = window.setTimeout(() => setPeek(false), 3200);

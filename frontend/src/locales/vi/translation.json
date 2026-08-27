@@ -783,7 +783,10 @@
     "inviteJoined": "Đã tham gia",
     "contextMenuChangeChannel": "Đổi kênh",
     "contextMenuResendInvite": "Gửi lại lời mời",
-    "changeChannelTitle": "Đổi kênh"
+    "changeChannelTitle": "Đổi kênh",
+    "entryButtonLabel": "Bộ đàm",
+    "recentChannelsTitle": "Chọn cuộc trò chuyện gần đây",
+    "noConversations": "Không có cuộc trò chuyện nào"
   },
   "locationShare": {
     "consentTitle": "Sử dụng chia sẻ vị trí thời gian thực",

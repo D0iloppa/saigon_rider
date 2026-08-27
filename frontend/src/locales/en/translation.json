@@ -783,7 +783,10 @@
     "inviteJoined": "Joined",
     "contextMenuChangeChannel": "Change channel",
     "contextMenuResendInvite": "Resend invite",
-    "changeChannelTitle": "Change channel"
+    "changeChannelTitle": "Change channel",
+    "entryButtonLabel": "Walkie-talkie",
+    "recentChannelsTitle": "Choose a recent conversation",
+    "noConversations": "No conversations yet"
   },
   "locationShare": {
     "consentTitle": "Using real-time location sharing",

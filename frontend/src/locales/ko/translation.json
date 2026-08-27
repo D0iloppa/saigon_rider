@@ -783,7 +783,10 @@
     "inviteJoined": "참여 중",
     "contextMenuChangeChannel": "채널 변경",
     "contextMenuResendInvite": "초대장 다시 보내기",
-    "changeChannelTitle": "채널 변경"
+    "changeChannelTitle": "채널 변경",
+    "entryButtonLabel": "워키토키",
+    "recentChannelsTitle": "최근 대화 선택",
+    "noConversations": "대화가 없어요"
   },
   "locationShare": {
     "consentTitle": "실시간 위치공유 사용 안내",

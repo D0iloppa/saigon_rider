@@ -400,9 +400,14 @@ async def get_user_profile(
     ).scalar_one()
 
     is_following = False
+    is_friend = False
     if viewer_id and viewer_id != user_id:
         existing = await db.get(UserFollow, {"follower_id": viewer_id, "following_id": user_id})
         is_following = existing is not None
+        if is_following:
+            # P4-4: 맞팔 여부 — 상대도 나를 팔로우하면 친구 (신규 테이블 0개, UserFollow 재사용)
+            reverse = await db.get(UserFollow, {"follower_id": user_id, "following_id": viewer_id})
+            is_friend = reverse is not None
 
     rider_style = user.rider_type.code if user.rider_type else None
 
@@ -415,6 +420,7 @@ async def get_user_profile(
         follower_count=follower_count,
         following_count=following_count,
         is_following=is_following,
+        is_friend=is_friend,
         is_phone_verified=user.phone_verified_at is not None,
         phone_masked=mask_phone(user.phone) if user.phone_verified_at is not None else None,
     )

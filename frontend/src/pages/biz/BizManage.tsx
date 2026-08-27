@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Camera, ChevronDown, ChevronRight, Megaphone, Newspaper, Package, Receipt, ShieldCheck } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -48,6 +48,9 @@ const VERIF_CHIP_CLASS: Record<BizVerificationStatus, string> = {
 export default function BizManage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  // O-2: 프로필에서 업체를 선택해 진입한 경우 해당 업체를 기본 활성 탭으로
+  const preselectProfileId = (location.state as { profileId?: string } | null)?.profileId;
   const user = useUserStore((s) => s.user);
   const [profiles, setProfiles] = useState<BusinessProfile[] | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);

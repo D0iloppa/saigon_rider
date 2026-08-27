@@ -299,19 +299,40 @@ export default function ProfileMain() {
       .catch(() => { setBizProfiles([]); setBizLoading(false); });
   }, [user?.id]);
 
-  // W4: 요약 카드 배지 — 다중 업체 보유 시 BizManage 기본 활성 프로필(첫 번째)과 동일 기준
+  // W4: 요약 카드 대표 업체는 기존과 동일하게 첫 번째 승인 업체를 노출
   const activeBizProfile = bizProfiles.find((p) => p.status === 'APPROVED') ?? null;
+  const approvedBizProfiles = bizProfiles.filter((p) => p.status === 'APPROVED');
+  const [bizPickerOpen, setBizPickerOpen] = useState(false);
+
+  // O-2: 배지 숫자는 보유한 모든 업체(APPROVED)의 미답변 합산 — 단일 업체만 세던 것을 교체
   useEffect(() => {
-    if (!activeBizProfile) {
+    if (approvedBizProfiles.length === 0) {
       setBizUnansweredCount(null);
       return;
     }
     let cancelled = false;
-    fetchBizOwnerReviews(activeBizProfile.id, { limit: 1 })
-      .then((res) => { if (!cancelled) setBizUnansweredCount(res.unansweredCount); })
+    Promise.all(approvedBizProfiles.map((p) => fetchBizOwnerReviews(p.id, { limit: 1 })))
+      .then((results) => {
+        if (cancelled) return;
+        setBizUnansweredCount(results.reduce((sum, r) => sum + r.unansweredCount, 0));
+      })
       .catch(() => { if (!cancelled) setBizUnansweredCount(null); });
     return () => { cancelled = true; };
-  }, [activeBizProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bizProfiles]);
+
+  // O-2: 업체가 2개 이상이면 라운지 이동 전 선택 단계를 거친다 (1개면 바로 이동)
+  const openBizLounge = () => {
+    if (approvedBizProfiles.length > 1) {
+      setBizPickerOpen(true);
+    } else {
+      navigate('/biz/manage');
+    }
+  };
+  const selectBizLounge = (profileId: string) => {
+    setBizPickerOpen(false);
+    navigate('/biz/manage', { state: { profileId } });
+  };
 
   const confirmDeleteFeed = (postId: string) => {
     openDialog({
@@ -488,7 +509,7 @@ export default function ProfileMain() {
         ) : activeBizProfile && (
           <button
             type="button"
-            onClick={() => navigate('/biz/manage')}
+            onClick={openBizLounge}
             className={styles.verifyCard}
           >
             <span className={styles.verifyIcon}><Store size={20} /></span>
@@ -968,6 +989,27 @@ export default function ProfileMain() {
             <LevelBadge level={u.level} />
           </div>
           <p className={styles.qrGuide}>{t('profile.shareGuide')}</p>
+        </div>
+      </BottomSheet>
+
+      {/* O-2: 다중 업체 보유 시 라운지 이동 전 업체 선택 */}
+      <BottomSheet open={bizPickerOpen} onClose={() => setBizPickerOpen(false)}>
+        <div className={styles.qrSheet}>
+          <h3 className={styles.qrTitle}>{t('biz.loungePickerTitle', { defaultValue: '어느 업체로 이동할까요?' })}</h3>
+          {approvedBizProfiles.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={styles.verifyCard}
+              onClick={() => selectBizLounge(p.id)}
+            >
+              <span className={styles.verifyIcon}><Store size={20} /></span>
+              <span className={styles.verifyText}>
+                <span className={styles.verifyTitle}>{p.name}</span>
+              </span>
+              <ChevronRight size={18} className={styles.verifyChevron} />
+            </button>
+          ))}
         </div>
       </BottomSheet>
 

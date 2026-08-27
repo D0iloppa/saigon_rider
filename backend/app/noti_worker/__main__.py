@@ -591,8 +591,123 @@ async def _handle_search_reindex(payload: dict, *, source_event_id: str) -> None
         await db.commit()
 
 
+async def _handle_feed_comment(payload: dict, *, source_event_id: str) -> None:
+    """P4-3: 내 글에 댓글이 달렸을 때 글쓴이에게 알림 (social 토글 게이트)."""
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    post_id = payload["post_id"]
+    title = payload.get("commenter_nickname") or "새 댓글"
+    body = payload.get("preview") or ""
+    link = f"feed&id={post_id}"
+
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        push_ok = inserted and await _push_enabled(db, recipient_id, "social")
+        await db.commit()
+
+    if not inserted:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+    elif push_ok:
+        await _try_push(str(recipient_id), title, body, link)
+
+
+async def _handle_feed_like(payload: dict, *, source_event_id: str) -> None:
+    """P4-3: 내 글에 응원(좋아요)이 달렸을 때 글쓴이에게 알림 (social 토글 게이트)."""
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    post_id = payload["post_id"]
+    title = payload.get("liker_nickname") or "새 응원"
+    body = "회원님의 글을 응원했습니다"
+    link = f"feed&id={post_id}"
+
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        push_ok = inserted and await _push_enabled(db, recipient_id, "social")
+        await db.commit()
+
+    if not inserted:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+    elif push_ok:
+        await _try_push(str(recipient_id), title, body, link)
+
+
+async def _handle_feed_followed_post(payload: dict, *, source_event_id: str) -> None:
+    """P4-3: 팔로우한 사람의 새 글 알림 — 팔로워 전원에게 fan-out (social 토글 게이트)."""
+    recipient_ids = [uuid.UUID(rid) for rid in payload["recipient_ids"]]
+    post_id = payload["post_id"]
+    title = payload.get("author_nickname") or "새 글"
+    body = payload.get("preview") or ""
+    link = f"feed&id={post_id}"
+
+    for recipient_id in recipient_ids:
+        async with AsyncSessionLocal() as db:
+            inserted = await _insert_notification(
+                db,
+                source_event_id=source_event_id,
+                user_id=recipient_id,
+                notification_type="SOCIAL",
+                title=title,
+                body=body,
+                link=link,
+            )
+            push_ok = inserted and await _push_enabled(db, recipient_id, "social")
+            await db.commit()
+
+        if not inserted:
+            log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+        elif push_ok:
+            await _try_push(str(recipient_id), title, body, link)
+
+
+async def _handle_feed_group_post(payload: dict, *, source_event_id: str) -> None:
+    """P4-3: 그룹 새 글 알림 — 그룹 멤버 전원에게 fan-out. notification_settings.group_post 로 게이트."""
+    recipient_ids = [uuid.UUID(rid) for rid in payload["recipient_ids"]]
+    post_id = payload["post_id"]
+    group_name = payload.get("group_name") or "그룹"
+    title = f"[{group_name}] {payload.get('author_nickname') or '새 글'}"
+    body = payload.get("preview") or ""
+    link = f"feed&id={post_id}"
+
+    for recipient_id in recipient_ids:
+        async with AsyncSessionLocal() as db:
+            inserted = await _insert_notification(
+                db,
+                source_event_id=source_event_id,
+                user_id=recipient_id,
+                notification_type="SOCIAL",
+                title=title,
+                body=body,
+                link=link,
+            )
+            push_ok = inserted and await _push_enabled(db, recipient_id, "group_post")
+            await db.commit()
+
+        if not inserted:
+            log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+        elif push_ok:
+            await _try_push(str(recipient_id), title, body, link)
+
+
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
+    "feed.comment_created": _handle_feed_comment,
+    "feed.post_liked": _handle_feed_like,
+    "feed.followed_post_created": _handle_feed_followed_post,
+    "feed.group_post_created": _handle_feed_group_post,
     "market.listing_created": _handle_listing_created,
     "market.price_drop": _handle_price_drop,
     "market.completion_requested": _handle_completion_requested,

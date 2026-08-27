@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime
 
@@ -10,6 +11,7 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..models import (
     CommunityGroupMember,
+    Content,
     DmConversation,
     DmConversationMember,
     DmMessage,
@@ -37,6 +39,7 @@ from ..services.banned_keywords import banned_keywords as _banned_keywords
 from ..services.dm_policy import require_member, require_participant, require_unblocked, require_unblocked_for_join
 from ..utils import build_imgproxy_url, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
+from .contents import CONTENTS_BASE_PATH, _content_playback_url
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
 
@@ -60,6 +63,12 @@ def _resolve_dm_image(msg: DmMessage) -> str | None:
 
         return build_imgproxy_url(ic.file_path)
     return None
+
+
+def _resolve_dm_audio(msg: DmMessage) -> str | None:
+    """워키토키 음성메시지 재생URL. 재생완료로 컨텐츠가 삭제된 뒤에는 None."""
+    ac = msg.audio_content
+    return _content_playback_url(ac) if ac else None
 
 
 def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
@@ -406,6 +415,7 @@ async def get_messages(
             sender_id=m.sender_id,
             content=m.content,
             image_url=_resolve_dm_image(m),
+            audio_url=_resolve_dm_audio(m),
             read_at=m.read_at,
             created_at=m.created_at,
             message_type=m.message_type,
@@ -439,8 +449,8 @@ async def send_message(
     if body.message_type in ("appointment", "price_offer"):
         raise HTTPException(status_code=400, detail="Use the dedicated endpoint for this message type")
 
-    if body.content is None and body.image_content_id is None:
-        raise HTTPException(status_code=400, detail="content or image_content_id is required")
+    if body.content is None and body.image_content_id is None and body.audio_content_id is None:
+        raise HTTPException(status_code=400, detail="content, image_content_id or audio_content_id is required")
 
     # 금칙어 차단 — 텍스트 타입 메시지에만 적용 (부분문자열, 대소문자 무시)
     if (body.message_type or "text") == "text" and body.content:
@@ -448,14 +458,18 @@ async def send_message(
         if any(kw in content_lower for kw in await _banned_keywords(db)):
             raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
 
+    # 워키토키 음성메시지(A-3) — audio_content_id 동봉 시 message_type 을 강제로 'voice' 로
+    message_type = "voice" if body.audio_content_id is not None else (body.message_type or "text")
+
     now = datetime.now(UTC)
     msg = DmMessage(
         conversation_id=conv_id,
         sender_id=_session_uid,
         content=body.content,
-        message_type=body.message_type or "text",
+        message_type=message_type,
         meta=body.meta,
         image_content_id=body.image_content_id,
+        audio_content_id=body.audio_content_id,
         created_at=now,
     )
     db.add(msg)
@@ -482,7 +496,12 @@ async def send_message(
             .all()
         )
     sender = await db.get(User, _session_uid)
-    preview = body.content[:50] if body.content else "사진을 보냈습니다"
+    if body.content:
+        preview = body.content[:50]
+    elif body.audio_content_id is not None:
+        preview = "음성 메시지를 보냈습니다"
+    else:
+        preview = "사진을 보냈습니다"
     if recipient_ids:
         noti_events.enqueue(
             db,
@@ -505,6 +524,62 @@ async def send_message(
         sender_id=msg.sender_id,
         content=msg.content,
         image_url=_resolve_dm_image(msg),
+        audio_url=_resolve_dm_audio(msg),
+        read_at=msg.read_at,
+        created_at=msg.created_at,
+        message_type=msg.message_type,
+        meta=msg.meta,
+    )
+
+
+@router.post(
+    "/conversations/{conv_id}/messages/{message_id}/played",
+    response_model=DmMessageOut,
+    summary="음성메시지 재생완료",
+)
+async def mark_voice_played(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """D-6 확정: 1:1 DM 음성메시지는 수신자가 재생완료하면 즉시 파일을 삭제한다.
+    발신자 본인의 재생은 삭제를 유발하지 않는다(그룹채널은 범위 밖 — §5-3)."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type != "direct":
+        raise HTTPException(status_code=400, detail="Voice playback deletion is direct-DM only")
+    require_participant(conv, _session_uid)
+    await require_unblocked(db, conv.participant_1, conv.participant_2)
+
+    msg = (
+        await db.execute(select(DmMessage).where(DmMessage.id == message_id, DmMessage.conversation_id == conv_id))
+    ).scalar_one_or_none()
+    if msg is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.message_type != "voice":
+        raise HTTPException(status_code=400, detail="Not a voice message")
+
+    if msg.sender_id != _session_uid and msg.audio_content_id is not None:
+        content = await db.get(Content, msg.audio_content_id)
+        if content is not None:
+            abs_path = CONTENTS_BASE_PATH / content.file_path
+            if await asyncio.to_thread(abs_path.is_file):
+                await asyncio.to_thread(abs_path.unlink)
+            await db.delete(content)
+        msg.audio_content_id = None
+        msg.meta = {**(msg.meta or {}), "playedAt": datetime.now(UTC).isoformat()}
+        await db.commit()
+        await db.refresh(msg)
+
+    return DmMessageOut(
+        id=msg.id,
+        conversation_id=msg.conversation_id,
+        sender_id=msg.sender_id,
+        content=msg.content,
+        image_url=_resolve_dm_image(msg),
+        audio_url=_resolve_dm_audio(msg),
         read_at=msg.read_at,
         created_at=msg.created_at,
         message_type=msg.message_type,

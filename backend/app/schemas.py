@@ -1319,6 +1319,8 @@ class DmMessageOut(BaseModel):
     sender_id: UUID
     content: str | None
     image_url: str | None
+    # 워키토키 음성메시지(D-5 재생URL) — 재생완료로 삭제된 뒤에는 None (meta.playedAt 로 구분)
+    audio_url: str | None = None
     read_at: datetime | None
     created_at: datetime
     message_type: str = "text"
@@ -1330,6 +1332,7 @@ class DmMessageOut(BaseModel):
 class DmMessageCreateRequest(BaseModel):
     content: str | None = None
     image_content_id: UUID | None = None
+    audio_content_id: UUID | None = None
     message_type: str = "text"
     meta: dict | None = None
 

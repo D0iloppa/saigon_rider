@@ -61,6 +61,8 @@ export function WalkieTalkieFloatingButton() {
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
+  // 더블탭 → 캡슐 펼침(peek). idle/권한거부 상태의 탭에만 적용(녹음중 탭은 정지/전송이라 지연 없이 즉시 반응해야 한다).
+  const tapTimerRef = useRef<number | null>(null);
   const phaseRef = useRef<Phase>('idle');
   const pendingResultRef = useRef<WalkieTalkieRecordingResult | null>(null);
   const manualStopRef = useRef(false);
@@ -381,8 +383,29 @@ export function WalkieTalkieFloatingButton() {
       dragMovedRef.current = false;
       return;
     }
+    // 더블탭(280ms 이내 재탭) → 펼침(peek). idle/권한거부 상태에서만 판정 —
+    // 녹음중/자동중지 탭(정지·전송)은 지연 없이 즉시 처리해야 하므로 그대로 통과시킨다.
+    if (phase === 'idle' || phase === 'permissionDenied') {
+      if (tapTimerRef.current !== null) {
+        window.clearTimeout(tapTimerRef.current);
+        tapTimerRef.current = null;
+        setPeek(true);
+        return;
+      }
+      tapTimerRef.current = window.setTimeout(() => {
+        tapTimerRef.current = null;
+        handleTap();
+      }, 280);
+      return;
+    }
     handleTap();
-  }, [handleTap]);
+  }, [handleTap, phase]);
+
+  useEffect(() => {
+    return () => {
+      if (tapTimerRef.current !== null) window.clearTimeout(tapTimerRef.current);
+    };
+  }, []);
 
   if (!conversationId) return null;
   if (!capability?.available || !capability.floatingButton) return null;

@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import Content, RiderType, User
+from ..models import Content, RiderType, User, Ward
 from ..schemas import (
     AvatarUpdateResponse,
     ConsentSaveRequest,
+    HomeWardUpdateRequest,
     NicknameCheckResponse,
     ProfileSaveRequest,
     RandomNicknameResponse,
@@ -134,6 +135,28 @@ async def save_profile(
 
     user.nickname = nickname
     user.rider_type_id = rt.id
+    await db.commit()
+    await db.refresh(user, ["rider_type"])
+    return UserOut.model_validate(user)
+
+
+# P4-1: 동네 귀속 수동 설정 (Q-7) — 그룹 추천이 이 값을 읽는다.
+@router.put("/home-ward", response_model=UserOut, summary="내 동네(ward) 설정")
+async def save_home_ward(
+    body: HomeWardUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if body.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    user = await _get_user_or_404(body.user_id, db)
+
+    if body.ward_id is not None:
+        ward = await db.get(Ward, body.ward_id)
+        if ward is None:
+            raise HTTPException(status_code=404, detail="Ward not found")
+
+    user.home_ward_id = body.ward_id
     await db.commit()
     await db.refresh(user, ["rider_type"])
     return UserOut.model_validate(user)

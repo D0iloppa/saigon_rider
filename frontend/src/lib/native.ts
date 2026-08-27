@@ -220,9 +220,17 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
           for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
           return new Blob([bytes], { type: result.mimeType });
         } catch (err) {
-          // readRecording 이 없는 구 설치본(프론트는 원격 서빙이라 조합될 수 있다) — 어차피
-          // 실패할 fetch 지만, 새 메서드에 하드 의존하지 않도록 기존 경로로 떨어뜨린다.
+          // readRecording 이 없는 구 설치본(프론트는 원격 서빙이라 조합될 수 있다) — 새 메서드에
+          // 하드 의존하지 않도록 기존 경로로 떨어뜨리되, 실패 사유는 반드시 구분되게 남긴다.
+          // (그냥 폴백만 하면 구 빌드도 새 빌드와 똑같이 "Load failed" 로 보여 앱을 다시 빌드해야
+          //  한다는 사실이 드러나지 않는다.)
+          const reason = err instanceof Error ? err.message : String(err);
           console.warn('[walkieTalkie] readRecording unavailable, falling back to fetch', err);
+          try {
+            return await fetch(Capacitor.convertFileSrc(result.filePath)).then((r) => r.blob());
+          } catch {
+            throw new Error(`앱 재빌드 필요 — readRecording 없음 (${reason.slice(0, 60)})`);
+          }
         }
       }
       // Android/웹: 로컬 서버가 https 로 서빙하므로 기존 경로가 정상 동작한다.

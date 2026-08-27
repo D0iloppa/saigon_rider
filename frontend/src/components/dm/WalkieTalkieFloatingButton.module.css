@@ -96,6 +96,15 @@
   color: var(--brand-300);
 }
 
+/* 정지 버튼은 수신대기의 마이크 아이콘과 동일하게 항상 우측 끝에 고정한다.
+ * 수신대기는 .label 이 flex:1 로 남는 공간을 흡수해 자연히 그렇게 되지만, 녹음중에는
+ * 라벨이 렌더되지 않아 흡수할 요소가 없다 — margin-left:auto 로 같은 결과를 만든다.
+ * (캡슐 너비가 min-width 로 고정되면서 남는 공간이 정지 버튼 뒤에 드러났던 문제) */
+.capsule[data-phase='recording'] .iconWrap,
+.capsule[data-phase='autoStopped'] .iconWrap {
+  margin-left: auto;
+}
+
 .capsule[data-phase='recording'] .iconWrap,
 .capsule[data-phase='autoStopped'] .iconWrap {
   color: var(--danger);

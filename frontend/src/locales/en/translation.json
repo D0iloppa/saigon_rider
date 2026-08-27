@@ -795,7 +795,8 @@
       "outside_area": "You're outside the service area, so location can't be shared",
       "scope_all": "Couldn't get your location",
       "inaccurate": "Location accuracy is too low to check"
-    }
+    },
+    "unavailable": "Location sharing is unavailable"
   },
   "feedCreate": {
     "title": "New Post",
@@ -908,7 +909,10 @@
     "reportReason_OTHER": "Other",
     "bannedKeyword": "Your message contains a banned word",
     "apptPlaceTap": "Tap the map to drop a pin",
-    "more": "More"
+    "more": "More",
+    "moreMenuReport": "Report",
+    "moreMenuLocationShare": "Share location",
+    "moreMenuWalkieTalkie": "Walkie-talkie"
   },
   "follow": {
     "followers": "Followers",

@@ -795,7 +795,8 @@
       "outside_area": "Bạn đang ở ngoài khu vực dịch vụ nên không thể chia sẻ vị trí",
       "scope_all": "Không thể xác định vị trí của bạn",
       "inaccurate": "Độ chính xác vị trí quá thấp để xác định"
-    }
+    },
+    "unavailable": "Không thể sử dụng chia sẻ vị trí"
   },
   "feedCreate": {
     "title": "Bài viết mới",
@@ -908,7 +909,10 @@
     "reportReason_OTHER": "Khác",
     "bannedKeyword": "Tin nhắn chứa từ ngữ bị cấm",
     "apptPlaceTap": "Chạm vào bản đồ để đặt ghim",
-    "more": "Xem thêm"
+    "more": "Xem thêm",
+    "moreMenuReport": "Báo cáo",
+    "moreMenuLocationShare": "Chia sẻ vị trí",
+    "moreMenuWalkieTalkie": "Bộ đàm"
   },
   "follow": {
     "followers": "Người theo dõi",

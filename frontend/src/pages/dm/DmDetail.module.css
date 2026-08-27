@@ -590,3 +590,8 @@
 .reportItem:active {
   background: var(--surface-2);
 }
+
+.reportItem:disabled {
+  color: var(--text-3);
+  opacity: .5;
+}

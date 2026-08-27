@@ -266,9 +266,16 @@ function transformLocationShareStatus(raw: any): LocationShareStatus {
   };
 }
 
+// rethrow:true — 7초 폴링(LocationShareWidget)이 403/404(영구 실패) 여부를 status 로 직접
+// 판정해야 해서, 실패마다 자동 토스트가 뜨는 것을 막는다(그러지 않으면 무한폴링 동안 토스트가 반복된다).
 export async function fetchLocationShareStatus(appointmentId: string): Promise<LocationShareStatus> {
   return transformLocationShareStatus(
-    await api.realFetch<any>(`/market/appointments/${appointmentId}/location-share`),
+    await api.realFetch<any>(
+      `/market/appointments/${appointmentId}/location-share`,
+      {},
+      'bff',
+      { rethrow: true },
+    ),
   );
 }
 

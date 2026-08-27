@@ -795,7 +795,8 @@
       "outside_area": "서비스 지역 밖이라 위치를 공유할 수 없어요",
       "scope_all": "위치를 확인할 수 없어요",
       "inaccurate": "위치 정확도가 낮아 확인할 수 없어요"
-    }
+    },
+    "unavailable": "위치 공유를 사용할 수 없어요"
   },
   "feedCreate": {
     "title": "새 글 작성",
@@ -908,7 +909,10 @@
     "reportReason_OTHER": "기타",
     "bannedKeyword": "금지된 표현이 포함되어 있습니다",
     "apptPlaceTap": "지도를 탭해 마커를 찍으세요",
-    "more": "더보기"
+    "more": "더보기",
+    "moreMenuReport": "신고하기",
+    "moreMenuLocationShare": "위치 공유하기",
+    "moreMenuWalkieTalkie": "워키토키"
   },
   "follow": {
     "followers": "팔로워",

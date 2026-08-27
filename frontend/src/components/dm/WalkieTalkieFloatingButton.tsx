@@ -9,15 +9,9 @@ import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
 import { api } from '@/api/client';
 import { sendMessage } from '@/api/dm';
 import { useUserStore } from '@/store/useUserStore';
+import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
-import type { DmMessage } from '@/api/types';
 import styles from './WalkieTalkieFloatingButton.module.css';
-
-interface Props {
-  /** 현재 열려 있는 DM 대화 — 전송 대상 (§10 A-7 6: 그룹채널 분기는 범위 밖). */
-  conversationId: string;
-  onMessageSent: (msg: DmMessage) => void;
-}
 
 type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading';
 
@@ -27,13 +21,20 @@ const MARGIN = 12;
 /**
  * 플로팅 토글 녹음 버블 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
  * 드래그 이동 + 화면 가장자리 스냅 + 닫기 버튼 + 녹음 중 상태(경과시간·레벨) 표시.
+ *
+ * 앱 전역 컴포넌트(App.tsx 마운트) — 대상 대화(`activeConversationId`)와 닫힘 상태(`closed`)는
+ * `useWalkieTalkieBubbleStore` 에서 읽는다(대표 지시 2026-08-27: DM 화면을 떠나도 유지).
+ * 전송된 메시지를 대화방 화면에 즉시 반영하는 콜백은 없다 — 대화방이 열려있지 않을 때 보낸
+ * 메시지는 그 화면의 다음 폴링 tick에 자연스럽게 반영된다.
  */
-export function WalkieTalkieFloatingButton({ conversationId, onMessageSent }: Props) {
+export function WalkieTalkieFloatingButton() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
+  const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
+  const closed = useWalkieTalkieBubbleStore((s) => s.closed);
+  const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
-  const [closed, setClosed] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
@@ -102,7 +103,7 @@ export function WalkieTalkieFloatingButton({ conversationId, onMessageSent }: Pr
 
   const finishAndSend = useCallback(
     async (result: WalkieTalkieRecordingResult) => {
-      if (!user) {
+      if (!user || !conversationId) {
         resetToIdle();
         return;
       }
@@ -116,15 +117,15 @@ export function WalkieTalkieFloatingButton({ conversationId, onMessageSent }: Pr
         form.append('owner_type', 'user');
         form.append('owner_id', user.id);
         const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
-        const msg = await sendMessage(conversationId, '', { audioContentId: id });
-        onMessageSent(msg);
+        // 대화방 화면이 열려 있으면 그 화면의 폴링이 다음 tick에 이 메시지를 알아서 가져온다.
+        await sendMessage(conversationId, '', { audioContentId: id });
       } catch {
         toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
       } finally {
         resetToIdle();
       }
     },
-    [conversationId, onMessageSent, resetToIdle, t, user],
+    [conversationId, resetToIdle, t, user],
   );
 
   const startFlow = useCallback(async () => {
@@ -197,8 +198,8 @@ export function WalkieTalkieFloatingButton({ conversationId, onMessageSent }: Pr
 
   const handleClose = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setClosed(true);
-  }, []);
+    closeBubble();
+  }, [closeBubble]);
 
   // 드래그 이동 + 가장자리 스냅
   const onPointerDown = useCallback(
@@ -242,6 +243,7 @@ export function WalkieTalkieFloatingButton({ conversationId, onMessageSent }: Pr
     handleTap();
   }, [handleTap]);
 
+  if (!conversationId) return null;
   if (!capability?.available || !capability.floatingButton) return null;
   if (isWalkieTalkieOptedOut()) return null;
   if (closed) return null;

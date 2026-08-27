@@ -43,12 +43,12 @@ import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
+import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
-import { WalkieTalkieFloatingButton } from '@/components/dm/WalkieTalkieFloatingButton';
 import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import styles from './DmDetail.module.css';
 
@@ -183,6 +183,8 @@ export default function DmDetail() {
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [locationShareSheetOpen, setLocationShareSheetOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<MessageComposerHandle>(null);
@@ -212,6 +214,14 @@ export default function DmDetail() {
     loadMessages();
     return () => { refreshUnread(); };
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 워키토키 플로팅 버블(A-7) 대상 대화 등록 — 대표 지시 2026-08-27: 언마운트 시 정리하지 않는다
+  // (이 화면을 떠나도 버블이 마지막 대화방을 계속 대상으로 앱 전역에서 유지돼야 한다).
+  const setActiveWalkieConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
+  const reopenWalkieBubble = useWalkieTalkieBubbleStore((s) => s.reopen);
+  useEffect(() => {
+    if (conversationId) setActiveWalkieConversation(conversationId);
+  }, [conversationId, setActiveWalkieConversation]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -553,7 +563,7 @@ export default function DmDetail() {
           <button
             className={styles.headerMoreBtn}
             type="button"
-            onClick={() => setReportOpen(true)}
+            onClick={() => setMoreSheetOpen(true)}
             aria-label={t('dm.more', { defaultValue: '더보기' })}
           >
             <MoreVertical size={22} strokeWidth={2} />
@@ -897,17 +907,6 @@ export default function DmDetail() {
         })}
       </div>
 
-      {/* P6: 거래 DM 슬롯 컨테이너 — 약속이 있을 때만 위치공유 위젯 노출 (§7, 워키토키와는 배치만 공유) */}
-      <DealLiveActions appointmentId={currentAppointmentId} />
-
-      {/* 워키토키 플로팅 토글 녹음 버블 (A-7) — getCapability().floatingButton=false(웹) 면 내부에서 렌더 스킵 */}
-      {conversationId && (
-        <WalkieTalkieFloatingButton
-          conversationId={conversationId}
-          onMessageSent={(msg) => setMessages((prev) => [...prev, msg])}
-        />
-      )}
-
       <MessageComposer
         ref={composerRef}
         value={input}
@@ -1029,6 +1028,40 @@ export default function DmDetail() {
           onSubmitted={handleReviewSubmitted}
         />
       )}
+
+      {/* 헤더 "..." 게이트 메뉴 (대표 지시 2026-08-27) — 신고/위치공유/워키토키 3개 옵션 */}
+      <BottomSheet open={moreSheetOpen} onClose={() => setMoreSheetOpen(false)}>
+        <div className={styles.reportSheet}>
+          <button
+            className={styles.reportItem}
+            type="button"
+            onClick={() => { setMoreSheetOpen(false); setReportOpen(true); }}
+          >
+            {t('dm.moreMenuReport', { defaultValue: '신고하기' })}
+          </button>
+          <button
+            className={styles.reportItem}
+            type="button"
+            disabled={!currentAppointmentId}
+            aria-disabled={!currentAppointmentId}
+            onClick={() => { if (!currentAppointmentId) return; setMoreSheetOpen(false); setLocationShareSheetOpen(true); }}
+          >
+            {t('dm.moreMenuLocationShare', { defaultValue: '위치 공유하기' })}
+          </button>
+          <button
+            className={styles.reportItem}
+            type="button"
+            onClick={() => { if (conversationId) reopenWalkieBubble(conversationId); setMoreSheetOpen(false); }}
+          >
+            {t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' })}
+          </button>
+        </div>
+      </BottomSheet>
+
+      {/* 위치공유 위젯 — 약속이 있을 때만(§7), 항상-보임이 아니라 이 메뉴로 열고 닫는다 */}
+      <BottomSheet open={locationShareSheetOpen} onClose={() => setLocationShareSheetOpen(false)}>
+        <DealLiveActions appointmentId={currentAppointmentId} />
+      </BottomSheet>
 
       {/* 대화 신고 사유 */}
       <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)}>

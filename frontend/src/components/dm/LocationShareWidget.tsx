@@ -56,22 +56,37 @@ export function LocationShareWidget({ appointmentId }: Props) {
   const [consentOpen, setConsentOpen] = useState(false);
   const [localGateReason, setLocalGateReason] = useState<LocationGateReason | null>(null);
   const [busy, setBusy] = useState(false);
+  // 403/404 같은 영구적 실패(재시도해도 절대 안 풀림) — 폴링을 중단하고 인라인 문구만 보여준다.
+  const [unavailable, setUnavailable] = useState(false);
 
   const lastPingRef = useRef<{ at: number; coords: { lat: number; lng: number } } | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(() => {
     fetchLocationShareStatus(appointmentId)
       .then(setStatus)
-      .catch(() => {
-        /* 폴링 실패는 조용히 다음 tick 에 재시도 — 토스트 폭탄 방지 */
+      .catch((err) => {
+        // realFetch 의 에러 메시지 형식은 "HTTP {status} | ...". 403/404는 재시도해도 풀리지
+        // 않는 실패(권한 없음/약속 삭제 등)라 폴링을 멈춘다. 5xx·네트워크 오류는 다음 tick 재시도.
+        const status = Number(/^HTTP (\d+)/.exec((err as Error)?.message ?? '')?.[1]);
+        if (status === 403 || status === 404) {
+          setUnavailable(true);
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        }
       });
   }, [appointmentId]);
 
   // 폴링 — §4-B 확정: 신규 실시간 인프라 없이 위젯 자체 폴링으로 완결.
   useEffect(() => {
     refresh();
-    const id = setInterval(refresh, POLL_MS);
-    return () => clearInterval(id);
+    pollRef.current = setInterval(refresh, POLL_MS);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
   }, [refresh]);
 
   const sharing = status?.myStatus === 'sharing';
@@ -126,6 +141,18 @@ export function LocationShareWidget({ appointmentId }: Props) {
       setBusy(false);
     }
   };
+
+  if (unavailable) {
+    return (
+      <div className={styles.card}>
+        <div className={styles.header}>
+          <MapPin size={18} strokeWidth={2} />
+          <strong className={styles.title}>{t('locationShare.widgetTitle', { defaultValue: '실시간 위치공유' })}</strong>
+        </div>
+        <p className={styles.inlineGate}>{t('locationShare.unavailable', { defaultValue: '위치 공유를 사용할 수 없어요' })}</p>
+      </div>
+    );
+  }
 
   if (!status) return null;
 

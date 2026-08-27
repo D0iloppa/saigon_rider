@@ -47,6 +47,7 @@ import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 import { joinWalkieChannel } from '@/lib/walkieTalkieJoin';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
+import { playSound } from '@/lib/sound';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
@@ -231,6 +232,9 @@ export default function DmDetail() {
         const res = await fetchMessages(conversationId, 1, last?.createdAt);
         if (res.items.length > 0) {
           setMessages((prev) => [...prev, ...res.items]);
+          // 폴링으로 새로 도착한 메시지 중 내가 보낸 게 아닌 게 있으면 수신음.
+          const uid = session?.userId ?? user?.id;
+          if (res.items.some((m) => m.senderId !== uid)) playSound('dm_receive');
           markRead(conversationId).then(() => refreshUnread()).catch(() => {});
         }
       } catch {
@@ -308,6 +312,7 @@ export default function DmDetail() {
     try {
       const msg = await sendMessage(conversationId, text);
       setMessages((prev) => [...prev, msg]);
+      playSound('dm_send');
     } catch (err) {
       // 전송 실패 시 입력을 비운 채로 두지 않고 원문을 복원 — 재입력 없이 한 번의 조작으로 재전송 가능 (P1-6)
       setInput(text);

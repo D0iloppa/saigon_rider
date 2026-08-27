@@ -12,6 +12,7 @@ import type { DmConversation } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
+import { playSound } from '@/lib/sound';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
 import styles from './WalkieTalkieFloatingButton.module.css';
@@ -206,6 +207,7 @@ export function WalkieTalkieFloatingButton() {
         const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
         // 대화방 화면이 열려 있으면 그 화면의 폴링이 다음 tick에 이 메시지를 알아서 가져온다.
         await sendMessage(conversationId, '', { audioContentId: id });
+        playSound('dm_send');
       } catch {
         toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
       } finally {

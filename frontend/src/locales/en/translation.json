@@ -767,7 +767,14 @@
     "consentTitle": "Using the walkie-talkie feature",
     "consentBody": "Walkie-talkie (voice messages) uses your microphone. The recorded voice is sent to the other person as a message.",
     "consentRetention": "Sent voice messages are automatically deleted once the recipient finishes playing them.",
-    "consentAgree": "Agree & continue"
+    "consentAgree": "Agree & continue",
+    "bubbleLabel": "Walkie-talkie voice message",
+    "autoStopped": "Auto-stopped · tap to send",
+    "permissionDenied": "Microphone permission is needed. Please allow it in settings.",
+    "openAppSettings": "Open settings",
+    "startError": "Couldn't start recording",
+    "stopError": "Couldn't finish recording",
+    "sendError": "Failed to send the voice message"
   },
   "feedCreate": {
     "title": "New Post",

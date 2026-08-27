@@ -143,6 +143,8 @@ export async function fetchMessages(
 
 export interface SendMessageOpts {
   imageContentId?: string;
+  /** 워키토키 음성메시지(A-3/A-7) — 있으면 서버가 message_type 을 'voice' 로 강제한다. */
+  audioContentId?: string;
   messageType?: string;
   meta?: DmAppointmentMeta;
 }
@@ -174,6 +176,7 @@ export async function sendMessage(
     body: JSON.stringify({
       content,
       image_content_id: opts.imageContentId ?? null,
+      audio_content_id: opts.audioContentId ?? null,
       message_type: opts.messageType ?? 'text',
       meta: opts.meta ?? null,
     }),

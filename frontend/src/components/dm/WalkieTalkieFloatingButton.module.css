@@ -1,0 +1,107 @@
+/* 플로팅 토글 녹음 버블 (A-7). 웹뷰 내 DOM — position: fixed 로 드래그·스냅한다. */
+
+.bubble {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-pop);
+  z-index: 60;
+  touch-action: none;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.bubble[data-phase='recording'],
+.bubble[data-phase='autoStopped'] {
+  background: var(--danger);
+}
+
+.bubble[data-phase='uploading'] {
+  opacity: 0.6;
+}
+
+.level {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  transition: transform 80ms linear;
+}
+
+.closeBtn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink-700);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+}
+
+.elapsed {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+}
+
+.panel {
+  position: fixed;
+  z-index: 61;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  padding: 12px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panelText {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.panelActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.panelBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px;
+}
+
+.panelBtnPrimary {
+  composes: panelBtn;
+  color: var(--brand-600);
+}

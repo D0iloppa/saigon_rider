@@ -767,7 +767,14 @@
     "consentTitle": "워키토키 기능 사용 안내",
     "consentBody": "워키토키(음성메시지) 기능은 마이크를 사용합니다. 녹음된 음성은 메시지로 상대방에게 전송됩니다.",
     "consentRetention": "전송한 음성메시지는 상대방이 재생을 완료하면 자동으로 삭제됩니다.",
-    "consentAgree": "동의하고 계속하기"
+    "consentAgree": "동의하고 계속하기",
+    "bubbleLabel": "워키토키 음성메시지",
+    "autoStopped": "자동 중지됨 · 탭하여 전송",
+    "permissionDenied": "마이크 권한이 필요해요. 설정에서 허용해 주세요.",
+    "openAppSettings": "설정 열기",
+    "startError": "녹음을 시작하지 못했어요",
+    "stopError": "녹음을 마치지 못했어요",
+    "sendError": "음성메시지 전송에 실패했어요"
   },
   "feedCreate": {
     "title": "새 글 작성",

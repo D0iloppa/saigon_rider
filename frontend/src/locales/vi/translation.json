@@ -767,7 +767,14 @@
     "consentTitle": "Sử dụng tính năng bộ đàm",
     "consentBody": "Tính năng bộ đàm (tin nhắn thoại) sử dụng micro của bạn. Âm thanh đã ghi sẽ được gửi cho người kia dưới dạng tin nhắn.",
     "consentRetention": "Tin nhắn thoại đã gửi sẽ tự động bị xóa sau khi người nhận nghe xong.",
-    "consentAgree": "Đồng ý và tiếp tục"
+    "consentAgree": "Đồng ý và tiếp tục",
+    "bubbleLabel": "Tin nhắn thoại bộ đàm",
+    "autoStopped": "Đã tự động dừng · chạm để gửi",
+    "permissionDenied": "Cần quyền truy cập micro. Vui lòng cho phép trong cài đặt.",
+    "openAppSettings": "Mở cài đặt",
+    "startError": "Không thể bắt đầu ghi âm",
+    "stopError": "Không thể kết thúc ghi âm",
+    "sendError": "Gửi tin nhắn thoại thất bại"
   },
   "feedCreate": {
     "title": "Bài viết mới",

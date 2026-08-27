@@ -48,6 +48,7 @@ import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
+import { WalkieTalkieFloatingButton } from '@/components/dm/WalkieTalkieFloatingButton';
 import styles from './DmDetail.module.css';
 
 // A-8: 음성메시지(message_type='voice') 카드. 표준 HTML5 <audio> 로 재생/진행바만 다룬다(커스텀 오디오 엔진 금지).
@@ -864,6 +865,14 @@ export default function DmDetail() {
           );
         })}
       </div>
+
+      {/* 워키토키 플로팅 토글 녹음 버블 (A-7) — getCapability().floatingButton=false(웹) 면 내부에서 렌더 스킵 */}
+      {conversationId && (
+        <WalkieTalkieFloatingButton
+          conversationId={conversationId}
+          onMessageSent={(msg) => setMessages((prev) => [...prev, msg])}
+        />
+      )}
 
       <MessageComposer
         ref={composerRef}

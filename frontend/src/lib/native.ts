@@ -146,16 +146,20 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
       // record 만 네이티브 전용 — `WalkieTalkie` 커스텀 플러그인(./plugins/walkieTalkie.ts)에
       // web 구현이 없어(순수 registerPlugin 래퍼) 웹에서는 진짜 녹음이 불가능하다.
       const isAndroid = isNative && Capacitor.getPlatform() === 'android';
+      // 프론트는 원격 서빙이라 `WalkieTalkie` 플러그인이 등록되지 않은 설치본과도 조합된다
+      // (iOS 는 packageClassList 누락으로 실제로 그랬다 — 등록 전 빌드에서는 checkPermission
+      // 부터 reject 되어 아무 반응 없이 실패한다). 있는 척하지 말고 record 를 내린다.
+      const canRecord = isNative && Capacitor.isPluginAvailable('WalkieTalkie');
       return {
         available: true,
-        record: isNative,
+        record: canRecord,
         floatingButton: true,
         // Android: A-4/A-5 에서 이미 FGS 로 구현됨. iOS: D-2 확정 — Phase B 전까지 보수적으로 false.
         backgroundService: isAndroid,
         overlayBubble: isAndroid, // B-2: SYSTEM_ALERT_WINDOW 오버레이 버블 구현됨(Android only, iOS 영구 false)
         homeWidget: isAndroid, // B-2: AppWidget 구현됨(iOS 는 후속 B-3 인터랙티브 위젯 범위)
         liveActivity: false, // Phase B 미구현 (B-3, iOS)
-        maxDurationSec: isNative ? 60 : 0, // D-4 확정 (웹은 record=false 라 사용되지 않음)
+        maxDurationSec: canRecord ? 60 : 0, // D-4 확정 (record=false 면 사용되지 않음)
       };
     },
 

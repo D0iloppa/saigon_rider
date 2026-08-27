@@ -349,11 +349,23 @@ export function WalkieTalkieFloatingButton() {
 
   const startFlow = useCallback(async () => {
     manualStopRef.current = false;
-    const perm = await native.walkieTalkie.checkPermission();
-    let mic = perm.mic;
-    if (mic !== 'granted') {
-      const granted = await native.walkieTalkie.requestPermission('mic');
-      mic = granted ? 'granted' : 'denied';
+    // 녹음 플러그인이 없는 설치본(웹, 또는 WalkieTalkie 미등록 구버전 앱)에서는 아래 호출들이
+    // 전부 reject 된다 — 예전엔 그대로 새어나가 unhandled rejection 으로 아무 반응 없이 끝났다.
+    if (!capability?.record) {
+      toast.info(t('walkieTalkie.recordUnsupported', { defaultValue: '이 버전에서는 음성 녹음을 지원하지 않아요. 앱을 업데이트해주세요' }));
+      return;
+    }
+    let mic: string;
+    try {
+      const perm = await native.walkieTalkie.checkPermission();
+      mic = perm.mic;
+      if (mic !== 'granted') {
+        const granted = await native.walkieTalkie.requestPermission('mic');
+        mic = granted ? 'granted' : 'denied';
+      }
+    } catch {
+      toast.error(t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' }));
+      return;
     }
     if (mic !== 'granted') {
       setPhase('permissionDenied');
@@ -570,6 +582,9 @@ export function WalkieTalkieFloatingButton() {
   const channelLabel = conversationMeta?.isGroup && presence
     ? `${channelName} · ${presence.activeMembers}/${presence.totalMembers}`
     : channelName;
+  // 채널명 좌측 참석 dot — 전원 참석이면 초록, 한 명이라도 빠졌으면(또는 참석정보 로딩 전이면) 회색.
+  // 1:1 채널도 같은 규칙이다(상대가 들어와 있어야 초록).
+  const allPresent = !!presence && presence.activeMembers >= presence.totalMembers;
   const speakingOther = presence?.recordingUsers.find((u) => u.id !== user?.id) ?? null;
   const statusText = phase === 'recording' || phase === 'autoStopped'
     ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
@@ -679,7 +694,16 @@ export function WalkieTalkieFloatingButton() {
             {/* 채널정보 — 평소엔 접혀 있고 peek(등장·발화·길게누름) 때만 펼쳐진다 */}
             {!isRec && (
               <span className={styles.label} data-open={peek || undefined}>
-                <span className={styles.channelName}>{channelLabel}</span>
+                <span className={styles.channelRow}>
+                  <span
+                    className={styles.presenceDot}
+                    data-all-present={allPresent || undefined}
+                    aria-label={allPresent
+                      ? t('walkieTalkie.presenceAll', { defaultValue: '전원 참석' })
+                      : t('walkieTalkie.presencePartial', { defaultValue: '일부 미참석' })}
+                  />
+                  <span className={styles.channelName}>{channelLabel}</span>
+                </span>
                 <span className={speakingOther ? styles.speakingText : styles.statusText}>
                   {speakingOther
                     ? t('walkieTalkie.someoneSpeaking', { name: speakingOther.nickname ?? '', defaultValue: '{{name}}님이 말하는 중' })

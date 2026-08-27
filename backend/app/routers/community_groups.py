@@ -343,6 +343,7 @@ async def remove_member(
 @router.get("/{group_id}/members", response_model=list[CommunityGroupMemberOut], summary="멤버 목록")
 async def list_members(
     group_id: uuid.UUID,
+    status: str = "active",  # 'active' | 'pending' — pending 은 owner/manager 전용
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
@@ -351,11 +352,20 @@ async def list_members(
     if actor is None or actor.status != "ACTIVE":
         raise HTTPException(status_code=403, detail="Not a member of this group")
 
+    if status == "pending":
+        if actor.role not in _MANAGE_ROLES:
+            raise HTTPException(status_code=403, detail="Only owner/manager can view pending members")
+        member_status = "PENDING"
+    elif status == "active":
+        member_status = "ACTIVE"
+    else:
+        raise HTTPException(status_code=422, detail="Invalid status")
+
     rows = (
         await db.execute(
             select(CommunityGroupMember, User)
             .join(User, CommunityGroupMember.user_id == User.id)
-            .where(CommunityGroupMember.group_id == group.id, CommunityGroupMember.status == "ACTIVE")
+            .where(CommunityGroupMember.group_id == group.id, CommunityGroupMember.status == member_status)
             .order_by(CommunityGroupMember.joined_at.asc())
         )
     ).all()

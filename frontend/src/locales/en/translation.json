@@ -2381,6 +2381,8 @@
     "role_owner": "Owner",
     "role_manager": "Manager",
     "role_member": "Member",
-    "removeMember": "Remove member"
+    "removeMember": "Remove member",
+    "pendingMembers": "Pending approval",
+    "approveMember": "Approve"
   }
 }

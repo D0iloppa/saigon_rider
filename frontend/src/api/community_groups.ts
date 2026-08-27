@@ -125,8 +125,11 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   await api.realFetch(`/community/groups/${groupId}/members/${userId}`, { method: 'DELETE' });
 }
 
-export async function listMembers(groupId: string): Promise<CommunityGroupMember[]> {
-  const raw = await api.realFetch<any[]>(`/community/groups/${groupId}/members`);
+export async function listMembers(
+  groupId: string,
+  status: 'active' | 'pending' = 'active',
+): Promise<CommunityGroupMember[]> {
+  const raw = await api.realFetch<any[]>(`/community/groups/${groupId}/members?status=${status}`);
   return raw.map(transformMember);
 }
 

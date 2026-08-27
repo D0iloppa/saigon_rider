@@ -2381,6 +2381,8 @@
     "role_owner": "Chủ nhóm",
     "role_manager": "Quản trị viên",
     "role_member": "Thành viên",
-    "removeMember": "Xoá khỏi nhóm"
+    "removeMember": "Xoá khỏi nhóm",
+    "pendingMembers": "Chờ duyệt",
+    "approveMember": "Duyệt"
   }
 }

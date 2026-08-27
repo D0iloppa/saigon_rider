@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, MessageCircle, MessagesSquare, Newspaper, Plus, UserX, UsersRound } from 'lucide-react';
+import { Flame, MessageCircle, MessagesSquare, Newspaper, Plus, UserCheck, UserX, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +9,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { ScrollSentinel } from '@/components/ui/ScrollSentinel';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { formatRelativeTime } from '@/lib/format';
-import { getGroup, joinGroup, listMembers, removeGroupMember, listGroupPosts } from '@/api/community_groups';
+import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts } from '@/api/community_groups';
 import { toggleCheer } from '@/api/feed';
 import { toast } from '@/components/ui/Toast';
 import { useUserStore } from '@/store/useUserStore';
@@ -228,18 +228,40 @@ function BoardTab({ group, isMember, navigate, t }: any) {
 
 function MembersTab({ group, isMember, myUserId, t }: any) {
   const [members, setMembers] = useState<CommunityGroupMember[]>([]);
+  const [pending, setPending] = useState<CommunityGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const canManage = MANAGE_ROLES.has(group.myRole ?? '');
 
   useEffect(() => {
     if (!isMember) { setLoading(false); return; }
-    listMembers(group.id).then(setMembers).finally(() => setLoading(false));
-  }, [group.id, isMember]);
+    Promise.all([
+      listMembers(group.id),
+      canManage ? listMembers(group.id, 'pending') : Promise.resolve([]),
+    ])
+      .then(([active, pendingList]) => {
+        setMembers(active);
+        setPending(pendingList);
+      })
+      .finally(() => setLoading(false));
+  }, [group.id, isMember, canManage]);
 
   const handleRemove = async (userId: string) => {
     try {
       await removeGroupMember(group.id, userId);
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
+
+  const handleApprove = async (userId: string) => {
+    try {
+      await approveMember(group.id, userId);
+      setPending((prev) => {
+        const approved = prev.find((m) => m.userId === userId);
+        if (approved) setMembers((cur) => [...cur, { ...approved, status: 'ACTIVE' }]);
+        return prev.filter((m) => m.userId !== userId);
+      });
     } catch {
       toast.error(t('common.errorUnexpected'));
     }
@@ -252,6 +274,27 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
 
   return (
     <div className={styles.membersBody}>
+      {canManage && pending.length > 0 && (
+        <>
+          <div className={styles.memberRole} style={{ padding: '8px 0' }}>
+            {t('communityGroup.pendingMembers')}
+          </div>
+          {pending.map((m) => (
+            <div key={m.userId} className={styles.memberRow}>
+              <AppImage src={m.avatarUrl ?? undefined} alt="" className={feedStyles.avatar} variant="circle" />
+              <span className={styles.memberName}>{m.nickname ?? '—'}</span>
+              <button
+                type="button"
+                aria-label={t('communityGroup.approveMember')}
+                onClick={() => handleApprove(m.userId)}
+                style={{ background: 'none', border: 'none', color: 'var(--primary, #3b82f6)', cursor: 'pointer' }}
+              >
+                <UserCheck size={16} strokeWidth={2.2} />
+              </button>
+            </div>
+          ))}
+        </>
+      )}
       {members.map((m) => (
         <div key={m.userId} className={styles.memberRow}>
           <AppImage src={m.avatarUrl ?? undefined} alt="" className={feedStyles.avatar} variant="circle" />

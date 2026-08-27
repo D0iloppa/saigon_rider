@@ -2381,6 +2381,8 @@
     "role_owner": "방장",
     "role_manager": "매니저",
     "role_member": "멤버",
-    "removeMember": "강퇴"
+    "removeMember": "강퇴",
+    "pendingMembers": "승인 대기",
+    "approveMember": "승인"
   }
 }

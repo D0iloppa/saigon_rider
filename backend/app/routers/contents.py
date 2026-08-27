@@ -53,6 +53,10 @@ ALLOWED_MIME_TYPES = {
 # M4A/MP4 컨테이너의 ftyp major/compatible brand 중 m4a 계열로 취급할 것들
 _M4A_FTYP_BRANDS = {b"M4A ", b"M4B "}
 
+# Android MediaRecorder(MPEG_4+AAC) 는 ftyp brand 가 M4A 가 아닌 경우가 흔해 audio/mp4 로
+# sniff 되지만 클라이언트는 audio/m4a 로 선언 — 둘은 상호교환 가능한 동일 계열로 취급
+_MP4_AUDIO_FAMILY = {"audio/m4a", "audio/mp4"}
+
 
 def _sniff_mime(data: bytes) -> str | None:
     """실제 바이트 매직넘버로 포맷을 판별 (declared content_type 신뢰 금지)."""
@@ -128,7 +132,11 @@ async def upload_content(
     data = await file.read(max_upload_bytes + 1)
     if len(data) > max_upload_bytes:
         raise HTTPException(status_code=413, detail=f"File too large (max {max_upload_bytes // (1024 * 1024)}MB)")
-    if _sniff_mime(data) != file.content_type:
+    sniffed = _sniff_mime(data)
+    mismatch = sniffed != file.content_type and not (
+        sniffed in _MP4_AUDIO_FAMILY and file.content_type in _MP4_AUDIO_FAMILY
+    )
+    if mismatch:
         raise HTTPException(status_code=400, detail="File content does not match declared content type")
     await asyncio.to_thread(abs_path.write_bytes, data)
 

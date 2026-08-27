@@ -49,6 +49,12 @@ export interface WalkieTalkiePlugin {
   stopRecording(): Promise<WalkieTalkieRecordingResult>;
   /** 녹음 취소(버리기) — 파일 삭제, 결과 없음. */
   cancelRecording(): Promise<void>;
+  /**
+   * 녹음 파일을 base64 로 읽는다 (iOS 전용 — Android 플러그인에는 없다).
+   * 원격 https 페이지에서 `capacitor://` 로컬 파일을 fetch 하면 WebKit 이 혼합 콘텐츠로
+   * 차단하기 때문에(`Load failed`), iOS 는 이 경로로 바이트를 받는다.
+   */
+  readRecording(opts: { filePath: string }): Promise<{ dataBase64: string; sizeBytes: number }>;
 
   /** 경과시간/레벨미터/자동종료 상태 이벤트. 60초 자동중지 시 state:'idle' 로 통지된다. */
   addListener(

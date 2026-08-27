@@ -119,6 +119,13 @@ export interface WalkieTalkieChannel {
   startRecording(opts?: WalkieTalkieStartOptions): Promise<void>;
   stopRecording(): Promise<WalkieTalkieRecordingResult>;
   cancelRecording(): Promise<void>;
+  /**
+   * 녹음 결과 파일을 Blob 으로 읽는다. 플랫폼별로 경로가 다르다 —
+   * iOS 는 네이티브가 base64 로 넘겨주고(원격 https 페이지에서 `capacitor://` 파일을 fetch 하면
+   * WebKit 이 혼합 콘텐츠로 차단해 "Load failed"), Android 는 로컬 서버가 https 로 서빙하므로
+   * 기존 convertFileSrc + fetch 를 그대로 쓴다.
+   */
+  readRecordingBlob(result: WalkieTalkieRecordingResult): Promise<Blob>;
 
   addListener(
     event: 'recordingState',
@@ -199,6 +206,21 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
         throw new Error('[walkieTalkie] stopRecording not available on web');
       }
       return await WalkieTalkie.stopRecording();
+    },
+
+    async readRecordingBlob(result) {
+      // iOS: 네이티브가 base64 로 직접 넘긴다. 원격 https 페이지에서 convertFileSrc 가 주는
+      // capacitor:// 파일을 fetch 하면 WebKit 이 비보안 스킴(혼합 콘텐츠)으로 차단해
+      // "Load failed" 로 죽는다 — 아이폰에서만 음성 전송이 실패하던 원인.
+      if (Capacitor.getPlatform() === 'ios') {
+        const { dataBase64 } = await WalkieTalkie.readRecording({ filePath: result.filePath });
+        const bin = atob(dataBase64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: result.mimeType });
+      }
+      // Android/웹: 로컬 서버가 https 로 서빙하므로 기존 경로가 정상 동작한다.
+      return await fetch(Capacitor.convertFileSrc(result.filePath)).then((r) => r.blob());
     },
 
     async cancelRecording() {

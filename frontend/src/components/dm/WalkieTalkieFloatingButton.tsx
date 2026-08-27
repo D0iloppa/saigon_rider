@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
 import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
@@ -70,6 +69,10 @@ export function WalkieTalkieFloatingButton() {
   const [channelSheetOpen, setChannelSheetOpen] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+  /** 녹음 진입 직전의 캡슐 너비(px) — 녹음중 너비 축소 방지용 바닥값(ResizeObserver 가 갱신). */
+  const [lockedWidth, setLockedWidth] = useState(0);
+  /** ResizeObserver 콜백에서 최신 녹음 여부를 읽기 위한 미러 (deps 재구독 없이). */
+  const isRecRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   // 더블탭 → 캡슐 펼침(peek) 토글. idle/권한거부 상태의 탭에만 적용(녹음중 탭은 정지/전송이라 지연 없이 즉시 반응해야 한다).
   const tapTimerRef = useRef<number | null>(null);
@@ -110,6 +113,11 @@ export function WalkieTalkieFloatingButton() {
   useEffect(() => {
     native.walkieTalkie.getCapability().then(setCapability).catch(() => setCapability(null));
   }, []);
+
+  // ResizeObserver 콜백이 최신 녹음 여부를 읽을 수 있게 미러링 (재구독 없이).
+  useEffect(() => {
+    isRecRef.current = phase === 'recording' || phase === 'autoStopped';
+  }, [phase]);
 
   // 녹음 상태 이벤트 구독 — 경과시간·레벨미터 + 60초 자동중지(D-4) 감지.
   // available 이 아니라 record 로 판단한다 — available 은 항상 true 라(웹에서도 버블은 뜬다)
@@ -297,6 +305,9 @@ export function WalkieTalkieFloatingButton() {
     const ro = new ResizeObserver(() => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
+      // 녹음 진입 시 캡슐이 좁아지지 않도록 직전(비녹음) 너비를 기억해 둔다.
+      // 녹음중에는 갱신하지 않아야 그 값이 바닥값으로 유지된다.
+      if (!isRecRef.current) setLockedWidth((prev) => (prev === w ? prev : w));
       setPos((p) => {
         const prevW = prevWidthRef.current;
         const centeredX = prevW === null ? p.x : p.x - (w - prevW) / 2;
@@ -334,8 +345,7 @@ export function WalkieTalkieFloatingButton() {
       // 테스트마다 왕복이 필요했다. 파일읽기/업로드/전송 중 어디서 났는지 토스트에 그대로 싣는다.
       let step = 'read';
       try {
-        const fileUrl = Capacitor.convertFileSrc(result.filePath);
-        const blob = await fetch(fileUrl).then((r) => r.blob());
+        const blob = await native.walkieTalkie.readRecordingBlob(result);
         if (blob.size === 0) throw new Error(`empty blob (${result.sizeBytes ?? '?'}B reported)`);
         const file = new File([blob], `walkie-${Date.now()}.m4a`, { type: result.mimeType });
         const form = new FormData();
@@ -644,7 +654,12 @@ export function WalkieTalkieFloatingButton() {
         // 레이아웃 reflow 를 유발하지만 transform 은 GPU 합성만 일어나 훨씬 부드럽다. 드래그 중
         // 스케일 피드백(1.06)도 별도 CSS transform 대신 여기서 함께 계산해, 두 transform 이 서로
         // 덮어쓰는 문제 없이 한 값으로 합성된다.
-        style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0) scale(${dragging ? 1.06 : 1})` }}
+        style={{
+          transform: `translate3d(${pos.x}px, ${pos.y}px, 0) scale(${dragging ? 1.06 : 1})`,
+          // 녹음에 들어갈 때 채널정보 라벨이 빠지면서 캡슐 너비가 줄어들던 것 방지 —
+          // 녹음 직전 너비를 바닥값으로 고정한다(대표 지시: 녹음중 사이즈 변경 없음).
+          minWidth: isRec && lockedWidth ? lockedWidth : undefined,
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

@@ -80,6 +80,7 @@ from ..services.dm_policy import require_participant, require_unblocked
 from ..services.listing_fingerprint import compute_text_simhash
 from ..services.listing_ranking import recommended_score_sql
 from ..services.listing_state import log_transition
+from ..services.location_share import purge_location_shares
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
 from ..services.service_area import in_service_area
@@ -1848,6 +1849,7 @@ async def complete_appointment(
         db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="appointment_completed"
     )
     await funnel_events.record(db, FunnelEventType.TRADE_COMPLETE, user_id=session_uid, entity_id=listing.id)
+    await purge_location_shares(db, appt.id)
     await db.commit()
     return _appt_out(appt, listing.seller_id)
 
@@ -1965,6 +1967,7 @@ async def cancel_appointment(
     was_accepted = appt.status == "ACCEPTED"
     appt.status = "CANCELLED"
     appt.updated_at = now
+    await purge_location_shares(db, appt.id)
     if was_accepted and listing.status == "RESERVED":
         listing.status = "ON_SALE"
         listing.updated_at = now

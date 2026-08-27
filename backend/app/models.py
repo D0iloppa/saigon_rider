@@ -1518,6 +1518,31 @@ class MarketplaceAppointment(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class MarketplaceLocationShare(Base):
+    """거래중 실시간 위치공유 — 최신 좌표 1건만 보관(이력 미보관), 약속당 사용자별 1행."""
+
+    __tablename__ = "marketplace_location_shares"
+    __table_args__ = (
+        UniqueConstraint("appointment_id", "user_id", name="marketplace_location_shares_appointment_user_uq"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    accuracy_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consent_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class MarketplacePriceOffer(Base):
     __tablename__ = "marketplace_price_offers"
 

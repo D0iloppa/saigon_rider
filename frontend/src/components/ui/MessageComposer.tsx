@@ -55,15 +55,14 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
   ref,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
-  // 한글/베트남어 IME 조합 중 controlled value 재설정이 글자를 중복시킴 → 조합 중 갱신 보류
-  const composingRef = useRef(false);
   // 'closed' | 'menu' | <item.key>(피커 서브뷰)
   const [view, setView] = useState<string>('closed');
   const [focused, setFocused] = useState(false);
   const kb = useKeyboard();
-  // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈/팬 없음) → 입력바를 키보드
-  // 위로 올리는 건 아래 스페이서뿐. 웹/Android 는 OS·브라우저가 직접 밀어주므로 제외.
-  const isIosNative = native.platform === 'ios';
+  // 네이티브(iOS·Android 공통)는 키보드가 순수 오버레이(웹뷰 리사이즈/팬 없음,
+  // Android 도 c231681 이후 adjustNothing) → 입력바를 키보드 위로 올리는 건 아래
+  // 스페이서뿐. 웹은 브라우저가 직접 밀어주므로 제외.
+  const needsManualKeyboardLift = native.isNative;
 
   const hasMenu = menuItems.length > 0;
   const open = view !== 'closed';
@@ -77,9 +76,9 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
   let spacerHeight = 0;
   if (open) {
     spacerHeight = panelHeight;
-  } else if (isIosNative && kb.visible) {
+  } else if (needsManualKeyboardLift && kb.visible) {
     spacerHeight = kb.height;
-  } else if (isIosNative && focused && lastSpacerRef.current > 0) {
+  } else if (needsManualKeyboardLift && focused && lastSpacerRef.current > 0) {
     // 포커스 직후 ~ keyboardWillShow 도착 전 공백 래치: 직전 스페이서 높이 유지.
     // (직전 높이가 0 이면 아무것도 예약하지 않음 → 하드웨어 키보드 등에서 빈 300px 방지)
     spacerHeight = lastSpacerRef.current;
@@ -132,14 +131,13 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
-            if (composingRef.current) return; // 조합 중에는 갱신 보류(IME가 직접 표시)
+            // 조합 중에는 갱신 보류(IME가 직접 표시). ref 로 상태를 들고 있으면 Android
+            // WebView 에서 compositionend 가 안 붙는 경우 영구히 true 로 고착돼 입력이
+            // 먹통이 되므로, 매 이벤트마다 실시간 조합 상태를 직접 읽어 자가 교정되게 한다.
+            if ((e.nativeEvent as InputEvent).isComposing) return;
             onChange(e.target.value);
           }}
-          onCompositionStart={() => {
-            composingRef.current = true;
-          }}
           onCompositionEnd={(e) => {
-            composingRef.current = false;
             onChange((e.target as HTMLInputElement).value); // 조합 확정값 1회 반영
           }}
           onFocus={() => {

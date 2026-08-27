@@ -31,8 +31,9 @@ useKeyboard()   (frontend/src/hooks/useKeyboard.ts)
 ```
 
 - **iOS 네이티브**: 키보드는 **웹뷰를 리사이즈하지 않는 순수 오버레이**다. `innerHeight` 계측이 무의미하므로 `KeyboardBridge` 의 `keyboardWillShow`/`keyboardWillHide` 이벤트가 유일한 높이 소스다 (`native.ts` 341-364행).
-- **웹 / Android**: 기존 `visualViewport` inset과 `innerHeight` delta 중 큰 값을 쓰는 계측 폴백을 유지한다 (`native.ts` 366-386행). Android는 `adjustPan` + IME 패딩이 이미 동작하므로 **회귀 금지** — 아래 iOS 전용 오버라이드 패턴은 `isIosNative` 조건으로 감싼다.
-- `useKeyboard()` 는 키보드가 내려가도 `height` 는 마지막 관측값을 유지하고 `visible` 만 `false` 로 바뀐다. 그래서 소비처는 항상 `isIosNative && kb.visible` 조합으로 적용 여부를 판단한다 (`kb.height` 단독 사용 금지).
+- **Android 네이티브**: `AndroidManifest.xml` 의 `windowSoftInputMode` 가 `adjustNothing` (커밋 `c231681`, 2026-07-06)으로 전환돼 iOS 와 동일하게 **웹뷰가 팬/리사이즈되지 않는 순수 오버레이**다. 계측은 `visualViewport` 폴백(아래)이 담당하지만, **여백 적용은 iOS 와 동일하게 수동 오버라이드가 필요**하다.
+- **웹**: 기존 `visualViewport` inset과 `innerHeight` delta 중 큰 값을 쓰는 계측 폴백을 유지한다 (`native.ts` 366-386행). 브라우저가 OS 키보드에 맞춰 뷰포트를 직접 밀어주므로 아래 네이티브 전용 오버라이드 패턴에서 제외한다.
+- `useKeyboard()` 는 키보드가 내려가도 `height` 는 마지막 관측값을 유지하고 `visible` 만 `false` 로 바뀐다. 그래서 소비처는 항상 `(iOS/Android 네이티브 여부) && kb.visible` 조합으로 적용 여부를 판단한다 (`kb.height` 단독 사용 금지).
 
 ```ts
 // frontend/src/hooks/useKeyboard.ts
@@ -51,14 +52,14 @@ export interface KeyboardState {
 ```tsx
 // BizApply.tsx
 const kb = useKeyboard();
-// iOS 네이티브는 키보드가 순수 오버레이라 설명 textarea 아래 여백이 거의 없어
+// 네이티브(iOS·Android)는 키보드가 순수 오버레이라 설명 textarea 아래 여백이 거의 없어
 // 스크롤해도 키보드에 가려진다 — 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다.
-const isIosNative = native.platform === 'ios';
+const needsManualKeyboardLift = native.isNative;
 
 return (
   <div className={styles.page}>
     <TopBar title={...} />
-    <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
+    <div className={styles.body} style={{ paddingBottom: needsManualKeyboardLift && kb.visible ? kb.height : undefined }}>
       {/* 폼 필드들 */}
     </div>
   </div>
@@ -92,14 +93,14 @@ return (
 ```tsx
 // NeighborhoodProfile.tsx
 const kb = useKeyboard();
-const isIosNative = native.platform === 'ios';
+const needsManualKeyboardLift = native.isNative;
 
 <div className={styles.sheetBackdrop} onClick={() => !submitting && setSheetOpen(false)}>
   <div
     className={styles.sheet}
     onClick={(e) => e.stopPropagation()}
     style={
-      isIosNative && kb.visible
+      needsManualKeyboardLift && kb.visible
         ? {
             maxHeight: 'calc(100% - var(--status-bar-height, 0px) - 12px)',
             paddingBottom: `calc(${kb.height}px + 20px)`,
@@ -143,7 +144,7 @@ const isIosNative = native.platform === 'ios';
 
 ## 새 화면 적용 체크리스트
 
-- [ ] `useKeyboard()` 로 `kb` 를 구독하고, `native.platform === 'ios'` 로 `isIosNative` 를 판단했는가 (Android/웹은 기존 계측 폴백이 이미 동작하므로 iOS 전용 오버라이드로 감싼다)
+- [ ] `useKeyboard()` 로 `kb` 를 구독하고, `native.isNative` (또는 동등한 iOS/Android 네이티브 판별)로 수동 오버라이드 여부를 판단했는가 (웹은 브라우저가 직접 밀어주므로 제외, iOS·Android 네이티브는 둘 다 오버레이 방식이라 수동 여백이 필요하다)
 - [ ] 여백을 **backdrop/wrapper 가 아니라 실제 스크롤 영역 또는 시트 자신**에 주었는가
 - [ ] 오버레이 시트라면 `maxHeight` 상한 + `overflow-y: auto` 내부 스크롤을 확보했는가 (상태바 침범 방지)
 - [ ] 시트라면 키보드가 가릴 탭바/safe-area 상수는 제외하고 `calc(kb.height + 기존 padding 상수)` 로 계산했는가

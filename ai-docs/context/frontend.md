@@ -203,6 +203,10 @@ import { AppImage } from '@/components/ui/AppImage';
 - ⚠️ `Instrument Serif` 는 베트남어 글리프가 없다(CDN 시절부터의 결손). 베트남어 문구에 `.serif` 를 새로 쓰면 서체가 섞인다.
 - 국기는 `styles/flags.css`(vn/us/kr). `flag-icons` 전체 import 는 제거됐다.
 
+**기본 UI 셸/폴백 리소스는 로컬 번들 필수, 원격 CDN 의존 금지 (2026-08-27, 저속망 전수조사)** — 기본 아바타·빈 상태 이미지·아이콘·이모지처럼 "실제 사용자 콘텐츠가 아니라 앱 UI 자체의 일부인 기본값"은 반드시 `frontend/public/` 또는 `frontend/src/assets/`에 로컬 번들링한다. 신규 아이콘/이모지/기본이미지를 추가할 때 원격 URL을 폴백으로 두지 말 것 — 동남아 저속망 환경에서 앱 안정성에 직결된다. 예외: 실제 사용자 콘텐츠(업체 사진 등 imgproxy 경유)나 지도 타일처럼 번들링이 물리적으로 불가능한 것.
+- 기본값/폴백 리소스는 하드코딩 문자열 리터럴로 여러 곳에 흩어놓지 말고 `@/lib/` 상수로 단일화한다 (예: 기본 아바타 `DEFAULT_AVATAR_URL`, `frontend/src/lib/defaults.ts`).
+- 이모지(`@/lib/emoji.ts`)처럼 로컬 화이트리스트에 없으면 CDN으로 조용히 폴백하는 구조는 리뷰에서 누락을 잡기 어렵다 — `emojiUrl()`은 화이트리스트 미스 시 개발 모드에서 `console.warn`을 남긴다. 새 이모지 코드를 쓰기 전에 로컬 변환 후 화이트리스트에 등록할 것.
+
 **lazy loading 은 `AppImage` 한 곳에서 처리한다 (2026-08-03, UX 감사 P2-8)**
 - 기본값이 `loading="lazy"` + `decoding="async"` 다. **화면마다 `loading="lazy"` 를 붙이지 마라** — 이 규칙이 있는 이유 자체가 이미지 처리를 한 곳으로 모으는 것이다. 소비자가 `loading`/`decoding` 을 명시하면 그 값을 존중한다.
 - **above-the-fold 히어로 이미지는 `priority` 를 줘라.** lazy 를 걸면 LCP 가 나빠진다. 현재 부여된 곳: `ImageCarousel`(단일 이미지·첫 슬라이드만), `AdDetail`·`BizPublic` 의 `.heroImg`. 새 상세 화면의 대표 이미지를 만들면 여기도 판단할 것.

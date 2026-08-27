@@ -29,6 +29,7 @@ export function emojiUrl(code: string): string {
     '1f514', '2699',  '1f48e', '1fa99', '1f3c6',
     '1f3cd', '2615',  '1f31f',
     '2b50',  '26a1',
+    '1f381', '1f4e6',
   ]);
   const LOCAL_PNG = new Set([
     '1f4cd', '1f9ed',
@@ -37,5 +38,9 @@ export function emojiUrl(code: string): string {
   if (LOCAL_WEBP.has(code)) return `${BASE}/${code}.webp`;
   if (LOCAL_PNG.has(code)) return `${BASE}/${code}.png`;
   // 로컬에 없는 나머지 코드는 CDN 폴백 (국기 코드는 넘기지 말 것 — 위 주석 참고)
+  // 화이트리스트 누락은 조용히 넘어가면 리뷰에서 걸러지지 않으므로 개발 모드에서만 경고한다.
+  if (import.meta.env.DEV) {
+    console.warn(`[emoji] "${code}" 는 로컬 화이트리스트에 없어 CDN 폴백 중 — 저속망 리스크. 변환 후 LOCAL_WEBP/LOCAL_PNG 에 추가할 것.`);
+  }
   return `${CDN}/${code}/512.gif`;
 }

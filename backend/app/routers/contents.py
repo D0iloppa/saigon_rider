@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, UploadFile, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,16 +34,28 @@ CONTENTS_BASE_PATH = Path(os.getenv("CONTENTS_BASE_PATH", "/data"))
 # 업로드 단건 상한 — nginx client_max_body_size(25m)보다 약간 낮게, 전체 메모리 적재 방어
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
+# 워키토키 음성메시지 — 60초 ≒ 1MB 내외(AAC/M4A 인코딩 기준) + 여유
+AUDIO_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+
+AUDIO_MIME_TYPES = {
+    "audio/m4a",
+    "audio/aac",
+    "audio/mp4",
+}
+
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/png",
     "image/gif",
     "image/webp",
-}
+} | AUDIO_MIME_TYPES
+
+# M4A/MP4 컨테이너의 ftyp major/compatible brand 중 m4a 계열로 취급할 것들
+_M4A_FTYP_BRANDS = {b"M4A ", b"M4B "}
 
 
 def _sniff_mime(data: bytes) -> str | None:
-    """실제 바이트 매직넘버로 이미지 포맷을 판별 (declared content_type 신뢰 금지)."""
+    """실제 바이트 매직넘버로 포맷을 판별 (declared content_type 신뢰 금지)."""
     if data[:3] == b"\xff\xd8\xff":
         return "image/jpeg"
     if data[:8] == b"\x89PNG\r\n\x1a\n":
@@ -52,6 +64,13 @@ def _sniff_mime(data: bytes) -> str | None:
         return "image/gif"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    # M4A/MP4 컨테이너 — ftyp 박스 시그니처(offset 4~8)로 판별
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        brand = data[8:12]
+        return "audio/m4a" if brand in _M4A_FTYP_BRANDS else "audio/mp4"
+    # raw AAC (ADTS) 스트림 — 12비트 sync word 0xFFF
+    if len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xF6) == 0xF0:
+        return "audio/aac"
     return None
 
 
@@ -64,6 +83,13 @@ def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
         rel = Path("system")
 
     return CONTENTS_BASE_PATH / rel, str(rel)
+
+
+def _content_playback_url(content: Content) -> str:
+    """D-5: 오디오는 imgproxy 미경유 — /contents/{id}/raw 원본 서빙 URL 을 대신 내려준다."""
+    if content.mime_type in AUDIO_MIME_TYPES:
+        return f"/api/bff/contents/{content.id}/raw"
+    return build_imgproxy_url(content.file_path)
 
 
 @router.post(
@@ -98,9 +124,10 @@ async def upload_content(
 
     await asyncio.to_thread(abs_dir.mkdir, parents=True, exist_ok=True)
 
-    data = await file.read(MAX_UPLOAD_BYTES + 1)
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB)")
+    max_upload_bytes = AUDIO_MAX_UPLOAD_BYTES if file.content_type in AUDIO_MIME_TYPES else MAX_UPLOAD_BYTES
+    data = await file.read(max_upload_bytes + 1)
+    if len(data) > max_upload_bytes:
+        raise HTTPException(status_code=413, detail=f"File too large (max {max_upload_bytes // (1024 * 1024)}MB)")
     if _sniff_mime(data) != file.content_type:
         raise HTTPException(status_code=400, detail="File content does not match declared content type")
     await asyncio.to_thread(abs_path.write_bytes, data)
@@ -135,7 +162,7 @@ async def upload_content(
         mime_type=content.mime_type,
         original_filename=content.original_filename,
         file_size=content.file_size,
-        imgproxy_url=build_imgproxy_url(content.file_path),
+        imgproxy_url=_content_playback_url(content),
         created_at=content.created_at,
     )
 
@@ -226,6 +253,36 @@ async def get_content(
         mime_type=content.mime_type,
         original_filename=content.original_filename,
         file_size=content.file_size,
-        imgproxy_url=build_imgproxy_url(content.file_path),
+        imgproxy_url=_content_playback_url(content),
         created_at=content.created_at,
     )
+
+
+@router.get(
+    "/{content_id}/raw",
+    summary="원본 파일 서빙 (오디오 재생용)",
+    response_description="컨텐츠 원본 바이트 스트림 — imgproxy 미경유 (D-5)",
+)
+async def get_content_raw(
+    content_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
+    admin_session: str | None = Cookie(default=None),
+):
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalar_one_or_none()
+
+    if content is None:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    if content.is_private:
+        is_owner = session_uid is not None and content.owner_id == session_uid
+        is_admin = admin_session is not None and decode_token(admin_session) is not None
+        if not is_owner and not is_admin:
+            raise HTTPException(status_code=404, detail="Content not found")
+
+    abs_path = CONTENTS_BASE_PATH / content.file_path
+    if not await asyncio.to_thread(abs_path.is_file):
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    return FileResponse(abs_path, media_type=content.mime_type)

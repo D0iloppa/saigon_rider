@@ -776,6 +776,12 @@
     "stopError": "녹음을 마치지 못했어요",
     "sendError": "음성메시지 전송에 실패했어요"
   },
+  "locationShare": {
+    "consentTitle": "실시간 위치공유 사용 안내",
+    "consentBody": "실시간 위치는 거래 상대방에게만 공유되며, 거래 완료·취소 시 또는 언제든 직접 중단하면 즉시 삭제됩니다.",
+    "consentRetention": "위치정보는 민감정보로 취급되어 이 거래 목적 외에는 사용되지 않습니다.",
+    "consentAgree": "동의하고 공유 시작"
+  },
   "feedCreate": {
     "title": "새 글 작성",
     "textPlaceholder": "무슨 생각을 하고 계세요?",

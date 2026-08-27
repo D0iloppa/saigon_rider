@@ -776,6 +776,12 @@
     "stopError": "Không thể kết thúc ghi âm",
     "sendError": "Gửi tin nhắn thoại thất bại"
   },
+  "locationShare": {
+    "consentTitle": "Sử dụng chia sẻ vị trí thời gian thực",
+    "consentBody": "Vị trí thời gian thực chỉ được chia sẻ với đối tác giao dịch, và sẽ bị xóa ngay khi giao dịch hoàn tất, bị hủy, hoặc khi bạn tự dừng chia sẻ bất kỳ lúc nào.",
+    "consentRetention": "Dữ liệu vị trí được xem là dữ liệu nhạy cảm và không được sử dụng ngoài mục đích của giao dịch này.",
+    "consentAgree": "Đồng ý và bắt đầu chia sẻ"
+  },
   "feedCreate": {
     "title": "Bài viết mới",
     "textPlaceholder": "Bạn đang nghĩ gì?",

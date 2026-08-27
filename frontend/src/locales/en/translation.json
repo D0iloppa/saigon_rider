@@ -776,6 +776,12 @@
     "stopError": "Couldn't finish recording",
     "sendError": "Failed to send the voice message"
   },
+  "locationShare": {
+    "consentTitle": "Using real-time location sharing",
+    "consentBody": "Your real-time location is shared only with the other party in this deal, and is deleted immediately when the deal is completed, cancelled, or whenever you stop sharing yourself.",
+    "consentRetention": "Location data is treated as sensitive information and is not used beyond the purpose of this deal.",
+    "consentAgree": "Agree & start sharing"
+  },
   "feedCreate": {
     "title": "New Post",
     "textPlaceholder": "What's on your mind?",

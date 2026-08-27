@@ -133,6 +133,67 @@
   object-fit: contain;
 }
 
+/* 음성메시지 카드 (A-8) — .bubble/.mine/.theirs 골격 재사용 */
+.voiceCard {
+  min-width: 180px;
+}
+
+.voiceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voicePlayBtn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.25);
+  color: inherit;
+}
+
+.theirs .voicePlayBtn {
+  background: var(--bg);
+}
+
+.voiceProgressTrack {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.theirs .voiceProgressTrack {
+  background: var(--line);
+}
+
+.voiceProgressFill {
+  height: 100%;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+.voiceDuration {
+  flex-shrink: 0;
+  font-size: 12px;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 재생완료(D-6)로 파일이 삭제된 음성메시지 — 비활성 표시 */
+.voiceDeleted {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
 /* ── 매물 컨텍스트 카드 (SGR-287 거래 채팅) ── */
 .contextCard {
   display: flex;

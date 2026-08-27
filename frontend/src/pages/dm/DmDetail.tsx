@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Play, Pause, Mic } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -31,6 +31,7 @@ import {
   cancelPriceOffer,
   reportConversation,
   removeMember,
+  markVoicePlayed,
   DM_REPORT_REASONS,
   type DmReportReason,
 } from '@/api/dm';
@@ -48,6 +49,96 @@ import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
 import styles from './DmDetail.module.css';
+
+// A-8: 음성메시지(message_type='voice') 카드. 표준 HTML5 <audio> 로 재생/진행바만 다룬다(커스텀 오디오 엔진 금지).
+// 재생 상태를 카드별로 독립 관리해야 해서 별도 컴포넌트로 분리했다.
+function mmss(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function VoiceMessageCard({
+  msg,
+  isMine,
+  onPlayed,
+}: {
+  msg: DmMessage;
+  isMine: boolean;
+  onPlayed: () => void;
+}) {
+  const { t } = useTranslation();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0); // 0..1
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const totalSec = Math.round((msg.meta?.durationMs ?? 0) / 1000);
+
+  // D-6: 재생완료로 파일이 삭제되면 audioUrl 이 null 로 온다 — 더 이상 재생 불가능함을 명시.
+  if (!msg.audioUrl) {
+    return (
+      <div className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs} ${styles.voiceCard}`}>
+        <div className={styles.voiceDeleted}>
+          <Mic size={16} />
+          <span>{t('dm.voicePlayed', { defaultValue: '재생 완료된 음성메시지' })}</span>
+        </div>
+        <div className={styles.meta}>
+          {formatRelativeTime(msg.createdAt)}
+          {isMine && msg.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
+        </div>
+      </div>
+    );
+  }
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) audio.pause();
+    else audio.play();
+  };
+
+  return (
+    <div className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs} ${styles.voiceCard}`}>
+      <div className={styles.voiceRow}>
+        <button
+          type="button"
+          className={styles.voicePlayBtn}
+          onClick={togglePlay}
+          aria-label={playing ? t('dm.voicePause', { defaultValue: '일시정지' }) : t('dm.voicePlay', { defaultValue: '재생' })}
+        >
+          {playing ? <Pause size={16} /> : <Play size={16} />}
+        </button>
+        <div className={styles.voiceProgressTrack}>
+          <div className={styles.voiceProgressFill} style={{ width: `${Math.round(progress * 100)}%` }} />
+        </div>
+        <span className={styles.voiceDuration}>{mmss(playing || elapsedSec > 0 ? elapsedSec : totalSec)}</span>
+      </div>
+      <audio
+        ref={audioRef}
+        src={msg.audioUrl}
+        preload="none"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onTimeUpdate={(e) => {
+          const a = e.currentTarget;
+          setElapsedSec(a.currentTime);
+          if (a.duration) setProgress(a.currentTime / a.duration);
+        }}
+        onEnded={() => {
+          setPlaying(false);
+          setProgress(0);
+          setElapsedSec(0);
+          // 내가 보낸 메시지를 내가 재생해도 삭제 트리거가 되면 안 된다 — 상대가 보낸 메시지일 때만 신고.
+          // (서버도 발신자 체크를 하지만 불필요한 호출을 프론트에서도 미리 걸러낸다)
+          if (!isMine) onPlayed();
+        }}
+      />
+      <div className={styles.meta}>
+        {formatRelativeTime(msg.createdAt)}
+        {isMine && msg.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
+      </div>
+    </div>
+  );
+}
 
 export default function DmDetail() {
   const { t } = useTranslation();
@@ -372,6 +463,16 @@ export default function DmDetail() {
       setSending(false);
     }
   };
+
+  // A-8/D-6: 상대가 보낸 음성메시지 재생완료 신고 — 서버가 파일을 삭제하고 playedAt 을 기록한다.
+  const handleVoicePlayed = useCallback((messageId: string) => {
+    if (!conversationId) return;
+    markVoicePlayed(conversationId, messageId)
+      .then((updated) => {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? updated : m)));
+      })
+      .catch(() => {});
+  }, [conversationId]);
 
   const handleTranslateMsg = async (msgId: string, content: string) => {
     if (tr[msgId]) {
@@ -704,6 +805,9 @@ export default function DmDetail() {
                 </div>
               </div>
             );
+          }
+          if (m.messageType === 'voice') {
+            return <VoiceMessageCard key={m.id} msg={m} isMine={isMine} onPlayed={() => handleVoicePlayed(m.id)} />;
           }
           // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)
           if (m.imageUrl && !m.content) {

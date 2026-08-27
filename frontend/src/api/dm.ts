@@ -63,6 +63,7 @@ function transformMessage(raw: any): DmMessage {
     senderId: raw.sender_id,
     content: raw.content ?? null,
     imageUrl: raw.image_url ?? null,
+    audioUrl: raw.audio_url ?? null,
     readAt: raw.read_at ?? null,
     createdAt: raw.created_at,
     messageType: raw.message_type ?? 'text',
@@ -158,6 +159,7 @@ export async function sendMessage(
       senderId: requireSession().userId,
       content,
       imageUrl: null,
+      audioUrl: null,
       readAt: null,
       createdAt: new Date().toISOString(),
       messageType: opts.messageType ?? 'text',
@@ -186,6 +188,15 @@ export async function markRead(conversationId: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({}),
   });
+}
+
+// 워키토키 음성메시지(A-3/D-6) — 수신자가 재생 완료 시 서버가 파일을 삭제하고 playedAt 을 기록.
+export async function markVoicePlayed(conversationId: string, messageId: string): Promise<DmMessage> {
+  const raw = await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/messages/${messageId}/played`,
+    { method: 'POST' },
+  );
+  return transformMessage(raw);
 }
 
 // ── 거래 약속 (SGR-287) — DM 메시지 meta → 도메인 엔티티 ────────────

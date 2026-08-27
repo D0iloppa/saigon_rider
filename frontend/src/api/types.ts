@@ -271,6 +271,10 @@ export interface DmAppointmentMeta {
   stickerId?: string;
   /** message_type === 'price_offer' 일 때 가격제안 식별자. */
   priceOfferId?: string;
+  /** message_type === 'voice' 일 때 녹음 길이(ms). */
+  durationMs?: number;
+  /** message_type === 'voice' 재생완료 시각 — 채워지면 audioUrl 은 null(파일 삭제됨). */
+  playedAt?: string;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
@@ -312,6 +316,8 @@ export interface DmMessage {
   senderId: string;
   content: string | null;
   imageUrl: string | null;
+  /** message_type === 'voice' 일 때 재생URL. 재생완료로 파일이 삭제된 뒤에는 null. */
+  audioUrl: string | null;
   readAt: string | null;
   createdAt: string;
   messageType: string;

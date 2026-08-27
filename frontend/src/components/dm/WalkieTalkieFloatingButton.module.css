@@ -239,15 +239,6 @@
   color: var(--brand-300);
 }
 
-/* 롱프레스 컨텍스트메뉴 (대표 지시 2026-08-27) — 하단 시트 대신 캡슐 자체가 제자리에서
- * 메뉴 카드로 모핑한다(권한거부 카드와 같은 확장 패턴). 배경은 어둡히지 않는다. */
-.capsule[data-menu] {
-  height: auto;
-  padding: 6px;
-  border-radius: 22px;
-  cursor: default;
-}
-
 /* 바깥 탭 감지용 투명 레이어 — 캡슐(z-60) 바로 아래. */
 .menuBackdrop {
   position: fixed;
@@ -255,13 +246,60 @@
   z-index: 59;
 }
 
-/* 메뉴 본체 — 캡슐의 스프링 베지어와 같은 곡선으로 아이콘 자리에서 피어난다. */
-.menu {
+/* 롱프레스 컨텍스트메뉴 (대표 지시 2026-08-27) — 버튼(캡슐)은 그대로 두고, 버튼 바로 아래에
+ * 별도 패널이 아래로 피어난다(DI 스타일). height 0→auto 는 grid-template-rows 0fr→1fr 트릭 —
+ * 미지원 구형 WebView 에선 높이만 즉시 펼쳐지고 scale·fade 는 그대로 animate 된다(우아한 강등).
+ * 가로 위치(left)는 JS 가 버튼 중심 정렬 + 화면 경계 클램프로 계산해 인라인으로 준다. */
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  min-width: 176px;
+  border-radius: 22px;
+  background: rgba(8, 9, 15, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    0 10px 32px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: default;
+  opacity: 0;
+  transform: scale(0.68);
+  transform-origin: top center;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    opacity 180ms ease,
+    visibility 0s 260ms;
+}
+
+.menuPanel[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    transform 300ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    opacity 200ms ease;
+}
+
+/* grid-rows 트릭의 안쪽 래퍼 — min-height 0 이어야 0fr 로 실제 접힌다. */
+.menuInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.menuList {
   display: flex;
   flex-direction: column;
-  min-width: 176px;
-  transform-origin: 23px 23px; /* 접힘 상태 캡슐(46px)의 마이크 아이콘 중심 */
-  animation: wt-menu-pop 300ms cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+  padding: 6px;
 }
 
 .menuOption {
@@ -274,11 +312,12 @@
   padding: 12px;
   border-radius: 16px;
   white-space: nowrap;
-  animation: wt-menu-item-in 220ms ease backwards;
 }
 
-.menuOption:nth-child(2) { animation-delay: 40ms; }
-.menuOption:nth-child(3) { animation-delay: 80ms; }
+/* 항목 스태거 — 패널이 열릴 때마다 애니메이션이 새로 걸리도록 [data-open] 스코프로 적용. */
+.menuPanel[data-open] .menuOption { animation: wt-menu-item-in 220ms ease backwards; }
+.menuPanel[data-open] .menuOption:nth-child(2) { animation-delay: 40ms; }
+.menuPanel[data-open] .menuOption:nth-child(3) { animation-delay: 80ms; }
 
 .menuOption:active {
   background: rgba(255, 255, 255, 0.1);
@@ -302,11 +341,6 @@
       0 2px 8px rgba(0, 0, 0, 0.28),
       0 10px 32px rgba(255, 90, 31, 0.32);
   }
-}
-
-@keyframes wt-menu-pop {
-  from { transform: scale(0.55); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
 }
 
 @keyframes wt-menu-item-in {

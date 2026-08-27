@@ -777,6 +777,8 @@
     "sendError": "Failed to send the voice message",
     "statusIdle": "Standing by",
     "statusRecording": "Transmitting",
+    "statusPlaying": "Playing",
+    "lockedTransmitToast": "Listen to the incoming voice message before you can talk",
     "someoneSpeaking": "{{name}} is speaking",
     "inviteCardText": "{{name}} opened a walkie-talkie channel",
     "inviteJoinBtn": "Join",

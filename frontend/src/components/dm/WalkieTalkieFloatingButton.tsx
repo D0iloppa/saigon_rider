@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
@@ -7,8 +7,9 @@ import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
 import { api } from '@/api/client';
-import { fetchConversationPresence, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
+import { fetchConversationPresence, fetchMessages, markVoicePlayed, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
 import type { DmConversation } from '@/api/types';
+import { loadSession } from '@/lib/session';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
@@ -16,7 +17,8 @@ import { playSound } from '@/lib/sound';
 import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
 import styles from './WalkieTalkieFloatingButton.module.css';
 
-type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading';
+// 'playing' — 수신 음성메시지 재생중(202608 개편). 재생 완료까지는 송신(녹음 시작)을 잠근다(PTT 에티켓).
+type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading' | 'playing';
 
 const BUBBLE_SIZE = 56;
 const MARGIN = 12;
@@ -38,6 +40,7 @@ const PIN_TO_HOME_MENU_ENABLED = true;
 export function WalkieTalkieFloatingButton() {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
+  const session = loadSession();
   const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
   const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
   const closed = useWalkieTalkieBubbleStore((s) => s.closed);
@@ -50,6 +53,8 @@ export function WalkieTalkieFloatingButton() {
   const [level, setLevel] = useState(0);
   const [presence, setPresence] = useState<DmPresence | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
+  // 수신 음성메시지 큐(202608 개편) — 워키토키처럼 채팅 버블이 아니라 이 캡슐에서만 재생한다.
+  const [queue, setQueue] = useState<{ id: string; audioUrl: string }[]>([]);
   const [pos, setPos] = useState(() => ({
     x: Math.max(window.innerWidth - BUBBLE_SIZE - MARGIN, 0),
     y: Math.round(window.innerHeight * 0.55),
@@ -59,9 +64,12 @@ export function WalkieTalkieFloatingButton() {
   const [dragging, setDragging] = useState(false);
   // 롱프레스(450ms) 컨텍스트메뉴(대표 지시 2026-08-27) — "채널 변경"/"초대장 다시 보내기".
   const [menuOpen, setMenuOpen] = useState(false);
+  // 메뉴 패널의 버튼 기준 가로 오프셋(px) — 버튼 중심 정렬 후 화면 경계 클램프로 계산.
+  const [menuOffsetX, setMenuOffsetX] = useState(0);
   const [channelSheetOpen, setChannelSheetOpen] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
   // 더블탭 → 캡슐 펼침(peek). idle/권한거부 상태의 탭에만 적용(녹음중 탭은 정지/전송이라 지연 없이 즉시 반응해야 한다).
   const tapTimerRef = useRef<number | null>(null);
@@ -76,6 +84,10 @@ export function WalkieTalkieFloatingButton() {
   const conversationMetaRef = useRef<WalkieTalkieConversationMeta | null>(null);
   // 캡슐 모핑(펼침/접힘) 시 직전 너비 대비 변화량을 구해 확장을 중앙 기준으로 유지하기 위한 ref.
   const prevWidthRef = useRef<number | null>(null);
+  // 수신 음성메시지 재생용 — dedup(같은 메시지 중복 큐잉 방지)과 폴링 커서, 재생 엘리먼트.
+  const queuedIdsRef = useRef<Set<string>>(new Set());
+  const sinceCursorRef = useRef<string | undefined>(undefined);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -154,13 +166,92 @@ export function WalkieTalkieFloatingButton() {
     };
   }, [conversationId]);
 
+  // 수신 음성메시지 폴링(202608 개편) — DmDetail 화면이 열려있지 않아도 이 캡슐이 대상 대화의 새
+  // 음성메시지를 감지해야 한다. DmDetail 자체 메시지 폴링과 같은 5초 주기를 그대로 맞춘다(참석정보
+  // 폴링(18초)과 달리 메시지 수신은 체감 지연이 커서 더 짧게 잡아야 한다) — presence 폴링과는
+  // 별개의 이펙트/타이머다(섞으면 안 된다).
+  useEffect(() => {
+    if (!conversationId) {
+      setQueue([]);
+      queuedIdsRef.current = new Set();
+      return;
+    }
+    queuedIdsRef.current = new Set();
+    sinceCursorRef.current = undefined;
+    setQueue([]);
+    let cancelled = false;
+    const myId = session?.userId ?? user?.id;
+    const tick = async () => {
+      try {
+        const res = await fetchMessages(conversationId, 1, sinceCursorRef.current);
+        if (cancelled || res.items.length === 0) return;
+        sinceCursorRef.current = res.items[res.items.length - 1].createdAt;
+        // 상대가 보낸, 아직 재생 전(audioUrl 이 남아있는), 아직 큐에 없는 음성메시지만 큐잉.
+        const incoming = res.items.filter(
+          (m) => m.messageType === 'voice' && m.senderId !== myId && m.audioUrl && !queuedIdsRef.current.has(m.id),
+        );
+        if (incoming.length === 0) return;
+        incoming.forEach((m) => queuedIdsRef.current.add(m.id));
+        setQueue((prev) => [...prev, ...incoming.map((m) => ({ id: m.id, audioUrl: m.audioUrl as string }))]);
+      } catch {
+        // 순단 무시 — 다음 tick 에 재시도 (DmDetail 메시지 폴링과 동일 패턴)
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- myId 는 세션 고정값, 재구독 불필요
+  }, [conversationId]);
+
+  // 큐가 있고 유휴 상태면 자동 재생 시작. 재생 중 항목(queue[0])이 바뀔 때만 실제로 오디오를
+  // 다시 로드한다 — queue 배열 전체를 deps 로 두면 재생 도중 새 메시지가 뒤에 추가되기만 해도
+  // 배열 참조가 바뀌어 재생 중이던 오디오가 처음부터 다시 시작돼버린다.
+  const currentPlayId = queue[0]?.id ?? null;
+  useEffect(() => {
+    if (phase === 'idle' && queue.length > 0) setPhase('playing');
+  }, [phase, queue.length]);
+
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const item = queue[0];
+    const audio = audioRef.current;
+    if (!item || !audio) {
+      setPhase('idle');
+      return;
+    }
+    audio.src = item.audioUrl;
+    audio.play().catch(() => {
+      // 자동재생 실패 — 잠금을 계속 걸어두면 영영 못 듣게 되니, 해당 항목만 건너뛰고 잠금을 푼다.
+      setQueue((prev) => prev.slice(1));
+      setPhase('idle');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentPlayId]);
+
+  // D-6: 재생 완료 신고 — 서버가 파일을 삭제한다(DmDetail 이 하던 markVoicePlayed 호출을 그대로 이관).
+  const handlePlaybackEnded = useCallback(() => {
+    const item = queue[0];
+    setQueue((prev) => prev.slice(1));
+    if (item && conversationId) {
+      markVoicePlayed(conversationId, item.id).catch(() => {});
+    }
+    // 큐에 남은 항목이 있으면 위 idle→playing 이펙트가 자동으로 다음 항목 재생을 이어간다.
+    setPhase('idle');
+  }, [queue, conversationId]);
+
   // 다이나믹 아일랜드식 "잠깐 펼침"(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 몇 초 펼쳤다가 자동으로 접는다.
   const speakingOtherId = presence?.recordingUsers.find((u) => u.id !== user?.id)?.id ?? null;
   const attentionPing = useWalkieTalkieBubbleStore((s) => s.attentionPing);
+  const isPlayingPhase = phase === 'playing';
   useEffect(() => {
     if (!conversationId) return;
     setPeek(true);
-  }, [conversationId, speakingOtherId, attentionPing]);
+    // isPlayingPhase 도 트리거에 포함 — 재생 시작 시(그리고 종료 시 재수신 대비) 채널명 대신
+    // "재생중" 상태를 잠깐 보여준다.
+  }, [conversationId, speakingOtherId, attentionPing, isPlayingPhase]);
   useEffect(() => {
     if (!peek) return;
     const timer = window.setTimeout(() => setPeek(false), 3200);
@@ -192,6 +283,18 @@ export function WalkieTalkieFloatingButton() {
     };
     // 캡슐 DOM 존재 여부가 바뀔 때(대화 진입/닫기/기능 가용) 옵저버를 다시 건다.
   }, [conversationId, closed, capability]);
+
+  // 메뉴 패널 가로 정렬 — 버튼 중심에 맞추되, 화면 밖으로 나가면 안쪽으로 클램프
+  // (캡슐 모핑 시 중앙 유지 로직과 같은 정신 — 단 패널은 캡슐 크기를 안 바꾸므로 별도 계산).
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    const btnW = rootRef.current?.offsetWidth ?? BUBBLE_SIZE;
+    const panelW = menuPanelRef.current?.offsetWidth ?? 0;
+    const centered = (btnW - panelW) / 2;
+    const minX = MARGIN - pos.x;
+    const maxX = window.innerWidth - MARGIN - panelW - pos.x;
+    setMenuOffsetX(Math.min(Math.max(centered, minX), maxX));
+  }, [menuOpen, pos.x]);
 
   const resetToIdle = useCallback(() => {
     pendingResultRef.current = null;
@@ -256,6 +359,14 @@ export function WalkieTalkieFloatingButton() {
   const handleTap = useCallback(async () => {
     if (phase === 'uploading') return;
 
+    // 의도된 불편함(대표 지시) — 받은 음성메시지를 다 듣기 전엔 송신을 시작할 수 없다. 실제 PTT
+    // 에티켓처럼, 듣는 중엔 말을 얹지 않는다. 이미 녹음 중인 걸 멈춰서 보내는 동작(아래 'recording'/
+    // 'autoStopped' 분기)은 이 잠금과 무관하게 그대로 허용한다 — 잠기는 건 "새로 시작"뿐이다.
+    if (phase === 'playing' || ((phase === 'idle' || phase === 'permissionDenied') && queue.length > 0)) {
+      toast.info(t('walkieTalkie.lockedTransmitToast', { defaultValue: '받은 음성메시지를 먼저 들어야 말할 수 있어요' }));
+      return;
+    }
+
     if (phase === 'idle' || phase === 'permissionDenied') {
       if (!hasWalkieTalkieConsent()) {
         setConsentOpen(true);
@@ -279,7 +390,7 @@ export function WalkieTalkieFloatingButton() {
     if (phase === 'autoStopped' && pendingResultRef.current) {
       await finishAndSend(pendingResultRef.current);
     }
-  }, [phase, startFlow, finishAndSend, notifyRecordingStop, resetToIdle, t]);
+  }, [phase, queue.length, startFlow, finishAndSend, notifyRecordingStop, resetToIdle, t]);
 
   const handleConsentAgree = useCallback(() => {
     setConsentOpen(false);
@@ -446,7 +557,9 @@ export function WalkieTalkieFloatingButton() {
   const speakingOther = presence?.recordingUsers.find((u) => u.id !== user?.id) ?? null;
   const statusText = phase === 'recording' || phase === 'autoStopped'
     ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
-    : t('walkieTalkie.statusIdle', { defaultValue: '수신대기' });
+    : phase === 'playing'
+      ? t('walkieTalkie.statusPlaying', { defaultValue: '재생중' })
+      : t('walkieTalkie.statusIdle', { defaultValue: '수신대기' });
   const isRec = phase === 'recording' || phase === 'autoStopped';
 
   return (
@@ -461,7 +574,6 @@ export function WalkieTalkieFloatingButton() {
         tabIndex={0}
         className={styles.capsule}
         data-phase={phase}
-        data-menu={menuOpen || undefined}
         data-dragging={dragging || undefined}
         data-speaking={(!isRec && !!speakingOther) || undefined}
         // left/top 대신 transform(translate3d)으로 이동시킨다 — left/top 변경은 매 포인터무브마다
@@ -476,22 +588,7 @@ export function WalkieTalkieFloatingButton() {
         onClick={onClick}
         aria-label={t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' })}
       >
-        {menuOpen ? (
-          /* 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 시트 대신 캡슐 자체가 제자리에서 메뉴 카드로 모핑. */
-          <div className={styles.menu} role="menu">
-            <button type="button" role="menuitem" className={styles.menuOption} onClick={handleOpenChannelSheet}>
-              {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
-            </button>
-            <button type="button" role="menuitem" className={styles.menuOption} onClick={handleResendInvite}>
-              {t('walkieTalkie.contextMenuResendInvite', { defaultValue: '초대장 다시 보내기' })}
-            </button>
-            {PIN_TO_HOME_MENU_ENABLED && (
-              <button type="button" role="menuitem" className={styles.menuOption} onClick={handlePinToHome}>
-                {t('walkieTalkie.contextMenuPinToHome', { defaultValue: '홈화면 고정' })}
-              </button>
-            )}
-          </div>
-        ) : phase === 'permissionDenied' ? (
+        {phase === 'permissionDenied' ? (
           /* 권한거부 — 별도 패널 대신 캡슐 자체가 카드로 확장된다. */
           <div className={styles.denied}>
             <p className={styles.deniedText}>
@@ -586,9 +683,43 @@ export function WalkieTalkieFloatingButton() {
             {phase === 'idle' && !peek && conversationMeta?.isGroup && presence && (
               <span className={styles.count}>{presence.activeMembers}/{presence.totalMembers}</span>
             )}
+            {/* 재생 대기 큐가 2개 이상이면(연속 수신) 남은 개수를 배지로 노출 — 참석 카운트와 같은 패턴 재사용 */}
+            {phase === 'playing' && queue.length > 1 && (
+              <span className={styles.count}>{queue.length}</span>
+            )}
           </>
         )}
+
+        {/* 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 버튼(캡슐)은 모핑하지 않고 그대로 두고,
+            바로 아래에 별도 패널이 아래로 피어난다(DI 스타일). 캡슐의 자식이라 드래그 transform 을
+            그대로 타고 함께 움직인다. 항상 마운트 — data-open 토글로 펼침/접힘을 트랜지션한다. */}
+        <div
+          ref={menuPanelRef}
+          className={styles.menuPanel}
+          data-open={menuOpen || undefined}
+          style={{ left: menuOffsetX }}
+          role="menu"
+        >
+          <div className={styles.menuInner}>
+            <div className={styles.menuList}>
+              <button type="button" role="menuitem" className={styles.menuOption} onClick={handleOpenChannelSheet}>
+                {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
+              </button>
+              <button type="button" role="menuitem" className={styles.menuOption} onClick={handleResendInvite}>
+                {t('walkieTalkie.contextMenuResendInvite', { defaultValue: '초대장 다시 보내기' })}
+              </button>
+              {PIN_TO_HOME_MENU_ENABLED && (
+                <button type="button" role="menuitem" className={styles.menuOption} onClick={handlePinToHome}>
+                  {t('walkieTalkie.contextMenuPinToHome', { defaultValue: '홈화면 고정' })}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* 수신 음성메시지 재생 전용 — 화면에 보이지 않는다. src 는 재생 이펙트가 큐 head 로 갱신한다. */}
+      <audio ref={audioRef} onEnded={handlePlaybackEnded} />
 
       <WalkieTalkieConsentModal
         open={consentOpen}

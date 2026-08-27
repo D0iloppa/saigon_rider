@@ -777,6 +777,8 @@
     "sendError": "음성메시지 전송에 실패했어요",
     "statusIdle": "수신대기",
     "statusRecording": "발신중",
+    "statusPlaying": "재생중",
+    "lockedTransmitToast": "받은 음성메시지를 먼저 들어야 말할 수 있어요",
     "someoneSpeaking": "{{name}}님이 말하는 중",
     "inviteCardText": "{{name}}님이 워키토키 채널을 열었어요",
     "inviteJoinBtn": "참여하기",

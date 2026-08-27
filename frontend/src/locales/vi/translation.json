@@ -777,6 +777,8 @@
     "sendError": "Gửi tin nhắn thoại thất bại",
     "statusIdle": "Đang chờ",
     "statusRecording": "Đang nói",
+    "statusPlaying": "Đang nghe",
+    "lockedTransmitToast": "Hãy nghe tin nhắn thoại vừa nhận trước khi nói",
     "someoneSpeaking": "{{name}} đang nói",
     "inviteCardText": "{{name}} đã mở kênh bộ đàm",
     "inviteJoinBtn": "Tham gia",

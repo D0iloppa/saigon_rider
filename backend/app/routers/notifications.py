@@ -134,6 +134,7 @@ async def update_notification_settings(
     settings.social = body.social
     settings.keyword_alert = body.keyword_alert
     settings.chat = body.chat
+    settings.group_post = body.group_post
     settings.updated_at = datetime.now(UTC)
 
     await db.commit()

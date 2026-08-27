@@ -777,7 +777,13 @@
     "sendError": "Gửi tin nhắn thoại thất bại",
     "statusIdle": "Đang chờ",
     "statusRecording": "Đang nói",
-    "someoneSpeaking": "{{name}} đang nói"
+    "someoneSpeaking": "{{name}} đang nói",
+    "inviteCardText": "{{name}} đã mở kênh bộ đàm",
+    "inviteJoinBtn": "Tham gia",
+    "inviteJoined": "Đã tham gia",
+    "contextMenuChangeChannel": "Đổi kênh",
+    "contextMenuResendInvite": "Gửi lại lời mời",
+    "changeChannelTitle": "Đổi kênh"
   },
   "locationShare": {
     "consentTitle": "Sử dụng chia sẻ vị trí thời gian thực",

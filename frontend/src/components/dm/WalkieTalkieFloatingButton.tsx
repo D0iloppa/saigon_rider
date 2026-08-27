@@ -7,10 +7,12 @@ import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
 import { api } from '@/api/client';
-import { fetchConversationPresence, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
+import { fetchConversationPresence, fetchConversations, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
+import type { DmConversation } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { toast } from '@/components/ui/Toast';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import styles from './WalkieTalkieFloatingButton.module.css';
 
 type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading';
@@ -37,6 +39,7 @@ export function WalkieTalkieFloatingButton() {
   const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
   const closed = useWalkieTalkieBubbleStore((s) => s.closed);
   const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
+  const setActiveConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -51,6 +54,10 @@ export function WalkieTalkieFloatingButton() {
   // UI 전용 상태 — 캡슐 펼침(peek)·드래그 피드백. 녹음/전송 로직과 무관하다.
   const [peek, setPeek] = useState(false);
   const [dragging, setDragging] = useState(false);
+  // 롱프레스(450ms) 컨텍스트메뉴(대표 지시 2026-08-27) — "채널 변경"/"초대장 다시 보내기".
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [channelSheetOpen, setChannelSheetOpen] = useState(false);
+  const [conversations, setConversations] = useState<DmConversation[]>([]);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
@@ -286,6 +293,36 @@ export function WalkieTalkieFloatingButton() {
     closeBubble();
   }, [closeBubble]);
 
+  // 컨텍스트메뉴(대표 지시 2026-08-27) "초대장 다시 보내기" — 현재 대상 대화에 초대카드를 재전송한다.
+  const handleResendInvite = useCallback(async () => {
+    setMenuOpen(false);
+    if (!conversationId) return;
+    try {
+      await sendMessage(conversationId, '', {
+        messageType: 'walkie_invite',
+        meta: { invitedByName: user?.nickname ?? '' },
+      });
+    } catch {
+      toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
+    }
+  }, [conversationId, t, user]);
+
+  // 컨텍스트메뉴 "채널 변경" — 참여 중인 대화 목록에서 하나를 골라 워키토키 대상만 바꾼다(초대카드는 보내지 않음).
+  const handleOpenChannelSheet = useCallback(() => {
+    setMenuOpen(false);
+    setChannelSheetOpen(true);
+    fetchConversations().then(setConversations).catch(() => setConversations([]));
+  }, []);
+
+  const handleSelectChannel = useCallback(
+    (c: DmConversation) => {
+      const isGroup = c.conversationType !== 'direct';
+      setActiveConversation(c.id, { name: isGroup ? (c.title ?? '') : (c.otherUserNickname ?? ''), isGroup });
+      setChannelSheetOpen(false);
+    },
+    [setActiveConversation],
+  );
+
   // 드래그 자유 배치 — 스냅 없음, 화면 경계 클램프만. 길게 누르면 캡슐이 잠깐 펼쳐진다(채널정보·닫기).
   const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -301,13 +338,14 @@ export function WalkieTalkieFloatingButton() {
       dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
       (e.target as Element).setPointerCapture(e.pointerId);
       setDragging(true);
-      // 길게 누르기 → 펼침(peek). 이후 손을 떼도 탭(녹음 토글)으로 이어지지 않게 클릭을 삼킨다.
+      // 길게 누르기 → 컨텍스트메뉴(채널 변경/초대장 다시 보내기). 이후 손을 떼도 탭(녹음 토글)으로 이어지지 않게 클릭을 삼킨다.
+      // (peek 자체는 채널 등장·타인 발화 시 자동 트리거로 그대로 유지 — 롱프레스라는 제스처만 재배정한다.)
       clearLongPress();
       longPressTimerRef.current = window.setTimeout(() => {
         longPressTimerRef.current = null;
         if (draggingRef.current && !dragMovedRef.current) {
           dragMovedRef.current = true;
-          setPeek(true);
+          setMenuOpen(true);
         }
       }, 450);
     },
@@ -490,6 +528,34 @@ export function WalkieTalkieFloatingButton() {
         onConsent={handleConsentAgree}
         onClose={() => setConsentOpen(false)}
       />
+
+      {/* 캡슐 롱프레스 컨텍스트메뉴(대표 지시 2026-08-27) — 채널 변경 / 초대장 다시 보내기 */}
+      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)}>
+        <div className={styles.menuSheet}>
+          <button type="button" className={styles.menuItem} onClick={handleOpenChannelSheet}>
+            {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
+          </button>
+          <button type="button" className={styles.menuItem} onClick={handleResendInvite}>
+            {t('walkieTalkie.contextMenuResendInvite', { defaultValue: '초대장 다시 보내기' })}
+          </button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={channelSheetOpen} onClose={() => setChannelSheetOpen(false)}>
+        <div className={styles.menuSheet}>
+          <h2 className={styles.menuSheetTitle}>{t('walkieTalkie.changeChannelTitle', { defaultValue: '채널 변경' })}</h2>
+          {conversations.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={styles.menuItem}
+              onClick={() => handleSelectChannel(c)}
+            >
+              {c.conversationType !== 'direct' ? (c.title ?? '') : (c.otherUserNickname ?? '')}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
     </>
   );
 }

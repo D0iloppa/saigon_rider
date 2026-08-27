@@ -239,6 +239,32 @@
   color: var(--brand-300);
 }
 
+/* 롱프레스 컨텍스트메뉴 / 채널 변경 시트 (대표 지시 2026-08-27) — DmDetail 의 reportSheet 패턴과 톤 통일. */
+.menuSheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.menuSheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.menuItem {
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.menuItem:active {
+  background: var(--surface-2);
+}
+
 @keyframes wt-bar {
   0%, 100% { transform: scaleY(0.55); }
   50%      { transform: scaleY(1); }

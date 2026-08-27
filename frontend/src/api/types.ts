@@ -275,6 +275,8 @@ export interface DmAppointmentMeta {
   durationMs?: number;
   /** message_type === 'voice' 재생완료 시각 — 채워지면 audioUrl 은 null(파일 삭제됨). */
   playedAt?: string;
+  /** message_type === 'walkie_invite' 일 때 채널을 연 사람의 표시이름. */
+  invitedByName?: string;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';

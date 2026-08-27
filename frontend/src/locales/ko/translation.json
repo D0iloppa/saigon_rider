@@ -777,7 +777,13 @@
     "sendError": "음성메시지 전송에 실패했어요",
     "statusIdle": "수신대기",
     "statusRecording": "발신중",
-    "someoneSpeaking": "{{name}}님이 말하는 중"
+    "someoneSpeaking": "{{name}}님이 말하는 중",
+    "inviteCardText": "{{name}}님이 워키토키 채널을 열었어요",
+    "inviteJoinBtn": "참여하기",
+    "inviteJoined": "참여 중",
+    "contextMenuChangeChannel": "채널 변경",
+    "contextMenuResendInvite": "초대장 다시 보내기",
+    "changeChannelTitle": "채널 변경"
   },
   "locationShare": {
     "consentTitle": "실시간 위치공유 사용 안내",

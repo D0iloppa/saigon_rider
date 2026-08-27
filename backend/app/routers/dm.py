@@ -591,6 +591,8 @@ async def send_message(
         preview = body.content[:50]
     elif body.audio_content_id is not None:
         preview = "음성 메시지를 보냈습니다"
+    elif message_type == "walkie_invite":
+        preview = "워키토키 채널을 열었어요"
     else:
         preview = "사진을 보냈습니다"
     if recipient_ids:

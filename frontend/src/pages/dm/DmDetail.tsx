@@ -215,14 +215,11 @@ export default function DmDetail() {
     return () => { refreshUnread(); };
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 워키토키 플로팅 버블(A-7) 대상 대화 등록 — 대표 지시 2026-08-27: 언마운트 시 정리하지 않는다
-  // (이 화면을 떠나도 버블이 마지막 대화방을 계속 대상으로 앱 전역에서 유지돼야 한다).
+  // 워키토키 플로팅 버블(A-7) — 대표 지시 2026-08-27: 대화방 입장만으로 자동 참여시키지 않는다.
+  // 참여는 (a) 헤더 메뉴 "워키토키" 탭, (b) 초대카드 "참여하기" 탭, (c) 캡슐 컨텍스트메뉴 "채널 변경" 3가지
+  // 명시적 액션에서만 일어난다.
   const setActiveWalkieConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
-  const reopenWalkieBubble = useWalkieTalkieBubbleStore((s) => s.reopen);
-  useEffect(() => {
-    if (!conversationId) return;
-    setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
-  }, [conversationId, isDirect, otherName, roomTitle, setActiveWalkieConversation]);
+  const walkieActiveConversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -377,6 +374,21 @@ export default function DmDetail() {
       toast.error(t('common.errorUnexpected'));
     } finally {
       setSending(false);
+    }
+  };
+
+  // 워키토키 헤더메뉴 "워키토키" 탭 — 이 대화방으로 참여 + 상대방에게 초대카드 전송(채널 존재를 모를 수 있으므로).
+  const handleWalkieJoin = async () => {
+    if (!conversationId) return;
+    setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
+    try {
+      const msg = await sendMessage(conversationId, '', {
+        messageType: 'walkie_invite',
+        meta: { invitedByName: user?.nickname ?? '' },
+      });
+      setMessages((prev) => [...prev, msg]);
+    } catch {
+      // 초대카드 전송 실패는 참여 자체를 막지 않는다 — 조용히 무시.
     }
   };
 
@@ -852,6 +864,29 @@ export default function DmDetail() {
               />
             );
           }
+          if (m.messageType === 'walkie_invite') {
+            const joined = walkieActiveConversationId === conversationId;
+            return (
+              <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+                <div className={styles.text}>
+                  <Mic size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                  {t('walkieTalkie.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 워키토키 채널을 열었어요' })}
+                </div>
+                {joined ? (
+                  <span className={styles.text}>{t('walkieTalkie.inviteJoined', { defaultValue: '참여 중' })}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.translateBtn}
+                    onClick={() => { if (conversationId) setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect }); }}
+                  >
+                    {t('walkieTalkie.inviteJoinBtn', { defaultValue: '참여하기' })}
+                  </button>
+                )}
+                <div className={styles.meta}>{formatRelativeTime(m.createdAt)}</div>
+              </div>
+            );
+          }
           // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)
           if (m.imageUrl && !m.content) {
             return (
@@ -1052,7 +1087,7 @@ export default function DmDetail() {
           <button
             className={styles.reportItem}
             type="button"
-            onClick={() => { if (conversationId) reopenWalkieBubble(conversationId); setMoreSheetOpen(false); }}
+            onClick={() => { handleWalkieJoin(); setMoreSheetOpen(false); }}
           >
             {t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' })}
           </button>

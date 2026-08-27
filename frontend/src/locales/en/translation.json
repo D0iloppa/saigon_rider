@@ -777,7 +777,13 @@
     "sendError": "Failed to send the voice message",
     "statusIdle": "Standing by",
     "statusRecording": "Transmitting",
-    "someoneSpeaking": "{{name}} is speaking"
+    "someoneSpeaking": "{{name}} is speaking",
+    "inviteCardText": "{{name}} opened a walkie-talkie channel",
+    "inviteJoinBtn": "Join",
+    "inviteJoined": "Joined",
+    "contextMenuChangeChannel": "Change channel",
+    "contextMenuResendInvite": "Resend invite",
+    "changeChannelTitle": "Change channel"
   },
   "locationShare": {
     "consentTitle": "Using real-time location sharing",

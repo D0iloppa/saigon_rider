@@ -100,7 +100,10 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
 
   const handleSend = () => {
     const text = (inputRef.current?.value ?? '').trim();
-    if (!text) return;
+    // sending 중이면 전송 버튼은 disabled 지만 Enter 는 여기까지 온다. 그대로 두면
+    // 소비처(DmDetail.handleSend)가 sending 가드로 조용히 반환하는 사이 아래에서
+    // 입력값을 지워버려 타이핑한 텍스트가 사라진다.
+    if (!text || sending) return;
     onSend(text);
     if (inputRef.current) inputRef.current.value = '';
     setHasText(false);

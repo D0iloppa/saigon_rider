@@ -80,6 +80,7 @@ from ..services.dm_policy import require_participant, require_unblocked
 from ..services.listing_fingerprint import compute_text_simhash
 from ..services.listing_ranking import recommended_score_sql
 from ..services.listing_state import log_transition
+from ..services.location_privacy import resolve_nearest_ward, resolve_precision_level, to_approx_coords
 from ..services.location_share import purge_location_shares
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
@@ -1654,7 +1655,21 @@ async def _appointment_unlocked(db: AsyncSession, conv: DmConversation, user_id:
     return seller_appt is not None
 
 
-def _appt_out(a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> AppointmentOut:
+async def _appt_out(db: AsyncSession, a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> AppointmentOut:
+    """§3 정밀도 매트릭스에 따라 상태별로 place_lat/lng 을 흐리거나(`approx`) 감춘다(`none`).
+    정밀도 판정은 여기(서버)에서만 한다 — 원좌표를 프론트로 내려보내지 않는다."""
+    level = resolve_precision_level(a, datetime.now(UTC))
+    if level == "none":
+        place_lat, place_lng = None, None
+    elif level == "exact":
+        place_lat = float(a.place_lat) if a.place_lat is not None else None
+        place_lng = float(a.place_lng) if a.place_lng is not None else None
+    else:  # approx
+        approx_lat, approx_lng = await to_approx_coords(
+            a.place_lat, a.place_lng, None, lambda: resolve_nearest_ward(a.place_lat, a.place_lng, db)
+        )
+        place_lat = float(approx_lat) if approx_lat is not None else None
+        place_lng = float(approx_lng) if approx_lng is not None else None
     return AppointmentOut(
         id=a.id,
         listing_id=a.listing_id,
@@ -1663,8 +1678,8 @@ def _appt_out(a: MarketplaceAppointment, seller_id: uuid.UUID | None = None) -> 
         seller_id=seller_id,
         when_at=a.when_at,
         place_name=a.place_name,
-        place_lat=float(a.place_lat) if a.place_lat is not None else None,
-        place_lng=float(a.place_lng) if a.place_lng is not None else None,
+        place_lat=place_lat,
+        place_lng=place_lng,
         status=a.status,
         completion_requested_by=a.completion_requested_by,
         completion_requested_at=a.completion_requested_at,
@@ -1748,7 +1763,7 @@ async def propose_appointment(
         created_at=msg.created_at,
         message_type=msg.message_type,
         meta=msg.meta,
-        appointment=_appt_out(appt, listing.seller_id if listing else None),
+        appointment=await _appt_out(db, appt, listing.seller_id if listing else None),
     )
 
 
@@ -1805,7 +1820,7 @@ async def accept_appointment(
         db, listing.id, "ON_SALE", "RESERVED", actor_type="user", actor_id=session_uid, reason="appointment_accepted"
     )
     await db.commit()
-    return _appt_out(appt, listing.seller_id)
+    return await _appt_out(db, appt, listing.seller_id)
 
 
 @router.patch("/appointments/{appointment_id}/complete", response_model=AppointmentOut, summary="거래 완료")
@@ -1851,7 +1866,7 @@ async def complete_appointment(
     await funnel_events.record(db, FunnelEventType.TRADE_COMPLETE, user_id=session_uid, entity_id=listing.id)
     await purge_location_shares(db, appt.id)
     await db.commit()
-    return _appt_out(appt, listing.seller_id)
+    return await _appt_out(db, appt, listing.seller_id)
 
 
 @router.patch(
@@ -1881,7 +1896,7 @@ async def request_appointment_completion(
 
     # 멱등: 이미 요청됐고 거절되지 않은 상태면 재알림 없이 그대로 반환.
     if appt.completion_requested_at is not None and appt.completion_declined_at is None:
-        return _appt_out(appt, listing.seller_id)
+        return await _appt_out(db, appt, listing.seller_id)
 
     now = datetime.now(UTC)
     appt.completion_requested_by = session_uid
@@ -1901,7 +1916,7 @@ async def request_appointment_completion(
         },
     )
     await db.commit()
-    return _appt_out(appt, listing.seller_id)
+    return await _appt_out(db, appt, listing.seller_id)
 
 
 @router.patch(
@@ -1925,7 +1940,7 @@ async def decline_appointment_completion(
         raise HTTPException(status_code=409, detail=f"Cannot decline completion in status {appt.status}")
     # 멱등: 이미 거절된 요청이면 재알림 없이 그대로 반환.
     if appt.completion_declined_at is not None:
-        return _appt_out(appt, listing.seller_id)
+        return await _appt_out(db, appt, listing.seller_id)
 
     now = datetime.now(UTC)
     appt.completion_declined_at = now
@@ -1946,7 +1961,7 @@ async def decline_appointment_completion(
             },
         )
     await db.commit()
-    return _appt_out(appt, listing.seller_id)
+    return await _appt_out(db, appt, listing.seller_id)
 
 
 @router.patch("/appointments/{appointment_id}/cancel", response_model=AppointmentOut, summary="약속 취소")
@@ -1959,7 +1974,7 @@ async def cancel_appointment(
     appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
     # 멱등: 이미 취소됨(또는 supersede)면 그대로 반환. 완료된 건만 취소 불가.
     if appt.status == "CANCELLED":
-        return _appt_out(appt, listing.seller_id)
+        return await _appt_out(db, appt, listing.seller_id)
     if appt.status == "COMPLETED":
         raise HTTPException(status_code=409, detail="Cannot cancel a completed appointment")
 
@@ -1981,7 +1996,7 @@ async def cancel_appointment(
             reason="appointment_cancelled",
         )
     await db.commit()
-    return _appt_out(appt, listing.seller_id)
+    return await _appt_out(db, appt, listing.seller_id)
 
 
 # ── 가격 제안 (Price Offers) ───────────────────────────────────────

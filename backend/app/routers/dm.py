@@ -387,10 +387,10 @@ async def get_messages(
         )
         appts = {a.id: a for a in appt_rows}
 
-    def _appt_for(m: DmMessage):
+    async def _appt_for(m: DmMessage):
         if m.message_type == "appointment" and m.meta and m.meta.get("appointmentId"):
             a = appts.get(uuid.UUID(m.meta["appointmentId"]))
-            return _appt_out(a, seller_id) if a else None
+            return await _appt_out(db, a, seller_id) if a else None
         return None
 
     offers: dict[uuid.UUID, MarketplacePriceOffer] = {}
@@ -420,7 +420,7 @@ async def get_messages(
             created_at=m.created_at,
             message_type=m.message_type,
             meta=m.meta,
-            appointment=_appt_for(m),
+            appointment=await _appt_for(m),
             price_offer=_offer_for(m),
         )
         for m in rows

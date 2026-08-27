@@ -43,6 +43,7 @@ from ..schemas import (
 )
 from ..services import noti_events
 from ..services.dm_policy import require_unblocked
+from ..services.location_privacy import resolve_nearest_ward, to_approx_coords
 from ..services.search_index import immediate_blob
 from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
@@ -83,33 +84,13 @@ def _resolve_image_urls(post: FeedPost) -> list[str]:
 
 
 async def _nearest_ward(latitude: Decimal, longitude: Decimal, db: AsyncSession) -> Ward | None:
-    if not in_service_area(latitude, longitude):
-        return None
-    distance = func.pow(Ward.center_lat - float(latitude), 2) + func.pow(Ward.center_lng - float(longitude), 2)
-    return (
-        await db.execute(
-            select(Ward)
-            .where(
-                Ward.is_active.is_(True),
-                Ward.city_code == "HCMC",
-                Ward.center_lat.isnot(None),
-                Ward.center_lng.isnot(None),
-            )
-            .order_by(distance)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    return await resolve_nearest_ward(latitude, longitude, db)
 
 
 async def _public_coordinates(post: FeedPost, db: AsyncSession) -> tuple[Decimal | None, Decimal | None]:
-    if post.latitude is None or post.longitude is None:
-        return None, None
-    ward = post.ward
-    if ward is None:
-        ward = await _nearest_ward(post.latitude, post.longitude, db)
-    if ward is None or ward.center_lat is None or ward.center_lng is None:
-        return None, None
-    return Decimal(str(ward.center_lat)), Decimal(str(ward.center_lng))
+    return await to_approx_coords(
+        post.latitude, post.longitude, post.ward, lambda: _nearest_ward(post.latitude, post.longitude, db)
+    )
 
 
 async def _enrich(post: FeedPost, user: User | None, ride: RideSession | None, db: AsyncSession) -> FeedPostEnrichedOut:

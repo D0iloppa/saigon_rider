@@ -188,6 +188,30 @@
   opacity: 1;
 }
 
+/* 채널명 + 좌측 참석 dot 한 줄 */
+.channelRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 168px;
+}
+
+/* 참석 dot — 전원 참석이면 초록(발광), 아니면 회색. 판정은 컴포넌트의 allPresent. */
+.presenceDot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.38);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+
+.presenceDot[data-all-present] {
+  background: var(--success);
+  box-shadow: 0 0 5px rgba(22, 163, 74, 0.85);
+}
+
 .channelName {
   font-size: 12px;
   font-weight: 700;

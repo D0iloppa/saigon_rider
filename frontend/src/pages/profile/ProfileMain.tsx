@@ -519,62 +519,6 @@ export default function ProfileMain() {
           <SkillTree />
         </div>
 
-        {/* 거래 이력 — 구매/판매 서브탭 */}
-        <div className={styles.tradeSection}>
-          <div className={styles.tradeHeader}>
-            <h3 className={styles.tradeSectionTitle}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</h3>
-            {trades.length > 0 && (
-              <button type="button" className={styles.tradeMore} onClick={() => navigate('/trades')}>
-                {t('profile.seeAll', { defaultValue: '전체 보기' })} <ChevronRight size={14} />
-              </button>
-            )}
-          </div>
-          <div className={styles.tradeSubTabRow}>
-            <button
-              type="button"
-              className={`${styles.tradeSubTab} ${tradeTab === 'bought' ? styles.tradeSubTabActive : ''}`}
-              onClick={() => setTradeTab('bought')}
-            >
-              {t('profile.tradeBought', { defaultValue: '구매' })}
-            </button>
-            <button
-              type="button"
-              className={`${styles.tradeSubTab} ${tradeTab === 'sold' ? styles.tradeSubTabActive : ''}`}
-              onClick={() => setTradeTab('sold')}
-            >
-              {t('profile.tradeSold', { defaultValue: '판매' })}
-            </button>
-          </div>
-          {tradesError ? (
-            <StateBlock
-              icon={AlertCircle}
-              tone="error"
-              title={t('profile.tradesLoadError', { defaultValue: '거래 이력을 불러오지 못했어요' })}
-              actionLabel={t('common.retry')}
-              onAction={loadTrades}
-            />
-          ) : (() => {
-            const filtered = trades.filter((tr) => tr.role === (tradeTab === 'bought' ? 'bought' : 'sold'));
-            return filtered.length === 0 ? (
-              <p className={styles.tradeEmpty}>
-                {tradeTab === 'bought'
-                  ? t('profile.noTradesBought')
-                  : t('profile.noTradesSold')}
-              </p>
-            ) : (
-              filtered.slice(0, 3).map((tr) => (
-                <TradeRow
-                  key={tr.appointmentId}
-                  trade={tr}
-                  variant="plain"
-                  onOpen={() => navigate(`/market/${tr.listingId}`)}
-                  onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
-                />
-              ))
-            );
-          })()}
-        </div>
-
         {/* Odometer Card */}
         {SHOW_LIFETIME_DISTANCE && (() => {
           const tier = getTier(totalMileage);
@@ -719,6 +663,62 @@ export default function ProfileMain() {
             <ChevronRight size={18} className={styles.entryChevron} />
           </button>
         )}
+
+        {/* 거래 이력 — 구매/판매 서브탭 */}
+        <div className={styles.tradeSection}>
+          <div className={styles.tradeHeader}>
+            <h3 className={styles.tradeSectionTitle}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</h3>
+            {trades.length > 0 && (
+              <button type="button" className={styles.tradeMore} onClick={() => navigate('/trades')}>
+                {t('profile.seeAll', { defaultValue: '전체 보기' })} <ChevronRight size={14} />
+              </button>
+            )}
+          </div>
+          <div className={styles.tradeSubTabRow}>
+            <button
+              type="button"
+              className={`${styles.tradeSubTab} ${tradeTab === 'bought' ? styles.tradeSubTabActive : ''}`}
+              onClick={() => setTradeTab('bought')}
+            >
+              {t('profile.tradeBought', { defaultValue: '구매' })}
+            </button>
+            <button
+              type="button"
+              className={`${styles.tradeSubTab} ${tradeTab === 'sold' ? styles.tradeSubTabActive : ''}`}
+              onClick={() => setTradeTab('sold')}
+            >
+              {t('profile.tradeSold', { defaultValue: '판매' })}
+            </button>
+          </div>
+          {tradesError ? (
+            <StateBlock
+              icon={AlertCircle}
+              tone="error"
+              title={t('profile.tradesLoadError', { defaultValue: '거래 이력을 불러오지 못했어요' })}
+              actionLabel={t('common.retry')}
+              onAction={loadTrades}
+            />
+          ) : (() => {
+            const filtered = trades.filter((tr) => tr.role === (tradeTab === 'bought' ? 'bought' : 'sold'));
+            return filtered.length === 0 ? (
+              <p className={styles.tradeEmpty}>
+                {tradeTab === 'bought'
+                  ? t('profile.noTradesBought')
+                  : t('profile.noTradesSold')}
+              </p>
+            ) : (
+              filtered.slice(0, 3).map((tr) => (
+                <TradeRow
+                  key={tr.appointmentId}
+                  trade={tr}
+                  variant="plain"
+                  onOpen={() => navigate(`/market/${tr.listingId}`)}
+                  onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
+                />
+              ))
+            );
+          })()}
+        </div>
 
         {/* SGR-287: 피드/이력/뱃지 탭 제거 — 피드만 노출(피드 영역 라벨) */}
         <h3 className={styles.feedSectionLabel}>{t('profile.tabFeeds')}</h3>

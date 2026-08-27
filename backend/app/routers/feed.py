@@ -399,6 +399,55 @@ async def create_feed_post(
     if group is not None:
         group.post_count += 1
 
+    # P4-3: 팔로우한 사람의 새 글 / 그룹 새 글 알림 — 대상이 있을 때만 author 를 조회한다.
+    follower_ids = (
+        (await db.execute(select(UserFollow.follower_id).where(UserFollow.following_id == body.user_id)))
+        .scalars()
+        .all()
+    )
+    group_member_ids: list[uuid.UUID] = []
+    if group is not None:
+        group_member_ids = (
+            (
+                await db.execute(
+                    select(CommunityGroupMember.user_id).where(
+                        CommunityGroupMember.group_id == group.id,
+                        CommunityGroupMember.status == "ACTIVE",
+                        CommunityGroupMember.user_id != body.user_id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    if follower_ids or group_member_ids:
+        author = await db.get(User, body.user_id)
+        preview = (body.content or "")[:100]
+        if follower_ids:
+            noti_events.enqueue(
+                db,
+                "feed.followed_post_created",
+                {
+                    "recipient_ids": [str(fid) for fid in follower_ids],
+                    "post_id": str(post_id),
+                    "author_nickname": author.nickname if author else None,
+                    "preview": preview,
+                },
+            )
+        if group_member_ids:
+            noti_events.enqueue(
+                db,
+                "feed.group_post_created",
+                {
+                    "recipient_ids": [str(mid) for mid in group_member_ids],
+                    "post_id": str(post_id),
+                    "group_id": str(group.id),
+                    "group_name": group.name,
+                    "author_nickname": author.nickname if author else None,
+                    "preview": preview,
+                },
+            )
+
     if body.content:
         noti_events.enqueue(
             db, "search.reindex", {"entity_type": "feed", "entity_id": str(post_id), "texts": [body.content]}
@@ -519,6 +568,17 @@ async def toggle_like(
 
     db.add(PostLike(post_id=post_id, user_id=body.user_id))
     post.like_count += 1
+    if body.user_id != post.user_id:
+        liker = await db.get(User, body.user_id)
+        noti_events.enqueue(
+            db,
+            "feed.post_liked",
+            {
+                "recipient_id": str(post.user_id),
+                "post_id": str(post_id),
+                "liker_nickname": liker.nickname if liker else None,
+            },
+        )
     await db.commit()
     return LikeToggleResponse(liked=True, like_count=post.like_count)
 
@@ -575,6 +635,8 @@ async def post_comment(
     if post.user_id != body.user_id:
         await require_unblocked(db, body.user_id, post.user_id)
 
+    user = await db.get(User, body.user_id)
+
     comment = PostComment(
         post_id=post_id,
         user_id=body.user_id,
@@ -584,10 +646,22 @@ async def post_comment(
     )
     db.add(comment)
     post.comment_count += 1
+
+    if body.user_id != post.user_id:
+        noti_events.enqueue(
+            db,
+            "feed.comment_created",
+            {
+                "recipient_id": str(post.user_id),
+                "post_id": str(post_id),
+                "commenter_nickname": user.nickname if user else None,
+                "preview": (body.content or "")[:100],
+            },
+        )
+
     await db.commit()
     await db.refresh(comment)
 
-    user = await db.get(User, body.user_id)
     return _enrich_comment(comment, user)
 
 

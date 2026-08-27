@@ -172,6 +172,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
+  flex: 1; /* 남는 가로 공간을 라벨이 흡수 — 마이크 아이콘이 채널명 길이와 무관하게 우측 끝에 고정된다 */
+  min-width: 0; /* flex 축소를 허용해 채널명 말줄임(ellipsis)이 실제로 동작하게 한다 */
   max-width: 0;
   margin-right: -8px; /* 접힘 시 gap 상쇄 */
   opacity: 0;
@@ -191,8 +193,10 @@
   font-weight: 700;
   color: #fff;
   max-width: 168px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statusText {
@@ -213,6 +217,7 @@
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.62);
   white-space: nowrap;
+  flex: none; /* 라벨이 flex:1 로 남는 공간을 흡수하는 동안 카운트 배지 크기는 고정 */
 }
 
 /* 권한거부 카드 내부 */

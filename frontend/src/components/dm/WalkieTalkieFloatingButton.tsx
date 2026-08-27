@@ -450,22 +450,25 @@ export function WalkieTalkieFloatingButton() {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (menuOpen) return; // 메뉴 펼침 중엔 드래그/롱프레스/탭 판정 없이 메뉴 항목 클릭만 받는다.
+      // 메뉴 펼침 중에도 드래그(이동)는 허용한다 — 포인터 캡처를 여기서 즉시 걸지 않고 드래그
+      // 임계값을 넘는 시점(onPointerMove)까지 미루므로, 메뉴 항목 버튼의 개별 클릭은 그대로 통과한다.
       draggingRef.current = true;
       dragMovedRef.current = false;
       dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
-      (e.target as Element).setPointerCapture(e.pointerId);
       setDragging(true);
       // 길게 누르기 → 컨텍스트메뉴(채널 변경/초대장 다시 보내기). 이후 손을 떼도 탭(녹음 토글)으로 이어지지 않게 클릭을 삼킨다.
       // (peek 자체는 채널 등장·타인 발화 시 자동 트리거로 그대로 유지 — 롱프레스라는 제스처만 재배정한다.)
+      // 메뉴가 이미 열려있으면 다시 걸 필요 없다(이미 열린 메뉴를 롱프레스로 재트리거하지 않는다).
       clearLongPress();
-      longPressTimerRef.current = window.setTimeout(() => {
-        longPressTimerRef.current = null;
-        if (draggingRef.current && !dragMovedRef.current) {
-          dragMovedRef.current = true;
-          setMenuOpen(true);
-        }
-      }, 450);
+      if (!menuOpen) {
+        longPressTimerRef.current = window.setTimeout(() => {
+          longPressTimerRef.current = null;
+          if (draggingRef.current && !dragMovedRef.current) {
+            dragMovedRef.current = true;
+            setMenuOpen(true);
+          }
+        }, 450);
+      }
     },
     [clearLongPress, menuOpen, pos.x, pos.y],
   );
@@ -474,9 +477,12 @@ export function WalkieTalkieFloatingButton() {
     if (!draggingRef.current) return;
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+    if (!dragMovedRef.current && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
       dragMovedRef.current = true;
       clearLongPress();
+      // 드래그가 실제로 시작된 시점에만 포인터를 캡처한다 — pointerdown 즉시 캡처하면 이후
+      // 모든 포인터 이벤트가 캡슐 루트로만 전달돼 메뉴 항목 버튼의 탭(<4px 이동)을 못 받게 된다.
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
     }
     const w = rootRef.current?.offsetWidth ?? BUBBLE_SIZE;
     const h = rootRef.current?.offsetHeight ?? BUBBLE_SIZE;

@@ -71,7 +71,6 @@ export default function DmDetail() {
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [conv, setConv] = useState<DmConversation | null>(locationState?.conv ?? null);
-  const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   // 초기 메시지 로드 상태 — 실패를 "대화 없음"과 구분하기 위해 별도 관리 (P1-6)
   const [loading, setLoading] = useState(true);
@@ -215,10 +214,8 @@ export default function DmDetail() {
       .catch(() => {});
   }, [conv?.contextId, conv?.contextListing?.status]);
 
-  const handleSend = async () => {
-    if (!input.trim() || !conversationId || sending) return;
-    const text = input.trim();
-    setInput('');
+  const handleSend = async (text: string) => {
+    if (!text.trim() || !conversationId || sending) return;
     setSending(true);
     try {
       const msg = await sendMessage(conversationId, text);
@@ -226,7 +223,7 @@ export default function DmDetail() {
       playSound('dm_send');
     } catch (err) {
       // 전송 실패 시 입력을 비운 채로 두지 않고 원문을 복원 — 재입력 없이 한 번의 조작으로 재전송 가능 (P1-6)
-      setInput(text);
+      composerRef.current?.setValue(text);
       const msg = err instanceof Error ? err.message : '';
       toast.error(
         msg.includes('banned_keyword')
@@ -846,8 +843,6 @@ export default function DmDetail() {
 
       <MessageComposer
         ref={composerRef}
-        value={input}
-        onChange={setInput}
         onSend={handleSend}
         placeholder={t('dm.inputPlaceholder')}
         // 초기 로드가 끝나기 전(loading/loadError)에는 전송을 잠근다 — 대화 상태를 모르는 채로 보낼 수 없게 (P1-6)

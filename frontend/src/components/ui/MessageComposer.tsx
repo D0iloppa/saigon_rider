@@ -16,9 +16,7 @@ export interface ComposerMenuItem {
 }
 
 export interface MessageComposerProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSend: () => void;
+  onSend: (text: string) => void;
   placeholder?: string;
   sending?: boolean;
   sendAriaLabel?: string;
@@ -30,6 +28,8 @@ export interface MessageComposerProps {
 export interface MessageComposerHandle {
   /** 열려있는 '+' 패널을 키보드 없이 닫는다 (본문 탭 등 외부에서 호출). */
   close: () => void;
+  /** 입력창 값을 강제로 설정 (전송 실패 시 원문 복원 등). */
+  setValue: (text: string) => void;
 }
 
 const DEFAULT_PANEL_HEIGHT = 300;
@@ -43,8 +43,6 @@ const DEFAULT_PANEL_HEIGHT = 300;
  */
 export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposerProps>(function MessageComposer(
   {
-    value,
-    onChange,
     onSend,
     placeholder,
     sending = false,
@@ -58,6 +56,8 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
   // 'closed' | 'menu' | <item.key>(피커 서브뷰)
   const [view, setView] = useState<string>('closed');
   const [focused, setFocused] = useState(false);
+  // 전송 버튼 활성화 여부만 추적 — 실제 입력값은 DOM(uncontrolled input)이 직접 들고 있다.
+  const [hasText, setHasText] = useState(false);
   const kb = useKeyboard();
   // 네이티브(iOS·Android 공통)는 키보드가 순수 오버레이(웹뷰 리사이즈/팬 없음,
   // Android 도 c231681 이후 adjustNothing) → 입력바를 키보드 위로 올리는 건 아래
@@ -86,7 +86,25 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
   lastSpacerRef.current = spacerHeight;
 
   // 본문 탭 등 외부에서 패널을 닫을 수 있게 노출 (키보드 띄우지 않음).
-  useImperativeHandle(ref, () => ({ close: () => setView('closed') }), []);
+  useImperativeHandle(
+    ref,
+    () => ({
+      close: () => setView('closed'),
+      setValue: (text: string) => {
+        if (inputRef.current) inputRef.current.value = text;
+        setHasText(text.trim().length > 0);
+      },
+    }),
+    [],
+  );
+
+  const handleSend = () => {
+    const text = (inputRef.current?.value ?? '').trim();
+    if (!text) return;
+    onSend(text);
+    if (inputRef.current) inputRef.current.value = '';
+    setHasText(false);
+  };
 
   // accessory bar(^ v Done) 는 App 부트스트랩에서 전역으로 숨긴다 — 여기서 관리하지 않음.
 
@@ -129,29 +147,21 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
           ref={inputRef}
           className={styles.input}
           placeholder={placeholder}
-          value={value}
-          onChange={(e) => {
-            // 조합 중에는 갱신 보류(IME가 직접 표시). ref 로 상태를 들고 있으면 Android
-            // WebView 에서 compositionend 가 안 붙는 경우 영구히 true 로 고착돼 입력이
-            // 먹통이 되므로, 매 이벤트마다 실시간 조합 상태를 직접 읽어 자가 교정되게 한다.
-            if ((e.nativeEvent as InputEvent).isComposing) return;
-            onChange(e.target.value);
-          }}
-          onCompositionEnd={(e) => {
-            onChange((e.target as HTMLInputElement).value); // 조합 확정값 1회 반영
-          }}
+          // uncontrolled input — DOM/IME 가 값을 직접 소유(React 가 매 키입력마다 재동기화하지
+          // 않음). React 는 전송 버튼 활성화용 boolean 만 onInput 으로 읽는다.
+          onInput={(e) => setHasText((e.target as HTMLInputElement).value.trim().length > 0)}
           onFocus={() => {
             setFocused(true);
             setView('closed'); // 패널 내용은 닫되 스페이서는 래치로 유지 → 키보드가 자리를 이어받음
           }}
           onBlur={() => setFocused(false)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && onSend()}
+          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSend()}
         />
         <button
           type="button"
-          className={`${styles.sendBtn} ${value.trim() ? styles.sendBtnActive : ''}`}
-          onClick={onSend}
-          disabled={!value.trim() || sending}
+          className={`${styles.sendBtn} ${hasText ? styles.sendBtnActive : ''}`}
+          onClick={handleSend}
+          disabled={!hasText || sending}
           aria-label={sendAriaLabel}
         >
           ↗

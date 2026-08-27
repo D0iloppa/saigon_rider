@@ -16,6 +16,10 @@ import styles from './DmGroupCreate.module.css';
 // 새 그룹톡방 생성 — 초대 후보는 **내가 팔로우하는 사람 전체**(대표 지시 2026-08-28로 맞팔에서 확대).
 // 맞팔(친구)은 팔로잉의 부분집합이라 함께 나온다. 서버도 같은 기준을 강제한다
 // (backend `require_invite_eligible`) — 종전엔 서버 무검증이라 UI 관례에 불과했다.
+// 초대 후보(팔로잉) 이어받기 상한 — 20명/페이지 × 10 = 200명. 이보다 많이 팔로우하는 사용자가
+// 나오면 이 화면에 검색 입력이 필요하다(현재는 전체 목록 체크박스 방식).
+const MAX_CANDIDATE_PAGES = 10;
+
 export default function DmGroupCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -26,7 +30,23 @@ export default function DmGroupCreate() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (me) fetchFollowing(me.id).then((r) => setFriends(r.items));
+    if (!me) return;
+    let cancelled = false;
+    // 팔로잉은 맞팔 목록보다 훨씬 길어질 수 있는데 API 는 20명씩 끊어 준다. 이 화면엔 검색·무한
+    // 스크롤이 없어서 첫 페이지만 받으면 21번째 이후 팔로잉은 **초대할 방법이 아예 없다**
+    // (서버도 팔로잉 외 초대를 거부하므로 우회 경로도 없다). 전량을 이어 받는다.
+    (async () => {
+      const acc: FollowUser[] = [];
+      for (let page = 1; page <= MAX_CANDIDATE_PAGES; page += 1) {
+        const r = await fetchFollowing(me.id, page);
+        acc.push(...r.items);
+        if (r.items.length === 0 || acc.length >= r.total) break;
+      }
+      if (!cancelled) setFriends(acc);
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [me]);
 
   const toggle = (id: string) => {

@@ -376,6 +376,10 @@ services:
       - "/migrations/211_marketplace_location_shares.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (211) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/212_dm_conversation_bans.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (212) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -445,6 +449,7 @@ services:
       - ./database/init/209_group_message_report.sql:/migrations/209_group_message_report.sql:ro
       - ./database/init/210_dm_voice_message.sql:/migrations/210_dm_voice_message.sql:ro
       - ./database/init/211_marketplace_location_shares.sql:/migrations/211_marketplace_location_shares.sql:ro
+      - ./database/init/212_dm_conversation_bans.sql:/migrations/212_dm_conversation_bans.sql:ro
     networks:
       - dev-net
     depends_on:

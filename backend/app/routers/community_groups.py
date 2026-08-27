@@ -11,6 +11,7 @@ from ..models import (
     CommunityGroup,
     CommunityGroupMember,
     DmConversation,
+    DmConversationBan,
     DmConversationMember,
     FeedPost,
     RideSession,
@@ -472,6 +473,19 @@ async def _add_open_conversation_member(db: AsyncSession, group_id: uuid.UUID, u
         await db.execute(select(DmConversation).where(DmConversation.community_group_id == group_id))
     ).scalar_one_or_none()
     if conv is None:
+        return
+    # 방 블랙리스트는 이 경로로도 뚫리면 안 된다 — 밴당한 사용자가 커뮤니티 그룹을 탈퇴했다가
+    # 재가입하면 여기서 left_at 이 되살아나 밴이 무력화된다(join_open_conversation 만 막아서는
+    # 부족하다). 밴된 사용자는 그룹 멤버십과 무관하게 오픈톡방에 넣지 않는다.
+    banned = (
+        await db.execute(
+            select(DmConversationBan.user_id).where(
+                DmConversationBan.conversation_id == conv.id,
+                DmConversationBan.user_id == user_id,
+            )
+        )
+    ).first()
+    if banned is not None:
         return
     now = datetime.now(UTC)
     member = (

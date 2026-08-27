@@ -1274,7 +1274,7 @@ class DmBanOut(BaseModel):
     user_id: UUID
     nickname: str | None = None
     avatar_url: str | None = None
-    banned_by: UUID
+    banned_by: UUID | None = None
     reason: str | None = None
     created_at: datetime
 

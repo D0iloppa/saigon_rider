@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -938,11 +939,20 @@ async def invite_members(
     now = datetime.now(UTC)
     added = 0
     for uid in invite_ids:
-        await require_unblocked_for_join(db, conv_id, uid)
-        # 밴은 재초대로도 뚫리지 않는다(강퇴와의 차이). 자격은 초대자의 팔로잉 기준.
-        await require_not_banned(db, conv_id, uid)
-        await require_invite_eligible(db, _session_uid, uid)
         member = existing_by_uid.get(uid)
+        # 이미 활성 멤버면 아무 것도 하지 않는다 — 여기에 자격검사를 걸면, 클라이언트가 원하는
+        # 멤버 집합을 통째로 POST 하거나 남이 초대해둔 사람을 다시 넣을 때 배치 전체가 403 이 된다
+        # (예외가 트랜잭션을 끊어 아무도 추가되지 않는다).
+        if member is not None and member.left_at is None:
+            continue
+        await require_unblocked_for_join(db, conv_id, uid)
+        # 밴은 재초대로도 뚫리지 않는다(강퇴와의 차이).
+        await require_not_banned(db, conv_id, uid)
+        # 자격(초대자의 팔로잉)은 **처음 들어오는 사람에게만** 요구한다. 강퇴당했다가 돌아오는
+        # 경우까지 요구하면, 남은 운영진 중 그를 팔로우하는 사람이 없을 때 "강퇴는 재초대로 복귀
+        # 가능"이라는 규칙(service-rules.md)이 성립하지 않는다.
+        if member is None:
+            await require_invite_eligible(db, _session_uid, uid)
         if member is None:
             db.add(DmConversationMember(conversation_id=conv_id, user_id=uid, role="member"))
             added += 1
@@ -1095,6 +1105,11 @@ async def ban_member(
     require_manager(actor)
     if body.user_id == _session_uid:
         raise HTTPException(status_code=400, detail="Cannot ban yourself")
+    # 대상 존재 확인 — 없는 UUID 면 FK 위반(IntegrityError → 500) 대신 404 로 답한다
+    # (invite_members 와 동일 관례).
+    target_user = (await db.execute(select(User.id).where(User.id == body.user_id, User.status == "ACTIVE"))).first()
+    if target_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
 
     target = (
         await db.execute(
@@ -1110,23 +1125,18 @@ async def ban_member(
     if target is not None and target.role == "admin" and actor.role != "owner":
         raise HTTPException(status_code=403, detail="Only the owner can ban an admin")
 
-    existing = (
-        await db.execute(
-            select(DmConversationBan).where(
-                DmConversationBan.conversation_id == conv_id,
-                DmConversationBan.user_id == body.user_id,
-            )
+    # 조회-후-삽입은 원자적이지 않다 — 두 운영진이 같은 사용자를 동시에 밴하면 둘 다 없다고 보고
+    # 삽입해 PK 충돌(500)이 난다. 멱등하게 upsert 한다.
+    await db.execute(
+        pg_insert(DmConversationBan)
+        .values(
+            conversation_id=conv_id,
+            user_id=body.user_id,
+            banned_by=_session_uid,
+            reason=body.reason,
         )
-    ).scalar_one_or_none()
-    if existing is None:
-        db.add(
-            DmConversationBan(
-                conversation_id=conv_id,
-                user_id=body.user_id,
-                banned_by=_session_uid,
-                reason=body.reason,
-            )
-        )
+        .on_conflict_do_nothing(index_elements=["conversation_id", "user_id"])
+    )
     # 활성 멤버였다면 함께 퇴장 처리 (밴만 걸고 방에 남아있는 상태가 되지 않도록)
     if target is not None and target.left_at is None:
         target.left_at = datetime.now(UTC)

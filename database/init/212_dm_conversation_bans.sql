@@ -9,7 +9,9 @@
 CREATE TABLE IF NOT EXISTS dm_conversation_bans (
     conversation_id  UUID NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
     user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    banned_by        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- 등록한 운영진이 사라져도 밴은 유지돼야 한다 — CASCADE 면 그 운영진이 등록한 밴이 통째로
+    -- 풀려 제재 대상이 다시 들어올 수 있다. 그래서 SET NULL(누가 걸었는지만 잊는다).
+    banned_by        UUID REFERENCES users(id) ON DELETE SET NULL,
     reason           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (conversation_id, user_id)

@@ -1469,12 +1469,19 @@ class DmMessage(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 자유 문자열(CHECK 제약 없음) — 'text'/'appointment'/'price_offer'/'voice'(워키토키 Phase A, 260827) 등
     message_type: Mapped[str] = mapped_column(String(20), nullable=False, default="text")
+    # message_type='voice' 일 때: { durationMs: int, waveform?: number[] } (파형은 선택)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     image_content_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
     )
     image_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[image_content_id], lazy="selectin")
+    # 210_dm_voice_message.sql — 워키토키 음성메시지용 FK (image_content_id 재사용 안 함)
+    audio_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    audio_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[audio_content_id], lazy="selectin")
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

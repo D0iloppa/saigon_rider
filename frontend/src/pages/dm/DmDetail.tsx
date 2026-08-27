@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Play, Pause, Mic } from 'lucide-react';
@@ -49,6 +49,7 @@ import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
 import { WalkieTalkieFloatingButton } from '@/components/dm/WalkieTalkieFloatingButton';
+import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import styles from './DmDetail.module.css';
 
 // A-8: 음성메시지(message_type='voice') 카드. 표준 HTML5 <audio> 로 재생/진행바만 다룬다(커스텀 오디오 엔진 금지).
@@ -450,6 +451,16 @@ export default function DmDetail() {
       setSending(false);
     }
   };
+
+  // P6: DealLiveActions 슬롯에 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
+  // 약속이 없는 대화면 null → DealLiveActions 자체가 렌더되지 않는다.
+  const currentAppointmentId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const appt = messages[i].appointment;
+      if (messages[i].messageType === 'appointment' && appt) return appt.id;
+    }
+    return null;
+  }, [messages]);
 
   // 약속 상태 변경 후 해당 메시지의 appointment를 갱신 (5초 폴링과 별개로 즉시 반영)
   const patchAppointment = (appt: Appointment) => {
@@ -885,6 +896,9 @@ export default function DmDetail() {
           );
         })}
       </div>
+
+      {/* P6: 거래 DM 슬롯 컨테이너 — 약속이 있을 때만 위치공유 위젯 노출 (§7, 워키토키와는 배치만 공유) */}
+      <DealLiveActions appointmentId={currentAppointmentId} />
 
       {/* 워키토키 플로팅 토글 녹음 버블 (A-7) — getCapability().floatingButton=false(웹) 면 내부에서 렌더 스킵 */}
       {conversationId && (

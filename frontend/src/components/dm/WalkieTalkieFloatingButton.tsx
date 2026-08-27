@@ -364,7 +364,13 @@ export function WalkieTalkieFloatingButton() {
     manualStopRef.current = false;
     // 녹음 플러그인이 없는 설치본(웹, 또는 WalkieTalkie 미등록 구버전 앱)에서는 아래 호출들이
     // 전부 reject 된다 — 예전엔 그대로 새어나가 unhandled rejection 으로 아무 반응 없이 끝났다.
-    if (!capability?.record) {
+    if (capability === null) {
+      // 아직 getCapability() 응답 전 — "미지원"이 아니라 "준비 중"이다. 구분하지 않으면
+      // 마운트 직후 탭했을 때 멀쩡한 네이티브 빌드에도 "앱을 업데이트하라"는 오안내가 뜬다.
+      toast.info(t('common.loading', { defaultValue: '불러오는 중...' }));
+      return;
+    }
+    if (!capability.record) {
       // 웹에는 업데이트할 앱이 없다 — 같은 문구를 쓰면 안 된다.
       toast.info(
         native.isNative

@@ -780,7 +780,22 @@
     "consentTitle": "Sử dụng chia sẻ vị trí thời gian thực",
     "consentBody": "Vị trí thời gian thực chỉ được chia sẻ với đối tác giao dịch, và sẽ bị xóa ngay khi giao dịch hoàn tất, bị hủy, hoặc khi bạn tự dừng chia sẻ bất kỳ lúc nào.",
     "consentRetention": "Dữ liệu vị trí được xem là dữ liệu nhạy cảm và không được sử dụng ngoài mục đích của giao dịch này.",
-    "consentAgree": "Đồng ý và bắt đầu chia sẻ"
+    "consentAgree": "Đồng ý và bắt đầu chia sẻ",
+    "widgetTitle": "Chia sẻ vị trí thời gian thực",
+    "startBtn": "Bắt đầu chia sẻ vị trí",
+    "stopBtn": "Dừng chia sẻ",
+    "sharingActive": "Bạn đang chia sẻ vị trí của mình",
+    "peerSharing": "Đối phương cũng đang chia sẻ vị trí",
+    "peerNotStarted": "Đối phương chưa chia sẻ vị trí",
+    "myStopped": "Việc chia sẻ vị trí đã kết thúc",
+    "gate": {
+      "permission": "Cần quyền truy cập vị trí để xác định vị trí của bạn",
+      "timeout": "Không thể xác định vị trí của bạn",
+      "unavailable": "Không thể sử dụng vị trí",
+      "outside_area": "Bạn đang ở ngoài khu vực dịch vụ nên không thể chia sẻ vị trí",
+      "scope_all": "Không thể xác định vị trí của bạn",
+      "inaccurate": "Độ chính xác vị trí quá thấp để xác định"
+    }
   },
   "feedCreate": {
     "title": "Bài viết mới",

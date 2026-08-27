@@ -1,6 +1,6 @@
 import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
-import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, PriceOffer } from './types';
+import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, LocationShareStatus, PriceOffer } from './types';
 
 function transformPriceOffer(raw: any): PriceOffer {
   return {
@@ -253,6 +253,50 @@ export async function declineAppointmentCompletion(appointmentId: string): Promi
 
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
   return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
+}
+
+// ── 거래 위치공유 (Location Share, P4) ────────────────────────────
+function transformLocationShareStatus(raw: any): LocationShareStatus {
+  return {
+    myStatus: raw.my_status,
+    peerStatus: raw.peer_status,
+    peerLat: raw.peer_lat ?? null,
+    peerLng: raw.peer_lng ?? null,
+    expiresAt: raw.expires_at ?? null,
+  };
+}
+
+export async function fetchLocationShareStatus(appointmentId: string): Promise<LocationShareStatus> {
+  return transformLocationShareStatus(
+    await api.realFetch<any>(`/market/appointments/${appointmentId}/location-share`),
+  );
+}
+
+export async function startLocationShare(appointmentId: string, consentVersion: string): Promise<LocationShareStatus> {
+  return transformLocationShareStatus(
+    await api.realFetch<any>(`/market/appointments/${appointmentId}/location-share`, {
+      method: 'POST',
+      body: JSON.stringify({ consent_version: consentVersion }),
+    }),
+  );
+}
+
+export async function stopLocationShare(appointmentId: string): Promise<void> {
+  await api.realFetch(`/market/appointments/${appointmentId}/location-share`, { method: 'DELETE' });
+}
+
+export async function pingLocationShare(
+  appointmentId: string,
+  lat: number,
+  lng: number,
+  accuracyM: number,
+): Promise<LocationShareStatus> {
+  return transformLocationShareStatus(
+    await api.realFetch<any>(`/market/appointments/${appointmentId}/location-share/ping`, {
+      method: 'PUT',
+      body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
+    }),
+  );
 }
 
 // ── 가격제안 — 약속(SGR-287)과 동일하게 DM 메시지 + 도메인 엔티티 ────

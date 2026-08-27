@@ -763,6 +763,8 @@
   "feedCreate": {
     "title": "Bài viết mới",
     "textPlaceholder": "Bạn đang nghĩ gì?",
+    "groupTextPlaceholder": "Hôm nay khu phố có tin gì không?",
+    "postingToGroup": "Đăng vào {{name}}",
     "addPhoto": "Thêm ảnh",
     "addLocation": "Thêm vị trí",
     "locationAttached": "Đã đính kèm vị trí",

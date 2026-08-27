@@ -5,6 +5,7 @@ import { Camera, MapPin, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { createFeedPost } from '@/api/feed';
+import { getGroup } from '@/api/community_groups';
 import { api } from '@/api/client';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -31,10 +32,16 @@ export default function FeedCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // 그룹 게시판(§4.3) → 글쓰기 진입 시 group_id 프리필. 이 서브태스크에서는 파라미터 전달까지만(P3-3 범위 아님).
+  // 그룹 게시판(§4.3) → 글쓰기 진입 시 group_id 프리필 + 그룹 컨텍스트 인지(P3-3).
   const groupId = searchParams.get('groupId') ?? undefined;
   const user = useUserStore((s) => s.user);
   const openConfirm = useConfirmStore((s) => s.open);
+  const [groupName, setGroupName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!groupId) return;
+    getGroup(groupId).then((g) => setGroupName(g.name)).catch(() => {});
+  }, [groupId]);
 
   const [content, setContent] = useState(() => {
     try { return sessionStorage.getItem(DRAFT_KEY) ?? ''; } catch { return ''; }
@@ -177,10 +184,15 @@ export default function FeedCreate() {
       />
 
       <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
+        {groupId && groupName && (
+          <div className={styles.card} style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-2)' }}>
+            {t('feedCreate.postingToGroup', { name: groupName })}
+          </div>
+        )}
         <div className={styles.card}>
           <textarea
             className={styles.textarea}
-            placeholder={t('feedCreate.textPlaceholder')}
+            placeholder={groupId ? t('feedCreate.groupTextPlaceholder') : t('feedCreate.textPlaceholder')}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={6}

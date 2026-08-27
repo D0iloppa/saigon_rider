@@ -763,6 +763,8 @@
   "feedCreate": {
     "title": "New Post",
     "textPlaceholder": "What's on your mind?",
+    "groupTextPlaceholder": "Any neighborhood news today?",
+    "postingToGroup": "Posting to {{name}}",
     "addPhoto": "Add Photo",
     "addLocation": "Add Location",
     "locationAttached": "Location attached",

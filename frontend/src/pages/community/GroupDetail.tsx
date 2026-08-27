@@ -167,18 +167,15 @@ function BoardTab({ group, isMember, navigate, t }: any) {
   }
 
   return (
-    <div>
-      <div style={{ padding: '12px 16px 0', display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          onClick={() => navigate(`/feed/new?groupId=${group.id}`)}
-          aria-label={t('feedCreate.title')}
-          style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-        >
-          <Plus size={16} strokeWidth={2.2} />
-          {t('feedCreate.title')}
-        </button>
-      </div>
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className={styles.writeFab}
+        onClick={() => navigate(`/feed/new?groupId=${group.id}`)}
+        aria-label={t('feedCreate.title')}
+      >
+        <Plus size={22} strokeWidth={2.4} />
+      </button>
       {!isLoading && posts.length === 0 ? (
         <StateBlock icon={Newspaper} title={t('feed.emptyTitle')} desc={t('feed.emptySub')} />
       ) : (

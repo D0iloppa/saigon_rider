@@ -763,6 +763,8 @@
   "feedCreate": {
     "title": "새 글 작성",
     "textPlaceholder": "무슨 생각을 하고 계세요?",
+    "groupTextPlaceholder": "오늘 동네 소식 있나요?",
+    "postingToGroup": "{{name}}에 게시",
     "addPhoto": "사진 추가",
     "addLocation": "위치 태그",
     "locationAttached": "위치 첨부됨",

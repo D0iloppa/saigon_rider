@@ -217,3 +217,19 @@
 5. **과금**: `monthly_price_vnd`는 구독 표시가일 뿐 **자동 결제 엔진은 미구현** → 초기엔 오프라인 정산(관리자 입금 확인 후 게시) 전제. tier/ad_fee/price는 공개 응답(`MarketplaceAdOut`)에 미노출.
 
 (제정 2026-07-23 · 개정 2026-07-25 — 유료 tier 도메인(`ad_tiers`) + 월정액(일반 199k/프리미엄 499k) + 상시 게시(선택 종료일) 모델로 정리. 노출 weight = tier `exposure_weight` × `ad_fee`.)
+
+---
+
+## 그룹 대화방 권한 (제정 2026-08-28, 대표 지시)
+
+1. **초대 자격 = 초대자의 팔로잉.** 그룹 개설·멤버 초대 모두 **초대하는 사람이 대상을 팔로우 중**이어야 한다(`backend/app/services/dm_policy.py::require_invite_eligible`). 맞팔(친구)은 팔로잉의 부분집합이라 함께 통과한다. **이 판정은 서버가 SoT** — 종전엔 클라이언트만 맞팔 목록을 노출했을 뿐 서버는 관계를 전혀 검증하지 않아 API 로 아무나 밀어넣을 수 있었다(2026-08-28 이전 상태).
+2. **'친구' = 상호 팔로우(맞팔).** `GET /users/{id}/friends`(`follows.py`)가 정본이고 `UserProfile.isFriend` 도 같은 정의다. 그룹 초대는 이 정의보다 넓은 팔로잉 기준을 쓴다(위 1항) — **두 개념을 혼동하지 말 것.**
+3. **운영진은 개설자(owner)와 관리자(admin) 2단.** owner 는 방을 만든 1명으로 고정이며 **위임·강등되지 않는다.** admin 은 owner 만 임명·해임한다(`PATCH /dm/conversations/{id}/members/{uid}/role`). 강퇴·밴 권한은 owner/admin 공통(`require_manager`).
+4. **강퇴와 블랙리스트는 다른 제재다.**
+   - **강퇴**(`DELETE .../members/{uid}` → `left_at` 기록): 즉시 퇴장. **운영진이 다시 초대하면 복귀한다**(`invite_members` 가 `left_at` 을 되살림).
+   - **블랙리스트**(`dm_conversation_bans`, 212 마이그레이션): 해제 전까지 **초대·입장 모두 거부**(`require_not_banned`). 오픈톡방 입장에도 적용되어, 커뮤니티 그룹 멤버라도 방 단위로 밴됐으면 못 들어온다.
+   - 원칙: **운영진이 강퇴하거나 블랙리스트에 올리지 않는 한 입장할 수 있다.**
+5. **운영진끼리는 서로 제재할 수 없다.** owner 는 누구도 밴할 수 없고, admin 은 owner 만 밴할 수 있다. 밴 등록 시 대상이 활성 멤버면 **함께 퇴장 처리**한다 — "밴됐는데 방에 남아있는" 상태를 만들지 않는다.
+6. 차단(`user_blocks`, 사용자 간 상호 차단)과 방 밴은 별개 층위다. 차단은 기존 `require_unblocked`/`require_unblocked_for_join` 이 그대로 담당한다.
+
+(프론트 멤버 관리 UI(관리자 임명·강퇴·밴 화면)는 **미구현** — API 만 준비된 상태. 그룹 개설 화면의 초대 후보는 팔로잉 목록으로 교체됨(`DmGroupCreate.tsx`).)

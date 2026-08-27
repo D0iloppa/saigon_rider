@@ -74,6 +74,8 @@ export function WalkieTalkieFloatingButton() {
   // 녹음 리스너 이펙트(deps: capability.available 고정)에서 최신 대화 정보를 읽기 위한 ref.
   const conversationIdRef = useRef<string | null>(null);
   const conversationMetaRef = useRef<WalkieTalkieConversationMeta | null>(null);
+  // 캡슐 모핑(펼침/접힘) 시 직전 너비 대비 변화량을 구해 확장을 중앙 기준으로 유지하기 위한 ref.
+  const prevWidthRef = useRef<number | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -165,20 +167,29 @@ export function WalkieTalkieFloatingButton() {
     return () => window.clearTimeout(timer);
   }, [peek]);
 
-  // 캡슐 크기가 모핑될 때(펼침/접힘) 화면 밖으로 밀려나지 않게 경계만 클램프한다.
+  // 캡슐 크기가 모핑될 때(펼침/접힘) 직전 가로 중심을 유지하며 확장되게 하고, 화면 밖으로
+  // 밀려날 때만 반대쪽으로 밀어 넣는다.
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(() => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
-      setPos((p) => ({
-        x: Math.min(p.x, Math.max(window.innerWidth - w - MARGIN, 0)),
-        y: Math.min(p.y, Math.max(window.innerHeight - h - MARGIN, 0)),
-      }));
+      setPos((p) => {
+        const prevW = prevWidthRef.current;
+        const centeredX = prevW === null ? p.x : p.x - (w - prevW) / 2;
+        prevWidthRef.current = w;
+        return {
+          x: Math.min(Math.max(centeredX, 0), Math.max(window.innerWidth - w - MARGIN, 0)),
+          y: Math.min(p.y, Math.max(window.innerHeight - h - MARGIN, 0)),
+        };
+      });
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      prevWidthRef.current = null;
+    };
     // 캡슐 DOM 존재 여부가 바뀔 때(대화 진입/닫기/기능 가용) 옵저버를 다시 건다.
   }, [conversationId, closed, capability]);
 

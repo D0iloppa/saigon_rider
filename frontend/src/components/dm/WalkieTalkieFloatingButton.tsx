@@ -26,6 +26,9 @@ const MARGIN = 12;
 const PRESENCE_POLL_MS = 18000;
 // 컨텍스트메뉴 "홈화면 고정" — Android 네이티브 위젯 고정(pinToHomeScreen, WalkieTalkieChannelWidgetProvider) 구현 완료.
 const PIN_TO_HOME_MENU_ENABLED = true;
+// GET /dm/conversations/{id}/messages 의 페이지 크기(backend/app/routers/dm.py size 기본값) —
+// 마지막 페이지 번호를 계산해 "현재 시점" 커서를 잡는 데 쓴다.
+const MESSAGE_PAGE_SIZE = 50;
 
 /**
  * 플로팅 토글 녹음 캡슐 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
@@ -163,12 +166,23 @@ export function WalkieTalkieFloatingButton() {
     };
   }, [conversationId]);
 
+  // 캡슐이 실제로 화면에 렌더되는 조건 (아래 early return 들과 동일 집합 — 함께 고쳐야 한다).
+  // 렌더되지 않으면 <audio> 도 없어(audioRef.current === null) 재생 이펙트가 곧바로 phase 를
+  // idle 로 되돌리고, 큐가 차 있으면 idle→playing→idle 무한루프가 된다. 그래서 수신 폴링과
+  // 자동재생은 렌더 조건과 같은 게이트를 쓴다.
+  const bubbleActive =
+    !!conversationId &&
+    !!capability?.available &&
+    !!capability.floatingButton &&
+    !isWalkieTalkieOptedOut() &&
+    !closed;
+
   // 수신 음성메시지 폴링(202608 개편) — DmDetail 화면이 열려있지 않아도 이 캡슐이 대상 대화의 새
   // 음성메시지를 감지해야 한다. DmDetail 자체 메시지 폴링과 같은 5초 주기를 그대로 맞춘다(참석정보
   // 폴링(18초)과 달리 메시지 수신은 체감 지연이 커서 더 짧게 잡아야 한다) — presence 폴링과는
   // 별개의 이펙트/타이머다(섞으면 안 된다).
   useEffect(() => {
-    if (!conversationId) {
+    if (!conversationId || !bubbleActive) {
       setQueue([]);
       queuedIdsRef.current = new Set();
       return;
@@ -177,8 +191,20 @@ export function WalkieTalkieFloatingButton() {
     sinceCursorRef.current = undefined;
     setQueue([]);
     let cancelled = false;
+    let seeded = false;
     const myId = session?.userId ?? user?.id;
+    // 커서 없이 폴링하면 API 가 created_at ASC 첫 페이지(= 대화의 가장 오래된 50건)를 준다 —
+    // 그대로 두면 채널을 켜는 순간 과거 음성이 전부 큐잉·자동재생되고, 재생 잠금 때문에 그동안
+    // 송신도 막힌다. 마지막 페이지의 최신 메시지 시각을 커서로 잡아 "이후 도착분"만 받는다.
+    // (기기 시계 대신 서버가 찍은 타임스탬프를 쓴다 — 시계 오차로 수신을 놓치지 않도록.)
+    const seedCursor = async () => {
+      const first = await fetchMessages(conversationId, 1);
+      const lastPage = Math.max(1, Math.ceil(first.total / MESSAGE_PAGE_SIZE));
+      const page = lastPage === 1 ? first : await fetchMessages(conversationId, lastPage);
+      sinceCursorRef.current = page.items[page.items.length - 1]?.createdAt;
+    };
     const tick = async () => {
+      if (cancelled || !seeded) return;
       try {
         const res = await fetchMessages(conversationId, 1, sinceCursorRef.current);
         if (cancelled || res.items.length === 0) return;
@@ -194,22 +220,29 @@ export function WalkieTalkieFloatingButton() {
         // 순단 무시 — 다음 tick 에 재시도 (DmDetail 메시지 폴링과 동일 패턴)
       }
     };
-    tick();
+    seedCursor()
+      // 시딩 실패 시엔 기기 시계로라도 "지금"을 잡는다 — 커서 없는 채로 폴링을 시작해
+      // 과거 50건을 쏟아내는 것보다 낫다.
+      .catch(() => { sinceCursorRef.current = new Date().toISOString(); })
+      .then(() => {
+        seeded = true;
+        tick();
+      });
     const interval = window.setInterval(tick, 5000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- myId 는 세션 고정값, 재구독 불필요
-  }, [conversationId]);
+  }, [conversationId, bubbleActive]);
 
   // 큐가 있고 유휴 상태면 자동 재생 시작. 재생 중 항목(queue[0])이 바뀔 때만 실제로 오디오를
   // 다시 로드한다 — queue 배열 전체를 deps 로 두면 재생 도중 새 메시지가 뒤에 추가되기만 해도
   // 배열 참조가 바뀌어 재생 중이던 오디오가 처음부터 다시 시작돼버린다.
   const currentPlayId = queue[0]?.id ?? null;
   useEffect(() => {
-    if (phase === 'idle' && queue.length > 0) setPhase('playing');
-  }, [phase, queue.length]);
+    if (bubbleActive && phase === 'idle' && queue.length > 0) setPhase('playing');
+  }, [bubbleActive, phase, queue.length]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -529,10 +562,8 @@ export function WalkieTalkieFloatingButton() {
     };
   }, []);
 
-  if (!conversationId) return null;
-  if (!capability?.available || !capability.floatingButton) return null;
-  if (isWalkieTalkieOptedOut()) return null;
-  if (closed) return null;
+  // 렌더 조건은 bubbleActive 하나로 모은다 — 폴링/자동재생 게이트와 갈라지면 무한루프가 재발한다.
+  if (!bubbleActive) return null;
 
   // 채널정보 UX(A-7) — 채널명 + (그룹이면) 참석 인원, 상태(수신대기/발신중), 다른 사람 녹음중 소프트 신호.
   const channelName = conversationMeta?.name ?? t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' });

@@ -31,7 +31,7 @@ useKeyboard()   (frontend/src/hooks/useKeyboard.ts)
 ```
 
 - **iOS 네이티브**: 키보드는 **웹뷰를 리사이즈하지 않는 순수 오버레이**다. `innerHeight` 계측이 무의미하므로 `KeyboardBridge` 의 `keyboardWillShow`/`keyboardWillHide` 이벤트가 유일한 높이 소스다 (`native.ts` 341-364행).
-- **Android 네이티브**: `AndroidManifest.xml` 의 `windowSoftInputMode` 가 `adjustNothing` (커밋 `c231681`, 2026-07-06)으로 전환돼 iOS 와 동일하게 **웹뷰가 팬/리사이즈되지 않는 순수 오버레이**다. 계측은 `visualViewport` 폴백(아래)이 담당하지만, **여백 적용은 iOS 와 동일하게 수동 오버라이드가 필요**하다.
+- **Android 네이티브**: `AndroidManifest.xml` 의 `windowSoftInputMode` 가 `adjustNothing` (커밋 `c231681`, 2026-07-06)으로 전환돼 iOS 와 동일하게 **웹뷰가 팬/리사이즈되지 않는 순수 오버레이**다. 높이 소스도 iOS 와 같은 `KeyboardBridge` 이벤트다 — `visualViewport` 폴백은 `adjustNothing` 상태에서 뷰포트가 변하지 않아 무의미하다. 네이티브 측 계측은 IME inset 이 우선이고, 그것이 전파되지 않는 환경(Android 14 이하)에서는 PopupWindow 폴백이 대신 잰다 (`native/android/.../KeyboardBridgePlugin.java`, `native/android/HANDOFF_keyboard_resize.md`). **여백 적용은 iOS 와 동일하게 수동 오버라이드가 필요**하다.
 - **웹**: 기존 `visualViewport` inset과 `innerHeight` delta 중 큰 값을 쓰는 계측 폴백을 유지한다 (`native.ts` 366-386행). 브라우저가 OS 키보드에 맞춰 뷰포트를 직접 밀어주므로 아래 네이티브 전용 오버라이드 패턴에서 제외한다.
 - `useKeyboard()` 는 키보드가 내려가도 `height` 는 마지막 관측값을 유지하고 `visible` 만 `false` 로 바뀐다. 그래서 소비처는 항상 `(iOS/Android 네이티브 여부) && kb.visible` 조합으로 적용 여부를 판단한다 (`kb.height` 단독 사용 금지).
 

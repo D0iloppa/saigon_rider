@@ -330,20 +330,28 @@ export function WalkieTalkieFloatingButton() {
         return;
       }
       setPhase('uploading');
+      // 실패 지점을 남긴다 — 종전엔 어느 단계에서 깨졌는지 알 수 없어(모두 같은 토스트) 기기
+      // 테스트마다 왕복이 필요했다. 파일읽기/업로드/전송 중 어디서 났는지 토스트에 그대로 싣는다.
+      let step = 'read';
       try {
         const fileUrl = Capacitor.convertFileSrc(result.filePath);
         const blob = await fetch(fileUrl).then((r) => r.blob());
+        if (blob.size === 0) throw new Error(`empty blob (${result.sizeBytes ?? '?'}B reported)`);
         const file = new File([blob], `walkie-${Date.now()}.m4a`, { type: result.mimeType });
         const form = new FormData();
         form.append('file', file);
         form.append('owner_type', 'user');
         form.append('owner_id', user.id);
+        step = 'upload';
         const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
         // 대화방 화면이 열려 있으면 그 화면의 폴링이 다음 tick에 이 메시지를 알아서 가져온다.
+        step = 'send';
         await sendMessage(conversationId, '', { audioContentId: id });
         playSound('dm_send');
-      } catch {
-        toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(`[walkieTalkie] send failed at ${step}`, err);
+        toast.error(`${t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' })} (${step}: ${reason.slice(0, 90)})`);
       } finally {
         notifyRecordingStop();
         resetToIdle();
@@ -373,8 +381,10 @@ export function WalkieTalkieFloatingButton() {
         const granted = await native.walkieTalkie.requestPermission('mic');
         mic = granted ? 'granted' : 'denied';
       }
-    } catch {
-      toast.error(t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' }));
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error('[walkieTalkie] permission check failed', err);
+      toast.error(`${t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' })} (perm: ${reason.slice(0, 90)})`);
       return;
     }
     if (mic !== 'granted') {
@@ -387,8 +397,12 @@ export function WalkieTalkieFloatingButton() {
       if (conversationId && conversationMeta?.isGroup) {
         notifyRecordingPresence(conversationId, 'start').catch(() => {});
       }
-    } catch {
-      toast.error(t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' }));
+    } catch (err) {
+      // 네이티브는 PERMISSION_DENIED / SERVICE_UNAVAILABLE / ALREADY_RECORDING / START_FAILED 를
+      // 구분해 reject 하는데 종전엔 전부 같은 문구로 덮여 기기에서 원인을 알 수 없었다.
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error('[walkieTalkie] startRecording failed', err);
+      toast.error(`${t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' })} (${reason.slice(0, 90)})`);
     }
   }, [capability, conversationId, conversationMeta, t]);
 

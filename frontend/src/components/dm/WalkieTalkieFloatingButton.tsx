@@ -21,8 +21,9 @@ const MARGIN = 12;
 const PRESENCE_POLL_MS = 18000;
 
 /**
- * 플로팅 토글 녹음 버블 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
- * 드래그 이동 + 화면 가장자리 스냅 + 닫기 버튼 + 녹음 중 상태(경과시간·레벨) 표시.
+ * 플로팅 토글 녹음 캡슐 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
+ * 다이나믹 아일랜드 스타일 단일 캡슐(pill) UI — 상태에 따라 compact ↔ expanded 모핑.
+ * 드래그 자유 배치(스냅 없음, 화면 경계 클램프만) + 녹음 중 상태(경과시간·레벨) 표시.
  *
  * 앱 전역 컴포넌트(App.tsx 마운트) — 대상 대화(`activeConversationId`)와 닫힘 상태(`closed`)는
  * `useWalkieTalkieBubbleStore` 에서 읽는다(대표 지시 2026-08-27: DM 화면을 떠나도 유지).
@@ -47,7 +48,12 @@ export function WalkieTalkieFloatingButton() {
     x: Math.max(window.innerWidth - BUBBLE_SIZE - MARGIN, 0),
     y: Math.round(window.innerHeight * 0.55),
   }));
+  // UI 전용 상태 — 캡슐 펼침(peek)·드래그 피드백. 녹음/전송 로직과 무관하다.
+  const [peek, setPeek] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
   const phaseRef = useRef<Phase>('idle');
   const pendingResultRef = useRef<WalkieTalkieRecordingResult | null>(null);
   const manualStopRef = useRef(false);
@@ -134,6 +140,35 @@ export function WalkieTalkieFloatingButton() {
       window.clearInterval(timer);
     };
   }, [conversationId]);
+
+  // 다이나믹 아일랜드식 "잠깐 펼침"(peek) — 채널 등장·다른 사람 발화 시 몇 초 펼쳤다가 자동으로 접는다.
+  const speakingOtherId = presence?.recordingUsers.find((u) => u.id !== user?.id)?.id ?? null;
+  useEffect(() => {
+    if (!conversationId) return;
+    setPeek(true);
+  }, [conversationId, speakingOtherId]);
+  useEffect(() => {
+    if (!peek) return;
+    const timer = window.setTimeout(() => setPeek(false), 3200);
+    return () => window.clearTimeout(timer);
+  }, [peek]);
+
+  // 캡슐 크기가 모핑될 때(펼침/접힘) 화면 밖으로 밀려나지 않게 경계만 클램프한다.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      setPos((p) => ({
+        x: Math.min(p.x, Math.max(window.innerWidth - w - MARGIN, 0)),
+        y: Math.min(p.y, Math.max(window.innerHeight - h - MARGIN, 0)),
+      }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // 캡슐 DOM 존재 여부가 바뀔 때(대화 진입/닫기/기능 가용) 옵저버를 다시 건다.
+  }, [conversationId, closed, capability]);
 
   const resetToIdle = useCallback(() => {
     pendingResultRef.current = null;
@@ -251,39 +286,58 @@ export function WalkieTalkieFloatingButton() {
     closeBubble();
   }, [closeBubble]);
 
-  // 드래그 이동 + 가장자리 스냅
+  // 드래그 자유 배치 — 스냅 없음, 화면 경계 클램프만. 길게 누르면 캡슐이 잠깐 펼쳐진다(채널정보·닫기).
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       draggingRef.current = true;
       dragMovedRef.current = false;
       dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
       (e.target as Element).setPointerCapture(e.pointerId);
+      setDragging(true);
+      // 길게 누르기 → 펼침(peek). 이후 손을 떼도 탭(녹음 토글)으로 이어지지 않게 클릭을 삼킨다.
+      clearLongPress();
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null;
+        if (draggingRef.current && !dragMovedRef.current) {
+          dragMovedRef.current = true;
+          setPeek(true);
+        }
+      }, 450);
     },
-    [pos.x, pos.y],
+    [clearLongPress, pos.x, pos.y],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current) return;
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMovedRef.current = true;
-    const maxX = window.innerWidth - BUBBLE_SIZE;
-    const maxY = window.innerHeight - BUBBLE_SIZE;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      dragMovedRef.current = true;
+      clearLongPress();
+    }
+    const w = rootRef.current?.offsetWidth ?? BUBBLE_SIZE;
+    const h = rootRef.current?.offsetHeight ?? BUBBLE_SIZE;
+    const maxX = window.innerWidth - w;
+    const maxY = window.innerHeight - h;
     setPos({
       x: Math.min(Math.max(dragStartRef.current.posX + dx, 0), maxX),
       y: Math.min(Math.max(dragStartRef.current.posY + dy, 0), maxY),
     });
-  }, []);
+  }, [clearLongPress]);
 
   const onPointerUp = useCallback(() => {
+    clearLongPress();
     if (!draggingRef.current) return;
     draggingRef.current = false;
-    setPos((p) => {
-      const center = p.x + BUBBLE_SIZE / 2;
-      const snappedX = center < window.innerWidth / 2 ? MARGIN : window.innerWidth - BUBBLE_SIZE - MARGIN;
-      return { x: snappedX, y: p.y };
-    });
-  }, []);
+    setDragging(false);
+  }, [clearLongPress]);
 
   const onClick = useCallback(() => {
     if (dragMovedRef.current) {
@@ -298,7 +352,7 @@ export function WalkieTalkieFloatingButton() {
   if (isWalkieTalkieOptedOut()) return null;
   if (closed) return null;
 
-  // 채널정보 UX(A-7) — 채널명 + (그룹이면) 참석 인원, 상태(수신대기/발신중), 다른 사람 녹음중 소프트 배지.
+  // 채널정보 UX(A-7) — 채널명 + (그룹이면) 참석 인원, 상태(수신대기/발신중), 다른 사람 녹음중 소프트 신호.
   const channelName = conversationMeta?.name ?? t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' });
   const channelLabel = conversationMeta?.isGroup && presence
     ? `${channelName} · ${presence.activeMembers}/${presence.totalMembers}`
@@ -307,15 +361,19 @@ export function WalkieTalkieFloatingButton() {
   const statusText = phase === 'recording' || phase === 'autoStopped'
     ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
     : t('walkieTalkie.statusIdle', { defaultValue: '수신대기' });
+  const isRec = phase === 'recording' || phase === 'autoStopped';
 
   return (
     <>
-      {/* div(role=button) — 내부에 닫기/취소 버튼을 겹쳐야 해서 <button> 중첩(무효 HTML)을 피한다. */}
+      {/* div(role=button) — 캡슐 안에 닫기/취소 버튼을 포함해야 해서 <button> 중첩(무효 HTML)을 피한다. */}
       <div
+        ref={rootRef}
         role="button"
         tabIndex={0}
-        className={styles.bubble}
+        className={styles.capsule}
         data-phase={phase}
+        data-dragging={dragging || undefined}
+        data-speaking={(!isRec && !!speakingOther) || undefined}
         style={{ left: pos.x, top: pos.y }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -324,72 +382,104 @@ export function WalkieTalkieFloatingButton() {
         onClick={onClick}
         aria-label={t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' })}
       >
-        <span className={styles.channelLabel}>
-          <span className={styles.channelName}>{channelLabel}</span>
-          <span className={speakingOther ? styles.speakingBadge : styles.statusText}>
-            {speakingOther
-              ? t('walkieTalkie.someoneSpeaking', { name: speakingOther.nickname ?? '', defaultValue: '{{name}}님이 말하는 중' })
-              : statusText}
-          </span>
-        </span>
-        {(phase === 'recording' || phase === 'autoStopped') && (
-          <span className={styles.level} style={{ transform: `scale(${1 + level * 0.4})` }} />
-        )}
-        {phase === 'recording' || phase === 'autoStopped' ? (
-          <Square size={20} strokeWidth={2} fill="currentColor" />
+        {phase === 'permissionDenied' ? (
+          /* 권한거부 — 별도 패널 대신 캡슐 자체가 카드로 확장된다. */
+          <div className={styles.denied}>
+            <p className={styles.deniedText}>
+              {t('walkieTalkie.permissionDenied', { defaultValue: '마이크 권한이 필요해요. 설정에서 허용해 주세요.' })}
+            </p>
+            <div className={styles.deniedActions}>
+              <button
+                type="button"
+                className={styles.deniedBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  resetToIdle();
+                }}
+              >
+                {t('common.close')}
+              </button>
+              <button
+                type="button"
+                className={styles.deniedBtnPrimary}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  native.walkieTalkie.openAppSettings();
+                  resetToIdle();
+                }}
+              >
+                {t('walkieTalkie.openAppSettings', { defaultValue: '설정 열기' })}
+              </button>
+            </div>
+          </div>
         ) : (
-          <Mic size={24} strokeWidth={2} />
-        )}
-        {(phase === 'recording' || phase === 'autoStopped') && (
-          <span className={styles.elapsed}>
-            {phase === 'autoStopped'
-              ? t('walkieTalkie.autoStopped', { defaultValue: '자동 중지됨 · 탭하여 전송' })
-              : `${Math.floor(elapsedMs / 1000)}s`}
-          </span>
-        )}
-        {phase === 'idle' && (
-          <button type="button" className={styles.closeBtn} onClick={handleClose} aria-label={t('common.close')}>
-            <X size={12} strokeWidth={2.5} />
-          </button>
-        )}
-        {(phase === 'recording' || phase === 'autoStopped') && (
-          <button
-            type="button"
-            className={styles.closeBtn}
-            onClick={handleCancel}
-            aria-label={t('common.cancel')}
-          >
-            <X size={12} strokeWidth={2.5} />
-          </button>
+          <>
+            {/* 닫기(idle·펼침시에만) / 취소(녹음중) — 캡슐 안에 포함된 고스트 버튼, 겹치는 별도 원 없음 */}
+            {phase === 'idle' && (
+              <button
+                type="button"
+                className={styles.ghostBtn}
+                data-visible={peek || undefined}
+                onClick={handleClose}
+                aria-label={t('common.close')}
+              >
+                <X size={12} strokeWidth={2.5} />
+              </button>
+            )}
+            {isRec && (
+              <button
+                type="button"
+                className={styles.ghostBtn}
+                data-visible
+                onClick={handleCancel}
+                aria-label={t('common.cancel')}
+              >
+                <X size={12} strokeWidth={2.5} />
+              </button>
+            )}
+
+            {/* 녹음중 — 레벨 파형 + 경과시간 / 자동중지 안내 (캡슐 내부에 통합) */}
+            {phase === 'recording' && (
+              <span className={styles.wave} style={{ '--wt-level': level } as React.CSSProperties} aria-hidden>
+                <i /><i /><i /><i />
+              </span>
+            )}
+            {phase === 'recording' && (
+              <span className={styles.elapsed}>{Math.floor(elapsedMs / 1000)}s</span>
+            )}
+            {phase === 'autoStopped' && (
+              <span className={styles.autoStoppedText}>
+                {t('walkieTalkie.autoStopped', { defaultValue: '자동 중지됨 · 탭하여 전송' })}
+              </span>
+            )}
+
+            {/* 채널정보 — 평소엔 접혀 있고 peek(등장·발화·길게누름) 때만 펼쳐진다 */}
+            {!isRec && (
+              <span className={styles.label} data-open={peek || undefined}>
+                <span className={styles.channelName}>{channelLabel}</span>
+                <span className={speakingOther ? styles.speakingText : styles.statusText}>
+                  {speakingOther
+                    ? t('walkieTalkie.someoneSpeaking', { name: speakingOther.nickname ?? '', defaultValue: '{{name}}님이 말하는 중' })
+                    : statusText}
+                </span>
+              </span>
+            )}
+
+            <span className={styles.iconWrap}>
+              {isRec ? (
+                <Square size={15} strokeWidth={2} fill="currentColor" />
+              ) : (
+                <Mic size={19} strokeWidth={2.2} />
+              )}
+            </span>
+
+            {/* 그룹이면 compact 상태에서도 참석 카운트만 최소로 노출 */}
+            {phase === 'idle' && !peek && conversationMeta?.isGroup && presence && (
+              <span className={styles.count}>{presence.activeMembers}/{presence.totalMembers}</span>
+            )}
+          </>
         )}
       </div>
-
-      {phase === 'permissionDenied' && (
-        <div
-          className={styles.panel}
-          style={{
-            left: Math.min(pos.x, window.innerWidth - 220 - MARGIN),
-            top: Math.max(pos.y - 96, MARGIN),
-          }}
-        >
-          <p className={styles.panelText}>{t('walkieTalkie.permissionDenied', { defaultValue: '마이크 권한이 필요해요. 설정에서 허용해 주세요.' })}</p>
-          <div className={styles.panelActions}>
-            <button type="button" className={styles.panelBtn} onClick={() => resetToIdle()}>
-              {t('common.close')}
-            </button>
-            <button
-              type="button"
-              className={styles.panelBtnPrimary}
-              onClick={() => {
-                native.walkieTalkie.openAppSettings();
-                resetToIdle();
-              }}
-            >
-              {t('walkieTalkie.openAppSettings', { defaultValue: '설정 열기' })}
-            </button>
-          </div>
-        </div>
-      )}
 
       <WalkieTalkieConsentModal
         open={consentOpen}

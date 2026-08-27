@@ -1,142 +1,261 @@
-/* 플로팅 토글 녹음 버블 (A-7). 웹뷰 내 DOM — position: fixed 로 드래그·스냅한다. */
+/* 플로팅 토글 녹음 캡슐 (A-7) — 다이나믹 아일랜드 스타일 단일 pill.
+ * 캡슐은 라이트/다크 공통으로 항상 딥블랙(--ink-900 계열) — DI 와 동일한 철학.
+ * position: fixed 로 드래그 자유 배치(스냅 없음). */
 
-.bubble {
+.capsule {
   position: fixed;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--brand-500);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-pop);
   z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 13px;
+  border-radius: var(--r-pill);
+  background: rgba(8, 9, 15, 0.94); /* --ink-900 + 미세 투명 */
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    0 10px 32px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   touch-action: none;
   cursor: pointer;
-  border: none;
-  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    transform 180ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    border-radius 260ms ease,
+    padding 260ms ease;
 }
 
-.bubble[data-phase='recording'],
-.bubble[data-phase='autoStopped'] {
-  background: var(--danger);
+/* 드래그 중 — 살짝 들어올린 피지컬 피드백 */
+.capsule[data-dragging='true'] {
+  transform: scale(1.06);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.34),
+    0 22px 56px rgba(0, 0, 0, 0.5);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
-.bubble[data-phase='uploading'] {
-  opacity: 0.6;
+/* 녹음중 — 캡슐 테두리에 은은한 레코딩 글로우 */
+.capsule[data-phase='recording'],
+.capsule[data-phase='autoStopped'] {
+  border-color: rgba(239, 59, 59, 0.45);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    0 10px 32px rgba(239, 59, 59, 0.28);
 }
 
-.level {
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  pointer-events: none;
-  transition: transform 80ms linear;
+/* 다른 사람이 말하는 중 — 별도 배지 대신 캡슐 자체가 브랜드색으로 숨쉰다 */
+.capsule[data-speaking='true'] {
+  animation: wt-speaking-pulse 1.8s ease-in-out infinite;
 }
 
-.closeBtn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--ink-700);
-  color: #fff;
+.capsule[data-phase='uploading'] {
+  opacity: 0.7;
+}
+
+.capsule[data-phase='uploading'] .iconWrap {
+  animation: wt-breathe 900ms ease-in-out infinite;
+}
+
+/* 권한거부 — 캡슐이 그대로 카드로 확장 */
+.capsule[data-phase='permissionDenied'] {
+  height: auto;
+  padding: 13px 15px;
+  border-radius: var(--r-lg);
+  cursor: default;
+}
+
+/* 상태 아이콘 (마이크/정지) */
+.iconWrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  padding: 0;
+  flex: none;
+  color: var(--brand-300);
 }
 
-.channelLabel {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 6px;
+.capsule[data-phase='recording'] .iconWrap,
+.capsule[data-phase='autoStopped'] .iconWrap {
+  color: var(--danger);
+}
+
+/* 캡슐 안에 포함된 닫기/취소 고스트 버튼 — 겹쳐 뜨는 별도 원 없음.
+ * idle 에선 peek(펼침) 때만 스르륵 나타난다. */
+.ghostBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 0;
+  height: 24px;
+  margin-right: -8px; /* 접힘 시 gap 상쇄 */
+  border: none;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.78);
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: width 240ms ease, margin 240ms ease, opacity 180ms ease;
+}
+
+.ghostBtn[data-visible] {
+  width: 24px;
+  margin-right: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 레벨 파형 — 4개 바, 실측 레벨(--wt-level 0~1)이 높이를 밀어올린다 */
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 20px;
+  flex: none;
+}
+
+.wave i {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--danger);
+  height: calc(6px + var(--wt-level, 0) * 13px);
+  transition: height 90ms linear;
+  animation: wt-bar 1s ease-in-out infinite;
+}
+
+.wave i:nth-child(2) { animation-delay: 0.18s; }
+.wave i:nth-child(3) { animation-delay: 0.36s; }
+.wave i:nth-child(4) { animation-delay: 0.54s; }
+
+.elapsed {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.autoStoppedText {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* 채널정보 — 평소 접힘(max-width 0), peek 때 펼쳐졌다가 자동으로 다시 접힌다 */
+.label {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 1px;
+  max-width: 0;
+  margin-right: -8px; /* 접힘 시 gap 상쇄 */
+  opacity: 0;
+  overflow: hidden;
   white-space: nowrap;
-  background: var(--surface);
-  padding: 3px 8px;
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-card);
-  pointer-events: none;
+  transition: max-width 280ms cubic-bezier(0.34, 1.2, 0.64, 1), margin 280ms ease, opacity 200ms ease;
+}
+
+.label[data-open] {
+  max-width: 168px;
+  margin-right: 0;
+  opacity: 1;
 }
 
 .channelName {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
+  max-width: 168px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .statusText {
   font-size: 10px;
-  color: var(--text-2);
+  color: rgba(255, 255, 255, 0.62);
 }
 
-.speakingBadge {
+.speakingText {
   font-size: 10px;
   font-weight: 600;
-  color: var(--brand-600);
+  color: var(--brand-300);
 }
 
-.elapsed {
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11px;
+/* 그룹 참석 카운트 — compact 상태 최소 표시 */
+.count {
+  font-size: 10px;
   font-weight: 700;
-  color: var(--text);
-  background: var(--surface);
-  padding: 1px 6px;
-  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.62);
   white-space: nowrap;
-  box-shadow: var(--shadow-card);
 }
 
-.panel {
-  position: fixed;
-  z-index: 61;
-  background: var(--surface);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-pop);
-  padding: 12px;
-  width: 220px;
+/* 권한거부 카드 내부 */
+.denied {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  width: 208px;
 }
 
-.panelText {
+.deniedText {
   font-size: 13px;
-  color: var(--text-2);
-  line-height: 1.4;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
 }
 
-.panelActions {
+.deniedActions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
-.panelBtn {
+.deniedBtn {
   border: none;
   background: transparent;
-  color: var(--text-2);
+  color: rgba(255, 255, 255, 0.62);
   font-size: 13px;
   font-weight: 600;
-  padding: 6px 8px;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
 }
 
-.panelBtnPrimary {
-  composes: panelBtn;
-  color: var(--brand-600);
+.deniedBtnPrimary {
+  composes: deniedBtn;
+  background: rgba(255, 90, 31, 0.18); /* --brand-500 tint */
+  color: var(--brand-300);
+}
+
+@keyframes wt-bar {
+  0%, 100% { transform: scaleY(0.55); }
+  50%      { transform: scaleY(1); }
+}
+
+@keyframes wt-speaking-pulse {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.28),
+      0 10px 32px rgba(0, 0, 0, 0.38);
+  }
+  50% {
+    border-color: rgba(255, 153, 102, 0.55); /* --brand-300 */
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.28),
+      0 10px 32px rgba(255, 90, 31, 0.32);
+  }
+}
+
+@keyframes wt-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
 }

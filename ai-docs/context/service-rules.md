@@ -243,6 +243,7 @@
 2. **오디오 포커스를 얻지 못하면 재생하지 않는다.** 통화 중 등으로 포커스가 거부되면 소리를 내지 않고 알림만 남긴다 — 무전기가 통화를 덮어써선 안 된다. 재생은 `USAGE_VOICE_COMMUNICATION`/`CONTENT_TYPE_SPEECH` 로 요청한다.
 3. **연속 수신은 순차 재생.** 동시에 틀면 아무것도 알아들을 수 없다(`WalkieTalkiePlaybackService` 내부 큐).
 4. **재생은 Foreground Service 로 한다.** 음성은 최대 60초인데 `BroadcastReceiver` 수명은 약 10초라 알림 액션에서 직접 재생하면 잘린다. `foregroundServiceType="mediaPlayback"`.
+4-1. **FCM 수신 경로에서 프로세스를 죽이면 안 된다 (2026-08-29).** `onMessageReceived` 처리 중 크래시(예: 재생 FGS 의 `startForeground` 가 백그라운드 시작 제한으로 throw)하면 FCM 이 같은 data 메시지를 몇 초 간격으로 **재전달**해 알림이 무한 반복된다(Android 실기기 증상). 방어선 2겹: `WalkieTalkiePlaybackService.onStartCommand` 가 `startForeground` 예외를 삼키고 `stopSelf`(자동재생만 포기, 알림 재생 버튼은 유지) + `MyFirebaseMessagingService` 가 최근 50개 `messageId` 를 SharedPreferences 에 보관해 중복 음성 알림을 무시한다.
 5. **백그라운드 능력은 플랫폼별로 다르다 — 같게 만들 수 없다.**
 
 | | Android | iOS |

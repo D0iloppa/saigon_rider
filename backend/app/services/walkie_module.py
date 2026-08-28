@@ -176,7 +176,14 @@ class FcmNotifier:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def notify_voice(self, channel_ref: str, user_refs: list[str], sender_ref: str, message_id: str) -> None:
+    async def notify_voice(
+        self,
+        channel_ref: str,
+        user_refs: list[str],
+        sender_ref: str,
+        message_id: str,
+        audio_url: str | None,
+    ) -> None:
         """기존 DM 알림 파이프라인(`dm.message_sent`)에 그대로 실어 보낸다.
 
         별도 이벤트 타입을 만들지 않는 이유: 워커에 이미 음성메시지 분기(message_type='voice',
@@ -202,6 +209,9 @@ class FcmNotifier:
                         "preview": "음성 메시지를 보냈습니다",
                         "message_type": "voice",
                         "message_id": message_id,
+                        # 워커의 음성 분기는 audio_url 이 있어야 발화한다 — 이게 없으면
+                        # 일반 텍스트 알림으로 떨어져 백그라운드 자동재생이 성립하지 않는다.
+                        "audio_url": audio_url,
                     },
                 )
                 await db.commit()

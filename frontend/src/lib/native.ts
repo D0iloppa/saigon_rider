@@ -269,7 +269,9 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
 
     async clearPendingRecording(id: string) {
       if (!Capacitor.isNativePlatform()) return;
-      await WalkieTalkie.clearPendingRecording({ id }).catch(() => {});
+      // 실패를 삼키지 않는다 — 호출부(WalkieTalkieFloatingButton)가 clear 실패와 성공을
+      // 구분해야 "전송 성공했지만 clear 만 실패"한 항목을 재전송하지 않을 수 있다.
+      await WalkieTalkie.clearPendingRecording({ id });
     },
 
     async cancelRecording() {

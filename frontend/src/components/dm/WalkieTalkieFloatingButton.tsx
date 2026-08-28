@@ -93,6 +93,9 @@ export function WalkieTalkieFloatingButton() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   /** 참석 현황 재조회 — SSE presence/speaking 이벤트가 오면 호출한다(하트비트를 기다리지 않는다). */
   const presenceRefreshRef = useRef<(() => void) | null>(null);
+  // 전송엔 성공했지만 clearPendingRecording 이 실패한 항목의 id. bubbleActive 가 다시 켜져
+  // 드레인이 재실행돼도 이미 보낸 걸 또 보내지 않도록 막는다(clear 만 재시도).
+  const sentPendingIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -186,14 +189,28 @@ export function WalkieTalkieFloatingButton() {
         if (cancelled) return;
         // 대상 채널을 모르면 보낼 곳이 없다 — 큐에 남겨두면 매번 재시도하므로 버린다.
         if (!item.channelId) {
-          await native.walkieTalkie.clearPendingRecording(item.id);
+          await native.walkieTalkie.clearPendingRecording(item.id).catch((err) => {
+            console.warn('[walkie] pending clear (no channel) failed', err);
+          });
+          continue;
+        }
+        // 이미 전송에 성공했지만 clear 만 실패했던 항목 — 재전송 없이 clear 만 다시 시도한다.
+        if (sentPendingIdsRef.current.has(item.id)) {
+          try {
+            await native.walkieTalkie.clearPendingRecording(item.id);
+            sentPendingIdsRef.current.delete(item.id);
+          } catch (err) {
+            console.warn('[walkie] pending clear retry failed', err);
+          }
           continue;
         }
         try {
           const blob = await native.walkieTalkie.readRecordingBlob(item);
           if (blob.size > 0) await walkieApi.sendVoice(item.channelId, blob, item.durationMs);
-          // 전송 성공에만 지운다 — 실패하면 다음 실행에 다시 시도한다.
+          sentPendingIdsRef.current.add(item.id);
+          // 전송 성공에만 지운다 — 실패하면 다음 실행에 다시 시도한다(재전송은 하지 않는다).
           await native.walkieTalkie.clearPendingRecording(item.id);
+          sentPendingIdsRef.current.delete(item.id);
         } catch (err) {
           console.warn('[walkie] pending upload failed', err);
         }

@@ -56,10 +56,27 @@ export function useUsers(params: UserListParams) {
   })
 }
 
-export function useUser(id: string) {
+export function useUser(id: string, reason: string) {
   return useQuery({
     queryKey: ['users', id],
-    queryFn: () => api<UserDetail>(`/admin/api/users/${id}`),
+    queryFn: () => api<UserDetail>(`/admin/api/users/${id}${buildQuery({ reason })}`),
+    enabled: !!id && !!reason,
+  })
+}
+
+export interface UserActionEvent {
+  [key: string]: unknown
+}
+
+export interface UserActionEventsResponse {
+  engine_reachable: boolean
+  events: UserActionEvent[]
+}
+
+export function useUserActionEvents(id: string) {
+  return useQuery({
+    queryKey: ['users', id, 'action-events'],
+    queryFn: () => api<UserActionEventsResponse>(`/admin/api/action-events/users/${id}`),
     enabled: !!id,
   })
 }

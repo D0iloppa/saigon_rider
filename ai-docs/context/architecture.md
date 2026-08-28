@@ -585,6 +585,37 @@ mypy>=1.10
 
 ---
 
+## 11-A. 재사용 모듈 (`d_modules/`) — 2026-08-28 신설
+
+이 레포 안에서 개발하되 **별도 git 저장소로 공유되는 독립 모듈**을 두는 자리다. 첫 사례가 워키토키다.
+
+| 모듈 | 저장소 | 상태 |
+|---|---|---|
+| `d_modules/WalkieTalkie` | github.com/D0iloppa/WalkieTalkie | 서버 패키지 통합 완료, 클라이언트·네이티브 이관 진행 중 |
+
+### 모듈이 지켜야 하는 경계
+
+1. **호스트 스키마를 모른다.** 사용자는 불투명 문자열(`user_ref`)로만 다루고 FK 를 걸지 않는다.
+2. **참석·권한 판정을 하지 않는다.** `MembershipPort` 로 호스트에 위임한다 — 모듈이 사본을 들면 강퇴·블랙리스트가 한쪽에만 반영되는 사고가 난다. **정책은 `backend/app/services/walkie_module.py` 에만 있다.**
+3. **저장소는 주입받는다.** 기본값은 SQLite(설정 0 실행), 이 앱은 기존 Postgres 엔진을 그대로 넘겨 커넥션 풀을 공유한다.
+
+### 배선 (BFF)
+
+- 마운트: `app/main.py` → `/api/walkie/*` (inbox·voice·played·speaking·presence 5개)
+- 어댑터: `app/services/walkie_module.py` — `DmMembership`(DM 멤버십+밴), `UserIdentity`, `ContentsBlobs`(음성도 `contents` 체계 경유 — 백업·파기 경로가 거기 걸려 있다), `FcmNotifier`, `current_user_ref`(기존 `verify_user_session` 변환)
+- 스키마: `wt_channels` / `wt_messages` / `wt_playbacks` / `wt_speaking_states` — **기동 훅에서 멱등 생성**한다. §8 번호매김 SQL 규약을 따르지 않는 **유일한 예외**로, 스키마를 모듈이 소유하므로 DDL 을 복사하면 모듈 업데이트마다 두 곳이 어긋난다.
+
+### 배포 경로 2개 (둘 다 유지해야 한다)
+
+| 경로 | 무엇 | 주의 |
+|---|---|---|
+| 이미지 | `backend/requirements.txt` 의 git 의존성(`@main`) | **모듈 변경은 반드시 push 해야 배포본에 반영된다** |
+| 개발 | compose 바인드 마운트 + `PYTHONPATH=/opt/walkie_talkie` | 설치본을 가려(shadow) 로컬 수정이 `--reload` 로 즉시 반영 |
+
+> 기존 워키토키 경로(`dm_messages.message_type='voice'`)는 아직 살아 있고 모듈 경로가 **병행**으로 추가된 상태다. 전환·데이터 이행은 후속 단계.
+
+---
+
 ## 12. 참조 문서
 
 | 문서 | 경로 |

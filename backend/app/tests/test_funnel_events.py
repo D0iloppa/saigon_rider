@@ -46,6 +46,14 @@ def _unique_nickname(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
+def _norm_ws(src: str) -> str:
+    """소스 문자열에서 공백을 전부 제거한다 — ruff-format 이 인자를 한 줄/여러 줄로 감싸는
+    방식(줄 길이 기준)에 따라 흔들리는 literal 계약 검사를(init/213 이 anon_id/session_id
+    인자를 추가하며 여러 줄로 늘어났다) 공백 무관하게 만든다. 이 함수로 정규화한 소스와
+    비교할 literal 도 공백 없이 적어야 한다(예: "record(db,FunnelEventType.X")."""
+    return "".join(src.split())
+
+
 class RecordIsolationTest(unittest.IsolatedAsyncioTestCase):
     """실제 DB 세션으로 record() 의 격리 성질을 검증한다 — begin_nested 등 내부를 목킹하지 않는다."""
 
@@ -316,27 +324,27 @@ class FunnelWiringContractTest(unittest.TestCase):
 
     def test_price_offer_propose_fires_event_before_commit(self):
         src = inspect.getsource(market.propose_price_offer)
-        self.assertIn("funnel_events.record(db, FunnelEventType.PRICE_OFFER", src)
+        self.assertIn("funnel_events.record(db,FunnelEventType.PRICE_OFFER", _norm_ws(src))
         self.assertLess(src.index("funnel_events.record"), src.index("await db.commit()"))
 
     def test_appointment_propose_fires_event_before_commit(self):
         src = inspect.getsource(market.propose_appointment)
-        self.assertIn("funnel_events.record(db, FunnelEventType.APPOINTMENT", src)
+        self.assertIn("funnel_events.record(db,FunnelEventType.APPOINTMENT", _norm_ws(src))
         self.assertLess(src.index("funnel_events.record"), src.index("await db.commit()"))
 
     def test_create_listing_fires_event_before_commit(self):
         src = inspect.getsource(market.create_listing)
-        self.assertIn("funnel_events.record(db, FunnelEventType.LISTING_CREATE", src)
+        self.assertIn("funnel_events.record(db,FunnelEventType.LISTING_CREATE", _norm_ws(src))
         self.assertLess(src.index("funnel_events.record"), src.index("await db.commit()"))
 
     def test_review_create_fires_event_before_commit(self):
         src = inspect.getsource(market.create_review)
-        self.assertIn("funnel_events.record(db, FunnelEventType.REVIEW", src)
+        self.assertIn("funnel_events.record(db,FunnelEventType.REVIEW", _norm_ws(src))
         self.assertLess(src.index("funnel_events.record"), src.index("await db.commit()"))
 
     def test_dm_conversation_create_fires_inquiry_only_for_new_listing_conversation(self):
         src = inspect.getsource(dm.create_conversation)
-        self.assertIn("funnel_events.record(db, FunnelEventType.INQUIRY", src)
+        self.assertIn("funnel_events.record(db,FunnelEventType.INQUIRY", _norm_ws(src))
         # 기존 대화 재사용(existing) 분기가 아니라 신규 생성(else) 분기에만 있어야 한다.
         self.assertLess(src.index("else:"), src.index("funnel_events.record"))
 
@@ -349,7 +357,9 @@ class FunnelWiringContractTest(unittest.TestCase):
         ):
             src = inspect.getsource(fn)
             self.assertIn(
-                "funnel_events.record(db, FunnelEventType.SIGNUP", src, msg=f"{fn.__name__} missing signup event"
+                "funnel_events.record(db,FunnelEventType.SIGNUP",
+                _norm_ws(src),
+                msg=f"{fn.__name__} missing signup event",
             )
             self.assertIn("if is_new:", src, msg=f"{fn.__name__} should gate signup event on is_new")
 

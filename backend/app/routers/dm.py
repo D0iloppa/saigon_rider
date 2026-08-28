@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..deps import verify_user_session
+from ..deps import resolve_tracking_ids, unpack_tracking_ids, verify_user_session
 from ..models import (
     CommunityGroupMember,
     Content,
@@ -351,6 +351,7 @@ async def create_conversation(
     body: DmConversationCreateRequest,
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     if _session_uid == body.other_user_id:
         raise HTTPException(status_code=400, detail="Cannot create conversation with yourself")
@@ -395,7 +396,14 @@ async def create_conversation(
         # 정본 §5 #5: "문의" = 매물에 연결된 신규 대화 생성. 기존 대화 재사용(existing)이나
         # 매물과 무관한 대화는 퍼널 대상이 아니다.
         if body.context_type == "listing":
-            await funnel_events.record(db, FunnelEventType.INQUIRY, user_id=_session_uid, entity_id=body.context_id)
+            await funnel_events.record(
+                db,
+                FunnelEventType.INQUIRY,
+                user_id=_session_uid,
+                entity_id=body.context_id,
+                anon_id=unpack_tracking_ids(tracking_ids)[0],
+                session_id=unpack_tracking_ids(tracking_ids)[1],
+            )
         try:
             await db.commit()
         except IntegrityError:

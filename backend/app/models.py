@@ -1215,6 +1215,37 @@ class FunnelDailyStat(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class UserIdentityLink(Base):
+    """익명ID→회원ID 소급 연결 (init/213, C5) — 로그인 시점에 요청 헤더의 anon_id/session_id 를
+    적어둔다. 같은 세션 범위로만 연결하는 게 불변식이라, 이 표 자체가 "그 세션에서 로그인했다"는
+    사실 이상을 주장하지 않는다 — 과거 다른 세션의 익명 활동을 이 링크로 소급 귀속시키지 않는다."""
+
+    __tablename__ = "user_identity_links"
+
+    anon_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserFirstTouchAttribution(Base):
+    """익명ID 단위 first-touch 유입채널 (init/213, C6). PK=anon_id — 서비스 코드는
+    INSERT ... ON CONFLICT DO NOTHING 만 쓴다(UPDATE 경로 없음, 덮어쓰기 원천 봉쇄).
+    users.acquisition_source(단일 문자열, 가입 시점 값)와는 별개 — 대체하지 않는다."""
+
+    __tablename__ = "user_first_touch_attribution"
+
+    anon_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    utm_source: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    utm_medium: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    utm_campaign: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    utm_content: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    utm_term: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Translation(Base):
     __tablename__ = "translations"
 

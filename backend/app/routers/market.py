@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, literal_column, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..deps import optional_user_session, verify_user_session
+from ..deps import optional_user_session, resolve_tracking_ids, unpack_tracking_ids, verify_user_session
 from ..models import (
     AdEvent,
     AppConfig,
@@ -370,6 +370,7 @@ async def get_listings(
     size: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     offset = (page - 1) * size
     has_loc = lat is not None and lng is not None
@@ -521,6 +522,8 @@ async def get_listings(
             user_id=session_uid,
             subject_type="search",
             props={"query": search_query_norm, "result_count": total},
+            anon_id=unpack_tracking_ids(tracking_ids)[0],
+            session_id=unpack_tracking_ids(tracking_ids)[1],
         )
 
     # 매물별 채팅 건수 — 페이지 항목 id 로 dm_conversations 그룹 집계 1회 (항목별 COUNT N+1 금지)
@@ -583,6 +586,7 @@ async def get_listing(
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목·설명을 번역해 표기(미스 시 번역·워밍)"),
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID | None = Depends(optional_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     listing = (
         await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == listing_id))
@@ -637,7 +641,14 @@ async def get_listing(
     if session_uid != listing.seller_id:
         listing.view_count += 1
         # 정본 §5 #5: 소유자 자기조회는 view_count 와 동일한 이유로 퍼널에서도 제외.
-        await funnel_events.record(db, FunnelEventType.LISTING_VIEW, user_id=session_uid, entity_id=listing.id)
+        await funnel_events.record(
+            db,
+            FunnelEventType.LISTING_VIEW,
+            user_id=session_uid,
+            entity_id=listing.id,
+            anon_id=unpack_tracking_ids(tracking_ids)[0],
+            session_id=unpack_tracking_ids(tracking_ids)[1],
+        )
 
     liked = False
     if session_uid is not None:
@@ -765,6 +776,7 @@ async def create_listing(
     background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     # 세션 유저 명의로만 등록 가능 — body.seller_id 는 세션과 일치해야 함 (impersonation 차단)
     if body.seller_id != _session_uid:
@@ -871,7 +883,14 @@ async def create_listing(
         "search.reindex",
         {"entity_type": "listing", "entity_id": str(listing_id), "texts": [listing.title, listing.description or ""]},
     )
-    await funnel_events.record(db, FunnelEventType.LISTING_CREATE, user_id=body.seller_id, entity_id=listing_id)
+    await funnel_events.record(
+        db,
+        FunnelEventType.LISTING_CREATE,
+        user_id=body.seller_id,
+        entity_id=listing_id,
+        anon_id=unpack_tracking_ids(tracking_ids)[0],
+        session_id=unpack_tracking_ids(tracking_ids)[1],
+    )
     log_transition(db, listing_id, None, "ON_SALE", actor_type="user", actor_id=body.seller_id, reason="create")
     await db.commit()
     # 번역 세트 워밍(백그라운드) — 조회 시 캐시 히트로 번역본 즉시 로딩
@@ -1280,6 +1299,7 @@ async def create_review(
     body: MarketplaceReviewCreateRequest,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     if body.rating not in (1, 2, 3, 4, 5):
         raise HTTPException(status_code=400, detail="rating must be 1~5")
@@ -1366,7 +1386,14 @@ async def create_review(
     db.add(review)
     await db.flush()
     temp = await _recompute_manner_temp(db, body.target_id)
-    await funnel_events.record(db, FunnelEventType.REVIEW, user_id=body.reviewer_id, entity_id=review.id)
+    await funnel_events.record(
+        db,
+        FunnelEventType.REVIEW,
+        user_id=body.reviewer_id,
+        entity_id=review.id,
+        anon_id=unpack_tracking_ids(tracking_ids)[0],
+        session_id=unpack_tracking_ids(tracking_ids)[1],
+    )
     await db.commit()
     return MarketplaceReviewResult(id=review.id, target_manner_temp=temp)
 
@@ -1698,6 +1725,7 @@ async def propose_appointment(
     body: AppointmentProposeRequest,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     """약속을 제안한다. 같은 대화의 기존 PROPOSED 약속은 supersede(CANCELLED).
     채팅 타임라인 유지를 위해 message_type='appointment' DM 메시지도 함께 생성해 반환한다."""
@@ -1755,7 +1783,14 @@ async def propose_appointment(
     )
     db.add(msg)
     conv.last_message_at = now
-    await funnel_events.record(db, FunnelEventType.APPOINTMENT, user_id=session_uid, entity_id=appt.id)
+    await funnel_events.record(
+        db,
+        FunnelEventType.APPOINTMENT,
+        user_id=session_uid,
+        entity_id=appt.id,
+        anon_id=unpack_tracking_ids(tracking_ids)[0],
+        session_id=unpack_tracking_ids(tracking_ids)[1],
+    )
     await db.commit()
 
     return DmMessageOut(
@@ -1833,6 +1868,7 @@ async def complete_appointment(
     appointment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     """판매자만 거래 완료 처리 → COMPLETED, 매물 SOLD. (제안은 누가 했든 완료는 판매자)"""
     appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
@@ -1868,7 +1904,14 @@ async def complete_appointment(
     log_transition(
         db, listing.id, prev_status, "SOLD", actor_type="user", actor_id=session_uid, reason="appointment_completed"
     )
-    await funnel_events.record(db, FunnelEventType.TRADE_COMPLETE, user_id=session_uid, entity_id=listing.id)
+    await funnel_events.record(
+        db,
+        FunnelEventType.TRADE_COMPLETE,
+        user_id=session_uid,
+        entity_id=listing.id,
+        anon_id=unpack_tracking_ids(tracking_ids)[0],
+        session_id=unpack_tracking_ids(tracking_ids)[1],
+    )
     await purge_location_shares(db, appt.id)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
@@ -2205,6 +2248,7 @@ async def propose_price_offer(
     body: PriceOfferProposeRequest,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
 ):
     """가격을 제안한다. 같은 대화의 기존 PROPOSED 제안은 supersede(CANCELLED).
     채팅 타임라인 유지를 위해 message_type='price_offer' DM 메시지도 함께 생성해 반환한다."""
@@ -2264,7 +2308,14 @@ async def propose_price_offer(
     )
     db.add(msg)
     conv.last_message_at = now
-    await funnel_events.record(db, FunnelEventType.PRICE_OFFER, user_id=session_uid, entity_id=offer.id)
+    await funnel_events.record(
+        db,
+        FunnelEventType.PRICE_OFFER,
+        user_id=session_uid,
+        entity_id=offer.id,
+        anon_id=unpack_tracking_ids(tracking_ids)[0],
+        session_id=unpack_tracking_ids(tracking_ids)[1],
+    )
     await db.commit()
 
     return DmMessageOut(

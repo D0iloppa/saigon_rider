@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import sms_client
 from ..database import get_db
-from ..deps import enforce_account_active, verify_user_session
+from ..deps import enforce_account_active, resolve_tracking_ids, unpack_tracking_ids, verify_user_session
 from ..engine_client import engine_client
 from ..jobs.purge_deleted_accounts import RETENTION_DAYS
 from ..models import AppConfig, User, UserOAuthIdentity, UserOtp, WithdrawnMemberArchive
@@ -32,7 +32,7 @@ from ..schemas import (
     SessionVerifyRequest,
     UserOut,
 )
-from ..services import funnel_events
+from ..services import funnel_events, user_tracking
 from ..services.oauth import (
     ZaloProfileFetchError,
     ZaloTokenExchangeError,
@@ -228,7 +228,11 @@ async def restore_account(body: AccountRestoreRequest, db: AsyncSession = Depend
 
 
 @router.post("/oauth/login", response_model=OAuthLoginResponse, summary="OAuth 로그인 / 가입")
-async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db)):
+async def oauth_login(
+    body: OAuthLoginRequest,
+    db: AsyncSession = Depends(get_db),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
+):
     """
     provider 별 토큰 검증 후 find-or-create 로그인.
     - 최초 방문 시 users + user_oauth_identities 행 생성 (is_new=True)
@@ -316,10 +320,21 @@ async def oauth_login(body: OAuthLoginRequest, db: AsyncSession = Depends(get_db
     if not (user.nickname and user.nickname.strip()):
         user.nickname = await generate_random_nickname(db)
 
+    anon_id, session_id = unpack_tracking_ids(tracking_ids)
     if is_new:
         # acq_source 를 명시적으로 넘긴다 — record() 의 자동조회는 별도 세션에서 users 를
         # 읽으므로, 아직 커밋 전인 신규가입 행(user.acquisition_source)은 안 보인다.
-        await funnel_events.record(db, FunnelEventType.SIGNUP, user_id=user.id, acq_source=user.acquisition_source)
+        await funnel_events.record(
+            db,
+            FunnelEventType.SIGNUP,
+            user_id=user.id,
+            acq_source=user.acquisition_source,
+            anon_id=anon_id,
+            session_id=session_id,
+        )
+    # C5: 익명→회원 소급 연결. 이번 요청의 세션ID 범위로만 연결한다(과거 세션의 익명 활동을
+    # 여기서 소급 조회해 얹지 않는다) — 신규가입/재로그인 모두 매 로그인 시 링크를 남긴다.
+    await user_tracking.link_identity(db, anon_id=anon_id, user_id=user.id, session_id=session_id)
 
     await db.commit()
 
@@ -589,7 +604,11 @@ async def _redirect_with_exchange(base: str, user_id: uuid.UUID, is_new: bool) -
 
 
 @router.post("/oauth/exchange", response_model=OAuthLoginResponse, summary="OAuth 단회용 코드 교환")
-async def oauth_exchange(body: OAuthExchangeRequest, db: AsyncSession = Depends(get_db)):
+async def oauth_exchange(
+    body: OAuthExchangeRequest,
+    db: AsyncSession = Depends(get_db),
+    tracking_ids: tuple = Depends(resolve_tracking_ids),
+):
     try:
         payload = await consume_oauth_exchange(body.code)
     except Exception as e:
@@ -616,6 +635,13 @@ async def oauth_exchange(body: OAuthExchangeRequest, db: AsyncSession = Depends(
     raw_token = uuid.uuid4().hex
     user.passcode_hash = _hash(raw_token)
     user.session_expires_at = now + SESSION_TTL
+
+    # C5: 익명→회원 소급 연결. redirect flow(google/apple/zalo callback)는 앱 fetch 밖(브라우저
+    # 리다이렉트)에서 일어나 트래킹 헤더가 없으므로, 앱이 이 엔드포인트로 돌아와 로그인을
+    # 완결하는 지점에서 연결한다 — 이번 요청의 세션ID 범위로만 연결한다.
+    anon_id, session_id = unpack_tracking_ids(tracking_ids)
+    await user_tracking.link_identity(db, anon_id=anon_id, user_id=user.id, session_id=session_id)
+
     await db.commit()
 
     return OAuthLoginResponse(

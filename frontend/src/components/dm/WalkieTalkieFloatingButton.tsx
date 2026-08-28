@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
+import { VoiceQueue } from '@d-modules/walkie-talkie';
+import { createWalkieTransport, walkieApi } from '@/lib/walkieSdk';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
-import { api } from '@/api/client';
-import { fetchConversationPresence, fetchMessages, markVoicePlayed, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
+import { fetchConversationPresence, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
 import type { DmConversation } from '@/api/types';
 import { loadSession } from '@/lib/session';
 import { useUserStore } from '@/store/useUserStore';
@@ -25,13 +26,6 @@ const MARGIN = 12;
 const PRESENCE_POLL_MS = 18000;
 // 컨텍스트메뉴 "홈화면 고정" — Android 네이티브 위젯 고정(pinToHomeScreen, WalkieTalkieChannelWidgetProvider) 구현 완료.
 const PIN_TO_HOME_MENU_ENABLED = true;
-// GET /dm/conversations/{id}/messages 의 페이지 크기(backend/app/routers/dm.py size 기본값) —
-// 마지막 페이지 번호를 계산해 "현재 시점" 커서를 잡는 데 쓴다.
-const MESSAGE_PAGE_SIZE = 50;
-// 수신 음성 폴링의 적응형 주기(ms). 새 메시지가 오면 첫 칸(5초)으로 복귀하고, 아무것도 없는
-// tick 이 이어질수록 뒤 칸으로 물러난다 — 유휴 상태의 서버 부하를 줄이되 대화가 살아있을 때의
-// 체감 지연은 그대로 둔다.
-const VOICE_POLL_STEPS = [5000, 5000, 10000, 15000, 30000];
 
 /**
  * 플로팅 토글 녹음 캡슐 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
@@ -52,10 +46,6 @@ export function WalkieTalkieFloatingButton() {
   const closed = useWalkieTalkieBubbleStore((s) => s.closed);
   const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
   const setActiveConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
-  // DM 대화방 화면이 같은 대화를 이미 폴링 중이면 캡슐은 자체 폴링을 하지 않는다 — 같은 대화를
-  // 두 곳이 각자 5초마다 조회하던 중복 제거(요청 수 절반).
-  const foregroundConversationId = useWalkieTalkieBubbleStore((s) => s.foregroundConversationId);
-  const lastPolledBatch = useWalkieTalkieBubbleStore((s) => s.lastPolledBatch);
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -99,16 +89,7 @@ export function WalkieTalkieFloatingButton() {
   const conversationMetaRef = useRef<WalkieTalkieConversationMeta | null>(null);
   // 캡슐 모핑(펼침/접힘) 시 직전 너비 대비 변화량을 구해 확장을 중앙 기준으로 유지하기 위한 ref.
   const prevWidthRef = useRef<number | null>(null);
-  // 수신 음성메시지 재생용 — dedup(같은 메시지 중복 큐잉 방지)과 폴링 커서, 재생 엘리먼트.
-  const queuedIdsRef = useRef<Set<string>>(new Set());
-  const sinceCursorRef = useRef<string | undefined>(undefined);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  /** 연속으로 "새 메시지 없음"이 나온 횟수 — 적응형 폴링 주기 계산에 쓴다. */
-  const idleTicksRef = useRef(0);
-  /** 폴링 이펙트가 마지막으로 초기화한 대화 id — 대화가 실제로 바뀔 때만 큐를 비우기 위함. */
-  const pollingConvRef = useRef<string | null>(null);
-  /** DmDetail 이 넘긴 묶음 중 마지막으로 소비한 seq — 같은 묶음을 두 번 담지 않기 위함. */
-  const consumedBatchSeqRef = useRef(0);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -210,156 +191,47 @@ export function WalkieTalkieFloatingButton() {
     !isWalkieTalkieOptedOut() &&
     !closed;
 
-  // 폴링 결과든 DmDetail 이 넘겨준 묶음이든, 큐잉 규칙은 하나다 — 상대가 보낸, 아직 재생 전
-  // (audioUrl 이 남아있는), 아직 큐에 없는 음성메시지만 담는다.
-  const myUserId = session?.userId ?? user?.id;
-  const enqueueVoice = useCallback(
-    (items: { id: string; messageType: string; senderId: string; audioUrl?: string | null; createdAt: string }[]) => {
-      // **커서보다 오래된 것은 절대 담지 않는다.** DmDetail 의 폴링 커서는 이 캡슐의 커서와 다르다 —
-      // 그 화면은 최초 로드가 created_at ASC 첫 페이지(가장 오래된 50건)라, 메시지가 50건 넘는
-      // 대화에서는 tick 마다 과거 구간을 앞으로 훑는다. 그 묶음을 그대로 받으면 채널을 켜자마자
-      // 과거 음성이 전부 자동재생되고 재생잠금 때문에 송신까지 막힌다(캡슐 자체 폴링에서 seedCursor
-      // 로 막아둔 바로 그 사고를, 배치 경로로 되살리는 셈이다).
-      const cursor = sinceCursorRef.current;
-      const fresh = cursor ? items.filter((m) => m.createdAt > cursor) : [];
-      const incoming = fresh.filter(
-        (m) => m.messageType === 'voice' && m.senderId !== myUserId && m.audioUrl && !queuedIdsRef.current.has(m.id),
-      );
-      // 커서는 음성 여부와 무관하게 전진시킨다 — 안 그러면 같은 구간을 계속 다시 본다.
-      const newest = fresh[fresh.length - 1]?.createdAt;
-      if (newest) sinceCursorRef.current = newest;
-      if (incoming.length === 0) return;
-      idleTicksRef.current = 0; // 대화가 살아있다 — 폴링 주기를 최소로 되돌린다
-      incoming.forEach((m) => queuedIdsRef.current.add(m.id));
-      setQueue((prev) => [...prev, ...incoming.map((m) => ({ id: m.id, audioUrl: m.audioUrl as string }))]);
-    },
-    [myUserId],
-  );
+  // ── 수신 (WalkieTalkie SDK) ──────────────────────────────────────────────
+  // 큐·커서·중복 규칙은 SDK 의 VoiceQueue 가 단일 지점으로 갖는다. 규칙이 소비처마다 흩어져
+  // 있던 탓에 같은 사고가 두 번 났다(채널 진입 시 과거 음성 전량 재생 / 닫았다 열면 백로그 재생).
+  // 이제 그 규칙은 모듈에서 회귀 테스트로 고정돼 있고, 이 컴포넌트는 UI 만 담당한다.
+  const myUserId = session?.userId ?? user?.id ?? '';
+  const queueRef = useRef<VoiceQueue | null>(null);
 
-  // DmDetail 이 같은 대화를 이미 폴링 중인가 — 그렇다면 캡슐은 조회하지 않고 결과만 받는다.
-  const pollingOwnedByScreen = !!conversationId && foregroundConversationId === conversationId;
-
-  // DmDetail 이 넘겨준 묶음 소비 (중복 폴링 제거의 반대편).
-  useEffect(() => {
-    if (!bubbleActive || !conversationId || !lastPolledBatch) return;
-    if (lastPolledBatch.conversationId !== conversationId) return;
-    // 스토어는 마지막 묶음을 계속 들고 있다 — bubbleActive 가 다시 켜질 때 같은 묶음을 재소비하면
-    // (닫으면서 dedup 집합이 비워지므로) 이미 들은 음성이 다시 재생된다. seq 로 1회만 소비한다.
-    if (consumedBatchSeqRef.current === lastPolledBatch.seq) return;
-    consumedBatchSeqRef.current = lastPolledBatch.seq;
-    enqueueVoice(lastPolledBatch.messages);
-  }, [lastPolledBatch, bubbleActive, conversationId, enqueueVoice]);
-
-  // 수신 음성메시지 폴링(202608 개편) — DmDetail 화면이 열려있지 않아도 이 캡슐이 대상 대화의 새
-  // 음성메시지를 감지해야 한다. DmDetail 자체 메시지 폴링과 같은 5초 주기를 그대로 맞춘다(참석정보
-  // 폴링(18초)과 달리 메시지 수신은 체감 지연이 커서 더 짧게 잡아야 한다) — presence 폴링과는
-  // 별개의 이펙트/타이머다(섞으면 안 된다).
   useEffect(() => {
     if (!conversationId || !bubbleActive) {
+      queueRef.current?.reset();
+      queueRef.current = null;
       setQueue([]);
-      queuedIdsRef.current = new Set();
-      // 커서도 함께 버린다 — 남겨두면 캡슐을 닫았다 다시 열 때 그동안 쌓인 최대 50건을 한꺼번에
-      // 자동재생한다(dedup 집합은 이미 비워진 뒤라 걸러지지도 않는다). 다시 열면 "지금"부터 듣는다.
-      sinceCursorRef.current = undefined;
-      pollingConvRef.current = null;
-      idleTicksRef.current = 0;
       return;
     }
-    // 큐·커서 초기화는 **대화가 실제로 바뀌었을 때만** 한다. 이 이펙트는 화면 점유가 풀릴 때도
-    // 다시 도는데, 그때마다 비우면 DM 화면에서 받아둔 재생 대기 음성이 사라진다.
-    if (pollingConvRef.current !== conversationId) {
-      pollingConvRef.current = conversationId;
-      queuedIdsRef.current = new Set();
-      sinceCursorRef.current = undefined;
-      setQueue([]);
-    }
-    // 백오프는 이펙트를 새로 시작할 때마다 초기화한다 — 남겨두면 유휴로 30초까지 물러난 상태에서
-    // 채널을 바꾸거나 화면을 빠져나왔을 때, 살아있는 채널의 첫 조회가 30초 뒤로 밀린다.
-    idleTicksRef.current = 0;
-    let cancelled = false;
-    let seeded = false;
-    // 커서 없이 폴링하면 API 가 created_at ASC 첫 페이지(= 대화의 가장 오래된 50건)를 준다 —
-    // 그대로 두면 채널을 켜는 순간 과거 음성이 전부 큐잉·자동재생되고, 재생 잠금 때문에 그동안
-    // 송신도 막힌다. 마지막 페이지의 최신 메시지 시각을 커서로 잡아 "이후 도착분"만 받는다.
-    // (기기 시계 대신 서버가 찍은 타임스탬프를 쓴다 — 시계 오차로 수신을 놓치지 않도록.)
-    const seedCursor = async () => {
-      const first = await fetchMessages(conversationId, 1);
-      const lastPage = Math.max(1, Math.ceil(first.total / MESSAGE_PAGE_SIZE));
-      const page = lastPage === 1 ? first : await fetchMessages(conversationId, lastPage);
-      sinceCursorRef.current = page.items[page.items.length - 1]?.createdAt;
-    };
-    const tick = async () => {
-      if (cancelled || !seeded) return;
-      try {
-        const res = await fetchMessages(conversationId, 1, sinceCursorRef.current);
-        if (cancelled) return; // 정리 중 — 백오프 카운트를 건드리지 않는다
-        if (res.items.length === 0) {
-          // 새 메시지가 없으면 다음 조회를 늦춘다(적응형 주기) — 유휴 상태에서 5초마다 서버를
-          // 두드리는 게 이 앱 전체 폴링 부하의 큰 몫이었다. 새 메시지가 오면 즉시 최소 주기로 복귀.
-          idleTicksRef.current += 1;
-          return;
+    const voiceQueue = new VoiceQueue({ selfRef: myUserId });
+    queueRef.current = voiceQueue;
+    setQueue([]);
+
+    const transport = createWalkieTransport({
+      getCursor: () => voiceQueue.cursor,
+      onPage: (page) => {
+        // ingest 가 먼저다 — 직전 커서를 기준으로 걸러낸 뒤, 서버가 정한 커서를 최종 채택한다.
+        const added = voiceQueue.ingest(page.items);
+        voiceQueue.setCursor(page.cursor);
+        if (added.length > 0) {
+          setQueue((prev) => [...prev, ...added.map((m) => ({ id: m.id, audioUrl: m.audioUrl as string }))]);
         }
-        idleTicksRef.current = 0;
-        // 커서 전진은 enqueueVoice 가 맡는다(배치 경로와 같은 규칙을 쓰기 위함).
-        enqueueVoice(res.items);
-      } catch {
-        // 순단 무시 — 다음 tick 에 재시도 (DmDetail 메시지 폴링과 동일 패턴)
-      }
-    };
-    // 이미 커서가 있으면(화면 점유가 풀려 이어받는 경우) 다시 시딩하지 않는다 — 시딩은
-    // 커서를 "지금"으로 옮기므로 그 사이 도착한 음성을 건너뛰게 된다.
-    (sinceCursorRef.current !== undefined
-      ? Promise.resolve()
-      : seedCursor().catch(() => {
-          // 시딩 실패 시엔 기기 시계로라도 "지금"을 잡는다 — 커서 없는 채로 폴링을 시작해
-          // 과거 50건을 쏟아내는 것보다 낫다.
-          sinceCursorRef.current = new Date().toISOString();
-        })
-    ).then(() => {
-      seeded = true;
-      // 화면이 폴링을 점유 중이면 조회는 DmDetail 이 하고 우리는 그 묶음만 받는다. 다만 위의
-      // 커서 시딩은 점유 여부와 무관하게 반드시 해둬야 한다 — 커서가 없으면 배치 경로가
-      // "과거분 걸러내기" 기준을 잃어 아무것도 큐에 담지 못한다.
-      if (!pollingOwnedByScreen) tick();
+      },
     });
+    transport.start(conversationId);
 
-    if (pollingOwnedByScreen) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    // 고정 setInterval 대신 매 tick 후 다음 지연을 다시 계산한다(적응형).
-    let timer = 0;
-    const schedule = () => {
-      const delay = VOICE_POLL_STEPS[Math.min(idleTicksRef.current, VOICE_POLL_STEPS.length - 1)];
-      timer = window.setTimeout(async () => {
-        if (cancelled) return;
-        // 화면이 보이지 않을 땐 조회를 건너뛴다(DmDetail 폴링과 동일 규율) — 백그라운드 수신은
-        // 어차피 FCM 이 담당한다.
-        if (document.visibilityState === 'visible') await tick();
-        if (!cancelled) schedule();
-      }, delay);
-    };
-    schedule();
-    // 포그라운드 복귀 즉시 한 번 조회한다 — 30초까지 물러난 상태였다면 그만큼 기다리게 된다
-    // (DmDetail 폴링이 같은 이유로 이 리스너를 둔다).
+    // 포그라운드 복귀 즉시 한 번 확인한다 — 유휴로 30초까지 물러난 상태였다면 그만큼 기다리게 된다.
     const onVisible = () => {
-      if (document.visibilityState !== 'visible' || cancelled) return;
-      idleTicksRef.current = 0;
-      window.clearTimeout(timer);
-      tick().finally(() => {
-        if (!cancelled) schedule();
-      });
+      if (document.visibilityState === 'visible') transport.poke();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      transport.stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- myId 는 세션 고정값, 재구독 불필요
-  }, [conversationId, bubbleActive, pollingOwnedByScreen]);
+  }, [conversationId, bubbleActive, myUserId]);
 
   // 큐가 있고 유휴 상태면 자동 재생 시작. 재생 중 항목(queue[0])이 바뀔 때만 실제로 오디오를
   // 다시 로드한다 — queue 배열 전체를 deps 로 두면 재생 도중 새 메시지가 뒤에 추가되기만 해도
@@ -386,16 +258,15 @@ export function WalkieTalkieFloatingButton() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentPlayId]);
 
-  // D-6: 재생 완료 신고 — 서버가 파일을 삭제한다(DmDetail 이 하던 markVoicePlayed 호출을 그대로 이관).
+  // 재생 완료 신고 — 모듈이 **수신자별로** 기록하고, 모든 수신자가 들었을 때만 파일을 지운다.
+  // (구 경로는 direct 대화에서만 기록해 그룹방 음성이 영영 만료되지 않았다.)
   const handlePlaybackEnded = useCallback(() => {
-    const item = queue[0];
+    const item = queueRef.current?.shift() ?? null;
     setQueue((prev) => prev.slice(1));
-    if (item && conversationId) {
-      markVoicePlayed(conversationId, item.id).catch(() => {});
-    }
+    if (item) walkieApi.markPlayed(item.id).catch(() => {});
     // 큐에 남은 항목이 있으면 위 idle→playing 이펙트가 자동으로 다음 항목 재생을 이어간다.
     setPhase('idle');
-  }, [queue, conversationId]);
+  }, []);
 
   // 다이나믹 아일랜드식 펼침(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 자동으로 펼친다.
   // 자동 접힘은 없다(대표 지시 2026-08-27) — 접는 건 더블탭 토글뿐이다.
@@ -459,16 +330,10 @@ export function WalkieTalkieFloatingButton() {
       try {
         const blob = await native.walkieTalkie.readRecordingBlob(result);
         if (blob.size === 0) throw new Error(`empty blob (${result.sizeBytes ?? '?'}B reported)`);
-        const file = new File([blob], `walkie-${Date.now()}.m4a`, { type: result.mimeType });
-        const form = new FormData();
-        form.append('file', file);
-        form.append('owner_type', 'user');
-        form.append('owner_id', user.id);
+        // 업로드와 메시지 전송이 한 번에 끝난다 — 모듈이 blob 저장(contents 어댑터 경유)과
+        // 메시지 생성을 같은 요청에서 처리하므로, 중간에 끊겨 고아 컨텐츠가 남는 경로가 없다.
         step = 'upload';
-        const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
-        // 대화방 화면이 열려 있으면 그 화면의 폴링이 다음 tick에 이 메시지를 알아서 가져온다.
-        step = 'send';
-        await sendMessage(conversationId, '', { audioContentId: id });
+        await walkieApi.sendVoice(conversationId, blob, result.durationMs ?? 0);
         playSound('dm_send');
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);

@@ -16,6 +16,7 @@
     "@capacitor/core": "^8.3.4",
     "@capacitor/geolocation": "^8.2.0",
     "@capacitor/ios": "^8.3.4",
+    "@d-modules/walkie-talkie": "file:../d_modules/WalkieTalkie/packages/client",
     "flag-icons": "^7.5.0",
     "html5-qrcode": "^2.3.8",
     "i18next": "^26.1.0",

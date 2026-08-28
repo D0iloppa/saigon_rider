@@ -900,6 +900,8 @@
     "hideTranslation": "번역 숨기기",
     "translateError": "번역 실패",
     "navigate": "길안내",
+    "tradeCount": "거래 {{count}}건 진행중",
+    "listingDivider": "매물 문의: {{title}}",
     "apptProposed": "제안됨",
     "apptAccepted": "확정",
     "apptCompleted": "거래완료",

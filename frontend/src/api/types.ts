@@ -227,6 +227,17 @@ export interface DmConversation {
   photoUrl: string | null;
   memberCount: number;
   communityGroupId: string | null;
+  /** 진행 중 거래(PROPOSED/ACCEPTED) — init/214 로 방이 상대당 1개가 되면서 매물 구분을 여기서 드러낸다. */
+  activeTrades: DmActiveTrade[];
+}
+
+/** 대화방에서 진행 중인 거래 1건. status 는 서버가 enum 만 내리고 라벨은 프론트가 i18n 매핑한다. */
+export interface DmActiveTrade {
+  appointmentId: string;
+  listingId: string;
+  listingTitle: string | null;
+  thumbnailUrl: string | null;
+  status: 'PROPOSED' | 'ACCEPTED';
 }
 
 // ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────
@@ -277,6 +288,10 @@ export interface DmAppointmentMeta {
   playedAt?: string;
   /** message_type === 'walkie_invite' 일 때 채널을 연 사람의 표시이름. */
   invitedByName?: string;
+  /** message_type === 'system' 의 종류 — init/214 병합 경계는 'listing_divider'. */
+  kind?: string;
+  /** kind === 'listing_divider' 일 때 구분자에 표시할 매물 제목. */
+  listingTitle?: string;
 }
 
 export type AppointmentStatus = 'PROPOSED' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';

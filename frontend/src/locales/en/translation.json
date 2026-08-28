@@ -900,6 +900,8 @@
     "hideTranslation": "Hide translation",
     "translateError": "Translation failed",
     "navigate": "Directions",
+    "tradeCount": "{{count}} trades in progress",
+    "listingDivider": "Inquiry: {{title}}",
     "apptProposed": "Proposed",
     "apptAccepted": "Confirmed",
     "apptCompleted": "Completed",

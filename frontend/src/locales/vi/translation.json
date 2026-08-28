@@ -900,6 +900,8 @@
     "hideTranslation": "Ẩn bản dịch",
     "translateError": "Dịch thất bại",
     "navigate": "Chỉ đường",
+    "tradeCount": "{{count}} giao dịch đang diễn ra",
+    "listingDivider": "Hỏi về tin: {{title}}",
     "apptProposed": "Đã đề xuất",
     "apptAccepted": "Đã xác nhận",
     "apptCompleted": "Đã hoàn tất",

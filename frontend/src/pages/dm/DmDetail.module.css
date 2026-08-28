@@ -333,6 +333,32 @@
 }
 
 /* ── 워키토키 채널 초대 카드 — 시스템/액션 카드 (apptCard 문법 계승, 좌우 정렬은 버블 관례 유지) ── */
+/* 병합 경계 매물 구분자 (init/214) — 발신자 버블이 아니라 가운데 정렬 구분선. */
+.systemDivider {
+  align-self: center;
+  max-width: 90%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.systemDivider::before,
+.systemDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.systemDividerText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .walkieInviteCard {
   max-width: 75%;
   min-width: 210px;

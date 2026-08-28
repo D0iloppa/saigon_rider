@@ -775,6 +775,19 @@ export default function DmDetail() {
             // 향후 일반 DM 음성메시지 기능을 추가한다면 이 필터를 반드시 재검토할 것.
             return null;
           }
+          if (m.messageType === 'system' && m.meta?.kind === 'listing_divider') {
+            // init/214 로 매물별 방을 하나로 합칠 때 삽입된 경계 표식 — 어느 매물 문의였는지 구분
+            return (
+              <div key={m.id} className={styles.systemDivider}>
+                <span className={styles.systemDividerText}>
+                  {t('dm.listingDivider', {
+                    title: m.meta?.listingTitle ?? '',
+                    defaultValue: '매물 문의: {{title}}',
+                  })}
+                </span>
+              </div>
+            );
+          }
           if (m.messageType === 'walkie_invite') {
             const joined = walkieActiveConversationId === conversationId;
             return (

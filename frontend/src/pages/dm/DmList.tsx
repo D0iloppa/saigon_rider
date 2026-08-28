@@ -36,6 +36,12 @@ export default function DmList() {
     }
     return c.lastMessagePreview ?? '';
   };
+  // 서버는 enum 만 내리고 라벨은 뷰어 로케일로 매핑 (DmDetail 의 약속 상태 라벨과 동일 키 재사용)
+  const tradeStatusLabel = (status: string): string =>
+    status === 'ACCEPTED'
+      ? t('dm.apptAccepted', { defaultValue: '확정' })
+      : t('dm.apptProposed', { defaultValue: '제안됨' });
+
   const navigate = useNavigate();
   const refreshUnread = useDmStore((s) => s.refreshUnread);
   const [conversations, setConversations] = useState<DmConversation[]>([]);
@@ -102,6 +108,25 @@ export default function DmList() {
                   <div className={styles.preview}>
                     {previewText(c)}
                   </div>
+                  {c.activeTrades.length > 0 && (
+                    <div className={styles.tradeRow}>
+                      {c.activeTrades.length === 1 ? (
+                        <>
+                          <span className={styles.tradeBadge} data-status={c.activeTrades[0].status}>
+                            {tradeStatusLabel(c.activeTrades[0].status)}
+                          </span>
+                          <span className={styles.tradeTitle}>{c.activeTrades[0].listingTitle ?? ''}</span>
+                        </>
+                      ) : (
+                        <span className={styles.tradeTitle}>
+                          {t('dm.tradeCount', {
+                            count: c.activeTrades.length,
+                            defaultValue: '거래 {{count}}건 진행중',
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {c.unreadCount > 0 && (
                   <span className={styles.badge}>{c.unreadCount}</span>

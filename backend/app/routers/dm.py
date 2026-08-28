@@ -17,6 +17,7 @@ from ..models import (
     DmConversationBan,
     DmConversationMember,
     DmMessage,
+    FunnelEvent,
     MarketplaceAppointment,
     MarketplaceListing,
     MarketplacePriceOffer,
@@ -27,6 +28,7 @@ from ..models import (
 from ..schemas import (
     DmBanOut,
     DmBanRequest,
+    DmConversationActiveTradeOut,
     DmConversationCreateRequest,
     DmConversationOut,
     DmConversationPatchRequest,
@@ -59,6 +61,7 @@ from ._report_guard import guard_duplicate_report
 from .contents import CONTENTS_BASE_PATH, _content_playback_url
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
+from .market import _thumbnail_url as _market_thumbnail_url
 
 router = APIRouter(prefix="/dm", tags=["DM (Direct Message)"])
 
@@ -146,6 +149,32 @@ async def get_conversations(
         .all()
     )
 
+    # init/214: 방이 상대당 1개로 합쳐졌으므로 매물 구분은 진행 중 거래 목록으로 드러낸다.
+    # 대화방 수만큼 쿼리를 늘리지 않도록 IN 절 한 번으로 배치 조회한다.
+    active_trades_map: dict[uuid.UUID, list[DmConversationActiveTradeOut]] = {}
+    if rows:
+        trade_rows = (
+            await db.execute(
+                select(MarketplaceAppointment, MarketplaceListing)
+                .join(MarketplaceListing, MarketplaceListing.id == MarketplaceAppointment.listing_id)
+                .where(
+                    MarketplaceAppointment.conversation_id.in_([c.id for c in rows]),
+                    MarketplaceAppointment.status.in_(("PROPOSED", "ACCEPTED")),
+                )
+                .order_by(MarketplaceAppointment.created_at.asc())
+            )
+        ).all()
+        for appt, listing in trade_rows:
+            active_trades_map.setdefault(appt.conversation_id, []).append(
+                DmConversationActiveTradeOut(
+                    appointment_id=appt.id,
+                    listing_id=listing.id,
+                    listing_title=listing.title,
+                    thumbnail_url=_market_thumbnail_url(listing),
+                    status=appt.status,
+                )
+            )
+
     result = []
     for conv in rows:
         is_direct = conv.conversation_type == "direct"
@@ -212,6 +241,7 @@ async def get_conversations(
                 photo_url=_resolve_conv_photo(conv),
                 member_count=conv.member_count,
                 community_group_id=conv.community_group_id,
+                active_trades=active_trades_map.get(conv.id, []),
             )
         )
     return result
@@ -371,40 +401,45 @@ async def create_conversation(
 
     p1, p2 = sorted([_session_uid, body.other_user_id])
 
-    context_filter = (
-        (DmConversation.context_type == body.context_type) & (DmConversation.context_id == body.context_id)
-        if body.context_id is not None
-        else DmConversation.context_id.is_(None)
+    # init/214: 상대 1명당 direct 대화는 1개 — 매물 컨텍스트로 방을 가르지 않는다(리스트 중복방 제거).
+    # context_type/context_id 는 "가장 최근 문의한 매물" 기록으로만 남는다(deprecate, 드롭 안 함).
+    pair_filter = (
+        DmConversation.participant_1 == p1,
+        DmConversation.participant_2 == p2,
+        DmConversation.conversation_type == "direct",
     )
 
-    existing = (
-        await db.execute(
-            select(DmConversation).where(
-                DmConversation.participant_1 == p1,
-                DmConversation.participant_2 == p2,
-                context_filter,
+    # 정본 §5 #5: "문의" 퍼널은 (문의자, 매물) 조합의 첫 문의 1회만. init/214 이전에는 "매물별 대화방
+    # 신규 생성"이 그 대리지표였는데, 방이 상대당 1개로 합쳐지면서 그 기준이 성립하지 않는다.
+    is_first_inquiry = False
+    if body.context_type == "listing":
+        is_first_inquiry = (
+            await db.execute(
+                select(FunnelEvent.id)
+                .where(
+                    FunnelEvent.event_type == FunnelEventType.INQUIRY.value,
+                    FunnelEvent.user_id == _session_uid,
+                    FunnelEvent.entity_id == body.context_id,
+                )
+                .limit(1)
             )
-        )
-    ).scalar_one_or_none()
+        ).scalar_one_or_none() is None
+
+    existing = (await db.execute(select(DmConversation).where(*pair_filter))).scalar_one_or_none()
 
     if existing:
         conv = existing
+        # 새 매물 문의로 들어온 재사용이면 컨텍스트만 최신값으로 갱신
+        if body.context_type == "listing" and conv.context_id != body.context_id:
+            conv.context_type = body.context_type
+            conv.context_id = body.context_id
+            await db.commit()
+            await db.refresh(conv)
     else:
         conv = DmConversation(
             participant_1=p1, participant_2=p2, context_type=body.context_type, context_id=body.context_id
         )
         db.add(conv)
-        # 정본 §5 #5: "문의" = 매물에 연결된 신규 대화 생성. 기존 대화 재사용(existing)이나
-        # 매물과 무관한 대화는 퍼널 대상이 아니다.
-        if body.context_type == "listing":
-            await funnel_events.record(
-                db,
-                FunnelEventType.INQUIRY,
-                user_id=_session_uid,
-                entity_id=body.context_id,
-                anon_id=unpack_tracking_ids(tracking_ids)[0],
-                session_id=unpack_tracking_ids(tracking_ids)[1],
-            )
         try:
             await db.commit()
         except IntegrityError:
@@ -414,16 +449,18 @@ async def create_conversation(
             # await 밖에서 lazy-load 를 시도해 MissingGreenlet 으로 죽는다(코드리뷰 HIGH #2 관련
             # 레이스 복구 경로에서 실제로 재현됨).
             await db.refresh(other_user)
-            conv = (
-                await db.execute(
-                    select(DmConversation).where(
-                        DmConversation.participant_1 == p1,
-                        DmConversation.participant_2 == p2,
-                        context_filter,
-                    )
-                )
-            ).scalar_one()
+            conv = (await db.execute(select(DmConversation).where(*pair_filter))).scalar_one()
         await db.refresh(conv)
+
+    if is_first_inquiry:
+        await funnel_events.record(
+            db,
+            FunnelEventType.INQUIRY,
+            user_id=_session_uid,
+            entity_id=body.context_id,
+            anon_id=unpack_tracking_ids(tracking_ids)[0],
+            session_id=unpack_tracking_ids(tracking_ids)[1],
+        )
 
     return DmConversationOut(
         id=conv.id,

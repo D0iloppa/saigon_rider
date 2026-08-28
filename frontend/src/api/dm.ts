@@ -53,6 +53,13 @@ function transformConversation(raw: any): DmConversation {
     photoUrl: raw.photo_url ?? null,
     memberCount: raw.member_count ?? 2,
     communityGroupId: raw.community_group_id ?? null,
+    activeTrades: (raw.active_trades ?? []).map((t: any) => ({
+      appointmentId: t.appointment_id,
+      listingId: t.listing_id,
+      listingTitle: t.listing_title ?? null,
+      thumbnailUrl: t.thumbnail_url ?? null,
+      status: t.status,
+    })),
   };
 }
 
@@ -109,6 +116,7 @@ export async function createConversation(
       photoUrl: null,
       memberCount: 2,
       communityGroupId: null,
+      activeTrades: [],
     }, 100);
   }
   requireSession();

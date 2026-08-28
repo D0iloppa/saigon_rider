@@ -1189,6 +1189,18 @@ class CommunityGroupMemberOut(BaseModel):
 # ── DM ───────────────────────────────────────────────────────────
 
 
+class DmConversationActiveTradeOut(BaseModel):
+    """대화방에서 진행 중인 거래 1건 (init/214 — 방이 상대당 1개로 합쳐지면서 매물 구분이
+    방 제목이 아니라 이 목록으로 드러난다). SoT 는 marketplace_appointments.
+    status 는 enum 그대로 내리고 라벨은 프론트가 뷰어 로케일로 매핑한다(DM-5 원칙)."""
+
+    appointment_id: UUID
+    listing_id: UUID
+    listing_title: str | None = None
+    thumbnail_url: str | None = None
+    status: str
+
+
 class DmConversationOut(BaseModel):
     id: UUID
     other_user_id: UUID | None = None
@@ -1211,6 +1223,8 @@ class DmConversationOut(BaseModel):
     photo_url: str | None = None
     member_count: int = 2
     community_group_id: UUID | None = None
+    # init/214 — 대화방에서 진행 중인 거래(PROPOSED/ACCEPTED). 목록 API 에서만 채워진다.
+    active_trades: list[DmConversationActiveTradeOut] = []
 
 
 class DmRecordingUserOut(BaseModel):

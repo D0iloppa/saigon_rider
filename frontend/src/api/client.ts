@@ -9,6 +9,7 @@
  */
 
 import { clearSession, loadSession } from '@/lib/session';
+import { captureTrackingResponse, trackingRequestHeaders } from '@/lib/tracking';
 import { toast } from '@/components/ui/Toast';
 import { TimeoutError, createAttemptSignal, retryCount } from './requestPolicy';
 
@@ -184,6 +185,7 @@ async function realFetch<T>(
         headers: {
           'Content-Type': 'application/json',
           ...sessionHeaders(),
+          ...trackingRequestHeaders(),
           ...options.headers,
         },
       });
@@ -198,6 +200,7 @@ async function realFetch<T>(
       throw normalized;
     }
     attemptSignal.cleanup();
+    captureTrackingResponse(res);
     if (res.ok) {
       if (method === 'HEAD' || res.status === 204) return null as T;
       return res.json();
@@ -257,7 +260,7 @@ async function realFetchForm<T>(
     res = await fetch(url, {
       method: 'POST',
       signal: attemptSignal.signal,
-      headers: { ...sessionHeaders() },
+      headers: { ...sessionHeaders(), ...trackingRequestHeaders() },
       body,
     });
   } catch (error) {
@@ -265,6 +268,7 @@ async function realFetchForm<T>(
   } finally {
     attemptSignal.cleanup();
   }
+  captureTrackingResponse(res);
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
       const errBody: any = await res.json().catch(() => ({}));

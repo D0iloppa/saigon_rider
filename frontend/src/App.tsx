@@ -22,7 +22,8 @@ import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { captureAcqRefFromUrl } from '@/lib/acquisition';
+import { captureAcqRefFromUrl, captureUtmFirstTouchFromUrl } from '@/lib/acquisition';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
 
 // Auth
 import Splash from '@/pages/auth/Splash';
@@ -237,6 +238,14 @@ function ProximityAlerts({ enabled }: { enabled: boolean }) {
   return null;
 }
 
+// 범용 화면 진입 계측 — QuestSprites/ProximityAlerts 와 같은 이유로 <BrowserRouter> 안에서만
+// useLocation 을 쓸 수 있는 얇은 래퍼(App() 본문에 두면 라우터 컨텍스트가 없어 invariant 오류).
+function ScreenTracking() {
+  const { pathname } = useLocation();
+  useScreenTracking(pathname);
+  return null;
+}
+
 // 세션이 없는 게 정상인(=세션 만료 폴백을 돌리면 안 되는) 화면 경로 prefix.
 // 새 예외 화면이 생기면 이 배열에만 추가하면 된다.
 const SESSION_EXEMPT_PREFIXES = ['/splash', '/auth/oauth', '/auth/restore', '/settings/terms', '/settings/privacy'];
@@ -405,6 +414,8 @@ export default function App() {
     // 유입 귀속(016 §6-2 #30) — ?ref= 를 최초 1회만 캡처(first-touch). dev_login 분기보다
     // 먼저 둬서, 아래에서 URL 을 정리(replaceState)해도 ref 는 이미 저장된 뒤다.
     captureAcqRefFromUrl();
+    // 딥링크 UTM first-touch(C6) — 같은 이유로 URL 정리 전에 먼저 관측한다.
+    captureUtmFirstTouchFromUrl();
 
     // 개발 서버 전용 OAuth 우회 로그인 — ?dev_login=<uuid> 가 붙어 있으면 그 계정으로
     // 즉시 세션을 발급받는다. DEV_HOST 가 아닌 도메인에서는 백엔드가 항상 403을 내려
@@ -489,6 +500,7 @@ export default function App() {
     <BrowserRouter>
       <NotificationBridge />
       <ProximityAlerts enabled={!!user} />
+      <ScreenTracking />
       <QuestSprites />
       <Toaster
         position="top-center"

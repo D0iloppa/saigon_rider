@@ -12,6 +12,8 @@
  * 값 검증(화이트리스트·길이)은 서버가 최종 강제한다 — 여긴 그냥 원문을 들고 다니는 저장소.
  */
 
+import { apiFirstTouch, type FirstTouchUtm } from '@/api/tracking';
+
 const REF_KEY = 'sgr_acq_ref';
 
 /** 앱 부팅 시 1회 호출 — 이미 저장된 값이 있으면 아무것도 하지 않는다(first-touch). */
@@ -23,6 +25,29 @@ export function captureAcqRefFromUrl(): void {
   } catch {
     // localStorage 불가(프라이버시 모드 등) — 귀속 캡처는 부가 기능이라 조용히 무시한다.
   }
+}
+
+// 딥링크 UTM first-touch(C6) — 서버(routers/tracking.py POST /tracking/first-touch)는 anon_id
+// 기준으로 최초 1회만 반영하지만(멱등), 클라이언트도 "앱 오픈당 1회"로 호출을 제한한다(불필요한
+// 반복 POST 방지). 모듈 스코프 플래그라 앱 프로세스가 새로 뜰 때만 리셋된다.
+let utmFirstTouchAttempted = false;
+
+/** 앱 부팅 시 1회 호출 — 진입 URL 에 UTM 파라미터가 관측되면 first-touch API 를 1회 호출한다. */
+export function captureUtmFirstTouchFromUrl(): void {
+  if (utmFirstTouchAttempted) return;
+  const params = new URLSearchParams(window.location.search);
+  const utm: FirstTouchUtm = {
+    utm_source: params.get('utm_source') ?? undefined,
+    utm_medium: params.get('utm_medium') ?? undefined,
+    utm_campaign: params.get('utm_campaign') ?? undefined,
+    utm_content: params.get('utm_content') ?? undefined,
+    utm_term: params.get('utm_term') ?? undefined,
+  };
+  if (!utm.utm_source && !utm.utm_medium && !utm.utm_campaign && !utm.utm_content && !utm.utm_term) return;
+  utmFirstTouchAttempted = true;
+  apiFirstTouch(utm).catch(() => {
+    // 계측 실패가 사용자 흐름을 막으면 안 된다 — 조용히 버림.
+  });
 }
 
 /** 저장된 ref — 없으면 null(서버가 'organic' 으로 취급). */

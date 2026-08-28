@@ -440,6 +440,14 @@ async def get_messages(
     db: AsyncSession = Depends(get_db),
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
+    """메시지 목록.
+
+    ⚠️ `after`(커서)를 준 요청에서 **`total` 은 "커서 이후 전체 개수"가 아니라 이번 응답의 건수**다.
+    폴링 경로의 COUNT(*) 를 없애면서 생긴 의도적 차이다(성능). 따라서 커서 요청에는
+    `acc.length >= total` 같은 페이징 관용구를 쓰면 안 된다 — 그런 계산이 필요하면 커서 없이
+    조회해 정확한 total 을 받는다. 또한 커서 이후 `size` 를 넘는 메시지가 쌓였는지 알 수 없으므로,
+    폴링 소비처는 커서를 계속 전진시켜 다음 tick 에 나머지를 받아야 한다.
+    """
     conv = await db.get(DmConversation, conv_id)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")

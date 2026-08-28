@@ -262,6 +262,18 @@
 
 ---
 
+## Live Activity — 경로안내·거래 잠금화면 카드 (제정 2026-08-29)
+
+> SoT: [`task/active/260829_live_activity_task.md`](../task/active/260829_live_activity_task.md)
+
+1. **화면 코드는 `native.liveActivity` 채널만 호출한다.** iOS Live Activity / Android ongoing 알림 분기는 채널 뒤에 숨긴다. 웹·구설치본은 no-op — 카드는 부가 표면이라 실패가 화면 기능을 막으면 안 된다.
+2. **문구는 JS(또는 서버)가 만들어 넘기고 네이티브·위젯은 문장을 만들지 않는다.** 원격 갱신 문구는 워커 `_LA_DEAL_STATUS_TEXT` 가 클라 `dm.laStatus.*` 와 **같은 문장**을 locale 별로 만든다 — 한쪽만 고치지 말 것.
+3. **콘텐츠 계약은 세 곳이 1:1 이다**: TS `plugins/liveActivity.ts` ↔ Swift `Shared/LiveActivityAttributes.swift`(앱·위젯 두 타겟) ↔ Java `LiveActivityPlugin.java` ↔ 워커 content_state. 필드 추가/이름 변경은 네 곳 동시. 시각은 항상 epoch ms 숫자(Date 금지 — APNs content-state 디코딩 전략 불일치).
+4. **Activity attributes 는 불변** — 목적지/약속이 다른 고아 카드는 갱신하지 말고 종료 후 재생성한다(`startRide/startDeal`).
+5. **원격 갱신은 FCM 이 아니라 APNs 직접이다.** Activity 푸시토큰은 FCM 토큰이 아니다. engine `services/apns_push.py` 가 `.p8`(ES256 JWT)로 `apns-push-type: liveactivity` 를 보낸다. 일반 알림은 계속 FCM. `.p8` 은 `engine/apns-key.p8`(gitignore), 키 ID/팀 ID 는 `.env` `APNS_*`.
+6. **위젯 익스텍션 배포 타겟은 16.2** — Xcode 기본값(26.0)으로 두면 iOS 26 미만 기기에서 익스텐션이 로드되지 않아 기능이 조용히 죽는다(빌드는 성공).
+7. **갱신 예산**: 경로안내 카드는 표시값(ETA 시각·진행률 5%·상태)이 바뀔 때만, 최소 5초 간격. 거래 카운트다운은 위젯이 `Text(timerInterval:)`로 스스로 흘리므로 갱신을 보내지 않는다.
+
 ## 알림함 보관·삭제 (제정 2026-08-28)
 
 1. **보관기간은 전역 고정 90일 — 사용자별 설정 없음.** `backend/app/jobs/purge_old_notifications.py` 가 매일 03:20(ICT) `created_at` 90일 초과 알림을 하드 삭제한다(`purge_deleted_accounts` 03:10 직후). 사용자가 바꿀 수 있는 설정 UI는 없다 — 값을 바꾸려면 이 잡의 `_RETENTION` 상수를 고친다.

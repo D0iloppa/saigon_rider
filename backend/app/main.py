@@ -33,6 +33,7 @@ from .routers import (
     info_weather,
     internal,
     inventory,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
+    live_activities,
     map,
     market,
     master,
@@ -294,6 +295,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(master.router, prefix="/api")
 app.include_router(notices.router, prefix="/api")
 app.include_router(map.router, prefix="/api")
+app.include_router(live_activities.router, prefix="/api")  # iOS Live Activity 푸시토큰 (260829 Phase 3)
 app.include_router(market.router, prefix="/api")
 app.include_router(translate.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")

@@ -391,6 +391,10 @@ services:
       - "/migrations/215_dm_message_sync.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (215) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/216_live_activity_tokens.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (216) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -463,6 +467,7 @@ services:
       - ./database/init/212_dm_conversation_bans.sql:/migrations/212_dm_conversation_bans.sql:ro
       - ./database/init/214_dm_conversation_merge_direct.sql:/migrations/214_dm_conversation_merge_direct.sql:ro
       - ./database/init/215_dm_message_sync.sql:/migrations/215_dm_message_sync.sql:ro
+      - ./database/init/216_live_activity_tokens.sql:/migrations/216_live_activity_tokens.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -634,6 +639,11 @@ services:
       - ENGINE_ADMIN_JWT_SECRET=${ENGINE_ADMIN_JWT_SECRET:?ENGINE_ADMIN_JWT_SECRET missing in .env}
       - BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
       - FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON:-/app/firebase-credentials.json}
+      # APNs 직접 전송 — iOS Live Activity 원격 갱신 (260829 Phase 3). .p8 는 engine/apns-key.p8 (gitignore *.p8)
+      - APNS_KEY_ID=${APNS_KEY_ID:-}
+      - APNS_TEAM_ID=${APNS_TEAM_ID:-}
+      - APNS_KEY_PATH=${APNS_KEY_PATH:-/app/apns-key.p8}
+      - APNS_USE_SANDBOX=${APNS_USE_SANDBOX:-false}
       - FCM_PUSH_HISTORY_TTL_DAYS=${FCM_PUSH_HISTORY_TTL_DAYS:-7}
       - SRE_TIMEZONE=Asia/Ho_Chi_Minh
       - SRE_RP_EXPIRY_MONTHS=3

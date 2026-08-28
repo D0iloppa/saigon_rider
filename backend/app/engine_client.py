@@ -586,6 +586,27 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def push_live_activity(
+        self,
+        push_token: str,
+        event: str,
+        content_state: dict,
+        *,
+        dismissal_date: int | None = None,
+        stale_date: int | None = None,
+    ) -> dict:
+        """iOS Live Activity 원격 갱신(APNs liveactivity 푸시). 엔진이 .p8 로 APNs 에 직접 보낸다 —
+        FCM 토큰이 아니라 Activity 푸시토큰이라 notify_user_push 경로를 탈 수 없다.
+        410 = 토큰 무효(호출부가 삭제), 503 = 재시도 가능, 그 외 4xx/5xx = 영구 실패."""
+        payload: dict = {"push_token": push_token, "event": event, "content_state": content_state}
+        if dismissal_date is not None:
+            payload["dismissal_date"] = dismissal_date
+        if stale_date is not None:
+            payload["stale_date"] = stale_date
+        resp = await self._client.post("/v1/push/live-activity", json=payload)
+        resp.raise_for_status()
+        return resp.json()
+
     async def push_history(self, limit: int = 50) -> list[dict]:
         resp = await self._client.get("/v1/admin/push/history", params={"limit": limit})
         resp.raise_for_status()

@@ -19,12 +19,13 @@ import uuid
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import and_, func, literal, or_, select
+from sqlalchemy import and_, delete, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
 from app.engine_client import engine_client
 from app.models import (
+    LiveActivityToken,
     MarketplaceKeywordAlert,
     MarketplaceListingLike,
     Notification,
@@ -726,8 +727,89 @@ async def _handle_feed_group_post(payload: dict, *, source_event_id: str) -> Non
             await _try_push(str(recipient_id), title, body, link)
 
 
+# 거래 Live Activity 카드 문구 — 클라이언트 i18n(dm.laStatus.*) 과 같은 문장. 서버가 만들어 보내므로
+# 토큰 등록 시 저장된 locale 로 고른다. 위젯은 문장을 만들지 않는다(네이티브 무문구 원칙).
+_LA_DEAL_STATUS_TEXT = {
+    "accepted": {"ko": "약속 확정", "en": "Meetup confirmed", "vi": "Đã chốt hẹn"},
+    "completionRequested": {"ko": "완료 요청됨", "en": "Completion requested", "vi": "Đã yêu cầu hoàn tất"},
+    "completed": {"ko": "거래 완료", "en": "Deal completed", "vi": "Giao dịch hoàn tất"},
+    "cancelled": {"ko": "약속 취소", "en": "Meetup cancelled", "vi": "Đã hủy hẹn"},
+}
+
+
+async def _handle_live_activity_deal_update(payload: dict, *, source_event_id: str) -> None:
+    """거래 Live Activity 원격 갱신 (260829 Phase 3). 약속의 등록 토큰 전부에 content-state 를 밀어넣는다.
+    완료/취소는 `end`(2분 뒤 소멸), 그 외는 `update`. 멱등 — 같은 상태를 두 번 보내도 결과가 같다.
+    APNs 410(토큰 무효)은 행 삭제, 503 은 로그만(다음 상태 변화에서 자연 복구 — 카드는 부가 표면)."""
+    appointment_id = uuid.UUID(payload["appointment_id"])
+    status = payload.get("status") or "ACCEPTED"
+    if status == "COMPLETED":
+        kind = "completed"
+    elif status == "CANCELLED":
+        kind = "cancelled"
+    elif payload.get("completion_requested_by") and not payload.get("completion_declined_at"):
+        # 거절은 requested_by 를 남긴 채 declined_at 만 찍힌다(market.py decline) — 거절됐으면 '약속 확정' 으로.
+        kind = "completionRequested"
+    else:
+        kind = "accepted"
+    when_at = payload.get("when_at")
+    when_ms = int(datetime.fromisoformat(when_at).timestamp() * 1000) if when_at else 0
+    event = "end" if kind in ("completed", "cancelled") else "update"
+    now_s = int(datetime.now(UTC).timestamp())
+    dismissal = now_s + 120 if event == "end" else None
+    stale = (when_ms // 1000 + 3600) if when_ms else None
+
+    async with AsyncSessionLocal() as db:
+        rows = (
+            (
+                await db.execute(
+                    select(LiveActivityToken).where(
+                        LiveActivityToken.kind == "deal", LiveActivityToken.subject_id == appointment_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        invalid: list[uuid.UUID] = []
+        for row in rows:
+            lang = (row.locale or "vi").split("-")[0]
+            texts = _LA_DEAL_STATUS_TEXT[kind]
+            content_state = {
+                "statusText": texts.get(lang, texts["vi"]),
+                "statusKind": kind,
+                "placeName": payload.get("place_name") or "",
+                "appointmentAtMs": when_ms,
+                "peerDistanceText": "",
+            }
+            try:
+                await engine_client.push_live_activity(
+                    row.push_token, event, content_state, dismissal_date=dismissal, stale_date=stale
+                )
+                log.info("live activity %s sent appt=%s user=%s", event, appointment_id, row.user_id)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 410:
+                    invalid.append(row.id)
+                else:
+                    log.warning(
+                        "live activity push failed appt=%s user=%s status=%d",
+                        appointment_id,
+                        row.user_id,
+                        exc.response.status_code,
+                    )
+            except httpx.TransportError as exc:
+                log.warning("live activity push transport error appt=%s: %s", appointment_id, exc)
+        if event == "end":
+            # 카드가 끝났으니 토큰도 수명이 끝났다 — 무효 여부와 무관하게 정리.
+            await db.execute(delete(LiveActivityToken).where(LiveActivityToken.subject_id == appointment_id))
+        elif invalid:
+            await db.execute(delete(LiveActivityToken).where(LiveActivityToken.id.in_(invalid)))
+        await db.commit()
+
+
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
+    "live_activity.deal_update": _handle_live_activity_deal_update,
     "feed.comment_created": _handle_feed_comment,
     "feed.post_liked": _handle_feed_like,
     "feed.followed_post_created": _handle_feed_followed_post,

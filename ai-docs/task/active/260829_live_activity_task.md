@@ -1,7 +1,7 @@
 # Live Activity — 경로안내·거래 진행 잠금화면 카드 (2026-08-29)
 
 > **SoT** — 이 문서가 Live Activity 기능의 단일 출처다.
-> **상태**: Phase 1 구현 완료(2026-08-29, 실기기 미검증) / Phase 2·3 착수 예정.
+> **상태**: Phase 1·2·3 구현 완료(2026-08-29) / **실기기 미검증** — iOS 재빌드(위젯 타겟 포함)·Android v1.0.7 설치 후 §3 완료 기준 순회 필요. Phase 3 는 `engine/apns-key.p8` 배치가 선행.
 > **확정 경위**: 대표 결정 2026-08-29 — D-1 (a) Xcode GUI 타겟 생성(완료, Product Name `SaigonRiderWidgets`), D-2 Phase 1→2→3 순차 전부, D-3/D-4 권고안, D-5 최소 iOS 16.2, D-6 (b) Android 거래 카운트다운 알림 포함.
 > **참조 화면**: Grab "11:46 PM에 도착할 예정입니다" 잠금화면 카드.
 
@@ -45,11 +45,13 @@ RideNav.tsx / DmDetail.tsx  ──▶  native.liveActivity.{start,update,end}   
 - 내용: 상대 닉네임 · 매물 제목 · 약속까지 카운트다운(위젯 자체 진행) · 장소 · 상태 칩.
 - 완료 기준: 창 진입 시 카드, 카운트다운 흐름, 완료/취소 시 소멸, 탭 → 해당 대화방.
 
-### Phase 3 — 거래 원격 갱신 (착수 예정, 위치공유 선행)
-- iOS: Activity `pushTokenUpdates` → BFF `POST /live-activities/token`(약속별). engine `apns_push.py` 신설 — HTTP/2 + `.p8`(RN99TMWZ59) JWT, `apns-push-type: liveactivity`, `aps.event/content-state/timestamp`. **FCM 경유 불가**(Activity 푸시토큰은 FCM 토큰이 아니다).
-- 트리거: `market.py` 수락/완료/취소 · 위치공유 갱신 → outbox 이벤트 → noti_worker 핸들러 → engine APNs.
-- 상대 거리/ETA 문구는 [`260827_deal_location_sharing_task.md`](260827_deal_location_sharing_task.md) 구현 이후.
-- `.env`/`.env.example` 동기: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY_PATH`.
+### Phase 3 — 거래 원격 갱신 (✅ 구현 완료 2026-08-29, 실기기 미검증 · 상대 거리 문구는 위치공유 이후)
+- 경로: iOS `Activity.request(pushType: .token)` → `pushTokenUpdates` → JS `pushToken` 이벤트 → `App.tsx` 구독 → `lib/liveActivityPush.ts` → BFF `POST /live-activities/token`(`live_activity_tokens`, init/216, 사용자·kind·약속당 1행 + locale) → 약속 전이(`market.py` 수락/완료/완료요청/거절/취소 `_enqueue_live_activity`) → outbox `live_activity.deal_update` → noti_worker `_handle_live_activity_deal_update`(locale 별 문구 생성) → engine `POST /v1/push/live-activity` → `services/apns_push.py`(HTTP/2 + `.p8` ES256 JWT, `apns-push-type: liveactivity`) → APNs.
+- **FCM 경유 불가**(Activity 푸시토큰은 FCM 토큰이 아니다) — engine 에 APNs 직접 경로가 처음 생겼다. 일반 알림은 여전히 FCM.
+- 완료/취소는 `event: end`(+2분 소멸) 후 토큰 행 정리, 410 무효 토큰은 삭제. 문구는 서버가 `_LA_DEAL_STATUS_TEXT`(클라 `dm.laStatus.*` 와 동일 문장)로 만든다.
+- ContentState 의 약속 시각은 `appointmentAtMs: Double` — 원격 content-state 에서 Date 디코딩 전략 불일치를 피하기 위해 Date 를 쓰지 않는다.
+- **운영 설정(사용자)**: `.env` `APNS_KEY_ID=RN99TMWZ59` `APNS_TEAM_ID=3QRB73494R` (입력 완료) + **`.p8` 파일을 `engine/apns-key.p8` 로 복사**(`./engine:/app` 마운트, `*.p8` gitignore). 파일이 없으면 engine 이 502(영구 실패)로 응답하고 카드는 로컬 갱신만 된다.
+- 상대 거리/ETA 문구(`peerDistanceText`)는 [`260827_deal_location_sharing_task.md`](260827_deal_location_sharing_task.md) 구현 이후 — 지금은 "" 고정.
 
 ## 4. 배선 체크리스트 (구현만 하고 연결 안 되는 사고 방지 — 하나라도 빠지면 카드가 안 뜬다)
 
@@ -66,7 +68,7 @@ RideNav.tsx / DmDetail.tsx  ──▶  native.liveActivity.{start,update,end}   
 | 9 | `LinkRouter.tsx` `ride` case(파라미터 복원) | ✅ |
 | 10 | Android `MainActivity.registerPlugin(LiveActivityPlugin.class)` | ✅ |
 | 11 | Phase 2: `DmDetail.tsx` 약속 카드 start/end(창 진입 1분 재평가) — `App.tsx` 복귀 동기화는 "내 활성 약속" API 부재로 보류(Phase 3 원격 갱신이 대체) | ✅ |
-| 12 | Phase 3: 푸시토큰 등록 API · engine APNs 클라이언트 · outbox 핸들러 · env 키 | ⬜ |
+| 12 | Phase 3: `App.tsx` 토큰 구독 → `lib/liveActivityPush.ts` → `routers/live_activities.py`(`main.py` 마운트) · `market.py` 5개 전이 `_enqueue_live_activity` · worker `HANDLERS["live_activity.deal_update"]` · engine `push_router /live-activity` + `apns_push.py` · compose `bff_migrate` 216 3곳 · engine env `APNS_*` 4키 · `.env`/`.env.example` 패리티 | ✅ (p8 파일 배치는 사용자) |
 
 ## 5. 확정 결정
 

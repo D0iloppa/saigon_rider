@@ -21,6 +21,15 @@ class SreSettings(BaseSettings):
     firebase_credentials_json: str = "/app/firebase-credentials.json"
     fcm_push_history_ttl_days: int = 7
 
+    # APNs 직접 전송 — iOS Live Activity 원격 갱신 전용 (ai-docs/task/active/260829_live_activity_task.md Phase 3).
+    # 일반 알림은 FCM 경유(위) 그대로. Activity 푸시토큰은 FCM 으로 못 보내 .p8 로 APNs 에 직접 붙는다.
+    # 키 파일은 커밋 금지(*.p8 gitignore) — engine/ 에 두면 ./engine:/app 마운트로 컨테이너에 보인다.
+    apns_key_id: str = ""
+    apns_team_id: str = ""
+    apns_key_path: str = "/app/apns-key.p8"
+    apns_bundle_id: str = "com.user.SaigonRiders"
+    apns_use_sandbox: bool = False
+
     # SRE business rules
     sre_timezone: str = "Asia/Ho_Chi_Minh"
     sre_xp_expiry_months: int = 3

@@ -1623,6 +1623,27 @@ class MarketplaceLocationShare(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class LiveActivityToken(Base):
+    """iOS Live Activity 원격 갱신 푸시토큰 — Activity 별 발급, 사용자·종류·대상당 1행 (init/216).
+    ai-docs/task/active/260829_live_activity_task.md Phase 3."""
+
+    __tablename__ = "live_activity_tokens"
+    __table_args__ = (
+        UniqueConstraint("user_id", "kind", "subject_id", name="live_activity_tokens_user_kind_subject_uq"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    subject_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    push_token: Mapped[str] = mapped_column(Text, nullable=False)
+    locale: Mapped[str] = mapped_column(String(8), nullable=False, default="vi")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class MarketplacePriceOffer(Base):
     __tablename__ = "marketplace_price_offers"
 

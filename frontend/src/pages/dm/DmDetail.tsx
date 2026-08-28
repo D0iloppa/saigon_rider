@@ -589,7 +589,7 @@ export default function DmDetail() {
       ? 'completed'
       : appt.status === 'CANCELLED'
         ? 'cancelled'
-        : appt.completionRequestedBy
+        : appt.completionRequestedBy && !appt.completionDeclinedAt // 거절되면 requested_by 가 남아도 '약속 확정'
           ? 'completionRequested'
           : 'accepted';
     const statusText = t(`dm.laStatus.${statusKind}`, {
@@ -610,6 +610,7 @@ export default function DmDetail() {
         kind: 'deal',
         attributes: {
           conversationId,
+          appointmentId: appt.id,
           // `listing`(=conv?.contextListing) 은 아래에서 선언되므로 여기선 conv 를 직접 읽는다.
           listingTitle: conv?.contextListing?.title ?? '',
           peerName: isDirect ? otherName : roomTitle,

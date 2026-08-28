@@ -1807,6 +1807,25 @@ async def propose_appointment(
     )
 
 
+def _enqueue_live_activity(db: AsyncSession, appt: MarketplaceAppointment) -> None:
+    """거래 Live Activity 원격 갱신 이벤트 (ai-docs/task/active/260829_live_activity_task.md Phase 3).
+    약속 상태가 바뀌는 모든 전이(수락·완료·완료요청·거절·취소)에서 호출 — 도메인 커밋과 원자적으로 적재된다.
+    수신자는 워커가 live_activity_tokens(kind='deal', subject_id=약속) 로 찾으므로 payload 에 넣지 않는다."""
+    noti_events.enqueue(
+        db,
+        "live_activity.deal_update",
+        {
+            "appointment_id": str(appt.id),
+            "status": appt.status,
+            "completion_requested_by": str(appt.completion_requested_by) if appt.completion_requested_by else None,
+            # 거절은 requested_by 를 지우지 않고 declined_at 로 표현된다 — 소비처는 둘을 함께 봐야 한다.
+            "completion_declined_at": appt.completion_declined_at.isoformat() if appt.completion_declined_at else None,
+            "when_at": appt.when_at.isoformat() if appt.when_at else None,
+            "place_name": appt.place_name or "",
+        },
+    )
+
+
 async def _load_appointment(
     db: AsyncSession, appointment_id: uuid.UUID, session_uid: uuid.UUID
 ) -> tuple[MarketplaceAppointment, DmConversation, MarketplaceListing]:
@@ -1859,6 +1878,7 @@ async def accept_appointment(
     log_transition(
         db, listing.id, "ON_SALE", "RESERVED", actor_type="user", actor_id=session_uid, reason="appointment_accepted"
     )
+    _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
 
@@ -1913,6 +1933,7 @@ async def complete_appointment(
         session_id=unpack_tracking_ids(tracking_ids)[1],
     )
     await purge_location_shares(db, appt.id)
+    _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
 
@@ -1953,6 +1974,7 @@ async def request_appointment_completion(
     appt.completion_declined_at = None
     appt.completion_declined_by = None
     appt.updated_at = now
+    _enqueue_live_activity(db, appt)
     noti_events.enqueue(
         db,
         "market.completion_requested",
@@ -2008,6 +2030,7 @@ async def decline_appointment_completion(
                 "recipient_id": str(appt.completion_requested_by),
             },
         )
+    _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
 
@@ -2043,6 +2066,7 @@ async def cancel_appointment(
             actor_id=session_uid,
             reason="appointment_cancelled",
         )
+    _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
 

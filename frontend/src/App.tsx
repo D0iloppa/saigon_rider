@@ -17,6 +17,7 @@ import { apiSessionVerify, apiDevLoginAs } from '@/api/auth';
 import { emojiUrl } from '@/lib/emoji';
 import { setSessionExpiredHandler, SessionExpiredError, setAccountRestrictedHandler, AccountRestrictedError } from '@/api/client';
 import { native } from '@/lib/native';
+import { registerLiveActivityPushToken } from '@/lib/liveActivityPush';
 import { fetchAppConfig, fetchCurrentVersion, shouldForceUpdate, pickPlatformVersion } from '@/api/appVersion';
 import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
@@ -311,6 +312,21 @@ export default function App() {
     if (bg) native.setBackgroundColor(bg);
     // iOS 키보드 accessory bar(^ v Done)는 앱 전역에서 사용하지 않는다. iOS 외 no-op.
     native.setAccessoryBarVisible(false);
+  }, []);
+
+  // Live Activity 푸시토큰 → BFF 등록 (ai-docs/task/active/260829_live_activity_task.md Phase 3 배선 #12).
+  // 토큰은 Activity 생성 직후·수명 중 갱신 시 iOS 가 밀어주므로 화면과 무관하게 앱 루트에서 한 번 구독한다.
+  useEffect(() => {
+    let handle: { remove: () => void } | null = null;
+    let cancelled = false;
+    void native.liveActivity.onPushToken((e) => { void registerLiveActivityPushToken(e); }).then((h) => {
+      if (cancelled) h.remove();
+      else handle = h;
+    });
+    return () => {
+      cancelled = true;
+      handle?.remove();
+    };
   }, []);
 
   // iOS 순수 오버레이 키보드는 시스템의 scroll-to-focused-input 팬을 네이티브에서 억제하므로,

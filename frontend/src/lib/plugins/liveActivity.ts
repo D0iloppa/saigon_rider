@@ -1,4 +1,4 @@
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 
 /**
  * `LiveActivity` 커스텀 Capacitor 플러그인 — iOS 잠금화면/다이나믹아일랜드 Live Activity,
@@ -34,6 +34,8 @@ export interface RideActivityState {
 export type DealStatusKind = 'accepted' | 'completionRequested' | 'completed' | 'cancelled';
 export interface DealActivityAttributes {
   conversationId: string;
+  /** 약속 id — 푸시토큰 등록(subjectId)·같은 약속 카드 판별. */
+  appointmentId: string;
   listingTitle: string;
   peerName: string;
   /** `dm&id=<conversationId>` */
@@ -67,6 +69,14 @@ export interface LiveActivityPlugin {
   update(opts: LiveActivityUpdateOptions): Promise<void>;
   /** finalState 가 있으면 마지막 모습으로 두고 dismissAfterSec 뒤 사라진다(도착/완료 연출). 없으면 즉시 제거. */
   end(opts: LiveActivityEndOptions): Promise<void>;
+  /**
+   * iOS 전용 — Activity 푸시토큰(APNs 원격 갱신용, Phase 3). Activity 생성 후 비동기로 오고 수명 중 바뀔 수
+   * 있다. 받는 쪽은 BFF `POST /live-activities/token` 에 등록한다(`lib/liveActivityPush.ts`).
+   */
+  addListener(
+    eventName: 'pushToken',
+    listenerFunc: (event: { kind: LiveActivityKind; subjectId: string; token: string }) => void,
+  ): Promise<PluginListenerHandle>;
 }
 
 export const LiveActivity = registerPlugin<LiveActivityPlugin>('LiveActivity');

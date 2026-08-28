@@ -27,6 +27,7 @@ import { Fcm, type FcmNotificationEvent } from './plugins/Fcm';
 import { KeyboardBridge } from './plugins/KeyboardBridge';
 import {
   LiveActivity,
+  type LiveActivityKind,
   type LiveActivityStartOptions,
   type LiveActivityUpdateOptions,
   type LiveActivityEndOptions,
@@ -348,6 +349,8 @@ export interface LiveActivityChannel {
   start(opts: LiveActivityStartOptions): Promise<void>;
   update(opts: LiveActivityUpdateOptions): Promise<void>;
   end(opts: LiveActivityEndOptions): Promise<void>;
+  /** Activity 푸시토큰 스트림(iOS). 웹/Android/구설치본은 아무 이벤트도 오지 않는 no-op 핸들. */
+  onPushToken(cb: (e: { kind: LiveActivityKind; subjectId: string; token: string }) => void): Promise<{ remove: () => void }>;
 }
 
 function createLiveActivityChannel(): LiveActivityChannel {
@@ -368,6 +371,15 @@ function createLiveActivityChannel(): LiveActivityChannel {
     async end(opts) {
       if (!ready()) return;
       await LiveActivity.end(opts).catch((err) => console.warn('[liveActivity] end failed', err));
+    },
+    async onPushToken(cb) {
+      if (!ready()) return { remove: () => {} };
+      try {
+        const h = await LiveActivity.addListener('pushToken', cb);
+        return { remove: () => { void h.remove(); } };
+      } catch {
+        return { remove: () => {} };
+      }
     },
   };
 }

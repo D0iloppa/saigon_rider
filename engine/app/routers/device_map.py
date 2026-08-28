@@ -198,6 +198,38 @@ async def lookup_device_map(
     )
 
 
+class LiveActivityPushRequest(BaseModel):
+    push_token: str
+    event: str  # update | end
+    content_state: dict
+    dismissal_date: int | None = None
+    stale_date: int | None = None
+
+
+@push_router.post("/live-activity", dependencies=[Depends(verify_service_key)])
+async def push_live_activity(body: LiveActivityPushRequest) -> dict:
+    """iOS Live Activity 원격 갱신 — APNs 직접 전송(services/apns_push). 이력 미적재, 배지 무관.
+    410 = 토큰 무효(호출부가 삭제) / 503 = 재시도 가능 / 502 = 영구 실패(설정·페이로드)."""
+    from app.services.apns_push import send_live_activity
+    from app.services.fcm_push import InvalidPushTokenError, PermanentPushError, RetryablePushError
+
+    try:
+        await send_live_activity(
+            push_token=body.push_token,
+            event=body.event,
+            content_state=body.content_state,
+            dismissal_date=body.dismissal_date,
+            stale_date=body.stale_date,
+        )
+    except InvalidPushTokenError as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
+    except RetryablePushError as exc:
+        raise HTTPException(status_code=503, detail="APNs temporarily unavailable") from exc
+    except PermanentPushError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"sent": 1}
+
+
 @push_router.post("/notify", dependencies=[Depends(verify_service_key)], response_model=PushNotifyResponse)
 async def notify_user(
     body: PushNotifyRequest,

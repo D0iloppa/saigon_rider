@@ -179,7 +179,15 @@ export default function DashboardPage() {
           </div>
         </header>
         <div className="dashboard-flow-grid">
-          <StatCard title="DAU (오늘 접속)" value={s.dau} suffix="명" onClick={() => navigate('/users')} />
+          <StatCard title="DAU (오늘 접속)" value={s.dau} suffix="명" state="live" onClick={() => navigate('/users')} />
+          <StatCard title="WAU (최근 7일 접속)" value={s.wau} suffix="명" state="live" onClick={() => navigate('/users')} />
+          <StatCard title="MAU (최근 30일 접속)" value={s.mau} suffix="명" state="live" onClick={() => navigate('/users')} />
+          <StatCard
+            title="스티키니스 (DAU/MAU)"
+            value={s.stickiness_dau_mau === null ? '—' : (s.stickiness_dau_mau * 100).toFixed(1)}
+            suffix={s.stickiness_dau_mau === null ? undefined : '%'}
+            state="live"
+          />
           <StatCard title="신규 가입" value={s.new_users_today} suffix="명" detail={`최근 7일 누계 ${s.new_users_7d.toLocaleString()}`} onClick={() => navigate('/users')} />
           <StatCard title="매물 등록" value={s.listings_today} suffix="건" detail={`최근 7일 누계 ${s.listings_7d.toLocaleString()}`} onClick={() => navigate('/listings')} />
           <StatCard title="거래 성사" value={s.trades_today} suffix="건" detail={`최근 7일 누계 ${s.trades_7d.toLocaleString()}`} />

@@ -35,6 +35,37 @@ export function useSegmentedFunnel(params: SegmentedFunnelParams) {
   })
 }
 
+export interface DailyFunnelPoint {
+  date: string
+  counts: Record<string, number>
+}
+
+export function useDailyFunnel(days = 14) {
+  return useQuery({
+    queryKey: ['funnel', 'daily', days],
+    queryFn: () => api<DailyFunnelPoint[]>(`/admin/api/funnel/daily${buildQuery({ days })}`),
+  })
+}
+
+export interface TopReferrer {
+  inviter_user_id: string
+  inviter_nickname: string | null
+  signup_count: number
+}
+
+export interface TopReferrerParams {
+  days?: number
+  limit?: number
+}
+
+export function useTopReferrers(params: TopReferrerParams) {
+  return useQuery({
+    queryKey: ['funnel', 'referrals', 'top', params],
+    queryFn: () =>
+      api<TopReferrer[]>(`/admin/api/funnel/referrals/top${buildQuery({ days: params.days, limit: params.limit })}`),
+  })
+}
+
 export interface ZeroResultSearchTerm {
   query: string
   search_count: number

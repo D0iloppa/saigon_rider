@@ -1,8 +1,31 @@
 import { useState } from 'react'
 import { Alert, Card, Empty, Input, Select, Skeleton, Table } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
-import { useSegmentedFunnel } from '../../api/funnel'
-import type { SegmentedFunnelRow } from '../../api/funnel'
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import { useDailyFunnel, useSegmentedFunnel, useTopReferrers } from '../../api/funnel'
+import type { SegmentedFunnelRow, TopReferrer } from '../../api/funnel'
+import { adminColors } from '../../theme/tokens'
+
+const EVENT_LABELS: Record<string, string> = {
+  signup: '가입',
+  listing_view: '매물조회',
+  listing_create: '매물등록',
+  inquiry: '문의',
+  price_offer: '가격제안',
+  appointment: '약속',
+  trade_complete: '거래완료',
+  review: '후기',
+  search: '검색',
+}
 
 const DAYS_OPTIONS = [28, 56, 90, 180].map((d) => ({ value: d, label: `최근 ${d}일 가입 코호트` }))
 const PERSONA_OPTIONS = [
@@ -40,6 +63,18 @@ export default function FunnelPage() {
     persona: persona || undefined,
     acq_source: acqSource || undefined,
   })
+  const dailyFunnelQ = useDailyFunnel(14)
+  const topReferrersQ = useTopReferrers({ days: 90, limit: 20 })
+
+  const eventTypes = Object.keys(dailyFunnelQ.data?.[0]?.counts ?? {})
+  const dailyChartData = (dailyFunnelQ.data ?? []).map((point) => ({ date: point.date, ...point.counts }))
+
+  const referrerColumns = [
+    { title: '순위', key: 'rank', render: (_: unknown, __: TopReferrer, i: number) => i + 1, width: 60 },
+    { title: '초대자 닉네임', dataIndex: 'inviter_nickname', key: 'inviter_nickname', render: (v: string | null) => v ?? '—' },
+    { title: '초대자 user_id', dataIndex: 'inviter_user_id', key: 'inviter_user_id' },
+    { title: '가입 수', dataIndex: 'signup_count', key: 'signup_count', width: 100, align: 'right' as const },
+  ]
 
   const columns = [
     { title: '주차(가입 코호트)', dataIndex: 'week_start', key: 'week_start' },
@@ -144,6 +179,64 @@ export default function FunnelPage() {
           </Card>
         </>
       )}
+
+      <Card title="일별 이벤트 추이 (최근 14일)" style={{ marginTop: 16 }}>
+        {dailyFunnelQ.isLoading && <Skeleton active paragraph={{ rows: 6 }} />}
+        {dailyFunnelQ.isError && (
+          <Alert
+            type="error"
+            showIcon
+            message="일별 퍼널 데이터를 불러오지 못했습니다."
+            description={dailyFunnelQ.error instanceof Error ? dailyFunnelQ.error.message : undefined}
+          />
+        )}
+        {dailyFunnelQ.data && (
+          <ResponsiveContainer width="100%" height={340}>
+            <LineChart data={dailyChartData} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={adminColors.chartGrid} vertical={false} />
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} fontSize={12} tickMargin={8} />
+              <YAxis allowDecimals={false} fontSize={12} />
+              <ChartTooltip />
+              <Legend />
+              {eventTypes.map((t, i) => (
+                <Line
+                  key={t}
+                  type="monotone"
+                  dataKey={t}
+                  name={EVENT_LABELS[t] ?? t}
+                  stroke={adminColors.chart[i % adminColors.chart.length]}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      <Card title="레퍼럴 리더보드 (최근 90일 초대자별 가입수)" style={{ marginTop: 16 }}>
+        {topReferrersQ.isLoading && <Skeleton active paragraph={{ rows: 6 }} />}
+        {topReferrersQ.isError && (
+          <Alert
+            type="error"
+            showIcon
+            message="레퍼럴 데이터를 불러오지 못했습니다."
+            description={topReferrersQ.error instanceof Error ? topReferrersQ.error.message : undefined}
+          />
+        )}
+        {topReferrersQ.data &&
+          (topReferrersQ.data.length === 0 ? (
+            <Empty description="초대를 통한 가입이 없습니다." />
+          ) : (
+            <Table
+              rowKey="inviter_user_id"
+              columns={referrerColumns}
+              dataSource={topReferrersQ.data}
+              pagination={{ pageSize: 20 }}
+              size="small"
+            />
+          ))}
+      </Card>
     </div>
   )
 }

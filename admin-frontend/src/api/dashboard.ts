@@ -15,6 +15,9 @@ export interface MetricStatus {
 
 export interface DashboardSummary {
   dau: number
+  wau: number
+  mau: number
+  stickiness_dau_mau: number | null
   new_users_today: number
   new_users_7d: number
   listings_today: number

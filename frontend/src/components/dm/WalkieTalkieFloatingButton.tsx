@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
-import { VoiceQueue, type WalkiePresence } from '@d-modules/walkie-talkie';
+import type { WalkiePresence } from '@d-modules/walkie-talkie';
 import { createWalkieTransport, walkieApi } from '@/lib/walkieSdk';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
@@ -17,8 +17,7 @@ import { playSound } from '@/lib/sound';
 import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
 import styles from './WalkieTalkieFloatingButton.module.css';
 
-// 'playing' — 수신 음성메시지 재생중(202608 개편). 재생 완료까지는 송신(녹음 시작)을 잠근다(PTT 에티켓).
-type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading' | 'playing';
+type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading';
 
 const BUBBLE_SIZE = 56;
 const MARGIN = 12;
@@ -54,8 +53,6 @@ export function WalkieTalkieFloatingButton() {
   const [level, setLevel] = useState(0);
   const [presence, setPresence] = useState<WalkiePresence | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
-  // 수신 음성메시지 큐(202608 개편) — 워키토키처럼 채팅 버블이 아니라 이 캡슐에서만 재생한다.
-  const [queue, setQueue] = useState<{ id: string; audioUrl: string }[]>([]);
   const [pos, setPos] = useState(() => ({
     x: Math.max(window.innerWidth - BUBBLE_SIZE - MARGIN, 0),
     y: Math.round(window.innerHeight * 0.55),
@@ -90,7 +87,6 @@ export function WalkieTalkieFloatingButton() {
   const conversationMetaRef = useRef<WalkieTalkieConversationMeta | null>(null);
   // 캡슐 모핑(펼침/접힘) 시 직전 너비 대비 변화량을 구해 확장을 중앙 기준으로 유지하기 위한 ref.
   const prevWidthRef = useRef<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   /** 참석 현황 재조회 — SSE presence/speaking 이벤트가 오면 호출한다(하트비트를 기다리지 않는다). */
   const presenceRefreshRef = useRef<(() => void) | null>(null);
   // 전송엔 성공했지만 clearPendingRecording 이 실패한 항목의 id. bubbleActive 가 다시 켜져
@@ -123,7 +119,7 @@ export function WalkieTalkieFloatingButton() {
   // RO 콜백 전달보다 늦을 수 있어, 녹음 레이아웃의 RO 콜백이 아직 false 를 보고 좁아진 너비를
   // 기준값으로 덮어써 버린다(수정이 간헐적으로 무력화). useLayoutEffect 로 순서를 확정한다.
   useLayoutEffect(() => {
-    widthCaptureOkRef.current = (phase === 'idle' || phase === 'playing') && !menuOpen;
+    widthCaptureOkRef.current = phase === 'idle' && !menuOpen;
   }, [phase, menuOpen]);
 
   // 녹음 상태 이벤트 구독 — 경과시간·레벨미터 + 60초 자동중지(D-4) 감지.
@@ -167,9 +163,6 @@ export function WalkieTalkieFloatingButton() {
   }, [capability?.record, notifyRecordingStop]);
 
   // 캡슐이 실제로 화면에 렌더되는 조건 (아래 early return 들과 동일 집합 — 함께 고쳐야 한다).
-  // 렌더되지 않으면 <audio> 도 없어(audioRef.current === null) 재생 이펙트가 곧바로 phase 를
-  // idle 로 되돌리고, 큐가 차 있으면 idle→playing→idle 무한루프가 된다. 그래서 수신 폴링과
-  // 자동재생은 렌더 조건과 같은 게이트를 쓴다.
   const bubbleActive =
     !!conversationId &&
     !!capability?.available &&
@@ -257,77 +250,25 @@ export function WalkieTalkieFloatingButton() {
 
 
   // ── 수신 (WalkieTalkie SDK) ──────────────────────────────────────────────
-  // 큐·커서·중복 규칙은 SDK 의 VoiceQueue 가 단일 지점으로 갖는다. 규칙이 소비처마다 흩어져
-  // 있던 탓에 같은 사고가 두 번 났다(채널 진입 시 과거 음성 전량 재생 / 닫았다 열면 백로그 재생).
-  // 이제 그 규칙은 모듈에서 회귀 테스트로 고정돼 있고, 이 컴포넌트는 UI 만 담당한다.
+  // 202608 재개편(대표 지시): 수신 음성메시지의 큐잉·자동재생은 더 이상 이 캡슐의 일이 아니다
+  // — DmDetail 채팅 버블이 영구 렌더 + 재생을 담당한다(VoiceQueue 는 그쪽에서 쓰지 않는다,
+  // "본인이 보낸 것도 보여야 한다"는 요구가 VoiceQueue 의 "본인 발신 제외" 규칙과 맞지 않는다).
+  // 이 트랜스포트는 참석·발화(presence/speaking) SSE 이벤트를 즉시 반영하기 위해서만 남긴다 —
+  // 커서를 항상 null 로 두면 서버 계약("after 없으면 빈 목록")에 따라 음성 데이터는 오지 않는다.
   const myUserId = session?.userId ?? user?.id ?? '';
-  const queueRef = useRef<VoiceQueue | null>(null);
 
   useEffect(() => {
-    if (!conversationId || !bubbleActive) {
-      queueRef.current?.reset();
-      queueRef.current = null;
-      setQueue([]);
-      return;
-    }
-    const voiceQueue = new VoiceQueue({ selfRef: myUserId });
-    queueRef.current = voiceQueue;
-    setQueue([]);
-
+    if (!conversationId || !bubbleActive) return;
     const transport = createWalkieTransport({
-      getCursor: () => voiceQueue.cursor,
-      // 참석·발화 이벤트가 오면 현황을 즉시 다시 읽는다 — 하트비트(15초)를 기다리지 않는다.
+      getCursor: () => null,
+      onPage: () => {},
       onPresenceChanged: () => presenceRefreshRef.current?.(),
-      onPage: (page) => {
-        // ingest 가 먼저다 — 직전 커서를 기준으로 걸러낸 뒤, 서버가 정한 커서를 최종 채택한다.
-        const added = voiceQueue.ingest(page.items);
-        voiceQueue.setCursor(page.cursor);
-        if (added.length > 0) {
-          setQueue((prev) => [...prev, ...added.map((m) => ({ id: m.id, audioUrl: m.audioUrl as string }))]);
-        }
-      },
     });
     transport.start(conversationId);
-
     return () => {
       transport.stop();
     };
-  }, [conversationId, bubbleActive, myUserId]);
-
-  // 큐가 있고 유휴 상태면 자동 재생 시작. 재생 중 항목(queue[0])이 바뀔 때만 실제로 오디오를
-  // 다시 로드한다 — queue 배열 전체를 deps 로 두면 재생 도중 새 메시지가 뒤에 추가되기만 해도
-  // 배열 참조가 바뀌어 재생 중이던 오디오가 처음부터 다시 시작돼버린다.
-  const currentPlayId = queue[0]?.id ?? null;
-  useEffect(() => {
-    if (bubbleActive && phase === 'idle' && queue.length > 0) setPhase('playing');
-  }, [bubbleActive, phase, queue.length]);
-
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const item = queue[0];
-    const audio = audioRef.current;
-    if (!item || !audio) {
-      setPhase('idle');
-      return;
-    }
-    audio.src = item.audioUrl;
-    audio.play().catch(() => {
-      // 자동재생 실패 — 잠금을 계속 걸어두면 영영 못 듣게 되니, 해당 항목만 건너뛰고 잠금을 푼다.
-      setQueue((prev) => prev.slice(1));
-      setPhase('idle');
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentPlayId]);
-
-  // 재생 완료 신고 — 모듈이 **수신자별로** 기록하고, 모든 수신자가 들었을 때만 파일을 지운다.
-  // (구 경로는 direct 대화에서만 기록해 그룹방 음성이 영영 만료되지 않았다.)
-  const handlePlaybackEnded = useCallback(() => {
-    const item = queueRef.current?.shift() ?? null;
-    setQueue((prev) => prev.slice(1));
-    if (item) walkieApi.markPlayed(item.id).catch(() => {});
-    // 큐에 남은 항목이 있으면 위 idle→playing 이펙트가 자동으로 다음 항목 재생을 이어간다.
-    setPhase('idle');
-  }, []);
+  }, [conversationId, bubbleActive]);
 
   // ── 채널 참여 상태 위젯 (Android ongoing 알림 / iOS Live Activity) ─────────
   // 상태 표시(채널명·참석수·발화중) 전용 — 위젯 안 녹음/재생은 플랫폼이 금지라 탭 딥링크만
@@ -376,13 +317,10 @@ export function WalkieTalkieFloatingButton() {
   // 자동 접힘은 없다(대표 지시 2026-08-27) — 접는 건 더블탭 토글뿐이다.
   const speakingOtherId = presence?.speaking.find((ref) => ref !== myUserId) ?? null;
   const attentionPing = useWalkieTalkieBubbleStore((s) => s.attentionPing);
-  const isPlayingPhase = phase === 'playing';
   useEffect(() => {
     if (!conversationId) return;
     setPeek(true);
-    // isPlayingPhase 도 트리거에 포함 — 재생 시작 시(그리고 종료 시 재수신 대비) 채널명 대신
-    // "재생중" 상태를 보여준다.
-  }, [conversationId, speakingOtherId, attentionPing, isPlayingPhase]);
+  }, [conversationId, speakingOtherId, attentionPing]);
 
   // 캡슐 크기가 모핑될 때(펼침/접힘) 직전 가로 중심을 유지하며 확장되게 하고, 화면 밖으로
   // 밀려날 때만 반대쪽으로 밀어 넣는다.
@@ -505,14 +443,6 @@ export function WalkieTalkieFloatingButton() {
   const handleTap = useCallback(async () => {
     if (phase === 'uploading') return;
 
-    // 의도된 불편함(대표 지시) — 받은 음성메시지를 다 듣기 전엔 송신을 시작할 수 없다. 실제 PTT
-    // 에티켓처럼, 듣는 중엔 말을 얹지 않는다. 이미 녹음 중인 걸 멈춰서 보내는 동작(아래 'recording'/
-    // 'autoStopped' 분기)은 이 잠금과 무관하게 그대로 허용한다 — 잠기는 건 "새로 시작"뿐이다.
-    if (phase === 'playing' || ((phase === 'idle' || phase === 'permissionDenied') && queue.length > 0)) {
-      toast.info(t('walkieTalkie.lockedTransmitToast', { defaultValue: '받은 음성메시지를 먼저 들어야 말할 수 있어요' }));
-      return;
-    }
-
     if (phase === 'idle' || phase === 'permissionDenied') {
       if (!hasWalkieTalkieConsent()) {
         setConsentOpen(true);
@@ -536,7 +466,7 @@ export function WalkieTalkieFloatingButton() {
     if (phase === 'autoStopped' && pendingResultRef.current) {
       await finishAndSend(pendingResultRef.current);
     }
-  }, [phase, queue.length, startFlow, finishAndSend, notifyRecordingStop, resetToIdle, t]);
+  }, [phase, startFlow, finishAndSend, notifyRecordingStop, resetToIdle, t]);
 
   const handleConsentAgree = useCallback(() => {
     setConsentOpen(false);
@@ -714,9 +644,7 @@ export function WalkieTalkieFloatingButton() {
     : null;
   const statusText = phase === 'recording' || phase === 'autoStopped'
     ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
-    : phase === 'playing'
-      ? t('walkieTalkie.statusPlaying', { defaultValue: '재생중' })
-      : t('walkieTalkie.statusIdle', { defaultValue: '수신대기' });
+    : t('walkieTalkie.statusIdle', { defaultValue: '수신대기' });
   const isRec = phase === 'recording' || phase === 'autoStopped';
 
   return (
@@ -856,10 +784,6 @@ export function WalkieTalkieFloatingButton() {
             {phase === 'idle' && !peek && presence && presence.members.length > 0 && (
               <span className={styles.count}>{presence.present.length}/{presence.members.length}</span>
             )}
-            {/* 재생 대기 큐가 2개 이상이면(연속 수신) 남은 개수를 배지로 노출 — 참석 카운트와 같은 패턴 재사용 */}
-            {phase === 'playing' && queue.length > 1 && (
-              <span className={styles.count}>{queue.length}</span>
-            )}
           </div>
         )}
 
@@ -890,9 +814,6 @@ export function WalkieTalkieFloatingButton() {
           </div>
         </div>
       </div>
-
-      {/* 수신 음성메시지 재생 전용 — 화면에 보이지 않는다. src 는 재생 이펙트가 큐 head 로 갱신한다. */}
-      <audio ref={audioRef} onEnded={handlePlaybackEnded} />
 
       <WalkieTalkieConsentModal
         open={consentOpen}

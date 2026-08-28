@@ -1,0 +1,74 @@
+.bubble {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  gap: 4px;
+}
+
+.mine {
+  align-self: flex-end;
+  background: var(--brand-500);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.theirs {
+  align-self: flex-start;
+  background: var(--surface);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.playBtn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mine .playBtn {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.theirs .playBtn {
+  background: var(--line);
+}
+
+.playBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.scrub {
+  flex: 1;
+  accent-color: currentColor;
+  height: 3px;
+}
+
+.duration {
+  font-size: 12px;
+  opacity: 0.85;
+  min-width: 30px;
+  text-align: right;
+}
+
+.meta {
+  font-size: 11px;
+  opacity: 0.6;
+  text-align: right;
+}

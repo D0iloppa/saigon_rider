@@ -235,7 +235,10 @@ def build_walkie(engine: AsyncEngine, contents_base_path: Path):
     return WalkieTalkie(
         # db_url 은 넘기지만 실제로는 engine 이 우선한다 — 호스트 커넥션 풀을 그대로 공유해
         # 풀이 둘로 갈라지지 않게 한다.
-        config=WalkieConfig(db_url="", delete_blob_after_play=True),
+        # 202608 개편(대표 지시): 음성메시지가 DmDetail 채팅 이력에 영구 버블로 남는 것으로
+        # 바뀌면서 "전원 재생 시 즉시삭제" 정책을 폐기한다 — 언제든 재생 가능해야 하므로.
+        # 24시간 TTL(voice_message_ttl_sec, 기본값 유지)이 스토리지 관리를 대신한다.
+        config=WalkieConfig(db_url="", delete_blob_after_play=False),
         engine=engine,
         membership=DmMembership(session_factory),
         identity=UserIdentity(session_factory),

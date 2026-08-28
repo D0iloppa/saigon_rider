@@ -51,6 +51,9 @@ import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 import { joinWalkieChannel } from '@/lib/walkieTalkieJoin';
+import { walkieApi } from '@/lib/walkieSdk';
+import type { VoiceItem } from '@d-modules/walkie-talkie';
+import { VoiceMessageBubble } from '@/components/dm/VoiceMessageBubble';
 import { loadSession } from '@/lib/session';
 import { formatRelativeTime } from '@/lib/format';
 import { playSound } from '@/lib/sound';
@@ -89,9 +92,9 @@ export default function DmDetail() {
   const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
   const location = useLocation();
   const locationState = location.state as { conv?: DmConversation } | null;
-  // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 음성메시지가 더 이상 채팅 버블로
-  // 렌더링되지 않으므로(워키토키 개편, 202608) 여기서 직접 자동재생하지 않는다. 대신 이 대화방을
-  // 워키토키 플로팅 버튼의 대상으로 활성화해, 그 버튼의 폴링이 이 메시지를 큐에 담아 재생하게 한다.
+  // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 음성메시지는 이제 채팅
+  // 이력에 영구 버블로 렌더되므로(202608 재개편) 여기서 자동재생을 강제하지 않는다. 대신
+  // 이 대화방을 워키토키 캡슐의 대상으로 활성화해, 알림을 탭한 김에 바로 PTT 로 답할 수 있게 한다.
   const voiceDeepLink = new URLSearchParams(location.search).get('voice') === '1';
   const user = useUserStore((s) => s.user);
   const refreshUnread = useDmStore((s) => s.refreshUnread);
@@ -102,6 +105,11 @@ export default function DmDetail() {
   // 안 그러면 로컬 전송/공감/수정마다 5초 타이머가 리셋돼 상대방 신규 메시지 수신이 계속 미뤄진다.
   const messagesRef = useRef(messages);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+  // 음성메시지(WalkieTalkie 모듈, wt_messages) — 202608 개편(대표 지시): 워키토키 캡슐에서
+  // 자동재생 후 사라지던 것을 그만두고, 일반 메시지처럼 이 채팅 이력에 영구 렌더한다.
+  // 저장소가 dm_messages 와 분리돼 있어(별도 모듈) 별도로 폴링해 화면에서 시간순으로만 합친다.
+  const [voiceItems, setVoiceItems] = useState<VoiceItem[]>([]);
+  const voiceCursorRef = useRef<string | null>(null);
   const [conv, setConv] = useState<DmConversation | null>(locationState?.conv ?? null);
   const [sending, setSending] = useState(false);
   // 초기 메시지 로드 상태 — 실패를 "대화 없음"과 구분하기 위해 별도 관리 (P1-6)
@@ -232,8 +240,8 @@ export default function DmDetail() {
   const walkieActiveConversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
 
   // B-4: 음성메시지 알림 딥링크(?voice=1) 진입은 위 3가지와 별개인 4번째 명시적 액션이다 — 사용자가
-  // 알림을 탭한 것 자체가 "이 채널을 듣겠다"는 의사표시. 이 대화방을 워키토키 대상으로 활성화해야
-  // 플로팅 버튼의 폴링이 도착한 음성메시지를 큐에 담아 재생한다.
+  // 알림을 탭한 것 자체가 "이 채널에 참여하겠다"는 의사표시. 음성메시지 자체는 이미 채팅 이력
+  // 폴링(voiceItems)으로 영구 버블에 렌더되므로, 여기선 PTT 답장을 위해 캡슐만 활성화한다.
   useEffect(() => {
     if (!voiceDeepLink || !conversationId) return;
     if (walkieActiveConversationId === conversationId) return;
@@ -272,6 +280,46 @@ export default function DmDetail() {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [conversationId]); // messagesRef 로 최신값 참조 — interval 재시작 불필요 // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 음성메시지 이력 로드 + 폴링 — dm_messages 폴링과 같은 5초 주기·커서 패턴이지만, 저장소가
+  // 별도 모듈(wt_messages)이라 별도 조회로 두고 렌더 시점에만 시간순으로 합친다(아래 feed).
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+    voiceCursorRef.current = null;
+    setVoiceItems([]);
+    const load = async (after: string | null) => {
+      try {
+        const page = await walkieApi.messages(conversationId, after);
+        if (cancelled) return;
+        voiceCursorRef.current = page.cursor;
+        if (page.items.length > 0) {
+          setVoiceItems((prev) => {
+            const map = new Map(prev.map((i) => [i.id, i]));
+            for (const it of page.items) map.set(it.id, it);
+            return [...map.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          });
+        }
+      } catch {
+        // 순단 무시 — 다음 tick 에 재시도 (텍스트 메시지 폴링과 동일 패턴)
+      }
+    };
+    void load(null);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') void load(voiceCursorRef.current);
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [conversationId]);
+
+  // dm 텍스트 메시지 + 음성메시지(별도 저장소)를 시간순으로 합친 렌더 전용 피드.
+  const feed = useMemo(() => {
+    const dmRows = messages.map((m) => ({ kind: 'dm' as const, item: m, createdAt: m.createdAt }));
+    const voiceRows = voiceItems.map((v) => ({ kind: 'voice' as const, item: v, createdAt: v.createdAt }));
+    return [...dmRows, ...voiceRows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }, [messages, voiceItems]);
 
   // 바닥 고정 여부 — 사용자가 위로 스크롤해 과거를 보는 중이면 false (자동 스크롤 중단)
   const pinnedRef = useRef(true);
@@ -312,7 +360,7 @@ export default function DmDetail() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [messages]);
+  }, [messages, voiceItems]);
 
   // 키보드(iOS 오버레이)가 뜨면 컴포저 스페이서가 메시지 영역을 줄인다 —
   // 최근 메시지가 가려지지 않게 리스트를 바닥으로 부드럽게 재스크롤 (스페이서 렌더 반영 후).
@@ -809,9 +857,23 @@ export default function DmDetail() {
               onAction={loadMessages}
             />
           </div>
-        ) : messages.length === 0 ? (
+        ) : feed.length === 0 ? (
           <StateBlock icon={MailOpen} title={t('dm.emptyThread', { defaultValue: 'Chưa có tin nhắn nào. Hãy bắt đầu trò chuyện!' })} />
-        ) : messages.map((m) => {
+        ) : feed.map((row) => {
+          if (row.kind === 'voice') {
+            const v = row.item;
+            return (
+              <VoiceMessageBubble
+                key={`wt:${v.id}`}
+                audioUrl={v.audioUrl}
+                durationMs={v.durationMs}
+                isMine={v.senderRef === myId}
+                timeLabel={formatRelativeTime(v.createdAt)}
+                onFirstPlay={() => { walkieApi.markPlayed(v.id).catch(() => {}); }}
+              />
+            );
+          }
+          const m = row.item;
           const isMine = m.senderId === myId;
           if (m.messageType === 'appointment') {
             const appt = m.appointment;

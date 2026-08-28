@@ -234,7 +234,12 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
         }
       }
       // Android/웹: 로컬 서버가 https 로 서빙하므로 기존 경로가 정상 동작한다.
-      return await fetch(Capacitor.convertFileSrc(result.filePath)).then((r) => r.blob());
+      const raw = await fetch(Capacitor.convertFileSrc(result.filePath)).then((r) => r.blob());
+      // **타입은 네이티브가 보고한 값으로 덮어쓴다.** fetch 로 받은 Blob 의 type 은 로컬서버가
+      // 확장자로 추정한 값인데, Android MimeTypeMap 은 .m4a 를 audio/mpeg 로 매핑한다 —
+      // 그대로 업로드하면 서버가 415(unsupported_media: audio/mpeg)로 거절한다.
+      // 녹음 포맷을 아는 쪽은 녹음한 네이티브다.
+      return raw.type === result.mimeType ? raw : new Blob([raw], { type: result.mimeType });
     },
 
     async cancelRecording() {

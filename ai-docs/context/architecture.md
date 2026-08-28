@@ -591,7 +591,7 @@ mypy>=1.10
 
 | 모듈 | 저장소 | 상태 |
 |---|---|---|
-| `d_modules/WalkieTalkie` | github.com/D0iloppa/WalkieTalkie | 서버·클라이언트 통합 완료(앱이 실사용 중), 네이티브 이관·구경로 제거 남음 |
+| `d_modules/WalkieTalkie` | github.com/D0iloppa/WalkieTalkie | 서버·클라이언트·Android 네이티브 통합 완료(앱이 실사용 중), iOS 네이티브 이관·구경로 제거 남음 |
 
 ### 모듈이 지켜야 하는 경계
 
@@ -617,6 +617,13 @@ mypy>=1.10
 - 앱은 `@d-modules/walkie-talkie` 를 `file:` 의존성으로 임포트한다. 어댑터는 `frontend/src/lib/walkieSdk.ts` (세션 헤더를 붙인 fetch 를 넘기는 것이 전부 — SDK 는 인증 방식을 모른다).
 - **프론트 이미지 빌드 컨텍스트가 레포 루트인 이유가 이것이다.** SDK 가 `frontend/` 밖이라 컨텍스트를 `./frontend` 로 두면 `file:` 의존성이 컨테이너 안에서 해결되지 않는다(로컬 `tsc` 는 통과하고 도커 빌드만 실패해 원인이 가려진다). 전송량은 루트 `.dockerignore` 가 막는다.
 - SDK 는 **컨테이너 안에서 빌드**한다 — 로컬 `dist` 를 복사하면 개발자의 빌드 상태에 이미지 결과가 좌우된다.
+
+### 네이티브 배선 (2026-08-28 ⑤단계, Android)
+
+- 모듈에 들어간 것: `WalkieTalkiePlugin`, `WalkieTalkieRecordingService` (패키지 `me.doil.walkietalkie`). 결합도를 실측해 갈랐다 — 플러그인은 앱 리소스 참조 0, 서비스의 유일한 `R.*` 는 `android.R.drawable`(프레임워크 자원).
+- 앱에 남은 것: 오버레이 버블·홈 위젯·`VoicePlayReceiver`. 앱 리소스와 `MainActivity` 딥링크에 묶여 있어 모듈에 넣으면 재사용이 오히려 불가능해진다. 플러그인이 이들을 직접 부르던 것을 `WalkieTalkieHostHooks` 인터페이스로 끊고 `SaigonWalkieHooks` 가 구현한다(서버의 포트와 같은 원리). **훅 미등록 시 그 기능만 미지원이 되고 녹음·전송은 동작한다.**
+- 컴파일: `native/android/app/build.gradle` 이 모듈 소스를 `srcDirs` 로 참조한다(AAR 미사용 — 버전이 항상 일치하고 퍼블리시 없이 검증 가능). **`native/android` 를 단독 클론하면 빌드되지 않는다** — 모듈이 부모 레포에 있기 때문. Gradle 가드가 명확한 메시지로 즉시 실패한다.
+- iOS 는 미이관. 파일 이동에 `project.pbxproj` 4곳 수정이 필요해(`native/ios/README` §4) 대기 중인 iOS 재빌드를 막을 위험이 있다.
 
 > 음성 **송수신·재생완료**는 모듈 경로로 전환됐다. 구 경로(`dm_messages.message_type='voice'`)의 백엔드 코드는 아직 남아 있고, 제거·데이터 이행은 후속 단계(⑥).
 

@@ -625,6 +625,22 @@ mypy>=1.10
 - 컴파일: `native/android/app/build.gradle` 이 모듈 소스를 `srcDirs` 로 참조한다(AAR 미사용 — 버전이 항상 일치하고 퍼블리시 없이 검증 가능). **`native/android` 를 단독 클론하면 빌드되지 않는다** — 모듈이 부모 레포에 있기 때문. Gradle 가드가 명확한 메시지로 즉시 실패한다.
 - iOS 는 미이관. 파일 이동에 `project.pbxproj` 4곳 수정이 필요해(`native/ios/README` §4) 대기 중인 iOS 재빌드를 막을 위험이 있다.
 
+### 이벤트 스트림 (SSE, 2026-08-28 ⑥단계)
+
+- `GET /api/bff/walkie/channels/{ref}/events` — **이벤트는 알림일 뿐 내용을 싣지 않는다**(`voice`/`presence`/`speaking` 이름만). 실제 데이터는 언제나 커서 기반 HTTP 조회로 가져간다. 그래야 스트림이 끊겼다 붙어도 유실·중복 판정이 한 곳(HTTP)에만 남고, 폴백으로 내려가도 동작이 달라지지 않는다.
+- **폴백 3층**: ① 연결 실패·끊김 → 폴링 전환 + 지터 백오프 재시도 ② 서버 용량 게이트(`sse_max_connections` 초과 시 503) ③ 원격 킬스위치(`sse_enabled=false` → 503). 어느 쪽이든 클라이언트 대응은 "폴링으로 내려간다"로 같다.
+- SSE 가 살아있어도 폴링은 **멈추지 않고 60초로 늦춰진다** — 프록시가 연결만 유지한 채 이벤트를 흘리지 않는 "조용한 죽음" 대비.
+- **클라이언트는 내장 `EventSource` 를 쓰지 않는다.** 커스텀 헤더를 붙일 수 없어 세션 토큰을 쿼리스트링에 실어야 하고, 그러면 프록시·서버 접근로그에 토큰이 남는다. `fetch` 스트리밍 리더를 직접 구현했다(모듈 `client/src/transport/eventStream.ts`).
+- **⚠️ 워커를 2개 이상으로 늘리면** 모듈의 기본 브로드캐스터(프로세스 내 pub/sub)로는 인스턴스 간 전달이 되지 않는다. Redis 등으로 `BroadcastPort` 를 구현해 주입해야 한다(스택에 redis 는 이미 있다). 그 전까지는 클라 폴링 폴백이 정합성을 보장하므로 최악의 경우도 "느려질 뿐 틀리지 않는다".
+
+**nginx 전용 location** (`nginx/conf.d/default.conf`, `location ~ ^/api/bff/walkie/channels/[^/]+/events$`) — 일반 `/api/bff/` 규칙과 요구가 정반대라 분리했다. 정규식 location 이라 prefix 보다 우선 매치된다.
+
+| 설정 | 이유 |
+|---|---|
+| `proxy_buffering off` | 켜져 있으면 이벤트가 버퍼에 모였다가 한꺼번에 나가 실시간성이 사라진다 |
+| `proxy_read_timeout 1h` | 스트림은 유휴가 정상. 기본 60s 면 조용한 채널이 1분마다 끊긴다 |
+| `limit_req` 제외 | 연결이 오래 유지되는 요청이라 초당 요청 제한의 대상이 아니다 |
+
 > 음성 **송수신·재생완료**는 모듈 경로로 전환됐다. 구 경로(`dm_messages.message_type='voice'`)의 백엔드 코드는 아직 남아 있고, 제거·데이터 이행은 후속 단계(⑥).
 
 ---

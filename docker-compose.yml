@@ -43,8 +43,11 @@ services:
   # ── Frontend (React + Vite → nginx 정적 서빙) ────────────
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      # 컨텍스트가 레포 루트인 이유: 워키토키 SDK(d_modules/WalkieTalkie/packages/client)가
+      # frontend/ 밖에 있어 컨텍스트를 frontend 로 두면 file: 의존성이 해결되지 않는다.
+      # 전송량은 루트 .dockerignore 가 막는다(contents/·routing_data/ 등 1GB+ 제외).
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: saigon_frontend
     ports:
       - "${FRONTEND_PORT}:80"

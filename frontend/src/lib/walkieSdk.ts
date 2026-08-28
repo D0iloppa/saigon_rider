@@ -42,6 +42,6 @@ export function createWalkieTransport(args: {
     getCursor: args.getCursor,
     onPage: args.onPage,
     isVisible: () => document.visibilityState === 'visible',
-    onError: (err) => console.warn('[walkie] inbox poll failed', err),
+    onError: (err: unknown) => console.warn('[walkie] inbox poll failed', err),
   });
 }

@@ -1,0 +1,17 @@
+# 루트 빌드 컨텍스트(frontend)용. 다른 서비스는 각자 디렉터리를 컨텍스트로 쓰므로 영향 없다.
+# 이 파일이 없으면 contents/·routing_data/ 등 1GB 이상이 매 빌드마다 도커로 전송된다.
+**/node_modules
+**/dist
+**/.vite
+**/*.log
+.git
+contents
+routing_data
+backups
+_tmp
+_secrets
+_store_assets
+landing_bak
+native
+database/data
+wiki/static

@@ -7,10 +7,9 @@ from sqlalchemy import select
 from app.database import AsyncSession
 from app.deps import get_session, verify_service_key
 from app.exceptions import DuplicateEventError
-from app.models import ActionEvent
+from app.models import ActionEvent, SreUser
 from app.schemas import ActionEventRead, EventCreate, EventResult
 from app.services import event_bus
-from app.services.xp_ledger import get_or_create_user
 
 router = APIRouter(prefix="/v1/events", tags=["events"])
 
@@ -41,7 +40,10 @@ async def list_user_action_events(
     idx_event_user_occurred(user_id, occurred_at) 인덱스로 커버되므로 기간 미지정 시에도
     limit 만으로 스캔 범위가 제한된다.
     """
-    user = await get_or_create_user(db, user_uuid)
+    result = await db.execute(select(SreUser).where(SreUser.external_user_uuid == user_uuid))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return []
     query = select(ActionEvent).where(ActionEvent.user_id == user.user_id)
     if from_dt:
         query = query.where(ActionEvent.occurred_at >= from_dt)

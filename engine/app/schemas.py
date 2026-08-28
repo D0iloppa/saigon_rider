@@ -94,6 +94,24 @@ class ExpirationItemRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── 행동 이벤트 (어드민 조회용) ────────────────────────────────
+
+
+class ActionEventRead(BaseModel):
+    event_id: int
+    user_id: int
+    action_code: str
+    occurred_at: datetime
+    payload: Optional[dict[str, Any]] = None
+    calculated_xp: float
+    applied_multiplier: float
+    process_status: EventStatusEnum
+    reject_reason_code: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── 미션 ────────────────────────────────────────────────────
 
 

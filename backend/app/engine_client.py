@@ -133,6 +133,33 @@ class EngineClient:
         resp.raise_for_status()
         return resp.json()
 
+    # ── 행동 이벤트 (어드민 조회) ──────────────────────────────
+
+    async def get_user_action_events(
+        self,
+        user_uuid: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        params: dict = {"limit": limit}
+        if since:
+            params["from"] = since
+        if until:
+            params["to"] = until
+        resp = await self._client.get(f"/v1/events/{user_uuid}", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+    async def admin_action_events_aggregate(self, *, since: str, until: str) -> list[dict]:
+        resp = await self._client.get(
+            "/v1/admin/ops/action-events-aggregate",
+            params={"from": since, "to": until},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_mileage(self, user_uuid: str, since: str | None = None) -> dict:
         params = {"since": since} if since else None
         resp = await self._client.get(f"/v1/users/{user_uuid}/mileage", params=params)

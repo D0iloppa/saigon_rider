@@ -568,6 +568,36 @@ async def admin_ops_channel_ratio(
     ]
 
 
+@router.get("/ops/action-events-aggregate", dependencies=[_svc])
+async def admin_ops_action_events_aggregate(
+    from_dt: datetime = Query(..., alias="from"),
+    to_dt: datetime = Query(..., alias="to"),
+    db: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """기간 내 action_code 별 발생 건수 (어드민 대시보드용).
+
+    idx_event_action_occurred(action_code, occurred_at) 로 커버되나, 전체 스캔을
+    막기 위해 기간(from/to) 을 필수로 받고 최대 90일로 제한한다.
+    """
+    if to_dt < from_dt:
+        raise HTTPException(status_code=400, detail="'to' must be >= 'from'")
+    if (to_dt - from_dt).days > 90:
+        raise HTTPException(status_code=400, detail="date range must be <= 90 days")
+
+    sql = sa_text("""
+        SELECT action_code, COUNT(*) AS event_count
+        FROM action_event
+        WHERE occurred_at >= :from_dt AND occurred_at <= :to_dt
+        GROUP BY action_code
+        ORDER BY event_count DESC
+    """)
+    result = await db.execute(sql, {"from_dt": from_dt, "to_dt": to_dt})
+    return [
+        {"action_code": row.action_code, "event_count": row.event_count}
+        for row in result.all()
+    ]
+
+
 @router.get("/ops/pity-distribution", dependencies=[_svc])
 async def admin_ops_pity_distribution(
     db: AsyncSession = Depends(get_session),

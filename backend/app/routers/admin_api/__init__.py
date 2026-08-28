@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from . import (
     accounts,
+    action_events,
     audit_logs,
     auth,
     badges,
@@ -70,3 +71,4 @@ router.include_router(stream.router)
 router.include_router(trades.router)
 router.include_router(funnel.router)
 router.include_router(liquidity.router)
+router.include_router(action_events.router)

@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Mic, Square, X } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
-import { VoiceQueue } from '@d-modules/walkie-talkie';
+import { VoiceQueue, type WalkiePresence } from '@d-modules/walkie-talkie';
 import { createWalkieTransport, walkieApi } from '@/lib/walkieSdk';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from './WalkieTalkieConsentModal';
-import { fetchConversationPresence, notifyRecordingPresence, sendMessage, type DmPresence } from '@/api/dm';
+import { sendMessage } from '@/api/dm';
 import type { DmConversation } from '@/api/types';
 import { loadSession } from '@/lib/session';
 import { useUserStore } from '@/store/useUserStore';
@@ -22,8 +22,9 @@ type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'upload
 
 const BUBBLE_SIZE = 56;
 const MARGIN = 12;
-// 참석/녹음중 정보는 실시간성이 중요하지 않다 — 기존 DM 5초 폴링보다 낮은 빈도로 서버 부하를 줄인다.
-const PRESENCE_POLL_MS = 18000;
+// 참석 하트비트 주기. 서버 TTL(45초)의 1/3 이하로 잡아, 한 번 놓쳐도 퇴장으로 오인되지 않는다.
+// (SSE 가 붙으면 참석 변화는 푸시로 오고 이 주기는 정합성 보정용으로만 남는다.)
+const PRESENCE_HEARTBEAT_MS = 15000;
 // 컨텍스트메뉴 "홈화면 고정" — Android 네이티브 위젯 고정(pinToHomeScreen, WalkieTalkieChannelWidgetProvider) 구현 완료.
 const PIN_TO_HOME_MENU_ENABLED = true;
 
@@ -51,7 +52,7 @@ export function WalkieTalkieFloatingButton() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
-  const [presence, setPresence] = useState<DmPresence | null>(null);
+  const [presence, setPresence] = useState<WalkiePresence | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   // 수신 음성메시지 큐(202608 개편) — 워키토키처럼 채팅 버블이 아니라 이 캡슐에서만 재생한다.
   const [queue, setQueue] = useState<{ id: string; audioUrl: string }[]>([]);
@@ -101,12 +102,11 @@ export function WalkieTalkieFloatingButton() {
     conversationMetaRef.current = conversationMeta;
   }, [conversationMeta]);
 
-  // 그룹 대화에서만 "녹음 중" 소프트 신호를 보낸다(1:1은 상대가 1명이라 의미 없음).
+  // "말하는 중" 신호는 **1:1에서도 보낸다**. 종전엔 그룹 전용이었는데("상대가 1명이라 의미 없음"),
+  // 상대가 한 명이든 여럿이든 "지금 말하고 있다"는 정보의 가치는 같다(대표 지시 2026-08-28).
   const notifyRecordingStop = useCallback(() => {
     const id = conversationIdRef.current;
-    if (id && conversationMetaRef.current?.isGroup) {
-      notifyRecordingPresence(id, 'stop').catch(() => {});
-    }
+    if (id) walkieApi.setSpeaking(id, false).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -160,26 +160,6 @@ export function WalkieTalkieFloatingButton() {
     };
   }, [capability?.record, notifyRecordingStop]);
 
-  // 채널정보 UX(A-7) — 참석 인원 + 소프트 녹음중 신호. 대화방이 바뀔 때마다 새로 폴링 시작.
-  useEffect(() => {
-    if (!conversationId) {
-      setPresence(null);
-      return;
-    }
-    let cancelled = false;
-    const tick = () => {
-      fetchConversationPresence(conversationId)
-        .then((p) => { if (!cancelled) setPresence(p); })
-        .catch(() => {});
-    };
-    tick();
-    const timer = window.setInterval(tick, PRESENCE_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [conversationId]);
-
   // 캡슐이 실제로 화면에 렌더되는 조건 (아래 early return 들과 동일 집합 — 함께 고쳐야 한다).
   // 렌더되지 않으면 <audio> 도 없어(audioRef.current === null) 재생 이펙트가 곧바로 phase 를
   // idle 로 되돌리고, 큐가 차 있으면 idle→playing→idle 무한루프가 된다. 그래서 수신 폴링과
@@ -190,6 +170,36 @@ export function WalkieTalkieFloatingButton() {
     !!capability.floatingButton &&
     !isWalkieTalkieOptedOut() &&
     !closed;
+
+  // 채널 참석 — **진입을 서버에 명시적으로 알리고** 머무는 동안 하트비트를 보낸다.
+  // 종전엔 앱의 "최근 접속"(User.last_seen_at) 을 참석 대용으로 썼는데, 그건 채널과 무관한
+  // 지표라 같은 채널에 둘이 있어도 참석으로 보이지 않았다(대표 지적 2026-08-28).
+  useEffect(() => {
+    if (!conversationId || !bubbleActive) {
+      setPresence(null);
+      return;
+    }
+    let cancelled = false;
+    const beat = () => {
+      if (cancelled) return;
+      walkieApi.join(conversationId).catch(() => {});
+      walkieApi
+        .presence(conversationId)
+        .then((p) => {
+          if (!cancelled) setPresence(p);
+        })
+        .catch(() => {});
+    };
+    beat();
+    const timer = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      // 퇴장을 즉시 알린다 — TTL 만 믿으면 상대 화면에 최대 45초간 유령 참석자가 남는다.
+      walkieApi.leave(conversationId).catch(() => {});
+    };
+  }, [conversationId, bubbleActive]);
+
 
   // ── 수신 (WalkieTalkie SDK) ──────────────────────────────────────────────
   // 큐·커서·중복 규칙은 SDK 의 VoiceQueue 가 단일 지점으로 갖는다. 규칙이 소비처마다 흩어져
@@ -270,7 +280,7 @@ export function WalkieTalkieFloatingButton() {
 
   // 다이나믹 아일랜드식 펼침(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 자동으로 펼친다.
   // 자동 접힘은 없다(대표 지시 2026-08-27) — 접는 건 더블탭 토글뿐이다.
-  const speakingOtherId = presence?.recordingUsers.find((u) => u.id !== user?.id)?.id ?? null;
+  const speakingOtherId = presence?.speaking.find((ref) => ref !== myUserId) ?? null;
   const attentionPing = useWalkieTalkieBubbleStore((s) => s.attentionPing);
   const isPlayingPhase = phase === 'playing';
   useEffect(() => {
@@ -387,9 +397,7 @@ export function WalkieTalkieFloatingButton() {
     try {
       await native.walkieTalkie.startRecording({ maxDurationSec: capability?.maxDurationSec ?? 60 });
       setPhase('recording');
-      if (conversationId && conversationMeta?.isGroup) {
-        notifyRecordingPresence(conversationId, 'start').catch(() => {});
-      }
+      if (conversationId) walkieApi.setSpeaking(conversationId, true).catch(() => {});
     } catch (err) {
       // 네이티브는 PERMISSION_DENIED / SERVICE_UNAVAILABLE / ALREADY_RECORDING / START_FAILED 를
       // 구분해 reject 하는데 종전엔 전부 같은 문구로 덮여 기기에서 원인을 알 수 없었다.
@@ -596,15 +604,19 @@ export function WalkieTalkieFloatingButton() {
 
   // 채널정보 UX(A-7) — 채널명 + (그룹이면) 참석 인원, 상태(수신대기/발신중), 다른 사람 녹음중 소프트 신호.
   const channelName = conversationMeta?.name ?? t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' });
-  const channelLabel = conversationMeta?.isGroup && presence
-    ? `${channelName} · ${presence.activeMembers}/${presence.totalMembers}`
+  // 참석 표기는 그룹뿐 아니라 1:1에서도 의미가 있다(상대가 들어와 있는지) — 채널 참석 기준으로 표시.
+  const channelLabel = presence && presence.members.length > 0
+    ? `${channelName} · ${presence.present.length}/${presence.members.length}`
     : channelName;
   // 채널명 좌측 참석 dot — 전원 참석이면 초록, 한 명이라도 빠졌으면(또는 참석정보 로딩 전이면) 회색.
   // 1:1 채널도 같은 규칙이다(상대가 들어와 있어야 초록).
   // totalMembers > 0 을 요구한다 — 참석정보가 비어 0/0 으로 오면(스키마 드리프트, 전원 퇴장)
   // ">=" 만으로는 빈 채널이 "전원 참석" 초록으로 빛난다.
-  const allPresent = !!presence && presence.totalMembers > 0 && presence.activeMembers >= presence.totalMembers;
-  const speakingOther = presence?.recordingUsers.find((u) => u.id !== user?.id) ?? null;
+  const allPresent = !!presence && presence.members.length > 0 && presence.present.length >= presence.members.length;
+  const speakingOtherRef = presence?.speaking.find((ref) => ref !== myUserId) ?? null;
+  const speakingOther = speakingOtherRef
+    ? { nickname: presence?.displayNames[speakingOtherRef] ?? '' }
+    : null;
   const statusText = phase === 'recording' || phase === 'autoStopped'
     ? t('walkieTalkie.statusRecording', { defaultValue: '발신중' })
     : phase === 'playing'
@@ -746,8 +758,8 @@ export function WalkieTalkieFloatingButton() {
             </span>
 
             {/* 그룹이면 compact 상태에서도 참석 카운트만 최소로 노출 */}
-            {phase === 'idle' && !peek && conversationMeta?.isGroup && presence && (
-              <span className={styles.count}>{presence.activeMembers}/{presence.totalMembers}</span>
+            {phase === 'idle' && !peek && presence && presence.members.length > 0 && (
+              <span className={styles.count}>{presence.present.length}/{presence.members.length}</span>
             )}
             {/* 재생 대기 큐가 2개 이상이면(연속 수신) 남은 개수를 배지로 노출 — 참석 카운트와 같은 패턴 재사용 */}
             {phase === 'playing' && queue.length > 1 && (

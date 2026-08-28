@@ -845,6 +845,7 @@
   },
   "noti": {
     "title": "Notifications",
+    "markAllRead": "Mark all as read",
     "empty": "No notifications yet",
     "emptyDesc": "We'll show new updates here",
     "loadMore": "Load more",

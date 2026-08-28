@@ -845,6 +845,7 @@
   },
   "noti": {
     "title": "알림",
+    "markAllRead": "전체읽음",
     "empty": "알림이 없어요",
     "emptyDesc": "새로운 소식이 오면 여기에 보여드릴게요",
     "loadMore": "더보기",

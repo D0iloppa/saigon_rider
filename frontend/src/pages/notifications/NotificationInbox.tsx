@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Bell, MessageCircle } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchNotifications, markNotificationRead, type NotificationDto } from '@/api/notifications';
+import { fetchNotifications, markAllNotificationsRead, markNotificationRead, type NotificationDto } from '@/api/notifications';
 import { TopBar } from '@/components/layout/TopBar';
 import { relativeTime } from '@/pages/market/marketFormat';
 import styles from './NotificationInbox.module.css';
@@ -22,6 +22,7 @@ export default function NotificationInbox() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reloadSeq, setReloadSeq] = useState(0);
+  const [markingAll, setMarkingAll] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -55,6 +56,16 @@ export default function NotificationInbox() {
     if (n.link) navigate(`/link?action=${n.link}`);
   }
 
+  const unreadCount = items.filter((n) => !n.is_read).length;
+
+  function handleMarkAllRead() {
+    if (!userId || markingAll || unreadCount === 0) return;
+    setMarkingAll(true);
+    markAllNotificationsRead(userId)
+      .then(() => setItems((prev) => prev.map((it) => ({ ...it, is_read: true }))))
+      .finally(() => setMarkingAll(false));
+  }
+
   return (
     <div className={styles.page}>
       {/* W2 §① 진입점 지도 3번째 배선(2026-08-17) — KEYWORD 알림을 받고 온 사용자가
@@ -63,14 +74,26 @@ export default function NotificationInbox() {
         title={t('noti.title')}
         onBack={() => navigate(-1)}
         rightContent={
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={() => navigate('/market/keyword-alerts')}
-            aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}
-          >
-            <Bell size={20} strokeWidth={2} />
-          </button>
+          <div className={styles.headerActions}>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                className={styles.markAllBtn}
+                onClick={handleMarkAllRead}
+                disabled={markingAll}
+              >
+                {t('noti.markAllRead')}
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => navigate('/market/keyword-alerts')}
+              aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}
+            >
+              <Bell size={20} strokeWidth={2} />
+            </button>
+          </div>
         }
       />
       <div className={styles.scroll}>

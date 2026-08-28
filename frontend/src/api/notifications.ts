@@ -37,6 +37,11 @@ export async function markNotificationRead(id: number): Promise<void> {
   await api.realFetch(`/notifications/${id}/read`, { method: 'PUT' });
 }
 
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  if (USE_MOCK) return;
+  await api.realFetch(`/notifications/read-all?user_id=${userId}`, { method: 'PUT' });
+}
+
 export interface NotificationSettingsDto {
   user_id: string;
   quest_recommend: boolean;

@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -62,7 +62,27 @@ async def list_notifications(
     )
 
 
-# N-4 — 읽음 처리는 개별(클릭=읽음)만 제공. read-all 은 현 UX(목록 클릭 이동)에 필요 근거가 없어 미구현 (Simplicity First).
+# N-4-1 — 전체읽음. 알림 inbox 스크롤/append UX 개선과 함께 도입 (2026-08-28).
+@router.put("/read-all", summary="알림 전체 읽음 처리")
+async def mark_all_notifications_read(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if user_id != session_uid:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.execute(
+        update(Notification)
+        .where(Notification.user_id == user_id, Notification.is_read.is_(False))
+        .values(is_read=True)
+    )
+    await db.commit()
+
+    return {"ok": True}
+
+
+# N-4
 @router.put("/{notification_id}/read", response_model=NotificationOut, summary="알림 개별 읽음 처리")
 async def mark_notification_read(
     notification_id: int,

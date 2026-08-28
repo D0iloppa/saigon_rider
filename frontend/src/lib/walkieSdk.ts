@@ -1,4 +1,4 @@
-import { createHttpApi, createPollingTransport, type InboxPage, type WalkieApiPort } from '@d-modules/walkie-talkie';
+import { createHttpApi, createHybridTransport, type InboxPage, type WalkieApiPort } from '@d-modules/walkie-talkie';
 import { loadSession } from '@/lib/session';
 
 /**
@@ -28,20 +28,26 @@ export const walkieApi: WalkieApiPort = createHttpApi({
 });
 
 /**
- * 수신 전송(폴링). SSE 가 붙으면 이 팩토리만 교체되고 소비처는 그대로다.
- * 백그라운드에서는 조회하지 않는다 — 그쪽 수신은 FCM 푸시가 담당한다.
+ * 수신 전송 — **SSE 우선, HTTP 폴링 폴백**.
  *
- * 커서는 전송이 아니라 큐가 소유한다 — `getCursor` 로 물어보고 `onPage` 로 돌려준다.
+ * 폴백은 3층이다: 연결 실패·끊김 시 클라이언트 자동 전환 / 서버 정원 초과(503) / 원격 킬스위치(503).
+ * 어느 경로든 정합성의 기준선은 커서 기반 HTTP 조회이므로, 폴백으로 내려가도 동작이 달라지지 않는다.
+ * 백그라운드에서는 조회하지 않는다 — 그쪽 수신은 FCM 푸시가 담당한다.
  */
 export function createWalkieTransport(args: {
   getCursor: () => string | null;
   onPage: (page: InboxPage) => void;
+  onPresenceChanged?: () => void;
 }) {
-  return createPollingTransport({
+  return createHybridTransport({
     api: walkieApi,
+    // 인증 헤더를 붙인 fetch 를 넘긴다 — EventSource 는 헤더를 못 실어 토큰이 URL 로 샌다.
+    fetchImpl: authedFetch,
+    sseUrl: (channelRef) => `${WALKIE_BASE_URL}/channels/${encodeURIComponent(channelRef)}/events`,
     getCursor: args.getCursor,
     onPage: args.onPage,
+    onPresenceChanged: args.onPresenceChanged,
     isVisible: () => document.visibilityState === 'visible',
-    onError: (err: unknown) => console.warn('[walkie] inbox poll failed', err),
+    onError: (err: unknown) => console.warn('[walkie] transport', err),
   });
 }

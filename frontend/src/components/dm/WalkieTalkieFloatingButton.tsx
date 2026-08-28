@@ -91,6 +91,8 @@ export function WalkieTalkieFloatingButton() {
   // 캡슐 모핑(펼침/접힘) 시 직전 너비 대비 변화량을 구해 확장을 중앙 기준으로 유지하기 위한 ref.
   const prevWidthRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  /** 참석 현황 재조회 — SSE presence/speaking 이벤트가 오면 호출한다(하트비트를 기다리지 않는다). */
+  const presenceRefreshRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -180,9 +182,7 @@ export function WalkieTalkieFloatingButton() {
       return;
     }
     let cancelled = false;
-    const beat = () => {
-      if (cancelled) return;
-      walkieApi.join(conversationId).catch(() => {});
+    const refresh = () => {
       walkieApi
         .presence(conversationId)
         .then((p) => {
@@ -190,10 +190,17 @@ export function WalkieTalkieFloatingButton() {
         })
         .catch(() => {});
     };
+    presenceRefreshRef.current = refresh;
+    const beat = () => {
+      if (cancelled) return;
+      walkieApi.join(conversationId).catch(() => {});
+      refresh();
+    };
     beat();
     const timer = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
     return () => {
       cancelled = true;
+      presenceRefreshRef.current = null;
       window.clearInterval(timer);
       // 퇴장을 즉시 알린다 — TTL 만 믿으면 상대 화면에 최대 45초간 유령 참석자가 남는다.
       walkieApi.leave(conversationId).catch(() => {});
@@ -221,6 +228,8 @@ export function WalkieTalkieFloatingButton() {
 
     const transport = createWalkieTransport({
       getCursor: () => voiceQueue.cursor,
+      // 참석·발화 이벤트가 오면 현황을 즉시 다시 읽는다 — 하트비트(15초)를 기다리지 않는다.
+      onPresenceChanged: () => presenceRefreshRef.current?.(),
       onPage: (page) => {
         // ingest 가 먼저다 — 직전 커서를 기준으로 걸러낸 뒤, 서버가 정한 커서를 최종 채택한다.
         const added = voiceQueue.ingest(page.items);

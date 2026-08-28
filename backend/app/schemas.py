@@ -1270,6 +1270,14 @@ class DmBanRequest(BaseModel):
     reason: str | None = None
 
 
+class DmMemberOut(BaseModel):
+    user_id: UUID
+    nickname: str | None = None
+    avatar_url: str | None = None
+    role: str
+    joined_at: datetime
+
+
 class DmBanOut(BaseModel):
     user_id: UUID
     nickname: str | None = None

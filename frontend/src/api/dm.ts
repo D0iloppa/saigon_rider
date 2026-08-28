@@ -413,3 +413,87 @@ export async function reportConversation(conversationId: string, reason: DmRepor
     { rethrow: true },
   );
 }
+
+// ── 그룹 운영 (2026-08-28) ─────────────────────────────────────────────────
+// 서버 규칙은 ai-docs/context/service-rules.md "그룹 대화방 권한" 참조.
+// 요약: 초대 자격은 초대자의 팔로잉(재초대는 면제), owner 만 admin 임명, 강퇴는 재초대로
+// 복귀 가능하지만 블랙리스트는 해제 전까지 초대·입장 모두 거부.
+
+export interface DmBan {
+  userId: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  bannedBy: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+/** 관리자 임명/해임 — 개설자(owner)만 호출할 수 있다. */
+export async function setMemberRole(
+  conversationId: string,
+  userId: string,
+  role: 'admin' | 'member',
+): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/members/${userId}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function fetchBans(conversationId: string): Promise<DmBan[]> {
+  const rows = await api.realFetch<any[]>(`/dm/conversations/${conversationId}/bans`);
+  return rows.map((b) => ({
+    userId: b.user_id,
+    nickname: b.nickname ?? null,
+    avatarUrl: b.avatar_url ?? null,
+    bannedBy: b.banned_by ?? null,
+    reason: b.reason ?? null,
+    createdAt: b.created_at,
+  }));
+}
+
+/** 블랙리스트 등록 — 활성 멤버면 함께 퇴장 처리된다(밴됐는데 방에 남아있는 상태 방지). */
+export async function banMember(conversationId: string, userId: string, reason?: string): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/bans`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, reason: reason ?? null }),
+  });
+}
+
+export async function unbanMember(conversationId: string, userId: string): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/bans/${userId}`, { method: 'DELETE' });
+}
+
+export interface DmMember {
+  userId: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  role: 'owner' | 'admin' | 'member';
+  joinedAt: string;
+}
+
+export async function fetchMembers(conversationId: string): Promise<DmMember[]> {
+  const rows = await api.realFetch<any[]>(`/dm/conversations/${conversationId}/members`);
+  return rows.map((m) => ({
+    userId: m.user_id,
+    nickname: m.nickname ?? null,
+    avatarUrl: m.avatar_url ?? null,
+    role: m.role,
+    joinedAt: m.joined_at,
+  }));
+}
+
+/** 방 제목·사진 변경. */
+export async function patchConversation(
+  conversationId: string,
+  body: { title?: string; photoContentId?: string },
+): Promise<DmConversation> {
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.photoContentId !== undefined ? { photo_content_id: body.photoContentId } : {}),
+    }),
+  });
+  return transformConversation(raw);
+}

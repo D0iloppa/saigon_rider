@@ -51,6 +51,7 @@ import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { formatPriceVnd } from '../market/marketFormat';
 import { DealLiveActions } from '@/components/dm/DealLiveActions';
+import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
 import styles from './DmDetail.module.css';
 
 export default function DmDetail() {
@@ -88,6 +89,7 @@ export default function DmDetail() {
   const [reportOpen, setReportOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [locationShareSheetOpen, setLocationShareSheetOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<MessageComposerHandle>(null);
@@ -473,14 +475,27 @@ export default function DmDetail() {
       <TopBar
         title={isDirect ? otherName : roomTitle}
         rightContent={
-          <button
-            className={styles.headerMoreBtn}
-            type="button"
-            onClick={() => setMoreSheetOpen(true)}
-            aria-label={t('dm.more', { defaultValue: '더보기' })}
-          >
-            <MoreVertical size={22} strokeWidth={2} />
-          </button>
+          <>
+            {/* 워키토키 승격(대표 지시 2026-08-28) — 1:1·그룹 공통. "채널 열기"가 아니라
+                "이 방의 채널에 참여"다. 종전엔 "..." 메뉴 안에 묻혀 있어 발견성이 낮았다. */}
+            <button
+              className={styles.headerMoreBtn}
+              type="button"
+              onClick={handleWalkieJoin}
+              aria-label={t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' })}
+              data-active={walkieActiveConversationId === conversationId || undefined}
+            >
+              <Radio size={21} strokeWidth={2} />
+            </button>
+            <button
+              className={styles.headerMoreBtn}
+              type="button"
+              onClick={() => setMoreSheetOpen(true)}
+              aria-label={t('dm.more', { defaultValue: '더보기' })}
+            >
+              <MoreVertical size={22} strokeWidth={2} />
+            </button>
+          </>
         }
       />
 
@@ -961,7 +976,8 @@ export default function DmDetail() {
         />
       )}
 
-      {/* 헤더 "..." 게이트 메뉴 (대표 지시 2026-08-27) — 신고/위치공유/워키토키 3개 옵션 */}
+      {/* 헤더 "..." 메뉴 (대표 지시 2026-08-28 재편) — 워키토키는 헤더 아이콘으로 승격했고,
+          위치공유는 그룹에선 의미가 없어 1:1 전용으로 내렸다. 그룹은 "설정"이 관리 진입점이다. */}
       <BottomSheet open={moreSheetOpen} onClose={() => setMoreSheetOpen(false)}>
         <div className={styles.reportSheet}>
           <button
@@ -971,24 +987,39 @@ export default function DmDetail() {
           >
             {t('dm.moreMenuReport', { defaultValue: '신고하기' })}
           </button>
-          <button
-            className={styles.reportItem}
-            type="button"
-            disabled={!currentAppointmentId}
-            aria-disabled={!currentAppointmentId}
-            onClick={() => { if (!currentAppointmentId) return; setMoreSheetOpen(false); setLocationShareSheetOpen(true); }}
-          >
-            {t('dm.moreMenuLocationShare', { defaultValue: '위치 공유하기' })}
-          </button>
-          <button
-            className={styles.reportItem}
-            type="button"
-            onClick={() => { handleWalkieJoin(); setMoreSheetOpen(false); }}
-          >
-            {t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' })}
-          </button>
+          {isDirect && (
+            <button
+              className={styles.reportItem}
+              type="button"
+              disabled={!currentAppointmentId}
+              aria-disabled={!currentAppointmentId}
+              onClick={() => { if (!currentAppointmentId) return; setMoreSheetOpen(false); setLocationShareSheetOpen(true); }}
+            >
+              {t('dm.moreMenuLocationShare', { defaultValue: '위치 공유하기' })}
+            </button>
+          )}
+          {!isDirect && (
+            <button
+              className={styles.reportItem}
+              type="button"
+              onClick={() => { setMoreSheetOpen(false); setSettingsOpen(true); }}
+            >
+              {t('dm.moreMenuSettings', { defaultValue: '설정' })}
+            </button>
+          )}
         </div>
       </BottomSheet>
+
+      {/* 그룹 설정 — 방 정보 수정 + 멤버·운영진·블랙리스트 관리 */}
+      {!isDirect && conversationId && (
+        <GroupSettingsSheet
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          conversationId={conversationId}
+          conv={conv}
+          onUpdated={(next: DmConversation) => setConv(next)}
+        />
+      )}
 
       {/* 위치공유 위젯 — 약속이 있을 때만(§7), 항상-보임이 아니라 이 메뉴로 열고 닫는다 */}
       <BottomSheet open={locationShareSheetOpen} onClose={() => setLocationShareSheetOpen(false)}>

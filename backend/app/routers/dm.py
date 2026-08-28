@@ -32,6 +32,7 @@ from ..schemas import (
     DmConversationPatchRequest,
     DmGroupConversationCreateRequest,
     DmMemberInviteRequest,
+    DmMemberOut,
     DmMemberRolePatchRequest,
     DmMessageCreateRequest,
     DmMessageOut,
@@ -919,6 +920,43 @@ async def create_group_conversation(
     await db.commit()
     await db.refresh(conv)
     return _group_conv_out(conv)
+
+
+@router.get("/conversations/{conv_id}/members", response_model=list[DmMemberOut], summary="멤버 목록")
+async def list_members(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """활성 멤버와 역할. 그룹 설정 화면(운영진 임명·강퇴)이 이 목록 위에서 동작한다."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations have no members endpoint")
+    await require_member(db, conv, _session_uid)
+
+    rows = (
+        await db.execute(
+            select(DmConversationMember, User)
+            .join(User, User.id == DmConversationMember.user_id)
+            .where(
+                DmConversationMember.conversation_id == conv_id,
+                DmConversationMember.left_at.is_(None),
+            )
+            .order_by(DmConversationMember.joined_at.asc())
+        )
+    ).all()
+    return [
+        DmMemberOut(
+            user_id=member.user_id,
+            nickname=user.nickname,
+            avatar_url=resolve_avatar_url(user),
+            role=member.role,
+            joined_at=member.joined_at,
+        )
+        for member, user in rows
+    ]
 
 
 @router.post("/conversations/{conv_id}/members", response_model=DmConversationOut, summary="멤버 초대")

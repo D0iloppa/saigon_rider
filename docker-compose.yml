@@ -483,6 +483,10 @@ services:
       - ./contents:/data
       - ./frontend/src/components/maps/v2/saigon-depth1.json:/service-area/saigon-depth1.json:ro
       - ./backups:/app/backups
+      # 워키토키 모듈(d_modules/WalkieTalkie) 개발 마운트 — PYTHONPATH 로 앞세워 이미지에 설치된
+      # git 버전을 가린다(shadow). 모듈을 고치면 uvicorn --reload 가 바로 집어간다.
+      # 배포 이미지는 requirements.txt 의 git 의존성이 SoT 이므로, 모듈 변경은 반드시 push 할 것.
+      - ./d_modules/WalkieTalkie/packages/server:/opt/walkie_talkie:ro
     networks:
       - dev-net
     depends_on:
@@ -493,6 +497,7 @@ services:
       engine:
         condition: service_healthy
     environment:
+      - PYTHONPATH=/opt/walkie_talkie
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
       # 게이트9 B-5 정기백업 잡(app/jobs/backup_db.py) 이 pg_dump 로 직접 접속 (bff_migrate 와 동일 관례)
       - PGHOST=database

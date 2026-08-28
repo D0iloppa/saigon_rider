@@ -63,6 +63,9 @@ class AdTierCount(BaseModel):
 
 class DashboardSummary(BaseModel):
     dau: int
+    wau: int
+    mau: int
+    stickiness_dau_mau: float | None
     new_users_today: int
     new_users_7d: int
     listings_today: int
@@ -123,6 +126,7 @@ async def get_summary(
 ):
     today_start = datetime.now(_VN_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=6)  # 오늘 포함 최근 7일
+    month_start = today_start - timedelta(days=29)  # 오늘 포함 최근 30일 (MAU 기준)
 
     user_row = (
         await db.execute(
@@ -132,6 +136,8 @@ async def get_summary(
                 func.count().filter(User.created_at >= week_start),
                 func.count().filter(User.status == "SUSPENDED"),
                 func.count().filter(User.status == "BANNED"),
+                func.count().filter(User.last_seen_at >= week_start),
+                func.count().filter(User.last_seen_at >= month_start),
             ).select_from(User)
         )
     ).one()
@@ -247,8 +253,13 @@ async def get_summary(
 
     biz_ad_row, tier_rows = await AdsApplication(db).dashboard_stats(today_start, week_start)
 
+    wau = user_row[5]
+    mau = user_row[6]
     return DashboardSummary(
         dau=user_row[0],
+        wau=wau,
+        mau=mau,
+        stickiness_dau_mau=(user_row[0] / mau) if mau > 0 else None,
         new_users_today=user_row[1],
         new_users_7d=user_row[2],
         users_suspended=user_row[3],

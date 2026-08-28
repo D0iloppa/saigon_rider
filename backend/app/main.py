@@ -9,6 +9,7 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from .database import engine
 from .engine_client import engine_client
 from .routers import (
     ad_contract,
@@ -51,8 +52,10 @@ from .routers import (
     users,
     wallet,
 )
+from .routers.contents import CONTENTS_BASE_PATH
 from .services.cors import get_allowed_origins
 from .services.ops_alerts import send_ops_alert
+from .services.walkie_module import build_walkie
 
 log = logging.getLogger(__name__)
 
@@ -188,6 +191,11 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
 
+    # 워키토키 모듈의 `wt_*` 테이블 확보(멱등). 이 프로젝트의 번호매김 SQL 규약을 따르지 않는
+    # 유일한 예외다 — 해당 스키마는 모듈이 소유하고, DDL 을 여기 복사해두면 모듈을 업데이트할
+    # 때마다 두 곳이 어긋난다. 모듈 전용 metadata 라 호스트 테이블은 건드리지 않는다.
+    await _walkie.setup()
+
     try:
         yield
     finally:
@@ -256,6 +264,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── 워키토키 모듈 (d_modules/WalkieTalkie) ────────────────────────────────
+# 이 앱은 어댑터(app/services/walkie_module.py)만 제공하고, 참석·권한 판정은 전부 그쪽에 있다.
+# 모듈 자체는 우리 스키마를 모른다 — 사용자를 불투명 문자열로만 다룬다.
+_walkie = build_walkie(engine, CONTENTS_BASE_PATH)
+app.include_router(_walkie.router, prefix="/api")
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(master.router, prefix="/api")

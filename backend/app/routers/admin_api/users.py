@@ -255,10 +255,16 @@ async def withdrawn_check(
 @router.get("/{user_id}")
 async def get_user(
     user_id: uuid.UUID,
-    _session: AdminSession = Depends(verify_admin_api),
+    request: Request,
+    reason: str = Query(..., description="PII(전화번호 등) 열람 사유 — 필수, 감사로그에 기록"),
+    session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
+    if not reason.strip():
+        raise HTTPException(status_code=400, detail="reason is required")
     user = await _get_user_or_404(db, user_id)
+    await audit(db, session, request, "USER_DETAIL_VIEW", "user", str(user_id), {"reason": reason.strip()})
+    await db.commit()
     return await _user_detail(db, user)
 
 

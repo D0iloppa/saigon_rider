@@ -10,6 +10,7 @@
   "rideNav": {
     "title": "경로 안내",
     "destination": "목적지",
+    "laRemaining": "남은 거리 약 {{distance}}",
     "previewLabel": "경로 미리보기",
     "loading": "경로 계산 중…",
     "eta": "예상 {{duration}}",
@@ -862,6 +863,12 @@
     "sendBtn": "전송",
     "button": "DM",
     "makeAppointment": "약속잡기",
+    "laStatus": {
+      "accepted": "약속 확정",
+      "completionRequested": "완료 요청됨",
+      "completed": "거래 완료",
+      "cancelled": "약속 취소"
+    },
     "priceOffer": "가격제안",
     "priceOfferTitle": "가격제안하기",
     "priceOfferSend": "제안 보내기",

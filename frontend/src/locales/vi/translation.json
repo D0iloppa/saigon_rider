@@ -10,6 +10,7 @@
   "rideNav": {
     "title": "Chỉ đường",
     "destination": "Điểm đến",
+    "laRemaining": "Còn khoảng {{distance}}",
     "previewLabel": "Xem trước lộ trình",
     "loading": "Đang tính lộ trình…",
     "eta": "Dự kiến {{duration}}",
@@ -862,6 +863,12 @@
     "sendBtn": "Gửi",
     "button": "DM",
     "makeAppointment": "Hẹn gặp",
+    "laStatus": {
+      "accepted": "Đã chốt hẹn",
+      "completionRequested": "Đã yêu cầu hoàn tất",
+      "completed": "Giao dịch hoàn tất",
+      "cancelled": "Đã hủy hẹn"
+    },
     "priceOffer": "Trả giá",
     "priceOfferTitle": "Trả giá",
     "priceOfferSend": "Gửi đề nghị",

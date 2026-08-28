@@ -42,6 +42,8 @@ import {
 } from '@/api/dm';
 import { loadCachedMessages, saveCachedMessages } from '@/lib/dmCache';
 import type { Appointment, PriceOffer } from '@/api/types';
+import { native } from '@/lib/native';
+import type { DealStatusKind } from '@/lib/plugins/liveActivity';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
 import { fetchMyReview, type ReviewBrief } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
@@ -559,13 +561,68 @@ export default function DmDetail() {
 
   // P6: DealLiveActions 슬롯에 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
   // 약속이 없는 대화면 null → DealLiveActions 자체가 렌더되지 않는다.
-  const currentAppointmentId = useMemo(() => {
+  const currentAppointment = useMemo<Appointment | null>(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const appt = messages[i].appointment;
-      if (messages[i].messageType === 'appointment' && appt) return appt.id;
+      if (messages[i].messageType === 'appointment' && appt) return appt;
     }
     return null;
   }, [messages]);
+  const currentAppointmentId = currentAppointment?.id ?? null;
+
+  // ── Live Activity(거래) — SoT ai-docs/task/active/260829_live_activity_task.md Phase 2 (D-3) ──
+  // ACCEPTED & 약속 T-30분~T+60분 창에서 잠금화면 카드를 띄우고, 완료/취소가 보이면 마지막 모습으로 2분 뒤 소멸.
+  // 창 진입을 대화방을 연 채로 기다리는 경우를 위해 1분마다 재평가한다. 카드 유무는 네이티브가 upsert 로
+  // 처리하므로 같은 값을 반복 호출해도 무해하다. 앱을 닫아둔 사이의 상태 변화는 Phase 3(APNs 원격 갱신) 몫.
+  const [laTick, setLaTick] = useState(0);
+  useEffect(() => {
+    if (!currentAppointment || currentAppointment.status !== 'ACCEPTED') return;
+    const id = window.setInterval(() => setLaTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [currentAppointment]);
+  useEffect(() => {
+    const appt = currentAppointment;
+    if (!appt || !conversationId) return;
+    const whenMs = new Date(appt.whenAt).getTime();
+    if (!Number.isFinite(whenMs)) return;
+    const statusKind: DealStatusKind = appt.status === 'COMPLETED'
+      ? 'completed'
+      : appt.status === 'CANCELLED'
+        ? 'cancelled'
+        : appt.completionRequestedBy
+          ? 'completionRequested'
+          : 'accepted';
+    const statusText = t(`dm.laStatus.${statusKind}`, {
+      defaultValue: { accepted: '약속 확정', completionRequested: '완료 요청됨', completed: '거래 완료', cancelled: '약속 취소' }[statusKind],
+    });
+    const state = {
+      statusText,
+      statusKind,
+      placeName: appt.placeName ?? '',
+      appointmentAtMs: whenMs,
+      peerDistanceText: '',
+    };
+    if (appt.status === 'ACCEPTED') {
+      const now = Date.now();
+      const inWindow = now >= whenMs - 30 * 60_000 && now <= whenMs + 60 * 60_000;
+      if (!inWindow) return;
+      void native.liveActivity.start({
+        kind: 'deal',
+        attributes: {
+          conversationId,
+          // `listing`(=conv?.contextListing) 은 아래에서 선언되므로 여기선 conv 를 직접 읽는다.
+          listingTitle: conv?.contextListing?.title ?? '',
+          peerName: isDirect ? otherName : roomTitle,
+          deepLink: `dm&id=${conversationId}`,
+        },
+        state,
+      });
+      return;
+    }
+    if (appt.status === 'COMPLETED' || appt.status === 'CANCELLED') {
+      void native.liveActivity.end({ kind: 'deal', finalState: state, dismissAfterSec: 120 });
+    }
+  }, [currentAppointment, conversationId, conv?.contextListing?.title, isDirect, otherName, roomTitle, laTick, t]);
 
   // 약속 상태 변경 후 해당 메시지의 appointment를 갱신 (5초 폴링과 별개로 즉시 반영)
   const patchAppointment = (appt: Appointment) => {

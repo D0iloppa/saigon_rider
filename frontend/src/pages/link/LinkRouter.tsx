@@ -42,6 +42,16 @@ export default function LinkRouter() {
       if (mid) destination = `${destination}?voice=1&mid=${mid}`;
     }
 
+    // Live Activity(경로안내 카드) 탭 복귀 — `ride&lat=..&lng=..&name=..` 를 RideNav 의 nav 파라미터로 되살린다.
+    if (action === 'ride') {
+      const q = new URLSearchParams({ type: 'nav' });
+      for (const k of ['lat', 'lng', 'name', 'radius']) { // RideNav.laDeepLink 가 싣는 키와 동일 집합
+        const v = params.get(k);
+        if (v) q.set(k, v);
+      }
+      destination = `/ride-nav?${q.toString()}`;
+    }
+
     if (!isAuthenticated) {
       // 로그인 후 이 딥링크가 가리키던 화면으로 돌아갈 수 있도록 목적지를 보관한다. (P0-2)
       saveReturnTo(destination);
@@ -61,6 +71,7 @@ function resolveAction(action: string, id: string | null): string {
     case 'quests':                 return '/quests';
     case 'quest':                  return id ? `/quests/${id}` : '/quests';
     case 'dm':                     return id ? `/dm/${id}` : '/dm';
+    case 'ride':                   return '/ride-nav'; // 파라미터는 위 action==='ride' 분기가 붙인다
     case 'market':                 return id ? `/market/${id}` : '/market';
     case 'biz':                     return id ? '/biz/status' : '/biz/intro';
     case 'bizad':                  return id ? `/biz/ads/${id}` : '/biz/manage';

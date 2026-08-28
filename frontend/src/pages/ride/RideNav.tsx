@@ -215,6 +215,87 @@ export default function RideNav() {
     [route],
   );
 
+  // ── Live Activity (iOS 잠금화면 카드 / Android ongoing 알림) — nav 안내 중에만 ─────────────
+  // SoT: ai-docs/task/active/260829_live_activity_task.md. 문구는 여기서 i18n 으로 만들어 넘긴다.
+  // 갱신 스로틀(D-4): 표시값(ETA 시각·진행률 5% 단위·상태)이 바뀌었을 때만, 최소 5초 간격 —
+  // ActivityKit 갱신 예산을 넘기면 시스템이 갱신을 조용히 버린다.
+  const laActiveRef = useRef(false);
+  const laLastRef = useRef<{ at: number; key: string }>({ at: 0, key: '' });
+  /** 진행률 분모 — 안내 시작 시점의 목적지 직선거리. 분자(현재 직선거리)와 같은 척도라야 0 에서 시작하고
+   *  재탐색으로 route.distance_m 이 줄어도 뒤로 튀지 않는다. */
+  const laInitialM = useRef<number | null>(null);
+  const laDeepLink = useMemo(() => {
+    const q = new URLSearchParams();
+    if (lat) q.set('lat', lat);
+    if (lng) q.set('lng', lng);
+    if (name) q.set('name', name);
+    const radius = params.get('radius');
+    if (radius) q.set('radius', radius);
+    return `ride&${q.toString()}`;
+  }, [lat, lng, name, params]);
+  const laDestName = name || t('rideNav.destination', '목적지');
+  useEffect(() => {
+    if (type !== 'nav' || !dest || !guidanceStarted || !route || arrived) return;
+    const toDestM = current ? haversineM(current.lat, current.lng, dest.lat, dest.lng) : null;
+    const remainingM = compass?.distM ?? toDestM;
+    if (laInitialM.current == null && remainingM != null) laInitialM.current = Math.max(remainingM, 1);
+    const totalM = laInitialM.current;
+    const progress = totalM && remainingM != null ? Math.min(1, Math.max(0, 1 - remainingM / totalM)) : 0;
+    const state = {
+      etaClock: arrivalTime ?? '—',
+      etaLabel: route.duration_text
+        ? t('rideNav.etaArrive', { duration: route.duration_text, defaultValue: '도착 예정 · {{duration}}' })
+        : t('rideNav.etaPending', '도착 예정 —'),
+      remainingText: remainingM != null
+        ? t('rideNav.laRemaining', { distance: formatDistance(remainingM), defaultValue: '남은 거리 약 {{distance}}' })
+        : (route.distance_text ?? ''),
+      progress,
+      statusText: offRoute ? t('rideNav.offRouteTitle', '경로를 이탈했어요') : '',
+      arrived: false,
+    };
+    const key = `${state.etaClock}|${Math.round(progress * 20)}|${state.statusText}`;
+    const now = Date.now();
+    if (!laActiveRef.current) {
+      laActiveRef.current = true;
+      laInitialM.current = remainingM != null ? Math.max(remainingM, 1) : null;
+      laLastRef.current = { at: now, key };
+      void native.liveActivity.start({ kind: 'ride', attributes: { destinationName: laDestName, deepLink: laDeepLink }, state });
+      return;
+    }
+    if (key === laLastRef.current.key || now - laLastRef.current.at < 5000) return;
+    laLastRef.current = { at: now, key };
+    void native.liveActivity.update({ kind: 'ride', state });
+  }, [type, dest, guidanceStarted, route, arrived, current, compass, arrivalTime, offRoute, laDeepLink, laDestName, t]);
+
+  // 종료 — 도착이면 "도착" 모습으로 2분간 남긴 뒤 사라지고, 안내 중단/화면 이탈이면 즉시 제거.
+  useEffect(() => {
+    if (!laActiveRef.current) return;
+    if (arrived) {
+      laActiveRef.current = false;
+      void native.liveActivity.end({
+        kind: 'ride',
+        finalState: {
+          etaClock: arrivalTime ?? '—',
+          etaLabel: t('rideNav.arrivedDone', '안내 종료'),
+          remainingText: '',
+          progress: 1,
+          statusText: t('rideNav.arrivedTitle', '목적지에 도착했어요'),
+          arrived: true,
+        },
+        dismissAfterSec: 120,
+      });
+    } else if (!guidanceStarted) {
+      laActiveRef.current = false;
+      void native.liveActivity.end({ kind: 'ride' });
+    }
+  }, [arrived, guidanceStarted, arrivalTime, t]);
+  useEffect(() => () => {
+    if (laActiveRef.current) {
+      laActiveRef.current = false;
+      void native.liveActivity.end({ kind: 'ride' });
+    }
+  }, []);
+
   /** 경로 적용 — 폴리라인/스텝 표시 + 도착 예정시각 갱신. 최초 탐색·이탈 재탐색 공통. */
   const applyRoute = (data: RouteData) => {
     setRoute(data);

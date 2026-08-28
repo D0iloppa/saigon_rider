@@ -10,6 +10,7 @@
   "rideNav": {
     "title": "Directions",
     "destination": "Destination",
+    "laRemaining": "About {{distance}} remaining",
     "previewLabel": "Route preview",
     "loading": "Calculating route…",
     "eta": "Est. {{duration}}",
@@ -862,6 +863,12 @@
     "sendBtn": "Send",
     "button": "DM",
     "makeAppointment": "Set a meetup",
+    "laStatus": {
+      "accepted": "Meetup confirmed",
+      "completionRequested": "Completion requested",
+      "completed": "Deal completed",
+      "cancelled": "Meetup cancelled"
+    },
     "priceOffer": "Make an offer",
     "priceOfferTitle": "Make an offer",
     "priceOfferSend": "Send offer",

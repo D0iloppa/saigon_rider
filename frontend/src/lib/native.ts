@@ -26,6 +26,12 @@ import {
 import { Fcm, type FcmNotificationEvent } from './plugins/Fcm';
 import { KeyboardBridge } from './plugins/KeyboardBridge';
 import {
+  LiveActivity,
+  type LiveActivityStartOptions,
+  type LiveActivityUpdateOptions,
+  type LiveActivityEndOptions,
+} from './plugins/liveActivity';
+import {
   WalkieTalkie,
   type PendingRecording,
   type WalkieChannelStatus,
@@ -332,6 +338,40 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
   };
 }
 
+// ── LiveActivity ─────────────────────────────────────────────────────────
+// iOS 잠금화면/다이나믹아일랜드 Live Activity, Android ongoing 알림. 설계 SoT:
+// `ai-docs/task/active/260829_live_activity_task.md`. 화면 코드는 이 채널만 호출한다.
+// 웹·구설치본(플러그인 없음)은 전부 no-op — 잠금화면 카드는 부가 표면이라 실패가 화면 기능을 막으면 안 된다.
+
+export interface LiveActivityChannel {
+  getCapability(): Promise<{ available: boolean }>;
+  start(opts: LiveActivityStartOptions): Promise<void>;
+  update(opts: LiveActivityUpdateOptions): Promise<void>;
+  end(opts: LiveActivityEndOptions): Promise<void>;
+}
+
+function createLiveActivityChannel(): LiveActivityChannel {
+  const ready = () => Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('LiveActivity');
+  return {
+    async getCapability() {
+      if (!ready()) return { available: false };
+      return await LiveActivity.getCapability().catch(() => ({ available: false }));
+    },
+    async start(opts) {
+      if (!ready()) return;
+      await LiveActivity.start(opts).catch((err) => console.warn('[liveActivity] start failed', err));
+    },
+    async update(opts) {
+      if (!ready()) return;
+      await LiveActivity.update(opts).catch((err) => console.warn('[liveActivity] update failed', err));
+    },
+    async end(opts) {
+      if (!ready()) return;
+      await LiveActivity.end(opts).catch((err) => console.warn('[liveActivity] end failed', err));
+    },
+  };
+}
+
 // 작은 뷰포트 변화(주소창 등)를 키보드로 오인하지 않기 위한 임계값 (계측 폴백용)
 const KEYBOARD_THRESHOLD = 120;
 
@@ -348,6 +388,9 @@ class NativeInterface {
 
   // ── WalkieTalkie (A-6) ───────────────────────────────────────────────────
   readonly walkieTalkie: WalkieTalkieChannel = createWalkieTalkieChannel();
+
+  // ── LiveActivity (경로안내·거래 잠금화면 카드) ──────────────────────────
+  readonly liveActivity: LiveActivityChannel = createLiveActivityChannel();
 
   // ── Device ──────────────────────────────────────────────────────────────
 

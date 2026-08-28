@@ -241,16 +241,36 @@ export function WalkieTalkieFloatingButton() {
     };
     presenceRefreshRef.current = refresh;
     const beat = () => {
-      if (cancelled) return;
-      walkieApi.join(conversationId).catch(() => {});
+      // 백그라운드에선 참석을 갱신하지 않는다 — Android WebView 는 숨겨진 뒤에도 타이머가 돌아,
+      // 가드 없이는 아래 visibilitychange 의 leave 를 15초 만에 join 이 되돌려 푸시가 다시 끊긴다.
+      if (cancelled || document.visibilityState !== 'visible') return;
+      walkieApi
+        .join(conversationId)
+        .then(() => {
+          // 요청 중에 백그라운드로 갔다면(느린 망에서 leave 가 먼저 처리되는 순서 역전) 즉시 되돌린다.
+          if (!cancelled && document.visibilityState !== 'visible') {
+            walkieApi.leave(conversationId).catch(() => {});
+          }
+        })
+        .catch(() => {});
       refresh();
     };
     beat();
     const timer = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    // 백그라운드 전환 시 즉시 퇴장, 복귀 시 즉시 재참석. 서버는 "접속 중인 수신자"에게 음성 푸시를
+    // 보내지 않으므로(인앱 자동재생이 대신한다), 여기서 presence 를 정확히 걷어야 백그라운드 사용자가
+    // 푸시(=Android 백그라운드 자동재생 경로)를 계속 받는다. TTL(45초)만 믿으면 그 사이 음성이 조용히 유실된다.
+    const onVisibility = () => {
+      if (cancelled) return;
+      if (document.visibilityState === 'visible') beat();
+      else walkieApi.leave(conversationId).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
       presenceRefreshRef.current = null;
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
       // 퇴장을 즉시 알린다 — TTL 만 믿으면 상대 화면에 최대 45초간 유령 참석자가 남는다.
       walkieApi.leave(conversationId).catch(() => {});
     };

@@ -153,14 +153,19 @@ async def _send_single(
         return True
 
     log.warning("FCM send failed: %d %s", resp.status_code, resp.text)
-    if resp.status_code in (401, 403, 429) or resp.status_code >= 500:
-        raise RetryablePushError(f"FCM HTTP {resp.status_code}")
     error_code = ""
     try:
         details = resp.json().get("error", {}).get("details", [])
         error_code = next((item.get("errorCode", "") for item in details if isinstance(item, dict)), "")
     except (ValueError, AttributeError):
         pass
+    # THIRD_PARTY_AUTH_ERROR(401 "Invalid APNs credential") 는 Firebase 콘솔의 APNs 인증키 문제 —
+    # 재시도해도 절대 성공하지 않는다. 재시도 가능으로 두면 워커가 5회 재시도 후 DLQ 로 보내
+    # iOS 수신자 1명당 5번의 FCM 호출과 DLQ 항목 하나가 쌓인다(2026-08-28 실측 127건).
+    if error_code == "THIRD_PARTY_AUTH_ERROR":
+        raise PermanentPushError(f"FCM {error_code} — APNs 자격증명 설정 확인(Firebase 콘솔)")
+    if resp.status_code in (401, 403, 429) or resp.status_code >= 500:
+        raise RetryablePushError(f"FCM HTTP {resp.status_code}")
     if resp.status_code == 404 or error_code in {"UNREGISTERED", "INVALID_ARGUMENT"}:
         raise InvalidPushTokenError(f"FCM token rejected: {error_code or resp.status_code}")
     raise PermanentPushError(f"FCM HTTP {resp.status_code}")

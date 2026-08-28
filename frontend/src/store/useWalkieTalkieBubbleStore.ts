@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { native } from '@/lib/native';
+import type { DmMessage } from '@/api/types';
 
 /**
  * 워키토키 플로팅 버블(A-7)의 앱 전역 상태.
@@ -46,6 +47,19 @@ interface WalkieTalkieBubbleState {
    */
   attentionPing: number;
   ping: () => void;
+
+  /**
+   * 지금 화면에 떠 있는 DM 대화방 id (DmDetail 이 마운트/언마운트 시 설정).
+   *
+   * DmDetail 과 워키토키 캡슐이 **같은 대화를 각자 5초마다 조회**하던 중복을 없애기 위한 것이다.
+   * 이 값이 캡슐의 대상 대화와 같으면 캡슐은 자체 폴링을 멈추고, DmDetail 이 이미 받아온 결과를
+   * 아래 `lastPolledBatch` 로 넘겨받아 쓴다(요청 수가 절반이 된다).
+   */
+  foregroundConversationId: string | null;
+  setForegroundConversation: (id: string | null) => void;
+  /** DmDetail 이 방금 폴링으로 받은 신규 메시지 묶음 — 캡슐이 여기서 음성메시지를 골라간다. */
+  lastPolledBatch: { conversationId: string; messages: DmMessage[]; seq: number } | null;
+  publishPolledMessages: (conversationId: string, messages: DmMessage[]) => void;
 }
 
 export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
@@ -63,6 +77,14 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
       open: () => set({ closed: false }),
       attentionPing: 0,
       ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
+      foregroundConversationId: null,
+      setForegroundConversation: (id) => set({ foregroundConversationId: id }),
+      lastPolledBatch: null,
+      publishPolledMessages: (conversationId, messages) =>
+        // seq 는 같은 내용이 연달아 와도 구독자가 변화를 감지하게 하는 단조 증가값.
+        set((s) => ({
+          lastPolledBatch: { conversationId, messages, seq: (s.lastPolledBatch?.seq ?? 0) + 1 },
+        })),
     }),
     {
       name: 'saigon-rider-walkie-bubble',

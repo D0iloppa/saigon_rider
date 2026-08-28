@@ -453,16 +453,21 @@ async def get_messages(
     if after:
         base = base.where(DmMessage.created_at > after)
 
-    total = (
-        await db.execute(
-            select(func.count())
-            .select_from(DmMessage)
-            .where(DmMessage.conversation_id == conv_id, *([] if not after else [DmMessage.created_at > after]))
-        )
-    ).scalar_one()
-
     offset = (page - 1) * size
     rows = (await db.execute(base.order_by(DmMessage.created_at.asc()).offset(offset).limit(size))).scalars().all()
+
+    # `after` 커서가 있는 요청은 **폴링**이다(DmDetail·워키토키 캡슐이 5초마다 호출). 이 경로에서
+    # COUNT(*) 는 매 tick 마다 전체 스캔을 한 번 더 거는데, 소비처가 하나도 없다 — 폴링 응답에서
+    # total 은 "커서 이후 개수"일 뿐이고 프론트는 items 만 쓴다. 유휴 폴링의 DB 쿼리를 절반으로
+    # 줄이기 위해 이 경우 COUNT 를 생략하고 반환 건수를 그대로 싣는다.
+    # (커서 없는 최초 로드/페이지 이동은 종전대로 정확한 total 을 계산한다 — 워키토키 캡슐이
+    #  마지막 페이지 번호를 total 로 계산하므로 이쪽 정확도는 유지해야 한다.)
+    if after is not None:
+        total = len(rows)
+    else:
+        total = (
+            await db.execute(select(func.count()).select_from(DmMessage).where(DmMessage.conversation_id == conv_id))
+        ).scalar_one()
 
     # 약속/가격제안 메시지의 임베드 (상태를 매 폴링마다 최신으로) — 배치 조회
     appt_ids = [

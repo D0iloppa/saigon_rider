@@ -123,6 +123,8 @@ export default function DmDetail() {
   // 명시적 액션에서만 일어난다.
   const setActiveWalkieConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
   const walkieActiveConversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
+  const publishPolledMessages = useWalkieTalkieBubbleStore((s) => s.publishPolledMessages);
+  const setForegroundConversation = useWalkieTalkieBubbleStore((s) => s.setForegroundConversation);
 
   // B-4: 음성메시지 알림 딥링크(?voice=1) 진입은 위 3가지와 별개인 4번째 명시적 액션이다 — 사용자가
   // 알림을 탭한 것 자체가 "이 채널을 듣겠다"는 의사표시. 이 대화방을 워키토키 대상으로 활성화해야
@@ -133,6 +135,15 @@ export default function DmDetail() {
     setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
   }, [voiceDeepLink, conversationId, walkieActiveConversationId, setActiveWalkieConversation, isDirect, otherName, roomTitle]);
 
+  // 이 화면이 떠 있는 동안은 여기서만 폴링한다 — 워키토키 캡슐은 같은 대화를 중복 조회하지 않고
+  // publishPolledMessages 로 넘어온 묶음을 쓴다. 언마운트 시 점유를 반드시 해제해야 캡슐이 자체
+  // 폴링을 재개한다(안 하면 화면을 떠난 뒤 음성 수신이 멈춘다).
+  useEffect(() => {
+    if (!conversationId) return;
+    setForegroundConversation(conversationId);
+    return () => setForegroundConversation(null);
+  }, [conversationId, setForegroundConversation]);
+
   useEffect(() => {
     if (!conversationId) return;
     const tick = async () => {
@@ -142,6 +153,9 @@ export default function DmDetail() {
         const res = await fetchMessages(conversationId, 1, last?.createdAt);
         if (res.items.length > 0) {
           setMessages((prev) => [...prev, ...res.items]);
+          // 워키토키 캡슐이 같은 대화를 따로 5초마다 조회하던 중복을 없앤다 — 이 화면이 떠 있는
+          // 동안은 캡슐이 자체 폴링을 멈추고 여기서 받은 묶음에서 음성메시지를 골라간다.
+          publishPolledMessages(conversationId, res.items);
           // 폴링으로 새로 도착한 메시지 중 내가 보낸 게 아닌 게 있으면 수신음.
           const uid = session?.userId ?? user?.id;
           if (res.items.some((m) => m.senderId !== uid)) playSound('dm_receive');

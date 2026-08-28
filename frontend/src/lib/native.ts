@@ -27,6 +27,7 @@ import { Fcm, type FcmNotificationEvent } from './plugins/Fcm';
 import { KeyboardBridge } from './plugins/KeyboardBridge';
 import {
   WalkieTalkie,
+  type PendingRecording,
   type WalkieTalkieRecordingResult,
   type WalkieTalkieRecordingStateEvent,
   type WalkieTalkieStartOptions,
@@ -126,6 +127,9 @@ export interface WalkieTalkieChannel {
    * 기존 convertFileSrc + fetch 를 그대로 쓴다.
    */
   readRecordingBlob(result: WalkieTalkieRecordingResult): Promise<Blob>;
+  /** 앱 미실행 중 녹음된 항목(Android 헤드리스). 앱이 뜰 때 비워서 전송해야 한다. */
+  getPendingRecordings(): Promise<PendingRecording[]>;
+  clearPendingRecording(id: string): Promise<void>;
 
   addListener(
     event: 'recordingState',
@@ -240,6 +244,22 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
       // 그대로 업로드하면 서버가 415(unsupported_media: audio/mpeg)로 거절한다.
       // 녹음 포맷을 아는 쪽은 녹음한 네이티브다.
       return raw.type === result.mimeType ? raw : new Blob([raw], { type: result.mimeType });
+    },
+
+    async getPendingRecordings() {
+      // 이 메서드가 없는 설치본(구 APK·iOS)도 있으므로 조용히 빈 배열로 떨어뜨린다.
+      if (!Capacitor.isNativePlatform()) return [];
+      try {
+        const { items } = await WalkieTalkie.getPendingRecordings();
+        return items ?? [];
+      } catch {
+        return [];
+      }
+    },
+
+    async clearPendingRecording(id: string) {
+      if (!Capacitor.isNativePlatform()) return;
+      await WalkieTalkie.clearPendingRecording({ id }).catch(() => {});
     },
 
     async cancelRecording() {

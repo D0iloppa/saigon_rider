@@ -8,6 +8,7 @@
 무겁게 짜면 폴링 부하 개선분을 어댑터가 도로 까먹는다.
 """
 
+import logging
 import uuid
 from pathlib import Path
 
@@ -176,17 +177,36 @@ class FcmNotifier:
         self._session_factory = session_factory
 
     async def notify_voice(self, channel_ref: str, user_refs: list[str], sender_ref: str, message_id: str) -> None:
-        # 기존 알림 파이프라인(noti_events)에 위임한다. 실패해도 전송 자체는 성공으로 둔다 —
-        # 푸시는 부가 경로이고, 포그라운드 수신은 스트림/폴링이 담당한다.
+        """기존 DM 알림 파이프라인(`dm.message_sent`)에 그대로 실어 보낸다.
+
+        별도 이벤트 타입을 만들지 않는 이유: 워커에 이미 음성메시지 분기(message_type='voice',
+        "바로 재생" 액션)가 있어 알림 문구·딥링크·중복제거를 전부 재사용할 수 있다.
+
+        실패해도 음성 전송 자체는 성공으로 둔다. 다만 **백그라운드에서는 푸시가 유일한 수신
+        경로**라, 조용히 삼키지 않고 로그로 남긴다.
+        """
         try:
             from . import noti_events
 
-            handler = getattr(noti_events, "notify_walkie_voice", None)
-            if handler is None:
-                return
-            await handler(channel_ref=channel_ref, user_refs=user_refs, sender_ref=sender_ref, message_id=message_id)
+            async with self._session_factory() as db:
+                uid = _as_uuid(sender_ref)
+                sender = await db.get(User, uid) if uid else None
+                noti_events.enqueue(
+                    db,
+                    "dm.message_sent",
+                    {
+                        "conversation_id": channel_ref,
+                        "sender_id": sender_ref,
+                        "recipient_ids": user_refs,
+                        "sender_nickname": (sender.nickname if sender and sender.nickname else ""),
+                        "preview": "음성 메시지를 보냈습니다",
+                        "message_type": "voice",
+                        "message_id": message_id,
+                    },
+                )
+                await db.commit()
         except Exception:
-            return
+            logging.getLogger(__name__).warning("walkie voice push enqueue failed", exc_info=True)
 
 
 async def current_user_ref(session_uid: uuid.UUID = Depends(verify_user_session)) -> str:

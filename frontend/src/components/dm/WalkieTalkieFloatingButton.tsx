@@ -173,6 +173,36 @@ export function WalkieTalkieFloatingButton() {
     !isWalkieTalkieOptedOut() &&
     !closed;
 
+  // 앱 미실행 중 녹음된 음성 전송 (Android 헤드리스 — 오버레이 버블·홈 위젯).
+  // 네이티브는 파일만 남기고 업로드는 못 한다. 이 드레인이 없으면 백그라운드 녹음이 큐에
+  // 쌓이기만 하고 **영영 전송되지 않는다**(실제로 그 상태였다).
+  useEffect(() => {
+    if (!bubbleActive) return;
+    let cancelled = false;
+    (async () => {
+      const pending = await native.walkieTalkie.getPendingRecordings();
+      for (const item of pending) {
+        if (cancelled) return;
+        // 대상 채널을 모르면 보낼 곳이 없다 — 큐에 남겨두면 매번 재시도하므로 버린다.
+        if (!item.channelId) {
+          await native.walkieTalkie.clearPendingRecording(item.id);
+          continue;
+        }
+        try {
+          const blob = await native.walkieTalkie.readRecordingBlob(item);
+          if (blob.size > 0) await walkieApi.sendVoice(item.channelId, blob, item.durationMs);
+          // 전송 성공에만 지운다 — 실패하면 다음 실행에 다시 시도한다.
+          await native.walkieTalkie.clearPendingRecording(item.id);
+        } catch (err) {
+          console.warn('[walkie] pending upload failed', err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bubbleActive]);
+
   // 채널 참석 — **진입을 서버에 명시적으로 알리고** 머무는 동안 하트비트를 보낸다.
   // 종전엔 앱의 "최근 접속"(User.last_seen_at) 을 참석 대용으로 썼는데, 그건 채널과 무관한
   // 지표라 같은 채널에 둘이 있어도 참석으로 보이지 않았다(대표 지적 2026-08-28).
@@ -241,13 +271,7 @@ export function WalkieTalkieFloatingButton() {
     });
     transport.start(conversationId);
 
-    // 포그라운드 복귀 즉시 한 번 확인한다 — 유휴로 30초까지 물러난 상태였다면 그만큼 기다리게 된다.
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') transport.poke();
-    };
-    document.addEventListener('visibilitychange', onVisible);
     return () => {
-      document.removeEventListener('visibilitychange', onVisible);
       transport.stop();
     };
   }, [conversationId, bubbleActive, myUserId]);

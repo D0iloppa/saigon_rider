@@ -22,6 +22,17 @@ export interface WalkieTalkieRecordingResult {
   sizeBytes: number;
 }
 
+export interface PendingRecording {
+  id: string;
+  filePath: string;
+  mimeType: string;
+  durationMs: number;
+  sizeBytes: number;
+  /** 녹음 시점의 대상 채널(대화방 id). 빈 문자열이면 대상을 알 수 없어 폐기한다. */
+  channelId: string;
+  createdAt: number;
+}
+
 export interface WalkieTalkieRecordingStateEvent {
   state: 'idle' | 'recording' | 'stopping';
   elapsedMs: number;
@@ -49,6 +60,15 @@ export interface WalkieTalkiePlugin {
   stopRecording(): Promise<WalkieTalkieRecordingResult>;
   /** 녹음 취소(버리기) — 파일 삭제, 결과 없음. */
   cancelRecording(): Promise<void>;
+
+  /**
+   * B-1(Android) — **앱이 실행 중이 아닐 때** 오버레이 버블·위젯으로 녹음된 결과 큐.
+   * 헤드리스 녹음은 파일만 남기고 업로드는 못 하므로, 앱이 뜰 때 이 큐를 비워 전송해야 한다.
+   * (iOS 는 헤드리스 녹음 경로가 없어 항상 빈 배열.)
+   */
+  getPendingRecordings(): Promise<{ items: PendingRecording[] }>;
+  /** 업로드를 마친 항목 제거. 지우지 않으면 다음 실행에 또 보낸다. */
+  clearPendingRecording(opts: { id: string }): Promise<void>;
   /**
    * 녹음 파일을 base64 로 읽는다 (iOS 전용 — Android 플러그인에는 없다).
    * 원격 https 페이지에서 `capacitor://` 로컬 파일을 fetch 하면 WebKit 이 혼합 콘텐츠로

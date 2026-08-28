@@ -4,3 +4,6 @@
 [submodule "native/android"]
 	path = native/android
 	url = https://github.com/D0iloppa/saigon-rider-android.git
+[submodule "d_modules/WalkieTalkie"]
+	path = d_modules/WalkieTalkie
+	url = https://github.com/D0iloppa/WalkieTalkie.git

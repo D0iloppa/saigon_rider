@@ -3,7 +3,8 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # postgresql-client: 게이트9 B-5 정기백업 잡(app/jobs/backup_db.py)이 pg_dump 사용.
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+# git: requirements.txt 의 walkie-talkie 패키지가 git+ 의존성이라 pip install 시 필요.
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

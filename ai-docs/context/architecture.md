@@ -591,7 +591,7 @@ mypy>=1.10
 
 | 모듈 | 저장소 | 상태 |
 |---|---|---|
-| `d_modules/WalkieTalkie` | github.com/D0iloppa/WalkieTalkie | 서버 패키지 통합 완료, 클라이언트·네이티브 이관 진행 중 |
+| `d_modules/WalkieTalkie` | github.com/D0iloppa/WalkieTalkie | 서버·클라이언트 통합 완료(앱이 실사용 중), 네이티브 이관·구경로 제거 남음 |
 
 ### 모듈이 지켜야 하는 경계
 
@@ -612,7 +612,13 @@ mypy>=1.10
 | 이미지 | `backend/requirements.txt` 의 git 의존성(`@main`) | **모듈 변경은 반드시 push 해야 배포본에 반영된다** |
 | 개발 | compose 바인드 마운트 + `PYTHONPATH=/opt/walkie_talkie` | 설치본을 가려(shadow) 로컬 수정이 `--reload` 로 즉시 반영 |
 
-> 기존 워키토키 경로(`dm_messages.message_type='voice'`)는 아직 살아 있고 모듈 경로가 **병행**으로 추가된 상태다. 전환·데이터 이행은 후속 단계.
+### 프론트 배선 (2026-08-28 ④단계)
+
+- 앱은 `@d-modules/walkie-talkie` 를 `file:` 의존성으로 임포트한다. 어댑터는 `frontend/src/lib/walkieSdk.ts` (세션 헤더를 붙인 fetch 를 넘기는 것이 전부 — SDK 는 인증 방식을 모른다).
+- **프론트 이미지 빌드 컨텍스트가 레포 루트인 이유가 이것이다.** SDK 가 `frontend/` 밖이라 컨텍스트를 `./frontend` 로 두면 `file:` 의존성이 컨테이너 안에서 해결되지 않는다(로컬 `tsc` 는 통과하고 도커 빌드만 실패해 원인이 가려진다). 전송량은 루트 `.dockerignore` 가 막는다.
+- SDK 는 **컨테이너 안에서 빌드**한다 — 로컬 `dist` 를 복사하면 개발자의 빌드 상태에 이미지 결과가 좌우된다.
+
+> 음성 **송수신·재생완료**는 모듈 경로로 전환됐다. 구 경로(`dm_messages.message_type='voice'`)의 백엔드 코드는 아직 남아 있고, 제거·데이터 이행은 후속 단계(⑥).
 
 ---
 

@@ -1,7 +1,7 @@
 # 워키토키(토글 음성메시지) 기능 설계 — 2026-08-27
 
 > **SoT** — 이 문서가 워키토키 기능의 단일 출처다. 구현 스레드는 이 문서만 읽고 착수할 수 있어야 한다.
-> **상태**: 설계 확정 / **구현 미착수**.
+> **상태**: 설계 확정 / **Phase A 구현 완료 · Phase B 대부분 구현**(2026-08-28 기준 — 이 문서의 §7 "현재 코드베이스 실태"는 설계 시점 스냅샷이라 stale). 운영 규칙은 [`context/service-rules.md`](../../context/service-rules.md) §워키토키 가 SoT.
 > **확정 경위**: 대표 인터뷰 + 감독 세션(2026-08-27)에서 형태·범위·Phase 분리·아키텍처 원칙 확정. **재질문 금지 — 아래 §2 는 결정사항이다.**
 > **선행 의존**: 그룹채널 스키마는 [`260827_community_enhancement_task.md`](260827_community_enhancement_task.md) 가 소유한다. 이 문서는 그 위에 얹는 의존관계만 명시하며 **DM 스키마를 재설계하지 않는다.**
 > **법률 리서치**: [`ai-docs/research/260827_walkie_talkie_location_privacy/SYNTHESIS.md`](../../research/260827_walkie_talkie_location_privacy/SYNTHESIS.md) (§8)

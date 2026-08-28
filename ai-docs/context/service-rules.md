@@ -253,6 +253,9 @@
 
 6. **헤드리스 녹음 큐는 반드시 비워야 한다.** 앱 미실행 중 녹음된 음성은 네이티브 큐에만 쌓이고 업로드되지 않는다. 캡슐이 뜰 때 `getPendingRecordings()` → 전송 → `clearPendingRecording()` 로 드레인한다. **전송 성공에만 제거**한다(실패 시 다음 실행에 재시도). 이 드레인이 빠져 있어 한동안 백그라운드 녹음이 전부 유실됐다.
 7. **푸시에 `audio_url` 이 없으면 자동재생이 성립하지 않는다.** 워커의 음성 분기는 `message_type='voice' + audio_url` 둘 다 있어야 발화하고, 없으면 일반 텍스트 알림으로 떨어진다.
+8. **인앱 자동재생과 영구 기록은 분리된 두 층이다 (2026-08-28 대표 지시).** 활성 채널의 새 음성은 캡슐(`WalkieTalkieFloatingButton`)이 `VoiceQueue` 로 순차 자동재생하고(본인 발신 제외·과거분 미재생·재생 중 송신 잠금), 같은 음성이 `DmDetail` 의 `VoiceMessageBubble` 에 영구 버블로 남아 언제든 다시 들을 수 있다. 자동재생을 없애고 버블만 남기면 "워키토키가 아니다" — 둘 중 하나만 있는 상태로 되돌리지 말 것.
+9. **iOS 는 녹음 중 웹뷰에서 `<audio>.play()` 를 호출하면 안 된다.** WKWebView 는 웹 오디오 재생 시 `AVAudioSession` 카테고리를 스스로 `.playback` 으로 바꿔 마이크 입력을 끊는다 — 경과시간은 정상인데 파일엔 컨테이너 헤더(557B, 오디오 0초)만 남는 빈 녹음이 되고, 양쪽 단말에 재생 불가 버블이 남는다(2026-08-28 iPhone→Android 전송 실패의 원인. 네이티브에서 `.playAndRecord` 로 바꿔도 WebKit 이 덮어써 소용없었다). PTT 시작 신호음은 iOS 네이티브 시스템 사운드(`AudioServicesPlaySystemSound(1113)`)로 내고, JS 는 iOS 에서 시작 비프를 재생하지 않는다. 방어선: iOS 플러그인이 파이널라이즈 후 실제 오디오 길이 0 이면 `EMPTY_RECORDING` 으로 reject, 프론트는 1KB 미만 blob 을 전송하지 않는다.
+10. **음성 버블 파형은 프론트에서 계산한다** (`lib/audioPeaks.ts` — fetch → `decodeAudioData` → 40구간 피크, URL 별 캐시). 서버는 파형을 저장하지 않는다.
 
 ## DM 메시지 수정·삭제·공감·답장·보관 (제정 2026-08-28, 215_dm_message_sync)
 

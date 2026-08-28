@@ -1,37 +1,42 @@
 .bubble {
   display: flex;
   flex-direction: column;
-  max-width: 75%;
-  padding: 10px 14px;
-  border-radius: 16px;
+  max-width: 78%;
+  padding: 10px 12px 8px;
+  border-radius: 18px;
   gap: 4px;
+  /* 파형 색 — 재생된 구간(fill)과 남은 구간(rest). 발신/수신 톤에 맞춰 아래에서 덮어쓴다. */
+  --vm-fill: currentColor;
+  --vm-rest: rgba(255, 255, 255, 0.38);
 }
 
 .mine {
   align-self: flex-end;
   background: var(--brand-500);
   color: white;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 6px;
 }
 
 .theirs {
   align-self: flex-start;
   background: var(--surface);
   color: var(--text);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 6px;
+  --vm-fill: var(--brand-500);
+  --vm-rest: var(--line);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 180px;
+  gap: 10px;
+  min-width: 216px;
 }
 
 .playBtn {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -39,14 +44,20 @@
   justify-content: center;
   color: inherit;
   cursor: pointer;
+  padding: 0;
+}
+
+.playIcon {
+  margin-left: 2px; /* 삼각형의 시각 무게중심 보정 */
 }
 
 .mine .playBtn {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .theirs .playBtn {
-  background: var(--line);
+  background: var(--brand-500);
+  color: white;
 }
 
 .playBtn:disabled {
@@ -54,17 +65,41 @@
   cursor: default;
 }
 
-.scrub {
+/* 파형 — 막대 N개. 재생된 막대는 data-played 로 fill 색, 나머지는 rest 색. */
+.wave {
+  position: relative;
   flex: 1;
-  accent-color: currentColor;
-  height: 3px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.wave[aria-disabled] {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.wave i {
+  flex: 1;
+  min-height: 4px;
+  border-radius: 2px;
+  background: var(--vm-rest);
+  transition: height 240ms ease, background-color 120ms linear;
+}
+
+.wave i[data-played] {
+  background: var(--vm-fill);
 }
 
 .duration {
   font-size: 12px;
   opacity: 0.85;
-  min-width: 30px;
+  min-width: 32px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .meta {

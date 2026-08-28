@@ -46,7 +46,13 @@ interface WalkieTalkieBubbleState {
    */
   attentionPing: number;
   ping: () => void;
-
+  /**
+   * 캡슐이 녹음 중인지(반이중 게이트). DmDetail 의 음성 버블이 재생을 막는 데 쓴다 — iOS 는 녹음 중
+   * 웹 오디오 재생이 마이크를 끊고(service-rules §워키토키 9), 무전기 관례상 말하는 동안 듣지 않는다.
+   * 비영속 — 녹음은 프로세스와 함께 끝난다.
+   */
+  recording: boolean;
+  setRecording: (v: boolean) => void;
 }
 
 export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
@@ -64,6 +70,8 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
       open: () => set({ closed: false }),
       attentionPing: 0,
       ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
+      recording: false,
+      setRecording: (v) => set({ recording: v }),
     }),
     {
       name: 'saigon-rider-walkie-bubble',

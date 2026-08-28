@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Alert, Empty, Select, Skeleton, Table } from 'antd'
+import { Alert, Card, Empty, Select, Skeleton, Table } from 'antd'
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import { useWeeklyIssueSummary, type CategoryStat } from '../../api/issues'
+import { adminColors } from '../../theme/tokens'
 
 const DAYS_OPTIONS = [
   { value: 7, label: '최근 7일' },
@@ -8,7 +10,7 @@ const DAYS_OPTIONS = [
   { value: 30, label: '최근 30일' },
 ]
 
-/** 016 §8-3 #26 [학습] 단계 — 재발 통계의 원료. 표 하나로 충분해 차트를 붙이지 않는다(과설계 금지). */
+/** 016 §8-3 #26 [학습] 단계 — 재발 통계의 원료. 카테고리별 건수는 막대차트로, 상세 수치는 표로 함께 제공한다. */
 export default function WeeklyIssueSummaryPage() {
   const [days, setDays] = useState(7)
   const { data, isLoading, isError, error } = useWeeklyIssueSummary(days)
@@ -44,14 +46,29 @@ export default function WeeklyIssueSummaryPage() {
       </div>
       {isLoading ? (
         <Skeleton active paragraph={{ rows: 6 }} />
+      ) : (data ?? []).length === 0 ? (
+        <Empty description="집계된 이슈가 없습니다." />
       ) : (
-        <Table<CategoryStat>
-          rowKey="category"
-          columns={columns}
-          dataSource={data ?? []}
-          pagination={false}
-          locale={{ emptyText: <Empty description="집계된 이슈가 없습니다." /> }}
-        />
+        <>
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={adminColors.chartGrid} vertical={false} />
+                <XAxis dataKey="category" fontSize={12} tickMargin={8} />
+                <YAxis allowDecimals={false} fontSize={12} />
+                <ChartTooltip />
+                <Legend />
+                <Bar dataKey="count" name="건수" fill={adminColors.chart[0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+          <Table<CategoryStat>
+            rowKey="category"
+            columns={columns}
+            dataSource={data ?? []}
+            pagination={false}
+          />
+        </>
       )}
     </>
   )

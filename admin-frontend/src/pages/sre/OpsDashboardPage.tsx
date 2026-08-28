@@ -1,4 +1,14 @@
-import { Table, Typography } from 'antd'
+import { Card, Table, Typography } from 'antd'
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import {
   useOpsChannelRatio,
   useOpsDailyNet,
@@ -9,8 +19,22 @@ import {
   type GachaRoiRow,
   type PityDistributionRow,
 } from '../../api/ops'
+import { adminColors } from '../../theme/tokens'
 
 const { Text } = Typography
+
+// day 별 currency(earned/spent/net) 를 라인차트용으로 pivot — 현재 데이터는 XP 뿐이지만 표와 동일하게 통화별 일반화
+function pivotDailyNet(rows: DailyNetRow[]) {
+  const byDay = new Map<string, Record<string, string | number>>()
+  for (const row of rows) {
+    const entry = byDay.get(row.day) ?? { day: row.day }
+    entry[`${row.currency}_earned`] = row.earned
+    entry[`${row.currency}_spent`] = row.spent
+    entry[`${row.currency}_net`] = row.net
+    byDay.set(row.day, entry)
+  }
+  return Array.from(byDay.values()).sort((a, b) => String(a.day).localeCompare(String(b.day)))
+}
 
 // legacy sre_ops.html 의 4개 섹션과 동일 (parity) — 인플레 모니터링/가챠 ROI/채널 비율/천장 분포
 function Section({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
@@ -31,9 +55,37 @@ export default function OpsDashboardPage() {
   const { data: channelRatio, isLoading: ratioLoading } = useOpsChannelRatio()
   const { data: pityDist, isLoading: pityLoading } = useOpsPityDistribution()
 
+  const netChartData = pivotDailyNet(dailyNet ?? [])
+  const netCurrencies = Array.from(new Set((dailyNet ?? []).map((r) => r.currency)))
+
   return (
     <>
       <Section title="① 일일 GOLD/XP 발행/소모 (최근 7일)" sub="net이 지속 양수면 인플레 신호 → 가챠 가격 인상 또는 신규 아이템 출시 검토">
+        {netCurrencies.length > 0 && (
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={netChartData} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={adminColors.chartGrid} vertical={false} />
+                <XAxis dataKey="day" tickFormatter={(d: string) => d.slice(5)} fontSize={12} tickMargin={8} />
+                <YAxis allowDecimals={false} fontSize={12} />
+                <ChartTooltip />
+                <Legend />
+                {netCurrencies.map((currency, i) => {
+                  const [earnedColor, spentColor, netColor] = [
+                    adminColors.chart[(i * 3) % adminColors.chart.length],
+                    adminColors.chart[(i * 3 + 1) % adminColors.chart.length],
+                    adminColors.chart[(i * 3 + 2) % adminColors.chart.length],
+                  ]
+                  return [
+                    <Line key={`${currency}_earned`} type="monotone" dataKey={`${currency}_earned`} name={`${currency} 발행`} stroke={earnedColor} strokeWidth={2} dot={false} />,
+                    <Line key={`${currency}_spent`} type="monotone" dataKey={`${currency}_spent`} name={`${currency} 소모`} stroke={spentColor} strokeWidth={2} dot={false} />,
+                    <Line key={`${currency}_net`} type="monotone" dataKey={`${currency}_net`} name={`${currency} NET`} stroke={netColor} strokeWidth={1.5} strokeDasharray="5 3" dot={false} />,
+                  ]
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
         <Table<DailyNetRow>
           rowKey={(r) => `${r.day}-${r.currency}`}
           loading={netLoading}

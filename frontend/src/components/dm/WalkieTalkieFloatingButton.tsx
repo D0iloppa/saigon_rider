@@ -109,6 +109,7 @@ export function WalkieTalkieFloatingButton() {
   const notifyRecordingStop = useCallback(() => {
     const id = conversationIdRef.current;
     if (id) walkieApi.setSpeaking(id, false).catch(() => {});
+    playSound('walkie_ptt_end');
   }, []);
 
   useEffect(() => {
@@ -430,6 +431,7 @@ export function WalkieTalkieFloatingButton() {
     try {
       await native.walkieTalkie.startRecording({ maxDurationSec: capability?.maxDurationSec ?? 60 });
       setPhase('recording');
+      playSound('walkie_ptt_start');
       if (conversationId) walkieApi.setSpeaking(conversationId, true).catch(() => {});
     } catch (err) {
       // 네이티브는 PERMISSION_DENIED / SERVICE_UNAVAILABLE / ALREADY_RECORDING / START_FAILED 를

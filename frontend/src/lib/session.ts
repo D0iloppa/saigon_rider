@@ -5,6 +5,8 @@
  * 이전 {phone, passcode} 쿠키는 검증 실패 → OAuthLogin으로 리다이렉트 (자연 만료)
  */
 
+import { clearAllCachedMessages } from './dmCache';
+
 const COOKIE_KEY = 'sr_session';
 const MAX_AGE = 60 * 60 * 24 * 180; // 180일
 
@@ -43,4 +45,6 @@ export function loadSession(): Session | null {
 
 export function clearSession(): void {
   document.cookie = `${COOKIE_KEY}=; max-age=0; path=/`;
+  // 공유기기 대비 — 세션과 함께 DM 로컬 캐시(IndexedDB)도 파기한다 (best-effort, 비동기)
+  void clearAllCachedMessages();
 }

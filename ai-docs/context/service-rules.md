@@ -253,3 +253,12 @@
 
 6. **헤드리스 녹음 큐는 반드시 비워야 한다.** 앱 미실행 중 녹음된 음성은 네이티브 큐에만 쌓이고 업로드되지 않는다. 캡슐이 뜰 때 `getPendingRecordings()` → 전송 → `clearPendingRecording()` 로 드레인한다. **전송 성공에만 제거**한다(실패 시 다음 실행에 재시도). 이 드레인이 빠져 있어 한동안 백그라운드 녹음이 전부 유실됐다.
 7. **푸시에 `audio_url` 이 없으면 자동재생이 성립하지 않는다.** 워커의 음성 분기는 `message_type='voice' + audio_url` 둘 다 있어야 발화하고, 없으면 일반 텍스트 알림으로 떨어진다.
+
+## DM 메시지 수정·삭제·공감·답장·보관 (제정 2026-08-28, 215_dm_message_sync)
+
+1. **동기화는 `dm_messages.updated_at` 워터마크 하나로 통합한다.** 신규/수정/소프트삭제/공감변경이 전부 이 컬럼을 bump 하고, `GET /dm/conversations/{id}/messages?after=` 커서가 이 값을 필터·정렬 기준으로 쓴다. 클라이언트(DmDetail)는 IndexedDB 로컬 캐시(`frontend/src/lib/dmCache.ts`)에 id 기준 upsert 만 한다. **읽음처리(read_at) 같은 무관한 UPDATE 는 워터마크를 bump 하지 않는다** — ORM `onupdate` 를 걸지 않고 해당 4개 이벤트에서만 명시적으로 갱신하는 이유다.
+2. **삭제는 소프트 삭제.** 본인 메시지만, `deleted_at` 마킹. 서버는 삭제된 메시지의 content/image/audio/meta 를 응답에서 제거하고, 클라이언트는 "삭제된 메시지입니다" 플레이스홀더로 렌더한다. "나에게만 삭제"는 범위 밖. 약속/가격제안 카드는 전용 취소 플로우를 쓰므로 삭제 불가.
+3. **수정은 본인 텍스트 메시지만.** `edited_at` 이 찍히고 클라이언트가 "(수정됨)"을 표기한다. 금칙어 검사는 전송과 동일하게 적용(수정으로 우회 불가). 편집 이력은 보관하지 않는다.
+4. **공감은 고정 팔레트 6종(👍❤️😂😮😢🙏)만.** `dm_message_reactions` PK(message_id, user_id, emoji)로 토글, 자유 이모지 피커 없음. 팔레트 변경 시 서버 `_DM_REACTION_EMOJIS`(routers/dm.py)와 프론트 `DM_REACTION_EMOJIS`(api/dm.ts)를 함께 고친다.
+5. **답장은 스냅샷 기반 앵커.** 전송 시점에 서버가 원본의 발신자명+내용 일부를 `reply_preview`(JSONB)로 박제한다 — 원본이 보관기간 만료로 파기되거나(`reply_to_message_id` FK SET NULL) 로컬 캐시 밖이어도 인용 렌더가 유지된다. 삭제된 메시지에는 답장할 수 없다.
+6. **보관기간은 기본 365일** — `backend/app/jobs/purge_old_dm_messages.py` 가 매일 03:30(ICT) `created_at` 초과분을 하드 삭제한다(첨부 contents 행+파일 포함). ⚠️ 정확한 일수는 법무 판단 대기 — 값 변경은 그 파일의 `DM_RETENTION_DAYS` 상수 하나로 끝낸다. 소프트 삭제분도 T&S 근거 보전을 위해 보관기간까지는 남긴다.

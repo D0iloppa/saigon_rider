@@ -1393,6 +1393,14 @@ class TradeHistoryItem(BaseModel):
     my_review: ReviewBrief | None = None
 
 
+class DmReactionOut(BaseModel):
+    """메시지 1건의 이모지별 공감 집계 (215_dm_message_sync)."""
+
+    emoji: str
+    count: int
+    reacted_by_me: bool = False
+
+
 class DmMessageOut(BaseModel):
     id: UUID
     conversation_id: UUID
@@ -1407,6 +1415,13 @@ class DmMessageOut(BaseModel):
     meta: dict | None = None
     appointment: AppointmentOut | None = None
     price_offer: PriceOfferOut | None = None
+    # 215_dm_message_sync — 수정/삭제/공감/답장. updated_at 은 클라이언트 증분 동기화 워터마크.
+    updated_at: datetime | None = None
+    edited_at: datetime | None = None
+    deleted_at: datetime | None = None
+    reply_to_message_id: UUID | None = None
+    reply_preview: dict | None = None
+    reactions: list[DmReactionOut] = []
 
 
 class DmMessageCreateRequest(BaseModel):
@@ -1415,6 +1430,12 @@ class DmMessageCreateRequest(BaseModel):
     audio_content_id: UUID | None = None
     message_type: str = "text"
     meta: dict | None = None
+    # 답장 대상 (같은 대화방 메시지만) — 서버가 전송 시점에 reply_preview 스냅샷을 생성한다
+    reply_to_message_id: UUID | None = None
+
+
+class DmMessageEditRequest(BaseModel):
+    content: str
 
 
 # ── App Version ──────────────────────────────────────────────────

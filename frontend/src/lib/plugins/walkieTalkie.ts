@@ -45,6 +45,24 @@ export interface WalkieTalkieStartOptions {
   maxDurationSec?: number;
 }
 
+/**
+ * 채널 참여 상태 위젯(Android ongoing 알림 / iOS Live Activity) 컨텐츠.
+ * **상태 표시 전용** — 위젯 표면 안에서 마이크 캡처/재생을 새로 시작하는 것은 양 플랫폼 모두
+ * 금지라(Apple 백그라운드 오디오 세션 / Android 12+ 알림발 FGS 제한) 탭 시 딥링크만 한다.
+ * 텍스트는 JS 가 이미 로컬라이즈해 넘긴다 — 네이티브에 i18n 을 두지 않는다.
+ */
+export interface WalkieChannelStatus {
+  /** 대화방 id — 탭 딥링크 대상 (navigateTo "dm&id=<channelId>" 규약 재사용). */
+  channelId: string;
+  channelName: string;
+  /** 참석 인원 (presence.present.length). */
+  presentCount: number;
+  /** 채널 전체 인원 (presence.members.length). 0 이면 카운트 미표시. */
+  totalCount: number;
+  /** 로컬라이즈된 "OO님이 말하는 중" 문구. 아무도 말하지 않으면 빈 문자열. */
+  speakingText: string;
+}
+
 export interface WalkieTalkiePlugin {
   /** 마이크(+Android 오버레이, B-2) 권한 상태 조회. */
   checkPermission(): Promise<{ mic: WalkieTalkieMicPermissionStatus; overlay?: boolean }>;
@@ -90,6 +108,16 @@ export interface WalkieTalkiePlugin {
   pinToHomeScreen(): Promise<void>;
   /** Android 채널 바로가기 위젯이 읽을 활성 채널을 SharedPreferences 에 동기화한다. */
   syncActiveChannel(opts: { channelId: string; channelName: string }): Promise<void>;
+
+  /**
+   * 채널 참여 상태 위젯 시작 (Android: FGS ongoing 알림 / iOS: ActivityKit Live Activity).
+   * 네이티브는 upsert 로 처리한다 — 이미 떠 있으면 갱신(순서 경합에 안전).
+   */
+  startChannelStatus(opts: WalkieChannelStatus): Promise<void>;
+  /** 채널 참여 상태 위젯 갱신 (참석수/발화상태 변경 시). */
+  updateChannelStatus(opts: WalkieChannelStatus): Promise<void>;
+  /** 채널 참여 상태 위젯 종료 (채널 퇴장/버블 닫기). */
+  endChannelStatus(): Promise<void>;
 }
 
 export const WalkieTalkie = registerPlugin<WalkieTalkiePlugin>('WalkieTalkie');

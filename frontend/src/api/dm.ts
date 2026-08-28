@@ -1,6 +1,6 @@
 import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
-import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, LocationShareStatus, PriceOffer } from './types';
+import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, DmReaction, LocationShareStatus, PriceOffer } from './types';
 
 function transformPriceOffer(raw: any): PriceOffer {
   return {
@@ -63,6 +63,10 @@ function transformConversation(raw: any): DmConversation {
   };
 }
 
+function transformReaction(raw: any): DmReaction {
+  return { emoji: raw.emoji, count: raw.count ?? 0, reactedByMe: raw.reacted_by_me ?? false };
+}
+
 function transformMessage(raw: any): DmMessage {
   return {
     id: raw.id,
@@ -77,6 +81,19 @@ function transformMessage(raw: any): DmMessage {
     meta: raw.meta ?? null,
     appointment: raw.appointment ? transformAppointment(raw.appointment) : null,
     priceOffer: raw.price_offer ? transformPriceOffer(raw.price_offer) : null,
+    updatedAt: raw.updated_at ?? null,
+    editedAt: raw.edited_at ?? null,
+    deletedAt: raw.deleted_at ?? null,
+    replyToMessageId: raw.reply_to_message_id ?? null,
+    replyPreview: raw.reply_preview
+      ? {
+          senderId: raw.reply_preview.senderId,
+          senderNickname: raw.reply_preview.senderNickname ?? null,
+          content: raw.reply_preview.content ?? null,
+          messageType: raw.reply_preview.messageType ?? null,
+        }
+      : null,
+    reactions: (raw.reactions ?? []).map(transformReaction),
   };
 }
 
@@ -137,13 +154,20 @@ export async function fetchConversation(conversationId: string): Promise<DmConve
   return transformConversation(raw);
 }
 
+/**
+ * 메시지 목록/증분 동기화.
+ * `after` 는 **updated_at 워터마크** — 신규뿐 아니라 수정/삭제/공감변경된 메시지가 전부
+ * 실려 온다(215_dm_message_sync). 소비처는 id 로 upsert 하면 된다.
+ * `after` 없는 요청은 created_at 순 offset 페이지네이션(과거분 로드) — total 이 정확하다.
+ */
 export async function fetchMessages(
   conversationId: string,
   page = 1,
   after?: string,
+  size = 50,
 ): Promise<{ items: DmMessage[]; total: number }> {
   if (USE_MOCK) return api.delay({ items: [], total: 0 }, 100);
-  let url = `/dm/conversations/${conversationId}/messages?page=${page}`;
+  let url = `/dm/conversations/${conversationId}/messages?page=${page}&size=${size}`;
   if (after) url += `&after=${encodeURIComponent(after)}`;
   const res = await api.realFetch<{ items: any[]; total: number }>(url);
   return { items: res.items.map(transformMessage), total: res.total };
@@ -155,6 +179,8 @@ export interface SendMessageOpts {
   audioContentId?: string;
   messageType?: string;
   meta?: DmAppointmentMeta;
+  /** 답장 대상 메시지 id — 서버가 전송 시점에 reply_preview 스냅샷을 만든다. */
+  replyToMessageId?: string;
 }
 
 export async function sendMessage(
@@ -176,6 +202,12 @@ export async function sendMessage(
       meta: opts.meta ?? null,
       appointment: null,
       priceOffer: null,
+      updatedAt: new Date().toISOString(),
+      editedAt: null,
+      deletedAt: null,
+      replyToMessageId: opts.replyToMessageId ?? null,
+      replyPreview: null,
+      reactions: [],
     }, 100);
   }
   requireSession();
@@ -187,9 +219,56 @@ export async function sendMessage(
       audio_content_id: opts.audioContentId ?? null,
       message_type: opts.messageType ?? 'text',
       meta: opts.meta ?? null,
+      reply_to_message_id: opts.replyToMessageId ?? null,
     }),
   }, 'bff', { rethrow: true });
   return transformMessage(raw);
+}
+
+/** 본인 텍스트 메시지 수정 — 수정본에는 editedAt 이 찍힌다. */
+export async function editMessage(conversationId: string, messageId: string, content: string): Promise<DmMessage> {
+  const raw = await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/messages/${messageId}`,
+    { method: 'PATCH', body: JSON.stringify({ content }) },
+    'bff',
+    { rethrow: true },
+  );
+  return transformMessage(raw);
+}
+
+/** 본인 메시지 소프트 삭제 — 상대에게는 "삭제된 메시지" 플레이스홀더로 보인다. */
+export async function deleteMessage(conversationId: string, messageId: string): Promise<void> {
+  await api.realFetch(
+    `/dm/conversations/${conversationId}/messages/${messageId}`,
+    { method: 'DELETE' },
+    'bff',
+    { rethrow: true },
+  );
+}
+
+/** 공감 고정 팔레트 — 서버 _DM_REACTION_EMOJIS 와 동일해야 한다. */
+export const DM_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'] as const;
+
+/** 공감 추가. 해당 메시지의 최신 공감 집계를 반환한다. */
+export async function addReaction(conversationId: string, messageId: string, emoji: string): Promise<DmReaction[]> {
+  const raw = await api.realFetch<any[]>(
+    `/dm/conversations/${conversationId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+    { method: 'POST' },
+    'bff',
+    { rethrow: true },
+  );
+  return (raw ?? []).map(transformReaction);
+}
+
+/** 공감 제거. 해당 메시지의 최신 공감 집계를 반환한다. */
+export async function removeReaction(conversationId: string, messageId: string, emoji: string): Promise<DmReaction[]> {
+  const raw = await api.realFetch<any[]>(
+    `/dm/conversations/${conversationId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+    { method: 'DELETE' },
+    'bff',
+    { rethrow: true },
+  );
+  return (raw ?? []).map(transformReaction);
 }
 
 export async function markRead(conversationId: string): Promise<void> {

@@ -17,6 +17,7 @@ from ..models import (
     DmConversationBan,
     DmConversationMember,
     DmMessage,
+    DmMessageReaction,
     FunnelEvent,
     MarketplaceAppointment,
     MarketplaceListing,
@@ -37,8 +38,10 @@ from ..schemas import (
     DmMemberOut,
     DmMemberRolePatchRequest,
     DmMessageCreateRequest,
+    DmMessageEditRequest,
     DmMessageOut,
     DmPresenceOut,
+    DmReactionOut,
     DmRecordingPresenceRequest,
     DmRecordingUserOut,
     FunnelEventType,
@@ -89,6 +92,37 @@ def _resolve_dm_audio(msg: DmMessage) -> str | None:
     """워키토키 음성메시지 재생URL. 재생완료로 컨텐츠가 삭제된 뒤에는 None."""
     ac = msg.audio_content
     return _content_playback_url(ac) if ac else None
+
+
+# 공감 고정 팔레트 (Slack 스타일) — 자유 이모지는 받지 않는다 (범위 확정, 215_dm_message_sync)
+_DM_REACTION_EMOJIS = ("👍", "❤️", "😂", "😮", "😢", "🙏")
+
+
+async def _reactions_map(
+    db: AsyncSession, message_ids: list[uuid.UUID], me: uuid.UUID
+) -> dict[uuid.UUID, list[DmReactionOut]]:
+    """메시지들의 이모지별 공감 집계 — N+1 없이 GROUP BY 한 번."""
+    if not message_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(
+                DmMessageReaction.message_id,
+                DmMessageReaction.emoji,
+                func.count(),
+                func.bool_or(DmMessageReaction.user_id == me),
+            )
+            .where(DmMessageReaction.message_id.in_(message_ids))
+            .group_by(DmMessageReaction.message_id, DmMessageReaction.emoji)
+        )
+    ).all()
+    result: dict[uuid.UUID, list[DmReactionOut]] = {}
+    for message_id, emoji, count, reacted_by_me in rows:
+        result.setdefault(message_id, []).append(DmReactionOut(emoji=emoji, count=count, reacted_by_me=reacted_by_me))
+    # 팔레트 순서로 정렬 — 클라이언트 렌더 순서 안정화
+    for items in result.values():
+        items.sort(key=lambda r: _DM_REACTION_EMOJIS.index(r.emoji) if r.emoji in _DM_REACTION_EMOJIS else 99)
+    return result
 
 
 def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
@@ -202,6 +236,8 @@ async def get_conversations(
                         DmMessage.conversation_id == conv.id,
                         DmMessage.sender_id != user_id,
                         DmMessage.created_at > last_read_at,
+                        # 소프트 삭제된 메시지는 안읽음으로 세지 않는다 (215_dm_message_sync)
+                        DmMessage.deleted_at.is_(None),
                     )
                 )
             ).scalar_one()
@@ -229,7 +265,14 @@ async def get_conversations(
                 other_user_id=other_id,
                 other_user_nickname=other_user.nickname if other_user else None,
                 other_user_avatar_url=resolve_avatar_url(other_user) if other_user else None,
-                last_message_preview=last_msg.content[:50] if last_msg and last_msg.content else None,
+                # 소프트 삭제된 마지막 메시지는 콘텐츠 대신 플레이스홀더 (DmDetail 의 dm.deletedMessage 와 동일 문구)
+                last_message_preview=(
+                    "삭제된 메시지입니다"
+                    if last_msg is not None and last_msg.deleted_at is not None
+                    else last_msg.content[:50]
+                    if last_msg and last_msg.content
+                    else None
+                ),
                 last_message_type=last_msg.message_type if last_msg else None,
                 last_message_meta=last_message_meta,
                 last_message_at=conv.last_message_at,
@@ -488,6 +531,11 @@ async def get_messages(
 ):
     """메시지 목록.
 
+    `after` 커서는 **`updated_at` 워터마크**다 (215_dm_message_sync) — 신규 메시지뿐 아니라
+    수정/소프트삭제/공감변경으로 `updated_at` 이 bump 된 메시지가 전부 실려 온다.
+    클라이언트는 로컬 캐시에 id 로 upsert 만 하면 된다. (커서 없는 요청은 종전대로
+    `created_at` 순 offset 페이지네이션 — 과거분 로드용.)
+
     ⚠️ `after`(커서)를 준 요청에서 **`total` 은 "커서 이후 전체 개수"가 아니라 이번 응답의 건수**다.
     폴링 경로의 COUNT(*) 를 없애면서 생긴 의도적 차이다(성능). 따라서 커서 요청에는
     `acc.length >= total` 같은 페이징 관용구를 쓰면 안 된다 — 그런 계산이 필요하면 커서 없이
@@ -505,10 +553,13 @@ async def get_messages(
 
     base = select(DmMessage).where(DmMessage.conversation_id == conv_id)
     if after:
-        base = base.where(DmMessage.created_at > after)
+        # 워터마크 커서 — 커서 전진이 성립하려면 정렬도 updated_at 기준이어야 한다
+        base = base.where(DmMessage.updated_at > after).order_by(DmMessage.updated_at.asc())
+    else:
+        base = base.order_by(DmMessage.created_at.asc())
 
     offset = (page - 1) * size
-    rows = (await db.execute(base.order_by(DmMessage.created_at.asc()).offset(offset).limit(size))).scalars().all()
+    rows = (await db.execute(base.offset(offset).limit(size))).scalars().all()
 
     # `after` 커서가 있는 요청은 **폴링**이다(DmDetail·워키토키 캡슐이 5초마다 호출). 이 경로에서
     # COUNT(*) 는 매 tick 마다 전체 스캔을 한 번 더 거는데, 소비처가 하나도 없다 — 폴링 응답에서
@@ -571,20 +622,29 @@ async def get_messages(
             return _offer_out(o, seller_id) if o else None
         return None
 
+    reactions = await _reactions_map(db, [m.id for m in rows], _session_uid)
+
     items = [
         DmMessageOut(
             id=m.id,
             conversation_id=m.conversation_id,
             sender_id=m.sender_id,
-            content=m.content,
-            image_url=_resolve_dm_image(m),
-            audio_url=_resolve_dm_audio(m),
+            # 소프트 삭제된 메시지는 콘텐츠를 노출하지 않는다 — 클라이언트는 deleted_at 로 플레이스홀더 렌더
+            content=None if m.deleted_at else m.content,
+            image_url=None if m.deleted_at else _resolve_dm_image(m),
+            audio_url=None if m.deleted_at else _resolve_dm_audio(m),
             read_at=m.read_at,
             created_at=m.created_at,
             message_type=m.message_type,
-            meta=m.meta,
+            meta=None if m.deleted_at else m.meta,
             appointment=await _appt_for(m),
             price_offer=_offer_for(m),
+            updated_at=m.updated_at,
+            edited_at=m.edited_at,
+            deleted_at=m.deleted_at,
+            reply_to_message_id=m.reply_to_message_id,
+            reply_preview=None if m.deleted_at else m.reply_preview,
+            reactions=reactions.get(m.id, []),
         )
         for m in rows
     ]
@@ -624,6 +684,29 @@ async def send_message(
     # 워키토키 음성메시지(A-3) — audio_content_id 동봉 시 message_type 을 강제로 'voice' 로
     message_type = "voice" if body.audio_content_id is not None else (body.message_type or "text")
 
+    # 답장 앵커 (215_dm_message_sync) — 서버가 전송 시점에 원본을 조회해 스냅샷을 만든다.
+    # 원본이 나중에 보관기간 만료·소프트삭제돼도 답장 버블은 이 스냅샷만으로 렌더된다.
+    reply_preview: dict | None = None
+    if body.reply_to_message_id is not None:
+        original = (
+            await db.execute(
+                select(DmMessage).where(DmMessage.id == body.reply_to_message_id, DmMessage.conversation_id == conv_id)
+            )
+        ).scalar_one_or_none()
+        if original is None:
+            raise HTTPException(status_code=404, detail="Reply target message not found")
+        if original.deleted_at is not None:
+            raise HTTPException(status_code=400, detail="Cannot reply to a deleted message")
+        original_sender = await db.get(User, original.sender_id)
+        reply_preview = {
+            "senderId": str(original.sender_id),
+            "senderNickname": original_sender.nickname if original_sender else None,
+            "content": original.content[:80] if original.content else None,
+            # content 없는 원본(이미지/음성/약속/가격제안)에 답장해도 프론트가
+            # "[사진]" 같은 대체 라벨을 만들 수 있게 원본 타입을 함께 스냅샷한다.
+            "messageType": original.message_type,
+        }
+
     now = datetime.now(UTC)
     msg = DmMessage(
         conversation_id=conv_id,
@@ -634,6 +717,9 @@ async def send_message(
         image_content_id=body.image_content_id,
         audio_content_id=body.audio_content_id,
         created_at=now,
+        updated_at=now,
+        reply_to_message_id=body.reply_to_message_id,
+        reply_preview=reply_preview,
     )
     db.add(msg)
     conv.last_message_at = now
@@ -696,7 +782,163 @@ async def send_message(
         created_at=msg.created_at,
         message_type=msg.message_type,
         meta=msg.meta,
+        updated_at=msg.updated_at,
+        reply_to_message_id=msg.reply_to_message_id,
+        reply_preview=msg.reply_preview,
     )
+
+
+async def _require_message_access(
+    db: AsyncSession, conv_id: uuid.UUID, message_id: uuid.UUID, session_uid: uuid.UUID
+) -> DmMessage:
+    """수정/삭제/공감 공통 — 대화방 접근 검증 후 해당 방의 메시지를 반환한다."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await _require_conv_access(db, conv, session_uid)
+    msg = (
+        await db.execute(select(DmMessage).where(DmMessage.id == message_id, DmMessage.conversation_id == conv_id))
+    ).scalar_one_or_none()
+    if msg is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return msg
+
+
+@router.patch(
+    "/conversations/{conv_id}/messages/{message_id}",
+    response_model=DmMessageOut,
+    summary="메시지 수정 (본인 텍스트 메시지만)",
+)
+async def edit_message(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    body: DmMessageEditRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    msg = await _require_message_access(db, conv_id, message_id, _session_uid)
+    if msg.sender_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Not your message")
+    if msg.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Cannot edit a deleted message")
+    if msg.message_type != "text":
+        raise HTTPException(status_code=400, detail="Only text messages can be edited")
+    if not body.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+
+    # 금칙어 차단 — 전송과 동일 규칙 (수정으로 우회 불가)
+    content_lower = body.content.lower()
+    if any(kw in content_lower for kw in await _banned_keywords(db)):
+        raise HTTPException(status_code=400, detail={"code": "banned_keyword"})
+
+    now = datetime.now(UTC)
+    msg.content = body.content
+    msg.edited_at = now
+    msg.updated_at = now  # 워터마크 bump — 상대 클라이언트 폴링에 실린다
+    await db.commit()
+    await db.refresh(msg)
+
+    reactions = await _reactions_map(db, [msg.id], _session_uid)
+    return DmMessageOut(
+        id=msg.id,
+        conversation_id=msg.conversation_id,
+        sender_id=msg.sender_id,
+        content=msg.content,
+        image_url=_resolve_dm_image(msg),
+        audio_url=_resolve_dm_audio(msg),
+        read_at=msg.read_at,
+        created_at=msg.created_at,
+        message_type=msg.message_type,
+        meta=msg.meta,
+        updated_at=msg.updated_at,
+        edited_at=msg.edited_at,
+        reply_to_message_id=msg.reply_to_message_id,
+        reply_preview=msg.reply_preview,
+        reactions=reactions.get(msg.id, []),
+    )
+
+
+@router.delete("/conversations/{conv_id}/messages/{message_id}", summary="메시지 삭제 (소프트)")
+async def delete_message(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """본인 메시지 소프트 삭제 — deleted_at 마킹만 하고 행은 남긴다("나에게만 삭제"는 범위 밖).
+    약속/가격제안 카드는 도메인 엔티티의 취소 플로우가 따로 있어 여기서 지우지 않는다."""
+    msg = await _require_message_access(db, conv_id, message_id, _session_uid)
+    if msg.sender_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Not your message")
+    if msg.message_type in ("appointment", "price_offer"):
+        raise HTTPException(status_code=400, detail="Use the dedicated cancel flow for this message type")
+
+    if msg.deleted_at is None:  # 이미 삭제됐으면 멱등 no-op
+        now = datetime.now(UTC)
+        msg.deleted_at = now
+        msg.updated_at = now
+        await db.commit()
+    return {"ok": True}
+
+
+@router.post(
+    "/conversations/{conv_id}/messages/{message_id}/reactions/{emoji}",
+    response_model=list[DmReactionOut],
+    status_code=201,
+    summary="공감 추가",
+)
+async def add_reaction(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    emoji: str,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    if emoji not in _DM_REACTION_EMOJIS:
+        raise HTTPException(status_code=400, detail="Unsupported reaction emoji")
+    msg = await _require_message_access(db, conv_id, message_id, _session_uid)
+    if msg.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Cannot react to a deleted message")
+
+    # 이중 탭/동시 요청에도 유니크 제약(PK) 위반 없이 멱등 — 실제 추가됐을 때만 워터마크 bump
+    result = await db.execute(
+        pg_insert(DmMessageReaction)
+        .values(message_id=message_id, user_id=_session_uid, emoji=emoji)
+        .on_conflict_do_nothing(index_elements=["message_id", "user_id", "emoji"])
+    )
+    if result.rowcount:
+        msg.updated_at = datetime.now(UTC)  # 공감 변경도 상대 폴링에 실린다
+    await db.commit()
+    return (await _reactions_map(db, [message_id], _session_uid)).get(message_id, [])
+
+
+@router.delete(
+    "/conversations/{conv_id}/messages/{message_id}/reactions/{emoji}",
+    response_model=list[DmReactionOut],
+    summary="공감 제거",
+)
+async def remove_reaction(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    emoji: str,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    msg = await _require_message_access(db, conv_id, message_id, _session_uid)
+    reaction = (
+        await db.execute(
+            select(DmMessageReaction).where(
+                DmMessageReaction.message_id == message_id,
+                DmMessageReaction.user_id == _session_uid,
+                DmMessageReaction.emoji == emoji,
+            )
+        )
+    ).scalar_one_or_none()
+    if reaction is not None:
+        await db.delete(reaction)
+        msg.updated_at = datetime.now(UTC)
+        await db.commit()
+    return (await _reactions_map(db, [message_id], _session_uid)).get(message_id, [])
 
 
 @router.post(
@@ -735,11 +977,14 @@ async def mark_voice_played(
             if await asyncio.to_thread(abs_path.is_file):
                 await asyncio.to_thread(abs_path.unlink)
             await db.delete(content)
+        now = datetime.now(UTC)
         msg.audio_content_id = None
-        msg.meta = {**(msg.meta or {}), "playedAt": datetime.now(UTC).isoformat()}
+        msg.meta = {**(msg.meta or {}), "playedAt": now.isoformat()}
+        msg.updated_at = now  # 워터마크 bump — 재생완료(파일 삭제)도 상대 폴링에 실린다
         await db.commit()
         await db.refresh(msg)
 
+    reactions = await _reactions_map(db, [msg.id], _session_uid)
     return DmMessageOut(
         id=msg.id,
         conversation_id=msg.conversation_id,
@@ -751,6 +996,12 @@ async def mark_voice_played(
         created_at=msg.created_at,
         message_type=msg.message_type,
         meta=msg.meta,
+        updated_at=msg.updated_at,
+        edited_at=msg.edited_at,
+        deleted_at=msg.deleted_at,
+        reply_to_message_id=msg.reply_to_message_id,
+        reply_preview=msg.reply_preview,
+        reactions=reactions.get(msg.id, []),
     )
 
 

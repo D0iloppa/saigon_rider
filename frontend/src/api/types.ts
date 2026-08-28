@@ -338,6 +338,22 @@ export interface PriceOffer {
   status: PriceOfferStatus;
 }
 
+/** 메시지 1건의 이모지별 공감 집계 (215_dm_message_sync). */
+export interface DmReaction {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
+/** 답장 앵커 스냅샷 — 원본이 로컬 캐시/보관기간 밖이어도 이것만으로 인용 렌더 가능. */
+export interface DmReplyPreview {
+  senderId: string;
+  senderNickname: string | null;
+  content: string | null;
+  /** 원본 메시지 타입 — content 없는 원본(이미지/음성/약속/가격제안)의 대체 라벨용. 구 스냅샷은 null. */
+  messageType: string | null;
+}
+
 export interface DmMessage {
   id: string;
   conversationId: string;
@@ -352,4 +368,11 @@ export interface DmMessage {
   meta: DmAppointmentMeta | null;
   appointment: Appointment | null;
   priceOffer: PriceOffer | null;
+  /** 신규/수정/삭제/공감변경 통합 동기화 워터마크 (215_dm_message_sync) */
+  updatedAt: string | null;
+  editedAt: string | null;
+  deletedAt: string | null;
+  replyToMessageId: string | null;
+  replyPreview: DmReplyPreview | null;
+  reactions: DmReaction[];
 }

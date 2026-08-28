@@ -312,6 +312,49 @@ export function WalkieTalkieFloatingButton() {
     setPhase('idle');
   }, []);
 
+  // ── 채널 참여 상태 위젯 (Android ongoing 알림 / iOS Live Activity) ─────────
+  // 상태 표시(채널명·참석수·발화중) 전용 — 위젯 안 녹음/재생은 플랫폼이 금지라 탭 딥링크만
+  // 한다(navigateTo "dm&id=<channelId>" 규약, 채널 바로가기 위젯과 동일). 웹/구설치본은
+  // native.ts 가 no-op/reject 처리하므로 여기선 실패를 조용히 무시한다.
+  const statusChannelName = conversationMeta?.name ?? '';
+  const statusPresentCount = presence?.present.length ?? 0;
+  const statusTotalCount = presence?.members.length ?? 0;
+  const statusSpeakingId = presence?.speaking.find((ref) => ref !== myUserId) ?? null;
+  const statusSpeakingName = statusSpeakingId ? (presence?.displayNames[statusSpeakingId] ?? '') : '';
+
+  // 시작/종료 — 채널 참여가 시작될 때 띄우고, 채널을 바꾸거나 떠나면(버블 닫기 포함) 내린다.
+  useEffect(() => {
+    if (!bubbleActive || !conversationId) return;
+    native.walkieTalkie
+      .startChannelStatus({
+        channelId: conversationId,
+        channelName: conversationMetaRef.current?.name ?? '',
+        presentCount: 0,
+        totalCount: 0,
+        speakingText: '',
+      })
+      .catch(() => {});
+    return () => {
+      native.walkieTalkie.endChannelStatus().catch(() => {});
+    };
+  }, [bubbleActive, conversationId]);
+
+  // 갱신 — 참석수/발화상태/채널명이 바뀔 때만. 네이티브는 upsert 라 start 와의 경합에 안전하다.
+  useEffect(() => {
+    if (!bubbleActive || !conversationId) return;
+    native.walkieTalkie
+      .updateChannelStatus({
+        channelId: conversationId,
+        channelName: statusChannelName,
+        presentCount: statusPresentCount,
+        totalCount: statusTotalCount,
+        speakingText: statusSpeakingName
+          ? t('walkieTalkie.someoneSpeaking', { name: statusSpeakingName, defaultValue: '{{name}}님이 말하는 중' })
+          : '',
+      })
+      .catch(() => {});
+  }, [bubbleActive, conversationId, statusChannelName, statusPresentCount, statusTotalCount, statusSpeakingName, t]);
+
   // 다이나믹 아일랜드식 펼침(peek) — 채널 등장·다른 사람 발화·어텐션 핑 시 자동으로 펼친다.
   // 자동 접힘은 없다(대표 지시 2026-08-27) — 접는 건 더블탭 토글뿐이다.
   const speakingOtherId = presence?.speaking.find((ref) => ref !== myUserId) ?? null;

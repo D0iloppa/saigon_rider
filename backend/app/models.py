@@ -1538,6 +1538,32 @@ class DmMessage(Base):
     audio_content: Mapped["Content | None"] = relationship("Content", foreign_keys=[audio_content_id], lazy="selectin")
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # 215_dm_message_sync.sql — 신규/수정/소프트삭제/공감변경 통합 폴링 워터마크.
+    # onupdate 를 걸지 않는다 — read_at 갱신(읽음처리) 같은 무관한 UPDATE 가 폴링에 실리면
+    # 안 되므로, 워터마크 대상 이벤트에서만 애플리케이션이 명시적으로 bump 한다.
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reply_to_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_messages.id", ondelete="SET NULL"), nullable=True
+    )
+    # 답장 앵커 스냅샷 { senderId, senderNickname, content } — 원본이 캐시/보관기간 밖이어도 렌더 가능
+    reply_preview: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class DmMessageReaction(Base):
+    """DM 메시지 공감 (Slack 스타일, 고정 팔레트) — 215_dm_message_sync.sql"""
+
+    __tablename__ = "dm_message_reactions"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    emoji: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class MarketplaceAppointment(Base):

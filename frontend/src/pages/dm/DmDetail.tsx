@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Radio } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -31,9 +31,16 @@ import {
   cancelPriceOffer,
   reportConversation,
   removeMember,
+  fetchMembers,
+  editMessage,
+  deleteMessage,
+  addReaction,
+  removeReaction,
+  DM_REACTION_EMOJIS,
   DM_REPORT_REASONS,
   type DmReportReason,
 } from '@/api/dm';
+import { loadCachedMessages, saveCachedMessages } from '@/lib/dmCache';
 import type { Appointment, PriceOffer } from '@/api/types';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
 import { fetchMyReview, type ReviewBrief } from '@/api/market';
@@ -54,6 +61,26 @@ import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
 import styles from './DmDetail.module.css';
 
+const PAGE_SIZE = 50;
+
+/** id 기준 upsert 후 createdAt 오름차순 정렬 — 폴링/캐시/과거분 로드가 전부 이 하나로 합쳐진다. */
+function upsertMessages(prev: DmMessage[], incoming: DmMessage[]): DmMessage[] {
+  if (incoming.length === 0) return prev;
+  const map = new Map(prev.map((m) => [m.id, m]));
+  for (const m of incoming) map.set(m.id, m);
+  return [...map.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** 증분 폴링 커서 — 알고 있는 메시지들의 최대 updatedAt (구캐시 폴백: createdAt). */
+function watermarkOf(messages: DmMessage[]): string | undefined {
+  let max: string | undefined;
+  for (const m of messages) {
+    const ts = m.updatedAt ?? m.createdAt;
+    if (!max || ts > max) max = ts;
+  }
+  return max;
+}
+
 export default function DmDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -71,6 +98,10 @@ export default function DmDetail() {
   const session = loadSession();
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
+  // 폴링 tick 이 최신 messages 를 읽되, 그 변화가 폴링 interval 자체를 재시작시키지는 않게 한다 —
+  // 안 그러면 로컬 전송/공감/수정마다 5초 타이머가 리셋돼 상대방 신규 메시지 수신이 계속 미뤄진다.
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
   const [conv, setConv] = useState<DmConversation | null>(locationState?.conv ?? null);
   const [sending, setSending] = useState(false);
   // 초기 메시지 로드 상태 — 실패를 "대화 없음"과 구분하기 위해 별도 관리 (P1-6)
@@ -87,6 +118,19 @@ export default function DmDetail() {
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  // 메시지 액션(공감/답장/수정/삭제) — 말풍선 롱프레스로 연다.
+  // 값 스냅샷이 아니라 id 만 들고 messages 에서 매번 파생한다 — 시트가 열려있는 동안
+  // 백그라운드 폴링으로 메시지가 갱신돼도(공감 상태 등) 시트 내용이 따라간다.
+  const [actionMsgId, setActionMsgId] = useState<string | null>(null);
+  const actionMsg = useMemo(
+    () => (actionMsgId ? messages.find((m) => m.id === actionMsgId) ?? null : null),
+    [messages, actionMsgId],
+  );
+  const [replyTo, setReplyTo] = useState<DmMessage | null>(null);
+  // 그룹 답장바 이름 — 그룹 메시지에는 발신자 닉네임이 실리지 않아 멤버 목록에서 찾는다 (답장 시 lazy 1회 로드)
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [locationShareSheetOpen, setLocationShareSheetOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -99,19 +143,80 @@ export default function DmDetail() {
   const roomTitle = conv?.title ?? locationState?.conv?.title ?? t('dm.group', { defaultValue: '그룹톡방' });
   const roomMemberCount = conv?.memberCount ?? locationState?.conv?.memberCount ?? null;
 
-  // 초기 메시지 로드 — 실패 시 loadError 로 구분해 재시도를 제공 (P1-6: 500/timeout 이 빈 대화로 보이던 버그)
-  const loadMessages = useCallback(() => {
+  // 서버 total 캐시 — 위로 스크롤 시 "아직 안 받은 과거분" 페이지 계산용
+  const totalRef = useRef<number | null>(null);
+  const loadingOlderRef = useRef(false);
+
+  // 수신분을 상태 + 로컬 캐시(IndexedDB)에 동시 반영 — 모든 유입 경로가 이 하나를 쓴다
+  const applyIncoming = useCallback((items: DmMessage[]) => {
+    if (items.length === 0) return;
+    setMessages((prev) => upsertMessages(prev, items));
+    void saveCachedMessages(items);
+  }, []);
+
+  // 초기 로드 — 로컬 캐시 즉시 렌더 → 워터마크 증분 동기화. 캐시가 없으면 최근 페이지부터.
+  // 실패 시 loadError 로 구분해 재시도를 제공 (P1-6: 500/timeout 이 빈 대화로 보이던 버그)
+  const loadMessages = useCallback(async () => {
     if (!conversationId) return;
     setLoading(true);
     setLoadError(false);
-    fetchMessages(conversationId)
-      .then((res) => {
+    const cached = await loadCachedMessages(conversationId);
+    if (cached.length > 0) {
+      setMessages(cached);
+      setLoading(false);
+    }
+    try {
+      if (cached.length === 0) {
+        // 전체가 아니라 **최근 PAGE_SIZE 건만** — total 파악(size=1) 후 마지막 페이지 로드
+        const head = await fetchMessages(conversationId, 1, undefined, 1);
+        totalRef.current = head.total;
+        const lastPage = Math.max(1, Math.ceil(head.total / PAGE_SIZE));
+        const res = await fetchMessages(conversationId, lastPage);
         setMessages(res.items);
-        markRead(conversationId).then(() => refreshUnread()).catch(() => {});
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+        void saveCachedMessages(res.items);
+      } else {
+        // 캐시 워터마크 이후의 신규/수정/삭제/공감변경분만 증분 수신
+        const res = await fetchMessages(conversationId, 1, watermarkOf(cached));
+        applyIncoming(res.items);
+      }
+      markRead(conversationId).then(() => refreshUnread()).catch(() => {});
+    } catch {
+      if (cached.length === 0) setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 위로 스크롤 시 과거분 로드 — offset 페이지를 로컬 캐시에 추가 적재.
+  // "안 받은 과거분 = total - 보유건수" 근사로 대상 페이지를 계산하고, 경계 겹침은 upsert 가 흡수한다.
+  const loadOlder = useCallback(async () => {
+    if (!conversationId || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    try {
+      if (totalRef.current === null) {
+        totalRef.current = (await fetchMessages(conversationId, 1, undefined, 1)).total;
+      }
+      const olderCount = totalRef.current - messages.length;
+      if (olderCount <= 0) return;
+      const page = Math.max(1, Math.ceil(olderCount / PAGE_SIZE));
+      const el = listRef.current;
+      const prevHeight = el?.scrollHeight ?? 0;
+      const prevTop = el?.scrollTop ?? 0;
+      const res = await fetchMessages(conversationId, page);
+      totalRef.current = res.total;
+      skipAutoScrollRef.current = true; // prepend 는 바닥 스냅 대상이 아니다
+      applyIncoming(res.items);
+      // 위로 붙은 만큼 스크롤 보정 — 읽던 위치 유지 (렌더 반영 후)
+      requestAnimationFrame(() => {
+        const list = listRef.current;
+        if (list) list.scrollTop = list.scrollHeight - prevHeight + prevTop;
+      });
+    } catch {
+      // 순단 무시 — 다음 스크롤에서 재시도
+    } finally {
+      loadingOlderRef.current = false;
+    }
+  }, [conversationId, messages.length, applyIncoming]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -140,14 +245,20 @@ export default function DmDetail() {
     const tick = async () => {
       if (document.visibilityState !== 'visible') return;
       try {
-        const last = messages[messages.length - 1];
-        const res = await fetchMessages(conversationId, 1, last?.createdAt);
+        // updated_at 워터마크 — 신규뿐 아니라 수정/삭제/공감변경된 메시지도 실려 온다(id upsert)
+        const res = await fetchMessages(conversationId, 1, watermarkOf(messagesRef.current));
         if (res.items.length > 0) {
-          setMessages((prev) => [...prev, ...res.items]);
-          // 폴링으로 새로 도착한 메시지 중 내가 보낸 게 아닌 게 있으면 수신음.
+          const knownIds = new Set(messagesRef.current.map((m) => m.id));
+          applyIncoming(res.items);
+          // 폴링으로 **새로** 도착한 메시지 중 내가 보낸 게 아닌 게 있으면 수신음 (수정/공감 변경 제외).
           const uid = session?.userId ?? user?.id;
-          if (res.items.some((m) => m.senderId !== uid)) playSound('dm_receive');
-          markRead(conversationId).then(() => refreshUnread()).catch(() => {});
+          const fresh = res.items.filter((m) => !knownIds.has(m.id));
+          // 진짜 신규 메시지(수정/공감 아님)만큼 total 근사치도 전진 — 안 하면 loadOlder 의
+          // "안 받은 과거분 = total - 보유건수" 계산이 뒤로 밀려 과거 구간을 영구히 건너뛴다.
+          if (fresh.length > 0 && totalRef.current !== null) totalRef.current += fresh.length;
+          if (fresh.some((m) => m.senderId !== uid)) playSound('dm_receive');
+          if (fresh.length > 0) markRead(conversationId).then(() => refreshUnread()).catch(() => {});
+          else skipAutoScrollRef.current = true; // 수정/공감만 온 폴링은 바닥 스냅을 유발하지 않는다
         }
       } catch {
         // 순단 무시 — 다음 tick 에 재시도
@@ -160,10 +271,12 @@ export default function DmDetail() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [conversationId, messages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId]); // messagesRef 로 최신값 참조 — interval 재시작 불필요 // eslint-disable-line react-hooks/exhaustive-deps
 
   // 바닥 고정 여부 — 사용자가 위로 스크롤해 과거를 보는 중이면 false (자동 스크롤 중단)
   const pinnedRef = useRef(true);
+  // 과거분 prepend / 수정·공감만 실린 폴링 — 바닥 스냅(정착 윈도우)을 1회 건너뛴다
+  const skipAutoScrollRef = useRef(false);
   const kb = useKeyboard();
   // 정착 윈도우 루프가 프레임 단위 스냅으로 키보드 smooth 스크롤을 덮어쓰지 않도록
   // 키보드 표시 여부를 ref 로도 노출 (진입 직후 2초 내 첫 입력창 터치 시 경합 방지)
@@ -178,6 +291,11 @@ export default function DmDetail() {
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
+    if (skipAutoScrollRef.current) {
+      // 과거분 로드/수정·공감 반영 — 읽던 위치를 보존해야 하므로 바닥 고정을 걸지 않는다
+      skipAutoScrollRef.current = false;
+      return;
+    }
     pinnedRef.current = true;
     const deadline = performance.now() + 2000;
     let raf = 0;
@@ -220,8 +338,9 @@ export default function DmDetail() {
     if (!text.trim() || !conversationId || sending) return;
     setSending(true);
     try {
-      const msg = await sendMessage(conversationId, text);
-      setMessages((prev) => [...prev, msg]);
+      const msg = await sendMessage(conversationId, text, replyTo ? { replyToMessageId: replyTo.id } : {});
+      applyIncoming([msg]);
+      setReplyTo(null);
       playSound('dm_send');
     } catch (err) {
       // 전송 실패 시 입력을 비운 채로 두지 않고 원문을 복원 — 재입력 없이 한 번의 조작으로 재전송 가능 (P1-6)
@@ -271,7 +390,7 @@ export default function DmDetail() {
       form.append('owner_id', user.id);
       const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
       const msg = await sendMessage(conversationId, '', { imageContentId: id });
-      setMessages((prev) => [...prev, msg]);
+      applyIncoming([msg]);
     } catch {
       toast.error(t('common.errorUnexpected'));
     } finally {
@@ -285,7 +404,7 @@ export default function DmDetail() {
     setSending(true);
     try {
       const msg = await sendMessage(conversationId, '', { messageType: 'sticker', meta: { stickerId } });
-      setMessages((prev) => [...prev, msg]);
+      applyIncoming([msg]);
     } catch {
       toast.error(t('common.errorUnexpected'));
     } finally {
@@ -301,7 +420,7 @@ export default function DmDetail() {
       { name: isDirect ? otherName : roomTitle, isGroup: !isDirect },
       user?.nickname,
     );
-    if (msg) setMessages((prev) => [...prev, msg]);
+    if (msg) applyIncoming([msg]);
   };
 
   // 약속잡기 시트 오픈 시 일시 기본값 = 다음 정시(최소 30분 이후). datetime-local은 로컬 타임존 문자열이 필요해 toISOString() 사용 금지.
@@ -328,7 +447,7 @@ export default function DmDetail() {
         placeLat: apptPlace?.lat ?? null,
         placeLng: apptPlace?.lng ?? null,
       });
-      setMessages((prev) => [...prev, msg]);
+      applyIncoming([msg]);
       setApptOpen(false);
       setApptWhen('');
       setApptPlace(null);
@@ -345,14 +464,17 @@ export default function DmDetail() {
     try {
       const msg = await proposePriceOffer(conversationId, amount);
       // 서버가 직전 PROPOSED 제안을 supersede(CANCELLED) 하므로 로컬 카드도 즉시 갱신 (DM-2)
-      setMessages((prev) => [
-        ...prev.map((m) =>
-          m.priceOffer?.status === 'PROPOSED' && m.priceOffer.id !== msg.priceOffer?.id
-            ? { ...m, priceOffer: { ...m.priceOffer, status: 'CANCELLED' as const } }
-            : m,
+      setMessages((prev) =>
+        upsertMessages(
+          prev.map((m) =>
+            m.priceOffer?.status === 'PROPOSED' && m.priceOffer.id !== msg.priceOffer?.id
+              ? { ...m, priceOffer: { ...m.priceOffer, status: 'CANCELLED' as const } }
+              : m,
+          ),
+          [msg],
         ),
-        msg,
-      ]);
+      );
+      void saveCachedMessages([msg]);
       setOfferOpen(false);
     } catch {
       toast.error(t('common.errorUnexpected'));
@@ -380,7 +502,7 @@ export default function DmDetail() {
       if (conversationId) fetchConversation(conversationId).then(setConv).catch(() => {});
     } catch {
       // 카드가 stale(이미 변경된 제안) → 메시지 재동기화로 카드 상태 교정
-      if (conversationId) fetchMessages(conversationId).then((res) => setMessages(res.items)).catch(() => {});
+      if (conversationId) fetchMessages(conversationId).then((res) => applyIncoming(res.items)).catch(() => {});
       toast.error(t('dm.priceOfferOutdated', { defaultValue: '제안 상태가 변경되어 새로고침했어요' }));
     } finally {
       setSending(false);
@@ -416,7 +538,7 @@ export default function DmDetail() {
       if (conversationId) fetchConversation(conversationId).then(setConv).catch(() => {});
     } catch {
       // 카드가 stale(이미 변경된 약속) → 메시지 재동기화로 카드 상태 교정
-      if (conversationId) fetchMessages(conversationId).then((res) => setMessages(res.items)).catch(() => {});
+      if (conversationId) fetchMessages(conversationId).then((res) => applyIncoming(res.items)).catch(() => {});
       toast.error(t('dm.apptOutdated', { defaultValue: '약속 상태가 변경되어 새로고침했어요' }));
     } finally {
       setSending(false);
@@ -434,6 +556,91 @@ export default function DmDetail() {
       setTrOpen((prev) => ({ ...prev, [msgId]: true }));
     } catch {
       toast.error(t('dm.translateError', { defaultValue: '번역 실패' }));
+    }
+  };
+
+  // ── 메시지 액션 (215_dm_message_sync): 롱프레스 → 시트(공감/답장/수정/삭제) ──────
+  const pressTimerRef = useRef<number | null>(null);
+  const cancelPress = () => {
+    if (pressTimerRef.current !== null) {
+      window.clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+  const startPress = (m: DmMessage) => {
+    cancelPress();
+    pressTimerRef.current = window.setTimeout(() => {
+      pressTimerRef.current = null;
+      setActionMsgId(m.id);
+    }, 450);
+  };
+  // 텍스트/이미지 버블에만 액션을 건다 — 약속/제안/시스템 카드는 전용 플로우가 있다
+  const pressHandlers = (m: DmMessage) => ({
+    onTouchStart: () => startPress(m),
+    onTouchEnd: cancelPress,
+    onTouchMove: cancelPress,
+    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); setActionMsgId(m.id); },
+  });
+
+  const handleToggleReaction = async (m: DmMessage, emoji: string) => {
+    if (!conversationId) return;
+    setActionMsgId(null);
+    const mine = m.reactions.some((r) => r.emoji === emoji && r.reactedByMe);
+    try {
+      const reactions = mine
+        ? await removeReaction(conversationId, m.id, emoji)
+        : await addReaction(conversationId, m.id, emoji);
+      skipAutoScrollRef.current = true;
+      // updatedAt 도 함께 올린다 — 로컬 낙관 반영이 워터마크를 뒤로 되돌리지 않게(다음 폴링이 서버값으로 정정)
+      applyIncoming([{ ...m, reactions, updatedAt: new Date().toISOString() }]);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
+
+  const handleDeleteMsg = async (m: DmMessage) => {
+    if (!conversationId) return;
+    setActionMsgId(null);
+    try {
+      await deleteMessage(conversationId, m.id);
+      skipAutoScrollRef.current = true;
+      // updatedAt 도 함께 올린다 — 워터마크 후퇴 방지 (다음 폴링이 서버값으로 정정)
+      applyIncoming([{ ...m, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), content: null, imageUrl: null, reactions: m.reactions }]);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
+
+  const handleStartEdit = (m: DmMessage) => {
+    setActionMsgId(null);
+    setEditingId(m.id);
+    setEditText(m.content ?? '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!conversationId || !editingId || !editText.trim()) return;
+    try {
+      const msg = await editMessage(conversationId, editingId, editText.trim());
+      skipAutoScrollRef.current = true;
+      applyIncoming([msg]);
+      setEditingId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      toast.error(
+        message.includes('banned_keyword')
+          ? t('dm.bannedKeyword', { defaultValue: '금지된 표현이 포함되어 있습니다' })
+          : t('common.errorUnexpected'),
+      );
+    }
+  };
+
+  // 답장 인용 탭 → 원본으로 스크롤 (로컬에 있을 때만)
+  const scrollToMessage = (id: string) => {
+    const el = listRef.current?.querySelector(`[data-mid="${id}"]`);
+    if (el) {
+      pinnedRef.current = false;
+      skipAutoScrollRef.current = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
@@ -469,6 +676,47 @@ export default function DmDetail() {
 
   const myId = session?.userId ?? user?.id;
   const listing = conv?.contextListing ?? null;
+
+  // 그룹에서 다른 멤버 메시지에 답장할 때 답장바 이름이 비지 않게 멤버 목록을 lazy 로드
+  useEffect(() => {
+    if (isDirect || !conversationId || !replyTo) return;
+    if (replyTo.senderId === myId || memberNames[replyTo.senderId] !== undefined) return;
+    fetchMembers(conversationId)
+      .then((ms) => setMemberNames(Object.fromEntries(ms.map((mm) => [mm.userId, mm.nickname ?? '']))))
+      .catch(() => {});
+  }, [replyTo, isDirect, conversationId, myId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 말풍선 아래 공감 카운트 배지 — 탭하면 토글 (텍스트/이미지 버블 공용)
+  const renderReactions = (m: DmMessage) =>
+    m.reactions.length > 0 ? (
+      <div className={styles.reactionRow}>
+        {m.reactions.map((r) => (
+          <button
+            key={r.emoji}
+            type="button"
+            className={`${styles.reactionChip} ${r.reactedByMe ? styles.reactionChipMine : ''}`}
+            onClick={(e) => { e.stopPropagation(); handleToggleReaction(m, r.emoji); }}
+          >
+            {r.emoji} {r.count}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  // 답장 인용 미리보기 — 스냅샷(replyPreview) 기반이라 원본이 캐시 밖이어도 렌더된다
+  const renderReplyQuote = (m: DmMessage) =>
+    m.replyPreview ? (
+      <button
+        type="button"
+        className={styles.replyQuote}
+        onClick={(e) => { e.stopPropagation(); if (m.replyToMessageId) scrollToMessage(m.replyToMessageId); }}
+      >
+        <span className={styles.replyQuoteName}>{m.replyPreview.senderNickname ?? ''}</span>
+        <span className={styles.replyQuoteText}>
+          {m.replyPreview.content ?? t('dm.photoMessage', { defaultValue: '사진' })}
+        </span>
+      </button>
+    ) : null;
 
   return (
     <div className={styles.page}>
@@ -545,6 +793,8 @@ export default function DmDetail() {
         onScroll={(e) => {
           const el = e.currentTarget;
           pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+          // 최상단 근접 — 과거분(offset 페이지) 추가 적재
+          if (el.scrollTop < 60 && !loading) void loadOlder();
         }}
       >
         {loading ? (
@@ -741,6 +991,15 @@ export default function DmDetail() {
               </div>
             );
           }
+          // 소프트 삭제 — 콘텐츠 대신 플레이스홀더 (서버도 content/image 를 내리지 않는다)
+          if (m.deletedAt) {
+            return (
+              <div key={m.id} data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+                <div className={styles.deletedText}>{t('dm.deletedMessage', { defaultValue: '삭제된 메시지입니다' })}</div>
+                <div className={styles.meta}>{formatRelativeTime(m.createdAt)}</div>
+              </div>
+            );
+          }
           if (m.messageType === 'sticker') {
             const st = findSticker(m.meta?.stickerId);
             return (
@@ -818,8 +1077,11 @@ export default function DmDetail() {
             return (
               <div
                 key={m.id}
+                data-mid={m.id}
                 className={`${styles.imageMsg} ${isMine ? styles.imageMine : styles.imageTheirs}`}
+                {...pressHandlers(m)}
               >
+                {renderReplyQuote(m)}
                 <AppImage
                   src={m.imageUrl}
                   alt=""
@@ -833,12 +1095,34 @@ export default function DmDetail() {
                   {formatRelativeTime(m.createdAt)}
                   {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
                 </div>
+                {renderReactions(m)}
               </div>
             );
           }
           return (
-            <div key={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
-              {m.content && <div className={styles.text}>{m.content}</div>}
+            <div key={m.id} data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`} {...pressHandlers(m)}>
+              {renderReplyQuote(m)}
+              {editingId === m.id ? (
+                <div className={styles.editBox}>
+                  <textarea
+                    className={styles.editInput}
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    rows={2}
+                    autoFocus
+                  />
+                  <div className={styles.editActions}>
+                    <button type="button" className={styles.editCancel} onClick={() => setEditingId(null)}>
+                      {t('common.cancel', { defaultValue: '취소' })}
+                    </button>
+                    <button type="button" className={styles.editSave} onClick={handleSaveEdit} disabled={!editText.trim()}>
+                      {t('common.save', { defaultValue: '저장' })}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                m.content && <div className={styles.text}>{m.content}</div>
+              )}
               {m.imageUrl && (
                 <AppImage
                   src={m.imageUrl}
@@ -861,13 +1145,42 @@ export default function DmDetail() {
                 </button>
               )}
               <div className={styles.meta}>
+                {m.editedAt && (
+                  <span className={styles.editedTag}>{t('dm.edited', { defaultValue: '(수정됨)' })}</span>
+                )}
                 {formatRelativeTime(m.createdAt)}
                 {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
               </div>
+              {renderReactions(m)}
             </div>
           );
         })}
       </div>
+
+      {/* 답장 작성 중 인용 프리뷰 바 — 입력창 바로 위 */}
+      {replyTo && (
+        <div className={styles.replyBar}>
+          <div className={styles.replyBarBody}>
+            <span className={styles.replyQuoteName}>
+              {t('dm.replyingTo', {
+                name: replyTo.senderId === myId ? user?.nickname ?? '' : isDirect ? otherName : memberNames[replyTo.senderId] ?? '',
+                defaultValue: '{{name}}에게 답장',
+              })}
+            </span>
+            <span className={styles.replyBarSnippet}>
+              {replyTo.content ?? t('dm.photoMessage', { defaultValue: '사진' })}
+            </span>
+          </div>
+          <button
+            type="button"
+            className={styles.replyBarClose}
+            onClick={() => setReplyTo(null)}
+            aria-label={t('common.cancel', { defaultValue: '취소' })}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       <MessageComposer
         ref={composerRef}
@@ -1037,6 +1350,50 @@ export default function DmDetail() {
       {/* 위치공유 위젯 — 약속이 있을 때만(§7), 항상-보임이 아니라 이 메뉴로 열고 닫는다 */}
       <BottomSheet open={locationShareSheetOpen} onClose={() => setLocationShareSheetOpen(false)}>
         <DealLiveActions appointmentId={currentAppointmentId} />
+      </BottomSheet>
+
+      {/* 메시지 액션 시트 — 롱프레스로 연다: 고정 팔레트 공감 + 답장 + (내 메시지) 수정/삭제 */}
+      <BottomSheet open={!!actionMsg} onClose={() => setActionMsgId(null)}>
+        {actionMsg && (
+          <div className={styles.reportSheet}>
+            <div className={styles.reactionPalette}>
+              {DM_REACTION_EMOJIS.map((emoji) => {
+                const active = actionMsg.reactions.some((r) => r.emoji === emoji && r.reactedByMe);
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={`${styles.paletteBtn} ${active ? styles.paletteBtnActive : ''}`}
+                    onClick={() => handleToggleReaction(actionMsg, emoji)}
+                  >
+                    {emoji}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className={styles.reportItem}
+              type="button"
+              onClick={() => { setReplyTo(actionMsg); setActionMsgId(null); }}
+            >
+              {t('dm.replyAction', { defaultValue: '답장' })}
+            </button>
+            {actionMsg.senderId === myId && actionMsg.messageType === 'text' && (
+              <button className={styles.reportItem} type="button" onClick={() => handleStartEdit(actionMsg)}>
+                {t('dm.editAction', { defaultValue: '수정' })}
+              </button>
+            )}
+            {actionMsg.senderId === myId && (
+              <button
+                className={`${styles.reportItem} ${styles.msgActionDanger}`}
+                type="button"
+                onClick={() => handleDeleteMsg(actionMsg)}
+              >
+                {t('dm.deleteAction', { defaultValue: '삭제' })}
+              </button>
+            )}
+          </div>
+        )}
       </BottomSheet>
 
       {/* 대화 신고 사유 */}

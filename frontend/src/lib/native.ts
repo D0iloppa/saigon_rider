@@ -28,6 +28,7 @@ import { KeyboardBridge } from './plugins/KeyboardBridge';
 import {
   WalkieTalkie,
   type PendingRecording,
+  type WalkieChannelStatus,
   type WalkieTalkieRecordingResult,
   type WalkieTalkieRecordingStateEvent,
   type WalkieTalkieStartOptions,
@@ -147,6 +148,15 @@ export interface WalkieTalkieChannel {
   startBackgroundChannel(opts: { channelId: string }): Promise<void>;
   stopBackgroundChannel(): Promise<void>;
   updateLiveActivity(opts: { state: 'recording' | 'sending' | 'idle' }): Promise<void>;
+
+  /**
+   * 채널 참여 상태 위젯 — Android: FGS ongoing 알림 / iOS: ActivityKit Live Activity.
+   * 상태 표시(채널명·참석수·발화중) 전용, 탭 시 해당 채널로 딥링크. 웹은 no-op.
+   * 구 설치본(메서드 없는 플러그인)에서는 reject 되므로 호출부는 .catch(() => {}) 계약.
+   */
+  startChannelStatus(opts: WalkieChannelStatus): Promise<void>;
+  updateChannelStatus(opts: WalkieChannelStatus): Promise<void>;
+  endChannelStatus(): Promise<void>;
 }
 
 function createWalkieTalkieChannel(): WalkieTalkieChannel {
@@ -295,6 +305,18 @@ function createWalkieTalkieChannel(): WalkieTalkieChannel {
     async syncActiveChannel(opts) {
       if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
       await WalkieTalkie.syncActiveChannel(opts);
+    },
+    async startChannelStatus(opts) {
+      if (!Capacitor.isNativePlatform()) return;
+      await WalkieTalkie.startChannelStatus(opts);
+    },
+    async updateChannelStatus(opts) {
+      if (!Capacitor.isNativePlatform()) return;
+      await WalkieTalkie.updateChannelStatus(opts);
+    },
+    async endChannelStatus() {
+      if (!Capacitor.isNativePlatform()) return;
+      await WalkieTalkie.endChannelStatus();
     },
     async startBackgroundChannel() {
       console.warn('[walkieTalkie] startBackgroundChannel not implemented (Phase B)');

@@ -24,12 +24,30 @@ from ...models import (
     User,
 )
 from ...modules.ads import AdsApplication
+from .metric_status import MetricStatus, coverage_ratio
 
 router = APIRouter(prefix="/dashboard")
 
 _VN_TZ_NAME = "Asia/Ho_Chi_Minh"
 _VN_TZ = ZoneInfo(_VN_TZ_NAME)
 _OPEN_REPORT_STATUSES = ("PENDING", "REVIEWING")
+
+
+def _gmv_status(sample: int, population: int) -> MetricStatus:
+    """SOLD 매물 중 가격이 채워진 것(sample)과 SOLD 전체(population) 비교로 GMV 신뢰도를 판정.
+
+    population=0 → 아직 SOLD 자체가 없음(cold, 배선은 됐으나 데이터 없음).
+    sample=0(population>0) → SOLD 는 있는데 가격 필드가 전혀 안 채워짐(not_wired, 값을 못 믿음).
+    0<sample<population → 부분 커버리지(partial, 커버리지 비율 동봉).
+    sample=population(>0) → 전수 커버리지(live).
+    """
+    if population == 0:
+        return MetricStatus(state="cold")
+    if sample == 0:
+        return MetricStatus(state="not_wired", coverage=0.0)
+    if sample < population:
+        return MetricStatus(state="partial", coverage=coverage_ratio(sample, population))
+    return MetricStatus(state="live", coverage=1.0)
 
 
 class ReasonCount(BaseModel):
@@ -62,6 +80,9 @@ class DashboardSummary(BaseModel):
     gmv_sample_today: int
     gmv_sample_7d: int
     gmv_sample_total: int
+    gmv_status_today: MetricStatus
+    gmv_status_7d: MetricStatus
+    gmv_status_total: MetricStatus
     reports_today: int
     reports_open: int
     reports_resolved_7d: int
@@ -160,6 +181,10 @@ async def get_summary(
                     sold, MarketplaceListing.agreed_price_vnd.isnot(None), MarketplaceListing.updated_at >= week_start
                 ),
                 func.count().filter(sold, MarketplaceListing.agreed_price_vnd.isnot(None)),
+                # 커버리지 판정용 모집단(가격 유무 무관 SOLD 전체)
+                func.count().filter(sold, MarketplaceListing.updated_at >= today_start),
+                func.count().filter(sold, MarketplaceListing.updated_at >= week_start),
+                func.count().filter(sold),
             ).select_from(MarketplaceListing)
         )
     ).one()
@@ -240,6 +265,9 @@ async def get_summary(
         gmv_sample_today=gmv_row[3],
         gmv_sample_7d=gmv_row[4],
         gmv_sample_total=gmv_row[5],
+        gmv_status_today=_gmv_status(gmv_row[3], gmv_row[6]),
+        gmv_status_7d=_gmv_status(gmv_row[4], gmv_row[7]),
+        gmv_status_total=_gmv_status(gmv_row[5], gmv_row[8]),
         reports_today=report_row[0],
         reports_open=report_row[1],
         reports_resolved_7d=report_row[2],

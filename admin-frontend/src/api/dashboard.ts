@@ -6,6 +6,13 @@ export interface ReasonCount {
   count: number
 }
 
+export type MetricState = 'live' | 'partial' | 'cold' | 'not_wired' | 'stale'
+
+export interface MetricStatus {
+  state: MetricState
+  coverage: number | null
+}
+
 export interface DashboardSummary {
   dau: number
   new_users_today: number
@@ -16,6 +23,15 @@ export interface DashboardSummary {
   listings_hidden: number
   trades_today: number
   trades_7d: number
+  gmv_vnd_today: number
+  gmv_vnd_7d: number
+  gmv_vnd_total: number
+  gmv_sample_today: number
+  gmv_sample_7d: number
+  gmv_sample_total: number
+  gmv_status_today: MetricStatus
+  gmv_status_7d: MetricStatus
+  gmv_status_total: MetricStatus
   reports_today: number
   reports_open: number
   reports_resolved_7d: number

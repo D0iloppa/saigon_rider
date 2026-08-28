@@ -183,6 +183,14 @@ export default function DashboardPage() {
           <StatCard title="신규 가입" value={s.new_users_today} suffix="명" detail={`최근 7일 누계 ${s.new_users_7d.toLocaleString()}`} onClick={() => navigate('/users')} />
           <StatCard title="매물 등록" value={s.listings_today} suffix="건" detail={`최근 7일 누계 ${s.listings_7d.toLocaleString()}`} onClick={() => navigate('/listings')} />
           <StatCard title="거래 성사" value={s.trades_today} suffix="건" detail={`최근 7일 누계 ${s.trades_7d.toLocaleString()}`} />
+          <StatCard
+            title="GMV (오늘)"
+            value={s.gmv_vnd_today}
+            suffix="VND"
+            detail={`표본 ${s.gmv_sample_today.toLocaleString()}건 · 최근 7일 누계 ${s.gmv_vnd_7d.toLocaleString()}`}
+            state={s.gmv_status_today.state}
+            coverage={s.gmv_status_today.coverage}
+          />
         </div>
       </section>
 

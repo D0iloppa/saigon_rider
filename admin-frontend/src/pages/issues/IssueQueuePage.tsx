@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Alert, Descriptions, Empty, Segmented, Select, Skeleton, Table, Tag } from 'antd'
+import { useNavigate } from 'react-router-dom'
+import { Alert, Card, Col, Descriptions, Empty, Row, Segmented, Select, Skeleton, Table, Tag, Typography } from 'antd'
 import { WarningFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { useActionQueueSummary } from '../../api/actionQueue'
 import { useIssues, type IssueRow } from '../../api/issues'
 import { useTicket } from '../../api/support'
 
@@ -66,6 +68,65 @@ function ContractContextPanel({ ticketId }: { ticketId: string }) {
   )
 }
 
+// 섹션 카드 자체(미리보기 항목이 아닌 카드 여백)를 클릭했을 때 이동할 목적지 —
+// 대기열이 0건이어도(items 가 비어도) 해당 목록 화면으로는 갈 수 있어야 하므로
+// section.items[0] 에 의존하지 않고 섹션별로 고정한다. App.tsx MENU_ITEMS 의 실제 라우트 그대로.
+const SECTION_ROUTE: Record<string, string> = {
+  report: '/reports',
+  ticket: '/support',
+  biz_account: '/biz/accounts',
+  biz_ad: '/biz/ads',
+  trade_completion: '/trades/completion-requests',
+  field_report: '/map/place-suggestions',
+}
+
+/** 오늘의 조치 큐 — 신고/문의/파트너승인/광고승인/완료요청/제보 6종을 카드로 나열한다.
+ * 각 카드는 해당 대기열의 기존 화면(라우트 재사용, App.tsx 무변경)으로 이동만 시킨다.
+ * 아래의 신고+문의 통합 테이블(기존 IssueQueuePage 본연 기능)은 그대로 유지 — 카드는
+ * "6종 전체를 한눈에" 보는 진입점이고, 신고/문의 상세 큐잉·필터는 여전히 아래 테이블이 맡는다. */
+function ActionQueueBoard() {
+  const navigate = useNavigate()
+  const { data, isLoading, isError } = useActionQueueSummary()
+
+  if (isError) {
+    return <Alert type="warning" showIcon message="오늘의 조치 큐 요약을 불러오지 못했습니다." style={{ marginBottom: 16 }} />
+  }
+  if (isLoading || !data) {
+    return <Skeleton active paragraph={{ rows: 3 }} style={{ marginBottom: 16 }} />
+  }
+
+  return (
+    <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
+      {data.sections.map((section) => (
+        <Col xs={24} sm={12} md={8} lg={4} key={section.key}>
+          <Card
+            hoverable
+            size="small"
+            onClick={() => navigate(SECTION_ROUTE[section.key] ?? '/')}
+            title={section.label}
+          >
+            <Typography.Title level={3} style={{ margin: 0 }}>
+              {section.count}
+            </Typography.Title>
+            {section.items.slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(item.route)
+                }}
+              >
+                {item.title}
+              </div>
+            ))}
+          </Card>
+        </Col>
+      ))}
+    </Row>
+  )
+}
+
 export default function IssueQueuePage() {
   const [source, setSource] = useState('ALL')
   const [limit, setLimit] = useState(50)
@@ -115,6 +176,7 @@ export default function IssueQueuePage() {
 
   return (
     <>
+      <ActionQueueBoard />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <Segmented options={SOURCE_OPTIONS} value={source} onChange={(v) => setSource(v as string)} />
         <Select

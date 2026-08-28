@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -22,19 +22,15 @@ router = APIRouter(prefix="/notifications", tags=["알림 (Notifications)"])
 @router.get("", response_model=NotificationListResponse, summary="알림 목록 조회")
 async def list_notifications(
     user_id: uuid.UUID,
-    page: int = 1,
     limit: int = 20,
+    cursor_created_at: datetime | None = None,
+    cursor_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     # 본인 알림만 열람 가능 — 타 유저 스코프는 404 (존재 은닉)
     if user_id != session_uid:
         raise HTTPException(status_code=404, detail="User not found")
-
-    offset = (page - 1) * limit
-
-    total_result = await db.execute(select(func.count()).where(Notification.user_id == user_id))
-    total = total_result.scalar_one()
 
     unread_result = await db.execute(
         select(func.count()).where(
@@ -44,21 +40,21 @@ async def list_notifications(
     )
     unread_count = unread_result.scalar_one()
 
-    items_result = await db.execute(
-        select(Notification)
-        .where(Notification.user_id == user_id)
-        .order_by(Notification.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    items = items_result.scalars().all()
+    # offset 기반 페이지네이션은 알림이 실시간으로 head 에 계속 삽입되는 상황에서
+    # 페이지 경계가 밀려 중복/누락을 일으킨다 — (created_at, id) 커서 기반으로 고정.
+    query = select(Notification).where(Notification.user_id == user_id)
+    if cursor_created_at is not None and cursor_id is not None:
+        query = query.where(tuple_(Notification.created_at, Notification.id) < tuple_(cursor_created_at, cursor_id))
+    query = query.order_by(Notification.created_at.desc(), Notification.id.desc()).limit(limit + 1)
+
+    items = list((await db.execute(query)).scalars().all())
+    has_more = len(items) > limit
+    items = items[:limit]
 
     return NotificationListResponse(
         items=[NotificationOut.model_validate(n) for n in items],
         unread_count=unread_count,
-        total=total,
-        page=page,
-        size=limit,
+        has_more=has_more,
     )
 
 
@@ -101,6 +97,23 @@ async def mark_notification_read(
         await db.refresh(notification)
 
     return NotificationOut.model_validate(notification)
+
+
+# N-5 — 알림함 스와이프 삭제.
+@router.delete("/{notification_id}", status_code=204, summary="알림 삭제")
+async def delete_notification(
+    notification_id: int,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    result = await db.execute(select(Notification).where(Notification.id == notification_id))
+    notification = result.scalar_one_or_none()
+    # 타인 소유는 존재 자체를 숨긴다 (404)
+    if notification is None or notification.user_id != session_uid:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    await db.delete(notification)
+    await db.commit()
 
 
 # N-2

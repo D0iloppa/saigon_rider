@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, MessageCircle } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchNotifications, markAllNotificationsRead, markNotificationRead, type NotificationDto } from '@/api/notifications';
+import {
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  deleteNotification,
+  type NotificationDto,
+} from '@/api/notifications';
 import { TopBar } from '@/components/layout/TopBar';
-import { relativeTime } from '@/pages/market/marketFormat';
+import { NotificationRow } from './NotificationRow';
 import styles from './NotificationInbox.module.css';
 
 const PAGE_SIZE = 20;
@@ -16,8 +22,7 @@ export default function NotificationInbox() {
   const userId = useUserStore((s) => s.user?.id);
 
   const [items, setItems] = useState<NotificationDto[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -28,20 +33,22 @@ export default function NotificationInbox() {
     if (!userId) return;
     setLoading(true);
     setLoadError(false);
-    fetchNotifications(userId, 1, PAGE_SIZE)
-      .then((r) => { setItems(r.items); setTotal(r.total); })
+    fetchNotifications(userId, PAGE_SIZE)
+      .then((r) => { setItems(r.items); setHasMore(r.has_more); })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [userId, reloadSeq]);
 
-  const hasMore = items.length < total;
-
   function loadMore() {
     if (!userId || loadingMore) return;
+    const last = items[items.length - 1];
+    if (!last) return;
     setLoadingMore(true);
-    const next = page + 1;
-    fetchNotifications(userId, next, PAGE_SIZE)
-      .then((r) => { setItems((prev) => [...prev, ...r.items]); setTotal(r.total); setPage(next); })
+    fetchNotifications(userId, PAGE_SIZE, { created_at: last.created_at, id: last.id })
+      .then((r) => {
+        setItems((prev) => [...prev, ...r.items]);
+        setHasMore(r.has_more);
+      })
       .finally(() => setLoadingMore(false));
   }
 
@@ -54,6 +61,12 @@ export default function NotificationInbox() {
     }
     // link 는 LinkRouter 쿼리 규약 그대로 저장됨 (NotificationBridge 와 동일 경로)
     if (n.link) navigate(`/link?action=${n.link}`);
+  }
+
+  function handleDelete(id: number) {
+    const prevItems = items;
+    setItems((prev) => prev.filter((it) => it.id !== id));
+    deleteNotification(id).catch(() => setItems(prevItems));
   }
 
   const unreadCount = items.filter((n) => !n.is_read).length;
@@ -118,28 +131,17 @@ export default function NotificationInbox() {
           <>
             <div className={styles.list}>
               {items.map((n) => (
-                <button
+                <NotificationRow
                   key={n.id}
-                  className={`${styles.row} ${n.is_read ? '' : styles.rowUnread}`}
+                  n={n}
                   onClick={() => handleClick(n)}
-                >
-                  <div className={`${styles.iconBubble} ${n.type === 'KEYWORD' ? styles.iconKeyword : styles.iconSocial}`}>
-                    {n.type === 'KEYWORD' ? <Bell size={18} /> : <MessageCircle size={18} />}
-                  </div>
-                  <div className={styles.rowBody}>
-                    <div className={styles.rowTitleLine}>
-                      <span className={styles.rowTitle}>{n.title}</span>
-                      <span className={styles.rowTime}>{relativeTime(n.created_at, t)}</span>
-                    </div>
-                    {n.body && <div className={styles.rowText}>{n.body}</div>}
-                  </div>
-                  {!n.is_read && <span className={styles.unreadDot} />}
-                </button>
+                  onDelete={() => handleDelete(n.id)}
+                />
               ))}
             </div>
             {hasMore && (
               <button className={styles.loadMore} onClick={loadMore} disabled={loadingMore}>
-                {t('noti.loadMore')}
+                {loadingMore ? t('common.loading') : t('noti.loadMore')}
               </button>
             )}
           </>

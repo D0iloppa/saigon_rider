@@ -14,27 +14,38 @@ export interface NotificationDto {
 export interface NotificationListDto {
   items: NotificationDto[];
   unread_count: number;
-  total: number;
-  page: number;
-  size: number;
+  has_more: boolean;
+}
+
+export interface NotificationCursor {
+  created_at: string;
+  id: number;
 }
 
 export async function fetchNotifications(
   userId: string,
-  page = 1,
   limit = 20,
+  cursor?: NotificationCursor,
 ): Promise<NotificationListDto> {
   if (USE_MOCK) {
-    return { items: [], unread_count: 0, total: 0, page, size: limit };
+    return { items: [], unread_count: 0, has_more: false };
   }
+  const cursorParams = cursor
+    ? `&cursor_created_at=${encodeURIComponent(cursor.created_at)}&cursor_id=${cursor.id}`
+    : '';
   return api.realFetch<NotificationListDto>(
-    `/notifications?user_id=${userId}&page=${page}&limit=${limit}`,
+    `/notifications?user_id=${userId}&limit=${limit}${cursorParams}`,
   );
 }
 
 export async function markNotificationRead(id: number): Promise<void> {
   if (USE_MOCK) return;
   await api.realFetch(`/notifications/${id}/read`, { method: 'PUT' });
+}
+
+export async function deleteNotification(id: number): Promise<void> {
+  if (USE_MOCK) return;
+  await api.realFetch(`/notifications/${id}`, { method: 'DELETE' });
 }
 
 export async function markAllNotificationsRead(userId: string): Promise<void> {

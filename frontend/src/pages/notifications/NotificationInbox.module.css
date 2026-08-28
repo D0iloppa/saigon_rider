@@ -43,9 +43,33 @@
 
 /* ─── 목록 ─────────────────────────────────────── */
 .list {
+  flex-shrink: 0;
   background: var(--surface);
   border-radius: 14px;
   overflow: hidden;
+}
+.rowWrap {
+  position: relative;
+  overflow: hidden;
+}
+.deleteAction {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5484d;
+  color: #fff;
+  border: none;
+}
+.rowSwipe {
+  position: relative;
+  background: var(--surface);
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
 }
 .row {
   display: flex;
@@ -59,7 +83,7 @@
   text-align: left;
   cursor: pointer;
 }
-.row:last-child { border-bottom: none; }
+.rowWrap:last-child .row { border-bottom: none; }
 .rowUnread { background: rgba(248, 96, 42, 0.04); }
 
 .iconBubble {

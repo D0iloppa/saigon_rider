@@ -212,7 +212,7 @@ export default function HomePage() {
       }).catch(() => {});
       fetchTrades(uid).then((t) => setTradeCount(t.length)).catch(() => {});
       // 미읽음 뱃지 — 홈 진입 시 1회 fetch (폴링 없음)
-      fetchNotifications(uid, 1, 1).then((r) => setNotiUnread(r.unread_count)).catch(() => {});
+      fetchNotifications(uid, 1).then((r) => setNotiUnread(r.unread_count)).catch(() => {});
       native.getDeviceUUID().then(async (uuid) => {
         if (!uuid) return;
         const fcm = await native.getFCMToken().catch(() => '');

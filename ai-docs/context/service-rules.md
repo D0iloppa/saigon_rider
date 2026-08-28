@@ -260,6 +260,14 @@
 9. **iOS 는 녹음 중 웹뷰에서 `<audio>.play()` 를 호출하면 안 된다.** WKWebView 는 웹 오디오 재생 시 `AVAudioSession` 카테고리를 스스로 `.playback` 으로 바꿔 마이크 입력을 끊는다 — 경과시간은 정상인데 파일엔 컨테이너 헤더(557B, 오디오 0초)만 남는 빈 녹음이 되고, 양쪽 단말에 재생 불가 버블이 남는다(2026-08-28 iPhone→Android 전송 실패의 원인. 네이티브에서 `.playAndRecord` 로 바꿔도 WebKit 이 덮어써 소용없었다). PTT 시작 신호음은 iOS 네이티브 시스템 사운드(`AudioServicesPlaySystemSound(1113)`)로 내고, JS 는 iOS 에서 시작 비프를 재생하지 않는다. 방어선: iOS 플러그인이 파이널라이즈 후 실제 오디오 길이 0 이면 `EMPTY_RECORDING` 으로 reject, 프론트는 1KB 미만 blob 을 전송하지 않는다.
 10. **음성 버블 파형은 프론트에서 계산한다** (`lib/audioPeaks.ts` — fetch → `decodeAudioData` → 40구간 피크, URL 별 캐시). 서버는 파형을 저장하지 않는다.
 
+---
+
+## 알림함 보관·삭제 (제정 2026-08-28)
+
+1. **보관기간은 전역 고정 90일 — 사용자별 설정 없음.** `backend/app/jobs/purge_old_notifications.py` 가 매일 03:20(ICT) `created_at` 90일 초과 알림을 하드 삭제한다(`purge_deleted_accounts` 03:10 직후). 사용자가 바꿀 수 있는 설정 UI는 없다 — 값을 바꾸려면 이 잡의 `_RETENTION` 상수를 고친다.
+2. **알림 삭제는 하드 삭제다.** `DELETE /notifications/{id}` 와 위 배치 잡 모두 소프트 삭제(`deleted_at`) 없이 행을 즉시 지운다 — 알림은 복구·감사 가치가 없는 휘발성 데이터로 간주(계정 탈퇴의 `users.deleted_at` 논리삭제와는 다른 층위).
+3. **알림 목록 페이지네이션은 offset 이 아니라 `(created_at, id)` 커서 기반이다.** 실시간으로 head 에 알림이 계속 삽입되는 피드라 offset/page 방식은 페이지 경계가 밀려 중복·누락을 일으킨다(2026-08-28 "더보기 스크롤 안 됨" 버그의 근본 원인). `GET /notifications` 는 `total`/`page` 를 반환하지 않고 `has_more` 만 반환한다.
+
 ## DM 메시지 수정·삭제·공감·답장·보관 (제정 2026-08-28, 215_dm_message_sync)
 
 1. **동기화는 `dm_messages.updated_at` 워터마크 하나로 통합한다.** 신규/수정/소프트삭제/공감변경이 전부 이 컬럼을 bump 하고, `GET /dm/conversations/{id}/messages?after=` 커서가 이 값을 필터·정렬 기준으로 쓴다. 클라이언트(DmDetail)는 IndexedDB 로컬 캐시(`frontend/src/lib/dmCache.ts`)에 id 기준 upsert 만 한다. **읽음처리(read_at) 같은 무관한 UPDATE 는 워터마크를 bump 하지 않는다** — ORM `onupdate` 를 걸지 않고 해당 4개 이벤트에서만 명시적으로 갱신하는 이유다.

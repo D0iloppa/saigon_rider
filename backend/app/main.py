@@ -78,6 +78,7 @@ async def lifespan(app: FastAPI):
     from .jobs.predict_flood_risk import run_flood_risk_prediction
     from .jobs.purge_deleted_accounts import purge_deleted_accounts
     from .jobs.purge_old_dm_messages import purge_old_dm_messages
+    from .jobs.purge_old_notifications import purge_old_notifications
     from .jobs.refresh_repair_stats import refresh_repair_shop_stats
     from .jobs.retry_quest_rewards import retry_failed_quest_rewards
     from .jobs.rollup_ad_stats import rollup_ad_stats
@@ -163,8 +164,16 @@ async def lifespan(app: FastAPI):
         max_instances=1,
         coalesce=True,
     )
+    # 알림 90일 보관기간 정책 — 알림함 무기한 보관 방지. purge_deleted_accounts(03:10) 직후.
+    scheduler.add_job(
+        purge_old_notifications,
+        CronTrigger(hour=3, minute=20),
+        id="purge_old_notifications",
+        max_instances=1,
+        coalesce=True,
+    )
     # DM 메시지 365일 보관정책 (purge_old_dm_messages 모듈 docstring 참조) —
-    # purge_deleted_accounts(03:10) 직후 새벽 시간대.
+    # purge_old_notifications(03:20) 직후 새벽 시간대.
     scheduler.add_job(
         purge_old_dm_messages,
         CronTrigger(hour=3, minute=30),

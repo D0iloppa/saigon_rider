@@ -964,9 +964,7 @@ class NotificationOut(BaseModel):
 class NotificationListResponse(BaseModel):
     items: list[NotificationOut]
     unread_count: int
-    total: int
-    page: int
-    size: int
+    has_more: bool
 
 
 class NotificationSettingsOut(BaseModel):

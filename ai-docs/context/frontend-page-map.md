@@ -731,6 +731,38 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ---
 
+## 어드민 콘솔 — saleoffice 벤치마킹 고도화 (2026-08-28)
+
+> 다른 프로젝트(saleoffice, 부동산 경매 관리자 콘솔) 를 벤치마킹해 이관한 라운드. 상세 배경은
+> `task_context`(workspace `/mnt/c/DEV/saigon_rider`, task_id `2026-08-28-admin-benchmark-uplift`) 참조.
+
+| 메뉴 | 라우트 | 페이지 | API | 비고 |
+|---|---|---|---|---|
+| **ANALYTICS 그룹 (신규 페이지)** | | | | |
+| 코호트 리텐션 | `/analytics/retention` | `pages/analytics/RetentionPage.tsx` | `GET /admin/api/retention/cohorts` | D1/D7/D30, 5명 미만 코호트는 `<5` 억제 |
+| **기존 페이지 확장** | | | | |
+| 전환 퍼널 (확장) | `/analytics/funnel` | `pages/analytics/FunnelPage.tsx` | `GET /admin/api/funnel/daily`, `/funnel/referrals/top` (기존 구현·미사용 API 였음, 화면만 신설) | 일별 이벤트 추이 차트 + 레퍼럴 리더보드 섹션 추가 |
+| 통합 이슈 큐 (확장) | `/issues` | `pages/issues/IssueQueuePage.tsx` | `GET /admin/api/action-queue/summary` | 신고·문의·파트너승인·광고승인·완료요청·제보 6종 통합 요약 카드 추가(기존 신고+문의 표는 유지) |
+| 주간 이슈 집계 (확장) | `/issues/weekly-summary` | `pages/issues/WeeklyIssueSummaryPage.tsx` | 기존 API 그대로 | 카테고리별 막대차트 추가 |
+| 대시보드 (확장) | `/` | `pages/DashboardPage.tsx` | `GET /admin/api/dashboard/summary` | GMV 타일(상태칩 `partial`+커버리지 노출) · MAU/WAU/스티키니스(`state="live"`) 추가 |
+| ENGINE 설정 하위(확장) | `/system/engine-settings` → OpsDashboard 탭 | `pages/sre/OpsDashboardPage.tsx` | 기존 API 그대로 | daily-net 라인차트 추가(표는 유지) |
+| 유저 상세 (확장) | `/users/:id` | `pages/users/UserDetailPage.tsx` | `GET /admin/api/users/{id}?reason=`, `GET /admin/api/action-events/users/{id}` | **PII(전화번호) 열람 시 사유입력 모달 강제**(닫기 불가) + 감사기록(`USER_DETAIL_VIEW`), Engine 행동 타임라인 섹션 추가 |
+
+### 이번 라운드에서 신설된 상태칩 규약 — **0 ≠ 미측정**
+`admin-frontend/src/components/StatCard.tsx` 가 선택적 `state` prop(`live`/`partial`/`cold`/`not_wired`/`stale`)을 지원한다(`state` 미전달 시 기존과 동일 렌더 — 회귀 없음). saleoffice 벤치마킹의 핵심 이식 원칙이며, 위 §717 "데이터 없음을 0으로 그리지 마라" 규약과 같은 취지다 — **향후 새 지표 화면에서도 배선 확신이 없으면 `state`를 임의로 `live`로 붙이지 말 것.** 현재 근거를 갖고 태깅된 것은 GMV(`partial`+커버리지)와 MAU/WAU(DAU와 동일 컬럼·방식이라 `live`)뿐이다.
+
+### 이번 라운드에서 배선된 사용자 트래킹 인프라 (Engine 미합류)
+- `funnel_events.anon_id`/`session_id` 컬럼(스키마만 있던 것)에 실제로 값이 채워지기 시작함 — `X-Anon-Id`/`X-Session-Id` 헤더 왕복(`backend/app/deps.py: resolve_tracking_ids`), 앱 프론트 `frontend/src/lib/tracking.ts`.
+- 익명→회원 소급연결은 **같은 세션 범위로만** 제한(`user_identity_links`, 공유기기 오염 방지).
+- UTM first-touch는 `user_first_touch_attribution`(anon_id PK + `ON CONFLICT DO NOTHING`)으로 로직이 아닌 스키마가 덮어쓰기를 봉쇄.
+- Engine 행동로그(`action_event`)는 `GET /v1/events/{user_uuid}`(Engine 신설) → `engine_client` → `GET /admin/api/action-events/users/{id}` 로 어드민에 합류(응답에 `engine_reachable` 필드로 Engine 도달 실패를 명시, 조용히 0건 위장 안 함).
+
+### 알려진 갭 (이번 라운드에서 남긴 것)
+- **화면진입 이벤트를 받는 백엔드 엔드포인트가 없다** — `frontend/src/hooks/useScreenTracking.ts`가 `POST /api/bff/tracking/screen-events`를 호출하지만 현재 404 (조용히 캐치됨, `useAdEvents.ts`와 동일 패턴). 백엔드 라우트 추가 전에 **원시 경로명을 그대로 로깅할지, 화이트리스트 화면명으로 정규화할지** 설계 판단이 필요해 이번 라운드에서 보류함(props 화이트리스트 원칙과 충돌 소지).
+- **`admin_api/users.py`의 PII 게이트는 전화번호 열람 지점 1곳만 커버** — 다른 화면에 향후 PII 노출 지점이 추가되면 동일 패턴(`_audit.py`의 `audit()` 재사용)을 적용해야 한다.
+
+---
+
 ## MCP로 더 깊이 파기
 
 이 문서에서 페이지/컴포넌트 파일을 찾은 뒤, 실제 호출관계·데이터 흐름·영향범위가 필요하면:

@@ -822,7 +822,9 @@
       "scope_all": "위치를 확인할 수 없어요",
       "inaccurate": "위치 정확도가 낮아 확인할 수 없어요"
     },
-    "unavailable": "위치 공유를 사용할 수 없어요"
+    "unavailable": "위치 공유를 사용할 수 없어요",
+    "inviteCardText": "{{name}}님이 위치공유를 시작했어요",
+    "inviteOpenBtn": "보기"
   },
   "feedCreate": {
     "title": "새 글 작성",
@@ -931,6 +933,12 @@
     "apptCancelOffer": "제안 취소",
     "apptOutdated": "약속 상태가 변경되어 새로고침했어요",
     "album": "앨범",
+    "locationShare": "실시간위치",
+    "sendCurrentLocation": "현재위치",
+    "locationPinMine": "내 현재 위치를 보냈어요",
+    "locationPinTheirs": "현재 위치를 보냈어요",
+    "locationPinView": "지도에서 보기",
+    "locationPinTitle": "현재 위치",
     "emoticon": "이모티콘",
     "myReview": "내 후기",
     "offerSummary": "가격 제안: {{amount}}",

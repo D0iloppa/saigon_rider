@@ -2132,6 +2132,7 @@ async def start_location_share(
     if share is None:
         share = MarketplaceLocationShare(
             appointment_id=appointment_id,
+            conversation_id=appt.conversation_id,
             user_id=session_uid,
             lat=Decimal("0"),
             lng=Decimal("0"),
@@ -2245,6 +2246,167 @@ async def get_location_share(
         and peer_share.accuracy_m is not None  # 아직 실측 fix 없음(동의만 한 상태) — 노출 안 함
         and resolve_precision_level(appt, now) == "exact"
     ):
+        peer_lat, peer_lng = float(peer_share.lat), float(peer_share.lng)
+
+    return LocationShareStatusOut(
+        my_status=my_status,
+        peer_status=peer_status,
+        peer_lat=peer_lat,
+        peer_lng=peer_lng,
+        expires_at=my_share.expires_at if my_share is not None else None,
+    )
+
+
+# ── 독립 위치공유 (약속 없이, 대화 단위) — 대표 지시 2026-08-29 ─────────
+# 위와 별개 경로다: 정밀도 창(exact window) 정책이 없는 대신 세션 TTL(시작시점 기준
+# 고정 1시간)로 자동 종료한다. 약속 기반 4종 엔드포인트(위)는 이 절에서 손대지 않는다
+# — appointment_id 가 있는 행은 여전히 옛 정밀도 정책, NULL 인 행만 이 절이 다룬다.
+
+_STANDALONE_SHARE_TTL = timedelta(hours=1)
+
+
+async def _load_conversation_for_location_share(
+    db: AsyncSession, conversation_id: uuid.UUID, session_uid: uuid.UUID
+) -> tuple[DmConversation, uuid.UUID]:
+    conv = await db.get(DmConversation, conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
+    return conv, counterpart_id
+
+
+async def _get_standalone_share(
+    db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
+) -> MarketplaceLocationShare | None:
+    return (
+        await db.execute(
+            select(MarketplaceLocationShare).where(
+                MarketplaceLocationShare.conversation_id == conversation_id,
+                MarketplaceLocationShare.appointment_id.is_(None),
+                MarketplaceLocationShare.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+@router.post(
+    "/conversations/{conversation_id}/location-share",
+    response_model=LocationShareStatusOut,
+    summary="위치공유 시작(동의, 약속 독립)",
+)
+async def start_conversation_location_share(
+    conversation_id: uuid.UUID,
+    body: LocationShareStartRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    _conv, counterpart_id = await _load_conversation_for_location_share(db, conversation_id, session_uid)
+    now = datetime.now(UTC)
+    expires_at = now + _STANDALONE_SHARE_TTL
+
+    share = await _get_standalone_share(db, conversation_id, session_uid)
+    if share is None:
+        share = MarketplaceLocationShare(
+            conversation_id=conversation_id,
+            appointment_id=None,
+            user_id=session_uid,
+            lat=Decimal("0"),
+            lng=Decimal("0"),
+            accuracy_m=None,
+        )
+        db.add(share)
+    share.consented_at = now
+    share.consent_version = body.consent_version
+    share.expires_at = expires_at
+    share.revoked_at = None
+    share.updated_at = now
+    await db.commit()
+
+    peer_share = await _get_standalone_share(db, conversation_id, counterpart_id)
+    return LocationShareStatusOut(
+        my_status=_share_status(share, now),
+        peer_status=_share_status(peer_share, now),
+        expires_at=share.expires_at,
+    )
+
+
+@router.delete(
+    "/conversations/{conversation_id}/location-share",
+    status_code=204,
+    summary="독립 위치공유 즉시 중단(옵트아웃)",
+)
+async def stop_conversation_location_share(
+    conversation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _load_conversation_for_location_share(db, conversation_id, session_uid)
+    await db.execute(
+        delete(MarketplaceLocationShare).where(
+            MarketplaceLocationShare.conversation_id == conversation_id,
+            MarketplaceLocationShare.appointment_id.is_(None),
+            MarketplaceLocationShare.user_id == session_uid,
+        )
+    )
+    await db.commit()
+
+
+@router.put(
+    "/conversations/{conversation_id}/location-share/ping",
+    response_model=LocationShareStatusOut,
+    summary="독립 위치공유 좌표 업서트",
+)
+async def ping_conversation_location_share(
+    conversation_id: uuid.UUID,
+    body: LocationSharePingRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """약속 기반과 달리 정밀도 창 검사가 없다 — TTL 만료 여부만 본다."""
+    if body.accuracy_m > _GPS_ACCURACY_LIMIT_M:
+        raise HTTPException(status_code=400, detail="Accuracy too low")
+
+    _conv, counterpart_id = await _load_conversation_for_location_share(db, conversation_id, session_uid)
+    now = datetime.now(UTC)
+    share = await _get_standalone_share(db, conversation_id, session_uid)
+    if share is None or is_location_share_expired(share, now):
+        raise HTTPException(status_code=403, detail="Location share not started")
+
+    share.lat = Decimal(str(body.lat))
+    share.lng = Decimal(str(body.lng))
+    share.accuracy_m = body.accuracy_m
+    share.updated_at = now
+    await db.commit()
+
+    peer_share = await _get_standalone_share(db, conversation_id, counterpart_id)
+    return LocationShareStatusOut(
+        my_status=_share_status(share, now),
+        peer_status=_share_status(peer_share, now),
+        expires_at=share.expires_at,
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}/location-share",
+    response_model=LocationShareStatusOut,
+    summary="독립 위치공유 상태 + 상대 좌표",
+)
+async def get_conversation_location_share(
+    conversation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    _conv, counterpart_id = await _load_conversation_for_location_share(db, conversation_id, session_uid)
+    now = datetime.now(UTC)
+
+    my_share = await _get_standalone_share(db, conversation_id, session_uid)
+    peer_share = await _get_standalone_share(db, conversation_id, counterpart_id)
+    my_status = _share_status(my_share, now)
+    peer_status = _share_status(peer_share, now)
+
+    peer_lat, peer_lng = None, None
+    if peer_status == "sharing" and peer_share is not None and peer_share.accuracy_m is not None:
         peer_lat, peer_lng = float(peer_share.lat), float(peer_share.lng)
 
     return LocationShareStatusOut(

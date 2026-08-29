@@ -761,6 +761,10 @@ async def send_message(
         preview = "음성 메시지를 보냈습니다"
     elif message_type == "walkie_invite":
         preview = "워키토키 채널을 열었어요"
+    elif message_type == "location_share_invite":
+        preview = "위치공유를 시작했어요"
+    elif message_type == "location_pin":
+        preview = "현재 위치를 보냈어요"
     else:
         preview = "사진을 보냈습니다"
     if recipient_ids:

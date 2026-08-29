@@ -5,18 +5,30 @@ import { Button } from '@/components/ui/Button';
 import OsmMap from '@/components/maps/OsmMap';
 import { LocationShareConsentModal } from './LocationShareConsentModal';
 import {
+  fetchConversationLocationShareStatus,
   fetchLocationShareStatus,
+  pingConversationLocationShare,
   pingLocationShare,
+  startConversationLocationShare,
   startLocationShare,
+  stopConversationLocationShare,
   stopLocationShare,
 } from '@/api/dm';
-import type { LocationShareStatus } from '@/api/types';
+import type { DmMessage, LocationShareStatus } from '@/api/types';
 import { useLocationStore } from '@/store/useLocationStore';
 import { GPS_ACCURACY_LIMIT_M, classifyLocationError, type LocationGateReason } from '@/lib/serviceLocation';
+import { sendLocationShareInvite } from '@/lib/locationShareInvite';
 import styles from './LocationShareWidget.module.css';
 
 interface Props {
-  appointmentId: string;
+  /** 이 위치공유가 보고되는 대화방 — 초대카드 전송, 독립(약속 없는) 공유 시 API 대상으로 쓴다. */
+  conversationId: string;
+  /** 주어지면 약속 기반 정밀도 창 정책(exact window)을 쓴다. 없으면 독립 공유(세션 TTL)로 동작한다. */
+  appointmentId?: string;
+  /** 공유 시작 시 보낼 초대카드에 넣을 내 닉네임. */
+  nickname?: string;
+  /** 초대카드 전송에 성공하면 그 메시지를 대화 목록에 즉시 반영하도록 알린다. */
+  onInviteSent?: (message: DmMessage) => void;
 }
 
 const POLL_MS = 7000;
@@ -44,12 +56,28 @@ function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
  * §6 확정: 측위 실패·권역 밖이어도 화면 전체를 막지 않는다 — 이 카드 내부에서만 인라인
  * 사유를 보여준다. 중심가 폴백은 쓰지 않는다(측위 실패는 그냥 실패로 보여준다).
  */
-export function LocationShareWidget({ appointmentId }: Props) {
+export function LocationShareWidget({ conversationId, appointmentId, nickname, onInviteSent }: Props) {
   const { t } = useTranslation();
+  // 약속이 주어지면 기존 정밀도 창 API, 없으면 독립(대화 단위) API — 둘은 서버에서도 별개 엔드포인트다.
+  const shareApi = appointmentId
+    ? {
+        fetchStatus: () => fetchLocationShareStatus(appointmentId),
+        start: (cv: string) => startLocationShare(appointmentId, cv),
+        stop: () => stopLocationShare(appointmentId),
+        ping: (lat: number, lng: number, acc: number) => pingLocationShare(appointmentId, lat, lng, acc),
+      }
+    : {
+        fetchStatus: () => fetchConversationLocationShareStatus(conversationId),
+        start: (cv: string) => startConversationLocationShare(conversationId, cv),
+        stop: () => stopConversationLocationShare(conversationId),
+        ping: (lat: number, lng: number, acc: number) => pingConversationLocationShare(conversationId, lat, lng, acc),
+      };
+  const shareKey = appointmentId ?? conversationId;
   const coords = useLocationStore((s) => s.coords);
   const coordsAccuracyM = useLocationStore((s) => s.coordsAccuracyM);
   const storeGateReason = useLocationStore((s) => s.gateReason);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  const setMode = useLocationStore((s) => s.setMode);
   const startWatching = useLocationStore((s) => s.startWatching);
 
   const [status, setStatus] = useState<LocationShareStatus | null>(null);
@@ -63,7 +91,7 @@ export function LocationShareWidget({ appointmentId }: Props) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(() => {
-    fetchLocationShareStatus(appointmentId)
+    shareApi.fetchStatus()
       .then(setStatus)
       .catch((err) => {
         // realFetch 의 에러 메시지 형식은 "HTTP {status} | ...". 403/404는 재시도해도 풀리지
@@ -77,7 +105,7 @@ export function LocationShareWidget({ appointmentId }: Props) {
           }
         }
       });
-  }, [appointmentId]);
+  }, [shareKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 폴링 — §4-B 확정: 신규 실시간 인프라 없이 위젯 자체 폴링으로 완결.
   useEffect(() => {
@@ -92,14 +120,25 @@ export function LocationShareWidget({ appointmentId }: Props) {
   const sharing = status?.myStatus === 'sharing';
 
   // 공유 중일 때만 측위를 요청하고 전역 워처를 구독한다(비공유 중엔 위치를 건드리지 않는다).
+  //
+  // ⚠️ 고착 상태 복구(2026-08-29) — `ensureLocation()` 은 이미 확정된 상태를 재측위하지 않는다
+  // (`mode==='gps' && coords` 면 즉시 resolve, `pinnedAll`/거부면 사유만 남기고 resolve). 그래서
+  // ① 표시범위를 '전체 지역'으로 고정해둔 경우(`scope_all`), ② 과거에 측위가 실패해 'all' 로
+  // 떨어진 경우, ③ 권역 밖 판정으로 중심가 폴백 좌표가 박힌 경우 — 셋 다 위젯이 사유 문구만
+  // 띄운 채 **영영 좌표를 못 얻어** ping 이 한 번도 안 나갔다(대표 실기기 리포트: "위치를 확인할
+  // 수 없어요" + "공유 중"이 동시에 표시). '공유 시작'은 사용자의 **명시적 GPS 의사**이므로,
+  // 막힌 상태일 때만 `setMode('gps')` 로 고정을 풀고 재측위한다(정상 상태면 건드리지 않는다).
   useEffect(() => {
     if (!sharing) return;
-    ensureLocation()
+    const s = useLocationStore.getState();
+    const blocked = s.mode !== 'gps' || s.coordsSource === 'fallback' || s.gateReason != null;
+    const resolve = blocked ? setMode('gps') : ensureLocation();
+    resolve
       .then(() => setLocalGateReason(null))
       .catch((e) => setLocalGateReason(classifyLocationError(e)));
     const stop = startWatching();
     return stop;
-  }, [sharing, ensureLocation, startWatching]);
+  }, [sharing, ensureLocation, setMode, startWatching]);
 
   // 거래 세션 전용 게이트(10초+10m) — 전역 워처가 갱신한 coords 를 구독해 조건 충족 시에만 ping.
   useEffect(() => {
@@ -111,12 +150,12 @@ export function LocationShareWidget({ appointmentId }: Props) {
     if (last && now - last.at < PING_MIN_INTERVAL_MS && distanceM(last.coords, coords) < PING_MIN_MOVE_M) return;
 
     lastPingRef.current = { at: now, coords };
-    pingLocationShare(appointmentId, coords.lat, coords.lng, Math.round(coordsAccuracyM))
+    shareApi.ping(coords.lat, coords.lng, Math.round(coordsAccuracyM))
       .then(setStatus)
       .catch(() => {
         /* ping 실패는 다음 tick 에 자연 재시도 */
       });
-  }, [sharing, coords, coordsAccuracyM, appointmentId]);
+  }, [sharing, coords, coordsAccuracyM, shareKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = () => setConsentOpen(true);
 
@@ -124,8 +163,11 @@ export function LocationShareWidget({ appointmentId }: Props) {
     setConsentOpen(false);
     setBusy(true);
     try {
-      const next = await startLocationShare(appointmentId, consentVersion);
+      const next = await shareApi.start(consentVersion);
       setStatus(next);
+      // 상대방은 위치공유가 시작된 걸 모를 수 있으므로 초대카드를 함께 보낸다(워키토키와 동일 이유).
+      const msg = await sendLocationShareInvite(conversationId, nickname);
+      if (msg) onInviteSent?.(msg);
     } finally {
       setBusy(false);
     }
@@ -134,7 +176,7 @@ export function LocationShareWidget({ appointmentId }: Props) {
   const handleStop = async () => {
     setBusy(true);
     try {
-      await stopLocationShare(appointmentId);
+      await shareApi.stop();
       lastPingRef.current = null;
       refresh();
     } finally {

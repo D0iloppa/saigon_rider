@@ -298,7 +298,7 @@ export interface DmAppointmentMeta {
   durationMs?: number;
   /** message_type === 'voice' 재생완료 시각 — 채워지면 audioUrl 은 null(파일 삭제됨). */
   playedAt?: string;
-  /** message_type === 'walkie_invite' 일 때 채널을 연 사람의 표시이름. */
+  /** message_type === 'walkie_invite' | 'location_share_invite' 일 때 시작한 사람의 표시이름. */
   invitedByName?: string;
   /** message_type === 'system' 의 종류 — init/214 병합 경계는 'listing_divider', init/217 공지 등록은 'notice_set'. */
   kind?: string;

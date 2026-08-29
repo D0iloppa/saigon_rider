@@ -822,7 +822,9 @@
       "scope_all": "Couldn't get your location",
       "inaccurate": "Location accuracy is too low to check"
     },
-    "unavailable": "Location sharing is unavailable"
+    "unavailable": "Location sharing is unavailable",
+    "inviteCardText": "{{name}} started sharing location",
+    "inviteOpenBtn": "View"
   },
   "feedCreate": {
     "title": "New Post",
@@ -931,6 +933,12 @@
     "apptCancelOffer": "Cancel proposal",
     "apptOutdated": "The meetup was updated — refreshed",
     "album": "Album",
+    "locationShare": "Live location",
+    "sendCurrentLocation": "My location",
+    "locationPinMine": "You shared your current location",
+    "locationPinTheirs": "Shared their current location",
+    "locationPinView": "View on map",
+    "locationPinTitle": "Current location",
     "emoticon": "Stickers",
     "myReview": "My review",
     "offerSummary": "Price offer: {{amount}}",

@@ -20,6 +20,7 @@ import { setSessionExpiredHandler, SessionExpiredError, setAccountRestrictedHand
 import { native } from '@/lib/native';
 import { registerLiveActivityPushToken } from '@/lib/liveActivityPush';
 import { fetchAppConfig, fetchCurrentVersion, shouldForceUpdate, pickPlatformVersion } from '@/api/appVersion';
+import { setDevAreaBypass } from '@/lib/serviceArea';
 import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
@@ -397,6 +398,16 @@ export default function App() {
       if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // DEV_GYEONGGI_BYPASS: dev 서버에서만 경기도를 서비스 권역으로 허용(위치공유·Live Activity 실기기 검증용).
+  // **로그인 여부와 무관하게 마운트 즉시** 확정해야 한다 — 종전엔 로그인 후 DM 폴링 effect 안에서
+  // 켰는데, 화면들의 `ensureLocation()` 이 그보다 먼저 돌면 우회가 꺼진 채로 "권역 밖" 판정이 내려지고
+  // 그 결과가 세션 내내 고착됐다(ensureLocation 은 coords 가 있으면 재측위하지 않는다).
+  useEffect(() => {
+    fetchAppConfig()
+      .then((cfg) => setDevAreaBypass(cfg.isDev))
+      .catch(() => { /* fail-closed: 우회는 꺼진 상태 유지 */ });
+  }, []);
 
   // GIF 백그라운드 프리로드
   useEffect(() => {

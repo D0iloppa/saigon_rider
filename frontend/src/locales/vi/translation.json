@@ -822,7 +822,9 @@
       "scope_all": "Không thể xác định vị trí của bạn",
       "inaccurate": "Độ chính xác vị trí quá thấp để xác định"
     },
-    "unavailable": "Không thể sử dụng chia sẻ vị trí"
+    "unavailable": "Không thể sử dụng chia sẻ vị trí",
+    "inviteCardText": "{{name}} đã bắt đầu chia sẻ vị trí",
+    "inviteOpenBtn": "Xem"
   },
   "feedCreate": {
     "title": "Bài viết mới",
@@ -931,6 +933,12 @@
     "apptCancelOffer": "Hủy đề xuất",
     "apptOutdated": "Cuộc hẹn đã thay đổi — đã làm mới",
     "album": "Album",
+    "locationShare": "Vị trí trực tiếp",
+    "sendCurrentLocation": "Vị trí của tôi",
+    "locationPinMine": "Bạn đã gửi vị trí hiện tại",
+    "locationPinTheirs": "Đã gửi vị trí hiện tại",
+    "locationPinView": "Xem trên bản đồ",
+    "locationPinTitle": "Vị trí hiện tại",
     "emoticon": "Nhãn dán",
     "myReview": "Đánh giá của tôi",
     "offerSummary": "Trả giá: {{amount}}",

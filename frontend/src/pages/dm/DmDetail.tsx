@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, ChevronDown, HandCoins, LayoutList, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, ChevronDown, HandCoins, LayoutList, LocateFixed, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -66,6 +66,8 @@ import { AppImage } from '@/components/ui/AppImage';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatPriceVnd } from '../market/marketFormat';
 import { DealLiveActions } from '@/components/dm/DealLiveActions';
+import OsmMap from '@/components/maps/OsmMap';
+import { requireServiceLocation } from '@/lib/serviceLocation';
 import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
 import styles from './DmDetail.module.css';
 
@@ -152,6 +154,8 @@ export default function DmDetail() {
   const [editText, setEditText] = useState('');
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [locationShareSheetOpen, setLocationShareSheetOpen] = useState(false);
+  // 현재위치 카드 탭 시 지도를 띄울 좌표 — 시트 1개를 재사용한다(버블마다 지도를 만들지 않기 위해).
+  const [pinPreview, setPinPreview] = useState<{ lat: number; lng: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -594,7 +598,7 @@ export default function DmDetail() {
   };
 
   // P6: DealLiveActions 슬롯에 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
-  // 약속이 없는 대화면 null → DealLiveActions 자체가 렌더되지 않는다.
+  // 약속이 없는 대화면 null → 위치공유는 이제 그래도 켜진다(약속 독립, 2026-08-29), 정밀도 창 정책만 빠진다.
   const currentAppointment = useMemo<Appointment | null>(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const appt = messages[i].appointment;
@@ -801,6 +805,35 @@ export default function DmDetail() {
 
   const handleReviewSubmitted = () => {
     setReviewed(true);
+  };
+
+  /**
+   * 현재위치 공유(2026-08-29, 대표 지시) — 실시간 위치공유와 **별개 기능**이다.
+   * 실시간 공유가 세션 동안 좌표를 계속 갱신하는 반면, 이건 "지금 이 지점" 한 장을 카드로
+   * 보내고 끝난다("저 여기 있어요"). 그래서 약속·동의절차·TTL 이 전혀 없다.
+   *
+   * 기록형(좌표가 DB 에 남고 상대에게 전달됨)이므로 `requireServiceLocation()` 를 쓴다 —
+   * 중심가 폴백을 절대 쓰지 않는다(폴백 좌표를 "내 위치"로 보내면 상대를 속이는 것이다).
+   */
+  const handleSendCurrentLocation = async () => {
+    if (!conversationId || sending) return;
+    setSending(true);
+    try {
+      const gate = await requireServiceLocation();
+      if (!gate.ok) {
+        toast.neutral(t(`locationGate.${gate.reason}.title`, { defaultValue: '위치를 확인할 수 없어요' }));
+        return;
+      }
+      const msg = await sendMessage(conversationId, '', {
+        messageType: 'location_pin',
+        meta: { placeLat: gate.coords.lat, placeLng: gate.coords.lng },
+      });
+      applyIncoming([msg]);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSending(false);
+    }
   };
 
   // 그룹/오픈톡방 나가기 — 최소 구현(§3.8): 초대·강퇴 등 세부 관리 UI 는 이 서브태스크 범위 밖.
@@ -1152,7 +1185,7 @@ export default function DmDetail() {
                       : t('dm.apptCompletionDismissedNote', { defaultValue: '완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.' })}
                   </p>
                 )}
-                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion) && (
+                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion || appt?.id === currentAppointmentId) && (
                   <div className={styles.apptActions}>
                     {canAccept && (
                       <button className={styles.apptBtnPrimary} type="button" disabled={sending}
@@ -1191,6 +1224,13 @@ export default function DmDetail() {
                       <button className={styles.apptBtnGhost} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
                         {cancelLabel}
+                      </button>
+                    )}
+                    {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만 — 위치공유 시트는 그 약속에 바인딩된다 */}
+                    {appt?.id === currentAppointmentId && (
+                      <button className={styles.apptBtnGhost} type="button"
+                        onClick={() => setLocationShareSheetOpen(true)}>
+                        <MapPin size={14} /> {t('dm.locationShare', { defaultValue: '위치공유' })}
                       </button>
                     )}
                   </div>
@@ -1352,6 +1392,55 @@ export default function DmDetail() {
               </div>
             );
           }
+          if (m.messageType === 'location_pin') {
+            // 현재위치 카드 — 정적 1회성 좌표. 목록에 여러 장 쌓일 수 있어 **버블마다 지도를
+            // 띄우지 않는다**(MapLibre 인스턴스 = WebGL 컨텍스트, 브라우저가 개수를 제한한다).
+            // 지도는 탭했을 때 시트 하나로만 연다.
+            const pinLat = m.meta?.placeLat ?? null;
+            const pinLng = m.meta?.placeLng ?? null;
+            if (pinLat == null || pinLng == null) return null;
+            return (
+              <div key={m.id} className={`${styles.walkieInviteCard} ${isMine ? styles.walkieInviteMine : styles.walkieInviteTheirs}`}>
+                <div className={styles.walkieInviteHead}>
+                  <span className={styles.walkieInviteIcon}><LocateFixed size={17} /></span>
+                  <span className={styles.walkieInviteText}>
+                    {isMine
+                      ? t('dm.locationPinMine', { defaultValue: '내 현재 위치를 보냈어요' })
+                      : t('dm.locationPinTheirs', { defaultValue: '현재 위치를 보냈어요' })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.walkieInviteJoinBtn}
+                  onClick={() => setPinPreview({ lat: pinLat, lng: pinLng })}
+                >
+                  {t('dm.locationPinView', { defaultValue: '지도에서 보기' })}
+                </button>
+                <div className={styles.walkieInviteTime}>{formatRelativeTime(m.createdAt)}</div>
+              </div>
+            );
+          }
+          if (m.messageType === 'location_share_invite') {
+            // 워키토키 초대카드와 같은 골격 재사용(styles.walkieInvite*) — "참여"개념이 없어 버튼은 시트를 열 뿐이다.
+            return (
+              <div key={m.id} className={`${styles.walkieInviteCard} ${isMine ? styles.walkieInviteMine : styles.walkieInviteTheirs}`}>
+                <div className={styles.walkieInviteHead}>
+                  <span className={styles.walkieInviteIcon}><MapPin size={17} /></span>
+                  <span className={styles.walkieInviteText}>
+                    {t('locationShare.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 위치공유를 시작했어요' })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.walkieInviteJoinBtn}
+                  onClick={() => setLocationShareSheetOpen(true)}
+                >
+                  {t('locationShare.inviteOpenBtn', { defaultValue: '보기' })}
+                </button>
+                <div className={styles.walkieInviteTime}>{formatRelativeTime(m.createdAt)}</div>
+              </div>
+            );
+          }
           // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)
           if (m.imageUrl && !m.content) {
             return (
@@ -1491,6 +1580,22 @@ export default function DmDetail() {
                 onPress: handleOpenAppt,
               }]
             : []),
+          // 현재위치 — 실시간 공유와 별개. "지금 여기 있어요" 한 장을 카드로 보낸다(1:1·그룹 공통).
+          {
+            key: 'locationPin',
+            icon: <LocateFixed size={26} strokeWidth={1.8} />,
+            label: t('dm.sendCurrentLocation', { defaultValue: '현재위치' }),
+            onPress: handleSendCurrentLocation,
+          },
+          // 실시간 위치공유 — 헤더 "..." 메뉴의 '위치 공유하기'와 동일 동작(같은 시트). direct 전용, 약속과 독립.
+          ...(isDirect
+            ? [{
+                key: 'location',
+                icon: <MapPin size={26} strokeWidth={1.8} />,
+                label: t('dm.locationShare', { defaultValue: '실시간위치' }),
+                onPress: () => setLocationShareSheetOpen(true),
+              }]
+            : []),
           // 가격제안 — direct 전용. 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
           ...(isDirect && listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId
             ? [{
@@ -1587,8 +1692,10 @@ export default function DmDetail() {
         />
       )}
 
-      {/* 헤더 "..." 메뉴 (대표 지시 2026-08-28 재편) — 워키토키는 헤더 아이콘으로 승격했고,
-          위치공유는 그룹에선 의미가 없어 1:1 전용으로 내렸다. 그룹은 "설정"이 관리 진입점이다. */}
+      {/* 헤더 "..." 메뉴 (대표 지시 2026-08-28 재편, 2026-08-29 위치공유 약속독립화) — 워키토키는
+          헤더 아이콘으로 승격했고, 위치공유는 그룹에선 의미가 없어 1:1 전용으로 내렸다. 그룹은
+          "설정"이 관리 진입점이다. 위치공유는 약속 유무와 무관하게 항상 켤 수 있다(약속이 있으면
+          그 약속의 정밀도 창 정책, 없으면 독립 세션 TTL — DealLiveActions/LocationShareWidget 참조). */}
       <BottomSheet open={moreSheetOpen} onClose={() => setMoreSheetOpen(false)}>
         <div className={styles.reportSheet}>
           <button
@@ -1602,9 +1709,7 @@ export default function DmDetail() {
             <button
               className={styles.reportItem}
               type="button"
-              disabled={!currentAppointmentId}
-              aria-disabled={!currentAppointmentId}
-              onClick={() => { if (!currentAppointmentId) return; setMoreSheetOpen(false); setLocationShareSheetOpen(true); }}
+              onClick={() => { setMoreSheetOpen(false); setLocationShareSheetOpen(true); }}
             >
               {t('dm.moreMenuLocationShare', { defaultValue: '위치 공유하기' })}
             </button>
@@ -1632,9 +1737,37 @@ export default function DmDetail() {
         />
       )}
 
-      {/* 위치공유 위젯 — 약속이 있을 때만(§7), 항상-보임이 아니라 이 메뉴로 열고 닫는다 */}
+      {/* 현재위치 카드 미리보기 — 지도 인스턴스는 이 시트 하나만 쓴다(버블마다 만들지 않는다) */}
+      <BottomSheet open={pinPreview != null} onClose={() => setPinPreview(null)}>
+        {pinPreview && (
+          <div className={styles.pinSheet}>
+            <h2 className={styles.apptSheetTitle}>{t('dm.locationPinTitle', { defaultValue: '현재 위치' })}</h2>
+            <div className={styles.pinMapWrap}>
+              <OsmMap
+                center={pinPreview}
+                markers={[{ id: 'pin', lat: pinPreview.lat, lng: pinPreview.lng }]}
+                className={styles.pinMap}
+              />
+            </div>
+            <div className={styles.apptSubmit}>
+              <Button onClick={() => handleNavigate(pinPreview.lat, pinPreview.lng)}>
+                {t('dm.navigate', { defaultValue: '길안내' })}
+              </Button>
+            </div>
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* 위치공유 위젯 — 약속과 독립(2026-08-29). 항상-보임이 아니라 이 메뉴로 열고 닫는다 */}
       <BottomSheet open={locationShareSheetOpen} onClose={() => setLocationShareSheetOpen(false)}>
-        <DealLiveActions appointmentId={currentAppointmentId} />
+        {isDirect && conversationId && (
+          <DealLiveActions
+            conversationId={conversationId}
+            appointmentId={currentAppointmentId}
+            nickname={user?.nickname}
+            onInviteSent={(msg) => applyIncoming([msg])}
+          />
+        )}
       </BottomSheet>
 
       {/* 메시지 액션 시트 — 롱프레스로 연다: 고정 팔레트 공감 + 답장 + (내 메시지) 수정/삭제 */}

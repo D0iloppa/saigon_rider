@@ -431,6 +431,48 @@ export async function pingLocationShare(
   );
 }
 
+// ── 독립 위치공유(약속 없이, 대화 단위) — 위와 별개 엔드포인트. 정밀도 창 없이 세션 TTL만 적용.
+export async function fetchConversationLocationShareStatus(conversationId: string): Promise<LocationShareStatus> {
+  return transformLocationShareStatus(
+    await api.realFetch<any>(
+      `/market/conversations/${conversationId}/location-share`,
+      {},
+      'bff',
+      { rethrow: true },
+    ),
+  );
+}
+
+export async function startConversationLocationShare(
+  conversationId: string,
+  consentVersion: string,
+): Promise<LocationShareStatus> {
+  return transformLocationShareStatus(
+    await api.realFetch<any>(`/market/conversations/${conversationId}/location-share`, {
+      method: 'POST',
+      body: JSON.stringify({ consent_version: consentVersion }),
+    }),
+  );
+}
+
+export async function stopConversationLocationShare(conversationId: string): Promise<void> {
+  await api.realFetch(`/market/conversations/${conversationId}/location-share`, { method: 'DELETE' });
+}
+
+export async function pingConversationLocationShare(
+  conversationId: string,
+  lat: number,
+  lng: number,
+  accuracyM: number,
+): Promise<LocationShareStatus> {
+  return transformLocationShareStatus(
+    await api.realFetch<any>(`/market/conversations/${conversationId}/location-share/ping`, {
+      method: 'PUT',
+      body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
+    }),
+  );
+}
+
 // ── 가격제안 — 약속(SGR-287)과 동일하게 DM 메시지 + 도메인 엔티티 ────
 /** 가격제안. 채팅 타임라인용 price_offer 메시지를 반환한다. 기존 PROPOSED 제안은 서버가 supersede. */
 export async function proposePriceOffer(conversationId: string, amount: number): Promise<DmMessage> {

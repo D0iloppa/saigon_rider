@@ -552,6 +552,25 @@
   margin-bottom: 16px;
 }
 
+/* 현재위치 카드 미리보기 시트 — 약속 시트(.apptSheet) 골격 재사용 + 지도 1개 */
+.pinSheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pinMapWrap {
+  width: 100%;
+  height: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pinMap {
+  width: 100%;
+  height: 100%;
+}
+
 .apptLabel {
   font-size: 13px;
   font-weight: 600;

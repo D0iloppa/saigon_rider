@@ -1775,7 +1775,7 @@ class LocationChannelMember(Base):
 
 
 class LocationChannelDestProposal(Base):
-    """목적지 변경 제안 (init/223). Phase 1 은 테이블만 — API 는 Phase 2."""
+    """목적지 변경 제안 (init/223, API 는 Phase 2 — routers/location_channels.py)."""
 
     __tablename__ = "location_channel_dest_proposals"
 
@@ -1794,9 +1794,12 @@ class LocationChannelDestProposal(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
+    proposer: Mapped["User"] = relationship("User", foreign_keys=[proposed_by], lazy="selectin")
+    votes: Mapped[list["LocationChannelDestVote"]] = relationship("LocationChannelDestVote", lazy="selectin")
+
 
 class LocationChannelDestVote(Base):
-    """목적지 변경 제안에 대한 참가자별 응답 (init/223). Phase 1 은 테이블만."""
+    """목적지 변경 제안에 대한 참가자별 응답 (init/223, API 는 Phase 2)."""
 
     __tablename__ = "location_channel_dest_votes"
 

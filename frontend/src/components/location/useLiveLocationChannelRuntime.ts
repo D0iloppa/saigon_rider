@@ -111,6 +111,15 @@ export function useLiveLocationChannelRuntime() {
         applyEvent({ ...env, type });
         // member_joined 페이로드는 userId 만 — 닉네임·아바타는 HTTP 로 채운다(정합성 기준선).
         if (type === 'member_joined') resync();
+        if (type === 'dest_resolved') {
+          const status = env.payload?.status as string | undefined;
+          if (status === 'accepted') toast.info(t('liveLocation.proposalAccepted', { defaultValue: '목적지가 변경됐어요' }));
+          else if (status === 'rejected') toast.info(t('liveLocation.proposalRejected', { defaultValue: '목적지 변경이 거절됐어요' }));
+          else if (status === 'expired') toast.info(t('liveLocation.proposalExpired', { defaultValue: '응답이 없어 제안이 만료됐어요' }));
+          else if (status === 'withdrawn') toast.info(t('liveLocation.proposalWithdrawn', { defaultValue: '제안이 철회됐어요' }));
+          // 확정 목적지·ETA 재계산은 HTTP 가 기준선.
+          resync();
+        }
       },
       onFatal: () => {
         if (cancelled) return;

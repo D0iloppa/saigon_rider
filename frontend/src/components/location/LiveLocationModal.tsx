@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Flag, LogOut, MapPinned, Navigation, Users } from 'lucide-react';
+import { Clock, Flag, LogOut, MapPinned, Navigation, Users } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,15 +12,25 @@ import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import { useLocationChannelStore } from '@/store/useLocationChannelStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { extractErrorCode } from '@/api/client';
-import { leaveLocationChannel, putLocationChannelDestination, type LocationChannelMember } from '@/api/locationChannel';
+import {
+  leaveLocationChannel,
+  proposeLocationChannelDestination,
+  putLocationChannelDestination,
+  voteLocationChannelProposal,
+  withdrawLocationChannelProposal,
+  type LocationChannelMember,
+} from '@/api/locationChannel';
 import { toast } from '@/components/ui/Toast';
 import { formatDistance } from '@/lib/format';
 import { haversineM } from './useLiveLocationChannelRuntime';
+import { DestinationProposalCard } from './DestinationProposalCard';
 import sys from '@/styles/system.module.css';
 import styles from './LiveLocationModal.module.css';
 
 /** 참가자 dot = 브랜드 주황(내 위치 파란 점은 OsmMap myLocation 이 그린다 — service-rules "내 위치 파란 점"). */
 const MEMBER_DOT = '#ff5a1f';
+/** 제안 목적지 dot — 확정 핀(teardrop)과 구분되는 amber(경계 사례: OsmMarker 가 hex 만 받는다). */
+const PROPOSAL_DOT = '#f59e0b';
 /** 목적지 — teardrop 핀은 pickedPoint 가 그린다. */
 
 type MemberPhase = 'waiting' | 'moving' | 'locating';
@@ -57,12 +67,15 @@ export function LiveLocationModal() {
   const members = useMemo(() => (state?.members ?? []).filter((m) => !m.leftAt), [state]);
   const others = members.filter((m) => m.userId !== myId);
 
+  const pending = state?.pendingProposal ?? null;
   const markers = useMemo<OsmMarker[]>(
-    () =>
-      others
+    () => [
+      ...others
         .filter((m) => m.lat != null && m.lng != null)
         .map((m) => ({ id: m.userId, lat: m.lat as number, lng: m.lng as number, color: MEMBER_DOT })),
-    [others],
+      ...(pending ? [{ id: `proposal:${pending.id}`, lat: pending.lat, lng: pending.lng, color: PROPOSAL_DOT }] : []),
+    ],
+    [others, pending],
   );
   const dest = state?.dest ?? null;
   const center = dest ?? myCoords ?? (markers[0] ? { lat: markers[0].lat, lng: markers[0].lng } : null);
@@ -81,26 +94,80 @@ export function LiveLocationModal() {
     }
   };
 
+  /**
+   * D1: 최초 설정(dest 없음) 또는 참가자 1명 → PUT 즉시 반영.
+   * 목적지가 이미 있고 참가자 ≥2 → POST proposals(제안 절차). 서버가 1명 판정 시 dest_set 으로 즉시 반영해도 무방.
+   */
   const handleSetDest = async (loc: PickedLocation) => {
     setPickerOpen(false);
     if (!conversationId) return;
+    const body = { lat: loc.lat, lng: loc.lng, ...(loc.districtName ? { name: loc.districtName } : {}) };
+    const propose = !!dest && members.length >= 2;
     setBusy(true);
     try {
-      const next = await putLocationChannelDestination(conversationId, {
-        lat: loc.lat,
-        lng: loc.lng,
-        ...(loc.districtName ? { name: loc.districtName } : {}),
-      });
+      const next = propose
+        ? await proposeLocationChannelDestination(conversationId, body)
+        : await putLocationChannelDestination(conversationId, body);
       applyState(next);
+      if (propose && next.pendingProposal) {
+        toast.info(t('liveLocation.proposalSent', { defaultValue: '변경 제안을 보냈어요' }));
+      }
     } catch (err) {
-      if (extractErrorCode(err) === 'proposal_required') {
-        toast.info(t('liveLocation.proposalSoon', { defaultValue: '목적지 변경 제안은 곧 지원돼요' }));
+      const code = extractErrorCode(err);
+      if (code === 'pending_exists' || code === 'proposal_required') {
+        toast.info(t('liveLocation.proposalPending', { defaultValue: '진행 중인 제안이 있어요' }));
       } else {
-        toast.error(t('liveLocation.destError', { defaultValue: '목적지를 설정하지 못했어요' }));
+        toast.error(
+          propose
+            ? t('liveLocation.proposalError', { defaultValue: '변경 제안을 보내지 못했어요' })
+            : t('liveLocation.destError', { defaultValue: '목적지를 설정하지 못했어요' }),
+        );
       }
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleVote = async (accept: boolean) => {
+    if (!conversationId || !pending) return;
+    setBusy(true);
+    try {
+      applyState(await voteLocationChannelProposal(conversationId, pending.id, accept));
+    } catch (err) {
+      // proposer_cannot_vote 는 버튼이 안 보여야 정상 — 수신 시 무시. 그 외(404 이미 종결 등)는 안내.
+      if (extractErrorCode(err) !== 'proposer_cannot_vote') {
+        toast.error(t('liveLocation.voteError', { defaultValue: '응답을 보내지 못했어요' }));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!conversationId || !pending) return;
+    setBusy(true);
+    try {
+      await withdrawLocationChannelProposal(conversationId, pending.id);
+      // 카드 소멸·토스트는 dest_resolved{withdrawn} 수신이 처리(실패 시 GET 재동기화가 정리).
+    } catch {
+      toast.error(t('liveLocation.withdrawError', { defaultValue: '제안을 철회하지 못했어요' }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 참가자 행 ETA/거리 텍스트 — 서버값 우선, 없으면 haversine. */
+  const etaLabel = (m: LocationChannelMember): string | null => {
+    if (!dest || m.arrivedAt) return null;
+    if (m.etaS != null) {
+      return m.etaS < 60
+        ? t('liveLocation.etaSoon', { defaultValue: '곧 도착' })
+        : t('liveLocation.etaMin', { defaultValue: '{{n}}분', n: Math.round(m.etaS / 60) });
+    }
+    if (m.lat == null || m.lng == null) return null;
+    // etaS null + distanceM 있음 → 커버리지 밖: 직선거리만.
+    if (m.distanceM != null) return t('liveLocation.etaStraight', { defaultValue: '직선 {{d}}', d: formatDistance(m.distanceM) });
+    return t('liveLocation.etaCalculating', { defaultValue: '경로 계산 중…' });
   };
 
   const handleNavigate = () => {
@@ -145,6 +212,18 @@ export function LiveLocationModal() {
             />
           </div>
 
+          {/* 목적지 변경 제안 카드 — pending 있을 때만(§3-3). 모달 열림 중에만 마운트 → 카운트다운 타이머도 그때만. */}
+          {open && pending && (
+            <DestinationProposalCard
+              key={pending.id}
+              proposal={pending}
+              myId={myId}
+              busy={busy}
+              onVote={handleVote}
+              onWithdraw={handleWithdraw}
+            />
+          )}
+
           {/* 목적지 카드 — 없으면 설정 유도(D1: 최초 설정은 누구나 즉시). */}
           <div className={sys.card}>
             <div className={styles.destRow}>
@@ -165,9 +244,17 @@ export function LiveLocationModal() {
                 )}
               </div>
               {dest ? (
-                <Button size="sm" fullWidth={false} onClick={handleNavigate} aria-disabled={!routeAvailable}>
-                  <Navigation size={14} strokeWidth={2} /> {t('dm.navigate', { defaultValue: '길안내' })}
-                </Button>
+                <div className={styles.destActions}>
+                  <Button size="sm" fullWidth={false} onClick={handleNavigate} aria-disabled={!routeAvailable}>
+                    <Navigation size={14} strokeWidth={2} /> {t('dm.navigate', { defaultValue: '길안내' })}
+                  </Button>
+                  {/* 변경 — 진행 중 제안이 있으면 숨김(pending 최대 1개 불변식). */}
+                  {!pending && (
+                    <button type="button" className={styles.changeDestBtn} disabled={busy} onClick={() => setPickerOpen(true)}>
+                      {t('liveLocation.changeDest', { defaultValue: '목적지 변경' })}
+                    </button>
+                  )}
+                </div>
               ) : (
                 <Button size="sm" fullWidth={false} disabled={busy} onClick={() => setPickerOpen(true)}>
                   {t('liveLocation.setDest', { defaultValue: '목적지 설정' })}
@@ -191,6 +278,7 @@ export function LiveLocationModal() {
               const isMe = m.userId === myId;
               const phase = phaseOf(m);
               const dist = !isMe && myCoords && m.lat != null && m.lng != null ? haversineM(myCoords, { lat: m.lat, lng: m.lng }) : null;
+              const eta = etaLabel(m);
               return (
                 <div key={m.userId} className={styles.memberRow}>
                   <Avatar src={m.avatarUrl ?? null} name={m.nickname || '?'} seed={m.userId} size={36} />
@@ -200,6 +288,14 @@ export function LiveLocationModal() {
                     </span>
                     <span className={styles.memberMeta}>
                       <span className={styles.phase} data-phase={phase}>{phaseLabel(phase)}</span>
+                      {eta && (
+                        <>
+                          <span className={sys.metaDot} />
+                          <span className={`${styles.eta} num`}>
+                            <Clock size={11} strokeWidth={2.5} /> {eta}
+                          </span>
+                        </>
+                      )}
                       {dist != null && (
                         <>
                           <span className={sys.metaDot} />

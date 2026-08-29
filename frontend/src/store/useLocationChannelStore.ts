@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { LocationChannelEnvelope, LocationChannelState, LocationEventPayload } from '@/api/locationChannel';
+import type {
+  LocationChannelEnvelope,
+  LocationChannelProposal,
+  LocationChannelState,
+  LocationEventPayload,
+} from '@/api/locationChannel';
 
 /**
  * 실시간 위치공유 채널의 앱 전역 상태 (Phase 1 — 앱당 채널 1개).
@@ -126,6 +131,47 @@ export const useLocationChannelStore = create<LocationChannelStoreState>()(
           case 'dest_set': {
             const dest = p.dest ?? (typeof p.lat === 'number' ? { lat: p.lat, lng: p.lng, name: p.name ?? null } : null);
             if (dest) set({ state: { ...cur, dest } });
+            return;
+          }
+          case 'eta': {
+            const uid: string | undefined = p.userId;
+            if (!uid) return;
+            set({
+              state: {
+                ...cur,
+                members: cur.members.map((m) =>
+                  m.userId === uid
+                    ? {
+                        ...m,
+                        etaS: p.etaS ?? null,
+                        distanceM: p.distanceM ?? null,
+                        etaComputedAt: p.computedAt ?? ev.at,
+                      }
+                    : m,
+                ),
+              },
+            });
+            return;
+          }
+          case 'dest_proposed': {
+            // payload = pendingProposal 전체.
+            if (!p?.id) return;
+            set({ state: { ...cur, pendingProposal: { ...(p as LocationChannelProposal), votes: p.votes ?? [] } } });
+            return;
+          }
+          case 'dest_vote': {
+            const pending = cur.pendingProposal;
+            if (!pending || pending.id !== p.proposalId || !p.userId) return;
+            const votes = pending.votes.filter((v) => v.userId !== p.userId);
+            votes.push({ userId: p.userId, accept: !!p.accept, votedAt: ev.at });
+            set({ state: { ...cur, pendingProposal: { ...pending, votes } } });
+            return;
+          }
+          case 'dest_resolved': {
+            const pending = cur.pendingProposal;
+            if (pending && p.proposalId && pending.id !== p.proposalId) return;
+            const dest = p.status === 'accepted' ? (p.dest ?? (pending ? { lat: pending.lat, lng: pending.lng, name: pending.name } : null)) : null;
+            set({ state: { ...cur, pendingProposal: null, ...(dest ? { dest } : {}) } });
             return;
           }
           default:

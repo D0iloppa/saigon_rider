@@ -82,6 +82,51 @@ async def fetch_trip(
     return trip
 
 
+async def fetch_matrix_to_target(
+    engine_url: str, sources: list[tuple[float, float]], dest_lat: float, dest_lng: float
+) -> list[dict | None]:
+    """Valhalla `/sources_to_targets` — N 개 출발지 → 목적지 1개, 1회 호출 (260829 설계 SoT §5-3).
+
+    반환은 `sources` 와 같은 길이의 리스트. 각 원소는 `{"distance_m": int, "duration_s": int}` 또는
+    도달불가/타임아웃/오류 시 None(호출부가 haversine 직선거리로 폴백).
+    """
+    if not sources:
+        return []
+    client = await _get_engine_client()
+    try:
+        response = await client.post(
+            f"{engine_url.rstrip('/')}/sources_to_targets",
+            json={
+                "sources": [{"lat": lat, "lon": lng} for lat, lng in sources],
+                "targets": [{"lat": dest_lat, "lon": dest_lng}],
+                "costing": _COSTING,
+                "units": "kilometers",
+            },
+        )
+    except httpx.TimeoutException:
+        log.warning("routing engine matrix: 타임아웃 초과")
+        return [None] * len(sources)
+    except httpx.RequestError as exc:
+        log.warning("routing engine matrix: 요청 실패(%s)", exc)
+        return [None] * len(sources)
+
+    if response.status_code != 200:
+        log.warning("routing engine matrix: HTTP %s", response.status_code)
+        return [None] * len(sources)
+
+    rows = response.json().get("sources_to_targets") or []
+    results: list[dict | None] = []
+    for row in rows:
+        cell = (row or [None])[0]
+        if not cell or cell.get("time") is None or cell.get("distance") is None:
+            results.append(None)
+            continue
+        results.append({"distance_m": round(cell["distance"] * 1000), "duration_s": round(cell["time"])})
+    while len(results) < len(sources):
+        results.append(None)
+    return results
+
+
 # --- polyline precision 6 → 5 변환 ---------------------------------------
 
 

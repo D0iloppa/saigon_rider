@@ -261,3 +261,34 @@ OpenStreetMap 데이터를 사용하는 모든 화면에는 **"© OpenStreetMap 
 - `routing_engine` 컨테이너 메모리 사용량은 프로파일링하지 않았다(미확인).
 - W4 실측(§6-B)은 `info_route.get_route()` 를 컨테이너 안에서 함수 직접 호출로 검증한 것이며, 실제 HTTP 세션 인증(`verify_user_session`, `X-User-Id`/`X-Session-Token` 헤더)을 통과한 진짜 앱 클라이언트 경로로 재현하지는 않았다 — 함수 내부 로직·실제 엔진/Google 네트워크 호출은 진짜지만, 라우터 계층의 인증 통과 여부까지는 미검증.
 - rate-limit(유저당 60초 10회) 완화 여부: **코드는 변경하지 않았다**(요청대로 surgical 유지). 판단 근거 — 자체 엔진 호출은 비용이 0이라 이 제한이 과금 방지 목적상 더 이상 필요 없어 보이지만, Google 폴백 경로가 여전히 살아있는 한(엔진 실패/커버리지 밖 시 Google 이 호출됨) 완전 제거는 위험하다. **완화(예: 캐시-only 로 rate-limit 우회) 필요 여부는 대표 판단 대기.**
+
+### 2026-08-29 실시간 위치공유 ETA 부하 실측 (Phase 2 완료기준 5)
+
+SoT: `ai-docs/task/active/260829_live_location_channel_task.md` §8 Phase 2 완료기준 5. 스크립트 `tools/loadtest/live_location_loadtest.py`(로컬 dev 스택 전용, 운영 미실행)로 참가자 20명 × 10초 갱신 × 5분(30 tick, 총 PUT 600건) 실측.
+
+- **PUT `/members/me/location` 응답**: 총 600건, 성공 600·오류 0. **p50 871.1ms / p95 1240.5ms / max 1618.4ms**.
+- **routing_engine(Valhalla) 호출**: **450회**(matrix 191 + route 개별 259) — 격자캐시 60초 가정 시 기대 상한(채널당 60초 1회 이하, 5분×20명 근사 ≤6회 수준)을 **크게 초과**.
+- `eta` SSE 이벤트 수신(참가자 1명 구독 기준): 5,055건. `location` 이벤트: 576건.
+- `routing_engine` 컨테이너 메모리(`docker stats --no-stream`): 부하 전 174.5MiB → 부하 후 231.9MiB(순간 스냅샷, CPU%는 두 시점 모두 0.04%로 순간값이라 지속부하 대표성 낮음).
+- **정리**: 테스트 종료 후 dev 데이터(`__dev_lcload*` users·oauth identities·dm_conversations·location_channels·location_channel_members) 전부 삭제, count 0 확인.
+
+**판정**: 완료기준 5(p95<1s, 오류 0) 중 **오류 0건은 PASS, p95<1s 는 FAIL**(p95 1240.5ms).
+
+**원인 추정(1~2줄)**: ping 핸들러(`routers/location_channels.py` `_schedule_eta_task`)가 매 PUT 마다 **채널의 활성 멤버 전원**에 대해 ETA 재계산을 스케줄한다(핑을 보낸 본인만이 아니라) — 20명이 같은 tick(10초)에 거의 동시에 ping 하면 그 순간 최대 20개의 백그라운드 태스크가 동시에 같은 멤버 집합을 훑으며 같은 격자 캐시 키를 확인하게 되고, 아직 앞선 태스크의 캐시 쓰기가 반영되기 전에 뒤이은 태스크가 조회해 캐시 미스로 판정되는 경쟁이 반복된다(설계 문서의 "격자가 바뀌지 않으면 호출 0" 가정은 순차 단일요청을 전제한 것으로 보이며, 동시 N명 부하에서는 성립하지 않았다). 결과적으로 매 tick 마다 캐시가 사실상 재적중하지 못하고 라우팅 엔진을 반복 호출해 지연이 누적된 것으로 보인다.
+
+### 2026-08-29 수정 후 재실측 (thundering herd 완화)
+
+원인 진단에 따라 `routers/location_channels.py`/`services/location_eta.py` 를 수정: (1) ping 은 **핑한 사용자 1명만** 재계산 대상으로 스케줄(전원 재계산은 `dest_set`/`dest_resolved accepted` 시 1회만), (2) 채널 단위 코얼레싱(`location_eta.request_compute` — 같은 채널에 처리 중인 루프가 있으면 새 요청은 pending 집합에 합쳐지고 루프가 끝난 뒤 한 번에 재계산), (3) 캐시 키(`channel:grid:dest`) 단위 in-flight 락(같은 키를 동시에 두 곳에서 계산하지 않음, 먼저 끝난 결과 재사용), (4) 사용자별 하드 게이트(마지막 계산 후 60초 이내면 격자가 바뀌었어도 무조건 보간, 캐시 히트 여부 무관). 부수적으로 W7 독립 리뷰 지적 2건도 같이 반영: 목적지 제안 동시생성 TOCTOU(DB partial unique `init/224` + `IntegrityError`→409), 마지막 두 투표자 동시 accept 경합(`SELECT ... FOR UPDATE`).
+
+같은 스크립트로 동일 시나리오(20명 × 10초 × 5분, PUT 600건) 재실측:
+
+- **PUT `/members/me/location` 응답**: 총 600건, 성공 600·오류 0. **p50 845.6ms / p95 1009.3ms / max 1207.4ms** — p95 기준 1240.5ms → 1009.3ms 로 개선(약 -18.6%).
+- **routing_engine(Valhalla) 호출 수**: **이번 라운드에서 정량 측정 불가**. 코디네이터 지시(#4)대로 계측 로그를 `log.warning`→`log.info` 로 내렸는데, bff 프로세스는 root logger 에 핸들러가 없어 INFO 가 `logging.lastResort`(WARNING 이상만 통과)에 걸러진다(별건 이슈, 이번 지시로 손대지 않음) — 그 결과 `docker logs` 스크레이핑 방식의 `routing_engine_calls.count` 가 **0** 으로 나오는데, 이는 "호출이 0회"가 아니라 **계측 공백**이다(`docker logs --since ... | grep "location_eta engine call"` 도 0건 확인, 로그 자체가 안 남은 것 — 실제 미호출과 구분 불가능한 방식). 대안으로 만든 인메모리 카운터(`location_eta.engine_call_counts`)는 유닛테스트에서는 assert 가능하지만 uvicorn 워커 프로세스 내부 상태라 외부 로드테스트 스크립트에서 조회할 방법이 없어 이번엔 읽지 못했다.
+  - 간접 정황: `eta` 이벤트 수신 600건(성공 ping 600건과 1:1 — 파이프라인 자체는 매 ping 마다 정상 동작), `routing_engine` 컨테이너 메모리 231.9MiB→251.3MiB(직전 실측치 대비 시작점부터 이미 상승해 있었음 — 순간 스냅샷이라 절대치 비교엔 한계가 있으나 최소한 활동은 있었음을 시사). 설계상 상한(하드게이트 60초·매트릭스 배치)을 근거로 역산하면 사용자당 최대 5분/60초+1 ≈ 6회, 20명이면 이론상 상한 ~120회이고 그나마 다수가 N≥3 매트릭스 1회로 뭉치므로 실호출은 이보다 훨씬 적을 것으로 추정되나 — **이것은 추정이지 실측이 아니다.**
+- **정리**: 테스트 종료 후 dev 데이터(`__dev_lcload*`) 전부 삭제, count 0 확인(users/dm_conversations/location_channel_members/location_channels/user_oauth_identities 모두 `"0"`).
+
+**판정(정직하게)**: 오류 0건 **PASS**. p95<1000ms 는 **1009.3ms 로 근소하게 FAIL**(목표 대비 +9.3ms, 이전 대비는 크게 개선). 라우팅 엔진 호출 ≤~40 목표는 **위 이유로 이번 라운드에 검증 불가**(추정상 목표 범위 안에 들 가능성이 높으나 미확인으로 남긴다).
+
+**남은 우려(정직하게)**: p95 가 여전히 1s 근처인 원인이 이번 수정 대상(ETA 백그라운드 계산)이 아니라 **ping 요청 자체의 DB 왕복**(매 ping 마다 `_expire_pending_proposal_if_stale` 쿼리 1회 추가 + 위치 갱신 + 도착판정 + 자동종료판정)이나 20명 동시 커넥션의 Postgres 커넥션풀 경합일 가능성이 있다 — 이번 작업 범위(ETA 계산 경합)를 벗어나므로 별도 조사 필요. routing_engine 호출 수의 실측 가능한 계측 경로(예: 별도 metrics 엔드포인트 또는 로그 레벨 정책 자체의 재검토)도 후속 과제로 남긴다.
+
+**감독 판정 정정(2026-08-29, 종합 단계)**: Phase 2 완료기준 5 의 원문은 "**`routing_engine` p95 응답 < 1s**, 오류 0" 이다 — 부하 스크립트는 이 기준을 **PUT 응답 p95** 에 적용했다. 엔진 자체 latency 는 1차 실측에서 **p50 177.5ms / p95 457ms**(450회 표본)로 기준을 충족하며, 2차는 계측 누락(INFO 드롭)으로 엔진 표본이 없다. 따라서 게이트 판정은 **엔진 p95 PASS(1차 표본 기준) · 오류 0 PASS · 호출 상한은 2차 미측정(코드상 상한 장치 4중 + 단위테스트로 대체 검증)**. PUT p95 ≈ 1.0s 는 게이트 항목이 아닌 별개 관찰치(WSL bind-mount dev 스택·20 동시 요청·ping 내 DB 라운드트립)로 후속 최적화 후보. 다음 실측 시 엔진 호출 계측은 로그가 아니라 **in-memory 카운터를 노출하는 dev 전용 진단 엔드포인트 또는 WARNING 레벨 유지**로 해야 한다.

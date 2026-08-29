@@ -109,6 +109,38 @@
   color: var(--text-2);
 }
 
+.destActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  flex: none;
+}
+
+/* 목적지 변경 — 보조 텍스트 액션(주 액션은 길안내 1개). */
+.changeDestBtn {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.changeDestBtn:disabled {
+  opacity: 0.5;
+}
+
+.eta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text);
+  font-weight: 600;
+}
+
 .destEmpty {
   font-size: 13px;
   color: var(--text-2);

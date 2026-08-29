@@ -18,12 +18,16 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
+from app.models import LocationChannelDestProposal
 from app.routers import location_channels as lc
 from app.schemas import (
     LocationChannelCreateRequest,
+    LocationChannelDestIn,
     LocationChannelDestinationRequest,
     LocationChannelPingRequest,
+    LocationChannelVoteRequest,
 )
 from app.services.location_channel_broadcast import InProcessLocationChannelBroadcaster
 from app.services.location_channel_lifecycle import resolve_end_reason
@@ -73,6 +77,35 @@ def _channel(
     )
 
 
+def _proposal(
+    *,
+    channel_id,
+    proposed_by,
+    lat=10.9,
+    lng=106.9,
+    name=None,
+    status="pending",
+    created_at=None,
+    expires_at=None,
+    votes=None,
+):
+    now = datetime.now(UTC)
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        channel_id=channel_id,
+        proposed_by=proposed_by,
+        lat=Decimal(str(lat)),
+        lng=Decimal(str(lng)),
+        name=name,
+        status=status,
+        created_at=created_at or now,
+        resolved_at=None,
+        expires_at=expires_at or (now + timedelta(minutes=5)),
+        proposer=_user(),
+        votes=votes if votes is not None else [],
+    )
+
+
 def _rig(channel):
     """공통 로더/접근검사 헬퍼를 patch 로 대체 — DB·차단검사 없이 라우터 로직만 검증한다."""
     db = AsyncMock()
@@ -89,6 +122,9 @@ def _rig(channel):
             stack.enter_context(patch.object(lc, "_require_conversation_access", AsyncMock(return_value=None)))
             stack.enter_context(patch.object(lc, "_active_channel_for_conversation", AsyncMock(return_value=channel)))
             stack.enter_context(patch.object(lc, "_load_channel_full", AsyncMock(return_value=channel)))
+            # Phase 2: `_serialize_channel_full`/`_expire_pending_proposal_if_stale` 모두 이 leaf 를
+            # 거친다 — DB 없는 이 rig 에서는 "pending 제안 없음" 으로 고정해 Phase 1 로직만 검증한다.
+            stack.enter_context(patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=None)))
             yield
 
     return db, _patched()
@@ -138,6 +174,7 @@ class _PlainNewMember:
         self.arrived_at = None
         self.eta_s = None
         self.distance_m = None
+        self.eta_computed_at = None
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -266,6 +303,7 @@ class CreateOrJoinChannelTest(unittest.IsolatedAsyncioTestCase):
             patch.object(lc, "LocationChannel", _PlainNewChannel),
             patch.object(lc, "LocationChannelMember", _PlainNewMember),
             patch.object(lc, "_load_channel_full", AsyncMock(side_effect=lambda db, cid: created_holder["channel"])),
+            patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=None)),
             patch.object(lc.location_channel_broadcaster, "publish", AsyncMock()),
         ):
             out = await lc.create_or_join_channel(
@@ -393,6 +431,7 @@ class PingLocationTest(unittest.IsolatedAsyncioTestCase):
                 stack.enter_context(
                     patch.object(lc, "_member_and_channel_for_ping", AsyncMock(return_value=(member, channel)))
                 )
+                stack.enter_context(patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=None)))
                 yield
 
         return db, _patched()
@@ -460,6 +499,7 @@ class PingLocationTest(unittest.IsolatedAsyncioTestCase):
         with (
             rig,
             patch.object(lc, "_load_channel_full", AsyncMock(return_value=channel)),
+            patch.object(lc.location_eta, "compute_and_broadcast", AsyncMock()),
             patch.object(
                 lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
             ),
@@ -477,11 +517,12 @@ class SetDestinationTest(unittest.IsolatedAsyncioTestCase):
         db, patches = _rig(channel)
         body = LocationChannelDestinationRequest(lat=10.7, lng=106.7, name="A")
 
-        with patches:
+        with patches, patch.object(lc, "_schedule_eta_task", MagicMock()) as schedule_mock:
             out = await lc.set_destination(channel.conversation_id, body, db=db, session_uid=me)
 
         self.assertEqual(out["dest"]["lat"], 10.7)
         self.assertEqual(channel.dest_lat, Decimal("10.7"))
+        schedule_mock.assert_called_once_with(channel.id, [me])
 
     async def test_change_with_two_active_members_requires_proposal(self):
         me, peer = uuid.uuid4(), uuid.uuid4()
@@ -499,9 +540,10 @@ class SetDestinationTest(unittest.IsolatedAsyncioTestCase):
         db, patches = _rig(channel)
         body = LocationChannelDestinationRequest(lat=10.8, lng=106.8)
 
-        with patches:
+        with patches, patch.object(lc, "_schedule_eta_task", MagicMock()) as schedule_mock:
             out = await lc.set_destination(channel.conversation_id, body, db=db, session_uid=me)
         self.assertEqual(out["dest"]["lat"], 10.8)
+        schedule_mock.assert_called_once_with(channel.id, [me])
 
 
 class RequireConversationAccessBlockTest(unittest.IsolatedAsyncioTestCase):
@@ -637,6 +679,7 @@ class SseBroadcastSmokeTest(unittest.IsolatedAsyncioTestCase):
                 patch.object(lc, "_require_conversation_access", AsyncMock(return_value=None)),
                 patch.object(lc, "_member_and_channel_for_ping", AsyncMock(return_value=(member, channel))),
                 patch.object(lc, "_load_channel_full", AsyncMock(return_value=channel)),
+                patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=None)),
             ):
                 await lc.ping_location(channel.conversation_id, body, db=db, session_uid=me)
 
@@ -712,6 +755,273 @@ class BroadcasterUnitTest(unittest.IsolatedAsyncioTestCase):
             signal = await asyncio.wait_for(qa.get(), timeout=1)
             self.assertEqual(signal["type"], "_stream_closed")
             self.assertTrue(qb.empty())
+
+
+class ProposeDestinationTest(unittest.IsolatedAsyncioTestCase):
+    async def test_single_active_member_is_immediate(self):
+        me = uuid.uuid4()
+        channel = _channel(members=[_member(me)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7"))
+        db, patches = _rig(channel)
+        body = LocationChannelDestIn(lat=10.8, lng=106.8, name="B")
+
+        published = []
+        with (
+            patches,
+            patch.object(lc, "_schedule_eta_task", MagicMock()) as schedule_mock,
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
+            ),
+        ):
+            out = await lc.propose_destination(channel.conversation_id, body, db=db, session_uid=me)
+
+        self.assertEqual(out["dest"]["lat"], 10.8)
+        self.assertIsNone(out["pendingProposal"])
+        self.assertEqual(published[0]["type"], "dest_set")
+        schedule_mock.assert_called_once_with(channel.id, [me])
+
+    async def test_two_active_members_creates_pending_proposal(self):
+        me, peer = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(members=[_member(me), _member(peer)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7"))
+        db, patches = _rig(channel)
+        body = LocationChannelDestIn(lat=10.8, lng=106.8, name="B")
+
+        created = _proposal(channel_id=channel.id, proposed_by=me, lat=10.8, lng=106.8, name="B")
+        published = []
+        with (
+            patches,
+            patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=None)),
+            patch.object(lc, "_get_proposal", AsyncMock(return_value=created)),
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
+            ),
+        ):
+            out = await lc.propose_destination(channel.conversation_id, body, db=db, session_uid=me)
+
+        # 목적지는 아직 미확정 — 기존 값 유지.
+        self.assertEqual(out["dest"]["lat"], 10.7)
+        db.add.assert_called()
+        added = db.add.call_args[0][0]
+        self.assertIsInstance(added, LocationChannelDestProposal)
+        self.assertEqual(added.proposed_by, me)
+        self.assertEqual(published[-1]["type"], "dest_proposed")
+
+    async def test_concurrent_insert_integrity_error_becomes_409(self):
+        """W7 P1 TOCTOU — 애플리케이션 체크(existing is None) 통과 후 커밋 시점의 partial unique
+        위반(init/224)을 IntegrityError 로 잡아 409 pending_exists 로 변환하고 rollback 한다."""
+        me, peer = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(members=[_member(me), _member(peer)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7"))
+        db, patches = _rig(channel)
+        body = LocationChannelDestIn(lat=10.8, lng=106.8)
+
+        db.commit = AsyncMock(side_effect=IntegrityError("insert", {}, Exception("dup")))
+        db.rollback = AsyncMock()
+
+        with (
+            patches,
+            patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=None)),
+            self.assertRaises(HTTPException) as ctx,
+        ):
+            await lc.propose_destination(channel.conversation_id, body, db=db, session_uid=me)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "pending_exists")
+        db.rollback.assert_awaited()
+
+    async def test_pending_exists_is_409(self):
+        me, peer = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(members=[_member(me), _member(peer)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7"))
+        db, patches = _rig(channel)
+        body = LocationChannelDestIn(lat=10.8, lng=106.8)
+        existing = _proposal(channel_id=channel.id, proposed_by=peer)
+
+        with (
+            patches,
+            patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=existing)),
+            self.assertRaises(HTTPException) as ctx,
+        ):
+            await lc.propose_destination(channel.conversation_id, body, db=db, session_uid=me)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "pending_exists")
+
+
+class VoteDestinationProposalTest(unittest.IsolatedAsyncioTestCase):
+    async def test_proposer_cannot_vote(self):
+        proposer, voter = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(
+            members=[_member(proposer), _member(voter)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7")
+        )
+        proposal = _proposal(channel_id=channel.id, proposed_by=proposer)
+        db, patches = _rig(channel)
+        body = LocationChannelVoteRequest(accept=True)
+
+        with (
+            patches,
+            patch.object(lc, "_get_proposal_for_update", AsyncMock(return_value=proposal)),
+            self.assertRaises(HTTPException) as ctx,
+        ):
+            await lc.vote_destination_proposal(channel.conversation_id, proposal.id, body, db=db, session_uid=proposer)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "proposer_cannot_vote")
+
+    async def test_accept_by_sole_required_voter_resolves_accepted(self):
+        proposer, voter = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(
+            members=[_member(proposer), _member(voter)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7")
+        )
+        resolved_proposal = _proposal(channel_id=channel.id, proposed_by=proposer, lat=10.9, lng=106.9)
+        db, patches = _rig(channel)
+        # 투표 반영 확인(accepted_voters)은 votes 테이블 직접 조회로 이뤄진다(flush 만으로는
+        # `proposal.votes` selectin 이 재로딩되지 않음) — voter 의 accept 표를 이미 반영된 것으로 응답.
+        votes_result = MagicMock()
+        votes_result.scalars.return_value.all.return_value = [
+            SimpleNamespace(user_id=voter, accept=True, voted_at=datetime.now(UTC))
+        ]
+        db.execute = AsyncMock(return_value=votes_result)
+        body = LocationChannelVoteRequest(accept=True)
+
+        published = []
+        with (
+            patches,
+            patch.object(lc, "_get_proposal_for_update", AsyncMock(return_value=resolved_proposal)),
+            patch.object(lc, "_schedule_eta_task", MagicMock()) as schedule_mock,
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
+            ),
+        ):
+            out = await lc.vote_destination_proposal(
+                channel.conversation_id, resolved_proposal.id, body, db=db, session_uid=voter
+            )
+
+        self.assertEqual(resolved_proposal.status, "accepted")
+        self.assertEqual(channel.dest_lat, resolved_proposal.lat)
+        self.assertEqual(out["dest"]["lat"], 10.9)
+        self.assertIn("dest_vote", [e["type"] for e in published])
+        # 완료기준(c) — 목적지가 실제로 바뀌면 전원 재계산이 1회 예약된다.
+        schedule_mock.assert_called_once()
+        self.assertEqual(schedule_mock.call_args[0][0], channel.id)
+        self.assertEqual(set(schedule_mock.call_args[0][1]), {proposer, voter})
+        resolved_events = [e for e in published if e["type"] == "dest_resolved"]
+        self.assertEqual(resolved_events[-1]["payload"]["status"], "accepted")
+
+    async def test_reject_resolves_rejected_without_changing_dest(self):
+        proposer, voter = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(
+            members=[_member(proposer), _member(voter)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7")
+        )
+        proposal = _proposal(channel_id=channel.id, proposed_by=proposer, lat=10.9, lng=106.9)
+        db, patches = _rig(channel)
+        body = LocationChannelVoteRequest(accept=False)
+
+        published = []
+        with (
+            patches,
+            patch.object(lc, "_get_proposal_for_update", AsyncMock(return_value=proposal)),
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
+            ),
+        ):
+            out = await lc.vote_destination_proposal(
+                channel.conversation_id, proposal.id, body, db=db, session_uid=voter
+            )
+
+        self.assertEqual(proposal.status, "rejected")
+        self.assertEqual(out["dest"]["lat"], 10.7)  # 목적지 불변
+        resolved_events = [e for e in published if e["type"] == "dest_resolved"]
+        self.assertEqual(resolved_events[-1]["payload"]["status"], "rejected")
+
+
+class WithdrawDestinationProposalTest(unittest.IsolatedAsyncioTestCase):
+    async def test_non_proposer_gets_403(self):
+        proposer, other = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(
+            members=[_member(proposer), _member(other)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7")
+        )
+        proposal = _proposal(channel_id=channel.id, proposed_by=proposer)
+        db, patches = _rig(channel)
+
+        with (
+            patches,
+            patch.object(lc, "_get_proposal", AsyncMock(return_value=proposal)),
+            self.assertRaises(HTTPException) as ctx,
+        ):
+            await lc.withdraw_destination_proposal(channel.conversation_id, proposal.id, db=db, session_uid=other)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    async def test_proposer_withdraws(self):
+        proposer, other = uuid.uuid4(), uuid.uuid4()
+        channel = _channel(
+            members=[_member(proposer), _member(other)], dest_lat=Decimal("10.7"), dest_lng=Decimal("106.7")
+        )
+        proposal = _proposal(channel_id=channel.id, proposed_by=proposer)
+        db, patches = _rig(channel)
+
+        published = []
+        with (
+            patches,
+            patch.object(lc, "_get_proposal", AsyncMock(return_value=proposal)),
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
+            ),
+        ):
+            await lc.withdraw_destination_proposal(channel.conversation_id, proposal.id, db=db, session_uid=proposer)
+
+        self.assertEqual(proposal.status, "withdrawn")
+        self.assertEqual(published[-1]["payload"]["status"], "withdrawn")
+
+
+class GetProposalForUpdateLocksRowTest(unittest.IsolatedAsyncioTestCase):
+    """W7 P1 — 수락 판정 경합 방지용 행 잠금이 실제로 컴파일된 SQL 에 FOR UPDATE 를 싣는지."""
+
+    async def test_compiled_sql_includes_for_update(self):
+        db = AsyncMock()
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = None
+        captured = {}
+
+        async def _execute(stmt):
+            captured["stmt"] = stmt
+            return result
+
+        db.execute = _execute
+        await lc._get_proposal_for_update(db, uuid.uuid4())
+        compiled = str(captured["stmt"].compile(compile_kwargs={"literal_binds": True}))
+        self.assertIn("FOR UPDATE", compiled.upper())
+
+
+class ExpirePendingProposalTest(unittest.IsolatedAsyncioTestCase):
+    async def test_expires_stale_pending_proposal(self):
+        channel_id = uuid.uuid4()
+        now = datetime.now(UTC)
+        proposal = _proposal(channel_id=channel_id, proposed_by=uuid.uuid4(), expires_at=now - timedelta(seconds=1))
+        db = AsyncMock()
+
+        published = []
+        with (
+            patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=proposal)),
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=lambda cid, e: published.append(e))
+            ),
+        ):
+            await lc._expire_pending_proposal_if_stale(db, channel_id, now)
+
+        self.assertEqual(proposal.status, "expired")
+        self.assertEqual(published[0]["type"], "dest_resolved")
+        self.assertEqual(published[0]["payload"]["status"], "expired")
+
+    async def test_not_yet_expired_stays_pending(self):
+        channel_id = uuid.uuid4()
+        now = datetime.now(UTC)
+        proposal = _proposal(channel_id=channel_id, proposed_by=uuid.uuid4(), expires_at=now + timedelta(minutes=1))
+        db = AsyncMock()
+
+        with (
+            patch.object(lc, "_active_pending_proposal", AsyncMock(return_value=proposal)),
+            patch.object(
+                lc.location_channel_broadcaster, "publish", AsyncMock(side_effect=AssertionError("방송 금지"))
+            ),
+        ):
+            await lc._expire_pending_proposal_if_stale(db, channel_id, now)
+
+        self.assertEqual(proposal.status, "pending")
 
 
 if __name__ == "__main__":

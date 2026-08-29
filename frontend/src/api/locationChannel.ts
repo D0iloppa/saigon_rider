@@ -26,8 +26,26 @@ export interface LocationChannelMember {
   arrivedAt: string | null;
   etaS: number | null;
   distanceM: number | null;
+  /** 서버 ETA 계산 시각(Phase 2). 없으면 아직 첫 계산 전. */
+  etaComputedAt?: string | null;
   leftAt: string | null;
 }
+
+/** 목적지 변경 제안(§3-3). 채널당 pending 최대 1개. */
+export interface LocationChannelProposal {
+  id: string;
+  proposedBy: string;
+  proposedByNickname: string;
+  lat: number;
+  lng: number;
+  name: string | null;
+  createdAt: string;
+  expiresAt: string;
+  votes: { userId: string; accept: boolean; votedAt: string }[];
+  requiredAcceptCount: number;
+}
+
+export type LocationChannelProposalStatus = 'accepted' | 'rejected' | 'expired' | 'withdrawn';
 
 export interface LocationChannelState {
   id: string;
@@ -41,6 +59,8 @@ export interface LocationChannelState {
   endReason: string | null;
   members: LocationChannelMember[];
   me: { userId: string; joined: boolean };
+  /** 진행 중 목적지 변경 제안(Phase 2). 서버 미구현/없음 → undefined|null. */
+  pendingProposal?: LocationChannelProposal | null;
 }
 
 export type LocationChannelEventType =
@@ -48,8 +68,12 @@ export type LocationChannelEventType =
   | 'member_joined'
   | 'member_left'
   | 'location'
+  | 'eta'
   | 'arrived'
   | 'dest_set'
+  | 'dest_proposed'
+  | 'dest_vote'
+  | 'dest_resolved'
   | 'channel_ended';
 
 export interface LocationChannelEnvelope {
@@ -130,6 +154,38 @@ export async function putLocationChannelDestination(
     'bff',
     RETHROW,
   );
+}
+
+/** 목적지 변경 제안(§3-3). 409 `{code:'pending_exists'}`. 활성 멤버 1명이면 서버가 즉시 반영(`dest_set`). */
+export async function proposeLocationChannelDestination(
+  conversationId: string,
+  body: { lat: number; lng: number; name?: string },
+): Promise<LocationChannelState> {
+  return api.realFetch<LocationChannelState>(
+    `${base(conversationId)}/destination/proposals`,
+    { method: 'POST', body: JSON.stringify(body) },
+    'bff',
+    RETHROW,
+  );
+}
+
+/** 제안 투표. 400 `{code:'proposer_cannot_vote'}`. */
+export async function voteLocationChannelProposal(
+  conversationId: string,
+  proposalId: string,
+  accept: boolean,
+): Promise<LocationChannelState> {
+  return api.realFetch<LocationChannelState>(
+    `${base(conversationId)}/destination/proposals/${proposalId}/vote`,
+    { method: 'POST', body: JSON.stringify({ accept }) },
+    'bff',
+    RETHROW,
+  );
+}
+
+/** 제안 철회(제안자만) → 204. */
+export async function withdrawLocationChannelProposal(conversationId: string, proposalId: string): Promise<void> {
+  await api.realFetch(`${base(conversationId)}/destination/proposals/${proposalId}`, { method: 'DELETE' }, 'bff', RETHROW);
 }
 
 /** SSE 이벤트 스트림 URL — realFetch 와 같은 base(`/api/bff`). */

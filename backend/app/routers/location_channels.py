@@ -16,16 +16,27 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import DmConversation, LocationChannel, LocationChannelMember, MarketplaceAppointment
+from ..models import (
+    DmConversation,
+    LocationChannel,
+    LocationChannelDestProposal,
+    LocationChannelDestVote,
+    LocationChannelMember,
+    MarketplaceAppointment,
+)
 from ..schemas import (
     LocationChannelCreateRequest,
+    LocationChannelDestIn,
     LocationChannelDestinationRequest,
     LocationChannelPingRequest,
+    LocationChannelVoteRequest,
 )
+from ..services import location_eta
 from ..services.dm_policy import require_member, require_participant, require_unblocked
 from ..services.location_channel_broadcast import location_channel_broadcaster
 from ..services.location_channel_lifecycle import resolve_end_reason
@@ -39,6 +50,24 @@ ARRIVAL_RADIUS_M = 40
 ACCURACY_MAX_M = 35
 # 세션 TTL(§7-2).
 CHANNEL_TTL = timedelta(hours=3)
+# 목적지 변경 제안 TTL(§3-3).
+PROPOSAL_TTL = timedelta(minutes=5)
+
+# 백그라운드 ETA 계산 태스크(§5-1) — GC 로 도중에 사라지지 않도록 강한 참조를 들고 있다가
+# 완료 시 스스로 제거한다(https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task 권고 패턴).
+_eta_background_tasks: set[asyncio.Task] = set()
+
+
+def _schedule_eta_task(channel_id: uuid.UUID, user_ids: list[uuid.UUID]) -> None:
+    """`location_eta.request_compute` 로 위임 — 채널 단위 코얼레싱은 그 함수의 책임(§완화1).
+
+    ping 은 핑한 사용자 1명만 넘기고, 목적지가 실제로 바뀌는 지점(dest_set/dest_resolved
+    accepted)에서만 활성 멤버 전원을 넘긴다 — 매 ping 마다 전원을 재계산하던 것이 부하테스트
+    thundering herd(20명 동시 ping → Valhalla 450회)의 근본 원인이었다.
+    """
+    task = asyncio.create_task(location_eta.request_compute(channel_id, user_ids))
+    _eta_background_tasks.add(task)
+    task.add_done_callback(_eta_background_tasks.discard)
 
 
 async def _require_conversation_membership(db: AsyncSession, conv: DmConversation, session_uid: uuid.UUID) -> None:
@@ -169,13 +198,32 @@ def _member_out(m: LocationChannelMember) -> dict:
         "speedMps": m.speed_mps,
         "locatedAt": m.located_at.isoformat() if m.located_at else None,
         "arrivedAt": m.arrived_at.isoformat() if m.arrived_at else None,
-        "etaS": None,
-        "distanceM": None,
+        "etaS": m.eta_s,
+        "distanceM": m.distance_m,
+        "etaComputedAt": m.eta_computed_at.isoformat() if m.eta_computed_at else None,
         "leftAt": m.left_at.isoformat() if m.left_at else None,
     }
 
 
-def _serialize_channel(channel: LocationChannel, me_uid: uuid.UUID) -> dict:
+def _proposal_out(proposal: LocationChannelDestProposal, active_members: list[LocationChannelMember]) -> dict:
+    required = len([m for m in active_members if m.user_id != proposal.proposed_by])
+    return {
+        "id": str(proposal.id),
+        "proposedBy": str(proposal.proposed_by),
+        "proposedByNickname": getattr(proposal.proposer, "nickname", None),
+        "lat": float(proposal.lat),
+        "lng": float(proposal.lng),
+        "name": proposal.name,
+        "createdAt": proposal.created_at.isoformat(),
+        "expiresAt": proposal.expires_at.isoformat(),
+        "votes": [
+            {"userId": str(v.user_id), "accept": v.accept, "votedAt": v.voted_at.isoformat()} for v in proposal.votes
+        ],
+        "requiredAcceptCount": required,
+    }
+
+
+def _serialize_channel(channel: LocationChannel, me_uid: uuid.UUID, pending_proposal: dict | None = None) -> dict:
     dest = None
     if channel.dest_lat is not None and channel.dest_lng is not None:
         dest = {"lat": float(channel.dest_lat), "lng": float(channel.dest_lng), "name": channel.dest_name}
@@ -185,6 +233,7 @@ def _serialize_channel(channel: LocationChannel, me_uid: uuid.UUID) -> dict:
         "conversationId": str(channel.conversation_id),
         "appointmentId": str(channel.appointment_id) if channel.appointment_id else None,
         "dest": dest,
+        "pendingProposal": pending_proposal,
         "createdBy": str(channel.created_by),
         "createdAt": channel.created_at.isoformat(),
         "expiresAt": channel.expires_at.isoformat(),
@@ -193,6 +242,60 @@ def _serialize_channel(channel: LocationChannel, me_uid: uuid.UUID) -> dict:
         "members": [_member_out(m) for m in channel.members],
         "me": {"userId": str(me_uid), "joined": joined},
     }
+
+
+async def _active_pending_proposal(db: AsyncSession, channel_id: uuid.UUID) -> LocationChannelDestProposal | None:
+    result = await db.execute(
+        select(LocationChannelDestProposal)
+        .where(
+            LocationChannelDestProposal.channel_id == channel_id,
+            LocationChannelDestProposal.status == "pending",
+        )
+        .order_by(LocationChannelDestProposal.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _get_proposal(db: AsyncSession, proposal_id: uuid.UUID) -> LocationChannelDestProposal | None:
+    result = await db.execute(select(LocationChannelDestProposal).where(LocationChannelDestProposal.id == proposal_id))
+    return result.scalar_one_or_none()
+
+
+async def _get_proposal_for_update(db: AsyncSession, proposal_id: uuid.UUID) -> LocationChannelDestProposal | None:
+    """수락 판정 경합(W7 P1) 방지 — 행을 잠가 동시 투표를 직렬화한다.
+
+    N≥3 인 채널에서 마지막 두 필수 투표자가 거의 동시에 accept 하면, 잠금 없이는 둘 다
+    "아직 전원 미완료"로 읽고 pending 에 남아(5분 뒤 expired) 버릴 수 있다. `vote_destination_proposal`
+    이 이 함수로 행을 잠근 채 accepted_voters 판정까지 마치므로, 두 번째 트랜잭션은 첫 번째가
+    커밋(그리고 status 변경)할 때까지 대기했다가 이미 `accepted`/`rejected` 로 바뀐 최신 상태를
+    본다(그 뒤의 `if proposal.status != "pending"` 가드가 자연히 409 로 걸러낸다).
+    """
+    result = await db.execute(
+        select(LocationChannelDestProposal).where(LocationChannelDestProposal.id == proposal_id).with_for_update()
+    )
+    return result.scalar_one_or_none()
+
+
+async def _expire_pending_proposal_if_stale(db: AsyncSession, channel_id: uuid.UUID, now: datetime) -> None:
+    """pending 제안이 5분 지나면 lazy 로 expired 처리 (§3-3 — GET state/ping/vote/propose 진입 시)."""
+    proposal = await _active_pending_proposal(db, channel_id)
+    if proposal is None or now < proposal.expires_at:
+        return
+    proposal.status = "expired"
+    proposal.resolved_at = now
+    await _publish(
+        channel_id, "dest_resolved", actor_id=None, payload={"proposalId": str(proposal.id), "status": "expired"}
+    )
+
+
+async def _serialize_channel_full(db: AsyncSession, channel: LocationChannel, me_uid: uuid.UUID) -> dict:
+    proposal = await _active_pending_proposal(db, channel.id)
+    pending = None
+    if proposal is not None:
+        active_members = [m for m in channel.members if m.left_at is None]
+        pending = _proposal_out(proposal, active_members)
+    return _serialize_channel(channel, me_uid, pending_proposal=pending)
 
 
 async def _maybe_end_channel(channel: LocationChannel, now: datetime) -> bool:
@@ -285,7 +388,7 @@ async def create_or_join_channel(
     joined_member = _find_member(channel, session_uid)
     # P2: nickname/avatarUrl 을 이벤트에 실어 프론트가 GET state 재조회 없이도 바로 그릴 수 있게.
     await _publish(channel.id, "member_joined", actor_id=session_uid, payload=_member_out(joined_member))
-    return _serialize_channel(channel, session_uid)
+    return await _serialize_channel_full(db, channel, session_uid)
 
 
 @router.get("")
@@ -305,10 +408,11 @@ async def get_channel_state(
         raise HTTPException(status_code=403, detail="Not a channel member")
 
     now = datetime.now(UTC)
+    await _expire_pending_proposal_if_stale(db, channel.id, now)
     await _maybe_end_channel(channel, now)
     await db.commit()
     channel = await _load_channel_full(db, channel.id)
-    return _serialize_channel(channel, session_uid)
+    return await _serialize_channel_full(db, channel, session_uid)
 
 
 @router.delete("/members/me", status_code=204)
@@ -363,6 +467,8 @@ async def ping_location(
         raise HTTPException(status_code=410, detail="Channel ended")
 
     now = datetime.now(UTC)
+    await _expire_pending_proposal_if_stale(db, channel.id, now)
+
     member.lat = Decimal(str(body.lat))
     member.lng = Decimal(str(body.lng))
     member.accuracy_m = body.accuracy_m
@@ -392,8 +498,14 @@ async def ping_location(
 
     await _maybe_end_channel(channel, now)
     await db.commit()
+
+    if channel.dest_lat is not None and channel.ended_at is None:
+        # 응답을 지연시키지 않는 백그라운드 ETA 계산(§5-1) — 요청 스코프 db 세션을 넘기지 않는다.
+        # 핑한 사용자 1명만 재계산 대상(전원 재계산은 목적지 변경 시에만, thundering herd 방지).
+        _schedule_eta_task(channel.id, [session_uid])
+
     channel = await _load_channel_full(db, channel.id)
-    return _serialize_channel(channel, session_uid)
+    return await _serialize_channel_full(db, channel, session_uid)
 
 
 @router.put("/destination")
@@ -427,8 +539,205 @@ async def set_destination(
         actor_id=session_uid,
         payload={"lat": body.lat, "lng": body.lng, "name": body.name},
     )
+    # 목적지가 실제로 바뀌었으니 전원 1회 재계산(§완화1 — ping 은 핑한 사용자 1명만).
+    _schedule_eta_task(channel.id, [m.user_id for m in active_members])
     channel = await _load_channel_full(db, channel.id)
-    return _serialize_channel(channel, session_uid)
+    return await _serialize_channel_full(db, channel, session_uid)
+
+
+@router.post("/destination/proposals")
+async def propose_destination(
+    conversation_id: uuid.UUID,
+    body: LocationChannelDestIn,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+) -> dict:
+    conv = await _get_conversation(db, conversation_id)
+    await _require_conversation_access(db, conv, session_uid)
+
+    channel = await _active_channel_for_conversation(db, conversation_id)
+    if channel is None:
+        raise HTTPException(status_code=404, detail="No active channel")
+    member = _find_member(channel, session_uid)
+    if member is None or member.left_at is not None:
+        raise HTTPException(status_code=403, detail="Not a channel member")
+
+    now = datetime.now(UTC)
+    active_members = [m for m in channel.members if m.left_at is None]
+
+    # 목적지 미설정이거나 활성 참가자가 1명뿐이면 제안 없이 즉시 반영(D1, API 계약).
+    if channel.dest_lat is None or len(active_members) <= 1:
+        channel.dest_lat = Decimal(str(body.lat))
+        channel.dest_lng = Decimal(str(body.lng))
+        channel.dest_name = body.name
+        await db.commit()
+        await _publish(
+            channel.id, "dest_set", actor_id=session_uid, payload={"lat": body.lat, "lng": body.lng, "name": body.name}
+        )
+        # 목적지가 실제로 바뀌었으니 전원 1회 재계산(§완화1).
+        _schedule_eta_task(channel.id, [m.user_id for m in active_members])
+        channel = await _load_channel_full(db, channel.id)
+        return await _serialize_channel_full(db, channel, session_uid)
+
+    await _expire_pending_proposal_if_stale(db, channel.id, now)
+    existing = await _active_pending_proposal(db, channel.id)
+    if existing is not None:
+        await db.commit()
+        raise HTTPException(status_code=409, detail={"code": "pending_exists"})
+
+    proposal = LocationChannelDestProposal(
+        channel_id=channel.id,
+        proposed_by=session_uid,
+        lat=Decimal(str(body.lat)),
+        lng=Decimal(str(body.lng)),
+        name=body.name,
+        status="pending",
+        created_at=now,
+        expires_at=now + PROPOSAL_TTL,
+    )
+    db.add(proposal)
+    try:
+        await db.commit()
+    except IntegrityError:
+        # W7-P1 TOCTOU: 애플리케이션 레벨의 "pending 없음 확인 후 insert" 사이 경합으로 두
+        # 요청이 동시에 여기 도달할 수 있다 — DB partial unique(init/224)가 두 번째를 막는다.
+        await db.rollback()
+        raise HTTPException(status_code=409, detail={"code": "pending_exists"}) from None
+    proposal = await _get_proposal(db, proposal.id)
+    await _publish(channel.id, "dest_proposed", actor_id=session_uid, payload=_proposal_out(proposal, active_members))
+    channel = await _load_channel_full(db, channel.id)
+    return await _serialize_channel_full(db, channel, session_uid)
+
+
+@router.post("/destination/proposals/{proposal_id}/vote")
+async def vote_destination_proposal(
+    conversation_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    body: LocationChannelVoteRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+) -> dict:
+    conv = await _get_conversation(db, conversation_id)
+    await _require_conversation_access(db, conv, session_uid)
+
+    channel = await _active_channel_for_conversation(db, conversation_id)
+    if channel is None:
+        raise HTTPException(status_code=404, detail="No active channel")
+    member = _find_member(channel, session_uid)
+    if member is None or member.left_at is not None:
+        raise HTTPException(status_code=403, detail="Not a channel member")
+
+    now = datetime.now(UTC)
+    await _expire_pending_proposal_if_stale(db, channel.id, now)
+
+    # W7 P1: 이 시점부터 커밋까지 행을 잠가 동시 투표(마지막 두 필수 투표자의 동시 accept)를
+    # 직렬화한다 — 잠금 없이는 둘 다 "아직 미완료"로 읽어 pending 에 남을 수 있다.
+    proposal = await _get_proposal_for_update(db, proposal_id)
+    if proposal is None or proposal.channel_id != channel.id:
+        await db.commit()
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    if proposal.proposed_by == session_uid:
+        await db.commit()
+        raise HTTPException(status_code=400, detail={"code": "proposer_cannot_vote"})
+    if proposal.status != "pending":
+        await db.commit()
+        raise HTTPException(status_code=409, detail={"code": "proposal_not_pending"})
+
+    existing_vote = next((v for v in proposal.votes if v.user_id == session_uid), None)
+    if existing_vote is None:
+        db.add(LocationChannelDestVote(proposal_id=proposal.id, user_id=session_uid, accept=body.accept, voted_at=now))
+    else:
+        existing_vote.accept = body.accept
+        existing_vote.voted_at = now
+    await db.flush()
+    await _publish(
+        channel.id,
+        "dest_vote",
+        actor_id=session_uid,
+        payload={"proposalId": str(proposal.id), "userId": str(session_uid), "accept": body.accept},
+    )
+
+    accepted_now = False
+    if not body.accept:
+        proposal.status = "rejected"
+        proposal.resolved_at = now
+        await _publish(
+            channel.id,
+            "dest_resolved",
+            actor_id=session_uid,
+            payload={"proposalId": str(proposal.id), "status": "rejected"},
+        )
+    else:
+        active_members = [m for m in channel.members if m.left_at is None]
+        required_voters = {m.user_id for m in active_members if m.user_id != proposal.proposed_by}
+        # `proposal.votes`(selectin) 는 flush 만으로는 재로딩되지 않는다(identity map 캐시 —
+        # expire 는 commit 시에만 일어난다) — 방금 add 한 투표를 반영하려면 votes 테이블을 직접 조회한다.
+        votes_result = await db.execute(
+            select(LocationChannelDestVote).where(LocationChannelDestVote.proposal_id == proposal.id)
+        )
+        accepted_voters = {v.user_id for v in votes_result.scalars().all() if v.accept}
+        if required_voters and required_voters.issubset(accepted_voters):
+            proposal.status = "accepted"
+            proposal.resolved_at = now
+            channel.dest_lat = proposal.lat
+            channel.dest_lng = proposal.lng
+            channel.dest_name = proposal.name
+            await _publish(
+                channel.id,
+                "dest_resolved",
+                actor_id=session_uid,
+                payload={
+                    "proposalId": str(proposal.id),
+                    "status": "accepted",
+                    "dest": {"lat": float(proposal.lat), "lng": float(proposal.lng), "name": proposal.name},
+                },
+            )
+            accepted_now = True
+
+    await db.commit()
+    if accepted_now:
+        # 목적지가 실제로 바뀌었으니 전원 1회 재계산(§완화1).
+        _schedule_eta_task(channel.id, [m.user_id for m in active_members])
+    channel = await _load_channel_full(db, channel.id)
+    return await _serialize_channel_full(db, channel, session_uid)
+
+
+@router.delete("/destination/proposals/{proposal_id}", status_code=204)
+async def withdraw_destination_proposal(
+    conversation_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+) -> Response:
+    conv = await _get_conversation(db, conversation_id)
+    await _require_conversation_access(db, conv, session_uid)
+
+    channel = await _active_channel_for_conversation(db, conversation_id)
+    if channel is None:
+        raise HTTPException(status_code=404, detail="No active channel")
+    member = _find_member(channel, session_uid)
+    if member is None or member.left_at is not None:
+        raise HTTPException(status_code=403, detail="Not a channel member")
+
+    proposal = await _get_proposal(db, proposal_id)
+    if proposal is None or proposal.channel_id != channel.id:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    if proposal.proposed_by != session_uid:
+        raise HTTPException(status_code=403, detail="Not the proposer")
+    if proposal.status != "pending":
+        raise HTTPException(status_code=409, detail={"code": "proposal_not_pending"})
+
+    now = datetime.now(UTC)
+    proposal.status = "withdrawn"
+    proposal.resolved_at = now
+    await db.commit()
+    await _publish(
+        channel.id,
+        "dest_resolved",
+        actor_id=session_uid,
+        payload={"proposalId": str(proposal.id), "status": "withdrawn"},
+    )
+    return Response(status_code=204)
 
 
 @router.get("/events")
@@ -453,7 +762,7 @@ async def channel_events(
         "type": "snapshot",
         "channelId": str(channel_id),
         "at": datetime.now(UTC).isoformat(),
-        "payload": _serialize_channel(channel, session_uid),
+        "payload": await _serialize_channel_full(db, channel, session_uid),
     }
 
     async def stream():

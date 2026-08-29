@@ -1459,6 +1459,10 @@ class LocationChannelDestinationRequest(BaseModel):
     name: str | None = None
 
 
+class LocationChannelVoteRequest(BaseModel):
+    accept: bool
+
+
 class PriceOfferOut(BaseModel):
     id: UUID
     listing_id: UUID

@@ -972,7 +972,16 @@
   "deletePost": "Xóa bài",
   "deletePostConfirm": "Xóa bài viết này?",
   "postGone": "Không tìm thấy bài viết",
-  "commentsSoon": "Bình luận sẽ sớm mở"
+  "comments": "Bình luận",
+  "commentsEmpty": "Hãy là người bình luận đầu tiên",
+  "commentPlaceholder": "Viết bình luận",
+  "commentSubmit": "Đăng bình luận",
+  "commentReply": "Trả lời",
+  "commentReplyingTo": "Trả lời {{name}}",
+  "commentCancelReply": "Hủy trả lời",
+  "commentDelete": "Xóa",
+  "commentDeleteConfirm": "Xóa bình luận này?",
+  "commentDeleted": "Bình luận đã bị xóa"
 },
 "unknownMember": "Không rõ",
 "noticeSet": "Ghim thông báo",

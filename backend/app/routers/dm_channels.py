@@ -7,7 +7,8 @@
 - 글 작성은 멤버 누구나, 글 삭제는 작성자 또는 운영진.
 - 본문에는 dm.py 와 **동일한** 금칙어 프리필터를 건다 (400 `{"code":"banned_keyword"}`).
 
-댓글은 P2 — `comment_count` 컬럼만 있고 이 라우터는 항상 0 을 내린다.
+댓글(P2, 219_dm_channel_post_comments.sql)도 같은 권한 축을 따른다 — 방 멤버만 읽기·쓰기,
+삭제는 작성자 또는 운영진, 본문에 같은 금칙어 프리필터.
 """
 
 import uuid
@@ -19,8 +20,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import Content, DmChannelPost, DmConversation, DmConversationChannel, DmConversationMember, User
+from ..models import (
+    Content,
+    DmChannelPost,
+    DmChannelPostComment,
+    DmConversation,
+    DmConversationChannel,
+    DmConversationMember,
+    User,
+)
 from ..schemas import (
+    DmChannelCommentCreateRequest,
+    DmChannelCommentOut,
     DmChannelCreateRequest,
     DmChannelOut,
     DmChannelPatchRequest,
@@ -346,4 +357,154 @@ async def delete_post(
 
     post.deleted_at = datetime.now(UTC)
     post.updated_at = post.deleted_at
+    await db.commit()
+
+
+# ── 댓글 (219) ────────────────────────────────────────────────────
+
+
+async def _comment_out_batch(db: AsyncSession, comments: list[DmChannelPostComment]) -> list[DmChannelCommentOut]:
+    """작성자를 배치 조회해 조립한다. 삭제된 댓글은 본문·작성자를 비운 자리표시로 내린다."""
+    if not comments:
+        return []
+    authors = {
+        u.id: u
+        for u in (
+            await db.execute(select(User).where(User.id.in_({c.author_id for c in comments if c.deleted_at is None})))
+        )
+        .scalars()
+        .all()
+    }
+    out = []
+    for c in comments:
+        gone = c.deleted_at is not None
+        author = authors.get(c.author_id)
+        out.append(
+            DmChannelCommentOut(
+                id=c.id,
+                post_id=c.post_id,
+                author_id=c.author_id,
+                author_nickname=None if gone or author is None else author.nickname,
+                author_avatar_url=None if gone or author is None else resolve_avatar_url(author),
+                parent_id=c.parent_id,
+                body="" if gone else c.body,
+                deleted=gone,
+                created_at=c.created_at,
+            )
+        )
+    return out
+
+
+@router.get(
+    "/conversations/{conv_id}/posts/{post_id}/comments",
+    response_model=list[DmChannelCommentOut],
+    summary="채널 글 댓글 목록",
+)
+async def list_comments(
+    conv_id: uuid.UUID,
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """평면 목록(작성순) — 답글은 parent_id 로만 표현한다.
+
+    삭제된 댓글은 원칙적으로 빠지지만, 살아있는 답글이 달려 있으면 답글이 고아가 되지 않도록
+    본문 없는 자리표시로 남긴다.
+    """
+    await _board_conversation(db, conv_id, _session_uid)
+    await _get_post(db, conv_id, post_id)
+
+    rows = list(
+        (
+            await db.execute(
+                select(DmChannelPostComment)
+                .where(DmChannelPostComment.post_id == post_id)
+                .order_by(DmChannelPostComment.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    parents_with_live_replies = {c.parent_id for c in rows if c.deleted_at is None and c.parent_id is not None}
+    visible = [c for c in rows if c.deleted_at is None or c.id in parents_with_live_replies]
+    return await _comment_out_batch(db, visible)
+
+
+@router.post(
+    "/conversations/{conv_id}/posts/{post_id}/comments",
+    response_model=DmChannelCommentOut,
+    status_code=201,
+    summary="채널 글 댓글 작성",
+)
+async def create_comment(
+    conv_id: uuid.UUID,
+    post_id: uuid.UUID,
+    body: DmChannelCommentCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _board_conversation(db, conv_id, _session_uid)
+    post = await _get_post(db, conv_id, post_id)
+    await _guard_banned_keyword(db, body.body)
+
+    parent_id = None
+    if body.parent_id is not None:
+        parent = (
+            await db.execute(
+                select(DmChannelPostComment).where(
+                    DmChannelPostComment.id == body.parent_id,
+                    DmChannelPostComment.post_id == post_id,
+                    DmChannelPostComment.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if parent is None:
+            raise HTTPException(status_code=400, detail="Parent comment does not belong to this post")
+        # 답글의 답글은 같은 1단으로 접는다 — 화면이 들여쓰기 한 단계만 그린다.
+        parent_id = parent.parent_id or parent.id
+
+    comment = DmChannelPostComment(
+        post_id=post_id,
+        author_id=_session_uid,
+        parent_id=parent_id,
+        body=body.body,
+        created_at=datetime.now(UTC),
+    )
+    db.add(comment)
+    # 읽고-더해-쓰기(read-modify-write)는 동시 작성 시 카운트를 잃는다 — DB 쪽에서 더하게 한다.
+    post.comment_count = DmChannelPost.comment_count + 1
+    await db.commit()
+    await db.refresh(comment)
+    return (await _comment_out_batch(db, [comment]))[0]
+
+
+@router.delete(
+    "/conversations/{conv_id}/posts/{post_id}/comments/{comment_id}", status_code=204, summary="채널 글 댓글 삭제"
+)
+async def delete_comment(
+    conv_id: uuid.UUID,
+    post_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """소프트삭제 — 작성자 본인 또는 운영진(owner/admin). 글의 댓글 수도 함께 줄인다."""
+    _conv, member = await _board_conversation(db, conv_id, _session_uid)
+    post = await _get_post(db, conv_id, post_id)
+    comment = (
+        await db.execute(
+            select(DmChannelPostComment).where(
+                DmChannelPostComment.id == comment_id,
+                DmChannelPostComment.post_id == post_id,
+                DmChannelPostComment.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.author_id != _session_uid and member.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only the author or owner/admin can delete this comment")
+
+    comment.deleted_at = datetime.now(UTC)
+    post.comment_count = func.greatest(DmChannelPost.comment_count - 1, 0)
     await db.commit()

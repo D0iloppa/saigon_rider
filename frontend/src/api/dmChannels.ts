@@ -4,7 +4,7 @@ import { api } from './client';
  * 대화방 게시판 (init/218, P1) — 방 안의 Discord 식 채널 + 글.
  * 서버 규칙: direct 방은 400, 읽기·쓰기는 방 멤버만, 채널 관리는 운영진(owner/admin),
  * 글 삭제는 작성자 또는 운영진. 본문 금칙어는 400 `banned_keyword`.
- * 댓글은 P2 — commentCount 는 항상 0 이다.
+ * 댓글(init/219, P2)도 같은 축 — 쓰기는 멤버, 삭제는 작성자 또는 운영진.
  */
 
 export interface DmChannel {
@@ -137,4 +137,67 @@ export async function deleteChannelPost(conversationId: string, postId: string):
   await api.realFetch(`/dm/conversations/${conversationId}/posts/${postId}`, { method: 'DELETE' }, 'bff', {
     rethrow: true,
   });
+}
+
+export interface DmChannelComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorNickname: string | null;
+  authorAvatarUrl: string | null;
+  parentId: string | null;
+  body: string;
+  /** 삭제됐지만 답글이 남아 자리만 지키는 댓글 — 본문은 비어 있다. */
+  deleted: boolean;
+  createdAt: string;
+}
+
+function transformComment(raw: any): DmChannelComment {
+  return {
+    id: raw.id,
+    postId: raw.post_id,
+    authorId: raw.author_id,
+    authorNickname: raw.author_nickname ?? null,
+    authorAvatarUrl: raw.author_avatar_url ?? null,
+    parentId: raw.parent_id ?? null,
+    body: raw.body ?? '',
+    deleted: raw.deleted ?? false,
+    createdAt: raw.created_at,
+  };
+}
+
+/** 댓글 목록 — 작성순 평면 목록. 답글은 parentId 로만 표현된다(들여쓰기 1단). */
+export async function fetchChannelComments(conversationId: string, postId: string): Promise<DmChannelComment[]> {
+  const rows = await api.realFetch<any[]>(`/dm/conversations/${conversationId}/posts/${postId}/comments`);
+  return rows.map(transformComment);
+}
+
+/** 댓글·답글 작성 — 멤버 누구나. 금칙어는 서버가 400 `banned_keyword` 로 막는다(rethrow). */
+export async function createChannelComment(
+  conversationId: string,
+  postId: string,
+  body: string,
+  parentId?: string | null,
+): Promise<DmChannelComment> {
+  const raw = await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/posts/${postId}/comments`,
+    { method: 'POST', body: JSON.stringify({ body, parent_id: parentId ?? null }) },
+    'bff',
+    { rethrow: true },
+  );
+  return transformComment(raw);
+}
+
+/** 댓글 삭제(소프트) — 작성자 또는 운영진(rethrow). */
+export async function deleteChannelComment(
+  conversationId: string,
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  await api.realFetch(
+    `/dm/conversations/${conversationId}/posts/${postId}/comments/${commentId}`,
+    { method: 'DELETE' },
+    'bff',
+    { rethrow: true },
+  );
 }

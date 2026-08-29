@@ -1281,6 +1281,26 @@ class DmChannelPostCreateRequest(BaseModel):
     image_content_ids: list[UUID] = Field(default_factory=list, max_length=4)
 
 
+class DmChannelCommentOut(BaseModel):
+    """게시글 댓글(219). 목록은 평면 — 답글 여부는 parent_id 로만 표현한다(1단)."""
+
+    id: UUID
+    post_id: UUID
+    author_id: UUID
+    author_nickname: str | None = None
+    author_avatar_url: str | None = None
+    parent_id: UUID | None = None
+    body: str
+    # 답글이 달린 댓글만 "삭제됨" 자리로 남는다 — 그 외 삭제 댓글은 목록에 없다.
+    deleted: bool = False
+    created_at: datetime
+
+
+class DmChannelCommentCreateRequest(BaseModel):
+    body: str = Field(min_length=1)
+    parent_id: UUID | None = None
+
+
 class DmRecordingUserOut(BaseModel):
     id: UUID
     nickname: str | None = None

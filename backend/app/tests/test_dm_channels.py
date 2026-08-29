@@ -16,10 +16,17 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
+from sqlalchemy import func
+from sqlalchemy.sql.elements import ColumnElement
 
-from app.models import DmConversation, DmConversationChannel
+from app.models import DmChannelPost, DmChannelPostComment, DmConversation, DmConversationChannel
 from app.routers import dm_channels
-from app.schemas import DmChannelCreateRequest, DmChannelPatchRequest, DmChannelPostCreateRequest
+from app.schemas import (
+    DmChannelCommentCreateRequest,
+    DmChannelCreateRequest,
+    DmChannelPatchRequest,
+    DmChannelPostCreateRequest,
+)
 
 
 def _conv(conv_id, conversation_type="group"):
@@ -329,6 +336,217 @@ class DeletePostAsOwnerTest(DeletePostTest):
         await dm_channels.delete_post(self.conv_id, post.id, db=db, _session_uid=self.me)
 
         self.assertIsNotNone(post.deleted_at)
+
+
+class CommentTest(_BoardTestBase):
+    """댓글(219) — 작성·답글·삭제 권한·금칙어·부모 소속 검사."""
+
+    def _post(self, author_id=None, comment_count=0):
+        post = MagicMock()
+        post.id = uuid.uuid4()
+        post.author_id = author_id or self.me
+        post.comment_count = comment_count
+        post.deleted_at = None
+        return post
+
+    def _assert_count_expr(self, post, expected):
+        """댓글 수는 파이썬이 읽고-더해-쓰지 않는다 — 동시 작성에도 안전하도록 SQL 식을 대입한다."""
+        self.assertIsInstance(post.comment_count, ColumnElement)
+        self.assertEqual(str(post.comment_count), str(expected))
+
+    def _comment(self, post_id, author_id, parent_id=None, deleted=False):
+        return DmChannelPostComment(
+            id=uuid.uuid4(),
+            post_id=post_id,
+            author_id=author_id,
+            parent_id=parent_id,
+            body="좋아요",
+            deleted_at=datetime.now(UTC) if deleted else None,
+            created_at=datetime.now(UTC),
+        )
+
+    async def test_comment_and_reply_raise_the_count_in_sql(self):
+        post = self._post()
+        db = _db(self.conv, [_result(scalar_one_or_none=post), _result(rows=[_author(self.me)])])
+
+        top = await dm_channels.create_comment(
+            self.conv_id, post.id, DmChannelCommentCreateRequest(body="첫 댓글"), db=db, _session_uid=self.me
+        )
+
+        self._assert_count_expr(post, DmChannelPost.comment_count + 1)
+        self.assertIsNone(top.parent_id)
+        self.assertFalse(top.deleted)
+        self.assertEqual(top.author_nickname, "글쓴이")
+
+        parent = self._comment(post.id, self.me)
+        db = _db(
+            self.conv,
+            [
+                _result(scalar_one_or_none=post),  # _get_post
+                _result(scalar_one_or_none=parent),  # 부모 댓글 조회
+                _result(rows=[_author(self.me)]),
+            ],
+        )
+        reply = await dm_channels.create_comment(
+            self.conv_id,
+            post.id,
+            DmChannelCommentCreateRequest(body="답글", parent_id=parent.id),
+            db=db,
+            _session_uid=self.me,
+        )
+
+        self.assertEqual(reply.parent_id, parent.id)
+        self._assert_count_expr(post, DmChannelPost.comment_count + 1)
+
+    async def test_reply_to_a_reply_is_folded_into_one_level(self):
+        post = self._post()
+        top = self._comment(post.id, self.me)
+        reply = self._comment(post.id, self.me, parent_id=top.id)
+        db = _db(
+            self.conv,
+            [
+                _result(scalar_one_or_none=post),
+                _result(scalar_one_or_none=reply),  # 답글에 답글
+                _result(rows=[_author(self.me)]),
+            ],
+        )
+
+        out = await dm_channels.create_comment(
+            self.conv_id,
+            post.id,
+            DmChannelCommentCreateRequest(body="답답글", parent_id=reply.id),
+            db=db,
+            _session_uid=self.me,
+        )
+
+        self.assertEqual(out.parent_id, top.id)  # 들여쓰기는 한 단계까지만
+
+    async def test_banned_keyword_is_rejected(self):
+        post = self._post()
+        db = _db(self.conv, [_result(scalar_one_or_none=post)])
+
+        with self.assertRaises(HTTPException) as raised:
+            await dm_channels.create_comment(
+                self.conv_id, post.id, DmChannelCommentCreateRequest(body="도박 하실 분"), db=db, _session_uid=self.me
+            )
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertEqual(raised.exception.detail, {"code": "banned_keyword"})
+        db.add.assert_not_called()
+        self.assertEqual(post.comment_count, 0)
+
+    async def test_parent_from_another_post_is_rejected(self):
+        post = self._post()
+        db = _db(
+            self.conv,
+            [
+                _result(scalar_one_or_none=post),
+                _result(scalar_one_or_none=None),  # 다른 글의 댓글 id → 이 글에서는 안 나온다
+            ],
+        )
+
+        with self.assertRaises(HTTPException) as raised:
+            await dm_channels.create_comment(
+                self.conv_id,
+                post.id,
+                DmChannelCommentCreateRequest(body="답글", parent_id=uuid.uuid4()),
+                db=db,
+                _session_uid=self.me,
+            )
+        self.assertEqual(raised.exception.status_code, 400)
+        db.add.assert_not_called()
+
+    async def test_reply_to_a_soft_deleted_parent_is_rejected(self):
+        """삭제된 댓글은 부모가 될 수 없다 — 쿼리의 deleted_at 필터가 남의 글 부모와 같은 400 으로 떨군다."""
+        post = self._post()
+        db = _db(
+            self.conv,
+            [
+                _result(scalar_one_or_none=post),
+                _result(scalar_one_or_none=None),  # deleted_at 필터에 걸려 안 나온다
+            ],
+        )
+
+        with self.assertRaises(HTTPException) as raised:
+            await dm_channels.create_comment(
+                self.conv_id,
+                post.id,
+                DmChannelCommentCreateRequest(body="답글", parent_id=uuid.uuid4()),
+                db=db,
+                _session_uid=self.me,
+            )
+        self.assertEqual(raised.exception.status_code, 400)
+        db.add.assert_not_called()
+        # 부모 조회에 소프트삭제 필터가 실제로 걸려 있는지 — 쿼리 문자열로 확인한다.
+        self.assertIn("deleted_at IS NULL", str(db.statements[1]))
+
+    async def test_other_member_cannot_delete_a_comment(self):
+        post = self._post(comment_count=2)
+        comment = self._comment(post.id, uuid.uuid4())
+        db = _db(self.conv, [_result(scalar_one_or_none=post), _result(scalar_one_or_none=comment)])
+
+        with self.assertRaises(HTTPException) as raised:
+            await dm_channels.delete_comment(self.conv_id, post.id, comment.id, db=db, _session_uid=self.me)
+        self.assertEqual(raised.exception.status_code, 403)
+        self.assertIsNone(comment.deleted_at)
+        self.assertEqual(post.comment_count, 2)
+
+    async def test_author_soft_deletes_and_the_count_drops(self):
+        post = self._post(comment_count=2)
+        comment = self._comment(post.id, self.me)
+        db = _db(self.conv, [_result(scalar_one_or_none=post), _result(scalar_one_or_none=comment)])
+
+        await dm_channels.delete_comment(self.conv_id, post.id, comment.id, db=db, _session_uid=self.me)
+
+        self.assertIsNotNone(comment.deleted_at)  # 하드삭제가 아니다
+        self._assert_count_expr(post, func.greatest(DmChannelPost.comment_count - 1, 0))
+        db.delete.assert_not_awaited()
+
+    async def test_count_never_goes_below_zero(self):
+        """0 클램프도 파이썬 max() 가 아니라 SQL greatest() 로 — 감소가 DB 쪽에서 원자적으로 일어난다."""
+        post = self._post(comment_count=0)
+        comment = self._comment(post.id, self.me)
+        db = _db(self.conv, [_result(scalar_one_or_none=post), _result(scalar_one_or_none=comment)])
+
+        await dm_channels.delete_comment(self.conv_id, post.id, comment.id, db=db, _session_uid=self.me)
+
+        self._assert_count_expr(post, func.greatest(DmChannelPost.comment_count - 1, 0))
+
+    async def test_deleted_comment_stays_only_when_it_still_has_replies(self):
+        post = self._post()
+        kept = self._comment(post.id, self.me, deleted=True)
+        reply = self._comment(post.id, self.me, parent_id=kept.id)
+        dropped = self._comment(post.id, self.me, deleted=True)
+        db = _db(
+            self.conv,
+            [
+                _result(scalar_one_or_none=post),  # _get_post
+                _result(rows=[kept, reply, dropped]),  # 댓글 전체
+                _result(rows=[_author(self.me)]),  # 작성자 배치
+            ],
+        )
+
+        rows = await dm_channels.list_comments(self.conv_id, post.id, db=db, _session_uid=self.me)
+
+        self.assertEqual([c.id for c in rows], [kept.id, reply.id])
+        self.assertTrue(rows[0].deleted)
+        self.assertEqual(rows[0].body, "")  # 자리표시 — 본문은 내리지 않는다
+        self.assertIsNone(rows[0].author_nickname)
+        self.assertFalse(rows[1].deleted)
+
+
+class CommentAsOwnerTest(CommentTest):
+    role = "owner"
+
+    async def test_other_member_cannot_delete_a_comment(self):
+        """운영진은 남의 댓글도 내릴 수 있다 — 부모 클래스의 403 기대를 뒤집는다."""
+        post = self._post(comment_count=2)
+        comment = self._comment(post.id, uuid.uuid4())
+        db = _db(self.conv, [_result(scalar_one_or_none=post), _result(scalar_one_or_none=comment)])
+
+        await dm_channels.delete_comment(self.conv_id, post.id, comment.id, db=db, _session_uid=self.me)
+
+        self.assertIsNotNone(comment.deleted_at)
+        self._assert_count_expr(post, func.greatest(DmChannelPost.comment_count - 1, 0))
 
 
 if __name__ == "__main__":

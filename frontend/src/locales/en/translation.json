@@ -972,7 +972,16 @@
   "deletePost": "Delete post",
   "deletePostConfirm": "Delete this post?",
   "postGone": "This post is gone",
-  "commentsSoon": "Comments are coming soon"
+  "comments": "Comments",
+  "commentsEmpty": "Be the first to comment",
+  "commentPlaceholder": "Write a comment",
+  "commentSubmit": "Post comment",
+  "commentReply": "Reply",
+  "commentReplyingTo": "Replying to {{name}}",
+  "commentCancelReply": "Cancel reply",
+  "commentDelete": "Delete",
+  "commentDeleteConfirm": "Delete this comment?",
+  "commentDeleted": "This comment was deleted"
 },
 "unknownMember": "Unknown",
 "noticeSet": "Pin as notice",

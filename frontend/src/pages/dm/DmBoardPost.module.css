@@ -1,4 +1,4 @@
-/* 게시판 글 상세 (init/218) — 본문 + 사진. 댓글 자리는 P2 까지 비활성 플레이스홀더. */
+/* 게시판 글 상세 (init/218 글 + init/219 댓글) — 본문 + 사진 + 댓글 스레드 + 하단 입력바. */
 
 .page {
   display: flex;
@@ -24,7 +24,8 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  padding-bottom: calc(24px + var(--bottom-safe));
+  /* 하단 안전영역은 아래 입력바(.composer)가 처리한다 */
+  padding-bottom: 24px;
 }
 
 .head {
@@ -74,13 +75,166 @@
   display: block;
 }
 
-.commentsPlaceholder {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* 댓글 (init/219) — 최상위 댓글 + 한 단 들여쓴 답글. */
+.comments {
   margin-top: 20px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
-  color: var(--text-3);
+}
+
+.commentsTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.commentsEmpty {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.thread {
+  margin-bottom: 4px;
+}
+
+.comment {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.comment[data-reply] {
+  padding-left: 36px;
+}
+
+.commentBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.commentHead {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.commentAuthor {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.commentText {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.commentGone {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.commentActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.linkBtn {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+/* 하단 댓글 입력바 (FeedDetail actionBar 미러 — 탭바 없는 화면이라 safe-area 를 직접 처리) */
+.composer {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 8px 12px calc(8px + var(--bottom-safe));
+}
+
+.replyChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--text-2);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.replyChip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.replyChip button {
+  display: flex;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.composerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.commentInput {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.commentInput::placeholder {
+  color: var(--text-3);
+}
+
+.sendBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--brand-500);
+  color: #fff;
+  cursor: pointer;
+}
+
+.sendBtn:disabled {
+  background: var(--line);
+  color: var(--text-3);
+  cursor: default;
 }

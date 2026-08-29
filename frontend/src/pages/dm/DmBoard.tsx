@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, LayoutList, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, LayoutList, MessageSquare, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Avatar } from '@/components/ui/Avatar';
 import { AppImage } from '@/components/ui/AppImage';
@@ -31,7 +31,7 @@ import styles from './DmBoard.module.css';
  * - direct 방에는 게시판이 없다(서버도 400) — 진입점 자체를 DmDetail 이 group/open 에서만 노출한다.
  * - 채널 만들기/이름변경/순서변경/삭제는 운영진(owner/admin)만 — 일반 멤버에게는 관리 진입점을 숨긴다.
  * - 글은 멤버 누구나 쓴다.
- * 댓글은 P2 — 여기서는 건드리지 않는다.
+ * 카드의 댓글 수는 진입할 때마다 목록을 다시 불러와 갱신된다(상세에서 달고 뒤로 오면 최신).
  */
 export default function DmBoard() {
   const { conversationId = '' } = useParams();
@@ -221,6 +221,12 @@ export default function DmBoard() {
                 </span>
               )}
             </div>
+            {p.commentCount > 0 && (
+              <span className={styles.commentCount}>
+                <MessageSquare size={13} strokeWidth={2.2} />
+                <span className="num">{p.commentCount}</span>
+              </span>
+            )}
           </button>
         ))}
       </div>

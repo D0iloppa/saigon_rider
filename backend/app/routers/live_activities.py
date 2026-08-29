@@ -21,7 +21,9 @@ router = APIRouter(prefix="/live-activities", tags=["Live Activity"])
 
 
 class LiveActivityTokenIn(BaseModel):
-    kind: str = Field(pattern="^(deal)$")
+    kind: str = Field(default="deal", pattern="^(deal|location)$")
+    # kind='deal' 이면 약속 id, kind='location' 이면 실시간 위치채널 id — 프론트는 별도
+    # channelId 필드 없이 이 값 하나만 보낸다(`lib/liveActivityPush.ts`).
     subjectId: uuid.UUID
     pushToken: str = Field(min_length=16, max_length=512)
     locale: str = Field(default="vi", max_length=8)
@@ -34,12 +36,16 @@ async def register_token(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ) -> None:
     now = datetime.now(UTC)
+    # kind='location' 은 subjectId 자체가 채널 id — noti_worker 가 조인 없이 (kind, channel_id)
+    # 로 바로 필터링할 수 있도록 별도 컬럼에도 같은 값을 넣는다(260829 Phase 3).
+    channel_id = body.subjectId if body.kind == "location" else None
     stmt = (
         pg_insert(LiveActivityToken)
         .values(
             user_id=session_uid,
             kind=body.kind,
             subject_id=body.subjectId,
+            channel_id=channel_id,
             push_token=body.pushToken,
             locale=body.locale,
             created_at=now,
@@ -47,7 +53,7 @@ async def register_token(
         )
         .on_conflict_do_update(
             constraint="live_activity_tokens_user_kind_subject_uq",
-            set_={"push_token": body.pushToken, "locale": body.locale, "updated_at": now},
+            set_={"push_token": body.pushToken, "locale": body.locale, "channel_id": channel_id, "updated_at": now},
         )
     )
     await db.execute(stmt)
@@ -56,7 +62,7 @@ async def register_token(
 
 @router.delete("/token", status_code=204, summary="Live Activity 푸시토큰 해제")
 async def unregister_token(
-    kind: str = Query(pattern="^(deal)$"),
+    kind: str = Query(pattern="^(deal|location)$"),
     subject_id: uuid.UUID = Query(alias="subjectId"),
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),

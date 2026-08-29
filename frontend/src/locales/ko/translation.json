@@ -807,22 +807,6 @@
     "consentBody": "내 정밀 위치(GPS 좌표)가 이 채널 참가자에게만 실시간으로 공유됩니다. 채널은 3시간이 지나거나, 모두 도착한 뒤 15분이 지나거나, 참가자가 1명 이하가 되면 자동 종료됩니다.",
     "consentRetention": "위치정보는 민감정보로 취급되며 이동 이력은 저장하지 않고 최신 위치 1건만 유지합니다. 언제든 '나가기'를 누르면 내 위치가 즉시 삭제됩니다.",
     "consentAgree": "동의하고 공유 시작",
-    "widgetTitle": "실시간 위치공유",
-    "startBtn": "위치 공유 시작",
-    "stopBtn": "공유 중단",
-    "sharingActive": "내 위치를 공유하고 있어요",
-    "peerSharing": "상대방도 위치를 공유하고 있어요",
-    "peerNotStarted": "상대방은 아직 위치를 공유하지 않았어요",
-    "myStopped": "위치 공유가 종료됐어요",
-    "gate": {
-      "permission": "위치 권한이 없어 위치를 확인할 수 없어요",
-      "timeout": "위치를 확인할 수 없어요",
-      "unavailable": "위치를 사용할 수 없어요",
-      "outside_area": "서비스 지역 밖이라 위치를 공유할 수 없어요",
-      "scope_all": "위치를 확인할 수 없어요",
-      "inaccurate": "위치 정확도가 낮아 확인할 수 없어요"
-    },
-    "unavailable": "위치 공유를 사용할 수 없어요",
     "inviteCardText": "{{name}}님이 위치공유를 시작했어요",
     "inviteOpenBtn": "보기"
   },

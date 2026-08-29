@@ -1,6 +1,6 @@
 import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
-import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, DmReaction, LocationShareStatus, PriceOffer } from './types';
+import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, DmReaction, PriceOffer } from './types';
 
 function transformPriceOffer(raw: any): PriceOffer {
   return {
@@ -380,98 +380,6 @@ export async function cancelAppointment(appointmentId: string): Promise<Appointm
   return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
 }
 
-// ── 거래 위치공유 (Location Share, P4) ────────────────────────────
-function transformLocationShareStatus(raw: any): LocationShareStatus {
-  return {
-    myStatus: raw.my_status,
-    peerStatus: raw.peer_status,
-    peerLat: raw.peer_lat ?? null,
-    peerLng: raw.peer_lng ?? null,
-    expiresAt: raw.expires_at ?? null,
-  };
-}
-
-// rethrow:true — 7초 폴링(LocationShareWidget)이 403/404(영구 실패) 여부를 status 로 직접
-// 판정해야 해서, 실패마다 자동 토스트가 뜨는 것을 막는다(그러지 않으면 무한폴링 동안 토스트가 반복된다).
-export async function fetchLocationShareStatus(appointmentId: string): Promise<LocationShareStatus> {
-  return transformLocationShareStatus(
-    await api.realFetch<any>(
-      `/market/appointments/${appointmentId}/location-share`,
-      {},
-      'bff',
-      { rethrow: true },
-    ),
-  );
-}
-
-export async function startLocationShare(appointmentId: string, consentVersion: string): Promise<LocationShareStatus> {
-  return transformLocationShareStatus(
-    await api.realFetch<any>(`/market/appointments/${appointmentId}/location-share`, {
-      method: 'POST',
-      body: JSON.stringify({ consent_version: consentVersion }),
-    }),
-  );
-}
-
-export async function stopLocationShare(appointmentId: string): Promise<void> {
-  await api.realFetch(`/market/appointments/${appointmentId}/location-share`, { method: 'DELETE' });
-}
-
-export async function pingLocationShare(
-  appointmentId: string,
-  lat: number,
-  lng: number,
-  accuracyM: number,
-): Promise<LocationShareStatus> {
-  return transformLocationShareStatus(
-    await api.realFetch<any>(`/market/appointments/${appointmentId}/location-share/ping`, {
-      method: 'PUT',
-      body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
-    }),
-  );
-}
-
-// ── 독립 위치공유(약속 없이, 대화 단위) — 위와 별개 엔드포인트. 정밀도 창 없이 세션 TTL만 적용.
-export async function fetchConversationLocationShareStatus(conversationId: string): Promise<LocationShareStatus> {
-  return transformLocationShareStatus(
-    await api.realFetch<any>(
-      `/market/conversations/${conversationId}/location-share`,
-      {},
-      'bff',
-      { rethrow: true },
-    ),
-  );
-}
-
-export async function startConversationLocationShare(
-  conversationId: string,
-  consentVersion: string,
-): Promise<LocationShareStatus> {
-  return transformLocationShareStatus(
-    await api.realFetch<any>(`/market/conversations/${conversationId}/location-share`, {
-      method: 'POST',
-      body: JSON.stringify({ consent_version: consentVersion }),
-    }),
-  );
-}
-
-export async function stopConversationLocationShare(conversationId: string): Promise<void> {
-  await api.realFetch(`/market/conversations/${conversationId}/location-share`, { method: 'DELETE' });
-}
-
-export async function pingConversationLocationShare(
-  conversationId: string,
-  lat: number,
-  lng: number,
-  accuracyM: number,
-): Promise<LocationShareStatus> {
-  return transformLocationShareStatus(
-    await api.realFetch<any>(`/market/conversations/${conversationId}/location-share/ping`, {
-      method: 'PUT',
-      body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
-    }),
-  );
-}
 
 // ── 가격제안 — 약속(SGR-287)과 동일하게 DM 메시지 + 도메인 엔티티 ────
 /** 가격제안. 채팅 타임라인용 price_offer 메시지를 반환한다. 기존 PROPOSED 제안은 서버가 supersede. */

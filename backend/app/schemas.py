@@ -1414,25 +1414,6 @@ class AppointmentProposeRequest(BaseModel):
     place_lng: float | None = None
 
 
-class LocationShareStartRequest(BaseModel):
-    consent_version: str
-
-
-class LocationSharePingRequest(BaseModel):
-    lat: float
-    lng: float
-    accuracy_m: int
-
-
-class LocationShareStatusOut(BaseModel):
-    # M-6: 대칭 강제 아님 — 내 상태/상대 상태를 각각 표시한다.
-    my_status: str  # "sharing" | "stopped" | "not_started"
-    peer_status: str  # "sharing" | "stopped" | "not_started"
-    peer_lat: float | None = None
-    peer_lng: float | None = None
-    expires_at: datetime | None = None
-
-
 class LocationChannelDestIn(BaseModel):
     lat: float
     lng: float

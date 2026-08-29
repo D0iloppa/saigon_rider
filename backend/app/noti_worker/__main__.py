@@ -26,6 +26,8 @@ from app.database import AsyncSessionLocal
 from app.engine_client import engine_client
 from app.models import (
     LiveActivityToken,
+    LocationChannel,
+    LocationChannelMember,
     MarketplaceKeywordAlert,
     MarketplaceListingLike,
     Notification,
@@ -34,6 +36,7 @@ from app.models import (
     UserBlock,
 )
 from app.readiness import check_readiness
+from app.services.location_live_activity import build_state as build_location_la_state
 from app.services.noti_events import STREAM_KEY
 from app.services.ops_alerts import send_ops_alert
 from app.services.push_i18n import langs_for_users, t
@@ -800,9 +803,80 @@ async def _handle_live_activity_deal_update(payload: dict, *, source_event_id: s
         await db.commit()
 
 
+async def _handle_live_activity_location_update(payload: dict, *, source_event_id: str) -> None:
+    """실시간 위치채널 Live Activity 원격 갱신 (260829 Phase 3-A). 활성 참가자 각자 관점의
+    state(`services/location_live_activity.build_state`)를 계산해 그 사람의 kind='location'
+    토큰으로 push 한다. 채널 종료는 `event='end'`(120초 뒤 소멸) + 토큰 전체 삭제, 그 외는
+    'update'. deal 핸들러(`_handle_live_activity_deal_update`)와 같은 410 처리/로그 패턴."""
+    channel_id = uuid.UUID(payload["channel_id"])
+
+    async with AsyncSessionLocal() as db:
+        channel = await db.get(LocationChannel, channel_id)
+        if channel is None:
+            return
+        active_members = (
+            (
+                await db.execute(
+                    select(LocationChannelMember).where(
+                        LocationChannelMember.channel_id == channel_id,
+                        LocationChannelMember.left_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not active_members:
+            return
+
+        now = datetime.now(UTC)
+        event = "end" if channel.ended_at is not None else "update"
+        dismissal = int(now.timestamp()) + 120 if event == "end" else None
+
+        invalid: list[uuid.UUID] = []
+        for member in active_members:
+            state = build_location_la_state(member, active_members, channel, now)
+            rows = (
+                (
+                    await db.execute(
+                        select(LiveActivityToken).where(
+                            LiveActivityToken.kind == "location",
+                            LiveActivityToken.channel_id == channel_id,
+                            LiveActivityToken.user_id == member.user_id,
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for row in rows:
+                try:
+                    await engine_client.push_live_activity(row.push_token, event, state, dismissal_date=dismissal)
+                    log.info("live activity %s sent channel=%s user=%s", event, channel_id, row.user_id)
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 410:
+                        invalid.append(row.id)
+                    else:
+                        log.warning(
+                            "live activity push failed channel=%s user=%s status=%d",
+                            channel_id,
+                            row.user_id,
+                            exc.response.status_code,
+                        )
+                except httpx.TransportError as exc:
+                    log.warning("live activity push transport error channel=%s: %s", channel_id, exc)
+
+        if event == "end":
+            await db.execute(delete(LiveActivityToken).where(LiveActivityToken.channel_id == channel_id))
+        elif invalid:
+            await db.execute(delete(LiveActivityToken).where(LiveActivityToken.id.in_(invalid)))
+        await db.commit()
+
+
 HANDLERS = {
     "dm.message_sent": _handle_dm_message,
     "live_activity.deal_update": _handle_live_activity_deal_update,
+    "live_activity.location_update": _handle_live_activity_location_update,
     "feed.comment_created": _handle_feed_comment,
     "feed.post_liked": _handle_feed_like,
     "feed.followed_post_created": _handle_feed_followed_post,

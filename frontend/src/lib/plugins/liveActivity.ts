@@ -10,7 +10,7 @@ import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
  *
  * 화면 코드는 이 raw 플러그인이 아니라 `native.liveActivity`(lib/native.ts)만 호출한다.
  */
-export type LiveActivityKind = 'ride' | 'deal';
+export type LiveActivityKind = 'ride' | 'deal' | 'location';
 
 export interface RideActivityAttributes {
   destinationName: string;
@@ -51,15 +51,43 @@ export interface DealActivityState {
   peerDistanceText: string;
 }
 
+/** 실시간 위치공유 채널(2026-08-29). 약속 없이도 열리므로 `deal` 을 확장하지 않고 별도 kind 로 둔다. */
+export interface LocationActivityAttributes {
+  channelId: string;
+  conversationId: string;
+  /** 1:1 은 상대, 그룹은 나와 가장 가까운 활성 참가자. 없으면 "". attrs 는 start() 로만 갱신된다. */
+  peerName: string;
+  /** 목적지 미설정이면 "". */
+  destName: string;
+  /** `dm&id=<conversationId>` */
+  deepLink: string;
+}
+export type LocationStatusKind = 'moving' | 'waiting' | 'arrived' | 'ended';
+export interface LocationActivityState {
+  myEtaS: number | null;
+  myDistanceM: number | null;
+  peerEtaS: number | null;
+  peerDistanceM: number | null;
+  peerToMeDistanceM: number | null;
+  myArrived: boolean;
+  peerArrived: boolean;
+  participantCount: number;
+  statusKind: LocationStatusKind;
+  updatedAtMs: number;
+}
+
 export type LiveActivityStartOptions =
   | { kind: 'ride'; attributes: RideActivityAttributes; state: RideActivityState }
-  | { kind: 'deal'; attributes: DealActivityAttributes; state: DealActivityState };
+  | { kind: 'deal'; attributes: DealActivityAttributes; state: DealActivityState }
+  | { kind: 'location'; attributes: LocationActivityAttributes; state: LocationActivityState };
 export type LiveActivityUpdateOptions =
   | { kind: 'ride'; state: RideActivityState }
-  | { kind: 'deal'; state: DealActivityState };
+  | { kind: 'deal'; state: DealActivityState }
+  | { kind: 'location'; state: LocationActivityState };
 export type LiveActivityEndOptions =
   | { kind: 'ride'; finalState?: RideActivityState; dismissAfterSec?: number }
-  | { kind: 'deal'; finalState?: DealActivityState; dismissAfterSec?: number };
+  | { kind: 'deal'; finalState?: DealActivityState; dismissAfterSec?: number }
+  | { kind: 'location'; finalState?: LocationActivityState; dismissAfterSec?: number };
 
 export interface LiveActivityPlugin {
   /** iOS: ActivityKit 사용 가능(설정에서 끄지 않음) / Android: 알림 권한 보유. */

@@ -1688,35 +1688,6 @@ class MarketplaceAppointment(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
-class MarketplaceLocationShare(Base):
-    """거래중 실시간 위치공유 — 최신 좌표 1건만 보관(이력 미보관), 약속당 사용자별 1행."""
-
-    __tablename__ = "marketplace_location_shares"
-    __table_args__ = (
-        UniqueConstraint("appointment_id", "user_id", name="marketplace_location_shares_appointment_user_uq"),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    # 약속 기반 공유(정밀도 창 정책)일 때만 채워진다 — 독립 공유(대화 단위, 세션 TTL)는 NULL.
-    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=True
-    )
-    conversation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
-    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
-    accuracy_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    consent_version: Mapped[str] = mapped_column(String(20), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
-
-
 class LocationChannel(Base):
     """실시간 위치공유 채널 — 대화방당 활성 채널 최대 1개 (init/223, 260829 설계 SoT §3-1)."""
 
@@ -1828,6 +1799,10 @@ class LiveActivityToken(Base):
     )
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     subject_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # kind='location' 전용 — 실시간 위치채널 id (init/225, 260829 Phase 3). 'deal' 은 NULL.
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("location_channels.id", ondelete="CASCADE"), nullable=True
+    )
     push_token: Mapped[str] = mapped_column(Text, nullable=False)
     locale: Mapped[str] = mapped_column(String(8), nullable=False, default="vi")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

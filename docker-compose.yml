@@ -427,6 +427,10 @@ services:
       - "/migrations/224_location_channel_proposals_unique.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (224) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/225_location_channel_live_activity.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (225) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -508,6 +512,7 @@ services:
       - ./database/init/222_location_share_standalone.sql:/migrations/222_location_share_standalone.sql:ro
       - ./database/init/223_location_channels.sql:/migrations/223_location_channels.sql:ro
       - ./database/init/224_location_channel_proposals_unique.sql:/migrations/224_location_channel_proposals_unique.sql:ro
+      - ./database/init/225_location_channel_live_activity.sql:/migrations/225_location_channel_live_activity.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -595,6 +600,9 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       # 자체호스팅 라우팅 엔진(Valhalla). 미설정 시 위 Google Routes API 로 그대로 폴백(W4).
       - ROUTING_ENGINE_URL=${ROUTING_ENGINE_URL:-}
+      # 다중 워커 실시간 브로드캐스트(위치채널/워키토키 공유, Phase 3) — redis|inprocess.
+      - REALTIME_BROADCAST=${REALTIME_BROADCAST:-inprocess}
+      # 다중 워커 실시간 브로드캐스트(위치채널/워키토키 공유, Phase 3) — redis|inprocess.
       - TRANSLATE_API_KEY=${TRANSLATE_API_KEY:-}
       - TRANSLATE_PROVIDER=${TRANSLATE_PROVIDER:-google}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}

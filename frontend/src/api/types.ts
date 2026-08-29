@@ -331,16 +331,6 @@ export interface Appointment {
   completionDeclinedBy: string | null;
 }
 
-/** 거래 위치공유(P4) 상태. M-6: 대칭 강제 아님 — my/peer 각각 독립 판정. */
-export type LocationShareStatusValue = 'not_started' | 'sharing' | 'stopped';
-
-export interface LocationShareStatus {
-  myStatus: LocationShareStatusValue;
-  peerStatus: LocationShareStatusValue;
-  peerLat: number | null;
-  peerLng: number | null;
-  expiresAt: string | null;
-}
 
 export type PriceOfferStatus = 'PROPOSED' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED';
 

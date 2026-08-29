@@ -807,22 +807,6 @@
     "consentBody": "Vị trí chính xác (tọa độ GPS) của bạn chỉ được chia sẻ theo thời gian thực với các thành viên trong kênh này. Kênh tự động kết thúc sau 3 giờ, 15 phút sau khi mọi người đã đến, hoặc khi chỉ còn 1 thành viên trở xuống.",
     "consentRetention": "Dữ liệu vị trí được xem là dữ liệu nhạy cảm. Lịch sử di chuyển không được lưu — chỉ giữ vị trí mới nhất. Nhấn 'Rời khỏi' bất kỳ lúc nào, vị trí của bạn sẽ bị xóa ngay lập tức.",
     "consentAgree": "Đồng ý và bắt đầu chia sẻ",
-    "widgetTitle": "Chia sẻ vị trí thời gian thực",
-    "startBtn": "Bắt đầu chia sẻ vị trí",
-    "stopBtn": "Dừng chia sẻ",
-    "sharingActive": "Bạn đang chia sẻ vị trí của mình",
-    "peerSharing": "Đối phương cũng đang chia sẻ vị trí",
-    "peerNotStarted": "Đối phương chưa chia sẻ vị trí",
-    "myStopped": "Việc chia sẻ vị trí đã kết thúc",
-    "gate": {
-      "permission": "Cần quyền truy cập vị trí để xác định vị trí của bạn",
-      "timeout": "Không thể xác định vị trí của bạn",
-      "unavailable": "Không thể sử dụng vị trí",
-      "outside_area": "Bạn đang ở ngoài khu vực dịch vụ nên không thể chia sẻ vị trí",
-      "scope_all": "Không thể xác định vị trí của bạn",
-      "inaccurate": "Độ chính xác vị trí quá thấp để xác định"
-    },
-    "unavailable": "Không thể sử dụng chia sẻ vị trí",
     "inviteCardText": "{{name}} đã bắt đầu chia sẻ vị trí",
     "inviteOpenBtn": "Xem"
   },

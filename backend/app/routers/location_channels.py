@@ -103,6 +103,7 @@ async def _require_conversation_access(db: AsyncSession, conv: DmConversation, s
                 m.heading = None
                 m.speed_mps = None
                 m.located_at = None
+            await location_eta.enqueue_live_activity_update(db, channel.id, immediate=True)
             await db.commit()
             await _publish(channel.id, "channel_ended", actor_id=None, payload={"endReason": "blocked"})
         raise
@@ -409,7 +410,8 @@ async def get_channel_state(
 
     now = datetime.now(UTC)
     await _expire_pending_proposal_if_stale(db, channel.id, now)
-    await _maybe_end_channel(channel, now)
+    if await _maybe_end_channel(channel, now):
+        await location_eta.enqueue_live_activity_update(db, channel.id, immediate=True)
     await db.commit()
     channel = await _load_channel_full(db, channel.id)
     return await _serialize_channel_full(db, channel, session_uid)
@@ -440,9 +442,11 @@ async def leave_channel(
     member.speed_mps = None
     member.located_at = None
     await _publish(channel.id, "member_left", actor_id=session_uid, payload={"userId": str(session_uid)})
+    await location_eta.enqueue_live_activity_update(db, channel.id)
     # P1: 나간 사람 본인의 SSE 연결이 아직 열려 있으면 즉시 끊는다(다음 keepalive tick 을 기다리지 않음).
     await location_channel_broadcaster.close_for_user(str(channel.id), str(session_uid))
-    await _maybe_end_channel(channel, now)
+    if await _maybe_end_channel(channel, now):
+        await location_eta.enqueue_live_activity_update(db, channel.id, immediate=True)
     await db.commit()
     return Response(status_code=204)
 
@@ -495,8 +499,10 @@ async def ping_location(
         if distance <= ARRIVAL_RADIUS_M:
             member.arrived_at = now
             await _publish(channel.id, "arrived", actor_id=session_uid, payload={"userId": str(session_uid)})
+            await location_eta.enqueue_live_activity_update(db, channel.id)
 
-    await _maybe_end_channel(channel, now)
+    if await _maybe_end_channel(channel, now):
+        await location_eta.enqueue_live_activity_update(db, channel.id, immediate=True)
     await db.commit()
 
     if channel.dest_lat is not None and channel.ended_at is None:
@@ -532,6 +538,7 @@ async def set_destination(
     channel.dest_lat = Decimal(str(body.lat))
     channel.dest_lng = Decimal(str(body.lng))
     channel.dest_name = body.name
+    await location_eta.enqueue_live_activity_update(db, channel.id)
     await db.commit()
     await _publish(
         channel.id,
@@ -570,6 +577,7 @@ async def propose_destination(
         channel.dest_lat = Decimal(str(body.lat))
         channel.dest_lng = Decimal(str(body.lng))
         channel.dest_name = body.name
+        await location_eta.enqueue_live_activity_update(db, channel.id)
         await db.commit()
         await _publish(
             channel.id, "dest_set", actor_id=session_uid, payload={"lat": body.lat, "lng": body.lng, "name": body.name}
@@ -682,6 +690,7 @@ async def vote_destination_proposal(
             channel.dest_lat = proposal.lat
             channel.dest_lng = proposal.lng
             channel.dest_name = proposal.name
+            await location_eta.enqueue_live_activity_update(db, channel.id)
             await _publish(
                 channel.id,
                 "dest_resolved",

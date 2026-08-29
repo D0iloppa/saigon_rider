@@ -9,13 +9,17 @@
 (P1 — 핸드셰이크 때만 멤버십을 검사하면 나간 뒤에도 계속 수신하는 문제).
 
 **단일 워커 전제** — 워커를 2개 이상으로 늘리면 이 브로드캐스터로는 인스턴스 간 이벤트가
-전달되지 않는다. 그때는 Redis 등으로 교체한다(Phase 3, 태스크 문서 §4 "공통 부채").
+전달되지 않는다. env `REALTIME_BROADCAST=redis` 로 `services/realtime_broadcast.RedisBroadcaster`
+(워키토키와 공유하는 다중 워커 추상, Phase 3)로 전환할 수 있다 — 기본값은 `inprocess`.
 """
 
 import asyncio
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from typing import Any
+
+from .realtime_broadcast import RedisBroadcaster
 
 # 특정 사용자의 구독만 즉시 끊을 때 큐에 넣는 종료 신호(§P1). 브로드캐스트 이벤트 스키마 밖의
 # 내부 신호이므로 클라이언트에는 절대 전달되지 않는다 — 스트림 소비 루프가 감지 즉시 반환한다.
@@ -69,4 +73,29 @@ class InProcessLocationChannelBroadcaster:
         return sum(len(v) for v in self._subs.values())
 
 
-location_channel_broadcaster = InProcessLocationChannelBroadcaster()
+class _RedisLocationChannelBroadcaster:
+    """`RedisBroadcaster` 위임 어댑터 — 이 채널의 `close_for_user` 시그널(`STREAM_CLOSED_SIGNAL`)만
+    고정해 공개 인터페이스를 `InProcessLocationChannelBroadcaster` 와 동일하게 맞춘다(라우터 무변경)."""
+
+    def __init__(self) -> None:
+        self._backend = RedisBroadcaster(prefix="lc:bcast:")
+
+    async def publish(self, channel_id: str, event: dict[str, Any]) -> None:
+        await self._backend.publish(channel_id, event)
+
+    async def close_for_user(self, channel_id: str, user_id: str) -> None:
+        await self._backend.close_for_user(channel_id, user_id, signal=STREAM_CLOSED_SIGNAL)
+
+    def subscribe(self, channel_id: str, user_id: str | None = None):
+        return self._backend.subscribe(channel_id, user_id)
+
+    @property
+    def subscriber_count(self) -> int:
+        return self._backend.subscriber_count
+
+
+location_channel_broadcaster = (
+    _RedisLocationChannelBroadcaster()
+    if os.getenv("REALTIME_BROADCAST", "inprocess").strip().lower() == "redis"
+    else InProcessLocationChannelBroadcaster()
+)

@@ -39,7 +39,7 @@ from sqlalchemy import select
 from ..database import AsyncSessionLocal
 from ..models import LocationChannel, LocationChannelMember
 from ..utils import haversine_m
-from . import routing_engine
+from . import noti_events, routing_engine
 from .location_channel_broadcast import location_channel_broadcaster
 from .redis_cache import get_client
 
@@ -56,6 +56,30 @@ _MATRIX_THRESHOLD = 3
 # 의미상 올바른 INFO 로 두고, 대신 테스트/운영 확인용 인메모리 카운터를 별도로 유지한다.
 # 프로세스 재시작 전까지 누적 — 부하테스트가 전후 스냅샷을 비교하는 용도.
 engine_call_counts: dict[str, int] = {"matrix": 0, "route": 0}
+
+# Live Activity 원격 갱신 outbox 디바운스(Phase 3-A) — 채널당 10초 내 중복 적재 방지.
+_LA_DEBOUNCE_PREFIX = "lc:la:"
+LA_DEBOUNCE_TTL_SEC = 10
+
+
+async def enqueue_live_activity_update(db, channel_id: uuid.UUID, *, immediate: bool = False) -> None:
+    """`live_activity.location_update` outbox 적재(§Phase3 A-2). ETA 갱신 직후와
+    arrived/dest_set/dest_resolved(accepted)/member_left/channel_ended 에서 호출한다.
+
+    채널당 10초 디바운스(Redis SETNX) — 이동 중 매 ETA 갱신마다 push 가 나가는 것을 막는다.
+    `channel_ended` 등 즉시 반영이 필요한 이벤트는 `immediate=True` 로 디바운스를 건너뛴다.
+    Redis 장애는 fail-open(디바운스 생략하고 그냥 적재) — Live Activity 갱신 누락보다 과다
+    push 가 안전하다."""
+    if not immediate:
+        try:
+            client = await get_client()
+            acquired = await client.set(f"{_LA_DEBOUNCE_PREFIX}{channel_id}", "1", nx=True, ex=LA_DEBOUNCE_TTL_SEC)
+            if not acquired:
+                return
+        except Exception as exc:
+            log.warning("location LA debounce check failed, enqueueing anyway: %s", exc)
+    noti_events.enqueue(db, "live_activity.location_update", {"channel_id": str(channel_id)})
+
 
 # --- 채널 단위 코얼레싱(§완화1, thundering herd 대응) -----------------------
 # 같은 채널에 대해 동시에 여러 ETA 계산 루프가 굴러가는 걸 막는다 — 이미 처리 중이면 새
@@ -273,6 +297,8 @@ async def compute_and_broadcast(channel_id: uuid.UUID, user_ids: list[uuid.UUID]
             now = datetime.now(UTC)
             engine_url = os.getenv("ROUTING_ENGINE_URL", "").strip()
             await _compute_for_members(channel_id, dest_lat, dest_lng, members, engine_url, now)
+            # ETA 를 방송한 직후 Live Activity 원격 갱신도 같은 트랜잭션으로 적재(§Phase3 A-2).
+            await enqueue_live_activity_update(db, channel_id)
             await db.commit()
     except Exception:
         log.exception("location_eta.compute_and_broadcast failed: channel_id=%s", channel_id)

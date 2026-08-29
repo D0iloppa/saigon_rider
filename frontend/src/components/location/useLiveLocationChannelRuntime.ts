@@ -14,20 +14,22 @@ import { useLocationChannelStore } from '@/store/useLocationChannelStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { GPS_ACCURACY_LIMIT_M } from '@/lib/serviceLocation';
 import { toast } from '@/components/ui/Toast';
+import { loadSession } from '@/lib/session';
+import { native } from '@/lib/native';
+import {
+  computeLocationLiveActivityState,
+  haversineM,
+  selectLocationChannelPeer,
+  type LocationLiveActivityState,
+} from './liveActivityState';
 
 /** 채널 전용 ping 게이트(M-5) — 10초 + 10m. 전역 워처(30m)와 별개로 추가로 건다. */
 const PING_MIN_INTERVAL_MS = 10_000;
 const PING_MIN_MOVE_M = 10;
+/** Live Activity `update()` 디바운스 — LA 갱신 빈도 제한(§Phase 3 A-3). 서버 push 가 주 경로, 이건 포그라운드 보조. */
+const LA_UPDATE_DEBOUNCE_MS = 5_000;
 
-export function haversineM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R = 6371e3;
-  const p1 = (a.lat * Math.PI) / 180;
-  const p2 = (b.lat * Math.PI) / 180;
-  const dp = p2 - p1;
-  const dl = ((b.lng - a.lng) * Math.PI) / 180;
-  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
+export { haversineM };
 
 /**
  * 실시간 위치공유 채널 런타임 — 앱 전역 1곳(플로팅 버튼)에서만 호출한다.
@@ -40,6 +42,7 @@ export function useLiveLocationChannelRuntime() {
   const { t } = useTranslation();
   const conversationId = useLocationChannelStore((s) => s.conversationId);
   const channelId = useLocationChannelStore((s) => s.channelId);
+  const channelState = useLocationChannelStore((s) => s.state);
   const applyState = useLocationChannelStore((s) => s.applyState);
   const applyEvent = useLocationChannelStore((s) => s.applyEvent);
   const setConnected = useLocationChannelStore((s) => s.setConnected);
@@ -172,4 +175,82 @@ export function useLiveLocationChannelRuntime() {
         if (status === 410 || status === 403 || status === 404) clear();
       });
   }, [conversationId, coords, coordsAccuracyM, applyState, clear]);
+
+  // 4. Live Activity(kind:'location') 배선 — SoT §Phase 3 (A).
+  // attrs(peerName/destName)는 start()로만 바뀐다(update()는 state 만 받는 계약) — 네이티브가 start를
+  // upsert 로 처리하므로 attrs 가 바뀔 때마다 재호출해도 무해하다(dest_set/dest_resolved 반영 포함).
+  const lastAttrsRef = useRef<{ channelId: string; peerName: string; destName: string } | null>(null);
+  const lastComputedRef = useRef<{ channelId: string; state: LocationLiveActivityState } | null>(null);
+  const laUpdateTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!conversationId || !channelId || !channelState?.me?.joined) return;
+    const meUserId = loadSession()?.userId;
+    if (!meUserId) return;
+    const computed = computeLocationLiveActivityState(channelState, meUserId);
+    if (!computed) return;
+    lastComputedRef.current = { channelId, state: computed };
+
+    const me = channelState.members.find((m) => m.userId === meUserId) ?? null;
+    const meCoords = me?.lat != null && me?.lng != null ? { lat: me.lat, lng: me.lng } : null;
+    const peer = selectLocationChannelPeer(channelState.members, meUserId, meCoords);
+    const peerName = peer?.nickname ?? '';
+    const destName = channelState.dest?.name ?? '';
+
+    const prevAttrs = lastAttrsRef.current;
+    const attrsChanged =
+      !prevAttrs || prevAttrs.channelId !== channelId || prevAttrs.peerName !== peerName || prevAttrs.destName !== destName;
+
+    let cancelled = false;
+    if (attrsChanged) {
+      native.liveActivity.getCapability().then((cap) => {
+        if (cancelled || !cap.available) return;
+        lastAttrsRef.current = { channelId, peerName, destName };
+        void native.liveActivity.start({
+          kind: 'location',
+          attributes: {
+            channelId,
+            conversationId,
+            peerName,
+            destName,
+            deepLink: `dm&id=${conversationId}`,
+          },
+          state: computed,
+        });
+      });
+    } else {
+      // attrs 불변 — state 만 디바운스로 반영(§Phase 3 A-3).
+      if (laUpdateTimerRef.current != null) window.clearTimeout(laUpdateTimerRef.current);
+      laUpdateTimerRef.current = window.setTimeout(() => {
+        laUpdateTimerRef.current = null;
+        void native.liveActivity.update({ kind: 'location', state: computed });
+      }, LA_UPDATE_DEBOUNCE_MS);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, channelId, channelState]);
+
+  // 4-b. 채널 종료(channel_ended)·나가기 — 스토어가 clear() 되며 conversationId 가 null 로 떨어지는
+  // 전이를 감지해 end() 한다. clear() 호출부가 여러 곳(resync 404/403/410, SSE channel_ended, ping 실패)
+  // 이라 각각 배선하는 대신 이 전이 하나로 통일한다.
+  const prevConversationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prevConversationId = prevConversationIdRef.current;
+    if (prevConversationId && !conversationId) {
+      if (laUpdateTimerRef.current != null) {
+        window.clearTimeout(laUpdateTimerRef.current);
+        laUpdateTimerRef.current = null;
+      }
+      const last = lastComputedRef.current;
+      void native.liveActivity.end({
+        kind: 'location',
+        finalState: last ? { ...last.state, statusKind: 'ended' } : undefined,
+        dismissAfterSec: 120,
+      });
+      lastAttrsRef.current = null;
+      lastComputedRef.current = null;
+    }
+    prevConversationIdRef.current = conversationId;
+  }, [conversationId]);
 }

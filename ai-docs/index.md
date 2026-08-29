@@ -83,7 +83,7 @@
 ## 📦 태스크 / 트러블슈팅 이력
 
 - [활성 태스크](task/active/) — 현재 진행 중 (현황은 [`current.md`](context/current.md))
-  - **[실시간 위치공유 채널 260829](task/active/260829_live_location_channel_task.md)** — 설계 확정(D1~D5)·구현 미착수. 약속 종속 위젯(260827) 폐기 → 플로팅 채널 모델(SSE+HTTP, 워키토키와 별도 채널), 공통 목적지 + 변경 제안/수락, 자체 라우팅 ETA(서버 계산), 채널참가=동의·정밀좌표 상시·3중 자동종료, Live Activity `kind:'location'`. 단순 현재위치 카드(`location_pin`)는 범위 밖(구현 완료).
+  - **[실시간 위치공유 채널 260829](task/active/260829_live_location_channel_task.md)** — 설계 확정(D1~D5)·**Phase 1~3 구현 완료(2026-08-29, 실기기 미검증)**. 약속 종속 위젯(260827) 폐기 → 플로팅 채널 모델(SSE+HTTP, 워키토키와 별도 채널), 공통 목적지 + 변경 제안/수락, 자체 라우팅 ETA(서버 계산), 채널참가=동의·정밀좌표 상시·3중 자동종료, Live Activity `kind:'location'`. 단순 현재위치 카드(`location_pin`)는 범위 밖(구현 완료).
 - [세션 이력](context/history.md) — 완료된 세션 작업 이력 (current.md에서 분리)
 - [완료 태스크 아카이브](task/archive.md) — 날짜별 색인
 - [트러블슈팅 인덱스](trouble/index.md) — 날짜별 색인

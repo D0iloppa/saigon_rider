@@ -807,22 +807,6 @@
     "consentBody": "Your precise location (GPS coordinates) is shared in real time only with the members of this channel. The channel ends automatically after 3 hours, 15 minutes after everyone arrives, or when 1 or fewer members remain.",
     "consentRetention": "Location data is treated as sensitive information. No movement history is stored — only your latest position. Tap 'Leave' at any time and your location is deleted immediately.",
     "consentAgree": "Agree & start sharing",
-    "widgetTitle": "Real-time location sharing",
-    "startBtn": "Start sharing location",
-    "stopBtn": "Stop sharing",
-    "sharingActive": "You're sharing your location",
-    "peerSharing": "The other person is also sharing their location",
-    "peerNotStarted": "The other person hasn't started sharing yet",
-    "myStopped": "Location sharing has ended",
-    "gate": {
-      "permission": "Location permission is needed to check your location",
-      "timeout": "Couldn't get your location",
-      "unavailable": "Location isn't available",
-      "outside_area": "You're outside the service area, so location can't be shared",
-      "scope_all": "Couldn't get your location",
-      "inaccurate": "Location accuracy is too low to check"
-    },
-    "unavailable": "Location sharing is unavailable",
     "inviteCardText": "{{name}} started sharing location",
     "inviteOpenBtn": "View"
   },

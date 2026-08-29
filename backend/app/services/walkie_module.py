@@ -9,6 +9,7 @@
 """
 
 import logging
+import os
 import uuid
 from pathlib import Path
 
@@ -232,6 +233,13 @@ def build_walkie(engine: AsyncEngine, contents_base_path: Path):
     from walkie_talkie import WalkieConfig, WalkieTalkie
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    # 다중 워커 브로드캐스트(Phase 3, 위치채널과 공유하는 REALTIME_BROADCAST 스위치) — 모듈은
+    # `BroadcastPort` 를 이미 주입식으로 받으므로 패키지 내부는 손대지 않는다.
+    broadcaster = None
+    if os.getenv("REALTIME_BROADCAST", "inprocess").strip().lower() == "redis":
+        from .realtime_broadcast import RedisBroadcaster
+
+        broadcaster = RedisBroadcaster(prefix="wt:bcast:")
     return WalkieTalkie(
         # db_url 은 넘기지만 실제로는 engine 이 우선한다 — 호스트 커넥션 풀을 그대로 공유해
         # 풀이 둘로 갈라지지 않게 한다.
@@ -246,4 +254,5 @@ def build_walkie(engine: AsyncEngine, contents_base_path: Path):
         notifier=FcmNotifier(session_factory),
         current_user_ref=current_user_ref,
         prefix="/walkie",
+        broadcaster=broadcaster,
     )

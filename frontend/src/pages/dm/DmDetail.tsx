@@ -65,7 +65,6 @@ import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatPriceVnd } from '../market/marketFormat';
-import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import OsmMap from '@/components/maps/OsmMap';
 import { requireServiceLocation } from '@/lib/serviceLocation';
 import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
@@ -157,7 +156,6 @@ export default function DmDetail() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-  const [locationShareSheetOpen, setLocationShareSheetOpen] = useState(false);
   // 실시간 위치공유 채널(2026-08-29 채널 모델) — 동의 모달 → 채널 생성/참가. 시작 컨텍스트(약속·목적지)를 들고 있다.
   const [liveConsentCtx, setLiveConsentCtx] = useState<{ appointmentId?: string; dest?: { lat: number; lng: number; name?: string }; sendInvite: boolean } | null>(null);
   const liveChannelConversationId = useLocationChannelStore((s) => s.conversationId);
@@ -606,7 +604,7 @@ export default function DmDetail() {
     }
   };
 
-  // P6: DealLiveActions 슬롯에 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
+  // P6: 실시간 위치공유 채널을 약속에 연결할 때 넘길 "현재 약속" — 대화 내 가장 최근 약속 메시지 기준.
   // 약속이 없는 대화면 null → 위치공유는 이제 그래도 켜진다(약속 독립, 2026-08-29), 정밀도 창 정책만 빠진다.
   const currentAppointment = useMemo<Appointment | null>(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -1751,7 +1749,7 @@ export default function DmDetail() {
       {/* 헤더 "..." 메뉴 (대표 지시 2026-08-28 재편, 2026-08-29 위치공유 약속독립화) — 워키토키는
           헤더 아이콘으로 승격했고, 위치공유는 그룹에선 의미가 없어 1:1 전용으로 내렸다. 그룹은
           "설정"이 관리 진입점이다. 위치공유는 약속 유무와 무관하게 항상 켤 수 있다(약속이 있으면
-          그 약속의 정밀도 창 정책, 없으면 독립 세션 TTL — DealLiveActions/LocationShareWidget 참조). */}
+          그 약속의 정밀도 창 정책, 없으면 독립 세션 TTL — 채널 모델, ai-docs/task/active/260829_live_location_channel_task.md 참조). */}
       <BottomSheet open={moreSheetOpen} onClose={() => setMoreSheetOpen(false)}>
         <div className={styles.reportSheet}>
           <button
@@ -1820,18 +1818,6 @@ export default function DmDetail() {
         onConsent={handleLiveConsent}
         onClose={() => setLiveConsentCtx(null)}
       />
-
-      {/* (Phase 3 폐기 예정) 구 위치공유 위젯 시트 — 진입점은 채널 플로우로 교체됐고 열리는 경로는 남아있지 않다 */}
-      <BottomSheet open={locationShareSheetOpen} onClose={() => setLocationShareSheetOpen(false)}>
-        {isDirect && conversationId && (
-          <DealLiveActions
-            conversationId={conversationId}
-            appointmentId={currentAppointmentId}
-            nickname={user?.nickname}
-            onInviteSent={(msg) => applyIncoming([msg])}
-          />
-        )}
-      </BottomSheet>
 
       {/* 메시지 액션 시트 — 롱프레스로 연다: 고정 팔레트 공감 + 답장 + (내 메시지) 수정/삭제 */}
       <BottomSheet open={!!actionMsg} onClose={() => setActionMsgId(null)}>

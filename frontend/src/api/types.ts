@@ -231,6 +231,8 @@ export interface DmConversation {
   activeTrades: DmActiveTrade[];
   /** 방 공지 (init/217) — 단건 조회에서만 채워진다. 원본이 삭제되면 서버가 null 로 내린다. */
   notice: DmNotice | null;
+  /** 게시판 전체 미읽음 글 수 (init/220) — 단건 조회에서만 채워진다(목록은 항상 0). */
+  boardUnread: number;
 }
 
 export interface DmNotice {

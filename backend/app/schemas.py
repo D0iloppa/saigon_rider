@@ -1239,6 +1239,8 @@ class DmConversationOut(BaseModel):
     active_trades: list[DmConversationActiveTradeOut] = []
     # init/217 — 방 공지. 단건 조회/공지 API 응답에서만 채워진다(목록에는 싣지 않는다).
     notice: DmNoticeOut | None = None
+    # init/220 — 게시판 전체 미읽음(헤더 점). 목록에는 싣지 않는다(행마다 집계 비용).
+    board_unread: int = 0
 
 
 class DmChannelOut(BaseModel):
@@ -1249,6 +1251,8 @@ class DmChannelOut(BaseModel):
     name: str
     position: int
     created_at: datetime
+    # init/220 — 내가 마지막으로 읽은 뒤 남이 쓴 라이브 글 수(댓글은 세지 않는다)
+    unread_count: int = 0
 
 
 class DmChannelCreateRequest(BaseModel):

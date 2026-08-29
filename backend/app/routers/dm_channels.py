@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -24,6 +25,7 @@ from ..models import (
     Content,
     DmChannelPost,
     DmChannelPostComment,
+    DmChannelRead,
     DmConversation,
     DmConversationChannel,
     DmConversationMember,
@@ -102,14 +104,50 @@ async def _ordered_channels(db: AsyncSession, conv_id: uuid.UUID) -> list[DmConv
     return list(rows)
 
 
-def _channel_out(channel: DmConversationChannel) -> DmChannelOut:
+def _channel_out(channel: DmConversationChannel, unread: int = 0) -> DmChannelOut:
     return DmChannelOut(
         id=channel.id,
         conversation_id=channel.conversation_id,
         name=channel.name,
         position=channel.position,
         created_at=channel.created_at,
+        unread_count=unread,
     )
+
+
+async def channel_unread_counts(db: AsyncSession, conv_id: uuid.UUID, uid: uuid.UUID) -> dict[uuid.UUID, int]:
+    """방의 채널별 미읽음 글 수 — 채널 하나당 한 행, 전체가 **쿼리 한 번**이다.
+
+    "미읽음" = 남이 쓴 라이브 글 중 내 last_read_at 이후 것. 읽음 행이 없으면 **입장 시각**(joined_at)
+    으로 폴백한다 — dm.py 의 메시지 unread 와 같은 규약이라, 새 멤버에게 입장 전 과거 글이 미읽음으로
+    쏟아지지 않는다. 0 인 채널은 결과에 없다(호출부가 기본값 0 을 쓴다).
+    dm.py 의 방 헤더 총합(board_unread)도 이 함수를 합산해서 쓴다 — 규칙이 갈라지지 않게.
+    """
+    since = func.coalesce(DmChannelRead.last_read_at, DmConversationMember.joined_at)
+    rows = (
+        await db.execute(
+            select(DmChannelPost.channel_id, func.count())
+            .select_from(DmChannelPost)
+            .join(DmConversationChannel, DmConversationChannel.id == DmChannelPost.channel_id)
+            .join(
+                DmConversationMember,
+                (DmConversationMember.conversation_id == DmConversationChannel.conversation_id)
+                & (DmConversationMember.user_id == uid),
+            )
+            .outerjoin(
+                DmChannelRead,
+                (DmChannelRead.channel_id == DmChannelPost.channel_id) & (DmChannelRead.user_id == uid),
+            )
+            .where(
+                DmConversationChannel.conversation_id == conv_id,
+                DmChannelPost.deleted_at.is_(None),
+                DmChannelPost.author_id != uid,
+                DmChannelPost.created_at > since,
+            )
+            .group_by(DmChannelPost.channel_id)
+        )
+    ).all()
+    return {channel_id: count for channel_id, count in rows}
 
 
 async def _post_out_batch(db: AsyncSession, posts: list[DmChannelPost]) -> list[DmChannelPostOut]:
@@ -164,7 +202,9 @@ async def list_channels(
     _session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     await _board_conversation(db, conv_id, _session_uid)
-    return [_channel_out(c) for c in await _ordered_channels(db, conv_id)]
+    channels = await _ordered_channels(db, conv_id)
+    unread = await channel_unread_counts(db, conv_id, _session_uid)
+    return [_channel_out(c, unread.get(c.id, 0)) for c in channels]
 
 
 @router.post(
@@ -240,6 +280,28 @@ async def delete_channel(
     _require_manager(member)
     channel = await _get_channel(db, conv_id, channel_id)
     await db.delete(channel)
+    await db.commit()
+
+
+@router.put("/conversations/{conv_id}/channels/{channel_id}/read", status_code=204, summary="채널 읽음 표시")
+async def mark_channel_read(
+    conv_id: uuid.UUID,
+    channel_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """채널을 열었을 때 "여기까지 읽었다"를 찍는다 — 멤버 누구나, 자기 행만 갱신한다."""
+    await _board_conversation(db, conv_id, _session_uid)
+    await _get_channel(db, conv_id, channel_id)
+
+    now = datetime.now(UTC)
+    stmt = pg_insert(DmChannelRead).values(channel_id=channel_id, user_id=_session_uid, last_read_at=now)
+    await db.execute(
+        stmt.on_conflict_do_update(
+            index_elements=[DmChannelRead.channel_id, DmChannelRead.user_id],
+            set_={"last_read_at": now},
+        )
+    )
     await db.commit()
 
 

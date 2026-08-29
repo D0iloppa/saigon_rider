@@ -981,7 +981,8 @@
   "commentCancelReply": "Cancel reply",
   "commentDelete": "Delete",
   "commentDeleteConfirm": "Delete this comment?",
-  "commentDeleted": "This comment was deleted"
+  "commentDeleted": "This comment was deleted",
+  "unread": "{{n}} unread posts"
 },
 "unknownMember": "Unknown",
 "noticeSet": "Pin as notice",

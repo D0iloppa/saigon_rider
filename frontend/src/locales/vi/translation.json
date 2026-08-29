@@ -981,7 +981,8 @@
   "commentCancelReply": "Hủy trả lời",
   "commentDelete": "Xóa",
   "commentDeleteConfirm": "Xóa bình luận này?",
-  "commentDeleted": "Bình luận đã bị xóa"
+  "commentDeleted": "Bình luận đã bị xóa",
+  "unread": "{{n}} bài chưa đọc"
 },
 "unknownMember": "Không rõ",
 "noticeSet": "Ghim thông báo",

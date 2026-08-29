@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, LayoutList, MessageSquare, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
@@ -15,6 +15,7 @@ import {
   deleteChannel,
   fetchChannelPosts,
   fetchChannels,
+  markChannelRead,
   patchChannel,
   type DmChannel,
   type DmChannelPost,
@@ -56,11 +57,16 @@ export default function DmBoard() {
 
   const isManager = myRole === 'owner' || myRole === 'admin';
 
+  // loadChannels 는 activeId 에 의존하지 않는다(칩을 바꿀 때마다 목록을 다시 받지 않으려고) — ref 로 읽는다.
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+
   const loadChannels = useCallback(async () => {
     setFailed(false);
     try {
       const rows = await fetchChannels(conversationId);
-      setChannels(rows);
+      // 보고 있는 채널은 방금 읽음 처리했다 — 재조회가 서버 집계보다 늦게 도착해도 배지를 되살리지 않는다.
+      setChannels(rows.map((c) => (c.id === activeIdRef.current ? { ...c, unreadCount: 0 } : c)));
       setActiveId((prev) => (prev && rows.some((c) => c.id === prev) ? prev : (rows[0]?.id ?? null)));
     } catch {
       setFailed(true);
@@ -102,6 +108,16 @@ export default function DmBoard() {
   }, [conversationId, activeId]);
 
   useEffect(() => loadPosts(), [loadPosts]);
+
+  // 보고 있는 채널은 읽은 것 — 첫 진입(활성 채널)과 칩 선택이 같은 경로를 탄다.
+  // 서버에 찍고 그 칩의 배지만 로컬에서 끈다(목록 재조회 없이).
+  useEffect(() => {
+    if (!conversationId || !activeId) return;
+    const channelId = activeId;
+    markChannelRead(conversationId, channelId)
+      .then(() => setChannels((prev) => prev.map((c) => (c.id === channelId ? { ...c, unreadCount: 0 } : c))))
+      .catch(() => {});
+  }, [conversationId, activeId]);
 
   const guard = async (fn: () => Promise<unknown>) => {
     if (busy) return;
@@ -262,6 +278,15 @@ export default function DmBoard() {
               onClick={() => setActiveId(c.id)}
             >
               {c.name}
+              {c.unreadCount > 0 && (
+                <span
+                  className={`${styles.tabBadge} num`}
+                  role="status"
+                  aria-label={t('dm.board.unread', { n: c.unreadCount, defaultValue: '읽지 않은 글 {{n}}개' })}
+                >
+                  {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                </span>
+              )}
             </button>
           ))}
         </div>

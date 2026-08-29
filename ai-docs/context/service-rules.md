@@ -272,6 +272,8 @@
 6. **채널형 게시판은 방 전용 테이블이다** — `dm_conversation_channels`·`dm_channel_posts`(init/218). `feed_posts` 에 얹지 않는다: 피드의 모든 목록·검색·인기글 쿼리에 필터를 빠짐없이 넣어야 하고 한 곳 누락 = **사적 방 글 유출**. 모든 게시판 경로는 `require_member`(방 멤버만 읽기·쓰기), direct 방 400, 채널 생성·수정·순서·삭제는 owner/admin, 글 삭제는 작성자 또는 owner/admin. 글 본문은 dm.py 와 동일한 `banned_keywords` 프리필터(400 `banned_keyword`). 삭제는 소프트(`deleted_at`).
 7. **게시판 화면은 `/dm/:id/board`(채널 탭·목록) · `/board/new` · `/board/:postId`** — 진입점은 그룹방 헤더 아이콘 + 방 정보 탭. 화면당 주 액션(오렌지)은 글쓰기 FAB 하나. 댓글(P2, init/219 `dm_channel_post_comments` — `PostComment` 는 `feed_posts` FK 라 재사용 불가)은 글 상세 하단 스레드로 들어갔다: 답글은 한 단만(답글의 답글은 서버가 같은 단으로 접고, 화면은 답글 칩에 최상위 작성자를 띄운 뒤 본문 앞에 `@닉` 을 붙여 실제 답한 상대를 남긴다), 삭제된 댓글은 부모가 될 수 없다(400), 삭제는 작성자 또는 owner/admin 소프트삭제이고 답글이 남아 있을 때만 "삭제된 댓글" 자리로 남는다. 미읽음 배지(P3)는 후속.
 
+8. **게시판 미읽음은 글(post) 단위만** — `dm_channel_reads(channel_id,user_id,last_read_at)`(init/220). 채널 목록의 `unread_count`(본인 글·삭제 글 제외, `last_read_at` 이후)와 방 단건 조회의 `board_unread`(합계, 목록 API 에는 미포함) 두 곳. 채널을 열면 `PUT …/channels/{id}/read` 로 즉시 읽음 처리. 댓글은 배지를 움직이지 않는다(범위 밖).
+
 ## Live Activity — 경로안내·거래 잠금화면 카드 (제정 2026-08-29)
 
 > SoT: [`task/active/260829_live_activity_task.md`](../task/active/260829_live_activity_task.md)

@@ -698,6 +698,7 @@
 }
 
 .headerMoreBtn {
+  position: relative; /* 게시판 미읽음 점(.headerDot) 기준 */
   width: 40px;
   height: 40px;
   border-radius: 12px;
@@ -710,6 +711,17 @@
 
 .headerMoreBtn:active {
   background: var(--surface-2);
+}
+
+/* 게시판 미읽음 점(init/220) — 아이콘 오른쪽 위 */
+.headerDot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-500);
 }
 
 .reportSheet {

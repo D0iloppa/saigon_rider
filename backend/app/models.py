@@ -1622,6 +1622,22 @@ class DmChannelPostComment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class DmChannelRead(Base):
+    """채널 읽음 표시 (220_dm_channel_reads.sql). 채널·유저 1행 — 미읽음은 이 시각 이후 글 수로 센다."""
+
+    __tablename__ = "dm_channel_reads"
+
+    channel_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("dm_conversation_channels.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DmMessageReaction(Base):
     """DM 메시지 공감 (Slack 스타일, 고정 팔레트) — 215_dm_message_sync.sql"""
 

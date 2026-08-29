@@ -89,6 +89,33 @@ test('the comment input does not send mid-IME-composition', () => {
   assert.match(post, /e\.key === 'Enter' && !e\.shiftKey && !e\.nativeEvent\.isComposing/);
 });
 
+test('the channel chip badge is hidden at zero and capped at 99+ (init/220, P3)', () => {
+  const board = read('DmBoard.tsx');
+  assert.match(board, /\{c\.unreadCount > 0 && \(/); // 0 이면 배지 자체가 없다
+  assert.match(board, /c\.unreadCount > 99 \? '99\+' : c\.unreadCount/);
+  assert.match(board, /className=\{`\$\{styles\.tabBadge\} num`\}/); // 숫자는 .num 서체
+});
+
+test('opening a channel marks it read and clears just that chip', () => {
+  const board = read('DmBoard.tsx');
+  assert.match(board, /markChannelRead\(conversationId, channelId\)/);
+  // 첫 진입(활성 채널)과 칩 선택이 같은 effect 를 탄다 — activeId 변화 하나에 매달린다.
+  assert.match(board, /\}, \[conversationId, activeId\]\);/);
+  assert.match(board, /c\.id === channelId \? \{ \.\.\.c, unreadCount: 0 \} : c/);
+});
+
+test('a channel refetch does not revive the active chip badge', () => {
+  const board = read('DmBoard.tsx');
+  // guard() 가 부르는 loadChannels 가 서버 집계로 덮어써도 보고 있는 채널은 0 을 유지한다.
+  assert.match(board, /c\.id === activeIdRef\.current \? \{ \.\.\.c, unreadCount: 0 \} : c/);
+});
+
+test('the chat header board icon carries a dot when the board has unread posts', () => {
+  const detail = read('DmDetail.tsx');
+  assert.match(detail, /\(conv\?\.boardUnread \?\? 0\) > 0 && \(/);
+  assert.match(detail, /className=\{styles\.headerDot\}/);
+});
+
 test('board strings exist in all three locales', () => {
   for (const loc of ['ko', 'en', 'vi']) {
     const json = JSON.parse(read(`../../locales/${loc}/translation.json`));
@@ -109,6 +136,7 @@ test('board strings exist in all three locales', () => {
       'commentReplyingTo',
       'commentDelete',
       'commentDeleted',
+      'unread',
     ]) {
       assert.ok(json.dm.board[key], `${loc} is missing dm.board.${key}`);
     }

@@ -925,6 +925,18 @@ export default function DmDetail() {
                 aria-label={t('dm.board.title', { defaultValue: '게시판' })}
               >
                 <LayoutList size={21} strokeWidth={2} />
+                {/* 안 읽은 글이 있으면 점 하나 (init/220). 게시판에 다녀오면 방 재진입 시
+                    conv 를 다시 받으므로(마운트 조회) 저절로 최신이 된다. */}
+                {(conv?.boardUnread ?? 0) > 0 && (
+                  <span
+                    className={styles.headerDot}
+                    role="status"
+                    aria-label={t('dm.board.unread', {
+                      n: conv?.boardUnread ?? 0,
+                      defaultValue: '읽지 않은 글 {{n}}개',
+                    })}
+                  />
+                )}
               </button>
             )}
             {/* 워키토키 승격(대표 지시 2026-08-28) — 1:1·그룹 공통. "채널 열기"가 아니라

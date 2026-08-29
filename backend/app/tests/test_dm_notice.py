@@ -4,6 +4,7 @@
 - direct 방은 400 (공지는 group/open 전용)
 - 내리기는 등록자 본인 또는 owner/admin — 그 외 멤버는 403
 - 원본이 소프트삭제되면 조회 시 notice 는 null
+- 등록/해제/제목수정 응답 모두 board_unread(220) 를 싣는다 — 빠지면 헤더 게시판 점이 사라진다
 
 test_dm_message_sync.py 스타일 — mock db 로 라우터 함수 직접 호출한다(실 DB 불필요).
 """
@@ -17,7 +18,7 @@ from fastapi import HTTPException
 
 from app.models import DmConversation, DmMessage, User
 from app.routers import dm
-from app.schemas import DmConversationNoticeRequest
+from app.schemas import DmConversationNoticeRequest, DmConversationPatchRequest
 
 
 def _group_conv(conv_id, **kwargs):
@@ -64,6 +65,7 @@ def _db(conv, msg=None, setter_nickname="등록자"):
 
     msg_result = MagicMock()
     msg_result.scalar_one_or_none.return_value = msg
+    msg_result.all.return_value = []  # 게시판 미읽음 집계(220) — 기본은 "미읽음 없음"
 
     added = []
     db = MagicMock()
@@ -219,6 +221,57 @@ class ClearNoticeTest(unittest.IsolatedAsyncioTestCase):
             await dm.clear_conversation_notice(self.conv_id, db=db, _session_uid=self.other)
         self.assertEqual(raised.exception.status_code, 403)
         self.assertEqual(conv.notice_message_id, self.msg_id)
+
+
+class NoticeResponseBoardUnreadTest(unittest.IsolatedAsyncioTestCase):
+    """공지 등록/해제 응답도 board_unread 를 싣는다(220).
+
+    프론트는 이 응답으로 conv 를 통째로 갈아끼운다 — 빠지면 헤더의 게시판 미읽음 점이 사라진다.
+    """
+
+    def setUp(self):
+        self.me = uuid.uuid4()
+        self.conv_id = uuid.uuid4()
+        self.msg = _message(self.conv_id, self.me)
+        member = MagicMock()
+        member.role = "owner"
+        for target in (
+            patch.object(dm, "require_member", AsyncMock(return_value=member)),
+            patch.object(dm, "channel_unread_counts", AsyncMock(return_value={uuid.uuid4(): 2, uuid.uuid4(): 5})),
+        ):
+            target.start()
+            self.addCleanup(target.stop)
+
+    async def test_set_notice_response_carries_board_unread(self):
+        conv = _group_conv(self.conv_id)
+        db, _added = _db(conv, self.msg)
+
+        out = await dm.set_conversation_notice(
+            self.conv_id, DmConversationNoticeRequest(message_id=self.msg.id), db=db, _session_uid=self.me
+        )
+
+        self.assertEqual(out.board_unread, 7)  # 채널별 합계
+
+    async def test_clear_notice_response_carries_board_unread(self):
+        conv = _group_conv(
+            self.conv_id, notice_message_id=self.msg.id, notice_set_by=self.me, notice_set_at=datetime.now(UTC)
+        )
+        db, _added = _db(conv, self.msg)
+
+        out = await dm.clear_conversation_notice(self.conv_id, db=db, _session_uid=self.me)
+
+        self.assertIsNone(out.notice)
+        self.assertEqual(out.board_unread, 7)
+
+    async def test_title_patch_response_carries_board_unread(self):
+        conv = _group_conv(self.conv_id)
+        db, _added = _db(conv, self.msg)
+
+        out = await dm.update_conversation(
+            self.conv_id, DmConversationPatchRequest(title="새 제목"), db=db, _session_uid=self.me
+        )
+
+        self.assertEqual(out.board_unread, 7)
 
 
 class ResolveNoticeTest(unittest.IsolatedAsyncioTestCase):

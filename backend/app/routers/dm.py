@@ -64,6 +64,7 @@ from ..services.dm_policy import (
 from ..utils import build_imgproxy_url, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
 from .contents import CONTENTS_BASE_PATH, _content_playback_url
+from .dm_channels import channel_unread_counts
 from .market import _appointment_unlocked, _appt_out, _offer_out
 from .market import _card as _market_card
 from .market import _thumbnail_url as _market_thumbnail_url
@@ -321,7 +322,7 @@ async def get_conversation(
 
     if conv.conversation_type != "direct":
         await require_member(db, conv, _session_uid)
-        return _group_conv_out(conv, await _resolve_notice(db, conv))
+        return _group_conv_out(conv, await _resolve_notice(db, conv), await _board_unread(db, conv_id, _session_uid))
 
     other_id = require_participant(conv, _session_uid)
     await require_unblocked(db, _session_uid, other_id)
@@ -1166,7 +1167,18 @@ async def report_group_message(
     return {"ok": True}
 
 
-def _group_conv_out(conv: DmConversation, notice: DmNoticeOut | None = None) -> DmConversationOut:
+async def _board_unread(db: AsyncSession, conv_id: uuid.UUID, uid: uuid.UUID) -> int:
+    """게시판 미읽음 합계(init/220) — 헤더 점 하나 때문에 목록 API 에는 싣지 않는다(행마다 집계 비용).
+
+    단건 응답(조회·제목수정·공지 등록/해제)은 모두 이걸 실어야 한다 — 하나라도 빠지면
+    프론트가 그 응답으로 conv 를 갈아끼우는 순간 헤더 점이 사라진다.
+    """
+    return sum((await channel_unread_counts(db, conv_id, uid)).values())
+
+
+def _group_conv_out(
+    conv: DmConversation, notice: DmNoticeOut | None = None, board_unread: int = 0
+) -> DmConversationOut:
     """group/open 대화방 응답 조립 — 이 항목들은 other_user_* 를 채우지 않는다."""
     return DmConversationOut(
         id=conv.id,
@@ -1179,6 +1191,7 @@ def _group_conv_out(conv: DmConversation, notice: DmNoticeOut | None = None) -> 
         member_count=conv.member_count,
         community_group_id=conv.community_group_id,
         notice=notice,
+        board_unread=board_unread,
     )
 
 
@@ -1619,7 +1632,7 @@ async def update_conversation(
         conv.photo_content_id = body.photo_content_id
     await db.commit()
     await db.refresh(conv)
-    return _group_conv_out(conv, await _resolve_notice(db, conv))
+    return _group_conv_out(conv, await _resolve_notice(db, conv), await _board_unread(db, conv_id, _session_uid))
 
 
 @router.put("/conversations/{conv_id}/notice", response_model=DmConversationOut, summary="방 공지 등록")
@@ -1672,7 +1685,7 @@ async def set_conversation_notice(
     conv.last_message_at = now
     await db.commit()
     await db.refresh(conv)
-    return _group_conv_out(conv, await _resolve_notice(db, conv))
+    return _group_conv_out(conv, await _resolve_notice(db, conv), await _board_unread(db, conv_id, _session_uid))
 
 
 @router.delete("/conversations/{conv_id}/notice", response_model=DmConversationOut, summary="방 공지 내리기")
@@ -1696,7 +1709,7 @@ async def clear_conversation_notice(
     conv.notice_set_at = None
     await db.commit()
     await db.refresh(conv)
-    return _group_conv_out(conv)
+    return _group_conv_out(conv, None, await _board_unread(db, conv_id, _session_uid))
 
 
 @router.post("/conversations/{conv_id}/mute", summary="방별 알림 토글")

@@ -38,6 +38,9 @@
 }
 
 .tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
   padding: 7px 14px;
   border: 1px solid var(--line);
@@ -47,6 +50,22 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* 미읽음 배지(init/220) — 칩 안 오른쪽. 활성 칩에서도 같은 색으로 눈에 띈다. */
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--brand-500);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .tab[data-active] {

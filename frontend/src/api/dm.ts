@@ -69,6 +69,7 @@ function transformConversation(raw: any): DmConversation {
           setAt: raw.notice.set_at ?? null,
         }
       : null,
+    boardUnread: raw.board_unread ?? 0,
   };
 }
 
@@ -144,6 +145,7 @@ export async function createConversation(
       communityGroupId: null,
       activeTrades: [],
       notice: null,
+      boardUnread: 0,
     }, 100);
   }
   requireSession();

@@ -6,6 +6,7 @@
 - 본문 금칙어는 400 {"code": "banned_keyword"} (dm.py 와 동일 계약)
 - direct 방은 게시판 자체가 400
 - 목록 쿼리는 소프트삭제(deleted_at) 글을 제외한다
+- 미읽음 배지(220)는 내 글·읽은 글을 세지 않고, 읽음 표시는 UPSERT 다 (비멤버 403)
 
 test_dm_notice.py 스타일 — mock db 로 라우터 함수 직접 호출한다(실 DB 불필요).
 """
@@ -17,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 from sqlalchemy import func
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.models import DmChannelPost, DmChannelPostComment, DmConversation, DmConversationChannel
@@ -55,11 +57,13 @@ def _author(uid, nickname="글쓴이"):
     return user
 
 
-def _result(*, scalar_one=None, scalar_one_or_none=None, rows=None):
+def _result(*, scalar_one=None, scalar_one_or_none=None, rows=None, pairs=None):
     res = MagicMock()
     res.scalar_one.return_value = scalar_one
     res.scalar_one_or_none.return_value = scalar_one_or_none
     res.scalars.return_value.all.return_value = rows if rows is not None else []
+    # pairs: 집계 쿼리처럼 스칼라가 아닌 튜플 행을 돌려주는 결과 (.all())
+    res.all.return_value = pairs if pairs is not None else []
     return res
 
 
@@ -204,6 +208,76 @@ class ReorderChannelTest(_BoardTestBase):
                 await dm_channels.update_channel(
                     self.conv_id, uuid.uuid4(), DmChannelPatchRequest(position=0), db=db, _session_uid=self.me
                 )
+        self.assertEqual(raised.exception.status_code, 403)
+        db.commit.assert_not_awaited()
+
+
+class ChannelUnreadTest(_BoardTestBase):
+    """미읽음 배지(220) — 채널 목록에 집계 한 번을 조인해 싣는다."""
+
+    async def test_channel_list_carries_unread_counts(self):
+        a, b = _channel(self.conv_id), _channel(self.conv_id)
+        b.position = 1
+        db = _db(
+            self.conv,
+            [
+                _result(rows=[a, b]),  # _ordered_channels
+                _result(pairs=[(a.id, 3)]),  # 집계 — 0 인 채널은 행이 없다
+            ],
+        )
+
+        out = await dm_channels.list_channels(self.conv_id, db=db, _session_uid=self.me)
+
+        self.assertEqual([(c.id, c.unread_count) for c in out], [(a.id, 3), (b.id, 0)])
+        # 채널 수와 무관하게 집계는 한 번 — 목록 쿼리 + 집계 쿼리, 둘뿐이다.
+        self.assertEqual(len(db.statements), 2)
+
+    async def test_unread_query_excludes_my_own_and_already_read_posts(self):
+        db = _db(self.conv, [_result(rows=[]), _result(pairs=[])])
+
+        await dm_channels.list_channels(self.conv_id, db=db, _session_uid=self.me)
+
+        sql = str(db.statements[1])
+        self.assertIn("dm_channel_posts.author_id !=", sql)  # 내 글은 미읽음이 아니다
+        self.assertIn("dm_channel_posts.deleted_at IS NULL", sql)  # 지운 글도 아니다
+        self.assertIn("LEFT OUTER JOIN dm_channel_reads", sql)  # 읽음 행이 없어도 채널이 빠지지 않는다
+        # 한 번도 안 읽었으면 워터마크는 입장 시각 — 입장 전 과거 글은 미읽음이 아니다(dm.py 규약)
+        self.assertIn("coalesce(dm_channel_reads.last_read_at, dm_conversation_members.joined_at)", sql)
+        self.assertIn("JOIN dm_conversation_members", sql)
+        self.assertNotIn("-infinity", sql)
+        self.assertIn("GROUP BY dm_channel_posts.channel_id", sql)
+
+
+class MarkChannelReadTest(_BoardTestBase):
+    """읽음 표시 — 멤버 누구나, 자기 행만. 두 번 눌러도 UPSERT 라 중복 행이 없다."""
+
+    async def test_member_marks_a_channel_read(self):
+        channel = _channel(self.conv_id)
+        db = _db(self.conv, [_result(scalar_one_or_none=channel)])
+
+        await dm_channels.mark_channel_read(self.conv_id, channel.id, db=db, _session_uid=self.me)
+
+        # ON CONFLICT 는 postgresql 방언에서만 렌더된다 — 기본 방언으로는 문자열화되지 않는다.
+        sql = str(db.statements[-1].compile(dialect=postgresql.dialect()))
+        self.assertIn("INSERT INTO dm_channel_reads", sql)
+        self.assertIn("ON CONFLICT (channel_id, user_id) DO UPDATE", sql)
+        db.commit.assert_awaited_once()
+
+    async def test_channel_from_another_room_is_404(self):
+        db = _db(self.conv, [_result(scalar_one_or_none=None)])  # _get_channel
+
+        with self.assertRaises(HTTPException) as raised:
+            await dm_channels.mark_channel_read(self.conv_id, uuid.uuid4(), db=db, _session_uid=self.me)
+        self.assertEqual(raised.exception.status_code, 404)
+        db.commit.assert_not_awaited()
+
+    async def test_non_member_cannot_mark_read(self):
+        with patch.object(
+            dm_channels, "require_member", AsyncMock(side_effect=HTTPException(status_code=403, detail="Not a member"))
+        ):
+            db = _db(self.conv, [])
+            with self.assertRaises(HTTPException) as raised:
+                await dm_channels.mark_channel_read(self.conv_id, uuid.uuid4(), db=db, _session_uid=self.me)
         self.assertEqual(raised.exception.status_code, 403)
         db.commit.assert_not_awaited()
 

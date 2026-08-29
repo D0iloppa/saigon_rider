@@ -13,6 +13,8 @@ export interface DmChannel {
   name: string;
   position: number;
   createdAt: string;
+  /** 내가 마지막으로 읽은 뒤 남이 쓴 글 수 (init/220). 댓글은 세지 않는다. */
+  unreadCount: number;
 }
 
 export interface DmChannelPost {
@@ -35,6 +37,7 @@ function transformChannel(raw: any): DmChannel {
     name: raw.name,
     position: raw.position ?? 0,
     createdAt: raw.created_at,
+    unreadCount: raw.unread_count ?? 0,
   };
 }
 
@@ -98,6 +101,11 @@ export async function deleteChannel(conversationId: string, channelId: string): 
     'bff',
     { rethrow: true },
   );
+}
+
+/** 채널 읽음 표시 (init/220) — 배지를 끄는 부수효과일 뿐이라 실패해도 화면을 막지 않는다(rethrow 안 함). */
+export async function markChannelRead(conversationId: string, channelId: string): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/channels/${channelId}/read`, { method: 'PUT' });
 }
 
 export async function fetchChannelPosts(

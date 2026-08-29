@@ -981,7 +981,8 @@
   "commentCancelReply": "답글 취소",
   "commentDelete": "삭제",
   "commentDeleteConfirm": "이 댓글을 삭제할까요?",
-  "commentDeleted": "삭제된 댓글이에요"
+  "commentDeleted": "삭제된 댓글이에요",
+  "unread": "읽지 않은 글 {{n}}개"
 },
 "unknownMember": "알 수 없음",
 "noticeSet": "공지로 등록",

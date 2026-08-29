@@ -47,6 +47,22 @@ def _fake_cache():
     return store, _get, _set
 
 
+class DecayDistanceTest(unittest.TestCase):
+    """P2 회귀 — `_decay_distance` 단위테스트(보간 중 거리 동결 수정)."""
+
+    def test_scales_proportionally_with_eta_ratio(self):
+        self.assertEqual(eta._decay_distance(200, 3000, 170), 2550)
+
+    def test_no_prev_eta_keeps_distance_unchanged(self):
+        self.assertEqual(eta._decay_distance(None, 3000, None), 3000)
+
+    def test_zero_prev_eta_keeps_distance_unchanged(self):
+        self.assertEqual(eta._decay_distance(0, 3000, 0), 3000)
+
+    def test_eta_reaches_zero_collapses_distance_to_zero(self):
+        self.assertEqual(eta._decay_distance(60, 1000, 0), 0)
+
+
 class GridKeyTest(unittest.TestCase):
     def test_same_point_same_grid(self):
         self.assertEqual(eta.grid_key(10.771234, 106.691234), eta.grid_key(10.771300, 106.691300))
@@ -159,7 +175,9 @@ class ComputeForMembersTest(unittest.IsolatedAsyncioTestCase):
             await eta._compute_for_members(channel_id, 10.8, 106.8, [member], "http://engine", now)
         route_mock.assert_not_awaited()
         self.assertEqual(member.eta_s, 70)
-        self.assertEqual(member.distance_m, 500)
+        # P2 회귀: distance_m 도 ETA 와 같은 비율로 감소한다 (500 * 70/100 = 350) — 이전엔 캐시값
+        # 500 그대로 얼어붙었다.
+        self.assertEqual(member.distance_m, 350)
 
     async def test_rate_limit_two_pings_within_60s_call_engine_once(self):
         """§5-2/완료기준3 — 같은 격자에서 60초 안 재호출은 캐시로 흡수돼 엔진 호출 1회 이하."""
@@ -218,7 +236,9 @@ class HardGateTest(unittest.IsolatedAsyncioTestCase):
             await eta._compute_for_members(channel_id, 10.8, 106.8, [member], "http://engine", now)
 
         self.assertEqual(member.eta_s, 170)  # 200 - 30 보간
-        self.assertEqual(member.distance_m, 3000)  # 직전 값 유지(격자 변경과 무관하게 재계산 안 함)
+        # P2 회귀: distance_m 도 같은 비율로 감소 (3000 * 170/200 = 2550) — 격자 변경과 무관하게
+        # 재계산은 안 하지만(엔진 호출 없음), 보간값은 얼어붙지 않아야 한다.
+        self.assertEqual(member.distance_m, 2550)
 
     async def test_gate_expires_after_60s_and_recomputes(self):
         channel_id = uuid.uuid4()

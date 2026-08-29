@@ -709,30 +709,69 @@ class SseCloseOnLeaveTest(unittest.IsolatedAsyncioTestCase):
 
 
 class IsActiveMemberTest(unittest.IsolatedAsyncioTestCase):
-    """P1 — SSE keepalive tick 재확인에 쓰는 헬퍼의 3가지 결과."""
+    """P1 — SSE keepalive tick 재확인에 쓰는 헬퍼. left_at/ended_at 3가지 결과 +
+    (이중 방어 추가분) 대화방 멤버십(direct 차단/그룹 멤버십 상실) 재확인."""
 
-    def _db_returning(self, row):
+    def _db_returning(self, row, *, conv=None):
         db = AsyncMock()
         result = MagicMock()
         result.first.return_value = row
         db.execute = AsyncMock(return_value=result)
+        db.get = AsyncMock(return_value=conv)
         return db
 
     async def test_active_member_returns_true(self):
-        db = self._db_returning((None, None))
-        self.assertTrue(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
+        conv_id = uuid.uuid4()
+        me, peer = uuid.uuid4(), uuid.uuid4()
+        conv = SimpleNamespace(id=conv_id, conversation_type="direct", participant_1=me, participant_2=peer)
+        db = self._db_returning((None, None, conv_id), conv=conv)
+        with patch.object(lc, "require_unblocked", AsyncMock(return_value=None)):
+            self.assertTrue(await lc._is_active_member(db, uuid.uuid4(), me))
 
     async def test_left_member_returns_false(self):
-        db = self._db_returning((datetime.now(UTC), None))
+        db = self._db_returning((datetime.now(UTC), None, uuid.uuid4()))
         self.assertFalse(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
 
     async def test_ended_channel_returns_false(self):
-        db = self._db_returning((None, datetime.now(UTC)))
+        db = self._db_returning((None, datetime.now(UTC), uuid.uuid4()))
         self.assertFalse(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
 
     async def test_no_row_returns_false(self):
         db = self._db_returning(None)
         self.assertFalse(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
+
+    async def test_conversation_gone_returns_false(self):
+        conv_id = uuid.uuid4()
+        db = self._db_returning((None, None, conv_id), conv=None)
+        self.assertFalse(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
+
+    async def test_blocked_direct_pair_returns_false(self):
+        """이중 방어 — 1:1 차단 발생 후 다음 keepalive tick 이 이를 감지해 스트림을 끊는다."""
+        conv_id = uuid.uuid4()
+        me, peer = uuid.uuid4(), uuid.uuid4()
+        conv = SimpleNamespace(id=conv_id, conversation_type="direct", participant_1=me, participant_2=peer)
+        db = self._db_returning((None, None, conv_id), conv=conv)
+        with patch.object(
+            lc, "require_unblocked", AsyncMock(side_effect=HTTPException(status_code=403, detail="blocked"))
+        ):
+            self.assertFalse(await lc._is_active_member(db, uuid.uuid4(), me))
+
+    async def test_group_membership_lost_returns_false(self):
+        """이중 방어 — 그룹방 강퇴 후 다음 keepalive tick 이 이를 감지해 스트림을 끊는다."""
+        conv_id = uuid.uuid4()
+        conv = SimpleNamespace(id=conv_id, conversation_type="group")
+        db = self._db_returning((None, None, conv_id), conv=conv)
+        with patch.object(
+            lc, "require_member", AsyncMock(side_effect=HTTPException(status_code=403, detail="not a member"))
+        ):
+            self.assertFalse(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
+
+    async def test_group_membership_active_returns_true(self):
+        conv_id = uuid.uuid4()
+        conv = SimpleNamespace(id=conv_id, conversation_type="group")
+        db = self._db_returning((None, None, conv_id), conv=conv)
+        with patch.object(lc, "require_member", AsyncMock(return_value=SimpleNamespace(role="member"))):
+            self.assertTrue(await lc._is_active_member(db, uuid.uuid4(), uuid.uuid4()))
 
 
 class BroadcasterUnitTest(unittest.IsolatedAsyncioTestCase):

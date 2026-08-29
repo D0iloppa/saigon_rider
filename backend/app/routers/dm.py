@@ -50,7 +50,7 @@ from ..schemas import (
     Page,
     ReportCreateRequest,
 )
-from ..services import funnel_events, noti_events, walkie_recording_presence
+from ..services import funnel_events, location_channel_membership, noti_events, walkie_recording_presence
 from ..services.banned_keywords import banned_keywords as _banned_keywords
 from ..services.dm_policy import (
     require_invite_eligible,
@@ -1374,6 +1374,9 @@ async def remove_member(
     target.left_at = datetime.now(UTC)
     conv.member_count = max(conv.member_count - 1, 0)
     await db.commit()
+    # 위치공유 채널 P0: 강퇴/자발적 나가기로 방 멤버십을 잃으면 활성 위치채널도 즉시 이탈 처리한다
+    # (그대로 두면 이미 열린 SSE 스트림이 계속 상대 좌표를 수신한다 — §7 개인정보 불변식).
+    await location_channel_membership.force_leave(db, conv_id, user_id, reason="kicked_or_left")
     return {"ok": True}
 
 
@@ -1517,6 +1520,8 @@ async def ban_member(
         conv.member_count = max(conv.member_count - 1, 0)
 
     await db.commit()
+    # 위치공유 채널 P0: 밴도 강퇴와 동일하게 활성 위치채널 이탈 처리(§7 개인정보 불변식).
+    await location_channel_membership.force_leave(db, conv_id, body.user_id, reason="banned")
     return {"ok": True}
 
 

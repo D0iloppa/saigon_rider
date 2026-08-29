@@ -22,7 +22,7 @@ import {
 } from '@/api/locationChannel';
 import { toast } from '@/components/ui/Toast';
 import { formatDistance } from '@/lib/format';
-import { haversineM } from './useLiveLocationChannelRuntime';
+import { haversineM } from './liveActivityState';
 import { DestinationProposalCard } from './DestinationProposalCard';
 import sys from '@/styles/system.module.css';
 import styles from './LiveLocationModal.module.css';

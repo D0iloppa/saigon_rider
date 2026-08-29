@@ -11,7 +11,7 @@ import type { LocationChannelMember, LocationChannelState } from '@/api/location
  * ('ended' 는 이 함수가 만들지 않는다 — 채널 종료 시 호출부가 리터럴로 붙인다.)
  */
 
-/** 지구 대원거리(m) — `haversineM` 단일 정의처(런타임 훅이 이 값을 재사용한다). */
+/** 지구 대원거리(m) — `haversineM` 단일 정의처(모달/런타임 훅이 이 값을 직접 import 한다). */
 export function haversineM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371e3;
   const p1 = (a.lat * Math.PI) / 180;

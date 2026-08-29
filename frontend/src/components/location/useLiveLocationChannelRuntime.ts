@@ -29,8 +29,6 @@ const PING_MIN_MOVE_M = 10;
 /** Live Activity `update()` 디바운스 — LA 갱신 빈도 제한(§Phase 3 A-3). 서버 push 가 주 경로, 이건 포그라운드 보조. */
 const LA_UPDATE_DEBOUNCE_MS = 5_000;
 
-export { haversineM };
-
 /**
  * 실시간 위치공유 채널 런타임 — 앱 전역 1곳(플로팅 버튼)에서만 호출한다.
  *

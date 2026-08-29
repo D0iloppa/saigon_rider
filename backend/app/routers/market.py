@@ -73,7 +73,7 @@ from ..schemas import (
     SellerBrief,
     TradeHistoryItem,
 )
-from ..services import funnel_events, noti_events
+from ..services import funnel_events, location_channel_membership, noti_events
 from ..services.ad_exposure import build_exposure_sequence
 from ..services.banned_keywords import banned_keywords
 from ..services.dm_policy import require_participant, require_unblocked
@@ -1260,6 +1260,20 @@ async def block_user(
     if await db.get(UserBlock, {"blocker_id": session_uid, "blocked_id": user_id}) is None:
         db.add(UserBlock(blocker_id=session_uid, blocked_id=user_id))
         await db.commit()
+        # 위치공유 채널 P0: 1:1 차단 시 그 둘의 direct 대화방에 활성 위치채널이 있으면 즉시 종료
+        # 한다(§7 개인정보 불변식) — 재연결만 403 으로 막고 이미 열린 SSE 스트림은 그대로 두면 안 됨.
+        p1, p2 = sorted([session_uid, user_id])
+        direct_conv_id = (
+            await db.execute(
+                select(DmConversation.id).where(
+                    DmConversation.participant_1 == p1,
+                    DmConversation.participant_2 == p2,
+                    DmConversation.conversation_type == "direct",
+                )
+            )
+        ).scalar_one_or_none()
+        if direct_conv_id is not None:
+            await location_channel_membership.end_for_block(db, direct_conv_id)
 
 
 @router.delete("/users/{user_id}/block", status_code=204, summary="사용자 차단 해제")

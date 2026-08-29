@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database import get_db
+from ..database import AsyncSessionLocal, get_db
 from ..deps import verify_user_session
 from ..models import (
     DmConversation,
@@ -161,17 +161,39 @@ async def _member_and_channel_for_ping(
 
 
 async def _is_active_member(db: AsyncSession, channel_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-    """SSE keepalive tick 마다 재확인하는 멤버십(§P1) — left_at IS NULL & 채널 ended_at IS NULL."""
+    """SSE keepalive tick 마다 재확인하는 멤버십(§P1) — left_at IS NULL & 채널 ended_at IS NULL
+    **+ 대화방 멤버십(dm_policy.require_member / direct participant + unblocked)**(이중 방어 —
+    강퇴/차단 시 `location_channel_membership.force_leave`/`end_for_block` 이 실패하거나 그 사이
+    타이밍에 걸치는 경우에도 다음 tick 에서 여기서 걸러낸다)."""
     result = await db.execute(
-        select(LocationChannelMember.left_at, LocationChannel.ended_at)
+        select(LocationChannelMember.left_at, LocationChannel.ended_at, LocationChannel.conversation_id)
         .join(LocationChannel, LocationChannelMember.channel_id == LocationChannel.id)
         .where(LocationChannelMember.channel_id == channel_id, LocationChannelMember.user_id == user_id)
     )
     row = result.first()
     if row is None:
         return False
-    left_at, ended_at = row
-    return left_at is None and ended_at is None
+    left_at, ended_at, conversation_id = row
+    if left_at is not None or ended_at is not None:
+        return False
+
+    conv = await db.get(DmConversation, conversation_id)
+    if conv is None:
+        return False
+    if conv.conversation_type == "direct":
+        if user_id not in (conv.participant_1, conv.participant_2):
+            return False
+        other = conv.participant_2 if conv.participant_1 == user_id else conv.participant_1
+        try:
+            await require_unblocked(db, user_id, other)
+        except HTTPException:
+            return False
+        return True
+    try:
+        await require_member(db, conv, user_id)
+    except HTTPException:
+        return False
+    return True
 
 
 async def _publish(channel_id: uuid.UUID, event_type: str, *, actor_id: uuid.UUID | None, payload: dict) -> None:
@@ -773,6 +795,13 @@ async def channel_events(
         "at": datetime.now(UTC).isoformat(),
         "payload": await _serialize_channel_full(db, channel, session_uid),
     }
+    # (a) 핸드셰이크 검증이 끝났으니 요청 스코프 세션(`get_db`)은 더 쓰지 않는다 — StreamingResponse
+    # 는 클라이언트 연결이 끊길 때까지(최대 CHANNEL_TTL=3h) 살아있어, 그 세션을 그대로 들고 있으면
+    # SSE 클라이언트 수만큼 커넥션 풀이 장기 점유된다(20명 접속 시 20커넥션). keepalive 재확인은
+    # tick 마다 짧은 수명 세션을 열고 닫는다(`services/location_eta.py` 의 독립 세션 패턴과 동일).
+    # FastAPI 의존성 정리 시점에 `get_db` 의 `async with` 블록이 이 세션을 다시 한번 닫으려 하지만
+    # `AsyncSession.close()` 는 멱등이라 이중 close 는 무해하다.
+    await db.close()
 
     async def stream():
         yield f"data: {json.dumps(snapshot_envelope, default=str)}\n\n"
@@ -785,7 +814,9 @@ async def channel_events(
                 except TimeoutError:
                     # P1: 큐에 신호가 없어도 15초마다 멤버십을 재확인한다 — 핸드셰이크 때만
                     # 검사하면 나간 뒤에도(다른 경로로) 계속 수신할 수 있는 문제가 있었다.
-                    if not await _is_active_member(db, channel_id, session_uid):
+                    async with AsyncSessionLocal() as tick_db:
+                        active = await _is_active_member(tick_db, channel_id, session_uid)
+                    if not active:
                         return
                     yield ": keepalive\n\n"
                     continue

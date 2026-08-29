@@ -115,6 +115,19 @@ def _cache_key(channel_id: uuid.UUID, grid: str, dest_lat: float, dest_lng: floa
     return f"lc:eta:{channel_id}:{grid}:{dest_lat:.5f}:{dest_lng:.5f}"
 
 
+def _decay_distance(prev_eta: int | None, prev_dist: int, new_eta: int | None) -> int:
+    """보간 구간(하드게이트/캐시히트)에서 거리도 ETA 와 같은 비율로 줄인다(push 전 리뷰 P2).
+
+    ETA 만 경과시간만큼 줄이고 distance_m 을 이전 값 그대로 두면, 이동 중에도 지도 위 직선거리
+    표시가 최대 60초(_CACHE_TTL_SEC)간 얼어붙는다. `prev_eta` 가 없거나(커버리지 밖) 0 이하면
+    비율을 낼 기준이 없으므로 이전 거리를 그대로 유지한다.
+    """
+    if prev_eta is None or prev_eta <= 0:
+        return prev_dist
+    ratio = (new_eta or 0) / prev_eta
+    return max(0, round(prev_dist * ratio))
+
+
 async def _get_cache(key: str) -> dict | None:
     try:
         client = await get_client()
@@ -234,10 +247,12 @@ async def _compute_for_members(
         if member.eta_computed_at is not None:
             since = (now - member.eta_computed_at).total_seconds()
             if 0 <= since < _CACHE_TTL_SEC:
-                eta_s = member.eta_s
+                prev_eta, prev_dist = member.eta_s, member.distance_m or 0
+                eta_s = prev_eta
                 if eta_s is not None:
                     eta_s = max(0, round(eta_s - since))
-                await _apply(channel_id, member, eta_s, member.distance_m or 0, now)
+                distance_m = _decay_distance(prev_eta, prev_dist, eta_s)
+                await _apply(channel_id, member, eta_s, distance_m, now)
                 continue
 
         cache_key = _cache_key(channel_id, grid_key(lat, lng), dest_lat, dest_lng)
@@ -248,10 +263,12 @@ async def _compute_for_members(
             lock.release()
             cached_at = datetime.fromisoformat(cached["at"])
             elapsed = max(0.0, (now - cached_at).total_seconds())
-            eta_s = cached["etaS"]
+            prev_eta, prev_dist = cached["etaS"], cached["distanceM"]
+            eta_s = prev_eta
             if eta_s is not None:
                 eta_s = max(0, round(eta_s - elapsed))
-            await _apply(channel_id, member, eta_s, cached["distanceM"], now)
+            distance_m = _decay_distance(prev_eta, prev_dist, eta_s)
+            await _apply(channel_id, member, eta_s, distance_m, now)
             continue
         # 캐시 미스 — 락을 쥔 채로 fetch 대상에 등록한다. 다른 태스크가 같은 키를 요청하면
         # 이 락에서 대기했다가, 아래 배치 fetch 가 캐시를 채운 뒤에야 재확인하게 된다.

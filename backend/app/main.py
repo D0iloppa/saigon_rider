@@ -35,6 +35,7 @@ from .routers import (
     internal,
     inventory,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
     live_activities,
+    location_channels,
     map,
     market,
     master,
@@ -315,6 +316,7 @@ app.include_router(ad_contract.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(dm_channels.router, prefix="/api")  # 대화방 게시판 (init/218)
+app.include_router(location_channels.router, prefix="/api")  # 실시간 위치공유 채널 (260829 Phase 1)
 app.include_router(tracking.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")
 app.include_router(app_version.config_router, prefix="/api")

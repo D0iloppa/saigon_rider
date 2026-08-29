@@ -1717,6 +1717,99 @@ class MarketplaceLocationShare(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class LocationChannel(Base):
+    """실시간 위치공유 채널 — 대화방당 활성 채널 최대 1개 (init/223, 260829 설계 SoT §3-1)."""
+
+    __tablename__ = "location_channels"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="SET NULL"), nullable=True
+    )
+    dest_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    dest_lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    dest_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    members: Mapped[list["LocationChannelMember"]] = relationship(
+        "LocationChannelMember", back_populates="channel", lazy="selectin"
+    )
+
+
+class LocationChannelMember(Base):
+    """채널 참가자 — 최신 좌표 1건만 보관(이력 미보관). 이탈/채널종료 시 좌표 즉시 NULL (init/223)."""
+
+    __tablename__ = "location_channel_members"
+
+    channel_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("location_channels.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consent_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    lng: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    accuracy_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    heading: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speed_mps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    located_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    eta_s: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    distance_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    eta_computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    channel: Mapped["LocationChannel"] = relationship("LocationChannel", back_populates="members")
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], lazy="selectin")
+
+
+class LocationChannelDestProposal(Base):
+    """목적지 변경 제안 (init/223). Phase 1 은 테이블만 — API 는 Phase 2."""
+
+    __tablename__ = "location_channel_dest_proposals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    channel_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("location_channels.id", ondelete="CASCADE"), nullable=False
+    )
+    proposed_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class LocationChannelDestVote(Base):
+    """목적지 변경 제안에 대한 참가자별 응답 (init/223). Phase 1 은 테이블만."""
+
+    __tablename__ = "location_channel_dest_votes"
+
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("location_channel_dest_proposals.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    accept: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    voted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class LiveActivityToken(Base):
     """iOS Live Activity 원격 갱신 푸시토큰 — Activity 별 발급, 사용자·종류·대상당 1행 (init/216).
     ai-docs/task/active/260829_live_activity_task.md Phase 3."""

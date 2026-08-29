@@ -300,6 +300,8 @@ export interface DmAppointmentMeta {
   playedAt?: string;
   /** message_type === 'walkie_invite' | 'location_share_invite' 일 때 시작한 사람의 표시이름. */
   invitedByName?: string;
+  /** message_type === 'location_share_invite' 일 때 실시간 위치공유 채널 id (2026-08-29 채널 모델). */
+  channelId?: string;
   /** message_type === 'system' 의 종류 — init/214 병합 경계는 'listing_divider', init/217 공지 등록은 'notice_set'. */
   kind?: string;
   /** kind === 'notice_set' 일 때 공지를 등록한 사람의 표시이름. */

@@ -69,6 +69,10 @@ import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import OsmMap from '@/components/maps/OsmMap';
 import { requireServiceLocation } from '@/lib/serviceLocation';
 import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
+import { LocationShareConsentModal } from '@/components/dm/LocationShareConsentModal';
+import { createOrJoinLocationChannel, httpStatusOf } from '@/api/locationChannel';
+import { useLocationChannelStore } from '@/store/useLocationChannelStore';
+import { sendLocationShareInvite } from '@/lib/locationShareInvite';
 import styles from './DmDetail.module.css';
 
 const PAGE_SIZE = 50;
@@ -154,6 +158,11 @@ export default function DmDetail() {
   const [editText, setEditText] = useState('');
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [locationShareSheetOpen, setLocationShareSheetOpen] = useState(false);
+  // 실시간 위치공유 채널(2026-08-29 채널 모델) — 동의 모달 → 채널 생성/참가. 시작 컨텍스트(약속·목적지)를 들고 있다.
+  const [liveConsentCtx, setLiveConsentCtx] = useState<{ appointmentId?: string; dest?: { lat: number; lng: number; name?: string }; sendInvite: boolean } | null>(null);
+  const liveChannelConversationId = useLocationChannelStore((s) => s.conversationId);
+  const setLiveChannel = useLocationChannelStore((s) => s.setChannel);
+  const openLiveModal = useLocationChannelStore((s) => s.setModalOpen);
   // 현재위치 카드 탭 시 지도를 띄울 좌표 — 시트 1개를 재사용한다(버블마다 지도를 만들지 않기 위해).
   const [pinPreview, setPinPreview] = useState<{ lat: number; lng: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -808,6 +817,46 @@ export default function DmDetail() {
   };
 
   /**
+   * 실시간 위치공유 채널 시작/참가 플로우 (2026-08-29 채널 모델, 설계 §7-1: 참가 = 명시적 동의).
+   * '+' 실시간위치 / 헤더 '위치 공유하기' / 약속카드 '위치공유' / 초대카드 '참여하기' 가 전부 여기로 온다.
+   * 이미 이 방 채널에 참가 중이면 동의 없이 모달만 연다.
+   */
+  const startLiveLocation = (ctx: { appointmentId?: string; dest?: { lat: number; lng: number; name?: string }; sendInvite: boolean }) => {
+    if (liveChannelConversationId === conversationId) {
+      openLiveModal(true);
+      return;
+    }
+    setLiveConsentCtx(ctx);
+  };
+
+  const handleLiveConsent = async (consentVersion: string) => {
+    const ctx = liveConsentCtx;
+    setLiveConsentCtx(null);
+    if (!ctx || !conversationId) return;
+    try {
+      const state = await createOrJoinLocationChannel(conversationId, {
+        consentVersion,
+        dest: ctx.dest,
+        appointmentId: ctx.appointmentId,
+      });
+      setLiveChannel(state);
+      openLiveModal(true);
+      // 상대는 채널이 열린 걸 모를 수 있으므로 초대카드를 보낸다(생성 시에만 — 참가 시엔 보내지 않는다).
+      if (ctx.sendInvite) {
+        const msg = await sendLocationShareInvite(conversationId, user?.nickname, state.id);
+        if (msg) applyIncoming([msg]);
+      }
+    } catch (err) {
+      const status = httpStatusOf(err);
+      toast.error(
+        status === 410
+          ? t('liveLocation.ended', { defaultValue: '위치공유 채널이 종료됐어요' })
+          : t('liveLocation.openError', { defaultValue: '채널을 열 수 없어요' }),
+      );
+    }
+  };
+
+  /**
    * 현재위치 공유(2026-08-29, 대표 지시) — 실시간 위치공유와 **별개 기능**이다.
    * 실시간 공유가 세션 동안 좌표를 계속 갱신하는 반면, 이건 "지금 이 지점" 한 장을 카드로
    * 보내고 끝난다("저 여기 있어요"). 그래서 약속·동의절차·TTL 이 전혀 없다.
@@ -1226,10 +1275,14 @@ export default function DmDetail() {
                         {cancelLabel}
                       </button>
                     )}
-                    {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만 — 위치공유 시트는 그 약속에 바인딩된다 */}
+                    {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만 — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소) */}
                     {appt?.id === currentAppointmentId && (
                       <button className={styles.apptBtnGhost} type="button"
-                        onClick={() => setLocationShareSheetOpen(true)}>
+                        onClick={() => startLiveLocation({
+                          appointmentId: appt.id,
+                          dest: hasCoords ? { lat: lat!, lng: lng!, ...(placeText ? { name: placeText } : {}) } : undefined,
+                          sendInvite: true,
+                        })}>
                         <MapPin size={14} /> {t('dm.locationShare', { defaultValue: '위치공유' })}
                       </button>
                     )}
@@ -1421,7 +1474,8 @@ export default function DmDetail() {
             );
           }
           if (m.messageType === 'location_share_invite') {
-            // 워키토키 초대카드와 같은 골격 재사용(styles.walkieInvite*) — "참여"개념이 없어 버튼은 시트를 열 뿐이다.
+            // 워키토키 초대카드와 같은 골격 재사용(styles.walkieInvite*). "참여하기" → 동의 → 채널 참가(2026-08-29 채널 모델).
+            const liveJoined = liveChannelConversationId === conversationId;
             return (
               <div key={m.id} className={`${styles.walkieInviteCard} ${isMine ? styles.walkieInviteMine : styles.walkieInviteTheirs}`}>
                 <div className={styles.walkieInviteHead}>
@@ -1430,13 +1484,17 @@ export default function DmDetail() {
                     {t('locationShare.inviteCardText', { name: m.meta?.invitedByName ?? '', defaultValue: '{{name}}님이 위치공유를 시작했어요' })}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className={styles.walkieInviteJoinBtn}
-                  onClick={() => setLocationShareSheetOpen(true)}
-                >
-                  {t('locationShare.inviteOpenBtn', { defaultValue: '보기' })}
-                </button>
+                {liveJoined ? (
+                  <span className={styles.walkieInviteJoined}>{t('liveLocation.inviteJoined', { defaultValue: '참여 중' })}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.walkieInviteJoinBtn}
+                    onClick={() => startLiveLocation({ sendInvite: false })}
+                  >
+                    {t('liveLocation.inviteJoinBtn', { defaultValue: '참여하기' })}
+                  </button>
+                )}
                 <div className={styles.walkieInviteTime}>{formatRelativeTime(m.createdAt)}</div>
               </div>
             );
@@ -1587,15 +1645,13 @@ export default function DmDetail() {
             label: t('dm.sendCurrentLocation', { defaultValue: '현재위치' }),
             onPress: handleSendCurrentLocation,
           },
-          // 실시간 위치공유 — 헤더 "..." 메뉴의 '위치 공유하기'와 동일 동작(같은 시트). direct 전용, 약속과 독립.
-          ...(isDirect
-            ? [{
-                key: 'location',
-                icon: <MapPin size={26} strokeWidth={1.8} />,
-                label: t('dm.locationShare', { defaultValue: '실시간위치' }),
-                onPress: () => setLocationShareSheetOpen(true),
-              }]
-            : []),
+          // 실시간 위치공유 채널(2026-08-29) — 헤더 "..." 메뉴의 '위치 공유하기'와 동일 플로우. 1:1·그룹 모두(D2), 약속과 독립.
+          {
+            key: 'location',
+            icon: <MapPin size={26} strokeWidth={1.8} />,
+            label: t('dm.locationShare', { defaultValue: '실시간위치' }),
+            onPress: () => startLiveLocation({ sendInvite: true }),
+          },
           // 가격제안 — direct 전용. 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
           ...(isDirect && listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId
             ? [{
@@ -1709,7 +1765,7 @@ export default function DmDetail() {
             <button
               className={styles.reportItem}
               type="button"
-              onClick={() => { setMoreSheetOpen(false); setLocationShareSheetOpen(true); }}
+              onClick={() => { setMoreSheetOpen(false); startLiveLocation({ sendInvite: true }); }}
             >
               {t('dm.moreMenuLocationShare', { defaultValue: '위치 공유하기' })}
             </button>
@@ -1758,7 +1814,14 @@ export default function DmDetail() {
         )}
       </BottomSheet>
 
-      {/* 위치공유 위젯 — 약속과 독립(2026-08-29). 항상-보임이 아니라 이 메뉴로 열고 닫는다 */}
+      {/* 실시간 위치공유 채널 참가 동의(v2) — 동의 시 채널 생성/참가 → 플로팅 버튼·모달 */}
+      <LocationShareConsentModal
+        open={liveConsentCtx != null}
+        onConsent={handleLiveConsent}
+        onClose={() => setLiveConsentCtx(null)}
+      />
+
+      {/* (Phase 3 폐기 예정) 구 위치공유 위젯 시트 — 진입점은 채널 플로우로 교체됐고 열리는 경로는 남아있지 않다 */}
       <BottomSheet open={locationShareSheetOpen} onClose={() => setLocationShareSheetOpen(false)}>
         {isDirect && conversationId && (
           <DealLiveActions

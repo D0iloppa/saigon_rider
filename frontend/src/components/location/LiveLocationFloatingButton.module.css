@@ -1,0 +1,65 @@
+/* 실시간 위치공유 플로팅 버튼 — 워키토키 캡슐과 같은 딥블랙 계열(공존 시 한 가족으로 읽히게).
+ * blur 없음(design-system §6), 그림자 1겹. position: fixed + transform 이동(reflow 없음). */
+.bubble {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-900);
+  color: var(--brand-300);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bubble:active {
+  opacity: 0.85;
+}
+
+.bubble[data-dragging] {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+}
+
+/* 참가자 수 배지 — 우상단 */
+.badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--ink-900);
+}
+
+/* SSE 연결 dot — 좌하단. 연결되면 초록, 아니면 회색. */
+.liveDot {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1.5px solid var(--ink-900);
+}
+
+.bubble[data-connected] .liveDot {
+  background: var(--success);
+}

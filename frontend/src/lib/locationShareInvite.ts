@@ -9,11 +9,13 @@ import type { DmMessage } from '@/api/types';
 export async function sendLocationShareInvite(
   conversationId: string,
   nickname: string | undefined,
+  /** 실시간 위치공유 채널(2026-08-29) id — 초대카드 "참여하기"가 이 채널에 참가한다. */
+  channelId?: string,
 ): Promise<DmMessage | null> {
   try {
     return await sendMessage(conversationId, '', {
       messageType: 'location_share_invite',
-      meta: { invitedByName: nickname ?? '' },
+      meta: { invitedByName: nickname ?? '', ...(channelId ? { channelId } : {}) },
     });
   } catch {
     return null;

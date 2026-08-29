@@ -1433,6 +1433,32 @@ class LocationShareStatusOut(BaseModel):
     expires_at: datetime | None = None
 
 
+class LocationChannelDestIn(BaseModel):
+    lat: float
+    lng: float
+    name: str | None = None
+
+
+class LocationChannelCreateRequest(BaseModel):
+    consent_version: str
+    dest: LocationChannelDestIn | None = None
+    appointment_id: UUID | None = None
+
+
+class LocationChannelPingRequest(BaseModel):
+    lat: float
+    lng: float
+    accuracy_m: int
+    heading: float | None = None
+    speed_mps: float | None = None
+
+
+class LocationChannelDestinationRequest(BaseModel):
+    lat: float
+    lng: float
+    name: str | None = None
+
+
 class PriceOfferOut(BaseModel):
     id: UUID
     listing_id: UUID

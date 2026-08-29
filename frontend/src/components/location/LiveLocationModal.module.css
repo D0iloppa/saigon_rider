@@ -1,0 +1,201 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 2px 8px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  flex: none;
+}
+
+.title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* 연결 상태 — 회색(연결 중) / 초록(실시간). */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.live[data-on] {
+  color: var(--success);
+}
+
+.live[data-on] i {
+  background: var(--success);
+}
+
+.mapWrap {
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  height: 42vh;
+  min-height: 240px;
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+}
+
+.destRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.destIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex: none;
+}
+
+.destBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.destName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.destMeta {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.destEmpty {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.memberRow:last-child {
+  border-bottom: none;
+}
+
+.memberBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.memberName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.phase[data-phase='waiting'] {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.phase[data-phase='moving'] {
+  color: var(--brand-600);
+  font-weight: 600;
+}
+
+.emptyRow {
+  padding: 14px;
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* 나가기 — 보조 액션(주 액션 오렌지 1개 원칙). 위험 의미이므로 danger 텍스트. */
+.leaveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.leaveBtn:active {
+  background: var(--surface-2);
+}
+
+.leaveBtn:disabled {
+  opacity: 0.5;
+}
+
+.leaveHint {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+}

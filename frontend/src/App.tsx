@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { WalkieTalkieFloatingButton } from '@/components/dm/WalkieTalkieFloatingButton';
+import { LiveLocationFloatingButton } from '@/components/location/LiveLocationFloatingButton';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { preloadRideMapStyle } from '@/lib/rideMapPreload';
@@ -546,6 +547,8 @@ export default function App() {
       {/* 워키토키 플로팅 버블 (A-7) — 대표 지시 2026-08-27: DM 화면을 떠나도 유지되도록 앱 전역 렌더.
           대상 대화·닫힘 상태는 useWalkieTalkieBubbleStore 구독, activeConversationId 가 없으면 내부에서 렌더 스킵. */}
       <WalkieTalkieFloatingButton />
+      {/* 실시간 위치공유 플로팅 🗺️ 버튼 — 워키토키와 나란히 공존(별도 채널). 채널 미참가면 내부에서 렌더 스킵. */}
+      <LiveLocationFloatingButton />
       <AppShell
         isAuthenticated={!!user}
         splashVisible={splashVisible}

@@ -7,4 +7,6 @@
  *
  * 고지문이 바뀌면 이 값을 올려 재동의를 트리거하는 근거로 삼는다(재동의 로직 자체는 이번 범위 아님).
  */
-export const LOCATION_SHARE_CONSENT_VERSION = '2026-08-27-v1';
+// v2 (2026-08-29): 실시간 위치공유 **채널** 참가 동의 — 공유 대상=채널 참가자만·정밀좌표·자동종료
+// (3시간/전원도착 15분/1명 이하)·언제든 나가기=즉시 삭제 (ai-docs/task/active/260829_live_location_channel_task.md §7-1).
+export const LOCATION_SHARE_CONSENT_VERSION = '2026-08-29-v2';

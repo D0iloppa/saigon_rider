@@ -419,6 +419,10 @@ services:
       - "/migrations/222_location_share_standalone.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (222) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/223_location_channels.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (223) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -498,6 +502,7 @@ services:
       - ./database/init/220_dm_channel_reads.sql:/migrations/220_dm_channel_reads.sql:ro
       - ./database/init/221_users_preferred_lang.sql:/migrations/221_users_preferred_lang.sql:ro
       - ./database/init/222_location_share_standalone.sql:/migrations/222_location_share_standalone.sql:ro
+      - ./database/init/223_location_channels.sql:/migrations/223_location_channels.sql:ro
     networks:
       - dev-net
     depends_on:

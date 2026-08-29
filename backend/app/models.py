@@ -1559,6 +1559,49 @@ class DmMessage(Base):
     reply_preview: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
+class DmConversationChannel(Base):
+    """대화방 안의 게시판 채널 (218_dm_channel_board.sql).
+
+    Discord 식 — 방(group/open) 하나에 채널 N개, 채널마다 글 목록. direct 방은 애플리케이션이 막는다.
+    생성·수정·삭제는 운영진(owner/admin)만.
+    """
+
+    __tablename__ = "dm_conversation_channels"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(40), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 개설자가 탈퇴해도 채널은 방의 자산으로 남는다
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DmChannelPost(Base):
+    """채널 게시글 (218_dm_channel_board.sql). 삭제는 소프트삭제 — 조회 시 서버가 필터한다."""
+
+    __tablename__ = "dm_channel_posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    channel_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversation_channels.id", ondelete="CASCADE"), nullable=False
+    )
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    # contents.id 배열 (순서 = 표시 순서). 이미지는 전부 contents 중개 — 여기에 URL 을 담지 않는다.
+    image_content_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    comment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DmMessageReaction(Base):
     """DM 메시지 공감 (Slack 스타일, 고정 팔레트) — 215_dm_message_sync.sql"""
 

@@ -23,6 +23,7 @@ from .routers import (
     contents,
     dev_context,
     dm,
+    dm_channels,
     feed,
     follows,
     gacha,  # noqa: F401 -- [게이미피케이션 잠정보류 — 재개 시 주석 해제] 라우터 include 주석처리로 미사용
@@ -313,6 +314,7 @@ app.include_router(community_groups.router, prefix="/api")
 app.include_router(ad_contract.router, prefix="/api")
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
+app.include_router(dm_channels.router, prefix="/api")  # 대화방 게시판 (init/218)
 app.include_router(tracking.router, prefix="/api")
 app.include_router(app_version.router, prefix="/api")
 app.include_router(app_version.config_router, prefix="/api")

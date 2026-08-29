@@ -399,6 +399,10 @@ services:
       - "/migrations/217_dm_conversation_notice.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (217) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/218_dm_channel_board.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (218) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -473,6 +477,7 @@ services:
       - ./database/init/215_dm_message_sync.sql:/migrations/215_dm_message_sync.sql:ro
       - ./database/init/216_live_activity_tokens.sql:/migrations/216_live_activity_tokens.sql:ro
       - ./database/init/217_dm_conversation_notice.sql:/migrations/217_dm_conversation_notice.sql:ro
+      - ./database/init/218_dm_channel_board.sql:/migrations/218_dm_channel_board.sql:ro
     networks:
       - dev-net
     depends_on:

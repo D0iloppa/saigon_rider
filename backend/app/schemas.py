@@ -1241,6 +1241,46 @@ class DmConversationOut(BaseModel):
     notice: DmNoticeOut | None = None
 
 
+class DmChannelOut(BaseModel):
+    """게시판 채널(218) — 방 안의 Discord 식 채널."""
+
+    id: UUID
+    conversation_id: UUID
+    name: str
+    position: int
+    created_at: datetime
+
+
+class DmChannelCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+
+
+class DmChannelPatchRequest(BaseModel):
+    """이름 변경·순서 이동(둘 다 선택). position 은 옮길 자리(0-based index) — 서버가 전체를 재번호한다."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=40)
+    position: int | None = None
+
+
+class DmChannelPostOut(BaseModel):
+    id: UUID
+    channel_id: UUID
+    author_id: UUID
+    author_nickname: str | None = None
+    author_avatar_url: str | None = None
+    body: str
+    # contents 중개 — 서버가 build_imgproxy_url 로 변환해 내린다(프론트는 <AppImage> 로만 렌더)
+    image_urls: list[str] = []
+    comment_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class DmChannelPostCreateRequest(BaseModel):
+    body: str = Field(min_length=1)
+    image_content_ids: list[UUID] = Field(default_factory=list, max_length=4)
+
+
 class DmRecordingUserOut(BaseModel):
     id: UUID
     nickname: str | None = None

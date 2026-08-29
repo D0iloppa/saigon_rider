@@ -252,7 +252,7 @@ async function realFetchForm<T>(
   endpoint: string,
   body: FormData,
   service: Service = 'bff',
-  _opts: { silent?: boolean; timeoutMs?: number } = {},
+  _opts: { silent?: boolean; rethrow?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const url = `${baseUrl(service)}${endpoint}`;
   const attemptSignal = createAttemptSignal(undefined, _opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -283,7 +283,7 @@ async function realFetchForm<T>(
         console.warn(`[silent] ${message}`);
         return null as T;
       }
-      toast.error(message);
+      if (!_opts.rethrow) toast.error(message);
       throw new Error(message);
     }
     if (res.status === 419) handleSessionError();
@@ -293,7 +293,7 @@ async function realFetchForm<T>(
       console.warn(`[silent] ${message}`);
       return null as T;
     }
-    toast.error(message);
+    if (!_opts.rethrow) toast.error(message);
     throw new Error(message);
   }
   return res.json();

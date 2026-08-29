@@ -269,6 +269,8 @@
 3. **방 사진·이름 변경은 owner/admin 만** — 백엔드 `PATCH /dm/conversations/{id}`(기존) + 프론트 `GroupSettingsSheet`/`DmGroupCreate` 업로드는 앱 표준 `contents/upload` 관용구 재사용.
 4. **공지는 방당 활성 1개** — `dm_conversations.notice_message_id/notice_set_by/notice_set_at`(init/217, 원본 메시지 삭제 시 `ON DELETE SET NULL` 로 소멸). 등록은 멤버 누구나(텍스트 메시지 롱프레스), 해제는 등록자 본인 또는 owner/admin. direct 방은 400. 등록 시 `message_type='system'`·`meta.kind='notice_set'` 카드를 넣고 `updated_at` 워터마크를 함께 세워 5초 폴링에 실린다.
 5. **`system` 메시지 렌더는 `meta.kind` switch + `default: return null`.** 미지 kind 가 빈 말풍선으로 흘러나오던 결함의 재발 방지 — 새 kind 를 추가하면 case 를 함께 추가한다.
+6. **채널형 게시판은 방 전용 테이블이다** — `dm_conversation_channels`·`dm_channel_posts`(init/218). `feed_posts` 에 얹지 않는다: 피드의 모든 목록·검색·인기글 쿼리에 필터를 빠짐없이 넣어야 하고 한 곳 누락 = **사적 방 글 유출**. 모든 게시판 경로는 `require_member`(방 멤버만 읽기·쓰기), direct 방 400, 채널 생성·수정·순서·삭제는 owner/admin, 글 삭제는 작성자 또는 owner/admin. 글 본문은 dm.py 와 동일한 `banned_keywords` 프리필터(400 `banned_keyword`). 삭제는 소프트(`deleted_at`).
+7. **게시판 화면은 `/dm/:id/board`(채널 탭·목록) · `/board/new` · `/board/:postId`** — 진입점은 그룹방 헤더 아이콘 + 방 정보 탭. 화면당 주 액션(오렌지)은 글쓰기 FAB 하나. 댓글(P2, init/219 예정 — `PostComment` 는 `feed_posts` FK 라 재사용 불가)·미읽음 배지(P3)는 후속.
 
 ## Live Activity — 경로안내·거래 잠금화면 카드 (제정 2026-08-29)
 

@@ -89,6 +89,9 @@ const FeedDetail = lazyWithRetry(() => import('@/pages/feed/FeedDetail'));
 const DmList = lazyWithRetry(() => import('@/pages/dm/DmList'));
 const DmDetail = lazyWithRetry(() => import('@/pages/dm/DmDetail'));
 const DmGroupCreate = lazyWithRetry(() => import('@/pages/dm/DmGroupCreate'));
+const DmBoard = lazyWithRetry(() => import('@/pages/dm/DmBoard'));
+const DmBoardCompose = lazyWithRetry(() => import('@/pages/dm/DmBoardCompose'));
+const DmBoardPost = lazyWithRetry(() => import('@/pages/dm/DmBoardPost'));
 
 // 커뮤니티 그룹 (260827 Phase2)
 const GroupList = lazyWithRetry(() => import('@/pages/community/GroupList'));
@@ -600,6 +603,11 @@ export default function App() {
           <Route path="/feed/post/:postId" element={<PrivateRoute><FeedDetail /></PrivateRoute>} />
           <Route path="/dm" element={<PrivateRoute><DmList /></PrivateRoute>} />
           <Route path="/dm/group/new" element={<PrivateRoute><DmGroupCreate /></PrivateRoute>} />
+          {/* 게시판(init/218) — /dm/:id 보다 먼저 둘 필요는 없지만(정적 세그먼트가 우선 매칭),
+              읽는 사람이 셋을 한 묶음으로 보도록 상세 라우트 위에 모아둔다. */}
+          <Route path="/dm/:conversationId/board" element={<PrivateRoute><DmBoard /></PrivateRoute>} />
+          <Route path="/dm/:conversationId/board/new" element={<PrivateRoute><DmBoardCompose /></PrivateRoute>} />
+          <Route path="/dm/:conversationId/board/:postId" element={<PrivateRoute><DmBoardPost /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/community/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
           <Route path="/community/groups/new" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />

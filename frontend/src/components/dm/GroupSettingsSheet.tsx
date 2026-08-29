@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Crown, ShieldCheck, UserMinus, UserPlus, Ban, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Crown, LayoutList, ShieldCheck, UserMinus, UserPlus, Ban, RotateCcw } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
@@ -50,6 +51,7 @@ export default function GroupSettingsSheet({
   onUpdated: (next: DmConversation) => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const me = useUserStore((s) => s.user);
   const [tab, setTab] = useState<Tab>('info');
   const [title, setTitle] = useState(conv?.title ?? '');
@@ -164,6 +166,11 @@ export default function GroupSettingsSheet({
                 {t('dm.settingsManagerOnly', { defaultValue: '방 정보 수정은 운영진만 할 수 있어요' })}
               </p>
             )}
+            {/* 게시판(init/218) — 헤더 아이콘과 같은 목적지. 설정에서 찾는 사람을 위한 두 번째 진입점 */}
+            <button type="button" className={styles.linkRow} onClick={() => navigate(`/dm/${conversationId}/board`)}>
+              <LayoutList size={16} />
+              <span>{t('dm.board.title', { defaultValue: '게시판' })}</span>
+            </button>
           </div>
         )}
 

@@ -107,3 +107,19 @@
   color: var(--danger, #ef3b3b);
   background: rgba(239, 59, 59, 0.08);
 }
+
+/* 게시판 진입 행 (init/218) — 방 정보 탭 하단의 보조 링크 */
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px 0;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}

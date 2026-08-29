@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, ChevronDown, HandCoins, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, ChevronDown, HandCoins, LayoutList, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -916,6 +916,17 @@ export default function DmDetail() {
         title={isDirect ? otherName : roomTitle}
         rightContent={
           <>
+            {/* 게시판(init/218) — direct 방에는 게시판이 없다(서버도 400) */}
+            {!isDirect && (
+              <button
+                className={styles.headerMoreBtn}
+                type="button"
+                onClick={() => navigate(`/dm/${conversationId}/board`)}
+                aria-label={t('dm.board.title', { defaultValue: '게시판' })}
+              >
+                <LayoutList size={21} strokeWidth={2} />
+              </button>
+            )}
             {/* 워키토키 승격(대표 지시 2026-08-28) — 1:1·그룹 공통. "채널 열기"가 아니라
                 "이 방의 채널에 참여"다. 종전엔 "..." 메뉴 안에 묻혀 있어 발견성이 낮았다. */}
             <button

@@ -53,7 +53,12 @@ services:
   # ── Engine: 포트 미노출 + 소스 bind-mount 제거 ──
   engine:
     ports: !reset []
-    volumes: !reset []
+    # 운영 시크릿 파일 — 소스 마운트가 없으므로 ~/secrets 의 파일만 개별 ro 마운트 (agent-guidelines §4 키 파일 보관).
+    #   firebase-credentials.json: FCM 일반 푸시 (06-04 "FCM 푸시 미배선" 해소)
+    #   apns-key.p8: iOS Live Activity 원격 갱신 (260829 Phase 3)
+    volumes: !override
+      - /root/secrets/firebase-credentials.json:/app/firebase-credentials.json:ro
+      - /root/secrets/apns-key.p8:/app/apns-key.p8:ro
 
   # ── Worker: 소스 bind-mount 제거 ──
   worker:

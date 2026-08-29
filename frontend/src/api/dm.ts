@@ -60,6 +60,15 @@ function transformConversation(raw: any): DmConversation {
       thumbnailUrl: t.thumbnail_url ?? null,
       status: t.status,
     })),
+    notice: raw.notice
+      ? {
+          messageId: raw.notice.message_id,
+          content: raw.notice.content ?? null,
+          setBy: raw.notice.set_by ?? null,
+          setByNickname: raw.notice.set_by_nickname ?? null,
+          setAt: raw.notice.set_at ?? null,
+        }
+      : null,
   };
 }
 
@@ -134,6 +143,7 @@ export async function createConversation(
       memberCount: 2,
       communityGroupId: null,
       activeTrades: [],
+      notice: null,
     }, 100);
   }
   requireSession();
@@ -442,11 +452,19 @@ export async function cancelPriceOffer(offerId: string): Promise<PriceOffer> {
 }
 
 // ── 그룹/오픈톡방 (260827 group/open 확장, §3.5) ────────────────────
-export async function createGroupConversation(title: string, memberIds: string[]): Promise<DmConversation> {
+export async function createGroupConversation(
+  title: string,
+  memberIds: string[],
+  photoContentId?: string,
+): Promise<DmConversation> {
   requireSession();
   const raw = await api.realFetch<any>('/dm/conversations/group', {
     method: 'POST',
-    body: JSON.stringify({ title, member_ids: memberIds }),
+    body: JSON.stringify({
+      title,
+      member_ids: memberIds,
+      ...(photoContentId ? { photo_content_id: photoContentId } : {}),
+    }),
   });
   return transformConversation(raw);
 }
@@ -568,6 +586,21 @@ export async function fetchMembers(conversationId: string): Promise<DmMember[]> 
     role: m.role,
     joinedAt: m.joined_at,
   }));
+}
+
+/** 방 공지 등록(멤버 누구나) — 방마다 1건이라 등록하면 이전 공지를 덮어쓴다. */
+export async function setConversationNotice(conversationId: string, messageId: string): Promise<DmConversation> {
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/notice`, {
+    method: 'PUT',
+    body: JSON.stringify({ message_id: messageId }),
+  });
+  return transformConversation(raw);
+}
+
+/** 방 공지 내리기 — 등록자 본인 또는 운영진(owner/admin)만. */
+export async function clearConversationNotice(conversationId: string): Promise<DmConversation> {
+  const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/notice`, { method: 'DELETE' });
+  return transformConversation(raw);
 }
 
 /** 방 제목·사진 변경. */

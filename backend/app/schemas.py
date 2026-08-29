@@ -1199,6 +1199,20 @@ class DmConversationActiveTradeOut(BaseModel):
     status: str
 
 
+class DmNoticeOut(BaseModel):
+    """방 공지(217) — 원본 메시지가 소프트삭제되면 서버가 아예 null 로 내린다."""
+
+    message_id: UUID
+    content: str | None = None
+    set_by: UUID | None = None
+    set_by_nickname: str | None = None
+    set_at: datetime | None = None
+
+
+class DmConversationNoticeRequest(BaseModel):
+    message_id: UUID
+
+
 class DmConversationOut(BaseModel):
     id: UUID
     other_user_id: UUID | None = None
@@ -1223,6 +1237,8 @@ class DmConversationOut(BaseModel):
     community_group_id: UUID | None = None
     # init/214 — 대화방에서 진행 중인 거래(PROPOSED/ACCEPTED). 목록 API 에서만 채워진다.
     active_trades: list[DmConversationActiveTradeOut] = []
+    # init/217 — 방 공지. 단건 조회/공지 API 응답에서만 채워진다(목록에는 싣지 않는다).
+    notice: DmNoticeOut | None = None
 
 
 class DmRecordingUserOut(BaseModel):

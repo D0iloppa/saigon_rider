@@ -1,0 +1,48 @@
+.root {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.img {
+  width: 100%;
+  height: 100%;
+}
+
+/* 이니셜 폴백 — 브랜드 오렌지는 주 액션 전용(design-system §2)이라 보조 토큰의 옅은 틴트만 쓴다 */
+.initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.initial[data-tone='0'] {
+  background: color-mix(in srgb, var(--xp) 18%, var(--surface));
+  color: color-mix(in srgb, var(--xp) 70%, var(--ink-900));
+}
+
+.initial[data-tone='1'] {
+  background: color-mix(in srgb, var(--gc) 18%, var(--surface));
+  color: color-mix(in srgb, var(--gc) 70%, var(--ink-900));
+}
+
+.initial[data-tone='2'] {
+  background: color-mix(in srgb, var(--exp) 18%, var(--surface));
+  color: color-mix(in srgb, var(--exp) 70%, var(--ink-900));
+}
+
+.initial[data-tone='3'] {
+  background: color-mix(in srgb, var(--gold) 18%, var(--surface));
+  color: color-mix(in srgb, var(--gold) 70%, var(--ink-900));
+}
+
+.initial[data-tone='4'] {
+  background: color-mix(in srgb, var(--neon-pink) 18%, var(--surface));
+  color: color-mix(in srgb, var(--neon-pink) 70%, var(--ink-900));
+}

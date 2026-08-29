@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Crown, ShieldCheck, UserMinus, UserPlus, Ban, RotateCcw } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
-import { AppImage } from '@/components/ui/AppImage';
+import { Avatar } from '@/components/ui/Avatar';
+import { RoomPhotoPicker } from '@/components/dm/RoomPhotoPicker';
 import StateBlock from '@/components/ui/StateBlock';
 import { toast } from '@/components/ui/Toast';
+import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchFollowing } from '@/api/follows';
 import {
@@ -97,6 +99,21 @@ export default function GroupSettingsSheet({
       toast.success(t('dm.settingsSaved', { defaultValue: '저장했어요' }));
     });
 
+  // 방 사진: /contents/upload → PATCH photo_content_id (앱 표준 업로드 관용구)
+  const handlePhotoFile = (file: File) => {
+    if (!me) return;
+    void guard(async () => {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('owner_type', 'user');
+      form.append('owner_id', me.id);
+      const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      const next = await patchConversation(conversationId, { photoContentId: id });
+      onUpdated(next);
+      toast.success(t('dm.settingsSaved', { defaultValue: '저장했어요' }));
+    });
+  };
+
   const memberIds = new Set(members.map((m) => m.userId));
   const bannedIds = new Set(bans.map((b) => b.userId));
   const invitable = candidates.filter((c) => !memberIds.has(c.id) && !bannedIds.has(c.id));
@@ -122,6 +139,13 @@ export default function GroupSettingsSheet({
 
         {tab === 'info' && (
           <div className={styles.section}>
+            <RoomPhotoPicker
+              src={conv?.photoUrl}
+              name={title || '?'}
+              seed={conversationId}
+              disabled={!isManager || busy}
+              onFile={handlePhotoFile}
+            />
             <label className={styles.label} htmlFor="group-title">
               {t('dm.groupTitlePlaceholder', { defaultValue: '방 이름' })}
             </label>
@@ -147,7 +171,7 @@ export default function GroupSettingsSheet({
           <div className={styles.section}>
             {members.map((m) => (
               <div key={m.userId} className={styles.row}>
-                <AppImage src={m.avatarUrl ?? undefined} alt="" className={styles.avatar} />
+                <Avatar src={m.avatarUrl} name={m.nickname ?? m.userId} seed={m.userId} size={32} />
                 <span className={styles.name}>
                   {m.nickname ?? m.userId.slice(0, 6)}
                   {m.role === 'owner' && <Crown size={13} className={styles.roleIcon} aria-label="owner" />}
@@ -198,7 +222,7 @@ export default function GroupSettingsSheet({
             ) : (
               invitable.map((c) => (
                 <div key={c.id} className={styles.row}>
-                  <AppImage src={c.avatarUrl ?? undefined} alt="" className={styles.avatar} />
+                  <Avatar src={c.avatarUrl} name={c.nickname ?? c.id} seed={c.id} size={32} />
                   <span className={styles.name}>{c.nickname ?? c.id.slice(0, 6)}</span>
                   <button
                     type="button"
@@ -224,7 +248,7 @@ export default function GroupSettingsSheet({
             ) : (
               bans.map((b) => (
                 <div key={b.userId} className={styles.row}>
-                  <AppImage src={b.avatarUrl ?? undefined} alt="" className={styles.avatar} />
+                  <Avatar src={b.avatarUrl} name={b.nickname ?? b.userId} seed={b.userId} size={32} />
                   <span className={styles.name}>{b.nickname ?? b.userId.slice(0, 6)}</span>
                   <button
                     type="button"

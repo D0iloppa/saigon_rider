@@ -229,6 +229,16 @@ export interface DmConversation {
   communityGroupId: string | null;
   /** 진행 중 거래(PROPOSED/ACCEPTED) — init/214 로 방이 상대당 1개가 되면서 매물 구분을 여기서 드러낸다. */
   activeTrades: DmActiveTrade[];
+  /** 방 공지 (init/217) — 단건 조회에서만 채워진다. 원본이 삭제되면 서버가 null 로 내린다. */
+  notice: DmNotice | null;
+}
+
+export interface DmNotice {
+  messageId: string;
+  content: string | null;
+  setBy: string | null;
+  setByNickname: string | null;
+  setAt: string | null;
 }
 
 /** 대화방에서 진행 중인 거래 1건. status 는 서버가 enum 만 내리고 라벨은 프론트가 i18n 매핑한다. */
@@ -288,8 +298,10 @@ export interface DmAppointmentMeta {
   playedAt?: string;
   /** message_type === 'walkie_invite' 일 때 채널을 연 사람의 표시이름. */
   invitedByName?: string;
-  /** message_type === 'system' 의 종류 — init/214 병합 경계는 'listing_divider'. */
+  /** message_type === 'system' 의 종류 — init/214 병합 경계는 'listing_divider', init/217 공지 등록은 'notice_set'. */
   kind?: string;
+  /** kind === 'notice_set' 일 때 공지를 등록한 사람의 표시이름. */
+  setByName?: string;
   /** kind === 'listing_divider' 일 때 구분자에 표시할 매물 제목. */
   listingTitle?: string;
 }

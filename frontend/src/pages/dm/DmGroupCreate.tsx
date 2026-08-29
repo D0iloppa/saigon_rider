@@ -5,7 +5,9 @@ import { Users } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { Button } from '@/components/ui/Button';
-import { AppImage } from '@/components/ui/AppImage';
+import { Avatar } from '@/components/ui/Avatar';
+import { RoomPhotoPicker } from '@/components/dm/RoomPhotoPicker';
+import { api } from '@/api/client';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchFollowing } from '@/api/follows';
 import { createGroupConversation } from '@/api/dm';
@@ -28,6 +30,14 @@ export default function DmGroupCreate() {
   const [title, setTitle] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  // 방 사진 — 개설 전에 미리 업로드해 content id 만 들고 있다가 생성 요청에 실어보낸다
+  const [photoContentId, setPhotoContentId] = useState<string | undefined>();
+  const [photoPreview, setPhotoPreview] = useState<string | undefined>();
+
+  // 미리보기 blob URL 은 교체·이탈 시 해제한다 (안 하면 세션 내내 메모리에 남는다)
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
 
   useEffect(() => {
     if (!me) return;
@@ -58,11 +68,30 @@ export default function DmGroupCreate() {
     });
   };
 
+  const handlePhotoFile = async (file: File) => {
+    if (!me || submitting) return;
+    setSubmitting(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('owner_type', 'user');
+      form.append('owner_id', me.id);
+      const { id } = await api.realFetchForm<{ id: string }>('/contents/upload', form);
+      setPhotoContentId(id);
+      // 이전 URL 해제는 아래 useEffect 정리 함수가 전담한다(중복 revoke 방지)
+      setPhotoPreview(URL.createObjectURL(file));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!title.trim() || selected.size === 0 || submitting) return;
     setSubmitting(true);
     try {
-      const conv = await createGroupConversation(title.trim(), Array.from(selected));
+      const conv = await createGroupConversation(title.trim(), Array.from(selected), photoContentId);
       navigate(`/dm/${conv.id}`, { replace: true, state: { conv } });
     } catch {
       toast.error(t('common.errorUnexpected'));
@@ -75,6 +104,14 @@ export default function DmGroupCreate() {
     <div className={styles.page}>
       <TopBar title={t('dm.createGroup', { defaultValue: '그룹 만들기' })} />
       <div className={styles.body}>
+        <div className={styles.photoWrap}>
+          <RoomPhotoPicker
+            src={photoPreview}
+            name={title || '?'}
+            disabled={submitting}
+            onFile={handlePhotoFile}
+          />
+        </div>
         <input
           className={styles.titleInput}
           type="text"
@@ -94,7 +131,7 @@ export default function DmGroupCreate() {
                   checked={selected.has(u.id)}
                   onChange={() => toggle(u.id)}
                 />
-                <AppImage src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
+                <Avatar src={u.avatarUrl} name={u.nickname ?? u.id} seed={u.id} size={40} />
                 <span className={styles.name}>{u.nickname ?? 'Unknown'}</span>
               </label>
             ))}

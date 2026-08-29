@@ -262,6 +262,14 @@
 
 ---
 
+## 그룹채팅 표시·공지 (제정 2026-08-29)
+
+1. **아바타 폴백은 `components/ui/Avatar.tsx` 하나로.** `AppImage` 는 src 가 없으면 `/img-error.png` 를 그리므로 사람·방 아바타는 반드시 `<Avatar>`(src 없으면 이름 첫 글자 + seed 해시 틴트) 를 쓴다. 그룹방 seed 는 방 id, 사람은 user id. 브랜드 오렌지는 팔레트에서 제외(주 액션 전용).
+2. **그룹방 타인 메시지에는 발신자 아바타+닉네임을 붙인다** — 같은 발신자의 2분 내 연속 메시지는 첫 말풍선만. 1:1 방과 내 메시지에는 붙이지 않는다(계약 테스트 `groupSenderAvatar.contract.test.mjs`). 데이터는 방 진입 시 멤버 목록 1회 조회(`DmMessageOut` 에 닉네임을 싣지 않는다 — 메시지마다 중복 전송·1:1 낭비). 나간 멤버는 `dm.unknownMember`.
+3. **방 사진·이름 변경은 owner/admin 만** — 백엔드 `PATCH /dm/conversations/{id}`(기존) + 프론트 `GroupSettingsSheet`/`DmGroupCreate` 업로드는 앱 표준 `contents/upload` 관용구 재사용.
+4. **공지는 방당 활성 1개** — `dm_conversations.notice_message_id/notice_set_by/notice_set_at`(init/217, 원본 메시지 삭제 시 `ON DELETE SET NULL` 로 소멸). 등록은 멤버 누구나(텍스트 메시지 롱프레스), 해제는 등록자 본인 또는 owner/admin. direct 방은 400. 등록 시 `message_type='system'`·`meta.kind='notice_set'` 카드를 넣고 `updated_at` 워터마크를 함께 세워 5초 폴링에 실린다.
+5. **`system` 메시지 렌더는 `meta.kind` switch + `default: return null`.** 미지 kind 가 빈 말풍선으로 흘러나오던 결함의 재발 방지 — 새 kind 를 추가하면 case 를 함께 추가한다.
+
 ## Live Activity — 경로안내·거래 잠금화면 카드 (제정 2026-08-29)
 
 > SoT: [`task/active/260829_live_activity_task.md`](../task/active/260829_live_activity_task.md)

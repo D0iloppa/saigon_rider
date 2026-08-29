@@ -8,7 +8,7 @@ import { WalkieTalkieEntryButton } from '@/components/dm/WalkieTalkieEntryButton
 import { fetchConversations } from '@/api/dm';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
-import { AppImage } from '@/components/ui/AppImage';
+import { Avatar } from '@/components/ui/Avatar';
 import { useDmStore } from '@/store/useDmStore';
 import { formatPriceVnd } from '../market/marketFormat';
 import styles from './DmList.module.css';
@@ -53,9 +53,11 @@ export default function DmList() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // group/open 은 photo_url(있으면), 없으면 title 만 — 대표 멤버 아바타 스택은 이 서브태스크 범위 밖(§3.5 최소선)
+  // group/open 은 photo_url(있으면), 없으면 이름 이니셜 — 대표 멤버 아바타 스택은 이 서브태스크 범위 밖(§3.5 최소선)
   const rowAvatar = (c: DmConversation) =>
-    c.conversationType === 'direct' ? (c.otherUserAvatarUrl ?? undefined) : (c.photoUrl ?? undefined);
+    c.conversationType === 'direct' ? c.otherUserAvatarUrl : c.photoUrl;
+  const rowSeed = (c: DmConversation) =>
+    c.conversationType === 'direct' ? (c.otherUserId ?? c.id) : c.id;
   const rowName = (c: DmConversation) =>
     c.conversationType === 'direct' ? (c.otherUserNickname ?? 'Unknown') : (c.title ?? t('dm.group', { defaultValue: '그룹톡방' }));
 
@@ -89,12 +91,7 @@ export default function DmList() {
                 className={styles.row}
                 onClick={() => navigate(`/dm/${c.id}`, { state: { conv: c } })}
               >
-                <AppImage
-                  src={rowAvatar(c)}
-                  alt=""
-                  className={styles.avatar}
-                  variant="circle"
-                />
+                <Avatar src={rowAvatar(c)} name={rowName(c)} seed={rowSeed(c)} size={48} />
                 <div className={styles.info}>
                   <div className={styles.nameRow}>
                     <span className={styles.name}>

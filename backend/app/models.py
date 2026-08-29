@@ -1471,6 +1471,14 @@ class DmConversation(Base):
     )
     member_count: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 217_dm_conversation_notice.sql — 방마다 활성 공지 1건 (direct 방은 사용하지 않는다)
+    notice_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_messages.id", ondelete="SET NULL"), nullable=True
+    )
+    notice_set_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    notice_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DmConversationMember(Base):

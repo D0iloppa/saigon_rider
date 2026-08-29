@@ -31,6 +31,7 @@ from ..schemas import (
     DmBanRequest,
     DmConversationActiveTradeOut,
     DmConversationCreateRequest,
+    DmConversationNoticeRequest,
     DmConversationOut,
     DmConversationPatchRequest,
     DmGroupConversationCreateRequest,
@@ -40,6 +41,7 @@ from ..schemas import (
     DmMessageCreateRequest,
     DmMessageEditRequest,
     DmMessageOut,
+    DmNoticeOut,
     DmPresenceOut,
     DmReactionOut,
     DmRecordingPresenceRequest,
@@ -134,6 +136,23 @@ def _resolve_conv_photo(conv: DmConversation) -> str | None:
     if content and content.file_path:
         return build_imgproxy_url(content.file_path)
     return None
+
+
+async def _resolve_notice(db: AsyncSession, conv: DmConversation) -> DmNoticeOut | None:
+    """방 공지(217) 조립 — 원본이 소프트삭제됐으면 공지가 없는 것으로 본다."""
+    if conv.notice_message_id is None:
+        return None
+    msg = await db.get(DmMessage, conv.notice_message_id)
+    if msg is None or msg.deleted_at is not None:
+        return None
+    setter = await db.get(User, conv.notice_set_by) if conv.notice_set_by else None
+    return DmNoticeOut(
+        message_id=msg.id,
+        content=msg.content,
+        set_by=conv.notice_set_by,
+        set_by_nickname=setter.nickname if setter else None,
+        set_at=conv.notice_set_at,
+    )
 
 
 @router.get("/conversations", response_model=list[DmConversationOut], summary="대화방 목록")
@@ -302,17 +321,7 @@ async def get_conversation(
 
     if conv.conversation_type != "direct":
         await require_member(db, conv, _session_uid)
-        return DmConversationOut(
-            id=conv.id,
-            last_message_preview=None,
-            last_message_at=conv.last_message_at,
-            unread_count=0,
-            conversation_type=conv.conversation_type,
-            title=conv.title,
-            photo_url=_resolve_conv_photo(conv),
-            member_count=conv.member_count,
-            community_group_id=conv.community_group_id,
-        )
+        return _group_conv_out(conv, await _resolve_notice(db, conv))
 
     other_id = require_participant(conv, _session_uid)
     await require_unblocked(db, _session_uid, other_id)
@@ -1157,7 +1166,7 @@ async def report_group_message(
     return {"ok": True}
 
 
-def _group_conv_out(conv: DmConversation) -> DmConversationOut:
+def _group_conv_out(conv: DmConversation, notice: DmNoticeOut | None = None) -> DmConversationOut:
     """group/open 대화방 응답 조립 — 이 항목들은 other_user_* 를 채우지 않는다."""
     return DmConversationOut(
         id=conv.id,
@@ -1169,6 +1178,7 @@ def _group_conv_out(conv: DmConversation) -> DmConversationOut:
         photo_url=_resolve_conv_photo(conv),
         member_count=conv.member_count,
         community_group_id=conv.community_group_id,
+        notice=notice,
     )
 
 
@@ -1607,6 +1617,83 @@ async def update_conversation(
         conv.title = body.title
     if body.photo_content_id is not None:
         conv.photo_content_id = body.photo_content_id
+    await db.commit()
+    await db.refresh(conv)
+    return _group_conv_out(conv, await _resolve_notice(db, conv))
+
+
+@router.put("/conversations/{conv_id}/notice", response_model=DmConversationOut, summary="방 공지 등록")
+async def set_conversation_notice(
+    conv_id: uuid.UUID,
+    body: DmConversationNoticeRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """방마다 활성 공지 1건(217) — 새로 등록하면 이전 공지를 덮어쓴다. 멤버 누구나 등록할 수 있다."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations cannot have a notice")
+    await require_member(db, conv, _session_uid)
+
+    msg = (
+        await db.execute(select(DmMessage).where(DmMessage.id == body.message_id, DmMessage.conversation_id == conv_id))
+    ).scalar_one_or_none()
+    if msg is None or msg.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    # 배너는 본문 텍스트만 렌더한다 — 스티커·사진·시스템 메시지를 걸면 빈 배너가 된다
+    if msg.message_type != "text" or not (msg.content or "").strip():
+        raise HTTPException(status_code=400, detail="Only text messages can be pinned as notice")
+
+    now = datetime.now(UTC)
+    conv.notice_message_id = msg.id
+    conv.notice_set_by = _session_uid
+    conv.notice_set_at = now
+
+    # 등록 사실을 타임라인에 남긴다. created_at=updated_at=now 라 상대 클라이언트의
+    # 워터마크 폴링(after=updated_at)에 이 시스템 메시지가 그대로 실린다.
+    setter = await db.get(User, _session_uid)
+    db.add(
+        DmMessage(
+            conversation_id=conv_id,
+            sender_id=_session_uid,
+            content="",
+            message_type="system",
+            meta={
+                "kind": "notice_set",
+                "noticeMessageId": str(msg.id),
+                "setByName": setter.nickname if setter else "",
+            },
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    conv.last_message_at = now
+    await db.commit()
+    await db.refresh(conv)
+    return _group_conv_out(conv, await _resolve_notice(db, conv))
+
+
+@router.delete("/conversations/{conv_id}/notice", response_model=DmConversationOut, summary="방 공지 내리기")
+async def clear_conversation_notice(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """내리기는 등록자 본인 또는 운영진(owner/admin)만 (대표 판단 2026-08-29)."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.conversation_type == "direct":
+        raise HTTPException(status_code=400, detail="Direct conversations cannot have a notice")
+    actor = await require_member(db, conv, _session_uid)
+    if conv.notice_set_by != _session_uid and actor.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only the setter or owner/admin can clear the notice")
+
+    conv.notice_message_id = None
+    conv.notice_set_by = None
+    conv.notice_set_at = None
     await db.commit()
     await db.refresh(conv)
     return _group_conv_out(conv)

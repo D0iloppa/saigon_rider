@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, HandCoins, MailOpen, MapPin, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, ChevronDown, HandCoins, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -32,6 +32,8 @@ import {
   reportConversation,
   removeMember,
   fetchMembers,
+  setConversationNotice,
+  clearConversationNotice,
   editMessage,
   deleteMessage,
   addReaction,
@@ -61,12 +63,15 @@ import { formatRelativeTime } from '@/lib/format';
 import { playSound } from '@/lib/sound';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
+import { Avatar } from '@/components/ui/Avatar';
 import { formatPriceVnd } from '../market/marketFormat';
 import { DealLiveActions } from '@/components/dm/DealLiveActions';
 import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
 import styles from './DmDetail.module.css';
 
 const PAGE_SIZE = 50;
+/** 그룹 발신자 표시를 묶는 창(카톡 관례) — 같은 사람이 이 안에서 연속 발화하면 한 번만 표시한다. */
+const SENDER_RUN_MS = 2 * 60 * 1000;
 
 /** id 기준 upsert 후 createdAt 오름차순 정렬 — 폴링/캐시/과거분 로드가 전부 이 하나로 합쳐진다. */
 function upsertMessages(prev: DmMessage[], incoming: DmMessage[]): DmMessage[] {
@@ -137,8 +142,12 @@ export default function DmDetail() {
     [messages, actionMsgId],
   );
   const [replyTo, setReplyTo] = useState<DmMessage | null>(null);
-  // 그룹 답장바 이름 — 그룹 메시지에는 발신자 닉네임이 실리지 않아 멤버 목록에서 찾는다 (답장 시 lazy 1회 로드)
+  // 그룹 발신자/답장바 이름 — 그룹 메시지에는 발신자 닉네임이 실리지 않아 멤버 목록에서 찾는다 (방 진입 시 1회 로드)
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [memberAvatars, setMemberAvatars] = useState<Record<string, string | null>>({});
+  // 공지 내리기 권한 판정용 — GroupSettingsSheet 의 isManager 와 같은 기준(owner/admin)
+  const [myRole, setMyRole] = useState<'owner' | 'admin' | 'member' | null>(null);
+  const [noticeExpanded, setNoticeExpanded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
@@ -163,6 +172,12 @@ export default function DmDetail() {
     setMessages((prev) => upsertMessages(prev, items));
     void saveCachedMessages(items);
   }, []);
+
+  // 공지 배너는 conv 스냅샷에서 온다 — 공지가 바뀌는 사건에서만 다시 받는다(폴링마다 X)
+  const refreshConv = useCallback(() => {
+    if (!conversationId) return;
+    fetchConversation(conversationId).then(setConv).catch(() => {});
+  }, [conversationId]);
 
   // 초기 로드 — 로컬 캐시 즉시 렌더 → 워터마크 증분 동기화. 캐시가 없으면 최근 페이지부터.
   // 실패 시 loadError 로 구분해 재시도를 제공 (P1-6: 500/timeout 이 빈 대화로 보이던 버그)
@@ -267,6 +282,8 @@ export default function DmDetail() {
           // "안 받은 과거분 = total - 보유건수" 계산이 뒤로 밀려 과거 구간을 영구히 건너뛴다.
           if (fresh.length > 0 && totalRef.current !== null) totalRef.current += fresh.length;
           if (fresh.some((m) => m.senderId !== uid)) playSound('dm_receive');
+          // 남이 등록한 공지는 이 시스템 메시지로만 알 수 있다 — 배너가 낡지 않게 conv 만 재조회
+          if (fresh.some((m) => m.messageType === 'system' && m.meta?.kind === 'notice_set')) refreshConv();
           if (fresh.length > 0) markRead(conversationId).then(() => refreshUnread()).catch(() => {});
           else skipAutoScrollRef.current = true; // 수정/공감만 온 폴링은 바닥 스냅을 유발하지 않는다
         }
@@ -322,6 +339,23 @@ export default function DmDetail() {
     const voiceRows = voiceItems.map((v) => ({ kind: 'voice' as const, item: v, createdAt: v.createdAt }));
     return [...dmRows, ...voiceRows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }, [messages, voiceItems]);
+
+  // 발신자 헤더 판정의 "직전 메시지" — 화면에 말풍선으로 보이는 직전 것이어야 한다.
+  // system 메시지(구분선·공지 등록 카드)는 말풍선이 아니라 건너뛴다. 음성 버블은 별도
+  // 렌더 경로라 연속 발화를 끊는 것으로 본다(종전 동작 유지).
+  const prevBubbleById = useMemo(() => {
+    const map = new Map<string, DmMessage | null>();
+    let last: DmMessage | null = null;
+    for (const row of feed) {
+      if (row.kind !== 'dm') {
+        last = null;
+        continue;
+      }
+      map.set(row.item.id, last);
+      if (row.item.messageType !== 'system') last = row.item;
+    }
+    return map;
+  }, [feed]);
 
   // 바닥 고정 여부 — 사용자가 위로 스크롤해 과거를 보는 중이면 false (자동 스크롤 중단)
   const pinnedRef = useRef(true);
@@ -712,6 +746,8 @@ export default function DmDetail() {
       skipAutoScrollRef.current = true;
       // updatedAt 도 함께 올린다 — 워터마크 후퇴 방지 (다음 폴링이 서버값으로 정정)
       applyIncoming([{ ...m, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), content: null, imageUrl: null, reactions: m.reactions }]);
+      // 공지 원본을 지우면 서버가 공지를 null 로 해석한다 — 배너도 함께 내린다
+      if (conv?.notice?.messageId === m.id) refreshConv();
     } catch {
       toast.error(t('common.errorUnexpected'));
     }
@@ -783,14 +819,43 @@ export default function DmDetail() {
   const myId = session?.userId ?? user?.id;
   const listing = conv?.contextListing ?? null;
 
-  // 그룹에서 다른 멤버 메시지에 답장할 때 답장바 이름이 비지 않게 멤버 목록을 lazy 로드
+  // 그룹방은 말풍선마다 발신자를 표시해야 하므로 진입 시 1회 멤버 목록을 받는다(답장바 이름도 이걸 쓴다).
+  // 5초 폴링에는 태우지 않는다 — 멤버 변동은 방 재진입 시 반영된다.
   useEffect(() => {
-    if (isDirect || !conversationId || !replyTo) return;
-    if (replyTo.senderId === myId || memberNames[replyTo.senderId] !== undefined) return;
+    if (isDirect || !conversationId) return;
     fetchMembers(conversationId)
-      .then((ms) => setMemberNames(Object.fromEntries(ms.map((mm) => [mm.userId, mm.nickname ?? '']))))
+      .then((ms) => {
+        setMemberNames(Object.fromEntries(ms.map((mm) => [mm.userId, mm.nickname ?? ''])));
+        setMemberAvatars(Object.fromEntries(ms.map((mm) => [mm.userId, mm.avatarUrl])));
+        setMyRole(ms.find((mm) => mm.userId === myId)?.role ?? null);
+      })
       .catch(() => {});
-  }, [replyTo, isDirect, conversationId, myId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDirect, conversationId, myId]);
+
+  // ── 방 공지(init/217) ─────────────────────────────────────────────
+  const notice = conv?.notice ?? null;
+  const canClearNotice = !!notice && (notice.setBy === myId || myRole === 'owner' || myRole === 'admin');
+
+  const handleSetNotice = async (m: DmMessage) => {
+    if (!conversationId) return;
+    setActionMsgId(null);
+    try {
+      setConv(await setConversationNotice(conversationId, m.id));
+      toast.success(t('dm.noticeSetDone', { defaultValue: '공지로 등록했어요' }));
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
+
+  const handleClearNotice = async () => {
+    if (!conversationId) return;
+    try {
+      setConv(await clearConversationNotice(conversationId));
+      setNoticeExpanded(false);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    }
+  };
 
   // 말풍선 아래 공감 카운트 배지 — 탭하면 토글 (텍스트/이미지 버블 공용)
   const renderReactions = (m: DmMessage) =>
@@ -808,6 +873,27 @@ export default function DmDetail() {
         ))}
       </div>
     ) : null;
+
+  // 그룹방 발신자 표시 — 카톡처럼 같은 사람이 2분 내 연속으로 말하면 첫 말풍선에만 붙인다.
+  // 1:1 방과 내 메시지에는 붙지 않는다(계약 테스트로 고정).
+  const renderSender = (m: DmMessage, prev: DmMessage | null) => {
+    if (isDirect || m.senderId === myId) return null;
+    if (
+      prev &&
+      prev.senderId === m.senderId &&
+      new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < SENDER_RUN_MS
+    ) {
+      return null;
+    }
+    // 나간 멤버는 멤버 목록에 없다 — 이름 대신 폴백 문구
+    const senderName = memberNames[m.senderId] || t('dm.unknownMember', { defaultValue: '알 수 없음' });
+    return (
+      <div className={styles.senderRow}>
+        <Avatar src={memberAvatars[m.senderId]} name={senderName} seed={m.senderId} size={28} />
+        <span className={styles.senderName}>{senderName}</span>
+      </div>
+    );
+  };
 
   // 답장 인용 미리보기 — 스냅샷(replyPreview) 기반이라 원본이 캐시 밖이어도 렌더된다
   const renderReplyQuote = (m: DmMessage) =>
@@ -864,6 +950,38 @@ export default function DmDetail() {
           <button type="button" className={styles.roomLeaveBtn} onClick={handleLeaveRoom}>
             {t('dm.leaveRoom', { defaultValue: '나가기' })}
           </button>
+        </div>
+      )}
+
+      {/* 방 공지(init/217) — group/open 전용. 접힘 상태는 1줄 미리보기, 펼치면 전문 + 등록자 */}
+      {!isDirect && notice && (
+        <div className={styles.noticeBanner}>
+          <button
+            type="button"
+            className={styles.noticeHead}
+            onClick={() => setNoticeExpanded((v) => !v)}
+            aria-expanded={noticeExpanded}
+            aria-label={t('dm.noticeBanner', { defaultValue: '공지' })}
+          >
+            <Megaphone size={15} className={styles.noticeIcon} />
+            <span className={noticeExpanded ? styles.noticeTextFull : styles.noticeText}>
+              {notice.content ?? ''}
+            </span>
+            <ChevronDown size={16} className={noticeExpanded ? styles.noticeChevronOpen : styles.noticeChevron} />
+          </button>
+          {noticeExpanded && (
+            <div className={styles.noticeFoot}>
+              <span className={styles.noticeMeta}>
+                {t('dm.noticeSetBy', { name: notice.setByNickname ?? '', defaultValue: '{{name}} 등록' })}
+                {notice.setAt ? ` · ${formatRelativeTime(notice.setAt)}` : ''}
+              </span>
+              {canClearNotice && (
+                <button type="button" className={styles.noticeClearBtn} onClick={handleClearNotice}>
+                  {t('dm.noticeClear', { defaultValue: '내리기' })}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -933,6 +1051,7 @@ export default function DmDetail() {
           }
           const m = row.item;
           const isMine = m.senderId === myId;
+          const prevMsg = prevBubbleById.get(m.id) ?? null;
           if (m.messageType === 'appointment') {
             const appt = m.appointment;
             const status = appt?.status;
@@ -1123,8 +1242,9 @@ export default function DmDetail() {
           if (m.messageType === 'sticker') {
             const st = findSticker(m.meta?.stickerId);
             return (
+              <Fragment key={m.id}>
+              {renderSender(m, prevMsg)}
               <div
-                key={m.id}
                 className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}
               >
                 {st ? (
@@ -1145,6 +1265,7 @@ export default function DmDetail() {
                   {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
                 </div>
               </div>
+              </Fragment>
             );
           }
           if (m.messageType === 'voice') {
@@ -1154,18 +1275,34 @@ export default function DmDetail() {
             // 향후 일반 DM 음성메시지 기능을 추가한다면 이 필터를 반드시 재검토할 것.
             return null;
           }
-          if (m.messageType === 'system' && m.meta?.kind === 'listing_divider') {
-            // init/214 로 매물별 방을 하나로 합칠 때 삽입된 경계 표식 — 어느 매물 문의였는지 구분
-            return (
-              <div key={m.id} className={styles.systemDivider}>
-                <span className={styles.systemDividerText}>
-                  {t('dm.listingDivider', {
-                    title: m.meta?.listingTitle ?? '',
-                    defaultValue: '매물 문의: {{title}}',
-                  })}
-                </span>
-              </div>
-            );
+          if (m.messageType === 'system') {
+            switch (m.meta?.kind) {
+              case 'listing_divider':
+                // init/214 로 매물별 방을 하나로 합칠 때 삽입된 경계 표식 — 어느 매물 문의였는지 구분
+                return (
+                  <div key={m.id} className={styles.systemDivider}>
+                    <span className={styles.systemDividerText}>
+                      {t('dm.listingDivider', {
+                        title: m.meta?.listingTitle ?? '',
+                        defaultValue: '매물 문의: {{title}}',
+                      })}
+                    </span>
+                  </div>
+                );
+              case 'notice_set':
+                // init/217 공지 등록 알림 카드
+                return (
+                  <div key={m.id} className={styles.systemDivider}>
+                    <span className={styles.systemDividerText}>
+                      📢 {t('dm.noticeSetCard', { defaultValue: '공지가 등록되었습니다' })}
+                      {m.meta?.setByName ? ` · ${m.meta.setByName}` : ''}
+                    </span>
+                  </div>
+                );
+              default:
+                // 알 수 없는 system kind — 빈 말풍선으로 새지 않게 막는다(구버전 앱 안전판)
+                return null;
+            }
           }
           if (m.messageType === 'walkie_invite') {
             const joined = walkieActiveConversationId === conversationId;
@@ -1195,8 +1332,9 @@ export default function DmDetail() {
           // 이미지 첨부(캡션 없음) 메시지 — 버블 배경/패딩 없이 이미지만 (스티커와 동일 패턴)
           if (m.imageUrl && !m.content) {
             return (
+              <Fragment key={m.id}>
+              {renderSender(m, prevMsg)}
               <div
-                key={m.id}
                 data-mid={m.id}
                 className={`${styles.imageMsg} ${isMine ? styles.imageMine : styles.imageTheirs}`}
                 {...pressHandlers(m)}
@@ -1217,10 +1355,13 @@ export default function DmDetail() {
                 </div>
                 {renderReactions(m)}
               </div>
+              </Fragment>
             );
           }
           return (
-            <div key={m.id} data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`} {...pressHandlers(m)}>
+            <Fragment key={m.id}>
+            {renderSender(m, prevMsg)}
+            <div data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`} {...pressHandlers(m)}>
               {renderReplyQuote(m)}
               {editingId === m.id ? (
                 <div className={styles.editBox}>
@@ -1273,6 +1414,7 @@ export default function DmDetail() {
               </div>
               {renderReactions(m)}
             </div>
+            </Fragment>
           );
         })}
       </div>
@@ -1498,6 +1640,11 @@ export default function DmDetail() {
             >
               {t('dm.replyAction', { defaultValue: '답장' })}
             </button>
+            {!isDirect && actionMsg.messageType === 'text' && (
+              <button className={styles.reportItem} type="button" onClick={() => handleSetNotice(actionMsg)}>
+                {t('dm.noticeSet', { defaultValue: '공지로 등록' })}
+              </button>
+            )}
             {actionMsg.senderId === myId && actionMsg.messageType === 'text' && (
               <button className={styles.reportItem} type="button" onClick={() => handleStartEdit(actionMsg)}>
                 {t('dm.editAction', { defaultValue: '수정' })}

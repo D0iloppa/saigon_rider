@@ -114,6 +114,14 @@ export async function apiVerifyOtp(phone: string, code: string): Promise<OtpVeri
   }, 'bff', { rethrow: true, keepSessionOn401: true });
 }
 
+// 221: 선택 언어를 서버에 알려 알림 문안(키워드 알림 등)이 수신자 언어로 나가게 한다.
+export async function apiSetPreferredLanguage(userId: string, lang: string): Promise<void> {
+  await api.realFetch(`/users/me/language?user_id=${encodeURIComponent(userId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ lang }),
+  }, 'bff', { silent: true });
+}
+
 export async function apiDeleteAccount(userId: string): Promise<void> {
   await api.realFetch(`/users/me?user_id=${encodeURIComponent(userId)}`, {
     method: 'DELETE',

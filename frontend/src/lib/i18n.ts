@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 import translationKO from '../locales/ko/translation.json';
 import translationEN from '../locales/en/translation.json';
 import translationVI from '../locales/vi/translation.json';
+import { syncPreferredLang } from './langSync';
 
 const STORAGE_KEY = 'sr-lang';
 const SUPPORTED = ['vi', 'en', 'ko'] as const;
@@ -33,10 +34,11 @@ i18n
     },
   });
 
-/** 언어 변경 + localStorage 영속화 */
+/** 언어 변경 + localStorage 영속화 (+ 로그인 상태면 서버 동기화 — 알림 문안 언어) */
 export function changeLang(lang: SupportedLang): void {
   localStorage.setItem(STORAGE_KEY, lang);
   i18n.changeLanguage(lang);
+  syncPreferredLang(lang);
 }
 
 export default i18n;

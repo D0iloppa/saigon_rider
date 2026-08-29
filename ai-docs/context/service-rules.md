@@ -300,3 +300,11 @@
 4. **공감은 고정 팔레트 6종(👍❤️😂😮😢🙏)만.** `dm_message_reactions` PK(message_id, user_id, emoji)로 토글, 자유 이모지 피커 없음. 팔레트 변경 시 서버 `_DM_REACTION_EMOJIS`(routers/dm.py)와 프론트 `DM_REACTION_EMOJIS`(api/dm.ts)를 함께 고친다.
 5. **답장은 스냅샷 기반 앵커.** 전송 시점에 서버가 원본의 발신자명+내용 일부를 `reply_preview`(JSONB)로 박제한다 — 원본이 보관기간 만료로 파기되거나(`reply_to_message_id` FK SET NULL) 로컬 캐시 밖이어도 인용 렌더가 유지된다. 삭제된 메시지에는 답장할 수 없다.
 6. **보관기간은 기본 365일** — `backend/app/jobs/purge_old_dm_messages.py` 가 매일 03:30(ICT) `created_at` 초과분을 하드 삭제한다(첨부 contents 행+파일 포함). ⚠️ 정확한 일수는 법무 판단 대기 — 값 변경은 그 파일의 `DM_RETENTION_DAYS` 상수 하나로 끝낸다. 소프트 삭제분도 T&S 근거 보전을 위해 보관기간까지는 남긴다.
+
+## 푸시·알림 문안 i18n (제정 2026-08-29, 221_users_preferred_lang)
+
+1. **서버가 만드는 알림 문안은 수신자 언어로 만든다.** 기준은 `users.preferred_lang` (221). NULL 은 "앱이 아직 알려주지 않음" → 앱 기본 언어 **vi** 로 폴백한다(계정 기본값을 vi 로 박지 않는 이유: 미동기화와 vi 선택을 구분해 두면 나중에 추정 로직을 넣어도 되돌릴 수 있다).
+2. **문안은 `backend/app/services/push_i18n.py` 한 곳에만 둔다.** 호출부는 `t(lang, key, **fmt)` 만 쓴다 — 핸들러에 한국어 문자열을 직접 박으면 지역화 지점이 다시 흩어진다. 아직 이관되지 않은 한국어 하드코딩 문안 목록은 그 파일의 TODO 주석에 있다.
+3. **키워드 알림 문안**: 제목 `'{키워드}' 상품이 등록되었습니다` / `New listing for '{keyword}'` / `Có tin đăng mới cho '{keyword}'`, 본문은 **매물 제목만**(가격 미포함, 대표 확정). 인앱 `notifications` 행과 푸시는 항상 같은 문안이다.
+4. **언어 동기화는 프론트 책임.** 앱은 선택 언어를 localStorage 에만 갖고 있으므로, 로그인 직후와 언어 변경 시 `PUT /users/me/language` 로 서버에 알린다(`frontend/src/lib/langSync.ts`, 멱등 — 마지막 전송값과 다를 때만 호출).
+5. **Live Activity 카드 문구는 유저가 아니라 Activity 단위**(`live_activity_tokens.locale`)로 고른다 — 잠금화면 카드는 토큰 등록 시점의 기기 언어를 따른다. 문안 저장 위치는 위와 같은 `push_i18n.py`.

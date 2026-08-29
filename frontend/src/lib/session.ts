@@ -47,4 +47,6 @@ export function clearSession(): void {
   document.cookie = `${COOKIE_KEY}=; max-age=0; path=/`;
   // 공유기기 대비 — 세션과 함께 DM 로컬 캐시(IndexedDB)도 파기한다 (best-effort, 비동기)
   void clearAllCachedMessages();
+  // 언어 동기화 기록도 함께 파기 (키는 langSync.ts SYNCED_KEY — langSync 가 session 을 import 하므로 순환 방지로 리터럴)
+  localStorage.removeItem('preferred_lang_synced');
 }

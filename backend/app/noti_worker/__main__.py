@@ -36,6 +36,7 @@ from app.models import (
 from app.readiness import check_readiness
 from app.services.noti_events import STREAM_KEY
 from app.services.ops_alerts import send_ops_alert
+from app.services.push_i18n import langs_for_users, t
 from app.services.redis_cache import get_client
 from app.services.search_index import reindex_entity
 from app.services.search_norm import norm
@@ -227,12 +228,9 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
         return
     seller_id = uuid.UUID(payload["seller_id"])
     link = f"market&id={payload['listing_id']}"
-    # 알림 제목만으로는 무슨 일이 일어났는지 알기 어려워, 제목은 문장으로 쓰고 본문에 가격을 함께 싣는다.
-    price = payload.get("price_vnd")
-    noti_body = (
-        f"{listing_title} · 나눔" if price == 0 else (f"{listing_title} · {price:,} đ" if price else listing_title)
-    )
-
+    # 문안은 수신자 언어로 만든다(services/push_i18n.py). 제목은 무슨 일인지 알 수 있게 문장으로,
+    # 본문은 매물 제목만 — 가격은 싣지 않는다(대표 확정). 본문은 언어 무관이라 루프 밖에서 한 번 정한다.
+    noti_body = listing_title
     pushes: list[tuple[str, str]] = []
     async with AsyncSessionLocal() as db:
         # FD-9: 판매자와 상호 차단 관계인 유저는 키워드 매칭에서 제외 (market.py 의 block-subquery 패턴 미러)
@@ -267,12 +265,13 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
             .scalars()
             .all()
         )
+        langs = await langs_for_users(db, {a.user_id for a in alerts})
         seen: set[uuid.UUID] = set()
         for alert in alerts:
             if alert.user_id in seen:
                 continue
             seen.add(alert.user_id)
-            noti_title = f"'{alert.keyword}' 새 매물이 올라왔어요"
+            noti_title = t(langs[alert.user_id], "keyword_alert.title", keyword=alert.keyword)
             inserted = await _insert_notification(
                 db,
                 source_event_id=source_event_id,
@@ -732,16 +731,6 @@ async def _handle_feed_group_post(payload: dict, *, source_event_id: str) -> Non
             await _try_push(str(recipient_id), title, body, link)
 
 
-# 거래 Live Activity 카드 문구 — 클라이언트 i18n(dm.laStatus.*) 과 같은 문장. 서버가 만들어 보내므로
-# 토큰 등록 시 저장된 locale 로 고른다. 위젯은 문장을 만들지 않는다(네이티브 무문구 원칙).
-_LA_DEAL_STATUS_TEXT = {
-    "accepted": {"ko": "약속 확정", "en": "Meetup confirmed", "vi": "Đã chốt hẹn"},
-    "completionRequested": {"ko": "완료 요청됨", "en": "Completion requested", "vi": "Đã yêu cầu hoàn tất"},
-    "completed": {"ko": "거래 완료", "en": "Deal completed", "vi": "Giao dịch hoàn tất"},
-    "cancelled": {"ko": "약속 취소", "en": "Meetup cancelled", "vi": "Đã hủy hẹn"},
-}
-
-
 async def _handle_live_activity_deal_update(payload: dict, *, source_event_id: str) -> None:
     """거래 Live Activity 원격 갱신 (260829 Phase 3). 약속의 등록 토큰 전부에 content-state 를 밀어넣는다.
     완료/취소는 `end`(2분 뒤 소멸), 그 외는 `update`. 멱등 — 같은 상태를 두 번 보내도 결과가 같다.
@@ -778,10 +767,9 @@ async def _handle_live_activity_deal_update(payload: dict, *, source_event_id: s
         )
         invalid: list[uuid.UUID] = []
         for row in rows:
-            lang = (row.locale or "vi").split("-")[0]
-            texts = _LA_DEAL_STATUS_TEXT[kind]
             content_state = {
-                "statusText": texts.get(lang, texts["vi"]),
+                # 카드 문구는 토큰 등록 시 저장된 locale 기준 (유저 단위가 아니라 Activity 단위).
+                "statusText": t(row.locale, f"la_deal.{kind}"),
                 "statusKind": kind,
                 "placeName": payload.get("place_name") or "",
                 "appointmentAtMs": when_ms,

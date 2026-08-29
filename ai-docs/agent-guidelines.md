@@ -86,6 +86,10 @@ docker compose --env-file .env up --build -d frontend   # 프론트 재배포
 ./wikidoc_publish.sh                                     # 위키 동기화
 ```
 
+`backend/` 코드 변경은 `bff` 뿐 아니라 **`noti_worker` 도 재시작/재빌드**해야 반영된다 — 워커는 바인드 마운트로 돌지만 자동 리로드가 없어, `bff` 만 재빌드하면 알림 문안 등 워커 경로는 옛 코드가 계속 나간다 (`docker compose --env-file .env up --build -d bff noti_worker`).
+
+dev 에서 모델 컬럼 추가 시 마이그레이션(`up bff_migrate`)을 먼저 적용한 뒤 `models.py` 를 편집한다 — bff 핫리로드가 모델을 즉시 살려 컬럼 없음 오류로 전 요청이 실패한다.
+
 ---
 
 ## 2. 파일 작성 위치 (SoT 매핑)

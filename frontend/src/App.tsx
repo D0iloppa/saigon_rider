@@ -10,7 +10,8 @@ import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { preloadRideMapStyle } from '@/lib/rideMapPreload';
 import { useDmStore } from '@/store/useDmStore';
-import { changeLang } from '@/lib/i18n';
+import i18n, { changeLang } from '@/lib/i18n';
+import { syncPreferredLang } from '@/lib/langSync';
 import { loadSession, saveSession, clearSession } from '@/lib/session';
 import { bootstrapSession, leaveBootstrapForLogin } from '@/lib/sessionBootstrap';
 import { apiSessionVerify, apiDevLoginAs } from '@/api/auth';
@@ -448,6 +449,7 @@ export default function App() {
           if (!active) return;
           saveSession({ userId: result.user.id, sessionToken: result.session_token });
           loginFromBackend(result.user);
+          syncPreferredLang(i18n.language);
           sessionStorage.removeItem('account_restricted');
           setBootstrapped(true);
         })
@@ -462,6 +464,7 @@ export default function App() {
       verify: async (userId, sessionToken) => (await apiSessionVerify(userId, sessionToken)).user,
       login: (verifiedUser) => {
         loginFromBackend(verifiedUser);
+        syncPreferredLang(i18n.language);
         sessionStorage.removeItem('account_restricted');
       },
       clear: clearSession,

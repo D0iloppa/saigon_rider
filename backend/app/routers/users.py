@@ -30,6 +30,7 @@ from ..schemas import (
     Page,
     QuestHistoryOut,
     ReportCreateRequest,
+    UserLanguageUpdateRequest,
     UserOut,
     UserProfileOut,
     UserStatsOut,
@@ -245,6 +246,21 @@ async def get_quest_history(
 
 
 # A-3
+@router.put("/me/language", status_code=204, summary="앱 표시 언어 동기화")
+async def update_preferred_language(
+    user_id: uuid.UUID,
+    body: UserLanguageUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """221 — 앱이 선택 언어를 localStorage 에만 갖고 있어 서버가 알림 문안을 항상 한국어로 만들던
+    문제를 없앤다. 프론트가 로그인 직후/언어 변경 시 호출한다(멱등)."""
+    _require_self(user_id, _session_uid)
+    await db.execute(update(User).where(User.id == user_id).values(preferred_lang=body.lang))
+    await db.commit()
+    return Response(status_code=204)
+
+
 @router.delete("/me", status_code=204, summary="계정 탈퇴 (논리 삭제)")
 async def delete_account(
     user_id: uuid.UUID,

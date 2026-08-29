@@ -170,6 +170,9 @@ class User(Base):
     # 유입 귀속 — 016 §6-2 #30, D-30=(b), init/188. first-touch·불변: 가입(find-or-create
     # 신규 분기) 시 1회만 쓰고 이후 로그인 경로에서는 절대 갱신하지 않는다(routers/auth.py).
     acquisition_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 221: 앱 표시 언어 사본 — 서버가 만드는 푸시/인앱 알림 문안을 수신자 언어로 쓰기 위한 것.
+    # NULL 은 "아직 앱이 알려주지 않음" → services/push_i18n.py 가 기본 vi 로 폴백한다.
+    preferred_lang: Mapped[str | None] = mapped_column(String(8), nullable=True)
     # P4-1: 유저 동네 귀속 (Q-7 — 수동 설정, GPS 자동추정 금지). 그룹 추천(동네 기반)에 쓰인다.
     home_ward_id: Mapped[int | None] = mapped_column(
         SmallInteger, ForeignKey("wards.id", ondelete="SET NULL"), nullable=True

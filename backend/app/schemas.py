@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
+from .services.translate import SUPPORTED_LANGS
 from .utils import build_imgproxy_url, resolve_avatar_url, resolve_feed_image_url
 
 T = TypeVar("T")
@@ -657,6 +658,12 @@ class UserOut(BaseModel):
             "consent_agreed_at": data.consent_agreed_at,
             "home_ward_id": data.home_ward_id,
         }
+
+
+class UserLanguageUpdateRequest(BaseModel):
+    """앱 표시 언어 동기화 (221) — 서버가 만드는 알림 문안을 수신자 언어로 쓰기 위한 것."""
+
+    lang: str = Field(pattern=f"^({'|'.join(SUPPORTED_LANGS)})$")
 
 
 class LoginResponse(BaseModel):

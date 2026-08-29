@@ -266,6 +266,8 @@
     "adInquiry": "Call now",
     "adNotFound": "Couldn't find this ad",
     "loadError": "Couldn't load this listing",
+    "listingGone": "This listing is no longer available",
+    "backToMarket": "Browse market",
     "locationError": "Couldn't get your location",
     "editListing": "Edit listing",
     "updateError": "Update failed",

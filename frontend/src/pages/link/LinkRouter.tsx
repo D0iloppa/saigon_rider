@@ -32,13 +32,19 @@ export default function LinkRouter() {
   const isAuthenticated = useUserStore((s) => s.isAuthenticated);
 
   useEffect(() => {
-    const action = params.get('action') ?? '';
-    const id = params.get('id');
+    // 콜드 스타트 레이스 대응: NotificationBridge 가 드레인한 navigateTo 가 URL 쿼리보다 먼저
+    // sessionStorage 에 남아있을 수 있다 — URL 에 action 이 없을 때만 이어받는다.
+    const pending = sessionStorage.getItem('pending_deeplink');
+    const effectiveParams = params.get('action') ? params : pending ? new URLSearchParams(`action=${pending}`) : params;
+    sessionStorage.removeItem('pending_deeplink');
+
+    const action = effectiveParams.get('action') ?? '';
+    const id = effectiveParams.get('id');
     let destination = resolveAction(action, id);
 
     // B-4: 음성메시지 알림 딥링크 — 대화 화면에 자동재생 파라미터를 그대로 넘긴다.
-    if (action === 'dm' && id && params.get('voice') === '1') {
-      const mid = params.get('mid');
+    if (action === 'dm' && id && effectiveParams.get('voice') === '1') {
+      const mid = effectiveParams.get('mid');
       if (mid) destination = `${destination}?voice=1&mid=${mid}`;
     }
 
@@ -46,7 +52,7 @@ export default function LinkRouter() {
     if (action === 'ride') {
       const q = new URLSearchParams({ type: 'nav' });
       for (const k of ['lat', 'lng', 'name', 'radius']) { // RideNav.laDeepLink 가 싣는 키와 동일 집합
-        const v = params.get(k);
+        const v = effectiveParams.get(k);
         if (v) q.set(k, v);
       }
       destination = `/ride-nav?${q.toString()}`;

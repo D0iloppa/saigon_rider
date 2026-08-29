@@ -266,6 +266,8 @@
     "adInquiry": "전화 문의하기",
     "adNotFound": "광고 정보를 찾을 수 없어요",
     "loadError": "매물을 불러오지 못했어요",
+    "listingGone": "삭제되었거나 내려간 매물이에요",
+    "backToMarket": "마켓 보기",
     "locationError": "위치를 가져올 수 없어요",
     "editListing": "매물 수정",
     "updateError": "수정 실패",

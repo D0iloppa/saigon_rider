@@ -876,7 +876,13 @@ async def create_listing(
     noti_events.enqueue(
         db,
         "market.listing_created",
-        {"listing_id": str(listing_id), "title": listing.title, "seller_id": str(body.seller_id)},
+        {
+            "listing_id": str(listing_id),
+            "title": listing.title,
+            "seller_id": str(body.seller_id),
+            # 키워드 알림 본문에 가격을 함께 노출하기 위해 싣는다.
+            "price_vnd": listing.price_vnd,
+        },
     )
     noti_events.enqueue(
         db,

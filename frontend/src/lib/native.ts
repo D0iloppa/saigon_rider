@@ -803,11 +803,18 @@ class NativeInterface {
     return () => sub.remove();
   }
 
-  /** 콜드 스타트로 진입했을 때 버퍼된 알림 navigateTo 를 1회 가져온다 (없으면 null). */
+  /** 콜드 스타트로 진입했을 때 버퍼된 알림 navigateTo 를 가져온다 (없으면 null). 네이티브 쪽에서 소거하지 않으므로 라우팅 반영 후 ackPendingNotification() 을 호출해야 한다. */
   async getPendingNotification(): Promise<string | null> {
     if (!this.isNative) return null;
     const { navigateTo } = await Fcm.getPendingNotification();
     return navigateTo || null;
+  }
+
+  /** getPendingNotification() 으로 받은 navigateTo 를 라우팅에 반영한 뒤 호출해 네이티브 버퍼를 소거한다.
+   *  구 버전 설치(ackPendingNotification 메서드 없음)에서도 조용히 무시되도록 실패를 삼킨다. */
+  async ackPendingNotification(): Promise<void> {
+    if (!this.isNative) return;
+    await Fcm.ackPendingNotification().catch(() => {});
   }
 
   // ── Keyboard ────────────────────────────────────────────────────────────

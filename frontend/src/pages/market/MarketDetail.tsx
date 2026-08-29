@@ -55,6 +55,8 @@ export default function MarketDetail() {
   const myId = useUserStore((s) => s.user?.id);
   const [detail, setDetail] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  // 매물 삭제/철회 후에도 남은 딥링크(푸시·공유 링크)로 들어오는 404는 정상 종료 상태 — 일반 오류와 문구를 구분한다.
+  const [notFound, setNotFound] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
@@ -70,9 +72,13 @@ export default function MarketDetail() {
   const load = useCallback(() => {
     if (!id) return;
     setLoading(true);
+    setNotFound(false);
     fetchListing(id, myId)
       .then(setDetail)
-      .catch(() => setDetail(null))
+      .catch((err) => {
+        setDetail(null);
+        setNotFound((err as { status?: number })?.status === 404);
+      })
       .finally(() => setLoading(false));
   }, [id, myId]);
 
@@ -302,9 +308,11 @@ export default function MarketDetail() {
           <StateBlock
             icon={AlertCircle}
             tone="error"
-            title={t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })}
-            actionLabel={t('common.retry')}
-            onAction={load}
+            title={
+              notFound ? t('market.listingGone') : t('market.loadError', { defaultValue: '매물을 불러오지 못했어요' })
+            }
+            actionLabel={notFound ? t('market.backToMarket') : t('common.retry')}
+            onAction={notFound ? () => navigate('/market') : load}
           />
         </div>
       ) : (

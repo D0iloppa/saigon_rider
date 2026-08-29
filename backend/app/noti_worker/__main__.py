@@ -227,6 +227,11 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
         return
     seller_id = uuid.UUID(payload["seller_id"])
     link = f"market&id={payload['listing_id']}"
+    # 알림 제목만으로는 무슨 일이 일어났는지 알기 어려워, 제목은 문장으로 쓰고 본문에 가격을 함께 싣는다.
+    price = payload.get("price_vnd")
+    noti_body = (
+        f"{listing_title} · 나눔" if price == 0 else (f"{listing_title} · {price:,} đ" if price else listing_title)
+    )
 
     pushes: list[tuple[str, str]] = []
     async with AsyncSessionLocal() as db:
@@ -267,14 +272,14 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
             if alert.user_id in seen:
                 continue
             seen.add(alert.user_id)
-            noti_title = f"🔔 {alert.keyword}"
+            noti_title = f"'{alert.keyword}' 새 매물이 올라왔어요"
             inserted = await _insert_notification(
                 db,
                 source_event_id=source_event_id,
                 user_id=alert.user_id,
                 notification_type="KEYWORD",
                 title=noti_title,
-                body=listing_title,
+                body=noti_body,
                 link=link,
             )
             if not inserted:
@@ -286,7 +291,7 @@ async def _handle_listing_created(payload: dict, *, source_event_id: str) -> Non
         await db.commit()
 
     for user_id, noti_title in pushes:
-        await _try_push(user_id, noti_title, listing_title, link)
+        await _try_push(user_id, noti_title, noti_body, link)
 
 
 async def _handle_price_drop(payload: dict, *, source_event_id: str) -> None:

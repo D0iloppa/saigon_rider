@@ -241,7 +241,8 @@ async function realFetch<T>(
       return null as T;
     }
     if (!_opts.rethrow) toast.error(message);
-    throw new Error(message);
+    // 호출부가 404(예: 삭제/철회된 매물)를 다른 에러와 구분해 안내 문구를 다르게 보여줄 수 있도록 status 를 싣는다.
+    throw Object.assign(new Error(message), { status: res.status });
   }
   // 도달 불가 — 루프는 항상 return 하거나 throw 한다
   throw new Error(`HTTP request failed | ${method} ${url}`);

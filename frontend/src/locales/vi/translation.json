@@ -266,6 +266,8 @@
     "adInquiry": "Gọi điện hỏi",
     "adNotFound": "Không tìm thấy quảng cáo này",
     "loadError": "Không tải được tin đăng",
+    "listingGone": "Tin đăng này không còn nữa",
+    "backToMarket": "Xem chợ",
     "locationError": "Không lấy được vị trí của bạn",
     "editListing": "Sửa tin đăng",
     "updateError": "Cập nhật thất bại",

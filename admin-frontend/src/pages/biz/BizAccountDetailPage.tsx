@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Image, Input, Modal, Select, Skeleton, Space, Table, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Descriptions, Image, Input, Modal, Popconfirm, Select, Skeleton, Space, Table, Tag, Typography, message } from 'antd'
 import dayjs from 'dayjs'
 import {
   useAssignBizAccountGroup,
@@ -220,18 +220,23 @@ export default function BizAccountDetailPage() {
       {bp.status === 'APPROVED' && (
         <Card title="계정 정지">
           <Typography.Paragraph type="secondary">정지 시 게시중이던 보유 광고가 일괄 중단(STOPPED)됩니다.</Typography.Paragraph>
-          <Button
-            danger
-            loading={suspendMutation.isPending}
-            onClick={() =>
+          <Popconfirm
+            title="이 계정을 정지하시겠습니까?"
+            description="게시중인 광고가 일괄 중단(STOPPED)됩니다."
+            okText="정지"
+            okButtonProps={{ danger: true }}
+            cancelText="취소"
+            onConfirm={() =>
               suspendMutation.mutate(bp.id, {
                 onSuccess: () => message.success('계정을 정지했습니다.'),
                 onError: (err) => message.error(err instanceof Error ? err.message : '처리에 실패했습니다.'),
               })
             }
           >
-            계정 정지
-          </Button>
+            <Button danger loading={suspendMutation.isPending}>
+              계정 정지
+            </Button>
+          </Popconfirm>
         </Card>
       )}
 

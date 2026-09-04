@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Avatar, Button, Card, Checkbox, Input, InputNumber, Select, Skeleton, Space, Table, Tabs, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Checkbox, Input, InputNumber, Popconfirm, Select, Skeleton, Space, Table, Tabs, Typography, message } from 'antd'
 import dayjs from 'dayjs'
 import { useMe } from '../../App'
 import {
@@ -140,13 +140,17 @@ function NicknameWordTab() {
       key: 'actions',
       width: 80,
       render: (_: unknown, r: NicknameWord) => (
-        <Button
-          size="small"
-          danger
-          onClick={() => deleteWord.mutate(r.id, { onSuccess: () => message.success('삭제되었습니다.') })}
+        <Popconfirm
+          title="삭제하시겠습니까?"
+          okText="삭제"
+          okButtonProps={{ danger: true }}
+          cancelText="취소"
+          onConfirm={() => deleteWord.mutate(r.id, { onSuccess: () => message.success('삭제되었습니다.') })}
         >
-          삭제
-        </Button>
+          <Button size="small" danger>
+            삭제
+          </Button>
+        </Popconfirm>
       ),
     },
   ]
@@ -251,13 +255,17 @@ function AppVersionTab() {
       key: 'actions',
       width: 80,
       render: (_: unknown, r: AppVersion) => (
-        <Button
-          size="small"
-          danger
-          onClick={() => deleteVersion.mutate(r.id, { onSuccess: () => message.success('삭제되었습니다.') })}
+        <Popconfirm
+          title="삭제하시겠습니까?"
+          okText="삭제"
+          okButtonProps={{ danger: true }}
+          cancelText="취소"
+          onConfirm={() => deleteVersion.mutate(r.id, { onSuccess: () => message.success('삭제되었습니다.') })}
         >
-          삭제
-        </Button>
+          <Button size="small" danger>
+            삭제
+          </Button>
+        </Popconfirm>
       ),
     },
   ]

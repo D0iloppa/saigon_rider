@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Badge, Select, Table, Tabs } from 'antd'
+import { Select, Table, Tabs } from 'antd'
 import dayjs from 'dayjs'
 import { useReports, type ReportRow } from '../../api/reports'
 import StatusTag from '../../components/StatusTag'
@@ -56,9 +56,12 @@ export default function ReportListPage() {
       title: '피신고자',
       key: 'reported',
       render: (_: unknown, r: ReportRow) => (
-        <Badge count={r.reported_user.report_count} showZero color="volcano" offset={[8, 0]}>
-          <span>{r.reported_user.nickname ?? '-'}</span>
-        </Badge>
+        <span>
+          {r.reported_user.nickname ?? '-'}
+          {r.reported_user.report_count > 0 && (
+            <span style={{ marginLeft: 6, color: '#fa541c' }}>· 누적신고 {r.reported_user.report_count}건</span>
+          )}
+        </span>
       ),
     },
     { title: '대상', key: 'target', render: (_: unknown, r: ReportRow) => (r.listing ? r.listing.title : '-') },

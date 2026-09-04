@@ -15,6 +15,7 @@ export interface TicketRow {
   created_at: string
   last_reply_at: string | null
   contract_context?: Record<string, unknown> | null
+  assignee_username: string | null
 }
 
 export interface ReplyRow {
@@ -31,6 +32,7 @@ export interface TicketDetail extends TicketRow {
 
 export interface TicketListParams {
   status?: string
+  assignee?: string
   page?: number
   size?: number
 }
@@ -67,6 +69,20 @@ export function useUpdateTicketStatus(id: string) {
   return useMutation({
     mutationFn: (status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED') =>
       api<TicketDetail>(`/admin/api/support/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['support-tickets'] })
+    },
+  })
+}
+
+export function useAssignTicket(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (assignee_username: string | null) =>
+      api<TicketDetail>(`/admin/api/support/tickets/${id}/assignee`, {
+        method: 'PATCH',
+        body: JSON.stringify({ assignee_username }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['support-tickets'] })
     },

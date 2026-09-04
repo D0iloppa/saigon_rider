@@ -13,10 +13,12 @@ export interface IssueRow {
   created_at: string
   title: string | null
   priority_score: number
+  assignee_username: string | null
 }
 
 export interface IssueListParams {
   source?: string
+  assignee?: string
   limit?: number
 }
 

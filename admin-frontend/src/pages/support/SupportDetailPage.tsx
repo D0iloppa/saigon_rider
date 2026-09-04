@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Input, List, Select, Skeleton, Space, Typography, message } from 'antd'
 import dayjs from 'dayjs'
-import { useCreateReply, useTicket, useUpdateTicketStatus } from '../../api/support'
+import { useAssignTicket, useCreateReply, useTicket, useUpdateTicketStatus } from '../../api/support'
+import { useAssignableAdmins } from '../../api/accounts'
+import { useMe } from '../../App'
 import StatusTag from '../../components/StatusTag'
 
 const STATUS_OPTIONS = [
@@ -16,6 +18,9 @@ export default function SupportDetailPage() {
   const { data: ticket, isLoading, isError, error } = useTicket(id)
   const createReply = useCreateReply(id)
   const updateStatus = useUpdateTicketStatus(id)
+  const assignTicket = useAssignTicket(id)
+  const { data: assignableAdmins } = useAssignableAdmins()
+  const me = useMe()
   const [replyBody, setReplyBody] = useState('')
 
   if (isError) {
@@ -76,6 +81,35 @@ export default function SupportDetailPage() {
                   })
                 }
               />
+            </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label="담당자" span={2}>
+            <Space>
+              <Select
+                size="small"
+                style={{ width: 160 }}
+                allowClear
+                placeholder="미배정"
+                value={ticket.assignee_username ?? undefined}
+                options={(assignableAdmins ?? []).map((u) => ({ value: u, label: u }))}
+                loading={assignTicket.isPending}
+                onChange={(v) =>
+                  assignTicket.mutate(v ?? null, {
+                    onError: (e) => message.error(e instanceof Error ? e.message : '담당자 지정에 실패했습니다.'),
+                  })
+                }
+              />
+              <Button
+                size="small"
+                loading={assignTicket.isPending}
+                onClick={() =>
+                  assignTicket.mutate(me.username, {
+                    onError: (e) => message.error(e instanceof Error ? e.message : '담당자 지정에 실패했습니다.'),
+                  })
+                }
+              >
+                나에게 배정
+              </Button>
             </Space>
           </Descriptions.Item>
           <Descriptions.Item label="문의 내용" span={2}>

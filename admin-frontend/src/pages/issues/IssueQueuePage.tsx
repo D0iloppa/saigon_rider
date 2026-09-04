@@ -23,6 +23,12 @@ const SOURCE_LABEL: Record<string, string> = {
   EXTERNAL: '외부/수기',
 }
 
+const ASSIGNEE_FILTERS = [
+  { label: '전체', value: 'ALL' },
+  { label: '내 담당', value: 'me' },
+  { label: '미배정', value: 'unassigned' },
+]
+
 const SEVERITY_LABEL: Record<string, string> = {
   SEV1: 'SEV1 · 최상위',
   SEV2: 'SEV2',
@@ -129,10 +135,12 @@ function ActionQueueBoard() {
 
 export default function IssueQueuePage() {
   const [source, setSource] = useState('ALL')
+  const [assignee, setAssignee] = useState('ALL')
   const [limit, setLimit] = useState(50)
 
   const { data, isLoading, isError, error } = useIssues({
     source: source === 'ALL' ? undefined : source,
+    assignee: assignee === 'ALL' ? undefined : assignee,
     limit,
   })
 
@@ -166,6 +174,12 @@ export default function IssueQueuePage() {
     { title: '제목/사유', key: 'title', render: (_: unknown, r: IssueRow) => r.title ?? r.category },
     { title: '상태', dataIndex: 'status', key: 'status' },
     {
+      title: '담당자',
+      dataIndex: 'assignee_username',
+      key: 'assignee_username',
+      render: (v: string | null) => (v ? v : <Tag>미배정</Tag>),
+    },
+    {
       title: '접수일',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -179,6 +193,7 @@ export default function IssueQueuePage() {
       <ActionQueueBoard />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <Segmented options={SOURCE_OPTIONS} value={source} onChange={(v) => setSource(v as string)} />
+        <Segmented options={ASSIGNEE_FILTERS} value={assignee} onChange={(v) => setAssignee(v as string)} />
         <Select
           style={{ width: 160 }}
           value={limit}

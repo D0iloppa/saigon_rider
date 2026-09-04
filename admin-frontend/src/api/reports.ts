@@ -30,6 +30,7 @@ export interface ReportRow {
   conversation_id: string | null
   handled_by: string | null
   handled_at: string | null
+  assignee_username: string | null
 }
 
 export interface SanctionBrief {
@@ -72,6 +73,7 @@ export interface ReportDetail extends ReportRow {
 export interface ReportListParams {
   target_type?: string
   status?: string
+  assignee?: string
   page?: number
   size?: number
 }
@@ -104,6 +106,20 @@ export function useUpdateReportStatus(id: string) {
   return useMutation({
     mutationFn: (body: ReportStatusUpdateBody) =>
       api(`/admin/api/reports/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
+}
+
+export function useAssignReport(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (assignee_username: string | null) =>
+      api<{ id: string; assignee_username: string | null }>(`/admin/api/reports/${id}/assignee`, {
+        method: 'PATCH',
+        body: JSON.stringify({ assignee_username }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reports'] })
     },

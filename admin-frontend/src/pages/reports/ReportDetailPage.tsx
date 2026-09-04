@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Image, Input, Modal, Skeleton, Space, Table, Typography, message } from 'antd'
+import { Alert, Button, Card, Descriptions, Image, Input, Modal, Select, Skeleton, Space, Table, Typography, message } from 'antd'
 import dayjs from 'dayjs'
-import { useReport, useUpdateReportStatus } from '../../api/reports'
+import { useAssignReport, useReport, useUpdateReportStatus } from '../../api/reports'
+import { useAssignableAdmins } from '../../api/accounts'
+import { useMe } from '../../App'
 import ModerateModal from '../../components/ModerateModal'
 import SanctionModal from '../../components/SanctionModal'
 import StatusTag from '../../components/StatusTag'
@@ -16,6 +18,9 @@ export default function ReportDetailPage() {
   const navigate = useNavigate()
   const { data: report, isLoading, isError, error } = useReport(id)
   const updateStatus = useUpdateReportStatus(id)
+  const assignReport = useAssignReport(id)
+  const { data: assignableAdmins } = useAssignableAdmins()
+  const me = useMe()
 
   const [pendingAction, setPendingAction] = useState<'RESOLVED' | 'REJECTED' | null>(null)
   const [note, setNote] = useState('')
@@ -93,6 +98,35 @@ export default function ReportDetailPage() {
           <Descriptions.Item label="접수일">{dayjs(report.created_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
           <Descriptions.Item label="신고자">{report.reporter.nickname ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="처리자">{report.handled_by ?? '-'}</Descriptions.Item>
+          <Descriptions.Item label="담당자" span={2}>
+            <Space>
+              <Select
+                size="small"
+                style={{ width: 160 }}
+                allowClear
+                placeholder="미배정"
+                value={report.assignee_username ?? undefined}
+                options={(assignableAdmins ?? []).map((u) => ({ value: u, label: u }))}
+                loading={assignReport.isPending}
+                onChange={(v) =>
+                  assignReport.mutate(v ?? null, {
+                    onError: (e) => message.error(e instanceof Error ? e.message : '담당자 지정에 실패했습니다.'),
+                  })
+                }
+              />
+              <Button
+                size="small"
+                loading={assignReport.isPending}
+                onClick={() =>
+                  assignReport.mutate(me.username, {
+                    onError: (e) => message.error(e instanceof Error ? e.message : '담당자 지정에 실패했습니다.'),
+                  })
+                }
+              >
+                나에게 배정
+              </Button>
+            </Space>
+          </Descriptions.Item>
           <Descriptions.Item label="비고" span={2}>
             {report.note ?? '-'}
           </Descriptions.Item>

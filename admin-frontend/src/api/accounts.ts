@@ -32,6 +32,13 @@ export function useAdminAccounts() {
   })
 }
 
+export function useAssignableAdmins() {
+  return useQuery({
+    queryKey: ['admin-accounts', 'assignable'],
+    queryFn: () => api<string[]>('/admin/api/accounts/assignable'),
+  })
+}
+
 export function useCreateAdminAccount() {
   const qc = useQueryClient()
   return useMutation({

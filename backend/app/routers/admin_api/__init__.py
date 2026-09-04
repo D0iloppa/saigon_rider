@@ -14,6 +14,7 @@ from . import (
     auth,
     badges,
     biz,
+    channel_board,
     cms,
     dashboard,
     dev_context,
@@ -76,3 +77,4 @@ router.include_router(liquidity.router)
 router.include_router(action_events.router)
 router.include_router(action_queue.router)
 router.include_router(retention.router)
+router.include_router(channel_board.router)

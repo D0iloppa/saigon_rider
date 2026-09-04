@@ -21,6 +21,7 @@ import DealerCandidatesPage from './pages/listings/DealerCandidatesPage'
 import CompletionRequestListPage from './pages/trades/CompletionRequestListPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
+import ChannelBoardPage from './pages/analytics/ChannelBoardPage'
 import LiquidityPanelPage from './pages/analytics/LiquidityPanelPage'
 import FunnelPage from './pages/analytics/FunnelPage'
 import ZeroResultSearchPage from './pages/analytics/ZeroResultSearchPage'
@@ -148,6 +149,7 @@ export default function App() {
               <Route path="/trades/completion-requests" element={<CompletionRequestListPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
+              <Route path="/analytics/overview" element={<ChannelBoardPage />} />
               <Route path="/analytics/liquidity" element={<LiquidityPanelPage />} />
               <Route path="/analytics/funnel" element={<FunnelPage />} />
               <Route path="/analytics/zero-results" element={<ZeroResultSearchPage />} />

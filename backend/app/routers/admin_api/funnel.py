@@ -17,6 +17,7 @@ from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import FunnelDailyStat, FunnelEvent
 from ...schemas import FunnelEventType
+from .metric_status import MetricStatus
 
 _ACQ_REFERRAL_PREFIX = "u:"  # 초대자 코드 형식(016 §6-2 #31) — init/188 주석과 동일 카탈로그
 
@@ -281,3 +282,66 @@ async def get_top_referrers(
         )
         for inviter_id, signup_count in rows
     ]
+
+
+class FirstTouchRow(BaseModel):
+    utm_source: str
+    utm_medium: str
+    anon_count: int
+    linked_count: int
+    conversion_rate: float | None
+
+
+class FirstTouchOut(BaseModel):
+    status: MetricStatus
+    rows: list[FirstTouchRow]
+
+
+@router.get("/first-touch", response_model=FirstTouchOut)
+async def get_first_touch(
+    days: int = Query(90),
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """비회원 first-touch 유입경로(utm_source x utm_medium) 별 익명 수·회원 소급연결 수 (줍고 이식 P4).
+
+    user_first_touch_attribution 을 직접 집계한다(실데이터가 파일럿 규모라 롤업 불필요).
+    linked_count 는 해당 anon_id 가 user_identity_links 에 존재하는지(EXISTS)만 본다 — 그 anon_id
+    의 다른 행동(funnel_events 등)을 회원에게 소급 귀속시키는 조인은 하지 않는다(세션 경계 불변식).
+    """
+    days = max(1, min(365, days))
+    since = datetime.now(_VN_TZ) - timedelta(days=days)
+
+    stmt = text(
+        """
+        SELECT
+            COALESCE(f.utm_source, '(direct)') AS utm_source,
+            COALESCE(f.utm_medium, '(none)') AS utm_medium,
+            count(*) AS anon_count,
+            count(*) FILTER (WHERE EXISTS (
+                SELECT 1 FROM user_identity_links l WHERE l.anon_id = f.anon_id
+            )) AS linked_count
+        FROM user_first_touch_attribution f
+        WHERE f.first_seen_at >= :since
+        GROUP BY 1, 2
+        ORDER BY anon_count DESC
+        """
+    )
+    rows = (await db.execute(stmt, {"since": since})).all()
+
+    total_anon = sum(anon_count for _, _, anon_count, _ in rows)
+    status = MetricStatus(state="cold" if total_anon == 0 else "live")
+
+    return FirstTouchOut(
+        status=status,
+        rows=[
+            FirstTouchRow(
+                utm_source=utm_source,
+                utm_medium=utm_medium,
+                anon_count=anon_count,
+                linked_count=linked_count,
+                conversion_rate=(linked_count / anon_count) if anon_count else None,
+            )
+            for utm_source, utm_medium, anon_count, linked_count in rows
+        ],
+    )

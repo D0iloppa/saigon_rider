@@ -24,6 +24,10 @@ from ._audit import audit
 router = APIRouter(prefix="/accounts")
 
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,50}$")
+# 지적 4: issues.py list_issues 의 assignee 쿼리파라미터 예약어("me"=본인, "unassigned"=미배정)와
+# 겹치면 그 이름의 실제 계정 담당 건이 예약어 필터에 가로채여 구분 불가능해진다 — 계정 생성 단계에서
+# 원천 차단한다(대소문자 무관).
+_RESERVED_USERNAMES = {"me", "unassigned"}
 
 
 class AdminAccountRow(BaseModel):
@@ -55,6 +59,16 @@ def _validate_username(username: str) -> None:
         raise HTTPException(status_code=400, detail="아이디 형식이 올바르지 않습니다 (영문/숫자/._- 3~50자).")
     if username == ADMIN_USER:
         raise HTTPException(status_code=400, detail="root 관리자(.env)와 동일한 아이디는 사용할 수 없습니다.")
+    if username.lower() in _RESERVED_USERNAMES:
+        raise HTTPException(status_code=400, detail="'me', 'unassigned'는 예약어라 아이디로 사용할 수 없습니다.")
+
+
+async def is_valid_assignee(db: AsyncSession, username: str) -> bool:
+    """지적 3: 담당자 배정 검증 — /accounts/assignable 과 같은 후보 집합(root + admin_accounts)."""
+    if username == ADMIN_USER:
+        return True
+    exists = (await db.execute(select(AdminAccount.id).where(AdminAccount.username == username))).scalar_one_or_none()
+    return exists is not None
 
 
 async def _get_account_or_404(db: AsyncSession, account_id: uuid.UUID) -> AdminAccount:

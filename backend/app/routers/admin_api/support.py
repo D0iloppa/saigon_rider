@@ -22,6 +22,7 @@ from ...models import SupportReply, SupportTicket
 from ...schemas import ISSUE_CATEGORY_SEVERITY, IssueResultCode, Page
 from ...services import noti_events
 from ._audit import audit
+from .accounts import is_valid_assignee
 
 router = APIRouter(prefix="/support")
 
@@ -309,6 +310,8 @@ async def assign_ticket(
 
     prev = ticket.assignee_username
     new_value = (body.assignee_username or "").strip() or None
+    if new_value is not None and not await is_valid_assignee(db, new_value):
+        raise HTTPException(status_code=400, detail="존재하지 않는 담당자 아이디입니다.")
     ticket.assignee_username = new_value
 
     await audit(

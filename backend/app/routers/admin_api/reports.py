@@ -19,6 +19,7 @@ from ...schemas import IssueResultCode, Page
 from ...utils import build_imgproxy_url
 from ..dm import _resolve_dm_image
 from ._audit import audit
+from .accounts import is_valid_assignee
 
 router = APIRouter(prefix="/reports")
 
@@ -532,6 +533,8 @@ async def assign_report(
 
     prev = report.assignee_username
     new_value = (body.assignee_username or "").strip() or None
+    if new_value is not None and not await is_valid_assignee(db, new_value):
+        raise HTTPException(status_code=400, detail="존재하지 않는 담당자 아이디입니다.")
     report.assignee_username = new_value
 
     await audit(db, session, request, "REPORT_ASSIGN", "report", str(report_id), {"from": prev, "to": new_value})

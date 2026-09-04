@@ -71,15 +71,20 @@ def _report_fixture(**overrides):
 
 
 class AssignTicketTest(unittest.IsolatedAsyncioTestCase):
-    async def test_sets_assignee_and_audits(self):
-        ticket = _ticket_fixture()
-        db = AsyncMock()
-        db.get = AsyncMock(return_value=ticket)
-        added: list = []
-        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+    def _db_with(self, ticket, *, account_exists: bool = True):
+        """검증(is_valid_assignee) 쿼리와 get_ticket 재조회(selectinload) 쿼리를 순서대로 흉내낸다."""
         detail_res = MagicMock()
         detail_res.scalar_one_or_none = MagicMock(return_value=ticket)
-        db.execute = AsyncMock(return_value=detail_res)
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=ticket)
+        db.execute = AsyncMock(side_effect=[_account_exists_db(account_exists), detail_res])
+        return db
+
+    async def test_sets_assignee_and_audits(self):
+        ticket = _ticket_fixture()
+        db = self._db_with(ticket)
+        added: list = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
         await support.assign_ticket(
             ticket.id, support.AssigneeUpdate(assignee_username="alice"), _request(), session=_session(), db=db
@@ -94,13 +99,13 @@ class AssignTicketTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_none_clears_assignee(self):
         ticket = _ticket_fixture(assignee_username="alice")
-        db = AsyncMock()
-        db.get = AsyncMock(return_value=ticket)
-        added: list = []
-        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
         detail_res = MagicMock()
         detail_res.scalar_one_or_none = MagicMock(return_value=ticket)
-        db.execute = AsyncMock(return_value=detail_res)
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=ticket)
+        db.execute = AsyncMock(return_value=detail_res)  # 검증 스킵 → get_ticket 재조회만 호출됨
+        added: list = []
+        db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
         await support.assign_ticket(
             ticket.id, support.AssigneeUpdate(assignee_username=None), _request(), session=_session(), db=db
@@ -112,18 +117,41 @@ class AssignTicketTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_blank_string_normalizes_to_none(self):
         ticket = _ticket_fixture(assignee_username="alice")
-        db = AsyncMock()
-        db.get = AsyncMock(return_value=ticket)
-        db.add = MagicMock()
         detail_res = MagicMock()
         detail_res.scalar_one_or_none = MagicMock(return_value=ticket)
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=ticket)
         db.execute = AsyncMock(return_value=detail_res)
+        db.add = MagicMock()
 
         await support.assign_ticket(
             ticket.id, support.AssigneeUpdate(assignee_username="   "), _request(), session=_session(), db=db
         )
 
         self.assertIsNone(ticket.assignee_username)
+
+    async def test_unknown_username_rejected(self):
+        from fastapi import HTTPException
+
+        ticket = _ticket_fixture()
+        db = self._db_with(ticket, account_exists=False)
+
+        with self.assertRaises(HTTPException) as ctx:
+            await support.assign_ticket(
+                ticket.id, support.AssigneeUpdate(assignee_username="ghost"), _request(), session=_session(), db=db
+            )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIsNone(ticket.assignee_username)
+        db.commit.assert_not_awaited()
+
+
+def _account_exists_db(exists: bool):
+    """지적 3: assign_* 가 is_valid_assignee(db, username) 호출 시 쓰는 db.execute(select(AdminAccount.id)...)
+    를 흉내낸다 — exists=True 면 계정이 있는 것처럼(scalar_one_or_none 이 값 반환), False 면 없는 것처럼."""
+    res = MagicMock()
+    res.scalar_one_or_none = MagicMock(return_value=uuid.uuid4() if exists else None)
+    return res
 
 
 class AssignReportTest(unittest.IsolatedAsyncioTestCase):
@@ -133,6 +161,7 @@ class AssignReportTest(unittest.IsolatedAsyncioTestCase):
         db.get = AsyncMock(return_value=report)
         added: list = []
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
+        db.execute = AsyncMock(return_value=_account_exists_db(True))
 
         result = await reports.assign_report(
             report.id, reports.AssigneeUpdate(assignee_username="bob"), _request(), session=_session(), db=db
@@ -161,44 +190,83 @@ class AssignReportTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result["assignee_username"])
         audits = [o for o in added if isinstance(o, AdminAuditLog)]
         self.assertEqual(audits[0].detail, {"from": "bob", "to": None})
+        db.execute.assert_not_awaited()  # None(해제)은 검증 스킵
+
+    async def test_unknown_username_rejected(self):
+        from fastapi import HTTPException
+
+        report = _report_fixture()
+        db = AsyncMock()
+        db.get = AsyncMock(return_value=report)
+        db.execute = AsyncMock(return_value=_account_exists_db(False))
+
+        with self.assertRaises(HTTPException) as ctx:
+            await reports.assign_report(
+                report.id, reports.AssigneeUpdate(assignee_username="ghost"), _request(), session=_session(), db=db
+            )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIsNone(report.assignee_username)
+        db.commit.assert_not_awaited()
 
 
 class ListIssuesAssigneeFilterTest(unittest.IsolatedAsyncioTestCase):
+    """지적 6: assignee 필터는 fetch 후 파이썬이 아니라 DB 쿼리(WHERE)에서 적용된다 — 아래 테스트는
+    (a) DB 가 이미 필터링된 행만 돌려줬을 때 그대로 통과시키는지, (b) 실행된 SELECT 문 자체에
+    WHERE 절이 실려 있는지(SQL 레벨 필터링 검증) 둘 다 확인한다."""
+
     def _db(self, report_rows, ticket_rows):
+        calls: list = []
+
+        async def execute(stmt):
+            calls.append(stmt)
+            res = MagicMock()
+            res.scalars.return_value.all.return_value = report_rows if len(calls) == 1 else ticket_rows
+            return res
+
         db = AsyncMock()
-        report_res = MagicMock()
-        report_res.scalars.return_value.all.return_value = report_rows
-        ticket_res = MagicMock()
-        ticket_res.scalars.return_value.all.return_value = ticket_rows
-        db.execute = AsyncMock(side_effect=[report_res, ticket_res])
+        db.execute = AsyncMock(side_effect=execute)
+        db._calls = calls
         return db
 
     async def test_me_filters_to_session_username(self):
+        # DB가 세션 유저로 이미 필터링한 결과만 돌려준다고 가정(SQL WHERE 시뮬레이션).
         mine = _report_fixture(assignee_username="root")
-        others = _report_fixture(assignee_username="alice")
-        db = self._db([mine, others], [])
+        db = self._db([mine], [])
 
         rows = await issues.list_issues(source=None, assignee="me", limit=50, session=_session("root"), db=db)
 
         self.assertEqual([r.id for r in rows], [mine.id])
+        report_sql = str(db._calls[0])
+        self.assertIn("assignee_username = ", report_sql)
 
     async def test_unassigned_filters_null_only(self):
         unassigned = _ticket_fixture(assignee_username=None)
-        assigned = _ticket_fixture(assignee_username="alice")
-        db = self._db([], [unassigned, assigned])
+        db = self._db([], [unassigned])
 
         rows = await issues.list_issues(source=None, assignee="unassigned", limit=50, session=_session(), db=db)
 
         self.assertEqual([r.id for r in rows], [unassigned.id])
+        ticket_sql = str(db._calls[1])
+        self.assertIn("assignee_username IS NULL", ticket_sql)
 
     async def test_exact_match_filters_named_assignee(self):
         target = _report_fixture(assignee_username="bob")
-        other = _report_fixture(assignee_username="alice")
-        db = self._db([target, other], [])
+        db = self._db([target], [])
 
         rows = await issues.list_issues(source=None, assignee="bob", limit=50, session=_session(), db=db)
 
         self.assertEqual([r.id for r in rows], [target.id])
+        report_sql = str(db._calls[0])
+        self.assertIn("assignee_username = ", report_sql)
+
+    async def test_no_filter_has_no_assignee_where(self):
+        db = self._db([_report_fixture()], [_ticket_fixture()])
+
+        await issues.list_issues(source=None, assignee=None, limit=50, session=_session(), db=db)
+
+        self.assertNotIn("WHERE", str(db._calls[0]))
+        self.assertNotIn("WHERE", str(db._calls[1]))
 
 
 if __name__ == "__main__":

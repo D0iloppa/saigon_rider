@@ -49,8 +49,15 @@ def _ticket_severity(t: SupportTicket) -> str:
     return t.severity or "SEV3"
 
 
-async def _fetch_report_rows(db: AsyncSession, limit: int) -> list[IssueRow]:
-    reports = (await db.execute(select(Report).order_by(Report.created_at.desc()).limit(limit))).scalars().all()
+async def _fetch_report_rows(
+    db: AsyncSession, limit: int, assignee_username: str | None, unassigned: bool
+) -> list[IssueRow]:
+    q = select(Report)
+    if unassigned:
+        q = q.where(Report.assignee_username.is_(None))
+    elif assignee_username is not None:
+        q = q.where(Report.assignee_username == assignee_username)
+    reports = (await db.execute(q.order_by(Report.created_at.desc()).limit(limit))).scalars().all()
     now = datetime.now(UTC)
     return [
         IssueRow(
@@ -70,10 +77,15 @@ async def _fetch_report_rows(db: AsyncSession, limit: int) -> list[IssueRow]:
     ]
 
 
-async def _fetch_ticket_rows(db: AsyncSession, limit: int) -> list[IssueRow]:
-    tickets = (
-        (await db.execute(select(SupportTicket).order_by(SupportTicket.created_at.desc()).limit(limit))).scalars().all()
-    )
+async def _fetch_ticket_rows(
+    db: AsyncSession, limit: int, assignee_username: str | None, unassigned: bool
+) -> list[IssueRow]:
+    q = select(SupportTicket)
+    if unassigned:
+        q = q.where(SupportTicket.assignee_username.is_(None))
+    elif assignee_username is not None:
+        q = q.where(SupportTicket.assignee_username == assignee_username)
+    tickets = (await db.execute(q.order_by(SupportTicket.created_at.desc()).limit(limit))).scalars().all()
     now = datetime.now(UTC)
     rows = []
     for t in tickets:
@@ -111,25 +123,24 @@ async def list_issues(
     if source is not None and source not in _SOURCES:
         raise HTTPException(status_code=400, detail="invalid source")
 
+    # 지적 6: assignee 필터는 fetch 이후 파이썬이 아니라 DB 쿼리(WHERE)에서 적용한다 — 좁은 필터에서
+    # fetch_limit 을 넘는 매칭 행이 잘려나가 under-fill 되는 것을 막는다. "me"는 호출 시점 username 으로
+    # 치환, "unassigned"는 IS NULL 로 변환. source 필터는 기존대로 파이썬 레벨 유지(이번 범위 밖).
+    unassigned = assignee == "unassigned"
+    assignee_username = None
+    if assignee and not unassigned:
+        assignee_username = session.username if assignee == "me" else assignee
+
     # 병합 전 후보군을 넉넉히 가져와 정렬 후 자른다(현 규모에서는 limit*4 정도로도 충분).
     fetch_limit = max(limit * 4, 200)
     rows: list[IssueRow] = []
     if source is None or source == "REPORT":
-        rows += await _fetch_report_rows(db, fetch_limit)
+        rows += await _fetch_report_rows(db, fetch_limit, assignee_username, unassigned)
     if source is None or source in {"APP", "BIZ", "EXTERNAL"}:
-        ticket_rows = await _fetch_ticket_rows(db, fetch_limit)
+        ticket_rows = await _fetch_ticket_rows(db, fetch_limit, assignee_username, unassigned)
         if source is not None:
             ticket_rows = [r for r in ticket_rows if r.source == source]
         rows += ticket_rows
-
-    if assignee:
-        # 담당자 배정(P2) — source 필터와 같은 파이썬 레벨 필터 패턴("me"=본인, "unassigned"=미배정).
-        if assignee == "me":
-            rows = [r for r in rows if r.assignee_username == session.username]
-        elif assignee == "unassigned":
-            rows = [r for r in rows if r.assignee_username is None]
-        else:
-            rows = [r for r in rows if r.assignee_username == assignee]
 
     rows.sort(key=lambda r: r.priority_score, reverse=True)
     return rows[:limit]

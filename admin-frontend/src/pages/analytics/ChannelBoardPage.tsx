@@ -30,7 +30,11 @@ export default function ChannelBoardPage() {
             <Col key={slot.key} xs={24} sm={12} md={8} lg={6}>
               <StatCard
                 title={slot.label}
-                value={slot.headline ?? '—'}
+                value={
+                  slot.key === 'retention' && slot.headline != null
+                    ? `${(slot.headline * 100).toFixed(1)}%`
+                    : slot.headline ?? '—'
+                }
                 state={slot.status.state}
                 coverage={slot.status.coverage}
                 detail={slot.detail_path ? undefined : '연동 예정 — 계측 미배선'}

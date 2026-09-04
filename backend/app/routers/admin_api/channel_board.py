@@ -80,7 +80,10 @@ async def _referrals_slot(session: AdminSession, db: AsyncSession) -> ChannelSlo
 async def _retention_slot(session: AdminSession, db: AsyncSession) -> ChannelSlot:
     cohorts = await retention_router.get_retention_cohorts(weeks=8, _session=session, db=db)
     total_population = sum(c.population for c in cohorts)
-    headline = cohorts[0].d7_retention if cohorts else None
+    # cohorts 는 최신 주차부터 내림차순 정렬(retention.py ORDER BY cohort_week DESC) — 최신
+    # 코호트는 아직 d7 미경과라 d7_retention 이 None 인 경우가 많다. None 이 아닌 첫(=가장 최신
+    # 유효) 코호트를 headline 으로 쓴다.
+    headline = next((c.d7_retention for c in cohorts if c.d7_retention is not None), None)
     return ChannelSlot(
         key="retention",
         label="리텐션",

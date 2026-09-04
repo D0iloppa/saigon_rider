@@ -12,6 +12,7 @@ from app.routers.admin_api import channel_board
 from app.routers.admin_api.funnel import FirstTouchOut
 from app.routers.admin_api.liquidity import LiquidityPanelOut, LiquidityTargets, ListingLiquidityRow
 from app.routers.admin_api.metric_status import MetricStatus
+from app.routers.admin_api.retention import CohortRetentionRow
 
 _EXPECTED_KEYS = {
     "funnel_daily",
@@ -140,6 +141,43 @@ class ChannelBoardTest(unittest.IsolatedAsyncioTestCase):
         liquidity_slot = next(s for s in out.slots if s.key == "liquidity")
         self.assertEqual(liquidity_slot.status.state, "live")
         self.assertEqual(liquidity_slot.headline, 3)
+
+    async def test_retention_headline_skips_none_from_newest_cohort(self):
+        # 최신 코호트(cohorts[0])는 아직 d7 미경과라 d7_retention=None 인 경우가 흔하다.
+        # headline 은 None 이 아닌 첫 코호트 값을 써야 한다.
+        cohorts = [
+            CohortRetentionRow(
+                cohort_week="2026-09-01",
+                population=10,
+                suppressed=False,
+                d1_retention=0.5,
+                d7_retention=None,
+                d30_retention=None,
+            ),
+            CohortRetentionRow(
+                cohort_week="2026-08-25",
+                population=20,
+                suppressed=False,
+                d1_retention=0.6,
+                d7_retention=0.42,
+                d30_retention=None,
+            ),
+        ]
+        with ExitStack() as stack:
+            self._patch_common(stack)
+            stack.enter_context(
+                patch.object(channel_board.retention_router, "get_retention_cohorts", AsyncMock(return_value=cohorts))
+            )
+            stack.enter_context(
+                patch.object(
+                    channel_board.liquidity_router,
+                    "get_liquidity_panel",
+                    AsyncMock(return_value=_empty_liquidity_panel()),
+                )
+            )
+            out = await channel_board.get_channel_board(_session=None, db=_db_scalar(0))
+        retention_slot = next(s for s in out.slots if s.key == "retention")
+        self.assertEqual(retention_slot.headline, 0.42)
 
 
 if __name__ == "__main__":

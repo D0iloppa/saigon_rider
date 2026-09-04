@@ -59,7 +59,7 @@ class UnifiedIssueQueueTest(unittest.IsolatedAsyncioTestCase):
         db = AsyncMock()
         db.execute = AsyncMock(side_effect=[_result([stolen, spam]), _result([biz_ticket, external_ticket])])
 
-        rows = await issues_router.list_issues(source=None, limit=50, _session=MagicMock(), db=db)
+        rows = await issues_router.list_issues(source=None, assignee=None, limit=50, session=MagicMock(), db=db)
 
         ordered_ids = [r.id for r in rows]
         self.assertEqual(ordered_ids[0], stolen.id, "STOLEN_GOODS(SEV1)가 큐 최상단에 와야 한다")
@@ -77,7 +77,7 @@ class UnifiedIssueQueueTest(unittest.IsolatedAsyncioTestCase):
         db = AsyncMock()
         db.execute = AsyncMock(return_value=result)
 
-        rows = await issues_router.list_issues(source="BIZ", limit=50, _session=MagicMock(), db=db)
+        rows = await issues_router.list_issues(source="BIZ", assignee=None, limit=50, session=MagicMock(), db=db)
         self.assertTrue(all(r.source == "BIZ" for r in rows))
         self.assertEqual(len(rows), 1)
 

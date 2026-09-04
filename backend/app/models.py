@@ -1927,6 +1927,8 @@ class SupportTicket(Base):
     persona: Mapped[str] = mapped_column(String(10), nullable=False, default="USER")
     result_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
     contract_context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # 담당자 배정(init/226) — AdminAuditLog.admin_username 과 같은 문자열 관례, FK 없음(root 는 DB 행 없음).
+    assignee_username: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id], lazy="joined")
     replies: Mapped[list["SupportReply"]] = relationship(
@@ -2318,6 +2320,8 @@ class Report(Base):
     result_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
     # R-3(017 §12-B) — 신고자 본인의 취소 시각. status='CANCELLED' 전이 시 세팅(196).
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 담당자 배정(init/226) — handled_by(종결 처리자)와 별개, FK 없음(root 는 DB 행 없음).
+    assignee_username: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # 신고 코멘트 + 사진 첨부(197, 대표 지적 2026-08-18) — marketplace_listing_images 팬아웃 미러.
     images: Mapped[list["ReportImage"]] = relationship(

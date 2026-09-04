@@ -145,6 +145,7 @@ class ReportRow(BaseModel):
     handled_by: str | None
     handled_at: datetime | None
     result_code: str | None = None
+    assignee_username: str | None = None
 
 
 class ReportStatusUpdate(BaseModel):
@@ -154,6 +155,10 @@ class ReportStatusUpdate(BaseModel):
     # R-2(260819 W3) — resolution_note(내부 메모)와 분리된 신고자 공개용 요약 사유.
     # 비어있으면 저장하지 않고 _REPORT_RESULT_NOTI 고정 문구로 폴백(회귀 금지).
     public_resolution_summary: str | None = None
+
+
+class AssigneeUpdate(BaseModel):
+    assignee_username: str | None = None
 
 
 class AdminDmMessageRow(BaseModel):
@@ -227,6 +232,7 @@ async def _build_rows(db: AsyncSession, reports: list[Report]) -> list[ReportRow
                 handled_by=r.handled_by,
                 handled_at=r.handled_at,
                 result_code=r.result_code,
+                assignee_username=r.assignee_username,
             )
         )
     return rows
@@ -511,6 +517,26 @@ async def update_report_status(
         "handled_by": report.handled_by,
         "handled_at": report.handled_at,
     }
+
+
+@router.patch("/{report_id}/assignee")
+async def assign_report(
+    report_id: uuid.UUID,
+    body: AssigneeUpdate,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """담당자 배정(P2). 자동배정·알림 없음 — 누가 볼 것인가만 기록. handled_by(종결 처리자)와 별개."""
+    report = await _get_report_or_404(db, report_id)
+
+    prev = report.assignee_username
+    new_value = (body.assignee_username or "").strip() or None
+    report.assignee_username = new_value
+
+    await audit(db, session, request, "REPORT_ASSIGN", "report", str(report_id), {"from": prev, "to": new_value})
+    await db.commit()
+    return {"id": report.id, "assignee_username": report.assignee_username}
 
 
 @router.get("/{report_id}/dm-messages", response_model=Page[AdminDmMessageRow])

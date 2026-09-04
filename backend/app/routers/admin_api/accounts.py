@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...admin_auth import ADMIN_USER, AdminSession, hash_password, verify_root_api
+from ...admin_auth import ADMIN_USER, AdminSession, hash_password, verify_admin_api, verify_root_api
 from ...database import get_db
 from ...models import AdminAccount
 from ._audit import audit
@@ -71,6 +71,17 @@ async def list_accounts(
 ):
     accounts = (await db.execute(select(AdminAccount).order_by(AdminAccount.created_at.desc()))).scalars().all()
     return [AdminAccountRow.model_validate(a) for a in accounts]
+
+
+@router.get("/assignable", response_model=list[str])
+async def list_assignable(
+    _session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """담당자 배정(P2) 후보 목록 — root + admin_accounts username. manager 도 배정 대상을 봐야 하므로
+    root 전용 게이트가 아니라 일반 admin 인증만 요구한다. role 등 상세는 노출하지 않는다."""
+    usernames = (await db.execute(select(AdminAccount.username).order_by(AdminAccount.username))).scalars().all()
+    return [ADMIN_USER, *usernames]
 
 
 @router.post("", response_model=AdminAccountRow)

@@ -42,6 +42,7 @@ class IssueRow(BaseModel):
     created_at: datetime
     title: str | None
     priority_score: float
+    assignee_username: str | None
 
 
 def _ticket_severity(t: SupportTicket) -> str:
@@ -63,6 +64,7 @@ async def _fetch_report_rows(db: AsyncSession, limit: int) -> list[IssueRow]:
             created_at=r.created_at,
             title=None,
             priority_score=_report_priority_score(r.reason, r.created_at, now=now),
+            assignee_username=r.assignee_username,
         )
         for r in reports
     ]
@@ -91,6 +93,7 @@ async def _fetch_ticket_rows(db: AsyncSession, limit: int) -> list[IssueRow]:
                 created_at=t.created_at,
                 title=t.title,
                 priority_score=offset_hours + wait_hours,
+                assignee_username=t.assignee_username,
             )
         )
     return rows
@@ -99,8 +102,9 @@ async def _fetch_ticket_rows(db: AsyncSession, limit: int) -> list[IssueRow]:
 @router.get("", response_model=list[IssueRow])
 async def list_issues(
     source: str | None = Query(None),
+    assignee: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
-    _session: AdminSession = Depends(verify_admin_api),
+    session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
     """#25 통합 큐 — reports + support_tickets 를 심각도(대기시간 병합 점수) 순으로 병합 정렬."""
@@ -117,6 +121,15 @@ async def list_issues(
         if source is not None:
             ticket_rows = [r for r in ticket_rows if r.source == source]
         rows += ticket_rows
+
+    if assignee:
+        # 담당자 배정(P2) — source 필터와 같은 파이썬 레벨 필터 패턴("me"=본인, "unassigned"=미배정).
+        if assignee == "me":
+            rows = [r for r in rows if r.assignee_username == session.username]
+        elif assignee == "unassigned":
+            rows = [r for r in rows if r.assignee_username is None]
+        else:
+            rows = [r for r in rows if r.assignee_username == assignee]
 
     rows.sort(key=lambda r: r.priority_score, reverse=True)
     return rows[:limit]

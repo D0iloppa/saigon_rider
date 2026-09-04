@@ -49,6 +49,7 @@ class TicketRow(BaseModel):
     persona: str
     result_code: str | None
     contract_context: dict | None = None
+    assignee_username: str | None = None
 
 
 class ReplyOut(BaseModel):
@@ -81,6 +82,10 @@ class TriageUpdate(BaseModel):
     severity: str | None = None
 
 
+class AssigneeUpdate(BaseModel):
+    assignee_username: str | None = None
+
+
 async def _get_ticket_or_404(db: AsyncSession, ticket_id: uuid.UUID) -> SupportTicket:
     ticket = await db.get(SupportTicket, ticket_id)
     if ticket is None:
@@ -105,9 +110,10 @@ async def _last_reply_ats(db: AsyncSession, ticket_ids: list[uuid.UUID]) -> dict
 async def list_tickets(
     status: str | None = Query(None),
     source: str | None = Query(None),
+    assignee: str | None = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(30, ge=1, le=100),
-    _session: AdminSession = Depends(verify_admin_api),
+    session: AdminSession = Depends(verify_admin_api),
     db: AsyncSession = Depends(get_db),
 ):
     q = select(SupportTicket).options(selectinload(SupportTicket.user))
@@ -123,6 +129,16 @@ async def list_tickets(
             raise HTTPException(status_code=400, detail="invalid source")
         q = q.where(SupportTicket.source == source)
         count_q = count_q.where(SupportTicket.source == source)
+    if assignee:
+        # 담당자 배정(P2) — "me"=본인, "unassigned"=미배정, 그 외 값은 정확매칭.
+        if assignee == "me":
+            assignee_filter = SupportTicket.assignee_username == session.username
+        elif assignee == "unassigned":
+            assignee_filter = SupportTicket.assignee_username.is_(None)
+        else:
+            assignee_filter = SupportTicket.assignee_username == assignee
+        q = q.where(assignee_filter)
+        count_q = count_q.where(assignee_filter)
 
     total = (await db.execute(count_q)).scalar_one()
     tickets = (
@@ -151,6 +167,7 @@ def _to_row(ticket: SupportTicket, last_reply_at: datetime | None) -> TicketRow:
         persona=ticket.persona,
         result_code=ticket.result_code,
         contract_context=ticket.contract_context,
+        assignee_username=ticket.assignee_username,
     )
 
 
@@ -274,6 +291,28 @@ async def update_status(
 
     await audit(
         db, session, request, "SUPPORT_STATUS", "support_ticket", str(ticket_id), {"from": prev, "to": body.status}
+    )
+    await db.commit()
+    return await get_ticket(ticket_id, session, db)
+
+
+@router.patch("/tickets/{ticket_id}/assignee", response_model=TicketDetail)
+async def assign_ticket(
+    ticket_id: uuid.UUID,
+    body: AssigneeUpdate,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """담당자 배정(P2). 자동배정·알림 없음 — 누가 볼 것인가만 기록."""
+    ticket = await _get_ticket_or_404(db, ticket_id)
+
+    prev = ticket.assignee_username
+    new_value = (body.assignee_username or "").strip() or None
+    ticket.assignee_username = new_value
+
+    await audit(
+        db, session, request, "SUPPORT_ASSIGN", "support_ticket", str(ticket_id), {"from": prev, "to": new_value}
     )
     await db.commit()
     return await get_ticket(ticket_id, session, db)

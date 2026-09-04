@@ -71,6 +71,25 @@ async def is_valid_assignee(db: AsyncSession, username: str) -> bool:
     return exists is not None
 
 
+class AssigneeUpdate(BaseModel):
+    assignee_username: str | None = None
+
+
+async def resolve_assignee_update(
+    db: AsyncSession, current: str | None, new_username: str | None
+) -> tuple[str | None, str | None]:
+    """지적 8: reports.py/support.py 담당자배정(정규화 + 검증) 공통 로직.
+
+    빈 문자열은 None(배정 해제)으로 정규화하고, 값이 있으면 is_valid_assignee 로 검증한다.
+    호출부는 반환된 (prev, new) 로 자기 모델 컬럼을 세팅하고 자기 audit action 이름으로
+    감사로그만 남기면 된다.
+    """
+    new_value = (new_username or "").strip() or None
+    if new_value is not None and not await is_valid_assignee(db, new_value):
+        raise HTTPException(status_code=400, detail="존재하지 않는 담당자 아이디입니다.")
+    return current, new_value
+
+
 async def _get_account_or_404(db: AsyncSession, account_id: uuid.UUID) -> AdminAccount:
     account = await db.get(AdminAccount, account_id)
     if account is None:

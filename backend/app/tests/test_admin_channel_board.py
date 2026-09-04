@@ -34,47 +34,87 @@ def _db_scalar(value):
     return db
 
 
+class _FakeSessionCtx:
+    """AsyncSessionLocal() 이 여는 `async with` 세션을 흉내낸다 — 지적 7 병렬화 후 각 슬롯이
+    독립 세션을 여는 구조이므로, 테스트에서는 그 세션이 매번 같은 목 db 를 내주도록 고정한다."""
+
+    def __init__(self, db):
+        self._db = db
+
+    async def __aenter__(self):
+        return self._db
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def _patch_session(stack: ExitStack, db) -> None:
+    stack.enter_context(patch.object(channel_board, "AsyncSessionLocal", lambda: _FakeSessionCtx(db)))
+
+
 def _empty_liquidity_panel():
     return LiquidityPanelOut(demo_excluded=True, targets=LiquidityTargets(), listings=[], search=[])
 
 
 class ChannelBoardTest(unittest.IsolatedAsyncioTestCase):
     async def test_returns_8_slots_with_expected_keys(self):
-        db = _db_scalar(0)
-        with (
-            patch.object(channel_board.funnel_router, "get_daily_funnel", AsyncMock(return_value=[])),
-            patch.object(channel_board.funnel_router, "get_segmented_funnel", AsyncMock(return_value=[])),
-            patch.object(
-                channel_board.funnel_router,
-                "get_first_touch",
-                AsyncMock(return_value=FirstTouchOut(status=MetricStatus(state="cold"), rows=[])),
-            ),
-            patch.object(channel_board.retention_router, "get_retention_cohorts", AsyncMock(return_value=[])),
-            patch.object(
-                channel_board.liquidity_router, "get_liquidity_panel", AsyncMock(return_value=_empty_liquidity_panel())
-            ),
-        ):
-            out = await channel_board.get_channel_board(_session=None, db=db)
+        with ExitStack() as stack:
+            _patch_session(stack, _db_scalar(0))
+            stack.enter_context(
+                patch.object(channel_board.funnel_router, "get_daily_funnel", AsyncMock(return_value=[]))
+            )
+            stack.enter_context(
+                patch.object(channel_board.funnel_router, "get_segmented_funnel", AsyncMock(return_value=[]))
+            )
+            stack.enter_context(
+                patch.object(
+                    channel_board.funnel_router,
+                    "get_first_touch",
+                    AsyncMock(return_value=FirstTouchOut(status=MetricStatus(state="cold"), rows=[])),
+                )
+            )
+            stack.enter_context(
+                patch.object(channel_board.retention_router, "get_retention_cohorts", AsyncMock(return_value=[]))
+            )
+            stack.enter_context(
+                patch.object(
+                    channel_board.liquidity_router,
+                    "get_liquidity_panel",
+                    AsyncMock(return_value=_empty_liquidity_panel()),
+                )
+            )
+            out = await channel_board.get_channel_board(_session=None)
 
         self.assertEqual(len(out.slots), 8)
         self.assertEqual({s.key for s in out.slots}, _EXPECTED_KEYS)
 
     async def test_youtube_and_blog_always_not_wired(self):
-        db = _db_scalar(0)
-        with (
-            patch.object(channel_board.funnel_router, "get_daily_funnel", AsyncMock(return_value=[])),
-            patch.object(channel_board.funnel_router, "get_segmented_funnel", AsyncMock(return_value=[])),
-            patch.object(
-                channel_board.funnel_router,
-                "get_first_touch",
-                AsyncMock(return_value=FirstTouchOut(status=MetricStatus(state="cold"), rows=[])),
-            ),
-            patch.object(channel_board.retention_router, "get_retention_cohorts", AsyncMock(return_value=[])),
-            patch.object(
-                channel_board.liquidity_router, "get_liquidity_panel", AsyncMock(return_value=_empty_liquidity_panel())
-            ),
-        ):
-            out = await channel_board.get_channel_board(_session=None, db=db)
+        with ExitStack() as stack:
+            _patch_session(stack, _db_scalar(0))
+            stack.enter_context(
+                patch.object(channel_board.funnel_router, "get_daily_funnel", AsyncMock(return_value=[]))
+            )
+            stack.enter_context(
+                patch.object(channel_board.funnel_router, "get_segmented_funnel", AsyncMock(return_value=[]))
+            )
+            stack.enter_context(
+                patch.object(
+                    channel_board.funnel_router,
+                    "get_first_touch",
+                    AsyncMock(return_value=FirstTouchOut(status=MetricStatus(state="cold"), rows=[])),
+                )
+            )
+            stack.enter_context(
+                patch.object(channel_board.retention_router, "get_retention_cohorts", AsyncMock(return_value=[]))
+            )
+            stack.enter_context(
+                patch.object(
+                    channel_board.liquidity_router,
+                    "get_liquidity_panel",
+                    AsyncMock(return_value=_empty_liquidity_panel()),
+                )
+            )
+            out = await channel_board.get_channel_board(_session=None)
 
         by_key = {s.key: s for s in out.slots}
         for key in ("youtube", "blog"):
@@ -84,6 +124,7 @@ class ChannelBoardTest(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(slot.detail_path)
 
     def _patch_common(self, stack: ExitStack) -> None:
+        _patch_session(stack, _db_scalar(0))
         stack.enter_context(patch.object(channel_board.funnel_router, "get_daily_funnel", AsyncMock(return_value=[])))
         stack.enter_context(
             patch.object(channel_board.funnel_router, "get_segmented_funnel", AsyncMock(return_value=[]))
@@ -109,7 +150,7 @@ class ChannelBoardTest(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(return_value=_empty_liquidity_panel()),
                 )
             )
-            out = await channel_board.get_channel_board(_session=None, db=_db_scalar(0))
+            out = await channel_board.get_channel_board(_session=None)
         liquidity_slot = next(s for s in out.slots if s.key == "liquidity")
         self.assertEqual(liquidity_slot.status.state, "cold")
         self.assertEqual(liquidity_slot.headline, 0)
@@ -137,7 +178,7 @@ class ChannelBoardTest(unittest.IsolatedAsyncioTestCase):
                     channel_board.liquidity_router, "get_liquidity_panel", AsyncMock(return_value=nonzero_panel)
                 )
             )
-            out = await channel_board.get_channel_board(_session=None, db=_db_scalar(0))
+            out = await channel_board.get_channel_board(_session=None)
         liquidity_slot = next(s for s in out.slots if s.key == "liquidity")
         self.assertEqual(liquidity_slot.status.state, "live")
         self.assertEqual(liquidity_slot.headline, 3)
@@ -175,9 +216,31 @@ class ChannelBoardTest(unittest.IsolatedAsyncioTestCase):
                     AsyncMock(return_value=_empty_liquidity_panel()),
                 )
             )
-            out = await channel_board.get_channel_board(_session=None, db=_db_scalar(0))
+            out = await channel_board.get_channel_board(_session=None)
         retention_slot = next(s for s in out.slots if s.key == "retention")
         self.assertEqual(retention_slot.headline, 0.42)
+
+    async def test_one_slot_failure_is_isolated_after_parallelization(self):
+        """지적 7: asyncio.gather 로 병렬화한 뒤에도 한 소스의 예외가 나머지 슬롯에 번지지
+        않아야 한다 — liquidity 소스만 죽여도 나머지 5개 슬롯은 정상 데이터로 채워지는지 확인."""
+        with ExitStack() as stack:
+            self._patch_common(stack)
+            stack.enter_context(
+                patch.object(
+                    channel_board.liquidity_router,
+                    "get_liquidity_panel",
+                    AsyncMock(side_effect=RuntimeError("boom")),
+                )
+            )
+            out = await channel_board.get_channel_board(_session=None)
+
+        by_key = {s.key: s for s in out.slots}
+        liquidity_slot = by_key["liquidity"]
+        self.assertEqual(liquidity_slot.status.state, "cold")
+        self.assertIsNone(liquidity_slot.headline)
+        # 죽지 않은 슬롯들은 여전히 정상적으로 8개 전부 채워진다.
+        self.assertEqual(len(out.slots), 8)
+        self.assertEqual({s.key for s in out.slots}, _EXPECTED_KEYS)
 
 
 if __name__ == "__main__":

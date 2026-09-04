@@ -19,7 +19,7 @@ from ...schemas import IssueResultCode, Page
 from ...utils import build_imgproxy_url
 from ..dm import _resolve_dm_image
 from ._audit import audit
-from .accounts import is_valid_assignee
+from .accounts import AssigneeUpdate, resolve_assignee_update
 
 router = APIRouter(prefix="/reports")
 
@@ -156,10 +156,6 @@ class ReportStatusUpdate(BaseModel):
     # R-2(260819 W3) — resolution_note(내부 메모)와 분리된 신고자 공개용 요약 사유.
     # 비어있으면 저장하지 않고 _REPORT_RESULT_NOTI 고정 문구로 폴백(회귀 금지).
     public_resolution_summary: str | None = None
-
-
-class AssigneeUpdate(BaseModel):
-    assignee_username: str | None = None
 
 
 class AdminDmMessageRow(BaseModel):
@@ -531,10 +527,7 @@ async def assign_report(
     """담당자 배정(P2). 자동배정·알림 없음 — 누가 볼 것인가만 기록. handled_by(종결 처리자)와 별개."""
     report = await _get_report_or_404(db, report_id)
 
-    prev = report.assignee_username
-    new_value = (body.assignee_username or "").strip() or None
-    if new_value is not None and not await is_valid_assignee(db, new_value):
-        raise HTTPException(status_code=400, detail="존재하지 않는 담당자 아이디입니다.")
+    prev, new_value = await resolve_assignee_update(db, report.assignee_username, body.assignee_username)
     report.assignee_username = new_value
 
     await audit(db, session, request, "REPORT_ASSIGN", "report", str(report_id), {"from": prev, "to": new_value})

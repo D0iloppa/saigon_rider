@@ -22,7 +22,7 @@ from ...models import SupportReply, SupportTicket
 from ...schemas import ISSUE_CATEGORY_SEVERITY, IssueResultCode, Page
 from ...services import noti_events
 from ._audit import audit
-from .accounts import is_valid_assignee
+from .accounts import AssigneeUpdate, resolve_assignee_update
 
 router = APIRouter(prefix="/support")
 
@@ -81,10 +81,6 @@ class TriageUpdate(BaseModel):
 
     category: str | None = None
     severity: str | None = None
-
-
-class AssigneeUpdate(BaseModel):
-    assignee_username: str | None = None
 
 
 async def _get_ticket_or_404(db: AsyncSession, ticket_id: uuid.UUID) -> SupportTicket:
@@ -308,10 +304,7 @@ async def assign_ticket(
     """담당자 배정(P2). 자동배정·알림 없음 — 누가 볼 것인가만 기록."""
     ticket = await _get_ticket_or_404(db, ticket_id)
 
-    prev = ticket.assignee_username
-    new_value = (body.assignee_username or "").strip() or None
-    if new_value is not None and not await is_valid_assignee(db, new_value):
-        raise HTTPException(status_code=400, detail="존재하지 않는 담당자 아이디입니다.")
+    prev, new_value = await resolve_assignee_update(db, ticket.assignee_username, body.assignee_username)
     ticket.assignee_username = new_value
 
     await audit(

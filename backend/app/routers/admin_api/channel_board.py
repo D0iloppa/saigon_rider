@@ -6,6 +6,8 @@
 유튜브/블로그는 실연동이 없어 항상 not_wired 로 고정한다.
 """
 
+import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -15,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...admin_auth import AdminSession, verify_admin_api
-from ...database import get_db
+from ...database import AsyncSessionLocal
 from ...models import User
 from . import funnel as funnel_router
 from . import liquidity as liquidity_router
@@ -121,7 +123,9 @@ async def _first_touch_slot(session: AdminSession, db: AsyncSession) -> ChannelS
 
 _NOT_WIRED = MetricStatus(state="not_wired")
 
-_SLOT_BUILDERS = [
+_SlotBuilder = Callable[[AdminSession, AsyncSession], Awaitable[ChannelSlot]]
+
+_SLOT_BUILDERS: list[tuple[str, str, str, _SlotBuilder]] = [
     ("funnel_daily", "퍼널(가입~전환)", "/analytics/funnel", _funnel_daily_slot),
     ("segmented", "세그먼트 분석", "/analytics/funnel", _segmented_slot),
     ("referrals", "초대(리퍼럴)", "/analytics/funnel", _referrals_slot),
@@ -131,22 +135,30 @@ _SLOT_BUILDERS = [
 ]
 
 
+async def _run_slot(entry: tuple[str, str, str, _SlotBuilder], session: AdminSession) -> ChannelSlot:
+    """지적 7: 6개 슬롯은 서로 데이터 의존관계가 없어 병렬 실행한다.
+
+    AsyncSession 은 여러 코루틴에서 동시에 쓸 수 없으므로(같은 세션을 공유하면 SQLAlchemy 가
+    깨진다), 슬롯마다 독립 세션을 연다 — services/funnel_events.py·location_eta.py 와 같은
+    "요청 스코프 세션을 넘기지 않고 직접 AsyncSessionLocal() 을 여는" 기존 패턴을 그대로 따른다.
+    실패 격리는 기존과 동일하게 슬롯 단위 try/except 로 유지한다.
+    """
+    key, label, detail_path, builder = entry
+    try:
+        async with AsyncSessionLocal() as db:
+            return await builder(session, db)
+    except Exception:
+        # 소스별 실패 격리 — 한 슬롯이 죽어도 나머지는 정상 반환한다.
+        return ChannelSlot(
+            key=key, label=label, status=MetricStatus(state="cold"), headline=None, detail_path=detail_path
+        )
+
+
 @router.get("/channel-board", response_model=ChannelBoardOut)
 async def get_channel_board(
     _session: AdminSession = Depends(verify_admin_api),
-    db: AsyncSession = Depends(get_db),
 ):
-    slots: list[ChannelSlot] = []
-    for key, label, detail_path, builder in _SLOT_BUILDERS:
-        try:
-            slots.append(await builder(_session, db))
-        except Exception:
-            # 소스별 실패 격리 — 한 슬롯이 죽어도 나머지는 정상 반환한다.
-            slots.append(
-                ChannelSlot(
-                    key=key, label=label, status=MetricStatus(state="cold"), headline=None, detail_path=detail_path
-                )
-            )
+    slots: list[ChannelSlot] = list(await asyncio.gather(*(_run_slot(entry, _session) for entry in _SLOT_BUILDERS)))
 
     slots.append(ChannelSlot(key="youtube", label="유튜브 성과", status=_NOT_WIRED, headline=None, detail_path=None))
     slots.append(ChannelSlot(key="blog", label="블로그 성과", status=_NOT_WIRED, headline=None, detail_path=None))

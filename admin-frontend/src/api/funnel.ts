@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, buildQuery } from './client'
+import type { MetricStatus } from './dashboard'
 
 export interface SegmentedFunnelRow {
   week_start: string
@@ -83,5 +84,25 @@ export function useZeroResultSearches(params: ZeroResultSearchParams) {
       api<ZeroResultSearchTerm[]>(
         `/admin/api/funnel/search/zero-results${buildQuery({ days: params.days, limit: params.limit })}`,
       ),
+  })
+}
+
+export interface FirstTouchRow {
+  utm_source: string
+  utm_medium: string
+  anon_count: number
+  linked_count: number
+  conversion_rate: number | null
+}
+
+export interface FirstTouchOut {
+  status: MetricStatus
+  rows: FirstTouchRow[]
+}
+
+export function useFirstTouch(days = 90) {
+  return useQuery({
+    queryKey: ['funnel', 'first-touch', days],
+    queryFn: () => api<FirstTouchOut>(`/admin/api/funnel/first-touch${buildQuery({ days })}`),
   })
 }

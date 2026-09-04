@@ -61,6 +61,7 @@ const MENU_ITEMS = [
     { key: '/analytics/funnel', icon: <FunnelPlotOutlined />, label: '전환 퍼널' },
     { key: '/analytics/zero-results', icon: <SearchOutlined />, label: '0건 검색어' },
     { key: '/analytics/retention', icon: <TableOutlined />, label: '코호트 리텐션' },
+    { key: '/analytics/first-touch', icon: <CompassOutlined />, label: '비회원 유입경로' },
   ] },
   { key: 'group-biz', label: 'BUSINESS', children: [
     { key: '/biz/accounts', icon: <SolutionOutlined />, label: '파트너 심사' },
@@ -110,6 +111,7 @@ const PAGE_META = [
   { path: '/analytics/funnel', title: '전환 퍼널', description: '가입부터 거래완료까지 세그먼트별 전환 퍼널을 확인합니다.' },
   { path: '/analytics/zero-results', title: '0건 검색어', description: '결과 0건 검색어를 확인해 필드 에이전트 발굴 대상을 정합니다.' },
   { path: '/analytics/retention', title: '코호트 리텐션', description: '가입 주차별 D1/D7/D30 리텐션율을 히트맵으로 확인합니다.' },
+  { path: '/analytics/first-touch', title: '비회원 유입경로', description: 'UTM first-touch 기준 익명 방문자 수와 회원 연결(전환) 비율입니다. 같은 세션에서 로그인한 경우만 연결로 집계합니다.' },
   { path: '/community/feed', title: '피드 관리', description: '공식계정 피드를 작성하고, 사용자 피드 게시물을 조회·삭제합니다.' },
   { path: '/map/poi', title: 'POI 관리', description: '동네지도에 노출되는 POI를 등록하고 관리합니다.' },
   { path: '/map/place-suggestions', title: '장소 제보 심사', description: '사용자가 제보한 장소를 승인하거나 반려합니다.' },

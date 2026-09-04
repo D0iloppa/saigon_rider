@@ -25,6 +25,7 @@ import LiquidityPanelPage from './pages/analytics/LiquidityPanelPage'
 import FunnelPage from './pages/analytics/FunnelPage'
 import ZeroResultSearchPage from './pages/analytics/ZeroResultSearchPage'
 import RetentionPage from './pages/analytics/RetentionPage'
+import FirstTouchPage from './pages/analytics/FirstTouchPage'
 import FeedListPage from './pages/community/FeedListPage'
 import FeedDetailPage from './pages/community/FeedDetailPage'
 import FeedEditPage from './pages/community/FeedEditPage'
@@ -151,6 +152,7 @@ export default function App() {
               <Route path="/analytics/funnel" element={<FunnelPage />} />
               <Route path="/analytics/zero-results" element={<ZeroResultSearchPage />} />
               <Route path="/analytics/retention" element={<RetentionPage />} />
+              <Route path="/analytics/first-touch" element={<FirstTouchPage />} />
               <Route path="/community/feed" element={<FeedListPage />} />
               <Route path="/community/feed/new" element={<FeedEditPage />} />
               <Route path="/community/feed/:id" element={<FeedDetailPage />} />

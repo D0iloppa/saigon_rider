@@ -435,6 +435,18 @@ services:
       - "/migrations/226_issue_assignee.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (226) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/227_ad_paid_until.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (227) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/228_ad_contracts_deposits.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (228) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/229_ad_toss_rail.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (229) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -518,6 +530,9 @@ services:
       - ./database/init/224_location_channel_proposals_unique.sql:/migrations/224_location_channel_proposals_unique.sql:ro
       - ./database/init/225_location_channel_live_activity.sql:/migrations/225_location_channel_live_activity.sql:ro
       - ./database/init/226_issue_assignee.sql:/migrations/226_issue_assignee.sql:ro
+      - ./database/init/227_ad_paid_until.sql:/migrations/227_ad_paid_until.sql:ro
+      - ./database/init/228_ad_contracts_deposits.sql:/migrations/228_ad_contracts_deposits.sql:ro
+      - ./database/init/229_ad_toss_rail.sql:/migrations/229_ad_toss_rail.sql:ro
     networks:
       - dev-net
     depends_on:
@@ -631,6 +646,18 @@ services:
       - PLANE_URL=${PLANE_URL:-https://plane.doil.me}
       - PLANE_WORKSPACE=${PLANE_WORKSPACE:-doil}
       - PLANE_PROJECT_ID=${PLANE_PROJECT_ID:-}
+      # 광고 계약 입금 안내 계좌(seam-A, 260907_ad_payment_pipeline_design.md §2-2). 비어 있으면
+      # bank_wiring_ready() 가 False(미배선) — .env 만으로는 컨테이너에 전달되지 않아 여기 필요.
+      - AD_PAYMENT_BANK_NAME=${AD_PAYMENT_BANK_NAME:-}
+      - AD_PAYMENT_BANK_ACCOUNT_NO=${AD_PAYMENT_BANK_ACCOUNT_NO:-}
+      - AD_PAYMENT_BANK_ACCOUNT_HOLDER=${AD_PAYMENT_BANK_ACCOUNT_HOLDER:-}
+      # 카드 결제 레일(seam-C, 260907_toss_payment_rail_design.md §5-3). 클라·시크릿 키가 둘 다
+      # 비어 있으면 toss_mode()가 off(카드 rail 숨김). BIZ_PORTAL_BASE_URL 은 seam-A와 같은 함정
+      # (.env 만으로는 컨테이너에 전달 안 됨)으로 지금까지 배선 누락 상태였다 — 여기서 함께 배선.
+      - AD_PAYMENT_TOSS_CLIENT_KEY=${AD_PAYMENT_TOSS_CLIENT_KEY:-}
+      - AD_PAYMENT_TOSS_SECRET_KEY=${AD_PAYMENT_TOSS_SECRET_KEY:-}
+      - AD_PAYMENT_TOSS_STUB=${AD_PAYMENT_TOSS_STUB:-}
+      - BIZ_PORTAL_BASE_URL=${BIZ_PORTAL_BASE_URL:-https://business.saigon-rider.com}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/api/ready').status==200 else 1)"]
       interval: 10s

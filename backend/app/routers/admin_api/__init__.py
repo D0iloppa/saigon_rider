@@ -14,6 +14,7 @@ from . import (
     auth,
     badges,
     biz,
+    biz_contracts,
     channel_board,
     cms,
     dashboard,
@@ -56,6 +57,7 @@ router.include_router(cms.router)
 router.include_router(audit_logs.router)
 router.include_router(map.router)
 router.include_router(biz.router)
+router.include_router(biz_contracts.router)
 router.include_router(accounts.router)
 router.include_router(feed.router)
 router.include_router(dev_context.router)

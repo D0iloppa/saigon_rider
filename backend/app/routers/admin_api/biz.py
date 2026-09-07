@@ -818,26 +818,3 @@ async def makegood_ad(
         )
     await db.commit()
     return {"id": ad.id, "prev_ends_at": prev_ends_at, "ends_at": ad.ends_at}
-
-
-@router.post("/ads/{ad_id}/activate-subscription", summary="월구독 입금확인 후 게시 활성 (admin 전용)")
-async def activate_biz_ad_subscription(
-    ad_id: uuid.UUID,
-    request: Request,
-    session: AdminSession = Depends(verify_admin_api),
-    db: AsyncSession = Depends(get_db),
-):
-    try:
-        ad, bp = await AdsApplication(db).activate_subscription(ad_id)
-    except AdsError as exc:
-        raise _ads_error(exc) from exc
-
-    await audit(db, session, request, "BIZ_AD_ACTIVATE_SUBSCRIPTION", "marketplace_ad", str(ad_id))
-    await db.commit()
-
-    if bp:
-        await noti_events.publish(
-            "biz.ad_reviewed",
-            {"user_id": str(bp.user_id), "ad_id": str(ad.id), "ad_title": ad.title, "result": "SUBSCRIPTION_ACTIVE"},
-        )
-    return {"id": ad.id, "subscription_status": ad.subscription_status}

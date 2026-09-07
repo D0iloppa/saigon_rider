@@ -1043,6 +1043,8 @@ class MarketplaceAd(Base):
     reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_ongoing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     subscription_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending_payment")
+    # 유료 만료일 — 관리자가 입금 확인 시 세팅(자동갱신 없음, 260907 ADR §0-1). NULL = 미입금.
+    paid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
@@ -1076,8 +1078,80 @@ class AdTier(Base):
     features_json: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     # 근접 광고 계약형태 옵션A(260810_proximity_ad_contract_model.md) — 프리미엄만 TRUE(174 migration)
     proximity_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # 선불 3/6개월 확정가(260907_ad_payment_pipeline_design.md §3-3, init/228). 1개월 = monthly_price_vnd.
+    price_3m_vnd: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    price_6m_vnd: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # 카드 결제(토스) 청구용 KRW 확정가(seam-D, 260907_toss_payment_rail_design.md §4-3, init/229).
+    # NULL = 대표 결정 D-F 보류 또는 미시딩 — 카드 rail 미노출(무료/오가 계약 방지).
+    price_1m_krw: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    price_3m_krw: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    price_6m_krw: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AdContract(Base):
+    """광고 계약건 — 광고 1 : 계약 N (260907_ad_payment_pipeline_design.md §3-1, init/228).
+
+    상태기계·전이 함수는 services/ad_payments/contracts.py 한 곳에서만 다룬다.
+    """
+
+    __tablename__ = "ad_contracts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ad_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_ads.id", ondelete="RESTRICT"), nullable=False
+    )
+    tier_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ad_tiers.id", ondelete="RESTRICT"), nullable=False
+    )
+    months: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    amount_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    payment_code: Mapped[str] = mapped_column(String(12), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    contract_token: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    contract_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    signer_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    signer_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    contract_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payment_instructions_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AdDeposit(Base):
+    """입금건 원장 — 계약 1 : 입금 N, 미매칭은 contract_id NULL (설계문서 §3-2, init/228)."""
+
+    __tablename__ = "ad_deposits"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ad_contracts.id", ondelete="RESTRICT"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    amount_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    paid_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payer_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    memo_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bank_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_content_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contents.id", ondelete="SET NULL"), nullable=True
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recorded_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # 카드 결제(토스) 실제 청구 스냅샷 — 통화·PSP 결제키·카드정보 등 (260907_toss_payment_rail_design.md
+    # §3-4, init/229). amount_vnd 는 여전히 계약 VND 액면(원장·대조는 VND 로 동작) — 이 컬럼은
+    # "실제로 얼마가 어떤 통화로 움직였나"만 보관한다. 계좌이체 행은 NULL.
+    charge_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class AdEvent(Base):

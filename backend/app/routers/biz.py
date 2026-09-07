@@ -2,7 +2,6 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import delete, func, select, text
@@ -69,7 +68,7 @@ from ..schemas import (
     ReviewAppealCreateRequest,
     SupportTicketOut,
 )
-from ..services import noti_events
+from ..services import ad_gating, noti_events
 from ..services.redis_cache import get_client
 from ..services.search_index import immediate_blob
 from ..services.search_norm import norm
@@ -90,7 +89,9 @@ _VIEW_TTL_SEC = 30
 
 # 광고 성과 — 표본 100 미만이면 비율/비용 지표 숨김 (ai-docs/spec/ad-performance-metrics.md §7-3 D, X-4)
 MIN_SAMPLE_FOR_RATIO = 100
-_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+# services/ad_gating.py 로 이동 — 그쪽이 유예기간 영업일 판정에도 VN 로컬 날짜가 필요해졌고,
+# 이 방향으로 import 해야 순환참조가 안 생긴다(biz.py → modules.ads.application → ad_gating).
+_VN_TZ = ad_gating._VN_TZ
 
 # 유료 노출면만 광고 성과(CTR/CVR/CPM/CPC/CPA)에 합산한다 — ad_detail/biz_profile 은 광고비와
 # 무관하게 발생하는 무료 노출(직접 방문)이라 유료 성과에 섞으면 광고주에게 부풀린 숫자를 보여주게
@@ -574,12 +575,25 @@ _SERIES_PERIODS = ("7d", "14d", "30d")
 
 
 def _is_launching_ad(ad: MarketplaceAd, now: datetime) -> bool:
-    """launching_ad_conditions(services/ad_gating.py) 의 단일 객체 버전 — 상태 판정용."""
+    """launching_ad_conditions(services/ad_gating.py) 의 단일 객체 버전 — 상태 판정용.
+
+    결제 조건은 ad_gating.is_payment_ok() 를 그대로 호출한다(중복 금지 — 260907 ADR §9 T-1
+    리뷰 지적: 여기서 조건을 복붙하면 SQL 게이트와 판정이 어긋나 광고주 화면(론칭중)과 실제
+    노출 상태가 불일치할 수 있다).
+    """
     if ad.review_status != "APPROVED" or not ad.is_active:
         return False
     if ad.starts_at is not None and ad.starts_at > now:
         return False
-    return not (ad.ends_at is not None and ad.ends_at < now)
+    if ad.ends_at is not None and ad.ends_at < now:
+        return False
+    return ad_gating.is_payment_ok(
+        owner_business_profile_id=ad.owner_business_profile_id,
+        subscription_status=ad.subscription_status,
+        paid_until=ad.paid_until,
+        starts_at=ad.starts_at,
+        now=now,
+    )
 
 
 def _ad_ever_launched(ad: MarketplaceAd) -> bool:

@@ -1,9 +1,10 @@
 """광고주 tier 계약 웹 게이트 (Apple 3.1.3(g) 회피 — 계약동의/결제안내는 앱 밖 웹에서).
 
 전제: 회원가입·사업자검증(BizApply)은 앱에서 그대로 한다. 여기는 이미 앱에서 tier를
-신청한 광고주가 계약서 동의와 결제안내 확인만 웹(business.saigon-rider.com)에서
-처리하는 게이트다. 결제 자체는 여전히 계좌이체+관리자 수동승인
-(routers/admin_api/biz.py activate-subscription, 무수정).
+신청한 광고주가 계약서 동의와 입금 안내 확인을 웹(business.saigon-rider.com)에서 처리하는
+게이트다. 계약·입금·대조·승인 파이프라인 본체는 `services/ad_payments/`(260907
+ad_payment_pipeline_design.md) 에 있고, 이 라우터는 `ad_contracts` 테이블 기준으로 그
+코어를 호출만 한다 — 상태값을 직접 대입하지 않는다.
 
 전자서명 벤더(DocuSign 등) 연동은 보류 — 체크박스 동의 + 서명자명 + 시각 + IP 만 기록한다
 (contract_method='checkbox_v1'). 나중에 벤더 붙일 때 이 값만 바뀌면 되게.
@@ -11,20 +12,43 @@
 
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..deps import verify_user_session
-from ..models import BusinessProfile, MarketplaceAd
+from ..models import AdContract, AdDeposit, AdTier, BusinessProfile, MarketplaceAd
+from ..services.ad_payments import checkout as checkout_core
+from ..services.ad_payments import config as bank_config
+from ..services.ad_payments import constants as payment_constants
+from ..services.ad_payments import contracts as contract_fsm
+from ..services.ad_payments import payment_code
+from ..services.ad_payments.rails import RAILS, RailNotSupported, RailValidationError
+from ..services.ad_payments.reconcile import reconcile_contract
 
 router = APIRouter(tags=["광고주 계약 웹 게이트 (Ad Contract Web Gate)"])
 
 _BIZ_PORTAL_BASE_URL = os.getenv("BIZ_PORTAL_BASE_URL", "https://business.saigon-rider.com")
+
+# 계약 문안 SoT — 서버가 버전과 함께 내려주고, 동의 시점 스냅샷(contract_snapshot)에 문안 자체를
+# 남긴다(전자서명 벤더 없이도 "무엇에 동의했는지" 재현 가능하게). 실제 법무 문안 확정은 이 작업
+# 범위 밖이므로 골격 문구만 둔다.
+_CONTRACT_TEXT_VERSION = "v1"
+_CONTRACT_TEXT = (
+    "광고 게재 계약 — 선택한 tier·기간에 대한 광고비를 계좌이체로 선불 납부하며, "
+    "관리자 확인 후 해당 기간 동안 앱 내에 광고가 게시됩니다."
+)
+
+# 계약이 진행 중(draft 재사용 대상 제외)이라고 보는 상태 — 이 상태가 있으면 새 draft 를 만들지 않는다.
+_UNCLOSED_NON_DRAFT_STATUSES = ("accepted", "awaiting_payment", "partially_paid", "paid")
+
+_MAX_PAYMENT_CODE_RETRIES = 5
 
 
 def _client_ip(request: Request) -> str | None:
@@ -37,35 +61,88 @@ def _client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
-# TODO: 계좌이체 안내 실제 문구/계좌번호는 이 작업 범위 밖 — admin activate-subscription 과
-# 동일한 "오프라인 입금확인 후 수동승인" 흐름을 텍스트로만 안내한다.
-_BANK_TRANSFER_INFO_PLACEHOLDER = (
-    "계좌이체 안내: 담당자가 카카오톡/이메일로 계좌번호를 안내드립니다. 입금 확인 후 관리자가 구독을 활성화합니다."
-)
+def _tier_price_for_months(tier: AdTier, months: int) -> int | None:
+    """확정가 조회. 3/6개월은 `ad_tiers.price_3m_vnd`/`price_6m_vnd` 가 NULL 일 수 있다(init/228) —
+    그 경우 None 을 그대로 반환한다(§치명 2: 0 으로 치환하면 무료 계약이 만들어진다)."""
+    if months == 1:
+        return tier.monthly_price_vnd
+    if months == 3:
+        return tier.price_3m_vnd
+    return tier.price_6m_vnd  # months == 6
+
+
+def _tier_krw_price_for_months(tier: AdTier, months: int) -> int | None:
+    """카드 결제 청구용 KRW 확정가(seam-D, 260907_toss_payment_rail_design.md §4-3). NULL 이면
+    카드 rail 이 미노출된다 — `_tier_price_for_months` 와 같은 원칙(0 으로 치환 금지)."""
+    if months == 1:
+        return tier.price_1m_krw
+    if months == 3:
+        return tier.price_3m_krw
+    return tier.price_6m_krw  # months == 6
 
 
 class ContractLinkOut(BaseModel):
     url: str
 
 
+class BankInfoOut(BaseModel):
+    name: str
+    account_no: str
+    holder: str
+
+
+class TierPriceOptionsOut(BaseModel):
+    month_1_vnd: int
+    month_3_vnd: int | None
+    month_6_vnd: int | None
+
+
+class RailOfferOut(BaseModel):
+    """seam-C(design §3-2 RailOffer) 를 그대로 JSON 화. `checkout.client_key` 는 공개 가능한
+    값(브라우저 SDK 초기화용)만 담긴다 — 시크릿 키는 이 파일 어디에도 들어오지 않는다."""
+
+    rail: str
+    wired: bool
+    instructions: dict | None = None
+    checkout: dict | None = None
+
+
 class AdContractOut(BaseModel):
+    status: str
     tier_name: str
-    monthly_price_vnd: int
     partner_name: str
-    already_accepted: bool
-    contract_text_version: str = "v1"
+    months: int
+    amount_vnd: int
+    payment_code: str
+    received_vnd: int
+    due_at: datetime | None
+    bank: BankInfoOut | None
+    rails: list[RailOfferOut]
+    period_start: datetime | None
+    period_end: datetime | None
+    contract_text: str
+    contract_text_version: str
+    tier_price_options: TierPriceOptionsOut
+    snapshot: dict | None = None
 
 
 class AdContractAcceptRequest(BaseModel):
+    months: Literal[1, 3, 6]
     signer_name: str
 
 
-class AdContractAcceptOut(BaseModel):
-    accepted_at: datetime
-    bank_transfer_info: str
+class CheckoutConfirmRequest(BaseModel):
+    paymentKey: str
+    orderId: str
+    amount: int
 
 
-async def _own_pending_ad(db: AsyncSession, ad_id: uuid.UUID, user_id: uuid.UUID) -> MarketplaceAd:
+class CheckoutConfirmOut(BaseModel):
+    status: str
+    approved: bool
+
+
+async def _own_ad(db: AsyncSession, ad_id: uuid.UUID, user_id: uuid.UUID) -> MarketplaceAd:
     row = (
         await db.execute(
             select(MarketplaceAd)
@@ -75,55 +152,221 @@ async def _own_pending_ad(db: AsyncSession, ad_id: uuid.UUID, user_id: uuid.UUID
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="Ad not found")
-    if row.subscription_status != "pending_payment":
-        raise HTTPException(status_code=409, detail="Ad is not pending payment")
     return row
 
 
+async def _generate_unique_payment_code(db: AsyncSession) -> str:
+    for _ in range(_MAX_PAYMENT_CODE_RETRIES):
+        code = payment_code.generate_payment_code()
+        existing = (await db.execute(select(AdContract.id).where(AdContract.payment_code == code))).scalar_one_or_none()
+        if existing is None:
+            return code
+    raise HTTPException(status_code=500, detail="Failed to allocate payment code")
+
+
+async def _load_contract_by_token(db: AsyncSession, token: uuid.UUID) -> AdContract:
+    contract = (await db.execute(select(AdContract).where(AdContract.contract_token == token))).scalar_one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    return contract
+
+
+async def _build_contract_out(db: AsyncSession, contract: AdContract, ad: MarketplaceAd, tier: AdTier) -> AdContractOut:
+    deposits = (await db.execute(select(AdDeposit).where(AdDeposit.contract_id == contract.id))).scalars().all()
+    outcome = reconcile_contract(expected_vnd=contract.amount_vnd, deposits=deposits, partner_name=ad.partner_name)
+
+    due_at = None
+    if contract.payment_instructions_issued_at is not None:
+        due_at = contract.payment_instructions_issued_at + timedelta(days=payment_constants.PAYMENT_DUE_DAYS)
+
+    bank_info = bank_config.get_bank_info()
+
+    now = datetime.now(UTC)
+    rails_out = [
+        RailOfferOut(rail=offer.rail, wired=offer.wired, instructions=offer.instructions, checkout=offer.checkout)
+        for offer in (rail.offer(contract, ad, tier, now=now) for rail in RAILS.values())
+    ]
+
+    return AdContractOut(
+        status=contract.status,
+        tier_name=tier.name,
+        partner_name=ad.partner_name,
+        months=contract.months,
+        amount_vnd=contract.amount_vnd,
+        payment_code=contract.payment_code,
+        received_vnd=outcome.received_vnd,
+        due_at=due_at,
+        bank=BankInfoOut(**bank_info) if bank_info else None,
+        rails=rails_out,
+        period_start=contract.period_start,
+        period_end=contract.period_end,
+        contract_text=_CONTRACT_TEXT,
+        contract_text_version=_CONTRACT_TEXT_VERSION,
+        tier_price_options=TierPriceOptionsOut(
+            month_1_vnd=_tier_price_for_months(tier, 1),
+            month_3_vnd=_tier_price_for_months(tier, 3),
+            month_6_vnd=_tier_price_for_months(tier, 6),
+        ),
+        snapshot=contract.contract_snapshot,
+    )
+
+
 @router.post(
-    "/bff/biz/ads/{ad_id}/contract-link", response_model=ContractLinkOut, summary="계약 웹 링크 발급 (앱 세션 인증)"
+    "/biz/ads/{ad_id}/contract-link", response_model=ContractLinkOut, summary="계약 웹 링크 발급 (앱 세션 인증)"
 )
 async def create_contract_link(
     ad_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     session_uid: uuid.UUID = Depends(verify_user_session),
 ) -> ContractLinkOut:
-    ad = await _own_pending_ad(db, ad_id, session_uid)
-    if ad.contract_token is None:
-        ad.contract_token = uuid.uuid4()
-        await db.commit()
-    return ContractLinkOut(url=f"{_BIZ_PORTAL_BASE_URL}/apply?token={ad.contract_token}")
+    ad = await _own_ad(db, ad_id, session_uid)
+    if ad.review_status != "APPROVED":
+        raise HTTPException(status_code=409, detail="Ad is not approved yet")
 
-
-@router.get("/bff/public/ad-contract/{token}", response_model=AdContractOut, summary="계약 정보 공개 조회 (무인증)")
-async def get_ad_contract(token: uuid.UUID, db: AsyncSession = Depends(get_db)) -> AdContractOut:
-    ad = (await db.execute(select(MarketplaceAd).where(MarketplaceAd.contract_token == token))).scalar_one_or_none()
-    if ad is None:
-        raise HTTPException(status_code=404, detail="Contract not found")
-    return AdContractOut(
-        tier_name=ad.tier.name,
-        monthly_price_vnd=ad.monthly_price_snapshot_vnd,
-        partner_name=ad.partner_name,
-        already_accepted=ad.contract_accepted_at is not None,
+    existing = (
+        (await db.execute(select(AdContract).where(AdContract.ad_id == ad_id).order_by(AdContract.created_at.desc())))
+        .scalars()
+        .all()
     )
+    tier = await db.get(AdTier, ad.tier_id)
+    if tier is None:
+        raise HTTPException(status_code=404, detail="Ad tier not found")
+
+    draft = next((c for c in existing if c.status == "draft"), None)
+    if draft is not None:
+        # [치명 3] 재사용 draft 는 아직 동의 전이라 금액이 안 굳어 있다 — ad.tier_id 가 발급
+        # 이후 바뀌었으면(admin set_tier) 옛 tier 로 굳혀서 재사용하지 말고 현재 tier 로
+        # 갱신한다. amount_vnd 는 accept() 가 최종 확정가로 덮어쓰는 임시값이라 여기서도
+        # 임시값(월 단가)만 맞춰 둔다.
+        if draft.tier_id != ad.tier_id:
+            draft.tier_id = ad.tier_id
+            draft.amount_vnd = tier.monthly_price_vnd
+            await db.commit()
+        return ContractLinkOut(url=f"{_BIZ_PORTAL_BASE_URL}/apply?token={draft.contract_token}")
+    if any(c.status in _UNCLOSED_NON_DRAFT_STATUSES for c in existing):
+        raise HTTPException(status_code=409, detail="A contract is already in progress for this ad")
+
+    code = await _generate_unique_payment_code(db)
+    contract = AdContract(
+        ad_id=ad.id,
+        tier_id=ad.tier_id,
+        months=1,  # 임시값 — accept() 가 광고주 선택으로 덮어쓴다
+        amount_vnd=tier.monthly_price_vnd,  # 임시값 — accept() 가 확정가로 덮어쓴다
+        payment_code=code,
+        status="draft",
+        contract_token=uuid.uuid4(),
+    )
+    db.add(contract)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Contract creation conflict, retry") from None
+
+    return ContractLinkOut(url=f"{_BIZ_PORTAL_BASE_URL}/apply?token={contract.contract_token}")
 
 
-@router.post(
-    "/bff/public/ad-contract/{token}/accept", response_model=AdContractAcceptOut, summary="계약 동의 (무인증, 멱등)"
-)
+@router.get("/public/ad-contract/{token}", response_model=AdContractOut, summary="계약 정보 공개 조회 (무인증)")
+async def get_ad_contract(token: uuid.UUID, db: AsyncSession = Depends(get_db)) -> AdContractOut:
+    contract = await _load_contract_by_token(db, token)
+    ad = await db.get(MarketplaceAd, contract.ad_id)
+    if ad is None:
+        raise HTTPException(status_code=404, detail="Ad not found")
+    tier = await db.get(AdTier, contract.tier_id)
+    if tier is None:
+        raise HTTPException(status_code=404, detail="Ad tier not found")
+
+    if contract_fsm.issue_instructions(contract, now=datetime.now(UTC)):
+        await db.commit()
+
+    return await _build_contract_out(db, contract, ad, tier)
+
+
+@router.post("/public/ad-contract/{token}/accept", response_model=AdContractOut, summary="계약 동의 (무인증, 멱등)")
 async def accept_ad_contract(
     token: uuid.UUID,
     body: AdContractAcceptRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> AdContractAcceptOut:
-    ad = (await db.execute(select(MarketplaceAd).where(MarketplaceAd.contract_token == token))).scalar_one_or_none()
+) -> AdContractOut:
+    contract = await _load_contract_by_token(db, token)
+    ad = await db.get(MarketplaceAd, contract.ad_id)
     if ad is None:
-        raise HTTPException(status_code=404, detail="Contract not found")
-    if ad.contract_accepted_at is None:
-        ad.contract_accepted_at = datetime.now(UTC)
-        ad.contract_method = "checkbox_v1"
-        ad.contract_signer_name = body.signer_name
-        ad.contract_signer_ip = _client_ip(request)
+        raise HTTPException(status_code=404, detail="Ad not found")
+    tier = await db.get(AdTier, contract.tier_id)
+    if tier is None:
+        raise HTTPException(status_code=404, detail="Ad tier not found")
+
+    # [하] 종결 상태(cancelled/refunded)에 대한 accept 는 멱등 200 이 아니라 409 여야 한다 —
+    # 그렇지 않으면 취소·환불된 계약도 "서명됨"으로 잘못 렌더될 수 있다. draft/그 외
+    # 진행중 상태는 기존 멱등 동작(재조회만) 유지.
+    if contract.status in ("cancelled", "refunded"):
+        raise HTTPException(status_code=409, detail="Contract is closed")
+
+    if contract.status == "draft":
+        amount_vnd = _tier_price_for_months(tier, body.months)
+        if amount_vnd is None:
+            raise HTTPException(status_code=422, detail="선택한 기간의 확정가가 설정되지 않았습니다")
+        snapshot = {
+            "tier_name": tier.name,
+            "months": body.months,
+            "amount_vnd": amount_vnd,
+            "contract_text_version": _CONTRACT_TEXT_VERSION,
+            "contract_text": _CONTRACT_TEXT,
+        }
+        # seam-D(§4-3) — 동의 시점에 KRW 청구액을 함께 고정한다. NULL(대표 결정 D-F 보류)이면
+        # charge 없이 accept 되고, 이 계약엔 이후에도 카드 rail 이 뜨지 않는다(계좌이체만 가능).
+        krw_col_by_months = {1: "price_1m_krw", 3: "price_3m_krw", 6: "price_6m_krw"}
+        krw_value = _tier_krw_price_for_months(tier, body.months)
+        if krw_value is not None:
+            snapshot["charge"] = {
+                "currency": "KRW",
+                "value": krw_value,
+                "price_col": krw_col_by_months[body.months],
+            }
+        contract_fsm.accept(
+            contract,
+            months=body.months,
+            amount_vnd=amount_vnd,
+            signer_name=body.signer_name,
+            signer_ip=_client_ip(request),
+            now=datetime.now(UTC),
+            snapshot=snapshot,
+        )
         await db.commit()
-    return AdContractAcceptOut(accepted_at=ad.contract_accepted_at, bank_transfer_info=_BANK_TRANSFER_INFO_PLACEHOLDER)
+
+    return await _build_contract_out(db, contract, ad, tier)
+
+
+@router.post(
+    "/public/ad-contract/{token}/checkout/confirm",
+    response_model=CheckoutConfirmOut,
+    summary="카드 결제 승인 확정 (무인증, seam-C toss_card)",
+)
+async def confirm_checkout(
+    token: uuid.UUID,
+    body: CheckoutConfirmRequest,
+    db: AsyncSession = Depends(get_db),
+) -> CheckoutConfirmOut:
+    """토스 결제창 successUrl 복귀 쿼리(paymentKey/orderId/amount) 를 그대로 받는다 — SPA 는
+    금액을 신뢰하지도 계산하지도 않는다(design §5-5 D-4). 대조·승인은 전부 여기서."""
+    contract = await _load_contract_by_token(db, token)
+    ad = await db.get(MarketplaceAd, contract.ad_id)
+    if ad is None:
+        raise HTTPException(status_code=404, detail="Ad not found")
+
+    rail = RAILS["toss_card"]
+    try:
+        result = await rail.confirm(
+            contract, params={"paymentKey": body.paymentKey, "orderId": body.orderId, "amount": body.amount}
+        )
+    except RailValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except RailNotSupported as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+
+    outcome = await checkout_core.complete_checkout(db, contract, ad, result, now=datetime.now(UTC))
+    await checkout_core.record_auto_approve_audit(db, outcome)
+
+    await db.refresh(contract)
+    return CheckoutConfirmOut(status=contract.status, approved=outcome.approved)

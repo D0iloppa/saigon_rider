@@ -56,6 +56,7 @@ from .routers import (
     wallet,
 )
 from .routers.contents import CONTENTS_BASE_PATH
+from .services.ad_payments import rails as ad_payment_rails
 from .services.cors import get_allowed_origins
 from .services.ops_alerts import send_ops_alert
 from .services.walkie_module import build_walkie
@@ -313,6 +314,7 @@ app.include_router(badges.router, prefix="/api")
 app.include_router(biz.router, prefix="/api")
 app.include_router(community_groups.router, prefix="/api")
 app.include_router(ad_contract.router, prefix="/api")
+app.include_router(ad_payment_rails.router, prefix="/api")  # 토스 웹훅 (260907_toss_payment_rail_design.md §5-5 D-2)
 app.include_router(follows.router, prefix="/api")
 app.include_router(dm.router, prefix="/api")
 app.include_router(dm_channels.router, prefix="/api")  # 대화방 게시판 (init/218)

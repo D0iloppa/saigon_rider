@@ -103,6 +103,7 @@ class AdStatsSummaryEmptyStateTests(unittest.IsolatedAsyncioTestCase):
             owner_business_profile_id=profile.id,
             review_status="APPROVED",
             subscription_status="active",
+            paid_until=now + timedelta(days=365),
             is_active=True,
             is_ongoing=True,
             starts_at=now - timedelta(hours=2),
@@ -157,6 +158,7 @@ class AdStatsSummaryRatioGateTests(unittest.IsolatedAsyncioTestCase):
             owner_business_profile_id=profile_id,
             review_status="APPROVED",
             subscription_status="active",
+            paid_until=now + timedelta(days=365),
             is_active=True,
             is_ongoing=True,
             starts_at=now - timedelta(days=10),
@@ -204,9 +206,12 @@ class AdStatsSummaryAdSpendTests(unittest.IsolatedAsyncioTestCase):
         ends_at=None,
         review_status="APPROVED",
         subscription_status="active",
+        paid_until=None,
         is_active=True,
         created_at=None,
     ):
+        if paid_until is None and subscription_status == "active":
+            paid_until = datetime.now(UTC) + timedelta(days=365)
         return MarketplaceAd(
             id=uuid.uuid4(),
             partner_name="Shop",
@@ -215,6 +220,7 @@ class AdStatsSummaryAdSpendTests(unittest.IsolatedAsyncioTestCase):
             owner_business_profile_id=profile_id,
             review_status=review_status,
             subscription_status=subscription_status,
+            paid_until=paid_until,
             is_active=is_active,
             is_ongoing=True,
             starts_at=starts_at,

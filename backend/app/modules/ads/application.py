@@ -422,14 +422,3 @@ class AdsApplication:
         ad.tier = tier
         ad.ad_fee = 1
         return self._ad_read(ad, tier)
-
-    async def activate_subscription(self, ad_id: uuid.UUID) -> tuple[AdRead, OwnerRead | None]:
-        """월구독 오프라인 입금확인 후 admin 이 게시 활성 (subscription_status=active)."""
-        ad = await self._get_ad_model(ad_id)
-        if ad.subscription_status == "active":
-            raise AdsError(409, "subscription already active")
-        ad.subscription_status = "active"
-        profile = (
-            await self.db.get(BusinessProfile, ad.owner_business_profile_id) if ad.owner_business_profile_id else None
-        )
-        return self._ad_read(ad), self._owner_read(profile) if profile else None

@@ -12,7 +12,7 @@ test('guest bar fills the empty tabbar slot on public browse screens only', () =
 
   // 탭바를 숨기는 이유가 둘로 나뉜다: 미인증(=게스트 바가 대신한다) vs 경로 자체가 하단 CTA 를 쓴다(=아무것도 두지 않는다).
   assert.match(shell, /const tabBarHiddenByPath = HIDE_TABBAR_PATHS\.some\(\(p\) => pathname\.startsWith\(p\)\)/);
-  assert.match(shell, /const hideTabBar = !isAuthenticated \|\| tabBarHiddenByPath/);
+  assert.match(shell, /const hideTabBar = tabBarHiddenByPath/);
   assert.match(shell, /const showGuestBar = !isAuthenticated && !tabBarHiddenByPath/);
   assert.match(shell, /\{showGuestBar && \(/);
 });

@@ -50,8 +50,9 @@ export function AppShell({
   const { t } = useTranslation();
   const requireAuth = useRequireAuth();
   const tabBarHiddenByPath = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
-  // 미인증 상태에서는 탭바를 숨긴다 — 눌러도 보호된 화면이라 튕겨나가기만 한다 (P1-9)
-  const hideTabBar = !isAuthenticated || tabBarHiddenByPath;
+  // 익명도 탭바를 본다 — 마켓·동네지도 탭은 그대로 동작하고, 나머지(개인화) 탭은 TabBar 가
+  // 탭별로 requireAuth() 게이트를 건다(스플래시로 튕기던 종전 방식 대체, 대표 보고 대응).
+  const hideTabBar = tabBarHiddenByPath;
   // 공개 열람 화면에서 그렇게 비워진 탭바 자리 — 익명 사용자가 목록만 보다 이탈하지 않도록
   // 로그인으로 잇는다. 자체 하단 CTA 를 쓰는 화면(HIDE_TABBAR_PATHS)에는 겹치지 않게 두지 않는다.
   const showGuestBar = !isAuthenticated && !tabBarHiddenByPath;

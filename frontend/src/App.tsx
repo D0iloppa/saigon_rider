@@ -583,10 +583,12 @@ export default function App() {
           <Route path="/market/search" element={<MarketSearch />} />
           <Route path="/market/:id" element={<MarketDetail />} />
           <Route path="/biz/:id" element={<BizPublic />} />
+          {/* 익명도 열람 가능(대표 보고 "지도보기 실패" 대응) — 개인화 하위 화면(/map/search 등)은
+              계속 PrivateRoute. */}
+          <Route path="/map" element={<NeighborhoodMap />} />
 
           {/* Protected: Main */}
           <Route path="/home" element={<PrivateRoute><HomePage /></PrivateRoute>} />
-          <Route path="/map" element={<PrivateRoute><NeighborhoodMap /></PrivateRoute>} />
           <Route path="/map/search" element={<PrivateRoute><MapSearch /></PrivateRoute>} />
           <Route path="/map/profile" element={<PrivateRoute><NeighborhoodProfile /></PrivateRoute>} />
           <Route path="/map/favorites" element={<PrivateRoute><MapFavorites /></PrivateRoute>} />

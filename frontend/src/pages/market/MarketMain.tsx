@@ -189,11 +189,13 @@ export default function MarketMain() {
     return () => { cancelled = true; };
   }, []);
 
-  // 이미 위치 사용에 동의한 로그인 사용자만 세션 좌표를 복원한다. 신규·익명 사용자는
-  // 목록을 먼저 보고 위치 시트에서 명시적으로 '내 현재 위치'를 고를 수 있다.
+  // 이미 위치 사용에 동의한 사용자(익명 포함)는 세션 좌표를 복원한다. 권한을 아직 안 정한
+  // 사용자는 목록을 먼저 보고 위치 시트에서 명시적으로 '내 현재 위치'를 고를 수 있다.
+  // permissionIntent==='granted' 조건은 유지 — 이미 승인한 상태에서만 재측위하므로
+  // 맥락 없는 권한 팝업을 새로 띄우지 않는다.
   useEffect(() => {
-    if (userId && permissionIntent === 'granted') void ensureLocation();
-  }, [ensureLocation, permissionIntent, userId]);
+    if (permissionIntent === 'granted') void ensureLocation();
+  }, [ensureLocation, permissionIntent]);
 
   // 홈 "내 주변 인기 상품 → 더보기"에서 넘어오면 거리순으로 맞춰준다. 좌표는 스토어가 이미
   // 들고 있으므로 URL 로 실어 나르지 않는다 — 쿼리 잔존이 선택을 덮어쓰던 회귀(xreg-C1)도 함께 사라진다.
@@ -671,7 +673,7 @@ export default function MarketMain() {
             <>
               {/* 빈 상태: 광고 1개 고정 노출 (스크롤 확장 없음) — 광고 노출 시기상조로 숨김(ADS_ENABLED) */}
               {ADS_ENABLED && ads.slice(0, 1).map((ad) => (
-                <AdCard key={ad.id} ad={ad} onClick={() => { saveScroll(); navigate(adHref(ad)); }} />
+                <AdCard key={ad.id} ad={ad} onClick={() => { if (!requireAuth()) return; saveScroll(); navigate(adHref(ad)); }} />
               ))}
               <div className={styles.emptyWrap}>
                 {/* S-2: 카테고리 필터로 인한 0건과 그냥 주변에 없는 0건은 원인이 달라
@@ -713,7 +715,7 @@ export default function MarketMain() {
                 return (
                   <Fragment key={l.id}>
                     <ListingCard listing={l} onClick={() => { saveScroll(); navigate(`/market/${l.id}`); }} />
-                    {slot && <AdCard key={`${slot.ad.id}-${slot.ord}`} ad={slot.ad} onClick={() => { saveScroll(); navigate(adHref(slot.ad)); }} />}
+                    {slot && <AdCard key={`${slot.ad.id}-${slot.ord}`} ad={slot.ad} onClick={() => { if (!requireAuth()) return; saveScroll(); navigate(adHref(slot.ad)); }} />}
                   </Fragment>
                 );
               })}

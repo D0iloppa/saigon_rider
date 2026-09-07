@@ -675,6 +675,7 @@ export default function BizPublic() {
                     key={ad.id}
                     ad={ad}
                     onOpen={(a) => {
+                      if (!requireAuth()) return;
                       trackAdEvent(a.id, 'biz_profile', 'click');
                       navigate(`/market/ad/${a.id}`);
                     }}

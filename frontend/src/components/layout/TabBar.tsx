@@ -2,8 +2,14 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, Store, Map, MessageCircle, Users, User } from 'lucide-react';
 import { useDmStore } from '@/store/useDmStore';
+import { useUserStore } from '@/store/useUserStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 // import { emojiUrl } from '@/lib/emoji'; // gif 버전 전환 시 필요
 import styles from './TabBar.module.css';
+
+// 익명이어도 그대로 동작하는 탭 — 나머지(개인화 탭)는 눌렀을 때 requireAuth() 로 로그인을
+// 유도한다(탭바 자체를 숨겨 스플래시로 튕기던 종전 방식 대체, 대표 보고 "지도보기 실패" 대응).
+const PUBLIC_TAB_PATHS = ['/market', '/map'];
 
 // 탭 루트가 아닌 하위 화면도 소속 탭을 활성 표시하기 위한 경로 매핑 (P1-8).
 // 여기 없는 경로는 계속 매핑 대상이 아니며, 탭바 자체를 숨겨야 하면 AppShell 의
@@ -69,6 +75,8 @@ export function TabBar() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const dmUnread = useDmStore((s) => s.totalUnread);
+  const isAuthenticated = useUserStore((s) => s.isAuthenticated);
+  const requireAuth = useRequireAuth();
 
   // 6탭: 홈·마켓·동네지도·채팅·커뮤니티·프로필 (S-5 — 채팅 탭 승격, 대표 결정 2026-08-12)
   // 미읽음은 프로필의 dot 이 아니라 채팅 탭의 **숫자 배지** — 몇 건인지 알 수 없던 문제 해소.
@@ -87,6 +95,12 @@ export function TabBar() {
         <NavLink
           key={tab.path}
           to={tab.path}
+          onClick={(e) => {
+            if (!isAuthenticated && !PUBLIC_TAB_PATHS.includes(tab.path)) {
+              e.preventDefault();
+              requireAuth();
+            }
+          }}
           className={`${styles.tab} ${matchesTab(pathname, tab.path) ? styles.active : ''}`}
         >
           <span className={styles.iconWrap}>

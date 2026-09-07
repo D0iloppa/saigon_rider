@@ -5,6 +5,7 @@ import { resolveUsableLocation, type ResolvedLocation } from '@/lib/serviceLocat
 import { native } from '@/lib/native';
 import { inServiceArea } from '@/lib/serviceArea';
 import { toast } from '@/components/ui/Toast';
+import { useLocationStore } from '@/store/useLocationStore';
 import { fetchCityOutline, type CityOutline } from '@/api/poi';
 import depth1 from './v2/saigon-depth1.json';
 import { regionContains, type MapMarkerV2, type SelectedRegion } from './v2/region';
@@ -1097,11 +1098,18 @@ function SaigonMapV5({
     // initialGps 마운트 포커스는 레이아웃 rAF(위 초기화 이펙트)로 이관됨 — 여기는 자동 locate 만.
     // didAutoLocate 가드: runLocate는 부모 prop에 의존해 재생성될 수 있어 이 이펙트가 여러 번
     // 재실행될 수 있음 — 가드 없이는 그때마다 GPS를 다시 측정(마운트당 1회만 허용).
+    // runLocate(resolveUsableLocation)는 기기 GPS 를 곧바로 재요청해 useLocationStore 의
+    // 사전 안내(preflightPermission) 플로우를 우회한다 — 마운트 자동 실행은 그 정식 경로인
+    // ensureLocation() 을 거치게 한다(App.tsx:430-433 경고 참조).
     if (locateOnMountAtMount.current && !didAutoLocate.current) {
       didAutoLocate.current = true;
-      void runLocate();
+      void useLocationStore.getState().ensureLocation().then(() => {
+        const { coords, coordsSource } = useLocationStore.getState();
+        if (!coords) return;
+        focusLatLng(coords, { selectRegion: selectRegionOnLocate, noMeDot: coordsSource === 'fallback' });
+      });
     }
-  }, [runLocate]);
+  }, [focusLatLng, selectRegionOnLocate]);
 
   useEffect(() => {
     // 내 위치 점만 찍는 조용한 측위 — 카메라/지역선택을 건드리지 않아 선택 동 경계와 어긋날

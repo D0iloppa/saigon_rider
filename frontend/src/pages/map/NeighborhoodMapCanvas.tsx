@@ -24,6 +24,7 @@ import { useBizViewerCount } from '@/hooks/useBizViewerCount';
 import { formatRelativeTime } from '@/lib/format';
 import { haversineM } from '@/lib/polyline';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import BizRichCard from './BizRichCard';
 import styles from './NeighborhoodMap.module.css';
 
@@ -174,6 +175,7 @@ export default function NeighborhoodMapCanvas({
   // (지도 도구 UI [♥/+] 는 원래 lightweight prop 을 그대로 따르므로 이 게이트와 무관.)
   const childLightweight = L3_ENABLED ? false : lightweight;
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   // 상세 3종(업체/매물/피드) 진입은 backgroundLocation state 로 오버레이 렌더 (App.tsx 라우트-모달)
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1187,7 +1189,7 @@ export default function NeighborhoodMapCanvas({
         <button
           type="button"
           className={styles.mapProfileButton}
-          onClick={() => navigate('/map/profile')}
+          onClick={() => { if (requireAuth()) navigate('/map/profile'); }}
           aria-label={t('map.neighborhoodProfile.title')}
         >
           {user?.avatarUrl ? <AppImage src={user.avatarUrl} alt="" className={styles.mapProfileAvatar} variant="circle" /> : <span>{(user?.nickname || t('map.neighborhoodProfile.defaultNickname')).charAt(0).toUpperCase()}</span>}
@@ -1291,7 +1293,7 @@ export default function NeighborhoodMapCanvas({
               {c ? bizCatLabel(c) : t('map.bizCategoryAll')}
             </button>
           ))}
-          <button type="button" className={styles.catChip} onClick={() => navigate('/map/categories')}>
+          <button type="button" className={styles.catChip} onClick={() => { if (requireAuth()) navigate('/map/categories'); }}>
             <SlidersHorizontal size={13} />
             {t('map.moreCategories')}
           </button>

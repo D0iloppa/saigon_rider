@@ -36,11 +36,11 @@ test('비로그인 둘러보기 CTA 는 로그인 대신 공개 마켓을 연다
   assert.doesNotMatch(source, /<Button onClick=\{\(\) => navigate\('\/auth\/oauth'\)\}>/);
 });
 
-test('신규·익명 마켓 진입은 위치를 자동 요청하지 않고 전체 결과를 먼저 보여준다', () => {
+test('신규·익명 마켓 진입은 위치 권한을 새로 요청하지 않고, 이미 승인된 경우에만 재측위한다', () => {
   const source = read('MarketMain.tsx');
 
   assert.match(source, /effectiveLocationMode = locationMode === 'gps' && \(!userId \|\| permissionIntent !== 'granted'\) && !coords/);
-  assert.match(source, /if \(userId && permissionIntent === 'granted'\) void ensureLocation\(\)/);
+  assert.match(source, /if \(permissionIntent === 'granted'\) void ensureLocation\(\)/);
   assert.doesNotMatch(source, /useEffect\(\(\) => \{ void ensureLocation\(\); \}, \[ensureLocation\]\)/);
 });
 

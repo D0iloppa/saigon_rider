@@ -17,7 +17,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from app.database import AsyncSessionLocal, engine
-from app.models import AdContract, AdDeposit, BusinessProfile, MarketplaceAd, User
+from app.models import AdContract, AdDeposit, AdTier, BusinessProfile, MarketplaceAd, User
 from app.routers import ad_contract
 
 _GENERAL_TIER_ID = uuid.UUID("00000000-0000-4000-8000-000000000002")  # price_3m=539000, price_6m=999000
@@ -357,25 +357,66 @@ class RailOffersTests(_AdContractTestBase):
         self.assertIsNone(toss_offer.checkout)
 
     async def test_toss_card_hidden_when_stub_but_krw_price_null(self):
-        token = await self._create_link()
+        # 260907 D-F(VAT 영세율 확인 후 KRW 확정가 반영, init/231)로 공용 _GENERAL_TIER_ID 는
+        # 더 이상 KRW NULL 이 아니다 — 이 테스트가 검증하려는 "KRW 미설정" 상태를 재현하려면
+        # 전용 tier(가격 미설정)를 따로 만들어야 한다.
+        no_krw_tier_id = uuid.uuid4()
+        no_krw_ad_id = uuid.uuid4()
         async with AsyncSessionLocal() as db:
-            await ad_contract.accept_ad_contract(
-                token=token,
-                body=ad_contract.AdContractAcceptRequest(months=3, signer_name="Nguyen Van A"),
-                request=_fake_request(),
-                db=db,
+            tier = AdTier(id=no_krw_tier_id, name="__test_no_krw__", monthly_price_vnd=199000, price_3m_vnd=539000)
+            db.add(tier)
+            ad = MarketplaceAd(
+                id=no_krw_ad_id,
+                partner_name="Test Shop",
+                title="Test Ad (no KRW)",
+                tier_id=no_krw_tier_id,
+                owner_business_profile_id=self._profile_id,
+                review_status="APPROVED",
             )
-        stub_env = {
-            "AD_PAYMENT_TOSS_CLIENT_KEY": "",
-            "AD_PAYMENT_TOSS_SECRET_KEY": "",
-            "AD_PAYMENT_TOSS_STUB": "1",
-            "APP_ENV": "development",
-        }
-        with patch.dict(os.environ, stub_env):
+            db.add(ad)
+            await db.commit()
+        try:
             async with AsyncSessionLocal() as db:
-                out = await ad_contract.get_ad_contract(token=token, db=db)
-        toss_offer = next(r for r in out.rails if r.rail == "toss_card")
-        self.assertFalse(toss_offer.wired)  # KRW NULL — seam-D 미배선, 카드 rail 항상 숨김
+                link_out = await ad_contract.create_contract_link(ad_id=no_krw_ad_id, db=db, session_uid=self._user_id)
+            token = uuid.UUID(link_out.url.rsplit("token=", 1)[1])
+            async with AsyncSessionLocal() as db:
+                from sqlalchemy import select
+
+                contract = (await db.execute(select(AdContract).where(AdContract.contract_token == token))).scalar_one()
+                self._contract_ids.append(contract.id)
+                await ad_contract.accept_ad_contract(
+                    token=token,
+                    body=ad_contract.AdContractAcceptRequest(months=3, signer_name="Nguyen Van A"),
+                    request=_fake_request(),
+                    db=db,
+                )
+            stub_env = {
+                "AD_PAYMENT_TOSS_CLIENT_KEY": "",
+                "AD_PAYMENT_TOSS_SECRET_KEY": "",
+                "AD_PAYMENT_TOSS_STUB": "1",
+                "APP_ENV": "development",
+            }
+            with patch.dict(os.environ, stub_env):
+                async with AsyncSessionLocal() as db:
+                    out = await ad_contract.get_ad_contract(token=token, db=db)
+            toss_offer = next(r for r in out.rails if r.rail == "toss_card")
+            self.assertFalse(toss_offer.wired)  # KRW NULL — seam-D 미배선, 카드 rail 항상 숨김
+        finally:
+            # FK ON DELETE RESTRICT(ad_contracts.ad_id/tier_id) — 계약부터 지워야 ad/tier 삭제가
+            # 가능하다. contract_id 는 이미 self._contract_ids 에 들어있어 asyncTearDown 이 다시
+            # db.get() 하지만 None 이라 건너뛴다(위 가드 참고).
+            async with AsyncSessionLocal() as db:
+                for contract_id in list(self._contract_ids):
+                    contract = await db.get(AdContract, contract_id)
+                    if contract is not None:
+                        await db.delete(contract)
+                ad = await db.get(MarketplaceAd, no_krw_ad_id)
+                if ad is not None:
+                    await db.delete(ad)
+                tier = await db.get(AdTier, no_krw_tier_id)
+                if tier is not None:
+                    await db.delete(tier)
+                await db.commit()
 
     async def test_no_secret_key_string_in_response(self):
         token = await self._create_link()

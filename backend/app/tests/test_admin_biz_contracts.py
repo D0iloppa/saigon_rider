@@ -378,6 +378,20 @@ class PaymentWiringTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(out.keys()), {"ready", "missing_keys", "toss"})
         self.assertEqual(set(out["toss"].keys()), {"ready", "missing_keys"})
 
+    async def test_toss_stub_mode_ready_true_with_no_missing_keys(self):
+        # [경미 4] stub 모드는 client/secret 키가 애초에 불필요 — ready:true 인데 missing_keys 에
+        # 두 키가 뜨는 자기모순이 없어야 한다.
+        stub_env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "",
+            "AD_PAYMENT_TOSS_STUB": "1",
+            "APP_ENV": "test",
+        }
+        with patch.dict(os.environ, stub_env, clear=False):
+            out = await biz_contracts.get_payment_wiring(_session=_ADMIN_SESSION)
+        self.assertTrue(out["toss"]["ready"])
+        self.assertEqual(out["toss"]["missing_keys"], [])
+
 
 class RailSyncTests(_BizContractsTestBase):
     """rail-sync — 웹훅/confirm 유실로 원장에 안 잡힌 토스 결제를 `ref` 재조회로 복구 (§8 P2-6)."""
@@ -542,6 +556,57 @@ class RailRefundTests(_BizContractsTestBase):
                     db=db,
                 )
         self.assertEqual(raised.exception.status_code, 409)
+
+    async def test_second_refund_beyond_remaining_balance_returns_422(self):
+        # [중 3] 원 입금액(539,000)만 보지 않고 이미 환불된 누계(400,000)를 빼서 남은 환불가능액
+        # (139,000)과 비교해야 한다 — 300,000 요청은 로컬에서 422 로 막혀야 한다(토스 502 로 새면 안 됨).
+        contract_id, deposit_id, gateway = await self._make_active_card_contract(amount_vnd=539000)
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                out = await biz_contracts.rail_refund_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailRefundRequest(deposit_id=deposit_id, amount_vnd=400000, reason="1차 환불"),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+        first_refund = next(d for d in out.deposits if d.kind == "refund")
+        self._deposit_ids.append(first_refund.id)
+        self.assertEqual(first_refund.amount_vnd, 400000)
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                with self.assertRaises(HTTPException) as raised:
+                    await biz_contracts.rail_refund_contract(
+                        contract_id=contract_id,
+                        body=biz_contracts.RailRefundRequest(
+                            deposit_id=deposit_id, amount_vnd=300000, reason="2차 환불(초과)"
+                        ),
+                        request=_fake_request(),
+                        session=_ADMIN_SESSION,
+                        db=db,
+                    )
+        self.assertEqual(raised.exception.status_code, 422)
+        self.assertEqual(raised.exception.detail, {"error": "amount_exceeds_deposit"})
+
+        # 남은 환불가능액(139,000) 이내 요청은 그대로 통과한다.
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                out2 = await biz_contracts.rail_refund_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailRefundRequest(
+                        deposit_id=deposit_id, amount_vnd=139000, reason="2차 환불(잔액 이내)"
+                    ),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+        refund_rows = [d for d in out2.deposits if d.kind == "refund"]
+        self.assertEqual(len(refund_rows), 2)
+        for row in refund_rows:
+            self._deposit_ids.append(row.id)
+        self.assertEqual(sorted(r.amount_vnd for r in refund_rows), [139000, 400000])
 
 
 if __name__ == "__main__":

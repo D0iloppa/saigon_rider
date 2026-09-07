@@ -298,6 +298,9 @@ class TossCardRail:
         payment = await gateway.get_payment(ref)
         if payment is None or payment.get("status") != "DONE":
             return None
+        code = _order_id_payment_code(payment.get("orderId") or "")
+        if code is None or code != contract.payment_code:
+            return None
         return self._to_checkout_result(contract, payment, already_final=True)
 
     async def resolve_order_id(self, *, ref: str) -> str | None:
@@ -310,7 +313,9 @@ class TossCardRail:
             return None
         return payment.get("orderId")
 
-    async def refund(self, contract, *, ref: str, amount_vnd: int | None, reason: str) -> CheckoutResult:
+    async def refund(
+        self, contract, *, ref: str, amount_vnd: int | None, reason: str, idempotency_seed: str
+    ) -> CheckoutResult:
         charge = _charge_from_snapshot(contract)
         if charge is None:
             raise RailValidationError("이 계약에는 KRW 청구 스냅샷이 없다")
@@ -321,17 +326,19 @@ class TossCardRail:
             cancel_amount = (charge["value"] * amount_vnd) // contract.amount_vnd
 
         gateway = self._gateway_instance()
-        idempotency_n = secrets.randbelow(10**9)
+        # 멱등키는 호출부(`idempotency_seed` — 대상 입금건·요청금액·기존환불횟수로 결정된 값)에서
+        # 파생한다. 같은 요청의 재시도/더블클릭은 같은 seed → 같은 키 → 토스가 중복 차단하고,
+        # 별개의 새 부분환불(다른 금액이거나 이전 환불 이후의 요청)은 seed 가 달라져 정상 처리된다.
         payment = await gateway.cancel(
             payment_key=ref,
             cancel_reason=reason,
             cancel_amount=cancel_amount,
-            idempotency_key=f"{ref}:refund:{idempotency_n}",
+            idempotency_key=f"{ref}:refund:{idempotency_seed}",
         )
         base_result = self._to_checkout_result(contract, payment, already_final=False)
         cancels = payment.get("cancels") or []
         transaction_key = cancels[-1].get("transactionKey") if cancels else None
-        refund_ref = f"{ref}:cancel:{transaction_key}" if transaction_key else f"{ref}:cancel:{idempotency_n}"
+        refund_ref = f"{ref}:cancel:{transaction_key}" if transaction_key else f"{ref}:cancel:{idempotency_seed}"
         refund_observation = replace(
             base_result.observation,
             kind="refund",

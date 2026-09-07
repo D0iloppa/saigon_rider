@@ -132,6 +132,19 @@ class TossCardLookupTests(unittest.TestCase):
         result = asyncio.run(rail.lookup(_make_contract(), ref="never_confirmed"))
         self.assertIsNone(result)
 
+    def test_lookup_rejects_payment_belonging_to_other_contract(self):
+        # [치명 1] rail-sync 로 다른 계약의 결제를 잘못 붙여넣어도 매칭되지 않아야 한다.
+        gateway = StubTossGateway()
+        rail = TossCardRail(gateway=gateway)
+        other_contract = _make_contract(payment_code=_OTHER_VALID_CODE)
+        asyncio.run(gateway.confirm(payment_key="pk_other", order_id=f"{_OTHER_VALID_CODE}-1", amount=10900))
+        this_contract = _make_contract(payment_code=_VALID_CODE)
+        result = asyncio.run(rail.lookup(this_contract, ref="pk_other"))
+        self.assertIsNone(result)
+        # 진짜 소유자에게는 그대로 매칭된다.
+        result_for_owner = asyncio.run(rail.lookup(other_contract, ref="pk_other"))
+        self.assertIsNotNone(result_for_owner)
+
     def test_parse_webhook_ignores_tampered_status_and_amount(self):
         # 웹훅 서명이 없으므로(T-10) 페이로드의 status/amount 는 신뢰하지 않는다 — parse_webhook
         # 은 paymentKey 만 뽑는다. 상태/금액을 조작해도 결과가 같아야 한다.
@@ -159,6 +172,58 @@ class TossCardLookupTests(unittest.TestCase):
         self.assertIsNone(rail.parse_webhook({}, payload))
 
 
+class _SpyCancelGateway(StubTossGateway):
+    """cancel() 에 실제로 전달된 Idempotency-Key 를 기록한다 — [치명 2] 회귀용."""
+
+    def __init__(self):
+        super().__init__()
+        self.cancel_idempotency_keys: list[str] = []
+
+    async def cancel(self, *, payment_key, cancel_reason, cancel_amount, idempotency_key):
+        self.cancel_idempotency_keys.append(idempotency_key)
+        return await super().cancel(
+            payment_key=payment_key,
+            cancel_reason=cancel_reason,
+            cancel_amount=cancel_amount,
+            idempotency_key=idempotency_key,
+        )
+
+
+class TossCardRefundIdempotencyTests(unittest.TestCase):
+    """[치명 2] — idempotency_seed 가 refund() 를 거쳐 그대로 Idempotency-Key 파생에 쓰이는지.
+    같은 seed(=더블클릭·재시도) 는 같은 키, 다른 seed(=별개 요청) 는 다른 키가 되어야 한다."""
+
+    def _refund(self, rail, contract, *, amount_vnd, idempotency_seed, ref="pk_refund"):
+        return asyncio.run(
+            rail.refund(contract, ref=ref, amount_vnd=amount_vnd, reason="test", idempotency_seed=idempotency_seed)
+        )
+
+    def test_same_seed_produces_same_idempotency_key(self):
+        gateway = _SpyCancelGateway()
+        rail = TossCardRail(gateway=gateway)
+        contract = _make_contract(payment_code=_VALID_CODE, amount_vnd=539000, krw_value=10900)
+        asyncio.run(gateway.confirm(payment_key="pk_refund", order_id=f"{_VALID_CODE}-1", amount=10900))
+
+        self._refund(rail, contract, amount_vnd=100000, idempotency_seed="dep1:100000:0")
+        self._refund(rail, contract, amount_vnd=100000, idempotency_seed="dep1:100000:0")
+
+        self.assertEqual(len(gateway.cancel_idempotency_keys), 2)
+        self.assertEqual(gateway.cancel_idempotency_keys[0], gateway.cancel_idempotency_keys[1])
+
+    def test_different_seed_produces_different_idempotency_key(self):
+        gateway = _SpyCancelGateway()
+        rail = TossCardRail(gateway=gateway)
+        contract = _make_contract(payment_code=_VALID_CODE, amount_vnd=539000, krw_value=10900)
+        asyncio.run(gateway.confirm(payment_key="pk_refund", order_id=f"{_VALID_CODE}-1", amount=10900))
+
+        self._refund(rail, contract, amount_vnd=100000, idempotency_seed="dep1:100000:0")
+        # 별개의 새 부분환불(다른 금액 또는 이전 환불이 반영된 뒤의 카운트) → 다른 seed.
+        self._refund(rail, contract, amount_vnd=50000, idempotency_seed="dep1:50000:1")
+
+        self.assertEqual(len(gateway.cancel_idempotency_keys), 2)
+        self.assertNotEqual(gateway.cancel_idempotency_keys[0], gateway.cancel_idempotency_keys[1])
+
+
 class BankTransferNullObjectTests(unittest.TestCase):
     def test_confirm_lookup_refund_not_supported(self):
         rail = BankTransferRail()
@@ -168,7 +233,7 @@ class BankTransferNullObjectTests(unittest.TestCase):
         with self.assertRaises(RailNotSupported):
             asyncio.run(rail.lookup(contract, ref="x"))
         with self.assertRaises(RailNotSupported):
-            asyncio.run(rail.refund(contract, ref="x", amount_vnd=None, reason="test"))
+            asyncio.run(rail.refund(contract, ref="x", amount_vnd=None, reason="test", idempotency_seed="seed"))
         with self.assertRaises(RailNotSupported):
             rail.parse_webhook({}, b"{}")
 

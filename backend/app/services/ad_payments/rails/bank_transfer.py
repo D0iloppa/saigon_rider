@@ -45,7 +45,9 @@ class BankTransferRail:
     async def lookup(self, contract, *, ref: str) -> CheckoutResult | None:
         raise RailNotSupported("bank_transfer 는 결제 개시를 지원하지 않는다")
 
-    async def refund(self, contract, *, ref: str, amount_vnd: int | None, reason: str) -> CheckoutResult:
+    async def refund(
+        self, contract, *, ref: str, amount_vnd: int | None, reason: str, idempotency_seed: str
+    ) -> CheckoutResult:
         raise RailNotSupported("bank_transfer 환불은 계좌 송금(관리자 manual 입금건 등록)으로 처리한다")
 
     def parse_webhook(self, headers: dict, body: bytes) -> str | None:

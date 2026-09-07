@@ -29,7 +29,7 @@ from ...services.ad_payments import constants as payment_constants
 from ...services.ad_payments import contracts as payment_contracts
 from ...services.ad_payments import payment_code
 from ...services.ad_payments.contracts import ContractStateError
-from ...services.ad_payments.port import DepositObservation, ingest_deposit
+from ...services.ad_payments.port import RECONCILABLE_STATUSES, DepositObservation, ingest_deposit
 from ...services.ad_payments.rails import RAILS, RailNotSupported, RailValidationError
 from ...services.ad_payments.rails.toss_card import TossApiError
 from ...services.ad_payments.reconcile import ReconcileResult, reconcile_contract
@@ -37,11 +37,10 @@ from ._audit import audit
 
 router = APIRouter(prefix="/biz")
 
-# port.py `_RECONCILABLE_STATUSES` 와 동일한 상태 집합(§4-1) — private 이라 직접 import 하지 않고
-# 설계문서 SoT 값을 이 라우터에서도 그대로 둔다(변경 시 양쪽 다 고칠 것).
+# port.py 가 export 하는 `RECONCILABLE_STATUSES` 를 SoT 로 그대로 쓴다(§4-1) — 리터럴 중복 제거.
 # 감독 결정(치명 4): 관리자의 수동 입금 등록은 미배선 여부와 무관하게 "돈이 실제로 들어왔음"을
 # 뜻하므로 accepted 도 대조 가능 상태에 포함한다(§7 미배선 e2e 성공기준).
-_RECONCILABLE_STATUSES = ("accepted", "awaiting_payment", "partially_paid", "paid")
+_RECONCILABLE_STATUSES = RECONCILABLE_STATUSES
 
 # 계좌 배선 3키 — 값은 config.py 에서만 읽는다(§2-2). 키 이름 자체도 config.py 를 SoT 로 삼아
 # 읽기 전용 import 한다(이중 SoT 제거 — [경미] 지적).
@@ -417,14 +416,12 @@ async def create_contract_deposit(
         source_ref=None,
         payment_code_hint=contract.payment_code,
     )
-    # ingest_deposit() 이 세션 트랜잭션을 소유(commit/rollback) — audit 은 반드시 이 호출 "후"에 스테이징한다.
-    result = await ingest_deposit(db, obs, actor=session.username)
-
-    if body.evidence_content_id is not None or body.note is not None:
-        deposit = await db.get(AdDeposit, result.deposit_id)
-        if deposit is not None:
-            deposit.evidence_content_id = body.evidence_content_id
-            deposit.note = body.note
+    # ingest_deposit() 이 세션 트랜잭션을 소유(commit/rollback) — evidence/note 는 그 안에서
+    # 입금 INSERT 와 한 commit 으로 함께 저장한다([중 2], 2차 commit 실패로 증빙 없는 돈 행이
+    # 남는 것을 막는다). audit 은 반드시 이 호출 "후"에 스테이징한다.
+    result = await ingest_deposit(
+        db, obs, actor=session.username, evidence_content_id=body.evidence_content_id, note=body.note
+    )
 
     detail = {
         "deposit_id": str(result.deposit_id),
@@ -802,12 +799,41 @@ async def rail_refund_contract(
         raise HTTPException(status_code=404, detail={"error": "deposit_not_found"})
     if deposit.source != "toss" or deposit.kind != "deposit" or not deposit.source_ref:
         raise HTTPException(status_code=409, detail={"error": "not_card_deposit"})
-    if body.amount_vnd is not None and body.amount_vnd > deposit.amount_vnd:
+
+    # `refund()` 는 `{deposit.source_ref}:cancel:<transactionKey|idempotency_seed>` 형식으로
+    # refund_ref 를 만든다(toss_card.py) — 이 접두사로 이 입금건에 대한 기존 환불 행을 찾는다.
+    prior_refunds = (
+        (
+            await db.execute(
+                select(AdDeposit).where(
+                    AdDeposit.contract_id == contract.id,
+                    AdDeposit.kind == "refund",
+                    AdDeposit.source_ref.like(f"{deposit.source_ref}:cancel:%"),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    refunded_so_far = sum(d.amount_vnd for d in prior_refunds)
+    refundable_vnd = deposit.amount_vnd - refunded_so_far
+    if body.amount_vnd is not None and body.amount_vnd > refundable_vnd:
         raise HTTPException(status_code=422, detail={"error": "amount_exceeds_deposit"})
+
+    # 같은 요청의 재시도(더블클릭 등)는 같은 (입금건, 요청금액, 기존환불횟수) 조합이라 같은 seed →
+    # 토스 Idempotency-Key 재사용으로 중복 차단. 별개의 새 부분환불은 금액이 다르거나 이 시점의
+    # prior_refunds 개수가 달라져(직전 환불이 이미 반영된 뒤라) 자연히 다른 seed 가 된다.
+    idempotency_seed = f"{deposit.id}:{body.amount_vnd if body.amount_vnd is not None else 'full'}:{len(prior_refunds)}"
 
     rail = RAILS["toss_card"]
     try:
-        result = await rail.refund(contract, ref=deposit.source_ref, amount_vnd=body.amount_vnd, reason=body.reason)
+        result = await rail.refund(
+            contract,
+            ref=deposit.source_ref,
+            amount_vnd=body.amount_vnd,
+            reason=body.reason,
+            idempotency_seed=idempotency_seed,
+        )
     except RailValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
     except RailNotSupported as exc:
@@ -848,7 +874,13 @@ async def rail_refund_contract(
 @router.get("/payment-wiring", summary="계좌·카드(토스) 배선 상태 (값 없음, 키 이름만)")
 async def get_payment_wiring(_session: AdminSession = Depends(verify_admin_api)):
     missing_keys = [key for key in _BANK_ENV_KEYS if not os.getenv(key, "").strip()]
-    toss_missing_keys = [key for key in payment_config.TOSS_ENV_KEYS[:2] if not os.getenv(key, "").strip()]
+    # stub 모드(§5-1)는 client/secret 키가 애초에 불필요하다 — ready:true 인데 missing_keys 에
+    # 그 두 키가 뜨는 자기모순을 피하려고 live 모드일 때만 검사한다.
+    toss_missing_keys = (
+        [key for key in payment_config.TOSS_ENV_KEYS[:2] if not os.getenv(key, "").strip()]
+        if payment_config.toss_mode() != "stub"
+        else []
+    )
     return {
         "ready": payment_config.bank_wiring_ready(),
         "missing_keys": missing_keys,

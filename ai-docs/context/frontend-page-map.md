@@ -549,6 +549,10 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/biz/ads` | `admin-frontend/src/pages/biz/BizAdListPage.tsx` | 광고 소재 심사 큐 — 승인(소유 프로필 APPROVED 재검증) / 반려(사유 필수) / **노출설정(등급·과금액, 2026-07-23)**. 제목 클릭 → `/biz/ads/:id`, 파트너 컬럼 → `/biz/accounts/:profile_id` (2026-07-23) |
 | `/biz/ads/:id` | `admin-frontend/src/pages/biz/BizAdDetailPage.tsx` | 광고 소재 상세(read-only) — 제목·본문·이미지·기간·파트너(링크)·상태·노출등급·과금액 (2026-07-23 신설) |
 | `/biz/ad-tiers` | `admin-frontend/src/pages/biz/BizAdTierPage.tsx` | 광고 티어 이름·월 가격·노출 가중치·활성 여부·표시 순서 관리 |
+| `/biz/contracts` | `admin-frontend/src/pages/biz/BizContractListPage.tsx` | 광고 계약·입금 목록(260907 계약·결제 파이프라인, P2-6) — 상태 필터(입금대기/미발급/부분입금/완납대기/활성/취소/환불), 식별코드·업체명 검색, 계좌·토스 미배선 배너 2종 |
+| `/biz/contracts/:id` | `admin-frontend/src/pages/biz/BizContractDetailPage.tsx` | 계약 상세 — 대조결과, 입금건(`manual`/`toss` 배지+`toss`는 KRW 스냅샷 표시), 수동 입금등록, 승인/취소/환불종결, **재동기화(rail-sync, 미기록 토스결제 복구)**·**카드환불(rail-refund, `bank_transfer` 계약엔 409)** |
+
+  **구버전 "입금확인(구독 활성)" 버튼 폐기 (2026-09-07)**: `activate-subscription` 엔드포인트가 삭제되며 `BizAdDetailPage.tsx`·`BizAdListPage.tsx` 의 해당 버튼도 `/biz/contracts?q=<업체명>` 링크로 교체됐다 — 활성화는 이제 계약 승인 흐름을 거친다.
 
   백엔드 `backend/app/routers/admin_api/biz.py`(`GET/POST /admin/api/biz/accounts*·/ads*`; 광고 단건 `GET .../ads/{id}`, 목록 `GET .../ads` 는 `profile_id`·`launching`(론칭중=APPROVED+is_active+게시기간, market.py get_ads와 동일 정의) 필터 지원 — 2026-07-23), `verify_admin_api`(레거시와 동일 admin 레벨 — root 아님) + 전 mutation `_audit.audit()`. fetch 훅 `admin-frontend/src/api/biz.ts`. **알려진 갭**: 광고 이미지 imgproxy 폴백 미적용(레거시부터의 기존 갭) / 사이드바 큐 카운트 배지 미구현(전 큐 공통).
 - **앱측 연결 API**: BFF `routers/biz.py`(`POST /biz/apply`, `GET/PUT /biz/profiles/:id`, 광고 CRUD, `GET /biz/public/:id`, `GET /biz/public/news/recent` — 홈 "업체 소식" 섹션 전용, 여러 업체 최신 소식 1건씩·APPROVED만, 2026-07-25), noti_worker `biz.profile_reviewed`/`biz.ad_reviewed` 이벤트.

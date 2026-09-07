@@ -49,6 +49,8 @@ import BizAccountAdsPage from './pages/biz/BizAccountAdsPage'
 import BizAdListPage from './pages/biz/BizAdListPage'
 import BizAdDetailPage from './pages/biz/BizAdDetailPage'
 import BizAdTierPage from './pages/biz/BizAdTierPage'
+import BizContractListPage from './pages/biz/BizContractListPage'
+import BizContractDetailPage from './pages/biz/BizContractDetailPage'
 import AdminAccountListPage from './pages/system/AdminAccountListPage'
 import SettingsPage from './pages/system/SettingsPage'
 import EngineSettingsPage from './pages/system/EngineSettingsPage'
@@ -179,6 +181,8 @@ export default function App() {
               <Route path="/biz/accounts/:id/ads" element={<BizAccountAdsPage />} />
               <Route path="/biz/ads" element={<BizAdListPage />} />
               <Route path="/biz/ads/:id" element={<BizAdDetailPage />} />
+              <Route path="/biz/contracts" element={<BizContractListPage />} />
+              <Route path="/biz/contracts/:id" element={<BizContractDetailPage />} />
               <Route path="/biz/ad-tiers" element={<BizAdTierPage />} />
               <Route path="/system/accounts" element={<PrivilegedRoute><AdminAccountListPage /></PrivilegedRoute>} />
               <Route path="/system/settings" element={<SettingsPage />} />

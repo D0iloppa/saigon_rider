@@ -5,6 +5,7 @@
 거치지 않고 직접 호출한다(session/db/request 를 키워드로 넘긴다 — test_ad_contract.py 스타일).
 """
 
+import contextlib
 import os
 import unittest
 import uuid
@@ -22,6 +23,8 @@ from app.routers.admin_api import biz_contracts
 from app.services.ad_gating import is_payment_ok
 from app.services.ad_payments import payment_code
 from app.services.ad_payments.port import DepositObservation, ingest_deposit
+from app.services.ad_payments.rails import RAILS
+from app.services.ad_payments.rails.toss_card import StubTossGateway, TossCardRail
 
 _GENERAL_TIER_ID = uuid.UUID("00000000-0000-4000-8000-000000000002")  # price_3m=539000, price_6m=999000
 
@@ -33,6 +36,18 @@ _ADMIN_SESSION = AdminSession(username="tester_admin", role="admin")
 
 def _fake_request() -> SimpleNamespace:
     return SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
+
+
+@contextlib.contextmanager
+def _stub_toss_rail(gateway: StubTossGateway):
+    """`biz_contracts.RAILS["toss_card"]` 를 스텁 게이트웨이 주입 어댑터로 임시 교체한다
+    (test_ad_toss_rail.py 관례와 동일 — 대체되는 것은 '토스 서버' 뿐)."""
+    original = RAILS["toss_card"]
+    RAILS["toss_card"] = TossCardRail(gateway=gateway)
+    try:
+        yield
+    finally:
+        RAILS["toss_card"] = original
 
 
 class _BizContractsTestBase(unittest.IsolatedAsyncioTestCase):
@@ -359,8 +374,174 @@ class PaymentWiringTests(unittest.IsolatedAsyncioTestCase):
             out = await biz_contracts.get_payment_wiring(_session=_ADMIN_SESSION)
         self.assertFalse(out["ready"])
         self.assertEqual(set(out["missing_keys"]), set(_BANK_ENV_KEYS))
-        # 값(계좌번호·예금주 등)이 응답 어디에도 실리지 않는다 — 키 이름만.
-        self.assertEqual(set(out.keys()), {"ready", "missing_keys"})
+        # 값(계좌번호·예금주 등)이 응답 어디에도 실리지 않는다 — 키 이름만(토스는 배선여부만).
+        self.assertEqual(set(out.keys()), {"ready", "missing_keys", "toss"})
+        self.assertEqual(set(out["toss"].keys()), {"ready", "missing_keys"})
+
+
+class RailSyncTests(_BizContractsTestBase):
+    """rail-sync — 웹훅/confirm 유실로 원장에 안 잡힌 토스 결제를 `ref` 재조회로 복구 (§8 P2-6)."""
+
+    async def test_rail_sync_recovers_missing_toss_payment_and_auto_approves(self):
+        contract_id = await self._make_contract(status="awaiting_payment", months=3, amount_vnd=539000)
+        gateway = StubTossGateway()
+        payment_key = "pk_recover_1"
+        order_id = None
+        async with AsyncSessionLocal() as db:
+            contract = await db.get(AdContract, contract_id)
+            order_id = f"{contract.payment_code}-1"
+        # 토스에는 이미 결제가 완료됐지만(웹훅·confirm 유실 시뮬레이션) 우리 원장엔 없는 상태.
+        await gateway.confirm(payment_key=payment_key, order_id=order_id, amount=539000)
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                out = await biz_contracts.rail_sync_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailSyncRequest(ref=payment_key),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+
+        self.assertEqual(out.status, "active")
+        toss_deposit = next(d for d in out.deposits if d.source == "toss")
+        self._deposit_ids.append(toss_deposit.id)
+        self.assertEqual(toss_deposit.source_ref, payment_key)
+
+        audit_row = await self._last_audit_row(str(contract_id))
+        self.assertEqual(audit_row.action, "BIZ_AD_CONTRACT_RAIL_SYNC")
+        self.assertTrue(audit_row.detail.get("approved"))
+
+    async def test_rail_sync_unknown_ref_returns_404(self):
+        contract_id = await self._make_contract(status="awaiting_payment", months=3, amount_vnd=539000)
+        gateway = StubTossGateway()
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                with self.assertRaises(HTTPException) as raised:
+                    await biz_contracts.rail_sync_contract(
+                        contract_id=contract_id,
+                        body=biz_contracts.RailSyncRequest(ref="never-existed"),
+                        request=_fake_request(),
+                        session=_ADMIN_SESSION,
+                        db=db,
+                    )
+        self.assertEqual(raised.exception.status_code, 404)
+
+
+class RailRefundTests(_BizContractsTestBase):
+    """rail-refund — 카드 결제 부분/전액 환불 (§8 P2-6)."""
+
+    async def _make_active_card_contract(self, *, amount_vnd: int = 539000, krw_value: int = 10900) -> tuple:
+        contract_id = await self._make_contract(status="awaiting_payment", months=3, amount_vnd=amount_vnd)
+        payment_key = f"pk_{uuid.uuid4().hex[:10]}"
+        async with AsyncSessionLocal() as db:
+            contract = await db.get(AdContract, contract_id)
+            contract.contract_snapshot = {
+                "charge": {"currency": "KRW", "value": krw_value, "price_col": "price_3m_krw"}
+            }
+            order_id = f"{contract.payment_code}-1"
+            await db.commit()
+
+        gateway = StubTossGateway()
+        await gateway.confirm(payment_key=payment_key, order_id=order_id, amount=krw_value)
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                out = await biz_contracts.rail_sync_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailSyncRequest(ref=payment_key),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+        self.assertEqual(out.status, "active")
+        toss_deposit = next(d for d in out.deposits if d.source == "toss")
+        self._deposit_ids.append(toss_deposit.id)
+        return contract_id, toss_deposit.id, gateway
+
+    async def test_partial_refund_creates_refund_row_and_keeps_contract_active(self):
+        contract_id, deposit_id, gateway = await self._make_active_card_contract()
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                out = await biz_contracts.rail_refund_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailRefundRequest(
+                        deposit_id=deposit_id, amount_vnd=100000, reason="부분 환불 테스트"
+                    ),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+
+        self.assertEqual(out.status, "active")
+        refund_rows = [d for d in out.deposits if d.kind == "refund"]
+        self.assertEqual(len(refund_rows), 1)
+        self._deposit_ids.append(refund_rows[0].id)
+        self.assertEqual(refund_rows[0].amount_vnd, 100000)
+        self.assertEqual(refund_rows[0].source, "toss")
+
+        audit_row = await self._last_audit_row(str(contract_id))
+        self.assertEqual(audit_row.action, "BIZ_AD_CONTRACT_RAIL_REFUND")
+
+    async def test_full_refund_then_close_refunded_succeeds(self):
+        contract_id, deposit_id, gateway = await self._make_active_card_contract(amount_vnd=539000)
+
+        with _stub_toss_rail(gateway):
+            async with AsyncSessionLocal() as db:
+                out = await biz_contracts.rail_refund_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailRefundRequest(deposit_id=deposit_id, amount_vnd=None, reason="전액 환불"),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+        refund_rows = [d for d in out.deposits if d.kind == "refund"]
+        self._deposit_ids.append(refund_rows[0].id)
+        self.assertEqual(refund_rows[0].amount_vnd, 539000)
+        self.assertEqual(out.reconcile.received_vnd, 0)
+
+        async with AsyncSessionLocal() as db:
+            closed = await biz_contracts.close_refunded_contract(
+                contract_id=contract_id,
+                body=biz_contracts.ReasonRequest(reason="전액 환불 종결"),
+                request=_fake_request(),
+                session=_ADMIN_SESSION,
+                db=db,
+            )
+        self.assertEqual(closed["status"], "refunded")
+
+    async def test_refund_on_non_card_deposit_returns_409(self):
+        contract_id = await self._make_contract(status="awaiting_payment", months=3, amount_vnd=539000)
+        async with AsyncSessionLocal() as db:
+            contract = await db.get(AdContract, contract_id)
+            obs = DepositObservation(
+                amount_vnd=539000,
+                paid_at=datetime.now(UTC),
+                memo_raw=None,
+                payer_name="Test Shop",
+                bank_ref="ref-manual-1",
+                source="manual",
+                source_ref=None,
+                payment_code_hint=contract.payment_code,
+            )
+            result = await ingest_deposit(db, obs, actor="tester")
+            self._deposit_ids.append(result.deposit_id)
+            manual_deposit_id = result.deposit_id
+
+        async with AsyncSessionLocal() as db:
+            with self.assertRaises(HTTPException) as raised:
+                await biz_contracts.rail_refund_contract(
+                    contract_id=contract_id,
+                    body=biz_contracts.RailRefundRequest(
+                        deposit_id=manual_deposit_id, amount_vnd=None, reason="테스트"
+                    ),
+                    request=_fake_request(),
+                    session=_ADMIN_SESSION,
+                    db=db,
+                )
+        self.assertEqual(raised.exception.status_code, 409)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Avatar, Button, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
-import { useActivateBizAdSubscription, useApproveBizAd, useBizAds, useRejectBizAd, type BizAdRow } from '../../api/biz'
+import { useApproveBizAd, useBizAds, useRejectBizAd, type BizAdRow } from '../../api/biz'
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: '대기' },
@@ -55,7 +55,6 @@ export default function BizAdListPage() {
   const { data, isLoading, isError, error } = useBizAds(status || undefined)
   const approveMutation = useApproveBizAd()
   const rejectMutation = useRejectBizAd()
-  const activateSubscriptionMutation = useActivateBizAdSubscription()
 
   const closeRejectModal = () => {
     setRejectTarget(null)
@@ -156,19 +155,7 @@ export default function BizAdListPage() {
       render: (_: unknown, r: BizAdRow) => (
         <Space>
           {r.subscription_status === 'pending_payment' && (
-            <Popconfirm
-              title="입금을 확인하고 구독을 활성화하시겠습니까?"
-              onConfirm={() =>
-                activateSubscriptionMutation.mutate(r.id, {
-                  onSuccess: () => message.success('구독이 활성화되었습니다.'),
-                  onError: (err) => message.error(err instanceof Error ? err.message : '처리에 실패했습니다.'),
-                })
-              }
-              okText="입금확인"
-              cancelText="취소"
-            >
-              <a>입금확인</a>
-            </Popconfirm>
+            <a onClick={() => navigate(`/biz/contracts?q=${encodeURIComponent(r.partner_name)}`)}>결제 계약</a>
           )}
           {r.review_status === 'PENDING' ? (
             <>

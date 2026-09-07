@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Image, Popconfirm, Skeleton, Space, Tag, message } from 'antd'
+import { Alert, Button, Card, Descriptions, Image, Skeleton, Space, Tag } from 'antd'
 import dayjs from 'dayjs'
-import { useActivateBizAdSubscription, useBizAd } from '../../api/biz'
+import { useBizAd } from '../../api/biz'
 
 const STATUS_TAG: Record<string, { color: string; label: string }> = {
   PENDING: { color: 'gold', label: '대기' },
@@ -33,7 +33,6 @@ export default function BizAdDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { data: ad, isLoading, isError, error } = useBizAd(id)
-  const activateSubscriptionMutation = useActivateBizAdSubscription()
 
   if (isError) {
     return (
@@ -103,21 +102,9 @@ export default function BizAdDetailPage() {
         <Space style={{ marginTop: 16 }}>
           <Button onClick={() => navigate('/biz/ads')}>목록으로</Button>
           {ad.subscription_status === 'pending_payment' && (
-            <Popconfirm
-              title="입금을 확인하고 구독을 활성화하시겠습니까?"
-              onConfirm={() =>
-                activateSubscriptionMutation.mutate(ad.id, {
-                  onSuccess: () => message.success('구독이 활성화되었습니다.'),
-                  onError: (err) => message.error(err instanceof Error ? err.message : '처리에 실패했습니다.'),
-                })
-              }
-              okText="입금확인"
-              cancelText="취소"
-            >
-              <Button type="primary" loading={activateSubscriptionMutation.isPending}>
-                입금확인 (구독 활성)
-              </Button>
-            </Popconfirm>
+            <Button type="primary" onClick={() => navigate(`/biz/contracts?q=${encodeURIComponent(ad.partner_name)}`)}>
+              결제 계약 확인
+            </Button>
           )}
         </Space>
       </Card>

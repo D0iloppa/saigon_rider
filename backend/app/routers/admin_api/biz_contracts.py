@@ -23,12 +23,15 @@ from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import AdContract, AdDeposit, BusinessProfile, MarketplaceAd
 from ...services import noti_events
+from ...services.ad_payments import checkout as checkout_core
 from ...services.ad_payments import config as payment_config
 from ...services.ad_payments import constants as payment_constants
 from ...services.ad_payments import contracts as payment_contracts
 from ...services.ad_payments import payment_code
 from ...services.ad_payments.contracts import ContractStateError
 from ...services.ad_payments.port import DepositObservation, ingest_deposit
+from ...services.ad_payments.rails import RAILS, RailNotSupported, RailValidationError
+from ...services.ad_payments.rails.toss_card import TossApiError
 from ...services.ad_payments.reconcile import ReconcileResult, reconcile_contract
 from ._audit import audit
 
@@ -84,6 +87,16 @@ class ApproveRequest(BaseModel):
 
 class ReasonRequest(BaseModel):
     reason: str
+
+
+class RailSyncRequest(BaseModel):
+    ref: str = Field(min_length=1)
+
+
+class RailRefundRequest(BaseModel):
+    deposit_id: uuid.UUID
+    amount_vnd: int | None = Field(default=None, gt=0)
+    reason: str = Field(min_length=1)
 
 
 class DepositRow(BaseModel):
@@ -594,8 +607,10 @@ async def approve_contract(
     now = datetime.now(UTC)
 
     try:
-        period_start, period_end = payment_contracts.approve(
-            contract, ad, actor=session.username, now=now, reason=body.reason
+        # ad 로우 락 안에서 paid_until read-modify-write (동시 승인 경쟁 방지) — 프로덕션 승인
+        # 경로는 순수 approve() 대신 반드시 이 래퍼를 쓴다(contracts.py 참조).
+        period_start, period_end = await payment_contracts.approve_with_ad_lock(
+            db, contract, ad, actor=session.username, now=now, reason=body.reason
         )
     except ContractStateError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -712,10 +727,130 @@ async def close_refunded_contract(
     return {"id": contract.id, "status": contract.status, "ad_paid_until": ad.paid_until}
 
 
+# ── 카드 결제 레일 (토스) 재동기화·환불 (260907_toss_payment_rail_design.md §8 P2-6) ────────
+
+
+@router.post(
+    "/contracts/{contract_id}/rail-sync",
+    response_model=ContractDetail,
+    summary="토스 결제 재동기화 (유실된 웹훅/confirm 복구)",
+)
+async def rail_sync_contract(
+    contract_id: uuid.UUID,
+    body: RailSyncRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """토스에는 결제됐는데 웹훅·confirm 유실로 원장에 안 잡힌 결제를 `ref`(paymentKey) 로 재조회해
+    복구한다. `TossCardRail.lookup()` 만 호출 — 직접 HTTP 를 부르지 않는다(design §8 P2-6)."""
+    contract = await _get_contract_or_404(db, contract_id)
+    ad = await _get_ad_or_404(db, contract.ad_id)
+
+    rail = RAILS["toss_card"]
+    try:
+        result = await rail.lookup(contract, ref=body.ref)
+    except RailNotSupported as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    except TossApiError as exc:
+        raise HTTPException(status_code=502, detail={"error": "toss_lookup_failed", "message": exc.message}) from None
+    if result is None:
+        raise HTTPException(status_code=404, detail={"error": "payment_not_found"})
+
+    now = datetime.now(UTC)
+    outcome = await checkout_core.complete_checkout(db, contract, ad, result, now=now)
+    await checkout_core.record_auto_approve_audit(db, outcome)
+
+    await audit(
+        db,
+        session,
+        request,
+        "BIZ_AD_CONTRACT_RAIL_SYNC",
+        "ad_contract",
+        str(contract.id),
+        {
+            "ref": body.ref,
+            "ingest_duplicate": outcome.ingest_duplicate,
+            "ingest_status": outcome.ingest_status,
+            "approved": outcome.approved,
+        },
+    )
+    await db.commit()
+
+    refreshed = await _get_contract_or_404(db, contract_id)
+    return await _contract_detail(db, refreshed)
+
+
+@router.post(
+    "/contracts/{contract_id}/rail-refund",
+    response_model=ContractDetail,
+    summary="카드 결제 부분/전액 환불 (토스 취소)",
+)
+async def rail_refund_contract(
+    contract_id: uuid.UUID,
+    body: RailRefundRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """`TossCardRail.refund()` 로 토스 취소 API 를 태우고, 성공하면 `ad_deposits` 에 `kind='refund'`
+    행을 만든다. 대상 입금건이 토스 결제(source='toss')가 아니면(계좌이체 계약) 409(design §8 P2-6)."""
+    contract = await _get_contract_or_404(db, contract_id)
+
+    deposit = await db.get(AdDeposit, body.deposit_id)
+    if deposit is None or deposit.contract_id != contract.id:
+        raise HTTPException(status_code=404, detail={"error": "deposit_not_found"})
+    if deposit.source != "toss" or deposit.kind != "deposit" or not deposit.source_ref:
+        raise HTTPException(status_code=409, detail={"error": "not_card_deposit"})
+    if body.amount_vnd is not None and body.amount_vnd > deposit.amount_vnd:
+        raise HTTPException(status_code=422, detail={"error": "amount_exceeds_deposit"})
+
+    rail = RAILS["toss_card"]
+    try:
+        result = await rail.refund(contract, ref=deposit.source_ref, amount_vnd=body.amount_vnd, reason=body.reason)
+    except RailValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except RailNotSupported as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    except TossApiError as exc:
+        raise HTTPException(status_code=502, detail={"error": "toss_cancel_failed", "message": exc.message}) from None
+
+    ingest_result = await ingest_deposit(db, result.observation, actor=f"rail:refund:{session.username}")
+    if not ingest_result.duplicate:
+        refund_deposit = await db.get(AdDeposit, ingest_result.deposit_id)
+        if refund_deposit is not None:
+            refund_deposit.charge_snapshot = result.charge_snapshot
+
+    await audit(
+        db,
+        session,
+        request,
+        "BIZ_AD_CONTRACT_RAIL_REFUND",
+        "ad_contract",
+        str(contract.id),
+        {
+            "source_deposit_id": str(deposit.id),
+            "refund_deposit_id": str(ingest_result.deposit_id),
+            "amount_vnd": body.amount_vnd if body.amount_vnd is not None else deposit.amount_vnd,
+            "reason": body.reason,
+            "duplicate": ingest_result.duplicate,
+        },
+    )
+    await db.commit()
+
+    refreshed = await _get_contract_or_404(db, contract_id)
+    return await _contract_detail(db, refreshed)
+
+
 # ── 배선 상태 ─────────────────────────────────────────────────────────────
 
 
-@router.get("/payment-wiring", summary="계좌 배선 상태 (값 없음, 키 이름만)")
+@router.get("/payment-wiring", summary="계좌·카드(토스) 배선 상태 (값 없음, 키 이름만)")
 async def get_payment_wiring(_session: AdminSession = Depends(verify_admin_api)):
     missing_keys = [key for key in _BANK_ENV_KEYS if not os.getenv(key, "").strip()]
-    return {"ready": payment_config.bank_wiring_ready(), "missing_keys": missing_keys}
+    toss_missing_keys = [key for key in payment_config.TOSS_ENV_KEYS[:2] if not os.getenv(key, "").strip()]
+    return {
+        "ready": payment_config.bank_wiring_ready(),
+        "missing_keys": missing_keys,
+        "toss": {"ready": payment_config.toss_wiring_ready(), "missing_keys": toss_missing_keys},
+    }

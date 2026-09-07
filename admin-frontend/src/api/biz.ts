@@ -226,11 +226,236 @@ export function useRejectBizAd() {
   })
 }
 
-export function useActivateBizAdSubscription() {
+// ── 광고 결제 계약 (260907_toss_payment_rail_design.md §8 P2-6) ────
+
+export interface BizDepositRow {
+  id: string
+  contract_id: string | null
+  kind: 'deposit' | 'refund'
+  amount_vnd: number
+  paid_at: string
+  payer_name: string | null
+  memo_raw: string | null
+  bank_ref: string | null
+  source: 'manual' | 'csv' | 'bank_feed' | 'toss'
+  source_ref: string | null
+  evidence_content_id: string | null
+  note: string | null
+  recorded_by: string | null
+  created_at: string
+  charge_snapshot?: Record<string, unknown> | null
+}
+
+export interface BizReconcileOut {
+  status: string
+  received_vnd: number
+  expected_vnd: number
+  shortfall_vnd: number
+  overpaid_vnd: number
+  flags: string[]
+}
+
+export interface BizContractRow {
+  id: string
+  ad_id: string
+  ad_title: string
+  partner_name: string
+  payment_code: string
+  months: number
+  amount_vnd: number
+  status: string
+  received_vnd: number
+  shortfall_vnd: number
+  flags: string[]
+  payment_instructions_issued_at: string | null
+  due_at: string | null
+  overdue: boolean
+  created_at: string
+}
+
+export interface BizContractDetail {
+  id: string
+  ad_id: string
+  ad_title: string
+  partner_name: string
+  payment_code: string
+  months: number
+  amount_vnd: number
+  status: string
+  contract_token: string
+  accepted_at: string | null
+  contract_method: string | null
+  signer_name: string | null
+  signer_ip: string | null
+  payment_instructions_issued_at: string | null
+  due_at: string | null
+  overdue: boolean
+  period_start: string | null
+  period_end: string | null
+  approved_at: string | null
+  approved_by: string | null
+  closed_at: string | null
+  closed_reason: string | null
+  created_at: string
+  deposits: BizDepositRow[]
+  reconcile: BizReconcileOut
+  projected_period_start: string | null
+  projected_period_end: string | null
+}
+
+export interface BizPaymentWiring {
+  ready: boolean
+  missing_keys: string[]
+  toss: { ready: boolean; missing_keys: string[] }
+}
+
+export function useBizContracts(tab: string, q?: string) {
+  return useQuery({
+    queryKey: ['biz', 'contracts', tab, q],
+    queryFn: () => api<BizContractRow[]>(`/admin/api/biz/contracts${buildQuery({ tab, q: q || undefined })}`),
+  })
+}
+
+export function useBizContract(id: string) {
+  return useQuery({
+    queryKey: ['biz', 'contracts', 'detail', id],
+    queryFn: () => api<BizContractDetail>(`/admin/api/biz/contracts/${id}`),
+    enabled: !!id,
+  })
+}
+
+export function useBizUnmatchedDeposits() {
+  return useQuery({
+    queryKey: ['biz', 'deposits', 'unmatched'],
+    queryFn: () => api<BizDepositRow[]>('/admin/api/biz/deposits'),
+  })
+}
+
+export function useBizPaymentWiring() {
+  return useQuery({
+    queryKey: ['biz', 'payment-wiring'],
+    queryFn: () => api<BizPaymentWiring>('/admin/api/biz/payment-wiring'),
+  })
+}
+
+export interface BizDepositCreateInput {
+  kind?: 'deposit' | 'refund'
+  amount_vnd: number
+  paid_at: string
+  payer_name?: string | null
+  bank_ref?: string | null
+  memo_raw?: string | null
+  note?: string | null
+  evidence_content_id?: string | null
+  force?: boolean
+}
+
+export function useCreateContractDeposit() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api(`/admin/api/biz/ads/${id}/activate-subscription`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['biz', 'ads'] }),
+    mutationFn: ({ contractId, input }: { contractId: string; input: BizDepositCreateInput }) =>
+      api<BizContractDetail>(`/admin/api/biz/contracts/${contractId}/deposits`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_data, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts', 'detail', contractId] })
+    },
+  })
+}
+
+export function useMatchDeposit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ depositId, contractId, reason }: { depositId: string; contractId: string; reason: string }) =>
+      api<BizContractDetail>(`/admin/api/biz/deposits/${depositId}/match`, {
+        method: 'POST',
+        body: JSON.stringify({ contract_id: contractId, reason }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'deposits', 'unmatched'] })
+    },
+  })
+}
+
+export function useApproveContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, reason }: { contractId: string; reason?: string }) =>
+      api(`/admin/api/biz/contracts/${contractId}/approve`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) }),
+    onSuccess: (_data, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts', 'detail', contractId] })
+      qc.invalidateQueries({ queryKey: ['biz', 'ads'] })
+    },
+  })
+}
+
+export function useCancelContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, reason }: { contractId: string; reason: string }) =>
+      api(`/admin/api/biz/contracts/${contractId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    onSuccess: (_data, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts', 'detail', contractId] })
+    },
+  })
+}
+
+export function useCloseRefundedContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, reason }: { contractId: string; reason: string }) =>
+      api(`/admin/api/biz/contracts/${contractId}/close-refunded`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    onSuccess: (_data, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts', 'detail', contractId] })
+      qc.invalidateQueries({ queryKey: ['biz', 'ads'] })
+    },
+  })
+}
+
+export function useRailSyncContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, ref }: { contractId: string; ref: string }) =>
+      api<BizContractDetail>(`/admin/api/biz/contracts/${contractId}/rail-sync`, {
+        method: 'POST',
+        body: JSON.stringify({ ref }),
+      }),
+    onSuccess: (_data, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts', 'detail', contractId] })
+      qc.invalidateQueries({ queryKey: ['biz', 'ads'] })
+    },
+  })
+}
+
+export function useRailRefundContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      contractId,
+      depositId,
+      amountVnd,
+      reason,
+    }: {
+      contractId: string
+      depositId: string
+      amountVnd?: number | null
+      reason: string
+    }) =>
+      api<BizContractDetail>(`/admin/api/biz/contracts/${contractId}/rail-refund`, {
+        method: 'POST',
+        body: JSON.stringify({ deposit_id: depositId, amount_vnd: amountVnd || null, reason }),
+      }),
+    onSuccess: (_data, { contractId }) => {
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts'] })
+      qc.invalidateQueries({ queryKey: ['biz', 'contracts', 'detail', contractId] })
+    },
   })
 }
 

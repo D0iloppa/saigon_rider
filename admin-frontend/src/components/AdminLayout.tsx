@@ -5,6 +5,7 @@ import {
   AuditOutlined,
   BellOutlined,
   CompassOutlined,
+  CreditCardOutlined,
   CustomerServiceOutlined,
   DashboardOutlined,
   DollarOutlined,
@@ -67,6 +68,7 @@ const MENU_ITEMS = [
   { key: 'group-biz', label: 'BUSINESS', children: [
     { key: '/biz/accounts', icon: <SolutionOutlined />, label: '파트너 심사' },
     { key: '/biz/ads', icon: <NotificationOutlined />, label: '광고 심사' },
+    { key: '/biz/contracts', icon: <CreditCardOutlined />, label: '광고 결제 계약' },
     { key: '/biz/ad-tiers', icon: <DollarOutlined />, label: '광고 티어 정책' },
   ] },
   { key: 'group-community', label: 'COMMUNITY', children: [{ key: '/community/feed', icon: <PictureOutlined />, label: '피드 관리' }] },
@@ -123,6 +125,7 @@ const PAGE_META = [
   { path: '/map/ride-policy', title: '라이딩 정책', description: '체크포인트 근접 거리, 거리 밴드, 일일 퀘스트 기본 슬롯을 설정합니다.' },
   { path: '/biz/accounts', title: '비즈니스 파트너 심사', description: '비즈니스 계정 신청을 심사하고 그룹·정지 등 계정을 관리합니다.' },
   { path: '/biz/ads', title: '인앱 광고 심사', description: '비즈니스 파트너가 등록한 광고 소재를 심사합니다.' },
+  { path: '/biz/contracts', title: '광고 결제 계약', description: '광고 결제 계약의 입금·대조·승인·카드 재동기화/환불을 관리합니다.' },
   { path: '/biz/ad-tiers', title: '광고 티어 정책', description: '월 가격과 노출 빈도 가중치를 관리합니다.' },
   { path: '/system/settings', title: '설정', description: '관리자 프로필, 닉네임 단어사전, 앱 버전, 서비스 설정을 관리합니다.' },
   { path: '/', title: '운영 현황', description: '오늘 확인해야 할 운영 지표와 처리 대기 항목입니다.' },

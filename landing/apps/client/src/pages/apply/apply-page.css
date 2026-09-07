@@ -40,6 +40,32 @@
 .sa-success .sa-summary { margin-top: 22px; }
 .sa-success p.sa-bank { margin: 0; padding: 18px; border-radius: 16px; background: rgba(255,255,255,.06); color: #fff; font-size: 14px; font-weight: 700; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
 
+.sa-periods { margin: 22px 0 0; }
+.sa-periods h3 { margin: 0 0 10px; color: rgba(255,249,242,.72); font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.sa-period-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sa-period-option { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); color: #fff; cursor: pointer; }
+.sa-period-option:disabled { opacity: .4; cursor: not-allowed; }
+.sa-period-option--active { border-color: var(--sr-orange); background: rgba(255,90,31,.12); }
+.sa-period-option__months { font-size: 13px; font-weight: 900; }
+.sa-period-option__price { font-size: 12px; color: var(--sr-muted); text-align: center; }
+.sa-period-option--active .sa-period-option__price { color: #fff; }
+
+.sa-status h1 { margin: 8px 0 0; color: #fff; font-size: 24px; font-weight: 930; letter-spacing: -.02em; word-break: keep-all; }
+.sa-period-label { margin: 14px 0 0; color: var(--sr-muted); font-size: 13px; }
+
+.sa-rails { margin-top: 24px; display: grid; gap: 16px; }
+.sa-rails-empty { margin-top: 24px; padding: 18px; border-radius: 16px; background: rgba(255,255,255,.05); color: var(--sr-muted); font-size: 13.5px; line-height: 1.7; word-break: keep-all; }
+.sa-rail-card { padding: 18px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.18); }
+.sa-rail-card h3 { margin: 0 0 12px; color: rgba(255,249,242,.72); font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.sa-bank-fields { display: grid; gap: 8px; }
+.sa-bank-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+.sa-bank-row span:first-child { color: var(--sr-muted); }
+.sa-bank-row span:last-child { color: #fff; font-weight: 800; text-align: right; word-break: break-word; }
+.sa-bank-due { margin: 10px 0 0; color: #ff9d7a; font-size: 12.5px; font-weight: 700; }
+.sa-rail-preparing { margin: 0; color: var(--sr-muted); font-size: 13.5px; }
+.sa-krw-notice { margin: 0 0 14px; color: var(--sr-muted); font-size: 12.5px; line-height: 1.6; }
+.sa-card-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+
 @media (max-width: 560px) {
   .sa-page { padding: 40px 0 64px; }
   .sa-card { padding: 26px; border-radius: 22px; }

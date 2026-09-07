@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CreditCard } from "lucide-react";
 import "../home/home-launch.css";
 import "./apply-page.css";
 import { LOCALES, LOCALE_LABEL, DEFAULT_LOCALE, content, formatCopy, type Locale } from "./content";
@@ -9,8 +9,10 @@ import {
   acceptAdContract,
   AdContractNotFoundError,
   type AdContractInfo,
-  type AdContractAcceptResult,
+  type RailOffer,
 } from "@/lib/adContractApi";
+
+const TOSS_SDK_SRC = "https://js.tosspayments.com/v2/standard";
 
 function detectLocale(): Locale {
   const nav = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "";
@@ -23,13 +25,71 @@ function formatVnd(amount: number): string {
   return new Intl.NumberFormat("vi-VN").format(amount) + "₫";
 }
 
+function formatKrw(amount: number): string {
+  return new Intl.NumberFormat("ko-KR").format(amount);
+}
+
+function formatDate(iso: string, locale: Locale): string {
+  try {
+    return new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : locale === "ko" ? "ko-KR" : "en-US", {
+      dateStyle: "medium",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
 type PageState =
   | { kind: "loading" }
   | { kind: "invalid" }
   | { kind: "error" }
-  | { kind: "already" }
-  | { kind: "form"; contract: AdContractInfo }
-  | { kind: "success"; result: AdContractAcceptResult };
+  | { kind: "loaded"; contract: AdContractInfo };
+
+// Loads the Toss v2 SDK script once and caches the window.TossPayments factory
+// (confirmed via docs.tosspayments.com/sdk/v2/js — script src js.tosspayments.com/v2/standard,
+// window.TossPayments(clientKey) init, .payment({customerKey}) instance, .requestPayment({...})).
+let tossSdkPromise: Promise<void> | null = null;
+function loadTossSdk(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("no window"));
+  if ((window as any).TossPayments) return Promise.resolve();
+  if (tossSdkPromise) return tossSdkPromise;
+  tossSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = TOSS_SDK_SRC;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Toss SDK"));
+    document.head.appendChild(script);
+  });
+  return tossSdkPromise;
+}
+
+async function startTossCheckout(checkout: NonNullable<RailOffer["checkout"]>) {
+  if (checkout.stub) {
+    // dev stub (design §5-1): no real payment window — jump straight to successUrl to
+    // exercise the redirect contract end-to-end.
+    const paymentKey = `stub_${crypto.randomUUID()}`;
+    const url = new URL(checkout.success_url);
+    url.searchParams.set("paymentKey", paymentKey);
+    url.searchParams.set("orderId", checkout.order_id);
+    url.searchParams.set("amount", String(checkout.amount.value));
+    window.location.href = url.toString();
+    return;
+  }
+  await loadTossSdk();
+  const tossPayments = (window as any).TossPayments(checkout.client_key);
+  const payment = tossPayments.payment({ customerKey: "ANONYMOUS" });
+  await payment.requestPayment({
+    method: "CARD",
+    amount: checkout.amount,
+    orderId: checkout.order_id,
+    orderName: checkout.order_name,
+    successUrl: checkout.success_url,
+    failUrl: checkout.fail_url,
+    customerName: checkout.customer_name,
+    card: { useInternationalCardOnly: true },
+  });
+}
 
 function LanguageSwitcher({ current, onChange }: { current: Locale; onChange: (locale: Locale) => void }) {
   return (
@@ -51,6 +111,77 @@ function LanguageSwitcher({ current, onChange }: { current: Locale; onChange: (l
   );
 }
 
+function RailsPanel({ contract, locale, t }: { contract: AdContractInfo; locale: Locale; t: (typeof content)[Locale] }) {
+  const bankRail = contract.rails.find((r) => r.rail === "bank_transfer");
+  const cardRail = contract.rails.find((r) => r.rail === "toss_card");
+  const [cardBusy, setCardBusy] = useState(false);
+  const [cardError, setCardError] = useState(false);
+
+  const bothUnavailable = (!bankRail || !bankRail.wired) && (!cardRail || !cardRail.wired);
+
+  if (bothUnavailable) {
+    return <p className="sa-rails-empty">{t.rails.bothUnavailable}</p>;
+  }
+
+  async function handleCardClick() {
+    if (!cardRail?.checkout || cardBusy) return;
+    setCardBusy(true);
+    setCardError(false);
+    try {
+      await startTossCheckout(cardRail.checkout);
+    } catch {
+      setCardError(true);
+      setCardBusy(false);
+    }
+  }
+
+  return (
+    <div className="sa-rails">
+      {bankRail && (
+        <div className="sa-rail-card">
+          <h3>{t.rails.bankHeading}</h3>
+          {bankRail.wired && bankRail.instructions ? (
+            <div className="sa-bank-fields">
+              <div className="sa-bank-row">
+                <span>{t.rails.bankName}</span>
+                <span>{bankRail.instructions.name}</span>
+              </div>
+              <div className="sa-bank-row">
+                <span>{t.rails.bankAccount}</span>
+                <span>{bankRail.instructions.account_no}</span>
+              </div>
+              <div className="sa-bank-row">
+                <span>{t.rails.bankHolder}</span>
+                <span>{bankRail.instructions.holder}</span>
+              </div>
+              <div className="sa-bank-row">
+                <span>{t.rails.bankCode}</span>
+                <span>{bankRail.instructions.payment_code}</span>
+              </div>
+              {bankRail.instructions.due_at && (
+                <p className="sa-bank-due">{formatCopy(t.rails.bankDue, { date: formatDate(bankRail.instructions.due_at, locale) })}</p>
+              )}
+            </div>
+          ) : (
+            <p className="sa-rail-preparing">{t.rails.bankPreparing}</p>
+          )}
+        </div>
+      )}
+
+      {cardRail?.wired && cardRail.checkout && (
+        <div className="sa-rail-card">
+          <h3>{t.rails.cardHeading}</h3>
+          <p className="sa-krw-notice">{formatCopy(t.rails.krwNotice, { krw: formatKrw(cardRail.checkout.amount.value) })}</p>
+          <button type="button" className="sr-button sa-card-button" disabled={cardBusy} onClick={handleCardClick}>
+            <CreditCard size={17} /> {cardBusy ? t.rails.cardOpening : t.rails.cardButton}
+          </button>
+          {cardError && <p className="sa-error">{t.error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ApplyPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -58,6 +189,7 @@ function ApplyPage() {
   const [state, setState] = useState<PageState>({ kind: "loading" });
   const [agreed, setAgreed] = useState(false);
   const [signerName, setSignerName] = useState("");
+  const [months, setMonths] = useState<1 | 3 | 6>(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
 
@@ -76,7 +208,7 @@ function ApplyPage() {
     fetchAdContract(token)
       .then((contract) => {
         if (cancelled) return;
-        setState(contract.already_accepted ? { kind: "already" } : { kind: "form", contract });
+        setState({ kind: "loaded", contract });
       })
       .catch((err) => {
         if (cancelled) return;
@@ -87,20 +219,27 @@ function ApplyPage() {
     };
   }, [token]);
 
-  const tierName = state.kind === "form" ? state.contract.tier_name : "";
+  const tierName = state.kind === "loaded" ? state.contract.tier_name : "";
 
-  const contractText = useMemo(
-    () => formatCopy(t.form.contractText, { tier: tierName }),
-    [t, tierName]
-  );
+  const contractText = useMemo(() => formatCopy(t.form.contractText, { tier: tierName }), [t, tierName]);
+
+  const periodOptions = useMemo(() => {
+    if (state.kind !== "loaded") return [];
+    const opts = state.contract.tier_price_options;
+    return [
+      { months: 1 as const, price: opts.month_1_vnd as number | null },
+      { months: 3 as const, price: opts.month_3_vnd },
+      { months: 6 as const, price: opts.month_6_vnd },
+    ];
+  }, [state]);
 
   async function handleSubmit() {
-    if (state.kind !== "form" || !agreed || !signerName.trim() || submitting) return;
+    if (state.kind !== "loaded" || !agreed || !signerName.trim() || submitting) return;
     setSubmitting(true);
     setSubmitError(false);
     try {
-      const result = await acceptAdContract(token, signerName.trim());
-      setState({ kind: "success", result });
+      const contract = await acceptAdContract(token, months, signerName.trim());
+      setState({ kind: "loaded", contract });
     } catch {
       setSubmitError(true);
     } finally {
@@ -138,26 +277,35 @@ function ApplyPage() {
             </div>
           )}
 
-          {state.kind === "already" && (
-            <div className="sa-state">
-              <h2>{t.alreadyAccepted.title}</h2>
-              <p>{t.alreadyAccepted.body}</p>
-            </div>
-          )}
-
-          {state.kind === "form" && (
+          {state.kind === "loaded" && state.contract.status === "draft" && (
             <div className="sa-form">
               <span className="sr-kicker">{t.form.kicker}</span>
               <h1>{formatCopy(t.form.heading, { tier: state.contract.tier_name })}</h1>
 
               <div className="sa-summary">
                 <div className="sa-summary__row">
-                  <span>{t.form.priceLabel}</span>
-                  <span className="sa-summary__price">{formatVnd(state.contract.monthly_price_vnd)}</span>
-                </div>
-                <div className="sa-summary__row">
                   <span>{t.form.partnerLabel}</span>
                   <span>{state.contract.partner_name}</span>
+                </div>
+              </div>
+
+              <div className="sa-periods">
+                <h3>{t.form.periodHeading}</h3>
+                <div className="sa-period-options">
+                  {periodOptions.map((opt) => (
+                    <button
+                      key={opt.months}
+                      type="button"
+                      className={`sa-period-option${months === opt.months ? " sa-period-option--active" : ""}`}
+                      disabled={opt.price === null}
+                      onClick={() => setMonths(opt.months)}
+                    >
+                      <span className="sa-period-option__months">{opt.months}m</span>
+                      <span className="sa-period-option__price">
+                        {opt.price === null ? t.form.periodUnavailable : formatVnd(opt.price)}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -200,19 +348,42 @@ function ApplyPage() {
             </div>
           )}
 
-          {state.kind === "success" && (
-            <div className="sa-success">
-              <span className="sr-kicker">{t.success.title}</span>
-              <h1>{t.success.title}</h1>
-              <p>{t.success.body}</p>
-              <div className="sa-summary">
-                <h3 style={{ margin: "0 0 8px", color: "rgba(255,249,242,.72)", fontSize: 12, fontWeight: 900, letterSpacing: ".06em" }}>
-                  {t.success.bankInfoLabel}
-                </h3>
-                <p className="sa-bank">{state.result.bank_transfer_info}</p>
-              </div>
+          {state.kind === "loaded" && (state.contract.status === "cancelled" || state.contract.status === "refunded") && (
+            <div className="sa-state">
+              <h2>{t.closed.title}</h2>
+              <p>{t.closed.body}</p>
             </div>
           )}
+
+          {state.kind === "loaded" &&
+            !["draft", "cancelled", "refunded"].includes(state.contract.status) && (
+              <div className="sa-status">
+                <span className="sr-kicker">{t.status.labels[state.contract.status as keyof typeof t.status.labels]}</span>
+                <h1>{formatCopy(t.status.heading, { tier: state.contract.tier_name })}</h1>
+
+                <div className="sa-summary">
+                  <div className="sa-summary__row">
+                    <span>{t.status.partnerLabel}</span>
+                    <span>{state.contract.partner_name}</span>
+                  </div>
+                  <div className="sa-summary__row">
+                    <span>{t.status.amountLabel}</span>
+                    <span className="sa-summary__price">{formatVnd(state.contract.amount_vnd)}</span>
+                  </div>
+                </div>
+
+                {state.contract.period_start && state.contract.period_end && (
+                  <p className="sa-period-label">
+                    {formatCopy(t.status.periodLabel, {
+                      start: formatDate(state.contract.period_start, locale),
+                      end: formatDate(state.contract.period_end, locale),
+                    })}
+                  </p>
+                )}
+
+                <RailsPanel contract={state.contract} locale={locale} t={t} />
+              </div>
+            )}
         </div>
       </div>
     </div>

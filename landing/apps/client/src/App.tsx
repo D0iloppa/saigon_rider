@@ -11,6 +11,8 @@ declare const __ROUTE_MESSAGING_ENABLED__: boolean;
 const Index = lazy(() => import("./pages/home/Index"));
 const BusinessHome = lazy(() => import("./pages/business/Index"));
 const ApplyPage = lazy(() => import("./pages/apply/Index"));
+const PayReturnPage = lazy(() => import("./pages/apply/PayReturn"));
+const PayFailPage = lazy(() => import("./pages/apply/PayFail"));
 const ProductPage = lazy(() => import("./pages/home/Index").then((module) => ({ default: module.ProductPage })));
 const SecurityPage = lazy(() => import("./pages/home/Index").then((module) => ({ default: module.SecurityPage })));
 const SolutionsPage = lazy(() => import("./pages/home/Index").then((module) => ({ default: module.SolutionsPage })));
@@ -68,6 +70,8 @@ const App = () => (
               <Route path="/ko" element={<BusinessHome />} />
               <Route path="/en" element={<BusinessHome />} />
               <Route path="/apply" element={<ApplyPage />} />
+              <Route path="/apply/pay/return" element={<PayReturnPage />} />
+              <Route path="/apply/pay/fail" element={<PayFailPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           ) : (

@@ -84,7 +84,17 @@ async def ingest_deposit(db: AsyncSession, obs: DepositObservation, *, actor: st
 
     contract: AdContract | None = None
     if code is not None:
-        result = await db.execute(select(AdContract).where(AdContract.payment_code == code))
+        # 같은 계약에 대한 동시 입금을 직렬화한다 — 계약 로우를 잠근 뒤 입금 INSERT → 재대조 →
+        # 상태 갱신까지 이 락 안에서 끝낸다(락 없이는 READ COMMITTED 하에서 두 입금이 서로의
+        # 미커밋 INSERT 를 못 봐 상태가 paid → partially_paid 로 역행할 수 있다).
+        # populate_existing: 호출부가 미리 읽어둔 인스턴스라도 락 획득 시점의 최신 status 로 다시
+        # 채운다 — 스테일 status 로 대조를 건너뛰지 않게.
+        result = await db.execute(
+            select(AdContract)
+            .where(AdContract.payment_code == code)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
         contract = result.scalar_one_or_none()
 
     deposit = AdDeposit(

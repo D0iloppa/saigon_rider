@@ -15,6 +15,7 @@
 backend/ .env.example docker-compose.yml` 로 수동 확인한다(완료 보고서에 실제 출력 포함).
 """
 
+import ast
 import re
 import unittest
 from pathlib import Path
@@ -69,6 +70,54 @@ class PaidUntilWriteBoundaryTests(unittest.TestCase):
             if "approve(" in text:
                 offenders.append(path.relative_to(_APP_ROOT.parent).as_posix())
         self.assertEqual(offenders, [], f"rails/ 안에서 approve( 호출 흔적: {offenders}")
+
+
+class MoneyPathLockBoundaryTests(unittest.TestCase):
+    """머니 경로의 read-modify-write 는 로우 락 안에서만 — 락 지점을 그렙으로 고정한다.
+
+    동시성 재현 테스트(test_ad_payment_port.py::MoneyPathLockTests)와 별개 층위다: 재현 테스트는
+    "지금 결과가 맞다"를, 이 테스트는 "락 자체가 그 자리에 있다"를 지킨다.
+    """
+
+    _CORE = _APP_ROOT / "services" / "ad_payments"
+
+    def test_ingest_deposit_locks_contract_row(self):
+        text = (self._CORE / "port.py").read_text(encoding="utf-8")
+        self.assertIn("with_for_update()", text, "ingest_deposit 이 계약 로우를 잠그지 않는다")
+
+    def test_approve_wrapper_locks_ad_row(self):
+        text = (self._CORE / "contracts.py").read_text(encoding="utf-8")
+        self.assertIn("async def approve_with_ad_lock", text)
+        self.assertIn("with_for_update()", text, "approve_with_ad_lock 이 ad 로우를 잠그지 않는다")
+
+    def test_checkout_confirm_guard_locks_contract_row(self):
+        text = (self._CORE / "checkout.py").read_text(encoding="utf-8")
+        self.assertIn("async def lock_and_assert_chargeable", text)
+        self.assertIn("with_for_update()", text)
+
+    def test_production_code_never_calls_bare_approve(self):
+        # 순수 전이함수 approve() 는 락이 없다 — 프로덕션은 approve_with_ad_lock 만 쓴다.
+        # 문자열·주석이 아닌 "실제 호출"만 봐야 하므로 그렙이 아니라 AST 로 판정한다.
+        offenders = []
+        for path in _iter_source_files():
+            if path.as_posix().endswith("services/ad_payments/contracts.py"):
+                continue
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                # `<contracts 모듈 별칭>.approve(...)` 또는 from-import 한 `approve(...)` 만 본다 —
+                # 무관한 동명 메서드(AdsApplication().approve)는 제외.
+                is_module_call = (
+                    isinstance(func, ast.Attribute)
+                    and func.attr == "approve"
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id in ("contracts", "payment_contracts", "contract_fsm")
+                )
+                is_bare_call = isinstance(func, ast.Name) and func.id == "approve"
+                if is_module_call or is_bare_call:
+                    offenders.append(f"{path.relative_to(_APP_ROOT.parent).as_posix()}:{node.lineno}")
+        self.assertEqual(offenders, [], f"락 없는 approve() 직접 호출: {offenders}")
 
 
 if __name__ == "__main__":

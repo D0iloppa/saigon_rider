@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from sqlalchemy import select
+
 from ...models import AdContract, AdDeposit, AdminAuditLog, MarketplaceAd
 from .. import noti_events
 from . import constants
@@ -18,6 +20,26 @@ from . import contracts as contract_fsm
 from .rails.base import CheckoutResult
 
 _PRE_APPROVE_ALLOWED_STATUSES = ("accepted", "awaiting_payment", "paid")
+
+
+class CheckoutNotAllowed(Exception):
+    """실결제를 개시할 수 없는 계약 상태 — `str(exc)` 가 그 시점의 상태값이다."""
+
+
+async def lock_and_assert_chargeable(db, contract: AdContract) -> None:
+    """PSP 실결제 호출 **직전** 가드 — 계약 로우를 잠그고 최신 상태를 다시 읽어, 결제 가능한
+    상태(`_PRE_APPROVE_ALLOWED_STATUSES`)가 아니면 `CheckoutNotAllowed` 를 던진다.
+
+    브라우저에 열려 있던 결제창은 계약이 취소·승인된 뒤에도 confirm 을 호출할 수 있다. 그때
+    실카드 결제가 먼저 나가면 `complete_checkout` 이 그 상태를 승인 가능 집합 밖으로 판정해
+    자동 롤백/환불 없이 돈만 빠져나간다 — 그래서 사후 환불이 아니라 **사전 차단**이다.
+    락은 이 요청의 트랜잭션이 끝날 때까지 유지되므로, PSP 확정 호출 중에 다른 경로가 같은
+    계약을 취소·승인해 판정을 벗어나는 경쟁도 함께 막힌다.
+    """
+    await db.execute(select(AdContract.id).where(AdContract.id == contract.id).with_for_update())
+    await db.refresh(contract)
+    if contract.status not in _PRE_APPROVE_ALLOWED_STATUSES:
+        raise CheckoutNotAllowed(contract.status)
 
 
 @dataclass(frozen=True)
@@ -64,7 +86,7 @@ async def complete_checkout(
     )
     if should_approve:
         actor = f"system:{result.observation.source}"
-        period_start, period_end = contract_fsm.approve(contract, ad, actor=actor, now=now)
+        period_start, period_end = await contract_fsm.approve_with_ad_lock(db, contract, ad, actor=actor, now=now)
         approved = True
         audit_detail = {
             "contract_id": str(contract.id),

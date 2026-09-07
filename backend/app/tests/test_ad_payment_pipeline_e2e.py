@@ -434,6 +434,115 @@ class _KrwPricedTierTestBase(_PipelineTestBase):
             await db.commit()
 
 
+class _SpyGateway:
+    """`TossGateway` 스파이 — 실결제 호출이 있었는지만 기록한다(호출되면 그 자체가 실패다)."""
+
+    def __init__(self):
+        self.confirm_calls: list[dict] = []
+
+    async def confirm(self, *, payment_key: str, order_id: str, amount: int) -> dict:
+        self.confirm_calls.append({"payment_key": payment_key, "order_id": order_id, "amount": amount})
+        return {
+            "paymentKey": payment_key,
+            "orderId": order_id,
+            "status": "DONE",
+            "totalAmount": amount,
+            "currency": "KRW",
+            "method": "카드",
+            "approvedAt": datetime.now(UTC).isoformat(),
+            "card": {},
+            "cancels": [],
+        }
+
+    async def get_payment(self, payment_key: str) -> dict | None:
+        return None
+
+    async def cancel(self, *, payment_key: str, cancel_reason: str, cancel_amount, idempotency_key: str) -> dict:
+        raise AssertionError("cancel 이 호출되면 이미 돈이 나간 뒤라는 뜻이다")
+
+
+class CheckoutStateGuardTests(_KrwPricedTierTestBase):
+    """결제 가능 상태가 아닌 계약의 confirm 은 **토스 API 를 부르기 전에** 막혀야 한다.
+
+    사후 환불이 아니라 사전 차단이 정답이다 — 취소·승인된 계약에 실카드 결제가 나가면
+    complete_checkout 이 그 상태를 승인 가능 집합 밖으로 판정해 자동 롤백조차 하지 않는다.
+    """
+
+    async def _accepted_contract_with_order(self):
+        async with AsyncSessionLocal() as db:
+            ad = await self._make_ad(db, tier_id=self._extra_tier_id)
+            await db.commit()
+            ad_id = ad.id
+        token = await self._create_link(ad_id)
+        await self._accept(token, months=1)
+        with patch.dict(os.environ, _STUB_TOSS_ENV):
+            async with AsyncSessionLocal() as db:
+                get_out = await ad_contract.get_ad_contract(token=token, db=db)
+        offer = next(r for r in get_out.rails if r.rail == "toss_card")
+        return ad_id, token, offer.checkout["order_id"], offer.checkout["amount"]["value"]
+
+    async def _force_status(self, token: uuid.UUID, status: str) -> None:
+        """테스트 셋업 전용 상태 주입 — 전이함수로는 만들 수 없는 조합(다른 경로가 이미 종결)을
+        재현하기 위해 DB 에 직접 쓴다."""
+        async with AsyncSessionLocal() as db:
+            contract = (await db.execute(select(AdContract).where(AdContract.contract_token == token))).scalar_one()
+            contract.status = status
+            await db.commit()
+
+    async def _confirm_expecting_block(self, token, order_id, amount):
+        spy = _SpyGateway()
+        with (
+            patch.dict(os.environ, _STUB_TOSS_ENV),
+            patch.dict(ad_payment_rails.RAILS, {"toss_card": ad_payment_rails.TossCardRail(gateway=spy)}, clear=False),
+        ):
+            async with AsyncSessionLocal() as db:
+                with self.assertRaises(HTTPException) as raised:
+                    await ad_contract.confirm_checkout(
+                        token=token,
+                        body=ad_contract.CheckoutConfirmRequest(
+                            paymentKey=f"stub_{uuid.uuid4()}", orderId=order_id, amount=amount
+                        ),
+                        db=db,
+                    )
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(raised.exception.detail["error"], "contract_not_chargeable")
+        self.assertEqual(spy.confirm_calls, [], "취소/승인된 계약인데 토스 실결제가 호출됐다")
+
+    async def test_cancelled_contract_confirm_never_calls_toss(self):
+        _ad_id, token, order_id, amount = await self._accepted_contract_with_order()
+        await self._force_status(token, "cancelled")
+        await self._confirm_expecting_block(token, order_id, amount)
+
+    async def test_already_active_contract_confirm_never_calls_toss(self):
+        _ad_id, token, order_id, amount = await self._accepted_contract_with_order()
+        await self._force_status(token, "active")
+        await self._confirm_expecting_block(token, order_id, amount)
+
+    async def test_chargeable_contract_still_reaches_toss(self):
+        # 가드가 정상 경로를 막지 않는지 — accepted 계약은 그대로 실결제까지 간다.
+        _ad_id, token, order_id, amount = await self._accepted_contract_with_order()
+        spy = _SpyGateway()
+        with (
+            patch.dict(os.environ, _STUB_TOSS_ENV),
+            patch.dict(ad_payment_rails.RAILS, {"toss_card": ad_payment_rails.TossCardRail(gateway=spy)}, clear=False),
+        ):
+            async with AsyncSessionLocal() as db:
+                out = await ad_contract.confirm_checkout(
+                    token=token,
+                    body=ad_contract.CheckoutConfirmRequest(
+                        paymentKey=f"stub_{uuid.uuid4()}", orderId=order_id, amount=amount
+                    ),
+                    db=db,
+                )
+        self.assertEqual(len(spy.confirm_calls), 1)
+        self.assertEqual(out.status, "active")
+        async with AsyncSessionLocal() as db:
+            deposit = (await db.execute(select(AdDeposit).where(AdDeposit.source == "toss"))).scalars().all()
+        for d in deposit:
+            if d.id not in self._deposit_ids:
+                self._deposit_ids.append(d.id)
+
+
 class TossStubE2ETests(_KrwPricedTierTestBase):
     """§7 검증 목표 4 — 스텁 e2e: offer → confirm → ingest_deposit → 자동 승인 → active +
     paid_until → ad_gating.is_payment_ok() True 까지 완주(260907_toss_payment_rail_design.md §5-1)."""

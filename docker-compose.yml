@@ -447,6 +447,10 @@ services:
       - "/migrations/229_ad_toss_rail.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (229) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/230_ad_contracts_open_unique.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (230) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -533,6 +537,7 @@ services:
       - ./database/init/227_ad_paid_until.sql:/migrations/227_ad_paid_until.sql:ro
       - ./database/init/228_ad_contracts_deposits.sql:/migrations/228_ad_contracts_deposits.sql:ro
       - ./database/init/229_ad_toss_rail.sql:/migrations/229_ad_toss_rail.sql:ro
+      - ./database/init/230_ad_contracts_open_unique.sql:/migrations/230_ad_contracts_open_unique.sql:ro
     networks:
       - dev-net
     depends_on:

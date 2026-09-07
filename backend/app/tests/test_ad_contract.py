@@ -161,6 +161,74 @@ class ContractLinkTests(_AdContractTestBase):
         self.assertEqual(raised.exception.status_code, 409)
 
 
+class ConcurrentContractLinkTests(_AdContractTestBase):
+    """동시 발급 경쟁 — "열린 draft 없음" 확인이 check-then-act 라 동시 요청 2개가 각각 별도
+    계약을 만들 수 있었다. 부분 유니크 인덱스(init/230)가 두 번째를 거부하고, 라우터가 그
+    IntegrityError 를 잡아 먼저 만들어진 draft 를 돌려준다.
+    """
+
+    async def test_concurrent_calls_yield_single_draft(self):
+        import asyncio
+
+        from sqlalchemy import select
+
+        # 경쟁을 결정적으로 만든다 — "열린 draft 없음" 확인 직후(결제코드 발급 지점)에서 두 요청이
+        # 서로를 기다리게 해, 둘 다 "없음" 을 본 상태에서 INSERT 하도록 강제한다.
+        original_generate = ad_contract._generate_unique_payment_code
+        arrived = asyncio.Event()
+        both_arrived: list[int] = []
+
+        async def _gated_generate(db):
+            code = await original_generate(db)
+            both_arrived.append(1)
+            if len(both_arrived) < 2:
+                await asyncio.wait_for(arrived.wait(), timeout=5)
+            else:
+                arrived.set()
+            return code
+
+        async def _call():
+            async with AsyncSessionLocal() as db:
+                out = await ad_contract.create_contract_link(ad_id=self._ad_id, db=db, session_uid=self._user_id)
+            return out.url.rsplit("token=", 1)[1]
+
+        with patch.object(ad_contract, "_generate_unique_payment_code", _gated_generate):
+            tokens = await asyncio.gather(_call(), _call())
+        self.assertEqual(len(both_arrived), 2, "두 요청이 같은 지점에서 실제로 경쟁하지 않았다")
+
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(select(AdContract).where(AdContract.ad_id == self._ad_id))).scalars().all()
+        for row in rows:
+            self._contract_ids.append(row.id)
+
+        self.assertEqual(len(rows), 1, f"동시 요청으로 계약이 {len(rows)}건 만들어졌다")
+        self.assertEqual(tokens[0], tokens[1])
+        self.assertEqual(tokens[0], str(rows[0].contract_token))
+
+    async def test_db_rejects_second_open_contract_for_same_ad(self):
+        """앱 가드를 우회한 직접 INSERT 도 DB 가 막는다(제약이 실제로 걸려 있는지)."""
+        from sqlalchemy.exc import IntegrityError
+
+        from app.services.ad_payments import payment_code as payment_code_module
+
+        await self._create_link()
+        async with AsyncSessionLocal() as db:
+            db.add(
+                AdContract(
+                    id=uuid.uuid4(),
+                    ad_id=self._ad_id,
+                    tier_id=_GENERAL_TIER_ID,
+                    months=1,
+                    amount_vnd=99000,
+                    payment_code=payment_code_module.generate_payment_code(),
+                    status="draft",
+                    contract_token=uuid.uuid4(),
+                )
+            )
+            with self.assertRaises(IntegrityError):
+                await db.commit()
+
+
 class UnwiredGetContractTests(_AdContractTestBase):
     async def test_get_shows_bank_null_and_stays_accepted(self):
         token = await self._create_link()

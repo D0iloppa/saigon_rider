@@ -260,7 +260,23 @@ async def create_contract_link(
     try:
         await db.commit()
     except IntegrityError:
+        # 동시 요청 2개가 각각 "열린 계약 없음" 을 보고 동시에 draft 를 만드는 경쟁(check-then-act) —
+        # DB 부분 유니크 인덱스(init/230, 열린 상태만 유니크)가 두 번째를 거부한다. 먼저 커밋된
+        # draft 를 재조회해 그 링크를 돌려줘 경쟁을 흡수한다(광고주에게 경쟁은 보이지 않는다).
         await db.rollback()
+        winner = (
+            (
+                await db.execute(
+                    select(AdContract)
+                    .where(AdContract.ad_id == ad_id, AdContract.status == "draft")
+                    .order_by(AdContract.created_at.desc())
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if winner is not None:
+            return ContractLinkOut(url=f"{_BIZ_PORTAL_BASE_URL}/apply?token={winner.contract_token}")
         raise HTTPException(status_code=409, detail="Contract creation conflict, retry") from None
 
     return ContractLinkOut(url=f"{_BIZ_PORTAL_BASE_URL}/apply?token={contract.contract_token}")
@@ -354,6 +370,13 @@ async def confirm_checkout(
     ad = await db.get(MarketplaceAd, contract.ad_id)
     if ad is None:
         raise HTTPException(status_code=404, detail="Ad not found")
+
+    # 실카드 결제(토스 confirm) 호출 **전에** 계약 상태를 락과 함께 재확인한다 — 취소·승인된
+    # 계약에 대해서는 돈이 나가지 않아야 한다(사후 환불이 아니라 사전 차단, checkout.py 참조).
+    try:
+        await checkout_core.lock_and_assert_chargeable(db, contract)
+    except checkout_core.CheckoutNotAllowed as exc:
+        raise HTTPException(status_code=409, detail={"error": "contract_not_chargeable", "status": str(exc)}) from None
 
     rail = RAILS["toss_card"]
     try:

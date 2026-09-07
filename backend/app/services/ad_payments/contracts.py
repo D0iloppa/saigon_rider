@@ -14,6 +14,8 @@ import calendar
 from collections.abc import Sequence
 from datetime import datetime
 
+from sqlalchemy import select
+
 from ...models import AdContract, MarketplaceAd
 from ..ad_gating import RENEWAL_GRACE_BUSINESS_DAYS, grace_cutoff
 from . import config, constants
@@ -123,6 +125,35 @@ def approve(
     ad.paid_until = period_end
     ad.subscription_status = "active"
     return period_start, period_end
+
+
+async def approve_with_ad_lock(
+    db,
+    contract: AdContract,
+    ad: MarketplaceAd,
+    *,
+    actor: str,
+    now: datetime,
+    reason: str | None = None,
+) -> tuple[datetime, datetime]:
+    """`approve()` 의 `ad.paid_until` read-modify-write 를 ad 로우 락 안에서 수행한다.
+
+    락이 없으면 같은 광고의 두 계약이 거의 동시에 승인될 때 나중에 커밋한 쪽이 먼저 커밋한
+    `paid_until` 을 덮어써 한 기간이 사라진다(관리자 승인 ↔ 토스 자동승인 동시 진행). 락 획득
+    **후에** `ad` 를 다시 읽어(refresh) 계산하므로 read-modify-write 전 구간이 락 안에 있다.
+    락은 호출부의 commit 까지만 유지된다.
+
+    프로덕션 승인 경로는 반드시 이 함수를 쓴다 — 순수 전이함수 `approve()` 직접 호출은 DB 없는
+    단위테스트(test_ad_contract_transitions.py) 전용이고, test_ad_toss_boundary.py 가 프로덕션
+    코드의 직접 호출을 그렙으로 금지한다.
+    """
+    await db.execute(select(MarketplaceAd.id).where(MarketplaceAd.id == ad.id).with_for_update())
+    # 락 획득 후 다시 읽는다 — ad 는 paid_until 때문에, contract 는 같은 계약을 동시에 승인하려는
+    # 다른 경로(관리자 승인 ↔ 토스 자동승인)가 이미 active 로 만들었을 수 있어 상태 가드가
+    # 스테일 값으로 통과하면 같은 돈으로 기간이 두 번 붙기 때문이다.
+    await db.refresh(ad)
+    await db.refresh(contract)
+    return approve(contract, ad, actor=actor, now=now, reason=reason)
 
 
 def cancel(contract: AdContract, *, reason: str, deposits: Sequence[DepositLike] = (), now: datetime) -> None:

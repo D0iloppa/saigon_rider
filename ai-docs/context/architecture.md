@@ -357,6 +357,12 @@ services:
 
 ## 5. Nginx 라우팅 변경
 
+> **`/api/bff/*` 라우터 경로 규약 (어기면 404)**: `location /api/bff/` 는
+> `rewrite ^/api/bff/(.*) /api/$1 break;` 로 **`bff/` 세그먼트를 벗겨서** BFF에 넘긴다
+> (`nginx/conf.d/default.conf`). 따라서 BFF 라우터는 경로에 `bff` 를 **넣지 않는다** —
+> `main.py` 의 `prefix="/api"` + 라우터 자체 경로(`/biz/...`)만으로 등록한다.
+> (2026-09-07 `routers/ad_contract.py` 가 `/bff/biz/...` 로 등록돼 이중 프리픽스 404 가 났다.)
+
 ```nginx
 # nginx/conf.d/default.conf
 

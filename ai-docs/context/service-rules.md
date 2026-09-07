@@ -214,11 +214,20 @@
 
 1. **노출 순서 결정 SoT = 백엔드.** `backend/app/services/ad_exposure.py`(`build_exposure_sequence`)가 각 광고의 **weight = tier `exposure_weight` × `ad_fee`**(두 값 모두 최소 1로 clamp)로 **결정적 smooth weighted round-robin 시퀀스**를 만든다. `GET /market/ads`는 `AdsApplication.public_ads(상시 노출 광고)` → 이 시퀀스를 반환한다(`MAX_SEQUENCE_LENGTH=120` 캡).
 2. **유료 tier 카탈로그 = `ad_tiers`** (`name`·`exposure_weight`·`monthly_price_vnd`·`display_order`). 광고주가 등록 시 tier를 **직접 선택**하고(`marketplace_ads.tier_id`, 가격은 `monthly_price_snapshot_vnd`로 스냅샷), tier의 `exposure_weight`가 노출 가중을 주도한다. 현재 카탈로그(`database/init/149_ads_tiers.sql`+`150_ad_tier_prices.sql`): **프리미엄(weight 3 · 499,000 VND/월) / 일반(weight 1 · 199,000 VND/월)**. `ad_fee`는 기본 0(→1 중립)이라 평시엔 tier가 노출을 지배하고, 필요 시 추가 가중 계수로만 작동한다.
-3. **게시 라이프사이클 = 상시 게시 기본.** 등록(이미지+문구+tier 선택) → 심사(`review_status` PENDING→APPROVED) → **승인 즉시 상시 게시**(`starts_at` 미설정). `ends_at`은 **선택적**(이벤트성 광고의 자동 종료일)이며 미설정 시 무기한. 노출 게이트(`launching_ad_conditions`) = `APPROVED + is_active + 기간유효`(starts/ends NULL이면 상시). 광고주는 `BizManage`에서 `stop`/`resume`로 중단/재개한다. (구: start~end 범위 필수 입력 → 폐기, 월 구독형이라 상시가 기본)
+3. **게시 라이프사이클 = 상시 게시 기본.** 등록(이미지+문구+tier 선택) → 심사(`review_status` PENDING→APPROVED) → **승인 즉시 상시 게시**(`starts_at` 미설정). `ends_at`은 **선택적**(이벤트성 광고의 자동 종료일)이며 미설정 시 무기한. 노출 게이트(`launching_ad_conditions`) = `APPROVED + is_active + 기간유효`(starts/ends NULL이면 상시) **+ 소유 파트너 verified + 결제 유효**(아래 6). 광고주는 `BizManage`에서 `stop`/`resume`로 중단/재개한다. (구: start~end 범위 필수 입력 → 폐기, 월 구독형이라 상시가 기본)
 4. **프론트는 서버 순서를 소비만 한다.** `frontend/src/lib/adPlacement.ts`(공용, `AD_EVERY=6`)는 서버가 반환한 순서를 화면별 위치 기준으로 순환 배치할 뿐, **재가중·재정렬·shuffle을 하지 않는다.** MarketMain·NeighborhoodMap(Canvas)·HomePage 3개 화면이 이 모듈을 공유한다.
-5. **과금**: `monthly_price_vnd`는 구독 표시가일 뿐 **자동 결제 엔진은 미구현** → 초기엔 오프라인 정산(관리자 입금 확인 후 게시) 전제. tier/ad_fee/price는 공개 응답(`MarketplaceAdOut`)에 미노출.
+5. **과금**: `monthly_price_vnd`는 구독 표시가일 뿐 **자동 결제 엔진은 미구현** → 초기엔 오프라인 정산(관리자 입금 확인 후 게시) 전제. tier/ad_fee/price는 공개 응답(`MarketplaceAdOut`)에 미노출. 계약↔입금↔승인을 원장으로 묶는 파이프라인 설계는 [`260907_ad_payment_pipeline_design.md`](../260907_ad_payment_pipeline_design.md), 결제 레일·과금모델 결정은 [`260907_biz_ad_payment_contract_adr.md`](../260907_biz_ad_payment_contract_adr.md).
 
-(제정 2026-07-23 · 개정 2026-07-25 — 유료 tier 도메인(`ad_tiers`) + 월정액(일반 199k/프리미엄 499k) + 상시 게시(선택 종료일) 모델로 정리. 노출 weight = tier `exposure_weight` × `ad_fee`.)
+6. **결제 유효성이 노출의 필요조건이다 (제정 2026-09-07, 대표 결정).** 노출 게이트는 `subscription_status`/`paid_until` 을 반드시 검사한다 — 미입금 광고가 무한정 노출되던 결함을 막는다. 허용되는 경우는 셋뿐이다:
+   - `subscription_status='active'` **이고** `paid_until` 이 아직 지나지 않았거나 **갱신 유예 5영업일** 이내
+   - `subscription_status='pending_payment'` **이고** 승인(`starts_at`) 후 **신규계약 유예 3영업일** 이내
+   - `owner_business_profile_id IS NULL` (하우스/레거시 광고 — **계약 상대가 없어 입금 개념이 없으므로 면제**. `verified` 게이트와 동일 면제 조건)
+
+   **불변식: `active` ⇒ `paid_until IS NOT NULL`.** (수정 2026-09-07, F-8; P1-4 로 단일화) 쓰기 주체는 **`ad_payments/contracts.py approve()`(신규 계약↔입금 파이프라인, [`260907_ad_payment_pipeline_design.md`](../260907_ad_payment_pipeline_design.md) §4-1) 한 곳뿐**이며, `paid_until` 과 `subscription_status` 를 같은 함수 호출 안에서 함께 세팅하므로 불변식은 안전하다. 구버전 경로 `AdsApplication.activate_subscription()`(관리자 입금확인 레거시)은 P1-4 에서 삭제됐다 — 원장 우회 경로를 남기면 `paid_until` 없는 `active` 가 다시 생긴다. 이 불변식이 깨지면 **돈 낸 광고가 노출에서 사라진다.**
+   **영업일**은 토·일 + `AD_GRACE_HOLIDAY_RANGES`(베트남 Tết 등, **VN 로컬 날짜** 기준. 기본 비어 있음 — 정부 공식 발표 후 `services/ad_gating.py` 상단 상수에 수동 기입) 를 제외한다. `expired` 로의 상태 전이 배치는 만들지 않는다 — **조회 시점 파생으로 판정**한다.
+   판정 규칙이 SQL 조건절(`launching_ad_conditions`)과 순수함수(`is_payment_ok`, 광고주 화면용) **두 곳에 존재**한다. 규칙을 바꿀 때 반드시 둘 다 고칠 것.
+
+(제정 2026-07-23 · 개정 2026-07-25 — 유료 tier 도메인(`ad_tiers`) + 월정액(일반 199k/프리미엄 499k) + 상시 게시(선택 종료일) 모델로 정리. 노출 weight = tier `exposure_weight` × `ad_fee`. · 개정 2026-09-07 — 결제 유효성을 노출 필요조건으로 추가(6), 유예 3·5영업일, 하우스 광고 면제.)
 
 ---
 

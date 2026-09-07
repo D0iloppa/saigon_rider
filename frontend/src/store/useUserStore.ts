@@ -8,6 +8,7 @@ import i18n, { changeLang } from '@/lib/i18n';
 import { native } from '@/lib/native';
 import { clearSession, loadSession } from '@/lib/session';
 import { useLocationStore } from '@/store/useLocationStore';
+import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 
 interface UserState {
   user: User | null;
@@ -145,6 +146,7 @@ export const useUserStore = create<UserState>()(
         }
         clearSession();
         useLocationStore.getState().clearLocation();
+        useWalkieTalkieBubbleStore.getState().reset();
         set({ user: null, isAuthenticated: false });
       },
 

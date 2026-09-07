@@ -782,6 +782,7 @@
     "presencePartial": "Có người vắng mặt",
     "stopError": "Không thể kết thúc ghi âm",
     "sendError": "Gửi tin nhắn thoại thất bại",
+    "recordingDiscarded": "Không thể gửi — bản ghi âm đã bị hủy",
     "statusIdle": "Đang chờ",
     "statusRecording": "Đang nói",
     "statusPlaying": "Đang nghe",

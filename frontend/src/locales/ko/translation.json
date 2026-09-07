@@ -782,6 +782,7 @@
     "presencePartial": "일부 미참석",
     "stopError": "녹음을 마치지 못했어요",
     "sendError": "음성메시지 전송에 실패했어요",
+    "recordingDiscarded": "전송할 수 없어 녹음이 삭제됐어요",
     "statusIdle": "수신대기",
     "statusRecording": "발신중",
     "statusPlaying": "재생중",

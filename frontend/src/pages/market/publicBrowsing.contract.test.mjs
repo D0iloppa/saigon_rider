@@ -28,7 +28,7 @@ test('guest state changes save the full current route and enter the existing OAu
   assert.match(guard, /navigate\(isAuthenticated \? '\/auth\/profile-setup' : '\/auth\/oauth'\)/);
 
   const detail = read('MarketDetail.tsx');
-  for (const handler of ['handleToggleLike', 'handleChat', 'handleSendOffer', 'handleToggleFollow', 'handleReport', 'handleToggleBlock']) {
+  for (const handler of ['handleToggleLike', 'handleChat', 'handleSendOffer', 'handleToggleFollow', 'handleReasonPick', 'handleToggleBlock']) {
     const start = detail.indexOf(`const ${handler}`);
     assert.notEqual(start, -1, `${handler} is missing`);
     assert.match(detail.slice(start, start + 180), /if \(!requireAuth\(\)\) return;/, `${handler} is not auth-gated`);

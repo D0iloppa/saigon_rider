@@ -782,6 +782,7 @@
     "presencePartial": "Someone away",
     "stopError": "Couldn't finish recording",
     "sendError": "Failed to send the voice message",
+    "recordingDiscarded": "Couldn't send — your recording was discarded",
     "statusIdle": "Standing by",
     "statusRecording": "Transmitting",
     "statusPlaying": "Playing",

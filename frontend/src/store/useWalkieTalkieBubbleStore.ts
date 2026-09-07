@@ -40,6 +40,12 @@ interface WalkieTalkieBubbleState {
   /** 진입 아이콘 재탭(활성 대화 있음) 시 닫혀 있던 캡슐을 다시 띄운다. 대상 대화는 그대로 유지. */
   open: () => void;
   /**
+   * 로그아웃 시 전체 초기화 — persist 된 activeConversationId/activeConversationMeta 를 지운다.
+   * close() 는 "사용자가 버블만 닫음"(비영속, 대상 대화는 유지)이라 의미가 다르다 — 로그아웃 후에도
+   * 대상 대화가 남아있으면 다음 사용자(같은 기기 재로그인 등)에게 이전 계정의 워키토키 버블이 그대로 뜬다.
+   */
+  reset: () => void;
+  /**
    * 어텐션 핑(대표 지시 2026-08-27): 이미 활성 대화가 있는 상태에서 진입 아이콘을 다시 눌렀을 때
    * 캡슐을 끄지 않고 "이미 켜져 있어요"를 알리듯 짧게 흔들리는 비파괴적 피드백만 준다.
    * 값 자체엔 의미 없음 — 증가할 때마다 캡슐 쪽 이펙트가 반응(peek)한다.
@@ -68,6 +74,7 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
       },
       close: () => set({ closed: true }),
       open: () => set({ closed: false }),
+      reset: () => set({ activeConversationId: null, activeConversationMeta: null, closed: false }),
       attentionPing: 0,
       ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
       recording: false,

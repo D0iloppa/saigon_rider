@@ -179,7 +179,10 @@ export function WalkieTalkieFloatingButton() {
   }, [capability?.record, notifyRecordingStop]);
 
   // 캡슐이 실제로 화면에 렌더되는 조건 (아래 early return 들과 동일 집합 — 함께 고쳐야 한다).
+  // !!user — 로그아웃 후 store 정리(useUserStore.logout → useWalkieTalkieBubbleStore.reset)가
+  // 누락되더라도 버블이 뜨지 않게 하는 이중 안전장치.
   const bubbleActive =
+    !!user &&
     !!conversationId &&
     !!capability?.available &&
     !!capability.floatingButton &&
@@ -463,6 +466,9 @@ export function WalkieTalkieFloatingButton() {
   const finishAndSend = useCallback(
     async (result: WalkieTalkieRecordingResult) => {
       if (!user || !conversationId) {
+        // 조기 return 이 토스트 없이 방금 녹음한 음성을 조용히 버려 사용자가 전송된 줄 알던 문제
+        // (로그아웃 직후 등 대상이 사라진 경우) — 안내 후 폐기한다.
+        toast.error(t('walkieTalkie.recordingDiscarded', { defaultValue: '전송할 수 없어 녹음이 삭제됐어요' }));
         resetToIdle();
         return;
       }

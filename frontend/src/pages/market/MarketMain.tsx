@@ -470,10 +470,10 @@ export default function MarketMain() {
             <button className={styles.wishlistBtn} onClick={() => navigate('/market/search')} aria-label={t('market.search', { defaultValue: '검색' })}>
               <Search size={23} strokeWidth={2} />
             </button>
-            <button className={styles.wishlistBtn} onClick={() => navigate('/market/keyword-alerts')} aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}>
+            <button className={styles.wishlistBtn} onClick={() => { if (requireAuth()) navigate('/market/keyword-alerts'); }} aria-label={t('market.keywordAlerts', { defaultValue: '키워드 알림' })}>
               <Bell size={23} strokeWidth={2} />
             </button>
-            <button className={styles.wishlistBtn} onClick={() => navigate('/market/wishlist')} aria-label={t('market.wishlist', { defaultValue: '찜' })}>
+            <button className={styles.wishlistBtn} onClick={() => { if (requireAuth()) navigate('/market/wishlist'); }} aria-label={t('market.wishlist', { defaultValue: '찜' })}>
               <Heart size={24} strokeWidth={2} />
             </button>
           </div>
@@ -537,7 +537,7 @@ export default function MarketMain() {
             <button
               type="button"
               className={styles.mapProfileButton}
-              onClick={() => navigate('/profile')}
+              onClick={() => { if (requireAuth()) navigate('/profile'); }}
               aria-label={t('tabbar.profile', { defaultValue: '프로필' })}
             >
               {user?.avatarUrl
@@ -699,7 +699,7 @@ export default function MarketMain() {
                         {t('market.emptyExpandScope', { defaultValue: '전체 지역에서 찾아보기' })}
                       </button>
                     )}
-                    <button type="button" className={sys.stateBtn} onClick={() => navigate('/market/keyword-alerts')}>
+                    <button type="button" className={sys.stateBtn} onClick={() => { if (requireAuth()) navigate('/market/keyword-alerts'); }}>
                       {t('market.emptyKeywordAlert', { defaultValue: '키워드 알림 받기' })}
                     </button>
                   </div>

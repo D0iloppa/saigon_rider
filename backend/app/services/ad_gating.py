@@ -30,6 +30,7 @@ _bp = aliased(BusinessProfile)
 # 이쪽으로 옮겼다 — biz.py 가 modules.ads.application 경유로 이 모듈을 import 하므로 반대
 # 방향으로 import 하면 순환참조가 생겨서 최소 이동으로 여기 둔다). biz.py 는 여기서 재수입한다.
 _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+VN_TZ = _VN_TZ  # public export — biz.py 는 이 이름으로 import 한다(private 심볼 직접 참조 금지).
 
 # ── 유예기간 정책 (260907 ADR §0-1) ─────────────────────────────────────────
 # 신규 계약: 승인(starts_at) 후 N영업일까지는 pending_payment 여도 노출 허용.

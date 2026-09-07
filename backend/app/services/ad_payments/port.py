@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import AdContract, AdDeposit
 from . import payment_code
+from .contracts import apply_reconcile_outcome
 from .reconcile import reconcile_contract
 
 # ingest_deposit 이 대조 결과로 계약 상태를 갱신하는 범위 — 이 밖의 상태(draft/active/
@@ -25,6 +26,7 @@ from .reconcile import reconcile_contract
 # 결정): 관리자의 수동 입금 등록은 계좌 미배선 여부와 무관하게 "돈이 실제로 들어왔음"을 뜻하므로
 # 대조를 막을 이유가 없다(§2-3 은 입금 안내 발급 시점 규정이지 대조 차단 규정이 아니다, §7).
 _RECONCILABLE_STATUSES = ("accepted", "awaiting_payment", "partially_paid", "paid")
+RECONCILABLE_STATUSES = _RECONCILABLE_STATUSES  # public export — admin_api/biz_contracts.py 가 SoT 로 import 한다.
 
 
 @dataclass(frozen=True)
@@ -65,12 +67,24 @@ async def _result_from_existing(db: AsyncSession, existing: AdDeposit) -> Ingest
     )
 
 
-async def ingest_deposit(db: AsyncSession, obs: DepositObservation, *, actor: str) -> IngestResult:
+async def ingest_deposit(
+    db: AsyncSession,
+    obs: DepositObservation,
+    *,
+    actor: str,
+    evidence_content_id: uuid.UUID | None = None,
+    note: str | None = None,
+) -> IngestResult:
     """코어. 어댑터가 무엇이든 이 함수 하나만 호출한다 (§2-1).
 
     1) code = payment_code_hint or extract_code(memo_raw) → ad_contracts 특정 (없으면 NULL 보관)
     2) UNIQUE(source, source_ref) 로 멱등 삽입 (중복이면 기존 행 반환, 상태 변경 없음)
     3) reconcile(contract) → status 갱신 (awaiting_payment|partially_paid|paid)
+
+    `evidence_content_id`/`note` 는 이 함수의 commit 안에서 함께 저장된다 — 호출부가 insert 후
+    별도 commit 으로 증빙을 붙이면, 그 2차 commit 실패 시 증빙 없는 돈 행만 남기 때문이다
+    (감사로그는 admin_api 계층 개념이라 이 코어 함수가 알지 못한다 — 그건 호출부가 이 함수의
+    commit 다음에 별도로 남긴다).
     """
     if obs.source_ref is not None:
         existing = await _find_by_source_ref(db, obs.source, obs.source_ref)
@@ -108,6 +122,8 @@ async def ingest_deposit(db: AsyncSession, obs: DepositObservation, *, actor: st
         source=obs.source,
         source_ref=obs.source_ref,
         recorded_by=actor,
+        evidence_content_id=evidence_content_id,
+        note=note,
     )
     db.add(deposit)
     try:
@@ -125,8 +141,9 @@ async def ingest_deposit(db: AsyncSession, obs: DepositObservation, *, actor: st
     if contract is not None and contract.status in _RECONCILABLE_STATUSES:
         rows = (await db.execute(select(AdDeposit).where(AdDeposit.contract_id == contract.id))).scalars().all()
         outcome = reconcile_contract(expected_vnd=contract.amount_vnd, deposits=rows)
-        contract.status = outcome.status
-        new_status = outcome.status
+        # 단일 전이점 원칙(모듈 docstring) — 이 파일도 contracts.py 를 경유해서만 status 를 바꾼다.
+        if apply_reconcile_outcome(contract, outcome, reconcilable_statuses=_RECONCILABLE_STATUSES):
+            new_status = outcome.status
 
     await db.commit()
     return IngestResult(

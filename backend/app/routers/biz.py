@@ -91,7 +91,7 @@ _VIEW_TTL_SEC = 30
 MIN_SAMPLE_FOR_RATIO = 100
 # services/ad_gating.py 로 이동 — 그쪽이 유예기간 영업일 판정에도 VN 로컬 날짜가 필요해졌고,
 # 이 방향으로 import 해야 순환참조가 안 생긴다(biz.py → modules.ads.application → ad_gating).
-_VN_TZ = ad_gating._VN_TZ
+_VN_TZ = ad_gating.VN_TZ
 
 # 유료 노출면만 광고 성과(CTR/CVR/CPM/CPC/CPA)에 합산한다 — ad_detail/biz_profile 은 광고비와
 # 무관하게 발생하는 무료 노출(직접 방문)이라 유료 성과에 섞으면 광고주에게 부풀린 숫자를 보여주게

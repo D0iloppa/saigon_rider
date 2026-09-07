@@ -338,6 +338,8 @@ export function WalkieTalkieFloatingButton() {
       return;
     }
     audio.src = item.audioUrl;
+    // 수신 자동재생 시작음 — 녹음 중이 아니라 순수 재생이라 iOS 마이크 세션 문제(528행)와 무관, 플랫폼 분기 없음.
+    playSound('walkie_ptt_start');
     audio.play().catch((err: unknown) => {
       // 자동재생 실패(브라우저 정책/디코딩) — 잠금을 계속 걸어두면 영영 못 듣게 되니, 해당 항목만
       // 건너뛰고 잠금을 푼다. 상태 큐와 VoiceQueue 를 함께 shift 해야 이후 markPlayed 가 어긋나지 않는다.
@@ -354,6 +356,7 @@ export function WalkieTalkieFloatingButton() {
     const item = queueRef.current?.shift() ?? null;
     setQueue((prev) => prev.slice(1));
     if (item) walkieApi.markPlayed(item.id).catch(() => {});
+    playSound('walkie_ptt_end');
     // 큐에 남은 항목이 있으면 위 idle→playing 이펙트가 자동으로 다음 항목 재생을 이어간다.
     setPhase('idle');
   }, []);
@@ -764,6 +767,8 @@ export function WalkieTalkieFloatingButton() {
         tabIndex={0}
         className={styles.capsule}
         data-phase={phase}
+        // 재생중(및 재생 대기중) 잠금 — handleTap 의 송신잠금 판정(544행)과 동일 조건을 탭 전에 미리 시각화한다.
+        data-locked={(phase === 'playing' || ((phase === 'idle' || phase === 'permissionDenied') && queue.length > 0)) || undefined}
         data-menu-open={menuOpen || undefined}
         data-dragging={dragging || undefined}
         data-speaking={(!isRec && !!speakingOther) || undefined}

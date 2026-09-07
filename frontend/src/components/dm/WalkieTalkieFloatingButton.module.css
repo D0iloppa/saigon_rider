@@ -6,7 +6,7 @@
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 60;
+  z-index: 61; /* 위치공유 버블(z-index 60)보다 위 — 더 자주 조작되는 요소 우선(임시조치, 상호회피 로직 아님) */
   /* 세로 스택 — 상단 행(topRow) + (롱프레스 시) in-flow 메뉴 블록. 캡슐 하나가 통째로 자란다(DI). */
   display: inline-flex;
   flex-direction: column;
@@ -59,6 +59,12 @@
 
 .capsule[data-phase='uploading'] {
   opacity: 0.7;
+}
+
+/* 재생중(또는 재생 대기중) 송신잠금 — 탭 전 미리 알리는 보조 시각화(토스트 안내는 그대로 유지). */
+.capsule[data-locked] {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .capsule[data-phase='uploading'] .iconWrap {

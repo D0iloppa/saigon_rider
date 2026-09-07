@@ -377,7 +377,7 @@ location /admin/ {
 ```
 
 > **admin 라우팅 3분기 (2026-07-18 관리자 콘솔 리메이크 1차 — 위 `/admin/` 블록은 구버전, 현행은 `nginx/conf.d/default.conf`)**:
-> ① `/admin/api/*` → BFF JSON API (`backend/app/routers/admin_api/` — auth·dashboard·reports·users·listings·support·cms. 인증은 `backend/app/admin_auth.py` — JWT+httpOnly 쿠키 `admin_session`, `ADMIN_JWT_SECRET` 미설정 시 기동 거부)
+> ① `/admin/api/*` → BFF JSON API (`backend/app/routers/admin_api/` — auth·dashboard·reports·users·listings·support·cms·biz_contracts(260907 광고 계약·입금 원장 — 목록/상세/입금등록/승인/취소/환불종결/미매칭배정/배선상태). 인증은 `backend/app/admin_auth.py` — JWT+httpOnly 쿠키 `admin_session`, `ADMIN_JWT_SECRET` 미설정 시 기동 거부)
 > ② `/admin-legacy/*` → BFF가 직접 서빙하는 기존 Jinja 콘솔 (`routers/admin_legacy.py`, 2차 이식 완료까지 병행 운영 — 신규↔legacy가 동일 쿠키 계약을 공유해 SSO 성립)
 > ③ 그 외 `/admin/*` → **신규 관리자 SPA 정적 서빙** — compose 서비스 `admin_frontend`(컨테이너 `saigon_admin_frontend`, `admin-frontend/` React+antd, vite base `/admin/`, 자체 nginx가 `/admin/index.html` fallback). 포트 미노출 — 진입 nginx 내부 프록시로만 접근.
 

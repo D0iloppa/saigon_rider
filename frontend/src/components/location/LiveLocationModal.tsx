@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Flag, LogOut, MapPinned, Navigation, Users } from 'lucide-react';
+import { Clock, Flag, LocateFixed, LogOut, MapPinned, Maximize, Minimize2, Navigation, Users } from 'lucide-react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
-import OsmMap, { type OsmMarker } from '@/components/maps/OsmMap';
+import OsmMap, { type OsmMarker, type OsmMapHandle } from '@/components/maps/OsmMap';
 import AppointmentLocationPicker from '@/pages/dm/AppointmentLocationPicker';
 import type { PickedLocation } from '@/pages/market/LocationPickerSheet';
 import { useServiceAvailability } from '@/hooks/useServiceAvailability';
@@ -60,6 +60,7 @@ export function LiveLocationModal() {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const mapRef = useRef<OsmMapHandle>(null);
 
   const onClose = useCallback(() => setModalOpen(false), [setModalOpen]);
 
@@ -72,7 +73,13 @@ export function LiveLocationModal() {
     () => [
       ...others
         .filter((m) => m.lat != null && m.lng != null)
-        .map((m) => ({ id: m.userId, lat: m.lat as number, lng: m.lng as number, color: MEMBER_DOT })),
+        .map((m) => ({
+          id: m.userId,
+          lat: m.lat as number,
+          lng: m.lng as number,
+          color: MEMBER_DOT,
+          avatarUrl: m.avatarUrl ?? undefined,
+        })),
       ...(pending ? [{ id: `proposal:${pending.id}`, lat: pending.lat, lng: pending.lng, color: PROPOSAL_DOT }] : []),
     ],
     [others, pending],
@@ -170,6 +177,31 @@ export function LiveLocationModal() {
     return t('liveLocation.etaCalculating', { defaultValue: '경로 계산 중…' });
   };
 
+  /** 좌하단 "내 위치" 버튼 — 지도를 내 좌표로 리센터. */
+  const handleRecenter = () => {
+    if (myCoords) mapRef.current?.recenter(myCoords.lat, myCoords.lng);
+  };
+
+  /**
+   * 좌하단 "전체보기" 버튼 — 나 + 상대방들 + 목적지(있으면)가 모두 보이도록 맞춤.
+   * 목적지도 포함: 이 모달의 목적은 목적지 도착 조율이라, 다 같이 목적지까지 얼마나 남았는지
+   * 한눈에 보는 게 참가자 위치만 보는 것보다 유용하다. 좌표가 1개뿐이면 fitBounds 가 무의미하니
+   * 내 위치 리센터로 자연스럽게 폴백한다.
+   */
+  const handleFitAll = () => {
+    const points: { lat: number; lng: number }[] = [];
+    if (myCoords) points.push(myCoords);
+    others.forEach((m) => {
+      if (m.lat != null && m.lng != null) points.push({ lat: m.lat, lng: m.lng });
+    });
+    if (dest) points.push(dest);
+    if (points.length <= 1) {
+      handleRecenter();
+      return;
+    }
+    mapRef.current?.fitToPoints(points);
+  };
+
   const handleNavigate = () => {
     if (!dest) return;
     if (!routeAvailable) {
@@ -189,7 +221,29 @@ export function LiveLocationModal() {
 
   return (
     <>
-      <BottomSheet open={open} onClose={onClose} height="full">
+      {/* height="fit" — 콘텐츠 높이만큼만 쓴다. height="full"(calc(100% - 40px)) 은 참가자가 1명이어도
+          시트를 화면 끝까지 늘려 scrollBody 아래가 통째로 빈 공간으로 남았다. 상한은 공용
+          .sheet 의 max-height(calc(100% - 60px)) 가 담당하므로 참가자가 늘면 시트도 그만큼 커진다.
+          하단 패딩은 탭바를 덮는 전면 오버레이(backdrop z-index 50 > 탭바 10)라 safe-area 만 준다. */}
+      {/* 우상단 버튼은 채널을 끊지 않고 버블로 접는 동작(onClose=setModalOpen(false)) — X 대신 최소화 아이콘.
+          실제 종료는 footer 의 "나가기"(leaveLocationChannel) 하나뿐이라 스크롤 밖에 고정한다.
+          제목바·지도·목적지는 header prop 으로 스크롤 밖에 고정하고, scrollBody 에는 참가자 행만 둔다. */}
+      <BottomSheet
+        open={open}
+        onClose={onClose}
+        height="fit"
+        sheetStyle={{ paddingBottom: 'calc(var(--bottom-safe) + 16px)' }}
+        closeIcon={<Minimize2 size={18} strokeWidth={2.2} />}
+        closeLabel={t('liveLocation.minimize', { defaultValue: '최소화' })}
+        footer={
+          <div className={styles.leaveFooter}>
+            <button type="button" className={styles.leaveBtn} disabled={busy} onClick={handleLeave}>
+              <LogOut size={15} strokeWidth={2} /> {t('liveLocation.leave', { defaultValue: '나가기' })}
+            </button>
+            <p className={styles.leaveHint}>{t('liveLocation.leaveHint', { defaultValue: '나가면 내 위치가 즉시 삭제돼요' })}</p>
+          </div>
+        }
+        header={
         <div className={styles.sheet}>
           <div className={styles.head}>
             <span className={styles.headIcon}><MapPinned size={18} strokeWidth={2} /></span>
@@ -204,12 +258,32 @@ export function LiveLocationModal() {
 
           <div className={styles.mapWrap}>
             <OsmMap
+              ref={mapRef}
               center={center}
               markers={markers}
               myLocation={myCoords}
               pickedPoint={dest ? { lat: dest.lat, lng: dest.lng } : null}
               className={styles.map}
             />
+            {/* 좌하단 지도 컨트롤 — attribution(bottom-left compact) 과 안 겹치게 그 위로 띄운다. */}
+            <div className={styles.mapCtrls}>
+              <button
+                type="button"
+                className={styles.mapCtrlBtn}
+                onClick={handleRecenter}
+                aria-label={t('liveLocation.recenter', { defaultValue: '내 위치로' })}
+              >
+                <LocateFixed size={18} strokeWidth={2.2} />
+              </button>
+              <button
+                type="button"
+                className={styles.mapCtrlBtn}
+                onClick={handleFitAll}
+                aria-label={t('liveLocation.fitAll', { defaultValue: '전체보기' })}
+              >
+                <Maximize size={18} strokeWidth={2.2} />
+              </button>
+            </div>
           </div>
 
           {/* 목적지 변경 제안 카드 — pending 있을 때만(§3-3). 모달 열림 중에만 마운트 → 카운트다운 타이머도 그때만. */}
@@ -270,6 +344,11 @@ export function LiveLocationModal() {
             </span>
             <span className={`${sys.sectionAside} num`}>{members.length}</span>
           </div>
+        </div>
+        }
+      >
+        {/* scrollBody — 참가자 행만. 여러 명이어도 이 목록 안에서만 스크롤된다. */}
+        <div className={styles.memberList}>
           <div className={sys.card}>
             {members.length === 0 && (
               <div className={styles.emptyRow}>{t('liveLocation.membersLoading', { defaultValue: '참가자를 불러오고 있어요' })}</div>
@@ -308,11 +387,6 @@ export function LiveLocationModal() {
               );
             })}
           </div>
-
-          <button type="button" className={styles.leaveBtn} disabled={busy} onClick={handleLeave}>
-            <LogOut size={15} strokeWidth={2} /> {t('liveLocation.leave', { defaultValue: '나가기' })}
-          </button>
-          <p className={styles.leaveHint}>{t('liveLocation.leaveHint', { defaultValue: '나가면 내 위치가 즉시 삭제돼요' })}</p>
         </div>
       </BottomSheet>
 

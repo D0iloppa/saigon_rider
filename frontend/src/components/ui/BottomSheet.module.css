@@ -35,11 +35,24 @@
   transition: padding-bottom 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+/* header prop 전용 — scrollBody(flex:1) 앞 형제라 스크롤에 밀리지 않고 상단에 고정된다. */
+.header {
+  flex: none;
+}
+
 .scrollBody {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* footer prop 전용 — scrollBody(flex:1) 다음 형제라 flex 레이아웃만으로 바닥에 고정된다. */
+.footer {
+  flex: none;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
 }
 
 @keyframes slideup {

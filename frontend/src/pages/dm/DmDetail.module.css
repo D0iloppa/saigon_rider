@@ -383,6 +383,15 @@
   color: var(--text-3);
 }
 
+/* 실시간위치 전용 행 — 카드 폭 꽉 채우는 단독 버튼 */
+.apptLiveLocationRow {
+  display: flex;
+  margin-top: 2px;
+}
+.apptLiveLocationRow .apptBtnGhost {
+  flex: 1;
+}
+
 /* 하단 CTA 행 — 카드 내부 풀폭 버튼 나란히 */
 .apptActions {
   display: flex;

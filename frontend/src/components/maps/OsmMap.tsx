@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { HCMC_DISPLAY_CENTER } from '@/lib/mapDefaults';
+import styles from './OsmMap.module.css';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 const HCMC: [number, number] = [HCMC_DISPLAY_CENTER.lng, HCMC_DISPLAY_CENTER.lat]; // [lng, lat] fallback
@@ -10,8 +11,10 @@ export interface OsmMarker {
   id: string;
   lat: number;
   lng: number;
-  /** 마커 색 (탭별 구분). 기본 brand. */
+  /** 마커 색 (탭별 구분). 기본 brand. 아바타 핀에서는 폴백 배경색. */
   color?: string;
+  /** 있으면 아바타 teardrop 핀으로 렌더(사람 마커). 없으면 기존 단색 dot. */
+  avatarUrl?: string;
 }
 
 export interface OsmCountBadge {
@@ -28,6 +31,14 @@ export interface Viewport {
   east: number;
   west: number;
   zoom: number;
+}
+
+/** 부모(LiveLocationModal 등)가 지도를 직접 조작하기 위한 imperative API. */
+export interface OsmMapHandle {
+  /** 주어진 좌표로 리센터. */
+  recenter: (lat: number, lng: number, zoom?: number) => void;
+  /** 주어진 좌표들이 모두 보이는 최소 줌으로 맞춤(1개뿐이면 recenter 로 대체). */
+  fitToPoints: (points: { lat: number; lng: number }[]) => void;
 }
 
 interface OsmMapProps {
@@ -48,7 +59,28 @@ interface OsmMapProps {
   className?: string;
 }
 
-function dotEl(color: string, active: boolean): HTMLElement {
+/** 아바타를 담은 teardrop 핀(공유위치 참가자용). 이미지 로드 실패 시 폴백 색 배경만 남는다. */
+function avatarPinEl(color: string, active: boolean, avatarUrl: string): HTMLElement {
+  const size = active ? 40 : 34;
+  const el = document.createElement('div');
+  el.style.cssText =
+    `width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);` +
+    `background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer;` +
+    'display:flex;align-items:center;justify-content:center;overflow:hidden;' +
+    (active ? 'z-index:3;' : '');
+  const inner = size - 8;
+  const img = document.createElement('img');
+  img.src = avatarUrl;
+  img.alt = '';
+  // 핀이 -45deg 회전돼 있으므로 안의 아바타는 +45deg 로 되돌려 똑바로 보이게 한다.
+  img.style.cssText = `width:${inner}px;height:${inner}px;border-radius:50%;object-fit:cover;display:block;transform:rotate(45deg)`;
+  img.onerror = () => img.remove();
+  el.append(img);
+  return el;
+}
+
+function dotEl(color: string, active: boolean, avatarUrl?: string): HTMLElement {
+  if (avatarUrl) return avatarPinEl(color, active, avatarUrl);
   const el = document.createElement('div');
   const size = active ? 20 : 13;
   el.style.cssText =
@@ -80,6 +112,7 @@ function meEl(): HTMLElement {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'width:18px;height:18px;position:relative';
   const ring = document.createElement('div');
+  ring.className = styles.meRing;
   ring.style.cssText = 'position:absolute;inset:-7px;border-radius:50%;background:rgba(59,130,246,.22)';
   const dot = document.createElement('div');
   dot.style.cssText =
@@ -93,7 +126,7 @@ function meEl(): HTMLElement {
  * 동네지도 v2 — 매물/피드 좌표를 점으로 표시, 점 탭 콜백 제공.
  * 출처표기(ODbL/OpenMapTiles)는 시트에 가려지지 않도록 top-right compact 로 둔다.
  */
-export default function OsmMap({
+const OsmMap = forwardRef<OsmMapHandle, OsmMapProps>(function OsmMap({
   center,
   markers,
   countBadges,
@@ -104,7 +137,7 @@ export default function OsmMap({
   onMapClick,
   pickedPoint,
   className,
-}: OsmMapProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const pinMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -170,12 +203,15 @@ export default function OsmMap({
     if (!map) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = markers.map((mk) => {
-      const el = dotEl(mk.color ?? '#ff6f3c', mk.id === selectedId);
+      const el = dotEl(mk.color ?? '#ff6f3c', mk.id === selectedId, mk.avatarUrl);
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         onClickRef.current?.(mk.id);
       });
-      return new maplibregl.Marker({ element: el }).setLngLat([mk.lng, mk.lat]).addTo(map);
+      // teardrop 핀은 뾰족한 끝이 좌표를 가리켜야 한다(pickedPoint 핀과 동일).
+      return new maplibregl.Marker({ element: el, anchor: mk.avatarUrl ? 'bottom' : 'center' })
+        .setLngLat([mk.lng, mk.lat])
+        .addTo(map);
     });
   }, [markers, selectedId]);
 
@@ -217,5 +253,29 @@ export default function OsmMap({
     }
   }, [myLocation]);
 
+  // 부모 조작용 imperative API — 리센터 / 참가자 전체보기(LiveLocationModal 버튼).
+  useImperativeHandle(ref, () => ({
+    recenter: (lat, lng, zoom) => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.flyTo({ center: [lng, lat], zoom: zoom ?? 15, duration: 600 });
+    },
+    fitToPoints: (points) => {
+      const map = mapRef.current;
+      if (!map || points.length === 0) return;
+      if (points.length === 1) {
+        map.flyTo({ center: [points[0].lng, points[0].lat], zoom: 15, duration: 600 });
+        return;
+      }
+      const bounds = points.reduce(
+        (b, p) => b.extend([p.lng, p.lat]),
+        new maplibregl.LngLatBounds([points[0].lng, points[0].lat], [points[0].lng, points[0].lat]),
+      );
+      map.fitBounds(bounds, { padding: 60, duration: 600 });
+    },
+  }), []);
+
   return <div ref={containerRef} className={className} style={{ width: '100%', height: '100%' }} />;
-}
+});
+
+export default OsmMap;

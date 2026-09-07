@@ -790,6 +790,7 @@
     "inviteCardText": "{{name}} đã mở kênh bộ đàm",
     "inviteJoinBtn": "Tham gia",
     "inviteJoined": "Đã tham gia",
+    "contextMenuOpenChat": "Đi đến cuộc trò chuyện",
     "contextMenuChangeChannel": "Đổi kênh",
     "contextMenuResendInvite": "Gửi lại lời mời",
     "contextMenuPinToHome": "Ghim vào màn hình chính",
@@ -813,6 +814,7 @@
   "liveLocation": {
     "title": "Vị trí trực tiếp",
     "bubbleLabel": "Chia sẻ vị trí trực tiếp",
+    "minimize": "Thu nhỏ",
     "live": "Trực tiếp",
     "reconnecting": "Đang kết nối",
     "destLabel": "Điểm đến",

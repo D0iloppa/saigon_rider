@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Mic, Square, X } from 'lucide-react';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
@@ -12,6 +13,8 @@ import type { DmConversation } from '@/api/types';
 import { loadSession } from '@/lib/session';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
+import { useFloatingBubbleZOrderStore } from '@/store/useFloatingBubbleZOrderStore';
+import { getTopSafeAreaPx } from '@/lib/safeArea';
 import { toast } from '@/components/ui/Toast';
 import { playSound } from '@/lib/sound';
 import { WalkieChannelPickerSheet } from './WalkieChannelPickerSheet';
@@ -27,6 +30,8 @@ const MARGIN = 12;
 const PRESENCE_HEARTBEAT_MS = 15000;
 // 컨텍스트메뉴 "홈화면 고정" — Android 네이티브 위젯 고정(pinToHomeScreen, WalkieTalkieChannelWidgetProvider) 구현 완료.
 const PIN_TO_HOME_MENU_ENABLED = true;
+/** 겹침 순서 — 마지막에 터치한 버블이 상대(기본 60)보다 위로 올라온다. */
+const BUBBLE_Z_ID = 'walkie';
 
 /**
  * 플로팅 토글 녹음 캡슐 (A-7). 웹뷰 내 DOM(position: fixed) — 네이티브 오버레이 아니다(Phase B).
@@ -40,6 +45,7 @@ const PIN_TO_HOME_MENU_ENABLED = true;
  */
 export function WalkieTalkieFloatingButton() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const session = loadSession();
   const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
@@ -47,6 +53,8 @@ export function WalkieTalkieFloatingButton() {
   const closed = useWalkieTalkieBubbleStore((s) => s.closed);
   const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
   const setActiveConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
+  const topId = useFloatingBubbleZOrderStore((s) => s.topId);
+  const bringToFront = useFloatingBubbleZOrderStore((s) => s.bringToFront);
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -60,7 +68,7 @@ export function WalkieTalkieFloatingButton() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [pos, setPos] = useState(() => ({
     x: Math.max(window.innerWidth - BUBBLE_SIZE - MARGIN, 0),
-    y: Math.round(window.innerHeight * 0.55),
+    y: Math.max(Math.round(window.innerHeight * 0.55), getTopSafeAreaPx()),
   }));
   // UI 전용 상태 — 캡슐 펼침(peek)·드래그 피드백. 녹음/전송 로직과 무관하다.
   const [peek, setPeek] = useState(false);
@@ -617,6 +625,13 @@ export function WalkieTalkieFloatingButton() {
     }
   }, [conversationId, t, user]);
 
+  // 컨텍스트메뉴 "대화방으로 이동" — 지금 워키토키 대상인 대화방 화면으로 이동한다.
+  const handleOpenChat = useCallback(() => {
+    setMenuOpen(false);
+    if (!conversationId) return;
+    navigate(`/dm/${conversationId}`);
+  }, [conversationId, navigate]);
+
   // 컨텍스트메뉴 "채널 변경" — 참여 중인 대화 목록에서 하나를 골라 워키토키 대상만 바꾼다(초대카드는 보내지 않음).
   const handleOpenChannelSheet = useCallback(() => {
     setMenuOpen(false);
@@ -653,6 +668,7 @@ export function WalkieTalkieFloatingButton() {
     (e: React.PointerEvent) => {
       // 메뉴 펼침 중에도 드래그(이동)는 허용한다 — 포인터 캡처를 여기서 즉시 걸지 않고 드래그
       // 임계값을 넘는 시점(onPointerMove)까지 미루므로, 메뉴 항목 버튼의 개별 클릭은 그대로 통과한다.
+      bringToFront(BUBBLE_Z_ID);
       draggingRef.current = true;
       dragMovedRef.current = false;
       dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
@@ -669,7 +685,7 @@ export function WalkieTalkieFloatingButton() {
         }
       }, 450);
     },
-    [clearLongPress, pos.x, pos.y],
+    [bringToFront, clearLongPress, pos.x, pos.y],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -687,9 +703,10 @@ export function WalkieTalkieFloatingButton() {
     const h = rootRef.current?.offsetHeight ?? BUBBLE_SIZE;
     const maxX = window.innerWidth - w;
     const maxY = window.innerHeight - h;
+    // y 하한은 0 이 아니라 상단 safe-area — 노치/다이나믹아일랜드/상태바에 캡슐이 가려지지 않게.
     setPos({
       x: Math.min(Math.max(dragStartRef.current.posX + dx, 0), maxX),
-      y: Math.min(Math.max(dragStartRef.current.posY + dy, 0), maxY),
+      y: Math.min(Math.max(dragStartRef.current.posY + dy, getTopSafeAreaPx()), maxY),
     });
   }, [clearLongPress]);
 
@@ -781,6 +798,7 @@ export function WalkieTalkieFloatingButton() {
           // 녹음에 들어갈 때 채널정보 라벨이 빠지면서 캡슐 너비가 줄어들던 것 방지 —
           // 녹음 직전 너비를 바닥값으로 고정한다(대표 지시: 녹음중 사이즈 변경 없음).
           minWidth: isRec && lockedWidth ? lockedWidth : undefined,
+          zIndex: topId === BUBBLE_Z_ID ? 61 : undefined,
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -913,6 +931,9 @@ export function WalkieTalkieFloatingButton() {
         >
           <div className={styles.menuInner}>
             <div className={styles.menuList}>
+              <button type="button" role="menuitem" className={styles.menuOption} onClick={handleOpenChat}>
+                {t('walkieTalkie.contextMenuOpenChat', { defaultValue: '대화방으로 이동' })}
+              </button>
               <button type="button" role="menuitem" className={styles.menuOption} onClick={handleOpenChannelSheet}>
                 {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
               </button>

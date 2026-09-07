@@ -1,0 +1,15 @@
+/* 내 위치 파란 점 주변 "숨쉬기" halo (구글맵 방식) */
+.meRing {
+  animation: osmMeRingPulse 1.8s ease-out infinite;
+}
+
+@keyframes osmMeRingPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}

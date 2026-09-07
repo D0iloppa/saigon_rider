@@ -56,6 +56,7 @@
 }
 
 .mapWrap {
+  position: relative;
   border-radius: var(--r-md);
   overflow: hidden;
   border: 1px solid var(--line);
@@ -66,6 +67,34 @@
 .map {
   width: 100%;
   height: 100%;
+}
+
+/* 좌하단 지도 컨트롤(내 위치·전체보기) — attribution compact 컨트롤(bottom-left) 위로 띄운다. */
+.mapCtrls {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mapCtrlBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(11, 13, 20, 0.18);
+}
+
+.mapCtrlBtn:active {
+  background: var(--surface-2);
 }
 
 .destRow {
@@ -146,6 +175,15 @@
   color: var(--text-2);
 }
 
+/* 참가자 행 목록 — BottomSheet scrollBody 안. 5명(=약 5행)까지는 시트가 콘텐츠만큼만 커지고,
+   그 이상이면 지도/목적지는 그대로 둔 채 이 목록 안에서만 스크롤된다. */
+.memberList {
+  max-height: 296px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 2px 8px;
+}
+
 .memberRow {
   display: flex;
   align-items: center;
@@ -198,6 +236,14 @@
   font-size: 13px;
   color: var(--text-3);
   text-align: center;
+}
+
+/* 나가기 묶음 — BottomSheet footer prop 으로 scrollBody 밖에 렌더돼 항상 보인다. */
+.leaveFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 2px;
 }
 
 /* 나가기 — 보조 액션(주 액션 오렌지 1개 원칙). 위험 의미이므로 danger 텍스트. */

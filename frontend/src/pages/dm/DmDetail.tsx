@@ -1232,7 +1232,20 @@ export default function DmDetail() {
                       : t('dm.apptCompletionDismissedNote', { defaultValue: '완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.' })}
                   </p>
                 )}
-                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion || appt?.id === currentAppointmentId) && (
+                {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만 — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소) */}
+                {appt?.id === currentAppointmentId && (
+                  <div className={styles.apptLiveLocationRow}>
+                    <button className={styles.apptBtnGhost} type="button"
+                      onClick={() => startLiveLocation({
+                        appointmentId: appt.id,
+                        dest: hasCoords ? { lat: lat!, lng: lng!, ...(placeText ? { name: placeText } : {}) } : undefined,
+                        sendInvite: true,
+                      })}>
+                      <MapPin size={14} /> {t('dm.locationShare', { defaultValue: '위치공유' })}
+                    </button>
+                  </div>
+                )}
+                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion) && (
                   <div className={styles.apptActions}>
                     {canAccept && (
                       <button className={styles.apptBtnPrimary} type="button" disabled={sending}
@@ -1271,17 +1284,6 @@ export default function DmDetail() {
                       <button className={styles.apptBtnGhost} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
                         {cancelLabel}
-                      </button>
-                    )}
-                    {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만 — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소) */}
-                    {appt?.id === currentAppointmentId && (
-                      <button className={styles.apptBtnGhost} type="button"
-                        onClick={() => startLiveLocation({
-                          appointmentId: appt.id,
-                          dest: hasCoords ? { lat: lat!, lng: lng!, ...(placeText ? { name: placeText } : {}) } : undefined,
-                          sendInvite: true,
-                        })}>
-                        <MapPin size={14} /> {t('dm.locationShare', { defaultValue: '위치공유' })}
                       </button>
                     )}
                   </div>

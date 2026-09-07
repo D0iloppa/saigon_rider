@@ -11,9 +11,26 @@ interface Props {
   children: ReactNode;
   height?: 'auto' | 'half' | 'full' | 'fit';
   sheetStyle?: React.CSSProperties;
+  /** 우상단 버튼 아이콘/라벨 오버라이드 — 닫기가 아니라 "최소화"인 시트용(LiveLocationModal). 미지정 시 기존 X/Close. */
+  closeIcon?: ReactNode;
+  closeLabel?: string;
+  /** scrollBody 앞(형제)에 렌더되는 고정 영역 — 스크롤에 밀리면 안 되는 제목/지도용. 미지정 시 렌더 안 함. */
+  header?: ReactNode;
+  /** scrollBody 밖(형제)에 렌더되는 고정 영역 — 스크롤에 묻히면 안 되는 액션용. 미지정 시 렌더 안 함. */
+  footer?: ReactNode;
 }
 
-export function BottomSheet({ open, onClose, children, height = 'auto', sheetStyle }: Props) {
+export function BottomSheet({
+  open,
+  onClose,
+  children,
+  height = 'auto',
+  sheetStyle,
+  closeIcon,
+  closeLabel,
+  header,
+  footer,
+}: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const dragY = useRef({ startY: 0, currentY: 0, dragging: false });
@@ -174,9 +191,11 @@ export function BottomSheet({ open, onClose, children, height = 'auto', sheetSty
           onTouchEnd={handleTouchEnd}
         />
         {(height === 'full' || height === 'fit') && (
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close"><X size={18} strokeWidth={2.2} /></button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label={closeLabel ?? 'Close'}>{closeIcon ?? <X size={18} strokeWidth={2.2} />}</button>
         )}
+        {header && <div className={styles.header}>{header}</div>}
         <div className={styles.scrollBody}>{children}</div>
+        {footer && <div className={styles.footer}>{footer}</div>}
       </div>
     </div>,
     portalTarget,

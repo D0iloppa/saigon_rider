@@ -790,6 +790,7 @@
     "inviteCardText": "{{name}} opened a walkie-talkie channel",
     "inviteJoinBtn": "Join",
     "inviteJoined": "Joined",
+    "contextMenuOpenChat": "Go to Chat",
     "contextMenuChangeChannel": "Change channel",
     "contextMenuResendInvite": "Resend invite",
     "contextMenuPinToHome": "Pin to home screen",
@@ -813,6 +814,7 @@
   "liveLocation": {
     "title": "Live location",
     "bubbleLabel": "Live location sharing",
+    "minimize": "Minimize",
     "live": "Live",
     "reconnecting": "Connecting",
     "destLabel": "Destination",

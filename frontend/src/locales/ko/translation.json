@@ -790,6 +790,7 @@
     "inviteCardText": "{{name}}님이 워키토키 채널을 열었어요",
     "inviteJoinBtn": "참여하기",
     "inviteJoined": "참여 중",
+    "contextMenuOpenChat": "대화방으로 이동",
     "contextMenuChangeChannel": "채널 변경",
     "contextMenuResendInvite": "초대장 다시 보내기",
     "contextMenuPinToHome": "홈화면 고정",
@@ -813,6 +814,7 @@
   "liveLocation": {
     "title": "실시간 위치공유",
     "bubbleLabel": "실시간 위치공유",
+    "minimize": "최소화",
     "live": "실시간",
     "reconnecting": "연결 중",
     "destLabel": "목적지",

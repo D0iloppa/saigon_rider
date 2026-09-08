@@ -23,6 +23,7 @@ import { DisplayScopeSheet } from '@/components/location/DisplayScopeSheet';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { toast } from '@/components/ui/Toast';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { haversineM } from '@/lib/polyline';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
 import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
@@ -51,6 +52,7 @@ function radiusBbox(center: { lat: number; lng: number }, km: number) {
 export default function NeighborhoodMap() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const mapOpen = searchParams.get('view') === 'map';
@@ -207,13 +209,13 @@ export default function NeighborhoodMap() {
             </h1>
           </button>
           <div className={styles.headerActions}>
-            <button type="button" onClick={() => navigate('/map/search')} aria-label={t('map.listFirst.search')}>
+            <button type="button" onClick={() => { if (requireAuth()) navigate('/map/search'); }} aria-label={t('map.listFirst.search')}>
               <Search size={23} strokeWidth={2} />
             </button>
-            <button type="button" onClick={() => navigate('/map/favorites')} aria-label={t('map.listFirst.saved')}>
+            <button type="button" onClick={() => { if (requireAuth()) navigate('/map/favorites'); }} aria-label={t('map.listFirst.saved')}>
               <Heart size={24} strokeWidth={2} />
             </button>
-            <button type="button" onClick={() => navigate('/map/profile')} aria-label={t('map.neighborhoodProfile.title')}>
+            <button type="button" onClick={() => { if (requireAuth()) navigate('/map/profile'); }} aria-label={t('map.neighborhoodProfile.title')}>
               <UserRound size={23} strokeWidth={2} />
             </button>
           </div>

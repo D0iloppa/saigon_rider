@@ -30,7 +30,7 @@ test('guest bar CTA reuses the shared auth guard so the current route is restore
 test('expired session keeps public browse screens instead of pushing to splash', () => {
   const app = read('../../App.tsx');
 
-  assert.match(app, /const PUBLIC_BROWSE_PREFIXES = \['\/market', '\/biz'\]/);
+  assert.match(app, /const PUBLIC_BROWSE_PREFIXES = \['\/market', '\/biz', '\/map'\]/);
 
   const handler = app.slice(app.indexOf('setSessionExpiredHandler(('), app.indexOf('// 정지/밴 계정 전역 핸들러'));
   const logoutAt = handler.indexOf('logout();');

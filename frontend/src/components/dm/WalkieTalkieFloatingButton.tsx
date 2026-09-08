@@ -47,6 +47,7 @@ export function WalkieTalkieFloatingButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
+  const isAuthenticated = useUserStore((s) => s.isAuthenticated);
   const session = loadSession();
   const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
   const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
@@ -182,6 +183,7 @@ export function WalkieTalkieFloatingButton() {
   // !!user — 로그아웃 후 store 정리(useUserStore.logout → useWalkieTalkieBubbleStore.reset)가
   // 누락되더라도 버블이 뜨지 않게 하는 이중 안전장치.
   const bubbleActive =
+    isAuthenticated &&
     !!user &&
     !!conversationId &&
     !!capability?.available &&

@@ -24,6 +24,7 @@ import { useBizViewerCount } from '@/hooks/useBizViewerCount';
 import { formatRelativeTime } from '@/lib/format';
 import { haversineM } from '@/lib/polyline';
 import { requestDeviceLocation } from '@/lib/serviceLocation';
+import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import BizRichCard from './BizRichCard';
 import styles from './NeighborhoodMap.module.css';
@@ -860,10 +861,7 @@ export default function NeighborhoodMapCanvas({
 
   // ♥ 토글 — 찜한 업체만 보기
   const toggleFavOnly = () => {
-    if (!user) {
-      toast.info(t('map.favoriteFilterLoginRequired'));
-      return;
-    }
+    if (!requireAuth()) return;
     if (favOnly) {
       setFavOnly(false);
       return;
@@ -1114,7 +1112,7 @@ export default function NeighborhoodMapCanvas({
       <SaigonMapV5
         className={styles.map}
         height="100%"
-        initialGps={coords ?? undefined}
+        initialGps={coords ?? BEN_THANH_FALLBACK}
         // 카메라를 내 위치 중심으로 잡는다 (대표 지시 2026-08-06 "gps기본 / 지도 다나오게").
         // 지역 선택이 사라져 카메라와 선택 경계가 어긋날 여지 자체가 없어졌다.
         locateOnMount
@@ -1184,7 +1182,7 @@ export default function NeighborhoodMapCanvas({
           onChange={clearSearch}
           placeholder={t('map.listFirst.searchBiz')}
           readOnly
-          onClick={() => setSearchPanelOpen(true)}
+          onClick={() => { if (requireAuth()) setSearchPanelOpen(true); }}
         />
         <button
           type="button"
@@ -1232,7 +1230,7 @@ export default function NeighborhoodMapCanvas({
                 <button
                   type="button"
                   className={`${styles.mapToolButton} ${addMenuOpen ? styles.mapToolButtonActive : ''}`}
-                  onClick={() => setAddMenuOpen((v) => !v)}
+                  onClick={() => { if (requireAuth()) setAddMenuOpen((v) => !v); }}
                   aria-label={t('map.addMenu.label')}
                   aria-expanded={addMenuOpen}
                 >

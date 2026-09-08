@@ -7,13 +7,15 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (path) => readFileSync(join(here, path), 'utf8');
 
-test('guest bar fills the empty tabbar slot on public browse screens only', () => {
+test('only guest /map replaces the normal tabbar with the guest bar', () => {
   const shell = read('AppShell.tsx');
 
-  // 탭바를 숨기는 이유가 둘로 나뉜다: 미인증(=게스트 바가 대신한다) vs 경로 자체가 하단 CTA 를 쓴다(=아무것도 두지 않는다).
+  // 비회원 /map만 게스트 바를 단독 노출한다. 로그인 /map, 비회원 /market, /biz는 기존 탭바를 유지한다.
   assert.match(shell, /const tabBarHiddenByPath = HIDE_TABBAR_PATHS\.some\(\(p\) => pathname\.startsWith\(p\)\)/);
-  assert.match(shell, /const hideTabBar = tabBarHiddenByPath/);
+  assert.match(shell, /const isGuestMapBrowse = !isAuthenticated && pathname === '\/map'/);
+  assert.match(shell, /const hideTabBar = tabBarHiddenByPath \|\| isGuestMapBrowse/);
   assert.match(shell, /const showGuestBar = !isAuthenticated && !tabBarHiddenByPath/);
+  assert.match(shell, /\{!hideTabBar && <TabBar \/>\}/);
   assert.match(shell, /\{showGuestBar && \(/);
 });
 

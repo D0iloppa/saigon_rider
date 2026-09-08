@@ -50,10 +50,9 @@ export function AppShell({
   const { t } = useTranslation();
   const requireAuth = useRequireAuth();
   const tabBarHiddenByPath = HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
-  // 비회원 지도 루트는 게스트 바가 유일한 하단 UI다. 둘을 함께 렌더하면 iOS에서 탭바가
-  // 지도·게스트 바 사이에 끼므로 /map 에서만 기본 탭바를 숨긴다. 마켓·업체 공개 열람은 유지한다.
-  const isGuestMapBrowse = !isAuthenticated && pathname === '/map';
-  const hideTabBar = tabBarHiddenByPath || isGuestMapBrowse;
+  // 비회원 공개 열람에서는 게스트 바가 유일한 하단 UI다. 기본 탭바를 함께 렌더하면
+  // 화면마다 두 하단 바가 겹치므로 경로 예외 없이 숨긴다.
+  const hideTabBar = tabBarHiddenByPath || !isAuthenticated;
   // 공개 열람 화면에서 그렇게 비워진 탭바 자리 — 익명 사용자가 목록만 보다 이탈하지 않도록
   // 로그인으로 잇는다. 자체 하단 CTA 를 쓰는 화면(HIDE_TABBAR_PATHS)에는 겹치지 않게 두지 않는다.
   const showGuestBar = !isAuthenticated && !tabBarHiddenByPath;

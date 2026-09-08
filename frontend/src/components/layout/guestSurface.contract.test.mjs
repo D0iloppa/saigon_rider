@@ -7,16 +7,19 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (path) => readFileSync(join(here, path), 'utf8');
 
-test('only guest /map replaces the normal tabbar with the guest bar', () => {
+test('all guest public browse surfaces replace the normal tabbar with the guest bar', () => {
   const shell = read('AppShell.tsx');
 
-  // 비회원 /map만 게스트 바를 단독 노출한다. 로그인 /map, 비회원 /market, /biz는 기존 탭바를 유지한다.
+  // 비회원 공개 열람은 경로와 무관하게 게스트 바만 보인다. 로그인 사용자는 기존 탭바를 유지한다.
   assert.match(shell, /const tabBarHiddenByPath = HIDE_TABBAR_PATHS\.some\(\(p\) => pathname\.startsWith\(p\)\)/);
-  assert.match(shell, /const isGuestMapBrowse = !isAuthenticated && pathname === '\/map'/);
-  assert.match(shell, /const hideTabBar = tabBarHiddenByPath \|\| isGuestMapBrowse/);
+  assert.match(shell, /const hideTabBar = tabBarHiddenByPath \|\| !isAuthenticated/);
   assert.match(shell, /const showGuestBar = !isAuthenticated && !tabBarHiddenByPath/);
   assert.match(shell, /\{!hideTabBar && <TabBar \/>\}/);
   assert.match(shell, /\{showGuestBar && \(/);
+
+  // /map, /market, /biz 어느 경로도 조건에 넣지 않는다. 인증 여부만으로 결정해야 세 공개 화면이
+  // 같은 정책을 공유하고, 로그인 사용자는 !isAuthenticated 조건을 통과해 기존 탭바를 유지한다.
+  assert.doesNotMatch(shell, /isGuestMapBrowse|pathname === '\/(map|market|biz)'/);
 });
 
 test('guest bar CTA reuses the shared auth guard so the current route is restored after login', () => {

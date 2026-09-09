@@ -19,6 +19,8 @@ import ListingListPage from './pages/listings/ListingListPage'
 import ListingDetailPage from './pages/listings/ListingDetailPage'
 import DealerCandidatesPage from './pages/listings/DealerCandidatesPage'
 import CompletionRequestListPage from './pages/trades/CompletionRequestListPage'
+import TransactionListPage from './pages/transactions/TransactionListPage'
+import TransactionDetailPage from './pages/transactions/TransactionDetailPage'
 import SupportListPage from './pages/support/SupportListPage'
 import SupportDetailPage from './pages/support/SupportDetailPage'
 import ChannelBoardPage from './pages/analytics/ChannelBoardPage'
@@ -149,6 +151,8 @@ export default function App() {
               <Route path="/listings/dealer-candidates" element={<DealerCandidatesPage />} />
               <Route path="/listings/:id" element={<ListingDetailPage />} />
               <Route path="/trades/completion-requests" element={<CompletionRequestListPage />} />
+              <Route path="/transactions" element={<TransactionListPage />} />
+              <Route path="/transactions/:id" element={<TransactionDetailPage />} />
               <Route path="/support" element={<SupportListPage />} />
               <Route path="/support/:id" element={<SupportDetailPage />} />
               <Route path="/analytics/overview" element={<ChannelBoardPage />} />

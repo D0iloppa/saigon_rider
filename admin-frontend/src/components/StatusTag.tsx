@@ -30,7 +30,19 @@ const SUPPORT_STATUS: Record<string, StatusEntry> = {
   RESOLVED: { tone: 'success', label: '해결' },
 }
 
-const MAPS = { report: REPORT_STATUS, user: USER_STATUS, listing: LISTING_STATUS, support: SUPPORT_STATUS } as const
+const TRANSACTION_STATUS: Record<string, StatusEntry> = {
+  AWAITING_PAYMENT: { tone: 'warning', label: '입금대기' },
+  PAYMENT_REPORTED: { tone: 'info', label: '입금신고' },
+  PAYMENT_CONFIRMED: { tone: 'success', label: '수령확인' },
+}
+
+const MAPS = {
+  report: REPORT_STATUS,
+  user: USER_STATUS,
+  listing: LISTING_STATUS,
+  support: SUPPORT_STATUS,
+  transaction: TRANSACTION_STATUS,
+} as const
 
 /** 신고/유저/매물 상태 → 색상 Tag 공용 매핑. */
 export default function StatusTag({ kind, status }: { kind: keyof typeof MAPS; status: string }) {

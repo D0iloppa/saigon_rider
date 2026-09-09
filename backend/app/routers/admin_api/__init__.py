@@ -41,6 +41,7 @@ from . import (
     stream,
     support,
     trades,
+    transactions,
     users,
 )
 
@@ -74,6 +75,7 @@ router.include_router(push.router)
 router.include_router(settings.router)
 router.include_router(stream.router)
 router.include_router(trades.router)
+router.include_router(transactions.router)
 router.include_router(funnel.router)
 router.include_router(liquidity.router)
 router.include_router(action_events.router)

@@ -55,6 +55,7 @@ const MENU_ITEMS = [
     { key: '/listings', icon: <ShopOutlined />, label: '매물 관리' },
     { key: '/listings/dealer-candidates', icon: <UserSwitchOutlined />, label: '업자 후보' },
     { key: '/trades/completion-requests', icon: <IssuesCloseOutlined />, label: '거래 완료 이의' },
+    { key: '/transactions', icon: <CreditCardOutlined />, label: '수동 QR 거래' },
   ] },
   { key: 'group-care', label: 'CUSTOMER', children: [{ key: '/support', icon: <CustomerServiceOutlined />, label: '고객센터' }] },
   { key: 'group-analytics', label: 'ANALYTICS', children: [
@@ -109,6 +110,7 @@ const PAGE_META = [
   { path: '/listings/dealer-candidates', title: '업자 후보', description: '업자로 추정되는 판매자 목록입니다. 제재가 아닌 비즈 프로필 전환 안내가 유일한 조치입니다.' },
   { path: '/listings', title: '매물 관리', description: '등록 매물을 검토하고 필요한 운영 조치를 적용합니다.' },
   { path: '/trades/completion-requests', title: '거래 완료 이의', description: '구매자가 완료를 요청했으나 판매자가 확인하지 않은 거래를 검토합니다.' },
+  { path: '/transactions', title: '수동 QR 거래', description: '수동 QR 결제 거래를 상태별로 조회하고 운영자 메모를 남깁니다. 입금 상태는 여기서 변경하지 않습니다.' },
   { path: '/support', title: '고객센터', description: '사용자 문의와 답변 상태를 관리합니다.' },
   { path: '/analytics/overview', title: '채널 성과 보드', description: '퍼널·유동성·리텐션·비회원 유입경로 등 채널 성과를 한 화면에서 훑어봅니다.' },
   { path: '/analytics/liquidity', title: '유동성 지표 패널', description: '마켓플레이스 파일럿 성패 판정 기준(L-1~L-5)을 목표선과 함께 확인합니다.' },

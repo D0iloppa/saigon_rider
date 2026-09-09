@@ -4,7 +4,7 @@
 .loadBody { flex: 1; padding-top: 16px; }
 .identity { display: flex; gap: 12px; padding: 14px 16px 12px; background: var(--surface); }
 .identityPhoto, .identityPhotoFallback { width: 56px; height: 56px; flex: 0 0 56px; border-radius: var(--r-sm); object-fit: cover; }
-.identityPhotoFallback, .adThumbFallback, .storeOptionPhotoFallback, .editPhotoFallback { display: grid; place-items: center; background: var(--surface-2); color: var(--text-3); }
+.identityPhotoFallback, .storeOptionPhotoFallback, .editPhotoFallback { display: grid; place-items: center; background: var(--surface-2); color: var(--text-3); }
 .identityCopy { min-width: 0; flex: 1; }
 .storeSelector { min-height: 44px; max-width: 100%; display: flex; align-items: center; gap: 5px; margin: -10px 0 -7px; padding: 7px 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 18px; font-weight: 700; text-align: left; }
 .storeSelector span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -21,23 +21,14 @@
 .actionCard > svg { margin-bottom: 8px; }
 .actionCard h2 { margin: 0; color: var(--text); font-size: 18px; line-height: 1.35; }
 .actionCard p { margin: 6px 0 14px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
-.adEmpty { padding-bottom: 16px; }
-.adEmpty > button { width: calc(100% - 32px); margin: -18px 16px 0; }
-.adRow { padding: 16px; border-bottom: 1px solid var(--line); }
-.adRow:last-child { border-bottom: 0; }
-.adTop { display: flex; align-items: center; gap: 12px; }
-.adThumb, .adThumbFallback { width: 52px; height: 44px; flex: 0 0 52px; border-radius: 8px; object-fit: cover; }
-.adTitleWrap { min-width: 0; flex: 1; }
-.adTitleWrap h3 { margin: 0; overflow: hidden; color: var(--text); font-size: 15px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.adTitleWrap p { margin: 3px 0 0; color: var(--text-3); font-size: 11.5px; }
-.adStatuses { margin: 14px 0 0; }
-.adStatuses > div { display: grid; grid-template-columns: 88px 1fr; gap: 8px; padding: 5px 0; font-size: 12.5px; line-height: 1.4; }
-.adStatuses dt { color: var(--text-3); }
-.adStatuses dd { margin: 0; color: var(--text-2); font-weight: 600; }
-.rejectReason { margin: 7px 0 0; color: var(--danger); font-size: 12px; line-height: 1.45; }
-.adActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.adAction { min-height: 44px; }
-.adCreateSecondary { display: block; min-height: 44px; margin: 10px 16px 0 auto; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 700; }
+.adsSummary { display: flex; align-items: center; gap: 12px; width: calc(100% - 32px); min-height: 72px; margin: 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text-2); text-align: left; }
+.adsSummary:active { background: var(--surface-2); }
+.adsSummaryIcon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; background: var(--brand-50); color: var(--brand-600); }
+.adsSummaryCopy { min-width: 0; flex: 1; }
+.adsSummaryCopy strong { display: block; color: var(--text); font-size: 15px; font-weight: 700; }
+.adsSummaryCopy small { display: block; margin-top: 3px; color: var(--text-3); font-size: 12px; line-height: 1.4; }
+.adsSummaryAction { flex: 0 0 auto; color: var(--brand-700); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.adsSummary > svg { flex: 0 0 auto; color: var(--text-3); }
 .managerRow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--text-2); text-align: left; }
 .managerRow:last-child { border-bottom: 0; }
 .managerRow:active, .quietRow:active, .guideRow:active, .storeOption:active { background: var(--surface-2); }
@@ -66,5 +57,5 @@
 .input, .textarea { width: 100%; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 14px; }
 .input { min-height: 46px; }
 .textarea { resize: none; line-height: 1.5; }
-@media (max-width: 360px) { .identity { padding-right: 14px; padding-left: 14px; } .adStatuses > div { grid-template-columns: 78px 1fr; } }
+@media (max-width: 360px) { .identity { padding-right: 14px; padding-left: 14px; } .adsSummaryAction { display: none; } }
 @media (prefers-reduced-motion: reduce) { .chevronOpen { transition: none; } }

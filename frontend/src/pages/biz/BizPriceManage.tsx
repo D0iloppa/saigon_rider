@@ -87,7 +87,7 @@ export default function BizPriceManage() {
             <p>{t('biz.priceManagePurpose')}</p>
             {prices !== null && !loadError && <span className={`${styles.count} num`}>{t('biz.priceManageCount', { count: prices.length })}</span>}
           </div>
-          <Button onClick={() => nameInputRef.current?.focus()}>
+          <Button fullWidth={false} onClick={() => nameInputRef.current?.focus()}>
             <Plus size={17} />{t('biz.priceSubmit')}
           </Button>
         </section>

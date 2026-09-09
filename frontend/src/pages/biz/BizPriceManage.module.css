@@ -19,16 +19,17 @@
 
 .hero {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 14px;
   padding: 4px 2px 10px;
 }
 
 .heroCopy { min-width: 0; }
+.hero > button { align-self: flex-start; }
 .eyebrow { color: var(--brand-600); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .hero h1 { margin: 4px 0 5px; color: var(--text); font-size: 22px; line-height: 1.2; letter-spacing: -.02em; }
-.hero p { margin: 0; max-width: 260px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.hero p { margin: 0; max-width: 34rem; color: var(--text-2); font-size: 13px; line-height: 1.5; }
 .count { display: inline-block; margin-top: 8px; color: var(--text-3); font-size: 12px; }
 .sectionDesc { margin: 4px 0 0; color: var(--text-3); font-size: 12px; }
 .emptyCard { margin: 0; }
@@ -78,8 +79,6 @@
 }
 
 @media (max-width: 370px) {
-  .hero { align-items: stretch; flex-direction: column; }
-  .hero button { align-self: flex-start; }
   .row { flex-wrap: wrap; }
   .rowName { flex-basis: calc(100% - 96px); }
 }

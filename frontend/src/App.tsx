@@ -66,6 +66,7 @@ const BizStatus = lazyWithRetry(() => import('@/pages/biz/BizStatus'));
 const BizManage = lazyWithRetry(() => import('@/pages/biz/BizManage'));
 const BizVerification = lazyWithRetry(() => import('@/pages/biz/BizVerification'));
 const BizAdsNew = lazyWithRetry(() => import('@/pages/biz/BizAdsNew'));
+const BizAdsManage = lazyWithRetry(() => import('@/pages/biz/BizAdsManage'));
 const BizAdDetail = lazyWithRetry(() => import('@/pages/biz/BizAdDetail'));
 const BizPublic = lazyWithRetry(() => import('@/pages/biz/BizPublic'));
 const BizNewsCreate = lazyWithRetry(() => import('@/pages/biz/BizNewsCreate'));
@@ -604,6 +605,7 @@ export default function App() {
           <Route path="/biz/status" element={<PrivateRoute><BizStatus /></PrivateRoute>} />
           <Route path="/biz/manage" element={<PrivateRoute><BizManage /></PrivateRoute>} />
           <Route path="/biz/verification" element={<PrivateRoute><BizVerification /></PrivateRoute>} />
+          <Route path="/biz/ads" element={<PrivateRoute><BizAdsManage /></PrivateRoute>} />
           <Route path="/biz/ads/new" element={<PrivateRoute><BizAdsNew /></PrivateRoute>} />
           <Route path="/biz/ads/:id" element={<PrivateRoute><BizAdDetail /></PrivateRoute>} />
           <Route path="/biz/news" element={<PrivateRoute><BizNewsManage /></PrivateRoute>} />

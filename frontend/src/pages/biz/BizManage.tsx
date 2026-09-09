@@ -54,7 +54,6 @@ export default function BizManage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [ads, setAds] = useState<{ profileId: string; list: BusinessAd[] } | null>(null);
   const [adsErrorFor, setAdsErrorFor] = useState<string | null>(null);
-  const [adsReloadKey, setAdsReloadKey] = useState(0);
   const [contractLoadingId, setContractLoadingId] = useState<string | null>(null);
   const kb = useKeyboard();
   const isIosNative = native.platform === 'ios';
@@ -83,7 +82,7 @@ export default function BizManage() {
       if (!cancelled) setAds({ profileId: active.id, list });
     }).catch(() => { if (!cancelled) setAdsErrorFor(active.id); });
     return () => { cancelled = true; };
-  }, [active?.id, adsReloadKey]);
+  }, [active?.id]);
 
   const categoryLabel = (code: string | null) => {
     const category = code ? categories.find((item) => item.code === code) : undefined;
@@ -144,15 +143,6 @@ export default function BizManage() {
     ? adList.find((ad) => ad.reviewStatus === 'REJECTED') ?? adList.find((ad) => bizContractAction(ad) === 'contract')
     : undefined;
   const hasPriorityAction = needsVerification || !!actionAd;
-  const reviewLabel = (ad: BusinessAd) => {
-    if (ad.reviewStatus === 'PENDING') return t('biz.lounge.adReviewPending');
-    if (ad.reviewStatus === 'REJECTED') return t('biz.lounge.adReviewRejected');
-    // 서버는 APPROVED 광고만 STOPPED로 전이한다. 중단은 노출축에 따로 표시한다.
-    return t('biz.lounge.adReviewApproved');
-  };
-  const contractLabel = (ad: BusinessAd) => ad.subscriptionStatus === 'pending_payment' ? t('biz.lounge.contractPending') : ad.subscriptionStatus === 'active' ? t('biz.lounge.contractActive') : ad.subscriptionStatus === 'expired' ? t('biz.lounge.contractExpired') : t('biz.lounge.contractUnknown');
-  const exposureLabel = (ad: BusinessAd) => ad.reviewStatus === 'STOPPED' ? t('biz.adStatusStopped') : t('biz.lounge.exposureUnknown');
-
   return <div className={styles.page}>
     <TopBar title={t('biz.manageTitle')} />
     <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
@@ -173,12 +163,15 @@ export default function BizManage() {
       {activeTab === 'performance' ? <BizDashboard key={active.id} profileId={active.id} focus={dashboardFocus} onFocusHandled={() => setDashboardFocus(undefined)} /> : <>
         {hasPriorityAction && <section className={styles.actionCard}><ShieldCheck size={22} /><div><h2>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationRejectedTitle') : t('biz.lounge.verificationRequiredTitle') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adRejectedActionTitle') : t('biz.lounge.contractActionTitle')}</h2><p>{needsVerification ? active.verificationStatus === 'rejected' ? active.verificationRejectReason || t('biz.lounge.verificationRejectedDesc') : t('biz.lounge.verificationRequiredDesc') : actionAd?.reviewStatus === 'REJECTED' ? actionAd.rejectReason || t('biz.lounge.adRejectedActionDesc') : t('biz.lounge.contractActionDesc')}</p></div><Button loading={!!actionAd && bizContractAction(actionAd) === 'contract' && contractLoadingId === actionAd.id} onClick={() => needsVerification ? navigate('/biz/verification', { state: profileState(active) }) : actionAd && runBizContractAction(actionAd, { openContract: handleContractLink, openDetail: (adId) => navigate(`/biz/ads/${adId}`, { state: profileState(active) }) })}>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationResubmit') : t('biz.lounge.verificationSubmit') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adDetail') : t('biz.lounge.contractGuide')}</Button></section>}
         <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.adsSection')}</h2></div>
-        <div className={sys.card}>{adsFailed ? <StateBlock icon={AlertCircle} tone="error" title={t('biz.lounge.adsLoadErrorTitle')} desc={t('biz.lounge.adsLoadErrorDesc')} actionLabel={t('common.retry')} onAction={() => { setAdsErrorFor(null); setAdsReloadKey((key) => key + 1); }} /> : adList === null ? <div aria-busy="true" aria-label={t('common.loading')}><SkeletonRows count={2} /></div> : !adList.length ? <div className={styles.adEmpty}><StateBlock icon={Megaphone} title={t('biz.lounge.adsEmptyTitle')} desc={t('biz.lounge.adsEmptyDesc')} />{!hasPriorityAction && <Button onClick={() => navigate('/biz/ads/new', { state: profileState(active) })}>{t('biz.adCreateCta')}</Button>}</div> : adList.map((ad) => <article className={styles.adRow} key={ad.id}>
-          <div className={styles.adTop}>{ad.imageUrl ? <AppImage src={ad.imageUrl} alt="" className={styles.adThumb} /> : <div className={styles.adThumbFallback}><Megaphone size={20} /></div>}<div className={styles.adTitleWrap}><h3>{ad.title}</h3>{ad.endsAt && <p className="num">{t('biz.lounge.adUntil', { date: new Intl.DateTimeFormat(i18n.language).format(new Date(ad.endsAt)) })}</p>}</div></div>
-          <dl className={styles.adStatuses}><div><dt>{t('biz.lounge.reviewStatus')}</dt><dd>{reviewLabel(ad)}</dd></div><div><dt>{t('biz.lounge.contractStatus')}</dt><dd>{contractLabel(ad)}</dd></div><div><dt>{t('biz.lounge.exposureStatus')}</dt><dd>{exposureLabel(ad)}</dd></div></dl>
-          {ad.reviewStatus === 'REJECTED' && ad.rejectReason && <p className={styles.rejectReason}>{ad.rejectReason}</p>}
-          <div className={styles.adActions}><button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => navigate(`/biz/ads/${ad.id}`, { state: profileState(active) })}>{t('biz.lounge.adDetail')}</button>{bizContractAction(ad) === 'contract' && <button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => handleContractLink(ad.id)} disabled={contractLoadingId === ad.id}>{contractLoadingId === ad.id ? t('biz.contractLinkLoading') : t('biz.lounge.contractGuide')}</button>}</div>
-        </article>)}</div>{!(adList?.length === 0 && !hasPriorityAction && !adsFailed) && <button type="button" className={styles.adCreateSecondary} onClick={() => navigate('/biz/ads/new', { state: profileState(active) })}>{t('biz.adCreateCta')}</button>}
+        <button type="button" className={styles.adsSummary} onClick={() => navigate('/biz/ads', { state: profileState(active) })}>
+          <span className={styles.adsSummaryIcon}><Megaphone size={20} /></span>
+          <span className={styles.adsSummaryCopy}>
+            <strong>{t('biz.lounge.adsManageTitle')}</strong>
+            <small>{adsFailed ? t('biz.lounge.adsLoadErrorTitle') : adList === null ? t('common.loading') : actionAd ? t('biz.lounge.adsSummaryNeedsAction', { count: adList.length }) : t('biz.lounge.adsSummaryCount', { count: adList.length })}</small>
+          </span>
+          <span className={styles.adsSummaryAction}>{t('biz.lounge.adsManageCta')}</span>
+          <ChevronRight size={17} />
+        </button>
         <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.operationsSection')}</h2></div>
         <div className={sys.card}>{[
           { icon: Newspaper, title: t('biz.lounge.newsManage'), desc: t('biz.lounge.newsManageDesc'), onClick: () => navigate('/biz/news', { state: profileState(active) }) },

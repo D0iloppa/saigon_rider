@@ -86,7 +86,7 @@ export default function BizNewsManage() {
             <p>{t('biz.newsManagePurpose')}</p>
             {news !== null && !loadError && <span className={`${styles.count} num`}>{t('biz.newsManageCount', { count: `${news.length}${hasMore ? '+' : ''}` })}</span>}
           </div>
-          <Button onClick={() => navigate('/biz/news/new', { state: { profileId } })}>
+          <Button fullWidth={false} onClick={() => navigate('/biz/news/new', { state: { profileId } })}>
             <Plus size={17} />{t('biz.newsCreateCta')}
           </Button>
         </section>

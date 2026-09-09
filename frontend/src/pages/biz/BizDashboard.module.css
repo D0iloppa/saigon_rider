@@ -129,12 +129,20 @@
   scroll-margin-top: 12px;
 }
 
+.reviewSectionHead .sectionTitle {
+  min-width: 0;
+  margin: 0;
+  line-height: 1.35;
+}
+
 .reviewSectionHead:focus-visible {
   outline: 2px solid var(--brand-500);
   outline-offset: 3px;
 }
 
 .filterToggle, .filterToggleActive {
+  width: auto;
+  flex: 0 0 auto;
   min-height: 44px;
   padding: 6px 12px;
   border-radius: 999px;
@@ -145,6 +153,7 @@
   font-weight: 700;
   color: var(--text-2);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .filterToggleActive {

@@ -5,7 +5,7 @@
 
 .statRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
@@ -26,7 +26,7 @@
 
 .statValue {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text);
 }
 
@@ -86,7 +86,7 @@
 }
 
 .starOn {
-  color: #f5a623;
+  color: var(--gold);
 }
 
 .starOff {
@@ -116,7 +116,7 @@
   margin-top: 6px;
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--danger, #E5484D);
+  color: var(--danger);
 }
 
 /* T3: 미답변만 보기 필터 — sectionTitle 오른쪽에 배치 */
@@ -125,9 +125,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  scroll-margin-top: 12px;
+}
+
+.reviewSectionHead:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 3px;
 }
 
 .filterToggle, .filterToggleActive {
+  min-height: 44px;
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -140,12 +147,18 @@
 }
 
 .filterToggleActive {
-  border-color: var(--brand-500, #FF5A1F);
-  color: var(--brand-500, #FF5A1F);
+  border-color: var(--brand-500);
+  color: var(--brand-700);
   background: var(--surface-2);
 }
 
+.filterToggle:disabled,
+.filterToggleActive:disabled {
+  opacity: 0.5;
+}
+
 .moreBtn {
+  min-height: 44px;
   padding: 10px;
   border-radius: 12px;
   border: 1px solid var(--line);
@@ -155,20 +168,33 @@
   color: var(--text-2);
 }
 
+.reviewMoreError {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--danger);
+}
+
 /* ── 광고 성과 (ai-docs/spec/ad-performance-metrics.md §7) ── */
 
 .sectionTitleFlush {
   margin: 0;
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text);
 }
 
-.adPerfTitleRow {
+.performanceHead {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.periodContext {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .adPerfBadge {
@@ -183,7 +209,7 @@
 /* ── #27 업체 전용 이슈 채널 (013/016 §8 L5) ── */
 
 .issueToggleBtn {
-  margin-left: auto;
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -196,6 +222,13 @@
   font-weight: 700;
 }
 
+.supportSection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  scroll-margin-top: 12px;
+}
+
 .issueForm {
   display: flex;
   flex-direction: column;
@@ -205,6 +238,7 @@
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-2);
+  width: 100%;
 }
 
 .issueLabel {
@@ -215,6 +249,7 @@
 
 .issueSelect,
 .issueTextarea {
+  min-height: 44px;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -227,11 +262,12 @@
 
 .issueSubmitBtn {
   align-self: flex-start;
+  min-height: 44px;
   padding: 7px 16px;
   border-radius: var(--r-pill);
   border: none;
   background: var(--brand-500);
-  color: #fff;
+  color: white;
   font-size: 12.5px;
   font-weight: 700;
 }
@@ -300,6 +336,7 @@
 }
 
 .rangeBtn {
+  min-height: 44px;
   padding: 7px 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
@@ -327,37 +364,63 @@
 
 /* ── KPI 카드 + 증감 ── */
 
-.kpiRow {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
 .kpiCard {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: 11px 10px 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--surface);
+  overflow: hidden;
+}
+
+.kpiMetric {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px 10px;
+}
+
+.kpiMetric + .kpiMetric {
+  border-left: 1px solid var(--line);
 }
 
 .kpiLabel {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 11.5px;
   font-weight: 700;
   color: var(--text-3);
 }
 
 .kpiValue {
-  font-size: 17px;
-  font-weight: 800;
+  margin-top: 6px;
+  font-size: clamp(20px, 6.2vw, 26px);
+  font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
+}
+
+.definitionBtn {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -14px -12px -14px -10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+}
+
+.definitionText {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
 }
 
 .kpiFoot {
@@ -402,6 +465,32 @@
 
 .trendHead {
   margin-bottom: 12px;
+}
+
+.metricTabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.metricBtn {
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.metricBtnOn {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .cardTitle {
@@ -473,6 +562,7 @@
 .tableToggle {
   align-self: flex-start;
   margin-top: 10px;
+  min-height: 44px;
   padding: 7px 12px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
@@ -545,7 +635,7 @@
 
 .valueSpend {
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text);
 }
 
@@ -576,7 +666,7 @@
 }
 
 .valueRowCount {
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -645,7 +735,7 @@
 }
 
 .adMetrics b {
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
 }
@@ -671,4 +761,39 @@
   margin-top: 8px;
   font-size: 11.5px;
   color: var(--text-3);
+}
+
+.detailsToggle {
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.detailsBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.stateCard {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+@media (max-width: 370px) {
+  .kpiMetric {
+    padding-inline: 7px;
+  }
+
+  .kpiLabel,
+  .metricBtn {
+    font-size: 11px;
+  }
 }

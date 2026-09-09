@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
   Star,
   Users,
-  Newspaper,
   MessageSquare,
   Megaphone,
   AlertCircle,
   ArrowUp,
   ArrowDown,
   BarChart3,
+  HelpCircle,
 } from 'lucide-react';
 import StateBlock from '@/components/ui/StateBlock';
 import MiniAreaChart from '@/components/ui/MiniAreaChart';
@@ -50,29 +50,37 @@ function dayLabel(iso: string): string {
 
 interface Props {
   profileId: string;
-  /** '내 소식' 목록은 BizManage 가 이미 오너용으로 로딩 중 — 중복 호출 방지를 위해 상위에서 전달받는다 */
-  newsCount: number | null;
+  /** 운영 탭의 바로가기에서 기존 성과 탭 섹션을 열 때 사용한다. */
+  focus?: 'reviews' | 'support';
+  onFocusHandled?: () => void;
 }
 
+type TrendMetric = 'impressions' | 'clicks' | 'ctaPrimary';
+
 /**
- * 업체 자기 대시보드 — 광고 성과가 주인공, 업체 지표(후기·단골·소식)는 그 아래 종속 섹션.
+ * 업체 자기 대시보드 — 광고 성과가 주인공, 업체 지표(후기·단골)는 그 아래 종속 섹션.
  *
  * 광고 성과는 기간 선택기(7/14/30일) 하나가 아래 전체(KPI·차트·효용·광고별)를 스코프한다.
- * 시계열은 지표별 스몰 멀티플 — 노출/클릭/문의는 스케일 차가 커서 한 플롯에 겹치지 않고
- * 각자 자기 y축을 가진 별도 패널로 나눈다(이중 축 금지).
+ * 시계열은 선택한 지표 하나만 표시해 서로 다른 스케일을 한 플롯에 겹치지 않는다(이중 축 금지).
  */
-export default function BizDashboard({ profileId, newsCount }: Props) {
+export default function BizDashboard({ profileId, focus, onFocusHandled }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState(false);
+  const [profileReloadKey, setProfileReloadKey] = useState(0);
   const [reviews, setReviews] = useState<BizOwnerReview[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
   const [reviewAvg, setReviewAvg] = useState<number | null>(null);
+  const [reviewStatsLoaded, setReviewStatsLoaded] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
   const [unansweredOnly, setUnansweredOnly] = useState(false);
   const [reviewListLoading, setReviewListLoading] = useState(true);
+  const [reviewListError, setReviewListError] = useState(false);
+  const [reviewReloadKey, setReviewReloadKey] = useState(0);
   const [reviewHasMore, setReviewHasMore] = useState(false);
   const [reviewLoadingMore, setReviewLoadingMore] = useState(false);
+  const [reviewMoreError, setReviewMoreError] = useState(false);
   const [followerCount, setFollowerCount] = useState<number | null>(null);
   const [businessName, setBusinessName] = useState('');
   // 답글 작성/수정/삭제 + 후기 신고 — BizPublic(공개 프로필) 과 공용(useReviewModeration)
@@ -93,6 +101,13 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
   const [reloadKey, setReloadKey] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>('impressions');
+  const [definitionOpen, setDefinitionOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const reviewRequestVersionRef = useRef(0);
+  const supportRef = useRef<HTMLDivElement>(null);
+  const supportButtonRef = useRef<HTMLButtonElement>(null);
+  const reviewsRef = useRef<HTMLDivElement>(null);
 
   // #27(013/016 §8 L5) — 업체 전용 이슈 채널. "광고가 안 나옵니다" 등 계약 관련 이슈를 영업 담당
   // 개인 연락 대신 이 창구로 접수한다 — ad_id 만 넘기면 서버가 계약 컨텍스트를 자동 첨부한다.
@@ -103,6 +118,23 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
   const [issueResult, setIssueResult] = useState<'success' | 'error' | null>(null);
 
   const retryAdStats = () => setReloadKey((k) => k + 1);
+
+  useEffect(() => {
+    if (!focus) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (focus === 'support') {
+        setIssueFormOpen(true);
+        setIssueResult(null);
+        supportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        supportButtonRef.current?.focus();
+      } else {
+        reviewsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        reviewsRef.current?.focus();
+      }
+      onFocusHandled?.();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focus, onFocusHandled]);
 
   const handleSubmitIssue = async () => {
     if (!issueAdId || !issueBody.trim() || issueSubmitting) return;
@@ -149,7 +181,10 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
     setActiveIndex(null);
     fetchBizAdStatsSeries(profileId, period)
       .then((res) => {
-        if (!cancelled) setSeriesData(res);
+        if (!cancelled) {
+          setSeriesData(res);
+          setIssueAdId('');
+        }
       })
       .catch(() => {
         if (!cancelled) setSeriesError(true);
@@ -166,6 +201,7 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setProfileError(false);
     fetchBusinessPublicProfile(profileId)
       .then((profile) => {
         if (cancelled) return;
@@ -174,7 +210,8 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
       })
       .catch(() => {
         if (cancelled) return;
-        setFollowerCount(0);
+        setFollowerCount(null);
+        setProfileError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -182,49 +219,56 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, profileReloadKey]);
 
   // 후기 목록 — "미답변만" 토글 시 이 목록만 재조회한다(F2-2). reviewTotal(업체 지표 카드)은
   // 필터와 무관한 전체 후기 수를 보여야 하므로 필터 걸린 응답의 total 로는 덮어쓰지 않는다(F2-1).
   useEffect(() => {
     let cancelled = false;
+    const requestVersion = ++reviewRequestVersionRef.current;
     setReviewListLoading(true);
+    setReviewListError(false);
     fetchBizOwnerReviews(profileId, { limit: REVIEW_PAGE, offset: 0, unansweredOnly })
       .then((reviewRes) => {
-        if (cancelled) return;
+        if (cancelled || requestVersion !== reviewRequestVersionRef.current) return;
         setReviews(reviewRes.reviews);
-        if (!unansweredOnly) setReviewTotal(reviewRes.total);
+        if (!unansweredOnly) {
+          setReviewTotal(reviewRes.total);
+          setReviewStatsLoaded(true);
+        }
         setReviewAvg(reviewRes.avgRating);
         setUnansweredCount(reviewRes.unansweredCount);
         setReviewHasMore(reviewRes.hasMore);
       })
       .catch(() => {
-        if (cancelled) return;
-        setReviews([]);
-        if (!unansweredOnly) setReviewTotal(0);
-        setReviewAvg(null);
-        setReviewHasMore(false);
+        if (cancelled || requestVersion !== reviewRequestVersionRef.current) return;
+        setReviewListError(true);
       })
       .finally(() => {
-        if (!cancelled) setReviewListLoading(false);
+        if (!cancelled && requestVersion === reviewRequestVersionRef.current) setReviewListLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [profileId, unansweredOnly]);
+  }, [profileId, unansweredOnly, reviewReloadKey]);
 
   const handleMoreReviews = async () => {
     if (reviewLoadingMore) return;
+    const requestVersion = reviewRequestVersionRef.current;
     setReviewLoadingMore(true);
+    setReviewMoreError(false);
     try {
       const res = await fetchBizOwnerReviews(profileId, {
         limit: REVIEW_PAGE, offset: reviews.length, unansweredOnly,
       });
+      if (requestVersion !== reviewRequestVersionRef.current) return;
       setReviews((prev) => [...prev, ...res.reviews]);
       if (!unansweredOnly) setReviewTotal(res.total);
       setReviewAvg(res.avgRating);
       setUnansweredCount(res.unansweredCount);
       setReviewHasMore(res.hasMore);
+    } catch {
+      if (requestVersion === reviewRequestVersionRef.current) setReviewMoreError(true);
     } finally {
       setReviewLoadingMore(false);
     }
@@ -264,14 +308,17 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
       },
       {
         key: 'ctaPrimary',
-        label: t('biz.dashboard.adPerfInquiries', { defaultValue: '문의' }),
+        label: t('biz.dashboard.adPerfCustomerActions', { defaultValue: '고객 행동' }),
         color: 'var(--brand-700)',
         pick: (p) => p.ctaPrimary,
       },
     ];
+    const selected = panels.find((panel) => panel.key === trendMetric) ?? panels[0];
     const first = data.series[0];
     const last = data.series[data.series.length - 1];
     const active = activeIndex != null ? data.series[activeIndex] : null;
+    const values = data.series.map(selected.pick);
+    const max = Math.max(...values);
 
     return (
       <>
@@ -279,36 +326,46 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
           <h4 className={styles.cardTitle}>{t('biz.dashboard.adPerfTrendTitle', { defaultValue: '일별 추이' })}</h4>
           <p className={styles.readout} aria-live="polite">
             {active
-              ? `${dayLabel(active.date)} · ${panels.map((p) => `${p.label} ${formatNum(p.pick(active))}`).join(' · ')}`
+              ? `${dayLabel(active.date)} · ${selected.label} ${formatNum(selected.pick(active))}`
               : `${dayLabel(first.date)} – ${dayLabel(last.date)}`}
           </p>
         </div>
-        {panels.map((p) => {
-          const values = data.series.map(p.pick);
-          const max = Math.max(...values);
-          return (
-            <div key={p.key} className={styles.panel}>
-              <div className={styles.panelHead}>
-                <span className={styles.panelKey} style={{ background: p.color }} aria-hidden="true" />
-                <span className={styles.panelLabel}>{p.label}</span>
-                <span className={styles.panelMax}>
-                  {t('biz.dashboard.adPerfDailyMax', { value: formatNum(max), defaultValue: '일 최대 {{value}}' })}
-                </span>
-              </div>
-              <MiniAreaChart
-                values={values}
-                color={p.color}
-                activeIndex={activeIndex}
-                onActive={setActiveIndex}
-                ariaLabel={`${p.label} — ${dayLabel(first.date)} ~ ${dayLabel(last.date)}`}
-              />
-              <div className={styles.xAxis}>
-                <span>{dayLabel(first.date)}</span>
-                <span>{dayLabel(last.date)}</span>
-              </div>
-            </div>
-          );
-        })}
+        <div className={styles.metricTabs} role="group" aria-label={t('biz.dashboard.adPerfMetricGroup', { defaultValue: '차트 지표' })}>
+          {panels.map((panel) => (
+            <button
+              key={panel.key}
+              type="button"
+              className={trendMetric === panel.key ? `${styles.metricBtn} ${styles.metricBtnOn}` : styles.metricBtn}
+              aria-pressed={trendMetric === panel.key}
+              onClick={() => {
+                setTrendMetric(panel.key as TrendMetric);
+                setActiveIndex(null);
+              }}
+            >
+              {panel.label}
+            </button>
+          ))}
+        </div>
+        <div className={styles.panel}>
+          <div className={styles.panelHead}>
+            <span className={styles.panelKey} style={{ background: selected.color }} aria-hidden="true" />
+            <span className={styles.panelLabel}>{selected.label}</span>
+            <span className={styles.panelMax}>
+              {t('biz.dashboard.adPerfDailyMax', { value: formatNum(max), defaultValue: '일 최대 {{value}}' })}
+            </span>
+          </div>
+          <MiniAreaChart
+            values={values}
+            color={selected.color}
+            activeIndex={activeIndex}
+            onActive={setActiveIndex}
+            ariaLabel={`${selected.label} — ${dayLabel(first.date)} ~ ${dayLabel(last.date)}`}
+          />
+          <div className={styles.xAxis}>
+            <span>{dayLabel(first.date)}</span>
+            <span>{dayLabel(last.date)}</span>
+          </div>
+        </div>
         <p className={styles.chartHint}>
           {t('biz.dashboard.adPerfChartHint', { defaultValue: '그래프를 누르면 그날의 값을 볼 수 있어요' })}
         </p>
@@ -319,24 +376,21 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
         </button>
         {tableOpen && (
           <div className={styles.tableWrap}>
-            <table className={styles.dailyTable}>
+            <table
+              className={styles.dailyTable}
+              aria-label={`${selected.label} · ${dayLabel(first.date)} – ${dayLabel(last.date)}`}
+            >
               <thead>
                 <tr>
                   <th scope="col">{t('biz.dashboard.adPerfTableDate', { defaultValue: '날짜' })}</th>
-                  {panels.map((p) => (
-                    <th key={p.key} scope="col">
-                      {p.label}
-                    </th>
-                  ))}
+                  <th scope="col">{selected.label}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.series.map((point) => (
                   <tr key={point.date}>
                     <th scope="row">{dayLabel(point.date)}</th>
-                    {panels.map((p) => (
-                      <td key={p.key}>{formatNum(p.pick(point))}</td>
-                    ))}
+                    <td>{formatNum(selected.pick(point))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -368,9 +422,9 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
       {
         key: 'ctaPrimary',
         color: 'var(--brand-700)',
-        label: t('biz.dashboard.adPerfInquiries', { defaultValue: '문의' }),
+        label: t('biz.dashboard.adPerfCustomerActions', { defaultValue: '고객 행동' }),
         count: data.totals.ctaPrimary,
-        unitLabel: t('biz.dashboard.adPerfCostPerInquiry', { defaultValue: '문의 1건당' }),
+        unitLabel: t('biz.dashboard.adPerfCostPerAction', { defaultValue: '고객 행동 1건당' }),
         unitCost: data.cpaVnd,
       },
     ];
@@ -430,7 +484,7 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
                   <b className="num">{formatNum(ad.clicks)}</b>
                 </span>
                 <span>
-                  {t('biz.dashboard.adPerfInquiries', { defaultValue: '문의' })}{' '}
+                  {t('biz.dashboard.adPerfCustomerActions', { defaultValue: '고객 행동' })}{' '}
                   <b className="num">{formatNum(ad.ctaPrimary)}</b>
                 </span>
               </div>
@@ -492,10 +546,10 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
           icon={Megaphone}
           title={t('biz.dashboard.adPerfEmptyNoAdsTitle', { defaultValue: '아직 광고가 없어요' })}
           desc={t('biz.dashboard.adPerfEmptyNoAdsDesc', {
-            defaultValue: '광고를 시작하면 노출·클릭·문의 성과를 여기서 확인할 수 있어요',
+            defaultValue: '광고를 시작하면 노출·클릭·고객 행동 성과를 여기서 확인할 수 있어요',
           })}
           actionLabel={t('biz.dashboard.adPerfEmptyNoAdsCta', { defaultValue: '광고 시작하기' })}
-          onAction={() => navigate('/biz/ads/new')}
+          onAction={() => navigate('/biz/ads/new', { state: { profileId } })}
         />
       );
     }
@@ -505,7 +559,9 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
         <StateBlock
           icon={Megaphone}
           title={t('biz.dashboard.adPerfPendingTitle', { defaultValue: '심사 중이에요' })}
-          desc={t('biz.dashboard.adPerfPendingDesc', { defaultValue: '승인되면 노출이 시작돼요' })}
+          desc={t('biz.dashboard.adPerfPendingDesc', {
+            defaultValue: '소재를 심사하고 있어요. 실제 노출은 계약과 게시 조건에 따라 결정돼요.',
+          })}
         />
       );
     }
@@ -533,15 +589,15 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
       );
     }
 
-    // low_sample / normal — 절대 숫자 3개(노출·클릭·문의)는 공통, 비율·비용은 표본 게이트 통과 시에만
+    // low_sample / normal — 절대 숫자 3개(노출·클릭·고객 행동)는 공통, 비율·비용은 표본 게이트 통과 시에만
     const seriesState: BizAdStatsSummary['state'] =
       seriesData.totals.impressions < seriesData.minSampleForRatio ? 'low_sample' : 'normal';
     const days = seriesData.periodDays;
 
     return (
       <>
-        <div className={styles.kpiRow}>
-          <div className={styles.kpiCard}>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiMetric}>
             <span className={styles.kpiLabel}>
               <span className={styles.panelKey} style={{ background: 'var(--brand-300)' }} aria-hidden="true" />
               {t('biz.dashboard.adPerfImpressions', { defaultValue: '노출' })}
@@ -549,7 +605,7 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
             <span className={`num ${styles.kpiValue}`}>{formatNum(seriesData.totals.impressions)}</span>
             {renderDelta(seriesData.totals.impressions, seriesData.previous.impressions, days)}
           </div>
-          <div className={styles.kpiCard}>
+          <div className={styles.kpiMetric}>
             <span className={styles.kpiLabel}>
               <span className={styles.panelKey} style={{ background: 'var(--brand-500)' }} aria-hidden="true" />
               {t('biz.dashboard.adPerfClicks', { defaultValue: '클릭' })}
@@ -557,15 +613,31 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
             <span className={`num ${styles.kpiValue}`}>{formatNum(seriesData.totals.clicks)}</span>
             {renderDelta(seriesData.totals.clicks, seriesData.previous.clicks, days)}
           </div>
-          <div className={styles.kpiCard}>
+          <div className={styles.kpiMetric}>
             <span className={styles.kpiLabel}>
               <span className={styles.panelKey} style={{ background: 'var(--brand-700)' }} aria-hidden="true" />
-              {t('biz.dashboard.adPerfInquiries', { defaultValue: '문의' })}
+              {t('biz.dashboard.adPerfCustomerActions', { defaultValue: '고객 행동' })}
+              <button
+                type="button"
+                className={styles.definitionBtn}
+                aria-label={t('biz.dashboard.adPerfCustomerActionsHelp', { defaultValue: '고객 행동 정의 보기' })}
+                aria-expanded={definitionOpen}
+                onClick={() => setDefinitionOpen((open) => !open)}
+              >
+                <HelpCircle size={15} aria-hidden="true" />
+              </button>
             </span>
             <span className={`num ${styles.kpiValue}`}>{formatNum(seriesData.totals.ctaPrimary)}</span>
             {renderDelta(seriesData.totals.ctaPrimary, seriesData.previous.ctaPrimary, days)}
           </div>
         </div>
+        {definitionOpen && (
+          <p className={styles.definitionText} role="note">
+            {t('biz.dashboard.adPerfCustomerActionsDefinition', {
+              defaultValue: '전화·단골 추가·찜·후기 행동의 합계예요. 실제 문의 완료나 구매 건수를 뜻하지 않아요.',
+            })}
+          </p>
+        )}
         <p className={styles.kpiFoot}>{t('biz.dashboard.adPerfVsPrev', { days, defaultValue: '직전 {{days}}일 대비' })}</p>
 
         {seriesState === 'low_sample' && (
@@ -574,68 +646,73 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
           </p>
         )}
 
-        {seriesState === 'normal' && (
-          <>
-            <div className={styles.adPerfRatioRow}>
-              {seriesData.ctr != null && (
-                <span>
-                  {t('biz.dashboard.adPerfCtr', { defaultValue: '클릭률(CTR)' })} {seriesData.ctr.toFixed(1)}%
-                </span>
-              )}
-              {seriesData.cvr != null && (
-                <span>
-                  {t('biz.dashboard.adPerfCvr', { defaultValue: '전환율(CVR)' })} {seriesData.cvr.toFixed(1)}%
-                </span>
-              )}
-            </div>
-            <div className={styles.adPerfBreakdownRow}>
-              <span>
-                {t('biz.dashboard.adPerfReach', { defaultValue: '도달' })} {formatNum(seriesData.totals.reach)}
-              </span>
-              <span>
-                {t('biz.dashboard.adPerfFollowCount', { defaultValue: '단골' })}{' '}
-                {formatNum(seriesData.totals.ctaFollow)}
-              </span>
-              <span>
-                {t('biz.dashboard.adPerfFavoriteCount', { defaultValue: '찜' })}{' '}
-                {formatNum(seriesData.totals.ctaFavorite)}
-              </span>
-            </div>
-          </>
-        )}
-
         <div className={styles.trendCard}>{renderTrend(seriesData)}</div>
 
-        {seriesState === 'normal' && renderSpendValue(seriesData)}
-
-        <h4 className={styles.byAdTitle}>{t('biz.dashboard.adPerfByAdTitle', { defaultValue: '광고별 성과' })}</h4>
-        {renderByAd(seriesData)}
+        <button
+          type="button"
+          className={styles.detailsToggle}
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
+          {detailsOpen
+            ? t('biz.dashboard.adPerfDetailsHide', { defaultValue: '상세 지표 닫기' })
+            : t('biz.dashboard.adPerfDetailsShow', { defaultValue: '상세 지표 보기' })}
+        </button>
+        {detailsOpen && (
+          <div className={styles.detailsBody}>
+            {seriesState === 'normal' && (
+              <>
+                <div className={styles.adPerfRatioRow}>
+                  {seriesData.ctr != null && (
+                    <span>
+                      {t('biz.dashboard.adPerfCtr', { defaultValue: '클릭률(CTR)' })} {seriesData.ctr.toFixed(1)}%
+                    </span>
+                  )}
+                  {seriesData.cvr != null && (
+                    <span>
+                      {t('biz.dashboard.adPerfActionRate', { defaultValue: '고객 행동률' })} {seriesData.cvr.toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+                <div className={styles.adPerfBreakdownRow}>
+                  <span>{t('biz.dashboard.adPerfReach', { defaultValue: '도달' })} {formatNum(seriesData.totals.reach)}</span>
+                  <span>{t('biz.dashboard.adPerfFollowCount', { defaultValue: '단골' })} {formatNum(seriesData.totals.ctaFollow)}</span>
+                  <span>{t('biz.dashboard.adPerfFavoriteCount', { defaultValue: '찜' })} {formatNum(seriesData.totals.ctaFavorite)}</span>
+                </div>
+              </>
+            )}
+            {seriesState === 'normal' && renderSpendValue(seriesData)}
+            <h4 className={styles.byAdTitle}>{t('biz.dashboard.adPerfByAdTitle', { defaultValue: '광고별 성과' })}</h4>
+            {renderByAd(seriesData)}
+          </div>
+        )}
       </>
     );
   };
 
-  if (loading) {
-    return (
-      <div className={styles.wrap}>
-        <div className={styles.statRow}>
-          <div className={`shimmer ${styles.statSkeleton}`} />
-          <div className={`shimmer ${styles.statSkeleton}`} />
-          <div className={`shimmer ${styles.statSkeleton}`} />
-        </div>
-        <div className={`shimmer ${styles.listSkeleton}`} />
-      </div>
-    );
-  }
+  const periodRange = seriesData?.period === period && seriesData.series.length
+    ? `${dayLabel(seriesData.series[0].date)} – ${dayLabel(seriesData.series[seriesData.series.length - 1].date)}`
+    : t(`biz.dashboard.adPerfRange${period}`, { defaultValue: period === '7d' ? '7일' : period === '14d' ? '14일' : '30일' });
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.adPerfTitleRow}>
-        <h3 className={styles.sectionTitleFlush}>{t('biz.dashboard.adPerfTitle', { defaultValue: '광고 성과' })}</h3>
+      <div className={styles.performanceHead}>
+        <div>
+          <h3 className={styles.sectionTitleFlush}>{t('biz.dashboard.adPerfTitle', { defaultValue: '광고 성과' })}</h3>
+          <p className={styles.periodContext}>
+            <span className="num">{periodRange}</span>
+            {' · '}
+            {t('biz.dashboard.adPerfVietnamTime', { defaultValue: '베트남 시간 기준' })}
+          </p>
+        </div>
         {adStats?.isEnded && (
           <span className={styles.adPerfBadge}>{t('biz.dashboard.adPerfEndedBadge', { defaultValue: '게시 종료' })}</span>
         )}
+      </div>
+      <div ref={supportRef} id="biz-dashboard-support" className={styles.supportSection}>
         {/* #27 — 광고주가 신고 버튼 대신 영업 담당 개인 연락으로 새는 것을 막는 창구 */}
         <button
+          ref={supportButtonRef}
           type="button"
           className={styles.issueToggleBtn}
           onClick={() => {
@@ -646,11 +723,20 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
           <AlertCircle size={13} strokeWidth={2.2} />
           {t('biz.dashboard.issueButton', { defaultValue: '이슈 신고' })}
         </button>
-      </div>
 
-      {issueFormOpen && (
-        <div className={styles.issueForm}>
-          {(seriesData?.byAd?.length ?? 0) === 0 ? (
+        {issueFormOpen && (
+          <div className={styles.issueForm}>
+          {seriesLoading && !seriesData ? (
+            <p className={styles.issueEmptyNotice}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
+          ) : seriesError ? (
+            <StateBlock
+              icon={AlertCircle}
+              tone="error"
+              title={t('biz.dashboard.issueAdsError', { defaultValue: '광고 목록을 불러오지 못했어요' })}
+              actionLabel={t('common.retry', { defaultValue: '다시 시도' })}
+              onAction={retryAdStats}
+            />
+          ) : (seriesData?.byAd?.length ?? 0) === 0 ? (
             <p className={styles.issueEmptyNotice}>
               {t('biz.dashboard.issueNoAds', { defaultValue: '등록된 광고가 없어 이슈를 제출할 수 없습니다.' })}
             </p>
@@ -701,8 +787,9 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
               )}
             </>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
       {/* 기간 필터는 한 줄, 아래 광고 성과 전체를 스코프한다 (차트별 필터 금지) */}
       <div className={styles.rangeRow} role="group" aria-label={t('biz.dashboard.adPerfRangeGroup', { defaultValue: '조회 기간' })}>
         {RANGES.map((r) => (
@@ -723,38 +810,70 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
       </div>
 
       <h3 className={styles.sectionTitle}>{t('biz.dashboard.bizStatsTitle', { defaultValue: '업체 지표' })}</h3>
-      <div className={styles.statRow}>
-        <div className={styles.statCard}>
-          <Star size={16} strokeWidth={2} className={styles.statIcon} />
-          <span className={styles.statValue}>{reviewAvg != null ? reviewAvg.toFixed(1) : '—'}</span>
-          <span className={styles.statLabel}>
-            {t('biz.dashboard.reviewStat', { count: reviewTotal, defaultValue: '후기 {{count}}' })}
-          </span>
+      {loading || (!reviewStatsLoaded && reviewListLoading) ? (
+        <div className={styles.statRow}>
+          <div className={`shimmer ${styles.statSkeleton}`} />
+          <div className={`shimmer ${styles.statSkeleton}`} />
         </div>
-        <div className={styles.statCard}>
-          <Users size={16} strokeWidth={2} className={styles.statIcon} />
-          <span className={styles.statValue}>{followerCount ?? 0}</span>
-          <span className={styles.statLabel}>{t('biz.dashboard.followerStat', { defaultValue: '단골' })}</span>
+      ) : profileError || (!reviewStatsLoaded && reviewListError) ? (
+        <div className={styles.stateCard}>
+          <StateBlock
+            icon={AlertCircle}
+            tone="error"
+            title={t('biz.dashboard.bizStatsError', { defaultValue: '업체 지표를 불러오지 못했어요' })}
+            actionLabel={t('common.retry', { defaultValue: '다시 시도' })}
+            onAction={() => {
+              if (profileError) setProfileReloadKey((key) => key + 1);
+              if (reviewListError) setReviewReloadKey((key) => key + 1);
+            }}
+          />
         </div>
-        <div className={styles.statCard}>
-          <Newspaper size={16} strokeWidth={2} className={styles.statIcon} />
-          <span className={styles.statValue}>{newsCount ?? '—'}</span>
-          <span className={styles.statLabel}>{t('biz.dashboard.newsStat', { defaultValue: '소식' })}</span>
+      ) : (
+        <div className={styles.statRow}>
+          <div className={styles.statCard}>
+            <Star size={16} strokeWidth={2} className={styles.statIcon} />
+            <span className={`num ${styles.statValue}`}>{reviewAvg != null ? reviewAvg.toFixed(1) : '—'}</span>
+            <span className={styles.statLabel}>
+              {t('biz.dashboard.reviewStat', { count: reviewTotal, defaultValue: '후기 {{count}}' })}
+            </span>
+          </div>
+          <div className={styles.statCard}>
+            <Users size={16} strokeWidth={2} className={styles.statIcon} />
+            <span className={`num ${styles.statValue}`}>{followerCount ?? '—'}</span>
+            <span className={styles.statLabel}>{t('biz.dashboard.followerStat', { defaultValue: '단골' })}</span>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className={styles.reviewSectionHead}>
+      <div ref={reviewsRef} id="biz-dashboard-reviews" tabIndex={-1} className={styles.reviewSectionHead}>
         <h3 className={styles.sectionTitle}>{t('biz.dashboard.recentReviews', { defaultValue: '최근 후기' })}</h3>
         <button
           type="button"
           className={unansweredOnly ? styles.filterToggleActive : styles.filterToggle}
-          onClick={() => setUnansweredOnly((v) => !v)}
+          disabled={reviewListLoading}
+          onClick={() => {
+            reviewRequestVersionRef.current += 1;
+            setReviewLoadingMore(false);
+            setReviewMoreError(false);
+            setReviewListLoading(true);
+            setUnansweredOnly((v) => !v);
+          }}
         >
           {t('biz.dashboard.unansweredOnlyFilter', { count: unansweredCount, defaultValue: '미답변만 ({{count}})' })}
         </button>
       </div>
       {reviewListLoading ? (
         <div className={`shimmer ${styles.listSkeleton}`} />
+      ) : reviewListError ? (
+        <div className={styles.stateCard}>
+          <StateBlock
+            icon={AlertCircle}
+            tone="error"
+            title={t('biz.dashboard.reviewsError', { defaultValue: '후기를 불러오지 못했어요' })}
+            actionLabel={t('common.retry', { defaultValue: '다시 시도' })}
+            onAction={() => setReviewReloadKey((key) => key + 1)}
+          />
+        </div>
       ) : reviews.length === 0 ? (
         <StateBlock
           icon={MessageSquare}
@@ -819,6 +938,11 @@ export default function BizDashboard({ profileId, newsCount }: Props) {
             >
               {t('biz.review.more', { defaultValue: '후기 더보기' })}
             </button>
+          )}
+          {reviewMoreError && (
+            <p className={styles.reviewMoreError} role="alert">
+              {t('biz.dashboard.reviewsError', { defaultValue: '후기를 불러오지 못했어요' })}
+            </p>
           )}
         </div>
       )}

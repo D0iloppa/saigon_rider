@@ -41,7 +41,7 @@ export default function BizAdDetail() {
 
   const statusLabel = (s: BusinessAdStatus) =>
     s === 'PENDING' ? t('biz.adStatusPending', { defaultValue: '심사중' })
-    : s === 'APPROVED' ? t('biz.adStatusApproved', { defaultValue: '게시중' })
+    : s === 'APPROVED' ? t('biz.lounge.adReviewApproved')
     : s === 'REJECTED' ? t('biz.adStatusRejected', { defaultValue: '반려' })
     : t('biz.adStatusStopped', { defaultValue: '게시 중단' });
 

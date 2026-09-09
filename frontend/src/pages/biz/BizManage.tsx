@@ -1,494 +1,195 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, ChevronDown, ChevronRight, Megaphone, Newspaper, Package, Receipt, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Camera, ChevronDown, ChevronRight, CircleHelp, FileText, Megaphone, MessageSquare, Newspaper, Package, Receipt, ShieldCheck, Store } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
-import { Button } from '@/components/ui/Button';
-import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { Button } from '@/components/ui/Button';
+import StateBlock from '@/components/ui/StateBlock';
+import SkeletonRows from '@/components/ui/SkeletonRows';
+import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { api, extractDetail } from '@/api/client';
-import {
-  fetchBusinessProfiles,
-  updateBusinessProfile,
-  fetchBusinessAds,
-  fetchBizCategories,
-  bizCategoryLabel,
-  fetchBizPublicNews,
-  fetchContractLink,
-  type BusinessProfile,
-  type BusinessAd,
-  type BusinessAdStatus,
-  type BizCategory,
-  type BizVerificationStatus,
-  type BizNewsItem,
-} from '@/api/biz';
+import { bizCategoryLabel, fetchBizCategories, fetchBusinessAds, fetchBusinessProfiles, fetchContractLink, updateBusinessProfile, type BizCategory, type BusinessAd, type BusinessProfile } from '@/api/biz';
+import sys from '@/styles/system.module.css';
 import BizDashboard from './BizDashboard';
 import styles from './BizManage.module.css';
 
-const MANAGE_TABS = ['home', 'dashboard'] as const;
-type ManageTab = typeof MANAGE_TABS[number];
+type ManageTab = 'operations' | 'performance';
+type DashboardFocus = 'reviews' | 'support';
 
-const AD_CHIP_CLASS: Record<BusinessAdStatus, string> = {
-  PENDING: 'adChipPending',
-  APPROVED: 'adChipApproved',
-  REJECTED: 'adChipRejected',
-  STOPPED: 'adChipStopped',
-};
-
-const VERIF_CHIP_CLASS: Record<BizVerificationStatus, string> = {
-  pending: 'verifChipPending',
-  docs_submitted: 'verifChipSubmitted',
-  verified: 'verifChipVerified',
-  rejected: 'verifChipRejected',
-};
+function adPriority(ad: BusinessAd): number {
+  if (ad.reviewStatus === 'REJECTED') return 0;
+  if (ad.subscriptionStatus === 'pending_payment') return 1;
+  if (ad.reviewStatus === 'PENDING') return 2;
+  return 3;
+}
 
 export default function BizManage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  // O-2: 프로필에서 업체를 선택해 진입한 경우 해당 업체를 기본 활성 탭으로
-  const preselectProfileId = (location.state as { profileId?: string } | null)?.profileId;
   const user = useUserStore((s) => s.user);
-  const [profiles, setProfiles] = useState<BusinessProfile[] | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
+  const preselectProfileId = (location.state as { profileId?: string } | null)?.profileId;
+  const initialProfileIdRef = useRef(preselectProfileId);
+  const profileRequestRef = useRef(0);
+  const [profiles, setProfiles] = useState<BusinessProfile[] | null>(null);
+  const [profilesError, setProfilesError] = useState(false);
   const [categories, setCategories] = useState<BizCategory[]>([]);
-  useEffect(() => {
-    fetchBizCategories().then(setCategories).catch(() => setCategories([]));
-  }, []);
-  const categoryLabel = (code: string | null) => {
-    if (!code) return '';
-    const cat = categories.find((c) => c.code === code);
-    return cat ? bizCategoryLabel(cat, i18n.language) : code;
-  };
   const [activeIdx, setActiveIdx] = useState(0);
-  const [activeTab, setActiveTab] = useState<ManageTab>('home');
+  const [activeTab, setActiveTab] = useState<ManageTab>('operations');
+  const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>();
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [intro, setIntro] = useState('');
   const [saving, setSaving] = useState(false);
-  // 프로필별 광고 목록 — profileId 를 함께 들고 스위처 전환 시 이전 프로필 목록 표시를 방지
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [ads, setAds] = useState<{ profileId: string; list: BusinessAd[] } | null>(null);
-  // 프로필별 소식 목록 (SGR-326 — 가게소식 작성)
-  const [news, setNews] = useState<{ profileId: string; list: BizNewsItem[] } | null>(null);
-  const [guideOpen, setGuideOpen] = useState(false);
-  // 웹 계약(결제) 링크 발급 로딩 — pending_payment 광고별 버튼 상태
+  const [adsErrorFor, setAdsErrorFor] = useState<string | null>(null);
+  const [adsReloadKey, setAdsReloadKey] = useState(0);
   const [contractLoadingId, setContractLoadingId] = useState<string | null>(null);
   const kb = useKeyboard();
-  // iOS 네이티브는 키보드가 순수 오버레이라 editForm 의 name/phone input 이 키보드에 가려진다 —
-  // 키보드 높이만큼 하단 padding 을 더해 스크롤로 뺄 수 있게 한다. (ai-docs/context/keyboard-ux.md 케이스 1)
   const isIosNative = native.platform === 'ios';
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchBusinessProfiles()
-      .then((list) => {
-        if (cancelled) return;
-        const approved = list.filter((p) => p.status === 'APPROVED');
-        if (approved.length === 0) {
-          navigate('/biz/status', { replace: true });
-          return;
-        }
-        setProfiles(approved);
-      })
-      .catch(() => {
-        if (!cancelled) navigate('/biz/status', { replace: true });
-      });
-    return () => {
-      cancelled = true;
-    };
+  const loadProfiles = useCallback(() => {
+    const requestId = ++profileRequestRef.current;
+    fetchBusinessProfiles().then((list) => {
+      if (requestId !== profileRequestRef.current) return;
+      const approved = list.filter((profile) => profile.status === 'APPROVED');
+      if (!approved.length) return navigate('/biz/status', { replace: true });
+      const selectedIdx = initialProfileIdRef.current ? approved.findIndex((profile) => profile.id === initialProfileIdRef.current) : -1;
+      setActiveIdx(selectedIdx >= 0 ? selectedIdx : 0);
+      setProfiles(approved);
+    }).catch(() => {
+      if (requestId === profileRequestRef.current) { setProfiles([]); setProfilesError(true); }
+    });
   }, [navigate]);
 
-  // BP-4: 활성 프로필의 광고 목록
-  const activeId = profiles?.[activeIdx]?.id;
+  useEffect(() => loadProfiles(), [loadProfiles]);
+  useEffect(() => { fetchBizCategories().then(setCategories).catch(() => setCategories([])); }, []);
+  const active = profiles?.[activeIdx];
   useEffect(() => {
-    if (!activeId) return;
+    if (!active?.id) return;
     let cancelled = false;
-    fetchBusinessAds(activeId)
-      .then((list) => {
-        if (!cancelled) setAds({ profileId: activeId, list });
-      })
-      .catch(() => {
-        if (!cancelled) setAds({ profileId: activeId, list: [] });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeId]);
+    fetchBusinessAds(active.id).then((list) => {
+      if (!cancelled) setAds({ profileId: active.id, list });
+    }).catch(() => { if (!cancelled) setAdsErrorFor(active.id); });
+    return () => { cancelled = true; };
+  }, [active?.id, adsReloadKey]);
 
-  // 가게소식: 활성 프로필의 내 소식 목록 (공개 GET 재사용 — 이 화면은 이미 APPROVED 프로필만 다룸)
-  useEffect(() => {
-    if (!activeId) return;
-    let cancelled = false;
-    fetchBizPublicNews(activeId, { limit: 20, offset: 0 })
-      .then((list) => {
-        if (!cancelled) setNews({ profileId: activeId, list });
-      })
-      .catch(() => {
-        if (!cancelled) setNews({ profileId: activeId, list: [] });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeId]);
-
-  if (profiles === null) {
-    return (
-      <div className={styles.page}>
-        <TopBar title={t('biz.manageTitle', { defaultValue: '파트너 라운지' })} />
-        <div className={styles.body}>
-          <p className={styles.loading}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const active = profiles[activeIdx];
-  const adList = ads && ads.profileId === active.id ? ads.list : null;
-
-  const startEdit = () => {
-    setName(active.name);
-    setPhone(active.phone ?? '');
-    setIntro(active.intro ?? '');
-    setEditing(true);
+  const categoryLabel = (code: string | null) => {
+    const category = code ? categories.find((item) => item.code === code) : undefined;
+    return category ? bizCategoryLabel(category, i18n.language) : code ?? '';
   };
-
+  const profileState = (profile: BusinessProfile) => ({ profileId: profile.id, profileName: profile.name, profilePhotoUrl: profile.photoUrl });
+  const selectProfile = (idx: number) => {
+    const selected = profiles?.[idx];
+    if (!selected) return;
+    setActiveIdx(idx); setEditing(false); setStoreSheetOpen(false);
+    navigate(location.pathname, { replace: true, state: { ...(location.state as object | null), profileId: selected.id } });
+  };
+  const startEdit = () => {
+    if (!active) return;
+    setName(active.name); setPhone(active.phone ?? ''); setIntro(active.intro ?? ''); setEditing(true);
+  };
   const saveEdit = async () => {
-    if (!name.trim() || !phone.trim()) return;
+    if (!active || !name.trim() || !phone.trim()) return;
     setSaving(true);
     try {
-      const updated = await updateBusinessProfile(active.id, {
-        name: name.trim(),
-        category: active.category,
-        address: active.address ?? '',
-        latitude: active.latitude ?? 0,
-        longitude: active.longitude ?? 0,
-        phone: phone.trim(),
-        intro: intro.trim() || null,
-        photoContentId: active.photoContentId, // 기존 사진 유지 (이 폼은 사진을 다루지 않음)
-      });
-      setProfiles((prev) => (prev ? prev.map((p, i) => (i === activeIdx ? updated : p)) : prev));
-      setEditing(false);
-    } catch (err: any) {
-      toast.error(extractDetail(err, t('biz.editError', { defaultValue: '수정에 실패했습니다' })));
-    } finally {
-      setSaving(false);
-    }
+      const updated = await updateBusinessProfile(active.id, { name: name.trim(), category: active.category, address: active.address ?? '', latitude: active.latitude ?? 0, longitude: active.longitude ?? 0, phone: phone.trim(), intro: intro.trim() || null, photoContentId: active.photoContentId });
+      setProfiles((prev) => prev?.map((profile) => profile.id === active.id ? updated : profile) ?? prev);
+      setEditing(false); toast.success(t('biz.lounge.profileSaved'));
+    } catch (err: unknown) { toast.error(extractDetail(err, t('biz.editError'))); }
+    finally { setSaving(false); }
   };
-
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !user) return;
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file || !user || !active) return;
     setPhotoUploading(true);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('owner_type', 'user');
-      form.append('owner_id', user.id);
+      const form = new FormData(); form.append('file', file); form.append('owner_type', 'user'); form.append('owner_id', user.id);
       const uploaded = await api.realFetchForm<{ id: string }>('/contents/upload', form);
-      const updated = await updateBusinessProfile(active.id, {
-        name: active.name,
-        category: active.category,
-        address: active.address ?? '',
-        latitude: active.latitude ?? 0,
-        longitude: active.longitude ?? 0,
-        phone: active.phone ?? '',
-        intro: active.intro,
-        photoContentId: uploaded.id,
-      });
-      setProfiles((prev) => (prev ? prev.map((p, i) => (i === activeIdx ? updated : p)) : prev));
-    } catch (err: any) {
-      toast.error(extractDetail(err, t('biz.photoUploadError', { defaultValue: '사진 업로드에 실패했습니다' })));
-    } finally {
-      setPhotoUploading(false);
-    }
+      const updated = await updateBusinessProfile(active.id, { name: active.name, category: active.category, address: active.address ?? '', latitude: active.latitude ?? 0, longitude: active.longitude ?? 0, phone: active.phone ?? '', intro: active.intro, photoContentId: uploaded.id });
+      setProfiles((prev) => prev?.map((profile) => profile.id === active.id ? updated : profile) ?? prev);
+    } catch (err: unknown) { toast.error(extractDetail(err, t('biz.photoUploadError'))); }
+    finally { setPhotoUploading(false); }
   };
-
-  const newsList = news && news.profileId === active.id ? news.list : null;
-
-  // 웹 계약(결제) 링크 — pending_payment 광고에 대해 발급 후 외부 브라우저로 연다 (IAP 리스크 회피)
   const handleContractLink = async (adId: string) => {
     setContractLoadingId(adId);
-    try {
-      const { url } = await fetchContractLink(adId);
-      await native.openExternalUrl(url);
-    } catch (err: any) {
-      toast.error(extractDetail(err, t('biz.contractLinkError', { defaultValue: '계약 링크를 불러오지 못했습니다' })));
-    } finally {
-      setContractLoadingId(null);
-    }
+    try { const { url } = await fetchContractLink(adId); await native.openExternalUrl(url); }
+    catch (err: unknown) { toast.error(extractDetail(err, t('biz.contractLinkError'))); }
+    finally { setContractLoadingId(null); }
   };
+  const focusDashboard = (focus: DashboardFocus) => { setDashboardFocus(focus); setActiveTab('performance'); };
 
-  return (
-    <div className={styles.page}>
-      <TopBar title={t('biz.manageTitle', { defaultValue: '파트너 라운지' })} />
-      <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
-        {profiles.length > 1 && (
-          <div className={styles.switcher}>
-            {profiles.map((p, idx) => (
-              <button
-                key={p.id}
-                className={idx === activeIdx ? styles.switchBtnActive : styles.switchBtn}
-                onClick={() => { setActiveIdx(idx); setEditing(false); }}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        )}
+  if (profiles === null || profilesError || !active) {
+    return <div className={styles.page}><TopBar title={t('biz.manageTitle')} /><div className={styles.loadBody}>
+      {profilesError ? <div className={sys.card}><StateBlock icon={AlertCircle} tone="error" title={t('biz.lounge.profileLoadErrorTitle')} desc={t('biz.lounge.profileLoadErrorDesc')} actionLabel={t('common.retry')} onAction={() => { setProfilesError(false); setProfiles(null); loadProfiles(); }} /></div>
+        : <div className={sys.card} aria-busy="true" aria-label={t('common.loading')}><SkeletonRows count={3} /></div>}
+    </div></div>;
+  }
 
-        <nav className={styles.tabs} aria-label={t('biz.manageTabsLabel', { defaultValue: '관리 메뉴' })}>
-          {MANAGE_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={activeTab === tab ? styles.tabActive : styles.tab}
-              onClick={() => setActiveTab(tab)}
-            >
-              {t(`biz.manageTabs.${tab}`, { defaultValue: { home: '홈', dashboard: '대시보드' }[tab] })}
-            </button>
-          ))}
-        </nav>
+  const adList = ads?.profileId === active.id ? [...ads.list].sort((a, b) => adPriority(a) - adPriority(b)) : null;
+  const adsFailed = adsErrorFor === active.id;
+  const needsVerification = active.verificationStatus === 'pending' || active.verificationStatus === 'rejected';
+  const actionAd = !needsVerification && adList
+    ? adList.find((ad) => ad.reviewStatus === 'REJECTED') ?? adList.find((ad) => ad.subscriptionStatus === 'pending_payment')
+    : undefined;
+  const hasPriorityAction = needsVerification || !!actionAd;
+  const reviewLabel = (ad: BusinessAd) => {
+    if (ad.reviewStatus === 'PENDING') return t('biz.lounge.adReviewPending');
+    if (ad.reviewStatus === 'REJECTED') return t('biz.lounge.adReviewRejected');
+    // 서버는 APPROVED 광고만 STOPPED로 전이한다. 중단은 노출축에 따로 표시한다.
+    return t('biz.lounge.adReviewApproved');
+  };
+  const contractLabel = (ad: BusinessAd) => ad.subscriptionStatus === 'pending_payment' ? t('biz.lounge.contractPending') : ad.subscriptionStatus === 'active' ? t('biz.lounge.contractActive') : ad.subscriptionStatus === 'expired' ? t('biz.lounge.contractExpired') : t('biz.lounge.contractUnknown');
+  const exposureLabel = (ad: BusinessAd) => ad.reviewStatus === 'STOPPED' ? t('biz.adStatusStopped') : t('biz.lounge.exposureUnknown');
 
-        {activeTab === 'dashboard' ? (
-          <BizDashboard profileId={active.id} newsCount={newsList ? newsList.length : null} />
-        ) : (
-        <>
-        <h3 className={styles.sectionTitle}>{t('biz.profileSectionTitle', { defaultValue: '비즈니스 프로필' })}</h3>
-        <div className={styles.profileCard}>
-          <div className={styles.photoWrap}>
-            <AppImage
-              src={active.photoUrl ?? undefined}
-              alt=""
-              className={`${styles.profilePhoto} ${photoUploading ? styles.photoLoading : ''}`}
-            />
-            <button
-              type="button"
-              className={styles.photoCameraBtn}
-              onClick={() => photoInputRef.current?.click()}
-              disabled={photoUploading}
-              aria-label={t('biz.editPhoto', { defaultValue: '사진 변경' })}
-            >
-              <Camera size={16} />
-            </button>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              style={{ display: 'none' }}
-              onChange={handlePhotoChange}
-            />
-          </div>
-          {!editing ? (
-            <>
-              <div className={styles.profileName}>{active.name}</div>
-              <div className={styles.profileMeta}>
-                {active.category && <span>{categoryLabel(active.category)}</span>}
-                {active.address && <span> · {active.address}</span>}
-              </div>
-              <div className={styles.profileMeta}>{active.phone}</div>
-              <Button size="sm" fullWidth={false} onClick={startEdit} className={styles.editBtn}>
-                {t('biz.editCta', { defaultValue: '정보 수정' })}
-              </Button>
-            </>
-          ) : (
-            <div className={styles.editForm}>
-              <input className={styles.input} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
-              <input className={styles.input} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" maxLength={30} />
-              <textarea
-                className={styles.textarea}
-                placeholder={t('biz.introPlaceholder', { defaultValue: '업체를 소개해주세요' })}
-                value={intro}
-                onChange={(e) => setIntro(e.target.value)}
-                rows={4}
-                maxLength={500}
-              />
-              <div className={styles.editActions}>
-                <Button size="sm" fullWidth={false} onClick={saveEdit} disabled={saving}>
-                  {saving ? t('biz.saving', { defaultValue: '저장 중' }) : t('common.confirm', { defaultValue: '확인' })}
-                </Button>
-                <Button size="sm" fullWidth={false} variant="secondary" onClick={() => setEditing(false)}>
-                  {t('common.cancel', { defaultValue: '취소' })}
-                </Button>
-              </div>
-            </div>
-          )}
+  return <div className={styles.page}>
+    <TopBar title={t('biz.manageTitle')} />
+    <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
+      <section className={styles.identity}>
+        {active.photoUrl ? <AppImage src={active.photoUrl} alt="" className={styles.identityPhoto} priority /> : <div className={styles.identityPhotoFallback}><Store size={24} /></div>}
+        <div className={styles.identityCopy}>
+          <button type="button" className={styles.storeSelector} onClick={() => profiles.length > 1 && setStoreSheetOpen(true)} aria-label={profiles.length > 1 ? t('biz.lounge.selectStoreLabel') : undefined} disabled={profiles.length < 2}>
+            <span>{active.name}</span>{active.verificationStatus === 'verified' && <ShieldCheck size={17} className={styles.verifiedIcon} aria-label={t('biz.verifStatusVerified')} />}{profiles.length > 1 && <ChevronDown size={17} />}
+          </button>
+          <div className={styles.identityMeta}>{[categoryLabel(active.category), active.address].filter(Boolean).join(' · ') || t('biz.lounge.storeMetaEmpty')}</div>
+          <div className={styles.identityActions}><button type="button" onClick={() => navigate(`/biz/${active.id}`, { state: profileState(active) })}>{t('biz.viewProfileCta')}</button><button type="button" onClick={startEdit}>{t('biz.editCta')}</button></div>
         </div>
-
-        {/* 사업자 검증 상태 + 제출 진입점 — verified 전에는 유료 게시 게이트 안내 */}
-        <button
-          className={styles.verifyRow}
-          onClick={() => navigate('/biz/verification', { state: { profileId: active.id } })}
-        >
-          <ShieldCheck size={18} strokeWidth={2} aria-hidden className={styles.verifyIcon} />
-          <span className={styles.verifyText}>
-            <span className={styles.verifyTitle}>{t('biz.verifTitle', { defaultValue: '사업자 검증' })}</span>
-            {active.verificationStatus !== 'verified' && (
-              <span className={styles.verifyDesc}>
-                {active.verificationStatus === 'docs_submitted'
-                  ? t('biz.verifReviewingDesc', { defaultValue: '제출한 서류를 검토하고 있어요. 통상 24시간 이내 결과를 알려드려요.' })
-                  : t('biz.verifGateNotice', {
-                      defaultValue: '유료 게시하려면 사업자등록증 검증이 필요해요. 광고 등록은 지금 가능하지만, 검증 완료 전에는 노출되지 않아요.',
-                    })}
-              </span>
-            )}
-            {active.verificationStatus === 'rejected' && active.verificationRejectReason && (
-              <span className={styles.verifyReject}>{active.verificationRejectReason}</span>
-            )}
-          </span>
-          <span className={`${styles.verifChip} ${styles[VERIF_CHIP_CLASS[active.verificationStatus]]}`}>
-            {active.verificationStatus === 'verified'
-              ? t('biz.verifStatusVerified', { defaultValue: '검증 완료' })
-              : active.verificationStatus === 'docs_submitted'
-                ? t('biz.verifStatusSubmitted', { defaultValue: '검토 중' })
-                : active.verificationStatus === 'rejected'
-                  ? t('biz.verifStatusRejected', { defaultValue: '반려' })
-                  : t('biz.verifStatusPending', { defaultValue: '검증 전' })}
-          </span>
-          <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
-        </button>
-
-        {/* 파트너 가이드 배너 (아코디언) — BizIntro 는 '신청하기' CTA 중심이라 이미 승인된 파트너에게 부적절해
-            인라인 확장으로 대체. 사업자 검증·소식 작성 팁·광고 안내는 기존 문구를 재사용한다. */}
-        <button type="button" className={styles.guideBanner} onClick={() => setGuideOpen((v) => !v)}>
-          <div className={styles.guideBannerHead}>
-            <Megaphone size={20} strokeWidth={2} aria-hidden className={styles.guideBannerIcon} />
-            <div className={styles.guideBannerText}>
-              <span className={styles.guideBannerSub}>{t('biz.guideBannerSub', { defaultValue: '든든한 파트너 활동을 위해' })}</span>
-              <span className={styles.guideBannerTitle}>{t('biz.guideBannerTitle', { defaultValue: '파트너 가이드 확인하기' })}</span>
-            </div>
-          </div>
-          <ChevronDown size={18} aria-hidden className={guideOpen ? styles.guideChevOpen : styles.guideChev} />
-        </button>
-        {guideOpen && (
-          <div className={styles.guideBody}>
-            <div className={styles.guideItem}>
-              <strong>{t('biz.verifTitle', { defaultValue: '사업자 검증' })}</strong>
-              <span>
-                {t('biz.verifGateNotice', {
-                  defaultValue: '유료 게시하려면 사업자등록증 검증이 필요해요. 광고 등록은 지금 가능하지만, 검증 완료 전에는 노출되지 않아요.',
-                })}
-              </span>
-            </div>
-            <div className={styles.guideItem}>
-              <strong>{t('biz.guideNewsTipTitle', { defaultValue: '소식 작성 팁' })}</strong>
-              <span>{t('biz.guideNewsTipDesc', { defaultValue: '제목과 사진을 함께 올리면 이웃 라이더 눈에 더 잘 띄어요' })}</span>
-            </div>
-            <div className={styles.guideItem}>
-              <strong>{t('biz.guideAdsTitle', { defaultValue: '광고 안내' })}</strong>
-              <span>{t('biz.guideAdsDesc', { defaultValue: '광고를 등록하면 심사 후 게시돼요' })}</span>
-            </div>
-          </div>
-        )}
-
-        {/* SGR-326: 가게소식 — 전용 관리 화면(BizNewsManage)으로 진입하는 항목. 가격표/매물 등록 항목과
-            동일한 문법(미리보기 없는 진입 행)으로 통일 */}
-        <button
-          className={styles.verifyRow}
-          onClick={() => navigate('/biz/news', {
-            state: { profileId: active.id, profileName: active.name, profilePhotoUrl: active.photoUrl },
-          })}
-        >
-          <Newspaper size={18} strokeWidth={2} aria-hidden className={styles.verifyIcon} />
-          <span className={styles.verifyText}>
-            <span className={styles.verifyTitle}>{t('biz.newsManageTitle', { defaultValue: '내 소식' })}</span>
-            <span className={styles.verifyDesc}>
-              {t('biz.newsSectionDesc', { defaultValue: '이웃 라이더에게 소식을 전해보세요' })}
-            </span>
-          </span>
-          <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
-        </button>
-
-        {/* 가격표 등록 — 소식과 성격이 가까운 무료 컨텐츠라 소식 다음·유료 광고 앞에 배치 (별도 화면) */}
-        <button
-          className={styles.verifyRow}
-          onClick={() => navigate('/biz/prices', { state: { profileId: active.id } })}
-        >
-          <Receipt size={18} strokeWidth={2} aria-hidden className={styles.verifyIcon} />
-          <span className={styles.verifyText}>
-            <span className={styles.verifyTitle}>{t('biz.priceSectionTitle', { defaultValue: '가격표' })}</span>
-            <span className={styles.verifyDesc}>
-              {t('biz.priceSectionDesc', { defaultValue: '서비스별 가격을 등록해 이웃 라이더에게 보여주세요' })}
-            </span>
-          </span>
-          <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
-        </button>
-
-        {/* T-1: 매물 등록 — 검증된(verified) 업체 프로필 명의라 개인 휴대폰 인증(SMS OTP) 없이 등록 가능 */}
-        <button
-          className={styles.verifyRow}
-          onClick={() => navigate('/biz/listings/new', { state: { profileId: active.id, profileName: active.name } })}
-        >
-          <Package size={18} strokeWidth={2} aria-hidden className={styles.verifyIcon} />
-          <span className={styles.verifyText}>
-            <span className={styles.verifyTitle}>{t('biz.listingSectionTitle', { defaultValue: '매물 등록' })}</span>
-            <span className={styles.verifyDesc}>
-              {t('biz.listingSectionDesc', { defaultValue: '중고 물품을 등록해 이웃 라이더에게 보여주세요' })}
-            </span>
-          </span>
-          <ChevronRight size={16} strokeWidth={2} aria-hidden className={styles.verifyChev} />
-        </button>
-
-        {/* BP-4: 광고 — 2026-08-10 개발/운영 공통 오픈 (승인 게이트가 이미 있어 미승인 광고는 노출 안 됨) */}
-        <h3 className={styles.sectionTitle}>{t('biz.adsTitle', { defaultValue: '내 광고' })}</h3>
-        {adList === null ? (
-          <p className={styles.loading}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
-        ) : adList.length === 0 ? (
-          <div className={styles.adsEmpty}>
-            <p>{t('biz.adsEmpty', { defaultValue: '아직 등록한 광고가 없어요' })}</p>
-          </div>
-        ) : (
-          <div className={styles.adList}>
-            {adList.map((ad) => (
-              <div key={ad.id} className={styles.adRow}>
-                <button
-                  type="button"
-                  className={styles.adRowMain}
-                  onClick={() => navigate(`/biz/ads/${ad.id}`)}
-                >
-                  <AppImage src={ad.imageUrl ?? undefined} alt="" className={styles.adThumb} />
-                  <span className={styles.adRowTitle}>{ad.title}</span>
-                  <span className={`${styles.adChip} ${styles[AD_CHIP_CLASS[ad.reviewStatus]]}`}>
-                    {ad.reviewStatus === 'PENDING'
-                      ? t('biz.adStatusPending', { defaultValue: '심사중' })
-                      : ad.reviewStatus === 'APPROVED'
-                        ? t('biz.adStatusApproved', { defaultValue: '게시중' })
-                        : ad.reviewStatus === 'REJECTED'
-                          ? t('biz.adStatusRejected', { defaultValue: '반려' })
-                          : t('biz.adStatusStopped', { defaultValue: '게시 중단' })}
-                  </span>
-                </button>
-                {ad.subscriptionStatus === 'pending_payment' && (
-                  <Button
-                    size="sm"
-                    fullWidth={false}
-                    className={styles.adContractBtn}
-                    onClick={() => handleContractLink(ad.id)}
-                    disabled={contractLoadingId === ad.id}
-                  >
-                    {contractLoadingId === ad.id
-                      ? t('biz.contractLinkLoading', { defaultValue: '연결 중…' })
-                      : t('biz.contractLinkCta', { defaultValue: '웹에서 계약하기' })}
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        <Button
-          className={styles.adCreateBtn}
-          onClick={() => navigate('/biz/ads/new', { state: { profileId: active.id } })}
-        >
-          {t('biz.adCreateCta', { defaultValue: '광고 등록' })}
-        </Button>
-        </>
-        )}
-      </div>
+      </section>
+      <nav className={styles.tabs} role="tablist" aria-label={t('biz.lounge.tabsLabel')}>
+        <button type="button" role="tab" aria-selected={activeTab === 'operations'} className={activeTab === 'operations' ? styles.tabActive : styles.tab} onClick={() => setActiveTab('operations')}>{t('biz.lounge.operationsTab')}</button>
+        <button type="button" role="tab" aria-selected={activeTab === 'performance'} className={activeTab === 'performance' ? styles.tabActive : styles.tab} onClick={() => setActiveTab('performance')}>{t('biz.lounge.performanceTab')}</button>
+      </nav>
+      {activeTab === 'performance' ? <BizDashboard key={active.id} profileId={active.id} focus={dashboardFocus} onFocusHandled={() => setDashboardFocus(undefined)} /> : <>
+        {hasPriorityAction && <section className={styles.actionCard}><ShieldCheck size={22} /><div><h2>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationRejectedTitle') : t('biz.lounge.verificationRequiredTitle') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adRejectedActionTitle') : t('biz.lounge.contractActionTitle')}</h2><p>{needsVerification ? active.verificationStatus === 'rejected' ? active.verificationRejectReason || t('biz.lounge.verificationRejectedDesc') : t('biz.lounge.verificationRequiredDesc') : actionAd?.reviewStatus === 'REJECTED' ? actionAd.rejectReason || t('biz.lounge.adRejectedActionDesc') : t('biz.lounge.contractActionDesc')}</p></div><Button loading={actionAd?.subscriptionStatus === 'pending_payment' && contractLoadingId === actionAd.id} onClick={() => needsVerification ? navigate('/biz/verification', { state: profileState(active) }) : actionAd?.subscriptionStatus === 'pending_payment' ? handleContractLink(actionAd.id) : actionAd && navigate(`/biz/ads/${actionAd.id}`, { state: profileState(active) })}>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationResubmit') : t('biz.lounge.verificationSubmit') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adDetail') : t('biz.lounge.contractGuide')}</Button></section>}
+        <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.adsSection')}</h2></div>
+        <div className={sys.card}>{adsFailed ? <StateBlock icon={AlertCircle} tone="error" title={t('biz.lounge.adsLoadErrorTitle')} desc={t('biz.lounge.adsLoadErrorDesc')} actionLabel={t('common.retry')} onAction={() => { setAdsErrorFor(null); setAdsReloadKey((key) => key + 1); }} /> : adList === null ? <div aria-busy="true" aria-label={t('common.loading')}><SkeletonRows count={2} /></div> : !adList.length ? <div className={styles.adEmpty}><StateBlock icon={Megaphone} title={t('biz.lounge.adsEmptyTitle')} desc={t('biz.lounge.adsEmptyDesc')} />{!hasPriorityAction && <Button onClick={() => navigate('/biz/ads/new', { state: profileState(active) })}>{t('biz.adCreateCta')}</Button>}</div> : adList.map((ad) => <article className={styles.adRow} key={ad.id}>
+          <div className={styles.adTop}>{ad.imageUrl ? <AppImage src={ad.imageUrl} alt="" className={styles.adThumb} /> : <div className={styles.adThumbFallback}><Megaphone size={20} /></div>}<div className={styles.adTitleWrap}><h3>{ad.title}</h3>{ad.endsAt && <p className="num">{t('biz.lounge.adUntil', { date: new Intl.DateTimeFormat(i18n.language).format(new Date(ad.endsAt)) })}</p>}</div></div>
+          <dl className={styles.adStatuses}><div><dt>{t('biz.lounge.reviewStatus')}</dt><dd>{reviewLabel(ad)}</dd></div><div><dt>{t('biz.lounge.contractStatus')}</dt><dd>{contractLabel(ad)}</dd></div><div><dt>{t('biz.lounge.exposureStatus')}</dt><dd>{exposureLabel(ad)}</dd></div></dl>
+          {ad.reviewStatus === 'REJECTED' && ad.rejectReason && <p className={styles.rejectReason}>{ad.rejectReason}</p>}
+          <div className={styles.adActions}><button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => navigate(`/biz/ads/${ad.id}`, { state: profileState(active) })}>{t('biz.lounge.adDetail')}</button>{ad.subscriptionStatus === 'pending_payment' && <button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => handleContractLink(ad.id)} disabled={contractLoadingId === ad.id}>{contractLoadingId === ad.id ? t('biz.contractLinkLoading') : t('biz.lounge.contractGuide')}</button>}</div>
+        </article>)}</div>{!(adList?.length === 0 && !hasPriorityAction && !adsFailed) && <button type="button" className={styles.adCreateSecondary} onClick={() => navigate('/biz/ads/new', { state: profileState(active) })}>{t('biz.adCreateCta')}</button>}
+        <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.operationsSection')}</h2></div>
+        <div className={sys.card}>{[
+          { icon: Newspaper, title: t('biz.lounge.newsManage'), desc: t('biz.lounge.newsManageDesc'), onClick: () => navigate('/biz/news', { state: profileState(active) }) },
+          { icon: Receipt, title: t('biz.priceSectionTitle'), desc: t('biz.lounge.priceManageDesc'), onClick: () => navigate('/biz/prices', { state: profileState(active) }) },
+          { icon: Package, title: t('biz.listingSectionTitle'), desc: t('biz.lounge.listingManageDesc'), onClick: () => navigate('/biz/listings/new', { state: profileState(active) }) },
+          { icon: MessageSquare, title: t('biz.lounge.reviewsManage'), desc: t('biz.lounge.reviewsManageDesc'), onClick: () => focusDashboard('reviews') },
+        ].map(({ icon: Icon, title, desc, onClick }) => <button type="button" className={styles.managerRow} onClick={onClick} key={title}><Icon size={20} /><span><strong>{title}</strong><small>{desc}</small></span><ChevronRight size={17} /></button>)}</div>
+        {(active.verificationStatus === 'verified' || active.verificationStatus === 'docs_submitted') && <><div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.verifTitle')}</h2></div><button type="button" className={styles.quietRow} onClick={() => navigate('/biz/verification', { state: profileState(active) })}><ShieldCheck size={19} /><span><strong>{active.verificationStatus === 'verified' ? t('biz.verifStatusVerified') : t('biz.verifStatusSubmitted')}</strong><small>{active.verificationStatus === 'verified' ? t('biz.lounge.verificationCompleteDesc') : t('biz.lounge.verificationReviewingDesc')}</small></span><ChevronRight size={17} /></button></>}
+        <div className={styles.guideGroup}><button type="button" className={styles.guideRow} onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}><FileText size={19} /><strong>{t('biz.lounge.guideTitle')}</strong><ChevronDown size={17} className={guideOpen ? styles.chevronOpen : undefined} /></button>{guideOpen && <ul className={styles.guideBody}><li>{t('biz.lounge.guideProfile')}</li><li>{t('biz.lounge.guideStatuses')}</li><li>{t('biz.lounge.guideReviews')}</li></ul>}<button type="button" className={styles.guideRow} onClick={() => focusDashboard('support')}><CircleHelp size={19} /><span><strong>{t('biz.lounge.adsHelp')}</strong><small>{t('biz.lounge.adsHelpDesc')}</small></span><ChevronRight size={17} /></button></div>
+      </>}
     </div>
-  );
+    <BottomSheet open={storeSheetOpen} onClose={() => setStoreSheetOpen(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.lounge.selectStoreTitle')}</h2>}><div className={styles.storeList}>{profiles.map((profile, idx) => <button type="button" key={profile.id} className={styles.storeOption} onClick={() => selectProfile(idx)} aria-current={idx === activeIdx}>{profile.photoUrl ? <AppImage src={profile.photoUrl} alt="" className={styles.storeOptionPhoto} /> : <div className={styles.storeOptionPhotoFallback}><Store size={20} /></div>}<span><strong>{profile.name}</strong><small>{[categoryLabel(profile.category), profile.address].filter(Boolean).join(' · ')}</small></span>{idx === activeIdx && <span className={styles.selectedLabel}>{t('biz.lounge.selectedStore')}</span>}</button>)}</div></BottomSheet>
+    <BottomSheet open={editing} onClose={() => setEditing(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.editCta')}</h2>}><div className={styles.editForm}><div className={styles.editPhotoRow}>{active.photoUrl ? <AppImage src={active.photoUrl} alt="" className={styles.editPhoto} /> : <div className={styles.editPhotoFallback}><Store size={22} /></div>}<button type="button" className={styles.photoButton} onClick={() => photoInputRef.current?.click()} disabled={photoUploading}><Camera size={17} />{photoUploading ? t('biz.uploading') : t('biz.editPhoto')}</button><input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handlePhotoChange} /></div><label className={styles.fieldLabel} htmlFor="biz-lounge-name">{t('biz.name')}</label><input id="biz-lounge-name" className={styles.input} value={name} onChange={(event) => setName(event.target.value)} maxLength={120} required /><label className={styles.fieldLabel} htmlFor="biz-lounge-phone">{t('biz.phone')}</label><input id="biz-lounge-phone" className={styles.input} value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" maxLength={30} required /><label className={styles.fieldLabel} htmlFor="biz-lounge-intro">{t('biz.introLabel')}</label><textarea id="biz-lounge-intro" className={styles.textarea} value={intro} onChange={(event) => setIntro(event.target.value)} rows={4} maxLength={500} /><Button onClick={saveEdit} loading={saving} disabled={!name.trim() || !phone.trim()}>{t('common.confirm')}</Button></div></BottomSheet>
+  </div>;
 }

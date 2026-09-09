@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ko" data-platform="android">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>파트너 라운지 · UI 시안</title>
+  <style>
+    /* Token source: frontend/src/styles/tokens.css (copied for this standalone prototype). */
+    :root {
+      --brand-50:#fff1e8; --brand-100:#ffddc4; --brand-500:#ff5a1f;
+      --brand-600:#ed4310; --brand-700:#b82c08; --bg:#f7f5f0;
+      --surface:#fff; --surface-2:#faf7f2; --line:#e8e3da;
+      --text:#0b0d14; --text-2:#4a4f62; --text-3:#8a8e9e;
+      --success:#16a34a; --warn:#f59e0b; --danger:#ef3b3b;
+      --r-sm:10px; --r-md:16px; --r-pill:999px;
+      --status-bar-height:24px;
+      font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text); background:#ebe7de;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; }
+    button,select,input,textarea { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible {
+      outline:3px solid rgba(255,90,31,.28); outline-offset:2px;
+    }
+    .num { font-family:"Space Grotesk",Pretendard,sans-serif; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+    .icon { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; }
+    .review-shell { display:grid; grid-template-columns:280px minmax(360px,480px); gap:28px; align-items:start; justify-content:center; padding:28px; }
+    .review-tools { position:sticky; top:28px; color:var(--text); }
+    .prototype-mark { display:inline-flex; align-items:center; gap:7px; padding:7px 10px; border:1px solid #d9d2c7; border-radius:var(--r-pill); background:#fff; font-size:11px; font-weight:700; letter-spacing:.03em; }
+    .prototype-mark::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--brand-500); }
+    .review-tools h1 { margin:18px 0 8px; font-size:21px; letter-spacing:-.03em; }
+    .review-tools p { margin:0 0 18px; color:var(--text-2); font-size:13px; line-height:1.55; }
+    .review-tools label { display:block; margin:0 0 7px; font-size:12px; font-weight:700; }
+    .state-select { width:100%; min-height:44px; border:1px solid #d9d2c7; border-radius:12px; padding:0 12px; background:#fff; }
+    .review-note { margin-top:14px; padding:12px; border-left:3px solid var(--brand-500); background:rgba(255,255,255,.65); color:var(--text-2); font-size:11px; line-height:1.55; }
+    .phone { width:100%; min-height:844px; overflow:hidden; background:var(--bg); border:1px solid #d9d2c7; border-radius:28px; box-shadow:0 20px 55px rgba(11,13,20,.13); }
+    .app { min-height:844px; }
+    .topbar { height:calc(var(--status-bar-height) + 56px); padding:var(--status-bar-height) 8px 0; display:grid; grid-template-columns:48px 1fr 48px; align-items:center; background:var(--surface); border-bottom:1px solid var(--line); }
+    .topbar h2 { margin:0; text-align:center; font-size:17px; letter-spacing:-.02em; }
+    .icon-btn { width:44px; height:44px; display:grid; place-items:center; border:0; background:transparent; border-radius:12px; }
+    .icon-btn:active,.text-btn:active,.manager-row:active { background:var(--surface-2); }
+    .store-strip { min-height:96px; padding:16px; display:flex; gap:12px; align-items:flex-start; background:var(--surface); }
+    .store-avatar { width:56px; height:56px; display:grid; place-items:center; flex:0 0 auto; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text-2); }
+    .store-avatar .icon { width:27px; height:27px; }
+    .store-main { min-width:0; flex:1; }
+    .store-name-row { display:flex; align-items:center; min-height:24px; }
+    .store-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; font-weight:700; letter-spacing:-.03em; }
+    .verify { width:22px; height:22px; display:grid; place-items:center; color:#3b82f6; }
+    .verify[hidden] { display:none; }
+    .verify .icon { width:16px; height:16px; stroke-width:2.4; }
+    .store-meta { margin-top:1px; color:var(--text-2); font-size:12px; }
+    .store-actions { display:flex; gap:12px; margin-top:6px; }
+    .text-btn { min-height:44px; padding:0 2px; border:0; background:transparent; color:var(--text-2); font-size:12px; font-weight:600; }
+    .tabs { height:48px; display:grid; grid-template-columns:1fr 1fr; background:var(--surface); border-bottom:1px solid var(--line); }
+    .tab { position:relative; border:0; background:transparent; color:var(--text-2); font-weight:650; }
+    .tab[aria-selected="true"] { color:var(--text); }
+    .tab[aria-selected="true"]::after { content:""; position:absolute; left:30%; right:30%; bottom:-1px; height:3px; background:var(--brand-500); border-radius:3px 3px 0 0; }
+    .screen { display:none; padding:20px 16px max(34px,env(safe-area-inset-bottom)); }
+    .screen.active { display:block; }
+    .section { margin-top:24px; }
+    .section:first-child { margin-top:0; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; margin:0 2px 9px; }
+    .section-head h3 { margin:0; font-size:13px; font-weight:700; }
+    .section-head span { color:var(--text-3); font-size:11px; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); overflow:hidden; }
+    .action-card { padding:16px; background:var(--brand-50); border-color:var(--brand-100); }
+    .action-card h3 { margin:0 0 6px; font-size:18px; letter-spacing:-.03em; }
+    .action-card p { margin:0; color:var(--text-2); font-size:13px; line-height:1.5; }
+    .primary { width:100%; min-height:46px; margin-top:14px; border:0; border-radius:12px; background:var(--brand-500); color:#fff; font-weight:700; }
+    .primary:active { background:var(--brand-600); }
+    .ad-card { padding:16px; }
+    .ad-top { display:flex; align-items:flex-start; gap:12px; }
+    .ad-symbol { width:42px; height:42px; display:grid; place-items:center; flex:0 0 auto; border-radius:12px; background:var(--surface-2); color:var(--text-2); }
+    .ad-copy { min-width:0; flex:1; }
+    .ad-copy h4 { margin:0 0 4px; font-size:15px; }
+    .ad-copy p { margin:0; color:var(--text-2); font-size:12px; line-height:1.45; }
+    .status-grid { display:grid; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+    .status-line { display:grid; grid-template-columns:74px minmax(0,1fr); gap:8px; align-items:start; font-size:12px; line-height:1.4; }
+    .status-line dt { color:var(--text-3); }
+    .status-line dd { margin:0; font-weight:600; }
+    .status-dot { display:inline-block; width:7px; height:7px; margin-right:7px; border-radius:50%; background:var(--text-3); vertical-align:1px; }
+    .status-dot.success { background:var(--success); }
+    .status-dot.warn { background:var(--warn); }
+    .status-dot.danger { background:var(--danger); }
+    .neutral-action { width:100%; min-height:44px; margin-top:14px; border:1px solid var(--line); border-radius:12px; background:var(--surface); font-weight:650; }
+    .manager-row { width:100%; min-height:64px; padding:10px 14px; border:0; border-bottom:1px solid var(--line); background:var(--surface); display:grid; grid-template-columns:34px minmax(0,1fr) 24px; gap:9px; align-items:center; text-align:left; }
+    .manager-row:last-child { border-bottom:0; }
+    .manager-icon { color:var(--text-2); display:grid; place-items:center; }
+    .manager-row strong { display:block; margin-bottom:3px; font-size:15px; font-weight:650; }
+    .manager-row small { display:block; color:var(--text-2); font-size:12px; }
+    .chev { color:var(--text-3); }
+    .quiet-row { margin-top:12px; }
+    details.guide { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); }
+    details.guide summary { min-height:56px; padding:0 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; font-weight:650; list-style:none; }
+    details.guide summary::-webkit-details-marker { display:none; }
+    details.guide summary .chev { margin-left:auto; transition:transform .16s ease; }
+    details[open] summary .chev { transform:rotate(90deg); }
+    .guide-body { padding:0 16px 16px; color:var(--text-2); font-size:13px; line-height:1.6; }
+    .guide-body ul { margin:0; padding-left:18px; }
+    .guide-body li + li { margin-top:6px; }
+    .performance-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .performance-head h3 { margin:0 0 5px; font-size:20px; letter-spacing:-.03em; }
+    .performance-head p { margin:0; color:var(--text-2); font-size:12px; }
+    .periods,.metric-pills { display:flex; padding:3px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+    .period-btn,.metric-btn { min-width:45px; min-height:44px; padding:0 10px; border:0; border-radius:9px; background:transparent; color:var(--text-2); font-size:12px; font-weight:650; }
+    .period-btn.active,.metric-btn.active { background:var(--surface-2); color:var(--text); }
+    .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:18px 8px; }
+    .metric { min-width:0; padding:0 8px; text-align:center; border-right:1px solid var(--line); }
+    .metric:last-child { border-right:0; }
+    .metric-label { min-height:32px; display:flex; align-items:center; justify-content:center; gap:2px; color:var(--text-2); font-size:11px; line-height:1.25; }
+    .help-btn { width:44px; height:44px; display:grid; place-items:center; margin:-14px -14px -14px 0; border:0; border-radius:50%; background:transparent; color:var(--text-3); }
+    .help-btn .icon { width:14px; height:14px; }
+    .metric-value { display:block; margin-top:4px; overflow:hidden; text-overflow:ellipsis; font-size:clamp(22px,7vw,28px); font-weight:700; }
+    .chart-card { padding:16px; }
+    .chart-controls { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .metric-pills { overflow-x:auto; }
+    .metric-btn { min-width:auto; }
+    .sample-badge { display:inline-flex; align-items:center; min-height:24px; margin-top:12px; padding:0 8px; border-radius:var(--r-pill); background:var(--surface-2); color:var(--text-2); font-size:10px; font-weight:700; }
+    .chart { height:150px; margin-top:12px; position:relative; border-bottom:1px solid var(--line); background:repeating-linear-gradient(to bottom,transparent 0,transparent 36px,var(--line) 37px); }
+    .bars { height:100%; display:flex; align-items:flex-end; gap:5px; padding:10px 2px 0; }
+    .bar { flex:1; min-width:4px; max-height:100%; border-radius:3px 3px 0 0; background:#cfc8bc; }
+    .chart-empty { min-height:150px; display:grid; place-items:center; text-align:center; padding:24px 12px; color:var(--text-2); font-size:13px; line-height:1.5; }
+    .table-toggle { min-height:44px; padding:0 4px; border:0; background:transparent; color:var(--text-2); font-size:12px; font-weight:650; }
+    .data-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:12px; }
+    .data-table th,.data-table td { padding:9px 4px; border-top:1px solid var(--line); text-align:right; }
+    .data-table th:first-child,.data-table td:first-child { text-align:left; }
+    .state-block { padding:28px 18px; text-align:center; }
+    .state-block .icon { width:24px; height:24px; color:var(--text-2); }
+    .state-block h4 { margin:10px 0 5px; font-size:15px; }
+    .state-block p { margin:0; color:var(--text-2); font-size:12px; line-height:1.5; }
+    .retry { min-height:44px; margin-top:10px; padding:0 18px; border:1px solid var(--line); border-radius:11px; background:var(--surface); font-weight:650; }
+    .skeleton { position:relative; overflow:hidden; background:#eee9e1; border-radius:6px; }
+    .skeleton::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent); animation:shimmer 1.5s infinite; }
+    .skel-line { height:12px; margin-bottom:10px; }
+    .skel-line.short { width:58%; }
+    .skel-box { height:120px; }
+    @keyframes shimmer { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+    .dialog-backdrop { position:fixed; inset:0; z-index:10; display:none; align-items:flex-end; justify-content:center; padding:20px; background:rgba(11,13,20,.42); }
+    .dialog-backdrop.open { display:flex; }
+    .sheet { width:min(100%,480px); max-height:min(82vh,720px); overflow:auto; border-radius:22px 22px 16px 16px; background:var(--surface); box-shadow:0 16px 50px rgba(11,13,20,.22); }
+    .grabber { width:38px; height:4px; margin:9px auto 4px; border-radius:2px; background:var(--line); }
+    .sheet-head { min-height:56px; padding:0 8px 0 18px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line); }
+    .sheet-head h3 { flex:1; margin:0; font-size:17px; }
+    .sheet-body { padding:16px 18px max(20px,env(safe-area-inset-bottom)); }
+    .route-chip { display:inline-flex; min-height:26px; align-items:center; margin:0 0 12px; padding:0 9px; border-radius:8px; background:var(--surface-2); color:var(--text-2); font:600 11px/1 "Space Grotesk",sans-serif; }
+    .sheet-body p { margin:0 0 14px; color:var(--text-2); font-size:13px; line-height:1.55; }
+    .sheet-list { border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+    .sheet-list button { width:100%; min-height:56px; padding:0 14px; border:0; border-bottom:1px solid var(--line); background:var(--surface); text-align:left; }
+    .sheet-list button:last-child { border-bottom:0; }
+    .field { margin-bottom:14px; }
+    .field label { display:block; margin-bottom:6px; font-size:12px; font-weight:700; }
+    .field input,.field textarea { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+    .field textarea { min-height:86px; resize:vertical; }
+    .field-error { min-height:18px; margin-top:4px; color:var(--danger); font-size:11px; }
+    .toast { position:fixed; z-index:20; left:50%; bottom:26px; translate:-50% 12px; opacity:0; pointer-events:none; width:max-content; max-width:calc(100vw - 32px); padding:11px 15px; border-radius:12px; background:var(--text); color:var(--surface); font-size:12px; transition:.18s ease; }
+    .toast.show { opacity:1; translate:-50% 0; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media (max-width:760px) {
+      .review-shell { display:block; padding:0; }
+      .review-tools { position:relative; top:auto; padding:10px 12px; background:#ebe7de; }
+      .review-tools h1,.review-tools p,.review-note { display:none; }
+      .review-tools label { display:inline; margin-right:6px; font-size:11px; }
+      .prototype-mark { margin-right:8px; }
+      .state-select { width:auto; max-width:calc(100% - 150px); min-height:36px; padding:0 8px; font-size:11px; vertical-align:middle; }
+      .phone { min-height:calc(100vh - 56px); border:0; border-radius:0; box-shadow:none; }
+      .app { min-height:calc(100vh - 56px); }
+    }
+    @media (max-width:370px) {
+      .screen { padding-inline:14px; }
+      .store-strip { padding-inline:14px; }
+      .metric { padding-inline:4px; }
+      .metric-value { font-size:22px; }
+      .performance-head { display:block; }
+      .periods { width:max-content; margin-top:12px; }
+      .chart-controls { align-items:flex-start; flex-direction:column; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="sr-only" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l2-5h14l2 5"/><path d="M5 13v7h14v-7M9 20v-6h6v6"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14zM11.6 16.4 13 21H7l-1.5-6"/></symbol>
+    <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20 13 13 20l-9-9V4h7z"/><path d="M8.5 8.5h.01"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m21 8-9 5-9-5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.3 2.3 0 1 1 3.2 2.1c-.7.3-1 1-1 1.9M12 17h.01"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6zM14 2v5h5M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  </svg>
+
+  <main class="review-shell">
+    <aside class="review-tools" aria-label="시안 설정">
+      <span class="prototype-mark">DESIGN PROTOTYPE</span>
+      <h1>파트너 라운지 시안</h1>
+      <p>샘플 상태이며 실제 계정·결제·API와 연결되지 않습니다. 모든 저장과 접수는 브라우저 메모리 안에서만 시뮬레이션됩니다.</p>
+      <label for="stateSelect">검토 상태</label>
+      <select id="stateSelect" class="state-select">
+        <option value="no_ads" selected>광고 없음 · 검증 완료</option>
+        <option value="verify">사업자 검증 필요</option>
+        <option value="pending">소재 승인 · 입금 대기</option>
+        <option value="approved_unknown">소재 승인 · 노출 확인 필요</option>
+        <option value="live">노출 중 · 샘플</option>
+        <option value="paused">게시 중단</option>
+        <option value="expired">계약 만료</option>
+        <option value="loading">로딩</option>
+        <option value="error">조회 오류</option>
+        <option value="metrics_unavailable">성과 집계 전</option>
+      </select>
+      <div class="review-note">APPROVED는 실제 노출을 뜻하지 않습니다. 현재 앱 응답에는 <span class="num">is_active</span>와 <span class="num">paid_until</span>이 없어, 확인할 수 없는 상태를 추정하지 않습니다.</div>
+    </aside>
+
+    <section class="phone" aria-label="모바일 앱 시안">
+      <div class="app">
+        <header class="topbar">
+          <button class="icon-btn" data-panel="back" aria-label="뒤로가기"><svg class="icon"><use href="#i-back"/></svg></button>
+          <h2>파트너 라운지</h2><span></span>
+        </header>
+        <section class="store-strip" aria-label="선택한 가게">
+          <div class="store-avatar"><svg class="icon"><use href="#i-store"/></svg></div>
+          <div class="store-main">
+            <div class="store-name-row">
+              <span class="store-name" id="storeName">사이공 모터스</span>
+              <span class="verify" id="verifiedBadge" aria-label="사업자 검증 완료"><svg class="icon"><use href="#i-check"/></svg></span>
+              <button class="icon-btn" data-panel="stores" aria-label="가게 선택"><svg class="icon" style="width:16px;transform:rotate(90deg)"><use href="#i-chevron"/></svg></button>
+            </div>
+            <div class="store-meta" id="storeMeta">오토바이 정비 · 1군</div>
+            <div class="store-actions">
+              <button class="text-btn" data-panel="public">내 가게 보기</button>
+              <button class="text-btn" data-panel="edit">정보 수정</button>
+            </div>
+          </div>
+        </section>
+        <div class="tabs" role="tablist" aria-label="파트너 라운지 메뉴">
+          <button class="tab" id="tabOps" role="tab" aria-selected="true" aria-controls="opsScreen">운영</button>
+          <button class="tab" id="tabPerf" role="tab" aria-selected="false" aria-controls="perfScreen" tabindex="-1">성과</button>
+        </div>
+
+        <section class="screen active" id="opsScreen" role="tabpanel" aria-labelledby="tabOps"></section>
+        <section class="screen" id="perfScreen" role="tabpanel" aria-labelledby="tabPerf"></section>
+      </div>
+    </section>
+  </main>
+
+  <div class="dialog-backdrop" id="dialogBackdrop">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <div class="grabber"></div>
+      <header class="sheet-head"><h3 id="dialogTitle">안내</h3><button class="icon-btn" data-close aria-label="닫기"><svg class="icon"><use href="#i-close"/></svg></button></header>
+      <div class="sheet-body" id="dialogBody"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const states = {
+      no_ads:{verified:true, action:{title:'첫 광고를 준비해보세요',desc:'소식과 가격표를 먼저 정리해도 좋아요. 광고를 시작하면 더 많은 이웃에게 가게를 알릴 수 있어요.',label:'광고 등록',panel:'ad-new'}, ad:null, metrics:'empty'},
+      verify:{verified:false, action:{title:'사업자 검증을 완료해주세요',desc:'광고를 준비할 수 있어요. 유료 광고 노출에는 사업자 검증이 필요해요.',label:'검증 서류 제출',panel:'verify'}, ad:null, metrics:'empty'},
+      pending:{verified:true, action:{title:'계약·입금 내용을 확인해주세요',desc:'소재 심사는 승인됐어요. 입금 대기 중에도 정책상 유예 노출이 가능하므로, 현재 노출 여부는 여기서 단정하지 않아요.',label:'계약 안내 보기',panel:'contract'}, ad:{title:'가을 정비 프로모션',review:'소재 승인',contract:'입금 대기',exposure:'노출 상태 확인 필요',tone:'warn'}, metrics:'unavailable'},
+      approved_unknown:{verified:true, action:null, ad:{title:'가을 정비 프로모션',review:'소재 승인',contract:'계약·입금 확인 필요',exposure:'노출 상태 확인 필요',tone:''}, metrics:'unavailable'},
+      live:{verified:true, action:null, ad:{title:'가을 정비 프로모션',review:'소재 승인',contract:'계약 활성 · 샘플',exposure:'노출 중 · 샘플 판정',period:'2026. 9. 1 – 9. 30',tone:'success'}, metrics:'sample'},
+      paused:{verified:true, action:null, ad:{title:'가을 정비 프로모션',review:'소재 승인',contract:'계약 상태 확인 필요',exposure:'게시 중단',tone:''}, metrics:'unavailable'},
+      expired:{verified:true, action:null, ad:{title:'가을 정비 프로모션',review:'소재 승인',contract:'계약 만료',exposure:'노출 상태 확인 필요',tone:'warn'}, metrics:'unavailable'},
+      loading:{verified:true, loading:true, metrics:'loading'},
+      error:{verified:true, error:true, metrics:'error'},
+      metrics_unavailable:{verified:true, action:null, ad:{title:'가을 정비 프로모션',review:'소재 승인',contract:'계약 상태 확인 필요',exposure:'노출 상태 확인 필요',tone:''}, metrics:'unavailable'}
+    };
+    const routes = {
+      public:['내 가게 보기','/biz/:profileId','이웃에게 보이는 가게 프로필을 확인해요.'],
+      verify:['사업자 검증','/biz/verification','사업자 정보를 제출하고 검토 상태를 확인해요. 유료 광고 노출에는 검증이 필요해요.'],
+      'ad-new':['광고 등록','/biz/ads/new','광고 내용과 게시 희망 기간을 입력해요.'],
+      news:['소식 관리','/biz/news','새 소식을 작성하거나 이전 소식을 관리해요.'],
+      price:['가격표','/biz/prices','서비스와 가격 정보를 추가하거나 수정해요.'],
+      listing:['매물 등록','/biz/listings/new','가게에서 판매할 매물 정보를 등록해요.'],
+      back:['이전 화면','이전 경로','파트너 라운지에 들어오기 전 화면으로 돌아가요.']
+    };
+    const shops={motor:{id:'profile-demo-101',name:'사이공 모터스',meta:'오토바이 정비 · 1군',intro:'꼼꼼한 정비와 정직한 안내를 약속합니다.'},parts:{id:'profile-demo-202',name:'탄닷 부품점',meta:'오토바이 부품 · 3군',intro:'필요한 부품을 빠르게 찾아드려요.'}};
+    let activeShop=shops.motor;
+    let currentState='no_ads', activeTab='ops', currentMetric='views', period=7, tableOpen=false, lastFocus=null;
+    const sampleSeries={
+      views:[132,188,165,240,221,286,304,198,252,317,281,342,299,361,280,333,390,355,417,382,436,360,411,458,432,477,449,503,468,521],
+      clicks:[4,7,5,9,8,11,13,7,10,12,9,15,11,16,10,14,18,15,20,17,22,14,19,24,21,26,23,28,25,30],
+      actions:[1,2,1,3,2,4,5,2,3,4,3,5,4,6,3,5,7,5,8,6,9,5,7,9,8,10,7,11,9,12]
+    };
+    const metricNames={views:'노출',clicks:'클릭',actions:'고객 행동'};
+    const icon=n=>`<svg class="icon"><use href="#i-${n}"/></svg>`;
+    function actionCard(s){ return !s.action?'':`<section class="section"><div class="card action-card"><h3>${s.action.title}</h3><p>${s.action.desc}</p><button class="primary" data-panel="${s.action.panel}">${s.action.label}</button></div></section>`; }
+    function adCard(s){
+      if(s.loading) return `<section class="section"><div class="section-head"><h3>광고 관리</h3></div><div class="card ad-card" aria-busy="true"><div class="skeleton skel-line short"></div><div class="skeleton skel-line"></div><div class="skeleton skel-box"></div></div></section>`;
+      if(s.error) return `<section class="section"><div class="section-head"><h3>광고 관리</h3></div><div class="card state-block">${icon('alert')}<h4>광고를 불러오지 못했어요</h4><p>광고 없음으로 처리하지 않았어요. 연결을 확인한 뒤 다시 시도해주세요.</p><button class="retry" data-retry>다시 시도</button></div></section>`;
+      if(!s.ad) return `<section class="section"><div class="section-head"><h3>광고 관리</h3></div><div class="card ad-card"><div class="ad-top"><div class="ad-symbol">${icon('megaphone')}</div><div class="ad-copy"><h4>아직 광고가 없어요</h4><p>가게 정보와 소식은 광고 없이도 계속 관리할 수 있어요.</p></div></div></div></section>`;
+      const a=s.ad, dot=a.tone?`status-dot ${a.tone}`:'status-dot';
+      return `<section class="section"><div class="section-head"><h3>광고 관리</h3><button class="text-btn" data-panel="ad">전체 보기</button></div><div class="card ad-card"><div class="ad-top"><div class="ad-symbol">${icon('megaphone')}</div><div class="ad-copy"><h4>${a.title}</h4><p>광고의 진행 상황을 확인해요.</p></div></div><dl class="status-grid"><div class="status-line"><dt>소재 심사</dt><dd>${a.review}</dd></div><div class="status-line"><dt>계약 상태</dt><dd>${a.contract}</dd></div><div class="status-line"><dt>실제 노출</dt><dd><span class="${dot}"></span>${a.exposure}</dd></div>${a.period?`<div class="status-line"><dt>표시 기간</dt><dd class="num">${a.period}</dd></div>`:''}</dl><button class="neutral-action" data-panel="${currentState==='pending'?'contract':'ad'}">${currentState==='pending'?'계약 안내 보기':'광고 상세'}</button></div></section>`;
+    }
+    function management(){
+      const rows=[['news','news','소식 관리','새 소식과 기존 소식을 관리해요'],['tag','price','가격표','서비스와 가격 정보를 정리해요'],['box','listing','매물 등록','가게에서 판매할 매물을 등록해요'],['message','reviews','후기 관리','후기를 확인하고 답글을 남겨요']];
+      return `<section class="section"><div class="section-head"><h3>가게 운영</h3></div><div class="card">${rows.map(r=>`<button class="manager-row" data-panel="${r[1]}"><span class="manager-icon">${icon(r[0])}</span><span><strong>${r[2]}</strong><small>${r[3]}</small></span><svg class="icon chev"><use href="#i-chevron"/></svg></button>`).join('')}</div></section>`;
+    }
+    function quiet(){ return `<section class="section quiet-row"><details class="guide"><summary>${icon('file')} 파트너 가이드 <svg class="icon chev"><use href="#i-chevron"/></svg></summary><div class="guide-body"><ul><li>가게 정보와 가격표를 최신으로 유지해주세요.</li><li>소재 승인, 계약, 실제 노출은 서로 다른 상태예요.</li><li>후기에는 공개 가능한 정보만 담아 답글을 남겨주세요.</li></ul></div></details><button class="manager-row" style="margin-top:10px;border:1px solid var(--line);border-radius:16px" data-panel="help"><span class="manager-icon">${icon('help')}</span><span><strong>광고 관련 도움</strong><small>광고를 선택해 도움을 요청해요</small></span><svg class="icon chev"><use href="#i-chevron"/></svg></button></section>`; }
+    function renderOps(){ const s=states[currentState]; document.querySelector('#opsScreen').innerHTML=actionCard(s)+adCard(s)+management()+quiet(); }
+    function metricState(){ return states[currentState].metrics; }
+    function totals(){ const d=sampleSeries, start=30-period; return {views:d.views.slice(start).reduce((a,b)=>a+b,0),clicks:d.clicks.slice(start).reduce((a,b)=>a+b,0),actions:d.actions.slice(start).reduce((a,b)=>a+b,0)}; }
+    function format(n){ return new Intl.NumberFormat('ko-KR').format(n); }
+    function selectedDates(){ const end=new Date(Date.UTC(2026,8,8)); return Array.from({length:period},(_,i)=>{const d=new Date(end);d.setUTCDate(end.getUTCDate()-(period-1-i));return d;}); }
+    function shortDate(d){ return `${d.getUTCMonth()+1}. ${d.getUTCDate()}.`; }
+    function dateRange(){ const ds=selectedDates(); return `${shortDate(ds[0])} – ${shortDate(ds.at(-1))}`; }
+    function chartMarkup(){
+      const mode=metricState();
+      if(mode==='loading') return `<div class="chart" aria-busy="true"><div class="skeleton skel-box" style="height:100%"></div></div>`;
+      if(mode==='error') return `<div class="chart-empty">${icon('alert')}<span>성과를 불러오지 못했어요.<br><button class="retry" data-retry>다시 시도</button></span></div>`;
+      if(mode==='empty') return `<div class="chart-empty">아직 광고가 없어 집계된 성과가 없어요.<br>광고를 시작하기 전에는 수치를 0으로 만들지 않아요.</div>`;
+      if(mode==='unavailable') return `<div class="chart-empty">아직 확인할 수 있는 성과가 없어요.<br>노출 상태와 집계 완료 여부를 확인해주세요.</div>`;
+      const vals=sampleSeries[currentMetric].slice(30-period), max=Math.max(...vals);
+      return `<span class="sample-badge">샘플 성과 · 실제 계정 데이터 아님</span><div class="chart" role="img" aria-label="${period}일간 샘플 ${metricNames[currentMetric]} 막대 차트"><div class="bars">${vals.map((v,i)=>`<span class="bar" style="height:${Math.max(5,Math.round(v/max*100))}%" title="${i+1}일차 ${format(v)}"></span>`).join('')}</div></div>${tableOpen?tableMarkup(vals):''}`;
+    }
+    function tableMarkup(vals){ const dates=selectedDates(); return `<table class="data-table"><caption class="sr-only">샘플 ${metricNames[currentMetric]} 일별 수치</caption><thead><tr><th>일자</th><th>${metricNames[currentMetric]}</th></tr></thead><tbody>${vals.map((v,i)=>`<tr><td class="num">${shortDate(dates[i])}</td><td class="num">${format(v)}</td></tr>`).join('')}</tbody></table>`; }
+    function renderPerf(){
+      const mode=metricState(), t=mode==='sample'?totals():null, val=k=>t?format(t[k]):'—';
+      document.querySelector('#perfScreen').innerHTML=`<section class="section"><div class="performance-head"><div><h3>광고 성과</h3><p><span class="num">${dateRange()}</span> · 베트남 시간 기준</p></div><div class="periods" aria-label="성과 기간">${[7,14,30].map(n=>`<button class="period-btn ${period===n?'active':''}" data-period="${n}" aria-pressed="${period===n}">${n}일</button>`).join('')}</div></div></section><section class="section"><div class="card metrics"><div class="metric"><span class="metric-label">노출</span><span class="metric-value num">${val('views')}</span></div><div class="metric"><span class="metric-label">클릭</span><span class="metric-value num">${val('clicks')}</span></div><div class="metric"><span class="metric-label">고객 행동 <button class="help-btn" data-panel="definition" aria-label="고객 행동 정의 보기">${icon('help')}</button></span><span class="metric-value num">${val('actions')}</span></div></div></section><section class="section"><div class="section-head"><h3>성과 추이</h3></div><div class="card chart-card"><div class="chart-controls"><div class="metric-pills" aria-label="차트 지표">${Object.entries(metricNames).map(([k,n])=>`<button class="metric-btn ${currentMetric===k?'active':''}" data-metric="${k}" aria-pressed="${currentMetric===k}">${n}</button>`).join('')}</div><button class="table-toggle" data-table>${tableOpen?'차트만 보기':'표로 보기'}</button></div>${chartMarkup()}</div></section><section class="section"><div class="card"><button class="manager-row" data-panel="reviews"><span class="manager-icon">${icon('message')}</span><span><strong>후기 관리</strong><small>업체 후기는 광고 성과와 별도로 관리해요</small></span><svg class="icon chev"><use href="#i-chevron"/></svg></button></div></section>`;
+    }
+    function render(){ const s=states[currentState]; document.querySelector('#verifiedBadge').hidden=!s.verified; document.querySelector('#storeName').textContent=activeShop.name; document.querySelector('#storeMeta').textContent=activeShop.meta; renderOps(); renderPerf(); }
+    function setTab(tab,focus=true){ activeTab=tab; const ops=tab==='ops'; document.querySelector('#opsScreen').classList.toggle('active',ops); document.querySelector('#perfScreen').classList.toggle('active',!ops); ['tabOps','tabPerf'].forEach((id,i)=>{const el=document.querySelector('#'+id), selected=(i===0)===ops; el.setAttribute('aria-selected',selected); el.tabIndex=selected?0:-1;}); if(focus) document.querySelector(ops?'#tabOps':'#tabPerf').focus(); }
+    function showToast(msg){ const t=document.querySelector('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>t.classList.remove('show'),2200); }
+    function routeBody(key){ const r=routes[key]; return `<strong style="display:block;margin-bottom:8px">${activeShop.name}</strong><p>${r[2]}</p><button class="neutral-action" data-close>돌아가기</button>`; }
+    function openPanel(key,trigger){
+      lastFocus=trigger||document.activeElement; let title='',body='';
+      if(routes[key]){title=routes[key][0];body=routeBody(key);}
+      if(key==='stores'){ title='가게 선택'; body=`<p>관리할 가게를 선택해주세요.</p><div class="sheet-list"><button data-store="motor">사이공 모터스<br><small>오토바이 정비 · 1군</small></button><button data-store="parts">탄닷 부품점<br><small>오토바이 부품 · 3군</small></button></div>`; }
+      if(key==='edit'){ title='가게 정보 수정'; body=`<form id="editForm" novalidate><div class="field"><label for="bizName">가게 이름</label><input id="bizName" value="${activeShop.name}" required><div class="field-error" id="nameError"></div></div><div class="field"><label for="bizIntro">가게 소개</label><textarea id="bizIntro">${activeShop.intro}</textarea></div><button class="primary" style="margin-top:0" type="submit">저장</button></form>`; }
+      if(key==='contract'){ title='계약 안내'; body=`<p><strong>소재 심사:</strong> 승인</p><p><strong>계약 상태:</strong> 입금 확인 필요</p><p>입금 대기 중에도 신규 계약의 3영업일 유예 노출이 가능해요. 계약 갱신에도 5영업일 유예가 있을 수 있어, 입금 여부만으로 실제 노출을 판단하지 않습니다.</p><button class="neutral-action" data-local-confirm>안내를 확인했어요</button>`; }
+      if(key==='definition'){ title='고객 행동이란?'; body=`<p>전화, 단골 추가, 찜, 후기 행동의 합계예요. 실제 문의 완료나 구매 건수를 뜻하지 않아요.</p><button class="neutral-action" data-close>확인</button>`; }
+      if(key==='ad'){ const a=states[currentState].ad; title='광고 상세'; body=a?`<h4 style="margin:0 0 14px">${a.title}</h4><dl class="status-grid"><div class="status-line"><dt>소재 심사</dt><dd>${a.review}</dd></div><div class="status-line"><dt>계약 상태</dt><dd>${a.contract}</dd></div><div class="status-line"><dt>실제 노출</dt><dd>${a.exposure}</dd></div></dl><button class="neutral-action" data-close>확인</button>`:`<p>등록된 광고가 없어요.</p><button class="neutral-action" data-close>확인</button>`; }
+      if(key==='reviews'){ title='후기 관리'; body=`<div class="card" style="padding:14px"><strong>정비 설명이 친절했어요</strong><p style="margin:7px 0 0">샘플 후기 · 실제 사용자 작성 아님</p></div><form id="replyForm" style="margin-top:14px"><div class="field"><label for="replyText">답글</label><textarea id="replyText" required placeholder="감사 인사를 남겨보세요"></textarea><div class="field-error" id="replyError"></div></div><button class="primary" style="margin-top:0" type="submit">답글 저장</button></form>`; }
+      if(key==='help'){ const hasAd=!!states[currentState].ad; title='광고 관련 도움'; body=hasAd?`<p><strong>선택한 광고:</strong> ${states[currentState].ad.title}</p><form id="helpForm"><div class="field"><label for="helpText">도움이 필요한 내용</label><textarea id="helpText" required placeholder="광고 상태에 대해 궁금한 점을 적어주세요"></textarea><div class="field-error" id="helpError"></div></div><button class="primary" style="margin-top:0" type="submit">내용 확인</button></form>`:`<p>도움을 요청할 등록 광고가 없어요. 광고를 등록한 뒤 다시 확인해주세요.</p><button class="neutral-action" data-panel="ad-new">광고 등록 알아보기</button>`; }
+      document.querySelector('#dialogTitle').textContent=title; document.querySelector('#dialogBody').innerHTML=body; document.querySelector('#dialogBackdrop').classList.add('open'); document.body.style.overflow='hidden'; setTimeout(()=>document.querySelector('#dialogBackdrop button,#dialogBackdrop input,#dialogBackdrop textarea')?.focus(),0);
+    }
+    function closePanel(){ document.querySelector('#dialogBackdrop').classList.remove('open'); document.body.style.overflow=''; lastFocus?.focus(); }
+    document.addEventListener('click',e=>{
+      const panel=e.target.closest('[data-panel]'); if(panel){ openPanel(panel.dataset.panel,panel); return; }
+      if(e.target.closest('[data-close]')){closePanel();return;}
+      const store=e.target.closest('[data-store]'); if(store){activeShop=shops[store.dataset.store];render();closePanel();showToast(`${activeShop.name}(으)로 바꿨어요`);return;}
+      const p=e.target.closest('[data-period]'); if(p){period=Number(p.dataset.period);renderPerf();return;}
+      const m=e.target.closest('[data-metric]'); if(m){currentMetric=m.dataset.metric;renderPerf();return;}
+      if(e.target.closest('[data-table]')){tableOpen=!tableOpen;renderPerf();return;}
+      if(e.target.closest('[data-retry]')){showToast('시안 재시도 동작을 확인했어요');return;}
+      if(e.target.closest('[data-local-confirm]')){closePanel();showToast('시안에서만 확인했어요');}
+    });
+    document.querySelector('#stateSelect').addEventListener('change',e=>{currentState=e.target.value;render();});
+    document.querySelector('#tabOps').addEventListener('click',()=>setTab('ops',false));
+    document.querySelector('#tabPerf').addEventListener('click',()=>setTab('perf',false));
+    document.querySelector('.tabs').addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();setTab(activeTab==='ops'?'perf':'ops');}});
+    document.querySelector('#dialogBackdrop').addEventListener('click',e=>{if(e.target.id==='dialogBackdrop')closePanel();});
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape'&&document.querySelector('#dialogBackdrop').classList.contains('open'))closePanel();
+      if(e.key==='Tab'&&document.querySelector('#dialogBackdrop').classList.contains('open')){const els=[...document.querySelectorAll('#dialogBackdrop button:not([disabled]),#dialogBackdrop input,#dialogBackdrop textarea')];if(!els.length)return;const first=els[0],last=els.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+    });
+    document.addEventListener('submit',e=>{
+      e.preventDefault();
+      if(e.target.id==='editForm'){const input=document.querySelector('#bizName'),err=document.querySelector('#nameError');if(!input.value.trim()){err.textContent='가게 이름을 입력해주세요.';input.focus();return;}const btn=e.submitter;btn.disabled=true;btn.textContent='저장 중…';setTimeout(()=>{activeShop.name=input.value.trim();activeShop.intro=document.querySelector('#bizIntro').value;render();closePanel();showToast('변경 내용을 확인했어요');},450);}
+      if(e.target.id==='helpForm'){const input=document.querySelector('#helpText'),err=document.querySelector('#helpError');if(!input.value.trim()){err.textContent='도움이 필요한 내용을 입력해주세요.';input.focus();return;}closePanel();showToast('실제 접수 없이 동작만 확인했어요');}
+      if(e.target.id==='replyForm'){const input=document.querySelector('#replyText'),err=document.querySelector('#replyError');if(!input.value.trim()){err.textContent='답글 내용을 입력해주세요.';input.focus();return;}closePanel();showToast('답글 저장 동작을 확인했어요');}
+    });
+    render();
+  </script>
+</body>
+</html>

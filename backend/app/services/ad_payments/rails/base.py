@@ -60,7 +60,14 @@ class PaymentRail(Protocol):
     async def lookup(self, contract, *, ref: str) -> CheckoutResult | None: ...
 
     async def refund(
-        self, contract, *, ref: str, amount_vnd: int | None, reason: str, idempotency_seed: str
+        self,
+        contract,
+        *,
+        ref: str,
+        amount_vnd: int | None,
+        reason: str,
+        idempotency_seed: str,
+        remaining_amount_vnd: int | None = None,
     ) -> CheckoutResult: ...
 
     def parse_webhook(self, headers: dict, body: bytes) -> str | None: ...

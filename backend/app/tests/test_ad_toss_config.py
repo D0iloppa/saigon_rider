@@ -13,7 +13,28 @@ _TOSS_ENV = ("AD_PAYMENT_TOSS_CLIENT_KEY", "AD_PAYMENT_TOSS_SECRET_KEY", "AD_PAY
 
 
 class TossModeTests(unittest.TestCase):
-    def test_both_keys_present_is_live(self):
+    def test_live_pair_in_production_uses_http_gateway(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "live_ck_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "live_sk_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "production",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "live")
+            self.assertTrue(config.toss_wiring_ready())
+
+    def test_test_pair_in_development_uses_http_gateway(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "test_ck_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "test_sk_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "development",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "live")
+
+    def test_test_pair_in_production_is_off(self):
         env = {
             "AD_PAYMENT_TOSS_CLIENT_KEY": "test_ck_dummy",
             "AD_PAYMENT_TOSS_SECRET_KEY": "test_sk_dummy",
@@ -21,8 +42,57 @@ class TossModeTests(unittest.TestCase):
             "APP_ENV": "production",
         }
         with patch.dict(os.environ, env):
-            self.assertEqual(config.toss_mode(), "live")
-            self.assertTrue(config.toss_wiring_ready())
+            self.assertEqual(config.toss_mode(), "off")
+
+    def test_live_pair_in_development_is_off(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "live_ck_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "live_sk_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "development",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "off")
+
+    def test_mixed_test_live_pair_is_off(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "test_ck_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "live_sk_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "development",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "off")
+
+    def test_unknown_app_env_is_off(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "test_ck_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "test_sk_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "stagin-typo",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "off")
+
+    def test_role_swapped_keys_are_off(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "test_sk_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "test_ck_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "development",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "off")
+
+    def test_widget_keys_are_off_for_legacy_payment_window_sdk(self):
+        env = {
+            "AD_PAYMENT_TOSS_CLIENT_KEY": "test_gck_dummy",
+            "AD_PAYMENT_TOSS_SECRET_KEY": "test_gsk_dummy",
+            "AD_PAYMENT_TOSS_STUB": "",
+            "APP_ENV": "development",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(config.toss_mode(), "off")
 
     def test_only_client_key_is_off(self):
         env = {

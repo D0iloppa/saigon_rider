@@ -14,6 +14,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -112,6 +113,7 @@ class DepositRow(BaseModel):
     evidence_content_id: uuid.UUID | None
     note: str | None
     recorded_by: str | None
+    charge_snapshot: dict | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -747,6 +749,8 @@ async def rail_sync_contract(
     rail = RAILS["toss_card"]
     try:
         result = await rail.lookup(contract, ref=body.ref)
+    except RailValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     except RailNotSupported as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     except TossApiError as exc:
@@ -817,6 +821,8 @@ async def rail_refund_contract(
     )
     refunded_so_far = sum(d.amount_vnd for d in prior_refunds)
     refundable_vnd = deposit.amount_vnd - refunded_so_far
+    if refundable_vnd <= 0:
+        raise HTTPException(status_code=422, detail={"error": "deposit_already_refunded"})
     if body.amount_vnd is not None and body.amount_vnd > refundable_vnd:
         raise HTTPException(status_code=422, detail={"error": "amount_exceeds_deposit"})
 
@@ -833,11 +839,16 @@ async def rail_refund_contract(
             amount_vnd=body.amount_vnd,
             reason=body.reason,
             idempotency_seed=idempotency_seed,
+            remaining_amount_vnd=refundable_vnd if body.amount_vnd is None else None,
         )
     except RailValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
     except RailNotSupported as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
+    except httpx.TransportError:
+        # 취소 POST의 결과가 모호하므로 자동 재호출하지 않는다. 같은 멱등키로 운영자가 안전하게
+        # 재시도할 수 있도록 retryable 503만 반환한다.
+        raise HTTPException(status_code=503, detail={"error": "toss_cancel_unavailable", "retryable": True}) from None
     except TossApiError as exc:
         raise HTTPException(status_code=502, detail={"error": "toss_cancel_failed", "message": exc.message}) from None
 
@@ -857,7 +868,7 @@ async def rail_refund_contract(
         {
             "source_deposit_id": str(deposit.id),
             "refund_deposit_id": str(ingest_result.deposit_id),
-            "amount_vnd": body.amount_vnd if body.amount_vnd is not None else deposit.amount_vnd,
+            "amount_vnd": body.amount_vnd if body.amount_vnd is not None else refundable_vnd,
             "reason": body.reason,
             "duplicate": ingest_result.duplicate,
         },

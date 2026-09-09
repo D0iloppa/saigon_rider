@@ -50,14 +50,40 @@ TOSS_ENV_KEYS = (_TOSS_CLIENT_KEY_ENV, _TOSS_SECRET_KEY_ENV, _TOSS_STUB_ENV)
 # import 를 피하기 위해 main.py 를 import 하지 않고 같은 리터럴 집합을 SoT 로 복제한다. 값이
 # 바뀌면 양쪽 다 갱신할 것.
 _DEV_ENV_VALUES = {"development", "dev", "local", "test"}
+_PROD_ENV_VALUES = {"production", "prod"}
+
+
+def _toss_key_environment(value: str, *, kind: Literal["client", "secret"]) -> Literal["test", "live"] | None:
+    """키 역할과 test/live 접두를 함께 검증한다. 알 수 없는 형식은 배선으로 취급하지 않는다."""
+    # 현재 프론트는 V2의 legacy payment-window `payment()`를 사용하므로 API 개별 연동 키
+    # (ck/sk)만 받는다. gck/gsk는 widgets() 주문서형·결제창형 키라 서로 바꿔 쓸 수 없다.
+    suffix = "ck_" if kind == "client" else "sk_"
+    for environment in ("test", "live"):
+        if value.startswith(f"{environment}_{suffix}"):
+            return environment
+    return None
 
 
 def toss_mode() -> Literal["off", "stub", "live"]:
-    """세 단(off/stub/live) 판정 (§5-1). 클라·시크릿 키가 둘 다 있으면 live(테스트 키든 운영
-    키든 '진짜 HTTP' — 구분은 토스가 키 접두로 한다). 아니면 dev 화이트리스트에서 STUB=1 일 때만 stub."""
-    if os.getenv(_TOSS_CLIENT_KEY_ENV, "").strip() and os.getenv(_TOSS_SECRET_KEY_ENV, "").strip():
-        return "live"
-    if os.getenv(_TOSS_STUB_ENV, "").strip() == "1" and os.getenv("APP_ENV", "").strip().lower() in _DEV_ENV_VALUES:
+    """세 단(off/stub/live) 판정 (§5-1).
+
+    실제 HTTP 키는 역할(ck/sk), test/live 쌍, APP_ENV 가 모두 일치해야 한다. 운영은 live 키만,
+    개발 화이트리스트는 test 키만 허용하며 APP_ENV 미설정·오타는 fail-closed 한다.
+    """
+    client_key = os.getenv(_TOSS_CLIENT_KEY_ENV, "").strip()
+    secret_key = os.getenv(_TOSS_SECRET_KEY_ENV, "").strip()
+    app_env = os.getenv("APP_ENV", "").strip().lower()
+    if client_key or secret_key:
+        client_environment = _toss_key_environment(client_key, kind="client")
+        secret_environment = _toss_key_environment(secret_key, kind="secret")
+        if client_environment is None or client_environment != secret_environment:
+            return "off"
+        if app_env in _PROD_ENV_VALUES and client_environment == "live":
+            return "live"
+        if app_env in _DEV_ENV_VALUES and client_environment == "test":
+            return "live"
+        return "off"
+    if os.getenv(_TOSS_STUB_ENV, "").strip() == "1" and app_env in _DEV_ENV_VALUES:
         return "stub"
     return "off"
 

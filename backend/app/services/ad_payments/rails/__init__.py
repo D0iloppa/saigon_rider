@@ -42,12 +42,16 @@ async def toss_webhook(request: Request, db: AsyncSession = Depends(get_db)) -> 
         return {"ok": True}
 
     try:
-        order_id = await rail.resolve_order_id(ref=payment_key)
+        payment = await rail.fetch_payment(ref=payment_key)
     except RailNotSupported:
         # toss_card 가 배선되지 않은 상태(off) — 이 환경에서 토스가 웹훅을 보낼 리 없지만,
         # 방어적으로 200 을 준다(재전송 폭주 방지). 아래 lookup() 도 같은 이유로 감싼다.
         return {"ok": True}
-    if order_id is None:
+    if payment is None or payment.get("status") != "DONE":
+        return {"ok": True}
+
+    order_id = payment.get("orderId")
+    if not isinstance(order_id, str):
         return {"ok": True}
 
     code_part = order_id.rsplit("-", 1)[0]
@@ -63,8 +67,8 @@ async def toss_webhook(request: Request, db: AsyncSession = Depends(get_db)) -> 
         return {"ok": True}
 
     try:
-        result = await rail.lookup(contract, ref=payment_key)
-    except RailNotSupported:
+        result = rail.result_from_payment(contract, payment, ref=payment_key)
+    except (RailNotSupported, RailValidationError):
         return {"ok": True}
     if result is None:
         return {"ok": True}

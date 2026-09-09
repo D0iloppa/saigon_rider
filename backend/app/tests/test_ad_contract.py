@@ -8,6 +8,7 @@
 명시 구성한다 — 직전 리뷰에서 정확히 이 문제로 CHANGES 를 받았다.
 """
 
+import hashlib
 import os
 import unittest
 import uuid
@@ -327,6 +328,107 @@ class AcceptContractTests(_AdContractTestBase):
         self.assertEqual(out.amount_vnd, 539000)
         self.assertIsNotNone(out.snapshot)
         self.assertEqual(out.snapshot["months"], 3)
+
+    async def test_accept_snapshots_exact_presented_text_version_and_locale(self):
+        token = await self._create_link()
+        async with AsyncSessionLocal() as db:
+            presented = await ad_contract.get_ad_contract(token=token, locale="en", db=db)
+        async with AsyncSessionLocal() as db:
+            accepted = await ad_contract.accept_ad_contract(
+                token=token,
+                body=ad_contract.AdContractAcceptRequest(
+                    months=3,
+                    signer_name="Nguyen Van A",
+                    locale="en",
+                    presented_text_version=presented.contract_text_version,
+                    presented_text_sha256=presented.contract_text_sha256,
+                    presented_quote=True,
+                    presented_amount_vnd=presented.tier_price_options.month_3_vnd,
+                    presented_amount_krw=presented.tier_price_options.month_3_krw,
+                ),
+                request=_fake_request(),
+                db=db,
+            )
+
+        self.assertEqual(accepted.contract_text, presented.contract_text)
+        self.assertEqual(accepted.contract_locale, "en")
+        self.assertEqual(accepted.snapshot["contract_text"], presented.contract_text)
+        self.assertEqual(accepted.snapshot["contract_text_version"], presented.contract_text_version)
+        self.assertEqual(accepted.snapshot["contract_locale"], "en")
+        self.assertEqual(
+            accepted.snapshot["contract_text_sha256"],
+            hashlib.sha256(presented.contract_text.encode("utf-8")).hexdigest(),
+        )
+
+    async def test_accept_rejects_stale_presented_contract_and_keeps_draft(self):
+        token = await self._create_link()
+        async with AsyncSessionLocal() as db:
+            with self.assertRaises(HTTPException) as raised:
+                await ad_contract.accept_ad_contract(
+                    token=token,
+                    body=ad_contract.AdContractAcceptRequest(
+                        months=3,
+                        signer_name="Nguyen Van A",
+                        locale="ko",
+                        presented_text_version="stale",
+                        presented_text_sha256="0" * 64,
+                    ),
+                    request=_fake_request(),
+                    db=db,
+                )
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(raised.exception.detail, {"error": "contract_version_changed"})
+        async with AsyncSessionLocal() as db:
+            contract = await ad_contract._load_contract_by_token(db, token)
+            self.assertEqual(contract.status, "draft")
+            self.assertIsNone(contract.contract_snapshot)
+
+    async def test_accept_rejects_changed_presented_quote(self):
+        token = await self._create_link()
+        async with AsyncSessionLocal() as db:
+            with self.assertRaises(HTTPException) as raised:
+                await ad_contract.accept_ad_contract(
+                    token=token,
+                    body=ad_contract.AdContractAcceptRequest(
+                        months=3,
+                        signer_name="Nguyen Van A",
+                        locale="en",
+                        presented_quote=True,
+                        presented_amount_vnd=1,
+                        presented_amount_krw=None,
+                    ),
+                    request=_fake_request(),
+                    db=db,
+                )
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(raised.exception.detail, {"error": "contract_version_changed"})
+
+    async def test_unknown_locale_falls_back_to_vietnamese(self):
+        token = await self._create_link()
+        async with AsyncSessionLocal() as db:
+            out = await ad_contract.get_ad_contract(token=token, locale="fr", db=db)
+        self.assertEqual(out.contract_locale, "vi")
+        self.assertTrue(out.contract_text.startswith("Hợp đồng này"))
+
+    async def test_second_accept_preserves_first_contract_evidence(self):
+        token = await self._create_link()
+        async with AsyncSessionLocal() as db:
+            first = await ad_contract.accept_ad_contract(
+                token=token,
+                body=ad_contract.AdContractAcceptRequest(months=3, signer_name="First", locale="ko"),
+                request=_fake_request(),
+                db=db,
+            )
+        async with AsyncSessionLocal() as db:
+            second = await ad_contract.accept_ad_contract(
+                token=token,
+                body=ad_contract.AdContractAcceptRequest(months=6, signer_name="Second", locale="en"),
+                request=_fake_request(),
+                db=db,
+            )
+        self.assertEqual(second.snapshot, first.snapshot)
+        self.assertEqual(second.contract_text, first.contract_text)
+        self.assertEqual(second.contract_locale, "ko")
 
 
 class RailOffersTests(_AdContractTestBase):

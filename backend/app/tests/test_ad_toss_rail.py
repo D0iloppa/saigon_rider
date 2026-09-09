@@ -6,15 +6,18 @@
 """
 
 import asyncio
+import base64
 import unittest
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+import httpx
+
 from app.services.ad_payments import payment_code as payment_code_module
 from app.services.ad_payments.rails.bank_transfer import BankTransferRail
 from app.services.ad_payments.rails.base import RailNotSupported, RailValidationError
-from app.services.ad_payments.rails.toss_card import StubTossGateway, TossCardRail
+from app.services.ad_payments.rails.toss_card import HttpTossGateway, StubTossGateway, TossApiError, TossCardRail
 
 _VALID_CODE = payment_code_module.generate_payment_code()
 _OTHER_VALID_CODE = payment_code_module.generate_payment_code()
@@ -47,6 +50,47 @@ def _make_tier():
     return SimpleNamespace(name="일반")
 
 
+def _done_payment(*, payment_key: str, order_id: str, amount: int = 10900) -> dict:
+    return {
+        "paymentKey": payment_key,
+        "orderId": order_id,
+        "status": "DONE",
+        "totalAmount": amount,
+        "currency": "KRW",
+        "method": "카드",
+        "approvedAt": datetime.now(UTC).isoformat(),
+        "card": None,
+        "cancels": [],
+    }
+
+
+class _FixedConfirmGateway:
+    def __init__(self, payment: dict):
+        self.payment = payment
+
+    async def confirm(self, **_kwargs):
+        return self.payment
+
+
+class _LookupGateway:
+    def __init__(self, payment: dict | None):
+        self.payment = payment
+        self.lookup_calls = 0
+
+    async def get_payment(self, _payment_key):
+        self.lookup_calls += 1
+        return self.payment
+
+
+class _AmbiguousConfirmGateway(_LookupGateway):
+    def __init__(self, payment: dict | None, error: Exception):
+        super().__init__(payment)
+        self.error = error
+
+    async def confirm(self, **_kwargs):
+        raise self.error
+
+
 class TossCardOfferTests(unittest.TestCase):
     def test_offer_has_no_secret_key_string_anywhere(self):
         rail = TossCardRail(gateway=StubTossGateway())
@@ -73,6 +117,11 @@ class TossCardOfferTests(unittest.TestCase):
         offer = rail.offer(contract, _make_ad(), _make_tier(), now=datetime.now(UTC))
         self.assertFalse(offer.wired)
         self.assertIsNone(offer.checkout)
+
+    def test_http_gateway_basic_auth_includes_required_trailing_colon(self):
+        gateway = HttpTossGateway("test_sk_dummy")
+        expected = base64.b64encode(b"test_sk_dummy:").decode()
+        self.assertEqual(gateway._headers()["Authorization"], f"Basic {expected}")
 
 
 class TossCardConfirmTests(unittest.TestCase):
@@ -125,6 +174,57 @@ class TossCardConfirmTests(unittest.TestCase):
         self.assertTrue(second.already_final)
         self.assertEqual(second.observation.source_ref, "pay_dup")
 
+    def test_confirm_rejects_tampered_psp_payload_fields(self):
+        contract = _make_contract(payment_code=_VALID_CODE, krw_value=10900)
+        baseline = {
+            "paymentKey": "pay_expected",
+            "orderId": f"{_VALID_CODE}-1",
+            "status": "DONE",
+            "totalAmount": 10900,
+            "currency": "KRW",
+            "approvedAt": datetime.now(UTC).isoformat(),
+        }
+        mutations = (
+            {"status": "READY"},
+            {"paymentKey": "pay_other"},
+            {"orderId": f"{_VALID_CODE}-2"},
+            {"totalAmount": 1},
+            {"currency": "USD"},
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                gateway = _FixedConfirmGateway({**baseline, **mutation})
+                rail = TossCardRail(gateway=gateway)
+                with self.assertRaises(RailValidationError):
+                    self._confirm(
+                        rail,
+                        contract,
+                        payment_key="pay_expected",
+                        order_id=f"{_VALID_CODE}-1",
+                        amount=10900,
+                    )
+
+    def test_timeout_recovers_by_single_lookup(self):
+        payment = _done_payment(payment_key="pay_timeout", order_id=f"{_VALID_CODE}-1")
+        gateway = _AmbiguousConfirmGateway(payment, httpx.ReadTimeout("confirm response lost"))
+        result = self._confirm(TossCardRail(gateway=gateway), _make_contract(), payment_key="pay_timeout")
+        self.assertTrue(result.already_final)
+        self.assertEqual(gateway.lookup_calls, 1)
+
+    def test_server_error_recovers_by_single_lookup(self):
+        payment = _done_payment(payment_key="pay_5xx", order_id=f"{_VALID_CODE}-1")
+        gateway = _AmbiguousConfirmGateway(payment, TossApiError("UNKNOWN", "upstream failed", status_code=502))
+        result = self._confirm(TossCardRail(gateway=gateway), _make_contract(), payment_key="pay_5xx")
+        self.assertTrue(result.already_final)
+        self.assertEqual(gateway.lookup_calls, 1)
+
+    def test_ambiguous_recovery_never_accepts_mismatched_lookup(self):
+        payment = _done_payment(payment_key="pay_timeout", order_id=f"{_VALID_CODE}-1")
+        payment["totalAmount"] = 1
+        gateway = _AmbiguousConfirmGateway(payment, httpx.ReadTimeout("confirm response lost"))
+        with self.assertRaises(RailValidationError):
+            self._confirm(TossCardRail(gateway=gateway), _make_contract(), payment_key="pay_timeout")
+
 
 class TossCardLookupTests(unittest.TestCase):
     def test_lookup_returns_none_when_not_done(self):
@@ -139,11 +239,29 @@ class TossCardLookupTests(unittest.TestCase):
         other_contract = _make_contract(payment_code=_OTHER_VALID_CODE)
         asyncio.run(gateway.confirm(payment_key="pk_other", order_id=f"{_OTHER_VALID_CODE}-1", amount=10900))
         this_contract = _make_contract(payment_code=_VALID_CODE)
-        result = asyncio.run(rail.lookup(this_contract, ref="pk_other"))
-        self.assertIsNone(result)
+        with self.assertRaises(RailValidationError):
+            asyncio.run(rail.lookup(this_contract, ref="pk_other"))
         # 진짜 소유자에게는 그대로 매칭된다.
         result_for_owner = asyncio.run(rail.lookup(other_contract, ref="pk_other"))
         self.assertIsNotNone(result_for_owner)
+
+    def test_lookup_rejects_amount_currency_and_payment_key_mismatch(self):
+        contract = _make_contract()
+        for mutation in ({"totalAmount": 1}, {"currency": "USD"}, {"paymentKey": "other"}):
+            with self.subTest(mutation=mutation):
+                payment = {**_done_payment(payment_key="pay_lookup", order_id=f"{_VALID_CODE}-1"), **mutation}
+                rail = TossCardRail(gateway=_LookupGateway(payment))
+                with self.assertRaises(RailValidationError):
+                    asyncio.run(rail.lookup(contract, ref="pay_lookup"))
+
+    def test_webhook_fetch_and_mapping_use_one_query(self):
+        payment = _done_payment(payment_key="pay_webhook", order_id=f"{_VALID_CODE}-1")
+        gateway = _LookupGateway(payment)
+        rail = TossCardRail(gateway=gateway)
+        fetched = asyncio.run(rail.fetch_payment(ref="pay_webhook"))
+        result = rail.result_from_payment(_make_contract(), fetched, ref="pay_webhook")
+        self.assertEqual(result.observation.source_ref, "pay_webhook")
+        self.assertEqual(gateway.lookup_calls, 1)
 
     def test_parse_webhook_ignores_tampered_status_and_amount(self):
         # 웹훅 서명이 없으므로(T-10) 페이로드의 status/amount 는 신뢰하지 않는다 — parse_webhook
@@ -178,15 +296,35 @@ class _SpyCancelGateway(StubTossGateway):
     def __init__(self):
         super().__init__()
         self.cancel_idempotency_keys: list[str] = []
+        self.cancel_amounts: list[int | None] = []
 
     async def cancel(self, *, payment_key, cancel_reason, cancel_amount, idempotency_key):
         self.cancel_idempotency_keys.append(idempotency_key)
+        self.cancel_amounts.append(cancel_amount)
         return await super().cancel(
             payment_key=payment_key,
             cancel_reason=cancel_reason,
             cancel_amount=cancel_amount,
             idempotency_key=idempotency_key,
         )
+
+
+class _TamperedCancelGateway(StubTossGateway):
+    def __init__(self, mutation: str):
+        super().__init__()
+        self.mutation = mutation
+
+    async def cancel(self, **kwargs):
+        payment = await super().cancel(**kwargs)
+        if self.mutation == "amount":
+            payment["cancels"][-1]["cancelAmount"] = 1
+        elif self.mutation == "pending":
+            payment["cancels"][-1]["cancelStatus"] = "PENDING"
+        elif self.mutation == "last_transaction_key":
+            payment["lastTransactionKey"] = "different-transaction"
+        elif self.mutation == "missing_evidence":
+            payment["cancels"][-1].pop("canceledAt")
+        return payment
 
 
 class TossCardRefundIdempotencyTests(unittest.TestCase):
@@ -222,6 +360,58 @@ class TossCardRefundIdempotencyTests(unittest.TestCase):
 
         self.assertEqual(len(gateway.cancel_idempotency_keys), 2)
         self.assertNotEqual(gateway.cancel_idempotency_keys[0], gateway.cancel_idempotency_keys[1])
+
+    def test_remaining_all_omits_cancel_amount_but_records_only_remaining_vnd(self):
+        gateway = _SpyCancelGateway()
+        rail = TossCardRail(gateway=gateway)
+        contract = _make_contract(payment_code=_VALID_CODE, amount_vnd=539000, krw_value=10900)
+        asyncio.run(gateway.confirm(payment_key="pk_refund", order_id=f"{_VALID_CODE}-1", amount=10900))
+        self._refund(rail, contract, amount_vnd=400000, idempotency_seed="dep1:400000:0")
+
+        result = asyncio.run(
+            rail.refund(
+                contract,
+                ref="pk_refund",
+                amount_vnd=None,
+                remaining_amount_vnd=139000,
+                reason="remaining all",
+                idempotency_seed="dep1:full:1",
+            )
+        )
+
+        self.assertIsNone(gateway.cancel_amounts[-1])
+        self.assertEqual(result.observation.amount_vnd, 139000)
+        self.assertEqual(result.charge_snapshot["value"], 10900)
+        self.assertEqual(result.charge_snapshot["currency"], "KRW")
+        self.assertEqual(result.charge_snapshot["cancelStatus"], "DONE")
+        self.assertEqual(result.charge_snapshot["cancelAmount"], 10900 - (10900 * 400000) // 539000)
+        self.assertEqual(result.charge_snapshot["transactionKey"], result.charge_snapshot["lastTransactionKey"])
+        self.assertIsNotNone(result.charge_snapshot["canceledAt"])
+        canceled_at = datetime.fromisoformat(result.charge_snapshot["canceledAt"])
+        approved_at = datetime.fromisoformat(result.charge_snapshot["approved_at"])
+        self.assertNotEqual(canceled_at, approved_at)
+        self.assertEqual(result.observation.paid_at, canceled_at)
+
+    def test_partial_refund_rejects_mismatched_psp_cancel_amount(self):
+        self._assert_tampered_cancel_rejected("amount")
+
+    def test_refund_rejects_pending_cancel(self):
+        self._assert_tampered_cancel_rejected("pending")
+
+    def test_refund_rejects_mismatched_last_transaction_key(self):
+        self._assert_tampered_cancel_rejected("last_transaction_key")
+
+    def test_refund_rejects_missing_cancel_evidence(self):
+        self._assert_tampered_cancel_rejected("missing_evidence")
+
+    def _assert_tampered_cancel_rejected(self, mutation: str):
+        gateway = _TamperedCancelGateway(mutation)
+        rail = TossCardRail(gateway=gateway)
+        contract = _make_contract(payment_code=_VALID_CODE, amount_vnd=539000, krw_value=10900)
+        asyncio.run(gateway.confirm(payment_key="pk_refund", order_id=f"{_VALID_CODE}-1", amount=10900))
+
+        with self.assertRaises(RailValidationError):
+            self._refund(rail, contract, amount_vnd=100000, idempotency_seed="dep1:100000:0")
 
 
 class BankTransferNullObjectTests(unittest.TestCase):

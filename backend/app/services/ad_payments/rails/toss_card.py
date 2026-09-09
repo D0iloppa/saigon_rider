@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import os
 import secrets
@@ -35,10 +36,11 @@ _BIZ_PORTAL_BASE_URL = os.getenv("BIZ_PORTAL_BASE_URL", "https://business.saigon
 class TossApiError(Exception):
     """토스 API 가 4xx/5xx 를 반환했을 때. `code` 는 토스 에러코드(T-6 등)."""
 
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, *, status_code: int | None = None):
         super().__init__(f"{code}: {message}")
         self.code = code
         self.message = message
+        self.status_code = status_code
 
 
 class TossGateway(Protocol):
@@ -52,9 +54,14 @@ class TossGateway(Protocol):
 
 
 def _raise_for_toss_error_or_json(resp: httpx.Response) -> dict:
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        data = {}
     if resp.status_code >= 400:
-        raise TossApiError(code=data.get("code", "UNKNOWN"), message=data.get("message", ""))
+        raise TossApiError(
+            code=data.get("code", "UNKNOWN"), message=data.get("message", ""), status_code=resp.status_code
+        )
     return data
 
 
@@ -108,6 +115,7 @@ class StubTossGateway:
 
     def __init__(self):
         self._payments: dict[str, dict] = {}
+        self._cancel_results: dict[str, dict] = {}
 
     async def confirm(self, *, payment_key: str, order_id: str, amount: int) -> dict:
         existing = self._payments.get(payment_key)
@@ -123,6 +131,8 @@ class StubTossGateway:
             "approvedAt": datetime.now(UTC).isoformat(),
             "card": {"issuerCode": "71", "cardType": "체크", "ownerType": "개인", "number": "123456******7890"},
             "cancels": [],
+            "lastTransactionKey": f"stub-confirm-{payment_key}",
+            "balanceAmount": amount,
         }
         self._payments[payment_key] = payment
         return payment
@@ -133,17 +143,34 @@ class StubTossGateway:
     async def cancel(
         self, *, payment_key: str, cancel_reason: str, cancel_amount: int | None, idempotency_key: str
     ) -> dict:
+        existing_result = self._cancel_results.get(idempotency_key)
+        if existing_result is not None:
+            return copy.deepcopy(existing_result)
         payment = self._payments.get(payment_key)
         if payment is None:
             raise TossApiError(code="NOT_FOUND_PAYMENT", message="결제를 찾을 수 없습니다")
         total = payment["totalAmount"]
-        amount = cancel_amount if cancel_amount is not None else total
+        canceled_so_far = sum(item["cancelAmount"] for item in payment["cancels"])
+        remaining = total - canceled_so_far
+        amount = cancel_amount if cancel_amount is not None else remaining
+        if amount <= 0 or amount > remaining:
+            raise TossApiError(code="INVALID_CANCEL_AMOUNT", message="취소 가능 금액을 초과했습니다")
         transaction_key = f"stub-cancel-{len(payment['cancels']) + 1}"
         payment["cancels"].append(
-            {"transactionKey": transaction_key, "cancelAmount": amount, "cancelReason": cancel_reason}
+            {
+                "transactionKey": transaction_key,
+                "cancelAmount": amount,
+                "cancelReason": cancel_reason,
+                "canceledAt": datetime.now(UTC).isoformat(),
+                "cancelStatus": "DONE",
+                "refundableAmount": remaining - amount,
+            }
         )
-        payment["status"] = "CANCELED" if amount >= total else "PARTIAL_CANCELED"
-        return payment
+        payment["status"] = "CANCELED" if canceled_so_far + amount >= total else "PARTIAL_CANCELED"
+        payment["lastTransactionKey"] = transaction_key
+        payment["balanceAmount"] = remaining - amount
+        self._cancel_results[idempotency_key] = copy.deepcopy(payment)
+        return copy.deepcopy(payment)
 
 
 # dev 프로세스 안에서 confirm ↔ 웹훅(재조회) 이 같은 상태를 보게 하는 싱글턴(§5-1 stub 모드).
@@ -218,7 +245,56 @@ class TossCardRail:
         }
         return RailOffer(rail=self.key, wired=True, checkout=checkout)
 
-    def _to_checkout_result(self, contract, payment: dict, *, already_final: bool) -> CheckoutResult:
+    def _validate_payment(
+        self,
+        contract,
+        payment: dict,
+        *,
+        expected_payment_key: str,
+        expected_order_id: str | None = None,
+        allowed_statuses: tuple[str, ...] = ("DONE",),
+    ) -> None:
+        """PSP Payment 객체를 계약 스냅샷과 대조한다. 통과 전에는 원장 객체를 만들지 않는다."""
+        charge = _charge_from_snapshot(contract)
+        if charge is None:
+            raise RailValidationError("이 계약에는 KRW 청구 스냅샷이 없다")
+        if payment.get("status") not in allowed_statuses:
+            raise RailValidationError("PSP 결제 상태가 허용된 확정 상태가 아니다")
+        if payment.get("paymentKey") != expected_payment_key:
+            raise RailValidationError("PSP paymentKey 가 요청한 결제키와 일치하지 않는다")
+
+        order_id = payment.get("orderId")
+        if not isinstance(order_id, str):
+            raise RailValidationError("PSP orderId 가 없다")
+        if expected_order_id is not None and order_id != expected_order_id:
+            raise RailValidationError("PSP orderId 가 승인 요청과 일치하지 않는다")
+        code = _order_id_payment_code(order_id)
+        if code is None or code != contract.payment_code:
+            raise RailValidationError("PSP orderId 가 이 계약의 결제코드와 일치하지 않는다")
+
+        value = payment.get("totalAmount")
+        if isinstance(value, bool) or not isinstance(value, int) or value != charge.get("value"):
+            raise RailValidationError("PSP 결제 금액이 청구 스냅샷과 일치하지 않는다")
+        if payment.get("currency") != charge.get("currency"):
+            raise RailValidationError("PSP 결제 통화가 청구 스냅샷과 일치하지 않는다")
+
+    def _to_checkout_result(
+        self,
+        contract,
+        payment: dict,
+        *,
+        already_final: bool,
+        expected_payment_key: str,
+        expected_order_id: str | None = None,
+        allowed_statuses: tuple[str, ...] = ("DONE",),
+    ) -> CheckoutResult:
+        self._validate_payment(
+            contract,
+            payment,
+            expected_payment_key=expected_payment_key,
+            expected_order_id=expected_order_id,
+            allowed_statuses=allowed_statuses,
+        )
         card = payment.get("card") or {}
         order_id = payment.get("orderId") or ""
         code = _order_id_payment_code(order_id)
@@ -239,7 +315,7 @@ class TossCardRail:
             payment_code_hint=code or contract.payment_code,
         )
         charge_snapshot = {
-            "currency": payment.get("currency", "KRW"),
+            "currency": payment.get("currency"),
             "value": payment.get("totalAmount"),
             "psp": "toss",
             "payment_key": payment.get("paymentKey"),
@@ -284,37 +360,55 @@ class TossCardRail:
         try:
             payment = await gateway.confirm(payment_key=payment_key, order_id=order_id, amount=amount)
         except TossApiError as exc:
-            if exc.code != "ALREADY_PROCESSED_PAYMENT":
+            if exc.code != "ALREADY_PROCESSED_PAYMENT" and not (exc.status_code is not None and exc.status_code >= 500):
                 raise
             payment = await gateway.get_payment(payment_key)
             if payment is None:
-                raise
+                raise exc
+            already_final = True
+        except httpx.TransportError as exc:
+            # 승인 요청은 PSP에서 처리됐지만 응답만 유실될 수 있다. 같은 승인 POST를 재시도하지 않고
+            # paymentKey 조회 1회로 확정 상태를 복구한다(공식 Quick Reference §8).
+            payment = await gateway.get_payment(payment_key)
+            if payment is None:
+                raise exc
             already_final = True
 
-        return self._to_checkout_result(contract, payment, already_final=already_final)
+        return self._to_checkout_result(
+            contract,
+            payment,
+            already_final=already_final,
+            expected_payment_key=payment_key,
+            expected_order_id=order_id,
+        )
 
     async def lookup(self, contract, *, ref: str) -> CheckoutResult | None:
         gateway = self._gateway_instance()
         payment = await gateway.get_payment(ref)
         if payment is None or payment.get("status") != "DONE":
             return None
-        code = _order_id_payment_code(payment.get("orderId") or "")
-        if code is None or code != contract.payment_code:
-            return None
-        return self._to_checkout_result(contract, payment, already_final=True)
+        return self._to_checkout_result(contract, payment, already_final=True, expected_payment_key=ref)
 
-    async def resolve_order_id(self, *, ref: str) -> str | None:
-        """웹훅 전용 보조 — 계약을 아직 모르는 상태에서 `paymentKey` 만으로 orderId 를 얻는다
-        (그래야 orderId 에서 계약을 특정하고, 그 뒤 정식 `lookup(contract, ref=ref)` 으로 확정
-        `CheckoutResult` 를 만들 수 있다). PaymentRail 프로토콜 밖의 이 어댑터 전용 메서드."""
+    async def fetch_payment(self, *, ref: str) -> dict | None:
+        """웹훅 전용 단일 조회. 반환값은 계약을 찾은 뒤 `result_from_payment()`가 검증한다."""
         gateway = self._gateway_instance()
-        payment = await gateway.get_payment(ref)
-        if payment is None or payment.get("status") != "DONE":
+        return await gateway.get_payment(ref)
+
+    def result_from_payment(self, contract, payment: dict, *, ref: str) -> CheckoutResult | None:
+        """이미 한 번 조회한 웹훅 Payment를 재조회 없이 검증·매핑한다."""
+        if payment.get("status") != "DONE":
             return None
-        return payment.get("orderId")
+        return self._to_checkout_result(contract, payment, already_final=True, expected_payment_key=ref)
 
     async def refund(
-        self, contract, *, ref: str, amount_vnd: int | None, reason: str, idempotency_seed: str
+        self,
+        contract,
+        *,
+        ref: str,
+        amount_vnd: int | None,
+        reason: str,
+        idempotency_seed: str,
+        remaining_amount_vnd: int | None = None,
     ) -> CheckoutResult:
         charge = _charge_from_snapshot(contract)
         if charge is None:
@@ -335,19 +429,76 @@ class TossCardRail:
             cancel_amount=cancel_amount,
             idempotency_key=f"{ref}:refund:{idempotency_seed}",
         )
-        base_result = self._to_checkout_result(contract, payment, already_final=False)
-        cancels = payment.get("cancels") or []
-        transaction_key = cancels[-1].get("transactionKey") if cancels else None
-        refund_ref = f"{ref}:cancel:{transaction_key}" if transaction_key else f"{ref}:cancel:{idempotency_seed}"
+        cancels = payment.get("cancels")
+        if not isinstance(cancels, list) or not cancels:
+            raise RailValidationError("PSP 취소 거래가 응답에 없다")
+        transaction_key = payment.get("lastTransactionKey")
+        if not isinstance(transaction_key, str) or not transaction_key:
+            raise RailValidationError("PSP 마지막 거래키가 응답에 없다")
+        matching_cancels = [
+            item for item in cancels if isinstance(item, dict) and item.get("transactionKey") == transaction_key
+        ]
+        if len(matching_cancels) != 1:
+            raise RailValidationError("PSP 마지막 거래키와 일치하는 취소 거래가 없다")
+        last_cancel = matching_cancels[0]
+        canceled_krw = last_cancel.get("cancelAmount")
+        canceled_at = last_cancel.get("canceledAt")
+        cancel_status = last_cancel.get("cancelStatus")
+        if cancel_status != "DONE":
+            raise RailValidationError("PSP 취소 거래가 DONE 상태가 아니다")
+        if not isinstance(canceled_at, str) or not canceled_at:
+            raise RailValidationError("PSP 취소 시각이 응답에 없다")
+        try:
+            parsed_canceled_at = datetime.fromisoformat(canceled_at)
+        except ValueError as exc:
+            raise RailValidationError("PSP 취소 시각 형식이 올바르지 않다") from exc
+        if parsed_canceled_at.tzinfo is None:
+            raise RailValidationError("PSP 취소 시각에 시간대가 없다")
+        if isinstance(canceled_krw, bool) or not isinstance(canceled_krw, int) or canceled_krw <= 0:
+            raise RailValidationError("PSP 취소 금액이 올바르지 않다")
+        if cancel_amount is not None and canceled_krw != cancel_amount:
+            raise RailValidationError("PSP 취소 금액이 요청 금액과 일치하지 않는다")
+        if cancel_amount is None:
+            canceled_total = sum(
+                item.get("cancelAmount", 0)
+                for item in cancels
+                if isinstance(item, dict)
+                and item.get("cancelStatus") == "DONE"
+                and isinstance(item.get("cancelAmount"), int)
+                and not isinstance(item.get("cancelAmount"), bool)
+            )
+            if payment.get("status") != "CANCELED" or canceled_total != charge["value"]:
+                raise RailValidationError("PSP 잔여 전액 취소가 확인되지 않는다")
+        base_result = self._to_checkout_result(
+            contract,
+            payment,
+            already_final=False,
+            expected_payment_key=ref,
+            allowed_statuses=("PARTIAL_CANCELED", "CANCELED"),
+        )
+        refund_ref = f"{ref}:cancel:{transaction_key}"
         refund_observation = replace(
             base_result.observation,
             kind="refund",
             source_ref=refund_ref,
-            amount_vnd=amount_vnd if amount_vnd is not None else contract.amount_vnd,
+            paid_at=parsed_canceled_at,
+            amount_vnd=(
+                amount_vnd
+                if amount_vnd is not None
+                else remaining_amount_vnd
+                if remaining_amount_vnd is not None
+                else contract.amount_vnd
+            ),
         )
-        return CheckoutResult(
-            observation=refund_observation, charge_snapshot=base_result.charge_snapshot, already_final=False
-        )
+        refund_snapshot = {
+            **base_result.charge_snapshot,
+            "lastTransactionKey": transaction_key,
+            "cancelAmount": canceled_krw,
+            "canceledAt": canceled_at,
+            "transactionKey": transaction_key,
+            "cancelStatus": cancel_status,
+        }
+        return CheckoutResult(observation=refund_observation, charge_snapshot=refund_snapshot, already_final=False)
 
     def parse_webhook(self, headers: dict, body: bytes) -> str | None:
         try:

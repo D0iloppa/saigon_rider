@@ -11,8 +11,9 @@ import unittest
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
+import httpx
 from fastapi import HTTPException
 from sqlalchemy import select
 
@@ -393,6 +394,29 @@ class PaymentWiringTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(out["toss"]["missing_keys"], [])
 
 
+class RailSyncErrorMappingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_rail_sync_validation_error_returns_400_without_db_write(self):
+        contract = SimpleNamespace(id=uuid.uuid4(), ad_id=uuid.uuid4())
+        rail = SimpleNamespace(lookup=AsyncMock(side_effect=biz_contracts.RailValidationError("payment mismatch")))
+
+        with (
+            patch.object(biz_contracts, "_get_contract_or_404", AsyncMock(return_value=contract)),
+            patch.object(biz_contracts, "_get_ad_or_404", AsyncMock(return_value=SimpleNamespace(id=contract.ad_id))),
+            patch.dict(biz_contracts.RAILS, {"toss_card": rail}),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            await biz_contracts.rail_sync_contract(
+                contract_id=contract.id,
+                body=biz_contracts.RailSyncRequest(ref="payment-from-another-contract"),
+                request=_fake_request(),
+                session=_ADMIN_SESSION,
+                db=object(),
+            )
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertEqual(raised.exception.detail, "payment mismatch")
+
+
 class RailSyncTests(_BizContractsTestBase):
     """rail-sync — 웹훅/confirm 유실로 원장에 안 잡힌 토스 결제를 `ref` 재조회로 복구 (§8 P2-6)."""
 
@@ -557,6 +581,39 @@ class RailRefundTests(_BizContractsTestBase):
                 )
         self.assertEqual(raised.exception.status_code, 409)
 
+    async def test_refund_transport_timeout_returns_retryable_503_without_ledger_write(self):
+        contract_id, deposit_id, gateway = await self._make_active_card_contract()
+
+        with (
+            _stub_toss_rail(gateway),
+            patch.object(gateway, "cancel", side_effect=httpx.ReadTimeout("cancel response lost")),
+        ):
+            async with AsyncSessionLocal() as db:
+                with self.assertRaises(HTTPException) as raised:
+                    await biz_contracts.rail_refund_contract(
+                        contract_id=contract_id,
+                        body=biz_contracts.RailRefundRequest(
+                            deposit_id=deposit_id, amount_vnd=100000, reason="timeout test"
+                        ),
+                        request=_fake_request(),
+                        session=_ADMIN_SESSION,
+                        db=db,
+                    )
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(raised.exception.detail, {"error": "toss_cancel_unavailable", "retryable": True})
+        async with AsyncSessionLocal() as db:
+            refunds = (
+                (
+                    await db.execute(
+                        select(AdDeposit).where(AdDeposit.contract_id == contract_id, AdDeposit.kind == "refund")
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        self.assertEqual(refunds, [])
+
     async def test_second_refund_beyond_remaining_balance_returns_422(self):
         # [중 3] 원 입금액(539,000)만 보지 않고 이미 환불된 누계(400,000)를 빼서 남은 환불가능액
         # (139,000)과 비교해야 한다 — 300,000 요청은 로컬에서 422 로 막혀야 한다(토스 502 로 새면 안 됨).
@@ -590,13 +647,13 @@ class RailRefundTests(_BizContractsTestBase):
         self.assertEqual(raised.exception.status_code, 422)
         self.assertEqual(raised.exception.detail, {"error": "amount_exceeds_deposit"})
 
-        # 남은 환불가능액(139,000) 이내 요청은 그대로 통과한다.
+        # 금액 생략(잔여 전액)은 원입금액 539,000이 아니라 실제 잔액 139,000만 원장에 기록한다.
         with _stub_toss_rail(gateway):
             async with AsyncSessionLocal() as db:
                 out2 = await biz_contracts.rail_refund_contract(
                     contract_id=contract_id,
                     body=biz_contracts.RailRefundRequest(
-                        deposit_id=deposit_id, amount_vnd=139000, reason="2차 환불(잔액 이내)"
+                        deposit_id=deposit_id, amount_vnd=None, reason="2차 환불(잔여 전액)"
                     ),
                     request=_fake_request(),
                     session=_ADMIN_SESSION,
@@ -607,6 +664,7 @@ class RailRefundTests(_BizContractsTestBase):
         for row in refund_rows:
             self._deposit_ids.append(row.id)
         self.assertEqual(sorted(r.amount_vnd for r in refund_rows), [139000, 400000])
+        self.assertEqual(out2.reconcile.received_vnd, 0)
 
 
 if __name__ == "__main__":

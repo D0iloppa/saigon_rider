@@ -46,7 +46,14 @@ class BankTransferRail:
         raise RailNotSupported("bank_transfer 는 결제 개시를 지원하지 않는다")
 
     async def refund(
-        self, contract, *, ref: str, amount_vnd: int | None, reason: str, idempotency_seed: str
+        self,
+        contract,
+        *,
+        ref: str,
+        amount_vnd: int | None,
+        reason: str,
+        idempotency_seed: str,
+        remaining_amount_vnd: int | None = None,
     ) -> CheckoutResult:
         raise RailNotSupported("bank_transfer 환불은 계좌 송금(관리자 manual 입금건 등록)으로 처리한다")
 

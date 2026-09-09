@@ -10,11 +10,13 @@ ad_payment_pipeline_design.md) 에 있고, 이 라우터는 `ad_contracts` 테�
 (contract_method='checkbox_v1'). 나중에 벤더 붙일 때 이 값만 바뀌면 되게.
 """
 
+import hashlib
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -30,20 +32,31 @@ from ..services.ad_payments import constants as payment_constants
 from ..services.ad_payments import contracts as contract_fsm
 from ..services.ad_payments import payment_code
 from ..services.ad_payments.rails import RAILS, RailNotSupported, RailValidationError
+from ..services.ad_payments.rails.toss_card import TossApiError
 from ..services.ad_payments.reconcile import reconcile_contract
 
 router = APIRouter(tags=["광고주 계약 웹 게이트 (Ad Contract Web Gate)"])
 
 _BIZ_PORTAL_BASE_URL = os.getenv("BIZ_PORTAL_BASE_URL", "https://business.saigon-rider.com")
 
-# 계약 문안 SoT — 서버가 버전과 함께 내려주고, 동의 시점 스냅샷(contract_snapshot)에 문안 자체를
-# 남긴다(전자서명 벤더 없이도 "무엇에 동의했는지" 재현 가능하게). 실제 법무 문안 확정은 이 작업
-# 범위 밖이므로 골격 문구만 둔다.
-_CONTRACT_TEXT_VERSION = "v1"
-_CONTRACT_TEXT = (
-    "광고 게재 계약 — 선택한 tier·기간에 대한 광고비를 계좌이체로 선불 납부하며, "
-    "관리자 확인 후 해당 기간 동안 앱 내에 광고가 게시됩니다."
-)
+# 계약 문안 SoT. 기존 랜딩 3개 locale 문구를 그대로 서버로 옮긴 v2이며 법률 문구를 새로
+# 만들지 않는다. 선택 가능한 결제 rail(계좌/카드)과 모순되지 않도록 기존의 일반 문구를 유지한다.
+_CONTRACT_TEXT_VERSION = "v2"
+_CONTRACT_TEXT_BY_LOCALE = {
+    "vi": (
+        "Hợp đồng này liên quan đến việc đăng ký gói quảng cáo {tier} theo kỳ hạn đã chọn. "
+        "Việc đồng ý dưới đây đồng nghĩa với việc bạn chấp nhận Điều khoản dịch vụ và Chính sách "
+        "đăng quảng cáo của Saigon Rider."
+    ),
+    "ko": (
+        "본 계약은 {tier} 광고 상품의 선택한 기간 게재에 관한 것으로, 아래 동의는 "
+        "사이공라이더 서비스 이용약관 및 광고 게재 정책에 동의함을 의미합니다."
+    ),
+    "en": (
+        "This contract concerns the {tier} advertising plan for the selected period. Agreeing below "
+        "means you accept Saigon Rider's Terms of Service and Ad Posting Policy."
+    ),
+}
 
 # 계약이 진행 중(draft 재사용 대상 제외)이라고 보는 상태 — 이 상태가 있으면 새 draft 를 만들지 않는다.
 _UNCLOSED_NON_DRAFT_STATUSES = ("accepted", "awaiting_payment", "partially_paid", "paid")
@@ -95,6 +108,9 @@ class TierPriceOptionsOut(BaseModel):
     month_1_vnd: int
     month_3_vnd: int | None
     month_6_vnd: int | None
+    month_1_krw: int | None
+    month_3_krw: int | None
+    month_6_krw: int | None
 
 
 class RailOfferOut(BaseModel):
@@ -122,6 +138,8 @@ class AdContractOut(BaseModel):
     period_end: datetime | None
     contract_text: str
     contract_text_version: str
+    contract_locale: str
+    contract_text_sha256: str
     tier_price_options: TierPriceOptionsOut
     snapshot: dict | None = None
 
@@ -129,6 +147,12 @@ class AdContractOut(BaseModel):
 class AdContractAcceptRequest(BaseModel):
     months: Literal[1, 3, 6]
     signer_name: str
+    locale: str = "vi"
+    presented_text_version: str | None = None
+    presented_text_sha256: str | None = None
+    presented_quote: bool = False
+    presented_amount_vnd: int | None = None
+    presented_amount_krw: int | None = None
 
 
 class CheckoutConfirmRequest(BaseModel):
@@ -171,7 +195,25 @@ async def _load_contract_by_token(db: AsyncSession, token: uuid.UUID) -> AdContr
     return contract
 
 
-async def _build_contract_out(db: AsyncSession, contract: AdContract, ad: MarketplaceAd, tier: AdTier) -> AdContractOut:
+def _presented_contract(contract: AdContract, tier: AdTier, locale: str) -> tuple[str, str, str]:
+    snapshot = contract.contract_snapshot or {}
+    snap_text = snapshot.get("contract_text")
+    snap_version = snapshot.get("contract_text_version")
+    if isinstance(snap_text, str) and isinstance(snap_version, str):
+        snap_locale = snapshot.get("contract_locale")
+        # v1 스냅샷은 서버 한국어 문구였고 locale 필드가 없었다. 이미 서명한 증거는 바꾸지 않는다.
+        return snap_text, snap_version, snap_locale if snap_locale in _CONTRACT_TEXT_BY_LOCALE else "ko"
+    selected_locale = locale if locale in _CONTRACT_TEXT_BY_LOCALE else "vi"
+    return (
+        _CONTRACT_TEXT_BY_LOCALE[selected_locale].format(tier=tier.name),
+        _CONTRACT_TEXT_VERSION,
+        selected_locale,
+    )
+
+
+async def _build_contract_out(
+    db: AsyncSession, contract: AdContract, ad: MarketplaceAd, tier: AdTier, *, locale: str = "vi"
+) -> AdContractOut:
     deposits = (await db.execute(select(AdDeposit).where(AdDeposit.contract_id == contract.id))).scalars().all()
     outcome = reconcile_contract(expected_vnd=contract.amount_vnd, deposits=deposits, partner_name=ad.partner_name)
 
@@ -186,6 +228,7 @@ async def _build_contract_out(db: AsyncSession, contract: AdContract, ad: Market
         RailOfferOut(rail=offer.rail, wired=offer.wired, instructions=offer.instructions, checkout=offer.checkout)
         for offer in (rail.offer(contract, ad, tier, now=now) for rail in RAILS.values())
     ]
+    contract_text, contract_text_version, contract_locale = _presented_contract(contract, tier, locale)
 
     return AdContractOut(
         status=contract.status,
@@ -200,12 +243,17 @@ async def _build_contract_out(db: AsyncSession, contract: AdContract, ad: Market
         rails=rails_out,
         period_start=contract.period_start,
         period_end=contract.period_end,
-        contract_text=_CONTRACT_TEXT,
-        contract_text_version=_CONTRACT_TEXT_VERSION,
+        contract_text=contract_text,
+        contract_text_version=contract_text_version,
+        contract_locale=contract_locale,
+        contract_text_sha256=hashlib.sha256(contract_text.encode("utf-8")).hexdigest(),
         tier_price_options=TierPriceOptionsOut(
             month_1_vnd=_tier_price_for_months(tier, 1),
             month_3_vnd=_tier_price_for_months(tier, 3),
             month_6_vnd=_tier_price_for_months(tier, 6),
+            month_1_krw=_tier_krw_price_for_months(tier, 1),
+            month_3_krw=_tier_krw_price_for_months(tier, 3),
+            month_6_krw=_tier_krw_price_for_months(tier, 6),
         ),
         snapshot=contract.contract_snapshot,
     )
@@ -283,7 +331,7 @@ async def create_contract_link(
 
 
 @router.get("/public/ad-contract/{token}", response_model=AdContractOut, summary="계약 정보 공개 조회 (무인증)")
-async def get_ad_contract(token: uuid.UUID, db: AsyncSession = Depends(get_db)) -> AdContractOut:
+async def get_ad_contract(token: uuid.UUID, locale: str = "vi", db: AsyncSession = Depends(get_db)) -> AdContractOut:
     contract = await _load_contract_by_token(db, token)
     ad = await db.get(MarketplaceAd, contract.ad_id)
     if ad is None:
@@ -295,7 +343,7 @@ async def get_ad_contract(token: uuid.UUID, db: AsyncSession = Depends(get_db)) 
     if contract_fsm.issue_instructions(contract, now=datetime.now(UTC)):
         await db.commit()
 
-    return await _build_contract_out(db, contract, ad, tier)
+    return await _build_contract_out(db, contract, ad, tier, locale=locale)
 
 
 @router.post("/public/ad-contract/{token}/accept", response_model=AdContractOut, summary="계약 동의 (무인증, 멱등)")
@@ -323,17 +371,31 @@ async def accept_ad_contract(
         amount_vnd = _tier_price_for_months(tier, body.months)
         if amount_vnd is None:
             raise HTTPException(status_code=422, detail="선택한 기간의 확정가가 설정되지 않았습니다")
+        contract_text, contract_text_version, contract_locale = _presented_contract(contract, tier, body.locale)
+        contract_text_sha256 = hashlib.sha256(contract_text.encode("utf-8")).hexdigest()
+        amount_krw = _tier_krw_price_for_months(tier, body.months)
+        if (
+            (body.presented_text_version is not None and body.presented_text_version != contract_text_version)
+            or (body.presented_text_sha256 is not None and body.presented_text_sha256 != contract_text_sha256)
+            or (
+                body.presented_quote
+                and (body.presented_amount_vnd != amount_vnd or body.presented_amount_krw != amount_krw)
+            )
+        ):
+            raise HTTPException(status_code=409, detail={"error": "contract_version_changed"})
         snapshot = {
             "tier_name": tier.name,
             "months": body.months,
             "amount_vnd": amount_vnd,
-            "contract_text_version": _CONTRACT_TEXT_VERSION,
-            "contract_text": _CONTRACT_TEXT,
+            "contract_text_version": contract_text_version,
+            "contract_text": contract_text,
+            "contract_locale": contract_locale,
+            "contract_text_sha256": contract_text_sha256,
         }
         # seam-D(§4-3) — 동의 시점에 KRW 청구액을 함께 고정한다. NULL(대표 결정 D-F 보류)이면
         # charge 없이 accept 되고, 이 계약엔 이후에도 카드 rail 이 뜨지 않는다(계좌이체만 가능).
         krw_col_by_months = {1: "price_1m_krw", 3: "price_3m_krw", 6: "price_6m_krw"}
-        krw_value = _tier_krw_price_for_months(tier, body.months)
+        krw_value = amount_krw
         if krw_value is not None:
             snapshot["charge"] = {
                 "currency": "KRW",
@@ -351,7 +413,7 @@ async def accept_ad_contract(
         )
         await db.commit()
 
-    return await _build_contract_out(db, contract, ad, tier)
+    return await _build_contract_out(db, contract, ad, tier, locale=body.locale)
 
 
 @router.post(
@@ -387,6 +449,16 @@ async def confirm_checkout(
         raise HTTPException(status_code=400, detail=str(exc)) from None
     except RailNotSupported as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
+    except TossApiError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "toss_confirm_failed", "message": exc.message},
+        ) from None
+    except httpx.TransportError:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "toss_temporarily_unavailable"},
+        ) from None
 
     outcome = await checkout_core.complete_checkout(db, contract, ad, result, now=datetime.now(UTC))
     await checkout_core.record_auto_approve_audit(db, outcome)

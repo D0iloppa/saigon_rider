@@ -18,10 +18,10 @@
 3. **`'gps'` 의 "근처" = 내 좌표 반경 `NEARBY_RADIUS_KM`(3km).** 행정구역(ward/district)으로 거르지 않는다 — 구 경계에 걸친 건이 통째로 빠지던 원인이다.
 4. **측위 주체는 스토어 하나.** 화면은 `ensureLocation()` 을 부르기만 한다. 세션당 실측 1회(in-flight 공유)이며, 화면이 `native.getLocation()` 을 직접 부르면 화면 수만큼 권한창이 뜬다.
 5. **좌표는 persist 하지 않는다.** 모드만 기억하고 세션마다 재측위한다 — 어제 좌표로 오늘의 "근처"를 계산하면 헤더와 목록이 어긋나는 회귀가 재발한다.
-6. **진입 권한 프롬프트는 프리프롬프트로 완화한다.** 권한이 **미결정(`prompt`)일 때만** 자체 확인 다이얼로그(기존 전역 `ConfirmDialog` 재사용)로 목적을 먼저 알린다. "나중에"를 고르면 시스템 창을 띄우지 않고 `'all'` 로 가며, 이후 세션에서 다시 묻지 않는다.
+6. **진입 권한 프롬프트는 프리프롬프트로 완화한다.** 권한이 **미결정(`prompt`)일 때만** 자체 확인 다이얼로그(기존 전역 `ConfirmDialog` 재사용)로 목적을 먼저 알린다. "나중에"를 고르면 시스템 창을 띄우지 않고 Bến Thành 기준 탐색으로 가며, 이후 세션에서 다시 묻지 않는다.
 7. **이동 추종은 앱 전역 1개**(2026-08-06 추가, 대표 지적 "페이지이동을 하지 않으면 위치가 반영되지 않는다"). `useLocationStore.startWatching()` 을 **`App.tsx` 에서만** 호출한다 — 화면마다 걸면 워처가 중복된다. `native.watchLocation`(이벤트 기반) 을 쓰고 폴링하지 않는다.
    - **30m 거리 게이트 필수**(`WATCH_MIN_MOVE_M`). GPS 는 정지 상태에서도 수 m 씩 튀는데 그대로 스토어에 반영하면 `coords` 를 deps 로 쓰는 목록·지도 조회가 초당 몇 번씩 재발화한다. 반경이 3km 라 30m 이하 흔들림은 결과를 바꾸지 않는다.
-   - 서비스 권역 밖으로 이동한 tick 은 **무시**한다(마지막 유효 위치 유지).
+   - 서비스 권역 밖으로 이동한 tick 은 탐색 기준을 **Bến Thành 폴백**으로 전환한다. 실행형·기록형 기능은 별도 게이트로 차단한다.
 8. **여전히 유효한 GPS 경로**: 경로안내(`RideNav`), 제보(주유/정비/침수 신고의 `native.getLocation()`), 거래 위치공유(기록형, 인라인 차단 — 판정 근거는 [`260813_location_gate_policy.md`](../260813_location_gate_policy.md) §1 분류표 참조. 구현 완료 2026-08-27: `backend/app/routers/market.py` `location-share` 엔드포인트, `frontend/src/components/dm/LocationShareWidget.tsx`).
    - **2026-08-29 개정(대표 지시) — 위치공유가 약속과 독립됐다.** 두 경로가 공존한다: ① 약속 기반(`appointment_id` NOT NULL) — 기존 정밀도 창 정책(ACCEPTED & T-30~T+60분만 exact) 그대로. ② 독립(대화 단위, `appointment_id` NULL) — 정밀도 창 없이 **시작시점 기준 고정 1시간 세션 TTL**로만 자동 종료. 신규 엔드포인트 `market.py` `/conversations/{conversation_id}/location-share*`(약속 기반은 `/appointments/{appointment_id}/location-share*` 그대로 유지, 서로 건드리지 않음). `LocationShareWidget`은 `appointmentId`가 주어지면 창 정책, 없으면 TTL 정책으로 동작한다. 시작 시 상대에게 `location_share_invite` DM 메시지(워키토키 초대카드와 동일 패턴)를 보낸다. 약속카드(`DmDetail.tsx` appointment 메시지)에도 위치공유 버튼이 있다(그 약속이 현재 활성 약속일 때만). 헤더 "..." 메뉴·'+' 패널 모두 약속 유무와 무관하게 항상 노출.
    - **2026-08-29 Phase 1 구현(같은 날 오후, 위 개정을 대체하는 최종 모델) — 실시간 위치공유는 '채널'이다.** SoT [`task/active/260829_live_location_channel_task.md`](../task/active/260829_live_location_channel_task.md). 규칙: ① 대화방당 활성 채널 1개(`location_channels` partial unique), 참가자=`location_channel_members`(left_at NULL). **채널 참가 = 동의**(`consent_version` `2026-08-29-v2`), 참가 중엔 정밀좌표 상시 — 정밀도 매트릭스(none/approx/exact)는 채널에 적용하지 않는다. ② **좌표는 최신 1건만, 이탈·종료 시 같은 트랜잭션에서 즉시 NULL.** ③ 자동종료 3중: TTL 3h / 전원 도착(40m) 후 15분 / 활성 멤버 ≤1(생성자 혼자 10분 유예). ④ 미참가자는 방 멤버라도 state/events/ping **403**. **강퇴·차단은 즉시 반영**(코드리뷰 P0, 2026-08-29): 그룹 멤버 제거/차단·1:1 차단 시 `services/location_channel_membership.force_leave/end_for_block` 가 같은 요청에서 좌표 NULL·`member_left`/`channel_ended`·SSE 큐 종료를 수행하고, SSE keepalive tick 은 DM 멤버십·차단까지 재검사한다(lazy 종료에만 의존 금지). SSE 핸들러는 핸드셰이크 후 요청 세션을 닫고 tick 마다 짧은 세션을 연다(풀 점유 방지). 1:1 에서 차단 관계가 감지되면(`require_unblocked`) 활성 채널을 `end_reason='blocked'` 로 즉시 종료·좌표 NULL·`channel_ended` 방송 후 403. 이탈한 구독자의 SSE 큐는 브로드캐스터가 즉시 닫고(`close_for_user`), keepalive tick 마다 멤버십을 재검사한다. ⑤ 전송은 SSE(`GET …/location-channel/events`, 페이로드 포함 envelope) + HTTP 정합성(재연결 시 GET 전량 재동기화) — 워키토키와 **별도 채널**, 프로세스 내 브로드캐스터(단일 워커 전제, Redis 는 Phase 3). ⑥ 위치 ping 은 전역 워처 구독 + 10초·10m 게이트, 정확도 >35m 미전송, 백그라운드 추적 금지. ⑦ 목적지(Phase 2 구현 2026-08-29): NULL→값 최초 설정은 누구나 즉시(`PUT /destination`), 이후 변경은 **제안→제안자 제외 활성 참가자 전원 수락**(`POST /destination/proposals`, `/vote`, `DELETE` 철회). 1명이라도 거절 → rejected, 5분 무응답 → expired(lazy 평가), 참가자 1명이면 제안 없이 즉시. 채널당 pending 제안 1개 — `init/224` partial unique 로 DB 가 보장(IntegrityError→409 `pending_exists`), 수락 판정은 proposal 행 `FOR UPDATE` 로 순차화. ⑧-ETA(§5 구현): 좌표 ping 을 받은 **서버가** 자체 Valhalla 로 목적지 ETA/거리를 계산해 `eta` 이벤트로 방송한다(클라이언트는 라우팅 API 를 부르지 않음). 부하 상한 4중 — 핑한 사용자만 재계산(전원 재계산은 목적지 변경 시 1회) / 채널 단위 코얼레싱 / 250m 격자+목적지 캐시 60s(in-flight 락, 커버리지 밖 결과도 캐시) / 사용자별 60초 하드 게이트(격자 바뀌어도 보간). N≥3 은 `/sources_to_targets` 1회. 커버리지 밖은 etaS NULL + 직선거리. 부하 실측은 `routing-engine.md` §9.  ⑨ **Phase 3(2026-08-29) 폐기 완료**: 구 `/location-share*` 8종은 410 Gone 스텁, `marketplace_location_shares` 는 `init/225` 로 `_deprecated_marketplace_location_shares_260829` rename 보관(다음 릴리즈 DROP), 시트 위젯(`LocationShareWidget`/`DealLiveActions`)·구 API 함수·미사용 i18n 삭제. ⑪ **Live Activity `kind:'location'`**: 채널 참가 중 잠금화면 카드(iOS ActivityKit/Android ongoing) — 나·상대 ETA, 상대 거리, 대기 중. state 계약 `{myEtaS,myDistanceM,peerEtaS,peerDistanceM,peerToMeDistanceM,myArrived,peerArrived,participantCount,statusKind,updatedAtMs}` 는 Swift/Java/TS/Python 4곳 동일(SoT 티켓 P3). 갱신은 **서버 outbox `live_activity.location_update`**(채널당 10초 디바운스, 종료 이벤트는 즉시) → noti_worker → APNs 가 주 경로, 프론트 `update`(5초 디바운스)는 포그라운드 보조. 속성(목적지명·상대명) 변경은 `start()` 재호출(네이티브 동일 channelId upsert). 토큰 등록은 `kind='location'`+`subjectId`=channelId. ⑫ **브로드캐스터**: `REALTIME_BROADCAST=inprocess|redis`(기본 inprocess) — redis 면 위치 채널·워키토키 모두 `services/realtime_broadcast.RedisBroadcaster`(다중 bff 워커 대응, `close_for_user` 컨트롤 메시지 전파). 운영에서 워커 ≥2 로 올리려면 redis 필수. ⑩ 단순 **현재위치 카드(`location_pin`)** 는 채널과 무관한 1회성 메시지 — 정책·코드 공유 없음.
@@ -38,13 +38,14 @@
 |---|---|---|---|---|
 | 측위 성공 & `inServiceArea` | `gps` | `device` | 실측 좌표 | 없음 |
 | **측위 성공 & 서비스 권역 밖** | **`gps`** | **`fallback`** | **`BEN_THANH_FALLBACK`**(중심가) | `map.outsideArea` |
-| 권한 거부(code 1) | `all` | — | 없음 | `map.listFirst.nearMeDenied` |
-| 타임아웃(code 3) | `all` | — | 없음 | `map.listFirst.nearMeTimeout` |
-| 측정 불가 / 위치서비스 꺼짐 | `all` | — | 없음 | `map.listFirst.nearMeUnavailable` |
+| 권한 거부(code 1) | `gps` | `fallback` | **`BEN_THANH_FALLBACK`**(중심가) | `map.listFirst.nearMeDenied` |
+| 타임아웃(code 3) | `gps` | `fallback` | **`BEN_THANH_FALLBACK`**(중심가) | `map.listFirst.nearMeTimeout` |
+| 측정 불가 / 위치서비스 꺼짐 | `gps` | `fallback` | **`BEN_THANH_FALLBACK`**(중심가) | `map.listFirst.nearMeUnavailable` |
 
 - **권역 밖은 기존 동작을 유지한다** — 어디 있는지는 알고 서비스 범위 밖일 뿐이므로, 알리고 중심가로 안내한다. `'gps'` 를 유지하므로 반경 3km 필터가 그대로 걸려 목록이 비지 않는다.
-- **측위 실패는 `'all'`** — 어디 있는지 모르는 상태에서 중심가로 보내면 "왜 여기냐"는 근거가 없다.
-- **`BEN_THANH_FALLBACK` 을 측위 실패에까지 채우지 말 것.** 그게 모든 화면이 아무 설명 없이 Bến Thành 으로 수렴하던 직접 원인이다(2026-08-06 대표 캡처).
+- **측위 실패도 탐색 화면은 Bến Thành 기준으로 계속한다**(2026-09-09 대표 지시). 지도 카메라와 목록/검색 반경이 같은 좌표를 써야 하며, 권한·타임아웃·사용불가 사유를 각각 토스트로 설명한다.
+- 이 폴백 좌표는 **탐색형 조회·카메라 전용**이다. 경로안내·제보·위치공유는 `requireServiceLocation()` 또는 원시 GPS 경로를 계속 사용하며 폴백 좌표를 입력/저장하면 안 된다.
+- dev 경기도 우회 좌표는 실행형·기록형 실기기 하네스에서만 허용한다. 탐색 지도와 목록은 실제 HCMC 좌표로 간주하지 않고 Bến Thành 폴백을 쓴다.
 - 폴백 토스트는 **세션당 1회** — 화면 5개가 각자 띄우면 폭탄이 된다.
 - **`coordsSource` 를 라벨에 반영할 것.** 권역 밖인데 "내 현재 위치"라고 쓰면 사용자가 결과를 오해한다.
 
@@ -75,7 +76,7 @@
 
 - **동 경계선(Layer 1)·동 이름 라벨은 항상 그린다.** `SaigonMapV5.tsx` 의 `Layer 1 (항상): 동 경계선 + 수로` 는 `polyActive` 와 무관하다.
 - **`polyActive={false}` 로 통일한다** — 이건 *선택 동 강조*(주황 테두리 + 나머지 동 `.wardDim` 감쇠 + 선택 동 외 L2/L3 레이어 숨김) 스위치다. 지역 선택이 사라져 강조할 대상이 없고, 켜두면 지도가 잘려 보인다(대표 지시 "지도 다나오게").
-- **카메라는 GPS 중심**(`locateOnMount`), 내 위치 파란 점은 항상(`meDotOnMount`).
+- **카메라는 유효한 HCMC GPS 중심**(`locateOnMount`)이며, 권역 밖·거부·타임아웃·사용불가는 Bến Thành 로컬 줌이다. 내 위치 파란 점은 `coordsSource==='device'`인 HCMC 실측에만 표시하고 폴백에는 표시하지 않는다. 사용자가 명시적으로 고정한 `pinnedAll`은 전체 조망을 유지한다.
 - **우측 하단 '내 위치'(◎) 버튼을 켠다**(`showLocateControl`, 2026-08-06 복원). 이걸 끄던 근거가 폐기된 원칙 2 였다. 탭하면 재측위 후 **센터링 + L3 줌인**(`focusLatLng` 가 `L3_VBW*0.9` 로 맞춘다). 화면에 FAB 가 있으면 `bottomInsetPx` 로 겹치지 않게 띄운다(마켓 = 70).
 - **마커 dot 기본색은 브랜드 주황(`#ff6f3c`)** 이다. 종전 기본값 `#3b82f6` 은 "내 위치" 파란 점과 같은 색이라 `color` 를 지정하지 않는 모든 도메인 핀(매물·주유소·정비소)이 내 위치와 구분되지 않았다(대표 지적 2026-08-06).
 - **매물·피드는 비선택 = 원형 dot / 선택 = teardrop 핀**(`BIZ_PIN_PATH` + 도메인 글리프)이다. 이 형태 차이가 "선택됨"의 신호이므로 비선택까지 핀으로 올리지 말 것.

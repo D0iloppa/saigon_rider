@@ -13,7 +13,7 @@
 .identityMeta { margin-top: 2px; overflow: hidden; color: var(--text-3); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .identityActions { display: flex; gap: 16px; margin-top: 4px; }
 .identityActions button { min-height: 44px; margin: -8px 0 -10px; padding: 8px 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; }
-.tabs { display: grid; grid-template-columns: repeat(2, 1fr); height: 48px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
+.tabs { position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: repeat(2, 1fr); height: 48px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
 .tab, .tabActive { position: relative; border: 0; background: none; color: var(--text-3); font: inherit; font-size: 14px; font-weight: 700; }
 .tabActive { color: var(--text); }
 .tabActive::after { position: absolute; right: 24px; bottom: 0; left: 24px; height: 3px; border-radius: 3px 3px 0 0; background: var(--brand-500); content: ''; }

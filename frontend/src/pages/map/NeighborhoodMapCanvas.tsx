@@ -23,8 +23,8 @@ import BizReviewSheet from '@/pages/biz/BizReviewSheet';
 import { useBizViewerCount } from '@/hooks/useBizViewerCount';
 import { formatRelativeTime } from '@/lib/format';
 import { haversineM } from '@/lib/polyline';
-import { requestDeviceLocation } from '@/lib/serviceLocation';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
+import { resolveExplorationMapMount } from '@/lib/explorationLocation';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import BizRichCard from './BizRichCard';
 import styles from './NeighborhoodMap.module.css';
@@ -59,12 +59,9 @@ const SEARCH_BAR_HEIGHT = 54;
 const QUERY_TOP_INSET_PAD = 8;
 const RECENT_SEARCH_KEY = 'sr_map_recent_searches';
 const RECENT_SEARCH_MAX = 8;
-// 마지막 뷰포트 기억 — 재진입 시 복원용 (측정이 아닌 "기억"이라 GPS 원칙 위반 아님)
+// 마지막 뷰포트 기록 — 상세는 지도 위 오버레이여서 뷰포트가 그대로 보존된다. 자동 지도 진입은
+// 이 값을 읽지 않는다(저장된 광역 뷰가 현재 GPS/중심가 로컬 줌을 덮는 회귀 방지).
 const VIEWPORT_KEY = 'sgr.map.viewport';
-// 콜드 앱 진입(세션 첫 마운트)은 게이트 줌으로 리셋, 세션 내 재마운트(탭 전환/뒤로가기
-// 복귀)에서만 저장 뷰포트 복원 — 도일 결정 2026-07-15. 모듈 스코프 플래그는 콜드 런치 시
-// JS 컨텍스트가 새로 뜨며 false 로 초기화되므로 "콜드 vs 세션 내"를 구분한다.
-let mapSessionEntered = false;
 // BizPublic(/biz/:id) 이동 직전 지도 컨텍스트 스냅샷 — 뒤로가기(POP) 복귀 시 1회 소비
 // (MarketMain mkt_filter_v2 미러). 뷰포트는 VIEWPORT_KEY 가 별도로 복원하므로 담지 않는다.
 // 오버레이 전환 (2026-07-12): 지도 언마운트가 없어져 스냅샷 복원 불필요 — 저장/복원 비활성.
@@ -76,25 +73,6 @@ function isAbortError(error: unknown): boolean {
 }
 
 type LatLngBbox = { N: number; S: number; E: number; W: number };
-
-function loadSavedViewport(): LatLngBbox | null {
-  try {
-    const v = JSON.parse(localStorage.getItem(VIEWPORT_KEY) ?? 'null') as Partial<LatLngBbox> | null;
-    if (
-      v &&
-      typeof v.N === 'number' && typeof v.S === 'number' &&
-      typeof v.E === 'number' && typeof v.W === 'number' &&
-      Number.isFinite(v.N) && Number.isFinite(v.S) &&
-      Number.isFinite(v.E) && Number.isFinite(v.W) &&
-      v.N > v.S && v.E > v.W
-    ) {
-      return { N: v.N, S: v.S, E: v.E, W: v.W };
-    }
-  } catch {
-    // 손상된 저장값은 무시하고 기본(전역) 진입
-  }
-  return null;
-}
 
 // 오버레이 전환 (2026-07-12): 지도 언마운트가 없어져 스냅샷 복원 불필요 — 비활성 (로직 보존)
 // type BizReturnUi =
@@ -185,7 +163,9 @@ export default function NeighborhoodMapCanvas({
   // (selectedRegion/selectRegion/selectAll)는 폐기됐다 — 대표 지시 2026-08-06 "2개로만해 /
   // 지도 다나오게". 설계도: ai-docs/260806_gps_scope_unification_design.md
   const coords = useLocationStore((s) => s.coords);
+  const pinnedAll = useLocationStore((s) => s.pinnedAll);
   const ensureLocation = useLocationStore((s) => s.ensureLocation);
+  const mapMount = resolveExplorationMapMount(coords ? { coords } : null, pinnedAll, BEN_THANH_FALLBACK);
   // 진입 시 측위 — 스토어가 세션당 1회로 묶는다.
   useEffect(() => { void ensureLocation(); }, [ensureLocation]);
 
@@ -200,8 +180,6 @@ export default function NeighborhoodMapCanvas({
   const [bizCategories, setBizCategories] = useState<BizCategory[]>([]);
   const [bizCategory, setBizCategory] = useState<string | null>(initialBizCategory);
   const [bizLoading, setBizLoading] = useState(false);
-  // 진입 시 GPS 1회 — 리치 가게 카드 거리 표기 기준점(리스트와 동일 로직). 거부/실패 시 거리만 생략.
-  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   // 좌측 ♥ 버튼 = "찜한 업체만 보기" 토글 필터 (카테고리 칩과 AND 교집합, visibleBiz 에서 적용)
   const [favOnly, setFavOnly] = useState(false);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
@@ -257,19 +235,6 @@ export default function NeighborhoodMapCanvas({
     if (sheetSnap === 'collapsed') setCollapsedSheetHeight(sheetVisibleHeight);
   }, [sheetSnap, sheetVisibleHeight]);
 
-  // 진입 시 GPS 1회 — 리치 가게 카드 거리 표기 기준점(NeighborhoodMap 리스트와 동일 로직).
-  useEffect(() => {
-    let cancelled = false;
-    requestDeviceLocation()
-      .then((pos) => {
-        if (!cancelled) setUserPos({ lat: pos.lat, lng: pos.lng });
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const sheetRef = useRef<DraggableSheetHandle>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -284,13 +249,6 @@ export default function NeighborhoodMapCanvas({
   // 지역선택 해제(resetToViewport) 동기 emit 창에서만 true — handleBboxChange가 디바운스·
   // mode 가드 없이 현재 뷰포트 bbox를 즉시 커밋하게 한다 (500ms 공백 동안 0건 깜빡임 방지)
   const bboxImmediateRef = useRef(false);
-  // 마운트 시 1회만 읽는다 — 이후 저장은 handleBboxChange 디바운스가 담당.
-  // 콜드 진입(세션 첫 마운트)은 저장 뷰포트를 무시하고 게이트 줌으로 진입한다.
-  const [savedViewport] = useState<LatLngBbox | null>(() => {
-    if (!mapSessionEntered) { mapSessionEntered = true; return null; }
-    return loadSavedViewport();
-  });
-
   // 검색 — 업체명 검색 전용(피드는 키워드 검색 미지원, 매물 탭은 마켓으로 이전됨).
   // 검색은 전체화면 패널(당근 패턴)에서 입력받고, 패널을 닫으면 지도가 결과를 보여줌 — 지도 화면
   // 자체는 바텀시트를 강제로 올리는 등 검색 중 레이아웃을 바꾸지 않는다.
@@ -995,7 +953,7 @@ export default function NeighborhoodMapCanvas({
       <BizRichCard
         biz={b}
         categoryLabel={bizCatLabel(b.category) || undefined}
-        distanceM={userPos ? haversineM(userPos.lat, userPos.lng, b.lat, b.lng) : null}
+        distanceM={coords ? haversineM(coords.lat, coords.lng, b.lat, b.lng) : null}
         onClick={() => navigate(`/biz/${b.id}`, { state: { backgroundLocation: location } })}
         compact
       />
@@ -1112,12 +1070,11 @@ export default function NeighborhoodMapCanvas({
       <SaigonMapV5
         className={styles.map}
         height="100%"
-        initialGps={coords ?? BEN_THANH_FALLBACK}
+        initialGps={mapMount.initialGps}
         // 카메라를 내 위치 중심으로 잡는다 (대표 지시 2026-08-06 "gps기본 / 지도 다나오게").
         // 지역 선택이 사라져 카메라와 선택 경계가 어긋날 여지 자체가 없어졌다.
-        locateOnMount
-        meDotOnMount
-        initialViewport={savedViewport ?? undefined}
+        locateOnMount={mapMount.locateOnMount}
+        meDotOnMount={mapMount.meDotOnMount}
         markers={markers}
         anchorOverlay={postPanelOpen ? undefined : bizNewsOverlay}
         // 배지(집계) 미사용 — 지도와 시트는 동일 데이터 소스(bbox 조회 결과)만 표시.

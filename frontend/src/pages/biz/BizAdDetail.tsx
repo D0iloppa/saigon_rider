@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { extractDetail } from '@/api/client';
-import { fetchBusinessAd, stopBusinessAd, resumeBusinessAd, type BusinessAd, type BusinessAdStatus } from '@/api/biz';
+import { fetchBusinessAd, fetchContractLink, stopBusinessAd, resumeBusinessAd, type BusinessAd, type BusinessAdStatus } from '@/api/biz';
+import { native } from '@/lib/native';
+import { bizContractAction, bizContractErrorKey } from './bizContractCta';
 import styles from './BizAdDetail.module.css';
 import { formatVnDate } from '@/lib/vnTime';
 
@@ -56,7 +58,7 @@ export default function BizAdDetail() {
     setActing(true);
     try {
       setAd(await stopBusinessAd(ad.id));
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(extractDetail(err, t('biz.adActionError', { defaultValue: '처리에 실패했습니다' })));
     } finally {
       setActing(false);
@@ -68,8 +70,21 @@ export default function BizAdDetail() {
     setActing(true);
     try {
       setAd(await resumeBusinessAd(ad.id));
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(extractDetail(err, t('biz.adActionError', { defaultValue: '처리에 실패했습니다' })));
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleContract = async () => {
+    if (!ad || bizContractAction(ad) !== 'contract') return;
+    setActing(true);
+    try {
+      const { url } = await fetchContractLink(ad.id);
+      await native.openExternalUrl(url);
+    } catch (err: unknown) {
+      toast.error(t(bizContractErrorKey(err)));
     } finally {
       setActing(false);
     }
@@ -123,9 +138,13 @@ export default function BizAdDetail() {
         )}
       </div>
 
-      {(ad.reviewStatus === 'APPROVED' || ad.reviewStatus === 'STOPPED') && (
+      {(bizContractAction(ad) === 'contract' || ad.reviewStatus === 'APPROVED' || ad.reviewStatus === 'STOPPED') && (
         <div className={styles.footer}>
-          {ad.reviewStatus === 'APPROVED' ? (
+          {bizContractAction(ad) === 'contract' ? (
+            <Button onClick={handleContract} disabled={acting}>
+              {acting ? t('biz.contractLinkLoading') : t('biz.contractLinkCta')}
+            </Button>
+          ) : ad.reviewStatus === 'APPROVED' ? (
             <Button variant="secondary" onClick={handleStop} disabled={acting}>
               {t('biz.adStopCta', { defaultValue: '게시 중단' })}
             </Button>

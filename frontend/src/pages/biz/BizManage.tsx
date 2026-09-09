@@ -16,6 +16,7 @@ import { api, extractDetail } from '@/api/client';
 import { bizCategoryLabel, fetchBizCategories, fetchBusinessAds, fetchBusinessProfiles, fetchContractLink, updateBusinessProfile, type BizCategory, type BusinessAd, type BusinessProfile } from '@/api/biz';
 import sys from '@/styles/system.module.css';
 import BizDashboard from './BizDashboard';
+import { bizContractAction, bizContractErrorKey, runBizContractAction } from './bizContractCta';
 import styles from './BizManage.module.css';
 
 type ManageTab = 'operations' | 'performance';
@@ -23,7 +24,7 @@ type DashboardFocus = 'reviews' | 'support';
 
 function adPriority(ad: BusinessAd): number {
   if (ad.reviewStatus === 'REJECTED') return 0;
-  if (ad.subscriptionStatus === 'pending_payment') return 1;
+  if (bizContractAction(ad) === 'contract') return 1;
   if (ad.reviewStatus === 'PENDING') return 2;
   return 3;
 }
@@ -124,7 +125,7 @@ export default function BizManage() {
   const handleContractLink = async (adId: string) => {
     setContractLoadingId(adId);
     try { const { url } = await fetchContractLink(adId); await native.openExternalUrl(url); }
-    catch (err: unknown) { toast.error(extractDetail(err, t('biz.contractLinkError'))); }
+    catch (err: unknown) { toast.error(t(bizContractErrorKey(err))); }
     finally { setContractLoadingId(null); }
   };
   const focusDashboard = (focus: DashboardFocus) => { setDashboardFocus(focus); setActiveTab('performance'); };
@@ -140,7 +141,7 @@ export default function BizManage() {
   const adsFailed = adsErrorFor === active.id;
   const needsVerification = active.verificationStatus === 'pending' || active.verificationStatus === 'rejected';
   const actionAd = !needsVerification && adList
-    ? adList.find((ad) => ad.reviewStatus === 'REJECTED') ?? adList.find((ad) => ad.subscriptionStatus === 'pending_payment')
+    ? adList.find((ad) => ad.reviewStatus === 'REJECTED') ?? adList.find((ad) => bizContractAction(ad) === 'contract')
     : undefined;
   const hasPriorityAction = needsVerification || !!actionAd;
   const reviewLabel = (ad: BusinessAd) => {
@@ -170,13 +171,13 @@ export default function BizManage() {
         <button type="button" role="tab" aria-selected={activeTab === 'performance'} className={activeTab === 'performance' ? styles.tabActive : styles.tab} onClick={() => setActiveTab('performance')}>{t('biz.lounge.performanceTab')}</button>
       </nav>
       {activeTab === 'performance' ? <BizDashboard key={active.id} profileId={active.id} focus={dashboardFocus} onFocusHandled={() => setDashboardFocus(undefined)} /> : <>
-        {hasPriorityAction && <section className={styles.actionCard}><ShieldCheck size={22} /><div><h2>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationRejectedTitle') : t('biz.lounge.verificationRequiredTitle') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adRejectedActionTitle') : t('biz.lounge.contractActionTitle')}</h2><p>{needsVerification ? active.verificationStatus === 'rejected' ? active.verificationRejectReason || t('biz.lounge.verificationRejectedDesc') : t('biz.lounge.verificationRequiredDesc') : actionAd?.reviewStatus === 'REJECTED' ? actionAd.rejectReason || t('biz.lounge.adRejectedActionDesc') : t('biz.lounge.contractActionDesc')}</p></div><Button loading={actionAd?.subscriptionStatus === 'pending_payment' && contractLoadingId === actionAd.id} onClick={() => needsVerification ? navigate('/biz/verification', { state: profileState(active) }) : actionAd?.subscriptionStatus === 'pending_payment' ? handleContractLink(actionAd.id) : actionAd && navigate(`/biz/ads/${actionAd.id}`, { state: profileState(active) })}>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationResubmit') : t('biz.lounge.verificationSubmit') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adDetail') : t('biz.lounge.contractGuide')}</Button></section>}
+        {hasPriorityAction && <section className={styles.actionCard}><ShieldCheck size={22} /><div><h2>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationRejectedTitle') : t('biz.lounge.verificationRequiredTitle') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adRejectedActionTitle') : t('biz.lounge.contractActionTitle')}</h2><p>{needsVerification ? active.verificationStatus === 'rejected' ? active.verificationRejectReason || t('biz.lounge.verificationRejectedDesc') : t('biz.lounge.verificationRequiredDesc') : actionAd?.reviewStatus === 'REJECTED' ? actionAd.rejectReason || t('biz.lounge.adRejectedActionDesc') : t('biz.lounge.contractActionDesc')}</p></div><Button loading={!!actionAd && bizContractAction(actionAd) === 'contract' && contractLoadingId === actionAd.id} onClick={() => needsVerification ? navigate('/biz/verification', { state: profileState(active) }) : actionAd && runBizContractAction(actionAd, { openContract: handleContractLink, openDetail: (adId) => navigate(`/biz/ads/${adId}`, { state: profileState(active) }) })}>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationResubmit') : t('biz.lounge.verificationSubmit') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adDetail') : t('biz.lounge.contractGuide')}</Button></section>}
         <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.adsSection')}</h2></div>
         <div className={sys.card}>{adsFailed ? <StateBlock icon={AlertCircle} tone="error" title={t('biz.lounge.adsLoadErrorTitle')} desc={t('biz.lounge.adsLoadErrorDesc')} actionLabel={t('common.retry')} onAction={() => { setAdsErrorFor(null); setAdsReloadKey((key) => key + 1); }} /> : adList === null ? <div aria-busy="true" aria-label={t('common.loading')}><SkeletonRows count={2} /></div> : !adList.length ? <div className={styles.adEmpty}><StateBlock icon={Megaphone} title={t('biz.lounge.adsEmptyTitle')} desc={t('biz.lounge.adsEmptyDesc')} />{!hasPriorityAction && <Button onClick={() => navigate('/biz/ads/new', { state: profileState(active) })}>{t('biz.adCreateCta')}</Button>}</div> : adList.map((ad) => <article className={styles.adRow} key={ad.id}>
           <div className={styles.adTop}>{ad.imageUrl ? <AppImage src={ad.imageUrl} alt="" className={styles.adThumb} /> : <div className={styles.adThumbFallback}><Megaphone size={20} /></div>}<div className={styles.adTitleWrap}><h3>{ad.title}</h3>{ad.endsAt && <p className="num">{t('biz.lounge.adUntil', { date: new Intl.DateTimeFormat(i18n.language).format(new Date(ad.endsAt)) })}</p>}</div></div>
           <dl className={styles.adStatuses}><div><dt>{t('biz.lounge.reviewStatus')}</dt><dd>{reviewLabel(ad)}</dd></div><div><dt>{t('biz.lounge.contractStatus')}</dt><dd>{contractLabel(ad)}</dd></div><div><dt>{t('biz.lounge.exposureStatus')}</dt><dd>{exposureLabel(ad)}</dd></div></dl>
           {ad.reviewStatus === 'REJECTED' && ad.rejectReason && <p className={styles.rejectReason}>{ad.rejectReason}</p>}
-          <div className={styles.adActions}><button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => navigate(`/biz/ads/${ad.id}`, { state: profileState(active) })}>{t('biz.lounge.adDetail')}</button>{ad.subscriptionStatus === 'pending_payment' && <button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => handleContractLink(ad.id)} disabled={contractLoadingId === ad.id}>{contractLoadingId === ad.id ? t('biz.contractLinkLoading') : t('biz.lounge.contractGuide')}</button>}</div>
+          <div className={styles.adActions}><button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => navigate(`/biz/ads/${ad.id}`, { state: profileState(active) })}>{t('biz.lounge.adDetail')}</button>{bizContractAction(ad) === 'contract' && <button type="button" className={`${sys.actionChip} ${sys.actionNeutral} ${styles.adAction}`} onClick={() => handleContractLink(ad.id)} disabled={contractLoadingId === ad.id}>{contractLoadingId === ad.id ? t('biz.contractLinkLoading') : t('biz.lounge.contractGuide')}</button>}</div>
         </article>)}</div>{!(adList?.length === 0 && !hasPriorityAction && !adsFailed) && <button type="button" className={styles.adCreateSecondary} onClick={() => navigate('/biz/ads/new', { state: profileState(active) })}>{t('biz.adCreateCta')}</button>}
         <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.operationsSection')}</h2></div>
         <div className={sys.card}>{[

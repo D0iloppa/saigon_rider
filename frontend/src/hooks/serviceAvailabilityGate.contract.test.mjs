@@ -24,7 +24,7 @@ test('useServiceAvailability reads the store only — it never measures location
     'the hook must not trigger a measurement; it only reads what the store already resolved');
   // 판정은 실제 게이트와 같은 기준이어야 한다 — 더 느슨하면 "열려 있는데 탭하면 막히는"
   // 상태가 되어 훅의 목적이 무너진다(2026-08-13 코드리뷰).
-  assert.match(source, /coordsSource === 'device' && !gateReason && !tooCoarse/);
+  assert.match(source, /isLocationExecutionAvailable\(coordsSource, gateReason, accuracyM, GATE_ACCURACY_LIMIT_M\)/);
   assert.match(source, /GATE_ACCURACY_LIMIT_M/, 'the hook must apply the same accuracy limit as the gate');
 });
 
@@ -43,15 +43,15 @@ test('useLocationStore remembers WHY the location is unusable (so buttons can ex
   // **측위를 건너뛰는 조기 반환도 사유를 남겨야 한다.** gateReason 은 persist 되지 않으므로
   // 남기지 않으면 재실행 시 (coordsSource:null, gateReason:null) 로 영구 'checking' 이 되고
   // 게이트된 버튼이 설명 없이 죽는다(2026-08-13 코드리뷰 HIGH).
-  assert.match(source, /if \(!state\.gateReason\) \{[\s\S]{0,160}pinnedAll \? 'scope_all' : 'permission'/,
+  assert.match(source, /if \(!state\.gateReason\) \{[\s\S]{0,160}gateReason: 'scope_all'/,
     'the skip-measurement early return must record why');
   // 사용자가 고른 '전체 지역'을 기기 고장으로 표기하면 거짓 안내가 된다.
   assert.doesNotMatch(source, /pinnedAll: true[\s\S]{0,80}gateReason: 'unavailable'/,
     "choosing '전체 지역' is a user choice, not a device failure");
   // 주행 중 권역 이탈 tick 도 잠근다 — 버리기만 하면 버튼이 열린 채 남는다.
-  assert.match(source, /if \(get\(\)\.gateReason !== 'outside_area'\) set\(\{ gateReason: 'outside_area' \}\)/);
+  assert.match(source, /gateReason: executionAllowed \? null : 'outside_area'/);
   // 성공 시에는 반드시 해제된다(사유가 남아 버튼이 계속 잠기면 안 된다).
-  assert.match(source, /coordsSource: 'device',\s*\n\s*gateReason: null/);
+  assert.match(source, /coordsSource: resolved\.coordsSource,\s*\n\s*gateReason: resolved\.gateReason/);
 });
 
 test('every /ride-nav entry point locks its button up front AND explains on tap', () => {

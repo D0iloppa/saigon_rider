@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Newspaper, X } from 'lucide-react';
+import { AlertCircle, ChevronRight, Newspaper, Plus, Trash2 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
+import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import StateBlock from '@/components/ui/StateBlock';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { extractDetail } from '@/api/client';
 import { fetchBizPublicNews, deleteBizNews, type BizNewsItem } from '@/api/biz';
+import sys from '@/styles/system.module.css';
 import styles from './BizNewsManage.module.css';
 
 const NEWS_PAGE = 20;
@@ -31,6 +33,9 @@ export default function BizNewsManage() {
   const [news, setNews] = useState<BizNewsItem[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BizNewsItem | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!profileId) {
@@ -42,8 +47,8 @@ export default function BizNewsManage() {
         setNews(list);
         setHasMore(list.length === NEWS_PAGE);
       })
-      .catch(() => setNews([]));
-  }, [profileId, navigate]);
+      .catch(() => { setNews([]); setLoadError(true); });
+  }, [profileId, navigate, reloadKey]);
 
   if (!profileId) return null;
 
@@ -59,11 +64,13 @@ export default function BizNewsManage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteBizNews(id);
-      setNews((prev) => (prev ? prev.filter((n) => n.id !== id) : prev));
-    } catch (err: any) {
+      await deleteBizNews(deleteTarget.id);
+      setNews((prev) => (prev ? prev.filter((n) => n.id !== deleteTarget.id) : prev));
+      setDeleteTarget(null);
+    } catch (err: unknown) {
       toast.error(extractDetail(err, t('biz.newsDeleteError', { defaultValue: '소식 삭제에 실패했습니다' })));
     }
   };
@@ -72,42 +79,54 @@ export default function BizNewsManage() {
     <div className={styles.page}>
       <TopBar title={t('biz.newsManageTitle', { defaultValue: '내 소식' })} />
       <div className={styles.body}>
-        {news === null ? (
+        <section className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <span className={styles.eyebrow}>{t('biz.newsManageEyebrow')}</span>
+            <h1>{t('biz.newsManageTitle')}</h1>
+            <p>{t('biz.newsManagePurpose')}</p>
+            {news !== null && !loadError && <span className={`${styles.count} num`}>{t('biz.newsManageCount', { count: `${news.length}${hasMore ? '+' : ''}` })}</span>}
+          </div>
+          <Button onClick={() => navigate('/biz/news/new', { state: { profileId } })}>
+            <Plus size={17} />{t('biz.newsCreateCta')}
+          </Button>
+        </section>
+        <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.newsListTitle')}</h2></div>
+        {loadError ? (
+          <div className={`${sys.card} ${styles.emptyCard}`}><StateBlock icon={AlertCircle} tone="error" title={t('biz.newsLoadError')} actionLabel={t('common.retry')} onAction={() => { setLoadError(false); setNews(null); setReloadKey((key) => key + 1); }} /></div>
+        ) : news === null ? (
           <p className={styles.loading}>{t('common.loading', { defaultValue: '불러오는 중' })}</p>
         ) : news.length === 0 ? (
-          <StateBlock
+          <div className={`${sys.card} ${styles.emptyCard}`}><StateBlock
             icon={Newspaper}
-            title={t('biz.newsManageEmpty', { defaultValue: '아직 작성한 소식이 없어요' })}
-          />
+            title={t('biz.newsManageEmpty')}
+            desc={t('biz.newsManagePurpose')}
+          /></div>
         ) : (
           <div className={styles.list}>
             {news.map((n) => (
-              <div
+              <article
                 key={n.id}
                 className={styles.row}
-                onClick={() => navigate(`/biz/news/${n.id}`, {
-                  state: {
-                    news: n,
-                    profileId,
-                    profileName: state?.profileName,
-                    profilePhotoUrl: state?.profilePhotoUrl,
-                  },
-                })}
               >
-                {n.photos[0] && <AppImage src={n.photos[0]} alt="" className={styles.thumb} />}
+                {n.photos[0] ? <AppImage src={n.photos[0]} alt="" className={styles.thumb} /> : <div className={styles.thumbFallback}><Newspaper size={20} /></div>}
                 <div className={styles.rowBody}>
                   <span className={styles.rowTitle}>{n.title}</span>
-                  {n.body && <span className={styles.rowText}>{n.body}</span>}
+                  <span className={styles.rowText}>{n.body || t('biz.newsPreviewEmpty')}</span>
+                  <div className={styles.rowActions}>
+                    <button type="button" className={`${sys.actionChip} ${sys.actionNeutral}`} onClick={() => navigate(`/biz/news/${n.id}`, {
+                      state: {
+                        news: n,
+                        profileId,
+                        profileName: state?.profileName,
+                        profilePhotoUrl: state?.profilePhotoUrl,
+                      },
+                    })}>{t('biz.newsManageCta')}<ChevronRight size={14} /></button>
+                    <button type="button" className={`${sys.actionChip} ${styles.deleteAction}`} onClick={() => setDeleteTarget(n)} aria-label={t('biz.newsDeleteCta')}>
+                      <Trash2 size={14} />{t('biz.newsDeleteCta')}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className={styles.rowDelete}
-                  onClick={(e) => { e.stopPropagation(); handleDelete(n.id); }}
-                  aria-label={t('biz.newsDeleteCta', { defaultValue: '소식 삭제' })}
-                >
-                  <X size={14} strokeWidth={2.5} />
-                </button>
-              </div>
+              </article>
             ))}
             {hasMore && (
               <button type="button" className={styles.moreBtn} onClick={handleMore} disabled={loadingMore}>
@@ -116,10 +135,8 @@ export default function BizNewsManage() {
             )}
           </div>
         )}
-        <Button onClick={() => navigate('/biz/news/new', { state: { profileId } })}>
-          {t('biz.newsCreateCta', { defaultValue: '소식 작성' })}
-        </Button>
       </div>
+      <AlertDialog open={deleteTarget !== null} title={t('biz.newsDeleteCta')} message={t('biz.newsDeleteConfirm')} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} confirmLabel={t('biz.newsDeleteCta')} />
     </div>
   );
 }

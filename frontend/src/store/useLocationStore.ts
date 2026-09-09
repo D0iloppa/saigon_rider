@@ -3,8 +3,9 @@ import { persist } from 'zustand/middleware';
 import i18n from '@/lib/i18n';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
-import { inServiceArea } from '@/lib/serviceArea';
-import type { LocationGateReason } from '@/lib/serviceLocation';
+import { inServiceArea, serviceAreaWardSlug } from '@/lib/serviceArea';
+import { classifyLocationError, requestDeviceLocation, type LocationGateReason, type ResolvedLocation } from '@/lib/serviceLocation';
+import { fallbackExplorationLocation, resolveExplorationLocation } from '@/lib/explorationLocation';
 import { wardRegionAt } from '@/components/maps/v2/wardRegions';
 import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { useConfirmStore } from '@/store/useConfirmStore';
@@ -87,6 +88,8 @@ interface LocationState {
    * 동시 호출은 같은 Promise 를 공유한다(화면 5개가 각자 진입하며 호출해도 측위는 한 번).
    */
   ensureLocation: () => Promise<void>;
+  /** ◎ 같은 명시적 사용자 동작에서 프리프롬프트 없이 재측위하고 전역 탐색 기준을 함께 갱신한다. */
+  locateFromUserAction: () => Promise<ResolvedLocation>;
   /** 표시범위 시트의 2옵션이 호출. 'gps' 선택 시 측위를 재시도한다. */
   setMode: (mode: LocationMode) => Promise<void>;
   /**
@@ -138,11 +141,11 @@ const shownFallbackKeys = new Set<string>();
  * 시스템 창은 반사적 거부를 부르고, 한 번 거부되면 앱에서 되돌릴 수 없다. 그래서 권한이
  * **아직 미결정('prompt')일 때만** 한 번 물어본다. (설계도 §5)
  *
- * @returns true = 시스템 권한창으로 진행, false = "나중에"(전체 지역으로)
+ * @returns true = 시스템 권한창으로 진행, false = "나중에"(중심가 탐색으로)
  */
 function preflightPermission(): Promise<boolean> {
   // 이미 허용/거부가 결정된 상태면 묻지 않는다 — 결정된 값대로 흘러가면 된다.
-  // (거부 상태면 아래 native 호출이 실패해 catch 의 'all' 폴백으로 간다.)
+  // (거부 상태면 아래 native 호출이 실패해 catch 의 중심가 폴백으로 간다.)
   return native
     .checkLocationPermission()
     .catch(() => 'prompt' as const)
@@ -170,7 +173,7 @@ function preflightPermission(): Promise<boolean> {
     });
 }
 
-/** 측위 실패 사유별 안내. 실패는 항상 'all' 폴백으로 귀결된다(대표 지시). */
+/** 측위 실패 사유별 안내. 탐색은 중심가 폴백으로 계속하되 원인은 구분한다. */
 function notifyFallback(messageKey: string, defaultValue: string) {
   if (shownFallbackKeys.has(messageKey)) return;
   shownFallbackKeys.add(messageKey);
@@ -195,15 +198,27 @@ export const useLocationStore = create<LocationState>()(
         // 이미 이번 세션에 측위가 끝났으면 재측위하지 않는다.
         if (state.mode === 'gps' && state.coords) return Promise.resolve();
         // 사용자가 명시적으로 '전체 지역'을 고른 상태면 측위 자체를 시도하지 않는다.
-        // (권한 거부로 'all' 이 된 경우도 재시도하지 않는다 — 매 화면 권한창이 뜬다.)
-        if (state.mode === 'all' && (state.pinnedAll || state.permissionIntent === 'declined')) {
+        if (state.mode === 'all' && state.pinnedAll) {
           // **사유를 반드시 남긴다.** gateReason 은 persist 되지 않으므로, 앱을 다시 켜서 이
           // 분기로 빠지면 (coordsSource:null, gateReason:null, resolving:false) 상태가 되고
           // useServiceAvailability 가 영구히 checking 을 반환한다 → 게이트된 버튼이 설명도
           // 없이 죽는다(코드리뷰 지적 2026-08-13, HIGH). 사유는 원인별로 구분한다.
           if (!state.gateReason) {
-            set({ gateReason: state.pinnedAll ? 'scope_all' : 'permission' });
+            set({ gateReason: 'scope_all' });
           }
+          return Promise.resolve();
+        }
+        if (state.permissionIntent === 'declined') {
+          const resolved = fallbackExplorationLocation('permission', BEN_THANH_FALLBACK);
+          set({
+            mode: 'gps',
+            coords: resolved.coords,
+            wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
+            coordsSource: resolved.coordsSource,
+            gateReason: resolved.gateReason,
+            coordsAccuracyM: null,
+          });
+          notifyFallback('map.listFirst.nearMeDenied', '위치 권한이 없어 중심가 기준으로 보여드려요');
           return Promise.resolve();
         }
         if (inflight) return inflight;
@@ -212,15 +227,31 @@ export const useLocationStore = create<LocationState>()(
         inflight = preflightPermission()
           .then((allowed) => {
             if (!allowed) {
-              // 프리프롬프트에서 "나중에" — 시스템 권한창을 띄우지 않고 전체 지역으로 간다.
-              set({ mode: 'all', coords: null, wardName: null, coordsSource: null, gateReason: 'permission', coordsAccuracyM: null, permissionIntent: 'declined' });
+              // 프리프롬프트에서 "나중에" — 시스템 권한창 없이 탐색은 중심가 기준으로 계속한다.
+              const resolved = fallbackExplorationLocation('permission', BEN_THANH_FALLBACK);
+              set({
+                mode: 'gps',
+                coords: resolved.coords,
+                wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
+                coordsSource: resolved.coordsSource,
+                gateReason: resolved.gateReason,
+                coordsAccuracyM: null,
+                permissionIntent: 'declined',
+              });
+              notifyFallback('map.listFirst.nearMeDenied', '위치 권한이 없어 중심가 기준으로 보여드려요');
               return null;
             }
             return native.ensureLocationPermission().then(() => native.getLocation());
           })
           .then((pos) => {
             if (!pos) return; // 프리프롬프트 거절 — 위에서 이미 'all' 로 확정했다
-            if (!inServiceArea(pos.lat, pos.lng)) {
+            const resolved = resolveExplorationLocation(
+              { lat: pos.lat, lng: pos.lng },
+              serviceAreaWardSlug(pos.lat, pos.lng) !== null,
+              BEN_THANH_FALLBACK,
+            );
+            if (resolved.coordsSource === 'fallback') {
+              const executionAllowed = inServiceArea(pos.lat, pos.lng);
               // 서비스 권역(37개 동) 밖 — **측위 실패와는 다른 사건이다.** 어디 있는지는
               // 알지만 서비스 범위 밖일 뿐이므로, 기존과 동일하게 알리고 중심가로 안내한다
               // (대표 확인 2026-08-06). 전체 지역으로 떨어뜨리지 않는다 — mode 는 'gps' 를
@@ -228,10 +259,10 @@ export const useLocationStore = create<LocationState>()(
               // coordsSource:'fallback' 으로 표시해 화면이 "내 현재 위치"라고 쓰지 않게 한다.
               set({
                 mode: 'gps',
-                coords: { ...BEN_THANH_FALLBACK },
-                coordsSource: 'fallback',
-                gateReason: 'outside_area',
-                coordsAccuracyM: null,
+                coords: resolved.coords,
+                coordsSource: resolved.coordsSource,
+                gateReason: executionAllowed ? null : resolved.gateReason,
+                coordsAccuracyM: executionAllowed ? pos.accuracy ?? null : null,
                 // 폴백 좌표도 실재하는 동(Bến Thành)이므로 그 동 이름을 그대로 쓴다 —
                 // "호치민 중심가" 같은 총칭보다 사용자가 위치를 가늠하기 쉽다(대표 지적
                 // 2026-08-06). "서비스 지역 밖" 이라는 사실은 아래 토스트가 알린다.
@@ -245,9 +276,9 @@ export const useLocationStore = create<LocationState>()(
             }
             set({
               mode: 'gps',
-              coords: { lat: pos.lat, lng: pos.lng },
-              coordsSource: 'device',
-              gateReason: null,
+              coords: resolved.coords,
+              coordsSource: resolved.coordsSource,
+              gateReason: resolved.gateReason,
               coordsAccuracyM: pos.accuracy ?? null,
               // 라벨은 여기서 한 번에 정한다 — 화면마다 각자 해석하면 홈만 동네명이 뜨고
               // 마켓·동네지도는 '내 현재 위치' 폴백이 뜨는 비대칭이 생긴다(2026-08-06 발견).
@@ -257,18 +288,24 @@ export const useLocationStore = create<LocationState>()(
             });
           })
           .catch((err: unknown) => {
-            // 측위 실패 — 어디 있는지 모르므로 전체 지역 외에 줄 수 있는 게 없다.
-            // (권역밖과 달리 중심가로 보내면 "왜 여기냐"는 근거가 없다.)
             const code = (err as { code?: number } | null)?.code;
-            const reason: LocationGateReason = code === 1 ? 'permission' : code === 3 ? 'timeout' : 'unavailable';
-            set({ mode: 'all', coords: null, wardName: null, coordsSource: null, gateReason: reason, coordsAccuracyM: null });
+            const reason = code === 1 ? 'permission' : code === 3 ? 'timeout' : 'unavailable';
+            const resolved = fallbackExplorationLocation(reason, BEN_THANH_FALLBACK);
+            set({
+              mode: 'gps',
+              coords: resolved.coords,
+              wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
+              coordsSource: resolved.coordsSource,
+              gateReason: resolved.gateReason,
+              coordsAccuracyM: null,
+            });
             if (code === 1) {
               set({ permissionIntent: 'declined' });
-              notifyFallback('map.listFirst.nearMeDenied', '위치 권한이 없어 전체 지역을 보여드려요');
+              notifyFallback('map.listFirst.nearMeDenied', '위치 권한이 없어 중심가 기준으로 보여드려요');
             } else if (code === 3) {
-              notifyFallback('map.listFirst.nearMeTimeout', '위치를 잡지 못해 전체 지역을 보여드려요');
+              notifyFallback('map.listFirst.nearMeTimeout', '위치를 잡지 못해 중심가 기준으로 보여드려요');
             } else {
-              notifyFallback('map.listFirst.nearMeUnavailable', '위치를 사용할 수 없어 전체 지역을 보여드려요');
+              notifyFallback('map.listFirst.nearMeUnavailable', '위치를 사용할 수 없어 중심가 기준으로 보여드려요');
             }
           })
           .finally(() => {
@@ -277,6 +314,51 @@ export const useLocationStore = create<LocationState>()(
           });
 
         return inflight;
+      },
+
+      locateFromUserAction: async () => {
+        set({ resolving: true });
+        try {
+          const pos = await requestDeviceLocation();
+          const resolved = resolveExplorationLocation(
+            { lat: pos.lat, lng: pos.lng },
+            serviceAreaWardSlug(pos.lat, pos.lng) !== null,
+            BEN_THANH_FALLBACK,
+          );
+          const executionAllowed = inServiceArea(pos.lat, pos.lng);
+          set({
+            mode: 'gps',
+            coords: { ...resolved.coords },
+            wardName: wardRegionAt(resolved.coords.lat, resolved.coords.lng)?.name ?? null,
+            coordsSource: resolved.coordsSource,
+            gateReason: resolved.coordsSource === 'fallback' && executionAllowed ? null : resolved.gateReason,
+            coordsAccuracyM: resolved.coordsSource === 'device' || executionAllowed ? pos.accuracy ?? null : null,
+            permissionIntent: 'granted',
+            pinnedAll: false,
+          });
+          return {
+            coords: resolved.coords,
+            source: resolved.coordsSource,
+            ...(resolved.coordsSource === 'fallback' ? { reason: 'outside_service_area' as const } : {}),
+          };
+        } catch (error) {
+          const classified = classifyLocationError(error);
+          const reason = classified === 'permission' || classified === 'timeout' ? classified : 'unavailable';
+          const resolved = fallbackExplorationLocation(reason, BEN_THANH_FALLBACK);
+          set({
+            mode: 'gps',
+            coords: { ...resolved.coords },
+            wardName: wardRegionAt(resolved.coords.lat, resolved.coords.lng)?.name ?? null,
+            coordsSource: resolved.coordsSource,
+            gateReason: resolved.gateReason,
+            coordsAccuracyM: null,
+            ...(reason === 'permission' ? { permissionIntent: 'declined' as const } : {}),
+            pinnedAll: false,
+          });
+          throw error;
+        } finally {
+          set({ resolving: false });
+        }
       },
 
       setMode: (mode) => {
@@ -289,7 +371,7 @@ export const useLocationStore = create<LocationState>()(
         // 'gps' 재선택은 사용자의 명시적 의사 — 이전에 거부했더라도 다시 시도한다.
         // wardName 도 비운다 — 남겨두면 측위 완료 전까지 이전 라벨(예: 'all' 때 홈이 채운
         // Bến Thành)이 "내 현재 위치"인 양 보인다.
-        set({ mode: 'gps', permissionIntent: 'undecided', pinnedAll: false, wardName: null, coordsSource: null, gateReason: null, coordsAccuracyM: null });
+        set({ mode: 'gps', coords: null, permissionIntent: 'undecided', pinnedAll: false, wardName: null, coordsSource: null, gateReason: null, coordsAccuracyM: null });
         shownFallbackKeys.clear();
         return get().ensureLocation();
       },
@@ -297,16 +379,27 @@ export const useLocationStore = create<LocationState>()(
       startWatching: () => {
         // 'gps' 모드일 때만 의미가 있다. 'all' 은 좌표를 안 쓰므로 워처를 돌릴 이유가 없다.
         if (get().mode !== 'gps') return () => {};
+        // 프리프롬프트에서 "나중에"를 고르거나 OS 권한이 거부된 뒤 App 전역 effect가 폴백
+        // 좌표만 보고 watchLocation을 켜면, 피했던 시스템 권한창을 즉시 다시 띄우게 된다.
+        if (get().gateReason === 'permission') return () => {};
         if (watchStop) return watchStop; // 이미 돌고 있으면 그대로 재사용(중복 방지)
 
         const stop = native.watchLocation((pos) => {
           const prev = get();
           if (prev.mode !== 'gps') return;
-          if (!inServiceArea(pos.lat, pos.lng)) {
-            // 좌표는 마지막 유효 위치를 유지하되(탐색형 목록이 비지 않게), **실행형 게이트는
-            // 잠근다** — 그러지 않으면 권역을 벗어나 주행하는 동안 경로 버튼이 열린 채로
-            // 남아 탭하는 순간에야 막힌다(코드리뷰 지적 2026-08-13).
-            if (get().gateReason !== 'outside_area') set({ gateReason: 'outside_area' });
+          if (serviceAreaWardSlug(pos.lat, pos.lng) === null) {
+            const executionAllowed = inServiceArea(pos.lat, pos.lng);
+            const enteredFallback = prev.coordsSource !== 'fallback'
+              || prev.gateReason !== (executionAllowed ? null : 'outside_area');
+            if (!enteredFallback) return;
+            set({
+              coords: { ...BEN_THANH_FALLBACK },
+              coordsSource: 'fallback',
+              gateReason: executionAllowed ? null : 'outside_area',
+              coordsAccuracyM: executionAllowed ? pos.accuracy ?? null : null,
+              wardName: wardRegionAt(BEN_THANH_FALLBACK.lat, BEN_THANH_FALLBACK.lng)?.name ?? null,
+            });
+            notifyFallback('map.outsideArea', '서비스 지역 밖이라 중심가 기준으로 보여드려요');
             return;
           }
           // **거리 게이트** — GPS 는 가만히 있어도 몇 m 씩 흔들린다. 그대로 반영하면 목록·지도

@@ -26,7 +26,7 @@ test('meDot watcher updates compassBearing outside the service-area gate (headin
   // insideArea 판정이 먼저 오고, compassBearing 갱신 로직(compassModeRef 체크부터)은 그 if(insideArea)
   // 블록 밖(뒤)에 있어야 한다 — 즉 지역 밖이어도 실행된다. 2026-08-07: 게이트가 boolean compassOnRef
   // 에서 3-state compassModeRef !== 'follow' 로 바뀌었다(같은 위치, 같은 역할).
-  const insideAreaIdx = block.indexOf('const insideArea = inServiceArea(pos.lat, pos.lng);');
+  const insideAreaIdx = block.indexOf('const insideArea = serviceAreaWardSlug(pos.lat, pos.lng) !== null;');
   const compassCheckIdx = block.indexOf("if (compassModeRef.current !== 'follow') return;");
   assert.ok(insideAreaIdx >= 0, 'insideArea determination not found');
   assert.ok(compassCheckIdx > insideAreaIdx, 'compass gate must come after the insideArea determination');
@@ -88,7 +88,7 @@ test('getCamCenter falls back to the viewBox center when the last coordinate was
   const block = source.slice(watcherStart, watcherEnd);
   assert.match(
     block,
-    /const insideArea = inServiceArea\(pos\.lat, pos\.lng\);\s*meInServiceAreaRef\.current = insideArea;/,
+    /const insideArea = serviceAreaWardSlug\(pos\.lat, pos\.lng\) !== null;\s*meInServiceAreaRef\.current = insideArea;/,
     'meInServiceAreaRef must be updated from insideArea before the gate branches run',
   );
 });

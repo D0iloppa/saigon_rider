@@ -1,5 +1,6 @@
 import { useLocationStore } from '@/store/useLocationStore';
 import { GATE_ACCURACY_LIMIT_M, type LocationGateReason } from '@/lib/serviceLocation';
+import { isLocationExecutionAvailable } from '@/lib/explorationLocation';
 
 export interface ServiceAvailability {
   /** 실행형·기록형 기능(경로안내·퀘스트 수행 등)을 지금 쓸 수 있는가. */
@@ -23,7 +24,7 @@ export interface ServiceAvailability {
  * **판정은 실제 게이트(`requireServiceLocation`)와 같은 기준이어야 한다** — 더 느슨하면
  * "버튼은 열려 있는데 탭하면 막히는" 상태가 되어 이 훅의 목적 자체가 무너진다
  * (코드리뷰 지적 2026-08-13). 그래서 세 가지를 모두 본다:
- *   ① 실측 좌표인가(`coordsSource === 'device'`) — 폴백·실패는 불가
+ *   ① 탐색 좌표가 확정됐는가(`coordsSource`) — 실패 폴백은 아래 gateReason 으로 차단
  *   ② 잠금 사유가 없는가(`gateReason`) — 주행 중 권역 이탈도 여기로 들어온다
  *   ③ 정확도가 게이트 허용치 안인가(`GATE_ACCURACY_LIMIT_M`)
  */
@@ -34,7 +35,7 @@ export function useServiceAvailability(): ServiceAvailability {
   const resolving = useLocationStore((s) => s.resolving);
 
   const tooCoarse = accuracyM != null && accuracyM > GATE_ACCURACY_LIMIT_M;
-  if (coordsSource === 'device' && !gateReason && !tooCoarse) {
+  if (isLocationExecutionAvailable(coordsSource, gateReason, accuracyM, GATE_ACCURACY_LIMIT_M)) {
     return { available: true, reason: null, checking: false };
   }
   if (gateReason) return { available: false, reason: gateReason, checking: false };

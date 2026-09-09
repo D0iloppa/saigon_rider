@@ -31,9 +31,36 @@ test('expired sessions keep the public map visible for guest browsing', () => {
 
 test('guest map has a deterministic Bến Thành camera fallback when no location coordinate exists', () => {
   const canvas = read('NeighborhoodMapCanvas.tsx');
+  const map = read('../../components/maps/SaigonMapV5.tsx');
 
   assert.match(canvas, /import \{ BEN_THANH_FALLBACK \} from '@\/lib\/mapDefaults'/);
-  assert.match(canvas, /initialGps=\{coords \?\? BEN_THANH_FALLBACK\}/);
+  assert.match(canvas, /resolveExplorationMapMount\(coords \? \{ coords \} : null, pinnedAll, BEN_THANH_FALLBACK\)/);
+  assert.match(canvas, /initialGps=\{mapMount\.initialGps\}/);
+  assert.match(map, /catch \(error\)[\s\S]*?classifyLocationError\(error\)[\s\S]*?focusLatLng\(BEN_THANH_FALLBACK, \{ selectRegion: selectRegionOnLocate, noMeDot: true \}\)/);
+});
+
+test('map mount shares the exploration store result for card distance and the me-dot', () => {
+  const canvas = read('NeighborhoodMapCanvas.tsx');
+  const map = read('../../components/maps/SaigonMapV5.tsx');
+
+  assert.doesNotMatch(canvas, /requestDeviceLocation/, 'the canvas must not start a second raw GPS request');
+  assert.match(canvas, /distanceM=\{coords \? haversineM\(coords\.lat, coords\.lng, b\.lat, b\.lng\) : null\}/);
+  const meDotEffect = map.slice(map.indexOf('// 내 위치 점만 찍는 조용한 측위'), map.indexOf('// 내 위치 점의 실시간 추종'));
+  assert.match(meDotEffect, /useLocationStore\.getState\(\)\.ensureLocation\(\)/);
+  assert.doesNotMatch(meDotEffect, /resolveUsableLocation\(\)/, 'me-dot mount must not bypass the store preflight');
+  assert.match(meDotEffect, /coords && coordsSource === 'device'/, 'fallback coordinates must not render a fake me-dot');
+});
+
+test('manual locate updates the shared exploration store before moving camera and me-dot', () => {
+  const store = read('../../store/useLocationStore.ts');
+  const map = read('../../components/maps/SaigonMapV5.tsx');
+  const runLocate = map.slice(map.indexOf('const runLocate = useCallback'), map.indexOf('// ◎ 버튼:'));
+
+  assert.match(runLocate, /useLocationStore\.getState\(\)\.locateFromUserAction\(\)/);
+  assert.doesNotMatch(runLocate, /resolveUsableLocation\(\)/, 'manual locate must not bypass the shared store');
+  assert.match(store, /locateFromUserAction: async \(\) => \{[\s\S]*?requestDeviceLocation\(\)[\s\S]*?coords: \{ \.\.\.resolved\.coords \}/);
+  assert.match(store, /catch \(error\)[\s\S]*?fallbackExplorationLocation\(reason, BEN_THANH_FALLBACK\)[\s\S]*?gateReason: resolved\.gateReason/);
+  assert.match(store, /locateFromUserAction: async \(\) => \{[\s\S]*?pinnedAll: false/, 'an explicit locate request must leave pinned-all mode');
 });
 
 test('walkie bubble additionally requires authenticated state, not a stale persisted user alone', () => {

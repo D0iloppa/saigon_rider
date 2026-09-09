@@ -74,48 +74,12 @@ test('persist version 4 로 올리고 구버전 값은 통째로 버린다', () 
   );
 });
 
-test('권역밖은 중심가 폴백 + 토스트 — 측위 실패와 다른 사건이다', () => {
-  // 대표 확인 2026-08-06: "권역밖은 기존에는 HCMC를 벗어났다고 토스트 주고 대표지역 폴백이었어."
-  // 어디 있는지 알지만 서비스 범위 밖일 뿐이므로, 전체 지역으로 떨어뜨리지 않고 중심가로 안내한다.
-  const outside = code.match(
-    /if \(!inServiceArea\(pos\.lat, pos\.lng\)\) \{[\s\S]*?return;\s*\}/,
-  );
-  assert.ok(outside, '권역밖 분기가 있어야 한다');
-  assert.match(outside[0], /mode: 'gps'/, "권역밖도 mode 는 'gps' — 반경 필터가 그대로 걸려 목록이 비지 않는다");
-  assert.match(outside[0], /BEN_THANH_FALLBACK/, '기준 좌표는 중심가(Bến Thành)로 대체한다');
-  assert.match(outside[0], /coordsSource: 'fallback'/, '출처를 fallback 으로 표시해야 화면이 라벨을 정직하게 쓴다');
-  assert.match(outside[0], /notifyFallback\(\s*'map\.outsideArea'/, '권역밖임을 토스트로 알려야 한다');
-});
-
-test('측위 실패는 all 폴백 — 중심가로 보내지 않는다', () => {
+test('권역밖과 측위 실패는 모두 탐색용 중심가 좌표를 쓰되 사유는 구분한다', () => {
   const failure = code.match(/\.catch\(\(err: unknown\) => \{[\s\S]*?\}\)/);
   assert.ok(failure, 'catch 분기가 있어야 한다');
-  // 정확한 객체 리터럴을 고정하지 않는다 — 2026-08-13 에 gateReason/coordsAccuracyM 이 추가되며
-  // 이 어서션이 깨졌다. 보호할 불변식은 "중심가로 보내지 않고 all 로 간다"는 것이다.
-  assert.match(failure[0], /mode: 'all'/, 'all 로 폴백한다');
-  assert.match(failure[0], /coords: null/, '좌표를 만들어내지 않는다');
-  assert.match(failure[0], /coordsSource: null/, '출처도 비운다');
-  assert.doesNotMatch(
-    failure[0],
-    /BEN_THANH_FALLBACK/,
-    '어디 있는지 모르는 상태에서 중심가로 보내면 "왜 여기냐"는 근거가 없다 — all 로 간다',
-  );
-  assert.doesNotMatch(
-    failure[0],
-    /BEN_THANH_FALLBACK/,
-    '측위 실패에까지 Bến Thành 을 채우면 모든 화면이 조용히 Bến Thành 으로 수렴한다 (2026-08-06 회귀 원인)',
-  );
-});
-
-test('권역밖과 측위실패가 같은 화면이 되면 안 된다 (V8b)', () => {
-  // 두 경로의 결과 mode 가 갈리는지 — 하나라도 같아지면 사용자가 원인을 구분할 수 없다.
-  const outside = code.match(/if \(!inServiceArea\(pos\.lat, pos\.lng\)\) \{[\s\S]*?return;\s*\}/);
-  const failure = code.match(/\.catch\(\(err: unknown\) => \{[\s\S]*?\}\)/);
-  assert.ok(outside && failure);
-  assert.ok(
-    outside[0].includes("mode: 'gps'") && failure[0].includes("mode: 'all'"),
-    "권역밖은 'gps'(중심가 기준), 측위실패는 'all'(전체) 로 서로 달라야 한다",
-  );
+  assert.match(failure[0], /fallbackExplorationLocation\(reason, BEN_THANH_FALLBACK\)/);
+  assert.match(failure[0], /mode: 'gps'/, '중심가 반경과 목록 기준을 일치시킨다');
+  assert.match(source, /serviceAreaWardSlug\(pos\.lat, pos\.lng\) !== null/, 'dev 우회 지역은 탐색 카메라의 유효 좌표로 취급하지 않는다');
 });
 
 test('폴백 토스트는 사유별 1회 — 화면 5개가 각자 띄우면 안 되지만, 사유가 다르면 알려야 한다', () => {
@@ -136,7 +100,7 @@ test("'전체 지역' 선택은 다음 화면 진입에 뒤집히지 않는다",
   assert.match(source, /pinnedAll: boolean;/, "'전체 지역' 고정 플래그가 있어야 한다");
   assert.match(
     code,
-    /if \(state\.mode === 'all' && \(state\.pinnedAll \|\| state\.permissionIntent === 'declined'\)\)/,
+    /if \(state\.mode === 'all' && state\.pinnedAll\)/,
     'ensureLocation 은 고정된 전체 지역에서 재측위하지 않아야 한다',
   );
   assert.match(code, /pinnedAll: true/, "setMode('all') 이 고정해야 한다");
@@ -171,6 +135,29 @@ test('측위는 세션당 1회 — 동시 호출은 같은 Promise 를 공유한
   );
 });
 
+test('권한 폴백 좌표만으로 전역 watcher를 시작하지 않는다', () => {
+  assert.match(
+    code,
+    /if \(get\(\)\.gateReason === 'permission'\) return \(\) => \{\};/,
+    '프리프롬프트 나중에/OS 거부 뒤 watcher가 시스템 권한창을 다시 띄우면 안 된다',
+  );
+});
+
+test('권역밖 watcher는 동일한 중심가 폴백 상태를 매 tick 다시 쓰지 않는다', () => {
+  assert.match(
+    code,
+    /const enteredFallback = [\s\S]{0,180}if \(!enteredFallback\) return;[\s\S]{0,40}set\(\{/,
+    '동일 fallback set은 App 전역 watcher를 매 tick 재구독시킨다',
+  );
+});
+
+test('이전에 프리프롬프트를 미룬 사용자는 다음 세션에도 시스템 권한을 재요청하지 않는다', () => {
+  assert.match(
+    code,
+    /if \(state\.permissionIntent === 'declined'\) \{[\s\S]*?fallbackExplorationLocation\('permission', BEN_THANH_FALLBACK\)[\s\S]*?return Promise\.resolve\(\);/,
+  );
+});
+
 test('권한 프리프롬프트는 미결정(prompt) 상태에서만 뜬다', () => {
   // 설계도 §5 — 표시범위 기본값이 GPS 가 되면서 진입만으로 시스템 권한창이 뜬다. 맥락 없이
   // 뜨는 창은 반사적 거부를 부르고, 한 번 거부되면 앱에서 되돌릴 수 없다.
@@ -188,10 +175,11 @@ test('권한 프리프롬프트는 미결정(prompt) 상태에서만 뜬다', ()
   assert.match(code, /useConfirmStore\.getState\(\)\.open\(/, '기존 전역 ConfirmDialog 를 재사용한다');
 });
 
-test('프리프롬프트 "나중에"는 시스템 권한창을 띄우지 않고 all 로 확정한다', () => {
+test('프리프롬프트 "나중에"는 시스템 권한창 없이 탐색용 중심가로 간다', () => {
   const branch = code.match(/if \(!allowed\) \{[\s\S]*?return null;\s*\}/);
   assert.ok(branch, '거절 분기가 있어야 한다');
-  assert.match(branch[0], /mode: 'all'/, '전체 지역으로 간다');
+  assert.match(branch[0], /mode: 'gps'/, '중심가 반경 탐색으로 간다');
+  assert.match(branch[0], /fallbackExplorationLocation\('permission', BEN_THANH_FALLBACK\)/);
   assert.match(
     branch[0],
     /permissionIntent: 'declined'/,

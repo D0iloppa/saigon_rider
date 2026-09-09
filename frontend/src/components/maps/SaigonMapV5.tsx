@@ -1,9 +1,10 @@
 import { Locate, LocateFixed } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
-import { resolveUsableLocation, type ResolvedLocation } from '@/lib/serviceLocation';
+import { classifyLocationError, type ResolvedLocation } from '@/lib/serviceLocation';
 import { native } from '@/lib/native';
-import { inServiceArea } from '@/lib/serviceArea';
+import { serviceAreaWardSlug } from '@/lib/serviceArea';
+import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { toast } from '@/components/ui/Toast';
 import { useLocationStore } from '@/store/useLocationStore';
 import { fetchCityOutline, type CityOutline } from '@/api/poi';
@@ -990,7 +991,9 @@ function SaigonMapV5({
   const runLocate = useCallback(async () => {
     onLocate?.();
     try {
-      const location = await resolveUsableLocation();
+      // ◎ 는 사용자가 직접 요청한 재측위라 프리프롬프트를 다시 띄우지 않는다. 대신 결과는
+      // 전역 store 에도 반영해 카메라·me-dot·거리·실행 게이트가 서로 다른 좌표를 보지 않게 한다.
+      const location = await useLocationStore.getState().locateFromUserAction();
       if (location.source === 'fallback') {
         toast.neutral(outsideAreaMessage ?? t('market.outOfService', { defaultValue: '서비스 지역 밖이에요' }));
         setMeLatLng(null);
@@ -1001,10 +1004,20 @@ function SaigonMapV5({
         noMeDot: location.source === 'fallback',
       });
       onLocated?.(location.coords, location);
-    } catch {
-      // 측정 실패 시 임의 지역(기본 좌표) 딥줌·가짜 위치점 폴백을 하지 않는다 —
-      // 뷰포트 유지 + 안내만 (시나리오 3.4)
-      toast.neutral(t('map.locateFailed', { defaultValue: '위치를 가져올 수 없어요' }));
+    } catch (error) {
+      if (!outsideAreaFallback) {
+        toast.neutral(t('map.locateFailed', { defaultValue: '위치를 가져올 수 없어요' }));
+        return;
+      }
+      const reason = classifyLocationError(error);
+      const messageKey = reason === 'permission'
+        ? 'map.listFirst.nearMeDenied'
+        : reason === 'timeout'
+          ? 'map.listFirst.nearMeTimeout'
+          : 'map.listFirst.nearMeUnavailable';
+      toast.neutral(t(messageKey));
+      setMeLatLng(null);
+      focusLatLng(BEN_THANH_FALLBACK, { selectRegion: selectRegionOnLocate, noMeDot: true });
     }
   }, [focusLatLng, onLocate, onLocated, outsideAreaFallback, outsideAreaMessage, selectRegionOnLocate, t]);
 
@@ -1116,9 +1129,12 @@ function SaigonMapV5({
     // 여지가 없다. 서비스 지역 밖(fallback)이면 그 좌표는 내 위치가 아니므로 점을 찍지 않는다.
     if (!meDotOnMountAtMount.current || didMeDotLocate.current) return;
     didMeDotLocate.current = true;
-    void resolveUsableLocation()
-      .then((location) => {
-        if (location.source === 'device') setMeLatLng(location.coords);
+    void useLocationStore.getState().ensureLocation()
+      .then(() => {
+        const { coords, coordsSource } = useLocationStore.getState();
+        if (coords && coordsSource === 'device') {
+          setMeLatLng(coords);
+        }
       })
       .catch(() => undefined); // 장식용 점 — 실패 시 조용히 포기(안내는 위치 기능 호출부 책임)
   }, []);
@@ -1137,7 +1153,7 @@ function SaigonMapV5({
       // 않는다 — heading/speed 는 기기 값이라 위치 의미론과 무관하지만, 좌표 자체는 지역 밖이면
       // 가짜 위치점을 찍지 않는다는 기존 불변식(runLocate 의 noMeDot 처리와 동일)을 지켜야 한다.
       // meInServiceAreaRef 갱신은 두 분기보다 먼저 — getCamCenter 가 이 tick 부터 바로 반영한다.
-      const insideArea = inServiceArea(pos.lat, pos.lng);
+      const insideArea = serviceAreaWardSlug(pos.lat, pos.lng) !== null;
       meInServiceAreaRef.current = insideArea;
       if (insideArea) {
         setMeLatLng({ lat: pos.lat, lng: pos.lng });

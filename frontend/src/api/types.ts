@@ -332,6 +332,28 @@ export interface Appointment {
 }
 
 
+export type MarketplacePaymentStatus = 'AWAITING_PAYMENT' | 'PAYMENT_REPORTED' | 'PAYMENT_CONFIRMED';
+
+export interface MarketplaceTransaction {
+  appointmentId: string;
+  conversationId: string;
+  listingId: string;
+  listingTitle: string;
+  buyerId: string;
+  sellerId: string;
+  viewerRole: 'buyer' | 'seller';
+  amountVnd: number;
+  paymentMethod: string;
+  paymentStatus: MarketplacePaymentStatus;
+  qrMessageId: string | null;
+  appointmentStatus: AppointmentStatus;
+  buyerReportedAt: string | null;
+  sellerConfirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
 export type PriceOfferStatus = 'PROPOSED' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED';
 
 export interface PriceOffer {

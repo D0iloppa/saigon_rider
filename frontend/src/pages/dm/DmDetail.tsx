@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, ChevronDown, HandCoins, LayoutList, LocateFixed, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, ChevronDown, CreditCard, HandCoins, LayoutList, LocateFixed, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -1155,6 +1155,25 @@ export default function DmDetail() {
           const m = row.item;
           const isMine = m.senderId === myId;
           const prevMsg = prevBubbleById.get(m.id) ?? null;
+          if (m.messageType === 'payment_qr' && m.meta?.appointmentId) {
+            return (
+              <div key={m.id} className={styles.apptCard}>
+                <div className={styles.apptHeader}>
+                  <span className={styles.apptTitle}>
+                    <CreditCard size={15} /> {t('dm.tradePaymentGuide')}
+                  </span>
+                </div>
+                <p className={styles.apptNote}>{t('dm.tradeQrCardNotice')}</p>
+                <div className={styles.apptActions}>
+                  <button className={styles.apptBtnPrimary} type="button"
+                    onClick={() => navigate(`/dm/${conversationId}/trade/${m.meta!.appointmentId}`)}>
+                    {t('dm.tradeOpen')}
+                  </button>
+                </div>
+                <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
+              </div>
+            );
+          }
           if (m.messageType === 'appointment') {
             const appt = m.appointment;
             const status = appt?.status;
@@ -1245,8 +1264,15 @@ export default function DmDetail() {
                     </button>
                   </div>
                 )}
-                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion) && (
+                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion
+                  || status === 'ACCEPTED' || status === 'COMPLETED') && (
                   <div className={styles.apptActions}>
+                    {(status === 'ACCEPTED' || status === 'COMPLETED') && appt && (
+                      <button className={styles.apptBtnPrimary} type="button"
+                        onClick={() => navigate(`/dm/${conversationId}/trade/${appt.id}`)}>
+                        {t('dm.tradeOpen')}
+                      </button>
+                    )}
                     {canAccept && (
                       <button className={styles.apptBtnPrimary} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(acceptAppointment, appt.id)}>

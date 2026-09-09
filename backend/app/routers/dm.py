@@ -3,6 +3,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +23,7 @@ from ..models import (
     MarketplaceAppointment,
     MarketplaceListing,
     MarketplacePriceOffer,
+    MarketplaceTransaction,
     Report,
     User,
     UserBlock,
@@ -42,6 +44,7 @@ from ..schemas import (
     DmMessageEditRequest,
     DmMessageOut,
     DmNoticeOut,
+    DmPaymentQrRequest,
     DmPresenceOut,
     DmReactionOut,
     DmRecordingPresenceRequest,
@@ -83,12 +86,56 @@ async def _listing_context(db: AsyncSession, listing_id: uuid.UUID | None):
 
 
 def _resolve_dm_image(msg: DmMessage) -> str | None:
+    # Private Content (including payment_qr) must not escape through imgproxy URLs.
+    if msg.message_type == "payment_qr" or (msg.image_content and msg.image_content.is_private):
+        return None
     ic = msg.image_content
     if ic and ic.file_path:
         from ..utils import build_imgproxy_url
 
         return build_imgproxy_url(ic.file_path)
     return None
+
+
+async def _payment_qr_context(
+    db: AsyncSession, appointment_id: uuid.UUID, session_uid: uuid.UUID, *, lock: bool = False
+) -> tuple[MarketplaceAppointment, DmConversation, MarketplaceListing]:
+    appt_query = select(MarketplaceAppointment).where(MarketplaceAppointment.id == appointment_id)
+    if lock:
+        appt_query = appt_query.with_for_update()
+    appt = (await db.execute(appt_query)).scalar_one_or_none()
+    if appt is None or appt.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail="Payment QR requires an accepted appointment")
+    conv = await db.get(DmConversation, appt.conversation_id)
+    if conv is None or conv.conversation_type != "direct":
+        raise HTTPException(status_code=403, detail="Payment QR requires a direct transaction conversation")
+    counterpart = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart)
+    listing = await db.get(MarketplaceListing, appt.listing_id)
+    if listing is None or listing.seller_id not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail="Invalid transaction")
+    return appt, conv, listing
+
+
+def _payment_qr_message_out(msg: DmMessage) -> DmMessageOut:
+    """Payment QR never serializes a bearer image URL; use the protected image route."""
+    return DmMessageOut(
+        id=msg.id,
+        conversation_id=msg.conversation_id,
+        sender_id=msg.sender_id,
+        content=None,
+        image_url=None,
+        audio_url=None,
+        read_at=msg.read_at,
+        created_at=msg.created_at,
+        message_type=msg.message_type,
+        meta=msg.meta,
+        updated_at=msg.updated_at,
+        edited_at=msg.edited_at,
+        deleted_at=msg.deleted_at,
+        reply_to_message_id=msg.reply_to_message_id,
+        reply_preview=msg.reply_preview,
+    )
 
 
 def _resolve_dm_audio(msg: DmMessage) -> str | None:
@@ -679,11 +726,20 @@ async def send_message(
         await require_member(db, conv, _session_uid)
 
     # 도메인 엔티티가 뒤따르는 타입은 전용 엔드포인트로만 — meta id 위조로 검증 우회 차단
-    if body.message_type in ("appointment", "price_offer"):
+    if body.message_type in ("appointment", "price_offer", "payment_qr"):
         raise HTTPException(status_code=400, detail="Use the dedicated endpoint for this message type")
 
     if body.content is None and body.image_content_id is None and body.audio_content_id is None:
         raise HTTPException(status_code=400, detail="content, image_content_id or audio_content_id is required")
+
+    # payment_qr 는 전용 참가자 인증 경로로만 제공하는 private Content 다. 일반 DM 에
+    # private Content 를 붙이면 imgproxy URL 직렬화로 우회될 수 있으므로 차단한다.
+    if body.image_content_id is not None:
+        image_content = await db.get(Content, body.image_content_id)
+        if image_content is None:
+            raise HTTPException(status_code=404, detail="Image content not found")
+        if image_content.is_private:
+            raise HTTPException(status_code=403, detail="Private content cannot be attached to a message")
 
     # 금칙어 차단 — 텍스트 타입 메시지에만 적용 (부분문자열, 대소문자 무시)
     if (body.message_type or "text") == "text" and body.content:
@@ -799,6 +855,147 @@ async def send_message(
         updated_at=msg.updated_at,
         reply_to_message_id=msg.reply_to_message_id,
         reply_preview=msg.reply_preview,
+    )
+
+
+@router.post(
+    "/conversations/{conv_id}/payment-qr",
+    response_model=DmMessageOut,
+    status_code=201,
+    summary="판매자 결제 QR 등록",
+)
+async def register_payment_qr(
+    conv_id: uuid.UUID,
+    body: DmPaymentQrRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """Replace the current seller-provided QR for one accepted appointment.
+
+    This creates no payment state: the QR is only an external-payment instruction.
+    """
+    appt, conv, listing = await _payment_qr_context(db, body.appointment_id, _session_uid, lock=True)
+    if conv.id != conv_id or listing.seller_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Only the transaction seller can register a payment QR")
+    if listing.status != "RESERVED":
+        raise HTTPException(status_code=409, detail="Payment QR requires an active reserved listing")
+    transaction = await db.get(MarketplaceTransaction, appt.id)
+    if transaction is None:
+        raise HTTPException(status_code=409, detail="Transaction not found")
+    if transaction.payment_status != "AWAITING_PAYMENT":
+        raise HTTPException(status_code=409, detail="Payment QR cannot change after payment is reported")
+
+    image = await db.get(Content, body.image_content_id)
+    if (
+        image is None
+        or image.owner_id != _session_uid
+        or not image.is_private
+        or image.owner_type != "user"
+        or image.mime_type not in {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    ):
+        raise HTTPException(status_code=400, detail="A private image owned by the seller is required")
+    contents_root = CONTENTS_BASE_PATH.resolve()
+    image_path = (contents_root / image.file_path).resolve()
+    if not image_path.is_relative_to(contents_root) or not await asyncio.to_thread(image_path.is_file):
+        raise HTTPException(status_code=400, detail="Payment QR image not found")
+
+    now = datetime.now(UTC)
+    prior_qrs = (
+        await db.execute(
+            select(DmMessage)
+            .where(
+                DmMessage.conversation_id == conv_id,
+                DmMessage.message_type == "payment_qr",
+                DmMessage.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+    ).scalars()
+    # A direct conversation may cover many listings; appointmentId is the authoritative binding.
+    for prior in prior_qrs:
+        if prior.meta and prior.meta.get("appointmentId") == str(appt.id):
+            prior.deleted_at = now
+            prior.updated_at = now
+
+    msg = DmMessage(
+        conversation_id=conv_id,
+        sender_id=_session_uid,
+        content=None,
+        message_type="payment_qr",
+        meta={"appointmentId": str(appt.id), "listingId": str(listing.id)},
+        image_content_id=image.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(msg)
+    conv.last_message_at = now
+    noti_events.enqueue(
+        db,
+        "dm.message_sent",
+        {
+            "conversation_id": str(conv_id),
+            "sender_id": str(_session_uid),
+            "recipient_ids": [str(_other_user_id(conv, _session_uid))],
+            "sender_nickname": "",
+            "preview": "사진을 보냈습니다",
+        },
+    )
+    await db.commit()
+    await db.refresh(msg)
+    return _payment_qr_message_out(msg)
+
+
+@router.get(
+    "/conversations/{conv_id}/payment-qr/{message_id}/image",
+    response_class=FileResponse,
+    summary="거래 참여자용 결제 QR 이미지",
+)
+async def get_payment_qr_image(
+    conv_id: uuid.UUID,
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    msg = (
+        await db.execute(
+            select(DmMessage).where(
+                DmMessage.id == message_id,
+                DmMessage.conversation_id == conv_id,
+                DmMessage.message_type == "payment_qr",
+                DmMessage.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if msg is None or not msg.meta or not msg.meta.get("appointmentId"):
+        raise HTTPException(status_code=404, detail="Payment QR not found")
+    try:
+        appointment_id = uuid.UUID(msg.meta["appointmentId"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=404, detail="Payment QR not found") from None
+
+    _appt, conv, listing = await _payment_qr_context(db, appointment_id, _session_uid)
+    image = await db.get(Content, msg.image_content_id) if msg.image_content_id else None
+    if (
+        conv.id != conv_id
+        or msg.sender_id != listing.seller_id
+        or image is None
+        or image.owner_id != listing.seller_id
+        or not image.is_private
+        or image.owner_type != "user"
+        or image.mime_type not in {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    ):
+        raise HTTPException(status_code=404, detail="Payment QR not found")
+
+    contents_root = CONTENTS_BASE_PATH.resolve()
+    image_path = (contents_root / image.file_path).resolve()
+    if not image_path.is_relative_to(contents_root):
+        raise HTTPException(status_code=404, detail="Payment QR image not found")
+    if not await asyncio.to_thread(image_path.is_file):
+        raise HTTPException(status_code=404, detail="Payment QR image not found")
+    return FileResponse(
+        image_path,
+        media_type=image.mime_type,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
 
 

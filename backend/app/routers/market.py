@@ -30,6 +30,7 @@ from ..models import (
     MarketplaceListingLike,
     MarketplacePriceOffer,
     MarketplaceReview,
+    MarketplaceTransaction,
     Report,
     ReportImage,
     User,
@@ -66,6 +67,7 @@ from ..schemas import (
     MarketplaceReportCreateRequest,
     MarketplaceReviewCreateRequest,
     MarketplaceReviewResult,
+    MarketplaceTransactionOut,
     Page,
     PriceOfferOut,
     PriceOfferProposeRequest,
@@ -1868,6 +1870,141 @@ async def _load_appointment(
     return appt, conv, listing
 
 
+async def _ensure_marketplace_transaction(
+    db: AsyncSession,
+    appt: MarketplaceAppointment,
+    conv: DmConversation,
+    listing: MarketplaceListing,
+) -> MarketplaceTransaction:
+    """Create the one transaction row for an accepted appointment, if absent."""
+    existing = await db.get(MarketplaceTransaction, appt.id)
+    if existing is not None:
+        return existing
+    buyer_id = conv.participant_2 if conv.participant_1 == listing.seller_id else conv.participant_1
+    if buyer_id is None or buyer_id == listing.seller_id:
+        raise HTTPException(status_code=403, detail="Invalid transaction participants")
+    accepted_offer_amount = (
+        await db.execute(
+            select(MarketplacePriceOffer.amount)
+            .where(
+                MarketplacePriceOffer.conversation_id == conv.id,
+                MarketplacePriceOffer.listing_id == listing.id,
+                MarketplacePriceOffer.status == "ACCEPTED",
+            )
+            .order_by(MarketplacePriceOffer.updated_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    transaction = MarketplaceTransaction(
+        appointment_id=appt.id,
+        conversation_id=conv.id,
+        listing_id=listing.id,
+        buyer_id=buyer_id,
+        seller_id=listing.seller_id,
+        amount_vnd=accepted_offer_amount if accepted_offer_amount is not None else listing.price_vnd,
+        payment_method="zalopay_qr_manual",
+        payment_status="AWAITING_PAYMENT",
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(transaction)
+    return transaction
+
+
+async def _load_marketplace_transaction(
+    db: AsyncSession,
+    appointment_id: uuid.UUID,
+    session_uid: uuid.UUID,
+    *,
+    lock: bool = False,
+) -> tuple[MarketplaceTransaction, MarketplaceAppointment, DmConversation, MarketplaceListing]:
+    query = select(MarketplaceTransaction).where(MarketplaceTransaction.appointment_id == appointment_id)
+    transaction = (await db.execute(query)).scalar_one_or_none()
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    appt = await db.get(MarketplaceAppointment, appointment_id)
+    conv = await db.get(DmConversation, transaction.conversation_id)
+    if appt is None or conv is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    counterpart_id = require_participant(conv, session_uid)
+    await require_unblocked(db, session_uid, counterpart_id)
+    listing_query = select(MarketplaceListing).where(MarketplaceListing.id == transaction.listing_id)
+    if lock:
+        listing_query = listing_query.with_for_update()
+    listing = (await db.execute(listing_query)).scalar_one_or_none()
+    if lock:
+        # All payment/cancellation paths lock listing then transaction. Keep this
+        # order coherent to avoid deadlocks while serializing payment vs cancel.
+        transaction = (
+            await db.execute(
+                select(MarketplaceTransaction)
+                .where(MarketplaceTransaction.appointment_id == appointment_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if transaction is None:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+    if (
+        listing is None
+        or conv.conversation_type != "direct"
+        or conv.id != appt.conversation_id
+        or conv.context_type != "listing"
+        or conv.context_id != listing.id
+        or transaction.listing_id != appt.listing_id
+        or transaction.seller_id != listing.seller_id
+        or {transaction.buyer_id, transaction.seller_id} != {conv.participant_1, conv.participant_2}
+    ):
+        raise HTTPException(status_code=403, detail="Invalid transaction context")
+    return transaction, appt, conv, listing
+
+
+async def _marketplace_transaction_out(
+    db: AsyncSession,
+    transaction: MarketplaceTransaction,
+    appt: MarketplaceAppointment,
+    listing: MarketplaceListing,
+    session_uid: uuid.UUID,
+) -> MarketplaceTransactionOut:
+    qr_message_id = await _current_payment_qr_message_id(db, transaction) if appt.status == "ACCEPTED" else None
+    return MarketplaceTransactionOut(
+        appointment_id=transaction.appointment_id,
+        conversation_id=transaction.conversation_id,
+        listing_id=transaction.listing_id,
+        listing_title=listing.title,
+        buyer_id=transaction.buyer_id,
+        seller_id=transaction.seller_id,
+        viewer_role="seller" if session_uid == transaction.seller_id else "buyer",
+        amount_vnd=transaction.amount_vnd,
+        payment_method=transaction.payment_method,
+        payment_status=transaction.payment_status,
+        qr_message_id=qr_message_id,
+        appointment_status=appt.status,
+        buyer_reported_at=transaction.buyer_reported_at,
+        seller_confirmed_at=transaction.seller_confirmed_at,
+        created_at=transaction.created_at,
+        updated_at=transaction.updated_at,
+    )
+
+
+async def _current_payment_qr_message_id(db: AsyncSession, transaction: MarketplaceTransaction) -> uuid.UUID | None:
+    return (
+        await db.execute(
+            select(DmMessage.id)
+            .where(
+                DmMessage.conversation_id == transaction.conversation_id,
+                DmMessage.sender_id == transaction.seller_id,
+                DmMessage.message_type == "payment_qr",
+                DmMessage.deleted_at.is_(None),
+                DmMessage.meta["appointmentId"].as_string() == str(transaction.appointment_id),
+            )
+            .order_by(DmMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 @router.patch("/appointments/{appointment_id}/accept", response_model=AppointmentOut, summary="약속 수락")
 async def accept_appointment(
     appointment_id: uuid.UUID,
@@ -1875,7 +2012,7 @@ async def accept_appointment(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """제안 상대(제안자가 아닌 참여자)가 수락 → ACCEPTED, 매물 ON_SALE→RESERVED."""
-    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
     if session_uid == appt.proposer_id:
         raise HTTPException(status_code=403, detail="Proposer cannot accept own appointment")
     if appt.status != "PROPOSED":
@@ -1892,9 +2029,76 @@ async def accept_appointment(
     log_transition(
         db, listing.id, "ON_SALE", "RESERVED", actor_type="user", actor_id=session_uid, reason="appointment_accepted"
     )
+    await _ensure_marketplace_transaction(db, appt, conv, listing)
     _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)
+
+
+@router.get(
+    "/appointments/{appointment_id}/transaction",
+    response_model=MarketplaceTransactionOut,
+    summary="거래 절차 상세",
+)
+async def get_marketplace_transaction(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid)
+    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+
+
+@router.patch(
+    "/appointments/{appointment_id}/transaction/payment-reported",
+    response_model=MarketplaceTransactionOut,
+    summary="구매자 송금 완료 신고",
+)
+async def report_marketplace_payment(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    if session_uid != transaction.buyer_id:
+        raise HTTPException(status_code=403, detail="Only the buyer can report payment")
+    if appt.status != "ACCEPTED" or listing.status != "RESERVED":
+        raise HTTPException(status_code=409, detail="Payment can only be reported for an active transaction")
+    if transaction.payment_status == "AWAITING_PAYMENT":
+        if await _current_payment_qr_message_id(db, transaction) is None:
+            raise HTTPException(status_code=409, detail="The seller has not registered a payment QR")
+        now = datetime.now(UTC)
+        transaction.payment_status = "PAYMENT_REPORTED"
+        transaction.buyer_reported_at = now
+        transaction.updated_at = now
+        await db.commit()
+    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+
+
+@router.patch(
+    "/appointments/{appointment_id}/transaction/payment-confirmed",
+    response_model=MarketplaceTransactionOut,
+    summary="판매자 입금 수령 확인",
+)
+async def confirm_marketplace_payment(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    if session_uid != transaction.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can confirm receipt")
+    if appt.status != "ACCEPTED" or listing.status != "RESERVED":
+        raise HTTPException(status_code=409, detail="Receipt can only be confirmed for an active transaction")
+    if transaction.payment_status == "AWAITING_PAYMENT":
+        raise HTTPException(status_code=409, detail="The buyer has not reported payment")
+    if transaction.payment_status == "PAYMENT_REPORTED":
+        now = datetime.now(UTC)
+        transaction.payment_status = "PAYMENT_CONFIRMED"
+        transaction.seller_confirmed_at = now
+        transaction.updated_at = now
+        await db.commit()
+    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
 
 
 @router.patch("/appointments/{appointment_id}/complete", response_model=AppointmentOut, summary="거래 완료")
@@ -2061,6 +2265,16 @@ async def cancel_appointment(
         return await _appt_out(db, appt, listing.seller_id)
     if appt.status == "COMPLETED":
         raise HTTPException(status_code=409, detail="Cannot cancel a completed appointment")
+    transaction = (
+        await db.execute(
+            select(MarketplaceTransaction)
+            .where(MarketplaceTransaction.appointment_id == appt.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if transaction is not None and transaction.payment_status in {"PAYMENT_REPORTED", "PAYMENT_CONFIRMED"}:
+        raise HTTPException(status_code=409, detail="Cannot cancel after payment is reported")
 
     now = datetime.now(UTC)
     was_accepted = appt.status == "ACCEPTED"

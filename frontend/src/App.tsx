@@ -92,6 +92,7 @@ const FeedDetail = lazyWithRetry(() => import('@/pages/feed/FeedDetail'));
 // DM
 const DmList = lazyWithRetry(() => import('@/pages/dm/DmList'));
 const DmDetail = lazyWithRetry(() => import('@/pages/dm/DmDetail'));
+const TradeTransaction = lazyWithRetry(() => import('@/pages/dm/TradeTransaction'));
 const DmGroupCreate = lazyWithRetry(() => import('@/pages/dm/DmGroupCreate'));
 const DmBoard = lazyWithRetry(() => import('@/pages/dm/DmBoard'));
 const DmBoardCompose = lazyWithRetry(() => import('@/pages/dm/DmBoardCompose'));
@@ -629,6 +630,7 @@ export default function App() {
           <Route path="/dm/:conversationId/board" element={<PrivateRoute><DmBoard /></PrivateRoute>} />
           <Route path="/dm/:conversationId/board/new" element={<PrivateRoute><DmBoardCompose /></PrivateRoute>} />
           <Route path="/dm/:conversationId/board/:postId" element={<PrivateRoute><DmBoardPost /></PrivateRoute>} />
+          <Route path="/dm/:conversationId/trade/:appointmentId" element={<PrivateRoute><TradeTransaction /></PrivateRoute>} />
           <Route path="/dm/:conversationId" element={<PrivateRoute><DmDetail /></PrivateRoute>} />
           <Route path="/community/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
           <Route path="/community/groups/new" element={<PrivateRoute><GroupCreate /></PrivateRoute>} />

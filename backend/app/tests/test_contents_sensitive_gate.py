@@ -12,7 +12,7 @@ import unittest
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 
@@ -40,6 +40,32 @@ def _scalar_result(value):
 
 
 class ContentSensitiveGateTests(unittest.IsolatedAsyncioTestCase):
+    async def test_private_upload_response_has_no_playback_url(self):
+        owner_id = uuid.uuid4()
+        file = SimpleNamespace(
+            filename="payment-qr.png",
+            content_type="image/png",
+            read=AsyncMock(return_value=b"\x89PNG\r\n\x1a\n"),
+        )
+        db = MagicMock()
+        db.commit = AsyncMock()
+
+        async def refresh(content):
+            content.created_at = datetime(2026, 9, 9, tzinfo=UTC)
+
+        db.refresh = AsyncMock(side_effect=refresh)
+        with patch.object(contents.asyncio, "to_thread", AsyncMock(return_value=None)):
+            result = await contents.upload_content(
+                file=file,
+                owner_type="user",
+                owner_id=str(owner_id),
+                is_private=True,
+                db=db,
+                _session_uid=owner_id,
+            )
+
+        self.assertIsNone(result.imgproxy_url)
+
     async def test_stranger_cannot_fetch_private_content(self):
         """is_private=True 인 content 를 소유자가 아닌 익명/타인이 조회하면 404."""
         owner_id = uuid.uuid4()
@@ -60,6 +86,7 @@ class ContentSensitiveGateTests(unittest.IsolatedAsyncioTestCase):
 
         result = await contents.get_content(content.id, db=db, session_uid=owner_id, admin_session=None)
         self.assertEqual(result.id, content.id)
+        self.assertIsNone(result.imgproxy_url)
 
     async def test_non_private_content_stays_public(self):
         """is_private=False 인 일반 content(프로필 사진 등)는 기존처럼 인증 없이 조회 가능."""
@@ -69,6 +96,15 @@ class ContentSensitiveGateTests(unittest.IsolatedAsyncioTestCase):
 
         result = await contents.get_content(content.id, db=db, session_uid=None, admin_session=None)
         self.assertEqual(result.id, content.id)
+        self.assertIsNotNone(result.imgproxy_url)
+
+    def test_private_playback_url_is_never_serialized(self):
+        private_image = _content(uuid.uuid4(), is_private=True)
+        private_audio = _content(uuid.uuid4(), is_private=True)
+        private_audio.mime_type = "audio/m4a"
+
+        self.assertIsNone(contents._content_playback_url(private_image))
+        self.assertIsNone(contents._content_playback_url(private_audio))
 
     async def test_private_content_blocked_before_profile_link(self):
         """ⓐ 핵심 검증: 업로드 직후 BusinessProfile 에 아직 연결되지 않은 상태에서도

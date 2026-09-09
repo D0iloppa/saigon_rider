@@ -28,20 +28,37 @@ test('review heading and filter share one centered line without offset hacks', (
   assert.match(dashboardCss, /\.filterToggle, \.filterToggleActive\s*\{[^}]*width:\s*auto;[^}]*flex:\s*0 0 auto;[^}]*white-space:\s*nowrap;/s);
 });
 
-test('news and price page heroes put the description above an intrinsic-width CTA at every mobile width', () => {
+test('management page heroes put the description above a full-width mobile CTA', () => {
   for (const [name, css] of [['news', newsCss], ['price', priceCss]]) {
     assert.match(css, /\.hero\s*\{[^}]*flex-direction:\s*column;[^}]*align-items:\s*stretch;/s, `${name} hero must stack`);
-    assert.match(css, /\.hero > button\s*\{[^}]*align-self:\s*flex-start;/s, `${name} CTA must keep intrinsic width`);
+    assert.match(css, /\.hero > button\s*\{[^}]*width:\s*100%;/s, `${name} CTA must fill the row`);
   }
-  assert.match(news, /<Button fullWidth=\{false\}/);
-  assert.match(price, /<Button fullWidth=\{false\}/);
-  assert.match(adsManage, /<Button fullWidth=\{false\}/);
+  assert.doesNotMatch(news, /<Button fullWidth=\{false\}/);
+  assert.doesNotMatch(price, /<Button fullWidth=\{false\}/);
+  assert.doesNotMatch(adsManage, /<Button fullWidth=\{false\}/);
 });
 
-test('new ad management labels stay complete across ko, en, and vi', () => {
+test('news, price, and ad management use loaded-scope search, meaningful sort, and created metadata', () => {
+  assert.match(news, /newsLoadedScope/);
+  assert.match(news, /newsCreatedAt/);
+  assert.match(news, /existingIds = new Set/);
+  assert.match(news, /news\.length > 0 && hasMore/, 'load more remains available when a search has no matches');
+  assert.match(price, /priceSortDisplay/);
+  assert.match(price, /priceCreatedAt/);
+  assert.match(adsManage, /adsSortPriority/);
+  assert.match(adsManage, /adCreatedAt/);
+  for (const css of [newsCss, priceCss]) {
+    assert.match(css, /\.searchField\s*\{[^}]*min-height:\s*44px;/s);
+    assert.match(css, /\.sortSelect\s*\{[^}]*min-height:\s*44px;/s);
+  }
+});
+
+test('management labels stay complete across ko, en, and vi', () => {
   const locales = ['ko', 'en', 'vi'].map((locale) => JSON.parse(read(`../../locales/${locale}/translation.json`)));
-  const keys = ['adsManageTitle', 'adsManageDesc', 'adsManageCta', 'adsSummaryCount', 'adsSummaryNeedsAction', 'adsDisplayedCount'];
+  const adKeys = ['adsManageTitle', 'adsManageDesc', 'adsManageCta', 'adsSummaryCount', 'adsSummaryNeedsAction', 'adsDisplayedCount', 'adsSearchPlaceholder', 'adsSortPriority', 'adCreatedAt'];
+  const bizKeys = ['newsSearchPlaceholder', 'newsSortLatest', 'newsCreatedAt', 'priceSearchPlaceholder', 'priceSortDisplay', 'priceCreatedAt'];
   for (const locale of locales) {
-    for (const key of keys) assert.equal(typeof locale.biz.lounge[key], 'string', `missing biz.lounge.${key}`);
+    for (const key of adKeys) assert.equal(typeof locale.biz.lounge[key], 'string', `missing biz.lounge.${key}`);
+    for (const key of bizKeys) assert.equal(typeof locale.biz[key], 'string', `missing biz.${key}`);
   }
 });

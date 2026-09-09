@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Plus, Receipt, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, Receipt, Search, Trash2 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +11,7 @@ import { extractDetail } from '@/api/client';
 import { fetchBizPublicPrices, createBizPrice, deleteBizPrice, type BizPriceItem } from '@/api/biz';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { native } from '@/lib/native';
+import { formatRelativeTime } from '@/lib/format';
 import sys from '@/styles/system.module.css';
 import styles from './BizPriceManage.module.css';
 
@@ -32,6 +33,8 @@ export default function BizPriceManage() {
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<BizPriceItem | null>(null);
+  const [query, setQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'display' | 'name' | 'priceLow'>('display');
   const nameInputRef = useRef<HTMLInputElement>(null);
   const kb = useKeyboard();
 
@@ -40,10 +43,26 @@ export default function BizPriceManage() {
       navigate('/biz/manage', { replace: true });
       return;
     }
+    let cancelled = false;
     fetchBizPublicPrices(profileId)
-      .then(setPrices)
-      .catch(() => { setPrices([]); setLoadError(true); });
+      .then((list) => { if (!cancelled) setPrices(list); })
+      .catch(() => {
+        if (!cancelled) { setPrices([]); setLoadError(true); }
+      });
+    return () => { cancelled = true; };
   }, [profileId, navigate, reloadKey]);
+
+  const visiblePrices = useMemo(() => {
+    if (!prices) return [];
+    const normalizedQuery = query.trim().toLocaleLowerCase(i18n.language);
+    return prices
+      .filter((item) => !normalizedQuery || item.name.toLocaleLowerCase(i18n.language).includes(normalizedQuery))
+      .sort((a, b) => sortOrder === 'name'
+        ? a.name.localeCompare(b.name, i18n.language)
+        : sortOrder === 'priceLow'
+          ? a.priceVnd - b.priceVnd
+          : a.sortOrder - b.sortOrder);
+  }, [i18n.language, prices, query, sortOrder]);
 
   if (!profileId) return null;
 
@@ -87,12 +106,26 @@ export default function BizPriceManage() {
             <p>{t('biz.priceManagePurpose')}</p>
             {prices !== null && !loadError && <span className={`${styles.count} num`}>{t('biz.priceManageCount', { count: prices.length })}</span>}
           </div>
-          <Button fullWidth={false} onClick={() => nameInputRef.current?.focus()}>
+          <Button onClick={() => nameInputRef.current?.focus()}>
             <Plus size={17} />{t('biz.priceSubmit')}
           </Button>
         </section>
 
-        <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.priceListTitle')}</h2></div>
+        {prices !== null && !loadError && prices.length > 0 && <section className={styles.controls} aria-label={t('biz.priceControlsLabel')}>
+          <label className={styles.searchField}>
+            <Search size={17} aria-hidden="true" />
+            <span className={styles.srOnly}>{t('biz.priceSearchLabel')}</span>
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('biz.priceSearchPlaceholder')} type="search" />
+          </label>
+          <select className={styles.sortSelect} value={sortOrder} onChange={(event) => setSortOrder(event.target.value as 'display' | 'name' | 'priceLow')} aria-label={t('biz.priceSortLabel')}>
+            <option value="display">{t('biz.priceSortDisplay')}</option>
+            <option value="name">{t('biz.priceSortName')}</option>
+            <option value="priceLow">{t('biz.priceSortPriceLow')}</option>
+          </select>
+          <p>{t('biz.priceLoadedScope')}</p>
+        </section>}
+
+        <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.priceListTitle')}</h2>{query.trim() && <span className={`${styles.resultCount} num`}>{t('biz.priceSearchCount', { count: visiblePrices.length })}</span>}</div>
         {loadError ? (
           <div className={`${sys.card} ${styles.emptyCard}`}><StateBlock icon={AlertCircle} tone="error" title={t('biz.priceLoadError')} actionLabel={t('common.retry')} onAction={() => { setLoadError(false); setPrices(null); setReloadKey((key) => key + 1); }} /></div>
         ) : prices === null ? (
@@ -103,11 +136,13 @@ export default function BizPriceManage() {
             title={t('biz.priceManageEmptyTitle')}
             desc={t('biz.priceManageEmptyDesc')}
           /></div>
+        ) : visiblePrices.length === 0 ? (
+          <div className={`${sys.card} ${styles.emptyCard}`}><StateBlock icon={Search} title={t('biz.priceSearchEmptyTitle')} desc={t('biz.priceSearchEmptyDesc')} actionLabel={t('biz.priceSearchReset')} onAction={() => setQuery('')} /></div>
         ) : (
           <div className={styles.list}>
-            {prices.map((p) => (
+            {visiblePrices.map((p) => (
               <div key={p.id} className={styles.row}>
-                <span className={styles.rowName}>{p.name}</span>
+                <span className={styles.rowMain}><strong className={styles.rowName}>{p.name}</strong><small>{t('biz.priceCreatedAt', { time: formatRelativeTime(p.createdAt) })}</small></span>
                 <span className={`${styles.rowPrice} num`}>{p.priceVnd.toLocaleString(i18n.language)} ₫</span>
                 <button
                   type="button"

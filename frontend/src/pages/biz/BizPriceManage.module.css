@@ -26,13 +26,22 @@
 }
 
 .heroCopy { min-width: 0; }
-.hero > button { align-self: flex-start; }
+.hero > button { width: 100%; }
 .eyebrow { color: var(--brand-600); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .hero h1 { margin: 4px 0 5px; color: var(--text); font-size: 22px; line-height: 1.2; letter-spacing: -.02em; }
 .hero p { margin: 0; max-width: 34rem; color: var(--text-2); font-size: 13px; line-height: 1.5; }
 .count { display: inline-block; margin-top: 8px; color: var(--text-3); font-size: 12px; }
 .sectionDesc { margin: 4px 0 0; color: var(--text-3); font-size: 12px; }
 .emptyCard { margin: 0; }
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.controls > p { grid-column: 1 / -1; margin: 0; color: var(--text-3); font-size: 11.5px; line-height: 1.4; }
+.searchField { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text-3); }
+.searchField:focus-within { border-color: var(--brand-500); }
+.searchField input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
+.searchField input::placeholder { color: var(--text-3); }
+.sortSelect { min-height: 44px; padding: 0 30px 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.resultCount { color: var(--text-3); font-size: 12px; }
 
 .list {
   display: flex;
@@ -51,11 +60,14 @@
 }
 
 .rowName {
-  flex: 1;
+  display: block;
   font-size: 15px;
   font-weight: 600;
   color: var(--text);
 }
+
+.rowMain { min-width: 0; flex: 1; }
+.rowMain small { display: block; margin-top: 3px; color: var(--text-3); font-size: 11.5px; }
 
 .rowPrice {
   font-size: 16px;
@@ -79,8 +91,10 @@
 }
 
 @media (max-width: 370px) {
+  .controls { grid-template-columns: 1fr; }
+  .sortSelect { width: 100%; }
   .row { flex-wrap: wrap; }
-  .rowName { flex-basis: calc(100% - 96px); }
+  .rowMain { flex-basis: calc(100% - 96px); }
 }
 
 .form {

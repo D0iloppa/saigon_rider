@@ -299,6 +299,17 @@ async function realFetchForm<T>(
   return res.json();
 }
 
+async function realFetchBlob(endpoint: string, service: Service = 'bff'): Promise<Blob> {
+  const url = `${baseUrl(service)}${endpoint}`;
+  const res = await fetch(url, { headers: sessionHeaders() });
+  if (res.status === 419 || res.status === 401) handleSessionError();
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractErrorMessage(err, res.status, `GET ${url}`));
+  }
+  return res.blob();
+}
+
 /** rethrow:true 호출부용 — 429/409(어뷰징 가드류, 서버가 사람이 읽을 문장을 detail 로 준다고
  *  보장되는 상태코드)만 상세를 노출하고, 그 외(422 검증오류 JSON·502 등 raw 응답·네트워크 오류)는
  *  fallback 문구를 쓴다. 다른 상태코드까지 열면 기술적 내용이 그대로 노출될 수 있다. */
@@ -320,4 +331,4 @@ export function extractErrorCode(err: unknown): string | null {
   }
 }
 
-export const api = { delay, realFetch, realFetchForm };
+export const api = { delay, realFetch, realFetchForm, realFetchBlob };

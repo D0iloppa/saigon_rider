@@ -89,8 +89,10 @@ def _resolve_save_path(owner_type: str) -> tuple[Path, str]:
     return CONTENTS_BASE_PATH / rel, str(rel)
 
 
-def _content_playback_url(content: Content) -> str:
+def _content_playback_url(content: Content) -> str | None:
     """D-5: 오디오는 imgproxy 미경유 — /contents/{id}/raw 원본 서빙 URL 을 대신 내려준다."""
+    if content.is_private:
+        return None
     if content.mime_type in AUDIO_MIME_TYPES:
         return f"/api/bff/contents/{content.id}/raw"
     return build_imgproxy_url(content.file_path)

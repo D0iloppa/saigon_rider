@@ -1,6 +1,14 @@
 import { USE_MOCK, api, requireSession } from './client';
 import { transformCard } from './market';
-import type { Appointment, DmAppointmentMeta, DmConversation, DmMessage, DmReaction, PriceOffer } from './types';
+import type {
+  Appointment,
+  DmAppointmentMeta,
+  DmConversation,
+  DmMessage,
+  DmReaction,
+  MarketplaceTransaction,
+  PriceOffer,
+} from './types';
 
 function transformPriceOffer(raw: any): PriceOffer {
   return {
@@ -30,6 +38,27 @@ function transformAppointment(raw: any): Appointment {
     completionRequestedAt: raw.completion_requested_at ?? null,
     completionDeclinedAt: raw.completion_declined_at ?? null,
     completionDeclinedBy: raw.completion_declined_by ?? null,
+  };
+}
+
+function transformTransaction(raw: any): MarketplaceTransaction {
+  return {
+    appointmentId: raw.appointment_id,
+    conversationId: raw.conversation_id,
+    listingId: raw.listing_id,
+    listingTitle: raw.listing_title,
+    buyerId: raw.buyer_id,
+    sellerId: raw.seller_id,
+    viewerRole: raw.viewer_role,
+    amountVnd: raw.amount_vnd,
+    paymentMethod: raw.payment_method,
+    paymentStatus: raw.payment_status,
+    qrMessageId: raw.qr_message_id ?? null,
+    appointmentStatus: raw.appointment_status,
+    buyerReportedAt: raw.buyer_reported_at ?? null,
+    sellerConfirmedAt: raw.seller_confirmed_at ?? null,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
   };
 }
 
@@ -378,6 +407,51 @@ export async function declineAppointmentCompletion(appointmentId: string): Promi
 
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
   return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
+}
+
+export async function fetchMarketplaceTransaction(appointmentId: string): Promise<MarketplaceTransaction> {
+  return transformTransaction(await api.realFetch<any>(`/market/appointments/${appointmentId}/transaction`));
+}
+
+export async function reportMarketplacePayment(appointmentId: string): Promise<MarketplaceTransaction> {
+  return transformTransaction(await api.realFetch<any>(
+    `/market/appointments/${appointmentId}/transaction/payment-reported`,
+    { method: 'PATCH' },
+  ));
+}
+
+export async function confirmMarketplacePayment(appointmentId: string): Promise<MarketplaceTransaction> {
+  return transformTransaction(await api.realFetch<any>(
+    `/market/appointments/${appointmentId}/transaction/payment-confirmed`,
+    { method: 'PATCH' },
+  ));
+}
+
+export async function registerMarketplacePaymentQr(
+  conversationId: string,
+  appointmentId: string,
+  ownerId: string,
+  file: File,
+): Promise<DmMessage> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('owner_type', 'user');
+  form.append('owner_id', ownerId);
+  form.append('is_private', 'true');
+  const content = await api.realFetchForm<{ id: string }>('/contents/upload', form, 'bff', { rethrow: true });
+  return transformMessage(await api.realFetch<any>(
+    `/dm/conversations/${conversationId}/payment-qr`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ appointment_id: appointmentId, image_content_id: content.id }),
+    },
+    'bff',
+    { rethrow: true },
+  ));
+}
+
+export async function fetchMarketplacePaymentQr(conversationId: string, messageId: string): Promise<Blob> {
+  return api.realFetchBlob(`/dm/conversations/${conversationId}/payment-qr/${messageId}/image`);
 }
 
 

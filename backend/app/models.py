@@ -1762,6 +1762,39 @@ class MarketplaceAppointment(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class MarketplaceTransaction(Base):
+    """Accepted marketplace deal and its manual-payment acknowledgement state.
+
+    ``appointment_id`` is both the stable public id and the one-to-one key. Payment
+    acknowledgement is deliberately separate from appointment/listing completion.
+    """
+
+    __tablename__ = "marketplace_transactions"
+
+    appointment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), primary_key=True
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dm_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False
+    )
+    buyer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    seller_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    amount_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(40), nullable=False, default="zalopay_qr_manual")
+    payment_status: Mapped[str] = mapped_column(String(24), nullable=False, default="AWAITING_PAYMENT")
+    buyer_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    seller_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class LocationChannel(Base):
     """실시간 위치공유 채널 — 대화방당 활성 채널 최대 1개 (init/223, 260829 설계 SoT §3-1)."""
 

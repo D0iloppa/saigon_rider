@@ -750,7 +750,8 @@ class ContentOut(BaseModel):
     mime_type: str | None
     original_filename: str | None
     file_size: int | None
-    imgproxy_url: str
+    # Private Content is delivered only by purpose-built authenticated routes.
+    imgproxy_url: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -1414,6 +1415,25 @@ class AppointmentProposeRequest(BaseModel):
     place_lng: float | None = None
 
 
+class MarketplaceTransactionOut(BaseModel):
+    appointment_id: UUID
+    conversation_id: UUID
+    listing_id: UUID
+    listing_title: str
+    buyer_id: UUID
+    seller_id: UUID
+    viewer_role: Literal["buyer", "seller"]
+    amount_vnd: int
+    payment_method: str
+    payment_status: str
+    qr_message_id: UUID | None = None
+    appointment_status: str
+    buyer_reported_at: datetime | None = None
+    seller_confirmed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class LocationChannelDestIn(BaseModel):
     lat: float
     lng: float
@@ -1528,6 +1548,11 @@ class DmMessageCreateRequest(BaseModel):
     meta: dict | None = None
     # 답장 대상 (같은 대화방 메시지만) — 서버가 전송 시점에 reply_preview 스냅샷을 생성한다
     reply_to_message_id: UUID | None = None
+
+
+class DmPaymentQrRequest(BaseModel):
+    appointment_id: UUID
+    image_content_id: UUID
 
 
 class DmMessageEditRequest(BaseModel):

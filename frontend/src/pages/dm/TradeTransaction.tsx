@@ -17,6 +17,7 @@ import type { MarketplaceTransaction } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { formatPriceVnd } from '../market/marketFormat';
 import { toast } from '@/components/ui/Toast';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import styles from './TradeTransaction.module.css';
 
 export default function TradeTransaction() {
@@ -152,6 +153,17 @@ export default function TradeTransaction() {
               ) : (
                 <div className={styles.qrEmpty}>{t('dm.tradeQrWaiting')}</div>
               )}
+              {transaction.viewerRole === 'buyer' && qrUrl && (
+                <p className={styles.safetyNote}>{t('dm.tradeSafetyNotice')}</p>
+              )}
+              {transaction.viewerRole === 'buyer' && conversationId && (
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(`/dm/${conversationId}`, { state: { openReport: true } })}
+                >
+                  {t('dm.tradeSafetyReportLink')}
+                </Button>
+              )}
               {transaction.viewerRole === 'seller' && transaction.appointmentStatus === 'ACCEPTED' && (
                 <>
                   <input
@@ -185,7 +197,18 @@ export default function TradeTransaction() {
             </section>
 
             {transaction.viewerRole === 'buyer' && transaction.appointmentStatus === 'ACCEPTED' && !reported && (
-              <Button fullWidth disabled={busy || !qrUrl} onClick={() => updatePayment('report')}>
+              <Button
+                fullWidth
+                disabled={busy || !qrUrl}
+                onClick={() => useConfirmStore.getState().open(
+                  t('dm.tradeReportPaymentConfirm'),
+                  () => {
+                    useConfirmStore.getState().close();
+                    updatePayment('report');
+                  },
+                  { confirmLabel: t('dm.tradeReportPaymentConfirmCta') },
+                )}
+              >
                 {t('dm.tradeReportPayment')}
               </Button>
             )}

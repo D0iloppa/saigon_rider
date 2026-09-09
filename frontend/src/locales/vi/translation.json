@@ -1006,6 +1006,10 @@
     "tradePaymentConfirmed": "Đã xác nhận nhận tiền",
     "tradeBoundaryNotice": "Các xác nhận này không phải xác minh PSP hoặc ký quỹ.",
     "tradeQrCardNotice": "Người bán đã thêm QR chuyển tiền trực tiếp. Mở giao dịch để xem chi tiết.",
+    "tradeSafetyNotice": "Mã QR và tài khoản này do người bán tự đăng ký, Saigon Rider chưa xác minh. Nếu có ai yêu cầu bạn chuyển sang tài khoản khác với tài khoản hiển thị ở đây, đừng làm theo. Ứng dụng không thay bạn chuyển tiền và cũng không giữ tiền hộ.",
+    "tradeSafetyReportLink": "Thấy bất thường? Báo cáo ngay",
+    "tradeReportPaymentConfirm": "Nút này không phải là xác nhận từ ngân hàng hay bên thanh toán — đây là bạn tự khai đã chuyển tiền. Bạn đã chuyển tiền thật chưa?",
+    "tradeReportPaymentConfirmCta": "Rồi, tôi đã chuyển",
     "tradeOpen": "Xem quy trình giao dịch",
     "tradeLoadError": "Không thể tải thông tin giao dịch",
     "album": "Album",
@@ -1391,7 +1395,13 @@
     "category_account": "Tài khoản",
     "category_market": "Chợ",
     "category_ride": "Đi xe",
-    "category_reward": "Phần thưởng"
+    "category_reward": "Phần thưởng",
+    "searchPlaceholder": "Tìm câu hỏi bạn quan tâm",
+    "searchClear": "Xóa",
+    "searchEmptyTitle": "Không tìm thấy kết quả nào",
+    "searchEmptySub": "Thử từ khóa khác, hoặc liên hệ bộ phận hỗ trợ để được giải đáp",
+    "searchEmptyAction": "Liên hệ hỗ trợ",
+    "loadErrorTitle": "Không tải được câu hỏi thường gặp"
   },
   "coupon": {
     "shop_title": "Cửa hàng phiếu",

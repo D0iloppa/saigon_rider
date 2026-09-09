@@ -1006,6 +1006,10 @@
     "tradePaymentConfirmed": "입금 수령을 확인했어요",
     "tradeBoundaryNotice": "송금 신고·수령 확인은 결제대행사 검증이나 에스크로가 아닙니다.",
     "tradeQrCardNotice": "판매자가 직접 송금용 QR을 등록했어요. 거래 상세에서 확인하세요.",
+    "tradeSafetyNotice": "이 QR·계좌는 판매자가 직접 등록한 것으로, 사이공 라이더가 검증하지 않았습니다. 화면에 표시된 것과 다른 계좌로 송금을 요구받으면 응하지 마세요. 앱은 송금을 대행하거나 대금을 보관하지 않습니다.",
+    "tradeSafetyReportLink": "이상하면 신고하기",
+    "tradeReportPaymentConfirm": "이 버튼은 은행이나 결제사의 확인이 아니라, 실제로 송금했다는 본인 진술이에요. 정말 송금하셨나요?",
+    "tradeReportPaymentConfirmCta": "네, 송금했어요",
     "tradeOpen": "거래 절차 보기",
     "tradeLoadError": "거래 정보를 불러오지 못했어요",
     "album": "앨범",
@@ -1391,7 +1395,13 @@
     "category_account": "계정",
     "category_market": "마켓",
     "category_ride": "라이딩",
-    "category_reward": "리워드"
+    "category_reward": "리워드",
+    "searchPlaceholder": "궁금한 내용을 검색해보세요",
+    "searchClear": "지우기",
+    "searchEmptyTitle": "검색 결과가 없어요",
+    "searchEmptySub": "다른 키워드로 다시 검색하거나 고객센터에 문의해보세요",
+    "searchEmptyAction": "고객센터 문의하기",
+    "loadErrorTitle": "FAQ를 불러오지 못했어요"
   },
   "coupon": {
     "shop_title": "쿠폰샵",

@@ -1006,6 +1006,10 @@
     "tradePaymentConfirmed": "Payment receipt confirmed",
     "tradeBoundaryNotice": "These acknowledgements are not PSP verification or escrow.",
     "tradeQrCardNotice": "The seller added a QR for direct transfer. Open the transaction for details.",
+    "tradeSafetyNotice": "This QR and account were registered by the seller directly — Saigon Rider has not verified them. If you're asked to transfer to a different account than the one shown here, don't comply. The app does not handle or hold the transfer for you.",
+    "tradeSafetyReportLink": "Report if something's off",
+    "tradeReportPaymentConfirm": "This button isn't a bank or payment provider confirmation — it's your own statement that you actually sent the money. Did you send it?",
+    "tradeReportPaymentConfirmCta": "Yes, I sent it",
     "tradeOpen": "View transaction steps",
     "tradeLoadError": "Could not load the transaction",
     "album": "Album",
@@ -1391,7 +1395,13 @@
     "category_account": "Account",
     "category_market": "Market",
     "category_ride": "Ride",
-    "category_reward": "Reward"
+    "category_reward": "Reward",
+    "searchPlaceholder": "Search FAQs",
+    "searchClear": "Clear",
+    "searchEmptyTitle": "No results found",
+    "searchEmptySub": "Try a different keyword, or contact customer support",
+    "searchEmptyAction": "Contact support",
+    "loadErrorTitle": "Couldn't load FAQs"
   },
   "coupon": {
     "shop_title": "Coupon Shop",

@@ -5,6 +5,38 @@
   gap: 24px;
 }
 
+.searchBox {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-2, #f4f2ec);
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: var(--text-3, #8a8e9e);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--text, #0b0d14);
+}
+
+.searchClear {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--text-3, #8a8e9e);
+}
+
 .section {
   display: flex;
   flex-direction: column;

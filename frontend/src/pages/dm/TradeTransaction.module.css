@@ -52,7 +52,8 @@
 .summary p:last-child,
 .methodOption p,
 .step p,
-.boundaryNote {
+.boundaryNote,
+.safetyNote {
   margin: 5px 0 0;
   color: var(--text-3);
   font-size: 13px;

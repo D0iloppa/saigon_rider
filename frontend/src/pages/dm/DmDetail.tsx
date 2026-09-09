@@ -105,7 +105,7 @@ export default function DmDetail() {
   // 길안내 버튼 제어용 — 스토어가 이미 끝낸 측위 결과를 읽기만 한다(새로 측정하지 않는다).
   const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
   const location = useLocation();
-  const locationState = location.state as { conv?: DmConversation } | null;
+  const locationState = location.state as { conv?: DmConversation; openReport?: boolean } | null;
   // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 음성메시지는 이제 채팅
   // 이력에 영구 버블로 렌더되므로(202608 재개편) 여기서 자동재생을 강제하지 않는다. 대신
   // 이 대화방을 워키토키 캡슐의 대상으로 활성화해, 알림을 탭한 김에 바로 PTT 로 답할 수 있게 한다.
@@ -140,6 +140,14 @@ export default function DmDetail() {
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  // 거래 화면 "신고하기" 딥링크(TradeTransaction → navigate state.openReport) — 한 번 소비하면
+  // state 에서 제거해 뒤로가기/새로고침 시 시트가 다시 열리지 않게 한다.
+  useEffect(() => {
+    if (!locationState?.openReport) return;
+    setReportOpen(true);
+    navigate(location.pathname, { replace: true, state: { conv: locationState.conv } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationState?.openReport]);
   const [messageReportId, setMessageReportId] = useState<string | null>(null);
   // 메시지 액션(공감/답장/수정/삭제) — 말풍선 롱프레스로 연다.
   // 값 스냅샷이 아니라 id 만 들고 messages 에서 매번 파생한다 — 시트가 열려있는 동안
@@ -1204,11 +1212,18 @@ export default function DmDetail() {
                   </span>
                 </div>
                 <p className={styles.apptNote}>{t('dm.tradeQrCardNotice')}</p>
+                {!isMine && <p className={styles.apptNote}>{t('dm.tradeSafetyNotice')}</p>}
                 <div className={styles.apptActions}>
                   <button className={styles.apptBtnPrimary} type="button"
                     onClick={() => navigate(`/dm/${conversationId}/trade/${m.meta!.appointmentId}`)}>
                     {t('dm.tradeOpen')}
                   </button>
+                  {!isMine && (
+                    <button className={styles.apptBtnGhost} type="button"
+                      onClick={() => setReportOpen(true)}>
+                      {t('dm.tradeSafetyReportLink')}
+                    </button>
+                  )}
                 </div>
                 <div className={styles.apptTime}>{formatRelativeTime(m.createdAt)}</div>
               </div>

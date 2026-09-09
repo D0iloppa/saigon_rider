@@ -19,7 +19,7 @@
 
 ## 모델 라우팅
 
-- 감사 3개 lane(지도·결제·계약 UI/증거)은 모두 T3 등급 구현 작업이며 `gpt-5.6-sol`, effort `medium` worker로 배정한다. 기존 구조 안의 상태 회귀를 수술적으로 고치고 교차 테스트하는 범위에 적합하다.
+- 감사 3개 lane(지도·결제·계약 UI/증거)은 당시 T3 라벨(현재 모델 매핑상 T2) 구현 작업이며 `gpt-5.6-sol`, effort `medium` worker로 배정했다. 기존 구조 안의 상태 회귀를 수술적으로 고치고 교차 테스트하는 범위에 적합했다.
 - 메인 supervisor는 범위·인터페이스 조정, 변경 리뷰, 통합 검증과 최종 종합만 담당한다.
 
 ## T3 구현 원칙과 검증
@@ -43,6 +43,8 @@
 
 - Plane/dev-context: `UNREGISTERED` — supervisor의 read-only HEAD 확인이 DNS 실패(`Could not resolve host`, exit 6)했고 인증키 호출/POST는 수행하지 않았다. 운영 `__DEV` DB mutation도 수행하지 않았다.
 - 배포: 금지/미수행.
+
+위 제한은 구현·검증 단계의 안전 경계였다. 이후 대표가 이 릴리스의 commit/push/DEV 배포를 명시 승인해 2026-09-09에 별도 릴리스 단계로 수행했다. 운영 DB·실결제·프로덕션 랜딩은 계속 제외했다. 증적은 [`260909_release_evidence.md`](260909_release_evidence.md)에 기록한다.
 - codebase-memory: supervisor가 fast reindex 완료(nodes 35,641 / edges 100,338). ADR은 전후 모두 기존 빈 상태(`no_adr`).
 
 ## 추가 승인 UI 범위 (2026-09-09)

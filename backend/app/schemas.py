@@ -148,7 +148,7 @@ class SellerBrief(BaseModel):
     nickname: str | None = None
     avatar_url: str | None = None
     level: int = 1
-    manner_temp: float = 36.5
+    trust_tier: str = "new"
     review_count: int = 0
     avg_rating: float | None = None
     sold_count: int = 0
@@ -529,7 +529,7 @@ class MarketplaceReviewCreateRequest(BaseModel):
 
 class MarketplaceReviewResult(BaseModel):
     id: UUID
-    target_manner_temp: float
+    target_trust_tier: str
 
 
 class MarketplaceLikeRequest(BaseModel):
@@ -1123,6 +1123,13 @@ class UserProfileOut(BaseModel):
     is_friend: bool = False
     is_phone_verified: bool = False
     phone_masked: str | None = None
+    member_since: datetime
+    marketplace_sold_count: int = 0
+    marketplace_review_count: int = 0
+    marketplace_avg_rating: float | None = None
+    # WP-4(2026-09-09, 당근 비교 트리아지 F049) — 공개 프로필에 신뢰 티어칩을 노출하되
+    # 원값 manner_temp 는 절대 내보내지 않는다. 서버에서 티어 문자열로 미리 변환한다.
+    trust_tier: str
 
 
 # ── 커뮤니티 그룹 (204_community_group.sql, Phase2) ────────────────
@@ -1930,6 +1937,7 @@ class BusinessPublicProfileOut(BaseModel):
     follower_count: int = 0
     is_following: bool = False
     is_owner: bool = False
+    owner_user_id: uuid.UUID | None = None
 
 
 # ── 업체 지도 공개 조회 (SGR-321) ─────────────────────────────────
@@ -2002,6 +2010,60 @@ class BusinessPriceCreateRequest(BaseModel):
     profile_id: uuid.UUID
     name: str
     price_vnd: int = Field(ge=0)
+
+
+# ── 가게 쿠폰 (사업자 발행 → 고객 수령/사용, F061) ─────────────────
+
+
+class BusinessCouponCreateRequest(BaseModel):
+    """업체 오너가 쿠폰 발행."""
+
+    profile_id: uuid.UUID
+    title: str
+    description: str | None = None
+    expires_at: datetime | None = None
+
+
+class BusinessCouponOut(BaseModel):
+    """오너 관리용 쿠폰 목록 항목 — 수령 수 포함."""
+
+    id: uuid.UUID
+    title: str
+    description: str | None = None
+    expires_at: datetime | None = None
+    stopped_at: datetime | None = None
+    created_at: datetime
+    claimed_count: int
+
+
+class BusinessCouponPublicOut(BaseModel):
+    """공개 프로필 노출용 쿠폰 항목 — 조회자가 이미 받았는지 표시."""
+
+    id: uuid.UUID
+    title: str
+    description: str | None = None
+    expires_at: datetime | None = None
+    is_claimed: bool
+
+
+class BusinessCouponClaimOut(BaseModel):
+    """고객 쿠폰 보관함 항목 — 상태는 저장값이 아니라 redeemed_at/expires_at 로 프런트가 파생한다."""
+
+    id: uuid.UUID  # claim id — 매장 제시용 코드
+    coupon_id: uuid.UUID
+    profile_id: uuid.UUID
+    profile_name: str
+    title: str
+    description: str | None = None
+    claimed_at: datetime
+    expires_at: datetime | None = None
+    redeemed_at: datetime | None = None
+
+
+class BusinessCouponRedeemRequest(BaseModel):
+    """업체 오너가 매장에서 고객이 제시한 쿠폰 코드(claim id)를 사용 처리."""
+
+    claim_id: uuid.UUID
 
 
 class BusinessReviewCreateRequest(BaseModel):

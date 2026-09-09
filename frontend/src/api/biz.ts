@@ -519,6 +519,7 @@ export interface BusinessPublicProfile {
   followerCount: number;
   isFollowing: boolean;
   isOwner: boolean;
+  ownerUserId: string | null;
 }
 
 interface BusinessPublicProfileApi {
@@ -535,6 +536,7 @@ interface BusinessPublicProfileApi {
   follower_count: number;
   is_following: boolean;
   is_owner: boolean;
+  owner_user_id: string | null;
 }
 
 export async function fetchBusinessPublicProfile(id: string): Promise<BusinessPublicProfile> {
@@ -553,6 +555,7 @@ export async function fetchBusinessPublicProfile(id: string): Promise<BusinessPu
     followerCount: res.follower_count ?? 0,
     isFollowing: res.is_following ?? false,
     isOwner: res.is_owner ?? false,
+    ownerUserId: res.owner_user_id ?? null,
   };
 }
 
@@ -1325,4 +1328,151 @@ export async function createBizPrice(input: { profileId: string; name: string; p
 /** 업체 가격표 항목 삭제 (오너) */
 export async function deleteBizPrice(priceId: string): Promise<void> {
   await api.realFetch(`/biz/prices/${priceId}`, { method: 'DELETE' }, 'bff', { rethrow: true });
+}
+
+// ── 가게 쿠폰 (사업자 발행 → 고객 수령/사용, F061) — BizPriceItem 패턴 미러 ──
+
+export interface BizCoupon {
+  id: string;
+  title: string;
+  description: string | null;
+  expiresAt: string | null;
+  stoppedAt: string | null;
+  createdAt: string;
+  claimedCount: number;
+}
+
+interface BizCouponApi {
+  id: string;
+  title: string;
+  description: string | null;
+  expires_at: string | null;
+  stopped_at: string | null;
+  created_at: string;
+  claimed_count: number;
+}
+
+function mapBizCoupon(c: BizCouponApi): BizCoupon {
+  return {
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    expiresAt: c.expires_at,
+    stoppedAt: c.stopped_at,
+    createdAt: c.created_at,
+    claimedCount: c.claimed_count,
+  };
+}
+
+/** 내 업체 쿠폰 목록 (오너) */
+export async function fetchBizCoupons(profileId: string): Promise<BizCoupon[]> {
+  const res = await api.realFetch<BizCouponApi[]>(`/biz/coupons?profile_id=${profileId}`);
+  return (res ?? []).map(mapBizCoupon);
+}
+
+/** 쿠폰 발행 (오너) */
+export async function createBizCoupon(input: { profileId: string; title: string; description?: string | null; expiresAt?: string | null }): Promise<BizCoupon> {
+  const res = await api.realFetch<BizCouponApi>('/biz/coupons', {
+    method: 'POST',
+    body: JSON.stringify({
+      profile_id: input.profileId,
+      title: input.title,
+      description: input.description ?? null,
+      expires_at: input.expiresAt ?? null,
+    }),
+  }, 'bff', { rethrow: true });
+  return mapBizCoupon(res);
+}
+
+/** 쿠폰 발행 중단 (오너) — 신규 수령만 막고 기존 보유분은 유지 */
+export async function stopBizCoupon(couponId: string): Promise<BizCoupon> {
+  const res = await api.realFetch<BizCouponApi>(`/biz/coupons/${couponId}/stop`, { method: 'POST' }, 'bff', { rethrow: true });
+  return mapBizCoupon(res);
+}
+
+export interface BizCouponClaim {
+  id: string;
+  couponId: string;
+  profileId: string;
+  profileName: string;
+  title: string;
+  description: string | null;
+  claimedAt: string;
+  expiresAt: string | null;
+  redeemedAt: string | null;
+}
+
+interface BizCouponClaimApi {
+  id: string;
+  coupon_id: string;
+  profile_id: string;
+  profile_name: string;
+  title: string;
+  description: string | null;
+  claimed_at: string;
+  expires_at: string | null;
+  redeemed_at: string | null;
+}
+
+function mapBizCouponClaim(c: BizCouponClaimApi): BizCouponClaim {
+  return {
+    id: c.id,
+    couponId: c.coupon_id,
+    profileId: c.profile_id,
+    profileName: c.profile_name,
+    title: c.title,
+    description: c.description,
+    claimedAt: c.claimed_at,
+    expiresAt: c.expires_at,
+    redeemedAt: c.redeemed_at,
+  };
+}
+
+/** 쿠폰 사용 처리 (오너, 매장에서 고객이 제시한 코드 입력) */
+export async function redeemBizCoupon(claimId: string): Promise<BizCouponClaim> {
+  const res = await api.realFetch<BizCouponClaimApi>('/biz/coupons/redeem', {
+    method: 'POST',
+    body: JSON.stringify({ claim_id: claimId }),
+  }, 'bff', { rethrow: true });
+  return mapBizCouponClaim(res);
+}
+
+export interface BizCouponPublic {
+  id: string;
+  title: string;
+  description: string | null;
+  expiresAt: string | null;
+  isClaimed: boolean;
+}
+
+interface BizCouponPublicApi {
+  id: string;
+  title: string;
+  description: string | null;
+  expires_at: string | null;
+  is_claimed: boolean;
+}
+
+/** 업체 쿠폰 목록 (공개 프로필) */
+export async function fetchBizPublicCoupons(profileId: string): Promise<BizCouponPublic[]> {
+  const res = await api.realFetch<BizCouponPublicApi[]>(`/biz/public/${profileId}/coupons`);
+  return (res ?? []).map((c) => ({
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    expiresAt: c.expires_at,
+    isClaimed: c.is_claimed,
+  }));
+}
+
+/** 쿠폰 수령 (고객) */
+export async function claimBizCoupon(couponId: string): Promise<BizCouponClaim> {
+  const res = await api.realFetch<BizCouponClaimApi>(`/biz/coupons/${couponId}/claim`, { method: 'POST' }, 'bff', { rethrow: true });
+  return mapBizCouponClaim(res);
+}
+
+/** 내 쿠폰 보관함 (고객) */
+export async function fetchMyBizCoupons(): Promise<BizCouponClaim[]> {
+  const res = await api.realFetch<BizCouponClaimApi[]>('/biz/coupons/mine');
+  return (res ?? []).map(mapBizCouponClaim);
 }

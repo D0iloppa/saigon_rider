@@ -221,3 +221,39 @@
   border-radius: 8px;
   margin-top: 12px;
 }
+
+/* 신고 시트 (DmDetail.module.css .reportSheet 미러) */
+.reportSheet {
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.reportSheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.reportItem {
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.reportItem:active {
+  background: var(--surface-2);
+}
+
+/* 댓글 신고 버튼 — commentLike 옆 배치 */
+.commentReportBtn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-3);
+  padding: 4px 8px;
+  align-self: flex-start;
+}

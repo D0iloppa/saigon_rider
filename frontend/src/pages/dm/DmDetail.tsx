@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, ChevronDown, CreditCard, HandCoins, LayoutList, LocateFixed, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, ChevronDown, CircleUserRound, CreditCard, HandCoins, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -30,7 +30,8 @@ import {
   declinePriceOffer,
   cancelPriceOffer,
   reportConversation,
-  removeMember,
+  reportGroupMessage,
+  leaveConversation,
   fetchMembers,
   setConversationNotice,
   clearConversationNotice,
@@ -71,6 +72,7 @@ import GroupSettingsSheet from '@/components/dm/GroupSettingsSheet';
 import { LocationShareConsentModal } from '@/components/dm/LocationShareConsentModal';
 import { createOrJoinLocationChannel, httpStatusOf } from '@/api/locationChannel';
 import { useLocationChannelStore } from '@/store/useLocationChannelStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { sendLocationShareInvite } from '@/lib/locationShareInvite';
 import styles from './DmDetail.module.css';
 
@@ -138,6 +140,7 @@ export default function DmDetail() {
   const [reviewed, setReviewed] = useState(false);
   const [myReview, setMyReview] = useState<ReviewBrief | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [messageReportId, setMessageReportId] = useState<string | null>(null);
   // 메시지 액션(공감/답장/수정/삭제) — 말풍선 롱프레스로 연다.
   // 값 스냅샷이 아니라 id 만 들고 messages 에서 매번 파생한다 — 시트가 열려있는 동안
   // 백그라운드 폴링으로 메시지가 갱신돼도(공감 상태 등) 시트 내용이 따라간다.
@@ -168,6 +171,8 @@ export default function DmDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<MessageComposerHandle>(null);
   const otherName = conv?.otherUserNickname ?? locationState?.conv?.otherUserNickname ?? t('dm.detailTitle');
+  const otherUserId = conv?.otherUserId ?? locationState?.conv?.otherUserId ?? null;
+  const otherAvatarUrl = conv?.otherUserAvatarUrl ?? locationState?.conv?.otherUserAvatarUrl ?? null;
   // 260827 group/open 확장 (§3.5) — 마켓 약속·가격제안 UI 는 direct 에서만 렌더
   const isDirect = (conv?.conversationType ?? locationState?.conv?.conversationType ?? 'direct') === 'direct';
   const roomTitle = conv?.title ?? locationState?.conv?.title ?? t('dm.group', { defaultValue: '그룹톡방' });
@@ -461,6 +466,26 @@ export default function DmDetail() {
     } catch (err) {
       setReportOpen(false); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(MarketDetail 과 동일)
       // R-3(260819 W3) — 취소한 신고 재시도와 처리 중인 신고 재시도는 다른 문구로 안내한다.
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
+      } else {
+        toast.error(t('dm.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      }
+    }
+  };
+
+  // P5-5: 그룹 메시지 단위 신고 (T&S)
+  const handleReportMessage = async (reason: DmReportReason) => {
+    if (!conversationId || !messageReportId) return;
+    try {
+      await reportGroupMessage(conversationId, messageReportId, reason);
+      setMessageReportId(null);
+      toast.success(t('dm.reportDone', { defaultValue: '신고가 접수되었어요' }));
+    } catch (err) {
+      setMessageReportId(null); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(handleReport 와 동일)
       const code = extractErrorCode(err);
       if (code === 'report_already_cancelled') {
         toast.error(t('support.reportAlreadyCancelledError'));
@@ -883,17 +908,25 @@ export default function DmDetail() {
     }
   };
 
-  // 그룹/오픈톡방 나가기 — 최소 구현(§3.8): 초대·강퇴 등 세부 관리 UI 는 이 서브태스크 범위 밖.
-  const handleLeaveRoom = async () => {
+  const handleLeaveRoom = () => {
     if (!conversationId) return;
-    const uid = session?.userId ?? user?.id;
-    if (!uid) return;
-    try {
-      await removeMember(conversationId, uid);
-      navigate('/dm');
-    } catch {
-      toast.error(t('common.errorUnexpected'));
-    }
+    setMoreSheetOpen(false);
+    useConfirmStore.getState().open(
+      isDirect
+        ? t('dm.leaveDirectConfirm')
+        : t('dm.leaveGroupConfirm'),
+      async () => {
+        try {
+          await leaveConversation(conversationId);
+          useConfirmStore.getState().close();
+          navigate('/dm');
+        } catch {
+          useConfirmStore.getState().close();
+          toast.error(t('common.errorUnexpected'));
+        }
+      },
+      { confirmLabel: t('dm.leaveRoom') },
+    );
   };
 
   const myId = session?.userId ?? user?.id;
@@ -996,6 +1029,16 @@ export default function DmDetail() {
         title={isDirect ? otherName : roomTitle}
         rightContent={
           <>
+            {isDirect && otherUserId && (
+              <button
+                className={styles.headerMoreBtn}
+                type="button"
+                onClick={() => navigate(otherUserId === user?.id ? '/profile' : `/profile/${otherUserId}`)}
+                aria-label={t('userProfile.openProfile')}
+              >
+                <CircleUserRound size={21} strokeWidth={2} />
+              </button>
+            )}
             {/* 게시판(init/218) — direct 방에는 게시판이 없다(서버도 400) */}
             {!isDirect && (
               <button
@@ -1042,7 +1085,7 @@ export default function DmDetail() {
         }
       />
 
-      {/* 그룹/오픈톡방 최소 정보 UI (§3.8) — 초대·강퇴·mute 같은 세부 관리는 범위 밖(TODO) */}
+      {/* 그룹/오픈톡방 최소 정보 UI (§3.8) */}
       {!isDirect && (
         <div className={styles.roomInfoBar}>
           <span className={styles.roomInfoText}>
@@ -1050,9 +1093,6 @@ export default function DmDetail() {
               ? t('dm.memberCount', { count: roomMemberCount, defaultValue: '멤버 {{count}}명' })
               : ''}
           </span>
-          <button type="button" className={styles.roomLeaveBtn} onClick={handleLeaveRoom}>
-            {t('dm.leaveRoom', { defaultValue: '나가기' })}
-          </button>
         </div>
       )}
 
@@ -1205,6 +1245,7 @@ export default function DmDetail() {
             const completionPending = !!appt?.completionRequestedAt && !appt.completionDeclinedAt;
             const canRequestCompletion = !!appt && status === 'ACCEPTED' && !isSeller && !completionPending;
             const canDeclineCompletion = !!appt && status === 'ACCEPTED' && isSeller && completionPending;
+            const canOpenTrade = !!appt && (status === 'ACCEPTED' || status === 'COMPLETED');
             const cancelLabel = status === 'ACCEPTED'
               ? t('dm.apptCancel', { defaultValue: '약속 취소' })
               : iAmProposer
@@ -1264,10 +1305,9 @@ export default function DmDetail() {
                     </button>
                   </div>
                 )}
-                {(canAccept || canComplete || showNav || canCancel || canRequestCompletion || canDeclineCompletion
-                  || status === 'ACCEPTED' || status === 'COMPLETED') && (
-                  <div className={styles.apptActions}>
-                    {(status === 'ACCEPTED' || status === 'COMPLETED') && appt && (
+                {(canOpenTrade || canAccept) && (
+                  <div className={styles.apptPrimaryAction}>
+                    {canOpenTrade && (
                       <button className={styles.apptBtnPrimary} type="button"
                         onClick={() => navigate(`/dm/${conversationId}/trade/${appt.id}`)}>
                         {t('dm.tradeOpen')}
@@ -1279,14 +1319,18 @@ export default function DmDetail() {
                         {t('dm.apptAccept', { defaultValue: '약속 수락' })}
                       </button>
                     )}
+                  </div>
+                )}
+                {(canComplete || canRequestCompletion || canDeclineCompletion) && (
+                  <div className={styles.apptCompletionActions}>
                     {canComplete && (
-                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(completeAppointment, appt.id)}>
                         {t('dm.apptComplete', { defaultValue: '거래 완료' })}
                       </button>
                     )}
                     {canRequestCompletion && (
-                      <button className={styles.apptBtnPrimary} type="button" disabled={sending}
+                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(requestAppointmentCompletion, appt.id)}>
                         {appt.completionDeclinedAt
                           ? t('dm.apptRequestCompletionAgain', { defaultValue: '완료 다시 요청' })
@@ -1299,6 +1343,10 @@ export default function DmDetail() {
                         {t('dm.apptDeclineCompletion', { defaultValue: '요청 거절' })}
                       </button>
                     )}
+                  </div>
+                )}
+                {(showNav || canCancel) && (
+                  <div className={styles.apptSecondaryActions}>
                     {showNav && (
                       <button className={styles.apptBtnGhost} type="button"
                         aria-disabled={!routeAvailable}
@@ -1307,7 +1355,7 @@ export default function DmDetail() {
                       </button>
                     )}
                     {canCancel && (
-                      <button className={styles.apptBtnGhost} type="button" disabled={sending}
+                      <button className={`${styles.apptBtnGhost} ${styles.apptBtnDanger}`} type="button" disabled={sending}
                         onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
                         {cancelLabel}
                       </button>
@@ -1557,6 +1605,17 @@ export default function DmDetail() {
           return (
             <Fragment key={m.id}>
             {renderSender(m, prevMsg)}
+            <div className={`${styles.messageRow} ${isMine ? styles.messageRowMine : styles.messageRowTheirs}`}>
+            {isDirect && !isMine && otherUserId && (
+              <button
+                type="button"
+                className={styles.messageProfileBtn}
+                onClick={() => navigate(`/profile/${otherUserId}`)}
+                aria-label={t('userProfile.openProfile')}
+              >
+                <Avatar src={otherAvatarUrl} name={otherName} seed={otherUserId} size={30} />
+              </button>
+            )}
             <div data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`} {...pressHandlers(m)}>
               {renderReplyQuote(m)}
               {editingId === m.id ? (
@@ -1609,6 +1668,7 @@ export default function DmDetail() {
                 {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
               </div>
               {renderReactions(m)}
+            </div>
             </div>
             </Fragment>
           );
@@ -1805,6 +1865,14 @@ export default function DmDetail() {
               {t('dm.moreMenuSettings', { defaultValue: '설정' })}
             </button>
           )}
+          <button
+            className={`${styles.reportItem} ${styles.leaveItem}`}
+            type="button"
+            onClick={handleLeaveRoom}
+          >
+            <LogOut size={17} />
+            {t('dm.leaveRoom')}
+          </button>
         </div>
       </BottomSheet>
 
@@ -1892,8 +1960,29 @@ export default function DmDetail() {
                 {t('dm.deleteAction', { defaultValue: '삭제' })}
               </button>
             )}
+            {!isDirect && actionMsg.senderId !== myId && (
+              <button
+                className={styles.reportItem}
+                type="button"
+                onClick={() => { setMessageReportId(actionMsg.id); setActionMsgId(null); }}
+              >
+                {t('dm.messageReportAction', { defaultValue: '신고' })}
+              </button>
+            )}
           </div>
         )}
+      </BottomSheet>
+
+      {/* 그룹 메시지 신고 사유 */}
+      <BottomSheet open={!!messageReportId} onClose={() => setMessageReportId(null)}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.reportSheetTitle}>{t('dm.reportTitle', { defaultValue: '신고 사유' })}</h2>
+          {DM_REPORT_REASONS.map((r) => (
+            <button key={r} className={styles.reportItem} onClick={() => handleReportMessage(r)}>
+              {t(`dm.reportReason_${r}`)}
+            </button>
+          ))}
+        </div>
       </BottomSheet>
 
       {/* 대화 신고 사유 */}

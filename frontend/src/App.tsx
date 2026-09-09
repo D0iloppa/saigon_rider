@@ -47,6 +47,7 @@ const MapSearch = lazyWithRetry(() => import('@/pages/map/MapSearch'));
 const NeighborhoodProfile = lazyWithRetry(() => import('@/pages/map/NeighborhoodProfile'));
 const MapFavorites = lazyWithRetry(() => import('@/pages/map/MapFavorites'));
 const MapFollows = lazyWithRetry(() => import('@/pages/map/MapFollows'));
+const MapCoupons = lazyWithRetry(() => import('@/pages/map/MapCoupons'));
 const NeighborhoodCategories = lazyWithRetry(() => import('@/pages/map/NeighborhoodCategories'));
 
 // Market (오토바이 라이더 거래 — 퀘스트 탭 자리 신규 엔트리)
@@ -73,6 +74,7 @@ const BizNewsCreate = lazyWithRetry(() => import('@/pages/biz/BizNewsCreate'));
 const BizNewsDetail = lazyWithRetry(() => import('@/pages/biz/BizNewsDetail'));
 const BizNewsManage = lazyWithRetry(() => import('@/pages/biz/BizNewsManage'));
 const BizPriceManage = lazyWithRetry(() => import('@/pages/biz/BizPriceManage'));
+const BizCouponManage = lazyWithRetry(() => import('@/pages/biz/BizCouponManage'));
 
 // Quest
 const QuestList = lazyWithRetry(() => import('@/pages/quest/QuestList'));
@@ -595,6 +597,7 @@ export default function App() {
           <Route path="/map/profile" element={<PrivateRoute><NeighborhoodProfile /></PrivateRoute>} />
           <Route path="/map/favorites" element={<PrivateRoute><MapFavorites /></PrivateRoute>} />
           <Route path="/map/follows" element={<PrivateRoute><MapFollows /></PrivateRoute>} />
+          <Route path="/map/coupons" element={<PrivateRoute><MapCoupons /></PrivateRoute>} />
           <Route path="/map/categories" element={<PrivateRoute><NeighborhoodCategories /></PrivateRoute>} />
           <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
           <Route path="/market/new" element={<VerifiedSellerRoute><MarketCreate /></VerifiedSellerRoute>} />
@@ -615,6 +618,7 @@ export default function App() {
           {/* T-1: 업체 프로필 → 매물 등록 — 검증된 업체 프로필 명의라 개인 휴대폰 인증 게이트(VerifiedSellerRoute) 불필요 */}
           <Route path="/biz/listings/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/biz/prices" element={<PrivateRoute><BizPriceManage /></PrivateRoute>} />
+          <Route path="/biz/coupons" element={<PrivateRoute><BizCouponManage /></PrivateRoute>} />
           {/* 퀘스트: 하단 네비 비활성(메뉴 제거). 라우트는 딥링크·직접접근용 보존 */}
           <Route path="/quests" element={<PrivateRoute><QuestList /></PrivateRoute>} />
           <Route path="/quests/:id" element={<PrivateRoute><QuestDetail /></PrivateRoute>} />

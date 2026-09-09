@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, ChevronDown, ChevronRight, CircleHelp, FileText, Megaphone, MessageSquare, Newspaper, Package, Receipt, ShieldCheck, Store } from 'lucide-react';
+import { AlertCircle, Camera, ChevronDown, ChevronRight, CircleHelp, FileText, Megaphone, MessageSquare, Newspaper, Package, Receipt, ShieldCheck, Store, Ticket } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -176,6 +176,7 @@ export default function BizManage() {
         <div className={sys.card}>{[
           { icon: Newspaper, title: t('biz.lounge.newsManage'), desc: t('biz.lounge.newsManageDesc'), onClick: () => navigate('/biz/news', { state: profileState(active) }) },
           { icon: Receipt, title: t('biz.priceSectionTitle'), desc: t('biz.lounge.priceManageDesc'), onClick: () => navigate('/biz/prices', { state: profileState(active) }) },
+          { icon: Ticket, title: t('biz.couponManageTitle'), desc: t('biz.lounge.couponManageDesc'), onClick: () => navigate('/biz/coupons', { state: profileState(active) }) },
           { icon: Package, title: t('biz.listingSectionTitle'), desc: t('biz.lounge.listingManageDesc'), onClick: () => navigate('/biz/listings/new', { state: profileState(active) }) },
           { icon: MessageSquare, title: t('biz.lounge.reviewsManage'), desc: t('biz.lounge.reviewsManageDesc'), onClick: () => focusDashboard('reviews') },
         ].map(({ icon: Icon, title, desc, onClick }) => <button type="button" className={styles.managerRow} onClick={onClick} key={title}><Icon size={20} /><span><strong>{title}</strong><small>{desc}</small></span><ChevronRight size={17} /></button>)}</div>

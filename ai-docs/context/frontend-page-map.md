@@ -382,6 +382,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **하위 라우트**: `/feed/new`(`FeedCreate.tsx`), `/feed/edit/:postId`(`FeedEdit.tsx`), `/feed/post/:postId`(`FeedDetail.tsx` — 피드 상세+댓글 인라인, 탭바 숨김. 홈 인기글 카드·동네지도 포스트 패널(피드 카드, 오버레이로 진입)에서 진입. **레이아웃 2026-07-12 전체 재작성**: `MarketDetail` 구조 미러 — 공용 `TopBar` 대신 `StatusBar`+커스텀 뒤로가기 헤더, hero 이미지 캐러셀, sellerRow를 미러한 작성자 행, 하단 액션바(🔥응원 토글+💬댓글 수+댓글 입력+전송, 기존 별도 입력바 대체). 헤더 타이틀 i18n 기본값 '게시글'→'피드')
 - **2열 그리드 카드 (2026-07-25, 정정 — 같은 날짜에 한 번 잘못 기록됐다가 재작업)**: ⚠️ 이 자리에는 한때 "리스트형 행(아바타 40px + 우측 56px 썸네일 + `+N` 배지 + 단일 컬럼)"으로 개편됐다는 서술이 있었으나, 참조 디자인을 잘못 지정했다가 정정 재작업된 결과 **사실이 아니다**. 실제 구현은 **2열 그리드**: `.feedGrid`(`grid-template-columns: repeat(2, minmax(0,1fr))`, gap 10px) — 참조 원본은 동네지도 "최초 진입 리스트 페이지"의 커뮤니티 탭(바텀시트 아님)이며, 그 dormant CSS가 `pages/map/NeighborhoodMapList.module.css:192-283`에 남아 있고 원본 JSX는 `git show 9fef1a2~1:frontend/src/pages/map/NeighborhoodMap.tsx`의 `.feedGrid` 블록이다. 이 CSS를 `FeedList.module.css`로 복사 이관했고 원본은 무수정. 카드 구성: 사진(`aspect-ratio 1.15`, 없으면 `Newspaper` 아이콘 플레이스홀더) → `.feedAuthor`(아바타 22px + 닉네임 12px/700 ellipsis + 상대시간 10px) → `.feedCaption`(13px, 2줄 클램프, min-height 36px, 캡션 없으면 `feed.noCaption` 폴백) → `.feedMeta`(🔥응원/💬댓글수, 응원은 카운트 0이어도 노출·댓글 수는 0이면 숨김). 카드 컨테이너는 `<button>`이 아니라 **`<article role="button" tabIndex={0}>`**(버튼 중첩 회피) — 클릭/Enter/Space → `/feed/post/:postId`, 내부 버튼 키다운 버블링은 `onKeyDown`의 `e.target !== e.currentTarget` 가드로 무시. **응원(🔥) 토글은 목록에서 살아있다**(`toggleCheer` 낙관적 카운트 갱신, 내부 `<button>` + `stopPropagation`), **아바타·닉네임 탭 → 프로필 페이지(`/profile/:userId`)로 push**(2026-08-13 — 종전 `ProfileCard` 시트에서 전환) — **댓글만 목록에서 불가**(`CommentSheet` 미복원, 댓글 수는 표시 전용이고 카드 클릭이 상세로 위임). 필터칩(전체/내 동네/친구/핫)·데이터 로딩·페이지네이션·`resolveUsableLocation()`은 무변경.
 - **그리드 카드 사진이 본문을 밀어내는 결함 수정 (2026-07-27)**: 대표 지적 — 커뮤니티 2열 그리드 카드가 사진만 보이고 본문이 안 보인다(홈 "커뮤니티 인기글" 카드는 [사진+내용]이 모두 보이니 구성을 동일하게 하라는 요구, 치수는 폭이 달라 동일 불가 — 구성만). **원인은 마크업이 아니었다** — `FeedList.tsx`는 사진 유무와 무관하게 `.feedBody`(작성자·본문·메타)를 이미 항상 렌더하고 있었다. `.feedPhoto`/`.feedPlaceholder` 그룹 셀렉터가 `aspect-ratio:1.15`를 걸었지만, 그게 `AppImage`의 래퍼 span(`AppImage.module.css` `.wrapper`가 `height:100%` 강제)에 적용됐고 부모에 정해진 높이가 없어 무력화되면서 사진이 자라 본문을 밀어냈다. **해소**: `.feedThumb` 래퍼 신설(`width:100%; aspect-ratio:1.15; overflow:hidden; flex-shrink:0`)로 사진을 고정 비율 박스에 가두고, `.feedPhoto`/`.feedPlaceholder`는 `width:100%; height:100%`로 단순화, `.feedCard`에 `display:flex; flex-direction:column` 명시. 사진 있음/없음/스켈레톤 3케이스 모두 같은 `.feedThumb`를 쓴다(치수 일치). **레퍼런스는 홈 카드** `HomePage.module.css:708~780`(`.commCard` flex column / `.commCardThumb` 고정 박스 / `.commCardBody` 제목 2줄 클램프·메타·댓글수) — 단 홈 카드 CSS는 하드코딩 hex(`#fff`/`#eeeef0`/`#1c1c1e`/`#8e8e93`/`#aeaeb2`)를 쓰므로 구조만 모방하고 색은 토큰을 썼다(홈 쪽 하드코딩은 다크모드 취약 기존 결함으로 남아 있음). **보존 확인**: 응원 토글(`cheerBtn`/`cheerBtnActive`)·아바타 탭(`avatarBtn`)·`<article role="button" tabIndex={0}>` + `onKeyDown` 가드(`e.target !== e.currentTarget`이면 return) + `stopPropagation` 전부 무변경(과거 오삭제 사고 이력이 있는 출시 기능). locale 신규 키 0개.
+- **신고 진입점 배선 (2026-09-09, 당근 비교 트리아지 F050)**: 피드 게시물·피드 댓글·그룹 DM 메시지 신고는 **백엔드 라우트가 이미 있었는데 프런트가 호출하지 않는 배선 누락** 상태였다(`backend/app/routers/feed.py:687` `POST /{post_id}/report`, `feed.py:727` `POST /{post_id}/comments/{comment_id}/report`, `backend/app/routers/dm.py:1367` `POST /conversations/{id}/messages/{message_id}/report` — 중복신고 가드 `_report_guard.py` 포함 전부 기구현). 이번에 프런트만 이었다: `api/feed.ts`에 `reportFeedPost`/`reportFeedComment`, `api/dm.ts`에 `reportGroupMessage`(`reportConversation` 패턴 미러, `rethrow: true`). `FeedDetail.tsx`는 상단바 `MoreVertical`(비작성자에게만) → 사유 바텀시트, 댓글은 좋아요 옆 `Flag` 아이콘(본인 댓글 숨김) — 이를 위해 `transformComment()`에 `raw.user_id` → `Comment.userId` 매핑 추가. `DmDetail.tsx`는 **기존 메시지 롱프레스 액션시트에 항목만 추가**했고 그룹(`!isDirect`)·타인 메시지에만 노출, 1:1 `reportConversation` UI 는 무변경. **증빙 첨부 단계는 의도적으로 뺐다** — 매물 신고의 `ReportDetailSheet` 대신 프로필·1:1 대화 신고와 같은 사유 선택 전용 경량 흐름(백엔드 `ReportCreateRequest.note` 는 optional). 라우트 신설 0개, i18n `feed.report*`/`dm.messageReportAction` ko·en·vi 동시 추가(2,528키 패리티). 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F050. **주의**: 이 절 아래 관리자 콘솔 항목의 "신고센터는 아직 피드 미포함" 서술은 어드민 큐 기준이며, 사용자측 신고 접수 경로는 위와 같이 이제 존재한다.
 - **핵심 컴포넌트**: `TopBar`, `StoryAvatar`, `AppImage`, `ImageCarousel`, `LevelBadge`, `Chip`, `ImageViewer`(2026-07-27부터 `components/ui/ImageViewer.tsx`로 승격돼 §3.7 업체 공개 상세와 공용 — `FeedList.tsx`엔 하위호환 re-export만 남음, 이 절 서술은 무변경)
 - **DM 진입점**: **탭바 `채팅` 탭(`/dm`) — 2026-08-12 승격 (S-5/D-6, 6탭 전환)**. `/dm`(`pages/dm/DmList.tsx`) → `/dm/:conversationId`(`DmDetail.tsx`). FeedList 상단 메시지 아이콘·프로필 상단 아이콘 진입도 그대로 유지. ~~탭바에는 없음 — "채팅"은 `tabbar.chat` i18n 키만 존재하고 실제 탭바 5개엔 포함 안 됨(TabBar.tsx 주석: "채팅은 nav 제외").~~ 미읽음도 프로필 탭 dot → 채팅 탭 숫자 배지로 이동(§3.1 노트 참조).
 - **약속 카드 — 구매자 완료 요청권 (2026-08-12, S-16/D-7, 대표 결정)**: 이전엔 `ACCEPTED` 약속의 완료 버튼이 **판매자에게만** 보이고 백엔드도 판매자 외 403이라, 실제 거래가 끝났어도 판매자가 앱을 다시 열지 않으면 구매자의 완료·리뷰가 영구 정체됐다. 이제 구매자에게 `거래 완료 요청`(거절된 뒤엔 `완료 다시 요청`), 판매자에게 `요청 거절` 버튼이 생기고 카드 상태 pill 이 `완료 요청됨`으로 바뀐다. **완료 확정 권한은 여전히 판매자뿐이고 자동 완료는 없다**(D-7) — 판매자 무응답은 어드민 `거래 완료 이의` 큐(`/trades/completion-requests`)의 강제완료/기각으로만 해소된다. **거절 안내 문구는 행위자로 분기한다** — `completionDeclinedBy` 가 있으면 판매자 거절(`dm.apptCompletionDeclinedNote`), null 이면 운영 기각(`dm.apptCompletionDismissedNote`). 어드민 기각이 판매자 거절과 같은 시각 필드를 쓰기 때문에 행위자 없이는 구매자에게 "판매자가 거절"로 잘못 표시되고 연락할 상대도 잘못 가리킨다(2026-08-12 push 전 리뷰 지적). `status` 는 기존 4값 그대로이고 요청은 `marketplace_appointments` 의 `completion_requested_by/at`·`completion_declined_at`·`completion_declined_by`(init/179)로만 표현된다 — 리뷰 자격 판정이 `COMPLETED` 기준이라 status 를 늘리지 않았다. 알림은 outbox(`market.completion_requested`/`completion_declined`, `SOCIAL` 타입, 딥링크 `dm&id=`)로 발송되며 **푸시 토글로 끌 수 없다**(판매자 미응답이 곧 문제의 원인). accept/cancel 과 같이 별도 DM 메시지는 만들지 않는다. 상세: [`../task/active/260812_launch_readiness_daangn_ux_implementation.md`](../task/active/260812_launch_readiness_daangn_ux_implementation.md) §9.10.
@@ -461,6 +462,20 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
   - 개러지 배너 → `/garage`
   - 쿠폰함 → `/coupons/mine`(`MyCoupons.tsx`)
   - 새 글 → `/feed/new`
+
+#### 공개 프로필 신뢰 티어칩 (2026-09-09, 당근 비교 트리아지 F049)
+
+매너온도(`User.manner_temp`, 계산은 `backend/app/routers/market.py:114 _recompute_manner_temp()`)는 이전부터 매물 상세(`MarketDetail.tsx:362`)와 **본인** 프로필(`ProfileMain.tsx:413`)에 `<TrustTierChip>` 으로 노출돼 있었고, **공개 타 사용자 프로필에만 없었다.** 이번에 `UserProfile.tsx` 닉네임 행에 티어칩을 추가했다(대표 승인).
+
+**원값 숫자 온도는 여전히 공개 프로필에 나가지 않는다** — 이게 이 변경의 핵심 경계다. 그래서 티어 판정 SoT 를 **서버로 잡았다**: `backend/app/routers/users.py:_get_trust_tier()` 가 티어 문자열로 변환해 `UserProfileOut.trust_tier` 로만 내려보내고, 원값은 응답에 담지 않는다(클라 판정이면 원값을 전송해야 하므로). `TrustTierChip` 은 `temp`(기존 두 화면, 클라 계산) / `tier`(공개 프로필, 서버 계산) 유니온 prop 으로 확장됐고 기존 호출부는 무변경.
+
+**불변식의 적용 범위 (2026-09-09 코드리뷰로 확장)**: 처음엔 공개 프로필만 막았는데, 리뷰에서 **`GET /market/listings/{id}` 의 seller 페이로드가 원값을 그대로 흘리고 있던 것**이 잡혔다 — 문을 둘 중 하나만 닫은 상태였다. 이제 `SellerBrief` 도 `trust_tier` 만 내보내고(`market.py` 가 `from .users import _get_trust_tier` 로 **재사용**, 구간 복제 금지), `MarketDetail.tsx` 는 `<TrustTierChip tier=...>` 를 쓴다.
+
+> 🔒 **규칙**: 새 응답 스키마에 `manner_temp` 를 싣지 마라. 원값은 서버 내부 계산(`_recompute_manner_temp`)에서만 쓰고, 사용자에게 나가는 것은 언제나 티어 문자열이다. 새 노출 지점을 만들 땐 `_get_trust_tier` 를 import 해서 쓴다.
+
+> ⚠️ **알려진 부채**: 티어 구간(30/40/55/75)이 `frontend/src/lib/trustTier.ts` 와 `users.py:_get_trust_tier()` **두 곳에 중복**된다. 원값 비노출을 지키려다 생긴 대가다. 양쪽에 "함께 수정할 것" 주석이 있지만 구조적으로 한쪽만 고치면 어긋난다 — 구간 조정 시 반드시 양쪽을 함께 볼 것. (백엔드 안에서는 `market.py` 가 import 로 재사용하므로 사본이 더 늘지는 않았다.)
+
+계약 테스트 `frontend/src/pages/profile/userProfileDiscoverability.contract.test.mjs` 는 **삭제·약화가 아니라 좁혀졌다**: 원값(`mannerTemp`/`manner score`) 금지 assert 는 그대로 두고, 응답에 `manner_temp` 부재 + 티어칩 존재 assert 를 추가했다. 완화로 오해하지 않도록 변경 사유 주석이 파일에 있다. 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F049.
 
 ### 3.6 게임 허브 하위 메뉴 상세
 
@@ -707,6 +722,22 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ---
 
+### 문의(DM) 진입점 — CTA 바 재구성 (2026-09-09, 당근 비교 트리아지 F062)
+
+공개 업체 프로필의 CTA 바에는 **전화 버튼(`tel:` 딥링크)밖에 없어 채팅으로 문의할 길이 아예 없었다**(파일 전체에 `createConversation` 참조 0건). DM 기능은 완비돼 있는데 업체에서 그리로 들어가는 진입점만 없던 상태.
+
+CTA 바를 **채팅 = 주 행동 / 전화 = 보조 행동** 2열로 재구성했다. 새 디자인 언어를 만든 게 아니라 기존 `.ctaBtn`(주황 그라디언트, 원래 전화용)을 채팅에 넘기고 전화는 `.ctaCallBtn`(아웃라인 정사각 아이콘, `--line`/`--surface`/`--text` 토큰만)으로 축소한 것. 백엔드는 `BusinessPublicProfileOut.owner_user_id` 추가(`biz.py get_public_profile`)뿐.
+
+**렌더 분기 4케이스** (`BizPublic.tsx:890`) — 회귀 주의 지점:
+- 본인 업체(`isOwner`) → **CTA 바 전체 미노출**
+- 클레임된 업체(`ownerUserId` 있음) → 문의하기(주) + 전화(아이콘)
+- **미클레임 CSV 사전등록 업체**(`ownerUserId` 없고 `phone` 만) → 전화 버튼이 **기존대로 풀사이즈 유지**(기존 동작 보존)
+- 둘 다 없음 → 바 자체 없음
+
+게스트는 기존 `useRequireAuth()` 패턴으로 로그인 유도. **중복 대화 생성은 프런트에서 막지 않는다** — 기존 `backend/app/routers/dm.py:531-560 create_conversation` 이 참가자쌍 정렬 후 기존 `direct` 대화를 조회·재사용하는 **멱등 구현**이고, `MarketDetail.tsx handleChat` 이 이미 같은 경로를 쓴다.
+
+**범위 밖(미구현)**: 당근식 예약 관리(캘린더)·견적서 발급·포장주문. 이번엔 "문의 → 1:1 대화" 경량판만. 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F062.
+
 ## 어드민 콘솔 — 016 보강 화면 (2026-08-18 신규 7종)
 
 > `admin-frontend/` (`:18090/admin/`). 그동안 016 보강의 백엔드 API 는 다 있는데 **화면이 없어 운영자가 쓸 수 없는 상태**였다(017 §5 P0). 그 갭을 메운 것이다.
@@ -777,6 +808,52 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 - **`admin_api/users.py`의 PII 게이트는 전화번호 열람 지점 1곳만 커버** — 다른 화면에 향후 PII 노출 지점이 추가되면 동일 패턴(`_audit.py`의 `audit()` 재사용)을 적용해야 한다.
 
 ---
+
+### 가게 쿠폰 — 사업자 발행 · 고객 사용 (2026-09-09 신규, 당근 비교 트리아지 F061)
+
+단골/팔로우/소식은 있었으나 **"사업자 발행 → 고객 사용" 쿠폰 도메인이 전무**했다. 신규 도메인으로 신설.
+
+| 라우트 | 페이지 | 역할 |
+|---|---|---|
+| `/biz/coupons` | `pages/biz/BizCouponManage.tsx` | 사업자: 발행·목록·중단·사용 처리 (`BizManage` 운영 목록에서 진입) |
+| `/map/coupons` | `pages/map/MapCoupons.tsx` | 고객: 받은 쿠폰 보관함 (`NeighborhoodProfile` 숏컷에서 진입, 찜/단골 옆) |
+
+공개 업체 프로필(`BizPublic.tsx`) 홈 탭에 쿠폰 미리보기 + 받기 버튼. 백엔드 `biz.py` 엔드포인트 7종, 테스트 `backend/app/tests/test_biz_coupon.py` 10건. **새 탭바 메뉴는 만들지 않았다** — 고객 보관함은 기존 동네지도 프로필 숏컷에 붙였고, 해당 i18n 키(`map.neighborhoodProfile.shortcuts.coupons`)가 3개 로케일에 **이미 선반영돼 있었으나 코드에 미배선** 상태였던 점이 이 자리가 의도된 슬롯임을 뒷받침한다.
+
+### 🔴 레거시 쿠폰(`coupons.py` / `CouponShop.tsx`)과 절대 섞지 마라
+
+이건 **완전히 다른 물건**이다. 레거시는 Engine `reward_catalog`/`reward_redemption` 을 RP(`xp_balance`)로 교환하는 **게임 보상**이고 발급 주체가 시스템(INTERNAL 파트너)이다. 그리고 이미 의도적으로 폐기됐다 — `test_coupon_launch_gate.py` 가 라우트 3종의 404 를 강제하고, `engine/alembic/versions/062_disable_internal_coupon_catalog.py` 가 **되돌리지 않는 정책**을 명시하며, `CouponShop.tsx` 는 `App.tsx` 미참조 고아 페이지다. 이번 신규 도메인은 BFF 소유 테이블만 쓰고 Engine reward 계열을 일절 건드리지 않는다(레거시 게이트 테스트 통과로 확인).
+
+### 스키마와 이중 사용 방지 (`database/init/233_business_coupons.sql`)
+
+- `business_coupon(id, profile_id, title, description, expires_at, stopped_at, ...)` — **`stopped_at` 은 신규 수령만 막고 이미 받은 보유자의 쿠폰은 살려둔다**(중단 = 회수가 아님).
+- `business_coupon_claim(..., UNIQUE(coupon_id, user_id))` — 1인 1매.
+- `business_coupon_redemption(claim_id **PRIMARY KEY** → claim, redeemed_at)` — **사용 처리 = 1행 INSERT.** 이중 사용은 애플리케이션 로직이 아니라 이 PK 제약이 막는다(동시 요청 시 `IntegrityError` → 롤백 → 409). `marketplace_transactions` 의 `appointment_id` PK 1:1 패턴(init/232) 미러.
+
+### 범위 밖 (의도적 미구현)
+
+**QR 스캔 카메라 연동 없음** — 사용 처리는 고객이 claim UUID 텍스트 코드를 보여주거나 복사(`native.copyToClipboard`)하고 사업자가 붙여넣는 방식. 정산·환불·결제 연동 없음(**비현금성 판촉 쿠폰** 전제). 자동 타겟팅·대량 캠페인·통계 대시보드 없음. 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F061.
+
+## 어드민 콘솔 — 수동 QR 거래 조회 (2026-09-09 신규, 당근 비교 트리아지 F033)
+
+수동 QR 거래(커밋 `8c5c7493`)는 사용자측 기능이 완성돼 있었으나 **운영자가 들여다볼 화면이 없었다**. 조회 전용으로 신설.
+
+| 라우트(SPA) | 페이지 파일 | 액션 |
+|---|---|---|
+| `/transactions` | `admin-frontend/src/pages/transactions/TransactionListPage.tsx` | `payment_status`·기간 필터 + 페이지네이션 목록 |
+| `/transactions/:id` | `admin-frontend/src/pages/transactions/TransactionDetailPage.tsx` | 구매자·판매자·매물·금액 스냅샷·상태전이 시각, QR 등록 여부, 운영자 메모 |
+
+좌측 네비 **TRUST 그룹 → "수동 QR 거래"**(`AdminLayout.tsx` + `PAGE_META`). 백엔드 `backend/app/routers/admin_api/transactions.py`(`GET /admin/api/transactions[/{appointment_id}]`, `POST .../memo`), `verify_admin_api`, fetch 훅 `admin-frontend/src/api/transactions.ts`, `StatusTag.tsx`에 `transaction` kind 추가. 테스트 `backend/app/tests/test_admin_transactions.py` 9건.
+
+### 🔴 이 화면의 성질 — 바꾸면 사양 위반이다
+
+- **`payment_status` 를 변경하는 버튼·엔드포인트를 만들지 마라.** `database/init/232_marketplace_transactions.sql` 주석이 설계 원칙을 명시한다 — 이 상태는 *인간의 확인 기록일 뿐*이고 appointment 를 COMPLETED 로 만들지 않으며 PSP 검증을 주장하지 않는다. 운영자가 임의로 확정하면 플랫폼이 결제를 보증한다는 의미가 생겨 원칙이 깨진다. 강제 확정이 정말 필요해지면 `trades.py` 의 `force_complete`/`dismiss` 처럼 **사유 필수·알림·감사로그·명시적 게이트**를 갖춘 별도 설계로 가야 한다(미구현, 백로그).
+- **QR 이미지를 어드민에 노출하지 마라.** `get_payment_qr_image` 는 `verify_user_session`(거래 당사자 본인) 전용이고 이미지도 private Content 로 imgproxy 를 거치지 않는다. 어드민 세션용 우회 경로를 만들면 인증 모델에 구멍이 난다. 현재는 `_current_payment_qr_message_id` 를 재사용해 **등록됨/미등록 boolean 만** 표시한다.
+- 운영자 메모는 신규 컬럼 없이 `AdminAuditLog`(action=`transaction.memo_added`, target_type=`marketplace_transaction`)에 기록하고 상세에서 되읽는다.
+
+### 알려진 갭
+
+브라우저 실렌더 미확인(타입체크만), 실 DB 로우 기반 E2E 미수행(레포 관례대로 mock 단위 테스트만), admin-frontend 는 eslint 설정 자체가 없어 린트 스킵. 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F033.
 
 ## MCP로 더 깊이 파기
 

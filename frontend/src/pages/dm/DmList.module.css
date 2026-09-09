@@ -19,18 +19,41 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: none;
-  background: none;
   width: 100%;
-  text-align: left;
-  cursor: pointer;
   border-bottom: 1px solid var(--line);
 }
 
-.row:active {
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 14px 8px 14px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowMain:active {
   background: var(--surface);
+}
+
+.rowMenu {
+  align-self: stretch;
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+}
+
+.rowMenu:active {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .info {

@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MailOpen, UsersRound } from 'lucide-react';
+import { MailOpen, MoreVertical, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { WalkieTalkieEntryButton } from '@/components/dm/WalkieTalkieEntryButton';
-import { fetchConversations } from '@/api/dm';
+import { fetchConversations, leaveConversation } from '@/api/dm';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDmStore } from '@/store/useDmStore';
 import { formatPriceVnd } from '../market/marketFormat';
+import { useConfirmStore } from '@/store/useConfirmStore';
+import { toast } from '@/components/ui/Toast';
 import styles from './DmList.module.css';
 
 export default function DmList() {
@@ -61,6 +63,26 @@ export default function DmList() {
   const rowName = (c: DmConversation) =>
     c.conversationType === 'direct' ? (c.otherUserNickname ?? 'Unknown') : (c.title ?? t('dm.group', { defaultValue: '그룹톡방' }));
 
+  const requestLeave = (c: DmConversation) => {
+    useConfirmStore.getState().open(
+      c.conversationType === 'direct'
+        ? t('dm.leaveDirectConfirm')
+        : t('dm.leaveGroupConfirm'),
+      async () => {
+        try {
+          await leaveConversation(c.id);
+          setConversations((current) => current.filter((item) => item.id !== c.id));
+          useConfirmStore.getState().close();
+          refreshUnread();
+        } catch {
+          useConfirmStore.getState().close();
+          toast.error(t('common.errorUnexpected'));
+        }
+      },
+      { confirmLabel: t('dm.leaveRoom') },
+    );
+  };
+
   return (
     <div className={styles.page}>
       <TopBar
@@ -86,49 +108,57 @@ export default function DmList() {
         ) : (
           <div className={styles.list}>
             {conversations.map((c) => (
-              <button
-                key={c.id}
-                className={styles.row}
-                onClick={() => navigate(`/dm/${c.id}`, { state: { conv: c } })}
-              >
-                <Avatar src={rowAvatar(c)} name={rowName(c)} seed={rowSeed(c)} size={48} />
-                <div className={styles.info}>
-                  <div className={styles.nameRow}>
-                    <span className={styles.name}>
-                      {rowName(c)}
-                      {c.conversationType !== 'direct' && (
-                        <span className={styles.memberCount}> ({c.memberCount})</span>
-                      )}
-                    </span>
-                    <span className={styles.time}>{formatRelativeTime(c.lastMessageAt)}</span>
-                  </div>
-                  <div className={styles.preview}>
-                    {previewText(c)}
-                  </div>
-                  {c.activeTrades.length > 0 && (
-                    <div className={styles.tradeRow}>
-                      {c.activeTrades.length === 1 ? (
-                        <>
-                          <span className={styles.tradeBadge} data-status={c.activeTrades[0].status}>
-                            {tradeStatusLabel(c.activeTrades[0].status)}
-                          </span>
-                          <span className={styles.tradeTitle}>{c.activeTrades[0].listingTitle ?? ''}</span>
-                        </>
-                      ) : (
-                        <span className={styles.tradeTitle}>
-                          {t('dm.tradeCount', {
-                            count: c.activeTrades.length,
-                            defaultValue: '거래 {{count}}건 진행중',
-                          })}
-                        </span>
-                      )}
+              <div key={c.id} className={styles.row}>
+                <button
+                  type="button"
+                  className={styles.rowMain}
+                  onClick={() => navigate(`/dm/${c.id}`, { state: { conv: c } })}
+                >
+                  <Avatar src={rowAvatar(c)} name={rowName(c)} seed={rowSeed(c)} size={48} />
+                  <div className={styles.info}>
+                    <div className={styles.nameRow}>
+                      <span className={styles.name}>
+                        {rowName(c)}
+                        {c.conversationType !== 'direct' && (
+                          <span className={styles.memberCount}> ({c.memberCount})</span>
+                        )}
+                      </span>
+                      <span className={styles.time}>{formatRelativeTime(c.lastMessageAt)}</span>
                     </div>
-                  )}
-                </div>
-                {c.unreadCount > 0 && (
-                  <span className={styles.badge}>{c.unreadCount}</span>
-                )}
-              </button>
+                    <div className={styles.preview}>
+                      {previewText(c)}
+                    </div>
+                    {c.activeTrades.length > 0 && (
+                      <div className={styles.tradeRow}>
+                        {c.activeTrades.length === 1 ? (
+                          <>
+                            <span className={styles.tradeBadge} data-status={c.activeTrades[0].status}>
+                              {tradeStatusLabel(c.activeTrades[0].status)}
+                            </span>
+                            <span className={styles.tradeTitle}>{c.activeTrades[0].listingTitle ?? ''}</span>
+                          </>
+                        ) : (
+                          <span className={styles.tradeTitle}>
+                            {t('dm.tradeCount', {
+                              count: c.activeTrades.length,
+                              defaultValue: '거래 {{count}}건 진행중',
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {c.unreadCount > 0 && <span className={styles.badge}>{c.unreadCount}</span>}
+                </button>
+                <button
+                  type="button"
+                  className={styles.rowMenu}
+                  onClick={() => requestLeave(c)}
+                  aria-label={t('dm.leaveConversationNamed', { name: rowName(c) })}
+                >
+                  <MoreVertical size={19} />
+                </button>
+              </div>
             ))}
           </div>
         )}

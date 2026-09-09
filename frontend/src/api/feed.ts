@@ -188,6 +188,7 @@ function transformComment(raw: any): Comment {
   return {
     id: String(raw.id),
     postId: String(raw.post_id),
+    userId: raw.user_id != null ? String(raw.user_id) : undefined,
     userNickname: raw.user_nickname ?? raw.user_id ?? 'unknown',
     userAvatarUrl: raw.user_avatar_url ?? undefined,
     content: raw.content ?? '',
@@ -272,4 +273,39 @@ export async function toggleCheer(postId: string): Promise<{ cheered: boolean; c
     body: JSON.stringify({ user_id: session.userId }),
   });
   return { cheered: res.liked, count: res.like_count };
+}
+
+// ── T&S: 게시물/댓글 신고 ─────────────────────────────────────────────────
+export type FeedReportReason = 'SPAM' | 'ABUSE' | 'INAPPROPRIATE' | 'OTHER';
+export const FEED_REPORT_REASONS: FeedReportReason[] = ['SPAM', 'ABUSE', 'INAPPROPRIATE', 'OTHER'];
+
+// rethrow:true — 중복 신고 409 원문이 전역 토스트로 새는 것 방지(reportListing 과 동일 이유).
+export async function reportFeedPost(postId: string, reason: FeedReportReason, note?: string): Promise<void> {
+  await api.realFetch(
+    `/feed/${postId}/report`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason, note: note ?? null }),
+    },
+    'bff',
+    { rethrow: true },
+  );
+}
+
+// rethrow:true — 중복 신고 409 원문이 전역 토스트로 새는 것 방지(reportListing 과 동일 이유).
+export async function reportFeedComment(
+  postId: string,
+  commentId: string,
+  reason: FeedReportReason,
+  note?: string,
+): Promise<void> {
+  await api.realFetch(
+    `/feed/${postId}/comments/${commentId}/report`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason, note: note ?? null }),
+    },
+    'bff',
+    { rethrow: true },
+  );
 }

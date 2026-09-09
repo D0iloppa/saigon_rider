@@ -93,6 +93,18 @@
   gap: 10px;
 }
 
+.sellerIdentity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  flex: 1;
+  border-radius: 12px;
+  text-align: left;
+}
+.sellerIdentity:active { background: var(--surface-2); }
+
 .sellerAvatar {
   width: 44px;
   height: 44px;

@@ -507,6 +507,10 @@ export async function removeMember(conversationId: string, userId: string): Prom
   await api.realFetch(`/dm/conversations/${conversationId}/members/${userId}`, { method: 'DELETE' });
 }
 
+export async function leaveConversation(conversationId: string): Promise<void> {
+  await api.realFetch(`/dm/conversations/${conversationId}/membership`, { method: 'DELETE' });
+}
+
 export async function joinOpenConversation(conversationId: string): Promise<DmConversation> {
   const raw = await api.realFetch<any>(`/dm/conversations/${conversationId}/join`, { method: 'POST' });
   return transformConversation(raw);
@@ -536,6 +540,25 @@ export const DM_REPORT_REASONS: DmReportReason[] = ['ABUSE', 'SCAM', 'SEXUAL', '
 export async function reportConversation(conversationId: string, reason: DmReportReason, note?: string): Promise<void> {
   await api.realFetch(
     `/dm/conversations/${conversationId}/report`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason, note: note ?? null }),
+    },
+    'bff',
+    { rethrow: true },
+  );
+}
+
+// P5-5: 그룹/오픈톡방은 방 전체가 아니라 특정 메시지 단위 신고.
+// rethrow:true — 중복 신고 409 원문이 전역 토스트로 새는 것 방지(reportListing 과 동일 이유).
+export async function reportGroupMessage(
+  conversationId: string,
+  messageId: string,
+  reason: DmReportReason,
+  note?: string,
+): Promise<void> {
+  await api.realFetch(
+    `/dm/conversations/${conversationId}/messages/${messageId}/report`,
     {
       method: 'POST',
       body: JSON.stringify({ reason, note: note ?? null }),

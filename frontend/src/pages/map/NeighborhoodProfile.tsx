@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Heart, MapPin, MessageSquareText, Pencil, Store } from 'lucide-react';
+import { AlertCircle, Heart, MapPin, MessageSquareText, Pencil, Store, Ticket } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { TopBar } from '@/components/layout/TopBar';
@@ -60,6 +60,11 @@ export default function NeighborhoodProfile() {
       label: t('map.neighborhoodProfile.shortcuts.favorites'),
       Icon: Store,
       onClick: () => navigate('/map/follows'),
+    },
+    {
+      label: t('map.neighborhoodProfile.shortcuts.coupons'),
+      Icon: Ticket,
+      onClick: () => navigate('/map/coupons'),
     },
     {
       label: t('biz.menuEntry', { defaultValue: '비즈니스 파트너' }),

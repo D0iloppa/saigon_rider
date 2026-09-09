@@ -332,14 +332,16 @@ export default function MarketDetail() {
               {/* Seller */}
               <div className={styles.sellerBlock}>
                 <div className={styles.sellerRow}>
-                  <AppImage src={detail.seller.avatarUrl ?? undefined} alt="" className={styles.sellerAvatar} variant="circle" />
-                  <div className={styles.sellerInfo}>
-                    <span className={styles.sellerName}>{detail.businessName ?? detail.seller.nickname ?? '—'}</span>
-                    <span className={styles.sellerSub}>
-                      Lv.{detail.seller.level}
-                      {detail.district ? ` · ${localizedName(detail.district)}` : ''}
+                  <button type="button" className={styles.sellerIdentity} onClick={() => navigate(detail.seller.id === myId ? '/profile' : `/profile/${detail.seller.id}`)}>
+                    <AppImage src={detail.seller.avatarUrl ?? undefined} alt="" className={styles.sellerAvatar} variant="circle" />
+                    <span className={styles.sellerInfo}>
+                      <span className={styles.sellerName}>{detail.businessName ?? detail.seller.nickname ?? '—'}</span>
+                      <span className={styles.sellerSub}>
+                        Lv.{detail.seller.level}
+                        {detail.district ? ` · ${localizedName(detail.district)}` : ''}
+                      </span>
                     </span>
-                  </div>
+                  </button>
                   {!isSeller && (
                     <button
                       className={`${styles.regularBtn} ${detail.seller.isFollowing ? styles.regularBtnActive : ''}`}
@@ -357,7 +359,7 @@ export default function MarketDetail() {
                   )}
                 </div>
                 <div className={styles.trustBadges}>
-                  <TrustTierChip temp={detail.seller.mannerTemp} />
+                  <TrustTierChip tier={detail.seller.trustTier} />
                   <VerifiedBadge verified={detail.seller.isPhoneVerified} phoneMasked={detail.seller.phoneMasked} />
                   <span className={styles.trustChip}>
                     <StarIcon size={12} />

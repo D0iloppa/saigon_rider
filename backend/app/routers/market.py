@@ -89,6 +89,7 @@ from ..services.service_area import in_service_area
 from ..services.translate import lookup_lang_batch, translate_to, warm_translations
 from ..utils import build_imgproxy_url, default_avatar_url, find_nearest_ward_id, mask_phone, resolve_avatar_url
 from ._report_guard import guard_duplicate_report
+from .users import _get_trust_tier
 
 router = APIRouter(prefix="/market", tags=["거래 플랫폼 (Marketplace)"])
 
@@ -682,7 +683,7 @@ async def get_listing(
         nickname=seller.nickname,
         avatar_url=resolve_avatar_url(seller) or default_avatar_url(seed=str(seller.id)),
         level=seller.level,
-        manner_temp=float(seller.manner_temp),
+        trust_tier=_get_trust_tier(seller.manner_temp),
         review_count=review_count,
         avg_rating=avg_rating,
         sold_count=sold_count,
@@ -1411,7 +1412,7 @@ async def create_review(
         session_id=unpack_tracking_ids(tracking_ids)[1],
     )
     await db.commit()
-    return MarketplaceReviewResult(id=review.id, target_manner_temp=temp)
+    return MarketplaceReviewResult(id=review.id, target_trust_tier=_get_trust_tier(temp))
 
 
 # M-7 찜(관심) 토글

@@ -37,6 +37,25 @@
   color: var(--text-2);
 }
 
+.messageRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: 85%;
+}
+.messageRowMine { align-self: flex-end; justify-content: flex-end; }
+.messageRowTheirs { align-self: flex-start; }
+.messageRow .bubble { max-width: 100%; }
+.messageProfileBtn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 50%;
+}
+.messageProfileBtn:active { opacity: .72; }
+
 .bubble {
   max-width: 75%;
   padding: 10px 14px;
@@ -205,15 +224,6 @@
   color: var(--text-2);
 }
 
-.roomLeaveBtn {
-  background: none;
-  border: none;
-  color: var(--text-3);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
 /* ── 방 공지 배너 (init/217) ── */
 .noticeBanner {
   background: var(--surface);
@@ -292,8 +302,7 @@
 /* ── 약속/가격제안 시스템 카드 (공용 골격) ── */
 .apptCard {
   align-self: center;
-  width: 84%;
-  max-width: 340px;
+  width: min(92%, 380px);
   margin: 6px auto;
   padding: 12px 14px;
   border-radius: 16px;
@@ -392,11 +401,44 @@
   flex: 1;
 }
 
-/* 하단 CTA 행 — 카드 내부 풀폭 버튼 나란히 */
+/* 가격 제안 카드의 2개 액션 행 */
 .apptActions {
   display: flex;
   gap: 8px;
   margin-top: 2px;
+}
+
+/* 약속 카드는 중요도별 행을 분리해 긴 ko/en/vi 라벨도 3열로 찌그러지지 않게 한다. */
+.apptPrimaryAction,
+.apptCompletionActions {
+  display: flex;
+  margin-top: 2px;
+}
+
+.apptPrimaryAction > button,
+.apptCompletionActions > button {
+  width: 100%;
+}
+
+.apptSecondaryActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.apptSecondaryActions > button:only-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 360px) {
+  .apptSecondaryActions {
+    grid-template-columns: 1fr;
+  }
+
+  .apptSecondaryActions > button:only-child {
+    grid-column: auto;
+  }
 }
 .apptBtnPrimary,
 .apptBtnGhost {
@@ -416,6 +458,7 @@
 }
 .apptBtnPrimary { background: var(--brand-500); color: #fff; }
 .apptBtnGhost { background: transparent; color: var(--text-2); border: 1px solid var(--line); }
+.apptBtnDanger { color: var(--danger, #dc2626); }
 .apptBtnPrimary:active,
 .apptBtnGhost:active { opacity: .85; }
 .apptBtnPrimary:disabled,
@@ -780,6 +823,13 @@
 .reportItem:disabled {
   color: var(--text-3);
   opacity: .5;
+}
+
+.leaveItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--danger, #dc2626);
 }
 
 /* ── 메시지 수정/삭제/공감/답장 (215_dm_message_sync) ─────────────── */

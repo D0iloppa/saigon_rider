@@ -92,6 +92,11 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
       isFriend: false,
       isPhoneVerified: false,
       phoneMasked: null,
+      memberSince: null,
+      marketplaceSoldCount: 0,
+      marketplaceReviewCount: 0,
+      marketplaceAvgRating: null,
+      trustTier: 'new',
     };
   }
 
@@ -107,6 +112,11 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     is_friend: boolean;
     is_phone_verified: boolean;
     phone_masked: string | null;
+    member_since: string;
+    marketplace_sold_count: number;
+    marketplace_review_count: number;
+    marketplace_avg_rating: number | null;
+    trust_tier: UserProfile['trustTier'];
   }>(url);
 
   return {
@@ -121,6 +131,11 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile> {
     isFriend: res.is_friend ?? false,
     isPhoneVerified: res.is_phone_verified ?? false,
     phoneMasked: res.phone_masked ?? null,
+    memberSince: res.member_since ?? null,
+    marketplaceSoldCount: res.marketplace_sold_count ?? 0,
+    marketplaceReviewCount: res.marketplace_review_count ?? 0,
+    marketplaceAvgRating: res.marketplace_avg_rating ?? null,
+    trustTier: res.trust_tier,
   };
 }
 

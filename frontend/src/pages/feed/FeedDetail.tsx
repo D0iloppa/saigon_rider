@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowUp, Flame, Globe, Heart, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Flag, Flame, Globe, Heart, MessageCircle, MoreVertical } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
-import { fetchFeedPost, fetchComments, toggleCheer, toggleCommentLike, postComment } from '@/api/feed';
+import {
+  fetchFeedPost,
+  fetchComments,
+  toggleCheer,
+  toggleCommentLike,
+  postComment,
+  reportFeedPost,
+  reportFeedComment,
+  FEED_REPORT_REASONS,
+  type FeedReportReason,
+} from '@/api/feed';
+import { extractErrorCode } from '@/api/client';
 import { formatRelativeTime } from '@/lib/format';
 import type { FeedPost, Comment } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
@@ -15,6 +26,7 @@ import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { ImageViewer } from '@/components/ui/ImageViewer';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import feedStyles from './FeedList.module.css';
 import styles from './FeedDetail.module.css';
 
@@ -30,6 +42,9 @@ export default function FeedDetail() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
   const [viewerState, setViewerState] = useState<{ srcs: string[]; index: number } | null>(null);
+  const [postMoreOpen, setPostMoreOpen] = useState(false);
+  const [postReportOpen, setPostReportOpen] = useState(false);
+  const [commentReportTarget, setCommentReportTarget] = useState<Comment | null>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → 입력바가 flex 하단에
   // 있어도 그 자리를 키보드가 그냥 덮는다. 키보드 높이만큼 padding 을 더해 위로 밀어낸다.
@@ -60,6 +75,43 @@ export default function FeedDetail() {
     if (!post) return;
     const { liked, count } = await toggleCommentLike(post.id, c.id);
     setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, iLiked: liked, likeCount: count } : x)));
+  };
+
+  const handlePostReport = async (reason: FeedReportReason) => {
+    if (!post) return;
+    setPostReportOpen(false);
+    try {
+      await reportFeedPost(post.id, reason);
+      toast.success(t('feed.reportDone', { defaultValue: '신고가 접수되었어요' }));
+    } catch (err) {
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
+      } else {
+        toast.error(t('feed.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      }
+    }
+  };
+
+  const handleCommentReport = async (reason: FeedReportReason) => {
+    if (!post || !commentReportTarget) return;
+    const target = commentReportTarget;
+    setCommentReportTarget(null);
+    try {
+      await reportFeedComment(post.id, target.id, reason);
+      toast.success(t('feed.reportDone', { defaultValue: '신고가 접수되었어요' }));
+    } catch (err) {
+      const code = extractErrorCode(err);
+      if (code === 'report_already_cancelled') {
+        toast.error(t('support.reportAlreadyCancelledError'));
+      } else if (code === 'report_already_pending') {
+        toast.error(t('support.reportAlreadyPendingError'));
+      } else {
+        toast.error(t('feed.reportError', { defaultValue: '이미 신고했거나 처리에 실패했어요' }));
+      }
+    }
   };
 
   const handleSend = async () => {
@@ -101,7 +153,13 @@ export default function FeedDetail() {
             <ArrowLeft size={24} strokeWidth={2} />
           </button>
           <h1 className={styles.topTitle}>{t('feed.detailTitle', { defaultValue: '피드' })}</h1>
-          <span className={styles.topSpacer} />
+          {post && user && post.userId !== user.id ? (
+            <button className={styles.backBtn} type="button" onClick={() => setPostMoreOpen(true)} aria-label={t('feed.moreActions', { defaultValue: '더보기' })}>
+              <MoreVertical size={22} strokeWidth={2} />
+            </button>
+          ) : (
+            <span className={styles.topSpacer} />
+          )}
         </div>
       </div>
 
@@ -181,6 +239,15 @@ export default function FeedDetail() {
                       <Heart size={13} strokeWidth={2} fill={c.iLiked ? 'currentColor' : 'none'} />
                       {c.likeCount > 0 && <span className="num">{c.likeCount}</span>}
                     </button>
+                    {(!c.userId || !user || c.userId !== user.id) && (
+                      <button
+                        className={styles.commentReportBtn}
+                        onClick={() => setCommentReportTarget(c)}
+                        aria-label={t('feed.report', { defaultValue: '신고하기' })}
+                      >
+                        <Flag size={13} strokeWidth={2} />
+                      </button>
+                    )}
                   </div>
                 ))}
                 {comments.length === 0 && (
@@ -226,6 +293,39 @@ export default function FeedDetail() {
       )}
 
       {viewerState && <ImageViewer srcs={viewerState.srcs} initialIndex={viewerState.index} onClose={() => setViewerState(null)} />}
+
+      {/* 더보기: 게시물 신고 (MarketDetail moreOpen 미러) */}
+      <BottomSheet open={postMoreOpen} onClose={() => setPostMoreOpen(false)}>
+        <div className={styles.reportSheet}>
+          <button className={styles.reportItem} onClick={() => { setPostMoreOpen(false); setPostReportOpen(true); }}>
+            <Flag size={16} strokeWidth={2.2} /> {t('feed.report', { defaultValue: '신고하기' })}
+          </button>
+        </div>
+      </BottomSheet>
+
+      {/* 게시물 신고 사유 */}
+      <BottomSheet open={postReportOpen} onClose={() => setPostReportOpen(false)}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.reportSheetTitle}>{t('feed.reportTitle', { defaultValue: '신고 사유' })}</h2>
+          {FEED_REPORT_REASONS.map((r) => (
+            <button key={r} className={styles.reportItem} onClick={() => handlePostReport(r)}>
+              {t(`feed.reportReason_${r}`)}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
+
+      {/* 댓글 신고 사유 */}
+      <BottomSheet open={!!commentReportTarget} onClose={() => setCommentReportTarget(null)}>
+        <div className={styles.reportSheet}>
+          <h2 className={styles.reportSheetTitle}>{t('feed.reportTitle', { defaultValue: '신고 사유' })}</h2>
+          {FEED_REPORT_REASONS.map((r) => (
+            <button key={r} className={styles.reportItem} onClick={() => handleCommentReport(r)}>
+              {t(`feed.reportReason_${r}`)}
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
 
     </div>
   );

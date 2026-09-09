@@ -350,11 +350,20 @@ class ReplyPreviewSnapshotTest(unittest.IsolatedAsyncioTestCase):
             result.scalar_one.side_effect = lambda: added[0]
             return result
 
+        def _last_read_at_result():
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = None
+            return result
+
         db = MagicMock()
         db.get = AsyncMock(side_effect=_get)
         db.add = MagicMock(side_effect=_add)
         db.commit = AsyncMock()
-        db.execute = AsyncMock(side_effect=[original_result, _reselect_result()])
+        # send_message re-entry un-hides both sender and recipient (dm.py:_set_direct_visibility) —
+        # each creates a fresh member row, querying MAX(read_at) of the other side's messages.
+        db.execute = AsyncMock(
+            side_effect=[original_result, _last_read_at_result(), _last_read_at_result(), _reselect_result()]
+        )
         return db, added
 
     async def test_snapshot_captures_sender_and_content_prefix(self):
@@ -461,7 +470,7 @@ class ConversationListDeletedMessageTest(unittest.IsolatedAsyncioTestCase):
         blocks = MagicMock()
         blocks.all.return_value = []
         members = MagicMock()
-        members.all.return_value = [(conv_id, datetime.now(UTC) - timedelta(days=1))]
+        members.all.return_value = [(conv_id, datetime.now(UTC) - timedelta(days=1), None)]
         convs = MagicMock()
         convs.scalars.return_value.all.return_value = [conv]
         trades = MagicMock()

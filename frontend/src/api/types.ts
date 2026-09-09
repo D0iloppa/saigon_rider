@@ -1,5 +1,6 @@
 // 도메인 타입 정의 (기획서 §2 DB 스키마 기반) 
 import type { District, RiderType, SafetyGrade as SafetyGradeMaster } from './master';
+import type { TrustTierKey } from '@/lib/trustTier';
 
 export type RiderStyle = 'commuter' | 'cafe_hunter' | 'night_rider';
 export type QuestType = 'daily' | 'weekly' | 'event';
@@ -106,6 +107,7 @@ export interface FeedPost {
 export interface Comment {
   id: string;
   postId: string;
+  userId?: string;
   userNickname: string;
   userAvatarUrl?: string;
   content: string;
@@ -202,6 +204,12 @@ export interface UserProfile {
   isFriend: boolean; // 맞팔 여부 (P4-4)
   isPhoneVerified: boolean;
   phoneMasked: string | null;
+  memberSince: string | null;
+  marketplaceSoldCount: number;
+  marketplaceReviewCount: number;
+  marketplaceAvgRating: number | null;
+  // WP-4(2026-09-09, F049) — 서버가 미리 변환한 신뢰 티어. 원값 manner_temp 는 실리지 않는다.
+  trustTier: TrustTierKey;
 }
 
 export interface DmConversation {

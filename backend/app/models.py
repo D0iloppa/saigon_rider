@@ -1007,6 +1007,51 @@ class BusinessPrice(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BusinessCoupon(Base):
+    """가게 쿠폰 (사업자 발행) — 당근 갭 트리아지 F061. 비현금성 판촉 쿠폰, 정산/결제 연계 없음.
+    Engine 의 reward_catalog(RP 교환)와 완전히 별개 도메인 — 절대 공유하지 않는다 (init/233)."""
+
+    __tablename__ = "business_coupon"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_profile.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # NULL = 발행중(신규 수령 가능). 값이 있으면 신규 수령만 막는다 — 이미 수령한 보유분은 유지.
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BusinessCouponClaim(Base):
+    """고객의 쿠폰 수령 기록 — UNIQUE(coupon_id, user_id) 로 중복 수령을 막는다 (init/233)."""
+
+    __tablename__ = "business_coupon_claim"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    coupon_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_coupon.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BusinessCouponRedemption(Base):
+    """쿠폰 사용 처리 — claim_id PRIMARY KEY(1:1) 가 이중 사용을 DB 레벨에서 차단한다
+    (marketplace_transactions 의 appointment_id PRIMARY KEY 패턴 미러, init/233)."""
+
+    __tablename__ = "business_coupon_redemption"
+
+    claim_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("business_coupon_claim.id", ondelete="CASCADE"), primary_key=True
+    )
+    redeemed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class MarketplaceAd(Base):
     __tablename__ = "marketplace_ads"
 

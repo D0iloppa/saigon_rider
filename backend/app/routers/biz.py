@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import delete, func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -12,6 +13,9 @@ from ..deps import optional_user_session, verify_user_session
 from ..models import (
     AdDailyStat,
     BusinessCategory,
+    BusinessCoupon,
+    BusinessCouponClaim,
+    BusinessCouponRedemption,
     BusinessFollow,
     BusinessNews,
     BusinessNewsPhoto,
@@ -40,6 +44,11 @@ from ..schemas import (
     BusinessAdCreateRequest,
     BusinessAdOut,
     BusinessCategoryOut,
+    BusinessCouponClaimOut,
+    BusinessCouponCreateRequest,
+    BusinessCouponOut,
+    BusinessCouponPublicOut,
+    BusinessCouponRedeemRequest,
     BusinessFavoriteOut,
     BusinessFollowOut,
     BusinessMapItemOut,
@@ -1241,6 +1250,7 @@ async def get_public_profile(
         follower_count=follower_count,
         is_following=is_following,
         is_owner=is_owner,
+        owner_user_id=profile.user_id,
     )
 
 
@@ -1497,6 +1507,267 @@ async def delete_price(
     await db.delete(price)
     await db.commit()
     return {"deleted": True}
+
+
+# ── 가게 쿠폰 (사업자 발행 → 고객 수령/사용, F061) — business_price CRUD 패턴 미러 ──
+
+
+@router.post("/coupons", response_model=BusinessCouponOut, status_code=201, summary="쿠폰 발행 (오너)")
+async def create_coupon(
+    body: BusinessCouponCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """create_ad 와 동일한 APPROVED 게이트(create_price 는 무료 기능이라 게이트가 없지만, 쿠폰은
+    미승인 업체가 남발하면 소비자 신뢰를 해치므로 광고와 같은 기준을 적용한다)."""
+    profile = await _get_own_profile(db, body.profile_id, session_uid)
+    if profile.status != "APPROVED":
+        raise HTTPException(status_code=409, detail="Only approved business profiles can issue coupons")
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+
+    coupon = BusinessCoupon(
+        profile_id=profile.id,
+        title=title,
+        description=(body.description or "").strip() or None,
+        expires_at=body.expires_at,
+    )
+    db.add(coupon)
+    await db.commit()
+    await db.refresh(coupon)
+    return BusinessCouponOut(
+        id=coupon.id,
+        title=coupon.title,
+        description=coupon.description,
+        expires_at=coupon.expires_at,
+        stopped_at=coupon.stopped_at,
+        created_at=coupon.created_at,
+        claimed_count=0,
+    )
+
+
+@router.get("/coupons", response_model=list[BusinessCouponOut], summary="내 업체 쿠폰 목록 (오너)")
+async def list_coupons(
+    profile_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    await _get_own_profile(db, profile_id, session_uid)
+    rows = (
+        await db.execute(
+            select(BusinessCoupon, func.count(BusinessCouponClaim.id))
+            .outerjoin(BusinessCouponClaim, BusinessCouponClaim.coupon_id == BusinessCoupon.id)
+            .where(BusinessCoupon.profile_id == profile_id)
+            .group_by(BusinessCoupon.id)
+            .order_by(BusinessCoupon.created_at.desc())
+        )
+    ).all()
+    return [
+        BusinessCouponOut(
+            id=c.id,
+            title=c.title,
+            description=c.description,
+            expires_at=c.expires_at,
+            stopped_at=c.stopped_at,
+            created_at=c.created_at,
+            claimed_count=claimed_count,
+        )
+        for c, claimed_count in rows
+    ]
+
+
+@router.post("/coupons/{coupon_id}/stop", response_model=BusinessCouponOut, summary="쿠폰 발행 중단 (오너)")
+async def stop_coupon(
+    coupon_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """신규 수령만 막는다 — 이미 수령한 고객의 보유분은 만료 전까지 그대로 사용 가능."""
+    coupon = await db.get(BusinessCoupon, coupon_id)
+    if coupon is None:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    await _get_own_profile(db, coupon.profile_id, session_uid)  # 오너십 검증 (소유 아니면 404 로 통일)
+    if coupon.stopped_at is None:
+        coupon.stopped_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(coupon)
+    claimed_count = (
+        await db.execute(
+            select(func.count()).select_from(BusinessCouponClaim).where(BusinessCouponClaim.coupon_id == coupon.id)
+        )
+    ).scalar_one()
+    return BusinessCouponOut(
+        id=coupon.id,
+        title=coupon.title,
+        description=coupon.description,
+        expires_at=coupon.expires_at,
+        stopped_at=coupon.stopped_at,
+        created_at=coupon.created_at,
+        claimed_count=claimed_count,
+    )
+
+
+@router.post("/coupons/redeem", response_model=BusinessCouponClaimOut, summary="쿠폰 사용 처리 (오너, 매장 제시)")
+async def redeem_coupon(
+    body: BusinessCouponRedeemRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """고객이 매장에서 제시한 쿠폰 코드(claim id)를 사용 처리. claim_id PRIMARY KEY 제약(init/233)이
+    이중 사용을 DB 레벨에서 차단 — 동시 요청이 몰려도 두 번째 INSERT 는 unique violation 으로 실패한다."""
+    claim = await db.get(BusinessCouponClaim, body.claim_id)
+    if claim is None:
+        raise HTTPException(status_code=404, detail="Coupon claim not found")
+    coupon = await db.get(BusinessCoupon, claim.coupon_id)
+    if coupon is None:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    await _get_own_profile(db, coupon.profile_id, session_uid)  # 타 업체 쿠폰 사용 처리 거부
+    if coupon.expires_at is not None and coupon.expires_at < datetime.now(UTC):
+        raise HTTPException(status_code=409, detail="Coupon expired")
+
+    redemption = BusinessCouponRedemption(claim_id=claim.id)
+    db.add(redemption)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Coupon already used") from None
+    await db.refresh(redemption)
+
+    profile = await db.get(BusinessProfile, coupon.profile_id)
+    return BusinessCouponClaimOut(
+        id=claim.id,
+        coupon_id=coupon.id,
+        profile_id=coupon.profile_id,
+        profile_name=profile.name if profile else "",
+        title=coupon.title,
+        description=coupon.description,
+        claimed_at=claim.claimed_at,
+        expires_at=coupon.expires_at,
+        redeemed_at=redemption.redeemed_at,
+    )
+
+
+@router.get(
+    "/public/{profile_id}/coupons", response_model=list[BusinessCouponPublicOut], summary="업체 쿠폰 목록 (공개)"
+)
+async def get_public_coupons(
+    profile_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
+):
+    """공개 프로필 노출용 — APPROVED 프로필만(그 외 404), 발행중(stopped_at NULL) + 미만료만 노출."""
+    await _get_approved_profile(db, profile_id)
+    now = datetime.now(UTC)
+    rows = (
+        (
+            await db.execute(
+                select(BusinessCoupon)
+                .where(
+                    BusinessCoupon.profile_id == profile_id,
+                    BusinessCoupon.stopped_at.is_(None),
+                    (BusinessCoupon.expires_at.is_(None)) | (BusinessCoupon.expires_at >= now),
+                )
+                .order_by(BusinessCoupon.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    claimed_ids: set[uuid.UUID] = set()
+    if session_uid is not None and rows:
+        claimed_ids = set(
+            (
+                await db.execute(
+                    select(BusinessCouponClaim.coupon_id).where(
+                        BusinessCouponClaim.user_id == session_uid,
+                        BusinessCouponClaim.coupon_id.in_([c.id for c in rows]),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return [
+        BusinessCouponPublicOut(
+            id=c.id,
+            title=c.title,
+            description=c.description,
+            expires_at=c.expires_at,
+            is_claimed=c.id in claimed_ids,
+        )
+        for c in rows
+    ]
+
+
+@router.post(
+    "/coupons/{coupon_id}/claim", response_model=BusinessCouponClaimOut, status_code=201, summary="쿠폰 수령 (고객)"
+)
+async def claim_coupon(
+    coupon_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    coupon = await db.get(BusinessCoupon, coupon_id)
+    if coupon is None:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    profile = await _get_approved_profile(db, coupon.profile_id)
+    if coupon.stopped_at is not None:
+        raise HTTPException(status_code=409, detail="Coupon is no longer issuing")
+    if coupon.expires_at is not None and coupon.expires_at < datetime.now(UTC):
+        raise HTTPException(status_code=409, detail="Coupon expired")
+
+    claim = BusinessCouponClaim(coupon_id=coupon.id, user_id=session_uid)
+    db.add(claim)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Coupon already claimed") from None
+    await db.refresh(claim)
+    return BusinessCouponClaimOut(
+        id=claim.id,
+        coupon_id=coupon.id,
+        profile_id=coupon.profile_id,
+        profile_name=profile.name,
+        title=coupon.title,
+        description=coupon.description,
+        claimed_at=claim.claimed_at,
+        expires_at=coupon.expires_at,
+        redeemed_at=None,
+    )
+
+
+@router.get("/coupons/mine", response_model=list[BusinessCouponClaimOut], summary="내 쿠폰 보관함 (고객)")
+async def get_my_coupons(
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    rows = (
+        await db.execute(
+            select(BusinessCouponClaim, BusinessCoupon, BusinessProfile, BusinessCouponRedemption.redeemed_at)
+            .join(BusinessCoupon, BusinessCoupon.id == BusinessCouponClaim.coupon_id)
+            .join(BusinessProfile, BusinessProfile.id == BusinessCoupon.profile_id)
+            .outerjoin(BusinessCouponRedemption, BusinessCouponRedemption.claim_id == BusinessCouponClaim.id)
+            .where(BusinessCouponClaim.user_id == session_uid)
+            .order_by(BusinessCouponClaim.claimed_at.desc())
+        )
+    ).all()
+    return [
+        BusinessCouponClaimOut(
+            id=claim.id,
+            coupon_id=coupon.id,
+            profile_id=profile.id,
+            profile_name=profile.name,
+            title=coupon.title,
+            description=coupon.description,
+            claimed_at=claim.claimed_at,
+            expires_at=coupon.expires_at,
+            redeemed_at=redeemed_at,
+        )
+        for claim, coupon, profile, redeemed_at in rows
+    ]
 
 
 # ── 업체 후기 (동네지도 + 메뉴 '후기쓰기' 실배선) ─────────────────

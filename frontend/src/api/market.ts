@@ -3,6 +3,7 @@ import { api } from './client';
 import type { District } from './master';
 import { inServiceArea } from '@/lib/serviceArea';
 import { wardRegionAt } from '@/components/maps/v2/wardRegions';
+import type { TrustTierKey } from '@/lib/trustTier';
 
 export type ListingStatus = 'ON_SALE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REMOVED' | 'WITHDRAWN' | 'EXPIRED';
 export type ListingSort = 'recent' | 'price_low' | 'price_high' | 'distance' | 'recommended';
@@ -53,7 +54,7 @@ export interface SellerBrief {
   nickname: string | null;
   avatarUrl: string | null;
   level: number;
-  mannerTemp: number;
+  trustTier: TrustTierKey;
   reviewCount: number;
   avgRating: number | null;
   soldCount: number;
@@ -393,7 +394,7 @@ export async function fetchBlockedUsers(): Promise<BlockedUser[]> {
   return raw.map((r) => ({ userId: r.user_id, nickname: r.nickname ?? null, avatarUrl: r.avatar_url ?? null }));
 }
 
-export async function createReview(p: CreateReviewParams): Promise<{ id: string; target_manner_temp: number }> {
+export async function createReview(p: CreateReviewParams): Promise<{ id: string; target_trust_tier: string }> {
   return api.realFetch('/market/reviews', {
     method: 'POST',
     body: JSON.stringify({
@@ -568,7 +569,7 @@ export async function fetchListing(id: string, userId?: string): Promise<Listing
       nickname: r.seller.nickname ?? null,
       avatarUrl: r.seller.avatar_url ?? null,
       level: r.seller.level ?? 1,
-      mannerTemp: r.seller.manner_temp ?? 36.5,
+      trustTier: r.seller.trust_tier ?? 'new',
       reviewCount: r.seller.review_count ?? 0,
       avgRating: r.seller.avg_rating ?? null,
       soldCount: r.seller.sold_count ?? 0,

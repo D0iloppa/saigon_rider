@@ -179,6 +179,40 @@ def _other_user_id(conv: DmConversation, me: uuid.UUID) -> uuid.UUID:
     return conv.participant_2 if conv.participant_1 == me else conv.participant_1
 
 
+async def _set_direct_visibility(
+    db: AsyncSession, conv: DmConversation, user_id: uuid.UUID, *, left_at: datetime | None
+) -> bool:
+    """Persist one participant's direct-room visibility without touching room history."""
+    member = await db.get(DmConversationMember, (conv.id, user_id))
+    if member is None:
+        # init/203 백필과 동일 기준: 상대가 보낸 메시지 중 read_at 최댓값(없으면 방 생성시각).
+        # conv.created_at 고정값을 쓰면 상대의 과거 발화 전체가 미읽음으로 잡힌다.
+        last_read_at = (
+            await db.execute(
+                select(func.max(DmMessage.read_at)).where(
+                    DmMessage.conversation_id == conv.id,
+                    DmMessage.sender_id != user_id,
+                    DmMessage.read_at.isnot(None),
+                )
+            )
+        ).scalar_one_or_none() or conv.created_at
+        db.add(
+            DmConversationMember(
+                conversation_id=conv.id,
+                user_id=user_id,
+                role="member",
+                joined_at=conv.created_at,
+                last_read_at=last_read_at,
+                left_at=left_at,
+            )
+        )
+        return True
+    if member.left_at == left_at:
+        return False
+    member.left_at = left_at
+    return True
+
+
 def _resolve_conv_photo(conv: DmConversation) -> str | None:
     content = conv.photo_content
     if content and content.file_path:
@@ -224,13 +258,15 @@ async def get_conversations(
     # 그룹/오픈톡방 §3.3(c): last_read_at 이 unread 계산의 SoT (direct 도 백필로 이 값을 쓴다).
     member_rows = (
         await db.execute(
-            select(DmConversationMember.conversation_id, DmConversationMember.last_read_at).where(
-                DmConversationMember.user_id == user_id,
-                DmConversationMember.left_at.is_(None),
-            )
+            select(
+                DmConversationMember.conversation_id,
+                DmConversationMember.last_read_at,
+                DmConversationMember.left_at,
+            ).where(DmConversationMember.user_id == user_id)
         )
     ).all()
-    last_read_map = {conv_id: last_read_at for conv_id, last_read_at in member_rows}
+    last_read_map = {conv_id: last_read_at for conv_id, last_read_at, left_at in member_rows if left_at is None}
+    hidden_direct_ids = {conv_id for conv_id, _last_read_at, left_at in member_rows if left_at is not None}
 
     rows = (
         (
@@ -279,6 +315,8 @@ async def get_conversations(
     result = []
     for conv in rows:
         is_direct = conv.conversation_type == "direct"
+        if is_direct and conv.id in hidden_direct_ids:
+            continue
         other_id = _other_user_id(conv, user_id) if is_direct else None
         if is_direct and other_id in blocked_ids:
             continue
@@ -527,6 +565,7 @@ async def create_conversation(
 
     existing = (await db.execute(select(DmConversation).where(*pair_filter))).scalar_one_or_none()
 
+    is_new = existing is None
     if existing:
         conv = existing
         # 새 매물 문의로 들어온 재사용이면 컨텍스트만 최신값으로 갱신
@@ -551,6 +590,14 @@ async def create_conversation(
             await db.refresh(other_user)
             conv = (await db.execute(select(DmConversation).where(*pair_filter))).scalar_one()
         await db.refresh(conv)
+
+    visibility_changed = await _set_direct_visibility(db, conv, _session_uid, left_at=None)
+    if is_new:
+        visibility_changed = (
+            await _set_direct_visibility(db, conv, body.other_user_id, left_at=None) or visibility_changed
+        )
+    if visibility_changed:
+        await db.commit()
 
     if is_first_inquiry:
         await funnel_events.record(
@@ -788,6 +835,11 @@ async def send_message(
         reply_preview=reply_preview,
     )
     db.add(msg)
+    if conv.conversation_type == "direct":
+        # Sending is an explicit re-entry for the sender and a genuinely new incoming
+        # message for the recipient; both may safely make a previously hidden room visible.
+        await _set_direct_visibility(db, conv, _session_uid, left_at=None)
+        await _set_direct_visibility(db, conv, _other_user_id(conv, _session_uid), left_at=None)
     conv.last_message_at = now
 
     # 수신자 푸시·인앱 알림은 noti_worker 로 이관. FD-6: 메시지 저장과 같은 트랜잭션에 이벤트를
@@ -1574,6 +1626,30 @@ async def remove_member(
     # 위치공유 채널 P0: 강퇴/자발적 나가기로 방 멤버십을 잃으면 활성 위치채널도 즉시 이탈 처리한다
     # (그대로 두면 이미 열린 SSE 스트림이 계속 상대 좌표를 수신한다 — §7 개인정보 불변식).
     await location_channel_membership.force_leave(db, conv_id, user_id, reason="kicked_or_left")
+    return {"ok": True}
+
+
+@router.delete("/conversations/{conv_id}/membership", summary="대화방 나가기")
+async def leave_conversation(
+    conv_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """Hide a direct room for this user, or leave a group/open room, without deleting history."""
+    conv = await db.get(DmConversation, conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if conv.conversation_type == "direct":
+        require_participant(conv, _session_uid)
+        await _set_direct_visibility(db, conv, _session_uid, left_at=datetime.now(UTC))
+    else:
+        member = await require_member(db, conv, _session_uid)
+        member.left_at = datetime.now(UTC)
+        conv.member_count = max(conv.member_count - 1, 0)
+
+    await db.commit()
+    await location_channel_membership.force_leave(db, conv_id, _session_uid, reason="left")
     return {"ok": True}
 
 

@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin, Heart, Share2, Star, Home, Flag } from 'lucide-react';
+import { Phone, MapPin, Heart, Share2, Star, Home, Flag, MessageCircle } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageViewer } from '@/components/ui/ImageViewer';
@@ -12,7 +12,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { useReviewModeration } from '@/hooks/useReviewModeration';
-import { extractErrorCode } from '@/api/client';
+import { extractDetail, extractErrorCode } from '@/api/client';
 import ReviewActionRow from '@/components/biz/ReviewActionRow';
 import ReviewModerationSheets from '@/components/biz/ReviewModerationSheets';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
@@ -31,6 +31,8 @@ import {
   fetchBizPublicNews,
   fetchBizReviews,
   fetchBizPublicPrices,
+  fetchBizPublicCoupons,
+  claimBizCoupon,
   fetchMyBizReview,
   deleteBizReview,
   appealBizReview,
@@ -40,9 +42,11 @@ import {
   type BizNewsItem,
   type BizReview,
   type BizPriceItem,
+  type BizCouponPublic,
   type BizReportReason,
 } from '@/api/biz';
 import { fetchListings, type ListingCard as MarketListing, type MarketAd } from '@/api/market';
+import { createConversation } from '@/api/dm';
 import { trackAdEvent, useAdImpression } from '@/hooks/useAdEvents';
 import { formatPriceVnd } from '@/pages/market/marketFormat';
 import BizReviewSheet from './BizReviewSheet';
@@ -119,6 +123,8 @@ export default function BizPublic() {
   const [newsLoadingMore, setNewsLoadingMore] = useState(false);
   const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
   const [prices, setPrices] = useState<BizPriceItem[]>([]);
+  const [coupons, setCoupons] = useState<BizCouponPublic[]>([]);
+  const [claimingCouponId, setClaimingCouponId] = useState<string | null>(null);
   const [listings, setListings] = useState<MarketListing[]>([]);
   const userId = useUserStore((s) => s.user?.id);
   const [reviews, setReviews] = useState<BizReview[]>([]);
@@ -229,6 +235,25 @@ export default function BizPublic() {
     if (!id) return;
     fetchBizPublicPrices(id).then(setPrices).catch(() => setPrices([]));
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetchBizPublicCoupons(id).then(setCoupons).catch(() => setCoupons([]));
+  }, [id, userId]);
+
+  const handleClaimCoupon = async (couponId: string) => {
+    if (!requireAuth()) return;
+    setClaimingCouponId(couponId);
+    try {
+      await claimBizCoupon(couponId);
+      setCoupons((prev) => prev.map((c) => (c.id === couponId ? { ...c, isClaimed: true } : c)));
+      toast.success(t('biz.couponClaimSuccess', { defaultValue: '쿠폰을 받았어요. 내 쿠폰함에서 확인하세요' }));
+    } catch (err: unknown) {
+      toast.error(extractDetail(err, t('biz.couponClaimError', { defaultValue: '쿠폰을 받지 못했습니다' })));
+    } finally {
+      setClaimingCouponId(null);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -384,6 +409,17 @@ export default function BizPublic() {
   const handleCall = () => {
     if (!profile?.phone) return;
     native.openUrl(`tel:${profile.phone}`);
+  };
+
+  const handleChat = async () => {
+    if (!requireAuth()) return;
+    if (!profile?.ownerUserId) return;
+    try {
+      const conv = await createConversation(profile.ownerUserId);
+      navigate(`/dm/${conv.id}`);
+    } catch {
+      toast.error(t('biz.publicChatError', { defaultValue: '채팅을 시작할 수 없습니다' }));
+    }
   };
 
   const handleShare = () => {
@@ -613,6 +649,29 @@ export default function BizPublic() {
                   ))}
                 </div>
               ) : <EmptyArea label={t('biz.priceSectionTitle')} />}
+            </HomePreview>
+
+            <HomePreview title={t('biz.publicCouponsTitle', { defaultValue: '쿠폰' })}>
+              {coupons.length > 0 ? (
+                <div className={styles.previewCoupons}>
+                  {coupons.map((c) => (
+                    <div key={c.id} className={styles.previewCouponRow}>
+                      <span className={styles.previewCouponBody}>
+                        <strong>{c.title}</strong>
+                        {c.description && <small>{c.description}</small>}
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.previewCouponClaimBtn}
+                        disabled={c.isClaimed || claimingCouponId === c.id}
+                        onClick={() => handleClaimCoupon(c.id)}
+                      >
+                        {c.isClaimed ? t('biz.couponClaimed', { defaultValue: '받음' }) : t('biz.couponClaimCta', { defaultValue: '받기' })}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : <EmptyArea label={t('biz.publicCouponsTitle', { defaultValue: '쿠폰' })} />}
             </HomePreview>
 
             <HomePreview title={t('biz.detailTabs.listings')} onMore={() => handleTabChange('listings')}>
@@ -875,12 +934,25 @@ export default function BizPublic() {
         </div>
       </div>
 
-      {profile.phone && (
+      {!profile.isOwner && (profile.ownerUserId || profile.phone) && (
         <div className={styles.ctaBar}>
-          <button className={styles.ctaBtn} type="button" onClick={handleCall}>
-            <Phone size={20} strokeWidth={2.2} />
-            {t('biz.publicCallCta', { defaultValue: '전화 문의하기' })}
-          </button>
+          {profile.ownerUserId && (
+            <button className={styles.ctaBtn} type="button" onClick={handleChat}>
+              <MessageCircle size={20} strokeWidth={2.2} />
+              {t('biz.publicChatCta', { defaultValue: '문의하기' })}
+            </button>
+          )}
+          {profile.phone && (
+            <button
+              className={profile.ownerUserId ? styles.ctaCallBtn : styles.ctaBtn}
+              type="button"
+              onClick={handleCall}
+              aria-label={t('biz.publicCallCta', { defaultValue: '전화 문의하기' }) as string}
+            >
+              <Phone size={20} strokeWidth={2.2} />
+              {!profile.ownerUserId && t('biz.publicCallCta', { defaultValue: '전화 문의하기' })}
+            </button>
+          )}
         </div>
       )}
 

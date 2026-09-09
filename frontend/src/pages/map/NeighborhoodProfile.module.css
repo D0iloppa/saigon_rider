@@ -40,7 +40,7 @@
 
 /* ── 퀵메뉴 ── */
 .shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 16px 4px; }
-.shortcuts > :last-child { grid-column: 1 / -1; }
+.shortcuts > :nth-last-child(-n+2) { grid-column: 1 / -1; }
 .shortcut {
   display: flex;
   align-items: center;

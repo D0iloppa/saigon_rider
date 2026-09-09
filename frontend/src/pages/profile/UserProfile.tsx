@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertCircle, Building2, Coffee, Flame, MessageCircle, MoreVertical, Moon, Newspaper, Send,
+  AlertCircle, Building2, Coffee, Flame, MessageCircle, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
@@ -11,6 +11,7 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import { Chip } from '@/components/ui/Chip';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AppImage } from '@/components/ui/AppImage';
@@ -20,12 +21,14 @@ import { fetchUserProfile, reportUser, USER_REPORT_REASONS, type UserReportReaso
 import { fetchMyFeed, toggleCheer } from '@/api/feed';
 import { followUser, unfollowUser } from '@/api/follows';
 import { createConversation } from '@/api/dm';
+import { fetchListings, type ListingCard as MarketListing } from '@/api/market';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
 import { formatNumber, formatRelativeTime } from '@/lib/format';
 import type { FeedPost, UserProfile as UserProfileData } from '@/api/types';
 import sys from '@/styles/system.module.css';
 import styles from './UserProfile.module.css';
+import ListingCard from '../market/ListingCard';
 
 const PAGE_SIZE = 10;
 
@@ -46,7 +49,7 @@ const PAGE_SIZE = 10;
  * 상세 설계: `ai-docs/task/active/260813_user_profile_page_task.md`
  */
 export default function UserProfile() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { userId } = useParams<{ userId: string }>();
   const me = useUserStore((s) => s.user);
@@ -57,6 +60,8 @@ export default function UserProfile() {
   const [toggling, setToggling] = useState(false);
   const [dmLoading, setDmLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [listings, setListings] = useState<MarketListing[] | null>(null);
+  const [listingsError, setListingsError] = useState(false);
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -103,6 +108,11 @@ export default function UserProfile() {
       .then(setProfile)
       .catch(() => setLoadError(true))
       .finally(() => setProfileLoading(false));
+    setListings(null);
+    setListingsError(false);
+    fetchListings({ sellerId: userId, hideSold: true, page: 1, size: 4 })
+      .then((result) => setListings(result.items))
+      .catch(() => { setListings([]); setListingsError(true); });
     pageRef.current = 1;
     loadingRef.current = false;
     setHasMore(true);
@@ -264,6 +274,10 @@ export default function UserProfile() {
                   <span className={styles.nickname}>{profile.nickname ?? 'Unknown'}</span>
                   <LevelBadge level={profile.level} />
                   <VerifiedBadge verified={profile.isPhoneVerified} phoneMasked={profile.phoneMasked} />
+                  {/* WP-4(2026-09-09, F049) — 서버가 변환한 티어만 받는다(tier prop),
+                      원값 manner_temp 는 이 응답에 아예 없다. MarketDetail 의 판매자 신뢰뱃지 그룹과
+                      같은 배치 관례(닉네임 행에 인증뱃지와 함께)를 따른다. */}
+                  <TrustTierChip tier={profile.trustTier} />
                   {/* P4-4: 맞팔 = 친구 표기 (신규 UI 컴포넌트 없이 기존 Chip 재사용) */}
                   {profile.isFriend && <Chip variant="surface">{t('follow.friends')}</Chip>}
                 </div>
@@ -304,6 +318,40 @@ export default function UserProfile() {
                 >
                   <Send size={18} strokeWidth={2.2} />
                 </button>
+              </div>
+            )}
+
+            <section className={styles.trustSection} aria-labelledby="profile-trust-title">
+              <h2 id="profile-trust-title">{t('userProfile.trustSection')}</h2>
+              <dl className={styles.trustGrid}>
+                {profile.memberSince && <div>
+                  <dt>{t('userProfile.memberSince')}</dt>
+                  <dd className="num">{new Intl.DateTimeFormat(i18n.language, { year: 'numeric', month: 'short' }).format(new Date(profile.memberSince))}</dd>
+                </div>}
+                <div>
+                  <dt>{t('userProfile.completedSales')}</dt>
+                  <dd className="num">{t('userProfile.countValue', { count: profile.marketplaceSoldCount })}</dd>
+                </div>
+                <div>
+                  <dt>{t('userProfile.marketReviews')}</dt>
+                  <dd className="num"><Star size={13} /> {profile.marketplaceAvgRating === null ? '—' : profile.marketplaceAvgRating.toFixed(1)} · {profile.marketplaceReviewCount}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <div className={styles.sectionHead}>
+              <h2>{t('userProfile.marketSection')}</h2>
+              {listings && listings.length > 0 && <span>{t('userProfile.marketShowing', { count: listings.length })}</span>}
+            </div>
+            {listings === null ? (
+              <SkeletonRows count={2} />
+            ) : listingsError ? (
+              <StateBlock icon={AlertCircle} tone="error" title={t('userProfile.marketError')} actionLabel={t('common.retry')} onAction={load} />
+            ) : listings.length === 0 ? (
+              <StateBlock icon={ShoppingBag} title={t('userProfile.marketEmpty')} />
+            ) : (
+              <div className={styles.marketGrid}>
+                {listings.map((listing) => <ListingCard key={listing.id} listing={listing} onClick={() => navigate(`/market/${listing.id}`)} />)}
               </div>
             )}
 

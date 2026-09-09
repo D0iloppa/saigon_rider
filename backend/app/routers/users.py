@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,12 +14,15 @@ from ..database import get_db
 from ..deps import verify_user_session
 from ..engine_client import engine_client
 from ..models import (
+    MarketplaceAppointment,
+    MarketplaceListing,
     MarketplaceReview,
     Quest,
     Report,
     RideSession,
     User,
     UserBadge,
+    UserBlock,
     UserFollow,
     UserOAuthIdentity,
     UserQuest,
@@ -74,6 +77,7 @@ async def _get_user_or_404(user_id: uuid.UUID, db: AsyncSession) -> User:
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
     return user
 
 
@@ -395,6 +399,22 @@ async def export_user_data(
     )
 
 
+def _get_trust_tier(temp: Decimal) -> str:
+    """공개 프로필 신뢰 티어 매핑. SoT 는 frontend/src/lib/trustTier.ts::getTrustTier —
+    이 함수는 그 구간을 그대로 미러링한다(양쪽 수정 시 함께 맞출 것). 원값 manner_temp 를
+    응답에 싣지 않기 위해 서버에서 미리 티어 문자열로 변환한다(WP-4, 2026-09-09)."""
+    t = float(temp)
+    if t < 30:
+        return "caution"
+    if t < 40:
+        return "new"
+    if t < 55:
+        return "good"
+    if t < 75:
+        return "trusted"
+    return "top"
+
+
 @router.get("/{user_id}/profile", response_model=UserProfileOut, summary="타유저 공개 프로필 조회")
 async def get_user_profile(
     user_id: uuid.UUID,
@@ -407,6 +427,20 @@ async def get_user_profile(
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if viewer_id != user_id:
+        blocked = (
+            await db.execute(
+                select(UserBlock.blocker_id).where(
+                    or_(
+                        (UserBlock.blocker_id == viewer_id) & (UserBlock.blocked_id == user_id),
+                        (UserBlock.blocker_id == user_id) & (UserBlock.blocked_id == viewer_id),
+                    )
+                )
+            )
+        ).first()
+        if blocked is not None:
+            raise HTTPException(status_code=404, detail="User not found")
 
     follower_count = (
         await db.execute(select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user_id))
@@ -426,6 +460,20 @@ async def get_user_profile(
             is_friend = reverse is not None
 
     rider_style = user.rider_type.code if user.rider_type else None
+    review_count, review_avg = (
+        await db.execute(
+            select(func.count(), func.avg(MarketplaceReview.rating)).where(MarketplaceReview.target_id == user_id)
+        )
+    ).one()
+    avg_rating = round(float(review_avg), 1) if review_count else None
+    sold_count = (
+        await db.execute(
+            select(func.count(func.distinct(MarketplaceAppointment.listing_id)))
+            .select_from(MarketplaceAppointment)
+            .join(MarketplaceListing, MarketplaceListing.id == MarketplaceAppointment.listing_id)
+            .where(MarketplaceListing.seller_id == user_id, MarketplaceAppointment.status == "COMPLETED")
+        )
+    ).scalar_one()
 
     return UserProfileOut(
         id=user.id,
@@ -439,6 +487,11 @@ async def get_user_profile(
         is_friend=is_friend,
         is_phone_verified=user.phone_verified_at is not None,
         phone_masked=mask_phone(user.phone) if user.phone_verified_at is not None else None,
+        member_since=user.created_at,
+        marketplace_sold_count=sold_count,
+        marketplace_review_count=review_count,
+        marketplace_avg_rating=avg_rating,
+        trust_tier=_get_trust_tier(user.manner_temp),
     )
 
 

@@ -22,6 +22,7 @@ function PayReturnPage() {
   const [searchParams] = useSearchParams();
   const [locale, setLocale] = useState<Locale>(detectLocale);
   const [state, setState] = useState<ReturnState>("processing");
+  const [attempt, setAttempt] = useState(0);
   const t = content[locale];
 
   const token = searchParams.get("token") ?? "";
@@ -51,7 +52,7 @@ function PayReturnPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, paymentKey, orderId, amountRaw]);
+  }, [token, paymentKey, orderId, amountRaw, attempt]);
 
   return (
     <div className="sr-root sa-page">
@@ -94,6 +95,16 @@ function PayReturnPage() {
             {state === "error" && (
               <>
                 <h2>{t.payReturn.error}</h2>
+                <button
+                  type="button"
+                  className="sr-button sa-submit"
+                  onClick={() => {
+                    setState("processing");
+                    setAttempt((value) => value + 1);
+                  }}
+                >
+                  {t.payReturn.retry}
+                </button>
                 <Link className="sr-button sa-submit" to={`/apply?token=${encodeURIComponent(token)}`}>
                   {t.payReturn.backToContract}
                 </Link>

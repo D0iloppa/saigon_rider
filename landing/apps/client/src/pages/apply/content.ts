@@ -13,7 +13,6 @@ interface ApplyCopy {
     heading: string; // uses {tier}
     partnerLabel: string;
     contractHeading: string;
-    contractText: string; // uses {tier}
     periodHeading: string;
     periodUnavailable: string;
     agreeLabel: string;
@@ -21,6 +20,7 @@ interface ApplyCopy {
     namePlaceholder: string;
     submit: string;
     submitting: string;
+    contractChanged: string;
   };
   status: {
     heading: string; // uses {tier}
@@ -50,6 +50,7 @@ interface ApplyCopy {
     processing: string;
     success: string;
     error: string;
+    retry: string;
     backToContract: string;
   };
   payFail: {
@@ -77,8 +78,6 @@ export const content: Record<Locale, ApplyCopy> = {
       heading: "Gói {tier}",
       partnerLabel: "Đối tác",
       contractHeading: "Nội dung hợp đồng",
-      contractText:
-        "Hợp đồng này liên quan đến việc đăng ký gói quảng cáo {tier} theo kỳ hạn đã chọn. Việc đồng ý dưới đây đồng nghĩa với việc bạn chấp nhận Điều khoản dịch vụ và Chính sách đăng quảng cáo của Saigon Rider.",
       periodHeading: "Chọn kỳ hạn",
       periodUnavailable: "Chưa có giá",
       agreeLabel: "Tôi đồng ý với nội dung trên",
@@ -86,6 +85,7 @@ export const content: Record<Locale, ApplyCopy> = {
       namePlaceholder: "Nhập họ tên đầy đủ",
       submit: "Xác nhận đồng ý",
       submitting: "Đang xử lý...",
+      contractChanged: "Nội dung hợp đồng đã được cập nhật. Vui lòng đọc lại và xác nhận.",
     },
     status: {
       heading: "Gói {tier}",
@@ -120,6 +120,7 @@ export const content: Record<Locale, ApplyCopy> = {
       processing: "Đang xác nhận thanh toán...",
       success: "Thanh toán thành công. Quảng cáo của bạn sẽ sớm được kích hoạt.",
       error: "Không thể xác nhận thanh toán. Vui lòng liên hệ đội ngũ Saigon Rider.",
+      retry: "Thử xác nhận lại",
       backToContract: "Quay lại trang hợp đồng",
     },
     payFail: {
@@ -145,8 +146,6 @@ export const content: Record<Locale, ApplyCopy> = {
       heading: "{tier} 상품",
       partnerLabel: "파트너사",
       contractHeading: "계약 내용",
-      contractText:
-        "본 계약은 {tier} 광고 상품의 선택한 기간 게재에 관한 것으로, 아래 동의는 사이공라이더 서비스 이용약관 및 광고 게재 정책에 동의함을 의미합니다.",
       periodHeading: "기간 선택",
       periodUnavailable: "가격 미정",
       agreeLabel: "위 내용에 동의합니다",
@@ -154,6 +153,7 @@ export const content: Record<Locale, ApplyCopy> = {
       namePlaceholder: "이름을 입력해주세요",
       submit: "동의하고 제출",
       submitting: "처리 중...",
+      contractChanged: "계약 내용이 갱신되었습니다. 다시 확인하고 동의해주세요.",
     },
     status: {
       heading: "{tier} 상품",
@@ -188,6 +188,7 @@ export const content: Record<Locale, ApplyCopy> = {
       processing: "결제를 확인하는 중입니다...",
       success: "결제가 완료되었습니다. 곧 광고가 게재됩니다.",
       error: "결제 확인에 실패했습니다. 사이공라이더 팀에 문의해주세요.",
+      retry: "결제 확인 다시 시도",
       backToContract: "계약 페이지로 돌아가기",
     },
     payFail: {
@@ -213,8 +214,6 @@ export const content: Record<Locale, ApplyCopy> = {
       heading: "{tier} Plan",
       partnerLabel: "Partner",
       contractHeading: "Contract Terms",
-      contractText:
-        "This contract concerns the {tier} advertising plan for the selected period. Agreeing below means you accept Saigon Rider's Terms of Service and Ad Posting Policy.",
       periodHeading: "Choose a period",
       periodUnavailable: "Price not set",
       agreeLabel: "I agree to the terms above",
@@ -222,6 +221,7 @@ export const content: Record<Locale, ApplyCopy> = {
       namePlaceholder: "Enter your full name",
       submit: "Agree & Submit",
       submitting: "Submitting...",
+      contractChanged: "The contract terms were updated. Please review and agree again.",
     },
     status: {
       heading: "{tier} Plan",
@@ -256,6 +256,7 @@ export const content: Record<Locale, ApplyCopy> = {
       processing: "Confirming your payment...",
       success: "Payment complete. Your ad will go live shortly.",
       error: "Could not confirm the payment. Please contact the Saigon Rider team.",
+      retry: "Retry confirmation",
       backToContract: "Back to contract page",
     },
     payFail: {

@@ -8,6 +8,7 @@ import {
   fetchAdContract,
   acceptAdContract,
   AdContractNotFoundError,
+  AdContractVersionChangedError,
   type AdContractInfo,
   type RailOffer,
 } from "@/lib/adContractApi";
@@ -192,6 +193,7 @@ function ApplyPage() {
   const [months, setMonths] = useState<1 | 3 | 6>(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+  const [contractChanged, setContractChanged] = useState(false);
 
   const t = content[locale];
 
@@ -204,8 +206,9 @@ function ApplyPage() {
       setState({ kind: "invalid" });
       return;
     }
+    setState({ kind: "loading" });
     let cancelled = false;
-    fetchAdContract(token)
+    fetchAdContract(token, locale)
       .then((contract) => {
         if (cancelled) return;
         setState({ kind: "loaded", contract });
@@ -217,11 +220,7 @@ function ApplyPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
-
-  const tierName = state.kind === "loaded" ? state.contract.tier_name : "";
-
-  const contractText = useMemo(() => formatCopy(t.form.contractText, { tier: tierName }), [t, tierName]);
+  }, [token, locale]);
 
   const periodOptions = useMemo(() => {
     if (state.kind !== "loaded") return [];
@@ -234,14 +233,35 @@ function ApplyPage() {
   }, [state]);
 
   async function handleSubmit() {
-    if (state.kind !== "loaded" || !agreed || !signerName.trim() || submitting) return;
+    if (
+      state.kind !== "loaded"
+      || state.contract.contract_locale !== locale
+      || !agreed
+      || !signerName.trim()
+      || submitting
+    ) return;
     setSubmitting(true);
     setSubmitError(false);
     try {
-      const contract = await acceptAdContract(token, months, signerName.trim());
+      const contract = await acceptAdContract(token, months, signerName.trim(), locale, {
+        version: state.contract.contract_text_version,
+        sha256: state.contract.contract_text_sha256,
+        amountVnd: state.contract.tier_price_options[`month_${months}_vnd`],
+        amountKrw: state.contract.tier_price_options[`month_${months}_krw`],
+      });
       setState({ kind: "loaded", contract });
-    } catch {
-      setSubmitError(true);
+    } catch (error) {
+      if (error instanceof AdContractVersionChangedError) {
+        setAgreed(false);
+        setContractChanged(true);
+        try {
+          setState({ kind: "loaded", contract: await fetchAdContract(token, locale) });
+        } catch {
+          setSubmitError(true);
+        }
+      } else {
+        setSubmitError(true);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -252,7 +272,12 @@ function ApplyPage() {
       <div className="sa-shell">
         <div className="sa-header">
           <span className="sa-brand"><span className="sr-mark"><span /></span>{t.brand}</span>
-          <LanguageSwitcher current={locale} onChange={setLocale} />
+          <LanguageSwitcher current={locale} onChange={(nextLocale) => {
+            setAgreed(false);
+            setContractChanged(false);
+            setState({ kind: "loading" });
+            setLocale(nextLocale);
+          }} />
         </div>
 
         <div className="sa-card">
@@ -311,7 +336,7 @@ function ApplyPage() {
 
               <div className="sa-contract">
                 <h3>{t.form.contractHeading}</h3>
-                <p>{contractText}</p>
+                <p>{state.contract.contract_text}</p>
               </div>
 
               <div className="sa-agree">
@@ -338,13 +363,14 @@ function ApplyPage() {
               <button
                 type="button"
                 className="sr-button sa-submit"
-                disabled={!agreed || !signerName.trim() || submitting}
+                disabled={!agreed || !signerName.trim() || submitting || state.contract.contract_locale !== locale}
                 onClick={handleSubmit}
               >
                 {submitting ? t.form.submitting : t.form.submit} <ArrowRight size={17} />
               </button>
 
               {submitError && <p className="sa-error">{t.error}</p>}
+              {contractChanged && <p className="sa-error">{t.form.contractChanged}</p>}
             </div>
           )}
 
@@ -370,6 +396,11 @@ function ApplyPage() {
                     <span>{t.status.amountLabel}</span>
                     <span className="sa-summary__price">{formatVnd(state.contract.amount_vnd)}</span>
                   </div>
+                </div>
+
+                <div className="sa-contract">
+                  <h3>{t.form.contractHeading}</h3>
+                  <p>{state.contract.contract_text}</p>
                 </div>
 
                 {state.contract.period_start && state.contract.period_end && (

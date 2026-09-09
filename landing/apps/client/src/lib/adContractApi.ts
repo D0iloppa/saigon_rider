@@ -58,6 +58,9 @@ export interface TierPriceOptions {
   month_1_vnd: number;
   month_3_vnd: number | null;
   month_6_vnd: number | null;
+  month_1_krw: number | null;
+  month_3_krw: number | null;
+  month_6_krw: number | null;
 }
 
 export interface AdContractInfo {
@@ -75,6 +78,8 @@ export interface AdContractInfo {
   period_end: string | null;
   contract_text: string;
   contract_text_version: string;
+  contract_locale: "vi" | "ko" | "en";
+  contract_text_sha256: string;
   tier_price_options: TierPriceOptions;
   snapshot: Record<string, unknown> | null;
 }
@@ -85,6 +90,7 @@ export interface CheckoutConfirmResult {
 }
 
 export class AdContractNotFoundError extends Error {}
+export class AdContractVersionChangedError extends Error {}
 export class AdContractRequestError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -102,17 +108,23 @@ async function throwForResponse(response: Response, fallbackMessage: string): Pr
     throw new AdContractNotFoundError("Ad contract not found");
   }
   let detail = fallbackMessage;
+  let body: any = null;
   try {
-    const body = await response.json();
-    if (typeof body?.detail === "string") detail = body.detail;
+    body = await response.json();
   } catch {
     // ignore — non-JSON error body
   }
+  if (body?.detail?.error === "contract_version_changed") {
+    throw new AdContractVersionChangedError("Contract text changed");
+  }
+  if (typeof body?.detail === "string") detail = body.detail;
   throw new AdContractRequestError(response.status, detail);
 }
 
-export async function fetchAdContract(token: string): Promise<AdContractInfo> {
-  const response = await fetch(contractUrl(token));
+export async function fetchAdContract(token: string, locale: "vi" | "ko" | "en" = "vi"): Promise<AdContractInfo> {
+  const url = new URL(contractUrl(token));
+  url.searchParams.set("locale", locale);
+  const response = await fetch(url);
   if (!response.ok) {
     await throwForResponse(response, `Ad contract fetch failed: ${response.status}`);
   }
@@ -122,12 +134,23 @@ export async function fetchAdContract(token: string): Promise<AdContractInfo> {
 export async function acceptAdContract(
   token: string,
   months: 1 | 3 | 6,
-  signerName: string
+  signerName: string,
+  locale: "vi" | "ko" | "en" = "vi",
+  presented?: { version: string; sha256: string; amountVnd: number | null; amountKrw: number | null }
 ): Promise<AdContractInfo> {
   const response = await fetch(`${contractUrl(token)}/accept`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ months, signer_name: signerName }),
+    body: JSON.stringify({
+      months,
+      signer_name: signerName,
+      locale,
+      presented_text_version: presented?.version,
+      presented_text_sha256: presented?.sha256,
+      presented_quote: presented !== undefined,
+      presented_amount_vnd: presented?.amountVnd,
+      presented_amount_krw: presented?.amountKrw,
+    }),
   });
   if (!response.ok) {
     await throwForResponse(response, `Ad contract accept failed: ${response.status}`);

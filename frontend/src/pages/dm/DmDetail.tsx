@@ -2276,7 +2276,9 @@ export default function DmDetail() {
           <div
             className={`${styles.messageActionSnapshot} ${actionMsg.senderId === myId ? styles.messageActionSnapshotMine : styles.messageActionSnapshotTheirs}`}
             aria-hidden="true"
-            inert=""
+            ref={(node) => {
+              node?.setAttribute('inert', '');
+            }}
             style={{
               top: actionAnchor.top,
               left: actionAnchor.left,

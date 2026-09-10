@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -189,7 +189,11 @@ export default function DmDetail() {
     right: number;
     bottom: number;
     left: number;
+    width: number;
+    height: number;
   } | null>(null);
+  const actionPanelRef = useRef<HTMLDivElement>(null);
+  const [actionPanelHeight, setActionPanelHeight] = useState(0);
   const actionMsg = useMemo(
     () => (actionMsgId ? messages.find((m) => m.id === actionMsgId) ?? null : null),
     [messages, actionMsgId],
@@ -872,9 +876,21 @@ export default function DmDetail() {
       pressTimerRef.current = null;
     }
   };
+  const closeMessageActions = () => {
+    cancelPress();
+    setActionMsgId(null);
+    setActionAnchor(null);
+  };
   const openMessageActions = (m: DmMessage, target: HTMLElement) => {
     const rect = target.getBoundingClientRect();
-    setActionAnchor({ top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left });
+    setActionAnchor({
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    });
     setActionMsgId(m.id);
   };
   const startPress = (m: DmMessage, target: HTMLElement) => {
@@ -884,7 +900,7 @@ export default function DmDetail() {
       openMessageActions(m, target);
     }, 450);
   };
-  // 텍스트/이미지 버블에만 액션을 건다 — 약속/제안/시스템 카드는 전용 플로우가 있다
+  // 텍스트/삭제/이미지/스티커 메시지에만 액션을 건다 — 약속/제안/시스템 카드는 전용 플로우가 있다
   const pressHandlers = (m: DmMessage) => ({
     onTouchStart: (e: React.TouchEvent<HTMLElement>) => startPress(m, e.currentTarget),
     onTouchEnd: cancelPress,
@@ -894,7 +910,14 @@ export default function DmDetail() {
 
   useEffect(() => {
     if (!actionMsgId) return;
-    const close = () => setActionMsgId(null);
+    const close = () => {
+      if (pressTimerRef.current !== null) {
+        window.clearTimeout(pressTimerRef.current);
+        pressTimerRef.current = null;
+      }
+      setActionMsgId(null);
+      setActionAnchor(null);
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };
@@ -906,9 +929,20 @@ export default function DmDetail() {
     };
   }, [actionMsgId]);
 
+  // 실제 메뉴 높이를 먼저 읽어야 화면 하단의 말풍선에서도 메뉴가 원본 바로 위에 붙는다.
+  // useLayoutEffect라 첫 프레임을 그리기 전에 앵커 위치를 바로잡는다.
+  useLayoutEffect(() => {
+    if (!actionMsgId || !actionPanelRef.current) {
+      setActionPanelHeight(0);
+      return;
+    }
+    const nextHeight = actionPanelRef.current.getBoundingClientRect().height;
+    setActionPanelHeight((current) => current === nextHeight ? current : nextHeight);
+  }, [actionMsgId, actionAnchor, actionMsg]);
+
   const handleToggleReaction = async (m: DmMessage, emoji: string) => {
     if (!conversationId) return;
-    setActionMsgId(null);
+    closeMessageActions();
     const mine = m.reactions.some((r) => r.emoji === emoji && r.reactedByMe);
     try {
       const reactions = mine
@@ -924,7 +958,7 @@ export default function DmDetail() {
 
   const handleDeleteMsg = async (m: DmMessage) => {
     if (!conversationId) return;
-    setActionMsgId(null);
+    closeMessageActions();
     try {
       await deleteMessage(conversationId, m.id);
       skipAutoScrollRef.current = true;
@@ -938,7 +972,7 @@ export default function DmDetail() {
   };
 
   const handleStartEdit = (m: DmMessage) => {
-    setActionMsgId(null);
+    closeMessageActions();
     setEditingId(m.id);
     setEditText(m.content ?? '');
   };
@@ -1097,7 +1131,7 @@ export default function DmDetail() {
 
   const handleSetNotice = async (m: DmMessage) => {
     if (!conversationId) return;
-    setActionMsgId(null);
+    closeMessageActions();
     try {
       setConv(await setConversationNotice(conversationId, m.id));
       toast.success(t('dm.noticeSetDone', { defaultValue: '공지로 등록했어요' }));
@@ -1200,22 +1234,99 @@ export default function DmDetail() {
       </button>
     ) : null;
 
+  // WebView 합성 레이어에서는 원본 행을 DOM 복제로 포털에 옮기면 행의 paint surface까지 따라와
+  // 말풍선 주위가 사각형으로 밝아질 수 있다. 선택 상태는 데이터로 다시 그려 버블/이미지 실루엣만 올린다.
+  const renderMessageActionSnapshot = () => {
+    if (!actionMsg) return null;
+    const isMine = actionMsg.senderId === myId;
+    const snapshotReactions = actionMsg.reactions.length > 0 ? (
+      <div className={styles.reactionRow}>
+        {actionMsg.reactions.map((reaction) => (
+          <span
+            key={reaction.emoji}
+            className={`${styles.reactionChip} ${reaction.reactedByMe ? styles.reactionChipMine : ''}`}
+          >
+            {reaction.emoji} {reaction.count}
+          </span>
+        ))}
+      </div>
+    ) : null;
+
+    if (actionMsg.deletedAt) {
+      return (
+        <div className={`${styles.messageActionBubble} ${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+          <div className={styles.deletedText}>{t('dm.deletedMessage', { defaultValue: '삭제된 메시지입니다' })}</div>
+        </div>
+      );
+    }
+
+    if (actionMsg.messageType === 'sticker') {
+      const sticker = findSticker(actionMsg.meta?.stickerId);
+      return sticker ? (
+        <div className={styles.messageActionSticker}>
+          <AppImage src={sticker.uri} alt="" className={styles.stickerImg} priority />
+        </div>
+      ) : (
+        <div className={`${styles.messageActionBubble} ${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+          <div className={styles.text}>[sticker]</div>
+        </div>
+      );
+    }
+
+    if (actionMsg.imageUrl && !actionMsg.content) {
+      return (
+        <div className={styles.messageActionImage}>
+          <AppImage src={actionMsg.imageUrl} alt="" className={styles.msgImg} priority />
+          {snapshotReactions}
+        </div>
+      );
+    }
+
+    return (
+      <div className={`${styles.messageActionBubble} ${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+        {actionMsg.replyPreview && (
+          <div className={styles.replyQuote}>
+            <span className={styles.replyQuoteName}>{actionMsg.replyPreview.senderNickname ?? ''}</span>
+            <span className={styles.replyQuoteText}>
+              {actionMsg.replyPreview.content ?? t('dm.photoMessage', { defaultValue: '사진' })}
+            </span>
+          </div>
+        )}
+        {actionMsg.content && <div className={styles.text}>{actionMsg.content}</div>}
+        {actionMsg.imageUrl && <AppImage src={actionMsg.imageUrl} alt="" className={styles.msgImg} priority />}
+        {actionMsg.content && trOpen[actionMsg.id] && tr[actionMsg.id] && (
+          <div className={styles.translated}>{tr[actionMsg.id]}</div>
+        )}
+        {snapshotReactions}
+      </div>
+    );
+  };
+
   const actionPanelStyle: React.CSSProperties | undefined = actionAnchor && actionMsg
     ? (() => {
         const panelWidth = Math.min(312, window.innerWidth - 24);
-        const estimatedHeight = 300;
+        const panelHeight = actionPanelHeight || 300;
+        const edge = 12;
+        const gap = 8;
         const left = Math.max(12, Math.min(
           actionMsg.senderId === myId ? actionAnchor.right - panelWidth : actionAnchor.left,
           window.innerWidth - panelWidth - 12,
         ));
-        const below = actionAnchor.bottom + 10;
-        const top = below + estimatedHeight <= window.innerHeight - 12
-          ? below
-          : Math.max(12, actionAnchor.top - estimatedHeight - 10);
-        return { left, top, width: panelWidth };
+        const above = actionAnchor.top - gap - panelHeight;
+        const below = actionAnchor.bottom + gap;
+        if (above >= edge) return { left, top: above, width: panelWidth };
+        if (below + panelHeight <= window.innerHeight - edge) return { left, top: below, width: panelWidth };
+
+        // 두 방향 모두 전체 메뉴가 들어가지 않는 작은 viewport에서는 공간이 큰 쪽만
+        // 메뉴에 할당한다. 메뉴 내부만 스크롤되어 선택 버블을 덮지 않는다.
+        const aboveSpace = Math.max(0, actionAnchor.top - gap - edge);
+        const belowSpace = Math.max(0, window.innerHeight - edge - below);
+        if (aboveSpace >= belowSpace) {
+          return { left, top: actionAnchor.top - gap - aboveSpace, width: panelWidth, maxHeight: aboveSpace };
+        }
+        return { left, top: below, width: panelWidth, maxHeight: belowSpace };
       })()
     : undefined;
-
   return (
     <div className={styles.page}>
       <TopBar
@@ -1352,7 +1463,7 @@ export default function DmDetail() {
         onClick={() => composerRef.current?.close()}
         onScroll={(e) => {
           const el = e.currentTarget;
-          if (actionMsgId) setActionMsgId(null);
+          if (actionMsgId) closeMessageActions();
           pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
           // 최상단 근접 — 과거분(offset 페이지) 추가 적재
           if (el.scrollTop < 60 && !loading) void loadOlder();
@@ -1659,7 +1770,7 @@ export default function DmDetail() {
                   {renderDirectAvatar(m, prevMsg)}
                   <div className={styles.messageLine}>
                     {isMine && renderMessageMeta(m, isMine, nextMsg)}
-                    <div data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+                    <div data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`} {...pressHandlers(m)}>
                       <div className={styles.deletedText}>{t('dm.deletedMessage', { defaultValue: '삭제된 메시지입니다' })}</div>
                     </div>
                     {!isMine && renderMessageMeta(m, isMine, nextMsg)}
@@ -1678,7 +1789,11 @@ export default function DmDetail() {
                 {renderDirectAvatar(m, prevMsg)}
                 <div className={styles.messageLine}>
                   {isMine && renderMessageMeta(m, isMine, nextMsg)}
-                  <div className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}>
+                  <div
+                    data-mid={m.id}
+                    className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}
+                    {...pressHandlers(m)}
+                  >
                     {st ? (
                       <img
                         src={st.uri}
@@ -2155,10 +2270,23 @@ export default function DmDetail() {
           <button
             type="button"
             className={styles.messageActionBackdrop}
-            onClick={() => setActionMsgId(null)}
+            onClick={closeMessageActions}
             aria-label={t('dm.closeMessageActions', { defaultValue: '메시지 메뉴 닫기' })}
           />
-          <div className={styles.messageActionPanel} style={actionPanelStyle}>
+          <div
+            className={`${styles.messageActionSnapshot} ${actionMsg.senderId === myId ? styles.messageActionSnapshotMine : styles.messageActionSnapshotTheirs}`}
+            aria-hidden="true"
+            inert=""
+            style={{
+              top: actionAnchor.top,
+              left: actionAnchor.left,
+              width: actionAnchor.width,
+              height: actionAnchor.height,
+            }}
+          >
+            {renderMessageActionSnapshot()}
+          </div>
+          <div ref={actionPanelRef} className={styles.messageActionPanel} style={actionPanelStyle}>
             <div
               className={styles.reactionPalette}
               role="group"
@@ -2183,7 +2311,7 @@ export default function DmDetail() {
             <button
               className={styles.messageActionItem}
               type="button"
-              onClick={() => { setReplyTo(actionMsg); setActionMsgId(null); }}
+              onClick={() => { setReplyTo(actionMsg); closeMessageActions(); }}
             >
               <Reply size={18} />
               {t('dm.replyAction', { defaultValue: '답장' })}
@@ -2214,7 +2342,7 @@ export default function DmDetail() {
               <button
                 className={styles.messageActionItem}
                 type="button"
-                onClick={() => { setMessageReportId(actionMsg.id); setActionMsgId(null); }}
+                onClick={() => { setMessageReportId(actionMsg.id); closeMessageActions(); }}
               >
                 <Flag size={18} />
                 {t('dm.messageReportAction', { defaultValue: '신고' })}

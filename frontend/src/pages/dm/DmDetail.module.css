@@ -962,7 +962,7 @@
   color: var(--brand-500);
 }
 
-/* 롱프레스 메시지 액션 — 화면은 은은하게 tint하고 액션만 앵커 근처에 띄운다. */
+/* 롱프레스 메시지 액션 — 원본은 전체 backdrop 아래에 남기고, 선택 메시지만 데이터로 다시 그린다. */
 .messageActionOverlay {
   position: fixed;
   inset: 0;
@@ -970,16 +970,54 @@
 }
 
 .messageActionBackdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 60;
+  padding: 0;
+  border: 0;
+  background: rgba(20, 23, 31, .48);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.messageActionSnapshot {
+  position: fixed;
+  z-index: 61;
+  display: flex;
+  align-items: flex-start;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+}
+.messageActionSnapshotMine { justify-content: flex-end; }
+.messageActionSnapshotTheirs { justify-content: flex-start; }
+
+/* 포털 루트는 항상 투명하다. 실제 표면은 아래의 버블/이미지 실루엣에만 둔다. */
+.messageActionBubble {
+  width: fit-content;
+  min-height: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.messageActionImage,
+.messageActionSticker {
   width: 100%;
   height: 100%;
-  background: rgba(20, 23, 31, .38);
+}
+
+.messageActionImage .msgImg,
+.messageActionSticker .stickerImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
 }
 
 .messageActionPanel {
   position: fixed;
-  z-index: 1;
+  z-index: 62;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -988,6 +1026,7 @@
 }
 
 .reactionPalette {
+  flex: 0 0 auto;
   display: flex;
   overflow: hidden;
   padding: 7px 8px;
@@ -1011,6 +1050,8 @@
 .paletteBtnActive { background: var(--brand-50, rgba(255,90,31,.08)); }
 
 .messageActionMenu {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 16px;

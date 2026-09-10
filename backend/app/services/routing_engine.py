@@ -22,7 +22,9 @@ import httpx
 log = logging.getLogger(__name__)
 
 _ENGINE_TIMEOUT_SEC = 5.0
-_COSTING = "motorcycle"  # 실측으로 결정됨 (ai-docs/context/routing-engine.md §3-D)
+RouteCosting = Literal["motorcycle", "auto", "pedestrian"]
+
+_COSTING: RouteCosting = "motorcycle"  # 위치 채널 ETA의 고정 오토바이 costing
 
 _engine_client: httpx.AsyncClient | None = None
 
@@ -42,7 +44,12 @@ async def close_engine_client() -> None:
 
 
 async def fetch_trip(
-    engine_url: str, origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float
+    engine_url: str,
+    origin_lat: float,
+    origin_lng: float,
+    dest_lat: float,
+    dest_lng: float,
+    costing: RouteCosting = "motorcycle",
 ) -> dict | None:
     """Valhalla `/route` 를 호출해 `trip` 객체를 반환한다.
 
@@ -57,7 +64,7 @@ async def fetch_trip(
                     {"lat": origin_lat, "lon": origin_lng},
                     {"lat": dest_lat, "lon": dest_lng},
                 ],
-                "costing": _COSTING,
+                "costing": costing,
                 "units": "kilometers",
             },
         )

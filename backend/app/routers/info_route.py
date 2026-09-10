@@ -85,9 +85,17 @@ class RouteStep(BaseModel):
     maneuver: str | None = None
 
 
+RouteMode = Literal["motorcycle", "car", "walking"]
+_ROUTE_MODE_TO_COSTING: dict[RouteMode, routing_engine.RouteCosting] = {
+    "motorcycle": "motorcycle",
+    "car": "auto",
+    "walking": "pedestrian",
+}
+
+
 class RouteOut(BaseModel):
     configured: bool
-    route_mode: Literal["two_wheeler"] = "two_wheeler"
+    route_mode: RouteMode = "motorcycle"
     distance_m: int | None = None
     duration_s: int | None = None
     distance_text: str | None = None
@@ -96,8 +104,10 @@ class RouteOut(BaseModel):
     steps: list[RouteStep] = Field(default_factory=list)
 
 
-def _cache_key(origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float, lang: str) -> str:
-    return f"saigon:route:v2:{lang}:{origin_lat:.3f}:{origin_lng:.3f}:{dest_lat:.5f}:{dest_lng:.5f}"
+def _cache_key(
+    origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float, lang: str, route_mode: RouteMode
+) -> str:
+    return f"saigon:route:v3:{route_mode}:{lang}:{origin_lat:.3f}:{origin_lng:.3f}:{dest_lat:.5f}:{dest_lng:.5f}"
 
 
 async def _enforce_rate_limit(user_id: uuid.UUID) -> None:
@@ -198,14 +208,15 @@ async def get_route(
     dest_lng: Longitude,
     user_id: uuid.UUID = Depends(verify_user_session),
     lang: Literal["ko", "en", "vi"] = "vi",
+    mode: RouteMode = "motorcycle",
 ):
-    """현재 위치에서 목적지까지 오토바이 경로 미리보기를 반환한다."""
+    """현재 위치에서 목적지까지 선택한 이동 mode의 경로 미리보기를 반환한다."""
     api_key = _get_api_key()
     engine_url = os.getenv("ROUTING_ENGINE_URL", "").strip()
     if not api_key and not engine_url:
-        return RouteOut(configured=False)
+        return RouteOut(configured=False, route_mode=mode)
 
-    key = _cache_key(origin_lat, origin_lng, dest_lat, dest_lng, lang)
+    key = _cache_key(origin_lat, origin_lng, dest_lat, dest_lng, lang, mode)
     cached = await _get_cached_route(key)
     if cached is not None:
         return cached
@@ -214,15 +225,17 @@ async def get_route(
 
     result: RouteOut | None = None
     if engine_url:
-        trip = await routing_engine.fetch_trip(engine_url, origin_lat, origin_lng, dest_lat, dest_lng)
+        trip = await routing_engine.fetch_trip(
+            engine_url, origin_lat, origin_lng, dest_lat, dest_lng, _ROUTE_MODE_TO_COSTING[mode]
+        )
         payload = routing_engine.build_route_out_payload(trip, lang) if trip is not None else None
-        result = RouteOut(**payload) if payload is not None else None
+        result = RouteOut(**payload, route_mode=mode) if payload is not None else None
 
     if result is None:
         # ── TEMP(2026-08-07, 대표 지시): 자체 엔진 검증 기간 동안 Google 폴백을 차단한다.
         # 폴백이 살아 있으면 엔진 실패를 Google 이 조용히 받아버려 검증이 무의미해진다.
         # **검증 완료 후 아래 3줄 주석을 해제하고 return 을 제거할 것.**
-        return RouteOut(configured=False)
+        return RouteOut(configured=False, route_mode=mode)
         # if not api_key:
         #     return RouteOut(configured=False)
         # data = await _fetch_directions(origin_lat, origin_lng, dest_lat, dest_lng, api_key, lang)

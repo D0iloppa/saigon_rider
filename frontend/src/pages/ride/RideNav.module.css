@@ -118,6 +118,54 @@
   line-height: 1.4;
 }
 
+.routeModeSelector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 16px 10px;
+}
+
+.routeModeButton {
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line, #E8E3DA);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--text-2, #4A4F62);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.routeModeButton[aria-checked='true'] {
+  border-color: var(--brand, #FF5A1F);
+  background: var(--brand-50, #FFF1E8);
+  color: var(--brand-700, #C2410C);
+}
+
+.routeModeButton:disabled { opacity: .55; }
+
+.routePreviewButton {
+  width: calc(100% - 32px);
+  margin: 0 16px;
+  padding: 13px 15px;
+  border: none;
+  border-radius: 16px;
+  background: var(--brand, #FF5A1F);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.routingUnavailable {
+  margin: 0 16px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: var(--surface-2, #FAF7F2);
+  color: var(--text-2, #5B6072);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* ── 라스트마일 나침반 칩 (nav) ── */
 .compassChip {
   position: absolute;

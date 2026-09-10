@@ -25,6 +25,7 @@ import {
   requestAppointmentCompletion,
   declineAppointmentCompletion,
   cancelAppointment,
+  fetchAppointmentNavigation,
   proposePriceOffer,
   acceptPriceOffer,
   declinePriceOffer,
@@ -45,6 +46,7 @@ import {
 } from '@/api/dm';
 import { loadCachedMessages, saveCachedMessages } from '@/lib/dmCache';
 import type { Appointment, PriceOffer } from '@/api/types';
+import type { AppointmentNavigationDestination } from '@/api/dm';
 import { native } from '@/lib/native';
 import type { DealStatusKind } from '@/lib/plugins/liveActivity';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
@@ -103,7 +105,7 @@ export default function DmDetail() {
   const navigate = useNavigate();
   const { conversationId } = useParams<{ conversationId: string }>();
   // 길안내 버튼 제어용 — 스토어가 이미 끝낸 측위 결과를 읽기만 한다(새로 측정하지 않는다).
-  const { available: routeAvailable, reason: routeGateReason } = useServiceAvailability();
+  const { available: routeAvailable, reason: routeGateReason, checking: routeChecking } = useServiceAvailability();
   const location = useLocation();
   const locationState = location.state as { conv?: DmConversation; openReport?: boolean } | null;
   // B-4: 음성메시지 알림 탭 딥링크(/dm/:id?voice=1&mid=<messageId>) — 음성메시지는 이제 채팅
@@ -115,6 +117,13 @@ export default function DmDetail() {
   const session = loadSession();
 
   const [messages, setMessages] = useState<DmMessage[]>([]);
+  const [appointmentNavigation, setAppointmentNavigation] = useState<Record<string, {
+    status: 'loading' | 'ready' | 'error';
+    destination?: AppointmentNavigationDestination;
+    errorCode?: string | null;
+  }>>({});
+  const navigationRequestedRef = useRef(new Set<string>());
+  const acceptedNavigationIdsRef = useRef(new Set<string>());
   // 폴링 tick 이 최신 messages 를 읽되, 그 변화가 폴링 interval 자체를 재시작시키지는 않게 한다 —
   // 안 그러면 로컬 전송/공감/수정마다 5초 타이머가 리셋돼 상대방 신규 메시지 수신이 계속 미뤄진다.
   const messagesRef = useRef(messages);
@@ -654,6 +663,57 @@ export default function DmDetail() {
   }, [messages]);
   const currentAppointmentId = currentAppointment?.id ?? null;
 
+  const requestAppointmentNavigation = useCallback((appointmentId: string) => {
+    if (navigationRequestedRef.current.has(appointmentId)) return;
+    navigationRequestedRef.current.add(appointmentId);
+    setAppointmentNavigation((previous) => ({
+      ...previous,
+      [appointmentId]: { status: 'loading' },
+    }));
+    void fetchAppointmentNavigation(appointmentId)
+      .then((destination) => {
+        if (!acceptedNavigationIdsRef.current.has(appointmentId)) return;
+        setAppointmentNavigation((previous) => ({
+          ...previous,
+          [appointmentId]: { status: 'ready', destination },
+        }));
+      })
+      .catch((error) => {
+        if (!acceptedNavigationIdsRef.current.has(appointmentId)) return;
+        setAppointmentNavigation((previous) => ({
+          ...previous,
+          [appointmentId]: { status: 'error', errorCode: extractErrorCode(error) },
+        }));
+      });
+  }, []);
+
+  const retryAppointmentNavigation = (appointmentId: string) => {
+    navigationRequestedRef.current.delete(appointmentId);
+    requestAppointmentNavigation(appointmentId);
+  };
+
+  // 카드를 받은 approximate 좌표를 경로에 쓰지 않는다. ACCEPTED 약속만 전용 권한 경계에서
+  // 다시 확인하고, exact 성공 좌표는 이 화면의 메모리에만 둔다.
+  useEffect(() => {
+    const acceptedIds = messages
+      .filter((message) => message.appointment?.status === 'ACCEPTED')
+      .map((message) => message.appointment!.id);
+    const accepted = new Set(acceptedIds);
+    acceptedNavigationIdsRef.current = accepted;
+    const start = window.setTimeout(() => {
+      for (const appointmentId of navigationRequestedRef.current) {
+        if (!accepted.has(appointmentId)) navigationRequestedRef.current.delete(appointmentId);
+      }
+      setAppointmentNavigation((previous) =>
+        Object.fromEntries(Object.entries(previous).filter(([appointmentId]) => accepted.has(appointmentId))),
+      );
+      for (const appointmentId of acceptedIds) {
+        requestAppointmentNavigation(appointmentId);
+      }
+    }, 0);
+    return () => window.clearTimeout(start);
+  }, [messages, requestAppointmentNavigation]);
+
   // ── Live Activity(거래) — SoT ai-docs/task/active/260829_live_activity_task.md Phase 2 (D-3) ──
   // ACCEPTED & 약속 T-30분~T+60분 창에서 잠금화면 카드를 띄우고, 완료/취소가 보이면 마지막 모습으로 2분 뒤 소멸.
   // 창 진입을 대화방을 연 채로 기다리는 경우를 위해 1분마다 재평가한다. 카드 유무는 네이티브가 upsert 로
@@ -836,16 +896,14 @@ export default function DmDetail() {
     }
   };
 
-  // 약속 길안내. **버튼 자체를 제어한다** — 대표 지시 2026-08-13 11:44 ("화면 데이터 로딩될 때
-  // 백으로 측정해서 버튼을 제어해야지"). 종전 주석("항상 진입, HCMC 밖이면 RideNav 가 구글맵
-  // 전환")은 현행과 맞지 않았다: RideNav 는 구글맵으로 자동 전환하지 않는다.
-  const handleNavigate = (lat: number, lng: number) => {
-    // disabled 로 두면 조용히 아무 일도 안 일어나 오류로 보인다(대표 지적 2026-08-13) —
-    // aria-disabled 로 잠근 티만 내고 탭은 받아 사유를 알린다. 토스트는 기존 것 재사용.
-    if (!routeAvailable) {
-      toast.neutral(routeGateReason ? t(`locationGate.${routeGateReason}.title`) : t('locationGate.checking', '위치를 확인하고 있어요'));
-      return;
-    }
+  const handleNavigate = (destination: AppointmentNavigationDestination) => {
+    if (!routeAvailable) return;
+    navigate(`/ride-nav?type=nav&lat=${destination.placeLat}&lng=${destination.placeLng}`);
+  };
+
+  // 현재위치 미리보기는 약속 카드와 별도 기능이다. 약속 목적지에는 이 경로를 쓰지 않는다.
+  const handlePinPreviewNavigate = (lat: number, lng: number) => {
+    if (!routeAvailable) return;
     navigate(`/ride-nav?type=nav&lat=${lat}&lng=${lng}`);
   };
 
@@ -1257,7 +1315,26 @@ export default function DmDetail() {
               CANCELLED: t('dm.apptCancelled', { defaultValue: '취소됨' }),
             };
             const hasCoords = lat != null && lng != null;
-            const showNav = hasCoords && status !== 'CANCELLED';
+            const navState = appt ? appointmentNavigation[appt.id] : undefined;
+            const showNav = status === 'ACCEPTED' && navState?.status === 'ready' && !!navState.destination;
+            const canRetryNavigation = status === 'ACCEPTED'
+              && navState?.status === 'error'
+              && navState.errorCode === 'appointment_navigation_destination_not_exact';
+            const navInlineReason = status === 'ACCEPTED'
+              ? routeChecking
+                ? t('locationGate.checking', '위치를 확인하고 있어요')
+                : !routeAvailable
+                  ? routeGateReason
+                    ? t(`locationGate.${routeGateReason}.title`)
+                    : t('locationGate.checking', '위치를 확인하고 있어요')
+                  : navState?.status === 'loading'
+                    ? t('dm.apptNavigationChecking', { defaultValue: '약속 장소를 확인하고 있어요.' })
+                    : navState?.status === 'error'
+                      ? navState.errorCode === 'appointment_navigation_destination_not_exact'
+                        ? t('dm.apptNavigationNotExact', { defaultValue: '정확한 약속 장소는 약속 시간에 가까워지면 확인할 수 있어요.' })
+                        : t('dm.apptNavigationUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })
+                      : null
+              : null;
             const isSeller = !!appt?.sellerId && appt.sellerId === myId;
             const canAccept = !!appt && status === 'PROPOSED' && !iAmProposer;
             const canComplete = !!appt && status === 'ACCEPTED' && isSeller;
@@ -1366,12 +1443,19 @@ export default function DmDetail() {
                     )}
                   </div>
                 )}
+                {navInlineReason && <p className={styles.apptNavigationNote} role="status">{navInlineReason}</p>}
+                {canRetryNavigation && (
+                  <button className={styles.apptNavigationRetry} type="button"
+                    onClick={() => retryAppointmentNavigation(appt!.id)}>
+                    {t('dm.apptNavigationRetry', { defaultValue: '정확한 장소 다시 확인' })}
+                  </button>
+                )}
                 {(showNav || canCancel) && (
                   <div className={styles.apptSecondaryActions}>
                     {showNav && (
                       <button className={styles.apptBtnGhost} type="button"
                         aria-disabled={!routeAvailable}
-                        onClick={() => handleNavigate(lat!, lng!)}>
+                        onClick={() => handleNavigate(navState.destination!)}>
                         {t('dm.navigate', { defaultValue: '길안내' })}
                       </button>
                     )}
@@ -1921,7 +2005,7 @@ export default function DmDetail() {
               />
             </div>
             <div className={styles.apptSubmit}>
-              <Button onClick={() => handleNavigate(pinPreview.lat, pinPreview.lng)}>
+              <Button onClick={() => handlePinPreviewNavigate(pinPreview.lat, pinPreview.lng)}>
                 {t('dm.navigate', { defaultValue: '길안내' })}
               </Button>
             </div>

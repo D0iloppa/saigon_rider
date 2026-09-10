@@ -588,10 +588,12 @@ export interface RouteStep {
   maneuver?: string | null;
 }
 
+export type RouteMode = 'motorcycle' | 'car' | 'walking';
+
 export interface RouteData {
-  /** GOOGLE_MAPS_API_KEY 미설정/호출 실패 시 false → 프론트는 "준비 중" 폴백. */
+  /** 라우팅 엔진 미설정/호출 실패 시 false → 프론트는 "준비 중" 폴백. */
   configured: boolean;
-  route_mode: 'two_wheeler';
+  route_mode: RouteMode;
   distance_m?: number | null;
   duration_s?: number | null;
   distance_text?: string | null;
@@ -606,6 +608,7 @@ export const routeApi = {
     origin: { lat: number; lng: number },
     dest: { lat: number; lng: number },
     locale: string,
+    mode: RouteMode = 'motorcycle',
   ): Promise<RouteData | null> {
     const language = locale.split('-')[0];
     const params = new URLSearchParams({
@@ -614,6 +617,7 @@ export const routeApi = {
       dest_lat: String(dest.lat),
       dest_lng: String(dest.lng),
       lang: ['ko', 'en', 'vi'].includes(language) ? language : 'vi',
+      mode,
     });
     return api.realFetch<RouteData>(`/info/route?${params}`, {}, 'bff', { silent: true });
   },

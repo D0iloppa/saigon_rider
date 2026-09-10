@@ -51,7 +51,7 @@ class RoutesApiTest(unittest.IsolatedAsyncioTestCase):
         route = info_route._to_route_out(ROUTES_RESPONSE)
 
         self.assertTrue(route.configured)
-        self.assertEqual(route.route_mode, "two_wheeler")
+        self.assertEqual(route.route_mode, "motorcycle")
         self.assertEqual(route.distance_m, 2450)
         self.assertEqual(route.duration_s, 601)
         self.assertEqual(route.distance_text, "2.5 km")

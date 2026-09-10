@@ -409,6 +409,53 @@ export async function cancelAppointment(appointmentId: string): Promise<Appointm
   return transformAppointment(await api.realFetch<any>(`/market/appointments/${appointmentId}/cancel`, { method: 'PATCH' }));
 }
 
+export interface AppointmentNavigationDestination {
+  appointmentId: string;
+  placeName: string | null;
+  placeLat: number;
+  placeLng: number;
+  precision: 'exact';
+}
+
+function invalidAppointmentNavigationDestination(): never {
+  throw new Error('appointment_navigation_destination_invalid');
+}
+
+function transformAppointmentNavigationDestination(raw: unknown): AppointmentNavigationDestination {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) invalidAppointmentNavigationDestination();
+  const data = raw as Record<string, unknown>;
+  const lat = data.place_lat;
+  const lng = data.place_lng;
+  if (
+    data.precision !== 'exact'
+    || typeof data.appointment_id !== 'string'
+    || typeof lat !== 'number'
+    || !Number.isFinite(lat)
+    || lat < -90
+    || lat > 90
+    || typeof lng !== 'number'
+    || !Number.isFinite(lng)
+    || lng < -180
+    || lng > 180
+  ) invalidAppointmentNavigationDestination();
+  return {
+    appointmentId: data.appointment_id,
+    placeName: typeof data.place_name === 'string' ? data.place_name : null,
+    placeLat: lat,
+    placeLng: lng,
+    precision: 'exact',
+  };
+}
+
+/** 약속의 원 좌표는 이 권한 경계의 exact 성공 응답으로만 받는다. */
+export async function fetchAppointmentNavigation(appointmentId: string): Promise<AppointmentNavigationDestination> {
+  // 예상된 409/403은 기술 토스트 없이 호출부의 인라인 상태로만 표시한다.
+  const raw = await api.realFetch<unknown>(
+    `/market/appointments/${appointmentId}/navigation`, {}, 'bff', { rethrow: true },
+  );
+  return transformAppointmentNavigationDestination(raw);
+}
+
 export async function fetchMarketplaceTransaction(appointmentId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(`/market/appointments/${appointmentId}/transaction`));
 }

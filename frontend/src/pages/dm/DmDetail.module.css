@@ -392,6 +392,27 @@
   color: var(--text-3);
 }
 
+/* 정확 목적지/현재 위치 게이트는 약속 카드 안에서만 설명한다. */
+.apptNavigationNote {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.apptNavigationRetry {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--brand-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* 실시간위치 전용 행 — 카드 폭 꽉 채우는 단독 버튼 */
 .apptLiveLocationRow {
   display: flex;

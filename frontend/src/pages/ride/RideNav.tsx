@@ -19,7 +19,7 @@ import MapControls, { type MapControlsHandle } from '@/components/ride/MapContro
 import Speedometer from '@/components/ride/Speedometer';
 import QuestProgressChip from '@/components/ride/QuestProgressChip';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
-import { routeApi, type RouteData } from '@/api/info';
+import { routeApi, type RouteData, type RouteMode } from '@/api/info';
 import { fetchQuest, abandonRide as apiAbandonRide, fetchRideTrail, type TrailPoint } from '@/api/quests';
 // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 dev 판정 — BizManage.tsx 패턴 복제.
 // 실기기 검증 완료 후 제거 대상 (2026-08-07).
@@ -30,6 +30,12 @@ import { calculateRewards } from '@/lib/rewards';
 import styles from './RideNav.module.css';
 
 type Coords = { lat: number; lng: number };
+
+const ROUTE_MODES: RouteMode[] = ['motorcycle', 'car', 'walking'];
+
+function routeModeFromParam(value: string | null): RouteMode {
+  return ROUTE_MODES.includes(value as RouteMode) ? value as RouteMode : 'motorcycle';
+}
 
 // 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
 const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
@@ -137,6 +143,8 @@ export default function RideNav() {
   const [loading, setLoading] = useState(false);
   const [routeRequested, setRouteRequested] = useState(false);
   const [locationError, setLocationError] = useState<LocationGateReason | null>(null);
+  const [routingUnavailable, setRoutingUnavailable] = useState(false);
+  const [routeMode, setRouteMode] = useState<RouteMode>(() => routeModeFromParam(params.get('routeMode')));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [guidanceStarted, setGuidanceStarted] = useState(isQuest); // quest 는 진입 즉시 추적
 
@@ -325,7 +333,7 @@ export default function RideNav() {
   const rerouteFrom = async (pos: Coords) => {
     if (!dest) return;
     const locale = i18n.resolvedLanguage ?? i18n.language;
-    const data = await routeApi.getRoute(pos, dest, locale).catch(() => null);
+    const data = await routeApi.getRoute(pos, dest, locale, routeMode).catch(() => null);
     if (!data?.configured) {
       setOffRoute(true);
       return;
@@ -399,6 +407,7 @@ export default function RideNav() {
     if (type !== 'nav' || !dest) return;
     setRouteRequested(true);
     setLocationError(null);
+    setRoutingUnavailable(false);
     setLoading(true);
     // DEV_DONGTAN_PIN: is_dev 는 devRaw 가 붙었을 때만 확정한다(is_dev AND devRaw 이중 게이트) —
     // devRaw 가 없는 절대다수 경로는 이 await 자체가 없어 기존 타이밍 그대로다. fail-closed(조회
@@ -439,9 +448,9 @@ export default function RideNav() {
     // DEV_DONGTAN_PIN: 자체 호스팅 라우팅 엔진 전환 + 경기도 타일 추가로 한국 좌표도 실제 경로
     // API 를 탈 수 있게 됐다 — devBypass 여부와 무관하게 항상 routeApi.getRoute() 를 호출한다.
     // 실기기 검증 완료 후 이 분기 제거 대상 표기를 지울 것 (2026-08-07).
-    const data = await routeApi.getRoute(routeOrigin, dest, locale).catch(() => null);
+    const data = await routeApi.getRoute(routeOrigin, dest, locale, routeMode).catch(() => null);
     if (!data?.configured) {
-      setDialogOpen(true);
+      setRoutingUnavailable(true);
       setLoading(false);
       return;
     }
@@ -459,13 +468,13 @@ export default function RideNav() {
     sheetRef.current?.collapse(); // 핀(중앙)이 시트에 가리지 않도록 시트 내림
   };
 
-  // nav: 진입 시 경로만 자동 탐색해 개요를 보여준다. 안내(카메라·GPS)는 사용자가 시작 버튼을
-  // 탭할 때 시작 — 이전에는 탐색과 안내가 한 함수라 진입 즉시 guidanceStarted 가 켜지면서
-  // 시작 버튼이 렌더될 프레임이 없었고, 카메라 연출도 경로 갱신 fitBounds 에 덮여 사라졌다.
-  useEffect(() => {
-    if (type === 'nav' && dest && !routeRequested) fetchRoute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, dest]);
+  const selectRouteMode = (nextMode: RouteMode) => {
+    if (nextMode === routeMode) return;
+    setRouteMode(nextMode);
+    setRoute(null);
+    setRouteRequested(false);
+    setRoutingUnavailable(false);
+  };
 
   const openGoogleMaps = () => {
     if (!hasDest) return;
@@ -493,8 +502,7 @@ export default function RideNav() {
   const gateBlocked = type === 'nav' && !!locationError;
   // keyMissing 은 "경로 API 키 미설정"이라는 별개 사유다 — 게이트 차단을 여기에 섞으면
   // 지도까지 꺼져 전체화면 안내로 빠진다(그게 위 지시를 받은 원인).
-  const keyMissing = type === 'nav' && routeRequested && !loading && !gateBlocked && !route?.configured;
-  const showMap = isQuest || (!!dest && !keyMissing);
+  const showMap = isQuest || !!dest;
 
   // 퀘스트 진행 표시 — 모두 서버(useRideStore 폴링)값.
   const checkpointDistM = isQuest && mode === 'checkpoint' ? ride.distanceToTargetM : null;
@@ -699,11 +707,35 @@ export default function RideNav() {
               </div>
             ) : type === 'nav' ? (
               <>
-                <div className={styles.twoWheelerWarning}>
-                  {t('rideNav.twoWheelerWarning', '오토바이 경로는 베타 기능이며 실제 도로 규제와 다를 수 있습니다.')}
+                <div className={styles.routeModeSelector} role="radiogroup" aria-label={t('rideNav.routeModeLabel', '이동수단')}>
+                  {ROUTE_MODES.map((candidate) => (
+                    <button
+                      key={candidate}
+                      className={styles.routeModeButton}
+                      type="button"
+                      role="radio"
+                      aria-checked={routeMode === candidate}
+                      disabled={guidanceStarted}
+                      onClick={() => selectRouteMode(candidate)}
+                    >
+                      {t(`rideNav.routeMode.${candidate}`)}
+                    </button>
+                  ))}
                 </div>
-                <div className={styles.steps}>
-                  {route && route.steps.length > 0 ? (
+                <div className={styles.twoWheelerWarning}>
+                  {routeMode === 'motorcycle' && t('rideNav.twoWheelerWarning', '오토바이 경로는 베타 기능이며 실제 도로 규제와 다를 수 있습니다.')}
+                </div>
+                {routingUnavailable ? (
+                  <div className={styles.routingUnavailable} role="status">
+                    {t('rideNav.routingUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })}
+                  </div>
+                ) : !routeRequested ? (
+                  <button className={styles.routePreviewButton} type="button" onClick={fetchRoute}>
+                    {t('rideNav.findRoute', '경로 찾기')}
+                  </button>
+                ) : (
+                  <div className={styles.steps}>
+                    {route && route.steps.length > 0 ? (
                     route.steps.map((s, i) => {
                       const last = i === route.steps.length - 1;
                       return (
@@ -718,15 +750,16 @@ export default function RideNav() {
                         </div>
                       );
                     })
-                  ) : (
+                    ) : (
                     <div className={styles.stepRow}>
                       <div className={styles.stepIcon}><Hourglass size={18} strokeWidth={2.2} aria-hidden="true" /></div>
                       <div className={styles.stepBody}>
                         <div className={styles.stepInstr}>{t('rideNav.loading', '경로 계산 중…')}</div>
                       </div>
                     </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
                 <button className={styles.handoffBtn} onClick={openGoogleMaps}>
                   <span className={styles.gIcon}><GoogleGIcon /></span>
                   {t('rideNav.openGoogleMaps', 'Google 지도로 이동')}

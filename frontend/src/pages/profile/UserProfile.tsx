@@ -28,7 +28,7 @@ import { formatNumber, formatRelativeTime } from '@/lib/format';
 import type { FeedPost, UserProfile as UserProfileData } from '@/api/types';
 import sys from '@/styles/system.module.css';
 import styles from './UserProfile.module.css';
-import ListingCard from '../market/ListingCard';
+import ProfileListingCard from './ProfileListingCard';
 
 const PAGE_SIZE = 10;
 
@@ -351,7 +351,7 @@ export default function UserProfile() {
               <StateBlock icon={ShoppingBag} title={t('userProfile.marketEmpty')} />
             ) : (
               <div className={styles.marketGrid}>
-                {listings.map((listing) => <ListingCard key={listing.id} listing={listing} onClick={() => navigate(`/market/${listing.id}`)} />)}
+                {listings.map((listing) => <ProfileListingCard key={listing.id} listing={listing} onClick={() => navigate(`/market/${listing.id}`)} />)}
               </div>
             )}
 

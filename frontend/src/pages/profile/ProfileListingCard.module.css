@@ -1,0 +1,113 @@
+/* 프로필 "판매 중인 매물" 2열 세로 카드.
+ * 표면(테두리·라운드 16·surface)·바디 패딩은 같은 페이지의 UserProfile .feedCard/.feedBody 와
+ * 동일하게 맞춘다 — 매물 그리드와 게시물 그리드가 한 체계로 보여야 한다.
+ * 공용 market/ListingCard(1열 행, 128px 썸네일)와 달리 gap 있는 그리드 안의 '카드'다. */
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+  transition: transform .12s ease;
+}
+.card:active { transform: scale(.98); }
+
+/* 정방형 썸네일 — 컬럼 폭을 그대로 따라간다(고정 px 없음) */
+.thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.statusTag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 11px 12px;
+}
+
+/* 제목은 보통 굵기 — 굵은 가격과의 위계 대비 (ListingCard 관례). 2줄 클램프 + 긴 단어 강제 줄바꿈 */
+.title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.meta {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 가격 — 좁은 컬럼이라 배지가 있으면 줄바꿈을 허용하고, 숫자 자체는 넘치지 않게 강제 줄바꿈 */
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.price > .num { min-width: 0; overflow-wrap: anywhere; }
+
+.dropBadge {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.likes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.likeItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}

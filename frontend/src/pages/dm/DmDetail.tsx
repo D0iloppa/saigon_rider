@@ -283,11 +283,17 @@ export default function DmDetail() {
   // B-4: 음성메시지 알림 딥링크(?voice=1) 진입은 위 3가지와 별개인 4번째 명시적 액션이다 — 사용자가
   // 알림을 탭한 것 자체가 "이 채널에 참여하겠다"는 의사표시. 음성메시지 자체는 이미 채팅 이력
   // 폴링(voiceItems)으로 영구 버블에 렌더되므로, 여기선 PTT 답장을 위해 캡슐만 활성화한다.
+  // 이 알림 탭은 화면 진입 시점의 1회성 의사표시일 뿐, 계속 유효한 지시가 아니다 — 캡슐 X(채널
+  // 이탈, 2026-09-10)로 walkieActiveConversationId 가 null 이 돼도 재발동하면 X 가 무력화되므로,
+  // 이 대화방 진입당 1회만 실행하고(voiceJoinedForRef) 이후 스토어 변화는 무시한다(deps 에서도 제외).
+  const voiceJoinedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!voiceDeepLink || !conversationId) return;
-    if (walkieActiveConversationId === conversationId) return;
+    if (voiceJoinedForRef.current === conversationId) return;
+    voiceJoinedForRef.current = conversationId;
     setActiveWalkieConversation(conversationId, { name: isDirect ? otherName : roomTitle, isGroup: !isDirect });
-  }, [voiceDeepLink, conversationId, walkieActiveConversationId, setActiveWalkieConversation, isDirect, otherName, roomTitle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceDeepLink, conversationId]);
 
   useEffect(() => {
     if (!conversationId) return;

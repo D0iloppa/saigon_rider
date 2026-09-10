@@ -67,7 +67,7 @@ test('walkie bubble additionally requires authenticated state, not a stale persi
   const bubble = read('../../components/dm/WalkieTalkieFloatingButton.tsx');
 
   assert.match(bubble, /const isAuthenticated = useUserStore\(\(s\) => s\.isAuthenticated\);/);
-  const active = bubble.match(/const bubbleActive =[\s\S]*?\n\s*!closed;/);
+  const active = bubble.match(/const bubbleActive =[\s\S]*?\n\s*!isWalkieTalkieOptedOut\(\);/);
   assert.ok(active, 'walkie visibility condition is missing');
   assert.match(active[0], /isAuthenticated &&/, 'logout must hide the bubble even if persisted user hydration is stale');
   assert.match(active[0], /!!user &&/, 'a user object remains required for normal authenticated use');

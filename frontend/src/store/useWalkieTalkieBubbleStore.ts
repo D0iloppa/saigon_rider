@@ -11,10 +11,12 @@ import { native } from '@/lib/native';
  * 추가 지시(2026-08-27): 대화방 입장만으로 자동 참여하지 않는다 — 헤더메뉴 "워키토키" 탭 /
  * 초대카드 "참여하기" / 캡슐 컨텍스트메뉴 "채널 변경" 3가지 명시적 액션에서만 활성화된다.
  *
- * 추가 지시(2026-08-27): 앱을 완전히 종료(force-quit)했다가 다시 열어도 버블이 즉시
- * 다시 뜨도록 `activeConversationId`/`activeConversationMeta`만 persist(localStorage)한다.
- * `closed`는 persist 대상에서 제외 — 매 재기동마다 닫혀있던 상태까지 기억할 필요는 없다
- * (재기동 시 버블은 기본적으로 다시 나타나는 게 이번 요구사항의 의도).
+ * 대표 지시(2026-08-27) — **2026-09-10 대표 지시로 번복.** 당시엔 `activeConversationId`/
+ * `activeConversationMeta`만 persist(localStorage)하고 앱을 완전히 종료(force-quit)했다가
+ * 다시 열면 버블이 즉시 다시 뜨는 것을 의도된 동작으로 규정했다. 그런데 X 로 캡슐을 닫아도
+ * 재기동 시 그대로 다시 나타나는 게 오작동으로 보고돼, X 의 의미를 "버블 숨김"이 아니라
+ * "채널에서 나가기"로 바꿨다 — `close()` 가 persist 대상인 `activeConversationId`/
+ * `activeConversationMeta`를 직접 비워, 재기동해도 되살아날 대상 자체가 없다.
  * `phase`(녹음 진행 상태)는 애초에 이 스토어가 아니라 컴포넌트 로컬 state — 네이티브
  * 녹음은 앱 프로세스가 죽으면 함께 종료되므로 복원 대상이 아니다.
  */
@@ -29,20 +31,26 @@ interface WalkieTalkieBubbleState {
   activeConversationId: string | null;
   /** 현재 대상 대화의 채널명/그룹여부 — 없으면(아직 미조회) null. */
   activeConversationMeta: WalkieTalkieConversationMeta | null;
-  /** 사용자가 X버튼으로 닫았는지. */
-  closed: boolean;
   /**
    * 워키토키 참여(대표 지시 2026-08-27: 헤더메뉴 "워키토키" 탭 / 초대카드 "참여하기" / 캡슐
-   * 컨텍스트메뉴 "채널 변경" 3가지 명시적 액션에서만 호출) — 매번 closed 를 리셋해 버블을 띄운다.
+   * 컨텍스트메뉴 "채널 변경" 3가지 명시적 액션에서만 호출).
    */
   setActiveConversation: (id: string, meta?: WalkieTalkieConversationMeta) => void;
+  /**
+   * X버튼 — "채널에서 나가기"(2026-09-10 대표 지시로 확정. 이전엔 캡슐만 숨기고 대상 대화는
+   * 유지했으나, 그 결과 재기동 시 캡슐이 되살아나는 게 오작동으로 지적돼 번복). persist 대상인
+   * activeConversationId/activeConversationMeta 를 직접 비워 재기동해도 되살아날 대상이 없게
+   * 하고, Android 채널 바로가기 위젯의 활성 채널도 같이 해제한다. 재참여는 3가지 명시적 활성화
+   * 경로(setActiveConversation)로만 가능 — 여기선 새 진입로를 만들지 않는다.
+   */
   close: () => void;
-  /** 진입 아이콘 재탭(활성 대화 있음) 시 닫혀 있던 캡슐을 다시 띄운다. 대상 대화는 그대로 유지. */
-  open: () => void;
   /**
    * 로그아웃 시 전체 초기화 — persist 된 activeConversationId/activeConversationMeta 를 지운다.
-   * close() 는 "사용자가 버블만 닫음"(비영속, 대상 대화는 유지)이라 의미가 다르다 — 로그아웃 후에도
-   * 대상 대화가 남아있으면 다음 사용자(같은 기기 재로그인 등)에게 이전 계정의 워키토키 버블이 그대로 뜬다.
+   * close() 와 상태 결과는 같다(둘 다 대상 대화를 비우고 Android 위젯도 해제) — 로그아웃 후에도
+   * 대상 대화나 위젯이 남아있으면 다음 사용자(같은 기기 재로그인 등)에게 이전 계정의 워키토키
+   * 버블/위젯이 그대로 뜬다. 위젯 SharedPreferences 는 `MyFirebaseMessagingService.maybeAutoPlay`
+   * 의 백그라운드 자동재생 게이트이기도 해서, 해제하지 않으면 로그아웃 후에도 이전 계정 채널의
+   * 음성 푸시가 조용히 자동재생될 수 있다.
    */
   reset: () => void;
   /**
@@ -66,15 +74,22 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
     (set) => ({
       activeConversationId: null,
       activeConversationMeta: null,
-      closed: false,
       setActiveConversation: (id, meta) => {
-        set({ activeConversationId: id, activeConversationMeta: meta ?? null, closed: false });
+        set({ activeConversationId: id, activeConversationMeta: meta ?? null });
         // 채널 바로가기 위젯(Android) 갱신 — 실패해도 앱 동작에 영향 없음.
         native.walkieTalkie.syncActiveChannel({ channelId: id, channelName: meta?.name ?? '' }).catch(() => {});
       },
-      close: () => set({ closed: true }),
-      open: () => set({ closed: false }),
-      reset: () => set({ activeConversationId: null, activeConversationMeta: null, closed: false }),
+      close: () => {
+        set({ activeConversationId: null, activeConversationMeta: null });
+        // 채널 바로가기 위젯(Android) 활성 채널 해제 — 실패해도 앱 동작에 영향 없음.
+        native.walkieTalkie.syncActiveChannel({ channelId: '', channelName: '' }).catch(() => {});
+      },
+      reset: () => {
+        set({ activeConversationId: null, activeConversationMeta: null });
+        // 로그아웃 — close() 와 동일하게 위젯 활성 채널도 해제한다(다음 사용자에게 이전 계정
+        // 채널이 남지 않도록, 백그라운드 자동재생 게이트이기도 하다).
+        native.walkieTalkie.syncActiveChannel({ channelId: '', channelName: '' }).catch(() => {});
+      },
       attentionPing: 0,
       ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
       recording: false,

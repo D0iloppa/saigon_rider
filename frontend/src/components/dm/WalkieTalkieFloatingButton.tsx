@@ -38,8 +38,10 @@ const BUBBLE_Z_ID = 'walkie';
  * 다이나믹 아일랜드 스타일 단일 캡슐(pill) UI — 상태에 따라 compact ↔ expanded 모핑.
  * 드래그 자유 배치(스냅 없음, 화면 경계 클램프만) + 녹음 중 상태(경과시간·레벨) 표시.
  *
- * 앱 전역 컴포넌트(App.tsx 마운트) — 대상 대화(`activeConversationId`)와 닫힘 상태(`closed`)는
+ * 앱 전역 컴포넌트(App.tsx 마운트) — 대상 대화(`activeConversationId`)는
  * `useWalkieTalkieBubbleStore` 에서 읽는다(대표 지시 2026-08-27: DM 화면을 떠나도 유지).
+ * X버튼은 캡슐만 숨기지 않고 대상 대화 자체를 비운다(2026-09-10 대표 지시) — `bubbleActive` 는
+ * `conversationId` 유무 하나로만 판정한다.
  * 전송된 메시지를 대화방 화면에 즉시 반영하는 콜백은 없다 — 대화방이 열려있지 않을 때 보낸
  * 메시지는 그 화면의 다음 폴링 tick에 자연스럽게 반영된다.
  */
@@ -51,7 +53,6 @@ export function WalkieTalkieFloatingButton() {
   const session = loadSession();
   const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
   const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
-  const closed = useWalkieTalkieBubbleStore((s) => s.closed);
   const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
   const setActiveConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
   const topId = useFloatingBubbleZOrderStore((s) => s.topId);
@@ -188,8 +189,7 @@ export function WalkieTalkieFloatingButton() {
     !!conversationId &&
     !!capability?.available &&
     !!capability.floatingButton &&
-    !isWalkieTalkieOptedOut() &&
-    !closed;
+    !isWalkieTalkieOptedOut();
 
   // 앱 미실행 중 녹음된 음성 전송 (Android 헤드리스 — 오버레이 버블·홈 위젯).
   // 네이티브는 파일만 남기고 업로드는 못 한다. 이 드레인이 없으면 백그라운드 녹음이 큐에
@@ -455,7 +455,7 @@ export function WalkieTalkieFloatingButton() {
       prevWidthRef.current = null;
     };
     // 캡슐 DOM 존재 여부가 바뀔 때(대화 진입/닫기/기능 가용) 옵저버를 다시 건다.
-  }, [conversationId, closed, capability]);
+  }, [conversationId, capability]);
 
   const resetToIdle = useCallback(() => {
     pendingResultRef.current = null;

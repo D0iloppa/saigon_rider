@@ -1418,8 +1418,24 @@ class AppointmentProposeRequest(BaseModel):
     # naive datetime 은 서버 OS 타임존에 따라 해석이 달라지므로 tz-aware 만 허용 (DM-1)
     when_at: AwareDatetime
     place_name: str | None = None
-    place_lat: float | None = None
-    place_lng: float | None = None
+    place_lat: float | None = Field(default=None, ge=-90, le=90)
+    place_lng: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def validate_place_coordinate_pair(self):
+        if (self.place_lat is None) != (self.place_lng is None):
+            raise ValueError("place_lat and place_lng must be provided together")
+        return self
+
+
+class AppointmentNavigationOut(BaseModel):
+    """An exact, participant-authorized destination for one appointment only."""
+
+    appointment_id: UUID
+    place_name: str | None = None
+    place_lat: float
+    place_lng: float
+    precision: Literal["exact"] = "exact"
 
 
 class MarketplaceTransactionOut(BaseModel):

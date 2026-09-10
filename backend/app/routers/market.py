@@ -41,6 +41,7 @@ from ..modules.ads import AdsApplication
 from ..modules.ads.application import AdRead, AdsError
 from ..schemas import (
     AdEventsIngestRequest,
+    AppointmentNavigationOut,
     AppointmentOut,
     AppointmentProposeRequest,
     BlockedUserOut,
@@ -1875,6 +1876,63 @@ async def _load_appointment(
     ):
         raise HTTPException(status_code=403, detail="Invalid conversation context")
     return appt, conv, listing
+
+
+def _navigation_destination(a: MarketplaceAppointment) -> tuple[float, float]:
+    """Return only a complete, globally valid stored destination pair."""
+    if a.place_lat is None or a.place_lng is None:
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_destination_missing"})
+    try:
+        place_lat = float(a.place_lat)
+        place_lng = float(a.place_lng)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_destination_invalid"}) from None
+    if not (-90 <= place_lat <= 90 and -180 <= place_lng <= 180):
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_destination_invalid"})
+    return place_lat, place_lng
+
+
+@router.get(
+    "/appointments/{appointment_id}/navigation",
+    response_model=AppointmentNavigationOut,
+    summary="수락된 약속의 정확한 길안내 목적지",
+)
+async def get_appointment_navigation_destination(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """Disclose exact coordinates only to a participant of an eligible appointment."""
+    appt = await db.get(MarketplaceAppointment, appointment_id)
+    if appt is None:
+        raise HTTPException(status_code=404, detail={"code": "appointment_not_found"})
+    conv = await db.get(DmConversation, appt.conversation_id)
+    if conv is None or session_uid not in (conv.participant_1, conv.participant_2):
+        raise HTTPException(status_code=403, detail={"code": "appointment_navigation_not_participant"})
+    counterpart_id = require_participant(conv, session_uid)
+    try:
+        await require_unblocked(db, session_uid, counterpart_id)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            raise HTTPException(status_code=403, detail={"code": "appointment_navigation_blocked"}) from None
+        raise
+
+    if appt.status == "CANCELLED":
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_cancelled"})
+    if appt.status == "COMPLETED":
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_completed"})
+    if appt.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_not_accepted"})
+
+    place_lat, place_lng = _navigation_destination(appt)
+    if resolve_precision_level(appt, datetime.now(UTC)) != "exact":
+        raise HTTPException(status_code=409, detail={"code": "appointment_navigation_destination_not_exact"})
+    return AppointmentNavigationOut(
+        appointment_id=appt.id,
+        place_name=appt.place_name,
+        place_lat=place_lat,
+        place_lng=place_lng,
+    )
 
 
 async def _ensure_marketplace_transaction(

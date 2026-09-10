@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MailOpen, MoreVertical, UsersRound } from 'lucide-react';
+import { BellOff, MailOpen, Trash2, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { WalkieTalkieEntryButton } from '@/components/dm/WalkieTalkieEntryButton';
-import { fetchConversations, leaveConversation } from '@/api/dm';
+import { fetchConversations, leaveConversation, toggleMute } from '@/api/dm';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
 import { Avatar } from '@/components/ui/Avatar';
@@ -14,6 +14,9 @@ import { formatPriceVnd } from '../market/marketFormat';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { toast } from '@/components/ui/Toast';
 import styles from './DmList.module.css';
+
+const SWIPE_ACTION_WIDTH = 144;
+const SWIPE_OPEN_THRESHOLD = 48;
 
 export default function DmList() {
   const { t } = useTranslation();
@@ -47,6 +50,19 @@ export default function DmList() {
   const navigate = useNavigate();
   const refreshUnread = useDmStore((s) => s.refreshUnread);
   const [conversations, setConversations] = useState<DmConversation[]>([]);
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ id: string; x: number } | null>(null);
+  const [mutingId, setMutingId] = useState<string | null>(null);
+  const gestureRef = useRef<{
+    id: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startOffset: number;
+    currentOffset: number;
+    axis: 'pending' | 'horizontal' | 'vertical';
+  } | null>(null);
+  const suppressClickRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetchConversations().then((convs) => {
@@ -83,6 +99,78 @@ export default function DmList() {
     );
   };
 
+  const handleSwipeStart = (e: React.PointerEvent<HTMLDivElement>, id: string) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    gestureRef.current = {
+      id,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffset: openSwipeId === id ? -SWIPE_ACTION_WIDTH : 0,
+      currentOffset: openSwipeId === id ? -SWIPE_ACTION_WIDTH : 0,
+      axis: 'pending',
+    };
+  };
+
+  const handleSwipeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    const dx = e.clientX - gesture.startX;
+    const dy = e.clientY - gesture.startY;
+    if (gesture.axis === 'pending' && Math.max(Math.abs(dx), Math.abs(dy)) > 6) {
+      gesture.axis = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+      if (gesture.axis === 'horizontal') e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    if (gesture.axis !== 'horizontal') return;
+    e.preventDefault();
+    const x = Math.max(-SWIPE_ACTION_WIDTH, Math.min(0, gesture.startOffset + dx));
+    gesture.currentOffset = x;
+    setDragOffset({ id: gesture.id, x });
+  };
+
+  const finishSwipe = (e: React.PointerEvent<HTMLDivElement>) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    if (gesture.axis === 'horizontal') {
+      setOpenSwipeId(gesture.currentOffset <= -SWIPE_OPEN_THRESHOLD ? gesture.id : null);
+      suppressClickRef.current = gesture.id;
+      window.setTimeout(() => {
+        if (suppressClickRef.current === gesture.id) suppressClickRef.current = null;
+      }, 0);
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    gestureRef.current = null;
+    setDragOffset(null);
+  };
+
+  const openConversation = (c: DmConversation) => {
+    if (suppressClickRef.current === c.id) {
+      suppressClickRef.current = null;
+      return;
+    }
+    if (openSwipeId) {
+      setOpenSwipeId(null);
+      return;
+    }
+    navigate(`/dm/${c.id}`, { state: { conv: c } });
+  };
+
+  const handleMute = async (c: DmConversation) => {
+    if (mutingId) return;
+    setMutingId(c.id);
+    try {
+      const muted = await toggleMute(c.id);
+      toast.success(muted
+        ? t('dm.notificationsMuted', { defaultValue: '채팅 알림을 껐어요' })
+        : t('dm.notificationsUnmuted', { defaultValue: '채팅 알림을 켰어요' }));
+      setOpenSwipeId(null);
+    } catch {
+      toast.error(t('common.errorUnexpected'));
+    } finally {
+      setMutingId(null);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <TopBar
@@ -107,12 +195,54 @@ export default function DmList() {
           <StateBlock icon={MailOpen} title={t('dm.empty')} />
         ) : (
           <div className={styles.list}>
-            {conversations.map((c) => (
-              <div key={c.id} className={styles.row}>
-                <button
+            {conversations.map((c) => {
+              const swipeOpen = openSwipeId === c.id;
+              const offset = dragOffset?.id === c.id
+                ? dragOffset.x
+                : swipeOpen ? -SWIPE_ACTION_WIDTH : 0;
+              return (
+                <div key={c.id} className={styles.row}>
+                <div className={styles.rowActions} aria-hidden={!swipeOpen}>
+                  <button
+                    type="button"
+                    className={styles.muteAction}
+                    disabled={mutingId === c.id}
+                    tabIndex={swipeOpen ? 0 : -1}
+                    onClick={() => void handleMute(c)}
+                    aria-label={t('dm.notificationsAction', { defaultValue: '알림' })}
+                  >
+                    <BellOff size={22} strokeWidth={2} />
+                    <span>{t('dm.notificationsAction', { defaultValue: '알림' })}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.leaveAction}
+                    tabIndex={swipeOpen ? 0 : -1}
+                    onClick={() => { setOpenSwipeId(null); requestLeave(c); }}
+                    aria-label={t('dm.leaveConversationNamed', { name: rowName(c) })}
+                  >
+                    <Trash2 size={22} strokeWidth={2} />
+                    <span>{t('dm.leaveAction', { defaultValue: '나가기' })}</span>
+                  </button>
+                </div>
+                  <div
+                    className={styles.rowForeground}
+                    data-dragging={dragOffset?.id === c.id || undefined}
+                    style={{ transform: `translateX(${offset}px)` }}
+                    onPointerDown={(e) => handleSwipeStart(e, c.id)}
+                    onPointerMove={handleSwipeMove}
+                    onPointerUp={finishSwipe}
+                    onPointerCancel={finishSwipe}
+                  >
+                    <button
                   type="button"
                   className={styles.rowMain}
-                  onClick={() => navigate(`/dm/${c.id}`, { state: { conv: c } })}
+                  onClick={() => openConversation(c)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowLeft') setOpenSwipeId(c.id);
+                    if (e.key === 'ArrowRight') setOpenSwipeId(null);
+                  }}
+                  aria-expanded={swipeOpen}
                 >
                   <Avatar src={rowAvatar(c)} name={rowName(c)} seed={rowSeed(c)} size={48} />
                   <div className={styles.info}>
@@ -149,17 +279,11 @@ export default function DmList() {
                     )}
                   </div>
                   {c.unreadCount > 0 && <span className={styles.badge}>{c.unreadCount}</span>}
-                </button>
-                <button
-                  type="button"
-                  className={styles.rowMenu}
-                  onClick={() => requestLeave(c)}
-                  aria-label={t('dm.leaveConversationNamed', { name: rowName(c) })}
-                >
-                  <MoreVertical size={19} />
-                </button>
-              </div>
-            ))}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

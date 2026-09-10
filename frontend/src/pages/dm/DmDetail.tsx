@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, ChevronDown, CircleUserRound, CreditCard, HandCoins, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, Smile, ImagePlus, MoreVertical, Radio, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, Check, ChevronDown, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -62,7 +63,7 @@ import { walkieApi } from '@/lib/walkieSdk';
 import type { VoiceItem } from '@d-modules/walkie-talkie';
 import { VoiceMessageBubble } from '@/components/dm/VoiceMessageBubble';
 import { loadSession } from '@/lib/session';
-import { formatRelativeTime } from '@/lib/format';
+import { formatMessageDateSeparator, formatMessageTimestamp, formatRelativeTime } from '@/lib/format';
 import { playSound } from '@/lib/sound';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
@@ -81,6 +82,27 @@ import styles from './DmDetail.module.css';
 const PAGE_SIZE = 50;
 /** 그룹 발신자 표시를 묶는 창(카톡 관례) — 같은 사람이 이 안에서 연속 발화하면 한 번만 표시한다. */
 const SENDER_RUN_MS = 2 * 60 * 1000;
+
+function localDayKey(iso: string): string {
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function isRegularBubble(message: DmMessage): boolean {
+  return message.messageType === 'text' || message.messageType === 'sticker';
+}
+
+function isDateSeparatorMessage(message: DmMessage): boolean {
+  return isRegularBubble(message) || !!message.imageUrl || !!message.deletedAt;
+}
+
+function isSameSenderRun(previous: DmMessage | null, message: DmMessage | null): boolean {
+  if (!previous || !message || previous.senderId !== message.senderId) return false;
+  const elapsed = new Date(message.createdAt).getTime() - new Date(previous.createdAt).getTime();
+  return elapsed >= 0
+    && elapsed < SENDER_RUN_MS
+    && localDayKey(previous.createdAt) === localDayKey(message.createdAt);
+}
 
 /** id 기준 upsert 후 createdAt 오름차순 정렬 — 폴링/캐시/과거분 로드가 전부 이 하나로 합쳐진다. */
 function upsertMessages(prev: DmMessage[], incoming: DmMessage[]): DmMessage[] {
@@ -162,6 +184,12 @@ export default function DmDetail() {
   // 값 스냅샷이 아니라 id 만 들고 messages 에서 매번 파생한다 — 시트가 열려있는 동안
   // 백그라운드 폴링으로 메시지가 갱신돼도(공감 상태 등) 시트 내용이 따라간다.
   const [actionMsgId, setActionMsgId] = useState<string | null>(null);
+  const [actionAnchor, setActionAnchor] = useState<{
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  } | null>(null);
   const actionMsg = useMemo(
     () => (actionMsgId ? messages.find((m) => m.id === actionMsgId) ?? null : null),
     [messages, actionMsgId],
@@ -379,21 +407,48 @@ export default function DmDetail() {
     return [...dmRows, ...voiceRows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }, [messages, voiceItems]);
 
-  // 발신자 헤더 판정의 "직전 메시지" — 화면에 말풍선으로 보이는 직전 것이어야 한다.
-  // system 메시지(구분선·공지 등록 카드)는 말풍선이 아니라 건너뛴다. 음성 버블은 별도
-  // 렌더 경로라 연속 발화를 끊는 것으로 본다(종전 동작 유지).
-  const prevBubbleById = useMemo(() => {
-    const map = new Map<string, DmMessage | null>();
+  // 일반 말풍선의 앞뒤 이웃. 음성·시스템·거래 카드는 발신자 묶음을 끊는다.
+  const bubbleNeighborsById = useMemo(() => {
+    const map = new Map<string, { previous: DmMessage | null; next: DmMessage | null }>();
     let last: DmMessage | null = null;
     for (const row of feed) {
       if (row.kind !== 'dm') {
         last = null;
         continue;
       }
-      map.set(row.item.id, last);
-      if (row.item.messageType !== 'system') last = row.item;
+      if (!isRegularBubble(row.item)) {
+        last = null;
+        continue;
+      }
+      map.set(row.item.id, { previous: last, next: null });
+      last = row.item;
+    }
+    let next: DmMessage | null = null;
+    for (let index = feed.length - 1; index >= 0; index -= 1) {
+      const row = feed[index];
+      if (row.kind !== 'dm' || !isRegularBubble(row.item)) {
+        next = null;
+        continue;
+      }
+      const neighbors = map.get(row.item.id);
+      if (neighbors) neighbors.next = next;
+      next = row.item;
     }
     return map;
+  }, [feed]);
+
+  // 일반 말풍선의 로컬 날짜 경계. 카드/음성 메시지가 중간에 끼어도 같은 날짜의
+  // 두 번째 구분선을 만들지 않는다.
+  const dateSeparatorMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    let previousDay: string | null = null;
+    for (const row of feed) {
+      if (row.kind !== 'dm' || !isDateSeparatorMessage(row.item)) continue;
+      const day = localDayKey(row.item.createdAt);
+      if (day !== previousDay) ids.add(row.item.id);
+      previousDay = day;
+    }
+    return ids;
   }, [feed]);
 
   // 바닥 고정 여부 — 사용자가 위로 스크롤해 과거를 보는 중이면 false (자동 스크롤 중단)
@@ -817,20 +872,39 @@ export default function DmDetail() {
       pressTimerRef.current = null;
     }
   };
-  const startPress = (m: DmMessage) => {
+  const openMessageActions = (m: DmMessage, target: HTMLElement) => {
+    const rect = target.getBoundingClientRect();
+    setActionAnchor({ top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left });
+    setActionMsgId(m.id);
+  };
+  const startPress = (m: DmMessage, target: HTMLElement) => {
     cancelPress();
     pressTimerRef.current = window.setTimeout(() => {
       pressTimerRef.current = null;
-      setActionMsgId(m.id);
+      openMessageActions(m, target);
     }, 450);
   };
   // 텍스트/이미지 버블에만 액션을 건다 — 약속/제안/시스템 카드는 전용 플로우가 있다
   const pressHandlers = (m: DmMessage) => ({
-    onTouchStart: () => startPress(m),
+    onTouchStart: (e: React.TouchEvent<HTMLElement>) => startPress(m, e.currentTarget),
     onTouchEnd: cancelPress,
     onTouchMove: cancelPress,
-    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); setActionMsgId(m.id); },
+    onContextMenu: (e: React.MouseEvent<HTMLElement>) => { e.preventDefault(); openMessageActions(m, e.currentTarget); },
   });
+
+  useEffect(() => {
+    if (!actionMsgId) return;
+    const close = () => setActionMsgId(null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [actionMsgId]);
 
   const handleToggleReaction = async (m: DmMessage, emoji: string) => {
     if (!conversationId) return;
@@ -1059,17 +1133,48 @@ export default function DmDetail() {
       </div>
     ) : null;
 
-  // 그룹방 발신자 표시 — 카톡처럼 같은 사람이 2분 내 연속으로 말하면 첫 말풍선에만 붙인다.
-  // 1:1 방과 내 메시지에는 붙지 않는다(계약 테스트로 고정).
+  const renderDirectAvatar = (m: DmMessage, previous: DmMessage | null) => {
+    if (!isDirect || m.senderId === myId) return null;
+    const showAvatar = !isSameSenderRun(previous, m);
+    return (
+      <div className={styles.messageProfileSlot}>
+        {showAvatar && otherUserId && (
+          <button
+            type="button"
+            className={styles.messageProfileBtn}
+            onClick={() => navigate(`/profile/${otherUserId}`)}
+            aria-label={t('userProfile.openProfile')}
+          >
+            <Avatar src={otherAvatarUrl} name={otherName} seed={otherUserId} size={30} />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderMessageMeta = (m: DmMessage, isMine: boolean, next: DmMessage | null) => {
+    if (isSameSenderRun(m, next)) return null;
+    return (
+      <div className={styles.messageMeta}>
+        {m.editedAt && (
+          <span className={styles.editedTag}>{t('dm.edited', { defaultValue: '(수정됨)' })}</span>
+        )}
+        {formatMessageTimestamp(m.createdAt)}
+        {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
+      </div>
+    );
+  };
+
+  const renderDateSeparator = (m: DmMessage) => dateSeparatorMessageIds.has(m.id) ? (
+    <div className={styles.dateSeparator}>
+      <span>{formatMessageDateSeparator(m.createdAt)}</span>
+    </div>
+  ) : null;
+
+  // 그룹방 발신자 이름 — 같은 사람이 2분 내 연속으로 말하면 첫 말풍선에만 붙인다.
   const renderSender = (m: DmMessage, prev: DmMessage | null) => {
     if (isDirect || m.senderId === myId) return null;
-    if (
-      prev &&
-      prev.senderId === m.senderId &&
-      new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < SENDER_RUN_MS
-    ) {
-      return null;
-    }
+    if (isSameSenderRun(prev, m)) return null;
     // 나간 멤버는 멤버 목록에 없다 — 이름 대신 폴백 문구
     const senderName = memberNames[m.senderId] || t('dm.unknownMember', { defaultValue: '알 수 없음' });
     return (
@@ -1094,6 +1199,22 @@ export default function DmDetail() {
         </span>
       </button>
     ) : null;
+
+  const actionPanelStyle: React.CSSProperties | undefined = actionAnchor && actionMsg
+    ? (() => {
+        const panelWidth = Math.min(312, window.innerWidth - 24);
+        const estimatedHeight = 300;
+        const left = Math.max(12, Math.min(
+          actionMsg.senderId === myId ? actionAnchor.right - panelWidth : actionAnchor.left,
+          window.innerWidth - panelWidth - 12,
+        ));
+        const below = actionAnchor.bottom + 10;
+        const top = below + estimatedHeight <= window.innerHeight - 12
+          ? below
+          : Math.max(12, actionAnchor.top - estimatedHeight - 10);
+        return { left, top, width: panelWidth };
+      })()
+    : undefined;
 
   return (
     <div className={styles.page}>
@@ -1231,6 +1352,7 @@ export default function DmDetail() {
         onClick={() => composerRef.current?.close()}
         onScroll={(e) => {
           const el = e.currentTarget;
+          if (actionMsgId) setActionMsgId(null);
           pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
           // 최상단 근접 — 과거분(offset 페이지) 추가 적재
           if (el.scrollTop < 60 && !loading) void loadOlder();
@@ -1266,7 +1388,9 @@ export default function DmDetail() {
           }
           const m = row.item;
           const isMine = m.senderId === myId;
-          const prevMsg = prevBubbleById.get(m.id) ?? null;
+          const neighbors = bubbleNeighborsById.get(m.id);
+          const prevMsg = neighbors?.previous ?? null;
+          const nextMsg = neighbors?.next ?? null;
           if (m.messageType === 'payment_qr' && m.meta?.appointmentId) {
             return (
               <div key={m.id} className={styles.apptCard}>
@@ -1528,36 +1652,48 @@ export default function DmDetail() {
           // 소프트 삭제 — 콘텐츠 대신 플레이스홀더 (서버도 content/image 를 내리지 않는다)
           if (m.deletedAt) {
             return (
-              <div key={m.id} data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
-                <div className={styles.deletedText}>{t('dm.deletedMessage', { defaultValue: '삭제된 메시지입니다' })}</div>
-                <div className={styles.meta}>{formatRelativeTime(m.createdAt)}</div>
-              </div>
+              <Fragment key={m.id}>
+                {renderDateSeparator(m)}
+                {renderSender(m, prevMsg)}
+                <div className={`${styles.messageRow} ${isMine ? styles.messageRowMine : styles.messageRowTheirs}`}>
+                  {renderDirectAvatar(m, prevMsg)}
+                  <div className={styles.messageLine}>
+                    {isMine && renderMessageMeta(m, isMine, nextMsg)}
+                    <div data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`}>
+                      <div className={styles.deletedText}>{t('dm.deletedMessage', { defaultValue: '삭제된 메시지입니다' })}</div>
+                    </div>
+                    {!isMine && renderMessageMeta(m, isMine, nextMsg)}
+                  </div>
+                </div>
+              </Fragment>
             );
           }
           if (m.messageType === 'sticker') {
             const st = findSticker(m.meta?.stickerId);
             return (
               <Fragment key={m.id}>
+              {renderDateSeparator(m)}
               {renderSender(m, prevMsg)}
-              <div
-                className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}
-              >
-                {st ? (
-                  <img
-                    src={st.uri}
-                    alt=""
-                    className={styles.stickerImg}
-                    // 스티커가 정착 윈도우(2초) 이후에 로드돼도 바닥 고정 중이면 재스크롤 (사진 메시지와 동일 패턴)
-                    onLoad={() => {
-                      if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
-                    }}
-                  />
-                ) : (
-                  <div className={styles.text}>[sticker]</div>
-                )}
-                <div className={styles.meta}>
-                  {formatRelativeTime(m.createdAt)}
-                  {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
+              <div className={`${styles.messageRow} ${isMine ? styles.messageRowMine : styles.messageRowTheirs}`}>
+                {renderDirectAvatar(m, prevMsg)}
+                <div className={styles.messageLine}>
+                  {isMine && renderMessageMeta(m, isMine, nextMsg)}
+                  <div className={`${styles.stickerMsg} ${isMine ? styles.stickerMine : styles.stickerTheirs}`}>
+                    {st ? (
+                      <img
+                        src={st.uri}
+                        alt=""
+                        className={styles.stickerImg}
+                        // 스티커가 정착 윈도우(2초) 이후에 로드돼도 바닥 고정 중이면 재스크롤 (사진 메시지와 동일 패턴)
+                        onLoad={() => {
+                          if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
+                        }}
+                      />
+                    ) : (
+                      <div className={styles.text}>[sticker]</div>
+                    )}
+                  </div>
+                  {!isMine && renderMessageMeta(m, isMine, nextMsg)}
                 </div>
               </div>
               </Fragment>
@@ -1682,45 +1818,43 @@ export default function DmDetail() {
           if (m.imageUrl && !m.content) {
             return (
               <Fragment key={m.id}>
+              {renderDateSeparator(m)}
               {renderSender(m, prevMsg)}
-              <div
-                data-mid={m.id}
-                className={`${styles.imageMsg} ${isMine ? styles.imageMine : styles.imageTheirs}`}
-                {...pressHandlers(m)}
-              >
-                {renderReplyQuote(m)}
-                <AppImage
-                  src={m.imageUrl}
-                  alt=""
-                  className={styles.msgImg}
-                  /* 이미지 비동기 로드로 높이가 늦게 생겨 오토스크롤이 언더슛 — 바닥 고정 중이면 재스크롤 (스티커와 동일 가드) */
-                  onLoad={() => {
-                    if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
-                  }}
-                />
-                <div className={styles.meta}>
-                  {formatRelativeTime(m.createdAt)}
-                  {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
+              <div className={`${styles.messageRow} ${isMine ? styles.messageRowMine : styles.messageRowTheirs}`}>
+                {renderDirectAvatar(m, prevMsg)}
+                <div className={styles.messageLine}>
+                  {isMine && renderMessageMeta(m, isMine, nextMsg)}
+                  <div
+                    data-mid={m.id}
+                    className={`${styles.imageMsg} ${isMine ? styles.imageMine : styles.imageTheirs}`}
+                    {...pressHandlers(m)}
+                  >
+                    {renderReplyQuote(m)}
+                    <AppImage
+                      src={m.imageUrl}
+                      alt=""
+                      className={styles.msgImg}
+                      /* 이미지 비동기 로드로 높이가 늦게 생겨 오토스크롤이 언더슛 — 바닥 고정 중이면 재스크롤 (스티커와 동일 가드) */
+                      onLoad={() => {
+                        if (pinnedRef.current) listRef.current?.scrollTo(0, listRef.current.scrollHeight);
+                      }}
+                    />
+                    {renderReactions(m)}
+                  </div>
+                  {!isMine && renderMessageMeta(m, isMine, nextMsg)}
                 </div>
-                {renderReactions(m)}
               </div>
               </Fragment>
             );
           }
           return (
             <Fragment key={m.id}>
+            {renderDateSeparator(m)}
             {renderSender(m, prevMsg)}
             <div className={`${styles.messageRow} ${isMine ? styles.messageRowMine : styles.messageRowTheirs}`}>
-            {isDirect && !isMine && otherUserId && (
-              <button
-                type="button"
-                className={styles.messageProfileBtn}
-                onClick={() => navigate(`/profile/${otherUserId}`)}
-                aria-label={t('userProfile.openProfile')}
-              >
-                <Avatar src={otherAvatarUrl} name={otherName} seed={otherUserId} size={30} />
-              </button>
-            )}
+            {renderDirectAvatar(m, prevMsg)}
+            <div className={styles.messageLine}>
+            {isMine && renderMessageMeta(m, isMine, nextMsg)}
             <div data-mid={m.id} className={`${styles.bubble} ${isMine ? styles.mine : styles.theirs}`} {...pressHandlers(m)}>
               {renderReplyQuote(m)}
               {editingId === m.id ? (
@@ -1765,14 +1899,9 @@ export default function DmDetail() {
                     : t('dm.translate', { defaultValue: '번역' })}
                 </button>
               )}
-              <div className={styles.meta}>
-                {m.editedAt && (
-                  <span className={styles.editedTag}>{t('dm.edited', { defaultValue: '(수정됨)' })}</span>
-                )}
-                {formatRelativeTime(m.createdAt)}
-                {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
-              </div>
               {renderReactions(m)}
+            </div>
+            {!isMine && renderMessageMeta(m, isMine, nextMsg)}
             </div>
             </div>
             </Fragment>
@@ -2020,11 +2149,21 @@ export default function DmDetail() {
         onClose={() => setLiveConsentCtx(null)}
       />
 
-      {/* 메시지 액션 시트 — 롱프레스로 연다: 고정 팔레트 공감 + 답장 + (내 메시지) 수정/삭제 */}
-      <BottomSheet open={!!actionMsg} onClose={() => setActionMsgId(null)}>
-        {actionMsg && (
-          <div className={styles.reportSheet}>
-            <div className={styles.reactionPalette}>
+      {/* 메시지 액션 오버레이 — 기존 액션만 앵커 근처의 작은 메뉴로 표시한다. */}
+      {actionMsg && actionAnchor && createPortal(
+        <div className={styles.messageActionOverlay} role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className={styles.messageActionBackdrop}
+            onClick={() => setActionMsgId(null)}
+            aria-label={t('dm.closeMessageActions', { defaultValue: '메시지 메뉴 닫기' })}
+          />
+          <div className={styles.messageActionPanel} style={actionPanelStyle}>
+            <div
+              className={styles.reactionPalette}
+              role="group"
+              aria-label={t('dm.reactionsAction', { defaultValue: '공감' })}
+            >
               {DM_REACTION_EMOJIS.map((emoji) => {
                 const active = actionMsg.reactions.some((r) => r.emoji === emoji && r.reactedByMe);
                 return (
@@ -2033,50 +2172,59 @@ export default function DmDetail() {
                     type="button"
                     className={`${styles.paletteBtn} ${active ? styles.paletteBtnActive : ''}`}
                     onClick={() => handleToggleReaction(actionMsg, emoji)}
+                    aria-pressed={active}
                   >
                     {emoji}
                   </button>
                 );
               })}
             </div>
+            <div className={styles.messageActionMenu}>
             <button
-              className={styles.reportItem}
+              className={styles.messageActionItem}
               type="button"
               onClick={() => { setReplyTo(actionMsg); setActionMsgId(null); }}
             >
+              <Reply size={18} />
               {t('dm.replyAction', { defaultValue: '답장' })}
             </button>
             {!isDirect && actionMsg.messageType === 'text' && (
-              <button className={styles.reportItem} type="button" onClick={() => handleSetNotice(actionMsg)}>
+              <button className={styles.messageActionItem} type="button" onClick={() => handleSetNotice(actionMsg)}>
+                <Megaphone size={18} />
                 {t('dm.noticeSet', { defaultValue: '공지로 등록' })}
               </button>
             )}
             {actionMsg.senderId === myId && actionMsg.messageType === 'text' && (
-              <button className={styles.reportItem} type="button" onClick={() => handleStartEdit(actionMsg)}>
+              <button className={styles.messageActionItem} type="button" onClick={() => handleStartEdit(actionMsg)}>
+                <Pencil size={18} />
                 {t('dm.editAction', { defaultValue: '수정' })}
               </button>
             )}
             {actionMsg.senderId === myId && (
               <button
-                className={`${styles.reportItem} ${styles.msgActionDanger}`}
+                className={`${styles.messageActionItem} ${styles.msgActionDanger}`}
                 type="button"
                 onClick={() => handleDeleteMsg(actionMsg)}
               >
+                <Trash2 size={18} />
                 {t('dm.deleteAction', { defaultValue: '삭제' })}
               </button>
             )}
             {!isDirect && actionMsg.senderId !== myId && (
               <button
-                className={styles.reportItem}
+                className={styles.messageActionItem}
                 type="button"
                 onClick={() => { setMessageReportId(actionMsg.id); setActionMsgId(null); }}
               >
+                <Flag size={18} />
                 {t('dm.messageReportAction', { defaultValue: '신고' })}
               </button>
             )}
+            </div>
           </div>
-        )}
-      </BottomSheet>
+        </div>,
+        document.getElementById('app-frame') ?? document.body,
+      )}
 
       {/* 그룹 메시지 신고 사유 */}
       <BottomSheet open={!!messageReportId} onClose={() => setMessageReportId(null)}>

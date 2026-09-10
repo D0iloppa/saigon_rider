@@ -36,6 +36,19 @@ export function formatRelativeTime(iso: string): string {
   return `${date.getMonth() + 1}.${date.getDate()}`;
 }
 
+// 채팅 말풍선용 시각: 목록의 상대시간과 달리 실제 시·분을 항상 보존한다.
+export function formatMessageTimestamp(iso: string): string {
+  const date = new Date(iso);
+  return new Intl.DateTimeFormat(getLocale(), { hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+// 채팅 날짜 구분선: 뷰어 로컬 날짜 경계마다 한 번만 표시한다.
+export function formatMessageDateSeparator(iso: string): string {
+  return new Intl.DateTimeFormat(getLocale(), {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  }).format(new Date(iso));
+}
+
 // 만료 임박: ISO → "4h 12m" / "30m"
 export function formatTimeLeft(iso?: string): string | null {
   if (!iso) return null;

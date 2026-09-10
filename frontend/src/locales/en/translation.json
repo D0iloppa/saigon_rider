@@ -651,6 +651,7 @@
     "reviewDone": "Reviewed",
     "leaveReview": "Leave review",
     "tabMyListings": "My Listings",
+    "viewAsOthers": "View my profile as others see it",
     "emptyMyListings": "No listings yet",
     "emptyMyListingsSub": "List your gear on the rider market — zero commission when it sells!",
     "noTradesBought": "No purchases yet",
@@ -2767,7 +2768,8 @@
     "marketError": "Couldn't load listings",
     "feedSection": "Posts",
     "feedEmpty": "No posts yet",
-    "feedError": "Couldn't load posts"
+    "feedError": "Couldn't load posts",
+    "selfPreview": "This is how others see your profile"
   },
   "communityGroup": {
     "exploreTitle": "Explore groups",

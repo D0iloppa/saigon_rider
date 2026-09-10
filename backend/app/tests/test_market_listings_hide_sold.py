@@ -56,6 +56,7 @@ async def _call(**kwargs):
         "ward_id": None,
         "seller_id": None,
         "business_profile_id": None,
+        "public_view": False,
         "viewer_id": None,
         "lang": None,
         "page": 1,
@@ -141,6 +142,30 @@ class OwnListingsSeeWithdrawnTest(unittest.IsolatedAsyncioTestCase):
         for sql in db.compiled_sql()[:2]:
             self.assertIn("HIDDEN", sql)
             self.assertIn("REMOVED", sql)
+
+
+class PublicViewOptOutTest(unittest.IsolatedAsyncioTestCase):
+    """공개 프로필 자기 미리보기(2026-09-10) — 본인이 조회해도 남이 보는 그대로여야 하므로
+    public_view=true 는 내 매물 예외를 강제로 끈다."""
+
+    async def test_public_view_hides_sold_withdrawn_hidden_for_self(self):
+        uid = uuid.uuid4()
+        db = await _call(seller_id=uid, session_uid=uid, public_view=True)
+        for sql in db.compiled_sql()[:2]:
+            self.assertIn("SOLD", sql)
+            self.assertIn("WITHDRAWN", sql)
+            self.assertIn("HIDDEN", sql)
+            self.assertIn("REMOVED", sql)
+
+    async def test_without_public_view_own_listings_exception_intact(self):
+        """public_view 를 안 주면 기존 내 매물 예외가 그대로 살아 있어야 한다(회귀 금지)."""
+        uid = uuid.uuid4()
+        db = await _call(seller_id=uid, session_uid=uid, public_view=False)
+        for sql in db.compiled_sql()[:2]:
+            self.assertNotIn("SOLD", sql)
+            self.assertNotIn("WITHDRAWN", sql)
+            self.assertNotIn("HIDDEN", sql)
+            self.assertNotIn("REMOVED", sql)
 
 
 if __name__ == "__main__":

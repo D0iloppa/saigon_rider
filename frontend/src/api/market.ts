@@ -180,6 +180,7 @@ export interface ListingQuery {
   q?: string;
   sort?: ListingSort;
   hideSold?: boolean;
+  publicView?: boolean;
   priceMin?: number | null;
   priceMax?: number | null;
   lat?: number | null;
@@ -291,6 +292,7 @@ export async function fetchListings(q: ListingQuery = {}, signal?: AbortSignal):
   if (q.q && q.q.trim()) params.set('q', q.q.trim());
   if (q.sort) params.set('sort', q.sort);
   if (q.hideSold) params.set('hide_sold', 'true');
+  if (q.publicView) params.set('public_view', 'true');
   if (q.lat != null && q.lng != null) {
     params.set('lat', String(q.lat));
     params.set('lng', String(q.lng));

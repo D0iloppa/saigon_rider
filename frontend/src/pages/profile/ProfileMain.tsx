@@ -6,7 +6,7 @@ import {
   Settings, Building2, Coffee, Moon, BadgeCheck, Smartphone, ChevronRight,
   Route, Flag, Medal, Gem, Trophy, Bike, Store, Plus, Camera, Flame,
   MessageCircle, MoreVertical, ClipboardList, Check, Circle, Award,
-  UserPlus, AlertCircle, type LucideIcon,
+  UserPlus, AlertCircle, Eye, type LucideIcon,
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
@@ -673,6 +673,19 @@ export default function ProfileMain() {
         >
           <span className={styles.entryIcon}><Bike size={18} /></span>
           <span className={styles.entryLabel}>{t('profile.tabMyListings')}</span>
+          <ChevronRight size={18} className={styles.entryChevron} />
+        </button>
+
+        {/* 다른 사람에게 보이는 내 프로필 — 공개 프로필 페이지(/profile/:userId)를 내 id 로 연다.
+            이 화면은 자기관리 화면이라 공개 구성(활동·거래 정보·판매 매물)을 여기에 겹쳐 넣지 않고,
+            남이 보는 그 페이지로 보내 "보이는 그대로" 를 확인시킨다 (2026-09-10, 대표 요청). */}
+        <button
+          type="button"
+          onClick={() => navigate(`/profile/${u.id}`)}
+          className={styles.entryRow}
+        >
+          <span className={styles.entryIcon}><Eye size={18} /></span>
+          <span className={styles.entryLabel}>{t('profile.viewAsOthers')}</span>
           <ChevronRight size={18} className={styles.entryChevron} />
         </button>
 

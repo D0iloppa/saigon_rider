@@ -651,6 +651,7 @@
     "reviewDone": "Đã đánh giá",
     "leaveReview": "Viết đánh giá",
     "tabMyListings": "Tin của tôi",
+    "viewAsOthers": "Xem trang cá nhân của tôi như người khác thấy",
     "emptyMyListings": "Chưa có tin đăng nào",
     "emptyMyListingsSub": "Đăng đồ của bạn lên chợ rider — miễn hoa hồng 100%!",
     "noTradesBought": "Chưa có giao dịch mua",
@@ -2767,7 +2768,8 @@
     "marketError": "Không thể tải tin đăng",
     "feedSection": "Bài đăng",
     "feedEmpty": "Chưa có bài đăng nào",
-    "feedError": "Không tải được bài đăng"
+    "feedError": "Không tải được bài đăng",
+    "selfPreview": "Đây là trang cá nhân của bạn khi người khác xem"
   },
   "communityGroup": {
     "exploreTitle": "Khám phá nhóm",

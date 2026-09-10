@@ -651,6 +651,7 @@
     "reviewDone": "후기완료",
     "leaveReview": "후기 남기기",
     "tabMyListings": "내 매물",
+    "viewAsOthers": "다른 사람에게 보이는 내 프로필",
     "emptyMyListings": "등록한 매물이 없어요",
     "emptyMyListingsSub": "라이더 장터에 직접 올려보세요. 팔리면 수수료 0원!",
     "noTradesBought": "구매 내역이 없어요",
@@ -2767,7 +2768,8 @@
     "marketError": "매물을 불러오지 못했어요",
     "feedSection": "게시물",
     "feedEmpty": "아직 작성한 게시물이 없어요",
-    "feedError": "게시물을 불러오지 못했어요"
+    "feedError": "게시물을 불러오지 못했어요",
+    "selfPreview": "다른 사람에게 보이는 내 프로필이에요"
   },
   "communityGroup": {
     "exploreTitle": "그룹 탐색",

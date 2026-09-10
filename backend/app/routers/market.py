@@ -361,6 +361,10 @@ async def get_listings(
     business_profile_id: uuid.UUID | None = Query(
         None, description="업체 프로필 id — 업체 공개 프로필의 매물 탭 조회용 (T-1)"
     ),
+    public_view: bool = Query(
+        False,
+        description="타인에게 보이는 대로 조회 — 본인이어도 내 매물 예외(SOLD/WITHDRAWN/HIDDEN/REMOVED)를 적용하지 않음",
+    ),
     viewer_id: uuid.UUID | None = Query(None, description="deprecated — 조회자는 세션에서 파생"),
     lang: str | None = Query(None, description="조회 언어(ko|en|vi). 제목을 캐시된 번역으로 표기"),
     page: int = Query(1, ge=1),
@@ -460,7 +464,9 @@ async def get_listings(
     # Q-3(감사 260817): HIDDEN/REMOVED(모더레이션 조치)도 같은 예외 — 판매자가 조치 사실을
     # "내 매물" 목록에서 확인하고 대응할 수 있어야 한다(status 필드로 구분 가능).
     is_own_listings = seller_id is not None and session_uid is not None and seller_id == session_uid
-    hidden = () if is_own_listings else _LISTING_INACTIVE_STATUSES
+    # public_view: 내 프로필 미리보기("남에게 보이는 내 프로필")처럼 본인이 자기 매물을 조회하되
+    # 남이 보는 그대로여야 하는 경로용 — 위 내 매물 예외를 강제로 끈다.
+    hidden = () if (is_own_listings and not public_view) else _LISTING_INACTIVE_STATUSES
     q = q.where(MarketplaceListing.status.notin_(hidden))
     count_q = count_q.where(MarketplaceListing.status.notin_(hidden))
 

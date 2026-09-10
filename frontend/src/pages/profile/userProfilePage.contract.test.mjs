@@ -86,6 +86,21 @@ test('the profile page is registered as a route AND as a background overlay (map
     'the profile page must also be an overlay route so the background (map/list) is preserved');
 });
 
+test('self-preview ("다른 사람에게 보이는 내 프로필") entry stays reachable — no self-redirect regression', () => {
+  // 2026-09-10: /profile/<내 id> 는 더 이상 /profile 로 되돌아가지 않는다 — 이 리다이렉트가
+  // 유일한 미리보기 진입 경로를 막고 있었다(finding 3). 부재 자체가 의도이므로, 되돌아오는 걸
+  // 막기 위해 부재를 핀으로 박아둔다.
+  const userProfileSource = code(read('UserProfile.tsx'));
+  assert.doesNotMatch(userProfileSource, /if\s*\(me\.id === userId\)\s*navigate\(['"`]\/profile['"`]\)/,
+    'UserProfile.tsx must not redirect self back to /profile — that kills the self-preview feature');
+  assert.match(userProfileSource, /t\('userProfile\.selfPreview'\)/,
+    'UserProfile.tsx must render the userProfile.selfPreview banner');
+
+  const profileMainSource = code(read('ProfileMain.tsx'));
+  assert.match(profileMainSource, /navigate\(`\/profile\/\$\{u\.id\}`\)/,
+    'ProfileMain.tsx must keep the "다른 사람에게 보이는 내 프로필" entry row navigating to /profile/:id');
+});
+
 test('userProfile strings are localized in all three locales', () => {
   for (const lang of ['ko', 'en', 'vi']) {
     const json = JSON.parse(read(`../../locales/${lang}/translation.json`));

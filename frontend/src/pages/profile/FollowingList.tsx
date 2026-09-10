@@ -88,7 +88,13 @@ export default function FollowingList() {
               <div key={u.id} className={styles.row}>
                 <button
                   className={styles.userInfo}
-                  onClick={() => navigate(`/profile/${u.id}`)}
+                  onClick={() => {
+                    if (me && u.id === me.id) {
+                      navigate('/profile');
+                    } else {
+                      navigate(`/profile/${u.id}`);
+                    }
+                  }}
                 >
                   <AppImage src={u.avatarUrl ?? undefined} alt="" className={styles.avatar} variant="circle" />
                   <span className={styles.name}>

@@ -12,7 +12,7 @@ test('expanded profile uses truthful server fields and existing seller listing A
   assert.match(api, /marketplace_sold_count/);
   assert.match(api, /marketplace_review_count/);
   assert.match(api, /marketplace_avg_rating/);
-  assert.match(profile, /fetchListings\(\{ sellerId: userId, hideSold: true, page: 1, size: 4 \}\)/);
+  assert.match(profile, /fetchListings\(\{ sellerId: userId, hideSold: true, publicView: true, page: 1, size: 4 \}\)/);
   // WP-4(2026-09-09, 당근 비교 트리아지 F049, 대표 승인) — 공개 프로필에 신뢰 티어칩 노출을
   // 허용하되, 원값 manner_temp(숫자 온도)는 여전히 응답/화면 어디에도 실리지 않아야 한다.
   // 이 assert 는 원값 금지를 계속 강제한다 — 완화가 아니라 범위를 좁힌 것.

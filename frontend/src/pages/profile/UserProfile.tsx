@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertCircle, Building2, Coffee, Flame, MessageCircle, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
+  AlertCircle, Building2, Coffee, Eye, Flame, MessageCircle, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
@@ -71,12 +71,6 @@ export default function UserProfile() {
   const pageRef = useRef(1);
   const loadingRef = useRef(false);
 
-  // 내 프로필은 이 화면이 아니라 /profile(ProfileMain) 이 담당한다 — 진입점들이 이미 분기하지만
-  // 딥링크로 직접 들어온 경우도 있으므로 여기서도 되돌린다.
-  useEffect(() => {
-    if (me && userId && me.id === userId) navigate('/profile', { replace: true });
-  }, [me, userId, navigate]);
-
   const loadPage = useCallback(async (target: string, page: number, append: boolean) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
@@ -110,7 +104,7 @@ export default function UserProfile() {
       .finally(() => setProfileLoading(false));
     setListings(null);
     setListingsError(false);
-    fetchListings({ sellerId: userId, hideSold: true, page: 1, size: 4 })
+    fetchListings({ sellerId: userId, hideSold: true, publicView: true, page: 1, size: 4 })
       .then((result) => setListings(result.items))
       .catch(() => { setListings([]); setListingsError(true); });
     pageRef.current = 1;
@@ -229,6 +223,12 @@ export default function UserProfile() {
     : Moon;
 
   const isOther = !!me && !!profile && me.id !== profile.id;
+  // 내 userId 로 들어오면 "다른 사람에게 보이는 내 프로필" 미리보기다 (2026-09-10, 대표 요청 —
+  // "내 프로필이 남에게 어떻게 보이는지 확인할 경로가 없다"). 종전에는 여기서 /profile 로
+  // 되돌렸는데, 그 리다이렉트가 유일한 확인 경로를 막고 있었다. 구성은 남의 프로필과 동일하고
+  // 팔로우·메시지·신고는 isOther 게이트가 이미 숨긴다 — 배너 한 줄로 미리보기임만 밝힌다.
+  // 진입은 ProfileMain 의 "다른 사람에게 보이는 내 프로필" 행(navigate(`/profile/${u.id}`)).
+  const isSelfPreview = !!me && !!profile && me.id === profile.id;
 
   return (
     <div className={sys.page}>
@@ -262,6 +262,12 @@ export default function UserProfile() {
           />
         ) : (
           <>
+            {isSelfPreview && (
+              <div className={styles.previewBanner} role="status">
+                <Eye size={15} strokeWidth={2.2} />
+                <span>{t('userProfile.selfPreview')}</span>
+              </div>
+            )}
             <div className={styles.header}>
               <AppImage
                 src={profile.avatarUrl || DEFAULT_AVATAR_URL}

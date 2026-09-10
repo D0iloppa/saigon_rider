@@ -480,6 +480,21 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 계약 테스트 `frontend/src/pages/profile/userProfileDiscoverability.contract.test.mjs` 는 **삭제·약화가 아니라 좁혀졌다**: 원값(`mannerTemp`/`manner score`) 금지 assert 는 그대로 두고, 응답에 `manner_temp` 부재 + 티어칩 존재 assert 를 추가했다. 완화로 오해하지 않도록 변경 사유 주석이 파일에 있다. 근거: [`../task/active/260909_daangn_gap_triage/REPORT.md`](../task/active/260909_daangn_gap_triage/REPORT.md) F049.
 
+#### 공개 프로필 구성 확장 — 활동·거래 정보 + 판매 중인 매물 (2026-09-09 확장, 2026-09-10 레이아웃 교정)
+
+위 §3.5 "구성" 항목이 기술하는 `헤더 → 팔로워/팔로잉 → 팔로우/메시지 → 게시물 2열 그리드` 는 **2026-08-13 신설 당시 구성**이다. 이후 두 블록이 그 사이에 추가됐다 — 현재 구성은 `헤더 → 팔로워/팔로잉 → 팔로우/메시지 → 활동과 거래 정보 → 판매 중인 매물 → 게시물` 이다.
+
+- **활동과 거래 정보**(`.trustSection`/`.trustGrid`) — 가입 시점(`memberSince`, `Intl.DateTimeFormat` 로케일 포맷) · 완료한 판매(`marketplaceSoldCount`) · 거래 후기(`marketplaceAvgRating`·`marketplaceReviewCount`, 평점 없으면 `—`). 360px 이하에서는 3열 그리드가 라벨↔값 좌우 정렬 1열로 접힌다(`@media (max-width: 360px)`).
+- **판매 중인 매물**(`.marketGrid`, 2열) — `fetchListings` 로 해당 사용자의 판매 중 매물을 조회하고 헤더 우측에 `최근 N개` 를 표기. 카드 탭 → `/market/:id`.
+
+🐛 **레이아웃 파손과 교정 (2026-09-10, `9ffa3907`)**: 이 매물 그리드가 처음엔 마켓 공용 `pages/market/ListingCard.tsx` 를 그대로 넣고 있었다. 그 카드는 **썸네일 128px 고정 + 우측 텍스트의 전폭 1열 행 카드**(자기 CSS 헤더 주석이 "1열, REF-02" 로 선언, 컨테이너는 `gap:0` 헤어라인 구분선 전제)인데, 2열 그리드에서는 컬럼 폭이 360~430px 화면에서 약 160px 이라 썸네일이 128px 을 점유해 **텍스트 컬럼이 붕괴**했다 — 제목이 `GS 12…` 로 절단, 메타가 3줄로 세로 분해, 가격이 컬럼 밖으로 오버플로(대표 실기기 스크린샷 제보).
+
+교정은 **공용 카드를 고치지 않고** 프로필 전용 세로 카드 `pages/profile/ProfileListingCard.tsx` + `.module.css` 를 신설하는 방향(당근 프로필 스타일: 정방형 썸네일 위 → 제목 → 메타 → 가격 → 반응). 핵심은 썸네일을 고정 px 대신 **`aspect-ratio: 1/1`** 로 컬럼 폭에 종속시킨 것이고, 표면(테두리·radius 16·`--surface`)·바디 패딩은 같은 페이지 `.feedCard`/`.feedBody` 와 맞춰 매물 그리드와 게시물 그리드가 한 체계로 읽히게 했다. 포맷터(`market/marketFormat.ts` `formatPriceVnd`·`relativeTime`·`statusLabelKey`)·`localizedName`·`noItemImage`·`AppImage` 는 재사용, i18n 신규 키 0건. 마켓 카드의 관례 3종(비판매 상태 태그 오버레이 / `originalPriceVnd > priceVnd` 일 때 가격내림 배지 / **반응수 0 이면 숨김** — "0 카운트는 죽은 신호")은 그대로 옮겼다. `.marketGrid` 자체는 이미 `.feedGrid` 와 동일(`repeat(2, minmax(0,1fr))`, gap 10px)이라 무변경.
+
+> 🔒 **규칙 — `market/ListingCard` 는 전폭 1열 컨테이너 전용이다.** 이 카드를 그리드·캐러셀 등 좁은 컬럼에 넣지 마라(고정 128px 썸네일이 텍스트 컬럼을 삼킨다). 소비처는 `MarketMain`·`MarketSearch`·`MarketWishlist`·`map/MapFavorites` 4곳이며 모두 전폭 리스트다. 좁은 컬럼이 필요하면 이번 선례처럼 **화면 전용 세로 변형을 따로 만들고 공용 카드는 건드리지 않는다** — 4개 소비처의 회귀 위험이 변형 1개의 중복보다 비싸다.
+
+> ⚠️ **미검증**: 360px 베트남어 메타(`Bình Thạnh · 22 ngày trước`)는 1줄 ellipsis 로 잘린다(기존 3줄 세로분해를 대체한 의도된 동작). 지오메트리 근거는 실제 CSS 를 Chromium 하네스에 올린 측정치(360/390/430 가로 오버플로 0·제목 2줄 클램프)이며 **실기기·인앱 렌더는 미확인**이다.
+
 ### 3.6 게임 허브 하위 메뉴 상세
 
 > **(2026-07-22)** 인벤토리·상점(+item/coupons)·가챠·시즌은 게이트OFF(게이미피케이션 잠정보류) — §2 상단 주석 참조. 개러지·정보만 활성.

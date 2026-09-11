@@ -24,7 +24,7 @@ import { fetchAppConfig, fetchCurrentVersion, shouldForceUpdate, pickPlatformVer
 import { setDevAreaBypass } from '@/lib/serviceArea';
 import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
-import VerifiedSellerRoute from '@/components/auth/VerifiedSellerRoute';
+import SellerComposeRoute from '@/components/auth/SellerComposeRoute';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { captureAcqRefFromUrl, captureUtmFirstTouchFromUrl } from '@/lib/acquisition';
 import { useScreenTracking } from '@/hooks/useScreenTracking';
@@ -600,7 +600,7 @@ export default function App() {
           <Route path="/map/coupons" element={<PrivateRoute><MapCoupons /></PrivateRoute>} />
           <Route path="/map/categories" element={<PrivateRoute><NeighborhoodCategories /></PrivateRoute>} />
           <Route path="/market/ad/:id" element={<PrivateRoute><AdDetail /></PrivateRoute>} />
-          <Route path="/market/new" element={<VerifiedSellerRoute><MarketCreate /></VerifiedSellerRoute>} />
+          <Route path="/market/new" element={<SellerComposeRoute><MarketCreate /></SellerComposeRoute>} />
           <Route path="/market/wishlist" element={<PrivateRoute><MarketWishlist /></PrivateRoute>} />
           <Route path="/market/keyword-alerts" element={<PrivateRoute><MarketKeywordAlerts /></PrivateRoute>} />
           <Route path="/market/:id/edit" element={<PrivateRoute><MarketEdit /></PrivateRoute>} />
@@ -615,7 +615,7 @@ export default function App() {
           <Route path="/biz/news" element={<PrivateRoute><BizNewsManage /></PrivateRoute>} />
           <Route path="/biz/news/new" element={<PrivateRoute><BizNewsCreate /></PrivateRoute>} />
           <Route path="/biz/news/:id" element={<PrivateRoute><BizNewsDetail /></PrivateRoute>} />
-          {/* T-1: 업체 프로필 → 매물 등록 — 검증된 업체 프로필 명의라 개인 휴대폰 인증 게이트(VerifiedSellerRoute) 불필요 */}
+          {/* T-1: 업체 프로필 → 매물 등록 — 검증된 업체 프로필 명의라 개인 휴대폰 인증 게이트(SellerComposeRoute) 불필요 */}
           <Route path="/biz/listings/new" element={<PrivateRoute><MarketCreate /></PrivateRoute>} />
           <Route path="/biz/prices" element={<PrivateRoute><BizPriceManage /></PrivateRoute>} />
           <Route path="/biz/coupons" element={<PrivateRoute><BizCouponManage /></PrivateRoute>} />

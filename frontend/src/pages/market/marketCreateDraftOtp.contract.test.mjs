@@ -8,7 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const read = (path) => readFileSync(join(here, path), 'utf8');
 
 test('판매 작성 화면은 로그인만 요구하고 전화 인증은 게시 직전에 검사한다', () => {
-  const route = read('../../components/auth/VerifiedSellerRoute.tsx');
+  const route = read('../../components/auth/SellerComposeRoute.tsx');
   const create = read('MarketCreate.tsx');
 
   assert.doesNotMatch(route, /PhoneVerifiedGate|\/auth\/phone-verify/);

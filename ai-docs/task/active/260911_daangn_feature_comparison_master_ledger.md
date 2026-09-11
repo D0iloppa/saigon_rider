@@ -119,11 +119,12 @@
 - 집필자 git 조회: `git grep -c coupons 8c5c7493 -- backend/app/routers/biz.py frontend/src/pages/biz/` → **0건**. `git ls-tree 8c5c7493 -- frontend/src/pages/biz/ | grep -i coupon` → 없음. 쿠폰은 `c5353e9c` (2026-09-09 23:35 KST, `feat(trust,biz,dm): close report wiring gaps and add shop coupons`) 에서 추가 — PDF 기준 커밋(18:06) 보다 **5시간 29분 뒤**.
 - **판정**: PDF 는 자기 기준 커밋에서 정확했다. 260910(09-10 작성)이 F061 을 DONE 으로 분류한 시점엔 이미 `c5353e9c` 가 있었으므로 분류 자체는 결과적으로 옳다. 다만 260910 은 근거 커밋을 적지 않았고, PDF 만 보면 "미발견"인 항목을 DONE 이라 적은 셈이라 신뢰를 잃었다. **이 장부는 DONE 을 유지하되 근거를 `c5353e9c` 로 명시하고, 발행→보관→매장 제시→redeem 왕복은 아직 아무도 실행하지 않았음(NOT-RUN)을 기록한다.** PDF 의 "레거시 CouponShop 미계산" 원칙은 여전히 유효 — `frontend/src/App.tsx:666` 의 `/shop/coupons` 주석 라우트는 F087 소속이며 F061 과 무관.
 
-### C2. F016 초안·게시 전 인증 — `VerifiedSellerRoute` 가 이름과 달리 인증을 강제하지 않음
+### C2. F016 초안·게시 전 인증 — `VerifiedSellerRoute` 가 이름과 달리 인증을 강제하지 않음 → **리네임으로 해소(2026-09-11). 업체 예외는 오판이었고 기각**
 
 - PDF 는 정직하게 적었다: "VerifiedSellerRoute 자체는 PrivateRoute 래퍼."
 - 코드(`frontend/src/components/auth/VerifiedSellerRoute.tsx` 전문 12줄): `return <PrivateRoute>{children}</PrivateRoute>;` — 로그인만 검사. 주석: "작성 화면은 로그인 사용자에게 먼저 열고, 전화 인증은 MarketCreate 의 게시 직전에 검사한다. 입력 전에 인증으로 보내면 OTP 실패·앱 전환 시 공급자가 폼에도 도달하지 못한다." 실제 강제는 `frontend/src/pages/market/MarketCreate.tsx:254-256,282` (`!user.phoneVerified` → `navigate('/auth/phone-verify')`).
-- **판정**: 기능(초안 보존 + 게시 직전 인증)은 IMPLEMENTED 이고 UX 의도도 타당하다. 그러나 **컴포넌트 이름이 보장하지 않는 것을 약속**하고 있어, 이 라우트를 다른 화면에 재사용하는 개발자는 인증이 강제된다고 오해한다(유지보수 함정). 또한 `businessProfileId` 가 있으면(`:254` 조건) 전화 인증을 건너뛴다 — 업체 명의 등록은 전화 인증 없이 게시 가능하다는 정책이 문서화돼 있는지 확인 필요. Disposition `IMPLEMENT`(P3, 리네임 또는 강제 로직을 래퍼로 이동 — 대표 선택).
+- **업체 예외 지적은 기각한다(2026-09-11 재조사).** "정책 문서화 미확인"은 집필자가 프론트만 보고 내린 오판이었다. `backend/app/routers/market.py:800-803` 에 정책이 명시돼 있다: "업체 프로필 명의 등록 — 사업자 계정 승인(biz.py 가입 심사)이 개인 휴대폰 인증을 대체한다. … **대표 결정(2026-08-11, 알바 파일럿 대응)**: 초기 도입기에는 서류검증(`verification_status=verified`, 통상 24시간)까지는 요구하지 않는다 — 파일럿 이후 강화 여부 재검토 필요." 강제도 서버가 한다 — `:807-812` 가 `business_profile.user_id == 세션유저` 와 `status == 'APPROVED'` 를 검사하고 통과한 경우에만 `:836` 의 폰인증 게이트를 건너뛴다. 프론트 `MarketCreate.tsx:254` 의 `!businessProfileId` 분기는 서버 정책의 미러일 뿐 우회 경로가 아니다. (파일럿 이후 서류검증 요구 여부는 위 주석대로 여전히 열린 숙제이며, 그것은 F016 이 아니라 별건이다.)
+- **판정**: 기능(초안 보존 + 게시 직전 인증)은 IMPLEMENTED 이고 UX 의도도 타당하다. 남은 실질 결함은 **컴포넌트 이름이 보장하지 않는 것을 약속**한다는 것 하나였다 — 이 라우트를 다른 화면에 재사용하는 개발자가 인증이 강제된다고 오해한다(유지보수 함정). **대표 택1 결과(2026-09-11): 리네임만, 동작 무변경.** `VerifiedSellerRoute` → `SellerComposeRoute`. 초안 우선 UX 를 깨뜨리는 "강제 로직을 래퍼로 이동" 안과, 나중에 게이트를 붙일 자리가 사라지는 "래퍼 삭제" 안은 기각됐다. Disposition `IMPLEMENT` → **DONE**(코드 정합 완료, Verify 는 여전히 NOT-RUN).
 
 ### C3. F003 지역·위치 확인 — "부분 대응"이 아니라 **개념 부재**
 
@@ -466,14 +467,14 @@ QA 장부 §7 이 "사용자 관찰 가능 부분은 원장 근거로 사용 가
 | | |
 |---|---|
 | **Impl** | IMPLEMENTED |
-| **Disposition** | IMPLEMENT |
+| **Disposition** | DONE |
 | **PDF 판단** | 확인 유보 |
 
-- **코멘트**: §4 C2. 기능은 동작하나 `VerifiedSellerRoute` 이름이 인증 강제를 약속하고 실제로는 `PrivateRoute` 만 감싼다. 업체 명의(`businessProfileId`) 등록은 전화 인증 분기를 건너뜀 — 의도된 정책인지 미확인. IMPLEMENT 근거: 유지보수 함정 제거(리네임 또는 강제 로직 이동, 대표 선택) — P3.
-- **증거**: `frontend/src/components/auth/VerifiedSellerRoute.tsx:1-12` — `<PrivateRoute>` 래퍼 + 주석 / `frontend/src/pages/market/MarketCreate.tsx:99-100` — `draftKey` 초안 / `MarketCreate.tsx:254-256,282` — `!businessProfileId && !user.phoneVerified` → `/auth/phone-verify`
-- **격차**: 네이밍-동작 괴리. 업체 명의 인증 예외 정책 문서 부재.
-- **Action**: 검증자가 전화 미인증 계정으로 `/market/new` 진입(성공해야 함) → 폼 작성 → 게시 클릭 → 인증 완료 후 복귀. 이어서 개발자가 리네임/이동 중 택1 한 PR 을 올린다.
-- **Goal**: 게시 클릭 시 `/auth/phone-verify` 로 이동하고 복귀 후 localStorage `market-listing-draft:*` 로 폼 값이 복원된다; PR 머지 후 컴포넌트 이름과 동작이 일치한다.
+- **코멘트**: §4 C2. 기능은 동작한다. 네이밍-동작 괴리(`VerifiedSellerRoute` 가 `PrivateRoute` 만 감쌈)는 **2026-09-11 대표 택1(리네임만, 동작 무변경)로 `SellerComposeRoute` 리네임 완료**. 업체 명의(`businessProfileId`) 인증 예외는 미문서화가 아니라 `market.py:800-803` 에 기록된 **대표 결정(2026-08-11)** 이며 서버가 소유·APPROVED 를 검사한다 — 지적 기각.
+- **증거**: `frontend/src/components/auth/SellerComposeRoute.tsx:1-12` — `<PrivateRoute>` 래퍼 + 주석(구 `VerifiedSellerRoute`) / `frontend/src/pages/market/MarketCreate.tsx:99-100` — `draftKey` 초안 / `MarketCreate.tsx:254-256,282` — `!businessProfileId && !user.phoneVerified` → `/auth/phone-verify` / `backend/app/routers/market.py:800-812,836` — 업체 예외 정책 주석 + 소유·APPROVED 검사 + 폰인증 게이트
+- **격차**: 없음(코드 기준). 네이밍-동작 괴리는 리네임으로 해소, 업체 예외 정책 문서 부재는 오판으로 기각. **실기기 검증만 남았다.**
+- **Action**: 검증자가 전화 미인증 계정으로 `/market/new` 진입(성공해야 함) → 폼 작성 → 게시 클릭 → 인증 완료 후 복귀. (리네임 PR 은 2026-09-11 완료 — 남은 것은 이 실행 검증뿐이다.)
+- **Goal**: 게시 클릭 시 `/auth/phone-verify` 로 이동하고 복귀 후 localStorage `market-listing-draft:*` 로 폼 값이 복원된다.
 - **Status**: NOT-RUN
 - **Feedback**: —
 
@@ -1659,7 +1660,7 @@ QA 장부 §7 이 "사용자 관찰 가능 부분은 원장 근거로 사용 가
 |---|---|---|---|---|---|
 | P1 | F030–F033 | IMPLEMENTED | 260910 Phase 5(실기기 운영 증거) 완주 후 이 장부 Verify 를 PASS/BLOCKED 로 갱신. 코드 추가는 260910 잔여 체크박스 범위 내에서만. | 대표 지정 IMPLEMENT 범위. 머니 경로(F032·F033) 포함. HEAD 가 이 흐름의 최신 변경. | 검증 중심 |
 | P2 | F051 | PARTIAL | 매물 작성·DM 입력 중 금칙어/위험 카테고리 **사전 경고 UI** (배너 또는 인라인 안내). 서버 차단 로직은 변경하지 않음. | 안전거래 정책 직결. 현행은 사후 토스트만. | 소 (프론트 UI + 로케일 3종) |
-| P3 | F016 | IMPLEMENTED | `VerifiedSellerRoute` 리네임(예: `SellerRoute`) **또는** 전화 인증 강제를 래퍼로 이동 — 대표 택1. 업체 명의 등록의 인증 예외 정책 문서화. | 네이밍-동작 괴리(유지보수 함정). | 소 |
+| ~~P3~~ | F016 | IMPLEMENTED | ~~리네임 또는 강제 로직 이동 — 대표 택1~~ → **완료(2026-09-11)**: 대표가 리네임만 택함, `SellerComposeRoute` 로 변경(동작 무변경). 업체 예외 정책은 `market.py:800-803` 에 이미 문서화돼 있어 별도 조치 불요. | 네이밍-동작 괴리(유지보수 함정) — 해소. | 소 |
 
 ### 6-2. Impl PARTIAL 이나 Disposition DONE — 증거 보완이 먼저 (재판정 대상)
 

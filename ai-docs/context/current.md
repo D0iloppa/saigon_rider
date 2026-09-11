@@ -52,6 +52,7 @@
 
 ## 활성 태스크 (🔧)
 
+- **[F030–F033 사용자 실기기 QA 장부 260911](../task/active/260911_daangn_f030_f033_user_device_qa_ledger.md)** — `8d6b2e25` 반영 빌드에서 QA 담당자가 수행할 실행형 장부. Android/iOS의 약속 exact 목적지, 세 이동수단 경로·외부 지도, 출발 뒤 40m/정확도 35m 도착 알림, event 푸시 게이트·딥링크, F032/F033 수동 거래 표시를 `Action → Expected goal → Evidence → Verdict`로 기록한다. **P4-4·P5-1·P5-2·P5-5는 실기기 QA가 대체할 수 없으며 별도 엔지니어링 증거가 필요하다.**
 - **[파트너 라운지 UI 실기기 후속 260908](../task/active/260908_partner_lounge_ui_redesign_task.md)** — 실제 구현·개발 서버 빌드/기동·브라우저 매트릭스·제품 push 완료. 상대 링크 보존을 위해 active 유지하며 **실기기 확인만 남았다**. doil-context `2026-09-08-partner-lounge-ui-redesign`; **Plane 미등록**, `index_repository(fast)` 재시도는 Transport closed.
 - **플랫폼 보강 — 016 마스터 보강 (2026-08-18, #16~#42 중 25/27 구현 완료 / 미커밋·미배포)** — **📄 결과 보고서 [`017_IMPLEMENTATION_REPORT.md`](../task/active/260817_commercial_readiness_audit/017_IMPLEMENTATION_REPORT.md) 를 먼저 읽어라** (항목별 완료표·미완 우선순위·대표 판단 4건·배포 전 조치·인수인계).
   - **결과**: 27개 항목 중 **25 완료 / 2 착수불가**(#20 최근본·#33 코호트 — `#16` 이벤트 2주/4주 축적이 물리적 선행조건, 코드로 앞당길 수 없음). 워커 8기(전부 T3) 투입, `pytest 588 passed / 14 failed`(14건은 전부 컨테이너 마운트 미비로 인한 **사전 실패**) · ruff·eslint·tsc 클린 · **51 files, +2335/-237, 신규 58개**.

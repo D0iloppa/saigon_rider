@@ -1,5 +1,7 @@
 # 당근 기능 비교 후속 구현 원장 — 약속에서 길안내까지
 
+> **SUPERSEDED (2026-09-11)** — 이 문서의 F030–F033 결정원장(§1 분류, D-ROUTE-1, 가드레일, Phase 체크리스트 이력)은 유효하나, **89항목 전체의 SoT 는 [`260911_daangn_feature_comparison_master_ledger.md`](260911_daangn_feature_comparison_master_ledger.md) 로 승계됨.** 본문은 결정 이력으로 보존한다.
+
 - 문서일: 2026-09-10
 - 상태: `READY` (외부 게이트 충족 전 구현 착수 금지)
 - 구현 범위: PDF 비교표의 F030–F033만

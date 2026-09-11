@@ -463,6 +463,10 @@ services:
       - "/migrations/233_business_coupons.sql"
       - "-c"
       - "INSERT INTO schema_migrations(version) VALUES (233) ON CONFLICT DO NOTHING;"
+      - "-f"
+      - "/migrations/234_marketplace_appointment_travel_events.sql"
+      - "-c"
+      - "INSERT INTO schema_migrations(version) VALUES (234) ON CONFLICT DO NOTHING;"
     volumes:
       - ./database/init/160_schema_migrations.sql:/migrations/160_schema_migrations.sql:ro
       - ./database/init/139_marketplace_reviews_rating_int.sql:/migrations/139_marketplace_reviews_rating_int.sql:ro
@@ -553,6 +557,7 @@ services:
       - ./database/init/231_ad_tier_krw_prices.sql:/migrations/231_ad_tier_krw_prices.sql:ro
       - ./database/init/232_marketplace_transactions.sql:/migrations/232_marketplace_transactions.sql:ro
       - ./database/init/233_business_coupons.sql:/migrations/233_business_coupons.sql:ro
+      - ./database/init/234_marketplace_appointment_travel_events.sql:/migrations/234_marketplace_appointment_travel_events.sql:ro
     networks:
       - dev-net
     depends_on:

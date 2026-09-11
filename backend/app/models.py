@@ -1807,6 +1807,29 @@ class MarketplaceAppointment(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class MarketplaceAppointmentTravelEvent(Base):
+    """One immutable departure/arrival fact for one appointment participant.
+
+    Raw foreground GPS is intentionally validated at the request boundary and never retained.
+    """
+
+    __tablename__ = "marketplace_appointment_travel_events"
+    __table_args__ = (UniqueConstraint("appointment_id", "actor_id", "kind"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("marketplace_appointments.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    recipient_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class MarketplaceTransaction(Base):
     """Accepted marketplace deal and its manual-payment acknowledgement state.
 

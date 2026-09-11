@@ -456,6 +456,29 @@ export async function fetchAppointmentNavigation(appointmentId: string): Promise
   return transformAppointmentNavigationDestination(raw);
 }
 
+export interface AppointmentTravelStatus {
+  departed: boolean;
+  arrived: boolean;
+}
+
+export async function fetchAppointmentTravelStatus(appointmentId: string): Promise<AppointmentTravelStatus> {
+  return api.realFetch<AppointmentTravelStatus>(`/market/appointments/${appointmentId}/travel-events/me`);
+}
+
+export async function recordAppointmentDeparture(appointmentId: string): Promise<void> {
+  await api.realFetch(`/market/appointments/${appointmentId}/travel-events/departure`, { method: 'POST' });
+}
+
+/** Foreground GPS sample only; the server validates accuracy and destination distance and never stores it. */
+export async function recordAppointmentArrival(
+  appointmentId: string, lat: number, lng: number, accuracyM: number,
+): Promise<void> {
+  await api.realFetch(`/market/appointments/${appointmentId}/travel-events/arrival`, {
+    method: 'POST',
+    body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
+  });
+}
+
 export async function fetchMarketplaceTransaction(appointmentId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(`/market/appointments/${appointmentId}/transaction`));
 }

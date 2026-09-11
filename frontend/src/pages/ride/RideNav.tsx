@@ -21,6 +21,10 @@ import QuestProgressChip from '@/components/ride/QuestProgressChip';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
 import { routeApi, type RouteData, type RouteMode } from '@/api/info';
 import { fetchQuest, abandonRide as apiAbandonRide, fetchRideTrail, type TrailPoint } from '@/api/quests';
+import {
+  fetchAppointmentTravelStatus, recordAppointmentArrival, recordAppointmentDeparture,
+  type AppointmentTravelStatus,
+} from '@/api/dm';
 // DEV_DONGTAN_PIN: 한국 실기기 카메라연출 검증용 dev 판정 — BizManage.tsx 패턴 복제.
 // 실기기 검증 완료 후 제거 대상 (2026-08-07).
 import { fetchAppConfig } from '@/api/appVersion';
@@ -32,9 +36,26 @@ import styles from './RideNav.module.css';
 type Coords = { lat: number; lng: number };
 
 const ROUTE_MODES: RouteMode[] = ['motorcycle', 'car', 'walking'];
+const GOOGLE_TRAVEL_MODES: Record<RouteMode, string> = {
+  motorcycle: 'two-wheeler',
+  car: 'driving',
+  walking: 'walking',
+};
 
 function routeModeFromParam(value: string | null): RouteMode {
   return ROUTE_MODES.includes(value as RouteMode) ? value as RouteMode : 'motorcycle';
+}
+
+function parseNavDestination(params: URLSearchParams): Coords | null {
+  const rawLat = params.get('lat');
+  const rawLng = params.get('lng');
+  if (rawLat == null || rawLng == null || rawLat.trim() === '' || rawLng.trim() === '') return null;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+    return null;
+  }
+  return { lat, lng };
 }
 
 // 경로 이탈/재안내 판정 파라미터 (작업지시서 §5 기본값). 모두 로컬 계산 — GPS 틱당 API 호출 0.
@@ -42,6 +63,7 @@ const OFF_ROUTE_DISTANCE_M = 50; // 이탈 거리 임계값
 const OFF_ROUTE_SECONDS = 5; // 이탈 지속 시간(이 이상 지속해야 이탈 확정)
 const COMPASS_RADIUS_M = 500; // 라스트마일 나침반 모드 전환 반경
 const ARRIVAL_RADIUS_M = 40; // 목적지 도착 판정 반경(nav) — 이 안에 들면 안내 종료
+const APPOINTMENT_ARRIVAL_ACCURACY_MAX_M = 35; // P4: 서버 약속 도착 알림 GPS 정확도 경계와 동일
 const COURSE_MIN_SPEED_MS = 1.5; // course-up GPS heading 폴백 최소 속도(≈5.4km/h) — 저속 heading 은 무의미
 // 경로 API(Google Routes)는 호출당 과금이므로 이탈 재탐색은 안내 1회당 이 횟수까지만 허용하고,
 // 소진 후에는 재탐색 대신 Google 지도 딥링크로 유도한다.
@@ -111,9 +133,8 @@ export default function RideNav() {
   const questName = isQuest ? ride.questTitle ?? '' : '';
   const radiusM = isQuest ? ride.policyProximityM : Number(params.get('radius')) || 100;
   const name = params.get('name') ?? '';
-  const lat = params.get('lat');
-  const lng = params.get('lng');
-  const hasDest = !!lat && !!lng;
+  const appointmentId = params.get('appointmentId') ?? '';
+  const navDestination = useMemo(() => parseNavDestination(params), [params]);
   // DEV_DONGTAN_PIN: URL 의 devRaw 플래그는 단독으로는 아무 효과가 없다 — is_dev 확정 후에만
   // 이중 게이트가 성립한다(fetchRoute 안에서 devRaw 일 때만 fetchAppConfig 를 await, 이하 devBypass
   // 참조). devRaw 가 없는 절대다수 경로는 네트워크 호출 자체가 없어 진입 타이밍이 그대로다.
@@ -130,8 +151,8 @@ export default function RideNav() {
         ? { lat: ride.targetLat, lng: ride.targetLng }
         : null;
     }
-    return hasDest ? { lat: Number(lat), lng: Number(lng) } : null;
-  }, [isQuest, mode, ride.targetLat, ride.targetLng, hasDest, lat, lng]);
+    return navDestination;
+  }, [isQuest, mode, ride.targetLat, ride.targetLng, navDestination]);
 
   const mapRef = useRef<MapCanvasHandle>(null);
   const controlsRef = useRef<MapControlsHandle>(null);
@@ -160,6 +181,24 @@ export default function RideNav() {
   const [compass, setCompass] = useState<{ bearing: number; distM: number } | null>(null);
   const [arrived, setArrived] = useState(false); // nav 목적지 도착 — 안내 종료 상태
   const arrivedRef = useRef(false);
+  const [appointmentTravel, setAppointmentTravel] = useState<AppointmentTravelStatus | null>(null);
+  const [departureSending, setDepartureSending] = useState(false);
+  const appointmentTravelRef = useRef<AppointmentTravelStatus | null>(null);
+  const arrivalSendingRef = useRef(false);
+
+  useEffect(() => {
+    appointmentTravelRef.current = appointmentTravel;
+  }, [appointmentTravel]);
+
+  // 약속 이동 상태는 길안내에 진입한 당사자의 개인 사실만 읽는다. 위치공유 채널과 무관하다.
+  useEffect(() => {
+    if (type !== 'nav' || !appointmentId) return;
+    let cancelled = false;
+    void fetchAppointmentTravelStatus(appointmentId)
+      .then((status) => { if (!cancelled) setAppointmentTravel(status); })
+      .catch(() => { if (!cancelled) setAppointmentTravel(null); });
+    return () => { cancelled = true; };
+  }, [type, appointmentId]);
 
   // quest 이동경로(서버 스트림 GPS) — 거리 퀘스트 궤적 표시.
   const [trail, setTrail] = useState<TrailPoint[]>([]);
@@ -234,13 +273,16 @@ export default function RideNav() {
   const laInitialM = useRef<number | null>(null);
   const laDeepLink = useMemo(() => {
     const q = new URLSearchParams();
-    if (lat) q.set('lat', lat);
-    if (lng) q.set('lng', lng);
+    if (dest) {
+      q.set('lat', String(dest.lat));
+      q.set('lng', String(dest.lng));
+    }
     if (name) q.set('name', name);
+    if (appointmentId) q.set('appointmentId', appointmentId);
     const radius = params.get('radius');
     if (radius) q.set('radius', radius);
     return `ride&${q.toString()}`;
-  }, [lat, lng, name, params]);
+  }, [dest, name, appointmentId, params]);
   const laDestName = name || t('rideNav.destination', '목적지');
   useEffect(() => {
     if (type !== 'nav' || !dest || !guidanceStarted || !route || arrived) return;
@@ -366,6 +408,20 @@ export default function RideNav() {
         const toDest = haversineM(pos.lat, pos.lng, dest.lat, dest.lng);
         // 도착 판정이 나침반 모드보다 우선 — 반경 안에 들면 안내 종료.
         if (toDest <= ARRIVAL_RADIUS_M) {
+          const travel = appointmentTravelRef.current;
+          // P4: 출발을 명시한 뒤에만, 이 foreground GPS 샘플을 서버에 보낸다. 위치 원문은 서버가
+          // 검증만 하고 보관하지 않으며, 성공한 경우에만 도착 알림과 함께 안내를 종료한다.
+          if (appointmentId && travel?.departed && !travel.arrived) {
+            if (pos.accuracy == null || pos.accuracy > APPOINTMENT_ARRIVAL_ACCURACY_MAX_M || arrivalSendingRef.current) return;
+            arrivalSendingRef.current = true;
+            void recordAppointmentArrival(appointmentId, pos.lat, pos.lng, pos.accuracy)
+              .then(() => {
+                setAppointmentTravel({ departed: true, arrived: true });
+                arriveAtDest();
+              })
+              .catch(() => { arrivalSendingRef.current = false; });
+            return;
+          }
           arriveAtDest();
           return;
         }
@@ -468,6 +524,20 @@ export default function RideNav() {
     sheetRef.current?.collapse(); // 핀(중앙)이 시트에 가리지 않도록 시트 내림
   };
 
+  const recordDeparture = async () => {
+    if (!appointmentId || departureSending || appointmentTravel?.departed) return;
+    setDepartureSending(true);
+    try {
+      await recordAppointmentDeparture(appointmentId);
+      setAppointmentTravel((previous) => ({ departed: true, arrived: previous?.arrived ?? false }));
+      toast.neutral(t('rideNav.appointmentDepartureSent', '상대방에게 출발 알림을 보냈어요.'));
+    } catch {
+      toast.error(t('rideNav.appointmentTravelError', '출발 알림을 보내지 못했어요. 다시 시도해 주세요.'));
+    } finally {
+      setDepartureSending(false);
+    }
+  };
+
   const selectRouteMode = (nextMode: RouteMode) => {
     if (nextMode === routeMode) return;
     setRouteMode(nextMode);
@@ -477,8 +547,8 @@ export default function RideNav() {
   };
 
   const openGoogleMaps = () => {
-    if (!hasDest) return;
-    native.openUrl(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=two-wheeler`);
+    if (!dest) return;
+    native.openUrl(`https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}&travelmode=${GOOGLE_TRAVEL_MODES[routeMode]}`);
     setDialogOpen(false);
   };
 
@@ -543,7 +613,7 @@ export default function RideNav() {
   const openGoogleReroute = () => {
     if (!dest) return;
     const o = current ? `&origin=${current.lat},${current.lng}` : '';
-    native.openUrl(`https://www.google.com/maps/dir/?api=1${o}&destination=${dest.lat},${dest.lng}&travelmode=two-wheeler`);
+    native.openUrl(`https://www.google.com/maps/dir/?api=1${o}&destination=${dest.lat},${dest.lng}&travelmode=${GOOGLE_TRAVEL_MODES[routeMode]}`);
     setOffRoute(false);
   };
 
@@ -698,7 +768,7 @@ export default function RideNav() {
                 </div>
                 {/* 권역 밖에는 Google 핸드오프를 노출하지 않는다(D-1 권고) — 측위 실패는 우리 쪽
                     사유라 대안을 준다. */}
-                {locationError !== 'outside_area' && hasDest && (
+                {locationError !== 'outside_area' && dest && (
                   <button className={styles.handoffBtn} onClick={openGoogleMaps}>
                     <span className={styles.gIcon}><GoogleGIcon /></span>
                     {t('rideNav.openGoogleMaps', 'Google 지도로 이동')}
@@ -725,6 +795,18 @@ export default function RideNav() {
                 <div className={styles.twoWheelerWarning}>
                   {routeMode === 'motorcycle' && t('rideNav.twoWheelerWarning', '오토바이 경로는 베타 기능이며 실제 도로 규제와 다를 수 있습니다.')}
                 </div>
+                {appointmentId && route?.configured && !appointmentTravel?.arrived && (
+                  <button
+                    className={styles.routePreviewButton}
+                    type="button"
+                    disabled={departureSending || appointmentTravel?.departed}
+                    onClick={recordDeparture}
+                  >
+                    {appointmentTravel?.departed
+                      ? t('rideNav.appointmentDepartureSentLabel', '출발 알림을 보냈어요')
+                      : t('rideNav.appointmentDeparture', '상대방에게 출발 알림 보내기')}
+                  </button>
+                )}
                 {routingUnavailable ? (
                   <div className={styles.routingUnavailable} role="status">
                     {t('rideNav.routingUnavailable', { defaultValue: '지금은 길안내를 준비할 수 없어요. 잠시 후 다시 확인해 주세요.' })}
@@ -827,7 +909,7 @@ export default function RideNav() {
             <div className={styles.fallbackDesc}>
               {t('rideNav.summaryPending', '길찾기를 시작하면 현재 위치를 측정합니다.')}
             </div>
-            {type === 'nav' && !routeRequested && (
+            {type === 'nav' && dest && !routeRequested && (
               <button className={styles.startFab} onClick={fetchRoute}>
                 <Play size={15} fill="currentColor" strokeWidth={0} aria-hidden="true" /> {t('rideNav.startGuidance', '경로 안내 시작')}
               </button>

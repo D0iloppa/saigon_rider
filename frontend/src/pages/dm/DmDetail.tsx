@@ -1006,7 +1006,14 @@ export default function DmDetail() {
 
   const handleNavigate = (destination: AppointmentNavigationDestination) => {
     if (!routeAvailable) return;
-    navigate(`/ride-nav?type=nav&lat=${destination.placeLat}&lng=${destination.placeLng}`);
+    const query = new URLSearchParams({
+      type: 'nav',
+      appointmentId: destination.appointmentId,
+      lat: String(destination.placeLat),
+      lng: String(destination.placeLng),
+    });
+    if (destination.placeName) query.set('name', destination.placeName);
+    navigate(`/ride-nav?${query.toString()}`);
   };
 
   // 현재위치 미리보기는 약속 카드와 별도 기능이다. 약속 목적지에는 이 경로를 쓰지 않는다.

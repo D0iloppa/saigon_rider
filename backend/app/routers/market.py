@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import math
 import os
 import time
 import uuid
@@ -8,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import delete, func, literal_column, or_, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -23,6 +25,7 @@ from ..models import (
     ListingPriceLog,
     MarketplaceAd,
     MarketplaceAppointment,
+    MarketplaceAppointmentTravelEvent,
     MarketplaceCategory,
     MarketplaceKeywordAlert,
     MarketplaceListing,
@@ -44,6 +47,9 @@ from ..schemas import (
     AppointmentNavigationOut,
     AppointmentOut,
     AppointmentProposeRequest,
+    AppointmentTravelArrivalRequest,
+    AppointmentTravelEventOut,
+    AppointmentTravelStatusOut,
     BlockedUserOut,
     DealResultResponseRequest,
     DistrictBrief,
@@ -108,6 +114,8 @@ _BUSINESS_LISTING_CAP = 5  # T-3: 업체당 매물 상한(강제, 예외 없음)
 _LISTING_INACTIVE_STATUSES = ("HIDDEN", "REMOVED", "WITHDRAWN", "SOLD", "EXPIRED")
 # 판매자 본인만 볼 수 있고, 재판매(ON_SALE) 복귀만 허용되는 "되돌릴 수 있는 비활성" 상태.
 _RECOVERABLE_STATUSES = ("WITHDRAWN", "EXPIRED")
+_APPOINTMENT_ARRIVAL_RADIUS_M = 40
+_APPOINTMENT_ARRIVAL_ACCURACY_MAX_M = 35
 
 
 _MANNER_BASE = 36.5
@@ -1892,6 +1900,90 @@ def _navigation_destination(a: MarketplaceAppointment) -> tuple[float, float]:
     return place_lat, place_lng
 
 
+def _distance_meters(lat_a: float, lng_a: float, lat_b: float, lng_b: float) -> float:
+    """Great-circle distance for the short appointment-arrival threshold."""
+    earth_radius_m = 6_371_000
+    lat_delta = math.radians(lat_b - lat_a)
+    lng_delta = math.radians(lng_b - lng_a)
+    haversine = (
+        math.sin(lat_delta / 2) ** 2
+        + math.cos(math.radians(lat_a)) * math.cos(math.radians(lat_b)) * math.sin(lng_delta / 2) ** 2
+    )
+    return 2 * earth_radius_m * math.asin(math.sqrt(haversine))
+
+
+async def _travel_appointment(
+    db: AsyncSession, appointment_id: uuid.UUID, session_uid: uuid.UUID
+) -> tuple[MarketplaceAppointment, DmConversation, uuid.UUID, tuple[float, float]]:
+    appt, conv, _listing = await _load_appointment(db, appointment_id, session_uid)
+    if appt.status != "ACCEPTED":
+        raise HTTPException(status_code=409, detail={"code": "appointment_travel_not_accepted"})
+    try:
+        destination = _navigation_destination(appt)
+    except HTTPException as exc:
+        code = exc.detail.get("code") if isinstance(exc.detail, dict) else None
+        travel_code = {
+            "appointment_navigation_destination_missing": "appointment_travel_destination_missing",
+            "appointment_navigation_destination_invalid": "appointment_travel_destination_invalid",
+        }.get(code, "appointment_travel_destination_invalid")
+        raise HTTPException(status_code=409, detail={"code": travel_code}) from None
+    return appt, conv, require_participant(conv, session_uid), destination
+
+
+async def _record_appointment_travel_event(
+    db: AsyncSession,
+    *,
+    appointment: MarketplaceAppointment,
+    conversation: DmConversation,
+    actor_id: uuid.UUID,
+    recipient_id: uuid.UUID,
+    kind: str,
+) -> AppointmentTravelEventOut:
+    """Insert one immutable fact and its peer-only outbox event in one transaction."""
+    now = datetime.now(UTC)
+    inserted = (
+        await db.execute(
+            pg_insert(MarketplaceAppointmentTravelEvent)
+            .values(
+                appointment_id=appointment.id,
+                actor_id=actor_id,
+                recipient_id=recipient_id,
+                kind=kind,
+                occurred_at=now,
+            )
+            .on_conflict_do_nothing(index_elements=("appointment_id", "actor_id", "kind"))
+            .returning(MarketplaceAppointmentTravelEvent.occurred_at)
+        )
+    ).scalar_one_or_none()
+    if inserted is None:
+        existing = (
+            await db.execute(
+                select(MarketplaceAppointmentTravelEvent.occurred_at).where(
+                    MarketplaceAppointmentTravelEvent.appointment_id == appointment.id,
+                    MarketplaceAppointmentTravelEvent.actor_id == actor_id,
+                    MarketplaceAppointmentTravelEvent.kind == kind,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            raise HTTPException(status_code=409, detail={"code": "appointment_travel_event_conflict"})
+        return AppointmentTravelEventOut(kind=kind, occurred_at=existing, recorded=False)
+
+    noti_events.enqueue(
+        db,
+        "market.appointment_travel",
+        {
+            "appointment_id": str(appointment.id),
+            "conversation_id": str(conversation.id),
+            "actor_id": str(actor_id),
+            "recipient_id": str(recipient_id),
+            "kind": kind,
+        },
+    )
+    await db.commit()
+    return AppointmentTravelEventOut(kind=kind, occurred_at=inserted, recorded=True)
+
+
 @router.get(
     "/appointments/{appointment_id}/navigation",
     response_model=AppointmentNavigationOut,
@@ -1932,6 +2024,92 @@ async def get_appointment_navigation_destination(
         place_name=appt.place_name,
         place_lat=place_lat,
         place_lng=place_lng,
+    )
+
+
+@router.get(
+    "/appointments/{appointment_id}/travel-events/me",
+    response_model=AppointmentTravelStatusOut,
+    summary="내 약속 출발·도착 알림 상태",
+)
+async def get_appointment_travel_status(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    appt, _conv, _counterpart_id, _destination = await _travel_appointment(db, appointment_id, session_uid)
+    kinds = set(
+        (
+            await db.execute(
+                select(MarketplaceAppointmentTravelEvent.kind).where(
+                    MarketplaceAppointmentTravelEvent.appointment_id == appt.id,
+                    MarketplaceAppointmentTravelEvent.actor_id == session_uid,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return AppointmentTravelStatusOut(departed="departure" in kinds, arrived="arrival" in kinds)
+
+
+@router.post(
+    "/appointments/{appointment_id}/travel-events/departure",
+    response_model=AppointmentTravelEventOut,
+    summary="약속 출발 알림",
+)
+async def record_appointment_departure(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    appt, conv, counterpart_id, _destination = await _travel_appointment(db, appointment_id, session_uid)
+    return await _record_appointment_travel_event(
+        db,
+        appointment=appt,
+        conversation=conv,
+        actor_id=session_uid,
+        recipient_id=counterpart_id,
+        kind="departure",
+    )
+
+
+@router.post(
+    "/appointments/{appointment_id}/travel-events/arrival",
+    response_model=AppointmentTravelEventOut,
+    summary="약속 도착 알림",
+)
+async def record_appointment_arrival(
+    appointment_id: uuid.UUID,
+    body: AppointmentTravelArrivalRequest,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    appt, conv, counterpart_id, destination = await _travel_appointment(db, appointment_id, session_uid)
+    if not all(math.isfinite(value) for value in (body.lat, body.lng, body.accuracy_m)):
+        raise HTTPException(status_code=422, detail={"code": "appointment_travel_location_invalid"})
+    if body.accuracy_m > _APPOINTMENT_ARRIVAL_ACCURACY_MAX_M:
+        raise HTTPException(status_code=409, detail={"code": "appointment_travel_arrival_accuracy_too_low"})
+    departure_at = (
+        await db.execute(
+            select(MarketplaceAppointmentTravelEvent.occurred_at).where(
+                MarketplaceAppointmentTravelEvent.appointment_id == appt.id,
+                MarketplaceAppointmentTravelEvent.actor_id == session_uid,
+                MarketplaceAppointmentTravelEvent.kind == "departure",
+            )
+        )
+    ).scalar_one_or_none()
+    if departure_at is None:
+        raise HTTPException(status_code=409, detail={"code": "appointment_travel_departure_required"})
+    if _distance_meters(body.lat, body.lng, *destination) > _APPOINTMENT_ARRIVAL_RADIUS_M:
+        raise HTTPException(status_code=409, detail={"code": "appointment_travel_arrival_too_far"})
+    return await _record_appointment_travel_event(
+        db,
+        appointment=appt,
+        conversation=conv,
+        actor_id=session_uid,
+        recipient_id=counterpart_id,
+        kind="arrival",
     )
 
 

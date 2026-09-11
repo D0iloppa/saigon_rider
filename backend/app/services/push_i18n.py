@@ -38,6 +38,27 @@ TEXTS: dict[str, dict[str, str]] = {
     "la_deal.completionRequested": {"ko": "완료 요청됨", "en": "Completion requested", "vi": "Đã yêu cầu hoàn tất"},
     "la_deal.completed": {"ko": "거래 완료", "en": "Deal completed", "vi": "Giao dịch hoàn tất"},
     "la_deal.cancelled": {"ko": "약속 취소", "en": "Meetup cancelled", "vi": "Đã hủy hẹn"},
+    # 약속 이동 알림 — 수신자는 상대방 한 명이며, 출발/도착 사실만 전달한다.
+    "appointment_travel.departure.title": {
+        "ko": "약속 이동 알림",
+        "en": "Meetup travel update",
+        "vi": "Cập nhật di chuyển cuộc hẹn",
+    },
+    "appointment_travel.departure.body": {
+        "ko": "상대방이 출발했어요.",
+        "en": "Your meetup partner has departed.",
+        "vi": "Người hẹn gặp đã khởi hành.",
+    },
+    "appointment_travel.arrival.title": {
+        "ko": "약속 이동 알림",
+        "en": "Meetup travel update",
+        "vi": "Cập nhật di chuyển cuộc hẹn",
+    },
+    "appointment_travel.arrival.body": {
+        "ko": "상대방이 약속 장소에 도착했어요.",
+        "en": "Your meetup partner has arrived at the meeting place.",
+        "vi": "Người hẹn gặp đã đến điểm hẹn.",
+    },
 }
 
 # TODO: 아직 한국어 하드코딩으로 남은 서버 문안 — 이관 시 여기 키를 추가하고 호출부를 t() 로 바꾼다.

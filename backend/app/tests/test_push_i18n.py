@@ -50,6 +50,11 @@ class TranslateTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             push_i18n.t("ko", "no.such.key")
 
+    def test_appointment_travel_copy_snapshot_per_language(self):
+        self.assertEqual(push_i18n.t("ko", "appointment_travel.departure.body"), "상대방이 출발했어요.")
+        self.assertEqual(push_i18n.t("en", "appointment_travel.departure.body"), "Your meetup partner has departed.")
+        self.assertEqual(push_i18n.t("vi", "appointment_travel.arrival.body"), "Người hẹn gặp đã đến điểm hẹn.")
+
 
 def _alert(user_id, keyword):
     return SimpleNamespace(id=uuid.uuid4(), user_id=user_id, keyword=keyword, keyword_norm=keyword.lower())

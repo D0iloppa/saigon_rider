@@ -279,6 +279,41 @@ class NotificationWorkerIdempotencyTest(unittest.IsolatedAsyncioTestCase):
         push_enabled.assert_awaited_once_with(session, user_id, "event")
         try_push.assert_not_awaited()
 
+    async def test_appointment_travel_uses_event_setting_and_peer_dm_deep_link(self):
+        recipient_id = uuid.uuid4()
+        conversation_id = str(uuid.uuid4())
+        session = MagicMock(commit=AsyncMock())
+        insert_notification = AsyncMock(return_value=True)
+        push_enabled = AsyncMock(return_value=True)
+        try_push = AsyncMock()
+        payload = {
+            "appointment_id": str(uuid.uuid4()),
+            "conversation_id": conversation_id,
+            "actor_id": str(uuid.uuid4()),
+            "recipient_id": str(recipient_id),
+            "kind": "arrival",
+        }
+
+        with (
+            patch.object(noti_worker, "AsyncSessionLocal", return_value=_SessionContext(session)),
+            patch.object(noti_worker, "_insert_notification", new=insert_notification),
+            patch.object(noti_worker, "_push_enabled", new=push_enabled),
+            patch.object(noti_worker, "langs_for_users", new=AsyncMock(return_value={recipient_id: "en"})),
+            patch.object(noti_worker, "_try_push", new=try_push),
+        ):
+            await noti_worker._handle_market_appointment_travel(payload, source_event_id="travel-1")
+
+        self.assertIs(noti_worker.HANDLERS["market.appointment_travel"], noti_worker._handle_market_appointment_travel)
+        push_enabled.assert_awaited_once_with(session, recipient_id, "event")
+        self.assertEqual(insert_notification.await_args.kwargs["user_id"], recipient_id)
+        self.assertEqual(insert_notification.await_args.kwargs["link"], f"dm&id={conversation_id}")
+        try_push.assert_awaited_once_with(
+            str(recipient_id),
+            "Meetup travel update",
+            "Your meetup partner has arrived at the meeting place.",
+            f"dm&id={conversation_id}",
+        )
+
     async def test_listing_event_can_insert_once_for_each_recipient(self):
         seller_id = uuid.uuid4()
         recipient_ids = [uuid.uuid4(), uuid.uuid4()]

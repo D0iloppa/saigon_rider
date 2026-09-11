@@ -448,6 +448,43 @@ async def _handle_proximity_hit(payload: dict, *, source_event_id: str) -> None:
         log.info("push skipped (event=off) user=%s ad=%s", user_id, ad_id)
 
 
+async def _handle_market_appointment_travel(payload: dict, *, source_event_id: str) -> None:
+    """P4-3: 약속 상대에게만 출발/도착 사실을 전달한다.
+
+    위치 원문은 payload에 없고, 수신자는 P4-2 도메인 트랜잭션이 확정한 peer 하나다.
+    `event` 토글은 푸시만 막으며 인앱 알림은 그대로 남긴다.
+    """
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    conversation_id = payload["conversation_id"]
+    kind = payload["kind"]
+    if kind not in {"departure", "arrival"}:
+        raise ValueError(f"unsupported appointment travel kind: {kind}")
+    link = f"dm&id={conversation_id}"
+
+    async with AsyncSessionLocal() as db:
+        lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
+        title = t(lang, f"appointment_travel.{kind}.title")
+        body = t(lang, f"appointment_travel.{kind}.body")
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        push_ok = inserted and await _push_enabled(db, recipient_id, "event")
+        await db.commit()
+
+    if not inserted:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+    elif push_ok:
+        await _try_push(str(recipient_id), title, body, link)
+    else:
+        log.info("push skipped (event=off) user=%s conv=%s", recipient_id, conversation_id)
+
+
 async def _handle_support_replied(payload: dict, *, source_event_id: str) -> None:
     """고객센터 답변 통지(FD-2/12) — biz.profile_reviewed 와 동일하게 트랜잭셔널 알림으로 취급해
     푸시 게이트 없이 발송한다. 딥링크는 문의 상세(support&id=<ticket_id>)."""
@@ -888,6 +925,7 @@ HANDLERS = {
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
     "biz.ad_reviewed": _handle_biz_ad_reviewed,
     "proximity.hit": _handle_proximity_hit,
+    "market.appointment_travel": _handle_market_appointment_travel,
     "support.replied": _handle_support_replied,
     "report.submitted": _handle_report_submitted,
     "search.reindex": _handle_search_reindex,

@@ -1438,6 +1438,25 @@ class AppointmentNavigationOut(BaseModel):
     precision: Literal["exact"] = "exact"
 
 
+class AppointmentTravelArrivalRequest(BaseModel):
+    """A foreground GPS sample for the one-time arrival check; it is not persisted."""
+
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    accuracy_m: float = Field(ge=0)
+
+
+class AppointmentTravelEventOut(BaseModel):
+    kind: Literal["departure", "arrival"]
+    occurred_at: datetime
+    recorded: bool
+
+
+class AppointmentTravelStatusOut(BaseModel):
+    departed: bool
+    arrived: bool
+
+
 class MarketplaceTransactionOut(BaseModel):
     appointment_id: UUID
     conversation_id: UUID

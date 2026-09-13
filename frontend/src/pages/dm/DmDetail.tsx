@@ -65,6 +65,7 @@ import { VoiceMessageBubble } from '@/components/dm/VoiceMessageBubble';
 import { loadSession } from '@/lib/session';
 import { formatMessageDateSeparator, formatMessageTimestamp, formatRelativeTime } from '@/lib/format';
 import { playSound } from '@/lib/sound';
+import { registerPollTask } from '@/lib/pollScheduler';
 import type { DmConversation, DmMessage } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { Avatar } from '@/components/ui/Avatar';
@@ -339,7 +340,6 @@ export default function DmDetail() {
   useEffect(() => {
     if (!conversationId) return;
     const tick = async () => {
-      if (document.visibilityState !== 'visible') return;
       try {
         // updated_at 워터마크 — 신규뿐 아니라 수정/삭제/공감변경된 메시지도 실려 온다(id upsert)
         const res = await fetchMessages(conversationId, 1, watermarkOf(messagesRef.current));
@@ -362,13 +362,8 @@ export default function DmDetail() {
         // 순단 무시 — 다음 tick 에 재시도
       }
     };
-    const interval = setInterval(tick, 5000);
-    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    // 화면이 꺼진 동안 스킵 / 포그라운드 복귀 시 즉시 1회는 스케줄러가 보장한다.
+    return registerPollTask({ id: `dm-messages:${conversationId}`, intervalMs: 5000, run: tick, runImmediately: false });
   }, [conversationId]); // messagesRef 로 최신값 참조 — interval 재시작 불필요 // eslint-disable-line react-hooks/exhaustive-deps
 
   // 음성메시지 이력 로드 + 폴링 — dm_messages 폴링과 같은 5초 주기·커서 패턴이지만, 저장소가
@@ -395,12 +390,17 @@ export default function DmDetail() {
       }
     };
     void load(null);
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') void load(voiceCursorRef.current);
-    }, 5000);
+    // 텍스트 폴링과 같은 5초라 스케줄러가 **같은 tick 에 정렬**한다 — 종전엔 타이머가 둘로
+    // 갈라져 서로 다른 시점에 요청이 나갔다.
+    const unregister = registerPollTask({
+      id: `dm-voice:${conversationId}`,
+      intervalMs: 5000,
+      run: () => load(voiceCursorRef.current),
+      runImmediately: false,
+    });
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      unregister();
     };
   }, [conversationId]);
 

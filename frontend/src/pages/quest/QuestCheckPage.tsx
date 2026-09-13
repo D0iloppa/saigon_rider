@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { QuestChecker } from '@/components/quest/QuestChecker';
 import { fetchActiveCard, type ActiveCardState } from '@/api/quests';
+import { registerPollTask } from '@/lib/pollScheduler';
 import styles from './QuestCheckPage.module.css';
 
 const POLL_MS = 3000;
@@ -18,7 +19,7 @@ export default function QuestCheckPage() {
   const questTitle = (location.state as { questTitle?: string } | null)?.questTitle;
 
   const [card, setCard] = useState<ActiveCardState | null>(null);
-  const timerRef = useRef<number | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!userQuestId) return;
@@ -28,17 +29,24 @@ export default function QuestCheckPage() {
       const c = await fetchActiveCard(userQuestId);
       if (cancelled || !c) return;
       setCard(c);
-      if (c.status !== 'ACTIVE' && timerRef.current != null) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
+      if (c.status !== 'ACTIVE') {
+        stopRef.current?.(); // 카드가 끝나면 더 조회할 것이 없다
+        stopRef.current = null;
       }
     };
 
     tick();
-    timerRef.current = window.setInterval(tick, POLL_MS);
+    // 화면이 꺼진 동안은 스케줄러가 스킵한다 — 종전엔 가드가 없어 백그라운드에서도 3초마다 돌았다.
+    stopRef.current = registerPollTask({
+      id: `quest-active-card:${userQuestId}`,
+      intervalMs: POLL_MS,
+      run: tick,
+      runImmediately: false,
+    });
     return () => {
       cancelled = true;
-      if (timerRef.current != null) window.clearInterval(timerRef.current);
+      stopRef.current?.();
+      stopRef.current = null;
     };
   }, [userQuestId]);
 

@@ -26,6 +26,7 @@ import { useProximityAlerts } from '@/hooks/useProximityAlerts';
 import PrivateRoute from '@/components/auth/PrivateRoute';
 import SellerComposeRoute from '@/components/auth/SellerComposeRoute';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { registerPollTask } from '@/lib/pollScheduler';
 import { captureAcqRefFromUrl, captureUtmFirstTouchFromUrl } from '@/lib/acquisition';
 import { useScreenTracking } from '@/hooks/useScreenTracking';
 
@@ -276,7 +277,6 @@ export default function App() {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [bootstrapError, setBootstrapError] = useState(false);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
-  const dmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
   const [gifReady, setGifReady] = useState(false);
@@ -393,26 +393,25 @@ export default function App() {
   // 따로 돌리면 두 뱃지가 서로 다른 시점의 값을 보여준다(2026-09-13 관찰: 알림벨엔 2 가 떠 있는데
   // 채팅 탭은 비어 있다가 /dm 진입 순간 둘 다 바뀜).
   useEffect(() => {
-    if (!user) {
-      if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
-      return;
-    }
+    if (!user) return; // 로그아웃 시엔 아래 cleanup 이 등록을 해제한다
     const uid = user.id;
-    const refreshBadges = () => { void refreshUnread(); void refreshNotiUnread(uid); };
-    refreshBadges();
+    const refreshBadges = () => Promise.all([refreshUnread(), refreshNotiUnread(uid)]).then(() => {});
+    // 주기는 서버 설정(`dm.unread_poll_interval`, 기본 30s) — 어드민에서 재빌드 없이 바꾼다.
+    // 화면이 꺼진 동안의 스킵과 포그라운드 복귀 시 즉시 갱신은 스케줄러가 처리한다.
+    let unregister: (() => void) | null = null;
+    let cancelled = false;
     fetchAppConfig().then((cfg) => {
-      if (dmIntervalRef.current) clearInterval(dmIntervalRef.current);
-      dmIntervalRef.current = setInterval(refreshBadges, cfg.dmPollInterval * 1000);
+      if (cancelled) return;
+      unregister = registerPollTask({
+        id: 'unread-badges',
+        intervalMs: cfg.dmPollInterval * 1000,
+        run: refreshBadges,
+      });
     });
-    // 백그라운드에서 돌아왔을 때 다음 폴링 tick 까지 기다리지 않고 즉시 맞춘다.
-    // DmDetail 의 메시지 폴링이 쓰는 것과 같은 방식이다(네이티브 App 플러그인 미연결 상태).
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refreshBadges();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    refreshBadges(); // 설정 조회를 기다리지 않고 첫 값을 먼저 채운다
     return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
+      cancelled = true;
+      unregister?.();
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

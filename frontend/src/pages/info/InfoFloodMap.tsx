@@ -23,6 +23,7 @@ import { districtLabelByCode } from '@/components/maps/district-data';
 import { getDepth, TRUST_TOKENS, trustFromScore } from '@/components/flood/flood-tokens';
 import depth1 from '@/components/maps/v2/saigon-depth1.json';
 import sys from '@/styles/system.module.css';
+import { registerPollTask } from '@/lib/pollScheduler';
 import styles from './InfoFloodMap.module.css';
 
 const SaigonMapV5 = lazy(() => import('@/components/maps/SaigonMapV5'));
@@ -165,19 +166,23 @@ export default function InfoFloodMap() {
   useEffect(() => {
     setReportCoords(null);
     fetchAll();
-    const id = window.setInterval(() => {
-      const c = coordsRef.current;
-      if (c) {
-        floodApi
+    // 화면이 꺼진 동안은 스케줄러가 스킵한다 — 종전엔 가드가 없어 백그라운드에서도 갱신했다.
+    return registerPollTask({
+      id: 'flood-map-refresh',
+      intervalMs: REFRESH_INTERVAL_MS,
+      runImmediately: false,
+      run: () => {
+        const c = coordsRef.current;
+        if (!c) return;
+        return floodApi
           .getMapData(c.lat, c.lng, FETCH_RADIUS_KM)
           .then((r) => {
             applyMapData(r);
             writeFloodCache(c.lat, c.lng, r);
           })
           .catch(() => undefined);
-      }
-    }, REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(id);
+      },
+    });
   }, [fetchAll]);
 
   // 파생 리스트(제보·예측·핫스팟) 메모이즈 — 리포트 시트 타이핑 등 무관한 리렌더에

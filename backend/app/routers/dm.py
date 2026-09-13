@@ -728,6 +728,33 @@ async def get_messages(
 
     reactions = await _reactions_map(db, [m.id for m in rows], _session_uid)
 
+    # 그룹/오픈톡방의 "안 읽은 N명" — 멤버는 소수라 대화당 1회만 읽어와 메시지별 계산은
+    # 파이썬에서 한다(메시지마다 쿼리를 돌리면 폴링 tick 마다 N+1 이 된다).
+    # direct 는 상대가 1명뿐이라 read_at 으로 충분해 계산하지 않는다.
+    member_read_rows: list[tuple[uuid.UUID, datetime | None]] = []
+    if conv.conversation_type != "direct":
+        member_read_rows = [
+            (uid, last_read)
+            for uid, last_read in (
+                await db.execute(
+                    select(DmConversationMember.user_id, DmConversationMember.last_read_at).where(
+                        DmConversationMember.conversation_id == conv_id,
+                        DmConversationMember.left_at.is_(None),
+                    )
+                )
+            ).all()
+        ]
+
+    def _unread_members_for(m: DmMessage) -> int | None:
+        if conv.conversation_type == "direct":
+            return None
+        # last_read_at 이 없으면(한 번도 안 읽음) 아직 안 읽은 것으로 센다.
+        return sum(
+            1
+            for uid, last_read in member_read_rows
+            if uid != m.sender_id and (last_read is None or last_read < m.created_at)
+        )
+
     items = [
         DmMessageOut(
             id=m.id,
@@ -738,6 +765,7 @@ async def get_messages(
             image_url=None if m.deleted_at else _resolve_dm_image(m),
             audio_url=None if m.deleted_at else _resolve_dm_audio(m),
             read_at=m.read_at,
+            unread_member_count=_unread_members_for(m),
             created_at=m.created_at,
             message_type=m.message_type,
             meta=None if m.deleted_at else m.meta,

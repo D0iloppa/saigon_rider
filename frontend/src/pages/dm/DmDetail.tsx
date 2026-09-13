@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CalendarPlus, Check, ChevronDown, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
+import { AlertCircle, CalendarPlus, ChevronDown, CircleUserRound, CreditCard, Flag, HandCoins, ImagePlus, LayoutList, LocateFixed, LogOut, MailOpen, MapPin, Megaphone, MoreVertical, Pencil, Radio, Reply, Smile, Trash2, X } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
@@ -1201,9 +1201,25 @@ export default function DmDetail() {
           <span className={styles.editedTag}>{t('dm.edited', { defaultValue: '(수정됨)' })}</span>
         )}
         {formatMessageTimestamp(m.createdAt)}
-        {isMine && m.readAt && <Check size={12} strokeWidth={2.6} className={styles.read} />}
+        {isMine && renderReadState(m)}
       </div>
     );
+  };
+
+  /**
+   * 내가 보낸 메시지의 수신 상태.
+   * - 1:1  : 상대가 읽으면 "읽음". 종전엔 작은 체크 아이콘뿐이라 읽혔는지 알아보기 어려웠다.
+   * - 그룹 : 아직 안 읽은 인원수. 전원이 읽으면 아무것도 표시하지 않는다(카톡과 같은 규칙).
+   * 상대 메시지에는 붙지 않는다 — 내가 읽었는지는 나에게 정보가 아니다.
+   */
+  const renderReadState = (m: DmMessage) => {
+    if (isDirect) {
+      return m.readAt
+        ? <span className={styles.readState}>{t('dm.read', { defaultValue: '읽음' })}</span>
+        : null;
+    }
+    const unread = m.unreadMemberCount ?? 0;
+    return unread > 0 ? <span className={styles.unreadCount}>{unread}</span> : null;
   };
 
   const renderDateSeparator = (m: DmMessage) => dateSeparatorMessageIds.has(m.id) ? (

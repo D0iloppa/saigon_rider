@@ -1568,6 +1568,9 @@ class DmMessageOut(BaseModel):
     # 워키토키 음성메시지(D-5 재생URL) — 재생완료로 삭제된 뒤에는 None (meta.playedAt 로 구분)
     audio_url: str | None = None
     read_at: datetime | None
+    # 그룹/오픈톡방 전용 — 이 메시지를 아직 안 읽은 참여자 수(보낸이 제외, 나간 사람 제외).
+    # direct 는 항상 None 이고 읽음 여부는 read_at 으로 판단한다.
+    unread_member_count: int | None = None
     created_at: datetime
     message_type: str = "text"
     meta: dict | None = None

@@ -151,6 +151,22 @@
   vertical-align: -1px;
 }
 
+/* 내가 보낸 메시지의 수신 상태 — 시간 옆에 붙는다(.messageMeta 안).
+   1:1 은 "읽음" 텍스트, 그룹은 안 읽은 인원수. 시간보다 눈에 띄되 본문을 가리지 않도록
+   브랜드색을 쓰고 크기는 메타와 같은 단계로 둔다. */
+.readState {
+  margin-left: 4px;
+  color: var(--brand-500);
+  font-weight: 600;
+}
+
+.unreadCount {
+  margin-left: 4px;
+  color: var(--brand-500);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 /* 이모티콘(이미지) 패널 (MessageComposer 슬롯 콘텐츠) */
 .stickerGrid {
   display: grid;

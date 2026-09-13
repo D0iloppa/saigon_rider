@@ -399,6 +399,8 @@ export interface DmMessage {
   /** message_type === 'voice' 일 때 재생URL. 재생완료로 파일이 삭제된 뒤에는 null. */
   audioUrl: string | null;
   readAt: string | null;
+  /** 그룹/오픈톡방 전용 — 아직 안 읽은 참여자 수(보낸이·나간 사람 제외). direct 는 항상 null. */
+  unreadMemberCount: number | null;
   createdAt: string;
   messageType: string;
   meta: DmAppointmentMeta | null;

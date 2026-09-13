@@ -248,6 +248,13 @@ async def notify_user(
         )
     ).first()
 
+    # 읽기 트랜잭션을 여기서 닫는다. 아래 send_push() 는 FCM 으로 나가는 외부 HTTP 호출이라,
+    # 세션을 연 채로 기다리면 커넥션이 idle-in-transaction 상태로 묶인다. noti_worker 가
+    # 타임아웃으로 연결을 끊어 요청이 취소되면 그 커넥션이 회수되지 않고, 풀(기본 5+10)이
+    # 고갈된 뒤로는 모든 푸시가 DB 연결 실패로 죽는다.
+    # 2026-09-13 실측: idle-in-transaction 커넥션이 3분 넘게 증가, DLQ 62건, 발송 성공 0건.
+    await db.commit()
+
     if row is None:
         return PushNotifyResponse(sent=0, failed=0)
 

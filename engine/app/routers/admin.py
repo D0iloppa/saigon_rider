@@ -997,6 +997,11 @@ async def admin_push_send(
     rows = (await db.execute(stmt)).all()
     targets = [{"user_id": r.user_id, "fcm_token": r.fcm_token} for r in rows]
 
+    # 아래 send_push() 전에 읽기 트랜잭션을 닫는다 — broadcast 는 대상 전원에게 순차 발송하므로
+    # 세션을 연 채 기다리면 커넥션이 그만큼 오래 묶인다. 상세 근거는 routers/device_map.py
+    # notify_user 의 동일 주석 참조.
+    await db.commit()
+
     if not targets:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

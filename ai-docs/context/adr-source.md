@@ -6,7 +6,7 @@
 >
 > ADR 내용을 고칠 일이 생기면 **이 파일과 MCP 를 항상 함께** 갱신한다. 이 파일이 SoT 다.
 >
-> 최종 갱신: 2026-09-13
+> 최종 갱신: 2026-09-13 (P1 푸시·P2 뱃지 수정 반영)
 
 ---
 
@@ -124,7 +124,7 @@ Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한�
 ### DM 알림·실시간 (2026-09-13 현재)
 
 - DM 메시지 수신은 **실시간 채널이 없다** — `DmDetail.tsx:339-370` 의 5초 폴링(`visibilityState==='visible'` 일 때만). SSE 는 워키토키·위치공유 전용 2개뿐(`nginx/conf.d/default.conf:135-161`).
-- 안읽음 카운트 경로가 **둘로 갈라져 있다**: 알림벨은 `HomePage.tsx` 로컬 state(`GET /notifications` 의 `unread_count`), 채팅탭은 `useDmStore.totalUnread`(대화목록 합산, 30초 폴링 + `/dm` 진입 시). 두 뱃지가 어긋나 보이는 원인.
+- 안읽음 카운트 뱃지 2종(채팅탭 `totalUnread` / 홈 알림벨 `notiUnread`)은 **`useDmStore` 한 곳**에 있고 `App.tsx` 의 같은 폴링 tick + `visibilitychange`(포그라운드 복귀) 에서 **함께** 갱신된다. 새 카운트를 추가할 땐 이 스토어에 붙여라 — 따로 관리하면 값이 어긋난다(2026-09-13 실사고: 알림벨이 홈 마운트 1회만 조회돼 화석값 고정, 커밋 `2b72de99` 로 통합).
 - 읽음 데이터는 이미 존재 — `dm_messages.read_at`(1:1), `dm_conversation_members.last_read_at`(멤버별 워터마크), `POST /conversations/{id}/read`. 1:1 버블은 체크 아이콘 표시(`DmDetail.tsx:1196-1207`). **그룹의 메시지당 안읽은 인원수만 미구현.**
 
 ### 작업 규약

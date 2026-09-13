@@ -6,7 +6,7 @@
 >
 > ADR 내용을 고칠 일이 생기면 **이 파일과 MCP 를 항상 함께** 갱신한다. 이 파일이 SoT 다.
 >
-> 최종 갱신: 2026-09-12
+> 최종 갱신: 2026-09-13
 
 ---
 
@@ -114,11 +114,18 @@ Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한�
 | CSP `worker-src 'self' blob:` 필수 — 빠지면 maplibre-gl 지도가 빈 화면 | 실사고 2026-08-05 |
 | GPS: 표시범위는 `'gps'`/`'all'` 2개뿐, 측위는 `useLocationStore` 단일 스토어, 좌표 미영속, 전역 워처 1개(`App.tsx` 에서만 `startWatching()`) | `service-rules.md` §GPS |
 | 마켓 매물 `status` 는 DB enum 제약이 없는 자유문자열 — **쿼리마다 상태 필터를 수동 적용**해야 한다 | `service-rules.md` — 누락 사례(홈 "내 주변 인기상품") 존재 |
+| **DB 세션(트랜잭션)을 연 채 외부 HTTP 를 await 하지 않는다.** 읽은 값만 챙기고 `commit()` 으로 트랜잭션을 닫은 뒤 외부 호출한다 | 실사고 2026-09-13 — `notify_user` 가 FCM 호출을 트랜잭션 안에서 기다려 커넥션이 idle-in-transaction 으로 누수, 풀(기본 5+10) 고갈 후 **푸시 전면 중단**(DLQ 62건, 발송 0건). 2차 안전망은 `engine/app/database.py` 의 `idle_in_transaction_session_timeout=30s` |
 
 ### 경로(routing) 정책 — D-ROUTE-1 (대표 결정 2026-09-10)
 
 운영 경로 제공자는 **자체 호스팅 Valhalla 단독**. Google Routes 는 폴백으로도 쓰지 않는다. 사용자 모드 enum `motorcycle`(기본)/`car`/`walking` → Valhalla `motorcycle`/`auto`/`pedestrian`. 모드 선택 UI 는 `pages/ride/RideNav.tsx:780-792`(`role="radiogroup"`, 안내 시작 후 `disabled`), 정의는 `:38`.
 ※ 같은 파일 `:68-69` 주석이 아직 "Google Routes 과금" 을 근거로 재탐색을 제한 — **D-ROUTE-1 과 어긋남, 정정 대상**(장부 C15).
+
+### DM 알림·실시간 (2026-09-13 현재)
+
+- DM 메시지 수신은 **실시간 채널이 없다** — `DmDetail.tsx:339-370` 의 5초 폴링(`visibilityState==='visible'` 일 때만). SSE 는 워키토키·위치공유 전용 2개뿐(`nginx/conf.d/default.conf:135-161`).
+- 안읽음 카운트 경로가 **둘로 갈라져 있다**: 알림벨은 `HomePage.tsx` 로컬 state(`GET /notifications` 의 `unread_count`), 채팅탭은 `useDmStore.totalUnread`(대화목록 합산, 30초 폴링 + `/dm` 진입 시). 두 뱃지가 어긋나 보이는 원인.
+- 읽음 데이터는 이미 존재 — `dm_messages.read_at`(1:1), `dm_conversation_members.last_read_at`(멤버별 워터마크), `POST /conversations/{id}/read`. 1:1 버블은 체크 아이콘 표시(`DmDetail.tsx:1196-1207`). **그룹의 메시지당 안읽은 인원수만 미구현.**
 
 ### 작업 규약
 
@@ -155,6 +162,7 @@ Zalo Graph API `/v2.0/me` 가 **베트남 밖 IP 를 error -501 로 차단**한�
 - **어드민 2종 병행**: 이식 완료 전까지 같은 기능이 두 곳에 존재하는 중복을 감수한다.
 - **업체 등록의 폰인증 면제**: 사업자 계정 승인(APPROVED)이 개인 폰인증을 대체한다. 서류검증(`verification_status=verified`)까지는 요구하지 않는다 — **초기 도입기 한정, 파일럿 이후 재검토**(대표 결정 2026-08-11, `backend/app/routers/market.py:800-803`).
 - **매물 `status` 자유문자열**: 스키마 제약 대신 쿼리별 수동 필터를 택한 결과, 필터 누락 버그가 반복 발생한다.
+- **DM 을 폴링으로 둔 대가**: SSE 인프라가 이미 있는데도 DM 은 5초 폴링이다. 구현은 단순하지만 즉각성이 없고 서버 부하가 상시 발생한다.
 
 ---
 
@@ -178,6 +186,7 @@ Capacitor 네이티브 빌드 검증(Mac 측) · OpenWeather 키 활성화(mock 
 - 그룹채팅: 초대·강퇴·mute 관리 UI 없음(나가기만)
 - 커뮤니티 그룹: `join_policy='approval'` 가입 승인 UI 불가(백엔드 API 부재)
 - 2026-07-26 IA 개편 구상(4탭, 홈 폐기)은 **미착수** — 현재 6탭이 SoT
+- DM 알림벨 뱃지가 홈 마운트 1회만 조회되고 이후 갱신되지 않음 / 그룹 메시지 읽음 인원수 미구현 (티켓 `2026-09-13-dm-notify-realtime-readreceipt`)
 
 ### 당근 대조 장부(89항목) 잔여
 검증 89건 전부 NOT-RUN. 후속 큐: F030~F033 실기기 증거 · F051 금칙어 사전 경고 UI · F014/F048 재판정 · F028 워키토키 실기기 PTT · C14(네이티브 서브모듈 3개 커버리지 공백) · C15(위 RideNav 주석 정정).
@@ -190,4 +199,4 @@ Capacitor 네이티브 빌드 검증(Mac 측) · OpenWeather 키 활성화(mock 
 - **모델 라우팅은 AI 몫** — 실행 전 작업별 모델을 스스로 정하고 **근거를 제시**한다. 탐색·기계적 수정 → Sonnet/Haiku 서브에이전트 / 복잡 로직·설계·머니 경로·UI 고퀄 → Fable. 디자인은 "Sonnet 이 레퍼런스 리서치 → Fable 이 구현" 패턴.
 - **탐지 ≠ 차단** — 위험 점수(`listing_risk.py`)는 검수 큐 정렬용이고 사용자에게 노출하지 않는다.
 - **Stop-the-line** — BLOCK ID 승인 없이 선행조건으로 유입 금지 / 탐색용 폴백 좌표를 길안내 출발점에 넣지 않음 / 서버 정밀도 정책(`none`/`approx`/`exact`) 우회 금지.
-- **증거 없는 완료 없음** — 정적 코드 재확인은 Verify 를 바꾸지 못한다. 실행 일시·명령·관찰값·증거 경로가 있어야 PASS 다.
+- **증거 없는 완료 없음** — 정적 코드 재확인은 Verify 를 바꾸지 못한다. 실행 일시·명령·관찰값·증거 경로가 있어야 PASS 다. 코드 검사만으로 원인을 단정하지 말고 런타임 증거(로그·`pg_stat_activity`·실제 발송 결과)를 확보한다 — 2026-09-13 푸시 장애는 코드상 정상으로 보이는 경로가 런타임에 죽어 있던 사례다.

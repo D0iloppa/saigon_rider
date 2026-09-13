@@ -6,7 +6,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import { useServiceLocation } from '@/hooks/useServiceLocation';
 import { fetchWallet } from '@/api/wallet';
-import { fetchNotifications } from '@/api/notifications';
+import { useDmStore } from '@/store/useDmStore';
 import { fetchNotices, type NoticeItem } from '@/api/notices';
 import { fetchUserStats } from '@/api/profile';
 import { weatherApi, floodApi, gasApi, repairApi } from '@/api/info';
@@ -195,7 +195,9 @@ export default function HomePage() {
   const [repairStatus, setRepairStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [notiUnread, setNotiUnread] = useState(0);
+  // 알림벨 뱃지는 useDmStore 가 채팅 탭 뱃지와 같은 tick 에서 갱신한다(App.tsx).
+  // 종전엔 여기 로컬 state 에 홈 진입 시 1회만 담아, 이후 값이 영원히 갱신되지 않았다.
+  const notiUnread = useDmStore((s) => s.notiUnread);
   // #23: 홈 배너 1슬롯 — 고정(pinned) 공지 1건만 노출. 없으면 배너 미표시.
   const [pinnedNotice, setPinnedNotice] = useState<NoticeItem | null>(null);
 
@@ -211,8 +213,6 @@ export default function HomePage() {
         setReviewScore(s.avg_rating ?? null);
       }).catch(() => {});
       fetchTrades(uid).then((t) => setTradeCount(t.length)).catch(() => {});
-      // 미읽음 뱃지 — 홈 진입 시 1회 fetch (폴링 없음)
-      fetchNotifications(uid, 1).then((r) => setNotiUnread(r.unread_count)).catch(() => {});
       native.getDeviceUUID().then(async (uuid) => {
         if (!uuid) return;
         const fcm = await native.getFCMToken().catch(() => '');

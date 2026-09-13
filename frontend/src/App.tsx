@@ -272,6 +272,7 @@ export default function App() {
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const logout = useUserStore((s) => s.logout);
   const refreshUnread = useDmStore((s) => s.refreshUnread);
+  const refreshNotiUnread = useDmStore((s) => s.refreshNotiUnread);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [bootstrapError, setBootstrapError] = useState(false);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
@@ -388,18 +389,29 @@ export default function App() {
     };
   }, []);
 
-  // 인증된 경우 DM 미읽음 폴링 시작
+  // 인증된 경우 미읽음 폴링 시작 — 채팅 탭과 홈 알림벨 뱃지를 **같은 tick** 에서 함께 갱신한다.
+  // 따로 돌리면 두 뱃지가 서로 다른 시점의 값을 보여준다(2026-09-13 관찰: 알림벨엔 2 가 떠 있는데
+  // 채팅 탭은 비어 있다가 /dm 진입 순간 둘 다 바뀜).
   useEffect(() => {
     if (!user) {
       if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
       return;
     }
-    refreshUnread();
+    const uid = user.id;
+    const refreshBadges = () => { void refreshUnread(); void refreshNotiUnread(uid); };
+    refreshBadges();
     fetchAppConfig().then((cfg) => {
       if (dmIntervalRef.current) clearInterval(dmIntervalRef.current);
-      dmIntervalRef.current = setInterval(refreshUnread, cfg.dmPollInterval * 1000);
+      dmIntervalRef.current = setInterval(refreshBadges, cfg.dmPollInterval * 1000);
     });
+    // 백그라운드에서 돌아왔을 때 다음 폴링 tick 까지 기다리지 않고 즉시 맞춘다.
+    // DmDetail 의 메시지 폴링이 쓰는 것과 같은 방식이다(네이티브 App 플러그인 미연결 상태).
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshBadges();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       if (dmIntervalRef.current) { clearInterval(dmIntervalRef.current); dmIntervalRef.current = null; }
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps

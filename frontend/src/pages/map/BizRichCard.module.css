@@ -41,6 +41,12 @@
 }
 
 /* 구역(ward) chip — 전체 지역 리스트에서 업체별 위치를 구분하기 위한 표시 */
+/* OwnerBadge 는 기본 position:absolute(썸네일 코너용) — 여기선 헤더 인라인 흐름에 놓는다 */
+.ownerBadge {
+  position: static;
+  flex: 0 0 auto;
+}
+
 .bizWard {
   display: inline-flex;
   flex: 0 0 auto;

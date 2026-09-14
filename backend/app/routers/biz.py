@@ -1079,6 +1079,7 @@ async def get_public_map(
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID | None = Depends(optional_user_session),
 ):
     """동네지도 업체 핀 레이어 — APPROVED + 좌표 보유 프로필만 bbox 범위로 노출.
 
@@ -1139,6 +1140,7 @@ async def get_public_map(
             follower_count=follower_counts.get(p.id, 0),
             favorite_count=favorite_counts.get(p.id, 0),
             review_previews=review_previews.get(p.id, []),
+            is_owner=session_uid is not None and p.user_id == session_uid,
         )
         for p in profiles
     ]

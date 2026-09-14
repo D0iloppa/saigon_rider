@@ -5,6 +5,7 @@ import { StarIcon } from '@/components/ui/StarIcon';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import { formatRelativeTime } from '@/lib/format';
 import { bizWardLabel, type BizMapItem } from '@/api/biz';
+import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import styles from './BizRichCard.module.css';
 
 /** 가게 카드 거리 라벨 — 도보권(≤1.2km)은 "걸어서 N분"(~67m/분), 그 밖은 km. */
@@ -43,6 +44,7 @@ export default function BizRichCard({ biz, categoryLabel, distanceM, onClick, co
     >
       <span className={styles.bizHead}>
         <span className={styles.bizName}>{biz.name}</span>
+        {biz.isOwner && <OwnerBadge label={t('common.myBizBadge')} className={styles.ownerBadge} />}
         {wardLabel && <span className={styles.bizWard}>{wardLabel}</span>}
         {biz.category && (
           <span className={styles.bizCat}>

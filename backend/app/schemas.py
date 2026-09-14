@@ -2222,6 +2222,8 @@ class BusinessMapItemOut(BaseModel):
     # 찜(favorite) 총수 — 단골(follower)과 별개 개념, 동일 패턴 미러
     favorite_count: int = 0
     review_previews: list[BusinessReviewBrief] = []
+    # 로그인 사용자 본인이 등록한 업체인지 (동네지도 배지) — 비로그인이면 항상 False
+    is_owner: bool = False
 
 
 # ── POI (Phase A-1 — 지형·랜드마크/행정·생활 지도 핀) ─────────────

@@ -59,6 +59,7 @@
   "common": {
     "myItemBadge": "Mine",
     "myPostBadge": "Mine",
+    "myBizBadge": "Mine",
     "welcome": "Welcome",
     "withdrawnUser": "Withdrawn user",
     "translationUnavailable": "Translation unavailable · showing original",

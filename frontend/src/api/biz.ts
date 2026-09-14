@@ -410,6 +410,8 @@ export interface BizMapItem {
   favoriteCount: number;
   /** 최신 후기 프리뷰 1~2건 (본문은 서버에서 120자 컷) */
   reviewPreviews: { rating: number; body: string }[];
+  /** 로그인 사용자 본인이 등록한 업체인지 (동네지도 배지) — 비로그인이면 항상 false */
+  isOwner: boolean;
 }
 
 interface BizMapItemApi {
@@ -429,6 +431,7 @@ interface BizMapItemApi {
   follower_count: number;
   favorite_count: number;
   review_previews: { rating: number; body: string }[] | null;
+  is_owner: boolean;
 }
 
 export async function fetchBizMapItems(params: {
@@ -487,6 +490,7 @@ export async function fetchBizMapItems(params: {
     followerCount: b.follower_count ?? 0,
     favoriteCount: b.favorite_count ?? 0,
     reviewPreviews: b.review_previews ?? [],
+    isOwner: b.is_owner ?? false,
   }));
 }
 

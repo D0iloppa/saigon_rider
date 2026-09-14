@@ -43,14 +43,15 @@ from ..schemas import (
     DmMessageCreateRequest,
     DmMessageEditRequest,
     DmMessageOut,
+    DmMessagePage,
     DmNoticeOut,
     DmPaymentQrRequest,
     DmPresenceOut,
     DmReactionOut,
+    DmReadWatermarkOut,
     DmRecordingPresenceRequest,
     DmRecordingUserOut,
     FunnelEventType,
-    Page,
     ReportCreateRequest,
 )
 from ..services import funnel_events, location_channel_membership, noti_events, walkie_recording_presence
@@ -624,7 +625,7 @@ async def create_conversation(
     )
 
 
-@router.get("/conversations/{conv_id}/messages", response_model=Page[DmMessageOut], summary="메시지 목록")
+@router.get("/conversations/{conv_id}/messages", response_model=DmMessagePage, summary="메시지 목록")
 async def get_messages(
     conv_id: uuid.UUID,
     page: int = 1,
@@ -728,32 +729,22 @@ async def get_messages(
 
     reactions = await _reactions_map(db, [m.id for m in rows], _session_uid)
 
-    # 그룹/오픈톡방의 "안 읽은 N명" — 멤버는 소수라 대화당 1회만 읽어와 메시지별 계산은
-    # 파이썬에서 한다(메시지마다 쿼리를 돌리면 폴링 tick 마다 N+1 이 된다).
-    # direct 는 상대가 1명뿐이라 read_at 으로 충분해 계산하지 않는다.
-    member_read_rows: list[tuple[uuid.UUID, datetime | None]] = []
-    if conv.conversation_type != "direct":
-        member_read_rows = [
-            (uid, last_read)
-            for uid, last_read in (
-                await db.execute(
-                    select(DmConversationMember.user_id, DmConversationMember.last_read_at).where(
-                        DmConversationMember.conversation_id == conv_id,
-                        DmConversationMember.left_at.is_(None),
-                    )
+    # 상대들의 읽음 워터마크 — 메시지별 읽음 상태는 클라이언트가 이걸로 계산한다.
+    # 메시지 필드로 내리지 않는 이유는 DmReadWatermarkOut docstring 참조(요약: 읽음처리는
+    # updated_at 을 bump 하지 않으므로 메시지에 실은 읽음값은 폴링으로 갱신되지 않는다).
+    # rows 가 비어도(새 메시지 없는 tick) 반드시 실어야 읽음 변화가 전달된다.
+    read_watermarks = [
+        DmReadWatermarkOut(user_id=uid, last_read_at=last_read)
+        for uid, last_read in (
+            await db.execute(
+                select(DmConversationMember.user_id, DmConversationMember.last_read_at).where(
+                    DmConversationMember.conversation_id == conv_id,
+                    DmConversationMember.left_at.is_(None),
+                    DmConversationMember.user_id != _session_uid,
                 )
-            ).all()
-        ]
-
-    def _unread_members_for(m: DmMessage) -> int | None:
-        if conv.conversation_type == "direct":
-            return None
-        # last_read_at 이 없으면(한 번도 안 읽음) 아직 안 읽은 것으로 센다.
-        return sum(
-            1
-            for uid, last_read in member_read_rows
-            if uid != m.sender_id and (last_read is None or last_read < m.created_at)
-        )
+            )
+        ).all()
+    ]
 
     items = [
         DmMessageOut(
@@ -765,7 +756,6 @@ async def get_messages(
             image_url=None if m.deleted_at else _resolve_dm_image(m),
             audio_url=None if m.deleted_at else _resolve_dm_audio(m),
             read_at=m.read_at,
-            unread_member_count=_unread_members_for(m),
             created_at=m.created_at,
             message_type=m.message_type,
             meta=None if m.deleted_at else m.meta,
@@ -781,7 +771,7 @@ async def get_messages(
         for m in rows
     ]
 
-    return Page(items=items, total=total, page=page, size=size)
+    return DmMessagePage(items=items, total=total, page=page, size=size, read_watermarks=read_watermarks)
 
 
 @router.post("/conversations/{conv_id}/messages", response_model=DmMessageOut, status_code=201, summary="메시지 전송")

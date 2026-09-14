@@ -198,6 +198,7 @@ export default function HomePage() {
   // 알림벨 뱃지는 useDmStore 가 채팅 탭 뱃지와 같은 tick 에서 갱신한다(App.tsx).
   // 종전엔 여기 로컬 state 에 홈 진입 시 1회만 담아, 이후 값이 영원히 갱신되지 않았다.
   const notiUnread = useDmStore((s) => s.notiUnread);
+  const refreshNotiUnread = useDmStore((s) => s.refreshNotiUnread);
   // #23: 홈 배너 1슬롯 — 고정(pinned) 공지 1건만 노출. 없으면 배너 미표시.
   const [pinnedNotice, setPinnedNotice] = useState<NoticeItem | null>(null);
 
@@ -213,6 +214,9 @@ export default function HomePage() {
         setReviewScore(s.avg_rating ?? null);
       }).catch(() => {});
       fetchTrades(uid).then((t) => setTradeCount(t.length)).catch(() => {});
+      // 알림함에서 읽고 돌아오면 화면 내 이동이라 visibilitychange 가 안 뜬다 —
+      // 다음 폴링 tick 까지 낡은 숫자가 남지 않도록 홈 진입 시 한 번 맞춘다.
+      void refreshNotiUnread(uid);
       native.getDeviceUUID().then(async (uuid) => {
         if (!uuid) return;
         const fcm = await native.getFCMToken().catch(() => '');
@@ -222,7 +226,7 @@ export default function HomePage() {
     // 진입 시 측위 — 표시 범위 기본값이 GPS 다(대표 지시 2026-08-06). 스토어가 세션당
     // 1회로 묶고, 실패/권역밖 폴백과 안내 토스트도 스토어가 처리한다.
     void ensureLocation();
-  }, [refreshUser, ensureLocation]);
+  }, [refreshUser, ensureLocation, refreshNotiUnread]);
 
   // 기준 좌표가 정해지면 동 이름을 해석해 스토어에 올린다 — 헤더 표기와 다른 화면들이
   // 같은 라벨을 쓴다. 라벨 전용이며 필터 판정에는 쓰지 않는다.

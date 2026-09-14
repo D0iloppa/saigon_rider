@@ -118,11 +118,12 @@ function tick(): void {
 
 function onVisibilityChange(): void {
   if (!isVisible()) { reschedule(); return; }
-  // 포그라운드 복귀 — 가드에 막혀 밀려 있던 작업을 즉시 한 번 돌린다.
+  // 포그라운드 복귀 — 가드에 막혀 **실행 시각이 지난** 작업만 따라잡는다.
+  // 무조건 전부 실행하면 앱 전환을 빠르게 반복할 때 주기와 무관하게 요청이 몰린다.
   const now = Date.now();
   for (const entry of tasks.values()) {
     if (entry.runWhenHidden) continue; // 계속 돌고 있었으므로 따라잡을 것이 없다
-    runEntry(entry, now);
+    if (entry.nextDueAt <= now) runEntry(entry, now);
   }
   reschedule();
 }

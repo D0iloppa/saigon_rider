@@ -5,6 +5,7 @@ import type {
   DmAppointmentMeta,
   DmConversation,
   DmMessage,
+  DmReadWatermark,
   DmReaction,
   MarketplaceTransaction,
   PriceOffer,
@@ -115,7 +116,6 @@ function transformMessage(raw: any): DmMessage {
     imageUrl: raw.image_url ?? null,
     audioUrl: raw.audio_url ?? null,
     readAt: raw.read_at ?? null,
-    unreadMemberCount: raw.unread_member_count ?? null,
     createdAt: raw.created_at,
     messageType: raw.message_type ?? 'text',
     meta: raw.meta ?? null,
@@ -207,12 +207,21 @@ export async function fetchMessages(
   page = 1,
   after?: string,
   size = 50,
-): Promise<{ items: DmMessage[]; total: number }> {
-  if (USE_MOCK) return api.delay({ items: [], total: 0 }, 100);
+): Promise<{ items: DmMessage[]; total: number; readWatermarks: DmReadWatermark[] }> {
+  if (USE_MOCK) return api.delay({ items: [], total: 0, readWatermarks: [] }, 100);
   let url = `/dm/conversations/${conversationId}/messages?page=${page}&size=${size}`;
   if (after) url += `&after=${encodeURIComponent(after)}`;
-  const res = await api.realFetch<{ items: any[]; total: number }>(url);
-  return { items: res.items.map(transformMessage), total: res.total };
+  const res = await api.realFetch<{ items: any[]; total: number; read_watermarks?: any[] }>(url);
+  return {
+    items: res.items.map(transformMessage),
+    total: res.total,
+    // 상대들이 "어디까지 읽었는지". items 가 비어도(새 메시지 없는 tick) 실려 온다 —
+    // 읽음 변화는 메시지 재전송 없이 이 값으로만 전달된다.
+    readWatermarks: (res.read_watermarks ?? []).map((w: any) => ({
+      userId: w.user_id,
+      lastReadAt: w.last_read_at ?? null,
+    })),
+  };
 }
 
 export interface SendMessageOpts {
@@ -239,7 +248,6 @@ export async function sendMessage(
       imageUrl: null,
       audioUrl: null,
       readAt: null,
-      unreadMemberCount: null,
       createdAt: new Date().toISOString(),
       messageType: opts.messageType ?? 'text',
       meta: opts.meta ?? null,

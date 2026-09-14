@@ -1568,9 +1568,6 @@ class DmMessageOut(BaseModel):
     # 워키토키 음성메시지(D-5 재생URL) — 재생완료로 삭제된 뒤에는 None (meta.playedAt 로 구분)
     audio_url: str | None = None
     read_at: datetime | None
-    # 그룹/오픈톡방 전용 — 이 메시지를 아직 안 읽은 참여자 수(보낸이 제외, 나간 사람 제외).
-    # direct 는 항상 None 이고 읽음 여부는 read_at 으로 판단한다.
-    unread_member_count: int | None = None
     created_at: datetime
     message_type: str = "text"
     meta: dict | None = None
@@ -1583,6 +1580,26 @@ class DmMessageOut(BaseModel):
     reply_to_message_id: UUID | None = None
     reply_preview: dict | None = None
     reactions: list[DmReactionOut] = []
+
+
+class DmReadWatermarkOut(BaseModel):
+    """상대 참여자가 "어디까지 읽었는지". 나 자신은 제외하고, 나간 멤버도 제외한다.
+
+    읽음 표시를 메시지 필드로 내리지 않고 이 워터마크로 내리는 이유:
+    폴링은 `updated_at > after` 워터마크 방식인데, 읽음처리는 의도적으로 `updated_at` 을
+    bump 하지 않는다(models.py DmMessage.updated_at 주석 — 읽을 때마다 메시지가 통째로
+    재전송되는 것을 막기 위함). 그래서 메시지에 읽음값을 실으면 그 값이 영영 갱신되지 않는다.
+    참여자 수만큼의 이 목록은 새 메시지가 없는 tick 에도 실려 나가므로 읽음 변화가 전달된다.
+    """
+
+    user_id: UUID
+    last_read_at: datetime | None
+
+
+class DmMessagePage(Page[DmMessageOut]):
+    """메시지 목록 + 상대들의 읽음 워터마크. 클라이언트가 메시지별 읽음 상태를 계산한다."""
+
+    read_watermarks: list[DmReadWatermarkOut] = []
 
 
 class DmMessageCreateRequest(BaseModel):

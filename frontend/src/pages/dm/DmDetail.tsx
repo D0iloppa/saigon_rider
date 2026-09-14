@@ -66,7 +66,7 @@ import { loadSession } from '@/lib/session';
 import { formatMessageDateSeparator, formatMessageTimestamp, formatRelativeTime } from '@/lib/format';
 import { playSound } from '@/lib/sound';
 import { registerPollTask } from '@/lib/pollScheduler';
-import type { DmConversation, DmMessage } from '@/api/types';
+import type { DmConversation, DmMessage, DmReadWatermark } from '@/api/types';
 import { AppImage } from '@/components/ui/AppImage';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatPriceVnd } from '../market/marketFormat';
@@ -154,6 +154,10 @@ export default function DmDetail() {
   // 음성메시지(WalkieTalkie 모듈, wt_messages) — 202608 개편(대표 지시): 워키토키 캡슐에서
   // 자동재생 후 사라지던 것을 그만두고, 일반 메시지처럼 이 채팅 이력에 영구 렌더한다.
   // 저장소가 dm_messages 와 분리돼 있어(별도 모듈) 별도로 폴링해 화면에서 시간순으로만 합친다.
+  // 상대들의 읽음 워터마크 — 메시지별 읽음 상태는 이걸로 계산한다(renderReadState).
+  // 서버가 메시지 필드로 내려주지 않는 이유: 읽음처리는 updated_at 을 bump 하지 않아
+  // 폴링(updated_at > after)에 실리지 않기 때문. 워터마크는 새 메시지가 없는 tick 에도 온다.
+  const [readWatermarks, setReadWatermarks] = useState<DmReadWatermark[]>([]);
   const [voiceItems, setVoiceItems] = useState<VoiceItem[]>([]);
   const voiceCursorRef = useRef<string | null>(null);
   const [conv, setConv] = useState<DmConversation | null>(locationState?.conv ?? null);
@@ -263,11 +267,13 @@ export default function DmDetail() {
         totalRef.current = head.total;
         const lastPage = Math.max(1, Math.ceil(head.total / PAGE_SIZE));
         const res = await fetchMessages(conversationId, lastPage);
+        setReadWatermarks(res.readWatermarks);
         setMessages(res.items);
         void saveCachedMessages(res.items);
       } else {
         // 캐시 워터마크 이후의 신규/수정/삭제/공감변경분만 증분 수신
         const res = await fetchMessages(conversationId, 1, watermarkOf(cached));
+        setReadWatermarks(res.readWatermarks);
         applyIncoming(res.items);
       }
       markRead(conversationId).then(() => refreshUnread()).catch(() => {});
@@ -343,6 +349,7 @@ export default function DmDetail() {
       try {
         // updated_at 워터마크 — 신규뿐 아니라 수정/삭제/공감변경된 메시지도 실려 온다(id upsert)
         const res = await fetchMessages(conversationId, 1, watermarkOf(messagesRef.current));
+        setReadWatermarks(res.readWatermarks);
         if (res.items.length > 0) {
           const knownIds = new Set(messagesRef.current.map((m) => m.id));
           applyIncoming(res.items);
@@ -1213,12 +1220,19 @@ export default function DmDetail() {
    * 상대 메시지에는 붙지 않는다 — 내가 읽었는지는 나에게 정보가 아니다.
    */
   const renderReadState = (m: DmMessage) => {
+    // 워터마크가 메시지 시각 이상이면 그 사람은 이 메시지를 읽은 것이다.
+    // 한 번도 안 읽은 사람(lastReadAt === null)은 안 읽은 쪽으로 센다.
+    // ISO 문자열 직접 비교는 서버 표기('Z' vs '+00:00')에 따라 어긋날 수 있어 시각으로 비교한다.
+    const createdMs = Date.parse(m.createdAt);
+    const unread = readWatermarks.filter(
+      (w) => w.lastReadAt === null || Date.parse(w.lastReadAt) < createdMs,
+    ).length;
     if (isDirect) {
-      return m.readAt
+      // 상대가 1명뿐이라 0 이면 읽은 것. 워터마크가 아직 안 왔으면(빈 배열) 표시하지 않는다.
+      return readWatermarks.length > 0 && unread === 0
         ? <span className={styles.readState}>{t('dm.read', { defaultValue: '읽음' })}</span>
         : null;
     }
-    const unread = m.unreadMemberCount ?? 0;
     return unread > 0 ? <span className={styles.unreadCount}>{unread}</span> : null;
   };
 

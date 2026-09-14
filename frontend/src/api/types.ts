@@ -390,6 +390,12 @@ export interface DmReplyPreview {
   messageType: string | null;
 }
 
+/** 상대 참여자가 어디까지 읽었는지. 메시지별 읽음 상태는 이 값으로 계산한다. */
+export interface DmReadWatermark {
+  userId: string;
+  lastReadAt: string | null;
+}
+
 export interface DmMessage {
   id: string;
   conversationId: string;
@@ -399,8 +405,6 @@ export interface DmMessage {
   /** message_type === 'voice' 일 때 재생URL. 재생완료로 파일이 삭제된 뒤에는 null. */
   audioUrl: string | null;
   readAt: string | null;
-  /** 그룹/오픈톡방 전용 — 아직 안 읽은 참여자 수(보낸이·나간 사람 제외). direct 는 항상 null. */
-  unreadMemberCount: number | null;
   createdAt: string;
   messageType: string;
   meta: DmAppointmentMeta | null;

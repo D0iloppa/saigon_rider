@@ -393,7 +393,11 @@ export default function App() {
   // 따로 돌리면 두 뱃지가 서로 다른 시점의 값을 보여준다(2026-09-13 관찰: 알림벨엔 2 가 떠 있는데
   // 채팅 탭은 비어 있다가 /dm 진입 순간 둘 다 바뀜).
   useEffect(() => {
-    if (!user) return; // 로그아웃 시엔 아래 cleanup 이 등록을 해제한다
+    if (!user) {
+      // 계정이 바뀌면 이전 사용자의 카운트가 잠깐 남아 보인다 — 즉시 0 으로 내린다.
+      useDmStore.setState({ totalUnread: 0, notiUnread: 0 });
+      return; // 등록 해제는 아래 cleanup 이 한다
+    }
     const uid = user.id;
     const refreshBadges = () => Promise.all([refreshUnread(), refreshNotiUnread(uid)]).then(() => {});
     // 주기는 서버 설정(`dm.unread_poll_interval`, 기본 30s) — 어드민에서 재빌드 없이 바꾼다.
@@ -406,6 +410,8 @@ export default function App() {
         id: 'unread-badges',
         intervalMs: cfg.dmPollInterval * 1000,
         run: refreshBadges,
+        // 아래에서 이미 한 번 채웠다 — 등록 즉시 또 돌면 중복 요청이 된다.
+        runImmediately: false,
       });
     });
     refreshBadges(); // 설정 조회를 기다리지 않고 첫 값을 먼저 채운다

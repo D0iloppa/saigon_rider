@@ -211,6 +211,14 @@
 
 ---
 
+## 업체 등록 — 업종(category) 필수 (제정 2026-09-15)
+
+- **업체 등록 시 업종(category)은 필수값이다.** 자가신청(`backend/app/routers/biz.py::apply()`)과 관리자 직접등록(`backend/app/routers/admin_api/biz.py::create_biz_account()`) 양쪽 엔드포인트 모두 category가 비어있으면 400을 반환한다 — name/address와 동일한 검증 패턴. 관리자 콘솔 폼(`admin-frontend/src/pages/biz/BizAccountListPage.tsx`)도 category를 필수 필드로 표시한다.
+- **수정(update) 엔드포인트도 동일하게 강제한다.** `update_profile()`(`PUT /biz/profiles/{profile_id}`)은 name/address와 마찬가지로 category가 비어있으면 400을 반환한다 — 이 엔드포인트는 부분수정(PATCH)이 아니라 전체값 재기입 방식(`BusinessProfileUpdateRequest`가 name/address를 이미 필수로 받음)이라, category만 예외로 비워둘 수 있게 두면 등록 시점 강제와 백필이 조용히 무력화되는 회귀 경로가 된다(code-review에서 발견·즉시 수정, 2026-09-15).
+- **백필**: 규칙 도입 전 category 없이 생성된 기존 데이터는 `database/init/235_business_category_backfill_empty.sql`로 `'etc'`(기타) 코드로 일괄 정규화했다(개발 DB 6건 → 0건 확인).
+
+---
+
 ## 광고 노출
 
 1. **노출 순서 결정 SoT = 백엔드.** `backend/app/services/ad_exposure.py`(`build_exposure_sequence`)가 각 광고의 **weight = tier `exposure_weight` × `ad_fee`**(두 값 모두 최소 1로 clamp)로 **결정적 smooth weighted round-robin 시퀀스**를 만든다. `GET /market/ads`는 `AdsApplication.public_ads(상시 노출 광고)` → 이 시퀀스를 반환한다(`MAX_SEQUENCE_LENGTH=120` 캡).

@@ -340,15 +340,18 @@ async def update_profile(
 
     name = body.name.strip()
     address = body.address.strip()
+    category = (body.category or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
     if not address:
         raise HTTPException(status_code=400, detail="Address is required")
+    if not category:
+        raise HTTPException(status_code=400, detail="Category is required")
     await _require_content(db, body.photo_content_id)
 
     intro = body.intro.strip() if body.intro else None
     profile.name = name
-    profile.category = body.category
+    profile.category = category
     profile.address = address
     profile.intro = intro
     profile.latitude = body.latitude

@@ -70,6 +70,7 @@ class ApplyIntroWiringTests(unittest.IsolatedAsyncioTestCase):
 
         body = BusinessProfileApplyRequest(
             name="Shop",
+            category="wash",
             address="123 Nguyen Trai",
             latitude=1,
             longitude=1,
@@ -103,7 +104,9 @@ class ApplyIntroWiringTests(unittest.IsolatedAsyncioTestCase):
 
         db.refresh = AsyncMock(side_effect=_fake_refresh)
 
-        body = BusinessProfileApplyRequest(name="Shop", address="HCMC", latitude=1, longitude=1, phone="0900")
+        body = BusinessProfileApplyRequest(
+            name="Shop", category="wash", address="HCMC", latitude=1, longitude=1, phone="0900"
+        )
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
 
         self.assertIsNone(result.intro)
@@ -187,7 +190,7 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         db.add = MagicMock(side_effect=lambda obj: added.append(obj))
 
         body = BusinessProfileApplyRequest(
-            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone="+84987654321"
+            name="My Shop", category="wash", address="123 Nguyen Trai", latitude=1, longitude=1, phone="+84987654321"
         )
         session_uid = uuid.uuid4()
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=session_uid)
@@ -210,7 +213,7 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         self._set_pending_refresh(db)
 
         body = BusinessProfileApplyRequest(
-            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+            name="My Shop", category="wash", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
         )
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
 
@@ -228,7 +231,7 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         self._set_pending_refresh(db)
 
         body = BusinessProfileApplyRequest(
-            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone="+84987654321"
+            name="My Shop", category="wash", address="123 Nguyen Trai", latitude=1, longitude=1, phone="+84987654321"
         )
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
 
@@ -251,7 +254,7 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         db.refresh = AsyncMock(side_effect=_fake_refresh)
 
         body = BusinessProfileApplyRequest(
-            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+            name="My Shop", category="wash", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
         )
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
 
@@ -286,7 +289,7 @@ class ApplyPhoneAutoClaimTests(unittest.IsolatedAsyncioTestCase):
         db.refresh = AsyncMock(side_effect=_fake_refresh)
 
         body = BusinessProfileApplyRequest(
-            name="My Shop", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
+            name="My Shop", category="wash", address="123 Nguyen Trai", latitude=1, longitude=1, phone=self._VALID_PHONE
         )
         result = await biz.apply(body, background=MagicMock(), db=db, session_uid=uuid.uuid4())
 
@@ -334,6 +337,7 @@ class UpdateProfileIntroWiringTests(unittest.IsolatedAsyncioTestCase):
 
         body = BusinessProfileUpdateRequest(
             name="Shop Mới",
+            category="wash",
             address="456 Le Loi",
             latitude=1,
             longitude=1,

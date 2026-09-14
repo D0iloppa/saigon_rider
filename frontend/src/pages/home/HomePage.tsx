@@ -14,6 +14,7 @@ import type { WeatherData, FloodReport } from '@/api/info';
 import { fetchListings, fetchAds, fetchTrades, localizedName as marketLocalizedName, type ListingCard, type MarketAd } from '@/api/market';
 import { fetchBizNewsFeed, type BizNewsFeedItem } from '@/api/biz';
 import { fetchFeed } from '@/api/feed';
+import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import type { FeedPost } from '@/api/types';
 import { AD_EVERY, ADS_ENABLED } from '@/lib/adPlacement';
 import { formatPriceVnd, relativeTime } from '@/pages/market/marketFormat';
@@ -465,7 +466,9 @@ export default function HomePage() {
                 <button key={p.id} className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
                   <div className={styles.productThumb}>
                     <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
-                    <span className={styles.distBadge}>{marketLocalizedName(p.district) || 'HCMC'}</span>
+                    {user && p.sellerId === user.id
+                      ? <OwnerBadge label={t('common.myItemBadge')} compact className={styles.ownerBadge} />
+                      : <span className={styles.distBadge}>{marketLocalizedName(p.district) || 'HCMC'}</span>}
                     <span className={styles.heartOverlay}><IcoHeart /></span>
                   </div>
                   <div className={styles.productName}>{p.title}</div>
@@ -563,7 +566,9 @@ export default function HomePage() {
                   <button className={styles.productCard} onClick={() => navigate(`/market/${p.id}`)}>
                     <div className={styles.productThumb}>
                       <AppImage src={p.thumbnailUrl ?? undefined} alt={p.title} className={styles.productThumbImg} />
-                      {i < 3 && <span className={styles.newBadge}>NEW</span>}
+                      {user && p.sellerId === user.id
+                        ? <OwnerBadge label={t('common.myItemBadge')} compact className={styles.ownerBadge} />
+                        : (i < 3 && <span className={styles.newBadge}>NEW</span>)}
                       <span className={styles.heartOverlay}><IcoHeart /></span>
                     </div>
                     <div className={styles.productName}>{p.title}</div>

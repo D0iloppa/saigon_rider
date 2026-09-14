@@ -57,6 +57,8 @@
     "myLocation": "Vị trí của tôi"
   },
   "common": {
+    "myItemBadge": "Của tôi",
+    "myPostBadge": "Của tôi",
     "welcome": "Chào mừng",
     "withdrawnUser": "Người dùng đã rời đi",
     "translationUnavailable": "Không thể dịch · hiển thị bản gốc",

@@ -14,6 +14,7 @@ import type { FeedPost } from '@/api/types';
 import { StoryAvatar } from '@/components/ui/StoryAvatar';
 import { AppImage } from '@/components/ui/AppImage';
 import { Chip } from '@/components/ui/Chip';
+import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import { useUserStore } from '@/store/useUserStore';
 import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -264,6 +265,7 @@ export default function FeedList() {
                       ) : (
                         <span className={styles.feedPlaceholder}><Newspaper size={22} /></span>
                       )}
+                      {user && p.userId === user.id && <OwnerBadge label={t('common.myPostBadge')} className={styles.ownerBadge} />}
                     </div>
                     <span className={styles.feedBody}>
                       <span className={styles.feedAuthor}>

@@ -57,6 +57,8 @@
     "myLocation": "My location"
   },
   "common": {
+    "myItemBadge": "Mine",
+    "myPostBadge": "Mine",
     "welcome": "Welcome",
     "withdrawnUser": "Withdrawn user",
     "translationUnavailable": "Translation unavailable · showing original",

@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { Heart, MessageCircle } from 'lucide-react';
 import { AppImage } from '@/components/ui/AppImage';
+import { OwnerBadge } from '@/components/ui/OwnerBadge';
+import { useUserStore } from '@/store/useUserStore';
 import { localizedName, type ListingCard as Listing } from '@/api/market';
 import { formatDistance, formatPriceVnd, relativeTime, statusLabelKey } from './marketFormat';
 import { noItemImage } from './noItemImage';
@@ -14,10 +16,13 @@ interface Props {
 /** 동네 피드·검색 공용 1열 매물 카드 (REF-02). */
 export default function ListingCard({ listing: l, onClick }: Props) {
   const { t } = useTranslation();
+  const myId = useUserStore((s) => s.user?.id);
+  const isMine = !!myId && l.sellerId === myId;
   return (
     <button className={styles.card} type="button" onClick={onClick}>
       <span className={styles.thumb}>
         <AppImage src={l.thumbnailUrl ?? noItemImage()} alt={l.title} className={styles.thumbImg} />
+        {isMine && <OwnerBadge label={t('common.myItemBadge')} className={styles.ownerBadge} />}
         {l.status !== 'ON_SALE' && <span className={styles.statusTag}>{t(statusLabelKey(l.status))}</span>}
       </span>
       <div className={styles.cardBody}>

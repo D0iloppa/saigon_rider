@@ -270,7 +270,7 @@ export default function BizAccountListPage() {
           <Form.Item name="name" label="상호명" rules={[{ required: true, message: '상호명을 입력하세요.' }]}>
             <Input maxLength={120} />
           </Form.Item>
-          <Form.Item name="category" label="업종">
+          <Form.Item name="category" label="업종" rules={[{ required: true, message: '업종을 선택하세요.' }]}>
             <Select
               allowClear
               placeholder="업종 선택"

@@ -250,6 +250,8 @@ async def apply(
         raise HTTPException(status_code=400, detail="Name is required")
     if not address:
         raise HTTPException(status_code=400, detail="Address is required")
+    if not (body.category or "").strip():
+        raise HTTPException(status_code=400, detail="Category is required")
     await _require_content(db, body.photo_content_id)
 
     session_user = await db.get(User, session_uid)

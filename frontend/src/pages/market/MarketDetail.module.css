@@ -483,7 +483,7 @@
 .priceEditBtn:active { opacity: .7; }
 .priceEditBtn:disabled { color: var(--text-3); }
 
-/* 판매자용 찜 수 표시 (버튼 아님, 클릭 불가) */
+/* 판매자용 찜 수 표시 행 (찜 텍스트 자체는 클릭 불가, 우측 접이식 토글 버튼만 인터랙티브) */
 .sellerLikes {
   display: flex;
   align-items: center;

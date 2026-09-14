@@ -535,6 +535,7 @@ export default function MarketDetail() {
                       ? t('common.collapse', { defaultValue: '접기' })
                       : t('common.expand', { defaultValue: '펼치기' })
                   }
+                  aria-expanded={actionsExpanded}
                 >
                   {actionsExpanded ? <ChevronDown size={18} strokeWidth={2.2} /> : <ChevronUp size={18} strokeWidth={2.2} />}
                 </button>

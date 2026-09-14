@@ -57,6 +57,8 @@
     "myLocation": "내 위치"
   },
   "common": {
+    "expand": "펼치기",
+    "collapse": "접기",
     "myItemBadge": "내 매물",
     "myPostBadge": "내 글",
     "myBizBadge": "내 업체",

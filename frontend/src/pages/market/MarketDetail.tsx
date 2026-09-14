@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, ArrowLeft, ArrowUp, Ban, Flag, Globe, Heart, MoreVertical, Pencil, Tag, Trash2, UserCheck } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowUp, Ban, ChevronDown, ChevronUp, Flag, Globe, Heart, MoreVertical, Pencil, Tag, Trash2, UserCheck } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { AppImage } from '@/components/ui/AppImage';
@@ -68,6 +68,7 @@ export default function MarketDetail() {
   const [offerSending, setOfferSending] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [actionsExpanded, setActionsExpanded] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -525,37 +526,53 @@ export default function MarketDetail() {
               <div className={styles.sellerLikes}>
                 <Heart size={16} strokeWidth={2.2} />
                 {t('market.likeCount', { count: detail.likeCount, defaultValue: `찜 ${detail.likeCount}` })}
-              </div>
-              {detail.status === 'ON_SALE' && (
-                <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>
-                  <ArrowUp size={16} strokeWidth={2.4} />
-                  {canBump
-                    ? t('market.bump', { defaultValue: '끌어올리기' })
-                    : t('market.bumpWait', {
-                        hours: Math.ceil(bumpRemainingMs / 3_600_000),
-                        defaultValue: `${Math.ceil(bumpRemainingMs / 3_600_000)}시간 후 끌어올리기`,
-                      })}
+                <button
+                  className={styles.actionsToggleBtn}
+                  type="button"
+                  onClick={() => setActionsExpanded((v) => !v)}
+                  aria-label={
+                    actionsExpanded
+                      ? t('common.collapse', { defaultValue: '접기' })
+                      : t('common.expand', { defaultValue: '펼치기' })
+                  }
+                >
+                  {actionsExpanded ? <ChevronDown size={18} strokeWidth={2.2} /> : <ChevronUp size={18} strokeWidth={2.2} />}
                 </button>
+              </div>
+              {actionsExpanded && (
+                <>
+                  {detail.status === 'ON_SALE' && (
+                    <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>
+                      <ArrowUp size={16} strokeWidth={2.4} />
+                      {canBump
+                        ? t('market.bump', { defaultValue: '끌어올리기' })
+                        : t('market.bumpWait', {
+                            hours: Math.ceil(bumpRemainingMs / 3_600_000),
+                            defaultValue: `${Math.ceil(bumpRemainingMs / 3_600_000)}시간 후 끌어올리기`,
+                          })}
+                    </button>
+                  )}
+                  <button
+                    className={styles.priceEditBtn}
+                    type="button"
+                    onClick={() => {
+                      setNewPrice(String(detail.priceVnd));
+                      setPriceOpen(true);
+                    }}
+                  >
+                    <Tag size={16} strokeWidth={2.2} />
+                    {t('market.editPrice', { defaultValue: '가격 수정' })}
+                  </button>
+                  <button className={styles.priceEditBtn} type="button" onClick={() => navigate(`/market/${detail.id}/edit`)}>
+                    <Pencil size={16} strokeWidth={2.2} />
+                    {t('market.editListing', { defaultValue: '매물 수정' })}
+                  </button>
+                  <button className={styles.priceEditBtn} type="button" onClick={() => setWithdrawOpen(true)}>
+                    <Trash2 size={16} strokeWidth={2.2} />
+                    {t('market.withdraw', { defaultValue: '매물 철회' })}
+                  </button>
+                </>
               )}
-              <button
-                className={styles.priceEditBtn}
-                type="button"
-                onClick={() => {
-                  setNewPrice(String(detail.priceVnd));
-                  setPriceOpen(true);
-                }}
-              >
-                <Tag size={16} strokeWidth={2.2} />
-                {t('market.editPrice', { defaultValue: '가격 수정' })}
-              </button>
-              <button className={styles.priceEditBtn} type="button" onClick={() => navigate(`/market/${detail.id}/edit`)}>
-                <Pencil size={16} strokeWidth={2.2} />
-                {t('market.editListing', { defaultValue: '매물 수정' })}
-              </button>
-              <button className={styles.priceEditBtn} type="button" onClick={() => setWithdrawOpen(true)}>
-                <Trash2 size={16} strokeWidth={2.2} />
-                {t('market.withdraw', { defaultValue: '매물 철회' })}
-              </button>
               <div className={styles.statusBar}>
                 {STATUSES.map((s) => (
                   <button

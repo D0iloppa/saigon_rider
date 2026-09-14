@@ -57,6 +57,8 @@
     "myLocation": "My location"
   },
   "common": {
+    "expand": "Expand",
+    "collapse": "Collapse",
     "myItemBadge": "Mine",
     "myPostBadge": "Mine",
     "myBizBadge": "Mine",

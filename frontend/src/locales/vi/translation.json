@@ -57,6 +57,8 @@
     "myLocation": "Vị trí của tôi"
   },
   "common": {
+    "expand": "Mở rộng",
+    "collapse": "Thu gọn",
     "myItemBadge": "Của tôi",
     "myPostBadge": "Của tôi",
     "myBizBadge": "Của tôi",

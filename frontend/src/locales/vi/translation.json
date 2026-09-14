@@ -2788,7 +2788,6 @@
     "marketReviews": "Đánh giá giao dịch",
     "countValue": "{{count}} giao dịch",
     "marketSection": "Tin đang bán",
-    "marketShowing": "{{count}} tin mới nhất",
     "marketEmpty": "Hiện không có tin đang bán",
     "marketError": "Không thể tải tin đăng",
     "feedSection": "Bài đăng",

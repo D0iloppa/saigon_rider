@@ -1,9 +1,9 @@
 /* 다른 사용자 프로필 페이지 (2026-08-13 신설 — ProfileCard 바텀시트 대체).
  *
- * 헤더·통계·액션 행은 종전 ProfileCard 의 구성을 1:1로 옮긴 것이고, 게시물 그리드는
- * FeedList.module.css 의 .feedGrid/.feedCard 문법을 그대로 미러한다(신규 디자인 없음 —
- * 대표 결정 D-2: 인스타 3열을 베끼기보다 앱 자체 일관성을 우선). 카드에서 작성자 행은
- * 뺐다 — 한 사람의 프로필이라 모든 카드에 같은 아바타·닉네임이 반복될 이유가 없다.
+ * 헤더·통계·액션 행은 종전 ProfileCard 의 구성을 1:1로 옮긴 것이다. 매물·게시물 카드는
+ * ProfileListingCard/ProfileFeedCard(신규 디자인 없음 — 대표 결정 D-2: 인스타 3열을
+ * 베끼기보다 앱 자체 일관성을 우선)를 .rail(1행 가로 스크롤)에 담아 노출하고,
+ * 전체 목록은 더보기 → /profile/:userId/listings, /posts 서브페이지로 드릴다운한다.
  */
 
 .scroll { padding: 14px 16px 24px; }
@@ -137,102 +137,32 @@
 .trustGrid dd { display: flex; align-items: center; gap: 3px; margin: 5px 0 0; color: var(--text); font-size: 13px; font-weight: 800; }
 .sectionHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 22px 0 10px; }
 .sectionHead > span { color: var(--text-3); font-size: 11px; }
-.marketGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+.rail {
+  display: flex;
+  gap: 10px;
+  margin: 0 -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+.railItem { flex: 0 0 150px; min-width: 0; }
+
+/* 섹션 헤더의 "더보기" — 상단 우측의 신고 메뉴 .moreBtn(아이콘 버튼)과 이름이 겹쳐 별도 클래스로 둔다. */
+.seeMoreBtn {
+  display: flex; align-items: center; gap: 2px;
+  padding: 2px 0; border: none; background: none;
+  color: var(--brand-600); font-family: inherit; font-size: 13px; font-weight: 600;
+  letter-spacing: -0.2px; cursor: pointer;
+}
 
 @media (max-width: 360px) {
   .trustGrid { grid-template-columns: 1fr; gap: 12px; }
   .trustGrid > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .trustGrid dd { margin: 0; }
 }
-
-/* ── 게시물 ── */
-.sectionLabel {
-  margin: 22px 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-3);
-}
-
-.feedGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.feedCard {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  text-align: left;
-  transition: transform .12s ease;
-}
-.feedCard:active { transform: scale(.98); }
-
-/* 사진을 높이가 정해진 박스에 가둔다 — 본문이 항상 자리를 차지하도록 */
-.feedThumb {
-  width: 100%;
-  aspect-ratio: 1.15;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: var(--surface-2);
-}
-
-.feedPhoto { width: 100%; height: 100%; object-fit: cover; }
-
-.feedPlaceholder {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  background: var(--surface-2);
-  color: var(--text-3);
-}
-
-.feedBody {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 11px 12px;
-}
-
-.feedTime { font-size: 10.5px; font-weight: 600; color: var(--text-3); }
-
-.feedCaption {
-  display: -webkit-box;
-  min-height: 36px;
-  overflow: hidden;
-  color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.4;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.feedMeta {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.commentCount { display: flex; align-items: center; gap: 3px; }
-
-/* 응원 토글 — feedMeta 항목과 같은 톤, 눌린 상태만 브랜드색 */
-.cheerBtn {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px 5px;
-  margin: -3px -5px;
-  border-radius: 8px;
-  color: inherit;
-}
-.cheerBtnActive { color: var(--brand-600); }
 
 /* ── 신고 사유 시트 ── */
 .reportTitle {

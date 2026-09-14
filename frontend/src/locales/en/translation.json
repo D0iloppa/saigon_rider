@@ -2788,7 +2788,6 @@
     "marketReviews": "Marketplace reviews",
     "countValue": "{{count}}",
     "marketSection": "Listings for sale",
-    "marketShowing": "Latest {{count}}",
     "marketEmpty": "No listings are currently for sale",
     "marketError": "Couldn't load listings",
     "feedSection": "Posts",

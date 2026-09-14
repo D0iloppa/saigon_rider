@@ -57,8 +57,11 @@ test('the profile page keeps every capability the sheet had (no feature regressi
   for (const [needle, label] of required) {
     assert.ok(source.includes(needle), `UserProfile must keep: ${label} (${needle})`);
   }
-  // 페이지네이션도 이관돼야 한다 — 시트가 하던 것을 페이지가 못 하면 퇴행이다.
-  assert.match(source, /pageRef\.current \+ 1/, 'pagination (load more) must be ported');
+  // 페이지네이션은 이제 전용 서브페이지(useInfiniteScroll)로 옮겨졌다 — 메인 프로필은 단발 레일만 로드.
+  assert.match(source, /\/profile\/\$\{userId\}\/posts/, 'the posts sub-page entry must exist');
+  assert.match(source, /\/profile\/\$\{userId\}\/listings/, 'the listings sub-page entry must exist');
+  assert.doesNotMatch(source, /pageRef\.current \+ 1/,
+    'manual pagination must be gone from the profile page — it moved to the sub-pages (useInfiniteScroll)');
 });
 
 test('the page browses; comments stay on the post detail (sheet-in-sheet is what we removed)', () => {

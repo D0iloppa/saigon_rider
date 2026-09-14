@@ -483,7 +483,7 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 #### 공개 프로필 구성 확장 — 활동·거래 정보 + 판매 중인 매물 (2026-09-09 확장, 2026-09-10 레이아웃 교정)
 
-위 §3.5 "구성" 항목이 기술하는 `헤더 → 팔로워/팔로잉 → 팔로우/메시지 → 게시물 2열 그리드` 는 **2026-08-13 신설 당시 구성**이다. 이후 두 블록이 그 사이에 추가됐다 — 현재 구성은 `헤더 → 팔로워/팔로잉 → 팔로우/메시지 → 활동과 거래 정보 → 판매 중인 매물 → 게시물` 이다.
+위 §3.5 "구성" 항목이 기술하는 `헤더 → 팔로워/팔로잉 → 팔로우/메시지 → 게시물 2열 그리드` 는 **2026-08-13 신설 당시 구성**이다. 이후 두 블록이 그 사이에 추가됐다 — 현재 구성은 `헤더 → 팔로워/팔로잉 → 팔로우/메시지 → 활동과 거래 정보 → 판매 중인 매물 → 게시물` 이다. ⚠️ 아래 "판매 중인 매물"·"게시물" 두 항목이 기술하는 **2열 그리드는 2026-09-14 부터 미리보기 가로 레일로 대체**됐다 — 상세는 본 절 말미의 "가로 레일 전환 + 더보기 서브페이지 신설" 항목 참조.
 
 - **활동과 거래 정보**(`.trustSection`/`.trustGrid`) — 가입 시점(`memberSince`, `Intl.DateTimeFormat` 로케일 포맷) · 완료한 판매(`marketplaceSoldCount`) · 거래 후기(`marketplaceAvgRating`·`marketplaceReviewCount`, 평점 없으면 `—`). 360px 이하에서는 3열 그리드가 라벨↔값 좌우 정렬 1열로 접힌다(`@media (max-width: 360px)`).
 - **판매 중인 매물**(`.marketGrid`, 2열) — `fetchListings` 로 해당 사용자의 판매 중 매물을 조회하고 헤더 우측에 `최근 N개` 를 표기. 카드 탭 → `/market/:id`.
@@ -498,6 +498,14 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 > 🔒 **규칙 — `market/ListingCard` 는 전폭 1열 컨테이너 전용이다.** 이 카드를 그리드·캐러셀 등 좁은 컬럼에 넣지 마라(고정 128px 썸네일이 텍스트 컬럼을 삼킨다). 소비처는 `MarketMain`·`MarketSearch`·`MarketWishlist`·`map/MapFavorites` 4곳이며 모두 전폭 리스트다. 좁은 컬럼이 필요하면 이번 선례처럼 **화면 전용 세로 변형을 따로 만들고 공용 카드는 건드리지 않는다** — 4개 소비처의 회귀 위험이 변형 1개의 중복보다 비싸다.
 
 > ⚠️ **미검증**: 360px 베트남어 메타(`Bình Thạnh · 22 ngày trước`)는 1줄 ellipsis 로 잘린다(기존 3줄 세로분해를 대체한 의도된 동작). 지오메트리 근거는 실제 CSS 를 Chromium 하네스에 올린 측정치(360/390/430 가로 오버플로 0·제목 2줄 클램프)이며 **실기기·인앱 렌더는 미확인**이다.
+
+#### 가로 레일 전환 + 더보기 서브페이지 신설 (2026-09-14)
+
+위 "판매 중인 매물"(`.marketGrid`)·"게시물"(§3.5 `.feedGrid`) 두 섹션이 `UserProfile.tsx` 본문에서 **2열 그리드 → 1행 가로 레일**(스크롤바 비노출, `.rail`/`.railItem`)로 바뀌었다. 각 섹션은 이제 최대 6개(`RAIL_SIZE`)만 미리보기로 보여주고, 헤더 우측에 **더보기**(`.seeMoreBtn`) 버튼이 붙어 전체 목록 서브페이지로 이동한다. 전체 목록·페이지네이션(무한스크롤) 책임이 `UserProfile.tsx` 에서 서브페이지로 이관됐다.
+
+- `/profile/:userId/listings` → `pages/profile/ProfileListings.tsx` — 매물 전체, 2열 그리드(기존 `.marketGrid`/`ProfileListingCard.tsx` 그대로 재사용), 무한스크롤.
+- `/profile/:userId/posts` → `pages/profile/ProfilePosts.tsx` — 게시물 전체, 2열 그리드, 무한스크롤. 카드는 신규 `pages/profile/ProfileFeedCard.tsx`(`FeedList.tsx` 의 카드와는 별개 — 프로필 전용).
+- 두 라우트 모두 위 §3.5 "게시물" 항목이 이미 기술한 관례대로 **일반 라우트 + `BackgroundRoutes` 오버레이 양쪽에 등록**된다(`/profile/:userId` 와 동일 패턴).
 
 ### 3.6 게임 허브 하위 메뉴 상세
 

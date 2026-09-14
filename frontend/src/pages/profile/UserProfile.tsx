@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertCircle, Building2, Coffee, Eye, Flame, MessageCircle, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
+  AlertCircle, Building2, ChevronRight, Coffee, Eye, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
@@ -24,13 +24,14 @@ import { createConversation } from '@/api/dm';
 import { fetchListings, type ListingCard as MarketListing } from '@/api/market';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
-import { formatNumber, formatRelativeTime } from '@/lib/format';
+import { formatNumber } from '@/lib/format';
 import type { FeedPost, UserProfile as UserProfileData } from '@/api/types';
 import sys from '@/styles/system.module.css';
 import styles from './UserProfile.module.css';
 import ProfileListingCard from './ProfileListingCard';
+import ProfileFeedCard from './ProfileFeedCard';
 
-const PAGE_SIZE = 10;
+const RAIL_SIZE = 6;
 
 /**
  * 다른 사용자의 프로필 **페이지** (2026-08-13 신설).
@@ -51,6 +52,7 @@ const PAGE_SIZE = 10;
 export default function UserProfile() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { userId } = useParams<{ userId: string }>();
   const me = useUserStore((s) => s.user);
 
@@ -62,35 +64,26 @@ export default function UserProfile() {
   const [reportOpen, setReportOpen] = useState(false);
   const [listings, setListings] = useState<MarketListing[] | null>(null);
   const [listingsError, setListingsError] = useState(false);
+  const [listingsTotal, setListingsTotal] = useState(0);
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [feedError, setFeedError] = useState(false);
-  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const pageRef = useRef(1);
-  const loadingRef = useRef(false);
+  const [postsTotal, setPostsTotal] = useState(0);
 
-  const loadPage = useCallback(async (target: string, page: number, append: boolean) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    if (append) setFeedLoadingMore(true);
-    else setFeedLoading(true);
+  const loadPage = useCallback(async (target: string) => {
+    setFeedLoading(true);
     try {
-      const result = await fetchMyFeed(target, page, PAGE_SIZE);
-      setPosts((prev) => (append ? [...prev, ...result.items] : result.items));
-      pageRef.current = page;
-      setHasMore(page * PAGE_SIZE < result.total);
+      const result = await fetchMyFeed(target, 1, RAIL_SIZE);
+      setPosts(result.items);
+      setPostsTotal(result.total);
       setFeedError(false);
     } catch {
       // 조회 실패를 "게시물 없음"으로 위장하지 않는다 — 정보 화면에서 같은 결함(조회 실패가
-      // '아직 리뷰가 없어요'로 표시)을 이미 고친 선례가 있다. 이어붙이기 실패는 이미 받아둔
-      // 목록을 지우지 않고 조용히 두되, 첫 페이지 실패는 오류+재시도로 드러낸다.
-      if (!append) setFeedError(true);
+      // '아직 리뷰가 없어요'로 표시)을 이미 고친 선례가 있다.
+      setFeedError(true);
     } finally {
-      loadingRef.current = false;
       setFeedLoading(false);
-      setFeedLoadingMore(false);
     }
   }, []);
 
@@ -104,26 +97,14 @@ export default function UserProfile() {
       .finally(() => setProfileLoading(false));
     setListings(null);
     setListingsError(false);
-    fetchListings({ sellerId: userId, hideSold: true, publicView: true, page: 1, size: 4 })
-      .then((result) => setListings(result.items))
+    fetchListings({ sellerId: userId, hideSold: true, publicView: true, page: 1, size: RAIL_SIZE })
+      .then((result) => { setListings(result.items); setListingsTotal(result.total); })
       .catch(() => { setListings([]); setListingsError(true); });
-    pageRef.current = 1;
-    loadingRef.current = false;
-    setHasMore(true);
     setFeedError(false);
-    void loadPage(userId, 1, false);
+    void loadPage(userId);
   }, [userId, loadPage]);
 
   useEffect(load, [load]);
-
-  // 무한 스크롤 — 바닥 근처에서 다음 페이지.
-  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (!userId || !hasMore || loadingRef.current) return;
-    const el = e.currentTarget;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 240) {
-      void loadPage(userId, pageRef.current + 1, true);
-    }
-  };
 
   async function doFollow() {
     if (!profile || !me) return;
@@ -249,7 +230,7 @@ export default function UserProfile() {
         ) : undefined}
       />
 
-      <div className={`${sys.scroll} ${styles.scroll}`} onScroll={onScroll}>
+      <div className={`${sys.scroll} ${styles.scroll}`}>
         {profileLoading ? (
           <SkeletonRows count={2} />
         ) : loadError || !profile ? (
@@ -347,7 +328,17 @@ export default function UserProfile() {
 
             <div className={styles.sectionHead}>
               <h2>{t('userProfile.marketSection')}</h2>
-              {listings && listings.length > 0 && <span>{t('userProfile.marketShowing', { count: listings.length })}</span>}
+              {listings && listings.length > 0 && listingsTotal > listings.length && (
+                <button
+                  type="button"
+                  className={styles.seeMoreBtn}
+                  aria-label={`${t('userProfile.marketSection')} ${t('home.seeMore')}`}
+                  onClick={() => navigate(`/profile/${userId}/listings`, { state: location.state })}
+                >
+                  {t('home.seeMore')}
+                  <ChevronRight size={14} />
+                </button>
+              )}
             </div>
             {listings === null ? (
               <SkeletonRows count={2} />
@@ -356,14 +347,31 @@ export default function UserProfile() {
             ) : listings.length === 0 ? (
               <StateBlock icon={ShoppingBag} title={t('userProfile.marketEmpty')} />
             ) : (
-              <div className={styles.marketGrid}>
-                {listings.map((listing) => <ProfileListingCard key={listing.id} listing={listing} onClick={() => navigate(`/market/${listing.id}`)} />)}
+              <div className={styles.rail}>
+                {listings.map((listing) => (
+                  <div className={styles.railItem} key={listing.id}>
+                    <ProfileListingCard listing={listing} onClick={() => navigate(`/market/${listing.id}`)} />
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* 게시물 — 2열 그리드. 카드 구성·문법은 FeedList 와 동일하게 맞춘다(신규 디자인 없음).
+            {/* 게시물 — 1행 레일. 카드 구성·문법은 FeedList 와 동일하게 맞춘다(신규 디자인 없음).
                 응원은 목록에서 되고 댓글은 상세에서만 — FeedList 의 기존 관례. */}
-            <div className={styles.sectionLabel}>{t('userProfile.feedSection', { defaultValue: '게시물' })}</div>
+            <div className={styles.sectionHead}>
+              <h2>{t('userProfile.feedSection', { defaultValue: '게시물' })}</h2>
+              {posts.length > 0 && postsTotal > posts.length && (
+                <button
+                  type="button"
+                  className={styles.seeMoreBtn}
+                  aria-label={`${t('userProfile.feedSection')} ${t('home.seeMore')}`}
+                  onClick={() => navigate(`/profile/${userId}/posts`, { state: location.state })}
+                >
+                  {t('home.seeMore')}
+                  <ChevronRight size={14} />
+                </button>
+              )}
+            </div>
 
             {feedLoading ? (
               <SkeletonRows count={3} />
@@ -373,7 +381,7 @@ export default function UserProfile() {
                 tone="error"
                 title={t('userProfile.feedError', { defaultValue: '게시물을 불러오지 못했어요' })}
                 actionLabel={t('common.retry', { defaultValue: '다시 시도' })}
-                onAction={() => userId && void loadPage(userId, 1, false)}
+                onAction={() => userId && void loadPage(userId)}
               />
             ) : posts.length === 0 ? (
               <StateBlock
@@ -381,51 +389,18 @@ export default function UserProfile() {
                 title={t('userProfile.feedEmpty', { defaultValue: '아직 작성한 게시물이 없어요' })}
               />
             ) : (
-              <div className={styles.feedGrid}>
+              <div className={styles.rail}>
                 {posts.map((p) => (
-                  <article
-                    key={p.id}
-                    className={styles.feedCard}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/feed/post/${p.id}`)}
-                    onKeyDown={(e) => {
-                      // 내부 응원 버튼에서 버블링된 키다운은 무시(그 버튼 자체가 반응한다)
-                      if (e.target !== e.currentTarget) return;
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        navigate(`/feed/post/${p.id}`);
-                      }
-                    }}
-                  >
-                    <div className={styles.feedThumb}>
-                      {p.photoUrl ? (
-                        <AppImage src={p.photoUrl} alt="" className={styles.feedPhoto} />
-                      ) : (
-                        <span className={styles.feedPlaceholder}><Newspaper size={22} /></span>
-                      )}
-                    </div>
-                    <span className={styles.feedBody}>
-                      <span className={styles.feedTime}>{formatRelativeTime(p.createdAt)}</span>
-                      <span className={styles.feedCaption}>{p.caption ?? t('feed.noCaption')}</span>
-                      <span className={styles.feedMeta}>
-                        <button
-                          type="button"
-                          className={`${styles.cheerBtn} ${p.iCheered ? styles.cheerBtnActive : ''}`}
-                          onClick={(e) => void handleCheer(p, e)}
-                        >
-                          <Flame size={12} />
-                          {p.cheerCount > 0 && <span>{p.cheerCount}</span>}
-                        </button>
-                        {p.commentCount > 0 && <span className={styles.commentCount}><MessageCircle size={12} />{p.commentCount}</span>}
-                      </span>
-                    </span>
-                  </article>
+                  <div className={styles.railItem} key={p.id}>
+                    <ProfileFeedCard
+                      post={p}
+                      onClick={() => navigate(`/feed/post/${p.id}`)}
+                      onCheer={(e) => void handleCheer(p, e)}
+                    />
+                  </div>
                 ))}
               </div>
             )}
-
-            {feedLoadingMore && <SkeletonRows count={1} />}
           </>
         )}
       </div>

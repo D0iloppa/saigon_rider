@@ -1,0 +1,76 @@
+/* UserProfile.module.css 의 .feedCard 계열을 값 그대로 옮김 (ProfileFeedCard 추출, 신규 디자인 없음) */
+
+.feedCard {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: left;
+  transition: transform .12s ease;
+}
+.feedCard:active { transform: scale(.98); }
+
+/* 사진을 높이가 정해진 박스에 가둔다 — 본문이 항상 자리를 차지하도록 */
+.feedThumb {
+  width: 100%;
+  aspect-ratio: 1.15;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.feedPhoto { width: 100%; height: 100%; object-fit: cover; }
+
+.feedPlaceholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.feedBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px 12px;
+}
+
+.feedTime { font-size: 10.5px; font-weight: 600; color: var(--text-3); }
+
+.feedCaption {
+  display: -webkit-box;
+  min-height: 36px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.feedMeta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.commentCount { display: flex; align-items: center; gap: 3px; }
+
+/* 응원 토글 — feedMeta 항목과 같은 톤, 눌린 상태만 브랜드색 */
+.cheerBtn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  border-radius: 8px;
+  color: inherit;
+}
+.cheerBtnActive { color: var(--brand-600); }

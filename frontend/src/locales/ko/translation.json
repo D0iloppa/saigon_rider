@@ -2788,7 +2788,6 @@
     "marketReviews": "거래 후기",
     "countValue": "{{count}}건",
     "marketSection": "판매 중인 매물",
-    "marketShowing": "최근 {{count}}개",
     "marketEmpty": "현재 판매 중인 매물이 없어요",
     "marketError": "매물을 불러오지 못했어요",
     "feedSection": "게시물",

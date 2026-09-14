@@ -48,6 +48,7 @@ export default function BizManage() {
   const [editing, setEditing] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [name, setName] = useState('');
+  const [category, setCategory] = useState('');
   const [phone, setPhone] = useState('');
   const [intro, setIntro] = useState('');
   const [saving, setSaving] = useState(false);
@@ -97,13 +98,13 @@ export default function BizManage() {
   };
   const startEdit = () => {
     if (!active) return;
-    setName(active.name); setPhone(active.phone ?? ''); setIntro(active.intro ?? ''); setEditing(true);
+    setName(active.name); setCategory(active.category ?? ''); setPhone(active.phone ?? ''); setIntro(active.intro ?? ''); setEditing(true);
   };
   const saveEdit = async () => {
-    if (!active || !name.trim() || !phone.trim()) return;
+    if (!active || !name.trim() || !phone.trim() || !category) return;
     setSaving(true);
     try {
-      const updated = await updateBusinessProfile(active.id, { name: name.trim(), category: active.category, address: active.address ?? '', latitude: active.latitude ?? 0, longitude: active.longitude ?? 0, phone: phone.trim(), intro: intro.trim() || null, photoContentId: active.photoContentId });
+      const updated = await updateBusinessProfile(active.id, { name: name.trim(), category, address: active.address ?? '', latitude: active.latitude ?? 0, longitude: active.longitude ?? 0, phone: phone.trim(), intro: intro.trim() || null, photoContentId: active.photoContentId });
       setProfiles((prev) => prev?.map((profile) => profile.id === active.id ? updated : profile) ?? prev);
       setEditing(false); toast.success(t('biz.lounge.profileSaved'));
     } catch (err: unknown) { toast.error(extractDetail(err, t('biz.editError'))); }
@@ -116,7 +117,7 @@ export default function BizManage() {
     try {
       const form = new FormData(); form.append('file', file); form.append('owner_type', 'user'); form.append('owner_id', user.id);
       const uploaded = await api.realFetchForm<{ id: string }>('/contents/upload', form);
-      const updated = await updateBusinessProfile(active.id, { name: active.name, category: active.category, address: active.address ?? '', latitude: active.latitude ?? 0, longitude: active.longitude ?? 0, phone: active.phone ?? '', intro: active.intro, photoContentId: uploaded.id });
+      const updated = await updateBusinessProfile(active.id, { name: active.name, category: active.category || 'etc', address: active.address ?? '', latitude: active.latitude ?? 0, longitude: active.longitude ?? 0, phone: active.phone ?? '', intro: active.intro, photoContentId: uploaded.id });
       setProfiles((prev) => prev?.map((profile) => profile.id === active.id ? updated : profile) ?? prev);
     } catch (err: unknown) { toast.error(extractDetail(err, t('biz.photoUploadError'))); }
     finally { setPhotoUploading(false); }
@@ -185,6 +186,6 @@ export default function BizManage() {
       </>}
     </div>
     <BottomSheet open={storeSheetOpen} onClose={() => setStoreSheetOpen(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.lounge.selectStoreTitle')}</h2>}><div className={styles.storeList}>{profiles.map((profile, idx) => <button type="button" key={profile.id} className={styles.storeOption} onClick={() => selectProfile(idx)} aria-current={idx === activeIdx}>{profile.photoUrl ? <AppImage src={profile.photoUrl} alt="" className={styles.storeOptionPhoto} /> : <div className={styles.storeOptionPhotoFallback}><Store size={20} /></div>}<span><strong>{profile.name}</strong><small>{[categoryLabel(profile.category), profile.address].filter(Boolean).join(' · ')}</small></span>{idx === activeIdx && <span className={styles.selectedLabel}>{t('biz.lounge.selectedStore')}</span>}</button>)}</div></BottomSheet>
-    <BottomSheet open={editing} onClose={() => setEditing(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.editCta')}</h2>}><div className={styles.editForm}><div className={styles.editPhotoRow}>{active.photoUrl ? <AppImage src={active.photoUrl} alt="" className={styles.editPhoto} /> : <div className={styles.editPhotoFallback}><Store size={22} /></div>}<button type="button" className={styles.photoButton} onClick={() => photoInputRef.current?.click()} disabled={photoUploading}><Camera size={17} />{photoUploading ? t('biz.uploading') : t('biz.editPhoto')}</button><input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handlePhotoChange} /></div><label className={styles.fieldLabel} htmlFor="biz-lounge-name">{t('biz.name')}</label><input id="biz-lounge-name" className={styles.input} value={name} onChange={(event) => setName(event.target.value)} maxLength={120} required /><label className={styles.fieldLabel} htmlFor="biz-lounge-phone">{t('biz.phone')}</label><input id="biz-lounge-phone" className={styles.input} value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" maxLength={30} required /><label className={styles.fieldLabel} htmlFor="biz-lounge-intro">{t('biz.introLabel')}</label><textarea id="biz-lounge-intro" className={styles.textarea} value={intro} onChange={(event) => setIntro(event.target.value)} rows={4} maxLength={500} /><Button onClick={saveEdit} loading={saving} disabled={!name.trim() || !phone.trim()}>{t('common.confirm')}</Button></div></BottomSheet>
+    <BottomSheet open={editing} onClose={() => setEditing(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.editCta')}</h2>}><div className={styles.editForm}><div className={styles.editPhotoRow}>{active.photoUrl ? <AppImage src={active.photoUrl} alt="" className={styles.editPhoto} /> : <div className={styles.editPhotoFallback}><Store size={22} /></div>}<button type="button" className={styles.photoButton} onClick={() => photoInputRef.current?.click()} disabled={photoUploading}><Camera size={17} />{photoUploading ? t('biz.uploading') : t('biz.editPhoto')}</button><input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handlePhotoChange} /></div><label className={styles.fieldLabel} htmlFor="biz-lounge-name">{t('biz.name')}</label><input id="biz-lounge-name" className={styles.input} value={name} onChange={(event) => setName(event.target.value)} maxLength={120} required /><label className={styles.fieldLabel} htmlFor="biz-lounge-category">{t('biz.category', { defaultValue: '업종' })}</label><select id="biz-lounge-category" className={styles.input} value={category} onChange={(event) => setCategory(event.target.value)} required><option value="" disabled>{t('biz.categoryPlaceholder', { defaultValue: '업종 선택' })}</option>{categories.map((c) => <option key={c.code} value={c.code}>{bizCategoryLabel(c, i18n.language)}</option>)}</select><label className={styles.fieldLabel} htmlFor="biz-lounge-phone">{t('biz.phone')}</label><input id="biz-lounge-phone" className={styles.input} value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" maxLength={30} required /><label className={styles.fieldLabel} htmlFor="biz-lounge-intro">{t('biz.introLabel')}</label><textarea id="biz-lounge-intro" className={styles.textarea} value={intro} onChange={(event) => setIntro(event.target.value)} rows={4} maxLength={500} /><Button onClick={saveEdit} loading={saving} disabled={!name.trim() || !phone.trim() || !category}>{t('common.confirm')}</Button></div></BottomSheet>
   </div>;
 }

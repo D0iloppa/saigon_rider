@@ -169,11 +169,83 @@
   color: white;
 }
 
+.step[data-current] .stepMark {
+  border-color: var(--brand-500);
+}
+
+.step[data-current] {
+  color: var(--text);
+}
+
 .step strong {
   font-size: 14px;
+}
+
+.stepStatus {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.step[data-current] .stepStatus {
+  color: var(--brand-600);
+  font-weight: 600;
 }
 
 .boundaryNote {
   margin: 12px 4px 0;
   text-align: center;
+}
+
+.faqSection {
+  margin: 14px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.faqItem {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.faqQuestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.faqChevron {
+  flex: 0 0 auto;
+  transition: transform 0.15s ease;
+  color: var(--text-2);
+}
+
+.faqChevronOpen {
+  flex: 0 0 auto;
+  transform: rotate(180deg);
+  color: var(--text-2);
+}
+
+.faqAnswer {
+  padding: 0 14px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
 }

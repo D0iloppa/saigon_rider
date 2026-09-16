@@ -252,6 +252,90 @@
   line-height: 1.45;
 }
 
+/* ── 역할별 튜토리얼 ── */
+.tutorialWrap {
+  margin: 0 20px 30px;
+}
+
+.tutorialSub {
+  font-size: 13px;
+  color: #8e8e93;
+  font-weight: 500;
+  margin: -8px 0 16px;
+  word-break: keep-all;
+}
+
+.roleToggle {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f4f2ec;
+  margin-bottom: 16px;
+}
+
+.roleBtn,
+.roleBtnActive {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roleBtn {
+  background: none;
+  color: #6b6b70;
+}
+
+.roleBtnActive {
+  background: #fff;
+  color: #f8602a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.tutorialSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tutorialStep {
+  display: flex;
+  gap: 12px;
+}
+
+.tutorialStepNum {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f8602a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tutorialStepTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1c1c1e;
+  margin-bottom: 4px;
+}
+
+.tutorialStepDesc {
+  font-size: 12.5px;
+  color: #6b6b70;
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
 /* ── 안전거래 기능 ── */
 .features {
   display: flex;

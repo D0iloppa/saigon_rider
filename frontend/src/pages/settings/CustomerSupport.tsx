@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageCircle, Flag } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
@@ -36,6 +36,11 @@ const REPORT_STATUS_CLASS: Record<string, string> = {
 export default function CustomerSupport() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  // 거래 상세(TradeTransaction)에서 "고객센터에 문의하기" 딥링크로 넘어올 때 실은 초안.
+  // 한 번 소비하면 곧바로 history state 를 비워 뒤로가기 재진입 시 재프리필되지 않게 한다.
+  const inquiryDraft = (location.state as { inquiryDraft?: { title: string; body: string } } | null)
+    ?.inquiryDraft;
   // 탭 상태는 URL 쿼리에 올린다 — 로컬 useState 면 매물 상세로 갔다 뒤로가기 했을 때
   // 컴포넌트가 재마운트되며 '문의' 탭으로 초기화된다(2026-08-18 실기기 지적).
   // 쿼리에 있으면 브라우저 히스토리가 탭까지 복원한다(마켓 `?view=map` 선례와 동일 방식).
@@ -45,14 +50,14 @@ export default function CustomerSupport() {
     // replace: 탭 전환은 히스토리에 쌓지 않는다(뒤로가기가 탭 토글을 되짚게 되면 성가시다)
     setSearchParams(next === 'report' ? { tab: 'report' } : {}, { replace: true });
   };
-  const [view, setView] = useState<View>('list');
+  const [view, setView] = useState<View>(inquiryDraft ? 'new' : 'list');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   // R-1(260819 W3) — 신고 상세(코멘트·첨부사진·처리 결과) 열람용.
   const [detailReport, setDetailReport] = useState<Report | null>(null);
   const [reportsLoading, setReportsLoading] = useState(true);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
+  const [title, setTitle] = useState(inquiryDraft?.title ?? '');
+  const [body, setBody] = useState(inquiryDraft?.body ?? '');
   const [submitting, setSubmitting] = useState(false);
   const kb = useKeyboard();
   const openConfirm = useConfirmStore((s) => s.open);
@@ -66,6 +71,12 @@ export default function CustomerSupport() {
       .then(setReports)
       .catch(() => {})
       .finally(() => setReportsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!inquiryDraft) return;
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goToReportTarget = (r: Report) => {

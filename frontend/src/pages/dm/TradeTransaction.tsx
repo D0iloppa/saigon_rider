@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Check, CreditCard, ImagePlus, ReceiptText } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, CreditCard, ImagePlus, ReceiptText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
@@ -7,12 +7,14 @@ import StateBlock from '@/components/ui/StateBlock';
 import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
 import {
+  cancelAppointment,
   confirmMarketplacePayment,
   fetchMarketplacePaymentQr,
   fetchMarketplaceTransaction,
   registerMarketplacePaymentQr,
   reportMarketplacePayment,
 } from '@/api/dm';
+import { fetchFaqs, type FaqItem } from '@/api/notices';
 import type { MarketplaceTransaction } from '@/api/types';
 import { useUserStore } from '@/store/useUserStore';
 import { formatPriceVnd } from '../market/marketFormat';
@@ -21,7 +23,7 @@ import { useConfirmStore } from '@/store/useConfirmStore';
 import styles from './TradeTransaction.module.css';
 
 export default function TradeTransaction() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { conversationId, appointmentId } = useParams<{ conversationId: string; appointmentId: string }>();
   const user = useUserStore((state) => state.user);
@@ -31,6 +33,8 @@ export default function TradeTransaction() {
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [qrObject, setQrObject] = useState<{ messageId: string; url: string } | null>(null);
+  const [faqs, setFaqs] = useState<FaqItem[]>([]);
+  const [openFaqId, setOpenFaqId] = useState<number | null>(null);
 
   const load = async () => {
     if (!appointmentId) return;
@@ -54,6 +58,14 @@ export default function TradeTransaction() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [appointmentId]);
+
+  useEffect(() => {
+    let active = true;
+    fetchFaqs(i18n.language)
+      .then((items) => { if (active) setFaqs(items.filter((f) => f.category === 'MARKET').slice(0, 3)); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [i18n.language]);
 
   useEffect(() => {
     const messageId = transaction?.qrMessageId;
@@ -104,10 +116,36 @@ export default function TradeTransaction() {
     }
   };
 
+  const cancelTrade = async () => {
+    if (!appointmentId || busy) return;
+    setBusy(true);
+    try {
+      await cancelAppointment(appointmentId);
+      toast.success(t('dm.tradeCancelled'));
+      navigate(conversationId ? `/dm/${conversationId}` : '/dm', { replace: true });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('payment is reported')) {
+        toast.error(t('dm.tradeCancelBlocked'));
+        load();
+      } else {
+        toast.error(t('dm.tradeCancelError'));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const qrUrl = qrObject && transaction?.qrMessageId === qrObject.messageId ? qrObject.url : null;
   const reported = transaction?.paymentStatus === 'PAYMENT_REPORTED'
     || transaction?.paymentStatus === 'PAYMENT_CONFIRMED';
   const confirmed = transaction?.paymentStatus === 'PAYMENT_CONFIRMED';
+  const stepDoneFlags = transaction
+    ? [true, !!qrUrl, reported, confirmed, transaction.appointmentStatus === 'COMPLETED']
+    : [];
+  const currentStepIndex = transaction && transaction.appointmentStatus !== 'CANCELLED'
+    ? stepDoneFlags.findIndex((done) => !done)
+    : -1;
+  const canCancel = transaction?.appointmentStatus === 'ACCEPTED' && !reported;
 
   return (
     <div className={styles.page}>
@@ -184,12 +222,13 @@ export default function TradeTransaction() {
             <section className={styles.timelineSection} aria-labelledby="trade-timeline-title">
               <h2 id="trade-timeline-title">{t('dm.tradeProcedure')}</h2>
               <ol className={styles.timeline}>
-                <TradeStep done title={t('dm.tradeStepAgreement')} detail={t('dm.tradeStepAgreementDetail')} />
-                <TradeStep done={!!qrUrl} title={t('dm.tradeStepQr')} detail={t('dm.tradeStepQrDetail')} />
-                <TradeStep done={reported} title={t('dm.tradeStepReported')} detail={t('dm.tradeStepReportedDetail')} />
-                <TradeStep done={confirmed} title={t('dm.tradeStepConfirmed')} detail={t('dm.tradeStepConfirmedDetail')} />
+                <TradeStep done current={currentStepIndex === 0} title={t('dm.tradeStepAgreement')} detail={t('dm.tradeStepAgreementDetail')} />
+                <TradeStep done={!!qrUrl} current={currentStepIndex === 1} title={t('dm.tradeStepQr')} detail={t('dm.tradeStepQrDetail')} />
+                <TradeStep done={reported} current={currentStepIndex === 2} title={t('dm.tradeStepReported')} detail={t('dm.tradeStepReportedDetail')} />
+                <TradeStep done={confirmed} current={currentStepIndex === 3} title={t('dm.tradeStepConfirmed')} detail={t('dm.tradeStepConfirmedDetail')} />
                 <TradeStep
                   done={transaction.appointmentStatus === 'COMPLETED'}
+                  current={currentStepIndex === 4}
                   title={t('dm.tradeStepHandoff')}
                   detail={t('dm.tradeStepHandoffDetail')}
                 />
@@ -217,7 +256,67 @@ export default function TradeTransaction() {
                 {t('dm.tradeConfirmReceipt')}
               </Button>
             )}
+            {canCancel && (
+              <Button
+                fullWidth
+                variant="danger"
+                disabled={busy}
+                onClick={() => useConfirmStore.getState().open(
+                  t('dm.tradeCancelConfirm'),
+                  () => {
+                    useConfirmStore.getState().close();
+                    cancelTrade();
+                  },
+                  { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                )}
+              >
+                {t('dm.tradeCancel')}
+              </Button>
+            )}
             <p className={styles.boundaryNote}>{t('dm.tradeBoundaryNotice')}</p>
+
+            {faqs.length > 0 && (
+              <section className={styles.faqSection} aria-labelledby="trade-faq-title">
+                <div className={styles.sectionTitle}>
+                  <h2 id="trade-faq-title">{t('dm.tradeFaqTitle')}</h2>
+                </div>
+                {faqs.map((f) => {
+                  const open = openFaqId === f.id;
+                  return (
+                    <div key={f.id} className={styles.faqItem}>
+                      <button
+                        type="button"
+                        className={styles.faqQuestion}
+                        aria-expanded={open}
+                        onClick={() => setOpenFaqId(open ? null : f.id)}
+                      >
+                        <span>{f.question}</span>
+                        <ChevronDown size={16} className={open ? styles.faqChevronOpen : styles.faqChevron} />
+                      </button>
+                      {open && <div className={styles.faqAnswer}>{f.answer}</div>}
+                    </div>
+                  );
+                })}
+                <Button variant="ghost" onClick={() => navigate('/faq')}>
+                  {t('dm.tradeFaqSeeAll')}
+                </Button>
+              </section>
+            )}
+
+            <Button
+              variant="ghost"
+              fullWidth
+              onClick={() => navigate('/settings/support', {
+                state: {
+                  inquiryDraft: {
+                    title: t('dm.tradeSupportDraftTitle', { listing: transaction.listingTitle }),
+                    body: t('dm.tradeSupportDraftBody', { id: transaction.appointmentId }),
+                  },
+                },
+              })}
+            >
+              {t('dm.tradeSupportCta')}
+            </Button>
           </>
         )}
       </main>
@@ -225,11 +324,30 @@ export default function TradeTransaction() {
   );
 }
 
-function TradeStep({ done, title, detail }: { done: boolean; title: string; detail: string }) {
+function TradeStep({
+  done,
+  current,
+  title,
+  detail,
+}: {
+  done: boolean;
+  current?: boolean;
+  title: string;
+  detail: string;
+}) {
+  const { t } = useTranslation();
   return (
-    <li className={styles.step} data-done={done || undefined}>
+    <li className={styles.step} data-done={done || undefined} data-current={(!done && current) || undefined}>
       <span className={styles.stepMark} aria-hidden="true">{done ? <Check size={14} /> : null}</span>
-      <div><strong>{title}</strong><p>{detail}</p></div>
+      <div>
+        <strong>{title}</strong>
+        <p>{detail}</p>
+        {!done && (
+          <span className={styles.stepStatus}>
+            {current ? t('dm.tradeStepCurrent') : t('dm.tradeStepPending')}
+          </span>
+        )}
+      </div>
     </li>
   );
 }

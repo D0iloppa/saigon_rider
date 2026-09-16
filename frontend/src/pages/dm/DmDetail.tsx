@@ -41,12 +41,13 @@ import {
   deleteMessage,
   addReaction,
   removeReaction,
+  fetchMarketplaceTransaction,
   DM_REACTION_EMOJIS,
   DM_REPORT_REASONS,
   type DmReportReason,
 } from '@/api/dm';
 import { loadCachedMessages, saveCachedMessages } from '@/lib/dmCache';
-import type { Appointment, PriceOffer } from '@/api/types';
+import type { Appointment, MarketplaceTransaction, PriceOffer } from '@/api/types';
 import type { AppointmentNavigationDestination } from '@/api/dm';
 import { native } from '@/lib/native';
 import type { DealStatusKind } from '@/lib/plugins/liveActivity';
@@ -729,6 +730,24 @@ export default function DmDetail() {
   }, [messages]);
   const currentAppointmentId = currentAppointment?.id ?? null;
 
+  // ①: 진행상태 배너 — payment_qr 메시지가 있을 때만 거래 결제상태를 1회 조회한다(폴링 없음).
+  const hasPaymentQrMessage = useMemo(
+    () => messages.some((m) => m.messageType === 'payment_qr' && m.meta?.appointmentId === currentAppointmentId),
+    [messages, currentAppointmentId],
+  );
+  const [tradeBannerTx, setTradeBannerTx] = useState<MarketplaceTransaction | null>(null);
+  useEffect(() => {
+    if (!hasPaymentQrMessage || !currentAppointmentId) {
+      setTradeBannerTx(null);
+      return;
+    }
+    let active = true;
+    fetchMarketplaceTransaction(currentAppointmentId)
+      .then((tx) => { if (active) setTradeBannerTx(tx); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [hasPaymentQrMessage, currentAppointmentId]);
+
   const requestAppointmentNavigation = useCallback((appointmentId: string) => {
     if (navigationRequestedRef.current.has(appointmentId)) return;
     navigationRequestedRef.current.add(appointmentId);
@@ -1364,6 +1383,18 @@ export default function DmDetail() {
         return { left, top: below, width: panelWidth, maxHeight: belowSpace };
       })()
     : undefined;
+
+  // ①: 진행상태 배너 — direct 방 + ACCEPTED 약속에서만 노출. PROPOSED(수락 전)는
+  // 백엔드에 MarketplaceTransaction 행이 아직 없어(생성 시점=수락) 배너를 눌러도 404가 난다.
+  const tradeBannerVisible = isDirect && currentAppointment?.status === 'ACCEPTED';
+  const tradeBannerKey = !hasPaymentQrMessage
+    ? 'dm.tradeBannerQrWaiting'
+    : tradeBannerTx?.paymentStatus === 'PAYMENT_CONFIRMED'
+      ? 'dm.tradeBannerConfirmed'
+      : tradeBannerTx?.paymentStatus === 'PAYMENT_REPORTED'
+        ? 'dm.tradeBannerReported'
+        : 'dm.tradeBannerQrReady';
+
   return (
     <div className={styles.page}>
       <TopBar
@@ -1425,6 +1456,27 @@ export default function DmDetail() {
           </>
         }
       />
+
+      {/* ① 거래 진행상태 배너 — direct 방 전용 */}
+      {tradeBannerVisible && currentAppointmentId && (
+        <div className={styles.tradeStatusBanner}>
+          <button
+            type="button"
+            className={styles.tradeStatusMain}
+            onClick={() => navigate(`/dm/${conversationId}/trade/${currentAppointmentId}`)}
+            aria-label={t('dm.tradeBannerOpenAria')}
+          >
+            {t(tradeBannerKey)}
+          </button>
+          <button
+            type="button"
+            className={styles.tradeStatusGuideLink}
+            onClick={() => navigate('/guide/safe-trade')}
+          >
+            {t('dm.tradeGuideLink')}
+          </button>
+        </div>
+      )}
 
       {/* 그룹/오픈톡방 최소 정보 UI (§3.8) */}
       {!isDirect && (

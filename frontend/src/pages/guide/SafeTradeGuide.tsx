@@ -133,6 +133,13 @@ export default function SafeTradeGuide() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [openFraud, setOpenFraud] = useState<number | null>(null);
+  const [role, setRole] = useState<'seller' | 'buyer'>('seller');
+
+  const tutorialSteps = [1, 2, 3, 4].map((n) => ({
+    n,
+    title: t(`safeTradeGuide.${role}S${n}Title`),
+    desc: t(`safeTradeGuide.${role}S${n}Desc`),
+  }));
 
   const principles = [1, 2, 3, 4].map((n) => ({
     n,
@@ -224,6 +231,39 @@ export default function SafeTradeGuide() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* ── 역할별 튜토리얼 ── */}
+        <div className={styles.sectionTitle}>{t('safeTradeGuide.tutorialTitle')}</div>
+        <div className={styles.tutorialWrap}>
+          <div className={styles.tutorialSub}>{t('safeTradeGuide.tutorialSub')}</div>
+          <div className={styles.roleToggle}>
+            <button
+              type="button"
+              className={role === 'seller' ? styles.roleBtnActive : styles.roleBtn}
+              onClick={() => setRole('seller')}
+            >
+              {t('safeTradeGuide.roleSeller')}
+            </button>
+            <button
+              type="button"
+              className={role === 'buyer' ? styles.roleBtnActive : styles.roleBtn}
+              onClick={() => setRole('buyer')}
+            >
+              {t('safeTradeGuide.roleBuyer')}
+            </button>
+          </div>
+          <div className={styles.tutorialSteps}>
+            {tutorialSteps.map((s) => (
+              <div key={s.n} className={styles.tutorialStep}>
+                <div className={styles.tutorialStepNum}>{s.n}</div>
+                <div>
+                  <div className={styles.tutorialStepTitle}>{s.title}</div>
+                  <div className={styles.tutorialStepDesc}>{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ── 안전거래 기능 ── */}

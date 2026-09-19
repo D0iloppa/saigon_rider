@@ -95,6 +95,8 @@ docs/tt/
 landing_bak/
 # 로컬 편집 중 임시 메모
 untitled-2.md
+# 내부용 작업 문서(대표 등 외부 전달용 문서와 분리) — ai-docs/task/active/ 는 전달용만 유지
+ai-docs/internal/
 
 # tsc -b (tsconfig.node.json, composite) 가 vite.config.ts 로부터 생성하는 산출물.
 # Vite 는 설정파일 탐색에서 .js 를 .ts 보다 먼저 로드하므로, 스테일한 .js 가 커밋돼 있으면

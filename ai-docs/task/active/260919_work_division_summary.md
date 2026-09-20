@@ -116,8 +116,6 @@
 ---
 
 ## 참조문서 (요청 시만 — 기본으로 보내지 않습니다)
-
-- 상세 근거·전체 판단 이유(내부용, 대표님께 보내지 않음): `ai-docs/internal/260919_launch_week_work_division.md`
 - 서비스 플로우 검토 킷(대표 전달용): `ai-docs/review/260919_service_flow_review_kit.md`
-- 실기기 스토리보드 44 프레임(대표 전달용, 브라우저로 여는 HTML): `ai-docs/review/storyboard/index.html`
+- 서비스 플로우 스토리보드 66 프레임(대표 전달용, 브라우저로 여는 HTML): `ai-docs/review/storyboard/index.html`
 - 지금 상태가 왜 이런지(09-18 출시 감사 요약): `260918_owner_briefing_1page.md`

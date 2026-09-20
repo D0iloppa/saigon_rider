@@ -104,6 +104,7 @@ dev 에서 모델 컬럼 추가 시 마이그레이션(`up bff_migrate`)을 먼�
 | 결함 발견 | `TEST/issues.md` 표에 행 추가 | `current.md` 미해결 결함 라인 |
 | 진척률 변경 | `TEST/progress.md` 표 갱신 | — |
 | 신규 영구 산출물 | 적절한 디렉터리 + `INDEX.md` 색인 | `INDEX.md` |
+| 대표 전달용 검토 패키지 | `ai-docs/review/${title}.md` (+ 화면 샘플 등 부속물) | `INDEX.md` |
 | 반복 태스크 절차 | `ai-docs/workflow/${name}.md` | `workflow/README.md` + `INDEX.md` |
 
 **중복 금지**: 한 사실은 한 곳에만. 진척률은 `progress.md`만, 현재 상태는 `current.md`만, 산출물 위치는 `INDEX.md`만.

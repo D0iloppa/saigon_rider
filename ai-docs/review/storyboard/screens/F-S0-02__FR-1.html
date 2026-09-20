@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>내 매물 · 판매중</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+ * 사이공라이더 스토리보드 화면 샘플 — 공용 스킨 (v1 · 2026-09-20)
+ *
+ * 목적: ai-docs/review/260919_service_flow_review_kit.md 의 프레임을
+ *       "실제 앱처럼 보이는" 정적 HTML 로 그리기 위한 단일 스킨.
+ *
+ * ⚠️ 이 파일은 원본 보관·후속 워커 참조용이다. 각 <sceneId>.html 은
+ *    iframe srcdoc 으로 임베드되므로 이 CSS 를 <style> 안에 복사해 넣는다.
+ *    (외부 리소스 참조 0건 규칙)
+ *
+ * 값 출처 — 전부 실제 소스에서 추출했다. 지어낸 값 없음:
+ *   · 색·라운드·그림자·레이아웃 토큰 ... frontend/src/styles/tokens.css
+ *   · .num / .micro 타이포        ... frontend/src/styles/globals.css:76,117
+ *   · 표면 문법(카드·행·칩·배지)  ... frontend/src/styles/system.module.css
+ *   · 헤더                        ... frontend/src/components/layout/TopBar.module.css
+ *                                     frontend/src/pages/market/MarketMain.module.css:12-56
+ *   · 목록 행·가격                ... frontend/src/pages/market/ListingCard.module.css
+ *   · 상세 하단 바·판매자 블록    ... frontend/src/pages/market/MarketDetail.module.css
+ *   · 말풍선·컨텍스트카드·약속카드... frontend/src/pages/dm/DmDetail.module.css
+ *   · 입력창·첨부 메뉴            ... frontend/src/components/ui/MessageComposer.module.css
+ *   · 바텀시트                    ... frontend/src/components/ui/BottomSheet.module.css
+ *   · 버튼 4종                    ... frontend/src/components/ui/Button.module.css
+ *   · 탭바                        ... frontend/src/components/layout/TabBar.module.css
+ *   · 타임라인                    ... frontend/src/pages/dm/TradeTransaction.module.css
+ *
+ * 규칙(ai-docs/context/design-system.md) 준수 사항:
+ *   §1 수치는 .num(Space Grotesk, tabular-nums, 700 이하) · JetBrains Mono 0건
+ *   §2 아이콘은 lucide 형태 인라인 SVG(strokeWidth 2) — 아이콘 슬롯에 이모지 금지
+ *   §3 하드코딩 hex 금지 → 전부 토큰 var() (토큰 정의부만 원본 hex)
+ *   §6 blur 없음 · 그림자 1겹 · 상시 애니메이션 없음 · 눌림은 배경 한 겹
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 토큰 (tokens.css 발췌) ───────────────────────────────────── */
+:root {
+  /* Brand — Saigon Heat */
+  --brand-50:  #FFF1E8;
+  --brand-100: #FFDDC4;
+  --brand-200: #FFBB8A;
+  --brand-300: #FF9966;
+  --brand-500: #FF5A1F;
+  --brand-600: #ED4310;
+  --brand-700: #B82C08;
+
+  /* Surfaces */
+  --bg:        #F7F5F0;
+  --surface:   #FFFFFF;
+  --surface-2: #FAF7F2;
+  --line:      #E8E3DA;
+  --text:      #0B0D14;
+  --text-2:    #4A4F62;
+  --text-3:    #8A8E9E;
+
+  /* Status */
+  --success: #16A34A;
+  --warn:    #F59E0B;
+  --danger:  #EF3B3B;
+
+  /* verified 전용 블루 (design-system §3 — 그 외 파랑 액센트 금지) */
+  --verified: #3B82F6;
+  /* 재화·별점 전용 골드 (design-system §3) */
+  --gold:      #FFB800;
+  --gold-text: #B45309;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgba(11,13,20,.04);
+  --shadow-pop:  0 8px 24px rgba(255,90,31,.20);
+
+  /* Radii */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --tabbar-height: 72px;
+  --bottom-safe: 0px;
+  /* [data-platform="ios"] → env(safe-area-inset-top, 44px). 샘플은 iOS 기준 44px */
+  --status-bar-height: 44px;
+}
+
+/* ── 2. 폰 셸 (390 × 844) ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 앱 셸 — AppShell 과 같은 세로 flex */
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 390px;
+  height: 844px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.page   { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--bg); }
+.scroll { flex: 1; min-height: 0; overflow: hidden; }
+
+/* ── 3. 타이포 유틸 (globals.css:76,117) ────────────────────────── */
+.num {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  /* Space Grotesk 로드 최대 굵기 700 — 800 이상 금지 (design-system §1) */
+}
+.micro {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── 4. 상태바 (--status-bar-height 44px 을 차지하는 시스템 영역) ── */
+.statusbar {
+  flex-shrink: 0;
+  height: var(--status-bar-height);
+  padding: 0 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.statusbar--onBg { background: var(--bg); }
+.statusbarTime { font-size: 15px; font-weight: 700; }
+.statusbarIcons { display: flex; align-items: center; gap: 5px; }
+
+/* ── 5. 헤더 ─────────────────────────────────────────────────────
+ * 패턴 1: 서브페이지 TopBar (TopBar.module.css)
+ * 패턴 2: 루트 탭 헤더 (MarketMain.module.css .header/.title/.tagline)
+ * ------------------------------------------------------------- */
+.topbar {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.topbarContent {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  min-height: 56px;
+}
+.topbarSide  { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 44px; }
+.topbarRight { justify-content: flex-end; }
+.topbarTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 40×40 아이콘 액션 — TopBar .iconBtn / DmDetail .headerMoreBtn / MarketMain .wishlistBtn 공통 */
+.iconBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  background: none;
+  border: 0;
+  flex-shrink: 0;
+  position: relative;
+}
+.iconBtn--quiet { color: var(--text-2); }
+
+/* 루트 탭 헤더 */
+.rootHeader { flex-shrink: 0; padding: 10px 20px 0; }
+.rootHeaderRow { display: flex; align-items: center; justify-content: space-between; }
+.eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-600);
+}
+.rootTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.rootTitleCaret { display: inline-flex; align-items: center; color: var(--text-3); padding-top: 3px; }
+.rootHeaderActions { display: flex; align-items: center; gap: 2px; }
+
+/* ── 6. 컨텍스트 영역 (헤더 아래 고정) ──────────────────────────── */
+/* DmDetail .contextCard — 매물 문맥 카드 */
+.contextCard {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.contextThumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.contextInfo { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.contextTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contextPrice { font-size: 14px; font-weight: 700; color: var(--text); }
+
+/* DmDetail .tradeStatusBanner — 거래 진행 배너 */
+.tradeBanner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.tradeBannerMain { flex: 1; min-width: 0; font-size: 13px; color: var(--text); }
+.tradeBannerLink { flex: none; font-size: 12px; font-weight: 600; color: var(--brand-500); }
+
+/* ── 7. 칩 ───────────────────────────────────────────────────────
+ * MarketMain .sortChip(채움) / .listChipsRow / NeighborhoodMapList 카테고리 칩
+ * ------------------------------------------------------------- */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: -20px;
+  padding: 12px 0 10px;
+}
+.sortChip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 11px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chipDivider { flex: 0 0 auto; align-self: center; width: 1px; height: 16px; background: var(--line); }
+.chipRail {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  padding-right: 20px;
+  overflow: hidden;
+}
+.catChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.catChipActive { background: var(--text); border-color: var(--text); color: var(--surface); }
+
+/* system.module.css .chipBtn — 컨텍스트바/카드 위 알약 버튼 */
+.chipBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chipBtnActive { border-color: var(--brand-200); background: var(--brand-50); color: var(--brand-700); }
+
+/* system.module.css .actionChip — 카드 하단 액션 */
+.actionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 700;
+  border: none;
+}
+.actionPrimary { background: var(--brand-50); color: var(--brand-700); }
+.actionNeutral { background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2); }
+
+/* ── 8. 배지 (system.module.css .miniBadge) ─────────────────────── */
+.miniBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badgeGold   { background: rgba(245,158,11,.13); color: var(--gold-text); }
+.badgeDanger { background: rgba(239,59,59,.10);  color: var(--danger); }
+.badgeSafe   { background: rgba(22,163,74,.10);  color: var(--success); }
+/* MarketDetail .statusBadge — 판매 상태(채움) */
+.statusBadge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+/* MarketDetail .trustChip — 판매자 신뢰 표시 */
+.trustChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.trustChipVerified { color: var(--verified); }
+
+/* ── 9. 카드 · 목록 행 ──────────────────────────────────────────── */
+/* system.module.css .card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+/* TradeTransaction .summary/.qrSection/.timelineSection — 큰 라운드 섹션 카드 */
+.sectionCard {
+  margin-bottom: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.sectionCardTitle { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
+.sectionCardDesc  { margin: 5px 0 0; color: var(--text-3); font-size: 13px; line-height: 1.45; }
+
+/* ListingCard — 플랫 리스트 행 (당근식 헤어라인) */
+.listingRow {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  width: 100%;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.listingThumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 128px;
+  height: 128px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(11,13,20,.04);
+}
+.listingStatusTag {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.68);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.listingBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 2px 0; }
+.listingTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 400;   /* 제목은 보통 굵기 — 굵은 가격과 위계 대비 */
+  line-height: 1.4;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.listingMeta  { margin: 0; font-size: 13px; color: var(--text-3); }
+.listingPrice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.dropBadge {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 10px;
+  font-weight: 700;
+}
+.listingLikes {
+  margin-top: auto;
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.listingLikeItem { display: inline-flex; align-items: center; gap: 3px; }
+
+/* system.module.css .row 계열 — 카드 내부 행 */
+.row { display: flex; flex-direction: column; gap: 6px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: none; }
+.rowTop   { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.rowTitle { font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--text); min-width: 0; }
+.rowMeta  { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: 12.5px; color: var(--text-3); line-height: 1.4; }
+.metaDot  { color: var(--line); }
+
+/* system.module.css .sectionHead/.sectionLabel */
+.sectionHead  { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 20px 20px 8px; }
+.sectionLabel {
+  font-family: 'Space Grotesk', 'Pretendard', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.sectionAside { font-size: 12px; font-weight: 600; color: var(--text-3); }
+
+/* ── 10. 버튼 4종 (Button.module.css) ───────────────────────────── */
+.btn {
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  white-space: nowrap;
+}
+.btn--sm { height: 40px; padding: 0 16px; font-size: 13px; border-radius: 14px; }
+.btn--md { height: 48px; padding: 0 20px; font-size: 14px; border-radius: 16px; }
+.btn--lg { height: 56px; padding: 0 24px; font-size: 15px; }
+.btn--full { width: 100%; }
+/* 채움 — 화면당 주 액션 1개 (design-system §3·§6: --shadow-pop 은 여기 1곳만) */
+.btn--primary {
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: var(--shadow-pop), inset 0 1px 0 rgba(255,255,255,.3);
+  text-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+/* 외곽선 */
+.btn--secondary { background: var(--surface); color: var(--brand-600); border: 1.5px solid var(--brand-500); }
+/* 텍스트(ghost) */
+.btn--ghost { background: var(--surface-2); color: var(--text); }
+/* 위험 */
+.btn--danger { background: var(--surface); color: var(--danger); border: 1.5px solid var(--danger); }
+.btn[data-disabled] { opacity: .4; }
+
+/* ── 11. 입력창 · 컴포저 (MessageComposer.module.css) ───────────── */
+.composer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding-bottom: var(--bottom-safe);
+}
+.inputBar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+}
+.inputFilled { color: var(--text); }
+.plusBtn {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  color: var(--brand-500);
+  background: none; border: 0;
+}
+.plusBtnOpen { transform: rotate(45deg); }
+.sendBtn {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface);
+  color: var(--text-3);
+  display: flex; align-items: center; justify-content: center;
+}
+.sendBtnActive { background: var(--brand-500); color: #fff; }
+
+/* '+' 컨텍스트 패널 (키보드 자리) */
+.composerPanel { background: var(--bg); }
+.menuGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; padding: 20px 12px; }
+.menuItem { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.menuIcon {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--brand-500);
+}
+.menuLabel { font-size: 12px; color: var(--text-2); }
+
+/* ── 12. 말풍선 (DmDetail.module.css) ───────────────────────────── */
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;  /* 실제 방은 최신 메시지가 하단에 붙은 채 열린다 */
+  gap: 8px;
+}
+.dateSeparator {
+  align-self: center;
+  margin: 8px 0 4px;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.messageLine { display: flex; align-items: flex-end; gap: 5px; max-width: 92%; }
+.messageLineMine   { align-self: flex-end;   justify-content: flex-end; }
+.messageLineTheirs { align-self: flex-start; }
+.bubble {
+  max-width: 260px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  word-break: break-word;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.bubbleMine   { background: var(--brand-500); color: #fff; border-bottom-right-radius: 4px; }
+.bubbleTheirs { background: var(--surface);   color: var(--text); border-bottom-left-radius: 4px; }
+.messageMeta {
+  flex: 0 0 auto;
+  margin-bottom: 2px;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.messageAvatar {
+  width: 36px; height: 36px;
+  flex: 0 0 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  align-self: flex-end;
+}
+
+/* 대화 내 액션 카드 (DmDetail .apptCard) */
+.apptCard {
+  align-self: center;
+  width: min(92%, 380px);
+  margin: 6px auto;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.apptHeader { display: flex; align-items: center; justify-content: space-between; }
+.apptTitle  { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--text-2); }
+.apptStatusPill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: var(--r-pill); background: rgba(255,111,60,.14); color: var(--brand-500); }
+.apptStatusAccepted { background: #E7F6EC; color: var(--success); }
+.apptInfo    { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 14px; line-height: 1.35; }
+.apptRowLabel{ white-space: nowrap; color: var(--text-3); font-weight: 600; }
+.apptRowVal  { min-width: 0; color: var(--text); font-weight: 700; }
+.apptActions { display: flex; gap: 8px; }
+
+/* ── 13. 바텀시트 (BottomSheet.module.css) ──────────────────────── */
+.sheetBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11,13,20,.55);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+}
+.sheet {
+  position: relative;
+  width: 100%;
+  background: var(--surface);
+  border-radius: 28px 28px 0 0;
+  padding: 12px 20px 20px;
+  box-shadow: 0 -20px 60px rgba(0,0,0,.3);
+  display: flex;
+  flex-direction: column;
+}
+.grabber {
+  width: 40px;
+  height: 4px;
+  background: var(--line);
+  border-radius: var(--r-pill);
+  margin: 0 auto 16px;
+}
+.sheetTitle { font-size: 16px; font-weight: 700; color: var(--text); padding: 4px 6px 10px; }
+.sheetCloseBtn {
+  position: absolute;
+  top: 12px; right: 16px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 0;
+}
+/* 시트 안 메뉴 행 (MarketDetail .moreItem / DmDetail .reportItem) */
+.sheetItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+  background: none;
+  border-left: 0; border-right: 0; border-top: 0;
+  width: 100%;
+}
+.sheetItem:last-child { border-bottom: none; }
+.sheetItemDanger { color: var(--danger); }
+
+/* ── 14. 하단 액션 바 (MarketDetail .actionBar) ─────────────────── */
+.actionBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px calc(12px + var(--bottom-safe));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.likeBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-3);
+  padding: 4px;
+  background: none;
+  border: 0;
+}
+
+/* ── 15. 진행 중 세션 고정 바 (F-N-01 FR-2 제안 — 앱 내 '상단 고정 진행
+ *        배너'의 하단판. 드래그 없음 · 항상 같은 자리) ─────────────── */
+.sessionBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  height: 52px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -1px 2px rgba(11,13,20,.04);
+}
+.sessionSlot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+.sessionSlot + .sessionSlot { border-left: 1px solid var(--line); }
+.sessionDot {
+  flex-shrink: 0;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--brand-500);
+}
+.sessionIcon { flex-shrink: 0; color: var(--brand-500); display: flex; }
+.sessionLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sessionSub { font-size: 12px; font-weight: 600; color: var(--text-3); }
+/* PTT — 누르는 동안 녹음 */
+.pttBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 0;
+}
+.sessionClose {
+  flex: 0 0 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-3);
+  background: none; border: 0;
+  border-left: 1px solid var(--line);
+}
+
+/* ── 16. FAB · 플로팅 필 (MarketMain .writeFab / .mapPill) ──────── */
+.writeFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  border: 0;
+  box-shadow: var(--shadow-pop);
+}
+.mapPill {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 19px;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  border: 0;
+  box-shadow: 0 6px 18px rgba(11,13,20,.30);
+}
+
+/* ── 17. 탭바 (TabBar.module.css) ───────────────────────────────── */
+.tabbar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 12px 4px calc(12px + var(--bottom-safe));
+  flex-shrink: 0;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.04);
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 0;
+  color: var(--text-3);
+  position: relative;
+}
+.tabIconWrap { position: relative; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+.tabLabel { font-size: 10px; font-weight: 600; white-space: nowrap; }
+.tabActive { color: var(--brand-500); }
+.tabActive::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 28px; height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--brand-500);
+}
+.navBadge {
+  position: absolute;
+  top: -4px; left: 13px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: #F5333F;
+  border: 1.5px solid var(--surface);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── 18. 타임라인 (TradeTransaction.module.css) ─────────────────── */
+.timeline { display: flex; flex-direction: column; gap: 0; margin: 16px 0 0; padding: 0; list-style: none; }
+.step {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  min-height: 52px;
+  color: var(--text-2);
+}
+.step:not(:last-child)::before {
+  position: absolute;
+  top: 22px; bottom: 0; left: 10px;
+  width: 2px;
+  background: var(--line);
+  content: '';
+}
+.stepMark {
+  z-index: 1;
+  display: grid;
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+}
+.stepDone { color: var(--text); }
+.stepDone .stepMark { border-color: var(--brand-500); background: var(--brand-500); color: #fff; }
+.stepCurrent { color: var(--text); }
+.stepCurrent .stepMark { border-color: var(--brand-500); }
+.stepTitle  { font-size: 14px; font-weight: 700; }
+.stepDesc   { margin: 5px 0 0; color: var(--text-3); font-size: 13px; line-height: 1.45; }
+.stepStatus { display: inline-block; margin-top: 4px; color: var(--text-3); font-size: 12px; }
+.stepCurrent .stepStatus { color: var(--brand-600); font-weight: 600; }
+
+/* FAQ (TradeTransaction .faqItem) */
+.faqItem { border-bottom: 1px solid var(--line); }
+.faqItem:last-child { border-bottom: none; }
+.faqQuestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: none; border: 0;
+  text-align: left;
+}
+.boundaryNote { margin: 12px 4px 0; text-align: center; color: var(--text-3); font-size: 13px; line-height: 1.45; }
+
+/* ── 19. 사진 플레이스홀더 (외부 이미지 0건 — 단색/그라데이션 블록) ──
+ * 실제 앱은 <AppImage>(imgproxy) 로 사진을 렌더한다. 샘플에서는 같은
+ * 자리·같은 비율의 색면으로 대체한다. */
+.ph { display: block; background: var(--surface-2); }
+.ph--moto  { background: linear-gradient(145deg, #7C8698 0%, #4C5566 55%, #2E3440 100%); }
+.ph--helmet{ background: linear-gradient(145deg, #E4C79B 0%, #C29B62 60%, #8E6A3A 100%); }
+.ph--parts { background: linear-gradient(145deg, #A9B4A0 0%, #75836B 60%, #4B5744 100%); }
+.ph--gear  { background: linear-gradient(145deg, #B8A2C4 0%, #8A7398 60%, #5B4A66 100%); }
+.ph--avatar{ background: linear-gradient(145deg, var(--brand-200), var(--brand-600)); }
+.ph--avatar2{ background: linear-gradient(145deg, #9FB8D4, #4F6E96); }
+.phLarge { width: 100%; height: 100%; }
+
+
+/* ── 화면 전용 ── */
+
+.gallery { position: relative; width: 390px; height: 208px; flex-shrink: 0; }
+.galleryCount {
+  position: absolute; right: 14px; bottom: 14px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(0,0,0,.55); color: #fff; font-size: 12px; font-weight: 700;
+}
+.galleryDots { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; display: flex; gap: 5px; }
+.galleryDot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.45); }
+.galleryDotActive { background: #fff; }
+.detailBody { padding: 18px 20px 24px; }
+.detailStatusRow { display: flex; align-items: center; gap: 8px; }
+.statusBadgeQuiet { background: var(--surface-2); color: var(--text-2); }
+.detailTitle { margin: 12px 0 0; font-size: 20px; font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; }
+.detailMeta { margin: 6px 0 0; font-size: 12px; color: var(--text-3); }
+.detailPriceRow { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.detailPrice { font-size: 22px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.detailDesc { margin: 16px 0 0; font-size: 15px; line-height: 1.6; color: var(--text-2); }
+.expiredNote { margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 13px; line-height: 1.5; color: var(--text-2); }
+/* 판매자 하단 컨트롤 (MarketDetail .sellerControls) */
+.sellerControls { flex-shrink: 0; border-top: 1px solid var(--line); background: var(--surface); padding-bottom: var(--bottom-safe); }
+.sellerLikes {
+  display: flex; align-items: center; gap: 7px; padding: 12px 20px;
+  font-size: 14px; font-weight: 700; color: var(--text-3); border-bottom: 1px solid var(--line);
+}
+.actionsToggleBtn { display: flex; align-items: center; margin-left: auto; color: var(--text-3); background: none; border: 0; }
+.sellerActionBtn {
+  display: flex; align-items: center; gap: 7px; width: 100%; padding: 12px 20px;
+  text-align: left; font-size: 14px; font-weight: 700; color: var(--brand-500);
+  background: none; border: 0; border-bottom: 1px solid var(--line);
+}
+/* 제안 ⓐ 적용 — 철회는 열 마지막 + 위험 톤(P-1) */
+.sellerActionDanger { color: var(--danger); }
+.statusBar { flex-shrink: 0; display: flex; gap: 8px; padding: 12px 20px; background: var(--surface); }
+.statusOpt {
+  flex: 1; height: 44px; border-radius: 12px; background: var(--surface-2);
+  border: 1px solid var(--line); font-size: 14px; font-weight: 700; color: var(--text-2);
+}
+.statusOptActive { background: var(--brand-500); border-color: var(--brand-500); color: #fff; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="statusbar">
+      <span class="statusbarTime num">14:32</span>
+      <span class="statusbarIcons">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><path d="M8 10.5 5.7 8.1a3.3 3.3 0 0 1 4.6 0zM8 6.1c-1.5 0-2.9.6-3.9 1.6L2.7 6.3A7.5 7.5 0 0 1 8 4.1c2 0 3.9.8 5.3 2.2l-1.4 1.4A5.5 5.5 0 0 0 8 6.1M8 2.1c-2.5 0-4.9 1-6.7 2.8L0 3.6A11.5 11.5 0 0 1 8 .3c3.1 0 6 1.2 8 3.3l-1.3 1.3A9.5 9.5 0 0 0 8 2.1"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".38"/><rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6" fill="currentColor" opacity=".45"/></svg>
+      </span>
+    </div>
+  <div class="page">
+    <header class="topbar">
+      <div class="topbarContent">
+        <div class="topbarSide"><span class="iconBtn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></span></div>
+        <div class="topbarTitle"></div>
+        <div class="topbarSide topbarRight"><span class="iconBtn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></span></div>
+      </div>
+    </header>
+    <div class="scroll">
+      <div class="gallery ph ph--moto">
+        <span class="galleryDots"><span class="galleryDot galleryDotActive"></span><span class="galleryDot"></span><span class="galleryDot"></span><span class="galleryDot"></span><span class="galleryDot"></span><span class="galleryDot"></span></span>
+        <span class="galleryCount num">1/6</span>
+      </div>
+      <div class="detailBody">
+        <div class="detailStatusRow"><span class="statusBadge">판매중</span><span class="miniBadge badgeGold">가격 제안 가능</span></div>
+        <h1 class="detailTitle">Honda Vision 2021 실주행 8천km 무사고</h1>
+        <p class="detailMeta">오토바이 · Bình Thạnh · 3시간 전 · <span class="num">조회 128</span></p>
+        <div class="detailPriceRow"><span class="detailPrice num">28.500.000 đ</span></div>
+        <p class="detailDesc">2021년 6월 구입, 실주행 8.200km. 무사고이고 타이어는 지난달 교체했습니다.</p>
+      </div>
+    </div>
+    <div class="sellerControls">
+      <div class="sellerLikes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span class="num">찜 12</span><span class="actionsToggleBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
+      <button class="sellerActionBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>끌어올리기</button>
+      <button class="sellerActionBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><path d="M7.5 7.5h.01"/></svg>가격 수정</button>
+      <button class="sellerActionBtn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>매물 수정</button>
+      <button class="sellerActionBtn sellerActionDanger" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>매물 철회</button>
+      <div class="statusBar">
+        <button class="statusOpt statusOptActive" type="button">판매중</button>
+        <button class="statusOpt" type="button">예약중</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

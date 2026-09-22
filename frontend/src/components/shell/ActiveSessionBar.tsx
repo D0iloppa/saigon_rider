@@ -66,6 +66,7 @@ function useWalkieSessionCell() {
   const conversationIdRef = useRef<string | null>(null);
   const presenceRefreshRef = useRef<(() => void) | null>(null);
   const sentPendingIdsRef = useRef<Set<string>>(new Set());
+  const prevPresentRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -174,11 +175,25 @@ function useWalkieSessionCell() {
       return;
     }
     let cancelled = false;
+    prevPresentRef.current = null;
     const refresh = () => {
       walkieApi
         .presence(conversationId)
         .then((p) => {
-          if (!cancelled) setPresence(p);
+          if (cancelled) return;
+          // F-S3-03 FR-4: 이전 하트비트에는 있었는데 이번엔 빠진 참가자 = 퇴장으로 보고
+          // 토스트로 알린다(채팅 이력에는 남기지 않음 — presence 신호만으로 판단).
+          const prev = prevPresentRef.current;
+          if (prev) {
+            const myId = session?.userId ?? user?.id ?? '';
+            const left = prev.filter((id) => id !== myId && !p.present.includes(id));
+            left.forEach((id) => {
+              const name = p.displayNames[id] || id;
+              toast.info(t('walkieTalkie.userLeft', { name, defaultValue: `${name}님이 나갔어요` }));
+            });
+          }
+          prevPresentRef.current = p.present;
+          setPresence(p);
         })
         .catch(() => {});
     };

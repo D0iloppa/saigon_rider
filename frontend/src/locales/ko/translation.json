@@ -816,6 +816,7 @@
     "presenceUnavailable": "접속 확인 중",
     "stopError": "녹음을 마치지 못했어요",
     "sendError": "음성메시지 전송에 실패했어요",
+    "userLeft": "{{name}}님이 나갔어요",
     "uploading": "전송 중…",
     "sentPendingSync": "전송됨",
     "retrySend": "재전송",

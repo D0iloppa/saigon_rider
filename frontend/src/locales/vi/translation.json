@@ -816,6 +816,7 @@
     "presenceUnavailable": "Đang kiểm tra kết nối",
     "stopError": "Không thể kết thúc ghi âm",
     "sendError": "Gửi tin nhắn thoại thất bại",
+    "userLeft": "{{name}} đã rời đi",
     "uploading": "Đang gửi…",
     "sentPendingSync": "Đã gửi",
     "retrySend": "Gửi lại",

@@ -816,6 +816,7 @@
     "presenceUnavailable": "Checking presence",
     "stopError": "Couldn't finish recording",
     "sendError": "Failed to send the voice message",
+    "userLeft": "{{name}} left",
     "uploading": "Sending…",
     "sentPendingSync": "Sent",
     "retrySend": "Retry",

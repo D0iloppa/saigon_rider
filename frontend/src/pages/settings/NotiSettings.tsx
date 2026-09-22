@@ -54,6 +54,9 @@ export default function NotiSettings() {
   const navigate = useNavigate();
   const userId = useUserStore((s) => s.user?.id);
   const [state, setState] = useState<NotificationSettingsFields>(DEFAULT_STATE);
+  // 로드 실패 시 DEFAULT_STATE(전부 켜짐)가 서버 실제 상태와 다를 수 있다 — 이 상태에서
+  // 토글하면 그 거짓 상태가 그대로 PUT 되어 서버 값을 덮어쓰므로, 로드 성공 전까지는 토글을 막는다.
+  const [loadFailed, setLoadFailed] = useState(false);
   // 워키토키(음성메시지) 옵트아웃 — A-9. 녹음 기능(A-4~A-7) 자체가 아직 없어 서버 필드가
   // 없다. 기능이 붙기 전까지는 로컬(localStorage)에만 저장한다.
   const [walkieOptOut, setWalkieOptOutState] = useState(() => isWalkieTalkieOptedOut());
@@ -67,7 +70,7 @@ export default function NotiSettings() {
   useEffect(() => {
     if (!userId) return;
     fetchNotificationSettings(userId)
-      .then((res) =>
+      .then((res) => {
         setState({
           quest_recommend: res.quest_recommend,
           quest_expire: res.quest_expire,
@@ -76,13 +79,21 @@ export default function NotiSettings() {
           social: res.social,
           keyword_alert: res.keyword_alert,
           chat: res.chat,
-        }),
-      )
-      .catch(() => toast.error(t('settings.notiLoadError', { defaultValue: '알림 설정을 불러오지 못했습니다' })));
+        });
+        setLoadFailed(false);
+      })
+      .catch(() => {
+        setLoadFailed(true);
+        toast.error(t('settings.notiLoadError', { defaultValue: '알림 설정을 불러오지 못했습니다' }));
+      });
   }, [userId]);
 
   const handleToggle = async (key: NotiField, value: boolean) => {
     if (!userId) return;
+    if (loadFailed) {
+      toast.error(t('settings.notiLoadError', { defaultValue: '알림 설정을 불러오지 못했습니다' }));
+      return;
+    }
     const prev = state;
     const next = { ...state, [key]: value };
     setState(next);
@@ -110,6 +121,7 @@ export default function NotiSettings() {
                     <Toggle
                       checked={state[key]}
                       onChange={(v) => handleToggle(key, v)}
+                      disabled={loadFailed}
                     />
                   }
                 />

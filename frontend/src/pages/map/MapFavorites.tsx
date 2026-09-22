@@ -8,7 +8,8 @@ import { BizCatIcon } from '@/components/maps/BizCatIcon';
 import StateBlock from '@/components/ui/StateBlock';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { fetchWishlist, type ListingCard } from '@/api/market';
+import { fetchWishlist, toggleLike, type ListingCard } from '@/api/market';
+import { toast } from '@/components/ui/Toast';
 import ListingCardComp from '@/pages/market/ListingCard';
 import {
   fetchBizFavorites,
@@ -78,6 +79,16 @@ export default function MapFavorites() {
     }
   }
 
+  const handleRemoveLike = async (listingId: string) => {
+    if (!userId) return;
+    try {
+      const result = await toggleLike(listingId, userId);
+      if (!result.liked) setListings((current) => current.filter((item) => item.id !== listingId));
+    } catch {
+      toast.error(t('market.likeError', { defaultValue: '찜 처리 실패' }));
+    }
+  };
+
   return (
     <main className={styles.root}>
       <div className={styles.scrollArea} ref={containerRef as React.RefObject<HTMLDivElement>}>
@@ -119,7 +130,7 @@ export default function MapFavorites() {
         ) : (
           <div className={styles.listArea}>
             {listings.map((l) => (
-              <ListingCardComp key={l.id} listing={l} onClick={() => navigate(`/market/${l.id}`)} />
+              <ListingCardComp key={l.id} listing={l} onClick={() => navigate(`/market/${l.id}`)} onToggleLike={() => void handleRemoveLike(l.id)} />
             ))}
           </div>
         )

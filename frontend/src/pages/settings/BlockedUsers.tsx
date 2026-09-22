@@ -8,6 +8,7 @@ import sys from '@/styles/system.module.css';
 import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { fetchBlockedUsers, unblockUser, type BlockedUser } from '@/api/market';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import styles from './BlockedUsers.module.css';
 
 /** 차단 사용자 관리 — 차단 목록 조회 + 해제. */
@@ -35,6 +36,14 @@ export default function BlockedUsers() {
     }
   };
 
+  const confirmUnblock = (userId: string) => {
+    useConfirmStore.getState().open(
+      { mode: 'text', value: t('market.unblockConfirmBody', { defaultValue: '차단을 해제하시겠습니까?' }) },
+      () => void handleUnblock(userId),
+      { confirmLabel: { mode: 'text', value: t('market.unblock', { defaultValue: '차단 해제' }) } },
+    );
+  };
+
   return (
     <div className={styles.page}>
       <TopBar title={t('settings.blockedUsers', { defaultValue: '차단 사용자 관리' })} />
@@ -56,7 +65,7 @@ export default function BlockedUsers() {
                 type="button"
                 className={styles.unblockBtn}
                 disabled={busy === b.userId}
-                onClick={() => handleUnblock(b.userId)}
+                onClick={() => confirmUnblock(b.userId)}
               >
                 {t('market.unblock', { defaultValue: '차단 해제' })}
               </button>

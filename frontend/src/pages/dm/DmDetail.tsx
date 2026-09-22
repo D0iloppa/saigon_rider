@@ -2357,7 +2357,9 @@ export default function DmDetail() {
             <MapPin size={16} className={styles.apptPlacePin} />
             {apptPlace
               ? apptPlace.districtName
-              : t('dm.apptPlacePick', { defaultValue: '지도를 탭해 장소 찍기' })}
+              : listing?.lat != null && listing.lng != null && listing.district
+                ? localizedName(listing.district)
+                : t('dm.apptPlacePick', { defaultValue: '지도를 탭해 장소 찍기' })}
           </button>
           <div className={styles.apptSubmit}>
             <Button onClick={handleSendAppointment} disabled={!apptWhen}>

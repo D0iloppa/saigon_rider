@@ -5,6 +5,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { AlertCircle, ChevronLeft, Gift } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { AppImage } from '@/components/ui/AppImage';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import StateBlock from '@/components/ui/StateBlock';
 import { toast } from '@/components/ui/Toast';
@@ -110,9 +111,9 @@ export default function MyCoupons() {
         </div>
       )}
 
-      {qrItem && (
-        <div className={styles.qrOverlay} onClick={() => setQrItem(null)}>
-          <div className={styles.qrCard} onClick={(e) => e.stopPropagation()}>
+      <BottomSheet open={!!qrItem} onClose={() => setQrItem(null)} height="fit" closeLabel={t('common.close')}>
+        {qrItem && (
+          <div className={styles.qrCard}>
             <div className={styles.qrTitle}>{qrItem.item_name}</div>
             <div className={styles.qrCanvas} ref={qrRef}>
               <QRCodeCanvas value={qrItem.voucher_code ?? ''} size={200} level="M" marginSize={2} />
@@ -124,8 +125,8 @@ export default function MyCoupons() {
               <button className={styles.qrClose} onClick={() => setQrItem(null)}>{t('common.close')}</button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </BottomSheet>
     </div>
   );
 }

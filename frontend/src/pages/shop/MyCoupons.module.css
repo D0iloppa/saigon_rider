@@ -132,23 +132,9 @@
   cursor: pointer;
 }
 
-/* QR 모달 */
-.qrOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.5);
-}
+/* QR 시트 내용 */
 .qrCard {
   width: 100%;
-  max-width: 320px;
-  border-radius: 18px;
-  background: var(--surface);
-  padding: 24px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;

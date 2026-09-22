@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { useSheetPresenceStore } from '@/store/useSheetPresenceStore';
 import styles from './BottomSheet.module.css';
 
 interface Props {
@@ -50,6 +51,14 @@ export function BottomSheet({
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, [open, onClose]);
+
+  // 열려 있는 동안 전역 fixed 오버레이(ActiveSessionBar 등)가 이 시트보다 위에 그려지지
+  // 않도록 알린다 — 언마운트/닫힘 어느 경로든 반드시 감소하도록 effect cleanup 에 둔다.
+  useEffect(() => {
+    if (!open) return;
+    useSheetPresenceStore.getState().increment();
+    return () => useSheetPresenceStore.getState().decrement();
+  }, [open]);
 
   // iOS에서 키보드 등장 시 visualViewport가 스크롤되면 position:fixed backdrop이
   // layout viewport 기준으로 고정되어 화면 상단이 네이티브 배경색으로 번쩍이는 문제 방지.

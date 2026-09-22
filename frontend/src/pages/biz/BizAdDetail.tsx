@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/layout/TopBar';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { AppImage } from '@/components/ui/AppImage';
 import { extractDetail } from '@/api/client';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { fetchBusinessAd, fetchContractLink, stopBusinessAd, resumeBusinessAd, type BusinessAd, type BusinessAdStatus } from '@/api/biz';
 import { native } from '@/lib/native';
 import { bizContractAction, bizContractErrorKey } from './bizContractCta';
@@ -21,7 +22,9 @@ const CHIP_CLASS: Record<BusinessAdStatus, string> = {
 
 export default function BizAdDetail() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const openConfirm = useConfirmStore((s) => s.open);
   const [ad, setAd] = useState<BusinessAd | null>(null);
   const [failed, setFailed] = useState(false);
   const [acting, setActing] = useState(false);
@@ -53,16 +56,21 @@ export default function BizAdDetail() {
       ? t('biz.adPeriodAlways', { defaultValue: '상시 게시' })
       : `${a.startsAt ? fmtDate(a.startsAt) : '—'} ~ ${a.endsAt ? fmtDate(a.endsAt) : '—'}`;
 
-  const handleStop = async () => {
+  const handleStop = () => {
     if (!ad) return;
-    setActing(true);
-    try {
-      setAd(await stopBusinessAd(ad.id));
-    } catch (err: unknown) {
-      toast.error(extractDetail(err, t('biz.adActionError', { defaultValue: '처리에 실패했습니다' })));
-    } finally {
-      setActing(false);
-    }
+    openConfirm(
+      { mode: 'text', value: t('biz.adStopConfirm', { defaultValue: '게시를 중단할까요?' }) },
+      async () => {
+        setActing(true);
+        try {
+          setAd(await stopBusinessAd(ad.id));
+        } catch (err: unknown) {
+          toast.error(extractDetail(err, t('biz.adActionError', { defaultValue: '처리에 실패했습니다' })));
+        } finally {
+          setActing(false);
+        }
+      },
+    );
   };
 
   const handleResume = async () => {
@@ -138,7 +146,7 @@ export default function BizAdDetail() {
         )}
       </div>
 
-      {(bizContractAction(ad) === 'contract' || ad.reviewStatus === 'APPROVED' || ad.reviewStatus === 'STOPPED') && (
+      {(bizContractAction(ad) === 'contract' || ad.reviewStatus === 'APPROVED' || ad.reviewStatus === 'STOPPED' || ad.reviewStatus === 'REJECTED') && (
         <div className={styles.footer}>
           {bizContractAction(ad) === 'contract' ? (
             <Button onClick={handleContract} disabled={acting}>
@@ -147,6 +155,10 @@ export default function BizAdDetail() {
           ) : ad.reviewStatus === 'APPROVED' ? (
             <Button variant="secondary" onClick={handleStop} disabled={acting}>
               {t('biz.adStopCta', { defaultValue: '게시 중단' })}
+            </Button>
+          ) : ad.reviewStatus === 'REJECTED' ? (
+            <Button onClick={() => navigate('/biz/ads/new', { state: { profileId: ad.profileId } })} disabled={acting}>
+              {t('biz.adCreateCta', { defaultValue: '광고 등록' })}
             </Button>
           ) : (
             <Button onClick={handleResume} disabled={acting}>

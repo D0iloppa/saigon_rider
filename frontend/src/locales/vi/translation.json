@@ -2417,6 +2417,7 @@
     "adStatusStopped": "Tạm dừng",
     "adPendingDesc": "Quảng cáo đang được kiểm duyệt. Chúng tôi sẽ thông báo kết quả trong vòng 24 giờ.",
     "adStopCta": "Tạm dừng quảng cáo",
+    "adStopConfirm": "Tạm dừng quảng cáo này?",
     "adResumeCta": "Tiếp tục hiển thị",
     "adActionError": "Xử lý thất bại",
     "adLoadError": "Không tải được quảng cáo",

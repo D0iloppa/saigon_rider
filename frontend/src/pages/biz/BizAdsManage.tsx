@@ -95,7 +95,9 @@ export default function BizAdsManage() {
         : t('biz.lounge.contractUnknown');
   const exposureLabel = (ad: BusinessAd) => ad.reviewStatus === 'STOPPED'
     ? t('biz.adStatusStopped')
-    : t('biz.lounge.exposureUnknown');
+    : ad.reviewStatus === 'APPROVED'
+      ? t('biz.adStatusApproved')
+      : t('biz.lounge.exposureUnknown');
 
   return <div className={styles.page}>
     <TopBar title={t('biz.lounge.adsManageTitle')} onBack={() => navigate('/biz/manage', { replace: true, state: profileState })} />

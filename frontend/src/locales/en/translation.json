@@ -2417,6 +2417,7 @@
     "adStatusStopped": "Paused",
     "adPendingDesc": "Your ad is under review. We'll let you know within 24 hours.",
     "adStopCta": "Pause ad",
+    "adStopConfirm": "Pause this ad?",
     "adResumeCta": "Resume ad",
     "adActionError": "Something went wrong",
     "adLoadError": "Failed to load the ad",

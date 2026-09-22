@@ -2417,6 +2417,7 @@
     "adStatusStopped": "게시 중단",
     "adPendingDesc": "소재를 심사하고 있어요. 통상 24시간 이내 결과를 알려드려요.",
     "adStopCta": "게시 중단",
+    "adStopConfirm": "게시를 중단할까요?",
     "adResumeCta": "게시 재개",
     "adActionError": "처리에 실패했습니다",
     "adLoadError": "광고를 불러오지 못했습니다",

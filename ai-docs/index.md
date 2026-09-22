@@ -7,6 +7,10 @@
 - [AI Agent Guideline](agent-guidelines.md) — 진입 순서, 기본 작업 워크플로우, SoT 매핑, 보안, __DEV Context, 린터, 컨텐츠 관리 — **Session Start 직후 반드시 로드**
 - [서브에이전트 QM 루프 핸드오프](subagent-handoff.md) — 화면별 품질 점검 2-에이전트 루프(implementer→reviewer) 구성물·실행 절차. **새 세션에서만 가동**(커스텀 에이전트는 세션 시작 시 등록)
 
+### 서비스 플로우 UI/UX 스토리보드 SoT
+
+저장소에서 **“스토리보드”라고 하면 [`review/storyboard/index.html`](review/storyboard/index.html)을 가리킨다.** 이 HTML은 서비스 전체 플로우의 화면·상태·상호작용·와이어프레임과 `F-… / FR-…` 추적 ID를 담은 UI/UX 구현 기준이다. 구현·검수·보고서에서는 해당 프레임 ID를 그대로 사용한다. 승인된 UI/UX 또는 행동 변경은 코드만 고치지 말고 스토리보드에도 먼저/함께 반영한다. 생성 원본과 빌드 절차는 [`review/storyboard/build.mjs`](review/storyboard/build.mjs)를 따르며, 재생성 시 HTML 산출물과 원본의 불일치를 남기지 않는다.
+
 ## 🏗 아키텍처 / 설계
 
 - [시스템 아키텍처 (BFF + Engine)](context/architecture.md) — `saigon_bff` + `saigon_engine` 분리, Nginx 라우팅, HTTP 클라이언트 연계

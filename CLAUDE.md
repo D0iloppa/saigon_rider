@@ -62,6 +62,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 위 세 파일에서 필요한 문서만 선택적으로 추가 로드한다.
 
+## 스토리보드 SoT (서비스 플로우 UI/UX)
+
+이 저장소에서 사용자가 말하는 **“스토리보드”는 [`ai-docs/review/storyboard/index.html`](ai-docs/review/storyboard/index.html)을 뜻한다.** 서비스 전체 플로우의 화면·상태·상호작용·와이어프레임을 구현할 때 이 파일을 유일한 UI/UX 기준(SoT)으로 사용한다. 프레임 ID(`F-… / FR-…`)를 보고·이슈·커밋에서 그대로 인용해 추적한다.
+
+스토리보드에 없는 동작이나 화면을 임의로 추가하지 않는다. 구현 중 승인된 동작·레이아웃·상태가 바뀌면 구현과 함께 스토리보드(및 생성 원본/빌드 산출물이 있는 경우)를 갱신하고, 스토리보드와 코드가 일치하는지 검증한다. `index.html`은 `node ai-docs/review/storyboard/build.mjs`로 재생성할 수 있으므로, 생성 구조를 수정할 때는 해당 원본과 산출물을 같은 변경에 포함한다.
+
 ## 코드베이스 인덱싱 (codebase-memory MCP)
 
 이 워크스페이스(`mnt-c-DEV-saigon_rider`)는 `codebase-memory` MCP 로 코드 그래프가 인덱싱되어 있다. 상세 사용 규칙은 [`ai-docs/agent-guidelines.md`](ai-docs/agent-guidelines.md) §9.

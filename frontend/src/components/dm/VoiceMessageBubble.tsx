@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pause, Play } from 'lucide-react';
+import { Pause, Play, RotateCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { computeAudioPeaks } from '@/lib/audioPeaks';
 import { useWalkieTalkieBubbleStore } from '@/store/useWalkieTalkieBubbleStore';
 import styles from './VoiceMessageBubble.module.css';
@@ -22,6 +23,9 @@ interface VoiceMessageBubbleProps {
   timeLabel: string;
   /** 처음 재생을 시작한 순간 1회 호출 — 읽음 표시용(더 이상 삭제를 유발하지 않는다). */
   onFirstPlay?: () => void;
+  /** 서버 음성 이력이 돌아오기 전의 로컬 전송 상태. */
+  deliveryStatus?: 'uploading' | 'sent' | 'failed';
+  onRetry?: () => void;
 }
 
 /**
@@ -31,7 +35,8 @@ interface VoiceMessageBubbleProps {
  * 채움색으로 표현하고, 파형 위를 탭/드래그하면 그 지점으로 이동한다. 시간 표기는 재생 중엔
  * 현재 위치, 정지 상태엔 전체 길이(서버가 준 durationMs).
  */
-export function VoiceMessageBubble({ audioUrl, durationMs, isMine, timeLabel, onFirstPlay }: VoiceMessageBubbleProps) {
+export function VoiceMessageBubble({ audioUrl, durationMs, isMine, timeLabel, onFirstPlay, deliveryStatus, onRetry }: VoiceMessageBubbleProps) {
+  const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveRef = useRef<HTMLDivElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -177,7 +182,16 @@ export function VoiceMessageBubble({ audioUrl, durationMs, isMine, timeLabel, on
           />
         )}
       </div>
-      <div className={styles.meta}>{timeLabel}</div>
+      <div className={styles.meta}>
+        {deliveryStatus === 'uploading' && t('walkieTalkie.uploading', { defaultValue: '전송 중…' })}
+        {deliveryStatus === 'sent' && t('walkieTalkie.sentPendingSync', { defaultValue: '전송됨' })}
+        {deliveryStatus === 'failed' && (onRetry ? (
+          <button type="button" className={styles.retryBtn} onClick={onRetry}>
+            <RotateCw size={11} /> {t('walkieTalkie.retrySend', { defaultValue: '재전송' })}
+          </button>
+        ) : t('walkieTalkie.recordAgain', { defaultValue: '전송 실패 · 다시 녹음' }))}
+        {!deliveryStatus && timeLabel}
+      </div>
     </div>
   );
 }

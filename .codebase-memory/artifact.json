@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
-    "commit": "700c2a20402dfa79b6a7c531a8b4614546ef90bc",
-    "indexed_at": "2026-09-22T02:22:18Z",
+    "commit": "d1308d7d28f62894cdd592397c18f0f2decb9840",
+    "indexed_at": "2026-09-22T06:01:23Z",
     "project": "mnt-c-DEV-saigon_rider",
-    "nodes": 37673,
-    "edges": 107032,
-    "original_size": 82313216,
-    "compressed_size": 15638928,
+    "nodes": 37701,
+    "edges": 104190,
+    "original_size": 81395712,
+    "compressed_size": 15362854,
     "compression_level": 3
 }

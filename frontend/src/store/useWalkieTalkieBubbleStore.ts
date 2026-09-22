@@ -26,6 +26,17 @@ export interface WalkieTalkieConversationMeta {
   isGroup: boolean;
 }
 
+/** 서버 음성메시지가 폴링으로 돌아오기 전 채팅에 먼저 보이는 로컬 전송본. */
+export interface PendingWalkieVoice {
+  id: string;
+  conversationId: string;
+  durationMs: number;
+  createdAt: string;
+  status: 'uploading' | 'sent' | 'failed';
+  /** 실패 시 재시도를 위해 앱 메모리에만 보관한다. persist 대상이 아니다. */
+  blob: Blob | null;
+}
+
 interface WalkieTalkieBubbleState {
   /** 마지막으로 연 DM 대화 — 전송 대상. 아직 한 번도 DM 대화방을 열지 않았으면 null(렌더 안 함). */
   activeConversationId: string | null;
@@ -67,6 +78,10 @@ interface WalkieTalkieBubbleState {
    */
   recording: boolean;
   setRecording: (v: boolean) => void;
+  pendingVoices: PendingWalkieVoice[];
+  addPendingVoice: (voice: PendingWalkieVoice) => void;
+  updatePendingVoice: (id: string, patch: Partial<Pick<PendingWalkieVoice, 'status' | 'blob'>>) => void;
+  removePendingVoice: (id: string) => void;
 }
 
 export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
@@ -94,6 +109,12 @@ export const useWalkieTalkieBubbleStore = create<WalkieTalkieBubbleState>()(
       ping: () => set((s) => ({ attentionPing: s.attentionPing + 1 })),
       recording: false,
       setRecording: (v) => set({ recording: v }),
+      pendingVoices: [],
+      addPendingVoice: (voice) => set((s) => ({ pendingVoices: [...s.pendingVoices, voice] })),
+      updatePendingVoice: (id, patch) => set((s) => ({
+        pendingVoices: s.pendingVoices.map((voice) => voice.id === id ? { ...voice, ...patch } : voice),
+      })),
+      removePendingVoice: (id) => set((s) => ({ pendingVoices: s.pendingVoices.filter((voice) => voice.id !== id) })),
     }),
     {
       name: 'saigon-rider-walkie-bubble',

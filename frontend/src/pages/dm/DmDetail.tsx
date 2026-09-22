@@ -329,6 +329,9 @@ export default function DmDetail() {
   // 명시적 액션에서만 일어난다.
   const setActiveWalkieConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
   const walkieActiveConversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
+  const pendingWalkieVoices = useWalkieTalkieBubbleStore((s) => s.pendingVoices);
+  const updatePendingWalkieVoice = useWalkieTalkieBubbleStore((s) => s.updatePendingVoice);
+  const removePendingWalkieVoice = useWalkieTalkieBubbleStore((s) => s.removePendingVoice);
 
   // B-4: 음성메시지 알림 딥링크(?voice=1) 진입은 위 3가지와 별개인 4번째 명시적 액션이다 — 사용자가
   // 알림을 탭한 것 자체가 "이 채널에 참여하겠다"는 의사표시. 음성메시지 자체는 이미 채팅 이력
@@ -413,12 +416,37 @@ export default function DmDetail() {
     };
   }, [conversationId]);
 
+  // sendVoice 성공 직후에는 서버 음성 이력이 다음 폴링에 도착할 때까지 로컬 "전송됨" 버블을
+  // 유지한다. 같은 시각 이후의 서버 이력이 들어오면 그 항목으로 자연스럽게 교체한다.
+  useEffect(() => {
+    for (const pending of pendingWalkieVoices) {
+      if (pending.conversationId !== conversationId || pending.status !== 'sent') continue;
+      if (voiceItems.some((voice) => voice.createdAt >= pending.createdAt)) removePendingWalkieVoice(pending.id);
+    }
+  }, [conversationId, pendingWalkieVoices, removePendingWalkieVoice, voiceItems]);
+
+  const retryPendingWalkieVoice = useCallback(async (id: string, blob: Blob, durationMs: number) => {
+    if (!conversationId) return;
+    updatePendingWalkieVoice(id, { status: 'uploading', blob });
+    try {
+      await walkieApi.sendVoice(conversationId, blob, durationMs);
+      updatePendingWalkieVoice(id, { status: 'sent' });
+      playSound('dm_send');
+    } catch {
+      updatePendingWalkieVoice(id, { status: 'failed', blob });
+      toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
+    }
+  }, [conversationId, t, updatePendingWalkieVoice]);
+
   // dm 텍스트 메시지 + 음성메시지(별도 저장소)를 시간순으로 합친 렌더 전용 피드.
   const feed = useMemo(() => {
     const dmRows = messages.map((m) => ({ kind: 'dm' as const, item: m, createdAt: m.createdAt }));
     const voiceRows = voiceItems.map((v) => ({ kind: 'voice' as const, item: v, createdAt: v.createdAt }));
-    return [...dmRows, ...voiceRows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  }, [messages, voiceItems]);
+    const pendingRows = pendingWalkieVoices
+      .filter((voice) => voice.conversationId === conversationId)
+      .map((voice) => ({ kind: 'pendingVoice' as const, item: voice, createdAt: voice.createdAt }));
+    return [...dmRows, ...voiceRows, ...pendingRows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }, [conversationId, messages, pendingWalkieVoices, voiceItems]);
 
   // 일반 말풍선의 앞뒤 이웃. 음성·시스템·거래 카드는 발신자 묶음을 끊는다.
   const bubbleNeighborsById = useMemo(() => {
@@ -1598,6 +1626,22 @@ export default function DmDetail() {
               />
             );
           }
+          if (row.kind === 'pendingVoice') {
+            const pending = row.item;
+            return (
+              <VoiceMessageBubble
+                key={`wt:pending:${pending.id}`}
+                audioUrl={null}
+                durationMs={pending.durationMs}
+                isMine={true}
+                timeLabel={formatRelativeTime(pending.createdAt)}
+                deliveryStatus={pending.status}
+                onRetry={pending.status === 'failed' && pending.blob
+                  ? () => { void retryPendingWalkieVoice(pending.id, pending.blob!, pending.durationMs); }
+                  : undefined}
+              />
+            );
+          }
           const m = row.item;
           const isMine = m.senderId === myId;
           const neighbors = bubbleNeighborsById.get(m.id);
@@ -2236,6 +2280,13 @@ export default function DmDetail() {
             icon: <MapPin size={26} strokeWidth={1.8} />,
             label: t('dm.locationShare', { defaultValue: '실시간위치' }),
             onPress: () => startLiveLocation({ sendInvite: true }),
+          },
+          // 워키토키 채널도 위치공유처럼 약속과 무관하게 이 대화의 참여자에게 열고 초대한다(1:1·그룹 공통).
+          {
+            key: 'walkieTalkie',
+            icon: <Radio size={26} strokeWidth={1.8} />,
+            label: t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' }),
+            onPress: handleWalkieJoin,
           },
           // 가격제안 — direct 전용. 매물 대화 + 가격제안 허용 + 판매 종결 전 + 판매자 본인 아님 (백엔드도 403/409로 차단)
           ...(isDirect && listing?.isNegotiable && listing.status !== 'SOLD' && listing.sellerId !== myId

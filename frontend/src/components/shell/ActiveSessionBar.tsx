@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Mic, Square, X, MapPinned, Users } from 'lucide-react';
+import { Mic, Square, X, MapPinned, Radio, Users } from 'lucide-react';
 import { HIDE_TABBAR_PATHS } from '@/components/layout/AppShell';
 import { native, type WalkieTalkieCapability } from '@/lib/native';
 import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
@@ -43,6 +43,8 @@ function useWalkieSessionCell() {
   const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
   const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
   const setStoreRecording = useWalkieTalkieBubbleStore((s) => s.setRecording);
+  const addPendingVoice = useWalkieTalkieBubbleStore((s) => s.addPendingVoice);
+  const updatePendingVoice = useWalkieTalkieBubbleStore((s) => s.updatePendingVoice);
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -272,6 +274,23 @@ function useWalkieSessionCell() {
     setPhase('idle');
   }, []);
 
+  const sendPendingVoice = useCallback(async (
+    id: string,
+    blob: Blob,
+    durationMs: number,
+  ) => {
+    updatePendingVoice(id, { status: 'uploading', blob });
+    try {
+      await walkieApi.sendVoice(conversationId!, blob, durationMs);
+      updatePendingVoice(id, { status: 'sent' });
+      playSound('dm_send');
+    } catch (err) {
+      console.error('[walkieTalkie] send failed at upload', err);
+      updatePendingVoice(id, { status: 'failed', blob });
+      toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
+    }
+  }, [conversationId, t, updatePendingVoice]);
+
   const finishAndSend = useCallback(
     async (result: WalkieTalkieRecordingResult) => {
       if (!user || !conversationId) {
@@ -281,22 +300,34 @@ function useWalkieSessionCell() {
       }
       setPhase('uploading');
       let step = 'read';
+      const pendingId = crypto.randomUUID();
+      const durationMs = result.durationMs ?? 0;
+      // 녹음 종료와 동시에 말풍선을 만든다. 파일 읽기/업로드 시간은 사용자가 "전송 중"으로
+      // 인지하고, 서버 이력은 DmDetail 이 다음 폴링에서 이 로컬 항목을 교체한다.
+      addPendingVoice({
+        id: pendingId,
+        conversationId,
+        durationMs,
+        createdAt: new Date().toISOString(),
+        status: 'uploading',
+        blob: null,
+      });
       try {
         const blob = await native.walkieTalkie.readRecordingBlob(result);
         if (blob.size < 700) throw new Error(`empty blob (${blob.size}B)`);
         step = 'upload';
-        await walkieApi.sendVoice(conversationId, blob, result.durationMs ?? 0);
-        playSound('dm_send');
+        await sendPendingVoice(pendingId, blob, durationMs);
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         console.error(`[walkieTalkie] send failed at ${step}`, err);
+        updatePendingVoice(pendingId, { status: 'failed' });
         toast.error(`${t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' })} (${step}: ${reason.slice(0, 90)})`);
       } finally {
         notifyRecordingStop();
         resetToIdle();
       }
     },
-    [conversationId, notifyRecordingStop, resetToIdle, t, user],
+    [addPendingVoice, conversationId, notifyRecordingStop, resetToIdle, sendPendingVoice, t, updatePendingVoice, user],
   );
 
   const startFlow = useCallback(async () => {
@@ -392,7 +423,10 @@ function useWalkieSessionCell() {
 
   const channelName = conversationMeta?.name ?? t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' });
   const allPresent = !!presence && presence.members.length > 0 && presence.present.length >= presence.members.length;
-  const memberCount = presence?.members.length ?? 0;
+  // `members` is everyone who belongs to the conversation. The bar is a live-channel
+  // control, so showing that value here made "2명" look like two people were connected
+  // even when the peer had left. Only the presence heartbeat's `present` set is truthful.
+  const presentCount = presence?.present.length ?? 0;
   const isRec = phase === 'recording' || phase === 'autoStopped';
 
   return {
@@ -400,7 +434,8 @@ function useWalkieSessionCell() {
     conversationId,
     channelName,
     allPresent,
-    memberCount,
+    presentCount,
+    presenceAvailable: presence !== null,
     phase,
     isRec,
     locked,
@@ -412,6 +447,7 @@ function useWalkieSessionCell() {
     consentOpen,
     setConsentOpen,
     handleConsentAgree,
+    retryPendingVoice: (id: string, blob: Blob, durationMs: number) => void sendPendingVoice(id, blob, durationMs),
   };
 }
 
@@ -507,6 +543,7 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
           ? t('walkieTalkie.presenceAll', { defaultValue: '전원 참석' })
           : t('walkieTalkie.presencePartial', { defaultValue: '일부 미참석' })}
       />
+      <Radio className={styles.sessionIcon} size={16} strokeWidth={2} aria-hidden="true" />
       <span className={styles.channelName}>{cell.channelName}</span>
       <button
         type="button"
@@ -535,10 +572,14 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
             : t('walkieTalkie.pttLabel', { defaultValue: '말하기' })}
         </span>
       </button>
-      {cell.memberCount > 0 && (
+      {cell.presenceAvailable ? (
         <span className={styles.memberCount}>
           <Users size={13} strokeWidth={2.2} />
-          {cell.memberCount}{t('walkieTalkie.memberCountSuffix', { defaultValue: '명' })}
+          {t('walkieTalkie.connectedCount', { count: cell.presentCount, defaultValue: '접속 {{count}}명' })}
+        </span>
+      ) : (
+        <span className={styles.presenceUnavailable}>
+          {t('walkieTalkie.presenceUnavailable', { defaultValue: '접속 확인 중' })}
         </span>
       )}
       <button

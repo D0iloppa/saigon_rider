@@ -533,6 +533,20 @@ export default function DmDetail() {
     return () => cancelAnimationFrame(raf);
   }, [messages, voiceItems]);
 
+  // 인라인 진행중 바(ActiveSessionBar variant="inline")가 입력창 위 flex 형제로 마운트/
+  // 높이변경되면 .messages(flex:1)의 실제 높이가 줄어드는데, 그 시점이 위 정착 윈도우(2초)
+  // 밖이면(무전기 세션 시작과 첫 음성 버블이 동시에 도착하는 경우 등) 재스크롤 트리거가 없어
+  // 새 버블 윗부분만 노출된 채 남는다 — 바닥 고정 중이면 리사이즈에도 바닥을 다시 스냅한다.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (pinnedRef.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // 키보드(iOS 오버레이)가 뜨면 컴포저 스페이서가 메시지 영역을 줄인다 —
   // 최근 메시지가 가려지지 않게 리스트를 바닥으로 부드럽게 재스크롤 (스페이서 렌더 반영 후).
   useEffect(() => {

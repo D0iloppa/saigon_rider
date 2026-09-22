@@ -105,6 +105,8 @@ _AD_EVENTS_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # stat_date 는 VN 로컬 일�
 # "어제(VN) 하루"만 재계산하는 창을 벗어나 조용히 유실(또는 훗날 수동 백필 시 예기치 않게 되살아남)되므로
 # 적재 자체를 거부한다. 48h 는 배치 지연·클라 오프라인 큐잉을 감안한 여유치(리뷰 제안값).
 _AD_EVENT_MAX_AGE = timedelta(hours=48)
+_PAYMENT_REPORT_EARLY_WINDOW = timedelta(minutes=30)
+_PAYMENT_REPORT_LATE_WINDOW = timedelta(minutes=60)
 
 _VALID_STATUSES = {"ON_SALE", "RESERVED", "SOLD", "WITHDRAWN"}
 _BUMP_COOLDOWN = timedelta(hours=4)  # 끌올 쿨다운
@@ -2224,6 +2226,8 @@ async def _marketplace_transaction_out(
         payment_status=transaction.payment_status,
         qr_message_id=qr_message_id,
         appointment_status=appt.status,
+        when_at=appt.when_at,
+        buyer_inspected_at=getattr(transaction, "buyer_inspected_at", None),
         buyer_reported_at=transaction.buyer_reported_at,
         seller_confirmed_at=transaction.seller_confirmed_at,
         created_at=transaction.created_at,
@@ -2293,6 +2297,38 @@ async def get_marketplace_transaction(
 
 
 @router.patch(
+    "/appointments/{appointment_id}/transaction/item-inspected",
+    response_model=MarketplaceTransactionOut,
+    summary="구매자 물품 확인",
+)
+async def confirm_marketplace_item_inspection(
+    appointment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    """Record the buyer's in-person inspection before manual-payment reporting."""
+    transaction, appt, _conv, listing = await _load_marketplace_transaction(db, appointment_id, session_uid, lock=True)
+    if session_uid != transaction.buyer_id:
+        raise HTTPException(status_code=403, detail="Only the buyer can confirm item inspection")
+    if appt.status != "ACCEPTED" or listing.status != "RESERVED" or transaction.payment_status != "AWAITING_PAYMENT":
+        raise HTTPException(status_code=409, detail="Item inspection is no longer available for this transaction")
+    if getattr(transaction, "buyer_inspected_at", None) is None:
+        now = datetime.now(UTC)
+        transaction.buyer_inspected_at = now
+        transaction.updated_at = now
+        await db.commit()
+    return await _marketplace_transaction_out(db, transaction, appt, listing, session_uid)
+
+
+def _payment_report_window_error(when_at: datetime, now: datetime) -> str | None:
+    if now < when_at - _PAYMENT_REPORT_EARLY_WINDOW:
+        return "payment_report_too_early"
+    if now > when_at + _PAYMENT_REPORT_LATE_WINDOW:
+        return "payment_report_window_expired"
+    return None
+
+
+@router.patch(
     "/appointments/{appointment_id}/transaction/payment-reported",
     response_model=MarketplaceTransactionOut,
     summary="구매자 송금 완료 신고",
@@ -2311,6 +2347,11 @@ async def report_marketplace_payment(
         if await _current_payment_qr_message_id(db, transaction) is None:
             raise HTTPException(status_code=409, detail="The seller has not registered a payment QR")
         now = datetime.now(UTC)
+        if getattr(transaction, "buyer_inspected_at", None) is None:
+            raise HTTPException(status_code=409, detail={"code": "item_inspection_required"})
+        window_error = _payment_report_window_error(appt.when_at, now)
+        if window_error is not None:
+            raise HTTPException(status_code=409, detail={"code": window_error, "when_at": appt.when_at.isoformat()})
         transaction.payment_status = "PAYMENT_REPORTED"
         transaction.buyer_reported_at = now
         transaction.updated_at = now
@@ -2502,7 +2543,7 @@ async def cancel_appointment(
     session_uid: uuid.UUID = Depends(verify_user_session),
 ):
     """참여자 누구나 취소 → CANCELLED. 수락 상태였으면 매물 RESERVED→ON_SALE 복귀."""
-    appt, _conv, listing = await _load_appointment(db, appointment_id, session_uid)
+    appt, conv, listing = await _load_appointment(db, appointment_id, session_uid)
     # 멱등: 이미 취소됨(또는 supersede)면 그대로 반환. 완료된 건만 취소 불가.
     if appt.status == "CANCELLED":
         return await _appt_out(db, appt, listing.seller_id)
@@ -2535,6 +2576,19 @@ async def cancel_appointment(
             actor_id=session_uid,
             reason="appointment_cancelled",
         )
+    # F-S5-01 FR-1: 취소는 상대가 이동 중일 수 있는 즉시 영향 행위다. 상태 변경과 같은
+    # 트랜잭션에 상대방 한 명 대상 outbox를 적재해, 커밋된 취소만 통지한다.
+    counterpart_id = require_participant(conv, session_uid)
+    noti_events.enqueue(
+        db,
+        "market.appointment_cancelled",
+        {
+            "appointment_id": str(appt.id),
+            "conversation_id": str(conv.id),
+            "listing_title": listing.title,
+            "recipient_id": str(counterpart_id),
+        },
+    )
     _enqueue_live_activity(db, appt)
     await db.commit()
     return await _appt_out(db, appt, listing.seller_id)

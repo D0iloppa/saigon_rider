@@ -8,6 +8,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
 import {
   cancelAppointment,
+  confirmMarketplaceItemInspection,
   confirmMarketplacePayment,
   fetchMarketplacePaymentQr,
   fetchMarketplaceTransaction,
@@ -35,6 +36,7 @@ export default function TradeTransaction() {
   const [qrObject, setQrObject] = useState<{ messageId: string; url: string } | null>(null);
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const load = async () => {
     if (!appointmentId) return;
@@ -68,6 +70,11 @@ export default function TradeTransaction() {
   }, [i18n.language]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     const messageId = transaction?.qrMessageId;
     if (!messageId || !conversationId) return;
     let active = true;
@@ -93,6 +100,23 @@ export default function TradeTransaction() {
         : await confirmMarketplacePayment(appointmentId);
       setTransaction(next);
       toast.success(kind === 'report' ? t('dm.tradePaymentReported') : t('dm.tradePaymentConfirmed'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('item_inspection_required')) toast.error(t('dm.tradeInspectionRequired'));
+      else if (message.includes('payment_report_too_early')) toast.error(t('dm.tradeReportTooEarly'));
+      else if (message.includes('payment_report_window_expired')) toast.error(t('dm.tradeReportExpired'));
+      else toast.error(t('common.errorUnexpected'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmInspection = async () => {
+    if (!appointmentId || busy) return;
+    setBusy(true);
+    try {
+      setTransaction(await confirmMarketplaceItemInspection(appointmentId));
+      toast.success(t('dm.tradeInspectionSaved'));
     } catch {
       toast.error(t('common.errorUnexpected'));
     } finally {
@@ -139,8 +163,10 @@ export default function TradeTransaction() {
   const reported = transaction?.paymentStatus === 'PAYMENT_REPORTED'
     || transaction?.paymentStatus === 'PAYMENT_CONFIRMED';
   const confirmed = transaction?.paymentStatus === 'PAYMENT_CONFIRMED';
+  const inspected = !!transaction?.buyerInspectedAt;
+  const reportWindow = transaction ? getPaymentReportWindow(transaction.whenAt, now) : 'open';
   const stepDoneFlags = transaction
-    ? [true, !!qrUrl, reported, confirmed, transaction.appointmentStatus === 'COMPLETED']
+    ? [true, inspected, !!qrUrl, reported, confirmed, transaction.appointmentStatus === 'COMPLETED']
     : [];
   const currentStepIndex = transaction && transaction.appointmentStatus !== 'CANCELLED'
     ? stepDoneFlags.findIndex((done) => !done)
@@ -230,22 +256,29 @@ export default function TradeTransaction() {
               <h2 id="trade-timeline-title">{t('dm.tradeProcedure')}</h2>
               <ol className={styles.timeline}>
                 <TradeStep done current={currentStepIndex === 0} title={t('dm.tradeStepAgreement')} detail={t('dm.tradeStepAgreementDetail')} />
-                <TradeStep done={!!qrUrl} current={currentStepIndex === 1} title={t('dm.tradeStepQr')} detail={t('dm.tradeStepQrDetail')} />
-                <TradeStep done={reported} current={currentStepIndex === 2} title={t('dm.tradeStepReported')} detail={t('dm.tradeStepReportedDetail')} />
-                <TradeStep done={confirmed} current={currentStepIndex === 3} title={t('dm.tradeStepConfirmed')} detail={t('dm.tradeStepConfirmedDetail')} />
+                <TradeStep done={inspected} current={currentStepIndex === 1} title={t('dm.tradeStepInspection')} detail={t('dm.tradeStepInspectionDetail')} />
+                <TradeStep done={!!qrUrl} current={currentStepIndex === 2} title={t('dm.tradeStepQr')} detail={t('dm.tradeStepQrDetail')} />
+                <TradeStep done={reported} current={currentStepIndex === 3} title={t('dm.tradeStepReported')} detail={t('dm.tradeStepReportedDetail')} />
+                <TradeStep done={confirmed} current={currentStepIndex === 4} title={t('dm.tradeStepConfirmed')} detail={t('dm.tradeStepConfirmedDetail')} />
                 <TradeStep
                   done={transaction.appointmentStatus === 'COMPLETED'}
-                  current={currentStepIndex === 4}
+                  current={currentStepIndex === 5}
                   title={t('dm.tradeStepHandoff')}
                   detail={t('dm.tradeStepHandoffDetail')}
                 />
               </ol>
             </section>
 
-            {transaction.viewerRole === 'buyer' && transaction.appointmentStatus === 'ACCEPTED' && !reported && (
+            {transaction.viewerRole === 'buyer' && transaction.appointmentStatus === 'ACCEPTED' && !reported && !inspected && (
+              <Button fullWidth disabled={busy} onClick={confirmInspection}>
+                {t('dm.tradeConfirmInspection')}
+              </Button>
+            )}
+            {transaction.viewerRole === 'buyer' && transaction.appointmentStatus === 'ACCEPTED' && !reported && inspected && (
+              <>
               <Button
                 fullWidth
-                disabled={busy || !qrUrl}
+                disabled={busy || !qrUrl || reportWindow !== 'open'}
                 onClick={() => useConfirmStore.getState().open(
                   t('dm.tradeReportPaymentConfirm'),
                   () => {
@@ -257,6 +290,12 @@ export default function TradeTransaction() {
               >
                 {t('dm.tradeReportPayment')}
               </Button>
+              {reportWindow !== 'open' && (
+                <p className={styles.safetyNote}>
+                  {reportWindow === 'early' ? t('dm.tradeReportTooEarly') : t('dm.tradeReportExpired')}
+                </p>
+              )}
+              </>
             )}
             {transaction.viewerRole === 'seller' && transaction.appointmentStatus === 'ACCEPTED' && reported && !confirmed && (
               <Button
@@ -340,6 +379,13 @@ export default function TradeTransaction() {
       </main>
     </div>
   );
+}
+
+function getPaymentReportWindow(whenAt: string, now: number): 'early' | 'open' | 'expired' {
+  const appointmentAt = new Date(whenAt).getTime();
+  if (now < appointmentAt - 30 * 60_000) return 'early';
+  if (now > appointmentAt + 60 * 60_000) return 'expired';
+  return 'open';
 }
 
 function TradeStep({

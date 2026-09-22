@@ -524,6 +524,32 @@ _COMPLETION_COPY = {
 }
 
 
+async def _handle_appointment_cancelled(payload: dict, *, source_event_id: str) -> None:
+    """F-S5-01 FR-1: send the cancellation notice to the other appointment participant."""
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    link = f"dm&id={payload['conversation_id']}"
+
+    async with AsyncSessionLocal() as db:
+        lang = (await langs_for_users(db, {recipient_id}))[recipient_id]
+        title = t(lang, "appointment_cancelled.title")
+        body = t(lang, "appointment_cancelled.body", title=payload.get("listing_title") or "")
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+
+    if inserted:
+        await _try_push(str(recipient_id), title, body, link)
+    else:
+        log.info("duplicate notification skipped source_event_id=%s user=%s", source_event_id, recipient_id)
+
+
 async def _handle_completion_request(event_type: str, payload: dict, *, source_event_id: str) -> None:
     """S-16: 거래 완료 요청·거절 통지. 딥링크는 해당 대화(약속 카드가 그 안에 있다).
 
@@ -561,6 +587,29 @@ async def _handle_completion_requested(payload: dict, *, source_event_id: str) -
 
 async def _handle_completion_declined(payload: dict, *, source_event_id: str) -> None:
     await _handle_completion_request("market.completion_declined", payload, source_event_id=source_event_id)
+
+
+async def _handle_payment_report_rolled_back(payload: dict, *, source_event_id: str) -> None:
+    """Admin-resolved payment-report deadlock notice for both transaction parties."""
+    recipient_id = uuid.UUID(payload["recipient_id"])
+    title = "거래가 운영자에 의해 되돌려졌어요"
+    body = "'{title}' 약속이 취소되고 매물이 다시 판매중으로 변경됐어요.".format(
+        title=payload.get("listing_title") or ""
+    )
+    link = f"dm&id={payload['conversation_id']}"
+    async with AsyncSessionLocal() as db:
+        inserted = await _insert_notification(
+            db,
+            source_event_id=source_event_id,
+            user_id=recipient_id,
+            notification_type="SOCIAL",
+            title=title,
+            body=body,
+            link=link,
+        )
+        await db.commit()
+    if inserted:
+        await _try_push(str(recipient_id), title, body, link)
 
 
 async def _handle_report_submitted(payload: dict, *, source_event_id: str) -> None:
@@ -920,8 +969,10 @@ HANDLERS = {
     "feed.group_post_created": _handle_feed_group_post,
     "market.listing_created": _handle_listing_created,
     "market.price_drop": _handle_price_drop,
+    "market.appointment_cancelled": _handle_appointment_cancelled,
     "market.completion_requested": _handle_completion_requested,
     "market.completion_declined": _handle_completion_declined,
+    "market.payment_report_rolled_back": _handle_payment_report_rolled_back,
     "biz.profile_reviewed": _handle_biz_profile_reviewed,
     "biz.ad_reviewed": _handle_biz_ad_reviewed,
     "proximity.hit": _handle_proximity_hit,

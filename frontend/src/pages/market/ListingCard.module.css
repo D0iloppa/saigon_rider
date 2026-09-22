@@ -21,6 +21,11 @@
   background: var(--surface-2);
 }
 
+.card:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
 /* 128px = 화면폭의 32.6% — 당근 스크린샷 픽셀 실측치와 동일(2026-08-17 2차 계측).
    1차에선 텍스트 컬럼 잠식이 걱정돼 120 에서 멈췄으나, .card 좌우 padding 4px 를
    없애 8pt 를 회수하면서 컬럼 폭은 오히려 207→211pt 로 늘어 제약이 사라졌다. */
@@ -58,6 +63,24 @@
   color: #fff;
   font-size: 11px;
   font-weight: 700;
+}
+
+.wishlistToggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .92);
+  color: var(--brand-500);
+}
+
+.wishlistToggle:active {
+  background: var(--surface);
 }
 
 .cardBody {

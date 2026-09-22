@@ -37,6 +37,8 @@
 .managerRow small, .quietRow small, .guideRow small, .storeOption small { display: block; margin-top: 2px; color: var(--text-3); font-size: 12px; line-height: 1.35; }
 .managerRow > svg:last-child, .quietRow > svg:last-child, .guideRow > svg:last-child { flex: 0 0 auto; color: var(--text-3); }
 .quietRow { display: flex; align-items: center; gap: 12px; width: calc(100% - 32px); min-height: 60px; margin: 0 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text-2); text-align: left; }
+.withdrawalRow { margin-top: 20px; border-color: var(--danger, #b3261e); color: var(--danger, #b3261e); }
+.withdrawalRow strong, .withdrawalRow small, .withdrawalRow > svg:last-child { color: inherit; }
 .guideGroup { margin: 20px 16px 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .guideRow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 9px 14px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--text-2); text-align: left; }
 .guideRow:last-child { border-bottom: 0; }

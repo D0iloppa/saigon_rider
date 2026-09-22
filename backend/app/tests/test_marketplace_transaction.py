@@ -1,4 +1,5 @@
 import unittest
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -8,7 +9,7 @@ from fastapi import HTTPException
 from app.routers import market
 
 
-def _context(payment_status="AWAITING_PAYMENT"):
+def _context(payment_status="AWAITING_PAYMENT", *, inspected=True):
     buyer_id = uuid4()
     seller_id = uuid4()
     transaction = SimpleNamespace(
@@ -16,11 +17,12 @@ def _context(payment_status="AWAITING_PAYMENT"):
         buyer_id=buyer_id,
         seller_id=seller_id,
         payment_status=payment_status,
+        buyer_inspected_at=datetime.now(UTC) if inspected else None,
         buyer_reported_at=None,
         seller_confirmed_at=None,
         updated_at=None,
     )
-    appointment = SimpleNamespace(id=transaction.appointment_id, status="ACCEPTED")
+    appointment = SimpleNamespace(id=transaction.appointment_id, status="ACCEPTED", when_at=datetime.now(UTC))
     conversation = SimpleNamespace(id=uuid4())
     listing = SimpleNamespace(status="RESERVED")
     return transaction, appointment, conversation, listing
@@ -58,12 +60,15 @@ class MarketplaceTransactionTest(unittest.IsolatedAsyncioTestCase):
     async def test_awaiting_payment_still_allows_cancellation(self):
         actor_id = uuid4()
         appointment = SimpleNamespace(id=uuid4(), status="ACCEPTED", updated_at=None)
-        conversation = SimpleNamespace(id=uuid4())
-        listing = SimpleNamespace(id=uuid4(), seller_id=uuid4(), status="RESERVED", updated_at=None)
+        counterpart_id = uuid4()
+        conversation = SimpleNamespace(id=uuid4(), participant_1=actor_id, participant_2=counterpart_id)
+        listing = SimpleNamespace(
+            id=uuid4(), seller_id=uuid4(), title="혼다 웨이브", status="RESERVED", updated_at=None
+        )
         transaction = SimpleNamespace(payment_status="AWAITING_PAYMENT")
         query_result = MagicMock()
         query_result.scalar_one_or_none.return_value = transaction
-        db = SimpleNamespace(execute=AsyncMock(return_value=query_result), commit=AsyncMock())
+        db = SimpleNamespace(execute=AsyncMock(return_value=query_result), commit=AsyncMock(), add=MagicMock())
         with (
             patch.object(market, "_load_appointment", AsyncMock(return_value=(appointment, conversation, listing))),
             patch.object(market, "log_transition"),
@@ -75,7 +80,30 @@ class MarketplaceTransactionTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "out")
         self.assertEqual(appointment.status, "CANCELLED")
         self.assertEqual(listing.status, "ON_SALE")
+        event = db.add.call_args.args[0]
+        self.assertEqual(event.event_type, "market.appointment_cancelled")
+        self.assertEqual(event.payload["recipient_id"], str(counterpart_id))
+        self.assertNotEqual(event.payload["recipient_id"], str(actor_id))
+        self.assertEqual(event.payload["appointment_id"], str(appointment.id))
+        self.assertEqual(event.payload["conversation_id"], str(conversation.id))
         db.commit.assert_awaited_once()
+
+    async def test_cancelled_appointment_is_idempotent_without_another_notification(self):
+        actor_id = uuid4()
+        appointment = SimpleNamespace(id=uuid4(), status="CANCELLED", updated_at=None)
+        conversation = SimpleNamespace(id=uuid4(), participant_1=actor_id, participant_2=uuid4())
+        listing = SimpleNamespace(id=uuid4(), seller_id=uuid4(), status="ON_SALE", updated_at=None)
+        db = SimpleNamespace(add=MagicMock(), commit=AsyncMock())
+
+        with (
+            patch.object(market, "_load_appointment", AsyncMock(return_value=(appointment, conversation, listing))),
+            patch.object(market, "_appt_out", AsyncMock(return_value="out")),
+        ):
+            result = await market.cancel_appointment(appointment.id, db, actor_id)
+
+        self.assertEqual(result, "out")
+        db.add.assert_not_called()
+        db.commit.assert_not_awaited()
 
     async def test_buyer_report_is_not_seller_confirmation_or_trade_completion(self):
         transaction, appointment, conversation, listing = _context()
@@ -116,6 +144,37 @@ class MarketplaceTransactionTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(raised.exception.status_code, 409)
         self.assertEqual(transaction.payment_status, "AWAITING_PAYMENT")
         db.commit.assert_not_awaited()
+
+    async def test_buyer_cannot_report_without_item_inspection(self):
+        transaction, appointment, conversation, listing = _context(inspected=False)
+        db = SimpleNamespace(commit=AsyncMock())
+        with (
+            patch.object(
+                market,
+                "_load_marketplace_transaction",
+                AsyncMock(return_value=(transaction, appointment, conversation, listing)),
+            ),
+            patch.object(market, "_current_payment_qr_message_id", AsyncMock(return_value=uuid4())),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            await market.report_marketplace_payment(transaction.appointment_id, db, transaction.buyer_id)
+
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(raised.exception.detail["code"], "item_inspection_required")
+        db.commit.assert_not_awaited()
+
+    def test_payment_report_window_is_limited_to_appointment_window(self):
+        appointment_at = datetime.now(UTC)
+        self.assertEqual(
+            market._payment_report_window_error(appointment_at, appointment_at - timedelta(minutes=31)),
+            "payment_report_too_early",
+        )
+        self.assertIsNone(market._payment_report_window_error(appointment_at, appointment_at - timedelta(minutes=30)))
+        self.assertIsNone(market._payment_report_window_error(appointment_at, appointment_at + timedelta(minutes=60)))
+        self.assertEqual(
+            market._payment_report_window_error(appointment_at, appointment_at + timedelta(minutes=61)),
+            "payment_report_window_expired",
+        )
 
     async def test_only_buyer_can_report_payment(self):
         transaction, appointment, conversation, listing = _context()

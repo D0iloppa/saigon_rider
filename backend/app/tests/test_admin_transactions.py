@@ -3,9 +3,8 @@
 이 파일이 고정하는 계약:
  1) `list_transactions` — payment_status 화이트리스트 밖은 400.
  2) `get_transaction` — 존재하지 않으면 404, QR 등록 여부는 이미지 노출 없이 boolean 으로만 나온다.
- 3) `add_transaction_memo` — AdminAuditLog 만 남기고 `MarketplaceTransaction.payment_status` 는
-    **절대 건드리지 않는다**(232_marketplace_transactions.sql 설계 원칙: 운영자가 자금 상태를
-    임의로 바꾸는 경로는 없다). 빈 메모는 거부한다.
+ 3) `add_transaction_memo` — 메모는 payment_status를 바꾸지 않는다. 별도 rollback endpoint만
+    PAYMENT_REPORTED 거래를 취소·재판매로 되돌릴 수 있다.
  4) `verify_admin_api` — 쿠키 없으면 401 (신규 엔드포인트가 공유하는 인증 의존성 자체 검증).
 """
 
@@ -13,9 +12,10 @@ import unittest
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
+from sqlalchemy.dialects import postgresql
 
 from app.admin_auth import verify_admin_api
 from app.models import AdminAuditLog, MarketplaceTransaction
@@ -187,6 +187,80 @@ class AddMemoTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(audits[0].target_id, str(tx.appointment_id))
         self.assertEqual(audits[0].detail, {"note": "판매자에게 확인 요청함"})
         db.commit.assert_awaited_once()
+
+
+class RollbackPaymentReportTest(unittest.IsolatedAsyncioTestCase):
+    async def test_only_payment_reported_active_transaction_can_be_rolled_back(self):
+        tx = _tx(payment_status="PAYMENT_REPORTED")
+        appt = SimpleNamespace(status="ACCEPTED", updated_at=None)
+        listing = SimpleNamespace(id=tx.listing_id, status="RESERVED", updated_at=None, title="Honda Wave 2020")
+        initial_tx_result = MagicMock()
+        initial_tx_result.scalar_one_or_none.return_value = tx
+        listing_result = MagicMock()
+        listing_result.scalar_one_or_none.return_value = listing
+        locked_tx_result = MagicMock()
+        locked_tx_result.scalar_one_or_none.return_value = tx
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[initial_tx_result, listing_result, locked_tx_result])
+        db.get = AsyncMock(return_value=appt)
+        db.add = MagicMock()
+        with (
+            patch.object(admin_tx, "log_transition") as log_transition,
+            patch.object(admin_tx.noti_events, "enqueue") as enqueue,
+        ):
+            await admin_tx.rollback_payment_report(
+                tx.appointment_id,
+                admin_tx.RollbackRequest(reason="양측 거래 취소 확인"),
+                _request(),
+                session=_session(),
+                db=db,
+            )
+
+        self.assertEqual(tx.payment_status, "AWAITING_PAYMENT")
+        self.assertIsNone(tx.buyer_reported_at)
+        self.assertEqual(appt.status, "CANCELLED")
+        self.assertEqual(listing.status, "ON_SALE")
+        log_transition.assert_called_once()
+        self.assertEqual(enqueue.call_count, 3)
+        statements = [call.args[0] for call in db.execute.await_args_list]
+        self.assertNotIn("FOR UPDATE", str(statements[0].compile(dialect=postgresql.dialect())))
+        self.assertIn("FOR UPDATE", str(statements[1].compile(dialect=postgresql.dialect())))
+        self.assertIn("FOR UPDATE", str(statements[2].compile(dialect=postgresql.dialect())))
+        self.assertTrue(
+            any(
+                isinstance(call.args[0], AdminAuditLog)
+                and call.args[0].action == "transaction.payment_report_rolled_back"
+                for call in db.add.call_args_list
+            )
+        )
+        db.commit.assert_awaited_once()
+
+    async def test_confirmed_payment_cannot_be_rolled_back(self):
+        tx = _tx(payment_status="PAYMENT_CONFIRMED")
+        initial_tx_result = MagicMock()
+        initial_tx_result.scalar_one_or_none.return_value = tx
+        listing_result = MagicMock()
+        listing_result.scalar_one_or_none.return_value = SimpleNamespace(
+            id=tx.listing_id, status="RESERVED", title="Honda Wave 2020"
+        )
+        locked_tx_result = MagicMock()
+        locked_tx_result.scalar_one_or_none.return_value = tx
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=[initial_tx_result, listing_result, locked_tx_result])
+        db.get = AsyncMock(return_value=SimpleNamespace(status="ACCEPTED"))
+
+        with self.assertRaises(HTTPException) as ctx:
+            await admin_tx.rollback_payment_report(
+                tx.appointment_id,
+                admin_tx.RollbackRequest(reason="잘못된 요청"),
+                _request(),
+                session=_session(),
+                db=db,
+            )
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        db.get.assert_awaited_once()
+        db.commit.assert_not_awaited()
 
 
 if __name__ == "__main__":

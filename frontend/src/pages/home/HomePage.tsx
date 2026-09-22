@@ -24,7 +24,6 @@ import { BEN_THANH_FALLBACK } from '@/lib/mapDefaults';
 import { apiRegisterDeviceMap } from '@/api/device';
 import { fetchWards, resolveWardByCoords, type Ward } from '@/api/master';
 import { AppImage } from '@/components/ui/AppImage';
-import { WalkieTalkieEntryButton } from '@/components/dm/WalkieTalkieEntryButton';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullIndicator } from '@/components/ui/PullIndicator';
 import styles from './HomePage.module.css';
@@ -377,8 +376,6 @@ export default function HomePage() {
                 <IcoChevron color="#aeaeb2" size={14} />
               </button>
             )}
-
-            <WalkieTalkieEntryButton />
 
             <button className={styles.bellBtn} onClick={() => navigate('/notifications')} aria-label={t('noti.title')}>
               <IcoBell />

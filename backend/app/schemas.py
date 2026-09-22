@@ -1470,6 +1470,8 @@ class MarketplaceTransactionOut(BaseModel):
     payment_status: str
     qr_message_id: UUID | None = None
     appointment_status: str
+    when_at: datetime
+    buyer_inspected_at: datetime | None = None
     buyer_reported_at: datetime | None = None
     seller_confirmed_at: datetime | None = None
     created_at: datetime

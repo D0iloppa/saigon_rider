@@ -56,6 +56,8 @@ function transformTransaction(raw: any): MarketplaceTransaction {
     paymentStatus: raw.payment_status,
     qrMessageId: raw.qr_message_id ?? null,
     appointmentStatus: raw.appointment_status,
+    whenAt: raw.when_at,
+    buyerInspectedAt: raw.buyer_inspected_at ?? null,
     buyerReportedAt: raw.buyer_reported_at ?? null,
     sellerConfirmedAt: raw.seller_confirmed_at ?? null,
     createdAt: raw.created_at,
@@ -496,6 +498,13 @@ export async function fetchMarketplaceTransaction(appointmentId: string): Promis
 export async function reportMarketplacePayment(appointmentId: string): Promise<MarketplaceTransaction> {
   return transformTransaction(await api.realFetch<any>(
     `/market/appointments/${appointmentId}/transaction/payment-reported`,
+    { method: 'PATCH' },
+  ));
+}
+
+export async function confirmMarketplaceItemInspection(appointmentId: string): Promise<MarketplaceTransaction> {
+  return transformTransaction(await api.realFetch<any>(
+    `/market/appointments/${appointmentId}/transaction/item-inspected`,
     { method: 'PATCH' },
   ));
 }

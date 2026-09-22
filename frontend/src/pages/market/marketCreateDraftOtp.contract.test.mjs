@@ -7,14 +7,27 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (path) => readFileSync(join(here, path), 'utf8');
 
-test('판매 작성 화면은 로그인만 요구하고 전화 인증은 게시 직전에 검사한다', () => {
+test('판매 작성 화면은 로그인만 요구하고 미인증 판매자에게 인증 CTA를 보여준다', () => {
   const route = read('../../components/auth/SellerComposeRoute.tsx');
   const create = read('MarketCreate.tsx');
 
   assert.doesNotMatch(route, /PhoneVerifiedGate|\/auth\/phone-verify/);
   assert.match(route, /<PrivateRoute>\{children\}<\/PrivateRoute>/);
   assert.match(create, /if \(!businessProfileId && !user\.phoneVerified\)/);
+  assert.match(create, /const needsPhoneVerification = !businessProfileId && !!user && !user\.phoneVerified/);
+  assert.match(create, /market\.phoneVerificationRequired/);
+  assert.match(create, /market\.goToPhoneVerification/);
   assert.match(create, /navigate\('\/auth\/phone-verify', \{ state: \{ from: \{ pathname: '\/market\/new' \} \} \}\)/);
+});
+
+test('거래 희망 장소는 가격 바로 다음 거래 조건으로 배치된다', () => {
+  const create = read('MarketCreate.tsx');
+  const price = create.indexOf("t('market.price'");
+  const location = create.indexOf("t('market.tradeLocation'");
+  const description = create.indexOf("t('market.descLabel'");
+
+  assert.ok(price !== -1 && location !== -1 && description !== -1, 'price, location, and description fields must all exist');
+  assert.ok(price < location && location < description, 'trade location must be placed after price and before description');
 });
 
 test('매물 초안은 사용자·업체별 key로 저장하고 업로드가 끝난 content만 복원한다', () => {

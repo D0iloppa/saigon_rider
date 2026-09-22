@@ -121,6 +121,23 @@ export default function MarketDetail() {
     }
   };
 
+  const handleDealPingPick = (result: DealResult) => {
+    if (result === 'SOLD_ELSEWHERE' || result === 'GAVE_UP') {
+      useConfirmStore.getState().open(
+        {
+          mode: 'text',
+          value: result === 'SOLD_ELSEWHERE'
+            ? t('market.dealPingSoldElsewhereConfirmBody', { defaultValue: '다른 곳에서 판매로 기록하면 이 매물은 더 이상 판매중으로 표시되지 않아요.' })
+            : t('market.dealPingGaveUpConfirmBody', { defaultValue: '판매 포기로 기록하면 이 매물은 더 이상 판매중으로 표시되지 않아요.' }),
+        },
+        () => void handleDealPingResponse(result),
+        { confirmLabel: { mode: 'text', value: t('common.confirm', { defaultValue: '확인' }) } },
+      );
+      return;
+    }
+    void handleDealPingResponse(result);
+  };
+
   const handleChat = async () => {
     if (!requireAuth()) return;
     if (!detail) return;
@@ -296,6 +313,18 @@ export default function MarketDetail() {
     }
   };
 
+  const handleBlockPick = () => {
+    if (blocked) {
+      void handleToggleBlock();
+      return;
+    }
+    useConfirmStore.getState().open(
+      { mode: 'text', value: t('market.blockConfirmBody', { defaultValue: '차단하면 서로의 프로필과 매물을 볼 수 없고, 새 메시지도 보낼 수 없어요.' }) },
+      () => void handleToggleBlock(),
+      { confirmLabel: { mode: 'text', value: t('market.blockConfirm', { defaultValue: '차단하기' }) } },
+    );
+  };
+
   return (
     <div className={styles.root}>
       {/* Top bar */}
@@ -430,23 +459,23 @@ export default function MarketDetail() {
                       type="button"
                       className={styles.dealPingBtn}
                       disabled={dealPingSubmitting}
-                      onClick={() => handleDealPingResponse('SOLD')}
+                      onClick={() => handleDealPingPick('SOLD')}
                     >
-                      {t('market.dealPingSold', { defaultValue: '거래됐어요' })}
+                      {t('market.dealPingSold', { defaultValue: '이 분께 판매' })}
                     </button>
                     <button
                       type="button"
                       className={styles.dealPingBtn}
                       disabled={dealPingSubmitting}
-                      onClick={() => handleDealPingResponse('STILL_SELLING')}
+                      onClick={() => handleDealPingPick('STILL_SELLING')}
                     >
-                      {t('market.dealPingStillSelling', { defaultValue: '아직 판매중이에요' })}
+                      {t('market.dealPingStillSelling', { defaultValue: '계속 판매' })}
                     </button>
                     <button
                       type="button"
                       className={styles.dealPingBtn}
                       disabled={dealPingSubmitting}
-                      onClick={() => handleDealPingResponse('SOLD_ELSEWHERE')}
+                      onClick={() => handleDealPingPick('SOLD_ELSEWHERE')}
                     >
                       {t('market.dealPingSoldElsewhere', { defaultValue: '다른 곳에서 팔았어요' })}
                     </button>
@@ -454,7 +483,7 @@ export default function MarketDetail() {
                       type="button"
                       className={styles.dealPingBtn}
                       disabled={dealPingSubmitting}
-                      onClick={() => handleDealPingResponse('GAVE_UP')}
+                      onClick={() => handleDealPingPick('GAVE_UP')}
                     >
                       {t('market.dealPingGaveUp', { defaultValue: '판매를 포기했어요' })}
                     </button>
@@ -638,7 +667,7 @@ export default function MarketDetail() {
                 </div>
               )}
               <div className={styles.chatBtn}>
-                {detail.status === 'ON_SALE' ? (
+                {detail.status === 'ON_SALE' || detail.status === 'RESERVED' ? (
                   <Button variant="primary" onClick={handleChat}>
                     {t('market.chat', { defaultValue: '채팅하기' })}
                   </Button>
@@ -709,7 +738,7 @@ export default function MarketDetail() {
                     ? t('market.reportedAlready', { defaultValue: '신고함' })
                     : t('market.report', { defaultValue: '신고하기' })}
               </button>
-              <button className={`${styles.moreItem} ${blocked ? '' : styles.moreDanger}`} onClick={handleToggleBlock}>
+              <button className={`${styles.moreItem} ${blocked ? '' : styles.moreDanger}`} onClick={handleBlockPick}>
                 {blocked ? <UserCheck size={16} strokeWidth={2.2} /> : <Ban size={16} strokeWidth={2.2} />}
                 {blocked
                   ? t('market.unblock', { defaultValue: '차단 해제' })

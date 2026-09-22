@@ -63,12 +63,12 @@ test('manual locate updates the shared exploration store before moving camera an
   assert.match(store, /locateFromUserAction: async \(\) => \{[\s\S]*?pinnedAll: false/, 'an explicit locate request must leave pinned-all mode');
 });
 
-test('walkie bubble additionally requires authenticated state, not a stale persisted user alone', () => {
-  const bubble = read('../../components/dm/WalkieTalkieFloatingButton.tsx');
+test('active session bar additionally requires authenticated state, not a stale persisted user alone', () => {
+  const bar = read('../../components/shell/ActiveSessionBar.tsx');
 
-  assert.match(bubble, /const isAuthenticated = useUserStore\(\(s\) => s\.isAuthenticated\);/);
-  const active = bubble.match(/const bubbleActive =[\s\S]*?\n\s*!isWalkieTalkieOptedOut\(\);/);
-  assert.ok(active, 'walkie visibility condition is missing');
-  assert.match(active[0], /isAuthenticated &&/, 'logout must hide the bubble even if persisted user hydration is stale');
+  assert.match(bar, /const isAuthenticated = useUserStore\(\(s\) => s\.isAuthenticated\);/);
+  const active = bar.match(/const active =[\s\S]*?\n\s*!isWalkieTalkieOptedOut\(\);/);
+  assert.ok(active, 'walkie session visibility condition is missing');
+  assert.match(active[0], /isAuthenticated &&/, 'logout must hide the session bar even if persisted user hydration is stale');
   assert.match(active[0], /!!user &&/, 'a user object remains required for normal authenticated use');
 });

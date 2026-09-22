@@ -14,6 +14,14 @@ test('transaction detail keeps manual payment acknowledgements separate', () => 
   assert.doesNotMatch(page, /completeAppointment\(/);
 });
 
+test('payment reporting requires an explicit item inspection and an appointment window', () => {
+  assert.match(api, /transaction\/item-inspected/);
+  assert.match(page, /tradeConfirmInspection/);
+  assert.match(page, /getPaymentReportWindow/);
+  assert.match(page, /tradeReportTooEarly/);
+  assert.match(page, /tradeReportExpired/);
+});
+
 test('seller QR uses private Content and the authenticated delivery route', () => {
   assert.match(api, /form\.append\('is_private', 'true'\)/);
   assert.match(api, /realFetchForm<\{ id: string \}>\('\/contents\/upload'/);

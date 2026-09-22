@@ -1,15 +1,14 @@
-"""admin JSON API — 수동 QR 거래 조회·분쟁 개입 (F033).
+"""admin JSON API — 수동 QR 거래 조회·제한된 분쟁 복구 (F033).
 
 당근 비교 트리아지(260909)에서 기능은 있으나(8c5c7493) 운영자 조회 화면이 없다고 지적된 부분.
-**조회 + 운영자 메모까지만** — 자금 상태(payment_status)를 운영자가 임의로 바꾸는 경로는 여기
-없다(232_marketplace_transactions.sql 주석: 플랫폼은 결제를 보증하지 않는다). 상태변경이 필요하면
-이 파일을 건드리지 말고 새 설계를 검토한다.
+플랫폼은 결제를 보증하지 않는다. 예외적으로 PAYMENT_REPORTED 직후 거래가 깨진 경우만 운영자가
+약속과 매물을 되돌릴 수 있다. PAYMENT_CONFIRMED 이후에는 자금 상태를 바꾸지 않는다.
 
 QR 이미지 자체는 노출하지 않는다 — 등록 여부(있음/없음)만 `_current_payment_qr_message_id` 로 판단.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -21,6 +20,8 @@ from ...admin_auth import AdminSession, verify_admin_api
 from ...database import get_db
 from ...models import AdminAuditLog, MarketplaceAppointment, MarketplaceListing, MarketplaceTransaction, User
 from ...schemas import Page
+from ...services import noti_events
+from ...services.listing_state import log_transition
 from ..market import _current_payment_qr_message_id
 from ._audit import audit
 
@@ -66,6 +67,10 @@ class AdminTransactionDetail(AdminTransactionRow):
 
 class MemoRequest(BaseModel):
     note: str = Field(min_length=1, max_length=500)
+
+
+class RollbackRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
 
 
 def _party(user: User | None) -> PartyRow:
@@ -206,5 +211,100 @@ async def add_transaction_memo(
         target_type=_TARGET_TYPE,
         target_id=str(appointment_id),
         detail={"note": note},
+    )
+    await db.commit()
+
+
+@router.post("/{appointment_id}/rollback-payment-report", status_code=204)
+async def rollback_payment_report(
+    appointment_id: uuid.UUID,
+    body: RollbackRequest,
+    request: Request,
+    session: AdminSession = Depends(verify_admin_api),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve a PAYMENT_REPORTED deadlock by cancelling the appointment and reopening its listing.
+
+    This does not assert that money moved. It is deliberately unavailable once the seller has
+    confirmed receipt, and records both an audit fact and peer notifications in the same commit.
+    """
+    reason = body.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="reason is required")
+    # Payment and cancellation paths consistently lock the listing before its transaction.
+    # Read the listing id first, then re-read the transaction under the ordered locks so
+    # neither a concurrent cancellation nor payment confirmation can slip past this guard.
+    tx = (
+        await db.execute(select(MarketplaceTransaction).where(MarketplaceTransaction.appointment_id == appointment_id))
+    ).scalar_one_or_none()
+    if tx is None:
+        raise HTTPException(status_code=404, detail="transaction not found")
+    listing = (
+        await db.execute(select(MarketplaceListing).where(MarketplaceListing.id == tx.listing_id).with_for_update())
+    ).scalar_one_or_none()
+    if listing is None:
+        raise HTTPException(status_code=409, detail="Transaction is no longer an active reserved appointment")
+    tx = (
+        await db.execute(
+            select(MarketplaceTransaction)
+            .where(MarketplaceTransaction.appointment_id == appointment_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if tx is None:
+        raise HTTPException(status_code=404, detail="transaction not found")
+    appt = await db.get(MarketplaceAppointment, appointment_id)
+    if (
+        tx.payment_status != "PAYMENT_REPORTED"
+        or appt is None
+        or appt.status != "ACCEPTED"
+        or listing.status != "RESERVED"
+    ):
+        raise HTTPException(status_code=409, detail="Transaction is no longer an active reserved appointment")
+        raise HTTPException(status_code=409, detail="Transaction is no longer an active reserved appointment")
+
+    now = datetime.now(UTC)
+    tx.payment_status = "AWAITING_PAYMENT"
+    tx.buyer_reported_at = None
+    tx.updated_at = now
+    appt.status = "CANCELLED"
+    appt.updated_at = now
+    listing.status = "ON_SALE"
+    listing.updated_at = now
+    log_transition(
+        db, listing.id, "RESERVED", "ON_SALE", actor_type="admin", actor_id=None, reason="payment_report_rollback"
+    )
+    await audit(
+        db,
+        session,
+        request,
+        "transaction.payment_report_rolled_back",
+        target_type=_TARGET_TYPE,
+        target_id=str(appointment_id),
+        detail={"reason": reason, "previous_payment_status": "PAYMENT_REPORTED"},
+    )
+    for recipient_id in (tx.buyer_id, tx.seller_id):
+        noti_events.enqueue(
+            db,
+            "market.payment_report_rolled_back",
+            {
+                "appointment_id": str(appointment_id),
+                "conversation_id": str(tx.conversation_id),
+                "listing_title": listing.title,
+                "recipient_id": str(recipient_id),
+            },
+        )
+    noti_events.enqueue(
+        db,
+        "live_activity.deal_update",
+        {
+            "appointment_id": str(appointment_id),
+            "status": "CANCELLED",
+            "completion_requested_by": None,
+            "completion_declined_at": None,
+            "when_at": appt.when_at.isoformat() if getattr(appt, "when_at", None) else None,
+            "place_name": getattr(appt, "place_name", None) or "",
+        },
     )
     await db.commit()

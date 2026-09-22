@@ -59,6 +59,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "Your meetup partner has arrived at the meeting place.",
         "vi": "Người hẹn gặp đã đến điểm hẹn.",
     },
+    "appointment_cancelled.title": {
+        "ko": "약속이 취소되었어요",
+        "en": "Meetup cancelled",
+        "vi": "Cuộc hẹn đã bị hủy",
+    },
+    "appointment_cancelled.body": {
+        "ko": "'{title}' 약속이 취소되었어요.",
+        "en": "The meetup for '{title}' was cancelled.",
+        "vi": "Cuộc hẹn cho '{title}' đã bị hủy.",
+    },
 }
 
 # TODO: 아직 한국어 하드코딩으로 남은 서버 문안 — 이관 시 여기 키를 추가하고 호출부를 t() 로 바꾼다.

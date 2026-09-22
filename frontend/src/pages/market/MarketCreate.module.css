@@ -13,6 +13,34 @@
   padding: 16px 20px 32px;
 }
 
+.gateBody {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.gateBlock {
+  width: 100%;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.gateBlock h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gateBlock p {
+  margin: 8px 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
 .submitHint {
   margin-bottom: 12px;
   font-size: 12px;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, ChevronDown, ChevronRight, CircleHelp, FileText, Megaphone, MessageSquare, Newspaper, Package, Receipt, ShieldCheck, Store, Ticket } from 'lucide-react';
+import { AlertCircle, Camera, ChevronDown, ChevronRight, CircleHelp, FileText, Megaphone, MessageSquare, Newspaper, Package, Receipt, ShieldCheck, Store, Ticket, TriangleAlert } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { api, extractDetail } from '@/api/client';
 import { bizCategoryLabel, fetchBizCategories, fetchBizOwnerReviews, fetchBusinessAds, fetchBusinessProfiles, fetchContractLink, updateBusinessProfile, type BizCategory, type BusinessAd, type BusinessProfile } from '@/api/biz';
 import sys from '@/styles/system.module.css';
@@ -34,6 +35,7 @@ export default function BizManage() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUserStore((s) => s.user);
+  const openConfirm = useConfirmStore((s) => s.open);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const preselectProfileId = (location.state as { profileId?: string } | null)?.profileId;
   const initialProfileIdRef = useRef(preselectProfileId);
@@ -138,6 +140,23 @@ export default function BizManage() {
     finally { setContractLoadingId(null); }
   };
   const focusDashboard = (focus: DashboardFocus) => { setDashboardFocus(focus); setActiveTab('performance'); };
+  // F-BZ-02 FR-1: 상태 전이 API 없이 업체를 바로 비활성화하지 않는다. 기존 고객센터
+  // 티켓 API로만 철회 요청을 접수해 운영자가 계약·공개 상태를 검토하도록 한다.
+  const requestWithdrawal = () => {
+    if (!active) return;
+    openConfirm(
+      '업체 철회 요청을 고객센터에 접수할까요? 요청만 접수되며 업체는 즉시 비활성화되지 않습니다.',
+      () => navigate('/settings/support', {
+        state: {
+          inquiryDraft: {
+            title: `${active.name} 업체 철회 요청`,
+            body: `업체 철회를 요청합니다.\n업체명: ${active.name}\n업체 ID: ${active.id}`,
+          },
+        },
+      }),
+      { confirmLabel: '철회 요청 작성', cancelLabel: '취소' },
+    );
+  };
 
   if (profiles === null || profilesError || !active) {
     return <div className={styles.page}><TopBar title={t('biz.manageTitle')} /><div className={styles.loadBody}>
@@ -192,6 +211,7 @@ export default function BizManage() {
         ].map(({ icon: Icon, title, desc, onClick }) => <button type="button" className={styles.managerRow} onClick={onClick} key={title}><Icon size={20} /><span><strong>{title}</strong><small>{desc}</small></span><ChevronRight size={17} /></button>)}</div>
         {(active.verificationStatus === 'verified' || active.verificationStatus === 'docs_submitted') && <><div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.verifTitle')}</h2></div><button type="button" className={styles.quietRow} onClick={() => navigate('/biz/verification', { state: profileState(active) })}><ShieldCheck size={19} /><span><strong>{active.verificationStatus === 'verified' ? t('biz.verifStatusVerified') : t('biz.verifStatusSubmitted')}</strong><small>{active.verificationStatus === 'verified' ? t('biz.lounge.verificationCompleteDesc') : t('biz.lounge.verificationReviewingDesc')}</small></span><ChevronRight size={17} /></button></>}
         <div className={styles.guideGroup}><button type="button" className={styles.guideRow} onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}><FileText size={19} /><strong>{t('biz.lounge.guideTitle')}</strong><ChevronDown size={17} className={guideOpen ? styles.chevronOpen : undefined} /></button>{guideOpen && <ul className={styles.guideBody}><li>{t('biz.lounge.guideProfile')}</li><li>{t('biz.lounge.guideStatuses')}</li><li>{t('biz.lounge.guideReviews')}</li></ul>}<button type="button" className={styles.guideRow} onClick={() => navigate('/settings/support')}><CircleHelp size={19} /><span><strong>{t('biz.lounge.adsHelp')}</strong><small>{t('biz.lounge.adsHelpDesc')}</small></span><ChevronRight size={17} /></button></div>
+        <button type="button" className={`${styles.quietRow} ${styles.withdrawalRow}`} onClick={requestWithdrawal}><TriangleAlert size={19} /><span><strong>업체 철회 요청</strong><small>고객센터 검토 후 처리됩니다</small></span><ChevronRight size={17} /></button>
       </>}
     </div>
     <BottomSheet open={storeSheetOpen} onClose={() => setStoreSheetOpen(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.lounge.selectStoreTitle')}</h2>}><div className={styles.storeList}>{profiles.map((profile, idx) => <button type="button" key={profile.id} className={styles.storeOption} onClick={() => selectProfile(idx)} aria-current={idx === activeIdx}>{profile.photoUrl ? <AppImage src={profile.photoUrl} alt="" className={styles.storeOptionPhoto} /> : <div className={styles.storeOptionPhotoFallback}><Store size={20} /></div>}<span><strong>{profile.name}</strong><small>{[categoryLabel(profile.category), profile.address].filter(Boolean).join(' · ')}</small></span>{idx === activeIdx && <span className={styles.selectedLabel}>{t('biz.lounge.selectedStore')}</span>}</button>)}</div></BottomSheet>

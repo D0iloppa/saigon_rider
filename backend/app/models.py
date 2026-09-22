@@ -1857,6 +1857,7 @@ class MarketplaceTransaction(Base):
     amount_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
     payment_method: Mapped[str] = mapped_column(String(40), nullable=False, default="zalopay_qr_manual")
     payment_status: Mapped[str] = mapped_column(String(24), nullable=False, default="AWAITING_PAYMENT")
+    buyer_inspected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     buyer_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     seller_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

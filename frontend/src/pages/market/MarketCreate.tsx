@@ -225,7 +225,8 @@ export default function MarketCreate() {
             : district === null
               ? t('market.postNeedsLocation', { defaultValue: '거래 희망 장소를 선택해주세요' })
               : null;
-  const canPost = !posting && !!user && postBlockReason === null;
+  const needsPhoneVerification = !businessProfileId && !!user && !user.phoneVerified;
+  const canPost = !posting && !!user && !needsPhoneVerification && postBlockReason === null;
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
   const draft = useMemo<MarketDraft>(() => ({
     version: DRAFT_VERSION,
@@ -288,6 +289,11 @@ export default function MarketCreate() {
     }
   };
 
+  const handlePhoneVerification = () => {
+    if (draftKey) writeDraft(draftKey, draft);
+    navigate('/auth/phone-verify', { state: { from: { pathname: '/market/new' } } });
+  };
+
 
   return (
     <div className={styles.page}>
@@ -304,6 +310,17 @@ export default function MarketCreate() {
         }
       />
 
+      {needsPhoneVerification ? (
+        <div className={styles.gateBody}>
+          <div className={styles.gateBlock}>
+            <h2>{t('market.phoneVerificationRequired', { defaultValue: '휴대폰 인증 후 등록할 수 있어요' })}</h2>
+            <p>{t('market.phoneVerificationRequiredDesc', { defaultValue: '안전한 거래를 위해 판매자 인증이 필요해요.' })}</p>
+            <Button onClick={handlePhoneVerification} fullWidth>
+              {t('market.goToPhoneVerification', { defaultValue: '인증하기' })}
+            </Button>
+          </div>
+        </div>
+      ) : (
       <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
         {postBlockReason && <p className={styles.submitHint} aria-live="polite">{postBlockReason}</p>}
         {/* Photos */}
@@ -398,6 +415,16 @@ export default function MarketCreate() {
         </div>
         {price === '' && <p className={styles.freeHint}>{t('market.freeHint', { defaultValue: '비워두면 나눔으로 등록됩니다' })}</p>}
 
+        {/* 거래 희망 장소는 가격·가격제안과 함께 거래 조건을 구성한다. */}
+        <p className={styles.label}>{t('market.tradeLocation', { defaultValue: '거래 희망 장소' })}</p>
+        <button className={styles.catSelect} onClick={() => setLocOpen(true)}>
+          <span className={district ? styles.locValue : styles.catSelectPlaceholder}>
+            <MapPin size={16} className={styles.locPin} />
+            {district ? localizedName(district) : t('market.locating', { defaultValue: '위치 확인 중…' })}
+          </span>
+          <ChevronRight size={18} className={styles.catSelectChev} />
+        </button>
+
         {/* Description */}
         <p className={styles.label}>{t('market.descLabel', { defaultValue: '설명' })}</p>
         <textarea
@@ -429,16 +456,8 @@ export default function MarketCreate() {
           maxLength={80}
         />
 
-        {/* 거래 희망 장소 (지도 picker, default=내 위치 구) */}
-        <p className={styles.label}>{t('market.tradeLocation', { defaultValue: '거래 희망 장소' })}</p>
-        <button className={styles.catSelect} onClick={() => setLocOpen(true)}>
-          <span className={district ? styles.locValue : styles.catSelectPlaceholder}>
-            <MapPin size={16} className={styles.locPin} />
-            {district ? localizedName(district) : t('market.locating', { defaultValue: '위치 확인 중…' })}
-          </span>
-          <ChevronRight size={18} className={styles.catSelectChev} />
-        </button>
       </div>
+      )}
 
       <CategoryPickerSheet
         open={catSheetOpen}

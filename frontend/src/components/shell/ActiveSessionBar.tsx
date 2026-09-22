@@ -31,7 +31,7 @@ const PRESENCE_HEARTBEAT_MS = 15000;
 
 /**
  * 워키토키 세션의 실제 로직(캡슐/드래그/펼침/컨텍스트메뉴는 없음) — 녹음 시작/정지, 채널
- * join/leave, 수신 음성 자동재생 큐는 WalkieTalkieFloatingButton 과 동일한 근거로 유지한다.
+ * join/leave, 수신 음성 자동재생 큐와 현재 세션 제어를 한 곳에서 담당한다.
  * PTT(누르는 동안 녹음)로 상호작용만 바뀐다(F-N-01 FR-2 제안).
  */
 function useWalkieSessionCell() {
@@ -419,7 +419,7 @@ type WalkieSessionCell = ReturnType<typeof useWalkieSessionCell>;
 
 /**
  * 실시간 위치공유 세션 셀 — 채널 SSE·ping 런타임(useLiveLocationChannelRuntime)은
- * LiveLocationFloatingButton 과 동일하게 유지, 표시만 고정 바 칸으로 바꾼다.
+ * 채널 SSE·ping 런타임과 이탈 확인을 유지하되 표시는 고정 바 칸으로 한정한다.
  */
 function useLocationSessionCell() {
   const { t } = useTranslation();

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { BellOff, MailOpen, Trash2, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
-import { WalkieTalkieEntryButton } from '@/components/dm/WalkieTalkieEntryButton';
 import { fetchConversations, leaveConversation, toggleMute } from '@/api/dm';
 import { formatRelativeTime } from '@/lib/format';
 import type { DmConversation } from '@/api/types';
@@ -176,17 +175,14 @@ export default function DmList() {
       <TopBar
         title={t('dm.title')}
         rightContent={
-          <>
-            <WalkieTalkieEntryButton />
-            <button
-              className={styles.headerAddBtn}
-              type="button"
-              onClick={() => navigate('/dm/group/new')}
-              aria-label={t('dm.createGroup', { defaultValue: '그룹 만들기' })}
-            >
-              <UsersRound size={20} strokeWidth={2} />
-            </button>
-          </>
+          <button
+            className={styles.headerAddBtn}
+            type="button"
+            onClick={() => navigate('/dm/group/new')}
+            aria-label={t('dm.createGroup', { defaultValue: '그룹 만들기' })}
+          >
+            <UsersRound size={20} strokeWidth={2} />
+          </button>
         }
       />
 

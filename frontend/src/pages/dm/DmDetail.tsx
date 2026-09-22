@@ -53,7 +53,7 @@ import type { AppointmentNavigationDestination } from '@/api/dm';
 import { native } from '@/lib/native';
 import type { DealStatusKind } from '@/lib/plugins/liveActivity';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
-import { fetchMyReview, type ReviewBrief } from '@/api/market';
+import { fetchMyReview, localizedName, type ReviewBrief } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import { translateText } from '@/api/translate';
 import { toast } from '@/components/ui/Toast';
@@ -645,6 +645,16 @@ export default function DmDetail() {
 
   const handleOpenAppt = () => {
     if (!apptWhen) setApptWhen(getDefaultApptWhen());
+    // 대화 컨텍스트에 이미 실린 매물 좌표만 약속 장소의 초깃값으로 쓴다. 별도 지오코딩이나
+    // 위치 권한 요청은 하지 않는다. 사용자는 시트에서 언제든 다시 고를 수 있다.
+    if (!apptPlace && listing?.lat != null && listing.lng != null && listing.district) {
+      setApptPlace({
+        districtCode: String(listing.district.id),
+        districtName: localizedName(listing.district),
+        lat: listing.lat,
+        lng: listing.lng,
+      });
+    }
     setApptOpen(true);
   };
 
@@ -2468,7 +2478,17 @@ export default function DmDetail() {
               <button
                 className={`${styles.messageActionItem} ${styles.msgActionDanger}`}
                 type="button"
-                onClick={() => handleDeleteMsg(actionMsg)}
+                onClick={() => {
+                  closeMessageActions();
+                  useConfirmStore.getState().open(
+                    t('dm.deleteMessageConfirm', { defaultValue: '이 메시지를 삭제할까요? 삭제된 메시지로 표시됩니다.' }),
+                    () => {
+                      useConfirmStore.getState().close();
+                      void handleDeleteMsg(actionMsg);
+                    },
+                    { confirmLabel: t('dm.deleteAction', { defaultValue: '삭제' }) },
+                  );
+                }}
               >
                 <Trash2 size={18} />
                 {t('dm.deleteAction', { defaultValue: '삭제' })}

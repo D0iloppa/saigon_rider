@@ -5,7 +5,8 @@ import { AlertCircle, Heart } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { useUserStore } from '@/store/useUserStore';
-import { fetchWishlist, type ListingCard } from '@/api/market';
+import { fetchWishlist, toggleLike, type ListingCard } from '@/api/market';
+import { toast } from '@/components/ui/Toast';
 import ListingCardComp from './ListingCard';
 import sys from '@/styles/system.module.css';
 import styles from './MarketMain.module.css';
@@ -19,6 +20,16 @@ export default function MarketWishlist() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRemoveLike = async (listingId: string) => {
+    if (!userId) return;
+    try {
+      const result = await toggleLike(listingId, userId);
+      if (!result.liked) setItems((current) => current.filter((item) => item.id !== listingId));
+    } catch {
+      toast.error(t('market.likeError', { defaultValue: '찜 처리 실패' }));
+    }
+  };
 
   useEffect(() => {
     if (!userId) {
@@ -68,7 +79,12 @@ export default function MarketWishlist() {
             </div>
           ) : (
             items.map((l) => (
-              <ListingCardComp key={l.id} listing={l} onClick={() => navigate(`/market/${l.id}`)} />
+              <ListingCardComp
+                key={l.id}
+                listing={l}
+                onClick={() => navigate(`/market/${l.id}`)}
+                onToggleLike={() => void handleRemoveLike(l.id)}
+              />
             ))
           )}
         </div>

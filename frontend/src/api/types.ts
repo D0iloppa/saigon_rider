@@ -355,6 +355,8 @@ export interface MarketplaceTransaction {
   paymentStatus: MarketplacePaymentStatus;
   qrMessageId: string | null;
   appointmentStatus: AppointmentStatus;
+  whenAt: string;
+  buyerInspectedAt: string | null;
   buyerReportedAt: string | null;
   sellerConfirmedAt: string | null;
   createdAt: string;

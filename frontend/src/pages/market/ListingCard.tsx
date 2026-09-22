@@ -11,19 +11,44 @@ import styles from './ListingCard.module.css';
 interface Props {
   listing: Listing;
   onClick: () => void;
+  onToggleLike?: () => void;
 }
 
 /** 동네 피드·검색 공용 1열 매물 카드 (REF-02). */
-export default function ListingCard({ listing: l, onClick }: Props) {
+export default function ListingCard({ listing: l, onClick, onToggleLike }: Props) {
   const { t } = useTranslation();
   const myId = useUserStore((s) => s.user?.id);
   const isMine = !!myId && l.sellerId === myId;
   return (
-    <button className={styles.card} type="button" onClick={onClick}>
+    <div
+      className={styles.card}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+    >
       <span className={styles.thumb}>
         <AppImage src={l.thumbnailUrl ?? noItemImage()} alt={l.title} className={styles.thumbImg} />
         {isMine && <OwnerBadge label={t('common.myItemBadge')} className={styles.ownerBadge} />}
         {l.status !== 'ON_SALE' && <span className={styles.statusTag}>{t(statusLabelKey(l.status))}</span>}
+        {onToggleLike && (
+          <button
+            type="button"
+            className={styles.wishlistToggle}
+            aria-label={t('market.removeWishlist', { defaultValue: '찜 해제' })}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleLike();
+            }}
+          >
+            <Heart size={18} strokeWidth={2.2} fill="currentColor" />
+          </button>
+        )}
       </span>
       <div className={styles.cardBody}>
         <p className={styles.cardTitle}>{l.title}</p>
@@ -56,6 +81,6 @@ export default function ListingCard({ listing: l, onClick }: Props) {
           </span>
         )}
       </div>
-    </button>
+    </div>
   );
 }

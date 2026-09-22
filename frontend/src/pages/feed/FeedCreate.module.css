@@ -65,6 +65,26 @@
   gap: 6px;
 }
 
+.addPhoto {
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.addPhotoCount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
 .previewItem {
   position: relative;
   border-radius: 10px;

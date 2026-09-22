@@ -189,39 +189,12 @@ export default function FeedCreate() {
             {t('feedCreate.postingToGroup', { name: groupName })}
           </div>
         )}
-        <div className={styles.card}>
-          <textarea
-            className={styles.textarea}
-            placeholder={groupId ? t('feedCreate.groupTextPlaceholder') : t('feedCreate.textPlaceholder')}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={6}
-            maxLength={2000}
-          />
-
-          {images.length > 0 && (
-            <div className={styles.previewGrid}>
-              {images.map((img, idx) => (
-                <div key={idx} className={styles.previewItem}>
-                  <img src={img.preview} alt="" className={styles.previewThumb} />
-                  {img.uploading && (
-                    <div className={styles.uploadingOverlay}>
-                      <span className={`shimmer ${styles.uploadingBar}`} />
-                    </div>
-                  )}
-                  <button className={styles.removeImg} onClick={() => removeImage(idx)} aria-label={t('feedCreate.removeImage')}>
-                    <X size={13} strokeWidth={2.5} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className={styles.toolbar}>
-          <label className={styles.toolBtn}>
-            <Camera size={16} strokeWidth={2.2} />
-            {t('feedCreate.addPhoto')} {images.length > 0 && `(${images.length}/${MAX_IMAGES})`}
+        <div className={styles.previewGrid}>
+          <label className={styles.addPhoto}>
+            <Camera size={22} strokeWidth={2} />
+            <span className={styles.addPhotoCount}>
+              {images.length}/{MAX_IMAGES}
+            </span>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -231,7 +204,33 @@ export default function FeedCreate() {
               disabled={images.length >= MAX_IMAGES}
             />
           </label>
+          {images.map((img, idx) => (
+            <div key={idx} className={styles.previewItem}>
+              <img src={img.preview} alt="" className={styles.previewThumb} />
+              {img.uploading && (
+                <div className={styles.uploadingOverlay}>
+                  <span className={`shimmer ${styles.uploadingBar}`} />
+                </div>
+              )}
+              <button className={styles.removeImg} onClick={() => removeImage(idx)} aria-label={t('feedCreate.removeImage')}>
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            </div>
+          ))}
+        </div>
 
+        <div className={styles.card}>
+          <textarea
+            className={styles.textarea}
+            placeholder={groupId ? t('feedCreate.groupTextPlaceholder') : t('feedCreate.textPlaceholder')}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={6}
+            maxLength={2000}
+          />
+        </div>
+
+        <div className={styles.toolbar}>
           {locOn ? (
             <button
               className={`${styles.toolBtn} ${styles.toolBtnActive}`}

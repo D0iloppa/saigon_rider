@@ -251,45 +251,12 @@ export default function FeedEdit() {
       />
 
       <div className={styles.body} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
-        <div className={styles.card}>
-          <textarea
-            className={styles.textarea}
-            placeholder={t('feedCreate.textPlaceholder')}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={6}
-            maxLength={2000}
-          />
-
-          {imageSlots.length > 0 && (
-            <div className={styles.previewGrid}>
-              {imageSlots.map((slot, idx) => (
-                <div key={idx} className={styles.previewItem}>
-                  {slot.type === 'existing' ? (
-                    <AppImage src={slot.url} alt="" className={styles.previewThumb} />
-                  ) : (
-                    <>
-                      <img src={slot.preview} alt="" className={styles.previewThumb} />
-                      {slot.uploading && (
-                        <div className={styles.uploadingOverlay}>
-                          <span className={`shimmer ${styles.uploadingBar}`} />
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <button className={styles.removeImg} aria-label={t('feedCreate.removeImage')} onClick={() => removeSlot(idx)}>
-                    <X size={13} strokeWidth={2.5} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className={styles.toolbar}>
-          <label className={styles.toolBtn}>
-            <Camera size={16} strokeWidth={2.2} />
-            {t('feedCreate.addPhoto')} {imageSlots.length > 0 && `(${imageSlots.length}/${MAX_IMAGES})`}
+        <div className={styles.previewGrid}>
+          <label className={styles.addPhoto}>
+            <Camera size={22} strokeWidth={2} />
+            <span className={styles.addPhotoCount}>
+              {imageSlots.length}/{MAX_IMAGES}
+            </span>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -299,7 +266,39 @@ export default function FeedEdit() {
               disabled={imageSlots.length >= MAX_IMAGES}
             />
           </label>
+          {imageSlots.map((slot, idx) => (
+            <div key={idx} className={styles.previewItem}>
+              {slot.type === 'existing' ? (
+                <AppImage src={slot.url} alt="" className={styles.previewThumb} />
+              ) : (
+                <>
+                  <img src={slot.preview} alt="" className={styles.previewThumb} />
+                  {slot.uploading && (
+                    <div className={styles.uploadingOverlay}>
+                      <span className={`shimmer ${styles.uploadingBar}`} />
+                    </div>
+                  )}
+                </>
+              )}
+              <button className={styles.removeImg} aria-label={t('feedCreate.removeImage')} onClick={() => removeSlot(idx)}>
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            </div>
+          ))}
+        </div>
 
+        <div className={styles.card}>
+          <textarea
+            className={styles.textarea}
+            placeholder={t('feedCreate.textPlaceholder')}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={6}
+            maxLength={2000}
+          />
+        </div>
+
+        <div className={styles.toolbar}>
           <button
             className={`${styles.toolBtn} ${location ? styles.toolBtnActive : ''}`}
             onClick={handleLocation}

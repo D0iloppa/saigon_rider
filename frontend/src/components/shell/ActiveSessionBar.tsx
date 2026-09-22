@@ -10,6 +10,7 @@ import { createWalkieTransport, walkieApi } from '@/lib/walkieSdk';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from '@/components/dm/WalkieTalkieConsentModal';
 import { loadSession } from '@/lib/session';
+import { formatDuration } from '@/components/dm/VoiceMessageBubble';
 import { useUserStore } from '@/store/useUserStore';
 import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
 import { useLocationChannelStore } from '@/store/useLocationChannelStore';
@@ -49,6 +50,7 @@ function useWalkieSessionCell() {
 
   const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [presence, setPresence] = useState<WalkiePresence | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [queue, setQueue] = useState<{ id: string; audioUrl: string }[]>([]);
@@ -86,6 +88,11 @@ function useWalkieSessionCell() {
     let cancelled = false;
     native.walkieTalkie
       .addListener('recordingState', (s) => {
+        // F-S3-03 FR-6: 바에 보이는 경과 시간은 60초 자동중지가 읽는 것과 같은 이벤트에서
+        // 나온다(별도 타이머 금지) — recordingState 는 record 진행 중에만 elapsedMs>0 로 온다.
+        if (phaseRef.current === 'recording' || phaseRef.current === 'autoStopped') {
+          setElapsedMs(s.elapsedMs);
+        }
         if (s.state === 'idle' && !manualStopRef.current && phaseRef.current === 'recording') {
           manualStopRef.current = true;
           setPhase('autoStopped');
@@ -272,6 +279,7 @@ function useWalkieSessionCell() {
   const resetToIdle = useCallback(() => {
     pendingResultRef.current = null;
     manualStopRef.current = false;
+    setElapsedMs(0);
     setPhase('idle');
   }, []);
 
@@ -364,6 +372,7 @@ function useWalkieSessionCell() {
     }
     try {
       await native.walkieTalkie.startRecording({ maxDurationSec: capability?.maxDurationSec ?? 60 });
+      setElapsedMs(0);
       setPhase('recording');
       if (native.platform !== 'ios') playSound('walkie_ptt_start');
       if (conversationId) walkieApi.setSpeaking(conversationId, true).catch(() => {});
@@ -378,6 +387,9 @@ function useWalkieSessionCell() {
   // PTT — 누르는 동안 녹음, 떼면 전송 (F-N-01 FR-2 "말하기 버튼").
   const onPTTDown = useCallback(() => {
     if (phase === 'uploading' || phase === 'recording' || phase === 'autoStopped') return;
+    // F-S3-03 FR-6 실패 시나리오 ①: 하트비트가 15초 주기라 회색 상태가 최대 15초 낡을 수 있다 —
+    // PTT를 누르는 순간 즉시 재조회해 그 창을 좁힌다.
+    presenceRefreshRef.current?.();
     if (locked) {
       toast.info(t('walkieTalkie.lockedTransmitToast', { defaultValue: '받은 음성메시지를 먼저 들어야 말할 수 있어요' }));
       return;
@@ -430,15 +442,34 @@ function useWalkieSessionCell() {
   const presentCount = presence?.present.length ?? 0;
   const isRec = phase === 'recording' || phase === 'autoStopped';
 
+  // F-S3-03 FR-6: 1:1(멤버 2명 이하)은 숫자 대신 상태어, 그룹(멤버 3명 이상)만 기존 숫자 표기.
+  const isGroup = (presence?.members.length ?? 0) >= 3;
+  const otherPresent = !!presence && presence.present.some((id) => id !== myUserId);
+  const speakingOthers = presence?.speaking.filter((id) => id !== myUserId) ?? [];
+  const speakingOtherName = speakingOthers.length === 1
+    ? (presence?.displayNames[speakingOthers[0]] ?? t('walkieTalkie.someone', { defaultValue: '상대방' }))
+    : null;
+  // 상태 점 3분법 — presence 미확인(빈 원) / 나만 접속(회색) / 접속 확인됨(초록).
+  const presenceDotState: 'connected' | 'alone' | 'unknown' = !presence
+    ? 'unknown'
+    : (isGroup ? allPresent : otherPresent)
+      ? 'connected'
+      : 'alone';
+
   return {
     active,
     conversationId,
     channelName,
-    allPresent,
+    presenceDotState,
+    isGroup,
+    otherPresent,
+    speakingOthers,
+    speakingOtherName,
     presentCount,
     presenceAvailable: presence !== null,
     phase,
     isRec,
+    elapsedMs,
     locked,
     onPTTDown,
     onPTTUp,
@@ -538,11 +569,15 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
     >
       <span
         className={styles.presenceDot}
-        data-all-present={cell.allPresent || undefined}
+        data-presence={cell.presenceDotState}
         role="img"
-        aria-label={cell.allPresent
-          ? t('walkieTalkie.presenceAll', { defaultValue: '전원 참석' })
-          : t('walkieTalkie.presencePartial', { defaultValue: '일부 미참석' })}
+        aria-label={
+          cell.presenceDotState === 'unknown'
+            ? t('walkieTalkie.presenceUnavailable', { defaultValue: '접속 확인 중' })
+            : cell.presenceDotState === 'connected'
+              ? t('walkieTalkie.presenceAll', { defaultValue: '전원 참석' })
+              : t('walkieTalkie.presencePartial', { defaultValue: '일부 미참석' })
+        }
       />
       <Radio className={styles.sessionIcon} size={16} strokeWidth={2} aria-hidden="true" />
       <span className={styles.channelName}>{cell.channelName}</span>
@@ -564,20 +599,48 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
           cell.onPTTUp();
         }}
         onClick={(e) => e.stopPropagation()}
-        aria-label={t('walkieTalkie.pttButtonLabel', { defaultValue: '누르는 동안 말하기' })}
+        aria-label={
+          cell.isRec
+            ? (cell.elapsedMs >= 55000
+              ? t('walkieTalkie.recordingCountdownAria', {
+                sec: Math.max(0, 60 - Math.floor(cell.elapsedMs / 1000)),
+                defaultValue: '녹음 중, {{sec}}초 남음',
+              })
+              : t('walkieTalkie.recordingElapsedAria', {
+                sec: Math.floor(cell.elapsedMs / 1000),
+                defaultValue: '녹음 중 {{sec}}초',
+              }))
+            : t('walkieTalkie.pttButtonLabel', { defaultValue: '누르는 동안 말하기' })
+        }
       >
         {cell.isRec ? <Square size={14} strokeWidth={2} fill="currentColor" /> : <Mic size={14} strokeWidth={2.2} />}
-        <span className={styles.pttLabel}>
-          {cell.isRec
-            ? t('walkieTalkie.recordingLabel', { defaultValue: '녹음 중' })
-            : t('walkieTalkie.pttLabel', { defaultValue: '말하기' })}
+        <span
+          className={`${styles.pttLabel} num`}
+          data-warn={(cell.isRec && cell.elapsedMs >= 50000) || undefined}
+          data-countdown={(cell.isRec && cell.elapsedMs >= 55000) || undefined}
+        >
+          {cell.isRec ? formatDuration(cell.elapsedMs) : t('walkieTalkie.pttLabel', { defaultValue: '말하기' })}
         </span>
       </button>
       {cell.presenceAvailable ? (
-        <span className={styles.memberCount}>
-          <Users size={13} strokeWidth={2.2} />
-          {t('walkieTalkie.connectedCount', { count: cell.presentCount, defaultValue: '접속 {{count}}명' })}
-        </span>
+        cell.isGroup ? (
+          <span className={styles.memberCount}>
+            <Users size={13} strokeWidth={2.2} />
+            {cell.speakingOthers.length >= 2
+              ? t('walkieTalkie.multipleSpeaking', { count: cell.speakingOthers.length, defaultValue: '{{count}}명이 말하는 중' })
+              : cell.speakingOtherName
+                ? t('walkieTalkie.someoneSpeaking', { name: cell.speakingOtherName, defaultValue: '{{name}}님이 말하는 중' })
+                : t('walkieTalkie.connectedCount', { count: cell.presentCount, defaultValue: '접속 {{count}}명' })}
+          </span>
+        ) : (
+          <span className={styles.statusText}>
+            {cell.speakingOtherName
+              ? t('walkieTalkie.someoneSpeaking', { name: cell.speakingOtherName, defaultValue: '{{name}}님이 말하는 중' })
+              : cell.otherPresent
+                ? t('walkieTalkie.peerConnected', { defaultValue: '상대 접속 중' })
+                : t('walkieTalkie.aloneConnected', { defaultValue: '나만 접속 · 녹음은 전달돼요' })}
+          </span>
+        )
       ) : (
         <span className={styles.presenceUnavailable}>
           {t('walkieTalkie.presenceUnavailable', { defaultValue: '접속 확인 중' })}

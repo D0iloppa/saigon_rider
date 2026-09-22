@@ -9,7 +9,7 @@ const BAR_COUNT = 40;
 // 디코딩 전/실패 시 보여줄 중립 파형 — 빈 칸 대신 자리를 유지한다.
 const PLACEHOLDER_PEAKS = Array.from({ length: BAR_COUNT }, (_, i) => 0.2 + 0.15 * Math.abs(Math.sin(i * 0.9)));
 
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   const totalSec = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;

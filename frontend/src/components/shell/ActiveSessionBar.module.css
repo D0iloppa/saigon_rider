@@ -64,16 +64,24 @@
   border-left: 1px solid var(--line);
 }
 
+/* F-S3-03 FR-6: 오렌지(--brand-500)는 이 바의 무전기 아이콘·녹음 중 PTT 필과 같은 브랜드
+ * 강조색이라 상태색으로 쓰지 않는다 — 초록(접속)/회색(나만 접속)/빈 원(presence 미확인) 3분법. */
 .presenceDot {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--brand-500);
+  box-sizing: border-box;
+  background: var(--text-3);
 }
 
-.presenceDot[data-all-present] {
+.presenceDot[data-presence='connected'] {
   background: var(--success);
+}
+
+.presenceDot[data-presence='unknown'] {
+  background: transparent;
+  border: 1px solid var(--line);
 }
 
 .sessionIcon {
@@ -119,6 +127,28 @@
 .pttLabel {
   font-size: 12px;
   font-weight: 600;
+}
+
+/* F-S3-03 FR-6: 녹음 50초부터 경고색, 마지막 5초는 카운트다운 강조. */
+.pttBtn[data-active] .pttLabel[data-warn] {
+  color: var(--danger);
+}
+
+.pttLabel[data-countdown] {
+  font-weight: 800;
+  animation: walkieCountdownPulse 1s ease-in-out infinite;
+}
+
+@keyframes walkieCountdownPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.statusText {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
 }
 
 .memberCount {

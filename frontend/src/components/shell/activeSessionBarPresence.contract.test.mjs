@@ -42,3 +42,51 @@ test('the session bar follows the storyboard surface treatment rather than a dar
   assert.doesNotMatch(css, /border-radius: 14px 14px 0 0/);
   assert.match(source, /<Radio className=\{styles\.sessionIcon\}/);
 });
+
+// F-S3-03 FR-6 (실기기 피드백 260922) — 접속 표시 3분법·경과시간·발화 상태.
+test('the presence dot uses a green/gray/hollow trichotomy instead of orange as a status color', () => {
+  assert.match(css, /\.presenceDot\[data-presence='connected'\] \{\s*background: var\(--success\);/);
+  assert.match(css, /\.presenceDot\[data-presence='unknown'\] \{\s*background: transparent;\s*border: 1px solid var\(--line\);/);
+  assert.doesNotMatch(css, /background: var\(--brand-500\);\s*\n\}\s*\n\n\.presenceDot\[data-all-present\]/);
+  assert.match(source, /data-presence=\{cell\.presenceDotState\}/);
+});
+
+test('a 1:1 conversation shows a status phrase instead of a peer-count number, group keeps the count', () => {
+  assert.match(source, /const isGroup = \(presence\?\.members\.length \?\? 0\) >= 3/);
+  assert.match(source, /walkieTalkie\.peerConnected', \{ defaultValue: '상대 접속 중' \}/);
+  assert.match(source, /walkieTalkie\.aloneConnected', \{ defaultValue: '나만 접속 · 녹음은 전달돼요' \}/);
+  assert.match(source, /walkieTalkie\.connectedCount', \{ count: cell\.presentCount/);
+});
+
+test('the recording label is replaced by the elapsed m:ss (not appended), sharing the auto-stop timer source', () => {
+  assert.match(source, /formatDuration } from '@\/components\/dm\/VoiceMessageBubble'/);
+  assert.doesNotMatch(source, /recordingLabel/);
+  assert.match(source, /setElapsedMs\(s\.elapsedMs\)/);
+  assert.match(source, /cell\.isRec \? formatDuration\(cell\.elapsedMs\) : t\('walkieTalkie\.pttLabel'/);
+});
+
+test('the elapsed label turns danger red at 50s and gets countdown emphasis in the last 5s', () => {
+  assert.match(source, /data-warn=\{\(cell\.isRec && cell\.elapsedMs >= 50000\)/);
+  assert.match(source, /data-countdown=\{\(cell\.isRec && cell\.elapsedMs >= 55000\)/);
+  assert.match(css, /\.pttBtn\[data-active\] \.pttLabel\[data-warn\] \{\s*color: var\(--danger\);/);
+  assert.match(css, /\.pttLabel\[data-countdown\] \{\s*font-weight: 800;/);
+});
+
+test('a peer speaking (not myself) surfaces "speaking" status, using the presence.speaking field', () => {
+  assert.match(source, /const speakingOthers = presence\?\.speaking\.filter\(\(id\) => id !== myUserId\) \?\? \[\]/);
+  assert.match(source, /walkieTalkie\.someoneSpeaking', \{ name: cell\.speakingOtherName/);
+  assert.match(source, /walkieTalkie\.multipleSpeaking', \{ count: cell\.speakingOthers\.length/);
+});
+
+test('pressing PTT immediately refreshes presence to shrink the 15s heartbeat staleness window', () => {
+  const onPTTDownBody = source.slice(source.indexOf('const onPTTDown = useCallback'), source.indexOf('const onPTTUp = useCallback'));
+  assert.match(onPTTDownBody, /presenceRefreshRef\.current\?\.\(\);/);
+});
+
+test('no prerender bubble is introduced for in-progress recording (rejected proposal)', () => {
+  // addPendingVoice is only ever called once, after the recording is finished (finishAndSend),
+  // never at the moment recording starts (startFlow) — no optimistic in-progress bubble.
+  const startFlowBody = source.slice(source.indexOf('const startFlow = useCallback'), source.indexOf('const locked ='));
+  assert.doesNotMatch(startFlowBody, /addPendingVoice/);
+  assert.doesNotMatch(source, /status:\s*'recording'/);
+});

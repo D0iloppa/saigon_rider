@@ -27,6 +27,8 @@
 
 ## 1. 탭바 (하단 메인 5메뉴) — `components/layout/TabBar.tsx`
 
+> 📋 **스토리보드**: [F-N-01 FR-1](../review/storyboard/index.html#F-N-01__FR-1), [F-N-01 FR-2](../review/storyboard/index.html#F-N-01__FR-2) — 하단 고정 `ActiveSessionBar`(무전기·실시간위치 진행 바)의 설계 근거·제안·판정은 스토리보드 참조.
+
 > **앱 첫 화면 — 로그인=홈 / 비로그인 둘러보기=마켓 (대표 결정 2026-08-13)**
 >
 > | 사용자 상태 | 목적지 | 판정 위치 |
@@ -215,6 +217,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ### 3.2 마켓 / 동네마켓 (`/market`)
 
+> 📋 **스토리보드**: 등록/게이트 [F-S0-01 FR-1](../review/storyboard/index.html#F-S0-01__FR-1)·[FR-2](../review/storyboard/index.html#F-S0-01__FR-2), 내 매물 관리(철회/만료/딜핑) [F-S0-02 FR-1](../review/storyboard/index.html#F-S0-02__FR-1)·[FR-2](../review/storyboard/index.html#F-S0-02__FR-2)·[FR-3](../review/storyboard/index.html#F-S0-02__FR-3), 발견(리스트/지도뷰/빈결과/검색) [F-S1-01 FR-1](../review/storyboard/index.html#F-S1-01__FR-1)·[FR-2](../review/storyboard/index.html#F-S1-01__FR-2)·[FR-3](../review/storyboard/index.html#F-S1-01__FR-3)·[FR-4](../review/storyboard/index.html#F-S1-01__FR-4), 찜·키워드알림 [F-S1-02 FR-1](../review/storyboard/index.html#F-S1-02__FR-1)·[FR-2](../review/storyboard/index.html#F-S1-02__FR-2), 매물 상세(구매자 뷰·더보기 시트) [F-S2-01 FR-1](../review/storyboard/index.html#F-S2-01__FR-1)·[FR-2](../review/storyboard/index.html#F-S2-01__FR-2) — 설계 근거·제안·판정은 스토리보드 참조.
+
 - **페이지**: `pages/market/MarketMain.tsx`
 - **하위 라우트**: `/market/search`(`MarketSearch.tsx`), `/market/ad/:id`(`AdDetail.tsx`), `/market/new`(`MarketCreate.tsx`), `/market/wishlist`(`MarketWishlist.tsx`), `/market/:id`(`MarketDetail.tsx`), `/market/:id/edit`(`MarketEdit.tsx`, `PrivateRoute`, 2026-07-31 신규), **`/market/keyword-alerts`(`MarketKeywordAlerts.tsx`, `PrivateRoute`, 2026-08-17 신규)**
 - **판매자 자기서비스 — 매물 수정·철회 (2026-07-31, 출시감사 F-6/F-7/F-8)**: 이전엔 매물 본문 수정 API 가 아예 없어(PATCH 는 `/status`·`/price` 뿐) 오타·잘못된 사진이면 **재작성밖에 없었고 중복 매물이 누적**됐다. 또 판매자 상태 선택지가 `ON_SALE`/`RESERVED` 뿐이라 **판매를 포기해도 영구히 피드에 잔존**했다(유일한 우회로가 CS, 앱 내 경로 없음).
@@ -303,6 +307,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ### 3.3 동네지도 (`/map`)
 
+> 📋 **스토리보드**: [F-MP-01 FR-1](../review/storyboard/index.html#F-MP-01__FR-1)(동네지도 루트) · [F-MP-01 FR-2](../review/storyboard/index.html#F-MP-01__FR-2)(지도 내 업체 검색) — 설계 근거·제안·판정은 스토리보드 참조.
+
 - **커뮤니티(피드) 제거 → 업체홍보 전용화 (2026-07-25, 커밋 `9fef1a2`)**: 대표 지시("동네지도에서 커뮤니티를 빼라. 커뮤니티는 커뮤니티 메뉴로. 동네지도는 온전히 업체홍보로")로 동네지도에서 **커뮤니티 피드(feed/소식)를 완전히 제거**하고 **업체(가게) 단일 뷰**로 전환했다. **아래 2026-07-25 "정체성 분리 재설계"의 탭 구조(`TAB_ORDER`, feed 관련 서술)와 §3.3 "지도 시트 콘텐츠 3종"의 feed·listings 서술은 이 항목이 최종 갱신한다.**
   - `NeighborhoodMap.tsx`·`NeighborhoodMapCanvas.tsx` 양쪽에서 **탭 스위처 UI 자체를 제거**(`Tab` 타입/`TAB_ORDER`/`switchTab` 삭제) — 남는 콘텐츠가 업체 하나뿐이라 단일 뷰.
   - 지도에서 파란 커뮤니티 핀(`FEED_COLOR`)·`feedOverlay`·`posts`/`fetchFeed` 상태·피드 패널 제거. 피드 리스트 **전용**이던 부수 배선(광고 주입 plumbing `ads`/`fetchAds`/`AdCard`, 피드 작성자 아바타로만 열리던 `ProfileCard`(2026-08-13 전면 폐기) 등)도 고아로 함께 제거 — 훗날 동네지도에 광고를 다시 붙이려면 재배선 필요.
@@ -390,6 +396,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ### 3.4 커뮤니티 / 피드 (`/feed`)
 
+> 📋 **스토리보드**: 피드 목록 [F-CM-01 FR-1](../review/storyboard/index.html#F-CM-01__FR-1), 피드 상세 [F-CM-01 FR-2](../review/storyboard/index.html#F-CM-01__FR-2), 새 글 작성/수정 [F-CM-01 FR-3](../review/storyboard/index.html#F-CM-01__FR-3), 그룹 탐색 [F-CM-02 FR-1](../review/storyboard/index.html#F-CM-02__FR-1), 그룹 상세 [F-CM-02 FR-2](../review/storyboard/index.html#F-CM-02__FR-2) — 설계 근거·제안·판정은 스토리보드 참조.
+
 - **페이지**: `pages/feed/FeedList.tsx`
 - **하위 라우트**: `/feed/new`(`FeedCreate.tsx`), `/feed/edit/:postId`(`FeedEdit.tsx`), `/feed/post/:postId`(`FeedDetail.tsx` — 피드 상세+댓글 인라인, 탭바 숨김. 홈 인기글 카드·동네지도 포스트 패널(피드 카드, 오버레이로 진입)에서 진입. **레이아웃 2026-07-12 전체 재작성**: `MarketDetail` 구조 미러 — 공용 `TopBar` 대신 `StatusBar`+커스텀 뒤로가기 헤더, hero 이미지 캐러셀, sellerRow를 미러한 작성자 행, 하단 액션바(🔥응원 토글+💬댓글 수+댓글 입력+전송, 기존 별도 입력바 대체). 헤더 타이틀 i18n 기본값 '게시글'→'피드')
 - **2열 그리드 카드 (2026-07-25, 정정 — 같은 날짜에 한 번 잘못 기록됐다가 재작업)**: ⚠️ 이 자리에는 한때 "리스트형 행(아바타 40px + 우측 56px 썸네일 + `+N` 배지 + 단일 컬럼)"으로 개편됐다는 서술이 있었으나, 참조 디자인을 잘못 지정했다가 정정 재작업된 결과 **사실이 아니다**. 실제 구현은 **2열 그리드**: `.feedGrid`(`grid-template-columns: repeat(2, minmax(0,1fr))`, gap 10px) — 참조 원본은 동네지도 "최초 진입 리스트 페이지"의 커뮤니티 탭(바텀시트 아님)이며, 그 dormant CSS가 `pages/map/NeighborhoodMapList.module.css:192-283`에 남아 있고 원본 JSX는 `git show 9fef1a2~1:frontend/src/pages/map/NeighborhoodMap.tsx`의 `.feedGrid` 블록이다. 이 CSS를 `FeedList.module.css`로 복사 이관했고 원본은 무수정. 카드 구성: 사진(`aspect-ratio 1.15`, 없으면 `Newspaper` 아이콘 플레이스홀더) → `.feedAuthor`(아바타 22px + 닉네임 12px/700 ellipsis + 상대시간 10px) → `.feedCaption`(13px, 2줄 클램프, min-height 36px, 캡션 없으면 `feed.noCaption` 폴백) → `.feedMeta`(🔥응원/💬댓글수, 응원은 카운트 0이어도 노출·댓글 수는 0이면 숨김). 카드 컨테이너는 `<button>`이 아니라 **`<article role="button" tabIndex={0}>`**(버튼 중첩 회피) — 클릭/Enter/Space → `/feed/post/:postId`, 내부 버튼 키다운 버블링은 `onKeyDown`의 `e.target !== e.currentTarget` 가드로 무시. **응원(🔥) 토글은 목록에서 살아있다**(`toggleCheer` 낙관적 카운트 갱신, 내부 `<button>` + `stopPropagation`), **아바타·닉네임 탭 → 프로필 페이지(`/profile/:userId`)로 push**(2026-08-13 — 종전 `ProfileCard` 시트에서 전환) — **댓글만 목록에서 불가**(`CommentSheet` 미복원, 댓글 수는 표시 전용이고 카드 클릭이 상세로 위임). 필터칩(전체/내 동네/친구/핫)·데이터 로딩·페이지네이션·`resolveUsableLocation()`은 무변경.
@@ -417,6 +425,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ### 3.5 프로필 (`/profile`)
 
+> 📋 **스토리보드**: 개인 프로필 허브(고정헤더/인증·라운지/거래축/내 피드/게이미피케이션 잔재) [F-P-02 FR-1](../review/storyboard/index.html#F-P-02__FR-1)·[FR-2](../review/storyboard/index.html#F-P-02__FR-2)·[FR-3](../review/storyboard/index.html#F-P-02__FR-3)·[FR-4](../review/storyboard/index.html#F-P-02__FR-4)·[FR-5](../review/storyboard/index.html#F-P-02__FR-5) — 설계 근거·제안·판정은 스토리보드 참조.
+
 - **페이지**: `pages/profile/ProfileMain.tsx` — 3레이어 + 드래거블 시트 구조 (상세: [`frontend.md`](frontend.md) §4)
 - **핵심 컴포넌트**: `StatusBar`, `SkillTree`, `ReviewSheet`, `TradeRow`, `LevelBadge`, `ImageCarousel`, `ItemSvgRenderer`
 - **휴대폰 인증 CTA 카드 (2026-07-17)**: sheetBody 최상단 카드, `user.phoneVerified` 기준 분기 — 미인증 → "휴대폰 인증 필요" 표시 + 탭 시 `/auth/phone-verify` 이동, 인증완료 → "휴대폰 인증 완료" 표시(비탭).
@@ -437,7 +447,11 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
   - 팔로워/팔로잉 카운트 → `/followers/:userId`, `/following/:userId`
   - 친구추가 아이콘 → `/friends/add`(`FriendAdd.tsx`) / `/friends/:userId`(`FriendList.tsx`)
 
-- **다른 사용자 프로필 = 페이지 `/profile/:userId` (2026-08-13 신설, `pages/profile/UserProfile.tsx`)** — 종전 `components/ProfileCard.tsx` **바텀시트를 폐기하고 대체**했다(대표 지적: *"바텀시트 위에 피드리스트가 있으니까 뭔가 불안해"*). SoT [`../task/active/260813_user_profile_page_task.md`](../task/active/260813_user_profile_page_task.md).
+- **다른 사용자 프로필 = 페이지 `/profile/:userId` (2026-08-13 신설, `pages/profile/UserProfile.tsx`)**
+
+  > 📋 **스토리보드**: [F-P-01 FR-1](../review/storyboard/index.html#F-P-01__FR-1)(타인 프로필) · [FR-2](../review/storyboard/index.html#F-P-01__FR-2)(더보기 시트) · [FR-3](../review/storyboard/index.html#F-P-01__FR-3)(내 프로필 미리보기 모드) · [FR-4](../review/storyboard/index.html#F-P-01__FR-4)(매물/게시물 전체 목록, 아래 "가로 레일 전환" 항목의 `/profile/:userId/listings`·`/posts`) — 설계 근거·제안·판정은 스토리보드 참조.
+
+  종전 `components/ProfileCard.tsx` **바텀시트를 폐기하고 대체**했다(대표 지적: *"바텀시트 위에 피드리스트가 있으니까 뭔가 불안해"*). SoT [`../task/active/260813_user_profile_page_task.md`](../task/active/260813_user_profile_page_task.md).
   - **폐기 사유** — 시트 하나에 `프로필 헤더` + `페이지네이션 피드 리스트` + `댓글 오버레이` **3층**이 쌓여 있었다: ①시트 드래그(닫기)와 리스트 스크롤이 충돌 ②시트는 URL 이 없어 뒤로가기 의미·링크 공유가 불가 ③"곧 닫을 임시 표면"과 "계속 이어지는 목록"이라는 반대 신호가 겹침. **시트를 쓴 게 아니라 시트 안에 페이지네이션 리스트를 넣은 것이 결함이었다.**
   - **원칙: 시트는 잎(leaf), 페이지는 탐색(browse).** 인스타그램·Threads·TikTok·당근 공통 — 남의 프로필은 전체 페이지, 시트는 댓글·액션 같은 잎에만. 인스타에는 미니 프로필 시트가 없고 아바타 탭이 곧 페이지 push 이며 댓글은 **페이지 위에 시트**로 뜬다(현행과 층 순서가 정반대였다). 시트로 프로필을 보여주는 Discord 조차 팝오버 안에 리스트를 넣지 않는다.
   - **구성**: 헤더(아바타·닉네임·레벨·인증·라이더스타일) → 팔로워/팔로잉 → 팔로우/메시지 → **게시물 2열 그리드**. 그리드는 `FeedList.module.css` 의 `.feedGrid`/`.feedCard` 문법을 미러(**신규 디자인 0건** — 대표 결정 D-2: 인스타 3열을 베끼기보다 앱 자체 일관성 우선). 카드에서 작성자 행만 제거(한 사람의 프로필이라 같은 아바타·닉네임 반복이 무의미).
@@ -455,7 +469,10 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
       - 성능 주의: `is_reported_by_me` 는 **가드보다 먼저** 계산해 **쿼리 1회로 ①UI 차단 ②신고자 열람** 둘 다 처리한다. 순서를 바꾸면 쿼리가 2회가 된다.
     - 🔴 **신고 자체는 아무것도 숨기지 않는다** — 숨김은 **운영자가 판정한 뒤**의 `HIDDEN`/`REMOVED` 조치일 뿐이다(016 **M1 탐지≠차단**, **A2 오탐 1건 = 공급 1건 손실**). 허위신고는 기각(`REJECTED`)되면 매물이 `ON_SALE` 그대로라 마켓에 계속 노출된다. **"신고당하면 자동으로 내린다"로 바꾸면 악의적 신고 하나로 공급이 죽는다.**
     - **신고 다중성**: `uq_reports_listing_once UNIQUE (listing_id, reporter_id)` — `listing_id` 단독이 아닌 **복합** UNIQUE 라 **n 명이 같은 매물을 신고할 수 있고 같은 사람만 재신고가 막힌다.** 5개 타겟 유형 전부 동일(partial unique index).
-    - ✅ **R-1 구현됨 (2026-08-18)** — **고객센터에 [문의 \| 신고] 2탭**(`pages/settings/CustomerSupport.tsx`, `/settings/support`). 프로필 하위 신규 화면이 아니라 고객센터에 편입한 이유: 목록·상세·답글 루프가 **이미 완성돼 있어 재사용**되고, 016 **B3**(*모든 유입은 하나의 큐로 수렴*)의 사용자 쪽 대칭이기 때문이다. 백엔드 `GET /support/reports`(`support.py:135`, 조회 전용 — `reports` 테이블 그대로 두고 조회만 붙였다. 신고 접수 시 `support_ticket` 동시 생성하는 방식은 **채택하지 않았다**: 같은 사건이 두 테이블에 기록돼 이중 관리·정합성 문제).
+    - ✅ **R-1 구현됨 (2026-08-18)** — **고객센터에 [문의 \| 신고] 2탭**(`pages/settings/CustomerSupport.tsx`, `/settings/support`).
+
+      > 📋 **스토리보드**: 문의 탭 [F-CS-01 FR-1](../review/storyboard/index.html#F-CS-01__FR-1) · 신고 탭 [FR-2](../review/storyboard/index.html#F-CS-01__FR-2) · 새 문의 폼 [FR-3](../review/storyboard/index.html#F-CS-01__FR-3) · 신고 상세 시트 [FR-4](../review/storyboard/index.html#F-CS-01__FR-4) · 문의 스레드(조회 전용, 입력창 없음) [F-CS-02 FR-1](../review/storyboard/index.html#F-CS-02__FR-1) — 설계 근거·제안·판정은 스토리보드 참조.
+ 프로필 하위 신규 화면이 아니라 고객센터에 편입한 이유: 목록·상세·답글 루프가 **이미 완성돼 있어 재사용**되고, 016 **B3**(*모든 유입은 하나의 큐로 수렴*)의 사용자 쪽 대칭이기 때문이다. 백엔드 `GET /support/reports`(`support.py:135`, 조회 전용 — `reports` 테이블 그대로 두고 조회만 붙였다. 신고 접수 시 `support_ticket` 동시 생성하는 방식은 **채택하지 않았다**: 같은 사건이 두 테이블에 기록돼 이중 관리·정합성 문제).
       - 🔴 **결과는 3단계로 뭉갠다** — `_REPORT_STATUS_DISPLAY`(`support.py:25`)가 `PENDING`·`REVIEWING`→**검토 중** / `RESOLVED`→**조치 완료** / `REJECTED`→**위반 아님** 으로 매핑한다. **`result_code`·`resolution_note`(내부 메모 원문)는 응답 스키마(`ReportOut`)에 여전히 필드가 없다** — 상대방에게 어떤 제재가 갔는지, 운영자가 내부적으로 뭐라 적었는지 드러나면 개인정보이자 보복 위험이다. **이 두 필드는 절대 추가하지 마라** — `resolution_note` 가 사용자 응답으로 새지 않는지는 전용 테스트 `test_report_detail_exposure.test_internal_resolution_note_never_leaks_into_output` 로 고정돼 있다.
       - ✅ **신고 피드백 루프 보강 (2026-08-19, `1373bce`)** — `ReportOut` 에 **`note`**(신고자 본인이 접수 시 남긴 코멘트)·**`images`**(첨부사진, imgproxy URL)·**`resolution_summary`**(어드민이 입력하는 공개용 처리 요약 — `resolution_note` 와는 분리된 별도 필드, 원문이 아니라 요약만) 3필드가 추가됐다. 신고 탭 카드를 탭하면 이제 **상세 `BottomSheet`**(내 코멘트·첨부사진·처리결과·재신고 불가 안내·대상 이동 액션)가 열린다 — 대상으로 이동하는 기존 동작은 없앤 게 아니라 시트 안 액션으로 유지(LISTING 외 타입은 여전히 비클릭). 위 "필드를 추가하지 마라" 규약은 **`result_code`/`resolution_note`(내부 원문) 한정**이며 `resolution_summary`(공개용 요약)는 이 규약의 예외로 신설된 필드다 — 혼동하지 말 것. 어드민 종결 모달(`admin-frontend/src/pages/reports/ReportDetailPage.tsx`)에 "신고자 공개 요약 사유" 입력란(선택, `PATCH /admin/api/reports/{id}` `public_resolution_summary`)이 추가됐고, 비워두면 기존 고정 문구로 폴백한다(회귀 없음). DB 컬럼은 `Report.public_resolution_summary`(마이그레이션 `202_report_public_resolution_summary.sql`, `bff_migrate` 등록 완료).
         - **코드리뷰 지적 반영(2026-08-19, `a5960e9`)**: `PATCH /admin/api/reports/{id}` 가 `public_resolution_summary` 를 **상태와 무관하게** 저장하고 있었다 — `REVIEWING` 등 미확정 전이에 값이 실려 오면 신고자에게 확정 전 초안이 그대로 노출됐고, 공백만 보내면 알림 문구가 `"...조치했습니다. 사유:    "` 로 꼬리를 남겼다. `admin_api/reports.py update_report_status` 를 `body.status in ("RESOLVED", "REJECTED")` 일 때만 저장하도록 게이트하고 `.strip() or None` 으로 공백-only 를 None 처리했다. **종결이 아닌 시점에 필드가 오면 422 로 거절하지 않고 조용히 무시한다** — 이 라우터에 "부적절한 시점의 필드"를 422 로 거절하는 기존 패턴이 없어 무시 쪽을 택함(신규 에러 계약을 만들지 않는 선택).
@@ -575,6 +592,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 | `/biz/ads/new` | `pages/biz/BizAdNew.tsx` | 광고 등록(소재+기간) — 제출 시 PENDING |
 | `/biz/ads/:id` | `pages/biz/BizAdDetail.tsx` | 광고 상세(파트너) — 심사 상태·반려 사유·중단/재개 |
 | `/biz/:id` | `pages/biz/BizPublic.tsx` | 공개 비즈프로필(무인증, APPROVED만 200) — 일반 유저가 보는 면. **소식 섹션**(2026-07-12 `b5c008b`, `GET /biz/public/:id/news` 10건 페이지네이션+더보기, 로드 시 `markBizNewsRead`로 지도 핀 unread 뱃지 정합) + **후기 섹션**(2026-07-12, `business_review` init/123 — `GET/POST /biz/public/:id/reviews` wrapper `{reviews,total,avg_rating,has_more}`, UNIQUE(profile_id,user_id) upsert, 작성 시트 `BizReviewSheet.tsx`는 동네지도 + 메뉴와 공용) + **가격 탭(2026-07-27 신규)** — `fetchBizPublicPrices`로 조회, 0건이면 기존 `EmptyArea` 유지·1건 이상이면 실제 목록 렌더, 홈 미리보기는 상위 3건+더보기. **매물 탭(2026-08-11 신규, T-1)** — `fetchListings({ businessProfileId: id })`로 조회, 카드 탭 → `/market/:id`(일반 매물 상세 재사용). 기존 `MarketMain`/지도 카드 CSS 재사용, 신규 스타일시트 없음. **사진 확대(2026-07-27)** — 사진 탭·소식 탭·홈 미리보기(소식·사진)에서 `components/ui/ImageViewer.tsx`(`srcs`+`initialIndex`로 좌우 이동, 소식 썸네일은 `photos[0]` 한 장만이라 `index:0`)로 확대 뷰 지원, 원래 `pages/feed/FeedList.tsx` 안에 있던 것을 공용 컴포넌트로 승격(`FeedList.tsx`는 하위호환 re-export만 남김) — **이름 함정**: `lib/plugins/ImageViewer.ts`는 네이티브 플러그인 타입 정의로 이름만 같고 완전히 다른 파일. **"게시중인 광고" → 준비중 안내로 대치(2026-07-27)** — `lib/adPlacement.ts`의 `ADS_ENABLED`(false 고정)로 분기해 광고 캐러셀 대신 준비중 안내(파트너 라운지가 쓰던 `biz.adsComingSoonDesc` 키 재사용, 신규 키 없음) 노출. 광고 캐러셀 렌더 코드는 삭제하지 않고 else 브랜치로 보존(복원법 주석 포함, 이 저장소의 "기능 숨김은 삭제가 아니라 조건부 렌더" 관례 — `ADS_ENABLED`를 true로 바꾸면 복원). **⚠️ 선재 버그(미수정)**: `App.tsx`에 `path="/biz/:id"` 라우트가 163행·399행 **2번 등록**돼 있다(뒤 정의가 앞을 덮어씀, 동작 영향 없음 — react-router 중복 path 경고 유발 가능성만 있음. 이번 작업과 무관, 기록만). **본인 업체 후기 금지 UX (2026-07-27)**: `BusinessPublicProfileOut`에 `is_owner` 필드 신설(`backend/app/schemas.py:1268`) — `routers/biz.py:977`가 이미 조회한 `profile.user_id`를 `session_uid`와 비교(`session_uid is not None and profile.user_id == session_uid`)해 채우므로 추가 쿼리 없음, 비로그인은 단락평가로 `false`. **본인 업체엔 후기를 쓸 수 없다는 정책 자체는 이전부터 있던 것**(`routers/biz.py:1239` `403 "Cannot review your own business profile"`, 이번에 변경 없음) — 이번 변경은 UX 보완으로, 후기 탭에서 `isOwner`면 "후기 쓰기" 버튼 대신 안내 문구(`biz.review.ownerNotice`)를 노출하고 **후기 목록은 조건과 무관하게 그대로 렌더**(사장님도 열람 가능). `BizReviewSheet.tsx`는 403 `detail` 문자열을 잡아 전용 문구(`biz.review.errorOwner`)로 매핑 — `PhoneVerify.tsx`의 `ERROR_MAP` 방식 미러링, 공용 `extractDetail`(client.ts, 429/409 전용)은 미변경. **사고 이력**: 대표가 "후기 등록에 실패했다"는 토스트를 버그로 신고했으나 실제로는 정상 정책이었다 — 원인은 프론트가 `detail`을 버리고 제너릭 문구만 띄운 것. 백엔드가 `detail`로 이유를 말하면 프론트가 문구로 매핑한다는 관례가 이 저장소에서 세 번째로 확인된 사례(앞선 2건: 휴대폰 번호 형식 클라/서버 불일치, SMS 실발송 502) — 더 나은 처방은 애초에 시도할 수 없게 만드는 것(버튼 숨김+사유 안내). locale ko/en/vi 각 1761키(신규 2개). 신규 테스트 `backend/app/tests/test_biz_public_profile.py` 3건(owner/타인/익명), biz 테스트 총 52건 통과. **위치 지도 카드(2026-07-28 신규)**: 연락처/주소 카드 바로 아래 고정 200px 카드(`.mapCard`)에 `SaigonMapV5`를 lazy+Suspense 로 삽입 — `initialGps={ {lat,lng} }`만 넘기면 컴포넌트 자체 로직(`focusLatLng`)이 자동으로 L3 프레이밍(건물 단계 직전 최소줌)을 잡아준다. `markers`엔 이 업체 1건만 담아 넘기므로(컴포넌트가 스스로 업체 목록을 조회하지 않음) 다른 업체 핀은 뜨지 않는다. 핀 색/글리프는 동네지도 리치카드와 동일한 `BIZ_CAT_COLOR`/`BIZ_CAT_ICON_PATH`(`components/maps/bizCategoryIcons.ts`) 재사용. `lightweight` 모드라 건물/도로 상세(depth3) 에셋은 로드하지 않는다. 좌표(`profile.latitude/longitude`) 없는 업체는 카드 자체 미렌더. |
+
+> 📋 **스토리보드**: [F-BZ-01 FR-1](../review/storyboard/index.html#F-BZ-01__FR-1)(`/biz/:id` 업체 상세) · [F-BZ-02 FR-1](../review/storyboard/index.html#F-BZ-02__FR-1)(`/biz/manage` 파트너 라운지) — 설계 근거·제안·판정은 스토리보드 참조.
 
 - **파트너 라운지 제품 재설계 반영 완료(2026-09-09, 사용자 시안 승인; 위 2026-07~08 이력보다 현재 구조 우선)** — `/biz/manage` 상단은 56px 업체 식별부·다업체 선택과 `운영 | 성과` 탭으로 재구성했다. 운영은 검증 조치, 광고 상태, 소식·가격표·매물·후기 진입을 배치하고 하위 화면에 선택 `profileId`를 전달한다. 광고는 소재 심사·계약·실제 노출을 분리하며 API 권위 값이 없으면 노출을 단정하지 않는다. 성과는 7/14/30일 실제 series로 KPI·날짜·단일 선택 차트·표·비용/CTR을 함께 갱신하고 `ctaPrimary`를 `고객 행동`(전화+단골+찜+후기)으로 정의한다. 최근 20건 길이였던 소식 총계는 제거했고 후기 답글/신고/미답변 필터/페이지네이션과 `adId` 기반 광고 지원은 유지한다. 교차 독립 리뷰, Docker 개발 서버 빌드·기동, 실제 번들 ko/en/vi × 360/390/430 브라우저 매트릭스와 제품 push를 완료했으며 성과 화면은 세 뷰포트 모두 계산된 16px 거터와 문서 overflow 없음도 확인했다. **실기기 확인은 후속**이다. 검토용 [프로토타입](../task/active/260908_partner_lounge_ui/prototype.html)은 보존한다.
 - **알려진 갭 — 업체 상세엔 찜 수 없음 (2026-07-26)**: `GET /biz/public/{profile_id}`(`BizPublic.tsx` 공개 상세)의 `BusinessPublicProfileOut`은 단골 버튼 상태(`follower_count`/`is_following`)만 가지고 있고 `favorite_count`가 없다 — 동네지도 리치카드용 `GET /biz/public/map`에만 추가됐다(§3.3 참조). 업체 상세 화면에 찜 수를 보여주려면 스키마·엔드포인트에 별도 작업이 필요하다.
@@ -698,6 +717,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ## 업체 공개 상세 (`/biz/:id`, `pages/biz/BizPublic.tsx`) — 2026-08-18 개편
 
+> 📋 **스토리보드**: [F-BZ-01 FR-1](../review/storyboard/index.html#F-BZ-01__FR-1) — 이 화면 전체(탭 구성·CTA 바·헤더 아이콘 위계)의 설계 근거·제안·판정은 스토리보드 참조.
+
 ### 탭 5종 (6탭 → 5탭 재구성)
 
 `DETAIL_TABS = ['home', 'news', 'price', 'listings', 'reviews']` — **홈 / 소식 / 가격 / 매물 / 후기**.
@@ -751,6 +772,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 
 ### 소비자 → 업체 신고 (2026-08-18 신규)
 
+> 📋 **스토리보드**: [F-X-02 FR-1](../review/storyboard/index.html#F-X-02__FR-1)(신고 진입점 매트릭스), [F-BZ-01 FR-1](../review/storyboard/index.html#F-BZ-01__FR-1)(헤더 신고 아이콘 노출 방식) — 설계 근거·제안·판정은 스토리보드 참조.
+
 `target_type='BIZ'`(`199`, `reports.business_profile_id` + `uq_reports_biz_once`). **권력 비대칭 해소** — 업체는 후기·유저를 신고할 수 있는데 **소비자만 업체를 신고할 수 없었다.**
 
 - `POST /biz/public/{profile_id}/report` — 사유 6종(`FALSE_ADVERTISING`·`PRICE_MISMATCH`·`POOR_SERVICE`·`IMPERSONATION`·`HEALTH_SAFETY`·`OTHER`). **`IMPERSONATION`→SEV1**(016 §8-2 `P-IMPERSONATE` 와 일치), `HEALTH_SAFETY`→SEV2.
@@ -765,6 +788,8 @@ TabBar 노출 여부는 `AppShell.tsx`의 `HIDE_TABBAR_PATHS`가 제어(인증/�
 ---
 
 ### 문의(DM) 진입점 — CTA 바 재구성 (2026-09-09, 당근 비교 트리아지 F062)
+
+> 📋 **스토리보드**: [F-BZ-01 FR-1](../review/storyboard/index.html#F-BZ-01__FR-1) — 하단 고정 바 [채팅 문의] 주행동 배치 근거는 스토리보드 참조.
 
 공개 업체 프로필의 CTA 바에는 **전화 버튼(`tel:` 딥링크)밖에 없어 채팅으로 문의할 길이 아예 없었다**(파일 전체에 `createConversation` 참조 0건). DM 기능은 완비돼 있는데 업체에서 그리로 들어가는 진입점만 없던 상태.
 
@@ -852,6 +877,8 @@ CTA 바를 **채팅 = 주 행동 / 전화 = 보조 행동** 2열로 재구성했
 ---
 
 ### 가게 쿠폰 — 사업자 발행 · 고객 사용 (2026-09-09 신규, 당근 비교 트리아지 F061)
+
+> 📋 **스토리보드**: [F-BZ-01 FR-1](../review/storyboard/index.html#F-BZ-01__FR-1) — `BizPublic.tsx` 홈 탭 "쿠폰 받기" 요소의 배치·무게 판정은 스토리보드 참조.
 
 단골/팔로우/소식은 있었으나 **"사업자 발행 → 고객 사용" 쿠폰 도메인이 전무**했다. 신규 도메인으로 신설.
 

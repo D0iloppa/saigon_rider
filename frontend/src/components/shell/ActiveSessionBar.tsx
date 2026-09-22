@@ -9,6 +9,10 @@ import { VoiceQueue, type WalkiePresence } from '@d-modules/walkie-talkie';
 import { createWalkieTransport, walkieApi } from '@/lib/walkieSdk';
 import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
 import { WalkieTalkieConsentModal } from '@/components/dm/WalkieTalkieConsentModal';
+import { WalkieChannelPickerSheet } from '@/components/dm/WalkieChannelPickerSheet';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { sendMessage } from '@/api/dm';
+import type { DmConversation } from '@/api/types';
 import { loadSession } from '@/lib/session';
 import { formatDuration } from '@/components/dm/VoiceMessageBubble';
 import { useUserStore } from '@/store/useUserStore';
@@ -526,8 +530,13 @@ type LocationSessionCell = ReturnType<typeof useLocationSessionCell>;
 
 function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat: () => void }) {
   const { t } = useTranslation();
+  const user = useUserStore((s) => s.user);
+  const setActiveConversation = useWalkieTalkieBubbleStore((s) => s.setActiveConversation);
   const longPressTimerRef = useRef<number | null>(null);
   const movedRef = useRef(false);
+  // 롱프레스 메뉴(F-S3-03 FR-3) — [채널 변경][초대장 다시 보내기]. "나가기"는 별도 X 버튼(closeBtn)이 맡는다.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [channelSheetOpen, setChannelSheetOpen] = useState(false);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -542,9 +551,35 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTimerRef.current = null;
       movedRef.current = true;
-      cell.requestClose();
+      setMenuOpen(true);
     }, 450);
-  }, [clearLongPress, cell]);
+  }, [clearLongPress]);
+
+  const handleChangeChannel = useCallback(() => {
+    setMenuOpen(false);
+    setChannelSheetOpen(true);
+  }, []);
+
+  const handleSelectChannel = useCallback(
+    (c: DmConversation) => {
+      const isGroup = c.conversationType !== 'direct';
+      setActiveConversation(c.id, { name: isGroup ? (c.title ?? '') : (c.otherUserNickname ?? ''), isGroup });
+    },
+    [setActiveConversation],
+  );
+
+  const handleResendInvite = useCallback(async () => {
+    setMenuOpen(false);
+    if (!cell.conversationId) return;
+    try {
+      await sendMessage(cell.conversationId, '', {
+        messageType: 'walkie_invite',
+        meta: { invitedByName: user?.nickname ?? '' },
+      });
+    } catch {
+      toast.error(t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' }));
+    }
+  }, [cell.conversationId, t, user]);
 
   const onCellClick = useCallback(() => {
     if (movedRef.current) {
@@ -664,6 +699,24 @@ function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat:
         open={cell.consentOpen}
         onConsent={cell.handleConsentAgree}
         onClose={() => cell.setConsentOpen(false)}
+      />
+
+      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} height="fit">
+        <div className={styles.longPressMenu} role="menu">
+          <button type="button" role="menuitem" className={styles.menuOption} onClick={handleChangeChannel}>
+            {t('walkieTalkie.contextMenuChangeChannel', { defaultValue: '채널 변경' })}
+          </button>
+          <button type="button" role="menuitem" className={styles.menuOption} onClick={handleResendInvite}>
+            {t('walkieTalkie.contextMenuResendInvite', { defaultValue: '초대장 다시 보내기' })}
+          </button>
+        </div>
+      </BottomSheet>
+
+      <WalkieChannelPickerSheet
+        open={channelSheetOpen}
+        onClose={() => setChannelSheetOpen(false)}
+        onSelect={handleSelectChannel}
+        title={t('walkieTalkie.changeChannelTitle', { defaultValue: '채널 변경' })}
       />
     </div>
   );

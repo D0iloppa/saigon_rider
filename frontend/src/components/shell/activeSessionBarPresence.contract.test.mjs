@@ -83,6 +83,21 @@ test('pressing PTT immediately refreshes presence to shrink the 15s heartbeat st
   assert.match(onPTTDownBody, /presenceRefreshRef\.current\?\.\(\);/);
 });
 
+// F-S3-03 FR-3 — 롱프레스는 [채널 변경][초대장 다시 보내기] 메뉴를 연다. "나가기"는 X 버튼(closeBtn)
+// 몫이지 롱프레스가 곧바로 requestClose() 를 부르지 않는다.
+test('long-pressing the walkie cell opens a change-channel / resend-invite menu instead of closing the channel', () => {
+  const onCellPointerDownBody = source.slice(
+    source.indexOf('const onCellPointerDown = useCallback(() => {'),
+    source.indexOf('const handleChangeChannel = useCallback'),
+  );
+  assert.match(onCellPointerDownBody, /setMenuOpen\(true\)/);
+  assert.doesNotMatch(onCellPointerDownBody, /cell\.requestClose\(\)/);
+  assert.match(source, /import \{ WalkieChannelPickerSheet \} from '@\/components\/dm\/WalkieChannelPickerSheet';/);
+  assert.match(source, /walkieTalkie\.contextMenuChangeChannel', \{ defaultValue: '채널 변경' \}/);
+  assert.match(source, /walkieTalkie\.contextMenuResendInvite', \{ defaultValue: '초대장 다시 보내기' \}/);
+  assert.match(source, /messageType: 'walkie_invite'/);
+});
+
 test('no prerender bubble is introduced for in-progress recording (rejected proposal)', () => {
   // addPendingVoice is only ever called once, after the recording is finished (finishAndSend),
   // never at the moment recording starts (startFlow) — no optimistic in-progress bubble.

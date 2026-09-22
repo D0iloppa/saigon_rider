@@ -181,4 +181,27 @@
   color: var(--text-3);
 }
 
+/* 롱프레스 메뉴(F-S3-03 FR-3) — 채널 변경·초대장 재전송. "나가기"는 .closeBtn(X)이 맡는다. */
+.longPressMenu {
+  display: flex;
+  flex-direction: column;
+}
+
+.menuOption {
+  padding: 14px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.menuOption:last-child {
+  border-bottom: none;
+}
+
+.menuOption:active {
+  background: var(--surface-2);
+}
+
 /* 좁은 화면에서 두 칸이 함께 뜨면 채널명이 잘릴 수 있다(문서화된 잔여 위험) — ellipsis 로 흡수. */

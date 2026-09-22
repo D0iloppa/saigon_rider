@@ -68,6 +68,15 @@
   color: var(--text-3);
 }
 
+.badgeApproved {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(52, 168, 83, 0.14);
+  color: var(--success, #2e9c4f);
+}
+
 .cardDesc {
   font-size: 13px;
   color: var(--text-2);

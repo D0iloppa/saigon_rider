@@ -23,7 +23,12 @@ export default function BizStatus() {
           navigate('/biz/intro', { replace: true });
           return;
         }
-        if (list.some((p) => p.status === 'APPROVED')) {
+        // APPROVED 하나 이상 + REJECTED 없음 → 바로 관리 화면으로. REJECTED가 섞여 있으면
+        // 반려 사유/재신청 화면(아래 상태 목록)에 도달할 수 있게 자동 이동을 건너뛴다.
+        if (
+          list.some((p) => p.status === 'APPROVED') &&
+          !list.some((p) => p.status === 'REJECTED')
+        ) {
           navigate('/biz/manage', { replace: true });
           return;
         }
@@ -60,6 +65,7 @@ export default function BizStatus() {
                 className={
                   p.status === 'REJECTED' ? styles.badgeRejected :
                   p.status === 'SUSPENDED' ? styles.badgeSuspended :
+                  p.status === 'APPROVED' ? styles.badgeApproved :
                   styles.badgePending
                 }
               >
@@ -67,7 +73,9 @@ export default function BizStatus() {
                   ? t('biz.statusRejected', { defaultValue: '반려' })
                   : p.status === 'SUSPENDED'
                     ? t('biz.statusSuspended', { defaultValue: '운영 정지' })
-                    : t('biz.statusPending', { defaultValue: '심사중' })}
+                    : p.status === 'APPROVED'
+                      ? t('biz.statusApproved', { defaultValue: '승인' })
+                      : t('biz.statusPending', { defaultValue: '심사중' })}
               </span>
             </div>
             {p.status === 'PENDING' && (
@@ -79,6 +87,15 @@ export default function BizStatus() {
               <p className={styles.cardDesc}>
                 {t('biz.suspendedDesc', { defaultValue: '운영이 정지된 프로필이에요. 자세한 내용은 이메일로 문의해주세요.' })}
               </p>
+            )}
+            {p.status === 'APPROVED' && (
+              <Button
+                size="sm"
+                fullWidth={false}
+                onClick={() => navigate('/biz/manage', { state: { profileId: p.id } })}
+              >
+                {t('biz.manageCta', { defaultValue: '관리하기' })}
+              </Button>
             )}
             {p.status === 'REJECTED' && (
               <>

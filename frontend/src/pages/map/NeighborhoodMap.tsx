@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
-  Heart,
   LocateFixed,
   MapPinned,
   RotateCw,
@@ -209,12 +208,11 @@ export default function NeighborhoodMap() {
             </h1>
           </button>
           <div className={styles.headerActions}>
-            <button type="button" onClick={() => { if (requireAuth()) navigate('/map/search'); }} aria-label={t('map.listFirst.search')}>
+            {/* 검색은 탐색 행동(개인화 아님) — requireAuth 게이트 제거(비로그인도 진입 가능). */}
+            <button type="button" onClick={() => navigate('/map/search')} aria-label={t('map.listFirst.search')}>
               <Search size={23} strokeWidth={2} />
             </button>
-            <button type="button" onClick={() => { if (requireAuth()) navigate('/map/favorites'); }} aria-label={t('map.listFirst.saved')}>
-              <Heart size={24} strokeWidth={2} />
-            </button>
+            {/* 찜 아이콘 제거 — 동네프로필 안 기존 찜 숏컷으로만 접근(중복 입구 제거). */}
             <button type="button" onClick={() => { if (requireAuth()) navigate('/map/profile'); }} aria-label={t('map.neighborhoodProfile.title')}>
               <UserRound size={23} strokeWidth={2} />
             </button>

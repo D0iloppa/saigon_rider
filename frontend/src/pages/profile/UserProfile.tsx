@@ -2,11 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertCircle, Building2, ChevronRight, Coffee, Eye, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
+  AlertCircle, Ban, Building2, ChevronRight, Coffee, Eye, Flag, MoreVertical, Moon, Newspaper, Send, ShoppingBag, Star,
 } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
-import { LevelBadge } from '@/components/ui/LevelBadge';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import { Chip } from '@/components/ui/Chip';
@@ -18,12 +17,13 @@ import { AppImage } from '@/components/ui/AppImage';
 import { toast } from '@/components/ui/Toast';
 import { SessionExpiredError, extractErrorCode } from '@/api/client';
 import { fetchUserProfile, reportUser, USER_REPORT_REASONS, type UserReportReason } from '@/api/profile';
-import { fetchMyFeed, toggleCheer } from '@/api/feed';
+import { fetchMyFeed } from '@/api/feed';
 import { followUser, unfollowUser } from '@/api/follows';
 import { createConversation } from '@/api/dm';
-import { fetchListings, type ListingCard as MarketListing } from '@/api/market';
+import { fetchListings, blockUser, type ListingCard as MarketListing } from '@/api/market';
 import { useUserStore } from '@/store/useUserStore';
 import { useDialogStore } from '@/store/useDialogStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { formatNumber } from '@/lib/format';
 import type { FeedPost, UserProfile as UserProfileData } from '@/api/types';
 import sys from '@/styles/system.module.css';
@@ -61,7 +61,9 @@ export default function UserProfile() {
   const [loadError, setLoadError] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [dmLoading, setDmLoading] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [reported, setReported] = useState(false);
   const [listings, setListings] = useState<MarketListing[] | null>(null);
   const [listingsError, setListingsError] = useState(false);
   const [listingsTotal, setListingsTotal] = useState(0);
@@ -164,6 +166,7 @@ export default function UserProfile() {
     try {
       await reportUser(profile.id, reason);
       setReportOpen(false);
+      setReported(true);
       toast.success(t('follow.reportDone'));
     } catch (err) {
       setReportOpen(false); // 실패해도 닫는다 — 사유를 바꿔도 결과가 같다(MarketDetail 과 동일)
@@ -179,15 +182,34 @@ export default function UserProfile() {
     }
   }
 
-  async function handleCheer(post: FeedPost, e: React.MouseEvent) {
-    e.stopPropagation();
+  // FR-2 제안 ① — 사유 탭과 접수 사이에 확인 1회(파괴적·비가역 행동, P-1). 신설 없이
+  // 앱에 이미 있는 확인 다이얼로그(useConfirmStore)를 쓴다.
+  function handleReasonPick(reason: UserReportReason) {
+    setReportOpen(false);
+    useConfirmStore.getState().open(
+      { mode: 'text', value: t('follow.reportConfirm', { defaultValue: '이 사유로 신고할까요?' }) },
+      () => void handleReport(reason),
+    );
+  }
+
+  async function handleBlock() {
+    if (!profile) return;
     try {
-      const { cheered, count } = await toggleCheer(post.id);
-      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, iCheered: cheered, cheerCount: count } : p)));
+      await blockUser(profile.id);
+      setMoreOpen(false);
+      toast.success(t('market.blockDone', { defaultValue: '차단했어요' }));
     } catch {
-      // 조용한 실패 + unhandled rejection 을 남기지 않는다.
-      toast.error(t('feed.cheerError', { defaultValue: '잠시 후 다시 시도해 주세요' }));
+      toast.error(t('market.blockError', { defaultValue: '처리에 실패했어요' }));
     }
+  }
+
+  // FR-2 제안 ①·② — 차단도 종료·비가역이므로 같은 확인 다이얼로그를 거친다.
+  function handleBlockPick() {
+    setMoreOpen(false);
+    useConfirmStore.getState().open(
+      { mode: 'text', value: t('follow.blockConfirm', { defaultValue: '이 사용자를 차단할까요? 더 이상 메시지를 주고받을 수 없어요' }) },
+      () => void handleBlock(),
+    );
   }
 
   const riderStyleLabel = profile?.riderStyle === 'commuter'
@@ -222,7 +244,7 @@ export default function UserProfile() {
           <button
             type="button"
             className={styles.moreBtn}
-            onClick={() => setReportOpen(true)}
+            onClick={() => setMoreOpen(true)}
             aria-label={t('follow.report')}
           >
             <MoreVertical size={20} strokeWidth={2.2} />
@@ -247,6 +269,13 @@ export default function UserProfile() {
               <div className={styles.previewBanner} role="status">
                 <Eye size={15} strokeWidth={2.2} />
                 <span>{t('userProfile.selfPreview')}</span>
+                <button
+                  type="button"
+                  className={styles.previewEditBtn}
+                  onClick={() => navigate('/settings/profile')}
+                >
+                  {t('settings.editProfile')}
+                </button>
               </div>
             )}
             <div className={styles.header}>
@@ -259,7 +288,6 @@ export default function UserProfile() {
               <div className={styles.info}>
                 <div className={styles.nickRow}>
                   <span className={styles.nickname}>{profile.nickname ?? 'Unknown'}</span>
-                  <LevelBadge level={profile.level} />
                   <VerifiedBadge verified={profile.isPhoneVerified} phoneMasked={profile.phoneMasked} />
                   {/* WP-4(2026-09-09, F049) — 서버가 변환한 티어만 받는다(tier prop),
                       원값 manner_temp 는 이 응답에 아예 없다. MarketDetail 의 판매자 신뢰뱃지 그룹과
@@ -286,45 +314,56 @@ export default function UserProfile() {
               </div>
             </div>
 
+            {/* FR-1 제안 ③ — 신뢰 섹션을 액션행 위로: 판단 재료를 보고 나서 행동을 고르는 순서 */}
+            <section className={styles.trustSection} aria-labelledby="profile-trust-title">
+              <h2 id="profile-trust-title">{t('userProfile.trustSection')}</h2>
+              {/* FR-1 제안 ⑥ — 평점 없음·거래 0건인 신규 사용자는 "판단 불가"가 "나쁨"으로
+                  읽히지 않게 빈 상태 문구로 대체한다(행동 유도 CTA 없음 — 판단 재료일 뿐). */}
+              {profile.marketplaceAvgRating === null && profile.marketplaceSoldCount === 0 ? (
+                <StateBlock icon={Star} title={t('userProfile.trustEmpty', { defaultValue: '아직 거래 기록이 없는 사용자입니다' })} />
+              ) : (
+                <dl className={styles.trustGrid}>
+                  {profile.memberSince && <div>
+                    <dt>{t('userProfile.memberSince')}</dt>
+                    <dd className="num">{new Intl.DateTimeFormat(i18n.language, { year: 'numeric', month: 'short' }).format(new Date(profile.memberSince))}</dd>
+                  </div>}
+                  <div>
+                    <dt>{t('userProfile.completedSales')}</dt>
+                    <dd className="num">{t('userProfile.countValue', { count: profile.marketplaceSoldCount })}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('userProfile.marketReviews')}</dt>
+                    <dd className="num"><Star size={13} /> {profile.marketplaceAvgRating === null ? '—' : profile.marketplaceAvgRating.toFixed(1)} · {profile.marketplaceReviewCount}</dd>
+                  </div>
+                </dl>
+              )}
+            </section>
+
+            {/* FR-1 제안 ① — 액션행 위계 반전: DM(연락하기)이 채움 버튼(주행동), 팔로우는
+                외곽선(보조). 매물 상세 하단 바([채팅]만 채움)와 같은 위계(B0-4). */}
             {isOther && (
               <div className={styles.actionRow}>
                 <Button
-                  variant={profile.isFollowing ? 'secondary' : 'primary'}
+                  variant="primary"
+                  onClick={handleDm}
+                  disabled={dmLoading}
+                  loading={dmLoading}
+                  className={styles.dmBtn}
+                >
+                  <Send size={18} strokeWidth={2.2} />
+                  {t('follow.dmBtn', { defaultValue: '메시지' })}
+                </Button>
+                <Button
+                  variant="secondary"
                   onClick={handleToggleFollow}
                   disabled={toggling}
+                  fullWidth={false}
                   className={styles.followBtn}
                 >
                   {profile.isFollowing ? t('follow.unfollowBtn') : t('follow.followBtn')}
                 </Button>
-                <button
-                  type="button"
-                  className={styles.dmBtn}
-                  onClick={handleDm}
-                  disabled={dmLoading}
-                  aria-label={t('follow.dmBtn', { defaultValue: '메시지' })}
-                >
-                  <Send size={18} strokeWidth={2.2} />
-                </button>
               </div>
             )}
-
-            <section className={styles.trustSection} aria-labelledby="profile-trust-title">
-              <h2 id="profile-trust-title">{t('userProfile.trustSection')}</h2>
-              <dl className={styles.trustGrid}>
-                {profile.memberSince && <div>
-                  <dt>{t('userProfile.memberSince')}</dt>
-                  <dd className="num">{new Intl.DateTimeFormat(i18n.language, { year: 'numeric', month: 'short' }).format(new Date(profile.memberSince))}</dd>
-                </div>}
-                <div>
-                  <dt>{t('userProfile.completedSales')}</dt>
-                  <dd className="num">{t('userProfile.countValue', { count: profile.marketplaceSoldCount })}</dd>
-                </div>
-                <div>
-                  <dt>{t('userProfile.marketReviews')}</dt>
-                  <dd className="num"><Star size={13} /> {profile.marketplaceAvgRating === null ? '—' : profile.marketplaceAvgRating.toFixed(1)} · {profile.marketplaceReviewCount}</dd>
-                </div>
-              </dl>
-            </section>
 
             <div className={styles.sectionHead}>
               <h2>{t('userProfile.marketSection')}</h2>
@@ -395,7 +434,6 @@ export default function UserProfile() {
                     <ProfileFeedCard
                       post={p}
                       onClick={() => navigate(`/feed/post/${p.id}`)}
-                      onCheer={(e) => void handleCheer(p, e)}
                     />
                   </div>
                 ))}
@@ -405,12 +443,35 @@ export default function UserProfile() {
         )}
       </div>
 
+      {/* FR-2 제안 ② — 더보기 시트를 [신고하기][차단하기(위험 톤)] 2행으로. 신고 사유
+          리스트는 [신고하기] 탭 뒤 2단계(별도 시트)로 내린다. 차단은 기존 blockUser() 재사용. */}
+      <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+        <button
+          type="button"
+          className={styles.reportItem}
+          disabled={reported}
+          onClick={() => { setMoreOpen(false); setReportOpen(true); }}
+        >
+          <Flag size={16} strokeWidth={2.2} />
+          {reported ? t('follow.reportedAlready', { defaultValue: '신고함' }) : t('follow.report')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.reportItem} ${styles.reportItemDanger}`}
+          onClick={handleBlockPick}
+        >
+          <Ban size={16} strokeWidth={2.2} />
+          {t('follow.block', { defaultValue: '이 사용자 차단' })}
+        </button>
+      </BottomSheet>
+
       {/* 신고 사유 — 이제 페이지이므로 공용 BottomSheet 를 그대로 쓸 수 있다.
-          시트 안 시트였던 종전에는 z-index 가 겹쳐 자체 오버레이를 따로 만들어야 했다. */}
+          시트 안 시트였던 종전에는 z-index 가 겹쳐 자체 오버레이를 따로 만들어야 했다.
+          FR-2 제안 ① — 사유 탭 → 접수 사이에 확인 1회(handleReasonPick 이 useConfirmStore 를 연다). */}
       <BottomSheet open={reportOpen} onClose={() => setReportOpen(false)}>
         <h2 className={styles.reportTitle}>{t('follow.reportTitle')}</h2>
         {USER_REPORT_REASONS.map((r) => (
-          <button key={r} type="button" className={styles.reportItem} onClick={() => void handleReport(r)}>
+          <button key={r} type="button" className={styles.reportItem} onClick={() => handleReasonPick(r)}>
             {t(`follow.reportReason_${r}`)}
           </button>
         ))}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, MessageCircle, MessagesSquare, Newspaper, Plus, UserCheck, UserX, UsersRound } from 'lucide-react';
+import { Flame, MessageCircle, MessagesSquare, Newspaper, Plus, UsersRound } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { formatRelativeTime } from '@/lib/format';
 import { getGroup, joinGroup, listMembers, removeGroupMember, approveMember, listGroupPosts } from '@/api/community_groups';
 import { toggleCheer } from '@/api/feed';
 import { toast } from '@/components/ui/Toast';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { useUserStore } from '@/store/useUserStore';
 import type { CommunityGroup, CommunityGroupMember, FeedPost } from '@/api/types';
 import feedStyles from '@/pages/feed/FeedList.module.css';
@@ -242,13 +243,21 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
       .finally(() => setLoading(false));
   }, [group.id, isMember, canManage]);
 
-  const handleRemove = async (userId: string) => {
-    try {
-      await removeGroupMember(group.id, userId);
-      setMembers((prev) => prev.filter((m) => m.userId !== userId));
-    } catch {
-      toast.error(t('common.errorUnexpected'));
-    }
+  const handleRemove = (userId: string) => {
+    useConfirmStore.getState().open(
+      t('communityGroup.removeMemberConfirm'),
+      async () => {
+        try {
+          await removeGroupMember(group.id, userId);
+          useConfirmStore.getState().close();
+          setMembers((prev) => prev.filter((m) => m.userId !== userId));
+        } catch {
+          useConfirmStore.getState().close();
+          toast.error(t('common.errorUnexpected'));
+        }
+      },
+      { confirmLabel: t('communityGroup.removeMember') },
+    );
   };
 
   const handleApprove = async (userId: string) => {
@@ -282,11 +291,10 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
               <span className={styles.memberName}>{m.nickname ?? '—'}</span>
               <button
                 type="button"
-                aria-label={t('communityGroup.approveMember')}
+                className={styles.memberAction}
                 onClick={() => handleApprove(m.userId)}
-                style={{ background: 'none', border: 'none', color: 'var(--primary, #3b82f6)', cursor: 'pointer' }}
               >
-                <UserCheck size={16} strokeWidth={2.2} />
+                {t('communityGroup.approveMember')}
               </button>
             </div>
           ))}
@@ -300,11 +308,10 @@ function MembersTab({ group, isMember, myUserId, t }: any) {
           {canManage && m.userId !== myUserId && (
             <button
               type="button"
-              aria-label={t('communityGroup.removeMember')}
+              className={`${styles.memberAction} ${styles.memberActionDanger}`}
               onClick={() => handleRemove(m.userId)}
-              style={{ background: 'none', border: 'none', color: 'var(--danger, #e5484d)', cursor: 'pointer' }}
             >
-              <UserX size={16} strokeWidth={2.2} />
+              {t('communityGroup.removeMember')}
             </button>
           )}
         </div>

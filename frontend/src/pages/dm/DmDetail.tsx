@@ -7,6 +7,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import { StarIcon } from '@/components/ui/StarIcon';
 import { MessageComposer, type MessageComposerHandle } from '@/components/ui/MessageComposer';
+import { ActiveSessionBar } from '@/components/shell/ActiveSessionBar';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import { api, extractErrorCode } from '@/api/client';
@@ -1434,17 +1435,9 @@ export default function DmDetail() {
                 )}
               </button>
             )}
-            {/* 워키토키 승격(대표 지시 2026-08-28) — 1:1·그룹 공통. "채널 열기"가 아니라
-                "이 방의 채널에 참여"다. 종전엔 "..." 메뉴 안에 묻혀 있어 발견성이 낮았다. */}
-            <button
-              className={styles.headerMoreBtn}
-              type="button"
-              onClick={handleWalkieJoin}
-              aria-label={t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' })}
-              data-active={walkieActiveConversationId === conversationId || undefined}
-            >
-              <Radio size={21} strokeWidth={2} />
-            </button>
+            {/* 워키토키 헤더 아이콘 제거(260919 리뷰킷 F-S3-01 FR-1 / F-S3-03 FR-1) — 헤더는
+                [뒤로][프로필][더보기] 셋으로. 무전기 진입은 약속 카드 [무전기] 버튼과 초대 카드
+                [참여하기] 두 곳(ActiveSessionBar 가 고정 바로 대체)으로 좁힌다. */}
             <button
               className={styles.headerMoreBtn}
               type="button"
@@ -1523,13 +1516,22 @@ export default function DmDetail() {
 
       {/* 매물 컨텍스트 카드 — direct 전용 (마켓 문의 대화) */}
       {isDirect && listing && (
-        <button className={styles.contextCard} type="button" onClick={() => navigate(`/market/${listing.id}`)}>
-          <AppImage src={listing.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
-          <div className={styles.contextInfo}>
-            <span className={styles.contextTitle}>{listing.title}</span>
-            <span className={styles.contextPrice}>{formatPriceVnd(listing.priceVnd, t)}</span>
-          </div>
-        </button>
+        <div className={styles.contextCardRow}>
+          <button className={styles.contextCard} type="button" onClick={() => navigate(`/market/${listing.id}`)}>
+            <AppImage src={listing.thumbnailUrl ?? undefined} alt="" className={styles.contextThumb} />
+            <div className={styles.contextInfo}>
+              <span className={styles.contextTitle}>{listing.title}</span>
+              <span className={styles.contextPrice}>{formatPriceVnd(listing.priceVnd, t)}</span>
+            </div>
+          </button>
+          {/* 약속 잡기 칩(260919 리뷰킷 F-S4-01 FR-1) — 서비스 차별점의 입구를 "+" 메뉴 6항목
+              동열에서 매물 카드 옆으로 승격. 기존 핸들러(handleOpenAppt) 재사용, "+" 메뉴 항목은 유지 */}
+          {conv?.appointmentUnlocked && listing.status !== 'SOLD' && (
+            <button className={styles.contextApptChip} type="button" onClick={handleOpenAppt}>
+              {t('dm.makeAppointment', { defaultValue: '약속잡기' })}
+            </button>
+          )}
+        </div>
       )}
 
       {/* 거래완료 시: 내 후기 있으면 표시, 없으면 후기 보내기 (REF-05) — direct 전용 */}
@@ -1662,7 +1664,13 @@ export default function DmDetail() {
             const isSeller = !!appt?.sellerId && appt.sellerId === myId;
             const canAccept = !!appt && status === 'PROPOSED' && !iAmProposer;
             const canComplete = !!appt && status === 'ACCEPTED' && isSeller;
-            const canCancel = !!appt && (status === 'PROPOSED' || status === 'ACCEPTED');
+            // 신고(PAYMENT_REPORTED) 이후에는 서버도 취소를 막는다(TradeTransaction.tsx cancelTrade
+            // 의 "payment is reported" 케이스) — 260919 리뷰킷 F-X-01 FR-1 ⓑ, 거래 화면과 취소
+            // 가능 조건을 여기서도 같은 tradeBannerTx(현재 활성 약속에 한해 조회됨) 기준으로 맞춘다.
+            const apptTx = appt?.id === currentAppointmentId ? tradeBannerTx : null;
+            const paymentReported = apptTx?.paymentStatus === 'PAYMENT_REPORTED' || apptTx?.paymentStatus === 'PAYMENT_CONFIRMED';
+            const canCancel = !!appt && (status === 'PROPOSED' || (status === 'ACCEPTED' && !paymentReported));
+            const cancelBlockedByReport = !!appt && status === 'ACCEPTED' && paymentReported;
             // S-16: 완료 요청은 ACCEPTED 의 하위 상태 — 거절된 요청은 "요청 없음"으로 되돌려 재요청을 허용한다.
             const completionPending = !!appt?.completionRequestedAt && !appt.completionDeclinedAt;
             const canRequestCompletion = !!appt && status === 'ACCEPTED' && !isSeller && !completionPending;
@@ -1714,8 +1722,11 @@ export default function DmDetail() {
                       : t('dm.apptCompletionDismissedNote', { defaultValue: '완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.' })}
                   </p>
                 )}
-                {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만 — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소) */}
-                {appt?.id === currentAppointmentId && (
+                {/* 이 약속이 현재 활성 약속(currentAppointmentId)일 때만, 그리고 ACCEPTED 상태에서만
+                    — 채널을 이 약속에 연결(목적지 초기값 = 약속 장소). SOLD/COMPLETED 이후엔 진행
+                    도구를 남기지 않는다(260919 리뷰킷 F-S7-01 FR-2). 무전기 버튼은 위치공유와 같은
+                    성격 묶음(F-S3-03 FR-5, F-S5-01 FR-1 ⓒ) — 헤더에서 제거한 진입을 여기로 옮긴다. */}
+                {appt?.id === currentAppointmentId && status === 'ACCEPTED' && (
                   <div className={styles.apptLiveLocationRow}>
                     <button className={styles.apptBtnGhost} type="button"
                       onClick={() => startLiveLocation({
@@ -1724,6 +1735,9 @@ export default function DmDetail() {
                         sendInvite: true,
                       })}>
                       <MapPin size={14} /> {t('dm.locationShare', { defaultValue: '위치공유' })}
+                    </button>
+                    <button className={styles.apptBtnGhost} type="button" onClick={handleWalkieJoin}>
+                      <Radio size={14} /> {t('dm.moreMenuWalkieTalkie', { defaultValue: '워키토키' })}
                     </button>
                   </div>
                 )}
@@ -1745,9 +1759,18 @@ export default function DmDetail() {
                 )}
                 {(canComplete || canRequestCompletion || canDeclineCompletion) && (
                   <div className={styles.apptCompletionActions}>
+                    {/* 거래 완료 처리에 확인 1회(260919 리뷰킷 F-S7-01 FR-1) — SOLD 복귀 불가한
+                        비가역 행위인데 확인 없이 즉시 실행됐다 */}
                     {canComplete && (
                       <button className={styles.apptBtnGhost} type="button" disabled={sending}
-                        onClick={() => handleAppointmentAction(completeAppointment, appt.id)}>
+                        onClick={() => useConfirmStore.getState().open(
+                          t('dm.apptCompleteConfirm', { defaultValue: '정말 거래를 완료 처리할까요? 이후에는 되돌릴 수 없어요.' }),
+                          () => {
+                            useConfirmStore.getState().close();
+                            handleAppointmentAction(completeAppointment, appt.id);
+                          },
+                          { confirmLabel: t('dm.apptComplete', { defaultValue: '거래 완료' }) },
+                        )}>
                         {t('dm.apptComplete', { defaultValue: '거래 완료' })}
                       </button>
                     )}
@@ -1774,7 +1797,7 @@ export default function DmDetail() {
                     {t('dm.apptNavigationRetry', { defaultValue: '정확한 장소 다시 확인' })}
                   </button>
                 )}
-                {(showNav || canCancel) && (
+                {(showNav || canCancel || cancelBlockedByReport) && (
                   <div className={styles.apptSecondaryActions}>
                     {showNav && (
                       <button className={styles.apptBtnGhost} type="button"
@@ -1783,10 +1806,35 @@ export default function DmDetail() {
                         {t('dm.navigate', { defaultValue: '길안내' })}
                       </button>
                     )}
+                    {/* 약속 취소에 확인 1회(260919 리뷰킷 F-S5-01 FR-1 ⓐ, F-X-01 FR-1 ⓐ) — 거래
+                        화면의 [거래 취소]와 같은 서버 동작이므로 같은 useConfirmStore 문구를 재사용해
+                        중복 구현하지 않는다. PROPOSED 단계의 제안 취소/거절은 성립 전이라 손실이
+                        없어(기존 판정대로) 확인 없이 그대로 둔다. */}
                     {canCancel && (
                       <button className={`${styles.apptBtnGhost} ${styles.apptBtnDanger}`} type="button" disabled={sending}
-                        onClick={() => handleAppointmentAction(cancelAppointment, appt.id)}>
+                        onClick={() => {
+                          if (status === 'ACCEPTED') {
+                            useConfirmStore.getState().open(
+                              t('dm.tradeCancelConfirm'),
+                              () => {
+                                useConfirmStore.getState().close();
+                                handleAppointmentAction(cancelAppointment, appt.id);
+                              },
+                              { confirmLabel: t('dm.tradeCancelConfirmCta') },
+                            );
+                          } else {
+                            handleAppointmentAction(cancelAppointment, appt.id);
+                          }
+                        }}>
                         {cancelLabel}
+                      </button>
+                    )}
+                    {/* 신고 이후엔 취소 버튼을 감추고 고객센터 안내로 대체(F-X-01 FR-1 ⓑ) — 실행 불가한
+                        종료 액션을 진행 카드에 남기지 않는다 */}
+                    {cancelBlockedByReport && (
+                      <button className={styles.apptBtnGhost} type="button"
+                        onClick={() => navigate('/settings/support')}>
+                        {t('dm.apptCancelBlocked', { defaultValue: '취소 불가 — 고객센터 문의' })}
                       </button>
                     )}
                   </div>
@@ -2138,6 +2186,9 @@ export default function DmDetail() {
         </div>
       )}
 
+      {/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 채팅방에서는 입력창 바로 위 in-flow. */}
+      <ActiveSessionBar variant="inline" />
+
       <MessageComposer
         ref={composerRef}
         onSend={handleSend}
@@ -2285,15 +2336,9 @@ export default function DmDetail() {
           >
             {t('dm.moreMenuReport', { defaultValue: '신고하기' })}
           </button>
-          {isDirect && (
-            <button
-              className={styles.reportItem}
-              type="button"
-              onClick={() => { setMoreSheetOpen(false); startLiveLocation({ sendInvite: true }); }}
-            >
-              {t('dm.moreMenuLocationShare', { defaultValue: '위치 공유하기' })}
-            </button>
-          )}
+          {/* 위치 공유하기 항목 제거(260919 리뷰킷 F-S3-01 FR-2) — 진입로가 이미 "+" 메뉴와
+              활성 약속 카드 두 곳에 있어 세 번째 진입로가 종료 행위(신고·나가기) 사이에 끼면
+              오탭 시 상대에게 실시간 위치를 전송하는 사고로 이어진다. */}
           {!isDirect && (
             <button
               className={styles.reportItem}

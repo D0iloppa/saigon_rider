@@ -38,6 +38,15 @@ export async function createTicket(title: string, body: string): Promise<Support
   });
 }
 
+// F-CS-02 FR-1 제안 ① — 답글 API는 이미 있었다(backend/app/routers/support.py:117), 프론트 소비만 없었다.
+export async function createReply(id: string, body: string): Promise<SupportTicketDetail> {
+  return api.realFetch<SupportTicketDetail>(`/support/tickets/${id}/replies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  });
+}
+
 // R-1(260817 §12-B) — 내 신고 목록 (조회 전용). status 는 서버가 이미 REVIEWING/RESOLVED/REJECTED
 // 3단계로 뭉갠 값만 내려준다 — result_code/resolution_note 원본은 응답에 없음.
 export interface Report {

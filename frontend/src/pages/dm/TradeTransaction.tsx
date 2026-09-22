@@ -211,10 +211,17 @@ export default function TradeTransaction() {
                     accept="image/png,image/jpeg,image/webp,image/gif"
                     onChange={replaceQr}
                   />
-                  <Button variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
+                  <Button
+                    variant={transaction.qrMessageId ? 'secondary' : 'primary'}
+                    disabled={busy}
+                    onClick={() => fileRef.current?.click()}
+                  >
                     <ImagePlus size={17} />
                     {transaction.qrMessageId ? t('dm.tradeQrReplace') : t('dm.tradeQrRegister')}
                   </Button>
+                  {!transaction.qrMessageId && (
+                    <p className={styles.safetyNote}>{t('dm.tradeQrRegisterOptionalNote')}</p>
+                  )}
                 </>
               )}
             </section>
@@ -252,7 +259,18 @@ export default function TradeTransaction() {
               </Button>
             )}
             {transaction.viewerRole === 'seller' && transaction.appointmentStatus === 'ACCEPTED' && reported && !confirmed && (
-              <Button fullWidth disabled={busy} onClick={() => updatePayment('confirm')}>
+              <Button
+                fullWidth
+                disabled={busy}
+                onClick={() => useConfirmStore.getState().open(
+                  t('dm.tradeConfirmReceiptConfirm'),
+                  () => {
+                    useConfirmStore.getState().close();
+                    updatePayment('confirm');
+                  },
+                  { confirmLabel: t('dm.tradeConfirmReceiptConfirmCta') },
+                )}
+              >
                 {t('dm.tradeConfirmReceipt')}
               </Button>
             )}

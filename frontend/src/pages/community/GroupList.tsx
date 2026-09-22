@@ -77,7 +77,12 @@ export default function GroupList() {
         </div>
 
         {!isLoading && groups.length === 0 ? (
-          <StateBlock icon={UsersRound} title={t('communityGroup.empty')} />
+          <StateBlock
+            icon={UsersRound}
+            title={t('communityGroup.empty')}
+            actionLabel={t('communityGroup.createTitle')}
+            onAction={() => navigate('/community/groups/new')}
+          />
         ) : (
           <div className={styles.list}>
             {groups.map((g) => (

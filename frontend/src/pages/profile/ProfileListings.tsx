@@ -34,7 +34,13 @@ export default function ProfileListings() {
         ) : error ? (
           <StateBlock icon={AlertCircle} tone="error" title={t('userProfile.marketError')} actionLabel={t('common.retry')} onAction={reset} />
         ) : listings.length === 0 ? (
-          <StateBlock icon={ShoppingBag} title={t('userProfile.marketEmpty')} />
+          // FR-4 제안 ③ — 빈 상태 CTA(B0-4): 타인 프로필이므로 생성이 아니라 레일로 되돌아가기
+          <StateBlock
+            icon={ShoppingBag}
+            title={t('userProfile.marketEmpty')}
+            actionLabel={t('common.back', { defaultValue: '뒤로' })}
+            onAction={() => navigate(-1)}
+          />
         ) : (
           <>
             <div className={styles.grid}>

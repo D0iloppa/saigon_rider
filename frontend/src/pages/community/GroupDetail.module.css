@@ -85,6 +85,20 @@
   color: var(--text-3);
 }
 
+.memberAction {
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.memberActionDanger {
+  color: var(--danger, #e5484d);
+}
+
 .writeFab {
   position: fixed;
   right: 20px;

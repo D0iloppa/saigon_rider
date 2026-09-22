@@ -646,6 +646,29 @@ async def post_comment(
     return _enrich_comment(comment, user)
 
 
+# F-6b (신규)
+@router.delete("/{post_id}/comments/{comment_id}", status_code=204, summary="댓글 삭제 (본인만)")
+async def delete_comment(
+    post_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    body: FeedDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    _session_uid: uuid.UUID = Depends(verify_user_session),
+):
+    post = await _get_post_or_404(post_id, db)
+    comment = (
+        await db.execute(select(PostComment).where(PostComment.id == comment_id, PostComment.post_id == post_id))
+    ).scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if body.user_id != _session_uid or comment.user_id != _session_uid:
+        raise HTTPException(status_code=403, detail="Not the comment owner")
+
+    post.comment_count = max(post.comment_count - 1, 0)
+    await db.delete(comment)
+    await db.commit()
+
+
 # F-7 (신규)
 @router.post("/{post_id}/comments/{comment_id}/like", response_model=LikeToggleResponse, summary="댓글 좋아요 토글")
 async def toggle_comment_like(

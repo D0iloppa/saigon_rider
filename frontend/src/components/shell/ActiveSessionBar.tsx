@@ -1,0 +1,675 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Mic, Square, X, MapPinned, Users } from 'lucide-react';
+import { HIDE_TABBAR_PATHS } from '@/components/layout/AppShell';
+import { native, type WalkieTalkieCapability } from '@/lib/native';
+import type { WalkieTalkieRecordingResult } from '@/lib/plugins/walkieTalkie';
+import { VoiceQueue, type WalkiePresence } from '@d-modules/walkie-talkie';
+import { createWalkieTransport, walkieApi } from '@/lib/walkieSdk';
+import { hasWalkieTalkieConsent, isWalkieTalkieOptedOut } from '@/lib/walkieTalkieConsent';
+import { WalkieTalkieConsentModal } from '@/components/dm/WalkieTalkieConsentModal';
+import { loadSession } from '@/lib/session';
+import { useUserStore } from '@/store/useUserStore';
+import { useWalkieTalkieBubbleStore, type WalkieTalkieConversationMeta } from '@/store/useWalkieTalkieBubbleStore';
+import { useLocationChannelStore } from '@/store/useLocationChannelStore';
+import { useLiveLocationChannelRuntime } from '@/components/location/useLiveLocationChannelRuntime';
+import { LiveLocationModal } from '@/components/location/LiveLocationModal';
+import { leaveLocationChannel } from '@/api/locationChannel';
+import { useConfirmStore } from '@/store/useConfirmStore';
+import { toast } from '@/components/ui/Toast';
+import { playSound } from '@/lib/sound';
+import styles from './ActiveSessionBar.module.css';
+
+// 'playing' — 수신 음성메시지 자동재생 중. 재생 완료까지는 송신(PTT)을 잠근다(반이중 에티켓).
+type Phase = 'idle' | 'permissionDenied' | 'recording' | 'autoStopped' | 'uploading' | 'playing';
+
+// 채팅방(DmDetail) 라우트 패턴 — 이 화면에서는 App.tsx 전역 인스턴스를 숨기고 DmDetail 이
+// 입력창 바로 위에 자체 인스턴스를 렌더한다(F-N-01 FR-2 "채팅방: 입력창 위").
+const DM_DETAIL_PATH = /^\/dm\/[^/]+$/;
+const PRESENCE_HEARTBEAT_MS = 15000;
+
+/**
+ * 워키토키 세션의 실제 로직(캡슐/드래그/펼침/컨텍스트메뉴는 없음) — 녹음 시작/정지, 채널
+ * join/leave, 수신 음성 자동재생 큐는 WalkieTalkieFloatingButton 과 동일한 근거로 유지한다.
+ * PTT(누르는 동안 녹음)로 상호작용만 바뀐다(F-N-01 FR-2 제안).
+ */
+function useWalkieSessionCell() {
+  const { t } = useTranslation();
+  const user = useUserStore((s) => s.user);
+  const isAuthenticated = useUserStore((s) => s.isAuthenticated);
+  const session = loadSession();
+  const conversationId = useWalkieTalkieBubbleStore((s) => s.activeConversationId);
+  const conversationMeta = useWalkieTalkieBubbleStore((s) => s.activeConversationMeta);
+  const closeBubble = useWalkieTalkieBubbleStore((s) => s.close);
+  const setStoreRecording = useWalkieTalkieBubbleStore((s) => s.setRecording);
+
+  const [capability, setCapability] = useState<WalkieTalkieCapability | null>(null);
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [presence, setPresence] = useState<WalkiePresence | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [queue, setQueue] = useState<{ id: string; audioUrl: string }[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const phaseRef = useRef<Phase>('idle');
+  const pendingResultRef = useRef<WalkieTalkieRecordingResult | null>(null);
+  const manualStopRef = useRef(false);
+  const conversationIdRef = useRef<string | null>(null);
+  const presenceRefreshRef = useRef<(() => void) | null>(null);
+  const sentPendingIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    phaseRef.current = phase;
+    setStoreRecording(phase === 'recording' || phase === 'autoStopped');
+  }, [phase, setStoreRecording]);
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  const notifyRecordingStop = useCallback(() => {
+    const id = conversationIdRef.current;
+    if (id) walkieApi.setSpeaking(id, false).catch(() => {});
+    playSound('walkie_ptt_end');
+  }, []);
+
+  useEffect(() => {
+    native.walkieTalkie.getCapability().then(setCapability).catch(() => setCapability(null));
+  }, []);
+
+  // 녹음 상태 이벤트 구독 — 60초 자동중지(D-4) 감지. 자동 전송은 하지 않는다(사용자 확정).
+  useEffect(() => {
+    if (!capability?.record) return;
+    let handle: { remove: () => void } | null = null;
+    let cancelled = false;
+    native.walkieTalkie
+      .addListener('recordingState', (s) => {
+        if (s.state === 'idle' && !manualStopRef.current && phaseRef.current === 'recording') {
+          manualStopRef.current = true;
+          setPhase('autoStopped');
+          notifyRecordingStop();
+          native.walkieTalkie
+            .stopRecording()
+            .then((result) => {
+              if (!cancelled) pendingResultRef.current = result;
+            })
+            .catch(() => {
+              if (!cancelled) pendingResultRef.current = null;
+            });
+        }
+      })
+      .then((h) => {
+        if (cancelled) h.remove();
+        else handle = h;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      handle?.remove();
+    };
+  }, [capability?.record, notifyRecordingStop]);
+
+  const active =
+    isAuthenticated &&
+    !!user &&
+    !!conversationId &&
+    !!capability?.available &&
+    !!capability.floatingButton &&
+    !isWalkieTalkieOptedOut();
+
+  // 앱 미실행 중 녹음된 음성 전송 드레인 (Android 헤드리스 — 오버레이 버블·홈 위젯).
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    (async () => {
+      const pending = await native.walkieTalkie.getPendingRecordings();
+      for (const item of pending) {
+        if (cancelled) return;
+        if (!item.channelId) {
+          await native.walkieTalkie.clearPendingRecording(item.id).catch(() => {});
+          continue;
+        }
+        if (sentPendingIdsRef.current.has(item.id)) {
+          try {
+            await native.walkieTalkie.clearPendingRecording(item.id);
+            sentPendingIdsRef.current.delete(item.id);
+          } catch {
+            /* 다음 실행에 재시도 */
+          }
+          continue;
+        }
+        try {
+          const blob = await native.walkieTalkie.readRecordingBlob(item);
+          if (blob.size > 0) await walkieApi.sendVoice(item.channelId, blob, item.durationMs);
+          sentPendingIdsRef.current.add(item.id);
+          await native.walkieTalkie.clearPendingRecording(item.id);
+          sentPendingIdsRef.current.delete(item.id);
+        } catch {
+          /* 다음 실행에 재시도 */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  // 채널 참석 — 진입 알림 + 하트비트.
+  useEffect(() => {
+    if (!conversationId || !active) {
+      setPresence(null);
+      return;
+    }
+    let cancelled = false;
+    const refresh = () => {
+      walkieApi
+        .presence(conversationId)
+        .then((p) => {
+          if (!cancelled) setPresence(p);
+        })
+        .catch(() => {});
+    };
+    presenceRefreshRef.current = refresh;
+    const beat = () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      walkieApi
+        .join(conversationId)
+        .then(() => {
+          if (!cancelled && document.visibilityState !== 'visible') {
+            walkieApi.leave(conversationId).catch(() => {});
+          }
+        })
+        .catch(() => {});
+      refresh();
+    };
+    beat();
+    const timer = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    const onVisibility = () => {
+      if (cancelled) return;
+      if (document.visibilityState === 'visible') beat();
+      else walkieApi.leave(conversationId).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      presenceRefreshRef.current = null;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+      walkieApi.leave(conversationId).catch(() => {});
+    };
+  }, [conversationId, active]);
+
+  // 수신 자동재생 큐 (VoiceQueue SDK) — 채팅 이력 기록(DmDetail)과 역할이 다르다.
+  const myUserId = session?.userId ?? user?.id ?? '';
+  const queueRef = useRef<VoiceQueue | null>(null);
+
+  useEffect(() => {
+    if (!conversationId || !active) {
+      queueRef.current?.reset();
+      queueRef.current = null;
+      setQueue([]);
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute('src');
+      }
+      return;
+    }
+    const voiceQueue = new VoiceQueue({ selfRef: myUserId });
+    queueRef.current = voiceQueue;
+    setQueue([]);
+
+    const transport = createWalkieTransport({
+      getCursor: () => voiceQueue.cursor,
+      onPresenceChanged: () => presenceRefreshRef.current?.(),
+      onPage: (page) => {
+        const added = voiceQueue.ingest(page.items);
+        voiceQueue.setCursor(page.cursor);
+        if (added.length > 0) {
+          setQueue((prev) => [...prev, ...added.map((m) => ({ id: m.id, audioUrl: m.audioUrl as string }))]);
+        }
+      },
+    });
+    transport.start(conversationId);
+    return () => {
+      transport.stop();
+    };
+  }, [conversationId, active, myUserId]);
+
+  const currentPlayId = queue[0]?.id ?? null;
+  useEffect(() => {
+    if (active && phase === 'idle' && queue.length > 0) setPhase('playing');
+  }, [active, phase, queue.length]);
+
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const item = queue[0];
+    const audio = audioRef.current;
+    if (!item || !audio) {
+      setPhase('idle');
+      return;
+    }
+    audio.src = item.audioUrl;
+    playSound('walkie_ptt_start');
+    audio.play().catch(() => {
+      queueRef.current?.shift();
+      setQueue((prev) => prev.slice(1));
+      setPhase('idle');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentPlayId]);
+
+  const handlePlaybackEnded = useCallback(() => {
+    const item = queueRef.current?.shift() ?? null;
+    setQueue((prev) => prev.slice(1));
+    if (item) walkieApi.markPlayed(item.id).catch(() => {});
+    playSound('walkie_ptt_end');
+    setPhase('idle');
+  }, []);
+
+  const resetToIdle = useCallback(() => {
+    pendingResultRef.current = null;
+    manualStopRef.current = false;
+    setPhase('idle');
+  }, []);
+
+  const finishAndSend = useCallback(
+    async (result: WalkieTalkieRecordingResult) => {
+      if (!user || !conversationId) {
+        toast.error(t('walkieTalkie.recordingDiscarded', { defaultValue: '전송할 수 없어 녹음이 삭제됐어요' }));
+        resetToIdle();
+        return;
+      }
+      setPhase('uploading');
+      let step = 'read';
+      try {
+        const blob = await native.walkieTalkie.readRecordingBlob(result);
+        if (blob.size < 700) throw new Error(`empty blob (${blob.size}B)`);
+        step = 'upload';
+        await walkieApi.sendVoice(conversationId, blob, result.durationMs ?? 0);
+        playSound('dm_send');
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(`[walkieTalkie] send failed at ${step}`, err);
+        toast.error(`${t('walkieTalkie.sendError', { defaultValue: '음성메시지 전송에 실패했어요' })} (${step}: ${reason.slice(0, 90)})`);
+      } finally {
+        notifyRecordingStop();
+        resetToIdle();
+      }
+    },
+    [conversationId, notifyRecordingStop, resetToIdle, t, user],
+  );
+
+  const startFlow = useCallback(async () => {
+    manualStopRef.current = false;
+    if (capability === null) {
+      toast.info(t('common.loading', { defaultValue: '불러오는 중...' }));
+      return;
+    }
+    if (!capability.record) {
+      toast.info(
+        native.isNative
+          ? t('walkieTalkie.recordUnsupported', { defaultValue: '이 버전에서는 음성 녹음을 지원하지 않아요. 앱을 업데이트해주세요' })
+          : t('walkieTalkie.recordUnsupportedWeb', { defaultValue: '음성 녹음은 앱에서만 지원해요' }),
+      );
+      return;
+    }
+    let mic: string;
+    try {
+      const perm = await native.walkieTalkie.checkPermission();
+      mic = perm.mic;
+      if (mic !== 'granted') {
+        const granted = await native.walkieTalkie.requestPermission('mic');
+        mic = granted ? 'granted' : 'denied';
+      }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      toast.error(`${t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' })} (perm: ${reason.slice(0, 90)})`);
+      return;
+    }
+    if (mic !== 'granted') {
+      setPhase('permissionDenied');
+      return;
+    }
+    try {
+      await native.walkieTalkie.startRecording({ maxDurationSec: capability?.maxDurationSec ?? 60 });
+      setPhase('recording');
+      if (native.platform !== 'ios') playSound('walkie_ptt_start');
+      if (conversationId) walkieApi.setSpeaking(conversationId, true).catch(() => {});
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      toast.error(`${t('walkieTalkie.startError', { defaultValue: '녹음을 시작하지 못했어요' })} (${reason.slice(0, 90)})`);
+    }
+  }, [capability, conversationId, t]);
+
+  const locked = phase === 'playing' || ((phase === 'idle' || phase === 'permissionDenied') && queue.length > 0);
+
+  // PTT — 누르는 동안 녹음, 떼면 전송 (F-N-01 FR-2 "말하기 버튼").
+  const onPTTDown = useCallback(() => {
+    if (phase === 'uploading' || phase === 'recording' || phase === 'autoStopped') return;
+    if (locked) {
+      toast.info(t('walkieTalkie.lockedTransmitToast', { defaultValue: '받은 음성메시지를 먼저 들어야 말할 수 있어요' }));
+      return;
+    }
+    if (phase === 'idle' || phase === 'permissionDenied') {
+      if (!hasWalkieTalkieConsent()) {
+        setConsentOpen(true);
+        return;
+      }
+      startFlow();
+    }
+  }, [phase, locked, startFlow, t]);
+
+  const onPTTUp = useCallback(async () => {
+    if (phase === 'recording') {
+      manualStopRef.current = true;
+      try {
+        const result = await native.walkieTalkie.stopRecording();
+        await finishAndSend(result);
+      } catch {
+        toast.error(t('walkieTalkie.stopError', { defaultValue: '녹음을 마치지 못했어요' }));
+        notifyRecordingStop();
+        resetToIdle();
+      }
+      return;
+    }
+    if (phase === 'autoStopped' && pendingResultRef.current) {
+      await finishAndSend(pendingResultRef.current);
+    }
+  }, [phase, finishAndSend, notifyRecordingStop, resetToIdle, t]);
+
+  const handleConsentAgree = useCallback(() => {
+    setConsentOpen(false);
+    startFlow();
+  }, [startFlow]);
+
+  const confirmOpen = useConfirmStore((s) => s.open);
+  const requestClose = useCallback(() => {
+    confirmOpen(
+      t('walkieTalkie.leaveChannelConfirm', { defaultValue: '무전기 채널에서 나갈까요?' }),
+      () => closeBubble(),
+    );
+  }, [confirmOpen, closeBubble, t]);
+
+  const channelName = conversationMeta?.name ?? t('walkieTalkie.bubbleLabel', { defaultValue: '워키토키 음성메시지' });
+  const allPresent = !!presence && presence.members.length > 0 && presence.present.length >= presence.members.length;
+  const memberCount = presence?.members.length ?? 0;
+  const isRec = phase === 'recording' || phase === 'autoStopped';
+
+  return {
+    active,
+    conversationId,
+    channelName,
+    allPresent,
+    memberCount,
+    phase,
+    isRec,
+    locked,
+    onPTTDown,
+    onPTTUp,
+    requestClose,
+    audioRef,
+    handlePlaybackEnded,
+    consentOpen,
+    setConsentOpen,
+    handleConsentAgree,
+  };
+}
+
+type WalkieSessionCell = ReturnType<typeof useWalkieSessionCell>;
+
+/**
+ * 실시간 위치공유 세션 셀 — 채널 SSE·ping 런타임(useLiveLocationChannelRuntime)은
+ * LiveLocationFloatingButton 과 동일하게 유지, 표시만 고정 바 칸으로 바꾼다.
+ */
+function useLocationSessionCell() {
+  const { t } = useTranslation();
+  useLiveLocationChannelRuntime();
+  const conversationId = useLocationChannelStore((s) => s.conversationId);
+  const state = useLocationChannelStore((s) => s.state);
+  const setModalOpen = useLocationChannelStore((s) => s.setModalOpen);
+  const clear = useLocationChannelStore((s) => s.clear);
+  const confirmOpen = useConfirmStore((s) => s.open);
+
+  const activeCount = state ? state.members.filter((m) => !m.leftAt).length : 0;
+
+  const openModal = useCallback(() => setModalOpen(true), [setModalOpen]);
+
+  const requestClose = useCallback(() => {
+    confirmOpen(
+      t('liveLocation.leaveChannelConfirm', { defaultValue: '위치공유 채널에서 나갈까요?' }),
+      async () => {
+        if (!conversationId) return;
+        try {
+          await leaveLocationChannel(conversationId);
+        } catch {
+          /* 이미 종료/미참가여도 결과는 같다 — 로컬 정리 */
+        } finally {
+          clear();
+          toast.info(t('liveLocation.left', { defaultValue: '위치공유에서 나왔어요' }));
+        }
+      },
+    );
+  }, [confirmOpen, conversationId, clear, t]);
+
+  return { active: !!conversationId, activeCount, openModal, requestClose };
+}
+
+type LocationSessionCell = ReturnType<typeof useLocationSessionCell>;
+
+function WalkieCell({ cell, onOpenChat }: { cell: WalkieSessionCell; onOpenChat: () => void }) {
+  const { t } = useTranslation();
+  const longPressTimerRef = useRef<number | null>(null);
+  const movedRef = useRef(false);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const onCellPointerDown = useCallback(() => {
+    movedRef.current = false;
+    clearLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      movedRef.current = true;
+      cell.requestClose();
+    }, 450);
+  }, [clearLongPress, cell]);
+
+  const onCellClick = useCallback(() => {
+    if (movedRef.current) {
+      movedRef.current = false;
+      return;
+    }
+    onOpenChat();
+  }, [onOpenChat]);
+
+  useEffect(() => () => clearLongPress(), [clearLongPress]);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className={styles.cell}
+      data-locked={cell.locked || undefined}
+      onPointerDown={onCellPointerDown}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onClick={onCellClick}
+    >
+      <span
+        className={styles.presenceDot}
+        data-all-present={cell.allPresent || undefined}
+        role="img"
+        aria-label={cell.allPresent
+          ? t('walkieTalkie.presenceAll', { defaultValue: '전원 참석' })
+          : t('walkieTalkie.presencePartial', { defaultValue: '일부 미참석' })}
+      />
+      <span className={styles.channelName}>{cell.channelName}</span>
+      <button
+        type="button"
+        className={styles.pttBtn}
+        data-active={cell.isRec || undefined}
+        data-locked={cell.locked || undefined}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          cell.onPTTDown();
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          cell.onPTTUp();
+        }}
+        onPointerCancel={(e) => {
+          e.stopPropagation();
+          cell.onPTTUp();
+        }}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={t('walkieTalkie.pttButtonLabel', { defaultValue: '누르는 동안 말하기' })}
+      >
+        {cell.isRec ? <Square size={14} strokeWidth={2} fill="currentColor" /> : <Mic size={14} strokeWidth={2.2} />}
+        <span className={styles.pttLabel}>
+          {cell.isRec
+            ? t('walkieTalkie.recordingLabel', { defaultValue: '녹음 중' })
+            : t('walkieTalkie.pttLabel', { defaultValue: '말하기' })}
+        </span>
+      </button>
+      {cell.memberCount > 0 && (
+        <span className={styles.memberCount}>
+          <Users size={13} strokeWidth={2.2} />
+          {cell.memberCount}{t('walkieTalkie.memberCountSuffix', { defaultValue: '명' })}
+        </span>
+      )}
+      <button
+        type="button"
+        className={styles.closeBtn}
+        onClick={(e) => {
+          e.stopPropagation();
+          cell.requestClose();
+        }}
+        aria-label={t('common.close', { defaultValue: '닫기' })}
+      >
+        <X size={13} strokeWidth={2.5} />
+      </button>
+
+      <audio ref={cell.audioRef} onEnded={cell.handlePlaybackEnded} />
+
+      <WalkieTalkieConsentModal
+        open={cell.consentOpen}
+        onConsent={cell.handleConsentAgree}
+        onClose={() => cell.setConsentOpen(false)}
+      />
+    </div>
+  );
+}
+
+function LocationCell({ cell }: { cell: LocationSessionCell }) {
+  const { t } = useTranslation();
+  const longPressTimerRef = useRef<number | null>(null);
+  const movedRef = useRef(false);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const onCellPointerDown = useCallback(() => {
+    movedRef.current = false;
+    clearLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      movedRef.current = true;
+      cell.requestClose();
+    }, 450);
+  }, [clearLongPress, cell]);
+
+  const onCellClick = useCallback(() => {
+    if (movedRef.current) {
+      movedRef.current = false;
+      return;
+    }
+    cell.openModal();
+  }, [cell]);
+
+  useEffect(() => () => clearLongPress(), [clearLongPress]);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className={styles.cell}
+      onPointerDown={onCellPointerDown}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onClick={onCellClick}
+    >
+      <MapPinned size={16} strokeWidth={2} />
+      <span className={styles.channelName}>
+        {t('liveLocation.bubbleLabel', { defaultValue: '실시간 위치공유' })}
+        {cell.activeCount > 0 ? ` · ${cell.activeCount}` : ''}
+      </span>
+      <button
+        type="button"
+        className={styles.closeBtn}
+        onClick={(e) => {
+          e.stopPropagation();
+          cell.requestClose();
+        }}
+        aria-label={t('common.close', { defaultValue: '닫기' })}
+      >
+        <X size={13} strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+}
+
+interface ActiveSessionBarProps {
+  /**
+   * 'fixed'(기본) — App.tsx 전역 마운트, 화면 하단(탭바 위)에 고정. 채팅방(DmDetail)에서는
+   * 렌더하지 않는다(그 화면은 'inline' 인스턴스가 입력창 위에 대신 뜬다).
+   * 'inline' — DmDetail 이 입력창 바로 위에 in-flow 로 렌더할 때 사용.
+   */
+  variant?: 'fixed' | 'inline';
+}
+
+/**
+ * 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기·위치공유 세션을 떠다니는 캡슐/버블 대신
+ * 화면 하단 한 줄에 고정 표시한다. 드래그·자동 펼침·더블탭 없음: 바 탭=대화방 이동,
+ * 롱프레스 또는 우측 X=확인 후 닫기.
+ */
+export function ActiveSessionBar({ variant = 'fixed' }: ActiveSessionBarProps) {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const walkie = useWalkieSessionCell();
+  const location = useLocationSessionCell();
+
+  // fixed 인스턴스는 채팅방 화면에서 숨는다 — DmDetail 이 자체 inline 인스턴스를 렌더한다.
+  const suppressed = variant === 'fixed' && DM_DETAIL_PATH.test(pathname);
+  // 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바 위로 올라앉아야 한다 —
+  // 그렇지 않으면 fixed 바가 탭바와 같은 자리(viewport bottom)에서 겹친다(버그: 채팅방 나가면
+  // 잘못된 위치에 고정).
+  const aboveTabBar = variant === 'fixed' && !HIDE_TABBAR_PATHS.some((p) => pathname.startsWith(p));
+
+  if (suppressed || (!walkie.active && !location.active)) return null;
+
+  return (
+    <div
+      className={variant === 'fixed' ? styles.fixedWrap : styles.inlineWrap}
+      data-above-tabbar={aboveTabBar || undefined}
+    >
+      <div className={styles.bar}>
+        {walkie.active && (
+          <WalkieCell
+            cell={walkie}
+            onOpenChat={() => walkie.conversationId && navigate(`/dm/${walkie.conversationId}`)}
+          />
+        )}
+        {location.active && <LocationCell cell={location} />}
+      </div>
+      {location.active && <LiveLocationModal />}
+    </div>
+  );
+}

@@ -209,6 +209,34 @@
 }
 
 /* ── 매물 컨텍스트 카드 (SGR-287 거래 채팅) ── */
+.contextCardRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding-right: 12px;
+}
+
+.contextCardRow .contextCard {
+  border-bottom: none;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 약속 잡기 칩(260919 리뷰킷 F-S4-01 FR-1) — 매물 카드 옆, 약속 열림 상태에서만 */
+.contextApptChip {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--brand-500);
+  border: 1px solid var(--brand-500);
+}
+
 .contextCard {
   display: flex;
   align-items: center;
@@ -491,9 +519,10 @@
   font-weight: 700;
 }
 
-/* 실시간위치 전용 행 — 카드 폭 꽉 채우는 단독 버튼 */
+/* 실시간위치·무전기(260919 리뷰킷 F-S5-01 FR-1 ⓒ) 행 — 카드 폭을 나눠 채운다 */
 .apptLiveLocationRow {
   display: flex;
+  gap: 8px;
   margin-top: 2px;
 }
 .apptLiveLocationRow .apptBtnGhost {

@@ -184,6 +184,19 @@ export async function deleteFeedPost(postId: string, userId: string): Promise<vo
   });
 }
 
+// F-CM-01 FR-2 제안 ②: 본인 댓글 삭제.
+// NOTE(2026-09-21): 대응하는 백엔드 라우트(`DELETE /feed/{post_id}/comments/{comment_id}`)가
+// 아직 없다(backend/app/routers/feed.py 확인 — POST like/report 만 존재). 백엔드 추가 전까지
+// 이 함수는 프론트 UI 배선용이며 호출 시 404 가 난다.
+export async function deleteFeedComment(postId: string, commentId: string): Promise<void> {
+  if (USE_MOCK) return api.delay(undefined, 200);
+  const session = requireSession();
+  await api.realFetch(`/feed/${postId}/comments/${commentId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ user_id: session.userId }),
+  });
+}
+
 function transformComment(raw: any): Comment {
   return {
     id: String(raw.id),

@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MapPin, Heart, Share2, Star, Home, Flag, MessageCircle } from 'lucide-react';
+import { Phone, MapPin, Heart, Share2, Star, Home, Flag, MessageCircle, MoreVertical } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { AppImage } from '@/components/ui/AppImage';
 import { ImageViewer } from '@/components/ui/ImageViewer';
@@ -145,6 +145,7 @@ export default function BizPublic() {
   const [appealSubmitted, setAppealSubmitted] = useState(false);
 
   // 소비자→업체 신고 (대표 지적 2026-08-18) — 위 후기 신고 상태와 별개 축(업체 자체가 대상)
+  const [moreOpen, setMoreOpen] = useState(false);
   const [bizReportOpen, setBizReportOpen] = useState(false);
   const [bizReportReason, setBizReportReason] = useState<BizReportReason | null>(null);
   const [bizReportNote, setBizReportNote] = useState('');
@@ -361,6 +362,7 @@ export default function BizPublic() {
 
   const handleOpenBizReport = () => {
     if (!requireAuth()) return;
+    setMoreOpen(false);
     setBizReportOpen(true);
   };
 
@@ -424,6 +426,7 @@ export default function BizPublic() {
 
   const handleShare = () => {
     if (!profile) return;
+    setMoreOpen(false);
     native.share({ title: profile.name, text: profile.address ?? profile.name, url: window.location.href });
   };
 
@@ -506,20 +509,15 @@ export default function BizPublic() {
             >
               <Heart size={22} strokeWidth={2} fill={favorited ? 'currentColor' : 'none'} />
             </button>
-            <button type="button" className={styles.favoriteBtn} onClick={handleShare} aria-label={t('common.share', { defaultValue: '공유' })}>
-              <Share2 size={21} strokeWidth={2} />
+            {/* 공유·신고을 케밥 뒤로 격하(260919 F-BZ-01 FR-1 제안 ①②) — 헤더 우측은 찜만 남긴다 */}
+            <button
+              type="button"
+              className={styles.favoriteBtn}
+              onClick={() => setMoreOpen(true)}
+              aria-label={t('biz.more', { defaultValue: '더보기' })}
+            >
+              <MoreVertical size={22} strokeWidth={2} />
             </button>
-            {/* 소비자→업체 신고 진입점(대표 지적 2026-08-18) — 내 업체면 숨긴다 */}
-            {!profile.isOwner && (
-              <button
-                type="button"
-                className={styles.favoriteBtn}
-                onClick={handleOpenBizReport}
-                aria-label={t('biz.report.entry', { defaultValue: '업체 신고' })}
-              >
-                <Flag size={19} strokeWidth={2} />
-              </button>
-            )}
           </div>
         }
       />
@@ -998,6 +996,23 @@ export default function BizPublic() {
                 : t('biz.review.appeal.submit', { defaultValue: '제출' })}
             </button>
           </div>
+        </div>
+      </BottomSheet>
+
+      {/* 케밥 메뉴: 공유(이동) / 업체 신고(종료, 위험 톤) — 구분선으로 나눈다(260919 F-BZ-01 FR-1 제안 ①②) */}
+      <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+        <div className={styles.moreSheet}>
+          <button type="button" className={styles.moreItem} onClick={handleShare}>
+            <Share2 size={16} strokeWidth={2.2} />
+            {t('common.share', { defaultValue: '공유' })}
+          </button>
+          {/* 소비자→업체 신고 진입점(대표 지적 2026-08-18) — 내 업체면 숨긴다 */}
+          {!profile.isOwner && (
+            <button type="button" className={`${styles.moreItem} ${styles.moreDanger}`} onClick={handleOpenBizReport}>
+              <Flag size={16} strokeWidth={2.2} />
+              {t('biz.report.entry', { defaultValue: '업체 신고' })}
+            </button>
+          )}
         </div>
       </BottomSheet>
 

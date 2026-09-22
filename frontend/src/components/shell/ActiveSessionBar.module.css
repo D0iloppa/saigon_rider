@@ -1,0 +1,146 @@
+/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기 캡슐·위치공유 버블을 대체.
+ * 스토리보드 화면 샘플은 떠 있는 알약(pill) 칩이 아니라 화면 폭 전체를 잡는 "바"다 —
+ * 배경·모서리는 .bar(바 전체) 하나에만 주고, .cell 은 그 안의 투명한 구획일 뿐이다. */
+
+.fixedWrap {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max-width);
+  z-index: 55; /* 탭바(10)보다 위, 플로팅 다이얼로그류보다는 아래 */
+  /* 탭바 없는 화면(채팅방 등)에서만 이 바 자신이 홈 인디케이터 세이프에어리어를 확보한다.
+   * 탭바가 보이는 화면에서는 탭바가 이미 자기 몫의 세이프에어리어를 갖고 있으므로(TabBar.module.css
+   * height: 56px + bottom-safe), 여기서 또 더하면 탭바 위에 그만큼 빈 틈이 뜬다 — 아래 규칙으로 뺀다. */
+  padding-bottom: var(--bottom-safe);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* 탭바가 보이는 화면(AppShell.HIDE_TABBAR_PATHS 밖)에서는 탭바(56px + 홈 인디케이터 세이프에어리어)
+ * 위로 올라앉는다 — TabBar 는 position: relative 로 뷰포트 최하단에 in-flow 로 자리잡으므로,
+ * 이 바를 그냥 bottom: 0 에 두면 탭바와 같은 자리에서 겹친다. 탭바가 이미 세이프에어리어를 갖고
+ * 있으니 이 바 쪽 padding-bottom 은 0으로 — 안 그러면 탭바 위에 세이프에어리어만큼 빈 틈이 뜬다. */
+.fixedWrap[data-above-tabbar='true'] {
+  bottom: calc(56px + var(--bottom-safe));
+  padding-bottom: 0;
+}
+
+.fixedWrap .bar {
+  pointer-events: auto;
+  border-radius: 14px 14px 0 0;
+}
+
+/* 채팅방(DmDetail) 인라인 인스턴스 — 입력창 바로 위, in-flow, 화면 폭 그대로. */
+.inlineWrap {
+  flex-shrink: 0;
+}
+
+.inlineWrap .bar {
+  border-radius: 12px 12px 0 0;
+}
+
+.bar {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(8, 9, 15, 0.96);
+  color: #fff;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.28);
+}
+
+.cell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 14px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cell + .cell {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.presenceDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.presenceDot[data-all-present] {
+  background: var(--success);
+}
+
+.channelName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 말하기 버튼 — 스토리보드 화면 샘플처럼 아이콘 단독이 아니라 "말하기" 라벨이 붙은 필(pill).
+ * 무슨 동작인지 아이콘만으로는 알기 어려워(눌러서 녹음) 라벨을 항상 보이게 한다. */
+.pttBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  touch-action: none;
+  white-space: nowrap;
+}
+
+.pttBtn[data-active] {
+  background: #ef3b3b;
+}
+
+.pttBtn[data-locked] {
+  opacity: 0.5;
+}
+
+.pttLabel {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.memberCount {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.closeBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 좁은 화면에서 두 칸이 함께 뜨면 채널명이 잘릴 수 있다(문서화된 잔여 위험) — ellipsis 로 흡수. */

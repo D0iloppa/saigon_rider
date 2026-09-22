@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MessageCircle, Flag } from 'lucide-react';
+import { MessageCircle, Flag, AlertCircle } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
@@ -52,11 +52,17 @@ export default function CustomerSupport() {
   };
   const [view, setView] = useState<View>(inquiryDraft ? 'new' : 'list');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [ticketsError, setTicketsError] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
   // R-1(260819 W3) — 신고 상세(코멘트·첨부사진·처리 결과) 열람용.
   const [detailReport, setDetailReport] = useState<Report | null>(null);
   const [reportsLoading, setReportsLoading] = useState(true);
-  const [title, setTitle] = useState(inquiryDraft?.title ?? '');
+  const [reportsError, setReportsError] = useState(false);
+  // F-CS-01 FR-3 제안 ① — 딥링크 진입의 거래 컨텍스트는 상단 고정 행으로 고정한다(제목 입력칸이 아니다).
+  // useState 초기값으로 한 번만 캡처 — 소비 후 history state 를 비우는 아래 effect 가 location.state
+  // 를 지워도(줄 76-80) 이 배너는 폼이 유지되는 동안 사라지지 않는다.
+  const [draftContext] = useState(inquiryDraft?.title ?? null);
   const [body, setBody] = useState(inquiryDraft?.body ?? '');
   const [submitting, setSubmitting] = useState(false);
   const kb = useKeyboard();
@@ -65,12 +71,28 @@ export default function CustomerSupport() {
   // 스크롤로도 못 뺀다 — 키보드 높이만큼 하단 padding 을 더한다.
   const isIosNative = native.platform === 'ios';
 
-  useEffect(() => {
-    fetchTickets().then(setTickets).catch(() => {});
+  const loadTickets = () => {
+    setTicketsLoading(true);
+    setTicketsError(false);
+    fetchTickets()
+      .then(setTickets)
+      .catch(() => setTicketsError(true))
+      .finally(() => setTicketsLoading(false));
+  };
+
+  const loadReports = () => {
+    setReportsLoading(true);
+    setReportsError(false);
     fetchReports()
       .then(setReports)
-      .catch(() => {})
+      .catch(() => setReportsError(true))
       .finally(() => setReportsLoading(false));
+  };
+
+  useEffect(() => {
+    loadTickets();
+    loadReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -93,6 +115,9 @@ export default function CustomerSupport() {
         cancelReport(r.id)
           .then((updated) => {
             setReports((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+            // FR-2 제안① — 취소 버튼이 이 시트 안으로 옮겨왔으니, 취소 후에도 시트를 닫지 않고
+            // 갱신된 상태(취소함 배지 · 취소 버튼 소멸)를 그 자리에서 보여준다.
+            setDetailReport((prev) => (prev && prev.id === updated.id ? updated : prev));
             toast.success(t('support.reportCancelSuccess'));
           })
           .catch(() => toast.error(t('support.reportCancelError')));
@@ -115,13 +140,16 @@ export default function CustomerSupport() {
   // (예: "○○업체의 후기") 노출은 이번 범위 밖 — 백엔드 응답 확장 필요해 대표 확정으로 제외.
   const reportTargetTypeLabel = (r: Report) => t(`support.reportTargetType_${r.target_type}`, r.target_type);
 
+  // F-CS-01 FR-3 제안 ③ — 제목 필수 해제. 딥링크 컨텍스트가 있으면 그걸 그대로 티켓 제목으로
+  // 쓰고, 없으면 본문 첫 줄을 제목으로 삼는다(목록 카드 제목은 이 값으로 뜬다).
   const handleSubmit = async () => {
-    if (!title.trim() || !body.trim()) return;
+    if (!body.trim()) return;
     setSubmitting(true);
     try {
-      const ticket = await createTicket(title.trim(), body.trim());
+      const trimmedBody = body.trim();
+      const derivedTitle = draftContext ?? trimmedBody.split('\n')[0].slice(0, 200);
+      const ticket = await createTicket(derivedTitle, trimmedBody);
       setTickets((prev) => [ticket, ...prev]);
-      setTitle('');
       setBody('');
       setView('list');
     } finally {
@@ -163,7 +191,19 @@ export default function CustomerSupport() {
             {t('support.newTicket')}
           </button>
 
-          {tickets.length === 0 ? (
+          {ticketsLoading ? (
+            <SkeletonRows count={3} />
+          ) : ticketsError ? (
+            <div className={sys.card} style={{ margin: 0 }}>
+              <StateBlock
+                icon={AlertCircle}
+                tone="error"
+                title={t('support.loadError')}
+                actionLabel={t('common.retry')}
+                onAction={loadTickets}
+              />
+            </div>
+          ) : tickets.length === 0 ? (
             <div className={sys.card} style={{ margin: 0 }}>
               <StateBlock icon={MessageCircle} title={t('support.empty')} />
             </div>
@@ -194,6 +234,16 @@ export default function CustomerSupport() {
         <div className={styles.body}>
           {reportsLoading ? (
             <SkeletonRows count={3} />
+          ) : reportsError ? (
+            <div className={sys.card} style={{ margin: 0 }}>
+              <StateBlock
+                icon={AlertCircle}
+                tone="error"
+                title={t('support.reportLoadError')}
+                actionLabel={t('common.retry')}
+                onAction={loadReports}
+              />
+            </div>
           ) : reports.length === 0 ? (
             <div className={sys.card} style={{ margin: 0 }}>
               <StateBlock icon={Flag} title={t('support.reportEmpty')} />
@@ -201,46 +251,38 @@ export default function CustomerSupport() {
           ) : (
             reports.map((r) => {
               return (
-                <div key={r.id} className={styles.reportCard}>
-                  <button
-                    type="button"
-                    className={styles.reportCardMain}
-                    onClick={() => setDetailReport(r)}
-                  >
-                    {r.target_type === 'LISTING' && (
-                      <AppImage
-                        src={r.target_thumbnail_url ?? noItemImage()}
-                        alt={reportTargetLabel(r)}
-                        className={styles.reportThumb}
-                      />
-                    )}
-                    <div className={styles.reportBody}>
-                      <div className={styles.cardTitle}>{reportTargetLabel(r)}</div>
-                      {r.parent_context && (
-                        <div className={styles.cardMeta}>{r.parent_context}</div>
-                      )}
-                      <div className={styles.cardMeta}>
-                        <span className={`${styles.badge} ${REPORT_STATUS_CLASS[r.status] ?? ''}`}>
-                          {reportStatusLabel(r.status)}
-                        </span>
-                        <span className={`${styles.badge} ${styles.badgeType}`}>
-                          {reportTargetTypeLabel(r)}
-                        </span>
-                        <span>{reportReasonLabel(r.reason)}</span>
-                        <span>{formatVnDate(r.created_at)}</span>
-                      </div>
-                    </div>
-                  </button>
-                  {r.can_cancel && (
-                    <button
-                      type="button"
-                      className={styles.reportCancelBtn}
-                      onClick={() => handleCancelReport(r)}
-                    >
-                      {t('support.reportCancelBtn')}
-                    </button>
+                // FR-2 제안① — [신고 취소]를 목록 카드에서 뺐다. 이제 카드는 이동만 하는 조회 축이고,
+                // 취소는 상세 시트(FR-4) 하단의 단독 위험 톤 행으로만 있다.
+                <button
+                  key={r.id}
+                  type="button"
+                  className={styles.reportCard}
+                  onClick={() => setDetailReport(r)}
+                >
+                  {r.target_type === 'LISTING' && (
+                    <AppImage
+                      src={r.target_thumbnail_url ?? noItemImage()}
+                      alt={reportTargetLabel(r)}
+                      className={styles.reportThumb}
+                    />
                   )}
-                </div>
+                  <div className={styles.reportBody}>
+                    <div className={styles.cardTitle}>{reportTargetLabel(r)}</div>
+                    {r.parent_context && (
+                      <div className={styles.cardMeta}>{r.parent_context}</div>
+                    )}
+                    <div className={styles.cardMeta}>
+                      <span className={`${styles.badge} ${REPORT_STATUS_CLASS[r.status] ?? ''}`}>
+                        {reportStatusLabel(r.status)}
+                      </span>
+                      <span className={`${styles.badge} ${styles.badgeType}`}>
+                        {reportTargetTypeLabel(r)}
+                      </span>
+                      <span>{reportReasonLabel(r.reason)}</span>
+                      <span>{formatVnDate(r.created_at)}</span>
+                    </div>
+                  </div>
+                </button>
               );
             })
           )}
@@ -249,17 +291,9 @@ export default function CustomerSupport() {
 
       {view === 'new' && (
         <div className={styles.form} style={{ paddingBottom: isIosNative && kb.visible ? kb.height : undefined }}>
+          {/* FR-3 제안① — 딥링크 거래 컨텍스트는 편집 가능한 제목칸이 아니라 고정 행으로 보여준다. */}
+          {draftContext && <div className={styles.contextRow}>{draftContext}</div>}
           <div className={styles.formCard}>
-            <div>
-              <p className={styles.label}>{t('support.fieldTitle')}</p>
-              <input
-                className={styles.input}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={t('support.titlePlaceholder')}
-                maxLength={200}
-              />
-            </div>
             <div>
               <p className={styles.label}>{t('support.fieldBody')}</p>
               <textarea
@@ -273,7 +307,7 @@ export default function CustomerSupport() {
           <button
             className={styles.submitBtn}
             onClick={handleSubmit}
-            disabled={submitting || !title.trim() || !body.trim()}
+            disabled={submitting || !body.trim()}
           >
             {submitting ? t('support.submitting') : t('support.submit')}
           </button>
@@ -345,7 +379,11 @@ export default function CustomerSupport() {
               <p className={styles.detailNotice}>{t('support.reportCancelledNotice')}</p>
             )}
 
-            {detailReport.target_type === 'LISTING' && detailReport.listing_id && (
+            {/* FR-4 — LISTING 만 실제 id 를 받으므로 이동 버튼은 LISTING 한정, 그 외 타입은
+                누를 수 없는 것을 버튼 모양으로 두지 않고 `표시` 행으로 대체한다(B0-4 무게 규약).
+                USER/POST/BIZ 이동까지 확장하려면 ReportOut 에 reported_user_id/post_id/biz_id
+                노출이 필요하다 — 백엔드 변경이라 이번 범위에서 스킵. */}
+            {detailReport.target_type === 'LISTING' && detailReport.listing_id ? (
               <button
                 type="button"
                 className={styles.detailGoBtn}
@@ -355,6 +393,20 @@ export default function CustomerSupport() {
                 }}
               >
                 {t('support.reportGoToTargetBtn')}
+              </button>
+            ) : (
+              <p className={styles.detailNotice}>{t('support.reportTargetUnavailable')}</p>
+            )}
+
+            {/* FR-2 제안①/FR-4 — 목록 카드에 있던 [신고 취소]가 여기 단독 위험 톤 행으로 옮겨왔다.
+                can_cancel=false 면 버튼 자체를 렌더하지 않는다(비활성 노출 아님). */}
+            {detailReport.can_cancel && (
+              <button
+                type="button"
+                className={styles.detailCancelBtn}
+                onClick={() => handleCancelReport(detailReport)}
+              >
+                {t('support.reportCancelBtn')}
               </button>
             )}
           </div>

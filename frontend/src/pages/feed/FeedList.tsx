@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Newspaper, Plus, Send, UserRound, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { AlertCircle, Camera, Flame, Globe, MapPin, MessageCircle, Newspaper, Plus, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import StateBlock from '@/components/ui/StateBlock';
 import sys from '@/styles/system.module.css';
@@ -16,7 +16,6 @@ import { AppImage } from '@/components/ui/AppImage';
 import { Chip } from '@/components/ui/Chip';
 import { OwnerBadge } from '@/components/ui/OwnerBadge';
 import { useUserStore } from '@/store/useUserStore';
-import { useDmStore } from '@/store/useDmStore';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { toast } from '@/components/ui/Toast';
@@ -38,7 +37,6 @@ export default function FeedList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
-  const totalUnread = useDmStore((s) => s.totalUnread);
   const [searchParams, setSearchParams] = useSearchParams();
   // 필터를 URL 쿼리로 보존한다(P2-11). 단 'neighborhood' 복원은 제외 — 이 필터는 GPS
   // 요청을 트리거하는 effect(아래)에 걸려 있어서, 저장된 값을 그대로 복원하면 화면
@@ -136,31 +134,7 @@ export default function FeedList() {
 
   return (
     <div className={styles.page}>
-      <TopBar
-        title={t('feed.title')}
-        showBack={false}
-        leftContent={
-          <button className={styles.iconBtn} onClick={() => navigate('/feed/new')} aria-label={t('feedCreate.title')}>
-            <Plus size={24} strokeWidth={2.2} />
-          </button>
-        }
-        rightContent={
-          <>
-            <button className={styles.iconBtn} onClick={() => navigate('/profile')} aria-label={t('tabbar.profile')}>
-              <UserRound size={23} strokeWidth={2} />
-            </button>
-            <button
-              className={styles.iconBtn}
-              onClick={() => navigate('/dm')}
-              aria-label={totalUnread > 0 ? `${t('dm.title')} (${totalUnread})` : t('dm.title')}
-              style={{ position: 'relative' }}
-            >
-              <Send size={22} strokeWidth={2} />
-              {totalUnread > 0 && <span className={styles.unreadDot} />}
-            </button>
-          </>
-        }
-      />
+      <TopBar title={t('feed.title')} showBack={false} />
 
       <div className={styles.scrollBody} ref={scrollBodyRef as React.RefObject<HTMLDivElement>}>
       <div style={contentStyle}>
@@ -200,6 +174,17 @@ export default function FeedList() {
               {f.label}
             </Chip>
           ))}
+          {/* 그룹 탐색 진입점 — /community/groups 로 가는 유일한 UI 경로 (F-CM-02 FR-1 A안).
+              필터가 아니라 이동이라 radiogroup 상태에는 참여하지 않는다. */}
+          <Chip
+            as="button"
+            variant="surface"
+            onClick={() => navigate('/community/groups')}
+            style={{ cursor: 'pointer' }}
+          >
+            <UsersRound size={13} strokeWidth={2.2} />
+            {t('feed.groupsNav', { defaultValue: '그룹' })}
+          </Chip>
         </div>
 
         {/* Posts */}
@@ -325,6 +310,11 @@ export default function FeedList() {
       </div>
       </div>{/* contentStyle wrapper */}
       </div>{/* scrollBody */}
+
+      {/* 새 글 작성 FAB — 마켓 목록 writeFab 과 같은 자리·모양(F-CM-01 FR-1 제안 ②) */}
+      <button className={styles.writeFab} type="button" onClick={() => navigate('/feed/new')} aria-label={t('feedCreate.title')}>
+        <Plus size={26} strokeWidth={2.4} />
+      </button>
 
     </div>
   );

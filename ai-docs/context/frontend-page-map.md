@@ -11,6 +11,17 @@
 > **화면을 수정할 때 시각 규칙 SoT는 [`design-system.md`](design-system.md)** (2026-07-25 신설) — 아이콘(lucide 표준·이모지 판별 기준)·숫자(`.num`, `JetBrains Mono` 금지)·색 용법·표면 문법(`styles/system.module.css`)·상태 4종(`StateBlock`/`SkeletonRows`)·저사양 제약. 화면별로 문법을 새로 만들지 말고 이 문서를 따른다.
 >
 > ⚠️ **2026-08-19 세션 환경 문제** — 이 세션에서 `codebase-memory` MCP 연결이 끊겨 `manage_adr` 압축 요약 ADR 은 이날 커밋 4건(`e85ca6f`/`1373bce`/`c67fdf8`/`c42093a`)을 반영하지 못한 채로 남아 있다. **다음 세션은 위 ADR 요약을 신뢰하지 말고 이 md 파일(2026-08-19 갱신분 포함)을 기준으로 삼고, MCP 가 복구되면 ADR 을 재갱신할 것.**
+>
+> ⚠️ **2026-09-21 세션 환경 문제(반복)** — 이번 세션도 `codebase-memory` MCP 미연결로 `manage_adr` 갱신을 못 했다. 아래 66-프레임 UX 리뷰킷(§`ai-docs/review/260919_service_flow_review_kit.md`) 구현분(라우트·화면 구조 변경)은 이 md 파일에만 반영돼 있다 — **MCP 복구 시 ADR 재동기화 필요.**
+>
+> **2026-09-21 반영 내역(요약)**:
+> - **하단 고정 바 신설** — `components/shell/ActiveSessionBar.tsx`(신규). 무전기·실시간위치 플로팅 캡슐/버블(`WalkieTalkieFloatingButton`/`LiveLocationFloatingButton`, 두 파일 모두 미사용 상태로 존치)을 대체. 전역 마운트는 `App.tsx`, DM 방 안에서는 `DmDetail.tsx`가 인라인으로 렌더.
+> - **`/map/search` 로그인 게이트 제거** — `App.tsx`에서 `PrivateRoute` 밖으로 이동(비로그인 지도 검색 허용). `/map/favorites`·`/map/profile`은 게이트 유지.
+> - **거래 이력 행 목적지 변경** — `TradeHistory.tsx`(F-S7-02)·`ProfileMain.tsx`(F-P-02, 거래 섹션) 둘 다 `/market/:id` → `/dm/:conversationId`로 통일.
+> - **`/profile` 시트에서 게임화 탭(퀘스트 이력·뱃지) 제거** — `ProfileMain.tsx`의 `TABS` 배열·렌더 분기·`.tabRow{display:none}` 규칙 삭제, 피드 탭만 남음.
+> - **커뮤니티 그룹 진입점 신설** — `/feed`(FeedList.tsx) 필터 줄에 "그룹" 내비게이션 칩 추가 → `/community/groups`. 단 그 라우트들은 여전히 `PrivateRoute`라 비로그인 진입은 로그인 벽에 막힘(후속 판정 필요, 미해결).
+> - **백엔드 신규 엔드포인트** — `DELETE /feed/{post_id}/comments/{comment_id}`(본인 댓글 삭제, hard-delete) 신설.
+> - 그 외 다수 화면(업체 상세/라운지·고객센터·프로필·매물 상세)의 헤더·시트·버튼 배치 변경 — 라우트 신설/삭제는 없고 기존 화면 내부 구조만 바뀜, 세부는 `git log`/`git diff` 참조.
 
 ---
 

@@ -204,25 +204,6 @@
   font-weight: 600;
 }
 
-/* 안 읽은 DM 수 배지 (채팅 진입 아이콘) — 컴팩트 */
-.chatBadge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 999px;
-  background: var(--danger);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 15px;
-  text-align: center;
-  border: 1.5px solid var(--surface);
-  box-sizing: content-box;
-}
-
 /* SGR-330 휴대폰 인증 신뢰 카드 */
 .verifyCard {
   display: flex;
@@ -239,13 +220,6 @@
 }
 .verifyCard:active { background: var(--brand-100); }
 
-.verifyCardDone {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  cursor: default;
-}
-.verifyCardDone:active { background: var(--surface); }
-
 .verifyIcon {
   display: grid;
   place-items: center;
@@ -255,9 +229,6 @@
   color: var(--brand-600);
   flex-shrink: 0;
 }
-
-/* verified(검증) 표시 전용 블루 — design-system §3 */
-.verifyIconDone { background: rgba(59, 130, 246, .10); color: #3B82F6; }
 
 .verifyText { flex: 1; min-width: 0; }
 
@@ -918,119 +889,6 @@
   margin: 4px 0 12px;
 }
 
-.tabRow {
-  display: none !important; /* SGR-287: 피드/이력/뱃지 탭 제거(코드 보존, 피드만 노출) */
-  background: var(--surface);
-  border-radius: 14px;
-  padding: 4px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow-card);
-}
-
-.tab {
-  flex: 1;
-  height: 40px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.tabActive {
-  background: var(--ink-900);
-  color: white;
-}
-
-/* History */
-.list { display: flex; flex-direction: column; gap: 8px; }
-
-.historyRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: var(--shadow-card);
-}
-
-.historyThumb {
-  width: 44px; height: 44px;
-  border-radius: 12px;
-  background: var(--brand-50);
-  color: var(--brand-600);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.historyText { flex: 1; min-width: 0; }
-.historyTitle { font-size: 14px; font-weight: 600; }
-.historyDate { font-size: 11px; color: var(--text-3); }
-
-.gradeChip {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  width: 32px; height: 32px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gradeA {
-  background: var(--neon-lime);
-  color: var(--ink-900);
-}
-
-.gradeB {
-  background: var(--brand-50);
-  color: var(--brand-700);
-}
-
-/* Badges */
-.badgeGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  padding-bottom: 32px;
-}
-
-.badgeCell {
-  background: var(--surface);
-  border-radius: 18px;
-  padding: 16px 8px;
-  text-align: center;
-  box-shadow: var(--shadow-card);
-  cursor: pointer;
-  transition: background .12s;
-}
-
-.badgeCell:active { background: var(--surface-2); }
-
-.badgeLocked {
-  opacity: 0.35;
-  filter: grayscale(0.7);
-}
-
-.badgeIcon {
-  font-size: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-}
-
-.badgeFallbackIcon { color: var(--gold); }
-
-.badgeName {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin-top: 6px;
-}
 
 
 /* Feeds tab */
@@ -1163,99 +1021,6 @@
   font-weight: 600;
   color: var(--text-2);
   text-align: center;
-}
-
-/* Modal */
-.modalBackdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(11,13,20,.6);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  animation: fadein .2s ease;
-}
-
-@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-
-.modal {
-  width: 100%;
-  max-width: 320px;
-  background: var(--surface);
-  border-radius: 32px;
-  overflow: hidden;
-  box-shadow: var(--shadow-pop);
-}
-
-.modalHero {
-  background: var(--grad-sunset);
-  padding: 36px 0 24px;
-  text-align: center;
-  position: relative;
-}
-
-.modalBadgeIcon {
-  font-size: 96px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.2));
-}
-
-.modalBody {
-  padding: 20px 24px 24px;
-  text-align: center;
-}
-
-.modalKey {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--brand-500);
-  margin-bottom: 6px;
-}
-
-.modalDesc {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
-
-.modalCondition {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-2);
-  margin-bottom: 12px;
-}
-
-.modalCondition span {
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  background: var(--success);
-  color: white;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.modalDate {
-  font-size: 12px;
-  color: var(--text-3);
-  margin-bottom: 16px;
-}
-
-.modalActions {
-  display: flex;
-  gap: 8px;
 }
 
 /* QR Share Sheet */

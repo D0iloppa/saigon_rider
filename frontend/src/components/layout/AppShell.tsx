@@ -23,7 +23,8 @@ interface Props {
   onBootstrapLogin: () => void;
 }
 
-const HIDE_TABBAR_PATHS = [
+// ActiveSessionBar(하단 고정 진행 중 바)가 탭바 유무를 이 목록으로 판정한다(단일 소스 유지) — F-N-01 FR-2.
+export const HIDE_TABBAR_PATHS = [
   '/splash',
   '/suspended',
   '/auth/',

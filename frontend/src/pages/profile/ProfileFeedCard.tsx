@@ -8,30 +8,20 @@ import styles from './ProfileFeedCard.module.css';
 interface Props {
   post: FeedPost;
   onClick: () => void;
-  onCheer: (e: React.MouseEvent) => void;
 }
 
 /**
  * 프로필 "게시물" 전용 카드 — `UserProfile.tsx` 에서 그대로 추출(신규 디자인 없음).
- * 카드 탭 → 게시물 상세, 응원은 목록에서 유지(FeedList 관례) — 콜백은 상위(UserProfile)에서 주입한다.
+ * 카드 탭 → 게시물 상세.
+ * FR-1 제안 ⑤ — 상대를 판단하러 온 화면(타인 프로필)에서 상대 글에 응원하는 행동은
+ * 판단 여정과 무관하다. 매물 레일 카드(ProfileListingCard)와 동일하게 이동 전용 카드로
+ * 통일한다 — 응원 토글은 제거하고, 카운트는 매물 카드의 좋아요·채팅 수처럼 죽은 신호가
+ * 아닐 때만 표시하는 표시 전용 요소로 남긴다.
  */
-export default function ProfileFeedCard({ post: p, onClick, onCheer }: Props) {
+export default function ProfileFeedCard({ post: p, onClick }: Props) {
   const { t } = useTranslation();
   return (
-    <article
-      className={styles.feedCard}
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        // 내부 응원 버튼에서 버블링된 키다운은 무시(그 버튼 자체가 반응한다)
-        if (e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-    >
+    <button className={styles.feedCard} type="button" onClick={onClick}>
       <div className={styles.feedThumb}>
         {p.photoUrl ? (
           <AppImage src={p.photoUrl} alt="" className={styles.feedPhoto} />
@@ -42,18 +32,13 @@ export default function ProfileFeedCard({ post: p, onClick, onCheer }: Props) {
       <span className={styles.feedBody}>
         <span className={styles.feedTime}>{formatRelativeTime(p.createdAt)}</span>
         <span className={styles.feedCaption}>{p.caption ?? t('feed.noCaption')}</span>
-        <span className={styles.feedMeta}>
-          <button
-            type="button"
-            className={`${styles.cheerBtn} ${p.iCheered ? styles.cheerBtnActive : ''}`}
-            onClick={onCheer}
-          >
-            <Flame size={12} />
-            {p.cheerCount > 0 && <span>{p.cheerCount}</span>}
-          </button>
-          {p.commentCount > 0 && <span className={styles.commentCount}><MessageCircle size={12} />{p.commentCount}</span>}
-        </span>
+        {(p.cheerCount > 0 || p.commentCount > 0) && (
+          <span className={styles.feedMeta}>
+            {p.cheerCount > 0 && <span className={styles.cheerCount}><Flame size={12} />{p.cheerCount}</span>}
+            {p.commentCount > 0 && <span className={styles.commentCount}><MessageCircle size={12} />{p.commentCount}</span>}
+          </span>
+        )}
       </span>
-    </article>
+    </button>
   );
 }

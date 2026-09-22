@@ -647,6 +647,7 @@
     "loadError": "Không tải được bảng tin",
     "cheerError": "Vui lòng thử lại sau một lát",
     "filterGroups": "Nhóm của tôi",
+    "groupsNav": "Nhóm",
     "moreActions": "Thêm",
     "report": "Báo cáo",
     "reportTitle": "Lý do báo cáo",
@@ -655,7 +656,11 @@
     "reportReason_SPAM": "Spam · quảng cáo",
     "reportReason_ABUSE": "Lăng mạ · quấy rối",
     "reportReason_INAPPROPRIATE": "Nội dung không phù hợp",
-    "reportReason_OTHER": "Khác"
+    "reportReason_OTHER": "Khác",
+    "deleteComment": "Xóa",
+    "deleteCommentConfirm": "Xóa bình luận này?",
+    "deleteCommentSuccess": "Đã xóa bình luận",
+    "deleteCommentError": "Xóa bình luận thất bại"
   },
   "profile": {
     "phoneVerifyNeeded": "Cần xác minh SĐT",
@@ -985,6 +990,7 @@
     "apptTime": "Giờ",
     "apptAccept": "Chấp nhận hẹn",
     "apptComplete": "Hoàn tất giao dịch",
+    "apptCompleteConfirm": "Bạn có chắc muốn hoàn tất giao dịch này? Không thể hoàn tác sau đó.",
     "apptCompletionRequested": "Đã yêu cầu hoàn tất",
     "apptRequestCompletion": "Yêu cầu hoàn tất",
     "apptRequestCompletionAgain": "Yêu cầu lại",
@@ -993,6 +999,7 @@
     "apptCompletionDismissedNote": "Yêu cầu hoàn tất đã bị từ chối sau khi ban vận hành xem xét. Xem lý do trong thông báo.",
     "apptReject": "Từ chối",
     "apptCancel": "Hủy hẹn",
+    "apptCancelBlocked": "Không thể hủy — liên hệ hỗ trợ",
     "apptCancelOffer": "Hủy đề xuất",
     "apptOutdated": "Cuộc hẹn đã thay đổi — đã làm mới",
     "apptNavigationChecking": "Đang kiểm tra địa điểm hẹn.",
@@ -1010,6 +1017,7 @@
     "tradeQrWaiting": "Mã QR thanh toán của người bán sẽ xuất hiện tại đây.",
     "tradeQrRegister": "Đăng ký QR thanh toán",
     "tradeQrReplace": "Thay QR thanh toán",
+    "tradeQrRegisterOptionalNote": "Bạn cũng có thể giao dịch bằng tiền mặt mà không cần đăng ký QR.",
     "tradeQrSaved": "Đã đăng ký QR thanh toán",
     "tradeQrSaveError": "Không thể đăng ký QR thanh toán",
     "tradeProcedure": "Tiến trình giao dịch",
@@ -1033,6 +1041,8 @@
     "tradeSafetyReportLink": "Thấy bất thường? Báo cáo ngay",
     "tradeReportPaymentConfirm": "Nút này không phải là xác nhận từ ngân hàng hay bên thanh toán — đây là bạn tự khai đã chuyển tiền. Bạn đã chuyển tiền thật chưa?",
     "tradeReportPaymentConfirmCta": "Rồi, tôi đã chuyển",
+    "tradeConfirmReceiptConfirm": "Bạn đã tự kiểm tra khoản tiền nhận được trong ZaloPay hoặc ứng dụng ngân hàng chưa?",
+    "tradeConfirmReceiptConfirmCta": "Rồi, đã xác nhận",
     "tradeOpen": "Xem quy trình giao dịch",
     "tradeLoadError": "Không thể tải thông tin giao dịch",
     "tradeBannerQrWaiting": "Người bán đang đăng ký thông tin thanh toán",
@@ -1140,7 +1150,6 @@
 "settingsKickHint": "Có thể quay lại nếu được mời lại",
 "settingsBanHint": "Người bị chặn không thể vào lại dù được mời",
     "moreMenuReport": "Báo cáo",
-    "moreMenuLocationShare": "Chia sẻ vị trí",
     "moreMenuWalkieTalkie": "Bộ đàm",
     "messageReportAction": "Báo cáo"
   },
@@ -1360,10 +1369,9 @@
     "title": "Hỗ trợ",
     "newTicket": "+ Gửi câu hỏi mới",
     "empty": "Chưa có câu hỏi nào.",
-    "fieldTitle": "Tiêu đề",
+    "loadError": "Không thể tải danh sách câu hỏi",
     "fieldBody": "Nội dung",
-    "titlePlaceholder": "Nhập tiêu đề câu hỏi",
-    "bodyPlaceholder": "Mô tả chi tiết vấn đề của bạn",
+    "bodyPlaceholder": "Hãy cho biết khi nào, giao dịch nào và vấn đề là gì",
     "submit": "Gửi câu hỏi",
     "submitting": "Đang gửi...",
     "replies": "Phản hồi",
@@ -1378,6 +1386,8 @@
     "tabInquiry": "Câu hỏi",
     "tabReport": "Báo cáo",
     "reportEmpty": "Bạn chưa gửi báo cáo nào.",
+    "reportLoadError": "Không thể tải lịch sử báo cáo",
+    "reportTargetUnavailable": "Không thể đi đến đối tượng này",
     "reportStatus_reviewing": "Đang xem xét",
     "reportStatus_resolved": "Đã xử lý",
     "reportStatus_rejected": "Không vi phạm",
@@ -1429,7 +1439,12 @@
     "reportCancelledNotice": "Báo cáo đã hủy thì không thể báo cáo lại cùng đối tượng này.",
     "reportGoToTargetBtn": "Đi đến đối tượng",
     "reportAlreadyCancelledError": "Bạn đã hủy báo cáo cho đối tượng này nên không thể báo cáo lại.",
-    "reportAlreadyPendingError": "Bạn đã có một báo cáo cho đối tượng này đang được xem xét."
+    "reportAlreadyPendingError": "Bạn đã có một báo cáo cho đối tượng này đang được xem xét.",
+    "detailLoadError": "Không thể tải câu hỏi này",
+    "replyPlaceholder": "Nhập phản hồi",
+    "replySend": "Gửi",
+    "replySendError": "Không thể gửi phản hồi",
+    "replyClosedNotice": "Câu hỏi này đã kết thúc — vui lòng gửi câu hỏi mới"
   },
   "notices": {
     "title": "Thông báo",
@@ -2054,7 +2069,8 @@
       "loadMore": "Xem thêm"
     },
     "mapSearch": {
-      "hint": "Tìm theo tên cửa hàng hoặc ngành hàng"
+      "hint": "Tìm theo tên cửa hàng hoặc ngành hàng",
+      "expandScope": "Tìm trên toàn khu vực"
     },
     "savedPlaces": "Địa điểm đã lưu",
     "addPlace": "Thêm địa điểm",
@@ -2411,6 +2427,7 @@
     "couponClaimError": "Không nhận được phiếu",
     "couponAlreadyClaimed": "Bạn đã nhận phiếu này rồi",
     "favoriteToggle": "Cửa hàng quan tâm",
+    "more": "Thêm",
     "viewProfileCta": "Xem hồ sơ cửa hàng",
     "review": {
       "sectionTitle": "Đánh giá",
@@ -2644,8 +2661,9 @@
       "priceManageDesc": "Sắp xếp dịch vụ và bảng giá",
       "couponManageDesc": "Phát hành và quản lý phiếu khuyến mãi",
       "listingManageDesc": "Đăng mặt hàng do cửa hàng bán",
-      "reviewsManage": "Quản lý đánh giá",
-      "reviewsManageDesc": "Xem đánh giá và viết phản hồi",
+      "unansweredActionTitle": "{{count}} đánh giá chưa trả lời",
+      "unansweredActionDesc": "Một số đánh giá của khách vẫn đang chờ phản hồi",
+      "unansweredActionCta": "Trả lời ngay",
       "guideTitle": "Hướng dẫn đối tác",
       "guideProfile": "Luôn cập nhật thông tin cửa hàng và bảng giá.",
       "guideStatuses": "Duyệt nội dung, hợp đồng và hiển thị thực tế là các trạng thái riêng biệt.",
@@ -2869,6 +2887,7 @@
     "role_manager": "Quản trị viên",
     "role_member": "Thành viên",
     "removeMember": "Xoá khỏi nhóm",
+    "removeMemberConfirm": "Xoá thành viên này khỏi nhóm?",
     "pendingMembers": "Chờ duyệt",
     "approveMember": "Duyệt"
   }

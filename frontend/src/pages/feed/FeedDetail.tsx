@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowUp, Flag, Flame, Globe, Heart, MessageCircle, MoreVertical } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Flag, Flame, Globe, Heart, MessageCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { StatusBar } from '@/components/layout/StatusBar';
 import {
   fetchFeedPost,
@@ -9,6 +9,8 @@ import {
   toggleCheer,
   toggleCommentLike,
   postComment,
+  deleteFeedPost,
+  deleteFeedComment,
   reportFeedPost,
   reportFeedComment,
   FEED_REPORT_REASONS,
@@ -21,6 +23,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { ImageCarousel } from '@/components/ui/ImageCarousel';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { useUserStore } from '@/store/useUserStore';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { loadSession } from '@/lib/session';
 import { toast } from '@/components/ui/Toast';
 import { native } from '@/lib/native';
@@ -45,6 +48,7 @@ export default function FeedDetail() {
   const [postMoreOpen, setPostMoreOpen] = useState(false);
   const [postReportOpen, setPostReportOpen] = useState(false);
   const [commentReportTarget, setCommentReportTarget] = useState<Comment | null>(null);
+  const [commentMoreTarget, setCommentMoreTarget] = useState<Comment | null>(null);
   const kb = useKeyboard();
   // iOS 네이티브는 키보드가 순수 오버레이(웹뷰 리사이즈 없음) → 입력바가 flex 하단에
   // 있어도 그 자리를 키보드가 그냥 덮는다. 키보드 높이만큼 padding 을 더해 위로 밀어낸다.
@@ -75,6 +79,51 @@ export default function FeedDetail() {
     if (!post) return;
     const { liked, count } = await toggleCommentLike(post.id, c.id);
     setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, iLiked: liked, likeCount: count } : x)));
+  };
+
+  // F-CM-01 FR-2 제안 ①: 본인 글 케밥 → [수정]/[삭제]. B0-4 확인 다이얼로그(useConfirmStore) 재사용.
+  const handleDeletePost = async () => {
+    if (!post || !user) return;
+    try {
+      await deleteFeedPost(post.id, user.id);
+      toast.success(t('profile.deletePostSuccess'));
+      navigate('/feed', { replace: true });
+    } catch {
+      toast.error(t('profile.deletePostError'));
+    }
+  };
+
+  const handleDeletePostPick = () => {
+    setPostMoreOpen(false);
+    useConfirmStore.getState().open(
+      { mode: 'code', value: 'profile.deletePostConfirm' },
+      () => void handleDeletePost(),
+      { confirmLabel: { mode: 'code', value: 'profile.deletePost' } },
+    );
+  };
+
+  // F-CM-01 FR-2 제안 ②: 본인 댓글 [⋮] → [삭제]. 같은 확인 문법.
+  const handleCommentDelete = async (c: Comment) => {
+    if (!post) return;
+    try {
+      await deleteFeedComment(post.id, c.id);
+      setComments((prev) => prev.filter((x) => x.id !== c.id));
+      setPost((prev) => (prev ? { ...prev, commentCount: Math.max(0, prev.commentCount - 1) } : prev));
+      toast.success(t('feed.deleteCommentSuccess', { defaultValue: '댓글을 삭제했어요' }));
+    } catch {
+      toast.error(t('feed.deleteCommentError', { defaultValue: '댓글 삭제에 실패했어요' }));
+    }
+  };
+
+  const handleCommentDeletePick = () => {
+    if (!commentMoreTarget) return;
+    const target = commentMoreTarget;
+    setCommentMoreTarget(null);
+    useConfirmStore.getState().open(
+      { mode: 'code', value: 'feed.deleteCommentConfirm' },
+      () => void handleCommentDelete(target),
+      { confirmLabel: { mode: 'code', value: 'feed.deleteComment' } },
+    );
   };
 
   const handlePostReport = async (reason: FeedReportReason) => {
@@ -153,7 +202,7 @@ export default function FeedDetail() {
             <ArrowLeft size={24} strokeWidth={2} />
           </button>
           <h1 className={styles.topTitle}>{t('feed.detailTitle', { defaultValue: '피드' })}</h1>
-          {post && user && post.userId !== user.id ? (
+          {post ? (
             <button className={styles.backBtn} type="button" onClick={() => setPostMoreOpen(true)} aria-label={t('feed.moreActions', { defaultValue: '더보기' })}>
               <MoreVertical size={22} strokeWidth={2} />
             </button>
@@ -239,7 +288,15 @@ export default function FeedDetail() {
                       <Heart size={13} strokeWidth={2} fill={c.iLiked ? 'currentColor' : 'none'} />
                       {c.likeCount > 0 && <span className="num">{c.likeCount}</span>}
                     </button>
-                    {(!c.userId || !user || c.userId !== user.id) && (
+                    {c.userId && user && c.userId === user.id ? (
+                      <button
+                        className={styles.commentReportBtn}
+                        onClick={() => setCommentMoreTarget(c)}
+                        aria-label={t('feed.moreActions', { defaultValue: '더보기' })}
+                      >
+                        <MoreVertical size={14} strokeWidth={2} />
+                      </button>
+                    ) : (
                       <button
                         className={styles.commentReportBtn}
                         onClick={() => setCommentReportTarget(c)}
@@ -294,11 +351,31 @@ export default function FeedDetail() {
 
       {viewerState && <ImageViewer srcs={viewerState.srcs} initialIndex={viewerState.index} onClose={() => setViewerState(null)} />}
 
-      {/* 더보기: 게시물 신고 (MarketDetail moreOpen 미러) */}
+      {/* 더보기: 본인 글이면 수정/삭제, 타인 글이면 신고 (MarketDetail moreOpen 미러) */}
       <BottomSheet open={postMoreOpen} onClose={() => setPostMoreOpen(false)}>
         <div className={styles.reportSheet}>
-          <button className={styles.reportItem} onClick={() => { setPostMoreOpen(false); setPostReportOpen(true); }}>
-            <Flag size={16} strokeWidth={2.2} /> {t('feed.report', { defaultValue: '신고하기' })}
+          {post && user && post.userId === user.id ? (
+            <>
+              <button className={styles.reportItem} onClick={() => { setPostMoreOpen(false); navigate(`/feed/edit/${post.id}`); }}>
+                <Pencil size={16} strokeWidth={2.2} /> {t('profile.editPost')}
+              </button>
+              <button className={`${styles.reportItem} ${styles.reportItemDanger}`} onClick={handleDeletePostPick}>
+                <Trash2 size={16} strokeWidth={2.2} /> {t('profile.deletePost')}
+              </button>
+            </>
+          ) : (
+            <button className={styles.reportItem} onClick={() => { setPostMoreOpen(false); setPostReportOpen(true); }}>
+              <Flag size={16} strokeWidth={2.2} /> {t('feed.report', { defaultValue: '신고하기' })}
+            </button>
+          )}
+        </div>
+      </BottomSheet>
+
+      {/* 댓글 더보기: 본인 댓글 삭제 */}
+      <BottomSheet open={!!commentMoreTarget} onClose={() => setCommentMoreTarget(null)}>
+        <div className={styles.reportSheet}>
+          <button className={`${styles.reportItem} ${styles.reportItemDanger}`} onClick={handleCommentDeletePick}>
+            <Trash2 size={16} strokeWidth={2.2} /> {t('feed.deleteComment', { defaultValue: '삭제하기' })}
           </button>
         </div>
       </BottomSheet>

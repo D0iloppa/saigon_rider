@@ -10,12 +10,14 @@ import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
 import { extractErrorCode } from '@/api/client';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { createConversation, proposePriceOffer } from '@/api/dm';
 import PriceOfferSheet from '@/components/market/PriceOfferSheet';
 import ReportDetailSheet from '@/components/market/ReportDetailSheet';
 import { followUser, unfollowUser } from '@/api/follows';
+import { fetchBusinessPublicProfile, type BusinessPublicProfile } from '@/api/biz';
 import {
   fetchListing,
   updateListingStatus,
@@ -66,9 +68,10 @@ export default function MarketDetail() {
   const [blocked, setBlocked] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [offerSending, setOfferSending] = useState(false);
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
+  // F-BZ-01 FR-1 제안 ③: 업체 매물이면 판매자 블록에 업체 아이덴티티(로고)를 쓴다
+  const [bizProfile, setBizProfile] = useState<BusinessPublicProfile | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -84,6 +87,11 @@ export default function MarketDetail() {
   }, [id, myId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!detail?.businessProfileId) { setBizProfile(null); return; }
+    fetchBusinessPublicProfile(detail.businessProfileId).then(setBizProfile).catch(() => setBizProfile(null));
+  }, [detail?.businessProfileId]);
 
   const isSeller = !!detail && !!myId && detail.seller.id === myId;
 
@@ -179,7 +187,6 @@ export default function MarketDetail() {
     setWithdrawing(true);
     try {
       await withdrawListing(detail.id, myId);
-      setWithdrawOpen(false);
       // 철회는 삭제가 아니라 상태 — 상세에 머물러 "다시 올리기" 를 바로 누를 수 있게 한다(대표 지시 2026-08-08)
       setDetail(await fetchListing(detail.id, myId));
       toast.success(t('market.withdrawDone', { defaultValue: '매물을 내렸어요. 언제든 다시 올릴 수 있어요' }));
@@ -192,6 +199,16 @@ export default function MarketDetail() {
     } finally {
       setWithdrawing(false);
     }
+  };
+
+  // F-S0-02 FR-1 제안 ⓐ: 매물 철회는 종료·비가역 — 앱에 이미 있는 확인 다이얼로그(useConfirmStore)로
+  // "되돌릴 수 없다" 확인 1회를 필수화한다.
+  const handleWithdrawPick = () => {
+    useConfirmStore.getState().open(
+      { mode: 'text', value: t('market.withdrawConfirmBody', { defaultValue: '철회하면 되돌릴 수 없고 피드·검색에서 사라져요.' }) },
+      () => void handleWithdraw(),
+      { confirmLabel: { mode: 'text', value: t('market.withdrawConfirm', { defaultValue: '철회하기' }) } },
+    );
   };
 
   // 대표 지시 2026-08-08: 철회 매물 재판매 — 서버는 WITHDRAWN → ON_SALE 전이만 허용한다
@@ -333,14 +350,26 @@ export default function MarketDetail() {
               {/* Seller */}
               <div className={styles.sellerBlock}>
                 <div className={styles.sellerRow}>
-                  <button type="button" className={styles.sellerIdentity} onClick={() => navigate(detail.seller.id === myId ? '/profile' : `/profile/${detail.seller.id}`)}>
-                    <AppImage src={detail.seller.avatarUrl ?? undefined} alt="" className={styles.sellerAvatar} variant="circle" />
+                  <button
+                    type="button"
+                    className={styles.sellerIdentity}
+                    onClick={() => navigate(
+                      detail.businessProfileId
+                        ? `/biz/${detail.businessProfileId}`
+                        : detail.seller.id === myId ? '/profile' : `/profile/${detail.seller.id}`
+                    )}
+                  >
+                    <AppImage
+                      src={(detail.businessProfileId ? bizProfile?.photoUrl : detail.seller.avatarUrl) ?? undefined}
+                      alt=""
+                      className={styles.sellerAvatar}
+                      variant="circle"
+                    />
                     <span className={styles.sellerInfo}>
                       <span className={styles.sellerName}>{detail.businessName ?? detail.seller.nickname ?? '—'}</span>
-                      <span className={styles.sellerSub}>
-                        Lv.{detail.seller.level}
-                        {detail.district ? ` · ${localizedName(detail.district)}` : ''}
-                      </span>
+                      {detail.district && (
+                        <span className={styles.sellerSub}>{localizedName(detail.district)}</span>
+                      )}
                     </span>
                   </button>
                   {!isSeller && (
@@ -540,19 +569,22 @@ export default function MarketDetail() {
                   {actionsExpanded ? <ChevronDown size={18} strokeWidth={2.2} /> : <ChevronUp size={18} strokeWidth={2.2} />}
                 </button>
               </div>
+              {/* 제안 ⓑ: 끌어올리기는 빈도 1위 행동 — 접힘 액션 열에서 꺼내 K 하단 바에 상시 노출 버튼으로 배치 */}
+              {detail.status === 'ON_SALE' && (
+                <div className={styles.bumpRow}>
+                  <Button variant="secondary" onClick={handleBump} disabled={!canBump}>
+                    <ArrowUp size={16} strokeWidth={2.4} />
+                    {canBump
+                      ? t('market.bump', { defaultValue: '끌어올리기' })
+                      : t('market.bumpWait', {
+                          hours: Math.ceil(bumpRemainingMs / 3_600_000),
+                          defaultValue: `${Math.ceil(bumpRemainingMs / 3_600_000)}시간 후 끌어올리기`,
+                        })}
+                  </Button>
+                </div>
+              )}
               {actionsExpanded && (
                 <>
-                  {detail.status === 'ON_SALE' && (
-                    <button className={styles.priceEditBtn} type="button" onClick={handleBump} disabled={!canBump}>
-                      <ArrowUp size={16} strokeWidth={2.4} />
-                      {canBump
-                        ? t('market.bump', { defaultValue: '끌어올리기' })
-                        : t('market.bumpWait', {
-                            hours: Math.ceil(bumpRemainingMs / 3_600_000),
-                            defaultValue: `${Math.ceil(bumpRemainingMs / 3_600_000)}시간 후 끌어올리기`,
-                          })}
-                    </button>
-                  )}
                   <button
                     className={styles.priceEditBtn}
                     type="button"
@@ -568,10 +600,6 @@ export default function MarketDetail() {
                     <Pencil size={16} strokeWidth={2.2} />
                     {t('market.editListing', { defaultValue: '매물 수정' })}
                   </button>
-                  <button className={styles.priceEditBtn} type="button" onClick={() => setWithdrawOpen(true)}>
-                    <Trash2 size={16} strokeWidth={2.2} />
-                    {t('market.withdraw', { defaultValue: '매물 철회' })}
-                  </button>
                 </>
               )}
               <div className={styles.statusBar}>
@@ -585,6 +613,11 @@ export default function MarketDetail() {
                   </button>
                 ))}
               </div>
+              {/* 제안 ⓐ: 매물 철회는 종료·비가역 — 접힘 액션 열에서 분리해 열 최하단에 위험 톤으로 배치 */}
+              <button className={styles.withdrawBtn} type="button" onClick={handleWithdrawPick}>
+                <Trash2 size={16} strokeWidth={2.2} />
+                {t('market.withdraw', { defaultValue: '매물 철회' })}
+              </button>
             </div>
             )
           ) : (
@@ -646,19 +679,6 @@ export default function MarketDetail() {
               <p className={styles.priceHint}>{t('market.priceDropHint', { defaultValue: '기존보다 낮추면 가격내림 배지가 붙어요' })}</p>
               <div className={styles.priceSubmit}>
                 <Button onClick={handleUpdatePrice}>{t('common.save', { defaultValue: '저장' })}</Button>
-              </div>
-            </div>
-          </BottomSheet>
-
-          {/* 철회 확인 (판매자) */}
-          <BottomSheet open={withdrawOpen} onClose={() => setWithdrawOpen(false)}>
-            <div className={styles.priceSheet}>
-              <h2 className={styles.priceSheetTitle}>{t('market.withdrawConfirmTitle', { defaultValue: '매물을 철회할까요?' })}</h2>
-              <p className={styles.priceHint}>{t('market.withdrawConfirmBody', { defaultValue: '철회하면 되돌릴 수 없고 피드·검색에서 사라져요.' })}</p>
-              <div className={styles.priceSubmit}>
-                <Button variant="secondary" onClick={handleWithdraw} disabled={withdrawing}>
-                  {withdrawing ? t('market.withdrawing', { defaultValue: '철회 중' }) : t('market.withdrawConfirm', { defaultValue: '철회하기' })}
-                </Button>
               </div>
             </div>
           </BottomSheet>

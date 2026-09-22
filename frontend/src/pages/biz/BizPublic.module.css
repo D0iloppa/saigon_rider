@@ -770,6 +770,32 @@
 
 .headerActions { display: flex; align-items: center; gap: 4px; }
 
+/* 케밥 메뉴(공유/신고) — MarketDetail.module.css .moreSheet/.moreItem/.moreDanger 미러 */
+.moreSheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.moreItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 6px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.moreItem:active {
+  background: var(--surface-2);
+}
+
+.moreDanger {
+  color: var(--danger);
+}
+
 /* 업체 위치 복귀 버튼 (2026-08-18) — 지도 카드 우측 하단 오버레이.
    .mapCard 가 position:relative 라 별도 래퍼 없이 얹힌다.
    '내 위치'(◎)와 혼동 금지 — 이건 업체 중심으로 되돌리는 도구다. */

@@ -249,6 +249,11 @@
   background: var(--surface-2);
 }
 
+/* 위험 톤 행(삭제) — MarketDetail.module.css .moreDanger 미러 */
+.reportItemDanger {
+  color: var(--danger);
+}
+
 /* 댓글 신고 버튼 — commentLike 옆 배치 */
 .commentReportBtn {
   display: inline-flex;

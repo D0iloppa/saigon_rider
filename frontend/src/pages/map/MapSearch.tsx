@@ -15,12 +15,25 @@ import {
   type BizMapItem,
 } from '@/api/biz';
 import { BizCatIcon } from '@/components/maps/BizCatIcon';
+import { haversineM } from '@/lib/polyline';
+import { useLocationStore, NEARBY_RADIUS_KM } from '@/store/useLocationStore';
 import BizRichCard from './BizRichCard';
 import styles from './MapSearch.module.css';
 
 const HCMC_BBOX = { minLat: 10.40, maxLat: 11.10, minLng: 106.40, maxLng: 107.00 };
 // N-2: 100 이면 101번째부터 검색결과에서 조용히 사라진다 — NeighborhoodMap 과 동일하게 상향.
 const BIZ_MAX_ITEMS = 1000;
+
+// NeighborhoodMap.tsx 의 radiusBbox 와 동일 — FR-1(동네지도)의 표시범위를 이 화면 검색에도
+// 그대로 적용하기 위한 소규모 유틸(청크 분리 유지를 위해 중복 정의).
+function radiusBbox(center: { lat: number; lng: number }, km: number) {
+  const dLat = km / 111;
+  const dLng = km / (111 * Math.cos((center.lat * Math.PI) / 180));
+  return {
+    minLat: center.lat - dLat, maxLat: center.lat + dLat,
+    minLng: center.lng - dLng, maxLng: center.lng + dLng,
+  };
+}
 
 /**
  * 동네지도 가게 검색 — 헤더 검색 아이콘 진입 (마켓 /market/search 와 동일 문법:
@@ -40,6 +53,12 @@ export default function MapSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // FR-2 제안②: FR-1(동네지도)의 표시범위(내 주변/전체)를 검색에도 적용한다. 0건일 때
+  // [전체 지역에서 찾기] CTA 를 누르면 이 화면 한정으로 전역 범위로 넓힌다.
+  const regionMode = useLocationStore((s) => s.mode);
+  const coords = useLocationStore((s) => s.coords);
+  const [scopeExpanded, setScopeExpanded] = useState(false);
+  const scoped = regionMode === 'gps' && !!coords && !scopeExpanded;
 
   useEffect(() => {
     fetchBizCategories().then(setCategories).catch(() => setCategories([]));
@@ -63,14 +82,22 @@ export default function MapSearch() {
     const controller = new AbortController();
     setLoading(true);
     setError(false);
+    const bbox = scoped && coords ? radiusBbox(coords, NEARBY_RADIUS_KM) : HCMC_BBOX;
     fetchBizMapItems({
-      ...HCMC_BBOX,
+      ...bbox,
       category: category ?? undefined,
       q: debounced || undefined,
       signal: controller.signal,
       maxItems: BIZ_MAX_ITEMS,
     })
-      .then(setItems)
+      .then((result) => {
+        // bbox 는 반경의 외접 사각형이라 모서리가 반경보다 멀다 — NeighborhoodMap 과 동일하게
+        // 실제 거리로 한 번 더 좁힌다.
+        const filtered = scoped && coords
+          ? result.filter((biz) => haversineM(coords.lat, coords.lng, biz.lat, biz.lng) <= NEARBY_RADIUS_KM * 1000)
+          : result;
+        setItems(filtered);
+      })
       .catch((err) => {
         if (!(err instanceof DOMException && err.name === 'AbortError')) setError(true);
       })
@@ -78,7 +105,7 @@ export default function MapSearch() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [active, debounced, category, reloadKey, i18n.language]);
+  }, [active, debounced, category, reloadKey, i18n.language, scoped, coords]);
 
   const { containerRef, pullDistance, isRefreshing, contentStyle } = usePullToRefresh(
     useCallback(() => setReloadKey((v) => v + 1), []),
@@ -164,6 +191,8 @@ export default function MapSearch() {
               icon={SearchX}
               title={t('map.emptySearch')}
               desc={t('map.listFirst.emptySearchHint')}
+              actionLabel={scoped ? t('map.mapSearch.expandScope') : undefined}
+              onAction={scoped ? () => setScopeExpanded(true) : undefined}
             />
           </div>
         ) : (

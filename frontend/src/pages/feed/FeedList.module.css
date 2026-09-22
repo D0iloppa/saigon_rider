@@ -1,34 +1,31 @@
-.iconBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px; height: 40px;
-  border-radius: 14px;
-  background: var(--surface-2);
-  color: var(--text);
-  margin-left: 4px;
-}
-
-.iconBtn:active {
-  background: var(--line);
-}
-
-/* DM 미읽음 표시 */
-.unreadDot {
-  position: absolute;
-  top: 2px; right: 2px;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--danger);
-  border: 1.5px solid var(--surface);
-}
-
 /* 페이지 컨테이너: viewport를 꽉 채우는 flex column */
 .page {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* 새 글 작성 FAB — MarketMain.writeFab 문법 미러 (F-CM-01 FR-1 제안 ②) */
+.writeFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: var(--shadow-pop);
+}
+
+.writeFab:active {
+  opacity: .85;
 }
 
 /* 실제 스크롤 영역: TopBar 아래 나머지 공간 */

@@ -9,11 +9,16 @@
 .scroll { padding: 14px 16px 24px; }
 
 /* 내 프로필 미리보기 배너 — 남의 프로필과 같은 화면이라, 이 한 줄만 "미리보기" 를 밝힌다.
-   .trustSection 과 같은 표면(--surface-2 톤)으로 새 시각 언어를 만들지 않는다. */
+   .trustSection 과 같은 표면(--surface-2 톤)으로 새 시각 언어를 만들지 않는다.
+   FR-3 제안 ③ — 스크롤해도 "남이 보는 화면" 맥락이 사라지지 않게 상단에 고정
+   (sticky, BizManage .tabs 와 같은 기존 관례). */
 .previewBanner {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
   margin-bottom: 14px;
   padding: 10px 12px;
   border-radius: 12px;
@@ -24,6 +29,20 @@
   line-height: 1.35;
 }
 .previewBanner > svg { flex-shrink: 0; }
+
+/* FR-3 제안 ① — 배너 옆 보조 행동. 미리보기는 확인 전용이므로 채움이 아닌 텍스트 무게 */
+.previewEditBtn {
+  margin-left: auto;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--brand-600);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.previewEditBtn:active { opacity: .7; }
 
 .moreBtn {
   display: grid;
@@ -107,20 +126,10 @@
   margin-top: 14px;
 }
 
-.followBtn { flex: 1; }
+/* FR-1 제안 ① — DM 이 채움(주행동)으로 flex:1, 팔로우는 외곽선(보조)으로 내용 폭만 차지 */
+.dmBtn { flex: 1; }
 
-.dmBtn {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  flex-shrink: 0;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface-2);
-  color: var(--text-2);
-}
-.dmBtn:active { opacity: .75; }
-.dmBtn:disabled { opacity: .5; }
+.followBtn { flex: 0 0 auto; }
 
 .trustSection {
   margin-top: 18px;
@@ -174,7 +183,9 @@
 }
 
 .reportItem {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   padding: 15px 4px;
   border: 0;
@@ -186,3 +197,7 @@
   text-align: left;
 }
 .reportItem:active { opacity: .7; }
+.reportItem:disabled { opacity: .5; }
+
+/* FR-2 제안 ② — 차단은 위험 톤(P-1: 파괴적 행동은 시각적으로 구분) */
+.reportItemDanger { color: var(--danger); }

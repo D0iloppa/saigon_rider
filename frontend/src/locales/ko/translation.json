@@ -647,6 +647,7 @@
     "loadError": "피드를 불러오지 못했어요",
     "cheerError": "잠시 후 다시 시도해 주세요",
     "filterGroups": "내 그룹",
+    "groupsNav": "그룹",
     "moreActions": "더보기",
     "report": "신고하기",
     "reportTitle": "신고 사유",
@@ -655,7 +656,11 @@
     "reportReason_SPAM": "스팸·광고",
     "reportReason_ABUSE": "욕설·괴롭힘",
     "reportReason_INAPPROPRIATE": "부적절한 콘텐츠",
-    "reportReason_OTHER": "기타"
+    "reportReason_OTHER": "기타",
+    "deleteComment": "삭제하기",
+    "deleteCommentConfirm": "이 댓글을 삭제하시겠어요?",
+    "deleteCommentSuccess": "댓글을 삭제했어요",
+    "deleteCommentError": "댓글 삭제에 실패했어요"
   },
   "profile": {
     "phoneVerifyNeeded": "휴대폰 인증 필요",
@@ -985,6 +990,7 @@
     "apptTime": "시간",
     "apptAccept": "약속 수락",
     "apptComplete": "거래 완료",
+    "apptCompleteConfirm": "정말 거래를 완료 처리할까요? 이후에는 되돌릴 수 없어요.",
     "apptCompletionRequested": "완료 요청됨",
     "apptRequestCompletion": "거래 완료 요청",
     "apptRequestCompletionAgain": "완료 다시 요청",
@@ -993,6 +999,7 @@
     "apptCompletionDismissedNote": "완료 요청이 운영 검토에서 기각됐어요. 알림에서 사유를 확인해 주세요.",
     "apptReject": "거절",
     "apptCancel": "약속 취소",
+    "apptCancelBlocked": "취소 불가 — 고객센터 문의",
     "apptCancelOffer": "제안 취소",
     "apptOutdated": "약속 상태가 변경되어 새로고침했어요",
     "apptNavigationChecking": "약속 장소를 확인하고 있어요.",
@@ -1010,6 +1017,7 @@
     "tradeQrWaiting": "판매자가 결제 QR을 등록하면 이곳에 표시돼요.",
     "tradeQrRegister": "결제 QR 등록",
     "tradeQrReplace": "결제 QR 교체",
+    "tradeQrRegisterOptionalNote": "QR 등록 없이 현금으로도 거래할 수 있습니다.",
     "tradeQrSaved": "결제 QR을 등록했어요",
     "tradeQrSaveError": "결제 QR을 등록하지 못했어요",
     "tradeProcedure": "거래 진행",
@@ -1033,6 +1041,8 @@
     "tradeSafetyReportLink": "이상하면 신고하기",
     "tradeReportPaymentConfirm": "이 버튼은 은행이나 결제사의 확인이 아니라, 실제로 송금했다는 본인 진술이에요. 정말 송금하셨나요?",
     "tradeReportPaymentConfirmCta": "네, 송금했어요",
+    "tradeConfirmReceiptConfirm": "ZaloPay나 은행 앱에서 입금 내역을 직접 확인하셨나요?",
+    "tradeConfirmReceiptConfirmCta": "확인했어요",
     "tradeOpen": "거래 절차 보기",
     "tradeLoadError": "거래 정보를 불러오지 못했어요",
     "tradeBannerQrWaiting": "판매자가 결제 안내를 등록하는 중이에요",
@@ -1140,7 +1150,6 @@
 "settingsKickHint": "내보내도 다시 초대하면 돌아올 수 있어요",
 "settingsBanHint": "차단하면 해제 전까지 초대해도 들어올 수 없어요",
     "moreMenuReport": "신고하기",
-    "moreMenuLocationShare": "위치 공유하기",
     "moreMenuWalkieTalkie": "워키토키",
     "messageReportAction": "신고"
   },
@@ -1360,10 +1369,9 @@
     "title": "고객센터",
     "newTicket": "+ 새 문의 등록",
     "empty": "등록된 문의가 없습니다.",
-    "fieldTitle": "제목",
+    "loadError": "문의를 불러오지 못했습니다",
     "fieldBody": "내용",
-    "titlePlaceholder": "문의 제목을 입력하세요",
-    "bodyPlaceholder": "문의 내용을 자세히 입력해주세요",
+    "bodyPlaceholder": "언제·어느 거래 건인지·무엇이 문제인지 적어주세요",
     "submit": "문의 등록",
     "submitting": "등록 중...",
     "replies": "답변",
@@ -1378,6 +1386,8 @@
     "tabInquiry": "문의",
     "tabReport": "신고",
     "reportEmpty": "신고한 내역이 없습니다.",
+    "reportLoadError": "신고 내역을 불러오지 못했습니다",
+    "reportTargetUnavailable": "이 대상으로는 이동할 수 없어요",
     "reportStatus_reviewing": "검토 중",
     "reportStatus_resolved": "조치 완료",
     "reportStatus_rejected": "위반 아님",
@@ -1429,7 +1439,12 @@
     "reportCancelledNotice": "취소한 신고는 같은 대상에 다시 신고할 수 없습니다.",
     "reportGoToTargetBtn": "대상으로 이동",
     "reportAlreadyCancelledError": "이미 취소한 신고가 있어 이 대상은 다시 신고할 수 없습니다.",
-    "reportAlreadyPendingError": "이미 접수되어 처리 중인 신고가 있습니다."
+    "reportAlreadyPendingError": "이미 접수되어 처리 중인 신고가 있습니다.",
+    "detailLoadError": "문의를 불러오지 못했습니다",
+    "replyPlaceholder": "답글을 입력하세요",
+    "replySend": "보내기",
+    "replySendError": "답글을 보내지 못했습니다",
+    "replyClosedNotice": "종결된 문의입니다 — 새 문의를 작성해 주세요"
   },
   "notices": {
     "title": "공지사항",
@@ -2054,7 +2069,8 @@
       "loadMore": "더 보기"
     },
     "mapSearch": {
-      "hint": "가게 이름이나 업종으로 찾아보세요"
+      "hint": "가게 이름이나 업종으로 찾아보세요",
+      "expandScope": "전체 지역에서 찾기"
     },
     "savedPlaces": "저장한 장소",
     "addPlace": "장소 추가",
@@ -2411,6 +2427,7 @@
     "couponClaimError": "쿠폰을 받지 못했습니다",
     "couponAlreadyClaimed": "이미 받은 쿠폰이에요",
     "favoriteToggle": "관심 업체",
+    "more": "더보기",
     "viewProfileCta": "가게 프로필 보기",
     "review": {
       "sectionTitle": "후기",
@@ -2644,8 +2661,9 @@
       "priceManageDesc": "서비스와 가격 정보를 정리해요",
       "couponManageDesc": "판촉 쿠폰을 발행하고 관리해요",
       "listingManageDesc": "가게에서 판매할 매물을 등록해요",
-      "reviewsManage": "후기 관리",
-      "reviewsManageDesc": "후기를 확인하고 답글을 남겨요",
+      "unansweredActionTitle": "미답변 문의 {{count}}건",
+      "unansweredActionDesc": "고객이 남긴 후기에 아직 답글이 없어요",
+      "unansweredActionCta": "답글 남기기",
       "guideTitle": "파트너 가이드",
       "guideProfile": "가게 정보와 가격표를 최신으로 유지해주세요.",
       "guideStatuses": "소재 승인, 계약, 실제 노출은 서로 다른 상태예요.",
@@ -2869,6 +2887,7 @@
     "role_manager": "매니저",
     "role_member": "멤버",
     "removeMember": "강퇴",
+    "removeMemberConfirm": "이 멤버를 강퇴할까요?",
     "pendingMembers": "승인 대기",
     "approveMember": "승인"
   }

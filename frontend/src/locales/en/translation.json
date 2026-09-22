@@ -647,6 +647,7 @@
     "loadError": "Couldn't load the feed",
     "cheerError": "Please try again in a moment",
     "filterGroups": "My groups",
+    "groupsNav": "Groups",
     "moreActions": "More",
     "report": "Report",
     "reportTitle": "Report reason",
@@ -655,7 +656,11 @@
     "reportReason_SPAM": "Spam / advertising",
     "reportReason_ABUSE": "Abuse or harassment",
     "reportReason_INAPPROPRIATE": "Inappropriate content",
-    "reportReason_OTHER": "Other"
+    "reportReason_OTHER": "Other",
+    "deleteComment": "Delete",
+    "deleteCommentConfirm": "Delete this comment?",
+    "deleteCommentSuccess": "Comment deleted",
+    "deleteCommentError": "Failed to delete comment"
   },
   "profile": {
     "phoneVerifyNeeded": "Phone verification needed",
@@ -985,6 +990,7 @@
     "apptTime": "Time",
     "apptAccept": "Accept meetup",
     "apptComplete": "Complete deal",
+    "apptCompleteConfirm": "Complete this trade? This cannot be undone.",
     "apptCompletionRequested": "Completion requested",
     "apptRequestCompletion": "Request completion",
     "apptRequestCompletionAgain": "Request again",
@@ -993,6 +999,7 @@
     "apptCompletionDismissedNote": "Your completion request was dismissed after an operator review. See the reason in your notifications.",
     "apptReject": "Decline",
     "apptCancel": "Cancel meetup",
+    "apptCancelBlocked": "Cannot cancel — contact support",
     "apptCancelOffer": "Cancel proposal",
     "apptOutdated": "The meetup was updated — refreshed",
     "apptNavigationChecking": "Checking the meetup location.",
@@ -1010,6 +1017,7 @@
     "tradeQrWaiting": "The seller's payment QR will appear here.",
     "tradeQrRegister": "Register payment QR",
     "tradeQrReplace": "Replace payment QR",
+    "tradeQrRegisterOptionalNote": "You can also pay in cash without registering a QR.",
     "tradeQrSaved": "Payment QR registered",
     "tradeQrSaveError": "Could not register the payment QR",
     "tradeProcedure": "Transaction progress",
@@ -1033,6 +1041,8 @@
     "tradeSafetyReportLink": "Report if something's off",
     "tradeReportPaymentConfirm": "This button isn't a bank or payment provider confirmation — it's your own statement that you actually sent the money. Did you send it?",
     "tradeReportPaymentConfirmCta": "Yes, I sent it",
+    "tradeConfirmReceiptConfirm": "Did you check the deposit yourself in ZaloPay or your banking app?",
+    "tradeConfirmReceiptConfirmCta": "Yes, confirmed",
     "tradeOpen": "View transaction steps",
     "tradeLoadError": "Could not load the transaction",
     "tradeBannerQrWaiting": "The seller is registering payment details",
@@ -1140,7 +1150,6 @@
 "settingsKickHint": "They can return if invited again",
 "settingsBanHint": "Blocked members cannot rejoin even if invited",
     "moreMenuReport": "Report",
-    "moreMenuLocationShare": "Share location",
     "moreMenuWalkieTalkie": "Walkie-talkie",
     "messageReportAction": "Report"
   },
@@ -1360,10 +1369,9 @@
     "title": "Support",
     "newTicket": "+ New Inquiry",
     "empty": "No inquiries yet.",
-    "fieldTitle": "Title",
+    "loadError": "Couldn't load your inquiries",
     "fieldBody": "Description",
-    "titlePlaceholder": "Enter a title for your inquiry",
-    "bodyPlaceholder": "Describe your issue in detail",
+    "bodyPlaceholder": "Tell us when it happened, which trade it was, and what went wrong",
     "submit": "Submit",
     "submitting": "Submitting...",
     "replies": "Replies",
@@ -1378,6 +1386,8 @@
     "tabInquiry": "Inquiries",
     "tabReport": "Reports",
     "reportEmpty": "You haven't reported anything yet.",
+    "reportLoadError": "Couldn't load your reports",
+    "reportTargetUnavailable": "You can't go to this target from here",
     "reportStatus_reviewing": "Under review",
     "reportStatus_resolved": "Action taken",
     "reportStatus_rejected": "Not a violation",
@@ -1429,7 +1439,12 @@
     "reportCancelledNotice": "A cancelled report can't be filed again for the same target.",
     "reportGoToTargetBtn": "Go to target",
     "reportAlreadyCancelledError": "You already cancelled a report for this target, so you can't report it again.",
-    "reportAlreadyPendingError": "You already have a report for this target that's being reviewed."
+    "reportAlreadyPendingError": "You already have a report for this target that's being reviewed.",
+    "detailLoadError": "Couldn't load this inquiry",
+    "replyPlaceholder": "Write a reply",
+    "replySend": "Send",
+    "replySendError": "Couldn't send your reply",
+    "replyClosedNotice": "This inquiry is closed — please start a new one"
   },
   "notices": {
     "title": "Notices",
@@ -2054,7 +2069,8 @@
       "loadMore": "Load more"
     },
     "mapSearch": {
-      "hint": "Search by place name or category"
+      "hint": "Search by place name or category",
+      "expandScope": "Search all areas"
     },
     "savedPlaces": "Saved places",
     "addPlace": "Add a place",
@@ -2411,6 +2427,7 @@
     "couponClaimError": "Couldn't claim the coupon",
     "couponAlreadyClaimed": "You already claimed this coupon",
     "favoriteToggle": "Favorite business",
+    "more": "More",
     "viewProfileCta": "View shop profile",
     "review": {
       "sectionTitle": "Reviews",
@@ -2644,8 +2661,9 @@
       "priceManageDesc": "Organize your services and prices",
       "couponManageDesc": "Issue and manage promotional coupons",
       "listingManageDesc": "List items sold by your shop",
-      "reviewsManage": "Manage reviews",
-      "reviewsManageDesc": "Read reviews and leave replies",
+      "unansweredActionTitle": "{{count}} unanswered review(s)",
+      "unansweredActionDesc": "Some customer reviews are still waiting for a reply",
+      "unansweredActionCta": "Reply now",
       "guideTitle": "Partner guide",
       "guideProfile": "Keep your shop information and prices up to date.",
       "guideStatuses": "Creative approval, contract, and actual delivery are separate statuses.",
@@ -2869,6 +2887,7 @@
     "role_manager": "Manager",
     "role_member": "Member",
     "removeMember": "Remove member",
+    "removeMemberConfirm": "Remove this member from the group?",
     "pendingMembers": "Pending approval",
     "approveMember": "Approve"
   }

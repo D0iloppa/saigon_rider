@@ -13,7 +13,7 @@ import { native } from '@/lib/native';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useUserStore } from '@/store/useUserStore';
 import { api, extractDetail } from '@/api/client';
-import { bizCategoryLabel, fetchBizCategories, fetchBusinessAds, fetchBusinessProfiles, fetchContractLink, updateBusinessProfile, type BizCategory, type BusinessAd, type BusinessProfile } from '@/api/biz';
+import { bizCategoryLabel, fetchBizCategories, fetchBizOwnerReviews, fetchBusinessAds, fetchBusinessProfiles, fetchContractLink, updateBusinessProfile, type BizCategory, type BusinessAd, type BusinessProfile } from '@/api/biz';
 import sys from '@/styles/system.module.css';
 import BizDashboard from './BizDashboard';
 import { bizContractAction, bizContractErrorKey, runBizContractAction } from './bizContractCta';
@@ -56,6 +56,7 @@ export default function BizManage() {
   const [ads, setAds] = useState<{ profileId: string; list: BusinessAd[] } | null>(null);
   const [adsErrorFor, setAdsErrorFor] = useState<string | null>(null);
   const [contractLoadingId, setContractLoadingId] = useState<string | null>(null);
+  const [unansweredCount, setUnansweredCount] = useState(0);
   const kb = useKeyboard();
   const isIosNative = native.platform === 'ios';
 
@@ -82,6 +83,14 @@ export default function BizManage() {
     fetchBusinessAds(active.id).then((list) => {
       if (!cancelled) setAds({ profileId: active.id, list });
     }).catch(() => { if (!cancelled) setAdsErrorFor(active.id); });
+    return () => { cancelled = true; };
+  }, [active?.id]);
+  useEffect(() => {
+    if (!active?.id) return;
+    let cancelled = false;
+    fetchBizOwnerReviews(active.id, { limit: 1 }).then((res) => {
+      if (!cancelled) setUnansweredCount(res.unansweredCount);
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [active?.id]);
 
@@ -162,6 +171,7 @@ export default function BizManage() {
         <button type="button" role="tab" aria-selected={activeTab === 'performance'} className={activeTab === 'performance' ? styles.tabActive : styles.tab} onClick={() => setActiveTab('performance')}>{t('biz.lounge.performanceTab')}</button>
       </nav>
       {activeTab === 'performance' ? <BizDashboard key={active.id} profileId={active.id} focus={dashboardFocus} onFocusHandled={() => setDashboardFocus(undefined)} /> : <>
+        {unansweredCount > 0 && <section className={styles.actionCard}><MessageSquare size={22} /><div><h2>{t('biz.lounge.unansweredActionTitle', { count: unansweredCount, defaultValue: '미답변 문의 {{count}}건' })}</h2><p>{t('biz.lounge.unansweredActionDesc', { defaultValue: '고객이 남긴 후기에 아직 답글이 없어요' })}</p></div><Button onClick={() => focusDashboard('reviews')}>{t('biz.lounge.unansweredActionCta', { defaultValue: '답글 남기기' })}</Button></section>}
         {hasPriorityAction && <section className={styles.actionCard}><ShieldCheck size={22} /><div><h2>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationRejectedTitle') : t('biz.lounge.verificationRequiredTitle') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adRejectedActionTitle') : t('biz.lounge.contractActionTitle')}</h2><p>{needsVerification ? active.verificationStatus === 'rejected' ? active.verificationRejectReason || t('biz.lounge.verificationRejectedDesc') : t('biz.lounge.verificationRequiredDesc') : actionAd?.reviewStatus === 'REJECTED' ? actionAd.rejectReason || t('biz.lounge.adRejectedActionDesc') : t('biz.lounge.contractActionDesc')}</p></div><Button loading={!!actionAd && bizContractAction(actionAd) === 'contract' && contractLoadingId === actionAd.id} onClick={() => needsVerification ? navigate('/biz/verification', { state: profileState(active) }) : actionAd && runBizContractAction(actionAd, { openContract: handleContractLink, openDetail: (adId) => navigate(`/biz/ads/${adId}`, { state: profileState(active) }) })}>{needsVerification ? active.verificationStatus === 'rejected' ? t('biz.lounge.verificationResubmit') : t('biz.lounge.verificationSubmit') : actionAd?.reviewStatus === 'REJECTED' ? t('biz.lounge.adDetail') : t('biz.lounge.contractGuide')}</Button></section>}
         <div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.lounge.adsSection')}</h2></div>
         <button type="button" className={styles.adsSummary} onClick={() => navigate('/biz/ads', { state: profileState(active) })}>
@@ -179,10 +189,9 @@ export default function BizManage() {
           { icon: Receipt, title: t('biz.priceSectionTitle'), desc: t('biz.lounge.priceManageDesc'), onClick: () => navigate('/biz/prices', { state: profileState(active) }) },
           { icon: Ticket, title: t('biz.couponManageTitle'), desc: t('biz.lounge.couponManageDesc'), onClick: () => navigate('/biz/coupons', { state: profileState(active) }) },
           { icon: Package, title: t('biz.listingSectionTitle'), desc: t('biz.lounge.listingManageDesc'), onClick: () => navigate('/biz/listings/new', { state: profileState(active) }) },
-          { icon: MessageSquare, title: t('biz.lounge.reviewsManage'), desc: t('biz.lounge.reviewsManageDesc'), onClick: () => focusDashboard('reviews') },
         ].map(({ icon: Icon, title, desc, onClick }) => <button type="button" className={styles.managerRow} onClick={onClick} key={title}><Icon size={20} /><span><strong>{title}</strong><small>{desc}</small></span><ChevronRight size={17} /></button>)}</div>
         {(active.verificationStatus === 'verified' || active.verificationStatus === 'docs_submitted') && <><div className={sys.sectionHead}><h2 className={sys.sectionLabel}>{t('biz.verifTitle')}</h2></div><button type="button" className={styles.quietRow} onClick={() => navigate('/biz/verification', { state: profileState(active) })}><ShieldCheck size={19} /><span><strong>{active.verificationStatus === 'verified' ? t('biz.verifStatusVerified') : t('biz.verifStatusSubmitted')}</strong><small>{active.verificationStatus === 'verified' ? t('biz.lounge.verificationCompleteDesc') : t('biz.lounge.verificationReviewingDesc')}</small></span><ChevronRight size={17} /></button></>}
-        <div className={styles.guideGroup}><button type="button" className={styles.guideRow} onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}><FileText size={19} /><strong>{t('biz.lounge.guideTitle')}</strong><ChevronDown size={17} className={guideOpen ? styles.chevronOpen : undefined} /></button>{guideOpen && <ul className={styles.guideBody}><li>{t('biz.lounge.guideProfile')}</li><li>{t('biz.lounge.guideStatuses')}</li><li>{t('biz.lounge.guideReviews')}</li></ul>}<button type="button" className={styles.guideRow} onClick={() => focusDashboard('support')}><CircleHelp size={19} /><span><strong>{t('biz.lounge.adsHelp')}</strong><small>{t('biz.lounge.adsHelpDesc')}</small></span><ChevronRight size={17} /></button></div>
+        <div className={styles.guideGroup}><button type="button" className={styles.guideRow} onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen}><FileText size={19} /><strong>{t('biz.lounge.guideTitle')}</strong><ChevronDown size={17} className={guideOpen ? styles.chevronOpen : undefined} /></button>{guideOpen && <ul className={styles.guideBody}><li>{t('biz.lounge.guideProfile')}</li><li>{t('biz.lounge.guideStatuses')}</li><li>{t('biz.lounge.guideReviews')}</li></ul>}<button type="button" className={styles.guideRow} onClick={() => navigate('/settings/support')}><CircleHelp size={19} /><span><strong>{t('biz.lounge.adsHelp')}</strong><small>{t('biz.lounge.adsHelpDesc')}</small></span><ChevronRight size={17} /></button></div>
       </>}
     </div>
     <BottomSheet open={storeSheetOpen} onClose={() => setStoreSheetOpen(false)} height="fit" closeLabel={t('common.close')} header={<h2 className={styles.sheetTitle}>{t('biz.lounge.selectStoreTitle')}</h2>}><div className={styles.storeList}>{profiles.map((profile, idx) => <button type="button" key={profile.id} className={styles.storeOption} onClick={() => selectProfile(idx)} aria-current={idx === activeIdx}>{profile.photoUrl ? <AppImage src={profile.photoUrl} alt="" className={styles.storeOptionPhoto} /> : <div className={styles.storeOptionPhotoFallback}><Store size={20} /></div>}<span><strong>{profile.name}</strong><small>{[categoryLabel(profile.category), profile.address].filter(Boolean).join(' · ')}</small></span>{idx === activeIdx && <span className={styles.selectedLabel}>{t('biz.lounge.selectedStore')}</span>}</button>)}</div></BottomSheet>

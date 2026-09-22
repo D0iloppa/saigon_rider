@@ -3,6 +3,9 @@
 .feedCard {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -63,14 +66,6 @@
 
 .commentCount { display: flex; align-items: center; gap: 3px; }
 
-/* 응원 토글 — feedMeta 항목과 같은 톤, 눌린 상태만 브랜드색 */
-.cheerBtn {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px 5px;
-  margin: -3px -5px;
-  border-radius: 8px;
-  color: inherit;
-}
-.cheerBtnActive { color: var(--brand-600); }
+/* FR-1 제안 ⑤ — 응원 토글 제거. 카운트는 매물 카드의 좋아요·채팅 수(ProfileListingCard
+   .likes)와 같은 표시 전용 요소로만 남긴다. */
+.cheerCount { display: flex; align-items: center; gap: 3px; }

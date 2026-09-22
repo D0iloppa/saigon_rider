@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Heart, MapPin, MessageSquareQuote, Plus, RotateCw, SlidersHorizontal, Store, Users, X, ZoomIn } from 'lucide-react';
+import { ChevronLeft, Heart, MapPin, MessageSquareQuote, Plus, RotateCw, Store, Users, X, ZoomIn } from 'lucide-react';
 import SaigonMapV5, { findWardAt, L3_ENABLED } from '@/components/maps/SaigonMapV5';
 import type { MapMarkerV2 } from '@/components/maps/v2/region';
 import DraggableSheet, { type DraggableSheetHandle } from '@/components/ride/DraggableSheet';
@@ -1248,10 +1248,6 @@ export default function NeighborhoodMapCanvas({
               {c ? bizCatLabel(c) : t('map.bizCategoryAll')}
             </button>
           ))}
-          <button type="button" className={styles.catChip} onClick={() => { if (requireAuth()) navigate('/map/categories'); }}>
-            <SlidersHorizontal size={13} />
-            {t('map.moreCategories')}
-          </button>
         </div>
       )}
 

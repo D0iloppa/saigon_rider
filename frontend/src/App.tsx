@@ -5,8 +5,7 @@ import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Dialog } from '@/components/ui/Dialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { WalkieTalkieFloatingButton } from '@/components/dm/WalkieTalkieFloatingButton';
-import { LiveLocationFloatingButton } from '@/components/location/LiveLocationFloatingButton';
+import { ActiveSessionBar } from '@/components/shell/ActiveSessionBar';
 import { useUserStore } from '@/store/useUserStore';
 import { useLocationStore } from '@/store/useLocationStore';
 import { preloadRideMapStyle } from '@/lib/rideMapPreload';
@@ -569,11 +568,9 @@ export default function App() {
       />
       <Dialog />
       <ConfirmDialog />
-      {/* 워키토키 플로팅 버블 (A-7) — 대표 지시 2026-08-27: DM 화면을 떠나도 유지되도록 앱 전역 렌더.
-          대상 대화는 useWalkieTalkieBubbleStore 구독, activeConversationId 가 없으면 내부에서 렌더 스킵. */}
-      <WalkieTalkieFloatingButton />
-      {/* 실시간 위치공유 플로팅 🗺️ 버튼 — 워키토키와 나란히 공존(별도 채널). 채널 미참가면 내부에서 렌더 스킵. */}
-      <LiveLocationFloatingButton />
+      {/* 하단 고정 "진행 중 바" (F-N-01 FR-2) — 무전기·위치공유 세션을 화면 하단(탭바 위)에 고정
+          표시한다(채팅방 화면에서는 대신 DmDetail 이 입력창 위에 자체 인스턴스를 렌더). */}
+      <ActiveSessionBar />
       <AppShell
         isAuthenticated={!!user}
         splashVisible={splashVisible}
@@ -608,13 +605,14 @@ export default function App() {
           <Route path="/market/search" element={<MarketSearch />} />
           <Route path="/market/:id" element={<MarketDetail />} />
           <Route path="/biz/:id" element={<BizPublic />} />
-          {/* 익명도 열람 가능(대표 보고 "지도보기 실패" 대응) — 개인화 하위 화면(/map/search 등)은
-              계속 PrivateRoute. */}
+          {/* 익명도 열람 가능(대표 보고 "지도보기 실패" 대응) — 검색은 개인화가 아닌 탐색
+              행동이라 F-MP-01 FR-1 제안①로 게이트를 제거했다. 찜·동네프로필 등 개인화
+              하위 화면은 계속 PrivateRoute. */}
           <Route path="/map" element={<NeighborhoodMap />} />
+          <Route path="/map/search" element={<MapSearch />} />
 
           {/* Protected: Main */}
           <Route path="/home" element={<PrivateRoute><HomePage /></PrivateRoute>} />
-          <Route path="/map/search" element={<PrivateRoute><MapSearch /></PrivateRoute>} />
           <Route path="/map/profile" element={<PrivateRoute><NeighborhoodProfile /></PrivateRoute>} />
           <Route path="/map/favorites" element={<PrivateRoute><MapFavorites /></PrivateRoute>} />
           <Route path="/map/follows" element={<PrivateRoute><MapFollows /></PrivateRoute>} />

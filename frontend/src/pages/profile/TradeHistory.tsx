@@ -66,7 +66,7 @@ export default function TradeHistory() {
             <TradeRow
               key={tr.appointmentId}
               trade={tr}
-              onOpen={() => navigate(`/market/${tr.listingId}`)}
+              onOpen={() => navigate(`/dm/${tr.conversationId}`)}
               onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
             />
           ))

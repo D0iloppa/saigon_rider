@@ -5,8 +5,9 @@ import { QRCodeCanvas } from 'qrcode.react';
 import {
   Settings, Building2, Coffee, Moon, BadgeCheck, Smartphone, ChevronRight,
   Route, Flag, Medal, Gem, Trophy, Bike, Store, Plus, Camera, Flame,
-  MessageCircle, MoreVertical, ClipboardList, Check, Circle, Award,
+  MessageCircle, MoreVertical, ClipboardList,
   UserPlus, AlertCircle, Eye, type LucideIcon,
+  Share2, MoreHorizontal,
 } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 import { DEFAULT_AVATAR_URL } from '@/lib/defaults';
@@ -15,17 +16,16 @@ import { fetchTrades, type TradeHistory } from '@/api/market';
 import ReviewSheet from '@/components/market/ReviewSheet';
 import TradeRow from '@/components/market/TradeRow';
 import { SkillTree } from './SkillTree';
-import { Button } from '@/components/ui/Button';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useDialogStore } from '@/store/useDialogStore';
 import { expToNextLevel } from '@/lib/rewards';
 import { formatNumber, formatRelativeTime, splitNumberParts } from '@/lib/format';
-import type { BadgeWithEarned, FeedPost, QuestHistoryItem, UserStats } from '@/api/types';
+import type { FeedPost, UserStats } from '@/api/types';
 import { LevelBadge } from '@/components/ui/LevelBadge';
 import { Chip } from '@/components/ui/Chip';
 import { TrustTierChip } from '@/components/ui/TrustTierChip';
 import { StatusBar } from '@/components/layout/StatusBar';
-import { fetchMe, fetchUserStats, fetchQuestHistory, fetchAllBadges } from '@/api/profile';
+import { fetchMe, fetchUserStats } from '@/api/profile';
 import { fetchWallet } from '@/api/wallet';
 import { fetchFollowCounts } from '@/api/follows';
 import { fetchMyFeed, deleteFeedPost } from '@/api/feed';
@@ -39,7 +39,6 @@ import StateBlock from '@/components/ui/StateBlock';
 import SkeletonRows from '@/components/ui/SkeletonRows';
 import styles from './ProfileMain.module.css';
 import sys from '@/styles/system.module.css';
-import { formatVnDate } from '@/lib/vnTime';
 import { SHOW_LEGACY_GAME_ECONOMY, SHOW_LIFETIME_DISTANCE } from '@/lib/featureFlags';
 
 interface MileageTier {
@@ -81,7 +80,6 @@ export default function ProfileMain() {
   const user = useUserStore((s) => s.user);
   const loginFromBackend = useUserStore((s) => s.loginFromBackend);
   const navigate = useNavigate();
-  const dmUnread = useDmStore((s) => s.totalUnread);
   const refreshDmUnread = useDmStore((s) => s.refreshUnread);
 
   const [gp, setGp] = useState(0);
@@ -116,19 +114,10 @@ export default function ProfileMain() {
       }).catch(() => {});
     }
   }, []);
-  const { t, i18n } = useTranslation();
-
-  const [tab, setTab] = useState<'feeds' | 'history' | 'badges'>('feeds');
-  const [activeBadge, setActiveBadge] = useState<BadgeWithEarned | null>(null);
+  const { t } = useTranslation();
 
   const [stats, setStats] = useState<UserStats | null>(null);
   const [totalMileage, setTotalMileage] = useState(0);
-  const [questHistory, setQuestHistory] = useState<QuestHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState(false);
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyHasMore, setHistoryHasMore] = useState(true);
-  const [badges, setBadges] = useState<BadgeWithEarned[]>([]);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const socialRef = useRef<HTMLDivElement>(null);
@@ -219,6 +208,7 @@ export default function ProfileMain() {
 
   const [followCounts, setFollowCounts] = useState({ followerCount: 0, followingCount: 0 });
   const [qrSheetOpen, setQrSheetOpen] = useState(false);
+  const [socialActionsOpen, setSocialActionsOpen] = useState(false);
 
   // W4: 프로필 바텀시트 진입 경로 — 파트너(APPROVED 업체 보유) 여부에 따라 위치·문구를 분기
   // (D-5, ai-docs/task/active/260819_lounge_entry_task.md). 기본값은 비파트너([])로 두어
@@ -246,32 +236,7 @@ export default function ProfileMain() {
       setStats(s);
       setTotalMileage(Number(s.lifetime_km));
     }).catch(() => {});
-    fetchAllBadges(user.id).then(setBadges).catch(() => {});
   }, [user?.id]);
-
-  // P1-16: 조회 실패를 "완료한 퀘스트 없음"으로 위장하지 않고 구분해 재시도를 제공
-  const loadHistory = useCallback(async (page: number, reset = false) => {
-    const uid = user?.id;
-    if (!uid) return;
-    setHistoryLoading(true);
-    try {
-      const res = await fetchQuestHistory(uid, page);
-      setQuestHistory((prev) => reset ? res.items : [...prev, ...res.items]);
-      setHistoryHasMore(res.items.length >= res.size);
-      setHistoryPage(page);
-      setHistoryError(false);
-    } catch {
-      setHistoryError(true);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (tab === 'history' && user?.id && questHistory.length === 0) {
-      loadHistory(1, true);
-    }
-  }, [tab, user?.id]);
 
   const loadMyFeeds = useCallback(async (page: number, reset = false) => {
     if (!user?.id) return;
@@ -287,10 +252,10 @@ export default function ProfileMain() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (tab === 'feeds' && user?.id && myFeeds.length === 0) {
+    if (user?.id && myFeeds.length === 0) {
       loadMyFeeds(1, true);
     }
-  }, [tab, user?.id]);
+  }, [user?.id]);
 
   // W4: 파트너 판정 — BizManage.tsx 가 쓰는 것과 동일한 fetchBusinessProfiles()를 재사용(신규 판정 API 없음)
   useEffect(() => {
@@ -359,12 +324,6 @@ export default function ProfileMain() {
   const u = user;
   const { needed, progress } = expToNextLevel(u.levelExp, u.level);
 
-
-  const TABS = [
-    { key: 'feeds'   as const, label: t('profile.tabFeeds') },
-    { key: 'history' as const, label: t('profile.tabHistory') },
-    { key: 'badges'  as const, label: t('profile.tabBadges') },
-  ];
 
   return (
     <div className={styles.root}>
@@ -443,15 +402,26 @@ export default function ProfileMain() {
         </div>
 
         <div className={styles.profileActions}>
-          <button className={styles.shareProfileBtn} onClick={() => setQrSheetOpen(true)}>
-            {t('profile.share')}
+          <button
+            type="button"
+            onClick={() => navigate('/market/search?mine=1')}
+            className={styles.entryRow}
+          >
+            <span className={styles.entryIcon}><Bike size={18} /></span>
+            <span className={styles.entryLabel}>{t('profile.tabMyListings')}</span>
+            <ChevronRight size={18} className={styles.entryChevron} />
           </button>
-          <button className={styles.addFriendIconBtn} onClick={() => navigate('/friends/add')} aria-label={t('follow.addFriend')}>
-            <UserPlus size={18} strokeWidth={2.2} />
+          <button
+            type="button"
+            onClick={() => navigate('/trades')}
+            className={styles.entryRow}
+          >
+            <span className={styles.entryIcon}><ClipboardList size={18} /></span>
+            <span className={styles.entryLabel}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</span>
+            <ChevronRight size={18} className={styles.entryChevron} />
           </button>
-          <button className={styles.addFriendIconBtn} onClick={() => navigate('/dm')} aria-label={t('tabbar.chat')}>
-            <MessageCircle size={18} strokeWidth={2.2} />
-            {dmUnread > 0 && <span className={`${styles.chatBadge} num`}>{dmUnread > 300 ? '300+' : dmUnread}</span>}
+          <button className={styles.addFriendIconBtn} onClick={() => setSocialActionsOpen(true)} aria-label={t('common.expand')}>
+            <MoreHorizontal size={18} strokeWidth={2.2} />
           </button>
         </div>
       </div>
@@ -476,26 +446,24 @@ export default function ProfileMain() {
           ref={sheetBodyRef}
           style={{ overflowY: scrollable ? 'auto' : 'hidden' }}
         >
-        {/* SGR-330: 휴대폰 인증 신뢰 카드 — 판매자 신뢰도 트리거 */}
-        <button
-          type="button"
-          onClick={() => { if (!u.phoneVerified) navigate('/auth/phone-verify'); }}
-          disabled={u.phoneVerified}
-          className={`${styles.verifyCard} ${u.phoneVerified ? styles.verifyCardDone : ''}`}
-        >
-          <span className={`${styles.verifyIcon} ${u.phoneVerified ? styles.verifyIconDone : ''}`}>
-            {u.phoneVerified ? <BadgeCheck size={20} /> : <Smartphone size={20} />}
-          </span>
-          <span className={styles.verifyText}>
-            <span className={styles.verifyTitle}>
-              {u.phoneVerified ? t('profile.phoneVerifyDone') : t('profile.phoneVerifyNeeded')}
+        {/* SGR-330: 휴대폰 인증 신뢰 카드 — 판매자 신뢰도 트리거. FR-2 제안 ①: 인증 완료 후에는
+            여기 카드 자리를 비우고(진행 성격이 없어졌으므로), 완료 표시는 시트 하단 진입 행으로 격하한다. */}
+        {!u.phoneVerified && (
+          <button
+            type="button"
+            onClick={() => navigate('/auth/phone-verify')}
+            className={styles.verifyCard}
+          >
+            <span className={styles.verifyIcon}>
+              <Smartphone size={20} />
             </span>
-            {!u.phoneVerified && (
+            <span className={styles.verifyText}>
+              <span className={styles.verifyTitle}>{t('profile.phoneVerifyNeeded')}</span>
               <span className={styles.verifySub}>{t('profile.phoneVerifyNeededSub')}</span>
-            )}
-          </span>
-          {!u.phoneVerified && <ChevronRight size={18} className={styles.verifyChevron} />}
-        </button>
+            </span>
+            <ChevronRight size={18} className={styles.verifyChevron} />
+          </button>
+        )}
 
         {/* W4: 파트너(APPROVED 업체 보유) 요약 카드 — 휴대폰 인증 바로 아래로 승격 (D-5) */}
         {bizLoading && bizProfiles.length === 0 ? (
@@ -657,14 +625,6 @@ export default function ProfileMain() {
           </svg>
         </div>
 
-        <div className={styles.tabRow}>
-          {TABS.map((tb) => (
-            <button key={tb.key} className={`${styles.tab} ${tab === tb.key ? styles.tabActive : ''}`} onClick={() => setTab(tb.key)}>
-              {tb.label}
-            </button>
-          ))}
-        </div>
-
         {/* 내 매물 진입 버튼 */}
         <button
           type="button"
@@ -708,6 +668,14 @@ export default function ProfileMain() {
             </span>
             <ChevronRight size={18} className={styles.entryChevron} />
           </button>
+        )}
+
+        {/* FR-2 제안 ①: 인증 완료 후에는 카드가 아니라 진입 행 형식으로 시트 하단에 격하 */}
+        {u.phoneVerified && (
+          <div className={styles.entryRow} style={{ cursor: 'default' }}>
+            <span className={styles.entryIcon}><BadgeCheck size={18} /></span>
+            <span className={styles.entryLabel}>{t('profile.phoneVerifyDone')}</span>
+          </div>
         )}
 
         {/* 거래 이력 — 구매/판매 서브탭 */}
@@ -758,7 +726,7 @@ export default function ProfileMain() {
                   key={tr.appointmentId}
                   trade={tr}
                   variant="plain"
-                  onOpen={() => navigate(`/market/${tr.listingId}`)}
+                  onOpen={() => navigate(`/dm/${tr.conversationId}`)}
                   onReview={() => setReviewTarget({ targetId: tr.counterpartId, listingId: tr.listingId })}
                 />
               ))
@@ -769,8 +737,7 @@ export default function ProfileMain() {
         {/* SGR-287: 피드/이력/뱃지 탭 제거 — 피드만 노출(피드 영역 라벨) */}
         <h3 className={styles.feedSectionLabel}>{t('profile.tabFeeds')}</h3>
 
-        {tab === 'feeds' && (
-          <div className={styles.feedsList}>
+        <div className={styles.feedsList}>
             <button className={styles.newPostBtn} onClick={() => navigate('/feed/new')}>
               <Plus size={16} /> {t('profile.newPost')}
             </button>
@@ -850,134 +817,36 @@ export default function ProfileMain() {
               </>
             )}
           </div>
-        )}
-
-        {tab === 'history' && (
-          <div className={styles.list}>
-            {historyLoading && questHistory.length === 0 ? (
-              <div className={styles.feedCard}>
-                <SkeletonRows count={3} />
-              </div>
-            ) : historyError && questHistory.length === 0 ? (
-              <div className={styles.feedCard}>
-                <StateBlock
-                  icon={AlertCircle}
-                  tone="error"
-                  title={t('profile.historyLoadError', { defaultValue: '퀘스트 기록을 불러오지 못했어요' })}
-                  actionLabel={t('common.retry')}
-                  onAction={() => loadHistory(1, true)}
-                />
-              </div>
-            ) : questHistory.length === 0 ? (
-              <div className={styles.feedCard}>
-                <StateBlock icon={ClipboardList} title={t('profile.emptyHistory')} desc={t('profile.emptyHistorySub')} />
-              </div>
-            ) : (
-              <>
-                {questHistory.map((h) => (
-                  <div key={h.id} className={styles.historyRow}>
-                    <div className={styles.historyThumb}><Check size={20} strokeWidth={2.5} /></div>
-                    <div className={styles.historyText}>
-                      <div className={styles.historyTitle}>{h.quest_title || t('profile.unknownQuest')}</div>
-                      <div className={styles.historyDate}>
-                        {h.completed_at ? formatVnDate(h.completed_at) : ''}
-                        {h.distance_km != null && ` · ${Number(h.distance_km).toFixed(1)}km`}
-                      </div>
-                    </div>
-                    {h.safety_grade && (
-                      <div className={`${styles.gradeChip} ${h.safety_grade === 'A' ? styles.gradeA : styles.gradeB}`}>
-                        {h.safety_grade}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {historyHasMore && (
-                  <button
-                    className={styles.loadMoreBtn}
-                    onClick={() => loadHistory(historyPage + 1)}
-                    disabled={historyLoading}
-                  >
-                    {historyLoading ? t('common.loading') : t('profile.loadMore')}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {tab === 'badges' && (
-          <div className={styles.badgeGrid}>
-            {badges.length === 0 ? (
-              <div className={styles.feedCard} style={{ gridColumn: '1 / -1' }}>
-                <StateBlock icon={Award} title={t('profile.emptyBadges')} desc={t('profile.emptyBadgesSub')} />
-              </div>
-            ) : badges.map((bw) => {
-              const lang = i18n.language as 'ko' | 'vi' | 'en';
-              const displayName = bw.badge[`name_${lang}`] || bw.badge.name;
-              // icon_url 은 서버 데이터(콘텐츠) — 이모지/URL 그대로 렌더. 미지정 시에만 lucide 폴백.
-              const iconEmoji = bw.badge.icon_url || '';
-              const isEmoji = iconEmoji !== '' && !iconEmoji.startsWith('http');
-              return (
-                <button key={bw.badge.id} className={`${styles.badgeCell} ${!bw.earned ? styles.badgeLocked : ''}`} onClick={() => setActiveBadge(bw)}>
-                  <div className={styles.badgeIcon}>
-                    {iconEmoji === ''
-                      ? <Award size={36} className={styles.badgeFallbackIcon} />
-                      : isEmoji ? iconEmoji : <AppImage src={iconEmoji} alt="" style={{ width: 40, height: 40, objectFit: 'contain' }} />}
-                  </div>
-                  <div className={styles.badgeName}>{displayName}</div>
-                </button>
-              );
-            })}
-          </div>
-        )}
         </div>{/* sheetBody */}
       </div>{/* sheet */}
 
-      {/* Badge detail modal */}
-      {activeBadge && (() => {
-        const lang = i18n.language as 'ko' | 'vi' | 'en';
-        const b = activeBadge.badge;
-        const displayName = b[`name_${lang}`] || b.name;
-        const displayDesc = b[`description_${lang}`] || b.description || '';
-        const iconEmoji = b.icon_url || '';
-        const isEmoji = iconEmoji !== '' && !iconEmoji.startsWith('http');
-        const conditionText = b.condition_rule
-          ? b.condition_rule.conditions.map((c) => `${c.metric} ${c.op} ${c.value}`).join(` ${b.condition_rule.operator} `)
-          : b.condition_type ? `${b.condition_type} ≥ ${b.condition_value}` : '';
-        return (
-          <div className={styles.modalBackdrop} onClick={() => setActiveBadge(null)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.modalHero}>
-                <div className={styles.modalBadgeIcon}>
-                  {iconEmoji === ''
-                    ? <Award size={80} color="white" strokeWidth={1.5} />
-                    : isEmoji ? iconEmoji : <AppImage src={iconEmoji} alt="" style={{ width: 96, height: 96, objectFit: 'contain' }} />}
-                </div>
-              </div>
-              <div className={styles.modalBody}>
-                <div className={styles.modalKey}>{displayName}</div>
-                <h2 className={styles.modalDesc}>{displayDesc}</h2>
-                {conditionText && (
-                  <div className={styles.modalCondition}>
-                    <span>{activeBadge.earned ? <Check size={12} strokeWidth={3} /> : <Circle size={9} />}</span>
-                    {conditionText}
-                  </div>
-                )}
-                {activeBadge.acquired_at && (
-                  <p className={styles.modalDate}>
-                    {t('profile.earnedAt', { date: formatVnDate(activeBadge.acquired_at) })}
-                  </p>
-                )}
-                <div className={styles.modalActions}>
-                  <Button variant="ghost" onClick={() => setActiveBadge(null)}>{t('common.close')}</Button>
-                  {activeBadge.earned && <Button>{t('common.share')}</Button>}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
+      {/* FR-1 제안 ②: 공유(QR)·친구추가는 소셜축이라 거래 진입과 같은 행에 두지 않고 접힘 액션 열로 격하 */}
+      <BottomSheet open={socialActionsOpen} onClose={() => setSocialActionsOpen(false)}>
+        <div className={styles.qrSheet}>
+          <button
+            type="button"
+            className={styles.verifyCard}
+            onClick={() => { setSocialActionsOpen(false); setQrSheetOpen(true); }}
+          >
+            <span className={styles.verifyIcon}><Share2 size={18} strokeWidth={2.2} /></span>
+            <span className={styles.verifyText}>
+              <span className={styles.verifyTitle}>{t('profile.share')}</span>
+            </span>
+            <ChevronRight size={18} className={styles.verifyChevron} />
+          </button>
+          <button
+            type="button"
+            className={styles.verifyCard}
+            onClick={() => { setSocialActionsOpen(false); navigate('/friends/add'); }}
+          >
+            <span className={styles.verifyIcon}><UserPlus size={18} strokeWidth={2.2} /></span>
+            <span className={styles.verifyText}>
+              <span className={styles.verifyTitle}>{t('follow.addFriend')}</span>
+            </span>
+            <ChevronRight size={18} className={styles.verifyChevron} />
+          </button>
+        </div>
+      </BottomSheet>
 
       <BottomSheet open={qrSheetOpen} onClose={() => setQrSheetOpen(false)}>
         <div className={styles.qrSheet}>

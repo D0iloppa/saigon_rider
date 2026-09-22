@@ -79,27 +79,7 @@
 }
 .shareProfileBtn:active { background: rgba(255,255,255,.34); }
 
-.addFriendIconBtn {
-  position: relative;
-  width: 34px; height: 34px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.22);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-/* P2-15 hit area — 시각 크기 34px 는 유지하고 터치 영역만 44px 로 넓힌다.
-   투명 ::after 확장이라 레이아웃·배경에 영향이 없다(5px × 2 + 34 = 44). */
-.addFriendIconBtn::after {
-  content: '';
-  position: absolute;
-  inset: -5px;
-}
-.addFriendIconBtn:active { background: rgba(255,255,255,.34); }
-
-/* 헤더(오렌지 배경) 진입 행 — 내 매물 / 거래 이력. .shareProfileBtn/.addFriendIconBtn 과
+/* 헤더(오렌지 배경) 진입 행 — 내 매물 / 거래 이력. .shareProfileBtn/.socialMoreBtn 과
    같은 반투명 프로스티드 글라스 톤. 흰 시트에서 쓰는 .entryRow 와는 별도 클래스. */
 .heroEntryRow {
   display: flex;
@@ -287,6 +267,23 @@
 }
 
 .verifyChevron { color: var(--brand-500); flex-shrink: 0; }
+
+/* FR-1 제안②: 접힘 액션 열 — B0-4, MarketDetail.tsx .priceEditBtn 패턴과 동일
+   (카드 배경·테두리 없이 브랜드색 텍스트 + 하단 구분선만 있는 납작한 메뉴 행) */
+.collapsedActionRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand-500);
+  border-bottom: 1px solid var(--line);
+}
+.collapsedActionRow:active { opacity: .7; }
+.collapsedActionRow:last-child { border-bottom: none; }
 
 /* W4: 파트너 요약 카드 — 미답변 후기 배지 */
 .loungeBadge {
@@ -483,11 +480,37 @@
 }
 
 .socialRow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0;
 }
+
+/* 안 B(260922, 2차 재설계): "..."(소셜 더보기)는 거래축 진입 줄이 아니라
+   소셜 지표 행(팔로워/팔로잉) 우측 끝에 붙어야 소속이 읽힌다. */
+.socialMoreBtn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.22);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+/* P2-15 hit area — 시각 크기 34px 는 유지하고 터치 영역만 44px 로 넓힌다.
+   투명 ::after 확장이라 레이아웃·배경에 영향이 없다(5px × 2 + 34 = 44). */
+.socialMoreBtn::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
+.socialMoreBtn:active { background: rgba(255,255,255,.34); }
 
 .socialCell {
   display: flex;

@@ -399,6 +399,9 @@ export default function ProfileMain() {
             <span className={`${styles.socialNum} num`}>{formatNumber(followCounts.followingCount)}</span>
             <span className={styles.socialLabel}>{t('follow.following')}</span>
           </button>
+          <button className={styles.socialMoreBtn} onClick={() => setSocialActionsOpen(true)} aria-label={t('common.expand')}>
+            <MoreHorizontal size={18} strokeWidth={2.2} />
+          </button>
         </div>
 
         <div className={styles.profileActions}>
@@ -419,9 +422,6 @@ export default function ProfileMain() {
             <span className={styles.heroEntryIcon}><ClipboardList size={18} /></span>
             <span className={styles.heroEntryLabel}>{t('profile.tradeHistory', { defaultValue: '거래 이력' })}</span>
             <ChevronRight size={18} className={styles.heroEntryChevron} />
-          </button>
-          <button className={styles.addFriendIconBtn} onClick={() => setSocialActionsOpen(true)} aria-label={t('common.expand')}>
-            <MoreHorizontal size={18} strokeWidth={2.2} />
           </button>
         </div>
       </div>
@@ -814,25 +814,19 @@ export default function ProfileMain() {
         <div className={styles.qrSheet}>
           <button
             type="button"
-            className={styles.verifyCard}
+            className={styles.collapsedActionRow}
             onClick={() => { setSocialActionsOpen(false); setQrSheetOpen(true); }}
           >
-            <span className={styles.verifyIcon}><Share2 size={18} strokeWidth={2.2} /></span>
-            <span className={styles.verifyText}>
-              <span className={styles.verifyTitle}>{t('profile.share')}</span>
-            </span>
-            <ChevronRight size={18} className={styles.verifyChevron} />
+            <Share2 size={16} strokeWidth={2.2} />
+            {t('profile.share')}
           </button>
           <button
             type="button"
-            className={styles.verifyCard}
+            className={styles.collapsedActionRow}
             onClick={() => { setSocialActionsOpen(false); navigate('/friends/add'); }}
           >
-            <span className={styles.verifyIcon}><UserPlus size={18} strokeWidth={2.2} /></span>
-            <span className={styles.verifyText}>
-              <span className={styles.verifyTitle}>{t('follow.addFriend')}</span>
-            </span>
-            <ChevronRight size={18} className={styles.verifyChevron} />
+            <UserPlus size={16} strokeWidth={2.2} />
+            {t('follow.addFriend')}
           </button>
         </div>
       </BottomSheet>

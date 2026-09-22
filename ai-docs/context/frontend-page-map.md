@@ -15,7 +15,7 @@
 > ⚠️ **2026-09-21 세션 환경 문제(반복)** — 이번 세션도 `codebase-memory` MCP 미연결로 `manage_adr` 갱신을 못 했다. 아래 66-프레임 UX 리뷰킷(§`ai-docs/review/260919_service_flow_review_kit.md`) 구현분(라우트·화면 구조 변경)은 이 md 파일에만 반영돼 있다 — **MCP 복구 시 ADR 재동기화 필요.**
 >
 > **2026-09-21 반영 내역(요약)**:
-> - **하단 고정 바 신설** — `components/shell/ActiveSessionBar.tsx`(신규). 무전기·실시간위치 플로팅 캡슐/버블(`WalkieTalkieFloatingButton`/`LiveLocationFloatingButton`, 두 파일 모두 미사용 상태로 존치)을 대체. 전역 마운트는 `App.tsx`, DM 방 안에서는 `DmDetail.tsx`가 인라인으로 렌더.
+> - **하단 고정 바 신설** — `components/shell/ActiveSessionBar.tsx`(신규). 무전기·실시간위치 플로팅 캡슐/버블(`WalkieTalkieFloatingButton`/`LiveLocationFloatingButton`, 두 파일 모두 삭제됨)을 대체. 전역 마운트는 `App.tsx`, DM 방 안에서는 `DmDetail.tsx`가 인라인으로 렌더. 전역 fixed 인스턴스는 DM 상세 라우트뿐 아니라 **화면 어디서든 `BottomSheet`가 하나라도 열려 있으면 자동으로 숨는다**(`store/useSheetPresenceStore.ts`의 열림 카운터 구독 — 260922, 프로필 더보기 시트와 겹쳐 보이던 z-index 버그 수정으로 추가됨). `DraggableSheet` 등 `BottomSheet`를 쓰지 않는 시트류는 이 억제 대상에서 빠진다. 탭바가 없는 화면(`HIDE_TABBAR_PATHS`) 중 자체 고정 하단 CTA 바를 가진 화면(`/biz/` `BizPublic`, `/market/ad/` `AdDetail`)은 `ActiveSessionBar.tsx`의 `PAGE_BOTTOM_BAR_HEIGHTS` 경로→높이 매핑으로 그 CTA 바 위에 올라앉는다(260922, 세션바가 CTA 버튼을 가리던 버그 수정으로 추가) — 이 목록에 없는 화면에 새 고정 하단바를 추가하면 매핑도 같이 추가해야 한다.
 > - **`/map/search` 로그인 게이트 제거** — `App.tsx`에서 `PrivateRoute` 밖으로 이동(비로그인 지도 검색 허용). `/map/favorites`·`/map/profile`은 게이트 유지.
 > - **거래 이력 행 목적지 변경** — `TradeHistory.tsx`(F-S7-02)·`ProfileMain.tsx`(F-P-02, 거래 섹션) 둘 다 `/market/:id` → `/dm/:conversationId`로 통일.
 > - **`/profile` 시트에서 게임화 탭(퀘스트 이력·뱃지) 제거** — `ProfileMain.tsx`의 `TABS` 배열·렌더 분기·`.tabRow{display:none}` 규칙 삭제, 피드 탭만 남음.

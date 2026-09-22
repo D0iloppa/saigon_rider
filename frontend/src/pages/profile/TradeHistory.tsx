@@ -31,7 +31,15 @@ export default function TradeHistory() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
-  useEffect(load, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!user?.id) {
+      // user.id가 끝내 확정되지 않으면(F-S7-03 FR-3) 스켈레톤이 영구 표시되지
+      // 않도록 타임아웃 후 실패 상태로 전환해 재시도 버튼을 노출한다.
+      const timer = setTimeout(() => { setLoading(false); setError(true); }, 8000);
+      return () => clearTimeout(timer);
+    }
+    load();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={styles.page}>
